@@ -731,17 +731,6 @@ describe "String: frozen literals" do
       # The first call, `"foo".count`, raises. `rescue TypeError` does not
       # catch an ArgumentError, so the program stops there.
 
-      # The blank lines keep the line numbers that the expected output names.
-
-
-
-
-
-
-
-
-
-
       # count / rindex / include? / start_with? / end_with? with no arg.
 
       begin
@@ -777,12 +766,12 @@ describe "String: frozen literals" do
     RUBY
 
     _(result).must_answer "", stderr: <<~'ERR', status: 1
-      core/string/frozen_test.rb:19:in 'String#count': wrong number of arguments (given 0, expected 1+) (ArgumentError)
+      core/string/frozen_test.rb:8:in 'String#count': wrong number of arguments (given 0, expected 1+) (ArgumentError)
 
-          caller: core/string/frozen_test.rb:19
+          caller: core/string/frozen_test.rb:8
           |   "foo".count
                    ^^^^^^
-      	from core/string/frozen_test.rb:19:in '<main>'
+      	from core/string/frozen_test.rb:8:in '<main>'
     ERR
   end
 

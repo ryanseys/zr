@@ -45,9 +45,6 @@ describe "Exceptions: searching and matching" do
       # Both halves of the message are ruby's, including the second line, whose
       # position is the one stamped when the CONSTANT was created.
 
-      # The blank lines keep the line numbers that the expected output names.
-
-
       module Foo
         X = 1
       end
@@ -81,7 +78,7 @@ describe "Exceptions: searching and matching" do
 
     _(result).must_answer <<~'OUT'
       Foo is not a class
-      lang/exceptions/search_test.rb:17: previous definition of Foo was here
+      lang/exceptions/search_test.rb:14: previous definition of Foo was here
       1
       true
       false

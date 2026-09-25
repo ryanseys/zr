@@ -966,7 +966,6 @@ describe "Thread: blocks and yields" do
       # an ivar of a shareable object -- `Ractor::IsolationError` in the ractor,
       # surfacing as `Ractor::RemoteError` at `#value`.
 
-
       Thread.report_on_exception = false
       class Holder
         def initialize = @n = 7
@@ -982,7 +981,7 @@ describe "Thread: blocks and yields" do
     _(result).must_answer <<~'OUT', stderr: <<~'ERR'
       cause: Ractor::IsolationError: can not access instance variables of shareable objects from non-main Ractors
     OUT
-      core/thread/blocks_test.rb:10: warning: Ractor API is experimental and may change in future versions of Ruby.
+      core/thread/blocks_test.rb:9: warning: Ractor API is experimental and may change in future versions of Ruby.
     ERR
   end
 

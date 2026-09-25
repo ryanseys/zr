@@ -330,8 +330,6 @@ describe "String programs" do
       # GC.stat has Symbol keys and no "str_count" entry, as in CRuby. So
       # g["str_count"] is nil, and `>=` on nil raises NoMethodError.
 
-
-
       arr = []
       i = 0
       while i < 1000
@@ -345,7 +343,7 @@ describe "String programs" do
     RUBY
 
     _(result).must_answer "", stderr: <<~'ERR', status: 1
-      core/string/string_test.rb:13:in '<main>': undefined method '>=' for nil (NoMethodError)
+      core/string/string_test.rb:11:in '<main>': undefined method '>=' for nil (NoMethodError)
 
       puts "str_count >= 1000: " + (g["str_count"] >= 1000 ? "yes" : "no")
                                                    ^^

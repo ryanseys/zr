@@ -2107,19 +2107,6 @@ describe "Singleton programs" do
       #
       # A `class << self` written in a METHOD body gets the same frame.
 
-      # The blank lines keep the line numbers that the expected output names.
-
-
-
-
-
-
-
-
-
-
-
-
       begin
         class Config
           class << self
@@ -2208,21 +2195,21 @@ describe "Singleton programs" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      lang/singleton/singleton_test.rb:40:in 'singleton class'
-      lang/singleton/singleton_test.rb:39:in '<class:Config>'
-      lang/singleton/singleton_test.rb:35:in '<main>'
-      lang/singleton/singleton_test.rb:50:in 'block in singleton class'
-      lang/singleton/singleton_test.rb:50:in 'Array#each'
-      lang/singleton/singleton_test.rb:50:in 'singleton class'
-      lang/singleton/singleton_test.rb:49:in '<class:Boom>'
+      lang/singleton/singleton_test.rb:27:in 'singleton class'
+      lang/singleton/singleton_test.rb:26:in '<class:Config>'
+      lang/singleton/singleton_test.rb:22:in '<main>'
+      lang/singleton/singleton_test.rb:37:in 'block in singleton class'
+      lang/singleton/singleton_test.rb:37:in 'Array#each'
+      lang/singleton/singleton_test.rb:37:in 'singleton class'
+      lang/singleton/singleton_test.rb:36:in '<class:Boom>'
       [1, 3]
-      lang/singleton/singleton_test.rb:73:in 'Array#fetch'
-      lang/singleton/singleton_test.rb:73:in 'singleton class'
+      lang/singleton/singleton_test.rb:60:in 'Array#fetch'
+      lang/singleton/singleton_test.rb:60:in 'singleton class'
       at 2
+      lang/singleton/singleton_test.rb:75:in 'singleton class'
+      lang/singleton/singleton_test.rb:72:in '<class:Walked>'
       lang/singleton/singleton_test.rb:88:in 'singleton class'
-      lang/singleton/singleton_test.rb:85:in '<class:Walked>'
-      lang/singleton/singleton_test.rb:101:in 'singleton class'
-      lang/singleton/singleton_test.rb:100:in 'Late.install'
+      lang/singleton/singleton_test.rb:87:in 'Late.install'
       :from_singleton
     OUT
   end

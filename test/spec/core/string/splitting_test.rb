@@ -141,7 +141,6 @@ describe "String: splitting and joining" do
       # gives the class Object as its parent, and a later `< Base` conflicts with
       # that. A forward SHELL (zr's own device for a name a later file defines)
       # carries no such history and the reopen establishes its parent instead.
-
       module M
         class Base
           def run
@@ -177,8 +176,8 @@ describe "String: splitting and joining" do
     RUBY
 
     _(result).must_answer "", stderr: <<~'ERR', status: 1
-      core/string/splitting_test.rb:25:in '<module:M>': superclass mismatch for class Sub (TypeError)
-      	from core/string/splitting_test.rb:7:in '<main>'
+      core/string/splitting_test.rb:24:in '<module:M>': superclass mismatch for class Sub (TypeError)
+      	from core/string/splitting_test.rb:6:in '<main>'
     ERR
   end
 

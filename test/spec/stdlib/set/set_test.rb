@@ -638,7 +638,6 @@ describe "Set programs" do
       # Module#const_set with a literal name re-assigns the constant, and Ruby
       # warns that the constant is already initialized.
 
-
       class Box; X = 1; S = "a"; F = 1.5; end
       p Box.const_set(:X, 99)     # returns the value, as CRuby does
       p Box::X
@@ -666,16 +665,16 @@ describe "Set programs" do
       7
       7
     OUT
-      stdlib/set/set_test.rb:6: warning: already initialized constant Box::X
+      stdlib/set/set_test.rb:5: warning: already initialized constant Box::X
+      stdlib/set/set_test.rb:4: warning: previous definition of X was here
+      stdlib/set/set_test.rb:7: warning: already initialized constant Box::S
+      stdlib/set/set_test.rb:4: warning: previous definition of S was here
+      stdlib/set/set_test.rb:9: warning: already initialized constant Box::F
+      stdlib/set/set_test.rb:4: warning: previous definition of F was here
+      stdlib/set/set_test.rb:12: warning: already initialized constant Y
+      stdlib/set/set_test.rb:11: warning: previous definition of Y was here
+      stdlib/set/set_test.rb:15: warning: already initialized constant Box::X
       stdlib/set/set_test.rb:5: warning: previous definition of X was here
-      stdlib/set/set_test.rb:8: warning: already initialized constant Box::S
-      stdlib/set/set_test.rb:5: warning: previous definition of S was here
-      stdlib/set/set_test.rb:10: warning: already initialized constant Box::F
-      stdlib/set/set_test.rb:5: warning: previous definition of F was here
-      stdlib/set/set_test.rb:13: warning: already initialized constant Y
-      stdlib/set/set_test.rb:12: warning: previous definition of Y was here
-      stdlib/set/set_test.rb:16: warning: already initialized constant Box::X
-      stdlib/set/set_test.rb:6: warning: previous definition of X was here
     ERR
   end
 

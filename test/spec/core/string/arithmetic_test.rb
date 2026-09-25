@@ -241,8 +241,6 @@ describe "String: arithmetic" do
       # collections. If none runs, this prints "NO COLLECTION"; otherwise it
       # prints "collected".
 
-
-
       before = GC.stat["cycle"]
       s = ""
       i = 0
@@ -256,7 +254,7 @@ describe "String: arithmetic" do
     RUBY
 
     _(result).must_answer "", stderr: <<~'ERR', status: 1
-      core/string/arithmetic_test.rb:20:in '<main>': undefined method '>' for nil (NoMethodError)
+      core/string/arithmetic_test.rb:18:in '<main>': undefined method '>' for nil (NoMethodError)
 
       puts(after > before ? "collected" : "NO COLLECTION")
                  ^

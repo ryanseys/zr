@@ -47,8 +47,6 @@ describe "Process: raising and rescuing" do
       # its own site; a rescued raise inside a module body shows the
       # `<module:M>` frame and `<main>` at the `module` keyword's line.
 
-
-
       puts "top1"
       class Foo
         puts "body1"
@@ -83,8 +81,8 @@ describe "Process: raising and rescuing" do
       outer start
       inner body
       outer end
-      rescued: core/process/exceptions_test.rb:25:in '<module:M>'
-      from: core/process/exceptions_test.rb:23:in '<main>'
+      rescued: core/process/exceptions_test.rb:23:in '<module:M>'
+      from: core/process/exceptions_test.rb:21:in '<main>'
       top3
     OUT
   end

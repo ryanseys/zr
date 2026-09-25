@@ -997,7 +997,6 @@ describe "GC programs" do
       # "full_runs" key, as in CRuby, so the lookup gives nil and `>` raises
       # NoMethodError.
 
-
       RETAIN = 1_000
       WARM   = 20_000
       N      = 8_000
@@ -1028,7 +1027,7 @@ describe "GC programs" do
     RUBY
 
     _(result).must_answer "live set: 1000\n", stderr: <<~'ERR', status: 1
-      core/gc/gc_test.rb:32:in '<main>': undefined method '>' for nil (NoMethodError)
+      core/gc/gc_test.rb:31:in '<main>': undefined method '>' for nil (NoMethodError)
 
       puts "full sweeps kept running: " + (g["full_runs"] > 6 ? "yes" : "no")
                                                           ^
@@ -1284,12 +1283,6 @@ describe "GC programs" do
       # has no "threshold" key, as in CRuby, so the lookup gives nil and `>`
       # raises NoMethodError.
 
-      # The blank lines keep the line numbers that the expected output names.
-
-
-
-
-
       N     = 20_000
       ITERS = 400
 
@@ -1317,7 +1310,7 @@ describe "GC programs" do
     RUBY
 
     _(result).must_answer "retained: 7\n", stderr: <<~'ERR', status: 1
-      core/gc/gc_test.rb:32:in '<main>': undefined method '>' for nil (NoMethodError)
+      core/gc/gc_test.rb:26:in '<main>': undefined method '>' for nil (NoMethodError)
 
       puts "threshold positive: " + (g["threshold"] > 0 ? "yes" : "no")
                                                     ^

@@ -955,7 +955,6 @@ describe "Array: slicing" do
       #
       # poll_add only records (fd, mode); it does not touch the fd, so the same fd
       # registered many times is a faithful test of the set's capacity.
-
       module Net
         ffi_func :sp_net_poll_reset, [],          :int
         ffi_func :sp_net_poll_add,   [:int, :int], :int
@@ -987,11 +986,11 @@ describe "Array: slicing" do
     RUBY
 
     _(result).must_answer "", stderr: <<~'ERR', status: 1
-      core/array/slicing_test.rb:11:in '<module:Net>': undefined method 'ffi_func' for module Net (NoMethodError)
+      core/array/slicing_test.rb:10:in '<module:Net>': undefined method 'ffi_func' for module Net (NoMethodError)
 
         ffi_func :sp_net_poll_reset, [],          :int
         ^^^^^^^^
-      	from core/array/slicing_test.rb:10:in '<main>'
+      	from core/array/slicing_test.rb:9:in '<main>'
     ERR
   end
 

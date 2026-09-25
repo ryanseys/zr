@@ -11,7 +11,6 @@ describe "Builtins: defining and naming methods" do
       # `'BasicObject#initialize'` at the CALLER's line. This battery was
       # verified verbatim against ruby 4.0.6.
 
-
       def f(a, b)
         a + b
       end
@@ -52,13 +51,13 @@ describe "Builtins: defining and naming methods" do
 
     _(result).must_answer <<~'OUT'
       wrong number of arguments (given 1, expected 2)
-      definition_test.rb:8:in 'Object#f'
+      definition_test.rb:7:in 'Object#f'
       wrong number of arguments (given 3, expected 1)
-      definition_test.rb:18:in 'Bag#initialize'
+      definition_test.rb:17:in 'Bag#initialize'
       wrong number of arguments (given 1, expected 0)
-      definition_test.rb:30:in 'BasicObject#initialize'
+      definition_test.rb:29:in 'BasicObject#initialize'
       missing keyword: :x
-      definition_test.rb:35:in 'Object#kw'
+      definition_test.rb:34:in 'Object#kw'
     OUT
   end
 

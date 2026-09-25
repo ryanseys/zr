@@ -495,10 +495,6 @@ describe "Hash: enumeration" do
       # pair's two elements. In the flat 3-param shape `|k, v, memo|`, k gets
       # the pair, v gets the memo, and memo is nil.
 
-      # The blank lines keep the line numbers that the expected output names.
-
-
-
       h = {a: 1, b: 2, c: 3}
       result = h.each_with_object([]) { |(k,v), memo| memo << v * 10 }
       puts result.inspect
@@ -509,13 +505,13 @@ describe "Hash: enumeration" do
     RUBY
 
     _(result).must_answer "[10, 20, 30]\n", stderr: <<~'ERR', status: 1
-      core/hash/enumeration_test.rb:15:in 'block in <main>': undefined method '<<' for nil (NoMethodError)
+      core/hash/enumeration_test.rb:11:in 'block in <main>': undefined method '<<' for nil (NoMethodError)
 
       result2 = h.each_with_object([]) { |k, v, memo| memo << v * 100 }
                                                            ^^
-      	from core/hash/enumeration_test.rb:15:in 'Hash#each'
-      	from core/hash/enumeration_test.rb:15:in 'Enumerable#each_with_object'
-      	from core/hash/enumeration_test.rb:15:in '<main>'
+      	from core/hash/enumeration_test.rb:11:in 'Hash#each'
+      	from core/hash/enumeration_test.rb:11:in 'Enumerable#each_with_object'
+      	from core/hash/enumeration_test.rb:11:in '<main>'
     ERR
   end
 

@@ -708,11 +708,6 @@ describe "Modules: inheritance and ancestors" do
       # aliases has_key?), and for a String receiver it does a
       # substring search, per CRuby's String#include? semantics.
 
-      # The blank lines keep the line numbers that the expected output names.
-
-
-
-
       def consume(coll)
         coll.include?(:x)
       end
@@ -734,11 +729,11 @@ describe "Modules: inheritance and ancestors" do
     RUBY
 
     _(result).must_answer "", stderr: <<~'ERR', status: 1
-      lang/modules/inheritance_test.rb:16:in 'Object#consume': undefined method 'include?' for nil (NoMethodError)
+      lang/modules/inheritance_test.rb:11:in 'Object#consume': undefined method 'include?' for nil (NoMethodError)
 
         coll.include?(:x)
             ^^^^^^^^^
-      	from lang/modules/inheritance_test.rb:24:in '<main>'
+      	from lang/modules/inheritance_test.rb:19:in '<main>'
     ERR
   end
 

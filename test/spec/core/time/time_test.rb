@@ -240,9 +240,6 @@ describe "Time programs" do
       # resolves against the CALLING file the frame carries, since a snippet has
       # no compile-time directory to resolve against.
 
-      # The blank lines keep the line numbers that the expected output names.
-
-
       root = File.join(__dir__, "never_saw")
       $LOAD_PATH.unshift(root)
 
@@ -306,7 +303,7 @@ describe "Time programs" do
       from inner
       never_saw/deep/inner.rb:6:in 'RuntimeInner.boom'
       never_saw/top.rb:10:in 'Raiser#boom'
-      core/time/time_test.rb:58:in '<main>'
+      core/time/time_test.rb:55:in '<main>'
     OUT
   end
 

@@ -977,8 +977,6 @@ describe "Thread programs" do
       # the core count and the allocator's own tuning, and pinning it would make this
       # a test of the machine.
 
-
-
       def th = GC.stat["threshold"]
       def cyc = GC.stat["cycle"]
 
@@ -1014,7 +1012,7 @@ describe "Thread programs" do
     RUBY
 
     _(result).must_answer "", stderr: <<~'ERR', status: 1
-      core/thread/thread_test.rb:27:in '<main>': undefined method '>=' for nil (NoMethodError)
+      core/thread/thread_test.rb:25:in '<main>': undefined method '>=' for nil (NoMethodError)
 
       p after >= before
               ^^

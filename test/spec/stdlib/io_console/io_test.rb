@@ -552,17 +552,13 @@ describe "IO::console: reading and writing" do
       #
       # Here stdout is not a tty, so IO#winsize raises Errno::ENOTTY.
 
-      # The blank lines keep the line numbers that the expected output names.
-
-
-
       require "io/console"
       p STDOUT.winsize
     RUBY
 
     _(result).must_answer "", stderr: <<~'ERR', status: 1
-      stdlib/io_console/io_test.rb:11:in 'IO#winsize': Inappropriate ioctl for device - <STDOUT> (Errno::ENOTTY)
-      	from stdlib/io_console/io_test.rb:11:in '<main>'
+      stdlib/io_console/io_test.rb:7:in 'IO#winsize': Inappropriate ioctl for device - <STDOUT> (Errno::ENOTTY)
+      	from stdlib/io_console/io_test.rb:7:in '<main>'
     ERR
   end
 end

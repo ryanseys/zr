@@ -1271,7 +1271,6 @@ describe "Exceptions: formatting and inspection" do
     result = zr(<<~'RUBY')
       # An uncaught exception's tail format: the message, the source line, and
       # the callers of the raising frame.
-
       def boom(v)
         v.length
       end
@@ -1290,11 +1289,11 @@ describe "Exceptions: formatting and inspection" do
       "undefined method 'length' for nil"
       "before"
     OUT
-      lang/exceptions/formatting_test.rb:5:in 'Object#boom': undefined method 'length' for nil (NoMethodError)
+      lang/exceptions/formatting_test.rb:4:in 'Object#boom': undefined method 'length' for nil (NoMethodError)
 
         v.length
          ^^^^^^^
-      	from lang/exceptions/formatting_test.rb:15:in '<main>'
+      	from lang/exceptions/formatting_test.rb:14:in '<main>'
     ERR
   end
 

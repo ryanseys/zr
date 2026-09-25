@@ -224,7 +224,6 @@ describe "Misc programs" do
       # fd 1 is this process's stdout: always open and always write-ready, whether it
       # is a file or a pipe with room, so the readiness assertion below holds on any
       # POSIX target without binding a port.
-
       module Net
         ffi_func :sp_net_poll_register,   [:int, :int], :int
         ffi_func :sp_net_poll_modify,     [:int, :int], :int
@@ -274,11 +273,11 @@ describe "Misc programs" do
     RUBY
 
     _(result).must_answer "", stderr: <<~'ERR', status: 1
-      lang/misc/misc_test.rb:10:in '<module:Net>': undefined method 'ffi_func' for module Net (NoMethodError)
+      lang/misc/misc_test.rb:9:in '<module:Net>': undefined method 'ffi_func' for module Net (NoMethodError)
 
         ffi_func :sp_net_poll_register,   [:int, :int], :int
         ^^^^^^^^
-      	from lang/misc/misc_test.rb:9:in '<main>'
+      	from lang/misc/misc_test.rb:8:in '<main>'
     ERR
   end
 

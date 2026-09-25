@@ -1451,8 +1451,6 @@ describe "RubyVM programs" do
       # and `#disasm` refuse on it exactly as they do on a compiled one. See
       # `tests/gaps/rubyvm_iseq_serialization.rb` for the rows that stay refused.
 
-
-
       def try(tag)
         puts "#{tag}: #{yield.inspect}"
       rescue StandardError, NotImplementedError => e
@@ -1492,12 +1490,12 @@ describe "RubyVM programs" do
       a c method: NilClass
       a c row: NilClass
       nil arg: NilClass
-      proc lineno: 18
+      proc lineno: 16
       proc path: "rubyvm_test.rb"
       proc absolute: true
       m label: "ruby_method"
       m base_label: "ruby_method"
-      m lineno: 17
+      m lineno: 15
       m path: "rubyvm_test.rb"
     OUT
   end

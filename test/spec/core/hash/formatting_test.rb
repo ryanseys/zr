@@ -808,41 +808,6 @@ describe "Hash: formatting and inspection" do
       # caller that passes nil. As in CRuby, `nil["id"]` raises NoMethodError,
       # so the program stops at the first call.
 
-      # The blank lines keep the line numbers that the expected output names.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
       # Single caller that passes nil.
 
       def consume(row)
@@ -855,8 +820,6 @@ describe "Hash: formatting and inspection" do
 
       b = Box.new
       consume(b.contents)  # nil: no code sets the attribute
-
-
 
       # Mixed callers: a hash literal and a nil value.
 
@@ -879,11 +842,11 @@ describe "Hash: formatting and inspection" do
     RUBY
 
     _(result).must_answer "", stderr: <<~'ERR', status: 1
-      core/hash/formatting_test.rb:43:in 'Object#consume': undefined method '[]' for nil (NoMethodError)
+      core/hash/formatting_test.rb:8:in 'Object#consume': undefined method '[]' for nil (NoMethodError)
 
         puts "id=" + row["id"].to_s
                         ^^^^^^
-      	from core/hash/formatting_test.rb:51:in '<main>'
+      	from core/hash/formatting_test.rb:16:in '<main>'
     ERR
   end
 
