@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require_relative "../gen"
-require "openssl"
 
 module Zr
   module Dev
@@ -28,6 +27,7 @@ module Zr
         writes "runtime/ext/openssl/ossl/constants.rb"
 
         def write(io)
+          require "openssl"
           rows = []
           walk = lambda do |mod, seen|
             next if seen[mod]

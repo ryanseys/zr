@@ -46,14 +46,19 @@ module Zr
 
       # Runs every generator. A generator that needs a checkout
       # (RUBY_SRC, PRISM_SRC) stops the run when the checkout is missing.
+      # `openssl_constants` is not in the run: its order comes from the
+      # host's OpenSSL build (see tool/gen/openssl_constants.rb), so run it
+      # by name and read the diff.
       class All < Command
+        APART = %w[all openssl_constants].freeze
+
         summary "Every generator, in order"
         usage "[--check]"
 
         def options(o) = o.on("--check", "write nothing; fail when a file is out of date") { @check = true }
 
         def run(_argv)
-          words = Gen.commands.keys - ["all"]
+          words = Gen.commands.keys - APART
           failed = words.reject { |word| Gen.commands.fetch(word).last.call.new("gen #{word}").start(@check ? ["--check"] : []).zero? }
           failed.each { |word| warn "zr-dev gen all: #{word} failed" }
           failed.empty?

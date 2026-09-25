@@ -144,6 +144,11 @@ in `tool/gen/`.
 | `zr-dev gen transcode` | `runtime/core/transcode.rb`: single-byte encoding tables |
 | `zr-dev gen cjk` | `runtime/core/cjk.rb`: multibyte encoding tables |
 | `zr-dev gen enc_mb` | `runtime/kernel/enc_mb.rb`: multibyte encoding descriptors |
+| `zr-dev gen onig_unicode` | `runtime/core/regexp/unicode_tables.rb` and `runtime/kernel/onig_tables.rb`: Onigmo's Unicode tables, from CRuby's `enc/unicode` at `RUBY_SRC`. Both files come from one computed value; `test/unit/onig_unicode_test.rb` checks that they agree. |
+| `zr-dev gen onig_encodings` | `runtime/core/regexp/onig/encoding_tables.rb`: Onigmo's encodings past UTF-8, from CRuby's `enc/*.c` |
+| `zr-dev gen nkf [--source PATH]` | `runtime/ext/nkf/tables.rb`: nkf's conversion tables, from the installed nkf gem's `utf8tbl.c` (or `NKF_SRC`) |
+| `zr-dev gen zlib_tables` | `runtime/kernel/zlib_tables.rb`: the tables that zlib 1.3.1 computes |
+| `zr-dev gen openssl_constants` | `runtime/ext/openssl/ossl/constants.rb`: openssl's Integer constants. Not in `gen all`: the order comes from the host's OpenSSL build, so read the diff. |
 | `zr-dev gen emoji` | `runtime/core/emoji.rb` |
 | `zr-dev gen builtin_lines` | `runtime/core/builtin_lines.rb` |
 | `zr-dev gen tables` | This OS's errno, fcntl, etc and socket tables, into `runtime/core/os/<os>/` and `runtime/ext/os/<os>/`. The socket table reads `ext/socket/mkconstants.rb` from `RUBY_SRC`, or from the copy that `MKCONSTANTS` names. |
