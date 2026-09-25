@@ -1955,6 +1955,8 @@ module Zr
         d zr_struct_values_named Value members:Value h:Value
         d zr_struct_initialize Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_struct_keyword_init Value klass:Value
+        d zr_struct_to_a Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
+        d zr_struct_initialize_copy Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_struct_builtins Value klass:Value
         d zr_word_entry_p Bool kind:Word
         d zr_symtab Ptr
@@ -4226,6 +4228,8 @@ module Zr
         e zr_struct_values_named 127
         e zr_struct_initialize 127
         e zr_struct_keyword_init 0
+        e zr_struct_to_a 127
+        e zr_struct_initialize_copy 127
         e zr_struct_builtins 127
         e zr_word_entry_p 0
         e zr_symtab 0

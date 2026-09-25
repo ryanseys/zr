@@ -283,10 +283,40 @@ machine def zr_struct_keyword_init(klass)
   Machine.value(QNIL)
 end
 
-# Defines `Struct#initialize` on `klass`, which is Struct.
+# `Struct#to_a`, `deconstruct` and `values`: a copy of the values.
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_struct_to_a(recv, argc, argv, cref, blk)
+  values = zr_struct_values(recv)
+  return values if values == QUNDEF
+  zr_ary_of(RArray.len(values), RArray.ptr(values))
+end
+
+# `Struct#initialize_copy`, which fills a `dup` or a `clone`. The copy
+# already has the other struct's entries, so it only needs values of its
+# own. A copy from anything but an unfrozen struct of the same class goes
+# to the core's `initialize_copy_members`, which checks it as
+# Kernel#initialize_copy does.
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_struct_initialize_copy(recv, argc, argv, cref, blk)
+  other = Machine.value(Machine.load64(argv, 0))
+  if other != recv && !zr_special_p(other) && zr_real_class(other) == zr_real_class(recv) && !zr_frozen_p(recv)
+    values = zr_ivar_get(other, Machine.id(:__values__))
+    if values != QNIL
+      r = zr_ivar_set(recv, Machine.id(:__values__), zr_ary_of(RArray.len(values), RArray.ptr(values)))
+      return r == QUNDEF ? r : recv
+    end
+  end
+  zr_send(recv, Machine.id(:initialize_copy_members), 1, argv)
+end
+
+# Defines the kernel's entries of Struct on `klass`, which is Struct.
 sig [Value] => Value
 machine def zr_struct_builtins(klass)
   zr_builtin(klass, Machine.id(:initialize), Machine.addr(:zr_struct_initialize), 0 - 1)
+  zr_builtin_private(klass, Machine.id(:initialize_copy), Machine.addr(:zr_struct_initialize_copy), 1)
+  zr_builtin(klass, Machine.id(:to_a), Machine.addr(:zr_struct_to_a), 0)
+  zr_builtin(klass, Machine.id(:deconstruct), Machine.addr(:zr_struct_to_a), 0)
+  zr_builtin(klass, Machine.id(:values), Machine.addr(:zr_struct_to_a), 0)
   klass
 end
 

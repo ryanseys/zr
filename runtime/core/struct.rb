@@ -115,11 +115,16 @@ class Struct
 
   private :initialize_members
 
-  def initialize_copy(other)
-    super
+  # `initialize_copy` is an entry of the kernel's too
+  # (zr_struct_initialize_copy), which sends all but a copy from a struct
+  # of the same class here.
+  def initialize_copy_members(other)
+    Primitive.attr! :hidden
+    Kernel.instance_method(:initialize_copy).bind_call(self, other)
     Primitive.zr_hidden_set(self, :__values__, Primitive.zr_struct_values(other).dup)
     self
   end
+  private :initialize_copy_members
 
   # A member may be named `class`, so the class comes from the kernel.
   def members = member_names.dup
@@ -132,9 +137,8 @@ class Struct
   end
   private :member_names
 
-  def to_a = Primitive.zr_struct_values(self).dup
-  alias deconstruct to_a
-  alias values to_a
+  # `to_a`, `deconstruct` and `values` are entries of the kernel's
+  # (zr_struct_to_a).
 
   def size = Primitive.zr_ary_len_m(member_names)
   alias length size
