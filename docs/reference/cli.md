@@ -1,8 +1,8 @@
 # The `zr` command
 
 `zr` is the gem's command. In a checkout, it is `exe/zr`. This page
-describes only `zr`. For the rake tasks and the `bin/` scripts of a
-checkout, see [Rake tasks and scripts](rake-tasks.md).
+describes only `zr`. For the `bin/` scripts, the rake tasks and the
+`zr-dev` commands of a checkout, see [Tools](tools.md).
 
 ```
 Usage: zr <command> [options]
@@ -78,7 +78,7 @@ built the binary.
 With `--path-root=/src`, a file at `<working directory>/lib/a.rb` is
 `/src/lib/a.rb` in the output. zr's own files below the root of the
 gem or checkout also get the `/src` prefix. Thus two checkouts at two
-paths, built with the same root, write the same bytes (`rake repro`
+paths, built with the same root, write the same bytes (`zr-dev repro`
 tests this). A main file given as a relative path keeps that path, as
 in ruby. The program can read a file at a changed path only if that
 path exists on the machine that runs the program.

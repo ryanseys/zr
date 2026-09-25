@@ -13,7 +13,7 @@ module Zr
     # (`Inst::GATES`, `x28`). A promoted word becomes a block parameter
     # at each fast/slow join, and the allocator usually keeps it in the
     # frame: a store and a load for each edge, to save one load. With
-    # `rake codesize`, promotion of the gate word, the site stamp, the
+    # `zr-dev codesize`, promotion of the gate word, the site stamp, the
     # constant stamp and the task pointer made code 12% larger (the gate
     # word alone, 1.4%). The pass is kept for the stamps, for when a
     # larger caller-saved register pool is available. Never promote the

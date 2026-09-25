@@ -38,7 +38,7 @@ fails.
 | `files:` | `{}` | The program's own files: a Hash from a path to its bytes. `{ symlink: "<target>" }` in place of the bytes makes a symbolic link. |
 | `path:` | the spec file's path below `test/spec` | The path of the program, relative to the directory it runs in. Backtraces and `__FILE__` show it. |
 | `seconds:` | 60 (`ZR_TEST_SECONDS`) | The time limit for the run. |
-| `ruby:` | `[]` | Command-line options for ruby only. `rake oracle` and `rake spec:ask` use them to run the program under ruby. zr ignores them. |
+| `ruby:` | `[]` | Command-line options for ruby only. `zr-dev oracle` and `zr-dev spec ask` use them to run the program under ruby. zr ignores them. |
 
 ### `path:`
 
@@ -119,7 +119,7 @@ end
 
 `needs:` names items from `Zr::Harness::Needs`, as the e2e `needs:` key
 does. `only:` names platforms (`macos`, `linux`, `wasi`). Both take one
-name or a list. The reader (`rake oracle`, `rake spec:verify`) takes
+name or a list. The reader (`zr-dev oracle`, `zr-dev spec verify`) takes
 each `needs:` as met and reads `only:` against the host.
 
 ## A gap
@@ -138,8 +138,8 @@ When zr can pass it, delete the `skip` line.
 
 ## Format rules
 
-`rake 'spec:check[<path>]'` checks these rules, and
-`rake 'spec:tidy[<path>]'` fixes the ones that it can fix safely.
+`zr-dev spec check <path>` checks these rules, and
+`zr-dev spec tidy <path>` fixes the ones that it can fix safely.
 
 - A line of the file's own code is 120 columns or fewer. Lines inside a
   heredoc do not count.

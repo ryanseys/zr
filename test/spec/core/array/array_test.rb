@@ -2295,7 +2295,7 @@ describe "Array programs" do
       # method Array defines is wrapped to log a call made from inside another,
       # and each is then called once on a fresh receiver. CRuby calls one by
       # dispatch only where it means to, and zr's core, written in Ruby, has
-      # to call no more and no fewer. Written by `rake gen:dispatch`.
+      # to call no more and no fewer. Written by `zr-dev spec dispatch`.
 
       class Probe < Array
         CALLING = []

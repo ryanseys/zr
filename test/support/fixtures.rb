@@ -42,7 +42,7 @@ module Zr
     #
     # The program gives the directory name, for example
     # `require_relative "autoload_nested/main"`. If you rename the
-    # directory, change the program too, and run `rake oracle` to check it.
+    # directory, change the program too, and run `zr-dev oracle` to check it.
     def beside(*names)
       names.to_h { |name| [name, fixture(name)] }
     end

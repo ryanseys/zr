@@ -4,8 +4,9 @@ This guide shows you how to run zr's tests in a checkout. Run the
 smallest set of tests that covers your change. Run all the tests before
 you open a pull request.
 
-For the full list of rake tasks and test variables, see
-[Rake tasks and scripts](../reference/rake-tasks.md). To learn how a
+For the full list of rake tasks, `zr-dev` commands and test variables,
+see [Tools](../reference/tools.md). This guide writes `zr-dev` for
+`ruby tool/zr-dev.rb`. To learn how a
 tier runs, see [How the tests run](../explanation/how-the-tests-run.md).
 
 ## Before you start
@@ -87,15 +88,17 @@ alone.
 ## Run the specs that a change can reach
 
 ```console
-$ rake affected
-$ rake affected BASE=origin/main
+$ ruby tool/zr-dev.rb affected
+$ ruby tool/zr-dev.rb affected --base origin/main
+$ ruby tool/zr-dev.rb affected --dry-run
 ```
 
-`rake affected` reads the diff against `main`, and runs the specs that
-the changed files can reach. For a file under `runtime/core`, these are
-the directory of its class and every spec that uses the class name. For
-a change to the compiler, the kernel or the test support, it runs all
-the specs.
+`zr-dev affected` reads the diff against `main`, or against `--base`.
+It runs the specs that the changed files can reach, with `bin/test`.
+For a file under `runtime/core`, these are the directory of its class
+and every spec that uses the class name. For a change to the compiler,
+the kernel or the test support, it runs all the specs. `--dry-run`
+prints the spec paths and runs nothing.
 
 ## Collect at every allocation
 
@@ -125,13 +128,13 @@ under `runtime/kernel/`, always changes the description.
 
 ## Check that a literal is still ruby's output
 
-`rake oracle` runs each example's program under ruby 4.0.6 and checks
+`zr-dev oracle` runs each example's program under ruby 4.0.6 and checks
 the example's expected output against it. It compiles nothing, so it
 is fast:
 
 ```console
-$ rake 'oracle[test/spec/core/string]'
-$ rake oracle
+$ ruby tool/zr-dev.rb oracle test/spec/core/string
+$ ruby tool/zr-dev.rb oracle
 ```
 
 ## Run the tests for another target
@@ -147,11 +150,11 @@ See [How to test on another target](test-on-another-target.md).
 Run these after a change to the compiler or to the kernel's layouts:
 
 ```console
-$ rake stage1
-$ rake stage2
+$ ruby tool/zr-dev.rb stage 1
+$ ruby tool/zr-dev.rb stage 2
 ```
 
-`rake stage2` takes about ten minutes and 5 GB of memory, so run it
+`zr-dev stage 2` takes about ten minutes and 5 GB of memory, so run it
 alone. See [Bootstrapping](../explanation/bootstrapping.md).
 
 ## See the progress of a long run
@@ -160,14 +163,14 @@ A tier writes its progress to `tmp/test-progress.txt`. From another
 terminal:
 
 ```console
-$ rake test:progress
+$ ruby tool/zr-dev.rb progress
 ```
 
 ## Find the slow tests
 
 ```console
 $ SLOW=1 bin/test test/spec
-$ rake test:spec:slow
+$ SLOW=1 rake test:spec
 ```
 
 Both also report the 25 slowest files and the 20 slowest examples.

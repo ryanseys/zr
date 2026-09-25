@@ -96,5 +96,5 @@ size of the kept binaries.
 
 A tier writes its progress to `tmp/test-progress.txt` at most once a
 second: how many examples are done, which failed, the rate, and the
-time left. `rake test:progress` prints the file, so you can look at a
+time left. `zr-dev progress` prints the file, so you can look at a
 run in the background.

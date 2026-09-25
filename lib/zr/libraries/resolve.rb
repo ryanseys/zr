@@ -79,7 +79,7 @@ module Zr
       def check(found)
         require DIGESTS
         found.each do |name, files|
-          want = DIGESTS_BY_NAME.fetch(name) { raise Unresolved, "no digest for #{name}; `rake gen:libraries` writes them" }
+          want = DIGESTS_BY_NAME.fetch(name) { raise Unresolved, "no digest for #{name}; `zr-dev gen libraries` writes them" }
           next if digest(files) == want
 
           raise Unresolved, "#{name} #{PINS[name]} is not the one zr was released with: its files under " \

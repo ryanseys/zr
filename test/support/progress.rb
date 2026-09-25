@@ -7,7 +7,7 @@ module Zr
     # Writes the status of a run to a file, so that you can check a tier
     # that runs in the background. The file gives the examples done and
     # the total, the failures, the rate, the time left and the last
-    # example. `rake test:progress` prints it. The reporter writes the
+    # example. `zr-dev progress` prints it. The reporter writes the
     # file at most once a second, and one more time at the end.
     module Progress
       PATH = File.expand_path("../../tmp/test-progress.txt", __dir__)

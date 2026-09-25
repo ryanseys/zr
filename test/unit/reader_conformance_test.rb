@@ -6,15 +6,15 @@ require_relative "../support/reader"
 
 # `Zr::Reader` is a second implementation of the spec DSL. The real one
 # (`Zr::Spec::DSL`) compiles and runs. The reader records and runs
-# nothing, so `rake oracle` can check every example against ruby
+# nothing, so `zr-dev oracle` can check every example against ruby
 # without a build.
 #
 # Two implementations of one DSL can become different, and then nothing
-# fails: `rake oracle` continues to pass, because it checks the reader's
+# fails: `zr-dev oracle` continues to pass, because it checks the reader's
 # model of the suite, not the suite. These tests keep the two the same.
 class ReaderConformanceTest < Minitest::Test
   # A keyword that the reader accepts and the DSL does not is the dangerous
-  # case: the reader records a misspelled keyword, and `rake oracle`
+  # case: the reader records a misspelled keyword, and `zr-dev oracle`
   # passes a spec that no run can compile.
   def test_zr_keywords_match_in_dsl_and_reader
     assert_equal keywords(Zr::Spec::DSL, :zr), keywords(Zr::Reader::Sandbox, :zr)
@@ -33,7 +33,7 @@ class ReaderConformanceTest < Minitest::Test
   end
 
   # `Zr::Spec::DSL#default_path` delegates to `Reader.path_for`. If the run
-  # and `rake oracle` gave a program different paths, they would check
+  # and `zr-dev oracle` gave a program different paths, they would check
   # different programs.
   def test_a_program_is_named_for_the_file_its_example_lives_in
     assert_equal "core/fiber/fiber_test.rb", Zr::Reader.path_for("test/spec/core/fiber/fiber_test.rb")
@@ -60,7 +60,7 @@ class ReaderConformanceTest < Minitest::Test
 
   # A spec reads a fixture through `fixture(...)`, and the DSL and the
   # reader must give it the same bytes. The run writes them next to the
-  # program, and `rake oracle` writes them next to its copy.
+  # program, and `zr-dev oracle` writes them next to its copy.
   def test_dsl_and_reader_read_a_fixture_the_same_way
     assert_includes Zr::Spec::DSL.ancestors, Zr::Fixtures
     assert_includes Zr::Reader::Sandbox.ancestors, Zr::Fixtures

@@ -1,0 +1,169 @@
+# frozen_string_literal: true
+
+require_relative "../lib/zr/dev"
+
+module Zr
+  module Dev
+    class Specs
+      # Prints programs that show which of its own methods a core class calls
+      # from inside its other methods. A subclass sees these calls.
+      #
+      #   zr-dev spec dispatch         every program below
+      #   zr-dev spec dispatch Hash    one of them
+      #
+      # Each program is already an example in the spec file given in CLASSES.
+      # Thus the tool prints and does not write. Compare the output with the
+      # heredoc in that example. When they differ, ruby's output is correct.
+      # `zr-dev oracle` checks the example against ruby, as for every example.
+      #
+      # CRuby's C code calls a method by dispatch only in some places (Hash#each
+      # for Enumerable, initialize_copy for dup). For all other calls in its own
+      # class, it uses C functions that no subclass can replace. zr's core is
+      # written in Ruby, so `self[k]` in Hash#store is a dispatch. Then a
+      # subclass whose `[]=` calls `store` recurses forever. Each program wraps
+      # each method of the class in a subclass that logs calls from inside
+      # another method. Then it calls each method once. The recording is the
+      # set of calls that CRuby makes; zr must make the same set.
+      #
+      # This tool finds the call for each method: it tries argument lists on
+      # the real class until one does not raise. Thus no hand-written table of
+      # arguments is necessary.
+      class Dispatch < Command
+        summary "Print the programs that show which of its own methods a core class calls"
+        usage "[class...]"
+        host_ruby!
+
+        # Argument lists to try, in order. Each is tried with a block first,
+        # then without.
+        TRIES = [[], [1], [0, 1], ["l"], [:a], [[1, 2]], [{ a: 1 }], %w[l L], [1, 2, 3], [/l/], [1..2], [2, [3]],
+                 [:a, 1]].freeze
+
+        # Methods whose first successful call would never end, or would stop
+        # the process.
+        SKIP = %i[cycle freeze display].freeze
+
+        # For each class: the source that makes a new receiver, and the spec
+        # file that contains the program as an example.
+        CLASSES = {
+          "Hash" => ["Probe.new.tap { |h| h[:a] = 1; h[:b] = 2 }", "test/spec/core/hash/hash_test.rb"],
+          "Array" => ["Probe.new([3, 1, 2])", "test/spec/core/array/array_test.rb"],
+          "String" => ['Probe.new(+"hello world")', "test/spec/core/string/string_test.rb"],
+          "Range" => ["Probe.new(1, 5)", "test/spec/core/range/range_test.rb"],
+          "Struct" => ["Probe.new(1, 2)", "test/spec/core/struct/inheritance_test.rb"],
+          "Set" => ["Probe.new([1, 2, 3])", "test/spec/stdlib/set/set_test.rb"]
+        }.freeze
+
+        EXAMPLE = "subclass sees only the calls ruby makes"
+
+        def run(wanted)
+          require "timeout"
+          require_relative "../../lib/zr/flags"
+          wanted = CLASSES.keys if wanted.empty?
+          unknown = wanted - CLASSES.keys
+          fail!("no program for #{unknown.join(", ")}") unless unknown.empty?
+
+          wanted.each do |name|
+            make, spec = CLASSES.fetch(name)
+            puts "# #{spec}: it #{EXAMPLE.inspect}"
+            puts program(name, make)
+            puts
+          end
+        end
+
+        # The subclass, as source. For Struct, it is a subclass of a Struct
+        # with members.
+        def probe_class(name)
+          name == "Struct" ? "class Probe < Struct.new(:a, :b)" : "class Probe < #{name}"
+        end
+
+        # Makes a receiver of a new subclass. The eval runs in `Object`, so the
+        # subclass is the top-level `Probe` that the generated program uses.
+        def fresh(name, make)
+          Object.class_eval("#{probe_class(name)}; end; #{make}", __FILE__, __LINE__)
+        ensure
+          Object.send(:remove_const, :Probe) if Object.const_defined?(:Probe, false)
+        end
+
+        # The methods that a subclass can replace and CRuby's C code can call:
+        # the class's own public and private methods, and the methods of
+        # Enumerable and Comparable when the class includes them.
+        def wrapped(name)
+          base = Object.const_get(name)
+          names = base.public_instance_methods(false) + base.private_instance_methods(false)
+          names += Enumerable.public_instance_methods(false) if base.include?(Enumerable)
+          names += Comparable.public_instance_methods(false) if base.include?(Comparable)
+          (names.uniq - %i[initialize method_missing respond_to_missing?]).sort
+        end
+
+        # Returns the source of a call to `m`, or nil when no argument list
+        # works.
+        def call_for(name, make, m)
+          return nil if SKIP.include?(m)
+
+          TRIES.each do |args|
+            [true, false].each do |block|
+              receiver = fresh(name, make)
+              warn "#{name}##{m} #{args.inspect} #{block}" if Zr.flag?("ZR_DISPATCH_TRACE")
+              begin
+                Timeout.timeout(1) do
+                  block ? receiver.__send__(m, *args) { |*x| x.first } : receiver.__send__(m, *args)
+                end
+              rescue StandardError, NotImplementedError
+                next
+              end
+              text = args.map(&:inspect).join(", ")
+              call = if m.match?(/\A[a-z_]\w*[?!]?\z/)
+                       "r.#{m}(#{text})"
+                     else
+                       "r.__send__(#{[m.inspect, text].reject(&:empty?).join(", ")})"
+                     end
+              return block ? "#{call} { |*x| x.first }" : call
+            end
+          end
+          nil
+        end
+
+        def program(name, make)
+          calls = wrapped(name).filter_map { |m| (c = call_for(name, make, m)) && [m, c] }
+          <<~RUBY
+            # Which of #{name}'s own methods its methods call on a subclass: every
+            # method #{name} defines is wrapped to log a call made from inside another,
+            # and each is then called once on a fresh receiver. CRuby calls one by
+            # dispatch only where it means to, and zr's core, written in Ruby, has
+            # to call no more and no fewer. Written by `zr-dev spec dispatch`.
+
+            #{probe_class(name)}
+              CALLING = []
+              LOG = []
+              #{wrapped(name).inspect}.each do |m|
+                define_method(m) do |*args, &blk|
+                  LOG << "\#{CALLING.last}->\#{m}" unless CALLING.empty?
+                  CALLING << m
+                  begin
+                    super(*args, &blk)
+                  ensure
+                    CALLING.pop
+                  end
+                end
+                ruby2_keywords(m)
+              end
+            end
+
+            def call(name)
+              r = #{make}
+              Probe::LOG.clear
+              begin
+                yield r
+              rescue StandardError => e
+                Probe::LOG << "raised \#{e.class}"
+              end
+              puts "\#{name}: \#{Probe::LOG.join(" ")}" unless Probe::LOG.empty?
+            end
+
+            #{calls.map { |m, c| "call(#{m.to_s.inspect}) { |r| #{c} }" }.join("\n")}
+          RUBY
+        end
+      end
+    end
+  end
+end

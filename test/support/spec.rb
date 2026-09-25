@@ -364,7 +364,7 @@ module Zr
       ROOT = File.expand_path("../..", __dir__)
 
       # `ruby:` gives flags for ruby only; zr does not use them. They are
-      # kept so that `rake oracle` runs ruby with the same program and
+      # kept so that `zr-dev oracle` runs ruby with the same program and
       # input as zr.
       def zr(source, path: nil, argv: [], env: {}, stdin: nil, files: {}, seconds: nil, ruby: [])
         phases = (metadata[Test::Slow::KEY] ||= {}) if Test::Slow.asked?

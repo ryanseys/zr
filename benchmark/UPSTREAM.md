@@ -14,7 +14,7 @@ structure is unchanged.
 
 Each `bm_<name>.rb` prints deterministic output, and carries ruby 4.0.6's
 recording of it beside it, in the layout of `docs/reference/test-format.md`,
-like every other corpus program. `rake bench` builds each one, checks the
+like every other corpus program. `zr-dev bench` builds each one, checks the
 answer against that recording before it keeps any time (a wrong answer
 fails the row -- the speed of a wrong answer means nothing), and reports
 the median of five runs against `ruby` and `ruby --yjit`; `README.md`

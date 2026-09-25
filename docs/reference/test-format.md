@@ -2,7 +2,7 @@
 
 Two directories contain whole programs, not spec examples:
 `test/e2e/`, which the e2e tier builds through a real link and runs as
-binaries, and `benchmark/`, which `rake bench` times.
+binaries, and `benchmark/`, which `zr-dev bench` times.
 
 A program is a `.rb` file and nothing else: no header and no trailer.
 `ruby test/e2e/core/process/signal_trap.rb` runs it. Thus the program
@@ -34,11 +34,11 @@ at exit.
 
 ## Recording
 
-`rake 'record[<path>]'` runs the program under ruby 4.0.6 and writes
+`zr-dev record <path>` runs the program under ruby 4.0.6 and writes
 the files above. ruby 4.0.6 is the only source of expected outputs, so
-nothing else writes them, and nobody writes them by hand. The task does
+nothing else writes them, and nobody writes them by hand. The command does
 not change a program that has a recording.
-`rake 'record[--again <path>]'` writes the recording again. A change of
+`zr-dev record --again <path>` writes the recording again. A change of
 output is usually a change of program.
 
 ## What a program needs
@@ -66,7 +66,7 @@ HOW = {
 | `run_mb:` | a memory limit for the run, above the default one |
 | `skip:` | why it does not run, in words |
 
-`rake record` reads the same table, so ruby runs a program in the same
+`zr-dev record` reads the same table, so ruby runs a program in the same
 way as zr does.
 
 ## Another target

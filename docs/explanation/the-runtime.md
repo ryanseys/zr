@@ -107,5 +107,5 @@ list, and each OS implements it in `runtime/kernel/os/<os>/`. On WASI,
 that layer also implements the libc calls, over WASI preview 1.
 
 The numbers that each OS gives its constants (errno values, `fcntl`
-flags, socket options) come from the ruby of that OS. `rake tables`
-writes them. Nobody types them.
+flags, socket options) come from the ruby of that OS.
+`zr-dev gen tables` writes them. Nobody types them.

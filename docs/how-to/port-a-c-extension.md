@@ -73,14 +73,14 @@ users do, and run them:
 
 ```console
 $ bin/test test/spec/stdlib/digest -n /sha256/
-$ rake 'oracle[test/spec/stdlib/digest]'
+$ ruby tool/zr-dev.rb oracle test/spec/stdlib/digest
 ```
 
-`rake oracle` checks that the expected outputs are still ruby's.
+`zr-dev oracle` checks that the expected outputs are still ruby's.
 
 ## Platform tables
 
 If the extension needs numbers that each OS defines (errno values,
 socket constants, `fcntl` flags), do not write them by hand.
-`rake tables` writes them from the ruby of each OS, into
+`zr-dev gen tables` writes them from the ruby of each OS, into
 `runtime/core/os/<os>/` and `runtime/ext/os/<os>/`.

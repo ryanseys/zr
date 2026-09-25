@@ -2,7 +2,7 @@
 
 zr is written in Ruby, and it compiles Ruby. Thus it can compile
 itself. This page explains why that is important, and what
-`rake stage1` and `rake stage2` check.
+`zr-dev stage 1` and `zr-dev stage 2` check.
 
 ## The stages
 
@@ -25,9 +25,9 @@ This is a *fixed point*.
 The compiled compiler that `rake build:self` builds, and that `exe/zr`
 can use for a build (`ZR_COMPILED`), is stage 1.
 
-## What `stage1` checks
+## What `stage 1` checks
 
-`rake stage1` runs stage 0 two times, in two processes with two
+`zr-dev stage 1` runs stage 0 two times, in two processes with two
 caches, and compiles the compiler to an object each time. It compares
 the two compiler objects and the two runtime objects byte for byte.
 
@@ -35,15 +35,15 @@ This checks that the compiler is deterministic. A build must not
 depend on hash order, object addresses, the time, or the order in
 which a directory lists its files. If a build depends on one of these,
 two builds can be different, and a bug can come and go between them.
-`stage1` is fast enough to run after any change to the compiler.
+`zr-dev stage 1` is fast enough to run after any change to the compiler.
 
-`rake repro` checks a related property: two copies of the tree at two
-paths, with a different home, time zone, locale and job count, build
-one program to the same bytes.
+`zr-dev repro` checks a related property: two copies of the tree at
+two paths, with a different home, time zone, locale and job count,
+build one program to the same bytes.
 
-## What `stage2` checks
+## What `stage 2` checks
 
-`rake stage2` builds stage 1 with ruby, then runs stage 1 to build
+`zr-dev stage 2` builds stage 1 with ruby, then runs stage 1 to build
 stage 2, and compares the two binaries. zr's own linker links both,
 and the link of stage 2 runs inside the compiled compiler, so the check
 covers the linker too. The comparison does not include the UUID and

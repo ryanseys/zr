@@ -68,6 +68,10 @@ The first release as a RubyGem.
   (was `ZR_SELF`), `ZR_HOST_RUBY` (was `ZR_RUBY`), and `ZR_TUNE=0` (was
   `ZR_GC=0` and `ZR_YJIT=0`). The old names do not work any more. The
   test harness variables start with `ZR_TEST_`.
+- The maintainer tools are `zr-dev` commands, not rake tasks
+  (`ruby tool/zr-dev.rb help` lists them). The `Rakefile` keeps build,
+  test, gen, lint and release. Give test paths and minitest options to
+  `bin/test`.
 
 ### Removed
 

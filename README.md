@@ -108,11 +108,12 @@ before you open a pull request, and the tutorial
 $ rake lint       # RuboCop's Lint cops
 $ rake build      # build the runtime for this host
 $ bin/console     # IRB with zr loaded
-$ rake -T         # every task
+$ rake -T         # every rake task
+$ ruby tool/zr-dev.rb help   # every maintainer tool
 ```
 
 See [How to run the tests](docs/how-to/run-the-tests.md) and
-[Rake tasks and scripts](docs/reference/rake-tasks.md). All the
+[Tools](docs/reference/tools.md). All the
 documentation is in [`docs/`](docs/README.md).
 
 ## Release

@@ -30,10 +30,10 @@ Commit `Gemfile.lock` with the change.
 ## 3. Write the digests again
 
 ```console
-$ rake gen:libraries
+$ ruby tool/zr-dev.rb gen libraries
 ```
 
-The task finds each pinned gem as a build does, and writes the SHA-256
+The generator finds each pinned gem as a build does, and writes the SHA-256
 digest of its files. A build refuses a gem whose files do not have
 this digest. Thus a build before this step stops, with a message that
 gives the gem.
@@ -41,7 +41,7 @@ gives the gem.
 ## 4. Run the tests that the change reaches
 
 ```console
-$ rake affected
+$ ruby tool/zr-dev.rb affected
 ```
 
 A change to the pins reaches every spec. If ruby gives a different

@@ -18,7 +18,7 @@ module Zr
 
         # A visitor that finds the defs of one file, with the class and module
         # names around each. It is made on the first call, so that loading
-        # this file does not load the prism port (0.25 s for each `rake -T`).
+        # this file does not load the prism port (0.25 s).
         def defs_class
           require_relative "../../lib/zr/prism"
           @defs_class ||= Class.new(Prism::Visitor) do

@@ -30,7 +30,7 @@ module Zr
       # read from the files next to the program: always `<name>.out`, and
       # `<name>.err`, `<name>.status` and `<name>.signal` when they are
       # not empty. Each file contains only the raw bytes, so there is
-      # nothing to parse or unescape. `rake record` writes these files.
+      # nothing to parse or unescape. `zr-dev record` writes these files.
       # Returns nil when there is no recording.
       def self.beside(path)
         base = path.delete_suffix(".rb")

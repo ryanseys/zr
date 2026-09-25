@@ -121,7 +121,7 @@ same as the global one.
 `aarch64-linux-musl`. It contains only the program's own code.
 
 **Oracle.** ruby 4.0.6, the only source of expected outputs.
-`rake oracle` checks spec literals against it.
+`zr-dev oracle` checks spec literals against it.
 
 **OS layer.** The parts of the runtime that each operating system does
 in its own way, in `os/<os>/` directories.
@@ -149,7 +149,7 @@ recording beside it. See [Whole programs](test-format.md).
 
 **Recording.** The files beside a whole program that contain ruby's
 output: `.out` (stdout), `.err` (stderr), `.status` (an exit status
-that is not 0) and `.signal`. `rake record` writes them.
+that is not 0) and `.signal`. `zr-dev record` writes them.
 
 **Refusal.** zr does not support a form, so it does not compile it. It
 prints the form and the line, and exits with status 3.

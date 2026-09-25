@@ -38,7 +38,7 @@ returns `"UTF-8"`, and the main file's `__FILE__`, `$0` and `__dir__`
 are UTF-8 strings. ruby gets the locale from `LANG` and `LC_ALL` when
 the program starts, so under `LANG=C` these three are US-ASCII in
 ruby. A build does not read its own locale either: two builds under two
-locales write the same bytes (`rake repro`).
+locales write the same bytes (`zr-dev repro`).
 
 ## Ruby bugs
 

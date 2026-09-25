@@ -16,7 +16,7 @@ is not in the gem. It is the gems that `zr.gemspec` depends on
 | `lib/zr/paths.rb` | where zr reads its sources and writes its cache |
 | `lib/zr/flags.rb` | `Zr.flag?`, which reads an on-or-off environment variable |
 | `lib/zr/libraries.rb`, `lib/zr/libraries/` | the pinned gems that a program requires from, and the library tree that links them |
-| `lib/zr/library_digests.rb` | the digests of the pinned gems' files (`rake gen:libraries`) |
+| `lib/zr/library_digests.rb` | the digests of the pinned gems' files (`zr-dev gen libraries`) |
 | `lib/zr/target.rb` | the targets, and what this host can build |
 | `lib/zr/prism.rb` | loads prism on the host; `Zr.parse` |
 | `lib/zr/parse_cache.rb` | the host's cache of parse results |
@@ -70,8 +70,13 @@ a ruby with rubygems, when the gems change.
 
 | Path | Contains |
 |---|---|
-| `bin/setup`, `bin/test`, `bin/console` | the scripts of a checkout; see [Rake tasks and scripts](rake-tasks.md) |
-| `Rakefile`, `rakelib/` | the rake tasks; `rakelib/` has the body of each task, one file for each subject |
+| `bin/setup`, `bin/test`, `bin/console` | the scripts of a checkout; see [Tools](tools.md) |
+| `Rakefile` | the rake tasks: build, test, gen, lint and release |
+| `tool/zr-dev.rb` | the `zr-dev` command, which lists and starts the maintainer tools; see [Tools](tools.md#zr-dev) |
+| `tool/*.rb` | the body of each `zr-dev` command, one file for each command (`tool/bench.rb` for `zr-dev bench`) |
+| `tool/lib/zr/dev.rb`, `tool/lib/zr/dev/` | the code that the commands share: the command class, the paths, the host ruby and the C sources |
+| `tool/gen/` | the generators of `zr-dev gen`, one file for each generated file; `tool/gen/prism/templates/` has the templates of the pure-Ruby prism |
+| `tool/spec/` | the commands of `zr-dev spec` |
 | `lib/zr/prism_backend/` | makes `require "prism/prism"` load the port on the host |
 | `docs/` | this documentation |
 | `.github/workflows/` | CI (`ci.yml`) and the release (`release.yml`) |
@@ -80,7 +85,6 @@ a ruby with rubygems, when the gems change.
 | `test/spec_helper.rb` | what a spec file requires: the test helper, and the spec DSL |
 | `test/support/` | the test library: the spec DSL, the fork pool, the kept binaries, the progress file |
 | `test/support/harness/` | ruby's reference runs, the child process limits, wasmtime, the benchmark runner, `Harness::KernelJIT`, and the harnesses that compare a port with ruby's C |
-| `test/support/generators/` | the four generators that the unit tier runs; see [Rake tasks and scripts](rake-tasks.md#generated-files-that-the-unit-tier-tests) |
 | `test/unit/` | the unit tier: zr's own internals |
 | `test/spec/` | the spec tier: Ruby behavior, example by example |
 | `test/e2e/` | the e2e tier: whole programs through a real link, in areas as the specs are, each with its recording |
@@ -91,5 +95,5 @@ a ruby with rubygems, when the gems change.
 | `test/runtime/` | programs that test the kernel through hand-written top levels |
 | `test/native/` | hand-written IR, and the disassembly snapshot |
 | `test/hir/` | programs and their HIR dumps |
-| `benchmark/` | the benchmarks: whole programs with their recordings, and the rungs that `rake compile` builds (`benchmark/compile/`); see `benchmark/README.md` |
+| `benchmark/` | the benchmarks: whole programs with their recordings, and the rungs that `zr-dev compile` builds (`benchmark/compile/`); see `benchmark/README.md` |
 | `tmp/` | not committed: the cache (`tmp/cache/`), the library tree, the test progress file, the bootstrap stages |

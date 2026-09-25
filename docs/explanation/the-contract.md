@@ -39,10 +39,10 @@ from one place: ruby 4.0.6, the version in `.ruby-version`. It never
 compares with a different implementation, and a person never writes an
 expected output by hand.
 
-Every literal that a spec asserts comes from ruby, and `rake oracle`
+Every literal that a spec asserts comes from ruby, and `zr-dev oracle`
 checks each one against ruby again. The whole programs in `test/e2e/`
 and `benchmark/` have ruby's output in their recordings, which
-`rake record` writes. zr records a program one time. If the correct
+`zr-dev record` writes. zr records a program one time. If the correct
 output changes, the program has changed, so it is a new program.
 
 The ports obey the same rule. Each one has its own area in
@@ -57,7 +57,7 @@ sample.
 ruby 4.0.6 is more than the reference. It runs the compiler. Its
 pure-Ruby standard library (its default and bundled gems, at the
 versions that `zr.gemspec` pins) is what a program's `require` reads.
-The generated tables (`rake gen:*`, `rake tables`) come from it. Thus
+The generated tables (`zr-dev gen`) come from it. Thus
 `zr build` and `zr run` refuse to compile on a different ruby, with
 status 3, and each generator task stops on one.
 
@@ -94,5 +94,5 @@ outputs:
   collector does not find fails at once, not rarely.
 - `ZR_MCACHE=verify` checks every inline cache hit against a fresh
   lookup.
-- `rake stage1` and `rake stage2` compile the compiler with itself and
-  compare bytes. See [Bootstrapping](bootstrapping.md).
+- `zr-dev stage 1` and `zr-dev stage 2` compile the compiler with
+  itself and compare bytes. See [Bootstrapping](bootstrapping.md).

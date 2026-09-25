@@ -36,7 +36,7 @@ jobs:
       # Every hit of the method cache checked against a fresh lookup,
       # over the specs that exercise dispatch.
       - name: Run the dispatch specs with the method cache verified
-        run: ZR_MCACHE=verify bundle exec rake test test/spec/compiler/cache test/spec/compiler/fusion test/spec/lang/methods test/spec/lang/singleton test/spec/lang/refinements
+        run: ZR_MCACHE=verify bundle exec bin/test test/spec/compiler/cache test/spec/compiler/fusion test/spec/lang/methods test/spec/lang/singleton test/spec/lang/refinements
       # rubygems stamps a gem's files with SOURCE_DATE_EPOCH where it is
       # set, and with the clock where not; the commit's own time makes
       # the same commit build the same .gem.
@@ -85,7 +85,7 @@ jobs:
       - uses: ./.github/actions/runtime-cache
       - name: Build the runtime for the checks
         run: bundle exec rake build
-      - run: bundle exec rake stage1
+      - run: bundle exec ruby tool/zr-dev.rb stage 1
 
   # One program built from two copies of the tree at two paths, under
   # another home, clock zone, locale and job count, with one path root:
@@ -102,7 +102,7 @@ jobs:
         with:
           ruby-version: .ruby-version
           bundler-cache: true
-      - run: bundle exec rake repro
+      - run: bundle exec ruby tool/zr-dev.rb repro
 
   linux:
     name: gem on a host without native builds (Linux)
@@ -172,7 +172,7 @@ jobs:
       # A slice of the spec tier on this target: the dispatch and the
       # String specs, where a libc or a link difference would show.
       - name: Run a slice of the specs for this target
-        run: docker exec -e TARGET=aarch64-linux-musl alpine bundle exec rake test test/spec/lang/methods test/spec/core/string
+        run: docker exec -e TARGET=aarch64-linux-musl alpine bundle exec bin/test test/spec/lang/methods test/spec/core/string
       - name: Write the linux tables again and compare
         run: |
           docker exec alpine wget -qO /tmp/mkconstants.rb https://raw.githubusercontent.com/ruby/ruby/03b6d3f8898a28604fe6cb00eae3226b821168f4/ext/socket/mkconstants.rb
@@ -204,7 +204,7 @@ jobs:
       # A slice of the spec tier as modules under Winch: the dispatch,
       # Array and Hash specs. The whole tier is hours of wasmtime.
       - name: Run a slice of the specs for this target
-        run: TARGET=wasm32-wasi bundle exec rake test test/spec/lang/methods test/spec/core/array test/spec/core/hash
+        run: TARGET=wasm32-wasi bundle exec bin/test test/spec/lang/methods test/spec/core/array test/spec/core/hash
 
   same-bytes:
     name: output does not depend on the host

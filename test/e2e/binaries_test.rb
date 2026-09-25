@@ -7,7 +7,7 @@ require "support/e2e"
 # `test/e2e/<suite>/<area>/`. The CLI builds it in a separate process,
 # and the test runs the binary. The expected output from ruby is next to
 # the program: `<name>.out`, and `<name>.err` and `<name>.status` when
-# they are not empty. `rake record` writes them. `Zr::E2E::HOW` gives the
+# they are not empty. `zr-dev record` writes them. `Zr::E2E::HOW` gives the
 # arguments and limits of the programs that need them.
 #
 # A build is a separate process that can use up to 3 GB. Thus this tier

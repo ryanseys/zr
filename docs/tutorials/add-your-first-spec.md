@@ -100,12 +100,12 @@ $ bin/test test/spec/lang/blocks
 
 ## Check your literal against ruby
 
-You typed the two lines by hand, so let ruby check them. `rake oracle`
-runs the program of each example under ruby and compares the output
-with the example's literal. It compiles nothing, so it is fast:
+You typed the two lines by hand, so let ruby check them. The oracle
+(`ruby tool/zr-dev.rb oracle`) runs the program of each example under
+ruby and compares the output with the example's literal. It compiles nothing, so it is fast:
 
 ```console
-$ rake 'oracle[test/spec/lang/blocks/enumeration_test.rb]'
+$ ruby tool/zr-dev.rb oracle test/spec/lang/blocks/enumeration_test.rb
 test/spec/lang/blocks/enumeration_test.rb    12 asked,  0 skipped, 0 apart
 12 example(s) asked, 0 skipped, 0 apart from ruby
 ```

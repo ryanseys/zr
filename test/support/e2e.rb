@@ -22,7 +22,7 @@ module Zr
   # A program is a plain `.rb` file that ruby can run. It has no header
   # or trailer. Its recording is next to it: `<name>.out`, and also
   # `<name>.err` and `<name>.status` when they are not empty.
-  # `rake record` writes them.
+  # `zr-dev record` writes them.
   module E2E
     ROOT = File.expand_path("../..", __dir__)
 
@@ -39,7 +39,7 @@ module Zr
     #   run_mb:    a memory limit for the run, above the usual one
     #   skip:      the reason that it does not run
     #
-    # `rake record` also reads this table, so ruby and zr run each program
+    # `zr-dev record` also reads this table, so ruby and zr run each program
     # with the same arguments, environment and input.
     HOW = {
       "core/process/argv_and_env" => { argv: %w[alpha beta], env: { "ZR_TEST_AOT_SMOKE" => "on" } },
@@ -93,7 +93,7 @@ module Zr
         return within(rb, runner, how, baselined) if baselined
 
         want = Harness::Answer.beside(rb)
-        skip "no recording: run `rake record[#{rel(rb)}]` first" unless want
+        skip "no recording: run `zr-dev record #{rel(rb)}` first" unless want
         skip "only on #{Array(how[:only]).join(", ")}" if how[:only] && !Array(how[:only]).include?(runner.platform)
         if (need = Array(how[:needs]).find { |name| !Harness::Needs.met?(name, runner.platform) })
           skip "needs #{need}, which this machine lacks"

@@ -25,9 +25,12 @@ module Zr
           text ? @summary = text : @summary
         end
 
-        # The words after the command's name in its usage line.
+        # The words after the command's name in its usage line. A subclass
+        # has its parent's usage unless it gives its own.
         def usage(text = nil)
-          text ? @usage = text : (@usage || "")
+          return @usage = text if text
+
+          @usage || (superclass.respond_to?(:usage) ? superclass.usage : "")
         end
 
         # Marks a tool that must run under CRuby, not in a binary that zr
@@ -53,7 +56,7 @@ module Zr
         rest = parser.parse(argv)
         run(rest) == false ? 1 : 0
       rescue OptionParser::ParseError => e
-        warn "zr-dev #{name}: #{e.message}", parser.to_s
+        warn "zr-dev #{name}: #{e.message}", parser
         2
       end
 
@@ -87,7 +90,7 @@ module Zr
       end
 
       def help
-        puts "usage: zr-dev #{name} <command> [options]", self.class.summary.to_s, ""
+        puts "usage: zr-dev #{name} <command> [options]", self.class.summary, ""
         width = self.class.commands.keys.map(&:size).max
         self.class.commands.each { |word, (summary, _)| puts format("  %-#{width}s  %s", word, summary) }
         0

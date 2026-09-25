@@ -12,7 +12,7 @@ Then run the example, and check your literal against ruby:
 
 ```console
 $ bin/test test/spec/core/string -n /squeeze/
-$ rake 'oracle[test/spec/core/string]'
+$ ruby tool/zr-dev.rb oracle test/spec/core/string
 ```
 
 The example fails or skips now. It is the proof of your fix. Cover the
@@ -98,7 +98,7 @@ nothing else changed:
 
 ```console
 $ bin/test test/spec/core/string
-$ rake affected
+$ ruby tool/zr-dev.rb affected
 ```
 
 ## Mark helpers and Ruby-written methods

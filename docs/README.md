@@ -32,8 +32,8 @@ Steps for a goal that you already have.
 Facts about commands, formats and layouts.
 
 - [The `zr` command](reference/cli.md)
-- [Rake tasks and scripts](reference/rake-tasks.md): `bin/setup`,
-  `bin/test`, `bin/console` and the rake tasks
+- [Tools](reference/tools.md): `bin/setup`, `bin/test`, `bin/console`,
+  the rake tasks and the `zr-dev` commands
 - [Environment variables](reference/environment-variables.md)
 - [Targets](reference/targets.md)
 - [Differences from ruby](reference/differences-from-ruby.md): what zr

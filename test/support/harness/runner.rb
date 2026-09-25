@@ -29,7 +29,7 @@ module Zr
 
 
       # `compiler` is the wasmtime compiler for a module: the tests'
-      # default, or Cranelift when run speed is the result (`rake bench`).
+      # default, or Cranelift when run speed is the result (`zr-dev bench`).
       def initialize(root, target = Target.default, compiler: Wasmtime.compiler)
         @root = root
         @target = target

@@ -13,7 +13,7 @@ module Zr
     # Keeps the binaries that the examples build, for the next run.
     #
     # On a warm cache, the build is more than half the time of an example.
-    # A build is a function of its inputs (`rake stage1` checks this). So
+    # A build is a function of its inputs (`zr-dev stage 1` checks this). So
     # each binary is kept in the cache under a key made from all its
     # inputs. A later run with the same key uses the kept binary and does
     # not build. This helps most after an edit to a spec, a fixture or a

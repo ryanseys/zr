@@ -11,7 +11,7 @@ require_relative "runner"
 
 module Zr
   module Harness
-    # `rake bench`: the run time of the binary that zr builds, compared
+    # `zr-dev bench`: the run time of the binary that zr builds, compared
     # with the run time of ruby, which made the recording.
     #
     # `benchmark/` contains whole programs, as `test/e2e` does: a `.rb`

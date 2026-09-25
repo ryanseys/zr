@@ -6,7 +6,7 @@ three groups:
 - [For users](#for-users): the `zr` command, and the programs it builds.
 - [For the tests](#for-the-tests): `bin/test`, the rake test tasks and
   the test harness.
-- [For tools](#for-tools): the other rake tasks.
+- [For tools](#for-tools): the `zr-dev` commands.
 
 A *flag* is a variable that is on or off. Unset or empty gives the
 default. `0` is off. Any other value is on (`Zr.flag?`).
@@ -15,7 +15,7 @@ default. `0` is off. Any other value is on (`Zr.flag?`).
 
 ### The compiler
 
-`zr`, and every rake task that compiles, read these.
+`zr`, and every rake task and `zr-dev` command that compiles, read these.
 
 | Variable | Values | Default | Effect |
 |---|---|---|---|
@@ -80,9 +80,9 @@ A program also reads the variables that ruby reads, for example
 | `ZR_TEST_BUILD_MB` | megabytes | 2048 | The memory limit for a build, summed over its process group. A whole program can have a higher limit with `build_mb:` in `Zr::E2E::HOW`. |
 | `ZR_TEST_RUN_MB` | megabytes | 1024 | The memory limit for a run. A whole program can have a higher limit with `run_mb:`. |
 | `ZR_TEST_BUILT` | flag | on | `0`: the run does not build or load the runtime before it forks its workers. Use it for a unit file that builds no program. A file that does build then builds the runtime cold. |
-| `ZR_TEST_BINARIES` | `0`, `1` | on for a native target | The spec tier keeps each example's binary in the cache, keyed by every input of its bytes. A later run of an unchanged example uses the kept binary and does not build. `1` also keeps WASI modules. `0` keeps nothing. `rake cache:prune` deletes old ones. |
+| `ZR_TEST_BINARIES` | `0`, `1` | on for a native target | The spec tier keeps each example's binary in the cache, keyed by every input of its bytes. A later run of an unchanged example uses the kept binary and does not build. `1` also keeps WASI modules. `0` keeps nothing. `zr-dev cache prune` deletes old ones. |
 | `ZR_TEST_BINARIES_GB` | gigabytes | 8 | The maximum size of the kept binaries. Before a tier starts, it deletes the ones used least recently. |
-| `ZR_TEST_WASM_COMPILER` | `winch`, `cranelift` | `winch` | The wasmtime compiler for the tests. Winch is wasmtime's baseline compiler. It compiles fast, and a test needs the output, not the speed. `rake bench` uses Cranelift. |
+| `ZR_TEST_WASM_COMPILER` | `winch`, `cranelift` | `winch` | The wasmtime compiler for the tests. Winch is wasmtime's baseline compiler. It compiles fast, and a test needs the output, not the speed. `zr-dev bench` uses Cranelift. |
 | `ZR_TEST_WASM_MEMORY` | bytes | 1 GiB | wasmtime's `max-memory-size` in the tests. |
 | `ZR_TEST_WASM_DEFECTS` | `0` | unset | `0` runs the wasm tests of `programs_test` that are known to fail, in place of a skip. |
 | `WASMTIME` | a command | `wasmtime` | The wasmtime that the tests run. |
@@ -94,11 +94,12 @@ A program also reads the variables that ruby reads, for example
 
 ## For tools
 
-The other rake tasks read these.
+The `zr-dev` commands read these. See [Tools](tools.md#zr-dev).
 
-| Variable | Task | Default | Effect |
+| Variable | Command | Default | Effect |
 |---|---|---|---|
-| `BASE` | `rake affected` | `main` | The revision to compare the working tree with. |
-| `MKCONSTANTS` | `rake tables` | none (required) | The path of `ext/socket/mkconstants.rb` in the ruby 4.0.6 source. |
-| `ZR_CACHE_DAYS` | `rake cache:prune` | 1 | Keeps cache files used in this many days. The task argument (`rake 'cache:prune[3]'`) has priority. |
-| `ZR_DISPATCH_TRACE` | `rake gen:dispatch` | off | A flag. Prints each call that the task tries. |
+| `RUBY_SRC` | `zr-dev gen` | `~/dev/github.com/ruby/ruby` | A CRuby checkout that has the commit `Zr::RUBY_REVISION` (`lib/zr/version.rb`). The generators read the C sources at that commit. |
+| `PRISM_SRC` | `zr-dev gen prism`, `zr-dev gen prism_encoding_tables` | `~/dev/prism`, else `tmp/prism-1.9.0` | A prism checkout that has the tag `v1.9.0`, or a release tree of prism 1.9.0. |
+| `MKCONSTANTS` | `zr-dev gen tables` | the file in `RUBY_SRC` | The path of a copy of `ext/socket/mkconstants.rb` from the ruby 4.0.6 source. |
+| `ZR_CACHE_DAYS` | `zr-dev cache prune` | 1 | Keeps cache files used in this many days. The `--days` option (`zr-dev cache prune --days 3`) has priority. |
+| `ZR_DISPATCH_TRACE` | `zr-dev spec dispatch` | off | A flag. Prints each call that the command tries. |

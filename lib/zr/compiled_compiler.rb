@@ -5,7 +5,7 @@ require_relative "paths"
 
 module Zr
   # The compiler that zr compiled, run in place of the one that ruby runs.
-  # It is the same code with the same output (`rake stage2` checks this),
+  # It is the same code with the same output (`zr-dev stage 2` checks this),
   # and a warm build is faster with it.
   #
   # `exe/zr` calls this module first. The compiled compiler runs a build

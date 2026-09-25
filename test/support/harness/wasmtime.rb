@@ -13,7 +13,7 @@ module Zr
     # module. With wasmtime 48.0.2, a 35 MB module took 17.6 s of CPU under
     # Cranelift and 2.8 s under Winch. The 131 MB module that includes eval
     # support took 70 s and 12 s. The output and exit status were the same.
-    # `rake bench` uses Cranelift, because there the speed is the result.
+    # `zr-dev bench` uses Cranelift, because there the speed is the result.
     # `ZR_TEST_WASM_COMPILER=cranelift` selects it for a tier.
     #
     # `lib` does not use this: `zr run` starts wasmtime with its defaults.

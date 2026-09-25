@@ -1,24 +1,25 @@
 # How to measure performance
 
 This guide shows you how to measure how fast zr's binaries run, and
-how fast zr builds them. The options of each task are in
-[Rake tasks and scripts](../reference/rake-tasks.md#performance).
+how fast zr builds them. The options of each command are in
+[Tools](../reference/tools.md#measure). This guide writes `zr-dev`
+for `ruby tool/zr-dev.rb`.
 
 ## Time the binaries
 
-`rake bench` builds each program in `benchmark/`, checks its output
+`zr-dev bench` builds each program in `benchmark/`, checks its output
 against the recording, and then times it beside `ruby` and
 `ruby --yjit`:
 
 ```console
-$ rake 'bench[fib tak nbody]'
-$ rake 'bench[--runs 5 fib]'
+$ ruby tool/zr-dev.rb bench fib tak nbody
+$ ruby tool/zr-dev.rb bench --runs 5 fib
 ```
 
 A program with a wrong output fails, and has no time. The report gives
 the median of the runs: `zr` is the binary's wall-clock time, and `cpu`
 is the user and system time of the binary itself, which other work on
-the machine does not change. The task measures each run with
+the machine does not change. The command measures each run with
 `Benchmark.measure` from the [benchmark](https://github.com/ruby/benchmark)
 gem, and forks nothing beside a timed run.
 
@@ -27,15 +28,15 @@ A run of all the benchmarks writes its report to
 commit. Commit the report, so that a later run can compare with it by
 revision. A run of some benchmarks writes `tmp/bench/latest.txt`.
 
-`rake bench:check` compares the newest report with the one before it,
-or the two reports that you give, as paths or as revisions. A program
+`zr-dev bench --check` compares the newest report with the one before
+it, or the two reports that you give, as paths or as revisions. A program
 of 100 ms or more whose wall-clock time changed by a tenth fails the
 check. A shorter program is only listed.
 
 ```console
-$ rake bench:check
-$ rake 'bench:check[caebda07 be347192]'
-$ rake 'bench:check[benchmark/results/20260922-0426-caebda07.txt tmp/bench/latest.txt]'
+$ ruby tool/zr-dev.rb bench --check
+$ ruby tool/zr-dev.rb bench --check caebda07 be347192
+$ ruby tool/zr-dev.rb bench --check benchmark/results/20260922-0426-caebda07.txt tmp/bench/latest.txt
 ```
 
 A time is valid only on the machine that measured it. Compare two
@@ -56,30 +57,40 @@ want to measure the cold build.
 
 ## Time the compiles
 
-`rake compile` is `rake bench` for the compiler. It builds each rung of
-`benchmark/compile/` and reports the seconds of each phase. Thus a
+`zr-dev compile` is `zr-dev bench` for the compiler. It builds each
+rung of `benchmark/compile/` and reports the seconds of each phase. Thus a
 change to the total shows which phase changed.
 
 ```console
-$ rake compile
-$ rake 'compile[--runs 5 bundler]'
-$ rake 'compile[--write]'          # writes the table to tmp/bench/compile.txt
+$ ruby tool/zr-dev.rb compile
+$ ruby tool/zr-dev.rb compile --runs 5 bundler
+$ ruby tool/zr-dev.rb compile --write   # writes the table to tmp/bench/compile.txt
 ```
 
 The rungs are a series of require graphs: `hello` requires nothing,
 `stdlib` requires six libraries, and `rubygems` and `bundler` require
-the two largest. The runtime is already built, and the task discards
+the two largest. The runtime is already built, and the command discards
 the first run of each rung.
+
+To guard the compiled compiler against a slowdown, keep a baseline.
+`--commit` writes one to `benchmark/results/compile/`, and `--check`
+fails if the compiler is slower than the newest baseline. Both need
+`--zr`:
+
+```console
+$ ruby tool/zr-dev.rb compile --zr --commit
+$ ruby tool/zr-dev.rb compile --zr --check
+```
 
 ## Measure the size of the generated code
 
-`rake codesize` counts the instructions that the backend writes for
+`zr-dev codesize` counts the instructions that the backend writes for
 the whole runtime. Save a run before your change, and compare after
 it:
 
 ```console
-$ rake 'codesize[--all]' > tmp/codesize-before.tsv
-$ rake 'codesize[tmp/codesize-before.tsv]'
+$ ruby tool/zr-dev.rb codesize --all > tmp/codesize-before.tsv
+$ ruby tool/zr-dev.rb codesize --against tmp/codesize-before.tsv
 ```
 
 ## Profile the compiler

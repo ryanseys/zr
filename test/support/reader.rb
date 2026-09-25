@@ -71,7 +71,7 @@ module Zr
 
       # The keywords are explicit, not `**kwargs`, and are the same as the
       # keywords of `Zr::Spec::DSL#zr`. Otherwise the reader accepts a
-      # misspelled keyword, and `rake oracle` passes a spec that no run
+      # misspelled keyword, and `zr-dev oracle` passes a spec that no run
       # can compile.
       def zr(source, path: nil, argv: [], env: {}, stdin: nil, files: {}, seconds: nil, ruby: [])
         given = { path: path, argv: argv, env: env, stdin: stdin, files: files,

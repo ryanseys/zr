@@ -80,4 +80,4 @@ The portable runtime calls a fixed set of OS functions, which
 | `runtime/core/os/<os>/` | the numbers that the OS gives the errno, IO, File and Process constants |
 | `runtime/ext/os/<os>/` | extension tables (fcntl, etc, socket) and the description |
 
-The table files come from the ruby of that OS (`rake tables`).
+The table files come from the ruby of that OS (`zr-dev gen tables`).
