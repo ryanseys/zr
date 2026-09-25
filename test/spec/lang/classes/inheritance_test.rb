@@ -1238,38 +1238,6 @@ describe "Classes: inheritance and ancestors" do
     OUT
   end
 
-  it "initialize copy super object" do
-    result = zr(<<~'RUBY')
-      # `super` inside initialize_copy whose only ancestor is Object: Object provides
-      # initialize_copy as a no-op copy hook, so super must not raise NoMethodError.
-      # clone/dup already deep-copies the struct before the user hook runs, so the
-      # original stays independent of the copy's later mutation.
-      class Board
-        def initialize
-          @table = [[1], [2]]
-        end
-        def initialize_copy(orig)
-          super
-          @table = @table.clone
-        end
-        def push_row
-          @table.push([9])
-        end
-        def size
-          @table.length
-        end
-      end
-
-      b = Board.new
-      c = b.clone
-      c.push_row
-      puts c.size
-      puts b.size
-    RUBY
-
-    _(result).must_answer "3\n2\n"
-  end
-
   it "initialize subclass construction" do
     result = zr(<<~'RUBY')
       # The reroute trap: builtin initialize rows must NOT make subclass
@@ -1484,45 +1452,6 @@ describe "Classes: inheritance and ancestors" do
       42
       false
       true
-    OUT
-  end
-
-  it "open class object" do
-    result = zr(<<~'RUBY')
-      # Issue #1306: reopening Object must not emit a second Object
-      # struct/constructor, and Object methods must dispatch for built-in
-      # receivers with the real receiver as `self`.
-
-      module ObjectGreeting
-        def hi
-          "hi from " + self.class.name
-        end
-      end
-
-      class Object
-        include ObjectGreeting
-
-        def global_hi
-          "global " + self.class.name
-        end
-      end
-
-      class LocalThing
-      end
-
-      puts "x".hi
-      puts "x".global_hi
-      puts 1.global_hi
-      puts [1, 2].global_hi
-      puts LocalThing.new.global_hi
-    RUBY
-
-    _(result).must_answer <<~'OUT'
-      hi from String
-      global String
-      global Integer
-      global Array
-      global LocalThing
     OUT
   end
 
@@ -1879,50 +1808,6 @@ describe "Classes: inheritance and ancestors" do
     RUBY
 
     _(result).must_answer "result\nbar\n"
-  end
-
-  it "subclass a runtime class" do
-    result = zr(<<~'RUBY')
-      class Point < Struct.new(:x, :y)
-        def dist2; x * x + y * y; end
-      end
-      p Point.new(3, 4).dist2
-      p Point.superclass.ancestors.include?(Struct)
-
-      Base = Class.new do
-        def greet; "base"; end
-      end
-      class Child < Base
-        def greet; "child+" + super; end
-      end
-      p Child.new.greet
-      p Child.superclass.equal?(Base)
-
-      D = Data.define(:v)
-      class D
-        def double; v * 2; end
-      end
-      p D.new(5).double
-
-      module NS; end
-      class NS::Item < Struct.new(:a)
-        def show; "a=#{a}"; end
-      end
-      p NS.constants
-      p NS::Item.name
-      p NS::Item.new(1).show
-    RUBY
-
-    _(result).must_answer <<~'OUT'
-      25
-      true
-      "child+base"
-      true
-      10
-      [:Item]
-      "NS::Item"
-      "a=1"
-    OUT
   end
 
   it "subclass of an allocatorless builtin defines but never builds" do

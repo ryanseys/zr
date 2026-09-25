@@ -94,25 +94,6 @@ describe "Exceptions: defining and naming methods" do
     _(result).must_answer "ensure ran\ncaught outside: boom\n"
   end
 
-  it "begin rescue catches and ensure always runs" do
-    result = zr(<<~'RUBY')
-      begin
-        puts "try"
-        raise ArgumentError, "bad"
-      rescue ArgumentError => e
-        puts "caught: #{e.send(:message)}"
-      ensure
-        puts "ensure ran"
-      end
-    RUBY
-
-    _(result).must_answer <<~'OUT'
-      try
-      caught: bad
-      ensure ran
-    OUT
-  end
-
   it "def in a rescue clause is not promised" do
     result = zr(<<~'RUBY')
       # The nested walk reaches a `rescue` clause, but reaching it is not the same as
@@ -226,26 +207,6 @@ describe "Exceptions: defining and naming methods" do
     OUT
   end
 
-  it "a subclass is caught by its parent's arm" do
-    result = zr(<<~'RUBY')
-      class AppError < StandardError
-      end
-      class ValidationError < AppError
-      end
-
-      begin
-        raise ValidationError, "bad input"
-      rescue AppError => e
-        puts "caught as AppError: #{e.send(:message)}"
-      end
-
-    RUBY
-
-    _(result).must_answer <<~'OUT'
-      caught as AppError: bad input
-    OUT
-  end
-
   it "one arm naming several classes catches any of them" do
     result = zr(<<~'RUBY')
       begin
@@ -312,29 +273,6 @@ describe "Exceptions: defining and naming methods" do
     OUT
   end
 
-  it "an ensure runs before the return it wraps" do
-    result = zr(<<~'RUBY')
-      class ReturnTester
-        def m
-          begin
-            raise "x"
-          rescue
-            return "returned"
-          ensure
-            puts "ensure ran before return"
-          end
-        end
-      end
-      puts ReturnTester.new.m
-
-    RUBY
-
-    _(result).must_answer <<~'OUT'
-      ensure ran before return
-      returned
-    OUT
-  end
-
   it "a rescue modifier supplies the value where the expression raises" do
     result = zr(<<~'RUBY')
       class Unsafe
@@ -358,7 +296,7 @@ describe "Exceptions: defining and naming methods" do
     OUT
   end
 
-  it "a rescue arm's value is the begin's value" do
+  it "an assignment takes the value of a rescue modifier when the call raises" do
     result = zr(<<~'RUBY')
       class TopRisk
         def risky_top
@@ -373,64 +311,6 @@ describe "Exceptions: defining and naming methods" do
     _(result).must_answer <<~'OUT'
       fallback
     OUT
-  end
-
-  it "an exception carries its own readers out through an inner arm and an outer one" do
-    result = zr(<<~'RUBY')
-      class MyError < StandardError
-        def initialize(msg, code)
-          super(msg)
-          @code = code
-        end
-        def code
-          @code
-        end
-      end
-
-      class Inner
-        def call
-          begin
-            raise MyError.new("failed with code 42", 42)
-          rescue MyError => e
-            puts "inner saw code #{e.send(:code)}"
-            raise
-          end
-        end
-      end
-
-      begin
-        Inner.new.call
-      rescue MyError => e
-        puts "outer saw code #{e.send(:code)}"
-        puts "outer message: #{e.send(:message)}"
-      end
-    RUBY
-
-    _(result).must_answer <<~'OUT'
-      inner saw code 42
-      outer saw code 42
-      outer message: failed with code 42
-    OUT
-  end
-
-  it "method level implicit rescue with no explicit begin end" do
-    result = zr(<<~'RUBY')
-      # `def m; ...; rescue => e; ...; end` -- `DefNode::body()` is directly a
-      # `BeginNode` with no `begin_keyword_loc` in this shape (confirmed via
-      # `Prism.parse`), flowing through the SAME `HirNode::Begin` lowering as
-      # an explicit `begin`.
-
-      class Worker
-        def safe
-          raise "oops"
-        rescue => e
-          "handled: #{e.send(:message)}"
-        end
-      end
-      puts Worker.new.safe
-    RUBY
-
-    _(result).must_answer "handled: oops\n"
   end
 
   it "missing method via send raises a rescuable no method error" do
@@ -500,18 +380,6 @@ describe "Exceptions: defining and naming methods" do
     RUBY
 
     _(result).must_answer "caught MyErr: boom\n"
-  end
-
-  it "rescue with multiple classes in one clause" do
-    result = zr(<<~'RUBY')
-      begin
-        raise TypeError, "wrong type"
-      rescue ArgumentError, TypeError => e
-        puts "caught one of: #{e.send(:message)}"
-      end
-    RUBY
-
-    _(result).must_answer "caught one of: wrong type\n"
   end
 
   it "singleton body begin rescue and self value" do

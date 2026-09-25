@@ -3,49 +3,11 @@
 require "spec_helper"
 
 describe "Boxes: defining and naming methods" do
-  it "box class method is invisible to main" do
-    result = zr(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
-
-
-      b = Ruby::Box.new
-      b.eval("class Array; def self.zzz = 9; end")
-      p Array.respond_to?(:zzz)
-      p(begin; Array.zzz; rescue NoMethodError; :nome; end)
-      p b.eval("Array.zzz")
-      p b.eval("Array.respond_to?(:zzz)")
-      p b.eval("Array.new(2, 7)")
-    RUBY
-
-    _(result).must_answer <<~'OUT'
-      false
-      :nome
-      9
-      true
-      [7, 7]
-    OUT
-  end
-
-  it "box instance method is invisible to main" do
-    result = zr(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
-
-
-      b = Ruby::Box.new
-      b.eval("class String; def shout = 'S'; end")
-      p "a".respond_to?(:shout)
-      p(begin; "a".shout; rescue NoMethodError; :nome; end)
-      p b.eval("'a'.shout")
-    RUBY
-
-    _(result).must_answer <<~'OUT'
-      false
-      :nome
-      "S"
-    OUT
-  end
-
   it "box removes only its own class method" do
     result = zr(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
-
+      # `remove_method` in a box's `class << self` retires the box's own row and
+      # leaves main's alone. The removal has to find the row first -- it asked
+      # about the overlay id and was told the method did not exist.
 
       b = Ruby::Box.new
       b.eval("class String; def self.zz = 1; end")
@@ -67,19 +29,6 @@ describe "Boxes: defining and naming methods" do
     RUBY
 
     _(result).must_answer "false\n"
-  end
-
-  it "box singleton class body is invisible to main" do
-    result = zr(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
-
-
-      b = Ruby::Box.new
-      b.eval("class Hash; class << self; def qq = 1; end; end")
-      p Hash.respond_to?(:qq)
-      p b.eval("Hash.qq")
-    RUBY
-
-    _(result).must_answer "false\n1\n"
   end
 
   it "box singleton define method reaches main" do
@@ -188,24 +137,6 @@ describe "Boxes: defining and naming methods" do
     RUBY
 
     _(result).must_answer "false\n1\n"
-  end
-
-  it "class a box owns answers main" do
-    result = zr(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
-
-
-      b = Ruby::Box.new
-      b.eval("class Owned; def self.go = 'go'; def inst = 'i'; end")
-      p b::Owned.go
-      p b::Owned.new.inst
-      p b::Owned.respond_to?(:go)
-    RUBY
-
-    _(result).must_answer <<~'OUT'
-      "go"
-      "i"
-      true
-    OUT
   end
 
   it "class the box owns answers main" do

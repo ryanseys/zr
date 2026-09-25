@@ -30,20 +30,6 @@ describe "Variables programs" do
     _(result).must_answer "[world]\nok\n"
   end
 
-  it "assignment rescue modifier" do
-    result = zr(<<~'RUBY')
-      class TopRisk
-        def risky_top
-          raise "bad"
-        end
-      end
-      x = TopRisk.new.risky_top rescue "fallback"
-      puts x
-    RUBY
-
-    _(result).must_answer "fallback\n"
-  end
-
   it "backref globals are frame local" do
     result = zr(<<~'RUBY')
       # CRuby scopes $~ (and so $1/$&/$`/$') per method frame (the svar slot on the

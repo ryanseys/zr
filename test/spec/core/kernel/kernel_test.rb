@@ -82,22 +82,6 @@ describe "Kernel programs" do
     _(result).must_answer "Parent(default)\nParent(given)\n"
   end
 
-  it "boxs kernel method is not callable in main" do
-    result = zr(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
-      # A module reopened inside a box keeps its methods there -- `Kernel` is the
-      # sharpest case, since a leak would give every object in main a new method.
-
-
-
-      b = Ruby::Box.new
-      b.eval("module Kernel; def kmeth = 1; end")
-      p(begin; kmeth; rescue NoMethodError, NameError; :nome; end)
-      p b.eval("kmeth")
-    RUBY
-
-    _(result).must_answer ":nome\n1\n"
-  end
-
   it "break bubbles through nested begins to the outer loop" do
     result = zr(<<~'RUBY')
       # An inner `begin` (loop labels cleared) `?`-propagates the `break` up to
@@ -2275,54 +2259,6 @@ describe "Kernel programs" do
       0
       3
       5
-    OUT
-  end
-
-  it "value subclass conversions" do
-    result = zr(<<~'RUBY')
-      class S < String; end
-      class A < Array; end
-      class H < Hash; end
-      s = S.new("x"); a = A.new([1]); h = H.new
-
-      # Identity CONVERSIONS demote to the base class...
-      puts s.to_s.class
-      puts s.to_str.class
-      puts a.to_a.class
-      puts h.to_h.class
-
-      # ...but their near-twins return self, keeping the subclass.
-      puts a.to_ary.class
-      puts h.to_hash.class
-
-      # Self-returning mutators still re-wrap.
-      puts a.dup.push(2).class
-      puts s.dup.concat("y").class
-
-      # A derived value stays a plain base-class object.
-      puts s.upcase.class
-      puts a.map { |v| v }.class
-
-      # The crash this fixed: a subclass whose <=> reads to_s never reached a
-      # plain String, so the user method re-dispatched until the stack died.
-      class Backwards < String
-        def <=>(o); o.to_s <=> to_s; end
-      end
-      p [Backwards.new("aaa"), Backwards.new("bbb")].sort.map(&:to_s)
-    RUBY
-
-    _(result).must_answer <<~'OUT'
-      String
-      String
-      Array
-      Hash
-      A
-      H
-      A
-      S
-      String
-      Array
-      ["bbb", "aaa"]
     OUT
   end
 

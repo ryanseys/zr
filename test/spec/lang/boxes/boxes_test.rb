@@ -48,7 +48,9 @@ describe "Boxes programs" do
 
   it "box class method is absent from mains reflection" do
     result = zr(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
-
+      # Reflection agrees with dispatch. A name the box defined must not appear
+      # in main's `singleton_methods`, which reads a name set with no box axis of
+      # its own.
 
       b = Ruby::Box.new
       b.eval("class Array; def self.zzz = 1; end")
@@ -86,7 +88,9 @@ describe "Boxes programs" do
 
   it "box constant on a shared class is its own" do
     result = zr(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
-
+      # A constant written on a SHARED class inside a box, read back by path.
+      # `Array::BOXC` is a scope-operator read rather than a cref walk, so it is
+      # a different path into the same table.
 
       b = Ruby::Box.new
       b.eval("class Array; BOXC = 11; end")
@@ -219,7 +223,8 @@ describe "Boxes programs" do
 
   it "box include is invisible to main" do
     result = zr(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
-
+      # `include` from inside a box reaches the class's ancestry rather than its
+      # own tables, and stays the box's.
 
       b = Ruby::Box.new
       b.eval("module BoxMix; def mixed = 'm'; end; class Array; include BoxMix; end")
@@ -450,24 +455,6 @@ describe "Boxes programs" do
     RUBY
 
     _(result).must_answer "2\n99\n"
-  end
-
-  it "box removes only its own class method 2" do
-    result = zr(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
-      # `remove_method` in a box's `class << self` retires the box's own row and
-      # leaves main's alone. The removal has to find the row first -- it asked
-      # about the overlay id and was told the method did not exist.
-
-
-
-      b = Ruby::Box.new
-      b.eval("class String; def self.zz = 1; end")
-      b.eval("class String; class << self; remove_method :zz; end; end")
-      p(begin; b.eval("String.zz"); rescue NoMethodError; :nome; end)
-      p String.respond_to?(:zz)
-    RUBY
-
-    _(result).must_answer ":nome\nfalse\n"
   end
 
   it "box reopen after the first loses its mixin" do

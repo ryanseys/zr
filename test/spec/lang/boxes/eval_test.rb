@@ -75,7 +75,8 @@ describe "Boxes: evaluating a string" do
 
   it "box kernel method is invisible to main" do
     result = zr(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
-
+      # A module reopened inside a box keeps its methods there -- `Kernel` is the
+      # sharpest case, since a leak would give every object in main a new method.
 
       b = Ruby::Box.new
       b.eval("module Kernel; def kmeth = 1; end")
@@ -151,26 +152,6 @@ describe "Boxes: evaluating a string" do
       2
       ["eval", 1]
       "eval_test.rb"
-    OUT
-  end
-
-  it "two boxes patch one class independently" do
-    result = zr(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
-
-
-      a = Ruby::Box.new
-      b = Ruby::Box.new
-      a.eval("class Array; def self.who = 'a'; end")
-      b.eval("class Array; def self.who = 'b'; end")
-      p a.eval("Array.who")
-      p b.eval("Array.who")
-      p(begin; Array.who; rescue NoMethodError; :nome; end)
-    RUBY
-
-    _(result).must_answer <<~'OUT'
-      "a"
-      "b"
-      :nome
     OUT
   end
 

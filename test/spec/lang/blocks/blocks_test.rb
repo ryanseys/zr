@@ -2462,31 +2462,6 @@ describe "Blocks programs" do
     _(result).must_answer "77\n"
   end
 
-  it "proc block param call" do
-    result = zr(<<~'RUBY')
-      # A proc's own &block param (#2648): the caller's literal block rides the
-      # _sp_proc_blk side-channel into the callee's prologue; calling without a
-      # block binds nil.
-      p(->(&b) { b.call(9) }.call { |x| x + 1 })
-      f = ->(&b) { b.nil? ? "none" : b.call(1) }
-      p f.call
-      p(f.call { |x| x * 100 })
-      g = ->(a, &b) { a + b.call(a) }
-      p(g.call(5) { |x| x * 2 })
-      # the passed block captures an enclosing local (lifted like any escaping block)
-      base = 50
-      p(->(&b) { b.call(3) }.call { |x| base + x })
-    RUBY
-
-    _(result).must_answer <<~'OUT'
-      10
-      "none"
-      100
-      15
-      53
-    OUT
-  end
-
   it "proc call splat" do
     result = zr(<<~'RUBY')
       pr = ->(a, b, c) { a + b + c }

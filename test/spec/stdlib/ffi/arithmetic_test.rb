@@ -129,38 +129,6 @@ describe "FFI: arithmetic" do
     _(result).must_answer "40\n"
   end
 
-  it "a program that attaches libc functions runs the same under CRuby with the gem and under zr" do
-    result = zr(<<~'RUBY')
-      # Real `ffi` gem API, AOT-compiled (#204): `attach_function` emits a
-      # compile-time `extern "C"` + `#[link]`; the program runs identically under
-      # CRuby+ffi and zr.
-      require "ffi"
-
-      module LibC
-        extend FFI::Library
-        ffi_lib FFI::Library::LIBC
-        attach_function :abs, [:int], :int
-        attach_function :my_strlen, :strlen, [:string], :ulong
-      end
-
-      module LibM
-        extend FFI::Library
-        ffi_lib "m"
-        attach_function :pow, [:double, :double], :double
-      end
-
-      puts LibC.abs(-7)
-      puts LibC.my_strlen("hello world")
-      puts LibM.pow(2.0, 10.0)
-    RUBY
-
-    _(result).must_answer <<~'OUT'
-      7
-      11
-      1024.0
-    OUT
-  end
-
   it "MemoryPointer reads, writes, pointer arithmetic, typed arrays, and an out-of-bounds IndexError" do
     result = zr(<<~'RUBY')
       # FFI `FFI::MemoryPointer`: an owned heap buffer with typed

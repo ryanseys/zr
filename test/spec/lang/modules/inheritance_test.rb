@@ -3,25 +3,6 @@
 require "spec_helper"
 
 describe "Modules: inheritance and ancestors" do
-  it "boxs include is invisible to main" do
-    result = zr(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
-      # `include` from inside a box reaches the class's ancestry rather than its
-      # own tables, and stays the box's.
-
-
-
-      b = Ruby::Box.new
-      b.eval("module BoxMix; def mixed = 'm'; end; class Array; include BoxMix; end")
-      p [].respond_to?(:mixed)
-      p b.eval("[].mixed")
-    RUBY
-
-    _(result).must_answer <<~'OUT'
-      false
-      "m"
-    OUT
-  end
-
   it "builtin ancestors are cruby exact" do
     result = zr(<<~'RUBY')
       # THE keystone parity test: `.ancestors` for every core class, byte-

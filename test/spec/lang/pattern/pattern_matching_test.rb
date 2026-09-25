@@ -1324,69 +1324,6 @@ describe "Pattern: pattern matching" do
     OUT
   end
 
-  it "a capture binds the value the pattern matched" do
-    result = zr(<<~'RUBY')
-      case 5
-      in Integer => n
-        puts n + 1
-      end
-
-    RUBY
-
-    _(result).must_answer <<~'OUT'
-      6
-    OUT
-  end
-
-  it "an array pattern binds each element it names" do
-    result = zr(<<~'RUBY')
-      case [1, 2, 3]
-      in [Integer => a, *rest]
-        puts a
-        puts rest.length
-      end
-
-    RUBY
-
-    _(result).must_answer <<~'OUT'
-      1
-      2
-    OUT
-  end
-
-  it "a leading splat binds everything ahead of the fixed tail" do
-    result = zr(<<~'RUBY')
-      case [1, 2, 3, 4, 5]
-      in [*pre, 3, *post]
-        puts pre.length
-        puts post.length
-      end
-
-    RUBY
-
-    _(result).must_answer <<~'OUT'
-      2
-      2
-    OUT
-  end
-
-  it "a pin compares against the value the local already holds" do
-    result = zr(<<~'RUBY')
-      x = 5
-      case 10
-      in ^x
-        puts "same as x"
-      else
-        puts "different"
-      end
-
-    RUBY
-
-    _(result).must_answer <<~'OUT'
-      different
-    OUT
-  end
-
   it "a range pattern matches by cover, and binds nothing" do
     result = zr(<<~'RUBY')
       case 3
@@ -1430,23 +1367,6 @@ describe "Pattern: pattern matching" do
       even int 4
       odd int
       string
-    OUT
-  end
-
-  it "an alternative pattern binds the arm that matched" do
-    result = zr(<<~'RUBY')
-      h = { a: 1, b: 2, c: 3 }
-      case h
-      in { a: Integer => av, **rest }
-        puts av
-        puts rest.length
-      end
-
-    RUBY
-
-    _(result).must_answer <<~'OUT'
-      1
-      2
     OUT
   end
 
@@ -1538,7 +1458,7 @@ describe "Pattern: pattern matching" do
     OUT
   end
 
-  it "a find pattern binds the run it found" do
+  it "a rightward array pattern binds each element" do
     result = zr(<<~'RUBY')
       arr = [1, 2]
       arr => [first, second]

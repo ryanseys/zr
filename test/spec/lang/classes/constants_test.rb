@@ -19,23 +19,6 @@ describe "Classes: constants" do
     _(result).must_answer "3\n5\n"
   end
 
-  it "boxs constant on a shared class is its own" do
-    result = zr(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
-      # A constant written on a SHARED class inside a box, read back by path.
-      # `Array::BOXC` is a scope-operator read rather than a cref walk, so it is
-      # a different path into the same table.
-
-
-
-      b = Ruby::Box.new
-      b.eval("class Array; BOXC = 11; end")
-      p(begin; Array::BOXC; rescue NameError; :namee; end)
-      p b.eval("Array::BOXC")
-    RUBY
-
-    _(result).must_answer ":namee\n11\n"
-  end
-
   it "class allocate builtin var" do
     result = zr(<<~'RUBY')
       # Class#allocate on builtin classes yields the class's empty value, and a

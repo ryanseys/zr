@@ -158,23 +158,6 @@ describe "String: blocks and yields" do
     OUT
   end
 
-  it "proc source location is a string integer pair" do
-    result = zr(<<~'RUBY')
-      loc = ->(x) { x }.source_location
-      p loc.class
-      p loc.length
-      p loc[0].class
-      p loc[1].class
-    RUBY
-
-    _(result).must_answer <<~'OUT'
-      Array
-      2
-      String
-      Integer
-    OUT
-  end
-
   it "rational and complex parse string arguments" do
     result = zr(<<~'RUBY')
       p Rational("3/4")

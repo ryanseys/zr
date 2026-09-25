@@ -244,25 +244,6 @@ describe "Modules: changing in place" do
     OUT
   end
 
-  it "an included module supplies a method the class does not write" do
-    result = zr(<<~'RUBY')
-      class Animal
-        def speak
-          "generic"
-        end
-      end
-
-      class Dog < Animal
-      end
-      puts Dog.new.speak
-
-    RUBY
-
-    _(result).must_answer <<~'OUT'
-      generic
-    OUT
-  end
-
   it "the class's own method wins over an included module's" do
     result = zr(<<~'RUBY')
       class Animal

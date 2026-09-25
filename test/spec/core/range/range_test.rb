@@ -514,25 +514,6 @@ describe "Range programs" do
     OUT
   end
 
-  it "endless method rescue modifier" do
-    result = zr(<<~'RUBY')
-      class Unsafe
-        def op(n)
-          raise "negative" if n < 0
-          n * 2
-        end
-      end
-      class Calc
-        def safe_op(n) = Unsafe.new.op(n) rescue -1
-      end
-      c = Calc.new
-      puts c.safe_op(5)
-      puts c.safe_op(-5)
-    RUBY
-
-    _(result).must_answer "10\n-1\n"
-  end
-
   it "enumerator produce endless generator" do
     result = zr(<<~'RUBY')
       # Enumerator.produce(initial) { |prev| ... } yields initial, then each

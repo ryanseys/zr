@@ -63,31 +63,6 @@ describe "Object programs" do
     OUT
   end
 
-  it "boolean and or return the operand not a bool" do
-    result = zr(<<~'RUBY')
-      # Ruby's `&&`/`||` return the actual operand, not a coerced bool --
-      # `false && x` is `false`, but `5 && x` is `x`, not `true`.
-
-      x = 5
-      y = 3
-      puts((x > y) && :yes)
-      puts((x < y) && :yes)
-      puts((x < y) || :fallback)
-      puts((x > y) || :fallback)
-      puts(!(x > y))
-      puts(!(x < y))
-    RUBY
-
-    _(result).must_answer <<~'OUT'
-      yes
-      false
-      fallback
-      true
-      false
-      true
-    OUT
-  end
-
   it "break from a block passed to a singleton method returns from it" do
     result = zr(<<~'RUBY')
       # `break` in the block yields the method's return value -- the method-body
@@ -840,6 +815,11 @@ describe "Object programs" do
 
   it "module metaprogramming" do
     result = zr(<<~'RUBY')
+      # attr (== attr_reader), class_eval/module_exec block forms whose
+      # added methods are inherited by subclasses and includers, and an
+      # invented ivar (assigned by a class_eval/instance_exec body, never
+      # declared on the struct) surviving in the per-object overflow map.
+
       class C001
         attr :x
         def initialize; @x = 5; end
@@ -1161,30 +1141,6 @@ describe "Object programs" do
       matched with capture 7
       true
     OUT
-  end
-
-  it "safe navigation on a non nil receiver" do
-    result = zr(<<~'RUBY')
-      # Only proves `&.` doesn't regress a normal, statically-typed dispatch --
-      # a receiver that's *actually* nil at runtime needs a nilable/union type
-      # the compiler's `TyKind` doesn't have yet (every `New` is unconditionally
-      # a concrete `Object(ClassId)`, never possibly-nil), so that half of
-      # `&.`'s behavior isn't testable end to end until then.
-
-      class Box
-        def initialize(value)
-          @value = value
-        end
-        def value
-          @value
-        end
-      end
-
-      b = Box.new(:present)
-      puts(b&.value)
-    RUBY
-
-    _(result).must_answer "present\n"
   end
 
   it "a def on a constant receiver installs on that object alone" do

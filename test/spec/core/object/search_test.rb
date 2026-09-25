@@ -3,23 +3,6 @@
 require "spec_helper"
 
 describe "Object: searching and matching" do
-  it "boxs class method is absent from mains reflection" do
-    result = zr(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
-      # Reflection agrees with dispatch. A name the box defined must not appear
-      # in main's `singleton_methods`, which reads a name set with no box axis of
-      # its own.
-
-
-
-      b = Ruby::Box.new
-      b.eval("class Array; def self.zzz = 1; end")
-      p Array.singleton_methods(false).include?(:zzz)
-      p b.eval("Array.singleton_methods(false).include?(:zzz)")
-    RUBY
-
-    _(result).must_answer "false\ntrue\n"
-  end
-
   it "core method owners match", only: "macos" do
     result = zr(<<~'RUBY')
 

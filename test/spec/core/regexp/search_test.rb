@@ -1135,17 +1135,6 @@ describe "Regexp: searching and matching" do
     _(result).must_answer "matched\ndid not match\n"
   end
 
-  it "match required one liner binds on success" do
-    result = zr(<<~'RUBY')
-      arr = [1, 2]
-      arr => [first, second]
-      puts first
-      puts second
-    RUBY
-
-    _(result).must_answer "1\n2\n"
-  end
-
   it "match required one liner raises no matching pattern error on failure" do
     result = zr("5 => String\n")
 
@@ -3831,30 +3820,6 @@ describe "Regexp: searching and matching" do
       2
       c
       3
-    OUT
-  end
-
-  it "small api wins" do
-    result = zr(<<~'RUBY')
-      require "set"
-      m = "2026-06".match(/(\d+)-(\d+)/)
-      p m.size
-      p m.length
-      p Set[1, 2, 3].join("-")
-      p Complex::I
-      p(Complex::I * Complex::I)
-      p 5.method(:+).source_location
-      p 5.method(:+).super_method
-    RUBY
-
-    _(result).must_answer <<~'OUT'
-      3
-      3
-      "1-2-3"
-      (0+1i)
-      (-1+0i)
-      nil
-      nil
     OUT
   end
 
