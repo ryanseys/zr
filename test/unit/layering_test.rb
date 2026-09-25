@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require "test_helper"
-require "pathname"
 
 # The compiler's layers are the first directory under `lib/zr` (hir, ir,
 # lower, machine, backend, obj, native, eval, libraries, prism_backend),
