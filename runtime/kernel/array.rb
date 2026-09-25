@@ -994,6 +994,9 @@ machine def zr_ary_splice(a, beg_v, len_v, vals)
       return zr_raise_buf(zr_global(G_INDEX_ERROR), b)
     end
   end
+  # The length of `vals` before the fill, which grows `vals` too when it
+  # is `a` itself.
+  m = RArray.len(vals)
   if beg > n
     zr_ary_store(a, beg - 1, Machine.value(QNIL))
     n = beg
@@ -1001,7 +1004,6 @@ machine def zr_ary_splice(a, beg_v, len_v, vals)
   if beg + len > n
     len = n - beg
   end
-  m = RArray.len(vals)
   # At the front, the elements do not move and `ptr` moves: a shift
   # leaves a gap, and an unshift that fits uses the gap again.
   if beg == 0 && m <= len
