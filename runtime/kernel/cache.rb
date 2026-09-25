@@ -42,7 +42,8 @@ Machine.struct :IvarCache, index: Word
 # so a site with receivers from a few classes gets a hit for each.
 # `shape` tells what a site can do in place of the call. SHAPE_READER and
 # SHAPE_WRITER: the site reads or writes an accessor's ivar itself
-# (`Zr::Lower::Function::Sends#accessor_in_place`). The other shapes: the
+# (`Zr::Lower::Function::Sends#accessor_in_place`), and so for a struct
+# member with SHAPE_STRUCT_READER and SHAPE_STRUCT_WRITER. The other shapes: the
 # site does one of the core's type checks itself (`#in_place`).
 # SHAPE_NONE is for all other kinds, and for a cache entry not yet filled.
 Machine.struct :CallCache, klass: Value, stamp: Word, entry: Ptr, found: Value, fn: Ptr, shape: Word, direct: Ptr
@@ -66,6 +67,11 @@ SHAPE_EQQ = 11
 # The builtin Class#new. A `new` site allocates the object and sends
 # `initialize` itself (`Zr::Lower::Function::Sends#new_send`).
 SHAPE_NEW = 12
+# A struct member's reader and writer (runtime/kernel/struct.rb). The
+# site reads or writes the member in the values Array itself, through
+# the same guessed ivar entry as for an accessor.
+SHAPE_STRUCT_READER = 13
+SHAPE_STRUCT_WRITER = 14
 Machine.struct :ConstCache, key: Value, stamp: Word, value: Value
 # The cache entry of a `super` site. The ancestor list node that the
 # method runs from and the name together decide the next method. The
@@ -237,6 +243,12 @@ machine def zr_entry_shape(klass, e)
   end
   if kind == KIND_ATTR_WRITER
     return SHAPE_WRITER
+  end
+  if kind == KIND_STRUCT_AREF
+    return SHAPE_STRUCT_READER
+  end
+  if kind == KIND_STRUCT_ASET
+    return SHAPE_STRUCT_WRITER
   end
   if kind != KIND_BUILTIN
     return SHAPE_NONE

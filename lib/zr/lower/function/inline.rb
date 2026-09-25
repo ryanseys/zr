@@ -352,8 +352,9 @@ module Zr
         end
 
         # A reader through the def's own cell. If the receiver is a cell
-        # whose class the cell has at the site stamp, with a reader's
-        # shape, read the ivar inline. All other cases bail.
+        # whose class the cell has at the site stamp, with the shape of a
+        # reader or of a struct member's reader, read the ivar or the member
+        # inline. All other cases bail.
         def spec_reader(node, recv, merge)
           cc = site_cache(node, "ic", "CallCache", Sends::CALL_WAYS)
           cell = @l.layout("CallCache")
@@ -365,9 +366,10 @@ module Zr
           klass = @f.fetch("i64", recv, off(@l.layout("RBasic"), "klass"))
           @f.brif(cell_hit(cc, klass), hit, @inline_bail)
           switch(hit)
-          @f.brif(@f.icmp("eq", @f.fetch("i64", cc, off(cell, "shape")), imm(@l.const("SHAPE_READER"))), shaped, @inline_bail)
+          held = @f.fetch("i64", cc, off(cell, "shape"))
+          @f.brif(@f.bor(@f.icmp("eq", held, imm(@l.const("SHAPE_READER"))), struct_member?(:reader, held)), shaped, @inline_bail)
           switch(shaped)
-          accessor_in_place(:reader, recv, @f.fetch("i64", cc, off(cell, "entry")), nil, merge, @inline_bail)
+          accessor_in_place(:reader, recv, @f.fetch("i64", cc, off(cell, "entry")), nil, merge, @inline_bail, held)
         end
 
         # An operator on two fixnums under its gate. `==` and `!=` by

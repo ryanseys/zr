@@ -17,21 +17,15 @@ class Struct
 
       klass = Class.new(self)
       Primitive.zr_define_alloc(klass)
-      Struct.const_set(name, klass) if name
+      # The members come first, where the kernel looks first
+      # (zr_struct_row).
       Primitive.zr_hidden_set(klass, :__members__, members.freeze)
       Primitive.zr_hidden_set(klass, :__keyword_init__, keyword_init)
+      Struct.const_set(name, klass) if name
       klass.define_singleton_method(:new, Class.instance_method(:new))
       klass.define_singleton_method(:[], Class.instance_method(:new))
-      klass.define_singleton_method(:members) do
-        k = self
-        k = k.superclass until Primitive.zr_hidden_get(k, :__members__)
-        Primitive.zr_hidden_get(k, :__members__).dup
-      end
-      klass.define_singleton_method(:keyword_init?) do
-        k = self
-        k = k.superclass until Primitive.zr_hidden_get(k, :__members__)
-        Primitive.zr_hidden_get(k, :__keyword_init__)
-      end
+      klass.define_singleton_method(:members) { Primitive.zr_struct_members(self).dup }
+      klass.define_singleton_method(:keyword_init?) { Primitive.zr_struct_keyword_init(self) }
       klass.define_singleton_method(:inspect) { keyword_init? ? "#{self}(keyword_init: true)" : to_s }
       # The accessors are entries of the kernel's (runtime/kernel/struct.rb).
       Primitive.zr_struct_readers(klass, members)
@@ -71,32 +65,28 @@ class Struct
     end
   end
 
+  # The values come from the kernel (zr_struct_values), which makes them
+  # for an allocated struct at the first read, so a member returns nil
+  # before any initialize runs.
+  #
+  # `initialize` is an entry of the kernel's (runtime/kernel/struct.rb,
+  # zr_struct_initialize). It makes the values of a call by position
+  # itself, and sends all other calls here.
+  Primitive.zr_struct_builtins(self)
+
   # Sizes come from the kernel: a program that patches Array#size or
   # Hash#empty? cannot reach inside the constructor, as it cannot in
-  # CRuby's C.
-  # An allocated struct has no store yet; the first read makes one, so a
-  # member returns nil before any initialize runs.
-  def values_store
-    Primitive.attr! :hidden
-    store = Primitive.zr_hidden_get(self, :__values__)
-    return store if store
-
-    store = Array.new(Primitive.zr_ary_len_m(member_names))
-    Primitive.zr_hidden_set(self, :__values__, store)
-    store
-  end
-  private :values_store
-
-  # `members`, and not the class's, which returns a copy: nothing here
-  # changes the entry, and rb_struct_initialize also reads the class's
-  # own. The values bind by index rather than by each_with_index, which
+  # CRuby's C. `members`, and not the class's, which returns a copy:
+  # nothing here changes the entry, and rb_struct_initialize also reads
+  # the class's own. The values bind by index rather than by each_with_index, which
   # would cost an Array and a Proc per call.
-  def initialize(*args, **keywords)
+  def initialize_members(*args, **keywords)
+    Primitive.attr! :hidden
     members = member_names
     count = Primitive.zr_ary_len_m(members)
     values = Array.new(count)
     Primitive.zr_hidden_set(self, :__values__, values)
-    keyword_init = Primitive.zr_real_class(self).keyword_init?
+    keyword_init = Primitive.zr_struct_keyword_init(Primitive.zr_real_class(self))
     given = Primitive.zr_ary_len_m(args)
     # Keywords are a value by position when keyword_init says so, and
     # when it says nothing but values came by position too.
@@ -123,9 +113,11 @@ class Struct
     end
   end
 
+  private :initialize_members
+
   def initialize_copy(other)
     super
-    Primitive.zr_hidden_set(self, :__values__, other.send(:values_store).dup)
+    Primitive.zr_hidden_set(self, :__values__, Primitive.zr_struct_values(other).dup)
     self
   end
 
@@ -136,13 +128,11 @@ class Struct
   # subclass's own `members`, instance or class, is not called.
   def member_names
     Primitive.attr! :hidden
-    k = Primitive.zr_real_class(self)
-    k = k.superclass until Primitive.zr_hidden_get(k, :__members__)
-    Primitive.zr_hidden_get(k, :__members__)
+    Primitive.zr_struct_members(Primitive.zr_real_class(self))
   end
   private :member_names
 
-  def to_a = values_store.dup
+  def to_a = Primitive.zr_struct_values(self).dup
   alias deconstruct to_a
   alias values to_a
 
@@ -150,31 +140,31 @@ class Struct
   alias length size
 
   def [](key)
-    values_store[member_index(key)]
+    Primitive.zr_struct_values(self)[member_index(key)]
   end
 
   def []=(key, value)
     Primitive.zr_frozen_error(self) if frozen?
-    values_store[member_index(key)] = value
+    Primitive.zr_struct_values(self)[member_index(key)] = value
   end
 
   def each(&block)
     return to_enum(:each) { size } unless block
 
-    values_store.each(&block)
+    Primitive.zr_struct_values(self).each(&block)
     self
   end
 
   def each_pair
     return to_enum(:each_pair) { size } unless block_given?
 
-    values = values_store
+    values = Primitive.zr_struct_values(self)
     member_names.each_with_index { |m, i| yield [m, values[i]] }
     self
   end
 
   def to_h(&block)
-    pairs = member_names.zip(values_store)
+    pairs = member_names.zip(Primitive.zr_struct_values(self))
     block ? pairs.to_h(&block) : pairs.to_h
   end
 
@@ -184,7 +174,7 @@ class Struct
     names = member_names
     return {} if keys.size > names.size
 
-    values = values_store
+    values = Primitive.zr_struct_values(self)
     out = {}
     keys.each do |k|
       i = k.is_a?(Symbol) ? names.index(k) : nil
@@ -195,13 +185,13 @@ class Struct
     out
   end
 
-  def values_at(*indexes) = values_store.values_at(*indexes)
+  def values_at(*indexes) = Primitive.zr_struct_values(self).values_at(*indexes)
 
   def dig(key, *rest)
     # A member this struct does not hold is a miss, not an error, which
     # is what makes `dig` safe to chain.
     v = if key.is_a?(Integer) then at_or_nil(key)
-        elsif (i = member_names.index(key.to_sym)) then values_store[i]
+        elsif (i = member_names.index(key.to_sym)) then Primitive.zr_struct_values(self)[i]
         end
     return v if rest.empty? || v.nil?
 
@@ -212,7 +202,7 @@ class Struct
     raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 0)" unless args.empty?
     return to_enum(:select) { size } unless block
 
-    values_store.select(&block)
+    Primitive.zr_struct_values(self).select(&block)
   end
   alias filter select
 
@@ -220,17 +210,17 @@ class Struct
     return true if equal?(other)
     return false unless Primitive.zr_real_class(other) == Primitive.zr_real_class(self)
 
-    values_store == other.send(:values_store)
+    Primitive.zr_struct_values(self) == Primitive.zr_struct_values(other)
   end
 
   def eql?(other)
     return true if equal?(other)
     return false unless Primitive.zr_real_class(other) == Primitive.zr_real_class(self)
 
-    values_store.eql?(other.send(:values_store))
+    Primitive.zr_struct_values(self).eql?(Primitive.zr_struct_values(other))
   end
 
-  def hash = [Primitive.zr_real_class(self), values_store].hash
+  def hash = [Primitive.zr_real_class(self), Primitive.zr_struct_values(self)].hash
 
   # The class shows by its path, as rb_struct_inspect writes it: always
   # in the marker of a struct reached again inside its own inspect, and
@@ -243,7 +233,7 @@ class Struct
     head = name ? "#<struct #{name}" : +"#<struct"
 
     begin
-      pairs = member_names.zip(values_store).map { |m, v| "#{Struct.send(:plain_member?, m) ? m : m.inspect}=#{v.inspect}" }
+      pairs = member_names.zip(Primitive.zr_struct_values(self)).map { |m, v| "#{Struct.send(:plain_member?, m) ? m : m.inspect}=#{v.inspect}" }
       Primitive.zr_obj_form(pairs.empty? && name ? "#{head}>" : "#{head} #{pairs.join(', ')}>")
     ensure
       Primitive.zr_recursive_leave(self, :inspect)
@@ -261,7 +251,7 @@ class Struct
     Primitive.attr! :hidden
     count = Primitive.zr_ary_len_m(member_names)
     index += count if index.negative?
-    index.between?(0, count - 1) ? values_store[index] : nil
+    index.between?(0, count - 1) ? Primitive.zr_struct_values(self)[index] : nil
   end
   private :at_or_nil
 

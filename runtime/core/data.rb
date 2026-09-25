@@ -24,11 +24,7 @@ class Data
       Primitive.zr_define_alloc(klass)
       Primitive.zr_hidden_set(klass, :__members__, members.freeze)
       Primitive.zr_data_constructors(klass)
-      klass.define_singleton_method(:members) do
-        k = self
-        k = k.superclass until Primitive.zr_hidden_get(k, :__members__)
-        Primitive.zr_hidden_get(k, :__members__).dup
-      end
+      klass.define_singleton_method(:members) { Primitive.zr_struct_members(self).dup }
       klass.define_singleton_method(:inspect) { to_s }
       Primitive.zr_struct_readers(klass, members)
       klass.class_eval(&body) if body
@@ -38,12 +34,16 @@ class Data
   end
 
 
-  # The values in the members' order, filled in one walk over them. A
-  # call that gives every member and nothing else makes no Array other
-  # than the values' own: `missing` and `unknown` are built only when
-  # the call was wrong and the message needs them, which is where
-  # rb_data_initialize_m builds its own.
-  def initialize(**kwargs)
+  # `initialize` is an entry of the kernel's (runtime/kernel/data.rb,
+  # zr_data_initialize). It fills the values of a call that names each
+  # member once, and sends all other calls here.
+  Primitive.zr_data_builtins(self)
+
+  # The values in the members' order, filled in one walk over them.
+  # `missing` and `unknown` are built only when the call was wrong and the
+  # message needs them, which is where rb_data_initialize_m builds its own.
+  def initialize_members(**kwargs)
+    Primitive.attr! :hidden
     members = member_names
     count = Primitive.zr_ary_len_m(members)
     values = Array.new(count)
@@ -70,6 +70,8 @@ class Data
     freeze
   end
 
+  private :initialize_members
+
   # A copy stays frozen, whatever `clone` was told.
   def initialize_copy(other)
     super
@@ -83,9 +85,7 @@ class Data
   # subclass's own `members`, instance or class, is not called.
   def member_names
     Primitive.attr! :hidden
-    k = Primitive.zr_real_class(self)
-    k = k.superclass until Primitive.zr_hidden_get(k, :__members__)
-    Primitive.zr_hidden_get(k, :__members__)
+    Primitive.zr_struct_members(Primitive.zr_real_class(self))
   end
   private :member_names
 

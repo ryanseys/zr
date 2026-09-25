@@ -683,9 +683,10 @@ module Zr
               here = @f.label
               onward = i == shapes.size - 1 ? call : @f.label
               wanted = @f.icmp("eq", held, imm(@l.const(SHAPES.fetch(shape))))
+              wanted = @f.bor(wanted, struct_member?(shape, held)) if ACCESSOR_SHAPES.include?(shape)
               @f.brif(ACCESSOR_SHAPES.include?(shape) ? @f.band(cellular, wanted) : wanted, here, onward)
               switch(here)
-              in_place(shape, recv, klass, entry, argv, merge, call, miss)
+              in_place(shape, recv, klass, entry, argv, merge, call, miss, held)
               switch(onward)
             end
           end
@@ -769,9 +770,9 @@ module Zr
         # guard goes to `miss`, the kernel's send (which sets the guess). A
         # check that the fast path cannot decide goes to `call`, the cell's
         # own function, which the cell already found to be valid.
-        def in_place(shape, recv, klass, entry, argv, merge, call, miss)
+        def in_place(shape, recv, klass, entry, argv, merge, call, miss, held)
           case shape
-          when :reader, :writer then accessor_in_place(shape, recv, entry, argv, merge, miss)
+          when :reader, :writer then accessor_in_place(shape, recv, entry, argv, merge, miss, held)
           when :nil_p then @f.jump(merge, [ruby_bool(@f.icmp("eq", recv, @qnil))])
           when :frozen_p then frozen_in_place(recv, merge)
           when :ary_length then @f.jump(merge, [@f.bor(@f.ishl(array_len(recv), imm(1)), imm(1))])
@@ -878,8 +879,13 @@ module Zr
         # frozen receiver for the writer, or a wrong guess goes to `slow`,
         # the kernel's send, which calls the accessor and sets the guess.
         #
+        # `held` is the cell's shape. When it can be a struct member's
+        # (`struct_member?`), the guessed entry is the struct's values, and
+        # the member is the element at the entry's index
+        # (`struct_member_in_place`).
+        #
         # Clear the keyword word as the accessor call would.
-        def accessor_in_place(shape, recv, entry, argv, merge, slow)
+        def accessor_in_place(shape, recv, entry, argv, merge, slow, held = nil)
           table = @l.layout("IvTab")
           row = @l.layout("IvEntry")
           meta = @l.layout("MEntry")
@@ -897,16 +903,57 @@ module Zr
           @f.brif(@f.icmp("ult", i, @f.fetch("i64", t, off(table, "len"))), indexed, slow)
           switch(indexed)
           at = @f.iadd(@f.fetch("i64", t, off(table, "rows")), @f.ishl(i, imm(Math.log2(row.size).to_i)))
-          @f.brif(@f.icmp("eq", @f.fetch("i64", at, off(row, "id")), @f.fetch("i64", entry, off(meta, "fn"))), hit, slow)
+          fn = @f.fetch("i64", entry, off(meta, "fn"))
+          member = held && struct_member?(shape, held)
+          @f.brif(@f.icmp("eq", @f.fetch("i64", at, off(row, "id")), member ? @f.csel(member, sym_word(:__values__), fn) : fn), hit, slow)
           switch(hit)
+          if member
+            ivar = @f.label
+            element = @f.label
+            @f.brif(member, element, ivar)
+            switch(element)
+            struct_member_in_place(shape, @f.fetch("i64", at, off(row, "value")), fn, argv, merge, slow)
+            switch(ivar)
+          end
           if shape == :writer
             v = @f.fetch("i64", argv, 0)
             @f.store(v, at, off(row, "value"), region: :malloc)
             cell_barrier(recv, v)
             @f.jump(merge, [v])
           else
-            held = @f.fetch("i64", at, off(row, "value"))
-            @f.jump(merge, [@f.csel(@f.icmp("eq", held, qundef), @qnil, held)])
+            value = @f.fetch("i64", at, off(row, "value"))
+            @f.jump(merge, [@f.csel(@f.icmp("eq", value, qundef), @qnil, value)])
+          end
+        end
+
+        # Whether the cell's shape `held` is a struct member's reader or
+        # writer, for an accessor `shape`.
+        def struct_member?(shape, held)
+          @f.icmp("eq", held, imm(@l.const(shape == :writer ? "SHAPE_STRUCT_WRITER" : "SHAPE_STRUCT_READER")))
+        end
+
+        # A struct member's reader or writer at the site, as the kernel's
+        # `zr_struct_aref_fn` and `zr_struct_aset_fn` do: element `index`
+        # of `values`, the struct's values Array. Values that are not an
+        # Array yet (nil until the first read of a struct from `allocate`)
+        # or an index past their end go to `slow`.
+        def struct_member_in_place(shape, values, index, argv, merge, slow)
+          array = @f.label
+          inside = @f.label
+          cell = @f.band(@f.icmp("eq", @f.band(values, imm(7)), imm(0)), @f.icmp("ugt", values, @qnil))
+          @f.brif(cell, array, slow)
+          switch(array)
+          kind = @f.band(@f.fetch("i64", values, off(@l.layout("RBasic"), "flags")), imm(@l.const("T_MASK")))
+          @f.brif(@f.band(@f.icmp("eq", kind, imm(@l.const("T_ARRAY"))), @f.icmp("ult", index, array_len(values))), inside, slow)
+          switch(inside)
+          slot = @f.iadd(array_ptr(values), @f.ishl(index, imm(3)))
+          if shape == :writer
+            v = @f.fetch("i64", argv, 0)
+            @f.store(v, slot, 0, region: :malloc)
+            cell_barrier(values, v)
+            @f.jump(merge, [v])
+          else
+            @f.jump(merge, [@f.fetch("i64", slot)])
           end
         end
 

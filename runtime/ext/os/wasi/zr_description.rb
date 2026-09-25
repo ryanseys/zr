@@ -415,7 +415,13 @@ module Zr
         d zr_coverage_method Void e:Ptr
         d zr_coverage_method_counts Value clear:Value
         d zr_data_new Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
+        d zr_data_core_init_p Bool klass:Value
+        d zr_data_made Value klass:Value values:Value
+        d zr_data_fill Value o:Value values:Value
+        d zr_data_values_from Value members:Value h:Value
+        d zr_data_initialize Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_data_constructors Value klass:Value
+        d zr_data_builtins Value klass:Value
         d zr_md5_k Ptr
         d zr_md5_shifts Ptr
         d zr_sha256_k Ptr
@@ -1942,6 +1948,14 @@ module Zr
         d zr_struct_get Value recv:Value e:Ptr
         d zr_struct_set Value recv:Value e:Ptr v:Value
         d zr_struct_values_new Value recv:Value
+        d zr_struct_values Value recv:Value
+        d zr_struct_members Value klass:Value
+        d zr_struct_row Ptr klass:Value
+        d zr_struct_values_of Value n:Word argc:Word argv:Ptr
+        d zr_struct_values_named Value members:Value h:Value
+        d zr_struct_initialize Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
+        d zr_struct_keyword_init Value klass:Value
+        d zr_struct_builtins Value klass:Value
         d zr_word_entry_p Bool kind:Word
         d zr_symtab Ptr
         d zr_static_symbol_count Word
@@ -2720,7 +2734,13 @@ module Zr
         e zr_coverage_method 127
         e zr_coverage_method_counts 127
         e zr_data_new 127
+        e zr_data_core_init_p 127
+        e zr_data_made 127
+        e zr_data_fill 127
+        e zr_data_values_from 127
+        e zr_data_initialize 127
         e zr_data_constructors 127
+        e zr_data_builtins 127
         e zr_md5_k 0
         e zr_md5_shifts 0
         e zr_sha256_k 0
@@ -4247,6 +4267,14 @@ module Zr
         e zr_struct_get 127
         e zr_struct_set 127
         e zr_struct_values_new 127
+        e zr_struct_values 127
+        e zr_struct_members 0
+        e zr_struct_row 0
+        e zr_struct_values_of 126
+        e zr_struct_values_named 127
+        e zr_struct_initialize 127
+        e zr_struct_keyword_init 0
+        e zr_struct_builtins 127
         e zr_word_entry_p 0
         e zr_symtab 0
         e zr_static_symbol_count 0
@@ -4632,6 +4660,8 @@ module Zr
         c SHAPE_NE 10
         c SHAPE_EQQ 11
         c SHAPE_NEW 12
+        c SHAPE_STRUCT_READER 13
+        c SHAPE_STRUCT_WRITER 14
         c CASE_ROWS 32
         c KIND_ATTR_READER 3
         c KIND_ATTR_WRITER 4

@@ -80,6 +80,13 @@ The first release as a RubyGem.
   The table follows the method and constant stamps, and a `===` that is
   not Module#=== keeps the `when` chain. `bm_case_class` (24 arms) runs
   in 0.25 s, down from 0.35 s.
+- A compiled `Struct` and `Data` are fast. `Struct#initialize` and
+  `Data#initialize` are kernel entries that make the values from the
+  arguments directly, and `Data.new` makes them itself while the class
+  keeps the core's `initialize`. A compiled site reads and writes a
+  struct member in place, as it does an `attr_accessor`. `bm_struct_new`
+  takes 0.17 s (was 0.51 s), `bm_data_new` 0.27 s (was 1.47 s) and
+  `bm_structaref` 0.05 s (was 0.14 s).
 
 ### Removed
 
