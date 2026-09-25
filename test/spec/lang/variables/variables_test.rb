@@ -2859,4 +2859,22 @@ describe "Variables programs" do
       false
     OUT
   end
+
+  it "a multiple assignment into a writer works on each call of its method" do
+    result = zr(<<~'RUBY')
+      class Point
+        attr_accessor :x
+      end
+      def set(o)
+        o.x, rest = 7, 2
+        o.x
+      end
+      p set(Point.new), set(Point.new)
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      7
+      7
+    OUT
+  end
 end

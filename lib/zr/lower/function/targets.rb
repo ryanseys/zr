@@ -258,7 +258,11 @@ module Zr
           return checked(opt_send(target, recv, argc, argv)) if target.opt
 
           # An explicit receiver cannot call a private writer. `self` can.
-          checked(cached_send(target, recv, argc, argv, @qnil))
+          # The site's form counts the value too: the cell's shapes and
+          # its direct entry read the argument count from the node.
+          site = target.dup
+          site.args = target.args + [Hir::Literal.new(nil, target.line)]
+          checked(cached_send(site, recv, argc, argv, @qnil))
         end
       end
     end

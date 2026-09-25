@@ -29,4 +29,14 @@ describe "REXML programs" do
       "text"
     OUT
   end
+
+  it "parses a document after another" do
+    result = zr(<<~'RUBY')
+      require "rexml/document"
+      names = ["<a/>", "<b><c/></b>", "<d x='1'/>"].map { |xml| REXML::Document.new(xml).root.name }
+      p names
+    RUBY
+
+    _(result).must_answer "[\"a\", \"b\", \"d\"]\n"
+  end
 end
