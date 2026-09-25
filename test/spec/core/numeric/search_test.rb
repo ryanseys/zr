@@ -55,11 +55,8 @@ describe "Numeric: searching and matching" do
   it "index op write nested" do
     result = zr(<<~'RUBY')
       # Compound assignment to a nested (2-D) indexed slot: `m[a][c] OP= v`.
-      # The receiver `m[a]` is a poly-typed index expression, so the op-write
-      # goes through the poly-receiver arm of IndexOperatorWriteNode with an
-      # int (or dynamic) key. Previously only sym/str keys were supported and
-      # this failed to compile with "unsupported index operator assignment
-      # (poly-recv, non-sym/str key)".
+      # The receiver `m[a]` is itself an index expression, and the op-write
+      # takes an int (or dynamic) key, not only a Symbol or String key.
 
       # Float elements, int keys via loop variables.
       def accumulate
@@ -140,26 +137,8 @@ describe "Numeric: searching and matching" do
 
   it "int bracket skip sym idx" do
     result = zr(<<~'RUBY')
-      # Issue #314 (Roundhouse warnings family): `Integer#[idx]` codegen
-      # fired for ANY `[]` call on an int-typed receiver, including the
-      # common shape:
-      #
-      #   def self.from_raw(row)
-      #     instance.id = row[:id] || 0
-      #     ...
-      #   end
-      #
-      # where `row` is an unpinned param whose type defaults to "int". The
-      # `row[:id]` then lowered to `(row >> SPS_id) & 1` — shifting a
-      # 64-bit int by the symbol's interned id (commonly >= 64) is
-      # undefined behavior under -Wshift-count-overflow, and even when it
-      # happens to compile the value is garbage.
-      #
-      # Fix: gate the bit-extract on the index's inferred type. A non-int
-      # / non-poly index (typically a Symbol or String literal) is hash /
-      # array subscript, never Integer-bit indexing — fall through to
-      # the unresolved-call placeholder so the C compile sees the right
-      # diagnostic instead of a warning + UB.
+      # `row[:id]` on a parameter of unknown type is a hash or array
+      # subscript, not Integer bit indexing. The index type decides this.
 
       # Genuine bit indexing — must still work.
       n = 0b1010
@@ -168,13 +147,8 @@ describe "Numeric: searching and matching" do
       puts n[2]                # 0
       puts n[3]                # 1
 
-      # Hash-subscript shape on an unpinned param — the bug's repro.
-      # Without the fix, `row[:k]` emits `(row >> SPS_k) & 1` and gcc/
-      # clang flag the shift count. With the fix, this falls through to
-      # the unresolved-call placeholder (the param type is unknown to
-      # spinel here, since the function is never called), which is the
-      # correct behavior — compilation succeeds without the bogus
-      # bit-extract.
+      # Hash-subscript shape on a parameter of unknown type. No code calls
+      # from_raw, so the program only has to compile and run.
       def from_raw(row)
         row[:id] || 0
       end
@@ -193,10 +167,9 @@ describe "Numeric: searching and matching" do
 
   it "integer bit index clamped" do
     result = zr(<<~'RUBY')
-      # Integer#[i] with an out-of-range bit index: the emitted C shift is
-      # clamped (sp_int_bit), so i >= 64 reads the sign fill and a negative
-      # index is 0 -- the literal-folded form was an undefined C shift that
-      # only LOOKED right on x86's masked shifts.
+      # Integer#[i] with an out-of-range bit index: i >= 64 reads the sign fill
+      # and a negative index is 0. Literal receivers and indexes give the same
+      # result.
       puts 5[100]
       puts 5[64]
       puts 5[63]

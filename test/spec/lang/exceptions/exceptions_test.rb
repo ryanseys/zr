@@ -102,8 +102,7 @@ describe "Exceptions programs" do
   it "basicobject dup rescued" do
     result = zr(<<~'RUBY')
       # An absent Object method on a blank-slate receiver raises INSIDE the
-      # enclosing handler's region (#2726): the raise is an expression-arm prelude,
-      # which used to emit before the rescue modifier's setjmp.
+      # enclosing handler's region, so the rescue modifier catches it.
       class BO < BasicObject
         def initialize; @x = 1; end
         def own; @x; end
@@ -134,17 +133,9 @@ describe "Exceptions programs" do
     result = zr(<<~'RUBY')
       # Bigint division / modulo by zero raises ZeroDivisionError.
       #
-      # Bigint detection: `a = a * 2` inside a `while` loop promotes the
-      # local to bigint via scan_bigint_in_loop_node. Raising 1 by *2 50
-      # times overflows the mrb_int range so `a` is bigint-typed by the
-      # time we hit the / 0 expression.
-      #
-      # Runtime path: sp_bigint_div / sp_bigint_mod call into mini-gmp,
-      # which detects the zero divisor at sp_bigint.c:2718 and calls
-      # mrb_raise(mrb, E_ZERODIV_ERROR, "divided by 0"). The mrb_raise
-      # macro now dispatches to sp_bigint_raise_zerodiv (defined non-
-      # static in sp_runtime.h, linked from gen.c), which calls
-      # sp_raise_cls — same longjmp path as the int-div case.
+      # `a = a * 2` inside a `while` loop grows the local: 50 steps make
+      # `a` a large value before the / 0 expression runs. The division and
+      # the modulo raise ZeroDivisionError, as Integer division does.
 
       a = 1
       i = 0
@@ -153,7 +144,7 @@ describe "Exceptions programs" do
         i = i + 1
       end
 
-      # `a` is now 2^50, well above the mrb_int range — bigint-typed.
+      # `a` is now 2^50.
 
       begin
         x = a / 0
@@ -186,16 +177,11 @@ describe "Exceptions programs" do
 
   it "bigint volatile combo" do
     result = zr(<<~'RUBY')
-      # Regression test: bigint operations inside begin/rescue must compile
-      # clean under -Werror. Locals in setjmp-bearing functions are emitted
-      # `volatile sp_Bigint *`, but the bigint runtime takes plain
-      # `sp_Bigint *`. Without (sp_Bigint *) casts at every emit site, gcc
-      # / clang warn about discarded qualifiers, and the test runner's
-      # -Werror promotes that to a hard fail.
+      # Large-integer operations inside begin/rescue work the same as outside.
       #
-      # Exercises every bigint operator dispatch path that previously
-      # emitted a cast-free local read. Output values are not the focus —
-      # the test runner gates on the C code compiling clean with -Werror.
+      # Exercises every operator on a large-integer local inside a
+      # begin/rescue. Output values are not the focus — the program must
+      # build and run.
 
       a = 1
       i = 0
@@ -228,10 +214,8 @@ describe "Exceptions programs" do
         puts "caught"
       end
 
-      # Compound assignment inside begin/rescue. `x = x + 1` desugars to
-      # LocalVariableWriteNode + CallNode; the `+=` family lowers through
-      # LocalVariableOperatorWriteNode, a distinct code path that has its
-      # own bigint cast in compile_LocalVariableAndWriteNode.
+      # Compound assignment inside begin/rescue. The `+=` family parses
+      # as LocalVariableOperatorWriteNode, not as a plain write and a call.
       begin
         x = a
         x += 1
@@ -244,10 +228,8 @@ describe "Exceptions programs" do
         puts "caught"
       end
 
-      # puts/p of bigint inside begin/rescue. Single-arg dispatches through
-      # compile_puts_single; multi-arg through compile_puts. Both arms have
-      # their own bigint cast and need exercising. `print` lands in the
-      # multi-arg path too.
+      # puts/p of a large integer inside begin/rescue, with one argument and
+      # with several. `print` is here too.
       begin
         puts a
         puts a, a
@@ -1137,20 +1119,15 @@ describe "Exceptions programs" do
 
   it "exception class new" do
     result = zr(<<~'RUBY')
-      # Phase 1C: built-in exception class `.new("msg")`.
-      # `RuntimeError.new(...)`, `ArgumentError.new(...)` etc. previously
-      # emitted an undefined `sp_RuntimeError` type (the analyze inferred
-      # obj_RuntimeError but no struct backed it). Spinel now models
-      # built-in exception objects as their message string plus a
-      # side-channel cls name -- the same convention `rescue => e` uses.
+      # Built-in exception class `.new("msg")`: `RuntimeError.new(...)`,
+      # `ArgumentError.new(...)` etc. build an exception object, the same
+      # kind of object that `rescue => e` gets.
       #
-      # Covers (Phase 1C):
+      # Covers:
       #   - CLS.new("msg") with various exception classes
-      #   - .class returns the class name (string in spinel)
+      #   - .class returns the class
       #   - .message returns the msg
       #   - .is_a? walks the hierarchy
-      #
-      # Covers (Phase 1D):
       #   - raise <exception_object> -- raise a pre-built exc
       #   - raise CLS.new("msg") -- raise an inline-constructed exc
 
@@ -1555,10 +1532,9 @@ describe "Exceptions programs" do
 
   it "instance eval rescue modifier" do
     result = zr(<<~'RUBY')
-      # An instance_eval/exec splice as the EXPRESSION of a rescue modifier (#2723):
-      # the expression arm's own preludes must land inside the protected region, and
-      # the splice temp's seeded type must survive the write pass's per-iteration
-      # reset (users of the temp precede its synthesized write in node order).
+      # An instance_eval/exec as the EXPRESSION of a rescue modifier: an error
+      # inside the block is caught by the modifier, and a success gives the
+      # block's value.
       r = ("abc".instance_eval { upcase } rescue $!.class)
       p r
       r2 = ("ab".instance_exec(3) { |n| self * n } rescue $!.class)
@@ -1604,11 +1580,8 @@ describe "Exceptions programs" do
   it "join separator slot" do
     result = zr(<<~'RUBY')
       # `join`'s separator is a NILABLE String slot: nil is legal and means "" (it
-      # is `$,`'s default), false and every other class are a TypeError. The
-      # emitters passed the argument into the const char* slot raw, so both spellings
-      # reached the join as a NULL and it read that as a string -- a segfault either
-      # way, for every array kind (found reviewing PR #4029, whose sweep did not
-      # reach this slot).
+      # is `$,`'s default), false and every other class are a TypeError. This
+      # holds for every array kind.
       def try
         yield
       rescue => e
@@ -1833,10 +1806,8 @@ describe "Exceptions programs" do
 
   it "nomethod raises on every receiver" do
     result = zr(<<~'RUBY')
-      # An undefined method raises a rescuable NoMethodError wherever CRuby does:
-      # an Array/Hash/Symbol literal and a user-class instance were refused at
-      # compile time, so a program that only reaches the call behind a rescue could
-      # not be built at all (#3811).
+      # An undefined method raises a rescuable NoMethodError wherever CRuby does,
+      # also on an Array/Hash/Symbol literal and on a user-class instance.
       p(begin; [1].nope; rescue NoMethodError => e; e.receiver; end)
       p(begin; :s.nope; rescue NoMethodError => e; e.message; end)
       p(begin; ({ a: 1 }).nope; rescue NoMethodError => e; e.name; end)
@@ -1866,11 +1837,11 @@ describe "Exceptions programs" do
       r001 = (begin; ({a: 1}).nope; rescue NoMethodError => e001; e001.receiver; end); p r001
 
       p(begin; ({}).nope; rescue NoMethodError => e; e.receiver; end)
-      # Ruby: {}   Spinel: nil
+      # => {}
       p(begin; ({"x" => 1}).nope; rescue NoMethodError => e; e.receiver; end)
-      # Ruby: {"x" => 1}   Spinel: nil
+      # => {"x" => 1}
       p(begin; ({a: 1}).nope; rescue NoMethodError => e; e.receiver.class; end)
-      # Ruby: Hash   Spinel: NilClass
+      # => Hash
 
       h = {a: 1}
       p(begin; h.nope; rescue NoMethodError => e; e.receiver; end)      # => {a: 1}
@@ -2000,9 +1971,9 @@ describe "Exceptions programs" do
 
   it "poly length size nomethod" do
     result = zr(<<~'RUBY')
-      # `length` / `size` on a boxed receiver that has neither: the poly length
-      # helper answered 0 for nil, a number and a user object, so a nil read out of
-      # a hash miss answered 0 where CRuby raises NoMethodError (#3974).
+      # `length` / `size` on a receiver that has neither (nil, a number, a user
+      # object) raises NoMethodError, as in CRuby. A nil read out of a hash miss
+      # is one such receiver.
       def probe(v)
         begin
           v.length
@@ -2477,9 +2448,8 @@ describe "Exceptions programs" do
   it "raise shortform default args" do
     result = zr(<<~'RUBY')
       # A short-form `raise Cls, "msg"` of an exception whose initialize has
-      # defaulted parameters (positional or keyword) must fill those defaults at
-      # the generated constructor call site: sp_Cls_new keeps the full signature,
-      # so a message-only emission is a cc arity error.
+      # defaulted parameters (positional or keyword) fills those defaults. The
+      # raise passes only the message to initialize.
       class Boom < StandardError
         attr_reader :level, :code
         def initialize(message, level = 7, code: 3)
@@ -2872,23 +2842,20 @@ describe "Exceptions programs" do
 
   it "rescue modifier assign" do
     result = zr(<<~'RUBY')
-      # `expr rescue fallback` as an rvalue — verifies that
-      # RescueModifierNode is wired into infer_type so the receiving
-      # variable gets the unified type rather than the default int.
+      # `expr rescue fallback` as an rvalue — the receiving variable gets
+      # the value of the arm that ran.
       #
       # Note: Ruby's `=` has higher precedence than the rescue modifier,
       # so `a = "x" rescue "y"` parses as `(a = "x") rescue "y"` — the
-      # RescueModifierNode wraps the assignment, not the rvalue. To
-      # actually exercise the RescueModifierNode-as-rvalue path through
-      # infer_type, the rescue must be parenthesized as a sub-expression.
+      # RescueModifierNode wraps the assignment, not the rvalue. To use
+      # the rescue modifier as an rvalue, the program puts it in parentheses.
 
       # Same-type branches: string=string. Trivial baseline.
       a = ("ok" rescue "fallback")
       puts a
 
-      # Mismatched branches: main is `raise` (returns int 0 from
-      # compile_expr but never actually returns), fallback is string.
-      # The fallback wins type inference; result type is string.
+      # Mismatched branches: main is `raise` (it never returns), fallback
+      # is a String. The result is the String.
       b = (raise "boom" rescue "default")
       puts b
 
@@ -3000,8 +2967,8 @@ describe "Exceptions programs" do
       # matched by every arm shape: a namespaced arm (`rescue App::Error`, whose AST
       # name is the leaf), a leaf-referenced arm inside the module, a parent-class
       # arm catching a namespaced subclass (the hierarchy callback registers
-      # qualified parents), and a builtin StandardError arm. Covers both the
-      # class-fallback raise (sp_raise_cls) and the constructed-object raise.
+      # qualified parents), and a builtin StandardError arm. Covers both a
+      # raise of the class and a raise of a constructed object.
       module App
         class Error < StandardError
         end

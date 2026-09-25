@@ -218,13 +218,13 @@ describe "Misc programs" do
   it "sp net poll persistent" do
     result = zr(<<~'RUBY')
       # Persistent registration: register once per connection, then read only what
-      # fired. The older reset/add/run/ready contract rebuilds the set every tick, so
-      # a caller with N parked fds does O(N) work per tick however few are ready;
-      # these cost O(events) instead. (matz/spinel#4103)
+      # fired. A reset/add/run/ready contract rebuilds the set every tick, so a caller
+      # with N parked fds does O(N) work per tick. These calls cost O(events).
       #
       # fd 1 is this process's stdout: always open and always write-ready, whether it
       # is a file or a pipe with room, so the readiness assertion below holds on any
       # POSIX target without binding a port.
+
       module Net
         ffi_func :sp_net_poll_register,   [:int, :int], :int
         ffi_func :sp_net_poll_modify,     [:int, :int], :int
@@ -285,9 +285,9 @@ describe "Misc programs" do
   it "sp net write partial" do
     result = zr(<<~'RUBY')
       # Non-blocking write: hand back what the socket took, leave the policy for the
-      # rest to the caller. sp_net_write_str / _bytes keep writing until everything
-      # is gone, so one peer that cannot keep up delays delivery to every other one,
-      # and nothing at the Ruby level can see it happening. (matz/spinel#4103)
+      # rest to the caller. A blocking write keeps writing until everything is gone,
+      # so one slow peer delays delivery to every other peer, and Ruby code cannot
+      # see it.
       #
       # A UNIX-domain pair gives two live fds without binding a port, so this is
       # deterministic on any POSIX target.

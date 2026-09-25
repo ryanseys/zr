@@ -97,8 +97,7 @@ describe "FFI: arithmetic" do
     result = zr(<<~'RUBY')
       # An FFI :int argument fed by an integer computed through repeated
       # multiplication (a value a widening analysis could have promoted) still
-      # marshals as a plain C int. Ported from spinel's ffi_func to the real ffi
-      # gem API.
+      # marshals as a plain C int.
       require "ffi"
 
       module M
@@ -201,7 +200,7 @@ describe "FFI: arithmetic" do
 
   it "an array literal of :pointer returns infers as pointers, not as an int array" do
     result = zr(<<~'RUBY')
-      # #492 (ported to the real ffi gem API). An array literal whose elements are
+      # An array literal whose elements are
       # FFI :pointer returns (e.g. `[LibC.malloc(...)]`) must infer as an array of
       # pointers, not collapse to an int-array representation -- push sites and
       # element reads round-trip the pointer values intact.
@@ -232,8 +231,8 @@ describe "FFI: arithmetic" do
 
   it "layout declares the C fields, [] and []= read and write them, and C fills the struct through its pointer" do
     result = zr(<<~'RUBY')
-      # FFI::Struct through the real ffi gem API (ported from spinel's ffi_struct
-      # DSL): `layout` declares the C fields, `[]`/`[]=` read and write them, and a
+      # FFI::Struct through the ffi gem API: `layout` declares the C fields,
+      # `[]`/`[]=` read and write them, and a
       # C function can fill a struct through its pointer.
       require "ffi"
 

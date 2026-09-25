@@ -7,10 +7,8 @@ describe "String programs" do
     result = zr(<<~'RUBY')
       # A braceless hash argument is the keyword-argument spelling only when its keys
       # are Symbols. A non-Symbol key cannot be a keyword at all, so Ruby passes an
-      # ordinary Hash positionally -- and pinning the collapsed parameter to the
-      # symbol-keyed variant regardless made the callee read a string-keyed hash
-      # through the wrong pointer: one empty-symbol key and no value, or a hang on
-      # integer and mixed keys (#3487).
+      # ordinary Hash positionally. The callee gets the String, Integer or mixed
+      # keys as they are.
       #
       # Each form needs its own method: giving one method both a braceless and a
       # braced call site merges the inferred parameter type and hides the divergence.
@@ -108,11 +106,7 @@ describe "String programs" do
       # writes. The name is looked up against `Process`'s own `CLOCK_*`
       # constants, so the two cannot drift.
       #
-      # The original header follows. It describes the PREDECESSOR project's
-      # version of this test and its own fix.
-      #
-      # `Process.clock_gettime` takes a clock as a SYMBOL name as well as a constant
-      # or a raw id. The symbol went into an Integer slot and raised (#4044).
+      # A constant or a raw id also works, as does `Process.clock_getres`.
 
       p Process.clock_gettime(:CLOCK_MONOTONIC).class
       p Process.clock_gettime(Process::CLOCK_MONOTONIC).class
@@ -138,42 +132,30 @@ describe "String programs" do
 
   it "env string inference" do
     result = zr(<<~'RUBY')
-      # Issue #129: ENV["X"] was inferred as int at every call site even though
-      # the dispatch correctly emits sp_str_dup_external(getenv(...)) returning
-      # const char *. Fix is in `infer_operator_type`'s `[]` branch (early
-      # ENV check) plus `compile_eq` for the `string == string` case (NULL-safe
-      # via the new sp_str_eq runtime helper, since strcmp(NULL, ...) is UB and
-      # segfaults on `"1" == ENV["UNSET"]`).
-      #
-      # Tests pin the four shapes from the issue body, plus the reverse-order
-      # segfault case Sam called out.
+      # ENV["X"] gives a String, or nil when the variable is not set.
+      # `==` against a String works in both orders, also for nil.
 
       # Use a variable that's vanishingly unlikely to be set in any environment.
       UNSET = "SPINEL_TEST_VAR_THAT_DOES_NOT_EXIST_129"
 
-      # 1. nil? on unset → true. Was: constant-folded to false at codegen.
+      # 1. nil? on unset → true.
       puts ENV[UNSET].nil?                      # true
 
       # 2. local capture + nil? roundtrip on unset → true.
       s = ENV[UNSET]
       puts s.nil?                                # true
 
-      # 3. inline puts on unset → blank line. Was: printed pointer-as-int.
+      # 3. inline puts on unset → blank line.
       puts ENV[UNSET]                            # (blank)
 
-      # 4. equality on unset → false. Was: pointer-int compare, also always false
-      #    but for the wrong reason (and would crash if the integer happened to
-      #    be a valid pointer prefix).
+      # 4. equality on unset → false.
       puts ENV[UNSET] == "1"                     # false
 
-      # 5. Reverse-order equality on unset → false. Was: segfault. lt=string,
-      #    at=int → fell through to strcmp("1", <int>), dereferencing the int
-      #    as a pointer.
+      # 5. Reverse-order equality on unset → false.
       puts "1" == ENV[UNSET]                     # false
 
-      # 6. nil? on a likely-set var (PATH is universal on POSIX). The bootstrap
-      #    needs PATH to find cc; if this test runs at all PATH is set. Pins the
-      #    "set var" branch of the same fix.
+      # 6. nil? on a likely-set var (PATH is universal on POSIX). The test
+      #    harness needs PATH, so PATH is set when this test runs.
       puts ENV["PATH"].nil?                      # false
     RUBY
 
@@ -190,8 +172,7 @@ describe "String programs" do
   it "eq string vs int" do
     result = zr(<<~'RUBY')
       # A String and an Integer are never == in Ruby (no implicit coercion).
-      # Spinel used to lock the == operand types and emit sp_str_eq(str, int)
-      # (or int == char*), failing to compile.
+      # `==` and `!=` between them give false and true, in both orders.
       p("3" == 3)
       p(3 == "3")
       p("3" != 3)
@@ -230,7 +211,7 @@ describe "String programs" do
       # string to super must report that interpolated message, with the
       # construction args bound to the initialize params -- not just the
       # first construction arg. Covers both raise E.new(...) and an assigned
-      # E.new(...). Regression for #1048.
+      # E.new(...).
       class NotFoundError < StandardError
         def initialize(kind, id)
           super("not found - kind `#{kind}`, id `#{id}`")
@@ -280,16 +261,12 @@ describe "String programs" do
 
   it "gc root ptr array literal" do
     result = zr(<<~'RUBY')
-      # Regression test: `@x = [Klass.new(...)]` literal must keep the freshly
-      # allocated PtrArray reachable across each element's allocation. Without
-      # the SP_GC_ROOT on the temp, GC fired during a later Klass.new sees the
-      # half-built array as unreachable and frees it, leaving a dangling
-      # pointer that gets stored into the ivar.
+      # An `@x = [Klass.new(...)]` literal keeps the new array alive while each
+      # element is made. A GC during a later Klass.new does not free the
+      # half-built array.
       #
-      # Each Tile holds a 256-float buffer (~2 KB) so that allocating a few
-      # hundred Containers crosses the 256 KB GC threshold and forces a
-      # collect mid-construction. Repro is non-deterministic without the fix
-      # but reliably produces nonzero `errors` at this scale on darwin/arm64.
+      # Each Tile holds a 256-float buffer (~2 KB), so a few hundred
+      # Containers cause GC runs in the middle of construction.
 
       class Tile
         attr_accessor :tag, :data
@@ -350,11 +327,11 @@ describe "String programs" do
 
   it "gc stat string heap" do
     result = zr(<<~'RUBY')
-      # GC.stat surfaces the string heap (str_bytes / str_count). Spinel allocates
-      # string data on a separate malloc'd heap (sp_str_heap) that is deliberately
-      # excluded from the object-heap `bytes` figure (see sp_str_alloc), so a
-      # string-heavy workload can hold gigabytes that `bytes` never reflects.
-      # Retaining 1000 strings makes str_count >= 1000 and str_bytes > 0.
+      # GC.stat has Symbol keys and no "str_count" entry, as in CRuby. So
+      # g["str_count"] is nil, and `>=` on nil raises NoMethodError.
+
+
+
       arr = []
       i = 0
       while i < 1000
@@ -377,12 +354,10 @@ describe "String programs" do
 
   it "gc str arg rooted" do
     result = zr(<<~'RUBY')
-      # Regression: string arguments to allocating sp_str.c helpers must be
-      # GC-rooted. sp_str_bytes / sp_str_codepoints allocate an IntArray before
-      # reading the argument; when the argument is a fresh unrooted temp (an
-      # interpolation result) and that allocation crosses the GC threshold, the
-      # collection freed the argument mid-call and the result came back empty or
-      # garbage (observed in the Doom port: Colormap lost a row, black screen).
+      # String#bytes and String#codepoints make a new array before they read the
+      # receiver. The receiver here is a new interpolation result. A GC at that
+      # point does not free it, so the result is complete (a Doom port reads
+      # its Colormap rows this way).
       total = 0
       lens = 0
       keep = []
@@ -442,34 +417,17 @@ describe "String programs" do
 
   it "inherited kwarg nil default string ivar" do
     result = zr(<<~'RUBY')
-      # Three intertwined fixes around kwarg param inference on an
-      # inherited instance method:
+      # Keyword arguments to an inherited instance method:
       #
-      # 1. Analyze: the inh_ branch (bare call inside a class body that
-      #    resolves to a parent's method) was iterating arg_ids by
-      #    position, so a trailing `KeywordHashNode` landed on whatever
-      #    positional slot came next instead of the matching kwarg
-      #    slot. `head(204, content_type: "x")` widened `content_type`'s
-      #    slot with the *whole keyword hash type* (sym_str_hash) and
-      #    left it un-pinned to "string". Route through
-      #    widen_ptypes_from_args so each `key: value` lands on the
-      #    named-param slot.
+      # 1. A bare call in a subclass method goes to the parent's method.
+      #    In `head(204, content_type: "x")`, the value "x" goes to the
+      #    `content_type:` keyword, not to the next positional parameter.
       #
-      # 2. Codegen: compile_typed_call_args had the same positional-
-      #    only loop on the emit side. Extract KeywordHashNode pairs
-      #    up front, inject them into arg_ids at the matching named
-      #    slot, and route the existing per-arg type-coerce loop
-      #    through that. Without this, the kwarg expression
-      #    disappeared at the call site — `head(204, content_type:
-      #    "application/json")` emitted `sp_Base_head(self, 204, 0)`.
+      # 2. The keyword value reaches the method body. It is not lost at the
+      #    call site.
       #
-      # 3. Analyze ivar heterogeneity: the same-base nullable variant
-      #    case (`@x = "hi"` + `@x = some_nullable_string_param`)
-      #    counted as 2 distinct observations and widened the ivar to
-      #    poly. Both write the same C storage (const char *) with
-      #    NULL as the nil sentinel. update_ivar_type and
-      #    finalize_ivar_heterogeneity now treat T + T? as a single
-      #    nullable observation, preserving the typed pointer slot.
+      # 3. The ivar gets a String in `initialize` and a String-or-nil
+      #    parameter in `head`. It stays a String when the parameter is not nil.
 
       class Base
         def initialize
@@ -514,16 +472,9 @@ describe "String programs" do
       # is visible through the string before the block ends -- CRuby's buffer
       # really aliases its string's storage, and this one does too.
       #
-      # The earlier answer copied in and copied back at block exit: the END state
-      # matched and a mid-block read of the string saw the original. The recorded
-      # fix shape was a stable byte address for the string, which zr's
-      # `Arc<Mutex<StrBuf>>` does not have and which is a value-model change.
-      #
-      # It was not needed. The buffer already held its source string, so the
-      # backing can BE that string (`Mem::Str`): every read and write locks it and
-      # uses its bytes in place. The string's own mutex is what CRuby models as
-      # "the string is locked for the duration", and no address is pinned at all.
-      # Nothing is copied in either direction now.
+      # A read of the string in the middle of the block sees the write. Nothing is
+      # copied in at the start or back at block exit. CRuby also locks the string
+      # while the block runs.
       $stderr.reopen(IO::NULL)
       s = +"abcdef"
       IO::Buffer.for(s) do |b|
@@ -734,13 +685,11 @@ describe "String programs" do
   it "method level rescue return string" do
     result = zr(<<~'RUBY')
       # Method-level rescue return value with string-returning bodies.
-      # The int-returning shape works once compile_body_into /
-      # compile_rescue_chain_into capture the begin / rescue last expr.
-      # The string-returning shape additionally needs the method's
-      # inferred return type to unify across both branches, which
-      # requires BeginNode in infer_type's arms.
+      # The method gives the last expression of the body, or of the rescue
+      # clause when it rescues. Both branches give a String, so the method
+      # gives a String.
 
-      # Both branches return string — unify_return_type picks string.
+      # Both branches return string.
       def fetch(s)
         raise "empty" if s == ""
         "got " + s
@@ -761,9 +710,8 @@ describe "String programs" do
       puts parse("hi")
       puts parse("")
 
-      # Method body that's a BeginNode at the top, with a return inside
-      # the begin. collect_return_types must walk the begin body for the
-      # explicit `return X` to contribute to the unified type.
+      # A method body with a rescue, and an explicit `return X` in the body.
+      # The return value is also a String.
       def explicit(s)
         raise "neg" if s == ""
         return "early " + s
@@ -807,8 +755,8 @@ describe "String programs" do
   it "module function str method param" do
     result = zr(<<~'RUBY')
       # A module_function-promoted method whose body calls a string method
-      # on its param, invoked with a string-literal arg, must route the
-      # param to the string path (not the int "0" NoMethodError fallback).
+      # on its param, invoked with a string-literal arg, calls the String
+      # method on that String.
       # Mirrors strings-ansi's Strings::ANSI.sanitize gsub-with-regex-const.
       module Strings
         module ANSI
@@ -827,15 +775,12 @@ describe "String programs" do
 
   it "param ptr from callee slot" do
     result = zr(<<~'RUBY')
-      # A method param passed unmodified to a callee whose corresponding
-      # slot is `ptr` / a specific class pointer used to leave the caller's
-      # param typed `mrb_int`. The C compile then failed at the call site
-      # when the caller passed its mrb_int param into a `void *`-expecting
-      # slot.
+      # A method passes its param unchanged to another method. The param gets
+      # its type from the callee's use of it (here `length` on a String).
       #
       # Mirrors the Db.column_bool shape in real-blog: a thin wrapper
-      # around a typed primitive (FFI sqlite handle) that didn't have its
-      # `stmt` param widened from the body's call to column_int.
+      # around a typed primitive (FFI sqlite handle) that passes its
+      # `stmt` param to column_int.
 
       module Box
         def self.read_int(p)
@@ -950,9 +895,8 @@ describe "String programs" do
     result = zr(<<~'RUBY')
       # String#oct with prefix auto-detection.
       # CRuby's oct handles 0x (hex), 0b (binary), 0o (explicit octal),
-      # 0 (implicit octal), and bare digits (base 8). Previously spinel
-      # used strtoll(base=8) unconditionally, so "0xff".oct returned 0
-      # instead of 255.
+      # 0 (implicit octal), and bare digits (base 8). So "0xff".oct is 255,
+      # not 0.
 
       p "0xff".oct      # hex prefix: 255
       p "0b101".oct     # binary prefix: 5
@@ -1016,11 +960,9 @@ describe "String programs" do
 
   it "a NUL is an ordinary byte, so two strings differing after one compare, sort and key apart" do
     result = zr(<<~'RUBY')
-      # A NUL is an ordinary byte in a Ruby String, and the representation records
-      # the real length -- but comparison went through strcmp, which stops at the
-      # first one. Two strings differing only after a NUL compared equal, so they
-      # also sorted equal, deduplicated into one, and collapsed as Hash keys. #3471,
-      # #3472.
+      # A NUL is an ordinary byte in a Ruby String, and comparison does not stop at
+      # the first one. Two strings that differ only after a NUL are not equal, so
+      # they sort apart, stay two in uniq, and are two Hash keys.
       s = "a\0b"
       t = "a\0c"
       p(s == t)
@@ -1038,8 +980,8 @@ describe "String programs" do
       p(([s] | [t]).map(&:bytes))
       p([s, t].group_by { |x| x }.size)
       p({ s => 1, t => 2 }.size)
-      # The comparison operators themselves went through strcmp too, so `<=>` said 0
-      # where `==` said false, and the relational four ordered by the shared prefix.
+      # The comparison operators also read past the NUL: `<=>` is not 0, and the
+      # relational four order by the bytes after the shared prefix.
       p(s <=> t)
       p(s < t)
       p(s > t)
@@ -1308,7 +1250,7 @@ describe "String programs" do
 
   it "<< answers the receiver itself, so the expression value and a later read are one object" do
     result = zr(<<~'RUBY')
-      # String#<< returns the receiver itself (identity), not a copy (KieranP #2307).
+      # String#<< returns the receiver itself (identity), not a copy.
       # The mutable-buffer receiver appends in place; the expression value and a
       # subsequent read of the variable are the same object.
       s = "a"
@@ -1410,10 +1352,10 @@ describe "String programs" do
 
   it "struct string member gc root" do
     result = zr(<<~'RUBY')
-      # A single fresh-string struct member must survive the struct's own allocation
-      # (SP_POOL_NEW can trigger a GC before the member is stored). The constructor
-      # roots its heap arguments so the collector cannot sweep the name before it is
-      # assigned, nor read a freed name when it later marks the (live) struct.
+      # A single fresh-string Struct member survives the Struct's own allocation,
+      # which can start a GC before the member is stored. The GC does not free the
+      # name before it is assigned, and does not read a freed name when it later
+      # marks the live Struct.
       Entry = Struct.new(:name)
       entries = []
       8000.times do |i|
@@ -1643,9 +1585,8 @@ describe "String programs" do
 
   it "symbol nil truthiness" do
     result = zr(<<~'RUBY')
-      # A nilable symbol slot stores (sp_sym)-1 as its nil sentinel. Truthiness
-      # in conditions and in the value form of && / || must test the sentinel;
-      # it used to read always-true, so `if @exit_triggered` fired on nil.
+      # An ivar holds a Symbol or nil. Truthiness in conditions and in the value
+      # form of && / || sees the nil, so `if @exit_triggered` does not fire on nil.
 
       class Level
         def initialize

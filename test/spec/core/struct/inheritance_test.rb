@@ -5,11 +5,10 @@ require "spec_helper"
 describe "Struct: inheritance and ancestors" do
   it "anonymous struct and data custom initialize super" do
     result = zr(<<~'RUBY')
-      # #192 feature (1): a `super` inside a method defined in a NON-const
-      # `Struct.new`/`Data.define` block resolves through the runtime method-frame
-      # stack into the native member-binding `initialize`, where previously it
-      # crashed with "`super` outside a method" at codegen. Bare (zsuper) and
-      # explicit positional forms, plus the keyword form for Data.
+      # A `super` inside a method defined in a NON-const `Struct.new` or
+      # `Data.define` block calls the built-in `initialize` that binds the members.
+      # The example checks bare (zsuper) and explicit positional forms, and the
+      # keyword form for Data.
 
       pair = Struct.new(:x, :y) do
         def initialize(x)

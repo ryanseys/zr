@@ -356,16 +356,15 @@ describe "String: substitution" do
 
   it "squeeze shrinks the header, so length and bytes report what is left" do
     result = zr(<<~'RUBY')
-      # Issue #921: String#squeeze shrinks the heap-string header
-      # so length / bytes report the post-squeeze size, not the
-      # pre-squeeze allocation.
+      # String#squeeze gives a string whose length and bytes show the
+      # size after the squeeze, not the size before it.
       s = "aaabbbccc"
       result = s.squeeze
       puts result.length
       puts result.bytes.inspect
       puts result.inspect
 
-      # Trailing NULs leak the GC marker byte; ensure none.
+      # The result has no trailing bytes past the squeezed text.
       puts "xxxxx".squeeze.length
       puts "xxxxx".squeeze
     RUBY
@@ -396,7 +395,7 @@ describe "String: substitution" do
   it "a character repeated in tr's from takes its last corresponding to" do
     result = zr(<<~'RUBY')
       # A char repeated in `from` takes its LAST corresponding `to` char
-      # (CRuby's rule) -- previously the FIRST mapping wrongly won.
+      # (CRuby's rule), not the FIRST one.
 
       p "a___b".tr("___", ".+-")
       p "abcaa".tr("aa", "xy")

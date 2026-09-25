@@ -262,9 +262,8 @@ describe "RubyVM programs" do
 
   it "iseq label names the block it came from" do
     result = zr(<<~'RUBY')
-      # `RubyVM::InstructionSequence#label` on a Proc handle used to refuse: a
-      # block's frame name is a LEXICAL fact, and the Proc value carried only a
-      # location. Codegen stamps the name on the proc's shape now.
+      # `RubyVM::InstructionSequence#label` works on a Proc handle. A block's
+      # frame name is a LEXICAL fact, so the Proc carries the name with it.
       #
       # `#label` counts the nesting; `#base_label` is the enclosing scope alone.
       # Note ruby's iseq label does NOT qualify a method by its class, though its
@@ -1445,14 +1444,14 @@ describe "RubyVM programs" do
   it "InstructionSequence.of answers a handle for a Ruby callable and nil for a C one" do
     result = zr(<<~'RUBY')
       # `RubyVM::InstructionSequence.of` answers a real handle for a callable
-      # written in Ruby and `nil` for a C-defined one. It used to answer `nil` for
-      # EVERYTHING, which is the one row of the YARV surface that was quietly wrong
-      # rather than loudly absent: a caller using it to ask "was this defined in
-      # Ruby?" got the wrong answer with no refusal to notice.
+      # written in Ruby and `nil` for a C-defined one. A caller can use it to ask
+      # "was this defined in Ruby?". A wrong answer here gives no refusal to notice.
       #
       # The handle carries no bytecode -- there is none -- so `#to_a`, `#to_binary`
       # and `#disasm` refuse on it exactly as they do on a compiled one. See
       # `tests/gaps/rubyvm_iseq_serialization.rb` for the rows that stay refused.
+
+
 
       def try(tag)
         puts "#{tag}: #{yield.inspect}"

@@ -207,7 +207,7 @@ describe "Pathname programs" do
         "absent"
       end
 
-      # Names zr used to answer that CRuby has nowhere.
+      # Names that CRuby does not define anywhere.
       puts "-- not methods at all"
       {
         "Regexp#linear_time?" => -> { /a/.linear_time? },

@@ -204,9 +204,8 @@ describe "Regexp: encodings" do
 
   it "regex posix class" do
     result = zr(<<~'RUBY')
-      # POSIX bracket classes [[:name:]] inside char classes (W9 / B49).
-      # Previously parsed as the literal set of characters in ":name:", so
-      # they never matched. Now they compile to the corresponding ASCII ranges.
+      # POSIX bracket classes [[:name:]] inside char classes. Each one
+      # matches its ASCII range, not the literal characters of ":name:".
 
       # scan over each of the required class names
       p "Hi 12".scan(/[[:alpha:]]+/)

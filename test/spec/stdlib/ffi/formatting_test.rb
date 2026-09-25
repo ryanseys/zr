@@ -101,11 +101,9 @@ describe "FFI: formatting and inspection" do
 
   it "a ruby array's numeric contents cross the boundary as a contiguous C buffer" do
     result = zr(<<~'RUBY')
-      # Ported from spinel's :float_array/:int_array bulk-transfer specs (#474) to
-      # the real ffi gem API: a Ruby array's numeric contents cross the FFI boundary
-      # as a contiguous C buffer. write_array_of_* fills an FFI::MemoryPointer,
-      # memcpy moves the raw bytes C-side, and read_array_of_* recovers the
-      # elements -- the same bulk-transfer contract the original declared.
+      # A Ruby array's numeric contents cross the FFI boundary as a contiguous C
+      # buffer. write_array_of_* fills an FFI::MemoryPointer, memcpy moves the raw
+      # bytes C-side, and read_array_of_* recovers the elements.
       require "ffi"
 
       module LibC
@@ -138,8 +136,7 @@ describe "FFI: formatting and inspection" do
 
   it "read_string(len) keeps the embedded NULs where the strlen form truncates at the first" do
     result = zr(<<~'RUBY')
-      # Ported from spinel's :binstr FFI return mode to the real ffi gem API: a
-      # binary payload with embedded NULs survives a byte-count read
+      # A binary payload with embedded NULs survives a byte-count read
       # (read_string(len)), where the C-string read (read_string with no length,
       # strlen-based) truncates at the first NUL -- fatal for binary protocols
       # (WebSocket frames carry 0x00). A plain strlen view reports length 1.
@@ -396,7 +393,7 @@ describe "FFI: formatting and inspection" do
 
   it "MemoryPointer owns a heap buffer with typed accessors that C reads and writes" do
     result = zr(<<~'RUBY')
-      # FFI::MemoryPointer / FFI::Pointer and :pointer marshaling (#204 follow-on):
+      # FFI::MemoryPointer / FFI::Pointer and :pointer marshaling:
       # an owned heap buffer with typed accessors, passed to and returned from C.
       require "ffi"
 
@@ -510,7 +507,7 @@ describe "FFI: formatting and inspection" do
 
   it "a Struct layout answers size, offset_of and members over an owned MemoryPointer" do
     result = zr(<<~'RUBY')
-      # FFI::Struct + layout (#204 follow-on): C field offsets/alignment, [] / []=,
+      # FFI::Struct + layout: C field offsets/alignment, [] / []=,
       # size, offset_of, members -- synthesized over an FFI::MemoryPointer.
       require "ffi"
 

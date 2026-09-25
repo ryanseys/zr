@@ -364,13 +364,11 @@ describe "Require: constants" do
     result = zr(<<~'RUBY', files: beside("autoload_nested/ns.rb"))
       # An `autoload` names a NAMESPACE far more often than it names the leaf a
       # program reads: net/http writes `autoload :OpenSSL, "openssl"` and then reads
-      # `OpenSSL::SSL::SSLContext`. The read has to run the target, so the gate at
-      # the fold has to fire on every PREFIX of the path, not on the whole of it.
+      # `OpenSSL::SSL::SSLContext`. The read has to run the target when it reaches
+      # any PREFIX of the path that is an autoload, not only the whole path.
       #
-      # Keying only on the whole path never fired here, and the read found a class
-      # whose unit had not run -- `uninitialized constant OpenSSL::SSL::SSLContext`
-      # from inside `Net::HTTP#connect`. Caught by an HTTPS request, not by the
-      # corpus, which is why this shape is a golden now.
+      # If the target does not run, the read raises `uninitialized constant`. An
+      # HTTPS request in `Net::HTTP#connect` reads a constant this way.
       $LOAD_PATH.unshift(File.expand_path("autoload_nested", __dir__))
 
       puts "before"

@@ -5,9 +5,8 @@ require "spec_helper"
 describe "Numeric: blocks and yields" do
   it "float step block" do
     result = zr(<<~'RUBY')
-      # Issue #870: Float#step yields floats. Pre-fix the LV slot was
-      # typed as mrb_int so `lv_x += 0.5` truncated to `+= 0` and looped
-      # forever.
+      # Float#step yields floats, so a step of 0.5 does not truncate
+      # to 0.
       result = []
       1.0.step(3.0, 0.5) { |x| result << x }
       puts result.inspect
@@ -243,16 +242,8 @@ describe "Numeric: blocks and yields" do
       # A Float argument to a proc / lambda `.call` (or a lowered `yield`) must read
       # back as itself inside the block, not 0.0.
       #
-      # Proc/lambda arguments ride an mrb_int[16] slot in the sp_proc_call ABI. A
-      # Float placed in that slot was written by an arithmetic double->mrb_int
-      # conversion (0.7 -> 0) and the callee, binding a concretely-Float-typed param,
-      # read the truncated int slot back as a double -> 0.0. An Integer arg rides the
-      # slot losslessly and a `def` method passes floats as real C doubles, so only
-      # proc/lambda Float args were silently corrupted.
-      #
-      # Fix: a Float arg is published boxed into the _sp_proc_poly_args side-channel
-      # (like a poly arg) and the callee reads a Float param back with sp_poly_to_f --
-      # mirroring how the proc *return* value already boxes a Float.
+      # The cases below cover one and two Float args, a plain proc, mixed Integer
+      # and Float args, a lowered `yield`, and arithmetic on the arg.
 
       # 1. Single Float arg round-trips.
       f = lambda { |a| a }
@@ -270,7 +261,7 @@ describe "Numeric: blocks and yields" do
       m = ->(a, b) { [a, b] }
       p m.call(1, 2.5)                    #=> [1, 2.5]
 
-      # 5. A Float arg that feeds a built-up structure (the dangerous silent case).
+      # 5. A Float arg that feeds a built-up structure.
       acc = []
       add = ->(v) { acc << v }
       add.call(0.7)
@@ -287,7 +278,7 @@ describe "Numeric: blocks and yields" do
       sq = ->(x) { x * x }
       p sq.call(0.5)                      #=> 0.25
 
-      # 8. Integer args remain correct (regression guard).
+      # 8. Integer args remain correct.
       i = ->(a) { a }
       p i.call(42)                       #=> 42
 

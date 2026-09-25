@@ -101,15 +101,11 @@ describe "Modules: inheritance and ancestors" do
   it "include chain const lookup" do
     result = zr(<<~'RUBY')
       # Constants defined in a late-reopened module body resolve from
-      # instance methods on a class that included the module. Sibling to
-      # #573 (`b034816 reconcile_class_includes`) which handled the same
-      # forward-decl + include + late-reopen pattern for methods but not
-      # for constants.
+      # instance methods on a class that included the module. This is the
+      # forward-decl + include + late-reopen pattern, for constants.
       #
-      # The fix walks `@cls_includes[@current_class_idx]` in
-      # `resolve_const_read_name` (both analyzer and codegen sides) so a
-      # bare `CONST` reference from a method body attached via `include M`
-      # resolves M::CONST. Issue #591.
+      # A bare `CONST` reference from a method body attached via
+      # `include M` resolves M::CONST.
 
       module M
       end
@@ -160,17 +156,10 @@ describe "Modules: inheritance and ancestors" do
   it "include chain module nested const" do
     result = zr(<<~'RUBY')
       # `include A` brings A's nested constants/modules into the includer's
-      # constant lookup chain. The bug: spinel tracked `include` on
-      # `@cls_includes` only when it appeared in a class body, so a module
-      # that itself does `include X` never had X recorded anywhere. When a
-      # downstream class then included that module and a method body
-      # referenced a bare nested constant from X, the lookup walked the
-      # class's direct includes once and bailed (`X` wasn't a class in
-      # `@cls_names`, so the recursion couldn't continue).
-      #
-      # The fix tracks module-to-module includes in a parallel
-      # `@module_includes` array and routes const lookup through a shared
-      # walker that recurses into modules as well as classes.
+      # constant lookup chain. This holds also when a module itself does
+      # `include X`: a class that includes that module can read a bare
+      # nested constant from X in a method body. The lookup recurses into
+      # modules as well as classes.
 
       module ActionView
         module ViewHelpers
@@ -231,21 +220,9 @@ describe "Modules: inheritance and ancestors" do
       # `include` with a ConstantPathNode argument
       # (`include A::B`, not just bare `include B`).
       #
-      # Root cause: `collect_class_with_prefix`'s two include handlers
-      # (the reopen branch and the fresh-class branch) gated module
-      # extraction on `@nd_type[arg] == "ConstantReadNode"` only. A
-      # qualified path like `Foo::Bar::Baz` parses as a
-      # ConstantPathNode and silently fell through, so the included
-      # module's methods never landed on the class's method table and
-      # the analyzer warned `cannot resolve call to '<m>' on obj_<C>`
-      # at every call site.
-      #
-      # Fix: both sites also accept ConstantPathNode and flatten the
-      # path via `const_ref_flat_name` (`A::B` -> `A_B`) before passing
-      # through the existing prefix-aware resolver. The resolver
-      # already tries `<prefix>_<name>` first and falls back to the
-      # flat name, so cross-namespace and nested-class includes both
-      # stay correct.
+      # A qualified path like `Foo::Bar::Baz` gives the class the
+      # methods of that module, for a fresh class and for a reopen.
+      # Cross-namespace and nested-class includes both resolve.
 
       module A
         module B
@@ -284,9 +261,8 @@ describe "Modules: inheritance and ancestors" do
       puts DeepHost.new.deep
 
       # Including via a path also from a class nested under a module.
-      # The lexical-prefix probe misses (`Nested_A_B` isn't registered),
-      # so the resolver falls back to the flat name `A_B` and finds the
-      # top-level module.
+      # No `Nested::A::B` exists, so the lookup finds the top-level
+      # `A::B`.
       module Nested
         class Sub
           include A::B
@@ -299,13 +275,9 @@ describe "Modules: inheritance and ancestors" do
 
       puts Nested::Sub.new.via_nested
 
-      # Absolute-path include (`::Top`). Inside `module Outer` the lexical-
-      # prefix probe would otherwise pick `Outer_Helper` because such a
-      # module is registered; an absolute path must bypass that and
-      # resolve to the top-level `Helper`. const_ref_is_relative returns 0
-      # for ConstantPathNode whose receiver chain bottoms out at another
-      # ConstantPathNode (no ConstantReadNode root) -- that's the AST
-      # shape for `::Helper`.
+      # Absolute-path include (`::Top`). Inside `module Outer` a bare
+      # `Helper` names `Outer::Helper`, because such a module exists; the
+      # absolute path `::Helper` resolves to the top-level `Helper`.
       module Helper
         def from_top
           "top-helper"
@@ -339,9 +311,9 @@ describe "Modules: inheritance and ancestors" do
 
   it "include nested module" do
     result = zr(<<~'RUBY')
-      # Issue #425. A bare-receiver call to a method defined on an
-      # `include`d module failed when the including class was nested
-      # inside a module namespace:
+      # A bare-receiver call to a method defined on an `include`d
+      # module works when the including class is nested inside a
+      # module namespace:
       #
       #   module Ns
       #     module Helper
@@ -349,38 +321,21 @@ describe "Modules: inheritance and ancestors" do
       #     end
       #     class Base
       #       include Helper
-      #       def call; helped; end          # warning: cannot resolve
+      #       def call; helped; end
       #     end
       #   end
       #
-      # Top-level usage (no `module Ns` wrapper) worked, so the
-      # include-resolution + bare-receiver dispatch machinery was
-      # intact -- the gap was just the include arg's name lookup.
-      #
-      # Root cause: `collect_class_with_prefix`'s include handlers
-      # (both the class-reopening branch and the fresh-class branch)
-      # passed the unqualified ConstantReadNode name (`Helper`) to
-      # `collect_module_methods_into_class`, but the module's
-      # registered name post-`collect_module_with_prefix` is
-      # `<prefix>_<name>` -- `Ns_Helper` in this case. The bare-name
-      # lookup walked @module_names and missed every qualified entry.
-      #
-      # Fix: new helper `resolve_include_module_name(mod_name,
-      # module_prefix)` tries the `<prefix>_<name>` form against
-      # @module_names first; falls back to the bare name for
-      # top-level modules so the existing top-level path stays valid.
-      # Both include-handler call sites in collect_class_with_prefix
-      # now route through it.
+      # The include arg `Helper` resolves to `Ns::Helper` first, and
+      # to a top-level module when the namespace has none.
       #
       # Coverage:
-      #   - Canonical Rails-style shape (the repro from #425): module
-      #     namespace, included module also in the namespace.
+      #   - Canonical Rails-style shape: module namespace, included
+      #     module also in the namespace.
       #   - Cross-namespace include: top-level module included into a
       #     nested class.  The qualified lookup misses, falls back to
       #     the bare name, still resolves.
-      #   - Multiple levels of nesting via class reopening would be a
-      #     further extension; not covered here to keep the fix
-      #     minimal.
+      #   - Multiple levels of nesting via class reopening are not
+      #     covered here.
 
       module Ns
         module Helper
@@ -422,7 +377,7 @@ describe "Modules: inheritance and ancestors" do
 
       puts Ns2::Base2.new.call2          # helped-from-top
 
-      # Regression check: same shape with no nesting still works.
+      # Same shape with no nesting.
       module BareHelper
         def hi
           "hi"
@@ -536,11 +491,7 @@ describe "Modules: inheritance and ancestors" do
   it "module initialize no ctor" do
     result = zr(<<~'RUBY')
       # A module's `def initialize` runs when an includer is constructed, and the
-      # module itself has no `new`. Spinel emitted a constructor for the module all
-      # the same, whose body called an sp_<Module>_initialize that nothing defines --
-      # a module's methods are emitted into each includer, not under the module's own
-      # name -- so a compiler that rejects implicit declarations stopped the build.
-      # `M.new` used to build one quietly; it is a NoMethodError in Ruby (#4167).
+      # module itself has no `new`: `M.new` is a NoMethodError in Ruby.
       module Outer
         module Buffering
           def initialize
@@ -651,21 +602,11 @@ describe "Modules: inheritance and ancestors" do
 
   it "module reopen after include namespaced" do
     result = zr(<<~'RUBY')
-      # #573 (Sam Ruby). When a module is forward-declared empty,
-      # included by a class nested inside another module, and then
-      # reopened with method definitions, the included class's
-      # dispatch needs to see the late-defined methods. The bug
-      # required the namespaced-class shape: top-level classes
-      # resolved the late additions because they're collected in
-      # Pass 1 (after Pass 0 has already processed every top-level
-      # `module M; ... end` reopen), but nested-in-module classes
-      # get collected inside Pass 0's recursion and resolve their
-      # `include` against whatever module entries exist at that
-      # moment -- which excluded any reopen later in source order.
-      #
-      # Fix: reconcile_class_includes runs once after Pass 1.6,
-      # re-iterating every (class, included-module) pair so reopens
-      # registered after the include site finally show up.
+      # A module is forward-declared empty, included by a class nested
+      # inside another module, and then reopened with method
+      # definitions. The class sees the late-defined methods, as a
+      # top-level class does. A reopen later in source order than the
+      # include still counts.
 
       class TestBase
       end
@@ -758,19 +699,19 @@ describe "Modules: inheritance and ancestors" do
 
   it "param include body widen" do
     result = zr(<<~'RUBY')
-      # #558 (rubys / Sam Ruby). Sibling of #552 for `.include?`,
-      # the other "ambiguous receiver" method that exists on
-      # String / Array / Hash / Range but NOT on Integer.
-      # Pre-fix: `cols.include?(:updated_at)` on an
-      # int/nil-defaulted param surfaced as "cannot resolve call to
-      # 'include?' on int" and silently returned 0.
+      # `.include?` is an "ambiguous receiver" method: it exists on
+      # String / Array / Hash / Range but NOT on Integer. Thus
+      # `cols.include?(:updated_at)` on an int/nil-defaulted param
+      # widens the param to "any type".
       #
-      # Post-fix: is_collection_query_method also matches `include?`,
-      # so the param widens to flat `poly`. emit_poly_builtin_dispatch
-      # emits include? arms across the relevant Array / Hash variants
-      # keyed by the arg type (Hash#include? aliases has_key?).
-      # SP_TAG_STR include? fires when the arg is a string (substring
-      # search per CRuby's String#include? semantics).
+      # The call works for each Array and Hash kind (Hash#include?
+      # aliases has_key?), and for a String receiver it does a
+      # substring search, per CRuby's String#include? semantics.
+
+      # The blank lines keep the line numbers that the expected output names.
+
+
+
 
       def consume(coll)
         coll.include?(:x)
@@ -803,10 +744,8 @@ describe "Modules: inheritance and ancestors" do
 
   it "subclass inherits module parent" do
     result = zr(<<~'RUBY')
-      # `class Sub < Base` inside `module M` used to record `cls_parents`
-      # as bare "Base" rather than "M_Base", so emit_class_fields' lookup
-      # of the parent missed and Sub came out as an empty struct — every
-      # field inherited from Base was dropped on the C side.
+      # `class Sub < Base` inside `module M` has `M::Base` as its parent,
+      # so Sub keeps every field it inherits from Base.
 
       module M
         class Base
@@ -956,9 +895,8 @@ describe "Modules: inheritance and ancestors" do
     result = zr(<<~'RUBY')
       # `Parent#greet` calls `super`, reaching `Middle#greet` (an included
       # module), which itself calls `super`, reaching `GrandParent#greet` --
-      # a chain of 3, verifying `emit_super_inline`'s ancestors-based search
-      # composes correctly across more than one hop and a mixed
-      # class/module boundary.
+      # a chain of 3. The ancestors-based search of `super` works across
+      # more than one hop and a mixed class/module boundary.
 
       class GrandParent
         def greet
@@ -1028,8 +966,7 @@ describe "Modules: inheritance and ancestors" do
     result = zr(<<~'RUBY')
       # Top-level `include <Mod>` mixes the module's module_function
       # methods into the main scope so bare `<m>` calls dispatch to
-      # them. CRuby installs them on Object; Spinel registers parallel
-      # bare-name entries in @meth_* pointing at the same body_id.
+      # them. CRuby installs them on Object.
 
       module Greeter
         module_function
@@ -1060,8 +997,7 @@ describe "Modules: inheritance and ancestors" do
     result = zr(<<~'RUBY')
       # Top-level `include <Mod>` mixes the module's module_function
       # methods into the main scope so bare `<m>` calls dispatch to
-      # them. CRuby installs them on Object; Spinel registers parallel
-      # bare-name entries in @meth_* pointing at the same body_id.
+      # them. CRuby installs them on Object.
 
       module Greeter
         module_function
@@ -1105,8 +1041,7 @@ describe "Modules: inheritance and ancestors" do
     result = zr(<<~'RUBY')
       # Top-level `include <Mod>` mixes the module's module_function
       # methods into the main scope so bare `<m>` calls dispatch to
-      # them. CRuby installs them on Object; Spinel registers parallel
-      # bare-name entries in @meth_* pointing at the same body_id.
+      # them. CRuby installs them on Object.
 
       module Greeter
         module_function
@@ -1172,8 +1107,7 @@ describe "Modules: inheritance and ancestors" do
     result = zr(<<~'RUBY')
       # Top-level `include <Mod>` mixes the module's module_function
       # methods into the main scope so bare `<m>` calls dispatch to
-      # them. CRuby installs them on Object; Spinel registers parallel
-      # bare-name entries in @meth_* pointing at the same body_id.
+      # them. CRuby installs them on Object.
 
       module Greeter
         module_function

@@ -61,22 +61,16 @@ describe "Fusion: formatting and inspection" do
 
   it "inlined method celled local" do
     result = zr(<<~'RUBY')
-      # A method local captured by a block is reached through a heap cell. When the
-      # method is INLINED at its call site -- which a `yield` in it forces -- the
-      # inlined body kept the cell form while the prologue declared a plain renamed
-      # local, and nothing declared the cell (#4088). Two halves: the cell form did
-      # not go through the rename map that the plain form did, and the three inline
-      # emitters each declared the plain form for a celled local.
+      # A method local captured by a block is reached through a heap cell. Here the
+      # method is INLINED at its call site -- which a `yield` in it forces -- and
+      # the inlined body reads and writes the same local as the block does.
       #
-      # Same symptom as #4087 from the other side: there the block became a function
-      # of its own, here the callee is folded into the caller.
+      # The same local seen from the other side: in another example the block
+      # becomes a function of its own, here the callee is folded into the caller.
 
-      # ...and once it built, the repro answered 0 where CRuby answers 7: an inlined
-      # `each` over a poly receiver walks it AS A CONTAINER, and a user class that
-      # defines #each without #to_a -- the ordinary way to write one, forwarding the
-      # block -- walked as an empty array. emit_poly_iter_obj_normalize drives such a
-      # class's own #each with a collector now, which is what it already did for a
-      # class that answers #to_a.
+      # `each` on a user class that defines #each without #to_a -- the ordinary way
+      # to write one, forwarding the block -- runs that #each, and the sum is 7 as in
+      # CRuby. A class that answers #to_a gets the same result.
 
       class Bag
         def initialize(a) = @a = a
@@ -108,7 +102,7 @@ describe "Fusion: formatting and inspection" do
       puts run([1, 2])
       puts run([3, 4, 5])
 
-      # the cell types that are not sp_int
+      # captured locals that are not Integers
       module F
         def self.join_of(list)
           s = ""
@@ -189,25 +183,16 @@ describe "Fusion: formatting and inspection" do
       # String, symbol, and mixed-type block params inside a spliced
       # trampoline body.
       #
-      # The trampoline-pattern inliner splices the block body at the
-      # call site with each block param bound to a per-call-site C
-      # local (e.g. `s_ix1` instead of `s`). For `puts <s>` and similar
-      # type-aware dispatch inside the spliced body to format the
-      # value correctly, the analyzer must resolve `s`'s type to
-      # "string" via find_var_type. Previously only the suffixed name
-      # (`s_ix1`) was declared in the splice scope, so find_var_type
-      # of the original `s` returned "" and puts defaulted to integer
-      # format -- string params printed as garbage ints.
+      # The block body runs at the call site of instance_exec, with each
+      # block param bound to the matching argument. `puts s` inside the
+      # body prints a String param as a String, not as an Integer.
       #
-      # Now the splice declares each block param under both names
-      # (`s_ix1` AND `s`), and the splice scope is bracketed by
-      # push_scope / pop_scope so the original-name declaration shadows
-      # outer locals only inside the splice. Outer locals with the
-      # same name (e.g. an outer `b = Builder.new` and a block param
-      # `|b|`) are restored after the splice via pop_scope.
+      # A block param shadows an outer local of the same name only
+      # inside the block (e.g. an outer `b = Builder.new` and a block
+      # param `|b|`). After the block, the outer local has its value.
       #
-      # Tag has a subclass (TagPlus) so Spinel keeps it heap-allocated
-      # (multi-instance classes can't be SRA-promoted to value types).
+      # Tag has a subclass (TagPlus), so the example also covers a
+      # class with more than one kind of instance.
 
       class Tag
         def fire(s, y, n, &b)
@@ -222,7 +207,7 @@ describe "Fusion: formatting and inspection" do
       t.fire("hi", :sym, 7) { |s, y, n| puts s; puts y; puts n }
 
       # Block-param name shadowing an outer local: `b` (the receiver)
-      # vs `|b|` (the second block param). After the splice, `b` must
+      # vs `|b|` (the second block param). After the block, `b` must
       # still be the Builder so subsequent dispatch works.
       class Builder
         def initialize; @s = 0; end
@@ -238,9 +223,8 @@ describe "Fusion: formatting and inspection" do
       t.fire("hi", :sym, 7) { |s, y, n| b.add(n) }
 
       # Now actually shadow `b`: the middle block param is named `b`, so inside
-      # the splice `b` is the :sym param (prints "sym"), not the Builder. After
-      # the splice pop_scope restores `b`, so puts b.total below still sees the
-      # Builder. If the restore were missing, `b.total` would mis-resolve.
+      # the block `b` is the :sym param (prints "sym"), not the Builder. After
+      # the block, `b` is the Builder again, so puts b.total below sees it.
       t.fire("hi", :sym, 7) { |s, b, n| puts b }
       puts b.total                     # 14
 
@@ -290,9 +274,8 @@ describe "Fusion: formatting and inspection" do
 
   it "typed array empty returns nil" do
     result = zr(<<~'RUBY')
-      # Issue #832: int_array pop/shift/min/max on empty return nil
-      # (int? sentinel SP_INT_NIL) per MRI. Non-empty returns the value.
-      # float_array is deferred (needs float? sentinel design).
+      # pop/shift/min/max on an empty Array of Integers return nil per
+      # MRI. Non-empty returns the value.
       a = [1, 2]
       2.times { a.pop }
       puts "empty int pop: " + a.pop.inspect
@@ -325,24 +308,12 @@ describe "Fusion: formatting and inspection" do
 
   it "typed hash caller no body widen" do
     result = zr(<<~'RUBY')
-      # #556 (Ori Pekelman). Smoke test for the move of
-      # infer_hash_param_from_body out of the iterative inference
-      # loop. The full bug only triggers in tep's framework
-      # surface (where iter 0 leaves the param's ivar slot
-      # untyped, the body-usage widening fires, then
-      # unify_call_types pulls it to poly against the actual
-      # typed caller). Reductions to a standalone script don't
-      # reproduce -- iter 0 already pins the ivar via the
-      # initial-literal observation. Documenting both here:
-      # this fixture exercises the "typed caller + body[]
-      # usage" shape end-to-end so a future regression that
-      # poisons the typed-caller path would be caught even if
-      # the iter-0 timing is more permissive than tep's.
+      # A caller passes a hash with String keys and String values, and
+      # the callee reads it with `[]` in its body. The parameter keeps
+      # the type of the hash that the caller passes.
       #
-      # Verified against tep@9ca09fd: pre-fix
-      # `sp_tep_mustache_m_ivars(sp_StrStrHash *, sp_RbVal)`,
-      # post-fix `sp_tep_mustache_m_ivars(sp_StrStrHash *, sp_StrStrHash *)`,
-      # caller drops the sp_box_obj wrap.
+      # The shape comes from a template engine: a method that gets the
+      # ivars hash of a request and reads keys out of it.
 
       class Request
         attr_accessor :ivars
@@ -378,17 +349,17 @@ describe "Fusion: formatting and inspection" do
 
   it "typed hash inspect and each value" do
     result = zr(<<~'RUBY')
-      # Issue #851: typed-hash inspect for sym_int_hash, plus
-      # Hash#each_value across common typed hashes.
+      # inspect for a hash with Symbol keys and Integer values, plus
+      # Hash#each_value across common kinds of hash.
       h = {a: 1, b: 2}
       puts h.inspect
       h.each_value { |v| puts v * 10 }
 
-      # str_int_hash.
+      # String keys, Integer values.
       counts = {"x" => 5, "y" => 7}
       counts.each_value { |v| puts v + 1 }
 
-      # inspect on str_int_hash.
+      # inspect on String keys, Integer values.
       puts counts.inspect
     RUBY
 
@@ -404,19 +375,16 @@ describe "Fusion: formatting and inspection" do
 
   it "typed hash missing returns nil" do
     result = zr(<<~'RUBY')
-      # Issue #833 (#801 partial): *StrHash missing-key bracket access
-      # returns nil per MRI, not the type's zero value.
-      # *IntHash variants still return 0 (their analyze-side LV slot
-      # can't be widened to int? without cascading through declare_var --
-      # deferred to a follow-up phase).
+      # Bracket access with a missing key on a hash with String values
+      # returns nil per MRI, not an empty String.
 
-      # SymStrHash
+      # Symbol keys, String values
       puts({a: "hi"}[:missing].inspect)
 
-      # StrStrHash
+      # String keys, String values
       puts({"a" => "hi"}["missing"].inspect)
 
-      # IntStrHash
+      # Integer keys, String values
       puts({1 => "hi"}[99].inspect)
 
       # Existing key still works

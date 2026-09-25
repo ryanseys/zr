@@ -60,9 +60,6 @@ describe "Boxes: defining and naming methods" do
       # The class-method channel. A box's `def self.x` on a SHARED class is the
       # box's alone: main sees neither the method nor a `respond_to?` for it,
       # while the box still reaches `Array`'s ordinary rows.
-      #
-      # This is the shape that leaked -- `class_methods` was keyed by name only,
-      # where the instance channel had carried `(box, name)` from the start.
 
 
 
@@ -86,9 +83,8 @@ describe "Boxes: defining and naming methods" do
 
   it "boxs instance method on a shared class stays in the box" do
     result = zr(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
-      # The instance channel, which had the box axis already -- kept here so the
-      # pair reads together and a regression on either half is one file to look
-      # at.
+      # The instance channel. It sits next to the class-method case so that the
+      # pair reads together.
 
 
 

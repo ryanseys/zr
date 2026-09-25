@@ -5,11 +5,9 @@ require "spec_helper"
 describe "Hash: control flow" do
   it "empty hash method return" do
     result = zr(<<~'RUBY')
-      # A method whose value is an element-less hash -- a bare `{}` or `Hash.new` /
-      # `Hash.new(default)` -- witnesses no element types in its body, so its return
-      # inferred TY_UNKNOWN and codegen emitted a `void` C function; the caller's
-      # `x = mk` then failed to compile (#1680). The caller's own use pins the concrete
-      # hash variant, so back-propagate that onto the method's return.
+      # A method can return a hash with no elements: a bare `{}`, `Hash.new` or
+      # `Hash.new(default)`. The body shows no element types. The caller then
+      # stores elements, and the result must act as a normal Hash.
       def mk_str;  Hash.new(""); end
       def mk_int;  Hash.new(0);  end
       def mk_bare; {};           end
@@ -338,12 +336,8 @@ describe "Hash: control flow" do
 
   it "unless return path hash" do
     result = zr(<<~'RUBY')
-      # #449: `unless cond; return {hash}; end; nil` — the function's
-      # return type used to ignore the unless-arm's `return {hash}` and
-      # infer mrb_int (the trailing nil), failing C compile. Now the
-      # UnlessNode arm in collect_return_types mirrors IfNode, so both
-      # the unless-body's return and the trailing nil contribute to
-      # return type unification.
+      # `unless cond; return {hash}; end; nil` returns either the hash from
+      # the unless body or the trailing nil. Both values are possible results.
 
       def self.outer(flag)
         unless flag

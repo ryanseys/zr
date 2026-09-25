@@ -55,9 +55,8 @@ describe "Object: inheritance and ancestors" do
     result = zr(<<~'RUBY')
       # A class-body `extend M` runs where it is WRITTEN, not at class registration.
       #
-      # `extend M` is a compile-time ancestry edit, so it used to be applied before
-      # the body's first statement. Ruby applies it in document order, and the
-      # difference is observable the moment the same body also edits the singleton
+      # Ruby applies `extend M` in document order, not before the body's first
+      # statement. The order is observable when the same body also edits the singleton
       # chain at run time: `rb_include_module` searches the WHOLE chain
       # (`search_super = TRUE`) and `rb_prepend_module` only the PREPEND AREA, so
       # whichever verb runs FIRST is the one that finds an empty scope. `prepend M`
@@ -198,21 +197,14 @@ describe "Object: inheritance and ancestors" do
 
   it "dynamic is a" do
     result = zr(<<~'RUBY')
-      # Issue #404 Phase 3 Tier 3. Dynamic is_a?(klass) where the
-      # klass argument is a sp_Class value (variable or parameter)
-      # rather than a ConstantReadNode. Pre-Tier-3 the codegen
-      # read @nd_name on the arg as the bare class name and so
-      # couldn't resolve a Class-typed local. Tier 3 routes through
-      # sp_class_le at runtime so the hierarchy check happens
-      # against whichever class the variable carries.
+      # Dynamic is_a?(klass), where the klass argument is a Class value in a
+      # local variable, not a constant. The hierarchy check runs at run time
+      # against the class that the variable holds.
       #
       # Coverage:
-      #   - Typed recv (obj_Dog) with dynamic klass parameter.
-      #     Routes through compile_introspection_expr's new dynamic
-      #     arg arm; sp_class_le over the precomputed ancestors.
-      #   - Typed recv with concrete vs unrelated klass.
-      #   - Same recv with a module-typed klass (Tier 2 +
-      #     ancestors-table glue).
+      #   - A Dog receiver with a superclass held in a local.
+      #   - The same receiver with an unrelated class.
+      #   - The same receiver with a module held in a local.
 
       module Trainable
       end
@@ -719,10 +711,9 @@ describe "Object: inheritance and ancestors" do
 
   it "extend module is a" do
     result = zr(<<~'RUBY')
-      # `obj.extend(Mod)` transplants the module's methods onto a synthesized
-      # singleton subclass, but recorded no membership -- so the extended object
-      # answered `is_a?(Mod)` with false while already running the module's method.
-      # The two halves of the same fact disagreed (#4080).
+      # `obj.extend(Mod)` adds the module to the object's singleton class. The
+      # extended object runs the module's method and also answers `is_a?(Mod)`
+      # with true.
       module Loud
         def speak = "LOUD"
       end
@@ -822,17 +813,9 @@ describe "Object: inheritance and ancestors" do
 
   it "module reopen after include ivar" do
     result = zr(<<~'RUBY')
-      # #572 follow-up to #573 (Sam Ruby). After 8ca93b4 wired late-
-      # reopened module methods into namespaced including classes, the
-      # struct-layout side missed: an ivar written by a late-reopened
-      # method (`@session ||= ...` in `Dispatch#post`, then included by
-      # `NS::IntegrationTest`) wasn't added to the host class's
-      # @cls_ivar_names. The C emit referenced `self->iv_session` against
-      # a struct that didn't declare the field; C compile failed.
-      #
-      # Fix: reconcile_class_includes re-runs collect_ivars on any class
-      # whose method count grew, so the now-attached method bodies get
-      # scanned for InstanceVariable*Write nodes.
+      # A module is reopened after a namespaced class includes it. The reopened
+      # method `Dispatch#post` writes `@session ||= ...`. The including class
+      # `NS::IntegrationTest` gets the method, and the ivar works on its instances.
 
       module Dispatch
       end

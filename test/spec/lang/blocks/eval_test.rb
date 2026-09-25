@@ -90,7 +90,7 @@ describe "Blocks: evaluating a string" do
   it "instance eval block params" do
     result = zr(<<~'RUBY')
       # instance_eval block-param shapes: self-bound first arg, extras
-      # bind to nil. Lifted sp_ieval_<N> still takes only `self`.
+      # bind to nil.
 
       # ---- 1. Explicit-empty `{ || ... }` ----
       class Box
@@ -282,7 +282,7 @@ describe "Blocks: evaluating a string" do
       p proc { 1 }.binding.receiver.class
 
       # The receiver a nested block's Binding reports is the enclosing `self`, not
-      # the block's own -- the value that used to be moved away.
+      # the block's own.
       class Reporter
         def call
           outer = nil

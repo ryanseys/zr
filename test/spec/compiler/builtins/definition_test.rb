@@ -9,8 +9,8 @@ describe "Builtins: defining and naming methods" do
       # callee: the innermost backtrace row is the callee's label at its
       # `def` line, and an `initialize`-less `.new` shows the C-frame shape
       # `'BasicObject#initialize'` at the CALLER's line. This battery was
-      # verified verbatim against ruby 4.0.6 (the arity family was previously
-      # an excluded, catalogued divergence of the frame-tracking battery).
+      # verified verbatim against ruby 4.0.6.
+
 
       def f(a, b)
         a + b
@@ -274,8 +274,7 @@ describe "Builtins: defining and naming methods" do
   it "class new arity" do
     result = zr(<<~'RUBY')
       # Class#new must enforce initialize's arity: extra (or missing) positional args
-      # raise ArgumentError at the .new site, as in MRI. Previously the surplus args
-      # were silently dropped and construction succeeded.
+      # raise ArgumentError at the .new site, as in MRI.
       class C; end
       def f; C.new(7); end
       begin
@@ -343,12 +342,10 @@ describe "Builtins: defining and naming methods" do
 
   it "class value dispatch arity" do
     result = zr(<<~'RUBY')
-      # Dispatch through a class-valued slot compiles to a switch over cls_id, and
-      # each arm calls a different C function with its own parameter list. Passing
-      # the caller's argument list verbatim only worked while every candidate took
-      # exactly as many as the call supplied (#3526), and a class with no such
-      # method fell out of the switch with the result slot at its default, which the
-      # caller could not tell from an answer (#3527).
+      # A call through a class-valued slot reaches the method of the class it
+      # holds, and each candidate has its own parameter list. A candidate with
+      # optional params gets their defaults. A class with no such method raises
+      # NoMethodError.
       class Holder
         def initialize(k)
           @k = k
@@ -417,8 +414,8 @@ describe "Builtins: defining and naming methods" do
       # A method called through a variable holding a Class value dispatches on the
       # runtime class id, with one arm per class that defines the name. A candidate
       # whose method cannot take this call's argument count is not a possible
-      # receiver HERE -- CRuby raises ArgumentError if you try -- but it used to veto
-      # the whole dispatch, so the call was refused at compile time (#4129).
+      # receiver HERE -- CRuby raises ArgumentError if you try -- and it does not
+      # stop the call from compiling.
       #
       # `Other` below is never called and never passed anywhere.
       module Other
@@ -672,8 +669,7 @@ describe "Builtins: defining and naming methods" do
   it "method arity builtin" do
     result = zr(<<~'RUBY')
       # Method#arity for a builtin-receiver method object comes from a table dumped
-      # from CRuby (#2700): the synthesized __bam wrapper's params are ABI plumbing,
-      # not the builtin's signature.
+      # from CRuby, not from the params of the wrapper that zr makes for it.
       p("hello".method(:upcase).arity)
       p(5.method(:+).arity)
       p([1].method(:size).arity)
@@ -738,7 +734,7 @@ describe "Builtins: defining and naming methods" do
       # ruby oracle. Each line prints the code expression next to its result so a
       # zr-vs-oracle diff points straight at the failing method. Builtin arities
       # are declared per-name at each method's `builtin_methods!` definition site
-      # (mirroring CRuby's `rb_define_method` argc), so this is their regression gate.
+      # (mirroring CRuby's `rb_define_method` argc), and this test checks them.
 
       def show(label, val) = puts("#{label.ljust(34)} => #{val}")
 
@@ -1281,10 +1277,9 @@ describe "Builtins: defining and naming methods" do
 
   it "respond to core class surface" do
     result = zr(<<~'RUBY')
-      # A core class object answers the Class/Module surface every class has, but it
-      # has no user class entry, so the fold never consulted that list and the probe
-      # cannot type a bare `Range.new` -- it is the call that builds a value, not one
-      # that has a value (#3494).
+      # A core class object answers the Class/Module surface every class has, though
+      # it has no user class entry. A bare `Range.new` also works: it is the call
+      # that builds a value, not one that has a value.
       p Range.new(1, 3).to_a
       p Range.respond_to?(:new)
       p Symbol.respond_to?(:all_symbols)
@@ -1345,7 +1340,7 @@ describe "Builtins: defining and naming methods" do
 
   it "splat into fixed arity builtin" do
     result = zr(<<~'RUBY')
-      # compile side (#3515): the splat reached the slot expecting a single key
+      # compile side: the splat fills a param that expects a single key
       k001 = [:a]
       p({ a: 1 }.fetch(*k001))
 
@@ -1362,7 +1357,7 @@ describe "Builtins: defining and naming methods" do
       h005.store(*k005)
       p h005
 
-      # runtime side (#3516): it compiled and dropped the extra arguments
+      # runtime side: the splat passes every argument, and drops none
       k006 = [:b]
       h006 = { a: 1 }
       h006[*k006] = 9
@@ -1498,9 +1493,8 @@ describe "Builtins: defining and naming methods" do
   it "value trampoline wrong arity raises a rescuable argument error" do
     result = zr(<<~'RUBY')
       # This dynamic-dispatch trampoline backs both a user CLASS method reached
-      # dynamically and a reopened-builtin instance method. Its arity guard
-      # used to crash the process the same way the other dynamic trampoline
-      # did; both now raise a rescuable ArgumentError. Oracle-verified.
+      # dynamically and a reopened-builtin instance method. On an arity
+      # mismatch it raises a rescuable ArgumentError. Oracle-verified.
 
       class A
         def self.cm(a, b) = a + b

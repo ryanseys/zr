@@ -468,19 +468,15 @@ describe "Etc programs" do
       # as `rb_struct_define` makes them in CRuby -- so the whole struct protocol is
       # INHERITED and each class supplies only its members and accessors.
       #
-      # zr used to make them ordinary classes with hand-written readers and a
-      # hand-rolled copy of the protocol beside them, with its own
-      # `to_a`/`to_h`/`each`/`[]`/`inspect`. That lost the member WRITERS
-      # entirely -- `pw.name = "x"` raised NoMethodError -- reported the
-      # protocol rows as the class's own, kept `Struct` out of `ancestors`,
-      # and left `==` comparing by identity where a Struct compares by value.
+      # The example checks the member WRITERS (`pw.name = "x"`), `Struct` in
+      # `ancestors`, and `==` that compares by value, not by identity.
       #
       # Because they are true Struct subclasses, every other row comes from
-      # `Struct` itself, including the ones no one had written (`dig`, `size`,
-      # `values_at`, `each_pair`, `deconstruct`, `Marshal`).
+      # `Struct` itself (`dig`, `size`, `values_at`, `each_pair`, `deconstruct`,
+      # `Marshal`).
       #
-      # `Etc::Passwd.each` and `Etc::Group.each` were missing outright; they are the
-      # database cursors, the same walk `Etc.passwd`/`Etc.group` run with a block.
+      # `Etc::Passwd.each` and `Etc::Group.each` are the database cursors, the
+      # same walk that `Etc.passwd`/`Etc.group` do with a block.
 
       require "etc"
 

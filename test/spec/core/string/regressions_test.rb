@@ -5,9 +5,9 @@ require "spec_helper"
 describe "String: regressions" do
   it "str array each" do
     result = zr(<<~'RUBY')
-      # Array#each on a str_array. The block param must shadow an outer
-      # same-named mrb_int local. Body skips `puts i` to keep this scope-
-      # shadow case separate from the format-specifier path.
+      # Array#each on a String array. The block param must shadow an outer
+      # same-named Integer block param. Body skips `puts i` to keep this
+      # scope-shadow case separate from the format-specifier path.
 
       3.times do |i|
         puts i
@@ -28,16 +28,15 @@ describe "String: regressions" do
 
   it "str array map" do
     result = zr(<<~'RUBY')
-      # Array#map on a str_array. Issue #43: compile_map_expr had no
-      # str_array branch, so `tt = foo.map { |s| ... }` silently emitted
-      # `lv_tt = 0` and the subsequent iteration crashed.
+      # Array#map on a String array. `tt = foo.map { |s| ... }` gives the
+      # mapped Array, and a later iteration over it works.
 
-      # String -> string map (the original failure mode)
+      # String -> string map
       foo = ["a", "b", "c"]
       tt = foo.map { |s| s.upcase }
       tt.each { |t| puts t }   # A B C
 
-      # String -> int map: codepoint length, returning int_array
+      # String -> int map: codepoint length, returning an Integer array
       sizes = foo.map { |s| s.length }
       puts sizes.length         # 3
       puts sizes[0]             # 1
@@ -59,9 +58,8 @@ describe "String: regressions" do
       puts e2.length            # 0
 
       # Block parameter is block-local: reusing the same name as an outer
-      # differently-typed local must not leak. Issue #43 originally hit this
-      # (3.times do |i| ... end then foo.map {|i| ...} where the times-block
-      # had typed lv_i as mrb_int).
+      # differently-typed local must not leak (3.times do |i| ... end, then
+      # foo.map {|i| ...} with a String `i`).
       rs = []
       3.times do |i|
         rs << "row#{i}"
@@ -93,9 +91,8 @@ describe "String: regressions" do
 
   it "str array range" do
     result = zr(<<~'RUBY')
-      # StrArray slicing: a[range] and a[start, len].
-      # Same regression class as IntArray: a[1..2] failed to compile and
-      # a[1, 2] silently dropped the second arg.
+      # String array slicing: a[range] and a[start, len]. Both forms use
+      # every argument.
 
       a = "alpha,beta,gamma,delta,epsilon".split(",")
 
@@ -128,7 +125,7 @@ describe "String: regressions" do
       puts a[0]          # alpha
       puts a[-1]         # epsilon
 
-      # Result is usable as a StrArray
+      # Result is usable as a String array
       puts a[1..3].join(":")  # beta:gamma:delta
     RUBY
 
@@ -154,9 +151,8 @@ describe "String: regressions" do
 
   it "str format arr" do
     result = zr(<<~'RUBY')
-      # String#% with a str_array RHS, routed through sp_str_format_strarr.
-      # The integer % path (sp_imod) is unchanged — only str_array RHS triggers
-      # sprintf-style formatting.
+      # String#% with a String array RHS does sprintf-style formatting.
+      # Integer % is still the modulo operator.
 
       # Single placeholder
       puts "hello, %s!" % ["world"]            # hello, world!
@@ -315,8 +311,8 @@ describe "String: regressions" do
       "hello".each_byte { |b| total = total + b }
       puts total
 
-      # String#each_byte returns the receiver (CRuby parity). Pre-fix Spinel's
-      # each_byte was statement-only and the assignment dropped the value.
+      # String#each_byte returns the receiver (CRuby parity), also when the
+      # program assigns the result.
       total2 = 0
       ret = "hello".each_byte { |b| total2 = total2 + b }
       puts total2
@@ -375,8 +371,8 @@ describe "String: regressions" do
 
   it "format fills each directive from its one argument" do
     result = zr(<<~'RUBY')
-      # `"fmt" % value` (the single-value form of String#%) used to fall
-      # through to sp_imod, which rejected the format string as a non-int.
+      # `"fmt" % value` (the single-value form of String#%) formats the one
+      # value.
 
       puts "%d" % 42
       puts "%05d" % 7
@@ -576,10 +572,9 @@ describe "String: regressions" do
 
   it "mutable str" do
     result = zr(<<~'RUBY')
-      # Mutable strings (sp_String): the `<<` mutation path, replace/clear,
+      # Mutable strings: the `<<` mutation path, replace/clear,
       # index access, gsub/sub, split, ljust/rjust, downcase/strip/...,
-      # start_with?/end_with?/empty?/include?, to_s/to_i. Combines what
-      # was previously split across mutable_str.rb / _2.rb / _3.rb.
+      # start_with?/end_with?/empty?/include?, to_s/to_i.
 
       # << (true mutation, not reassignment)
       a = "hello"
@@ -711,16 +706,9 @@ describe "String: regressions" do
 
   it "str index range eq" do
     result = zr(<<~'RUBY')
-      # `s[i..i] == "/"` used to skip compile_string_method_expr's `[]`
-      # RangeNode arm and hit the `s[i] == "/"` single-char fast path
-      # instead (compile_eq_char_index), which cast the RangeNode to
-      # mrb_int and emitted `lv_s[(mrb_int)sp_range_new(i, i)] == '/'` —
-      # C compile failure ("aggregate value used where an integer was
-      # expected"). Issue #644.
-      #
-      # Fix: the single-char fast path bails out when the `[]` arg is a
-      # Range or a 2-arg `s[start, len]` form, so the call falls through
-      # to the proper sp_str_sub_range dispatch + string compare.
+      # `s[i..i] == "/"` takes a Range subscript and compares the substring,
+      # as `s[i] == "/"` does for one Integer index. The 2-arg
+      # `s[start, len]` form works the same way.
 
       s = "abc/def"
       i = 3
@@ -750,14 +738,8 @@ describe "String: regressions" do
 
   it "str setbyte dup mutates" do
     result = zr(<<~'RUBY')
-      # `String#setbyte` on a heap-allocated string mutates in place.
-      # Spinel adopts `# frozen_string_literal: true` semantics
-      # globally: string literals are frozen (rodata-resident), so a
-      # setbyte on a literal raises FrozenError; setbyte on a heap
-      # buffer (from .dup, +, *, gsub, etc.) mutates as usual.
-      #
-      # This test pins the heap-mutate path. Literal -> FrozenError is
-      # covered by test/str_setbyte_frozen_literal.
+      # `String#setbyte` on a string that is not a literal (from .dup, +, *,
+      # gsub, etc.) mutates in place.
 
       # Dup'd string: setbyte mutates.
       s = "ab".dup
@@ -776,23 +758,14 @@ describe "String: regressions" do
 
   it "a subscript takes an endless or beginless range" do
     result = zr(<<~'RUBY')
-      # #543. `s[1..]` (Ruby 2.6+ endless range) returned an empty
-      # string under spinel-AOT instead of the substring from index 1
-      # to end. CRuby returns "id" for ":id"[1..]; spinel returned "".
-      # Trigger: the codegen lowered `s[1..]`'s RangeNode `right` (an
-      # AST -1 sentinel meaning "no value") to literal `0`, then
-      # `sp_str_sub_range_r(s, 1, 0, 0)` produced a zero-length slice.
+      # `s[1..]` (Ruby 2.6+ endless range) gives the substring from index 1
+      # to the end. CRuby returns "id" for ":id"[1..], as a router does when
+      # it strips the leading `:` from a `:id` pattern segment.
       #
-      # Sam Ruby caught this when Roundhouse's router stripped the
-      # leading `:` from `:id` pattern segments via `pp[1..]` and the
-      # capture key became "" -- every `/articles/N` 404'd because
-      # params["id"] was always the default fallback.
-      #
-      # Fix: in the bracket-call's RangeNode branch, treat the AST -1
-      # sentinel for the endpoints as the corresponding end:
-      #   - missing left  -> "0"  (s[..k] == s[0..k])
-      #   - missing right -> "-1" (s[k..] == s[k..-1])
-      # The exclusive flag is ignored on the missing endpoint (CRuby
+      # A missing endpoint means the matching end of the string:
+      #   - missing left  -> 0  (s[..k] == s[0..k])
+      #   - missing right -> -1 (s[k..] == s[k..-1])
+      # The exclusive flag has no effect on the missing endpoint (CRuby
       # semantics: `s[1..]` == `s[1...]` == `s[1..-1]`).
 
       s = "hello"
@@ -823,15 +796,12 @@ describe "String: regressions" do
 
   it "index takes a start position and searches from there" do
     result = zr(<<~'RUBY')
-      # Regression: `String#index(sub, start)` 2-arg form.
-      # Pre-fix the codegen ignored `start` and re-emitted the 1-arg
-      # call, so a "find next dot after position N" walk all returned
-      # the first match.
+      # `String#index(sub, start)` 2-arg form searches from `start`, so a
+      # "find next dot after position N" walk finds each dot in turn.
       #
-      # Updated for #532: `String#index` now returns nil (not -1) for
-      # not-found, matching CRuby. `puts nil.to_s` prints an empty
-      # line; the walk-all-dots loop checks `pos.nil?` instead of
-      # `pos < 0`.
+      # `String#index` returns nil for not-found, as in CRuby.
+      # `puts nil.to_s` prints an empty line; the walk-all-dots loop
+      # checks `pos.nil?`.
 
       s = "a.b.c.d"
 
@@ -858,8 +828,8 @@ describe "String: regressions" do
       puts m.index(".").to_s          # 1   (one cp before the first dot)
       puts m.index(".", 2).to_s       # 3   (after the first dot)
 
-      # Walk-all-dots loop -- the JWT use case that surfaced this bug.
-      # Idiomatic post-#532: `break if pos.nil?` instead of `pos < 0`.
+      # Walk-all-dots loop, as in a JWT parser.
+      # It uses the idiom `break if pos.nil?`.
       t = "header.payload.sig"
       i = 0
       positions = ""
@@ -893,36 +863,27 @@ describe "String: regressions" do
 
   it "index and rindex answer nil when there is no match" do
     result = zr(<<~'RUBY')
-      # #532. `String#index` / `String#rindex` previously returned
-      # mrb_int with -1 as the not-found sentinel. The CRuby idiom
+      # `String#index` / `String#rindex` return nil when there is no
+      # match, so the CRuby idiom
       #
       #   pos = body.index('"content"', i)
       #   break if pos.nil?
       #
-      # silently broke because `pos.nil?` on a plain-int local is
-      # always false (per #521's strict `int == nil`), so the loop
-      # never exits and i wanders past the buffer.
+      # ends the loop. The nil works end-to-end:
+      # - `pos.nil?` / `pos == nil` / `pos != nil`
+      # - `pos.inspect` (prints "nil" or the Integer)
+      # - `while pos = s.index(...)` truthiness (nil is falsy)
       #
-      # Fix: widen `String#index` / `String#rindex` to return sp_RbVal
-      # (boxed nil for the -1 sentinel, boxed int for found). The
-      # CRuby semantics now work end-to-end:
-      # - `pos.nil?` / `pos == nil` / `pos != nil` via tag check
-      # - `pos.inspect` via sp_poly_inspect (prints "nil" or the int)
-      # - `while pos = s.index(...)` truthiness (boxed nil is falsy)
-      #
-      # Cost: downstream call sites that consume `pos` as a raw int
-      # need to unbox. compile_expr_as_int / compile_arg0_as_int in
-      # the codegen handle the int-expecting C helper signatures
-      # (sp_str_sub_range etc.).
+      # A found position is an Integer, and later code can use it as one.
 
       s = "hello world"
 
-      # Found and not-found inspect (formerly "6" / "-1"; now "6" / "nil").
+      # Found and not-found inspect ("6" / "nil").
       puts s.index("world").inspect    # 6
       puts s.index("xyz").inspect      # nil
       puts s.index("hello").inspect    # 0   (real index 0, not nil)
 
-      # CRuby's nil-lens idiom now works without rewrites.
+      # CRuby's nil-check idiom works as written.
       pos = s.index("xyz")
       puts pos.nil?                    # true
       puts (pos == nil)                # true
@@ -967,10 +928,7 @@ describe "String: regressions" do
   it "a single-integer subscript past the end answers nil" do
     result = zr(<<~'RUBY')
       # `"hello"[20]` (single-int index past the end) returns nil in CRuby,
-      # not "". Pre-fix spinel's sp_str_sub_range fell through to its
-      # OOB branch and returned the empty string, so a `.nil?` check
-      # (or any `== nil` comparison) saw a non-NULL pointer and surfaced
-      # false. Issue #619 puzzle 3.
+      # not "". So a `.nil?` check (or any `== nil` comparison) answers true.
       puts "hello"[20].nil?     # true
       puts "hello"[5].nil?      # true (at end of string, single-int index)
       puts "hello"[0].nil?      # false (in bounds)
@@ -996,10 +954,7 @@ describe "String: regressions" do
   it "to_i reads leading digits and underscores and stops at the rest" do
     result = zr(<<~'RUBY')
       # CRuby's `String#to_i` accepts `_` between consecutive digits and
-      # stops at the first non-digit. spinel previously emitted
-      # `(mrb_int)atoll(s)` which stops at the first `_`, returning 1
-      # for "1_2_3asdf" instead of 123. Now routes through
-      # sp_str_to_i_cruby. Issue #619 puzzle 1.
+      # stops at the first non-digit, so "1_2_3asdf" gives 123, not 1.
 
       p("1_2_3asdf".to_i)
       p("-5_0".to_i)
@@ -1116,9 +1071,8 @@ describe "String: regressions" do
 
   it "chomp takes the separator to remove" do
     result = zr(<<~'RUBY')
-      # Issue #881: String#chomp with an explicit separator argument
-      # strips that suffix. Without the fix the arg was silently dropped
-      # and the default newline rules were applied.
+      # String#chomp with an explicit separator argument strips that
+      # suffix, not the default newline.
       puts "hello!".chomp("!").inspect
       puts "hello\n".chomp.inspect
       puts "hello\r\n".chomp.inspect
@@ -1137,7 +1091,7 @@ describe "String: regressions" do
 
   it "codepoints answers one number a character" do
     result = zr(<<~'RUBY')
-      # Issue #903: String#codepoints returns int_array of UTF-8
+      # String#codepoints returns an Integer array of UTF-8
       # codepoints (not bytes).
       puts "hello".codepoints.inspect
       puts "あ".codepoints.inspect
@@ -1175,9 +1129,8 @@ describe "String: regressions" do
 
   it "an empty pattern matches between every pair of characters" do
     result = zr(<<~'RUBY')
-      # Issue #850: String#gsub with empty pattern inserts the
+      # String#gsub with empty pattern inserts the
       # replacement between every character (and at the start/end).
-      # Pre-fix, empty pattern was a no-op.
       puts "hello".gsub("", "x")
       puts "abc".gsub("", "-")
     RUBY
@@ -1187,10 +1140,8 @@ describe "String: regressions" do
 
   it "splatting a String range into an array literal spreads it" do
     result = zr(<<~'RUBY')
-      # Splatting a string range into an array literal expands it into a
-      # str_array (the runtime already has sp_StrArray_from_string_range; the
-      # bug was the literal mis-typing to int_array and emitting a char*-in-
-      # int-loop).
+      # Splatting a string range into an array literal expands it into an
+      # array of Strings.
       p [*"a".."e"]
       p [*"a"..."d"]        # exclusive range drops the endpoint
       p [*"x".."z", "!"]    # splat-first, then a trailing literal
@@ -1207,7 +1158,7 @@ describe "String: regressions" do
 
   it "scan answers the captures when the pattern has groups, the match when it does not" do
     result = zr(<<~'RUBY')
-      # Issue #880: String#scan returns nested arrays for capture groups.
+      # String#scan returns nested arrays for capture groups.
 
       puts "hello world".scan(/(\w+)/).inspect
       puts "a1 b22".scan(/([a-z]+)(\d+)/).inspect
@@ -1225,8 +1176,7 @@ describe "String: regressions" do
 
   it "<=> orders two strings byte by byte" do
     result = zr(<<~'RUBY')
-      # Issue #900: String#<=> dispatches strcmp clamped to -1/0/1.
-      # Pre-fix: always returned 0.
+      # String#<=> compares byte by byte and answers -1, 0 or 1.
       puts "abc" <=> "abd"
       puts "abd" <=> "abc"
       puts "abc" <=> "abc"
@@ -1293,7 +1243,7 @@ describe "String: regressions" do
 
   it "tr_s translates and then squeezes the run it made" do
     result = zr(<<~'RUBY')
-      # Issue #902: String#tr_s translates and squeezes adjacent
+      # String#tr_s translates and squeezes adjacent
       # identical translated chars (untranslated runs keep their
       # duplicates).
       puts "hello".tr_s("l", "r")
@@ -1333,10 +1283,8 @@ describe "String: regressions" do
 
   it "a NUL byte in a literal is one character of the string, not its end" do
     result = zr(<<~'RUBY')
-      # Issue #722: a string literal with an embedded NUL byte reports
-      # the full length, and .bytes iterates all bytes (not strlen-
-      # truncated at the NUL). Pre-fix the parser AST text format also
-      # truncated the field at the NUL.
+      # A string literal with an embedded NUL byte reports the full
+      # length, and .bytes iterates all bytes, also the ones after the NUL.
       puts "hello\0world".length
       puts "hello\0world".bytes.length
       puts "a\0b\0c".length
@@ -1727,19 +1675,19 @@ describe "String: regressions" do
 
   it "match? takes a String pattern, and inspect escapes a control byte" do
     result = zr(<<~'RUBY')
-      # String conformance (KieranP #2308,#2310,#2312,#2313)
-      p("hello".match?("l"))              # #2310 match? String pattern
+      # String conformance
+      p("hello".match?("l"))              # match? String pattern
       p("hello".match?("z"))
       p("hello".match("l").class)
       p("hello".match("z").class)
-      p("a".gsub("a", "\\\\").bytes)      # #2312 doubled backslash collapse
+      p("a".gsub("a", "\\\\").bytes)      # doubled backslash collapse
       p("ab".gsub("a", "[\\&]"))
       p("a.b".sub(".", "\\\\"))
-      p("\x02".inspect)                   # #2313 control byte -> \uNNNN
+      p("\x02".inspect)                   # control byte -> \uNNNN
       p("\e".inspect)
       p("\a\b\t\n\v\f\r".inspect)
       p("\x00\x1c\x7f".inspect)
-      begin                                # #2308 negative codepoint RangeError
+      begin                                # negative codepoint RangeError
         s = "a"; s << -1
         p :no_error
       rescue RangeError => e
@@ -1765,15 +1713,15 @@ describe "String: regressions" do
 
   it "-@ on a frozen string is the receiver, and []= answers the value assigned" do
     result = zr(<<~'RUBY')
-      # String conformance (KieranP #2369, #2370)
+      # String conformance
       a = "abc".freeze
-      p((-a).equal?(a))              # #2369 frozen receiver: -@ is identity
+      p((-a).equal?(a))              # frozen receiver: -@ is identity
       s0 = "x" + "y"
       f = -s0
       p f.frozen?
       p((-("a" + "b")).equal?("a" + "b"))
       s = "hi"
-      p(s[0] = "Y")                  # #2370 []= consumed as a value
+      p(s[0] = "Y")                  # []= consumed as a value
       p s
       t = "hi"
       v = (t[0] = "Y")
@@ -1788,7 +1736,7 @@ describe "String: regressions" do
       x = "abcd"
       p(x[1..2] = "Z")
       p x
-      p("abc".clear)                 # #2370 clear on a literal receiver
+      p("abc".clear)                 # clear on a literal receiver
     RUBY
 
     _(result).must_answer <<~'OUT'

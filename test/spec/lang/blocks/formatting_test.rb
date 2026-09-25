@@ -236,18 +236,10 @@ describe "Blocks: formatting and inspection" do
 
   it "block local cell own frame" do
     result = zr(<<~'RUBY')
-      # A local the BLOCK declares, named by a block or lambda nested in it, is
-      # reached through a cell. The cell was treated as a capture from the enclosing
-      # frame: its declaration went to the caller, the block-local reset then
-      # assigned a `_cell_x` the block's own function did not declare, and the C
-      # build stopped (#4087). Capturing it was also wrong on its own terms -- every
-      # invocation would share the outer frame's cell, which is what #3230 fixed for
-      # the inlined shape.
-      #
-      # The block's frame owns it now, allocated in the prologue. That has to be the
-      # prologue rather than the reset, because the reset runs only where emit_stmts
-      # sees the body as a BlockNode and a proc reached through the poly enumerator
-      # never gets there -- the body dereferenced a NULL cell.
+      # A local the BLOCK declares, named by a block or lambda nested in it,
+      # belongs to the block, not to the enclosing frame. Each invocation of the
+      # block gets its own fresh local. This is also true for a block that runs
+      # through an enumerator on a value of unknown type.
 
       Name = Struct.new(:params)
 
@@ -441,7 +433,7 @@ describe "Blocks: formatting and inspection" do
   it "block splat param" do
     result = zr(<<~'RUBY')
       # A trailing rest block parameter (`|*a|`) collects the values yielded past the
-      # required parameters into an array (previously it was left nil/unbound).
+      # required parameters into an array.
       def m3
         yield 1, 2, 3
       end
@@ -600,11 +592,9 @@ describe "Blocks: formatting and inspection" do
 
   it "class reflection block param" do
     result = zr(<<~'RUBY')
-      # `ancestors` (and its Module neighbours) had an arm only for a receiver typed
-      # TY_CLASS -- a constant. Iterating an Array of classes gives the block a BOXED
-      # class, which reached no arm at all: the call reported the method as undefined,
-      # and with nothing to type it, anything chained on reported itself undefined
-      # "for unknown" (#4018).
+      # `ancestors` (and its Module neighbours) work on a class that a block gets
+      # from an Array of classes, not only on a constant. Calls chained on the
+      # result work too.
       class A; end
       class B; end
       module M; end
@@ -841,9 +831,9 @@ describe "Blocks: formatting and inspection" do
   it "iter block autosplat" do
     result = zr(<<~'RUBY')
       # A flat multi-param block over an array of arrays auto-splats each element
-      # across the params (CRuby block semantics) in every element-loop emitter,
-      # not just each/map. Regression: filter_map/count/any?/all?/one?/find/
-      # take_while/drop_while/partition bound the first param to the whole element.
+      # across the params (CRuby block semantics) in every element-loop method,
+      # not just each/map: filter_map/count/any?/all?/one?/find/take_while/
+      # drop_while/partition too.
       DIRS = [[10, 1], [20, 2], [30, 3]]
 
       puts DIRS.filter_map { |a, b| a + b if a > 15 }.inspect
@@ -869,7 +859,7 @@ describe "Blocks: formatting and inspection" do
       puts g[true].inspect
       puts g[false].inspect
 
-      # a bare `next` mid-block filters the element out (the #1876 GoL shape:
+      # a bare `next` mid-block filters the element out (the Game of Life shape:
       # neighbours = DIRECTIONS.filter_map with bounds checks + hash read)
       cells = {}
       5.times { |x| cells[x.to_s] = x * 10 }
@@ -922,14 +912,12 @@ describe "Blocks: formatting and inspection" do
       # A block passed as a real &blk to a class/module method is lifted to a proc.
       # When that lifted block captures an enclosing local -- directly, or through a
       # further nested block -- and is invoked across a fiber/thread boundary, the
-      # capture must reach the enclosing frame. Two bugs broke this:
+      # capture must reach the enclosing frame. The example checks two shapes:
       #
-      #   1. a_block_is_lifted only recognized instance-method (and bare) calls, so a
-      #      block passed to a *class/module* method (`M.f { }`) never had its captures
-      #      celled -- writes to the captured local were silently dropped (printed 0).
-      #   2. the celled-int compound-assign path did not coerce a poly RHS, so folding
-      #      a poly value (e.g. a poly array element) into a captured int accumulator
-      #      failed C compilation (`mrb_int + sp_RbVal`).
+      #   1. a block passed to a *class/module* method (`M.f { }`) writes to the
+      #      captured local, and the enclosing frame sees the write.
+      #   2. a compound assignment adds a value of unknown type (e.g. an element of
+      #      a mixed array) into a captured Integer accumulator.
       #
       # All deterministic here: each Thread is joined / Fiber resumed before the
       # captured value is read, so there is no concurrent mutation.
@@ -1002,19 +990,8 @@ describe "Blocks: formatting and inspection" do
 
   it "multi arg lambda" do
     result = zr(<<~'RUBY')
-      # Issue #400. `->(a, b) { a + b }` and longer-arity lambdas
-      # previously emitted broken code: scan_lambda_free_vars saw only
-      # reqs[0] as a formal param, so the 2nd+ params were treated as
-      # free variables to capture from the surrounding scope. The
-      # call site dropped extra args, too.
-      #
-      # Fix: scan_lambda_free_vars + compile_lambda_expr collect every
-      # required param, the lambda fn signature gets one sp_Val* slot
-      # per param, and compile_lambda_call_expr dispatches to
-      # sp_lam_call2 / _3 / _4 (new runtime helpers that re-cast the
-      # stored 1-arg fn ptr to the matching arity at the call site).
-      # compile_lambda_body_expr learns `*` / `-` / `/` / `%` / `<>=`
-      # arms so multi-arg arithmetic bodies lower correctly.
+      # `->(a, b) { a + b }` and longer-arity lambdas: every param is a formal
+      # param, and the call passes every arg.
 
       add = ->(a, b) { a + b }
       puts add.call(3, 4).to_s        # 7
@@ -1025,7 +1002,7 @@ describe "Blocks: formatting and inspection" do
       quad = ->(a, b, c, d) { a + b + c + d }
       puts quad.call(1, 2, 3, 4).to_s # 10
 
-      # 1-arg still works through the unchanged sp_lam_call path.
+      # 1-arg lambda.
       double = ->(x) { x * 2 }
       puts double.call(21).to_s       # 42
 
@@ -1093,13 +1070,8 @@ describe "Blocks: formatting and inspection" do
 
   it "nested yield with block param" do
     result = zr(<<~'RUBY')
-      # Issue #664: `outer { |x| yield x*2 }` appearing inside an already-
-      # inlined caller (`inner` itself yields) previously emitted `lv_x` and
-      # `_block` references in a scope where neither existed — `inner` got
-      # inlined into main and the codegen left the nested `outer { ... }`
-      # call site dangling. Fix routes nested user-yield calls through
-      # compile_nested_yield_call_inline so the inner block's body's yield
-      # substitutes back to the outer-most caller's block.
+      # `outer { |x| yield x*2 }` inside a method that itself yields (`inner`):
+      # the inner `yield` goes to the block of the caller of `inner`.
 
       def outer
         yield 1
@@ -1206,42 +1178,26 @@ describe "Blocks: formatting and inspection" do
   it "proc anon dot call" do
     result = zr(<<~'RUBY')
       # `proc { ... }.call` — the receiver is the inline `proc { ... }` call,
-      # not a local variable holding the proc. compile_dot_call_expr only
-      # matched LocalVariableReadNode receivers and emitted sp_proc_call
-      # against `lv_<name>`; the inline form fell through to
-      # warn_unresolved_call and the proc body was never invoked.
+      # not a local variable holding the proc. Any receiver that is a Proc
+      # works the same way.
       #
-      # Fix: after the LocalVariableReadNode special-case, fall through to
-      # a generic branch keyed on `infer_type(recv) == "proc"` that compiles
-      # the receiver expression and feeds it to sp_proc_call. The check is
-      # node-shape-agnostic — any receiver whose inferred type is `proc`
-      # routes through the same emitter.
-      #
-      # Coverage scope (all routed through `infer_type(recv) == "proc"`):
-      # - Anonymous proc literal `.call`           — CallNode receiver
-      # - Anonymous proc with args                 — CallNode receiver
+      # Coverage scope:
+      # - Anonymous proc literal `.call`
+      # - Anonymous proc with args
       # - Method returning a proc, immediately called (factory pattern)
-      # - Ternary returning a proc                 — IfNode receiver
+      # - Ternary returning a proc
       #
-      # Out of scope (separate code paths / pre-existing limitations):
+      # Out of scope (other examples cover these):
       # - lambda { ... }.call / ->() { ... }.()
-      #     Lambdas have a separate handler (`compile_lambda_call_expr` at
-      #     ~line 11941 in master). Not exercised by this PR.
       # - @ivar = proc { ... }; @ivar.call
-      #     Spinel's ivar codegen rejects assigning sp_Proc* to the ivar
-      #     slot today. Pre-existing inference/codegen gap on proc ivars,
-      #     independent of this PR.
       # - $global = proc { ... }; $global.call
-      #     Spinel's $global proc inference is unverified. Separate concern.
       # - [proc1, proc2].each(&:call)
-      #     Symbol#to_proc (`&:sym`) is unsupported in master (see
-      #     `spinel_codegen.rb:1067` TODO). Added in rs-no-recv-io-expr-bridge.
 
       def show(s)
         puts s
       end
 
-      # Anonymous proc literal — the original bug.
+      # Anonymous proc literal.
       proc { show("anon") }.call
       proc { show("second") }.call
       proc { |n| show((n * 2).to_s) }.call(7)
@@ -1268,7 +1224,7 @@ describe "Blocks: formatting and inspection" do
 
   it "proc introspection" do
     result = zr(<<~'RUBY')
-      # Issue #861: Proc#arity, #lambda?, and #parameters dispatch.
+      # Proc#arity, #lambda?, and #parameters.
 
       p = Proc.new { |a, b| }
       puts p.arity
@@ -1386,13 +1342,10 @@ describe "Blocks: formatting and inspection" do
 
   it "user operator on block param" do
     result = zr(<<~'RUBY')
-      # A user object reaching an operator through a block parameter is a BOXED
-      # receiver, and only `+`, `-` and `*` found their way to the class's own
-      # method: every other operator coerced the object to an integer, the
-      # comparisons failed outright, and `<<` was read as an array push that typed
-      # the loop variable an int array (#3501, #3502). The same expressions on the
-      # same object held in a plain local were always correct, which is what makes
-      # these worth pinning in both positions.
+      # A user object that reaches an operator through a block parameter calls the
+      # class's own method for every operator, not only `+`, `-` and `*`. This
+      # includes the comparisons and `<<`. The example checks each expression on
+      # a block parameter and on a plain local.
       class Money
         include Comparable
         attr_reader :cents

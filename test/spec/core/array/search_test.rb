@@ -369,15 +369,13 @@ describe "Array: searching and matching" do
 
   it "a[i] += with a right-hand side only known at run time keeps the slot's element kind" do
     result = zr(<<~'RUBY')
-      # Compound index assignment on a typed array with a poly right-hand side:
-      # `float_array[i] += b[0]` where b is a heterogeneous (poly) array. The
-      # emitter added the boxed sp_RbVal straight to the unboxed slot
-      # (`double + sp_RbVal`), failing C compilation, while the equivalent plain
-      # form `a[i] = a[i] + b[0]` already folded through the tag-dispatching
-      # sp_poly_add. Also covers the str_array `+=` slot (native `char* + char*`
-      # never compiled, poly RHS or not) and `+=` on a poly_array receiver.
+      # Compound index assignment on a typed array with a right-hand side of
+      # unknown type: `floats[i] += b[0]` where b is a mixed array. It gives
+      # the same result as the plain form `a[i] = a[i] + b[0]`. Also covers
+      # `+=` on a String array slot and `+=` on a mixed-array receiver.
 
-      # float_array[i] += poly: literal index, variable index, inside a loop
+      # Float array: a[i] += a value of unknown type, with a literal index,
+      # a variable index, and inside a loop
       a = Array.new(2, 0.0)
       b = [1.5, "x"]
       a[0] += b[0]
@@ -395,8 +393,8 @@ describe "Array: searching and matching" do
       a[1] /= b[0]
       p a                # [2.25, 2.0]
 
-      # int_array[i] with a poly RHS: arithmetic folds via the dynamic operator,
-      # shifts unbox the RHS
+      # Integer array: a[i] op= a value of unknown type, for arithmetic and
+      # shifts
       n = [10, 20]
       m = [3, "x"]
       n[0] += m[0]
@@ -406,28 +404,27 @@ describe "Array: searching and matching" do
       n[0] <<= m[0]
       p n                # [312, 17]
 
-      # str_array[i] += string and += poly-carried string
+      # String array: a[i] += a String, and += a String of unknown type
       s = ["ab", "cd"]
       s[0] += "!"
       t = ["ef", 1]
       s[1] += t[0]
       p s                # ["ab!", "cdef"]
 
-      # str_array[i] <<= (String#<< appends) and *= (String#* repeats)
+      # String array: a[i] <<= (String#<< appends) and *= (String#* repeats)
       u = ["x", "y"]
       u[0] <<= "z"
       u[1] *= 3
       p u                # ["xz", "yyy"]
 
-      # same ops when the analyzer demotes the receiver to poly_array
-      # (mixing *= and <<= on one array does that): the fold goes through
-      # sp_poly_mul / sp_poly_shl, which handle the String arms
+      # same ops when the array's element type is not known (mixing *= and
+      # <<= on one array does that): `*` and `<<` still act as String methods
       w = ["ab", "cd"]
       w[0] *= 2
       w[1] <<= "!"
       p w                # ["abab", "cd!"]
 
-      # poly_array receiver: += float / int / poly slot
+      # mixed-array receiver: += a Float, an Integer, and a slot of unknown type
       pa = [1.5, "x", 2]
       pa[0] += 2.0
       pa[2] += 5
@@ -510,8 +507,7 @@ describe "Array: searching and matching" do
   it "[] takes a Range held in a variable, endless, beginless or out of range" do
     result = zr(<<~'RUBY')
       # Array#[] with a Range held in a variable/parameter (not a literal RangeNode)
-      # routes to the slice path instead of the scalar integer-index accessor, which
-      # previously passed an sp_Range to an mrb_int parameter and failed to compile.
+      # takes the slice path, not the integer-index path.
       # Each method keeps its array parameter monomorphic so the typed-array path is
       # exercised.
       def si(a, rng); a[rng]; end
@@ -726,9 +722,8 @@ describe "Array: searching and matching" do
 
   it "the IndexError for a too-small negative index names the minimum the array allows" do
     result = zr(<<~'RUBY')
-      # Issue #839: an extreme negative index on []= raises IndexError
-      # per MRI. Spinel previously silently no-op'd when the index after
-      # `+= len` was still negative.
+      # An extreme negative index on []= raises IndexError, as in MRI.
+      # The index is still negative after `+= len`.
       a = [1, 2, 3]
       begin
         a[-999] = 99
@@ -763,8 +758,8 @@ describe "Array: searching and matching" do
     result = zr(<<~'RUBY')
       # Array size/index operations validate their argument: a negative count to
       # take/drop raises ArgumentError, and an out-of-range negative insert index
-      # raises IndexError. Spinel previously proceeded silently (drop even returned a
-      # tail slice; a too-negative insert clamped to the front).
+      # raises IndexError. drop does not return a tail slice, and a too-negative
+      # insert does not clamp to the front.
       def check
         yield
       rescue => e
@@ -834,7 +829,7 @@ describe "Array: searching and matching" do
   it "dig multi step typeerror" do
     result = zr(<<~'RUBY')
       # A multi-step dig stops at nil and raises TypeError on a step that cannot be
-      # dug; chaining index reads answered the scalar the first step found (#3825).
+      # dug. It does not answer the scalar that the first step found.
       begin; p [1].dig(0, 0); rescue TypeError => e; p e.class; end
       p [[1, 2], [3]].dig(0, 1)
       p [[1, 2]].dig(5, 0)
@@ -890,8 +885,8 @@ describe "Array: searching and matching" do
     result = zr(<<~'RUBY')
       # Hash#dig must descend into whatever the previous key returned -- an
       # Array element, a nested Hash, etc. -- dispatching each sub-key on the
-      # runtime receiver. Previously a symbol-keyed hash forced every sub-key
-      # to be looked up as a symbol, so `dig(:a, 1)` on an Array value gave nil.
+      # runtime receiver. In a symbol-keyed hash, `dig(:a, 1)` on an Array value
+      # reads index 1 of the Array.
       p({ a: [10, 20] }.dig(:a, 1))
       p({ a: { b: 1 } }.dig(:a, :b))
       p({ "a" => { "b" => 1 } }.dig("a", "b"))
@@ -1117,34 +1112,19 @@ describe "Array: searching and matching" do
   it "three level array outer index" do
     result = zr(<<~'RUBY')
       # `[a, b, c, d].map { (0...M).map { (0..N).map { ... } } }` builds a
-      # 3-level Array<Array<IntArray>>. The outer .map's receiver is an
-      # array literal; spinel's compile_map_expr stored that receiver in a
-      # C-stack temp without registering it with the GC. When the block
-      # body's nested allocations crossed the GC threshold (~272 inner
-      # rows triggered the first sp_gc_collect), the unrooted receiver was
-      # freed mid-loop and the next iteration's `sp_IntArray_length(rc)`
-      # read the len of whatever IntArray reused that heap slot — usually
-      # the most recent inner (0..N).map result, length N+1.
+      # 3-level Array<Array<Array<Integer>>>. The outer .map's receiver is an
+      # array literal. The GC must keep that receiver alive while the block
+      # body's nested allocations run collections. `TBL.length` is 4, and
+      # each `TBL[X]` is its own row.
       #
-      # Symptom on master: `TBL.length` printed 8 instead of 4, and every
-      # `TBL[X]` returned the same recycled inner row regardless of X.
-      # The fix roots the receiver temp when its static type is a
-      # GC-allocated pointer.
-      #
-      # A second related fix in compile_bracket_assign covers
-      # `recv[start, len] = src` where recv is statically poly_array and
-      # src is poly (e.g. `@bg_pixels[xfine, 8] = @bg_pattern_lut[idx]`
-      # when bg_pattern_lut comes from a poly_array<poly_array<int_array>>
-      # constant). Without the dispatch the slice assignment silently
-      # became `recv[start] = len` and dropped the rhs entirely.
+      # The test also covers `recv[start, len] = src` where recv is a mixed
+      # array and src has an unknown type (e.g. `@bg_pixels[xfine, 8] =
+      # @bg_pattern_lut[idx]`). The slice assignment replaces `len` elements
+      # with src, not `recv[start] = len`.
 
       # Inner range is sized large enough (>= ~272) that an inner GC
-      # triggers during the outer .map's iteration. Using runtime-bound
-      # indices (i, j, k) to read TBL[a][b][c] avoids spinel emitting the
-      # `int >> literal_index & 1` bit-index warning branch (spinel
-      # can't statically tell that TBL[a] is always an array, so it
-      # generates both branches; the int-branch shift count >= 64
-      # triggers -Werror in the test runner with literal indices).
+      # triggers during the outer .map's iteration. The reads of
+      # TBL[a][b][c] use indices in variables, not literal indices.
       TBL = [10, 20, 30, 40].map do |a|
         (0...500).map do |i|
           (0..7).map do |j|
@@ -1173,14 +1153,11 @@ describe "Array: searching and matching" do
       puts TBL[a2][i499][j0]     # 529
       puts TBL[a3][i499][j7]     # 546
 
-      # Slice assign with poly_array recv + poly src — the
-      # `@buf[start, len] = @table[a][i]` shape that @bg_pixels falls
-      # into in optcarrot once TILE_LUT is no longer split.  @table is
-      # poly_array<poly_array<int_array>>, so @table[a][i] is `poly`
-      # (sp_RbVal).  @buf is sized via `[nil] * N` so it's poly_array
-      # (sp_PolyArray *).  Without the dispatch fix the bracket-assign
-      # falls through to single-elem write `@buf[start] = len`,
-      # silently dropping the rhs.
+      # Slice assign with a mixed-array recv and a src of unknown type --
+      # the `@buf[start, len] = @table[a][i]` shape of @bg_pixels in
+      # optcarrot. @table[a][i] is an Integer array, and @buf is sized via
+      # `[nil] * N`. The assignment replaces the slice with the src
+      # elements, not only `@buf[start]`.
       class Slicer
         def initialize
           @table = [10, 20, 30].map { |a| (0...4).map { |i| (0..3).map { |j| a + i + j } } }

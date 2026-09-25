@@ -102,8 +102,8 @@ describe "Object: defining and naming methods" do
   it "basicobject send missing" do
     result = zr(<<~'RUBY')
       # A blank-slate receiver has no #send / #public_send -- only __send__ is
-      # BasicObject's own (#2725). The send desugar leaves such calls unretargeted
-      # and the blank-slate gate raises CRuby's NoMethodError; __send__ dispatches.
+      # BasicObject's own. So `send` raises CRuby's NoMethodError, and __send__
+      # dispatches.
       class BO < BasicObject
         def initialize(x = 0); @x = x; end
         def own; @x; end
@@ -209,10 +209,8 @@ describe "Object: defining and naming methods" do
   it "dup drops singleton" do
     result = zr(<<~'RUBY')
       # `#dup` drops the singleton methods, so the copy is an instance of the class
-      # Ruby sees. The copy is made by assigning the whole struct, which carried the
-      # ORIGINAL's cls_id -- for a singleton receiver that is the synthesized
-      # subclass -- so the copy answered the singleton's methods at run time while
-      # `respond_to?`, reading the static type, said it did not (#4043).
+      # Ruby sees. The copy does not answer the singleton's methods at run time, and
+      # `respond_to?` agrees.
       class Sing
         def base = 1
       end
@@ -401,9 +399,8 @@ describe "Object: defining and naming methods" do
 
   it "method missing explicit" do
     result = zr(<<~'RUBY')
-      # method_missing is not honored as a missing-method hook (spinel resolves every
-      # call statically), but a class may still define and call it explicitly like any
-      # other method. Defining it emits a compile-time warning to stderr.
+      # A class may define method_missing and call it explicitly like any other
+      # method.
       class Proxy
         def initialize(label)
           @label = label
@@ -568,11 +565,8 @@ describe "Object: defining and naming methods" do
 
   it "public send" do
     result = zr(<<~'RUBY')
-      # Issue #735. `recv.public_send(:meth, args)` should be identical to
-      # `recv.send(:meth, args)` in spinel (visibility is not modeled in
-      # static dispatch). The parser textually rewrites `.send(:foo)` and
-      # `.__send__(:foo)` to `.foo`; now `.public_send(:foo)` (and the
-      # string-form variant) take the same shortcut.
+      # `recv.public_send(:meth, args)` calls a public method the same way
+      # `recv.send(:meth, args)` does, in both the Symbol and the String form.
 
       puts "hello".public_send(:upcase)
       puts "world".public_send("upcase")
@@ -847,12 +841,9 @@ describe "Object: defining and naming methods" do
 
   it "respond to core class and module" do
     result = zr(<<~'RUBY')
-      # respond_to? on a core class or module had no user class entry to consult, so
-      # the fold left the call unresolved: it raised NoMethodError at runtime, and on
-      # Thread / Mutex / Fiber the front end rejected it outright. The analyze-time
-      # probes already answer this for a primitive receiver; let a constant receiver
-      # use them too. A module also answered true for its plain instance methods,
-      # which only its module_function ones should do. #3467.
+      # respond_to? on a core class or module answers from that class's own methods,
+      # also on Thread / Mutex / Fiber. A module answers true for its module_function
+      # methods, but not for its plain instance methods.
       r1 = (String.respond_to?(:new) rescue $!.class); p r1
       r2 = (Integer.respond_to?(:sqrt) rescue $!.class); p r2
       r3 = (Comparable.respond_to?(:new) rescue $!.class); p r3
@@ -1016,8 +1007,8 @@ describe "Object: defining and naming methods" do
 
   it "respond to nil slot" do
     result = zr(<<~'RUBY')
-      # respond_to? on a nil that arrived through a slot: the literal receiver
-      # folded at compile time, the slot did not, and answered a flat false (#3815).
+      # respond_to? on a nil that arrived through a slot answers the same as on a
+      # literal nil.
       a = nil
       p a.respond_to?(:to_a)
       p a.respond_to?(:to_i)
@@ -1049,13 +1040,10 @@ describe "Object: defining and naming methods" do
       # union-wide static approximation.
       #
       # `value.respond_to?(:to_css) ? value.to_css : value` where value is a String
-      # from some call sites and a #to_css-defining user class from others: the
-      # analyze probe types `value.to_css` (Color defines it) and reported a static
-      # true, so the String took the wrong branch and returned "" instead of itself.
-      #
-      # Fix: for a poly receiver whose method is defined by a user class, emit a
-      # runtime cls_id check (like the poly is_a? path) -- a builtin value, which
-      # cannot define a user protocol method, answers false.
+      # from some call sites and a #to_css-defining user class from others. Color
+      # defines `to_css`, but the String must still take the else branch and return
+      # itself. A builtin value cannot define a user protocol method, so it answers
+      # false.
 
       class Color
         def initialize(s) = (@s = s)
@@ -1112,9 +1100,8 @@ describe "Object: defining and naming methods" do
 
   it "respond to primitive" do
     result = zr(<<~'RUBY')
-      # Issue #716. `<primitive>.respond_to?(name)` should answer true for
-      # the common method set, not just for obj-typed receivers. The compile-
-      # time approximation uses a conservative allowlist of universal methods.
+      # `<primitive>.respond_to?(name)` answers true for the common method
+      # set, not just for obj-typed receivers.
 
       puts 1.respond_to?(:to_s)
       puts "x".respond_to?(:class)
@@ -1135,7 +1122,7 @@ describe "Object: defining and naming methods" do
   it "respond to primitives" do
     result = zr(<<~'RUBY')
       # respond_to? on built-in (primitive) receivers, answered at compile time by
-      # probing spinel's own method resolution -- no hand-maintained method list.
+      # probing the compiler's own method resolution -- no hand-maintained method list.
       # Per-type helpers keep each receiver's concrete type (a single shared helper
       # would widen every receiver to a poly value, whose runtime class isn't static).
       def st(x); x; end
@@ -1381,9 +1368,8 @@ describe "Object: defining and naming methods" do
     result = zr(<<~'RUBY')
       # A top-level `def` is Object's PRIVATE instance method, so an explicit receiver
       # cannot reach it -- except through #send, whose whole point is to ignore
-      # visibility. Spinel retargets `x.send(:m)` to a plain `x.m` in the analyzer,
-      # which is the right lowering but loses exactly the permission that made the
-      # call legal, so the top-level method was never found.
+      # visibility. So `x.send(:m)` must find the top-level method, although a plain
+      # `x.m` cannot.
       def zork(v) = "top:#{v}"
       def plain = "top-plain"
 

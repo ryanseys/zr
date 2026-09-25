@@ -35,9 +35,8 @@ describe "Enumerable: searching and matching" do
 
   it "grep, grep_v, sum and each_entry answer on a user class that writes each" do
     result = zr(<<~'RUBY')
-      # Enumerable (via a user class with #each) versions of grep/grep_v/sum/each_entry,
-      # the receiver KieranP's #2479/#2480/#2504/#2516 duplicates exercise. The bug was
-      # the __enum_to_a lowering picking the wrong element/result type.
+      # Enumerable (via a user class with #each) versions of grep/grep_v/sum/each_entry.
+      # Each one answers the correct element and result type.
       class Nums
         include Enumerable
         def initialize(*xs); @xs = xs; end
@@ -67,8 +66,8 @@ describe "Enumerable: searching and matching" do
     result = zr(<<~'RUBY')
       # A user class whose `each` never ends is still usable, because the
       # short-circuiting Enumerable methods stop the SOURCE rather than scanning a
-      # materialized copy of it. `first`/`take`/`find`/`include?` always did;
-      # `take_while` used to collect first and so ran forever.
+      # materialized copy of it. This is true for `first`/`take`/`find`/`include?`
+      # and `take_while`.
       #
       # The last line is the one that keeps the two kinds of stop apart: a `break` in
       # the USER's block belongs to the enclosing call, and must not be read as the
@@ -116,7 +115,7 @@ describe "Enumerable: searching and matching" do
 
   it "the Enumerator rows answer, and a bad argument raises TypeError" do
     result = zr(<<~'RUBY')
-      # Enumerable/Enumerator surface (#2479, #2480, #2486, #2504, #2505, #2516)
+      # Enumerable/Enumerator surface
       class C
         include Enumerable
         def each; yield 3; yield 1; yield 2; end
@@ -148,9 +147,9 @@ describe "Enumerable: searching and matching" do
 
   it "env grep lazy followups" do
     result = zr(<<~'RUBY')
-      # ENV snapshot GC safety (#2842), grep with reference/module patterns
-      # (#2843), hash/ENV lazy chains (#2845), ENV mutator chaining and the
-      # bang trio (#2844), and slice_before/after === patterns (#2847).
+      # ENV snapshot GC safety, grep with reference/module patterns, hash/ENV
+      # lazy chains, ENV mutator chaining and the bang trio, and
+      # slice_before/after === patterns.
       300.times { |i| ENV["ZZBIG_#{i}"] = "v" * 200 }
       20.times do
         n = 0
@@ -272,17 +271,13 @@ describe "Enumerable: searching and matching" do
 
   it "lv widen from callee arg slot" do
     result = zr(<<~'RUBY')
-      # Phase 3: LV back-propagation from callee arg slot.
-      #
-      # Body-derived widening of a callee's param (via
-      # narrow_param_hash_types_from_body_writes) doesn't reach
-      # the caller's local variable. The call site then passes
-      # sp_StrIntHash * into a sp_StrPolyHash * slot.
+      # A callee's body writes values of mixed types into a Hash param. The
+      # caller's local Hash must accept those values too.
       #
       # Shape (real-blog parse_request / parse_form_into):
       #
       #   def assign(into, k, v)
-      #     # heterogeneous body — widens `into` to str_poly_hash
+      #     # heterogeneous body -- `into` gets values of mixed types
       #     if k.include?("[")
       #       into[k] = {}
       #     else
@@ -295,17 +290,10 @@ describe "Enumerable: searching and matching" do
       #   end
       #
       #   def run
-      #     params = {}                     # str_int_hash by default
-      #     parse("a=1&b=2", params)        # callee widens; params LV
-      #                                     # needs to widen too
+      #     params = {}
+      #     parse("a=1&b=2", params)        # the callee stores mixed values
       #     params
       #   end
-      #
-      # Pre-fix the `params = {}` literal compiles as
-      # sp_StrIntHash_new() and the call passes it to the
-      # StrPolyHash slot — warns under -Wincompatible-pointer-types.
-      # With this pass, params widens to str_poly_hash and the
-      # literal lowers to sp_StrPolyHash_new() directly.
 
       module Form
         def self.assign(into, k, v)
@@ -336,11 +324,8 @@ describe "Enumerable: searching and matching" do
   it "nested index write poly index" do
     result = zr(<<~'RUBY')
       # `rows[r][c] = "*"` where `r` comes from a destructured block parameter. The
-      # store has two lowerings: one that writes through the outer container's slot,
-      # and one that fetches the element by value and writes into that copy. The
-      # addressable test required an INTEGER index, so a boxed one fell to the
-      # by-value form and the assignment was silently dropped -- no error, and the
-      # expression still answered its right-hand side (#4078).
+      # store must write into the element in `rows`, not into a copy of it. A boxed
+      # index must not make the assignment disappear.
       rows = ["abc"].map(&:dup)
       pairs = [[0, 1]]
       pairs.each { |r, c| rows[r][c] = "*" }

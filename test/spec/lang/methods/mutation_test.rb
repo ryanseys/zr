@@ -41,17 +41,13 @@ describe "Methods: changing in place" do
   it "bang operator override" do
     result = zr(<<~'RUBY')
       # `!` is an ordinary overridable method in ruby (`BasicObject#!`), and a class
-      # that defines it decides its own truthiness under `!`. zr folds `!x` to a
-      # truthiness test and never dispatches, so the override is ignored.
+      # that defines it decides its own truthiness under `!`. So `!x` calls the
+      # override.
       #
-      # `not x` is the same send and diverges the same way. A plain truthiness test
+      # `not x` is the same send and also calls it. A plain truthiness test
       # (`x ? a : b`) correctly does NOT call it, so the override changes only the
       # explicit operator -- which is why ruby made `!` a real method in 1.9. Null
-      # object and Maybe-shaped wrappers are the population that notices.
-      #
-      # The fold is right for every value that does NOT define `!`, which is nearly
-      # all of them, so the fix is to decline it exactly where a user body exists --
-      # the same static gate `emit_mixin_hook` and the definition hooks already use.
+      # object and Maybe-shaped wrappers use this.
 
       class Inverted
         def !() = :bang_called
@@ -81,25 +77,12 @@ describe "Methods: changing in place" do
 
   it "bare sibling cls method call" do
     result = zr(<<~'RUBY')
-      # Issue #405. A bare call to a sibling `def self.X` inside another
-      # `def self.Y` body in the same module/class used to emit a
-      # `cannot resolve call to 'X' on (no receiver) (emitting 0)`
-      # warning, with the callee's params defaulting to mrb_int (no
-      # call-site signal reached the inference pass). CRuby treats the
-      # bare call as `self.X(...)`, which spinel now mirrors via:
-      #   - infer_type bare-call arm extended to look up
-      #     `<Class>_cls_<m>` in @meth_* (modules) or @cls_cmeth_*
-      #     (real classes) when @current_method_name carries the
-      #     `_cls_` marker (inference) or @current_method_has_self == 0
-      #     and @current_class_idx pins the owner (emission).
-      #   - scan_new_calls's CallNode arm widens the sibling's ptypes
-      #     from the call site's args.
-      #   - compile_no_recv_call_expr emits the dispatch.
+      # A bare call to a sibling `def self.X` inside another `def self.Y`
+      # body in the same module/class is a call to `self.X(...)`, as in
+      # CRuby. The sibling's params take the types of the call's args.
 
-      # 1. Module case -- the shape from the issue: outer cmeth makes
-      # a bare call to a sibling cmeth that takes a string param. The
-      # bug widened the sibling's param to mrb_int because the bare
-      # call site contributed no signal.
+      # 1. Module case: outer cmeth makes a bare call to a sibling
+      # cmeth that takes a string param.
       module Inv
         def self.outer(table)
           inner(table)
@@ -107,8 +90,7 @@ describe "Methods: changing in place" do
         end
 
         def self.inner(name)
-          # If `name` widens to mrb_int (the bug), this str-concat
-          # expression would fail to C-compile.
+          # `name` must be a String here for this concatenation.
           "rows-for-" + name
         end
       end
@@ -117,8 +99,7 @@ describe "Methods: changing in place" do
       puts Inv.inner("posts")       # rows-for-posts
 
       # 2. Real-class case: sibling cmeth chained through a string
-      # param. The class path goes through @cls_cmeth_* tables instead
-      # of the module @meth_* synth-name path; both are handled.
+      # param.
       class Greeter
         def self.outer(x)
           inner(x)
@@ -131,8 +112,8 @@ describe "Methods: changing in place" do
 
       puts Greeter.outer("world")   # hello, world
 
-      # 3. Multi-hop chain across three sibling cmeths inside a module
-      # so the iterative inference loop has to propagate types twice.
+      # 3. Multi-hop chain across three sibling cmeths inside a module,
+      # so the String type must go through two calls.
       module Pipeline
         def self.start(s)
           middle(s)
@@ -160,21 +141,9 @@ describe "Methods: changing in place" do
 
   it "call arg int to obj cast" do
     result = zr(<<~'RUBY')
-      # Issue #379: when a method returns `obj_<C> | nil` and Spinel
-      # collapses the union to `mrb_int` upstream, the local catching
-      # the call ends up declared `mrb_int`. Use sites that need the
-      # concrete class then differ in their handling: property accesses
-      # (`local.id`) get a runtime cast inserted by
-      # `compile_int_class_fallback_expr`, while call args that pass
-      # the local to a typed-pointer parameter (`f(local)` where the
-      # param is `sp_<C> *`) were previously emitted raw — gcc errored
-      # `incompatible integer to pointer conversion`.
-      #
-      # Fix: in compile_call_args_with_defaults' positional-arg branch,
-      # when the param's declared ptype is `obj_<C>` and the arg's
-      # inferred type is `int`, insert the same `(sp_<C> *)` cast that
-      # the property-access path already emits. Same machinery now
-      # wired into both directions.
+      # A method can return an object of one of two classes. A local
+      # holds the result, and the program passes that local as an
+      # argument to a method that expects one of the classes.
 
       class Holder
         attr_reader :name
@@ -190,8 +159,7 @@ describe "Methods: changing in place" do
         end
       end
 
-      # Force the helper's return to widen across two concrete obj
-      # returns so the resulting union collapses (`mrb_int`):
+      # The helper returns a Holder or a Wrapper:
       def maybe_holder(flag)
         if flag == 0
           Holder.new("h0")
@@ -211,9 +179,7 @@ describe "Methods: changing in place" do
       h = maybe_holder(0)
       all << h
 
-      # Without the fix this call site would emit
-      # `consume_holder(lv_h)` against a `consume_holder(sp_Holder *)`
-      # signature, with lv_h still typed mrb_int — type-mismatched C.
+      # `h` holds a Holder, so consume_holder answers its name.
       puts consume_holder(h)
     RUBY
 
@@ -222,26 +188,19 @@ describe "Methods: changing in place" do
 
   it "method object under prepend" do
     result = zr(<<~'RUBY')
-      # A `Method` or `UnboundMethod` names ONE entry in the chain. Under `prepend`,
-      # zr loses which one:
+      # A `Method` or `UnboundMethod` names ONE entry in the chain, also under
+      # `prepend`:
       #
-      #   * `super_method` does not advance past the prepended module: it answers a
-      #     Method with the SAME owner, so the idiomatic `while m; m = m.super_method;
-      #     end` walk never terminates. The bounded loop below shows twenty repeats of
-      #     `Mixin` where ruby reaches `Sub` then `Base` and stops.
-      #   * `Base.instance_method(:greet).bind(sub)` re-dispatches from the top of the
-      #     receiver's MRO -- answering "mixin+sub+base" -- where ruby runs `Base`'s
-      #     body alone and answers "base".
+      #   * `super_method` advances past the prepended module, so the idiomatic
+      #     `while m; m = m.super_method; end` walk reaches `Sub`, then `Base`, and
+      #     stops.
+      #   * `Base.instance_method(:greet).bind(sub)` runs `Base`'s body alone and
+      #     answers "base". It does not dispatch again from the top of the chain.
       #
-      # `bind` is the sharper half: an UnboundMethod taken from a named ancestor is
-      # how you deliberately bypass an override (`Base.instance_method(:x).bind_call`
+      # `bind` is important: an UnboundMethod taken from a named ancestor is how
+      # you bypass an override on purpose (`Base.instance_method(:x).bind_call`
       # is the standard way to defeat a `method_missing` proxy or a prepended
-      # wrapper), so re-dispatching gives back exactly what the caller asked to skip.
-      #
-      # `tests/method_object_freezes_its_entry.rb` fixed the sibling case -- a Method
-      # whose entry is REDEFINED afterwards -- by freezing the layer the name resolved
-      # through. This is the same question asked of a chain position the caller named
-      # explicitly rather than one that was resolved for them.
+      # wrapper).
 
       class Base
         def greet = "base"
@@ -265,7 +224,7 @@ describe "Methods: changing in place" do
       p Sub.instance_method(:greet).owner
       p Mixin.instance_method(:greet).owner
 
-      # The chain walk, bounded so this file terminates under zr.
+      # The chain walk, with a limit so that the loop always ends.
       walk = []
       cur = Sub.new.method(:greet)
       20.times do
@@ -440,13 +399,10 @@ describe "Methods: changing in place" do
 
   it "straight line append accumulator" do
     result = zr(<<~'RUBY')
-      # An accumulator appended to by straight-line statements takes the growable
-      # handle the same way one appended to inside a loop does -- a template
-      # compiler emits one `io << chunk` per literal chunk with no loop, and a
-      # whole-buffer copy per append makes building the page quadratic (#3480).
-      # The cases here are the ones the promotion has to keep answering the same:
-      # a read before the appending is finished (which must NOT promote), aliasing,
-      # freezing, passing the accumulator on, and interpolation.
+      # An accumulator that straight-line statements append to acts the same as one
+      # that a loop appends to. A template compiler emits one `io << chunk` for each
+      # literal chunk, with no loop. The cases here check a read before the appending
+      # is finished, aliasing, freezing, passing the accumulator on, and interpolation.
       def render
         io = String.new
         io << "<p>a</p>"

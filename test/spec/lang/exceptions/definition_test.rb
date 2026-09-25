@@ -6,11 +6,10 @@ describe "Exceptions: defining and naming methods" do
   it "alias of the inherited builtin raise works in every call shape" do
     result = zr(<<~'RUBY')
       # `alias_method :raise!, :raise` / `alias __raise__ raise` (ostruct's and
-      # delegate's shapes): the source is Kernel's BUILTIN raise -- no user
-      # `Scope` exists, so this used to be a compile error. Statically-resolved
-      # sites substitute into the raise lowering (including the bare re-raise and the
-      # 3-arg form, whose custom-backtrace argument is evaluated and dropped);
-      # all outputs oracle-verified.
+      # delegate's shapes): the source is Kernel's BUILTIN raise, and no user
+      # method has that name. The alias acts as raise in each call shape,
+      # including the bare re-raise and the 3-arg form with a custom backtrace.
+      # CRuby gives the same outputs.
 
       class Reporter
         alias_method :raise!, :raise
@@ -425,10 +424,8 @@ describe "Exceptions: defining and naming methods" do
 
   it "undef method raises" do
     result = zr(<<~'RUBY')
-      # Issue #717. `undef <m>` removes the method from the class's
-      # dispatch table AND a subsequent call to it raises NoMethodError
-      # (matching CRuby). spinel previously recorded the undef but the
-      # slot stayed callable.
+      # `undef <m>` removes the method from the class, and a later call
+      # to it raises NoMethodError (matching CRuby).
 
       class C
         def meth; "method"; end

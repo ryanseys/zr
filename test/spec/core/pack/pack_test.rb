@@ -228,11 +228,8 @@ describe "Pack programs" do
 
   it "poly user pack unpack" do
     result = zr(<<~'RUBY')
-      # The poly-receiver arms for `pack` and `unpack1` did not ask whether a user
-      # class owns the name, the way their neighbours do. `pack` answered "" and
-      # `unpack1` read the receiver through a char * whatever it held -- both
-      # silently, neither entering the method (#4071's shape, found by sweeping the
-      # poly arms for the guard).
+      # When the receiver can be an Array, a String or a user object, `pack` and
+      # `unpack1` call the user class's own method if it defines one.
       class Frame
         def initialize
           @packed = 0
@@ -264,7 +261,7 @@ describe "Pack programs" do
       p first_of(Wire.new)
       p first_of("AB")
 
-      # and with no user class in sight the plain lowering is unchanged
+      # and with no user class in sight the plain calls work the same
       p [65, 66].pack("C*")
       p "AB".unpack1("C")
       p "AB".unpack1("a")

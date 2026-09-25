@@ -5,22 +5,13 @@ require "spec_helper"
 describe "Range programs" do
   it "str rindex optional narrow" do
     result = zr(<<~'RUBY')
-      # Issue #645: `slash = p.rindex("/")` followed by a nil-check
-      # ternary used to leak sp_RbVal into sp_str_sub_range_r (which
-      # expects mrb_int):
+      # `slash = p.rindex("/")` followed by a nil-check ternary:
       #
       #   tail = slash == nil ? p : p[(slash + 1)..(p.length - 1)]
       #
-      # Root cause: spinel widened `String#rindex` return to "poly"
-      # unconditionally (sp_str_rindex_poly returns sp_RbVal), even
-      # when the arg was a plain string. `slash + 1` then went through
-      # sp_poly_add and the result couldn't pass as the mrb_int start
-      # arg.
-      #
-      # Fix: split rindex like index — plain-string arg returns int?
-      # via sp_str_rindex_opt (SP_INT_NIL sentinel), regex arg stays
-      # on sp_re_rindex_poly. The nil-check narrow (#645 infra) then
-      # applies.
+      # With a plain String argument, `String#rindex` answers an Integer
+      # or nil, as `String#index` does. After the nil check, `slash` is
+      # an Integer, so `slash + 1` works as a range start.
 
       p = "abc/def"
       slash = p.rindex("/")
@@ -54,18 +45,11 @@ describe "Range programs" do
 
   it "string new array literal" do
     result = zr(<<~'RUBY')
-      # #519. `[String.new]` (and `[s]` where `s = String.new`) used to
-      # infer as `int_array`, then codegen emitted
-      # `sp_IntArray_push(arr, sp_String_new(""))` -- C type mismatch.
+      # `[String.new]` (and `[s]` where `s = String.new`) is an Array of
+      # mutable Strings. length / push / pop / [] work on it.
       #
-      # Fix: `infer_array_elem_type_from_ids` now has a `mutable_str` arm
-      # that lowers the literal to `mutable_str_ptr_array` (a sp_PtrArray
-      # of sp_String*). The generic `<X>_ptr_array` codegen path handles
-      # length / push / pop / [] for the new slot.
-      #
-      # `["", String.new]` (mixed string-literal + mutable_str) still
-      # widens to poly_array because the literal witness flips et to
-      # "string" first and the all-string check fails.
+      # `["", String.new]` mixes a string literal and a mutable String.
+      # Both elements are in the Array.
 
       arr = [String.new]
       puts arr.length
@@ -74,7 +58,7 @@ describe "Range programs" do
       arr2 = [s]
       puts arr2.length
 
-      # Mixed: literal + String.new -> poly_array. Both elements show up.
+      # Mixed: literal + String.new. Both elements show up.
       mixed = ["", String.new]
       puts mixed.length
     RUBY
@@ -90,8 +74,6 @@ describe "Range programs" do
     result = zr(<<~'RUBY')
       # String#split with a positive `limit` argument caps the result at
       # `limit` elements; the last element keeps the unsplit remainder.
-      # Pre-fix spinel's two-arg split fell through to sp_str_split, which
-      # ignored the limit and split exhaustively. Issue #619 puzzle 2.
       p "hi!".split("", 2) == ["h", "i!"]
       p "a,b,c,d".split(",", 2) == ["a", "b,c,d"]
       p "a,b,c,d".split(",", 3) == ["a", "b", "c,d"]
@@ -174,8 +156,8 @@ describe "Range programs" do
   it "case in range pattern" do
     result = zr(<<~'RUBY')
       # A range pattern in `case/in` matches by membership (===), honoring
-      # exclusivity and beginless/endless bounds, instead of being treated as an
-      # unconditional match (which previously selected the wrong arm). Scrutinees
+      # exclusivity and beginless/endless bounds. It is not an unconditional match,
+      # so a scrutinee outside the range goes to a later arm. Scrutinees
       # route through a method param so the runtime path runs. Separate helpers per
       # scrutinee kind (int/float/poly) keep the param type concrete.
       def si(x); x; end   # int
@@ -478,13 +460,10 @@ describe "Range programs" do
       puts parse_int("0")
       puts parse_int("-7")
 
-      # Explicit-raise rescue trigger. Pre-fix the test was `half(n) = n / 2`,
-      # which never raises (0/2 == 0) and so never exercised the rescue path.
-      # Uses an explicit raise() so the rescue trigger is independent of the
-      # integer-division-by-zero machinery (covered separately in
-      # test/integer_div_by_zero.rb). The raise lives inside a helper so the
-      # endless body is a single call expression — keeps codegen happy and
-      # exercises the cross-frame rescue path.
+      # Explicit-raise rescue trigger. An explicit raise() makes the rescue
+      # trigger independent of integer division by zero. The raise is inside a
+      # helper, so the endless body is a single call expression, and the rescue
+      # catches an exception from another frame.
       def assert_pos(n)
         n < 0 ? raise("negative") : n
       end
@@ -765,7 +744,7 @@ describe "Range programs" do
   it "a sum block whose value comes out of a find still folds" do
     result = zr(<<~'RUBY')
       # A `sum` block whose value indexes an Array#find result is poly; the sum
-      # must fold through the block (regression alongside #2913).
+      # must fold through the block.
       table = [["h", 3600], ["m", 60]]
       p ["1h", "30m"].sum { |t| t[0...-1].to_i * table.find { |l, _| l == t[-1] }[1] }
     RUBY

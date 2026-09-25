@@ -34,10 +34,9 @@ describe "Object: frozen literals" do
 
   it "bool nil immediate edges" do
     result = zr(<<~'RUBY')
-      # Immediate-receiver edges: <=> between equal bools/nils is 0 (#2733), a bool
-      # has no #=~ so !~ raises (#2732), TrueClass/FalseClass/NilClass have no
-      # allocator (#2751), and clone(freeze: false) cannot unfreeze an immediate
-      # (#2764).
+      # Immediate-receiver edges: <=> between equal bools/nils is 0, a bool has no
+      # #=~ so !~ raises, TrueClass/FalseClass/NilClass have no allocator, and
+      # clone(freeze: false) cannot unfreeze an immediate.
       p(true <=> true)
       p(false <=> false)
       p(true <=> false)
@@ -286,7 +285,7 @@ describe "Object: frozen literals" do
   it "empty literal freeze" do
     result = zr(<<~'RUBY')
       # `[].freeze` is the frozen-empty-array idiom: the call must not be dropped,
-      # and the array must be built at the slot's type (#3828).
+      # and the array must be built at the slot's type.
       p [].freeze.frozen?
       p [1].freeze.frozen?
       p({}.freeze.frozen?)
@@ -977,7 +976,6 @@ describe "Object: frozen literals" do
   it "a Proc and an Enumerator carry a freeze state, and is_a? sees the builtin modules they include" do
     result = zr(<<~'RUBY')
       # freeze state on Proc/Enumerator; is_a? for included builtin modules
-      # (KieranP #2362, #2363)
       a = ->(x) { x }
       p a.frozen?
       a.freeze
@@ -1088,8 +1086,7 @@ describe "Object: frozen literals" do
       # The `freeze_user_object` scenario end to end: a bareword self-`freeze`
       # in `initialize` sets real state, `frozen?` reads it back, mutation
       # after freeze raises FrozenError, and a user `def freeze = (@log =
-      # "custom"; self)` (the `Seq`-tail-`self` shape whose codegen boxing was
-      # the E0308) returns self, runs its body, and -- since it overrides the
+      # "custom"; self)` returns self, runs its body, and -- since it overrides the
       # real freeze -- leaves the object UNfrozen. (The FrozenError message's
       # inspect tail `#<Sealed:0x.. @x=1>` is a separate default-inspect gap,
       # so this asserts the message PREFIX, not the address/ivar detail.)
@@ -1133,13 +1130,10 @@ describe "Object: frozen literals" do
 
   it "user value object freeze" do
     result = zr(<<~'RUBY')
-      # freeze on a user-defined VALUE-type instance (a small immutable scalar-ivar
-      # class represented by value, sp_X, not a heap pointer). Stateful freeze reaches
-      # for the object's GC-header bit, which a value struct does not carry; the mono
-      # arm must fall back to the self-returning no-op instead of passing the struct
-      # to sp_gc_freeze(void*). freeze compiles, returns self, and the object stays
-      # usable; frozen? on a value object reads false but must still evaluate its
-      # receiver so a side-effecting receiver expression is not discarded.
+      # freeze on an instance of a small immutable class with only scalar ivars.
+      # freeze returns self, and the object stays usable. frozen? on a new object
+      # reads false, but it must still evaluate its receiver, so a side-effecting
+      # receiver expression is not discarded.
       class Point
         attr_reader :x, :y
 

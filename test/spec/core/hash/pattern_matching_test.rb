@@ -27,8 +27,8 @@ describe "Hash: pattern matching" do
     result = zr(<<~'RUBY')
       # A hash pattern in `case/in` binds each value target (shorthand `{k:}`, `{k: v}`,
       # and capture `{k: Class => v}`) and matches only when the scrutinee is a hash
-      # holding every key with each value matching its sub-pattern. Previously the
-      # bindings came back nil. Each scrutinee routes through its own method param so
+      # holding every key with each value matching its sub-pattern. Each scrutinee
+      # routes through its own method param so
       # the runtime path runs; separate helpers keep each hash variant concrete.
 
       # class check + capture binding (the canonical form)
@@ -191,7 +191,7 @@ describe "Hash: pattern matching" do
 
   it "all?, any?, none? and one? take a pattern argument" do
     result = zr(<<~'RUBY')
-      # Hash#all?/any?/none?/one? with a pattern argument (KieranP #2338)
+      # Hash#all?/any?/none?/one? with a pattern argument
       p({ a: 1 }.all?([:a, 1]))
       p({ a: 1, b: 2 }.all?([:a, 1]))
       p({ a: 1, b: 2 }.any?([:b, 2]))
@@ -214,12 +214,10 @@ describe "Hash: pattern matching" do
 
   it "a hash pattern over a union of two classes reads each through its own deconstruct_keys" do
     result = zr(<<~'RUBY')
-      # A hash pattern whose subject is a UNION of two user classes. The match reads
-      # the subject through the runtime to_h hook, which knew only Struct and Data --
-      # a user-defined #deconstruct_keys had no arm there, so no pattern matched and
-      # the else raised, naming the very class the first pattern covers (#4019). With
-      # ONE class the subject type is static and the method is called directly, which
-      # is why the union was needed to see it.
+      # A hash pattern whose subject is a UNION of two user classes. The match calls
+      # the user-defined #deconstruct_keys of each class, so each pattern matches its
+      # own class. With ONE class the subject type is static, so the union makes the
+      # match look up the method at run time.
       class Node
         def deconstruct_keys(keys) = to_h
       end

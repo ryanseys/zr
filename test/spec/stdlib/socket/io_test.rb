@@ -383,8 +383,8 @@ describe "Socket: reading and writing" do
     result = zr(<<~'RUBY')
       # The socket classes sit in CRuby's chain, and a handle answers #is_a? from it.
       require "socket"
-      # first(5) stops before IO's own mixins: Spinel's IO does not carry
-      # File::Constants / Enumerable yet, which is a separate gap.
+      # first(5) stops before IO's own mixins (File::Constants, Enumerable), which
+      # this test does not check.
       p TCPServer.ancestors.first(5)
       p TCPSocket.superclass
       p UDPSocket.superclass
@@ -730,12 +730,9 @@ describe "Socket: reading and writing" do
 
   it "readpartial returns as soon as any bytes arrive, so a read-then-write server holds" do
     result = zr(<<~'RUBY')
-      # IO#readpartial returns as soon as ANY bytes are available. It used to be one
-      # fread of the full length, which is a different operation: fread keeps calling
-      # read(2) until it has the whole request or hits EOF. On a socket that waits for
-      # the peer to send that much or close, so the read-then-write shape every HTTP
-      # server has deadlocks -- and where libc returns short instead of blocking, the
-      # response was written to a connection the peer had already closed.
+      # IO#readpartial returns as soon as ANY bytes are available. It does not wait
+      # for the whole length or for EOF. So the read-then-write shape that every HTTP
+      # server has does not deadlock, and the response goes to an open connection.
       require "socket"
 
       server = TCPServer.new("127.0.0.1", 0)

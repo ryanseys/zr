@@ -657,9 +657,8 @@ describe "Builtins programs" do
   it "builtin row claims the name" do
     result = zr(<<~'RUBY')
       # A NATIVE row on a class claims its name in the MRO exactly as a `def` does.
-      # `Array#none?` and `Array#size` are native builtins with no user scope, so
-      # materialization used to fall through to the first ancestor that DID have one
-      # -- handing a `module Enumerable` reopen a name `Array` owns. Ruby puts
+      # `Array#none?` and `Array#size` are native builtins with no user scope, and a
+      # `module Enumerable` reopen does not take a name `Array` owns. Ruby puts
       # `Array` first in the ancestry and its own definition wins.
 
       # A user REOPEN of the builtin outranks the native row it replaces. Written
@@ -756,9 +755,9 @@ describe "Builtins programs" do
   it "class new dispatch arity" do
     result = zr(<<~'RUBY')
       # Class-object `.new` dispatch (zero-arg) only builds classes whose initialize
-      # takes no required args; an arg-requiring constructor is omitted (its runtime
-      # cls_id lands in the nil default, matching MRI's ArgumentError), and a
-      # value-type class is boxed by value not as a heap pointer (#2450).
+      # takes no required args; an arg-requiring constructor is omitted (as MRI
+      # raises ArgumentError for it), and a value-type class is built by value, not
+      # as a heap pointer.
       class A
         def initialize; @v = "a"; end
         def v; @v; end
@@ -775,7 +774,7 @@ describe "Builtins programs" do
       puts Other.new("keep").x
 
       # an optional-arg constructor is zero-arg-compatible: its arm fills the
-      # default rather than calling the C function with too few arguments (#2452)
+      # default
       class WithOpt
         def initialize(attrs = {}); @attrs = attrs; end
         def size; @attrs.length; end
@@ -1616,11 +1615,10 @@ describe "Builtins programs" do
 
   it "dynamic dispatch wrong arity raises a rescuable argument error" do
     result = zr(<<~'RUBY')
-      # `send`'s arity guard used to abort the whole process instead of raising
-      # a RESCUABLE ArgumentError, as Ruby does. Now the program survives every
-      # mismatch and the final line prints. All three message shapes -- fixed
-      # `N`, range `N..M`, and the rest form `N+` -- are oracle-verified against
-      # ruby 4.0.6.
+      # On an arity mismatch, `send` raises a RESCUABLE ArgumentError, as Ruby
+      # does. The program survives every mismatch and the final line prints.
+      # All three message shapes -- fixed `N`, range `N..M`, and the rest form
+      # `N+` -- are oracle-verified against ruby 4.0.6.
 
       class A
         def fixed(a) = a
@@ -2055,7 +2053,7 @@ describe "Builtins programs" do
 
   it "env mutation surface" do
     result = zr(<<~'RUBY')
-      # ENV follow-ups (#2831, #2832): predicate arity, the wider Enumerable
+      # ENV: predicate arity, the wider Enumerable
       # surface, and the mutators (update/merge!/clear/shift/delete_if family).
       ENV['ZZ_A'] = '1'
       r1 = (ENV.has_key? rescue $!.class);             p r1
@@ -2751,12 +2749,10 @@ describe "Builtins programs" do
 
   it "nested container array surface" do
     result = zr(<<~'RUBY')
-      # An Array read out of an Array(Array) or a Hash value is carried in a poly
-      # slot. It answered Array to #class but only part of Array's surface worked:
-      # a Range index fell through the poly [] as index 0 and returned element 0,
-      # #min / #max had no arm for a String array, and the count-taking reads
-      # (first(n), last(n), take, drop, rotate, values_at, sample(n)) raised
-      # NoMethodError. #3464.
+      # An Array read out of an Array(Array) or a Hash value has an unknown static
+      # type, but it answers all of Array's surface: a Range index, #min / #max on a
+      # String array, and the count-taking reads (first(n), last(n), take, drop,
+      # rotate, values_at, sample(n)).
       rows = [["a", "b", "c"]]
       r = rows[0]
       p r.class
@@ -3176,7 +3172,7 @@ describe "Builtins programs" do
 
       v = fv("aabbcc")
 
-      # --- reported missing (#3445) ---
+      # --- methods that must answer ---
       r = (v.squeeze rescue $!.class); p r
       r = (v.index("b") rescue $!.class); p r
       r = (v.rindex("b") rescue $!.class); p r
@@ -3206,17 +3202,17 @@ describe "Builtins programs" do
       r = (m4.upcase! rescue $!.class); p r
       p m4
 
-      # --- reported wrong, not missing (#3446) ---
+      # --- methods that must give the right count and sum ---
       r = (v.count("a") rescue $!.class); p r
       r = (v.sum rescue $!.class); p r
       r = (v.sum(8) rescue $!.class); p r
 
-      # --- reported wrong (#3447) ---
+      # --- String#% with an array and with one value ---
       f2 = fv("v=%d")
       r = (f2 % [5] rescue $!.class); p r
       r = (f2 % 5 rescue $!.class); p r
 
-      # --- already working: these must keep working ---
+      # --- the common methods ---
       p v
       p v[1]
       p v[1, 2]
@@ -3335,12 +3331,11 @@ describe "Builtins programs" do
   it "poly time surface" do
     result = zr(<<~'RUBY')
       # A Time that arrives boxed -- read out of a container, or narrowed out of an
-      # untyped value by is_a?(Time) -- reached a poly surface that had only the
-      # scalar accessors on it. Everything that answers a Time, a boolean, an offset,
-      # or a formatted string raised NoMethodError at run time, with nothing wrong in
-      # the generated C to warn about it. (matz/spinel#4109)
+      # untyped value by is_a?(Time) -- answers the full Time surface, not only the
+      # scalar accessors. That includes each method that answers a Time, a boolean,
+      # an offset, or a formatted string.
       #
-      # The array is a poly container, so every receiver below is boxed. The instant
+      # The array holds mixed types, so every receiver below is boxed. The instant
       # is put in UTC first: zone, iso8601 and the local reads would otherwise answer
       # whatever zone the machine running the suite happens to be in.
       box = [Time.at(1700000000, 123456).utc, "not a time"]
@@ -4047,14 +4042,14 @@ describe "Builtins programs" do
     result = zr(<<~'RUBY')
       # `io/console` and `io/nonblock` are require-gated extensions in ruby. zr
       # implements them natively, so their rows sit in `IO`'s own table -- one
-      # class owns one table -- and used to be answerable before the require.
+      # class owns one table -- but they do not answer before the require.
       #
       # That is observable beyond reflection: `respond_to?(:getch)` is how a
       # library decides whether the console extension is there at all, and a
       # `NoMethodError` is what it expects when it is not.
       #
       # `IO#to_s` is the same list's other half in the opposite direction: ruby
-      # inherits it from `Kernel` and zr declared it as IO's own.
+      # inherits it from `Kernel`, so it is not in IO's own list.
       p IO.instance_methods(false).include?(:getch)
       p IO.instance_methods(false).include?(:nonblock)
       p IO.instance_methods(false).include?(:to_s)
@@ -4089,18 +4084,14 @@ describe "Builtins programs" do
     result = zr(<<~'RUBY')
       # Every builtin name a `&.` can carry on a boxed receiver. The point is not the
       # values: it is that the program BUILDS and that a nil receiver answers nil.
-      # The safe-navigation guard has to box a value arm the poly runtime renders as
-      # a raw C scalar, and which names those are used to be a hand-kept table in the
-      # emitter. It went stale within a day -- `begin`, `end`, `count` and `bytes`
-      # were missing and `infinite?` was listed with the wrong type -- and nothing in
-      # the gate could see it, because the failure is a C error in a program nobody
-      # had written yet. This file is that program.
+      # Some names answer a raw scalar, and the safe-navigation guard must box that
+      # answer. The list covers every such name, e.g. `begin`, `end`, `count`,
+      # `bytes` and `infinite?`.
       VALS = [1, "abc", 1.5, [1], { "a" => 1 }]
 
       # the Hash/Enumerable face names, whose arm converts the receiver before it
       # re-dispatches: the conversion must sit INSIDE the nil guard, and must happen
-      # once (it used to be hoisted in front of the guard, and to convert its own
-      # conversion 63 times over)
+      # once
       def face_entries(v) = v&.entries
       def face_to_a(v) = v&.to_a
       def face_keys(v) = v&.keys

@@ -15,9 +15,8 @@ describe "OptionParser programs" do
       # OptionParser resolves a unique long-option PREFIX (`--verb` finds
       # `--verbose`) and raises AmbiguousOption when two candidates share it.
       #
-      # Both rows once answered InvalidOption, because optparse collects its
-      # candidates through `method(:each).to_proc` and that proc dropped its
-      # block -- see a_method_to_proc_carries_its_block.rb for the primitive.
+      # optparse collects its candidates through `method(:each).to_proc`, so
+      # that proc must carry its block. See a_method_to_proc_carries_its_block.rb.
       require "optparse"
       got = nil
       OptionParser.new { |o| o.on("--verbose") { got = :v } }.parse(["--verb"])
@@ -117,9 +116,8 @@ describe "OptionParser programs" do
       #
       # OptionParser's own graph, reached through the required file. See optparse_subset.rb.gccheck.
       # At exit: cycle leak: 28 objects (Hash x6, OptionParser::OptionMap x4, Proc x4, cell x4, Array x3, OptionParser::List x2, OptionParser::Switch::OptionalArgument x2, OptionParser x1, OptionParser::Switch::NoArgument x1, OptionParser::Switch::RequiredArgument x1)
-      # Regression for #1150 bug 2: a `require` on the very first line (byte 0)
-      # was skipped when another `require` followed it, so optparse.rb was never
-      # inlined and OptionParser was undefined. Both requires must be processed.
+      # A `require` on the very first line (byte 0) loads its file, also when
+      # another `require` follows it. Both requires must load.
       require "optparse"
       require "set"
       o = OptionParser.new

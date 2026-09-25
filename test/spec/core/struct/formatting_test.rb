@@ -5,14 +5,11 @@ require "spec_helper"
 describe "Struct: formatting and inspection" do
   it "anon struct class value" do
     result = zr(<<~'RUBY')
-      # `Struct.new(:a)` used as a VALUE rather than bound to a name -- printed,
-      # passed, put in an array -- had no class registered for it at all, and the
-      # call reported `Struct.new` as undefined (#4031). Only the forms that are a
-      # name's value or another call's receiver were registered.
+      # `Struct.new(:a)` can be a VALUE that no name holds: printed, passed, or put
+      # in an array.
       #
-      # Such a class is anonymous: CRuby renders it as the address form, and the
-      # StructAnon_<n> the compiler keys it by is not a Ruby-visible name. #name
-      # already answered nil; #to_s and #inspect say the same thing now.
+      # Such a class is anonymous: CRuby shows it in the address form. #name
+      # answers nil, and #to_s and #inspect give the address form.
       def anon?(s) = s.start_with?("#<Class:0x") && s.end_with?(">")
 
       p anon?(Struct.new.to_s)
@@ -120,13 +117,9 @@ describe "Struct: formatting and inspection" do
 
   it "cell value struct capture" do
     result = zr(<<~'RUBY')
-      # A captured-and-reassigned local needs a heap cell. Float, poly and class each
-      # got a cell of their own C type; Range, Rational and Complex are the same shape
-      # -- small by-value structs with no GC pointer -- but were left on the
-      # "non-integer capture" reject, in the cell prologue AND in the capture struct.
-      # And the block-local reset had no by-value arm at all, so a captured class
-      # there fell through to the sp_int else and assigned an sp_int * to an
-      # sp_Class *: ill-typed C for a program CRuby runs.
+      # A block can capture a local and assign a new value to it. This example does
+      # that with a Range, a Rational, a Complex and a Float range. It also captures
+      # a class, and it reads captured values that the block does not change.
 
       2.times do |n|
         v = (n..3)
@@ -156,7 +149,7 @@ describe "Struct: formatting and inspection" do
         puts v.to_s
       end
 
-      # the class cell, whose reset arm was the missing one
+      # a captured class, new on each iteration
       2.times do |n|
         k = Struct.new(:x)
         pr = proc { k.new(n) }

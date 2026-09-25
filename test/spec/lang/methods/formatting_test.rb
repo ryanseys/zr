@@ -91,7 +91,7 @@ describe "Methods: formatting and inspection" do
 
   it "double splat kwargs" do
     result = zr(<<~'RUBY')
-      # `def f(a, **kwargs)` binds extra keyword args into a sym_poly_hash.
+      # `def f(a, **kwargs)` binds extra keyword args into a Symbol-keyed Hash.
       def test(a, **kwargs)
         puts a
         puts kwargs.inspect
@@ -708,12 +708,11 @@ describe "Methods: formatting and inspection" do
       # `is_a?` on a receiver whose static type is a BASE class. That type is only an
       # upper bound -- a Base-typed slot legitimately holds a Sub, which is the whole
       # point of a subclass -- so the test has to read the object's runtime class.
-      # It read the static one, so a predicate written on the base class answered
-      # false for every subclass instance, silently, while the identical test written
-      # at the call site answered true because there the receiver's type IS Sub.
+      # A predicate written on the base class answers true for a subclass instance,
+      # as the identical test written at the call site does.
       #
       # The downstream shape is Rails single-table inheritance, where the predicates
-      # live on the base class by construction (#4142).
+      # live on the base class by construction.
       class Base
         def inside = self.is_a?(Sub)
         def implicit = is_a?(Sub)
@@ -852,19 +851,13 @@ describe "Methods: formatting and inspection" do
 
   it "kwarg back propagate callee type" do
     result = zr(<<~'RUBY')
-      # #561 (Sam Ruby). Kwarg passthrough back-propagation: when
-      # method outer forwards `inner(name: lvar)` and inner's
-      # `name:` is typed (default value or body usage), outer's
-      # matching kwarg should pick up the callee's slot type
-      # rather than defaulting to int. Pre-fix outer.s stayed int
-      # and the C compile failed at the int -> const char *
-      # coercion at the inner call site.
+      # Kwarg passthrough: method outer forwards `inner(name: lvar)`,
+      # and inner's `name:` has a type from its default value or its
+      # body. The matching kwarg of outer gets that type too.
       #
-      # This mirrors the positional callee_slot back-propagation
-      # pass but keyed on kwarg name rather than position; the
-      # kwarg path also accepts any concrete callee type
-      # (string / int_array / hash variant / etc.) rather than
-      # just ptr / obj.
+      # This is the kwarg form of the positional case: the match is
+      # by kwarg name, not by position. The type can be any concrete
+      # type (a String, an Array of Integers, a Hash, and so on).
 
       module Broadcasts
         def self.append(stream:, target:, html:)
@@ -886,11 +879,9 @@ describe "Methods: formatting and inspection" do
   it "kwarg only call leading optional" do
     result = zr(<<~'RUBY')
       # The whole-program shape: NO call site anywhere supplies the leading optional
-      # positionally, so it stays poly, and the fallthrough handed it the keyword
-      # hash -- which the declared keyword had already consumed, binding it twice
-      # (#3525). A companion call passing the positional immunises this, which is
-      # why the eleven shapes in kwarg_with_omitted_leading_optional.rb could not
-      # fail: they share a file with calls that rescue them. One shape per file.
+      # positionally. The keyword goes to the declared keyword only, and the
+      # optional keeps its default. A companion call that passes the positional
+      # would hide a fault here, so each shape has its own example.
       class A
         def self.f(a = nil, k: :default)
           "a=#{a.inspect} k=#{k.inspect}"
@@ -904,8 +895,8 @@ describe "Methods: formatting and inspection" do
 
   it "kwarg only instance leading optional" do
     result = zr(<<~'RUBY')
-      # One shape per file: a companion call that supplies the positional would
-      # immunise this (#3525).
+      # One shape per example: a companion call that supplies the positional would
+      # hide a fault here.
       class B
         def f(a = nil, k: :default)
           "a=#{a.inspect} k=#{k.inspect}"
@@ -919,8 +910,8 @@ describe "Methods: formatting and inspection" do
 
   it "kwarg only two leading optionals" do
     result = zr(<<~'RUBY')
-      # One shape per file: a companion call that supplies the positional would
-      # immunise this (#3525).
+      # One shape per example: a companion call that supplies the positional would
+      # hide a fault here.
       class C
         def self.f(a = nil, b = nil, k: :default)
           "a=#{a.inspect} b=#{b.inspect} k=#{k.inspect}"
@@ -935,7 +926,7 @@ describe "Methods: formatting and inspection" do
   it "kwarg with omitted leading optional" do
     result = zr(<<~'RUBY')
       # A keyword argument supplied while a leading optional positional is omitted:
-      # the keyword hash must NOT also land in the positional slot (#3525).
+      # the keyword hash must NOT also land in the positional slot.
       class A
         def self.f(a = nil, k: :default)
           "a=#{a.inspect} k=#{k.inspect}"
@@ -995,16 +986,16 @@ describe "Methods: formatting and inspection" do
       # KeywordRestParameterNode -- def f(**kw)
       #
       # Declares a method that captures all keyword arguments into a single
-      # sym_poly_hash slot. The full body-access path (kw[:key], kw.length)
-      # is deferred until a real program needs it; this test verifies the declaration
-      # alone compiles and the existing **nil form still works.
+      # Symbol-keyed Hash. Other examples read kw in the body (kw[:key],
+      # kw.length); this test verifies the declaration alone compiles and the
+      # existing **nil form still works.
       #
       # Forwarding usage (**kw → another method's **kw slot) is exercised by
       # test/forwarding_args.rb, which routes through cluster A3 + B1.
 
       # Declaration compiles; body never reads kw, so no kwargs runtime path
-      # is needed. Validates that adding the param slot doesn't break
-      # bootstrap or alter the C signature for callers that don't pass kwargs.
+      # is needed. Validates that the param does not change a call that
+      # passes no kwargs.
       def silent(a, **kw)
         a + 1
       end
@@ -1026,9 +1017,8 @@ describe "Methods: formatting and inspection" do
   it "kwrest does not fill optional" do
     result = zr(<<~'RUBY')
       # A method taking `**kwrest` takes every keyword the call passed, so none of
-      # them is a positional hash argument: the keywords-only call used to bind the
-      # hash to the optional positional as well, and `event.nil?` answered false
-      # (#3808).
+      # them is a positional hash argument: after the keywords-only call, the
+      # optional positional stays nil.
       def inner(event = nil, **filters)
         puts "nil?=#{event.nil?} keys=#{filters.keys.inspect}"
       end
@@ -1724,10 +1714,9 @@ describe "Methods: formatting and inspection" do
 
   it "middle splat param" do
     result = zr(<<~'RUBY')
-      # Issue #710. A middle *splat parameter (def f(a, *b, c)) must collect
-      # the inner args and leave the trailing fixed param(s) for the args
-      # after the splat. Before the fix, the splat greedily ate all the
-      # remaining call args and `c` got 0 with "missing required arg" warnings.
+      # A middle *splat parameter (def f(a, *b, c)) must collect the inner
+      # args and leave the trailing fixed param(s) for the args after the
+      # splat.
 
       def g(a, *b, c); [a, b, c]; end
       puts g(1, 2, 3, 4).inspect
@@ -2000,7 +1989,7 @@ describe "Methods: formatting and inspection" do
       b << "!"
       b >> "["
       puts b.to_s
-      # Builtin << still works (regression guard).
+      # Builtin << still works.
       a = []
       a << 1
       a << 2
@@ -2019,12 +2008,8 @@ describe "Methods: formatting and inspection" do
 
   it "receiver before arguments" do
     result = zr(<<~'RUBY')
-      # Ruby evaluates a call's receiver before its arguments. Spinel handed both to
-      # one C call, where the order among the operands is unspecified: gcc picks
-      # right-to-left and clang picks left-to-right, so the same program printed the
-      # argument's trace before the receiver's on Linux and after it on macOS. The
-      # receiver binds to a temp in front of the call now, in place rather than at the
-      # statement above, so an expression inside a block body still evaluates where it
+      # Ruby evaluates a call's receiver before its arguments, on every platform.
+      # This holds also for an expression inside a block body: it evaluates where it
       # was written.
       def r_str(v); puts "R str"; v; end
       def a_str(v); puts "A str"; v; end
@@ -2408,9 +2393,8 @@ describe "Methods: formatting and inspection" do
   it "rest param keyword argument" do
     result = zr(<<~'RUBY')
       # A bare `k: v` argument degrades to one positional hash at a `*rest`
-      # parameter's tail. One call path did that and the other dropped it entirely,
-      # so an INSTANCE method ran with no arguments at all while the identical
-      # top-level call kept them -- silently, no error (#3503).
+      # parameter's tail. An INSTANCE method gets that hash, as the identical
+      # top-level call does.
       class C
         def splat_only(*parts) = parts.length
         def leading_arg(a, *parts) = parts.length
@@ -3091,18 +3075,9 @@ describe "Methods: formatting and inspection" do
 
   it "user defined operator methods can be defined and dispatched" do
     result = zr(<<~'RUBY')
-      # A real, previously-undetected bug: `safe_ident` had no escaping at
-      # all for a method name that's a bare operator symbol (`+`, `<=>`,
-      # `[]`, ...) -- `def +(other)` aborted at CODEGEN time with a bare
-      # "not a valid identifier" error. This meant user-defined
-      # operator overloading -- claimed to "work for free"
-      # once operators became ordinary Calls -- never actually worked for
-      # the DEFINING side; every existing operator test exercised only
-      # native `Int`/`Float` fast paths, which bypass `safe_ident` entirely.
-      # Fixed via a fixed lookup table (`OPERATOR_METHOD_NAMES`) mapping
-      # every operator symbol to a valid identifier, consulted by BOTH
-      # the method-definition side and the general-dispatch call site (the
-      # same function backs both), so they agree automatically.
+      # A user class can define a method whose name is an operator (`+`, `<=>`,
+      # `[]`, ...), and a call with that operator goes to it. The Integer and
+      # Float operators do not test the defining side, so this example does.
 
       class Vector
         attr_reader :x, :y

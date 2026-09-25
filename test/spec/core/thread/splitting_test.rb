@@ -5,10 +5,8 @@ require "spec_helper"
 describe "Thread: splitting and joining" do
   it "blocked thread is asleep" do
     result = zr(<<~'RUBY')
-      # A thread waiting on a blocking primitive is "sleep", not "run". zr used to
-      # answer "run" for every one of them, because only the `Thread.stop` latch
-      # said "sleep" -- and that latch cannot be reused, since the stop loop spins
-      # on it.
+      # A thread waiting on a blocking primitive is "sleep", not "run". This is
+      # true for each primitive, not only for `Thread.stop`.
 
       # Wait until `t` reaches a settled word, so the reading is not a race.
       def settle(t)
@@ -523,8 +521,8 @@ describe "Thread: splitting and joining" do
 
   it "join and value dispatch on threads read out of an Array" do
     result = zr(<<~'RUBY')
-      # The threads live in an Array, so `join`/`value` dispatch dynamically
-      # (the runtime Thread table), not the static codegen fast path.
+      # The threads live in an Array, so `join`/`value` are called on each
+      # element that the Array gives.
 
       threads = 3.times.map { |i| Thread.new { i * 10 } }
       threads.each(&:join)
@@ -740,8 +738,8 @@ describe "Thread: splitting and joining" do
 
   it "value and join dispatch on a thread carried in a container rather than answering nil" do
     result = zr(<<~'RUBY')
-      # A Thread (modelled as a single-threaded Fiber) carried through a container:
-      # #value/#join must dispatch on the boxed Fiber, not degrade to nil (#1261).
+      # A Thread carried through a container: #value/#join answer the thread's
+      # result, not nil.
       ts = (1..3).map { |i| Thread.new { i * 10 } }
       p ts.map { |t| t.value }
       p ts[0].value            # idempotent: re-reading a finished thread's value

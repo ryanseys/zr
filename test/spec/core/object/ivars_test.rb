@@ -218,9 +218,8 @@ describe "Object: instance and class variables" do
   it "class body ivar write initializes class level state" do
     result = zr(<<~'RUBY')
       # A bare `@x = ...` directly in a class body -- the ordinary way
-      # class-level state gets seeded. It used to fall through `register_class`'s
-      # catch-all arm and be SILENTLY DROPPED, leaving the reader a bare nil
-      # with no diagnostic at all.
+      # class-level state gets seeded. The write is kept, so the reader sees the
+      # value, not nil.
 
       class Registry
         @items = []
@@ -263,8 +262,7 @@ describe "Object: instance and class variables" do
   it "class ivar in class method" do
     result = zr(<<~'RUBY')
       # Class-instance-variable accessed inside a class method (def self.x).
-      # The emitted C class-method function has no `self`, so `@v` must lower
-      # to a per-class static slot rather than `self->iv_v`. Covers the
+      # There `@v` belongs to the class object, not to an instance. Covers the
       # memoized-class-method idiom, plain write+read across calls, the
       # `class << self` form, name collision with an instance ivar, and a
       # nil read before any write.
@@ -517,8 +515,7 @@ describe "Object: instance and class variables" do
       end
       p ModOrd.instance_variables
 
-      # The INSTANCE side already reports assignment order, and is here so a
-      # regression names which half broke.
+      # The INSTANCE side reports assignment order too.
       class Inst
         def initialize
           @b = 1
@@ -586,13 +583,10 @@ describe "Object: instance and class variables" do
 
   it "an ivar a generated writer may fill is not folded away" do
     result = zr(<<~'RUBY')
-      # `if obj.attr` had its live branch dropped when the backing ivar's only
-      # VISIBLE write was the constructor's nil and the real value arrived through a
-      # generated setter. emit_if folds a branch away when every program-wide write
-      # to the ivar assigns nil, but attr_writer / attr_accessor synthesize the
-      # setter, so `c.w = [0.5]` is a CallNode against a body that has no AST and the
-      # scan never saw it. The program took the else branch forever, silently.
-      # (matz/spinel#4107)
+      # `if obj.attr` keeps its live branch when the backing ivar's only VISIBLE
+      # write is the constructor's nil and the real value arrives through a generated
+      # setter (attr_writer / attr_accessor), as in `c.w = [0.5]`. A branch folds
+      # away only when no writer of any kind can store a non-nil value.
       class Ctx
         attr_accessor :w
         def initialize
@@ -627,13 +621,10 @@ describe "Object: instance and class variables" do
 
   it "a generated writer beside a direct read of the same ivar keeps it" do
     result = zr(<<~'RUBY')
-      # `if obj.attr` had its live branch dropped when the backing ivar's only
-      # VISIBLE write was the constructor's nil and the real value arrived through a
-      # generated setter. emit_if folds a branch away when every program-wide write
-      # to the ivar assigns nil, but attr_writer / attr_accessor synthesize the
-      # setter, so `c.w = [0.5]` is a CallNode against a body that has no AST and the
-      # scan never saw it. The program took the else branch forever, silently.
-      # (matz/spinel#4107)
+      # `if obj.attr` keeps its live branch when the backing ivar's only VISIBLE
+      # write is the constructor's nil and the real value arrives through a generated
+      # setter (attr_writer / attr_accessor), as in `c.w = [0.5]`. A branch folds
+      # away only when no writer of any kind can store a non-nil value.
       class Ctx
         attr_accessor :w
         def initialize
@@ -678,13 +669,10 @@ describe "Object: instance and class variables" do
 
   it "a Struct's members count as generated writers" do
     result = zr(<<~'RUBY')
-      # `if obj.attr` had its live branch dropped when the backing ivar's only
-      # VISIBLE write was the constructor's nil and the real value arrived through a
-      # generated setter. emit_if folds a branch away when every program-wide write
-      # to the ivar assigns nil, but attr_writer / attr_accessor synthesize the
-      # setter, so `c.w = [0.5]` is a CallNode against a body that has no AST and the
-      # scan never saw it. The program took the else branch forever, silently.
-      # (matz/spinel#4107)
+      # `if obj.attr` keeps its live branch when the backing ivar's only VISIBLE
+      # write is the constructor's nil and the real value arrives through a generated
+      # setter (attr_writer / attr_accessor), as in `c.w = [0.5]`. A branch folds
+      # away only when no writer of any kind can store a non-nil value.
       class Ctx
         attr_accessor :w
         def initialize
@@ -715,13 +703,10 @@ describe "Object: instance and class variables" do
 
   it "a writer inherited from the superclass counts as generated too" do
     result = zr(<<~'RUBY')
-      # `if obj.attr` had its live branch dropped when the backing ivar's only
-      # VISIBLE write was the constructor's nil and the real value arrived through a
-      # generated setter. emit_if folds a branch away when every program-wide write
-      # to the ivar assigns nil, but attr_writer / attr_accessor synthesize the
-      # setter, so `c.w = [0.5]` is a CallNode against a body that has no AST and the
-      # scan never saw it. The program took the else branch forever, silently.
-      # (matz/spinel#4107)
+      # `if obj.attr` keeps its live branch when the backing ivar's only VISIBLE
+      # write is the constructor's nil and the real value arrives through a generated
+      # setter (attr_writer / attr_accessor), as in `c.w = [0.5]`. A branch folds
+      # away only when no writer of any kind can store a non-nil value.
       class Ctx
         attr_accessor :w
         def initialize
@@ -766,13 +751,10 @@ describe "Object: instance and class variables" do
 
   it "a hand-written setter is the boundary: its body holds the write" do
     result = zr(<<~'RUBY')
-      # `if obj.attr` had its live branch dropped when the backing ivar's only
-      # VISIBLE write was the constructor's nil and the real value arrived through a
-      # generated setter. emit_if folds a branch away when every program-wide write
-      # to the ivar assigns nil, but attr_writer / attr_accessor synthesize the
-      # setter, so `c.w = [0.5]` is a CallNode against a body that has no AST and the
-      # scan never saw it. The program took the else branch forever, silently.
-      # (matz/spinel#4107)
+      # `if obj.attr` keeps its live branch when the backing ivar's only VISIBLE
+      # write is the constructor's nil and the real value arrives through a generated
+      # setter (attr_writer / attr_accessor), as in `c.w = [0.5]`. A branch folds
+      # away only when no writer of any kind can store a non-nil value.
       class Ctx
         attr_accessor :w
         def initialize
@@ -789,9 +771,7 @@ describe "Object: instance and class variables" do
       end
 
       # A hand-written setter is the boundary on the other side: its body holds a
-      # real write node, which the scan already counts, so nothing about the fold
-      # changes for it. (This case comes from bartleusink's #4108, which found the
-      # same bug and drew the boundary in both directions.)
+      # real write node, which the scan counts, so the branch stays live.
       class HandWritten
         attr_reader :h
         def initialize
@@ -814,13 +794,10 @@ describe "Object: instance and class variables" do
 
   it "with no writer of any kind, an ivar that is never written folds falsy" do
     result = zr(<<~'RUBY')
-      # `if obj.attr` had its live branch dropped when the backing ivar's only
-      # VISIBLE write was the constructor's nil and the real value arrived through a
-      # generated setter. emit_if folds a branch away when every program-wide write
-      # to the ivar assigns nil, but attr_writer / attr_accessor synthesize the
-      # setter, so `c.w = [0.5]` is a CallNode against a body that has no AST and the
-      # scan never saw it. The program took the else branch forever, silently.
-      # (matz/spinel#4107)
+      # `if obj.attr` keeps its live branch when the backing ivar's only VISIBLE
+      # write is the constructor's nil and the real value arrives through a generated
+      # setter (attr_writer / attr_accessor), as in `c.w = [0.5]`. A branch folds
+      # away only when no writer of any kind can store a non-nil value.
       class Ctx
         attr_accessor :w
         def initialize
@@ -1532,8 +1509,7 @@ describe "Object: instance and class variables" do
       # frees the allocation and lets the allocator hand the address out again, so
       # the ivar row has to go first. Reversing the two lines makes both counts
       # below read 2000: every later value of the same shape lands on a dead one's
-      # address and inherits its ivars. `tests/spinel/singleton_address_reuse.rb` is
-      # the same test for the singleton table, which made exactly that mistake.
+      # address and inherits its ivars. The singleton table follows the same rule.
       def with_ivar
         a = [1, 2, 3]
         a.instance_variable_set(:@tag, "mine")
@@ -1579,10 +1555,9 @@ describe "Object: instance and class variables" do
   it "ivar or write empty literal variant" do
     result = zr(<<~'RUBY')
       # An empty `{}` / `[]` has no elements to type it, so inference gives the
-      # literal whatever the reads elsewhere suggest. The plain ivar write lends the
-      # literal its slot's variant; `||=` did not, so a module registry built one
-      # hash layout while every write and read of the slot used another, and the C
-      # build stopped on the pointer types. (matz/spinel#4111)
+      # literal whatever the reads elsewhere suggest. `||=` lends the literal its
+      # slot's variant, as the plain ivar write does, so a module registry uses one
+      # hash layout for each write and read of the slot.
       module Registry
         @reg ||= {}
         def self.register(extension, klass)
@@ -1647,20 +1622,14 @@ describe "Object: instance and class variables" do
 
   it "ivar polymorphic" do
     result = zr(<<~'RUBY')
-      # Issue #130: instance variable assigned different definite-typed values
-      # across methods used to either fail to compile (-Wint-conversion under
-      # -Werror), silently coerce (Integer→Float when slot won inference as Float),
-      # or segfault. Fix is in scan_ivars: when both writes are definite-literal
-      # and types disagree, widen the slot to poly. Write sites then box every
-      # concrete-typed RHS to sp_RbVal; read sites already use sp_poly_puts and
-      # friends.
+      # An instance variable assigned values of different types across methods
+      # holds each value as written. The slot widens to poly, and no value is
+      # coerced (an Integer does not become a Float).
       #
-      # Variant 3 of the issue (ternary RHS with mixed types in a single-write
-      # slot) is a different root — the slot widens to "int" because IfNode
-      # isn't a definite-literal — and is filed separately.
+      # A ternary RHS with mixed types in a single-write slot is in the
+      # "an ivar written from a ternary" examples.
 
-      # 1. String + Integer — variant 1 from the issue. Original symptom:
-      #    -Wint-conversion warning, indeterminate runtime output.
+      # 1. String + Integer.
       class C1
         def set_int; @x = 42; end
         def set_str; @x = "hello"; end
@@ -1671,8 +1640,7 @@ describe "Object: instance and class variables" do
       c1.set_int; c1.show                  # 42
       c1.set_str; c1.show                  # hello
 
-      # 2. Integer + Float — variant 2. Original symptom: silent coercion;
-      #    `42` printed as `42.0` because the slot won inference as Float.
+      # 2. Integer + Float. `42` prints as `42`, not `42.0`.
       class C2
         def set_int; @x = 42; end
         def set_float; @x = 3.14; end
@@ -1683,8 +1651,7 @@ describe "Object: instance and class variables" do
       c2.set_int; c2.show                  # 42
       c2.set_float; c2.show                # 3.14
 
-      # 3. String + Symbol — already widened to poly in pre-#130 inference but
-      #    didn't compile because write sites weren't boxed. Pins the boxing fix.
+      # 3. String + Symbol. Each write site boxes its value.
       class C3
         def set_str; @x = "hello"; end
         def set_sym; @x = :world; end
@@ -1709,8 +1676,7 @@ describe "Object: instance and class variables" do
       c4.set_str; c4.show                  # txt
       c4.set_float; c4.show                # 2.5
 
-      # 5. Single-type ivar — regression guard. The pre-#130 happy path stays
-      #    happy. No widening, slot stays mrb_int.
+      # 5. Single-type ivar. No widening, the slot stays Integer.
       class C5
         def set; @x = 42; end
         def show; puts @x; end
@@ -1755,13 +1721,8 @@ describe "Object: instance and class variables" do
   it "ivar tail write return" do
     result = zr(<<~'RUBY')
       # A plain tail instance-variable write is the method's value in Ruby
-      # (`def m; @x = v; end` answers v). Returning the statement default instead
-      # handed back the slot type's nil: NULL for an Array (the caller segfaulted on
-      # the first `.length`), 0 for an Integer, "" for a String, {} for a Hash.
-      # #3317 routed only an OBJECT-valued tail ivar write through the value path,
-      # and `def m = (@x = v)` parses as a value so the endless form was already
-      # right; the ordinary statement form was not. (matz/spinel#1484 covers the
-      # operator-assignment form, which already worked.)
+      # (`def m; @x = v; end` answers v), for an Integer, a String, an Array, a Hash
+      # and a Float. It is not the nil of the slot's type.
       class Slots
         def initialize
           @i = nil
@@ -1796,7 +1757,7 @@ describe "Object: instance and class variables" do
       p o.read
 
       # The classic memoization guard: first call must build and answer the value,
-      # not the unassigned slot. The Array case used to segfault the caller here.
+      # not the unassigned slot.
       class Memo
         def initialize; @cache = nil; end
         def build
@@ -1867,20 +1828,12 @@ describe "Object: instance and class variables" do
 
   it "an ivar written from a ternary of a String and an Integer holds both" do
     result = zr(<<~'RUBY')
-      # Issue #131: a single-write ivar whose RHS is a ternary (or if-as-
-      # expression) with branches of different concrete types used to type
-      # the slot from `infer_ivar_init_type`'s default fallback ("int") and
-      # emit a raw `(cond ? then : else)` C ternary into a typed slot —
-      # pointer/integer mismatch warning, segfault at runtime.
-      #
-      # Fix: `infer_ivar_init_type` recurses into IfNode branches with strict
-      # unification (no "int is default" escape hatch); `box_expr_to_poly`
-      # always per-branch boxes IfNode in poly contexts. Slot widens to poly
-      # for mixed-type branches; same-type branches infer as that type and
-      # the existing path applies.
+      # A single-write ivar whose RHS is a ternary (or if-as-expression).
+      # The slot type comes from both branches. Branches of different
+      # concrete types widen the slot to poly, and each branch boxes its
+      # value. Branches of the same type give the slot that type.
 
-      # 1. Ternary mixing String and Integer — variant 3 from #130.
-      #    Was: -Wconditional-type-mismatch and segfault.
+      # 1. Ternary mixing String and Integer.
       class C1
         def init(use_str)
           @x = use_str ? "hello" : 42
@@ -1902,19 +1855,12 @@ describe "Object: instance and class variables" do
 
   it "an ivar written from a ternary of an Integer and a Float coerces neither" do
     result = zr(<<~'RUBY')
-      # Issue #131: a single-write ivar whose RHS is a ternary (or if-as-
-      # expression) with branches of different concrete types used to type
-      # the slot from `infer_ivar_init_type`'s default fallback ("int") and
-      # emit a raw `(cond ? then : else)` C ternary into a typed slot —
-      # pointer/integer mismatch warning, segfault at runtime.
-      #
-      # Fix: `infer_ivar_init_type` recurses into IfNode branches with strict
-      # unification (no "int is default" escape hatch); `box_expr_to_poly`
-      # always per-branch boxes IfNode in poly contexts. Slot widens to poly
-      # for mixed-type branches; same-type branches infer as that type and
-      # the existing path applies.
+      # A single-write ivar whose RHS is a ternary (or if-as-expression).
+      # The slot type comes from both branches. Branches of different
+      # concrete types widen the slot to poly, and each branch boxes its
+      # value. Branches of the same type give the slot that type.
 
-      # 2. Same shape with Integer/Float — silent-coerce in pre-fix codegen.
+      # 2. Same shape with Integer/Float -- neither value is coerced.
       class C2
         def init(use_int)
           @x = use_int ? 100 : 1.5
@@ -1936,20 +1882,13 @@ describe "Object: instance and class variables" do
 
   it "a mixed ternary followed by a concrete write keeps every type it saw" do
     result = zr(<<~'RUBY')
-      # Issue #131: a single-write ivar whose RHS is a ternary (or if-as-
-      # expression) with branches of different concrete types used to type
-      # the slot from `infer_ivar_init_type`'s default fallback ("int") and
-      # emit a raw `(cond ? then : else)` C ternary into a typed slot —
-      # pointer/integer mismatch warning, segfault at runtime.
-      #
-      # Fix: `infer_ivar_init_type` recurses into IfNode branches with strict
-      # unification (no "int is default" escape hatch); `box_expr_to_poly`
-      # always per-branch boxes IfNode in poly contexts. Slot widens to poly
-      # for mixed-type branches; same-type branches infer as that type and
-      # the existing path applies.
+      # A single-write ivar whose RHS is a ternary (or if-as-expression).
+      # The slot type comes from both branches. Branches of different
+      # concrete types widen the slot to poly, and each branch boxes its
+      # value. Branches of the same type give the slot that type.
 
-      # 3. Mixed-type ternary combined with later concrete write — must
-      #    interact with #130's multi-write widening: poly + concrete = stay poly.
+      # 3. Mixed-type ternary combined with a later concrete write:
+      #    poly + concrete = stay poly.
       class C3
         def init(use_str)
           @x = use_str ? "hello" : 42
@@ -1976,20 +1915,13 @@ describe "Object: instance and class variables" do
 
   it "a ternary whose branches share a type leaves the slot that type" do
     result = zr(<<~'RUBY')
-      # Issue #131: a single-write ivar whose RHS is a ternary (or if-as-
-      # expression) with branches of different concrete types used to type
-      # the slot from `infer_ivar_init_type`'s default fallback ("int") and
-      # emit a raw `(cond ? then : else)` C ternary into a typed slot —
-      # pointer/integer mismatch warning, segfault at runtime.
-      #
-      # Fix: `infer_ivar_init_type` recurses into IfNode branches with strict
-      # unification (no "int is default" escape hatch); `box_expr_to_poly`
-      # always per-branch boxes IfNode in poly contexts. Slot widens to poly
-      # for mixed-type branches; same-type branches infer as that type and
-      # the existing path applies.
+      # A single-write ivar whose RHS is a ternary (or if-as-expression).
+      # The slot type comes from both branches. Branches of different
+      # concrete types widen the slot to poly, and each branch boxes its
+      # value. Branches of the same type give the slot that type.
 
-      # 4. Same-type ternary — regression guard. Both branches int, slot
-      #    stays mrb_int, no boxing overhead.
+      # 4. Same-type ternary. Both branches Integer, so the slot stays
+      #    Integer, with no boxing.
       class C4
         def init(big)
           @x = big ? 1000 : 1
@@ -2011,19 +1943,12 @@ describe "Object: instance and class variables" do
 
   it "a ternary of two Strings leaves the slot a String" do
     result = zr(<<~'RUBY')
-      # Issue #131: a single-write ivar whose RHS is a ternary (or if-as-
-      # expression) with branches of different concrete types used to type
-      # the slot from `infer_ivar_init_type`'s default fallback ("int") and
-      # emit a raw `(cond ? then : else)` C ternary into a typed slot —
-      # pointer/integer mismatch warning, segfault at runtime.
-      #
-      # Fix: `infer_ivar_init_type` recurses into IfNode branches with strict
-      # unification (no "int is default" escape hatch); `box_expr_to_poly`
-      # always per-branch boxes IfNode in poly contexts. Slot widens to poly
-      # for mixed-type branches; same-type branches infer as that type and
-      # the existing path applies.
+      # A single-write ivar whose RHS is a ternary (or if-as-expression).
+      # The slot type comes from both branches. Branches of different
+      # concrete types widen the slot to poly, and each branch boxes its
+      # value. Branches of the same type give the slot that type.
 
-      # 5. Same-type-string ternary — regression guard. Slot stays string.
+      # 5. Same-type-string ternary. Slot stays String.
       class C5
         def init(loud)
           @x = loud ? "HEY" : "hi"
@@ -2045,17 +1970,10 @@ describe "Object: instance and class variables" do
 
   it "an if written as an expression widens the slot the same as a ternary" do
     result = zr(<<~'RUBY')
-      # Issue #131: a single-write ivar whose RHS is a ternary (or if-as-
-      # expression) with branches of different concrete types used to type
-      # the slot from `infer_ivar_init_type`'s default fallback ("int") and
-      # emit a raw `(cond ? then : else)` C ternary into a typed slot —
-      # pointer/integer mismatch warning, segfault at runtime.
-      #
-      # Fix: `infer_ivar_init_type` recurses into IfNode branches with strict
-      # unification (no "int is default" escape hatch); `box_expr_to_poly`
-      # always per-branch boxes IfNode in poly contexts. Slot widens to poly
-      # for mixed-type branches; same-type branches infer as that type and
-      # the existing path applies.
+      # A single-write ivar whose RHS is a ternary (or if-as-expression).
+      # The slot type comes from both branches. Branches of different
+      # concrete types widen the slot to poly, and each branch boxes its
+      # value. Branches of the same type give the slot that type.
 
       # 6. if-as-expression form (statement-style) with mixed types.
       #    Same AST shape (IfNode) as ternary, just multi-line surface syntax.
@@ -2084,17 +2002,10 @@ describe "Object: instance and class variables" do
 
   it "a ternary with a nil branch widens the slot to a nullable String" do
     result = zr(<<~'RUBY')
-      # Issue #131: a single-write ivar whose RHS is a ternary (or if-as-
-      # expression) with branches of different concrete types used to type
-      # the slot from `infer_ivar_init_type`'s default fallback ("int") and
-      # emit a raw `(cond ? then : else)` C ternary into a typed slot —
-      # pointer/integer mismatch warning, segfault at runtime.
-      #
-      # Fix: `infer_ivar_init_type` recurses into IfNode branches with strict
-      # unification (no "int is default" escape hatch); `box_expr_to_poly`
-      # always per-branch boxes IfNode in poly contexts. Slot widens to poly
-      # for mixed-type branches; same-type branches infer as that type and
-      # the existing path applies.
+      # A single-write ivar whose RHS is a ternary (or if-as-expression).
+      # The slot type comes from both branches. Branches of different
+      # concrete types widen the slot to poly, and each branch boxes its
+      # value. Branches of the same type give the slot that type.
 
       # 7. Ternary with nil branch — should widen to nullable string,
       #    not poly. Let the existing nullable widening flow through.
@@ -2206,7 +2117,7 @@ describe "Object: instance and class variables" do
       # At exit: cycle leak: 6 objects (Array x3, Cell x3)
       # An ivar seeded empty in initialize (`@n = []` -> int-array) must widen when an
       # external attr-writer assigns a wider value through a *poly* receiver -- e.g. an
-      # element read from a poly array/hash (#1508). Inference attributes the write to
+      # element read from a poly array/hash. Inference attributes the write to
       # the unique class defining that attr-writer.
       class Cell
         attr_accessor :alive, :neighbours
@@ -2368,7 +2279,7 @@ describe "Object: instance and class variables" do
     result = zr(<<~'RUBY')
       # Instance-variable multi-assignment with empty hash/array literals: the
       # element temps adopt the ivar's type (poly ivars take a fresh boxed
-      # container), and the assignment boxes from the temp's resolved type (#3280).
+      # container), and the assignment boxes from the temp's resolved type.
       class MyClass
         attr_reader :foo, :bar, :baz, :qux, :quux
         def initialize
@@ -2395,11 +2306,8 @@ describe "Object: instance and class variables" do
 
   it "module def self ivar" do
     result = zr(<<~'RUBY')
-      # Issue #713. Module class methods (`def self.X`) writing/reading
-      # `@ivar` need a module-level `cst_<Mod>_<ivar>` slot or the codegen
-      # emits `self->iv_X` against a non-existent `self` in the top-level
-      # function. The walk now scans each `def self.X` body and pre-registers
-      # every observed @ivar as a const slot.
+      # Module class methods (`def self.X`) that write and read `@ivar`
+      # use an ivar of the module object itself.
 
       module M
         def self.set(v); @v = v; end
@@ -2417,9 +2325,8 @@ describe "Object: instance and class variables" do
   it "module ivar nil poly" do
     result = zr(<<~'RUBY')
       # A module-level instance variable initialized to nil and later widened
-      # to a polymorphic value (it holds nil, an empty [], and a String push)
-      # must box the nil initializer as sp_box_nil(), not a bare 0, or the
-      # assignment to the sp_RbVal const slot fails to compile.
+      # to a polymorphic value (it holds nil, an empty [], and a String push).
+      # The nil initializer is a real nil, not 0.
       module Store
         @log = nil
 
@@ -2441,24 +2348,15 @@ describe "Object: instance and class variables" do
   it "module ivar op write" do
     result = zr(<<~'RUBY')
       # Module-level @ivar referenced inside `def self.X` (the canonical
-      # Ruby singleton-state pattern) used to emit as `self->iv_X` in C.
-      # The class method has no self parameter -- module class methods
-      # dispatch through the module's static table rather than an
-      # instance pointer -- so the use site failed to compile.
-      #
-      # Fix: `ivar_lhs` now detects the "current emit scope is a module
-      # class method" case and routes the lhs / rhs to the module's
-      # `cst_<Mod>_<name>` static slot. The InstanceVariableReadNode
-      # arm already had this dispatch inline; the operator-write / or-
-      # write / and-write arms reached `ivar_lhs` and got the wrong
-      # `self->iv_X` expansion.
+      # Ruby singleton-state pattern). Each write form, and the read, uses
+      # the ivar of the module object.
       #
       # Coverage:
       #   - Plain `@count += 1` (InstanceVariableOperatorWriteNode).
       #   - `@count = N` (InstanceVariableWriteNode).
       #   - `@flag ||= true` (InstanceVariableOrWriteNode).
-      #   - Read access via `@count` (InstanceVariableReadNode) --
-      #     unchanged but exercised by the puts below.
+      #   - Read access via `@count` (InstanceVariableReadNode), by the
+      #     puts below.
 
       module Counter
         @count = 0
@@ -2677,9 +2575,8 @@ describe "Object: instance and class variables" do
   it "multi assign ivar type" do
     result = zr(<<~'RUBY')
       # `@a, @b = x, y` must propagate the param types into the ivars just
-      # like separate `@a = x; @b = y` assignments do. Previously the
-      # destructuring target wasn't recognized as an assignment, so an
-      # attr_reader ivar got widened to poly and a chained <=> mis-dispatched.
+      # like separate `@a = x; @b = y` assignments do, so a chained <=> on
+      # the attr_reader values dispatches correctly.
       class V
         include Comparable
         attr_reader :maj, :min
@@ -2953,8 +2850,7 @@ describe "Object: instance and class variables" do
       end
       try("i") { I.singleton_class.instance_variables.sort }
 
-      # The `class << self` spelling, whose nested reads were wrong in the same way:
-      # only the two bare statement forms used to be mapped.
+      # The `class << self` spelling, whose nested reads follow the same rule.
       class J
         class << self
           @seen = 3
@@ -3004,22 +2900,11 @@ describe "Object: instance and class variables" do
 
   it "stdlib class in ivar" do
     result = zr(<<~'RUBY')
-      # A `.new` on a stdlib class Spinel does not implement (Pathname, OpenStruct,
-      # IPAddr, ...) used to silently degrade to an inert 0 -- the object's methods
-      # then returned nil, so a program that actually used it diverged from CRuby with
-      # no signal. It now raises NameError instead: if it can't work, it fails loudly.
+      # A stdlib class held in an ivar. A required library (ipaddr) works. A `.new`
+      # on a stdlib class that the program does not require (OpenStruct) raises
+      # NameError, as in CRuby. It is never an inert value.
       #
-      # A class Spinel models as a no-op (Mutex, single-threaded) and user-defined
-      # classes are unaffected. The ivar slot still compiles either way (the raise
-      # expression is int-typed, so no undeclared `sp_<Class> *` field is emitted).
-      #
-      # ostruct/ipaddr are unimplemented stdlib: under SPINEL_REQUIRE_GATE the
-      # `require` itself is a compile error, so a real program omits it and the .new
-      # still raises NameError at the use site. Mutex is core (no require needed).
-      #
-      # Pathname used to stand here too. It is a bundled library now, so naming it
-      # without requiring it is a compile error that says which require is missing --
-      # a different (and better) answer than this file is about.
+      # Mutex is core (no require needed), and user-defined classes are unaffected.
 
       require "ipaddr"
 
@@ -3035,7 +2920,7 @@ describe "Object: instance and class variables" do
 
       class WithIPAddr
         def initialize
-          @addr = IPAddr.new('127.0.0.1')   # unsupported stdlib class -> raises here
+          @addr = IPAddr.new('127.0.0.1')   # a required stdlib class
           @v = 7
         end
         def v
@@ -3067,7 +2952,7 @@ describe "Object: instance and class variables" do
 
       puts Holder.new.px            #=> 42
 
-      # Constructing the unsupported-stdlib holder raises (loud), not a silent inert 0.
+      # Constructing the IPAddr holder works, because the program requires ipaddr.
       begin
         WithIPAddr.new
         puts "no raise"
@@ -3075,7 +2960,7 @@ describe "Object: instance and class variables" do
         puts "ipaddr raised"
       end
 
-      # A direct `.new` on an unsupported stdlib class raises too.
+      # A direct `.new` on a stdlib class that is not required raises NameError.
       begin
         OpenStruct.new
         puts "no raise"
@@ -3148,9 +3033,8 @@ describe "Object: instance and class variables" do
 
   it "toplevel ivar opassign" do
     result = zr(<<~'RUBY')
-      # A top-level `@ivar ||=` / `@ivar &&=` must emit its store. Previously the
-      # top-level slot was unresolved (class_id < 0), so no branch matched and the
-      # assignment was silently dropped.
+      # A top-level `@ivar ||=` / `@ivar &&=` stores its value in the ivar of
+      # `main`.
       @y ||= 5
       p @y                 # 5
       @y ||= 99
@@ -3236,10 +3120,8 @@ describe "Object: instance and class variables" do
 
   it "uninit ivar returns nil" do
     result = zr(<<~'RUBY')
-      # Issue #712. A read-only @ivar (never assigned anywhere in the class)
-      # must read as nil, not fail with "struct has no field iv_x". The scan
-      # pass now adds a "nil" slot for any read-only ivar so the struct gets
-      # the field and Ruby semantics surface for `.inspect` / `.nil?`.
+      # A read-only @ivar (never assigned anywhere in the class) reads as nil,
+      # and `.inspect` / `.nil?` on it answer as in Ruby.
 
       class C
         def x; @x; end

@@ -66,8 +66,8 @@ describe "OpenStruct programs" do
 
   it "ostruct nil union to h" do
     result = zr(<<~'RUBY')
-      # to_h on an OpenStruct|nil union value: the poly to_h keeps the boxed value
-      # for a poly consumer and handles the OpenStruct member table (#3282).
+      # to_h on a value that is an OpenStruct or nil gives the OpenStruct's members
+      # as a Hash.
       require "ostruct"
       class Main
         def parse(flag)
@@ -92,9 +92,8 @@ describe "OpenStruct programs" do
 
   it "ostruct poly user name clash" do
     result = zr(<<~'RUBY')
-      # An OpenStruct member read through a poly value must work even when a user
-      # class defines a method of the same name: the OpenStruct pre-arm keys on
-      # cls_id and coexists with the user arms (#3264).
+      # An OpenStruct member read must work even when a user class defines a
+      # method of the same name. The call goes to the OpenStruct member.
       require "ostruct"
       class Main
         def name = "main-name"

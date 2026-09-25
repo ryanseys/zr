@@ -7,9 +7,8 @@ describe "Variables programs" do
     result = zr(<<~'RUBY')
       # A call whose pointer argument is a bare variable assigned earlier in the SAME
       # sequence-expression the call belongs to: the argument must be read at the call
-      # (after the in-sequence assignment), not hoisted above it. Regression: the arg
-      # was rooted into a statement-prelude temp captured before `a = {...}` ran, so
-      # the callee received a stale (empty) hash and every lookup blanked.
+      # (after the in-sequence assignment), not hoisted above it. So the callee gets
+      # the hash that `a = {...}` made, with its entries.
       def render(h)
         h["name"]
       end
@@ -188,29 +187,17 @@ describe "Variables programs" do
 
   it "case when poly scrutinee bound to local" do
     result = zr(<<~'RUBY')
-      # `case v when X then ... end` bound to a local via `r = ...`
-      # pre-fix emitted two C temps: a result temp (typed from the
-      # branch values) and a scrutinee temp (used inside
-      # `sp_class_for_poly(...)`). The scrutinee temp wrongly inherited
-      # the result type. For a poly scrutinee with int result, the
-      # emit produced `mrb_int _t2 = lv_v;` (a value-conversion that
-      # discards the sp_RbVal struct), then `sp_class_for_poly(_t2)`
-      # failed C compile because the helper expects sp_RbVal.
-      #
-      # Fix: the scrutinee temp picks its C type from the predicate's
-      # inferred type (not from the case-result type). Added a `poly`
-      # arm to compile_expr's CaseNode emit so `sp_RbVal _t2 = lv_v;`
-      # lands correctly. The compile_case_stmt sibling arm gains
-      # concrete `range` / `time` / `float` / `bool` arms too so a
-      # tail-position `case <range>` doesn't fall to the int default.
-      # Issue #604.
+      # `case v when X then ... end` bound to a local via `r = ...`.
+      # The scrutinee `v` can be of any type, and the result is an
+      # Integer. The scrutinee keeps its own type: it does not take the
+      # type of the result. With no `else`, a miss gives nil.
 
       def classify(v)
         r = case v when Range then 1 end
         r
       end
       puts classify(200..299)             # 1 (Range matches)
-      puts classify(404)                  # 0 (no when match -> default 0)
+      puts classify(404)                  # (blank: no when match -> nil)
 
       # Case-when result bound to local with mixed branches and poly scrutinee.
       def label(v)
@@ -238,8 +225,8 @@ describe "Variables programs" do
   it "celled op assign types" do
     result = zr(<<~'RUBY')
       # `x op= v` on a local captured by a proc must take the same typed arm as an
-      # uncaptured one. The celled path used to carry its own short list of arms and
-      # sent every other type through the int helpers.
+      # uncaptured one. A String, a Float or an Array does not go through Integer
+      # arithmetic.
       def acc(init, a, b)
         s = init
         f = proc { |x| s += x }
@@ -828,8 +815,7 @@ describe "Variables programs" do
 
   it "fiber rebinding a captured local propagates to the enclosing scope" do
     result = zr(<<~'RUBY')
-      # From the reference project's own regression corpus
-      # (fiber_reassign_capture.rb): REBINDING (not just mutating) a captured
+      # REBINDING (not just mutating) a captured
       # name inside the fiber must write through the shared cell.
 
       s = "old"
@@ -922,13 +908,10 @@ describe "Variables programs" do
 
   it "global var punct" do
     result = zr(<<~'RUBY')
-      # Issue #831: punctuation global variables compile to safe
-      # C identifiers. Pre-fix the generated C had `gv_!` / `gv_;` /
-      # `gv_,` / `gv_/` etc. which aren't valid C and broke any program
-      # that referenced them — including `rescue => e` bodies because
-      # the parser implicitly threads `$!` through some shapes.
+      # Punctuation global variables such as `$!`, `$;`, `$,` and `$/`
+      # work. `$!` is also used by `rescue => e` bodies.
       puts $!.inspect       # nil outside rescue
-      puts $;.inspect       # nil (split-default sep — spinel doesn't honor it)
+      puts $;.inspect       # nil (split-default sep)
       puts $,.inspect       # nil (Array#print sep — same)
       puts $/.inspect       # "\n" — the only one with a meaningful default
     RUBY
@@ -959,8 +942,7 @@ describe "Variables programs" do
 
   it "gsub block form can capture and mutate an enclosing local" do
     result = zr(<<~'RUBY')
-      # Exercises the same real-`Proc`/capture machinery every other escaping
-      # block already uses (`emit_proc_value`) -- not a bespoke code path.
+      # The gsub block captures `count` like every other escaping block does.
 
       count = 0
       "one two three".gsub(/\w+/) { |w| count += 1; w }
@@ -1008,8 +990,7 @@ describe "Variables programs" do
     result = zr(<<~'RUBY')
       # a global-variable operator assignment evaluates to the updated value --
       # as a method's tail (its return value), as a call argument, and inline in
-      # an expression. `def tick; $count += 1; end` used to compile tick as void,
-      # so callers got nil (or `invalid use of void expression` in an array).
+      # an expression. So `def tick; $count += 1; end` gives the new count, not nil.
 
       $count = 0
 
@@ -1185,13 +1166,10 @@ describe "Variables programs" do
 
   it "late ret through local chain" do
     result = zr(<<~'RUBY')
-      # A method that returns another method's value through a local (`a = nxt; a`)
-      # was inferred as void when the callee's own return -- also flowing through a
-      # local (`r = ...; r`) -- only settled in the post-fixpoint write-type re-run.
-      # The re-run typed the locals but never re-derived the returns, so the wrapper
-      # stayed at UNKNOWN, emitted as a void C function, and its value was silently
-      # dropped (callers read nil / 0.0). The `<<` on the ivar is what delays the
-      # ivar's settling past the main fixpoint. Issue #1670.
+      # A method that returns another method's value through a local (`a = nxt; a`).
+      # The callee's own return also flows through a local (`r = ...; r`), and its
+      # type settles late: the `<<` on the ivar delays it. The wrapper still gives
+      # the value, not nil or 0.0.
 
       class R
         def initialize(s)
@@ -1559,9 +1537,8 @@ describe "Variables programs" do
   it "multi assign poly rhs" do
     result = zr(<<~'RUBY')
       # Multi-assign with a TY_POLY right-hand side: the boxed value can hold an
-      # array at runtime, so it must be destructured element-by-element. The
-      # scalar fast path used to hand the whole array to the first target and
-      # nil-fill the rest.
+      # array at runtime, so it must be destructured element-by-element. The first
+      # target gets the first element, not the whole array.
 
       def widen(x); x; end
 
@@ -1738,8 +1715,7 @@ describe "Variables programs" do
       # a call returning an array yields that array (not a fresh copy), a bare
       # scalar yields the scalar (not `[scalar]`), an implicit list yields the
       # list. The destructuring still happens; the expression's own value is the
-      # untouched RHS. Regression: the sub-expression form used to yield `nil`,
-      # so an outer subscript/comparison hit `[]`/`<` on nil.
+      # untouched RHS, not nil, so an outer subscript or comparison works on it.
 
       def two_ints; [10, 20]; end
       result = (x, y = two_ints)
@@ -1910,7 +1886,7 @@ describe "Variables programs" do
   it "nested massign poly" do
     result = zr(<<~'RUBY')
       # Nested multiple-assignment from a poly-typed RHS (an Integer|Array union, not
-      # a statically-typed array), which destructures via sp_poly_massign_get.
+      # a statically-typed array), which destructures at run time.
       def maybe(f)
         return 0 unless f
         [[1, [2, 3]], 4]
@@ -2013,11 +1989,8 @@ describe "Variables programs" do
       # `@right = self`, plus a Node and a Column pointing at each other. The ring IS the subject.
       # At exit: cycle leak: 2 objects (Column x1, Node x1)
       # An attribute that holds a base class AND its subclass reads as a boxed value.
-      # A local assigned from one had settled on the object type, and kept the
-      # pointer while the read handed back an sp_RbVal -- every such assignment was a
-      # build error (#4023):
-      #
-      #   error: incompatible types when assigning to type 'sp_Node *' from 'sp_RbVal'
+      # A local assigned from such a read takes the boxed type too, so the program
+      # compiles and the local holds the object.
       class Node
         attr_accessor :right, :column
 
@@ -2196,7 +2169,7 @@ describe "Variables programs" do
   it "op assign tail return" do
     result = zr(<<~'RUBY')
       # An operator-assignment (x += 1, @x += 1) in method tail position returns the
-      # updated value, like the class-variable form already did. (matz/spinel#1484)
+      # updated value, as the class-variable form does.
       class CounterLocal
         def inc(v); v += 1; end
         def dec(v); v -= 2; end
@@ -2257,17 +2230,14 @@ describe "Variables programs" do
   it "op assign user operator" do
     result = zr(<<~'RUBY')
       # `slot OP= rhs` desugars to `slot = slot OP rhs`. When the slot
-      # is obj-typed and the class defines OP as a user method, codegen
-      # must dispatch through that method. The previous version emitted
-      # raw C `slot OP= rhs` for every slot type — on an obj pointer
-      # that compiled to pointer arithmetic, silently miscompiling the
-      # Ruby semantics.
+      # holds an object and the class defines OP as a user method, the
+      # call goes to that method.
 
       class Box
         def initialize(n)
           @n = n
           @arr = []
-          @arr << n   # force heap layout (sp_Box *), not value-type
+          @arr << n   # force heap layout, not value-type
         end
         attr_reader :n
 
@@ -2323,12 +2293,10 @@ describe "Variables programs" do
 
   it "or assign on a never before defined constant quietly defines it" do
     result = zr(<<~'RUBY')
-      # A real, previously-undetected bug: `CONST ||= v` on a constant that
-      # was NEVER assigned raised `NameError` instead of quietly defining
-      # it -- confirmed via real `ruby` that this is a genuine, narrow
-      # special case (ONLY `||=` gets this leniency; `+=`/`&&=` on the same
-      # undefined constant still raise, see the next test). Fixed via a new
-      # `HirNode::ConstReadOrNil`, used only by `||=`'s own desugar.
+      # `CONST ||= v` on a constant that was NEVER assigned defines it quietly,
+      # and does not raise `NameError`. Real `ruby` confirms that this is a
+      # narrow special case: ONLY `||=` gets this leniency. `+=`/`&&=` on the
+      # same undefined constant still raise (see the next test).
 
       MAX ||= 100
       puts MAX
@@ -2424,8 +2392,8 @@ describe "Variables programs" do
 
   it "other compound assignment operators still raise on an undefined constant" do
     result = zr(<<~'RUBY')
-      # Regression guard for the fix above: `||=`'s new leniency must NOT
-      # leak into `+=`/`&&=` -- confirmed against real `ruby` that those
+      # The leniency of `||=` in the test above does NOT
+      # apply to `+=`/`&&=` -- confirmed against real `ruby` that those
       # still raise on a genuinely undefined constant. An uncaught Ruby
       # exception exits the compiled binary nonzero with a message on
       # stderr (see `uncaught_raise_with_no_rescue_anywhere_exits_with_the_message`),
@@ -2496,9 +2464,8 @@ describe "Variables programs" do
 
   it "poly global scalar assign" do
     result = zr(<<~'RUBY')
-      # A global that holds different types across assignments has a poly (sp_RbVal)
-      # slot; assigning a bare scalar (`$g = 42`) into it must box the value, not
-      # store the raw int into the sp_RbVal slot (a C compile error).
+      # A global that holds different types across assignments can also get a bare
+      # scalar (`$g = 42`). The value is boxed, as are the others.
       $g = 5
       $g = "hello"
       $g = [1, 2]
@@ -2646,8 +2613,7 @@ describe "Variables programs" do
     result = zr(<<~'RUBY')
       # Rightward assignment `expr => var` (Ruby 3.0+). Prism encodes this
       # as a MatchRequiredNode whose `pattern` is a LocalVariableTargetNode.
-      # spinel_parse rewrites the simple-target case to a LocalVariableWriteNode
-      # at the AST boundary so the codegen reuses the regular assignment path.
+      # The simple-target case works as a plain local assignment.
 
       # 1. Integer rightward assignment.
       42 => x
@@ -2842,12 +2808,10 @@ describe "Variables programs" do
 
   it "user method named clone does not shadow the internal arc clone" do
     result = zr(<<~'RUBY')
-      # A Ruby method named `clone` becomes an INHERENT `fn clone` on the
-      # generated struct; every internal self/local copy must therefore avoid
-      # `.clone()` method syntax (which would resolve to the Ruby method --
-      # infinite recursion in `clone`'s own body, type errors elsewhere).
-      # Exercises the collision through self-reference, ivar writes (the
-      # frozen-check emission), and an Object-typed local re-read.
+      # A Ruby method named `clone` does not change how the program copies
+      # self or a local internally. So there is no infinite recursion in
+      # `clone`'s own body. The test uses self-reference, ivar writes (with the
+      # frozen check), and an Object-typed local re-read.
 
       class Uncopyable
         def initialize

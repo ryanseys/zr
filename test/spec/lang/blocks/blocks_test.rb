@@ -159,22 +159,10 @@ describe "Blocks programs" do
     result = zr(<<~'RUBY')
       # `&proc_var` argument forwarding (`def m(&b); g(&b); end`).
       #
-      # Pre-fix Spinel never parsed `&expr` in call argument position
-      # (`g(&block)`) — Prism's `PM_BLOCK_ARGUMENT_NODE` had no case in
-      # `flatten()`, so the codegen saw the call as taking no block at all
-      # and the captured `&block` was silently dropped at every forwarding
-      # call site.
-      #
-      # This PR adds:
-      #   - parser case for PM_BLOCK_ARGUMENT_NODE → "BlockArgumentNode"
-      #   - `find_block_arg(nid)` helper that returns the inner expression
-      #   - `strip_block_arg` filter so &block-args don't leak into the
-      #     positional-args comma list at compile_call_args / -with_defaults
-      #     / compile_typed_call_args
-      #   - extends Sites A, B, and the receiverless has_block_param path
-      #     to fall through to find_block_arg when has_literal_block returns 0,
-      #     emitting the proc expression directly (no compile_proc_literal call,
-      #     since the proc is already a captured `sp_Proc *`).
+      # `&expr` in call argument position (`g(&block)`) passes the proc as
+      # the block of the call, at every forwarding call site. It is not a
+      # positional argument. The rows cover a self call (Site A), a call on
+      # a typed receiver (Site B) and a receiverless call.
 
       # 1. Site A (self-call) &proc_var forwarding.
       class Forwarder
@@ -230,7 +218,7 @@ describe "Blocks programs" do
   it "block forward nilcheck" do
     result = zr(<<~'RUBY')
       # Forwarding `&block` into a callee that nil-checks the forwarded block.
-      # The combination (forward + nil-check) previously rejected at compile time.
+      # The combination (forward + nil-check) compiles and runs.
 
       def inner(&blk) = (blk ? blk.call : 0)
       def outer(&blk) = inner(&blk)
@@ -317,18 +305,9 @@ describe "Blocks programs" do
       # Self-call `m { ... }` &block forwarding (Site A).
       #
       # When a method on class C calls another method on the same class
-      # without an explicit receiver (`m { ... }` instead of `self.m { ... }`),
-      # dispatch goes through `compile_no_recv_call_expr`'s
-      # `@current_class_idx >= 0` branch — call this Site A. Pre-fix this
-      # branch always emitted `sp_C_m(self, ca)` with no block tail, so a
-      # literal block at the call site was silently dropped and the binary
-      # segfaulted in `sp_proc_call(NULL, ...)`.
-      #
-      # Site A reuses the `has_literal_block` helper and the
-      # `omit_trailing` 4th arg of `compile_typed_call_args` introduced
-      # in the previous PR (Site B / typed-receiver forwarding); the only
-      # new code here is the same `bp`/`tail` template adapted to the
-      # self-call form.
+      # without an explicit receiver (`m { ... }` instead of `self.m { ... }`)
+      # -- call this Site A -- the literal block at the call site reaches
+      # the callee.
 
       # 1. Bare self-call dispatch — one method invokes another method
       #    of the same class with a literal block.
@@ -392,12 +371,9 @@ describe "Blocks programs" do
       # A block handed to a method that FORWARDS it to a self-recursive yielder.
       #
       # The yielder recurses, so its block cannot be spliced into it -- it is lowered
-      # to take a real &block proc. The forwarder in front of it is marked `yields`
-      # all the same (forwarding is what earns that mark), and the capture analysis
-      # read that mark as "the block is spliced, so nothing escapes". The block was
-      # then built as a proc with no capture struct, and its writes to enclosing
-      # locals went to a copy of them: the block ran, and what it assigned never
-      # arrived (#4145).
+      # to take a real &block proc. The forwarder in front of it also yields. The
+      # block still writes to the enclosing locals themselves, not to a copy, so
+      # what it assigns arrives.
       $ran = 0
 
       def walk(n)
@@ -437,10 +413,8 @@ describe "Blocks programs" do
       walk(1) { direct << :d }
       p direct
 
-      # The return type of a lowered recursive yielder is the one its body derives.
-      # It used to be forced to Integer, which was right only by coincidence: a body
-      # ending in a String or an Array emitted `return char *` from a function typed
-      # sp_int and produced no binary at all.
+      # The return type of a lowered recursive yielder is the one its body derives,
+      # not always Integer: a body can end in nil, a String or an Array.
       def ends_nil(n)
         yield
         ends_nil(n - 1) { nil } if n > 0
@@ -489,26 +463,16 @@ describe "Blocks programs" do
     result = zr(<<~'RUBY')
       # `block_given?` for `&block` parameters.
       #
-      # Pre-fix `block_given?` only returned the right answer inside methods
-      # that used `yield` (`@in_yield_method == 1`). Methods that captured
-      # the block solely via `&block` and never invoked yield fell through
-      # to the constant `"0"` — losing the answer for the one case where
-      # the runtime *does* know whether a block was forwarded.
-      #
-      # Fix: track the enclosing method's `&block` param name in
-      # `@current_method_block_param`, set/restored at all three method-emit
-      # sites (emit_instance_method, emit_class_level_method,
-      # emit_toplevel_method) via a new find_block_param_name helper. The
-      # block_given? handler returns `(lv_<param> != NULL)` after the
-      # existing `@in_yield_method` branch.
+      # `block_given?` gives the right answer also in a method that
+      # captures the block only via `&block` and never yields. This holds
+      # for instance methods, class-level methods and top-level methods.
       #
       # This test exercises the no-block-passed observable through the
       # receiverless default-padding path and the explicit `self.block_given?`
       # spelling.
 
       # 1. Top-level `&block` method, called without a block — block_given?
-      #    must return false. Pre-fix this constant-returned 0 with no
-      #    visibility into the actual presence of a block.
+      #    must return false.
       def top(&block)
         if block_given?
           puts "1-yes"
@@ -702,9 +666,8 @@ describe "Blocks programs" do
       p mr([1, 2])
       def ewi(a); acc = []; a.each_with_index { |*x| acc << x }; acc; end
       p ewi([9, 10])
-      # A boxed (sp_RbVal) poly receiver -- `cond ? array : hash` -- reaches the poly
-      # map fold, which previously bound only a required param and left `*x` empty
-      # (nil elements). It now wraps the whole element into the rest array too.
+      # A boxed receiver of unknown type -- `cond ? array : hash` -- also binds
+      # `*x`: map wraps the whole element into the rest array.
       def pm(c); (c ? [1, 2, 3] : { a: 1 }).map { |*x| x[0] }; end
       p pm(true)
       # and stable when the poly value is rebuilt through the map across a loop
@@ -1130,10 +1093,8 @@ describe "Blocks programs" do
         p [n, s, tail]
       end
 
-      # A parameter defaulting to an empty `{}`. With no key evidence it settled on
-      # the symbol-keyed variant, and the body's String key was then written through
-      # an sp_sym slot. Such a hash is created here rather than handed in, so
-      # narrowing it converts nothing and reinterprets nobody.
+      # A parameter defaulting to an empty `{}`, with no key evidence at the call
+      # site. The body writes String keys into it, and they stay Strings.
       def flat(node, acc = {})
         node.each { |key, value| acc[key.to_s] = value }
         acc
@@ -1218,9 +1179,9 @@ describe "Blocks programs" do
   it "curry constant lambda" do
     result = zr(<<~'RUBY')
       # `curry` walks the chain back to the base proc to learn its arity, which is
-      # how it knows which application completes it. The walk resolved a lambda held
-      # in a LOCAL and not one held in a CONSTANT, so a curried constant never
-      # realized: every application answered another Proc (#4017).
+      # how it knows which application completes it. The walk resolves a lambda held
+      # in a CONSTANT as well as one held in a LOCAL, so the last application of a
+      # curried constant gives the result, not another Proc.
       F = ->(a, b) { a + b }
       p F.curry[1][2]
       p F.curry.(1).(2)
@@ -1287,8 +1248,8 @@ describe "Blocks programs" do
   it "default arg find block" do
     result = zr(<<~'RUBY')
       # find / detect { |x| cond } used as a parameter default. The default is
-      # evaluated at the call site, where the block's local variable has no top-level
-      # declaration -- previously this emitted C referencing an undeclared `lv_n`.
+      # evaluated at the call site, where the block's local variable `n` does not
+      # exist at top level.
       A = [1, 2, 3, 4]
 
       def kw(x: A.find { |n| n > 2 })
@@ -1446,15 +1407,8 @@ describe "Blocks programs" do
   it "empty block body iterators" do
     result = zr(<<~'RUBY')
       # `{ }` and `{ nil }` are the same block, and CRuby answers accordingly. The
-      # iterator arms each read the block body's TAIL to type their result, and most
-      # of them declined outright when there was none -- so the call fell through to
-      # the unresolved-call gate and reported the METHOD as undefined, which is the
-      # one thing it is not (#4006):
-      #
-      #   p [].filter_map{}   # undefined method 'filter_map' for an instance of Array
-      #
-      # An empty body now carries the nil it means, once, rather than a dozen arms
-      # each special-casing it.
+      # iterators each read the block body's TAIL to type their result. An empty body
+      # gives nil, so each call works and does not report the METHOD as undefined.
       p [].filter_map {}
       p [1, 2].filter_map {}
       p [1, 2].select {}
@@ -1535,15 +1489,11 @@ describe "Blocks programs" do
   it "empty block param shadow" do
     result = zr(<<~'RUBY')
       # A block with an EMPTY body still binds its parameters, so a parameter that
-      # shadows an outer local still needs its own slot. The rename pass skipped such
-      # a block outright -- there is nothing inside it to rewrite -- and the two names
-      # then shared one C slot, which took the inner block's type while the outer
-      # block kept assigning its own (#4027):
-      #
-      #   error: assigning to 'sp_PolyArray *' from incompatible type 'sp_RbVal'
+      # shadows an outer local still needs its own slot. The inner and outer
+      # parameters can have different types.
 
-      # the report's shape: the inner parameter is an array, the outer one a poly
-      # element of the flat_map source
+      # the first shape: the inner parameter is an array, the outer one an element
+      # of the flat_map source
       [].flat_map do |a|
         [].map{}.tap do |a|
         end
@@ -1916,14 +1866,11 @@ describe "Blocks programs" do
       # A lambda's required parameters are typed from the call sites the analysis can
       # see, and fall back to Integer when it sees none. That fallback is only safe
       # for a lambda it can enumerate the callers of, so one that ESCAPES widens to
-      # poly instead -- including one that is a block's TAIL VALUE, which a collecting
-      # iterator boxes into its result array.
+      # "any type" instead -- including one that is a block's TAIL VALUE, which a
+      # collecting iterator boxes into its result array.
       #
-      # desugar_block_capture_wrap rewrites a block whose parameter is captured into
-      # `->(__cap){ <body> }.call(param)`, so the block's tail becomes that call and
-      # the literal sits one level in. Reading the block's tail alone found the call,
-      # never marked the literal, and its parameter took the Integer default -- so the
-      # Proc read back out of the array bound an address-shaped number (#4064).
+      # Here the block's parameter `word` is captured, and the lambda is the tail
+      # value. The Proc read back out of the array takes a String argument.
       matchers = ["alpha"].map { |word| ->(line) { line.include?(word) } }
       p matchers[0].call("an alpha line")
 
@@ -1967,9 +1914,8 @@ describe "Blocks programs" do
       # A Holder holds a lambda that closed over the Holder.
       # At exit: cycle leak: 2 objects (Holder x1, Proc x1)
       # A lambda held in a constant (or an ivar) and passed to a method that calls
-      # it escapes: its parameters ride the boxed ABI. The escape scan followed only
-      # a local, so the literal kept the no-evidence int default and an Array
-      # argument was read as an integer -- every call answered 0 (#3968).
+      # it escapes, as one held in a local does. Its parameters take any type, so an
+      # Array argument stays an Array.
       A = ->(x) { x[0] }
       B = ->(_x) { 0 }
       def run(h) = h.call([9])
@@ -2088,8 +2034,8 @@ describe "Blocks programs" do
 
   it "massign proc cell nil" do
     result = zr(<<~'RUBY')
-      # Multi-assign of nil (a boxed sp_RbVal temp) into a captured TY_PROC cell must
-      # launder to NULL, not cast the sp_RbVal struct to (mrb_int) (invalid C).
+      # Multi-assign of nil into a captured Proc variable sets it to nil, and the
+      # closure that captured it then sees nil.
       def make
         p = proc { "orig" }
         esc = lambda { p ? p.call : "was nil" }   # captures p -> heap cell
@@ -2143,8 +2089,7 @@ describe "Blocks programs" do
 
   it "named block parameter can be called explicitly" do
     result = zr(<<~'RUBY')
-      # A `&block` parameter is real syntax now (a rejection this test
-      # used to check for was lifted).
+      # A `&block` parameter can be called with `blk.call`.
 
       class Foo
         def bar(&blk)
@@ -2211,9 +2156,8 @@ describe "Blocks programs" do
 
   it "param referenced only inside an escaping block is captured" do
     result = zr(<<~'RUBY')
-      # The parameter-capture fix: `n` (a method param) appears ONLY inside
-      # the escaping block -- previously misclassified as a block-own local
-      # and silently re-declared Nil. Oracle: 11, 12.
+      # `n` (a method param) appears ONLY inside the escaping block. It is
+      # the method param, not a local of the block. Oracle: 11, 12.
 
       class Pair
         def each(&blk)
@@ -2376,7 +2320,7 @@ describe "Blocks programs" do
       # version of THAT test fails on ruby. A slot count is the portable spelling of
       # the same property -- a dropped structure stops being live.
       #
-      # Spinel's original read `GC.stat["bytes"]`. CRuby's `GC.stat` is keyed by
+      # The test does not read `GC.stat["bytes"]`. CRuby's `GC.stat` is keyed by
       # SYMBOL and has no "bytes" statistic, so a String subscript is nil there and
       # the comparison raises `NoMethodError` on ruby too.
       def build(len)
@@ -2523,7 +2467,7 @@ describe "Blocks programs" do
 
   it "proc capture enclosing lambda" do
     result = zr(<<~'RUBY')
-      # A proc closing over an ENCLOSING lambda/proc's variables (#2648): the
+      # A proc closing over an ENCLOSING lambda/proc's variables: the
       # enclosing proc's frame owns the variable, so its prologue materializes the
       # heap cell and the inner proc captures the cell pointer. The proc's own **kw
       # param also binds (the whole trailing kwargs hash).
@@ -2628,7 +2572,7 @@ describe "Blocks programs" do
   it "proc case eq value" do
     result = zr(<<~'RUBY')
       # Proc#=== answers the proc's return value; a case/when only cares about its
-      # truthiness, so both readings agree there but a direct call does not (#3818).
+      # truthiness, so both readings agree there but a direct call does not.
       double = ->(x) { x * 2 }
       p(double === 5)
       pred = ->(x) { x > 3 }
@@ -2655,11 +2599,9 @@ describe "Blocks programs" do
 
   it "proc cell capture marked" do
     result = zr(<<~'RUBY')
-      # A captured Proc rides in an sp_int cell -- an integer slot holding a
-      # collectable object. The capture's scan marked the CELL and nothing marked the
-      # proc, so a nested `proc { |v| two.call(v, v) }` called through freed memory
-      # once full cycles were frequent (#4077). Run it under SPINEL_GC_FULL_INTERVAL=1
-      # to see the difference; the shape is what matters here.
+      # A captured Proc lives in a heap cell. GC marks both the cell and the proc,
+      # so a nested `proc { |v| two.call(v, v) }` keeps working when full cycles are
+      # frequent. The shape is what matters here.
       two = proc { |a, b| [a, b] }
       nested = proc { |v| two.call(v, v) }
 
@@ -2702,9 +2644,8 @@ describe "Blocks programs" do
 
   it "proc closure" do
     result = zr(<<~'RUBY')
-      # Regression test for proc closures (capturing outer locals).
-      # Phase 2 of proc closure recovery: captures via heap cells + per-proc
-      # capture struct, mirroring the Fiber capture mechanism.
+      # Proc closures capture outer locals, and a write in the proc changes
+      # the captured local.
 
       # Escaping closure with mutation
       def make_counter
@@ -2986,15 +2927,11 @@ describe "Blocks programs" do
     result = zr(<<~'RUBY')
       # A `&.` call has to reach the safe-nav guard. Three lowerings walk the
       # receiver without looking at the operator -- the value-position iterator, the
-      # statement-position one, and the comprehension family -- so `v&.each { }` fed
-      # a nil to sp_poly_iter_check and raised where CRuby answers nil. The first two
-      # stand down until the guard has run; the guard re-enters them on the guarded
-      # temp, and THAT pass lowers normally.
+      # statement-position one, and the comprehension family. Thus `v&.each { }` on
+      # nil answers nil, as CRuby does, and does not raise.
       #
-      # And the guard could only be a ternary. A lowering that hoists statements (the
-      # comprehension family builds a loop) put them in front of it, where they ran
-      # on the very nil it exists to stop, so the guard becomes a statement `if` when
-      # the value arm hoists.
+      # A lowering that hoists statements (the comprehension family builds a loop)
+      # must also run them after the nil check, never on the nil itself.
 
       def sn_0(v) = v&.each { |x| x }
       p sn_0(nil)
@@ -3201,7 +3138,7 @@ describe "Blocks programs" do
       Registry.push(:b)
       p Registry.count
 
-      # class << self inside a class body still works (regression)
+      # class << self inside a class body
       class Config
         class << self
           def version; "1.0"; end
@@ -3227,8 +3164,7 @@ describe "Blocks programs" do
 
   it "splat delete and block tail iter" do
     result = zr(<<~'RUBY')
-      # Hash#delete with a splatted argument list (#3521): delete was missing from
-      # the fixed-arity list, so the splat array reached the slot expecting one key.
+      # Hash#delete with a splatted argument list: the splat gives the one key.
       k001 = [:a]
       h001 = { a: 1 }
       h001.delete(*k001)
@@ -3241,9 +3177,8 @@ describe "Blocks programs" do
       v003 = h003.delete(*k002)
       p v003
 
-      # An iterator in the tail position of a BLOCK (#3522): the splice is read as
-      # the value of a statement expression, and a receiver-returning iterator emits
-      # as a loop with no value, so the slot got void (or the loop counter).
+      # An iterator in the tail position of a BLOCK: a receiver-returning iterator
+      # gives its receiver as the value of the block.
       def y001
         yield({ "a" => 1 })
       end
@@ -3737,11 +3672,9 @@ describe "Blocks programs" do
   it "yield splat" do
     result = zr(<<~'RUBY')
       # `yield(*arr)`: a single splat spreads its array across the block's parameters
-      # (auto-splat), exactly like passing the elements positionally. Previously
-      # rejected ("unsupported expression: SplatNode") because each yield argument was
-      # emitted as an expression and a SplatNode has no value form. The array is now
-      # evaluated once into a rooted temp and the block params (plus any rest param)
-      # bind from its elements, with a short array binding the surplus params to nil.
+      # (auto-splat), exactly like passing the elements positionally. The array is
+      # evaluated once, and the block params (plus any rest param) bind from its
+      # elements, with a short array binding the surplus params to nil.
       def s(x); x; end
 
       # splat of a literal, a local, and a method-call result

@@ -8,7 +8,7 @@ describe "Whole programs" do
       # A bitwise op whose literal operand exceeds int64 (a 64-bit mask such as
       # 0xFFFFFFFFFFFFFFFF, typed as a bigint) must still lower -- the result slot
       # is int and takes the low-64 bit pattern. The xorshift64 / 64-bit-mask
-      # idiom. (#1513)
+      # idiom.
       x = 12345
       puts(x & 0xFFFFFFFFFFFFFFFF)        # 12345
       puts(255 & 0xFFFFFFFFFFFFFFFF)      # 255
@@ -102,8 +102,7 @@ describe "Whole programs" do
     result = zr(<<~'RUBY')
       # case-as-value: an untaken arm's value construction must not run. The arm
       # values here need setup statements (array literals, a raising call as an
-      # element), which used to hoist ahead of the branch dispatch and fire
-      # unconditionally.
+      # element). These run only when their arm is taken.
 
       def bad
         raise "boom"
@@ -279,11 +278,9 @@ describe "Whole programs" do
 
   it "defined op" do
     result = zr(<<~'RUBY')
-      # Issue #711. `defined?(expr)` used to emit a raw pointer value
-      # (printed as a giant integer) instead of a tag string. Now resolves
-      # at compile time to "local-variable" / "instance-variable" /
-      # "constant" / "method" / "expression" with a NULL `const char*`
-      # for the nil cases (which `puts` already handles as an empty line).
+      # `defined?(expr)` gives a tag string: "local-variable" /
+      # "instance-variable" / "constant" / "method" / "expression". It gives
+      # nil for an undefined name, and `puts` prints nil as an empty line.
 
       puts defined?(undefined_local)
       z = 1
@@ -340,7 +337,6 @@ describe "Whole programs" do
   it "env key p" do
     result = zr(<<~'RUBY')
       # ENV.key? / has_key? / include? / member? -> getenv presence (bool).
-      # Previously an unresolved call ("undefined method 'key?' for unknown").
       p ENV.key?("PATH")
       p ENV.key?("SPINEL_NO_SUCH_VAR_12345")
       ENV["SPINEL_ENV_KEY_TEST"] = "1"
@@ -822,10 +818,9 @@ describe "Whole programs" do
 
   it "multi write scalar rhs" do
     result = zr(<<~'RUBY')
-      # Scalar int RHS to multi-assign: `a, b = 1` previously emitted
-      # `sp_IntArray *_t = 1LL;` which failed to compile. CRuby treats
-      # the scalar as `[scalar]` so the first slot gets it; the extra
-      # targets are nil (an under-filled slot lands its nil sentinel).
+      # Scalar int RHS to multi-assign: `a, b = 1`. CRuby treats the
+      # scalar as `[scalar]`, so the first target gets it and the extra
+      # targets are nil.
       a, b = 1
       puts a
       puts b
@@ -886,8 +881,8 @@ describe "Whole programs" do
   it "strbuf shovel chain value" do
     result = zr(<<~'RUBY')
       # A value-position << chain over a buffer-promoted string local must land
-      # every link in the base: `r = (u << "2" << "3")` used to keep only the
-      # first append in u (the second link concatenated a read-out copy).
+      # every link in the base: `r = (u << "2" << "3")` keeps both appends in u,
+      # not only the first.
 
       s = "ab"
       s << "c" << "d"
@@ -960,25 +955,21 @@ describe "Whole programs" do
 
   it "values at" do
     result = zr(<<~'RUBY')
-      # Issue #742 (partial -- values_at). `arr.values_at(i, j, ...)`
-      # picks elements at the given indices and returns a fresh array of
-      # the same element type. spinel used to fall through to the
-      # unresolved-call warning for every array variant.
+      # `arr.values_at(i, j, ...)` picks elements at the given indices and
+      # returns a fresh array of the same element type, for each kind of
+      # array.
 
-      # sym_array
+      # Symbol array
       puts [:a, :b, :c].values_at(0, 2).inspect
 
-      # int_array
+      # Integer array
       puts [1, 2, 3, 4, 5].values_at(0, 2, 4).inspect
 
-      # str_array
+      # String array
       puts ["x", "y", "z"].values_at(1).inspect
 
       # Single index, multiple of same value.
       puts [10, 20, 30].values_at(1, 1, 1).inspect
-
-      # combination + permutation remain unimplemented and stay out
-      # of scope for this fix.
     RUBY
 
     _(result).must_answer <<~'OUT'

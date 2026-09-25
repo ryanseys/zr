@@ -7,11 +7,8 @@ describe "Thread: blocks and yields" do
     result = zr(<<~'RUBY')
       # A method's &block parameter is reachable from a Thread.new / Fiber.new block
       # in that method's body. The block runs as an independent closure on its own
-      # fiber stack, so the method must keep a heap-materialized &blk (not be
-      # yield-inlined) and the call site must pass the lowered block proc. Previously
-      # the escape went undetected: the method was inlined and the thread closure
-      # referenced an undeclared lv_blk (C compile error), or -- for a class/module
-      # method -- the block was silently dropped at the call site.
+      # fiber stack, so the method must keep its &blk as a real Proc, and the call
+      # site must pass the block. This holds for a class or module method too.
 
       # module (class-)method: &blk captured by a Thread.new block
       module M
@@ -33,11 +30,8 @@ describe "Thread: blocks and yields" do
     result = zr(<<~'RUBY')
       # A method's &block parameter is reachable from a Thread.new / Fiber.new block
       # in that method's body. The block runs as an independent closure on its own
-      # fiber stack, so the method must keep a heap-materialized &blk (not be
-      # yield-inlined) and the call site must pass the lowered block proc. Previously
-      # the escape went undetected: the method was inlined and the thread closure
-      # referenced an undeclared lv_blk (C compile error), or -- for a class/module
-      # method -- the block was silently dropped at the call site.
+      # fiber stack, so the method must keep its &blk as a real Proc, and the call
+      # site must pass the block. This holds for a class or module method too.
 
       # instance method: same capture through a thread
       class C
@@ -59,11 +53,8 @@ describe "Thread: blocks and yields" do
     result = zr(<<~'RUBY')
       # A method's &block parameter is reachable from a Thread.new / Fiber.new block
       # in that method's body. The block runs as an independent closure on its own
-      # fiber stack, so the method must keep a heap-materialized &blk (not be
-      # yield-inlined) and the call site must pass the lowered block proc. Previously
-      # the escape went undetected: the method was inlined and the thread closure
-      # referenced an undeclared lv_blk (C compile error), or -- for a class/module
-      # method -- the block was silently dropped at the call site.
+      # fiber stack, so the method must keep its &blk as a real Proc, and the call
+      # site must pass the block. This holds for a class or module method too.
 
       # a positional parameter ahead of &blk, forwarded into the thread
       module N
@@ -85,11 +76,8 @@ describe "Thread: blocks and yields" do
     result = zr(<<~'RUBY')
       # A method's &block parameter is reachable from a Thread.new / Fiber.new block
       # in that method's body. The block runs as an independent closure on its own
-      # fiber stack, so the method must keep a heap-materialized &blk (not be
-      # yield-inlined) and the call site must pass the lowered block proc. Previously
-      # the escape went undetected: the method was inlined and the thread closure
-      # referenced an undeclared lv_blk (C compile error), or -- for a class/module
-      # method -- the block was silently dropped at the call site.
+      # fiber stack, so the method must keep its &blk as a real Proc, and the call
+      # site must pass the block. This holds for a class or module method too.
 
       # Fiber.new capture of the &blk param
       module F
@@ -111,14 +99,11 @@ describe "Thread: blocks and yields" do
     result = zr(<<~'RUBY')
       # A method's &block parameter is reachable from a Thread.new / Fiber.new block
       # in that method's body. The block runs as an independent closure on its own
-      # fiber stack, so the method must keep a heap-materialized &blk (not be
-      # yield-inlined) and the call site must pass the lowered block proc. Previously
-      # the escape went undetected: the method was inlined and the thread closure
-      # referenced an undeclared lv_blk (C compile error), or -- for a class/module
-      # method -- the block was silently dropped at the call site.
+      # fiber stack, so the method must keep its &blk as a real Proc, and the call
+      # site must pass the block. This holds for a class or module method too.
 
       # class-method &blk used as a value (assigned to a local, then called): the
-      # call site must still pass the block proc (was dropped before the fix)
+      # call site must still pass the block proc
       module V
         def self.take(&blk)
           p = blk
@@ -138,11 +123,8 @@ describe "Thread: blocks and yields" do
     result = zr(<<~'RUBY')
       # A method's &block parameter is reachable from a Thread.new / Fiber.new block
       # in that method's body. The block runs as an independent closure on its own
-      # fiber stack, so the method must keep a heap-materialized &blk (not be
-      # yield-inlined) and the call site must pass the lowered block proc. Previously
-      # the escape went undetected: the method was inlined and the thread closure
-      # referenced an undeclared lv_blk (C compile error), or -- for a class/module
-      # method -- the block was silently dropped at the call site.
+      # fiber stack, so the method must keep its &blk as a real Proc, and the call
+      # site must pass the block. This holds for a class or module method too.
 
       # class-method &blk with a value-returning call, summed across two invocations
       module S
@@ -163,11 +145,8 @@ describe "Thread: blocks and yields" do
     result = zr(<<~'RUBY')
       # A method's &block parameter is reachable from a Thread.new / Fiber.new block
       # in that method's body. The block runs as an independent closure on its own
-      # fiber stack, so the method must keep a heap-materialized &blk (not be
-      # yield-inlined) and the call site must pass the lowered block proc. Previously
-      # the escape went undetected: the method was inlined and the thread closure
-      # referenced an undeclared lv_blk (C compile error), or -- for a class/module
-      # method -- the block was silently dropped at the call site.
+      # fiber stack, so the method must keep its &blk as a real Proc, and the call
+      # site must pass the block. This holds for a class or module method too.
 
       # &blk read inside a block that is *lifted* to a standalone proc (passed to a
       # method that keeps a real &block param): the same capture-escape as the
@@ -193,11 +172,8 @@ describe "Thread: blocks and yields" do
     result = zr(<<~'RUBY')
       # A method's &block parameter is reachable from a Thread.new / Fiber.new block
       # in that method's body. The block runs as an independent closure on its own
-      # fiber stack, so the method must keep a heap-materialized &blk (not be
-      # yield-inlined) and the call site must pass the lowered block proc. Previously
-      # the escape went undetected: the method was inlined and the thread closure
-      # referenced an undeclared lv_blk (C compile error), or -- for a class/module
-      # method -- the block was silently dropped at the call site.
+      # fiber stack, so the method must keep its &blk as a real Proc, and the call
+      # site must pass the block. This holds for a class or module method too.
 
       # a class method reached through a module singleton accessor must also pass
       # the block proc -- Stage-1: the accessor is bound to exactly one constant
@@ -228,11 +204,8 @@ describe "Thread: blocks and yields" do
     result = zr(<<~'RUBY')
       # A method's &block parameter is reachable from a Thread.new / Fiber.new block
       # in that method's body. The block runs as an independent closure on its own
-      # fiber stack, so the method must keep a heap-materialized &blk (not be
-      # yield-inlined) and the call site must pass the lowered block proc. Previously
-      # the escape went undetected: the method was inlined and the thread closure
-      # referenced an undeclared lv_blk (C compile error), or -- for a class/module
-      # method -- the block was silently dropped at the call site.
+      # fiber stack, so the method must keep its &blk as a real Proc, and the call
+      # site must pass the block. This holds for a class or module method too.
 
       # Stage-2: the accessor is written with two distinct constants, so the call
       # dispatches over the stored class -- each branch passes the same block proc
@@ -293,9 +266,7 @@ describe "Thread: blocks and yields" do
       # A Fiber / Enumerator.new body may contain a nested block (3.times { |i| },
       # arr.each { |x| }, destructuring { |a, b| }). The body lowers to a flat C
       # function and the nested block is inlined into it, so the block's parameters
-      # (i / x / a, b) and any locals it writes must be declared in that function.
-      # Previously these were missing ("lv_i undeclared") because the local
-      # collector stopped at nested blocks.
+      # (i / x / a, b) and any locals it writes must exist in that function.
 
       f1 = Fiber.new do
         3.times do |i|
@@ -904,9 +875,8 @@ describe "Thread: blocks and yields" do
       # `Ractor.new { ... }` -- isolation is CRuby's runtime verdict, not zr's
       # compile-time one.
       #
-      # zr used to refuse to compile a block that touched an outer local or the
-      # enclosing object's ivars. Ruby compiles both, and answers differently for
-      # each:
+      # A block that touches an outer local or the enclosing object's ivars
+      # compiles. Ruby answers differently for each:
       #
       #   - an OUTER LOCAL is an `ArgumentError` from `Ractor.new` itself, raised
       #     after the arguments have been evaluated;
@@ -994,8 +964,8 @@ describe "Thread: blocks and yields" do
     result = zr(<<~'RUBY')
       # Ruby isolates the Proc and rebinds its `self` to the RACTOR, so `@n` is
       # an ivar of a shareable object -- `Ractor::IsolationError` in the ractor,
-      # surfacing as `Ractor::RemoteError` at `#value`. zr used to refuse to
-      # compile it.
+      # surfacing as `Ractor::RemoteError` at `#value`.
+
 
       Thread.report_on_exception = false
       class Holder
@@ -1331,12 +1301,10 @@ describe "Thread: blocks and yields" do
 
   it "a Mutex yielded to a block inside Thread.new survives the proc ABI and the ensure funnel" do
     result = zr(<<~'RUBY')
-      # A Mutex yielded to a block from inside Thread.new. Two separate faults met
-      # here: the proc ABI packs arguments into an mrb_int[] and only knew how to
-      # launder strings, arrays, hashes and objects through it -- every runtime
-      # handle (Mutex, IO, Thread, Queue, Dir, ...) went in and came back out with no
-      # cast at all -- and the ensure funnel that Mutex#synchronize emits returned an
-      # sp_RbVal straight out of the mrb_int proc function.
+      # A Mutex yielded to a block from inside Thread.new. A block argument can be
+      # any runtime handle (Mutex, IO, Thread, Queue, Dir, ...), not only a string,
+      # array, hash or object. The block gets the same handle, and the value of
+      # Mutex#synchronize (with its ensure) comes back as the block's value.
       def race(label)
         h = { "a" => 0 }
         lock = Mutex.new

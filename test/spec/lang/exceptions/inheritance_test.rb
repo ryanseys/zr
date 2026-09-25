@@ -179,9 +179,8 @@ describe "Exceptions: inheritance and ancestors" do
 
   it "exception namespaced default message" do
     result = zr(<<~'RUBY')
-      # #692: namespaced exception class default message must use Ruby's
-      # `::` module separator, not the C-mangled `_` form spinel uses
-      # internally.
+      # The default message of a namespaced exception class uses Ruby's
+      # `::` module separator, as in "ActiveRecord::RecordNotFound".
 
       module ActiveRecord
         class RecordNotFound < StandardError
@@ -475,7 +474,7 @@ describe "Exceptions: inheritance and ancestors" do
   it "exception subclass p inspect" do
     result = zr(<<~'RUBY')
       # `p` on a user exception subclass renders like #inspect does, not as the
-      # object default (#3813).
+      # object default.
       class E1 < StandardError; end
       class E2 < StandardError
         def initialize(m = "d"); super; end
@@ -521,14 +520,10 @@ describe "Exceptions: inheritance and ancestors" do
 
   it "exception subclass result slot" do
     result = zr(<<~'RUBY')
-      # An exception subclass with ivars must reserve the StopIteration#result slot in
-      # its generated struct (mirroring sp_Exception's cls_name/parent_cls_name/msg/
-      # cause/result prefix). Without it `result` -- being wider than a pointer --
-      # aliases and overruns the subclass's first ivar: a heap overflow in the
-      # constructor's `result = nil` write and the GC scan's mark, and #result then
-      # reads the ivar's bits instead of nil. A StopIteration subclass carrying an
-      # ivar therefore reports nil #result (it was fed no iteration value): non-nil
-      # would mean `result` overlaps @limit; 0 would mean the slot was never nil-init.
+      # An exception subclass with ivars keeps StopIteration#result apart from its
+      # own ivars. A StopIteration subclass carrying an ivar reports nil #result,
+      # because it got no iteration value. A non-nil #result would mean `result`
+      # shares storage with @limit; 0 would mean `result` never got nil.
       class BoundedStop < StopIteration
         def initialize(limit)
           super("stop")
@@ -561,8 +556,8 @@ describe "Exceptions: inheritance and ancestors" do
     result = zr(<<~'RUBY')
       # A user Exception subclass with a custom initialize that forwards to super must
       # carry the resolved message when raised WITHOUT an explicit message argument.
-      # Previously `raise E` skipped the custom initialize and defaulted the message to
-      # the class name, silently losing the default/super-built message.
+      # `raise E` calls the custom initialize, so the message is the default or
+      # super-built one, not the class name.
 
       # Bare `super` forwards the defaulted param.
       class E < StandardError
@@ -617,8 +612,8 @@ describe "Exceptions: inheritance and ancestors" do
 
   it "exception user subclass" do
     result = zr(<<~'RUBY')
-      # User subclasses of built-in exception classes should also lower
-      # to first-class sp_Exception * with cls_name = subclass name.
+      # User subclasses of built-in exception classes are real exceptions,
+      # and their class is the subclass.
       class MyError < StandardError
         def initialize(msg = "default msg")
           super(msg)
@@ -876,11 +871,9 @@ describe "Exceptions: inheritance and ancestors" do
     result = zr(<<~'RUBY')
       # `rescue ParentClass => e` should catch a raised subclass
       # instance, and `e.is_a?(AncestorClass)` should walk the class
-      # hierarchy. Pre-fix sp_exc_is_a only strcmp'd the class name,
-      # so a `raise C` where `C < B < A < StandardError` slipped past
-      # every `rescue B` / `rescue A` / `rescue StandardError` rescue
-      # arm, and `e.is_a?(X)` always returned false for any X.
-      # Issue #627.
+      # hierarchy. So a `raise C` where `C < B < A < StandardError` is
+      # caught by `rescue B`, `rescue A` and `rescue StandardError`,
+      # and `e.is_a?(X)` is true for each ancestor X.
 
       class A < StandardError; end
       class B < A; end
@@ -1062,9 +1055,8 @@ describe "Exceptions: inheritance and ancestors" do
 
   it "user exception subclass class method constructs via runtime" do
     result = zr(<<~'RUBY')
-      # A `def self.x` on an exception subclass emits into a `pub mod` (no struct to
-      # attach an `impl` to), and a bare `new` inside it constructs via the runtime
-      # (D3) -- `Self.new` there yields the native `RubyException`, not a `new_handle`.
+      # A `def self.x` on an exception subclass can call a bare `new`. It makes an
+      # instance of the subclass, with the message it gets.
 
       class D < StandardError
         def self.build(n)

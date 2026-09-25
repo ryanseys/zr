@@ -35,12 +35,9 @@ describe "Pattern: pattern matching" do
 
   it "case in begin value position" do
     result = zr(<<~'RUBY')
-      # A `case/in` whose value is the tail of a `begin` block. The matched arm falls
-      # through there rather than returning, so it ran straight into the no-match
-      # raise that follows the arms -- every such case/in answered
-      # NoMatchingPatternError however well it had just matched (#4016). The rescue
-      # in the report is not the trigger: a bare `begin` does it too, and the pattern
-      # kind does not matter either.
+      # A `case/in` whose value is the tail of a `begin` block. The matched arm gives
+      # the value of the case/in, and no NoMatchingPatternError occurs. The rows use
+      # a bare `begin` and a `begin` with a rescue, and more than one pattern kind.
       r = (begin; case 5; in Integer then :m; end; end)
       p r
 
@@ -108,10 +105,8 @@ describe "Pattern: pattern matching" do
 
   it "case in capture of a bare bind can write the same subject to two names" do
     result = zr(<<~'RUBY')
-      # A real latent hazard this test guards against: `Capture(Bind(x), y)`
-      # writes the SAME scrutinee into two different locals -- if either write
-      # MOVED instead of CLONED the scrutinee, the second write would fail to
-      # compile ("use of moved value"). See `emit_pattern_match`'s docs.
+      # `in x => y` writes the SAME scrutinee into two different locals, and
+      # both locals read back the value.
 
       case 5
       in x => y
@@ -1049,10 +1044,8 @@ describe "Pattern: pattern matching" do
     result = zr(<<~'RUBY')
       # A user object used as a pattern-match scrutinee must be asked to deconstruct
       # itself: #deconstruct for an array pattern, #deconstruct_keys for a hash
-      # pattern -- including value-type objects, which the lowering previously
-      # excluded (they fell through to the reject path and raised "no pattern
-      # matched"). A value-type object is passed to the deconstruct method by value;
-      # a heap object by pointer.
+      # pattern -- including value-type objects. A value-type object is passed to
+      # the deconstruct method by value; a heap object by pointer.
 
       class Pt
         def initialize(x, y) = (@x, @y = x, y)
@@ -1571,9 +1564,8 @@ describe "Pattern: pattern matching" do
 
   it "an array pattern binds what deconstruct returns, whatever kind each element is" do
     result = zr(<<~'RUBY')
-      # An array pattern over an object binds what its #deconstruct returns: the
-      # elements used to default to Integer, so a Symbol element bound its boxed bits
-      # as a small int (#3954).
+      # An array pattern over an object binds what its #deconstruct returns, of any
+      # kind: a Symbol element binds as a Symbol, not as an Integer.
       class Sym
         def deconstruct = [:x, :y]
       end
@@ -1762,15 +1754,14 @@ describe "Pattern: pattern matching" do
 
   it "a binding against an untyped scrutinee stays boxed, rest slice and all" do
     result = zr(<<~'RUBY')
-      # Array-pattern bindings against a poly/untyped VALUE scrutinee must be boxed
-      # (poly), not int. A helper widened to an untyped return by extra call sites
-      # used to type the rest slice / required element as int and reinterpret the
-      # boxed element bits -> garbage output.
+      # Array-pattern bindings against an untyped VALUE scrutinee keep the real
+      # element values. A helper with extra call sites has an untyped return, and
+      # its rest slice and required elements still read back correctly.
 
       def poly(a) = a
 
       # widen poly()'s inferred element union to include a nested-array type so the
-      # return type collapses to untyped (the trigger for the original miscompile).
+      # return type collapses to untyped.
       _z1 = poly([1, 2, [3, 4]])
       _z2 = poly([1, 2, 5])
 
@@ -1786,7 +1777,7 @@ describe "Pattern: pattern matching" do
       case poly([1, "a", 2, "b", 3])
       in [*, mid, *]; p mid; end                    #=> 1  (first non-greedy middle)
 
-      # regression: a Data value-type object still binds its members (non-splat).
+      # a Data value-type object binds its members (non-splat).
       D = Data.define(:x, :y)
       case D.new(5, 6)
       in [a, b]; p [a, b]; end                      #=> [5, 6]
@@ -1834,11 +1825,11 @@ describe "Pattern: pattern matching" do
       in [*, 9]; p "no"
       else; p "fellthrough"; end                     #=> "fellthrough"
 
-      # 5. Regression: leading fixed + trailing splat still works.
+      # 5. Leading fixed + trailing splat.
       case [1, 2, 3]
       in [first, *r]; p [first, r]; end              #=> [1, [2, 3]]
 
-      # 6. Regression: exact (no rest) still works.
+      # 6. Exact (no rest).
       case [1, 2]
       in [a, b]; p [a, b]; end                       #=> [1, 2]
 
@@ -2023,8 +2014,7 @@ describe "Pattern: pattern matching" do
   it "rightward assign object deconstruct" do
     result = zr(<<~'RUBY')
       # `obj => pattern` on a class that defines #deconstruct_keys / #deconstruct binds
-      # through the method, as case/in already did: the object used to fall to the
-      # untyped path, where every binding was skipped and stayed nil (#3955).
+      # through the method, as case/in does. Each binding gets its value, not nil.
       class N
         def deconstruct_keys(keys) = { kind: :binop, n: 1 }
       end

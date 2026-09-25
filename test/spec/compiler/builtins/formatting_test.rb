@@ -276,10 +276,9 @@ describe "Builtins: formatting and inspection" do
 
   it "env full surface" do
     result = zr(<<~'RUBY')
-      # ENV's enumeration surface rides a StrStr-hash snapshot (__env_to_h), so the
-      # Hash machinery serves keys/each/select/count{}/fetch{}/inspect (#2742, #2744,
-      # #2745); direct arms cover identity, copy refusal, mutators, arity and
-      # key-type validation (#2743, #2746, #2747, #2765, #2766, #2773).
+      # ENV answers the Hash-like calls keys/each/select/count{}/fetch{}/inspect.
+      # It also checks identity, refuses dup, clone and freeze, and checks the
+      # mutators, the arity and the key types.
       ENV['ZZ_A'] = '1'
       p ENV.keys.include?('ZZ_A')
       p ENV.count { |k, v| k == 'ZZ_A' }
@@ -628,11 +627,9 @@ describe "Builtins: formatting and inspection" do
 
   it "nil sentinel receiver surface" do
     result = zr(<<~'RUBY')
-      # A miss on a specialized container hands back the element type's own C nil --
-      # SP_INT_NIL, a NULL string -- and the receiver arms read it as an ordinary
-      # value. #4070 spelled the check out per name (to_s, inspect, to_i, to_f) and
-      # every name it did not reach kept answering: `h["zz"].succ` was
-      # -9223372036854775807, `h["zz"].bit_length` was 63, `s["zz"].hex` was 0.
+      # A miss on a typed container gives nil, and a call on that nil must not
+      # answer as if the value were an Integer or a String: `h["zz"].succ`,
+      # `h["zz"].bit_length` and `s["zz"].hex` raise NoMethodError.
       #
       # CRuby's nil answers only what NilClass defines. That is the exception list;
       # everything else is a NoMethodError. This program walks both halves so a name

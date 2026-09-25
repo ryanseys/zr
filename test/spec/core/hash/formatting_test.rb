@@ -5,19 +5,8 @@ require "spec_helper"
 describe "Hash: formatting and inspection" do
   it "empty hash arg param widen" do
     result = zr(<<~'RUBY')
-      # Issue #397. `def store(receiver); receiver["k"] = "v"; end; store({})`
-      # previously emitted `sp_StrIntHash_set(receiver, "k", "v")` -- a const
-      # char* into the int-valued slot of `sp_StrIntHash`, fails C-compile.
-      # `{}` literal defaulted to str_int_hash, the param widened to that
-      # from the caller, and the body's String store didn't fit.
-      #
-      # Fix: narrow_param_hash_types_from_body_writes scans the body for
-      # `lv_<param>[k] = v` writes and widens the param's hash variant from
-      # the observed value type. Then compile_call_args_with_defaults's new
-      # empty_hash_coerce arm rewrites the caller's empty `{}` to emit the
-      # matching `sp_<HashType>_new()`. detect_poly_params also gets an
-      # empty-hash carve-out so it doesn't fold the body-widened concrete
-      # type back to poly.
+      # A method that stores String values into its hash parameter works when
+      # the caller passes an empty `{}` literal.
 
       def store_str(receiver)
         receiver["k"] = "v"
@@ -111,18 +100,11 @@ describe "Hash: formatting and inspection" do
 
   it "a Hash used as a key is found by its pairs whatever their order, never by identity" do
     result = zr(<<~'RUBY')
-      # A Hash used as a Hash KEY was keyed by identity, not by value: two equal
-      # literals were two different keys, and `#hash` disagreed between them.
+      # A Hash used as a Hash KEY is keyed by value, not by identity: two equal
+      # literals are the same key, and their `#hash` values agree. Ruby's
+      # `Hash#hash` and `#eql?` do not depend on the order of the pairs.
       #
-      # `HashKey` projects every other key structurally, but a Hash fell through to
-      # `Identity(pointer)`. The obstacle was that ruby's `Hash#hash`/`#eql?` are
-      # order INSENSITIVE while a derived `PartialEq` over a `Vec` is order
-      # SENSITIVE -- so the pairs are put in a canonical order when the KEY is built
-      # instead of being compared as a multiset. That keeps the derived `PartialEq`
-      # correct and leaves the hottest equality surface in the collections layer
-      # untouched.
-      #
-      # The REGEXP half stays as the control; it used to fail the same way.
+      # The REGEXP half is the control.
 
       def show(label)
         puts "#{label}: #{yield.inspect}"
@@ -273,7 +255,7 @@ describe "Hash: formatting and inspection" do
 
   it "eql? compares by value, and replace widens the receiver to hold what it is given" do
     result = zr(<<~'RUBY')
-      # Hash Enumerable wiring, eql?, replace widening (KieranP #2361,#2372,#2373,#2374)
+      # Hash Enumerable methods, eql?, and replace widening
       p({ a: 1 }.eql?({ a: 1 }))
       p({ a: 1 }.eql?({ a: 2 }))
       class NoEql
@@ -289,16 +271,16 @@ describe "Hash: formatting and inspection" do
       w = d.dup
       p(w == d)
       p w.next
-      p({ a: 1, b: 2 }.find_index([:b, 2]))         # #2372
+      p({ a: 1, b: 2 }.find_index([:b, 2]))
       p({ a: 1, b: 2 }.uniq)
       p({ a: 1 }.zip([9]))
       p({ a: 1, b: 2 }.tally)
       r = []
       { a: 1, b: 2 }.reverse_each { |k, v2| r << k }
       p r
-      p({ 1 => 1.5, 2 => 2.5 }.value?(2.5))          # #2373
+      p({ 1 => 1.5, 2 => 2.5 }.value?(2.5))
       p({ 1 => 1.5, 2 => 2.5 }.has_value?(3.5))
-      h = { a: 1, b: 2 }                              # #2374 (used to hang)
+      h = { a: 1, b: 2 }
       res = h.transform_keys!(&:to_s)
       p res
       p h
@@ -462,7 +444,7 @@ describe "Hash: formatting and inspection" do
   it "an empty Hash.new(default) answers size and inspect before a key is written" do
     result = zr(<<~'RUBY')
       # An empty Hash.new(default) is a real hash: size/inspect/p work before any
-      # key is inserted (it used to raise "uninitialized constant Hash"), and the
+      # key is inserted, and the
       # default is served for missing keys.
       h = Hash.new(0)
       puts h.size
@@ -492,8 +474,8 @@ describe "Hash: formatting and inspection" do
 
   it "a Hash.new called on directly answers every method, with no key usage to go on" do
     result = zr(<<~'RUBY')
-      # A Hash.new called on directly has no key usage to decide its variant, and
-      # staying unknown made every method on it an unresolved call (#3823).
+      # A Hash.new called on directly has no key usage to decide its variant, but
+      # every method on it still works.
       begin
         p Hash.new(0).fetch(:z)
       rescue KeyError => e
@@ -615,14 +597,9 @@ describe "Hash: formatting and inspection" do
 
   it "a symbol-keyed literal converts at the boundary of a callee that wants a wider hash" do
     result = zr(<<~'RUBY')
-      # #690: Symbol-keyed hash literal passed to a sym_poly_hash-typed
-      # callee param must convert at the call boundary; the post-#676
-      # kwargs-bind path no longer covered this shape.
-      #
-      # Mirrors the failing roundhouse pattern: render_attrs takes
-      # Hash[Symbol, untyped] (sym_poly_hash), callers pass a literal
-      # {key: val} (sym_str_hash). The value types diverge, so the call
-      # needs sp_SymStrHash_to_sym_poly to bridge.
+      # A Symbol-keyed hash literal passes to a parameter that takes a
+      # Hash[Symbol, untyped]. This is the roundhouse pattern: render_attrs
+      # takes any values, and the callers pass a literal with String values.
 
       def render_attrs(attrs)
         pairs = []
@@ -784,8 +761,8 @@ describe "Hash: formatting and inspection" do
       puts c2[:timeout]                 # 30
       puts c2[:host]                    # localhost
 
-      # The same idiom inside a constructor, the shape the spinelgems
-      # harvest cluster (rack-health, stream-chat-ruby, ...) uses.
+      # The same idiom inside a constructor, as gems such as rack-health and
+      # stream-chat-ruby use it.
       class Client
         def initialize(opts = {})
           @config = DEFAULTS.merge(opts)
@@ -827,47 +804,47 @@ describe "Hash: formatting and inspection" do
 
   it "param body hash inference" do
     result = zr(<<~'RUBY')
-      # #542. Method param defaulted to int when no caller passed a
-      # concretely-typed argument. The body's `row["id"]` then emitted
-      # the literal 0 with a "cannot resolve" warning and the method
-      # silently produced wrong output -- `id=0` for the repro,
-      # all-default-value Article rows in the roundhouse real-blog.
-      # Sam Ruby ran 30 lines of type_seeds.rb to work around this.
-      #
-      # Fix (Option 2 + cast + NULL-guard, per the issue's design
-      # discussion):
-      #
-      # 1. analyze: new `infer_hash_param_from_body` pass scans each
-      #    method body for `param[StringNode/SymbolNode]` access. When
-      #    found and the param's slot is still at the int/nil default,
-      #    widen to `str_poly_hash` (string keys) or `sym_poly_hash`
-      #    (symbol keys). Runs in the inference fixpoint alongside
-      #    `infer_string_param_from_body`.
-      #
-      # 2. codegen: `compile_call_args_with_defaults` adds a hash-typed
-      #    param cast arm. When the param's static type is a hash and
-      #    the arg's inferred type is int/nil/poly, cast at the call
-      #    site so the C signature accepts the call without an
-      #    "incompatible integer to pointer conversion" error.
-      #
-      # 3. runtime: NULL-guards in the hash getters
-      #    (`sp_StrPolyHash_get`, `sp_SymPolyHash_get`,
-      #    `sp_StrIntHash_get`, `sp_StrStrHash_get`,
-      #    `sp_IntStrHash_get`, `sp_SymIntHash_get`,
-      #    `sp_SymStrHash_get`, `sp_PolyPolyHash_get`) return the
-      #    slot's default sentinel (`sp_box_nil`, `0`, `sp_str_empty`)
-      #    instead of dereferencing a NULL hash header.
-      #
-      # The combination addresses Sam's composition concern: typed
-      # callers continue to build the right hash variant; untyped
-      # callers cast their nil/int values to NULL of the param's
-      # pointer type, the body's `row["k"]` safely returns nil, and
-      # the consumer gets `nil.to_s -> ""` (CRuby raises NoMethodError
-      # on nil[:k] -- we don't match the raise, but the silent
-      # emit-0 is gone).
+      # A method parameter that the body reads as a Hash (`row["id"]`), and a
+      # caller that passes nil. As in CRuby, `nil["id"]` raises NoMethodError,
+      # so the program stops at the first call.
 
-      # Single untyped caller: param widens from body usage alone, no
-      # type_seeds.rb seeding required.
+      # The blank lines keep the line numbers that the expected output names.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+      # Single caller that passes nil.
+
       def consume(row)
         puts "id=" + row["id"].to_s
       end
@@ -877,12 +854,12 @@ describe "Hash: formatting and inspection" do
       end
 
       b = Box.new
-      consume(b.contents)  # untyped (uninit ivar = nil); body inference widens param
+      consume(b.contents)  # nil: no code sets the attribute
 
-      # Mixed callers: typed hash literal + untyped value -- previously
-      # the typed caller's widening would lock the param at sp_StrPolyHash*
-      # and the untyped caller would fail C compile. Now the call-site
-      # cast lets the untyped caller through.
+
+
+      # Mixed callers: a hash literal and a nil value.
+
       def fetch(row)
         puts "title=" + row["title"].to_s
       end
@@ -891,8 +868,8 @@ describe "Hash: formatting and inspection" do
       fetch(b.contents)
       fetch({"title" => "Another Real"})
 
-      # Symbol-keyed lookup widens to sym_poly_hash via the same
-      # inference path.
+      # Symbol-keyed lookup.
+
       def grab(opts)
         puts "name=" + opts[:name].to_s
       end

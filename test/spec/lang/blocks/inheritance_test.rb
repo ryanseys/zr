@@ -7,29 +7,10 @@ describe "Blocks: inheritance and ancestors" do
     result = zr(<<~'RUBY')
       # A bare `super` written inside a BLOCK forwards the enclosing method's block
       # to the parent, exactly as one written directly in the method body does.
-      # zr forwards the method's PARAMETERS through this shape correctly -- see
-      # `tests/a_bare_super_inside_a_block_forwards_the_methods_params.rb` -- but
-      # not its BLOCK, so the parent raises `LocalJumpError: no block given`.
+      # The method's parameters also go to the parent.
       #
-      # The two halves are synthesized at different places. The forwarded argument
-      # list is built by `codegen::call::super_calls` at the emission site, which is
-      # inside the block and still knows the enclosing method's `Params`. The
-      # forwarded BLOCK is the enclosing method's `__blk` parameter, and whether the
-      # method has one at all is decided much earlier, by `analyze`'s
-      # `scan_bare_block_use` -- which does see the nested `super` and does set
-      # `uses_bare_block`. What is missing is the capture: `__blk` is an ordinary
-      # local of the enclosing method, so the block's `move` closure has to capture
-      # it the way it captures any other parameter the body reads, and nothing in
-      # the block's HIR mentions it (the reference is synthesized at emit time).
-      #
-      # That is the same shape as `Captures::zsuper_forwards`, which exists for
-      # precisely this reason on the parameter side: a bare `super` in a block makes
-      # the enclosing method's parameters live even though they appear nowhere in
-      # the block. The fix is to extend that flag to imply `__blk` as well, so the
-      # closure captures the block along with the parameters it already does.
-      #
-      # Written as one file so the divergence is the whole output: CRuby yields the
-      # block through both `super`s and prints the collected values.
+      # CRuby yields the block through both `super`s and prints the collected
+      # values.
       class Base
         def each_thing
           yield 1
@@ -48,8 +29,7 @@ describe "Blocks: inheritance and ancestors" do
       p Nested.new.each_thing { |v| acc << v }
       p acc
 
-      # The same through two closures, which is how it reaches a real gem: the
-      # parameters forward, so only the block is missing.
+      # The same through two closures, as a real gem does it.
       class Deeper < Base
         def each_thing
           [1].map { [2].map { super }.first }.first
@@ -202,14 +182,8 @@ describe "Blocks: inheritance and ancestors" do
 
   it "lambda inference chain" do
     result = zr(<<~'RUBY')
-      # Stress test: lambda parameter inference through a chain of top-level
-      # methods. infer_lambda_param_types runs a fixed-point loop that
-      # discovers `g`-as-lambda one hop at a time: f1's g is detected from
-      # the direct `.call`, then f2 inherits because it passes its g to f1
-      # (which now has lambda-typed param), then f3 inherits from f2, etc.
-      # A chain of N methods needs N iterations to converge. With the new
-      # 256-iteration safety cap and oscillation guard, this monotonic
-      # 5-deep chain must converge cleanly without tripping either.
+      # Stress test: a lambda goes through a chain of 5 top-level methods. Each
+      # method passes its `g` to the next one, and only f1 calls `g.call`.
 
       def f1(g)
         g.call(1)
@@ -251,9 +225,8 @@ describe "Blocks: inheritance and ancestors" do
   it "runtime super in blocks" do
     result = zr(<<~'RUBY')
       # A `super` inside a method defined in a NON-const `Struct.new` / `Data.define`
-      # block, or a `Class.new` block, resolves at runtime (#192): the class is minted
-      # at runtime, so there is no compile-time defining class to splice -- `super`
-      # reads the class off the runtime method-frame stack instead.
+      # block, or a `Class.new` block, resolves at runtime. The class comes into
+      # existence only when the program runs, and `super` finds its parent then.
 
       # explicit positional super into the native Struct member-binding initialize
       pair = Struct.new(:x, :y) do
@@ -552,8 +525,7 @@ describe "Blocks: inheritance and ancestors" do
   it "toplevel extend block param" do
     result = zr(<<~'RUBY')
       # A module method declaring &block, reached through a top-level extend, is
-      # called with the block argument: it used to be dropped, and the emitted C
-      # did not compile (#3803).
+      # called with the block argument.
       module DSL
         def update(&proc)
           if proc

@@ -194,7 +194,7 @@ describe "Array programs" do
   it "a write past the end fills the gap with nil, not the element kind's zero" do
     result = zr(<<~'RUBY')
       # `a[n] = v` past the end fills the gap with nil, not the element type's zero
-      # value (#3836).
+      # value.
       a = ["x"]
       a[3] = "y"
       p a
@@ -269,10 +269,9 @@ describe "Array programs" do
 
   it "join takes a separator that is only known to be an object at run time" do
     result = zr(<<~'RUBY')
-      # Array#join's separator must be a const char*; when the separator widens to
-      # poly (an ivar/reader unified to poly across the program), it has to be
-      # coerced with sp_poly_to_s rather than passed raw -- otherwise sp_*Array_join
-      # gets an sp_RbVal where a const char* is expected (incompatible pointer type).
+      # Array#join takes a separator whose type is only known at run time (an
+      # ivar/reader that holds values of more than one type across the program).
+      # The separator joins as its String value.
       class P
         def initialize(app, sep)
           @app = app
@@ -419,8 +418,8 @@ describe "Array programs" do
 
   it "last, rindex, sample, fill and the set-op siblings take their optional and variadic forms" do
     result = zr(<<~'RUBY')
-      # The builtin tables used to hardcode a single arity and reject the
-      # optional-`n` and variadic forms Ruby accepts: `last(n)`, `sample(n)`,
+      # The builtins accept the optional-`n` and variadic forms that Ruby
+      # accepts: `last(n)`, `sample(n)`,
       # the block form of `rindex`, the fill span forms, and the variadic
       # set-op siblings `union`/`intersection`/`difference` (distinct from the
       # binary `|`/`&`/`-`). All oracle-verified against ruby 4.0.6.
@@ -468,8 +467,7 @@ describe "Array programs" do
   it "product takes two or more arrays and builds the n-way Cartesian product" do
     result = zr(<<~'RUBY')
       # Array#product with two or more array arguments builds the n-way Cartesian
-      # product (one element from each input, in order). Previously only the single
-      # argument form had a codegen arm; 2+ arguments were rejected.
+      # product (one element from each input, in order).
       p [1, 2].product([3, 4], [5, 6])          # 8 triples
       p [1, 2].product([3, 4])                   # single-arg form still works
       p [1, 2, 3].product([4, 5], [6])           # mixed lengths
@@ -678,9 +676,9 @@ describe "Array programs" do
       r = ([D.new(2)].dig(0, :v) rescue $!.class)
       p r
 
-      r = (D.new(2).dig(:v) rescue $!.class); p r          # Ruby: NoMethodError   Spinel: 2
+      r = (D.new(2).dig(:v) rescue $!.class); p r          # Ruby: NoMethodError
       h = { k: D.new(2) }
-      r = (h.dig(:k, :v) rescue $!.class); p r             # Ruby: TypeError       Spinel: 2
+      r = (h.dig(:k, :v) rescue $!.class); p r             # Ruby: TypeError
 
       S = Struct.new(:w)
       p([S.new(3)].dig(0, :w))                             # => 3
@@ -877,22 +875,9 @@ describe "Array programs" do
   it "empty array push container elem" do
     result = zr(<<~'RUBY')
       # `rows = []` followed by `rows << <container>` (where the pushed
-      # value is a Hash or another Array, not a primitive) used to leave
-      # `rows` typed as int_array — sp_IntArray_push then errored with
-      # "incompatible pointer to integer conversion".
-      #
-      # #412 added the int_array → typed-array upgrade in scan_locals's
-      # push observation for primitive element types (str_array,
-      # float_array, sym_array, obj_X_ptr_array, poly_array). Container
-      # element types (Hash, nested Array) fell through to the bottom
-      # default and stayed at int_array.
-      #
-      # Fix: extend the push observation to recognise hash-type and
-      # array-type arg types and promote to poly_array (spinel has no
-      # <hash>_ptr_array or <array>_ptr_array_ptr_array slot — boxed
-      # poly_array is the canonical container-of-containers shape, same
-      # as the literal `[{...}, {...}]` inference at
-      # infer_array_elem_type_from_ids).
+      # value is a Hash or another Array, not a primitive). The pushes
+      # give `rows` its element type, so it holds the containers, the same
+      # as the literal `[{...}, {...}]` does.
 
       def build_hash_rows
         rows = []
@@ -1359,13 +1344,12 @@ describe "Array programs" do
 
   it "int array bracket assign expr" do
     result = zr(<<~'RUBY')
-      # `arr[i] = v` in *expression* position on int_array. The stmt-
-      # form is handled by `compile_bracket_assign`; in rvalue chains
-      # like `outer = arr[i] = rhs`, the call lands in the expression
-      # dispatcher and was previously unresolved (warning + literal 0).
+      # `arr[i] = v` in *expression* position on an Integer array, in
+      # rvalue chains like `outer = arr[i] = rhs`. The value of the
+      # assignment is rhs.
       #
-      # Surfaced via optcarrot PPU's `@io_latch = @sp_ram[@regs_oam] = io_latch_mask(data)`
-      # shape — the `sp_ram[idx] = mask` write is also the rvalue
+      # optcarrot PPU has this shape: `@io_latch = @sp_ram[@regs_oam] = io_latch_mask(data)`
+      # — the `sp_ram[idx] = mask` write is also the rvalue
       # assigned to `@io_latch`.
 
       a = [10, 20, 30, 40, 50]
@@ -1407,8 +1391,7 @@ describe "Array programs" do
     result = zr(<<~'RUBY')
       # Integer#ceil/floor/round/truncate with ndigits argument.
       # Without ndigits these return self; with negative ndigits they
-      # round to the nearest 10^(-ndigits). Previously spinel silently
-      # emitted 0 for any call with an argument.
+      # round to the nearest 10^(-ndigits).
 
       p 1234.ceil(-2)       # 1300
       p 1234.floor(-2)      # 1200
@@ -1443,20 +1426,12 @@ describe "Array programs" do
   it "int keyed hash lookup as array" do
     result = zr(<<~'RUBY')
       # A Hash literal whose keys are the consecutive non-negative
-      # integers 0..N-1 lowers to an internal Array. The runtime has no
-      # `int_<X>_hash` slot, so a literal like
+      # integers 0..N-1, like
       #
       #   {0 => [...], 1 => [...]}
       #
-      # previously fell through to the str_int_hash default and the
-      # `[]` lookup miscompiled (warning: cannot resolve call to
-      # 'length' on int — emitting 0 — followed by a runtime segfault
-      # when the lookup chain dereferences the literal `0` as a pointer).
-      #
-      # Detection is AST-shape-only (IntegerNode keys with literal values
-      # 0,1,...N-1 in source order). Any deviation (gap key, duplicate
-      # key, non-integer key, splat) opts back into the regular
-      # str_int_hash codegen, so existing hash literals are unchanged.
+      # A `[]` lookup returns the value for the key, and chained calls on
+      # the value work.
 
       TBL = {0 => [3, 7, 2, 6], 1 => [4, 0, 5, 1]}
       puts TBL[0].length      # 4
@@ -1483,33 +1458,26 @@ describe "Array programs" do
     result = zr(<<~'RUBY')
       # String interpolation of typed-array containers.
       #
-      # `93d04586` fixed Symbol interpolation (`"#{:foo}"` -> `"foo"`).
-      # This extends the same idea to typed array containers: `#{arr}`
-      # previously fell through the default int path and printed the
-      # pointer as a long long (e.g. "4318536016") instead of CRuby's
-      # `Array#to_s` shape.
-      #
-      # Each Array variant has an existing `sp_*Array_inspect` runtime
-      # helper that emits the bracketed form `[elem, elem, ...]` byte-
-      # identical to CRuby; we just route to it from compile_interpolated.
+      # `#{arr}` gives CRuby's `Array#to_s` shape, the bracketed form
+      # `[elem, elem, ...]`, for each kind of array.
 
-      # int_array
+      # Integer array
       ints = [1, 2, 3]
       puts "ints: #{ints}"
 
-      # str_array
+      # String array
       strs = ["a", "b", "c"]
       puts "strs: #{strs}"
 
-      # sym_array
+      # Symbol array
       syms = [:x, :y, :z]
       puts "syms: #{syms}"
 
-      # float_array
+      # Float array
       floats = [1.5, 2.5, 3.5]
       puts "floats: #{floats}"
 
-      # poly_array (heterogeneous)
+      # mixed array (heterogeneous)
       mix = [1, "two", :three, nil]
       puts "mix: #{mix}"
 
@@ -1608,13 +1576,9 @@ describe "Array programs" do
     result = zr(<<~'RUBY')
       # `@rows = []` carries no element evidence, so it takes the empty-array
       # default (an int array). A helper that pushes objects into it through a
-      # parameter shares that storage, and the ivar has to widen with it -- the
-      # parameter arrives BOXED here, so the container the callee pushes into is
-      # invisible at the call, and nothing widened the ivar. The push then failed at
-      # run time with "no implicit conversion of Scenario into Integer".
-      #
-      # The typed-parameter form of this is #3154; this is the same hazard with the
-      # container hidden behind the box. Found while testing #4130.
+      # parameter shares that storage, and the ivar has to widen with it. Here the
+      # parameter arrives BOXED, so the call does not show which container the
+      # callee pushes into. The push must still store the objects.
       Scenario = Struct.new(:key)
 
       class Sheet
@@ -1760,14 +1724,11 @@ describe "Array programs" do
     result = zr(<<~'RUBY')
       # `["a"].map { |s| s.dup }` fills the array with fresh mutable strings exactly
       # as `["a".dup]` does, and the shared-mutable machinery has to read the two
-      # shapes the same way. Only the literal was: the store analysis knew array and
-      # hash literals, push / << / []=, and not the array a collecting iterator
-      # builds. So an element of a mapped array kept the plain value representation,
-      # and mutating it was refused or silently dropped (#4037):
+      # shapes the same way. So an element of a mapped array is mutable in place:
       #
       #   overlay = ["abc"].map(&:dup)
-      #   overlay[0][1] = "*"      # undefined method '[]=' for an instance of String
-      #   overlay[0] << "d"        # no error, mutation dropped
+      #   overlay[0][1] = "*"
+      #   overlay[0] << "d"
       overlay = ["abc"].map(&:dup)
       overlay[0][1] = "*"
       p overlay
@@ -1850,24 +1811,13 @@ describe "Array programs" do
 
   it "module const array widen" do
     result = zr(<<~'RUBY')
-      # Issue #333: a module-level array constant initialized as an empty
-      # literal (`LOG = []`) was typed as `sp_IntArray *`, regardless of
-      # how it was used. A later `LOG << some_hash` then emitted
-      # `sp_IntArray_push(cst_M_LOG, hash_ptr)`, mistyping the pointer as
-      # mrb_int.
+      # A module-level array constant initialized as an empty literal
+      # (`LOG = []`) takes its element type from how the program uses it.
+      # The module's methods push Hashes with `LOG << v`, also through a
+      # body local (`entry = {...}; LOG << entry`).
       #
-      # Fix: extend the existing `refine_module_ivar_types` pass (which
-      # already handled `@slots = {}` shape per #303) to also walk
-      # `ConstantWriteNode` declarations like `LOG = []`. The companion
-      # scanner `scan_module_const_writes` walks the module's class
-      # methods for `LOG << v` / `LOG[k] = v` / `LOG.push(v)` shapes
-      # rooted at a `ConstantReadNode` receiver. Body locals (`entry =
-      # {...}; LOG << entry`) are also declared in the temporary scope so
-      # `infer_type` resolves the pushed value's actual hash/obj type
-      # instead of the int default.
-      #
-      # Surfaced via Roundhouse's `module Broadcasts; LOG = []; ... LOG <<
-      # entry` pattern.
+      # This is the `module Broadcasts; LOG = []; ... LOG << entry`
+      # pattern of Roundhouse.
 
       module Broadcasts
         module_function
@@ -1893,20 +1843,12 @@ describe "Array programs" do
 
   it "multi write ivar const from array rhs" do
     result = zr(<<~'RUBY')
-      # `compile_multi_write`'s int_array-returning RHS branch (RHS is a
-      # non-literal expression that evaluates to an array, e.g.
-      # `.map { ... }`, a method call) only emitted assignments for
-      # `LocalVariableTargetNode` targets — `InstanceVariableTargetNode`
-      # and `ConstantTargetNode` targets were silently dropped. The C
-      # code compiled fine, but the ivars / constants stayed at their
-      # default values.
+      # A multi-write whose RHS is a non-literal expression that gives an
+      # Integer array (e.g. `.map { ... }`, a method call) assigns every
+      # target, ivars as well as locals.
       #
-      # Repro: `@a, @b = [10, 20].map { |x| x + 1 }` where the targets
-      # are ivars. Master emitted neither write, so c.a / c.b returned 0.
-      #
-      # (Constant-target coverage requires the multi-write-to-constants
-      # parser support, which lives in a sibling PR; the InstanceVariable
-      # fix here is independent and lands first.)
+      # Example: `@a, @b = [10, 20].map { |x| x + 1 }` where the targets
+      # are ivars, so c.a / c.b return 11 / 21.
 
       # (1) ivar targets, RHS is .map
       class C1
@@ -1919,7 +1861,7 @@ describe "Array programs" do
       puts c.a              # 11
       puts c.b              # 21
 
-      # (2) mixed: local + ivar from one int_array RHS.
+      # (2) mixed: local + ivar from one Integer-array RHS.
       class C2
         def initialize
           local, @i = [1, 2].map { |x| x * 10 }
@@ -1932,8 +1874,7 @@ describe "Array programs" do
       puts c2.i               # 20
 
       # (3) ivar targets where the RHS is a top-level method returning
-      # a fresh array. The intervening method-boundary forces the
-      # `sp_IntArray *` rhs path (RHS is not a literal ArrayNode).
+      # a fresh array. The RHS is a method call, not a literal ArrayNode.
       def make_pair
         [7, 8]
       end
@@ -2102,16 +2043,8 @@ describe "Array programs" do
       # Two rings: `a << a`, and `b << [2, b]` whose inner array is the third array. The nested one is the row that proves the guard is a stack.
       # At exit: cycle leak: 3 objects (Array x3)
       # `Array#join` on a self-referential array raises ArgumentError
-      # ("recursive array join"). It used to abort the process: the receiver's
-      # lock was still held when the nested join re-entered it, which is a
-      # re-entrant container access, and in a release build that aliases rather
-      # than asserting.
-      #
-      # The guard is only half the fix. Hoisting the payload clone OUT of the
-      # recursive call's argument list is the other half, and the SOUNDNESS half
-      # -- the caller-side rule the whole bug class comes down to is: never hold
-      # a `.lock()` inside a call-argument expression that also contains the
-      # recursive call.
+      # ("recursive array join"), and the process goes on. The nested join
+      # re-enters the receiver while the outer join still uses it.
 
       a = [1]
       a << a

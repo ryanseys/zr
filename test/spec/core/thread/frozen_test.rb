@@ -11,9 +11,8 @@ describe "Thread: frozen literals" do
       #
       # zr's divergence: `freeze` on a Mutex/ConditionVariable is accepted but
       # does not stick -- `frozen?` answers false immediately after. The handle
-      # types live outside the `__frozen` AtomicBool convention generated instances
-      # carry, so freeze has nowhere to record itself. (Spinel once had the same
-      # observable for its own reasons, #3483.)
+      # types have no frozen flag like other instances, so freeze has nowhere to
+      # record itself.
       a = Mutex.new
       p a.frozen?
       p a.freeze.equal?(a)
@@ -118,8 +117,7 @@ describe "Thread: frozen literals" do
       # compares the box rather than the handle behind it (ConditionVariable,
       # Fiber and Thread compare the handle and answer true); (2) Fiber#raise on a
       # fiber that has never been resumed delivers the requested RuntimeError
-      # instead of ruby's FiberError (nowhere to deliver it yet). (Imported from
-      # spinel, where the front end once refused these receivers outright, #3470.)
+      # instead of ruby's FiberError (nowhere to deliver it yet).
       a = Mutex.new
       b = Queue.new
       c = SizedQueue.new(2)
@@ -135,7 +133,7 @@ describe "Thread: frozen literals" do
       p a.equal?(b)
 
       # Fiber#raise on a fiber that has never run has nowhere to deliver, so it is a
-      # FiberError -- not the requested exception raised in the caller. #3468.
+      # FiberError -- not the requested exception raised in the caller.
       f = Fiber.new { Fiber.yield 1 }
       p (f.raise(RuntimeError, "boom") rescue $!.class)
       g = Fiber.new { Fiber.yield 1; :after }
@@ -144,7 +142,7 @@ describe "Thread: frozen literals" do
       p Fiber.new { Fiber.yield 1 }.kill.class
 
       # Fiber#resume passes every argument to the block's parameters. The fiber
-      # carries one value, so two or more are packed and the body unpacks them. #3469.
+      # carries one value, so two or more are packed and the body unpacks them.
       h = Fiber.new { |x, y| x + y }
       p h.resume(3, 4)
       i = Fiber.new { |*r| r }

@@ -15,7 +15,7 @@ describe "Process: blocks and yields" do
   it "class exec def body" do
     result = zr(<<~'RUBY')
       # class_exec / module_exec with a method-defining block is the same
-      # compile-time reopen class_eval already rode (#2722).
+      # reopen of the class as class_eval with such a block.
       class C; end
       C.class_exec { def hi; 3; end }
       p(C.new.hi)
@@ -94,9 +94,7 @@ describe "Process: blocks and yields" do
   it "instance exec autosplat" do
     result = zr(<<~'RUBY')
       # Auto-splat: a single array arg destructured across N>=2 block params
-      # (CRuby binds arr[0]..arr[N-1] at arity >= 2). The params are typed
-      # from the array's element type and codegen reads each element via the
-      # typed sp_<Prefix>_get.
+      # (CRuby binds arr[0]..arr[N-1] at arity >= 2).
 
       class Box
         def initialize(v)
@@ -208,32 +206,13 @@ describe "Process: blocks and yields" do
 
   it "instance exec direct" do
     result = zr(<<~'RUBY')
-      # Direct-path instance_exec: `recv.instance_exec(args) { |params| body }`
-      # called without a wrapping trampoline method. The analyze pass lifts
-      # the block to a static function `sp_iexec_<N>(self, args...)` and
-      # rewrites the call site to dispatch through it.
-      #
-      # Sibling of test/instance_exec_trampoline.rb (codegen-time inlining
-      # of the def-m-instance_exec trampoline pattern). The direct form is
-      # what most CRuby code writes: `obj.instance_exec(5) { |n| ... }` at
-      # the call site, no wrapper method involved.
-      #
-      # Boundaries:
-      #   - Strict arity: call-site args count == block params count.
-      #   - No outer-local capture (the lifted function cannot see the
-      #     caller's locals). Convert to the trampoline form for that.
-      #   - Receiver must be a statically-resolvable obj_<C> -- a typed
-      #     local, ivar, method param, or constant constructor.
-      #   - return / break / next / yield / block_given? inside the block
-      #     are rejected (silently for now; a follow-up upgrades to a hard error).
-      #   - Value-typed receivers are unsupported (TODO carried over from
-      #     compile_instance_eval_inlined_stmt's same issue). Multi-instance
-      #     classes keep the receiver heap-allocated.
+      # Direct instance_exec: `recv.instance_exec(args) { |params| body }` with no
+      # wrapper method. This is what most Ruby code writes. The block runs with
+      # self set to the receiver, and the call-site args bind to the block params.
 
       # 1. Bare direct call with one arg. The block body adds the call-site
-      #    arg to the receiver's @sum via the typed method `add`. Bare
-      #    method calls inside the block resolve against the receiver's
-      #    class (same dispatch path the trampoline tests exercise).
+      #    arg to the receiver's @sum via the method `add`. Bare method
+      #    calls inside the block resolve against the receiver's class.
       class Builder
         def initialize
           @sum = 0
@@ -255,9 +234,8 @@ describe "Process: blocks and yields" do
       puts b.total                  #=> 42
 
       # 2. Two args at the call site forward into two block params. Block
-      #    body computes against them, mutates the receiver's ivar via the
-      #    rebound-self path, and returns nothing (the baseline locks the
-      #    return type to void).
+      #    body computes with them and changes the receiver's ivar through
+      #    the new self.
       class Acc < Builder
       end
 
@@ -269,11 +247,7 @@ describe "Process: blocks and yields" do
       puts a1.total                 #=> 13
       puts a2.total                 #=> 14
 
-      # 3. Zero-arg form (degenerate, equivalent to instance_eval): the
-      #    detector accepts arity-0, the lifted function takes only the
-      #    receiver. Tests that the baseline doesn't conflate arity-0
-      #    with the instance_eval lift (they're independent registries
-      #    even when behavior overlaps).
+      # 3. Zero-arg form (equivalent to instance_eval).
       b2 = Builder.new
       b2.instance_exec { add(100) }
       b2.instance_exec { add(50) }
@@ -299,16 +273,6 @@ describe "Process: blocks and yields" do
       #   end
       #
       # CRuby resolves this to `self.instance_exec(10) { |n| add(n) }`.
-      # Spinel's analyze pass picks up @current_class_idx for the
-      # receiver type when both:
-      #   - The call has no explicit receiver
-      #   - The block is a literal `{ ... }` (not `&proc_var`)
-      #
-      # Distinguishing from the trampoline-body case is critical: a
-      # trampoline body's `instance_exec(args, &b)` has the &b arg
-      # stored in @nd_block as a BlockArgumentNode (not a literal
-      # BlockNode), so the analyze rewrite skips it and leaves the
-      # call site for codegen's trampoline-pattern detector.
 
       class Builder
         def initialize
@@ -322,7 +286,7 @@ describe "Process: blocks and yields" do
         end
 
         # Implicit-self direct call -- no explicit receiver. Resolves
-        # to self.instance_exec(...) at analyze time.
+        # to self.instance_exec(...).
         def configure
           instance_exec(10) { |n| add(n) }
           instance_exec(20) { |n| add(n) }
@@ -343,10 +307,8 @@ describe "Process: blocks and yields" do
 
   it "instance exec nested" do
     result = zr(<<~'RUBY')
-      # Nested instance_exec: the rewrite descends into a lifted block body
-      # so an inner instance_exec call lifts too, rebinding self per level.
-      # The inner receiver is an outer-scope local captured into the block;
-      # codegen splices the inner inline within the outer inline.
+      # Nested instance_exec: each level sets its own self. The inner receiver
+      # is an outer-scope local that the outer block captures.
 
       class Outer
         def initialize
@@ -393,7 +355,7 @@ describe "Process: blocks and yields" do
       # direct instance_exec. Each numbered slot binds to the corresponding
       # call-site arg, and the block body runs with self rebound to the
       # receiver. The parser normalizes `it` to a single-slot numbered
-      # param, so it shares the same lowering.
+      # param.
 
       class Box
         def initialize(v)
@@ -438,29 +400,16 @@ describe "Process: blocks and yields" do
   it "instance exec override" do
     result = zr(<<~'RUBY')
       # User-defined instance_exec / instance_eval methods shadow the
-      # compile-time intrinsic. Ordinary method dispatch resolves to the
-      # user's method instead of the lift.
-      #
-      # Before the override check landed in iexec_rewrite_call /
-      # ieval_rewrite_call, Spinel silently bypassed user overrides by
-      # rewriting the call to __sp_iexec_<N> at the analyze level. CRuby
-      # would have dispatched to the user's method; Spinel did not.
-      #
-      # A fuller approach (registering BasicObject and routing every
-      # intrinsic through method-resolution from the start) would
-      # rearchitect the class table. The lighter version here -- a
-      # cls_find_method check that bails out of the rewrite when the
-      # user has their own method -- gets the correctness win without
-      # the rearchitecture risk.
+      # built-in ones. Ordinary method dispatch finds the user's method,
+      # as in CRuby.
 
       class Wrap
         def initialize
           @marker = 0
         end
 
-        # User-defined instance_exec on Wrap. Spinel should NOT lift the
-        # block at the call site below; it should dispatch to this method
-        # instead, matching CRuby.
+        # User-defined instance_exec on Wrap. The call site below calls this
+        # method, as in CRuby.
         def instance_exec(x, &b)
           @marker = x + 100
           @marker
@@ -471,9 +420,7 @@ describe "Process: blocks and yields" do
         end
       end
 
-      # Two instances so Wrap stays heap-allocated (value-type promotion
-      # would otherwise complicate the test independent of the override
-      # question).
+      # Two instances of Wrap.
       w1 = Wrap.new
       w2 = Wrap.new
       ret = w1.instance_exec(5) { |x| 9999 }  # block ignored -- user method runs
@@ -497,11 +444,7 @@ describe "Process: blocks and yields" do
 
       w3 = Wrap2.new
       w4 = Wrap2.new
-      # Block body is a no-op -- the user method ignores it. We use a noop
-      # rather than `@tag = "intrinsic-ran"` because the latter would force
-      # Spinel to compile the block as a proc literal even though it's
-      # never invoked, and proc compilation of a toplevel-ivar string
-      # assignment trips an unrelated proc-return-type issue.
+      # Block body is a no-op -- the user method ignores it.
       w3.instance_eval { 1 }   # block ignored by user method
       puts w3.tag           # user-instance-eval-ran
 
@@ -521,11 +464,9 @@ describe "Process: blocks and yields" do
       # An instance_exec result used through an intermediate local inside a method
       # (not a bare trampoline body), in value position. The method forwards its
       # block to a receiverless instance_exec, binds the result to a local, and
-      # transforms it -- so the method's return type must resolve through the
-      # forwarded-block value, and the method inlines per call site splicing the
-      # literal block.
+      # transforms it. The method returns the transformed value of the block.
 
-      # Heap receiver (a mutating method keeps it heap-allocated).
+      # Receiver with a method that changes its state.
       class Calc
         def initialize
           @base = 10
@@ -545,7 +486,7 @@ describe "Process: blocks and yields" do
       puts(c.run(5) { |a, b| a + b })       # (5 + 10) * 2 = 30
       puts(c.run(100) { |a, b| a - b })     # (100 - 10) * 2 = 180
 
-      # Value-type receiver (small immutable class -> by-value struct).
+      # Receiver of a small class with no method that changes its state.
       class Point
         def initialize(x, y)
           @x = x
@@ -577,12 +518,12 @@ describe "Process: blocks and yields" do
   it "instance exec value" do
     result = zr(<<~'RUBY')
       # A top-level method forwarding a block to instance_exec, with its return value
-      # consumed. Previously the value form linked against an un-emitted `sp_run`; a
-      # receiverless instance_exec does not rebind self, so it is exactly `b.call`.
+      # consumed. A receiverless instance_exec does not rebind self, so it is exactly
+      # `b.call`.
 
       def run(&b) = instance_exec(&b)
 
-      # value form (the reported failure)
+      # value form
       x = run { 42 }
       puts x
 

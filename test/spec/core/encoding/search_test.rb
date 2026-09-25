@@ -106,13 +106,11 @@ describe "Encoding: searching and matching" do
   it "match answers in the subjects encoding" do
     result = zr(<<~'RUBY')
       # Every string a match hands back carries the SUBJECT's encoding, not the
-      # engine's. zr decodes a haystack to UTF-8 to search it, and used to slice
-      # the groups out of that copy, so a binary or Latin-1 subject answered UTF-8
-      # for every one of them.
+      # engine's. zr decodes a haystack to UTF-8 to search it, but a binary or
+      # Latin-1 subject still gets groups in its own encoding.
       #
-      # The rows that already worked went through `String#match`, which threaded
-      # the encoding; the rest -- `Regexp#match`, `=~`, `$~`, `String#[]`,
-      # `partition` -- did not.
+      # The rows cover `String#match`, `Regexp#match`, `=~`, `$~`, `String#[]`
+      # and `partition`.
 
       b = "café".b
       l = "\xe9x".force_encoding("ISO-8859-1")
@@ -374,9 +372,8 @@ describe "Encoding: searching and matching" do
 
   it "regexp unicode escape" do
     result = zr(<<~'RUBY')
-      # The engine returned every unknown escape as itself, so \u lost its backslash
-      # and the rest became literal text: /µ/ named the text "u00b5", and
-      # /\u{3042}/ read as a quantifier on `u`. Ported from mruby-regexp (048e5da5f).
+      # A \u escape in a regexp names one character: /µ/ does not match the text
+      # "u00b5", and /\u{3042}/ is not a quantifier on `u`.
       p("µ" =~ /µ/ ? true : false)
       p("u00b5" =~ /µ/ ? true : false)
       p("µ" =~ /[µ]/ ? true : false)
@@ -427,16 +424,11 @@ describe "Encoding: searching and matching" do
   it "string ascii7 fast index" do
     result = zr(<<~'RUBY')
       # Indexing a string that holds only 7-bit bytes is byte indexing: #length is
-      # the byte length and s[i] is the byte at i. spinel had folded the UTF-8 walk
-      # into a pointer-keyed length cache, so the walk was already gone -- but every
-      # index still PROBED that cache twice (once for #length, once for the byte
-      # offset), about 160 instructions per index. A bit in the string header answers
-      # the same question with two loads and cannot be evicted.
+      # the byte length and s[i] is the byte at i. A bit in the string header
+      # records that all bytes are 7-bit.
       #
-      # The bit says nothing about encoding. US-ASCII and UTF-8 are compatible and
-      # spinel does not distinguish them (docs/limitations.md); this is a fact about
-      # the BYTES, verified by a scan that was happening anyway and cleared wherever
-      # the bytes can change.
+      # The bit says nothing about encoding. It is a fact about the BYTES, and
+      # every operation that can change the bytes clears it.
       #
       # What this program checks is the clearing. A string measured while it is
       # 7-bit, then given a byte that is not, has to answer the new truth.

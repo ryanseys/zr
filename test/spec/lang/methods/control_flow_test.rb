@@ -73,12 +73,8 @@ describe "Methods: control flow" do
     result = zr(<<~'RUBY')
       # `module M; def self.new(x); ...; end; end` defines a user-level
       # class method, NOT a constructor (modules can't be instantiated).
-      # Pre-fix the call `M.new(args)` hit compile_constructor_expr's
-      # user-class arm and emitted `sp_box_obj(<result>, <mod_cls_id>)`,
-      # mis-boxing the return as an instance of the module regardless of
-      # the user method's declared return type. Sibling methods on the
-      # same module (`def self.edit`) emitted correctly via the regular
-      # class-method dispatch. Issue #625.
+      # `M.new(args)` returns what the method returns, as a sibling method
+      # on the same module (`def self.edit`) does.
 
       module Views
         module Articles
@@ -146,37 +142,21 @@ describe "Methods: control flow" do
 
   it "param inference if predicate" do
     result = zr(<<~'RUBY')
-      # Issue #314 (A): `infer_cls_meth_param_from_body`'s walker missed
-      # IfNode predicates and else-branches when collecting param method
-      # usages, leaving the param at the "int" default and routing
-      # `<param>.method(...)` accesses through the int-class fallback —
-      # which silently picks the first user class that defines the
-      # method and casts the int to that class's struct pointer.
+      # A parameter whose only uses are in an if-predicate or an else-branch.
+      # Those uses must count when the compiler infers the parameter's type
+      # from the method body.
       #
       # Body shape:
       #   def update(p)
-      #     if p.title.nil?      # predicate uses p — was invisible
+      #     if p.title.nil?      # predicate uses p
       #       nil
       #     else
-      #       self.title = p.title   # else-branch uses p — was invisible
+      #       self.title = p.title   # else-branch uses p
       #     end
       #   end
       #
-      # `collect_param_methods` walked @nd_body but not @nd_predicate /
-      # @nd_subsequent / @nd_else_clause. With ONLY `p.title` inside an
-      # `if/else`, called == [] and the param-from-body inference skipped
-      # the method entirely.
-      #
-      # Fix: extend the walk to predicate, subsequent, else_clause,
-      # collection (for-in), block, elements, parts, conditions
-      # (case/when). Now `called=["title"]` is collected and
-      # `class_has_all_methods` picks a class that defines `title`.
-      #
-      # Surfaced via Roundhouse's emitted real-blog where `Article#update
-      # (p)`'s body has exactly this shape and the resulting `mrb_int lv_p`
-      # routed `p.title` and `p.body` to two different user classes
-      # (ArticleRow for one, ActionResponse for the other) — same `lv_p`
-      # cast to two different struct pointers, structurally invalid C.
+      # Two user classes (P, Other) define `title`, so a wrong guess picks the
+      # wrong class.
 
       class P
         def title
@@ -195,15 +175,7 @@ describe "Methods: control flow" do
 
       class App
         # `p` is used ONLY inside the if-predicate (`p.title.nil?`),
-        # nowhere in the IfNode's body or else-branch. Pre-fix the
-        # collect_param_methods walker missed @nd_predicate /
-        # @nd_subsequent / @nd_else_clause, so called == [] and the
-        # param-from-body inference left `p` at "int". The
-        # int-class fallback then routed `p.title` through
-        # `((sp_<first-class-with-title> *)lv_p)->iv_title` — picking
-        # whichever user class happened to be declared first that has
-        # a `title` method. In Roundhouse that's a wildly different
-        # struct than the actual `ArticleParams` the call site passes.
+        # nowhere in the IfNode's body or else-branch.
         def status(p)
           if p.title.nil?
             "no-title"
@@ -213,11 +185,10 @@ describe "Methods: control flow" do
         end
       end
 
-      # IMPORTANT: don't call `App#status` directly — the call-site
-      # widening pass would pin `p` to obj_P and mask the body-walker
-      # bug. The test verifies that body-walker-derived inference fires
-      # even without a call site, by ensuring the C compiles cleanly
-      # despite multiple user classes (P, Other) that define `title`.
+      # IMPORTANT: don't call `App#status` directly — a call site would
+      # give `p` its type. The test checks that inference from the body
+      # works without a call site, when two user classes (P, Other)
+      # define `title`.
 
       class Other
         def title; "wrong"; end
@@ -232,9 +203,8 @@ describe "Methods: control flow" do
       q.title = "hello"
       puts q.title             # hello
 
-      # `App#status` is defined but never called — purely body-walker
-      # determines `p`'s type. Pre-fix: left at "int", emitted broken C
-      # routing through whichever class came first.
+      # `App#status` is defined but never called, so only its body
+      # gives `p`'s type.
       puts "compiled-cleanly"
     RUBY
 
@@ -248,8 +218,7 @@ describe "Methods: control flow" do
   it "splat return" do
     result = zr(<<~'RUBY')
       # `return *x` returns the splat-to-array of x: a scalar wraps in a one-element
-      # array, an array stays itself, nil becomes []. Spinel previously emitted C
-      # whose return type (the splat's element type) conflicted with the array value.
+      # array, an array stays itself, nil becomes [].
       def f(x); return *x; end
       p f(1)              # [1]
       p f([1, 2, 3])      # [1, 2, 3]

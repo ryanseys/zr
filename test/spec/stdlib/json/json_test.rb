@@ -59,10 +59,8 @@ describe "JSON programs" do
   it "hash variant eq" do
     result = zr(<<~'RUBY')
       # Hashes compare by VALUE across storage variants, like arrays: Ruby has one
-      # Hash, and a runtime-built poly hash (JSON.parse) equals the same pairs
-      # written as a typed literal. Previously poly==typed-hash and mixed-variant
-      # hash==hash both constant-folded to false, and .class on a boxed hash
-      # printed an empty name.
+      # Hash, and a hash built at run time (JSON.parse) equals the same pairs
+      # written as a literal. `.class` on each one prints `Hash`.
       require "json"
       a = JSON.parse('{"k": 1}')
       b = { "k" => 1 }
@@ -275,11 +273,8 @@ describe "JSON programs" do
       # `a << a` -- the circular reference the generator is supposed to name.
       # At exit: cycle leak: 1 objects (Array x1)
       # `JSON.generate` on a self-referential array raises JSON::NestingError
-      # ("Did you try to serialize objects with circular references?"); the
-      # serializer used to re-enter the container guard and crash the whole
-      # process instead -- the third surface of the recursive-traversal guard
-      # family beside `Array#join` and twin-`<=>`. (Found by the 2026-08-24
-      # probe sweep.)
+      # ("Did you try to serialize objects with circular references?"). It must
+      # not recurse without end. `Array#join` and `<=>` have the same guard.
       require "json"
       a = [1]
       a << a
@@ -1443,9 +1438,8 @@ describe "JSON programs" do
 
   it "require in conditional" do
     result = zr(<<~'RUBY')
-      # A `require` is a compile-time directive in Spinel; one that survives into
-      # codegen -- indented inside an `if`, a method body, or used in value position
-      # -- is a runtime no-op rather than an "unsupported CallNode" hard error.
+      # A `require` inside an `if`, inside a method body, or in value position
+      # works like a top-level one. It is not an error.
 
       if 1 > 0
         require "set"
@@ -1466,10 +1460,8 @@ describe "JSON programs" do
 
   it "require modifier" do
     result = zr(<<~'RUBY')
-      # A bare-string `require` followed by a trailing modifier (`rescue`,
-      # `if`, ...) used to strand the modifier during require preprocessing and
-      # produce a parse error ("unexpected 'rescue'"). The require now degrades
-      # to a `nil` expression so the modifier attaches and the program parses.
+      # A bare-string `require` can have a trailing modifier (`rescue`,
+      # `if`, ...). The modifier attaches to the require and the program parses.
       # (json/set are stdlib in the reference Ruby, so the rescue is a moot
       # defensive guard there; the program does not use either library.)
       require 'json' rescue nil
@@ -1489,9 +1481,7 @@ describe "JSON programs" do
 
   it "require same line" do
     result = zr(<<~'RUBY')
-      # Regression for #1150 bug 1: `require "x"; code` on one line truncated the
-      # trailing code (the whole line was replaced). The code after the require
-      # must survive.
+      # In `require "x"; code` on one line, the code after the require runs.
       puts "start"
       require "json"; puts JSON.generate([1, 2, 3])
     RUBY

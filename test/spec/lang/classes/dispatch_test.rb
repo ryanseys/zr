@@ -5,9 +5,9 @@ require "spec_helper"
 describe "Classes: dispatch" do
   it "boxed arg int parameter" do
     result = zr(<<~'RUBY')
-      # A value with no static type (an sp_RbVal) reaching a builtin parameter
-      # declared mrb_int was emitted with no unbox step, so the generated C did not
-      # compile. An empty array literal as a parameter default is the shortest way to
+      # A value with no static type reaching a builtin parameter that takes an
+      # Integer must be unboxed to that Integer. An empty array literal as a
+      # parameter default is the shortest way to
       # produce one: the parameter has no element type, so a read of it answers the
       # polymorphic accessor's boxed value.
       def bytes_of(bytes: [])
@@ -62,16 +62,11 @@ describe "Classes: dispatch" do
 
   it "poly array clear expr" do
     result = zr(<<~'RUBY')
-      # `Array#clear` in *expression* position on a poly_array. The
-      # stmt-form was already supported; the expr-form fell through
-      # to the unresolved-call warning and emitted literal 0, which
-      # made `c = a.clear` mistype `c` as int.
+      # `Array#clear` in *expression* position on a mixed array.
+      # `c = a.clear` gives `c` the cleared array itself.
       #
-      # Surfaced via optcarrot's `@sp_visible ||= @sp_map.clear` shape
-      # (the `||=` form needs a typed initializer here so Spinel's
-      # per-variable type inference has a concrete poly_array tag to
-      # unify with — Ruby allows type changes across reassignment but
-      # Spinel doesn't).
+      # optcarrot has the `@sp_visible ||= @sp_map.clear` shape. Here
+      # the `||=` form gets a typed initializer first.
 
       a = [1, "two", :three, [4, 5]]
       b = a.clear
@@ -93,14 +88,11 @@ describe "Classes: dispatch" do
 
   it "poly array eq all nil literal" do
     result = zr(<<~'RUBY')
-      # `<poly_array> == [nil, nil, ...]` shape. The RHS array literal
-      # would otherwise lower to int_array of zeros and fall through to
-      # a raw pointer compare. The contextual lift at the == call site
-      # rebuilds the RHS as a poly_array of box_nil() and dispatches
-      # through sp_PolyArray_eq, matching the CRuby semantic that
-      # `Array.new(N) == [nil] * N` is true. Issue #619 puzzle 4.
+      # `<mixed array> == [nil, nil, ...]` shape. The RHS literal is an
+      # array of nils, not of zeros, and == compares elements. As in
+      # CRuby, `Array.new(N) == [nil] * N` is true.
       p Array.new(3) == [nil, nil, nil]   # true
-      p Array.new(0) == []                # true (empty arrays: handled by the IntArray fallback)
+      p Array.new(0) == []                # true (empty arrays)
       p Array.new(2) == [nil, nil]        # true
       p Array.new(3) != [nil, nil, nil]   # false
     RUBY
@@ -268,35 +260,10 @@ describe "Classes: dispatch" do
 
   it "obj class dispatch" do
     result = zr(<<~'RUBY')
-      # Issue #419. `obj.class` was unresolved on an instance -- emitted
-      # `cannot resolve call to 'class' on obj_<C> (emitting 0)` and
-      # downstream methods cascaded through int -> 0. Sibling to #404
-      # Phase 1 (which closed the literal-reference direction `c = Foo`):
-      # this is the reflection direction, fetching the class FROM an
-      # instance.
+      # `obj.class` on an instance gives the class FROM the instance,
+      # and class methods called on that class run.
       #
-      # Fix:
-      #   - Codegen (compile_object_method_expr's is_obj_type arm): when
-      #     mname is "class", emit `((sp_Class){<cls_idx>LL})`.
-      #   - Codegen (compile_object_method_expr's recv_type=="class"
-      #     arm): detect chained `<obj>.class.<cmeth>` via AST shape
-      #     (recv is a `class` CallNode whose own recv has a known
-      #     obj_<C> type) and dispatch directly to `sp_<C>_cls_<m>`,
-      #     bypassing the runtime sp_Class value.
-      #   - Inference: infer_method_name_type returns "class" for `obj.class`
-      #     and the cmeth's return type for `<obj>.class.<cmeth>`.
-      #   - DCE (collect_cls_calls): when the recv is a `class` CallNode,
-      #     mark cmeth live on every class that defines one. Over-
-      #     approximates because LocalVariableReadNode types aren't
-      #     resolvable at DCE time (they're intentionally not cached
-      #     by walk_and_cache), but DCE prefers a kept-but-unused
-      #     method over a stripped live one.
-      #   - String interpolation (`"#{self.class}"`): treat sp_Class
-      #     value via sp_class_to_s, not (long long)-cast which is
-      #     wrong for a struct.
-      #
-      # Coverage: chained .class.<cmeth>, plain `obj.class.to_s`
-      # (uses the recv_type=="class" -> to_s arm from #404), and the
+      # Coverage: chained .class.<cmeth>, plain `obj.class.to_s`, and the
       # string-interpolation form `"#{self.class}"` that optcarrot's
       # default inspect uses.
 
@@ -324,8 +291,7 @@ describe "Classes: dispatch" do
       puts b.describe                 # #<Bar>
 
       # Subclass: dispatch should pick up the cmeth defined on the
-      # inherited class. Spinel's cmeth lookup walks parents via
-      # cls_cmethod_owner, mirroring CRuby's dispatch.
+      # inherited class. The lookup walks the parents, as in CRuby.
       class Base
         def self.kind
           "base-kind"
@@ -369,8 +335,7 @@ describe "Classes: dispatch" do
   it "object reopen poly dispatch" do
     result = zr(<<~'RUBY')
       # A method reopened on Object is callable on ANY receiver, including a boxed
-      # scalar inside a poly value: the poly dispatch needs it as its default arm
-      # (an empty cls_id switch left NULL and segfaulted).
+      # scalar whose type is only known at run time.
       class Tag
         def initialize(v)
           @v = v
@@ -407,12 +372,10 @@ describe "Classes: dispatch" do
 
   it "poly builtin arm container read" do
     result = zr(<<~'RUBY')
-      # The poly dispatch records what the BUILTIN surface alone would answer, to
-      # shape its builtin arm. That re-derivation is defined as "if no user class
-      # owned the name", but the helper it went through still took the union with a
-      # user return -- so the recorded type came back poly and the builtin arm
-      # assigned sp_poly_values()'s raw sp_PolyArray * into the boxed slot the user
-      # arms need, and the C build stopped. It takes one user definition to see it.
+      # A call on a receiver of unknown type, where a user class also defines the
+      # method name. The builtin arm gives the builtin's own answer (here
+      # Hash#values), and the user arm gives the user method's answer. It takes one
+      # user definition to see it.
       class Flash
         def initialize
           @h = { "a" => "b" }
@@ -447,9 +410,8 @@ describe "Classes: dispatch" do
 
   it "poly class dispatch" do
     result = zr(<<~'RUBY')
-      # poly.class — runtime dispatch on the sp_RbVal tag. Heterogeneous
-      # array elements were previously emitting "0" through the
-      # unresolved-call path.
+      # `.class` on a value of unknown type gives its runtime class, for
+      # each element of a heterogeneous array.
       a = [1, "hello", 2.0, :sym, nil, true, false]
       puts a[0].class
       puts a[1].class
@@ -633,12 +595,12 @@ describe "Classes: dispatch" do
   it "poly int bitops auto unify" do
     result = zr(<<~'RUBY')
       # Same operator-site auto-unbox, but for bit operators (`<<`,
-      # `>>`, `&`, `|`, `^`). int recv + poly arg previously failed C
-      # compile; the poly arg is now unboxed via .v.i.
+      # `>>`, `&`, `|`, `^`), with an Integer receiver and an argument
+      # of unknown type.
 
-      # Heterogeneous poly_array of [user-class-with-[], IntArray] —
-      # the outer `arr[i]` dispatch returns poly, then `[j]` on the
-      # poly returns poly (since spinel statically types `[]` as poly).
+      # Heterogeneous array of [user-class-with-[], Integer array] —
+      # the outer `arr[i]` gives a value of unknown type, and `[j]` on
+      # it also gives a value of unknown type.
       class Bits
         def [](i); [0xff, 0x0a, 0x10][i]; end
       end
@@ -651,7 +613,7 @@ describe "Classes: dispatch" do
       puts(0xf0 & arr[1][0])     # 0xf0 & 0xff = 0xf0 = 240
       puts(0x05 | arr[1][1])     # 0x05 | 0x0a = 0x0f = 15
       puts(0xff ^ arr[1][2])     # 0xff ^ 0x10 = 0xef = 239
-      puts(arr[1][1] >> 1)       # 0x0a >> 1 = 5  (recv-poly + arg-int already routes to sp_poly_shr)
+      puts(arr[1][1] >> 1)       # 0x0a >> 1 = 5
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -665,11 +627,9 @@ describe "Classes: dispatch" do
 
   it "poly merge arm" do
     result = zr(<<~'RUBY')
-      # A user class owning `merge` replaces the whole poly dispatch with its arms,
-      # so a Hash arriving at the same call matched nothing and raised NoMethodError
-      # naming its own class. And where that user arm was ALSO dropped because its
-      # parameter is a concretely different hash kind, the switch came out EMPTY and
-      # the call quietly answered the result temp's zero initializer (#4033).
+      # A user class that owns `merge` does not hide Hash#merge: a Hash that arrives
+      # at the same call still runs Hash#merge. This is also true when the user
+      # method's parameter is a different kind of hash.
       class Flash
         def merge(other)
           other.size
@@ -771,10 +731,8 @@ describe "Classes: dispatch" do
   it "poly sym index with user aref" do
     result = zr(<<~'RUBY')
       # Defining an instance `[]` must not drop the builtin Hash#[] case from the
-      # polymorphic `[]` dispatch: a symbol-keyed Hash indexed through a poly (block
-      # param) receiver was lowered to a cls_id switch built only from user `[]`
-      # methods, so the Hash receiver fell through to nil. The dispatch must also
-      # carry the SymPolyHash arm.
+      # polymorphic `[]` dispatch. A symbol-keyed Hash indexed through a (block
+      # param) receiver of unknown type still reads the Hash value, not nil.
       class Box
         def [](key)
           nil
@@ -875,13 +833,9 @@ describe "Classes: dispatch" do
   it "self class cmethod dispatch" do
     result = zr(<<~'RUBY')
       # `self.class.<class method>` from an instance method dispatches on the runtime
-      # class, and that switch broke three ways at once. The base class's copy was
-      # DCE'd as a transplanted source once a subclass got a specialization, though
-      # the switch's default arm still calls it. An arm whose return type was not in a
-      # hand-listed set of box functions -- a Symbol among them -- assigned its raw
-      # value to the sp_RbVal result. And a class method widened to poly after the
-      # fixpoint (its value is a class-level ivar that can be nil) left the method
-      # returning the dispatch declared with the narrower type. (#4053)
+      # class. Three cases: the base class's own copy still runs when a subclass
+      # has its own; a class method can return a Symbol; and a class method can
+      # return a class-level ivar that can be nil.
       class Base
         def self.key(k = nil)
           @key = k if k
@@ -950,31 +904,10 @@ describe "Classes: dispatch" do
 
   it "user class aset dispatch" do
     result = zr(<<~'RUBY')
-      # Issue #413. A class method `def []=(key, value)` that dispatches
-      # on `key` and assigns into ivars of mixed types (Integer #@id,
-      # String @name) emitted with the `[]=` body present in C but the
-      # call site `f[:id] = 42` silently dropped — `compile_bracket_assign`
-      # fell through every typed-array / hash arm and had no arm for a
-      # user-class receiver, so the IndexAssignNode produced no output.
-      #
-      # Fix: add an `is_obj_type(rt)` arm at the end of
-      # `compile_bracket_assign`. It looks the user class up via
-      # `find_class_idx`, walks the inheritance chain via
-      # `find_method_owner` for `"[]="`, and emits the typed dispatch
-      # (`sp_<owner>__aset(recv, key, value)`) with arg boxing matched
-      # to the method's declared param types via the existing
-      # `compile_typed_call_args` helper. So a `value` param widened
-      # to `sp_RbVal` (because the case branches assign to ivars of
-      # different concrete types) takes a boxed rhs; a homogeneously-
-      # typed param takes it raw.
-      #
-      # The accompanying `lv_value` parameter monomorphisation
-      # concern from the issue body (the function signature was said
-      # to commit `lv_value` to `mrb_int`) was already addressed by
-      # unrelated inference passes by the time this fix landed — the
-      # signature now correctly reads `sp_RbVal lv_value` for the
-      # multi-type-ivar shape. The remaining gap was purely the
-      # missing dispatch at the call site.
+      # A user method `def []=(key, value)` that dispatches on `key` and
+      # assigns into ivars of mixed types (Integer #@id, String @name).
+      # The call `f[:id] = 42` runs the user method, also when it is
+      # inherited.
       #
       # Coverage:
       #   - Mixed-type ivars (`@id` int, `@name` string) — the

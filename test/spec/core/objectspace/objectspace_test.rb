@@ -62,38 +62,12 @@ describe "ObjectSpace programs" do
 
   it "hash param each kv weak default" do
     result = zr(<<~'RUBY')
-      # Issue #408. Two coordinated changes here:
-      #
-      # 1. Port the per-block-body str-concat collector from codegen.rb
-      #    to spinel_analyze.rb. The original #408 fix (commit 9ca01d77)
-      #    added it to spinel_codegen.rb's narrow_param_hash_types_from_body_writes,
-      #    but the analyze/codegen split (PR #416) moved the
-      #    inference passes to spinel_analyze.rb; the codegen-side copy
-      #    no longer runs. The analyze-side copy now harvests the
-      #    same str-concat hints from `pname.each do |k, v|` block
-      #    bodies that the codegen copy used to.
-      #
-      # 2. Option B "weak default" from Ori's issue body: when no
-      #    concrete signals at all (no `[]=` writes, no str-concat
-      #    hints from the each-block) and the current param type is
-      #    `poly_poly_hash` / `sym_poly_hash` / `str_poly_hash`, AND
-      #    the body has at least one `pname.each do |k, v|` shape on
-      #    the param, default to `str_str_hash`. Unsound in general
-      #    but covers the dominant string-keyed-Hash shape in
-      #    Rails/Tep-like code where the body just iterates without
-      #    inserting back.
-      #
-      # Out of scope for this fix (still #424): when the each-body
-      # calls a sibling cmeth with k or v as an arg, propagating that
-      # k/v narrowing into the cmeth's param widening needs a
-      # different scope-handling shape than the inference pipeline
-      # currently uses (the targeted block-scope push tried for #424
-      # breaks issue207's static-fold convergence). #424 stays open
-      # with a comment explaining the residual.
+      # A method param that holds a Hash with String keys and values, where
+      # the body iterates it with `pname.each do |k, v|`. This is the usual
+      # string-keyed-Hash shape in Rails/Tep-like code.
 
-      # Shape 1: str-concat hint -- the existing path. The body
-      # concatenates `+ k + "=" + v` into `out`; both k and v
-      # contribute "string" to the hash variant inference.
+      # Shape 1: the body concatenates `+ k + "=" + v` into `out`, so
+      # both k and v are Strings.
       module Joiner
         def self.encode(h)
           out = ""
@@ -111,11 +85,8 @@ describe "ObjectSpace programs" do
 
       puts Joiner.encode({"a" => "1", "b" => "2"})    # a=1,b=2
 
-      # Shape 2: weak default -- no str-concat, just each|k,v|. The
-      # body delegates to sibling cmeths whose param types haven't
-      # been widened yet; option B sees the each|k,v| presence and
-      # defaults the param to str_str_hash so the body compiles
-      # under that assumption.
+      # Shape 2: no concatenation, just each|k,v|. The body pushes each k
+      # and v into an ivar array.
       class HashDumper
         def initialize
           @pairs = []

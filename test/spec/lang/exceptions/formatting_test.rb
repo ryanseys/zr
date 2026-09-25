@@ -5,7 +5,7 @@ require "spec_helper"
 describe "Exceptions: formatting and inspection" do
   it "basicobject blank slate" do
     result = zr(<<~'RUBY')
-      # A BasicObject subclass is a blank slate (#2703): it answers only
+      # A BasicObject subclass is a blank slate: it answers only
       # BasicObject's own methods (==, equal?, instance_eval, ...) and what the user
       # defined; the Object/Kernel surface raises NoMethodError.
       class BO < BasicObject
@@ -689,7 +689,7 @@ describe "Exceptions: formatting and inspection" do
   it "exception new nil message" do
     result = zr(<<~'RUBY')
       # `Exception.new(nil)`: nil is not a message, so the class name answers, the
-      # way the no-argument form does; an empty String is a message (#3812).
+      # way the no-argument form does; an empty String is a message.
       p RuntimeError.new(nil).message
       p KeyError.new(nil).message
       p StandardError.new(nil).to_s
@@ -726,7 +726,7 @@ describe "Exceptions: formatting and inspection" do
       end
       p(TS.new.message)
 
-      r001 = (raise TS rescue $!.message); p r001   # Ruby: :sym   Spinel: "TS"
+      r001 = (raise TS rescue $!.message); p r001   # => :sym
 
       p(TS.new.to_s)   # => :sym
 
@@ -833,9 +833,8 @@ describe "Exceptions: formatting and inspection" do
         puts e
       end
 
-      # Propagation when no rescue type matches (fix #3): a typed clause
-      # whose sp_exc_is_a check returns false must re-raise so an enclosing
-      # handler can catch it.
+      # Propagation when no rescue type matches: the exception goes on to an
+      # enclosing handler.
       begin
         begin
           raise ArgumentError, "propagate"
@@ -863,7 +862,6 @@ describe "Exceptions: formatting and inspection" do
       end
 
       # Multi-clause rescue chain: first clause misses, second clause catches.
-      # Exercises the recursive sub-chain path in compile_rescue_chain.
       begin
         raise TypeError, "multi"
       rescue ArgumentError => e
@@ -1027,19 +1025,10 @@ describe "Exceptions: formatting and inspection" do
 
   it "isa namespaced exception collision" do
     result = zr(<<~'RUBY')
-      # `is_a?` against a namespaced exception class answered false when another
-      # module held a class of the same leaf name. Two things had to line up:
-      #
-      #  - the colliding class is carried in the AST already flattened (`A::Error`
-      #    arrives as `A__Error`), and the is_a? site prefixed its module again,
-      #    asking about "A::A__Error" -- a name nothing answers to;
-      #  - the repair for that read the class table's qualified name, which comes
-      #    back in a SHARED static buffer that emitting the receiver then
-      #    overwrote, so every check compared the receiver against itself.
-      #
-      # `rescue` and #ancestors were right throughout, which is what made it quiet:
-      # only is_a?/kind_of?/instance_of? saw it. Found under net/http, where
-      # Timeout::Error sits beside URI::Error. (matz/spinel#4133)
+      # `is_a?` against a namespaced exception class answers true, also when
+      # another module holds a class of the same leaf name. is_a?, kind_of? and
+      # instance_of? agree with `rescue` and #ancestors. The shape comes from
+      # net/http, where Timeout::Error sits beside URI::Error.
       module A
         class Error < StandardError; end
         class Sub < Error; end
@@ -1178,10 +1167,9 @@ describe "Exceptions: formatting and inspection" do
 
   it "nomethod scalar slot" do
     result = zr(<<~'RUBY')
-      # An unresolved method on a poly receiver whose call type is a concrete scalar
-      # must yield that scalar (a raising comma-expr), not the sp_RbVal raise token,
-      # so it fits a typed slot rather than failing the C compile (#2451). The
-      # raise still fires at runtime (CRuby's NoMethodError).
+      # A call to a method that the receiver does not have, in a position that
+      # expects a scalar value. The call raises NoMethodError at runtime, as in
+      # CRuby.
       class CommentRow
         def created_at; "2020-01-01"; end
       end
@@ -1281,9 +1269,9 @@ describe "Exceptions: formatting and inspection" do
 
   it "uncaught exception message" do
     result = zr(<<~'RUBY')
-      # An uncaught exception's tail format. In a --debug build the raising frame and
-      # its callers are printed in front of it (#3974); an ordinary build has no frame
-      # symbols, so the message alone is what it says.
+      # An uncaught exception's tail format: the message, the source line, and
+      # the callers of the raising frame.
+
       def boom(v)
         v.length
       end
@@ -1337,10 +1325,9 @@ describe "Exceptions: formatting and inspection" do
 
   it "void value in value position" do
     result = zr(<<~'RUBY')
-      # A method that unconditionally raises has a C `void` return type. Using its
-      # (never-produced) result in value position -- assigned to a local or passed
-      # as an argument -- must still compile: the use is unreachable because the
-      # call diverges. Previously codegen rejected it ('unsupported type void').
+      # A method that always raises never returns a value. Its result can still
+      # sit in value position -- assigned to a local or passed as an argument.
+      # That use never runs, because the call raises first.
 
       def boom
         raise "always raises"

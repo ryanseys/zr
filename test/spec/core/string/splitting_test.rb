@@ -53,12 +53,8 @@ describe "String: splitting and joining" do
 
   it "hash value split widen" do
     result = zr(<<~'RUBY')
-      # Sibling to #437. `h = {}; h[pa[i]] = pb[i]` where both `pa` and
-      # `pb` come from `split` results inside a method body. #437 added
-      # str_int_hash → str_str_hash widening in refine_locals_multi_pass_full
-      # but the analogous merge rule in refine_method_body_locals was
-      # missing, so `def f; ... end` shapes stayed at str_int_hash even
-      # after pass 2 resolved both key and value as string.
+      # `h = {}; h[pa[i]] = pb[i]` inside a method body, where both `pa` and
+      # `pb` come from `split`. The hash maps String keys to String values.
 
       def build_str_str(a, b)
         pa = a.split("/")
@@ -140,12 +136,12 @@ describe "String: splitting and joining" do
 
   it "reopen split superclass dispatch" do
     result = zr(<<~'RUBY')
-      # Imported from the spinel corpus at c55d9bdb.
       # A class opened BARE and reopened with a superclass is ruby's own
       # `TypeError: superclass mismatch for class Sub` -- a real bare `class Sub`
       # gives the class Object as its parent, and a later `< Base` conflicts with
       # that. A forward SHELL (zr's own device for a name a later file defines)
       # carries no such history and the reopen establishes its parent instead.
+
       module M
         class Base
           def run
@@ -289,10 +285,8 @@ describe "String: splitting and joining" do
   it "split on unresolved chain" do
     result = zr(<<~'RUBY')
       # A method compiled but never called whose body splits an unresolvable chain
-      # (`Undefined.application.class.to_s.split("::")`) must still produce
-      # compilable C: the chain resolves to a poly nil at codegen even though it is
-      # typed String, so the split receiver is coerced (sp_poly_to_s) rather than
-      # emitted as a raw sp_box_nil() where a const char* is expected.
+      # (`Undefined.application.class.to_s.split("::")`) must not stop the program.
+      # The method never runs, so the unresolved constant never raises.
       class T
         def initialize(s)
           @s = s
@@ -423,7 +417,7 @@ describe "String: splitting and joining" do
 
   it "each_char with a block answers the receiver, and yields whole code points" do
     result = zr(<<~'RUBY')
-      # Issue #866: String#each_char with a block returns the receiver
+      # String#each_char with a block returns the receiver
       # (not nil and not 0).
       s = "hello".each_char {}
       puts s
@@ -604,9 +598,8 @@ describe "String: splitting and joining" do
   it "split with a block yields each piece, and the method still answers its own value" do
     result = zr(<<~'RUBY')
       # String#split with a block yields each substring (rather than ignoring the
-      # block and returning the array). Spinel previously never ran the block. The
-      # call is used in statement position, collecting via the block's side effects --
-      # matching how String#scan with a block already behaves.
+      # block and returning the array). The call is used in statement position,
+      # collecting via the block's side effects, as String#scan with a block does.
       def sp1(x); r = []; x.split(",") { |p| r << p }; r; end
       p sp1("a,b,c")                 # ["a", "b", "c"]
 
@@ -643,7 +636,7 @@ describe "String: splitting and joining" do
 
   it "split by a pattern with capture groups splices the captures between the pieces" do
     result = zr(<<~'RUBY')
-      # Issue #856: split with a regex that has capture groups splices
+      # Split with a regex that has capture groups splices
       # the matched groups into the result between segments.
       puts "hello world".split(/(\s+)/).inspect
       # Without a capture group, behaviour unchanged.
@@ -665,8 +658,7 @@ describe "String: splitting and joining" do
       # String#upto walks successive strings (the same succ-based sequence a
       # String range produces) from the receiver to the argument inclusive,
       # yielding each to the block. The block-less form materializes the
-      # sequence as an array. Previously codegen treated the receiver as an
-      # integer loop variable and failed to compile.
+      # sequence as an array.
       count = 0
       "a".upto("e") { |c| count += 1 }
       puts count

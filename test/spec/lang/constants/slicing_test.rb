@@ -8,11 +8,8 @@ describe "Constants: slicing" do
       # A receiverless call is a call on self, so self's own methods come first: the
       # enclosing class's singleton chain inside a class method, its instance chain
       # inside an instance method. A top-level def is a private method on Object and
-      # so sits at the bottom of every ancestry. Argument types were bound to the
-      # top-level method instead whenever one shared the name, which left the real
-      # callee's parameters to be typed by its own body -- and where the two
-      # disagreed on a container's shape the C build stopped. Renaming the top-level
-      # method, or writing the receiver out, made it compile. (matz/spinel#4106)
+      # so sits at the bottom of every ancestry. A same-named top-level method does
+      # not take the call, also when the two disagree on a container's shape.
       module Blocks
         def self.read
           state = { "key" => nil }
@@ -319,12 +316,8 @@ describe "Constants: slicing" do
       # top-level `def` is a private method on Object, so it sits at the BOTTOM of
       # every ancestry -- last, not first.
       #
-      # Several analysis passes asked for the free functions first, so a same-named
-      # top-level def took the call. The one that mattered was narrow_object_arrays:
-      # with the call attributed to the wrong scope, the real callee's parameter was
-      # never joined to the caller's slot, and the two were narrowed apart -- an
-      # sp_PolyArray argument passed to an sp_PtrArray parameter, and the C build
-      # stopped (#4130; #4106 was the same rule at the parameter-binding site).
+      # So the call goes to the method on self, and that method gets the
+      # caller's array.
       #
       # The top-level methods below are never called and never passed anywhere.
       Scenario = Struct.new(:key)
@@ -388,7 +381,7 @@ describe "Constants: slicing" do
       # ShareableConstantNode — the `# shareable_constant_value:` magic comment.
       #
       # CRuby uses this to mark constants for Ractor-shareable initialization.
-      # Spinel has no Ractor runtime, so the shareability state is a no-op
+      # This program uses one Ractor, so the magic comment has no visible effect,
       # and the wrapped constant write executes normally.
 
       FOO = [1, 2, 3]

@@ -16,7 +16,7 @@ describe "Pack: packing and unpacking" do
 
   it "array pack string unpack" do
     result = zr(<<~'RUBY')
-      # Issue #889: Array#pack and String#unpack with the common
+      # Array#pack and String#unpack with the common
       # numeric/string format specifiers.
       puts "ABC".unpack("C*").inspect
       puts [65, 66, 67].pack("C*")
@@ -240,9 +240,9 @@ describe "Pack: packing and unpacking" do
     result = zr(<<~'RUBY')
       # Array#pack / String#unpack: honor the '<' (little-endian), '>'
       # (big-endian), '!' and '_' (native size) directive modifiers.
-      # Regression: each modifier char was consumed as if it were the next
-      # directive, so pack('l<l<l<l<') silently dropped every other element
-      # (the doom gem's SDL_Rect blit came out black).
+      # A modifier belongs to the directive before it and is not a directive
+      # itself, so pack('l<l<l<l<') keeps all four elements. The doom gem
+      # packs an SDL_Rect this way.
 
       # Round-trip: all four values must survive.
       p [1, 2, 3, 4].pack('l<l<l<l<').unpack('l<l<l<l<')
@@ -295,8 +295,7 @@ describe "Pack: packing and unpacking" do
       p ['abc', 0x01020304].pack('a3l>').bytes
 
       # Note: repeated endian modifiers ("l><") raise RangeError in CRuby, so
-      # they cannot appear here (expected output is ruby-generated). Spinel's
-      # pack has no exception path; it applies the last modifier instead.
+      # they cannot appear here (expected output is ruby-generated).
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -338,10 +337,8 @@ describe "Pack: packing and unpacking" do
   it "the float directives write IEEE-754 in the width and byte order they name" do
     result = zr(<<~'RUBY')
       # Array#pack on a Float array and the float/double directives (#pack_unpack_directives):
-      # D/d/F/f native, E/e little-endian, G/g big-endian. Previously a TY_FLOAT_ARRAY
-      # receiver had no codegen arm at all ("unsupported call: ... `pack` recv=.../ty18"),
-      # and String#unpack silently skipped the float directives (fsize 0), so
-      # [1.5].pack("G") was a compile error and unpack("G") decoded to [].
+      # D/d/F/f native, E/e little-endian, G/g big-endian. String#unpack reads
+      # the same directives back, so unpack("G") decodes what pack("G") wrote.
 
       # double directives: exact hex of the 8-byte IEEE-754 encoding
       puts [1.5].pack("G").unpack1("H*")
@@ -400,7 +397,7 @@ describe "Pack: packing and unpacking" do
       puts [1.0e300].pack("Q").unpack1("Q")
 
       # unpack1 with a literal float directive on too-short input returns nil
-      # (not 0.0): sp_str_unpack pads with nil and the unboxing must preserve it
+      # (not 0.0): unpack pads the missing values with nil
       puts "".unpack1("G").inspect
       puts "\x00\x00".unpack1("e").inspect
       puts [9.5].pack("G").unpack1("G").inspect

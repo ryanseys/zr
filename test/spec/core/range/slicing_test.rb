@@ -92,7 +92,7 @@ describe "Range: slicing" do
       # `#max` on an endless range and `#min` on a beginless range have no
       # answer -- CRuby raises RangeError instead of iterating (which would loop
       # forever). `(1..).min` still returns the begin (an endless range has a
-      # minimum). Regression: these used to hang the program.
+      # minimum).
 
       def t; yield; rescue RangeError => e; e.message; end
       puts t { (1..).max }
@@ -178,12 +178,10 @@ describe "Range: slicing" do
   it "endless source stops at the first answer" do
     result = zr(<<~'RUBY')
       # The short-circuiting Enumerable methods stop the SOURCE, not just their own
-      # scan, so they answer over an endless one. Each of these used to collect the
-      # whole source first and so never returned.
+      # scan, so they answer over an endless one.
       #
-      # `find_index` is the one with no spinel coverage: it asks the same question as
-      # `find`, which always stopped early, so the two disagreeing on an endless
-      # source was a bug rather than a stated limitation.
+      # `find_index` asks the same question as `find`, so the two must agree on an
+      # endless source.
 
       # take_while over an endless Range, an Enumerator, and a user Enumerable.
       p((1..).take_while { |x| x < 4 })
@@ -502,8 +500,7 @@ describe "Range: slicing" do
 
   it "print range argument" do
     result = zr(<<~'RUBY')
-      # p / puts / print previously fell through to the unsupported-argument
-      # diagnostic when handed a Range. Integer ranges render as "first..last"
+      # p / puts / print take a Range. Integer ranges render as "first..last"
       # ("first...last" when the end is excluded). Receivers are exercised both as
       # literals and through a method parameter so the value path is covered.
 
@@ -857,10 +854,10 @@ describe "Range: slicing" do
 
   it "begin and end are the aliases of first and last" do
     result = zr(<<~'RUBY')
-      # Three small adjacent fixes:
+      # Three small behaviors:
       #   - Range#begin / Range#end (aliases of first / last)
-      #   - Array#include? on poly_array
-      #   - String#delete_prefix! / delete_suffix! on mutable_str
+      #   - Array#include? on a mixed array
+      #   - String#delete_prefix! / delete_suffix! on a mutable String
 
       puts (1..10).begin
       puts (1..10).end
@@ -922,15 +919,15 @@ describe "Range: slicing" do
       # answers, because the Enumerator it returns re-invokes the block form, and
       # those roll a buffer through the source instead of materializing it first.
       #
-      # The trailing comments record what spinel answered; zr answers ruby's.
+      # The trailing comments record what Ruby answers.
       r = ((1..5).cycle(2).to_a rescue $!.class)
       p r
 
-      r = ((1..5).each_entry.to_a rescue $!.class); p r        # Ruby: [1, 2, 3, 4, 5]      Spinel: NoMethodError
-      r = ((1..).each_slice(2).first(2) rescue $!.class); p r  # Ruby: [[1, 2], [3, 4]]     Spinel: RangeError
+      r = ((1..5).each_entry.to_a rescue $!.class); p r        # Ruby: [1, 2, 3, 4, 5]
+      r = ((1..).each_slice(2).first(2) rescue $!.class); p r  # Ruby: [[1, 2], [3, 4]]
 
-      r = ((1..).each_cons(2).first(2) rescue $!.class); p r        # Ruby: [[1, 2], [2, 3]]   Spinel: RangeError
-      r = ((1..).each_with_index.first(2) rescue $!.class); p r     # Ruby: [[1, 0], [2, 1]]   Spinel: NoMethodError
+      r = ((1..).each_cons(2).first(2) rescue $!.class); p r        # Ruby: [[1, 2], [2, 3]]
+      r = ((1..).each_with_index.first(2) rescue $!.class); p r     # Ruby: [[1, 0], [2, 1]]
 
       p((1..3).each_with_index.to_a)   # => [[1, 0], [2, 1], [3, 2]]
 
@@ -1041,8 +1038,7 @@ describe "Range: slicing" do
   it "a case arm matches through cover?, not through equality" do
     result = zr(<<~'RUBY')
       # `Range#===` IS `#cover?` -- what makes `case x when 1..50` actually
-      # match (previously it fell to structural equality and silently never
-      # did). Endpoint semantics oracle-verified incl. exclusive ends, floats,
+      # match. Endpoint semantics oracle-verified incl. exclusive ends, floats,
       # and incomparable-subject false.
 
       case 42
@@ -1174,7 +1170,7 @@ describe "Range: slicing" do
 
   it "min, max and minmax answer nil for a range whose begin is past its end" do
     result = zr(<<~'RUBY')
-      # Range conformance (KieranP #2411-#2415)
+      # Range conformance
       a = ("a".."e")
       p a.begin
       p a.end
@@ -1330,11 +1326,7 @@ describe "Range: slicing" do
       # --- Block-param scoping ---
 
       # Block param doesn't leak when its name is distinct from outer
-      # locals. (Same-name shadowing is a pre-existing spinel-wide
-      # limitation in compile_each_block — both this fusion path and the
-      # generic sp_Range path emit the block param as `lv_<name>`, which
-      # collides with an outer `lv_<name>` of the same name. Out of scope
-      # for this perf PR; see PR body.)
+      # locals.
       outer_v = 42
       (1..5).each { |inner| outer_v = outer_v + inner }
       puts outer_v
@@ -1435,8 +1427,8 @@ describe "Range: slicing" do
 
   it "each with no block answers an Enumerator of the elements" do
     result = zr(<<~'RUBY')
-      # Range#each without a block returns an Enumerator; spinel materializes
-      # the element array so chaining works.
+      # Range#each without a block returns an Enumerator, and chaining on it
+      # works.
       p((1..3).each.to_a)
       p((1...4).each.to_a)
       p((5..8).each.to_a.length)
@@ -1544,10 +1536,9 @@ describe "Range: slicing" do
 
   it "reduce, group_by, find, count, zip and tally over a range held in a local" do
     result = zr(<<~'RUBY')
-      # Enumerable methods on a Range that spinel does not handle natively are served
-      # by materializing the range to an int array and dispatching the array method:
-      # the non-collecting forms (reduce(:sym)/group_by/find/count/zip/tally). The
-      # range is a local so the materialization runs at runtime.
+      # Enumerable methods on a Range: the non-collecting forms
+      # (reduce(:sym)/group_by/find/count/zip/tally). The range is a local, so it is
+      # a value at run time.
       r = (1..5)
 
       # reduce / inject with a symbol or an initial value
@@ -1739,7 +1730,7 @@ describe "Range: slicing" do
       report(1...5)
       report(1..5)
 
-      # Literal ranges: compile-time receiver -- regression guard.
+      # Literal ranges: compile-time receiver.
       puts (1...5).exclude_end?
       puts (1..5).exclude_end?
       puts (1...5).size
@@ -1849,9 +1840,8 @@ describe "Range: slicing" do
   it "last(n) on an endless range raises, where first(n) and min answer" do
     result = zr(<<~'RUBY')
       # `last(n)` on an endless range raises rather than trying to reach a tail that
-      # is not there. The guard has to live on Range's own row: `last(n)` answers by
-      # materializing, and the `to_a` it used to reach went through Enumerable, which
-      # walks `each` and so routed straight past Range's endless check.
+      # is not there. Range#last(n) must check for the endless range itself: an
+      # Enumerable `to_a` walks `each` and never ends.
       #
       # `first(n)` and `min` are the counterpart -- they count UP from begin, so an
       # endless range answers them.
@@ -1900,8 +1890,8 @@ describe "Range: slicing" do
   it "min_by and max_by take a count and answer that many" do
     result = zr(<<~'RUBY')
       # The count form of min_by/max_by over a Range: the Range has to be
-      # materialized before it can be indexed (#3860). MatchData#values_at with no
-      # arguments selects nothing (#3846).
+      # materialized before it can be indexed. MatchData#values_at with no
+      # arguments selects nothing.
       p((1..5).min_by(2) { |x| -x })
       p((1..5).max_by(2) { |x| -x })
       p((1..5).min_by { |x| -x })
@@ -2144,8 +2134,7 @@ describe "Range: slicing" do
     result = zr(<<~'RUBY')
       # Comparable#clamp against a range of user objects: the bounds fold straight
       # into the comparison, so no Range object is built and every inline form works.
-      # Materializing such a Range is the part that cannot work (sp_Range has mrb_int
-      # bounds); that is a compile error, covered by docs/limitations.md. #2558
+      # This test does not build such a Range object.
       class Ver
         include Comparable
         attr_reader :n
@@ -2203,9 +2192,7 @@ describe "Range: slicing" do
   it "find, detect and take_while over an endless range stop at their answer" do
     result = zr(<<~'RUBY')
       # `find`/`detect`/`take_while` over an endless Range stop at their answer
-      # rather than trying to walk the whole range. `find` and `detect` always broke
-      # early; `take_while` used to collect the source first, which on `(1..)` never
-      # returned.
+      # rather than trying to walk the whole range.
       #
       p((1..).find { |x001| x001 * x001 > 30 })
       p((1..).detect { |x002| x002 > 3 })
@@ -2274,7 +2261,7 @@ describe "Range: slicing" do
   it "slice_when, chunk_while and the with_index family over a range" do
     result = zr(<<~'RUBY')
       # Enumerator chains over an Integer Range source: the with_index family
-      # materializes the range to an int array and runs the array machinery (#3228).
+      # materializes the range to an int array and runs the array machinery.
       p((1..10).slice_when { |i, j| j.even? }.to_a)
       p((1..8).chunk_while { |i, j| j == i + 1 }.map { |r| r.sum })
       p((1..10).select.with_index { |v, i| i.even? })
@@ -2331,11 +2318,8 @@ describe "Range: slicing" do
   it "size, take and first answer for an infinite range reached through a local" do
     result = zr(<<~'RUBY')
       # Range#size with a Float::INFINITY (or endless) bound, reached through a
-      # local variable: the sole-assignment lookthrough types/serves it like the
-      # literal receiver (Float Infinity), and the range VALUE materializes its
-      # infinite end as INTPTR_MAX instead of passing (1.0/0.0) through an
-      # mrb_int parameter (UB: the converted value was a stale register, so the
-      # previous range's size leaked through).
+      # local variable, answers like the literal receiver (Float Infinity). The
+      # size of one range must not leak into the next.
       a = (1..10); p(a.size)
       b = (1..Float::INFINITY); p(b.size)
       c1 = (5..); p(c1.size)

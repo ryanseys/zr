@@ -5,17 +5,13 @@ require "spec_helper"
 describe "Fusion: searching and matching" do
   it "array index int opt narrow" do
     result = zr(<<~'RUBY')
-      # Array#index on int_array returns the new int? (scalar-nullable
-      # int with INT64_MIN sentinel) instead of being widened to poly.
-      # After the nil-check guard the value narrows back to plain int
-      # so downstream arithmetic compiles to direct integer ops without
-      # poly box/unbox.
+      # Array#index on an Array of Integers answers an Integer or nil.
+      # After the nil check, the value is an Integer, and the arithmetic
+      # on it is plain integer arithmetic.
       #
-      # Sibling of nil_guard_narrows_int_or_nil.rb (which exercises the
-      # same shape on String#index, still poly-widened). Both forms
-      # behave identically at the Ruby level; this test pins the
-      # int_array case so a regression in the int?-narrow path surfaces
-      # here.
+      # Sibling of nil_guard_narrows_int_or_nil.rb, which checks the
+      # same shape on String#index. Both forms behave identically at
+      # the Ruby level. This example checks the Array of Integers.
 
       ARR = [10, 20, 30, 40, 50]
 
@@ -29,8 +25,7 @@ describe "Fusion: searching and matching" do
       puts offset_or_zero(ARR, 999)   # 0
       puts offset_or_zero(ARR, 10)    # 1
 
-      # Inspect/.nil? on the int? value flows through the sentinel-aware
-      # helpers (sp_int_opt_inspect / sp_int_is_nil).
+      # Inspect/.nil? on the Integer-or-nil value.
       puts ARR.index(20).inspect      # 1
       puts ARR.index(999).inspect     # nil
       puts ARR.index(999).nil?        # true
@@ -219,7 +214,7 @@ describe "Fusion: searching and matching" do
       # single-index form). The receivers here are direct locals -- the static
       # route, complementing the runtime-promotion route in array_splice.rb.
 
-      # single-index []= with a mismatched value (formerly emitted invalid C)
+      # single-index []= with a mismatched value
       a = [1, 2]
       a[0] = "s"
       p a
@@ -282,7 +277,7 @@ describe "Fusion: searching and matching" do
       hh.poke
       p hh.dump
 
-      # the alias fix also covers push widening (previously read garbage through j)
+      # aliasing also holds when a push widens the array: j sees the new element
       pi = [1, 2]
       pj = pi
       pi << "s"
@@ -308,22 +303,11 @@ describe "Fusion: searching and matching" do
 
   it "cmethod specialize samename unrelated" do
     result = zr(<<~'RUBY')
-      # Issue #1314. `specialize_inherited_cls_new` clones an inherited class
-      # method that does a bare `new` (or a subclass-specific cmethod call)
-      # into each subclass that calls it, then DCEs the now-shadowed source
-      # unless it is called directly as `<DefiningClass>.<name>`. The
-      # "was this specialized?" test used to match by method *name* only, so
-      # specializing `Base.find` into `Article` also flagged the completely
-      # unrelated `Store.find` (same name, different class) as a transplanted
-      # source and dropped it from emission. When `Store.find` was still
-      # reachable and called through a non-constant receiver (here a bare
-      # sibling call, which is not "called directly as Store.find"), its body
-      # was never emitted while the call site survived -- the generated C then
-      # referenced an undefined `sp_Store_s_find`, failing to compile.
-      #
-      # The fix narrows the match to require the appended copy to live in a
-      # *subclass* of the source's defining class, so unrelated same-named
-      # class methods are left alone.
+      # An inherited class method that does a bare `new` gets a copy for each
+      # subclass that calls it. Here `Base.find` gets a copy for `Article`.
+      # The unrelated `Store.find` has the same name in a different module.
+      # It is not a copy of `Base.find`, so it stays, and `Store.lookup`
+      # calls it with no explicit receiver.
 
       class Base
         def self.find(x)
@@ -347,9 +331,8 @@ describe "Fusion: searching and matching" do
           x * 2
         end
         def self.lookup(x)
-          # Bare sibling call -> resolves to Store.find, emitted as
-          # sp_Store_s_find, but the call has no constant receiver, so the
-          # DCE's "called_direct" guard does not protect it.
+          # Bare sibling call -> resolves to Store.find. The call has no
+          # constant receiver.
           find(x)
         end
       end
@@ -365,7 +348,7 @@ describe "Fusion: searching and matching" do
     result = zr(<<~'RUBY')
       # A `dup` of a statically unknown receiver keeps the SOURCE's shape: an int-keyed
       # `[]=` into the copy is no evidence that it is a hash, and guessing one made the
-      # method answer `{}` where CRuby answered an Array (#3952).
+      # method answer `{}` where CRuby answered an Array.
       def build(node, n)
         copy = node.dup
         copy[0] = n.zero? ? 7 : build(node[0], n - 1)
@@ -754,9 +737,8 @@ describe "Fusion: searching and matching" do
 
   it "is a string narrow to primitive" do
     result = zr(<<~'RUBY')
-      # A `String | nil` value narrowed to String via is_a?(String) must reach a
-      # string primitive (sp_str_include / start_with? / end_with?) as a real
-      # const char*, not an sp_RbVal. (#1512)
+      # A `String | nil` value narrowed to String via is_a?(String) works as the
+      # argument of a String method (include? / start_with? / end_with?).
       def has_match?(haystacks, needle)
         return false unless needle.is_a?(String)
         haystacks.any? { |h| h.include?(needle) }
@@ -804,12 +786,10 @@ describe "Fusion: searching and matching" do
 
   it "unresolved value typed slot" do
     result = zr(<<~'RUBY')
-      # An unresolved name lowers to a raising token whose C value is boxed. Landing
-      # it in a concretely-typed slot needs the coercing emit, or the emitted C
-      # assigns an sp_RbVal to the slot's own type and the program does not build at
-      # all. Two slots the coercion was not reaching: a `const char *` operand of a
-      # string concat (the token arrived wrapped in a paren, so the match missed it)
-      # and an object-pointer ivar written through an attr writer.
+      # An unresolved name raises NameError at run time. The program still builds
+      # when that name is the value for a slot of a definite type. Two such slots:
+      # a String operand of a string concat (the name is inside parentheses) and
+      # an object ivar written through an attr writer.
       class Frame
         attr_reader :n
         def initialize(n); @n = n; end

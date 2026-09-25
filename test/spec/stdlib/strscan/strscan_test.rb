@@ -179,10 +179,7 @@ describe "StringScanner programs" do
     result = zr(<<~'RUBY')
       # An `@ivar` in a method of a reopened builtin.
       #
-      # A reopened builtin has no generated struct, so zr rejected this outright.
-      # It never needed one: `emit_builtin_method_fn` already marks these bodies'
-      # self dynamic, and `ivar_get_dyn`/`ivar_set_dyn` pick the storage tier from
-      # the receiver. All three tiers appear below.
+      # The ivar belongs to the receiver object, as in CRuby.
       #
       # The gems: strscan's own truffleruby shim keeps `@string`/`@pos` on
       # StringScanner, google-apis-generator and importmap-rails keep `@parent_name`
@@ -191,7 +188,7 @@ describe "StringScanner programs" do
 
       require "strscan"
 
-      # An Object-payload builtin: the `RObj`'s own name-keyed map.
+      # A builtin whose instances keep ivars as a plain object does.
       class StringScanner
         def tag=(v)
           @tag = v
@@ -204,10 +201,7 @@ describe "StringScanner programs" do
 
       # An `@ivar` in a method of a reopened builtin.
       #
-      # A reopened builtin has no generated struct, so zr rejected this outright.
-      # It never needed one: `emit_builtin_method_fn` already marks these bodies'
-      # self dynamic, and `ivar_get_dyn`/`ivar_set_dyn` pick the storage tier from
-      # the receiver. All three tiers appear below.
+      # The ivar belongs to the receiver object, as in CRuby.
       #
       # The gems: strscan's own truffleruby shim keeps `@string`/`@pos` on
       # StringScanner, google-apis-generator and importmap-rails keep `@parent_name`
@@ -216,7 +210,7 @@ describe "StringScanner programs" do
 
       require "strscan"
 
-      # An Object-payload builtin: the `RObj`'s own name-keyed map.
+      # A builtin whose instances keep ivars as a plain object does.
       class StringScanner
         def tag=(v)
           @tag = v
@@ -247,10 +241,7 @@ describe "StringScanner programs" do
     result = zr(<<~'RUBY')
       # An `@ivar` in a method of a reopened builtin.
       #
-      # A reopened builtin has no generated struct, so zr rejected this outright.
-      # It never needed one: `emit_builtin_method_fn` already marks these bodies'
-      # self dynamic, and `ivar_get_dyn`/`ivar_set_dyn` pick the storage tier from
-      # the receiver. All three tiers appear below.
+      # The ivar belongs to the receiver object, as in CRuby.
       #
       # The gems: strscan's own truffleruby shim keeps `@string`/`@pos` on
       # StringScanner, google-apis-generator and importmap-rails keep `@parent_name`
@@ -259,7 +250,7 @@ describe "StringScanner programs" do
 
       require "strscan"
 
-      # An Object-payload builtin: the `RObj`'s own name-keyed map.
+      # A builtin whose instances keep ivars as a plain object does.
       class StringScanner
         def tag=(v)
           @tag = v
@@ -287,10 +278,7 @@ describe "StringScanner programs" do
     result = zr(<<~'RUBY')
       # An `@ivar` in a method of a reopened builtin.
       #
-      # A reopened builtin has no generated struct, so zr rejected this outright.
-      # It never needed one: `emit_builtin_method_fn` already marks these bodies'
-      # self dynamic, and `ivar_get_dyn`/`ivar_set_dyn` pick the storage tier from
-      # the receiver. All three tiers appear below.
+      # The ivar belongs to the receiver object, as in CRuby.
       #
       # The gems: strscan's own truffleruby shim keeps `@string`/`@pos` on
       # StringScanner, google-apis-generator and importmap-rails keep `@parent_name`
@@ -299,7 +287,7 @@ describe "StringScanner programs" do
 
       require "strscan"
 
-      # An Object-payload builtin: the `RObj`'s own name-keyed map.
+      # A builtin whose instances keep ivars as a plain object does.
       class StringScanner
         def tag=(v)
           @tag = v
@@ -338,10 +326,7 @@ describe "StringScanner programs" do
     result = zr(<<~'RUBY')
       # An `@ivar` in a method of a reopened builtin.
       #
-      # A reopened builtin has no generated struct, so zr rejected this outright.
-      # It never needed one: `emit_builtin_method_fn` already marks these bodies'
-      # self dynamic, and `ivar_get_dyn`/`ivar_set_dyn` pick the storage tier from
-      # the receiver. All three tiers appear below.
+      # The ivar belongs to the receiver object, as in CRuby.
       #
       # The gems: strscan's own truffleruby shim keeps `@string`/`@pos` on
       # StringScanner, google-apis-generator and importmap-rails keep `@parent_name`
@@ -350,7 +335,7 @@ describe "StringScanner programs" do
 
       require "strscan"
 
-      # An Object-payload builtin: the `RObj`'s own name-keyed map.
+      # A builtin whose instances keep ivars as a plain object does.
       class StringScanner
         def tag=(v)
           @tag = v
@@ -413,10 +398,7 @@ describe "StringScanner programs" do
     result = zr(<<~'RUBY')
       # An `@ivar` in a method of a reopened builtin.
       #
-      # A reopened builtin has no generated struct, so zr rejected this outright.
-      # It never needed one: `emit_builtin_method_fn` already marks these bodies'
-      # self dynamic, and `ivar_get_dyn`/`ivar_set_dyn` pick the storage tier from
-      # the receiver. All three tiers appear below.
+      # The ivar belongs to the receiver object, as in CRuby.
       #
       # The gems: strscan's own truffleruby shim keeps `@string`/`@pos` on
       # StringScanner, google-apis-generator and importmap-rails keep `@parent_name`
@@ -425,7 +407,7 @@ describe "StringScanner programs" do
 
       require "strscan"
 
-      # An Object-payload builtin: the `RObj`'s own name-keyed map.
+      # A builtin whose instances keep ivars as a plain object does.
       class StringScanner
         def tag=(v)
           @tag = v
@@ -503,10 +485,7 @@ describe "StringScanner programs" do
     result = zr(<<~'RUBY')
       # An `@ivar` in a method of a reopened builtin.
       #
-      # A reopened builtin has no generated struct, so zr rejected this outright.
-      # It never needed one: `emit_builtin_method_fn` already marks these bodies'
-      # self dynamic, and `ivar_get_dyn`/`ivar_set_dyn` pick the storage tier from
-      # the receiver. All three tiers appear below.
+      # The ivar belongs to the receiver object, as in CRuby.
       #
       # The gems: strscan's own truffleruby shim keeps `@string`/`@pos` on
       # StringScanner, google-apis-generator and importmap-rails keep `@parent_name`
@@ -515,7 +494,7 @@ describe "StringScanner programs" do
 
       require "strscan"
 
-      # An Object-payload builtin: the `RObj`'s own name-keyed map.
+      # A builtin whose instances keep ivars as a plain object does.
       class StringScanner
         def tag=(v)
           @tag = v
@@ -603,10 +582,7 @@ describe "StringScanner programs" do
     result = zr(<<~'RUBY')
       # An `@ivar` in a method of a reopened builtin.
       #
-      # A reopened builtin has no generated struct, so zr rejected this outright.
-      # It never needed one: `emit_builtin_method_fn` already marks these bodies'
-      # self dynamic, and `ivar_get_dyn`/`ivar_set_dyn` pick the storage tier from
-      # the receiver. All three tiers appear below.
+      # The ivar belongs to the receiver object, as in CRuby.
       #
       # The gems: strscan's own truffleruby shim keeps `@string`/`@pos` on
       # StringScanner, google-apis-generator and importmap-rails keep `@parent_name`
@@ -615,7 +591,7 @@ describe "StringScanner programs" do
 
       require "strscan"
 
-      # An Object-payload builtin: the `RObj`'s own name-keyed map.
+      # A builtin whose instances keep ivars as a plain object does.
       class StringScanner
         def tag=(v)
           @tag = v

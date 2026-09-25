@@ -717,9 +717,8 @@ describe "String: encodings" do
   it "capacity: and encoding: are hints, so the positional content survives them" do
     result = zr(<<~'RUBY')
       # The capacity: and encoding keyword arguments to String.new are hints that do
-      # not change the value -- the content is the leading positional argument. Spinel
-      # previously dropped the content whenever a keyword argument was present,
-      # returning "".
+      # not change the value -- the content is the leading positional argument. A
+      # keyword argument does not make the result "".
       def with_cap; String.new("x", capacity: 100); end
       p with_cap                     # "x"
 
@@ -758,10 +757,9 @@ describe "String: encodings" do
   it "a chained append evaluates each link once and lands every one on the base" do
     result = zr(<<~'RUBY')
       # chained string appends (`s << a << b`) evaluate each link exactly once and
-      # every append lands on the base. The tail form used to re-run the inner
-      # links when emitting the return value (doubling the appended text, and
-      # writing the doubled string back through a byref param); the value form
-      # wrote back only the innermost link, so the base missed the later appends.
+      # every append lands on the base. In tail position the inner links do not
+      # run twice, so the text is not doubled. In value position the base gets
+      # every append, not only the innermost one.
 
       # tail position, through a mutated parameter (the byref shape)
       def emit(buf, label)
@@ -913,18 +911,9 @@ describe "String: encodings" do
 
   it "length, bytesize and slicing read the header's byte count, not up to the first NUL" do
     result = zr(<<~'RUBY')
-      # Spinel-allocated strings encode their byte length in the heap
-      # header (sp_str_hdr.len), but several runtime helpers and one
-      # codegen `bytesize` emit walked the buffer via NUL-terminated
-      # strlen/`while(*p)` semantics. A `0.chr` value carrying a header
-      # length of 1 with byte content `\x00` reported `length=0`,
-      # `bytesize=0`, and sliced wrong past any embedded NUL.
-      #
-      # Fix: `sp_str_length` and `sp_utf8_byte_offset` consume the
-      # header-tracked byte length instead of terminating at the first
-      # NUL byte. `bytesize` codegen now emits
-      # `sp_str_byte_len(...)` instead of `(mrb_int)strlen(...)`.
-      # Issue #593.
+      # A String can hold NUL bytes. length, bytesize and slicing count all
+      # the bytes, and do not stop at the first NUL. So `0.chr` has
+      # `length` 1 and `bytesize` 1.
 
       # Single-byte NUL.
       puts 0.chr.length              # 1

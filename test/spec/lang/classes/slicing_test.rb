@@ -7,9 +7,8 @@ describe "Classes: slicing" do
     result = zr(<<~'RUBY')
       # A bare call inside a method resolves the way CRuby's ancestry does: the
       # enclosing class's own chain answers it before a top-level `def` does, because
-      # a top-level def lands on Object, which is BELOW the class. Spinel kept
-      # top-level defs in a flat table consulted ahead of the class members, so a
-      # helper in a class lost to a same-named helper beside it.
+      # a top-level def lands on Object, which is BELOW the class. So a helper in a
+      # class wins over a top-level helper of the same name.
       def helper = "top"
       def size = 9
       def name = "top-name"
@@ -85,11 +84,8 @@ describe "Classes: slicing" do
       # beside the `defineclass` instruction, not inside the child -- which is why
       # `class Sub < sup` can read `sup` while `Sub`'s body cannot.
       #
-      # zr emits each body as its own function for exactly this reason (see
-      # `codegen::emit_class_body_site_lifted`), so this file is the rule that lift
-      # stands on. A body that could see an enclosing local would have to be emitted
-      # inside the enclosing scope, and `fn main` would go back to being the whole
-      # class-definition phase of the program in one function body.
+      # zr compiles each body as its own function for this reason, so this file
+      # is the rule that design stands on.
       #
       # Every `nil` below is a name the body must NOT see. The last two sections are
       # the two ways a body still reaches outward -- a nested body is its own scope
@@ -244,10 +240,8 @@ describe "Classes: slicing" do
 
   it "class def order" do
     result = zr(<<~'RUBY')
-      # Issue #14: classes referenced before their definition must still
-      # produce a working struct layout. Earlier classes that embed a
-      # value-type instance of a later class need the later class's struct
-      # to be emitted first.
+      # A class can use a class that is defined later in the file. Here Box
+      # holds a Ticket, and Ticket comes after Box.
 
       class Box
         def initialize
@@ -420,15 +414,11 @@ describe "Classes: slicing" do
       # ClassVariableWriteNode (the `@@x = ...` last-expression-as-return
       # path) and several real-world class-var idioms.
       #
-      # Spinel's class vars are independent per declaring class -- the
-      # ClassVariableWriteNode commit covers the storage-shape
-      # limitation in detail. This test exercises only patterns that
-      # stay inside one class's slot (no cross-hierarchy reads).
+      # This test uses only class variables inside one class. It does not
+      # read a class variable across a class hierarchy.
 
       # 1. Singleton-counter idiom: class-method bumps a shared counter,
-      #    instance-method reads it. Both routes touch @@count via the
-      #    same @current_class_idx, so they share the cvar_Counter_count
-      #    slot.
+      #    instance-method reads it. Both methods use the same @@count.
       class Counter
         @@count = 0
 
@@ -468,15 +458,12 @@ describe "Classes: slicing" do
       # ClassVariableWriteNode (the `@@x = ...` last-expression-as-return
       # path) and several real-world class-var idioms.
       #
-      # Spinel's class vars are independent per declaring class -- the
-      # ClassVariableWriteNode commit covers the storage-shape
-      # limitation in detail. This test exercises only patterns that
-      # stay inside one class's slot (no cross-hierarchy reads).
+      # This test uses only class variables inside one class. It does not
+      # read a class variable across a class hierarchy.
 
       # 2. Per-class isolation: two unrelated classes with the same cvar
-      #    name get independent slots. Without the per-class qualification
-      #    in cvar_qname, Counter.tick would have changed Other's count
-      #    too.
+      #    name each keep their own value. Counter.tick does not change
+      #    Other's count.
       class Other
         @@count = 100
 
@@ -501,18 +488,11 @@ describe "Classes: slicing" do
       # ClassVariableWriteNode (the `@@x = ...` last-expression-as-return
       # path) and several real-world class-var idioms.
       #
-      # Spinel's class vars are independent per declaring class -- the
-      # ClassVariableWriteNode commit covers the storage-shape
-      # limitation in detail. This test exercises only patterns that
-      # stay inside one class's slot (no cross-hierarchy reads).
+      # This test uses only class variables inside one class. It does not
+      # read a class variable across a class hierarchy.
 
-      # 3. Cvar with explicit non-zero initial value at class body. Spinel
-      #    folds the literal into the static C decl (compile-time), so the
-      #    cvar enters the program with the source's value rather than the
-      #    type default. Conditional rewrites at class body level (e.g.
-      #    `if X; @@y = ...; end`) are NOT supported -- Spinel doesn't run
-      #    class-body statements at startup, only constant assignments and
-      #    method definitions get hoisted.
+      # 3. Cvar with explicit non-zero initial value at class body. The
+      #    cvar has the value from the source, not a type default.
       class Config
         @@debug = true
         @@max_retries = 5
@@ -521,7 +501,7 @@ describe "Classes: slicing" do
         def self.max_retries; @@max_retries; end
       end
 
-      puts Config.debug?           # true (folded into static decl)
+      puts Config.debug?           # true
       puts Config.max_retries      # 5
 
 
@@ -539,16 +519,12 @@ describe "Classes: slicing" do
       # ClassVariableWriteNode (the `@@x = ...` last-expression-as-return
       # path) and several real-world class-var idioms.
       #
-      # Spinel's class vars are independent per declaring class -- the
-      # ClassVariableWriteNode commit covers the storage-shape
-      # limitation in detail. This test exercises only patterns that
-      # stay inside one class's slot (no cross-hierarchy reads).
+      # This test uses only class variables inside one class. It does not
+      # read a class variable across a class hierarchy.
 
       # 4. Cvar updated across many class-method calls -- the cumulative
-      #    state lives in the cvar slot, not in any temporary. Chained
-      #    `.add(n).add(m)` returning self isn't supported in Spinel
-      #    (class methods are static C functions with no self), so we
-      #    call separately.
+      #    state lives in the cvar, not in any temporary. The test calls
+      #    `add` once for each value, with no chain.
       class Tally
         @@total = 0
 
@@ -580,10 +556,8 @@ describe "Classes: slicing" do
       # ClassVariableWriteNode (the `@@x = ...` last-expression-as-return
       # path) and several real-world class-var idioms.
       #
-      # Spinel's class vars are independent per declaring class -- the
-      # ClassVariableWriteNode commit covers the storage-shape
-      # limitation in detail. This test exercises only patterns that
-      # stay inside one class's slot (no cross-hierarchy reads).
+      # This test uses only class variables inside one class. It does not
+      # read a class variable across a class hierarchy.
 
       # 5. Cvar mutation across instance and class methods of the same
       #    class. Real Ruby code mixes these freely (e.g. ActiveRecord

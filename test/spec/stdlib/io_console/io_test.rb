@@ -67,15 +67,11 @@ describe "IO::console: reading and writing" do
       # The `io/console` rows are gated on the require, and touching an IO BEFORE
       # that require must not close the gate for the rest of the program.
       #
-      # It did. The dispatch registry flattens a class's whole row set into a
-      # fill-once map on the first dynamic send, so `r.fileno` on line 1 froze the
-      # pre-require IO table -- and every `echo?`/`raw`/`getch` after the require
-      # raised NoMethodError, at every call site, for the rest of the run.
-      # `respond_to?` walked the tables live and answered true the whole time, so
-      # the two disagreed.
+      # Here `r.fileno` runs before the require. After the require, `echo?`,
+      # `raw` and `getch` must work, and `respond_to?` must agree with them.
 
       r, w = IO.pipe
-      r.fileno # the send that used to freeze the table
+      r.fileno # a call on the IO before the require
 
       require "io/console"
 
@@ -471,18 +467,16 @@ describe "IO::console: reading and writing" do
 
   it "tty? and winsize reach the IO arm through a handle the program carries as poly" do
     result = zr(<<~'RUBY')
-      # IO#tty? and IO#winsize on a poly-carried handle.
+      # IO#tty? and IO#winsize on a handle of no single known type.
       #
-      # Both names reach the IO arm only when the receiver is statically typed IO.
-      # A handle read out of a container, or a parameter whose call sites disagree,
-      # is carried as poly, and the poly-dispatch allowlist has to name the method
-      # or the call answers NoMethodError for a value that IS an IO.
+      # The handle comes out of a container, or from a parameter that gets values
+      # of different types. The call must still reach the IO method, not raise
+      # NoMethodError for a value that IS an IO.
       #
       # What is pinned is reachability, not any particular terminal geometry: the
       # test runs with stdout redirected to a file, so it must not depend on a tty
       # existing. winsize is only asserted to answer WITHOUT NoMethodError, because
-      # a non-tty answer legitimately differs between the engines (CRuby raises
-      # Errno::ENOTTY; Spinel reports zeroes from the ioctl).
+      # a non-tty answer can differ (CRuby raises Errno::ENOTTY).
       require "io/console"
 
       def winsize_reachable?(stream)
@@ -553,15 +547,15 @@ describe "IO::console: reading and writing" do
 
   it "require io console winsize" do
     result = zr(<<~'RUBY')
-      # require-gate: `require "io/console"` enables the IO console surface
-      # (IO#winsize). Without the require, winsize is unresolved under
-      # SPINEL_REQUIRE_GATE (matching CRuby's NoMethodError); with it, the
-      # C-native sp_File_winsize is provided. Locks the enable path (works gate on
-      # or off).
+      # `require "io/console"` enables the IO console methods (IO#winsize).
+      # Without the require, winsize raises NoMethodError, as in CRuby.
       #
-      # The header above is spinel's; its claim that a redirected stdout reports
-      # [0, 0] is spinel's behaviour, not ruby's. ruby raises Errno::ENOTTY, which
-      # is what this test's re-oracled golden records and what zr now does.
+      # Here stdout is not a tty, so IO#winsize raises Errno::ENOTTY.
+
+      # The blank lines keep the line numbers that the expected output names.
+
+
+
       require "io/console"
       p STDOUT.winsize
     RUBY

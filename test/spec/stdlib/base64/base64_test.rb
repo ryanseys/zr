@@ -272,8 +272,8 @@ describe "Base64 programs" do
 
   it "require positions and paths" do
     result = zr(<<~'RUBY')
-      # `require` behaviors that follow from CRuby's load.c, in the two places
-      # zr's compile-time resolver used to reject outright.
+      # `require` behaviors that follow from CRuby's load.c, in two places that
+      # a compile-time resolver must accept.
 
       # 1. A `require` of a feature the runtime already provides natively works from
       #    ANY position -- inside a conditional, a method body, or a value position.
@@ -334,10 +334,9 @@ describe "Base64 programs" do
 
   it "sp crypto basic" do
     result = zr(<<~'RUBY')
-      # Ported from spinel's bundled sp_crypto.c FFI surface. Those C symbols are
-      # spinel-private, so the port keeps the same deterministic vectors through
-      # Ruby's own primitives: HMAC-SHA256 built from Digest::SHA256 (RFC 2104
-      # construction), Base64URL via the base64 stdlib, PBKDF2 with one iteration
+      # Deterministic crypto vectors through Ruby's own primitives: HMAC-SHA256
+      # built from Digest::SHA256 (RFC 2104 construction), Base64URL via the
+      # base64 stdlib, PBKDF2 with one iteration
       # (HMAC(password, salt || 0x00000001)), and core Random bytes for the random
       # leg.
       #
@@ -399,9 +398,7 @@ describe "Base64 programs" do
 
   it "sp crypto sha1" do
     result = zr(<<~'RUBY')
-      # Ported from spinel's bundled sp_crypto.c SHA-1 FFI surface. Those C
-      # symbols are spinel-private, so the port keeps the same deterministic
-      # vectors through Digest::SHA1 + Base64.
+      # Deterministic SHA-1 vectors through Digest::SHA1 + Base64.
       #
       # SHA-1 is a legacy hash, only kept for the WebSocket handshake (RFC 6455
       # 1.3 explicitly requires it for Sec-WebSocket-Accept). The two FIPS-180
@@ -439,14 +436,10 @@ describe "Base64 programs" do
       # is the STRING conversion's; and a rounding digit count, a radix and a
       # random seed are conversions, never arithmetic coercions.
       #
-      # The original header follows. It describes the PREDECESSOR project's
-      # version of this test and its own fix.
-      #
-      # CRuby's argument validation at builtin boundaries: a compile-time-known
-      # nil / true / false (or wrong-classed scalar) entering a String- or
-      # Integer-typed slot raises CRuby's TypeError, wording included, where the
-      # slot's zero ("" / 0) used to stand in silently. The slots CRuby itself
-      # accepts nil in keep working.
+      # A compile-time-known nil / true / false (or wrong-classed scalar) that
+      # enters a String- or Integer-typed slot of a builtin raises CRuby's
+      # TypeError, wording included. It does not become "" or 0. The slots that
+      # CRuby itself accepts nil in keep working.
 
       # nil / bool into Integer slots ("from nil to integer" wording)
 
@@ -541,14 +534,10 @@ describe "Base64 programs" do
       # is the STRING conversion's; and a rounding digit count, a radix and a
       # random seed are conversions, never arithmetic coercions.
       #
-      # The original header follows. It describes the PREDECESSOR project's
-      # version of this test and its own fix.
-      #
-      # CRuby's argument validation at builtin boundaries: a compile-time-known
-      # nil / true / false (or wrong-classed scalar) entering a String- or
-      # Integer-typed slot raises CRuby's TypeError, wording included, where the
-      # slot's zero ("" / 0) used to stand in silently. The slots CRuby itself
-      # accepts nil in keep working.
+      # A compile-time-known nil / true / false (or wrong-classed scalar) that
+      # enters a String- or Integer-typed slot of a builtin raises CRuby's
+      # TypeError, wording included. It does not become "" or 0. The slots that
+      # CRuby itself accepts nil in keep working.
 
       # rb_to_int slots ("of nil into Integer" wording)
       begin
@@ -588,14 +577,10 @@ describe "Base64 programs" do
       # is the STRING conversion's; and a rounding digit count, a radix and a
       # random seed are conversions, never arithmetic coercions.
       #
-      # The original header follows. It describes the PREDECESSOR project's
-      # version of this test and its own fix.
-      #
-      # CRuby's argument validation at builtin boundaries: a compile-time-known
-      # nil / true / false (or wrong-classed scalar) entering a String- or
-      # Integer-typed slot raises CRuby's TypeError, wording included, where the
-      # slot's zero ("" / 0) used to stand in silently. The slots CRuby itself
-      # accepts nil in keep working.
+      # A compile-time-known nil / true / false (or wrong-classed scalar) that
+      # enters a String- or Integer-typed slot of a builtin raises CRuby's
+      # TypeError, wording included. It does not become "" or 0. The slots that
+      # CRuby itself accepts nil in keep working.
 
       # nil / bool / wrong class into String slots
       begin
@@ -653,14 +638,10 @@ describe "Base64 programs" do
       # is the STRING conversion's; and a rounding digit count, a radix and a
       # random seed are conversions, never arithmetic coercions.
       #
-      # The original header follows. It describes the PREDECESSOR project's
-      # version of this test and its own fix.
-      #
-      # CRuby's argument validation at builtin boundaries: a compile-time-known
-      # nil / true / false (or wrong-classed scalar) entering a String- or
-      # Integer-typed slot raises CRuby's TypeError, wording included, where the
-      # slot's zero ("" / 0) used to stand in silently. The slots CRuby itself
-      # accepts nil in keep working.
+      # A compile-time-known nil / true / false (or wrong-classed scalar) that
+      # enters a String- or Integer-typed slot of a builtin raises CRuby's
+      # TypeError, wording included. It does not become "" or 0. The slots that
+      # CRuby itself accepts nil in keep working.
 
       # the regexp-expected pattern family
       begin
@@ -712,14 +693,10 @@ describe "Base64 programs" do
       # is the STRING conversion's; and a rounding digit count, a radix and a
       # random seed are conversions, never arithmetic coercions.
       #
-      # The original header follows. It describes the PREDECESSOR project's
-      # version of this test and its own fix.
-      #
-      # CRuby's argument validation at builtin boundaries: a compile-time-known
-      # nil / true / false (or wrong-classed scalar) entering a String- or
-      # Integer-typed slot raises CRuby's TypeError, wording included, where the
-      # slot's zero ("" / 0) used to stand in silently. The slots CRuby itself
-      # accepts nil in keep working.
+      # A compile-time-known nil / true / false (or wrong-classed scalar) that
+      # enters a String- or Integer-typed slot of a builtin raises CRuby's
+      # TypeError, wording included. It does not become "" or 0. The slots that
+      # CRuby itself accepts nil in keep working.
 
       # the Array-operand family
       begin
@@ -753,14 +730,10 @@ describe "Base64 programs" do
       # is the STRING conversion's; and a rounding digit count, a radix and a
       # random seed are conversions, never arithmetic coercions.
       #
-      # The original header follows. It describes the PREDECESSOR project's
-      # version of this test and its own fix.
-      #
-      # CRuby's argument validation at builtin boundaries: a compile-time-known
-      # nil / true / false (or wrong-classed scalar) entering a String- or
-      # Integer-typed slot raises CRuby's TypeError, wording included, where the
-      # slot's zero ("" / 0) used to stand in silently. The slots CRuby itself
-      # accepts nil in keep working.
+      # A compile-time-known nil / true / false (or wrong-classed scalar) that
+      # enters a String- or Integer-typed slot of a builtin raises CRuby's
+      # TypeError, wording included. It does not become "" or 0. The slots that
+      # CRuby itself accepts nil in keep working.
 
       # MatchData indexes
       m = /a(b)/.match("ab")
@@ -795,14 +768,10 @@ describe "Base64 programs" do
       # is the STRING conversion's; and a rounding digit count, a radix and a
       # random seed are conversions, never arithmetic coercions.
       #
-      # The original header follows. It describes the PREDECESSOR project's
-      # version of this test and its own fix.
-      #
-      # CRuby's argument validation at builtin boundaries: a compile-time-known
-      # nil / true / false (or wrong-classed scalar) entering a String- or
-      # Integer-typed slot raises CRuby's TypeError, wording included, where the
-      # slot's zero ("" / 0) used to stand in silently. The slots CRuby itself
-      # accepts nil in keep working.
+      # A compile-time-known nil / true / false (or wrong-classed scalar) that
+      # enters a String- or Integer-typed slot of a builtin raises CRuby's
+      # TypeError, wording included. It does not become "" or 0. The slots that
+      # CRuby itself accepts nil in keep working.
 
       # native bindings and module functions
       require "json"
@@ -851,14 +820,10 @@ describe "Base64 programs" do
       # is the STRING conversion's; and a rounding digit count, a radix and a
       # random seed are conversions, never arithmetic coercions.
       #
-      # The original header follows. It describes the PREDECESSOR project's
-      # version of this test and its own fix.
-      #
-      # CRuby's argument validation at builtin boundaries: a compile-time-known
-      # nil / true / false (or wrong-classed scalar) entering a String- or
-      # Integer-typed slot raises CRuby's TypeError, wording included, where the
-      # slot's zero ("" / 0) used to stand in silently. The slots CRuby itself
-      # accepts nil in keep working.
+      # A compile-time-known nil / true / false (or wrong-classed scalar) that
+      # enters a String- or Integer-typed slot of a builtin raises CRuby's
+      # TypeError, wording included. It does not become "" or 0. The slots that
+      # CRuby itself accepts nil in keep working.
 
       # slots where CRuby accepts nil stay accepting
       p "a b".split(nil)
@@ -898,14 +863,10 @@ describe "Base64 programs" do
       # is the STRING conversion's; and a rounding digit count, a radix and a
       # random seed are conversions, never arithmetic coercions.
       #
-      # The original header follows. It describes the PREDECESSOR project's
-      # version of this test and its own fix.
-      #
-      # CRuby's argument validation at builtin boundaries: a compile-time-known
-      # nil / true / false (or wrong-classed scalar) entering a String- or
-      # Integer-typed slot raises CRuby's TypeError, wording included, where the
-      # slot's zero ("" / 0) used to stand in silently. The slots CRuby itself
-      # accepts nil in keep working.
+      # A compile-time-known nil / true / false (or wrong-classed scalar) that
+      # enters a String- or Integer-typed slot of a builtin raises CRuby's
+      # TypeError, wording included. It does not become "" or 0. The slots that
+      # CRuby itself accepts nil in keep working.
 
       # review-found edges: named-capture =~ nil subject; fill's nil length is "to
       # the end"; a boolean =~ operand is NoMethodError; File.read's nil length
@@ -952,14 +913,10 @@ describe "Base64 programs" do
       # is the STRING conversion's; and a rounding digit count, a radix and a
       # random seed are conversions, never arithmetic coercions.
       #
-      # The original header follows. It describes the PREDECESSOR project's
-      # version of this test and its own fix.
-      #
-      # CRuby's argument validation at builtin boundaries: a compile-time-known
-      # nil / true / false (or wrong-classed scalar) entering a String- or
-      # Integer-typed slot raises CRuby's TypeError, wording included, where the
-      # slot's zero ("" / 0) used to stand in silently. The slots CRuby itself
-      # accepts nil in keep working.
+      # A compile-time-known nil / true / false (or wrong-classed scalar) that
+      # enters a String- or Integer-typed slot of a builtin raises CRuby's
+      # TypeError, wording included. It does not become "" or 0. The slots that
+      # CRuby itself accepts nil in keep working.
 
       # super(nil) into a builtin exception keeps CRuby's class-name default
       class ConvE < StandardError

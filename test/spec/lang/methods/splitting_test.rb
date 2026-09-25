@@ -68,13 +68,9 @@ describe "Methods: splitting and joining" do
 
   it "a constructor's default parameter fills when the argument is missing" do
     result = zr(<<~'RUBY')
-      # Issue #49 (default args at call sites) and the scope follow-ups.
-      # Merged from default_arg_{ctor,method,inherited,partial,self_call,
-      # callee_scope}.rb. Each section covers a distinct dispatch path;
-      # the original split had only the dispatch path varying, so the
-      # class shapes mostly didn't collide. Where they did (`Foo` was
-      # reused in self_call and callee_scope for unrelated purposes) the
-      # names are made path-specific (SelfDefault / CalleeFoo).
+      # Default arguments at call sites, and the scope of a default
+      # expression. Each section covers a distinct dispatch path. The
+      # class names are specific to each path (SelfDefault / CalleeFoo).
 
       # ---- Constructor default ----
       # `Counter.new` (no arg) and `Counter.new(7)` both need to compile.
@@ -97,13 +93,9 @@ describe "Methods: splitting and joining" do
 
   it "an inherited method keeps the default its definition wrote" do
     result = zr(<<~'RUBY')
-      # Issue #49 (default args at call sites) and the scope follow-ups.
-      # Merged from default_arg_{ctor,method,inherited,partial,self_call,
-      # callee_scope}.rb. Each section covers a distinct dispatch path;
-      # the original split had only the dispatch path varying, so the
-      # class shapes mostly didn't collide. Where they did (`Foo` was
-      # reused in self_call and callee_scope for unrelated purposes) the
-      # names are made path-specific (SelfDefault / CalleeFoo).
+      # Default arguments at call sites, and the scope of a default
+      # expression. Each section covers a distinct dispatch path. The
+      # class names are specific to each path (SelfDefault / CalleeFoo).
 
       # ---- Instance method default + inherited dispatch ----
       # Same Greeter covers both: direct call and a subclass inheriting
@@ -132,13 +124,9 @@ describe "Methods: splitting and joining" do
 
   it "a call may fill some defaulted parameters and leave the rest" do
     result = zr(<<~'RUBY')
-      # Issue #49 (default args at call sites) and the scope follow-ups.
-      # Merged from default_arg_{ctor,method,inherited,partial,self_call,
-      # callee_scope}.rb. Each section covers a distinct dispatch path;
-      # the original split had only the dispatch path varying, so the
-      # class shapes mostly didn't collide. Where they did (`Foo` was
-      # reused in self_call and callee_scope for unrelated purposes) the
-      # names are made path-specific (SelfDefault / CalleeFoo).
+      # Default arguments at call sites, and the scope of a default
+      # expression. Each section covers a distinct dispatch path. The
+      # class names are specific to each path (SelfDefault / CalleeFoo).
 
       # ---- Partial defaulting ----
       # Caller supplies some leading positional args; trailing defaults
@@ -164,18 +152,13 @@ describe "Methods: splitting and joining" do
 
   it "a default reaches an implicit-self call in the same class" do
     result = zr(<<~'RUBY')
-      # Issue #49 (default args at call sites) and the scope follow-ups.
-      # Merged from default_arg_{ctor,method,inherited,partial,self_call,
-      # callee_scope}.rb. Each section covers a distinct dispatch path;
-      # the original split had only the dispatch path varying, so the
-      # class shapes mostly didn't collide. Where they did (`Foo` was
-      # reused in self_call and callee_scope for unrelated purposes) the
-      # names are made path-specific (SelfDefault / CalleeFoo).
+      # Default arguments at call sites, and the scope of a default
+      # expression. Each section covers a distinct dispatch path. The
+      # class names are specific to each path (SelfDefault / CalleeFoo).
 
       # ---- Implicit-self call inside same class ----
       # Bare-method dispatch from within a class body must also fill in
-      # the callee's defaults; previously this path called compile_call
-      # _args without the defaults map.
+      # the callee's defaults.
       class SelfDefault
         def initialize
           bar
@@ -199,19 +182,14 @@ describe "Methods: splitting and joining" do
 
   it "a default expression reads an ivar of the receiver" do
     result = zr(<<~'RUBY')
-      # Issue #49 (default args at call sites) and the scope follow-ups.
-      # Merged from default_arg_{ctor,method,inherited,partial,self_call,
-      # callee_scope}.rb. Each section covers a distinct dispatch path;
-      # the original split had only the dispatch path varying, so the
-      # class shapes mostly didn't collide. Where they did (`Foo` was
-      # reused in self_call and callee_scope for unrelated purposes) the
-      # names are made path-specific (SelfDefault / CalleeFoo).
+      # Default arguments at call sites, and the scope of a default
+      # expression. Each section covers a distinct dispatch path. The
+      # class names are specific to each path (SelfDefault / CalleeFoo).
 
       # ---- Default expression reads @ivar ----
-      # The inlined default expansion at the caller's site must resolve
-      # against the call's *receiver* (here Wrapper#grab's recv `@w`),
-      # not the caller's `self`. WrapperCaller has no @base, so a naive
-      # inlining would either fail to compile or read the wrong instance.
+      # The default expression runs against the call's *receiver* (here
+      # the receiver `@w` of Wrapper#grab), not the caller's `self`.
+      # WrapperCaller has no @base.
       class Wrapper
         def initialize(seed)
           @base = seed
@@ -239,18 +217,14 @@ describe "Methods: splitting and joining" do
 
   it "a default expression calls a bare method of the same class" do
     result = zr(<<~'RUBY')
-      # Issue #49 (default args at call sites) and the scope follow-ups.
-      # Merged from default_arg_{ctor,method,inherited,partial,self_call,
-      # callee_scope}.rb. Each section covers a distinct dispatch path;
-      # the original split had only the dispatch path varying, so the
-      # class shapes mostly didn't collide. Where they did (`Foo` was
-      # reused in self_call and callee_scope for unrelated purposes) the
-      # names are made path-specific (SelfDefault / CalleeFoo).
+      # Default arguments at call sites, and the scope of a default
+      # expression. Each section covers a distinct dispatch path. The
+      # class names are specific to each path (SelfDefault / CalleeFoo).
 
       # ---- Default expression calls a same-class bare method ----
       # CallerBar defines its own `target` returning 2, but CalleeFoo's
       # default-arg `target` must still dispatch to CalleeFoo#target
-      # (returning 1) rather than the caller's vtable.
+      # (returning 1) rather than the caller's `target`.
       class CalleeFoo
         def target
           1
@@ -467,14 +441,10 @@ describe "Methods: splitting and joining" do
 
   it "multi write call rhs as expr" do
     result = zr(<<~'RUBY')
-      # #584 (cielavenir). Multi-assignment used as an expression value
-      # whose RHS is a call returning a typed array (here `gets.split.
-      # map(&:to_i)` → int_array), followed by an outer subscript /
-      # comparison. Previously `compile_expr`'s MultiWriteNode arm only
-      # handled the ArrayNode-RHS shape (#554) and fell through to
-      # `return "0"` for the call-returning-array shape -- the outer
-      # `[0]` then lowered to `sp_IntArray_get(0, 0LL)` (NULL recv)
-      # and segv'd on the next iteration of any consumer loop.
+      # Multi-assignment used as an expression value whose RHS is a call
+      # that returns an Array (as in `gets.split.map(&:to_i)`), followed
+      # by an outer subscript / comparison. The value of the assignment
+      # is the Array that the call returns.
 
       def two_ints; [10, 20]; end
       def three; [7, 8, 9]; end

@@ -11,9 +11,8 @@ describe "Numeric: arithmetic" do
 
   it "arithmetic on a plain method parameter works" do
     result = zr(<<~'RUBY')
-      # Method params are always statically `Poly` (zr never infers a
-      # param's type from call sites) -- this exercises the runtime-checked
-      # numeric fallback, not just literal or local `Int` operands.
+      # The operands are method params, not literals or locals, so their
+      # types are known only at run time.
 
       class Adder
         def add(a, b)
@@ -55,15 +54,14 @@ describe "Numeric: arithmetic" do
 
   it "bigint poly arith" do
     result = zr(<<~'RUBY')
-      # Arithmetic on a poly value that holds a bigint: a boxed bigint operand used to
-      # fall through sp_poly_add/sub/mul to 0; now it dispatches to bigint arithmetic.
+      # Arithmetic on a Bignum read back from a mixed array uses Bignum arithmetic.
       b = 1
       i = 0
       while i < 70
         b = b * 2
         i = i + 1
       end
-      arr = [b, "x"]      # heterogeneous -> arr[0] is poly holding a bigint
+      arr = [b, "x"]      # heterogeneous -> arr[0] is a Bignum
       x = arr[0]
       puts(x + 1)
       puts(x - 1)
@@ -122,7 +120,7 @@ describe "Numeric: arithmetic" do
 
   it "bignum modulo bit pow" do
     result = zr(<<~'RUBY')
-      # Bignum modulo / % / remainder / divmod / #[] / modular pow (#2594).
+      # Bignum modulo / % / remainder / divmod / #[] / modular pow.
       b = 2 ** 100
       p b.modulo(7)
       p((-b).modulo(7))
@@ -150,10 +148,8 @@ describe "Numeric: arithmetic" do
 
   it "bignum rational arith" do
     result = zr(<<~'RUBY')
-      # big Rational arithmetic and comparison (#2469, follow-up to the basic type).
-      # One operand is already a big Rational; every numeric operand is coerced to a
-      # num/den bigint pair. (big Rational == a raw Bignum is a separate codegen path,
-      # still pending.)
+      # big Rational arithmetic and comparison. One operand is already a big Rational,
+      # and the other numeric operand becomes a Rational with Bignum parts.
       r = (10**30).to_r
       p(r + (1r/3))
       p(r - r)
@@ -254,9 +250,7 @@ describe "Numeric: arithmetic" do
 
   it "complex arithmetic" do
     result = zr(<<~'RUBY')
-      # Complex arithmetic over float components (re/im are mrb_float; CRuby keeps
-      # Integer/Rational components, so .real and exact division differ -- see
-      # limitations). Operators and display for the common cases match CRuby.
+      # Complex arithmetic. Operators and display for the common cases match CRuby.
       a = Complex(1, 2)
       b = Complex(3, -1)
       puts a
@@ -320,14 +314,11 @@ describe "Numeric: arithmetic" do
 
   it "complex polar" do
     result = zr(<<~'RUBY')
-      # Built-in `Complex` value type. Surfaced via optcarrot's
-      # `nestopia_palette`:
+      # Built-in `Complex`, as optcarrot's `nestopia_palette` uses it:
       #   iq = Complex.polar(s, theta)
       #   iq += Complex.polar(level1, theta2)
       #   clr = y + (Complex.polar(g, t) * iq.conjugate).real
       #
-      # Spinel models Complex as a 16-byte value type (sp_Complex with
-      # `re` and `im` fields). Allocation-free; passes by value.
       # Methods: `Complex.polar(magnitude, angle)`, instance-side
       # `.real / .imaginary / .conjugate`, plus `+ *` between two
       # Complex values.
@@ -389,11 +380,8 @@ describe "Numeric: arithmetic" do
 
   it "float div int literal" do
     result = zr(<<~'RUBY')
-      # Float arithmetic with an INTEGER operand is spelled as a double. The result
-      # is a float division either way -- C promotes it -- but with the divisor left
-      # an integer constant, `1.0 / 0` folded to gcc's -Wdiv-by-zero and the build
-      # stopped, where Ruby (and the same expression written `1.0 / 0.0`, or with a
-      # variable divisor) answers Infinity.
+      # Float arithmetic with an INTEGER operand is a float operation. So `1.0 / 0`
+      # answers Infinity, the same as `1.0 / 0.0` or a variable divisor.
       p(1.0 / 0)
       p(-1.0 / 0)
       p(0.0 / 0)
@@ -471,12 +459,11 @@ describe "Numeric: arithmetic" do
 
   it "float modulo" do
     result = zr(<<~'RUBY')
-      # Float#% (and Integer % Float) were rejected at compile time. Ruby's float
-      # modulo is floored: a NONZERO result takes the sign of the DIVISOR, unlike C
-      # fmod which follows the dividend (-5.5 % 2 == 0.5). A ZERO result instead keeps
+      # Float#% (and Integer % Float). Ruby's float modulo is floored: a NONZERO
+      # result takes the sign of the DIVISOR, unlike C fmod which follows the
+      # dividend (-5.5 % 2 == 0.5). A ZERO result instead keeps
       # the sign of the DIVIDEND (matching fmod / CRuby's flodivmod), so -2.0 % 2.0 is
-      # -0.0 while 2.0 % -2.0 is 0.0. The `modulo` alias shares these semantics
-      # (previously it used plain fmod and was wrong for negative operands).
+      # -0.0 while 2.0 % -2.0 is 0.0. The `modulo` alias shares these semantics.
       def f(x); x; end
       def i(x); x; end
 
@@ -535,9 +522,7 @@ describe "Numeric: arithmetic" do
 
   it "float pow negative fractional" do
     result = zr(<<~'RUBY')
-      # Negative Float ** fractional exponent raises Math::DomainError loudly
-      # (CRuby promotes to a Complex; documented divergence in
-      # docs/limitations.md -- expected file pins the spinel behavior).
+      # A negative Float ** a fractional exponent gives a Complex, as in CRuby.
       begin
         p((-2.0) ** 0.5)
       rescue => e
@@ -710,11 +695,9 @@ describe "Numeric: arithmetic" do
 
   it "float round nonliteral" do
     result = zr(<<~'RUBY')
-      # A non-literal ndigits can't pick Integer-vs-Float statically, so the result
-      # stays Float with the value computed exactly. Regression: it used to ignore the
-      # argument and truncate to Integer (1.234.round(n)==1, 1234.5.round(-1 var)==1235).
-      # Positive ndigits matches CRuby in both value and class; for ndigits <= 0 the
-      # value matches and only #class differs (documented), normalized here via to_i.
+      # A non-literal ndigits is used, not ignored: 1.234.round(n) with n = 2 is
+      # 1.23. Positive ndigits gives a Float, as in CRuby. For ndigits <= 0 the
+      # example calls to_i, so it checks only the value.
       n2 = 2
       p 1.234.round(n2)        # 1.23 (Float, matches CRuby)
       p 3.14159.round(n2)      # 3.14
@@ -776,8 +759,8 @@ describe "Numeric: arithmetic" do
   it "float round value based type" do
     result = zr(<<~'RUBY')
       # CRuby's Float rounding return type is value-based on ndigits:
-      # Integer when ndigits <= 0 (or absent), Float when > 0. Spinel used to
-      # be presence-based (any arg => Float), so round(0)/round(-1) were Float.
+      # Integer when ndigits <= 0 (or absent), Float when > 0. So round(0) and
+      # round(-1) give an Integer.
       p 1.9.round
       p 1.9.round.class
       p 1.9.round(0)
@@ -851,13 +834,9 @@ describe "Numeric: arithmetic" do
 
   it "a small Integer argument binds a parameter another call site passes a bignum" do
     result = zr(<<~'RUBY')
-      # A parameter that sees both a small Integer and a Bignum types as bigint --
-      # ty_unify keeps them together rather than widening to poly, on the premise
-      # that an int is promoted at the boundary.
-      #
-      # The promotion was only ever wired into the arithmetic operands, so a
-      # parameter that reached bigint any other way got an mrb_int handed to an
-      # sp_Bigint* slot: ill-typed C, caught only by -Werror.
+      # A parameter can get a small Integer from one call and a Bignum from
+      # another. Each value must keep its own width, whatever way it reaches
+      # the parameter.
 
       def any(x)
         x.to_s
@@ -875,13 +854,9 @@ describe "Numeric: arithmetic" do
 
   it "arithmetic inside that parameter answers for both widths" do
     result = zr(<<~'RUBY')
-      # A parameter that sees both a small Integer and a Bignum types as bigint --
-      # ty_unify keeps them together rather than widening to poly, on the premise
-      # that an int is promoted at the boundary.
-      #
-      # The promotion was only ever wired into the arithmetic operands, so a
-      # parameter that reached bigint any other way got an mrb_int handed to an
-      # sp_Bigint* slot: ill-typed C, caught only by -Werror.
+      # A parameter can get a small Integer from one call and a Bignum from
+      # another. Each value must keep its own width, whatever way it reaches
+      # the parameter.
 
       def arith(n)
         n * 2 + 1
@@ -899,13 +874,9 @@ describe "Numeric: arithmetic" do
 
   it "a comparison inside that parameter answers for both widths" do
     result = zr(<<~'RUBY')
-      # A parameter that sees both a small Integer and a Bignum types as bigint --
-      # ty_unify keeps them together rather than widening to poly, on the premise
-      # that an int is promoted at the boundary.
-      #
-      # The promotion was only ever wired into the arithmetic operands, so a
-      # parameter that reached bigint any other way got an mrb_int handed to an
-      # sp_Bigint* slot: ill-typed C, caught only by -Werror.
+      # A parameter can get a small Integer from one call and a Bignum from
+      # another. Each value must keep its own width, whatever way it reaches
+      # the parameter.
 
       def cmp(a, b)
         a > b
@@ -923,13 +894,9 @@ describe "Numeric: arithmetic" do
 
   it "a default value binds the same widened slot" do
     result = zr(<<~'RUBY')
-      # A parameter that sees both a small Integer and a Bignum types as bigint --
-      # ty_unify keeps them together rather than widening to poly, on the premise
-      # that an int is promoted at the boundary.
-      #
-      # The promotion was only ever wired into the arithmetic operands, so a
-      # parameter that reached bigint any other way got an mrb_int handed to an
-      # sp_Bigint* slot: ill-typed C, caught only by -Werror.
+      # A parameter can get a small Integer from one call and a Bignum from
+      # another. Each value must keep its own width, whatever way it reaches
+      # the parameter.
 
       # the default-value path binds the same slot
       def opt(x = 7)
@@ -948,13 +915,9 @@ describe "Numeric: arithmetic" do
 
   it "a keyword and a splat argument reach the widened slot too" do
     result = zr(<<~'RUBY')
-      # A parameter that sees both a small Integer and a Bignum types as bigint --
-      # ty_unify keeps them together rather than widening to poly, on the premise
-      # that an int is promoted at the boundary.
-      #
-      # The promotion was only ever wired into the arithmetic operands, so a
-      # parameter that reached bigint any other way got an mrb_int handed to an
-      # sp_Bigint* slot: ill-typed C, caught only by -Werror.
+      # A parameter can get a small Integer from one call and a Bignum from
+      # another. Each value must keep its own width, whatever way it reaches
+      # the parameter.
 
       # keyword and splat arguments reach it too
       def kw(x:, y: 3)
@@ -973,13 +936,9 @@ describe "Numeric: arithmetic" do
 
   it "a rest parameter holds both widths at once" do
     result = zr(<<~'RUBY')
-      # A parameter that sees both a small Integer and a Bignum types as bigint --
-      # ty_unify keeps them together rather than widening to poly, on the premise
-      # that an int is promoted at the boundary.
-      #
-      # The promotion was only ever wired into the arithmetic operands, so a
-      # parameter that reached bigint any other way got an mrb_int handed to an
-      # sp_Bigint* slot: ill-typed C, caught only by -Werror.
+      # A parameter can get a small Integer from one call and a Bignum from
+      # another. Each value must keep its own width, whatever way it reaches
+      # the parameter.
 
       def rest(*xs)
         xs.map { |v| v.to_s }
@@ -995,13 +954,9 @@ describe "Numeric: arithmetic" do
 
   it "a constructor argument binds the same widened slot" do
     result = zr(<<~'RUBY')
-      # A parameter that sees both a small Integer and a Bignum types as bigint --
-      # ty_unify keeps them together rather than widening to poly, on the premise
-      # that an int is promoted at the boundary.
-      #
-      # The promotion was only ever wired into the arithmetic operands, so a
-      # parameter that reached bigint any other way got an mrb_int handed to an
-      # sp_Bigint* slot: ill-typed C, caught only by -Werror.
+      # A parameter can get a small Integer from one call and a Bignum from
+      # another. Each value must keep its own width, whatever way it reaches
+      # the parameter.
 
       # a constructor argument is the same binding
       class Box
@@ -1026,18 +981,12 @@ describe "Numeric: arithmetic" do
 
   it "an ivar written from both widths holds each" do
     result = zr(<<~'RUBY')
-      # A parameter that sees both a small Integer and a Bignum types as bigint --
-      # ty_unify keeps them together rather than widening to poly, on the premise
-      # that an int is promoted at the boundary.
-      #
-      # The promotion was only ever wired into the arithmetic operands, so a
-      # parameter that reached bigint any other way got an mrb_int handed to an
-      # sp_Bigint* slot: ill-typed C, caught only by -Werror.
+      # A parameter can get a small Integer from one call and a Bignum from
+      # another. Each value must keep its own width, whatever way it reaches
+      # the parameter.
 
-      # The same boundary on the SLOT side: an ivar or class variable that elsewhere
-      # holds a Bignum takes an int write through the same promotion. Without it
-      # `@n = 0` wrote the integer 0 into an sp_Bigint * slot -- a null pointer
-      # constant, so the C compiled clean and the first sp_bigint_add segfaulted.
+      # The same is true for an ivar or class variable: it can hold a Bignum at one
+      # time and a small Integer, such as `@n = 0`, at another.
       class Acc
         attr_reader :n
 
@@ -1051,7 +1000,7 @@ describe "Numeric: arithmetic" do
         end
 
         def bump
-          @n += 1     # no C operator exists for a bigint slot
+          @n += 1     # op-assign on a Bignum value
           @n
         end
 
@@ -1084,13 +1033,9 @@ describe "Numeric: arithmetic" do
 
   it "a class variable written from both widths holds each" do
     result = zr(<<~'RUBY')
-      # A parameter that sees both a small Integer and a Bignum types as bigint --
-      # ty_unify keeps them together rather than widening to poly, on the premise
-      # that an int is promoted at the boundary.
-      #
-      # The promotion was only ever wired into the arithmetic operands, so a
-      # parameter that reached bigint any other way got an mrb_int handed to an
-      # sp_Bigint* slot: ill-typed C, caught only by -Werror.
+      # A parameter can get a small Integer from one call and a Bignum from
+      # another. Each value must keep its own width, whatever way it reaches
+      # the parameter.
 
       class Tally
         @@total = 0
@@ -1113,13 +1058,9 @@ describe "Numeric: arithmetic" do
 
   it "a conditional whose arms are an Integer and a bignum answers both" do
     result = zr(<<~'RUBY')
-      # A parameter that sees both a small Integer and a Bignum types as bigint --
-      # ty_unify keeps them together rather than widening to poly, on the premise
-      # that an int is promoted at the boundary.
-      #
-      # The promotion was only ever wired into the arithmetic operands, so a
-      # parameter that reached bigint any other way got an mrb_int handed to an
-      # sp_Bigint* slot: ill-typed C, caught only by -Werror.
+      # A parameter can get a small Integer from one call and a Bignum from
+      # another. Each value must keep its own width, whatever way it reaches
+      # the parameter.
 
       # a conditional whose arms are an int and a Bignum
       class Either
@@ -1164,8 +1105,7 @@ describe "Numeric: arithmetic" do
   it "int ceil floor round" do
     result = zr(<<~'RUBY')
       # Integer#ceil / floor / round / truncate without a precision arg
-      # return self per CRuby. Previously fell through to the unresolved-
-      # call path and emitted 0.
+      # return self per CRuby.
       puts 3.ceil
       puts 3.floor
       puts 3.round
@@ -1190,11 +1130,9 @@ describe "Numeric: arithmetic" do
 
   it "int overflow op assign" do
     result = zr(<<~'RUBY')
-      # Under the default --int-overflow=raise, every integer operator raises on
-      # 64-bit overflow the same way, whether written in binary or op-assign form.
-      # Regression: `x *= y` (and +=, <<=, **=) bypassed the checked helpers and
-      # silently wrapped; `1 << 63` landed on the tagged-nil sentinel and printed
-      # nil; a runtime `a ** 64` went through pow(double) and printed garbage.
+      # Every integer operator that overflows 64 bits gives a Bignum, as in CRuby,
+      # in the binary form and in the op-assign form (`x *= y`, +=, <<=, **=).
+      # So `1 << 63` and a runtime `a ** 64` print their exact values.
       def try
         yield
       rescue RangeError => e
@@ -1221,7 +1159,7 @@ describe "Numeric: arithmetic" do
       f **= 3
       puts f
 
-      # op-assign division adopts Ruby semantics with the checked helpers
+      # op-assign division uses Ruby's floored semantics
       g = -7
       g /= 2
       puts g
@@ -1229,7 +1167,7 @@ describe "Numeric: arithmetic" do
       h %= 3
       puts h
 
-      # ivar op-assign takes the same checked path
+      # ivar op-assign works the same way
       class Acc
         attr_reader :n
         def initialize = (@n = 999_999_999_999)
@@ -1258,22 +1196,11 @@ describe "Numeric: arithmetic" do
 
   it "int overflow promote" do
     result = zr(<<~'RUBY')
-      # Existing bigint pattern detection catches `x *= y inside while`
-      # (and similar shapes); the result should be the full arbitrary-
-      # precision Ruby answer rather than a wrapped int64. Surface
-      # guard for the `sp_bigint_to_s` fast-path bug fixed alongside
-      # `--int-overflow=promote`: values just past 2^63 used to print
-      # wrapped because the fast path always cast through int64.
-      # Without the fix `2**63` printed as `-9223372036854775808` even
-      # though the bigint internally held the correct unsigned value.
-      #
-      # The linear-sum / non-multiplicative shapes that require the new
-      # `promote` mode to escape mrb_int width are exercised manually
-      # (the test harness here always builds with the raise/wrap
-      # helpers, not promote, so an analyzer-side rewrite of int
-      # locals isn't visible to it).
+      # `x *= y` inside a while loop gives the full arbitrary-precision
+      # Ruby answer, not a wrapped int64. A value just past 2^63 prints
+      # as a positive number: `2**63` is `9223372036854775808`.
 
-      # 2**63 -- exact boundary where the old fast path wrapped.
+      # 2**63 -- the first value past the int64 range.
       m = 1
       i = 0
       while i < 63
@@ -1310,24 +1237,18 @@ describe "Numeric: arithmetic" do
 
   it "int overflow raises" do
     result = zr(<<~'RUBY')
-      # Integer arithmetic that overflows mrb_int (int64) raises
-      # RangeError rather than silently wrapping. spinel uses
-      # `__builtin_add_overflow` / `_sub_overflow` / `_mul_overflow`
-      # at the codegen-emit step for binary `+ - *` on int operands;
-      # the helpers (defined as statement-expression macros in
-      # sp_runtime.h) raise on overflow and otherwise reduce to the
-      # bare arithmetic op. BIGINT.md option β.
+      # Integer arithmetic that overflows int64 gives a Bignum, as in
+      # CRuby. It does not wrap and does not raise, so no rescue runs.
       #
       # Non-overflowing arithmetic must still produce the expected
-      # native-int result, and `rescue` must catch the raise so the
-      # program can continue.
+      # result.
 
       # Sanity: non-overflowing arithmetic still works.
       puts 100 + 200
       puts 1000 - 500
       puts 6 * 7
 
-      # Each of the three operators raises on overflow.
+      # Each of the three operators overflows into a Bignum.
       [:plus, :minus, :mul].each do |op|
         begin
           huge = 9_223_372_036_854_775_000
@@ -1386,15 +1307,9 @@ describe "Numeric: arithmetic" do
   it "integer div by zero" do
     result = zr(<<~'RUBY')
       # Integer division / modulo / divmod / ceildiv by zero raises
-      # ZeroDivisionError. Previously these operations triggered C
-      # undefined behaviour (SIGFPE on x86) outside the longjmp net the
-      # rescue keyword unwinds — see the now-stale comment in
-      # test/endless_method_rescue.rb.
+      # ZeroDivisionError, and a rescue can catch it.
       #
-      # Test uses `puts e` directly (which prints the message string in
-      # spinel) rather than e.message — the .message dispatch lives on a
-      # separate exception-bindings PR. The semantic test (raises and is
-      # catchable) is independent.
+      # The test uses `puts e`, which prints the message string.
 
       # Bare / catches as ZeroDivisionError
       begin
@@ -1412,7 +1327,7 @@ describe "Numeric: arithmetic" do
         puts "caught mod: #{e}"
       end
 
-      # divmod (covers the inline-/ in compile_int_method_expr)
+      # divmod
       begin
         10.divmod(0)
         puts "no raise"
@@ -1420,7 +1335,7 @@ describe "Numeric: arithmetic" do
         puts "caught divmod: #{e}"
       end
 
-      # ceildiv (was silently returning 0)
+      # ceildiv
       begin
         x = 10.ceildiv(0)
         puts "no raise: #{x}"
@@ -1428,7 +1343,7 @@ describe "Numeric: arithmetic" do
         puts "caught ceildiv: #{e}"
       end
 
-      # pow with mod=0 (was silently returning 0)
+      # pow with mod=0
       begin
         x = 2.pow(10, 0)
         puts "no raise: #{x}"
@@ -1462,7 +1377,7 @@ describe "Numeric: arithmetic" do
       end
 
       # Float division by zero is NOT affected — IEEE 754 returns
-      # Infinity / NaN. Spinel matches CRuby; no exception is raised.
+      # Infinity / NaN, as in CRuby; no exception is raised.
       puts (1.0 / 0.0).infinite?
       puts (0.0 / 0.0).nan?
     RUBY
@@ -1483,12 +1398,9 @@ describe "Numeric: arithmetic" do
 
   it "integer division and modulo by zero raise a catchable zero division error" do
     result = zr(<<~'RUBY')
-      # A real, previously-undetected bug: `1 / 0` crashed the ENTIRE
-      # generated binary with a native division fault instead of raising a
-      # catchable `ZeroDivisionError` -- real Ruby's actual behavior. This
-      # affected BOTH the static integer fast path and the runtime-checked
-      # fallback used for method-parameter operands. The fix is one checked
-      # division, consulted at both call sites.
+      # Integer division or modulo by zero raises a catchable
+      # `ZeroDivisionError`, as in real Ruby. This is true for literal
+      # operands and for method-parameter operands.
 
       begin
         puts(5 % 0)
@@ -1512,22 +1424,10 @@ describe "Numeric: arithmetic" do
 
   it "integer literal no int32 overflow" do
     result = zr(<<~'RUBY')
-      # Spinel's integers are mrb_int (long long); Ruby integers don't
-      # overflow in the same range. But emitting a plain `24329 * 256 *
-      # 500` in C lets the C compiler fold the constant using `int`
-      # arithmetic, overflowing at 3,114,112,000 to a wrong negative
-      # result on 32-bit-int platforms.
-      #
-      # Surfaced via optcarrot's `APU::Mixer::TND_1 = 100 * 24329 * 256
-      # / 500`-shaped constant expressions whose intermediate products
-      # clear int32 max. Same hazard for any constant-init expression
-      # of integer literals whose folded result exceeds INT_MAX.
-      #
-      # Fix: emit the `LL` suffix on every IntegerNode literal so
-      # operands carry `long long` type at the C level. Runtime
-      # expressions assigned to `mrb_int` slots already promoted
-      # implicitly; only constant-init contexts (where the C compiler
-      # folds before any assignment) saw the overflow.
+      # A constant expression of integer literals whose value is more
+      # than the int32 maximum keeps its exact value. It must not wrap
+      # to a negative number. optcarrot has constants of this shape, for
+      # example `APU::Mixer::TND_1 = 100 * 24329 * 256 / 500`.
 
       # Each chain straddles int32: max 2^31 - 1 = 2,147,483,647.
       A = 24329 * 256 * 500           # 3,114,112,000
@@ -1756,10 +1656,9 @@ describe "Numeric: arithmetic" do
 
   it "promote shl pow bigint" do
     result = zr(<<~'RUBY')
-      # Under --int-overflow=promote a runtime << past the word and a runtime **
-      # whose result overflows promote to Bignum (CRuby semantics); in-range
-      # results stay exact fixnums (the old ** went through double and lost
-      # precision above 2^53). Bignum receivers shift and power as Bignums.
+      # A runtime << past the word and a runtime ** whose result overflows give a
+      # Bignum (CRuby semantics); in-range results stay exact Integers, also above
+      # 2^53. Bignum receivers shift and power as Bignums.
       a = 1
       p(a << 70)
       b = 2; e = 100
@@ -1787,7 +1686,7 @@ describe "Numeric: arithmetic" do
 
   it "rational arithmetic" do
     result = zr(<<~'RUBY')
-      # Rational arithmetic over mrb_int num/den (Phase 1; overflow raises).
+      # Rational arithmetic with Integer numerators and denominators.
       a = Rational(2, 4)
       b = Rational(1, 3)
       puts a
@@ -1913,10 +1812,8 @@ describe "Numeric: arithmetic" do
   it "rational div family" do
     result = zr(<<~'RUBY')
       # Rational quo / fdiv / div, and round / truncate with a precision argument.
-      # Receivers and (for the poly cases) precisions flow through method params so
-      # the runtime dispatch path is exercised, not the constant folder.
-      # One helper per operand kind: a mixed-type param would widen to poly, and a
-      # poly operand intentionally falls through the Rational arithmetic arms.
+      # Receivers and some precisions go through method params, so their values are
+      # known only at run time. Each operand kind has its own helper method.
       def q_r(a, b) = a.quo(b)
       def q_i(a, b) = a.quo(b)
       def q_f(a, b) = a.quo(b)
@@ -2017,8 +1914,7 @@ describe "Numeric: arithmetic" do
     result = zr(<<~'RUBY')
       # floor/ceil/truncate WITH a precision keep the fraction: 157/50 is
       # 3.14, so floor(1)=3.1=(31/10), ceil(1)=3.2=(16/5), truncate(1)=(31/10)
-      # (verified against ruby 4.0.6 -- the previous expectation wrongly kept
-      # (157/50) for all three).
+      # (checked against ruby 4.0.6).
 
       r = Rational(157, 50)
       p r.round(2)
@@ -2074,9 +1970,8 @@ describe "Numeric: arithmetic" do
 
   it "round half mode" do
     result = zr(<<~'RUBY')
-      # round(digits, half: mode): the digits branch hard-coded the default
-      # rounding, so the mode was silently ignored, and a mode CRuby does not know
-      # fell back to it instead of raising.
+      # round(digits, half: mode) uses the mode with digits too, and a mode that
+      # CRuby does not know raises.
       p(0.125.round(2, half: :even))
       p(0.125.round(2, half: :down))
       p(1.25.round(1, half: :even))

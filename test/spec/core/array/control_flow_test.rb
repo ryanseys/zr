@@ -116,10 +116,9 @@ describe "Array: control flow" do
 
   it "a push inside a loop over an empty array still grows the array" do
     result = zr(<<~'RUBY')
-      # Issue #412. An empty array literal followed by a `<<` push
-      # inside a loop, where the pushed value rides through an
-      # intermediate variable, emitted as `sp_IntArray *` even though
-      # the pushed values were class pointers:
+      # An empty array literal followed by a `<<` push inside a loop,
+      # where the pushed value goes through an intermediate variable.
+      # The array holds the pushed objects:
       #
       #   def make
       #     results = []
@@ -132,43 +131,16 @@ describe "Array: control flow" do
       #     results
       #   end
       #
-      #   error: passing argument 2 of 'sp_IntArray_push' makes integer
-      #          from pointer without a cast
-      #     sp_IntArray_push(lv_results, lv_instance);
-      #                                  ^~~~~~~~~~~
+      # Three combinations:
       #
-      # Three combinations distinguished:
-      #
-      #   - direct push (`results << Foo.new`)            -- worked
-      #   - intermediate var, no loop                     -- worked
-      #   - intermediate var INSIDE loop                  -- failed
-      #
-      # Root cause: `scan_locals`'s `<<` push observation upgrades
-      # `int_array → <typed>_array` only when `infer_type(arg)` resolves
-      # to a typed value. In pass 1, the intermediate local
-      # (`instance`) hadn't been declared in the scope yet, so
-      # `infer_type(LocalVariableReadNode "instance")` fell back to
-      # "int" via `find_var_type` returning "" — push didn't upgrade.
-      # Pass 2 (with locals declared) DID resolve and DID upgrade
-      # `ltypes2[results]` to `obj_Foo_ptr_array`, but
-      # `refine_method_body_locals`'s pass-1↔pass-2 merge only handled
-      # `int → concrete` and `nil → nullable_pointer`, not
-      # `int_array → typed_array`. The pass-2 result was dropped.
-      #
-      # Compounding the local-decl miss: `infer_all_returns`'s
-      # top-level-method branch ran a single-pass `scan_locals` before
-      # calling `infer_body_return`, so the function's return type was
-      # also pinned at `int_array` independently of what
-      # precompute_all_scope_decls eventually computed for the local.
-      # Both branches now route through `refine_method_body_locals`.
+      #   - direct push (`results << Foo.new`)
+      #   - intermediate var, no loop
+      #   - intermediate var INSIDE loop
       #
       # Coverage:
-      #   - the canonical Rails-style `_adapter_all` shape from the
-      #     issue's repro,
-      #   - a typed-array (str) variant to prove the pass-2 merge
-      #     covers `int_array → str_array` too,
-      #   - a baseline direct-push variant as a regression check that
-      #     the previously-working path still works.
+      #   - the Rails-style `_adapter_all` shape,
+      #   - a String-array variant,
+      #   - a baseline direct-push variant.
 
       class Foo
         attr_accessor :v
@@ -200,10 +172,9 @@ describe "Array: control flow" do
 
   it "a String built in the same shape keeps every row it pushed" do
     result = zr(<<~'RUBY')
-      # Issue #412. An empty array literal followed by a `<<` push
-      # inside a loop, where the pushed value rides through an
-      # intermediate variable, emitted as `sp_IntArray *` even though
-      # the pushed values were class pointers:
+      # An empty array literal followed by a `<<` push inside a loop,
+      # where the pushed value goes through an intermediate variable.
+      # The array holds the pushed objects:
       #
       #   def make
       #     results = []
@@ -216,43 +187,16 @@ describe "Array: control flow" do
       #     results
       #   end
       #
-      #   error: passing argument 2 of 'sp_IntArray_push' makes integer
-      #          from pointer without a cast
-      #     sp_IntArray_push(lv_results, lv_instance);
-      #                                  ^~~~~~~~~~~
+      # Three combinations:
       #
-      # Three combinations distinguished:
-      #
-      #   - direct push (`results << Foo.new`)            -- worked
-      #   - intermediate var, no loop                     -- worked
-      #   - intermediate var INSIDE loop                  -- failed
-      #
-      # Root cause: `scan_locals`'s `<<` push observation upgrades
-      # `int_array → <typed>_array` only when `infer_type(arg)` resolves
-      # to a typed value. In pass 1, the intermediate local
-      # (`instance`) hadn't been declared in the scope yet, so
-      # `infer_type(LocalVariableReadNode "instance")` fell back to
-      # "int" via `find_var_type` returning "" — push didn't upgrade.
-      # Pass 2 (with locals declared) DID resolve and DID upgrade
-      # `ltypes2[results]` to `obj_Foo_ptr_array`, but
-      # `refine_method_body_locals`'s pass-1↔pass-2 merge only handled
-      # `int → concrete` and `nil → nullable_pointer`, not
-      # `int_array → typed_array`. The pass-2 result was dropped.
-      #
-      # Compounding the local-decl miss: `infer_all_returns`'s
-      # top-level-method branch ran a single-pass `scan_locals` before
-      # calling `infer_body_return`, so the function's return type was
-      # also pinned at `int_array` independently of what
-      # precompute_all_scope_decls eventually computed for the local.
-      # Both branches now route through `refine_method_body_locals`.
+      #   - direct push (`results << Foo.new`)
+      #   - intermediate var, no loop
+      #   - intermediate var INSIDE loop
       #
       # Coverage:
-      #   - the canonical Rails-style `_adapter_all` shape from the
-      #     issue's repro,
-      #   - a typed-array (str) variant to prove the pass-2 merge
-      #     covers `int_array → str_array` too,
-      #   - a baseline direct-push variant as a regression check that
-      #     the previously-working path still works.
+      #   - the Rails-style `_adapter_all` shape,
+      #   - a String-array variant,
+      #   - a baseline direct-push variant.
 
       class Foo
         attr_accessor :v
@@ -299,10 +243,9 @@ describe "Array: control flow" do
 
   it "the direct push it is measured against answers the same" do
     result = zr(<<~'RUBY')
-      # Issue #412. An empty array literal followed by a `<<` push
-      # inside a loop, where the pushed value rides through an
-      # intermediate variable, emitted as `sp_IntArray *` even though
-      # the pushed values were class pointers:
+      # An empty array literal followed by a `<<` push inside a loop,
+      # where the pushed value goes through an intermediate variable.
+      # The array holds the pushed objects:
       #
       #   def make
       #     results = []
@@ -315,43 +258,16 @@ describe "Array: control flow" do
       #     results
       #   end
       #
-      #   error: passing argument 2 of 'sp_IntArray_push' makes integer
-      #          from pointer without a cast
-      #     sp_IntArray_push(lv_results, lv_instance);
-      #                                  ^~~~~~~~~~~
+      # Three combinations:
       #
-      # Three combinations distinguished:
-      #
-      #   - direct push (`results << Foo.new`)            -- worked
-      #   - intermediate var, no loop                     -- worked
-      #   - intermediate var INSIDE loop                  -- failed
-      #
-      # Root cause: `scan_locals`'s `<<` push observation upgrades
-      # `int_array → <typed>_array` only when `infer_type(arg)` resolves
-      # to a typed value. In pass 1, the intermediate local
-      # (`instance`) hadn't been declared in the scope yet, so
-      # `infer_type(LocalVariableReadNode "instance")` fell back to
-      # "int" via `find_var_type` returning "" — push didn't upgrade.
-      # Pass 2 (with locals declared) DID resolve and DID upgrade
-      # `ltypes2[results]` to `obj_Foo_ptr_array`, but
-      # `refine_method_body_locals`'s pass-1↔pass-2 merge only handled
-      # `int → concrete` and `nil → nullable_pointer`, not
-      # `int_array → typed_array`. The pass-2 result was dropped.
-      #
-      # Compounding the local-decl miss: `infer_all_returns`'s
-      # top-level-method branch ran a single-pass `scan_locals` before
-      # calling `infer_body_return`, so the function's return type was
-      # also pinned at `int_array` independently of what
-      # precompute_all_scope_decls eventually computed for the local.
-      # Both branches now route through `refine_method_body_locals`.
+      #   - direct push (`results << Foo.new`)
+      #   - intermediate var, no loop
+      #   - intermediate var INSIDE loop
       #
       # Coverage:
-      #   - the canonical Rails-style `_adapter_all` shape from the
-      #     issue's repro,
-      #   - a typed-array (str) variant to prove the pass-2 merge
-      #     covers `int_array → str_array` too,
-      #   - a baseline direct-push variant as a regression check that
-      #     the previously-working path still works.
+      #   - the Rails-style `_adapter_all` shape,
+      #   - a String-array variant,
+      #   - a baseline direct-push variant.
 
       class Foo
         attr_accessor :v
@@ -392,14 +308,12 @@ describe "Array: control flow" do
 
   it "empty array return via local" do
     result = zr(<<~'RUBY')
-      # An empty array literal returned from a method through a LOCAL variable lost
-      # its container type and settled at String: the method was emitted as
-      # `sp_String *lv_a = sp_String_new_shared(sp_IntArray_new())`, and every use of
-      # the result in the caller followed it -- `<<` became sp_String_append_bin, so a
-      # Float or an object arrived at a `const char *` parameter.
+      # An empty array literal returned from a method through a LOCAL variable keeps
+      # its container type: it is an Array, not a String. In the caller, `<<` pushes
+      # a Float or an object as an Array element.
       #
-      # Returning the very same literal directly (`def make_direct; []; end`) was
-      # always fine, which is what kept this hidden.
+      # Returning the very same literal directly (`def make_direct; []; end`) gives
+      # the same Array.
 
       def make
         a = []
@@ -452,7 +366,7 @@ describe "Array: control flow" do
       p items.length
       p items[0].score
 
-      # The other side of the gate (#3227 P6): when the caller's slot really is a
+      # The other side: when the caller's slot really is a
       # String, mutating the result of a method whose tail is a local still has to
       # pull that local into the shared-handle set, so the mutation lands on the one
       # buffer and aliases of it see the change.
@@ -495,7 +409,7 @@ describe "Array: control flow" do
 
   it "float to s uses fixed for fractional 16 digit values" do
     result = zr(<<~'RUBY')
-      # Ruby #2593: a 16-digit-integer-part float WITH a fraction prints fixed,
+      # A 16-digit-integer-part float WITH a fraction prints fixed,
       # while an integer-valued 16-digit double stays scientific.
 
       puts 4503599627370495.5
@@ -580,9 +494,8 @@ describe "Array: control flow" do
   it "multi assign array underfill" do
     result = zr(<<~'RUBY')
       # Multiple assignment from a single array RHS with fewer elements than targets:
-      # the surplus targets land nil (`a, b, c = [10, 20]` -> c is nil). Previously
-      # rejected at compile time ("unsupported multiple assignment"); the surplus
-      # targets now nil-fill and the affected local widens to poly so it can hold nil.
+      # the surplus targets land nil (`a, b, c = [10, 20]` -> c is nil). The affected
+      # local widens to poly so it can hold nil.
       # Receivers routed through a method param exercise the typed runtime path.
       def s(x); x; end
 

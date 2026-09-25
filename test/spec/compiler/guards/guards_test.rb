@@ -1446,13 +1446,10 @@ describe "Guards programs" do
       Sentinel = 1
       p defined?(Sentinel)
 
-      # The mirror image, and a second cause: a TOP-LEVEL value constant used to
-      # answer nil even AFTER its assignment. `directly_defines_const` reads a
-      # class's `class_body_stmts`, and a top-level `NAME = ...` sits in the main
-      # statement stream instead, belonging to no class body -- so nothing claimed
-      # it for `Object`, where ruby puts it. Only STATEMENT-level writes are
-      # claimed, the same rule a class body follows: `NAME = 1 if cond` names an
-      # owner it may never get.
+      # The mirror image: a TOP-LEVEL value constant is defined AFTER its
+      # assignment. A top-level `NAME = ...` belongs to no class body, and ruby
+      # puts it on `Object`. Only STATEMENT-level writes count, the same rule a
+      # class body follows: `NAME = 1 if cond` names an owner it may never get.
       AT_TOP_LEVEL = 7
       p defined?(AT_TOP_LEVEL)
 
@@ -1775,7 +1772,7 @@ describe "Guards programs" do
       p v
 
       g = [[1, 2], [3, 4]]
-      v = g.inject([0]) { |a, r| a + r }; p v   # Ruby: [0, 1, 2, 3, 4]   Spinel: C compile abort
+      v = g.inject([0]) { |a, r| a + r }; p v   # => [0, 1, 2, 3, 4]
       p g.inject([]) { |a, r| a + r }            # => [1, 2, 3, 4]
 
       g = [[1, 2], [3, 4]]
@@ -2309,13 +2306,8 @@ describe "Guards programs" do
   it "isa fold leading statements" do
     result = zr(<<~'RUBY')
       # A folded `is_a?` arm in EXPRESSION position must still run its statements in
-      # order. The fold emitted the arm's leading statements inside a statement
-      # expression wrapped around its value -- but the value itself, when it is a
-      # conditional, hoists its branches into the enclosing prelude, which is
-      # written out first. So the assignment landed BELOW the `if` that reads it,
-      # the nil arm always won, and a branch reached its tail without having run its
-      # own first line. (matz/spinel#4139, from a Roundhouse app where four
-      # controller assertions raised "unknown status :success")
+      # order. Here the arm first assigns `range`, and then an `if` reads it. The
+      # value of the arm is that `if`. The shape comes from a Rails controller test.
       RANGES = { success: 200..299, redirect: 300..399 }.freeze
       CODES  = { ok: 200, created: 201 }.freeze
 
@@ -2451,19 +2443,17 @@ describe "Guards programs" do
 
   it "pattern match as and guard" do
     result = zr(<<~'RUBY')
-      # Issues #884 #905: pattern-match `as` binding and `if` guard
-      # clause both used to leave the matched LV undeclared, causing
-      # C compile errors. Now both bind correctly: CapturePatternNode
-      # binds the as-var to the scrutinee at body entry; IfNode-wrapped
-      # pattern AND-folds the guard against the inner match.
+      # Pattern-match `=> var` binding and `if` guard clause. A capture
+      # binds the variable to the matched value at body entry. A guard
+      # must be true as well as the pattern for the branch to match.
 
-      # #884: array pattern with `=> arr` capture
+      # array pattern with `=> arr` capture
       case [1, 2, 3]
       in [1, *] => arr
         puts arr.inspect
       end
 
-      # #905: guard clause with bound variable
+      # guard clause with bound variable
       case 10
       in n if n > 5
         puts "big: " + n.to_s
@@ -2471,7 +2461,7 @@ describe "Guards programs" do
         puts "small: " + n.to_s
       end
 
-      # #905: guard's else branch
+      # guard's else branch
       case 3
       in n if n > 5
         puts "big: " + n.to_s
@@ -2479,7 +2469,7 @@ describe "Guards programs" do
         puts "small: " + n.to_s
       end
 
-      # #884: object capture
+      # object capture
       case 42
       in Integer => v
         puts "int: " + v.to_s
@@ -2745,9 +2735,7 @@ describe "Guards programs" do
     result = zr(<<~'RUBY')
       # /i folds by Unicode simple case folding: the counterparts of a non-ASCII
       # literal are emitted as a class, since a counterpart need not have the same
-      # width (U+212A folds to `k`). Ported from mruby-regexp (618ba9435). A build
-      # made with -DRE_NO_UNICODE_CASE folds ASCII alone and matches the rest
-      # literally, which is what this engine did before the table arrived.
+      # width (U+212A folds to `k`).
       p("Ä" =~ /ä/i ? true : false)
       p("ä" =~ /Ä/i ? true : false)
       p("Ä" =~ /ä/ ? true : false)
@@ -2880,24 +2868,17 @@ describe "Guards programs" do
       # The RUN-TIME compiler on shapes real gems use. A `require` whose target only
       # the running program knows -- a computed feature name, or one reached through
       # a `$LOAD_PATH` the program just changed -- is compiled at run time by a
-      # second compiler, and it used to refuse or mis-lower two ordinary things.
+      # second compiler. This checks two ordinary things there.
       #
-      # AN ALIAS THROUGH `extend`. A method has two installed shapes: one taking an
-      # `&RObj`, one taking a plain value. Only the second can run with a CLASS as
-      # `self`. `runtime_alias_method` copied the first and not the second, so an
-      # aliased method reached through `extend` ran against a surrogate object and a
-      # receiverless call inside it looked for an INSTANCE method. Forwardable is
-      # exactly this -- `alias def_delegators def_instance_delegators` -- so
-      # `extend Forwardable; def_delegators :@t, :year` raised
-      # `undefined method 'def_instance_delegator'`.
+      # AN ALIAS THROUGH `extend`. An aliased method reached through `extend` runs
+      # with the CLASS as `self`, so a receiverless call inside it finds a method of
+      # the class, not an INSTANCE method. Forwardable is exactly this --
+      # `alias def_delegators def_instance_delegators` -- so
+      # `extend Forwardable; def_delegators :@t, :year` must work.
       #
-      # A GUARDED TOP-LEVEL DEFINITION. `analyze::static_guards` rewrites one into a
-      # synthesized `class Object` wrapper around a synthesized `if`, and neither
-      # carried a span. A class body compiled at run time is re-evaluated from its
-      # own SOURCE TEXT, sliced between its first and last statement -- and the slice
-      # is taken only when the wrapper's span CONTAINS them. Span-less, it refused
-      # the whole file: "a span-less `class` (`Object`) inside an `eval`". `time.rb`
-      # has this shape, so it took `require "bundler/setup"` down with it.
+      # A GUARDED TOP-LEVEL DEFINITION. A top-level `def` inside an `if` in a file
+      # that the run time compiles. `time.rb` has this shape, and
+      # `require "bundler/setup"` loads it.
 
       DIR = File.expand_path("../../fixtures/runtime_compiled", __dir__)
       $LOAD_PATH.unshift(DIR)
@@ -3096,11 +3077,8 @@ describe "Guards programs" do
   it "singleton prepend reaches static call sites" do
     result = zr(<<~'RUBY')
       # `<expr>.singleton_class.prepend(M)` where the RECEIVER or the MODULE is not
-      # a compile-time constant used to be rejected: statically resolved `X.m` call
-      # sites never consulted the runtime singleton tables the send writes, so the
-      # prepend would have compiled and then overridden nothing. It now runs as the
-      # ordinary send it is, and the modules' method names de-optimize those call
-      # sites so they see the override (`prepend_into_class_singleton`).
+      # a compile-time constant. It runs as an ordinary send, and a later `X.m` call
+      # sees the override.
       module Loud
         def greet = "LOUD " + super
       end
@@ -3139,11 +3117,9 @@ describe "Guards programs" do
 
   it "spaceship nil guard poly compare" do
     result = zr(<<~'RUBY')
-      # A `<=>` with a `return nil` guard has an sp_RbVal return, and its body's
-      # compare goes through the polymorphic helper as soon as the ivar holds more
-      # than one type -- or simply when a second class in the program also defines
-      # `<=>`. The helper answers an mrb_int (the sentinel for nil), which went out
-      # through the boxed signature unboxed and failed the C build (#3498).
+      # A `<=>` with a `return nil` guard can answer an Integer or nil. A second
+      # class in the program also defines `<=>`, so a call to `<=>` can reach
+      # either class.
       class A
         include Comparable
         attr_reader :v
@@ -3158,8 +3134,7 @@ describe "Guards programs" do
         end
       end
 
-      # never instantiated: defining it is enough to route A's compare through the
-      # polymorphic helper
+      # never instantiated: defining it is enough to give `<=>` two owners
       class B
         attr_reader :v
 

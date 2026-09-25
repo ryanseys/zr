@@ -146,9 +146,8 @@ describe "Time: conversion" do
 
   it "Time + Time is a TypeError, and between? with a non-Time bound is an ArgumentError" do
     result = zr(<<~'RUBY')
-      # Time + Time is a TypeError and Time#between?/#clamp with non-Time bounds is
-      # an ArgumentError; both read the operand as a number and did not build
-      # (#3865).
+      # Time + Time is a TypeError. Time#between? and Time#clamp with non-Time
+      # bounds give an ArgumentError.
       t = Time.utc(2020, 1, 2)
       u = Time.utc(2020, 1, 3)
       begin; p(t + t); rescue => e; p e.class; end

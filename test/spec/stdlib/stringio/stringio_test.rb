@@ -336,10 +336,10 @@ describe "StringIO programs" do
   it "the mode string decides every read, write, truncate and append the StringIO allows" do
     result = zr(<<~'RUBY')
       # StringIO's mode string decides what it allows, and the whole table is
-      # here because every row of it was previously ignored.
+      # here.
       #
-      # Append starting at position 0 was DATA CORRUPTION, not a missing error:
-      # `StringIO.new("ab", "a").write("c")` answered `"cb"`. Three more rows are
+      # Append does not start at position 0: `StringIO.new("ab", "a").write("c")`
+      # gives `"abc"`, not `"cb"`. Three more rows are
       # surprising enough to pin: `"a"` is NOT readable, `"w"` truncates on open,
       # and append ignores `pos` entirely -- every write goes to the end however
       # the position was set.

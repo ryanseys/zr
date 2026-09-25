@@ -74,17 +74,15 @@ describe "Encoding: packing and unpacking" do
     result = zr(<<~'RUBY')
       # Binary strings must survive every operation that copies or moves them.
       #
-      # This is a REGRESSION SUITE for one recurring defect, not a feature test.
-      # Several methods used to rebuild a String from its "display text" -- decoding
-      # the bytes as UTF-8 and re-encoding them -- which silently rewrites any byte
-      # that isn't valid UTF-8. It corrupts both ways:
+      # No operation may rebuild a String from its "display text" -- decoding the
+      # bytes as UTF-8 and re-encoding them. That rewrites any byte that isn't
+      # valid UTF-8, in one of two ways:
       #
       #   0x8b  ->  0xEF 0xBF 0xBD   (lossy decode: replaced with U+FFFD)
       #   0x8b  ->  0xC2 0x8B        (Latin-1 promotion: re-encoded, length changed)
       #
-      # It has been found and fixed in `String#+`, `Array#join`, `String#dup`,
-      # `StringIO`, and `IO#read` at different times. Each fix without a test let the
-      # next one through, so every operation that touches bytes is pinned here.
+      # The rows cover `String#+`, `Array#join`, `String#dup`, `StringIO`, `IO#read`
+      # and every other operation that touches bytes.
       #
       # The bytes below are a real gzip header: 0x8b and 0xc8 are both invalid UTF-8
       # on their own, which is what makes them the case that catches this.
@@ -709,9 +707,8 @@ describe "Encoding: packing and unpacking" do
   it "integer chr encoding" do
     result = zr(<<~'RUBY')
       # Integer#chr: CRuby-strict range check for the byte form (RangeError outside
-      # 0..255) and real UTF-8 encoding for chr(Encoding::UTF_8) -- previously the
-      # encoding argument was dropped and the codepoint silently truncated to one
-      # byte (0x3042.chr(UTF_8) yielded "B").
+      # 0..255) and real UTF-8 encoding for chr(Encoding::UTF_8): 0x3042.chr(UTF_8)
+      # gives "あ", not one truncated byte.
       p 65.chr
       p 0x3042.chr(Encoding::UTF_8)
       p 0x80.chr(Encoding::UTF_8).bytes
@@ -1016,10 +1013,9 @@ describe "Encoding: packing and unpacking" do
 
   it "random urandom binary length" do
     result = zr(<<~'RUBY')
-      # Random.urandom hands back binary bytes, so #length is the byte count. spinel
-      # keeps no per-string encoding tag and counts UTF-8 code points whenever the
-      # bytes happen to spell valid UTF-8 -- true of about 1.5% of 4-byte draws, which
-      # then reported a length short of the requested size. #3474.
+      # Random.urandom hands back binary bytes, so #length is the byte count. This
+      # holds also when the bytes happen to spell valid UTF-8 -- true of about 1.5%
+      # of 4-byte draws.
       p 2000.times.any? { Random.urandom(4).length != 4 }
       p 2000.times.any? { Random.urandom(4).bytesize != 4 }
       p 2000.times.any? { Random.urandom(4).bytes.size != 4 }
@@ -1049,10 +1045,8 @@ describe "Encoding: packing and unpacking" do
 
   it "regexp multibyte literal atom" do
     result = zr(<<~'RUBY')
-      # A literal is emitted one byte at a time, so a character above 127 made each
-      # of its bytes an atom of its own and a quantifier bound to the last one:
-      # /あ+/ compiled as the lead byte followed by a repeat of the final
-      # continuation byte. Ported from mruby-regexp (bcacba1e1).
+      # A multibyte character in a regexp literal is one atom, so a quantifier
+      # binds to the whole character: /あ+/ repeats "あ", not its last byte.
       p("ああ" =~ /あ+/ ? $~[0] : nil)
       p("ああ" =~ /あ{2}/ ? true : false)
       p "ああxあ".scan(/あ+/)
@@ -1081,13 +1075,11 @@ describe "Encoding: packing and unpacking" do
 
   it "setbyte nul bytes" do
     result = zr(<<~'RUBY')
-      # Regression: String#setbyte sized the receiver with strlen, which stops at
-      # the first NUL byte. An all-NUL buffer (the pack("C*") byte-buffer pattern)
-      # measured length 0, so every setbyte raised IndexError despite length/
-      # bytesize correctly reporting the stored length. setbyte must use the
-      # NUL-safe stored length like getbyte/bytesize do.
+      # String#setbyte uses the stored length of the receiver, as getbyte and
+      # bytesize do. A NUL byte does not end the string, so setbyte works on an
+      # all-NUL buffer (the pack("C*") byte-buffer pattern).
 
-      # all-NUL buffer: previously every call here raised IndexError
+      # all-NUL buffer: no call here raises IndexError
       s = Array.new(5, 0).pack("C*")
       puts "len=#{s.length}"
       s.setbyte(0, 65)
@@ -1125,17 +1117,9 @@ describe "Encoding: packing and unpacking" do
 
   it "string binary char table" do
     result = zr(<<~'RUBY')
-      # `s[i]` on a BINARY string used to allocate: the shared 1-byte substring table
-      # is a static array whose entries carry no header (marker 0xff), and the
-      # ASCII-8BIT tag lives in a header -- so keeping the tag meant building a real
-      # string per index. That was 2.3x, and none of it was the indexing: 220M of the
-      # 226M difference was malloc, free, and the GC sweep walking what they left.
-      #
-      # A second static table carries a header, under a marker that says "static
-      # storage WITH a header" (0xfb). It joins the group that has a header and stays
-      # out of the group that is a mutable heap string, so nothing sweeps it, nothing
-      # mutates it in place, and its length is real -- which also puts byte 0 in the
-      # table, where strlen had made it the empty string.
+      # `s[i]` on a BINARY string gives a 1-byte string that keeps the ASCII-8BIT
+      # encoding. zr takes it from a shared static table, so it does not allocate.
+      # Each entry has its real length, so byte 0 gives "\x00", not an empty string.
 
       b = [200, 65, 0, 255].pack("C*")
       p b.bytesize
@@ -1348,17 +1332,10 @@ describe "Encoding: packing and unpacking" do
 
   it "string binary tag sources" do
     result = zr(<<~'RUBY')
-      # spinel has two encodings, UTF-8 and ASCII-8BIT, and one rule for which is
-      # which: a string is ASCII-8BIT when the PROGRAM ASKED FOR BYTES. CRuby's third
-      # encoding, US-ASCII, carries only "these bytes are 7-bit" -- measurably nothing
-      # else, since compatibility keys on the content being 7-bit rather than on the
-      # encoding's identity -- and spinel carries that as a header bit with no name.
-      #
-      # pack and String#b followed the rule. Marshal.dump, Random#bytes, binread,
-      # unpack and force_encoding did not: they answered UTF-8 over byte data, which
-      # is not only the wrong name. The tag makes #length count bytes, so
-      # `Random.bytes(8).length` was under 8 whenever the draw happened to be valid
-      # UTF-8 -- about three times in a thousand.
+      # A string is ASCII-8BIT when the PROGRAM ASKED FOR BYTES: pack, String#b,
+      # Marshal.dump, Random#bytes, binread, unpack and force_encoding. The tag
+      # makes #length count bytes, so `Random.bytes(8).length` is 8 also when the
+      # draw happens to be valid UTF-8.
 
       File.write("/tmp/_sp_enc_test.bin", "abc")
 
@@ -1396,10 +1373,8 @@ describe "Encoding: packing and unpacking" do
       b = File.binread("/tmp/_sp_enc_test.bin")
       p b.length
 
-      # a String reached through a poly array answers #encoding: the poly dispatch
-      # had no arm for it, so it raised NoMethodError naming its own class -- and
-      # once it had one, the call had no type, so emit_boxed's untyped arm rendered
-      # `(expr, sp_box_nil())` and threw the answer away
+      # a String reached through a mixed-type array answers #encoding, and the
+      # answer reaches the caller
       a = ["abc", 1][0]
       p a.encoding
       p a.encoding.to_s
@@ -1553,8 +1528,8 @@ describe "Encoding: packing and unpacking" do
   it "string search binary" do
     result = zr(<<~'RUBY')
       # String#include?/#index/#rindex must be byte-oriented and NUL-transparent:
-      # spinel Strings can carry embedded NULs (pack, socket reads), so a strstr-
-      # backed search that stops at the first NUL diverges from CRuby (issue #1778).
+      # Strings can carry embedded NULs (pack, socket reads), and a search does not
+      # stop at the first NUL.
       z = [0].pack("C*")
       s = "user" + z + "app" + z + "tail"
       puts s.include?("app" + z)   # needle contains a NUL

@@ -308,10 +308,8 @@ describe "Variables: instance and class variables" do
   it "cvar empty container" do
     result = zr(<<~'RUBY')
       # An empty `[]` / `{}` assigned to a class variable carries no element or key
-      # type, so the slot was declared sp_int (the codegen fallback) while the write
-      # emitted a real container -- the C build failed on the store. The variant now
-      # comes from the class variable's own usage, the way a global's and a
-      # constant's already did (#4054).
+      # type. The later reads and writes of the class variable give its type, as
+      # they do for a global or a constant.
 
       # a bare `{}` with no index writes at all still needs a declarable slot
       class Empty

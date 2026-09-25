@@ -125,10 +125,7 @@ describe "Array: slicing" do
   it "push and append take any number of arguments and answer the array" do
     result = zr(<<~'RUBY')
       # Array#push / #append take any number of arguments and return the
-      # array. Both forms previously compiled only the first argument
-      # (compile_arg0), so a multi-arg push dropped every element after the
-      # first and the expression-form result of int/float/ptr/poly pushes
-      # returned 0 instead of the array.
+      # array, for arrays of any element type.
 
       p ["a"].append("b", "c")                    #=> ["a", "b", "c"]
       p [1].push(2, 3, 4)                          #=> [1, 2, 3, 4]
@@ -257,17 +254,13 @@ describe "Array: slicing" do
 
   it "builtin array method capture" do
     result = zr(<<~'RUBY')
-      # `<int_array>.method(:op)` lowered through a per-(type, op)
-      # trampoline matching the Method dispatch ABI. Surfaced via
-      # optcarrot's CPU memory-mapping shape
+      # `<int_array>.method(:op)` gives a Method object that works like any
+      # other Method. The shape comes from optcarrot's CPU memory-mapping
       # `add_mappings(0x0000..0x07ff, @ram, @ram.method(:[]=))` —
       # the captured Method later sits in @store and is invoked via
       # `@store[addr][addr, val]`.
       #
-      # Three operators supported in the first cut: `:[]`, `:[]=`,
-      # `:push`. Other (recv_type, mname) pairs still fall through to
-      # the unresolved-call warning until they're added to
-      # emit_builtin_array_method_adapter.
+      # The example checks three operators: `:[]`, `:[]=` and `:push`.
 
       a = [10, 20, 30, 40, 50]
 
@@ -386,9 +379,8 @@ describe "Array: slicing" do
       puts log[2]         # stop
       puts log[3]         # stop!
 
-      # === Inherited dispatch (#84): caller-side inference must walk
-      # the inheritance chain to update the *parent's* @cls_meth_ptypes
-      # when cls_find_method_direct misses on the child. ===
+      # === Inherited dispatch: a call on the child finds the method that
+      # the parent defines. ===
       class Base
         def add_to(buf)
           buf.push("hi")
@@ -590,8 +582,7 @@ describe "Array: slicing" do
       miss = { a: { b: 1 } }
       puts miss.dig(:nope)            # (blank)
       puts miss.dig(:a, :nope)        # (blank)
-      # CRuby raises TypeError on `int.dig(:c)`; spinel returns nil. Not
-      # probed here so `.expected` stays comparable to CRuby.
+      # `int.dig(:c)` raises TypeError; section 10 checks that.
 
       # 7. Same shape for str_poly_hash.
       sph = { "user" => { "name" => "Bob", "age" => 25 } }
@@ -615,8 +606,7 @@ describe "Array: slicing" do
       puts labs2.dig("a", "x")        # hi
       p labs2.dig("a", "missing")     # nil
 
-      # 10. Mid-walk into a leaf with no #dig: a TypeError, not a quiet nil (#3567
-      # corrected this expectation, which had been pinned the other way).
+      # 10. Mid-walk into a leaf with no #dig: a TypeError, not a quiet nil.
       flat = { a: 1 }
       r_flat = (flat.dig(:a, :b) rescue $!.class)
       p r_flat                        # TypeError
@@ -719,22 +709,20 @@ describe "Array: slicing" do
 
   it "pointer type miscompiles" do
     result = zr(<<~'RUBY')
-      # Shapes whose generated C carried a pointer of the wrong type: each read one
-      # struct through another's layout, and each was only a compiler warning before
-      # (#3975's second observation -- the build now fails on one).
+      # Shapes that mix arrays of different element types: each value must keep
+      # its own type.
       x = case "foo"
           when ["foo", "foo"] then "bad"
           when "foo" then "good"
           end
       p x
 
-      # `[].freeze.rotate`: the empty literal was built as the int-array default and
-      # handed to the poly-array path
+      # `[].freeze.rotate` on an empty literal
       p(-> { [].freeze.rotate }.call)
       p [2].freeze.rotate(2)
       p [1, 2, 3].freeze.rotate(-3)
 
-      # product with a block answers self, and its empty-array argument is poly
+      # product with a block answers self, also with an empty-array argument
       arr = [1, 2]
       seen = []
       p arr.product([3, 4], [5]) { |t| seen << t }.equal?(arr)
@@ -768,16 +756,14 @@ describe "Array: slicing" do
 
   it "range and array range args" do
     result = zr(<<~'RUBY')
-      # Cluster of "Range struct passed where mrb_int expected" C errors:
-      #   #1247 rand(range) / rand(float)
-      #   #1234 Range#cover? with a Range argument
-      #   #1228 Range#first(n) / #last(n) / #count
-      #   #1240 Array#values_at with a Range argument
-      #   #1224 Array#fill(value, range)
-      # Each used to either emit a C type error (sp_Range fed to an mrb_int
-      # operand) or silently return the wrong value.
+      # Methods that take a Range argument where an Integer can also go:
+      #   rand(range) / rand(float)
+      #   Range#cover? with a Range argument
+      #   Range#first(n) / #last(n) / #count
+      #   Array#values_at with a Range argument
+      #   Array#fill(value, range)
 
-      # #1247 — rand with a range / float arg. Values are nondeterministic,
+      # rand with a range / float arg. Values are nondeterministic,
       # so assert membership rather than the value.
       vi = rand(1..6)
       puts(vi >= 1 && vi <= 6)
@@ -786,12 +772,12 @@ describe "Array: slicing" do
       puts(vf >= 1.0 && vf < 10.0)
       puts vf.class
 
-      # #1234 — cover? with a Range argument
+      # cover? with a Range argument
       puts (1..10).cover?(5..8)
       puts (1..10).cover?(5..12)
       puts (1..10).cover?(5)
 
-      # #1228 — first(n) / last(n) / count
+      # first(n) / last(n) / count
       p (1..10).first(3)
       p (1..10).last(3)
       p (1...10).last(3)
@@ -799,12 +785,12 @@ describe "Array: slicing" do
       puts (1..10).count
       puts (1...10).count
 
-      # #1240 — values_at with a Range argument
+      # values_at with a Range argument
       p [10, 20, 30, 40, 50].values_at(1..3)
       p [10, 20, 30, 40, 50].values_at(0, 2, 4)
       p ["a", "b", "c", "d"].values_at(1..2)
 
-      # #1224 — fill(value, range)
+      # fill(value, range)
       a = [1, 2, 3, 4, 5]
       a.fill(0, 2..4)
       p a
@@ -865,8 +851,8 @@ describe "Array: slicing" do
   it "range bsearch float" do
     result = zr(<<~'RUBY')
       # Range#bsearch over a float-bounded range bisects the real interval (a
-      # float member, or nil) -- previously it crashed with "can't iterate from
-      # Float". Integer ranges keep their index bisection.
+      # float member, or nil), and does not raise "can't iterate from Float".
+      # Integer ranges keep their index bisection.
       p((0.1...2.3).bsearch { |x| x > 1.0 })
       p((0.0..10.0).bsearch { |x| x >= 4.0 })
       p((0.1...2.3).bsearch { |x| x > 3 })
@@ -926,11 +912,8 @@ describe "Array: slicing" do
 
   it "safe nav array returning" do
     result = zr(<<~'RUBY')
-      # `x&.keys` / `&.values` / `&.to_a` on a receiver that is not statically a Hash
-      # typed the whole expression poly, while the guarded call itself lowers to an
-      # sp_PolyArray *. The C conditional then had an sp_RbVal nil against a pointer
-      # and the build aborted. An array result is a pointer whose NULL already reads
-      # as nil, so the guard can stay in pointer form. #3461.
+      # `x&.keys` / `&.values` / `&.to_a` on a receiver that is not statically a
+      # Hash: the result is nil for a nil receiver, and an Array for a Hash.
       x = nil
       p(x&.keys)
       p(x&.values)
@@ -966,13 +949,13 @@ describe "Array: slicing" do
     result = zr(<<~'RUBY')
       # The readiness set grows with the caller's connection count.
       #
-      # It used to be a fixed 256-entry array whose overflow answered -1 -- and -1 is
-      # also what a caller reads as "this fd is not in the set this round", so from
-      # the 257th fd on a connection went deaf with nothing said about it. A server
-      # holding one socket per user reaches 256 on its first busy minute.
+      # The set has no fixed limit of 256 entries: the 257th fd and those after it
+      # are in the set, like the first ones. A server holding one socket per user
+      # reaches 256 on its first busy minute.
       #
       # poll_add only records (fd, mode); it does not touch the fd, so the same fd
       # registered many times is a faithful test of the set's capacity.
+
       module Net
         ffi_func :sp_net_poll_reset, [],          :int
         ffi_func :sp_net_poll_add,   [:int, :int], :int
@@ -1095,8 +1078,7 @@ describe "Array: slicing" do
     result = zr(<<~'RUBY')
       # Struct#dig is variadic. The first key is member access (by symbol /
       # string name or integer position); any further keys dig recursively
-      # into the member's value. Previously dig fell through to an unresolved
-      # nil and emitted a C type error.
+      # into the member's value.
       Person = Struct.new(:name, :age)
       p = Person.new("Alice", 30)
       puts p.dig(:name)

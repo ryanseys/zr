@@ -217,12 +217,9 @@ describe "Enumerable: enumeration" do
   it "each cons with index map no double gets" do
     result = zr(<<~'RUBY')
       # `.each_cons[.with_index].map { ... }` over a side-effecting inner
-      # array must not re-emit the inner chain. Pre-fix compile_call_expr
-      # emitted `rc` (the with_index/each_cons placeholder pair) before
-      # routing to compile_map_expr's fusion path, which then re-emitted
-      # the inner receiver. The inner block's side effects (`gets`, an
-      # accumulator method, ...) ran twice -- consuming twice the input
-      # lines or doubling the counter. Issue #621.
+      # array evaluates the inner chain once. The inner block's side
+      # effects (`gets`, an accumulator method, ...) run once, so they do
+      # not consume twice the input lines or double the counter.
 
       $counter = 0
       def step
@@ -521,7 +518,7 @@ describe "Enumerable: enumeration" do
 
   it "each with index inject" do
     result = zr(<<~'RUBY')
-      # matz/spinel#1481: inject/reduce over each.with_index / each_with_index
+      # inject/reduce over each.with_index / each_with_index
       puts [10, 20, 30].each.with_index.inject(0) { |acc, (val, idx)| acc + idx }       # 3
       chars = [1, 2, 3]
       puts chars.each.with_index.inject(0) { |sum, (c, k)| sum + c * (26 ** k) }         # 2081 (base26)
@@ -545,14 +542,12 @@ describe "Enumerable: enumeration" do
 
   it "each with index struct present" do
     result = zr(<<~'RUBY')
-      # `arr.each_with_index` with no block answers an Enumerator. A Struct gets an
-      # Enumerable #each_with_index synthesized, and a user definition of the name
-      # takes over the poly dispatch -- so the call typed as that Struct, and the
-      # Enumerator it actually builds was assigned to a slot declared as a pointer to
-      # the Struct (#4021).
+      # `arr.each_with_index` with no block answers an Enumerator, even when the
+      # program has a Struct, which gets an Enumerable #each_with_index too. The
+      # call does not take the Struct's type.
       #
-      # The receiver has to arrive boxed for the dispatch to be consulted at all,
-      # which is what the destructured multi-value return in the report does.
+      # The destructured multi-value return makes the receiver arrive boxed, so
+      # the call goes through the dynamic dispatch.
       Line = Struct.new(:number)
 
       def first_pass(lines)
@@ -679,9 +674,9 @@ describe "Enumerable: enumeration" do
     result = zr(<<~'RUBY')
       p({ a: 1 }.each_with_object([]) { |x, a| a })
 
-      p({ a: 1 }.each_with_object({}) { |x, a| a })          # Ruby: {}   Spinel: compile abort
-      p({}.each_with_object([]) { |x, a| a })                # Ruby: []   Spinel: compile abort
-      v = { a: 1 }.each_with_object([]) { |x, a| a }; p v    # Ruby: []   Spinel: compile abort
+      p({ a: 1 }.each_with_object({}) { |x, a| a })          # Ruby: {}
+      p({}.each_with_object([]) { |x, a| a })                # Ruby: []
+      v = { a: 1 }.each_with_object([]) { |x, a| a }; p v    # Ruby: []
 
       p({ a: 1 }.each_with_object([1]) { |x, a| a })         # => [1]
       p({ a: 1 }.each_with_object(0) { |x, a| a })           # => 0
@@ -789,7 +784,7 @@ describe "Enumerable: enumeration" do
 
   it "enum with index map" do
     result = zr(<<~'RUBY')
-      # Enumerator#with_index return value on a stored map/each enumerator (#2510)
+      # Enumerator#with_index return value on a stored map/each enumerator
       e = [1, 2, 3].map
       p(e.with_index { |x, i| x * 10 + i })   # map enumerator -> collected array
       g = [1, 2, 3].each
@@ -811,21 +806,21 @@ describe "Enumerable: enumeration" do
   it "chain and Enumerator#+ build a Chain over the concatenated sources" do
     result = zr(<<~'RUBY')
       # Enumerable#chain / Enumerator#+ build an Enumerator::Chain over the
-      # concatenated sources (#2545, #2548, #2551). The sources are materialized at
+      # concatenated sources. The sources are materialized at
       # build time, so every terminal the sources support works on the chain.
 
-      # Enumerator#+ reports Enumerator::Chain (#2545)
+      # Enumerator#+ reports Enumerator::Chain
       p(([1, 2].each + [3, 4].each).class)
       p(([1, 2].each + [3, 4].each).to_a)
       p(([1].each + [2].each + [3].each).to_a)
 
-      # Struct receiver, chain stored in a variable (#2548)
+      # Struct receiver, chain stored in a variable
       Nums = Struct.new(:a, :b, :c)
       c1 = Nums.new(3, 1, 2).chain([4, 5])
       p c1.to_a
       p c1.class
 
-      # user Enumerable: receiver, argument, stored in a local, block form (#2551)
+      # user Enumerable: receiver, argument, stored in a local, block form
       class E
         include Enumerable
         def initialize(*xs); @xs = xs; end
@@ -886,8 +881,7 @@ describe "Enumerable: enumeration" do
   it "reduce with a &proc block publishes its own arguments on every iteration" do
     result = zr(<<~'RUBY')
       # reduce/inject with a &proc block argument forwards through a literal
-      # two-param block; the fold emitter keeps the proc call's prelude inside the
-      # loop, so every iteration publishes its own arguments (#2684).
+      # two-param block, and every iteration passes its own arguments to the proc.
       pr = ->(a, x) { a + x }
       p([1, 2, 3, 4].reduce(&pr))
       p([1, 2, 3, 4].reduce(0, &pr))
@@ -1425,11 +1419,8 @@ describe "Enumerable: enumeration" do
 
   it "enumerator idiom return self" do
     result = zr(<<~'RUBY')
-      # `return to_enum(:each) unless block_given?` … `self`: each emission decides
-      # block_given? statically, so one of the two paths is dead -- but it was still
-      # emitted, and its value had to fit the other path's slot. The receiver landed
-      # in an Enumerator-typed result and the C compiler warned on every such method
-      # (#3953).
+      # `return to_enum(:each) unless block_given?` ... `self`: with a block, `each`
+      # answers the receiver; with no block, it answers an Enumerator.
       class Box
         include Enumerable
         def each
@@ -1644,16 +1635,15 @@ describe "Enumerable: enumeration" do
   it "enumerator ops" do
     result = zr(<<~'RUBY')
       # Enumerator ops: chained each_with_index, +, next_values/peek_values, product
-      # (#2487, #2481, #2482, #2484)
       e = [10, 20].each.each_with_index
-      e.each { |x, i| p [x, i] }            # 2487
+      e.each { |x, i| p [x, i] }
       a = [1, 2].each; b = [3, 4].each
-      p((a + b).to_a)                        # 2481
+      p((a + b).to_a)
       c = [1, 2].each
-      p(c.next_values)                       # 2482
+      p(c.next_values)
       p(c.peek_values)
-      p(Enumerator.product([1, 2], [3, 4]).to_a)          # 2484
-      p(Enumerator.product([1, 2], [3], [4, 5]).to_a)     # 2484 (3 args)
+      p(Enumerator.product([1, 2], [3, 4]).to_a)
+      p(Enumerator.product([1, 2], [3], [4, 5]).to_a)     # 3 args
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -1669,7 +1659,7 @@ describe "Enumerable: enumeration" do
 
   it "enumerator produce" do
     result = zr(<<~'RUBY')
-      # Enumerator.produce -> a fiber-backed infinite generator (#2483)
+      # Enumerator.produce -> a fiber-backed infinite generator
       e = Enumerator.produce(1) { |n| n * 2 }
       p(e.take(3))
       p(Enumerator.produce(1) { |n| n + 1 }.first(4))
@@ -2256,14 +2246,11 @@ describe "Enumerable: enumeration" do
 
   it "external enumerator user object" do
     result = zr(<<~'RUBY')
-      # An external enumerator over a user object. sp_enum_items_from -- which is
-      # what materializes an enumerator's elements -- had arms for every builtin
-      # container and none for a user object, so it answered the EMPTY array and
-      # `v.each.take(3)` yielded nothing (#4022).
+      # An external enumerator over a user object gets its elements from the
+      # object's `each`, so `v.each.take(3)` yields the first three.
       #
-      # The report needed a `&:sym` map over an Array of the same class to see it:
-      # that is what makes the object arrive boxed here rather than through a
-      # spliced loop.
+      # A `&:sym` map over an Array of the same class makes the object arrive
+      # boxed here, not through a spliced loop.
       class Box
         include Enumerable
 
@@ -2309,13 +2296,11 @@ describe "Enumerable: enumeration" do
 
   it "ivar lazy init push via inherited getter" do
     result = zr(<<~'RUBY')
-      # #451: cross-class sequel to #430. The lazy-init getter
+      # The lazy-init getter
       # `def errors; @errors = [] if @errors.nil?; @errors; end` is
       # defined on a parent class; the push `errors << "..."` happens
-      # from a child class method. Before the fix, scan_writer_calls
-      # only inspected @current_class_idx for the getter, so the
-      # parent's @errors stayed `sp_IntArray *` and the child's
-      # String push failed C compile.
+      # from a child class method. The parent's @errors takes the
+      # String elements that the child pushes.
 
       class Base
         def errors
@@ -2360,7 +2345,7 @@ describe "Enumerable: enumeration" do
       puts t.events.length
       puts t.events.join(",")
 
-      # Same-class case (post-#430) still works.
+      # Same-class case.
       class Same
         def items
           @items = [] if @items.nil?
@@ -2818,8 +2803,8 @@ describe "Enumerable: enumeration" do
 
   it "lazy size" do
     result = zr(<<~'RUBY')
-      # Enumerator::Lazy#size: source size propagated through the chain (#2485)
-      p((1..10).lazy.size)                              # 10 (the filed repro)
+      # Enumerator::Lazy#size: source size propagated through the chain
+      p((1..10).lazy.size)                              # 10
       p([1, 2, 3].lazy.size)                            # 3
       p([].lazy.size)                                   # 0
       p([1, 2, 3].lazy.map { |x| x * 2 }.size)          # 3 (map preserves)
@@ -2852,26 +2837,12 @@ describe "Enumerable: enumeration" do
 
   it "map recv emitted once" do
     result = zr(<<~'RUBY')
-      # #540. `n, m = gets.split.map &:to_i` emitted `gets` twice in
-      # the generated C: once via compile_call_expr's pre-compute of
-      # the call recv (`rc = compile_expr_gc_rooted(recv)`) and once
-      # inside compile_map_expr's own `compile_expr(@nd_receiver[nid])`.
-      # For pure-function recvs the duplicate is wasted work, but for
-      # `gets` (and any other side-effecting call) it consumed two
-      # lines of stdin per iteration -- the multi-assign got the
-      # second line's values, then the next loop iteration consumed
-      # two more lines, and the loop's `break if n == 0` check never
-      # saw the intended `0 0` row.
+      # `n, m = gets.split.map &:to_i` evaluates the receiver of `map`
+      # once. For `gets` (and any other side-effecting call), a second
+      # evaluation would consume two lines of stdin per iteration.
       #
-      # Fix: compile_call_expr threads its pre-computed `rc` through
-      # compile_enumerable_expr to compile_map_expr (and a new
-      # `precomputed_rc` param defaults to "" on the
-      # compile_body_return tail path that still wants to compile the
-      # recv itself). compile_map_expr uses the passed temp directly
-      # but still SP_GC_ROOTs it -- compile_expr_gc_rooted skips the
-      # root for non-CallNode recvs (ArrayNode literals like
-      # `[10,20,30,40].map { ... }` reach us unrooted), so the
-      # transient-root emit has to happen here.
+      # The receiver must also stay alive for the GC while `map` runs,
+      # also when it is an array literal like `[10,20,30,40].map { ... }`.
 
       # Counter-style verifies side-effect-once. Each call to `next!`
       # bumps the counter; the test asserts the counter only moves by
@@ -2887,7 +2858,7 @@ describe "Enumerable: enumeration" do
       a, b = next!.split.map { |x| x.to_i }
       puts a
       puts b
-      puts $counter  # was 2 pre-fix (called twice); 1 post-fix.
+      puts $counter  # 1 (called once)
 
       # Nested map with array-literal recv (the GC-rooting concern --
       # the recv temp is the literal, no other root holds it).
@@ -2911,9 +2882,8 @@ describe "Enumerable: enumeration" do
 
   it "max by count tie order" do
     result = zr(<<~'RUBY')
-      # max_by(n) returns tied elements in encounter order, descending by key
-      # (#3255): a plain backward walk over the stable ascending sort reversed
-      # ties, and a pre-ordering tail cut picked later-encountered boundary ties.
+      # max_by(n) returns tied elements in encounter order, descending by key. At
+      # the cut, it keeps the tied elements that come first.
       a = [["Bob", 92], ["Eve", 92], ["Ann", 88]]
       p a.max_by(2) { |x| x[1] }
       b = [["Bob", 92], ["Eve", 92], ["Ann", 88], ["Zed", 92], ["Kim", 95]]
@@ -2941,10 +2911,9 @@ describe "Enumerable: enumeration" do
   it "reduce acc shadow" do
     result = zr(<<~'RUBY')
       # Array#reduce: the accumulator block param's type must come from the
-      # seed (init_val), not from the element type. infer_type(acc) inside
-      # the block must follow the seed in both directions — pointer seed
-      # (string) over a value-typed outer, and value seed (int) over a
-      # pointer-typed outer.
+      # seed (init_val), not from the element type. The type of acc inside
+      # the block follows the seed in both directions -- a String seed over
+      # an Integer outer local, and an Integer seed over a String outer local.
 
       def f
         total = [1, 2, 3].reduce("") { |acc, x| acc + x.to_s }
@@ -2962,8 +2931,8 @@ describe "Enumerable: enumeration" do
       g
 
       # Reverse direction: int seed must shadow an outer string acc without
-      # the outer binding leaking into the block's `acc + x` (which would
-      # dispatch as string concat instead of mrb_int addition).
+      # the outer binding leaking into the block's `acc + x`, which is
+      # Integer addition, not String concatenation.
       def h
         acc = "outer"
         sum = [1, 2, 3, 4, 5].reduce(0) { |acc, x| acc + x }
@@ -3253,7 +3222,7 @@ describe "Enumerable: enumeration" do
   it "sort mixed type raises" do
     result = zr(<<~'RUBY')
       # Sorting an array whose elements are not mutually comparable raises
-      # ArgumentError, matching CRuby (it previously sorted silently). Arrays are
+      # ArgumentError, matching CRuby. Arrays are
       # built with a variable element so they stay heterogeneous PolyArrays.
       str = "x"
       num = 5
@@ -3326,9 +3295,6 @@ describe "Enumerable: enumeration" do
       # library puts them: `ruby_qsort` IS the system `qsort_r`, and zr calls the
       # same one, so the mixed-case word list below ("Apple"/"apple" compare equal)
       # and the 60-element tie table at the end are the tie order this pins.
-      #
-      # This was a decided divergence while zr sorted stably. Imported from the
-      # spinel corpus at c55d9bdb; see tests/spinel/UPSTREAM.md.
       #
       # TWO goldens, because the tie order is libc's and glibc's qsort is not BSD's:
       # `.expected` is macOS, `.linux.expected` linux.

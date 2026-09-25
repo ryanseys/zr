@@ -92,15 +92,7 @@ describe "Methods: searching and matching" do
 
   it "codegen const lookup in toplevel method" do
     result = zr(<<~'RUBY')
-      # Regression for the `String#index` nil-guard in
-      # `current_lexical_scope_name`. A toplevel `def show` body that
-      # reads a CONSTANT routes through `resolve_const_read_name`, which
-      # calls `current_lexical_scope_name`. Inside that helper,
-      # `@current_method_name.index("_cls_")` looks for the class-method
-      # name marker — for a toplevel def the marker isn't present, so
-      # CRuby's `String#index` returns nil while spinel's runtime
-      # returns -1. The pre-fix `if cls_idx >= 0` crashed on the CRuby
-      # path with `NoMethodError: undefined method '>=' for nil`.
+      # A top-level method body reads a top-level CONSTANT.
 
       FOO = 42
       def show; puts FOO; end
@@ -191,10 +183,10 @@ describe "Methods: searching and matching" do
       vop1.data[1] -= 0.5
       vop1.data[2] *= 4.5
       vop1.data[3] /= 0.5
-      puts vop1.data[0]   # 2  (spinel strips ".0")
-      puts vop1.data[1]   # 0
+      puts vop1.data[0]   # 2.0
+      puts vop1.data[1]   # 0.0
       puts vop1.data[2]   # 2.25
-      puts vop1.data[3]   # 1
+      puts vop1.data[3]   # 1.0
 
       ints_op = Array.new(3, 10)
       ints_op[0] += 5
@@ -496,18 +488,10 @@ describe "Methods: searching and matching" do
 
   it "primitive method shadow" do
     result = zr(<<~'RUBY')
-      # Issue #302: a user-defined class method whose name matches a
-      # primitive method (e.g. `String#index`) used to shadow the primitive
-      # during caller-side type inference. `def find_bracket(s); s.index("[");
-      # end` walked s's body, found `index` is defined on user-class
-      # StringIndexer, and committed s's param type to obj_StringIndexer —
-      # even though the call site passed a string and `index` is a primitive
-      # String method.
-      #
-      # Fix: extend `called_methods_only_on_container_builtins` to also
-      # accept the methods shared across String / Hash / Integer, so
-      # `def index` / `def show` / `def create` etc. on user classes can
-      # coexist with primitive callers.
+      # A user-defined method whose name matches a built-in method (e.g.
+      # `String#index`) does not change the call on a String: `s.index("[")`
+      # with a String argument calls `String#index`. The same is true for
+      # names like `show` and `create` on user classes.
 
       class StringIndexer
         def index(needle, start = 0)
@@ -556,28 +540,8 @@ describe "Methods: searching and matching" do
 
   it "primitive method shadow int recv" do
     result = zr(<<~'RUBY')
-      # Issue #305: follow-up to #302's primitive-shadow fix.
-      #
-      # #302 stopped the body-side param-type inference from committing
-      # a param to a user class when the called methods are also defined
-      # on a primitive type (`def find_bracket(s); s.index("[")` no
-      # longer pins `s` as obj_StringIndexer when the only call site
-      # passes a string literal).
-      #
-      # But the *emit-time* int-recv fallback (`compile_int_class_fallback
-      # _expr`) still walked every user class and picked the first one
-      # whose method-name matched. When the receiver flowed in as
-      # `mrb_int` (e.g. unpinned param, IntArray-of-pointer fallback),
-      # the fallback would route `raw_key.index("[")` to
-      # `ArticlesController#index` regardless of the receiver's actual
-      # nature.
-      #
-      # Fix: when `mname` is a primitive-shared method AND any user class
-      # defines it, refuse the int-to-class cast and let the unresolved-
-      # call diagnostic fire. The shape happens to compile to a `0`
-      # placeholder for the call's result — that's the existing fallback
-      # contract for genuinely unresolvable calls; it's vastly better
-      # than the silent miscompile that picked a random user class.
+      # A user class that defines `index` does not take a call to `index` on
+      # a receiver of unknown type.
 
       class ArticlesController
         def index
@@ -585,19 +549,8 @@ describe "Methods: searching and matching" do
         end
       end
 
-      # A param with no upstream pinning. Spinel defaults the param to
-      # mrb_int when no call site supplies a non-int. Without the fix,
-      # the body's `.index` call hits compile_int_class_fallback_expr,
-      # which walks the user-class table and picks ArticlesController
-      # (the first class defining `def index`), emitting a typed cast
-      # `((sp_ArticlesController *)raw_key)->index_get(...)` that is
-      # either a C-compile error or a silent miscompile. With the fix,
-      # the int-recv fallback refuses primitive-shared method names and
-      # the call lowers to the unresolved-call placeholder (literal 0).
-      #
-      # We don't call `find_first` from Ruby — defining it is enough for
-      # spinel to emit and type-check the body, and avoiding the call
-      # keeps MRI happy (Integer#index doesn't exist).
+      # A param with no caller. No code calls `find_first`, so the program only
+      # has to compile and run. (Integer#index does not exist in CRuby.)
       def find_first(raw_key)
         raw_key.index("[")
       end
@@ -953,7 +906,7 @@ describe "Methods: searching and matching" do
   it "values at splat" do
     result = zr(<<~'RUBY')
       # values_at with a splatted array expands each element as a separate
-      # key/index (#3277).
+      # key/index.
       a = [10, 20, 30, 40, 50]
       idx = [1, 3]
       p a.values_at(*idx)

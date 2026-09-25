@@ -5,13 +5,10 @@ require "spec_helper"
 describe "Guards: frozen literals" do
   it "freeze returns self keeping the static collection type" do
     result = zr(<<~'RUBY')
-      # Exercises the compiler's `.freeze`-returns-self inference: `names[0]`/
-      # `names.length` must still take the static Array fast path (a generic
-      # fallback would crash). A LOCAL, not the classic `NAMES = [...].freeze`
-      # constant idiom: a constant READ always takes the generic path (constants
-      # live in a runtime map with no static type tracking) -- a PRE-existing gap
-      # that makes `A = [1]; A[0]` fail with or without `.freeze` involved, noted
-      # for a later phase, not a freeze regression.
+      # `.freeze` returns self, so `names` stays a static Array and
+      # `names[0]` / `names.length` still work. The example uses a local, not
+      # the `NAMES = [...].freeze` constant idiom, because a constant read
+      # always takes the generic path.
 
       names = ["a", "b"].freeze
       puts names[0]

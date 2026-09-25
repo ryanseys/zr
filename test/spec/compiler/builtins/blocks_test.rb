@@ -376,7 +376,7 @@ describe "Builtins: blocks and yields" do
       # Methods on values read back out of containers (poly-typed receivers whose
       # runtime kind is a builtin): map! writes back to the original typed array,
       # Range sums/covers, Time subtracts, sum takes a seed, Integer#gcdlcm works
-      # on nested block params (#3234).
+      # on nested block params.
       m = [[1, 2], [3, 4]]; m[1].map! { |x| x * 10 }; p m
       r = [(1..5)][0]; p r.sum
       c = [(10..20)][0]; p c.cover?(15)
@@ -842,8 +842,8 @@ describe "Builtins: blocks and yields" do
       def hsh(x) = x
       def shsh(x) = x
 
-      # inline lambdas now forward into arrays of any element type (previously the
-      # cloned lambda's param defaulted to int and mistyped non-int elements)
+      # inline lambdas forward into arrays of any element type, and the lambda
+      # param takes the type of each element
       p ints([1, 2, 3]).map(&->(x) { x * 2 })                   # [2, 4, 6]
       p strs(["a", "bb", "c"]).select(&->(s) { s.length == 1 }) # ["a", "c"]
       p syms([:a, :bb]).map(&->(s) { s.to_s })                  # ["a", "bb"]

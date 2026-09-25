@@ -5,9 +5,8 @@ require "spec_helper"
 describe "Comparable: comparison and equality" do
   it "bigint compare object operand" do
     result = zr(<<~'RUBY')
-      # `obj == 2**64` must dispatch the object's own `==`: the bigint comparison arm
-      # fired whenever EITHER side was a bignum, so the receiver pointer was coerced
-      # through sp_bigint_new_int and the address was compared instead (#3975 sweep).
+      # `obj == 2**64` calls the object's own `==`, and `obj < 2**64` calls its own
+      # `<`. A big Integer operand does not change which method runs.
       class Exp
         def initialize(v) = @v = v
         def ==(other)
@@ -71,7 +70,7 @@ describe "Comparable: comparison and equality" do
     result = zr(<<~'RUBY')
       # Comparable operators/clamp validate the user <=> result type: a Float
       # result compares by sign. A statically non-Integer/nil <=> result (String,
-      # Array, ...) is a protocol violation caught at compile time (#2961), not a
+      # Array, ...) is a protocol violation caught at compile time, not a
       # runtime error, so it is not exercised here.
       class FDiff
         include Comparable
@@ -105,8 +104,7 @@ describe "Comparable: comparison and equality" do
     result = zr(<<~'RUBY')
       # A base-class method calling a name defined ONLY in descendants (here
       # Comparable's <=> reading `area`) types as the unify of the descendant
-      # returns; it previously stayed unknown and emit_boxed discarded the
-      # virtual dispatch's value through the effect-comma nil (#3237).
+      # returns. The call gives the value of the descendant's method, not nil.
       class Shape
         include Comparable
         def <=>(other) = area <=> other.area
@@ -136,10 +134,9 @@ describe "Comparable: comparison and equality" do
   it "a <=> that answers nil for a mixed operand raises, naming the operand by its inspect" do
     result = zr(<<~'RUBY')
       # Comparable <,>,<=,>=,between?,clamp on a class whose `<=>` returns nil
-      # for an incomparable (mixed-type) operand. The operators route through the
-      # checked boxed comparator even for a VALUE-TYPE class (the direct inline
-      # emit compared an sp_RbVal against 0: invalid C), the cmp-dispatch hook
-      # gets an arm for a scalar-typed `<=>` param, and the ArgumentError message
+      # for an incomparable (mixed-type) operand. The operators check the `<=>`
+      # result also for a small VALUE-TYPE class, a scalar-typed `<=>` param works,
+      # and the ArgumentError message
       # describes a special-constant operand by its inspect ("with 3"), not its
       # class name ("with Integer"), like CRuby's rb_cmperr.
       class VerN

@@ -294,7 +294,7 @@ describe "Numeric: slicing" do
   it "float range endpoint kind" do
     result = zr(<<~'RUBY')
       # A range is a Float range when EITHER endpoint is one, and its endpoint
-      # methods answer the endpoint the caller wrote (#3837).
+      # methods answer the endpoint the caller wrote.
       p((-Float::INFINITY..5).max)
       p((-Float::INFINITY..5).last)
       p((1..5.0).min)
@@ -399,8 +399,8 @@ describe "Numeric: slicing" do
   it "integer gcd arg check" do
     result = zr(<<~'RUBY')
       # Integer#gcd / #lcm / #gcdlcm take an Integer; anything else is CRuby's
-      # "not an integer" TypeError. Only a Float was caught, so a String went into
-      # the mrb_int slot as a pointer and the result was computed from its address.
+      # "not an integer" TypeError. A String, nil, a Float, a Symbol and an Array
+      # all raise it.
       p((5.gcd("x") rescue $!.message))
       p((5.lcm(nil) rescue $!.message))
       p((5.gcd(1.5) rescue $!.message))
@@ -810,9 +810,8 @@ describe "Numeric: slicing" do
 
   it "range step" do
     result = zr(<<~'RUBY')
-      # Issue #731. `(a..b).step(k)` without a block should return an
-      # IntArray of stepped values. spinel used to fall through to the
-      # unresolved-call warning, then `.to_a` on the int 0 segfaulted.
+      # `(a..b).step(k)` without a block returns the stepped values, and
+      # `.to_a` gives them as an Array.
 
       puts (1..10).step(3).to_a.inspect
       puts (0..20).step(5).to_a.inspect
@@ -969,8 +968,7 @@ describe "Numeric: slicing" do
       # Range#step materialises a typed array -- float when the step or a range bound
       # is float -- and iterates faithfully: no float drift, correct exclusivity,
       # descending negative steps, and ArgumentError on a zero step (CRuby parity).
-      # A non-literal step (through a method param) previously truncated to int and
-      # looped forever; a literal float step tripped clang -Werror.
+      # A non-literal step (through a method param) keeps its Float value too.
       def s(x); x; end
 
       # --- float steps, no block ---

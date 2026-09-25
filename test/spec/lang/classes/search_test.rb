@@ -5,15 +5,12 @@ require "spec_helper"
 describe "Classes: searching and matching" do
   it "case when class" do
     result = zr(<<~'RUBY')
-      # Issue #404 Phase 3 Tier 4 follow-up: `case obj when ClassConst`
-      # on a poly receiver. Pre-Tier-4 the lowering left ConstantReadNode
-      # arms unimplemented for poly recv (literal cascade only handled
-      # sym/str/int/float/nil/bool). Module#=== is equivalent to
-      # `arg.is_a?(recv)`, so we route through sp_class_le over
-      # sp_class_for_poly and the precomputed ancestors.
+      # `case obj when ClassConst` on a receiver that can hold values of
+      # different classes. Module#=== is equivalent to `arg.is_a?(recv)`,
+      # so each arm tests the class of the value and its ancestors.
       #
       # Coverage:
-      #   - Class match against a poly recv carrying primitives.
+      #   - Class match against a receiver that carries primitives.
       #   - Multiple primitive class arms in one case.
       #   - else clause.
 
@@ -50,17 +47,11 @@ describe "Classes: searching and matching" do
 
   it "case when class scalar predicate" do
     result = zr(<<~'RUBY')
-      # `case <scalar> when ClassConst` previously compiled the
-      # class-constant when-arm into a strcmp against the sp_Class
-      # struct, failing C compile with "incompatible type for argument
-      # 2 of strcmp". The same shape applied to int / float / symbol /
-      # bool predicates would have compared the predicate's value
-      # against an sp_Class struct. Fix: at compile_when_conds, when
-      # the when-arg is a ConstantReadNode naming a built-in class,
-      # resolve via Module#=== — match only when the class corresponds
-      # to the predicate's kind (Integer / Float for numeric, String
-      # for string, Symbol for symbol, TrueClass / FalseClass for
-      # bool). Anything else is a static false.
+      # `case <scalar> when ClassConst` on a String, an Integer and a
+      # Symbol. The arm uses Module#===, so it matches only when the
+      # class corresponds to the kind of the value (Integer / Float for
+      # numeric, String for string, Symbol for symbol, TrueClass /
+      # FalseClass for bool). Any other class does not match.
 
       class Box
         attr_accessor :v
@@ -114,22 +105,8 @@ describe "Classes: searching and matching" do
 
   it "case when qualified class" do
     result = zr(<<~'RUBY')
-      # `case obj when Mod::Klass` had two bugs:
-      #
-      # 1. compile_case_stmt emitted the predicate tmp as `sp_<X> *` even
-      #    when the predicate's actual storage was a value type
-      #    (`sp_<X>` without the pointer) — producing C errors of the
-      #    form "initializing 'sp_X *' with an expression of incompatible
-      #    type 'sp_X'; take the address with &". The fix routes the
-      #    declaration through c_type so value-type classes get the
-      #    right C shape.
-      #
-      # 2. The static-resolution branch in compile_when_conds only matched
-      #    ConstantReadNode arguments, so qualified constants
-      #    (ConstantPathNode like `Mod::Klass`) fell through to the
-      #    poly-receiver path and emitted `<undeclared identifier>` C.
-      #    Fix: also accept ConstantPathNode and route through
-      #    resolve_const_ref_name to get the registered class name.
+      # `case obj when Mod::Klass`: a qualified constant (`Mod::Klass`) in
+      # a `when` arm matches the same way as a plain constant.
 
       module Mod
         class Klass
@@ -150,8 +127,7 @@ describe "Classes: searching and matching" do
                end
       puts result
 
-      # Plain (non-namespaced) class also exercises the c_type fix, since
-      # the pointer-vs-value mismatch was independent of namespacing.
+      # A plain (non-namespaced) class in a `when` arm.
       class Plain
         def initialize; @x = 1; end
       end
@@ -169,8 +145,7 @@ describe "Classes: searching and matching" do
   it "class literal constructors" do
     result = zr(<<~'RUBY')
       # `Array[...]` and `Range.new(...)` are the constructor spellings of the
-      # `[...]` and `(a..b)` literals. Both raised NoMethodError while the literal
-      # for the same value worked (#3485, #3486). They desugar to the literal, so
+      # `[...]` and `(a..b)` literals. They desugar to the literal, so
       # what has to hold is that they type and behave as one -- including the
       # element type an array literal carries, and the exclusive form of a range.
       p Array[1, 2, 3]

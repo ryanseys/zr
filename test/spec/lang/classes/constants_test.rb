@@ -22,7 +22,7 @@ describe "Classes: constants" do
   it "class allocate builtin var" do
     result = zr(<<~'RUBY')
       # Class#allocate on builtin classes yields the class's empty value, and a
-      # variable-held class (builtin or user) dispatches like the constant (#2655).
+      # variable-held class (builtin or user) dispatches like the constant.
       # A user allocate skips initialize.
       p String.allocate
       p Array.allocate
@@ -183,10 +183,7 @@ describe "Classes: constants" do
 
   it "class constant path read" do
     result = zr(<<~'RUBY')
-      # Issue #52: reading a class-scoped constant from outside the class
-      # via `ClassName::CONST` used to emit `User_MAX_NAME_LENGTH` as an
-      # undeclared C identifier. Now it's emitted as `cst_User_MAX_NAME_LENGTH`
-      # with a matching declaration.
+      # `ClassName::CONST` reads a class-scoped constant from outside the class.
 
       class User
         MAX_NAME_LENGTH = 20
@@ -351,7 +348,7 @@ describe "Classes: constants" do
   it "class var builtin new" do
     result = zr(<<~'RUBY')
       # A local statically holding one builtin class constant dispatches like the
-      # constant itself (#2715) -- the receiver is retargeted at the AST.
+      # constant itself.
       k = Array
       p k.new(3, 0)
       h = Hash
@@ -678,21 +675,14 @@ describe "Classes: constants" do
 
   it "dynamic class new" do
     result = zr(<<~'RUBY')
-      # Issue #404 Tier 5. Dynamic `<sp_Class>.new` over a Class-typed
-      # value. Pre-Tier-5 only the constant-receiver form worked
-      # (`Foo.new` resolves at codegen time); a Class-typed local
-      # carrying the same class hit the unresolved-call warning + 0
-      # emit. The delegated_type / STI shape needs runtime dispatch
-      # because the candidate class is determined by data.
+      # Dynamic `klass.new`, where `klass` is a Class value and not a constant.
+      # The delegated_type / STI shape needs this, because data picks the class.
       #
       # Coverage:
-      #   - Pick a class from a hash at runtime, call .new, get a
-      #     boxed instance, dispatch instance methods via the existing
-      #     cls_id-keyed poly dispatch.
-      #   - Multiple classes share the dispatch table.
-      #   - Only the zero-arg shape is supported in this tier; classes
-      #     whose initialize requires args fall back to nil from the
-      #     dispatch (out of scope for the MVP).
+      #   - A method gets a class as a parameter, calls .new, and the
+      #     instance answers its own class's methods.
+      #   - Three classes go through the same call site.
+      #   - A Class held in a local variable works the same way.
 
       class Article
         def kind; "article"; end

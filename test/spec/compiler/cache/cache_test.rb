@@ -200,10 +200,8 @@ describe "Cache programs" do
   it "frozen nul literal cache" do
     result = zr(<<~'RUBY')
       # frozen_string_literal: true
-      # `fresh_receiver.delete("\0")` must not corrupt the receiver. Before the fix
-      # the frozen "\0" literal was re-allocated on every call, and that allocation
-      # could trigger a GC that swept the (unrooted) fresh receiver before delete
-      # read it -- a use-after-free (doom's `data[8,8].delete("\0")` WAD name parse).
+      # `fresh_receiver.delete("\0")` must not corrupt the receiver, also when a GC
+      # runs during the call (as in doom's `data[8,8].delete("\0")` WAD name parse).
       # Here the receiver has no NUL, so delete removes nothing: it still allocates a
       # fresh string (delete always does), but the resulting bytes are unchanged.
       out = []
@@ -218,10 +216,8 @@ describe "Cache programs" do
       puts "bad=#{bad}"
 
       # Sibling-operand shape: a fresh string operand sits next to a frozen
-      # NUL-containing literal. The literal allocates on first evaluation (to fill its
-      # call-site cache), so subtree_may_allocate must flag it as allocating -- else
-      # the fresh operand is left unrooted and a GC during that first allocation frees
-      # it. `a + "pad\0"` keeps "pad" (sp_str_plus stops the literal at its NUL).
+      # NUL-containing literal. The literal can allocate on first evaluation, and a
+      # GC at that time must not free the fresh operand. `a + "pad\0"` keeps "pad".
       def joinit(a)
         a + "pad\x00"
       end

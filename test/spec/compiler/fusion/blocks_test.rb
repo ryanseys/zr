@@ -7,13 +7,8 @@ describe "Fusion: blocks and yields" do
     result = zr(<<~'RUBY')
       # Typed-receiver `recv.m { ... }` &block forwarding (Site B).
       #
-      # Pre-fix `compile_object_method_expr` dropped the literal block: the
-      # call site emitted `sp_Cls_m(rc, 0)` and the binary segfaulted inside
-      # `sp_proc_call(NULL, ...)`. Fix: precompute `has_proc` from the
-      # callee's param types, pass it to `compile_typed_call_args` as the
-      # new `omit_trailing` 4th arg so the &block slot isn't padded with
-      # "0", then build a `bp`/`tail` that appends the proc literal after
-      # the regular args.
+      # The literal block reaches the method's &block parameter, after the
+      # regular args, and `block.call` runs it.
 
       # 1. Basic: `recv.m { ... }` with arity-0 block.call.
       class App
@@ -74,10 +69,7 @@ describe "Fusion: blocks and yields" do
       puts Picker.new.pick { |n| n * 5 }
 
       # 7. Method declares &block, call site provides none. The &block
-      #    slot must be filled with NULL — pre-fix `omit_trailing` dropped
-      #    the slot from the C call entirely, leaving an arity mismatch
-      #    between sp_Optional_maybe(sp_Optional *, sp_Proc *) and
-      #    sp_Optional_maybe(_t1).
+      #    parameter is nil.
       class Optional
         def maybe(&block)
           puts "7-no-block"
@@ -106,10 +98,9 @@ describe "Fusion: blocks and yields" do
 
   it "block given inline call site" do
     result = zr(<<~'RUBY')
-      # Issue #706: block_given? in a yield-using method, called from
-      # a site that either omits the block (zero-arg case emits
-      # `sp_f(NULL, NULL)`) or supplies a literal block (inline path
-      # correctly answers true).
+      # block_given? in a yield-using method, called from a site that
+      # either omits the block (false) or supplies a literal block
+      # (true).
       def f
         puts block_given?
       end
@@ -411,17 +402,9 @@ describe "Fusion: blocks and yields" do
 
   it "inlined yield block param type" do
     result = zr(<<~'RUBY')
-      # Issue #395 string-yield sub-variant. The previous fix only
-      # covered int-yielding `each` over a user class; a string-yielding
-      # variant still tripped a type mismatch (block param `k` got
-      # declared `mrb_int` at the parent scope, but the yield expansion
-      # assigned a `const char *` from the iterating method's body).
-      #
-      # Fix: scan_locals' obj-recv branch now scans the yielding method's
-      # body in a temp scope (with @current_class_idx pointing at the
-      # method's owner class so ivar reads resolve), then asks
-      # body_yield_arg_types for the per-position yield arg types and
-      # pushes those onto the block-param `types` array.
+      # A user-class `each` that yields Strings. The block param `k` takes
+      # the type of the value that the method body yields, here a String.
+      # The body reads ivars of its own class to build that value.
 
       class C
         def initialize
@@ -450,21 +433,11 @@ describe "Fusion: blocks and yields" do
 
   it "inlined yield self locals" do
     result = zr(<<~'RUBY')
-      # Issue #395 / #392 cluster: inlined yield-bearing method bodies
-      # previously emitted (a) `self->iv_X` references with no `self` in
-      # scope at the call site, (b) half-renamed locals (`lv_i_y1` for the
-      # declaration but `lv_i` for some uses), and (c) `raise X unless Y`
-      # hoisted out of the unless block.
-      #
-      # Fix: compile_yield_method_call_stmt sets @self_override to the
-      # receiver expression so default ivar emission picks up the right
-      # pointer. compile_expr_remap learns `[]` / `length` / `size` so
-      # local-renamed receivers don't fall through to compile_expr.
-      # fiber_var_ref consults @inline_rename_map_from / _to so any
-      # CallNode that does fall through still gets the renamed local.
-      # compile_stmt_with_block gets a UnlessNode arm.
+      # Inlined yield-bearing method bodies must (a) read ivars of the
+      # receiver, not of the call site, (b) use each of their own locals
+      # consistently, and (c) keep `raise X unless Y` inside the unless.
 
-      # A) Inlined `each` over an int_array ivar (issue #395 int variant).
+      # A) Inlined `each` over an Integer-array ivar.
       class C
         def initialize
           @nums = []
@@ -487,8 +460,7 @@ describe "Fusion: blocks and yields" do
       c = C.new
       c.each { |n| puts n.to_s }   # 10 / 20 / 30
 
-      # B) `raise X unless Y` inside an inlined yield-method body
-      # (issue #392).
+      # B) `raise X unless Y` inside an inlined yield-method body.
       def measure
         before = 1
         yield
@@ -632,7 +604,6 @@ describe "Fusion: blocks and yields" do
       # The `.times` body shares the enclosing scope, so the param is
       # cell-wrapped per iteration -- fresh each turn, matching Ruby -- and the
       # nested closure shares that cell, exactly like a real block param.
-      # Previously a clean compile-error scope-cut.
       # a=1: {1}, {1+0}, {1+1}; a=2: {2}, {2+0}, {2+1}
 
       store = []
@@ -657,9 +628,8 @@ describe "Fusion: blocks and yields" do
 
   it "proc capture inline block param" do
     result = zr(<<~'RUBY')
-      # A proc created inside an INLINED iterator block, capturing the block's param
-      # (#2648): the body is wrapped in an immediately-called lambda that owns a
-      # renamed copy of the param, so each iteration captures a FRESH cell.
+      # A proc created inside an INLINED iterator block, capturing the block's param:
+      # each iteration captures a FRESH binding of the param.
       fs = [1, 2, 3].map { |i| ->{ i * 10 } }
       p fs[0].call
       p fs[1].call
@@ -723,9 +693,8 @@ describe "Fusion: blocks and yields" do
       # An argument to a yielding (inlined) method is call-site code: it must
       # resolve against the CALLER's self and class, not the receiver's. Here
       # `interval` is the caller Widget's attr_reader, interpolated into the
-      # cache key passed to Cache#fetch. Regression: the receiver-context
-      # switch happened before argument binding, so `interval` resolved (and
-      # was invoked) against the Cache receiver instead of the Widget caller.
+      # cache key passed to Cache#fetch. Arguments bind before the switch to the
+      # receiver's context, so `interval` runs against the Widget caller.
       class Cache
         def fetch(key)
           @store ||= {}
@@ -806,9 +775,9 @@ describe "Fusion: blocks and yields" do
   it "yield inline divergent accumulator" do
     result = zr(<<~'RUBY')
       # A yield-inlined method that accumulates yield results into an array it
-      # returns (map-style) must widen that array to poly when its callers pass
-      # blocks of divergent value type -- otherwise an object-returning block's
-      # elements land in an int-sized accumulator (#2454). The scalar round-trip
+      # returns (map-style) must hold any value type when its callers pass blocks
+      # of divergent value type, so an object-returning block's elements keep
+      # their objects. The scalar round-trip
       # for a method that returns the yield value directly is unaffected.
       class Rel
         def map
@@ -841,8 +810,8 @@ describe "Fusion: blocks and yields" do
       # A yield-inline wrapper called from sites whose blocks return DIFFERENT types:
       # the collector the inner iterator builds must hold poly elements. One shared
       # inlined body cannot size it for both an Integer- and a String-returning block
-      # -- whichever site is analyzed first would settle the slot and the other would
-      # emit into it (#2457, same family as the `acc << yield(x)` case in #2454).
+      # -- the first site must not fix the element type for the other. This is the
+      # same family as the `acc << yield(x)` case.
       class Row
         def initialize(i, c); @i = i; @c = c; end
         def id; @i; end
@@ -882,8 +851,7 @@ describe "Fusion: blocks and yields" do
       # runs in the RECEIVER's class context, so an implicit-self call inside
       # it (`to_a` / `size` below, both defined on Relation) must resolve
       # against Relation — not against the CALLER's class (Paginator), which
-      # has no such method. Regression: the inline bound `self` to the
-      # receiver but left the emitting-class context as the caller's.
+      # has no such method.
       class Relation
         def initialize(items)
           @items = items
@@ -921,13 +889,8 @@ describe "Fusion: blocks and yields" do
 
   it "yield typed hash block local" do
     result = zr(<<~'RUBY')
-      # `yield <typed-hash>` from a top-level method should propagate the
-      # hash's type to the caller's block-param local. Pre-fix
-      # block_param_type_at returned `int` for no-recv user yield methods
-      # (only the receiver-typed `arr.each` / `c.each` arms had yield-arg
-      # lookup wired up), so the block-local was declared `mrb_int` and
-      # the typed pointer was silently coerced to an int slot. Downstream
-      # `row["k"]` then dispatched on int and folded to 0. Issue #628.
+      # `yield <typed-hash>` from a top-level method gives the hash's type
+      # to the caller's block-param local, so `row["k"]` reads the hash.
 
       def emit_rows
         i = 0

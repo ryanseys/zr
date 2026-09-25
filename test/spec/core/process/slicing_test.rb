@@ -5,8 +5,7 @@ require "spec_helper"
 describe "Process: slicing" do
   it "at exit lifo" do
     result = zr(<<~'RUBY')
-      # at_exit hooks run in LIFO order after main returns. Spinel used
-      # to silently drop the block.
+      # at_exit hooks run in LIFO order after main returns.
       at_exit { puts "first registered" }
       at_exit { puts "second registered" }
       at_exit { puts "third registered" }
@@ -44,7 +43,7 @@ describe "Process: slicing" do
       args = [10, 7]
       puts b.instance_exec(*args) { |a, c| a + c + @v }
 
-      # a directly-passed array auto-splats the same way (regression anchor)
+      # a directly-passed array auto-splats the same way
       puts b.instance_exec([3, 4]) { |a, c| a * c }
 
       # splat of a string array
@@ -71,7 +70,7 @@ describe "Process: slicing" do
   it "instance exec trampoline receiverless" do
     result = zr(<<~'RUBY')
       # A receiverless call to an instance_exec trampoline splices the literal
-      # block with self rebound (previously the block was silently dropped), and
+      # block with self rebound, and
       # a parenthesized value-tail keeps its leading statements ordered ahead of
       # the spliced block body.
       class App
@@ -124,8 +123,7 @@ describe "Process: slicing" do
       # PostExecutionNode -- `END { ... }`.
       #
       # CRuby runs END blocks at program exit in REVERSE order of
-      # registration. Spinel emits each END body as a static C function
-      # and registers it via atexit() during main() startup.
+      # registration.
 
       puts "middle"
 
@@ -154,8 +152,6 @@ describe "Process: slicing" do
       #
       # CRuby runs all BEGIN blocks in source order, BEFORE any other
       # top-level statements, regardless of where they appear in the file.
-      # Spinel hoists each BEGIN body to the top of main() in source-encounter
-      # order during a pre-pass.
 
       puts "middle"
 
@@ -227,14 +223,12 @@ describe "Process: slicing" do
 
   it "signal trap stub" do
     result = zr(<<~'RUBY')
-      # trap / Signal.trap / ::Signal.trap compile to no-ops at every shape;
-      # Spinel has no signal-handler runtime, so the block body (if any)
-      # never fires. Expression position returns "DEFAULT" -- CRuby's value
-      # for any signal that was never previously trapped.
+      # trap / Signal.trap / ::Signal.trap at every shape. No signal arrives,
+      # so the block body (if any) never fires. Expression position returns
+      # "DEFAULT" -- CRuby's value for any signal that was never trapped before.
       #
       # Each section uses a distinct signal name so no signal's state is
-      # observed twice (CRuby would return the prior handler on the second
-      # touch, which Spinel does not yet model).
+      # observed twice (CRuby returns the prior handler on the second touch).
 
       # Stmt position, implicit-self.
       trap("INT") { puts "handler" }

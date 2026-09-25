@@ -95,17 +95,13 @@ describe "Object: dispatch" do
 
   it "poly is a" do
     result = zr(<<~'RUBY')
-      # `<poly>.is_a?(Klass)` / `kind_of?` / `instance_of?` runtime
-      # dispatch. Spinel previously fell through to user-class dispatch
-      # only — the SP_TAG_INT / SP_TAG_STR / SP_TAG_FLT / SP_TAG_NIL /
-      # SP_TAG_BOOL / SP_TAG_SYM / built-in Array / Hash / Range cases
-      # were missing, so `is_a?(Integer)` against a poly slot always
-      # returned false and downstream branches took the wrong arm. The
-      # user-class dispatch also walked the wrong direction (recv->parent
-      # instead of any-descendant->ancestor).
+      # `is_a?(Klass)` on a value of unknown type. It must match the
+      # built-in classes (Integer, String, Float, nil, true, false, Symbol,
+      # Array, Hash, Range) and user classes. A subclass instance matches
+      # its ancestors, but an ancestor instance does not match a subclass.
       #
-      # Repro: a heterogeneous poly array yields each element back as
-      # poly, then the type test routes it to the right branch. The
+      # A mixed array yields each element, and the type test sends it
+      # to the correct branch. The
       # trailing Bar.new must select the `is_a?(Bar)` arm AND the
       # Foo.new before it must NOT match `is_a?(Bar)` (subclass-only).
 
@@ -315,10 +311,9 @@ describe "Object: dispatch" do
   it "poly to s user class" do
     result = zr(<<~'RUBY')
       # A user class defining an instance `to_s`/`inspect` must not capture boxed
-      # scalars in the polymorphic to_s/inspect dispatch. Every boxed scalar carries
-      # cls_id 0, which aliased the first user class (index 0): a poly `value.to_s`
-      # with a user class 0 defining `to_s` entered that class's method and
-      # dereferenced the scalar's payload, segfaulting. Issue #1576.
+      # scalars in the polymorphic to_s/inspect dispatch. A `value.to_s` on an
+      # Integer, String or other scalar must call the scalar's own `to_s`, not the
+      # `to_s` of the first user class.
 
       class Env
         def initialize(name)

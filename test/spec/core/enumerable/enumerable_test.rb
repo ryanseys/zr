@@ -65,15 +65,12 @@ describe "Enumerable programs" do
 
   it "autoload lazy at declaration" do
     result = zr(<<~'RUBY', files: beside("autoload_lazy/differ.rb"))
-      # An `autoload` target no longer loads BEFORE the statement holding it:
+      # An `autoload` target does not load BEFORE the statement holding it:
       # differ.rb calls a singleton method this module body installs a few
-      # statements earlier (rspec-support's exact shape) -- the old eager splice
-      # hoisted the target's body ahead of the whole `module` statement, so the
-      # helper did not exist yet and the load raised NoMethodError.
+      # statements earlier (rspec-support's exact shape).
       #
-      # The target now runs at the constant's first ACCESS, as CRuby's does --
-      # see `autoload_is_lazy.rb`. The divergence this header used to record is
-      # gone; the shape is kept because it is the one the eager splice broke.
+      # The target runs at the constant's first ACCESS, as CRuby's does --
+      # see `autoload_is_lazy.rb`.
       module Outer
         module Foo
           puts "body-1"
@@ -538,7 +535,7 @@ describe "Enumerable programs" do
 
   it "chain, reverse_each, compact and to_set read a user class the same as an Array" do
     result = zr(<<~'RUBY')
-      # Enumerable chain/reverse_each/compact/to_set on user classes + Array#chain (#2474-2478)
+      # Enumerable chain/reverse_each/compact/to_set on user classes + Array#chain
       class C
         include Enumerable
         def each; yield 3; yield 1; yield 2; end
@@ -628,13 +625,8 @@ describe "Enumerable programs" do
       # what they were given: a surplus one is `wrong number of arguments`, not a
       # conversion error on the first, and not silently ignored.
       #
-      # Five rows were wrong. `tally(1, 2)` reported the first argument's type,
-      # `tally({}, 2)` and `each_slice(1, 2)`/`each_cons(1, 2)` ignored the extra
-      # entirely and answered, `min(1, 2)`/`max(1, 2)` did too, and `count(1, 2)`
-      # named the wrong bound ("expected 1" for a method whose range is 0..1).
-      #
-      # The rows that were already right are kept as controls, so a regression
-      # names which half broke.
+      # The message names the full range of the method (`count` takes 0..1).
+      # `tally(:x)` and `zip()` are controls with a correct argument count.
       rows = {
         "tally(1, 2)" => -> { [1, 2].tally(1, 2) },
         "tally(:x)" => -> { [1, 2].tally(:x) },
@@ -683,7 +675,7 @@ describe "Enumerable programs" do
   it "tally counts into the hash it is given and answers that same object" do
     result = zr(<<~'RUBY')
       # Enumerable#tally(hash) counts into the given accumulator hash and returns it
-      # (the same object), across hash variants (#2628).
+      # (the same object), across hash variants.
       class E
         include Enumerable
         def initialize(*a) = @a = a
@@ -1444,9 +1436,8 @@ describe "Enumerable programs" do
 
   it "resolves before method missing" do
     result = zr(<<~'RUBY')
-      # The send-ladder fidelity fix: a REAL module method (Enumerable's `map`,
-      # via `include Enumerable` + `each`) resolves BEFORE `method_missing` --
-      # previously method_missing fired first, the opposite of real Ruby.
+      # A REAL module method (Enumerable's `map`, via `include Enumerable` +
+      # `each`) resolves BEFORE `method_missing`, as in real Ruby.
 
       class Sack
         include Enumerable
@@ -1557,8 +1548,7 @@ describe "Enumerable programs" do
   it "tail iter call receiver" do
     result = zr(<<~'RUBY')
       # An iterator answers its receiver, and at tail position that value is the
-      # method's return. The statement form produces it by re-READING the receiver,
-      # so a receiver that is itself a call used to fall through to nil.
+      # method's return. This is also true when the receiver is itself a call.
       def keys_of(h) = h.keys.each { |a| a }
       def values_of(h) = h.values.each { |a| a }
       def pairs_of(h) = h.to_a.each { |a| a }
@@ -1629,7 +1619,7 @@ describe "Enumerable programs" do
 
   it "tally accumulator" do
     result = zr(<<~'RUBY')
-      # Enumerable#tally(hash) accumulates into the given hash and returns it (#2533)
+      # Enumerable#tally(hash) accumulates into the given hash and returns it
       h = Hash.new(0)
       p([1, 1, 2, 3, 3, 3].tally(h))
       p(h)

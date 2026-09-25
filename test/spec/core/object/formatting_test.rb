@@ -223,8 +223,7 @@ describe "Object: formatting and inspection" do
     result = zr(<<~'RUBY')
       # `class <expr>::Name` -- a definition whose NAMESPACE is a runtime value
       # rather than a constant path. Four spellings in the corpus, all the same
-      # thing said differently, and zr used to reject every one of them with
-      # "expected a constant name or path":
+      # thing said differently, and each one defines the class or module:
       #
       #   class self::Task            (inside an `included do ... end` hook)
       #   class parent::Pagination    (a local, jekyll-localization)
@@ -343,7 +342,7 @@ describe "Object: formatting and inspection" do
       puts "quote\"inside".inspect
       puts "back\\slash".inspect
 
-      # Symbol (regression)
+      # Symbol
       puts :foo.inspect
 
       # Boolean
@@ -376,7 +375,7 @@ describe "Object: formatting and inspection" do
       p [""]
       p [:foo, :bar]
 
-      # Heterogeneous / mixed-type arrays (poly_array)
+      # Heterogeneous / mixed-type arrays
       p [1, "x"]
       p [nil, :sym, 1.5]
       p [1, "two", :three, 4.0, true]
@@ -1207,10 +1206,8 @@ describe "Object: formatting and inspection" do
 
   it "tuple inspect" do
     result = zr(<<~'RUBY')
-      # Issues #724, #726. Tuples (fixed-arity return types from
-      # Integer#divmod, Array#minmax, String#partition, etc.) used to fall
-      # through to the unresolved-call warning when passed to inspect.
-      # Now any tuple type goes through the generic tuple-inspect builder.
+      # `inspect` on the fixed-size arrays that Integer#divmod,
+      # Array#minmax, String#partition and similar methods return.
 
       puts [1, 2, 3].minmax.inspect              # tuple:int,int
       puts 17.divmod(5).inspect                   # tuple:int,int

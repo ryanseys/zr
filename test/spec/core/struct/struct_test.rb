@@ -112,17 +112,10 @@ describe "Struct programs" do
 
   it "block param widen multi struct" do
     result = zr(<<~'RUBY')
-      # A block over an unresolved receiver, for a name the builtin Enumerable
-      # surface also owns, must have its params widened to poly: the dispatch can
-      # reach a container at run time, and a user method's yield types describe only
-      # the user arm. That widening was tied to a class having been ADOPTED, which
-      # happens only when EXACTLY ONE user class defines the name. Every Struct
-      # defines `each`, so a second Struct in the file meant nothing was adopted, the
-      # widening was skipped, and the param kept an earlier round's guess -- Integer.
-      # The Struct members typed from it followed, and the C build stopped (#4086).
-      #
-      # More candidates is a stronger case for poly, not a weaker one. The widening
-      # now needs a candidate to exist, not to be unique.
+      # A block on a receiver whose class is not known, for a name that builtin
+      # Enumerable also has (`each`). The receiver can be a builtin container at run
+      # time, so the block params can hold any value. Every Struct defines `each`, and
+      # this file has two Structs, so more than one user class has the name too.
 
       module Probe
         Disallowed = Struct.new(:term)
@@ -136,13 +129,12 @@ describe "Struct programs" do
       f = Probe::Finding.new("a.rb", "Order")
       puts "#{f.path} #{f.term}"
 
-      # and the method actually called (its RETURN is a separate gap, on master too:
-      # `each` through a module method answers nil rather than the receiver, so what
-      # is checked here is that calling it works and the members stay right)
+      # and the method actually called (the example does not print its return
+      # value; it checks that the call works and the members stay right)
       Probe.check({ "x" => 1 })
       p Probe::Finding.new("b.rb", "Term").path
 
-      # one Struct, which is the shape that worked by accident
+      # one Struct
       module Solo
         Only = Struct.new(:v)
 
@@ -511,10 +503,8 @@ describe "Struct programs" do
     result = zr(<<~'RUBY', files: beside("data_reopen/target/spec.rb", "data_reopen/target.rb"))
       # Reopening a `Data.define` constant with a bare `class` runs the body as a
       # `class_eval` block, and every class-body statement but a local write has a
-      # spelling there -- a nested class included. The nested `class Spec` used to
-      # send the whole definition back to the static path, which minted a
-      # memberless `Target` over the Data class, so `Target.new(name:)` inside
-      # `Spec#fin!` raised "wrong number of arguments (given 1, expected 0)".
+      # spelling there -- a nested class included. So `Target` keeps its members,
+      # and `Target.new(name:)` inside `Spec#fin!` works.
       #
       # Sow's `lib/sow/reap/target.rb` + `target/spec.rb` is this shape across two
       # files, which `require_relative` below reproduces.
@@ -579,7 +569,7 @@ describe "Struct programs" do
   it "data struct ivar get nil" do
     result = zr(<<~'RUBY')
       # Data/Struct members are not @-instance variables: a literal
-      # instance_variable_get answers nil and instance_variables is [] (#2849).
+      # instance_variable_get answers nil and instance_variables is [].
       Point = Data.define(:x, :y)
       p Point.new(1, 2).instance_variable_get(:@x)
       S = Struct.new(:x, :y)
@@ -755,12 +745,9 @@ describe "Struct programs" do
 
   it "poly dispatch struct arg arm" do
     result = zr(<<~'RUBY')
-      # A poly dispatch drops an arm whose parameter cannot receive the argument.
-      # It knew about String and object/non-object mismatches, but not about the
-      # kinds C passes as a struct BY VALUE -- Range, Time, Complex, Rational, Class.
-      # A struct converts to nothing, and the arm passes its temps raw, so matching
-      # `s[0...-5]` by name against a `#[](Symbol)` handed an sp_Range to an sp_sym
-      # slot and the generated C did not compile.
+      # A call whose receiver class is known only at run time goes to the method of
+      # that class, whatever kind of argument it gets (a Symbol, a Range, a Time).
+      # So `s[0...-5]` on a String calls String#[], not the `#[](sym)` of Tag.
       class Tag
         def [](sym) = "sym:#{sym}"
       end
@@ -810,18 +797,9 @@ describe "Struct programs" do
 
   it "poly enum to a builtin arm" do
     result = zr(<<~'RUBY')
-      # The Enumerable desugar puts `__enum_to_a` in front of `obj.map { }` when the
-      # receiver's class defines #each. That rewrite is on the AST and permanent, so
-      # a receiver that was an object type when the desugar ran and widened to poly
-      # afterwards arrives at the dispatch as an Array -- and was told it has no such
-      # method:
-      #
-      #   undefined method '__enum_to_a' for an instance of Array (NoMethodError)
-      #
-      # Reached here because a Struct member and an unrelated class's instance method
-      # share a name, which is what let the parameter look like the Struct for long
-      # enough (#4150). The dispatch now carries the builtin arm, the way `join`
-      # already does for the same reason (#4071).
+      # `obj.map { }` works when obj is an Array, also when a Struct in the program
+      # defines #each. Here a Struct member and an unrelated class's instance method
+      # share a name, so the parameter could be the Struct or an Array.
       module Contract
         Pair = Struct.new(:registered)
 
@@ -873,9 +851,9 @@ describe "Struct programs" do
 
   it "poly map receiver rooted" do
     result = zr(<<~'RUBY')
-      # The receiver of a fused map loop is what the loop reads from, and the body
-      # allocates: a receiver built on the spot was held by nothing, so the first
-      # collection inside the loop freed the array being walked (#3801).
+      # The receiver of a map loop is what the loop reads from, and the body
+      # allocates. A receiver built on the spot must stay alive while a
+      # collection runs inside the loop.
       S = Struct.new(:x, :y)
       g = (0...40).map { |i| S.new(i * 1.5, i * 2.5) }
 
@@ -906,9 +884,8 @@ describe "Struct programs" do
 
   it "proc param value struct types" do
     result = zr(<<~'RUBY')
-      # A by-value struct (Range, Time, Rational, Complex) reaching a lambda or proc
-      # parameter rides the boxed side channel, as a Float already did: the mrb_int
-      # argument slot cannot hold one, and the emitted C did not compile (#3962).
+      # A Range, Time, Rational or Complex argument reaches a lambda or proc
+      # parameter with its value and class.
       f = ->(r) { r.cover?(5) }
       p f.call(1..10)
       g = proc { |r| r.to_a }
@@ -943,12 +920,8 @@ describe "Struct programs" do
 
   it "proc return value struct" do
     result = zr(<<~'RUBY')
-      # A first-class proc publishes its result boxed and the `.call` site unboxes it.
-      # That unbox was a second, hand-written copy of emit_unbox_text and had drifted:
-      # Range, Time and Class were named, so Rational and Complex fell to the generic
-      # `(T)slot.v.p` at the end -- a pointer cast to a struct, which does not compile.
-      # The hash variants fell there too, and those read another variant's layout
-      # without a diagnostic. The list is gone; the one unbox answers for every kind.
+      # A proc's `.call` returns its result with the right class for every kind of
+      # value: Range, Time, Class, Rational, Complex and hashes.
 
       pr = proc { Rational(3, 2) }
       puts pr.call.to_s
@@ -1011,8 +984,7 @@ describe "Struct programs" do
     result = zr(<<~'RUBY')
       # `respond_to?` on a class receiver answered false for class methods the same
       # program calls: `Struct.new`, `Data.define`, and a generated struct class's
-      # own `members` (#3482). Neighbouring core classes already answered true, so
-      # these were the odd ones out.
+      # own `members`, as for other core classes.
       S = Struct.new(:x, :y)
       D = Data.define(:z)
 
@@ -1633,9 +1605,7 @@ describe "Struct programs" do
   it "a Struct class held in a local types its members the same as one in a constant" do
     result = zr(<<~'RUBY')
       # A Struct held in a local is the same class as one held in a constant, so its
-      # construction types the members the same way. It used to leave every member
-      # poly, which put each field read and the arithmetic on it through the boxed
-      # path even when every construction passed the same scalar type.
+      # members and the arithmetic on them work the same way.
       st = Struct.new :x, :y
       a = st.new(1.5, 2.5)
       b = st.new(0.5, 4.0)
@@ -1673,11 +1643,8 @@ describe "Struct programs" do
   it "a local reassigned to a second anonymous Struct class dispatches at run time" do
     result = zr(<<~'RUBY')
       # A local holding an anonymous Struct class, reassigned to a SECOND one. No
-      # single class resolves for it any more, so `s.new` dispatches at run time --
-      # and the switch had no arm for a Struct at all, so the call answered nil.
-      # The write that followed then took the nil box's cls_id, which is 0, as a real
-      # class id and stored through its NULL pointer: a segfault, and the program
-      # printed nothing (#4048).
+      # single class resolves for it any more, so `s.new` finds the class at run
+      # time and makes an instance of the second Struct.
       s = Struct.new :a
       x = s.new
       x.a = 0
@@ -1728,14 +1695,10 @@ describe "Struct programs" do
 
   it "a member value built in argument position survives until the constructor stores it" do
     result = zr(<<~'RUBY')
-      # A Struct member value built in argument position had to survive until the
-      # constructor stored it. The constructor roots its parameters on entry, but that
-      # is already too late: a sibling member expression can collect while the call's
-      # arguments are still being evaluated, and C leaves the order among them
-      # unspecified, so whichever fresh member is evaluated before the allocating one
-      # was freed and the constructor stored a dangling pointer (#4049). Members are
-      # placed on both sides of the allocating one so the shape is exercised whichever
-      # order the C compiler picks.
+      # A Struct member value built in argument position must survive until the
+      # constructor stores it. A sibling member expression can cause a collection
+      # while the call's arguments are still being evaluated. Members are placed on
+      # both sides of the allocating one, so the order of evaluation does not matter.
       Inner = Struct.new(:n)
       Tri = Struct.new(:head, :bulk, :tail)
 
@@ -1911,28 +1874,28 @@ describe "Struct programs" do
 
   it "Struct.[], a negative-index write, entries, reverse_each, compact and each_with_index" do
     result = zr(<<~'RUBY')
-      # Struct method surface (#2488-2491, #2506, #2534-2539)
+      # Struct method surface
       S = Struct.new(:a, :b, :c)
-      p(S[10, 20, 30])                 # 2488 Struct.[]
+      p(S[10, 20, 30])                 # Struct.[]
       s = S.new(1, 2, 3)
-      s[-1] = 99                       # 2489 []= negative index
+      s[-1] = 99                       # []= negative index
       p(s.c)
-      p(s.entries)                     # 2490
-      s.reverse_each { |x| print x }; puts   # 2491
-      r = s.each_with_index { |x, i| }       # 2506 returns receiver
+      p(s.entries)
+      s.reverse_each { |x| print x }; puts
+      r = s.each_with_index { |x, i| }       # returns receiver
       p(r == s)
-      p(s.compact)                     # 2538
+      p(s.compact)
       S2 = Struct.new(:a, keyword_init: true)
-      p(S2.keyword_init?)              # 2534
+      p(S2.keyword_init?)
       p(S.keyword_init?)
-      p(s.chain([4, 5]).to_a)          # 2535
+      p(s.chain([4, 5]).to_a)
       t = S.new(1, 1, 2)
-      p(t.slice_before { |x| x == 1 }.to_a)  # 2536
+      p(t.slice_before { |x| x == 1 }.to_a)
       p(t.slice_after { |x| x == 1 }.to_a)
-      e = s.each_entry                 # 2537 blockless -> Enumerator
+      e = s.each_entry                 # blockless -> Enumerator
       p(e.to_a)
       require "set"
-      p(s.to_set)                      # 2539
+      p(s.to_set)
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -1967,8 +1930,8 @@ describe "Struct programs" do
 
   it "keyword_init? is true, false or nil, and a Struct equals itself" do
     result = zr(<<~'RUBY')
-      # `s == s` must not deadlock: comparing a struct to itself used to lock the
-      # same slots Mutex twice and hang. `keyword_init?` is tri-state, matching
+      # `s == s` must not deadlock: a struct compared to itself answers true.
+      # `keyword_init?` is tri-state, matching
       # CRuby -- `nil` when never specified, else the boolean passed.
 
       S = Struct.new(:a, :b)
@@ -2060,11 +2023,9 @@ describe "Struct programs" do
   it "a custom initialize that yields runs its block during construction" do
     result = zr(<<~'RUBY')
       # A custom initialize that calls its block (yield / block_given? / a called
-      # &blk) runs its body during construction. For a Struct/Data value class this
-      # body was previously skipped -- the members were set member-wise from the raw
-      # args, dropping the block. It now runs inlined at the .new site, so the block
-      # drives the member values via super. Args are routed through a method so the
-      # values are not constant-folded at the call site.
+      # &blk) runs its body during construction, also for a Struct/Data value class.
+      # The block drives the member values via super. The args go through a method,
+      # so their values are known only at run time.
 
       Scaled = Struct.new(:a, :b) do
         def initialize(a, b)

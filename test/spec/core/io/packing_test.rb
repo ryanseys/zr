@@ -199,9 +199,8 @@ describe "IO: packing and unpacking" do
 
   it "STDOUT and $stdout both write, and write answers the byte count" do
     result = zr(<<~'RUBY')
-      # STDOUT/STDERR (constants) and $stdout/$stderr (globals) must actually write.
-      # Previously STDOUT.write / .puts / .print silently produced no output, and
-      # $stdout.write was a no-op returning nil. write returns the byte count.
+      # STDOUT/STDERR (constants) and $stdout/$stderr (globals) all write their
+      # output. write returns the byte count.
 
       n = STDOUT.write("hi\n")
       p n                       # 3

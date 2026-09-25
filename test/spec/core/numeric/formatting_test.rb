@@ -5,10 +5,9 @@ require "spec_helper"
 describe "Numeric: formatting and inspection" do
   it "bignum rational basic" do
     result = zr(<<~'RUBY')
-      # to_r / rationalize / quo on a Bignum build a boxed big Rational (numerator
-      # exceeds mrb_int); construction, inspect/to_s/puts, to_f, class, and == are
-      # wired. Arithmetic and <=> on a big Rational are follow-up work. The by-value
-      # int Rational is unchanged. (#2469)
+      # to_r / rationalize / quo on a Bignum build a big Rational (the numerator
+      # is more than 64 bits). This checks construction, inspect/to_s/puts, to_f,
+      # class, and ==, and also a Rational with small parts.
       p((10**30).to_r)
       p((10**30).rationalize)
       p((10**30).quo(3))
@@ -21,7 +20,7 @@ describe "Numeric: formatting and inspection" do
       puts((10**30).quo(7))
       a = [(10**30).quo(7), (10**40).to_r]
       p a
-      # the int Rational path is unaffected
+      # a Rational with small parts
       p((1r/3))
       p(3.to_r)
       p((1r/2) + (1r/3))
@@ -52,8 +51,8 @@ describe "Numeric: formatting and inspection" do
   it "bignum recv int ord float toi" do
     result = zr(<<~'RUBY')
       # Bignum-receiver conveniences (digits/to_s(base)/even?/odd?/abs),
-      # Integer#ord/#integer?, and Float#to_i beyond int64 raising loudly
-      # (Bignum promotion for statically-int results is tracked on #2024).
+      # Integer#ord/#integer?, and Float#to_i beyond int64, which gives a Bignum
+      # and does not raise RangeError.
       x = 2 ** 100
       p(x.digits)
       p(x.to_s(16))
@@ -382,7 +381,7 @@ describe "Numeric: formatting and inspection" do
   it "float to s fixed 1e15" do
     result = zr(<<~'RUBY')
       # Float#to_s uses plain decimal (not scientific) for a fractional value whose
-      # integer part is 16 digits (1e15..1e16), matching CRuby (#2593).
+      # integer part is 16 digits (1e15..1e16), matching CRuby.
       puts 4503599627370495.5
       puts 1000000000000000.5
       puts 1234567890123456.7
@@ -447,10 +446,9 @@ describe "Numeric: formatting and inspection" do
 
   it "integer extra methods" do
     result = zr(<<~'RUBY')
-      # Issues #875 #876 #873 #860 #894:
-      # Integer methods that were not dispatched - magnitude (alias for abs),
-      # modulo (alias for %), remainder (truncated division remainder, differs
-      # from % for mixed-sign), size (bytes per mrb_int = 8), gcdlcm.
+      # More Integer methods: magnitude (alias for abs), modulo (alias for %),
+      # remainder (truncated division remainder, differs from % for mixed-sign),
+      # size (bytes in a machine word = 8), gcdlcm.
       puts (-42).magnitude
       puts 7.modulo(3)
       puts (-7).modulo(3)
@@ -477,11 +475,11 @@ describe "Numeric: formatting and inspection" do
     result = zr(<<~'RUBY')
       # Kernel#Float / #Integer strictness, CRuby-parity edges:
       # - digit-separating underscores parse ("1_000.5"); misplaced ones raise
-      # - an embedded NUL is invalid (a C-string scan would parse the prefix)
+      # - an embedded NUL is invalid (the prefix before it does not parse alone)
       # - ".5" and "5." both parse (CRuby 4.0 accepts a trailing dot)
       # - hex Float literals parse, including fractional and p-exponent forms
       #   ("0x1_1" -> 17.0, "0x1_1.0" -> 17.0, CRuby 4.0)
-      # - "inf"/"nan" raise (strtod would parse them)
+      # - "inf"/"nan" raise (C strtod would parse them)
       # - Integer() auto-detects prefix bases, including leading-0 octal ("077" -> 63)
       def tf(s)
         Float(s)
@@ -651,24 +649,24 @@ describe "Numeric: formatting and inspection" do
       r001 = (1.5.coerce(nil) rescue $!.class)
       p r001
 
-      r002 = (5.pow(nil) rescue $!.class); p r002        # Spinel: 1
-      r003 = (5.fdiv(nil) rescue $!.class); p r003       # Spinel: Infinity
-      r004 = (5.divmod(nil) rescue $!.class); p r004     # Spinel: ZeroDivisionError
-      r005 = (5.round(nil) rescue $!.class); p r005      # Spinel: 5
-      r006 = (5.digits(nil) rescue $!.class); p r006     # Spinel: ArgumentError
-      r007 = (5.to_s(nil) rescue $!.class); p r007       # Spinel: ArgumentError
-      r008 = (5.coerce(nil) rescue $!.class); p r008     # Spinel: [0, 5]
-      r009 = (5[nil] rescue $!.class); p r009            # Spinel: 1
-      r010 = (5.gcdlcm(nil) rescue $!.class); p r010     # Spinel: [5, 0]
-      r011 = (5.div(nil) rescue $!.class); p r011        # Spinel: ZeroDivisionError
-      r012 = (5.modulo(nil) rescue $!.class); p r012     # Spinel: ZeroDivisionError
-      r013 = (5.remainder(nil) rescue $!.class); p r013  # Spinel: ZeroDivisionError
-      r014 = (5.ceildiv(nil) rescue $!.class); p r014    # Spinel: ZeroDivisionError
-      r015 = (1.5.fdiv(nil) rescue $!.class); p r015     # Spinel: Infinity
-      r016 = (1.5.divmod(nil) rescue $!.class); p r016   # Spinel: ZeroDivisionError
-      r017 = (1.5.round(nil) rescue $!.class); p r017    # Spinel: 2
+      r002 = (5.pow(nil) rescue $!.class); p r002
+      r003 = (5.fdiv(nil) rescue $!.class); p r003
+      r004 = (5.divmod(nil) rescue $!.class); p r004
+      r005 = (5.round(nil) rescue $!.class); p r005
+      r006 = (5.digits(nil) rescue $!.class); p r006
+      r007 = (5.to_s(nil) rescue $!.class); p r007
+      r008 = (5.coerce(nil) rescue $!.class); p r008
+      r009 = (5[nil] rescue $!.class); p r009
+      r010 = (5.gcdlcm(nil) rescue $!.class); p r010
+      r011 = (5.div(nil) rescue $!.class); p r011
+      r012 = (5.modulo(nil) rescue $!.class); p r012
+      r013 = (5.remainder(nil) rescue $!.class); p r013
+      r014 = (5.ceildiv(nil) rescue $!.class); p r014
+      r015 = (1.5.fdiv(nil) rescue $!.class); p r015
+      r016 = (1.5.divmod(nil) rescue $!.class); p r016
+      r017 = (1.5.round(nil) rescue $!.class); p r017
 
-      r018 = (5.between?(nil, 9) rescue $!.class); p r018   # Spinel: true
+      r018 = (5.between?(nil, 9) rescue $!.class); p r018
 
       r019 = (1.5 + nil rescue $!.class); p r019    # => TypeError
       r023 = (1.5 ** nil rescue $!.class); p r023   # => TypeError
@@ -844,8 +842,7 @@ describe "Numeric: formatting and inspection" do
   it "p bignum" do
     result = zr(<<~'RUBY')
       # `p` of a bignum-producing expression must print the integer, just as
-      # `puts`/`print` already do (Integer#inspect == #to_s). Previously the
-      # `p` argument emitter had no TY_BIGINT case and rejected these.
+      # `puts`/`print` do (Integer#inspect == #to_s).
       p(10**30)
       p(2**100)
       p(10 ** 20 + 1)
@@ -864,11 +861,8 @@ describe "Numeric: formatting and inspection" do
 
   it "rational complex literals" do
     result = zr(<<~'RUBY')
-      # Issues #840 #841 #872: Imaginary, Rational literals + Integer#quo.
-      # Both surface as value-type structs (sp_Complex, sp_Rational).
-      # Integer#quo returns a Rational. v1 scope: literal forms +
-      # .inspect/.to_s; arithmetic between mixed Integer/Rational/Complex
-      # is deferred to a follow-up.
+      # Imaginary, Rational literals + Integer#quo. Integer#quo returns a
+      # Rational. This checks the literal forms and .inspect/.to_s.
 
       # Imaginary literals
       puts 1i.inspect
@@ -911,23 +905,14 @@ describe "Numeric: formatting and inspection" do
 
   it "truncate module method" do
     result = zr(<<~'RUBY')
-      # Issue #314: a user-defined module method named `truncate` was
-      # matched by `infer_method_name_type`'s Float#truncate(n) → Float
-      # arm purely on the method name, ignoring the receiver. Result: a
-      # `ViewHelpers.truncate(s, length: 100)` call site (which returns
-      # a string) inferred as float at the caller, and a poly-arg call
-      # like `html_escape(truncate(s, length: 100))` boxed the string
-      # return through `sp_box_float(const char *)` — invalid C.
+      # A user-defined module method named `truncate` is a different method
+      # from Float#truncate(n). `ViewHelpers.truncate(s, length: 100)` returns
+      # the String that its body makes, not a Float.
       #
-      # Surfaced via Roundhouse's emitted real-blog views; minimal repro
-      # extracted from `app/views/articles/_article.rb`'s
+      # Roundhouse's blog views have this shape, in
+      # `app/views/articles/_article.rb`:
       # `io << ViewHelpers.html_escape(ViewHelpers.truncate(article.body,
-      # length: 100))` line.
-      #
-      # Fix: gate the rule on a Float receiver. Float#truncate(n) keeps
-      # its float typing; module-method `truncate` falls through to the
-      # user-method-return lookup so it picks up the actual declared
-      # return type.
+      # length: 100))`.
 
       module M
         def self.html_escape(s)
@@ -945,15 +930,14 @@ describe "Numeric: formatting and inspection" do
         end
       end
 
-      # Force html_escape to take poly so the call site exercises the
-      # arg-boxing path that picked sp_box_float pre-fix.
+      # html_escape gets an Integer and Strings, so its param has more than
+      # one type.
       puts M.html_escape(42)                                   # 42
       puts M.html_escape("hello")                              # hello
       puts M.html_escape(M.truncate("short text", length: 100)) # short text
       puts M.html_escape(M.truncate("a very long text indeed", length: 10)) # a very ...
 
-      # Float#truncate(n) must still type as float — covers the rule's
-      # original purpose.
+      # Float#truncate(n) still gives a Float.
       f = 1.234
       puts f.truncate(2)                                       # 1.23
       puts f.truncate(2) + 0.001                               # 1.2309999999999999

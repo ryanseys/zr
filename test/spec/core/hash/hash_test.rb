@@ -108,11 +108,10 @@ describe "Hash programs" do
 
   it "class ivar save restore" do
     result = zr(<<~'RUBY')
-      # A capture-style save/restore of a class-ivar whose type widens to poly under
-      # whole-program pressure. @query_log is written a bare `[]` (poly-array), pushed
-      # strings (str-array), and restored from `prev`; those heterogeneous writes merge
-      # the slot to poly. The `prev = @query_log` local must widen to poly with it --
-      # otherwise codegen emits an unsound `sp_StrArray *` <- `sp_RbVal` (issue #1793).
+      # A capture-style save/restore of a class-ivar that holds values of different
+      # types. @query_log gets nil, a bare `[]`, pushed strings, and the value restored
+      # from `prev`. The `prev = @query_log` local holds whichever of these the ivar
+      # has at that time.
       class Db
         @query_log = nil
         def self.capture_sql
@@ -145,35 +144,23 @@ describe "Hash programs" do
 
   it "crashers 536" do
     result = zr(<<~'RUBY')
-      # #536. Three crashers:
+      # Three edge cases:
       #
-      # 1. `[].sample` on an empty IntArray emitted `rand() %
-      #    sp_IntArray_length(...)` which becomes `rand() % 0` (SIGFPE
-      #    under -O0, UB elsewhere). The receiver was also evaluated
-      #    twice, allocating a fresh IntArray on each call. Fix: per-
-      #    prefix `sp_<X>_sample` helper that guards `len <= 0` and
-      #    returns the slot's zero value (0 / 0.0 / NULL / sp_box_nil).
+      # 1. `[].sample` on an empty Array answers nil.
       #
-      # 2. `[1,2,3,2].union` (no args) compiled the call as
-      #    `sp_IntArray_union(arr, 0)`. The runtime then dereferenced
-      #    the null second-arg pointer. Fix: NULL-guard the second-arg
-      #    walk in `sp_IntArray_union` / `sp_FloatArray_union` /
-      #    `sp_StrArray_union` so the no-args form reduces to dedup.
+      # 2. `[1,2,3,2].union` (no args) answers the elements without
+      #    duplicates.
       #
-      # 3. `{ 0 => false, a: 1 }` (mixed IntegerNode + SymbolNode keys)
-      #    fell through to `str_poly_hash` and codegen handed the
-      #    integer key directly to `sp_StrPolyHash_set`, which read it
-      #    as `const char *` -- segfault on the next access. Fix:
-      #    detect mixed-shape keys and use `poly_poly_hash` so both key
-      #    and value carry their own tag.
+      # 3. `{ 0 => false, a: 1 }` has an Integer key and a Symbol key
+      #    in one literal. Both keys work.
 
-      # Empty Array#sample returns nil, matching CRuby (was the zero value; #2322).
+      # Empty Array#sample returns nil, matching CRuby.
       puts [].sample.inspect
 
       # No-args Array#union reduces to dedup.
       puts [1, 2, 3, 2].union.inspect
 
-      # Mixed-key hash literal builds via poly_poly_hash.
+      # Mixed-key hash literal.
       h = { 0 => false, a: 1 }
       puts h.size
       puts h[:a]
@@ -222,10 +209,8 @@ describe "Hash programs" do
 
   it "empty hash const value" do
     result = zr(<<~'RUBY')
-      # An empty hash literal as a receiver ({}.freeze) types as the same str-keyed
-      # poly hash codegen emits for a bare {} -- without it the constant was dropped
-      # from codegen entirely (reads raised "uninitialized constant", and a typed
-      # ivar's `|| CONST` fallback broke the C build).
+      # An empty hash literal as a receiver ({}.freeze) gets the same type as a bare
+      # {}. The constant is defined, and a typed ivar's `|| CONST` fallback works.
       class C
         EMPTY = {}.freeze
         def initialize
@@ -253,20 +238,14 @@ describe "Hash programs" do
   it "empty hash int int no widen" do
     result = zr(<<~'RUBY')
       # `h = {}; h[parts[0]] = v` where `parts` comes from a `split` result
-      # (or any expression that returns str_array). Two pre-fix shapes
-      # combined:
+      # (or any expression that returns an Array of Strings). The key is a
+      # String, so the empty hash gets String keys:
       #
-      # 1. kt="int" + vt="int" — pass-0 promote_empty_hash_for widened to
-      #    poly_poly_hash via the catch-all. Now defers (returns "") so the
-      #    second pass with the key resolved as string produces
-      #    str_int_hash.
-      # 2. kt="int" + vt="string" — pass-0 promoted to int_str_hash, and
-      #    the refine_locals merge had no rule to upgrade int_str_hash to
-      #    str_str_hash when pass 1 resolved the key as string. Added
-      #    int_str_hash → str_str_hash / sym_str_hash widening rules.
+      # 1. with an Integer value.
+      # 2. with a String value.
       #
-      # Sibling check: a literal-keyed `h = {}; h[200] = "OK"` (legitimate
-      # int-keyed-string-valued) keeps int_str_hash.
+      # Sibling check: a literal-keyed `h = {}; h[200] = "OK"` gets Integer
+      # keys and String values.
 
       def build_str_keyed_int_val(s)
         parts = s.split("/")
@@ -348,16 +327,11 @@ describe "Hash programs" do
 
   it "empty hash nonscalar key" do
     result = zr(<<~'RUBY')
-      # A bare `{}` takes the hash variant its KEY selects. The rule knew Symbol,
-      # String, Integer and poly keys; every other kind fell through to the
-      # StrPolyHash default, which put the key straight into a `const char *` slot
-      # and the C compiler reported it against generated code (#4000):
+      # A bare `{}` takes its key type from the KEY it gets. Here the key is not a
+      # Symbol, a String or an Integer, but an Array.
       #
-      #   error: initialization of 'const char *' from incompatible pointer type
-      #          'sp_IntArray *'
-      #
-      # The reported spelling had an EMPTY array as the key, which is the harder
-      # half: it infers no kind at all, yet it is still a pointer once emitted.
+      # The key is an EMPTY array, which is the harder case: it has no element to
+      # give it an element type.
       p(
         [].each do
           {}.fetch [], 0
@@ -671,22 +645,22 @@ describe "Hash programs" do
     result = zr(<<~'RUBY')
       # Hash#[] op= for string-valued and poly-valued typed hashes.
 
-      # sym_str_hash: += str → concat.
+      # Symbol => String: += str → concat.
       h = {a: "hello", b: "world"}
       h[:a] += "!"
       puts h[:a]
 
-      # str_str_hash: += str → concat.
+      # String => String: += str → concat.
       h2 = {"a" => "hello", "b" => "world"}
       h2["a"] += "!"
       puts h2["a"]
 
-      # sym_poly_hash: += int on a hash whose values are mixed.
+      # Symbol => mixed: += int on a hash whose values are mixed.
       h3 = {a: 1, b: 2.0}
       h3[:a] += 10
       puts h3[:a]
 
-      # str_poly_hash: += int.
+      # String => mixed: += int.
       h4 = {"a" => 1, "b" => 2.0}
       h4["a"] += 10
       puts h4["a"]
@@ -792,7 +766,7 @@ describe "Hash programs" do
 
   it "fetch raises KeyError with no default, and answers the default with one" do
     result = zr(<<~'RUBY')
-      # Issue #914: Hash#fetch without a default raises KeyError on
+      # Hash#fetch without a default raises KeyError on
       # a missing key, not 0.
       h = {a: 1}
 
@@ -854,9 +828,8 @@ describe "Hash programs" do
   it "invert swaps every key with its value" do
     result = zr(<<~'RUBY')
       # Hash#invert — swap keys and values.
-      # str_int_hash → poly_poly_hash, str_str_hash → str_str_hash,
-      # sym_int_hash → poly_poly_hash, int_str_hash → str_str_hash.
-      # All typed hash variants must compile and produce correct output.
+      # String => Integer, String => String, Symbol => Integer and
+      # Integer => String hashes all invert correctly.
 
       h1 = {"a" => 1, "b" => 2}
       p h1.invert
@@ -898,22 +871,9 @@ describe "Hash programs" do
 
   it "a key computed through an intermediate local keeps the value's type" do
     result = zr(<<~'RUBY')
-      # Sibling to #443. `h[pp[1..]] = ap` where pp/ap are intermediate
-      # locals (themselves split-result elements) had the hash inferred
-      # as str_int_hash instead of str_str_hash. Root cause: the
-      # refine_method_body_locals 2-pass merge resolved pp's type
-      # (str_array element → string), but the merge happened AFTER the
-      # pass-2 scan_locals run. Inside that pass-2 scan, infer_type(pp)
-      # read pp's pass-1 type (still "int" because pa wasn't declared
-      # during pass 1) from global scope, so `h[pp[1..]] = ap` promoted
-      # the empty hash to int_str_hash and the merge dropped the
-      # correction.
-      #
-      # Fix: add a pass-3 scan_locals to refine_method_body_locals,
-      # run after the merge has corrected intermediate-local types in
-      # scope. The third pass re-resolves nested-CallNode key/value
-      # expressions (pp[1..], pp.upcase, etc.) against the merged
-      # scope, picking up the right hash variant.
+      # `h[pp + "_k"] = ap` where pp/ap are intermediate locals (themselves
+      # elements of a split result). The hash gets String keys and String
+      # values, from the types of pp and ap.
 
       def build(a, b)
         pa = a.split("/")
@@ -1073,9 +1033,9 @@ describe "Hash programs" do
 
   it "merge answers a Hash whatever the key and value types are, and the argument wins" do
     result = zr(<<~'RUBY')
-      # Hash#merge on poly_poly, int_int, and int_str hash variants (str-keyed already
-      # worked). Frozen-constant receivers infer as poly_poly; ints exercise int-keyed
-      # variants. A trailing flat_map mirrors the originating gem's use.
+      # Hash#merge on frozen constants with Array values, and on Integer-keyed
+      # hashes with Integer or String values. A trailing flat_map mirrors the
+      # originating gem's use.
       A = { "x" => ["a"] }.freeze
       B = { "y" => ["b"] }.freeze
       C = A.merge(B).flat_map { |k, vs| vs.map { |v| k + v } }
@@ -1248,11 +1208,8 @@ describe "Hash programs" do
       # Hash shorthand `{ x:, y: }` (Ruby 3.1+): an AssocNode whose value is
       # implicit. Prism wraps the implicit value in a PM_IMPLICIT_NODE that
       # carries the actual LocalVariableReadNode (or MethodCallNode for an
-      # undeclared name) as its `value` child. spinel_parse unwraps the
-      # ImplicitNode at the AST boundary so the codegen never sees the
-      # wrapper, which means the shorthand reuses the existing
-      # AssocNode + LocalVariableReadNode compile path with zero codegen
-      # change.
+      # undeclared name) as its `value` child. The shorthand behaves as
+      # `{ x: x, y: y }`.
 
       # 1. Two-key shorthand from int-valued locals.
       x = 10
@@ -1296,9 +1253,8 @@ describe "Hash programs" do
 
   it "a Hash literal survives the allocations between building it and using it" do
     result = zr(<<~'RUBY')
-      # #689: Hash temporaries created from `{}` literals must be GC-rooted
-      # before subsequent allocations, otherwise GC may reclaim them mid-
-      # expression and the consuming call reads NULL+offset.
+      # Hash temporaries created from `{}` literals stay alive through the
+      # allocations that come after them in the same expression.
       #
       # Simulates the failing pattern: two hash literals constructed in
       # sequence, the first consumed by a helper that allocates more.
@@ -1313,7 +1269,7 @@ describe "Hash programs" do
         h1 = {"x" => 1, "y" => 2}
         h2 = {"a" => 3, "b" => 4}
         # Allocate strings to force GC pressure between the two hash
-        # literals (the same pattern that #689 hits with stylesheet_link_tag).
+        # literals (the same pattern as stylesheet_link_tag in Rails).
         filler = "filler-" + i.to_s + "-" + i.to_s
         if two_hashes(h1, h2) != 4
           puts "broken at #{i}"
@@ -1368,7 +1324,7 @@ describe "Hash programs" do
 
   it "transform_keys! and transform_values! write back into the receiver" do
     result = zr(<<~'RUBY')
-      # Hash#transform_keys! / transform_values! on a direct literal (KieranP #2355)
+      # Hash#transform_keys! / transform_values! on a direct literal
       p({ a: 1, b: 2 }.transform_keys!(&:to_s))       # key type sym -> str
       p({ a: 1, b: 2 }.transform_keys! { |k| k.to_s })
       p({ a: 1, b: 2 }.transform_values!(&:to_s))
@@ -1391,8 +1347,8 @@ describe "Hash programs" do
     result = zr(<<~'RUBY')
       # Hash#values_at / #fetch_values on typed hashes. Each key is looked up
       # and the values collected into an array; values_at yields nil for a
-      # missing key, fetch_values raises KeyError. Results box into a
-      # poly_array so mixed value types and nil coexist.
+      # missing key, fetch_values raises KeyError. The result Array can hold
+      # mixed value types and nil.
       h = {a: 1, b: 2, c: 3}
       p h.values_at(:a, :c)
       p h.values_at(:a, :c, :d)
@@ -1487,11 +1443,8 @@ describe "Hash programs" do
 
   it "int hash missing nil check" do
     result = zr(<<~'RUBY')
-      # Consumption-site nil-awareness for int-valued hashes (#801): a missing
-      # key is nil in Ruby. The read stays typed `int` (making it int? cascades
-      # through the self-host compiler), but at direct nil-check sites the
-      # missing key is reported via has_key. Covers `.nil?`, and the already-
-      # working `== nil` / `|| fallback`, across str_int / sym_int / int_int.
+      # A missing key in an Integer-valued hash is nil in Ruby. Covers `.nil?`,
+      # `== nil` and `|| fallback`, with String, Symbol and Integer keys.
 
       si = {a: 1, b: 2}
       puts si[:zzz].nil?       # true
@@ -1597,9 +1550,8 @@ describe "Hash programs" do
 
   it "int int hash literal" do
     result = zr(<<~'RUBY')
-      # Int-keyed, int-valued hash literals build a native IntIntHash
-      # (previously misrouted to StrIntHash, passing int keys as char* and
-      # crashing). Reads, []= writes, and length all work.
+      # Int-keyed, int-valued hash literals: reads, []= writes, and length
+      # all work.
       h = {1 => 10, 2 => 20, 3 => 30}
       puts h[1]
       puts h[2]
@@ -1710,20 +1662,14 @@ describe "Hash programs" do
 
   it "module ivar empty hash reset" do
     result = zr(<<~'RUBY')
-      # A module class method that resets a module-level hash ivar back to
-      # `{}` used to emit the default `sp_StrIntHash_new()` regardless of
-      # the slot's actual variant. When the slot was promoted to e.g.
-      # sym_poly_hash by other writes, the reset path mismatched the
-      # const's declared type at C compile.
+      # A module class method resets a module-level hash ivar back to `{}`.
+      # Other writes give the hash Symbol keys and Integer values.
+      # The new empty hash has the same key and value types.
       #
-      # Two failures in one shape:
-      #   1. Wrong constructor — empty_hash_coerce' s container-typed `_new()`
-      #      logic wasn't consulted for module class methods because
-      #      @current_class_idx was -1 (modules don't enter the class scope).
-      #   2. Wrong LHS — `self->iv_X` for a module class method is dangling
-      #      (no self). ivar_lhs already routes `@X` inside `Mod_cls_*` to
-      #      `cst_<Mod>_<X>`; the codegen path was hardcoded to
-      #      `self->` and bypassed it.
+      # Two checks in one shape:
+      #   1. The reset makes a hash of the right kind in a module (not a
+      #      class) method.
+      #   2. `@X` inside a module class method is the ivar of the module.
 
       module Counters
         @counts = {}
@@ -1789,19 +1735,10 @@ describe "Hash programs" do
 
   it "module ivar hash" do
     result = zr(<<~'RUBY')
-      # Issue #303: a module ivar initialized to an empty hash literal
-      # (`@slots = {}`) used to freeze its inferred type as `str_int_hash`
-      # (the empty-hash default) even when the module's class methods
-      # wrote a sym → string mapping into it. Result: the storage decl
-      # said `sp_StrIntHash *` but every `set` / `get` site emitted
-      # typed-mismatched calls (sym key into string-key hash, string
-      # value into int-value hash).
-      #
-      # Fix: a refinement pass in generate_code (after param inference
-      # stabilizes) walks each module's class-method bodies for
-      # `@<iname>[k] = v` writes and picks the most specific hash shape
-      # from the observed key + value types. Same idea for arrays via
-      # `@<iname> << v` / `@<iname>.push(v)`.
+      # A module ivar initialized to an empty hash literal (`@slots = {}`)
+      # gets its key and value types from the writes in the module's class
+      # methods: here Symbol keys and String values. Same idea for arrays
+      # via `@<iname> << v` / `@<iname>.push(v)`.
 
       module M
         @slots = {}
@@ -2200,12 +2137,8 @@ describe "Hash programs" do
 
   it "thread value hash tail" do
     result = zr(<<~'RUBY')
-      # The tail expression of a Thread body is boxed into the thread's yielded_value
-      # through an open/close pair that knew the scalars, the arrays and the objects
-      # and NOT the hashes -- so a body whose value is a Hash#each emitted a bare
-      # assignment from sp_StrIntHash * with an unbalanced close paren after it
-      # (#4081). The generic boxer handles every kind, which is what the by-value
-      # struct tail had already needed (#3587).
+      # The tail expression of a Thread body is the value of the thread. It can be
+      # of any kind: here it is the Hash that Hash#each answers.
       t1 = Thread.new { { "a" => 1 }.each { |w, n| } }
       p t1.value.class
 
@@ -2285,11 +2218,8 @@ describe "Hash programs" do
       # Hash#transform_keys whose block changes the key to a Symbol must produce a
       # symbol-keyed hash, not keep the receiver's string-keyed variant.
       #
-      # `{ "a" => 1 }.transform_keys(&:to_sym)` inferred the result as the receiver's
-      # type (there is no sym-scalar hash variant, so ty_hash_of(Symbol, Int) was
-      # UNKNOWN and fell back to the string-keyed receiver type), then emitted a
-      # string-keyed hash and passed the transformed sp_sym key to a const char *
-      # setter -- an incompatible-pointer C error. Symbol keys yield a SymPolyHash.
+      # `{ "a" => 1 }.transform_keys(&:to_sym)` answers a hash with Symbol keys,
+      # not the String-keyed kind of the receiver.
 
       # 1. String keys -> symbols (int and string values).
       p({ "a" => 1, "b" => 2 }.transform_keys(&:to_sym))      #=> {a: 1, b: 2}

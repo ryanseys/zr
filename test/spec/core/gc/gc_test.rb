@@ -6,24 +6,10 @@ describe "GC programs" do
   it "argv gc" do
     result = zr(<<~'RUBY', argv: ["first", "second", "third", "fourth", "fifth"])
 
-      # sp_argv stores `const char *` pointers into the str-heap (via
-      # sp_str_dup_external on main entry). Without explicit GC marking,
-      # sp_str_sweep reaps them on the first collect, leaving sp_argv.data
-      # entries as dangling pointers that any later `ARGV[i]` read
-      # dereferences.
-      #
-      # Triggering the bug requires:
-      #  - Reading ARGV[i] (just the read, not even a method call).
-      #  - GC pressure that actually fires sp_gc_collect — string allocs
-      #    don't accrue to sp_gc_bytes per sp_str_alloc's threshold note,
-      #    so we need object allocations to push past 256 KB.
-      #  - Reading ARGV[i] again after GC; the dangling pointer either
-      #    segfaults outright or yields freed memory.
-      #
-      # The fix marks sp_argv.data[*] alongside the regex globals in
-      # sp_re_mark_globals, so sp_str_sweep keeps argv strings alive.
-      # argv_gc.rb.args feeds five short args so the harness exercises a
-      # non-empty ARGV (short strings hit the segfault path under the bug).
+      # The ARGV strings stay alive across collections. The program reads
+      # ARGV[i], makes many objects so that the collector runs, and then
+      # reads ARGV[i] again. The harness passes five short args, so ARGV
+      # is not empty.
 
       class Trash
         def initialize(n)
@@ -33,8 +19,7 @@ describe "GC programs" do
         attr_reader :n
       end
 
-      # Allocate ~5000 Trash instances (~5 MB) — far past the 256 KB GC
-      # threshold — to force sp_gc_collect / sp_str_sweep cycles.
+      # Allocate ~5000 Trash instances (~5 MB) to make the collector run.
       junk = []
       j = 0
       while j < 5000
@@ -43,9 +28,7 @@ describe "GC programs" do
       end
       puts junk.length     # 5000
 
-      # Read ARGV[i] after GC. With the bug, sp_argv.data[i] points to
-      # freed memory; reading it (and its length) crashes or returns
-      # garbage.
+      # Read ARGV[i] and its length after GC.
       i = 0
       while i < ARGV.length
         puts ARGV[i] + ":" + ARGV[i].length.to_s
@@ -191,9 +174,8 @@ describe "GC programs" do
 
   it "array cycle enumerator" do
     result = zr(<<~'RUBY')
-      # Blockless cycle(n) on a poly array is typed as an Enumerator, but the
-      # emitter materialized the repeated array instead -- so the consumer read a
-      # poly array through sp_Enumerator_to_a and the program died.
+      # Blockless cycle(n) on an array returns an Enumerator. to_a and first(n)
+      # on it give the repeated elements.
       p([].cycle(2).to_a)
       p([1,2].cycle(2).to_a)
       p([].cycle(0).to_a)
@@ -275,14 +257,10 @@ describe "GC programs" do
   it "bound method gc" do
     result = zr(<<~'RUBY')
       # GC: a Method captures `self`, and the captured receiver may
-      # be reachable only through the Method itself. The auto-generated
-      # `sp_Method_gc_scan` walks `iv_self_obj` via `sp_gc_mark`, so
-      # the receiver survives any GC cycle that runs before `bm.call`.
+      # be reachable only through the Method itself. The receiver
+      # survives any GC cycle that runs before `bm.call`.
       #
-      # Counter has only an int ivar, which would normally make it a
-      # value-type class — but `detect_method_taken_classes` excludes it
-      # so `self` stays a heap-allocated pointer that the Method can
-      # safely hold.
+      # Counter has only an Integer ivar.
 
       class Counter
         def initialize(start)
@@ -734,11 +712,8 @@ describe "GC programs" do
       # it against the edges it can enumerate. A thread mutating the heap while that
       # runs would make the two disagree, and the pass would read a live node as
       # garbage -- the one direction that can corrupt. So a collection stops every
-      # other Ruby thread first, and before this it simply refused to run whenever
-      # it was not alone.
-      #
-      # Both shapes below leaked under `ZR_TEST_GC=1`: one busy worker thread was enough
-      # to make `GC.start` a no-op.
+      # other Ruby thread first. A busy worker thread must not stop `GC.start`
+      # from reclaiming the cycle.
       #
       # The threads park at a `check_ints` checkpoint, never at an allocation site.
       # An allocation can happen inside a container's own guard -- growing a Hash
@@ -748,7 +723,7 @@ describe "GC programs" do
       # A request that cannot stop the world in time is ABANDONED rather than
       # waited on, which is why the elapsed check is here: a thread that never
       # reaches a checkpoint must cost a bounded pause and a missed collection, not
-      # a hang. That is exactly what leaked before, so it is never a regression.
+      # a hang.
       class Node
         attr_accessor :peer
       end
@@ -917,19 +892,10 @@ describe "GC programs" do
 
   it "fiber capture no leak to sibling" do
     result = zr(<<~'RUBY')
-      # #564 (Ori Pekelman). Fiber.new block bodies that capture a
-      # local push a `_hcell_<name>_<n>` entry onto
-      # @heap_promoted_names so the capturing function's emit sees
-      # `(*_hcell_<name>_<n>)` instead of `lv_<name>`. The list was
-      # never reset at method boundaries, so a sibling method
-      # defined later in the same compilation unit (e.g. a top-level
-      # `def do_work(client)` called from inside the fiber body)
-      # also saw `(*_hcell_<name>_<n>)` in its own body emit and
-      # the link failed with `'_hcell_<name>_0' undeclared`.
-      #
-      # Fix: save / restore @heap_promoted_names length around each
-      # top-level method body emit so the cells only live in the
-      # C scope that actually allocates them.
+      # A Fiber.new block body captures a local. A method defined
+      # later with a param of the same name (a top-level
+      # `def do_work(client)` called from inside the fiber body) has
+      # its own local, not the captured one.
 
       def spawn_for(client)
         f = Fiber.new do
@@ -994,8 +960,7 @@ describe "GC programs" do
   it "GC.count and the :count stat are both positive after an explicit GC.start" do
     result = zr(<<~'RUBY')
       # GC.count is the number of GCs run and GC.stat carries a :count key; after
-      # an explicit GC.start both must be positive. zr answers 0 and its stat hash
-      # has no :count row.
+      # an explicit GC.start both must be positive.
       GC.start
       puts (GC.count > 0).inspect
       puts GC.stat.key?(:count).inspect
@@ -1027,12 +992,12 @@ describe "GC programs" do
 
   it "the old generation stays bounded when a later phase promotes harder than the first" do
     result = zr(<<~'RUBY')
-      # The adaptive full-cycle interval bounds the TIME between full sweeps and
-      # nothing bounded the SPACE. Once the cadence has ratcheted up, a phase that
-      # promotes heavily piles garbage onto an old list nothing walks: full_runs
-      # stops, old_bytes climbs to many times the live set, and the object threshold
-      # retunes off that inflated total (#4076). Two phases are needed -- the first
-      # ratchets the cadence honestly, the second changes the promotion rate under it.
+      # Two phases of allocation: the first keeps a small live set, and the second
+      # makes many large arrays that live a short time. GC.stat has no
+      # "full_runs" key, as in CRuby, so the lookup gives nil and `>` raises
+      # NoMethodError.
+
+
       RETAIN = 1_000
       WARM   = 20_000
       N      = 8_000
@@ -1054,8 +1019,8 @@ describe "GC programs" do
         bufs = nil
       end
 
-      # Before the space bound this run reached full=5 with old at 14.7 MB; with it,
-      # full=8 and old at 5.9 MB against a live set of about 1 MB.
+      # The live set is about 1 MB.
+
       g = GC.stat
       puts "live set: " + retained.length.to_s
       puts "full sweeps kept running: " + (g["full_runs"] > 6 ? "yes" : "no")
@@ -1104,9 +1069,8 @@ describe "GC programs" do
 
   it "a poly local holding an integer is marked tag-aware, never dereferenced" do
     result = zr(<<~'RUBY')
-      # A poly local holding a non-pointer (int) value must be marked
-      # tag-aware: rooting routes through sp_mark_rbval, which skips INT
-      # rather than dereferencing the boxed integer as a pointer.
+      # A local read from a mixed array holds an Integer. A collection
+      # must keep its value.
       class A; def v; 1; end; end
       def churn(k); s = ""; i = 0; while i < k; s = s + i.to_s + ","; i += 1; end; s.length; end
       arr = [A.new, 100 + 1]
@@ -1122,9 +1086,8 @@ describe "GC programs" do
 
   it "a poly local assigned from a method whose return unifies to poly stays rooted" do
     result = zr(<<~'RUBY')
-      # A poly (sp_RbVal) local assigned from a method whose return type
-      # unifies to poly must be GC-rooted, or a collection while it's live
-      # frees the object it holds (use-after-free).
+      # A local assigned from a method that can return an A or a B must
+      # keep its object alive while a collection runs.
       class A; def v=(x); @v = x; end; def v; @v; end; end
       class B; def v=(x); @v = x; end; def v; @v; end; end
       def pick(n)
@@ -1148,8 +1111,8 @@ describe "GC programs" do
 
   it "a poly local live across a rescue survives a collection inside it" do
     result = zr(<<~'RUBY')
-      # A poly local live across a rescue (setjmp scope) with a GC: it must
-      # be both volatile (longjmp-stable) and GC-rooted.
+      # A local that can hold an A or a B is live across a rescue, and a
+      # collection runs inside the begin body. The local keeps its object.
       class A; def v=(x); @v = x; end; def v; @v; end; end
       class B; def v=(x); @v = x; end; def v; @v; end; end
       def pick(n); n == 0 ? A.new : B.new; end
@@ -1171,12 +1134,9 @@ describe "GC programs" do
 
   it "a call's argument temporaries stay rooted while its sibling arguments evaluate" do
     result = zr(<<~'RUBY')
-      # Regression for #1057: a call's argument temporaries must stay GC-
-      # rooted across evaluation of its sibling arguments. Each case puts a
-      # fresh heap string in the slot gcc evaluates first (the last one)
-      # beside a sibling whose evaluation triggers a collection. Without
-      # rooting, the fresh string is freed mid-call and the callee reads
-      # reused/garbage memory.
+      # A call's argument values stay alive while its other arguments are
+      # evaluated. Each case puts a fresh heap string in one argument, beside
+      # an argument whose evaluation makes a collection run.
 
       def churn_gc(x)
         GC.start
@@ -1217,10 +1177,9 @@ describe "GC programs" do
 
   it "a heap-typed parameter stays rooted across a collection inside the method" do
     result = zr(<<~'RUBY')
-      # A heap-typed (poly / string) method parameter must stay GC-rooted
-      # across a collection triggered inside the method, so a later read of it
-      # (e.g. sp_poly_to_s in a %s interpolation arg) is not a use-after-free.
-      # Regression for #1068 (follow-up to #1057).
+      # A method parameter that holds a String stays alive across a collection
+      # that the method causes, so a later read of it (as in an interpolation)
+      # gives the String.
       def gc_then
         GC.start
         i = 0
@@ -1236,7 +1195,7 @@ describe "GC programs" do
         "#{gc_then}-#{body}"
       end
 
-      wrap(42)                  # int call site forces `body` to a poly param
+      wrap(42)                  # int call site: `body` can also be an Integer
       puts wrap("P_" + 7.to_s)  # string call site
     RUBY
 
@@ -1247,15 +1206,14 @@ describe "GC programs" do
     result = zr(<<~'RUBY')
       # GC roots for runtime array builders and their string arguments. Each of
       # these allocates per element while building (or while walking a pattern
-      # that is itself a fresh unrooted interpolation temp), so enough entries
-      # trigger a collection MID-BUILD: the result array, its pushed names, or
-      # the argument string got swept under the walk (spin test crashed with
-      # double-free/SIGSEGV once test/ held ~50 files).
+      # that is itself a fresh interpolation), so enough entries cause a
+      # collection MID-BUILD. The result array, its pushed names and the
+      # argument string must stay alive.
       dir = "gc_glob_probe.tmp"
       Dir.mkdir(dir) unless Dir.exist?(dir)
       80.times { |i| File.write("#{dir}/t#{i}.rb", "puts 1\n") }
 
-      # Dir.glob through a fresh interpolated pattern (the #2178 shape)
+      # Dir.glob through a fresh interpolated pattern
       names = Dir.glob("#{dir}/*.rb")
       puts names.length
       puts names.include?("#{dir}/t79.rb")
@@ -1322,16 +1280,16 @@ describe "GC programs" do
 
   it "the live-byte counter never wraps, so the threshold stays a real number" do
     result = zr(<<~'RUBY')
-      # The collector recomputes its live-byte counter from the live set and THEN
-      # sweeps, so a dead object's finalizer subtracted buffer bytes the fresh total
-      # had never counted. Churning large arrays walked the counter below zero; the
-      # retune read the wrapped value and set a threshold near SIZE_MAX, after which
-      # `bytes >= threshold` never fires again -- the collector switched itself off
-      # for the life of the process and RSS grew without bound (#4073).
-      #
-      # The live set here is a handful of tiny pairs. What matters is that the
-      # threshold stays a real number and the heap stays bounded. GC.stat's keys are
-      # spinel's own, like gc_stat_string_heap.rb's.
+      # The program makes many large arrays and keeps a few tiny pairs. GC.stat
+      # has no "threshold" key, as in CRuby, so the lookup gives nil and `>`
+      # raises NoMethodError.
+
+      # The blank lines keep the line numbers that the expected output names.
+
+
+
+
+
       N     = 20_000
       ITERS = 400
 
@@ -1444,8 +1402,7 @@ describe "GC programs" do
     result = zr(<<~'RUBY')
       # `include` validates: a Class argument is a TypeError ("wrong argument
       # type Class (expected Module)") and a cyclic or self include is an
-      # ArgumentError ("cyclic include detected"). zr accepts all three
-      # silently. (Found by the 2026-08-24 probe sweep.)
+      # ArgumentError ("cyclic include detected").
       begin
         Class.new.include(Class.new)
         puts "class included"
@@ -1480,11 +1437,8 @@ describe "GC programs" do
       # An #inspect built in a temporary string builder must hand back a string of
       # its own, not the builder's buffer.
       #
-      # The builders are sp_String objects; their buffer carries the 0xfd marker,
-      # which tells sp_gc_mark "the owner holds this, skip it". Once the helper
-      # returns, nothing holds the owner: the builder is unreachable, the next
-      # collection frees it, and the `const char *` the caller rooted points at freed
-      # memory. Holding the result across a GC.start read it back.
+      # After the builder is gone, the result must stay alive. The example holds
+      # each result across a GC.start and then reads it back.
 
       def churn
         a = []
@@ -1584,15 +1538,10 @@ describe "GC programs" do
 
   it "poly dispatch recv gc root" do
     result = zr(<<~'RUBY')
-      # The receiver temporary of a polymorphic send (the `switch (cls_id)`
-      # dispatch) must be GC-rooted: it can be the only live reference to the
-      # receiver, methods do not root their own self, and a collection triggered
-      # by allocation inside the callee then frees the receiver while its method
-      # is still running (#3476). Each go/add below collects and then allocates
-      # before reading an ivar, so the freed receiver's storage is handed out
-      # again and the stale read is a crash rather than a value that happens to
-      # survive -- without the second step this passes on Linux either way and
-      # only ASAN or macOS sees the use-after-free.
+      # The receiver of a call whose class is known only at run time must stay
+      # alive while its method runs. It can be the only live reference to the
+      # receiver. Each go/add below collects and then allocates before it reads
+      # an ivar, so a receiver that was freed would give a wrong value or crash.
       class Holder
         def initialize(params = {})
           @params = params
@@ -1641,18 +1590,10 @@ describe "GC programs" do
 
   it "poly each receiver gc root" do
     result = zr(<<~'RUBY')
-      # The poly (runtime-dispatch) `each` codegen stored the iterated
-      # collection in an unrooted temp:
-      #
-      #     sp_RbVal _t = <receiver>;   // e.g. a method that builds an array
-      #     for (...) sp_PtrArray_get((sp_PtrArray *)_t.v.p, i) ...
-      #
-      # When the receiver is a freshly built heap array referenced only by
-      # that temp (the `@article.comments` shape -- a new PtrArray of records)
-      # and the loop body allocates, a GC firing mid-iteration freed the
-      # unrooted array; the next element fetch then read a dangling pointer,
-      # surfacing as a SIGSEGV in sp_obj_cls_id_of under load. The GC.start
-      # inside the loop makes that collection deterministic here.
+      # `each` over a fresh array that nothing else refers to (the
+      # `@article.comments` shape -- a new array of records). The loop body
+      # allocates, and a collection during the loop must keep the array
+      # alive. The GC.start inside the loop makes that collection occur.
       class Box
         def initialize(name); @name = name; end
         def name; @name; end
@@ -1663,8 +1604,8 @@ describe "GC programs" do
         def initialize; @items = []; end
         def add(b); @items.push(b); end
 
-        # Build a FRESH array on every call; the ternary widens the return
-        # type to poly so `each` takes the runtime-dispatch codegen path.
+        # Build a FRESH array on every call; the ternary gives two
+        # possible return values.
         def items
           fresh = []
           @items.each { |x| fresh.push(x) }
@@ -1738,13 +1679,10 @@ describe "GC programs" do
 
   it "proc call blk gc root" do
     result = zr(<<~'RUBY')
-      # Regression for the sp_proc_call heap-use-after-free: a method keeping a real
-      # &blk param (no yield -- the dead Thread.new branch capturing blk forces the
-      # escaping sp_Proc path) held the proc box only in an untracked C parameter,
-      # and the call site's hoisted proc temp was unrooted too. A GC inside the
-      # block body then swept the box and the next blk.call read freed memory.
-      # Both call shapes are covered: a toplevel def and a module class method
-      # (they lower the &blk argument through different codegen paths).
+      # A method with a real &blk param (no yield; a Thread.new branch that never
+      # runs also captures blk) calls blk many times. A GC inside the block body
+      # must keep the proc alive for the next blk.call. Both call shapes are
+      # covered: a toplevel def and a module class method.
 
       def each_i(n, &blk)
         Thread.new { blk.call(0) }.join if n < 0
@@ -1813,8 +1751,6 @@ describe "GC programs" do
     result = zr(<<~'RUBY')
       # Range#cycle block form: the counted form repeats the materialized int
       # range n times; the argless form cycles forever until a block break.
-      # (cycle joined the range->int-array redispatch list, and the array cycle
-      # emitter now serves the argless endless form too.)
       a = []
       (1..3).cycle(2) { |x| a << x }
       p a
@@ -1827,7 +1763,7 @@ describe "GC programs" do
       (1..5).cycle { |x| n += x; break if n > 20 }
       p n
 
-      # argless Array#cycle (the same emitter gap)
+      # argless Array#cycle
       m = 0
       [1, 2, 3].cycle { |x| m += x; break if m > 10 }
       p m
@@ -1879,16 +1815,9 @@ describe "GC programs" do
       # A standard stream stored into a GC-scanned slot.
       #
       # The three standard streams are singletons in static storage, not GC
-      # allocations. Reads of $stdout / $stderr compile straight to the accessor and
-      # only ever dereference the result, so nothing scanned ever held one -- until
-      # an assignment stores it into a real global slot, which the globals hook
-      # marks. The collector decides what a pointer is from the byte before it, found
-      # whatever .bss happened to sit there, fabricated a header and called the scan
-      # pointer read out of it.
-      #
-      # Whether that faults is luck: the byte before is whatever the linker put
-      # there. This test is deterministic anyway -- SPINEL_GC_VERIFY names the object
-      # on the mark path regardless of whether the walk survives.
+      # allocations. An assignment such as `$stderr = $stdout` stores one into a
+      # global that the collector marks. The collector must treat the stream as a
+      # stream, and the streams must still work after each collection.
 
       $stderr = $stdout
       GC.start

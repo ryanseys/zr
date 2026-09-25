@@ -5,8 +5,7 @@ require "spec_helper"
 describe "FFI: packing and unpacking" do
   it "a binary payload's embedded NUL bytes survive the boundary through a byte-count read" do
     result = zr(<<~'RUBY')
-      # Ported from spinel's :binstr regression (matz/spinel#1466 / ac1e0d2c) to the
-      # real ffi gem API: a binary payload's embedded NUL bytes must survive the FFI
+      # Through the real ffi gem API, a binary payload's embedded NUL bytes survive the FFI
       # boundary. The motivating case is a WebSocket frame: an inbound
       # (client->server) frame is masked, and an ActionCable "subscribe" payload is
       # >125 bytes, so the WS extended 2-byte length field is used -- its high byte
@@ -52,8 +51,8 @@ describe "FFI: packing and unpacking" do
 
   it "a MemoryPointer comes up zero-filled, and every reader kind lines up at every offset" do
     result = zr(<<~'RUBY')
-      # Ported from spinel's ffi_buffer/ffi_read_* readers to the real ffi gem API:
-      # an FFI::MemoryPointer allocation is zero-filled, so reading it back through
+      # Through the real ffi gem API, an FFI::MemoryPointer allocation is zero-filled,
+      # so reading it back through
       # every reader kind at every offset proves the storage + read-pointer
       # arithmetic line up.
       require "ffi"
@@ -213,7 +212,8 @@ describe "FFI: packing and unpacking" do
       # element COUNT held in a constant the class body computed. librtmp writes
       # `RTMP_BUFFER_CACHE_SIZE = (16*1024)` four lines above the field it sizes, and
       # the count is what decides where every following field starts -- so it has to
-      # fold at LOWERING time. Only a bare integer literal used to be recorded.
+      # fold at LOWERING time. A constant expression counts, not only a bare integer
+      # literal.
       module Net
         BUF = (16 * 1024)
         TAG = (1 << 3)
@@ -394,8 +394,8 @@ describe "FFI: packing and unpacking" do
 
   it "a live malloc result is not nil-equal, where a NULL pointer is" do
     result = zr(<<~'RUBY')
-      # Pointer/nil equality through the real ffi gem API (ported from spinel's
-      # ffi_read_ptr): a live malloc result is not nil-equal, and a NULL pointer
+      # Pointer/nil equality through the real ffi gem API: a live malloc result is
+      # not nil-equal, and a NULL pointer
       # (read out of a zero-filled MemoryPointer) is.
       require "ffi"
 
@@ -435,10 +435,8 @@ describe "FFI: packing and unpacking" do
       # loaded the wrong width would fold in its neighbours. Little-endian target
       # (x86_64 / arm64), which is what the FFI layer assumes.
       #
-      # Ported from spinel's ffi_read_write_widths, whose `ffi_buffer` /
-      # `ffi_read_u32` / `ffi_write_i16` class macros are compile-time spinel DSL
-      # with no CRuby analog. The real ffi gem spells the same accesses as
-      # FFI::MemoryPointer#put_*/#get_* at an offset, which is what this checks.
+      # The real ffi gem spells these accesses as FFI::MemoryPointer#put_*/#get_* at
+      # an offset, which is what this checks.
       require "ffi"
 
       buf = FFI::MemoryPointer.new(:uint8, 32)

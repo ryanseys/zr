@@ -134,8 +134,8 @@ describe "Builtins: raising and rescuing" do
 
   it "exception owner rows" do
     result = zr(<<~'RUBY')
-      # The four rows ruby declares ON an exception class that zr used to answer
-      # from an ancestor. Reflection has to name the same owner, because a rescue
+      # Ruby declares these four rows ON an exception class, not on an
+      # ancestor. Reflection has to name the same owner, because a rescue
       # handler that asks `SignalException.instance_methods(false)` gets a different
       # answer from `Exception`'s.
       #
@@ -380,11 +380,10 @@ describe "Builtins: raising and rescuing" do
 
   it "kernel raise is a real dispatch row reachable through send" do
     result = zr(<<~'RUBY')
-      # `obj.send(:raise, ...)` used to be NoMethodError (raise existed only as
-      # a parse-time lowering). Now a real Kernel row mirrors CRuby's
-      # `rb_make_exception`: class+message, bare re-raise from `$!`, a bare
-      # class defaulting its message to the class name, a String implying
-      # RuntimeError, and the non-exception TypeError. All oracle-verified.
+      # `obj.send(:raise, ...)` reaches the Kernel#raise method. It does the same
+      # as CRuby: class and message, bare re-raise from `$!`, a bare class that
+      # uses its name as the message, a String that gives a RuntimeError, and a
+      # TypeError for an object that is not an exception.
 
       o = Object.new
       begin

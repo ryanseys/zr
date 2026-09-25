@@ -13,42 +13,12 @@ describe "PP programs" do
       # PrettyPrint's own graph, reached through `pp`. See pp_pretty_print.rb.gccheck.
 
       # At exit: cycle leak: 11 objects (Array x7, PP x1, PrettyPrint::Group x1, PrettyPrint::GroupQueue x1, Proc x1)
-      # Compiled code must not hand `zr_rt_release` a stack slot that holds no
-      # live value. This program did, and `ZR_TEST_RT_LEAKCHECK=1` reported tag byte
-      # 176 -- not a value tag (they run 0..33) and not the poison byte a released
-      # slot is stamped with (0xFF). The release then ran `drop_in_place` over
-      # whatever the stack had there.
+      # Compiled code must not release a stack slot that holds no live value.
+      # Every local slot gets its first value on entry to the method, so no path
+      # (a normal exit or a raise) reaches a slot that has no value in it.
       #
-      # THE CAUSE, and it is not what the symptom suggests. `Fx::new_value_slot`
-      # used to emit its three nil words into the block that was CURRENT when the
-      # slot was created. Seven of its eight callers sit in a function prologue.
-      # The eighth, `bind_shadow`, runs inside a fused loop's
-      # inline arm -- behind the receiver's tag test and `iter_inline_ok_for` --
-      # and inserts the slot into `fx.locals`, which `release_locals` walks
-      # UNCONDITIONALLY from both the normal exit and the landing.
-      #
-      # Two facts made it wider than the fused-loop guard:
-      #
-      #   * `fx.land` is one block, created in `Fx::new`, that every `Fx::fallible`
-      #     branches to. A raise anywhere ahead of the loop reaches the epilogue
-      #     with the slot un-zeroed, so the UNGUARDED `n.times` and range-`each`
-      #     splices were exposed too.
-      #   * `new_cell_local` had the same defect over an 8-byte pointer slot, which
-      #     is worse: the epilogue loaded it and passed it to `zr_rt_cell_release`.
-      #
-      # THE FIX. Every slot is initialised in the ENTRY block. `new_value_slot` and
-      # `new_cell_slot` record the slot; `Fx::drain_slot_inits` emits the stores at
-      # the top of the entry block just before the builder is finalized. Same
-      # instruction count, and no path can reach an epilogue with an uninitialised
-      # slot. A debug assertion pins the invariant: every slot in `fx.locals` was
-      # created through one of those two helpers.
-      #
-      # The ownership verifier passed throughout and could not have caught this -- it is
-      # a path-insensitive site counter, and an uninitialised slot is not an
-      # ownership event.
-      #
-      # The `.leakcheck` sidecar is load-bearing: without `ZR_TEST_RT_LEAKCHECK=1` the
-      # program prints the right answer either way.
+      # Without `ZR_TEST_RT_LEAKCHECK=1` the program prints the right answer either
+      # way. The leak check finds a release of a bad slot.
       #
       # Oracle: the program prints its line and exits 0.
       require "pp"
@@ -69,36 +39,8 @@ describe "PP programs" do
       # when the method RUNS, exactly as CRuby does -- not before the program's
       # first statement.
       #
-      # The file is compiled in as a UNIT: a load-path file nothing has required
-      # yet. Its classes register for dispatch at startup because the static MRO
-      # needs a shape, so `PrettyPrint` used to answer `defined?` before anything
-      # loaded it.
-      #
-      # The fix reuses the machinery a runtime-CONDITIONAL class already had. Such
-      # a class registers its shape and starts CONCEALED, revealed at the head of
-      # its own body site; a unit's body site lives in the unit's function, so it
-      # runs when the unit does. `Compiler::class_waits_for_its_unit` is the
-      # predicate, and it feeds the same three places: the conceal
-      # list, the class-body site's reveal, and `constant_is_positional`, which is
-      # what stops `defined?` folding an answer at compile time.
-      #
-      # A VALUE constant a unit assigns needs the other half:
-      # `Hir::unrun_unit_consts` records every unit's constant names -- it used to
-      # record only an autoload target's -- and a bare-name `defined?` of one asks
-      # the run time instead of concluding "written only later". A unit is not in
-      # any statement stream, so "later" and "in a file nothing has run" looked
-      # alike and meant opposite things.
-      #
-      # Reading a concealed constant also RUNS a pending `autoload` now. That is
-      # where ruby loads, and a concealed class is exactly the shape an autoload
-      # targets: registered for dispatch, no constant yet.
-      #
-      # The size half landed separately: `narrow_runtime_eval` drops a plain
-      # `require` whose LITERAL feature names a unit this compile emitted, because
-      # `dynamic_require` asks `features::load_feature` before the on-disk tier
-      # that needs a compiler. `require_relative` and `load` stay conservative --
-      # the first resolves against the calling file's directory, which is a
-      # run-time fact, and the second asks DISK first.
+      # So `defined?(PrettyPrint)` is nil before the first call to `lazy`. The
+      # first `require` returns true, and the second returns false.
 
       def lazy
         require "prettyprint"
@@ -292,8 +234,7 @@ describe "PP programs" do
   it "pp prints inspect and answers its argument, store is the method form of []=, and a huge literal is Infinity" do
     result = zr(<<~'RUBY')
       # Kernel#pp prints inspect like p (and returns its argument); Hash#store is
-      # the method form of []=; an out-of-range float literal is Float::INFINITY
-      # (it used to emit an invalid C token).
+      # the method form of []=; an out-of-range float literal is Float::INFINITY.
       pp [1, 2, 3]
       x = pp(42)
       puts x

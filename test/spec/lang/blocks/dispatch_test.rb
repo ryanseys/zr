@@ -161,9 +161,8 @@ describe "Blocks: dispatch" do
 
   it "count block poly pred" do
     result = zr(<<~'RUBY')
-      # count { |x| <poly value> } used the block value directly as a C condition;
-      # a poly (sp_RbVal) predicate is a struct, invalid in `if (...)` (#1508).
-      # Routing it through emit_cond makes any predicate a valid truthiness test.
+      # count { |x| <poly value> } tests the block value for truthiness. Any value
+      # works as the predicate: only nil and false count as false.
       items = [1, nil, "x", false, 2, true]
       p items.count { |x| x }              # truthy: 1, "x", 2, true -> 4
       p items.count { |x| x.nil? }         # 1
@@ -184,13 +183,13 @@ describe "Blocks: dispatch" do
       r001 = (l001.curry rescue $!.class)
       p r001.class
 
-      r002 = (begin; l001.curry; rescue; nil; end); p r002.class                          # Spinel: NilClass
-      r003 = (l001.curry rescue nil); p r003.class                                        # Spinel: NilClass
-      r004 = (l001.curry(1) rescue $!.class); p r004.class                                # Spinel: NilClass
-      r005 = (->(a005, b005) { a005 + b005 }.curry rescue $!.class); p r005.class         # Spinel: NilClass
-      fs006 = [->(x006) { x006 }]; r006 = (fs006[0].curry rescue $!.class); p r006.class  # Spinel: NilClass
+      r002 = (begin; l001.curry; rescue; nil; end); p r002.class                          # => Proc
+      r003 = (l001.curry rescue nil); p r003.class                                        # => Proc
+      r004 = (l001.curry(1) rescue $!.class); p r004.class                                # => Proc
+      r005 = (->(a005, b005) { a005 + b005 }.curry rescue $!.class); p r005.class         # => Proc
+      fs006 = [->(x006) { x006 }]; r006 = (fs006[0].curry rescue $!.class); p r006.class  # => Proc
 
-      p((l001.curry rescue $!.class).call(5))   # Ruby: 5   Spinel: 0
+      p((l001.curry rescue $!.class).call(5))   # => 5
 
       p(l001.curry.class)                                    # => Proc
       c007 = l001.curry; p c007.class                        # => Proc
@@ -330,10 +329,8 @@ describe "Blocks: dispatch" do
     result = zr(<<~'RUBY')
       # `cell.neighbors.count { |n| Kind.walkable?(n.kind) }` on a poly receiver.
       #
-      # The count arm wrote "if (sp_poly_truthy(" into the statement stream and then
-      # emitted the condition into that same buffer, so a rooted argument temp the
-      # condition had to hoist -- a declaration -- landed in the middle of the
-      # expression and the generated C did not parse.
+      # The block's condition is a method call whose argument is itself a call
+      # on the block parameter.
 
       module Kind
         def self.walkable?(k)
@@ -556,12 +553,9 @@ describe "Blocks: dispatch" do
   it "poly filter bang stmt block" do
     result = zr(<<~'RUBY')
       # In-place poly-array filters (select!/filter!/keep_if/reject!/delete_if)
-      # emit their loop into g_pre and used to emit the block's terminal
-      # condition directly into g_pre after writing `if (!`. A terminal that
-      # itself lowers through g_pre -- a block ending in a multi-statement
-      # if/else expression -- spliced its statements into the middle of the
-      # `if` condition, producing invalid C (doom: @projectiles.reject! whose
-      # block ends in `if hit ... else proj.x = new_x; ...; false end`).
+      # with a block that ends in a multi-statement if/else expression. The
+      # shape comes from a game: `@projectiles.reject!` whose block ends in
+      # `if hit ... else proj.x = new_x; ...; false end`.
 
       items = [1, "two", 3.5, "four", 5]
       moved = []
@@ -665,8 +659,8 @@ describe "Blocks: dispatch" do
 
   it "proc call kw and lead splat" do
     result = zr(<<~'RUBY')
-      # Variable-stored proc/lambda calls: keyword params bind boxed and type poly
-      # (#2728), and a splat may sit anywhere among the arguments (#2729).
+      # Variable-stored proc/lambda calls: keyword params bind boxed and type poly,
+      # and a splat may sit anywhere among the arguments.
       f = ->(a, k:) { [a, k] }
       p(f.call(1, k: 2))
       g = ->(a, k: 9) { a + k }
@@ -745,9 +739,7 @@ describe "Blocks: dispatch" do
 
   it "proc poly param" do
     result = zr(<<~'RUBY')
-      # Polymorphic (sp_RbVal) values flowing through proc parameters. A 16-byte
-      # sp_RbVal does not fit the 8-byte mrb_int arg slot, so a poly arg rides the
-      # _sp_proc_poly_args side-channel the call site publishes before the call.
+      # Polymorphic values flowing through proc parameters.
       # Covers single/multi poly params, mixed poly+int, poly return, and the
       # re-entrancy case (a nested poly-proc call inside an arg list).
       def poly(a) = a
@@ -872,12 +864,8 @@ describe "Blocks: dispatch" do
   it "returned lambda param boxed" do
     result = zr(<<~'RUBY')
       # `lambda { }` / `proc { }` escapes from a method exactly as `->() { }` does --
-      # the caller has the same type-erased proc either way. Only the arrow spelling
-      # was marked as escaping, so the method-call spellings' parameters defaulted to
-      # int and a lambda returned from a method read a String argument as an Integer
-      # (#4035):
-      #
-      #   undefined method 'length' for an instance of Integer (NoMethodError)
+      # the caller has the same type-erased proc either way. A lambda returned from
+      # a method reads a String argument as a String, whichever spelling makes it.
       def wrap_do(rules)
         lambda do |value|
           results = rules.map { |rule| rule.call(value) }

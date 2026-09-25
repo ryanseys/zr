@@ -24,12 +24,9 @@ describe "Array: formatting and inspection" do
 
   it "at answers nil past the end, for an Integer array and for a Float one" do
     result = zr(<<~'RUBY')
-      # Array#at returns nil for an out-of-range index. For a scalar element
-      # array the result is now typed int?/float?, so the out-of-bounds
-      # sentinel (sp_IntArray_get already returns SP_INT_NIL; sp_FloatArray_get
-      # now returns the float-nil) is recognised by `== nil`, `.nil?`, and
-      # inspect. (Array#[] keeps the plain element type -- making it nullable
-      # would cascade the sentinel through every hot index.)
+      # Array#at returns nil for an out-of-range index. This is true for an
+      # Integer array and for a Float array. `== nil`, `.nil?` and inspect
+      # all see the nil.
 
       p([1, 2, 3, 4, 5, 6].at(99) == nil)        #=> true
       p [1, 2, 3].at(99)                          #=> nil
@@ -67,14 +64,11 @@ describe "Array: formatting and inspection" do
 
   it "a far negative index answers nil rather than reading below the buffer" do
     result = zr(<<~'RUBY')
-      # a[-100] with a 3-element array must not segfault.
-      # Before the fix, sp_IntArray_get adjusted the negative index but
-      # didn't bounds-check the result, reading far below the buffer.
-      # The int? nil-display gap is a known limitation; this test only
-      # verifies that OOB access doesn't crash.
+      # a[-100] on a 3-element array gives nil and does not crash.
+      # An index far past either end reads no memory outside the array.
 
       a = [1, 2, 3]
-      # these used to segfault — now they return SP_INT_NIL (non-crashing)
+      # These give nil.
       a[-100]
       a[100]
       puts a[-1]
@@ -103,7 +97,7 @@ describe "Array: formatting and inspection" do
 
   it "product answers the Cartesian product of two arrays" do
     result = zr(<<~'RUBY')
-      # Array#product on two int_arrays: Cartesian product.
+      # Array#product on two Integer arrays gives the Cartesian product.
       puts [1, 2].product([3, 4]).inspect
       puts [1, 2, 3].product([10, 20]).inspect
       # Empty other → empty product.
@@ -119,12 +113,8 @@ describe "Array: formatting and inspection" do
 
   it "a chained call on repeated_permutation computes the real value, and never degrades quietly" do
     result = zr(<<~'RUBY')
-      # Issue #1244: an unresolved Array method (originally repeated_permutation,
-      # then unimplemented) used to emit a NULL placeholder whose chained
-      # .to_a.inspect dereferenced a->len and SEGVed; later it silently printed
-      # "[]"; under the NoMethodError gate it raised. repeated_permutation is now
-      # implemented, so the chain computes the real value -- keep pinning that the
-      # chained call neither crashes nor silently degrades.
+      # The chain on repeated_permutation gives the real value. It does not
+      # crash and does not quietly print "[]".
       begin
         puts [1, 2].repeated_permutation(2).to_a.inspect
       rescue NoMethodError
@@ -186,11 +176,8 @@ describe "Array: formatting and inspection" do
     result = zr(<<~'RUBY')
       # An empty-array local (`x = []`) that is then filled with objects via
       # `<<` and passed as a call argument must widen the callee's parameter
-      # (and any ivar it is stored in) to the real element type. Previously
-      # the class-body call-type pass typed such a local from its `[]` seed
-      # alone (int_array) and ignored the pushes, so the parameter and ivar
-      # became int_array. A real object array was then stored and later read
-      # back as an IntArray, making `.size` / `.length` return garbage.
+      # (and any ivar it is stored in) to the real element type. The pushes
+      # count, not only the `[]` seed, so `.size` and `.length` are correct.
       #
       # Mirrors the roundhouse "preload" pattern: a controller groups child
       # records into a fresh array (built inside nested `each` blocks, off
@@ -248,13 +235,9 @@ describe "Array: formatting and inspection" do
 
   it "empty int array min max" do
     result = zr(<<~'RUBY')
-      # Issue #745. `[].min` / `[].max` used to read uninitialized memory
-      # in `sp_IntArray_min` / `_max` (no empty-array guard before reading
-      # `a->data[a->start]`). After #832 both return nil (int? sentinel
-      # SP_INT_NIL); inspect renders as "nil" per MRI.
+      # `min` and `max` of an empty array give nil, and inspect shows "nil".
 
-      # `[1].first(0)` produces an empty int-typed array, preserving the
-      # element type. Both min/max should return safely now.
+      # `[1].first(0)` gives an empty array of Integer elements.
       a = [1].first(0)
       puts a.min.inspect
       puts a.max.inspect
@@ -474,9 +457,8 @@ describe "Array: formatting and inspection" do
 
   it "int array tally" do
     result = zr(<<~'RUBY')
-      # Array#tally on int_array maps each distinct element to its
-      # occurrence count. Result is an int_int_hash (new variant
-      # alongside sym_int_hash / str_int_hash etc.).
+      # Array#tally on an Integer array maps each distinct element to its
+      # count. The result is a Hash from Integer to Integer.
       result = [1, 2, 2, 3, 3, 3].tally
       puts result[1]
       puts result[2]
@@ -485,8 +467,7 @@ describe "Array: formatting and inspection" do
       puts result.inspect
       puts result.has_key?(2)
       puts result.has_key?(99)
-      # missing-key returns 0 in spinel today (vs nil in CRuby) —
-      # the broader nullable-hash semantics are tracked in #801.
+      # A missing key gives nil, as in CRuby, so `== 0` is false.
       puts result[99] == 0
     RUBY
 
@@ -504,13 +485,9 @@ describe "Array: formatting and inspection" do
 
   it "local empty array push promotion propagates" do
     result = zr(<<~'RUBY')
-      # #450 cascade 3. A local seeded with `[]` (default int_array)
-      # whose subsequent push observations promote it to an obj-ptr_array:
-      # the promoted element type needs to propagate back to (a) ivars
-      # assigned from the local, and (b) the function's return type when
-      # the local is the body's implicit return. Before the fix, both
-      # sites pinned at sp_IntArray * based on the local's pre-promotion
-      # type that scan_writer_calls / infer_body_return saw.
+      # A local starts as `[]` and then gets objects with `<<`. The object
+      # element type must also reach (a) an ivar set from the local, and
+      # (b) the method result when the local is the implicit return value.
 
       class Item
         attr_accessor :id, :name
@@ -576,36 +553,20 @@ describe "Array: formatting and inspection" do
 
   it "param body array hash inference" do
     result = zr(<<~'RUBY')
-      # #544 / #545 follow-up to #542. Body-usage param inference
-      # extended to two new shapes:
+      # A parameter's use in the method body tells its type:
       #
-      # A. Array body inference (#545 conservative path):
-      #    `param.push(x)` / `.pop` / `.shift` / `.unshift` / `.concat`
-      #    / `.compact` / `.flatten` / `.transpose` widens an
-      #    int/nil-defaulted param to poly_array. Critically does NOT
-      #    fire on `<<`, `&`, `|`, `*`, `+`, `-` (overlap with
-      #    Integer bitwise/arithmetic -- optcarrot's poke(data) shape).
-      #    Runs ONCE post-fixpoint so call-site inference can pin
-      #    narrower variants (int_array / float_array / etc.) first.
+      # A. Array calls on the parameter: `push`, `pop`, `shift`, `unshift`,
+      #    `concat`, `compact`, `flatten`, `transpose`. The operators `<<`,
+      #    `&`, `|`, `*`, `+` and `-` do not count, because Integer also
+      #    has them.
       #
-      # B. Hash iteration inference (#545 iteration arm, lifted to
-      #    #542's pass):
-      #    `param.keys` / `.values` / `.each_pair` / `.merge` /
-      #    `.has_key?` / `.fetch` / `.store` / `.delete` /
-      #    `.transform_values` / `.transform_keys` / `.to_h` widens
-      #    to str_poly_hash when no literal-key signal has already
-      #    pinned the more-specific variant. These methods don't exist
-      #    on Array / String / Integer, so the classifier is
-      #    unambiguous.
+      # B. Hash calls on the parameter: `keys`, `values`, `each_pair`,
+      #    `merge`, `has_key?`, `fetch`, `store`, `delete`,
+      #    `transform_values`, `transform_keys`, `to_h`. Array, String and
+      #    Integer do not have these methods, so they show a Hash.
       #
-      # Updated to MRI-compat after #634 shape B landed. The prior
-      # fixture seeded the body widening via `b.contents` on an
-      # uninitialized `attr_accessor :contents` whose read returned
-      # the int placeholder (cast to NULL at the call site, with
-      # runtime NULL-guards no-op'ing the body). That setup contradicts
-      # MRI -- `nil.push` raises NoMethodError. The body-widening
-      # passes themselves still need test coverage; we keep that by
-      # seeding from concrete literal arguments instead.
+      # Each caller passes a literal argument, because `nil.push` raises
+      # NoMethodError in Ruby.
 
       # Array body inference - typed caller via an array literal.
       def consume_arr(arr)
@@ -624,11 +585,9 @@ describe "Array: formatting and inspection" do
 
       puts merge_into_seed({b: 2, c: 3})
 
-      # Hash widening via .keys (no .each, no [k] literal access) --
-      # Sam's SqliteAdapter#insert/update shape (`cols = attrs.keys;
-      # cols.map { |k| attrs[k] }` -- the [k] uses a computed key,
-      # not a literal, so #542's literal-key arm misses but .keys
-      # catches the param's Hash shape).
+      # A Hash parameter shown only by `.keys` (no `.each`, no literal key),
+      # as in an adapter's insert: `cols = attrs.keys;
+      # cols.map { |k| attrs[k] }`. The `[k]` key is computed, not a literal.
       def hash_keys_count(h)
         h.keys.length
       end

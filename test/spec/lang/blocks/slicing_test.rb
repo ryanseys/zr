@@ -145,11 +145,7 @@ describe "Blocks: slicing" do
   it "block local cell in nested block" do
     result = zr(<<~'RUBY')
       # A local declared in a block that sits inside another block, and captured by a
-      # third: the cell VARIABLE is declared in the frame that owns the scope, but
-      # this block body is emitted INSIDE the enclosing block's proc function, where
-      # the cell is reachable only through the capture struct. The per-iteration
-      # refresh named the bare `_cell_terms` there, which that function does not
-      # declare, and the C build stopped (#4127).
+      # third. Each iteration of the middle block gets a fresh local.
       Section = Struct.new(:statements)
 
       sections = [Section.new(["Order", "Chaos"])]
@@ -162,10 +158,8 @@ describe "Blocks: slicing" do
         end
       end
 
-      # The refresh is not bookkeeping: it is what gives each iteration its own
-      # binding. Procs made in the inner block must each see their own `seen`, not
-      # the last iteration's -- which is the bug the refresh was added for, and the
-      # reason the fix updates the capture slot rather than skipping the reset.
+      # Each iteration has its own binding. Procs made in the inner block must each
+      # see their own `seen`, not the last iteration's.
       made = []
       [1, 2].each do |outer|
         [10, 20].each do |inner|
@@ -385,12 +379,9 @@ describe "Blocks: slicing" do
 
   it "closure captures class value" do
     result = zr(<<~'RUBY')
-      # A class held in a local rides a cell when a closure captures it, the way a
-      # float does: a cls_id and a rodata name, with no GC pointer of its own. It had
-      # no cell shape, so the capture was refused outright -- reachable as soon as the
-      # receiver is boxed and the block is a real closure rather than an inlined loop.
-      # The capture struct also names its fields after the Ruby locals, so a local
-      # named for a C keyword (`struct`, `int`, `default`) has to be prefixed.
+      # A closure can capture a local that holds a class, also when the block is a
+      # real closure and not an inlined loop. Locals can have the names of C
+      # keywords (`struct`, `int`, `default`).
       rings = ""
       rings = [[1, 2], [3, 4]]
 
@@ -477,23 +468,8 @@ describe "Blocks: slicing" do
 
   it "multi arg yield" do
     result = zr(<<~'RUBY')
-      # Multi-argument `yield` in a method body (issue #98).
-      #
-      # Pre-fix, every `yield` lowered against a single-arg `_block`
-      # function pointer (`void (*_block)(mrb_int, void*)`), so any
-      # `yield x, y[, ...]` emitted `_block(x, y, _benv)` against the
-      # wrong signature and `cc` rejected it. The yield-inlined path
-      # (`compile_stmt_with_block`'s YieldNode branch) had a parallel
-      # bug: smaller-arity yields in a multi-arity method only assigned
-      # the args that were passed, so unset block-local C vars leaked
-      # whatever value the previous yield had set.
-      #
-      # Fix scans each yield-using method's body for the max yield arity
-      # and threads that count through `yield_params_suffix*` (so the
-      # function-pointer signature gets N `mrb_int` slots) and through
-      # `compile_yield_stmt` (function-pointer-path emit). The inlined
-      # path is fixed by zeroing remaining `lv_<bp>` slots after each
-      # yield's args are assigned.
+      # Multi-argument `yield` in a method body. A yield with fewer arguments
+      # than the block has parameters sets the rest to nil.
 
       # 1. Basic 2-arg yield.
       def add_pair
@@ -510,10 +486,8 @@ describe "Blocks: slicing" do
       sum_triple { |a, b, c| puts a + b + c }
 
       # 3. Mixed-arity yields in the same method. The smaller yields
-      #    must not leak values from the larger ones. Pre-fix, the second
-      #    yield's `b` would carry 999 from the first yield; post-fix it's
-      #    0. Test uses `b.to_i` so the CRuby-side `nil` and Spinel-side
-      #    mrb_int 0 both produce the same numeric value.
+      #    must not leak values from the larger ones: the second yield's `b`
+      #    is nil, not 999. `b.to_i` turns nil into 0.
       def mixed_yield
         yield 100, 999
         yield 200
@@ -533,11 +507,9 @@ describe "Blocks: slicing" do
 
       Dispatcher.new.emit { |x, y| puts x + y }
 
-      # 5. Three different yield arities in one method. Max-arity detection
-      #    must find 3 so the function-pointer signature has 3 slots; the
-      #    smaller yields must zero-pad their unused slots. Test uses
-      #    `b.to_i` / `c.to_i` so CRuby's `nil` for missing block params
-      #    and Spinel's `mrb_int 0` produce the same numeric sum.
+      # 5. Three different yield arities in one method. The smaller yields
+      #    give nil for the missing block params, and `b.to_i` / `c.to_i`
+      #    turn nil into 0.
       def varied
         yield 1, 2, 3
         yield 10, 20
@@ -723,17 +695,9 @@ describe "Blocks: slicing" do
 
   it "numbered param per block" do
     result = zr(<<~'RUBY')
-      # `_1` .. `_9` (and `it`, which the parser lowers to `_1`) are names spinel
-      # synthesizes rather than names the author wrote, and blocks share their
-      # enclosing scope's local table -- so two such blocks in one method interned
-      # the SAME slot and their types merged. Values stayed right, because each block
-      # writes the slot before reading it; what it cost was the type.
-      #
-      # A scope with one numbered-param block over integers gets `sp_int lv__1`. Add
-      # a second over strings and, before this, BOTH became a boxed sp_RbVal. It also
-      # left two passes typing that one slot from different call shapes on every
-      # round, which was the last program in the suite whose inference fixpoint ran
-      # to its 128-round cap (#4116).
+      # `_1` .. `_9` (and `it`, which the parser lowers to `_1`) belong to their
+      # own block. Two such blocks in one method each have their own `_1`, with
+      # its own type: one over integers and one over strings.
       def alone
         out = []
         [10, 20].each { out << _1 + 1 }
@@ -970,9 +934,7 @@ describe "Blocks: slicing" do
   it "splat param with block" do
     result = zr(<<~'RUBY')
       # A splat parameter collects the call's arguments even when the call site
-      # also passes a block: the block routes the call through the inlining path,
-      # which used to bind parameters positionally and drop the rest packing --
-      # leaving the first argument in the rest slot as a pointer of the wrong type.
+      # also passes a block.
       class Thing; end
 
       class Utils
@@ -1111,8 +1073,7 @@ describe "Blocks: slicing" do
   it "yield mixed block types" do
     result = zr(<<~'RUBY')
       # One yield method called with blocks of different value types: each call
-      # site carries its own block's type (a class method used to funnel every
-      # site through the first site's C type and segfault).
+      # site carries its own block's type, also for a class method.
       class B
         def self.tx
           yield

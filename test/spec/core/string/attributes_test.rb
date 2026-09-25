@@ -482,20 +482,11 @@ describe "String: generated attribute methods" do
 
   it "module singleton attr accessor" do
     result = zr(<<~'RUBY')
-      # #511. `module M; class << self; attr_accessor :x; end; end` on a
-      # module previously didn't recognize either the reader or writer
-      # for non-constant-RHS assignments — the existing constant-fold
-      # path (rewrite_module_singleton_accessors) only resolved when
-      # every observed write was a ConstantReadNode RHS. Roundhouse hit
-      # this with `ActiveRecord.adapter = SqliteAdapter.new` (the RHS
-      # is a method call, not a constant).
-      #
-      # Fix: when the SingletonClassNode + attr_accessor shape is seen,
-      # also synthesize a poly-typed file-scope const `<Mod>_<accessor>`.
-      # Reads of `Mod.accessor` and writes of `Mod.accessor = v` then
-      # fall through to the const slot when the constant-fold path is
-      # empty or poisoned. The const initializes to `{SP_TAG_NIL,...}`
-      # so an un-assigned read returns nil.
+      # `module M; class << self; attr_accessor :x; end; end` gives the
+      # module a reader and a writer, also when the value written is not
+      # a constant. Roundhouse does this with
+      # `ActiveRecord.adapter = SqliteAdapter.new` (the RHS is a method
+      # call, not a constant). A read before any write returns nil.
 
       module Cfg
         class << self
@@ -503,8 +494,7 @@ describe "String: generated attribute methods" do
         end
       end
 
-      # String RHS (non-constant): codegen falls through to the poly
-      # slot. Reader returns sp_RbVal -> sp_poly_puts.
+      # String RHS (non-constant).
       Cfg.adapter = "sqlite"
       puts Cfg.adapter
 
@@ -535,20 +525,16 @@ describe "String: generated attribute methods" do
 
   it "poly attr reader shadows builtin" do
     result = zr(<<~'RUBY')
-      # An attr_reader/attr_accessor whose name collides with a builtin poly
-      # zero-arg helper (value/resume/join -> Thread#value, sum/min/max/first/
+      # An attr_reader/attr_accessor whose name collides with a builtin
+      # zero-arg method (value/resume/join -> Thread#value, sum/min/max/first/
       # last/sample -> array reductions) must shadow the helper exactly like an
       # explicit `def` does.
       #
-      # The shortcut in emit_call only counted comp_method_in_chain when deciding
-      # "no user class defines this name", so an accessor-declared reader was
-      # invisible: `node.value` on a poly element emitted sp_poly_fiber_value(...)
-      # (an sp_RbVal), and typed arithmetic on the result failed C compilation with
-      #   invalid operands to binary expression ('sp_RbVal' and 'sp_RbVal')
+      # So `node.value` on an element of an array calls the user reader, and
+      # arithmetic on the result works.
       #
-      # Reduced from the BART engine, where @roots (a poly array of Nodes, ivar
-      # arrays never narrow to obj arrays) made Tree.leaf_stats' `node.value *
-      # node.value` the build blocker.
+      # Reduced from the BART engine, where @roots (an ivar array of Nodes) is
+      # read in Tree.leaf_stats' `node.value * node.value`.
 
       class Node
         attr_accessor :value, :first
@@ -562,7 +548,7 @@ describe "String: generated attribute methods" do
 
       class Forest
         def initialize
-          @roots = []          # ivar array of user objects: stays poly_array
+          @roots = []          # ivar array of user objects
           @roots << Node.new
         end
 
@@ -585,11 +571,10 @@ describe "String: generated attribute methods" do
       puts f.head      # 14
       puts f.peak      # peak
 
-      # (The builtin side -- Thread#value through a poly container when NO user
+      # (The builtin side -- Thread#value through a container when NO user
       # class defines the name -- is covered by thread_value_through_container.rb.
-      # A program mixing BOTH a user `value` reader and poly-carried Threads still
-      # hits the missing Fiber arm in the dispatch switch: a separate, pre-existing
-      # gap, out of scope here.)
+      # This example does not mix a user `value` reader with Threads in a
+      # container.)
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -601,26 +586,19 @@ describe "String: generated attribute methods" do
 
   it "poly attr writer" do
     result = zr(<<~'RUBY')
-      # Regression: a setter call (`obj.x = val`) on a parameter typed as
-      # a class union must execute the assignment. Previously the dispatch
-      # loop emitted no arms for attr_writer setters on poly receivers and
-      # silently dropped the store.
+      # A setter call (`obj.x = val`) on a parameter that can hold objects
+      # of more than one class must execute the assignment.
       #
       # Three subcases:
-      #  1. Single class with `x`, second class without -- the union case
-      #     where the dispatch arm is "skipped silently."
-      #  2. Two classes share an ivar name; same value type. Verifies
-      #     both arms emit and the result temp's C type fits the slot.
+      #  1. Single class with `x`, second class without.
+      #  2. Two classes share an ivar name; same value type.
       #  3. Two classes share an ivar name; differing value types
-      #     (string vs int). Forces the new arm to box the rhs poly-style
-      #     for one cls_id and unbox for the other.
+      #     (string vs int).
       #
-      # Verifying via the *side effect* (the ivar's value) rather than the
-      # setter expression's return value -- propagating setter returns
-      # through the dispatch into the enclosing function's return is a
-      # separate concern that this PR doesn't try to fix.
+      # The example checks the *side effect* (the ivar's value), not the
+      # return value of the setter expression.
 
-      # --- 1. Single class (the no-op repro) ---------------------------------
+      # --- 1. Single class ----------------------------------------------------
 
       class Foo
         attr_accessor :x
@@ -669,11 +647,7 @@ describe "String: generated attribute methods" do
 
 
       # --- 3. Two classes share `slot` with *different* value types ---------
-      # Pre-fix poly_dispatch_return_type returned "int" for any setter
-      # whose name didn't appear as an explicit method, so the result temp
-      # was mrb_int and the string arm's `tmp = lv` mismatched. The new
-      # arm now also unboxes the rhs to the slot's concrete type when
-      # the function param widened to poly.
+      # Each setter stores the value with its own type.
 
       class IBox
         attr_accessor :slot
@@ -709,11 +683,10 @@ describe "String: generated attribute methods" do
 
   it "rescue attr with sibling exc subclass" do
     result = zr(<<~'RUBY')
-      # Reading a rescued exception's attr must still compile when the program
-      # defines a SECOND, unrelated exception subclass. The second subclass's
-      # `initialize` `message` param is never constrained to a String (its own
-      # call sites don't pin it), so `super(message)` must coerce the poly message
-      # into the const-char* msg slot rather than emit a struct assignment.
+      # Reading a rescued exception's attr works when the program defines a
+      # SECOND, unrelated exception subclass. The second subclass's `initialize`
+      # `message` param can be any value (its own call sites do not fix its type),
+      # and `super(message)` still sets the message.
 
       class AError < StandardError
         attr_reader :code
@@ -756,8 +729,8 @@ describe "String: generated attribute methods" do
 
   it "same named attr no widen" do
     result = zr(<<~'RUBY')
-      # #684: a concretely-typed receiver's attr_reader must not widen to
-      # poly just because an unrelated class shares the same attr name.
+      # A receiver's attr_reader keeps the type of its own ivar, also when an
+      # unrelated class has an attr with the same name.
       class Bag
         attr_accessor :payload
         def initialize; @payload = {"k" => "v"}; end

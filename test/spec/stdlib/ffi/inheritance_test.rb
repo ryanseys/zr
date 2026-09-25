@@ -88,10 +88,7 @@ describe "FFI: inheritance and ancestors" do
 
   it "two library modules each bind their own functions out of one shared library" do
     result = zr(<<~'RUBY')
-      # Ported from spinel's ffi_cflags test to the real ffi gem API. ffi_cflags
-      # has no gem analogue (the gem links against built libraries, it doesn't
-      # compile C), so the surviving intent is the multi-module shape it decorated:
-      # two library modules each bind their own functions out of libm.
+      # Two library modules each bind their own functions out of libm.
       require "ffi"
 
       module MathA
@@ -115,9 +112,8 @@ describe "FFI: inheritance and ancestors" do
 
   it "a C flag value is a plain Ruby constant on the library module, combinable with the bit ops" do
     result = zr(<<~'RUBY')
-      # Ported from spinel's ffi_const to the real ffi gem API: the gem has no
-      # ffi_const directive -- C-side flag values are plain Ruby constants on the
-      # library module, combinable with the usual Integer bit ops.
+      # C-side flag values are plain Ruby constants on the library module,
+      # combinable with the usual Integer bit ops.
       require "ffi"
 
       module Flags
@@ -148,9 +144,8 @@ describe "FFI: inheritance and ancestors" do
     result = zr(<<~'RUBY')
       # A constant in an FFI-library module whose leaf name collides with a plain
       # constant in another module must resolve parent-qualified (a leaf-keyed
-      # constant table would silently rebind the reference and its type). Ported
-      # from spinel's ffi_const to the real ffi gem API: the constant is a plain
-      # Ruby constant on the FFI::Library module.
+      # constant table would silently rebind the reference and its type). The
+      # constant is a plain Ruby constant on the FFI::Library module.
       require "ffi"
 
       module Verbs
@@ -279,7 +274,7 @@ describe "FFI: inheritance and ancestors" do
       # An `enum` whose MEMBER LIST is not a literal. ethon writes
       # `EasyCode = enum(:easy_code, easy_codes)`, where `easy_codes` is a method on
       # a module it `extend`ed and returns eighty-odd symbols; gir_ffi reads its flag
-      # sets out of a shared library at load time. zr used to refuse both.
+      # sets out of a shared library at load time. Both forms must work.
       #
       # The ABI never depended on the members: an enum is a C `int` either way, so
       # the extern signature is settled at compile time and only the symbol<->integer
@@ -743,10 +738,7 @@ describe "FFI: inheritance and ancestors" do
 
   it "an attached strlen answers the length of the string it is handed" do
     result = zr(<<~'RUBY')
-      # i1011, ported to the real ffi gem API. The original exercised spinel's
-      # ffi_cflags compile-time string folding (__dir__, File.expand_path,
-      # String#+), which has no gem analogue; the surviving intent is the strlen
-      # binding those flags decorated.
+      # An attached strlen binding returns the length of its argument.
       require "ffi"
 
       module Pathy

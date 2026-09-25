@@ -188,9 +188,7 @@ describe "Require programs" do
 
   it "Part 1" do
     result = zr(<<~'RUBY')
-      # lrama-required features. Combines what was previously split across
-      # lrama_features.rb / _2.rb / _3.rb (the sections were "part 1/2/3"
-      # of the same coverage matrix).
+      # lrama-required features, in three parts of one coverage matrix.
 
 
 
@@ -262,13 +260,11 @@ describe "Require programs" do
 
   it "Part 2" do
     result = zr(<<~'RUBY')
-      # lrama-required features. Combines what was previously split across
-      # lrama_features.rb / _2.rb / _3.rb (the sections were "part 1/2/3"
-      # of the same coverage matrix).
+      # lrama-required features, in three parts of one coverage matrix.
 
 
 
-      # A9: Hash#merge (sp_StrIntHash)
+      # A9: Hash#merge (String keys, Integer values)
       mrg1 = {"a" => 1, "b" => 2}
       mrg2 = {"b" => 3, "c" => 4}
       mrg3 = mrg1.merge(mrg2)
@@ -357,13 +353,11 @@ describe "Require programs" do
 
   it "Part 3" do
     result = zr(<<~'RUBY')
-      # lrama-required features. Combines what was previously split across
-      # lrama_features.rb / _2.rb / _3.rb (the sections were "part 1/2/3"
-      # of the same coverage matrix).
+      # lrama-required features, in three parts of one coverage matrix.
 
 
 
-      # A10: Hash#transform_values (sp_StrIntHash)
+      # A10: Hash#transform_values (String keys, Integer values)
       tv = {"a" => 1, "b" => 2, "c" => 3}
       tv2 = tv.transform_values { |v| v * 10 }
       puts tv2["a"]  # 10
@@ -619,7 +613,7 @@ describe "Require programs" do
     result = zr(<<~'RUBY')
       # A deliberately-unsupported feature (docs/limitations.md) names itself rather
       # than dumping compiler internals. A user-defined method of the same name is
-      # that method, not the builtin, so it still works (#2652 / #2667 / #2668).
+      # that method, not the builtin, so it still works.
       class Dsl
         def extend(x); "user-extend:#{x}"; end
         def ruby2_keywords; "user-r2k"; end
@@ -641,7 +635,7 @@ describe "Require programs" do
       p extend(9)
 
       # a user-defined SINGLETON method of a limited name is that method too:
-      # `Mod.prepend(kwargs)` resolves to `def self.prepend`, not Module#prepend (#2712)
+      # `Mod.prepend(kwargs)` resolves to `def self.prepend`, not Module#prepend
       module Broadcasts
         def self.prepend(stream:, target:, html:)
           "#{stream}/#{target}/#{html}"
@@ -685,11 +679,9 @@ describe "Require programs" do
 
   it "write payload untyped" do
     result = zr(<<~'RUBY')
-      # A write payload the analysis types as neither String nor poly: `@wrk.pack("C*")`
-      # on a nilable ivar is a C string typed TY_UNKNOWN. Boxing one renders it as
-      # "evaluate for effect, yield nil", so the payload slots have to keep the String
-      # rendering for it -- optcarrot's ROM#save_battery is exactly this shape, and
-      # boxing it wrote an empty file.
+      # A write payload whose type the analysis does not know: `@wrk.pack("C*")` on
+      # an ivar that can be nil. The write puts the String that pack answers, not an
+      # empty payload. optcarrot's ROM#save_battery is exactly this shape.
       require "stringio"
 
       dir = "/tmp/spinel_write_payload_untyped"

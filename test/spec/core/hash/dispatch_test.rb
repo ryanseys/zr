@@ -5,9 +5,8 @@ require "spec_helper"
 describe "Hash: dispatch" do
   it "boxed container read at" do
     result = zr(<<~'RUBY')
-      # Array#at is Array#[] for one integer, and a container read through a boxed
-      # slot must reach it (#3821). A nested hash with Integer keys reads through
-      # the same boxed path (#3822).
+      # Array#at is Array#[] for one integer, and a container read out of a hash
+      # value must reach it. A nested hash with Integer keys reads the same way.
       h = { "a" => [7, 8, 9] }
       p h["a"].at(0)
       p h["a"].at(-1)
@@ -40,8 +39,8 @@ describe "Hash: dispatch" do
 
   it "empty hash poly keys" do
     result = zr(<<~'RUBY')
-      # keys/values on an evidence-free empty {} (stays poly) and on a hash read out
-      # of a poly slot. Previously rejected ("unsupported call keys recv=...ty39").
+      # keys/values on an empty {} that nothing writes to, and on a hash read out
+      # of a slot whose type is known only at run time.
       def id(x) = x
 
       # empty hash literal in a local: keys/values are empty arrays
@@ -95,13 +94,10 @@ describe "Hash: dispatch" do
 
   it "merge with a keyword, dup and fetch each resolve on the hash variant that carries them" do
     result = zr(<<~'RUBY')
-      # #551. Three additional Hash dispatch cells the prior #510 /
-      # #546 work hadn't covered: sym_poly_hash#merge(kwarg) /
-      # str_int_hash#dup / str_poly_hash#fetch. Each one was
-      # producing a `cannot resolve call to 'X' on <hash_variant>
-      # (emitting 0)` warning and silently returning 0; this drove
-      # silent-wrong rendering in Sam's roundhouse blog
-      # (ActionView's link_to / button_to / content_for_get).
+      # Three Hash calls on three kinds of hash: merge with a keyword
+      # argument (Symbol keys, mixed values), dup (String keys, Integer
+      # values) and fetch (String keys, mixed values). ActionView's
+      # link_to / button_to / content_for_get use these shapes.
 
       def merge_kwarg(h); h.merge(c: 3); end
       m = merge_kwarg({ a: 1, b: "two" })
@@ -135,11 +131,8 @@ describe "Hash: dispatch" do
 
   it "a Float value survives a read by key, with its fractional part" do
     result = zr(<<~'RUBY')
-      # Float values stored in a Hash must survive a read by key. Before, a
-      # float-valued hash literal had no dedicated typed variant and fell
-      # through to the str_int_hash default, truncating the fractional part
-      # on read (52.9 -> 52). Float values now route to poly storage so each
-      # slot keeps its own tag.
+      # Float values stored in a Hash must survive a read by key, with the
+      # fractional part (52.9 stays 52.9, not 52).
 
       # String key, float value
       h = { "k" => 52.9 }
@@ -176,10 +169,9 @@ describe "Hash: dispatch" do
 
   it "merge reads the argument as the variant it really is, not as the receiver's layout" do
     result = zr(<<~'RUBY')
-      # `{ sym: v }.merge(opts)` where opts only reads poly: the argument holds
-      # whichever hash variant the value really is, so casting it to the receiver's
-      # layout read one struct through another -- a Symbol key was then dereferenced
-      # as a char * (#3975).
+      # `{ sym: v }.merge(opts)` where the type of opts is known only at run time.
+      # merge reads the argument as the kind of hash it really is, and its Symbol
+      # keys stay Symbols.
       module VH
         def self.render(attrs)
           out = +""
@@ -223,9 +215,8 @@ describe "Hash: dispatch" do
 
   it "a lookup whose key arrives boxed checks the tag before it reads the union" do
     result = zr(<<~'RUBY')
-      # A hash lookup whose key arrives boxed must check the tag before reading the
-      # union member: the same call site reached with a String and with a Float read
-      # the Float's bits as a pointer (#3810).
+      # A hash lookup whose key can be of more than one type: the same call site
+      # gets a String and a Float, and each key is compared as what it is.
       NAMED = { 'red' => '#FF0000' }.freeze
       def named?(v)
         NAMED.key?(v)
@@ -313,15 +304,11 @@ describe "Hash: dispatch" do
 
   it "nil hash param boxed as nil" do
     result = zr(<<~'RUBY')
-      # A hash-typed slot holding nil is a NULL pointer, and boxing it into a poly
-      # wrapped that NULL in a truthy SP_TAG_OBJ instead of answering nil. So
-      # `h.nil?` was false for a hash that WAS nil, `unless h` fell through, and the
-      # first read of it dereferenced NULL -- a segfault with a silent-corruption
-      # stage in front of it. (matz/spinel#4134, reduced from #4132)
+      # A hash parameter that holds nil is nil: `h.nil?` is true, and `unless h`
+      # takes the nil branch.
       #
-      # What makes the slot nil is an omitted optional parameter, which is why an
-      # explicit `nil` at the same call site behaved differently from omitting it:
-      # both paths have to box the same NULL.
+      # What makes the parameter nil is an omitted optional parameter. An explicit
+      # `nil` at the same call site must behave the same as omitting it.
       class Req
         def initialize(method, path, initheader = nil)
           @method = method
@@ -394,27 +381,17 @@ describe "Hash: dispatch" do
 
   it "nullable poly hash arg unbox" do
     result = zr(<<~'RUBY')
-      # When a `sym_poly_hash?` (or `str_poly_hash?`) survives a nil-
-      # guard and its `[]` value flows into a typed-param call site,
-      # analyze's cached infer for `recv[k]` falls through to int
-      # (the leaf-type dispatch rejects the `?`-suffixed recv name), so
-      # downstream the call site sees `at == "int"` and skips the
-      # poly→int unbox. The actual C emit is sp_<*PolyHash>_get(...)
-      # returning sp_RbVal — the call then passes sp_RbVal into a
-      # mrb_int slot.
+      # A hash with Symbol keys and mixed values, or nil. After a nil
+      # guard, a value read with `[]` goes to a method that takes an
+      # Integer, and the method gets that Integer.
       #
-      # Codegen-side fix: expr_emits_poly_rb_val recognizes the shape
-      # at emit time (independent of analyze cache) and the unbox
-      # fires in compile_expr_for_expected_type and the poly-dispatch
-      # arm.
-      #
-      # Real repro lives in roundhouse spinel-blog main.rb:
+      # The shape comes from a blog app:
       #   matched = Router.match(...)
-      #   return if matched.nil?           # matched still : sym_poly_hash?
+      #   return if matched.nil?           # matched is a Hash here
       #   controller = Main.instantiate_controller(matched[:controller])
       #   controller.process_action(matched[:action])
-      # Both `instantiate_controller` (Symbol param) and the poly
-      # dispatch of `process_action` (Symbol param) caught the bug.
+      # It covers a module method call and a call on a receiver that can
+      # be of more than one class.
 
       module Counter
         def self.double(n)
@@ -454,17 +431,14 @@ describe "Hash: dispatch" do
       if m.nil?
         puts "missing"
       else
-        # Module class method dispatch — exercises
-        # compile_expr_for_expected_type via
-        # compile_constant_recv_expr → compile_call_args_with_defaults.
+        # Module class method call.
         puts Counter.double(m[:value])
-        # Polymorphic-receiver dispatch arm — exercises
-        # compile_poly_method_call's arm-arg unbox.
+        # Call on a receiver that can be an A or a B.
         puts pick(true).act(m[:value])
         puts pick(false).act(m[:value])
       end
 
-      # Same shape with str_poly_hash?.
+      # Same shape with String keys and mixed values, or nil.
       def fetch_str(present)
         if present
           { "k1" => 7, "k2" => "v" }
@@ -491,25 +465,11 @@ describe "Hash: dispatch" do
 
   it "poly arg int keyed hash" do
     result = zr(<<~'RUBY')
-      # `if status.is_a?(Integer)` inside a method where status is
-      # poly-typed (the method's caller-union widened it). The then-arm
-      # uses status as the key into an Int-keyed hash. Pre-fix the
-      # IntStrHash dispatch (`[]`, has_key?, fetch) compiled the key
-      # arg via compile_arg0 / compile_expr without unboxing the poly
-      # value, and the C call passed sp_RbVal to a mrb_int param,
-      # tripping the C compile with int-from-pointer.
-      #
-      # IntStrHash's three key-receiving arms now route through
-      # compile_arg0_as_int (or explicit `.v.i` unbox in fetch), which
-      # detects a poly arg and emits `(arg).v.i`. At runtime the is_a?
-      # guard ensures the tag is SP_TAG_INT so the unbox reads the
-      # intended integer value; with no guard the unbox would still
-      # compile but look up a meaningless key (no crash — union
-      # type-pun is defined, just non-meaningful).
-      #
-      # The broader is_a? narrowing for other Int-context use sites
-      # (method call args expecting mrb_int, arithmetic ops, etc.)
-      # remains a separate concern.
+      # `if status.is_a?(Integer)` inside a method where status can be of
+      # more than one type (the callers pass different types). The
+      # then-arm uses status as the key into an Integer-keyed hash, with
+      # `[]`, has_key? and fetch. The is_a? guard makes sure the key is
+      # an Integer.
 
       def lookup(status)
         table = { 200 => "OK", 404 => "NotFound" }
@@ -549,10 +509,8 @@ describe "Hash: dispatch" do
       # Two classes defining the same method with a Hash parameter, called on a
       # receiver whose type is the union of both. A parameter already typed as a
       # concrete hash by its callers was being NARROWED from the method body's own
-      # writes -- str->poly down to str->str -- which converts nothing: it
-      # reinterprets the caller's sp_StrPolyHash * through an sp_StrStrHash *
-      # parameter. The two arms of the dispatch then disagreed on the variant, the
-      # call passed the wrong struct, and the program hung.
+      # writes -- String => mixed down to String => String. Both methods must use
+      # the hash that the caller passes, as it is.
       class Leaf
         def initialize(char) = @char = char
         def walk(table) = table[@char] = "x"
@@ -579,10 +537,9 @@ describe "Hash: dispatch" do
       p shared["a"]
       p shared["b"]
 
-      # ... and read back with a key that comes from ANOTHER hash's iteration, which
-      # is what made the caller's `{}` and the callee's parameter name different C
-      # structs: the key context narrowed the literal while the callee, invisible to
-      # it, filled the hash with its own key type (#3386).
+      # ... and read back with a key that comes from ANOTHER hash's iteration. The
+      # caller's `{}` and the callee's parameter are the same hash, so the keys
+      # that the callee writes are the keys that the caller reads.
       freqs = { "a" => 5, "b" => 9 }
       tally = {}
       nodes.each { |n| n.walk(tally) }
@@ -650,9 +607,7 @@ describe "Hash: dispatch" do
     result = zr(<<~'RUBY')
       # fetch(key, default) on a poly value that is actually a string-keyed hash
       # (here the nested hash reached via the outer hash's own fetch) must perform
-      # the lookup, not collapse to the default. The poly-dispatch guard previously
-      # admitted only `[]`/include?-family calls, so a `fetch` with no user candidate
-      # was dropped and returned an empty string.
+      # the lookup, not collapse to the default.
       def pick(params)
         raw_sub = params.fetch "article", {}
         sub = if raw_sub.is_a?(Hash)
@@ -737,9 +692,8 @@ describe "Hash: dispatch" do
       def show(h) = p(h)
       show({k: {v: [1, 2]}, w: 3})
 
-      # String-keyed hashes (str_int_hash / str_str_hash) whose cls_id block sits
-      # next to Exception: arriving as poly values they must still dispatch to the
-      # hash inspect path, not the Exception path.
+      # String-keyed hashes (Integer values / String values) as values of another
+      # hash: inspect shows them as hashes.
       def wrap(h) = {outer: h}
       p wrap({"a" => 1, "b" => 2})
       p wrap({"k" => "v"})
@@ -758,18 +712,11 @@ describe "Hash: dispatch" do
 
   it "poly hash with range" do
     result = zr(<<~'RUBY')
-      # Range crossing into a poly container: a hash literal mixing
-      # Integer values with Range values used to fall through
-      # `box_non_nullable_value_to_poly`'s default branch and emit
-      # `sp_box_int(sp_range_new(...))`, which the C compiler rejects
-      # (sp_Range is 16 bytes; sp_RbVal's union is 8). Same shape for
-      # heterogeneous poly arrays.
-      #
-      # Fix: heap-allocate the Range and box the pointer through a new
-      # SP_BUILTIN_RANGE cls_id (sp_box_range copies the stack range
-      # onto the GC heap before returning the boxed sp_RbVal).
+      # A Range in a mixed container: a hash literal mixes Integer values
+      # with Range values, and each value keeps its class. Same shape for
+      # mixed arrays.
 
-      # Hash form (the canonical Rails strong-status shape from the issue).
+      # Hash form (the Rails status-symbol table shape).
       STATUS_SYMBOLS = {
         success:    200..299,
         redirect:   300..399,
@@ -812,20 +759,17 @@ describe "Hash: dispatch" do
 
   it "poly idx int nullable" do
     result = zr(<<~'RUBY')
-      # A poly-typed receiver indexed by an int? value (from a shipped int_int_hash
-      # lookup) must dispatch correctly. Before the codegen index-parity fix,
-      # emit_poly_builtin_dispatch / compile_poly_method_call skipped every arm when
-      # the index type was int? (not int), collapsing the result to nil. This repro
-      # needs NO int-array []->int? flip: the int? comes purely from int_int_hash#[].
+      # A receiver whose type is known only at run time, indexed by an Integer-or-nil
+      # value (from an Integer => Integer hash lookup), answers the element.
 
-      h = { 0 => 2, 1 => 3 }   # int_int_hash; #[] returns int?
-      k = h[0]                  # int? (value 2)
+      h = { 0 => 2, 1 => 3 }   # #[] returns Integer or nil
+      k = h[0]                  # 2
 
-      # A heterogeneous literal makes `box` a poly_array; its element read is `poly`.
+      # A mixed literal makes `box` a mixed Array; its element can be of any type.
       box = [[10, 20, 30, 40, 50], "tail"]
-      tbl = box[0]              # poly receiver (an int_array at runtime)
+      tbl = box[0]              # an Array of Integers at run time
 
-      p tbl[k]                  # poly recv [] with int? index -> want 30
+      p tbl[k]                  # [] with an Integer-or-nil index -> want 30
     RUBY
 
     _(result).must_answer "30\n"
@@ -845,9 +789,9 @@ describe "Hash: dispatch" do
           @peeks = {}
           @stored = []
         end
-        # `item` widens to poly across the call sites below (Method,
-        # IntArray) so the param is sp_RbVal — the dedup reassignment
-        # `item = @peeks[item] ||= item` works without re-typing the slot.
+        # `item` gets a Method at one call site below and an Array of
+        # Integers at another. The dedup reassignment
+        # `item = @peeks[item] ||= item` works for both.
         def add(item)
           item = @peeks[item] ||= item
           @stored.push(item)
@@ -880,11 +824,9 @@ describe "Hash: dispatch" do
 
   it "poly length on scalar hash" do
     result = zr(<<~'RUBY')
-      # A `params = {}` filled with a computed String key is a StrStrHash. Once any
-      # user class defines #length, `params.length` goes through poly dispatch instead
-      # of the monomorphic builtin -- the dispatch switch was missing the scalar-valued
-      # hash arms (StrStr/StrInt/IntStr) and returned the seed 0. #inspect/#[] stayed
-      # correct because they never go poly. (#1614)
+      # A `params = {}` filled with a computed String key and String values. A user
+      # class also defines #length, so a call to `length` can go to either class.
+      # `params.length` still answers the size of the hash.
       module App
         def self.build_params(pattern, path)
           pattern_parts = pattern.split("/")
@@ -930,12 +872,10 @@ describe "Hash: dispatch" do
 
   it "poly poly hash each value" do
     result = zr(<<~'RUBY')
-      # `Hash#each_value { |v| ... }` for poly_poly_hash. The previous
-      # dispatch only knew about `each` / `each_pair`; `each_value` fell
-      # through to the unresolved-call warning and silently dropped the
-      # block body.
+      # `Hash#each_value { |v| ... }` on a hash with mixed keys and mixed
+      # values runs the block for each value.
       #
-      # Surfaced via optcarrot's PPU init
+      # The shape comes from optcarrot's PPU init
       # `entries.each_value {|a| a.uniq! {|entry| entry.object_id } }`
       # where `entries` is a heterogeneous-key heterogeneous-value hash.
 
@@ -983,12 +923,9 @@ describe "Hash: dispatch" do
 
   it "poly poly hash fetch dup" do
     result = zr(<<~'RUBY')
-      # #560 (Sam Ruby). poly_poly_hash variant gained fetch + dup
-      # dispatch arms (mirror of #551's str_poly_hash / sym_poly_hash
-      # work). When two writers to the same ivar use keys of
-      # incompatible inferred types (int-defaulted param + sym
-      # literal), spinel widens the storage to poly_poly_hash; the
-      # read side then needs the dispatch cells to lower correctly.
+      # fetch and dup on a hash with mixed keys and mixed values. Two
+      # writers to the same ivar use keys of different types (a param
+      # and a Symbol literal), so the hash holds both kinds of key.
 
       module M
         @h = {}
@@ -1016,13 +953,9 @@ describe "Hash: dispatch" do
 
   it "poly recv aset poly key" do
     result = zr(<<~'RUBY')
-      # #464: `merged[k] = v` where merged is poly-recv AND k is also
-      # poly. Pre-fix, the poly recv `[]=` dispatcher emitted only
-      # Array setter arms which expect mrb_int index, so passing
-      # sp_RbVal as the index argument failed C compile.
-      #
-      # Fix: when idx is poly, dispatch by both recv cls_id AND
-      # key tag at runtime.
+      # `merged[k] = v` where the types of merged AND k are known only at
+      # run time. `[]=` goes to Hash#[]= because merged is a Hash, and the
+      # key is the String that k holds.
 
       def get_poly(h, key)
         h[key]
@@ -1034,9 +967,8 @@ describe "Hash: dispatch" do
 
       def run(outer)
         merged = get_poly(outer, "m")
-        # k and v as poly via a helper that lets analysis lose their
-        # concrete type. wrap_key boxes a string into sp_RbVal via
-        # the poly_hash leaf.
+        # k and v come through a helper, so their types are known only
+        # at run time.
         pairs = get_poly(outer, "pairs")
         k = get_poly(pairs, "k")
         v = get_poly(pairs, "v")
@@ -1053,17 +985,10 @@ describe "Hash: dispatch" do
 
   it "poly recv fetch arm incompat" do
     result = zr(<<~'RUBY')
-      # Sibling to poly_recv_fetch_hash_arms.rb. The dispatch arm for a
-      # user class whose `fetch` is sym-keyed (pinned by sym-only direct
-      # callers) should be SUPPRESSED at the dispatch site when the source
-      # call passes a String key — the String can't be cast to mrb_int sym,
-      # and at runtime the receiver in any source-level-valid path is a
-      # Hash, never the user class.
-      #
-      # Pre-fix: spinel emitted the FlashLike arm with String args going
-      # into a mrb_int slot — fails C compile.
-      # Post-fix: arm suppressed; Hash arms (added in the parent fix) cover
-      # the actual runtime path.
+      # Sibling to the example "poly recv fetch hash arms". A user class has a
+      # `fetch` that only gets Symbol keys from its direct callers. A second call
+      # site passes a String key to `fetch` on a Hash. At run time that receiver
+      # is always a Hash, never the user class, so Hash#fetch answers.
 
       class FlashLike
         def fetch(key, default)
@@ -1072,8 +997,7 @@ describe "Hash: dispatch" do
         end
       end
 
-      # Sym-only direct callers commit FlashLike#fetch's `key` to sym
-      # (mrb_int) in isolation. The dispatch site below mustn't widen it.
+      # Direct callers pass only Symbols to FlashLike#fetch's `key`.
       def warmup
         f = FlashLike.new
         f.fetch(:a, "1")
@@ -1097,17 +1021,12 @@ describe "Hash: dispatch" do
 
   it "poly recv fetch hash arms" do
     result = zr(<<~'RUBY')
-      # #470: `sub.fetch(k, d)` where sub is sp_RbVal (came from a
-      # StrPolyHash lookup). Pre-fix the poly-recv `.fetch` dispatch
-      # enumerated only user-class arms (any class with `def fetch`)
-      # and silently returned the default for any Hash-storage receiver
-      # at runtime. Sibling to #456, which added Hash arms to poly-recv
-      # `[]` / `[]=` but not to `fetch`.
+      # `sub.fetch(k, d)` where sub came from a lookup in a hash with String
+      # keys and mixed values. At run time sub is a Hash, so Hash#fetch does
+      # the lookup and does not answer the default.
       #
-      # A user-defined class with a `fetch` method is needed to force
-      # the call site through the polymorphic dispatch (which is what
-      # missed the Hash arms); without it the call site never picks the
-      # poly path because no arm contributes.
+      # A user-defined class with a `fetch` method makes the call site able
+      # to reach either class.
 
       class FlashLike
         def fetch(key, default)
@@ -1135,23 +1054,10 @@ describe "Hash: dispatch" do
 
   it "poly recv hash dup" do
     result = zr(<<~'RUBY')
-      # Poly-recv hash `.dup`: the call `outer[k].dup` where outer is
-      # a `*_poly_hash` (and so `outer[k]` returns sp_RbVal) used to
-      # fall through to int-default ("cannot resolve call to 'dup' on
-      # int") and silently no-op. Downstream `iv = local` writes
-      # against typed-hash slots then failed -Wint-conversion.
+      # `.dup` on a hash value read out of a hash with mixed values: the
+      # call `outer[k].dup` answers a copy of the inner hash.
       #
-      # Two-sided fix:
-      #  - analyze: infer_call_type for `.dup` recognizes the
-      #    `nullable_poly_hash[k].dup` shape and returns poly so the
-      #    receiving LV slot is typed sp_RbVal up front.
-      #  - codegen: emit_poly_builtin_dispatch grew a `dup` arm that
-      #    dispatches by cls_id through the matching sp_*Hash_dup
-      #    runtime helper, boxing the result back as obj.
-      #
-      # Surfaces in real-blog's `merged = matched[:path_params].dup`
-      # in Main.run — 8 cascading warnings (lv_merged stays int, all
-      # downstream `iv_params = lv_merged` stores warn).
+      # The shape comes from a blog app's `merged = matched[:path_params].dup`.
 
       module Router
         def self.match(present)
@@ -1162,8 +1068,8 @@ describe "Hash: dispatch" do
         end
       end
 
-      # Sink consuming a poly-typed hash. Widens the param to
-      # sp_RbVal up front via the literal-init call below.
+      # Sink consuming a hash of mixed type. The literal-init call below
+      # passes such a hash.
       def first_value(h)
         h["id"]
       end
@@ -1190,20 +1096,9 @@ describe "Hash: dispatch" do
 
   it "poly recv hash each dispatch" do
     result = zr(<<~'RUBY')
-      # Hash#each on a poly-typed receiver (sp_RbVal) was silently
-      # iterating zero times: compile_each_block's `rt == "poly"` arm
-      # emitted a cls_id-keyed length / per-iteration table covering
-      # Range and the six Array variants but no Hash variants. The
-      # loop's `_t2_len` defaulted to 0 and the block never ran.
-      #
-      # Fix: codegen `scan_for_container_typedef_usage` arms every
-      # Hash typedef when any `recv.each { ... }` is present
-      # (conservative -- the recv may resolve to poly at the use site
-      # even when the static analyzer's first pass sees a narrower
-      # type), and the poly-each emit pass now includes 8 hash arms:
-      # `_t2_len` reads `h->len`, the per-iteration value packs the
-      # (key, value) as a 2-element PolyArray so the existing
-      # block-param splat delivers `|k, v|`. Issue #603.
+      # Hash#each on a receiver whose type is known only at run time
+      # runs the block for each pair. The block gets the pair as
+      # `|k, v|`.
 
       module M
         def self.iter(hash)
@@ -1213,13 +1108,13 @@ describe "Hash: dispatch" do
         end
       end
 
-      # Two heterogeneous call sites force the param to sp_RbVal so
-      # the poly-each emit path is exercised on both shapes.
-      puts "a=#{M.iter({ a: 1, b: 2 })}"     # sym_int_hash, expect 2
-      puts "b=#{M.iter({ "x" => "y" })}"     # str_str_hash, expect 1
+      # Two call sites pass different kinds of hash, so the param type is
+      # known only at run time. Both shapes iterate.
+      puts "a=#{M.iter({ a: 1, b: 2 })}"     # Symbol => Integer, expect 2
+      puts "b=#{M.iter({ "x" => "y" })}"     # String => String, expect 1
 
       # Same surface with int-keyed hash + str values, an empty hash,
-      # and a single-pair str_int_hash. The third call drives the
+      # and a single-pair String => Integer hash. The third call drives the
       # per-iteration block param so we verify keys/values arrive.
       def m3(h)
         out = ""
@@ -1227,9 +1122,9 @@ describe "Hash: dispatch" do
         out
       end
 
-      puts m3({1 => "one", 2 => "two"})        # int_str_hash
+      puts m3({1 => "one", 2 => "two"})        # Integer => String
       puts m3({})                              # empty
-      puts m3({"k" => 42})                     # str_int_hash
+      puts m3({"k" => 42})                     # String => Integer
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -1243,32 +1138,19 @@ describe "Hash: dispatch" do
 
   it "poly recv range sym hash dispatch" do
     result = zr(<<~'RUBY')
-      # Two fixes for poly-receiver dispatch on built-in container types
-      # from issues #588 and #590.
+      # Two calls on built-in container types whose receiver type is known
+      # only at run time.
       #
-      # #588: `case x; when Range; r.include?(x); end` -- the poly-recv
-      # include? dispatch enumerated IntArray / IntStrHash cls_ids but
-      # missed SP_BUILTIN_RANGE, so a Range narrowed via case/when fell
-      # through to the default `0` (always-false). `sp_range_include` was
-      # added in lib/sp_runtime.h and the codegen dispatch arm picks it
-      # up.
+      # 1. `case x; when Range; r.include?(x); end` -- a value narrowed to a
+      #    Range via case/when answers include? as a Range.
       #
-      # #590: A sym_*_hash lookup with a poly-typed key (e.g. an
-      # `is_a?(Symbol)`-narrowed local that still carries sp_RbVal at C
-      # level) emitted `sp_SymPolyHash_get(h, lv_x)` where the parameter
-      # expects `sp_sym`. The `compile_arg0_as_sym` helper now extracts
-      # `.v.i` for poly args; the sym_int_hash / sym_str_hash arms also
-      # reuse it, and the prior "non-symbol key -> fallback default"
-      # fast-path no longer fires for poly args (those CAN be symbols at
-      # runtime).
+      # 2. A lookup in a Symbol-keyed hash with a key narrowed by
+      #    `is_a?(Symbol)`. The key can be a Symbol at run time.
       #
-      # Also extends `sp_poly_inspect` to dispatch built-in container
-      # cls_ids (Range, Time, typed Arrays) instead of returning the bare
-      # "#<Object>" placeholder -- the #590 minimal repro stored a Range
-      # inside a sym_poly_hash, and `result.inspect` printed "#<Object>"
-      # instead of "200..299".
+      # Also inspect on a Range read out of a hash with mixed values
+      # answers "200..299", not "#<Object>".
 
-      # --- #588: case/when narrowing to Range, include? via poly recv.
+      # --- 1: case/when narrowing to Range, then include?.
       def check_range(value, actual)
         case value
         when Range
@@ -1286,7 +1168,7 @@ describe "Hash: dispatch" do
       puts check_range(404, 404)        # true
       puts check_range(404, 200)        # false
 
-      # --- #590: sym-keyed hash with poly-typed key extracted from a
+      # --- 2: sym-keyed hash with a key that comes from a
       # Symbol|Integer narrowing.
       H = { a: 200..299, b: 404, c: 500 }
 
@@ -1294,7 +1176,7 @@ describe "Hash: dispatch" do
         expected.is_a?(Symbol) ? H[expected] : expected
       end
 
-      puts lookup(:a).inspect           # 200..299  (was "#<Object>" pre-fix)
+      puts lookup(:a).inspect           # 200..299
       puts lookup(:b).inspect           # 404
       puts lookup(:c).inspect           # 500
       puts lookup(503).inspect          # 503
@@ -1316,17 +1198,12 @@ describe "Hash: dispatch" do
   it "sym poly hash merge" do
     result = zr(<<~'RUBY')
       # `Hash#merge` on a Symbol-keyed hash with heterogeneous values
-      # (Symbol => {Integer | String | Boolean | nil}) -- spinel
-      # represents this as `sym_poly_hash`. Before this change spinel had
-      # no dispatcher for non-mutating `merge` on sym_poly_hash, so the
-      # call lowered to an empty hash and every subsequent lookup returned
-      # nil.
+      # (Symbol => {Integer | String | Boolean | nil}). A non-mutating
+      # `merge` answers a new hash with all the keys.
       #
-      # The poly-receiver `[]` arm covers the case where a local's static
-      # type was widened to poly (e.g. by an `is_a?` branch) even though
-      # the runtime value is a sym_poly_hash. `opt[:k]` then dispatches
-      # via the emit_poly_builtin_dispatch helper rather than the typed
-      # sym_poly_hash branch above.
+      # The `[]` case covers a local that can hold values of more than one
+      # type (e.g. because of an `is_a?` branch), while the value at run
+      # time is such a hash.
 
       DEFAULTS = { a: 1, b: "two", c: true, d: nil, e: 16 }
 
@@ -1341,13 +1218,12 @@ describe "Hash: dispatch" do
       # 2. Original receiver is unchanged.
       puts DEFAULTS[:a]       # 1
 
-      # 3. Symbol-key `[]` lookup on a poly-typed local. The is_a?(String)
-      #    branch widens `opt`s static type to poly; the merge-result is
-      #    boxed back into the same slot. spinel must dispatch the
-      #    subsequent `opt[:k]` reads via the poly builtin path.
+      # 3. Symbol-key `[]` lookup on a local that can hold more than one
+      #    type. The is_a?(String) branch puts a Hash in `opt`, and the
+      #    reads of `merged[:k]` answer the merged values.
       def lookup(opt)
-        # Mixed-value override hash so spinel infers sym_poly_hash for the
-        # `is_a?(String)` boxed branch (and the explicit-Hash call site too).
+        # Mixed-value override hash for the `is_a?(String)` branch (and the
+        # explicit-Hash call site too).
         opt = { a: 7, c: false } if opt.is_a?(String)
         merged = DEFAULTS.merge(opt)
         return merged[:a], merged[:b], merged[:e]
@@ -1381,12 +1257,9 @@ describe "Hash: dispatch" do
 
   it "sym poly hash merge sym int" do
     result = zr(<<~'RUBY')
-      # #559 (Sam Ruby). Sibling of #551. sym_poly_hash.merge with
-      # a positional sym_int_hash argument was missing dispatch
-      # (only the KeywordHashNode and same-variant shapes were
-      # wired). The cross-variant lowering routes through a new
-      # sp_SymPolyHash_merge_int runtime helper that boxes each
-      # int value as sp_box_int into the result poly slot.
+      # merge on a hash with Symbol keys and mixed values, with a
+      # positional argument that has Symbol keys and Integer values.
+      # The result holds the values of both.
 
       def f
         h = { a: "x", b: 1 }

@@ -17,9 +17,8 @@ describe "Syntax programs" do
 
   it "bang op ruby truthy" do
     result = zr(<<~'RUBY')
-      # Issue #703: !0 / !:foo are false in Ruby (only nil/false are
-      # falsy). spinel previously used C's `!` directly, treating 0
-      # as falsy.
+      # !0 / !:foo are false in Ruby (only nil/false are falsy), so 0
+      # is truthy.
       puts !!0
       puts !!:foo
       puts !!""
@@ -43,11 +42,8 @@ describe "Syntax programs" do
   it "bang result through shared handle" do
     result = zr(<<~'RUBY')
       # A bang mutator on a String read out of a container answers the receiver on a
-      # change and nil on none. The "did it change?" test compared the receiver's old
-      # text against the new -- but the old text is the LIVE payload of a shared
-      # handle, so once the mutation had written the new contents into it the two
-      # compared equal and the method answered nil after a substitution that plainly
-      # happened (#4042). The test is made before the mutation now.
+      # change and nil on none. The String is a shared handle, so the "did it
+      # change?" test must not compare the new text against itself.
       h = { a: +"abc" }
       s = h[:a]
       p s.sub!("b", "*")
@@ -157,16 +153,13 @@ describe "Syntax programs" do
 
   it "branch empty literal" do
     result = zr(<<~'RUBY')
-      # An empty `[]` / `{}` caches TY_UNKNOWN because it has no ELEMENT type until
-      # something supplies one -- not because it has no value. Every branch emitter
-      # read that as "value-less tail", ran the literal for effect and left the slot
-      # at its default, and every inference site let ty_unify() drop it and answer
-      # whatever the OTHER arm said. So the branch answered nil, or "", or 0, or
-      # refused to compile when the sibling was an Integer.
+      # An empty `[]` / `{}` has no ELEMENT type until something supplies one, but
+      # it still has a value. A branch that ends in an empty literal answers that
+      # empty container, not nil, "" or 0, whatever the OTHER arm holds.
       #
-      # #4102 fixed the `case` arm merged with a sibling of the same container kind.
-      # This covers the rest: no sibling at all, a sibling of another kind, and the
-      # if / unless / ternary / case-in forms.
+      # The example covers a `case` arm with a sibling of the same container kind,
+      # no sibling at all, a sibling of another kind, and the if / unless /
+      # ternary / case-in forms.
       def s(l); v = yield; puts "#{l}: #{v.inspect}"; end
 
       s("if both empty")   { if true then [] else [] end }
@@ -187,7 +180,7 @@ describe "Syntax programs" do
       s("casein vs int")   { case 1; in Integer; []; else; 1; end }
       s("begin both")      { begin; []; rescue; []; end }
 
-      # what #4102 already covered stays covered
+      # a `case` arm with a sibling of the same container kind
       s("case vs concrete"){ case "s" when String then [] else ["x"] end }
       s("case hash conc")  { case "s" when String then {} else { "a" => 1 } end }
 
@@ -271,7 +264,7 @@ describe "Syntax programs" do
       p by_int(3)              # [3]
       by_int(1).each { |e| puts e }  # nothing printed, no crash
 
-      # A non-empty literal in the same position is unaffected (regression guard).
+      # A non-empty literal in the same position is unaffected.
       p(case "s"
         when String then ["a"]
         else ["b"]
@@ -516,9 +509,9 @@ describe "Syntax programs" do
 
   it "return, break and next with several values each answer an array" do
     result = zr(<<~'RUBY')
-      # Expression shapes that were previously clean compile rejections:
-      # multi-value return/break/next, parenthesized statement sequences, the
-      # fuller interpolation forms, and top-level instance variables.
+      # Expression shapes: multi-value return/break/next, parenthesized
+      # statement sequences, the fuller interpolation forms, and top-level
+      # instance variables.
 
       # --- return / break / next with several values ------------------------------
       # More than one value builds an implicit array -- the same array the
@@ -573,9 +566,9 @@ describe "Syntax programs" do
 
   it "a parenthesized statement sequence answers its last statement" do
     result = zr(<<~'RUBY')
-      # Expression shapes that were previously clean compile rejections:
-      # multi-value return/break/next, parenthesized statement sequences, the
-      # fuller interpolation forms, and top-level instance variables.
+      # Expression shapes: multi-value return/break/next, parenthesized
+      # statement sequences, the fuller interpolation forms, and top-level
+      # instance variables.
 
       # --- parenthesized statement sequences --------------------------------------
       # `(a; b)` evaluates each in order and answers the LAST.
@@ -623,9 +616,9 @@ describe "Syntax programs" do
 
   it "every interpolation form builds the string it reads as" do
     result = zr(<<~'RUBY')
-      # Expression shapes that were previously clean compile rejections:
-      # multi-value return/break/next, parenthesized statement sequences, the
-      # fuller interpolation forms, and top-level instance variables.
+      # Expression shapes: multi-value return/break/next, parenthesized
+      # statement sequences, the fuller interpolation forms, and top-level
+      # instance variables.
 
       # --- string interpolation forms ---------------------------------------------
       # Several statements inside #{ } answer the last...
@@ -663,9 +656,9 @@ describe "Syntax programs" do
 
   it "a top-level @x belongs to main and reads back there" do
     result = zr(<<~'RUBY')
-      # Expression shapes that were previously clean compile rejections:
-      # multi-value return/break/next, parenthesized statement sequences, the
-      # fuller interpolation forms, and top-level instance variables.
+      # Expression shapes: multi-value return/break/next, parenthesized
+      # statement sequences, the fuller interpolation forms, and top-level
+      # instance variables.
 
       # --- top-level instance variables -------------------------------------------
       # At the top level `self` is `main`, an ordinary object -- so `@x` there is
@@ -1418,10 +1411,8 @@ describe "Syntax programs" do
 
   it "or empty container literal type" do
     result = zr(<<~'RUBY')
-      # The empty literal on the right of `||` / `&&` was emitted with its own
-      # default representation (an Integer array, whatever the left held), so the C
-      # conditional mixed sp_StrArray * with sp_IntArray *. The arm has to take the
-      # expression's container type, the way a ternary arm already did. #3462.
+      # The empty literal on the right of `||` / `&&` takes the expression's
+      # container type, as a ternary arm does, whatever the left side holds.
       a = ["x"]
       p(a || [])
       h = { "a" => 1 }
@@ -1549,13 +1540,9 @@ describe "Syntax programs" do
 
   it "parser long ast record" do
     result = zr(<<~'RUBY')
-      # Regression for spinel_parse text-AST records longer than 4096 bytes.
-      #
-      # The parser's array field emitter already builds a growable string, but
-      # the final out_add formatting step used to clamp the emitted line to a
-      # fixed stack buffer. This array has enough elements to force the
-      # `A <id> elements ...` record past that old limit; truncating it drops
-      # tail elements from the compiled program.
+      # A long array literal keeps every element. The array has enough
+      # elements to make its parse record longer than 4096 bytes, and no
+      # tail element is lost.
 
       xs = [
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -1748,11 +1735,9 @@ describe "Syntax programs" do
   it "poly recv user operator arg" do
     result = zr(<<~'RUBY')
       # An operator reached through a poly receiver goes out to the runtime's
-      # user-binop dispatch, which hands the argument over boxed. Typed from the one
-      # call site the compiler could resolve -- the `1 / box` coercion, whose
-      # argument is a Box -- the dispatch arm was guarded on that class, and the same
-      # operator called with an Integer fell through to NoMethodError on a method the
-      # class defines (#3511).
+      # user-binop dispatch, which hands the argument over boxed. The `1 / box`
+      # coercion calls the operator with a Box argument. The same operator called
+      # with an Integer also reaches the method that the class defines.
       class Box
         attr_reader :v
         def initialize(v); @v = v; end
@@ -1855,10 +1840,8 @@ describe "Syntax programs" do
 
   it "unary minus on negative literal" do
     result = zr(<<~'RUBY')
-      # `-(-7)` puts the two signs side by side in the generated C, where `--7LL`
-      # reads as a pre-decrement of a literal and the C compiler rejects it. Routing
-      # the inner value through a local first always worked, which is what isolates
-      # the doubled sign on a literal (#4008).
+      # `-(-7)` puts two minus signs side by side on a literal. The negation of a
+      # negative literal answers the positive value, for Integer and Float.
       p(-(-7))
       p(- -7)
       p(-(-3.5))
@@ -1905,9 +1888,8 @@ describe "Syntax programs" do
 
   it "unary operator methods" do
     result = zr(<<~'RUBY')
-      # Unary operator methods `def -@` / `def +@` must mangle to valid C
-      # identifiers and dispatch on `-obj` / `+obj`. Found via the spinelgems
-      # harness (latinum, as-duration negate via `-@`).
+      # A unary operator method, `def -@` or `def +@`, answers `-obj` or
+      # `+obj`. Gems such as latinum and as-duration negate a value this way.
       class Money
         attr_reader :cents
         def initialize(c)
@@ -1950,9 +1932,8 @@ describe "Syntax programs" do
 
   it "user bang value object" do
     result = zr(<<~'RUBY')
-      # A user-defined #! on an object with ivars: the receiver is passed the way
-      # its layout says, by value for a value type, and the cast to a pointer did
-      # not even compile (#3819).
+      # A user-defined #! on an object with ivars: `!obj` calls the user method
+      # and answers its value.
       class N1
         def initialize(b); @b = b; end
         def !; @b == 0; end

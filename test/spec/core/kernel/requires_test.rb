@@ -326,11 +326,9 @@ describe "Kernel: loading files" do
       # `require` answers true the first time and false every time after -- the
       # question is whether the FEATURE loaded, not whether this call site ran.
       #
-      # A resolvable literal require folds to a boolean at compile time, and the
-      # fold used to answer `true` unconditionally: it sees a NAME, and which file
-      # that name resolves to is the loader's knowledge, not the lowering's. So
-      # every re-require of a file read as a first load. (A re-require of a BUILTIN
-      # was already right -- that arm tracks its own activation set.)
+      # A resolvable literal require folds to a boolean at compile time. The fold
+      # sees only a NAME, so it must not answer `true` for each call. A re-require
+      # of a file is not a first load.
       #
       # The two spellings must agree with each other as well as with themselves:
       # they name one file, so the second one is a re-require whichever came first.
@@ -540,11 +538,10 @@ describe "Kernel: loading files" do
 
   it "require parent" do
     result = zr(<<~'RUBY', files: beside("require_parent/views/articles/index.rb", "require_parent/views.rb"))
-      # Regression: `require_relative ".."` must load the parent directory's
-      # `<dir>.rb`. Ruby normalizes "views/articles/.." -> "views" and appends
-      # ".rb" -> "views.rb"; Spinel must not glue ".rb" onto a literal ".." to
-      # form a bogus "...rb". (Mirrors roundhouse's emitted views, where each
-      # view does `require_relative ".."` to pull in the views aggregator.)
+      # `require_relative ".."` loads the parent directory's `<dir>.rb`. Ruby
+      # normalizes "views/articles/.." -> "views" and appends ".rb" -> "views.rb".
+      # It does not append ".rb" to a literal ".." to make "...rb". (Each view in
+      # roundhouse does `require_relative ".."` to load the views aggregator.)
       require_relative "require_parent/views/articles/index"
     RUBY
 

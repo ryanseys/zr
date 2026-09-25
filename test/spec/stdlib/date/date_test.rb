@@ -2498,10 +2498,8 @@ describe "Date programs" do
     result = zr(<<~'RUBY')
       # `%#` changes a field's case as a whole -- all-uppercase becomes lowercase,
       # anything else becomes uppercase -- rather than swapping it per character.
-      # Per-character swapcase turned "January" into "jANUARY" where CRuby answers
-      # "JANUARY"; only fields that are already uppercase (%p, %Z) agreed. Found
-      # when a clang build refused lib/sp_time.c for calling tolower with no
-      # <ctype.h>, which made the implicit int return the thing to look at.
+      # Per-character swapcase gives "jANUARY" for "January", but CRuby answers
+      # "JANUARY". Only fields that are already uppercase (%p, %Z) agree.
       t = Time.at(0).utc
       p t.strftime("%#B")
       p t.strftime("%#b")
@@ -2777,8 +2775,8 @@ describe "Date programs" do
 
   it "time strftime z minimal" do
     result = zr(<<~'RUBY')
-      # %:::z collapses the UTC offset to the minimal precision that loses nothing
-      # (#2713); a fixed-offset time (Time.at in:) reports its own offset.
+      # %:::z collapses the UTC offset to the minimal precision that loses nothing;
+      # a fixed-offset time (Time.at in:) reports its own offset.
       t = Time.utc(2026, 7, 16, 13, 45, 30)
       p t.strftime("%:z")
       p t.strftime("%::z")

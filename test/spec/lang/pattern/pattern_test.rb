@@ -6,8 +6,7 @@ describe "Pattern programs" do
   it "array mul string" do
     result = zr(<<~'RUBY')
       # `Array * sep` (String arg) is equivalent to Array#join(sep) and
-      # returns a string. Previously spinel routed it through the int-repeat
-      # path which treated the string pointer as a loop count.
+      # returns a string. It does not repeat the array.
       puts ([1, 2, 3] * ",")
       puts ([1, 2, 3] * ",").inspect
       puts ([1, 2, 3] * "")
@@ -44,8 +43,8 @@ describe "Pattern programs" do
 
   it "symbol inspect spl marker" do
     result = zr(<<~'RUBY')
-      # Symbol#inspect literal prefix must use SPL marker so sp_str_byte_len's
-      # s[-1] marker check is well-defined (avoids -O2 __builtin_trap).
+      # Symbol#inspect gives the symbol with its `:` prefix, for a literal and
+      # for a local.
       puts :hello.inspect          # :hello
 
       sym = :world
@@ -63,15 +62,14 @@ describe "Pattern programs" do
 
   it "split no arg ws" do
     result = zr(<<~'RUBY')
-      # #507. `s.split` (no arg) used to emit `sp_str_split(s, 0)` and
-      # segfault at strlen(NULL) -- new sp_str_split_ws helper matches
-      # Ruby's whitespace-mode split (no arg / nil arg form).
+      # `s.split` with no arg or a nil arg splits on runs of whitespace and
+      # drops leading and trailing whitespace.
       p "1 2 3".split
       p "  leading  trailing  ".split
       p "a\tb\nc".split          # mixed whitespace
       p "".split                  # empty
       p "abc".split(nil)          # explicit nil arg -> same as no-arg
-      p "a,b,c".split(",")        # non-whitespace sep (regression guard)
+      p "a,b,c".split(",")        # non-whitespace sep
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -114,9 +112,8 @@ describe "Pattern programs" do
 
   it "reduce sym op" do
     result = zr(<<~'RUBY')
-      # #506. `[1,2,3,4].reduce(:*)` previously fell through unresolved
-      # on int_array. Codegen now folds the symbol-arg form inline for
-      # binary arithmetic / bitwise ops on int_array.
+      # `[1,2,3,4].reduce(:*)`: the symbol-arg form of reduce and inject
+      # with binary arithmetic and bitwise ops on an Integer array.
       p [1, 2, 3, 4].reduce(:*)    # 24
       p [1, 2, 3, 4].reduce(:+)    # 10
       p [10, 1, 2].reduce(:-)      # 7
@@ -143,10 +140,8 @@ describe "Pattern programs" do
 
   it "array of hash lit" do
     result = zr(<<~'RUBY')
-      # Issue #402: array literal of hash literals (`[{n: 3}, {n: 1}]`)
-      # was typed as `sp_IntArray *` (the bottom default), but the
-      # elements were emitted as `sp_SymIntHash *`. Fix: inference
-      # recognises hash-typed elements and returns `poly_array`.
+      # An array literal of hash literals (`[{n: 3}, {n: 1}]`) holds
+      # hashes, and each element reads back as a Hash.
       arr = [{n: 3}, {n: 1}, {n: 2}]
       puts arr.length          # 3
       puts arr[0][:n].to_s     # 3
@@ -208,8 +203,7 @@ describe "Pattern programs" do
   it "case in value position" do
     result = zr(<<~'RUBY')
       # case/in used as a value: assignment RHS, method receiver, and method-return
-      # position. Pre-fix this hit "unsupported expression: CaseMatchNode" (or
-      # silently produced nil when in return position).
+      # position. Each gives the value of the matched arm.
 
       def describe(x)
         s = case x

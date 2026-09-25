@@ -7,13 +7,10 @@ describe "FFI programs" do
     result = zr(<<~'RUBY')
       # A library named by a CANDIDATE LIST is resolved with dlopen at the first
       # call, so its functions go through libffi rather than a compile-time
-      # `extern`. A struct returned BY VALUE used to be refused on that tier: the
-      # extern tier lets the C ABI classify the aggregate through a mirror
-      # declaration, and libffi needs the same classification built by hand.
-      #
-      # It gets it from the very field descriptor the by-value ARGUMENT direction
-      # already builds, so both directions now agree on every tier. `div` and
-      # `ldiv` return their quotient/remainder pair by value on every libc.
+      # `extern`. A struct returned BY VALUE works on that tier too: libffi gets
+      # the struct's layout from the same field descriptor that a by-value
+      # ARGUMENT uses, so both directions agree on every tier. `div` and `ldiv`
+      # return their quotient/remainder pair by value on every libc.
       require "ffi"
 
       class Div < FFI::Struct
@@ -310,10 +307,8 @@ describe "FFI programs" do
 
   it "empty array push ptr" do
     result = zr(<<~'RUBY')
-      # #688 (ported to the real ffi gem API): empty `[]` followed by pushes of
-      # FFI :pointer values must behave as an array of pointers, not silently
-      # collapse to an int-array representation that would round-trip the pointer
-      # through an integer.
+      # Empty `[]` followed by pushes of FFI :pointer values must behave as an
+      # array of pointers, not as an array of the pointers' integer addresses.
       require "ffi"
 
       module LibC
@@ -399,10 +394,8 @@ describe "FFI programs" do
     result = zr(<<~'RUBY', ruby: ["-W:no-experimental"])
       # There is no second evaluator to hand a declined shape to, so a shape
       # the compiler cannot lower raises `NotImplementedError` naming itself.
-      # This test used to pin one such message -- and it had to be re-pointed
-      # every time a shape closed, which is a test that rots into a lie. It
-      # pins the CLOSURES instead: every shape a snippet once declined, each
-      # answering what ruby answers.
+      # This test does not pin such a message. It pins shapes that an eval
+      # snippet compiles, each answering what ruby answers.
 
 
       require "ffi"
@@ -481,14 +474,12 @@ describe "FFI programs" do
 
   it "a callback type declares a C function pointer, and a proc becomes one" do
     result = zr(<<~'RUBY')
-      # Ported from spinel's ffi_callback trampoline to the real ffi gem API: a
-      # `callback` type declares a C function-pointer type, and a Ruby proc passed
+      # A `callback` type declares a C function-pointer type, and a Ruby proc passed
       # to an argument of that type becomes a C-callable trampoline -- so Ruby code
       # can be handed to qsort's comparator and bsearch's. Exercising both qsort
-      # (`void *base`) and bsearch (`const void *base`) keeps the original's
-      # coverage of both const-qualifications. (The original also registered an
-      # atexit callback; ruby-ffi cannot run a Ruby callback during process exit,
-      # so that leg is dropped in the port.)
+      # (`void *base`) and bsearch (`const void *base`) covers both
+      # const-qualifications. (ruby-ffi cannot run a Ruby callback during process
+      # exit, so the test registers no atexit callback.)
       require "ffi"
 
       module L
@@ -562,9 +553,8 @@ describe "FFI programs" do
       # A constant in an FFI-library module referenced through a NESTED constant
       # path (Outer::CMath::MODE) must still resolve parent-qualified by the
       # module's leaf name -- a leaf-keyed plain-constant table would otherwise
-      # claim the reference for a same-leaf constant in another module. Ported from
-      # spinel's ffi_const to the real ffi gem API: the constant is a plain Ruby
-      # constant on the FFI::Library module.
+      # claim the reference for a same-leaf constant in another module. The
+      # constant is a plain Ruby constant on the FFI::Library module.
       require "ffi"
 
       module Verbs
@@ -611,12 +601,9 @@ describe "FFI programs" do
       # at -- what the run time adds is a DECLARATION built from values rather
       # than baked into `.rodata`.
       #
-      # What it used to do instead is why this is written down: the directives
-      # were consumed by the snippet's own lowering, attached nothing, and then
-      # the `attach_function` call reached a module that had never been
-      # extended -- a `NoMethodError` reading as though the name were
-      # misspelled. See `an_ffi_declaration_attaches_at_run_time.rb` for the
-      # whole surface.
+      # So the `attach_function` call reaches an extended module, and the
+      # attached function is callable. See
+      # `an_ffi_declaration_attaches_at_run_time.rb` for the whole surface.
 
       require "ffi"
 
@@ -644,8 +631,8 @@ describe "FFI programs" do
 
   it "the declaration spellings a real adapter writes" do
     result = zr(<<~'RUBY')
-      # FFI declaration spellings the lowering used to reject as "literal symbol/
-      # string required", together in one program:
+      # FFI declaration spellings that do not use a literal symbol or string,
+      # together in one program:
       #
       #  - an INLINE `callback([...], ret)` in a type position -- the anonymous twin
       #    of the named `callback :tag` declaration;
@@ -933,8 +920,7 @@ describe "FFI programs" do
       # A foreign pointer (malloc'd C memory) kept alive in an ivar must not be
       # traced by the GC as a heap object. Heavy allocation churns GC cycles that
       # scan the holder; a collector that followed the foreign pointer would crash.
-      # Ported from spinel's ffi_buffer to the real ffi gem API: the foreign
-      # address comes from libc malloc through attach_function.
+      # The foreign address comes from libc malloc through attach_function.
       require "ffi"
 
       module F
@@ -1077,11 +1063,9 @@ describe "FFI programs" do
 
   it "an :int argument coerces a boxed integer rather than passing the box" do
     result = zr(<<~'RUBY')
-      # An FFI numeric arg (:int) call site receiving a poly-typed value (an ivar
-      # widened by a mixed-type initializer) must coerce the boxed integer rather
-      # than passing the box itself. Ported from spinel's ffi_func (#626) to the
-      # real ffi gem API; the symptom shape -- a within-class poly slot created by
-      # a mixed-type initializer -- is preserved.
+      # An FFI numeric arg (:int) call site gets a value of no single type (an ivar
+      # that a mixed-type initializer sets). The call must pass the Integer
+      # value to C.
       require "ffi"
 
       class Sink
@@ -1723,10 +1707,8 @@ describe "FFI programs" do
       # separate libraries, all required -- a different thing.) zr has to name one
       # library at compile time, so it takes the first alternative it can DECIDE.
       #
-      # It used to accept only a bare string or `FFI::Library::LIBC`, which refused
-      # every gem that writes an alternatives list, a symbol, or the `ffi` gem's own
-      # `FFI.library_name` helper -- 317 corpus rows, the largest single lowering
-      # diagnostic left after the singleton clusters.
+      # It accepts a bare string, `FFI::Library::LIBC`, an alternatives list, a
+      # symbol, and the `ffi` gem's own `FFI.library_name` helper.
       require "ffi"
 
       # A candidate LIST. The bare name comes first and the versioned sonames after
@@ -1777,9 +1759,8 @@ describe "FFI programs" do
 
   it "scalar doubles, a string measured by strlen, and a no-argument int return" do
     result = zr(<<~'RUBY')
-      # Basic libc + libm bindings through the real ffi gem API (ported from
-      # spinel's ffi_func): scalar doubles in/out, a string argument measured by
-      # strlen, and a no-arg int return.
+      # Basic libc + libm bindings through the ffi gem API: scalar doubles
+      # in/out, a string argument measured by strlen, and a no-arg int return.
       require "ffi"
 
       module LibM
@@ -1858,7 +1839,7 @@ describe "FFI programs" do
     result = zr(<<~'RUBY')
 
       # `FFI::Platform` answers the host's platform and C-ABI facts as CONSTANTS,
-      # not only as the four predicates zr used to carry. A gem reads them
+      # and not only as predicates. A gem reads them
       # directly -- crabstone picks `:size_t`'s width with
       # `FFI::Platform::ADDRESS_SIZE == 32`, and smartcard its entry-point suffix
       # from `FFI::Platform.windows?` -- so an absent constant is a NameError at
@@ -1966,10 +1947,9 @@ describe "FFI programs" do
 
   it "an int array whose type collapsed still marshals its elements" do
     result = zr(<<~'RUBY')
-      # An int array whose static type poly-collapsed (a param union widened it)
-      # must still marshal its element data at an FFI array boundary, and a poly
-      # value holding a non-array must raise instead of marshalling NULL. Ported
-      # from spinel's :int_array spec to the real ffi gem API: the array's elements
+      # An Integer array passed through a param that also gets other types must
+      # still marshal its element data at an FFI array boundary, and a non-array
+      # value must raise instead of marshalling NULL. The array's elements
       # land in an FFI::MemoryPointer via write_array_of_int64, and the observer is
       # read_string over the marshalled bytes -- int64 65 is "A\0..." little-endian,
       # so a correct marshal reads back "A".
@@ -2021,11 +2001,10 @@ describe "FFI programs" do
 
   it "a :string argument coerces a boxed string rather than passing the box" do
     result = zr(<<~'RUBY')
-      # An FFI :string arg call site receiving a poly-typed value (an ivar widened
-      # by a mixed-type initializer) must coerce the boxed string rather than
-      # passing the box itself. Ported from spinel's ffi_func (#502) to the real
-      # ffi gem API; libc's atoi(const char *) exercises the :string coercion
-      # through a real, always-available external function.
+      # An FFI :string arg call site gets a value of no single type (an ivar that
+      # a mixed-type initializer sets). The call must pass the String's bytes to
+      # C. libc's atoi(const char *) exercises the :string coercion through a
+      # real, always-available external function.
       require "ffi"
 
       class Sink
@@ -2376,14 +2355,10 @@ describe "FFI programs" do
 
   it "a type list may be a constant, a repeated array or a word list" do
     result = zr(<<~'RUBY')
-      # Imported from the spinel corpus at c55d9bdb.
       # An ffi type list may be written the way a real adapter writes a long one:
       # a constant, a repeated array, a word list, any of them frozen or
       # parenthesised. Every form names the same function as the plain literal.
-      #
-      # Ported from spinel's ffi_type_list_forms, whose `ffi_func` class macro is
-      # compile-time spinel DSL with no CRuby analog. The real ffi gem spells it
-      # `attach_function`, which takes the same argument-type array.
+      # `attach_function` takes the argument-type array.
       require "ffi"
 
       module Demo
@@ -2524,8 +2499,7 @@ describe "FFI programs" do
 
   it "a void-returning function works in any expression position" do
     result = zr(<<~'RUBY')
-      # Void-returning FFI functions through the real ffi gem API (ported from
-      # spinel's ffi_func).
+      # Void-returning FFI functions through the ffi gem API.
       require "ffi"
 
       module LibC
@@ -2551,10 +2525,9 @@ describe "FFI programs" do
 
   it "every put_ writer round-trips through the matching get_ reader" do
     result = zr(<<~'RUBY')
-      # put_*/get_* round-trips through the real ffi gem API (ported from spinel's
-      # ffi_write_*/ffi_read_* DSL): each writer stores a value at a byte offset
-      # into a buffer and the matching reader recovers it, including a pointer slot
-      # whose NULL reads back nil-equal.
+      # put_*/get_* round-trips through the ffi gem API: each writer stores a
+      # value at a byte offset into a buffer and the matching reader recovers
+      # it, including a pointer slot whose NULL reads back nil-equal.
       require "ffi"
 
       buf = FFI::MemoryPointer.new(32)
@@ -2587,12 +2560,10 @@ describe "FFI programs" do
 
   it "a block whose tail is an FFI pointer hands the pointer back intact" do
     result = zr(<<~'RUBY')
-      # Issue #1017, ported to the real ffi gem API: a block whose tail expression
-      # is an FFI pointer value must flow that pointer out of the block intact
-      # (the original guarded a codegen cast when the tail crossed the proc-return
-      # ABI). The yielded pointer here is NULL -- the first word of a zero-filled
-      # MemoryPointer -- so the pool's free list ends up holding a nil-equal
-      # pointer.
+      # A block whose tail expression is an FFI pointer value must give that
+      # pointer back out of the block intact. The yielded pointer here is NULL --
+      # the first word of a zero-filled MemoryPointer -- so the pool's free list
+      # ends up holding a nil-equal pointer.
       require "ffi"
 
       scratch = FFI::MemoryPointer.new(16)
@@ -2685,9 +2656,8 @@ describe "FFI programs" do
 
   it "sp net basic" do
     result = zr(<<~'RUBY')
-      # Ported from spinel's bundled sp_net.c FFI surface. sp_net_shell_capture is
-      # spinel-private (Kernel backticks are the Ruby spelling of the same thing);
-      # getpid stays a real FFI binding through the ffi gem.
+      # Shell capture uses Kernel backticks, and getpid is a real FFI binding
+      # through the ffi gem.
       #
       # Cross-platform-deterministic smoke: shell capture + getpid produce the
       # same output on every POSIX target, so the .expected holds for Linux +

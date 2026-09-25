@@ -6,9 +6,7 @@ describe "Exceptions: slicing" do
   it "begin rescue else clause" do
     result = zr(<<~'RUBY')
       # Phase 1B: `begin..rescue..else..end` the `else` body runs only when
-      # the begin body completed without exception. Pre-fix the parser
-      # emitted the else_clause field but the codegen ignored it -- the
-      # else body was silently dropped from emit.
+      # the begin body completed without exception.
       #
       # Covered:
       #   - else with no exception (else runs)
@@ -47,8 +45,8 @@ describe "Exceptions: slicing" do
 
       # 4. Method-level: else's last expr is the method return value
       # (overriding begin body's). When else's last is `puts ...` which
-      # returns nil, the method returns nil (spinel's int slot lowers it
-      # to 0).
+      # returns nil, the method returns nil, and `puts` prints an empty
+      # line.
       def m_else_succeeds
         10
       rescue
@@ -56,7 +54,7 @@ describe "Exceptions: slicing" do
       else
         puts "else fired"
       end
-      puts m_else_succeeds       # "else fired" then 0 (spinel int slot for nil)
+      puts m_else_succeeds       # "else fired" then an empty line
 
       # 5. Method-level: exception path skips else, rescue value returned.
       def m_else_skipped
@@ -84,8 +82,7 @@ describe "Exceptions: slicing" do
   it "builtin arg mismatches raise cruby error shapes" do
     result = zr(<<~'RUBY')
       # The table rows validate argument TYPES with CRuby's exact TypeError/
-      # ArgumentError messages (previously an arg-type mismatch degraded to
-      # NoMethodError) -- all real, rescuable exceptions now.
+      # ArgumentError messages. All are real, rescuable exceptions.
 
       a = ["a"].first
       begin
@@ -201,7 +198,7 @@ describe "Exceptions: slicing" do
       # `ensure` blocks it passes over before delivering, like an exception. An
       # uncaught `throw` raises a (catchable) UncaughtThrowError.
 
-      # A proc return that passes through no ensure goes straight home (regression).
+      # A proc return that passes through no ensure goes straight home.
       def ret_no_ensure
         proc { return 5 }.call
         6
@@ -293,7 +290,7 @@ describe "Exceptions: slicing" do
       # `ensure` blocks it passes over before delivering, like an exception. An
       # uncaught `throw` raises a (catchable) UncaughtThrowError.
 
-      # A throw NOT passing any ensure delivers directly (regression).
+      # A throw NOT passing any ensure delivers directly.
       p(catch(:q) { throw :q, 33 })
 
     RUBY
@@ -309,7 +306,7 @@ describe "Exceptions: slicing" do
       # `ensure` blocks it passes over before delivering, like an exception. An
       # uncaught `throw` raises a (catchable) UncaughtThrowError.
 
-      # A normal exception still runs its ensure (regression).
+      # A normal exception still runs its ensure.
       def raise_through_ensure
         begin
           raise "boom"
@@ -388,18 +385,13 @@ describe "Exceptions: slicing" do
 
   it "conv typeerror names the right class" do
     result = zr(<<~'RUBY')
-      # The class a conversion TypeError names has to survive the emission that sits
-      # between taking it and writing it. class_ruby_name built the qualified name
-      # into a shared static buffer, so a message built as
+      # The class that a conversion TypeError names must be the class of the value
+      # it converts. Below, an inner conversion is compiled but never runs (its
+      # branch is not taken). It must not change the class name in the error that
+      # the outer conversion raises.
       #
-      #   cn = class_ruby_name(...);  emit_expr(arg);  printf("...%s...", cn)
-      #
-      # printed whichever class the argument's own emission asked about. Below, the
-      # inner conversion is EMITTED but never runs (its branch is not taken), and it
-      # was enough to rename the error the outer one raises.
-      #
-      # The same buffer is why `is_a?` on a namespaced exception compared its
-      # receiver against itself (#4133).
+      # `is_a?` on a namespaced exception must also compare its receiver against
+      # the named class, not against itself.
       module M
         class Alpha; end
         class Beta; end
@@ -1284,13 +1276,8 @@ describe "Exceptions: slicing" do
   it "raise reraise in def" do
     result = zr(<<~'RUBY')
       # Phase 1A: bare `raise` (re-raise) inside a def's rescue clause.
-      # Pre-fix the codegen routed the surrounding begin/rescue's body
-      # through compile_body_into which uses compile_expr for the last
-      # stmt; compile_expr's raise arm ignored the 2-arg form and emitted
-      # `sp_raise(<class_expr>)` -- passing an sp_Class compound literal to
-      # sp_raise(const char *), C compile fail. Fix: expr-form raise now
-      # mirrors compile_control_call_stmt's 2-arg handling
-      # (sp_raise_cls("ClassName", msg)).
+      # The begin body ends in a 2-arg `raise StandardError, "inner"`, which
+      # raises that class with that message.
 
       def helper
         begin
@@ -1374,10 +1361,8 @@ describe "Exceptions: slicing" do
   it "reraise nested rescue" do
     result = zr(<<~'RUBY')
       # A bare `raise` re-raises the exception its own rescue caught, even when the
-      # rescue body ran another begin/rescue first. The saved class/message buffers
-      # were shared across clauses, so the inner clause overwrote the outer one's
-      # numbering and the re-raise named temporaries that were out of scope by then
-      # -- the C build failed (#4052).
+      # rescue body ran another begin/rescue first. The inner clause must not
+      # replace the exception that the outer clause saved.
 
       def inner = raise(ArgumentError, "inner boom")
 

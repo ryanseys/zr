@@ -5,12 +5,10 @@ require "spec_helper"
 describe "Array: changing in place" do
   it "clear answers the emptied array in expression position, whatever its element kind" do
     result = zr(<<~'RUBY')
-      # Array#clear in expression position was only implemented for
-      # poly_array; on a typed array (`[1,2,3].clear`) it fell through to the
-      # unresolved-call path, returning int 0 and mis-typing the result. The
-      # statement-form clear already worked for every typed array.
+      # Array#clear in expression position returns the emptied array, for
+      # every element kind.
 
-      p [1, 2, 3, 4].clear                 #=> []
+      p [1, 2, 3, 4].clear                #=> []
       p ["a", "b"].clear                   #=> []
       p [1.0, 2.0].clear                   #=> []
       p [:x, :y].clear                     #=> []
@@ -18,7 +16,7 @@ describe "Array: changing in place" do
       p ["a", "b"].clear.length            #=> 0
       p [1.0, 2.0].clear.length            #=> 0
 
-      # clear resets the int_array sliding window, so a later push refills
+      # clear after a shift resets the array, so a later push refills
       # from index 0.
       a = [1, 2, 3]
       a.shift
@@ -170,11 +168,9 @@ describe "Array: changing in place" do
 
   it "append and prepend widen the local when the value its element kind cannot hold arrives" do
     result = zr(<<~'RUBY')
-      # Array#append / #prepend are exact aliases for #push / #unshift. Pushing or
-      # prepending a value a typed-array local cannot hold (e.g. nil onto an int
-      # array) must widen the local to a poly array, same as #push / #unshift --
-      # previously append/prepend were missing from the widening check, so the
-      # value silently lowered through the typed setter instead (nil -> 0).
+      # Array#append / #prepend are exact aliases for #push / #unshift. A value
+      # of a different kind (e.g. nil onto an Integer array) keeps its own
+      # value. It does not become 0.
 
       a = [1, 2]
       a.append(nil)
@@ -216,9 +212,9 @@ describe "Array: changing in place" do
 
   it "capturing a self-returning mutator that widens reads the receiver at its new layout" do
     result = zr(<<~'RUBY')
-      # Capturing a self-returning Array mutator that widens the element type
-      # (#3523): the receiver widened to a poly array and the capture kept the
-      # pre-widening type, so it read the same object at the wrong layout.
+      # A self-returning Array mutator that adds an element of a new kind
+      # returns the receiver. The captured value and the receiver show the
+      # same elements.
       a001 = [1, 2]
       c001 = a001.push(:x)
       p c001
@@ -244,7 +240,7 @@ describe "Array: changing in place" do
       c006 = a006.push("x")
       p c006
 
-      # no widening: the capture keeps the narrow type
+      # an element of the same kind: the capture is the receiver too
       a007 = [1, 2]
       c007 = a007.push(3)
       p c007
@@ -452,10 +448,9 @@ describe "Array: changing in place" do
 
   it "int array uniq bang" do
     result = zr(<<~'RUBY')
-      # Array#uniq! on int_array — mutates in place. Returns the
-      # receiver (CRuby returns self when something was removed and nil
-      # otherwise; the typed int_array can't carry nil so we always
-      # return self).
+      # Array#uniq! on an Integer Array removes the duplicates in place.
+      # (CRuby returns self when something was removed and nil otherwise.
+      # This test prints the receiver, not the return value.)
       a = [1, 2, 2, 3, 3, 3]
       a.uniq!
       puts a.inspect

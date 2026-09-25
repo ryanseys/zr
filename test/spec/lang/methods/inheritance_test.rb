@@ -289,13 +289,10 @@ describe "Methods: inheritance and ancestors" do
   it "include method body locals" do
     result = zr(<<~'RUBY')
       # A module instance method with body locals, included into a user class.
-      # `include` clones the method into a scope owned by the class, but that clone
-      # shares the source's body AST and only registers the params -- the body locals
-      # (`found`, `doubled`) stay on the source scope. Codegen emits the clone, so
-      # without copying the source's body locals onto it, every `lv_<name>` reference
-      # in the emitted body is undeclared C ("use of undeclared identifier"). The
-      # helper lives on a separate class so its return type resolves cleanly (the
-      # trigger is the included method's own body locals, not the callee).
+      # The method runs on an instance of the class, and its body locals (`found`,
+      # `doubled`) work as in any method. The helper lives on a separate class so
+      # its return type resolves cleanly (the check is the included method's own
+      # body locals, not the callee).
       class Result
         def initialize(v)
           @v = v
@@ -370,26 +367,17 @@ describe "Methods: inheritance and ancestors" do
 
   it "inherited method kwarg block self" do
     result = zr(<<~'RUBY')
-      # Two fixes from the roundhouse controller-test C-compile cascade
-      # (issue #572 follow-up):
+      # Two checks, from the shape of a Rails controller test:
       #
-      # 1. When `def f(x, y = @ivar)` was inferred, the optional-param
-      #    default's initial type computed BEFORE @ivar's class-context
-      #    was known fell to "int", so a later "first class with the
-      #    called surface" walk picked the WRONG sibling class.
-      #    Fix: re-run infer_type on the default expression with the
-      #    method's owning class scope before the class_has_all_methods
-      #    heuristic. The roundhouse canary was
-      #    `assert_response(expected, response = @__response)` against
-      #    `ActionController_Base` (first sibling defining `status` /
-      #    `body`) instead of `ActionResponse`.
+      # 1. In `def f(x, y = @ivar)`, the default value of `y` is the object
+      #    in @ivar. Two sibling classes (Foo and Bar) both define `status`
+      #    and `body`. `r` must be the Bar in @resp, not the first class that
+      #    has those methods. The model is
+      #    `assert_response(expected, response = @__response)`.
       #
-      # 2. Inlined yield bodies emitted bare `self` for inherited-method
-      #    calls inside the body. The enclosing function's C `self` is
-      #    the subclass pointer; calls to ancestor methods need a cast.
-      #    Fix: wrap @self_override in a cast to the callee's class so
-      #    subsequent `sp_<owner>_<m>(self, ...)` calls receive a typed
-      #    pointer.
+      # 2. A block given to a method runs with the `self` of the code that
+      #    wrote the block. A call inside the block to a method of that
+      #    `self` goes to the correct object.
 
       class Foo
         attr_accessor :status, :body
@@ -412,17 +400,15 @@ describe "Methods: inheritance and ancestors" do
           @resp = Bar.new
         end
 
-        # Without fix #1, `r` was typed Foo (first sibling defining
-        # .status/.body) so the caller had to pass a Foo. With the fix,
-        # `r` resolves from the default's actual type (Bar via @resp).
+        # `r` is the Bar in @resp, not a Foo, which also defines
+        # .status/.body.
         def check(expected, r = @resp)
           raise "got status=#{r.status}, expected=#{expected}" unless r.status == expected
           raise "got body=#{r.body}" unless r.body == "Bar"
         end
 
-        # Without fix #2, the inlined-yield body of `helper` emitted
-        # calls to inherited methods with bare `self`, mismatching the
-        # enclosing C function's `self` type.
+        # The block given to `helper` calls `check` on the Outer that
+        # wrote the block.
         def helper(label)
           yield
           puts label
@@ -487,16 +473,14 @@ describe "Methods: inheritance and ancestors" do
     result = zr(<<~'RUBY')
       # `method_added` reaching a class through `extend`, both standard spellings.
       #
-      # The one that used to fail is the ClassMethods idiom: a module's `included`
-      # hook doing `base.extend(ClassMethods)`, with `method_added` defined in
-      # `ClassMethods`. The edge is written inside a method that runs at mixin
-      # time, so nothing static saw it and `analyze::def_hooks` found no hook body
-      # to announce to. `analyze::methods::extends_from_included_hook` reads the
-      # hook now, at the include.
+      # The first is the ClassMethods idiom: a module's `included` hook does
+      # `base.extend(ClassMethods)`, and `ClassMethods` defines `method_added`.
+      # The extend is inside a method that runs at mixin time, so the hook
+      # takes effect only at the include. Each later `def` in the class
+      # must call it.
       #
-      # Kept beside it: the INHERITED spelling, which always worked. Two shapes of
-      # one feature belong in one file, so a change that fixes one and breaks the
-      # other cannot pass.
+      # Kept beside it: the INHERITED spelling. Two shapes of one feature belong
+      # in one file, so a change that fixes one and breaks the other cannot pass.
       module Hook
         def self.included(base) = base.extend(ClassMethods)
 
@@ -517,7 +501,7 @@ describe "Methods: inheritance and ancestors" do
 
       p Uses.added
 
-      # The inherited spelling, which DOES work, so the two are side by side.
+      # The inherited spelling, so the two are side by side.
       class Base
         def self.method_added(name) = ((@seen ||= []) << name)
         def self.seen = @seen
@@ -1288,21 +1272,16 @@ describe "Methods: inheritance and ancestors" do
 
   it "super in dynamic define method" do
     result = zr(<<~'RUBY')
-      # `super` inside a `define_method` whose NAME is not a literal symbol raises
-      # `NoMethodError: super called outside of method`. Only the literal form
-      # (`define_method(:who) { .. }`) desugars to a `DefMethod` node and so carries
-      # the `runtime_super_params` marker `emit_super` needs; the dynamic form stays
-      # an ordinary call with an ordinary block, and the block body has no method
-      # context to resolve against.
+      # `super` inside a `define_method` whose NAME is not a literal symbol. The
+      # block body gets its method context (the name and the owner) at run time.
       #
       # The dynamic form is the one metaprogramming actually uses -- a name computed
       # in a loop is the whole reason to reach for `define_method` -- so this is the
       # shape a delegation or wrapper macro hits.
       #
-      # Both the explicit-argument and the bare form are wrong, and differently: the
-      # explicit form should resolve, and the bare form should raise ruby's OWN
-      # RuntimeError about implicit argument passing (see
-      # `tests/zsuper_in_define_method.rb`), not this one.
+      # The explicit-argument form resolves to Base#who. The bare form raises
+      # ruby's OWN RuntimeError about implicit argument passing (see
+      # `tests/zsuper_in_define_method.rb`), not a NoMethodError.
 
       class Base
         def who(*a) = "base#{a.inspect}"

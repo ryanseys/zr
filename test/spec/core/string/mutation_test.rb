@@ -84,10 +84,7 @@ describe "String: changing in place" do
   it "array op assign concat" do
     result = zr(<<~'RUBY')
       # `arr += other` on a typed array local — operator-assignment with `+`,
-      # which is `arr = arr + other` (a fresh concatenation). Previously only
-      # Int/Float/String/object locals had an op-assign path; a typed array
-      # local fell through to "unsupported operator assignment". `<<` and
-      # `concat` already worked; this covers `+=`.
+      # which is `arr = arr + other` (a fresh concatenation).
       a = [1, 2]
       a += [3, 4]
       p a
@@ -190,8 +187,8 @@ describe "String: changing in place" do
 
   it "concat boxed source" do
     result = zr(<<~'RUBY')
-      # A boxed source for #concat: the element read out of a poly array is an array
-      # at run time, and reading it as the receiver's C type did not compile (#3850).
+      # A boxed source for #concat: the element read out of a nested array is an
+      # array at run time, and #concat appends its elements.
       g = [[1, 2], [3, 4]]
       p g.each_with_object([]) { |r, acc| acc.concat(r) }
       acc2 = []
@@ -214,15 +211,15 @@ describe "String: changing in place" do
 
   it "concat chain operand gc root" do
     result = zr(<<~'RUBY')
-      # A chained string concat `a + b + c` lowers to sp_str_concat3 (and
-      # `a+b+c+d` to sp_str_concat4). The operands must be rooted before the
-      # call: argument evaluation order is unspecified, so a fresh GC string
+      # A chained string concat `a + b + c` (and `a+b+c+d`) joins all operands
+      # in one step. The operands must be rooted before the join:
+      # argument evaluation order is unspecified, so a fresh GC string
       # produced by one operand can be collected while a sibling operand
       # allocates. Here each tag() allocates and forces a GC, so a later
       # operand's GC.start collects an earlier operand's unrooted result.
       def tag(s)
         r = "[" + s + "]"   # fresh heap string
-        GC.start            # collect; pre-fix frees sibling operands still pending
+        GC.start            # collect; sibling operands still pending must survive
         r
       end
 
@@ -242,23 +239,17 @@ describe "String: changing in place" do
 
   it "concat print poly unbox" do
     result = zr(<<~'RUBY')
-      # Conditional-assign of a poly value (e.g. nullable hash lookup
-      # fused with a nil-guard fallback) leaves the local typed sp_RbVal
-      # even when both branches produce strings. Downstream concat and
-      # print sites must coerce on the sp_RbVal -> const char * boundary
-      # rather than fall through to a struct-into-pointer cc error.
+      # Conditional-assign of a value of unknown type (e.g. nullable hash
+      # lookup fused with a nil-guard fallback) leaves the local with no
+      # static type, even when both branches produce strings. Downstream
+      # concat and print sites still use the String value.
       #
-      #   * `"a" + poly + "b"` -- chained concat collapses to
-      #     sp_str_concat3; collect_concat_parts now wraps poly with
-      #     sp_poly_to_s (mirrors the existing 2-arg sp_str_concat
-      #     coercion at the single-`+` site).
-      #   * `print poly` -- compile_print routes through sp_poly_to_s
-      #     instead of the broken `printf("%lld", (long long)val)`
-      #     fallback (sp_RbVal is a struct; the cast rejects).
+      #   * `"a" + poly + "b"` -- a chained concat takes the String.
+      #   * `print poly` -- print writes the String.
       #
-      # str_poly_hash lookup is the canonical shape that triggers the
-      # poly local: { "text" => "hi", "n" => 42 }["text"] is sp_RbVal
-      # because the value union spans String and Integer.
+      # A lookup in a hash with mixed value types is the canonical shape:
+      # { "text" => "hi", "n" => 42 }["text"] has no static type because
+      # the values span String and Integer.
 
       def show_concat(node)
         raw = node["text"]
@@ -303,9 +294,7 @@ describe "String: changing in place" do
       show_print(h_missing)
 
       # --- Symbol-valued poly via `print`. CRuby's `print :sym` calls
-      # `Symbol#to_s` -> "sym"; spinel's compile_print poly arm routes
-      # through `sp_poly_to_s` whose SP_TAG_SYM case returns the same
-      # rendering. Exercises the tag dispatch beyond SP_TAG_STR.
+      # `Symbol#to_s` -> "sym". Exercises a value kind other than String.
       def show_print_sym(node)
         raw = node["k"]
         text = raw.nil? ? "" : raw
@@ -316,8 +305,7 @@ describe "String: changing in place" do
       h_sym = { "k" => :hello, "n" => 42 }
       show_print_sym(h_sym)
 
-      # --- Integer-valued poly via `print`. SP_TAG_INT path through
-      # `sp_poly_to_s` returns `sp_int_to_s(...)`; CRuby's `print 42`
+      # --- Integer-valued poly via `print`. CRuby's `print 42`
       # calls `Integer#to_s`. (Skipped for concat: CRuby raises
       # TypeError on `String + Integer`; the coercion path stays
       # behind `print` to preserve parity.)
@@ -331,7 +319,7 @@ describe "String: changing in place" do
       h_int = { "k" => 42, "n" => "x" }
       show_print_int(h_int)
 
-      # --- Explicit 4-part chained concat that exercises sp_str_concat4.
+      # --- Explicit 4-part chained concat.
       # Uses bound prefix/suffix locals (rather than bare string literals)
       # so the part shape is unambiguous regardless of any literal-folding
       # optimization pass.
@@ -345,7 +333,7 @@ describe "String: changing in place" do
       label_concat4(h_present)
       label_concat4(h_missing)
 
-      # --- Variable-length sp_str_concat_arr (>= 5 parts) with bound
+      # --- Variable-length chained concat (>= 5 parts) with bound
       # prefix / suffix to ensure the chain stays unambiguous.
       def label_wrap(node)
         raw = node["text"]
@@ -615,23 +603,17 @@ describe "String: changing in place" do
     result = zr(<<~'RUBY')
       # A chained poly `+` whose later operand allocates.
       #
-      # `a + b + c` on poly operands compiles to sp_poly_add(sp_poly_add(a, b), c).
-      # The inner result is a freshly built string living only in a C temporary, and
-      # `c` is evaluated after it -- so an allocation there collects with the
-      # intermediate held nowhere the root scan can see. The sweep freed it and the
-      # outer concat read freed memory: a use-after-free that ASAN names and a plain
-      # build turns into a segfault or silent corruption, depending on what reused
-      # the block.
-      #
-      # The monomorphic chain never had this; only the poly path left the
-      # intermediate unrooted.
+      # `a + b + c` on operands of unknown type computes `(a + b) + c`. The inner
+      # result is a fresh string that no variable holds, and `c` is evaluated after
+      # it. An allocation there can start a GC, and the inner result must survive
+      # it, so the outer `+` reads the right text.
 
       def build_name(prefix, mid, i)
         prefix + mid + i.to_s
       end
 
-      # an Integer call site widens the parameters to poly, which is what routes the
-      # `+` through sp_poly_add
+      # an Integer call site widens the parameters to "any type", so the `+`
+      # dispatches at run time
       def widen_them
         build_name(1, 2, 0)
       end
@@ -772,9 +754,9 @@ describe "String: changing in place" do
   it "str array min max" do
     result = zr(<<~'RUBY')
       # Array#min / #max / #minmax (no block) on String arrays, by String#<=> (byte
-      # comparison). Previously rejected for String arrays while Integer/Float arrays
-      # worked. Receivers route through a per-kind identity method so the typed
-      # runtime path is exercised rather than a compile-time fold.
+      # comparison), next to Integer/Float arrays. Receivers route through a
+      # per-kind identity method so the typed runtime path is exercised rather
+      # than a compile-time fold.
       def sw(x); x; end
       def si(x); x; end
       def sf(x); x; end
@@ -857,9 +839,8 @@ describe "String: changing in place" do
 
   it "str concat raise operand" do
     result = zr(<<~'RUBY')
-      # A String-returning method unresolved on a poly value, used as a String#+
-      # operand, must raise NoMethodError at run time -- not fail C compilation with a
-      # sp_RbVal-into-const-char* mismatch (#2457 Family 2).
+      # A String-returning method unresolved on a value of unknown type, used as a
+      # String#+ operand, raises NoMethodError at run time, not a compile error.
       class Note
         def initialize(t); @created_at = t; end
         def created_at; @created_at; end
@@ -885,16 +866,10 @@ describe "String: changing in place" do
 
   it "str str hash nullable bracket assign" do
     result = zr(<<~'RUBY')
-      # Silent-elision regression: `<str_str_hash?>[k] = v` previously
-      # fell through every arm of compile_bracket_assign with no emit, so
-      # the assignment vanished. The two missing entry points were the
-      # `str_str_hash` / `str_int_hash` base arms (mirror of the existing
-      # `sym_*_hash` / `int_str_hash` arms), plus the nullable-pointer
-      # strip at the top so `str_str_hash?` reaches the same emit.
-      # Issue #610: roundhouse's `dispatch_request` builds a merged
-      # str_str_hash from a path-params dup (typed str_str_hash? because
-      # the source ivar is nullable) and then writes into it inside a
-      # `.each` block; pre-fix the entire merge loop body disappeared.
+      # `h[k] = v` on a String-keyed hash that can be nil stores the value.
+      # This holds for String and Integer values. A request dispatcher
+      # builds a merged hash from a dup of the path params (the source
+      # ivar can be nil) and then writes into it inside a `.each` block.
 
       class HashHolder
         def initialize
@@ -1091,10 +1066,8 @@ describe "String: changing in place" do
 
   it "chomp! writes back to the receiver, and a frozen literal raises" do
     result = zr(<<~'RUBY')
-      # Issue #859: String#chomp! on a mutable_str mutates in place.
-      # Pre-fix, chomp! was a no-op (recursed into chomp which produces
-      # a new string but doesn't write back to the receiver).
-      # Frozen string literals raise FrozenError per #886.
+      # String#chomp! on a mutable String changes the receiver in place.
+      # Frozen string literals raise FrozenError.
       s = String.new("hello\n")
       s.chomp!
       puts s.to_s
@@ -1261,16 +1234,11 @@ describe "String: changing in place" do
 
   it "volatile strip skips coerced arg" do
     result = zr(<<~'RUBY')
-      # #700 secondary shape: cast_away_volatile_arg was wrapping a
-      # coerced call-arg value with the LV's declared type, producing
-      # `(sp_SymPolyHash *)sp_StrPolyHash_from_sym_poly_hash(lv_form_attrs)`
-      # -- a SymPoly cast on a StrPoly result.
+      # A local hash passed to a method whose param has another hash kind
+      # keeps its contents, also when the file has a begin/rescue.
       #
-      # Requires @needs_setjmp == 1 (any begin/rescue in the file), an
-      # LV recv with a typed-hash declared type, a callee expecting a
-      # different hash variant, and the call site to go through
-      # compile_typed_call_args' compile_expr_for_expected_type +
-      # cast_away_volatile_arg wrapping.
+      # The shape: any begin/rescue in the file, a local with a typed-hash
+      # type, and a callee that expects a different hash kind.
 
       def takes_str_poly(h)
         h.length
@@ -1285,11 +1253,11 @@ describe "String: changing in place" do
       end
 
       def build_and_call
-        form_attrs = {a: "x", b: 1}    # sym_poly_hash
-        takes_str_poly(form_attrs)     # callee expects str_poly_hash -> coerce
+        form_attrs = {a: "x", b: 1}    # Symbol keys, mixed values
+        takes_str_poly(form_attrs)     # callee sees another hash kind
       end
 
-      trigger_setjmp                    # arms @needs_setjmp = 1 globally
+      trigger_setjmp                    # the file has a begin/rescue
       puts build_and_call
     RUBY
 

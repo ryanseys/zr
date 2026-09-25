@@ -354,10 +354,9 @@ describe "Methods: defining and naming methods" do
     result = zr(<<~'RUBY')
       # AliasGlobalVariableNode -- `alias $copy $orig`.
       #
-      # Compile-time only: Spinel registers $copy as a name pointing to
-      # $orig's storage slot. Subsequent reads/writes of either share
-      # state. Out of scope: dynamic alias from method body, since the
-      # entire compile-time map is built once at AST scan.
+      # $copy is a second name for the storage of $orig, so reads and
+      # writes of either share state. Out of scope: an alias inside a
+      # method body.
 
       $orig = "hello"
       alias $copy $orig
@@ -522,10 +521,9 @@ describe "Methods: defining and naming methods" do
       # `alias new old` captures the METHOD, not the name: a later `def old`
       # replaces the original without disturbing the alias.
       #
-      # The alias of a builtin used to be a name indirection resolved at call
-      # time, so the standard wrap idiom -- alias the primitive away, redefine
-      # it, call the alias from the new body -- recursed until the stack ran
-      # out. It is how rubygems installs its own `Kernel#require`.
+      # This holds for the alias of a builtin too, so the standard wrap idiom
+      # works: alias the primitive away, redefine it, and call the alias from
+      # the new body. It is how rubygems installs its own `Kernel#require`.
 
       module Kernel
         alias orig_p p
@@ -761,7 +759,7 @@ describe "Methods: defining and naming methods" do
         alias old_greet2 greet
         def greet; "Q"; end
       end
-      p Q2.new.old_greet2   # Ruby: "P"   Spinel: "Q"
+      p Q2.new.old_greet2   # "P"
 
       class A
         def greet; "A"; end
@@ -944,11 +942,8 @@ describe "Methods: defining and naming methods" do
   it "call splat positional" do
     result = zr(<<~'RUBY')
       # Call-site positional splat `f(*args)`: a single trailing splat expands an
-      # array across a method's fixed parameters. Previously rejected at compile time
-      # (the callee was left untyped and dead-code-eliminated, or the splat arg failed
-      # to emit). The splat array's element type now propagates to the callee's params
-      # so it is emitted, the operand is evaluated once into a rooted temp, and a
-      # fixed-arity mismatch raises ArgumentError exactly as CRuby does.
+      # array across a method's fixed parameters. The operand is evaluated once,
+      # and a fixed-arity mismatch raises ArgumentError exactly as CRuby does.
       def s(x); x; end
 
       def add3(a, b, c); a + b + c; end
@@ -1655,7 +1650,7 @@ describe "Methods: defining and naming methods" do
 
   it "forward args" do
     result = zr(<<~'RUBY')
-      # `...` forwarding for positional arguments (#1288): the compiler synthesizes
+      # `...` forwarding for positional arguments: the compiler synthesizes
       # concrete params from the call sites and forwards them directly -- no rest
       # array / splat. Free function, instance method, class method, multiple sites.
       def target(a, b, c)
@@ -1994,7 +1989,7 @@ describe "Methods: defining and naming methods" do
   it "module instance method unbound" do
     result = zr(<<~'RUBY')
       # Module#instance_method builds an unbound method object; #bind supplies the
-      # self and the result behaves as an ordinary bound Method (#2676).
+      # self and the result behaves as an ordinary bound Method.
       class Animal
         def breathe; "inhale"; end
         def speak(x); "say #{x}"; end

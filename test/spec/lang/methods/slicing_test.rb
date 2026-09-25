@@ -39,7 +39,7 @@ describe "Methods: slicing" do
       p Z.new.pass(:k)                   #=> [:k, []]
       p Z.new.pass(:k, 1, 2)             #=> [:k, [1, 2]]
 
-      # 4. A named splat is unaffected (regression).
+      # 4. A named splat.
       class N
         def call(m, *a) = [m, a]
         def inv(method, *args) = call(method, *args)
@@ -131,12 +131,7 @@ describe "Methods: slicing" do
       # Reads `obj.attr`; if falsy, assigns `obj.attr = val`. Receiver
       # evaluated exactly once.
       #
-      # Spinel's nil-to-empty-string conversion for string slots makes
-      # the "fire when nil" branch hard to exercise in a CRuby-equivalent
-      # way (CRuby sees nil-falsy; Spinel sees ""-truthy because it
-      # sentinels nil to the empty string in typed string slots). This
-      # test focuses on the don't-fire-when-truthy branch which agrees
-      # in both.
+      # This test checks the don't-fire-when-truthy branch.
 
       class Cfg
         attr_accessor :name
@@ -960,31 +955,21 @@ describe "Methods: slicing" do
 
   it "param lengthlike body widen" do
     result = zr(<<~'RUBY')
-      # #552. Body-usage param inference widens int/nil-defaulted
-      # params to flat `poly` when the body calls a length-like
-      # method (length / size / empty?) on the param. These methods
-      # exist on String / Array / Hash but NOT on Integer, so a
-      # body proving it calls them on a param establishes the param
-      # is one of those container types. Codegen's poly-recv
-      # dispatch routes through tag/cls_id arms covering String +
-      # every Array variant + every Hash variant.
+      # Body-usage param inference widens an int/nil-defaulted param
+      # to "any type" when the body calls a length-like method
+      # (length / size / empty?) on the param. These methods exist
+      # on String / Array / Hash but NOT on Integer, so such a call
+      # shows the param is one of those container types. The call
+      # then works for a String, every Array kind and every Hash kind.
       #
-      # Discriminator: the Hash case (last line, prints 2) failed
-      # pre-fix; the warning was silenced for some cases by earlier
-      # Option C work but the Hash-variant length dispatch wasn't
-      # wired in emit_poly_builtin_dispatch. String and Array
-      # variants happen to have worked already; this test still
-      # pins them so a future regression in the broader poly-recv
-      # length pathway is caught.
+      # The rows cover String, Array and Hash (the Hash row prints 2).
       #
-      # nil semantics: nil has no #length, and the poly path used
-      # to answer 0 for it (the length helper's answer for anything
-      # that is not a collection). It raises NoMethodError now, as
-      # CRuby does (#3974), so the nil case is asserted through a
-      # rescue.
+      # nil semantics: nil has no #length, so the call raises
+      # NoMethodError, as CRuby does. The test asserts the nil case
+      # through a rescue.
       #
       # Conservative classifier: only length / size / empty? widen.
-      # These don't exist on Integer so widening to poly is sound.
+      # These don't exist on Integer, so the widening is sound.
       # Methods that DO exist on Integer (<<, &, |, +, -, *, [])
       # are deliberately excluded -- a body like
       # `def poke(data); data << 8; end` (optcarrot's PPU) is
@@ -1303,17 +1288,16 @@ describe "Methods: slicing" do
       mid = [3, 4]
       mix(1, 2, *mid, 5, 6) # a=1, b=2, rest=[3,4,5,6]
 
-      # Bare call leaves rest empty (regression check for the empty-rest fix)
+      # Bare call leaves rest empty
       mix(100, 200)         # a=100, b=200, rest=[]
 
       # Prefix overflows into rest when method has *only* a rest param
       collect(7, *args)     # length 4, total 13
       collect(7, 8, *args, 9) # length 6, total 36
 
-      # Mixed-type splat sources: poly_array source, mixed prefix/suffix.
-      # Spinel's *rest is always int_array so element values are mrb_int bits
-      # for non-int elements — but the length is correct and the bundle
-      # round-trips intact for downstream splatting.
+      # Mixed-type splat sources: a mixed-type array source, mixed prefix/suffix.
+      # The length is correct and the bundle round-trips intact for downstream
+      # splatting.
       def count(*xs)
         puts xs.length
       end
@@ -1328,8 +1312,7 @@ describe "Methods: slicing" do
       count(*left, *right)          # 5
 
       # Splat into a method with str fixed prefix + rest — exercises the
-      # splat-aware param-type inference (without it, "first" would default to
-      # mrb_int and we'd print garbage instead of "alpha").
+      # splat-aware param-type inference: "first" is a String and prints "alpha".
       def head_str(first, *tail)
         puts first
         puts tail.length
@@ -1429,7 +1412,7 @@ describe "Methods: slicing" do
       puts mb           # b
       puts mc           # 2.0
 
-      # Mixed-type with splat: splat target becomes a poly_array
+      # Mixed-type with splat: splat target becomes a mixed-type array
       mx, *mmid, mlast = [10, "two", :three, 4.0, "five"]
       puts mx           # 10
       puts mlast        # five

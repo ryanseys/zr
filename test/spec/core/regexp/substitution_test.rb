@@ -35,9 +35,8 @@ describe "Regexp: substitution" do
   it "gsub sub block" do
     result = zr(<<~'RUBY')
       # Block-form String#gsub / #sub: the block receives each match and
-      # returns its replacement. The result used to be padded with trailing
-      # NUL bytes (the working buffer was returned with its allocation size
-      # as the byte length, not the content length).
+      # returns its replacement. The result has no trailing NUL bytes: its
+      # length is the content length.
       p "abc".gsub(/[ac]/) { |m| m.upcase }
       p "hello world".gsub(/o/) { |m| "0" }
       p "aaa".gsub(/a/) { |m| m + m }
@@ -63,13 +62,9 @@ describe "Regexp: substitution" do
 
   it "gsub with hash replacement" do
     result = zr(<<~'RUBY')
-      # #485. `String#gsub(regex, hash)` — the per-match hash-lookup form
-      # Ruby uses for HTML/JSON escape. Pre-fix codegen passed the hash
-      # pointer through to sp_re_gsub's `const char *rep` parameter; the
-      # binary read garbage from the pointer's memory in place of the
-      # replacement string. Fix: detect a str_str_hash second arg and
-      # route to a parallel runtime helper that does the per-match
-      # lookup.
+      # `String#gsub(regex, hash)` -- the per-match hash-lookup form
+      # Ruby uses for HTML/JSON escape. Each match is replaced by the
+      # value that the hash holds for it.
 
       ESCAPES = {
         "&" => "&amp;",
@@ -144,12 +139,9 @@ describe "Regexp: substitution" do
 
   it "poly gsub block" do
     result = zr(<<~'RUBY')
-      # A class defining a nil-returning `#to_s` anywhere in the program used to
-      # make `gsub`/`sub` WITH A BLOCK on a widened (poly) receiver infer as
-      # returning void: the poly-dispatch inference had a rule for the two-argument
-      # blockless form but none for the block form, so the call fell through
-      # unresolved -- either a bad C build, or (when the value reached a String
-      # consumer instead) a runtime NoMethodError claiming a String had no #gsub.
+      # A class that defines a nil-returning `#to_s` is in the program. `gsub`/`sub`
+      # WITH A BLOCK on a widened (poly) receiver still answers a String, as the
+      # two-argument blockless form does.
 
       class Poison
         def to_s
@@ -205,18 +197,9 @@ describe "Regexp: substitution" do
 
   it "poly gsub str arm" do
     result = zr(<<~'RUBY')
-      # `v.gsub(/regex/, "repl")` where v is poly-typed (sp_RbVal, e.g.
-      # from a poly-valued hash lookup) used to emit an empty SP_TAG_OBJ
-      # dispatch shell — the per-tag arm was missing — leaving the result
-      # temp at its default mrb_int 0 and the downstream const char *
-      # assignment failing C compile.
-      #
-      # compile_poly_method_call now emits a SP_TAG_STR arm for gsub /
-      # sub at the same level as the existing SP_TAG_INT `[]` bit-extract.
-      # poly_dispatch_return_type was also extended to report "string"
-      # for these methods so the result temp is correctly typed (and the
-      # arm's assignment doesn't try to store const char * into a
-      # mrb_int slot).
+      # `v.gsub(/regex/, "repl")` where v is poly-typed (for example, from
+      # a poly-valued hash lookup). gsub / sub on a String value answer a
+      # String.
 
       def normalize(entry)
         v = entry[:stream]
@@ -236,18 +219,11 @@ describe "Regexp: substitution" do
 
   it "poly gsub str str hash" do
     result = zr(<<~'RUBY')
-      # #503. `s.gsub(regex, hash)` on a poly-typed receiver still
-      # called `sp_re_gsub` (the const-char-* replacement helper) and
-      # passed the hash pointer where `rep` was expected. C compile
-      # warned -Wincompatible-pointer-types; binary ran but produced
-      # runtime garbage (the hash pointer's memory was interpreted as
-      # a replacement string).
+      # `s.gsub(regex, hash)` on a poly-typed receiver uses the hash for
+      # the replacements, as it does on a String receiver.
       #
-      # The typed-receiver path (s is concretely `const char *`)
-      # already routes str_str_hash replacements through
-      # `sp_re_gsub_str_str_hash` via #485. This test exercises the
-      # poly path (sp_RbVal lv_s) by passing a poly value into a
-      # function whose param widens to poly.
+      # The test passes a poly value into a method whose param widens to
+      # poly.
 
       class A
         attr_accessor :body
@@ -280,15 +256,9 @@ describe "Regexp: substitution" do
 
   it "regex const freeze" do
     result = zr(<<~'RUBY')
-      # Issue #394: a top-level `PATTERN = /regex/.freeze` constant
-      # was not recognised as a regex source. `gsub(PATTERN, ...)` then
-      # fell through to `sp_str_gsub(... cst_PATTERN ...)` (mrb_int -> char *
-      # C-compile error). The non-`.freeze` form already worked because
-      # find_regexp_index recursed through @const_expr_ids; .freeze
-      # wraps the literal in a CallNode so the recursion missed.
-      #
-      # Fix: find_regexp_index now peels the `.freeze` CallNode wrapper
-      # before checking for RegularExpressionNode.
+      # A top-level `PATTERN = /regex/.freeze` constant is a Regexp, the
+      # same as the form with no `.freeze`. `gsub(PATTERN, ...)` matches
+      # by the pattern.
 
       PATTERN1 = /abc/
       PATTERN2 = /xy[0-9]+/.freeze
@@ -335,7 +305,7 @@ describe "Regexp: substitution" do
 
   it "regex sub backref" do
     result = zr(<<~'RUBY')
-      # Issue #855: sub / gsub expand `\1`..`\9` and `\&` backreferences
+      # sub / gsub expand `\1`..`\9` and `\&` backreferences
       # in the replacement string.
       puts "hello world".sub(/(\w+)/, '\1_up')
       puts "hello world".gsub(/(\w+)/, '\1!')
@@ -362,9 +332,8 @@ describe "Regexp: substitution" do
     result = zr(<<~'RUBY')
       # gsub with a zero-width match (anchors, empty pattern, word boundary,
       # zero-repeat quantifier) must insert the replacement at each match
-      # position, keep the source character there, and advance by one -- not
-      # drop the character, spin forever, or run the tail copy with an
-      # underflowed length (which previously corrupted the heap / crashed).
+      # position, keep the source character there, and advance by one. It must
+      # not drop the character, loop forever, or copy a tail of negative length.
       p "abc".gsub(/$/, "!")
       p "x\ny".gsub(/$/, "!")
       p "x\ny\nz".gsub(/$/, "!")
@@ -459,11 +428,8 @@ describe "Regexp: substitution" do
   it "a sub or gsub result that outgrows the initial buffer grows on a real malloc base" do
     result = zr(<<~'RUBY')
       # When a regex sub / gsub / scrub result grows past the initial buffer
-      # capacity, the buffer must be grown on a real malloc base. Previously
-      # these built into a sp_str_alloc'd buffer and grew it with realloc on a
-      # pointer offset past the string header -- undefined behaviour that
-      # corrupted the heap once the output exceeded the initial slack. Each
-      # input below produces output larger than its starting capacity.
+      # capacity, the buffer must be grown on a real malloc base. Each input below
+      # produces output larger than its starting capacity.
 
       # gsub: 50 'a' -> 50 * "zzzz" = 200 bytes (cap starts ~180).
       g = ("a" * 50).gsub(/a/, "zzzz")
@@ -497,7 +463,7 @@ describe "Regexp: substitution" do
 
   it "string gsub block" do
     result = zr(<<~'RUBY')
-      # Issue #849: gsub / sub with a block — block receives the
+      # gsub / sub with a block -- block receives the
       # matched substring and its return value is the replacement.
       puts "hello".gsub(/./) { |c| c.upcase }
       puts "hello world".gsub(/\w+/) { |w| w.length.to_s }
@@ -517,13 +483,13 @@ describe "Regexp: substitution" do
 
   it "string sub hash replacement" do
     result = zr(<<~'RUBY')
-      # Issue #910: sub / gsub with a hash replacement argument.
+      # sub / gsub with a hash replacement argument.
       # The hash's matched-substring value is the replacement; missing
       # keys substitute with the empty string (CRuby semantics).
       puts "hello".sub(/l/, "l" => "X")
       puts "foo bar baz".sub(/\w+/, "foo" => "XXX")
       puts "hello".sub("l", "l" => "X")
-      # gsub form (previously worked).
+      # gsub form.
       puts "hello".gsub(/l/, "l" => "X")
     RUBY
 
@@ -538,7 +504,7 @@ describe "Regexp: substitution" do
   it "sub hash default" do
     result = zr(<<~'RUBY')
       # A Hash replacement in #sub/#gsub answers its default for a key it does not
-      # have; the empty string was hard-coded (#3824).
+      # have, not always the empty string.
       h = Hash.new("?")
       h["e"] = "3"
       p "hello".sub(/l/, h)

@@ -7,9 +7,9 @@ describe "Modules: constants" do
     result = zr(<<~'RUBY')
       # Reopening a class through a constant alias (`CONST = SomeClass` or
       # `CONST = expr.class`) reopens that class, and a module included into a
-      # reopened built-in becomes dispatchable on the primitive. Regression
-      # for #1036 (the to_words gem's `INTEGER_KLASS = 1.class; class
-      # INTEGER_KLASS; include ToWords; end` shape).
+      # reopened built-in becomes dispatchable on the primitive. This is
+      # the to_words gem's `INTEGER_KLASS = 1.class; class
+      # INTEGER_KLASS; include ToWords; end` shape.
 
       module IntWords
         def wordy
@@ -105,8 +105,8 @@ describe "Modules: constants" do
 
       module App
         # The alias sits in the ENCLOSING scope, and the class body one level in
-        # reads it -- ruby's lexical lookup, and where the scope-blind version of
-        # this search used to find the wrong module.
+        # reads it -- ruby's lexical lookup. A search that ignores scope would
+        # find the wrong module here.
         FilteredAttributes = Vendor::Sanitizer::FilteredAttributes
 
         class Authenticator
@@ -299,7 +299,7 @@ describe "Modules: constants" do
 
   it "module constants included modules" do
     result = zr(<<~'RUBY')
-      # Module#include? / #included_modules / #constants (#2674). The constant
+      # Module#include? / #included_modules / #constants. The constant
       # registry is a flat namespace, so ownership is recovered from the AST: a
       # class's own constants are the ConstantWriteNodes in its body.
       #
@@ -360,9 +360,8 @@ describe "Modules: constants" do
 
   it "module constants nested" do
     result = zr(<<~'RUBY')
-      # A nested class or module IS a constant of the enclosing one. `constants`
-      # collected only the value-assigning form, so a module holding both reported
-      # the value and not the nested module (#4040).
+      # A nested class or module IS a constant of the enclosing one. So `constants`
+      # lists the nested modules and classes as well as the value constants.
       module Layout
         WIDTH = 24
         module Border

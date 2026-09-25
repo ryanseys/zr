@@ -5,11 +5,9 @@ require "spec_helper"
 describe "Control programs" do
   it "and arm returns nil" do
     result = zr(<<~'RUBY')
-      # An arm with no C VALUE cannot sit in a C conditional beside a typed sibling:
-      # a method whose body is `nil` compiles to a void function, and `a && a.analyze`
-      # put that call straight into one arm of `? :` whose other arm is an sp_Att *.
-      # The poly sibling boxed it, which is why only a TYPED sibling ever saw this --
-      # `a ? a.analyze : nil` worked while `a ? a.analyze : a` did not (#4163).
+      # A method whose body is `nil` returns nil. The call can sit in one arm of
+      # `&&` or `? :` beside an arm that holds an object: `a && a.analyze`,
+      # `a ? a.analyze : a` and `a ? a.analyze : nil` all answer nil.
       class Att
         def analyze = nil
         def name = "n"
@@ -62,12 +60,8 @@ describe "Control programs" do
   it "and or empty literal" do
     result = zr(<<~'RUBY')
       # An empty `[]` / `{}` on the right of `&&` / `||` carries no element type of
-      # its own, so it caches UNKNOWN and ty_unify() dropped it, answering the LEFT
-      # operand's type. The array construction was then emitted into that slot: for
-      # a bool left the value came back as the bool, and for an Integer left the C
-      # compiler refused the program outright.
-      #
-      # The nil-left shape already worked (#3462); this is every other left.
+      # its own. The result is still the empty Array or Hash when the right side
+      # wins, whatever the type of the LEFT operand (true, an Integer, and so on).
       def show(l, v); puts "#{l}: #{v.inspect}"; end
 
       show("true && []",     true && [])
@@ -225,11 +219,9 @@ describe "Control programs" do
 
   it "bang mutator return value" do
     result = zr(<<~'RUBY')
-      # A successful in-place String mutation returns the receiver. The "did it
-      # change?" test compared the buffer with the new content AFTER writing it back
-      # -- and the comparison operand was sp_String_cstr, a pointer INTO the buffer
-      # rather than a snapshot of it -- so every successful mutation compared equal
-      # and answered nil (#4014). Printing the two separately hid it.
+      # A successful in-place String mutation returns the receiver, and one that
+      # changes nothing returns nil. The test prints the receiver and the return
+      # value together.
       a = +"abc"
       v = a.sub!("b", "*")
       p [a, v]
@@ -385,11 +377,10 @@ describe "Control programs" do
 
   it "bigint poly container" do
     result = zr(<<~'RUBY')
-      # A bigint value stored in a heterogeneous (poly) Array or Hash used to box as
-      # nil, because the poly value (sp_RbVal) had no bigint tag. With SP_TAG_BIGINT it
-      # is a first-class poly element: display, ==, include?, and hash-key all work.
-      # (b is promoted to bigint by the self-referential multiply in the while loop,
-      # so this holds in every overflow mode.)
+      # A Bignum value stored in a heterogeneous Array or Hash keeps its value:
+      # display, ==, include?, and hash-key all work. (b becomes a Bignum by the
+      # self-referential multiply in the while loop, so this holds in every
+      # overflow mode.)
       b = 1
       i = 0
       while i < 70
@@ -431,13 +422,10 @@ describe "Control programs" do
   it "bigint propagation chain" do
     result = zr(<<~'RUBY')
       # Stress test: bigint propagation through a chain of dependent locals.
-      # `a` starts int but is promoted to bigint by `a = a * 2` inside the
-      # while loop (detected by scan_bigint_in_loop). Subsequent assignments
-      # `b = a + 1`, `c = b + 1`, ... force scan_bigint_propagate to walk
-      # the dependency chain over multiple fixed-point iterations. Verifies
-      # the loop converges far below the 256-iteration safety cap and that
-      # the oscillation guard does not trigger on legitimate monotonic
-      # propagation.
+      # `a` starts as a small Integer and becomes a Bignum by `a = a * 2`
+      # inside the while loop. The later assignments `b = a + 1`,
+      # `c = b + 1`, ... each depend on the one before, so each one also
+      # holds a Bignum.
 
       a = 1
       i = 0
@@ -480,11 +468,10 @@ describe "Control programs" do
 
   it "bigint return int literal" do
     result = zr(<<~'RUBY')
-      # A method whose return slot promoted to Bigint (an accumulator multiply under
-      # --int-overflow=promote) but whose early guard returns a plain int literal
-      # used to emit `return 0LL` through the sp_Bigint* slot -- a NULL pointer that
-      # segfaulted the caller's first sp_bigint_cmp (tep's proxy retry loop). The
-      # int value must wrap into a real bigint at the return boundary.
+      # A method can return a Bignum (an accumulator multiply under
+      # --int-overflow=promote), and its early guard returns a plain Integer
+      # literal. The caller compares both kinds of result correctly (as in
+      # tep's proxy retry loop).
       class RetryPolicy
         attr_accessor :base_backoff_ms, :backoff_multiplier
         def initialize
@@ -532,7 +519,7 @@ describe "Control programs" do
       Base.new.handle(1)   # zero base -> the early `return 0` path
       Sub.new.handle(0)    # 100 * 2**0
       Sub.new.handle(3)    # 100 * 2**3
-      Sub.new.handle(62)   # overflows mrb_int: the promotion that types the slot
+      Sub.new.handle(62)   # overflows int64: the result is a Bignum
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -573,7 +560,7 @@ describe "Control programs" do
 
   it "case fallthrough returns nil" do
     result = zr(<<~'RUBY')
-      # Issue #707: case without `else` returns nil on fallthrough.
+      # case without `else` returns nil on fallthrough.
       puts (case 99; when 1; "one"; end).inspect
       puts (case 1; when 1; "one"; end).inspect
       puts (case "x"; when "a"; 42; end).inspect
@@ -1253,10 +1240,8 @@ describe "Control programs" do
   it "for var two element types" do
     result = zr(<<~'RUBY')
       # A `for` loop variable is an ordinary local, so two loops binding the same
-      # name share one C slot. It was typed from whichever loop the pass reached
-      # last, and the other then assigned a String element into an sp_int slot. The
-      # slot now holds the union of every loop's element type, and a typed array's
-      # element is boxed into it (#4168).
+      # name share one variable. The loops bind elements of different types,
+      # and each loop sees its own elements.
       def cmd(models)
         out = []
         for n in models.keys.sort
@@ -1560,10 +1545,8 @@ describe "Control programs" do
 
   it "loop bigint return" do
     result = zr(<<~'RUBY')
-      # A method whose loop-carried local is bigint-promoted (d = d * 2) and then
-      # returned must have a bigint (sp_Bigint *) return type, not void. Bigint was
-      # missing from is_scalar_ret and c_type_name, so such methods emitted
-      # `static void` and any use of the result was a hard C error.
+      # A method whose loop-carried local grows into a Bignum (d = d * 2) returns
+      # that Bignum, and the caller can use the result.
       def doublings(n)
         d = 1
         i = 0
@@ -1847,17 +1830,12 @@ describe "Control programs" do
 
   it "poly size user return" do
     result = zr(<<~'RUBY')
-      # `size` / `length` on a poly receiver answers an Integer -- unless a user class
-      # owns the name and answers something else, in which case the call is a union.
-      # The dispatch always emits the builtin length arms (a symbol, a string, every
-      # array and hash kind), so pinning the call to Integer left their sp_int and
-      # the user arm's own return meeting in one C slot:
+      # `size` / `length` on a receiver of no single type answers an Integer --
+      # unless a user class owns the name and answers something else. Then the
+      # call can answer either the builtin Integer or the user method's value.
       #
-      #   error: assignment to 'sp_int' from 'sp_PolyArray *'
-      #
-      # Only a DISAGREEING user return widens it. A user `size` that answers an
-      # Integer already agrees with the builtins, and widening every `poly.size`
-      # would box a count the whole program reads as a number.
+      # A user `size` that answers an Integer agrees with the builtins, so the
+      # count stays a plain number.
       class Widget
         def size(extra = nil) = [1, extra]
       end
@@ -2166,7 +2144,7 @@ describe "Control programs" do
 
   it "safe navigation returns nil" do
     result = zr(<<~'RUBY')
-      # Issue #701: safe navigation `&.` on nil returns nil.
+      # Safe navigation `&.` on nil returns nil.
 
       # Literal nil receiver — short-circuits without warning.
       v1 = nil&.foo

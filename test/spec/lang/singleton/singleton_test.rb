@@ -23,7 +23,7 @@ describe "Singleton programs" do
   it "class shift a constant object defines its singleton" do
     result = zr(<<~'RUBY')
       # `class << CONST` on a constant-bound object installs per-object
-      # singleton methods on it (previously a clean rejection).
+      # singleton methods on it.
 
       class Foo
         ANOTHER = Object.new
@@ -797,21 +797,12 @@ describe "Singleton programs" do
 
   it "module singleton accessor" do
     result = zr(<<~'RUBY')
-      # Issue #126 Stage 1: a module value assigned to a module-level
-      # `class << self; attr_accessor :x; end` accessor used to read back
-      # as 0. The whole `module ... class << self; ... end ... end`
-      # block was silently dropped (no `PM_SINGLETON_CLASS_NODE` parser
-      # support), and the entire bare identifier path for module names as
-      # rvalues didn't exist.
-      #
-      # Stage 1 handles the static-fold case: a single assignment of a
-      # constant-resolvable RHS (typically a module/class name) is folded
-      # at codegen, and read sites substitute the resolved constant in a
-      # `<recv>.<method>` chain. Polymorphic / multi-write slots fall
-      # through to the un-folded path (Stage 2).
+      # A module value assigned to a module-level
+      # `class << self; attr_accessor :x; end` accessor reads back as that
+      # module, and a call on the result reaches the module's own method.
+      # Each accessor here gets one assignment.
 
-      # 1. Module assigned to a module-level singleton accessor — the
-      #    issue's exact reproducer.
+      # 1. Module assigned to a module-level singleton accessor.
       module SqliteAdapter
         def self.answer
           42
@@ -827,9 +818,8 @@ describe "Singleton programs" do
       ActiveRecord.adapter = SqliteAdapter
       puts ActiveRecord.adapter.answer    # 42
 
-      # 2. The string-returning downstream method that surfaced the type
-      #    mismatch in the issue. Verifies the chain return type
-      #    threads through correctly (string, not int).
+      # 2. A method on the stored module that returns a String. The
+      #    call through the accessor gives the String.
       module Greeter
         def self.greet
           "hello"
@@ -845,9 +835,8 @@ describe "Singleton programs" do
       Service.greeter = Greeter
       puts Service.greeter.greet          # hello
 
-      # 3. Class assigned to a module-level singleton accessor — same
-      #    constant-fold path applies to user-defined classes as long as
-      #    the reachable methods on the resolved name are class methods.
+      # 3. Class assigned to a module-level singleton accessor. A call
+      #    through the accessor reaches the class method.
       class CounterClass
         def self.count
           7
@@ -873,13 +862,8 @@ describe "Singleton programs" do
 
   it "module singleton accessor poly" do
     result = zr(<<~'RUBY')
-      # Issue #126 Stage 2: a module-level singleton accessor that's
-      # written with two or more distinct module/class names goes through
-      # a runtime sentinel switch instead of being constant-folded.
-      # `resolve_module_singleton_accessors` records the union of all
-      # constant RHSes; the write site emits `slot = SP_MOD_<X>;` (using
-      # the module's `module_sentinel` integer); the chain dispatch
-      # emits an if-cascade over the slot.
+      # A module-level singleton accessor gets two or more different
+      # module/class values. Each read gives the value of the last write.
 
       # 1. Two adapters reassigned — same shape as a Rails-style
       #    runtime adapter swap.
@@ -906,8 +890,8 @@ describe "Singleton programs" do
       ActiveRecord.adapter = SqliteAdapter
       puts ActiveRecord.adapter.name      # sqlite
 
-      # 2. Three candidates with conditional assignment driving which
-      #    sentinel ends up in the slot.
+      # 2. Three candidates, and a conditional assignment picks which
+      #    one the accessor holds.
       module A
         def self.tag; "A"; end
       end
@@ -952,9 +936,7 @@ describe "Singleton programs" do
     result = zr(<<~'RUBY')
       # `self.<acc>` / `self.<acc> = v` for a module-level singleton accessor
       # (`class << self; attr_accessor`) must resolve to the same storage that
-      # `Mod.<acc>` uses. Before, only an explicit module-name receiver worked;
-      # a `self` receiver typed as int and the call fell through to the
-      # NoMethodError gate, so the write in a module body was lost (read nil).
+      # `Mod.<acc>` uses. A write through `self` in a module body is kept.
 
       # self.x = ... in the module body, runs at definition time
       module M
@@ -973,7 +955,7 @@ describe "Singleton programs" do
       N.bump
       p N.val
 
-      # Regression: explicit Mod.acc = still works alongside the self form
+      # An explicit `Mod.acc =` works alongside the self form
       module P
         class << self; attr_accessor :data; end
         self.data = "in-body"
@@ -1506,7 +1488,7 @@ describe "Singleton programs" do
 
   it "a class nested in a class << self body belongs to the singleton, and self:: roots a path there" do
     result = zr(<<~'RUBY')
-      # Two things a `class << self` body can hold that zr used to reject outright,
+      # Two things a `class << self` body can hold,
       # both straight out of irb: a nested `class` (color.rb's `class
       # ColorizeVisitor < Prism::Visitor`), and a constant path rooted at `self`
       # (input-method.rb's `self::Readline::HISTORY`).
@@ -1820,8 +1802,7 @@ describe "Singleton programs" do
       Direct.singleton_class.prepend(Wrap)
       p Direct.greet
 
-      # The same edit written as a singleton body. It used to reach neither the
-      # ancestry recorder nor the statement stream, and vanished without a word.
+      # The same edit written as a singleton body has the same effect.
       class Opened
         def self.greet = "Opened"
       end
@@ -2109,36 +2090,36 @@ describe "Singleton programs" do
       # Ruby gives a `class << self` body a backtrace frame of its own, labelled
       # `singleton class`, with the enclosing `<class:Config>` frame beneath it.
       #
-      # zr splices the body's statements into the ENCLOSING class body -- that is
-      # the whole point of the retagging model, and moving them out was ruled out
-      # (a class body opens its own LOCAL SCOPE, and a singleton body's locals are
-      # shared across the whole of it, so `class << self; x = 1; puts x; end` would
-      # break the moment some items moved and others stayed). So the frame arrives
-      # without the statements moving: lowering records which `class << self` each
-      # spliced statement came from, and `codegen::stmt::emit_body` groups
-      # consecutive ones under one `singleton class` guard.
+      # zr runs the body's statements inside the ENCLOSING class body. A singleton
+      # body's locals are shared across the whole of it, so
+      # `class << self; x = 1; puts x; end` must see one scope. Each statement
+      # still runs under a `singleton class` frame.
       #
-      # TWO positions had to be right, not one. The frame itself tracks the group's
-      # own lines (40, 50 below), and the ENCLOSING frame is left reading the
-      # `class << self` KEYWORD's line (39, 49) rather than the first grouped
-      # statement's -- which is why the group stamps that line before pushing the
-      # guard instead of letting the statement stamp its own underneath.
-      # `Ctx::lexical_frame_label` carries the label down, so the block in `Boom`
-      # is `block in singleton class` and not `block in <class:Boom>`.
+      # TWO positions must be right. The frame itself tracks the running
+      # statement's line (40, 50 below). The ENCLOSING frame reads the
+      # `class << self` KEYWORD's line (39, 49), not the line of the first
+      # statement in the body. A block in `Boom` is `block in singleton class`,
+      # not `block in <class:Boom>`.
       #
-      # The first two bodies below are handled IN PLACE -- the case that had no
-      # frame: `Item::SelfSend` (a receiverless or explicit-`self` call rebound
-      # onto `self.singleton_class`) for the first, and `Item::Passthrough`
-      # (anything `mentions_self` says never consults `self`) for the second. A
-      # RESIDUAL statement -- one routed into the surrogate's own body,
-      # `Item::SingletonBody` -- always had the frame, from the class body it
-      # becomes; those are excluded from the grouping so the frame is not pushed
-      # twice.
+      # The first two bodies below hold a call on `self` (explicit or not) and a
+      # statement that does not use `self`. A statement such as a constant write
+      # gets the frame only once.
       #
-      # A `class << self` written in a METHOD body takes a different route
-      # entirely -- `desugar_singleton_class_defs`, a `Seq` of runtime installs on
-      # the receiver -- and gets the frame the same way, with the whole `Seq` as
-      # the group.
+      # A `class << self` written in a METHOD body gets the same frame.
+
+      # The blank lines keep the line numbers that the expected output names.
+
+
+
+
+
+
+
+
+
+
+
+
       begin
         class Config
           class << self

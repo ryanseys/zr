@@ -5,35 +5,17 @@ require "spec_helper"
 describe "Blocks: regressions" do
   it "io call in proc body" do
     result = zr(<<~'RUBY')
-      # `puts` / `print` / `printf` reached in expression context — the
-      # last statement of a `proc { ... }` body. The expression-context
-      # dispatcher previously had no path for these no-recv IO methods,
-      # so the call fell through to warn_unresolved_call and the IO
-      # side-effect was silently dropped. Fix: bridge through
-      # compile_io_call_stmt and pass "0" up as the C expression value.
+      # `puts` / `print` / `printf` reached in expression context -- the
+      # last statement of a `proc { ... }` body. The IO side effect still
+      # happens.
       #
       # To exercise all three IO methods concisely, the test iterates an
-      # array of procs and `.call`s each. This relies on two adjacent
-      # fixes also in this PR:
+      # array of procs and `.call`s each. This also checks two more things:
       #
-      # 1. Heterogeneous array literals of procs (`[proc, proc, proc]`)
-      #    are inferred as `poly_array` (boxed via sp_box_proc) rather
-      #    than falling through to `int_array`. Without this, the array
-      #    construction emitted `sp_IntArray_push` with a `sp_Proc *`
-      #    argument and the C compiler rejected the int-from-pointer
-      #    conversion.
+      # 1. An array literal of procs (`[proc, proc, proc]`) holds the procs.
       #
-      # 2. Poly `.call` dispatch in `compile_poly_method_call` — when a
-      #    block param iterates a poly array carrying procs, the recv's
-      #    static type is `poly`. Unbox via `(sp_Proc *)recv.v.p` and
-      #    invoke `sp_proc_call`. Without this, `p.call` inside the
-      #    block fell through to warn_unresolved_call on a poly recv.
-      #
-      # Symbol#to_proc (`&:call`) — the more idiomatic Ruby form for this
-      # iteration — is still TODO in spinel (`find_block_arg` returns -1
-      # for the SymbolNode shape). The explicit-block form `{ |p| p.call }`
-      # is the closest equivalent that works today; the &:sym lowering is
-      # a separate concern.
+      # 2. `p.call` works on a block param that iterates that array, where
+      #    each element is a boxed proc.
 
       [
         proc { puts "a" },
@@ -51,18 +33,12 @@ describe "Blocks: regressions" do
 
   it "local hash cross type widen" do
     result = zr(<<~'RUBY')
-      # Cross-type `[]=` write on a non-empty hash literal should widen the
-      # LV's hash type so the store accepts the new value via boxing.
-      # Before this fix, `m = {"a" => "1"}; m["k"] = 42` lowered to
-      # `sp_StrStrHash_set(m, "k", 42LL)` -- gcc rejected the mrb_int passed
-      # where a `const char *` was expected.
+      # A `[]=` write of another type on a non-empty hash literal widens
+      # the local's hash type, so the store accepts the new value. For
+      # example, `m = {"a" => "1"}; m["k"] = 42` stores the Integer 42.
       #
-      # Fix: scan_locals's CallNode `[]=` arm widens the LV from a narrow
-      # variant (str_str_hash / sym_int_hash / etc.) to its corresponding
-      # `*_poly_hash` when the new write's key or value type doesn't fit
-      # the current variant. The LV-write emit then builds the literal
-      # init as the widened poly variant directly (boxing each value).
-      # Issue #589.
+      # A write whose key and value types fit the hash keeps the narrow
+      # hash type.
 
       # str_str_hash → str_poly_hash via int value
       m = {"a" => "1"}
@@ -119,18 +95,8 @@ describe "Blocks: regressions" do
 
   it "map block string new" do
     result = zr(<<~'RUBY')
-      # #522. Sibling to #519. The literal-array path `[String.new]` was
-      # fixed in #519 to infer as `mutable_str_ptr_array` (a sp_PtrArray
-      # of sp_String*). The `.map { String.new }` path didn't share the
-      # inference — block-return type `mutable_str` was missing from the
-      # map-result type cascade, so the accumulator stayed at the
-      # default int_array shape and the push failed C compilation with
-      # `sp_IntArray_push(arr, sp_String_new(""))`.
-      #
-      # Fix: add a `mutable_str` arm in both the analyzer
-      # (infer_call_type's map branch -> mutable_str_ptr_array) and the
-      # codegen (int_array recv branch -> sp_PtrArray accumulator with
-      # `(void *)val` push).
+      # `.map { String.new }` answers an Array of mutable Strings, as the
+      # literal `[String.new]` does.
 
       xs = [1, 2, 3]
 
@@ -138,7 +104,7 @@ describe "Blocks: regressions" do
       result = xs.map { |x| String.new }
       puts result.length
 
-      # Block returns a local widened to mutable_str.
+      # Block returns a local that holds a mutable String.
       result2 = xs.map { |x| s = String.new; s << "v"; s }
       puts result2.length
     RUBY
@@ -507,14 +473,14 @@ describe "Blocks: regressions" do
     result = zr(<<~'RUBY')
       ranges = [(1..3)]
       p ranges[0].to_a
-      p [->(x) { x }].map(&:arity)                     # Ruby [1]        Spinel: NoMethodError 'arity' (Proc)
-      [["a", "b"]].each { |k, v| puts "#{k.ljust(3)}." } # Ruby "a  ."     Spinel: NoMethodError 'ljust' (String)
+      p [->(x) { x }].map(&:arity)                     # Ruby [1]
+      [["a", "b"]].each { |k, v| puts "#{k.ljust(3)}." } # Ruby "a  ."
       p (0...3).map { |n| n }.each_cons(2).map { |a, b| (a ^ b).to_s(2) }
-                                                       # Ruby ["1","11"] Spinel: NoMethodError 'to_s' (Integer)
-      [[1, 2], [3, 4]].last.map! { |x| x * 10 }        # Ruby [30,40]   Spinel: NoMethodError 'map!' (Array)
-      t = Time.new(2026, 7, 21, 9, 30); p [t][0].hour  # Ruby 9         Spinel: NoMethodError 'hour'/'year'/... (Time; ALL accessors)
+                                                       # Ruby ["1","11"]
+      [[1, 2], [3, 4]].last.map! { |x| x * 10 }        # Ruby [30,40]
+      t = Time.new(2026, 7, 21, 9, 30); p [t][0].hour  # Ruby 9
       def r(state); state.merge(x: 1); end
-      acc = [{}]; acc << r(acc.last)                    # Ruby {x:1}     Spinel: NoMethodError 'merge' (Hash; param poisoned by acc.last)
+      acc = [{}]; acc << r(acc.last)                    # Ruby {x:1}
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -600,8 +566,8 @@ describe "Blocks: regressions" do
 
       lit = ->(str) { [str[0], str[1..]] }
       r = seq([lit]).call("abc")
-      p r          # Ruby: "bc"       Spinel: 2151525692 (garbage Integer)
-      p r.class    # Ruby: String     Spinel: Integer
+      p r          # Ruby: "bc"
+      p r.class    # Ruby: String
     RUBY
 
     _(result).must_answer <<~'OUT'

@@ -113,9 +113,8 @@ describe "Hash: blocks and yields" do
       y = Blk.new
       p y.single { |v| v % 2 }
 
-      # the read-modify-write forms key the slot just as `[]=` does, so the variant
-      # decision has to see them too (they carry the key in arguments[0] and the
-      # value in a `value` ref, which is why the write index used to miss them)
+      # the read-modify-write forms (`||=`, `+=`, `&&=`) key the slot just as `[]=`
+      # does, so the Hash's key type comes from them too
       class Counter
         def tally
           out = {}
@@ -160,14 +159,8 @@ describe "Hash: blocks and yields" do
     result = zr(<<~'RUBY')
       # A `tap` / `then` block parameter is another name for the call's own receiver,
       # so a key operation written through it says the same thing about the literal
-      # that one written directly on it does. The rule that gives a bare `{}` the
-      # variant its key selects did not follow the parameter back, so the literal
-      # kept the String-keyed default and an Array key went into a `const char *`
-      # slot (#4026):
-      #
-      #   p( {}.tap{ |h| h[[]] } )
-      #   # error: incompatible pointer types passing 'sp_IntArray *' to
-      #   #        parameter of type 'const char *'
+      # that one written directly on it does. A bare `{}` takes its key type from a
+      # key used through the block parameter, here an Array key.
       p({}.tap { |h| h[[]] })
       p({}.then { |h| h[[]] })
       p({}.tap { |h| h[[1]] })
@@ -369,9 +362,8 @@ describe "Hash: blocks and yields" do
   it "map, transform_values, select and reject take a block whatever the key and value types are" do
     result = zr(<<~'RUBY')
       # Hash block methods (map / each_value / transform_values / select /
-      # reject) across the typed-hash variants. sym_int variants already
-      # worked; this fills in the str_int / sym_str / str_str arms that
-      # previously fell through to the unresolved-call path.
+      # reject) across the typed-hash variants: sym_int, str_int, sym_str
+      # and str_str.
       puts({a: 1, b: 2}.map { |k, v| v * 10 }.inspect)
       puts({a: 1, b: 2}.transform_values { |v| v * 10 }.inspect)
       puts({a: 1, b: 2, c: 3}.select { |k, v| v > 1 }.inspect)
@@ -450,7 +442,7 @@ describe "Hash: blocks and yields" do
 
   it "default_proc= takes a lambda and a miss then calls it" do
     result = zr(<<~'RUBY')
-      # Hash#default_proc= with a lambda literal (KieranP #2371)
+      # Hash#default_proc= with a lambda literal
       h = {}
       h.default_proc = ->(hh, k) { k.to_s }
       p h[:x]
@@ -476,7 +468,7 @@ describe "Hash: blocks and yields" do
   it "default_proc= answers the proc, the way any assignment answers its right side" do
     result = zr(<<~'RUBY')
       # An assignment's value is the right-hand side: `h.default_proc = p` answers
-      # the proc. Answering the hash put an sp_XHash* into a Proc* slot (#3833).
+      # the proc, not the hash.
       h = {}
       r = (h.default_proc = ->(hh, k) { k.to_s })
       p r.class
@@ -518,7 +510,7 @@ describe "Hash: blocks and yields" do
 
   it "the block methods over an empty Hash answer empty" do
     result = zr(<<~'RUBY')
-      # Block-taking methods on an empty hash (KieranP #2336)
+      # Block-taking methods on an empty hash
       h = {}
       p(h.select { |k, v| true })
       p(h.reject { |k, v| false })
@@ -629,16 +621,15 @@ describe "Hash: blocks and yields" do
       # Hash#fetch(key) { |k| ... } yields the missing key to the block.
       # The block param must be typed as the hash's KEY type (sym / string /
       # int), not the default int, so block-body uses like k.to_s / k + "!"
-      # dispatch correctly. Top-level calls exercise block_param_type_at;
-      # the in-method assignment forms exercise scan_locals.
+      # dispatch correctly. The example has top-level calls and in-method
+      # assignment forms.
 
-      # Top-level (block_param_type_at), distinct param names so each block
-      # gets its own scope slot.
+      # Top-level, distinct param names so each block gets its own scope slot.
       puts({ 1 => 10 }.fetch(99) { |ka| ka * 100 })
       puts({ a: 10 }.fetch(:zzz) { |kb| kb.to_s })
       puts({ "a" => 10 }.fetch("zzz") { |kc| kc + "!" })
 
-      # In-method, value consumed via an assignment RHS (scan_locals).
+      # In-method, value consumed via an assignment RHS.
       def m_int
         r = { 1 => 10 }.fetch(99) { |k| k * 100 }
         r
@@ -678,7 +669,7 @@ describe "Hash: blocks and yields" do
 
   it "none? and one? take a block over an integer-keyed Hash" do
     result = zr(<<~'RUBY')
-      # Hash#none? / #one? with a block on an Integer-keyed hash (KieranP #2346)
+      # Hash#none? / #one? with a block on an Integer-keyed hash
       p({ 1 => 10, 2 => 20 }.none? { |k, _v| k > 5 })
       p({ 1 => 10, 2 => 20 }.none? { |_k, v| v > 5 })
       p({ 1 => 10, 2 => 20 }.one? { |_k, v| v > 15 })
@@ -704,8 +695,7 @@ describe "Hash: blocks and yields" do
   it "merge resolves a conflicting key through its block" do
     result = zr(<<~'RUBY')
       # Hash#merge with a conflict-resolution block. For colliding keys
-      # the block sees (key, this-value, other-value); spinel's int
-      # variant supports it.
+      # the block sees (key, this-value, other-value).
 
       h1 = {a: 1, b: 2}
       h2 = {b: 99, c: 3}
@@ -812,12 +802,9 @@ describe "Hash: blocks and yields" do
 
   it "a default block whose value is an empty container compiles and stores" do
     result = zr(<<~'RUBY')
-      # Hash.new with a block whose body assigns a container default used to
-      # miscompile: the empty `[]`/`{}` literal infers as an untyped value, so the
-      # emitted default-proc declared `void _t = sp_IntArray_new()`. The value is
-      # now boxed into an sp_RbVal temp, so container defaults compile and work.
-      # (String/Integer keys are used so #inspect matches CRuby; a symbol-keyed
-      #  Hash.new{} default still renders keys with `=>` -- tracked separately.)
+      # Hash.new with a block whose body assigns a default: an empty `[]`/`{}`
+      # container, or an Integer. The block stores the default under the key.
+      # (The example uses String/Integer keys so that #inspect matches CRuby.)
 
       # array default
       words = Hash.new { |h, k| h[k] = [] }
@@ -989,18 +976,12 @@ describe "Hash: blocks and yields" do
 
   it "select, reject and find take a block whose body is nil" do
     result = zr(<<~'RUBY')
-      # The nil-block-body family on a HASH receiver. The array arms were fixed with
-      # the empty-block desugar (#4006), but a Hash reaches its own emitters, and
-      # they had the same holes:
+      # The nil-block-body family on a HASH receiver: `select { nil }`,
+      # `reject {}` and `find { nil }`.
       #
-      #   {a: 1}.select { nil }  # error: used struct type value where scalar is required
-      #   {a: 1}.reject {}       # error: wrong type argument to unary exclamation mark
-      #   {a: 1}.find { nil }    # error: used struct type value where scalar is required
-      #
-      # A body whose value IS nil types VOID/NIL: neither a boxed value to ask
-      # sp_poly_truthy about nor a scalar to test. It is statically FALSY, so select
-      # keeps nothing, reject keeps everything, and find never wins -- and the body
-      # still runs, for its effects.
+      # A body whose value IS nil is statically FALSY, so select keeps nothing,
+      # reject keeps everything, and find never wins -- and the body still runs,
+      # for its effects.
       h = { a: 1, b: 2 }
       p h.select { nil }
       p h.reject { nil }
@@ -1186,8 +1167,7 @@ describe "Hash: blocks and yields" do
       # A forwarded `&proc` into a class whose `initialize` stores the block
       # (`def initialize(&blk); @blk = blk; end`) threads the proc value into the
       # constructor, and a later `@blk.call` returns the right value for every body
-      # return type -- faithful now that a proc's result rides the universal boxed
-      # return channel (this used to be a loud compile reject).
+      # return type, because a proc's result is always a boxed value.
       class Box
         def initialize(&blk)
           @blk = blk

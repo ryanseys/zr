@@ -7,11 +7,7 @@ describe "Time programs" do
     result = zr(<<~'RUBY')
       # `Time.allocate` answers a Time whose instant was never set, and every row
       # that reads the instant refuses it -- CRuby's `uninitialized Time`.
-      #
-      # zr used to raise `allocator undefined for Time` at the `allocate` itself,
-      # so the refusal came one step early and under the wrong message. The marker
-      # costs no field: `RTime::den` is a rational denominator and is positive for
-      # every real instant, so zero is free.
+      # `allocate` itself does not raise `allocator undefined for Time`.
       #
       # Only the rows that READ the instant refuse. `class` and `frozen?` answer,
       # and `instance_variables` is empty -- an allocated Time is an ordinary object
@@ -136,16 +132,16 @@ describe "Time programs" do
       # through a monomorphic helper param so it keeps its concrete static type (and
       # is not constant-folded), exercising the per-type truthiness branches.
       def time_truthy(t) = t ? "yes" : "no"
-      puts time_truthy(Time.at(0))            # value type (sp_Time)
+      puts time_truthy(Time.at(0))            # Time
 
       def regex_truthy(re) = re ? "yes" : "no"
-      puts regex_truthy(/x/)                  # pointer type (mrb_regexp_pattern *)
+      puts regex_truthy(/x/)                  # Regexp
 
       def method_truthy(m) = m ? "yes" : "no"
-      puts method_truthy(method(:range_truthy))  # pointer type (sp_BoundMethod *)
+      puts method_truthy(method(:range_truthy))  # Method
 
       def random_truthy(r) = r ? "yes" : "no"
-      puts random_truthy(Random.new(42))      # pointer type (sp_Random *)
+      puts random_truthy(Random.new(42))      # Random
 
       def curry_truthy(p) = p ? "yes" : "no"
       puts curry_truthy(->(a, b) { a + b }.curry)  # pointer type (sp_Curry *)
@@ -232,14 +228,10 @@ describe "Time programs" do
       #
       # Whole-program AOT resolves an ordinary `require` at compile time and
       # splices it, and a COMPUTED one under a compile-time `-I` root reaches a
-      # unit the eager sweep compiled in. What neither covers is a target under
-      # no compile-time root at all: `$LOAD_PATH.unshift(dir); require "x"`, or
-      # an absolute path. Those used to be a flat `LoadError`.
-      #
-      # They reach the same compiler an `eval` does now
-      # (`features::UnitCompiler`, installed by the same `zr_eval_install`), so
-      # a program that can reach one carries exactly the machinery a program
-      # that can `eval` carries -- and one that cannot still links neither.
+      # unit the eager sweep compiled in. This example covers a target under no
+      # compile-time root at all: `$LOAD_PATH.unshift(dir); require "x"`, or an
+      # absolute path. Such a file loads at run time, with the same compiler
+      # that `eval` uses, and does not raise `LoadError`.
       #
       # The file is a top-level scope like any other: its `def`s land on
       # `Object`, its classes mint, `__FILE__` is its own path, a backtrace row
@@ -247,6 +239,10 @@ describe "Time programs" do
       # straight back to the load path -- including `require_relative`, which
       # resolves against the CALLING file the frame carries, since a snippet has
       # no compile-time directory to resolve against.
+
+      # The blank lines keep the line numbers that the expected output names.
+
+
       root = File.join(__dir__, "never_saw")
       $LOAD_PATH.unshift(root)
 
@@ -489,18 +485,9 @@ describe "Time programs" do
 
   it "poly hash with time" do
     result = zr(<<~'RUBY')
-      # Same heap-box pattern as Range applied to Time. sp_Time is wider
-      # than sp_RbVal's union (8 bytes), so a Time value in a poly slot
-      # (heterogeneous hash / array) used to fall through
-      # `box_non_nullable_value_to_poly`'s default and emit
-      # `sp_box_int(sp_time_at_int(...))` — which C rejected.
-      #
-      # The fix introduces SP_BUILTIN_TIME and `sp_box_time` (heap copies
-      # the stack Time and boxes through SP_TAG_OBJ). The companion
-      # `sp_Time_inspect` is timezone-dependent in the runtime (UTC) so
-      # we don't compare the printed Time bodies here — the regression
-      # is about the boxing path compiling and the int sibling values
-      # round-tripping cleanly.
+      # A Time value in a hash or array that also holds Integers. The printed
+      # form of a Time depends on the timezone, so the example does not print
+      # the Time values. It checks the Integer values and the sizes.
 
       H = {
         start: Time.at(0),
@@ -537,10 +524,8 @@ describe "Time programs" do
 
   it "proc range time return" do
     result = zr(<<~'RUBY')
-      # A proc/lambda returning a Range or Time (by-value structs that don't fit the
-      # mrb_int proc-ABI carrier) boxes through the poly return slot; the call site
-      # dereferences the boxed heap copy back to the value. Step-ranges (downto)
-      # carry their direction through the box.
+      # A proc/lambda can return a Range or a Time, and the caller gets the same
+      # value. Step-ranges (downto) keep their direction.
       f = ->(n) { (1..n) }
       r = f.call(3)
       p r
@@ -1060,7 +1045,7 @@ describe "Time programs" do
 
   it "interpolation prints a Time the way to_s does" do
     result = zr(<<~'RUBY')
-      # Time value in string interpolation calls #to_s (KieranP #2358)
+      # Time value in string interpolation calls #to_s
       t = Time.at(0).utc
       puts "at '#{t}'"
       t2 = Time.at(3661).utc
@@ -1166,7 +1151,7 @@ describe "Time programs" do
   it "Time.new takes in: as the offset, the same as the seventh positional" do
     result = zr(<<~'RUBY')
       # Time.new(..., in: <off>): the keyword is the utc_offset, like the 7th
-      # positional (#2718). Literal "+HH:MM" resolves at compile time; an Integer
+      # positional. Literal "+HH:MM" resolves at compile time; an Integer
       # expression passes through; missing civil fields default.
       p Time.new(2020, 1, 1, 0, 0, 0, in: "+05:00").utc_offset
       p Time.new(2020, 1, 1, 0, 0, 0, in: "-08:00").utc_offset
@@ -1401,11 +1386,9 @@ describe "Time programs" do
 
   it "utc, gmtime and localtime write back to the receiver where the get forms do not" do
     result = zr(<<~'RUBY')
-      # Time#utc / #gmtime / #localtime mutate the receiver (#2637): sp_Time is a
-      # value struct, so an lvalue receiver (local, ivar) takes a write-back
-      # assignment. The get* flavors stay non-destructive. (Aliasing two variables to
-      # one Time and observing the mutation through the other is a value-type limit:
-      # assignment copies.)
+      # Time#utc / #gmtime / #localtime change the receiver, a local or an ivar.
+      # The get* flavors do not change it. The example does not check a change
+      # seen through a second variable that refers to the same Time.
       v = Time.at(0)
       v.utc
       p v.utc?

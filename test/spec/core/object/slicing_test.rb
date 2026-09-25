@@ -5,10 +5,9 @@ require "spec_helper"
 describe "Object: slicing" do
   it "class object id" do
     result = zr(<<~'RUBY')
-      # A class is an object, so it needs an `object_id` of its own. Every class
-      # used to report the same one, which quietly broke anything memoizing on it --
-      # a `seen[mod.object_id]` guard would treat the first class it met as every
-      # class it met afterwards.
+      # A class is an object, so it has an `object_id` of its own. Every class
+      # has a different one. So a `seen[mod.object_id]` guard can tell classes
+      # apart.
 
       MODS = [Object, BasicObject, Array, Hash, String, Symbol, Integer, Float,
               Comparable, Enumerable, Kernel, Math, Process, Struct, Class, Module]
@@ -521,61 +520,31 @@ describe "Object: slicing" do
 
   it "Class.new with a superclass and a body mints a real class" do
     result = zr(<<~'RUBY')
-      # A class built at runtime runs its body as a block, and its directives are
-      # rewritten into the self-sends that block serves (`lower::defs::
-      # runtime_directive_spelling`). `tests/runtime_class_body_directives.rb` shows
-      # that working for `Class.new do ... end`.
+      # A class built at runtime runs its body as a block, and its directives
+      # become self-sends. `tests/runtime_class_body_directives.rb` shows that for
+      # `Class.new do ... end`.
       #
-      # Giving the class a runtime SUPERCLASS used to break five separate things, in
-      # both spellings. None of them was a compile error -- every one lowered, ran,
-      # and answered wrongly -- which is why this file exists.
+      # A class with a runtime SUPERCLASS must also do these five things, in both
+      # spellings:
       #
-      #   CLASS METHODS were not inherited at all. `class_methods` is a FLAT table,
-      #   on the stated ground that compile-time materialization already copies every
-      #   inherited `def self.x` onto each subclass. A class born at runtime was never
-      #   in that pass, so its table was empty and nothing walked past it:
-      #   `Class.new(Base).retired` raised however ordinary `retired` was. Dispatch
-      #   now falls back to the ancestor walk, the class-method twin of `lookup_mro`.
+      #   CLASS METHODS are inherited: `Class.new(Base).retired` finds the
+      #   `def self.retired` of Base.
       #
-      #   PREPEND landed in `ancestors` -- correctly first -- and never took over
-      #   dispatch. A module's bodies are in neither the flat table nor `own_impls`:
-      #   `emit_user_module_bridges` registers them as VALUE METHODS on the module's
-      #   own id, which `super`'s walk probes and `walk_runtime_class` did not. It
-      #   reached the module's position, found empty tables, and carried on.
+      #   PREPEND puts the module first in `ancestors`, and the module's method
+      #   also takes over dispatch.
       #
-      #   `private :m` NAMING A METHOD THE SAME BODY DEFINES is retagged onto the
-      #   `def` at lowering time, so no directive node survives for the rewrite. On
-      #   the static path the mark rides the `Scope` into the dispatch row; here the
-      #   `def` becomes a runtime definition that carries no visibility, so it has to
-      #   be re-spoken as a send. Same for `private_class_method`, on the singleton.
+      #   `private :m` that names a method of the same body makes that method
+      #   private. The same is true for `private_class_method`, on the singleton.
       #
-      #   `class << self; undef x; end` tombstoned `x` under the SINGLETON's id, and
-      #   nothing on the class-method path looks at a singleton id. The retirement
-      #   now lands in the owner's class-method space (`OverlayEntry::class_undefs`).
+      #   `class << self; undef x; end` removes the class method `x`.
       #
-      #   A CONSTANT resolves its owner from the enclosing cref at compile time, and
-      #   a runtime class body is a block whose cref is whatever encloses it --
-      #   `Object` at the top level. `OPEN = :visible` wrote `Object::OPEN`. It is
-      #   re-pointed at the block's `self`, which is the class being built; a nested
-      #   `class Inner` needs the same, and gets it in `runtime_nested_class`.
-      #
-      #   The READ needs re-pointing too, and this file only checked `Sub::OPEN` from
-      #   OUTSIDE at first. A bare constant lowers to a name codegen resolves against
-      #   the lexically-enclosing class, so once the write moved to the built class
-      #   the two looked in different places: `def reads_open = OPEN` raised
-      #   `uninitialized constant`. `rescope_body_constants` moves it, and the two
-      #   positions need different scopes -- in the body `self` IS the class, while
-      #   in a `def` the class has to be named through the constant holding it,
-      #   because that constant is not assigned until the whole body has run.
+      #   A CONSTANT written in a `class Sub < expr` body belongs to the new class,
+      #   also in a nested `class Inner`. A bare READ of it finds it both in the
+      #   body and in a `def` of the class.
       #
       # Only the `class` KEYWORD spelling opens a cref. `Class.new do NAME = v end`
       # is a plain block whose cref is the enclosing one, so ruby writes the constant
-      # on `Object` there -- checked at the bottom, since re-pointing it would be
-      # just as wrong in the other direction.
-      #
-      # The three compiler crashes that led here (danger, gitlab-labkit,
-      # activeadmin_settings_cached) are fixed and separate: those reached codegen
-      # through directives the rewrite table had no row for at all.
+      # on `Object` there -- checked at the bottom.
 
       class Base
         def size = 1
@@ -609,61 +578,31 @@ describe "Object: slicing" do
 
   it "class Sub < an expression inherits from the class that expression answers" do
     result = zr(<<~'RUBY')
-      # A class built at runtime runs its body as a block, and its directives are
-      # rewritten into the self-sends that block serves (`lower::defs::
-      # runtime_directive_spelling`). `tests/runtime_class_body_directives.rb` shows
-      # that working for `Class.new do ... end`.
+      # A class built at runtime runs its body as a block, and its directives
+      # become self-sends. `tests/runtime_class_body_directives.rb` shows that for
+      # `Class.new do ... end`.
       #
-      # Giving the class a runtime SUPERCLASS used to break five separate things, in
-      # both spellings. None of them was a compile error -- every one lowered, ran,
-      # and answered wrongly -- which is why this file exists.
+      # A class with a runtime SUPERCLASS must also do these five things, in both
+      # spellings:
       #
-      #   CLASS METHODS were not inherited at all. `class_methods` is a FLAT table,
-      #   on the stated ground that compile-time materialization already copies every
-      #   inherited `def self.x` onto each subclass. A class born at runtime was never
-      #   in that pass, so its table was empty and nothing walked past it:
-      #   `Class.new(Base).retired` raised however ordinary `retired` was. Dispatch
-      #   now falls back to the ancestor walk, the class-method twin of `lookup_mro`.
+      #   CLASS METHODS are inherited: `Class.new(Base).retired` finds the
+      #   `def self.retired` of Base.
       #
-      #   PREPEND landed in `ancestors` -- correctly first -- and never took over
-      #   dispatch. A module's bodies are in neither the flat table nor `own_impls`:
-      #   `emit_user_module_bridges` registers them as VALUE METHODS on the module's
-      #   own id, which `super`'s walk probes and `walk_runtime_class` did not. It
-      #   reached the module's position, found empty tables, and carried on.
+      #   PREPEND puts the module first in `ancestors`, and the module's method
+      #   also takes over dispatch.
       #
-      #   `private :m` NAMING A METHOD THE SAME BODY DEFINES is retagged onto the
-      #   `def` at lowering time, so no directive node survives for the rewrite. On
-      #   the static path the mark rides the `Scope` into the dispatch row; here the
-      #   `def` becomes a runtime definition that carries no visibility, so it has to
-      #   be re-spoken as a send. Same for `private_class_method`, on the singleton.
+      #   `private :m` that names a method of the same body makes that method
+      #   private. The same is true for `private_class_method`, on the singleton.
       #
-      #   `class << self; undef x; end` tombstoned `x` under the SINGLETON's id, and
-      #   nothing on the class-method path looks at a singleton id. The retirement
-      #   now lands in the owner's class-method space (`OverlayEntry::class_undefs`).
+      #   `class << self; undef x; end` removes the class method `x`.
       #
-      #   A CONSTANT resolves its owner from the enclosing cref at compile time, and
-      #   a runtime class body is a block whose cref is whatever encloses it --
-      #   `Object` at the top level. `OPEN = :visible` wrote `Object::OPEN`. It is
-      #   re-pointed at the block's `self`, which is the class being built; a nested
-      #   `class Inner` needs the same, and gets it in `runtime_nested_class`.
-      #
-      #   The READ needs re-pointing too, and this file only checked `Sub::OPEN` from
-      #   OUTSIDE at first. A bare constant lowers to a name codegen resolves against
-      #   the lexically-enclosing class, so once the write moved to the built class
-      #   the two looked in different places: `def reads_open = OPEN` raised
-      #   `uninitialized constant`. `rescope_body_constants` moves it, and the two
-      #   positions need different scopes -- in the body `self` IS the class, while
-      #   in a `def` the class has to be named through the constant holding it,
-      #   because that constant is not assigned until the whole body has run.
+      #   A CONSTANT written in a `class Sub < expr` body belongs to the new class,
+      #   also in a nested `class Inner`. A bare READ of it finds it both in the
+      #   body and in a `def` of the class.
       #
       # Only the `class` KEYWORD spelling opens a cref. `Class.new do NAME = v end`
       # is a plain block whose cref is the enclosing one, so ruby writes the constant
-      # on `Object` there -- checked at the bottom, since re-pointing it would be
-      # just as wrong in the other direction.
-      #
-      # The three compiler crashes that led here (danger, gitlab-labkit,
-      # activeadmin_settings_cached) are fixed and separate: those reached codegen
-      # through directives the rewrite table had no row for at all.
+      # on `Object` there -- checked at the bottom.
 
       class Base
         def size = 1
@@ -735,61 +674,31 @@ describe "Object: slicing" do
 
   it "a Class.new body opens no cref, so a constant written in it stays where it was written" do
     result = zr(<<~'RUBY')
-      # A class built at runtime runs its body as a block, and its directives are
-      # rewritten into the self-sends that block serves (`lower::defs::
-      # runtime_directive_spelling`). `tests/runtime_class_body_directives.rb` shows
-      # that working for `Class.new do ... end`.
+      # A class built at runtime runs its body as a block, and its directives
+      # become self-sends. `tests/runtime_class_body_directives.rb` shows that for
+      # `Class.new do ... end`.
       #
-      # Giving the class a runtime SUPERCLASS used to break five separate things, in
-      # both spellings. None of them was a compile error -- every one lowered, ran,
-      # and answered wrongly -- which is why this file exists.
+      # A class with a runtime SUPERCLASS must also do these five things, in both
+      # spellings:
       #
-      #   CLASS METHODS were not inherited at all. `class_methods` is a FLAT table,
-      #   on the stated ground that compile-time materialization already copies every
-      #   inherited `def self.x` onto each subclass. A class born at runtime was never
-      #   in that pass, so its table was empty and nothing walked past it:
-      #   `Class.new(Base).retired` raised however ordinary `retired` was. Dispatch
-      #   now falls back to the ancestor walk, the class-method twin of `lookup_mro`.
+      #   CLASS METHODS are inherited: `Class.new(Base).retired` finds the
+      #   `def self.retired` of Base.
       #
-      #   PREPEND landed in `ancestors` -- correctly first -- and never took over
-      #   dispatch. A module's bodies are in neither the flat table nor `own_impls`:
-      #   `emit_user_module_bridges` registers them as VALUE METHODS on the module's
-      #   own id, which `super`'s walk probes and `walk_runtime_class` did not. It
-      #   reached the module's position, found empty tables, and carried on.
+      #   PREPEND puts the module first in `ancestors`, and the module's method
+      #   also takes over dispatch.
       #
-      #   `private :m` NAMING A METHOD THE SAME BODY DEFINES is retagged onto the
-      #   `def` at lowering time, so no directive node survives for the rewrite. On
-      #   the static path the mark rides the `Scope` into the dispatch row; here the
-      #   `def` becomes a runtime definition that carries no visibility, so it has to
-      #   be re-spoken as a send. Same for `private_class_method`, on the singleton.
+      #   `private :m` that names a method of the same body makes that method
+      #   private. The same is true for `private_class_method`, on the singleton.
       #
-      #   `class << self; undef x; end` tombstoned `x` under the SINGLETON's id, and
-      #   nothing on the class-method path looks at a singleton id. The retirement
-      #   now lands in the owner's class-method space (`OverlayEntry::class_undefs`).
+      #   `class << self; undef x; end` removes the class method `x`.
       #
-      #   A CONSTANT resolves its owner from the enclosing cref at compile time, and
-      #   a runtime class body is a block whose cref is whatever encloses it --
-      #   `Object` at the top level. `OPEN = :visible` wrote `Object::OPEN`. It is
-      #   re-pointed at the block's `self`, which is the class being built; a nested
-      #   `class Inner` needs the same, and gets it in `runtime_nested_class`.
-      #
-      #   The READ needs re-pointing too, and this file only checked `Sub::OPEN` from
-      #   OUTSIDE at first. A bare constant lowers to a name codegen resolves against
-      #   the lexically-enclosing class, so once the write moved to the built class
-      #   the two looked in different places: `def reads_open = OPEN` raised
-      #   `uninitialized constant`. `rescope_body_constants` moves it, and the two
-      #   positions need different scopes -- in the body `self` IS the class, while
-      #   in a `def` the class has to be named through the constant holding it,
-      #   because that constant is not assigned until the whole body has run.
+      #   A CONSTANT written in a `class Sub < expr` body belongs to the new class,
+      #   also in a nested `class Inner`. A bare READ of it finds it both in the
+      #   body and in a `def` of the class.
       #
       # Only the `class` KEYWORD spelling opens a cref. `Class.new do NAME = v end`
       # is a plain block whose cref is the enclosing one, so ruby writes the constant
-      # on `Object` there -- checked at the bottom, since re-pointing it would be
-      # just as wrong in the other direction.
-      #
-      # The three compiler crashes that led here (danger, gitlab-labkit,
-      # activeadmin_settings_cached) are fixed and separate: those reached codegen
-      # through directives the rewrite table had no row for at all.
+      # on `Object` there -- checked at the bottom.
 
       class Base
         def size = 1

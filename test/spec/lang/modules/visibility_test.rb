@@ -76,10 +76,9 @@ describe "Modules: visibility" do
 
   it "module function in reopened body" do
     result = zr(<<~'RUBY')
-      # `module_function` in a REOPENED module body: only the body recorded as the
-      # module's definition was scanned, so a module first named by a version file
-      # and then filled in (the shape every gem has) kept its methods instance-level
-      # and `M.helper(x)` refused to compile (#3969).
+      # `module_function` in a REOPENED module body. A module first named by a
+      # version file and then filled in (the shape every gem has) gets module
+      # functions, so `M.helper(x)` works.
       module M
         VERSION = "1"
       end
@@ -251,19 +250,12 @@ describe "Modules: visibility" do
     result = zr(<<~'RUBY')
       # `module_function` in a module body installs the subsequent
       # `def name` as both an instance method (for include-mixin)
-      # and a class method (`Mod.name`). Spinel only models the
-      # class-method form here.
+      # and a class method (`Mod.name`). This test uses only the
+      # class-method form.
       #
-      # The namespace-resolution bug surfaces independently of
-      # `module_function`: any method body inside a module needs
-      # `current_lexical_scope_name` set so that bare class refs
-      # (`Box.new`) walk up via `resolve_const_read_name` to find
-      # the qualified `Outer_Box`.
-      #
-      # Both fixes ride together: register `def name` after
-      # `module_function` as `Mod_cls_name`, and pin
-      # `@current_method_name` while iterating top-level methods so
-      # the body's class-ref lookups peel `<Mod>_cls_<m>` correctly.
+      # A bare class ref (`Box.new`) in any method body inside a module
+      # resolves through the lexical scope, to `Outer::Box`. This is
+      # also true without `module_function`.
 
       module Outer
         module Helper
@@ -276,7 +268,7 @@ describe "Modules: visibility" do
           def initialize(flag)
             @flag = flag
             @arr = []
-            @arr << 0    # force heap layout (sp_Outer_Conf *)
+            @arr << 0    # force heap layout
           end
           attr_reader :flag
         end
@@ -304,7 +296,7 @@ describe "Modules: visibility" do
       puts Outer::Helper.medium.length   # 4
 
       # Module class method body that references a sibling class
-      # bare-named — used to fail with "unknown type name 'sp_Box'".
+      # bare-named.
       b = Outer::Builder.make(Outer::Conf.new(true))
       puts b.c.flag                       # true
     RUBY

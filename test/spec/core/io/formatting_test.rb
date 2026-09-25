@@ -50,13 +50,9 @@ describe "IO: formatting and inspection" do
     result = zr(<<~'RUBY')
       # Every operand of a call stays alive until the call runs. An operand that is a
       # fresh allocation is reachable from nothing until the callee stores it, so a
-      # sibling operand evaluated afterwards can collect it -- the argument-position
-      # shape #4049 fixed for a constructor's members, which every other call had too.
-      # Each operand binds to a rooted temp in front of the call now. A natural
-      # collection does not reliably land in that window, so the lifetime half is
-      # verified under SPINEL_GC_STRESS=1, where the first count was 40 of 40 before
-      # the fix and 0 after. What this run asserts unconditionally is the shape
-      # and the answer.
+      # sibling operand that runs later can collect it. A natural collection does
+      # not always occur in that window, so ZR_GC_STRESS=1 checks the lifetime part
+      # fully. This run always checks the shape and the answer.
       def seg(tag, i)
         s = String.new(tag)
         s + i.to_s

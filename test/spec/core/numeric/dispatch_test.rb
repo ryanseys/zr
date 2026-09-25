@@ -29,11 +29,7 @@ describe "Numeric: dispatch" do
 
   it "complex poly arith" do
     result = zr(<<~'RUBY')
-      # Arithmetic and abs/abs2/magnitude on a Complex read out of a poly container
-      # (the poly `+`/`-`/`*`/`/` and sp_poly_abs dispatch the Complex tag). Complex
-      # division with integer components follows spinel's float-backed Complex
-      # (a documented divergence from CRuby's rational components), so the divisor
-      # here is chosen to divide cleanly.
+      # Arithmetic and abs/abs2/magnitude on a Complex read out of an Array.
       xs = [Complex(1, 2), Complex(3, -4)]
       c = xs.first
       p (c + Complex(5, 5))
@@ -139,9 +135,9 @@ describe "Numeric: dispatch" do
 
   it "integer poly arg methods" do
     result = zr(<<~'RUBY')
-      # Integer methods whose argument the runtime takes as an mrb_int must unbox a
-      # polymorphic argument (here an element of a mixed array, poly-typed but an
-      # integer at runtime) rather than emitting it as a raw boxed value.
+      # Integer methods that take an Integer argument accept a value of unknown
+      # static type (here an element of a mixed array that is an Integer at
+      # runtime).
       mix = [6, "x"]
       b = mix.first
 
@@ -191,11 +187,8 @@ describe "Numeric: dispatch" do
 
   it "math poly arg unbox" do
     result = zr(<<~'RUBY')
-      # Math.* with a poly-typed argument (a value that unifies to Integer|Float)
-      # must unbox at the call boundary via sp_poly_to_f. Previously only a plain
-      # TY_INT arg got a (double) cast; a poly arg passed straight through as an
-      # sp_RbVal into the mrb_float parameter -- invalid C. Shape from the Doom
-      # gem's distance helpers (player_physics.rb, sector_actions.rb):
+      # Math.* accepts an argument that can be an Integer or a Float. Shape from
+      # the Doom gem's distance helpers (player_physics.rb, sector_actions.rb):
       #   Math.sqrt(dx * dx + dy * dy)  # dx, dy flow both Integer and Float
 
       def dist(dx, dy)
@@ -353,11 +346,9 @@ describe "Numeric: dispatch" do
 
   it "poly exact numeric ops" do
     result = zr(<<~'RUBY')
-      # An exact receiver reaching an operator or a numeric method through a block
-      # parameter is boxed, and the poly path answered it in floats or not at all.
-      # `**` evaluated in doubles (a different answer as well as a different class),
-      # `%` truncated to Integer, and divmod / modulo / quo / abs had no arm at all
-      # so they raised NoMethodError on methods Rational answers (#3510, #3512).
+      # A Rational or Complex receiver that reaches an operator or a numeric method
+      # through a block parameter keeps its own arithmetic. `**` and `%` do not
+      # fall back to Float, and divmod / modulo / quo / abs work as for any Rational.
       p([Rational(3, 2)].map { |a| a**2 })
       p([Rational(7, 2)].map { |a| a % 2 })
       p([Rational(-7, 2)].map { |a| a**3 })
@@ -370,7 +361,7 @@ describe "Numeric: dispatch" do
       p([Rational(-7, 2)].map { |a| a.abs })
       p([Rational(7, 2)].map { |a| a.abs })
 
-      # the neighbours that were already right stay right
+      # other Rational methods, as controls
       p([Rational(7, 2)].map { |a| a.floor })
       p([Rational(7, 2)].map { |a| a.round })
       p([Rational(7, 2)].map { |a| a.truncate })
@@ -439,7 +430,7 @@ describe "Numeric: dispatch" do
   it "poly numeric div remainder" do
     result = zr(<<~'RUBY')
       # A Float that reaches a method through a boxed slot answers the whole
-      # Numeric surface, not only the operators (#3800).
+      # Numeric surface, not only the operators.
       rings = [[[[-63.1269583, 46.2338358], [-63.1260111, 46.234436]]]]
       array = rings.flat_map { |ring| ring.first.map(&:first) }
       p array.sum
@@ -504,18 +495,15 @@ describe "Numeric: dispatch" do
       # Numeric / byte query methods on a poly value (a boxed element of a
       # heterogeneous array): nan? / finite? / infinite? / abs / floor / ceil /
       # round / truncate / zero? / positive? / negative? / bytesize / ord /
-      # bit_length / getbyte dispatch on the runtime tag like CRuby dispatches on
-      # the class. Previously only to_i / to_f (and a few string transforms) were
-      # in the poly table, so `v.nan?` raised "undefined method 'nan?' for poly"
-      # at runtime and `v.floor` failed to compile.
+      # bit_length / getbyte dispatch on the class of the value at runtime, as in
+      # CRuby.
       #
-      # NOTE: no class in this file may define a colliding method/reader name --
-      # a user definition shadows the builtin poly path program-wide (that
-      # shadowing is covered by poly_attr_reader_shadows_builtin.rb).
+      # NOTE: no class in this program may define a method or reader with one
+      # of these names.
 
-      # Float carried in a poly slot
+      # A Float read out of a mixed Array.
       v = [1.5, "x"][0]
-      puts v.to_i        # 1 (already worked)
+      puts v.to_i        # 1
       puts v.nan?        # false
       puts v.abs         # 1.5
       puts v.floor       # 1

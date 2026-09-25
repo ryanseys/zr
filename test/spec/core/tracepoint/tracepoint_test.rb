@@ -187,8 +187,8 @@ describe "TracePoint programs" do
 
   it "backtrace names the scope and the call line" do
     result = zr(<<~'RUBY', files: beside("lib/backtrace_scopes.rb"))
-      # Two questions a backtrace answers that zr used to answer differently
-      # from ruby, both about WHERE a frame is rather than what it does.
+      # Two questions a backtrace answers, both about WHERE a frame is rather
+      # than what it does. zr gives the same answers as ruby.
       #
       # (1) The scope a block hangs off. A `require` zr splices into its
       #     requiring file still has a scope of its own: ruby names a required

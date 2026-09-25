@@ -204,7 +204,7 @@ describe "Methods programs" do
         "case x; when 1 then 2; end",
         "case x; when 1 then 2 end",
         "case x; when 1; end",
-        # Node kinds that used to answer :UNKNOWN.
+        # Node kinds that answer a real type, not :UNKNOWN.
         "A::B",
         "::A::B",
         "A::B = 1",
@@ -1018,7 +1018,7 @@ describe "Methods programs" do
 
   it "attributes undefined dsl" do
     result = zr(<<~'RUBY')
-      # The spinel-era compile-time `attributes` DSL does not exist: CRuby (and
+      # There is no compile-time `attributes` DSL: CRuby (and
       # zr) raise NoMethodError when the class body executes. Rescued inside
       # the body so the output is path-portable.
       class BadAttributes
@@ -1037,12 +1037,10 @@ describe "Methods programs" do
   it "bound method obj recv" do
     result = zr(<<~'RUBY')
       # `<obj>.method(:bar)` — bind to a receiver that's not the current
-      # `self`. The Method's iv_self_obj must end up holding the
-      # receiver, not the *enclosing* class's `self`.
+      # `self`. The Method is bound to that receiver, not to the
+      # *enclosing* class's `self`.
       #
-      # Note: Method#call(x) lowers to a function pointer cast to
-      # `(void *, mrb_int...) -> mrb_int`, so the bound underlying method
-      # must return an int. Non-int returns are out of scope for this PR.
+      # Note: each bound method here returns an Integer.
 
       class Worker
         def initialize(base)
@@ -1089,13 +1087,10 @@ describe "Methods programs" do
 
   it "bound method single eval" do
     result = zr(<<~'RUBY')
-      # Issue #215 / Gemini-review-critical: the receiver expression in
+      # The receiver expression in
       # `<recv>.method(:foo).call(args)` and `<recv>.method(:foo)[args]`
-      # must be evaluated exactly once. The Method#call lowering reads
-      # both `iv_fn_ptr` and `iv_self_obj` off the receiver — a naive
-      # `((cast)rc->iv_fn_ptr)((void *)rc->iv_self_obj, args)` evaluates
-      # `rc` twice, so a side-effecting receiver fires its side effect
-      # twice (and pays the cost twice).
+      # is evaluated exactly once. So a side-effecting receiver fires its
+      # side effect once, not twice.
       #
       # This test exercises a Method whose source receiver is the result
       # of a side-effecting call. The side-effect counter must increment
@@ -1139,7 +1134,7 @@ describe "Methods programs" do
   it "call op write def writer" do
     result = zr(<<~'RUBY')
       # `obj.attr op= v` when the writer is a hand-written `def attr=`: Ruby means a
-      # reader call and a writer call, and the writer's body has to run (#3809).
+      # reader call and a writer call, and the writer's body has to run.
       class Rect
         attr_reader :x, :writes
         def initialize
@@ -1637,7 +1632,7 @@ describe "Methods programs" do
   it "fallible class body constant and method default args" do
     result = zr(<<~'RUBY')
       # `CONST = <fallible expr>` in a class body and `def m(a = <fallible>)`
-      # both previously emitted `?` outside a Result context.
+      # both work: each expression is a method call that can raise.
 
       def source
         41
@@ -2144,33 +2139,16 @@ describe "Methods programs" do
 
   it "kwargs param widen" do
     result = zr(<<~'RUBY')
-      # Issue #314 (B): a module class method's required keyword params
-      # never widened from the "int" default at scan_new_calls time. The
-      # AST presents kwargs as a single trailing KeywordHashNode, and the
-      # existing positional-only widening loop unified the hash type into
-      # `ptypes[0]` and never touched the per-kwarg slots.
+      # A module class method's required keyword params get their types from
+      # each `key: value` pair at the call sites. Each value goes to the
+      # keyword param of the same name, and keeps its own type.
       #
-      # Two complementary fixes:
-      #  1. widen_ptypes_from_args helper that walks KeywordHashNode
-      #     children, mapping each `key: value` pair to the matching
-      #     keyword param's slot in the callee's ptypes array.
-      #  2. compile_call_args_with_defaults / compile_call_args_splat
-      #     emit-side: replace the hardcoded `sp_box_str(...)` for poly
-      #     kwargs with `box_expr_to_poly(...)` so the box helper is
-      #     picked from the arg's actual source type.
-      #
-      # Surfaced via Roundhouse's emitted real-blog `form_with(model:,
-      # model_name:, action:, method:, opts:)` shape — minimal repro
-      # extracted with two distinct obj types passed to the same kwarg.
+      # This is the shape of Roundhouse's real-blog `form_with(model:,
+      # model_name:, action:, method:, opts:)`, with two different object
+      # types passed to the same keyword.
 
-      # Article/Comment have an array ivar so neither qualifies for the
-      # value-type optimization — instances stay heap-allocated and the
-      # captured-by-poly boxing site (`sp_box_obj`) sees a real pointer.
-      # (Pure-int/string-ivar classes flowing into a poly param at a call
-      # site is a separate, orthogonal value-type-exclusion concern that
-      # surfaces only with inline `X.new(...)` directly inside a poly-
-      # typed call slot — not exercised by this issue's Roundhouse trigger,
-      # where the receiver is always a previously-allocated local.)
+      # Article and Comment each have an array ivar. Each call site passes a
+      # local that already holds the object, not an inline `X.new(...)`.
 
       class Article
         def initialize(id, name); @id = id; @name = name; @tags = []; end
@@ -2188,23 +2166,18 @@ describe "Methods programs" do
         end
       end
 
-      # Pre-allocate (matches the Roundhouse `lv_article` shape — locals
-      # carry `sp_<C> *`, not struct-by-value).
+      # Make the objects first, as Roundhouse does, and keep them in locals.
       a = Article.new(7, "alpha")
       c = Comment.new("hello")
 
-      # Two call sites with different obj types for `model:`. The widening
-      # pass must collapse them to poly so the call-site box helper picks
-      # sp_box_obj (not the pre-fix sp_box_str).
+      # Two call sites with different obj types for `model:`. The keyword
+      # param takes both types, and each call gets its own object.
       puts M.render(model: a, label: "art")     # [art] article-alpha
       puts M.render(model: c, label: "com")     # [com] comment-hello
 
       # Module-inner class constructor inside a module class method
-      # body. infer_function_body_call_types now pins
-      # @current_method_name so resolve_const_read_name's
-      # `<Mod>_cls_<m>` peel resolves `Inner` to `M_Inner` — pre-fix
-      # the find_class_idx lookup returned -1 and skipped the
-      # constructor-arg widening of N::Inner.@x.
+      # body. `Inner` resolves to N::Inner, and N::Inner.new gets the
+      # object from `model:`.
       module N
         class Inner
           def initialize(x); @x = x; end
@@ -2295,11 +2268,8 @@ describe "Methods programs" do
     result = zr(<<~'RUBY')
       # A value-position map whose block param feeds a poly-widened callee param.
       # The param's scope-local rides the fixpoint to poly (its array's element type
-      # settles late), and the map emitter then shadow-pins it to the element type
-      # (string) for the body's emission. The shallow per-statement re-inference did
-      # not descend into call ARGUMENTS, so the argument read kept its stale poly
-      # cache and was passed unboxed: `sp_RbVal _t = lv_root;` -- a C compile error
-      # (invalid initializer).
+      # settles late), and in the map body it is a String. A read of it as a call
+      # ARGUMENT also gets the correct type, so the callee gets the right value.
 
       class Reader
         def initialize(data)
@@ -2417,7 +2387,7 @@ describe "Methods programs" do
   it "method call splat args" do
     result = zr(<<~'RUBY')
       # Method#[] / #call with a trailing splat expands the array into the
-      # target's declared params at runtime (#3248).
+      # target's declared params at runtime.
       def add(a, b) = a + b
       args = [4, 5]
       p(method(:add)[*args])
@@ -2697,7 +2667,7 @@ describe "Methods programs" do
       p s.method(:ok?).arity
       p s.method(:"ok?=").arity
 
-      # a real def is still resolved (regression guard)
+      # a real def is also resolved
       class D
         def double(n); n * 2; end
       end
@@ -2868,7 +2838,7 @@ describe "Methods programs" do
   it "method owner receiver" do
     result = zr(<<~'RUBY')
       # Method#owner is the defining class (the receiver's class for a builtin
-      # method object); #receiver is the bound receiver (#2701).
+      # method object); #receiver is the bound receiver.
       m = 5.method(:+)
       p m.owner
       p m.receiver
@@ -3195,10 +3165,9 @@ describe "Methods programs" do
       # `target.seen(x)` where `target` holds a Class value the analysis cannot pin to
       # one class -- a parameter, an element, an untyped slot -- reaches every class
       # method of that name at run time, so every one of them has this call as a
-      # caller. Only callers naming the module outright were counted, so one of those
-      # settled the parameter and the call through the variable was then READ at that
-      # type: an object arrived as a String and answered with its bytes, an Integer
-      # segfaulted, and nothing was said at compile time (#4066).
+      # caller. A caller that names the module outright does not settle the parameter
+      # type alone. The call through the variable gets
+      # each value with its real type: an object, a String or an Integer.
       class Named
       end
 
@@ -3248,8 +3217,8 @@ describe "Methods programs" do
 
   it "op method bitwise" do
     result = zr(<<~'RUBY')
-      # User-defined | & ^ % dispatch to the class method (mangled C name),
-      # not a raw C bitwise/modulo op on the struct pointer.
+      # User-defined | & ^ % call the method of the class, not a raw
+      # bitwise or modulo operation.
       class Flags
         def initialize(v)
           @v = v
@@ -3273,7 +3242,7 @@ describe "Methods programs" do
       puts(f & g)
       puts(f ^ g)
       puts(f % g)
-      # Builtin int operators still work (regression guard).
+      # Builtin Integer operators also work.
       puts(6 | 1)
       puts(6 & 4)
       puts(6 ^ 2)
@@ -4176,8 +4145,7 @@ describe "Methods programs" do
     result = zr(<<~'RUBY')
       # `delete` on a boxed receiver dispatches on what the receiver turns out to
       # be: a Hash gives the deleted value, an Array the object, a String the
-      # stripped copy. It used to commit to String#delete and stringify the
-      # receiver (#3806).
+      # stripped copy. It does not always call String#delete.
       opts = { n: 1, map: { 'a' => 7 }, list: [1, 2, 3], text: 'banana' }
       h = opts[:map]
       p h.delete('a')
@@ -4423,11 +4391,10 @@ describe "Methods programs" do
 
   it "same name forwarder union receiver" do
     result = zr(<<~'RUBY')
-      # A method whose body forwards to the SAME name on a union-typed receiver
-      # resolved the call to itself -- the only class defining that name -- so the
-      # return type union was the method's own unfinished answer and the whole thing
-      # came out void: `zero?` answered nil for every receiver, and `<=>` returned
-      # nil and took Comparable's operators down with it (#3488, #3490).
+      # A method whose body forwards to the SAME name on a union-typed receiver.
+      # The inner call goes to the receiver's method, not to the method itself.
+      # So `zero?` gives true or false, and `<=>` gives an Integer, and the
+      # Comparable operators work.
       class Q
         def initialize(v)
           @value = v
@@ -4460,8 +4427,8 @@ describe "Methods programs" do
           @v <=> other.v
         end
 
-        # never called: defining it is enough to widen the class's ivar, which is
-        # what used to make <=> void
+        # never called: defining it is enough to widen the class's ivar, so @v
+        # can hold more than one type
         def widen(other)
           other = M.new(other) unless other.is_a?(M)
           other.v
@@ -4638,13 +4605,9 @@ describe "Methods programs" do
 
   it "splat heterogeneous call" do
     result = zr(<<~'RUBY')
-      # Issue #666: heterogeneous call sites against a `def f(*args)` method
-      # previously left the splat slot at the default `int_array` and packed
-      # subsequent string args through `(mrb_int)<char*>` casts. Each was
-      # then re-interpreted by `puts x.to_s` as a giant integer (the pointer
-      # bit-pattern). Fix widens the splat slot to `poly_array` when call
-      # sites disagree, and emits a PolyArray builder at the heterogeneous
-      # call site so each arg is boxed under its concrete type.
+      # Call sites of a `def f(*args)` method pass args of different types.
+      # `args` holds each value with its own type, so `puts x.to_s` prints
+      # the Strings as Strings, not as large Integers.
 
       def test_splat(*args)
         args.each { |x| puts x.to_s }
@@ -4737,7 +4700,7 @@ describe "Methods programs" do
 
   it "unbound method bind call" do
     result = zr(<<~'RUBY')
-      # UnboundMethod#bind_call(recv, *args) = bind(recv).call(*args) (#3246).
+      # UnboundMethod#bind_call(recv, *args) = bind(recv).call(*args).
       class C
         def a(n) = n + 1
         def greet(x, y = "!") = "#{x}#{y}"
@@ -4756,7 +4719,7 @@ describe "Methods programs" do
 
   it "unbound method identity" do
     result = zr(<<~'RUBY')
-      # Module#instance_method yields an UnboundMethod (#2724): #class says so, and
+      # Module#instance_method yields an UnboundMethod: #class says so, and
       # calling it without a #bind is CRuby's NoMethodError. Binding restores the
       # ordinary Method behavior.
       class Animal; def breathe; "air"; end; end
@@ -4784,9 +4747,7 @@ describe "Methods programs" do
       # coerces its argument to String and raises TypeError ("no implicit conversion
       # of Integer into String") where ruby runs Interp#eval. The explicit-receiver
       # spelling (`i.eval(3)`) already dispatches correctly, which is what makes the
-      # recognizer the cause. (Imported from spinel, which had the same bug for a
-      # different reason; its Kernel#eval-on-a-runtime-string refusal is separate
-      # and stays.)
+      # recognizer the cause.
       class Interp
         def initialize
           @visits = 0
@@ -4838,10 +4799,9 @@ describe "Methods programs" do
 
   it "user method named load is not an eval" do
     result = zr(<<~'RUBY')
-      # A program that defines its own `load`, `eval` or `require` used to carry the
-      # whole embedded run-time compiler -- 14 MB, and all 170 builtin class tables
-      # with it -- because the predicate that decides matched the call's NAME and
-      # nothing else.
+      # A program that defines its own `load`, `eval` or `require` does not need
+      # the embedded run-time compiler (14 MB, with all 170 builtin class tables).
+      # The call's NAME alone does not decide it.
       #
       # A RECEIVERLESS call resolves the way DISPATCH resolves it: a user method of
       # that name in the enclosing class's chain is what runs, and `Kernel#eval` is
@@ -4966,8 +4926,7 @@ describe "Methods programs" do
       # Kernel#warn accepts a forwarded keyword-rest (`**opts`) as its options
       # bundle rather than a message. A double-splat made solely of forwarded hashes
       # is evaluated for side effects and otherwise ignored; positional messages
-      # still reach stderr. (Literal uplevel:/category: keywords are unsupported and
-      # rejected at compile time, since spinel models neither.)
+      # still reach stderr. (The test uses no literal uplevel: or category: keyword.)
       def s(x); x; end
 
       opts = s({})

@@ -137,12 +137,9 @@ describe "Set programs" do
   it "array set ops poly operand" do
     result = zr(<<~'RUBY')
       # An Array set operation whose OPERAND is poly -- a value whose static type
-      # widened, not a poly array. The four diverged three ways: `&` and `|` had no
-      # arm and would not compile, `-` was typed as arithmetic and reached
-      # sp_poly_sub, which had no array case and answered "no implicit conversion of
-      # Array into Array" on two real Arrays, and only `+` was right. The operand is
-      # coerced at run time now: an Array becomes the poly array the set-op
-      # primitives take, anything else raises the TypeError CRuby raises. #3475.
+      # widened, not a poly array. All four (`&`, `|`, `-`, `+`) work the same way.
+      # The operand is coerced at run time: an Array works as the operand, and any
+      # other value raises the TypeError that CRuby raises.
       def pick(flag) = flag ? [1, 2] : "x"
       def picks(flag) = flag ? ["s", "t"] : 1
       def bad(flag) = flag ? "x" : [1]
@@ -322,10 +319,9 @@ describe "Set programs" do
 
   it "container read combined set map bang" do
     result = zr(<<~'RUBY')
-      # The combined container-read shapes coexist in one program: with Set
-      # required, a poly map! call used to (a) force set.rb's each into a bogus
-      # recursive-yield reject, and (b) silently miss the builtin-array arm in
-      # the user-method block dispatch (#3234).
+      # The combined container-read shapes coexist in one program. With Set
+      # required, a map! call on a value read from a container still changes
+      # the Array, and Set's each still works.
       require 'set'
       m = [[1, 2], [3, 4]]; m[1].map! { |x| x * 10 }; p m
       h = { a: Set.new([1, 2, 3]) }
@@ -347,7 +343,7 @@ describe "Set programs" do
     result = zr(<<~'RUBY')
       # A Set read out of a container (poly receiver) iterates through the
       # generated to_a hook: map/select run over its elements, inject(:op)
-      # folds through the numeric tower (#3234).
+      # folds through the numeric tower.
       require 'set'
       h = { a: Set.new([1, 2, 3]) }
       p h[:a].map { |x| x }
@@ -468,9 +464,8 @@ describe "Set programs" do
     result = zr(<<~'RUBY')
       # Parameter type inference must pick a class whose surface contains
       # ALL methods called on the param, regardless of class definition
-      # order. Issue #35: previously the inferer locked in the first class
-      # matching ANY single reader, ignoring later accesses, so swapping
-      # Block and Cell changed the outcome.
+      # order. A class that matches only one reader is not enough, so the
+      # order of Block and Cell does not change the result.
 
       class Block
         attr_reader :x
@@ -619,7 +614,7 @@ describe "Set programs" do
     result = zr(<<~'RUBY')
       # class_variable_set with a literal name DECLARES the cvar when the class has
       # no such write (CRuby creates it on the fly), and class_variables lists the
-      # registered ones, own + ancestors (#2719).
+      # registered ones, own + ancestors.
       class C; @@x = 5; end
       C.class_variable_set(:@@y, 9)
       p C.class_variable_get(:@@y)
@@ -640,10 +635,10 @@ describe "Set programs" do
 
   it "module const set" do
     result = zr(<<~'RUBY')
-      # Module#const_set with a literal name re-assigns the constant (#2675). A
-      # constant is a compile-time C global, so an existing one can be stored into;
-      # a name the program never writes has no storage, and the global's type is
-      # fixed at its definition -- both of those report a specific diagnostic.
+      # Module#const_set with a literal name re-assigns the constant, and Ruby
+      # warns that the constant is already initialized.
+
+
       class Box; X = 1; S = "a"; F = 1.5; end
       p Box.const_set(:X, 99)     # returns the value, as CRuby does
       p Box::X
@@ -687,8 +682,8 @@ describe "Set programs" do
   it "reduce array set ops" do
     result = zr(<<~'RUBY')
       # Folding an array of arrays with `&` or `|`: the block parameters are boxed
-      # when the receiver is a local, and the poly operator read them as integer
-      # bitwise arithmetic, so the fold answered 0 (#3966).
+      # when the receiver is a local. The operator is the Array set operation, not
+      # integer bitwise arithmetic.
       l = [[1, 2], [2, 3], [2, 5]]
       p l.reduce { |a, b| a & b }
       p l.reduce { |a, b| a | b }
@@ -2151,10 +2146,8 @@ describe "Set programs" do
   it "user to set not rewritten" do
     result = zr(<<~'RUBY')
       # `enum.to_set` desugars to `Set.new(enum.to_a)`, but a class that defines its
-      # OWN to_set has to keep it. The rewrite used to run before class collection,
-      # so it could not tell, and rewrote every to_set in the program: a method
-      # returning a Hash of pending writes became a Set, and the error landed on
-      # whatever the real return type supported, several lines below the call.
+      # OWN to_set keeps it. Here a user to_set returns a Hash of pending writes,
+      # and the call answers that Hash, not a Set.
       require "set"
 
       class Jar

@@ -215,12 +215,10 @@ describe "Classes: inheritance and ancestors" do
   it "class body dsl call" do
     result = zr(<<~'RUBY')
       # self in a class body is the class, so a receiver-less call there naming a class
-      # method is a real call. It was treated as a declaration macro and skipped, so
-      # every declarative class-body DSL recorded nothing and the read afterwards
-      # answered nil, with no complaint from either the compiler or the run (#4051).
-      # The inherited case needs the second half of the fix: the DSL method has to be
-      # specialized for the subclass, or it writes the base class's class-level ivar --
-      # including when it never names one itself and reaches it through a sibling.
+      # method is a real call. So a declarative class-body DSL records its value, and
+      # the read afterwards gives that value, not nil.
+      # In a subclass, the DSL method writes the subclass's own class-level ivar, not
+      # the base class's -- also when it reaches the ivar through a sibling method.
       class Base
         def self.key(k = nil)
           @key = k if k
@@ -413,8 +411,8 @@ describe "Classes: inheritance and ancestors" do
   it "class subclasses" do
     result = zr(<<~'RUBY')
       # Class#subclasses returns the direct, defined subclasses from the compile-time
-      # class graph. (The elements are boxed classes; #to_s works, and the poly `.name`
-      # on a class element is a separate gap.) Regression toward #2656.
+      # class graph. The elements are boxed classes, and #to_s works on them. The test
+      # "class subclasses name" checks `.name`.
       class Base; end
       class Kid1 < Base; end
       class Kid2 < Base; end
@@ -437,8 +435,8 @@ describe "Classes: inheritance and ancestors" do
     result = zr(<<~'RUBY')
       # Class#subclasses hands back boxed classes, so `.map { |c| c.name }` reaches
       # the poly dispatch: a class-tagged value answers #name/#to_s/#inspect with its
-      # class name (#2656). The tag is checked ahead of the cls_id switch, since a
-      # boxed class carries the CLASS's id and would otherwise alias that user arm.
+      # class name. A boxed class is a Class, not an instance of that class, so it
+      # does not call a user #name of the class.
       class Base; end
       class Kid1 < Base; end
       class Kid2 < Base; end
@@ -520,9 +518,8 @@ describe "Classes: inheritance and ancestors" do
   it "defined super reports super" do
     result = zr(<<~'RUBY')
       # `defined?(super)` answers "super" when a super method exists from the
-      # current method's position and nil when none does. zr's defined? fold
-      # classifies the super keyword as a plain method reference and answers
-      # "method" in both cases -- it never consults the resolution emit_super uses.
+      # current method's position and nil when none does. It does not answer
+      # "method", because `super` is not a plain method reference.
       class DefBase
         def probe
           defined?(super).inspect
@@ -556,8 +553,7 @@ describe "Classes: inheritance and ancestors" do
       # At exit: cycle leak: 10 objects (Node x6, Column x4)
       # A ring whose fields hold both a base class and its subclass: reading one
       # yields a polymorphic value, and the local it is bound to has to be poly too.
-      # The callee's return widened only after the local was derived, so the C
-      # assigned an sp_RbVal to an sp_Node * and the build failed (#3964).
+      # This is true also when the callee's return type widens after the local's.
       class Node
         attr_accessor :left, :right, :up, :down, :column
 
@@ -1638,7 +1634,7 @@ describe "Classes: inheritance and ancestors" do
 
   it "runtime super chain" do
     result = zr(<<~'RUBY')
-      # Runtime `super` (#192) across a three-level runtime class chain, a
+      # Runtime `super` across a three-level runtime class chain, a
       # `define_method` body, and a `super` inside a `rescue` -- all resolved through
       # the runtime method-frame stack because each class is minted at runtime.
 
@@ -1693,38 +1689,19 @@ describe "Classes: inheritance and ancestors" do
 
   it "self class divergent returns" do
     result = zr(<<~'RUBY')
-      # Issue #431 (#422 residual). `self.class.<cmeth>` dispatch in a
-      # parent-defined instance method now lowers to a cls_id switch
-      # even when the base and subclass overrides have divergent
-      # return types -- the canonical Rails "abstract base raises,
-      # subclass returns concrete value" pattern.
-      #
-      # Pre-fix: #422's switch was gated on all candidate owners
-      # returning the same type. When Base.label raised (no return
-      # value, default int) and Article.label returned a String,
-      # the gate failed and the dispatch fell through to a direct
-      # call to sp_Base_cls_label -- which raised even when self
-      # was statically a subclass instance whose override was the
-      # intended target.
-      #
-      # Fix shape:
-      #   - codegen: divergent-types path boxes each arm's return
-      #     to sp_RbVal so the result temp has a single C type;
-      #     base call lands in `default:` so it only runs when the
-      #     runtime cls_id genuinely is the base.
-      #   - analyze: infer_type for `<obj>.class.<m>` chain widens
-      #     to "poly" when descendants override with divergent
-      #     return types, so downstream callers route through the
-      #     poly-dispatch path.
+      # `self.class.<cmeth>` in a parent-defined instance method calls the
+      # class method of the receiver's real class. This is true also when
+      # the base and subclass methods return different types -- the
+      # canonical Rails "abstract base raises, subclass returns concrete
+      # value" pattern. The base method runs only when the receiver is
+      # an instance of the base class.
       #
       # Coverage:
       #   - Variant 1: Base.label raises, Article.label returns
       #     String. Article.new.describe should print the String.
-      #   - Variant 2: Base.foo returns int, Article.foo returns
-      #     String. Both instance routes return through the cls_id
-      #     switch (Article gets the String, Base gets the int via
-      #     the default arm). Both render correctly via puts on the
-      #     boxed sp_RbVal.
+      #   - Variant 2: IntBase.foo returns int, StrChild.foo returns
+      #     String. StrChild gets the String and IntBase gets the int.
+      #     puts shows both correctly.
 
       class Base
         def self.label
@@ -1765,17 +1742,14 @@ describe "Classes: inheritance and ancestors" do
 
   it "self operator subclass dispatch" do
     result = zr(<<~'RUBY')
-      # #563 (Sam Ruby). `self[k]` and `self[k] = v` from inside a
-      # parent-defined method should dispatch to the subclass
-      # override at runtime. Sibling of bare_imeth_subclass_dispatch.rb
-      # but for the operator forms; pre-fix the dispatch resolved
-      # statically to the parent's operator stub, ignoring the
-      # subclass override.
+      # `self[k]` and `self[k] = v` from inside a parent-defined method
+      # call the subclass override at runtime, not the parent's operator.
+      # This is the operator form of a bare method call to a subclass.
       #
-      # Roundhouse trigger: ActiveRecord::Base#fill_timestamps does
-      # `self[:updated_at] = now if cols.include?(:updated_at)`,
-      # expecting the dispatch to land on the subclass's column
-      # routing. Pre-fix every model raised NotImplementedError.
+      # Roundhouse example: ActiveRecord::Base#fill_timestamps does
+      # `self[:updated_at] = now if cols.include?(:updated_at)`, and
+      # the call goes to the column code of the subclass. No model
+      # raises NotImplementedError.
 
       class Base
         def [](name)
@@ -1976,20 +1950,17 @@ describe "Classes: inheritance and ancestors" do
       # A ring of Columns and Nodes, which is the dispatch shape under test.
       # At exit: cycle leak: 7 objects (Column x4, Node x3)
       # A circular doubly-linked structure whose left/right/up/down fields hold both
-      # a base class and its subclass -- Knuth's Dancing Links, which is where the
-      # report found it (#4023). Two things were wrong, and both come from the same
-      # place: a slot typed as a class that HAS subclasses is only its STATIC type,
-      # because an inherited method storing `self` types the slot as the class that
-      # DEFINED the method while the object can be any subclass.
+      # a base class and its subclass -- Knuth's Dancing Links. A slot typed as a
+      # class that HAS subclasses is only its STATIC type, because an inherited
+      # method storing `self` types the slot as the class that DEFINED the method,
+      # while the object can be any subclass.
       #
-      # The read was emitted as a boxed value and assigned to a base-class local, so
-      # the build aborted; and where it did compile, a subclass-only method on such a
-      # read was refused outright:
+      # So a read of such a slot can be assigned to a local, and a method that only
+      # the subclass defines works on it. It does not raise:
       #
       #   undefined method 'size' for an instance of Node
       #
-      # Both are answers the runtime object gives perfectly well, so the call
-      # dispatches at run time now.
+      # The call dispatches at run time, on the real object.
       class Node
         attr_accessor :left, :right, :up, :down, :column, :row_name
 
@@ -2150,14 +2121,13 @@ describe "Classes: inheritance and ancestors" do
     result = zr(<<~'RUBY')
       # A slot typed as a class that HAS subclasses is only its STATIC type: an
       # inherited method storing `self` types the slot as the class that DEFINED the
-      # method, while the object can be any subclass. The read then refused a method
-      # the runtime object answers perfectly well (#4023):
+      # method, while the object can be any subclass. A method that the runtime
+      # object has works on the read, and does not raise:
       #
       #   Column.new.attach(n); n.link.size
       #   # undefined method 'size' for an instance of Node
       #
-      # `.class` on the same read has always answered Column -- the boxed value
-      # carries the right id -- so only the static refusal was wrong.
+      # `.class` on the same read answers Column.
       class Node
         attr_accessor :link
 
@@ -2217,18 +2187,14 @@ describe "Classes: inheritance and ancestors" do
       # A parent method writes `self` into its own accessor.
       # At exit: cycle leak: 1 objects (Column x1)
       # A parent holds an accessor pointing at another object of the same family, and
-      # a parent method writes `self` into it. Reading it back and calling a method
-      # only the subclass defines raised NoMethodError naming the subclass, which
-      # does define it (#4036).
+      # a parent method writes `self` into it. A read of it can call a method that
+      # only the subclass defines, with no NoMethodError.
       #
-      # Two faults met here. The ivar's type was widened to poly in the class that
-      # DEFINES the reader and nowhere else, so the parent and the subclass laid the
-      # same inherited ivar out differently -- and an inherited ivar has one layout or
-      # nothing works through the parent pointer. That widening was superseded by the
-      # run-time dispatch #4023 added, and is gone.
+      # The parent and the subclass see the same inherited ivar in the same way.
+      # The call dispatches at run time, on the real object.
       #
       # Then `name` itself: a user READER owns the name just as a user method does,
-      # and counting methods alone let Method#name / Class#name claim the call.
+      # so Method#name and Class#name do not take the call.
       class Node
         attr_accessor :right
         def initialize
@@ -2570,17 +2536,9 @@ describe "Classes: inheritance and ancestors" do
 
   it "super in non initialize" do
     result = zr(<<~'RUBY')
-      # Issue #401: `super` in a non-`initialize` instance method
-      # previously emitted literal `0` instead of a call to the parent
-      # method. Compiled cleanly when the method's return type was
-      # `mrb_int` (silent wrong-result), failed C-compile when types
-      # diverged.
-      #
-      # Fix: SuperNode / ForwardingSuperNode in compile_expr now resolve
-      # the parent's same-named method (find_method_owner walks the
-      # parent chain) and emit a direct C call with `self` cast to the
-      # owner's pointer type. infer_type also returns the parent's
-      # method's return type for the result.
+      # `super` in a non-`initialize` instance method calls the parent's
+      # method of the same name, found up the parent chain. The result
+      # has the type that the parent's method returns.
 
       class A
         def value
@@ -2696,9 +2654,9 @@ describe "Classes: inheritance and ancestors" do
     result = zr(<<~'RUBY')
       # `super` reaching the root `initialize` -- what every chain bottoms out on,
       # and what makes the ordinary `include SomeMixin` + `super` idiom work. It
-      # used to raise "no superclass method 'initialize'": the runtime `super` walk
-      # consulted only the registry, never the builtin table. Arity 0 is enforced,
-      # and `initialize` stays private to reflection.
+      # does not raise "no superclass method 'initialize'": the runtime `super`
+      # finds the builtin BasicObject#initialize. Arity 0 is enforced, and
+      # `initialize` stays private to reflection.
 
       module Greet
         def initialize
@@ -2848,9 +2806,8 @@ describe "Classes: inheritance and ancestors" do
 
   it "super with args" do
     result = zr(<<~'RUBY')
-      # super (bare or with explicit args) must propagate Child param
-      # types to Parent params; otherwise spinel infers Parent's params
-      # as default int and emits a wrong-type call.
+      # super (bare or with explicit args) gives the Child param types to
+      # the Parent params, so Parent gets the real values, not Integers.
       class Parent
         def greet(name)
           puts "Parent: #{name}"
@@ -2908,11 +2865,9 @@ describe "Classes: inheritance and ancestors" do
 
   it "super with explicit args binds the parents own param names" do
     result = zr(<<~'RUBY')
-      # Before this fix, `emit_super_inline` spliced the parent's body without
-      # ever binding its parameter names -- this only "worked" when parent/
-      # child happened to share names. Here they deliberately DON'T (`name`
-      # vs. `name, breed`), so this only passes once `super(name)` actually
-      # binds Animal's own `name` parameter fresh.
+      # `super(name)` binds the parent's own parameter names. Here parent and
+      # child deliberately use different names (`name` vs. `name, breed`), so
+      # the test passes only when `super(name)` binds Animal's own `name`.
 
       class Animal
         def initialize(name)
@@ -2943,13 +2898,12 @@ describe "Classes: inheritance and ancestors" do
 
   it "superclass never defined" do
     result = zr(<<~'RUBY')
-      # A superclass naming a constant the program never defines. Zr used to
-      # reject the whole compile ("unknown superclass"), which meant a library that
-      # subclasses something from a gem it failed to load -- irb's `class CallTracer
-      # < ::CallTracer`, guarded by a `require "tracer"` that already raised
-      # LoadError -- could not be built at all, even though the definition never
-      # runs. Real Ruby evaluates the superclass expression when the definition
-      # RUNS, raises NameError there, and leaves no class behind.
+      # A superclass naming a constant the program never defines. The program still
+      # compiles. A library can subclass something from a gem it failed to load --
+      # irb's `class CallTracer < ::CallTracer`, guarded by a `require "tracer"`
+      # that already raised LoadError -- and the definition never runs. Real Ruby
+      # evaluates the superclass expression when the definition RUNS, raises
+      # NameError there, and leaves no class behind.
       class Base
         def who = :base
       end
@@ -3162,10 +3116,9 @@ describe "Classes: inheritance and ancestors" do
   it "unresolved super value" do
     result = zr(<<~'RUBY')
       # A module whose method calls `super`, never included anywhere, so nothing says
-      # what that super answers. The raise emitted for it never returns, so its
-      # trailing value only has to type-check in the slot -- and the "0" it used
-      # stopped the build wherever the slot was a boxed one, an interpolation being
-      # the shape that found it (#4034).
+      # what that super answers. The raise for it never returns. The program still
+      # compiles when the super value goes into a boxed slot, such as an
+      # interpolation.
       # a module whose `super` is interpolated, never included
       module Numbered
         def render(text) = "#{super}!"
@@ -3175,7 +3128,7 @@ describe "Classes: inheritance and ancestors" do
       end
       p Plain.new.render("hi")
 
-      # the neighbouring shapes the report says already worked
+      # the neighbouring shapes
       module Whole
         def render2(text) = super
       end

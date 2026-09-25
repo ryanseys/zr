@@ -280,10 +280,8 @@ describe "Exceptions: blocks and yields" do
   it "proc return rescue modifier escape" do
     result = zr(<<~'RUBY')
       # Same home-escape-via-exception case as proc_return_escape_localjump, but the
-      # exception is caught by an *expression-form* `rescue` modifier (a distinct
-      # codegen path). The home node must still be dropped as the exception unwinds,
-      # so the later return raises LocalJumpError rather than longjmping into a freed
-      # frame.
+      # exception is caught by an *expression-form* `rescue` modifier. The method
+      # that made the proc has returned, so the later return raises LocalJumpError.
       $escaped = nil
       def home
         $escaped = proc { return 99 }
@@ -304,12 +302,11 @@ describe "Exceptions: blocks and yields" do
 
   it "proc unknown tail raise" do
     result = zr(<<~'RUBY')
-      # A proc whose tail is an sp_RbVal- or sp_Class-valued raising expression
-      # (unresolved-call gate / NameError constant read) must coerce into the proc's
-      # mrb_int return carrier instead of returning the mismatched C type raw.
+      # A proc whose last expression raises (a call to a missing method, or a read
+      # of a missing constant) raises that error when called.
       x = [1, "a"].sample
-      g = -> { x.no_such_method_here }   # gate: sp_raise_nomethod (sp_RbVal tail)
-      h = -> { NoSuchConst }             # NameError constant read (sp_Class dummy)
+      g = -> { x.no_such_method_here }   # raises NoMethodError
+      h = -> { NoSuchConst }             # raises NameError
       begin
         g.call
       rescue Exception => e
@@ -339,10 +336,9 @@ describe "Exceptions: blocks and yields" do
       # making the call load-bearing -- an argument that raises inside it leaks
       # the proc, once per execution.
       #
-      # The emitter used to build the proc FIRST, before the receiver and the
-      # argument list, at five call shapes. Each of the sends below raises from
-      # an argument, and each leaked one `Proc` (tag 24) per iteration. The block
-      # is now built last, which is also ruby's own order.
+      # Each of the sends below raises from an argument, at five call shapes. The
+      # block is built last, after the receiver and the argument list, which is
+      # also ruby's own order. So no `Proc` leaks when an argument raises.
       #
       # `ZR_TEST_RT_LEAKCHECK=1` is what makes this a test: the answers printed here
       # are the same either way, and the ledger's exit balance is the measurement.
@@ -439,8 +435,8 @@ describe "Exceptions: blocks and yields" do
 
   it "raise non exception typeerror" do
     result = zr(<<~'RUBY')
-      # `raise <non-exception>` is CRuby's TypeError, not a value smuggled into
-      # the message slot (a C type error for scalars, garbage for the rest).
+      # `raise <non-exception>` is CRuby's TypeError. The value does not become
+      # the message.
       def try
         yield
       rescue TypeError => e
@@ -543,11 +539,9 @@ describe "Exceptions: blocks and yields" do
   it "rescue bind in lambda proc body" do
     result = zr(<<~'RUBY')
       # `rescue => e` inside a lambda / proc body binds `e` as a body-local
-      # exception. Before the fix the binding leaked to the enclosing scope so
-      # the closure referenced an undeclared `lv_e`, and infer_type recomputed
-      # `e.message` as int (a `#{e.message}` interp formatted the string
-      # pointer with %lld). The string is observed inside the body so the test
-      # is independent of the proc-call return-value ABI.
+      # exception, and `#{e.message}` interpolates the message String. The
+      # test prints inside the body, so it does not depend on the value that
+      # the call returns.
       lambda { begin; raise "a"; rescue => e; puts "got #{e.message}"; end }.call
       proc { begin; raise "boom"; rescue => e; puts "p #{e.message} (#{e.class})"; end }.call
 
@@ -555,7 +549,7 @@ describe "Exceptions: blocks and yields" do
       f = lambda { begin; raise "late"; rescue => e; puts "f: #{e.message}"; end }
       f.call
 
-      # A non-raising path through the body still compiles and runs.
+      # A non-raising path through the body runs too.
       g = proc { begin; puts "no raise"; rescue => e; puts "unreached #{e.message}"; end }
       g.call
     RUBY

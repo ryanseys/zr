@@ -8,17 +8,9 @@ describe "Blocks: control flow" do
       # Anonymous `&` block forwarding (Ruby 3.1+).
       #
       # `def outer(&); inner(&); end` declares an unnamed block parameter
-      # and forwards it via the matching anonymous `&` in the call. Pre-fix,
-      # the parameter `BlockParameterNode { name: nil }` was registered with
-      # an empty name, leaving the method without a `_block`/`lv_` slot, and
-      # the forwarding `BlockArgumentNode { expression: -1 }` got dropped at
-      # the call site (it slipped through `find_block_arg`'s -1 return).
-      #
-      # Fix synthesizes the internal name `__anon_block` for unnamed block
-      # params so they flow through `find_block_param_name` and
-      # `@current_method_block_param` like any other `&block`, and extends
-      # `block_forward_expr` to forward the current method's anon-block
-      # slot when it sees a BlockArgumentNode with no expression.
+      # and forwards it via the matching anonymous `&` in the call. The
+      # unnamed parameter works like any other `&block`, and the bare `&`
+      # in the call forwards it.
 
       # 1. Top-level outer/inner with anonymous & forwarding.
       def outer(&)
@@ -130,14 +122,8 @@ describe "Blocks: control flow" do
   it "block param call block given" do
     result = zr(<<~'RUBY')
       # A method that captures its block as `&blk` AND calls `block_given?`
-      # must still invoke the block through the &blk slot. The block_given?
-      # call makes the method look like a yield-method, which previously
-      # routed the literal-block call site through the yield-inline path;
-      # that path renamed the block local to `blk_y<N>` but left the body's
-      # `blk.call` referencing the original `lv_blk` (undeclared C). The
-      # fix skips inlining when the method has a trailing &block param and
-      # forwards the literal block into that slot instead, padding the
-      # trailing yield-ABI slots with NULL.
+      # calls the block through `blk.call`. `block_given?` does not change
+      # how the literal block reaches `blk`.
 
       # 1. Top-level &blk + block_given? + blk.call.
       def build(&blk)
@@ -191,9 +177,8 @@ describe "Blocks: control flow" do
     result = zr(<<~'RUBY')
       # An &block-param method called with a literal block returns the
       # value of blk.call, typed by the block body's return type rather than
-      # the int default. The block value is carried through sp_proc_call's
-      # mrb_int slot (a uniform C signature) and cast back per call site, so
-      # distinct literal blocks coexist without an ABI change.
+      # as an Integer. Different literal blocks at the same method can give
+      # values of different types.
 
       def applies(&blk)
         blk.call("hi")
@@ -376,12 +361,8 @@ describe "Blocks: control flow" do
   it "case local in lambda" do
     result = zr(<<~'RUBY')
       # A local assigned inside a `case`/`when` branch of a lambda/proc
-      # body must be declared in the proc's emitted C function. The proc
-      # capture scanner walked `if`/`while` branches but not `case` arms
-      # (they hang off @nd_conditions), so a branch-only local was never
-      # classified — neither captured nor declared — and the lambda's C
-      # function referenced an undeclared `lv_<name>`. Plain method and
-      # `.each {}` bodies were unaffected.
+      # body is a local of that lambda, as it is for an `if`/`while`
+      # branch. It can be read after the branch.
 
       # 1. case-branch local, read after the branch.
       f = lambda do |t|
@@ -684,15 +665,14 @@ describe "Blocks: control flow" do
   it "proc call value return" do
     result = zr(<<~'RUBY')
       # `lambda {}` / `proc {}` (method-call form) record their block's return
-      # type so `.call` unboxes the sp_proc_call mrb_int result back to the
-      # real type instead of rendering the pointer as an integer.
+      # type, so `.call` gives a value of that type, not an Integer.
       f = lambda { "hello" }
       puts f.call
 
       g = proc { "world" }
       puts g.call
 
-      # Pointer (array) return through the proc-call ABI.
+      # An Array return value.
       h = lambda { [1, 2, 3] }
       p h.call
 
@@ -700,7 +680,7 @@ describe "Blocks: control flow" do
       r = lambda { begin; raise "boom"; rescue => e; "msg:#{e.message}"; end }
       puts r.call
 
-      # Int return still works (no cast, ABI passes mrb_int through).
+      # An Integer return value.
       n = proc { 42 }
       puts n.call
     RUBY
@@ -1262,7 +1242,7 @@ describe "Blocks: control flow" do
         countdown(n - 1) { blk.call }
       end
 
-      # string block: value survives every recursive sp_proc_call hop and is
+      # string block: the value comes back through every recursive call and is
       # typed string via the base-case return.
       puts countdown(2) { "done" }
 
@@ -1398,9 +1378,8 @@ describe "Blocks: control flow" do
     result = zr(<<~'RUBY')
       # The walks that ask "does this body use its block?", "does it contain a
       # `super`?" and "does a `begin` here need the method's return catch?" all stop
-      # at the same three boundaries, and each used to spell those stops out in its
-      # own copy of an eighty-one-arm match. `HirNode::scope_kind` answers it once.
-      # These are the boundaries, exercised from the outside.
+      # at the same three boundaries. These are the boundaries, exercised from the
+      # outside.
 
       # A `def` nested in a method body is a fresh scope: its `yield` is its OWN
       # block's, and the enclosing method needs no block parameter for it.
@@ -1560,8 +1539,8 @@ describe "Blocks: control flow" do
   it "upto downto block" do
     result = zr(<<~'RUBY')
       # upto/downto with a block: the body must run whether or not the block declares
-      # a parameter. Regression: a no-param block (`1.upto(5) { h += 1 }`) dropped its
-      # body entirely (printed 0). A declared param is rebound each iteration, so
+      # a parameter, so a no-param block (`1.upto(5) { h += 1 }`) gives 5, not 0.
+      # A declared param is rebound each iteration, so
       # mutating it inside the block does not perturb the loop (CRuby semantics).
       h = 0
       1.upto(5) { h += 1 }
@@ -1614,20 +1593,9 @@ describe "Blocks: control flow" do
 
   it "yield call assigned return" do
     result = zr(<<~'RUBY')
-      # Issue #396. A yield-bearing top-level fn called with a literal
-      # block + the result assigned (`x = measure { ... }`) emitted
-      # `sp_measure(, NULL, NULL)` -- empty leading slot + extra trailing
-      # NULL, fails C-compile.
-      #
-      # Fix: compile_no_recv_call_expr now detects yield-method + literal-
-      # block in expression context and routes to compile_yield_call_expr
-      # (the expression-context counterpart of compile_yield_call_stmt).
-      # The body is inlined and the last stmt's value is captured into a
-      # result temp.
-      #
-      # Three working variants stayed working: assignment-less stmt form
-      # (already inlined), `&blk` param form (regular block forwarding),
-      # and yield-method with no block at the call site (yargs path).
+      # A top-level method that yields, called with a literal block, and the
+      # result assigned (`x = measure { ... }`). The block runs, and the
+      # variable gets the value of the method's last statement.
 
       def measure
         yield
@@ -1670,9 +1638,8 @@ describe "Blocks: control flow" do
   it "yield value mixed block types" do
     result = zr(<<~'RUBY')
       # A class-method with `yield` inlined at two call sites whose blocks return
-      # DIFFERENT types: the yield value must be boxed by each call site's own block
-      # type, not the method AST node's single cached type (which segfaulted by
-      # boxing an int result as a string).
+      # DIFFERENT types: each call site gets the value of its own block, with that
+      # block's type. An Integer result is not read as a String.
       class Box
         def initialize(s)
           @s = s

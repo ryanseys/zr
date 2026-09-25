@@ -134,11 +134,10 @@ describe "Control: control flow" do
 
   it "case tail all arms return" do
     result = zr(<<~'RUBY')
-      # A tail `case` whose every arm leaves the function has no value of its own,
-      # so the value path widened it to poly and returned the box from a concretely
-      # typed function. The if/elsif/else form of the same dispatch always worked
-      # (#4156). d3 keeps the mixed shape honest: one arm returns, the others carry
-      # a value, so the case still IS the method's value.
+      # A tail `case` whose every arm leaves the function has no value of its own.
+      # The method's value comes from the `return`s, as with the if/elsif/else form
+      # of the same dispatch. d3 keeps the mixed shape honest: one arm returns, the
+      # others carry a value, so the case still IS the method's value.
       def d1(n)
         case n
         when 1 then return [1, 2]
@@ -197,44 +196,19 @@ describe "Control: control flow" do
 
   it "cmeth return nil or obj via intermediate" do
     result = zr(<<~'RUBY')
-      # Issue #411. A class method that initializes a local to `nil`,
-      # conditionally reassigns it through an intermediate variable, and
-      # returns the local emitted with return type `mrb_int` even though
-      # the local itself was correctly typed `sp_Foo *`:
-      #
-      #   static mrb_int sp_Bar_cls_find(void) {
-      #       sp_Foo * lv_result = NULL;
-      #       sp_Foo * lv_instance = NULL;
-      #       lv_result = NULL;
-      #       lv_instance = sp_Foo_new();
-      #       lv_result = lv_instance;
-      #       return lv_result;       // sp_Foo * -> mrb_int — fails
-      #   }
-      #
-      # Root cause: `infer_all_returns`'s cmeth branch ran a single
-      # `scan_locals` pass before calling `infer_body_return`. The first
-      # pass typed `result` as "nil" (only the initial `result = nil`
-      # was visible), so the tail expression `result` inferred as nil
-      # and `unify_return_type` collapsed the cmeth's return to "nil"
-      # -> `mrb_int`. The local-decl precompute later upgraded the
-      # local correctly via `refine_method_body_locals`'s 2-pass logic
-      # ("nil + nullable_pointer_type -> obj_<C>?"), but by that point
-      # `@cls_cmeth_returns` was already pinned at "nil".
-      #
-      # Fix: replace the single-pass scan_locals in
-      # `infer_all_returns`'s cmeth branch with a
-      # `refine_method_body_locals` call so the multi-pass refinement
-      # runs before `infer_body_return` reads the tail.
+      # A class method initializes a local to `nil`, conditionally
+      # reassigns it through an intermediate variable, and returns the
+      # local. The method returns the object or nil, not an Integer.
+      # The local is nil after its first assignment, but a later
+      # assignment makes it a Foo, and the return type must include both.
       #
       # Coverage:
       #   - the canonical Rails-style `_adapter_find_by_id` shape with
-      #     intermediate variable (the issue's repro),
-      #   - same shape returning the local directly through an `if/else`
-      #     branch (no intermediate, regression check that the existing
-      #     direct path still works),
+      #     an intermediate variable,
+      #   - the same shape that assigns the local directly inside an
+      #     `if` (no intermediate),
       #   - the simple `nil`-fallback flow control (`return nil unless
-      #     ...`) to confirm the unify-with-nil tail still resolves
-      #     correctly to `obj_<C>?`.
+      #     ...`), where the method returns a Foo or nil.
 
       class Foo
         attr_accessor :tag
@@ -694,11 +668,10 @@ describe "Control: control flow" do
 
   it "an early return out of a begin pops its frame, so two hundred of them do not leak" do
     result = zr(<<~'RUBY')
-      # An early `return` from inside begin/rescue must pop the live setjmp
-      # exception frames it exits. If codegen emits a bare C `return`, the frame
-      # stays on sp_exc_stack with a jmp_buf pointing into a dead C stack frame;
-      # the next raise longjmps into garbage (Doom's SoundManager#[] crashed this
-      # way), and repeated calls overflow the exception stack.
+      # An early `return` from inside begin/rescue must pop the live exception
+      # frames it exits. Otherwise the next raise lands in a handler that is gone
+      # (as in the SoundManager#[] of Doom), and repeated calls overflow the
+      # exception stack.
 
       class SoundCache
         def initialize
@@ -734,11 +707,10 @@ describe "Control: control flow" do
 
   it "a raise after many early returns lands in the fresh handler" do
     result = zr(<<~'RUBY')
-      # An early `return` from inside begin/rescue must pop the live setjmp
-      # exception frames it exits. If codegen emits a bare C `return`, the frame
-      # stays on sp_exc_stack with a jmp_buf pointing into a dead C stack frame;
-      # the next raise longjmps into garbage (Doom's SoundManager#[] crashed this
-      # way), and repeated calls overflow the exception stack.
+      # An early `return` from inside begin/rescue must pop the live exception
+      # frames it exits. Otherwise the next raise lands in a handler that is gone
+      # (as in the SoundManager#[] of Doom), and repeated calls overflow the
+      # exception stack.
 
       class SoundCache
         def initialize
@@ -777,11 +749,10 @@ describe "Control: control flow" do
 
   it "an early return through two nested begin frames pops both" do
     result = zr(<<~'RUBY')
-      # An early `return` from inside begin/rescue must pop the live setjmp
-      # exception frames it exits. If codegen emits a bare C `return`, the frame
-      # stays on sp_exc_stack with a jmp_buf pointing into a dead C stack frame;
-      # the next raise longjmps into garbage (Doom's SoundManager#[] crashed this
-      # way), and repeated calls overflow the exception stack.
+      # An early `return` from inside begin/rescue must pop the live exception
+      # frames it exits. Otherwise the next raise lands in a handler that is gone
+      # (as in the SoundManager#[] of Doom), and repeated calls overflow the
+      # exception stack.
 
       class SoundCache
         def initialize
@@ -836,11 +807,10 @@ describe "Control: control flow" do
 
   it "a return from a begin/rescue nested inside a begin/ensure runs the deferred clause" do
     result = zr(<<~'RUBY')
-      # An early `return` from inside begin/rescue must pop the live setjmp
-      # exception frames it exits. If codegen emits a bare C `return`, the frame
-      # stays on sp_exc_stack with a jmp_buf pointing into a dead C stack frame;
-      # the next raise longjmps into garbage (Doom's SoundManager#[] crashed this
-      # way), and repeated calls overflow the exception stack.
+      # An early `return` from inside begin/rescue must pop the live exception
+      # frames it exits. Otherwise the next raise lands in a handler that is gone
+      # (as in the SoundManager#[] of Doom), and repeated calls overflow the
+      # exception stack.
 
       class SoundCache
         def initialize
@@ -897,11 +867,10 @@ describe "Control: control flow" do
 
   it "a return from a begin/ensure nested inside a begin/rescue carries on after the ensure" do
     result = zr(<<~'RUBY')
-      # An early `return` from inside begin/rescue must pop the live setjmp
-      # exception frames it exits. If codegen emits a bare C `return`, the frame
-      # stays on sp_exc_stack with a jmp_buf pointing into a dead C stack frame;
-      # the next raise longjmps into garbage (Doom's SoundManager#[] crashed this
-      # way), and repeated calls overflow the exception stack.
+      # An early `return` from inside begin/rescue must pop the live exception
+      # frames it exits. Otherwise the next raise lands in a handler that is gone
+      # (as in the SoundManager#[] of Doom), and repeated calls overflow the
+      # exception stack.
 
       class SoundCache
         def initialize
@@ -1367,31 +1336,19 @@ describe "Control: control flow" do
   it "if expr multi stmt body" do
     result = zr(<<~'RUBY')
       # When an `if` expression's value is consumed (assignment, return,
-      # ternary slot, etc.) and a branch holds multiple statements,
-      # compile_if_expr previously kept only the last statement of each
-      # branch — emitting `(cond ? lastexpr : ...)`. Any leading
-      # side-effect statements in the branch were silently dropped.
-      #
-      # Fix: detect multi-stmt branches, emit a real `if (cond) { ... }
-      # else { ... }` that compiles each leading statement for its side
-      # effect and assigns the final expression to a temp. Return the
-      # temp as the if-expression's value. Single-stmt / no-stmt branches
-      # keep using the original ternary fast path.
+      # ternary slot, etc.) and a branch holds multiple statements, each
+      # leading statement runs for its side effect, and the last one gives
+      # the value of the branch.
       #
       # Coverage:
       # - Multi-stmt then- and else-branches assigned to a local
       # - Elsif chain recursion (multi-stmt branches inside the else slot)
       # - Nested if-expression used as a method argument
       # - Mixed branch lengths (single-stmt then, multi-stmt else)
-      # - Empty/missing else (implicit nil → 0)
+      # - Empty/missing else
       #
       # Out of scope:
-      # - Poly type-unification of mixed concrete branches (int/string).
-      #   Spinel's inference picks one concrete type as the unified type
-      #   rather than `poly`, so `tmp = 1LL;` is emitted against a
-      #   `const char *` slot. The bug isn't in this PR's multi-stmt
-      #   restructuring — the ternary fast path has the same inference
-      #   issue. Separate fix.
+      # - Branches of mixed concrete types (Integer and String).
 
       x = if true
             puts "a"
@@ -1660,7 +1617,7 @@ describe "Control: control flow" do
       # Blockless Kernel#loop yields an infinite Enumerator; with_index over a
       # generator-backed enum is lazy, and Enumerator#find drives via #next so
       # infinite sources terminate on the block's break and finite sources
-      # return nil on no match (#3236).
+      # return nil on no match.
       r = loop.with_index.find { |_, i| break i if i == 3 }
       p r
       e = loop
@@ -2393,14 +2350,11 @@ describe "Control: control flow" do
     result = zr(<<~'RUBY')
       # RedoNode coverage — `redo` re-runs the current iteration of the
       # enclosing loop without re-evaluating the guard or advancing the
-      # iterator. Spinel emits a labeled goto back to the iteration top.
-      # Each loop form needs the wrapping helper trio (push_redo_label /
-      # emit_redo_label / pop_redo_label) so this file exercises every
-      # form that has it.
+      # iterator. Each loop form handles `redo` on its own, so the tests
+      # cover every loop form.
       #
       # Per-section `def t_<form>; ...; end; t_<form>` isolates the
-      # `attempts` / `i` / `x` locals. Was 17 separate tests covering
-      # each loop form individually plus a nested case.
+      # `attempts` / `i` / `x` locals.
 
 
       def t_times
@@ -2429,14 +2383,11 @@ describe "Control: control flow" do
     result = zr(<<~'RUBY')
       # RedoNode coverage — `redo` re-runs the current iteration of the
       # enclosing loop without re-evaluating the guard or advancing the
-      # iterator. Spinel emits a labeled goto back to the iteration top.
-      # Each loop form needs the wrapping helper trio (push_redo_label /
-      # emit_redo_label / pop_redo_label) so this file exercises every
-      # form that has it.
+      # iterator. Each loop form handles `redo` on its own, so the tests
+      # cover every loop form.
       #
       # Per-section `def t_<form>; ...; end; t_<form>` isolates the
-      # `attempts` / `i` / `x` locals. Was 17 separate tests covering
-      # each loop form individually plus a nested case.
+      # `attempts` / `i` / `x` locals.
 
 
       def t_each
@@ -2465,14 +2416,11 @@ describe "Control: control flow" do
     result = zr(<<~'RUBY')
       # RedoNode coverage — `redo` re-runs the current iteration of the
       # enclosing loop without re-evaluating the guard or advancing the
-      # iterator. Spinel emits a labeled goto back to the iteration top.
-      # Each loop form needs the wrapping helper trio (push_redo_label /
-      # emit_redo_label / pop_redo_label) so this file exercises every
-      # form that has it.
+      # iterator. Each loop form handles `redo` on its own, so the tests
+      # cover every loop form.
       #
       # Per-section `def t_<form>; ...; end; t_<form>` isolates the
-      # `attempts` / `i` / `x` locals. Was 17 separate tests covering
-      # each loop form individually plus a nested case.
+      # `attempts` / `i` / `x` locals.
 
 
       def t_while
@@ -2503,14 +2451,11 @@ describe "Control: control flow" do
     result = zr(<<~'RUBY')
       # RedoNode coverage — `redo` re-runs the current iteration of the
       # enclosing loop without re-evaluating the guard or advancing the
-      # iterator. Spinel emits a labeled goto back to the iteration top.
-      # Each loop form needs the wrapping helper trio (push_redo_label /
-      # emit_redo_label / pop_redo_label) so this file exercises every
-      # form that has it.
+      # iterator. Each loop form handles `redo` on its own, so the tests
+      # cover every loop form.
       #
       # Per-section `def t_<form>; ...; end; t_<form>` isolates the
-      # `attempts` / `i` / `x` locals. Was 17 separate tests covering
-      # each loop form individually plus a nested case.
+      # `attempts` / `i` / `x` locals.
 
 
       def t_until
@@ -2541,14 +2486,11 @@ describe "Control: control flow" do
     result = zr(<<~'RUBY')
       # RedoNode coverage — `redo` re-runs the current iteration of the
       # enclosing loop without re-evaluating the guard or advancing the
-      # iterator. Spinel emits a labeled goto back to the iteration top.
-      # Each loop form needs the wrapping helper trio (push_redo_label /
-      # emit_redo_label / pop_redo_label) so this file exercises every
-      # form that has it.
+      # iterator. Each loop form handles `redo` on its own, so the tests
+      # cover every loop form.
       #
       # Per-section `def t_<form>; ...; end; t_<form>` isolates the
-      # `attempts` / `i` / `x` locals. Was 17 separate tests covering
-      # each loop form individually plus a nested case.
+      # `attempts` / `i` / `x` locals.
 
 
       def t_for_range
@@ -2577,14 +2519,11 @@ describe "Control: control flow" do
     result = zr(<<~'RUBY')
       # RedoNode coverage — `redo` re-runs the current iteration of the
       # enclosing loop without re-evaluating the guard or advancing the
-      # iterator. Spinel emits a labeled goto back to the iteration top.
-      # Each loop form needs the wrapping helper trio (push_redo_label /
-      # emit_redo_label / pop_redo_label) so this file exercises every
-      # form that has it.
+      # iterator. Each loop form handles `redo` on its own, so the tests
+      # cover every loop form.
       #
       # Per-section `def t_<form>; ...; end; t_<form>` isolates the
-      # `attempts` / `i` / `x` locals. Was 17 separate tests covering
-      # each loop form individually plus a nested case.
+      # `attempts` / `i` / `x` locals.
 
 
       def t_for_array
@@ -2613,14 +2552,11 @@ describe "Control: control flow" do
     result = zr(<<~'RUBY')
       # RedoNode coverage — `redo` re-runs the current iteration of the
       # enclosing loop without re-evaluating the guard or advancing the
-      # iterator. Spinel emits a labeled goto back to the iteration top.
-      # Each loop form needs the wrapping helper trio (push_redo_label /
-      # emit_redo_label / pop_redo_label) so this file exercises every
-      # form that has it.
+      # iterator. Each loop form handles `redo` on its own, so the tests
+      # cover every loop form.
       #
       # Per-section `def t_<form>; ...; end; t_<form>` isolates the
-      # `attempts` / `i` / `x` locals. Was 17 separate tests covering
-      # each loop form individually plus a nested case.
+      # `attempts` / `i` / `x` locals.
 
 
       def t_loop
@@ -2652,14 +2588,11 @@ describe "Control: control flow" do
     result = zr(<<~'RUBY')
       # RedoNode coverage — `redo` re-runs the current iteration of the
       # enclosing loop without re-evaluating the guard or advancing the
-      # iterator. Spinel emits a labeled goto back to the iteration top.
-      # Each loop form needs the wrapping helper trio (push_redo_label /
-      # emit_redo_label / pop_redo_label) so this file exercises every
-      # form that has it.
+      # iterator. Each loop form handles `redo` on its own, so the tests
+      # cover every loop form.
       #
       # Per-section `def t_<form>; ...; end; t_<form>` isolates the
-      # `attempts` / `i` / `x` locals. Was 17 separate tests covering
-      # each loop form individually plus a nested case.
+      # `attempts` / `i` / `x` locals.
 
 
       def t_upto
@@ -2688,14 +2621,11 @@ describe "Control: control flow" do
     result = zr(<<~'RUBY')
       # RedoNode coverage — `redo` re-runs the current iteration of the
       # enclosing loop without re-evaluating the guard or advancing the
-      # iterator. Spinel emits a labeled goto back to the iteration top.
-      # Each loop form needs the wrapping helper trio (push_redo_label /
-      # emit_redo_label / pop_redo_label) so this file exercises every
-      # form that has it.
+      # iterator. Each loop form handles `redo` on its own, so the tests
+      # cover every loop form.
       #
       # Per-section `def t_<form>; ...; end; t_<form>` isolates the
-      # `attempts` / `i` / `x` locals. Was 17 separate tests covering
-      # each loop form individually plus a nested case.
+      # `attempts` / `i` / `x` locals.
 
 
       def t_downto
@@ -2724,14 +2654,11 @@ describe "Control: control flow" do
     result = zr(<<~'RUBY')
       # RedoNode coverage — `redo` re-runs the current iteration of the
       # enclosing loop without re-evaluating the guard or advancing the
-      # iterator. Spinel emits a labeled goto back to the iteration top.
-      # Each loop form needs the wrapping helper trio (push_redo_label /
-      # emit_redo_label / pop_redo_label) so this file exercises every
-      # form that has it.
+      # iterator. Each loop form handles `redo` on its own, so the tests
+      # cover every loop form.
       #
       # Per-section `def t_<form>; ...; end; t_<form>` isolates the
-      # `attempts` / `i` / `x` locals. Was 17 separate tests covering
-      # each loop form individually plus a nested case.
+      # `attempts` / `i` / `x` locals.
 
 
       def t_step
@@ -2760,14 +2687,11 @@ describe "Control: control flow" do
     result = zr(<<~'RUBY')
       # RedoNode coverage — `redo` re-runs the current iteration of the
       # enclosing loop without re-evaluating the guard or advancing the
-      # iterator. Spinel emits a labeled goto back to the iteration top.
-      # Each loop form needs the wrapping helper trio (push_redo_label /
-      # emit_redo_label / pop_redo_label) so this file exercises every
-      # form that has it.
+      # iterator. Each loop form handles `redo` on its own, so the tests
+      # cover every loop form.
       #
       # Per-section `def t_<form>; ...; end; t_<form>` isolates the
-      # `attempts` / `i` / `x` locals. Was 17 separate tests covering
-      # each loop form individually plus a nested case.
+      # `attempts` / `i` / `x` locals.
 
 
       def t_each_with_index
@@ -2796,14 +2720,11 @@ describe "Control: control flow" do
     result = zr(<<~'RUBY')
       # RedoNode coverage — `redo` re-runs the current iteration of the
       # enclosing loop without re-evaluating the guard or advancing the
-      # iterator. Spinel emits a labeled goto back to the iteration top.
-      # Each loop form needs the wrapping helper trio (push_redo_label /
-      # emit_redo_label / pop_redo_label) so this file exercises every
-      # form that has it.
+      # iterator. Each loop form handles `redo` on its own, so the tests
+      # cover every loop form.
       #
       # Per-section `def t_<form>; ...; end; t_<form>` isolates the
-      # `attempts` / `i` / `x` locals. Was 17 separate tests covering
-      # each loop form individually plus a nested case.
+      # `attempts` / `i` / `x` locals.
 
 
       def t_each_cons
@@ -2832,14 +2753,11 @@ describe "Control: control flow" do
     result = zr(<<~'RUBY')
       # RedoNode coverage — `redo` re-runs the current iteration of the
       # enclosing loop without re-evaluating the guard or advancing the
-      # iterator. Spinel emits a labeled goto back to the iteration top.
-      # Each loop form needs the wrapping helper trio (push_redo_label /
-      # emit_redo_label / pop_redo_label) so this file exercises every
-      # form that has it.
+      # iterator. Each loop form handles `redo` on its own, so the tests
+      # cover every loop form.
       #
       # Per-section `def t_<form>; ...; end; t_<form>` isolates the
-      # `attempts` / `i` / `x` locals. Was 17 separate tests covering
-      # each loop form individually plus a nested case.
+      # `attempts` / `i` / `x` locals.
 
 
       def t_each_slice
@@ -2868,14 +2786,11 @@ describe "Control: control flow" do
     result = zr(<<~'RUBY')
       # RedoNode coverage — `redo` re-runs the current iteration of the
       # enclosing loop without re-evaluating the guard or advancing the
-      # iterator. Spinel emits a labeled goto back to the iteration top.
-      # Each loop form needs the wrapping helper trio (push_redo_label /
-      # emit_redo_label / pop_redo_label) so this file exercises every
-      # form that has it.
+      # iterator. Each loop form handles `redo` on its own, so the tests
+      # cover every loop form.
       #
       # Per-section `def t_<form>; ...; end; t_<form>` isolates the
-      # `attempts` / `i` / `x` locals. Was 17 separate tests covering
-      # each loop form individually plus a nested case.
+      # `attempts` / `i` / `x` locals.
 
 
       def t_each_with_object
@@ -2900,14 +2815,11 @@ describe "Control: control flow" do
     result = zr(<<~'RUBY')
       # RedoNode coverage — `redo` re-runs the current iteration of the
       # enclosing loop without re-evaluating the guard or advancing the
-      # iterator. Spinel emits a labeled goto back to the iteration top.
-      # Each loop form needs the wrapping helper trio (push_redo_label /
-      # emit_redo_label / pop_redo_label) so this file exercises every
-      # form that has it.
+      # iterator. Each loop form handles `redo` on its own, so the tests
+      # cover every loop form.
       #
       # Per-section `def t_<form>; ...; end; t_<form>` isolates the
-      # `attempts` / `i` / `x` locals. Was 17 separate tests covering
-      # each loop form individually plus a nested case.
+      # `attempts` / `i` / `x` locals.
 
 
       def t_zip
@@ -2936,14 +2848,11 @@ describe "Control: control flow" do
     result = zr(<<~'RUBY')
       # RedoNode coverage — `redo` re-runs the current iteration of the
       # enclosing loop without re-evaluating the guard or advancing the
-      # iterator. Spinel emits a labeled goto back to the iteration top.
-      # Each loop form needs the wrapping helper trio (push_redo_label /
-      # emit_redo_label / pop_redo_label) so this file exercises every
-      # form that has it.
+      # iterator. Each loop form handles `redo` on its own, so the tests
+      # cover every loop form.
       #
       # Per-section `def t_<form>; ...; end; t_<form>` isolates the
-      # `attempts` / `i` / `x` locals. Was 17 separate tests covering
-      # each loop form individually plus a nested case.
+      # `attempts` / `i` / `x` locals.
 
 
       def t_cycle
@@ -2973,14 +2882,11 @@ describe "Control: control flow" do
     result = zr(<<~'RUBY')
       # RedoNode coverage — `redo` re-runs the current iteration of the
       # enclosing loop without re-evaluating the guard or advancing the
-      # iterator. Spinel emits a labeled goto back to the iteration top.
-      # Each loop form needs the wrapping helper trio (push_redo_label /
-      # emit_redo_label / pop_redo_label) so this file exercises every
-      # form that has it.
+      # iterator. Each loop form handles `redo` on its own, so the tests
+      # cover every loop form.
       #
       # Per-section `def t_<form>; ...; end; t_<form>` isolates the
-      # `attempts` / `i` / `x` locals. Was 17 separate tests covering
-      # each loop form individually plus a nested case.
+      # `attempts` / `i` / `x` locals.
 
 
       def t_nested
@@ -3115,14 +3021,10 @@ describe "Control: control flow" do
 
   it "return nil call scalar return" do
     result = zr(<<~'RUBY')
-      # A method whose return type is a concrete scalar (here mrb_int, pinned by the
+      # A method whose return type is a concrete scalar (here Integer, pinned by the
       # `42` branch) but one branch's value is a call that resolves to nil through a
-      # nil/unresolved receiver. That call is emitted as a poly nil-box
-      # (`sp_box_nil()`), and returning it raw from an mrb_int function is
-      # uncompilable C ("returning sp_RbVal from a function with incompatible result
-      # type mrb_int"). The fix coerces the box at the return slot
-      # (`sp_poly_to_i(sp_box_nil())`). The nil branch is never executed here -- the
-      # regression is purely that the method must compile.
+      # nil/unresolved receiver. The method must still compile. The nil branch never
+      # runs here.
       module AR
         def self.adapter
           nil
@@ -3134,7 +3036,7 @@ describe "Control: control flow" do
           if flag
             42
           else
-            AR.adapter.count("x")   # nil receiver -> poly nil-box into the mrb_int slot
+            AR.adapter.count("x")   # nil receiver -> nil into the Integer return
           end
         end
       end
@@ -3184,28 +3086,10 @@ describe "Control: control flow" do
 
   it "return unify int vs pointer" do
     result = zr(<<~'RUBY')
-      # #581 (Sam Ruby). When a function's explicit `return X` and
-      # implicit final-expression return disagree on the value-vs-
-      # pointer axis (here int param early return + hash literal
-      # implicit), the analyzer's lenient unify_return_type previously
-      # demoted the int as a default sentinel and picked the hash
-      # type, declaring the function as `sp_StrStrHash *`. The early
-      # `return value` then emitted `return mrb_int` from a
-      # pointer-typed function -- fatal -Wint-conversion under -Werror.
-      #
-      # Fix: post-fixpoint pass widens the function's stored return
-      # type to "poly" when the body's actual return paths contradict
-      # the analyzer's narrow choice on the value-vs-pointer axis.
-      # The existing codegen-side `@current_method_return == "poly"`
-      # boxing arm in compile_return_stmt then routes both branches
-      # through box_expr_to_poly correctly.
-      #
-      # Scope-set-up at the widen-check site (push_scope + declare
-      # params + refine_method_body_locals) is load-bearing: without
-      # it, ivar / local reads in the body fall back to int default
-      # and the check reports spurious mismatches for methods whose
-      # body is actually homogeneous (e.g. spinel's own helpers like
-      # `parse_id_list` returning `@parse_id_pool[k]`).
+      # A method's explicit `return X` and its implicit final-expression
+      # return have different types (here an Integer param on the early
+      # return and a Hash literal at the end). The method returns each
+      # value as it is, so the caller gets an Integer or a Hash.
 
       def f(value)
         return value if value < 0
@@ -3233,22 +3117,10 @@ describe "Control: control flow" do
 
   it "return unify isa early return" do
     result = zr(<<~'RUBY')
-      # #585 (Sam Ruby). Sibling shape of #581. A method that early-
-      # returns the param when `value.is_a?(Hash)` is false, then falls
-      # through to a pointer-shaped value, declared its return type as
-      # the pointer-shaped path and the early `return value` (int) tried
-      # to return mrb_int from a pointer-typed function -- fatal under
-      # -Werror.
-      #
-      # The function-signature side surfaces the same widen-to-poly fix
-      # as #581 (post-fixpoint widen pass). The fix here also closes a
-      # latent bug in the @unified_imeth_returns marker (spinel's
-      # Array#index returns -1 for not-found, not nil, so the
-      # `.index == nil` check at the producer site never added entries
-      # and the marker stayed empty). Switching to `.include?` lets the
-      # imeth-family marker get populated, which the widen pass then
-      # honors -- so the #563 self-operator dispatch family stays intact
-      # even after the value-vs-pointer widen lands.
+      # The same shape on an instance method. The method early-returns
+      # the param when `value.is_a?(Hash)` is false, and else falls
+      # through to a String. The early `return value` gives the Integer
+      # as it is.
 
       class Host
         def stringify_keys(value)
@@ -3269,11 +3141,9 @@ describe "Control: control flow" do
 
   it "return void and nullable object" do
     result = zr(<<~'RUBY')
-      # Regression: a method returning nil in every path is typed `void`, so an
-      # explicit `return nil` must emit a bare `return;` rather than `return <value>;`
-      # from a void C function. And a method returning a nullable object with an early
-      # bare `return` (Ruby nil) must emit the type's nil (NULL), not a bare `return;`
-      # in a non-void C function. Both previously produced -Wreturn-mismatch errors.
+      # A method that returns nil in every path, with an explicit `return nil`. And a
+      # method that returns an object or nil, with an early bare `return` (Ruby nil).
+      # Both compile, and the bare `return` gives nil.
 
       class Pool
         def initialize
@@ -3314,9 +3184,8 @@ describe "Control: control flow" do
         def self.count
           @count
         end
-        # Void method (returns nil in every path): the early `return bump` discards
-        # bump's (void) value, but the side effect must still run -- codegen emits
-        # `(void)(bump()); return;`, not a bare `return;` that would drop the call.
+        # Method that returns nil in every path: the early `return bump` still
+        # calls bump, so its side effect runs.
         def self.tick(run)
           return bump if run
           nil
@@ -3401,9 +3270,9 @@ describe "Control: control flow" do
 
   it "value object nil loop reset" do
     result = zr(<<~'RUBY')
-      # A value-type object local assigned inside a block loop is reset with a
-      # zeroed struct, not NULL -- a method returning the object on some paths
-      # and (implicit) nil on others is still a value type (#3267).
+      # A value-type object local assigned inside a block loop gets the object or
+      # nil on each turn. A method that returns the object on some paths and
+      # (implicit) nil on others still returns a value type.
       class Flag
         def initialize(bool) = @bool = bool
         def bool? = @bool

@@ -97,11 +97,8 @@ describe "Variables: slicing" do
   it "captured param reassigned in the body shares one cell" do
     result = zr(<<~'RUBY')
       # A parameter that is BOTH captured by an escaping block AND reassigned
-      # used to get its capture cell declared twice -- once by the prologue's
-      # param wrap and once by the hoist prelude's param-seeded arm -- so the
-      # second declaration wrapped the first cell in another cell (an invalid
-      # program, from the timeout gem's captured `message ||= ...`). Exactly one
-      # owner now: the prelude for assigned params, the prologue otherwise.
+      # has one variable. The block sees the last value that the method gives
+      # it. The timeout gem uses this shape with a captured `message ||= ...`.
 
       def f(x)
         t = proc { x }
@@ -127,10 +124,9 @@ describe "Variables: slicing" do
 
   it "global multi assign" do
     result = zr(<<~'RUBY')
-      # Multi-assignment into global variables must declare and type every
-      # target from the right-hand side, not only the first. A non-int RHS
-      # (string / float / array) or a splat-rest target previously left the C
-      # global declared as mrb_int and failed to compile.
+      # Multi-assignment into global variables sets every target from the
+      # right-hand side, not only the first. This includes a non-Integer RHS
+      # (String / Float / Array) and a splat-rest target.
       $g1, $g2 = 1, 2
       p [$g1, $g2]
 
@@ -171,9 +167,8 @@ describe "Variables: slicing" do
 
   it "global nil slot" do
     result = zr(<<~'RUBY')
-      # A global whose only value is nil got no type, and a global with no type got
-      # no slot, so the reference did not compile at all ('gv_foo' undeclared). The
-      # same for a global never assigned anywhere, which Ruby also reads as nil.
+      # A global whose only value is nil reads as nil. So does a global that no
+      # code assigns.
       $foo = nil
       p $foo.nil?
       p $foo
@@ -181,21 +176,21 @@ describe "Variables: slicing" do
       # never assigned
       p $never_written.nil?
 
-      # a later write still decides the type: this one is an Integer, not a boxed slot
+      # a later write sets the value: this one is an Integer
       $n = nil
       $n = 5
       p $n
       p $n + 1
 
-      # and a nil string global is nil, not the empty string: assigning nil used to
-      # store "" while `.nil?` compares against NULL, so it answered false
+      # and a nil string global is nil, not the empty string, so `.nil?` answers
+      # true
       $s = nil
       p $s.nil?
       $s = "x"
       p $s.nil?
       p $s
 
-      # read through a method, which is where this first showed up
+      # read through a method
       $log = nil
       $log_dead = false
 
@@ -232,14 +227,11 @@ describe "Variables: slicing" do
   it "Operator-write ($x += / -= / *= / /= ... )" do
     result = zr(<<~'RUBY')
       # Global variable compound writes — Or / And / Operator / Target.
-      # Was four tests; merged here. Globals across the original files
-      # happened to reuse `$count`, so this file picks distinct names per
-      # section so the merged script's accumulated state doesn't change
-      # the per-section semantics.
+      # Each section uses its own global names, so no section changes the
+      # state of another.
 
 
-      # Mirror of LocalVariableOperatorWriteNode but the storage is a
-      # C-level global symbol via sanitize_gvar(name).
+      # Mirror of LocalVariableOperatorWriteNode, but on a global.
       $counter = 0
       $counter += 1
       $counter += 5
@@ -263,20 +255,12 @@ describe "Variables: slicing" do
   it "Or-write ($x ||= val)" do
     result = zr(<<~'RUBY')
       # Global variable compound writes — Or / And / Operator / Target.
-      # Was four tests; merged here. Globals across the original files
-      # happened to reuse `$count`, so this file picks distinct names per
-      # section so the merged script's accumulated state doesn't change
-      # the per-section semantics.
+      # Each section uses its own global names, so no section changes the
+      # state of another.
 
 
       # Mirror of LocalVariableOrWriteNode. Only assigns if the global
-      # is currently falsy.
-      #
-      # Note: Spinel uses C-truthy semantics (any zero is falsy), which
-      # diverges from CRuby (only nil/false are falsy). For unassigned
-      # globals (default 0/nil) the two agree on the first assignment;
-      # subsequent ||= against truthy non-zero ints also agree. This
-      # test exercises only the agreement region.
+      # is currently falsy (nil or false). An unassigned global is nil.
       $or_count ||= 5    # never assigned, fires
       puts $or_count     # 5
       $or_count ||= 99   # already 5 (truthy in both), doesn't fire
@@ -289,10 +273,8 @@ describe "Variables: slicing" do
   it "And-write ($x &&= val)" do
     result = zr(<<~'RUBY')
       # Global variable compound writes — Or / And / Operator / Target.
-      # Was four tests; merged here. Globals across the original files
-      # happened to reuse `$count`, so this file picks distinct names per
-      # section so the merged script's accumulated state doesn't change
-      # the per-section semantics.
+      # Each section uses its own global names, so no section changes the
+      # state of another.
 
 
       # Mirror of LocalVariableAndWriteNode. Only assigns if the global
@@ -300,7 +282,7 @@ describe "Variables: slicing" do
       $and_count = 5
       $and_count &&= 10  # 5 is truthy, fires
       puts $and_count    # 10
-      $and_count &&= 0   # 10 is truthy in C, fires
+      $and_count &&= 0   # 10 is truthy, fires
       puts $and_count    # 0
     RUBY
 
@@ -310,15 +292,12 @@ describe "Variables: slicing" do
   it "Target (multi-assign LHS for globals)" do
     result = zr(<<~'RUBY')
       # Global variable compound writes — Or / And / Operator / Target.
-      # Was four tests; merged here. Globals across the original files
-      # happened to reuse `$count`, so this file picks distinct names per
-      # section so the merged script's accumulated state doesn't change
-      # the per-section semantics.
+      # Each section uses its own global names, so no section changes the
+      # state of another.
 
 
       # `$a, $b = 1, 2` -- each LHS slot is a GlobalVariableTargetNode.
-      # Routes through MultiWriteNode's emit_multi_write_target to the
-      # same g_<name> C-level storage GlobalVariableWriteNode uses.
+      # It writes the same global that a plain `$a = ...` writes.
       $ga, $gb = 1, 2
       puts $ga          # 1
       puts $gb          # 2
@@ -454,10 +433,8 @@ describe "Variables: slicing" do
       # `x ||= v` on a method-local with no earlier assignment, and a tail assignment
       # as a method's value.
       #
-      # The or-write emitter treated every non-poly local as already truthy, so the
-      # assignment was dropped entirely -- the variable kept its declaration's zero.
-      # And a tail local write returned the return type's default rather than the
-      # value just assigned, so even an or-write that DID run was invisible.
+      # A local with no earlier assignment is nil, so `||=` assigns it. A tail
+      # local write gives the value just assigned as the method's value.
 
       class Crash
         def to_s
@@ -587,7 +564,7 @@ describe "Variables: slicing" do
       t = "q"
       p t
 
-      # an array-only capture still follows the receiver's widening
+      # the capture is the receiver, with the new Symbol element
       a = [1, 2]
       c = a.push(:x)
       p c

@@ -53,9 +53,8 @@ describe "String: enumeration" do
   it "inject symbol op" do
     result = zr(<<~'RUBY')
       # inject/reduce with an arithmetic operator passed as a symbol-to-proc block
-      # (inject(&:+)). Previously emitted an empty accumulation loop with an
-      # undeclared accumulator. The positional-symbol forms are unchanged. The
-      # symbol-to-proc fold seeds with the first element (no-init-value form).
+      # (inject(&:+)), next to the positional-symbol forms. The symbol-to-proc
+      # fold seeds with the first element (no-init-value form).
       p [1, 2, 3].inject(&:+)
       p [1, 2, 3, 4].inject(&:*)
       p [10, 3, 2].inject(&:-)
@@ -81,16 +80,9 @@ describe "String: enumeration" do
       # Enumerable#inject / #reduce with a symbol-to-proc argument
       # (`inject(&:&)`) and the seedless first-element fold.
       #
-      # `inject(&:sym)` on a non-int_array receiver reached compile_reduce_block
-      # with a synthetic accumulator `_acc` that was never declared in C
-      # (`'lv__acc' undeclared`). The seedless fold also seeded the accumulator
-      # with `0`/NULL and iterated from index 0 instead of seeding with the
-      # first element and iterating from index 1 — wrong for non-additive ops
-      # (`*` gave 0) and a NULL deref for array elements (`a & b` segfaulted).
-      #
-      # Fix: seed seedless folds with arr[0] (loop from 1), type the result as
-      # the element type in analyze, declare the synthetic `_acc`, and lower
-      # `&:sym` / `:sym` to `acc.sym(x)` for the modeled element/op pairs.
+      # The seedless fold seeds the accumulator with the first element and
+      # iterates from index 1. Thus a non-additive op (`*`) and an op on array
+      # elements (`a & b`) give the Ruby answer. The result has the element type.
 
       # 1. Symbol-to-proc set operations on an array of int arrays.
       p [[1, 2, 3], [2, 3, 4]].inject(&:&)        #=> [2, 3]
@@ -216,11 +208,9 @@ describe "String: enumeration" do
 
   it "poly reduce operator symbol" do
     result = zr(<<~'RUBY')
-      # `reduce(init, :+)` on a receiver that stayed boxed -- one of the two arrays
-      # `partition` answers -- fell through to the Hash/Enumerable face, which
-      # converts the receiver to a hash and refuses an Array at run time. The poly
-      # arm that coerces to an array and re-enters the fold emitter required a BLOCK,
-      # and the operator-symbol form carries none (#4079).
+      # `reduce(init, :+)` on a receiver of unknown type -- one of the two arrays
+      # `partition` answers -- folds it as an Array. The operator-symbol form
+      # carries no BLOCK, and it must still take the Array path, not the Hash path.
       class Fixed
         attr_reader :units
 
@@ -276,11 +266,8 @@ describe "String: enumeration" do
   it "reduce symbol only method" do
     result = zr(<<~'RUBY')
       # `reduce(:sym)` / `inject(seed, :sym)` names the method by Symbol, which is not
-      # a CallNode, so the reachability walk never saw the name and pruned the method.
-      # The fold then fell through to the unresolved-call raise -- "undefined method
-      # '^' for an instance of F" for a method the program plainly defines. Only a
-      # method with NO other call site was affected, which is what made it look like
-      # an operator problem rather than a reachability one (#4069).
+      # a CallNode. The method has NO other call site, but the fold must still find
+      # it, not raise "undefined method '^' for an instance of F".
       class F
         attr_reader :u
         def initialize(u) = @u = u
@@ -323,11 +310,8 @@ describe "String: enumeration" do
 
   it "str array sort by" do
     result = zr(<<~'RUBY')
-      # sort_by on str_array previously bombed at C compile time:
-      # `cannot resolve call to 'sort_by' on str_array`, then the
-      # pointer slot got assigned (mrb_int)0. Explicit block and the
-      # `&:length` / `&:bytesize` / `&:to_i` symbol-to-proc shortcuts
-      # are now handled.
+      # sort_by on an array of strings, with an explicit block and with the
+      # `&:length` / `&:bytesize` / `&:to_i` symbol-to-proc shortcuts.
       puts ["bb", "a", "ccc"].sort_by(&:length).inspect
       puts ["bb", "a", "ccc"].sort_by { |s| s.length }.inspect
       puts ["10", "1", "100"].sort_by(&:to_i).inspect
@@ -394,7 +378,7 @@ describe "String: enumeration" do
       # `opts` is therefore monomorphically String, so the `else` (Hash) branch is
       # statically dead. `String#each` is a genuine NoMethodError in Ruby and never
       # runs here (CRuby always takes the is_a?(String) branch), so it lowers to a
-      # runtime stub via the NoMethodError gate rather than aborting compilation (#1434).
+      # runtime stub via the NoMethodError gate rather than aborting compilation.
       class Conn
         def initialize(opts)
           @kind = ""

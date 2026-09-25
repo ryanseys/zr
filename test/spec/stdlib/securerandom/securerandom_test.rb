@@ -5,16 +5,15 @@ require "spec_helper"
 describe "SecureRandom programs" do
   it "builtin row reports its parameter names" do
     result = zr(<<~'RUBY', files: {"securerandom.rb" => fixture("stdlib/securerandom/securerandom.rb")})
-      # `Method#parameters` on a native row used to answer the anonymous descriptor
-      # derived from its arity -- `[[:req]]` where ruby says `[[:req, :fmt]]`. zr
-      # reported a parameter NAME on no builtin row at all.
+      # `Method#parameters` on a native row gives the parameter NAMES, as ruby
+      # does: `[[:req, :fmt]]`, not the anonymous `[[:req]]` that the arity alone
+      # implies.
       #
-      # The DSL now spells a row's signature (`params "fmt, buffer: nil"`), which is
+      # The DSL spells a row's signature (`params "fmt, buffer: nil"`), which is
       # ruby's own `def` spelling, and the ARITY falls out of it -- so the two
-      # answers cannot disagree for a row that carries one. A keyword had no
-      # spelling in the DSL before at all, because a native body receives one inside
-      # the options Hash it already takes as a positional slot: what the body
-      # RECEIVES and what ruby REPORTS are different questions.
+      # answers cannot disagree for a row that carries one. A native body gets a
+      # keyword inside the options Hash that it takes as a positional slot: what
+      # the body RECEIVES and what ruby REPORTS are different questions.
       p Array.instance_method(:pack).parameters
       p Array.instance_method(:first).parameters
       p Array.instance_method(:sample).parameters
@@ -36,9 +35,8 @@ describe "SecureRandom programs" do
       # An anonymous forwarding slot is named for its own sigil, ruby's own answer.
       p Ractor.instance_method(:send).parameters
 
-      # A hand-registered exception row reaches no arity table, so zr's two
-      # catch-alls answered it differently: `-1` through `#arity` and `[]` through
-      # `#parameters`. Every one of them is declared now, beside its ownership mark.
+      # A hand-registered exception row declares its signature beside its
+      # ownership mark, so `#arity` and `#parameters` agree for it.
       p Exception.instance_method(:set_backtrace).parameters
       p Exception.instance_method(:set_backtrace).arity
       p Exception.instance_method(:full_message).parameters
@@ -53,9 +51,7 @@ describe "SecureRandom programs" do
       p Array.instance_method(:shuffle).parameters
       p Array.instance_method(:shuffle!).parameters
 
-      # Ruby refuses a keyword the method does not declare. zr used to ignore it
-      # silently, because the whole options Hash arrived as one `**opts` slot that
-      # nothing checked.
+      # Ruby refuses a keyword the method does not declare, with ArgumentError.
       begin
         [1, 2].shuffle(bogus: 1)
       rescue ArgumentError => e
@@ -117,7 +113,7 @@ describe "SecureRandom programs" do
     result = zr(<<~'RUBY', files: {"securerandom.rb" => fixture("stdlib/securerandom/securerandom.rb")})
       # Two independent draws must differ, and -- unlike Kernel#rand -- srand must
       # NOT make SecureRandom reproducible (it reads the OS CSPRNG, not the seedable
-      # generator). A regression to a clock-seeded xorshift would break this.
+      # generator). A clock-seeded generator would fail this check.
 
       require "securerandom"
       puts(SecureRandom.hex(16) != SecureRandom.hex(16))

@@ -5,9 +5,8 @@ require "spec_helper"
 describe "Format: formatting and inspection" do
   it "a format argument that is itself a call is rooted where it stands" do
     result = zr(<<~'RUBY')
-      # A format() argument that is itself a call rooting its own operands used to
-      # leak that rooting decl into the PolyArray_push argument position
-      # (`sp_PolyArray_push(_t, sp_RbVal _t2 = ...;` -- illegal C, #1508/#1498).
+      # A format() argument that is itself a method call, with Float operands of
+      # its own.
       def f(v) = v * 1000.0
       puts format("L: %.3f; A: %.3f; X: %.3f", f(0.001), f(0.0025), f(0.5))
       puts format("%d/%s", f(2).to_i, "ok")
@@ -82,7 +81,7 @@ describe "Format: formatting and inspection" do
     result = zr(<<~'RUBY')
       # format/sprintf: dynamic width/precision (%*d, %.*f) consume the next
       # positional argument; %<name>conv and %{name} reference a hash argument by
-      # key (missing keys raise KeyError). Unknown specs used to echo verbatim.
+      # key (missing keys raise KeyError).
       puts format("%*d", 5, 3)
       puts format("%-*d|", 5, 3)
       puts format("%*d", -5, 3) + "|"
@@ -399,7 +398,7 @@ describe "Format: formatting and inspection" do
   it "a named reference reads a symbol-keyed hash, held in a local or returned by a method" do
     result = zr(<<~'RUBY')
       # Named references in String#% (and the `%{name}` shorthand) read from a
-      # symbol-keyed hash argument. Previously rejected at compile time.
+      # symbol-keyed hash argument.
       #   %<name>spec  -> the value formatted with `spec`
       #   %{name}      -> the value's to_s
       def s(x); x; end
@@ -495,8 +494,8 @@ describe "Format: formatting and inspection" do
 
   it "a numeric conversion refuses what is not a number, and takes a bignum whole" do
     result = zr(<<~'RUBY')
-      # A numeric conversion in format/sprintf answered 0 for an argument that is not
-      # a number at all -- nil, a Symbol, an Array -- where CRuby refuses (#4010).
+      # A numeric conversion in format/sprintf refuses an argument that is not a
+      # number at all -- nil, a Symbol, an Array -- with a TypeError, as CRuby does.
       # %s accepts anything and is unaffected.
       [nil, true, false, :s, [1], { a: 1 }].each do |v|
         ["%d", "%f", "%x"].each do |spec|
@@ -666,9 +665,8 @@ describe "Format: formatting and inspection" do
 
   it "a splatted array variable contributes its elements as separate arguments" do
     result = zr(<<~'RUBY')
-      # A splatted Array variable contributes its ELEMENTS to format/sprintf/printf:
-      # it used to be pushed as one boxed array, so the conversions went unfed and the
-      # call raised "too few arguments" (#3957).
+      # A splatted Array variable contributes its ELEMENTS to format/sprintf/printf,
+      # one argument for each conversion, not one Array argument.
       args = ["a", "b"]
       p format("%s%s", *args)
       p sprintf("%s/%s", *args)
@@ -799,21 +797,11 @@ describe "Format: formatting and inspection" do
 
   it "sprintf long interp" do
     result = zr(<<~'RUBY')
-      # sp_sprintf truncated string-interpolation results to 4095 bytes.
+      # A string interpolation ("...#{x}...") keeps its full length, also when
+      # the result is larger than 4096 bytes.
       #
-      # Every Ruby string interpolation ("...#{x}...") compiles to
-      # sp_sprintf (see compile_interpolated in spinel_codegen.rb), which
-      # formatted into a fixed `char _sp_tmp[4096]` stack buffer and then
-      # clamped the result length to sizeof(buf)-1 -- silently dropping
-      # everything past 4095 bytes. vsnprintf already returns the would-be
-      # length, so the fix re-renders into a correctly-sized heap buffer for
-      # the overflow case (the common <4096 path keeps the stack temp +
-      # memcpy fast path).
-      #
-      # Surfaced in roundhouse view emit: a lowering that coalesces
-      # `io << a; io << b; io << c` append runs into a single
-      # `io << "...#{}..."` produced interpolations larger than 4096 bytes,
-      # which truncated rendered HTML pages mid-content.
+      # A view renderer can join `io << a; io << b; io << c` into a single
+      # `io << "...#{}..."`, and the result can be a large HTML page.
 
       big = "A" * 5000
       out = "[#{big}]"
@@ -853,11 +841,10 @@ describe "Format: formatting and inspection" do
     result = zr(<<~'RUBY')
       # String#% with a right-hand side whose static type is poly (a scalar at one
       # call site, an Array at another) must spread an Array value across the format
-      # directives at runtime. Spinel previously wrapped a poly RHS in a one-element
-      # array unconditionally, so an Array read zeros.
+      # directives at runtime. A scalar value is one argument.
       def fmt(f, v); f % v; end
 
-      # v unifies to poly: it receives an Integer, an Array, a Float, and a String.
+      # v receives an Integer, an Array, a Float, and a String.
       p fmt("%d", 5)               # "5"       (scalar stays a one-element list)
       p fmt("%d-%d", [1, 2])       # "1-2"     (Array spread across directives)
       p fmt("%03d/%02d", [7, 3])   # "007/03"
@@ -884,7 +871,7 @@ describe "Format: formatting and inspection" do
 
   it "string format polyarr" do
     result = zr(<<~'RUBY')
-      # String#% with a poly_array (mixed-type) argument.
+      # String#% with a mixed-type Array argument.
       puts "%s is %d" % ["age", 25]
       puts "%s: %.2f" % ["pi", 3.14159]
       puts "[%5d] %-10s" % [42, "hi"]

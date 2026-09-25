@@ -375,21 +375,17 @@ describe "Object programs" do
     result = zr(<<~'RUBY')
       # A `def` / `define_method` / `define_singleton_method` written where a VALUE
       # is expected (inside a method body, a block, an argument list) compiles to a
-      # runtime install. Codegen used to name the ENCLOSING CLASS as the target for
-      # all three, which is only ruby's rule for one of them.
+      # runtime install. Ruby does not use the ENCLOSING CLASS as the target for
+      # all three. That is its rule for only one of them.
       #
       #   A plain `def` installs on the CREF's default definee -- the enclosing
-      #   class, `Object` at the top level. That one was right.
+      #   class, `Object` at the top level.
       #
       #   `def self.x` and a literal `define_method` are ordinary SENDS TO SELF, and
       #   `self` is NOT the definee outside a class body. Inside an instance method
       #   `self` is the INSTANCE, so `def self.x` there lands on that object's
       #   singleton and `define_method` raises NoMethodError -- an instance is no
-      #   Module. Naming the enclosing class answered both the other way round: the
-      #   method appeared on the class, and `define_method` quietly succeeded.
-      #
-      # `boxed_implicit_self` is already the "self here, as a runtime value" rule
-      # and is total, so the receiver is read from it rather than re-derived.
+      #   Module. The method does not appear on the class.
 
       class C
         def install_singleton
@@ -450,7 +446,7 @@ describe "Object programs" do
 
   it "enum with object" do
     result = zr(<<~'RUBY')
-      # Enumerator#with_object with no block -> an Enumerator (#2540)
+      # Enumerator#with_object with no block -> an Enumerator
       e = [1, 2, 3].each.with_object([])
       p(e.class)
       p(e.to_a)                                   # [[elem, memo], ...]
@@ -482,7 +478,7 @@ describe "Object programs" do
       x = PG::UndefinedTable.new
       puts(x.is_a?(PG::Error) ? "yes" : "no")            # yes
       # is_a? with a namespaced constant-path class argument compares the fully
-      # qualified exception class name (#3260).
+      # qualified exception class name.
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -774,13 +770,9 @@ describe "Object programs" do
 
   it "map to value type objects" do
     result = zr(<<~'RUBY')
-      # `arr.map { Obj.new }` where Obj is a value-type-candidate class (no
-      # subclass, immutable scalar ivars) used to build-fail: detect_value_types
-      # never saw the map result as a ptr_array store, so Obj stayed value-typed
-      # and `sp_Obj_new(...)` returned a struct by value that couldn't be pushed
-      # into the object accumulator. detect_ptr_array_stored_types now forces a
-      # `map`-collected class heap. Covers both typed-array and range receivers
-      # (the range path previously bailed to a silent "0").
+      # `arr.map { Obj.new }` where Obj is a small class (no subclass, only
+      # scalar ivars that do not change). map gives an array of the new objects.
+      # The receiver can be an array or a range.
       class Node
         attr_reader :tag
         def initialize(t = 0); @tag = t; end
@@ -935,8 +927,8 @@ describe "Object programs" do
       puts norm.call(Outer.new.inspect)   # nested object recurses
       puts Named.new
       p Named.new
-      # an object read back out of a container is poly-boxed: its .inspect goes
-      # through sp_poly_inspect's user-object hook, not the typed path (#1875)
+      # an object read back out of a container is poly-boxed: its .inspect gives
+      # the same Object#inspect text as for a local
       cells = {}
       cells["0-0"] = Cell.new(2, 3)
       puts norm.call(cells["0-0"].inspect)
@@ -965,10 +957,8 @@ describe "Object programs" do
   it "object_id is stable for one object and differs between two" do
     result = zr(<<~'RUBY')
       # Object#object_id — unique stable id per object value.
-      # Int uses the MRI tagged formula (2*n+1), string uses the pointer
-      # bit pattern, symbol uses its interned id scaled to avoid collision.
-      # The exact numbers aren't part of the contract; spinel just needs
-      # values that are stable and unique-ish.
+      # The exact numbers are not part of the contract. The test checks only
+      # that the ids are stable and unique.
 
       puts 42.object_id == 42.object_id   # true (same value, same id)
       puts 1.object_id != 2.object_id     # true (different value)
@@ -1022,7 +1012,7 @@ describe "Object programs" do
 
   it "__callee__ names the method, String#clone copies, and NilClass#itself answers nil" do
     result = zr(<<~'RUBY')
-      # Small built-in method gaps (#1222): __callee__ (resolves like
+      # Small built-in methods: __callee__ (resolves like
       # __method__ to the current method name), String#clone (like dup), and
       # NilClass#itself (returns nil).
 

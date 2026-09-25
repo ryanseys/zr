@@ -27,11 +27,9 @@ describe "Numeric: raising and rescuing" do
 
   it "float division by zero returns infinity not an error" do
     result = zr(<<~'RUBY')
-      # Regression guard for the fix above: `ZeroDivisionError` must stay
-      # `Int`/`Int`-division-specific -- real Ruby's `Float`/`0` is
-      # `Infinity`/`-Infinity`/`NaN` (IEEE semantics), never a raised
-      # exception, and `float_div` already gives this for free with no
-      # check needed.
+      # `ZeroDivisionError` is only for Integer division. In Ruby, a
+      # Float divided by 0 gives `Infinity`/`-Infinity`/`NaN` (IEEE
+      # semantics), and never raises an exception.
 
       puts(1.0 / 0.0); puts(-1.0 / 0.0)
     RUBY
@@ -42,15 +40,9 @@ describe "Numeric: raising and rescuing" do
   it "float divmod zerodiv" do
     result = zr(<<~'RUBY')
       # Float#divmod(0) / Float#divmod(0.0) raises ZeroDivisionError.
+      # Integer#divmod(0) raises the same error.
       #
-      # Sibling of Integer#divmod(0) which was fixed in the parent
-      # rescue/raise overhaul (test/integer_div_by_zero.rb). Without
-      # this guard, `(mrb_int)floor(rc / 0.0)` would consume an
-      # Infinity/NaN and produce undefined C behaviour at the cast.
-      #
-      # Test uses `puts e` directly (which prints the message string in
-      # spinel) — exception object methods like .message live on a
-      # separate exception-bindings PR.
+      # The test uses `puts e`, which prints the message string.
 
       # Sanity: divmod with non-zero divisor still works.
       q, r = 5.0.divmod(2.0)
@@ -80,9 +72,7 @@ describe "Numeric: raising and rescuing" do
         puts "bare-rescue: #{e}"
       end
 
-      # NaN divisor → FloatDomainError("NaN"). Without this guard the
-      # `(mrb_int)floor(1.0 / NaN)` cast on the result would also be
-      # C undefined behaviour.
+      # NaN divisor → FloatDomainError("NaN").
       nan = 0.0 / 0.0
       begin
         1.0.divmod(nan)
@@ -91,7 +81,7 @@ describe "Numeric: raising and rescuing" do
         puts "caught nan divisor: #{e}"
       end
 
-      # NaN dividend → FloatDomainError("NaN"). Same UB risk on the cast.
+      # NaN dividend → FloatDomainError("NaN").
       begin
         nan.divmod(2.0)
         puts "no raise nan dividend"
@@ -209,17 +199,11 @@ describe "Numeric: raising and rescuing" do
 
   it "Integer() reads a decimal string, signed or not" do
     result = zr(<<~'RUBY')
-      # Integer(s) raises ArgumentError on unparseable input, matching
-      # CRuby semantics. Previously spinel emitted bare strtoll(s, NULL, 10)
-      # which silently returned 0 for invalid input — that meant
-      # `Integer(s) rescue 0` always took the main branch and the rescue
-      # never fired.
+      # Integer(s) raises ArgumentError on unparseable input, as in CRuby.
+      # So `Integer(s) rescue 0` gives 0 for invalid input.
       #
-      # Test uses same-type rescue fallbacks (int + int) to avoid the
-      # int+string type-mismatch issue (a separate poly-boxing PR). For
-      # the bare-rescue path, e.g. `rescue ArgumentError => e`, we use
-      # `puts e` directly — exception .message dispatch lives on a
-      # separate exception-bindings PR.
+      # The rescue fallbacks are Integers, the same type as the main
+      # value. With `rescue ArgumentError => e`, the test uses `puts e`.
 
       # Valid inputs unchanged
       a = (Integer("42") rescue -1)
@@ -243,22 +227,14 @@ describe "Numeric: raising and rescuing" do
 
   it "Integer() allows the leading and trailing whitespace CRuby allows" do
     result = zr(<<~'RUBY')
-      # Integer(s) raises ArgumentError on unparseable input, matching
-      # CRuby semantics. Previously spinel emitted bare strtoll(s, NULL, 10)
-      # which silently returned 0 for invalid input — that meant
-      # `Integer(s) rescue 0` always took the main branch and the rescue
-      # never fired.
+      # Integer(s) raises ArgumentError on unparseable input, as in CRuby.
+      # So `Integer(s) rescue 0` gives 0 for invalid input.
       #
-      # Test uses same-type rescue fallbacks (int + int) to avoid the
-      # int+string type-mismatch issue (a separate poly-boxing PR). For
-      # the bare-rescue path, e.g. `rescue ArgumentError => e`, we use
-      # `puts e` directly — exception .message dispatch lives on a
-      # separate exception-bindings PR.
+      # The rescue fallbacks are Integers, the same type as the main
+      # value. With `rescue ArgumentError => e`, the test uses `puts e`.
 
       # Whitespace handling per CRuby (leading/trailing whitespace ok).
-      # Includes \t \n \r \v \f — all should be skipped (isspace covers
-      # them; the previous manual `c == ' ' || c == '\t' || c == '\n' ||
-      # c == '\r'` check missed \v and \f).
+      # Includes \t \n \r \v \f, and Integer() skips all of them.
       e = (Integer("  -7  ") rescue -1)
       puts e
       e_tab = (Integer("\t42\t") rescue -1)
@@ -289,17 +265,11 @@ describe "Numeric: raising and rescuing" do
 
   it "Integer() reads a sign, and a sign on its own is not a number" do
     result = zr(<<~'RUBY')
-      # Integer(s) raises ArgumentError on unparseable input, matching
-      # CRuby semantics. Previously spinel emitted bare strtoll(s, NULL, 10)
-      # which silently returned 0 for invalid input — that meant
-      # `Integer(s) rescue 0` always took the main branch and the rescue
-      # never fired.
+      # Integer(s) raises ArgumentError on unparseable input, as in CRuby.
+      # So `Integer(s) rescue 0` gives 0 for invalid input.
       #
-      # Test uses same-type rescue fallbacks (int + int) to avoid the
-      # int+string type-mismatch issue (a separate poly-boxing PR). For
-      # the bare-rescue path, e.g. `rescue ArgumentError => e`, we use
-      # `puts e` directly — exception .message dispatch lives on a
-      # separate exception-bindings PR.
+      # The rescue fallbacks are Integers, the same type as the main
+      # value. With `rescue ArgumentError => e`, the test uses `puts e`.
 
       # Sign handling
       sign_pos_zero = (Integer("+0") rescue -1); puts sign_pos_zero
@@ -323,19 +293,13 @@ describe "Numeric: raising and rescuing" do
 
   it "Integer() reads the edges of the machine word" do
     result = zr(<<~'RUBY')
-      # Integer(s) raises ArgumentError on unparseable input, matching
-      # CRuby semantics. Previously spinel emitted bare strtoll(s, NULL, 10)
-      # which silently returned 0 for invalid input — that meant
-      # `Integer(s) rescue 0` always took the main branch and the rescue
-      # never fired.
+      # Integer(s) raises ArgumentError on unparseable input, as in CRuby.
+      # So `Integer(s) rescue 0` gives 0 for invalid input.
       #
-      # Test uses same-type rescue fallbacks (int + int) to avoid the
-      # int+string type-mismatch issue (a separate poly-boxing PR). For
-      # the bare-rescue path, e.g. `rescue ArgumentError => e`, we use
-      # `puts e` directly — exception .message dispatch lives on a
-      # separate exception-bindings PR.
+      # The rescue fallbacks are Integers, the same type as the main
+      # value. With `rescue ArgumentError => e`, the test uses `puts e`.
 
-      # Edge magnitudes within mrb_int range
+      # Edge magnitudes within the 64-bit range
       ll_max = (Integer("9223372036854775807")  rescue -1); puts ll_max   # LLONG_MAX
       ll_min = (Integer("-9223372036854775808") rescue -1); puts ll_min   # LLONG_MIN
 
@@ -349,19 +313,13 @@ describe "Numeric: raising and rescuing" do
 
   it "Integer() raises for a string that names no number" do
     result = zr(<<~'RUBY')
-      # Integer(s) raises ArgumentError on unparseable input, matching
-      # CRuby semantics. Previously spinel emitted bare strtoll(s, NULL, 10)
-      # which silently returned 0 for invalid input — that meant
-      # `Integer(s) rescue 0` always took the main branch and the rescue
-      # never fired.
+      # Integer(s) raises ArgumentError on unparseable input, as in CRuby.
+      # So `Integer(s) rescue 0` gives 0 for invalid input.
       #
-      # Test uses same-type rescue fallbacks (int + int) to avoid the
-      # int+string type-mismatch issue (a separate poly-boxing PR). For
-      # the bare-rescue path, e.g. `rescue ArgumentError => e`, we use
-      # `puts e` directly — exception .message dispatch lives on a
-      # separate exception-bindings PR.
+      # The rescue fallbacks are Integers, the same type as the main
+      # value. With `rescue ArgumentError => e`, the test uses `puts e`.
 
-      # Invalid inputs now raise (caught by rescue, returns -1)
+      # Invalid inputs raise (caught by rescue, returns -1)
       f = (Integer("xyz") rescue -1); puts f
       g = (Integer("") rescue -1); puts g
       h = (Integer("   ") rescue -1); puts h
@@ -381,17 +339,11 @@ describe "Numeric: raising and rescuing" do
 
   it "Integer() raises for trailing junk after the digits" do
     result = zr(<<~'RUBY')
-      # Integer(s) raises ArgumentError on unparseable input, matching
-      # CRuby semantics. Previously spinel emitted bare strtoll(s, NULL, 10)
-      # which silently returned 0 for invalid input — that meant
-      # `Integer(s) rescue 0` always took the main branch and the rescue
-      # never fired.
+      # Integer(s) raises ArgumentError on unparseable input, as in CRuby.
+      # So `Integer(s) rescue 0` gives 0 for invalid input.
       #
-      # Test uses same-type rescue fallbacks (int + int) to avoid the
-      # int+string type-mismatch issue (a separate poly-boxing PR). For
-      # the bare-rescue path, e.g. `rescue ArgumentError => e`, we use
-      # `puts e` directly — exception .message dispatch lives on a
-      # separate exception-bindings PR.
+      # The rescue fallbacks are Integers, the same type as the main
+      # value. With `rescue ArgumentError => e`, the test uses `puts e`.
 
       # Trailing-junk variants
       trail_junk      = (Integer("42x") rescue -1);          puts trail_junk
@@ -411,17 +363,11 @@ describe "Numeric: raising and rescuing" do
 
   it "Integer() raises for leading junk before the digits" do
     result = zr(<<~'RUBY')
-      # Integer(s) raises ArgumentError on unparseable input, matching
-      # CRuby semantics. Previously spinel emitted bare strtoll(s, NULL, 10)
-      # which silently returned 0 for invalid input — that meant
-      # `Integer(s) rescue 0` always took the main branch and the rescue
-      # never fired.
+      # Integer(s) raises ArgumentError on unparseable input, as in CRuby.
+      # So `Integer(s) rescue 0` gives 0 for invalid input.
       #
-      # Test uses same-type rescue fallbacks (int + int) to avoid the
-      # int+string type-mismatch issue (a separate poly-boxing PR). For
-      # the bare-rescue path, e.g. `rescue ArgumentError => e`, we use
-      # `puts e` directly — exception .message dispatch lives on a
-      # separate exception-bindings PR.
+      # The rescue fallbacks are Integers, the same type as the main
+      # value. With `rescue ArgumentError => e`, the test uses `puts e`.
 
       # Leading-junk variants
       lead_junk    = (Integer("x42") rescue -1);    puts lead_junk
@@ -437,29 +383,14 @@ describe "Numeric: raising and rescuing" do
 
   it "a bare rescue catches the ArgumentError, whose message quotes the string" do
     result = zr(<<~'RUBY')
-      # Integer(s) raises ArgumentError on unparseable input, matching
-      # CRuby semantics. Previously spinel emitted bare strtoll(s, NULL, 10)
-      # which silently returned 0 for invalid input — that meant
-      # `Integer(s) rescue 0` always took the main branch and the rescue
-      # never fired.
+      # Integer(s) raises ArgumentError on unparseable input, as in CRuby.
+      # So `Integer(s) rescue 0` gives 0 for invalid input.
       #
-      # Test uses same-type rescue fallbacks (int + int) to avoid the
-      # int+string type-mismatch issue (a separate poly-boxing PR). For
-      # the bare-rescue path, e.g. `rescue ArgumentError => e`, we use
-      # `puts e` directly — exception .message dispatch lives on a
-      # separate exception-bindings PR.
-
-      # Hex prefixes ("0x10") and underscore separators ("12_345") are
-      # CRuby-supported but Spinel's base-10 strtoll path doesn't parse
-      # them. Documented in the PR's "Out of scope" — not exercised here
-      # because the test compares spinel output against MRI directly,
-      # and we'd diverge.
+      # The rescue fallbacks are Integers, the same type as the main
+      # value. With `rescue ArgumentError => e`, the test uses `puts e`.
 
       # Bare rescue catches and lets us see the error message.
-      # Also exercises the GC-root path: the message is allocated via
-      # sp_sprintf (str-heap) and stored in sp_exc_msg; reading it from
-      # `err` after a hypothetical mid-flight collection would dangle
-      # without sp_mark_in_flight_exceptions marking the slot.
+      # The message must stay alive until the rescue body reads it.
       begin
         Integer("nope")
       rescue ArgumentError => err
@@ -475,25 +406,16 @@ describe "Numeric: raising and rescuing" do
 
   it "a hundred raises in succession leave the allocator sound" do
     result = zr(<<~'RUBY')
-      # Integer(s) raises ArgumentError on unparseable input, matching
-      # CRuby semantics. Previously spinel emitted bare strtoll(s, NULL, 10)
-      # which silently returned 0 for invalid input — that meant
-      # `Integer(s) rescue 0` always took the main branch and the rescue
-      # never fired.
+      # Integer(s) raises ArgumentError on unparseable input, as in CRuby.
+      # So `Integer(s) rescue 0` gives 0 for invalid input.
       #
-      # Test uses same-type rescue fallbacks (int + int) to avoid the
-      # int+string type-mismatch issue (a separate poly-boxing PR). For
-      # the bare-rescue path, e.g. `rescue ArgumentError => e`, we use
-      # `puts e` directly — exception .message dispatch lives on a
-      # separate exception-bindings PR.
+      # The rescue fallbacks are Integers, the same type as the main
+      # value. With `rescue ArgumentError => e`, the test uses `puts e`.
 
-      # Stress the GC-root fix: many raises in succession force allocator
-      # churn. Each `Integer("bad...")` builds an sp_sprintf-allocated
-      # message and stores it in sp_exc_msg before longjmping. Pre-fix
-      # (without sp_mark_in_flight_exceptions), a sweep landing between
-      # raise and rescue would reap the message; the rescue handler would
-      # read garbage. Post-fix, the marker keeps each message live until
-      # the handler returns and sp_exc_top decrements.
+      # Many raises in succession cause many allocations. Each
+      # `Integer("bad...")` makes a new message. A collection between
+      # the raise and the rescue must keep the message alive until the
+      # rescue body ends.
       i = 0
       ok = 0
       while i < 100
@@ -517,21 +439,14 @@ describe "Numeric: raising and rescuing" do
 
   it "an endless method with a rescue clause still answers" do
     result = zr(<<~'RUBY')
-      # Integer(s) raises ArgumentError on unparseable input, matching
-      # CRuby semantics. Previously spinel emitted bare strtoll(s, NULL, 10)
-      # which silently returned 0 for invalid input — that meant
-      # `Integer(s) rescue 0` always took the main branch and the rescue
-      # never fired.
+      # Integer(s) raises ArgumentError on unparseable input, as in CRuby.
+      # So `Integer(s) rescue 0` gives 0 for invalid input.
       #
-      # Test uses same-type rescue fallbacks (int + int) to avoid the
-      # int+string type-mismatch issue (a separate poly-boxing PR). For
-      # the bare-rescue path, e.g. `rescue ArgumentError => e`, we use
-      # `puts e` directly — exception .message dispatch lives on a
-      # separate exception-bindings PR.
+      # The rescue fallbacks are Integers, the same type as the main
+      # value. With `rescue ArgumentError => e`, the test uses `puts e`.
 
-      # Pre-existing endless_method_rescue.rb shape continues to work.
-      # Integer("abc") now raises but the rescue catches and returns 0,
-      # so the observed behaviour is unchanged.
+      # An endless method with a rescue modifier: Integer("abc") raises,
+      # and the rescue catches it and returns 0.
       def parse_int(s) = Integer(s) rescue 0
       puts parse_int("42")
       puts parse_int("abc")
@@ -584,8 +499,8 @@ describe "Numeric: raising and rescuing" do
   it "integer conversion base zero" do
     result = zr(<<~'RUBY')
       # `Integer(str, 0)` means "detect the base from the literal prefix" (0x, 0b,
-      # 0o/0, else decimal) -- the C strtol convention. zr's Integer() only accepts
-      # explicit bases and raises ArgumentError for base 0.
+      # 0o/0, else decimal) -- the C strtol convention. A base that the digits do
+      # not fit raises ArgumentError.
       puts Integer("0b101", 0)
       puts Integer("0x1A", 0)
       puts Integer("0o17", 0)
@@ -634,8 +549,7 @@ describe "Numeric: raising and rescuing" do
 
   it "kernel float strict" do
     result = zr(<<~'RUBY')
-      # Issue #888: Kernel#Float() raises ArgumentError on unparseable
-      # input per MRI; previously silently returned 0.0 from strtod.
+      # Kernel#Float() raises ArgumentError on unparseable input, as in MRI.
       begin
         Float("abc")
       rescue ArgumentError => e
@@ -665,7 +579,7 @@ describe "Numeric: raising and rescuing" do
   it "kernel integer float errors" do
     result = zr(<<~'RUBY')
       # Kernel#Integer / #Float raise TypeError on nil (not 0), and Integer with a
-      # base and a non-String value raises ArgumentError (#2514, #2515).
+      # base and a non-String value raises ArgumentError.
       p((Integer(nil) rescue $!.class))
       p((Float(nil) rescue $!.class))
       p((Integer(5, 16) rescue $!.class))
@@ -692,7 +606,7 @@ describe "Numeric: raising and rescuing" do
 
   it "kernel integer with base" do
     result = zr(<<~'RUBY')
-      # Issue #887: Kernel#Integer(s, base) parses non-decimal correctly
+      # Kernel#Integer(s, base) parses non-decimal correctly
       # and raises catchable ArgumentError on invalid input.
       puts Integer("ff", 16)
       puts Integer("1010", 2)
@@ -750,19 +664,17 @@ describe "Numeric: raising and rescuing" do
 
   it "an in-domain argument still answers" do
     result = zr(<<~'RUBY')
-      # Math.* methods raise Math::DomainError on out-of-domain input,
-      # matching CRuby semantics. Previously spinel called bare libc
-      # sqrt(-1.0) etc. which returns NaN silently. Math::DomainError is
-      # now in the known-exception list and the ancestry walker wires it
-      # as < StandardError < Exception, so the natural CRuby idiom works:
+      # Math.* methods raise Math::DomainError on out-of-domain input, as
+      # in CRuby. Math::DomainError < StandardError < Exception, so the
+      # natural CRuby idiom works:
       #
       #   x = Math.sqrt(input) rescue 0.0
       #   begin Math.log(x); rescue Math::DomainError => e; ...; end
       #
       # Methods with restricted domains (sqrt, log, log2, log10, acos,
-      # asin, acosh, atanh, plus Integer.sqrt) get sp_math_* wrappers.
-      # Unrestricted methods (cos, sin, tan, atan, sinh, cosh, tanh,
-      # asinh, exp, atan2, hypot) call libc directly — no overhead.
+      # asin, acosh, atanh, plus Integer.sqrt) can raise. Unrestricted
+      # methods (cos, sin, tan, atan, sinh, cosh, tanh, asinh, exp,
+      # atan2, hypot) do not raise.
 
       # Sanity: in-domain values still work and produce expected output.
       puts Math.sqrt(4.0)
@@ -784,19 +696,17 @@ describe "Numeric: raising and rescuing" do
 
   it "sqrt of a negative raises Math::DomainError" do
     result = zr(<<~'RUBY')
-      # Math.* methods raise Math::DomainError on out-of-domain input,
-      # matching CRuby semantics. Previously spinel called bare libc
-      # sqrt(-1.0) etc. which returns NaN silently. Math::DomainError is
-      # now in the known-exception list and the ancestry walker wires it
-      # as < StandardError < Exception, so the natural CRuby idiom works:
+      # Math.* methods raise Math::DomainError on out-of-domain input, as
+      # in CRuby. Math::DomainError < StandardError < Exception, so the
+      # natural CRuby idiom works:
       #
       #   x = Math.sqrt(input) rescue 0.0
       #   begin Math.log(x); rescue Math::DomainError => e; ...; end
       #
       # Methods with restricted domains (sqrt, log, log2, log10, acos,
-      # asin, acosh, atanh, plus Integer.sqrt) get sp_math_* wrappers.
-      # Unrestricted methods (cos, sin, tan, atan, sinh, cosh, tanh,
-      # asinh, exp, atan2, hypot) call libc directly — no overhead.
+      # asin, acosh, atanh, plus Integer.sqrt) can raise. Unrestricted
+      # methods (cos, sin, tan, atan, sinh, cosh, tanh, asinh, exp,
+      # atan2, hypot) do not raise.
 
       # sqrt(negative) → Math::DomainError
       begin
@@ -815,19 +725,17 @@ describe "Numeric: raising and rescuing" do
 
   it "log of a negative raises Math::DomainError" do
     result = zr(<<~'RUBY')
-      # Math.* methods raise Math::DomainError on out-of-domain input,
-      # matching CRuby semantics. Previously spinel called bare libc
-      # sqrt(-1.0) etc. which returns NaN silently. Math::DomainError is
-      # now in the known-exception list and the ancestry walker wires it
-      # as < StandardError < Exception, so the natural CRuby idiom works:
+      # Math.* methods raise Math::DomainError on out-of-domain input, as
+      # in CRuby. Math::DomainError < StandardError < Exception, so the
+      # natural CRuby idiom works:
       #
       #   x = Math.sqrt(input) rescue 0.0
       #   begin Math.log(x); rescue Math::DomainError => e; ...; end
       #
       # Methods with restricted domains (sqrt, log, log2, log10, acos,
-      # asin, acosh, atanh, plus Integer.sqrt) get sp_math_* wrappers.
-      # Unrestricted methods (cos, sin, tan, atan, sinh, cosh, tanh,
-      # asinh, exp, atan2, hypot) call libc directly — no overhead.
+      # asin, acosh, atanh, plus Integer.sqrt) can raise. Unrestricted
+      # methods (cos, sin, tan, atan, sinh, cosh, tanh, asinh, exp,
+      # atan2, hypot) do not raise.
 
       # log(negative)
       begin
@@ -846,19 +754,17 @@ describe "Numeric: raising and rescuing" do
 
   it "log2 and log10 of a negative raise Math::DomainError" do
     result = zr(<<~'RUBY')
-      # Math.* methods raise Math::DomainError on out-of-domain input,
-      # matching CRuby semantics. Previously spinel called bare libc
-      # sqrt(-1.0) etc. which returns NaN silently. Math::DomainError is
-      # now in the known-exception list and the ancestry walker wires it
-      # as < StandardError < Exception, so the natural CRuby idiom works:
+      # Math.* methods raise Math::DomainError on out-of-domain input, as
+      # in CRuby. Math::DomainError < StandardError < Exception, so the
+      # natural CRuby idiom works:
       #
       #   x = Math.sqrt(input) rescue 0.0
       #   begin Math.log(x); rescue Math::DomainError => e; ...; end
       #
       # Methods with restricted domains (sqrt, log, log2, log10, acos,
-      # asin, acosh, atanh, plus Integer.sqrt) get sp_math_* wrappers.
-      # Unrestricted methods (cos, sin, tan, atan, sinh, cosh, tanh,
-      # asinh, exp, atan2, hypot) call libc directly — no overhead.
+      # asin, acosh, atanh, plus Integer.sqrt) can raise. Unrestricted
+      # methods (cos, sin, tan, atan, sinh, cosh, tanh, asinh, exp,
+      # atan2, hypot) do not raise.
 
       # log2 / log10
       begin
@@ -882,19 +788,17 @@ describe "Numeric: raising and rescuing" do
 
   it "acos and asin outside -1 to 1 raise Math::DomainError" do
     result = zr(<<~'RUBY')
-      # Math.* methods raise Math::DomainError on out-of-domain input,
-      # matching CRuby semantics. Previously spinel called bare libc
-      # sqrt(-1.0) etc. which returns NaN silently. Math::DomainError is
-      # now in the known-exception list and the ancestry walker wires it
-      # as < StandardError < Exception, so the natural CRuby idiom works:
+      # Math.* methods raise Math::DomainError on out-of-domain input, as
+      # in CRuby. Math::DomainError < StandardError < Exception, so the
+      # natural CRuby idiom works:
       #
       #   x = Math.sqrt(input) rescue 0.0
       #   begin Math.log(x); rescue Math::DomainError => e; ...; end
       #
       # Methods with restricted domains (sqrt, log, log2, log10, acos,
-      # asin, acosh, atanh, plus Integer.sqrt) get sp_math_* wrappers.
-      # Unrestricted methods (cos, sin, tan, atan, sinh, cosh, tanh,
-      # asinh, exp, atan2, hypot) call libc directly — no overhead.
+      # asin, acosh, atanh, plus Integer.sqrt) can raise. Unrestricted
+      # methods (cos, sin, tan, atan, sinh, cosh, tanh, asinh, exp,
+      # atan2, hypot) do not raise.
 
       # acos / asin out of [-1, 1]
       begin
@@ -918,19 +822,17 @@ describe "Numeric: raising and rescuing" do
 
   it "acosh below 1 raises Math::DomainError" do
     result = zr(<<~'RUBY')
-      # Math.* methods raise Math::DomainError on out-of-domain input,
-      # matching CRuby semantics. Previously spinel called bare libc
-      # sqrt(-1.0) etc. which returns NaN silently. Math::DomainError is
-      # now in the known-exception list and the ancestry walker wires it
-      # as < StandardError < Exception, so the natural CRuby idiom works:
+      # Math.* methods raise Math::DomainError on out-of-domain input, as
+      # in CRuby. Math::DomainError < StandardError < Exception, so the
+      # natural CRuby idiom works:
       #
       #   x = Math.sqrt(input) rescue 0.0
       #   begin Math.log(x); rescue Math::DomainError => e; ...; end
       #
       # Methods with restricted domains (sqrt, log, log2, log10, acos,
-      # asin, acosh, atanh, plus Integer.sqrt) get sp_math_* wrappers.
-      # Unrestricted methods (cos, sin, tan, atan, sinh, cosh, tanh,
-      # asinh, exp, atan2, hypot) call libc directly — no overhead.
+      # asin, acosh, atanh, plus Integer.sqrt) can raise. Unrestricted
+      # methods (cos, sin, tan, atan, sinh, cosh, tanh, asinh, exp,
+      # atan2, hypot) do not raise.
 
       # acosh requires x >= 1
       begin
@@ -948,19 +850,17 @@ describe "Numeric: raising and rescuing" do
 
   it "atanh raises past 1, and answers an infinity at the endpoints" do
     result = zr(<<~'RUBY')
-      # Math.* methods raise Math::DomainError on out-of-domain input,
-      # matching CRuby semantics. Previously spinel called bare libc
-      # sqrt(-1.0) etc. which returns NaN silently. Math::DomainError is
-      # now in the known-exception list and the ancestry walker wires it
-      # as < StandardError < Exception, so the natural CRuby idiom works:
+      # Math.* methods raise Math::DomainError on out-of-domain input, as
+      # in CRuby. Math::DomainError < StandardError < Exception, so the
+      # natural CRuby idiom works:
       #
       #   x = Math.sqrt(input) rescue 0.0
       #   begin Math.log(x); rescue Math::DomainError => e; ...; end
       #
       # Methods with restricted domains (sqrt, log, log2, log10, acos,
-      # asin, acosh, atanh, plus Integer.sqrt) get sp_math_* wrappers.
-      # Unrestricted methods (cos, sin, tan, atan, sinh, cosh, tanh,
-      # asinh, exp, atan2, hypot) call libc directly — no overhead.
+      # asin, acosh, atanh, plus Integer.sqrt) can raise. Unrestricted
+      # methods (cos, sin, tan, atan, sinh, cosh, tanh, asinh, exp,
+      # atan2, hypot) do not raise.
 
       # atanh raises for |x| > 1; the endpoints ±1 yield ±Infinity (no raise in CRuby)
       begin
@@ -978,19 +878,17 @@ describe "Numeric: raising and rescuing" do
 
   it "Integer.sqrt of a negative raises Math::DomainError" do
     result = zr(<<~'RUBY')
-      # Math.* methods raise Math::DomainError on out-of-domain input,
-      # matching CRuby semantics. Previously spinel called bare libc
-      # sqrt(-1.0) etc. which returns NaN silently. Math::DomainError is
-      # now in the known-exception list and the ancestry walker wires it
-      # as < StandardError < Exception, so the natural CRuby idiom works:
+      # Math.* methods raise Math::DomainError on out-of-domain input, as
+      # in CRuby. Math::DomainError < StandardError < Exception, so the
+      # natural CRuby idiom works:
       #
       #   x = Math.sqrt(input) rescue 0.0
       #   begin Math.log(x); rescue Math::DomainError => e; ...; end
       #
       # Methods with restricted domains (sqrt, log, log2, log10, acos,
-      # asin, acosh, atanh, plus Integer.sqrt) get sp_math_* wrappers.
-      # Unrestricted methods (cos, sin, tan, atan, sinh, cosh, tanh,
-      # asinh, exp, atan2, hypot) call libc directly — no overhead.
+      # asin, acosh, atanh, plus Integer.sqrt) can raise. Unrestricted
+      # methods (cos, sin, tan, atan, sinh, cosh, tanh, asinh, exp,
+      # atan2, hypot) do not raise.
 
       # Integer.sqrt of negative
       begin
@@ -1008,19 +906,17 @@ describe "Numeric: raising and rescuing" do
 
   it "Math::DomainError descends from StandardError" do
     result = zr(<<~'RUBY')
-      # Math.* methods raise Math::DomainError on out-of-domain input,
-      # matching CRuby semantics. Previously spinel called bare libc
-      # sqrt(-1.0) etc. which returns NaN silently. Math::DomainError is
-      # now in the known-exception list and the ancestry walker wires it
-      # as < StandardError < Exception, so the natural CRuby idiom works:
+      # Math.* methods raise Math::DomainError on out-of-domain input, as
+      # in CRuby. Math::DomainError < StandardError < Exception, so the
+      # natural CRuby idiom works:
       #
       #   x = Math.sqrt(input) rescue 0.0
       #   begin Math.log(x); rescue Math::DomainError => e; ...; end
       #
       # Methods with restricted domains (sqrt, log, log2, log10, acos,
-      # asin, acosh, atanh, plus Integer.sqrt) get sp_math_* wrappers.
-      # Unrestricted methods (cos, sin, tan, atan, sinh, cosh, tanh,
-      # asinh, exp, atan2, hypot) call libc directly — no overhead.
+      # asin, acosh, atanh, plus Integer.sqrt) can raise. Unrestricted
+      # methods (cos, sin, tan, atan, sinh, cosh, tanh, asinh, exp,
+      # atan2, hypot) do not raise.
 
       # Hierarchy: Math::DomainError < StandardError < Exception
       begin
@@ -1044,19 +940,17 @@ describe "Numeric: raising and rescuing" do
 
   it "a bare rescue catches a Math::DomainError" do
     result = zr(<<~'RUBY')
-      # Math.* methods raise Math::DomainError on out-of-domain input,
-      # matching CRuby semantics. Previously spinel called bare libc
-      # sqrt(-1.0) etc. which returns NaN silently. Math::DomainError is
-      # now in the known-exception list and the ancestry walker wires it
-      # as < StandardError < Exception, so the natural CRuby idiom works:
+      # Math.* methods raise Math::DomainError on out-of-domain input, as
+      # in CRuby. Math::DomainError < StandardError < Exception, so the
+      # natural CRuby idiom works:
       #
       #   x = Math.sqrt(input) rescue 0.0
       #   begin Math.log(x); rescue Math::DomainError => e; ...; end
       #
       # Methods with restricted domains (sqrt, log, log2, log10, acos,
-      # asin, acosh, atanh, plus Integer.sqrt) get sp_math_* wrappers.
-      # Unrestricted methods (cos, sin, tan, atan, sinh, cosh, tanh,
-      # asinh, exp, atan2, hypot) call libc directly — no overhead.
+      # asin, acosh, atanh, plus Integer.sqrt) can raise. Unrestricted
+      # methods (cos, sin, tan, atan, sinh, cosh, tanh, asinh, exp,
+      # atan2, hypot) do not raise.
 
       # Bare rescue catches it
       begin
@@ -1074,19 +968,17 @@ describe "Numeric: raising and rescuing" do
 
   it "an unrestricted function answers NaN or an infinity rather than raising" do
     result = zr(<<~'RUBY')
-      # Math.* methods raise Math::DomainError on out-of-domain input,
-      # matching CRuby semantics. Previously spinel called bare libc
-      # sqrt(-1.0) etc. which returns NaN silently. Math::DomainError is
-      # now in the known-exception list and the ancestry walker wires it
-      # as < StandardError < Exception, so the natural CRuby idiom works:
+      # Math.* methods raise Math::DomainError on out-of-domain input, as
+      # in CRuby. Math::DomainError < StandardError < Exception, so the
+      # natural CRuby idiom works:
       #
       #   x = Math.sqrt(input) rescue 0.0
       #   begin Math.log(x); rescue Math::DomainError => e; ...; end
       #
       # Methods with restricted domains (sqrt, log, log2, log10, acos,
-      # asin, acosh, atanh, plus Integer.sqrt) get sp_math_* wrappers.
-      # Unrestricted methods (cos, sin, tan, atan, sinh, cosh, tanh,
-      # asinh, exp, atan2, hypot) call libc directly — no overhead.
+      # asin, acosh, atanh, plus Integer.sqrt) can raise. Unrestricted
+      # methods (cos, sin, tan, atan, sinh, cosh, tanh, asinh, exp,
+      # atan2, hypot) do not raise.
 
       # Unrestricted methods don't raise — return NaN/Infinity per IEEE 754
       puts Math.cos(0.0)
@@ -1102,19 +994,17 @@ describe "Numeric: raising and rescuing" do
 
   it "the two-argument log computes in the base it is given, and raises for a negative one" do
     result = zr(<<~'RUBY')
-      # Math.* methods raise Math::DomainError on out-of-domain input,
-      # matching CRuby semantics. Previously spinel called bare libc
-      # sqrt(-1.0) etc. which returns NaN silently. Math::DomainError is
-      # now in the known-exception list and the ancestry walker wires it
-      # as < StandardError < Exception, so the natural CRuby idiom works:
+      # Math.* methods raise Math::DomainError on out-of-domain input, as
+      # in CRuby. Math::DomainError < StandardError < Exception, so the
+      # natural CRuby idiom works:
       #
       #   x = Math.sqrt(input) rescue 0.0
       #   begin Math.log(x); rescue Math::DomainError => e; ...; end
       #
       # Methods with restricted domains (sqrt, log, log2, log10, acos,
-      # asin, acosh, atanh, plus Integer.sqrt) get sp_math_* wrappers.
-      # Unrestricted methods (cos, sin, tan, atan, sinh, cosh, tanh,
-      # asinh, exp, atan2, hypot) call libc directly — no overhead.
+      # asin, acosh, atanh, plus Integer.sqrt) can raise. Unrestricted
+      # methods (cos, sin, tan, atan, sinh, cosh, tanh, asinh, exp,
+      # atan2, hypot) do not raise.
 
       # 2-arg Math.log(x, base): a valid base computes log_base(x); a NEGATIVE base
       # raises (log of a negative). Per CRuby a base of 0.0 or 1.0 does NOT raise
@@ -1235,9 +1125,9 @@ describe "Numeric: raising and rescuing" do
       p(Complex("bad", exception: false))
 
       p(Rational("x", exception: false))
-      # Ruby: nil   Spinel: invalid value for Rational(): "x" (ArgumentError)
+      # Ruby: nil
       c = Complex("bad", exception: false); p c
-      # Ruby: nil   Spinel: invalid value for convert():  (ArgumentError)
+      # Ruby: nil
 
       p(Complex("1+2i", exception: false))    # => (1+2i)
       p(Rational("1/2", exception: false))    # => (1/2)
@@ -1260,8 +1150,7 @@ describe "Numeric: raising and rescuing" do
 
   it "an exception: keyword stays a keyword and never counts as the second component" do
     result = zr(<<~'RUBY')
-      # `exception: false` is a keyword, not the second component: it counted as one
-      # and the value came out of the keyword hash's address (#3869).
+      # `exception: false` is a keyword, not the second component.
       p(Complex("1+2i", exception: false))
       p(Complex("1+2i"))
       p(Complex(1, 2))
@@ -1351,8 +1240,7 @@ describe "Numeric: raising and rescuing" do
   it "rational ctor exact" do
     result = zr(<<~'RUBY')
       # Kernel#Rational with Float and Rational operands keeps the exact value
-      # (5/2 for 2.5) instead of truncating through an int cast. Per-operand-kind
-      # helpers: a mixed-type param would widen to poly, which has no ctor arm.
+      # (5/2 for 2.5) and does not truncate it to an Integer.
       def f1f(a) = Rational(a)
       def f1r(a) = Rational(a)
       def f2f(a, b) = Rational(a, b)

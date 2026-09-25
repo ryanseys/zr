@@ -32,7 +32,7 @@ describe "Object: comparison and equality" do
     result = zr(<<~'RUBY')
       # `===` on a boxed receiver dispatches on the receiver's runtime class the way
       # CRuby does: a Range covers, a Regexp matches, a Class tests membership. It
-      # used to compile as plain equality, so all three answered false (#3963).
+      # is not plain equality.
       p [1..10].map { |r| r === 5 }
       p [/b/].map  { |r| r === "abc" }
       p [Integer].map { |c| c === 5 }
@@ -47,7 +47,7 @@ describe "Object: comparison and equality" do
       p [1..5, /b/, Integer, "x"].map { |pat| pat === "abc" }
       p [->(x) { x * 2 }].map { |f| f === 5 }
 
-      # The Regexp surface on a boxed receiver (#3961)
+      # The Regexp surface on a boxed receiver
       p [/b/].map { |re| re.source }
       p [/b/].map { |re| re.match?("abc") }
       p [/b/].map { |re| "abc".match?(re) }
@@ -140,8 +140,8 @@ describe "Object: comparison and equality" do
   it "case when user equality" do
     result = zr(<<~'RUBY')
       # `case obj when other` asks `other === obj`, which for a class defining #==
-      # is that method; comparing the C structs did not compile for a value type and
-      # compared addresses for a heap object (#3820).
+      # is that method, for a value type and for a heap object. It does not
+      # compare identity.
       class Eq1
         def initialize(v); @v = v; end
         def v; @v; end
@@ -178,7 +178,7 @@ describe "Object: comparison and equality" do
   it "count uses equality" do
     result = zr(<<~'RUBY')
       # Enumerable#count(item) counts elements EQUAL to its argument; the predicates
-      # take a pattern and match with ===. A class argument told them apart (#3817).
+      # take a pattern and match with ===. A class argument shows the difference.
       h = { a: 1, b: 2 }
       p h.count(Array)
       p h.count([:a, 1])
@@ -283,7 +283,7 @@ describe "Object: comparison and equality" do
       # textually equal literals are distinct objects, matching plain CRuby.
       # Aliasing (t = s) still answers truthfully. The one residue: re-evaluating
       # the SAME occurrence (a literal in a loop) yields one object -- the
-      # frozen-string-literal semantics spinel's immutable strings always had.
+      # frozen-string-literal semantics.
       puts s.equal?(s)    # true   (same variable)
       puts s.equal?(t)    # false  (two occurrences: distinct objects)
       puts s.equal?(u)    # false  (different value)
@@ -435,15 +435,11 @@ describe "Object: comparison and equality" do
     result = zr(<<~'RUBY')
       # Static-vs-runtime class lattice for `is_a?` / `kind_of?` /
       # `instance_of?` when the recv's static type is a parent class but
-      # the runtime instance can be any descendant. Previously spinel
-      # collapsed the descendant-target case to literal FALSE because
-      # is_class_or_ancestor(parent, child) returns 0; the recv's runtime
-      # cls_id was never consulted.
+      # the runtime instance can be any descendant. The answer comes from
+      # the runtime class of the instance, not from the static type.
       #
-      # Fix: when the target is identical to, ancestor of, or descendant
-      # of the static recv type, consult the actual cls_id slot.
-      # `is_a?` / `kind_of?` use ancestor-walk (sp_class_le); `instance_of?`
-      # uses exact equality.
+      # `is_a?` / `kind_of?` walk the ancestors; `instance_of?` uses exact
+      # equality.
 
       class Animal
       end
@@ -471,27 +467,24 @@ describe "Object: comparison and equality" do
       puts kind(Puppy.new)    # dog (Puppy is_a? Dog)
 
       # instance_of? — recv typed Animal, target a proper descendant.
-      # Pre-fix this collapsed to literal FALSE; runtime instance is
-      # never consulted.
       def exact_is_dog(a)
         a.instance_of?(Dog)
       end
 
-      puts exact_is_dog(Dog.new)      # true  — runtime cls_id matches Dog
+      puts exact_is_dog(Dog.new)      # true  — runtime class matches Dog
       puts exact_is_dog(Puppy.new)    # false — Puppy is_a? Dog but not instance_of? Dog
       puts exact_is_dog(Cat.new)      # false — unrelated descendant
-      puts exact_is_dog(Animal.new)   # false — runtime cls_id is Animal, not Dog
+      puts exact_is_dog(Animal.new)   # false — runtime class is Animal, not Dog
 
       # instance_of? — recv typed Animal, target IS the static type.
-      # Pre-fix this collapsed to literal TRUE (`cname == arg0`); a
-      # parent-typed local holding a descendant should fail this.
+      # A parent-typed local holding a descendant fails this.
       def exact_is_animal(a)
         a.instance_of?(Animal)
       end
 
-      puts exact_is_animal(Animal.new)  # true  — runtime cls_id matches Animal
-      puts exact_is_animal(Dog.new)     # false — runtime cls_id is Dog, not Animal
-      puts exact_is_animal(Puppy.new)   # false — runtime cls_id is Puppy
+      puts exact_is_animal(Animal.new)  # true  — runtime class matches Animal
+      puts exact_is_animal(Dog.new)     # false — runtime class is Dog, not Animal
+      puts exact_is_animal(Puppy.new)   # false — runtime class is Puppy
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -590,7 +583,7 @@ describe "Object: comparison and equality" do
   it "method receiver equal self" do
     result = zr(<<~'RUBY')
       # method(:m).receiver of a bare top-level method IS the main object, so the
-      # identity test against self folds to true (#3245).
+      # identity test against self answers true.
       def d(n) = n
       p(method(:d).receiver.equal?(self))
       p(method(:d).receiver == self)
@@ -611,27 +604,19 @@ describe "Object: comparison and equality" do
 
   it "more truthies nil compare" do
     result = zr(<<~'RUBY')
-      # #562 (gurgeous / Adam Doppelt). A corpus of `<container_op>
-      # == nil` predicates that CRuby answers as true but spinel
-      # previously emitted as false. Root cause: typed-array /
-      # typed-hash returns can't represent nil at the value level
-      # (sp_IntArray_get returns 0 on out-of-range, sp_StrIntHash_get
-      # returns 0 on missing key, etc.), so the existing
-      # `int == nil` short-circuit in compile_eq folded the
-      # predicate to FALSE.
-      #
-      # compile_container_op_nil_check recognizes specific call
-      # shapes on the lhs of `== nil` and emits a CRuby-equivalent
-      # runtime predicate:
+      # A corpus of `<container_op> == nil` predicates that CRuby
+      # answers as true. A typed array or hash can give nil for an
+      # out-of-range index or a missing key, even when every element
+      # is an Integer. Each shape below checks the Ruby condition:
       #   arr[i] / arr.delete_at(i) -> (i < 0 || i >= len)
       #   arr.first / arr.last / arr.pop -> (len == 0)
       #   arr.find_index(x) -> !arr.include?(x)
       #   hash[k] -> !hash.has_key?(k)
       #   regex.match(s) -> !regex.match?(s)
       #
-      # Plus `Array.new.instance_of?(Array)` folds to TRUE: every
-      # Array variant (int_array / str_array / etc.) is
-      # conceptually `Array`; same for Hash variants.
+      # Plus `Array.new.instance_of?(Array)` is TRUE: every Array
+      # kind (of Integer, of String, etc.) is `Array`; the same holds
+      # for Hash kinds.
 
       p ([1, 2, 3][99] == nil)          # 01
       p Array.new.instance_of?(Array)   # 02
@@ -659,36 +644,18 @@ describe "Object: comparison and equality" do
 
   it "nullable obj nil compare" do
     result = zr(<<~'RUBY')
-      # Issue #423. `if c != nil` (or `while c != nil`) on a nullable
-      # user-class local emitted the body unconditionally -- the `!=
-      # nil` comparison was constant-folded to TRUE, the surrounding
-      # `if` was collapsed (compile_if_stmt's "static TRUE fold"), and
-      # the body ran even when c was NULL. Found in tep's route
-      # dispatch loop: `while route != nil && !served` entered with
-      # route = NULL after a no-match POST and segfaulted.
-      #
-      # Root cause: `compile_eq`'s cross-type fold treated `obj_<C>? ==
-      # nil` and `obj_<C>? != nil` as type-strict pairs (LHS is obj,
-      # RHS is nil-typed; the existing fold returned "FALSE" / "TRUE"
-      # because "obj vs nil are different types, always unequal").
-      # That's right for a non-nullable `obj_<C>` -- the C pointer is
-      # never NULL by design -- but wrong for `obj_<C>?` where NULL is
-      # the runtime nil sentinel.
-      #
-      # Fix: in compile_eq's cross-type-prim-vs-obj branch, when
-      # other_t == "nil", check is_nullable_type on the obj side. If
-      # nullable, emit the actual pointer comparison (`obj == NULL` /
-      # `obj != NULL`); fall through to the original FALSE/TRUE fold
-      # only for non-nullable obj types.
+      # `if c != nil` (or `while c != nil`) on a user-class local that
+      # can be nil checks the value at run time. The body does not run
+      # when c is nil. A route dispatch loop such as
+      # `while route != nil && !served` has this shape.
       #
       # Coverage:
       #   - if c != nil / if c / if !c.nil? on a function returning
       #     nil-or-Foo: all three forms agree.
       #   - while c != nil on the same shape: loop terminates instead
       #     of spinning forever.
-      #   - non-nullable obj_<C> (c = Foo.new) still folds to TRUE for
-      #     != nil (no pointer-vs-NULL emit needed; the value is never
-      #     NULL).
+      #   - a local that is never nil (c = Foo.new) answers TRUE for
+      #     != nil.
 
       class Box
         attr_accessor :tag
@@ -834,8 +801,7 @@ describe "Object: comparison and equality" do
     result = zr(<<~'RUBY')
       # dup/clone of a user object must produce a SEPARATE instance (not alias the
       # original), and must invoke a user-defined initialize_copy hook so deep-copy
-      # semantics work. Previously dup/clone fell through to an identity shortcut and
-      # returned the receiver itself, silently aliasing mutable ivars.
+      # semantics work. dup/clone never returns the receiver itself.
 
       # No hook: shallow copy still yields independent objects for scalar ivars.
       class Counter
@@ -909,10 +875,10 @@ describe "Object: comparison and equality" do
 
   it "the identity and reflection rows answer what CRuby answers" do
     result = zr(<<~'RUBY')
-      # Object identity/reflection conformance (KieranP #2281-2286)
+      # Object identity/reflection conformance
       a = ->(x) { x }
-      p a.equal?(a)                       # #2281 Proc equal?
-      p a.frozen?                         # #2282 Proc frozen?
+      p a.equal?(a)                       # Proc equal?
+      p a.frozen?                         # Proc frozen?
       b = ->(x) { x }
       p a.equal?(b)
       e = [1].each
@@ -925,12 +891,12 @@ describe "Object: comparison and equality" do
         def initialize; @n = 5; end
       end
       o = C.new
-      p o.object_id.is_a?(Integer)        # #2283 object_id -> stable Integer
+      p o.object_id.is_a?(Integer)        # object_id -> stable Integer
       p o.object_id == o.object_id
-      p o.hash == o.hash                  # #2284 hash is stable
-      p Object.new.is_a?(Object)          # #2286 is_a?(Object)
+      p o.hash == o.hash                  # hash is stable
+      p Object.new.is_a?(Object)          # is_a?(Object)
       p Object.new.is_a?(Kernel)
-      p Enumerable.ancestors              # #2285 module ancestors
+      p Enumerable.ancestors              # module ancestors
       p Comparable.ancestors
       class MyColl
         include Enumerable

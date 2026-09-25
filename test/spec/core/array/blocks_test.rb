@@ -25,8 +25,7 @@ describe "Array: blocks and yields" do
     result = zr(<<~'RUBY')
       # Array#fill's block form takes NO value argument: the positional args are the
       # index span (start[, length] or a range) and the value at each index comes from
-      # the block, invoked with the index. Spinel previously treated the first arg as
-      # the fill value and ignored the block entirely.
+      # the block, invoked with the index. The first arg is not the fill value.
       def f2(a); a.fill(1, 2) { |i| i }; end
       p f2([1, 2, 3, 4])            # [1, 1, 2, 4]
 
@@ -133,12 +132,9 @@ describe "Array: blocks and yields" do
 
   it "Array.new(n) { Array.new(m, 0) } is a table of integer arrays, not a boxed one" do
     result = zr(<<~'RUBY')
-      # `t = Array.new(n) { Array.new(m, 0) }` is a table of int arrays, but the
-      # narrowing pass that gives an array of int-arrays its typed representation
-      # only classified pushes and literals -- a generator block killed the slot, so
-      # the table stayed a boxed poly array and every read of it went through
-      # sp_poly_arr_get. Reading the block's value as element evidence narrows it,
-      # and the generator emits the pointer array the slot now holds.
+      # `t = Array.new(n) { Array.new(m, 0) }` is a table of int arrays. The
+      # block's value is evidence for the element type, as a push or a literal is,
+      # so reads and writes of the table see int arrays.
       t = Array.new(3) { Array.new(4, 0) }
       p t.length
       p t[0].length
@@ -241,9 +237,8 @@ describe "Array: blocks and yields" do
 
   it "a predicate's block may take no parameter at all" do
     result = zr(<<~'RUBY')
-      # any?/all?/none?/one? with a block that takes NO parameter. The synthetic
-      # iteration slot must not be bound (an empty block can't reference the yielded
-      # value), otherwise codegen emits an undeclared `lv__x` write. Covers empty and
+      # any?/all?/none?/one? with a block that takes NO parameter. The block
+      # cannot reference the yielded value, so nothing binds it. Covers empty and
       # non-empty arrays plus the range path.
       p([].any? { true })
       p([1, 2].any? { true })
@@ -274,9 +269,8 @@ describe "Array: blocks and yields" do
   it "sum with a Float initial value answers a Float, even over an integer array" do
     result = zr(<<~'RUBY')
       # Array#sum with a Float initial value returns a Float, even for an integer
-      # array: CRuby accumulates in floating point. Spinel had truncated the float
-      # initial value through the integer sum (returning an Integer). Distinct
-      # monomorphic helpers keep the int- and float-array receivers from unifying.
+      # array: CRuby accumulates in floating point. Distinct monomorphic helpers
+      # keep the int- and float-array receivers from unifying.
       def ai(x); x; end
       def af(x); x; end
 
@@ -348,9 +342,8 @@ describe "Array: blocks and yields" do
 
   it "to_h builds a hash from pairs, and sort! sorts in place by its comparator block" do
     result = zr(<<~'RUBY')
-      # #1224 I1: Array#to_h builds a hash from [key, value] pairs. Verified
-      # via lookups + length (Spinel's hash #inspect format is a separate,
-      # pre-existing concern and would only make this test fragile).
+      # Array#to_h builds a hash from [key, value] pairs. The test checks
+      # lookups + length, not the hash #inspect format.
       h1 = [[:a, 1], [:b, 2], [:c, 3]].to_h
       p h1[:a]
       p h1[:c]
@@ -362,9 +355,8 @@ describe "Array: blocks and yields" do
       p h3[1]
       p h3[2]
 
-      # #1224 I2: Array#sort! with a comparator block sorts in place (the
-      # block's <=> return drives the order); the block was previously ignored
-      # and a default ascending sort happened.
+      # Array#sort! with a comparator block sorts in place (the block's <=>
+      # return drives the order), not in the default ascending order.
       a = [3, 1, 4, 1, 5]
       a.sort! { |x, y| y <=> x }
       p a
@@ -653,7 +645,7 @@ describe "Array: blocks and yields" do
   it "proc lambda array of param" do
     result = zr(<<~'RUBY')
       # proc/lambda returning an array built from a block param must carry the
-      # param's real type through .call, not leak it as a raw pointer-int (#1372).
+      # param's real type through .call.
       f = proc { |t| [t] }
       p f.call("x")
       g = ->(t) { [t] }

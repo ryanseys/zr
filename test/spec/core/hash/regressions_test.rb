@@ -5,12 +5,11 @@ require "spec_helper"
 describe "Hash: regressions" do
   it "empty hash promote" do
     result = zr(<<~'RUBY')
-      # Empty hash literal whose first []= write pins a different key/value
-      # type pair than the str_int_hash default. Pre-fix: declaration ran
-      # before any []= so `h = {}; h[1] = "one"` got declared as
-      # sp_StrIntHash and the int-keyed []= failed to compile.
+      # An empty hash literal takes the key and value types of its first []=
+      # write. So `h = {}; h[1] = "one"` gives a hash with Integer keys and
+      # String values.
 
-      # Empty -> string keys, int values (matches str_int_hash default; works pre-fix)
+      # Empty -> string keys, int values
       h1 = {}
       h1["k"] = 1
       h1["m"] = 2
@@ -114,11 +113,8 @@ describe "Hash: regressions" do
 
   it "delete compacts the insertion order, so keys and values skip the entry" do
     result = zr(<<~'RUBY')
-      # Regression test: Hash#delete must compact the insertion-order array
-      # so that subsequent #keys / #values / each iteration skip the deleted
-      # entry. The Robin Hood backing array was being repaired correctly on
-      # delete but the parallel `order[]` array was not, so #keys returned the
-      # stale key and #values returned a zero / NULL slot for it.
+      # After Hash#delete, #keys / #values / each iteration skip the deleted
+      # entry and keep the insertion order of the other entries.
 
       # String keys
       sh = {"a" => 1, "b" => 2, "c" => 3}
@@ -127,7 +123,7 @@ describe "Hash: regressions" do
       puts sh.values.inspect        # [1, 3]
       puts sh.length                # 2
 
-      # Symbol keys (the path that exposed the bug via PR #246)
+      # Symbol keys
       yh = {a: 1, b: 2, c: 3}
       yh.delete(:b)
       puts yh.keys.inspect          # [:a, :c]
@@ -156,23 +152,23 @@ describe "Hash: regressions" do
 
   it "keys.each yields the keys of every hash kind" do
     result = zr(<<~'RUBY')
-      # Test hash.keys.each fusion for all hash types
+      # Test hash.keys.each for all key and value types
 
-      # int_str_hash: integer keys
+      # integer keys, string values
       h1 = {3 => "Fizz", 5 => "Buzz", 7 => "Bazz"}
       h1.keys.each do |ki|
         puts ki
       end
       # => 3 5 7
 
-      # str_str_hash: string keys
+      # string keys, string values
       h2 = {"a" => "apple", "b" => "banana", "c" => "cherry"}
       h2.keys.each do |ks|
         puts ks
       end
       # => a b c
 
-      # str_int_hash: string keys, integer values
+      # string keys, integer values
       h3 = {"x" => 10, "y" => 20, "z" => 30}
       h3.keys.each do |ks2|
         puts ks2
@@ -225,9 +221,8 @@ describe "Hash: regressions" do
 
   it "transform_keys runs the block once per key and rekeys the result" do
     result = zr(<<~'RUBY')
-      # Hash#transform_keys for str_int_hash. The block runs once per key,
-      # its return value becomes the new key. Mirrors transform_values'
-      # shape (which already shipped) but on the key axis.
+      # Hash#transform_keys on a hash with String keys and Integer values. The
+      # block runs once per key, and its return value becomes the new key.
 
       # Identity transform — keys unchanged
       h1 = {"alpha" => 1, "beta" => 2}
@@ -275,16 +270,14 @@ describe "Hash: regressions" do
 
   it "transform_values runs the block once per value and keeps the keys and order" do
     result = zr(<<~'RUBY')
-      # Hash#transform_values across hash variants. The block runs once
-      # per value, its return becomes the new value, keys and order
-      # preserved. str_int_hash already shipped; this covers int_str_hash
-      # and sym_int_hash.
+      # Hash#transform_values for different key and value types. The block
+      # runs once per value, its return becomes the new value, and the keys
+      # and order stay the same.
 
-      # === sym_int_hash variant ===
-      # `{a: 1, b: 2}` parses as sym→int. transform_values keeps the
-      # key set and feeds each value through the block. p on the result
-      # uses the new sp_SymIntHash_inspect helper to print the hash in
-      # Ruby's `{a: V, b: V, ...}` form.
+      # === Symbol keys, Integer values ===
+      # `{a: 1, b: 2}` has Symbol keys and Integer values. transform_values
+      # keeps the key set and feeds each value through the block. p prints
+      # the result in Ruby's `{a: V, b: V, ...}` form.
       p({a: 1, b: 2}.transform_values { |v| v * 10 })
       p({x: 5, y: 10, z: 15}.transform_values { |v| v + 100 })
       puts({a: 1, b: 2, c: 3}.transform_values { |v| v * v }[:c])
@@ -297,7 +290,7 @@ describe "Hash: regressions" do
       p hh         # {a: 1, b: 2}
       p hh2        # {a: 100, b: 200}
 
-      # === int_str_hash variant ===
+      # === Integer keys, String values ===
 
       # Identity transform — values unchanged
       h1 = {1 => "alpha", 2 => "beta"}
@@ -321,8 +314,8 @@ describe "Hash: regressions" do
       big = {10 => "one", 20 => "two", 30 => "three"}
       puts big.transform_values { |v| v + "?" }.length
 
-      # Empty block maps every value to nil (CRuby parity).
-      # For int_str_hash the value type is `const char *`; nil → NULL.
+      # Empty block maps every value to nil (CRuby parity), also when
+      # the values were Strings.
       empty = {1 => "alpha", 2 => "beta"}.transform_values { }
       puts empty[1].nil?
       puts empty[2].nil?
@@ -352,9 +345,7 @@ describe "Hash: regressions" do
 
   it "int str hash" do
     result = zr(<<~'RUBY')
-      # Test integer-keyed string-valued hash (sp_IntStrHash)
-      # Regression: previously segfaulted — codegen emitted sp_StrStrHash,
-      # causing sp_str_hash() to dereference integer keys as pointers.
+      # Test a hash with Integer keys and String values.
 
       # Literal creation and lookup
       h = {3 => "Fizz", 5 => "Buzz", 7 => "Bazz"}
@@ -396,7 +387,7 @@ describe "Hash: regressions" do
       puts h.fetch(3, "none")   # Fizz
       puts h.fetch(99, "none")  # none
 
-      # FizzBuzz pattern — the original failing case
+      # FizzBuzz pattern
       map = {3 => "Fizz", 5 => "Buzz"}
       (1..15).each do |x|
         out = ""
@@ -449,18 +440,11 @@ describe "Hash: regressions" do
 
   it "dup answers a copy for a string-keyed and an integer-keyed hash" do
     result = zr(<<~'RUBY')
-      # Hash#dup was missing from the str_str_hash and int_str_hash codegen
-      # dispatch tables -- the runtime helpers exist (sp_StrStrHash_dup,
-      # sp_IntStrHash_dup) but the codegen arms didn't dispatch to them, so
-      # `m = h.dup` lowered to `cannot resolve call to 'dup' on str_str_hash
-      # (emitting 0)` and subsequent `.length` / `[]=` / `.each` calls on
-      # the int-typed `0` segfaulted at runtime.
-      #
-      # Sibling Hash variants (sym_int / sym_str / sym_poly / str_int /
-      # str_poly) already had dup arms; this closes the coverage gap.
-      # Issue #592.
+      # Hash#dup on a hash with String values, with String keys and with
+      # Integer keys. `.length`, `[]=` and `.each` work on the copy, and
+      # the copy is independent of the original.
 
-      # str_str_hash
+      # String keys, String values
       h1 = {"a" => "1", "b" => "2"}
       m1 = h1.dup
       m1["c"] = "3"
@@ -469,7 +453,7 @@ describe "Hash: regressions" do
       puts m1["a"]            # 1
       puts m1["c"]            # 3
 
-      # int_str_hash
+      # Integer keys, String values
       h2 = {1 => "one", 2 => "two"}
       m2 = h2.dup
       m2[3] = "three"
@@ -499,22 +483,8 @@ describe "Hash: regressions" do
 
   it "an each block's k and v carry the hash's own key and value types" do
     result = zr(<<~'RUBY')
-      # `h.each do |k, v|` previously had its block params typed via
-      # elem_type_of_array(recv_type), which only knows about typed
-      # arrays — for a hash receiver it fell back to "int" for both
-      # `k` and `v`. Code inside the block like `puts k + ": " + v.to_s`
-      # then had analyze cache (and codegen's infer_type fallback)
-      # return "int" for the chained `+`, lowering `puts` to
-      # `printf("%lld", (long long)(string_concat + int_to_s))` — both
-      # the cast and the raw `+` between pointers fail C compile.
-      #
-      # Fix: block_param_type_at now branches on is_hash_type for the
-      # `each` family and returns the hash's key part for pi==0 and the
-      # value part for pi==1, expanded to full names (str→string,
-      # sym→symbol). Codegen's infer_type CallNode cache-miss path also
-      # learned `+` on string recv returns string and `.to_s` returns
-      # string, covering nodes inside block bodies that walk_and_cache
-      # doesn't cache.
+      # In `h.each do |k, v|`, `k` is the key and `v` is the value, each
+      # with its own type. So `puts k + ": " + v.to_s` joins Strings.
 
       h = { "a" => 1, "b" => 2 }
       h.each do |k, v|
@@ -527,16 +497,8 @@ describe "Hash: regressions" do
 
   it "merge between two hashes whose value types differ widens the result" do
     result = zr(<<~'RUBY')
-      # Issue #661: Hash#merge across hash variants with different value
-      # types. Previously the codegen used the receiver's prefix
-      # unconditionally (sp_SymIntHash_merge(h1, h2) where h2 was
-      # sp_SymStrHash *), failing C compile.
-      #
-      # Fix: when recv and arg are both sym-keyed (or both str-keyed) but
-      # their value types differ, the analyzer pulls the call's return
-      # type up to sym_poly_hash / str_poly_hash, and codegen promotes
-      # both sides via the existing *_to_sym_poly / *_from_str_int_hash
-      # converters before dispatching sp_*PolyHash_merge.
+      # Hash#merge of two hashes with the same key type but different value
+      # types. The result holds the values of both types.
 
       # Sym + Sym with mixed value types.
       h1 = { a: 1, b: 2 }
@@ -568,25 +530,11 @@ describe "Hash: regressions" do
     result = zr(<<~'RUBY')
       # `Hash.new(default_value)` per-instance default support.
       #
-      # Each hash variant struct (StrIntHash / StrStrHash / IntStrHash /
-      # SymIntHash / SymStrHash / StrPolyHash / SymPolyHash / PolyPolyHash)
-      # gains a `default_v` field. `_new` initializes it to the variant's
-      # sentinel zero (so legacy `{}` literals unchanged); `_new_with_default`
-      # is a new constructor that sets the field. `_get` returns
-      # `default_v` on miss; `_dup` / `_merge` propagate (merge inherits
-      # the LEFT receiver's default per CRuby).
+      # A lookup of a missing key returns the default. `Hash#default` and
+      # `Hash#default=` read and change it. `dup` and `merge` keep the
+      # default (merge keeps the LEFT receiver's default, as in CRuby).
       #
-      # Codegen routes `Hash.new(N)` through `_new_with_default` and
-      # adds `Hash#default` / `Hash#default=` accessor arms to each
-      # variant. The analyzer's `infer_call_type` arm picks the right
-      # variant from the default's type (string → str_str_hash, int
-      # / nil / bool → str_int_hash) and types `h.default` as the
-      # value-slot type so `puts h.default` dispatches correctly.
-      #
-      # Block form `Hash.new { |h, k| ... }` (proc default) remains
-      # deferred -- separate feature.
-      #
-      # Issue #600 puzzle 2.
+      # This example does not test the block form `Hash.new { |h, k| ... }`.
 
       # Int default
       h = Hash.new(5)
@@ -622,17 +570,13 @@ describe "Hash: regressions" do
       puts m.default          # 42
       puts m["not_there"]     # 42
 
-      # Hash.new(0) -- pre-existing lrama_features shape, default ==
-      # sentinel, behaviour unchanged.
+      # Hash.new(0) -- a counter, as lrama uses it.
       counter = Hash.new(0)
       counter["x"] = counter["x"] + 1
       puts counter["x"]       # 1
       puts counter["z"]       # 0
 
-      # Float default with int keys -- lands on the PolyPoly variant, which
-      # previously had no default_v / _new_with_default at all, so
-      # `Hash.new(0.0)` emitted `sp_PolyPolyHash_new_with_default(0.0)` and
-      # failed C compilation (int-to-pointer conversion).
+      # Float default with int keys.
       f = Hash.new(0.0)
       f[1] += 2.5
       p f[1]                  # 2.5
@@ -678,20 +622,11 @@ describe "Hash: regressions" do
 
   it "h[k] || rhs answers rhs on a miss, not the value type's zero" do
     result = zr(<<~'RUBY')
-      # Issue #660: `hash[k] || rhs` on a typed-hash receiver must return
-      # rhs when the key is missing -- not the value-type zero (0 / "").
-      #
-      # Background: typed hash variants (sp_StrIntHash, sp_StrStrHash, ...)
-      # materialize the value type's zero as the missing-key default. Combined
-      # with the `||` truthy-lhs ternary lowering, the rhs arm was unreachable:
-      # 0 / "" are truthy in Ruby, so the always-present zero short-circuited
-      # the fallback.
-      #
-      # Fix: compile_or detects `hash[k]` on a typed-hash recv and rewrites
-      # to `has_key(h, k) ? get(h, k) : rhs`. Poly-hash variants already
-      # return sp_box_nil on miss, so they keep the legacy truthy lowering.
+      # `hash[k] || rhs` returns rhs when the key is missing, because the
+      # lookup gives nil. It must not give the value type's zero (0 / ""):
+      # 0 / "" are truthy in Ruby, so `||` would not use the fallback.
 
-      # Empty hash, no writes (inferred str_int_hash).
+      # Empty hash, no writes.
       h1 = {}
       puts (h1[:missing] || "fallback")
 
@@ -700,7 +635,7 @@ describe "Hash: regressions" do
       h2[:set_key] = "value"
       puts (h2[:missing] || "fallback")
 
-      # Int-valued hash via prior write -- the missing-key 0 used to win.
+      # Int-valued hash via prior write -- the fallback wins, not 0.
       h3 = {}
       h3[:set] = 1
       puts (h3[:missing] || -1)
@@ -721,7 +656,7 @@ describe "Hash: regressions" do
 
   it "comparable clamp string" do
     result = zr(<<~'RUBY')
-      # Issue #899: Comparable#clamp on a string receiver via strcmp.
+      # Comparable#clamp on a string receiver.
       puts "b".clamp("a", "c")
       puts "z".clamp("a", "c")
       puts "a".clamp("b", "c")
@@ -736,8 +671,7 @@ describe "Hash: regressions" do
 
   it "file separator constants" do
     result = zr(<<~'RUBY')
-      # Issue #891: File::SEPARATOR / PATH_SEPARATOR / ALT_SEPARATOR
-      # resolved at compile time as string literals.
+      # File::SEPARATOR / PATH_SEPARATOR are String constants.
       puts File::SEPARATOR
       puts File::PATH_SEPARATOR
       puts "a" + File::SEPARATOR + "b"
@@ -752,8 +686,8 @@ describe "Hash: regressions" do
 
   it "fetch answers on an integer-keyed hash, with and without a default" do
     result = zr(<<~'RUBY')
-      # Hash#fetch on an int->int specialized hash: plain lookup and the 2-arg
-      # default form (the int->int variant previously had #[] but not #fetch).
+      # Hash#fetch on a hash with Integer keys and values: plain lookup and the
+      # 2-arg default form.
       h = { 1 => 10, 2 => 20 }
       puts h.fetch(1)
       puts h.fetch(2)
@@ -870,8 +804,8 @@ describe "Hash: regressions" do
 
   it "kernel string coercion" do
     result = zr(<<~'RUBY')
-      # Issue #879: Kernel#String() coercion routes through .to_s for
-      # each primitive type. nil -> "". Pre-fix: silently emitted 0.
+      # Kernel#String() coercion calls .to_s for each primitive type.
+      # nil -> "".
       puts String(42)
       puts String(nil).inspect
       puts String(true)
@@ -892,9 +826,7 @@ describe "Hash: regressions" do
 
   it "nil coercion" do
     result = zr(<<~'RUBY')
-      # Issue #871: NilClass coercion methods. v1 covers to_i / to_f /
-      # to_a. to_c, to_r, to_h deferred (Complex, Rational unsupported;
-      # typed-Hash empty needs element-type judgement).
+      # NilClass coercion methods to_i / to_f / to_a.
       puts nil.to_i
       puts nil.to_f
       puts nil.to_a.inspect
@@ -924,7 +856,7 @@ describe "Hash: regressions" do
 
   it "RUBY_VERSION, RUBY_PLATFORM and RUBY_ENGINE are Strings" do
     result = zr(<<~'RUBY')
-      # Issue #890: RUBY_VERSION / RUBY_PLATFORM / RUBY_ENGINE built-in
+      # RUBY_VERSION / RUBY_PLATFORM / RUBY_ENGINE built-in
       # string constants. Format-only check so the test stays stable
       # across platforms — the actual values are runtime-detected.
       puts RUBY_VERSION.is_a?(String)
@@ -943,9 +875,7 @@ describe "Hash: regressions" do
 
   it "sym int hash key value" do
     result = zr(<<~'RUBY')
-      # Hash#key(value) / #value? / #has_value? on sym_int_hash.
-      # Missing-key #key returns the empty-sym sentinel since the typed
-      # sym slot can't carry nil.
+      # Hash#key(value) / #value? / #has_value? on a hash with Symbol keys.
       h = {a: 1, b: 2, c: 3}
       puts h.key(2).inspect
       puts h.has_value?(2)
@@ -963,8 +893,7 @@ describe "Hash: regressions" do
 
   it "symbol name" do
     result = zr(<<~'RUBY')
-      # Symbol#name returns the symbol's name as a string (not a pointer
-      # value cast as int).
+      # Symbol#name returns the symbol's name as a string.
       puts :hello.name
       puts :foo.name.length
     RUBY
@@ -974,10 +903,7 @@ describe "Hash: regressions" do
 
   it "time subtraction returns float" do
     result = zr(<<~'RUBY')
-      # Issue #901: Time - Time returns Float (elapsed seconds). LV
-      # slot inferred as sp_Time on pass 1, refined to float on pass 2
-      # once the rhs LV was declared as time. merge_refined_local_type
-      # now accepts time -> float refinement.
+      # Time - Time returns Float (elapsed seconds).
       start = Time.now
       diff = Time.now - start
       puts diff >= 0
@@ -989,7 +915,7 @@ describe "Hash: regressions" do
 
   it "the comparison operators, min, max, invert, values_at and default answer on an empty hash" do
     result = zr(<<~'RUBY')
-      # Hash conformance (KieranP #2399,#2406-#2410,#2416,#2417)
+      # Hash conformance
       p({} < { a: 1 })
       p({ a: 1 } > {})
       p({} <= {})
@@ -1165,8 +1091,8 @@ describe "Hash: regressions" do
 
   it "a Hash literal whose values are all empty arrays still takes writes" do
     result = zr(<<~'RUBY')
-      # Hash literal whose only values are empty array literals (element kind
-      # unresolved) must still type to a concrete poly-valued hash variant.
+      # A Hash literal whose only values are empty array literals (with no known
+      # element type) is still a normal Hash that takes writes.
       p({ "empty" => [] })
       h = { "a" => [1], "empty" => [] }
       p h
@@ -1187,7 +1113,7 @@ describe "Hash: regressions" do
   it "sort, min, max and sort_by answer for a Hash read out of a container" do
     result = zr(<<~'RUBY')
       # A Hash read out of a container keeps #sort / #min / #max / #sort_by --
-      # the poly receiver must materialize its pairs, not degrade to NoMethodError/nil.
+      # the receiver gives its pairs, and does not raise NoMethodError or answer nil.
       h = [{ 20 => 2, 3 => 1 }].first
       p h.sort
       p h.min

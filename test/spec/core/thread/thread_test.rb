@@ -94,16 +94,15 @@ describe "Thread programs" do
 
   it "keeps fiber storage alive across a collection" do
     result = zr(<<~'RUBY')
-      # sp_fiber_root.storage must survive GC. sp_fiber_root is a static
-      # rather than sp_gc_alloc'd, so the heap walker never scans it;
-      # without explicit marking in sp_re_mark_globals the SymPolyHash
-      # that `Fiber[:k] = v` allocates at top level is collected on the
-      # next cycle.
+      # The storage of the root fiber must survive GC. The root fiber is
+      # not a heap object, so the collector must mark its storage as a
+      # root, or the hash that `Fiber[:k] = v` allocates at top level
+      # goes away on the next cycle.
 
       Fiber[:answer] = 42
 
-      # Each turn allocates a PolyArray and three Strings, all
-      # GC-tracked, which drives sp_gc_bytes past the 256KB threshold
+      # Each turn allocates an Array and three Strings, all
+      # GC-tracked, which drives the heap past the 256KB threshold
       # well inside the loop.
       i = 0
       while i < 10000
@@ -239,8 +238,7 @@ describe "Thread programs" do
       # `instance_of?(SizedQueue)` FALSE while `is_a?(Queue)` stays true -- the
       # instance carries Queue's class id (SizedQueue shares Queue's runtime
       # representation, told apart only by its bound). Everything else here
-      # (constants as values, #name, #class, superclass) already matches.
-      # (Imported from spinel, which had the same observable, #3466.)
+      # (constants as values, #name, #class, superclass) matches.
       p Queue, Mutex, Thread, Fiber, ConditionVariable, SizedQueue
       p Queue.new.class
       p SizedQueue.new(2).class
@@ -404,10 +402,8 @@ describe "Thread programs" do
       # NoMethodError naming exactly what the receiver is, or answers the slot's
       # default.
 
-      # `h[k] ||= v` USED AS A VALUE. The store test has to be spelled per slot type:
-      # an mrb_int's nil is SP_INT_NIL, not 0, so a plain `!x` both skipped the store
-      # on an absent key and would overwrite a legitimately stored 0. The statement
-      # form always spelled it correctly; the value form did not.
+      # `h[k] ||= v` USED AS A VALUE. An absent key gets the store, and a stored 0
+      # stays, because 0 is truthy. The value form must act as the statement form.
       h = { 0 => 0, 1 => 7 }
       p(h[5] ||= 5)
       p h
@@ -656,16 +652,10 @@ describe "Thread programs" do
 
   it "fiber gc root isolation" do
     result = zr(<<~'RUBY')
-      # Cooperative fibers each hold their own GC roots. Pre-fix the
-      # single shared sp_gc_roots[] / sp_gc_nroots pair meant that a
-      # fiber switch via non-LIFO yields / Fiber.transfer let one
-      # fiber's pushes clobber another fiber's slots in the global
-      # array, so a GC pass triggered from the second fiber could
-      # collect the first fiber's live locals.
-      #
-      # Each fiber's saved root region is now memcpy'd in/out of the
-      # global view on every switch, isolating the per-fiber stacks
-      # from each other. Issue #636.
+      # Cooperative fibers each hold their own GC roots. A fiber switch
+      # via non-LIFO yields / Fiber.transfer must not let one fiber
+      # change the roots of another. Thus a GC pass from the second
+      # fiber keeps the live locals of the first fiber.
 
       class Holder
         attr_reader :data
@@ -745,11 +735,7 @@ describe "Thread programs" do
   it "fiber nested fiber" do
     result = zr(<<~'RUBY')
       # A Fiber / Enumerator.new body may itself create another Fiber / Enumerator.
-      # Each body lowers to its own file-scope C function. Previously the inner
-      # body was emitted into the shared g_procs buffer while the outer body was
-      # still being written there, so the inner function definition landed inside
-      # the outer one ("invalid storage class for function"). The body is now built
-      # in a local buffer and appended after any inner definitions.
+      # Each body runs on its own, and the inner one resumes from inside the outer.
 
       outer = Fiber.new do
         inner = Fiber.new do
@@ -982,16 +968,16 @@ describe "Thread programs" do
   it "gc first thread threshold" do
     result = zr(<<~'RUBY')
       # Creating the first Thread sizes the object-heap collection budget for the
-      # worker pool. It used to MULTIPLY the current threshold by the pool size --
-      # and the pool is min(cores, SPINEL_WORKERS), not the thread count the program
-      # asked for, so the damage scaled with the machine. A program that had already
-      # grown its heap before starting a thread got N x whatever the adaptive
-      # threshold had become: 76MB -> 2.4GB on a 32-core box, with no collection
-      # involved, and the churn that followed never collected again (#4146).
+      # worker pool. It must not MULTIPLY the current threshold by the pool size.
+      # The pool size depends on the core count, not on the thread count the program
+      # asks for. A program that grows its heap before it starts a thread must keep
+      # a sane threshold, and the churn that follows must still collect.
       #
       # Asserted as properties rather than numbers: the absolute threshold depends on
       # the core count and the allocator's own tuning, and pinning it would make this
       # a test of the machine.
+
+
 
       def th = GC.stat["threshold"]
       def cyc = GC.stat["cycle"]
@@ -1076,11 +1062,9 @@ describe "Thread programs" do
     result = zr(<<~'RUBY')
       # Index operator-assignment (`arr[i] += x`) on a captured variable inside a
       # block that escapes into a Thread. The block is lifted to a real proc whose
-      # result is consumed through the proc-call ABI, so the op-write appears in
-      # VALUE position -- which used to be rejected at compile time
-      # ("unsupported expression: IndexOperatorWriteNode"). The statement form and
-      # the plain `arr[i] = arr[i] + x` spelling always worked; this pins the
-      # compound form, including the expression's value (the stored result).
+      # result is the value of the block, so the op-write appears in VALUE position.
+      # The compound form works as `arr[i] = arr[i] + x` does, and the expression's
+      # value is the stored result.
 
       module P
         def self.each_index(n, nt, &blk)
@@ -1567,7 +1551,7 @@ describe "Thread programs" do
   it "sleep poly arg" do
     result = zr(<<~'RUBY')
       # sleep with a poly argument (a duration pulled from a heterogeneous hash)
-      # must coerce poly -> float for sp_sleep(mrb_float).
+      # sleeps for that Float.
       h = { "t" => 0.0, "n" => 2 }
       sleep(h["t"])   # poly value, holds a Float
       puts "slept"
@@ -1657,10 +1641,9 @@ describe "Thread programs" do
     result = zr(<<~'RUBY')
       # Concurrent allocation from multiple threads must be thread-safe and
       # deterministic. Each worker thread allocates a fresh Array per work item
-      # (exercising sp_gc_alloc + the container growth paths that adjust the GC
-      # byte counters) while its siblings do the same; the shared sp_gc_bytes /
-      # pool free-list state used to race at N>1 workers, skewing GC triggers and
-      # corrupting the heap. The final sum is a pure function of the inputs, so
+      # (exercising allocation and the container growth paths that adjust the GC
+      # byte counters) while its siblings do the same. The shared allocator state
+      # must not race at N>1 workers. The final sum is a pure function of the inputs, so
       # any run-to-run variation means allocation state was corrupted.
       #
       # The threads write acc at DISJOINT indices (thread w owns i % nt == w) into

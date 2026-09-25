@@ -152,13 +152,8 @@ describe "Regexp programs" do
 
   it "const init block param scan" do
     result = zr(<<~'RUBY')
-      # A constant initializer's RHS can introduce block params (here
-      # `n`) whose declarations need to land at main()'s frame. The
-      # top-level-stmt scan in `emit_main` previously skipped const-init
-      # expressions, so iterations whose body assigns `lv_n` without a
-      # preceding `mrb_int lv_n;` (e.g. the `Array#sum { |n| ... }`
-      # emit path uses `emit_iter_open`, which does plain `elem_var =
-      # idx_var;`) failed C compilation with "undeclared identifier".
+      # A constant initializer's RHS can introduce block params (here `n`)
+      # at the top level, as in `Array#sum { |n| ... }`.
 
       TOTAL = [1, 2, 3].sum { |n| n * 2 }
       puts TOTAL                         # 12
@@ -455,12 +450,9 @@ describe "Regexp programs" do
       # A poly receiver scanning against a pattern the compiler cannot resolve to a
       # literal.
       #
-      # The poly-receiver arm gated on the pattern being statically visible, so an
-      # inline Regexp.new, a local holding one, or an interpolated literal fell past
-      # the handler to the unresolved-call gate and raised NoMethodError on a String
-      # that plainly answers #scan. The String-receiver arm has taken those shapes
-      # since #3389; the gate itself still earns its keep, so it stays -- a non-String
-      # receiver must raise rather than be stringified into an empty scan.
+      # An inline Regexp.new, a local holding one, or an interpolated literal all
+      # work as the pattern, when the receiver is a String. A receiver that is not
+      # a String raises NoMethodError, and is not turned into an empty scan.
 
       PAT = /(\d)(\w)/
       mixed = ["a1b2", 7]
@@ -588,13 +580,8 @@ describe "Regexp programs" do
 
   it "Stage 1: UTF-8 source byte-length" do
     result = zr(<<~'RUBY')
-      # Regex coverage — issue #61's five stages plus literal-form
-      # tests. Was six tests; class names didn't collide and the only
-      # top-level `def` (regex_local_var's `find`) is unique within this
-      # file. Local-name collisions (`re`, `re2` reused across files for
-      # different regex literals) are dodged with per-section prefixes
-      # so spinel's local-type inference doesn't unify them across the
-      # script and widen to poly.
+      # Regex coverage — five stages plus literal-form tests. Each section
+      # gives its locals names of its own (`re_s1a`, ...).
 
 
       # A regex source containing multi-byte UTF-8 chars must reach the
@@ -611,13 +598,8 @@ describe "Regexp programs" do
 
   it "Stage 2: UTF-8 character class" do
     result = zr(<<~'RUBY')
-      # Regex coverage — issue #61's five stages plus literal-form
-      # tests. Was six tests; class names didn't collide and the only
-      # top-level `def` (regex_local_var's `find`) is unique within this
-      # file. Local-name collisions (`re`, `re2` reused across files for
-      # different regex literals) are dodged with per-section prefixes
-      # so spinel's local-type inference doesn't unify them across the
-      # script and widen to poly.
+      # Regex coverage — five stages plus literal-form tests. Each section
+      # gives its locals names of its own (`re_s1a`, ...).
 
 
       puts(("₁" =~ /[₀-₉]/) ? "ok1" : "fail1")
@@ -658,13 +640,8 @@ describe "Regexp programs" do
 
   it "Stage 3: regex via constant" do
     result = zr(<<~'RUBY')
-      # Regex coverage — issue #61's five stages plus literal-form
-      # tests. Was six tests; class names didn't collide and the only
-      # top-level `def` (regex_local_var's `find`) is unique within this
-      # file. Local-name collisions (`re`, `re2` reused across files for
-      # different regex literals) are dodged with per-section prefixes
-      # so spinel's local-type inference doesn't unify them across the
-      # script and widen to poly.
+      # Regex coverage — five stages plus literal-form tests. Each section
+      # gives its locals names of its own (`re_s1a`, ...).
 
 
       RX = /[₀₁₂₃₄₅₆₇₈₉ₐₑₒₓₔ]+/
@@ -695,13 +672,8 @@ describe "Regexp programs" do
 
   it "Stage 4: regex via local variable" do
     result = zr(<<~'RUBY')
-      # Regex coverage — issue #61's five stages plus literal-form
-      # tests. Was six tests; class names didn't collide and the only
-      # top-level `def` (regex_local_var's `find`) is unique within this
-      # file. Local-name collisions (`re`, `re2` reused across files for
-      # different regex literals) are dodged with per-section prefixes
-      # so spinel's local-type inference doesn't unify them across the
-      # script and widen to poly.
+      # Regex coverage — five stages plus literal-form tests. Each section
+      # gives its locals names of its own (`re_s1a`, ...).
 
 
       re_lv = /[₀₁₂₃₄₅₆₇₈₉]+/
@@ -745,13 +717,8 @@ describe "Regexp programs" do
 
   it "Stage 5: UTF-8 quantifier" do
     result = zr(<<~'RUBY')
-      # Regex coverage — issue #61's five stages plus literal-form
-      # tests. Was six tests; class names didn't collide and the only
-      # top-level `def` (regex_local_var's `find`) is unique within this
-      # file. Local-name collisions (`re`, `re2` reused across files for
-      # different regex literals) are dodged with per-section prefixes
-      # so spinel's local-type inference doesn't unify them across the
-      # script and widen to poly.
+      # Regex coverage — five stages plus literal-form tests. Each section
+      # gives its locals names of its own (`re_s1a`, ...).
 
 
       puts "abc₁₂def".gsub(/[₀-₉]+/, "N")
@@ -778,13 +745,8 @@ describe "Regexp programs" do
 
   it "Multi-line / escape patterns" do
     result = zr(<<~'RUBY')
-      # Regex coverage — issue #61's five stages plus literal-form
-      # tests. Was six tests; class names didn't collide and the only
-      # top-level `def` (regex_local_var's `find`) is unique within this
-      # file. Local-name collisions (`re`, `re2` reused across files for
-      # different regex literals) are dodged with per-section prefixes
-      # so spinel's local-type inference doesn't unify them across the
-      # script and widen to poly.
+      # Regex coverage — five stages plus literal-form tests. Each section
+      # gives its locals names of its own (`re_s1a`, ...).
 
 
       re_ml1 = /
@@ -817,15 +779,11 @@ describe "Regexp programs" do
         puts "no4"
       end
 
-      # InterpolatedRegularExpressionNode (/foo_#{x}/). Pattern is only known
-      # at execution time; each AST site gets a `sp_re_dyn_<idx>(const char *)`
-      # helper with a function-scope cache so heap is bounded to one engine
-      # pattern per source location. Match-site dispatch goes through the
-      # regex_pat_c_expr helper so =~, match?, match, gsub, sub, scan, and
-      # split all accept either form.
+      # InterpolatedRegularExpressionNode (/foo_#{x}/). The pattern is only known
+      # at execution time. =~, match?, match, gsub, sub, scan, and split all
+      # accept either form.
 
-      # match? predicate (boolean -- safe across CRuby/Spinel int/value
-      # differences in =~ which returns a position vs a count).
+      # match? predicate (boolean).
       ir_x = "bar"
       puts "foo_bar".match?(/foo_#{ir_x}/)   #=> true
       puts "foo_baz".match?(/foo_#{ir_x}/)   #=> false
@@ -2105,9 +2063,8 @@ describe "Regexp programs" do
 
   it "Regexp.new raises a catchable RegexpError and the program runs on" do
     result = zr(<<~'RUBY')
-      # Issue #846: a bad `Regexp.new("...")` raises a catchable
-      # RegexpError. Pre-fix the static-table compile error fired
-      # before main()'s setjmp scope and terminated the process.
+      # A bad `Regexp.new("...")` raises a catchable RegexpError, and the
+      # program runs on after the rescue.
       begin
         r = Regexp.new("[invalid")
         puts "no error raised"
@@ -2213,7 +2170,7 @@ describe "Regexp programs" do
   it "/ab/ and /ab/i hash apart, so they take two slots in a Hash" do
     result = zr(<<~'RUBY')
       # Regexp#hash covers the flags: /ab/ and /ab/i are not eql?, so they must not
-      # collide as Hash keys (#3816).
+      # collide as Hash keys.
       p(/ab/.hash == /ab/i.hash)
       p(/ab/.hash == /ab/.hash)
       p(/ab/.eql?(/ab/i))
@@ -2240,9 +2197,7 @@ describe "Regexp programs" do
     result = zr(<<~'RUBY')
       # A Regexp is keyed by its SOURCE and flags, which is ruby's own
       # `Regexp#eql?`/`#hash` rule: `/a/` written twice is one Hash key, `/a/` and
-      # `/a/i` are two. The key projection used to fall through to the object
-      # pointer, so a Regexp key never matched and `#hash` disagreed between two
-      # equal literals.
+      # `/a/i` are two. Two equal literals have the same `#hash`.
 
       h = { /re/ => "y", /re/i => "i", /re/m => "m", /other/ => "o" }
       p h[/re/], h[/re/i], h[/re/m], h[/other/], h[/nope/]
@@ -2402,14 +2357,8 @@ describe "Regexp programs" do
 
   it "an if/else whose arms both build a pattern unifies to one the match can read" do
     result = zr(<<~'RUBY')
-      # An if/else expression whose branches both build a Regexp now
-      # unifies to the new `regexp` type (mrb_regexp_pattern *) instead
-      # of collapsing to int. Before this fix Regexp.new(...) was
-      # untyped (default int fallback), the if/else result was int, and
-      # the resulting `pattern.match?(...)` call had no statically
-      # resolvable pattern to thread through — the codegen warned
-      # "cannot resolve call to 'match?' on int (emitting 0)" and the
-      # binary always reported no match. Issue #609.
+      # An if/else expression whose branches both build a Regexp gives a
+      # Regexp, and `pattern.match?(...)` on it matches.
 
       def check(use_a)
         pattern = if use_a
@@ -2423,9 +2372,8 @@ describe "Regexp programs" do
       check(true)    # match    (uses /aaa/)
       check(false)   # no match (uses /bbb/, body has no "bbb")
 
-      # Dynamic-source arm: each Regexp.new(<expr>) goes through the
-      # per-call-site sp_re_dyn_<i> cache, but the regexp-typed local
-      # still holds the resulting pointer.
+      # Dynamic-source arm: each Regexp.new(<expr>) builds its pattern at
+      # run time, and the local holds the Regexp.
       def check_dyn(prefix, body)
         pattern = if prefix == "x"
                     Regexp.new(prefix + "aaa")
@@ -2521,12 +2469,8 @@ describe "Regexp programs" do
   it "Regexp.new with a literal argument matches like a literal, and an interpolated one tracks its value" do
     result = zr(<<~'RUBY')
       # `Regexp.new("literal")` / `Regexp.compile("literal")` with a
-      # string-literal argument folds into the same static pattern table
-      # as a `/literal/` regex literal. The LV/const holding the value
-      # is a placeholder; `.match?` / `.match` / `=~` resolve at the call
-      # site through `regex_pat_c_expr`, dispatching to `sp_re_pat_<i>`.
-      # Without this, the LV was typed `obj_Regexp` and codegen emitted
-      # `sp_Regexp *lv_x = NULL;` which doesn't compile (no such type).
+      # string-literal argument matches like a `/literal/` regex literal,
+      # also through a local or a constant that holds it.
 
       # Direct call on the constructor expression.
       puts Regexp.new("foo").match?("foobar")   # true
@@ -2547,17 +2491,12 @@ describe "Regexp programs" do
       puts "abc foo def" =~ RE                   # 4
 
       # Dynamic-arg form: the argument is built at runtime via interpolation.
-      # scan_features registers the CallNode with the per-call-site
-      # `sp_re_dyn_<idx>` cache; at the read site `regex_pat_c_expr`
-      # re-evaluates the arg string and the cache returns the compiled
-      # pattern (recompile only on key change).
       tag = "div"
       puts Regexp.new("<#{tag}").match?("<div>")  # true
       puts Regexp.new("<#{tag}").match?("<span>") # false
 
-      # LV bound to a dyn Regexp.new -- read site re-emits the dyn-cache
-      # call, so the cache lookup uses the LV's free variables (here `tag`)
-      # in scope at the read site.
+      # Local bound to a dynamic Regexp.new: it keeps the pattern built from
+      # `tag`.
       pat_dyn = Regexp.new("<#{tag}>")
       puts pat_dyn.match?("<div>")                # true
       puts pat_dyn =~ "before <div> after"        # 7
@@ -2642,8 +2581,8 @@ describe "Regexp programs" do
   it "casefold?, options, try_convert, union, timeout and ~ answer the reflection surface" do
     result = zr(<<~'RUBY')
       # Regexp reflection/class-method surface
-      # #2492 casefold?, #2493 option constants, #2494 last_match, #2495 try_convert,
-      # #2496 options, #2497 ~, #2498/#2527 timeout, #2508/#2509 union, #2528 new(re)
+      # casefold?, option constants, last_match, try_convert, options, ~, timeout,
+      # union, new(re)
       p(/abc/i.casefold?)
       p(/abc/.casefold?)
       p(Regexp::IGNORECASE)
@@ -2698,13 +2637,11 @@ describe "Regexp programs" do
 
   it "String#split by a pattern places the captures, the empty fields and the limit the way ruby does" do
     result = zr(<<~'RUBY')
-      # spinel-side String#split(regexp[, limit]) compatibility, mirroring CRuby and
-      # upstream mruby-regexp string_regexp.rb#split (62a55cefe split compat,
-      # b61e44b35 limit). Fixes: zero-width matches split into characters instead of
-      # emitting empty fields, trailing empty fields are stripped under the default
-      # limit (kept under a negative limit), an empty subject is always [], unmatched
-      # optional capture groups are omitted, and a positive limit caps the field
-      # count with the remainder as the last field.
+      # String#split(regexp[, limit]) works as in CRuby: zero-width matches split
+      # into characters and give no empty fields, trailing empty fields are stripped
+      # under the default limit (kept under a negative limit), an empty subject is
+      # always [], unmatched optional capture groups are omitted, and a positive
+      # limit caps the field count with the remainder as the last field.
 
       # zero-width / empty pattern
       p("abc".split(//))               # ["a", "b", "c"]
@@ -2799,16 +2736,8 @@ describe "Regexp programs" do
 
   it "split with no match returns the whole string unsplit" do
     result = zr(<<~'RUBY')
-      # The empty-haystack-returns-an-empty-array case is exercised elsewhere
-      # instead -- `puts`-ing it here would conflate this phase's own
-      # behavior with a separate, pre-existing, unrelated gap:
-      # `Kernel#puts` on an EMPTY `Array` currently prints a blank line
-      # (real Ruby prints nothing at all for `puts []`) -- confirmed via a
-      # plain, regex-free `puts []; puts "x"` repro, so not something this
-      # phase introduces or should fix as a side effect. `Array#length`
-      # doesn't sidestep this cleanly either: `split`'s result stays a
-      # generic type and hits the same "no static-array fast path"
-      # limitation.
+      # Other examples cover the empty-haystack case, where split returns an
+      # empty array. `puts []` prints nothing, so this example does not use it.
 
       puts "abc".split(/x/)
     RUBY
@@ -2818,10 +2747,8 @@ describe "Regexp programs" do
 
   it "string partition regex and puts" do
     result = zr(<<~'RUBY')
-      # Issue #854: String#partition with regex used to SEGV (the
-      # string-only path passed the regex pattern pointer to strstr);
-      # `puts <tuple>` with a partition result printed the struct
-      # pointer as an integer instead of splatting elements.
+      # String#partition with a regex splits at the first match, and
+      # `puts <tuple>` with a partition result prints each element.
       puts "hello world".partition(" ")
       puts "hello world".partition(/o/).inspect
       puts "hello,world".partition(",").inspect
@@ -2840,9 +2767,7 @@ describe "Regexp programs" do
 
   it "string rpartition regex" do
     result = zr(<<~'RUBY')
-      # Issue #1226: String#rpartition with a regex used to SEGV — rpartition
-      # had no regex branch, so the pattern compiled to a NULL pointer that
-      # was passed to strlen/strstr. The regex form must locate the *last*
+      # String#rpartition with a regex: the regex form must locate the *last*
       # match by start position: \d+ in "hello123world" matches at 5/6/7, so
       # the rightmost is the single "3" (not "123").
       puts "hello123world".rpartition(/\d+/).inspect
@@ -2866,10 +2791,8 @@ describe "Regexp programs" do
       # The pike VM's scratch state -- the visited array and the two thread lists --
       # is cached on the compiled PATTERN to avoid a malloc per match, behind a
       # re-entrancy flag. A pattern is shared by every thread matching against it, so
-      # two threads both read the flag as clear, both took the same scratch arrays,
-      # and corrupted each other's match: scan came back fragmented or short, gsub and
-      # match diverged the same way (#4082). Claiming the cache atomically sends the
-      # loser down the malloc path that already existed for re-entrancy.
+      # two threads must not take the same scratch arrays: scan, gsub, match, sub and
+      # split in each thread give the same result as in the main thread.
       TEXT = "the quick brown fox jumps over the lazy dog"
       E_SCAN  = TEXT.scan(/[a-z]+/)
       E_GSUB  = TEXT.gsub(/[aeiou]/, "-")

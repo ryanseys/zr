@@ -118,7 +118,7 @@ describe "Blocks: case mapping" do
       end
 
       # Forwarding the method's own `&block` parameter to an iterator -- the canonical
-      # "pass the block along" pattern (previously a hard "unsupported call").
+      # "pass the block along" pattern.
       def relay_map(a, &b)
         a.map(&b)
       end
@@ -202,11 +202,11 @@ describe "Blocks: case mapping" do
   it "each's block parameter shadows an outer String local of the same name" do
     result = zr(<<~'RUBY')
       # Block parameters shadow outer differently-typed locals correctly.
-      # Without push_scope/declare_var around the block body compile, infer_type
-      # returned the outer scope's type for the block param, dispatching the
-      # wrong runtime call (e.g. sp_str_repeat for an int param).
+      # Inside the block, the param has its own type, so a call on it goes to
+      # the method of that type (e.g. Integer#* for an Integer param, not
+      # String#*).
 
-      # --- each on int_array, outer string v (the original report) ---
+      # --- each on an Integer Array, outer string v ---
       def f1
         v = "hello"
         [1, 2, 3].each do |v|
@@ -233,9 +233,9 @@ describe "Blocks: case mapping" do
   it "each_with_index's index parameter shadows an outer String local" do
     result = zr(<<~'RUBY')
       # Block parameters shadow outer differently-typed locals correctly.
-      # Without push_scope/declare_var around the block body compile, infer_type
-      # returned the outer scope's type for the block param, dispatching the
-      # wrong runtime call (e.g. sp_str_repeat for an int param).
+      # Inside the block, the param has its own type, so a call on it goes to
+      # the method of that type (e.g. Integer#* for an Integer param, not
+      # String#*).
 
       # --- each_with_index, outer string i ---
       def f2
@@ -262,11 +262,11 @@ describe "Blocks: case mapping" do
   it "each_with_index over Strings shadows an outer Integer local" do
     result = zr(<<~'RUBY')
       # Block parameters shadow outer differently-typed locals correctly.
-      # Without push_scope/declare_var around the block body compile, infer_type
-      # returned the outer scope's type for the block param, dispatching the
-      # wrong runtime call (e.g. sp_str_repeat for an int param).
+      # Inside the block, the param has its own type, so a call on it goes to
+      # the method of that type (e.g. Integer#* for an Integer param, not
+      # String#*).
 
-      # --- each_with_index on str_array, outer int i ---
+      # --- each_with_index on a String Array, outer int i ---
       def f3
         i = 99
         ["a", "b", "c"].each_with_index do |s, i|
@@ -293,11 +293,11 @@ describe "Blocks: case mapping" do
   it "map's block parameter shadows an outer String local" do
     result = zr(<<~'RUBY')
       # Block parameters shadow outer differently-typed locals correctly.
-      # Without push_scope/declare_var around the block body compile, infer_type
-      # returned the outer scope's type for the block param, dispatching the
-      # wrong runtime call (e.g. sp_str_repeat for an int param).
+      # Inside the block, the param has its own type, so a call on it goes to
+      # the method of that type (e.g. Integer#* for an Integer param, not
+      # String#*).
 
-      # --- map on int_array, outer string i ---
+      # --- map on an Integer Array, outer string i ---
       def f4
         i = "outer"
         out = [10, 20, 30].map { |i| i + 1 }
@@ -321,11 +321,11 @@ describe "Blocks: case mapping" do
   it "map over Strings shadows an outer Integer local" do
     result = zr(<<~'RUBY')
       # Block parameters shadow outer differently-typed locals correctly.
-      # Without push_scope/declare_var around the block body compile, infer_type
-      # returned the outer scope's type for the block param, dispatching the
-      # wrong runtime call (e.g. sp_str_repeat for an int param).
+      # Inside the block, the param has its own type, so a call on it goes to
+      # the method of that type (e.g. Integer#* for an Integer param, not
+      # String#*).
 
-      # --- map on str_array, outer int s ---
+      # --- map on a String Array, outer int s ---
       def f5
         s = 42
         words = ["a", "b", "c"]
@@ -350,11 +350,11 @@ describe "Blocks: case mapping" do
   it "select's block parameter shadows an outer String local" do
     result = zr(<<~'RUBY')
       # Block parameters shadow outer differently-typed locals correctly.
-      # Without push_scope/declare_var around the block body compile, infer_type
-      # returned the outer scope's type for the block param, dispatching the
-      # wrong runtime call (e.g. sp_str_repeat for an int param).
+      # Inside the block, the param has its own type, so a call on it goes to
+      # the method of that type (e.g. Integer#* for an Integer param, not
+      # String#*).
 
-      # --- select on int_array, outer string n ---
+      # --- select on an Integer Array, outer string n ---
       def f6
         n = "kept"
         out = [1, 2, 3, 4].select { |n| n > 2 }
@@ -378,11 +378,11 @@ describe "Blocks: case mapping" do
   it "reject's block parameter shadows an outer String local" do
     result = zr(<<~'RUBY')
       # Block parameters shadow outer differently-typed locals correctly.
-      # Without push_scope/declare_var around the block body compile, infer_type
-      # returned the outer scope's type for the block param, dispatching the
-      # wrong runtime call (e.g. sp_str_repeat for an int param).
+      # Inside the block, the param has its own type, so a call on it goes to
+      # the method of that type (e.g. Integer#* for an Integer param, not
+      # String#*).
 
-      # --- reject on int_array, outer string n ---
+      # --- reject on an Integer Array, outer string n ---
       def f7
         n = "drop"
         out = [1, 2, 3, 4].reject { |n| n > 2 }
@@ -406,11 +406,11 @@ describe "Blocks: case mapping" do
   it "partition's block parameters shadow an outer String local" do
     result = zr(<<~'RUBY')
       # Block parameters shadow outer differently-typed locals correctly.
-      # Without push_scope/declare_var around the block body compile, infer_type
-      # returned the outer scope's type for the block param, dispatching the
-      # wrong runtime call (e.g. sp_str_repeat for an int param).
+      # Inside the block, the param has its own type, so a call on it goes to
+      # the method of that type (e.g. Integer#* for an Integer param, not
+      # String#*).
 
-      # --- partition on int_array, outer string n ---
+      # --- partition on an Integer Array, outer string n ---
       def f8
         n = "outer"
         parts = [1, 2, 3, 4, 5].partition { |n| n > 2 }
@@ -442,11 +442,11 @@ describe "Blocks: case mapping" do
   it "partition over Strings shadows an outer Integer local" do
     result = zr(<<~'RUBY')
       # Block parameters shadow outer differently-typed locals correctly.
-      # Without push_scope/declare_var around the block body compile, infer_type
-      # returned the outer scope's type for the block param, dispatching the
-      # wrong runtime call (e.g. sp_str_repeat for an int param).
+      # Inside the block, the param has its own type, so a call on it goes to
+      # the method of that type (e.g. Integer#* for an Integer param, not
+      # String#*).
 
-      # --- partition on str_array, outer int x ---
+      # --- partition on a String Array, outer int x ---
       def f9
         x = 99
         parts = ["a", "bb", "ccc"].partition { |x| x.length > 1 }
@@ -474,9 +474,9 @@ describe "Blocks: case mapping" do
   it "each_char's block parameter shadows an outer Integer local" do
     result = zr(<<~'RUBY')
       # Block parameters shadow outer differently-typed locals correctly.
-      # Without push_scope/declare_var around the block body compile, infer_type
-      # returned the outer scope's type for the block param, dispatching the
-      # wrong runtime call (e.g. sp_str_repeat for an int param).
+      # Inside the block, the param has its own type, so a call on it goes to
+      # the method of that type (e.g. Integer#* for an Integer param, not
+      # String#*).
 
       # --- each_char on string, outer int c ---
       def f10
@@ -505,9 +505,9 @@ describe "Blocks: case mapping" do
   it "each_byte's block parameter shadows an outer String local" do
     result = zr(<<~'RUBY')
       # Block parameters shadow outer differently-typed locals correctly.
-      # Without push_scope/declare_var around the block body compile, infer_type
-      # returned the outer scope's type for the block param, dispatching the
-      # wrong runtime call (e.g. sp_str_repeat for an int param).
+      # Inside the block, the param has its own type, so a call on it goes to
+      # the method of that type (e.g. Integer#* for an Integer param, not
+      # String#*).
 
       # --- each_byte on string, outer string b ---
       def f11
@@ -534,11 +534,11 @@ describe "Blocks: case mapping" do
   it "cycle with a count shadows an outer String local" do
     result = zr(<<~'RUBY')
       # Block parameters shadow outer differently-typed locals correctly.
-      # Without push_scope/declare_var around the block body compile, infer_type
-      # returned the outer scope's type for the block param, dispatching the
-      # wrong runtime call (e.g. sp_str_repeat for an int param).
+      # Inside the block, the param has its own type, so a call on it goes to
+      # the method of that type (e.g. Integer#* for an Integer param, not
+      # String#*).
 
-      # --- cycle on int_array with count, outer string x ---
+      # --- cycle on an Integer Array with count, outer string x ---
       def f12
         x = "outer"
         [1, 2].cycle(2) do |x|
@@ -567,9 +567,9 @@ describe "Blocks: case mapping" do
   it "scan with a block shadows an outer Integer local" do
     result = zr(<<~'RUBY')
       # Block parameters shadow outer differently-typed locals correctly.
-      # Without push_scope/declare_var around the block body compile, infer_type
-      # returned the outer scope's type for the block param, dispatching the
-      # wrong runtime call (e.g. sp_str_repeat for an int param).
+      # Inside the block, the param has its own type, so a call on it goes to
+      # the method of that type (e.g. Integer#* for an Integer param, not
+      # String#*).
 
       # --- scan with block on string, outer int m ---
       def f13
@@ -598,11 +598,11 @@ describe "Blocks: case mapping" do
   it "each_slice's block parameter shadows an outer String local" do
     result = zr(<<~'RUBY')
       # Block parameters shadow outer differently-typed locals correctly.
-      # Without push_scope/declare_var around the block body compile, infer_type
-      # returned the outer scope's type for the block param, dispatching the
-      # wrong runtime call (e.g. sp_str_repeat for an int param).
+      # Inside the block, the param has its own type, so a call on it goes to
+      # the method of that type (e.g. Integer#* for an Integer param, not
+      # String#*).
 
-      # --- each_slice on int_array, outer string v ---
+      # --- each_slice on an Integer Array, outer string v ---
       def f14
         v = "hello"
         [1, 2, 3, 4].each_slice(2) do |v|
@@ -627,11 +627,11 @@ describe "Blocks: case mapping" do
   it "each_cons's block parameter shadows an outer Integer local" do
     result = zr(<<~'RUBY')
       # Block parameters shadow outer differently-typed locals correctly.
-      # Without push_scope/declare_var around the block body compile, infer_type
-      # returned the outer scope's type for the block param, dispatching the
-      # wrong runtime call (e.g. sp_str_repeat for an int param).
+      # Inside the block, the param has its own type, so a call on it goes to
+      # the method of that type (e.g. Integer#* for an Integer param, not
+      # String#*).
 
-      # --- each_cons on str_array, outer int c ---
+      # --- each_cons on a String Array, outer int c ---
       def f15
         c = 7
         ["a", "b", "c", "d"].each_cons(3) do |c|
@@ -656,9 +656,9 @@ describe "Blocks: case mapping" do
   it "tap's block parameter shadows an outer String local" do
     result = zr(<<~'RUBY')
       # Block parameters shadow outer differently-typed locals correctly.
-      # Without push_scope/declare_var around the block body compile, infer_type
-      # returned the outer scope's type for the block param, dispatching the
-      # wrong runtime call (e.g. sp_str_repeat for an int param).
+      # Inside the block, the param has its own type, so a call on it goes to
+      # the method of that type (e.g. Integer#* for an Integer param, not
+      # String#*).
 
       # --- tap on int receiver, outer string v ---
       def f16
@@ -683,9 +683,9 @@ describe "Blocks: case mapping" do
   it "tap over a String shadows an outer Integer local" do
     result = zr(<<~'RUBY')
       # Block parameters shadow outer differently-typed locals correctly.
-      # Without push_scope/declare_var around the block body compile, infer_type
-      # returned the outer scope's type for the block param, dispatching the
-      # wrong runtime call (e.g. sp_str_repeat for an int param).
+      # Inside the block, the param has its own type, so a call on it goes to
+      # the method of that type (e.g. Integer#* for an Integer param, not
+      # String#*).
 
       # --- tap on string receiver, outer int s ---
       def f17
@@ -710,9 +710,9 @@ describe "Blocks: case mapping" do
   it "then's block parameter shadows an outer String local" do
     result = zr(<<~'RUBY')
       # Block parameters shadow outer differently-typed locals correctly.
-      # Without push_scope/declare_var around the block body compile, infer_type
-      # returned the outer scope's type for the block param, dispatching the
-      # wrong runtime call (e.g. sp_str_repeat for an int param).
+      # Inside the block, the param has its own type, so a call on it goes to
+      # the method of that type (e.g. Integer#* for an Integer param, not
+      # String#*).
 
       # --- then on int receiver, outer string v ---
       def f18
@@ -736,9 +736,9 @@ describe "Blocks: case mapping" do
   it "yield_self's block parameter shadows an outer Float local" do
     result = zr(<<~'RUBY')
       # Block parameters shadow outer differently-typed locals correctly.
-      # Without push_scope/declare_var around the block body compile, infer_type
-      # returned the outer scope's type for the block param, dispatching the
-      # wrong runtime call (e.g. sp_str_repeat for an int param).
+      # Inside the block, the param has its own type, so a call on it goes to
+      # the method of that type (e.g. Integer#* for an Integer param, not
+      # String#*).
 
       # --- yield_self with int receiver returning string, outer float v ---
       def f19
@@ -968,11 +968,8 @@ describe "Blocks: case mapping" do
 
   it "proc args published at call" do
     result = zr(<<~'RUBY')
-      # A Proc's boxed arguments ride ONE global side channel, so publishing them
-      # belongs to the call rather than to the statement above it. As prelude lines,
-      # two Proc calls in one expression both published before either ran, and the
-      # first call read the second's arguments -- which a composed Proc's first stage
-      # saw as nil, since the publish for its own stage had been cleared (#4059).
+      # Two Proc calls in one expression each get their own arguments. A composed
+      # Proc passes the result of its first stage to its second stage.
       strip = ->(s) { s.strip }
       down  = ->(s) { s.downcase }
       fwd = strip >> down
@@ -1061,11 +1058,8 @@ describe "Blocks: case mapping" do
 
   it "proc from container literal" do
     result = zr(<<~'RUBY')
-      # A container literal builds itself in the statement prelude, so an emitter that
-      # writes a prelude line and renders an expression straight into it spliced the
-      # literal's construction into the middle of that line -- not C at all. The
-      # receiver of a poly `.call` is where this showed: a table of lambdas written
-      # where it is used, indexed and called in one expression (#4065).
+      # A container literal as the receiver of `.call`: a table of lambdas written
+      # where it is used, indexed and called in one expression.
       def render(style, value)
         { plain: ->(v) { v.to_s }, quoted: ->(v) { "\"#{v}\"" } }[style].call(value)
       end

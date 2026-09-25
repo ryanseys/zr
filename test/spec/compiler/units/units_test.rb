@@ -309,18 +309,6 @@ describe "Units programs" do
       # The guard below makes `part.rb` a unit-only target: it is never spliced, and
       # every site naming it keeps its call so that whichever one runs first loads
       # the body once. The method-body site is the only one that ever runs here.
-      #
-      # It used to load nothing. `RequireCollector` files a method-body
-      # `require_relative` under `lazy`, never `calls`, so the statement pre-pass --
-      # the one place that consults `unit_only_targets` before lowering -- never saw
-      # it. `lower_node` reached the `def` first and folded the call to `true`, and
-      # the trailing pass that would have claimed the site ran long after. The call
-      # was dead and the file never loaded.
-      #
-      # Both sites now claim through one helper, `Loader::claim_unit_only_site`. The
-      # two arrive at different times, which is the whole bug: a statement-position
-      # require claims itself as it lowers, and a method-body one has to claim
-      # itself in the pre-pass, ahead of the fold.
 
       require_relative "method_body_require/part" if ENV["NEVER"]
 
@@ -367,7 +355,7 @@ describe "Units programs" do
 
   it "process clock unit validation" do
     result = zr(<<~'RUBY')
-      # Process.clock_gettime validates its unit (#2727): an unknown literal symbol
+      # Process.clock_gettime validates its unit: an unknown literal symbol
       # is CRuby's ArgumentError, not a silent float_second.
       r = (Process.clock_gettime(Process::CLOCK_MONOTONIC, :bogus) rescue $!.class)
       p(r.is_a?(Float) ? :returned_float_no_raise : r)
@@ -399,7 +387,7 @@ describe "Units programs" do
   it "time at unit form" do
     result = zr(<<~'RUBY')
       # Time.at(sec, num, :unit) scales the second argument by the named unit
-      # (#2714). CRuby's unit set has no plurals; an unknown one is ArgumentError.
+      # CRuby's unit set has no plurals; an unknown one is ArgumentError.
       p Time.at(0, 500, :millisecond).to_f
       p Time.at(0, 500, :usec).to_f
       p Time.at(0, 500, :microsecond).to_f
@@ -485,10 +473,8 @@ describe "Units programs" do
       # against it, and bundler's `shared_helpers` asks each entry
       # `start_with?(resolved_path)`.
       #
-      # A compiled-in unit used to append the require's own spelling instead, so a
-      # short name landed where a path belonged and both those checks answered wrong.
-      # Each unit row now carries its own source file, and that is what the load
-      # records.
+      # A compiled-in unit also records its source file path, not the short name
+      # that the require used.
 
       require_relative "unit_loaded_features/part" if ENV["NEVER"]
 

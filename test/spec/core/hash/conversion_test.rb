@@ -23,7 +23,7 @@ describe "Hash: conversion" do
 
   it "an Integer-keyed, Integer-valued hash nests, boxes and reads back through a poly access" do
     result = zr(<<~'RUBY')
-      # Integer-keyed Integer-valued hash: nesting, boxing, poly access (KieranP #2345)
+      # Integer-keyed Integer-valued hash: nesting, boxing, poly access
       p({ 1 => { 2 => 3 } })
       p({ 1 => { 2 => 3 }, 4 => { 5 => 6 } })
       p({ 1 => { 2 => 3 } }[1])
@@ -61,7 +61,7 @@ describe "Hash: conversion" do
   it "method to proc curry stored" do
     result = zr(<<~'RUBY')
       # A Method stored in a local, then .to_proc.curry'd, still resolves the
-      # target's arity/return through the assignment chain (#3244).
+      # target's arity/return through the assignment chain.
       def greet(a, b) = "#{a},#{b}"
       m = method(:greet)
       g = m.to_proc.curry
@@ -78,10 +78,8 @@ describe "Hash: conversion" do
 
   it "polypoly hash assoc to proc" do
     result = zr(<<~'RUBY')
-      # PolyPolyHash's order[] holds slot indexes, and its keys are sp_RbVal on the
-      # proc poly side-channel: Hash#assoc/#rassoc value reads and Hash#to_proc key
-      # lookups must use the right access (they emitted sp_PolyPolyHash_get(h, index)
-      # and passed the raw arg slot, a C compile error).
+      # A Hash with keys and values of any type: Hash#assoc and #rassoc read the
+      # right entry, and Hash#to_proc looks up the key it gets as an argument.
 
       # a default-proc hash is PolyPoly; assoc/rassoc
       h = Hash.new { |hh, k| hh[k] = 42 }
@@ -149,9 +147,8 @@ describe "Hash: conversion" do
   it "to h on boxed hash" do
     result = zr(<<~'RUBY')
       # Hash#to_h is the identity, so a BOXED receiver keeps the variant it really
-      # holds. Narrowing it to the symbol-keyed one raised on a String-keyed hash
-      # reached through a defaulted parameter (#3972), and an array of pairs whose
-      # keys are not Symbols was read as symbol ids.
+      # holds. A String-keyed hash from a defaulted parameter keeps String keys.
+      # An array of pairs keeps its keys when they are not Symbols.
       def tag(name, opts = {})
         merged = { "name" => name }.merge(opts.to_h)
         merged.map { |k, v| "#{k}=#{v}" }.join(" ")

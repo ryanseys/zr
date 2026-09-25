@@ -121,10 +121,9 @@ describe "IO::console programs" do
       # a require-gated builtin row becoming answerable -- starts at this line.
       #
       # zr satisfies `io/console` and `set` natively and splices `prime` from a
-      # vendored gem, so all three used to be recorded at startup: a program that
-      # required one on its last line already answered for it on its first.
-      # `HirNode::FeatureLoaded` is CRuby's `rb_provide_feature`, emitted at the
-      # require's own position -- and, like CRuby's, ahead of the file it names.
+      # vendored gem. Even so, a program that requires one on its last line must
+      # not answer for it on its first. Like CRuby's `rb_provide_feature`, the
+      # record happens at the require's own position, ahead of the file it names.
 
       # Require-gated rows: `respond_to?(:getch)` is how a library decides whether
       # the console extension is there at all.

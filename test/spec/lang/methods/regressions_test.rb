@@ -5,17 +5,12 @@ require "spec_helper"
 describe "Methods: regressions" do
   it "int array literal lshift heterogeneous" do
     result = zr(<<~'RUBY')
-      # `<int_array literal> << <non-int>` shape (`[1, 2] << "c"`).
-      # Pushing a non-int element onto a literal int_array previously
-      # emitted sp_IntArray_push with a pointer-from-int-conversion
-      # warning and produced a broken array. The contextual lift
-      # rebuilds the recv as a poly_array of box_int(...) elements and
-      # pushes the boxed arg, matching CRuby's heterogeneous-array
-      # semantic.
+      # `<Integer array literal> << <non-Integer>` shape (`[1, 2] << "c"`).
+      # Pushing a non-Integer element onto a literal Integer array gives
+      # a heterogeneous array, as in CRuby.
       #
-      # Scoped to direct ArrayNode literals on the LHS, so a stored
-      # ivar / local (`@slots = [nil] * N; @slots << ...`) keeps the
-      # existing observation-widening path. Issue #619 puzzle 7.
+      # This test covers direct ArrayNode literals on the LHS only, not a
+      # stored ivar / local (`@slots = [nil] * N; @slots << ...`).
       p ([1, 2] << "c") == [1, 2, "c"]       # true
       p ([1, 2] << nil) == [1, 2, nil]       # true
       p ([1, 2] << 3) == [1, 2, 3]           # true (int <<, no lift)
@@ -68,21 +63,8 @@ describe "Methods: regressions" do
 
   it "int eq nil strict" do
     result = zr(<<~'RUBY')
-      # Partial fix for #521. In CRuby `0 == nil` is false -- only nil
-      # equals nil. Spinel used to emit `(lc op rc)` for `int == nil`,
-      # where `rc` was "0" (compile_expr of NilNode); since unboxed ints
-      # share the C representation with the nil sentinel, this conflated
-      # stored 0 with nil and made `0 == nil` return true.
-      #
-      # Fix: compile_eq has explicit value-type-vs-nil arms that
-      # constant-fold to FALSE (or TRUE for `!=`). This does NOT solve
-      # the deeper #521 problem -- Hash<String,Int> still returns 0 for
-      # missing keys -- but it does fix the categorical bug that made a
-      # *stored* 0 in the hash indistinguishable from "the value is
-      # nil." With this fix, `v != nil` reflects the static type
-      # honestly, so users who need to distinguish missing-vs-stored
-      # zero have to reach for `Hash#has_key?` / `Hash#fetch`, as
-      # documented in the issue comment.
+      # In CRuby `0 == nil` is false -- only nil equals nil. A stored 0,
+      # also a 0 read from a Hash, is not nil, so `v != nil` is true.
 
       # Pure int (no hash)
       v = 0
@@ -101,14 +83,14 @@ describe "Methods: regressions" do
       b = false
       puts (b == nil).inspect   # false
 
-      # Hash<String,Int> stored 0 case now reports != nil correctly.
+      # Hash<String,Int> stored 0 case reports != nil correctly.
       h = {}
       h["x"] = 0
       h["y"] = 5
       vx = h["x"]
       vy = h["y"]
-      puts (vx == nil).inspect  # false (was true)
-      puts (vx != nil).inspect  # true  (was false)
+      puts (vx == nil).inspect  # false
+      puts (vx != nil).inspect  # true
       puts (vy == nil).inspect  # false
       puts (vy != nil).inspect  # true
 
@@ -190,11 +172,10 @@ describe "Methods: regressions" do
       #   a, (b, c), d = 1, [2, 3], 4
       #
       # Each parenthesized group on the LHS is a MultiTargetNode that
-      # recursively unpacks its slot of the RHS. Spinel routes through
-      # emit_multi_write_target which dispatches on the target node type.
-      # The inner-array RHS slot must be a typed-array (int_array, str_array,
-      # or float_array). Two-level nesting where intermediate slots are
-      # heterogeneous (poly_array) is out of scope -- documented inline.
+      # recursively unpacks its slot of the RHS. Here each inner-array RHS
+      # slot holds one element type (Integer, String or Float). This test
+      # does not cover two-level nesting where intermediate slots are
+      # heterogeneous.
 
       a, (b, c), d = 1, [2, 3], 4
       puts a    # 1
@@ -287,9 +268,8 @@ describe "Methods: regressions" do
 
   it "numbered params destructure" do
     result = zr(<<~'RUBY')
-      # Multi-arg numbered block params (`_1`, `_2`, ...) should destructure
-      # the yielded sub-array. Pre-fix: `_1` binds to the whole element
-      # (the sp_IntArray pointer) and `_2` is uninitialized -> "<ptr>=0".
+      # Multi-arg numbered block params (`_1`, `_2`, ...) destructure the
+      # yielded sub-array: `_1` does not bind to the whole element.
       # CRuby ref: arity-N blocks over a single Array argument auto-destructure.
 
       # Plain int-tuple sub-arrays - max=2 destructure
@@ -308,13 +288,10 @@ describe "Methods: regressions" do
       [[10, 1], [20, 2], [30, 3]].each { running = running + _1 - _2 }
       puts running
 
-      # Short sub-array regression — pre-fix the destructure read past the
-      # sub-array's data buffer (OOB) when the yielded element was shorter
-      # than the block's max numbered param. The fix bounds-checks each slot
-      # read and pads with 0 (typed-nil analogue). This test computes the
-      # sum of `_1 + _2` only when `_2` is not nil (so CRuby gets the same
-      # numbers as Spinel — Spinel's typed-zero already passes the .nil?
-      # false branch). `_2` is mentioned in the block so destruct_n >= 2.
+      # Short sub-array: the yielded element is shorter than the block's
+      # max numbered param, so the missing param is nil. This test adds
+      # `_2` only when `_2` is not nil. `_2` is mentioned in the block, so
+      # the block destructures at least 2 params.
       short_total = 0
       [[1], [2, 20], [3, 30]].each { short_total = short_total + _1 + (_2.nil? ? 0 : _2) }
       puts short_total
@@ -409,18 +386,15 @@ describe "Methods: regressions" do
   it "gc root map accumulator" do
     result = zr(<<~'RUBY')
       # A nested map block — outer iteration allocates plenty of inner
-      # objects via sp_*_new — can trigger a GC pass between pushes
-      # into the outer accumulator. Without rooting the accumulator,
-      # GC frees it as unreachable; the next push then writes into
-      # freed memory and corrupts malloc bookkeeping, surfacing as a
-      # SIGSEGV in _int_malloc on the next allocation.
+      # objects — can trigger a GC pass between pushes into the outer
+      # accumulator. The GC must keep the accumulator alive.
       #
-      # Each .map below crosses spinel's 256KB GC threshold mid-loop
-      # (each block iteration allocates a discarded scratch string
-      # alongside the kept result), so the outer accumulator must be
-      # rooted to survive a collection.
+      # Each .map below crosses the GC threshold mid-loop (each block
+      # iteration allocates a discarded scratch string alongside the
+      # kept result), so the outer accumulator must survive a
+      # collection.
 
-      # (1) int_array recv → StrArray accumulator (string-return block).
+      # (1) Integer-array recv → String results (string-return block).
       ints = []
       i = 0
       while i < 20000
@@ -436,7 +410,7 @@ describe "Methods: regressions" do
       puts r1[0]                # kept-string-value-0
       puts r1[19999][-3, 3]     # 999
 
-      # (2) int_array recv → IntArray accumulator (int-return block).
+      # (2) Integer-array recv → Integer results (int-return block).
       r2 = ints.map do |x|
         _scratch = "scratch-#{x}-discarded-inner-allocation-padding"
         x * 2
@@ -445,7 +419,7 @@ describe "Methods: regressions" do
       puts r2[0]                # 0
       puts r2[19999]            # 39998
 
-      # (3) str_array recv → StrArray accumulator (string-return block).
+      # (3) String-array recv → String results (string-return block).
       strs = []
       i = 0
       while i < 20000
@@ -461,7 +435,7 @@ describe "Methods: regressions" do
       puts r3[0]                # out-src-0
       puts r3[19999][-3, 3]     # 999
 
-      # (4) str_array recv → IntArray accumulator (int-return block).
+      # (4) String-array recv → Integer results (int-return block).
       r4 = strs.map do |s|
         _scratch = "scratch-#{s}-discarded-inner-allocation-padding"
         s.length
@@ -490,15 +464,13 @@ describe "Methods: regressions" do
   it "gc root range and times map" do
     result = zr(<<~'RUBY')
       # `Range#map` and `N.times.map` build a fresh accumulator
-      # (IntArray / StrArray / FloatArray) and push each block result.
+      # (of Integers, Strings or Floats) and push each block result.
       # When the block allocates inside (e.g. string interpolation), a
-      # GC pass triggered mid-loop frees the unrooted accumulator and
-      # the next push corrupts malloc bookkeeping — typically surfaces
-      # as a SIGSEGV in `_int_malloc` on the next allocation.
+      # GC pass can run mid-loop. The GC must keep the accumulator
+      # alive.
       #
-      # `int_array` / `str_array` recv branches already root the
-      # accumulator (PR #198). This covers the missing branches:
-      # `Range#map` and `N.times.map`.
+      # The "gc root map accumulator" test covers Array receivers. This
+      # one covers `Range#map` and `N.times.map`.
 
       # (1) Range#map with string-allocating block.
       r1 = (0..3000).map { |i| "padded-string-#{i}-with-some-extra-text" }
@@ -549,12 +521,9 @@ describe "Methods: regressions" do
 
   it "transpose gc root" do
     result = zr(<<~'RUBY')
-      # `Array#transpose` codegen creates the result `sp_PtrArray` and
-      # inner `sp_IntArray` columns without `SP_GC_ROOT`. With many
-      # allocations across the loop, an `sp_gc_collect` triggered by
-      # the next column's `sp_IntArray_new()` reclaims the unrooted
-      # result PtrArray. The next `sp_PtrArray_push(result, col)`
-      # dereferences a freed pointer.
+      # `Array#transpose` builds the result array and its inner columns.
+      # A collection that the next column's allocation triggers must not
+      # free the result array.
       #
       # Trigger: a transpose of a large array-of-arrays. Optcarrot's
       # `(0..7).map { (0...0x10000).map {...} }.transpose` allocates
@@ -675,27 +644,12 @@ describe "Methods: regressions" do
 
   it "str nul bound slice bytes" do
     result = zr(<<~'RUBY')
-      # Issue #657: a string with embedded NUL bytes had two surviving
-      # truncation paths:
+      # A string with embedded NUL bytes is not cut at the first NUL:
       #
-      #   - s[a, n] slice walks the result range via sp_utf8_byte_offset
-      #     applied to (s + boff, n). The inner call fell back to strlen
-      #     on a mid-string pointer (no 0xfe/0xfc marker visible at [-1])
-      #     and stopped at the first NUL after boff.
+      #   - an s[a, n] slice reads past a NUL that comes after a.
+      #   - s.bytes[i] includes the bytes after the first NUL.
       #
-      #   - s.bytes[i] (via sp_str_bytes) used `for (i=0; s[i]; i++)` which
-      #     terminates at the first NUL byte.
-      #
-      # Fix:
-      #   - sp_utf8_byte_offset bounds the walk on sp_str_byte_len(s)
-      #     (which honours the heap-string hdr marker) instead of "*p".
-      #   - sp_str_sub_range / sp_str_sub_range_len compute the end byte
-      #     position inline against sp_str_byte_len(s) instead of recursing
-      #     into sp_utf8_byte_offset(s+boff, len).
-      #   - sp_str_bytes walks 0..sp_str_byte_len(s) instead of 0..NUL.
-      #
-      # Concat already round-trips NULs correctly (sp_str_concat uses
-      # sp_str_byte_len for both inputs).
+      # Concat also keeps the NULs.
 
       nul = 0.chr
       s = "abc" + nul + "def"
@@ -725,49 +679,29 @@ describe "Methods: regressions" do
 
   it "str poly hash merge" do
     result = zr(<<~'RUBY')
-      # Issue #426. `Hash#merge` was unresolved on a `str_poly_hash`
-      # (mixed-value-type hash literal) -- emit produced `0` and the
-      # downstream `m.length` cascaded through int. Same shape on
-      # monomorphic-value hashes (`str_int_hash`, `str_str_hash`)
-      # worked; the gap was just the polymorphic-value specialization.
-      #
-      # Fix:
-      #   - Runtime: sp_StrPolyHash_merge(a, b) in lib/sp_runtime.h,
-      #     same shape as the existing sp_StrIntHash_merge /
-      #     sp_SymPolyHash_merge helpers.
-      #   - Codegen: `compile_hash_method_expr`'s str_poly_hash arm
-      #     gains a `merge` case. Dispatches by arg type:
-      #       * str_poly_hash arg -> sp_StrPolyHash_merge direct.
-      #       * str_str_hash arg -> inline copy with sp_box_str on
-      #         each value to land in poly slots.
-      #       * str_int_hash arg -> inline copy with sp_box_int.
-      #
-      # Out of scope: poly-typed args (sp_RbVal whose runtime hash
-      # variant is unknown statically) -- needs the runtime-dispatch
-      # pattern from sym_poly_hash's poly-arg branch, not in this
-      # minimal fix.
+      # `Hash#merge` on a String-keyed hash with mixed value types.
       #
       # Coverage:
-      #   - canonical mixed-value seed + str_int_hash override (the
-      #     repro from #426).
-      #   - mixed-value seed + str_str_hash override (forces the
-      #     box_str copy path).
-      #   - mixed-value seed + str_poly_hash override (the direct
-      #     merge path; verifies it's still reachable post-fix).
+      #   - mixed-value seed + Integer-valued override.
+      #   - mixed-value seed + String-valued override.
+      #   - mixed-value seed + mixed-value override.
+      #
+      # This test does not cover an argument whose Hash kind is only
+      # known at run time.
 
-      h = { "a" => 1, "b" => "two" }  # str_poly_hash
-      m = h.merge({ "c" => 3 })       # str_int_hash arg
+      h = { "a" => 1, "b" => "two" }  # mixed values
+      m = h.merge({ "c" => 3 })       # Integer-valued arg
       puts m.length                    # 3
       puts m["a"] == 1 ? "a-ok" : "a-bad"
       puts m["c"] == 3 ? "c-ok" : "c-bad"
 
-      # str_str_hash override of a str_poly_hash recv.
+      # String-valued override of a mixed-value recv.
       h2 = { "x" => 1, "y" => "two" }
       m2 = h2.merge({ "z" => "three" })
       puts m2.length                   # 3
       puts m2["z"] == "three" ? "z-ok" : "z-bad"
 
-      # str_poly_hash override of a str_poly_hash recv.
+      # mixed-value override of a mixed-value recv.
       h3 = { "p" => 1, "q" => "two" }
       extra = { "r" => 3, "s" => "four" }
       m3 = h3.merge(extra)
@@ -786,8 +720,8 @@ describe "Methods: regressions" do
 
   it "kw nil default string call" do
     result = zr(<<~'RUBY')
-      # Each inner top-level def is renamed with a per-test prefix to
-      # avoid cross-test collisions when the bundle is compiled.
+      # Each inner top-level def has a per-test prefix, so its name is
+      # unique across the tests.
 
 
       def t_kw_show(x: nil)
@@ -806,8 +740,8 @@ describe "Methods: regressions" do
 
   it "optional string param method" do
     result = zr(<<~'RUBY')
-      # Each inner top-level def is renamed with a per-test prefix to
-      # avoid cross-test collisions when the bundle is compiled.
+      # Each inner top-level def has a per-test prefix, so its name is
+      # unique across the tests.
 
 
       def t_osp_parse(source, file_path = nil)
@@ -835,8 +769,8 @@ describe "Methods: regressions" do
 
   it "poly box int array" do
     result = zr(<<~'RUBY')
-      # Each inner top-level def is renamed with a per-test prefix to
-      # avoid cross-test collisions when the bundle is compiled.
+      # Each inner top-level def has a per-test prefix, so its name is
+      # unique across the tests.
 
 
       def t_pbia_kind_of(a)
@@ -855,8 +789,8 @@ describe "Methods: regressions" do
 
   it "poly or returns value" do
     result = zr(<<~'RUBY')
-      # Each inner top-level def is renamed with a per-test prefix to
-      # avoid cross-test collisions when the bundle is compiled.
+      # Each inner top-level def has a per-test prefix, so its name is
+      # unique across the tests.
 
 
       def t_porv_pick(a, b)
@@ -886,8 +820,8 @@ describe "Methods: regressions" do
 
   it "each with object seed shadow" do
     result = zr(<<~'RUBY')
-      # Each inner top-level def is renamed with a per-test prefix to
-      # avoid cross-test collisions when the bundle is compiled.
+      # Each inner top-level def has a per-test prefix, so its name is
+      # unique across the tests.
 
 
       def t_ewoss_f
@@ -911,8 +845,8 @@ describe "Methods: regressions" do
 
   it "fetch nil default int lv" do
     result = zr(<<~'RUBY')
-      # Each inner top-level def is renamed with a per-test prefix to
-      # avoid cross-test collisions when the bundle is compiled.
+      # Each inner top-level def has a per-test prefix, so its name is
+      # unique across the tests.
 
 
       def t_fndi_f(opts = {})
@@ -931,8 +865,8 @@ describe "Methods: regressions" do
 
   it "no keywords param" do
     result = zr(<<~'RUBY')
-      # Each inner top-level def is renamed with a per-test prefix to
-      # avoid cross-test collisions when the bundle is compiled.
+      # Each inner top-level def has a per-test prefix, so its name is
+      # unique across the tests.
 
 
       def t_nkp_add(a, b, **nil)
@@ -951,8 +885,8 @@ describe "Methods: regressions" do
 
   it "sym case" do
     result = zr(<<~'RUBY')
-      # Each inner top-level def is renamed with a per-test prefix to
-      # avoid cross-test collisions when the bundle is compiled.
+      # Each inner top-level def has a per-test prefix, so its name is
+      # unique across the tests.
 
 
       def t_sc_classify(sym)
@@ -984,15 +918,11 @@ describe "Methods: regressions" do
 
   it "a user class that defines length does not make every other class's array parameter poly" do
     result = zr(<<~'RUBY')
-      # Issue #266 regression: defining `def length` on a class flipped
-      # Spinel's inference for IntArray params on unrelated class methods to
-      # poly. Cause was `infer_cls_meth_param_from_body` committing a param
-      # to `obj_<C>` whenever the only methods called on it (here `.length`)
-      # matched a user class — even though IntArray (and every other built-in
-      # container) also has `.length`. The body signal is too weak to commit;
-      # the gate added in this fix skips the pre-typing when the called set
-      # is satisfied by built-in container types, leaving call-site
-      # unification to decide.
+      # Defining `def length` on a class does not change the Integer-array
+      # params of methods on unrelated classes. A param whose only called
+      # method is `.length` can still be an Integer array, because every
+      # built-in container also has `.length`. The call sites decide the
+      # param's type.
 
       class Mat
         attr_accessor :flat, :nrows, :ncols
@@ -1036,9 +966,9 @@ describe "Methods: regressions" do
         ids
       end
 
-      # The class with `def length` is the trigger — pre-fix this caused
-      # Net#backward and Net#cross_entropy_grad to be inferred with poly
-      # `input_ids` / `token_ids` params and then mis-compile.
+      # The class with `def length` is the trigger. Net#backward and
+      # Net#cross_entropy_grad must still take Integer-array
+      # `input_ids` / `token_ids` params.
       class Bag
         attr_accessor :data
         def initialize(data); @data = data; end

@@ -791,8 +791,8 @@ describe "OpenSSL programs" do
     result = zr(<<~'RUBY')
       # `OpenSSL::Buffering` is a real module, mixed into SSLSocket, that supplies
       # the whole read/write surface over the receiver's `sysread`/`syswrite`/
-      # `sysclose`. It used to be implemented straight onto SSLSocket, so the module
-      # could not be named, reopened, or asked about its ancestry.
+      # `sysclose`. The module has a name, code can reopen it, and it shows in the
+      # ancestry.
       require "openssl"
       require "socket"
 

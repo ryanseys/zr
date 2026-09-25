@@ -67,14 +67,8 @@ describe "Regexp: pattern matching" do
 
   it "array pattern match basic" do
     result = zr(<<~'RUBY')
-      # Issue #669: `case arr in [a, b, c]` pattern matching with
-      # LocalVariableTargetNode bindings. Pre-fix, spinel_parse emitted
-      # `UnsupportedNode { kind: "ArrayPatternNode" }` and the codegen
-      # silently ran the body with lv_a / lv_b / lv_c never declared
-      # (C compile failed with "undeclared identifier"). Fix wires the
-      # pattern through spinel_parse + compile_array_pattern_arm so each
-      # bound LV gets declared with the scrutinee's elem type and
-      # initialised from the matching index.
+      # `case arr in [a, b, c]` binds each local variable to the element at
+      # the matching index, with the element type of the scrutinee.
 
       case [1, 2, 3]
       in [a, b, c]
@@ -189,7 +183,7 @@ describe "Regexp: pattern matching" do
     result = zr(<<~'RUBY')
       # Find patterns `case arr in [*head, m.., *tail]`: scan for the first window of
       # requireds, binding the leading splat (head), required targets, and trailing
-      # splat (tail). Pre-fix the arm matched unconditionally with head/tail nil.
+      # splat (tail). An arm matches only when such a window exists.
 
       def classify(a)
         case a
@@ -306,9 +300,8 @@ describe "Regexp: pattern matching" do
 
   it "pattern match splat rest" do
     result = zr(<<~'RUBY')
-      # Issue #844: array pattern with `*rest` splat target. The rest LV
-      # needs to be declared in the surrounding scope; pre-fix it was
-      # only handled at codegen-emit, leaving lv_rest undeclared.
+      # Array pattern with a `*rest` splat target. The rest local exists in
+      # the surrounding scope.
       case [1, 2, 3]
       in [first, *rest]
         puts "first=" + first.to_s
@@ -461,10 +454,8 @@ describe "Regexp: pattern matching" do
 
   it "string patterns to split and gsub now work" do
     result = zr(<<~'RUBY')
-      # SEMANTICS FLIP: String patterns to split/gsub used to be
-      # compile-time rejections ("pass a Regexp literal instead"); the String
-      # table rows now implement them for real, so the static regexp path falls
-      # through to dynamic dispatch instead. Oracle-verified.
+      # split and gsub take a String pattern as well as a Regexp, and match
+      # the String as literal text. Oracle-verified.
 
       puts "a,b".split(",").inspect
       puts "a,b".gsub(",", ";")

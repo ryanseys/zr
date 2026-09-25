@@ -168,13 +168,8 @@ describe "Singleton: searching and matching" do
 
   it "five recorded divergences that are not" do
     result = zr(<<~'RUBY')
-      # Five behaviours recorded in comments and docs as known divergences, all
-      # of which zr already answers exactly as ruby 4.0.6 does.
-      #
-      # Each was fixed at some point and its note left behind, so the record said
-      # zr was less correct than it is. The notes are deleted; these rows are
-      # what replaces them, so a regression is caught rather than re-discovered
-      # and re-filed.
+      # Five behaviours that zr answers exactly as ruby 4.0.6 does. These rows
+      # catch a change in any of them.
       #
       #   1. Mixed Integer/Float comparison past 2**53
       #   2. A class-level `@x` read through an INHERITED class method

@@ -80,8 +80,8 @@ describe "Thread: raising and rescuing" do
 
   it "fiber exception boundary" do
     result = zr(<<~'RUBY')
-      # #1474: a fiber's begin/rescue handlers must not leak across the fiber
-      # boundary. Each case previously crashed (cross-stack longjmp) or mis-routed.
+      # A fiber's begin/rescue handlers must not leak across the fiber
+      # boundary. Each case must reach the correct handler.
 
       # (b) fiber yields inside begin/rescue; resumer then raises with an outer handler
       out = []
@@ -521,8 +521,7 @@ describe "Thread: raising and rescuing" do
   it "rescue bind in fiber body" do
     result = zr(<<~'RUBY')
       # `rescue => e` inside a Fiber body binds the exception local in the
-      # fiber body's own function. Regression: the binding was attributed to
-      # the enclosing scope, so `_fiber_body_N` referenced an undeclared lv_e.
+      # fiber body's own scope, not in the enclosing scope.
       fib = Fiber.new do
         begin
           raise "fib boom"
@@ -643,7 +642,7 @@ describe "Thread: raising and rescuing" do
         t.join
         sleep 0.2
       rescue => e
-        # CRuby lands here; spinel's no-op never raises.
+        # CRuby can come here when the raise arrives inside the begin.
       end
       puts "ok"
     RUBY

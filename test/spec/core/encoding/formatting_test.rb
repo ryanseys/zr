@@ -470,11 +470,10 @@ describe "Encoding: formatting and inspection" do
       # `dst_bytesize` limit. (This first line avoids naming the class outright:
       # ruby would read `coding:` inside it as a magic comment.)
       #
-      # This was a gap. zr used to refuse the first character whose bytes would not
-      # fit and consume nothing more, so its source kept every character that did
-      # not convert while CRuby's was shorter. `ConvState` now holds the output
-      # produced past the limit and drains it ahead of the next conversion, which is
-      # what makes the INTERMEDIATE state agree and not just the end state.
+      # A character whose output does not fit is still consumed from the source.
+      # The converter holds the output past the limit and drains it ahead of the
+      # next conversion. So the INTERMEDIATE state agrees with CRuby, not just the
+      # end state.
       #
       # Both rows below are pinned: where the cut falls, and what a drain answers.
 
@@ -577,9 +576,6 @@ describe "Encoding: formatting and inspection" do
       # moves the answer, because every encoding zr carries is ASCII-compatible;
       # two non-ASCII sides in different encodings do not combine at all, and that
       # is an `Encoding::CompatibilityError`.
-      #
-      # zr used to tag every one of these UTF-8, which lost the receiver's
-      # encoding, lost the argument's, and never raised.
 
       def show(label)
         v = yield
@@ -681,8 +677,7 @@ describe "Encoding: formatting and inspection" do
 
   it "format binary" do
     result = zr(<<~'RUBY')
-      # "%b" / "%B" binary conversion in String#% / format / sprintf. Previously the
-      # binary conversion was unsupported and emitted the literal spec (e.g. "%b").
+      # "%b" / "%B" binary conversion in String#% / format / sprintf.
       def s(x); x; end
 
       # --- basics ---
@@ -908,11 +903,8 @@ describe "Encoding: formatting and inspection" do
       # A Symbol remembers the encoding of the String it came from, so
       # `str.to_sym.to_s` answers that encoding and those bytes.
       #
-      # This was a gap. The interner used to key on `&'static str` and store nothing
-      # else, so `Symbol::intern` was handed `to_utf8_lossy` text and the encoding
-      # was gone by the time the id existed. Ruby interns by BYTES plus encoding --
-      # `:"caf\xE9"` in ISO-8859-1 and the same bytes in UTF-8 are two different
-      # symbols -- and so does zr now.
+      # Ruby interns by BYTES plus encoding -- `:"caf\xE9"` in ISO-8859-1 and the
+      # same bytes in UTF-8 are two different symbols.
       #
       # Each row pins the round trip for one non-UTF-8 encoding.
       {
@@ -1391,10 +1383,9 @@ describe "Encoding: formatting and inspection" do
       # bit, `#encoding` names it, and `#fixed_encoding?` answers whether the pattern
       # is pinned to one.
       #
-      # `/e` and `/s` used to be a clean rejection and `/n` and `/u` were treated as
-      # harmless no-ops, which they are not: they reported 0 options, US-ASCII, and
-      # false. ruby2ruby and ruby_parser both OPEN by reading those bits back out of
-      # four throwaway patterns, and they are the reason the numbers here matter.
+      # None of the four letters is a no-op. ruby2ruby and ruby_parser both OPEN by
+      # reading those bits back out of four throwaway patterns, and they are the
+      # reason the numbers here matter.
 
       # `/n` sets NOENCODING (32); the other three set FIXEDENCODING (16). None of
       # them touch the i/x/m bits, which stay 1/2/4 and combine.
@@ -1482,7 +1473,7 @@ describe "Encoding: formatting and inspection" do
 
   it "__ENCODING__ is an Encoding value, so it compares and keys a hash as one" do
     result = zr(<<~'RUBY')
-      # Issue #843. `__ENCODING__` should behave like an Encoding value,
+      # `__ENCODING__` should behave like an Encoding value,
       # not a plain String.
 
       puts __ENCODING__.class
@@ -1520,12 +1511,11 @@ describe "Encoding: formatting and inspection" do
     result = zr(<<~'RUBY')
       # A derived string keeps the RECEIVER's encoding and its raw bytes.
       #
-      # The strip/pad/chop/tr/delete/squeeze family used to compute over
-      # `to_utf8_lossy` text and rebuild with `str_value`, which tags UTF-8 -- so
-      # `"caf\xE9".force_encoding("ISO-8859-1").strip` came back UTF-8 with `é` as
-      # two bytes where ruby keeps ISO-8859-1 and one. `chars`/`each_char` slice the
-      # raw bytes instead of decoding, and `codepoints` answers the number the
-      # receiver's own encoding gives a character, not the Unicode scalar.
+      # The strip/pad/chop/tr/delete/squeeze family works on the raw bytes, so
+      # `"caf\xE9".force_encoding("ISO-8859-1").strip` stays ISO-8859-1 with `é` as
+      # one byte. `chars`/`each_char` slice the raw bytes instead of decoding, and
+      # `codepoints` answers the number the receiver's own encoding gives a
+      # character, not the Unicode scalar.
 
       def show(label)
         v = yield
@@ -1725,9 +1715,8 @@ describe "Encoding: formatting and inspection" do
 
   it "string lshift int codepoint" do
     result = zr(<<~'RUBY')
-      # Issue #882: `s << int` appends the UTF-8 character with that
-      # codepoint (per MRI). Previously appended the integer's decimal
-      # digits.
+      # `s << int` appends the UTF-8 character with that codepoint (per
+      # MRI), not the decimal digits of the integer.
       s = String.new("hello")
       s << 33
       puts s.inspect

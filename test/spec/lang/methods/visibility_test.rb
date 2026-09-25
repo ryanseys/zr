@@ -141,7 +141,7 @@ describe "Methods: visibility" do
       # (even via a chain of other uncalled module functions) is dead-code-
       # eliminated, so its body — which may use unimplemented dynamic
       # patterns — doesn't break compilation. A *called* module function
-      # still works. Regression for #1062.
+      # still works.
       module M
         # uncalled; body builds from a variable-held class (dynamic .new)
         def fail_with(*args)
@@ -371,11 +371,9 @@ describe "Methods: visibility" do
 
   it "toplevel method runtime name" do
     result = zr(<<~'RUBY')
-      # A top-level method is emitted as sp_<name>, which is the runtime's own
-      # namespace. The mangler carries an rb_ infix for names that would land in it,
-      # but it only looked at the segment in front of an underscore -- so `def sym_x`
-      # was protected while `def sym` collided with the sp_sym TYPEDEF and the
-      # program failed to build on a C diagnostic that never named `sym`.
+      # Top-level methods can have the names of runtime types and helpers, such as
+      # `sym`, `int`, `float` and `queue`. Each one is a plain method, and a name
+      # with an underscore (`sym_x`) is too.
       def sym(v) = "sym:#{v}"
       def int(v) = "int:#{v}"
       def float(v) = "float:#{v}"

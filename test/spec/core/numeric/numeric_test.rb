@@ -60,7 +60,7 @@ describe "Numeric programs" do
       # Bitwise ops with a bignum receiver (a value > Integer 63-bit) -- the 64-bit
       # unsigned masking idiom used by PRNGs/hashes. The receiver, the mask, and the
       # result can all exceed int64, so they must use arbitrary-precision bitwise,
-      # not an int64 round-trip. (#1516)
+      # not an int64 round-trip.
       MASK64 = (1 << 64) - 1
       puts(1 << 64)                                  # 18446744073709551616
       puts(MASK64)                                   # 18446744073709551615
@@ -290,11 +290,9 @@ describe "Numeric programs" do
 
   it "float limit constants" do
     result = zr(<<~'RUBY')
-      # Issue #1253: Float::MAX / MIN / EPSILON compiled to undeclared C
-      # identifiers (Float_MAX) instead of the <float.h> DBL_* macros.
-      # Issue #1252: Integer has no public constants in CRuby (it is
-      # arbitrary precision), so Integer::MAX must raise NameError, not emit
-      # a bare Integer_MAX identifier.
+      # Float::MAX / MIN / EPSILON are the limits of a double.
+      # Integer has no public constants in CRuby (it is arbitrary
+      # precision), so Integer::MAX must raise NameError.
       puts Float::MAX
       puts Float::MIN
       puts Float::EPSILON
@@ -554,18 +552,10 @@ describe "Numeric programs" do
 
   it "integer chr char table" do
     result = zr(<<~'RUBY')
-      # `Integer#chr` allocated a 1-byte string per call -- 64% of a chr loop was
-      # malloc, free and the GC sweep walking what they left. The static table that
-      # now serves 1-byte slices serves this too, so nothing is allocated.
+      # `Integer#chr` answers a 1-byte string for each byte value. The static
+      # table of 1-byte strings serves it, so a call allocates nothing.
       #
-      # It stays on the PLAIN table, not the BINARY one. spinel does not let a
-      # program name an encoding, so nothing but pack and String#b asks for BYTES,
-      # and a chr result is not one of those. Tagging it BINARY would have matched
-      # CRuby on two more surfaces (255.chr.encoding, 1.chr.inspect) and diverged on
-      # two others; leaving it plain changes nothing observable at all.
-      #
-      # The table entry has a real header, so byte 0 is a 1-byte string here where
-      # strlen made it the empty one.
+      # Byte 0 is a 1-byte string, not the empty string.
 
       p 0.chr.length
       p 0.chr.bytesize
@@ -604,7 +594,7 @@ describe "Numeric programs" do
       p w
       p 65.chr
 
-      # embedded NUL through concat, the shape #593 is about
+      # embedded NUL through concat
       b = 0.chr + 0xc8.chr
       p b.length
       p b.bytesize
@@ -743,9 +733,8 @@ describe "Numeric programs" do
 
   it "integer times as expr" do
     result = zr(<<~'RUBY')
-      # Issue #877: Integer#times / #upto / #downto in expression
-      # position return self (per MRI). Pre-fix, the expression form
-      # emitted 0; the statement form already iterated correctly.
+      # Integer#times / #upto / #downto in expression position return
+      # self (per MRI).
       x = 5.times { }
       puts x
       y = 1.upto(5) { }
@@ -763,12 +752,9 @@ describe "Numeric programs" do
 
   it "interp call arg root" do
     result = zr(<<~'RUBY')
-      # Regression for #1498: a module_function whose String return is inferred
-      # nilable, called with a string-literal arg from inside a string interpolation
-      # that is passed to Regexp.new/compile. The embedded call roots its own arg, and
-      # that rooting decl must land as a whole statement before the pattern temp's
-      # declaration -- not nested inside its initializer (which emitted illegal C:
-      # `const char *_t3 = const char *_t5 = ...`).
+      # A module_function that can answer a String or nil, called with a
+      # string-literal arg from inside a string interpolation that is passed to
+      # Regexp.new/compile.
       module StringGlob
         module_function
         def regexp_string(s)
@@ -794,14 +780,9 @@ describe "Numeric programs" do
 
   it "interp diverging part" do
     result = zr(<<~'RUBY')
-      # An uninitialized constant inside interpolation compiles to the NameError raise
-      # spinel's warning promises -- but the raise closes its expression with a dead
-      # placeholder of the node's type, and the arm the interpolation picks comes from
-      # the node's INFERRED type. Those disagreed: `(sp_raise_cls(...), (sp_Class){-1})`
-      # was handed to sp_poly_to_s (#4092).
-      #
-      # Anything that diverges is discarded and answers the empty string instead. The
-      # raise means nothing reads it.
+      # An uninitialized constant inside interpolation raises NameError at run time.
+      # The interpolation never gets a value from that part, because the raise
+      # comes first.
 
       module Engine
       end
@@ -841,10 +822,9 @@ describe "Numeric programs" do
 
   it "interp method widening" do
     result = zr(<<~'RUBY')
-      # Method called only inside string interpolation should still anchor its
-      # parameter type. Pre-fix: scan_features didn't visit EmbeddedStatementsNode
-      # bodies, so `cap(name)` inside `"#{...}"` was the only call site for `cap`,
-      # its `s` param defaulted to int, and codegen produced a C compile error.
+      # A method called only inside string interpolation gets its parameter
+      # type from that call: `cap(name)` inside `"#{...}"` is the only call
+      # site for `cap`, so its `s` param is a String.
 
       def cap(s)
         s + "_cap"
@@ -1008,15 +988,8 @@ describe "Numeric programs" do
   it "introspection constant path" do
     result = zr(<<~'RUBY')
       # `is_a?` / `kind_of?` / `instance_of?` with a qualified-constant
-      # argument (ConstantPathNode like `Mod::Klass`). The dynamic-arg
-      # branch in compile_introspection_expr previously excluded only the
-      # bare ConstantReadNode shape; a qualified constant fell through and
-      # emitted compile_expr(arg) as a bare C identifier with no declaration,
-      # producing "use of undeclared identifier" at C compile time. The
-      # is_a? branch also didn't route kind_of? or instance_of? through
-      # the same static collapse, so those names silently fell through to
-      # warn_unresolved_call. Fix: resolve the constant name via the path
-      # walker, and dispatch the whole introspection family uniformly.
+      # argument (a constant path like `Mod::Klass`). The three methods of
+      # the family all accept a qualified constant.
       #
       # Coverage:
       # - Same-class match (is_a?/kind_of?/instance_of? all true)
@@ -1024,13 +997,9 @@ describe "Numeric programs" do
       # - Ancestor case (is_a?/kind_of? true; instance_of? false, exact only)
       # - Deeper constant path (Mod::Sub::Deep — three-level path walk)
       #
-      # Out of scope for this PR:
-      # - Class-as-local (`k = Mod::Klass; obj.is_a?(k)`) emits the const
-      #   name as a bare C identifier — a separate ConstantPathNode-to-local
-      #   assignment bug, distinct from the introspection-arg fix here.
-      # - Built-in ancestor (`obj.is_a?(Object)`) returns false in spinel
-      #   today; spinel's class registry doesn't materialize Object as an
-      #   ancestor of user classes. Separate gap.
+      # Out of scope here:
+      # - Class-as-local (`k = Mod::Klass; obj.is_a?(k)`).
+      # - Built-in ancestor (`obj.is_a?(Object)`).
 
       module Mod
         class Base
@@ -1089,8 +1058,7 @@ describe "Numeric programs" do
   it "kernel complex" do
     result = zr(<<~'RUBY')
       # Kernel#Complex(re, im) builds a Complex value (imaginary part defaults
-      # to 0). Previously the no-receiver Complex() call fell through to the
-      # integer 0 fallback.
+      # to 0).
       p Complex(2, 3)
       p Complex(1)
       p Complex(2.5, -1.5)
@@ -1654,22 +1622,22 @@ describe "Numeric programs" do
 
   it "Numeric#i over a subclass raises ruby's ArgumentError, naming Comparable#< and the frames under it" do
     result = zr(<<~'RUBY')
-      # WAITING ON `builtin_frames_in_a_backtrace`. Complex now holds a user
-      # `Numeric` subclass and dispatches every component operation, so this file
-      # raises ruby's ArgumentError from ruby's line with ruby's message -- what is
-      # left is the three C frames under it. zr's native rows push no frame, so
-      # `Comparable#<`, `Complex#inspect` and `Kernel#p` are all missing from the
-      # trace. Promote this the moment that gap closes; nothing here needs Complex
-      # work any more.
+      # `Numeric#i` builds `Complex(0, self)`. Here `self` is a Deg, a user
+      # subclass of `Numeric`.
       #
-      # The original cause: `Numeric#i` builds `Complex(0, self)`, and zr's Complex
-      # held only its own numeric lanes, so a user subclass got a TypeError where
-      # ruby builds `(0+Deg(7)*i)`.
+      # Complex holds a user `Numeric` subclass and dispatches every component
+      # operation to it. `p n.i` calls `Complex#inspect`, which asks whether the
+      # imaginary part is negative. That calls `Comparable#<` on the Deg, and the
+      # compare of a Deg with 0 fails.
       #
-      # This file used to record a second, unrelated limit -- that nothing called
-      # `Numeric#singleton_method_added`, so `def n.foo` on a number succeeded where
-      # ruby refuses. The definition hooks now fire; see
-      # `tests/definition_hooks_at_runtime.rb`.
+      # So the program raises ruby's ArgumentError from ruby's line with ruby's
+      # message. The trace names the frames under it: `Comparable#<`,
+      # `Complex#inspect` and `Kernel#p`, then `<main>`.
+      #
+      # Deg defines `to_f` and `inspect`, but not `<=>`, so the compare has no
+      # answer. The `rescue TypeError` does not catch the ArgumentError, and the
+      # program exits with status 1. (This comment keeps `p n.i` on line 27.)
+      #
 
       class Deg < Numeric
         def initialize(v) = @v = v
@@ -1711,8 +1679,7 @@ describe "Numeric programs" do
       p arr.size
       arr.insert(-1, 9.5)
       p arr[arr.size - 1]
-      # boxed (TY_POLY) index: a poly-array element read must unbox to mrb_int, not
-      # pass an sp_RbVal into the mrb_int slot.
+      # an index read from a mixed Array is still an Integer index
       idxs = [0, "x"]
       arr.insert(idxs[0], :head)
       p arr[0]
@@ -1730,19 +1697,18 @@ describe "Numeric programs" do
 
   it "rational i to complex" do
     result = zr(<<~'RUBY')
-      # Rational#i -> Complex(0, self). spinel's Complex is float-backed, so the
-      # imaginary part renders as a Float where CRuby keeps the exact Rational
-      # (docs/limitations.md "Rational precision and Complex components").
-      p(Rational(3, 4).i)      # (0+0.75i)   CRuby: (0+(3/4)*i)
-      p(Rational(-1, 2).i)     # (0-0.5i)    CRuby: (0-(1/2)*i)
-      p(Rational(2, 1).i)      # (0+2.0i)    CRuby: (0+(2/1)*i)
+      # Rational#i -> Complex(0, self). The imaginary part keeps the exact Rational,
+      # as in CRuby.
+      p(Rational(3, 4).i)      # (0+(3/4)*i)
+      p(Rational(-1, 2).i)     # (0-(1/2)*i)
+      p(Rational(2, 1).i)      # (0+(2/1)*i)
 
       r = Rational(3, 4)
       c = r.i
       p c.class                # Complex
       p c.real                 # 0   -- the real part is exact
-      p c.imaginary            # 0.75  CRuby: (3/4)
-      # the VALUE is right even though the component class is not
+      p c.imaginary            # (3/4)
+      # the VALUE also compares equal to the Float
       p c.imaginary == 0.75
       p c.abs2 == 0.5625
     RUBY
@@ -1762,9 +1728,7 @@ describe "Numeric programs" do
   it "reduce numeric promotion" do
     result = zr(<<~'RUBY')
       # A fold accumulator seeded with an int but reassigned to a float each
-      # iteration must accumulate float, not truncate. The seed type alone used to
-      # fix both the reduce return type and the C accumulator type, so an int seed
-      # folded over floats silently truncated (`[1.5,2.5].reduce(0)` -> 3, not 4.0).
+      # iteration must accumulate float, not truncate: `[1.5,2.5].reduce(0)` -> 4.0.
 
       # int seed, float elements -> float fold
       p [1.5, 2.5].reduce(0) { |a, x| a + x }
@@ -1811,12 +1775,8 @@ describe "Numeric programs" do
 
   it "sort by rational key" do
     result = zr(<<~'RUBY')
-      # sort_by / min_by / max_by list the key types they can order. A Rational and a
-      # Bignum are comparable numbers carried as pointers, and the keys are boxed and
-      # compared with the poly ordering anyway -- which already orders both, since
-      # Array#sort and #max on Rationals work. Refusing them here only dropped the
-      # call to the unresolved-call raise, so the program got "undefined method
-      # 'sort_by' for an instance of Array" (#4061).
+      # sort_by / min_by / max_by order by a Rational or a Bignum key, as Array#sort
+      # and #max order Rationals.
       p [3, 1, 2].sort_by { |n| Rational(n, 2) }
       p [3, 1, 2].min_by { |n| Rational(n, 2) }
       p [3, 1, 2].max_by { |n| Rational(n, 2) }
@@ -1834,8 +1794,8 @@ describe "Numeric programs" do
       p({ "a" => 3, "b" => 1 }.sort_by { |k, v| Rational(v, 2) })
       p [1.5, 0.5].sort_by { |f| f.to_r }
 
-      # the count form boxes its keys the same way, so a String or Symbol key works
-      # there too -- it used to reject every key that needed boxing
+      # the count form orders its keys the same way, so a String or Symbol key works
+      # there too
       p %w[pear fig apple].min_by(2) { |w| w }
       p [:c, :a, :b].max_by(2) { |s| s }
       p [[2, 9], [1, 0]].min_by(1) { |a| a }

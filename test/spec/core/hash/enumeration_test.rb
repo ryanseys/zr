@@ -89,8 +89,8 @@ describe "Hash: enumeration" do
 
       def probe(n002, memo002 = {})
         memo002[n002] = n002 * 2
-        p memo002.key?(n002)   # Ruby: true   Spinel: false
-        p memo002.size         # both: 1
+        p memo002.key?(n002)   # true
+        p memo002.size         # 1
         memo002[n002]
       end
       p probe(3)
@@ -143,7 +143,7 @@ describe "Hash: enumeration" do
 
   it "a blockless map, select, reject, find or flat_map answers an Enumerator" do
     result = zr(<<~'RUBY')
-      # Blockless Hash Enumerable methods yield an Enumerator (KieranP #2337)
+      # Blockless Hash Enumerable methods yield an Enumerator
       p({ a: 1, b: 2 }.map.class)
       p({ a: 1, b: 2 }.select.class)
       p({ a: 1, b: 2 }.reject.class)
@@ -170,12 +170,12 @@ describe "Hash: enumeration" do
     result = zr(<<~'RUBY')
       p({}.each_entry { |e| e })
 
-      p({ a: 1, b: 2 }.each_entry { |e| e })    # Ruby: {a: 1, b: 2}   Spinel: no output
-      p({ "a" => 1 }.each_entry { |e| e })      # Ruby: {"a" => 1}     Spinel: no output
+      p({ a: 1, b: 2 }.each_entry { |e| e })    # => {a: 1, b: 2}
+      p({ "a" => 1 }.each_entry { |e| e })      # => {"a" => 1}
 
       h = { a: 1, b: 2 }
       o = []; h.each_entry { |e| o << e }; p o   # => [[:a, 1], [:b, 2]]
-      c = (h.each_entry { |e| e }); p c          # Ruby: {a: 1, b: 2}   Spinel: {a: 1, b: 2}
+      c = (h.each_entry { |e| e }); p c          # => {a: 1, b: 2}
       h2 = {}; o2 = []; h2.each_entry { |e| o2 << e }; p o2   # => []
       p([1, 2].each_entry { |e| e })             # => [1, 2]
     RUBY
@@ -263,82 +263,82 @@ describe "Hash: enumeration" do
 
   it "each_key and each_value yield in insertion order whatever the key and value kinds" do
     result = zr(<<~'RUBY')
-      # Hash#each_key / #each_value with a block across every typed-hash
-      # variant spinel offers. Keys and values are yielded in insertion
-      # order. Poly (boxed-object) slots are printed via to_s so array
-      # payloads render on a single line.
+      # Hash#each_key / #each_value with a block across many kinds of keys
+      # and values. Keys and values are yielded in insertion order. Mixed
+      # or object values are printed via to_s so array values render on a
+      # single line.
 
-      # sym_int_hash
+      # Symbol keys, Integer values
       h_sym_int = { a: 1, b: 2, c: 3 }
       h_sym_int.each_key { |k| puts k }
       puts "-"
       h_sym_int.each_value { |v| puts v }
       puts "=="
 
-      # sym_str_hash
+      # Symbol keys, String values
       h_sym_str = { x: "one", y: "two" }
       h_sym_str.each_key { |k| puts k }
       puts "-"
       h_sym_str.each_value { |v| puts v }
       puts "=="
 
-      # sym_poly_hash (mixed scalar values box to sp_RbVal)
+      # Symbol keys, mixed scalar values
       h_sym_poly = { a: 1, b: "two" }
       h_sym_poly.each_key { |k| puts k }
       puts "-"
       h_sym_poly.each_value { |v| puts v.to_s }
       puts "=="
 
-      # sym_poly_hash (object values)
+      # Symbol keys, object values
       h_sym_poly_obj = { a: [1], b: [2, 3] }
       h_sym_poly_obj.each_key { |k| puts k }
       puts "-"
       h_sym_poly_obj.each_value { |v| puts v.to_s }
       puts "=="
 
-      # str_int_hash
+      # String keys, Integer values
       h_str_int = { "a" => 1, "b" => 2 }
       h_str_int.each_key { |k| puts k }
       puts "-"
       h_str_int.each_value { |v| puts v }
       puts "=="
 
-      # str_str_hash
+      # String keys, String values
       h_str_str = { "a" => "x", "b" => "y" }
       h_str_str.each_key { |k| puts k }
       puts "-"
       h_str_str.each_value { |v| puts v }
       puts "=="
 
-      # str_poly_hash (mixed scalar values)
+      # String keys, mixed scalar values
       h_str_poly = { "a" => 1, "b" => "two" }
       h_str_poly.each_key { |k| puts k }
       puts "-"
       h_str_poly.each_value { |v| puts v.to_s }
       puts "=="
 
-      # str_poly_hash (object values)
+      # String keys, object values
       h_str_poly_obj = { "a" => [1], "b" => [2, 3] }
       h_str_poly_obj.each_key { |k| puts k }
       puts "-"
       h_str_poly_obj.each_value { |v| puts v.to_s }
       puts "=="
 
-      # int_str_hash
+      # Integer keys, String values
       h_int_str = { 1 => "one", 2 => "two" }
       h_int_str.each_key { |k| puts k }
       puts "-"
       h_int_str.each_value { |v| puts v }
       puts "=="
 
-      # int_int_hash
+      # Integer keys, Integer values
       h_int_int = { 1 => 10, 2 => 20 }
       h_int_int.each_key { |k| puts k }
       puts "-"
       h_int_int.each_value { |v| puts v }
       puts "=="
 
-      # poly_poly_hash (heterogeneous object keys and values)
+      # Object keys and values of mixed types
       h_poly_poly = {}
       h_poly_poly[[1, 2]] = "ab"
       h_poly_poly[[3, 4]] = "cd"
@@ -491,13 +491,13 @@ describe "Hash: enumeration" do
   it "each_with_object binds |(k, v), memo|, and the flat three-parameter form leaves memo nil" do
     result = zr(<<~'RUBY')
       # Hash#each_with_object — iterates k,v pairs and threads `memo`
-      # through the block. The destructured form `|(k,v), memo|` matches
-      # the MultiTargetNode containing the two names; the flat 3-param
-      # shape `|k, v, memo|` is also accepted.
-      #
-      # Note: an empty `[]` seed is typed as int_array, so a block that
-      # pushes strings widens incorrectly. Use a typed seed
-      # (\`[""]\`-style or pop after) when the block produces non-int values.
+      # through the block. The destructured form `|(k,v), memo|` binds the
+      # pair's two elements. In the flat 3-param shape `|k, v, memo|`, k gets
+      # the pair, v gets the memo, and memo is nil.
+
+      # The blank lines keep the line numbers that the expected output names.
+
+
 
       h = {a: 1, b: 2, c: 3}
       result = h.each_with_object([]) { |(k,v), memo| memo << v * 10 }
@@ -521,14 +521,14 @@ describe "Hash: enumeration" do
 
   it "an empty literal answers the object queries, and a block returning nil maps to nils" do
     result = zr(<<~'RUBY')
-      # Hash conformance (KieranP #2335,#2342,#2343)
-      p({}.nil?)                          # #2335 object query on empty hash literal
+      # Hash conformance
+      p({}.nil?)                          # object query on empty hash literal
       p({}.frozen?)
       p({}.empty?)
       p({}.is_a?(Hash))
       p({}.is_a?(Array))
-      p(Hash[])                           # #2342 Hash[] with no arguments
-      p({ a: 1, b: 2 }.map { |k, v| nil })       # #2343 all-nil block map
+      p(Hash[])                           # Hash[] with no arguments
+      p({ a: 1, b: 2 }.map { |k, v| nil })       # all-nil block map
       p({ a: 1, b: 2 }.collect { |k, v| nil })
       p({ a: 1, b: 2 }.map { |k, v| k })
     RUBY
@@ -548,15 +548,11 @@ describe "Hash: enumeration" do
 
   it "a keys.each block param shadows an outer local of another type without taking its slot" do
     result = zr(<<~'RUBY')
-      # Follow-up to PR #120: the hash.keys.each fusion path emitted the
-      # block param as a bare assignment (`lv_k = hash->order[i]`), so a
-      # block param that shadowed an outer same-named local of a different
-      # type re-used the outer local's C declaration and the assignment
-      # warned / produced wrong values. Mirror PR #115's pattern: declare
-      # `lv_<bp>` inline with the key's C type and wrap the body in
-      # push_scope / declare_var / pop_scope.
+      # In `hash.keys.each do |k|`, the block param shadows an outer local
+      # of the same name and a different type. The block sees the key, and
+      # the outer local keeps its own value after the block.
 
-      # 1. Outer string `k`, inner int key (int_str_hash).
+      # 1. Outer string `k`, inner Integer key.
       def f1
         k = "outer-string"
         h = {1 => "a", 2 => "b"}
@@ -567,7 +563,7 @@ describe "Hash: enumeration" do
       end
       f1
 
-      # 2. Outer int `s`, inner string key (str_int_hash).
+      # 2. Outer Integer `s`, inner String key.
       def f2
         s = 42
         h = {"x" => 1, "y" => 2}
@@ -578,7 +574,7 @@ describe "Hash: enumeration" do
       end
       f2
 
-      # 3. Outer string `n`, inner sym key (sym_int_hash).
+      # 3. Outer String `n`, inner Symbol key.
       def f3
         n = "outer"
         h = {a: 10, b: 20}
@@ -605,9 +601,8 @@ describe "Hash: enumeration" do
 
   it "map over a symbol-keyed hash builds an array from the block's value" do
     result = zr(<<~'RUBY')
-      # Hash#map on sym_int_hash with a block. Pre-fix the receiver
-      # fell through to a stale `_t = 0` IntArray pointer and crashed
-      # on .inspect.
+      # Hash#map with a block on a hash of Symbol keys and Integer values
+      # gives an Array of the block's values.
       h = {a: 1, b: 2}
       puts h.map { |k, v| v * 10 }.inspect
       puts h.map { |k, v| "#{k}=#{v}" }.inspect
@@ -621,9 +616,8 @@ describe "Hash: enumeration" do
 
   it "merge between two hashes of different key and value kinds keeps both" do
     result = zr(<<~'RUBY')
-      # Hash#merge between incompatible specialized layouts folds through the
-      # universal PolyPoly merge instead of reading the argument through the
-      # wrong struct (#3261).
+      # Hash#merge between hashes of different key and value kinds keeps the
+      # pairs of both.
       merged = { 14 => nil }.merge({ 39 => 1 })
       p merged.keys.sort
       p merged[14]
@@ -645,11 +639,8 @@ describe "Hash: enumeration" do
 
   it "a hash parameter iterated only by each infers its key and value types" do
     result = zr(<<~'RUBY')
-      # Issue #408 (followup to #397). Hash params iterated solely via
-      # `each do |k, v|` got no signal through the existing
-      # `narrow_param_hash_types_from_body_writes` pass -- that one only
-      # fires for `pname[k] = v` write-back patterns. A formatter that
-      # read-only-iterates the hash, like the canonical
+      # A Hash param that the method only reads with `each do |k, v|`. A
+      # formatter that iterates the hash, like this
       # `Tep::Json.encode_object` shape:
       #
       #   def self.encode(h)
@@ -660,22 +651,12 @@ describe "Hash: enumeration" do
       #     out
       #   end
       #
-      # left h widened to whichever poly variant an earlier call site
-      # pinned, so subsequent string-concat sites tripped the C compiler
-      # with `passing 'sp_RbVal' to const char *`.
-      #
-      # Fix: extend `infer_param_hash_from_writes` with a parallel
-      # collector that walks `pname.each do |k, v|` block bodies and
-      # harvests type signals from how `k` and `v` participate in
-      # `+`-chains. A chain with both a string literal leaf and a
-      # k_pname / v_pname leaf is treated as evidence the corresponding
-      # side is string-typed, narrowing the hash variant accordingly.
+      # concatenates each String key and value into the result.
       #
       # The test exercises two shapes:
-      #   - module class method with str_str_hash inputs at two
-      #     differently-keyed call sites (the canonical Tep shape),
-      #   - class instance method with the same body shape (the path
-      #     that already worked, kept for parity).
+      #   - module class method with String-to-String hash inputs at two
+      #     differently-keyed call sites (the Tep shape),
+      #   - class instance method with the same body shape.
 
       module Joiner
         def self.encode(h)
@@ -895,9 +876,7 @@ describe "Hash: enumeration" do
   it "map to heap objects" do
     result = zr(<<~'RUBY')
       # `arr.map { Obj.new }` over a typed-array receiver collects the
-      # constructed heap objects into a pointer array (previously the
-      # accumulator defaulted to IntArray and the sp_<C>* push failed to
-      # compile). Node is heap (it has a subclass, so not value-typed).
+      # constructed objects into an Array. Node has a subclass.
       class Node
         attr_reader :tag
         def initialize(t = 0); @tag = t; end

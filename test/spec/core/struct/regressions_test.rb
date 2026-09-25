@@ -100,9 +100,9 @@ describe "Struct: regressions" do
 
   it "a multiple assignment destructures what deconstruct answers" do
     result = zr(<<~'RUBY')
-      # Multiple assignment from #deconstruct of a Data/Struct value read out of a
-      # poly container: deconstruct is the member values (an Array), which the poly
-      # receiver derives via sp_poly_to_a_arr.
+      # Multiple assignment from #deconstruct of a Data/Struct value read out of an
+      # Array: deconstruct answers the member values (an Array), and the
+      # assignment spreads them.
       V = Data.define(:x, :y)
       first = [V.new(1, 2)].first
       a, b = first.deconstruct

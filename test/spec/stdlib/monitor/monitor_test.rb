@@ -286,9 +286,8 @@ describe "Monitor programs" do
     result = zr(<<~'RUBY')
       # Monitor is a REENTRANT mutex, and that is the whole reason it exists: a
       # synchronized method calling another synchronized method of the same object
-      # is the ordinary way to write one. Spinel aliased Monitor to Mutex, so the
-      # inner acquire raised "deadlock; recursive locking" where CRuby just goes
-      # deeper. A Mutex must still raise there, so reentrancy is per-object.
+      # is the ordinary way to write one. The inner acquire goes deeper. A Mutex
+      # raises "deadlock; recursive locking" there, so reentrancy is per-object.
       require "monitor"
 
       m = Monitor.new

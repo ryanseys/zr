@@ -55,9 +55,8 @@ describe "String: blocks and yields" do
 
   it "lambda arrow string return" do
     result = zr(<<~'RUBY')
-      # An arrow lambda (`-> {}`, the sp_Val / sp_lam_* ABI, distinct from the
-      # `lambda {}` proc-call ABI) returning a string literal round-trips its
-      # value instead of the old hardcoded sp_lam_int(0) stub.
+      # An arrow lambda (`-> {}`) that returns a string literal gives back that
+      # string when called.
       f = -> { "arrow" }
       puts f.call
 
@@ -70,19 +69,8 @@ describe "String: blocks and yields" do
 
   it "map block string new join" do
     result = zr(<<~'RUBY')
-      # #526. Sibling to #522. #522 fixed `.map { String.new }` block-return
-      # inference so the result is correctly typed as
-      # `mutable_str_ptr_array` (a sp_PtrArray of sp_String*). But the
-      # is_ptr_array_type recv block in codegen had no `join` arm for this
-      # variant — `xs.map { String.new }.join(",")` fell through to the
-      # unresolved-call warning and emitted 0 at the call site (compile-time
-      # warning, runtime no-op producing empty output between separators in
-      # the composite JSON-fragment use case in action_view/view_helpers).
-      #
-      # Fix: add the `join` arm in the ptr_array recv block (gated on
-      # elem_type == "mutable_str") that emits sp_PtrArray_str_join, and the
-      # matching runtime helper that reads each element's bytes via the
-      # sp_String data/len pair.
+      # `join` on an Array of strings from `String.new` joins their bytes with
+      # the separator. An empty string gives nothing between the separators.
 
       def make_str(x)
         s = String.new
@@ -92,10 +80,10 @@ describe "String: blocks and yields" do
 
       xs = [1, 2, 3]
 
-      # The repro case from the issue: block returns String.new directly.
+      # The block returns String.new directly.
       puts xs.map { |x| String.new }.join(",")
 
-      # Block body is a method call returning a mutable_str — mirrors the
+      # Block body is a method call returning a mutable String — mirrors the
       # real-world action_view/view_helpers pattern where the map block calls
       # something like `Views::Articles.article_json(article)` and the result
       # is joined with "," to form a JSON fragment.
@@ -345,15 +333,13 @@ describe "String: blocks and yields" do
 
   it "to_c reads a leading complex and ignores the rest, where Complex() demands the whole string" do
     result = zr(<<~'RUBY')
-      # String#to_c raised where CRuby answers (0+0i). One parser was serving two
+      # String#to_c answers (0+0i) when no complex leads the string. There are two
       # contracts: Kernel#Complex(str) must consume the whole string or raise, while
-      # String#to_c reads a LEADING complex and ignores the rest. String#to_r has had
-      # that pair (sp_str_to_r / sp_str_to_r_strict) all along; to_c had only the
-      # strict half and #to_c was pointed at it.
+      # String#to_c reads a LEADING complex and ignores the rest. String#to_r and
+      # Kernel#Rational follow the same pair of contracts.
       #
-      # And sp_poly_to_r_m had no String arm, though sp_poly_to_c_m has carried one
-      # all along -- so a String that widened to poly answered NoMethodError, which
-      # is what `v&.to_r` is.
+      # `v&.to_r` and `v&.to_c` on a value that can be a String, a number or nil
+      # also answer for the String.
 
       # String#to_c: a leading complex, the rest ignored, (0+0i) when there is none
       p "abc".to_c
@@ -364,7 +350,7 @@ describe "String: blocks and yields" do
       p "2.5".to_c
       p "  7  ".to_c
 
-      # String#to_r, the sibling that was already right
+      # String#to_r, the sibling
       p "abc".to_r
       p "3/4".to_r
       p "1.5".to_r
@@ -388,7 +374,7 @@ describe "String: blocks and yields" do
       p Complex("abc", exception: false)
       p Rational("abc", exception: false)
 
-      # through a poly receiver, which is where the missing String arm showed
+      # through a receiver that can hold values of different classes
       def as_r(v) = v&.to_r
       def as_c(v) = v&.to_c
 
@@ -467,8 +453,8 @@ describe "String: blocks and yields" do
     result = zr(<<~'RUBY')
       # &:symbol block-pass after a positional argument must parse as a
       # symbol-to-proc block, not a hash literal -- in both parenthesized
-      # and command (paren-less) calls. Front-door blocker for bundler
-      # (File.open(f, "r:UTF-8", &:read)) and minitest
+      # and command (paren-less) calls. Bundler uses this form
+      # (File.open(f, "r:UTF-8", &:read)), and so does minitest
       # (define_method :mu_pp, &:pretty_inspect).
       class Widget
         define_method(:as_str, &:to_s)   # parenthesized, after a positional
@@ -480,7 +466,7 @@ describe "String: blocks and yields" do
 
       puts Widget.new.as_str(7)
       puts Gadget.new.label(8)
-      p [1, 2, 3].map(&:to_s)            # sole arg in parens (regression guard)
+      p [1, 2, 3].map(&:to_s)            # sole arg in parens
       p [1, 2, 3].map &:to_s            # command-position sole arg
       p [10, 20, 30].inject(0, &:+)     # operator symbol after a positional (native)
     RUBY

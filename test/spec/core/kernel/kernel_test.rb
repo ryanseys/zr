@@ -329,16 +329,13 @@ describe "Kernel programs" do
       # A `require` written in a `class`/`module` BODY runs AT ITS OWN POSITION in
       # CRuby, at the top-level cref -- not after the whole enclosing file.
       #
-      # zr used to append the target's statements to the file-trailing splice, so
-      # `module M; puts "before"; require_relative "x"; puts "after"; p X; end`
-      # printed before/after/inner and then raised `uninitialized constant M::X`:
-      # wrong order, and the constant landed in the wrong namespace on the way.
+      # So `module M; puts "before"; require_relative "x"; puts "after"; end`
+      # prints before, then the output of x, then after. The constants that x
+      # defines go to Object, not to M.
       #
-      # The target is now compiled as its own FEATURE UNIT -- a free function at the
-      # top-level cref -- and the CALL stays live, so the runtime `require` resolves
-      # and runs it in place. The compile-time PRE-LOWER still happens first, which
-      # is what keeps a required FFI vocabulary visible to the statements below it
-      # (see `a_module_body_require_declares_before_the_next_statement`).
+      # A required FFI vocabulary is also visible to the statements below the
+      # `require` (see the ffi test "module body require declares before the next
+      # statement").
       module M
         puts "before"
         require_relative "class_body_require/inner"
@@ -375,12 +372,10 @@ describe "Kernel programs" do
 
   it "const path unresolved require" do
     result = zr(<<~'RUBY')
-      # An unresolved qualified constant (`Mylib::VERSION`, Mylib undefined) degrades
-      # to a rescuable runtime NameError rather than emitting a bare `Mylib_VERSION` C
-      # identifier (undeclared -> C compile error). The constant would once have come
-      # from `require "mylib/version"`, but under SPINEL_REQUIRE_GATE an unsatisfiable
-      # require is itself a compile error, so the realistic program just references the
-      # constant; the rescuable-NameError behaviour is what matters here.
+      # An unresolved qualified constant (`Mylib::VERSION`, Mylib undefined) raises a
+      # rescuable runtime NameError. It is not a compile error. In a real program the
+      # constant can come from a `require "mylib/version"`; this program only reads
+      # the constant, because the rescuable NameError is what matters here.
       begin
         puts Mylib::VERSION
       rescue NameError => e
@@ -479,8 +474,8 @@ describe "Kernel programs" do
   it "equal p boxed argument" do
     result = zr(<<~'RUBY')
       # `equal?` with a boxed argument compares addresses: the same call reached
-      # with an object and with a symbol widens the parameter to poly, and the
-      # comparison used to fold to false for an object compared with itself (#3807).
+      # with an object and with a symbol widens the parameter to poly. An object
+      # compared with itself gives true.
       Pad = Struct.new(:name)
 
       class Plain
@@ -1118,7 +1113,7 @@ describe "Kernel programs" do
 
   it "Hash(), warn, printf, putc and p answer in value position what ruby answers" do
     result = zr(<<~'RUBY')
-      # Kernel#Hash / #warn / #printf / #putc / p() value position (#2513, #2526, #2541)
+      # Kernel#Hash / #warn / #printf / #putc / p() value position
       p(Hash(nil))
       p(Hash([]))
       p(Hash({a: 1}))
@@ -1469,9 +1464,9 @@ describe "Kernel programs" do
 
   it "poly empty p user length" do
     result = zr(<<~'RUBY')
-      # Asking whether a user class owns the CALLED name: a class defining `length`
-      # used to send every `empty?` on a boxed receiver into an unconditional
-      # NoMethodError, whatever the receiver turned out to be (#3805).
+      # Asking whether a user class owns the CALLED name: a class that defines
+      # `length` does not change `empty?` on an Array or a String. The receiver
+      # at run time decides the answer.
       class Sized
         def length
           0
@@ -1490,7 +1485,7 @@ describe "Kernel programs" do
       p opts[:s].empty?
       p [2].empty?
 
-      # the guard #1438 added still holds: a user class owning the name wins
+      # a user class that owns the name wins
       things = [Baggy.new, [1]]
       p things.first.empty?
 
@@ -1714,8 +1709,8 @@ describe "Kernel programs" do
     result = zr(<<~'RUBY')
       # The PRNG contract: same seed -> same stream, for every consumer of the
       # Kernel-level stream (rand in all its forms, shuffle, sample, the Random
-      # default instance). Values are implementation-specific (spinel is not
-      # MT19937), so only invariants are asserted.
+      # default instance). The values can differ from CRuby's MT19937 values,
+      # so the test checks only the invariants.
 
       srand(42); a = rand(100)
       srand(42); b = rand(100)
@@ -1806,29 +1801,29 @@ describe "Kernel programs" do
 
   it "random methods" do
     result = zr(<<~'RUBY')
-      # Random / Kernel#rand semantics (#2517-2525, #2543, #2544)
+      # Random / Kernel#rand semantics
       srand(5)
-      p(srand(10))                 # 2517: returns previous seed (5)
-      p(rand(0).class)             # 2518: rand(0) -> Float
-      p(rand(-3).class)            # 2518: rand(neg) -> Integer
+      p(srand(10))                 # returns previous seed (5)
+      p(rand(0).class)             # rand(0) -> Float
+      p(rand(-3).class)            # rand(neg) -> Integer
       p(rand(-3) >= 0 && rand(-3) < 3)
-      p(rand(5...5))               # 2519: empty range -> nil
-      p(rand(5..3))                # 2519: reversed range -> nil
+      p(rand(5...5))               # empty range -> nil
+      p(rand(5..3))                # reversed range -> nil
       r = Random.new(42)
-      p(r.rand(1.0..2.0).class)    # 2521: Float range -> Float
-      p(r.seed)                    # 2522: 42
-      p(Random.new_seed.class)     # 2523: Integer
-      p(r.class)                   # 2524: Random
-      p(r == r)                    # 2524: true
-      p(r.equal?(r))               # 2524
+      p(r.rand(1.0..2.0).class)    # Float range -> Float
+      p(r.seed)                    # 42
+      p(Random.new_seed.class)     # Integer
+      p(r.class)                   # Random
+      p(r == r)                    # true
+      p(r.equal?(r))               # true
       p(Random.new(1) == Random.new(1))  # distinct objects -> false
       Random.srand(7)
-      p(rand(100).class)           # 2525: Integer
-      p(Random.urandom(8).bytesize) # 2543: 8 bytes. NOT .length: spinel counts
-                                    # UTF-8 chars, so random bytes that happen to
-                                    # form multi-byte sequences made it flaky
+      p(rand(100).class)           # Integer
+      p(Random.urandom(8).bytesize) # 8 bytes. NOT .length: the random bytes can
+                                    # make multi-byte UTF-8 chars, so .length
+                                    # can be less than 8
       p(Random.urandom(8).class)
-      begin; rand(1..); rescue => e; p e.class; end   # 2544: Errno::EDOM
+      begin; rand(1..); rescue => e; p e.class; end   # Errno::EDOM
       begin; rand(..5); rescue => e; p e.class; end
     RUBY
 
@@ -2073,10 +2068,8 @@ describe "Kernel programs" do
     result = zr(<<~'RUBY')
       # A self-recursive method that uses implicit `yield` and forwards its
       # block down the recursion (`countdown(n - 1) { yield }`) carries the
-      # block's value back at the block's real type. Such methods are lowered
-      # to an &block (sp_Proc) form: yield -> sp_proc_call(__yblk__), the
-      # literal block is forwarded as a proc, and the nested `{ yield }`
-      # captures the synthetic block param.
+      # block's value back at the block's real type. The nested `{ yield }`
+      # yields to the block of the outer call.
 
       def countdown(n)
         return yield if n <= 0
@@ -2370,13 +2363,11 @@ describe "Kernel programs" do
 
   it "warn kernel" do
     result = zr(<<~'RUBY')
-      # Issue #734. `warn arg, ...` writes each arg to stderr with a
-      # newline (matching Kernel#warn). spinel used to emit the unresolved-
-      # call warning and drop the IO silently.
+      # `warn arg, ...` writes each arg to stderr with a newline, as
+      # Kernel#warn does.
       #
-      # at_exit + warn -- both used to fall through to the unresolved-call
-      # warning. warn's stderr output is asserted via the .err.expected file
-      # alongside this test. at_exit now runs in LIFO after main returns (#990).
+      # The test checks the stderr output of warn too. at_exit blocks run in
+      # LIFO order after the main program ends.
       at_exit { puts "from at_exit" }
       warn "hello stderr"
       puts "after warn"

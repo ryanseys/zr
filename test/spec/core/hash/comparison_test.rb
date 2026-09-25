@@ -71,10 +71,7 @@ describe "Hash: comparison and equality" do
   it "compare by identity predicate" do
     result = zr(<<~'RUBY')
       # Hash#compare_by_identity? reports false for an ordinary (value-keyed) hash.
-      # The mutating Hash#compare_by_identity is rejected at compile time, since
-      # spinel compares hash keys by value and cannot switch a hash to identity
-      # comparison; emitting it as a no-op would silently diverge from CRuby. This
-      # test pins the predicate's correct value-keyed answer.
+      # The test checks only the predicate, on hashes that compare keys by value.
       def s(x); x; end
       p s({}).compare_by_identity?
       p s({ "a" => 1 }).compare_by_identity?
@@ -311,7 +308,7 @@ describe "Hash: comparison and equality" do
     result = zr(<<~'RUBY')
       # A user object with #hash + #eql? works as a Hash key: two value-equal keys
       # collide to the same slot and compare equal, so a freshly-built key finds the
-      # stored value. Previously object keys used pointer identity and always missed.
+      # stored value. The key object does not have to be the same object.
 
       class K
         attr_reader :v
@@ -343,7 +340,7 @@ describe "Hash: comparison and equality" do
       p n[Name.new("bob")]
       p n[Name.new("zzz")]
 
-      # a second key class coexists (exercises the cls_id switch arms)
+      # a second key class also works, each with its own #hash and #eql?
       class Pt
         attr_reader :x, :y
         def initialize(x, y) = (@x, @y = x, y)
@@ -380,9 +377,8 @@ describe "Hash: comparison and equality" do
   it "a user #eql? is called with a poly operand, and an alias of == resolves to it" do
     result = zr(<<~'RUBY')
       # A Hash keyed by a custom object honors user-defined #hash / #eql?: an
-      # equal-but-distinct key finds the entry (sp_gen_obj_hash / sp_gen_obj_eql
-      # hooks). `self == o` inside #eql? dispatches to the user #== even though
-      # the operand is poly; `alias eql? ==` resolves to the target's C symbol.
+      # equal-but-distinct key finds the entry. `self == o` inside #eql? calls the
+      # user #==, although the operand can be any type. `alias eql? ==` calls #==.
       class Point
         attr_reader :x, :y
         def initialize(x, y) = (@x, @y = x, y)
@@ -436,22 +432,21 @@ describe "Hash: comparison and equality" do
 
   it "value? answers whether any value equals the argument" do
     result = zr(<<~'RUBY')
-      # Issue #738 (partial -- value? / has_value?). Hash#value?(v) returns
-      # true if any value in the hash equals v, else false. spinel used to
-      # fall through to the unresolved-call warning.
+      # Hash#value?(v) and its alias has_value? return true if any value in
+      # the hash equals v, else false.
 
-      # sym_int_hash
+      # Symbol keys, Integer values
       h = { a: 1, b: 2 }
       puts h.value?(2)
       puts h.value?(99)
       puts h.has_value?(1)
 
-      # str_str_hash
+      # String keys, String values
       h2 = { "x" => "alpha", "y" => "beta" }
       puts h2.value?("alpha")
       puts h2.value?("zzz")
 
-      # str_int_hash
+      # String keys, Integer values
       h3 = { "one" => 1, "two" => 2 }
       puts h3.value?(1)
       puts h3.value?(3)
@@ -470,10 +465,9 @@ describe "Hash: comparison and equality" do
 
   it "rational cmp float hash" do
     result = zr(<<~'RUBY')
-      # Rational value operations against a Float and as a Hash key. Comparing a
-      # Rational to a Float previously coerced the Float to a Rational (truncating
-      # 1.5 -> 1/1), and a Rational's hash was pointer-based (unstable), so equal
-      # Rationals neither compared nor hashed alike.
+      # Rational value operations against a Float and as a Hash key. Rational(3, 2)
+      # is equal to 1.5: the Float is not truncated to 1/1. Equal Rationals have
+      # the same hash, so they find the same Hash entry.
       # Each method keeps its second argument monomorphic (Float here) so the Float
       # comparison path is exercised.
       def cmpf(a, b); a <=> b; end

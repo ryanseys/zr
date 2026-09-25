@@ -604,22 +604,15 @@ describe "IO programs" do
 
   it "file basename gc" do
     result = zr(<<~'RUBY')
-      # sp_file_basename used to return `path + offset` — a pointer into
-      # the input path. Without keeping the underlying buffer rooted, the
-      # GC could free the path string, leaving the held basename dangling.
+      # File.basename returns a String that stays valid after the GC frees
+      # the input path.
       #
-      # Triggering the bug requires:
+      # The test needs:
       #  - A path constructed dynamically (heap string, not literal).
       #  - A basename returned from a helper, so the path goes out of scope.
-      #  - GC pressure that actually fires `sp_gc_collect` so `sp_str_sweep`
-      #    walks the string heap and reaps the unreferenced path. String
-      #    allocations alone don't accrue to `sp_gc_bytes` (per the comment
-      #    in `sp_str_alloc`); we need object allocations to push past the
-      #    threshold.
-      #
-      # The fix returns a fresh sp_str_alloc'd copy whose own `\xfe` tag
-      # byte makes mark_string take the right path, and which survives
-      # independently of the original path.
+      #  - GC pressure that actually runs a collection, so the GC reaps the
+      #    unreferenced path. String allocations alone may not reach the GC
+      #    threshold, so the test also allocates objects.
 
       class Trash
         def initialize(n)
@@ -641,9 +634,8 @@ describe "IO programs" do
         i = i + 1
       end
 
-      # Allocate ~5000 Trash instances (~5 MB) — far past the 256 KB GC
-      # threshold — to force multiple sp_gc_collect cycles and reap the
-      # unreferenced path strings via sp_str_sweep.
+      # Allocate ~5000 Trash instances (~5 MB) — far past the GC threshold —
+      # to force multiple collections and reap the unreferenced path strings.
       junk = []
       j = 0
       while j < 5000
@@ -726,7 +718,7 @@ describe "IO programs" do
 
   it "file dir methods" do
     result = zr(<<~'RUBY')
-      # Issue #892: File.extname / .basename / .dirname / Dir.pwd.
+      # File.extname / .basename / .dirname / Dir.pwd.
       puts File.extname("hello.rb")
       puts File.basename("/home/user/file.rb")
       puts File.dirname("/home/user/file.rb")
@@ -886,10 +878,9 @@ describe "IO programs" do
 
   it "file join poly component" do
     result = zr(<<~'RUBY')
-      # A poly component of File.join (here: an element read from a heterogeneous
-      # array) initializes a `const char *` slot in the sp_file_join argument list,
-      # so it must be coerced with sp_poly_to_s rather than land its sp_RbVal raw
-      # (doom's SoundManager builds its temp dir from a poly Dir.tmpdir value).
+      # A File.join component of unknown type (here: an element read from a
+      # heterogeneous array) must join as its String value. doom's SoundManager
+      # builds its temp dir from a Dir.tmpdir value of unknown type.
       parts = ["sounds", 7]
       dir = parts[0]
       path = File.join(dir, "doom_rb")
@@ -1306,7 +1297,7 @@ describe "IO programs" do
   it "copy_stream and rewind dispatch on the runtime class of a parameter that unions StringIO and File" do
     result = zr(<<~'RUBY')
       # IO.copy_stream / #rewind through a param that unions StringIO and File
-      # dispatch on the runtime stream class (#3257). Uses temp files it creates.
+      # dispatch on the runtime stream class. Uses temp files it creates.
       require 'stringio'
 
       def send_to(dst, io)
@@ -1423,10 +1414,9 @@ describe "IO programs" do
 
   it "STDOUT answers tty?, chains <<, and reports its fileno" do
     result = zr(<<~'RUBY')
-      # IO#tty?/#isatty, IO#<< (chainable), and IO#fileno on STDOUT/STDERR. The 12-gem
-      # "unsupported call: tty?/<</winsize on STDOUT/STDERR" cluster (#1605): STDOUT
-      # types as a concrete IO, so these IO methods must be modelled rather than
-      # rejected. The test harness redirects stdout/stderr, so tty? is false.
+      # IO#tty?/#isatty, IO#<< (chainable), and IO#fileno on STDOUT/STDERR. Many gems
+      # call these on STDOUT/STDERR, which are concrete IO objects. The test harness
+      # redirects stdout/stderr, so tty? is false.
       puts STDOUT.tty?
       puts STDERR.isatty
       STDOUT << "a" << "b" << "c\n"
@@ -1506,13 +1496,8 @@ describe "IO programs" do
 
   it "kernel dir" do
     result = zr(<<~'RUBY')
-      # Issue #878: Kernel#__dir__ returns the dirname of the source
-      # file at compile time. The parser emits SOURCE_FILE <path> near
-      # the AST head so the codegen can compute dirname without needing
-      # the source to reference __FILE__.
-      #
-      # `caller` is intentionally NOT supported -- it would require per-
-      # call frame tracking that slows the dispatch hot path.
+      # Kernel#__dir__ returns the dirname of the source file, also when
+      # the source does not reference __FILE__.
       puts __dir__.is_a?(String)
       puts __dir__.length > 0
     RUBY
@@ -1766,12 +1751,8 @@ describe "IO programs" do
   it "puts compound arg" do
     result = zr(<<~'RUBY')
       # STDOUT/STDERR (constants) .puts/.print with a COMPOUND-expression argument --
-      # a call that lowers to a C compound literal / statement-expression
-      # (format/sprintf/Array#join, array literals). Previously the constant
-      # .puts/.print codegen rendered the argument directly into the g_pre preamble
-      # buffer, so the argument's own setup lines (e.g. sp_str_format_polyarr temps)
-      # were spliced into the middle of the half-built sp_File_write(...) call and
-      # the generated C failed to compile ("expected expression").
+      # format/sprintf/Array#join, array literals, a block call. Each argument is
+      # fully evaluated before the write.
 
       STDOUT.puts(format("x=%d", 5))
       STDOUT.puts(sprintf("y=%d", 7))
@@ -1781,7 +1762,7 @@ describe "IO programs" do
       STDOUT.puts format("noparen=%d", 11)   # no parens -- same lowering
       STDOUT.puts([10, 20].map { |x| x * 2 }.join("-"))
 
-      # Regression guards: the forms that already worked must keep working.
+      # Simpler argument forms must also work.
       m = format("bound=%d", 42)
       STDOUT.puts(m)                          # bind to a local first
       STDOUT.puts("a".upcase)                 # inline call that is NOT a compound expr
@@ -1888,9 +1869,8 @@ describe "IO programs" do
 
   it "puts object to s poly" do
     result = zr(<<~'RUBY')
-      # puts/print/interpolation of an object whose to_s unions a String with
-      # another branch type (returns a boxed sp_RbVal) must route through
-      # sp_poly_to_s instead of a pointer cast (#3266).
+      # puts/print/interpolation of an object whose to_s returns a String on one
+      # branch and another type on the other must use the value to_s returns.
       class Crash
         def initialize(flag) = @flag = flag
         def to_s = @flag ? "ok" : nil
@@ -2042,10 +2022,8 @@ describe "IO programs" do
     result = zr(<<~'RUBY')
       # SourceFileNode -- the `__FILE__` keyword.
       #
-      # Spinel inlines `require`/`require_relative` at parse time, so call
-      # sites in different source files are not distinguished. `__FILE__`
-      # always returns the toplevel script path passed to spinel_parse,
-      # matching CRuby's behavior for top-level uses.
+      # In the top-level script, `__FILE__` returns the script path, as in
+      # CRuby.
       #
       # This test exercises __FILE__ end-to-end: it must (a) emit the path,
       # (b) flow as `string` through type inference (so dispatch picks the

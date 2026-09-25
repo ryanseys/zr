@@ -5,15 +5,11 @@ require "spec_helper"
 describe "Enumerable: dispatch" do
   it "poly array map" do
     result = zr(<<~'RUBY')
-      # `compile_map_expr` had no `poly_array` recv branch — a
-      # heterogeneous-element array (`[1, "two", :three]`) called
-      # `.map { ... }` and the dispatch fell through to the `"0"`
-      # placeholder. The result was typed as `sp_IntArray *` (per the
-      # inferred map result), `lv_out = 0` was emitted, and any
-      # `.length` / `[i]` on the accumulator dereferenced NULL,
-      # crashing at runtime.
+      # `.map { ... }` on a mixed-element array (`[1, "two", :three]`)
+      # gives an Array of the block results. `.length` and `[i]` work on
+      # that result.
 
-      # (1) poly_array → IntArray (int-return block).
+      # (1) mixed Array → Integer Array (int-return block).
       arr = [1, "two", :three, 4.5]
       out = arr.map { |x| x.to_s.length }
       puts out.length      # 4
@@ -22,7 +18,7 @@ describe "Enumerable: dispatch" do
       puts out[2]          # 5
       puts out[3]          # 3
 
-      # (2) poly_array → StrArray (string-return block).
+      # (2) mixed Array → String Array (string-return block).
       strs = arr.map { |x| x.to_s }
       puts strs.length     # 4
       puts strs[0]         # 1
@@ -30,7 +26,7 @@ describe "Enumerable: dispatch" do
       puts strs[2]         # three
       puts strs[3]         # 4.5
 
-      # (3) poly_array → IntArray (different int expression).
+      # (3) mixed Array → Integer Array (different int expression).
       sizes = arr.map { |x| x.to_s.length * 2 }
       puts sizes.length    # 4
       puts sizes[0]        # 2
@@ -56,15 +52,10 @@ describe "Enumerable: dispatch" do
 
   it "poly array push handlers" do
     result = zr(<<~'RUBY')
-      # `compile_call_expr` and `compile_mutating_call_stmt` had no `<<`
-      # / `push` arms for poly_array recv. The expr-context fall-through
-      # produced raw C `<<` on `sp_PolyArray *` (gcc error: "invalid
-      # operands to binary <<"); the stmt-context fall-through silently
-      # dropped the push from generated C entirely.
+      # `<<` and `push` on a mixed-element array append the value.
       #
-      # Repro: a heterogeneous literal lowers to poly_array; then both
-      # `arr << v` (expr / stmt-without-receiver-rewrite) and
-      # `arr.push(v)` exercise the dispatch.
+      # The array starts as a mixed literal. Then `arr << v` and
+      # `arr.push(v)` both add an element.
 
       arr = [1, "two", :three]
       arr << 42
@@ -222,11 +213,9 @@ describe "Enumerable: dispatch" do
 
   it "poly each with index" do
     result = zr(<<~'RUBY')
-      # each_with_index on a POLY receiver - an array reached as a boxed sp_RbVal (a
-      # def parameter, or an element of a nested array) - went through poly dispatch
-      # that lacked each_with_index and raised NoMethodError, though plain `each` had a
-      # poly path (sp_poly_each_elem). It now binds the whole element + the loop index,
-      # never splatting a nested-array element (unlike `each`).
+      # each_with_index on an array whose type is known only at run time (a def
+      # parameter, or an element of a nested array). It binds the whole element and
+      # the loop index, and never splats a nested-array element (unlike `each`).
       def show(cells)
         cells.each_with_index do |v, i|
           puts "#{i}:#{v}"
@@ -248,15 +237,13 @@ describe "Enumerable: dispatch" do
       end
       puts total([10, 20, 30, 40])
 
-      # A boxed (sp_RbVal) poly receiver: `cond ? array : hash` gives a TY_POLY value,
-      # the path this PR adds each_with_index to. The cases below exercise its block
-      # param binding.
+      # `cond ? array : hash` gives a value that can be an Array or a Hash. The cases
+      # below check how the block params bind.
       def poly(cond)
         cond ? [10, 20, 30] : { a: 1 }
       end
 
-      # UNUSED index param: the pruned `i` local is never declared, so the binding
-      # must be skipped (not emit an assignment to an undeclared `lv_i`).
+      # UNUSED index param: the block never reads `i`.
       poly(true).each_with_index { |v, i| puts v }
 
       # EXTRA param beyond the yielded (element, index) arity binds to nil each
@@ -535,19 +522,9 @@ describe "Enumerable: dispatch" do
 
   it "poly recv map join" do
     result = zr(<<~'RUBY')
-      # Issue #654: `arr.map { ... }.join(sep)` on a poly-typed
-      # receiver (e.g. parameter with `= nil` default that widens to
-      # sp_RbVal) silently emitted `sp_StrArray * _t = 0` for the map
-      # result, then `sp_StrArray_join(NULL, sep)` returned empty in
-      # the standalone repro and segfaulted on the downstream pointer
-      # deref in real-blog AOT.
-      #
-      # Fix: compile_map_expr now has a `rt == "poly"` arm that emits
-      # runtime tag dispatch on cls_id (PolyArray / IntArray / StrArray
-      # / FloatArray) and routes the per-element fetch through the
-      # matching `_get` helper. The block param is sp_RbVal; the
-      # accumulator picks its variant (StrArray when the block returns
-      # string, etc.) from the block's last expression's static type.
+      # `arr.map { ... }.join(sep)` on a receiver whose type is known only
+      # at run time (e.g. a parameter with a `= nil` default). The map
+      # works for each kind of Array, and join gives the joined String.
 
       def joined(arr = nil)
         return "(empty)" if arr.nil?

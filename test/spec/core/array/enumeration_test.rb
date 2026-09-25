@@ -8,9 +8,9 @@ describe "Array: enumeration" do
       r = ([1, 2].rotate("a") rescue $!.class)
       p r
 
-      r = ([1, 2].sum("x") rescue $!.class); p r        # Ruby: TypeError      Spinel: C compile abort
-      r = ([1, 2].product(3) rescue $!.class); p r      # Ruby: TypeError      Spinel: C compile abort
-      r = ([1, 2].inject(:nope) rescue $!.class); p r   # Ruby: NoMethodError  Spinel: C compile abort
+      r = ([1, 2].sum("x") rescue $!.class); p r        # => TypeError
+      r = ([1, 2].product(3) rescue $!.class); p r      # => TypeError
+      r = ([1, 2].inject(:nope) rescue $!.class); p r   # => NoMethodError
 
       r = ([1, 2].fill(0, "x") rescue $!.class); p r    # => TypeError
       p([1, 2].rotate(1))                                # => [2, 1]
@@ -111,9 +111,8 @@ describe "Array: enumeration" do
     result = zr(<<~'RUBY')
       # Array reduction/search coverage: minmax_by (one-pass [min, max] by a block
       # key) and bsearch_index (find-minimum binary search returning an index or nil).
-      # Receivers go through per-type method params so each stays a concrete typed
-      # array, and each block uses a distinct param name (sibling blocks that reuse a
-      # name share one typed C local, which would widen to poly).
+      # Receivers go through a method param for each element kind, and each block
+      # uses a distinct param name.
       def ints(a); a; end
       def flts(a); a; end
       def strs(a); a; end
@@ -525,7 +524,7 @@ describe "Array: enumeration" do
   it "sort by array key" do
     result = zr(<<~'RUBY')
       # sort_by with an array-returning block (the multi-key sort idiom) orders
-      # element-wise through the boxed-key comparator.
+      # element-wise, as `<=>` on Arrays does.
       p [[1, 2], [1, 1], [0, 5]].sort_by { |a, b| [a, b] }
       p ["bb", "a", "ccc"].sort_by { |s| [s.length, s] }
       p [["b", 2], ["a", 2], ["a", 1]].sort_by { |x, y| [x, y] }
@@ -545,14 +544,10 @@ describe "Array: enumeration" do
 
   it "zip argument each" do
     result = zr(<<~'RUBY')
-      # `zip`'s arguments must respond to :each. The emitters read every argument as
-      # a container regardless of its type, so a nil quietly became a column of nils
-      # and an Integer or a String stopped the C build -- found verifying the gaps
-      # left after PR #4029, whose sweep of the typed slots did not reach this one.
+      # `zip`'s arguments must respond to :each. A nil, an Integer or a String
+      # raises TypeError. It does not give a column of nils.
       #
-      # A Hash and an Enumerator DO respond to :each, and were the same ill-typed C
-      # for the opposite reason: the slot was spelled sp_PolyArray* and handed an
-      # sp_SymPolyHash*.
+      # A Hash and an Enumerator DO respond to :each, so zip accepts them.
       def try
         yield
       rescue => e

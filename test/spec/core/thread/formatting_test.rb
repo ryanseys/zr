@@ -11,8 +11,7 @@ describe "Thread: formatting and inspection" do
       # zr's divergence is one probe: a Queue carried through `||` no longer
       # inspects in the `#<Thread::Queue:0x...>` form (the final
       # `inspect.start_with?` answers false). Every other operand shape -- classes,
-      # values, nil, locked? -- already matches. (Imported from spinel, where the
-      # same file once failed to BUILD, #3484.)
+      # values, nil, locked? -- already matches.
       m = Mutex.new
       p(m.lock && m.locked?)
       m.unlock
@@ -121,10 +120,8 @@ describe "Thread: formatting and inspection" do
   it "fiber transfer root" do
     result = zr(<<~'RUBY')
       # Fiber#transfer back to the root fiber (Fiber.current obtained in main).
-      # Previously segfaulted: the root fiber has no mmap'd stack/body, and
-      # transferring to it hit the "first entry" path that ctx_make's a fresh
-      # coroutine on the root's NULL stack. The root must be treated as the
-      # already-running coroutine and just resumed from its saved context.
+      # The root fiber already runs, so a transfer to it resumes it where it
+      # stopped. It does not start again from the beginning.
 
       main = Fiber.current
 
@@ -318,12 +315,8 @@ describe "Thread: formatting and inspection" do
       threads.each { |th| total += th.value }
       puts total
 
-      # Regression for the multi-worker STW GC crash: a started green thread used to
-      # migrate between OS workers (global requeue + work stealing) while its live
-      # frames held compiler-cached addresses of the ORIGINAL worker's __thread data,
-      # corrupting both workers' GC shadow stacks. Threads are now pinned to their
-      # first worker. The harness runs single-worker; the parallel behaviour is
-      # exercised by SPINEL_WORKERS>=3 runs of this same program (issue repro).
+      # Four threads allocate many Strings while the GC runs. Each thread keeps
+      # its own state, so each loop finishes and the total is correct.
     RUBY
 
     _(result).must_answer "588890\n"

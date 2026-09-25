@@ -508,7 +508,7 @@ describe "Constants programs" do
       # Module#const_defined? validates the constant name. A defined name answers
       # true, an undefined-but-well-formed name answers false, and a malformed name
       # (lowercase / leading underscore / a non-identifier byte) raises NameError
-      # "wrong constant name <name>" -- Spinel previously answered false silently.
+      # "wrong constant name <name>".
       # (Only a literal name argument is folded; a runtime name rejects separately.)
       module M
         X = 1
@@ -1168,8 +1168,7 @@ describe "Constants programs" do
       # CmA::CmB to keep both shapes co-resident.
 
       # ---- ARGV access via ConstantPath ----
-      # Runs at top-level scope so sp_argv is in scope (sp_argv is only
-      # declared in main()).
+      # Runs at top-level scope.
       puts ARGV.length
       puts ::ARGV.length
       puts(ARGV[0] == nil)
@@ -1582,9 +1581,9 @@ describe "Constants programs" do
 
   it "constant path write" do
     result = zr(<<~'RUBY')
-      # `Mod::X = v` assigns through a constant path. Spinel requires the constant to
-      # be declared first (registered by analysis); reassigning it then works, as the
-      # `M::X ||= v` / `M::X += v` forms already did. (Output is compared on stdout;
+      # `Mod::X = v` assigns through a constant path. Here the module declares the
+      # constant first, and the path reassigns it, as the `M::X ||= v` / `M::X += v`
+      # forms also do. (Output is compared on stdout;
       # Ruby's "already initialized constant" warning goes to stderr.)
 
       module M
@@ -2321,7 +2320,7 @@ describe "Constants programs" do
   it "kwarg only toplevel leading optional" do
     result = zr(<<~'RUBY')
       # One shape per file: a companion call that supplies the positional would
-      # immunise this (#3525).
+      # hide the case this checks.
       def top(a = nil, k: :default)
         "a=#{a.inspect} k=#{k.inspect}"
       end
@@ -2358,15 +2357,13 @@ describe "Constants programs" do
   it "leading colon colon skips a shadowing scope" do
     result = zr(<<~'RUBY')
       # `::Widget` means the TOP-LEVEL `Widget`, whatever the enclosing scopes call
-      # their own. zr lowered the anchor to a read scoped to `Object`, and when that
-      # found nothing it re-resolved the BARE name -- through the lexical chain,
-      # which is precisely what the `::` prefix says not to do. Inside a scope that
-      # shadows the name, the anchored reference answered the shadow.
+      # their own. The lookup must not re-resolve the BARE name through the lexical
+      # chain, which is precisely what the `::` prefix says not to do. Inside a scope
+      # that shadows the name, the anchored reference must not answer the shadow.
       #
-      # Silently: the shadow is a real class, so nothing raised and nothing warned.
-      # `NS::Array#to_a` calling `::Array.new` reached `NS::Array.new` and got an
-      # ArgumentError from a constructor it never meant to call -- and a shadow with
-      # a compatible constructor would simply have returned the wrong object.
+      # A wrong answer is silent: the shadow is a real class, so nothing raises and
+      # nothing warns. `NS::Array#to_a` calling `::Array.new` must reach the
+      # top-level Array, not `NS::Array.new`.
       class Widget
         def self.who = :toplevel
       end
@@ -4032,9 +4029,8 @@ describe "Constants programs" do
     result = zr(<<~'RUBY')
       # A top-level `def` lands on Object as a PRIVATE method: CRuby answers an
       # explicit-receiver call with "private method called", never with the method.
-      # Spinel counted such a def as owning the name for every receiver dispatch, so
-      # a builtin arm stood down for it -- and with no user CLASS defining the name,
-      # `v.upcase` on a boxed receiver compiled to an unconditional NoMethodError.
+      # Such a def does not own the name for other receivers. With no user CLASS
+      # defining the name, `v.upcase` on a boxed receiver still reaches the builtin.
       def upcase(v) = "top-upcase:#{v}"
       def chars(v) = "top-chars:#{v}"
       def empty?(v) = v.nil?
@@ -4805,8 +4801,7 @@ describe "Constants programs" do
     result = zr(<<~'RUBY')
       # A constant the whole program never defines is warned about at build time and
       # still raises NameError when reached, which is what CRuby does and what
-      # ruby/spec asserts (#3976). The warning is what a dropped `require` needs: the
-      # build used to say nothing at all.
+      # ruby/spec asserts. The warning is what a dropped `require` needs.
       p defined?(Nope)
       p defined?(Nope::Deep)
 

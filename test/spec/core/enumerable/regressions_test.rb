@@ -5,14 +5,11 @@ require "spec_helper"
 describe "Enumerable: regressions" do
   it "dig nested poly array" do
     result = zr(<<~'RUBY')
-      # Array#dig walks through nested poly_array elements with int keys.
-      # Pre-fix emit_dig_step's int-key branch only emitted an arm for
-      # SP_BUILTIN_INT_STR_HASH; every other receiver kind collapsed the
-      # accumulator to nil at the next step, so a nested poly_array
-      # dig surfaced nil instead of the leaf value. Issue #619 puzzle 6.
+      # Array#dig walks through nested arrays of mixed element types with
+      # Integer keys, and gives the leaf value.
 
       p [[1, [2, "3"]]].dig(0, 1, 1) == "3"   # true (string leaf)
-      p [[1, [2, "3"]]].dig(0, 0) == 1        # true (int leaf via box_int)
+      p [[1, [2, "3"]]].dig(0, 0) == 1        # true (int leaf)
       p [[1, [2, "3"]]].dig(0, 1, 0) == 2     # true
       p [[1, [2, "3"]]].dig(0, 1, 5).nil?     # true (OOB at the last step)
     RUBY
@@ -27,20 +24,13 @@ describe "Enumerable: regressions" do
 
   it "each cons map chain fusion" do
     result = zr(<<~'RUBY')
-      # Phase A of Enumerator-chain strategy (#566): `arr.each_cons(n)`
-      # called without a block returns an Enumerator in CRuby. When the
-      # very next call is a terminal like `.map { |pair| ... }`, the
-      # Enumerator is consumed immediately and the chain has the same
-      # observable result as eagerly materialising each window. Spinel
-      # fuses the source + terminal into a single C loop, so no
-      # Enumerator object is allocated and no intermediate
-      # array-of-arrays is built (one window allocation per iteration,
-      # bounded by .map's accumulator).
+      # `arr.each_cons(n)` called without a block returns an Enumerator in
+      # CRuby. When the very next call is a terminal like
+      # `.map { |pair| ... }`, the Enumerator is consumed immediately and
+      # the result is the same as a map over each window.
       #
       # The terminal block may take the window as a single param
-      # (`|pair|`, typed as the receiver's array shape) or destructure
-      # it (`|(a, b)|`, binds individual locals -- the per-iteration
-      # window allocation is skipped on this path).
+      # (`|pair|`) or destructure it (`|(a, b)|`, binds individual locals).
 
       # T1: plain |pair| form, scalar block result
       p [1, 2, 3, 4].each_cons(2).map { |pair| pair[0] + pair[1] }
@@ -48,7 +38,7 @@ describe "Enumerable: regressions" do
       # T2: destructure |(a, b)|, scalar block result
       p [10, 20, 30, 40].each_cons(2).map { |(a, b)| b - a }
 
-      # T3: |pair| with array-returning block -> result is int_array_ptr_array
+      # T3: |pair| with array-returning block -> result is an Array of Arrays
       p [1, 2, 3].each_cons(2).map { |pair| [pair[0], pair[1]] }
 
       # T4: empty / short receiver (length < n) -> empty result
@@ -65,19 +55,15 @@ describe "Enumerable: regressions" do
 
   it "each cons with index map chain fusion" do
     result = zr(<<~'RUBY')
-      # Phase A.3 of Enumerator-chain strategy (#566): three-step
-      # `arr.each_cons(n).with_index(off).map { ... }` chain. CRuby
+      # Three-step `arr.each_cons(n).with_index(off).map { ... }` chain. CRuby
       # returns an Enumerator from each_cons, then another from
-      # with_index, and consumes both at the terminal .map. Spinel
-      # fuses the whole chain into a single C loop with an idx counter
-      # initialised from `off` (default 0) and incremented after each
-      # pair, so no Enumerator object is allocated.
+      # with_index, and consumes both at the terminal .map. The index
+      # starts at `off` (default 0) and goes up by one after each pair.
       #
       # Block param shapes:
-      #   |pair, i|       -- pair is the typed sub-array, i is the int idx
+      #   |pair, i|       -- pair is the sub-array, i is the Integer index
       #   |(a, b), i|     -- nested destructure of pair into individual
-      #                      window slots (skips the per-iteration sub-
-      #                      array allocation), trailing i as int idx
+      #                      window elements, trailing i as Integer index
 
       # T1: |pair, i| with explicit offset
       p [10, 20, 30, 40].each_cons(2).with_index(1).map { |pair, i| pair[0] + pair[1] + i }
@@ -88,7 +74,7 @@ describe "Enumerable: regressions" do
       # T3: default offset (0)
       p [1, 2, 3].each_cons(2).with_index.map { |pair, i| pair[1] - pair[0] + i }
 
-      # T4: block returns array -> result is int_array_ptr_array
+      # T4: block returns array -> result is an Array of Arrays
       p [1, 2, 3, 4].each_cons(2).with_index(1).map { |(a, b), i| [b - a, i] }
     RUBY
 
@@ -102,9 +88,8 @@ describe "Enumerable: regressions" do
 
   it "env fetch" do
     result = zr(<<~'RUBY')
-      # Regression: `ENV.fetch(key, default)` returns the env value when
-      # set, otherwise `default`. Pre-fix the codegen emitted "cannot
-      # resolve call to 'fetch' on int" and segfaulted at runtime.
+      # `ENV.fetch(key, default)` returns the env value when
+      # set, otherwise `default`.
 
       # ---- unset / default branch ----
 
@@ -119,13 +104,12 @@ describe "Enumerable: regressions" do
       puts ENV.fetch("THIRD_UNSET_VAR_XYZ_42", "pre-" + "fix")
 
       # ---- set / retrieval branch ----
-      # Spinel doesn't currently expose `ENV[]=` from Ruby, so we can't
-      # set a var ourselves. HOME is always exported by POSIX `make` and
-      # in CI, so we use that as the "set" probe. We only assert "non-
-      # empty + not the fallback string" so the test stays portable
-      # across runners (the actual home value differs per machine).
-      # A regression that inverted the getenv-result ternary would
-      # return the fallback here and print "set=fallback-not-used".
+      # The test does not set a var itself. HOME is always exported by
+      # POSIX `make` and in CI, so the test uses it as the "set" probe. It
+      # only asserts "non-empty + not the fallback string" so that it
+      # stays portable across runners (the home value differs per machine).
+      # If fetch gave the default for a set var, this prints
+      # "set=fallback-not-used".
       home = ENV.fetch("HOME", "fallback-not-used")
       if home.length > 0 && home != "fallback-not-used"
         puts "set=ok"
@@ -133,9 +117,8 @@ describe "Enumerable: regressions" do
         puts "set=" + home
       end
 
-      # Symmetric: an unset var with a literal default round-trips
-      # through the same ternary. (Would catch a regression that always
-      # returned the env value -- empty string -- regardless.)
+      # Symmetric: an unset var with a literal default gives the default,
+      # not an empty string.
       maybe = ENV.fetch("DEFINITELY_UNSET_VAR_ABC_99", "fallback-used")
       puts "unset=" + maybe
     RUBY
@@ -151,11 +134,9 @@ describe "Enumerable: regressions" do
 
   it "equality should be true" do
     result = zr(<<~'RUBY')
-      # #555 (gurgeous/Adam Doppelt). A corpus of `should be true`
-      # expressions that compiled to false in spinel pre-fix.
-      # Each line is an independent equality predicate; CRuby
-      # returns true for all twelve, and after the followup
-      # commits spinel matches on all 12.
+      # A corpus of `should be true` expressions. Each line is an
+      # independent equality predicate, and CRuby returns true for all
+      # twelve.
 
       p ({} == {})                                     # 01
       p ({a: 1} == {a: 1})                             # 02
@@ -190,11 +171,9 @@ describe "Enumerable: regressions" do
   it "fiber storage assign expr" do
     result = zr(<<~'RUBY')
       # `(Fiber[:k] = v)` as an expression returns the assigned value,
-      # matching MRI's `(h[k]=v) => v` semantics. The codegen path is
-      # distinct from the statement form `Fiber[:k] = v` — that lands in
-      # compile_mutating_call_stmt, while the expression-context dispatch
-      # emits a gcc statement-expression so the RHS reaches the outer
-      # assignment.
+      # matching MRI's `(h[k]=v) => v` semantics. The expression form is
+      # different from the statement form `Fiber[:k] = v`: the RHS must
+      # reach the outer assignment.
 
       x = (Fiber[:n] = 42)
       puts x                # 42 — value of the assignment expression
@@ -218,22 +197,9 @@ describe "Enumerable: regressions" do
 
   it "ptr array null guards" do
     result = zr(<<~'RUBY')
-      # #566 (T.Yamada). The original report was a segfault from
-      # downstream `Array#drop` / `take` running on a NULL pointer
-      # emitted by then-unimplemented `each_cons` / `with_index` /
-      # `max` (all warned-and-emitted-0 at the time). The NULL
-      # guards in `sp_PtrArray_*` (commit 729b9cb) stopped the
-      # segfault first; subsequently the missing Enumerator-chain
-      # methods were implemented via chain fusion so the full
-      # expression now produces CRuby's `3` instead of the
-      # warned-fallback `0`.
-      #
-      # This test now covers two things together:
-      # 1. The original NULL-safe guards on `sp_PtrArray_*` (a
-      #    later regression that emits NULL where a PtrArray is
-      #    expected must not crash here).
-      # 2. The end-to-end Enumerator-chain `each_cons(n).
-      #    with_index(off).map { ... }.drop.take.max[i]` lowering.
+      # The full chain `each_cons(n).with_index(off).map { ... }` followed by
+      # `.drop.take.max[i]` gives CRuby's `3`. Each step gets the array that
+      # the step before it makes.
 
       q = [100, 90, 82, 70, 65]
       a = 2
@@ -246,16 +212,8 @@ describe "Enumerable: regressions" do
 
   it "ptr array pop" do
     result = zr(<<~'RUBY')
-      # #520. `Array#pop` on a nested integer array (Array<Array<Int>>,
-      # spinel-side `int_array_ptr_array`) used to fall through to the
-      # unresolved-call warning and emit 0 — the array stayed intact.
-      # The same gap existed for any `<X>_ptr_array` element type; only
-      # the IntArray / StrArray / FloatArray / SymArray flavors had a
-      # direct `_pop` runtime helper.
-      #
-      # Fix: new sp_PtrArray_pop runtime helper (returns NULL on empty,
-      # matching CRuby's nil) plus a dispatch arm in the
-      # is_ptr_array_type recv_type branch.
+      # `Array#pop` on a nested array (an Array of Integer Arrays) removes
+      # the last element, and a later push adds to the array.
 
       a = [[1, 2]]
       puts "before pop: #{a.inspect}"
@@ -290,20 +248,8 @@ describe "Enumerable: regressions" do
 
   it "puts mixed ternary" do
     result = zr(<<~'RUBY')
-      # Issue #640: `puts cond ? :sym : int` used to dispatch through
-      # the wrong puts variant (`sp_sym_to_s(an_int)` printing garbage
-      # instead of the int value). unify_return_type collapsed [int,
-      # symbol] to "symbol" via the "int-as-default" heuristic, so the
-      # else arm's int was passed through sym dispatch.
-      #
-      # Fix: compile_puts detects an IfNode arg whose then/else arms
-      # have different *concrete* base types (neither nil/void) and
-      # routes through sp_poly_puts so each arm's value is boxed to its
-      # real tag.
-      #
-      # nil-arm cases (`if cond; X; end` without else) are left alone —
-      # string and pointer types already handle nil through the existing
-      # str_or_nil path.
+      # `puts cond ? :sym : int` prints the value of the arm that runs:
+      # the Symbol's name, or the Integer. Each arm keeps its own type.
 
       a = 2
       puts a%2>0 ? :odd : a    # else: prints "2"
@@ -357,11 +303,8 @@ describe "Enumerable: regressions" do
 
   it "sym array empty push" do
     result = zr(<<~'RUBY')
-      # Issue #85 / PR #92: an empty `[]` followed by `push(:sym)` should
-      # promote the local's tracked type to sym_array, so element access
-      # emits the symbol-name path instead of printing the symbol id.
-      # The literal-array form (`syms = [:tag, :more]`) was already passing
-      # on master before PR #92, so this test exercises empty-then-push.
+      # An empty `[]` followed by `push(:sym)`: element access gives the
+      # Symbols, and `puts` prints their names.
 
       syms = []
       syms.push(:tag)
@@ -389,7 +332,7 @@ describe "Enumerable: regressions" do
 
   it "sym array full" do
     result = zr(<<~'RUBY')
-      # Full sym_array test
+      # Full Symbol array test
       a = [:red, :green, :blue, :yellow]
 
       # Basic access
@@ -437,7 +380,7 @@ describe "Enumerable: regressions" do
       puts d_sorted[1]    # banana
       puts d_sorted[2]    # cherry
 
-      # puts of sym_array
+      # puts of a Symbol array
       puts a              # should print each element on its own line
     RUBY
 
@@ -470,11 +413,10 @@ describe "Enumerable: regressions" do
 
   it "sym hash" do
     result = zr(<<~'RUBY')
-      # Symbol-keyed hashes: keys are sp_sym (distinct from string keys).
-      # Cover both int-valued (sp_SymIntHash) and string-valued
-      # (sp_SymStrHash) shapes — same operator surface, different value
-      # types — in one file. Different local names so per-method type
-      # inference doesn't unify the two h's.
+      # Symbol-keyed hashes: Symbol keys are distinct from String keys.
+      # Cover both Integer-valued and String-valued shapes — same
+      # operator surface, different value types — in one file, with
+      # different local names for the two hashes.
 
       # Int values
       hi = {a: 1, b: 2, c: 3}
@@ -633,8 +575,7 @@ describe "Enumerable: regressions" do
 
   it "sym poly" do
     result = zr(<<~'RUBY')
-      # Mixed-type array triggers poly_array; symbol elements should
-      # go through sp_box_sym / SP_TAG_SYM dispatch.
+      # A mixed-type array; `puts` on a Symbol element prints its name.
       arr = [1, "two", :three, 4.0, true]
       arr.each { |v| puts v }
     RUBY
@@ -701,9 +642,8 @@ describe "Enumerable: regressions" do
   it "symbol upcase downcase" do
     result = zr(<<~'RUBY')
       # Symbol#upcase and Symbol#downcase return symbols by upper/lower-casing
-      # the symbol's name string and re-interning. Mirrors the existing
-      # String#upcase / #downcase plumbing — the only delta is `sp_sym_to_s`
-      # in front of the case helper and `sp_sym_intern` wrapping the result.
+      # the symbol's name string and interning the result again, as
+      # String#upcase / #downcase do for a String.
 
       # Symbol#upcase
       puts :hello.upcase
@@ -750,8 +690,8 @@ describe "Enumerable: regressions" do
     result = zr(<<~'RUBY')
       # SourceEncodingNode — the `__ENCODING__` keyword.
       #
-      # Spinel sources are assumed to be UTF-8; __ENCODING__ is a small
-      # Encoding value whose to_s returns the canonical name.
+      # Sources are UTF-8; __ENCODING__ is an Encoding value whose to_s
+      # returns the canonical name.
 
       puts __ENCODING__.to_s
     RUBY
@@ -1010,7 +950,7 @@ describe "Enumerable: regressions" do
   it "sum and map over a range subscript a nested array twice by the same index" do
     result = zr(<<~'RUBY')
       # Iterating a Range twice with a nested-index block (a poly-valued grid read):
-      # the sum-with-block and map-with-block forms both type correctly (Refs #2913).
+      # the sum-with-block and map-with-block forms both give the diagonal.
       grid = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
       diag_sum = (0...grid.length).sum { |i| grid[i][i] }
       diag = (0...grid.length).map { |i| grid[i][i] }
@@ -1084,7 +1024,7 @@ describe "Enumerable: regressions" do
   it "reduce keeps a Symbol accumulator read back out of a nested Hash" do
     result = zr(<<~'RUBY')
       # reduce with a Symbol accumulator whose block value is read from a nested Hash
-      # (poly): the poly block value coerces back to the sp_sym accumulator slot.
+      # (of mixed value types): the block value becomes the next accumulator.
       T = { a: { "0" => :a, "1" => :b }, b: { "0" => :a, "1" => :b } }
       p "01".chars.reduce(:a) { |s, c| T[s][c] }
       p "10".chars.reduce(:a) { |s, c| T[s][c] }
@@ -1137,9 +1077,8 @@ describe "Enumerable: regressions" do
 
   it "each_cons(2) hands its window to a two-parameter block" do
     result = zr(<<~'RUBY')
-      # each_cons(2).map { |a, b| ... } over an Int array: the flat multi-param window
-      # binding boxes each scalar element when the param is poly-typed, instead of
-      # assigning a raw mrb_int into an sp_RbVal slot.
+      # each_cons(2).map { |a, b| ... } over an Integer array: the window's
+      # elements bind to the two block params, one element each.
       codes = (0...8).map { |n| n * 2 }
       d = codes.each_cons(2).map { |a, b| a + b }
       w = codes.last
@@ -1235,8 +1174,8 @@ describe "Enumerable: regressions" do
   it "a String destructured out of a pair keeps its String methods" do
     result = zr(<<~'RUBY')
       # The chars/split result of a String destructured from a pair, captured (map /
-      # returned): the auto-splat must unbox the poly element into the String param's
-      # const char* slot, not leave it a raw sp_RbVal.
+      # returned): the auto-splat gives the String param a real String, and its
+      # String methods work.
       r = [["ab", "cd"]].map { |a, b| a.chars }
       p r
       p [["a,b", "c"]].map { |a, b| a.split(",") }
@@ -1590,10 +1529,9 @@ describe "Enumerable: regressions" do
   it "a joined string survives a collection between the store and the read" do
     result = zr(<<~'RUBY')
       # Two GC bugs behind a StringIO/wrap program:
-      #  1. a no-separator join emitted a bare "" separator with no 0xff marker, so
-      #     GC's string mark read one byte before it.
-      #  2. Array#join returned the transient sp_String builder's buffer; once stored
-      #     and outliving a GC, the swept builder freed it, leaving a dangling ptr.
+      #  1. a join with no separator must give a String that the GC can mark.
+      #  2. the String that Array#join returns must stay valid after a GC, also
+      #     when the program stores it and reads it later.
       def build(chars)
         buf = []
         chars.each { |c| buf << c }
@@ -1624,14 +1562,14 @@ describe "Enumerable: regressions" do
   it "each_index and each_with_index answer through an outer map" do
     result = zr(<<~'RUBY')
       p [[1, 2]].map { |row| row.each_index.map { |c| c } }
-      # wrong value (no error):
+      # each_with_index.sum inside an outer map:
       p [[10, 20, 30]].map { |row| row.each_with_index.sum { |v, i| v * i } }
-      # Ruby: [80]   Spinel: [nil]
+      # => [80]
 
-      # front-end reject of a statically-typed receiver:
+      # each_index.map on a local array:
       a = [1, 2]
       p a.each_index.map { |c| c }
-      # Ruby: [0, 1]   Spinel: spinel: unsupported p argument: node N (CallNode `map`) recv=CallNode
+      # => [0, 1]
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -1780,9 +1718,9 @@ describe "Enumerable: regressions" do
 
   it "a string stored in a container is the same object, so a later append shows through" do
     result = zr(<<~'RUBY')
-      # Shared-mutable strings, phase 3: a container-stored string shares its
-      # sp_String handle, so later in-place mutation is visible through the
-      # container and equal? is handle identity.
+      # Shared-mutable strings: a container-stored string is the same object, so
+      # later in-place mutation is visible through the container and equal? is
+      # object identity.
       s1 = "hi"
       arr = [s1]
       s1 << "!"

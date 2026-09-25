@@ -5,7 +5,7 @@ require "spec_helper"
 describe "Numeric: conversion" do
   it "bignum downto upto to a" do
     result = zr(<<~'RUBY')
-      # Bignum#downto / #upto materialized with .to_a (KieranP #2305)
+      # Bignum#downto / #upto materialized with .to_a
       big = 2 ** 100
       p big.downto(big - 3).to_a
       p big.upto(big + 2).to_a
@@ -92,9 +92,8 @@ describe "Numeric: conversion" do
   it "coerce error value spelling" do
     result = zr(<<~'RUBY')
       # CRuby names the offending value in a coercion TypeError by its CLASS, except
-      # nil / true / false, which it spells as themselves. spinel used the class name
-      # for all of them, so `[[]].sum {}` reported "NilClass can't be coerced into
-      # Integer" where CRuby says "nil can't be coerced into Integer".
+      # nil / true / false, which it spells as themselves: CRuby says "nil can't be
+      # coerced into Integer", not "NilClass can't be coerced into Integer".
       #
       # The two messages disagree about Symbol, and deliberately: "no implicit
       # conversion" names the CLASS, while "can't be coerced" spells the symbol.
@@ -169,13 +168,11 @@ describe "Numeric: conversion" do
 
   it "coerce factory and explicit call" do
     result = zr(<<~'RUBY')
-      # The coerce route emits two calls that have no node of their own: the
-      # operator, and #coerce itself. Nothing bound coerce's parameter, so it stayed
-      # unknown until a late backstop -- too late to widen the factory it feeds, and
-      # `Q.scalar(other)` took an sp_Q* that read a boxed Integer as a pointer
-      # (#3497). Where an explicit `m.coerce(4)` did bind it, the two disagreed and
-      # the build failed (#3499). Both shapes are here, each in its own class so the
-      # other's call sites cannot mask it.
+      # The coerce route makes two calls that do not appear in the source: the
+      # operator, and #coerce itself. The parameter of coerce gets the Integer,
+      # Rational or Float on the left, and passes it to the factory. An explicit
+      # `m.coerce(4)` call is the second shape. Both shapes are here, each in its
+      # own class so the other's call sites cannot mask it.
       class Fac
         attr_reader :v
 
@@ -299,18 +296,10 @@ describe "Numeric: conversion" do
       # names the VALUE and `Float` (`can't convert nil into Float`) rather than
       # reporting a coercion failure naming the class and the receiver's type.
       # An INTEGER pair stays integral, which is `rb_int_coerce`'s own rule.
+      # And `5.coerce(Rational(1,2))` answers `[0.5, 5.0]`.
       #
-      # The fix closed one more divergence with it: `5.coerce(Rational(1,2))`
-      # raised where ruby answers `[0.5, 5.0]`.
-      #
-      # The original header follows. It describes the PREDECESSOR project's
-      # version of this test and its own fix.
-      #
-      # Integer#coerce / Float#coerce with a non-numeric argument. CRuby answers
-      # `[Float(other), Float(self)]`, so the errors are Float()'s: a TypeError for
-      # nil / true / an Array / a Symbol, and an ArgumentError for an unparseable
-      # String. spinel put the argument straight into the Integer pair's slot, so a
-      # String stopped the C BUILD and a nil answered a coerced 0 (#4011).
+      # The errors are Float()'s: a TypeError for nil / true / an Array / a Symbol,
+      # and an ArgumentError for an unparseable String.
 
       [nil, true, false, "x", [1], { a: 1 }, :s].each do |v|
         begin
@@ -375,10 +364,8 @@ describe "Numeric: conversion" do
     result = zr(<<~'RUBY')
       # `3 + q` reaches the user operator through #coerce: Ruby asks q.coerce(3),
       # which answers [Q(3), q], and calls `+` on the first with the SECOND as its
-      # argument -- the user object itself. Only the direct call site has a call
-      # node, so the parameter settled on Integer and the coerce path read a Q
-      # pointer out of the pair as a raw integer: a pointer-sized number that
-      # changed between runs (#3491).
+      # argument -- the user object itself. So the parameter of the operator gets an
+      # Integer from a direct call and a Q from the coerce route.
       class Q
         attr_reader :value, :units
 
@@ -439,10 +426,9 @@ describe "Numeric: conversion" do
 
   it "coerce poly operand" do
     result = zr(<<~'RUBY')
-      # `5 + obj` runs the numeric coerce protocol from the argument side. The static
-      # path takes it when the object's class is known at the call site; an operand
-      # that only reads poly (here from a factory whose ternary widens) reached the
-      # poly operator and raised "can't be coerced" (#3960).
+      # `5 + obj` runs the numeric coerce protocol from the argument side. This holds
+      # also when the class of the operand is not known at the call site (here it
+      # comes from a factory that has a ternary).
       class F
         attr_reader :n
         def self.from(value)
@@ -492,12 +478,9 @@ describe "Numeric: conversion" do
 
   it "coerce result reader local" do
     result = zr(<<~'RUBY')
-      # Reading an ivar off a coerce-only operator result and assigning it to a local
-      # aborted the C build: the reader was typed from the ivar slot as the analysis
-      # had it partway through, while the slot itself finished poly, so the emitted
-      # assignment put an sp_RbVal into an sp_Rational local. Rational and Complex are
-      # by-value structs, which is why an Integer or Float ivar survived the same
-      # shape. The local has to follow the slot it is read out of (#3500).
+      # Read an ivar off an operator result that only the coerce route makes, and
+      # assign it to a local. The ivar holds a Rational, a Complex, an Integer or a
+      # Float, and the local gets that value.
       class Q
         attr_reader :v
         def initialize(v); @v = v; end
@@ -543,10 +526,8 @@ describe "Numeric: conversion" do
       p (2 * I.new(4)).v
       p (2.0 * I.new(2.5)).v
 
-      # and using the widened local afterwards. The read's own node was repointed to
-      # poly, but what CONSUMED it still carried the type it was inferred with, so an
-      # operator on it lowered to sp_poly_<op> -- whose value is boxed -- while its
-      # consumer still expected the exact struct, and the two met at the call.
+      # and using the local afterwards: each operator on it answers a value of the
+      # correct type.
       w = (2 * Q.new(Rational(3, 2))).v
       p w + 1
       p w - 1
@@ -599,11 +580,8 @@ describe "Numeric: conversion" do
 
   it "data with poly member coerce" do
     result = zr(<<~'RUBY')
-      # A poly (sp_RbVal) value assigned to a CONCRETE record member via Data#with was
-      # passed straight into the generated constructor's typed slot (const char* /
-      # mrb_int / mrb_float / ...) with no coercion -- a C type error at compile time --
-      # even though the regular `.new` call path (emit_arg_or_default) already coerces
-      # such an argument. Data#with now applies the same poly->concrete coercion.
+      # Data#with sets a member from a value whose type is known only at run time,
+      # such as an element of a mixed Array. It works as the regular `.new` call does.
       M = Data.define(:entry, :xs)
       m = M.new(entry: "", xs: [])
       msg = [:entry, "hi"]              # a heterogeneous [Symbol, String] array
@@ -619,7 +597,7 @@ describe "Numeric: conversion" do
       B = Data.define(:flag)
       bb = B.new(flag: false)
       mix = [true, 1]                   # heterogeneous [Bool, Int] -> poly element
-      p bb.with(flag: mix[0]).flag      # poly -> Bool member (coerced via sp_poly_truthy)
+      p bb.with(flag: mix[0]).flag      # poly -> Bool member
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -695,9 +673,6 @@ describe "Numeric: conversion" do
   it "float step to a" do
     result = zr(<<~'RUBY')
       # Float#step without a block materialises into an array.
-      # Previously SEGV'd because the call fell through to the
-      # unresolved-call int path (emitting 0), then `.to_a` was
-      # dispatched on int 0 as if it were a pointer.
       puts 1.0.step(3.0, 0.5).to_a.inspect
       puts 1.0.step(2.0).to_a.inspect
 
@@ -811,8 +786,8 @@ describe "Numeric: conversion" do
 
   it "integer 0d prefix" do
     result = zr(<<~'RUBY')
-      # `0d19` is CRuby's explicit decimal prefix; the parser knew 0x, 0b and 0o but
-      # not this one, and rejected the string.
+      # `0d19` is CRuby's explicit decimal prefix, as 0x, 0b and 0o are the prefixes
+      # of the other bases.
       r001 = (Integer("0d19") rescue $!.class)
       p r001
       r002 = (Integer("0D19") rescue $!.class); p r002
@@ -972,8 +947,7 @@ describe "Numeric: conversion" do
   it "math fn nil typeerror" do
     result = zr(<<~'RUBY')
       # Math.<fn> accepts only a real Numeric: nil, a String, a Symbol, or any other
-      # non-numeric argument raises TypeError (Math does not parse strings). Spinel
-      # previously coerced nil to 0.0 and a String cast was a C compile error.
+      # non-numeric argument raises TypeError (Math does not parse strings).
       def ms(x); Math.sqrt(x); end
 
       [nil, :sym, "2", [1]].each do |v|
@@ -1204,11 +1178,9 @@ describe "Numeric: conversion" do
 
   it "a class that writes abs takes over that name's poly dispatch, and an Integer still finds its arm" do
     result = zr(<<~'RUBY')
-      # A class defining `abs` (or `round`, `succ`) takes over that name's poly
-      # dispatch. An Integer arriving there had no arm, so a boxed ivar holding one
-      # raised "undefined method 'abs' for an instance of Integer" -- and where the
-      # result was consumed as the user method's type, the builtin arm's boxed answer
-      # was read as that object and the program crashed (#4012).
+      # A class defining `abs` (or `round`, `succ`) shares that name with Integer.
+      # A call to `abs` on an ivar that holds an Integer still goes to Integer#abs,
+      # and a call on a Fixed goes to Fixed#abs.
       class Fixed
         attr_reader :units
 
@@ -1284,7 +1256,7 @@ describe "Numeric: conversion" do
     result = zr(<<~'RUBY')
       # The masked-xorshift idiom under --int-overflow=promote: a value past 2^63
       # stays a positive bignum, so `.to_f / 2**64` lands in [0,1) and `>>` shifts a
-      # non-negative value -- the stream matches CRuby draw for draw. (#3371)
+      # non-negative value -- the stream matches CRuby draw for draw.
       #
       # The state array is seeded with a bignum so it is not an INT array: a promoted
       # value stored into an int-typed array is still truncated back to int64, which
@@ -1330,11 +1302,9 @@ describe "Numeric: conversion" do
 
   it "rational coerce user object" do
     result = zr(<<~'RUBY')
-      # `Rational(3, 2) * money`, where money defines #coerce, refused to compile at
-      # all -- an "unsupported arithmetic" abort that took the whole program down
-      # even when the expression sat behind a rescue. The coerce protocol was wired
-      # for an Integer or Float on the left only, so Rational and Bignum fell off
-      # the end of it (#3489).
+      # `Rational(3, 2) * money`, where money defines #coerce. The coerce protocol
+      # works with a Rational or a Bignum on the left, as it does with an Integer
+      # or a Float.
       class Money
         attr_reader :cents
 

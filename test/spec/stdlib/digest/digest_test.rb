@@ -79,14 +79,12 @@ describe "Digest programs" do
     result = zr(<<~'RUBY', files: fixtures("every_byte.bin"))
       # `readpartial`, `sysread`, `read(n, buf)` and `pread` answer BYTES.
       #
-      # Each of them used to route the bytes through `String::from_utf8_lossy`,
-      # which replaces every byte no character claims with a three-byte U+FFFD --
-      # so a 100-byte read answered 136 bytes of something else, and the answer was
-      # tagged UTF-8 rather than ASCII-8BIT.
+      # No byte changes to U+FFFD: a 100-byte read answers the same 100 bytes, and
+      # the answer is tagged ASCII-8BIT, not UTF-8.
       #
       # rubygems digests each member of a `.gem` through `readpartial(16384, buf)`,
-      # so every downloaded gem failed its SHA256 checksum and nothing could be
-      # installed. Nothing else caught it because a text file has no such bytes.
+      # so a changed byte fails the SHA256 checksum of every downloaded gem. A text
+      # file does not have such bytes, so the example reads a file of every byte.
 
       require "digest"
 
@@ -402,7 +400,7 @@ describe "Digest programs" do
       # What a `require` answers, and where one may stand. Each line pins CRuby's
       # answer: true when this require is what loaded the library, false when it
       # was already there -- including `require "rational"`/"complex", the default
-      # gems folded into core, which answer false. (Imported from spinel.)
+      # gems folded into core, which answer false.
       r1 = require 'stringio'
       p r1
       p r1.class
@@ -517,12 +515,10 @@ describe "Digest programs" do
 
   it "subclass of any native class", needs: "libssl" do
     result = zr(<<~'RUBY')
-      # Every built-in CLASS can be subclassed. zr used to keep an opt-in
-      # allowlist of "payload roots", so a gem subclassing a native class nobody
-      # had added got a compile error naming zr rather than a program -- eleven
-      # gems on `OpenSSL::X509::Certificate` alone. The list is a DENYLIST now:
-      # a built-in whose subclass is a different native shape says so, and
-      # everything else is a payload wrapper.
+      # Every built-in CLASS can be subclassed, `OpenSSL::X509::Certificate`
+      # too (eleven gems subclass it). A DENYLIST names each built-in whose
+      # subclass is a different native shape. Every other subclass is a payload
+      # wrapper.
       #
       # What made the default safe is that both halves it needs are generic. A
       # root with no empty form keeps a `nil` payload and the subclass's own

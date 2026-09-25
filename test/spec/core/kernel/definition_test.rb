@@ -139,8 +139,8 @@ describe "Kernel: defining and naming methods" do
 
   it "implicit self send" do
     result = zr(<<~'RUBY')
-      # Implicit-self send(:literal) / __send__ / public_send -> direct call (#1261).
-      # Done on the AST, so a `send(:` inside a string literal is NOT rewritten.
+      # Implicit-self send(:literal), __send__ and public_send call the method.
+      # A `send(:` inside a string literal is only text.
       class Dispatcher
         def greet; "hi"; end
         def add(a, b); a + b; end
@@ -207,7 +207,7 @@ describe "Kernel: defining and naming methods" do
         puts "#{e.class}: #{e.message}"   # RuntimeError: original
       end
 
-      # raise still works alongside fail (regression)
+      # raise still works alongside fail
       begin
         raise ArgumentError, "still works"
       rescue => e

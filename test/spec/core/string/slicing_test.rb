@@ -457,7 +457,6 @@ describe "String: slicing" do
   it "clamp string and range" do
     result = zr(<<~'RUBY')
       # Comparable#clamp — string receiver and Range arg form.
-      # 2-arg int form was already supported by #899.
       puts "b".clamp("a", "c")
       puts "z".clamp("a", "c")
       puts "a".clamp("b", "y")
@@ -633,7 +632,7 @@ describe "String: slicing" do
 
   it "each slice map" do
     result = zr(<<~'RUBY')
-      # Issue #829: array.each_slice(n).map { |x, y| ... } chains.
+      # array.each_slice(n).map { |x, y| ... } chains.
       a = [1, 3, 6, 10]
       p a.each_slice(2).map { |x, y| y - x }
 
@@ -715,11 +714,8 @@ describe "String: slicing" do
 
   it "hash shorthand str" do
     result = zr(<<~'RUBY')
-      # Hash shorthand with string-valued local variable.
-      # Regression: scan_locals's first pass infers the hash literal value type
-      # before the local's type lands in @scope_names, so `{first:}` mis-types
-      # as int. Pre-fix: declared sp_SymIntHash / sp_SymPolyHash but built with
-      # string values -> incompatible-pointer C error or unknown-type error.
+      # Hash shorthand with string-valued local variable: `{name:}` takes the
+      # value of the local `name`, a String.
 
       # Single string-valued shorthand
       name = "ada"
@@ -898,17 +894,11 @@ describe "String: slicing" do
 
   it "negative range slice" do
     result = zr(<<~'RUBY')
-      # #496. `a[1..-2]` returned [] in spinel where CRuby returns
-      # [a[1], a[2], a[3]]. Codegen emitted `sp_IntArray_slice(arr, 1,
-      # -2 - 1 + 1)` (length = -2), and the runtime's `len <= 0` early
-      # return produced an empty array. Fix: new `_slice_range` /
-      # `_sub_range_r` runtime helpers take (start, end, exclusive)
-      # and normalize negative end against the collection length
-      # before computing slice length.
+      # `a[1..-2]` gives [a[1], a[2], a[3]] for a 5-element array: a negative
+      # end counts from the end of the collection.
       #
-      # Test covers the four receiver shapes that route through the
-      # fixed emit sites: int_array, float_array, str_array, and
-      # string. Exclusive (`...`) and inclusive (`..`) forms both
+      # Test covers four receiver shapes: an Integer array, a Float array,
+      # a String array, and a String. Exclusive (`...`) and inclusive (`..`) forms both
       # exercise negative endpoints.
 
       a = [0, 1, 2, 3, 4]
@@ -950,12 +940,8 @@ describe "String: slicing" do
 
   it "poly slice assign" do
     result = zr(<<~'RUBY')
-      # `compile_slice_assign` had no `rt == "poly"` arm; the
-      # fall-through used arg[1] (the slice length) as the assignment
-      # value and silently dropped the rhs entirely.
-      #
-      # Trigger: `arr[i, n] = src` where arr's slot type is plain poly
-      # (widened via heterogeneous writes).
+      # `arr[i, n] = src` replaces the slice with the rhs, also when arr holds
+      # values of mixed types.
 
       class C
         def init_arr
@@ -995,9 +981,7 @@ describe "String: slicing" do
       # unrelated shapes — section 1's Bag renamed to MapBag).
 
 
-      # `compile_map_expr` had no `ptr_array` recv branch — `.map { ... }`
-      # on a typed `obj_X[]` ivar/local fell through to the trailing
-      # `"0"` placeholder.
+      # `.map { ... }` on an ivar or local that holds an array of Box objects.
       class Box
         attr_reader :v
         def initialize(v); @v = v; end
@@ -1179,8 +1163,8 @@ describe "String: slicing" do
       v = (1..5).each_cons(2) { |s| s }
       p v
 
-      v = (1..5).each_slice(2) { |s| s }; p v        # Ruby: 1..5    Spinel: [1, 2, 3, 4, 5]
-      v = (1..5).each_cons(2) { |s| s }; p v.class   # Ruby: Range   Spinel: Array
+      v = (1..5).each_slice(2) { |s| s }; p v        # => 1..5
+      v = (1..5).each_cons(2) { |s| s }; p v.class   # => Range
 
       p((1..5).each_cons(2) { |s| s })                  # => 1..5
       p((1..5).each_slice(2) { |s| s })                 # => 1..5
@@ -1323,9 +1307,8 @@ describe "String: slicing" do
 
   it "range string cover" do
     result = zr(<<~'RUBY')
-      # Range#include? / cover? / === on string ranges. Spinel inlines
-      # strcmp bounds for literal string-range receivers rather than
-      # trying to fit the receiver into the int-only sp_Range struct.
+      # Range#include? / cover? / === on string ranges. The bounds compare
+      # as Strings.
 
       puts ("a".."z").include?("m")
       puts ("a".."z").cover?("m")
@@ -1490,12 +1473,9 @@ describe "String: slicing" do
 
   it "splat slice keys" do
     result = zr(<<~'RUBY')
-      # `Hash#slice(*keys)` is variadic, but `slice` sat in the fixed-arity splat
-      # expansion table with arity 1, so a splat whose length is not a literal was
-      # rewritten to `keys[0]` -- every key after the first silently dropped. A
-      # constant splat was not expanded at all and reached the emitter as one whole
-      # array, which the key coercion answered nothing for. Three spellings of one
-      # splat gave three answers (#4164).
+      # `Hash#slice(*keys)` is variadic: every key of the splat counts, not only
+      # the first. A splat of a local, of a constant and of a literal array give
+      # the same answer.
       ATTRS = [:a, :b]
       IDX = [1, 2]
       h = { a: 1, b: 2, c: 3 }
@@ -1542,10 +1522,9 @@ describe "String: slicing" do
 
   it "a-z in a delete, tr or count charset expands to the codepoint range" do
     result = zr(<<~'RUBY')
-      # Issue #858: `a-z` range notation inside the charset string
-      # argument of String#delete / #tr / #tr_s / #count expands to
-      # the codepoint range. Previously the range syntax was treated
-      # as three literal characters (a, -, z).
+      # `a-z` range notation inside the charset string argument of
+      # String#delete / #tr / #tr_s / #count expands to the codepoint
+      # range, not to three literal characters (a, -, z).
       puts "hello world".delete("a-z").inspect
       puts "abc123".tr("a-z", "X").inspect
       puts "Hello World".count("a-z")

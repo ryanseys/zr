@@ -341,26 +341,12 @@ describe "Fusion: dispatch" do
 
   it "nil guard narrows int or nil" do
     result = zr(<<~'RUBY')
-      # #550. Mirror of d3ee2b2 (#493) for the nil-vs-not case on
-      # int|nil locals. After `return -1 if h.nil?`, the rest of the
-      # scope sees `h` as non-nil; for a local whose writer was a
-      # known int-or-nil source (String#index, rindex, find_index),
-      # the non-nil arm is mrb_int. The function's return type
-      # narrows accordingly, and the trailing `h + 1` lowers via
-      # integer arithmetic on the unboxed payload instead of routing
-      # through sp_poly_add.
+      # A local that holds an Integer or nil (from String#index, rindex,
+      # find_index). After `return -1 if h.nil?`, the rest of the scope
+      # sees `h` as an Integer, so `h + 1` is integer arithmetic and the
+      # method returns an Integer.
       #
-      # Cascade: the 0210389 String#index return-type change widened
-      # all downstream consumers to sp_RbVal. Before this fix, every
-      # `h = s.index(needle); ...; h + 1` had to be hand-wrapped in a
-      # pure-int helper (Tep.str_find) to avoid the poly widening.
-      # With the nil-guard narrow, the idiomatic form works directly.
-      #
-      # Discriminator: `lookup` consumes find_or_neg's return as an
-      # int-typed array index. Pre-fix the function returns sp_RbVal
-      # and arr[poly] does not compile cleanly (spinel emits no
-      # implicit poly->int unbox at the index site). Post-fix the
-      # return is mrb_int and arr[i] is direct integer indexing.
+      # `lookup` uses the result of find_or_neg as an array index.
 
       ARR = [10, 20, 30, 40, 50, 60]
 
@@ -463,10 +449,9 @@ describe "Fusion: dispatch" do
 
   it "poly arg to typed method param" do
     result = zr(<<~'RUBY')
-      # Sibling to #438. A poly local guarded by `is_a?(String)` passed
-      # as a positional arg to a top-level typed-param method: the call
-      # site unboxes via `(lv_v).v.s` so the const-char* parameter
-      # type-checks. Same shape for Integer / Float narrows.
+      # A local of no single type, guarded by `is_a?(String)`, goes as a
+      # positional arg to a top-level method that uses it as a String.
+      # The same shape applies to an Integer guard.
 
       def helper_s(s)
         s.length
@@ -503,36 +488,12 @@ describe "Fusion: dispatch" do
 
   it "poly dispatch narrow return type" do
     result = zr(<<~'RUBY')
-      # #549. Followup to #531. The cls_id-switch dispatch's RESULT
-      # temp widened to sp_RbVal even when every reachable arm
-      # returned the same scalar. The reachable set is computed by
-      # the same arm-suppression logic the codegen emit loop applies:
-      # arms whose param types are incompatible with the dispatch
-      # site's arg types are pruned, and only arms in the observed
-      # obj-class set survive. With both filters applied, the return
-      # types of surviving arms are unified; if they agree on a
-      # scalar (e.g. all `const char *`), the result temp uses that
-      # scalar instead of sp_RbVal, and the boxed arm rhs (`_t =
-      # sp_box_str(...)`) collapses to a direct assignment.
+      # A call `@w.run(item)` can reach more than one class. Every class
+      # that can receive it here returns a String, so the result is a String.
       #
-      # Shape: M::Server#run takes `port:int` and returns int; the
-      # Worker family takes `item:string` and returns string. The
-      # dispatch site `@w.run(item)` supplies a string, so M::Server's
-      # arm is param-incompat and pruned. The Worker arms return
-      # string, so the dispatch produces `const char *` and the
-      # scalar-only consumer `s + "."` below compiles correctly.
-      # Pre-fix, the dispatch result was sp_RbVal and `s + "."`
-      # routed through sp_poly_concat -- still ran but the
-      # concatenated form leaked the boxing.
-      #
-      # Discriminator: `Holder#use` returns `s + "."`. If the
-      # dispatch result is sp_RbVal, `s + "."` lowers through
-      # sp_poly_concat, which formats the box and produces e.g.
-      # `x!.` only because sp_box_str / sp_poly_concat happen to
-      # preserve the underlying string. The shape is correct but
-      # the path is wrong; once the dispatch is narrowed to
-      # const char *, `s + "."` lowers to sp_str_concat which is
-      # what we want.
+      # Shape: M::Server#run takes an Integer and returns an Integer. The
+      # Worker classes take a String and return a String. `@w` only ever
+      # holds a Worker, so `s + "."` in `Holder#use` is a String concat.
 
       module M
         class WorkerA
@@ -567,16 +528,9 @@ describe "Fusion: dispatch" do
 
   it "poly local is a string narrow in non tail if" do
     result = zr(<<~'RUBY')
-      # Sibling case to poly_local_is_a_string_narrow_in_tail_if (#612):
-      # a poly-typed local narrowed via `if content.is_a?(String) ... end`
-      # when the if is NOT in tail position. Before this fix
-      # compile_if_stmt didn't push the is_a? narrow, so a typed-arg
-      # callee inside the body (sp_re_escape's `const char *`) saw the
-      # raw sp_RbVal and tripped a C compile. The fix mirrors
-      # compile_cond_return's narrow push and also switches
-      # compile_stmt's LV-write to use the slot's declared type so a
-      # rewrite of the narrowed var inside the body picks the slot arm,
-      # not the narrow's pseudo-type. Issue #615.
+      # A local of no single type, narrowed by
+      # `if content.is_a?(String) ... end`, when the if is NOT in tail
+      # position. Inside the body, `Regexp.escape(content)` gets a String.
 
       class Resp
         attr_reader :body
@@ -613,13 +567,9 @@ describe "Fusion: dispatch" do
 
   it "poly local is a string narrow in tail if" do
     result = zr(<<~'RUBY')
-      # Tail-position `if x.is_a?(C) ... end` now pushes a narrow for `x`
-      # inside the body, so a typed callee that consumes `x` unboxes via
-      # the matching union field (`.v.s` for string, `.v.i` for int, etc.)
-      # instead of emitting the raw sp_RbVal. Issue #612: pre-fix
-      # Regexp.escape on a poly param narrowed via `is_a?(String)` emitted
-      # `sp_re_escape(lv_x)` against the un-narrowed slot and the C
-      # compile failed.
+      # Tail-position `if x.is_a?(C) ... end` narrows `x` inside the body.
+      # Here `Regexp.escape` gets a String from a local narrowed by
+      # `is_a?(String)`.
 
       def matcher(content_or_opts)
         if content_or_opts.is_a?(Hash)
@@ -643,12 +593,8 @@ describe "Fusion: dispatch" do
 
   it "poly local is a string narrow in y1 inline" do
     result = zr(<<~'RUBY')
-      # Sibling to #615 (poly_local_is_a_string_narrow_in_non_tail_if):
-      # the is_a? narrow + LV-read unbox must also fire inside the y1
-      # inlined specialization that block-passing creates. The
-      # non-inlined `sp_Base_check` body already unboxed correctly after
-      # #615 / #817149f; the inlined y1 copy emitted the raw poly local
-      # where `const char *` is expected. Issue #624.
+      # The is_a? narrow must also apply when the method gets a block.
+      # `check` gets a String, an Integer, and a call with only a block.
 
       class Base
         def check(content = nil, &block)
@@ -677,19 +623,9 @@ describe "Fusion: dispatch" do
 
   it "poly recv dispatch narrow module" do
     result = zr(<<~'RUBY')
-      # #531. Sibling to #513. The poly-recv narrowing in af55659
-      # walks the global AST for `<Class>.new(...)` call sites to
-      # recover concrete classes seen at a poly ivar slot. The walker
-      # matched only `ConstantReadNode` receivers, so module-scoped
-      # classes (`module M; class Holder; end; end` with call sites
-      # `M::Holder.new(...)`) fell through to the all-classes fallback.
-      # Server got pulled into M::Holder.use's cls_id-dispatch table
-      # even though no M::Server is ever assigned to @w, and
-      # M::Server#run's port widened to sp_RbVal.
-      #
-      # Fix: also match `ConstantPathNode` receivers via
-      # `const_ref_flat_name`, which produces the same flattened
-      # `Mod_Class` form that `@cls_names` stores.
+      # The classes live in a module, and the program creates them with
+      # `M::Holder.new(...)` and `M::WorkerA.new`. `@w` only ever holds a
+      # Worker, never an M::Server.
 
       module M
         class WorkerA
@@ -702,10 +638,8 @@ describe "Fusion: dispatch" do
           def initialize(w); @w = w; end
           def use(item); @w.run(item); end
         end
-        # Same shape as #513's top-level Server: same method name (`run`),
-        # different param type (int instead of string). After the fix,
-        # M::Server#run keeps `mrb_int lv_port` and M::Server is dropped
-        # from the M::Holder.use dispatch table.
+        # The same method name (`run`) with a different param type
+        # (Integer, not String). M::Server#run still adds to an Integer.
         class Server
           def run(port); port + 1; end
         end
@@ -725,9 +659,8 @@ describe "Fusion: dispatch" do
 
   it "poly slot typed array read" do
     result = zr(<<~'RUBY')
-      # A typed array stored into a poly slot -- a Hash value, here -- has a
-      # different layout from the poly array the index read assumed, so every
-      # element came back nil.
+      # An array stored as a Hash value keeps its elements. An index read
+      # on it gives them back.
       h = {}
       h["a"] = [7, 8, 9]
       row = h["a"]

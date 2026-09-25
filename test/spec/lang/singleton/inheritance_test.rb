@@ -221,9 +221,8 @@ describe "Singleton: inheritance and ancestors" do
 
   it "extend in reopened class" do
     result = zr(<<~'RUBY')
-      # `extend M` written in a REOPENING of the class: the module's methods are
-      # transplanted from every body that defines the class, not only the first
-      # (#3802).
+      # `extend M` written in a REOPENING of the class: an `extend` in any body of
+      # the class adds the module's methods, not only an `extend` in the first body.
       class Win
         def self.shown?
           false
@@ -276,8 +275,8 @@ describe "Singleton: inheritance and ancestors" do
     result = zr(<<~'RUBY')
       # `rb_extend_object` is `rb_include_module(rb_singleton_class(obj), module)`,
       # so a class body's `extend M` seats M in the singleton chain WHERE THE
-      # STATEMENT STANDS. zr knows the edge at compile time and used to have it in
-      # place from program start, which made four things visible too early.
+      # STATEMENT STANDS. zr knows the edge at compile time, but the edge must not
+      # be in place from program start, or four things become visible too early.
 
       module MR
         def method_removed(n) = ((@removed ||= []) << n)
@@ -458,10 +457,8 @@ describe "Singleton: inheritance and ancestors" do
 
   it "extend module" do
     result = zr(<<~'RUBY')
-      # Issue #721. `class C; extend M; end` should expose M's instance
-      # methods as class methods on C. spinel used to silently ignore the
-      # extend call; `C.<m>` would fall through to the unresolved-call
-      # warning + emit 0.
+      # `class C; extend M; end` makes M's instance methods class methods
+      # on C.
 
       module M
         def ext_method; "extended"; end
@@ -644,11 +641,9 @@ describe "Singleton: inheritance and ancestors" do
 
   it "include skips module class methods" do
     result = zr(<<~'RUBY')
-      # Issue #714. `class C; include M; end` should NOT drag M's
-      # `def self.X` (class methods on the module) into C as instance
-      # methods. Doing so co-opted M's @ivar writes into C's ivar table and
-      # clobbered the hoisted `cst_M_<v>` slot, flipping its type from the
-      # correct sym_str_hash back to int and breaking subsequent hash ops.
+      # `class C; include M; end` does NOT copy M's `def self.X` (class
+      # methods on the module) into C as instance methods. M's class methods
+      # write M's own @ivars, so M's @slots stays a Hash.
 
       module M
         @slots = {}

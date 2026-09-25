@@ -48,8 +48,8 @@ describe "String: defining and naming methods" do
   it "int element alias not string" do
     result = zr(<<~'RUBY')
       # `b0 = bytes[i]` where bytes holds Integers, in a method that also appends to a
-      # String: the mutator table is name-keyed, so `b0 << 4` (an integer shift) read
-      # as a string append and the element was bound to a string handle (#3971).
+      # String: `b0 << 4` is an Integer shift, not a String append, and `b0` stays
+      # an Integer.
       ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
 
       def encode(s)
@@ -162,7 +162,7 @@ describe "String: defining and naming methods" do
         io
       end
 
-      def hold(x)                 # poly param: arg is boxed via sp_box_str(->data)
+      def hold(x)                 # the param takes values of any class
         GC.start
         i = 0
         t = ""
@@ -181,9 +181,9 @@ describe "String: defining and naming methods" do
         build_io(n).gsub("ZZZ", "x")
       end
 
-      hold(42)                    # int call site forces hold's param to poly
+      hold(42)                    # an Integer call lets hold take any class
 
-      a = hold(build_io(6))       # poly-box conversion
+      a = hold(build_io(6))       # pass through a param of any class
       b = via_to_s(6)             # to_s conversion
       c = String(build_io(6))     # Kernel#String conversion
       d = via_gsub(6)             # no-op gsub returning the receiver
@@ -250,10 +250,8 @@ describe "String: defining and naming methods" do
   it "a String reached through an accessor is the object the container holds, as through [] it is" do
     result = zr(<<~'RUBY')
       # A String reached through an ACCESSOR call is the same object the container
-      # holds, exactly as one reached through `[]` is. The shared-mutable-string
-      # analysis keyed only off `[]`, so the accessor route handed out a copy: the
-      # index assignment had no `[]=` to call on it, and the in-place mutators
-      # silently left the container alone (#4013).
+      # holds, exactly as one reached through `[]` is. An index assignment or an
+      # in-place mutator on it changes the String in the container.
       b = [+"xyz"]
       b.first[1] = "*"
       p b
@@ -329,7 +327,7 @@ describe "String: defining and naming methods" do
     result = zr(<<~'RUBY')
       # Reading a mutable String out of a container into a local aliases the
       # element: an in-place mutation through the local must show in the container,
-      # and `equal?` must answer true. The local used to hold a COPY (#3941).
+      # and `equal?` must answer true. The local does not hold a COPY.
       rows = [+"abc"]
       r = rows[0]
       r.upcase!

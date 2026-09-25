@@ -92,35 +92,20 @@ describe "Classes: formatting and inspection" do
 
   it "class const as value" do
     result = zr(<<~'RUBY')
-      # Issue #404 Phase 1. A class constant referenced as a value (not
-      # as the receiver of `.new` / a class method call) used to emit a
-      # bare C identifier:
+      # A class constant referenced as a value (not as the receiver of
+      # `.new` / a class method call) is a Class object:
       #
-      #   c = Row     ->  lv_c = Row;             /* Row undeclared */
-      #   puts c.to_s ->  warning: cannot resolve call to 'to_s' on class_Row
+      #   c = Row
+      #   puts c.to_s   # Row
       #
-      # Phase 1 wires the minimum surface needed for class-as-value to
-      # round-trip through a local:
-      #   - sp_Class struct (mrb_int cls_id) in sp_runtime.h.
-      #   - infer_type for ConstantReadNode / ConstantPathNode resolving
-      #     to a registered class returns "class".
-      #   - c_type "class" -> "sp_Class"; c_default_val "class" ->
-      #     ((sp_Class){-1LL}).
-      #   - compile_expr's ConstantReadNode arm emits a sp_Class compound
-      #     literal carrying the class index instead of the bare name.
-      #   - compile_object_method_expr's recv_type == "class" branch
-      #     lowers `.to_s` to the new sp_class_to_s helper, which
-      #     bound-checks against the per-program sp_class_names[] table
-      #     emitted by emit_class_runtime.
+      # The Class value goes through a local, and through an ivar.
       #
-      # Out of scope for Phase 1 (deferred to later work):
+      # Other examples check the rest of the Class surface:
       #   - `.name` / `.inspect` / `.==` / `.!=` on Class values.
       #   - Module distinction (Module vs Class kind).
       #   - Dispatch through a Class-typed local (`c.new(...)`).
       #   - is_a?(Klass-typed-variable), case/when on Class values.
-      #   - Precomputed ancestors / .superclass / `.<` / `.<=`.
-      #
-      # Phase 2 will pick those up; the issue stays open until then.
+      #   - Ancestors / .superclass / `.<` / `.<=`.
 
       class Row
         attr_accessor :x
@@ -137,10 +122,8 @@ describe "Classes: formatting and inspection" do
       d = Article
       puts d.to_s                   # Article
 
-      # Pass a Class value through a typed-pointer round trip via an
-      # instance method that reads it off an ivar -- exercises the
-      # "store sp_Class on the heap and read it back" path that the
-      # bare `Foo` reference originally broke at the C-emit boundary.
+      # Store a Class value in an ivar and read it back through an
+      # instance method.
       class Holder
         attr_accessor :klass
       end
@@ -162,10 +145,9 @@ describe "Classes: formatting and inspection" do
 
   it "class hierarchy" do
     result = zr(<<~'RUBY')
-      # Issue #404 Phase 3 (Tier 1, classes-only). Exercise the
-      # precomputed ancestors / parents tables added in this phase.
-      # Modules + dynamic is_a? + case-when on Class come in later
-      # tiers; this test stays on user-class inheritance.
+      # Class hierarchy of user classes: .superclass, .ancestors, and
+      # `<` / `<=`. Modules, dynamic is_a? and case-when on Class are
+      # in other examples; this one stays on user-class inheritance.
 
       class A
       end
@@ -176,15 +158,14 @@ describe "Classes: formatting and inspection" do
       class C < B
       end
 
-      # .superclass walks @cls_parents one step.
+      # .superclass goes up one step.
       puts B.superclass.to_s  # => A
       puts C.superclass.to_s  # => B
       # A's superclass is Object per CRuby.
       puts A.superclass == Object ? "A-root-ok" : "A-root-bad"
 
-      # .ancestors returns a PolyArray of boxed sp_Class. Iterate and
-      # concatenate the names so the output exercises sp_box_class +
-      # the PolyArray iteration over class-tagged poly elements.
+      # .ancestors returns an Array of Class and Module values. Iterate
+      # and concatenate the names.
       def names_of(arr)
         out = ""
         arr.each do |klass|
@@ -221,21 +202,15 @@ describe "Classes: formatting and inspection" do
 
   it "class hierarchy builtin" do
     result = zr(<<~'RUBY')
-      # Issue #404 Phase 3 Tier 4. Built-in class prefix in the
-      # unified cls_id space. Primitives (Integer, String, Array, ...)
-      # now occupy cls_ids 0..20 per docs/CLASS-OBJECT.md; user
-      # classes shift to cls_id BC + internal_ci, where BC is the
-      # reserved built-in count.
+      # Built-in classes (Integer, String, Array, ...) as Class values.
       #
       # Coverage:
       #   - Built-in class const in value position: Integer.to_s ->
-      #     "Integer" via the sp_class_names table.
+      #     "Integer".
       #   - Built-in class hierarchy: Integer < Numeric, Integer <=
       #     Object, Integer < Comparable (transitive via include).
-      #   - `obj.is_a?(klass)` where obj is a primitive (poly recv via
-      #     sp_class_for_poly mapping) and klass is a sp_Class value.
-      #     The pre-Tier-4 path returned the sp_Class{-1} sentinel for
-      #     primitives.
+      #   - `obj.is_a?(klass)` where obj is a primitive value and klass
+      #     is a local that holds a Class.
 
       puts Integer.to_s            # Integer
       puts Float.to_s              # Float
@@ -250,7 +225,7 @@ describe "Classes: formatting and inspection" do
       puts (String < Object) ? "str<obj" : "str!<obj"       # str<obj
 
       # Dynamic is_a?(klass) where klass is a Class-typed local pointing
-      # at a built-in. The recv is a poly primitive.
+      # at a built-in. The receiver is a primitive value.
       def check(obj, klass)
         obj.is_a?(klass)
       end
@@ -312,17 +287,9 @@ describe "Classes: formatting and inspection" do
 
   it "class name in cmeth" do
     result = zr(<<~'RUBY')
-      # #509. `Class#name` (and `self.name`) inside `def self.X` body
-      # previously fell through to the unresolved-call warning and
-      # emitted 0. Used by ActiveRecord's `"#{name}.table_name must
-      # be overridden"` raise pattern (4 sites in roundhouse).
-      #
-      # Fix: bare `name` in cmeth context routes to
-      # sp_class_to_s({@current_class_idx}) via compile_no_recv_call_expr;
-      # `self.name` is special-cased in compile_object_method_expr
-      # (since SelfNode there types as obj_<C> and the obj-method
-      # dispatch has no `name` arm). Analyze types both forms as
-      # `string`.
+      # `Class#name` (and `self.name`) inside a `def self.X` body answers
+      # the name of the class, a String. ActiveRecord uses it in its
+      # `"#{name}.table_name must be overridden"` raise pattern.
 
       class Foo
         def self.who
@@ -431,17 +398,12 @@ describe "Classes: formatting and inspection" do
 
   it "class reopen replaces methods" do
     result = zr(<<~'RUBY')
-      # #489. Two `class Foo` definitions in the same translation unit
-      # (whether from two require_relative'd files or a single file with
-      # re-opened class) previously emitted duplicate C function symbols
-      # for each repeated method name (sp_Foo_go twice, etc.), failing
-      # C compile with "redefinition of 'sp_Foo_go'". CRuby's semantics
-      # are "last definition wins": the second body replaces the first
-      # for any method with the same name; methods unique to either copy
-      # survive. Fix: append_cls_meth / append_cls_cmeth detect a matching
-      # existing entry and replace its row in the parallel arrays instead
-      # of appending. Same shape repro across require_relative is fully
-      # covered by this single-file reopen.
+      # Two `class Foo` definitions in one program (from two
+      # require_relative'd files, or a single file with a re-opened class).
+      # CRuby's semantics are "last definition wins": the second body
+      # replaces the first for any method with the same name; methods
+      # unique to either copy survive. This single-file reopen covers the
+      # same shape as the require_relative case.
 
       class Foo
         def initialize
@@ -1503,17 +1465,15 @@ describe "Classes: formatting and inspection" do
       # allocates, and refuses for every one ruby refuses -- with ruby's own error
       # class each time.
       #
-      # 30 of these 52 rows used to diverge. Only 2 of zr's 98 native classes
-      # declared a blank value, so `allocate` fell through to a refusal for the
-      # other 26 that ruby allocates, and `Marshal.load` -- which allocates before
-      # it fills -- could not load any of them.
+      # `Marshal.load` allocates before it fills, so it needs a blank instance of
+      # each class it loads.
       #
-      # The three shapes ruby uses, and now zr too:
+      # The three shapes ruby uses, and zr too:
       #
       #   * a blank instance, for a class whose payload has an empty form;
       #   * `TypeError: allocator undefined for X`, for a class with no blank;
       #   * `NoMethodError: undefined method 'allocate' for class X`, for the five
-      #     ruby UNDEFINES the name on (`zr_abi::ALLOCATE_UNDEFINED`). The two
+      #     ruby UNDEFINES the name on. The two
       #     refusals are not interchangeable: `rescue TypeError` around
       #     `MatchData.allocate` catches nothing.
 
@@ -1973,8 +1933,7 @@ describe "Classes: formatting and inspection" do
       end
       p [Pathname.new("/x").mine, Pathname.new("/x").instance_variables]
 
-      # `Pathname.allocate` used to raise `allocator undefined`. A class states its
-      # own blank value with `allocate <fn>;` in its `ruby_class!` header.
+      # `Pathname.allocate` answers a blank Pathname.
       p Pathname.allocate.inspect
       p Pathname.allocate.instance_variables
 
@@ -2170,7 +2129,7 @@ describe "Classes: formatting and inspection" do
       end
       t("Array.new content") { Array.new(3, 0) }
       # The core's own constructions do not run the program's initialize,
-      # as the C that makes them never calls it: a bignum's limbs, a
+      # as the runtime code that makes them never calls it: a bignum's limbs, a
       # padding, a copy.
       t("a bignum") { [(1 << 70).to_s, (1 << 70) * 3 >> 2] }
       t("a padding") { ["b".ljust(9) + "|", format("%-12s|", "x")] }

@@ -8,13 +8,9 @@ describe "Modules: formatting and inspection" do
       # Bare (receiverless) class-method call in a module/class body must propagate
       # the callee's return type to the call expression.
       #
-      # `def self.mk` returns a typed hash; called bare as `mk` (not `M.mk`) in the
-      # module body and passed as an argument, its result previously typed `void` --
-      # the bare-call resolution read the scope-pass-only global g_cbody_class_id
-      # (unset during the inference fixpoint) instead of the per-node enclosing-cbody
-      # (node_cbody[id]). The void arg then made `take`'s param unknown and the call
-      # miscompiled (`error: variable or field declared void`). Now it resolves via
-      # node_cbody[id], so `take(mk)` sees a Hash[String,String].
+      # `def self.mk` returns a Hash; called bare as `mk` (not `M.mk`) in the
+      # module body and passed as an argument, so `take(mk)` gets a
+      # Hash[String,String].
 
       module M
         def self.mk
@@ -32,7 +28,7 @@ describe "Modules: formatting and inspection" do
           end
         end
 
-        COUNT = R.new.take(mk)   # bare `mk`; result must be Hash[String,String], not void
+        COUNT = R.new.take(mk)   # bare `mk`; result must be Hash[String,String]
       end
 
       puts M::COUNT.to_s         # 1
@@ -43,16 +39,15 @@ describe "Modules: formatting and inspection" do
 
   it "class hierarchy module" do
     result = zr(<<~'RUBY')
-      # Issue #404 Phase 3 Tier 2. Modules in the unified cls_id
-      # space + woven into ancestors via the @cls_includes pass.
+      # Modules as values and in the ancestors of a class.
       #
       # Coverage:
       #   - module constant in value position (Greeting / Comparable
-      #     lookalike) lowers to a sp_Class with the unified cls_id.
+      #     lookalike) is a Module value.
       #   - <class>.ancestors weaves included modules in include-reverse
       #     order followed by the parent chain.
-      #   - <class> <= <module> checks via the ancestors table.
-      #   - <class> == <module> never holds (different cls_ids).
+      #   - <class> <= <module> checks the ancestors.
+      #   - <class> == <module> never holds.
 
       module Greeting
         def hello
@@ -74,7 +69,7 @@ describe "Modules: formatting and inspection" do
         include Politeness
       end
 
-      # Module name as value -- compiles to sp_Class with unified cls_id.
+      # Module name as value.
       m = Greeting
       puts m.to_s          # => Greeting
 

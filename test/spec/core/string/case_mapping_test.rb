@@ -509,7 +509,7 @@ describe "String: case mapping" do
 
   it "a parameter with no concrete-typed caller takes its type from the calls in the body" do
     result = zr(<<~'RUBY')
-      # #450 cascade 2: a method like
+      # A method like
       #
       #   def match_pattern(pattern, path)
       #     pp = pattern.split("/")
@@ -517,11 +517,8 @@ describe "String: case mapping" do
       #     ...
       #   end
       #
-      # with no concrete-typed caller (or callers passing a still-int default
-      # from a deeper chain) used to leave `pattern` / `path` typed mrb_int.
-      # `.split("/")` on a mrb_int then failed C compile. Now the analyze
-      # pass infers "string" for params that have String-specific methods
-      # called on them in the body.
+      # has no concrete-typed caller. The params take the String type from the
+      # String-specific methods that the body calls on them.
 
       module Router
         def self.match_pattern(pattern, path)
@@ -607,11 +604,9 @@ describe "String: case mapping" do
 
   it "symbol upcase interpolation" do
     result = zr(<<~'RUBY')
-      # Symbol#upcase / #downcase on a method-returned (branch-poly) symbol
-      # inside string interpolation lowers through sp_sym_intern. The runtime
-      # helper is gated on @needs_sym_intern, which analyze set as a memoized
-      # side effect and missed for this shape -> link failure on the call.
-      # Found via the spinelgems harness (nagiosplugin).
+      # Symbol#upcase / #downcase on a symbol that a method returns from two
+      # branches, inside string interpolation. The shape comes from the
+      # nagiosplugin gem.
       class P
         def status(n)
           return :critical if n > 2

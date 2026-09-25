@@ -8,8 +8,8 @@ describe "Exceptions: constants" do
       # `class A::B` evaluates `A` when the definition RUNS. If nothing defines it,
       # ruby raises NameError right there and the class never comes into being --
       # it is not a load-time error, and the rest of the file is unaffected until
-      # execution reaches it. zr used to fail the whole compile instead, which cost
-      # 68 gems: mostly Rails extensions reopening a host they don't depend on.
+      # execution reaches it. Many gems do this: mostly Rails extensions that reopen
+      # a host they do not depend on.
 
       # Reached and rescued: the constant read is what raises.
       begin
@@ -68,13 +68,8 @@ describe "Exceptions: constants" do
 
   it "const path deep nesting" do
     result = zr(<<~'RUBY')
-      # Stress test: ConstantPathNode resolution at depths beyond what
-      # typical Ruby code reaches. const_ref_flat_name and
-      # resolve_const_ref_name now have a depth=32 guard; this test
-      # exercises 6 levels (well below the cap, well above the 3-4
-      # levels seen in the rest of the regression suite) to catch
-      # off-by-one errors in the depth bookkeeping or any premature
-      # truncation.
+      # Stress test: a constant path 6 levels deep, more than typical Ruby
+      # code uses. Each level must resolve, with no level lost.
 
       module L1
         module L2
@@ -105,24 +100,10 @@ describe "Exceptions: constants" do
 
   it "const self ref raises name error" do
     result = zr(<<~'RUBY')
-      # Issue #646: a top-level const assigned via `<CONST> = <Class>.
-      # new(...)` whose initialize body (or any method transitively
-      # called from initialize) reads <CONST> now raises NameError at
-      # runtime, matching MRI semantics.
-      #
-      # Before the fix the read returned NULL (cst_<CONST> = NULL during
-      # the assignment's RHS evaluation), and a subsequent `.method` or
-      # `->iv_` deref segfaulted. The reporter's tep#13 case hit this
-      # via PG::Connection.new -> Tep::Scheduler.scheduled_context? ->
-      # Tep::APP.sched_current.
-      #
-      # Implementation:
-      # * analyze records `<CONST>`'s init RHS class (when it's
-      #   `<Class>.new(...)`) in @const_init_class.
-      # * codegen emits `static int sp_init_in_progress_<CONST>` and
-      #   sets it around the assignment in main.
-      # * read sites of <CONST> wrap with `(flag ? raise_NameError :
-      #   cst_<CONST>)`.
+      # A top-level const assigned via `<CONST> = <Class>.new(...)` is not
+      # yet defined while the right side runs. So when initialize (or any
+      # method that it calls) reads <CONST>, the read raises NameError, as
+      # in MRI.
 
       class App
         def initialize
@@ -162,8 +143,8 @@ describe "Exceptions: constants" do
     result = zr(<<~'RUBY')
       # Builtin exception classes as first-class values: referencing the constant
       # (raise_error matchers, e.class comparisons, superclass walks) works like any
-      # other builtin class object; raise/rescue position already resolved by name.
-      # RuntimeError.superclass is StandardError (CRuby), previously Exception.
+      # other builtin class object, and raise/rescue also resolves them by name.
+      # RuntimeError.superclass is StandardError, as in CRuby.
       p IndexError
       p FrozenError
       x = ZeroDivisionError
@@ -371,9 +352,8 @@ describe "Exceptions: constants" do
     result = zr(<<~'RUBY')
       # Referencing a constant the program never defines, on purpose, behind a rescue
       # that catches the NameError is how a program probes for one -- ruby/spec does
-      # exactly this. CRuby says nothing about it at any stage, and spinel's
-      # defined-nowhere warning reported a program whose behaviour was already right
-      # (#4062). The warning is for a reference nothing catches, and still fires there.
+      # exactly this. CRuby gives no warning for it at any stage, and zr gives none.
+      # The defined-nowhere warning is only for a reference that nothing catches.
       p(begin; NoSuchConstA; rescue NameError => e; e.class.to_s; end)
 
       r = begin
@@ -463,8 +443,7 @@ describe "Exceptions: constants" do
       end
 
       # Self-referential init `X = X + 1` reads X before X is bound;
-      # CRuby raises NameError. Spinel previously evaluated X as 0
-      # and assigned 1.
+      # CRuby raises NameError.
       begin
         X = X + 1
         puts X

@@ -183,7 +183,6 @@ describe "Enumerable: blocks and yields" do
 
   it "an each that yields two values packs them into one element, and a lone for target drops the rest" do
     result = zr(<<~'RUBY')
-      # Imported from the spinel corpus at c55d9bdb.
       # `each` yielding more than one value per element. Enumerable packs them into
       # one array element, so `map`/`to_a`/`sort_by` see pairs.
       #

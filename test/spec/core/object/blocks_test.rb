@@ -209,7 +209,7 @@ describe "Object: blocks and yields" do
   it "for iterates any object answering each" do
     result = zr(<<~'RUBY')
       # Ruby's `for` performs NO type dispatch: `for x in obj` compiles to
-      # `obj.each { |x| ... }` (compile_iter, compile.c:8548). So a user class
+      # `obj.each { |x| ... }` (CRuby's compile.c does this). So a user class
       # iterates, a pair-yielding each destructures, the loop variable outlives
       # the loop (`for` introduces no scope), and an object with no `each`
       # fails at RUNTIME rather than failing the compile.
@@ -381,10 +381,8 @@ describe "Object: blocks and yields" do
 
   it "a value-typed object used as a condition is truthy, and its side effects still run" do
     result = zr(<<~'RUBY')
-      # Regression test for issue #20: a value-typed object used directly
-      # as a condition must be treated as truthy. C cannot use a struct as
-      # a scalar in `if (...)`, so the codegen wraps value-type objects
-      # with `((expr), 1)` to evaluate side effects then yield 1.
+      # A value-typed object used directly as a condition is truthy. The
+      # condition expression still runs, so its side effects happen.
 
       class Value
         def initialize(x)
@@ -494,7 +492,7 @@ describe "Object: blocks and yields" do
   it "singleton method object binds a named block param" do
     result = zr(<<~'RUBY')
       # A `&blk` param on a per-object singleton binds to the method's call-site
-      # block (nil when none is passed), not the unconditional nil it used to.
+      # block, or nil when no block is passed.
 
       obj = Object.new
       def obj.wrap(&blk)
@@ -566,16 +564,7 @@ describe "Object: blocks and yields" do
       # `Kernel#then` / `yield_self` without a block is an Enumerator over one
       # element -- the receiver -- and it knows its own SIZE.
       #
-      # The original header follows. It describes the PREDECESSOR project's
-      # version of this test and its own fix.
-      #
-      # `then` / `yield_self` given no block is an Enumerator over exactly one
-      # element, the receiver -- spinel refused the call outright (#4028):
-      #
-      #   undefined method 'then' for an instance of Array (NoMethodError)
-      #
-      # and a `then` whose block body is EMPTY declared its result slot `void`,
-      # because the desugared `then { nil }` types as nil, which has no C slot.
+      # A `then` whose block body is EMPTY answers nil, as `then { nil }` does.
 
       [].then{}
       p([].then{})
@@ -686,10 +675,10 @@ describe "Object: blocks and yields" do
 
   it "yield tail tap value" do
     result = zr(<<~'RUBY')
-      # The value of a spliced block is its tail, and a tail CALL whose statement
-      # form drops that value has to be emitted as an expression: tap answers its
-      # receiver, not its block's body, and a receiver-returning iterator on a
-      # computed receiver answers the receiver (#4155).
+      # The value of a spliced block is its tail, and a tail CALL keeps its value
+      # even where a statement would drop it. tap answers its receiver, not its
+      # block's body. A receiver-returning iterator on a computed receiver answers
+      # the receiver.
       class Rec
         def hello = "hi"
       end

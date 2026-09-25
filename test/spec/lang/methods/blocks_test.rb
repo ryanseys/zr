@@ -109,20 +109,12 @@ describe "Methods: blocks and yields" do
 
   it "class method open class call" do
     result = zr(<<~'RUBY')
-      # `infer_call_type`'s class-body fallback used to short-circuit on
-      # any call inside a class body — including those with a receiver.
-      # A `recv.method(...)` whose method isn't on the enclosing class
-      # resolved as the default `int`, and the receiver-aware branches
-      # below (Fiber.yield → poly, infer_open_class_type → user open-
-      # class return) never ran. The fix gates the fallback on
-      # `recv < 0`.
+      # Inside a class body, a call with a receiver takes its type from
+      # the receiver's method, not from the enclosing class.
       #
-      # Reproducer here: an open-class method on Integer that returns a
-      # hash. Without the fix, `C#wrap`'s body calls `x.to_pair` whose
-      # inferred return came out as `int` (the enclosing C class has no
-      # `to_pair`), but the actual emit returns `sp_SymIntHash *` →
-      # "returning sp_SymIntHash * from a function with return type
-      # mrb_int" -Wint-conversion error.
+      # Here an open-class method on Integer returns a Hash. `C#wrap`
+      # calls `x.to_pair`, and the enclosing class C has no `to_pair`.
+      # The call still answers the Hash.
 
       class Integer
         def to_pair
@@ -272,24 +264,14 @@ describe "Methods: blocks and yields" do
 
   it "later def on a builtin reaches back" do
     result = zr(<<~'RUBY')
-      # A later `def` reopening a BUILTIN class used to reach BACK: a call written
-      # above the reopen answered with the reopened body.
+      # A later `def` reopening a BUILTIN class does not reach BACK: a call written
+      # above the reopen answers with the builtin body.
       #
-      # The reopen's row registers at STARTUP, so EVERY site above it was affected --
-      # statically bound and dynamic alike, and every fold with it. `p [1,2].size`
-      # before `class Array; def size` answered `:own_size`, and so did a site that
-      # reached the row through full dispatch. (The gap's original note said both
-      # calls "bind STATICALLY to `__bm_Array::take_while`". Nothing folds past a
-      # reopen, which is what makes the whole class of divergence one fix rather
-      # than a per-site one.)
+      # The reopen is POSITIONAL. It takes effect where the `class Foo ... end`
+      # stands. This is true for a statically bound site, a dynamic site, and each
+      # fold. `p [1,2].size` before `class Array; def size` answers the real size.
       #
-      # The reopen is now POSITIONAL, and both ends are emitted: one `.bss` byte per
-      # `(builtin class, method name)` in `zr_reopen_flags`, stored where the
-      # `class Foo ... end` stands, read by a prologue in the reopened body. Above
-      # that line the body forwards to the row it replaced. No table registers, the
-      # runtime looks nothing up, and the inline caches stay valid -- a positional
-      # OVERLAY install would have called `mark_live()`, the global gate that takes
-      # every send in the program onto the per-ancestor walk.
+      # Above that line, the reopened body forwards to the method it replaced.
       #
       # Two things the forward is NOT. It is not `super`: `super` resumes PAST the
       # reopened class, and a name the builtin owns outright (`Array#size`) has
@@ -628,8 +610,8 @@ describe "Methods: blocks and yields" do
   it "proc compose method operand" do
     result = zr(<<~'RUBY')
       # Proc#>> / #<< with a Method operand composes through Method#to_proc, whose
-      # trampoline publishes its boxed result -- composing the raw method object
-      # mis-typed the intermediate (#2692).
+      # trampoline publishes its boxed result, so the intermediate value has the
+      # correct type.
       inc = ->(x) { x + 1 }
       dbl = 2.method(:*)
       g = (inc >> dbl)
@@ -911,11 +893,10 @@ describe "Methods: blocks and yields" do
 
   it "proc parameters lambda kw" do
     result = zr(<<~'RUBY')
-      # Proc#parameters(lambda:) forces the reporting view (#2693): true reports
-      # plain positionals as :req, false as :opt, nil follows the receiver's own
-      # nature. Defaulted positionals stay :opt in every view, and rest/key/block
-      # kinds never change. Kinds are stored canonically (lambda-style) and remapped
-      # at print time, which also fixes numbered params on a lambda (:req, not :opt).
+      # Proc#parameters(lambda:) forces the reporting view: true reports plain
+      # positionals as :req, false as :opt, nil follows the receiver's own nature.
+      # Defaulted positionals stay :opt in every view, and rest/key/block kinds
+      # never change. Numbered params on a lambda report :req, not :opt.
       p proc { |x, y| }.parameters
       p proc { |x, y| }.parameters(lambda: true)
       p ->(x, y) {}.parameters
@@ -967,20 +948,15 @@ describe "Methods: blocks and yields" do
 
   it "proc parameters source names" do
     result = zr(<<~'RUBY')
-      # `Proc#parameters` reports the names the PROGRAM wrote. Three things leaked
-      # the compiler's own names instead (#4045).
+      # `Proc#parameters` reports the names the PROGRAM wrote, never names that the
+      # compiler makes.
       #
-      # A block parameter colliding with an outer local is renamed to `b__bp<N>`, and
-      # the emitter strips that suffix -- for the positional kinds only, so rest,
-      # keyword, keyword-rest and block reported the suffix verbatim.
+      # A block parameter can have the same name as an outer local. Each kind
+      # (positional, rest, keyword, keyword-rest and block) still reports the
+      # source name, and the name is never empty.
       #
-      # Stripping alone was not enough either: the stripped name appears nowhere else
-      # in the program, so it is not in the generated symbol table, and interning it
-      # at emit time came too late -- the symbol rendered EMPTY. The rename interns
-      # the source name now, while the table is still open.
-      #
-      # And the implicit rest a trailing comma synthesizes (`|a,|`) is not a
-      # parameter Ruby reports at all.
+      # The implicit rest that a trailing comma makes (`|a,|`) is not a parameter
+      # that Ruby reports.
       p(->((a, b)) {}.parameters)
       p(proc { |a, *b| }.parameters)
       p(->(a, b = 1, *c, d:, e: 2, **f, &g) {}.parameters)
@@ -1445,12 +1421,8 @@ describe "Methods: blocks and yields" do
 
   it "yield inside a constructor block belongs to the method" do
     result = zr(<<~'RUBY')
-      # `Hash.new { ... }` lowers to its own `HirNode::New`, not to an ordinary
-      # call, and the block hangs off that node. Two walks that decide whether a
-      # method needs its `__blk` parameter used to match `New { args, .. }` and so
-      # never looked at the block or the keyword arguments at all -- a `yield` in a
-      # default-value block was invisible, and the method came out with no block
-      # parameter to yield to.
+      # `Hash.new { ... }` is a constructor call with a default-value block. A
+      # `yield` in that block yields to the block of the method that holds it.
       def with_default
         h = Hash.new { |_hash, key| yield key }
         [h[:a], h[:b]]
@@ -1497,16 +1469,9 @@ describe "Methods: blocks and yields" do
 
   it "yield method call in method body" do
     result = zr(<<~'RUBY')
-      # Calling a yield-using method on implicit self from inside another
-      # instance method's body used to drop the literal block — the call
-      # site emitted `sp_C_run(self, "foo")` against a signature that
-      # wanted 4 args. Same call from top-level worked.
-      #
-      # scan path: compile_writer_and_block_call_stmt's literal-block
-      # branch only handled `recv < 0` for top-level methods (via the
-      # global @meth_has_yield table) and `recv >= 0` for class methods
-      # (via try_yield_or_trampoline_dispatch). The "implicit self inside
-      # class method" case fell into neither.
+      # A call to a yield-using method on implicit self, from inside
+      # another instance method's body, passes its literal block. The
+      # same call works from the top level too.
 
       class C
         def run(name)

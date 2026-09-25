@@ -5,7 +5,7 @@ require "spec_helper"
 describe "Exceptions: searching and matching" do
   it "begin rescue as expression" do
     result = zr(<<~'RUBY')
-      # Issue #704: begin/rescue used as an expression (puts arg).
+      # begin/rescue used as an expression (puts arg).
       # Three shapes:
       #   - rescue path (raise + rescue + else + ensure)
       #   - else path (no raise, rescue chain skipped)
@@ -34,20 +34,20 @@ describe "Exceptions: searching and matching" do
     result = zr(<<~'RUBY')
       # A `class Foo` after `module Foo`, and a reopen that names a different
       # superclass, are both TypeError in ruby -- a real exception at the definition,
-      # not a broken program. zr used to REFUSE these at compile time whenever no
-      # `rescue` was lexically visible inside the definition's own statement, on the
-      # reasoning that an uncatchable raise aborts and a compile error naming the
-      # same problem is the better version of aborting.
+      # not a broken program. So the program compiles, and the TypeError raises at
+      # run time, also when no `rescue` is visible in the definition's own statement.
       #
-      # Two things were wrong with that. The lexical scan cannot see the handler a
-      # CALLER wraps the `require` in, which catches these perfectly well. And four
-      # of the five registration sites never consulted the scan at all, so the shape
-      # below -- a top-level kind collision, which is every `hola_*` tutorial gem on
-      # rubygems, and a whole family of generated SDKs that declare one class name
-      # under two superclasses -- could not be compiled either way.
+      # A CALLER can wrap the `require` in a handler that catches these. The shape
+      # below -- a top-level kind collision -- is in every `hola_*` tutorial gem on
+      # rubygems, and in a whole family of generated SDKs that declare one class
+      # name under two superclasses.
       #
       # Both halves of the message are ruby's, including the second line, whose
       # position is the one stamped when the CONSTANT was created.
+
+      # The blank lines keep the line numbers that the expected output names.
+
+
       module Foo
         X = 1
       end
@@ -92,51 +92,28 @@ describe "Exceptions: searching and matching" do
 
   it "hangs 548" do
     result = zr(<<~'RUBY')
-      # #548. Four shapes that compiled cleanly but hung at runtime.
+      # Four shapes that must end, not hang, at runtime.
       # Adam Doppelt's "Puzzles, third edition."
       #
-      # 1. `a.concat(a, a)` -- two bugs in compile_call_stmt's concat
-      #    arm. (a) Only the first arg was processed, so multi-arg
-      #    concat dropped the tail silently. (b) The src-array length
-      #    was queried inside the push loop; when an arg aliased the
-      #    receiver (`a.concat(a)`) every push grew the source and
-      #    the loop never terminated. Fix: snapshot each arg's length
-      #    before its inner loop, then iterate every arg.
+      # 1. `a.concat(a, a)` -- concat appends every arg. When an arg is
+      #    the receiver itself, concat uses the arg's length from before
+      #    the call, so the loop ends.
       #
-      # 2. `/\#{re}/` -- regex compiler entered an infinite loop. The
-      #    sequence `\#` lowered to literal `#`, then `{re}` arrived
-      #    at compile_atom with `{` as the leading char. `{` was in
-      #    compile_atom's "not an atom" filter, so the function
-      #    returned without consuming and compile_seq's outer loop
-      #    spun. CRuby treats `/{re}/` as matching the literal text
-      #    `{re}` (`{...}` without a valid quantifier is literal); we
-      #    mirror that by removing `{` from compile_atom's filter so
-      #    a leading `{` falls through to the literal-char emit.
+      # 2. `/\#{re}/` -- `\#` is a literal `#`, and then `{re}` follows.
+      #    CRuby treats `/{re}/` as matching the literal text `{re}`
+      #    (`{...}` without a valid quantifier is literal).
       #
-      # 3. `while () ; 123 ; end` -- empty `()` infers as "void" and
-      #    lowers to literal `0`. compile_cond_expr's catch-all
-      #    `((expr), TRUE)` flipped the empty-parens condition to
-      #    always-true and the loop hung. Treat "void" like "nil" in
-      #    compile_cond_expr -- both lower to FALSE so `while ()`
-      #    never enters the body, matching CRuby.
+      # 3. `while () ; 123 ; end` -- the empty `()` is nil, so it is
+      #    false. `while ()` never enters the body, as in CRuby.
       #
-      # 4. `i += 1; raise; rescue; retry unless i == 7` -- setjmp/
-      #    longjmp local-preservation. `lv_i` modified inside the
-      #    setjmp scope must be `volatile` to survive longjmp's
-      #    register-unwind; with `-O3` the compiler register-cached
-      #    `lv_i` and the rescue handler saw a stale 0, so `i == 7`
-      #    was never satisfied and retry spun forever. Fix: pre-scan
-      #    method bodies for setjmp-triggering shapes (begin/rescue,
-      #    raise, retry) and mark non-pointer locals as `volatile`.
-      #    Pointer locals stay non-volatile (GC-rooted via
-      #    SP_GC_ROOT already keeps them stable; tagging them
-      #    volatile triggers -Wdiscarded-qualifiers cascade at
-      #    string/array helper call sites).
+      # 4. `i += 1; raise; rescue; retry unless i == 7` -- the local `i`
+      #    keeps its value across each raise and retry. So `i == 7`
+      #    becomes true and the retry loop ends.
 
       # Repro 1: self-concat with self twice.
       a = [1, 2]
       a.concat(a, a)
-      puts a.length      # 8 -- [1,2] + [1,2] + [1,2,1,2]
+      puts a.length      # 6 -- [1,2] + [1,2] + [1,2]
 
       # Repro 2: regex with literal `\#{re}` characters.
       re = /foo|bar/
@@ -147,7 +124,7 @@ describe "Exceptions: searching and matching" do
       while () ; 123 ; end
       puts "ok3"
 
-      # Repro 4: retry-counter survives longjmp.
+      # Repro 4: retry-counter keeps its value across retry.
       def foo
         i = 0
         begin ; i += 1 ; raise "bar" ; rescue ; retry unless i == 7 ; end
@@ -189,10 +166,8 @@ describe "Exceptions: searching and matching" do
   it "rescue matches a namespaced exception class by its full path" do
     result = zr(<<~'RUBY')
       # rescue of a namespaced exception class (rescue M::Err) must match a
-      # raised M::Err. Both the raise and the rescue clause need to resolve
-      # the ConstantPathNode (M::Err) to the registered class name (M_Err);
-      # previously raise emitted a bare sp_raise (no class) and rescue
-      # checked only the leaf name, so the handler never matched.
+      # raised M::Err. Both the raise and the rescue clause use the full
+      # path M::Err, not only the leaf name Err.
       module M
         class Err < StandardError; end
       end

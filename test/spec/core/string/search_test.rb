@@ -5,12 +5,9 @@ require "spec_helper"
 describe "String: searching and matching" do
   it "container string index write" do
     result = zr(<<~'RUBY')
-      # `outer[i][k] = v` where the inner value is a String: spinel splices a String
-      # into a FRESH buffer, so the result has to be stored back into outer's slot.
-      # The store-back form existed for a statically Integer index and not for a boxed
-      # one, so an index that came out of a container -- a destructured block parameter
-      # whose receiver is a local, an element read -- wrote to the inner value alone
-      # and the assignment was silently dropped (#4067).
+      # `outer[i][k] = v` where the inner value is a String and the index came out
+      # of a container -- a destructured block parameter whose receiver is a local,
+      # an element read. The write must reach the String that outer holds.
       pairs = [[0, 1]]
 
       g = ["abc", "def"].map(&:dup)
@@ -274,9 +271,8 @@ describe "String: searching and matching" do
 
   it "[]= reaches the string a container holds, so rows[0][1] = x mutates it" do
     result = zr(<<~'RUBY')
-      # `rows[0][1] = "*"` mutates the string the container holds: `[]=` was not a
-      # container-reaching mutator, so the Array form raised NoMethodError and the
-      # Hash form silently did nothing (#3940).
+      # `rows[0][1] = "*"` mutates the string the container holds, for both the
+      # Array form and the Hash form.
       rows = [+"abc", +"def"]
       rows[0][1] = "*"
       rows[1][-1] = "Z"
@@ -416,9 +412,8 @@ describe "String: searching and matching" do
 
   it "index(nil) raises TypeError rather than reporting no match" do
     result = zr(<<~'RUBY')
-      # Issue #847: String#index(nil) used to silently return -1 / nil,
-      # conflating "no implicit conversion" with "not found". MRI raises
-      # TypeError for nil arg.
+      # String#index(nil) raises TypeError. "No implicit conversion" is not the
+      # same as "not found", so it does not return nil.
       begin
         "hello".index(nil)
         puts "BUG: no raise"
@@ -432,13 +427,10 @@ describe "String: searching and matching" do
 
   it "[]= takes an index that is only known to be an Integer at run time" do
     result = zr(<<~'RUBY')
-      # `s[i] = v` took a statically Integer index only. A boxed one reaches it
-      # whenever the value came out of a container -- a destructured block parameter,
-      # an element read, an untyped argument -- and the call fell through to
-      # "undefined method '[]=' for an instance of String" on a program CRuby runs
-      # (#4060). The conversion is the checked one, so a boxed Integer works and the
-      # splice forms spinel does not support raise TypeError rather than being read
-      # as a number.
+      # `s[i] = v` takes an index that is only known to be an Integer at run time.
+      # Such an index comes out of a container -- a destructured block parameter,
+      # an element read, an untyped argument. The conversion is the checked one, so
+      # a boxed Integer works.
       s = +"abc"
       pairs = [[0, 1]]
       pairs.each { |r, c| s[c] = "*" }
@@ -488,7 +480,7 @@ describe "String: searching and matching" do
   it "rindex, include?, start_with?, end_with? and count each raise TypeError on nil" do
     result = zr(<<~'RUBY')
       # String methods that raise TypeError for nil arguments.
-      # Issue #847 covered index(); this extends to rindex,
+      # The index() test covers index(); this one covers rindex,
       # include?, start_with?, end_with?, and count.
 
       begin

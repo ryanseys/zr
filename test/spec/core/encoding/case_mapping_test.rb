@@ -282,16 +282,12 @@ describe "Encoding: case mapping" do
 
   it "regexp unicode property" do
     result = zr(<<~'RUBY')
-      # `\p{...}` character properties. The engine used to refuse every one of them
-      # at compile time, so a program carrying one did not build at all -- and the
-      # property IS the predicate, so nothing on the author's side can rewrite it
-      # (#4143).
+      # `\p{...}` character properties. A program can use them in a regexp, and
+      # the author has no other way to write the same test.
       #
-      # Two tables behind this, generated from CRuby by tools/gen_re_uniprop.rb.
-      # General category is a partition, so it is one run table answering `\p{Lu}`
-      # and `\p{L}` alike; the emoji properties overlap, so they get a bitmask table.
-      # The POSIX-named ones are the types re_ctype.h already carries and route
-      # there, which is what makes them fold under /i.
+      # General category is a partition: each character has one category, and
+      # `\p{Lu}` and `\p{L}` both match an upper-case letter. The emoji properties
+      # overlap. The POSIX-named properties also fold case under /i.
 
       # The shape this arrived as: once-campfire's String#all_emoji?, verbatim.
       class String

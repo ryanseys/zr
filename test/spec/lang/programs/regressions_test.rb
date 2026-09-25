@@ -318,9 +318,8 @@ describe "Whole programs: regressions" do
 
   it "a symbol-keyed Hash rehashes correctly when it grows past its first capacity" do
     result = zr(<<~'RUBY')
-      # Symbol-keyed Hash literal + grow past the initial capacity. The grow path's
-      # capacity->size_t allocation must not trip -Walloc-size-larger-than (#3146),
-      # and must rehash correctly.
+      # Symbol-keyed Hash literal + grow past the initial capacity. The grow
+      # must rehash correctly.
       h = {x: 1}
       p h[:x]
 

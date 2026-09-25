@@ -123,7 +123,7 @@ describe "Struct: frozen literals" do
   it "data dup clone frozen" do
     result = zr(<<~'RUBY')
       # A Data instance is frozen by construction and stays so through every copy:
-      # dup and clone(freeze: false) both return a frozen value in CRuby (#2716).
+      # dup and clone(freeze: false) both return a frozen value in CRuby.
       # Struct copies keep the ordinary rules (dup never freezes).
       P = Data.define(:x, :y)
       a = P.new(1, 2)

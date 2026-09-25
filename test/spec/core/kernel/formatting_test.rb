@@ -142,33 +142,15 @@ describe "Kernel: formatting and inspection" do
 
   it "cmeth name collision with kernel" do
     result = zr(<<~'RUBY')
-      # Issue #407 case 1: a class/module class method whose name
-      # collides with a Kernel/Object inferred-type default (e.g.
-      # `hash`, `to_s` is exempt because it actually works the right
-      # way already; `inspect`, `methods`, ...) used to lose the
-      # user-defined return type. `infer_method_name_type`'s arms have
-      # shape `if mname == "hash"; return "int"; end` regardless of
-      # receiver, so a `def self.hash(plain) -> String` on a class
-      # resolved to "int" through the Kernel-side hash hardcode and
-      # downstream locals widened to mrb_int -- the C compile then
-      # tripped at the next site that fed the supposed-integer to a
-      # `const char *` parameter.
-      #
-      # Fix: at the top of `infer_method_name_type`, return "" when
-      # recv is a constant-class-or-module reference whose target
-      # defines a class method named mname. This defers to the
-      # receiver-aware resolution that `infer_constant_recv_type` runs
-      # later (cls_cmethod_return_inherited / `<Mod>_cls_<m>` synth
-      # lookup), so user-defined cmeths win over the Kernel-name
-      # defaults exactly when the receiver pins them.
+      # A class/module class method whose name is also a Kernel/Object
+      # method (`hash`, `inspect`, `methods`, ...) keeps its user-defined
+      # return type. `def self.hash(plain)` that returns a String answers
+      # a String, not the Integer of Kernel#hash.
       #
       # Coverage:
-      #   - module class method named `hash` returning String,
-      #   - real-class class method named `methods` returning String,
-      #   - real-class class method named `to_s` already had the right
-      #     answer through other paths; `inspect` here exercises the
-      #     same shape with a fresh name to lock the receiver-aware
-      #     gate independently.
+      #   - class method named `hash` on a class in a module, returning String,
+      #   - class method named `methods` returning String,
+      #   - class method named `inspect_kind` returning String.
 
       module Auth
         class Password
@@ -252,9 +234,7 @@ describe "Kernel: formatting and inspection" do
     result = zr(<<~'RUBY')
       # CRuby's implicit conversion protocol at builtin argument boundaries: a user
       # object defining #to_str / #to_int converts where a String / Integer is
-      # wanted; one that defines neither raises CRuby's TypeError. The raw object
-      # pointer previously went into the typed C slot and stopped the generated-C
-      # build.
+      # wanted; one that defines neither raises CRuby's TypeError.
       class Stringish
         def to_str
           "conv-target.txt"
@@ -296,10 +276,8 @@ describe "Kernel: formatting and inspection" do
         p "wow".delete(Mode.new)
         p "hello=world".partition(Mode.new.to_str + "orl")
 
-        # A class defining neither conversion is CRuby's TypeError. Where the
-        # object's class is STATIC spinel reports it at compile time instead (the
-        # call could only ever raise -- see test/rbs-seed/implicit_conv_no_method.rb);
-        # reached through a poly slot the class is a run-time question, so the
+        # A class defining neither conversion is CRuby's TypeError. Reached
+        # through a poly slot, the class is known only at run time, so the
         # TypeError is a run-time one, worded as CRuby words it.
         inert = [1, Inert.new][1]
         begin
@@ -339,9 +317,7 @@ describe "Kernel: formatting and inspection" do
     result = zr(<<~'RUBY')
       # CRuby's implicit conversion protocol at builtin argument boundaries: a user
       # object defining #to_str / #to_int converts where a String / Integer is
-      # wanted; one that defines neither raises CRuby's TypeError. The raw object
-      # pointer previously went into the typed C slot and stopped the generated-C
-      # build.
+      # wanted; one that defines neither raises CRuby's TypeError.
       class Stringish
         def to_str
           "conv-target.txt"
@@ -404,9 +380,7 @@ describe "Kernel: formatting and inspection" do
     result = zr(<<~'RUBY')
       # CRuby's implicit conversion protocol at builtin argument boundaries: a user
       # object defining #to_str / #to_int converts where a String / Integer is
-      # wanted; one that defines neither raises CRuby's TypeError. The raw object
-      # pointer previously went into the typed C slot and stopped the generated-C
-      # build.
+      # wanted; one that defines neither raises CRuby's TypeError.
       class Stringish
         def to_str
           "conv-target.txt"
@@ -460,9 +434,7 @@ describe "Kernel: formatting and inspection" do
     result = zr(<<~'RUBY')
       # CRuby's implicit conversion protocol at builtin argument boundaries: a user
       # object defining #to_str / #to_int converts where a String / Integer is
-      # wanted; one that defines neither raises CRuby's TypeError. The raw object
-      # pointer previously went into the typed C slot and stopped the generated-C
-      # build.
+      # wanted; one that defines neither raises CRuby's TypeError.
       class Stringish
         def to_str
           "conv-target.txt"

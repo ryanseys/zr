@@ -311,9 +311,8 @@ describe "Encoding programs" do
 
   it "a well-known Encoding constant compares equal to the encoding a string carries" do
     result = zr(<<~'RUBY')
-      # Well-known Encoding constants resolve to the matching boxed encoding value,
-      # so `str.encoding == Encoding::UTF_8` compiles and compares (it used to emit
-      # an sp_Class from the uninitialized-constant fallback into a bool context).
+      # Well-known Encoding constants resolve to the matching Encoding value,
+      # so `str.encoding == Encoding::UTF_8` compares the two encodings.
       p("x".encoding == Encoding::UTF_8)
       p("x".encoding == Encoding::US_ASCII)
       p(Encoding::UTF_8 == Encoding::UTF_8)
@@ -752,8 +751,7 @@ describe "Encoding programs" do
   it "issue string ops on broken encoding" do
     result = zr(<<~'RUBY')
       # Ruby REFUSES a String operation that has to READ characters when the
-      # receiver's bytes are not valid in its own encoding. zr renders a bad byte as
-      # U+FFFD (`StrBuf::to_utf8_lossy`) and used to answer anyway.
+      # receiver's bytes are not valid in its own encoding.
       #
       # The gate is selective, exactly as CRuby's is: `#length`, `#chars`, `#reverse`,
       # `#lstrip`, `#index`, `#slice` and friends count or move by bytes and answer
@@ -973,18 +971,8 @@ describe "Encoding programs" do
 
   it "mutable str force encoding return" do
     result = zr(<<~'RUBY')
-      # Sequel to #441. The original fix gated force_encoding/encode/b
-      # return-type inference on `recv == "string"`, which left the
-      # `sp_String *` (mutable_str) receiver case unfixed. Codegen for
-      # mutable_str dispatches the inner call against `rc + "->data"`,
-      # so force_encoding's body emits `return lv_out->data` — a
-      # `const char *`. The function signature still committed to
-      # mrb_int from the default infer_call_type fallback, tripping
-      # the C compile with int-from-pointer.
-      #
-      # Add the mutable_str arm: return "string" (the body's `->data`
-      # value type), keeping the C signature aligned with the emitted
-      # return expression.
+      # A method whose last expression is `force_encoding` (or encode / b) on
+      # a mutable String built with `String.new` and `<<` returns that String.
 
       def build_via_mutable
         out = String.new
@@ -1061,15 +1049,8 @@ describe "Encoding programs" do
 
   it "poly string encoding" do
     result = zr(<<~'RUBY')
-      # `encoding` on a String reached through a POLY receiver. The concrete String
-      # arm has answered it since #723 and the poly dispatch had no entry, so a
-      # String read out of a poly array raised NoMethodError naming its own class:
-      # "undefined method 'encoding' for an instance of String".
-      #
-      # Adding the arm was half of it. The call still had no inferred type, so
-      # emit_boxed's untyped arm rendered `(expr, sp_box_nil())` -- it evaluated the
-      # answer and threw it away, and the Encoding came back nil. Same shape as
-      # 96c32858's write payload.
+      # `encoding` on a String read out of an array with mixed element types.
+      # It answers the String's Encoding, not NoMethodError and not nil.
 
       a = ["abc", 1][0]
       p a.encoding
@@ -1106,8 +1087,8 @@ describe "Encoding programs" do
 
   it "regexp encoding introspection" do
     result = zr(<<~'RUBY')
-      # Regexp introspection: #encoding (was silently ""), #fixed_encoding?, and
-      # Regexp.linear_time? (both previously rejected at compile time).
+      # Regexp introspection: #encoding, #fixed_encoding?, and
+      # Regexp.linear_time?.
 
       # An ASCII-only regexp is US-ASCII and not fixed-encoding.
       p(/abc/.encoding.name)      # "US-ASCII"
@@ -1234,16 +1215,8 @@ describe "Encoding programs" do
 
   it "str force encoding return" do
     result = zr(<<~'RUBY')
-      # `def f(s); s.force_encoding(...); end` whose body's last
-      # expression is `force_encoding` (a receiver passthrough at codegen)
-      # previously had its return type inferred as mrb_int — the function
-      # signature returned mrb_int while the body returned a const char *.
-      #
-      # Codegen already lowers force_encoding (and encode / b) as a
-      # receiver passthrough at line 13953; the analyze side just had no
-      # matching infer_call_type arm, so the call's static type fell back
-      # to "int". Add force_encoding / encode / b to infer_call_type's
-      # string-recv arm so the return type carries through.
+      # `def f(s); s.force_encoding(...); end` returns the String, because
+      # `force_encoding` returns its receiver. The same holds for encode / b.
 
       def normalize(s)
         s.force_encoding("UTF-8")
@@ -1287,10 +1260,9 @@ describe "Encoding programs" do
 
   it "string append binary safe" do
     result = zr(<<~'RUBY')
-      # String#<< must preserve embedded NUL bytes: a mutable string's payload buffer
-      # is length-tracked (a header on the 0xfd buffer), not NUL-terminated, so
-      # appending content that begins with (or contains) 0x00 keeps every byte.
-      # (matz/spinel#1479)
+      # String#<< must preserve embedded NUL bytes: a string has a length, it is
+      # not NUL-terminated, so appending content that begins with (or contains)
+      # 0x00 keeps every byte.
 
       a = "a"; a << "\x00"
       puts a.length                 # 2
@@ -1318,7 +1290,7 @@ describe "Encoding programs" do
       puts frame.getbyte(2)         # 0
       puts frame.getbyte(3)         # 130
 
-      # Mutating via <<, then reading the escaped value (length over a const char*).
+      # Mutating via <<, then reading the escaped value and its length.
       e = "ab"
       e << 0.chr
       e << "cd"
@@ -1368,8 +1340,7 @@ describe "Encoding programs" do
 
   it "string encoding" do
     result = zr(<<~'RUBY')
-      # Issue #723. `.encoding` returns the source label (spinel uses
-      # UTF-8 throughout) as a small Encoding value.
+      # `.encoding` returns the string's encoding as an Encoding value.
 
       puts "hello".encoding
       puts "x".encode.encoding

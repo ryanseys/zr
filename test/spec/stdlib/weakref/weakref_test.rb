@@ -203,14 +203,13 @@ describe "WeakRef programs" do
 
   it "a subclass is allocated unseated, so its initialize runs and its super seats the referent" do
     result = zr(<<~'RUBY')
-      # `class TaggedRef < WeakRef` used to be registered with the ROOT's own
-      # constructor, which seated the referent straight from the args -- the
-      # subclass's `initialize` never ran and `@tagged` read back nil.
+      # `class TaggedRef < WeakRef`: the subclass's `initialize` runs, so
+      # `@tagged` reads back true.
       #
-      # A `WeakRef` is now allocated UNSEATED and `initialize` seats it, so a
+      # A `WeakRef` is allocated UNSEATED and `initialize` seats it, so a
       # subclass's body runs and its `super(obj)` reaches `WeakRef#initialize`, the
-      # same split CRuby's pure-Ruby weakref.rb has. That split also made the rest
-      # of the surface expressible, and the oracle disagreed with zr on all of it:
+      # same split CRuby's pure-Ruby weakref.rb has. The rest of the surface
+      # follows that file too:
       #
       #   - `__setobj__` is a NO-OP answering nil. The referent lives in a map keyed
       #     on the WeakRef object, which `__setobj__` never touches; the method

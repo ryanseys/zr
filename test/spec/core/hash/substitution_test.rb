@@ -113,7 +113,7 @@ describe "Hash: substitution" do
       h3.reject! { |k, v| v > 1 }
       puts h3.inspect
 
-      # str_int_hash variant.
+      # String keys, Integer values.
       h4 = {"x" => 10, "y" => 20, "z" => 30}
       h4.delete_if { |k, v| v >= 20 }
       puts h4.inspect
@@ -139,13 +139,12 @@ describe "Hash: substitution" do
       puts v2
       puts h_ss.size
 
-      # delete missing key on sym_int_hash returns 0 (spinel int default,
-      # diverges from CRuby's nil but matches existing has_key fallback)
+      # delete of a missing key returns nil, as in CRuby
       h2 = { a: 1 }
       puts h2.delete(:b)
       puts h2.size
 
-      # Multi-value sym_poly_hash
+      # Symbol keys, values of mixed types
       h_sp = { a: 1, b: "two", c: :sym }
       v3 = h_sp.delete(:b)
       puts v3.inspect
@@ -229,21 +228,21 @@ describe "Hash: substitution" do
 
   it "the delete family and shift answer on an integer-keyed hash" do
     result = zr(<<~'RUBY')
-      # Integer-keyed Hash delete-family + Hash#shift (KieranP #2344,#2349,#2353)
-      p({ 1 => "a", 2 => "b" }.delete(1))         # #2344 delete
+      # Integer-keyed Hash delete-family + Hash#shift
+      p({ 1 => "a", 2 => "b" }.delete(1))         # delete
       p({ 1 => 10, 2 => 20 }.delete(2))
-      p({ 1 => 10, 2 => 20 }.slice(1))            # #2344 slice
-      p({ 1 => 10, 2 => 20 }.except(1))           # #2344 except
+      p({ 1 => 10, 2 => 20 }.slice(1))            # slice
+      p({ 1 => 10, 2 => 20 }.except(1))           # except
       p({ 1 => "a", 2 => "b" }.slice(2))
       h = { a: 1, b: 2 }
-      p h.shift                                    # #2349 shift
+      p h.shift                                    # shift
       p h
       p({ 1 => 10, 2 => 20 }.shift)
       p({}.shift) rescue p(:empty_ok)
       h2 = { 1 => 10, 2 => 20 }
-      h2.delete_if { |_k, v| v > 15 }              # #2353 delete-family mutator
+      h2.delete_if { |_k, v| v > 15 }              # delete-family mutator
       p h2
-      p({ 1 => 10 }.value?(10))                    # #2353 value?
+      p({ 1 => 10 }.value?(10))                    # value?
       p({ 1 => 10 }.has_value?(99))
     RUBY
 
@@ -309,15 +308,9 @@ describe "Hash: substitution" do
 
   it "a local widened past its initializer's hash variant is converted, not reinterpreted" do
     result = zr(<<~'RUBY')
-      # A local the analysis widened past its initializer's hash variant. The
-      # variants are separate C structs, so the pointer went into the slot with no
-      # conversion and the C build stopped.
-      #
-      # 0b3ec5fb widened the arm that reaches this -- a block over an unresolved
-      # receiver has its params widened to poly -- so `sub[k] = v` widens `sub` while
-      # its initializer still answers Hash[String, String]. The widening is right:
-      # the receiver really can be either at run time. What was missing is the
-      # conversion, which the ARGUMENT path has had since #3998.
+      # A local starts as a Hash of String keys and String values. A block over a
+      # receiver whose class is not known then writes `sub[k] = v`, and k and v can
+      # be any value. The local stays the same Hash and takes the writes.
 
       class A
         def each
@@ -502,21 +495,8 @@ describe "Hash: substitution" do
 
   it "sym hash cross variant merge" do
     result = zr(<<~'RUBY')
-      # #515. Cross-variant Hash#merge between sym_str_hash and
-      # sym_poly_hash (sibling to #510) used to fail in both directions:
-      #
-      # - sym_str_hash.merge(sym_poly_hash): codegen routed to
-      #   sp_SymStrHash_merge and passed the poly arg as `b`, tripping
-      #   -Wincompatible-pointer-types and producing runtime garbage.
-      #
-      # - sym_poly_hash.merge(sym_str_hash): no helper at all,
-      #   "cannot resolve call to 'merge' on sym_poly_hash" warning.
-      #
-      # Fix: new sp_SymStrHash_to_sym_poly (codegen-emitted alongside
-      # the existing sym_str_hash runtime helpers) and
-      # sp_SymPolyHash_merge_str. Both directions return a fresh
-      # sym_poly_hash. Analyze's merge inference returns
-      # sym_poly_hash for the cross-variant pair.
+      # Hash#merge between a Symbol-keyed hash of Strings and a Symbol-keyed
+      # hash of mixed values works in both directions, and returns a new hash.
 
       def dir1_str_recv_poly_arg(t)
         poly = { method: :delete, id: 42, text: t }
@@ -553,26 +533,12 @@ describe "Hash: substitution" do
 
   it "sym int hash merge" do
     result = zr(<<~'RUBY')
-      # #546. Sibling of #510 -- merge / dup / delete dispatch was
-      # missing on sym_int_hash (Symbol-key, Int-value). #510 fixed
-      # the same surface for sym_str_hash and sym_poly_hash. Spinel
-      # emitted `cannot resolve call to 'merge' on sym_int_hash
-      # (emitting 0)` and the call no-op'd.
+      # merge / dup / delete on a hash with Symbol keys and Integer
+      # values. The kwarg-shorthand form `h.merge(c: 3)` and the
+      # hash-argument form both work.
       #
-      # Trigger in roundhouse: `ActionView::ViewHelpers.link_to`
-      # builds an HTML-attrs hash via `.merge`; when the value type
-      # was numeric (sym_int_hash variant) the merge dropped silently.
-      #
-      # Fix:
-      # 1. spinel_codegen.rb: new `sp_SymIntHash_merge` runtime helper
-      #    (mirrors the sym_str_hash version with NULL-guard on the
-      #    second arg per the #542 / #546 NULL-receiver pattern).
-      # 2. spinel_codegen.rb: sym_int_hash recv dispatch block gains
-      #    merge / dup / delete arms.
-      # 3. spinel_codegen.rb: kwarg-shorthand merge (`h.merge(c: 3)`)
-      #    builds the matching sp_SymIntHash inline from the
-      #    KeywordHashNode pairs, mirroring the kwarg-as-bundle path
-      #    in compile_constructor_args.
+      # roundhouse's `ActionView::ViewHelpers.link_to` builds an
+      # HTML-attrs hash via `.merge`, also with numeric values.
 
       def merge_kwarg(h)
         h.merge(c: 3, d: 4)
@@ -582,7 +548,7 @@ describe "Hash: substitution" do
         h.merge({c: 3, d: 4})
       end
 
-      # Both forms work post-fix.
+      # Both forms.
       r1 = merge_kwarg({a: 1, b: 2})
       puts r1[:a]   # 1
       puts r1[:b]   # 2
@@ -603,7 +569,7 @@ describe "Hash: substitution" do
       h3 = {p: 1, q: 2, r: 3}
       h3.delete(:q)
       puts h3[:p]   # 1
-      puts h3[:q]   # 0 (missing now)
+      puts h3[:q]   # nil (missing now)
       puts h3[:r]   # 3
     RUBY
 

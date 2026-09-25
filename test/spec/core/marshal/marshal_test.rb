@@ -227,11 +227,8 @@ describe "Marshal programs" do
   it "dump writes a NUL-heavy payload to an IO, and load reads one back" do
     result = zr(<<~'RUBY')
       # Marshal.load takes either the serialized bytes or an IO to read them from,
-      # and Marshal.dump writes to an IO when it is given one. Only the String forms
-      # were compiled: `Marshal.load(f)` handed the sp_File* over as though the
-      # handle itself were the bytes, and the C build stopped on the pointer type.
-      # `Marshal.dump(obj, f)` matched no arm at all and came out as a NameError on
-      # the Marshal constant. (matz/spinel#4112)
+      # and Marshal.dump writes to an IO when it is given one. This example checks
+      # the IO forms: `Marshal.dump(obj, f)` and `Marshal.load(f)`.
       path = "/tmp/sp_marshal_io_stream_#{Process.pid}.bin"
 
       # The round trip through a stream, with the value carrying a NUL-heavy dump:
@@ -471,9 +468,7 @@ describe "Marshal programs" do
   it "an instance variable on a String survives the round trip" do
     result = zr(<<~'RUBY')
       # Instance variables on a STRING survive a Marshal round-trip (the I
-      # prefix carries them); zr drops them silently -- object ivars already
-      # round-trip. Data loss, not a missing error. (Found by the 2026-08-24
-      # probe sweep.)
+      # prefix carries them), as the ivars of an object do.
       s = +"payload"
       s.instance_variable_set(:@tag, :iv)
       r = Marshal.load(Marshal.dump(s))

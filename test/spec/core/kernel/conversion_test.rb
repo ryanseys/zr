@@ -268,12 +268,12 @@ describe "Kernel: conversion" do
       p(Float(Complex(1.5, 0)))      # Ruby: 1.5
 
       class Conv004; def to_int; 8; end; end
-      p(Integer(Conv004.new))        # Ruby: 8   Spinel: can't convert Conv004 into Integer (TypeError)
-      p(Integer(Rational(4, 2)))     # Ruby: 2   Spinel: can't convert Rational into Integer (TypeError)
-      p(Integer(Complex(3, 0)))      # Ruby: 3   Spinel: can't convert Complex into Integer (TypeError)
+      p(Integer(Conv004.new))        # Ruby: 8
+      p(Integer(Rational(4, 2)))     # Ruby: 2
+      p(Integer(Complex(3, 0)))      # Ruby: 3
 
-      r005 = (Float(true) rescue $!.class); p r005      # Ruby: TypeError   Spinel: 1.0
-      r006 = (Float(:s) rescue $!.class); p r006        # Ruby: TypeError   Spinel: 0.0
+      r005 = (Float(true) rescue $!.class); p r005      # Ruby: TypeError
+      r006 = (Float(:s) rescue $!.class); p r006        # Ruby: TypeError
 
       r007 = (Integer([1]) rescue $!.class); p r007     # => TypeError
       r008 = (Integer(1..2) rescue $!.class); p r008    # => TypeError
@@ -354,15 +354,12 @@ describe "Kernel: conversion" do
     result = zr(<<~'RUBY')
       # The Proc `Method#to_proc` builds forwards its block to the wrapped method.
       #
-      # It used to drop it, so a block-taking method reached through `to_proc` ran
-      # block-less: `h.method(:each).to_proc.call { }` iterated zero times and
-      # answered an Enumerator where ruby answers the receiver. `Method#call` with a
-      # block was always right -- only the proc `to_proc` returned had no block
-      # channel, which also took `&method(:x)`, `UnboundMethod#bind(o).to_proc` and
-      # `#curry` down with it.
+      # Thus `h.method(:each).to_proc.call { }` iterates and answers the receiver,
+      # not an Enumerator. The same holds for `&method(:x)`,
+      # `UnboundMethod#bind(o).to_proc` and `#curry`.
       #
-      # The rows below are the whole family: the two that always worked are kept as
-      # controls, so a regression names which half broke.
+      # The rows below are the whole family. The rows marked as controls use no
+      # Method#to_proc, so a failure shows which half broke.
 
       def takes_block
         block_given? ? yield : :no_block
@@ -374,10 +371,10 @@ describe "Kernel: conversion" do
         end
       end
 
-      # The control: a Method called directly has always carried its block.
+      # The control: a Method called directly carries its block.
       puts method(:takes_block).call { :ran }
 
-      # The fix: through to_proc, in each of the ways a proc can be called.
+      # Through to_proc, in each of the ways a proc can be called.
       pr = method(:takes_block).to_proc
       puts pr.call { :ran }
       puts pr.() { :ran }
@@ -394,7 +391,7 @@ describe "Kernel: conversion" do
       # rides that one.
       puts method(:takes_block).to_proc.curry.call { :ran }
 
-      # Two more controls, from the neighbouring constructors that never broke.
+      # Two more controls, from the neighbouring constructors.
       puts :takes_block.to_proc.call(Target.new) { :ran }
       puts(proc { |&b| takes_block(&b) }.call { :ran })
 

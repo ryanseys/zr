@@ -206,7 +206,8 @@ describe "Process programs" do
   it "deadlocked wait raises fatal" do
     result = zr(<<~'RUBY')
       # A wait only another Ruby thread can end, with no other Ruby thread left to
-      # end it, is a deadlock. zr used to HANG there; CRuby raises `fatal`.
+      # end it, is a deadlock. The program does not hang: it raises `fatal`, as
+      # CRuby does.
       #
       # The check rides the poll the blocking waits already do. A wait registers
       # itself, and when every live thread is registered none of them can be the one
@@ -540,7 +541,7 @@ describe "Process programs" do
         puts "#{name}\t#{r}"
       end
 
-      # --- The limit argument, which used to be accepted and ignored ------------
+      # --- The limit argument, which sets how long join waits -------------------
       attempt("join(0.05) on a slow thread") do
         t = Thread.new { sleep 5 }
         r = t.join(0.05)
@@ -715,7 +716,7 @@ describe "Process programs" do
   it "exit poly status" do
     result = zr(<<~'RUBY')
       # An `exit(status)` whose status expression is poly-typed (here a poly-hash
-      # get) must unbox the value -- a bare (int)(sp_RbVal) cast is a cc error.
+      # get) uses the Integer in the value as the exit status.
       h = { "status" => 0, "note" => "text" }
       puts "before exit"
       exit(h["status"])
@@ -955,10 +956,8 @@ describe "Process programs" do
   it "instance exec dynamic ivar" do
     result = zr(<<~'RUBY')
       # An ivar first assigned inside an instance_exec / instance_eval block
-      # must get a struct slot on the receiver's class. collect_ivars only
-      # scans method bodies, so the lift registers the slot (typed from the
-      # assignment). No method here references @w or @s -- the only writes are
-      # inside the blocks. Box has a subclass so Spinel keeps it heap.
+      # becomes an ivar of the receiver. No method here references @w or @s --
+      # the only writes are inside the blocks. Box has a subclass.
       class Box
         def initialize
           @v = 1
@@ -1363,9 +1362,8 @@ describe "Process programs" do
   it "instance exec toplevel method" do
     result = zr(<<~'RUBY')
       # A local assigned `Class.new` inside a top-level method body resolves
-      # as an instance_exec receiver. The rewrite now walks top-level method
-      # bodies (ieval_walk_toplevel_methods), the sibling of the class-method
-      # walk, so the receiver's class flows through scan_locals_first_type.
+      # as an instance_exec receiver. Inside the block, bare calls go to that
+      # receiver's class. This works in a top-level method, as in a class body.
 
       class Tally
         def initialize
@@ -1395,48 +1393,20 @@ describe "Process programs" do
 
   it "instance_exec runs the block against the receiver, so its ivars are the receiver's" do
     result = zr(<<~'RUBY')
-      # Inline-at-call-site instance_exec trampoline.
-      #
-      # Sibling of test/instance_eval_trampoline.rb. instance_exec differs
-      # from instance_eval by forwarding positional args from the call site
-      # into the block's parameters:
+      # instance_exec forwards positional args from the call site into the
+      # block's parameters. In other ways it is like instance_eval:
       #
       #   def configure(x, &block)
       #     instance_exec(x, &block)   # x flows into block param at call site
       #   end
-      #   b.configure(10) { |n| add(n) }   # n == 10 inside the spliced block
+      #   b.configure(10) { |n| add(n) }   # n == 10 inside the block
       #
-      # Same AOT compromise as instance_eval: detected at compile time by
-      # shape match (def m(p1..pN, &b); instance_exec(p1..pN, &b); end),
-      # inlined at the call site with self rebound to the receiver and block
-      # params bound to fresh suffixed C locals carrying the call-site arg
-      # values. A non-trampoline shape falls through to ordinary dispatch; an
-      # arity mismatch between block params and forwarded args is a hard error.
-      #
-      # Limitations exercised by the asymmetry note in section A below:
-      #   - Direct `recv.instance_exec(args) { ... }` (outside a trampoline
-      #     method) lifts to a static function and cannot capture outer
-      #     locals (a follow-up adds pointer capture on the direct path).
-      #   - Trampoline body must forward params 1:1, no literals / ivars /
-      #     splat (relaxed in follow-ups).
-      #   - Value-typed receivers crash on the pointer cast in the splice
-      #     today; multi-instance classes (which Spinel keeps heap-allocated)
-      #     are the workaround until the TODO in
-      #     compile_instance_exec_inlined_stmt is fixed.
-
-      # A. Asymmetry note
-      #
-      # Outer-local capture works on THIS path (trampoline) because the
-      # block body is spliced at the call site, so outer locals are in
-      # scope. The direct form `obj.instance_exec(args) { ... }` does NOT
-      # capture outer locals -- its lifted static function cannot see the
-      # caller's locals. Use the trampoline form when you need capture; a
-      # follow-up closes this gap on the direct path.
+      # Inside the block, self is the receiver. The block can also read and
+      # write the locals of the scope around the call.
 
       # 1. Single fixed arg, statement form: forwards the call-site arg
-      #    into the block param, then bare method calls dispatch against
-      #    the receiver's class (same rebound-self mechanism as
-      #    instance_eval).
+      #    into the block param, then bare method calls go to the
+      #    receiver's class, as with instance_eval.
       class Builder
         def initialize
           @sum = 0
@@ -1470,48 +1440,20 @@ describe "Process programs" do
 
   it "instance_exec passes its fixed arguments to the block" do
     result = zr(<<~'RUBY')
-      # Inline-at-call-site instance_exec trampoline.
-      #
-      # Sibling of test/instance_eval_trampoline.rb. instance_exec differs
-      # from instance_eval by forwarding positional args from the call site
-      # into the block's parameters:
+      # instance_exec forwards positional args from the call site into the
+      # block's parameters. In other ways it is like instance_eval:
       #
       #   def configure(x, &block)
       #     instance_exec(x, &block)   # x flows into block param at call site
       #   end
-      #   b.configure(10) { |n| add(n) }   # n == 10 inside the spliced block
+      #   b.configure(10) { |n| add(n) }   # n == 10 inside the block
       #
-      # Same AOT compromise as instance_eval: detected at compile time by
-      # shape match (def m(p1..pN, &b); instance_exec(p1..pN, &b); end),
-      # inlined at the call site with self rebound to the receiver and block
-      # params bound to fresh suffixed C locals carrying the call-site arg
-      # values. A non-trampoline shape falls through to ordinary dispatch; an
-      # arity mismatch between block params and forwarded args is a hard error.
-      #
-      # Limitations exercised by the asymmetry note in section A below:
-      #   - Direct `recv.instance_exec(args) { ... }` (outside a trampoline
-      #     method) lifts to a static function and cannot capture outer
-      #     locals (a follow-up adds pointer capture on the direct path).
-      #   - Trampoline body must forward params 1:1, no literals / ivars /
-      #     splat (relaxed in follow-ups).
-      #   - Value-typed receivers crash on the pointer cast in the splice
-      #     today; multi-instance classes (which Spinel keeps heap-allocated)
-      #     are the workaround until the TODO in
-      #     compile_instance_exec_inlined_stmt is fixed.
-
-      # A. Asymmetry note
-      #
-      # Outer-local capture works on THIS path (trampoline) because the
-      # block body is spliced at the call site, so outer locals are in
-      # scope. The direct form `obj.instance_exec(args) { ... }` does NOT
-      # capture outer locals -- its lifted static function cannot see the
-      # caller's locals. Use the trampoline form when you need capture; a
-      # follow-up closes this gap on the direct path.
+      # Inside the block, self is the receiver. The block can also read and
+      # write the locals of the scope around the call.
 
       # 1. Single fixed arg, statement form: forwards the call-site arg
-      #    into the block param, then bare method calls dispatch against
-      #    the receiver's class (same rebound-self mechanism as
-      #    instance_eval).
+      #    into the block param, then bare method calls go to the
+      #    receiver's class, as with instance_eval.
       class Builder
         def initialize
           @sum = 0
@@ -1530,14 +1472,9 @@ describe "Process programs" do
         end
       end
 
-      # 2. Two fixed args, ivar read/write inside the block: each arg
-      #    becomes a typed C local, the block body computes against them
-      #    and the rebound receiver's @ivars. Validates that the
-      #    rebound-self retrofit composes with block-param renaming. Builder is
-      #    reused (already heap-allocated above) instead of a fresh
-      #    class -- single-instance classes with only ivar mutation in
-      #    the block tend to value-promote, which the TODO in
-      #    compile_instance_exec_inlined_stmt does not yet handle.
+      # 2. Two fixed args, ivar read/write inside the block: the block uses
+      #    both args and the @ivars of the receiver. Acc is a subclass of
+      #    Builder, and the test makes two instances of it.
       class Acc < Builder
         def bump_by(step, k, &block)
           instance_exec(step, k, &block)
@@ -1545,7 +1482,7 @@ describe "Process programs" do
       end
 
       a1 = Acc.new
-      a2 = Acc.new                  # second instance keeps heap allocation
+      a2 = Acc.new                  # a second instance
       a1.bump_by(3, 4) { |s, k| add(s * k) }
       a2.bump_by(7, 2) { |s, k| add(s * k) }
       a1.bump_by(1, 0) { |s, k| add(s + k) }
@@ -1562,48 +1499,20 @@ describe "Process programs" do
 
   it "instance_exec keeps the outer local the block closed over" do
     result = zr(<<~'RUBY')
-      # Inline-at-call-site instance_exec trampoline.
-      #
-      # Sibling of test/instance_eval_trampoline.rb. instance_exec differs
-      # from instance_eval by forwarding positional args from the call site
-      # into the block's parameters:
+      # instance_exec forwards positional args from the call site into the
+      # block's parameters. In other ways it is like instance_eval:
       #
       #   def configure(x, &block)
       #     instance_exec(x, &block)   # x flows into block param at call site
       #   end
-      #   b.configure(10) { |n| add(n) }   # n == 10 inside the spliced block
+      #   b.configure(10) { |n| add(n) }   # n == 10 inside the block
       #
-      # Same AOT compromise as instance_eval: detected at compile time by
-      # shape match (def m(p1..pN, &b); instance_exec(p1..pN, &b); end),
-      # inlined at the call site with self rebound to the receiver and block
-      # params bound to fresh suffixed C locals carrying the call-site arg
-      # values. A non-trampoline shape falls through to ordinary dispatch; an
-      # arity mismatch between block params and forwarded args is a hard error.
-      #
-      # Limitations exercised by the asymmetry note in section A below:
-      #   - Direct `recv.instance_exec(args) { ... }` (outside a trampoline
-      #     method) lifts to a static function and cannot capture outer
-      #     locals (a follow-up adds pointer capture on the direct path).
-      #   - Trampoline body must forward params 1:1, no literals / ivars /
-      #     splat (relaxed in follow-ups).
-      #   - Value-typed receivers crash on the pointer cast in the splice
-      #     today; multi-instance classes (which Spinel keeps heap-allocated)
-      #     are the workaround until the TODO in
-      #     compile_instance_exec_inlined_stmt is fixed.
-
-      # A. Asymmetry note
-      #
-      # Outer-local capture works on THIS path (trampoline) because the
-      # block body is spliced at the call site, so outer locals are in
-      # scope. The direct form `obj.instance_exec(args) { ... }` does NOT
-      # capture outer locals -- its lifted static function cannot see the
-      # caller's locals. Use the trampoline form when you need capture; a
-      # follow-up closes this gap on the direct path.
+      # Inside the block, self is the receiver. The block can also read and
+      # write the locals of the scope around the call.
 
       # 1. Single fixed arg, statement form: forwards the call-site arg
-      #    into the block param, then bare method calls dispatch against
-      #    the receiver's class (same rebound-self mechanism as
-      #    instance_eval).
+      #    into the block param, then bare method calls go to the
+      #    receiver's class, as with instance_eval.
       class Builder
         def initialize
           @sum = 0
@@ -1622,11 +1531,8 @@ describe "Process programs" do
         end
       end
 
-      # 3. Outer-local capture via the splice: total is in scope at the
-      #    call site, so the block body reads and writes it. Validates
-      #    that the trampoline path does NOT lift the block to a static
-      #    function (which would lose closure scope) -- it splices,
-      #    keeping outer locals reachable.
+      # 3. Outer-local capture: total is in scope at the call site, so the
+      #    block body reads and writes it.
       total = 0
       b2 = Builder.new
       b2.configure(5) { |d| add(d); total = total + d }
@@ -1644,48 +1550,20 @@ describe "Process programs" do
 
   it "instance_exec runs to the end and the program carries on" do
     result = zr(<<~'RUBY')
-      # Inline-at-call-site instance_exec trampoline.
-      #
-      # Sibling of test/instance_eval_trampoline.rb. instance_exec differs
-      # from instance_eval by forwarding positional args from the call site
-      # into the block's parameters:
+      # instance_exec forwards positional args from the call site into the
+      # block's parameters. In other ways it is like instance_eval:
       #
       #   def configure(x, &block)
       #     instance_exec(x, &block)   # x flows into block param at call site
       #   end
-      #   b.configure(10) { |n| add(n) }   # n == 10 inside the spliced block
+      #   b.configure(10) { |n| add(n) }   # n == 10 inside the block
       #
-      # Same AOT compromise as instance_eval: detected at compile time by
-      # shape match (def m(p1..pN, &b); instance_exec(p1..pN, &b); end),
-      # inlined at the call site with self rebound to the receiver and block
-      # params bound to fresh suffixed C locals carrying the call-site arg
-      # values. A non-trampoline shape falls through to ordinary dispatch; an
-      # arity mismatch between block params and forwarded args is a hard error.
-      #
-      # Limitations exercised by the asymmetry note in section A below:
-      #   - Direct `recv.instance_exec(args) { ... }` (outside a trampoline
-      #     method) lifts to a static function and cannot capture outer
-      #     locals (a follow-up adds pointer capture on the direct path).
-      #   - Trampoline body must forward params 1:1, no literals / ivars /
-      #     splat (relaxed in follow-ups).
-      #   - Value-typed receivers crash on the pointer cast in the splice
-      #     today; multi-instance classes (which Spinel keeps heap-allocated)
-      #     are the workaround until the TODO in
-      #     compile_instance_exec_inlined_stmt is fixed.
-
-      # A. Asymmetry note
-      #
-      # Outer-local capture works on THIS path (trampoline) because the
-      # block body is spliced at the call site, so outer locals are in
-      # scope. The direct form `obj.instance_exec(args) { ... }` does NOT
-      # capture outer locals -- its lifted static function cannot see the
-      # caller's locals. Use the trampoline form when you need capture; a
-      # follow-up closes this gap on the direct path.
+      # Inside the block, self is the receiver. The block can also read and
+      # write the locals of the scope around the call.
 
       # 1. Single fixed arg, statement form: forwards the call-site arg
-      #    into the block param, then bare method calls dispatch against
-      #    the receiver's class (same rebound-self mechanism as
-      #    instance_eval).
+      #    into the block param, then bare method calls go to the
+      #    receiver's class, as with instance_eval.
       class Builder
         def initialize
           @sum = 0
@@ -1714,12 +1592,9 @@ describe "Process programs" do
 
   it "instance exec valuetype trampoline" do
     result = zr(<<~'RUBY')
-      # A value-type receiver (small immutable class promoted to a by-value struct)
-      # reached through an instance_exec *trampoline* method. The trampoline splice
-      # must bind the rebound self by value and dereference its ivars with `.`, not
-      # treat it as a pointer -- the receiver here is an sp_Pt struct, not sp_Pt*.
-      # The trampoline body also forwards the receiver's own ivars as args, which are
-      # read through the by-value self.
+      # A small class whose ivars do not change, as the receiver of a method
+      # that only calls instance_exec. The method forwards the receiver's own
+      # ivars as args to the block. The block gets their values.
 
       class Pt
         def initialize(x, y)
@@ -1727,12 +1602,12 @@ describe "Process programs" do
           @y = y
         end
 
-        # trampoline forwarding two ivars to the block
+        # forwards two ivars to the block
         def combine(&b)
           instance_exec(@x, @y, &b)
         end
 
-        # trampoline forwarding an ivar plus a forwarded local
+        # forwards an ivar and a local
         def scale(k, &b)
           instance_exec(@x, k, &b)
         end
@@ -1943,15 +1818,13 @@ describe "Process programs" do
       # compiler cannot see the rows those classes have.
       #
       # The exception hierarchy is written in ruby but carries hand-registered
-      # NATIVE rows. Neither table the fold consults holds them: they are not
-      # compiled `def`s, so the method lookup misses, and they reach no class
-      # header, so the projected surface misses too. The walk then concluded
-      # "not found, and fully projected" -- a confident FALSE about rows the
+      # NATIVE rows. They are not compiled `def`s, and they reach no class
+      # header. So a compile-time answer would be a wrong FALSE about rows the
       # class really has.
       #
-      # The cost was silent and total: `error_highlight`'s core_ext gates its whole
-      # API on `Exception.method_defined?(:detailed_message)`, so a false answer
-      # picked the pre-3.2 `to_s` branch of a library that had already loaded.
+      # `error_highlight`'s core_ext gates its whole API on
+      # `Exception.method_defined?(:detailed_message)`. A false answer picks the
+      # pre-3.2 `to_s` branch of the library.
       module Probe
         ANSWER = if Exception.method_defined?(:detailed_message)
           :folded_or_asked_true
@@ -1968,7 +1841,7 @@ describe "Process programs" do
       p NoMethodError.method_defined?(:private_call?)
       p StandardError.method_defined?(:backtrace_locations)
 
-      # A class body asks in its own scope, which is where the fold used to run.
+      # A class body asks in its own scope, with an implicit receiver.
       class Custom < StandardError
         RESULT = [
           method_defined?(:detailed_message),
@@ -2081,8 +1954,8 @@ describe "Process programs" do
 
   it "pid is above zero and ppid is not below it" do
     result = zr(<<~'RUBY')
-      # Issue #893: Process.pid / Process.ppid dispatched via getpid /
-      # getppid. Values vary by run; test the type. ppid is 0 on
+      # Process.pid and Process.ppid come from getpid and
+      # getppid. Values vary by run; test the range. ppid is 0 on
       # Windows where MinGW lacks getppid, >= 0 elsewhere.
       puts Process.pid > 0
       puts Process.ppid >= 0
@@ -2111,11 +1984,9 @@ describe "Process programs" do
       #   Process::Status#pid         -> pid
       #
       # Process::Status has no public constructor in CRuby: the only way to
-      # obtain one is Process.waitpid2 on a real subprocess. Both CRuby and
-      # spinel must produce the same predicate answers here; the boxed-comparison
-      # path (status.exitstatus == 0) is exercised by other tests, this one
-      # focuses on the four predicates that the bash tool's signal-check path
-      # actually uses (exited? / success? / signaled? / pid).
+      # obtain one is Process.waitpid2 on a real subprocess. Other tests check
+      # `status.exitstatus == 0`. This one checks the four members that a
+      # signal check in a shell tool uses: exited?, success?, signaled?, pid.
 
       # 1) Normal exit, success path. /bin/echo exits 0.
       r, w = IO.pipe
@@ -2127,8 +1998,7 @@ describe "Process programs" do
       puts status.exited?               # exited normally
       puts status.success?              # exited 0
       puts status.signaled? == false    # not killed by signal
-      # status.pid is tested in (4) via the destructure, not via the boxed
-      # == path that the spinel poly-comparison route doesn't handle yet.
+      # status.pid is tested in (4), through the pair that waitpid2 gives.
 
     RUBY
 
@@ -2160,11 +2030,9 @@ describe "Process programs" do
       #   Process::Status#pid         -> pid
       #
       # Process::Status has no public constructor in CRuby: the only way to
-      # obtain one is Process.waitpid2 on a real subprocess. Both CRuby and
-      # spinel must produce the same predicate answers here; the boxed-comparison
-      # path (status.exitstatus == 0) is exercised by other tests, this one
-      # focuses on the four predicates that the bash tool's signal-check path
-      # actually uses (exited? / success? / signaled? / pid).
+      # obtain one is Process.waitpid2 on a real subprocess. Other tests check
+      # `status.exitstatus == 0`. This one checks the four members that a
+      # signal check in a shell tool uses: exited?, success?, signaled?, pid.
 
       # 2) Nonexistent command -> Errno::ENOENT.
       ok = false
@@ -2206,11 +2074,9 @@ describe "Process programs" do
       #   Process::Status#pid         -> pid
       #
       # Process::Status has no public constructor in CRuby: the only way to
-      # obtain one is Process.waitpid2 on a real subprocess. Both CRuby and
-      # spinel must produce the same predicate answers here; the boxed-comparison
-      # path (status.exitstatus == 0) is exercised by other tests, this one
-      # focuses on the four predicates that the bash tool's signal-check path
-      # actually uses (exited? / success? / signaled? / pid).
+      # obtain one is Process.waitpid2 on a real subprocess. Other tests check
+      # `status.exitstatus == 0`. This one checks the four members that a
+      # signal check in a shell tool uses: exited?, success?, signaled?, pid.
 
       # 3) /usr/bin/false exits 1: exited? true, success? false.
       r, w = IO.pipe
@@ -2249,15 +2115,12 @@ describe "Process programs" do
       #   Process::Status#pid         -> pid
       #
       # Process::Status has no public constructor in CRuby: the only way to
-      # obtain one is Process.waitpid2 on a real subprocess. Both CRuby and
-      # spinel must produce the same predicate answers here; the boxed-comparison
-      # path (status.exitstatus == 0) is exercised by other tests, this one
-      # focuses on the four predicates that the bash tool's signal-check path
-      # actually uses (exited? / success? / signaled? / pid).
+      # obtain one is Process.waitpid2 on a real subprocess. Other tests check
+      # `status.exitstatus == 0`. This one checks the four members that a
+      # signal check in a shell tool uses: exited?, success?, signaled?, pid.
 
-      # 4) The boxed status: from waitpid2's second element, .signaled? /
-      #    .exited? dispatch on the cls_id the poly path reads out of the boxed
-      #    value. Goes through emit_poly_builtin_method in codegen_call.c.
+      # 4) The boxed status: waitpid2's second element, read by index. Its
+      #    .exited? and .success? find the Process::Status methods at run time.
       r, w = IO.pipe
       pid = Process.spawn("/usr/bin/true", out: w)
       w.close
@@ -2298,16 +2161,12 @@ describe "Process programs" do
       #   Process::Status#pid         -> pid
       #
       # Process::Status has no public constructor in CRuby: the only way to
-      # obtain one is Process.waitpid2 on a real subprocess. Both CRuby and
-      # spinel must produce the same predicate answers here; the boxed-comparison
-      # path (status.exitstatus == 0) is exercised by other tests, this one
-      # focuses on the four predicates that the bash tool's signal-check path
-      # actually uses (exited? / success? / signaled? / pid).
+      # obtain one is Process.waitpid2 on a real subprocess. Other tests check
+      # `status.exitstatus == 0`. This one checks the four members that a
+      # signal check in a shell tool uses: exited?, success?, signaled?, pid.
 
-      # 5) The boxed status in a String consumer. The accessors are answered on a
-      #    poly receiver by emit_poly_builtin_method, which emits an unboxed scalar,
-      #    so the inference has to type them the same way -- otherwise the
-      #    interpolation asks sp_poly_to_s for what the emitter produced as sp_int.
+      # 5) The boxed status in a String consumer. The accessors give Integers on a
+      #    boxed receiver, and interpolation shows them as Integers.
       r, w = IO.pipe
       pid = Process.spawn("/usr/bin/false", out: w)
       w.close
@@ -2345,16 +2204,13 @@ describe "Process programs" do
       #   Process::Status#pid         -> pid
       #
       # Process::Status has no public constructor in CRuby: the only way to
-      # obtain one is Process.waitpid2 on a real subprocess. Both CRuby and
-      # spinel must produce the same predicate answers here; the boxed-comparison
-      # path (status.exitstatus == 0) is exercised by other tests, this one
-      # focuses on the four predicates that the bash tool's signal-check path
-      # actually uses (exited? / success? / signaled? / pid).
+      # obtain one is Process.waitpid2 on a real subprocess. Other tests check
+      # `status.exitstatus == 0`. This one checks the four members that a
+      # signal check in a shell tool uses: exited?, success?, signaled?, pid.
 
       # 6) A status that did NOT exit normally. CRuby answers nil, not false, for
       #    success?, and nil for exitstatus; termsig carries the signal. The nil
-      #    accessors ride the SP_INT_NIL sentinel, so they render as nil and answer
-      #    .nil? rather than reading back as -1.
+      #    accessors show as nil and answer .nil?, not -1.
       r, w = IO.pipe
       pid = Process.spawn("/bin/sleep", "5", out: w)
       w.close

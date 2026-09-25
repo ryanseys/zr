@@ -6,9 +6,8 @@ describe "Fusion programs" do
   it "array flatten typed elements" do
     result = zr(<<~'RUBY')
       # Array#flatten on a typed-array-of-typed-array concatenates the inner
-      # arrays into one flat typed array. Previously only int elements were
-      # specialized; str and float now mirror it (the pr_geohash gem's
-      # neighbors does map{...}.flatten over string cells).
+      # arrays into one flat typed array, for Integer, String and Float elements
+      # (the pr_geohash gem's neighbors does map{...}.flatten over string cells).
       ints = [[1, 2], [3, 4]]
       p ints.flatten
       puts ints.flatten.length
@@ -458,9 +457,9 @@ describe "Fusion programs" do
 
   it "array transpose typed elements" do
     result = zr(<<~'RUBY')
-      # Array#transpose on a nested array swaps rows and columns. Previously
-      # only int elements were specialized; str and float now mirror it
-      # (pr_geohash's GeoHash.decode ends with latlng.transpose over floats).
+      # Array#transpose on a nested array swaps rows and columns, for Integer,
+      # String and Float elements (pr_geohash's GeoHash.decode ends with
+      # latlng.transpose over floats).
       ints = [[1, 2, 3], [4, 5, 6]]
       p ints.transpose
 
@@ -492,7 +491,7 @@ describe "Fusion programs" do
 
   it "autoload nested in a module eagerly splices the feature file" do
     result = zr(<<~'RUBY', files: beside("autoload_nested/lib/greeter.rb", "autoload_nested/main.rb"))
-      # #101: `autoload :Const, "feature"` is treated as a compile-time
+      # `autoload :Const, "feature"` is treated as a compile-time
       # require -- the loader's eager pre-pass splices the feature file (at any
       # structural nesting) so the constant is defined; the `autoload` call
       # itself is a no-op. Documented divergence from CRuby's laziness (loads at
@@ -590,7 +589,7 @@ describe "Fusion programs" do
     result = zr(<<~'RUBY')
       # A class method called on a subclass must specialize through a non-overriding
       # intermediate, so an implicit-self chain reaching an override resolves to the
-      # subclass version, not the abstract base (#1451).
+      # subclass version, not the abstract base.
       class Base
         def self.table_name
           raise "#{name}.table_name must be overridden"
@@ -743,7 +742,7 @@ describe "Fusion programs" do
     result = zr(<<~'RUBY')
       # An empty {} local written with Integer keys must settle on an int-keyed
       # hash variant even when the first value is an empty container literal
-      # (it used to stay Str-keyed and store the int key as a pointer).
+      # (such as `[]`).
       class G
         def self.bucket(ids)
           grouped = {}
@@ -1241,12 +1240,10 @@ describe "Fusion programs" do
 
   it "inherited factory poly param narrow attr" do
     result = zr(<<~'RUBY')
-      # An inherited factory (`Base.create`) forwards `new(attrs)` with a Hash,
-      # which unifies the subclass ctor parameter to poly (sp_RbVal) across its
-      # call sites. The inherited attr_accessor field `id` stays narrow (mrb_int,
-      # pinned by `@id = 0`). The inlined `self.id = id` setter then writes a poly
-      # value into the narrow field, which used to emit `mrb_int = sp_RbVal` and
-      # fail C compilation. The setter now unboxes to the field's concrete type.
+      # An inherited factory (`Base.create`) forwards `new(attrs)` with a Hash, so
+      # the subclass ctor parameter gets values of more than one type across its
+      # call sites. The inherited attr_accessor field `id` holds an Integer (from
+      # `@id = 0`). The `self.id = id` setter writes that parameter into the field.
       class Base
         attr_accessor :id
 
@@ -1311,8 +1308,7 @@ describe "Fusion programs" do
       p K.new(1).size
 
       # A runtime subclass of a value-backed builtin reaches its rows THROUGH the
-      # payload -- handing it the wrong kind of boxed object used to crash
-      # instead of raising.
+      # payload, so each builtin method works on an instance of it.
       A2 = Class.new(Array)
       p [A2.new([1, 2, 3]).size, A2.new([1, 2]).first, A2.new([1]).class == A2]
       S3 = Class.new(String)
@@ -1352,10 +1348,8 @@ describe "Fusion programs" do
 
   it "inlined param cell binding" do
     result = zr(<<~'RUBY')
-      # A parameter of an inlined yielding method that an inner block CAPTURES is
-      # cell-promoted, so it is declared as `(*_cell_x)`. The three inline emitters
-      # bound it as the plain `lv_x` regardless, which nothing declares -- the read
-      # path was fixed for exactly this in #4088 and the binder was not (#4147).
+      # A parameter of an inlined yielding method that an inner block CAPTURES. The
+      # block and the method body read and write the same variable.
       #
       # Two receivers so the call cannot fold to one target: the block that assigns
       # the captured parameter is inlined once per candidate.
@@ -1725,12 +1719,12 @@ describe "Fusion programs" do
   it "ivar int table narrowing" do
     result = zr(<<~'RUBY')
       # An @ivar holding a table of int arrays gets the typed nested representation
-      # (an sp_PtrArray of sp_IntArray*), but only when EVERY reference to it is an
+      # (an Array of Integer Arrays), but only when EVERY reference to it is an
       # op the narrowing models, from the owning class itself. An ivar's references
       # span the whole class and escape through readers, returns and arguments, and a
-      # missed one is not a lost optimization -- it is an sp_PtrArray * meeting
-      # sp_RbVal in the emitted C. Each class below is one way out; only the last
-      # modeled one may narrow, and all of them must answer as CRuby does.
+      # missed one is not a lost optimization -- it is a wrong type for the value.
+      # Each class below is one way out; only the last modeled one may narrow, and
+      # all of them must answer as CRuby does.
       class A1
         attr_reader :t
         def initialize(n) = @t = Array.new(n) { Array.new(n, 0) }
@@ -1811,8 +1805,7 @@ describe "Fusion programs" do
       p A7.new(2).go
 
       # 8. an array LITERAL of int arrays, the shape optcarrot's @nmt_mem has: the
-      # ivar write needs its own pointer-array form, and without it the poly array it
-      # built landed in an sp_PtrArray * field and the emulator core-dumped.
+      # ivar write gets the same nested form as the other writes to the ivar.
       class A8
         def initialize
           @m = [[1, 2], [3, 4]]
@@ -1839,11 +1832,9 @@ describe "Fusion programs" do
 
   it "ivar orwrite raiseall typed slot" do
     result = zr(<<~'RUBY')
-      # `@x ||= recv.map { ... }` where recv is typed poly/unknown produces a
-      # raise-all (sp_RbVal) RHS, but @x's slot was typed concretely (an array)
-      # from another assignment. The pointer-backed ivar or-write must keep the
-      # raise for effect and yield the slot's typed NULL so the C compiles, then
-      # raise NoMethodError at run time like CRuby (#2457, Family 1).
+      # `@x ||= recv.map { ... }` where recv is nil, so the RHS can only raise.
+      # @x holds an Array from another assignment. The or-write raises
+      # NoMethodError at run time like CRuby.
       class Store
         def taggings; @data; end
         def seed(d); @memo = d; end
@@ -1912,13 +1903,9 @@ describe "Fusion programs" do
 
   it "narrow and predicate" do
     result = zr(<<~'RUBY')
-      # Step 3 narrow extension. `if v.is_a?(C) && other_cond` should
-      # narrow `v` to C inside the then-arm just like the bare
-      # `if v.is_a?(C)` form. parse_is_a_predicate previously only
-      # matched a CallNode directly; an AndNode wrapping was rejected
-      # and the narrow was lost. Without the narrow, a call-site inside
-      # the then-arm widens the callee param with the unnarrowed type
-      # (typically poly) instead of the asserted concrete type.
+      # `if v.is_a?(C) && other_cond` narrows `v` to C inside the
+      # then-arm just like the bare `if v.is_a?(C)` form. So a call
+      # inside the then-arm passes a C to the callee.
 
       def consume(s)
         s.length
@@ -1944,22 +1931,15 @@ describe "Fusion programs" do
     result = zr(<<~'RUBY')
       # The FIRST line pins the tie order of `Array#sort!`: this comparator orders by
       # a pair of ranks, so ties are common, and the answer is whatever the C library
-      # leaves behind. It was a divergence until zr sorted through the same
-      # `qsort_r` CRuby's `ruby_qsort` calls. That makes the line PER PLATFORM, so
-      # there are two goldens: `.expected` is macOS, `.linux.expected` linux.
+      # leaves behind. zr sorts through the same `qsort_r` that CRuby's `ruby_qsort`
+      # calls. That makes the line PER PLATFORM, so there are two goldens:
+      # `.expected` is macOS, `.linux.expected` linux.
       #
-      # The SECOND line is what the file was imported for:
+      # The SECOND line is the main check:
       #
       # A local bound from a container read (`pair_a = pairs[a]`, where `pairs` is a
-      # table of int arrays) is narrowed to the element type. That decision and the
-      # pointer-array narrowing shared one pin field: the array pass put every pinned
-      # slot back on the poly array on the way in, the element pass narrowed it again,
-      # and the two traded the slot every round -- so the fixpoint never converged and
-      # every compile ran its whole round budget, leaving whatever types the cap
-      # happened to catch. (The LangArena program of #3781 compiled in 15s and lost
-      # an unrelated method's element type that way; it now settles in 1.3s.)
-      #
-      # Imported from the spinel corpus at c55d9bdb; see tests/spinel/UPSTREAM.md.
+      # table of int arrays) is narrowed to the element type. The type analysis
+      # settles, and each method keeps its element types.
 
       def sort_pairs(n)
         rank = Array.new(n) { |i| (n - i) % 3 }
@@ -2069,31 +2049,25 @@ describe "Fusion programs" do
 
   it "param narrow from body call" do
     result = zr(<<~'RUBY')
-      # Stage 1 of body-side type narrowing (B' direction): if a method's
-      # parameter is referenced in the body via `param.<m>` where `<m>` is
-      # defined on exactly one user class (and isn't a common operator /
-      # built-in-overlap method like `length`/`each`/`+`/...), the param's
-      # default `int` type narrows to `obj_<C>`.
+      # Body-side type narrowing: if a method's parameter is referenced in the
+      # body via `param.<m>` where `<m>` is defined on exactly one user class
+      # (and isn't a common operator / built-in-overlap method like
+      # `length`/`each`/`+`/...), the param gets the type of that class.
       #
-      # Without this narrowing the param stayed at `int` until a call-site
-      # arg-type widened it. For methods that are only ever called via a
-      # poly receiver (e.g. through `obj.method(:m)` or a heterogeneous
-      # poly_array dispatch), no concrete call site exists — caller-side
-      # widening can't fire — and the body would emit raw int operations
-      # against the param's expected user-class type.
+      # This matters for methods that are only called through a receiver whose
+      # type is known only at run time (e.g. through `obj.method(:m)` or a call
+      # on an element of a mixed Array). Then no call site gives the type.
 
       class CPU
         def peek_a(addr); addr * 2 + 1; end
         def cycles_advance(n); n + 100; end
       end
 
-      # Two separate methods that each take a CPU param. Neither has a
-      # direct call-site arg whose type spinel statically knows to be CPU
-      # at the time scan_new_calls runs (caller-side widening), so the
-      # narrow has to come from the body's method-call shapes.
+      # Two separate methods that each take a CPU param. The narrow comes
+      # from the body's method-call shapes.
 
       def fetch(cpu, addr)
-        cpu.peek_a(addr)        # peek_a is only on CPU → narrow cpu to obj_CPU
+        cpu.peek_a(addr)        # peek_a is only on CPU → narrow cpu to CPU
       end
 
       def step(cpu, n)
@@ -2174,17 +2148,15 @@ describe "Fusion programs" do
       # same epilogue that a normal return does -- and that epilogue releases every
       # slot in `fx.locals` unconditionally.
       #
-      # A fused `n.times` splice takes no run-time guard, so it used to look safe.
-      # It was not: its block parameter's slot was nil-initialised where the splice
-      # was emitted, and a raise BEFORE the loop reached the landing without ever
-      # running that block. This pins the path.
+      # A fused `n.times` loop takes no run-time guard. Here a raise comes BEFORE
+      # the loop, so the method reaches the landing without ever running the
+      # block. The block parameter's slot must hold a value that is safe to
+      # release at that point. This pins the path.
       #
       # Runs under `ZR_TEST_RT_LEAKCHECK=1`; the printed output is the same either way.
       #
-      # HONEST LIMIT: this golden does NOT reproduce the bug on the pre-fix
-      # emitter -- it was tried, and it came out clean. The released bytes are
-      # stack garbage, and a short frame leaves benign garbage behind. What this
-      # file adds is coverage of the path, so a LOUD failure on it is caught.
+      # LIMIT: a bad release on this path does not always show. What this example
+      # adds is coverage of the path, so a LOUD failure on it is caught.
 
       def raises_before_a_loop(obj)
         obj.no_such_method
@@ -2209,33 +2181,19 @@ describe "Fusion programs" do
 
   it "raise unless isa narrow" do
     result = zr(<<~'RUBY')
-      # #493. `raise ... unless x.is_a?(C)` (and the equivalent
+      # `raise ... unless x.is_a?(C)` (and the equivalent
       # `if !x.is_a?(C); raise ...; end` shape) is a definite-throw
       # type assertion: when control reaches the statement after the
-      # guard, `x` is provably of class `C`. The repro from the issue:
+      # guard, `x` is provably of class `C`. For example:
       #
       #   def process(x)
       #     raise TypeError, "expected A" unless x.is_a?(A)
       #     puts x.body
       #   end
       #
-      # pre-fix emitted a full cls_id-switch over every class with a
-      # same-named field after the guard (sp_box_int for B#body's int,
-      # sp_box_str for A#body's string, then sp_poly_puts on the boxed
-      # result). post-fix the guard's narrow flows through to a single
-      # cls_id arm and the field read lowers to a direct
-      # `((sp_A *)lv_x.v.p)->iv_body` chain.
-      #
-      # Implementation: the analyze-side body walkers
-      # (scan_new_calls / collect_return_types_nid /
-      # scan_cls_method_calls) plus the codegen-side compile_body_return
-      # now push a sibling-scope type narrow when a stmt's
-      # parse_raise_guard_narrow recognizes the shape; the narrow stays
-      # pushed for the remainder of the StatementsNode. infer_type at
-      # codegen consults the narrow stack before honouring the
-      # pre-narrow @nd_inferred_type cache for `LV(narrowed).attr_reader`
-      # call shapes, so attr_reader resolution returns the narrowed
-      # class's static ivar type rather than the wider pre-narrow poly.
+      # After the guard, `x.body` is A#body, which answers a String, and
+      # not B#body, which answers an Integer. The narrow holds for the rest
+      # of the method body.
 
       class A
         attr_accessor :body
@@ -2263,8 +2221,8 @@ describe "Fusion programs" do
         puts x.body
       end
 
-      # Both spellings should resolve identically -- single A#body
-      # dispatch, no boxing through sp_RbVal.
+      # Both spellings should resolve identically -- a single call to
+      # A#body.
       process_unless(pick(1))
       process_if_negated(pick(1))
 
@@ -2563,11 +2521,9 @@ describe "Fusion programs" do
 
   it "safe nav specialized miss" do
     result = zr(<<~'RUBY')
-      # A miss on a specialized Hash or Array answers the ELEMENT type's own C nil --
-      # a NULL string, SP_INT_NIL -- not a poly nil, so a `&.` fused onto the lookup
-      # used to take the result type's zero and answer `false` where CRuby answers
-      # nil. And a `&.` whose callee renders a raw C bool (the predicates that take an
-      # argument, `nil?`) has to box that answer to stand beside the nil arm.
+      # A miss on a Hash or Array lookup answers nil, so a `&.` on the result answers
+      # nil, not `false`, as in CRuby. A `&.` whose callee answers true or false (the
+      # predicates that take an argument, `nil?`) answers that value on a hit.
 
       h = { "a" => "abc" }
       p h["zz"]
@@ -2794,17 +2750,13 @@ describe "Fusion programs" do
 
   it "shared string into typed array" do
     result = zr(<<~'RUBY')
-      # A shared-mutable string (#3227) pushed into a typed Array[String].
+      # A shared-mutable string pushed into an Array of Strings.
       #
-      # A string that is both aliased and mutated in place reads as its sp_String*
-      # handle. A typed array's element slot is a plain const char*, so the handle
-      # has to be spent at the boundary. Pushed raw it went in as a struct pointer,
-      # which the C compiler only warned about -- the build linked and the element
-      # read back as garbage. No exception, no crash, wrong bytes.
+      # A string that is both aliased and mutated in place goes into the Array with
+      # its bytes, and each element reads back as the String that went in.
       #
-      # The local-array case did not show it: a local widened to a poly array, where
-      # the value is boxed. The ivar kept its typed array, which is why the report is
-      # specifically about an ivar.
+      # The Array is in an ivar, which keeps its String element type. A local
+      # Array can get mixed elements instead.
 
       class Holder
         attr_accessor :items, :map
@@ -3149,8 +3101,8 @@ describe "Fusion programs" do
 
   it "typed array include cross type" do
     result = zr(<<~'RUBY')
-      # Issue #911: Array#include? on a typed array with a wrong-type
-      # argument returns false instead of failing to C-compile.
+      # Array#include? on a typed array with a wrong-type
+      # argument returns false.
       puts [1, 2, 3].include?("hello")
       puts [1, 2, 3].include?(2)
       puts ["a", "b", "c"].include?(42)
@@ -4162,7 +4114,7 @@ describe "Fusion programs" do
 
   it "uncaptured inlined times param keeps the plain fast path" do
     result = zr(<<~'RUBY')
-      # Regression guard for H1: when NOTHING captures the `.times` param it
+      # When NOTHING captures the `.times` param it
       # stays a plain per-iteration `let` (no cell), and `break`/`next` inside
       # the inlined block keep working via literal labels.
 
@@ -4178,10 +4130,9 @@ describe "Fusion programs" do
 
   it "unresolved into typed hash slot" do
     result = zr(<<~'RUBY')
-      # An unresolved rhs (a NameError raise token, emitted as a diverging
-      # sp_RbVal expression) stored into a typed-value hash in VALUE position
-      # (the method tail) must coerce to the slot type so the emitted C
-      # typechecks; the raise fires before any read (#3256).
+      # An unresolved constant on the rhs, stored into a hash with String values
+      # in VALUE position (the method tail). The NameError raise fires before the
+      # store.
       class K
         def initialize = @h = { "x" => "y" }
         def put(k, v)

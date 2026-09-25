@@ -5,12 +5,8 @@ require "spec_helper"
 describe "Socket programs" do
   it "addrinfo family predicates" do
     result = zr(<<~'RUBY')
-      # Addrinfo's family predicates compared their (heap) afname against a bare C
-      # literal through sp_str_eq, which confirms a strcmp hit by comparing byte
-      # lengths -- and taking a bare literal's length reads its out-of-bounds s[-1]
-      # marker. Whatever byte precedes the literal in rodata decides: land on a
-      # marker value and the predicate answers false for two equal names. The rodata
-      # layout is the optimizer's choice, so the answer changed between -O0 and -O1.
+      # Addrinfo's family predicates (`ipv4?`, `ipv6?`, `unix?`, `ip?`) answer by
+      # the address family, for each constructor and for a handle's own address.
       require "socket"
 
       v4 = Addrinfo.tcp("127.0.0.1", 80)
@@ -39,11 +35,9 @@ describe "Socket programs" do
 
   it "builtin cls id distinct" do
     result = zr(<<~'RUBY')
-      # Three SP_BUILTIN_* cls_ids named two kinds each, because they are declared in
-      # two headers that cannot see one another: Addrinfo shared STRBUF's -40 and so
-      # answered String, Socket::Option shared OpenStruct's -41, and Enumerator
-      # shared FOREIGN_PTR's -25 -- the one the collector deliberately does NOT
-      # trace, so a boxed Enumerator was collected out from under itself (#4158).
+      # Each builtin class has its own class id. A boxed Addrinfo answers Addrinfo,
+      # not String. A boxed Socket::Option answers Socket::Option, not OpenStruct.
+      # A boxed Enumerator stays alive through GC.start and still answers `next`.
       require "socket"
 
       ai = Addrinfo.tcp("127.0.0.1", 8080)
@@ -402,7 +396,7 @@ describe "Socket programs" do
       show { r.eof? }
       r.close
 
-      # Reading a pipe to the end, which is what the seek probe used to raise on.
+      # Reading a pipe to the end. A pipe cannot seek, and the read must not raise.
       r2, w2 = IO.pipe
       w2.write("hello")
       w2.close
@@ -662,13 +656,11 @@ describe "Socket programs" do
 
   it "poly handle face" do
     result = zr(<<~'RUBY')
-      # A handle read out of a container arrives boxed, and the boxed value had no
-      # method surface at all: every Addrinfo and Socket::Option reader raised
-      # NoMethodError. Each of these names belongs to exactly one builtin handle
-      # class and to no other class in the language, so the name alone identifies
-      # the receiver -- the value is unboxed back to its own type and the handle's
-      # typed emitter compiles against the real pointer. The runtime cls_id is
-      # checked first, so a value of any other kind still raises (#4158 follow-up).
+      # A handle read out of a container arrives boxed, and the boxed value keeps
+      # all its methods: each Addrinfo and Socket::Option reader works on it. Each
+      # of these names belongs to exactly one builtin handle class, so the name
+      # alone identifies the receiver. The runtime class is checked first, so a
+      # value of any other kind still raises.
       require "socket"
 
       a = [Addrinfo.tcp("127.0.0.1", 8080)]
@@ -899,9 +891,9 @@ describe "Socket programs" do
   it "sockaddr_in and Addrinfo#to_sockaddr build the packed sockaddr that one-argument connect takes" do
     result = zr(<<~'RUBY')
       # Socket.sockaddr_in and Addrinfo#to_sockaddr: the packed sockaddr String the
-      # 1-argument connect_nonblock takes. Without them a caller had to build the
-      # bytes by hand (`[Socket::AF_INET, port].pack('vn') + ...`), which only
-      # happens to work for AF_INET on a little-endian host (#4137, after #4135).
+      # 1-argument connect_nonblock takes. Bytes built by hand
+      # (`[Socket::AF_INET, port].pack('vn') + ...`) work only for AF_INET on a
+      # little-endian host.
       require "socket"
 
       sa = Socket.sockaddr_in(4567, "127.0.0.1")

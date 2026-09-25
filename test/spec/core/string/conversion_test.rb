@@ -45,11 +45,10 @@ describe "String: conversion" do
 
   it "hash str value poly coerce" do
     result = zr(<<~'RUBY')
-      # Storing a poly value (one that holds a String/Integer at runtime) into a
-      # typed-value hash (Hash[String,String] / Hash[String,Integer]) must coerce the
-      # poly to the hash's value representation -- the setter takes const char* /
-      # mrb_int, not sp_RbVal. The receiver is a method-return hash (its value type is
-      # fixed by the body, so an external poly store can't re-widen it to a poly hash).
+      # Storing a value of unknown type (one that holds a String/Integer at runtime)
+      # into a typed-value hash (Hash[String,String] / Hash[String,Integer]) stores
+      # the real String or Integer. The receiver is a method-return hash (its value
+      # type is fixed by the body, so a store from outside can't widen it).
 
       def fresh_strs
         h = {}
@@ -82,14 +81,10 @@ describe "String: conversion" do
 
   it "mutable str into str array" do
     result = zr(<<~'RUBY')
-      # Pushing a mutable String builder (String.new + <<) into a str_array
-      # must snapshot its buffer into a sweep-owned (0xfe) copy, not store the
-      # sp_String pointer / alias its object-owned ->data buffer. The builder
-      # is otherwise unreferenced after the push, so a GC collects it and frees
-      # the buffer, leaving the array element dangling; the next mark walk
-      # faults scanning it (the #1071 / #1314 use-after-free class). Pre-fix
-      # this also emitted `sp_StrArray_push(arr, sp_String *)`, an
-      # incompatible-pointer-type the -Werror test build rejects outright.
+      # Pushing a mutable String builder (String.new + <<) into an array of
+      # strings keeps the element alive. The program holds no other reference
+      # to the builder after the push, and GC runs often, so each element must
+      # still read back its full text.
 
       # 1. `<<` (statement form) — many builders pushed under GC churn.
       arr = []
@@ -176,9 +171,8 @@ describe "String: conversion" do
 
   it "to_i honours an explicit base argument" do
     result = zr(<<~'RUBY')
-      # Issue #883: String#to_i with explicit base argument. Without the
-      # fix, the base was silently dropped and the call returned 0 for
-      # any non-decimal input.
+      # String#to_i with an explicit base argument parses the digits in that
+      # base.
       puts "ff".to_i(16)
       puts "1010".to_i(2)
       puts "777".to_i(8)
@@ -262,7 +256,7 @@ describe "String: conversion" do
   it "symbol breadth and to proc" do
     result = zr(<<~'RUBY')
       # Symbol Tier A + the `&:sym` block-argument conversion
-      # (`Symbol#to_proc`), previously unsupported.
+      # (`Symbol#to_proc`).
 
       p :b <=> :a
       p :hello.length

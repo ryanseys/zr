@@ -455,14 +455,9 @@ describe "IO: substitution" do
 
   it "file write at tail position" do
     result = zr(<<~'RUBY')
-      # Followup to #549. File.write recognized at expression level
-      # (alongside binwrite). Statement-context calls to File.write
-      # were already routed through compile_control_call_stmt and
-      # emitted sp_file_write directly. Tail-position calls in a
-      # method body fall through to compile_expr, which only
-      # recognized binwrite; without the alias here, File.write
-      # warned "cannot resolve call to 'write' on int" and returned
-      # the literal 0, silently dropping the side effect.
+      # File.write at the tail of a method body is an expression, the
+      # method's value. It still writes the file, as it does in a
+      # statement position.
 
       def store(path, data)
         File.write(path, data)
@@ -617,11 +612,9 @@ describe "IO: substitution" do
   it "IO.new(fd).stat reads the descriptor through fstat, and the accessors survive a local" do
     result = zr(<<~'RUBY')
       # Ruby has no File.fstat / IO.fstat; the way to a File::Stat from a descriptor
-      # is IO.new(fd).stat, which needed three things. IO.new(fd) is the descriptor
-      # form of IO.for_fd. A handle opened that way has no path, so its stat has to
-      # come from fstat(2) rather than from stat(path). And the stat accessors were
-      # gated on the receiver still spelling `sp_file_stat_handle(...)`, so they were
-      # lost the moment the stat was stored in a local.
+      # is IO.new(fd).stat. IO.new(fd) is the descriptor form of IO.for_fd. A handle
+      # opened that way has no path, so its stat comes from fstat(2), not from
+      # stat(path). The stat accessors still work after the stat goes into a local.
       path = "/tmp/spinel_io_stat_from_fd.txt"
       File.write(path, "hello")
 
@@ -671,9 +664,8 @@ describe "IO: substitution" do
 
   it "wave followups 2833" do
     result = zr(<<~'RUBY')
-      # Wave follow-ups: File.foreach return values (#2833), Dir.open block
-      # children (#2834), boolean operator Method objects (#2835), deferred
-      # handler captures (#2836), NoMethodError#args (#2837), find_index
+      # File.foreach return values, Dir.open block children, boolean operator
+      # Method objects, deferred handler captures, NoMethodError#args, find_index
       # pair destructuring.
       path = "/tmp/sp_ff"
       File.write(path, "hello\nworld\n")

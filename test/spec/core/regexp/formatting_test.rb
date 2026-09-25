@@ -233,7 +233,7 @@ describe "Regexp: formatting and inspection" do
 
   it "matchdata methods" do
     result = zr(<<~'RUBY')
-      # MatchData reflection/pattern methods (#2499, #2500, #2501, #2503, #2530, #2532)
+      # MatchData reflection/pattern methods
       md = "abc".match(/(a)(b)(c)/)
       p md.inspect
       p md.regexp
@@ -343,10 +343,8 @@ describe "Regexp: formatting and inspection" do
 
   it "regex backref oob nil" do
     result = zr(<<~'RUBY')
-      # Issue #848: out-of-range / unmatched backreference ($3 when
-      # the regex has 2 captures) returns nil, not "". Codegen now
-      # returns sp_re_captures[N] directly (NULL for unset) so
-      # downstream NULL-safe paths render it as nil.
+      # An out-of-range / unmatched backreference ($3 when
+      # the regex has 2 captures) returns nil, not "".
       "ab" =~ /(a)(b)/
       puts "$1=#{$1.inspect}"
       puts "$2=#{$2.inspect}"
@@ -369,11 +367,9 @@ describe "Regexp: formatting and inspection" do
 
   it "regex unanchored class seq" do
     result = zr(<<~'RUBY')
-      # Issue #909. Unanchored class-sequence patterns (e.g. /\w\w/, /(.)(.)/ )
-      # used to skip position 0 because a later-starting Pike VM thread
-      # overwrote the earlier-starting match's captures. Now the MATCH
-      # update picks the best match per Ruby semantics: earliest start
-      # wins, longest-at-same-start wins.
+      # Unanchored class-sequence patterns (e.g. /\w\w/, /(.)(.)/ ) can
+      # match at position 0. Ruby picks the match that starts first, and
+      # the longest one of those that start at the same position.
       puts ("abc" =~ /\w\w/).inspect
       puts ("abc def" =~ /\w\w/).inspect
       puts "abc def".scan(/(.)(.)/).inspect
@@ -397,9 +393,9 @@ describe "Regexp: formatting and inspection" do
   it "a pattern wider than the match registers hold is refused rather than truncated" do
     result = zr(<<~'RUBY')
       # A pattern wider than the match registers hold is refused rather than
-      # truncated. It used to compile and lose everything past the thirty-first
-      # group: `m.size` answered 32 where CRuby answers 41, and m[32] onward were
-      # nil, with nothing said about it. The ceiling and the registers agree now.
+      # truncated. If it were truncated, `m.size` would answer 32 where CRuby
+      # answers 41, and m[32] onward would be nil, with no warning. The ceiling
+      # and the registers agree.
       #
       # CRuby has no such ceiling, so the refusals below are a deliberate divergence
       # and this file does not read the same there; see docs/limitations.md. What is
@@ -458,9 +454,8 @@ describe "Regexp: formatting and inspection" do
     result = zr(<<~'RUBY')
       # A '[' inside a character class never stands for itself in CRuby: it opens a
       # POSIX bracket, a collating element, an equivalence class, or a class nested
-      # in this one. Only the bracket was read here and the rest taken as members, so
-      # [[a][b]] compiled to a different pattern than the one written.
-      # Ported from mruby-regexp cafc53ae4.
+      # in this one. So [[a][b]] is a class with two nested classes, not the members
+      # '[', 'a', ']' and so on.
       def t(label)
         r = begin
           yield.inspect

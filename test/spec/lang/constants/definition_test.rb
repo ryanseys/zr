@@ -33,10 +33,8 @@ describe "Constants: defining and naming methods" do
   it "const alias reached only by new" do
     result = zr(<<~'RUBY')
       # A constant aliasing a class, defined in a LEXICAL PARENT and reached only
-      # through `.new` from a class nested inside it. The ownership collector saw a
-      # bare `Fast` read but not `Fast.new`, so the name got no ownership entry and
-      # codegen's runtime fallback looked it up on the referencing class -- a
-      # `NameError` for a constant that is plainly in scope. prism's serializer is
+      # through `.new` from a class nested inside it. The lexical lookup finds it,
+      # so no `NameError` occurs. prism's serializer is
       # written exactly this way (`FastStringIO = ::StringIO`, then
       # `FastStringIO.new` inside its `Loader`).
       module M
@@ -50,8 +48,8 @@ describe "Constants: defining and naming methods" do
       end
       p M::S::Loader.new.build
 
-      # A bare read of the same name elsewhere in the class used to be what made it
-      # work -- it must keep working, and must not be what makes it work.
+      # A bare read of the same name elsewhere in the class does not change the
+      # result.
       module N
         module T
           Fast = ::String
@@ -94,8 +92,7 @@ describe "Constants: defining and naming methods" do
       # A class/module DEFINITION binds its name in the immediately enclosing scope.
       # Ruby never searches outward for it, so a `NAME = SomeClass` alias written in
       # another scope is a different constant and cannot be what the definition
-      # reopens. zr used to consult a whole-program scan of every `NAME = ...` here,
-      # unscoped, first match wins -- which bound these to the alias instead.
+      # reopens.
 
       # 1. An alias in an OUTER scope, to a class, vs a nested MODULE of that name.
       module Mongoid
@@ -294,9 +291,8 @@ describe "Constants: defining and naming methods" do
 
   it "toplevel name collides with runtime" do
     result = zr(<<~'RUBY')
-      # A top-level method mangles to `sp_<name>`, which is the runtime's own
-      # namespace: `def str_hash` collided with sp_str_hash and the generated C did
-      # not compile (#3973). Such a name is emitted with an `rb_` infix now.
+      # A top-level method can have the same name as an internal helper of the
+      # runtime, like the methods below. The user method wins.
       def str_hash
         1
       end
@@ -335,11 +331,9 @@ describe "Constants: defining and naming methods" do
 
   it "undef const scalar position" do
     result = zr(<<~'RUBY')
-      # An unresolved constant read lowers to a runtime NameError raise whose C
-      # value is an sp_Class; used in a scalar slot (Array.new count, array index,
-      # int/float arithmetic operand) the struct used to leak into the generated C
-      # and fail the compile ("incompatible types ... using type 'sp_Class'").
-      # CRuby raises NameError at runtime -- and only when the read executes.
+      # An unresolved constant read can sit in a scalar position (Array.new count,
+      # array index, int/float arithmetic operand). CRuby raises NameError at
+      # runtime -- and only when the read executes.
 
       module Params
       end

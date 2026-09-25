@@ -26,8 +26,8 @@ describe "Modules: changing in place" do
 
   it "class prepend ancestors" do
     result = zr(<<~'RUBY')
-      # A prepended module precedes the class in #ancestors (#2702). Dispatch already
-      # honoured prepend; only the ancestor listing was missing it.
+      # A prepended module precedes the class in #ancestors, and dispatch finds the
+      # prepended method first.
       module M; def hi; "M"; end; end
       class C; prepend M; def hi; "C"; end; end
       p C.ancestors
@@ -905,10 +905,8 @@ describe "Modules: changing in place" do
 
   it "prepend super basic" do
     result = zr(<<~'RUBY')
-      # Issue #720 follow-up: `super` inside a prepended method now
-      # routes back to the original (overridden) method body via the
-      # synthetic shadow registered at prepend time. Before the fix the
-      # super call hit the unresolved-call fallback and returned "".
+      # `super` inside a prepended method calls the original
+      # (overridden) method body of the class.
       module M
         def hi
           "prepend-" + super
@@ -930,7 +928,7 @@ describe "Modules: changing in place" do
 
   it "prepend super chain" do
     result = zr(<<~'RUBY')
-      # Issue #720 follow-up: prepended super walks through C's own body
+      # A prepended super walks through C's own body
       # down to the parent class. MRO is M -> C -> P; M's super -> C's
       # body; C's body's super -> P's body.
       module M
@@ -960,9 +958,8 @@ describe "Modules: changing in place" do
 
   it "prepend super forward" do
     result = zr(<<~'RUBY')
-      # Issue #720 follow-up: bare `super` (ForwardingSuperNode) inside
-      # a prepended method forwards every formal parameter to the
-      # shadow, same as the explicit form.
+      # Bare `super` inside a prepended method forwards every formal
+      # parameter to the class's method, the same as the explicit form.
       module M
         def add(a, b)
           super + 100
@@ -984,7 +981,7 @@ describe "Modules: changing in place" do
 
   it "prepend super multi" do
     result = zr(<<~'RUBY')
-      # Issue #720 follow-up: multiple `prepend` calls stack — each
+      # Multiple `prepend` calls stack -- each
       # prepend's super walks back through the previous prepend's body
       # and eventually to C's own. MRO is M2 -> M1 -> C; M2's super ->
       # M1; M1's super -> C.
@@ -1016,10 +1013,9 @@ describe "Modules: changing in place" do
 
   it "prepend super subclass" do
     result = zr(<<~'RUBY')
-      # Issue #720 follow-up: a subclass inherits a prepended method
-      # correctly. D inherits hi from C; D.new.hi dispatches to C's
-      # prepended hi (M's body) and super walks back to C's original
-      # body through the shadow chain.
+      # A subclass inherits a prepended method correctly. D inherits hi
+      # from C; D.new.hi dispatches to C's prepended hi (M's body), and
+      # super walks back to C's original body.
       module M
         def hi
           "M(" + super + ")"
@@ -1044,12 +1040,8 @@ describe "Modules: changing in place" do
 
   it "prepend two classes" do
     result = zr(<<~'RUBY')
-      # The prepend transplant MOVED the module's method scope into the prepending
-      # class (`sc->class_id = ci`) rather than copying it. The same module prepended
-      # by more than one class then gave the first prepender the scope and left every
-      # later one with nothing to transplant: its prepend did nothing, silently, and
-      # the call fell through to the included chain (#4039). The include path clones
-      # for this reason among others.
+      # The same module prepended by more than one class works in each class. A
+      # prepend must not take the module's methods away from a later prepender.
       module Shouted
         def render(text) = super.upcase
       end

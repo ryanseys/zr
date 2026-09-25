@@ -6,8 +6,7 @@ describe "Numeric: regressions" do
   it "integer bit index" do
     result = zr(<<~'RUBY')
       # `Integer#[N]` returns bit N (0-indexed from the LSB) of the
-      # integer. `data[5]` was previously falling through to the
-      # unknown-method 0-fallback. Lower as `((rc >> idx) & 1)`.
+      # integer, the same as `(n >> N) & 1`.
 
       # Static index
       n = 0b10110100
@@ -510,9 +509,8 @@ describe "Numeric: regressions" do
     result = zr(<<~'RUBY')
       # Prism's PM_LOOP_FLAGS_BEGIN_MODIFIER (= 4, bit 2) marks
       # `begin..end while cond` / `begin..end until cond` as post-test
-      # loops — body runs at least once. Spinel was treating them as
-      # plain pre-test `while`, so a body that should have run once but
-      # whose condition was false on entry never ran at all.
+      # loops — body runs at least once, also when the condition is
+      # false on entry.
 
       ran = 0
       begin
@@ -737,8 +735,8 @@ describe "Numeric: regressions" do
       puts 3.14.ceil
       puts 3.14.floor
       puts 3.14.truncate
-      # Negative precision: bool-compare for type-stable output across
-      # CRuby's Integer-return rule vs. Spinel's uniform Float inference.
+      # Negative precision: the example compares with ==, so it checks
+      # only the value, not whether the result is an Integer or a Float.
       puts 12345.6789.floor(-2) == 12300
       puts 12345.6789.ceil(-2) == 12400
       puts 12345.6789.round(-1) == 12350
@@ -879,8 +877,8 @@ describe "Numeric: regressions" do
       puts (Math.exp(0.0) * 1000).to_i        # 1000
 
       # Float-typed result (would print "1" / "0" if inferred as int).
-      # Use the *1000+to_i idiom to dodge precision-formatting differences
-      # between Spinel's float-puts and CRuby's.
+      # Use the *1000+to_i idiom so the output does not depend on how
+      # many digits a Float prints.
       puts (Math.log2(3.0) * 1000).to_i       # 1584
       puts (Math.log10(3.0) * 1000).to_i      # 477
 
@@ -1158,7 +1156,7 @@ describe "Numeric: regressions" do
 
   it "multi write as expression" do
     result = zr(<<~'RUBY')
-      # #554. `(a, b = 10, 11)` used as an expression returns the RHS array.
+      # `(a, b = 10, 11)` used as an expression returns the RHS array.
       p( (a, b = 10, 11)[1] )
       p a
       p b
@@ -1215,7 +1213,7 @@ describe "Numeric: regressions" do
 
   it "fetch nil default distinguishes zero" do
     result = zr(<<~'RUBY')
-      # #682: hash.fetch(k, nil).nil? distinguishes missing-key from a 0 value.
+      # hash.fetch(k, nil).nil? distinguishes missing-key from a 0 value.
       h0 = {k: 0}
       v0 = h0.fetch(:k, nil)
       puts v0.nil? ? "missing" : "found-0"
@@ -1387,9 +1385,7 @@ describe "Numeric: regressions" do
   it "int step expr block" do
     result = zr(<<~'RUBY')
       # Integer#step with a block in expression position — CRuby returns
-      # the receiver, not 0. Previously fell through to the unresolved-
-      # call path and emitted 0 (and analyze inferred int_array, which
-      # then SEGV'd when result was used as a pointer).
+      # the receiver, not 0.
       result = 1.step(5) { |x| x }
       puts result.inspect
       puts result.class
@@ -1400,8 +1396,7 @@ describe "Numeric: regressions" do
 
   it "integer nonzero" do
     result = zr(<<~'RUBY')
-      # Issue #874: Integer#nonzero? returns nil when receiver is 0,
-      # self otherwise. Surfaces as int? (nullable int).
+      # Integer#nonzero? returns nil when receiver is 0, self otherwise.
       puts 0.nonzero?.inspect
       puts 42.nonzero?.inspect
       puts(-5.nonzero? || "default")
@@ -1448,7 +1443,7 @@ describe "Numeric: regressions" do
 
   it "integer bignum batch2" do
     result = zr(<<~'RUBY')
-      # Integer/Bignum conformance (KieranP #2418-#2423, #2425)
+      # Integer/Bignum conformance
       p((2 ** 100).magnitude)
       p((2 ** 100).abs)
       p(1.coerce(2 ** 100))
@@ -1617,9 +1612,8 @@ describe "Numeric: regressions" do
 
   it "a nested write lands on the inner array when both subscripts came from destructuring" do
     result = zr(<<~'RUBY')
-      # A nested write g[r][c] = v where r/c are poly (from destructuring) must land
-      # on the inner array, not be dropped -- sp_poly_set_poly lacked Str/Float array
-      # cases.
+      # A nested write g[r][c] = v where r/c come from destructuring must land on
+      # the inner array, for String and Float arrays too.
       grid = [["a", "b"], ["c", "d"]]
       cells = [[0, 1]]
       r, c = cells.first
@@ -1719,8 +1713,8 @@ describe "Numeric: regressions" do
       p Math.lgamma(0.0)
       p Math.lgamma(-3.0)
       p Math.lgamma(-10.0)
-      # finite values: spinel's own series diverges in the last ULPs from libm by
-      # design (machine-independent golden output), so check only sign + finiteness
+      # finite values: the last digits can differ between math libraries, so check
+      # only sign + finiteness
       r = Math.lgamma(5.0);  p [r[0].finite?, r[1]]
       r = Math.lgamma(-0.5); p [r[0].finite?, r[1]]
       r = Math.lgamma(0.5);  p [r[0].finite?, r[1]]

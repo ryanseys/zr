@@ -5,9 +5,8 @@ require "spec_helper"
 describe "Exceptions: control flow" do
   it "abstract raise override return" do
     result = zr(<<~'RUBY')
-      # A method whose base impl always raises (C void return) but is overridden by a
-      # value-returning subclass must be callable in value position (#1416): widen the
-      # raising base's return to the override's type since its body never returns.
+      # A base method that always raises can have an override in a subclass that
+      # returns a value. A call in value position gives the override's value.
       module Helper
         def self.find(t); t.to_s; end
       end
@@ -322,9 +321,8 @@ describe "Exceptions: control flow" do
   it "ensure runs on return" do
     result = zr(<<~'RUBY')
       # `begin..ensure..end` must run the ensure clause when the body
-      # exits via `return` (bare or with a value). Previously the
-      # generated C placed the ensure body *after* the unconditional
-      # `return` it followed, so the writeback was dead code.
+      # exits via `return` (bare or with a value). The writes in the
+      # ensure clause occur before the method returns.
 
       class C
         def initialize
@@ -422,15 +420,10 @@ describe "Exceptions: control flow" do
 
   it "exc stack window cleared" do
     result = zr(<<~'RUBY')
-      # The exception stack's mark window follows sp_exc_top up and down, and a slot
-      # that leaves it kept its pointer. Pop below a used slot, collect (the object
-      # is now unreferenced, so it is freed), then push back over it, and the window
-      # covers a dangling pointer again -- the collector then walks a header that the
-      # allocator has since handed to a string.
-      #
-      # The slots above the window are cleared where the window is defined, so after
-      # any collection a slot outside it holds nothing. This exercises the shape:
-      # nesting that oscillates across a used depth, with allocation in between.
+      # Exceptions raise and rescue at nested depths that go up and down, with
+      # allocation and collection between them. A rescued exception that nothing
+      # refers to any more must not stay reachable, and later exceptions at the
+      # same depth must work.
 
       class MissingTemplate < StandardError; end
 
@@ -612,8 +605,8 @@ describe "Exceptions: control flow" do
       puts safe(-1)
 
       # Typed rescue catches matching class and returns from rescue body.
-      # Use explicit raise rather than Integer() since spinel's Integer()
-      # doesn't raise on unparseable input — separate gap, not under test.
+      # The example uses an explicit raise, not Integer(), to keep the
+      # test on the rescue.
       def parse(s)
         raise ArgumentError, "bad" if s == "nope"
         s.to_i
@@ -920,12 +913,9 @@ describe "Exceptions: control flow" do
 
   it "rescue value empty container" do
     result = zr(<<~'RUBY')
-      # An empty container's type reads UNKNOWN for want of an element type, which is
-      # not the same as producing no value. Wherever a rescue-bearing expression asks
-      # "does this arm carry a value?", the two were conflated: the modifier form
-      # built the array and threw it away (`x = ([] rescue 0)` assigned nil), and the
-      # begin/rescue form took the other arm's type alone and put a container pointer
-      # in an mrb_int slot (#3495, #3496). Both arms of both forms are covered here.
+      # An empty container is a value, even with no element type. So `x = ([] rescue 0)`
+      # assigns [], and a begin/rescue form gives the container when nothing raises.
+      # Both arms of both forms are covered here.
       a = ([] rescue 0)
       p a
       p a.class
@@ -1125,12 +1115,10 @@ describe "Exceptions: control flow" do
 
   it "toplevel return from rescue" do
     result = zr(<<~'RUBY')
-      # `return` written at the top level ends the program. Zr used to fold only
-      # the plain statement form; from a position that RAISES the signal instead of
-      # returning literally -- inside a `rescue` clause, an `ensure`, a `begin/end
-      # while` -- it escaped every frame and the program died with "uncaught signal
-      # escaped the top level". The exit status is 0 and `at_exit` still runs, both
-      # of which say this is an ordinary end and not an error.
+      # `return` written at the top level ends the program. This is also true
+      # inside a `rescue` clause, an `ensure`, or a `begin/end while`. The exit
+      # status is 0 and `at_exit` still runs, both of which say this is an ordinary
+      # end and not an error.
       at_exit { puts "at_exit ran" }
 
       puts "start"

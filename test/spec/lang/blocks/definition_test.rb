@@ -27,10 +27,10 @@ describe "Blocks: defining and naming methods" do
     result = zr(<<~'RUBY')
       # Whether an application saturates a curry is decided statically when the base
       # proc's arity can be traced. A curry that arrives through a parameter, a
-      # container or an untyped slot cannot be traced, and answering "not yet
-      # saturated" for those meant a method taking a curried Proc returned a Proc
-      # where CRuby returns the value (#4068). Saturation is a run-time property of
-      # the accumulator, so it is read there.
+      # container or an untyped slot cannot be traced. For those, a method that
+      # takes a curried Proc must still return the value, as CRuby does, not a
+      # Proc. Saturation is a run-time property of the accumulator, so it is read
+      # there.
       JOIN = ->(a, b) { "#{a}/#{b}" }
 
       def apply_final(rule)

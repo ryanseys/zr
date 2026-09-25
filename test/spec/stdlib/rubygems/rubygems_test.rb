@@ -274,16 +274,12 @@ describe "RubyGems programs" do
       # MILESTONE: `require "rubygems"` then `require "bundler"`, and the bundler
       # monkeypatches over RubyGems that the second require installs.
       #
-      # The stdout matched long before the stderr did. What kept this XFAIL was 24
-      # `already initialized constant Gem::Platform::X` warnings ruby does not
-      # print: `bundler/rubygems_ext.rb:54`'s `class Platform` body is a single
-      # `unless respond_to?(:generic)` statement, and codegen used to lift a
-      # sole-statement class-body guard out into the enclosing scope. Asked of `Gem`
-      # the probe answered false, so twelve constants `rubygems/platform.rb` had
-      # already written were written again. See
-      # `tests/a_class_body_guard_asks_about_the_class.rb`.
+      # Ruby prints no `already initialized constant Gem::Platform::X` warning.
+      # `bundler/rubygems_ext.rb:54`'s `class Platform` body is a single
+      # `unless respond_to?(:generic)` statement. That guard asks about the class,
+      # not about the enclosing `Gem`, so no Platform constant is written twice.
       #
-      # A golden compares stdout AND stderr, which is what kept this honest.
+      # A golden compares stdout AND stderr, so a stray warning fails it.
       #
       # Shapes, never versions.
 

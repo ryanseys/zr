@@ -6,14 +6,12 @@ describe "Numeric: comparison and equality" do
   it "case eq scalar poly arg" do
     result = zr(<<~'RUBY')
       # `===` on a scalar-comparable receiver (bool/int/float/string/symbol) is case
-      # equality == value equality. When the argument unifies to a poly type across
-      # call sites while the receiver stays a single scalar type, Spinel previously
-      # rejected the call; it now boxes the receiver and compares by the poly runtime
-      # rule (numbers cross-compare, other tags by tag).
+      # equality == value equality. This is also true when the argument has different
+      # types at different call sites: numbers compare across Integer and Float, and
+      # other values compare only with values of the same class.
 
       # In each method the receiver keeps one scalar type; the second argument varies
-      # across call sites (Integer / Float / true / nil / String / Symbol), so the
-      # parameter unifies to poly.
+      # across call sites (Integer / Float / true / nil / String / Symbol).
       def beq(x, y); x === y; end     # x : bool
       p beq(true, 1)        # false (true only case-equals true)
       p beq(true, true)     # true
@@ -183,9 +181,8 @@ describe "Numeric: comparison and equality" do
   it "comparable clamp object range" do
     result = zr(<<~'RUBY')
       # Comparable#clamp with a one-sided (beginless/endless) or two-sided literal
-      # Range whose bounds are instances of the receiver's class. An sp_Range cannot
-      # carry the endpoints' class (its bounds are mrb_int), so these unfold to
-      # sp_obj_clamp with a nil bound for the missing side. Regression for #2558.
+      # Range whose bounds are instances of the receiver's class. A missing side of
+      # the Range puts no limit on that side.
       class Ver
         include Comparable
         attr_reader :n
@@ -295,17 +292,13 @@ describe "Numeric: comparison and equality" do
 
   it "comparable rational operand" do
     result = zr(<<~'RUBY')
-      # A `<=>` whose operand parameter settled on a boxed BUILTIN -- a Rational
-      # operand types it that way -- had no arm in the dispatch table at all, so the
-      # table came out empty and every comparison through Comparable reported the
-      # pair as incomparable, even though the class compares them perfectly well
-      # (#4038):
+      # A user class whose `<=>` takes a builtin operand, such as a Rational. The
+      # comparisons through Comparable use that `<=>`, and do not raise:
       #
       #   comparison of Fixed with Rational failed (ArgumentError)
       #
-      # The user's own `<=>` also has to come before the Rational arm of the runtime
-      # comparison, exactly as its own &/|/^ come before the integer coercion: that
-      # arm answers for a numeric receiver, and a user object is not one.
+      # The user's own `<=>` comes before the Rational rule of the builtin
+      # comparison: that rule is for a numeric receiver, and a user object is not one.
       class Fixed
         include Comparable
         attr_reader :units
@@ -602,13 +595,11 @@ describe "Numeric: comparison and equality" do
 
   it "float bignum compare" do
     result = zr(<<~'RUBY')
-      # A Float against a Bignum was coerced INTO a bignum, which truncates the
-      # double to int64 and saturates there, so `1.0 / 0 > 10 ** 100` answered false
-      # (with a conversion warning from the C compiler on the way past).
+      # A Float compared with a Bignum keeps its full range, so `1.0 / 0 > 10 ** 100`
+      # is true.
       #
-      # Ordering compares as doubles, which is what the runtime's own sp_poly_cmp
-      # does for the same pair. Equality is decided exactly, because 1.0e100 and
-      # 10 ** 100 differ by one ulp and as doubles would compare equal.
+      # Ordering compares as doubles. Equality is decided exactly, because 1.0e100
+      # and 10 ** 100 differ by one ulp and as doubles would compare equal.
       big = 10 ** 100
       p(1.0e200 > big)
       p(1.0e50 > big)
@@ -855,7 +846,7 @@ describe "Numeric: comparison and equality" do
   it "range eq across numeric" do
     result = zr(<<~'RUBY')
       # Range#== compares its endpoints with ==, and 1 == 1.0, so an Integer Range
-      # equals the Float Range with the same endpoints (#3841).
+      # equals the Float Range with the same endpoints.
       p((1..5) == (1.0..5.0))
       p((1.0..5.0) == (1..5))
       p((1..5) == (1.0..6.0))
@@ -928,9 +919,8 @@ describe "Numeric: comparison and equality" do
   it "rational step" do
     result = zr(<<~'RUBY')
       # Numeric#step on a Rational receiver walks the exact sequence, yielding
-      # Rational/Integer values through the poly numeric tower (sp_poly_add keeps a
-      # Rational operand rational). Block form iterates and returns self; the
-      # blockless form materializes the sequence. Regression for #2566.
+      # Rational/Integer values (adding to a Rational keeps it Rational). Block form
+      # iterates and returns self; the blockless form gives the sequence.
       Rational(1,2).step(Rational(5,2), 1) { |x| p x }
       p Rational(1,2).step(Rational(5,2), 1).to_a
       p Rational(5,2).step(Rational(1,2), Rational(-1,1)).to_a   # descending
@@ -1042,8 +1032,7 @@ describe "Numeric: comparison and equality" do
   it "when splat rational complex" do
     result = zr(<<~'RUBY')
       # `when *array` is membership; `when <Rational>` / `when <Complex>` are
-      # value equality. All three previously failed (splat never matched;
-      # Rational/Complex produced a C compile error from `int == struct`).
+      # value equality.
       a = [1, 2, 3]
       case 2
       when *a then puts "in"

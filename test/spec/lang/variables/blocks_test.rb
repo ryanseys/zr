@@ -193,10 +193,8 @@ describe "Variables: blocks and yields" do
 
   it "nested block captures the outer blocks own local" do
     result = zr(<<~'RUBY')
-      # The INNER block reads the OUTER block's own param `n`. The outer
-      # block promotes `n` to a shared cell, so the
-      # inner closure captures it -- previously a clean rejection,
-      # now the real Ruby behavior. Oracle: n=1 -> 3+1,4+1; n=2 -> 3+2,4+2.
+      # The INNER block reads the OUTER block's own param `n`, so the
+      # inner closure captures it. Oracle: n=1 -> 3+1,4+1; n=2 -> 3+2,4+2.
 
       class Collector
         def each_num(a, b)
@@ -274,8 +272,8 @@ describe "Variables: blocks and yields" do
 
   it "ordinary method yield with no block raises rescuable local jump error" do
     result = zr(<<~'RUBY')
-      # The same LocalJumpError path an ordinary method has always needed -- it
-      # used to abort the process instead of raising.
+      # An ordinary method that yields with no block raises LocalJumpError, and
+      # a rescue catches it.
 
       def m
         yield
@@ -294,7 +292,7 @@ describe "Variables: blocks and yields" do
   it "ractor block capturing an outer local is rejected where ruby rejects it" do
     result = zr(<<~'RUBY')
       # CRuby's `ArgumentError`, raised by `Ractor.new` itself and catchable
-      # there -- not the compile error zr used to report. The verdict rides on
+      # there, not a compile error. The verdict rides on
       # the Proc value (`RProc::with_outer_capture`), so a literal block and a
       # `&proc` argument reach the same raise.
 

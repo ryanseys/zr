@@ -43,9 +43,8 @@ describe "String: control flow" do
   it "default nil param with str return" do
     result = zr(<<~'RUBY')
       # A method with `default = nil` whose body also returns a String from
-      # another path: the function return type was `const char *` (string?)
-      # but the param slot stayed `mrb_int` (the literal nil's int default),
-      # so `return default` failed C compile. Fixed in #447.
+      # another path. `return default` gives nil or the String that the
+      # caller passed.
 
       class Bag
         def initialize
@@ -180,15 +179,12 @@ describe "String: control flow" do
 
   it "module cls method string return" do
     result = zr(<<~'RUBY')
-      # Issue #127: a module-level singleton method (`module M; def self.X; ... end; end`)
-      # whose body returns a non-int value used to be typed as `mrb_int` at every
-      # call site. Capturing to a local emitted `mrb_int = const char *` (compile
-      # error under -Werror); inline `puts M.X` compiled but printed the pointer
-      # as an integer. The class form (same shape inside `class C`) already worked.
-      # Fix is in `infer_constant_recv_type`: walk `@meth_return_types` for
-      # `<Module>_cls_<method>` the same way the class branch walks `@cls_cmeth_returns`.
+      # A module-level singleton method (`module M; def self.X; ... end; end`)
+      # whose body returns a non-Integer value. Each call site gets that value,
+      # whether it goes into a local or straight to `puts`. The class form
+      # (same shape inside `class C`) works the same way.
 
-      # 1. Module + def self + String return + local capture — the failing shape.
+      # 1. Module + def self + String return + local capture.
       module M1
         def self.greet
           "hello"
@@ -216,7 +212,7 @@ describe "String: control flow" do
 
       puts M3.pi                          # 3.14
 
-      # 4. Class + def self + String return — the path that already worked. Regression guard.
+      # 4. Class + def self + String return.
       class C1
         def self.greet
           "from class"
@@ -226,7 +222,7 @@ describe "String: control flow" do
       t = C1.greet
       puts t                              # from class
 
-      # 5. Top-level def returning String — separate inference path. Regression guard.
+      # 5. Top-level def returning String.
       def top_greet
         "top"
       end
@@ -256,14 +252,9 @@ describe "String: control flow" do
 
   it "param widens when body assigns string" do
     result = zr(<<~'RUBY')
-      # A method body that reassigns one of its parameters to a value
-      # of an incompatible type (here: int call sites + string body
-      # write) needs the param's slot widened to `poly` so the
-      # generated C can hold both shapes via sp_RbVal. Without the
-      # widening the parameter slot stays at the call-site-inferred
-      # `mrb_int`, and the body's `lv_x = "forever"` assignment is
-      # `mrb_int = const char *` — rejected by gcc under
-      # `-Wint-conversion`.
+      # A method body reassigns one of its parameters to a value of a
+      # different type: the call sites pass Integers, and the body writes
+      # a String. The parameter then holds the String.
 
       class Logger
         def report(label, hclk)
@@ -291,7 +282,7 @@ describe "String: control flow" do
 
   it "str array max min by" do
     result = zr(<<~'RUBY')
-      # Issue #863: max_by / min_by on String arrays return the element,
+      # max_by / min_by on String arrays return the element,
       # not the score (and not 0).
       puts ["hello", "hi", "goodbye"].max_by { |s| s.length }
       puts ["hello", "hi", "goodbye"].min_by { |s| s.length }
@@ -310,9 +301,8 @@ describe "String: control flow" do
     result = zr(<<~'RUBY')
       # String#oct is a lenient Integer(str, 8)-style parse: leading whitespace, an
       # optional sign, an optional base prefix (0x/0b/0o/0d or a leading 0 = octal),
-      # and single underscore separators between digits. Spinel previously mishandled
-      # a sign before a base prefix, dropped underscore separators, and ignored the 0d
-      # prefix.
+      # and single underscore separators between digits. A sign can come before
+      # a base prefix, and 0d is the decimal prefix.
       def o(x); x.oct; end
 
       p o("777")        # 511

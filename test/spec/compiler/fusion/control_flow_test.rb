@@ -19,13 +19,9 @@ describe "Fusion: control flow" do
 
   it "destructure typed ptr array return" do
     result = zr(<<~'RUBY')
-      # Top-level `y, z = call_returning_pair_of_objs` segfaulted pre-fix:
-      # collect_scoped_multi_const pushed every top-level MultiWriteNode
-      # into @multi_const_inits, even when no target was a constant. The
-      # codegen loop then planted a pre-body `_t = call(lv_a, lv_b);` emit
-      # before the locals it reads from had been assigned. With both
-      # args still NULL the inlined method body deref'd NULL and crashed.
-      # Issue #630.
+      # A top-level `y, z = call_returning_pair_of_objs` with no constant
+      # target. The call must run in its place in the program, after the
+      # assignments to the locals that it reads.
 
       class Mat
         attr_accessor :nrows, :ncols
@@ -60,10 +56,6 @@ describe "Fusion: control flow" do
       # block takes at most one required parameter. Ruby binds every other shape
       # happily -- `3.times { |a, b| }` gives `b` nil -- so those take the ordinary
       # block send instead of being refused.
-      #
-      # The emitter used to check the parameter shape AFTER deciding to splice, and
-      # refused what it found. Found 2026-08-21 while looking for a live refusal to
-      # pin a diagnostics test on.
       3.times { |a, b| p [a, b] }
       (1..3).each { |a, b| p [a, b] }
       [10, 20].each { |a, b| p [a, b] }
@@ -269,23 +261,21 @@ describe "Fusion: control flow" do
       #
       # `Array.send(:define_method, :each)` is what makes the second guard answer
       # false, so both arms run here in one program: the first call takes the
-      # inline arm, the second the fallback. Before slot initialization moved to
-      # the entry block, the block parameter's slot was nil-initialised INSIDE the
-      # inline arm, so the second call released a slot holding stack garbage.
-      # `tests/compiled_code_releases_a_dead_slot.rb` has the mechanism.
+      # inline arm, the second the fallback. The block parameter's slot must be
+      # initialised before the two arms split, so the second call does not
+      # release a slot that holds stack garbage.
       #
       # A RUN-TIME redefinition, deliberately. A compile-time `class Array; def
-      # each` reaches backwards and makes the FIRST call answer 30 as well --
-      # that is `tests/gaps/a_later_def_on_a_builtin_reaches_back.rb`, a separate
-      # gap this file must not depend on.
+      # each` reaches backwards and makes the FIRST call answer 30 as well. That
+      # is a separate gap, and this file must not depend on it.
       #
       # Runs under `ZR_TEST_RT_LEAKCHECK=1`, which is what makes it a memory-safety
       # test rather than an output test.
       #
-      # HONEST LIMIT: this golden does NOT reproduce the bug on the pre-fix
-      # emitter -- it was tried, and it came out clean. The released bytes are
-      # stack garbage, and a short frame leaves benign garbage behind. What this
-      # file adds is coverage of the path, so a LOUD failure on it is caught.
+      # LIMIT: an uninitialised slot does not always make this program fail. The
+      # released bytes are stack garbage, and a short frame leaves benign garbage
+      # behind. What this file adds is coverage of the path, so a LOUD failure on
+      # it is caught.
 
       def sum_of(a)
         total = 0
@@ -440,7 +430,7 @@ describe "Fusion: control flow" do
       # A method returning `nil | Time` types poly (Time has no first-class
       # nullable slot). A caller branch guarded by `a.nil?` or `a` truthiness
       # narrows reads of the local to Time inside the non-nil arm (read-site
-      # unbox, the #1661 machinery on the caller side). Reassigned locals and
+      # unbox on the caller side). Reassigned locals and
       # reads outside a guard stay poly and keep the honest NoMethodError.
       module M
         def self.maybe_time(s)

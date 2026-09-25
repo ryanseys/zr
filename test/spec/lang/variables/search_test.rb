@@ -108,13 +108,9 @@ describe "Variables: searching and matching" do
 
   it "compound index assignment in tail position compiles" do
     result = zr(<<~'RUBY')
-      # Regression test for a pre-existing codegen bug found during the
-      # freeze work (not freeze-related): `HirNode::Seq` -- the lowering
-      # artifact behind `arr[i] += 1` -- emitted a brace-less statement
-      # sequence from `emit_expr`, producing an invalid program
-      # whenever the compound assignment was the LAST statement of a
-      # method/`begin` body. Latent since the `Seq` arm was written; every
-      # prior test happened to put a statement after it.
+      # A compound index assignment (`arr[i] += 1`) is the LAST statement
+      # of a method or `begin` body, so its value is the value of the
+      # body. Most code puts a statement after it.
 
       class Bumper
         def bump
@@ -269,25 +265,23 @@ describe "Variables: searching and matching" do
   it "index opassign value prelude rhs" do
     result = zr(<<~'RUBY')
       # Index operator-assignment in VALUE position whose RIGHT-HAND SIDE needs a
-      # prelude. `index_opassign_in_thread_block.rb` pinned the value-position
+      # prelude. `index_opassign_in_thread_block.rb` pins the value-position
       # op-write itself (a block lifted to a real proc, so its tail `arr[i] += x` is
       # emitted through the value form). That form writes the mutation into the
-      # prelude buffer and then reads the slot back -- but while it was writing
-      # THERE, an RHS wanting a prelude of its own (a user method call hoists its
-      # receiver and spills each argument into a temp) had nowhere to put it and
-      # emitted the declaration inline, inside the `sp_..._set(...)` argument list.
-      # The result was structurally invalid C -- an unbalanced paren and a `_tN` used
-      # before its declaration -- so it surfaced as a cc failure, not a type error.
+      # prelude and then reads the slot back. Here the RHS needs a prelude of its
+      # own too: a user method call hoists its receiver and puts each argument in a
+      # temp. That prelude comes before the mutation.
       #
-      # A literal or a bare local on the RHS needs no prelude and always worked, and
-      # so did `arr[i] = arr[i] + <call>`; only the compound form in value position
-      # with a prelude-carrying RHS broke.
+      # A literal or a bare local on the RHS needs no prelude, and neither does
+      # `arr[i] = arr[i] + <call>`; this is the compound form in value position
+      # with a prelude-carrying RHS.
       #
-      # Reported as `arr[i] += <call> if <cond>`, but the trailing `if` is NOT part of
-      # the trigger -- it only put the op-write in tail position. That spelling emits
-      # byte-identical code to case 1, as does the same op-write reached through a
-      # Thread (already covered by index_opassign_in_thread_block.rb), so neither
-      # earns a case here. What follows is one case per distinct emitted path.
+      # The source shape was `arr[i] += <call> if <cond>`, but the trailing `if` is
+      # NOT part of the trigger -- it only puts the op-write in tail position. That
+      # spelling emits byte-identical code to case 1, as does the same op-write
+      # reached through a Thread (already covered by
+      # index_opassign_in_thread_block.rb), so neither earns a case here. What
+      # follows is one case per distinct emitted path.
 
       class Outcome
         def map_one(f)
@@ -322,7 +316,7 @@ describe "Variables: searching and matching" do
       p h
 
       # 5. a method-call KEY is not effect-free, so receiver and key are hoisted into
-      #    shared temps first (the #3417 path). Those hoisted lines, the RHS's
+      #    shared temps first. Those hoisted lines, the RHS's
       #    prelude, and the mutation must come out in that order.
       class Slot
         def tag

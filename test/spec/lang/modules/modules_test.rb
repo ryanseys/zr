@@ -5,23 +5,9 @@ require "spec_helper"
 describe "Modules programs" do
   it "bare arg in module body" do
     result = zr(<<~'RUBY')
-      # #512. Inside `module M` body, a bare method-name argument
-      # (`M.use(h)` where `h` should resolve to `M.h`) used to infer
-      # as `int` (the default for unresolved bare calls) and propagate
-      # that wrong type onto the called method's parameter. The
-      # downstream `opts.length` then dispatched on the int receiver
-      # and emitted 0.
-      #
-      # Fix: in infer_call_type's bare-call branch, when
-      # @current_lexical_scope names a module and the bare name
-      # matches a registered `<scope>_cls_<name>` cmeth in @meth_names,
-      # return that cmeth's recorded return type instead of falling
-      # through to the int default.
-      #
-      # The remaining (and orthogonal) `use(h)` shape — where the
-      # outer call is ALSO bare — still emits a warning; the bare-call
-      # argument propagation pass needs the same module-scope lookup
-      # to widen the callee's params from the call site's arg types.
+      # Inside a `module M` body, a bare method-name argument (`M.use(h)`,
+      # where `h` resolves to `M.h`) takes the return type of `M.h`, a
+      # Hash. So `opts.length` in the called method answers the Hash size.
 
       module M
         def self.h
@@ -56,14 +42,8 @@ describe "Modules programs" do
 
   it "codegen class in module with explicit parent" do
     result = zr(<<~'RUBY')
-      # Regression for the `String#rindex` nil-guard in
-      # `collect_class_with_prefix`. A `class Sub < Parent` written
-      # inside a single-level `module M` triggers the parent-resolution
-      # walk that strips trailing `_<segment>` from the module prefix.
-      # `mp = "M"` has no underscore, so `mp.rindex("_")` returns nil
-      # under CRuby (and -1 under spinel). The pre-fix `if idx < 0`
-      # crashed on the CRuby path with `NoMethodError: undefined
-      # method '<' for nil`.
+      # A `class Sub < Parent` written inside a single-level `module M`.
+      # The compiler resolves the parent class, and the class works.
 
       module M
         class Sub < Object
@@ -212,8 +192,7 @@ describe "Modules programs" do
   it "dynamic new skips modules" do
     result = zr(<<~'RUBY')
       # `k.new` where k is a Class value switches over the classes that could be
-      # there. A MODULE has no `new` and no constructor is emitted for one, so the
-      # arm called a function nothing defined and the program failed to link (#3965).
+      # there. A MODULE has no `new`, so the switch leaves modules out.
       module Counted
         def initialize
           @n = 7
@@ -261,9 +240,8 @@ describe "Modules programs" do
 
   it "Comparable gives <, >, between? and sort to a class that defines <=>" do
     result = zr(<<~'RUBY')
-      # A user #<=> returning a non-Integer/nil value (Array/String/...) is a
-      # protocol violation rejected at compile time (#2961); this guards that valid
-      # Comparable usage still compiles and runs.
+      # A user #<=> that answers an Integer gives the class the Comparable
+      # methods: <, >, ==, between? and sort.
       class Money
         include Comparable
         attr_reader :cents
@@ -864,19 +842,9 @@ describe "Modules programs" do
 
   it "module accessor delete chain" do
     result = zr(<<~'RUBY')
-      # #518. `M.accessor.delete` previously emitted a "cannot resolve
-      # call to 'adapter' on class" warning even after #511. Root: the
-      # statement-level `delete` handler in compile_call_stmt called
-      # `compile_expr_gc_rooted(recv)` unconditionally *before* checking
-      # whether recv's type matched any of its hash / array arms. The
-      # accessor read's compile fired the obj-method-dispatch warn at
-      # the bottom of compile_call_expr; the outer const-fold path then
-      # still emitted the correct call but the spurious warning had
-      # already landed.
-      #
-      # Fix: defer the compile_expr_gc_rooted into each matched arm so
-      # non-container receivers fall through cleanly to the general
-      # call dispatch.
+      # `M.accessor.delete` calls the `delete` class method of the module
+      # that the accessor holds. The receiver is not a Hash or an Array, so
+      # this is an ordinary call, with no warning.
 
       module M
         class << self
@@ -893,8 +861,8 @@ describe "Modules programs" do
       M.adapter = Backend
       puts M.adapter.delete
 
-      # Also exercise statement context (no puts) to mirror the issue
-      # repro shape — must not crash and must not warn.
+      # Also exercise statement context (no puts) -- must not crash and
+      # must not warn.
       M.adapter.delete
     RUBY
 
@@ -906,15 +874,7 @@ describe "Modules programs" do
       # `.nil?` on a module-singleton accessor whose value type is a
       # class constant: the call must check whether the slot has been
       # assigned, NOT dispatch a class method `.nil?` on the resolved
-      # class. Pre-fix:
-      #
-      #   if (!(sp_A_cls_nil_p()))  // undeclared function — link error
-      #
-      # The single-candidate fast path in the
-      # `Module.accessor.<method>` resolution skipped the slot check
-      # and dispatched class-method on the resolved candidate. The
-      # slot decl emit was also gated to multi-candidate only;
-      # widening that gate is part of the fix.
+      # class. This is true also when only one class can be in the slot.
 
       class A
       end
@@ -929,9 +889,8 @@ describe "Modules programs" do
         Registry.adapter = A
       end
 
-      # Read paths — the single-candidate Class resolution would
-      # dispatch .nil? as a class method on A pre-fix. Now it checks
-      # the slot's sentinel.
+      # Read paths -- .nil? checks whether the slot is set. It is not a
+      # class method call on A.
       def check_unset
         Registry.adapter.nil?
       end
@@ -1025,7 +984,7 @@ describe "Modules programs" do
       r001 = (Comparable === U.new rescue $!.class)
       p r001
 
-      r002 = (Enumerable === U.new rescue $!.class); p r002   # Ruby: false   Spinel: NoMethodError
+      r002 = (Enumerable === U.new rescue $!.class); p r002   # Ruby: false
 
       p(Object === U.new)        # => true
       p(Kernel === U.new)        # => true
@@ -1220,11 +1179,8 @@ describe "Modules programs" do
 
   it "module cvars" do
     result = zr(<<~'RUBY')
-      # Regression: class variables (`@@var`) declared at module scope or
-      # top-level scope generate references to a `cvar_Toplevel_X` C
-      # global, but the declaration walker (`collect_cvars`) used to only
-      # descend into ClassNode bodies. The result: `cvar_Toplevel_X` was
-      # referenced but never declared, breaking the C compile.
+      # Class variables (`@@var`) declared in a module body work the same
+      # as in a class body.
 
       module Tep
         @@session_secret = ""
@@ -1248,10 +1204,9 @@ describe "Modules programs" do
       # Read again to confirm the global persists
       puts Tep.session_secret           # hello
 
-      # Moved out of the spinel mirror: the corpus claimed a bare top-level `@@x`
-      # stores into the same namespace. It doesn't -- only a `class`/`module` body
-      # opens the cref `@@x` resolves against, so Ruby raises here. See
-      # `class_variable_cref_scope.rb` for the full rule.
+      # A bare top-level `@@x` does not store into the same namespace. Only a
+      # `class`/`module` body opens the cref that `@@x` resolves against, so Ruby
+      # raises here. See `class_variable_cref_scope.rb` for the full rule.
       begin
         @@plain = 42
       rescue RuntimeError => e
@@ -1386,22 +1341,10 @@ describe "Modules programs" do
 
   it "module dispatch param widen" do
     result = zr(<<~'RUBY')
-      # Issue #304: module-dispatch ternary call sites
-      # (`Disp.adapter.method(args)` where Disp.adapter resolves to N
-      # candidate classes via the module-singleton-accessor table) used
-      # to leave the candidates' class-method params at their pre-widen
-      # narrow type even when the only caller passed a poly value. The
-      # emitted ternary would type-mismatch each arm.
-      #
-      # Two fixes: (1) module_sentinel now distinguishes class candidates
-      # (was returning 0 for class names looked up against the module
-      # table only — every ternary arm ended up testing `slot == 0` and
-      # the dispatch always picked the first candidate); (2) scan_new_calls
-      # walks the `Disp.adapter.update(@id)` chain shape and unifies the
-      # args' types into every candidate's `@cls_cmeth_ptypes`.
-      #
-      # Sister to #207 / #286 / #287 — same family of "widening must
-      # propagate across the dispatch path."
+      # A module-dispatch call site (`Disp.adapter.method(args)`, where
+      # Disp.adapter can hold one of N candidate classes). The only caller
+      # passes a poly value, so the param of each candidate's class method
+      # widens to poly. The dispatch picks the class that the slot holds.
 
       class A
         def self.update(id)
@@ -1425,7 +1368,7 @@ describe "Modules programs" do
         def initialize
           @id = 0
         end
-        def write_str(s); @id = s; end   # widens @id to poly per #247
+        def write_str(s); @id = s; end   # widens @id to poly
         def save
           Disp.adapter.update(@id)         # ternary-dispatched: poly arg
         end
@@ -1448,22 +1391,12 @@ describe "Modules programs" do
 
   it "module included class and toplevel" do
     result = zr(<<~'RUBY')
-      # A module included BOTH into a class and at toplevel is compiled twice, and
-      # the two instantiations do not agree on the return type of a method that
-      # constructs an object. One of them degrades to `int`, so the emitted C does
-      # not build:
+      # A module included BOTH into a class and at toplevel. A method of the module
+      # that constructs an object answers that object in both places.
       #
-      #   error: incompatible types when returning type 'int'
-      #          but 'sp_Box' {aka 'struct sp_Box_s'} was expected
-      #   error: request for member 'iv_ch' in something not a structure or union
-      #
-      # Either include ALONE is fine -- `include Helpers` in the class without the
-      # toplevel one, or the toplevel one without the class, both compile and run.
-      # It is the combination that breaks.
-      #
-      # Found porting tobi/try (a Ruby CLI + TUI) to the Spinel subset: its TUI
-      # helper module is mixed into the screen classes and also included at toplevel
-      # so the script body can call the same helpers.
+      # The shape comes from tobi/try (a Ruby CLI + TUI): its TUI helper module is
+      # mixed into the screen classes and also included at toplevel, so the script
+      # body can call the same helpers.
       class Box
         attr_reader :ch
         def initialize(ch); @ch = ch; end
@@ -1554,17 +1487,9 @@ describe "Modules programs" do
     result = zr(<<~'RUBY')
       # When a class lives inside a module and another class in the same
       # module is referenced via a bare name from one of its method bodies,
-      # the inferred type of the resulting ivar/local must carry the same
-      # namespace prefix that the class is registered under. Otherwise
-      # `c_type` falls back to the short name and the C code references an
-      # undeclared `sp_Foo *` that does not match the `sp_M_Foo *` typedef.
-      #
-      # Pre-fix, `Inner.new` inside `Outer#initialize` was scanned with no
-      # lexical scope set on the compiler, so `Inner` resolved to bare and
-      # the ivar got recorded as `obj_Inner` while the actual class is
-      # registered under `sp_M_Inner`. The struct field declaration would
-      # then read `sp_Inner * iv_inner` and the C compiler would reject it
-      # with `unknown type name 'sp_Inner'`.
+      # the bare name resolves in the module's lexical scope. `Inner.new`
+      # inside `Outer#initialize` makes an `M::Inner`, and the ivar that
+      # holds it has that class.
 
       module M
         class Inner
@@ -1597,11 +1522,9 @@ describe "Modules programs" do
 
   it "poly user include value" do
     result = zr(<<~'RUBY')
-      # `include?` on a poly receiver whose class defines its own: the dispatch
-      # accumulates the user arm and the builtin ones in one C temp, and the temp was
-      # typed from the builtin -- a bool. The method's value came back through it as
-      # true/false, so a position answer of `0`, which Ruby reads as truthy, arrived
-      # as false (#4072). The call has to be typed for what both arms can hold.
+      # `include?` on a poly receiver whose class defines its own: the call answers
+      # the user method's value, not a true/false copy of it. A position answer of
+      # `0`, which Ruby reads as truthy, stays `0`.
       class Tags
         def initialize(names)
           @names = names

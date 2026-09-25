@@ -110,12 +110,10 @@ describe "String: dispatch" do
 
   it "poly array plus concat" do
     result = zr(<<~'RUBY')
-      # `Array#+` on a POLY-typed array value silently returned 0 instead of
-      # concatenating. When a record field's only initializer is an empty `[]`, its
-      # element type is unresolvable, so it is stored as a boxed poly value and `+`
-      # compiles to sp_poly_add (the dynamic `+` dispatcher). sp_poly_add handled
-      # numeric and string operands but fell through to `0` for arrays -- so the
-      # append vanished. The dispatcher now concatenates when both operands are arrays.
+      # `Array#+` on an array value of unknown type concatenates. When a record
+      # field's only initializer is an empty `[]`, its element type is unresolvable,
+      # so it is stored as a boxed value and `+` goes through the dynamic `+`
+      # dispatcher. That dispatcher concatenates when both operands are arrays.
       M = Data.define(:xs)
 
       m = M.new(xs: [])
@@ -138,17 +136,8 @@ describe "String: dispatch" do
 
   it "poly dispatch attr reader" do
     result = zr(<<~'RUBY')
-      # Issue #119: an attr_reader-defined accessor on a polymorphic
-      # receiver was lost — the cls_id-keyed dispatcher in
-      # `compile_poly_method_call` only walked `@cls_meth_names` and never
-      # checked `@cls_attr_readers`, so the if-cascade emitted an empty
-      # body and the result temp stayed at its `0` default. The same shape
-      # with an explicit `def v; @v; end` worked fine.
-      #
-      # Fix: poly_dispatch_return_type now also unions ivar types from
-      # each class's attr_readers, and the cls_id-keyed cascade emits a
-      # `_t = ((sp_<C> *)recv.v.p)->iv_<name>` branch for classes that
-      # only declare the accessor as an attr_reader.
+      # An attr_reader-defined accessor on a polymorphic receiver works the
+      # same as an explicit `def v; @v; end`.
 
       class C
         def initialize(v); @v = v; end
@@ -221,26 +210,10 @@ describe "String: dispatch" do
 
   it "poly dispatch ptr array" do
     result = zr(<<~'RUBY')
-      # Polymorphic `[]` and `length` dispatch must reach a PtrArray
-      # receiver. Pre-fix, two things were wrong:
+      # Polymorphic `[]` and `length` dispatch must reach an array of user
+      # objects. Such an array must not be read as an Integer array.
       #
-      # 1. `emit_poly_builtin_dispatch` had no SP_BUILTIN_PTR_ARRAY branch
-      #    for `[]` (the in-source comment said "Defer (the issue notes
-      #    this is more involved)"). The dispatch result silently stayed at
-      #    its default 0 / NULL when the runtime tag was a PtrArray.
-      #
-      # 2. `box_expr_to_poly` checked `is_obj_type` *before*
-      #    `is_ptr_array_type`. Both predicates fire on `obj_Foo_ptr_array`
-      #    (it starts with `obj_` AND ends with `_ptr_array`), so the
-      #    is_obj_type branch ran first and emitted
-      #    `sp_box_obj(p, find_class_idx("Foo_ptr_array"))`
-      #    = `sp_box_obj(p, -1)`. -1 happens to equal SP_BUILTIN_INT_ARRAY,
-      #    so the runtime cls_id mis-tagged a PtrArray as an IntArray.
-      #    Subsequent dispatch then fell into the IntArray branch and read
-      #    garbage out of the PtrArray's layout.
-      #
-      # `lenof([Foo.new(1), Foo.new(2)])` previously printed 16 (a bogus
-      # byte interpreted as IntArray length); now it prints 2.
+      # `lenof([Foo.new(1), Foo.new(2)])` prints 2.
 
       class Foo
         def initialize(n)
@@ -294,13 +267,9 @@ describe "String: dispatch" do
     result = zr(<<~'RUBY')
       # A poly receiver whose method name a user class also owns.
       #
-      # Once any class defines `split` -- the bundled Pathname does -- the poly
-      # receiver stopped taking its String arm and became a cls_id switch over the
-      # user classes alone. A genuine String matched no case, the slot kept its NULL,
-      # and `str.split.join(" ")` answered "" instead of raising or working. Two
-      # fixes: String#split gets a tag pre-arm like the other String transforms, and
-      # a switch made only of user arms raises on the fallthrough rather than handing
-      # back its zero.
+      # Any class can define `split` -- the bundled Pathname does. A genuine String
+      # must still take String#split, so `str.split.join(" ")` works. A receiver
+      # that matches no class raises, and does not give back a zero value.
 
       class Path
         attr_reader :s
@@ -414,14 +383,10 @@ describe "String: dispatch" do
 
   it "poly length string tag" do
     result = zr(<<~'RUBY')
-      # A poly receiver carrying a string at runtime previously had no
-      # .length / .size dispatch arm — the per-tag emit covered SP_TAG_OBJ
-      # (Array variants) but not SP_TAG_STR. Result: `v.length` on a
-      # string-tagged poly silently returned 0. Surfaces when an
+      # `.length` / `.size` on a receiver of unknown type that holds a String
+      # at run time gives the String's length. This matters when an
       # is_a?(String) guard appears alongside a length check:
       #   if v.is_a?(String) && v.length > 0; ... end
-      # The && condition's right half always read 0 and the then-arm
-      # never fired.
 
       class C; def x; 1; end; end
 
@@ -446,11 +411,10 @@ describe "String: dispatch" do
   it "poly receiver string method" do
     result = zr(<<~'RUBY')
       # A String method called on a POLY receiver. The receiver is only known at run
-      # time (a container read, a yield), and the arms below coerced it with
-      # sp_poly_to_s -- so a receiver that was not a string got the String method
-      # applied to its #to_s RENDERING and answered in silence:
+      # time (a container read, a yield). A receiver that is not a String must not
+      # get the String method applied to its #to_s RENDERING:
       #
-      #   [1, Bare.new][1].upcase   =>  "#<BARE:0X0000560F...>"
+      #   [1, Bare.new][1].upcase   # not "#<BARE:0X0000560F...>"
       #
       # CRuby has no such method on the object and raises NoMethodError. Implicit
       # conversion does NOT rescue it either: #to_str converts an ARGUMENT into a
@@ -524,29 +488,12 @@ describe "String: dispatch" do
 
   it "poly recv aref str key" do
     result = zr(<<~'RUBY')
-      # Issue #341: user-defined `def [](k)` got its parameter type
-      # inferred as `mrb_int` regardless of caller arg types. When the
-      # receiver was poly (e.g. a method param widened to accept multiple
-      # user classes) and callers passed a String key, the per-class
-      # arms emitted by compile_poly_method_call called each class's
-      # C function with `const char *` arg → Wint-conversion error
-      # under -Werror, or hard incompatible-pointer error.
-      #
-      # A second symptom: the SP_TAG_INT branch of compile_poly_method_call
-      # emitted `(recv.v.i >> key) & 1` unconditionally, which is invalid
-      # C when `key` isn't an int. The same shape applies to the built-in
-      # array dispatches in emit_poly_builtin_dispatch (sp_IntArray_get
-      # etc. all expect `mrb_int` keys).
-      #
-      # Fix:
-      #   1. scan_new_calls' receiver-method widening adds a poly arm:
-      #      walk every user class that defines `mname` and unify each
-      #      class's ptypes with the call site's arg types.
-      #   2. compile_poly_method_call gates the int-bit-extract emit on
-      #      arg type being int or poly.
-      #   3. emit_poly_builtin_dispatch's `[]` block also gates on int/poly
-      #      key — for non-int keys the built-in arms are unreachable and
-      #      emitting them produces the same Wint-conversion warnings.
+      # A user-defined `def [](k)` takes its parameter type from the
+      # caller's arguments. Here the receiver's type is only known at run
+      # time (a method param that accepts more than one user class), and
+      # callers pass a String key. Each class's `[]` gets the String key.
+      # Integer#[] (bit reference) and the Array#[] forms do not apply to
+      # a String key.
 
       class A
         def [](k)
@@ -573,23 +520,11 @@ describe "String: dispatch" do
 
   it "poly recv two arg slice" do
     result = zr(<<~'RUBY')
-      # Issue #659: 2-arg `recv[start, length]` on a poly receiver.
-      # The single-arg `[]` dispatcher in emit_poly_builtin_dispatch
-      # dropped the second argument: each typed-array arm called
-      # `*_Array_get(p, 0)` and there was no SP_TAG_STR arm at all.
-      # A String-typed runtime value silently returned the empty
-      # string, and an Array-typed value returned just element 0
-      # instead of a length-N slice.
+      # 2-arg `recv[start, length]` on a receiver of unknown type. A String
+      # value gives a substring, and an Array value gives a length-N slice,
+      # not only element 0.
       #
-      # Fix: add a 2-arg branch that
-      #   (a) emits SP_TAG_STR -> sp_str_sub_range for the String recv
-      #   (b) emits *_Array_slice for each typed-array recv
-      # Both only fire when is_poly_ret is set (the result is itself
-      # either a String or an Array; the concrete-typed dispatch
-      # already covers single-element returns elsewhere).
-      #
-      # Also: sp_poly_puts now iterates Array tags one element per line
-      # matching MRI's `puts arr` semantics, instead of printing the
+      # Also: `puts arr` prints one element per line, as in MRI, not the
       # array's inspect form.
 
       def tr(s, length: 30)
@@ -620,21 +555,10 @@ describe "String: dispatch" do
 
   it "poly str append" do
     result = zr(<<~'RUBY')
-      # Issue #313: a poly-typed value flowing into `String#<<` (mutable_str)
-      # used to emit `sp_String_append(io, sp_RbVal_value)` directly, which
-      # C-rejects (`const char *` parameter vs `sp_RbVal` argument). The
-      # canonical shape: a module-level method that returns
-      # `@hash[k] || ""` over a heterogeneously-valued hash has return type
-      # `sp_RbVal` per #303, and `io << M.get(:t)` then trips the bug.
-      #
-      # Fix: at the `mutable_str << poly` codegen site (both expression-
-      # and statement-context emitters), wrap the arg in sp_poly_to_s
-      # before calling sp_String_append. sp_poly_to_s coerces every tag —
-      # strings pass through, ints stringify, sym/nil/etc fall through.
-      #
-      # Sister fix to #303 — that one made the *hash* poly when written
-      # heterogeneously; this one handles the *read path* flowing into a
-      # narrow callee.
+      # A value of unknown type flowing into `String#<<` on a mutable String.
+      # The canonical shape: a module-level method that returns
+      # `@hash[k] || ""` over a heterogeneously-valued hash, so its return
+      # type is only known at run time. `io << M.get(:t)` appends the String.
 
       module M
         @data = {}
@@ -648,7 +572,7 @@ describe "String: dispatch" do
         end
       end
 
-      # Mixed value types force the hash to be inferred as poly per #303.
+      # Mixed value types make the hash values' type known only at run time.
       M.set(:n, 42)
       M.set(:t, "hello")
 
@@ -720,8 +644,8 @@ describe "String: dispatch" do
       # `str << int` appends that CODEPOINT, and one outside the range is a
       # RangeError. A String reached through a POLY slot -- the same local also
       # assigned from a container read, so its type is the union -- fell past the
-      # String arms of the boxed `<<` and was read as a NUMBER, so the append
-      # answered an integer shift: `a << -1` gave 0 where CRuby raises (#4015).
+      # String arms of the boxed `<<`, not the Integer shift: `a << -1` raises, as in
+      # CRuby.
       a = +"a"
       r = (a << -1 rescue $!.class)
       p r
@@ -779,16 +703,14 @@ describe "String: dispatch" do
   it "poly string arm" do
     result = zr(<<~'RUBY')
       # A String reaching the dispatch through a poly slot -- an element of a nested
-      # array, where inference does not narrow past the first level -- answered
-      # NoMethodError for methods String has. `strip` had an arm and its one-sided
-      # siblings did not, which is the shape of most of these.
+      # array, where inference does not narrow past the first level -- answers the
+      # String methods. `strip` and its one-sided siblings are the shape of most of
+      # these.
       #
       # `to_str` is the one that matters beyond convenience: it is the implicit
       # conversion protocol, so a poly slot holding a String has to answer it.
       #
-      # The argument-taking ones are here too. Their arm has to sit OUTSIDE the
-      # emit_poly_call block the others are in, which is guarded on argc == 0: an
-      # arm for them placed inside it is unreachable, which is what happened first.
+      # The argument-taking ones are here too.
       nested = [["k", "  Vv\tz  "]]
       s = nested[0][1]
       p s.lstrip
@@ -859,11 +781,9 @@ describe "String: dispatch" do
 
   it "poly string at path slot" do
     result = zr(<<~'RUBY')
-      # A String reached through a poly binding landing in a `const char *` slot.
-      # The File / Dir / IO surface took its path arguments with emit_expr, so a
-      # String ivar the fixpoint had widened -- or any untyped accessor -- went in as
-      # a raw sp_RbVal and the generated C did not compile. Three separate sightings
-      # (#3256, #3330, #3385) were the same shape at different call sites.
+      # A String of unknown static type used as a path argument. The File / Dir / IO
+      # surface takes a String ivar whose type is widened, or any untyped accessor,
+      # as the path String. The test covers the same shape at different call sites.
       class Store
         def initialize(path)
           @path = path
@@ -1028,14 +948,10 @@ describe "String: dispatch" do
 
   it "poly to f via str poly hash" do
     result = zr(<<~'RUBY')
-      # sp_poly_to_f lacked the SP_TAG_STR arm its sibling sp_poly_to_i has
-      # (strtoll), so `.to_f` on a poly-typed string value returned 0.0
-      # instead of parsing the number. The typed String#to_f path (atof) was
-      # unaffected, which makes the miss silent: the same source parses fine
-      # under CRuby and with a statically-string receiver, then yields 0.0
-      # only when the receiver is poly.
+      # `.to_f` on a String value whose type is only known at run time parses
+      # the number, the same as on a receiver that is statically a String.
       #
-      # Repro shape from a JSON-ish Hash[String, untyped]: read a string
+      # Shape from a JSON-ish Hash[String, untyped]: read a string
       # value out of a heterogeneous hash and call .to_f on it.
 
       class C
@@ -1118,13 +1034,11 @@ describe "String: dispatch" do
 
   it "poly to i via str poly hash" do
     result = zr(<<~'RUBY')
-      # `compile_poly_method_call` lacked a `to_i` arm: `(poly).to_i` fell
-      # through to `emit_poly_dispatch` → `emit_poly_builtin_dispatch`,
-      # which only handles `[]` / `length` / `size`. The dispatched
-      # result temp stayed at its `0` default, so any `.to_i` on a poly-
-      # typed receiver returned 0 instead of unboxing the int payload.
+      # `.to_i` on a receiver whose type is only known at run time gives
+      # the Integer value, not 0.
       #
-      # Repro: heterogeneous Hash returns a poly value; `.to_i` on that.
+      # Shape: a heterogeneous Hash returns a value of unknown type;
+      # `.to_i` on that.
 
       class C
         def initialize
@@ -1144,11 +1058,9 @@ describe "String: dispatch" do
 
   it "poly to s into string slot" do
     result = zr(<<~'RUBY')
-      # f0a93f3d types a poly receiver's `to_s` for what BOTH arms can hold, which is
-      # sp_RbVal when a user arm's return is untyped. Where the result lands in a
-      # String slot the assignment needs the unboxing coercion; #4090 reported it
-      # emitted uncoerced. It answers correctly now -- this pins the shape so the
-      # next arm added to that section has to keep it.
+      # `to_s` on a receiver of unknown type, where a user class's `to_s` return is
+      # untyped, so the result type is only known at run time. The result lands in
+      # a String slot and must still read as that String.
 
       class Cand
         attr_accessor :id
@@ -1205,22 +1117,14 @@ describe "String: dispatch" do
 
   it "poly value into str str hash" do
     result = zr(<<~'RUBY')
-      # Issue #651: an ivar inferred as poly (sp_RbVal) because a
-      # `kwarg: nil` default makes the writer's param nullable, then
-      # read at a `str_str_hash[key] = ivar` site, used to flow the
-      # boxed value into `sp_StrStrHash_set(_, _, sp_RbVal)` where the
-      # C signature expects `const char *`. C compile failed with
-      # "passing sp_RbVal to parameter of incompatible type const
-      # char *".
+      # An ivar that can be nil or a String, because a `kwarg: nil`
+      # default makes the writer's param nullable. The ivar is then
+      # stored as a value in a Hash of String keys and String values.
       #
-      # Reporter hit this in action_controller/base.rb's
+      # action_controller/base.rb has this pattern:
       # `@location = location` (location is a `location: nil` kwarg)
       # followed by `res.headers["Location"] = controller.location`
       # at the Tep::Server entry. Same pattern, minimized here.
-      #
-      # Fix: compile_expr_as_string unboxes a poly value via `.v.s`
-      # so the typed-hash setter type-checks. Mirrors the existing
-      # symbol -> sp_sym_to_s coerce in the same helper.
 
       class C
         attr_reader :loc
@@ -1256,19 +1160,10 @@ describe "String: dispatch" do
 
   it "ptr array to poly array at call" do
     result = zr(<<~'RUBY')
-      # #582 (Sam Ruby). Function param inferred as poly_array because
-      # one caller passes a heterogeneous literal `[A.new, "x"]`, but
-      # another caller passes a homogeneous PtrArray-shaped
-      # `[A.new, A.new]` (sp_PtrArray of obj_A). The two array layouts
-      # are incompatible at the C boundary (sp_PtrArray slots are raw
-      # `void *`, sp_PolyArray slots are tagged sp_RbVal), so the
-      # call site needs a conversion: allocate a fresh PolyArray and
-      # box each PtrArray element via sp_box_obj.
-      #
-      # Fix: in compile_expr_for_expected_type, detect
-      # `*_ptr_array → poly_array` at the call boundary and emit an
-      # inline conversion loop. Element class id comes from the
-      # ptr_array's elem type (`obj_A` → cls_id for A).
+      # A method param that takes a mixed array, because one caller
+      # passes a heterogeneous literal `[A.new, "x"]`. Another caller
+      # passes a homogeneous `[A.new, A.new]`. Both calls must work, and
+      # the elements of the homogeneous array must stay A instances.
 
       class A
         attr_reader :tag
@@ -1283,8 +1178,8 @@ describe "String: dispatch" do
       mixed = [A.new("mixed_a"), "x"]
       r1 = take(a_arr)
       r2 = take(mixed)
-      # r1 should be an A instance (poly value carrying the A boxed via the conversion).
-      # Verify by reading back the tag via runtime cls_id check.
+      # r1 should be an A instance.
+      # Verify by reading back the tag after a runtime is_a? check.
       if r1.is_a?(A)
         puts r1.tag
       else
@@ -1302,14 +1197,10 @@ describe "String: dispatch" do
 
   it "str poly hash dup widen" do
     result = zr(<<~'RUBY')
-      # A local declared `sp_StrPolyHash *` (because later poly-value writes
-      # force the wider variant) initialized from `<str_str_hash>.dup`
-      # previously emitted a raw `lv = sp_StrStrHash_dup(...)` assignment.
-      # The two structs have different `vals[]` element types
-      # (`const char **` vs `sp_RbVal *`), so subsequent reads through the
-      # widened slot returned garbage (0 / nil) even when -Werror was off.
-      # The prior `.length`-only assertion happened to land at an offset
-      # both structs share. Issue #614.
+      # A local initialized from `.dup` of a Hash with String values, where
+      # later writes put values of other types into it. Reads of the copied
+      # String values must give those values, not 0 or nil. The test reads
+      # the values, not only `.length`.
 
       class Match
         attr_reader :path_params
@@ -1335,11 +1226,8 @@ describe "String: dispatch" do
 
   it "str poly hash dup widen from int" do
     result = zr(<<~'RUBY')
-      # Sibling case to str_poly_hash_dup_widen: the narrower-source variant
-      # is `sp_StrIntHash *` (int values). The fix wraps the `.dup` call
-      # with `sp_StrPolyHash_from_str_int_hash` so the slot's
-      # `sp_RbVal` reads round-trip the original int as a boxed int.
-      # Issue #614.
+      # Sibling case to "str poly hash dup widen": here the source Hash has
+      # Integer values. Reads from the copy give the original Integers.
 
       class Counter
         attr_reader :counts
@@ -1363,15 +1251,13 @@ describe "String: dispatch" do
 
   it "String.new takes an argument read boxed out of a nested array, and refuses nil" do
     result = zr(<<~'RUBY')
-      # String.new(x) where x is a poly value -- an element read out of a nested
-      # array, rather than a flat array, a local, or a literal -- previously failed
-      # C compilation: the argument reached sp_str_dup_external (which takes a
-      # plain `const char *`) still boxed as an sp_RbVal.
+      # String.new(x) where x is a value of unknown type -- an element read out of
+      # a nested array, rather than a flat array, a local, or a literal. The
+      # argument must be unboxed to its String.
       nested = [["class", "x"]]
       p String.new(nested[0][1])             # "x"
 
-      # A flat array element already worked; keep it covered alongside the nested
-      # case so a future regression shows up as a diff, not a silent narrowing.
+      # A flat array element, covered alongside the nested case.
       flat = ["class", "y"]
       p String.new(flat[1])                  # "y"
 

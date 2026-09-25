@@ -281,8 +281,7 @@ describe "Boxes programs" do
       # reason: the path is the identity CRuby's `$LOADED_FEATURES` uses, and
       # the box is what keeps two boxes' copies apart.
       #
-      # An expression-position `box.require` used to be a compile-time
-      # rejection. A TOP-LEVEL one is still spliced by the loader -- the fast,
+      # An expression-position `box.require` also works. A TOP-LEVEL one is still spliced by the loader -- the fast,
       # statically typed path -- and everywhere else it is the ordinary send,
       # which reaches the box's run-time load path.
       root = File.join(__dir__, "box_own_copy")
@@ -412,22 +411,8 @@ describe "Boxes programs" do
 
   it "box pointer to poly" do
     result = zr(<<~'RUBY')
-      # `box_val_to_poly` and `box_expr_to_poly` previously fell through
-      # to `sp_box_int(val)` for any pointer-typed expression they didn't
-      # explicitly recognize (hashes, mutable strings, etc.), yielding
-      # -Wint-conversion errors and silently truncating the pointer to a
-      # 64-bit int. The fix routes pointer types through `sp_box_obj`.
-      #
-      # Triggers the path: a method whose return type is widened to poly
-      # across branches (here: hash and string). The hash branch's
-      # `return {a: 1, ...}` runs through `box_expr_to_poly`, which
-      # without the fix emitted `sp_box_int(<sp_SymIntHash *>)` and gcc
-      # rejected with "passing argument 1 of sp_box_int makes integer
-      # from pointer without a cast".
-      #
-      # The test only verifies the program compiles and runs — round-
-      # tripping the hash back out of the poly slot is the caller's
-      # problem since the cls_id of 0 erases the concrete type.
+      # A method returns a Hash from one branch and a String from the other.
+      # The example only checks that the program compiles and runs.
 
       def get(flag)
         if flag > 0
@@ -583,20 +568,15 @@ describe "Boxes programs" do
 
   it "box unbox local assign cond" do
     result = zr(<<~'RUBY')
-      # `infer_type(LocalVariableWriteNode)` returned the RHS's static
-      # type rather than the slot's. `compile_cond_expr` uses the
-      # expression type to pick between `sp_poly_truthy(...)` and a
-      # direct test. Without the slot-type report, an
-      # `if (sprite = arr[i])` expression where `sprite`'s slot is poly
-      # (widened by other writers) but the RHS is scalar fell through
-      # to a direct test on the boxed value, which gcc rejects.
+      # `if (entry = @arr[i])` tests the value of the assignment. The array
+      # holds values of mixed types, and the test uses Ruby truthiness.
 
       class C
         def initialize
-          @arr = [10, "twenty", :thirty]   # poly_array
+          @arr = [10, "twenty", :thirty]   # mixed types
         end
         def find(i)
-          if (entry = @arr[i])             # entry-slot is poly (widened by all the writes below)
+          if (entry = @arr[i])             # entry can hold any of the element types
             entry
           end
         end
@@ -712,19 +692,9 @@ describe "Boxes programs" do
 
       # A `class` written in a box belongs to that box: main cannot reach it.
       #
-      # zr's boxes share one class registry, and a box's top-level class keeps
-      # its bare ruby name -- `Escapee` written in a box is called `Escapee`. So
-      # the registry's name table alone would hand main the box's class, which is
-      # what `Object.constants` and a bare constant read both scan. A
-      # `REG_MARK_BOX_CLASS` row records the box each class belongs to, and the
-      # two scans that answer for a TOP LEVEL -- `Object`'s and a box
-      # surrogate's -- filter on it. A program with no box emits no such row, so
-      # the filter is one empty-table read.
-      #
-      # Two things this file used to show, both fixed: main could reach the class
-      # BY NAME, and `defined?` said nil while the read answered -- the two
-      # disagreeing was the tell, because the fold ran against a table the class
-      # was never in.
+      # A box's top-level class keeps its bare ruby name -- `Escapee` written in a
+      # box is called `Escapee`. But in main, `Object.constants`, a bare constant
+      # read and `defined?` do not see it, and the three agree.
 
       b = Ruby::Box.new
       b.eval("class Escapee; def self.hi = 'in box'; end")
@@ -851,27 +821,12 @@ describe "Boxes programs" do
 
   it "module acc dispatch param box" do
     result = zr(<<~'RUBY')
-      # Issue #314 follow-up: `Mod.accessor.method(args)` (the
-      # module-singleton-accessor dispatch from #126/#304) emitted
-      # call-site args with raw `compile_expr` (no boxing). When the
-      # resolved candidate's per-arg ptype was widened to `poly` (e.g.
-      # via #304's cross-class unification), but the caller passed an
-      # int/string at the specific call site, the C arg type didn't
-      # match the ptype slot — Wint-conversion / hard
-      # incompatible-pointer-conversion.
+      # `Mod.accessor.method(args)`: a module-singleton accessor returns a
+      # module, and a call on it takes args of different types at different
+      # call sites.
       #
-      # Fix: in compile_call_expr's module-accessor branch, look up
-      # the resolved candidate's ptypes and box each arg through
-      # box_expr_to_poly when the target ptype is poly.
-      #
-      # Companion: scan_new_calls' #304 widening also gained a
-      # parallel branch for module candidates (`<Mod>_cls_<m>` stored
-      # in @meth_*) so the per-class unify reaches them.
-      #
-      # Surfaced via Roundhouse's `ActiveRecord.adapter.update(table,
-      # @id, attrs)` — `@id` widened to poly across heterogeneous
-      # subclasses, but the call site emitted `lv_id` (sp_RbVal) into
-      # `InMemoryAdapter.update`'s pre-widening `mrb_int lv_id` slot.
+      # The shape comes from Roundhouse's `ActiveRecord.adapter.update(table,
+      # @id, attrs)`, where `@id` can be an Integer or a String.
 
       module Backend
         class << self
@@ -890,11 +845,7 @@ describe "Boxes programs" do
 
       Backend.db = Storage
 
-      # Two call sites with different types — without #304 widening
-      # reaching the module candidate, only the first caller's type
-      # pinned the ptype; the second hit a C arg-type mismatch. With
-      # the widening + boxing fix, the ptype unifies to poly and both
-      # call sites box their arg through sp_box_int / sp_box_str.
+      # Two call sites with different types.
       puts Backend.db.fetch(42)          # 2
       puts Backend.db.fetch("alpha")     # 5
     RUBY
@@ -905,7 +856,7 @@ describe "Boxes programs" do
   it "nullable array keyword box" do
     result = zr(<<~'RUBY')
       # A nil-defaulting array-typed value boxed into a poly slot must become nil,
-      # not a truthy OBJ wrapping a NULL pointer (segfault on later access) (#3275).
+      # not a truthy object that wraps nothing.
       class Config
         def int(*opts, choices: nil) = Flag.new(choices:)
       end
@@ -929,11 +880,8 @@ describe "Boxes programs" do
 
   it "poly attr reader box dispatch" do
     result = zr(<<~'RUBY')
-      # #700 shape A: when a poly-widened setter receives an attr_reader
-      # value from an int-typed LV (where codegen's
-      # compile_int_class_fallback_expr picks the first class with the
-      # attr_reader to emit `((sp_C *)lv)->iv_X`), the boxer dispatch
-      # was picking sp_box_int on a `const char *` value.
+      # A setter whose ivar holds values of mixed types receives an attr_reader
+      # value from another class. The String value arrives unchanged.
 
       class Comment
         attr_accessor :commenter
@@ -951,7 +899,7 @@ describe "Boxes programs" do
         def initialize(c); @commenter = c; end
       end
 
-      # Widen Comment's @commenter to sp_RbVal via case-narrow union with int.
+      # Comment's @commenter also takes an Integer here.
       seed = Comment.new
       seed[:other] = 42
       seed[:commenter] = "x"
@@ -971,21 +919,12 @@ describe "Boxes programs" do
 
   it "poly recv aref box arm" do
     result = zr(<<~'RUBY')
-      # Issue #351: sister-to-#341. After #341 widened the per-class
-      # `def [](k)` parameter to `sp_RbVal` (poly) when callers pass
-      # heterogeneous key types, compile_poly_method_call's per-class
-      # dispatch arm passed the raw call-site value (`const char *`,
-      # `mrb_int`, ...) directly to the `sp_RbVal` parameter — gcc
-      # errored `incompatible type for argument 2 of 'sp_<C>__aref'`.
+      # A user `def [](k)` that callers call with keys of different types
+      # (String and Symbol), on receivers of different classes.
       #
-      # Fix: at the per-arm emit, when the arm's ptype is `poly` (base
-      # type) but the call-site arg's type is concrete, wrap the arg
-      # expression in `box_value_to_poly(arg_type, val)` so the
-      # call-site value reaches the slot pre-boxed.
-      #
-      # Surfaced via Roundhouse's view-helper shape:
-      # `def field_for(model, field); model[field]; end` where model is
-      # poly{Article, Comment, HWIA, Parameters} and field is Symbol.
+      # The shape comes from Roundhouse's view helper:
+      # `def field_for(model, field); model[field]; end` where model can be
+      # an Article, a Comment, a HWIA or a Parameters, and field is a Symbol.
 
       class A
         def [](k)
@@ -999,8 +938,7 @@ describe "Boxes programs" do
         end
       end
 
-      # Two callers with different key types — forces the union to
-      # widen sp_<C>__aref's lv_k to sp_RbVal across A and B.
+      # Two callers with different key types.
       def lookup_str(receiver, key)
         receiver[key]
       end
@@ -1150,14 +1088,7 @@ describe "Boxes programs" do
       # every `box.require` into the program. A snippet's cannot be one -- the
       # handle would name a box nothing else in the program can reach -- so it
       # stays the ordinary call, and reaches `Ruby::Box`'s own constructor,
-      # which mints at run time.
-      #
-      # What it used to do instead is why this is written down: the loader
-      # recognized `b = Ruby::Box.new` in the SNIPPET and minted a compile-time
-      # box, handing back a surrogate handle to a box the program has no other
-      # way to name -- and the refusal walk then declined the whole snippet
-      # with "the source has a `Ruby::Box`", which was true of nothing the
-      # program had written.
+      # which mints at run time. The snippet runs; it is not refused.
 
       def show(src)
         puts eval([src, "nil"].first).inspect
@@ -1184,15 +1115,8 @@ describe "Boxes programs" do
       #
       # A top-level `def` is a private instance method of `Object`, and a box has
       # its OWN `Object` -- so a `def` in a box means the `class Object` reopen
-      # that a box already isolates (a per-box builtin OVERLAY whose rows
-      # register on the root's entry keyed by the box). Analyze wraps it into
-      # exactly that; without the wrap the def fell through to the run-time
-      # install, which knows one `Object`.
-      #
-      # The Object root had to become resolvable from a box for that to work. It
-      # predates the builtin placeholders and carries neither `is_builtin` nor
-      # `is_bootstrap`, so a box's name lookup skipped it and minted a SECOND
-      # class called `Object` instead of an overlay of the real one.
+      # that a box already isolates. The box does not make a SECOND class called
+      # `Object`.
 
       b = Ruby::Box.new
       b.eval("def leaked_helper = 1")
@@ -1208,8 +1132,7 @@ describe "Boxes programs" do
 
   it "yield boxes an object typed argument" do
     result = zr(<<~'RUBY')
-      # (`Builder.new { }` can't be used here: `.new` doesn't forward its
-      # block to `initialize` yet -- a separate, pre-existing gap.)
+      # `yield self` passes the object to the block, and a send on it works.
 
       class Builder
         def run

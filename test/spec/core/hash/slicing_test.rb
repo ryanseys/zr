@@ -5,17 +5,12 @@ require "spec_helper"
 describe "Hash: slicing" do
   it "chained aset on poly hash recv" do
     result = zr(<<~'RUBY')
-      # #456: `outer[k1][k2] = v` where outer's value type is sp_RbVal
-      # (StrPolyHash). The inner `[]=` recv is poly; with no
-      # `is_a?(Hash)` narrowing, the dispatch needs to enumerate Hash-
-      # storage arms, not only Array-storage ones. Prior to this fix
-      # the poly-recv `[]=` codegen emitted PolyArray / PtrArray /
-      # IntArray arms only and the call failed C compile with
-      # "passing argument 2 of sp_PolyArray_set makes integer from
-      # pointer without a cast" when the index was a string literal.
+      # `outer[k1][k2] = v` where the values of `outer` can be of any type.
+      # There is no `is_a?(Hash)` check, so the inner `[]=` can go to a Hash
+      # as well as to an Array. Here the inner receiver is a Hash and the
+      # index is a String.
       #
-      # Surfaced in the canonical form-decoder shape
-      # `into[outer][inner] = val` inside `CgiIo.assign_form_pair`.
+      # This is the shape of a form decoder: `into[outer][inner] = val`.
 
       def assign(into)
         into["x"]["y"] = "z"
@@ -103,19 +98,13 @@ describe "Hash: slicing" do
 
   it "a Hash constant passed to a parameter that defaults to {} both iterates and keeps its String keys" do
     result = zr(<<~'RUBY')
-      # A Hash constant passed to a parameter that defaults to `{}`. Two faults, both
-      # silent: the loop ran zero times, and then its writes went nowhere (#4041).
+      # A Hash constant passed to a parameter that defaults to `{}`. Two checks:
+      # the loop runs once for each entry, and each write goes into @units.
       #
-      # The poly `each` asked sp_poly_arr_len_ex for the receiver's length, and that
-      # knew only the three poly-VALUED hash variants -- a String-keyed one answered
-      # 0 and the block simply never ran.
+      # `each` on a String-keyed hash runs the block for each pair.
       #
-      # With it running, the `@units = {}` literal was symbol-keyed while the keys
-      # written into it were Strings, so every entry was dropped. The key sites can
-      # disagree across fixpoint rounds (a block parameter of a poly iteration reads
-      # as poly on one round and as the default literal's own kind on another); the
-      # poly-keyed hash is the only representation that holds both, so it now wins
-      # over a narrower mark rather than losing to whichever landed first.
+      # The `@units = {}` literal gets String keys. The literal itself has no keys,
+      # so its keys have the type of the keys that the code writes into it.
       class Quantity
         attr_reader :units
         def initialize(units = {})
@@ -230,19 +219,19 @@ describe "Hash: slicing" do
 
   it "the Enumerable rows read a Hash as a sequence of pairs" do
     result = zr(<<~'RUBY')
-      # Hash Enumerable conformance (KieranP #2339,#2341,#2350,#2352)
+      # Hash Enumerable conformance
       h = { a: 1, b: 2 }
-      p h.first                                  # #2350 first pair
+      p h.first                                  # first pair
       p h.first(1)
       p h.take(1)
       p h.drop(1)
       p({}.first)
-      p h.sort { |x, y| y[1] <=> x[1] }          # #2341 sort with comparator block
+      p h.sort { |x, y| y[1] <=> x[1] }          # sort with comparator block
       p h.sort { |x, y| x[1] <=> y[1] }
-      p({ "a" => 1, "b" => 2 }.key(2))           # #2352 key on a String-keyed hash
+      p({ "a" => 1, "b" => 2 }.key(2))           # key on a String-keyed hash
       p({ 1 => "x", 2 => "y" }.key("y"))
       p({ "a" => 1 }.key(9))
-      p h.any? { |pair| pair[1] > 1 }            # #2339 solo param is the pair
+      p h.any? { |pair| pair[1] > 1 }            # solo param is the pair
       p h.count { |pair| pair[1] > 1 }
       p h.all? { |pair| pair[1] > 0 }
       p h.any? { |k, v| v > 1 }                   # two params still bind k, v

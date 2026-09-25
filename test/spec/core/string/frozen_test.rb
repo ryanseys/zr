@@ -5,8 +5,8 @@ require "spec_helper"
 describe "String: frozen literals" do
   it "array frozen slice bang" do
     result = zr(<<~'RUBY')
-      # Array#slice! must raise FrozenError on a frozen array (Gemini
-      # follow-up to #1029: slice! was the remaining unguarded mutator).
+      # Array#slice! must raise FrozenError on a frozen array, like the other
+      # mutators.
       a = [1, 2, 3]
       a.freeze
       begin
@@ -79,10 +79,8 @@ describe "String: frozen literals" do
 
   it "frozen string global survives gc" do
     result = zr(<<~'RUBY')
-      # A heap string frozen by .freeze and bound to a constant is rooted via
-      # sp_mark_user_globals, but the string-pool sweeper (sp_str_sweep) only kept
-      # 0xfc-marked strings and freed the frozen (0xf1) one -- a GC use-after-free
-      # on the next collect. Frozen globals must survive collection. (#1449)
+      # A heap string frozen by .freeze and bound to a constant survives GC.
+      # Frozen globals must survive collection.
       VERSION = "0.8.0".freeze
       NAME = ("spinel-" + "rt").freeze
       GC.start
@@ -109,9 +107,9 @@ describe "String: frozen literals" do
 
   it "frozen string literal default" do
     result = zr(<<~'RUBY')
-      # fsl-true is Spinel's DEFAULT (no pragma in this file): literals are frozen,
-      # mutation raises, and +"" / String.new / interpolation give mutable strings
-      # that keep the full shared-mutation semantics.
+      # With no magic comment in this file, a literal is not frozen, as in CRuby:
+      # `<<` on it works. +"" / String.new / interpolation give mutable strings, and
+      # a change is seen through every reference.
       p "lit".frozen?
       s = "m"
       begin
@@ -729,43 +727,43 @@ describe "String: frozen literals" do
 
   it "str method nil arg no segv" do
     result = zr(<<~'RUBY')
-      # #504. Several String methods receiving the wrong arg shape used
-      # to SEGV. CRuby raises ArgumentError; spinel can't raise but we
-      # should at least not crash. Codegen emits compile_arg0 -> "0"
-      # (NULL) for missing args and the runtime helpers then ran
-      # strlen(NULL) or worse.
-      #
-      # Fix: NULL guards in sp_str_count / sp_str_delete /
-      # sp_str_rindex / sp_str_concat; setbyte (which would have
-      # written through a read-only string literal) is now warned and
-      # returns 0 without mutating; rindex with a regex arg routes
-      # through the new sp_re_rindex helper instead of the plain
-      # string-substring path; `<<` on a string return-types as
-      # `string` instead of falling through to the catch-all `int`.
+      # String methods called with no argument raise ArgumentError, as in CRuby.
+      # The first call, `"foo".count`, raises. `rescue TypeError` does not
+      # catch an ArgumentError, so the program stops there.
 
-      # count / rindex / include? / start_with? / end_with? with no arg
-      # (NULL at C level): spinel now raises TypeError, matching CRuby's
-      # nil-arg path more closely than the old silent sentinel return.
+      # The blank lines keep the line numbers that the expected output names.
+
+
+
+
+
+
+
+
+
+
+      # count / rindex / include? / start_with? / end_with? with no arg.
+
       begin
         "foo".count
         puts "BUG count: no raise"
       rescue TypeError => e
         puts "count: #{e.message}"
       end
-      p "foo".delete   # CRuby: ArgumentError. spinel: "foo" unchanged (was: SEGV)
-      p "foo".rindex(/missing/)  # CRuby + spinel post-#532: nil. (was: -1)
-      p "abcdabcd".rindex(/c/)   # CRuby & spinel: 6 (new sp_re_rindex helper)
+      p "foo".delete   # ArgumentError
+      p "foo".rindex(/missing/)  # nil
+      p "abcdabcd".rindex(/c/)   # 6
       begin
-        "foo".send(:<<)          # CRuby: ArgumentError. spinel: FrozenError (after #886)
+        "foo".send(:<<)          # ArgumentError
         puts "no raise"
       rescue FrozenError => e
         puts "send-lshift: " + e.message
       end
 
       # setbyte on a literal: WITHOUT the frozen_string_literal magic comment a
-      # literal is mutable (CRuby); the write copies the static bytes and rebinds
-      # the variable (#2029). A frozen-string-literal file or an explicit .freeze
-      # still raises (pinned by bundle_classd_43).
+      # literal is mutable (CRuby), so the write changes it. A frozen-string-literal
+      # file or an explicit .freeze still raises.
+
       (str = "a")
       begin
         str.setbyte(0, 98)
@@ -793,8 +791,8 @@ describe "String: frozen literals" do
       # Five String surfaces that answered where CRuby refuses, or refused where
       # CRuby answers.
 
-      # an empty pad is rejected whatever the width -- the no-op width case used to
-      # return the receiver before looking at the pad
+      # an empty pad is rejected whatever the width, also when the width is too
+      # small to need a pad
       r = ("hi".ljust(5, "") rescue $!.class); p r
       r = ("hi".rjust(5, "") rescue $!.class); p r
       r = ("hi".center(5, "") rescue $!.class); p r
@@ -938,7 +936,7 @@ describe "String: frozen literals" do
 
   it "-@ on a string already frozen answers the receiver itself" do
     result = zr(<<~'RUBY')
-      # String#-@ on an already-frozen string returns the receiver itself (#2630).
+      # String#-@ on an already-frozen string returns the receiver itself.
       a = "abc".freeze
       p((-a).equal?(a))
       c = -"xyz"
@@ -951,7 +949,7 @@ describe "String: frozen literals" do
   it "-@ interns by content, so two dedups of equal contents answer one object" do
     result = zr(<<~'RUBY')
       # String#-@ / #dedup interns by content: two dedups of equal contents return
-      # the same immortal frozen object (#2462).
+      # the same immortal frozen object.
       p("hello".dedup.equal?("hello".dedup))
       p((-"world").equal?(-"world"))
       p(("he" + "llo").dedup.equal?("hello".dedup))   # computed string interns too
@@ -975,10 +973,8 @@ describe "String: frozen literals" do
   it "insert, prepend and << on a frozen literal raise FrozenError, and String.new stays mutable" do
     result = zr(<<~'RUBY')
       # frozen_string_literal: true
-      # Issue #886: Mutating methods on a frozen string literal raise
-      # FrozenError per MRI. spinel string literals are always frozen.
-      # Mutable strings (String.new("...")) keep working via the
-      # mutable_str arm.
+      # Mutating methods on a frozen string literal raise FrozenError, as in
+      # MRI. Mutable strings (String.new("...")) keep working.
       begin
         "hello".insert(0, "X")
         puts "BUG: insert no raise"

@@ -987,11 +987,9 @@ describe "Date: formatting and inspection" do
 
   it "nilable time strftime" do
     result = zr(<<~'RUBY')
-      # A nilable Time (`created_at : Time?`) is held as a poly value, so calling
-      # strftime on it used to lower to the unresolved-call raise even for a real
-      # Time. The poly dispatch now gives strftime a Time arm: a genuine Time
-      # formats, nil (or any other class) raises NoMethodError -- matching CRuby.
-      # Regression for issue #2457 (the family2 nilable value-method dispatch gap).
+      # A value that is a Time or nil (`created_at : Time?`) can call strftime.
+      # A real Time formats, and nil (or any other class) raises NoMethodError,
+      # as in CRuby.
       class Note
         def initialize(t); @t = t; end
         def created_at; @t; end          # @t is Time-or-nil => Time?

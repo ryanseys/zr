@@ -32,22 +32,16 @@ describe "IO: regressions" do
 
   it "file class methods int recv" do
     result = zr(<<~'RUBY')
-      # `File.readable?` and `File.binwrite` — class-method stubs in
-      # the `rcname == "File"` dispatch block, plus `IntArray#pack("C*")`
-      # which is the symmetric inverse of `String#bytes`.
+      # `File.readable?` and `File.binwrite`, plus `Array#pack("C*")`
+      # on an Integer array, which is the inverse of `String#bytes`.
       #
-      # Surfaced via optcarrot's battery-save dead code path:
+      # The shape comes from optcarrot's battery-save code path:
       #   `return unless File.readable?(sav)` and
       #   `File.binwrite(sav, @wrk.pack("C*"))`.
       #
-      # `readable?` reuses the exist check (close enough on POSIX).
-      # `binwrite` reuses `sp_file_write` — fputs-based, so embedded
-      # NULs truncate; acceptable for the NUL-free use sites that
-      # exist in practice.
-      #
-      # cwd-relative path so MSYS2 / native-Windows-built spinel binary
-      # resolves the same place as the CRuby reference. `/tmp/...` lands
-      # in different directories on the two sides (see bundle_io_sys.rb).
+      # The test uses a cwd-relative path so that zr and the CRuby
+      # reference resolve the same place. `/tmp/...` can land in different
+      # directories on the two sides (see bundle_io_sys.rb).
 
       path = "spinel_file_class_test"
 
@@ -151,25 +145,18 @@ describe "IO: regressions" do
 
   it "file binread" do
     result = zr(<<~'RUBY')
-      # `File.binread(path).bytes` — sp_str_bytes uses null-termination
-      # and stops at the first 0x00 byte, so for binary data (e.g. .nes
-      # ROM files where 0x00 appears mid-file) we need a dedicated
-      # helper that reads with the actual file size.
+      # `File.binread(path).bytes` gives every byte of binary data, also
+      # a 0x00 byte in the middle (as in .nes ROM files).
       #
-      # `File.binread(path)` standalone is aliased to File.read.
-      #
-      # Uses a cwd-relative path so MSYS2 and the native-Windows-built
-      # spinel binary resolve to the same file (the harness runs each test
-      # from the project root). `/tmp/...` would land in different places
-      # on the two sides — see test/fileio.rb for the same workaround.
+      # Uses a cwd-relative path so that zr and the CRuby reference resolve
+      # to the same file (the harness runs each test from the project
+      # root). `/tmp/...` can land in different places on the two sides.
 
       # Set up a binary file with embedded NULs via a shell command.
-      # spinel's File.write uses fputs and would stop at the first NUL.
       path = "spinel_binread_test.bin"
       `printf 'AB\\000CD\\000EF' > #{path}`
 
-      # Pattern-matched: emits sp_file_binread_bytes(path) which reads
-      # the file by its actual byte count, NOT through sp_str_bytes.
+      # The byte count is the file size, NULs included.
       arr = File.binread(path).bytes
       puts arr.length               # 8
       puts arr[0]                   # 65 (A)
@@ -181,10 +168,7 @@ describe "IO: regressions" do
       puts arr[6]                   # 69 (E)
       puts arr[7]                   # 70 (F)
 
-      # `File.binread` standalone aliases `File.read`. spinel's strings
-      # are null-terminated so any NUL in the result is a hard stop —
-      # this branch is just verifying the alias resolves and returns
-      # something string-shaped.
+      # `File.binread` alone returns a String of the file's bytes.
       puts File.binread(path)[0, 2] # AB
 
       File.delete(path) if File.exist?(path)
@@ -209,8 +193,8 @@ describe "IO: regressions" do
       # Test basic File I/O.
       # Uses cwd-relative paths so the harness (which runs each test from
       # the project root) and the CRuby reference both write to the same
-      # place on every platform — `/tmp/...` doesn't resolve uniformly
-      # across MSYS2 mingw64 ruby and native-Windows-built spinel binaries.
+      # place on every platform — `/tmp/...` does not resolve the same
+      # way on all platforms.
 
       # Write a file
       File.write("spinel_test.txt", "Hello from Spinel!\nLine 2\n")
@@ -363,14 +347,13 @@ describe "IO: regressions" do
   it "process clock gettime" do
     result = zr(<<~'RUBY')
       # Process.clock_gettime(Process::CLOCK_MONOTONIC) returns a Float.
-      # We can't assert an exact value, but we can verify the call lowers
-      # correctly (returns a float, monotonic non-decreasing across two
-      # samples).
+      # The test cannot assert an exact value. It checks that the call
+      # returns a Float that does not decrease across two samples.
 
       t1 = Process.clock_gettime(Process::CLOCK_MONOTONIC)
       t2 = Process.clock_gettime(Process::CLOCK_MONOTONIC)
 
-      # t1 and t2 must be Float-typed in spinel; arithmetic should work.
+      # t1 and t2 are Floats, so arithmetic on them works.
       diff = t2 - t1
       if diff >= 0
         puts "monotonic"
@@ -405,12 +388,12 @@ describe "IO: regressions" do
 
       puts ((Time.at(100) - Time.at(200)) + 100.0).abs < 0.0001
 
-      # guards sp_time_at_float's frac < 0 normalization
+      # A negative fraction rounds the seconds down
       puts Time.at(-0.5).to_i == -1
 
       puts Time.at(0.0).to_i == 0
 
-      # d78149b: tv_nsec must reach Time#to_f for ms precision
+      # Time#to_f has millisecond precision
       puts Time.now.to_f * 1000 > 1_000_000_000_000.0
 
       puts Time.at(1).to_i + Time.at(2).to_i == 3

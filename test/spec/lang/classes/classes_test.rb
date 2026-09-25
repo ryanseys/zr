@@ -85,25 +85,9 @@ describe "Classes programs" do
 
   it "bare return in initialize" do
     result = zr(<<~'RUBY')
-      # Issue #337: a bare `return` (Ruby's "exit early" form) inside an
-      # `initialize` body used to lower to `return 0;` regardless of the
-      # wrapping function's C return type. Two emit shapes were affected:
-      #
-      #  - `sp_<C>_new(...)` (sp_<C> *-returning, the heap-allocated
-      #    constructor synthesis): `return 0;` silently NULLed the
-      #    instance on the early-return branch — semantically wrong, no C
-      #    diagnostic.
-      #
-      #  - `sp_<C>_initialize(...)` (void-returning, used for `super`
-      #    chains): `return 0;` is a `void function should not return a
-      #    value` error under strict C compile.
-      #
-      # Fix: pin @current_method_return per emission shape (obj_<C> for
-      # the _new synthesis, "void" for the _initialize wrapper) so the
-      # bare-return path picks the right C statement — `return self;` for
-      # heap constructors (returns the partially-initialized instance,
-      # matching the issue's expected-behavior table) and `return;` for
-      # the void wrapper.
+      # A bare `return` (Ruby's "exit early" form) inside an `initialize` body
+      # stops initialize. `new` still returns the instance, with the ivars set
+      # so far. The same is true when a subclass reaches it through `super`.
 
       class Box
         attr_reader :data
@@ -124,9 +108,9 @@ describe "Classes programs" do
       b2 = Box.new("hi")
       puts b2.data           # hi
 
-      # Subclass exercising the void `_initialize` super-call form: the
-      # parent's bare return inside the wrapper must lower to `return;`
-      # (not `return 0;`, which would be a C error in a void function).
+      # Subclass that reaches the parent's initialize through `super`: the
+      # parent's bare return ends only the parent's initialize, and the
+      # subclass then sets @tag.
       class TaggedBox < Box
         attr_reader :tag
         def initialize(other = nil, tag:)
@@ -152,8 +136,8 @@ describe "Classes programs" do
 
   it "basicobject new" do
     result = zr(<<~'RUBY')
-      # BasicObject is instantiable (#2658): the same blank instance Object.new
-      # builds, tagged with its own builtin id.
+      # BasicObject is instantiable: it gives a blank instance, like Object.new
+      # does.
       o = BasicObject.new
       p :created
       q = Object.new
@@ -202,12 +186,8 @@ describe "Classes programs" do
   it "call or write through writer" do
     result = zr(<<~'RUBY')
       # `obj.attr ||= v` and `&&=` call the reader and, conditionally, the writer.
-      # They were emitted as a direct instance-variable touch instead, which is a
-      # valid fast path for a generated accessor pair and wrong for a hand-written
-      # one: the writer never ran. Silently where the ivar happened to share the
-      # method's name, and as a C error naming a struct member that does not exist
-      # where it did not. `attr = v` and `attr += v` were already correct, so the
-      # defect was specific to the short-circuit forms (#4148).
+      # A hand-written writer runs, like for `attr = v` and `attr += v`. This is
+      # true whether or not an ivar has the same name as the method.
       $log = []
 
       class Box
@@ -309,9 +289,8 @@ describe "Classes programs" do
 
   it "case when value type classes" do
     result = zr(<<~'RUBY')
-      # `when Rational` / `when Complex` (and Regexp, Proc, Time) have a builtin
-      # cls_id but no class-table entry, so the arm used to compile to a constant
-      # false and never matched; `Klass === poly` answered false the same way (#3959).
+      # `when Rational` / `when Complex` (and Regexp, Proc, Time) match values of
+      # that class, and `Klass === value` agrees.
       def kind(v)
         case v
         when Integer then :int
@@ -372,8 +351,7 @@ describe "Classes programs" do
 
   it "case when with class candidates checks instance ancestry" do
     result = zr(<<~'RUBY')
-      # `Module#===` -- previously a compile-time rejection (`when Integer`
-      # never worked); now real Ruby's instance-of check.
+      # `Module#===` is real Ruby's instance-of check, so `when Integer` works.
 
       class Widget
       end
@@ -452,10 +430,10 @@ describe "Classes programs" do
     result = zr(<<~'RUBY')
       # `class Adapter < parent` with a LOCAL superclass has no compile-time class to
       # lay out, so zr builds it with `Class.new(parent) { ... }`. A block is not a
-      # class body in two ways ruby cares about, and both used to leak:
+      # class body in two ways ruby cares about, and zr gives class-body behavior for both:
       #
       #   * a block SHARES the enclosing local scope, where a class body has its own;
-      #   * a block opens no cref, so `@@v` in one raised "class variable access from
+      #   * a block opens no cref, so `@@v` in one raises "class variable access from
       #     toplevel".
       #
       # sidekiq's ActiveJob adapter is built exactly this way and hits both at once.
@@ -498,10 +476,10 @@ describe "Classes programs" do
     result = zr(<<~'RUBY')
       # `class Adapter < parent` with a LOCAL superclass has no compile-time class to
       # lay out, so zr builds it with `Class.new(parent) { ... }`. A block is not a
-      # class body in two ways ruby cares about, and both used to leak:
+      # class body in two ways ruby cares about, and zr gives class-body behavior for both:
       #
       #   * a block SHARES the enclosing local scope, where a class body has its own;
-      #   * a block opens no cref, so `@@v` in one raised "class variable access from
+      #   * a block opens no cref, so `@@v` in one raises "class variable access from
       #     toplevel".
       #
       # sidekiq's ActiveJob adapter is built exactly this way and hits both at once.
@@ -791,9 +769,7 @@ describe "Classes programs" do
   it "class in collection" do
     result = zr(<<~'RUBY')
       # A Class object stored in a Hash value or Array element must round-trip
-      # through poly storage (boxed as a class), not collapse to the int slot
-      # (which produced an sp_box_int / sp_IntArray_push type mismatch and,
-      # once stored, printed the cls_id instead of the class name).
+      # and print as the class name.
 
       str_keyed = { "a" => String, "b" => Integer }
       puts str_keyed["a"]
@@ -970,7 +946,7 @@ describe "Classes programs" do
 
   it "class new override supers into a runtime parent" do
     result = zr(<<~'RUBY')
-      # #192 feature (1): a `super` in an override installed via a `Class.new(Parent)`
+      # A `super` in an override installed via a `Class.new(Parent)`
       # block reaches the parent's method, when the parent is a runtime class. The
       # override forwards args and composes the parent's result.
 
@@ -992,7 +968,7 @@ describe "Classes programs" do
 
   it "class of primitive" do
     result = zr(<<~'RUBY')
-      # Issue #715. `<primitive>.class` should return the builtin class for
+      # `<primitive>.class` should return the builtin class for
       # each primitive, not just for obj-typed receivers. Coverage:
       # Integer/Float/String/Symbol/NilClass/TrueClass/FalseClass/Array/Hash.
 
@@ -1043,32 +1019,16 @@ describe "Classes programs" do
 
   it "class phase2 name eq" do
     result = zr(<<~'RUBY')
-      # Issue #404 Phase 2: `.name`, `.inspect`, `.==`, `.!=`, `.eql?`
-      # on a sp_Class value. Phase 1 wired `.to_s` and the class-as-value
-      # round-trip through locals / ivars / hash values. Phase 2 fills
-      # in the remaining "simple" reflection surface that doesn't need
-      # precomputed ancestors:
+      # `.name`, `.inspect`, `.==`, `.!=`, `.eql?` on a Class value:
       #
-      #   - `.name` / `.inspect` alias `.to_s` (sp_class_to_s lookup).
-      #     CRuby's #inspect for a class is technically "Foo" too -- it's
-      #     `<Class:Foo>` only via the Object#inspect fallback when the
-      #     class doesn't override #inspect (which it does, returning
-      #     just the name). Phase 2 keeps the bare-name shape; the
-      #     "#<Class:Foo>"-ish polish is Phase 3 work if ever needed.
-      #   - `.==` / `.eql?` -- sp_class_eq(a, b) (cls_id field compare).
-      #   - `.!=` -- the negation thereof.
-      #
-      # Out of scope: `.superclass`, `.ancestors`, `< / <= / > / >=`,
-      # `case <obj> when <Class>`, dynamic `is_a?(c)` against a
-      # variable. Those need the precomputed ancestor table from
-      # docs/CLASS-OBJECT.md.
+      #   - `.name` / `.inspect` give the bare class name, like `.to_s`.
+      #   - `.==` / `.eql?` compare the class, and `.!=` is the negation.
       #
       # Coverage:
       #   - .name / .inspect on a class literal and through obj.class.
       #   - == / != / eql? between class literals, mixing with subclass,
       #     and through obj.class chains.
-      #   - Subclass-of-Base still gets the subclass cls_id from .class
-      #     (regression check on #419's static dispatch).
+      #   - .class on a subclass instance gives the subclass.
 
       class Row
         attr_accessor :id
@@ -1539,12 +1499,9 @@ describe "Classes programs" do
 
   it "class value builtin and nested" do
     result = zr(<<~'RUBY')
-      # Followup to #404. Built-in exception classes (StandardError,
-      # RuntimeError, ...) and nested user classes (M::Inner) used as
-      # values must lower to sp_Class compound literals, the same way
-      # flat user-class constants already did. Pre-fix the emit was a
-      # bare C identifier (`StandardError`, `M_Inner`) that gcc rejected
-      # with "use of undeclared identifier". Issue #637.
+      # Built-in exception classes (StandardError, RuntimeError, ...) and
+      # nested user classes (M::Inner) work as values, the same way flat
+      # user-class constants do.
 
       # Shape A: built-in exception class as value.
       def takes_class(c)
@@ -1559,11 +1516,8 @@ describe "Classes programs" do
       c = StandardError
       puts c.name
 
-      # Shape B: nested user class as value. Verify the value compiles
-      # and survives a round-trip through a local; the displayed
-      # `c.name` between spinel and MRI may differ (spinel uses `_` as
-      # the internal separator), but `c == Inner-class` confirms the
-      # value emit and equality semantics hold.
+      # Shape B: nested user class as value. The value survives a
+      # round-trip through a method return, and `==` confirms it.
       module M
         class Inner
         end
@@ -1589,7 +1543,7 @@ describe "Classes programs" do
   it "class var recv reflection" do
     result = zr(<<~'RUBY')
       # A local statically holding one class constant dispatches like the constant
-      # for the reflection surface too (#2717, #2721).
+      # for the reflection surface too.
       class Dog; def bark; end; end
       c = Dog
       p c.method_defined?(:bark)
@@ -2218,11 +2172,8 @@ describe "Classes programs" do
 
   it "dynamic class new fed back" do
     result = zr(<<~'RUBY')
-      # `s.class.new(**h)` on a receiver known only at run time. The dispatch
-      # switches on the class's cls_id, and the runtime helper that produces that
-      # class answered -1 for every value -- it filled in the NAME only -- so the
-      # switch matched no arm and the call returned nil (#4020). A statically typed
-      # receiver takes a different path, which is why it worked there.
+      # `s.class.new(**h)` on a receiver known only at run time makes a new
+      # instance of that class. A statically typed receiver gives the same result.
       S = Struct.new(:o, :b, :st, keyword_init: true)
 
       def bump(s) = s.class.new(**s.to_h.merge(b: s.b + 1))
@@ -2231,7 +2182,7 @@ describe "Classes programs" do
       x = S.new(o: "a", b: 0, st: :open)
       p rep([1], x).to_h
 
-      # feeding the result back is what the report needed; each step alone works too
+      # feeding the result back works, and each step alone works too
       y = bump(x)
       p y.class
       p y.b
@@ -2277,26 +2228,11 @@ describe "Classes programs" do
 
   it "elsif isa chain" do
     result = zr(<<~'RUBY')
-      # Issue #310: an `if/elsif/else` chain with `is_a?(Class)` checks
-      # in the elsif branch used to emit `} else <prologue> if (...)`
-      # without wrapping braces. The compile_cond_expr for a poly is_a?
-      # emits prologue C statements (`sp_RbVal _t = recv; if (_t.tag ==
-      # SP_TAG_OBJ) {...}`) before returning the cond flag. Those
-      # prologue statements deposited between the bare `else` and the
-      # inner `if` — invalid C: the bare-else's body is the next single
-      # statement, and the temp decl's scope ended right there.
+      # An `if/elsif/else` chain with `is_a?(Class)` checks in the elsif
+      # branch, on a receiver of unknown type.
       #
-      # Fix: wrap elsif branches in `{ }`. The cosmetic `else if` is
-      # replaced by `else { if ... }` — semantically identical, scope-
-      # correct.
-      #
-      # This test verifies the C *compiles*. Note that is_a?(UserClass)
-      # on a poly receiver still has gaps elsewhere (the SP_TAG_OBJ
-      # dispatch loop in compile_poly_method_call only walks user-class
-      # method tables, none of which define `is_a?`, so the runtime
-      # check is conservative — orthogonal to #310's brace bug). All
-      # arms below return the same string so the test passes regardless
-      # of which branch the runtime picks.
+      # All arms below return the same string, so the example checks only
+      # that the program compiles and runs.
 
       class A
       end
@@ -2318,8 +2254,7 @@ describe "Classes programs" do
       puts normalize(B.new)              # ok
       puts normalize(42)                 # ok
 
-      # Same shape but as the method's tail-position return — exercises
-      # compile_if_return's elsif path (companion fix in the same patch).
+      # Same shape but as the method's tail-position return.
       def classify(value)
         if value.is_a?(A)
           1
@@ -2371,15 +2306,15 @@ describe "Classes programs" do
 
   it "harness batch 2453 2456" do
     result = zr(<<~'RUBY')
-      # #2453: an array-literal aggregate in argument position (Math.log([..].max, b))
-      # must wrap its builder in a statement-expression, not leak it into the call.
+      # An array literal in argument position (Math.log([..].max, b)) gives its
+      # value to the call.
       class S
         def initialize(score); @score = score; end
         def order; Math.log([(@score + 1).abs + 2, 1].max, 10); end
       end
       puts S.new(5).order.round(3)
 
-      # #2455: a user module named Random must not clash with the runtime sp_Random.
+      # A user module named Random (OpenSSL::Random) does not clash with ::Random.
       module OpenSSL
         module Random
           def self.random_bytes(n)
@@ -2387,11 +2322,9 @@ describe "Classes programs" do
             i = 0
             while i < n
               # 1..127 (single-byte ASCII, never 0): this test exercises module
-              # reopening + dispatch, not binary strings. A 0 byte would embed a NUL
-              # (spinel truncates its NUL-terminated storage there) and a 128..255
-              # byte forms a multi-byte UTF-8 run that spinel's char-counting #length
-              # collapses -- both made .length flaky across builds. ASCII stays one
-              # byte == one char, so #length is deterministic.
+              # reopening + dispatch, not binary strings. A 128..255 byte can form a
+              # multi-byte UTF-8 run and change #length. ASCII stays one byte == one
+              # char, so #length is deterministic.
               out = out + (rand(127) + 1).chr
               i += 1
             end
@@ -2401,7 +2334,7 @@ describe "Classes programs" do
       end
       puts OpenSSL::Random.random_bytes(4).length
 
-      # #2456: Time minus a poly value (holding a Time) is a Float duration.
+      # Time minus a value of unknown type (holding a Time) is a Float duration.
       class A2
         def stamp; "2020-01-01"; end
       end
@@ -2424,24 +2357,10 @@ describe "Classes programs" do
 
   it "interpolating a String built by String.new and << prints its text" do
     result = zr(<<~'RUBY')
-      # Issue #1027: string interpolation of a method that returns sp_String *
-      # (the mutable-string type backing `String.new` + `<<`) emitted the
-      # pointer cast to long long with `%lld` instead of reading the string
-      # contents with `%s` + sp_String_cstr.
-      #
-      # The dispatch chain in compile_string_interp had arms for "int",
-      # "bigint", "float", "string", "bool", "poly", "class", "encoding",
-      # "symbol", "exception", "nil", and the array families — but no arm
-      # for "mutable_str", so an interpolated sp_String * fell through to
-      # the integer fallback and rendered as a pointer address.
-      #
-      # Direct `<<` on the same value already worked via sp_String_append
-      # (the type info exists; only the interp format-spec dispatch missed
-      # the arm). Surfaced in roundhouse view emit after a lowering coalesced
-      # `io << x; io << y; io << z` runs into `io << "...#{y}..."`-style
-      # string-interpolation. The other roundhouse targets interpolate cleanly
-      # because their string primitives accept the mutable variant directly;
-      # only spinel needed the missing arm.
+      # String interpolation of a method that returns a String built by
+      # `String.new` + `<<` prints the text of the string. The shape comes from
+      # the roundhouse view code, which turns `io << x; io << y` runs into
+      # `io << "...#{y}..."`.
 
       module M
         def self.make
@@ -2461,9 +2380,8 @@ describe "Classes programs" do
     result = zr(<<~'RUBY')
       # Random uses a different RNG than CRuby, so values differ; the test
       # checks the interface (types, ranges, reproducibility), not exact
-      # sequence parity. bytes#length is avoided because spinel has no
-      # ASCII-8BIT encoding — String#length counts UTF-8 chars, so a random
-      # byte buffer's char-count is not its byte-count.
+      # sequence parity. bytes#length is avoided: a random byte buffer's char
+      # count need not be its byte count.
       r = Random.new(42)
       puts r.rand(100).class
       puts r.rand.class
@@ -2532,9 +2450,9 @@ describe "Classes programs" do
       end
       p Hooked.private_method_defined?(:initialize_copy)
 
-      p Hooked.public_method_defined?(:initialize_copy)     # Ruby: false   Spinel: true
+      p Hooked.public_method_defined?(:initialize_copy)     # => false
       class Plain; def initialize(v); @v = v; end; end
-      p Plain.private_method_defined?(:initialize_copy)     # Ruby: true    Spinel: false
+      p Plain.private_method_defined?(:initialize_copy)     # => true
 
       class Plain2
         attr_accessor :v
@@ -2723,16 +2641,9 @@ describe "Classes programs" do
 
   it "object new sentinel" do
     result = zr(<<~'RUBY')
-      # Issue #63: `Object.new.freeze` constants used as identity sentinels
-      # generated `sp_Object *` declarations against a type that didn't exist
-      # in the runtime, plus the `freeze` call fell through the dispatcher
-      # and the constant was assigned `0` (NULL) instead of the new object.
-      # After the fix:
-      #   - lib/sp_runtime.h defines sp_Object and sp_Object_new (a fresh
-      #     GC-managed allocation per call so `==` is identity)
-      #   - codegen emits sp_Object_new() for `Object.new`
-      #   - the receiver-passthrough `freeze` arm in compile_object_method_expr
-      #     keeps the chain alive so the constant gets the actual pointer.
+      # `Object.new.freeze` constants used as identity sentinels: each
+      # `Object.new` is a fresh object, `freeze` returns the receiver, and
+      # `==` compares identity.
 
       NO_DIRECT_CALL = Object.new.freeze
       HASH_MISS = Object.new.freeze
@@ -2897,14 +2808,11 @@ describe "Classes programs" do
 
   it "poly join value type receiver" do
     result = zr(<<~'RUBY')
-      # The poly `join` dispatch grew a user-class arm in ceaea73e (#4083's fix). That
-      # arm passed the boxed receiver as a POINTER; a value-type class takes self by
-      # value, and the C build stopped (#4091). The sibling arm at the default
-      # dispatch has dereferenced it since #2441.
+      # `v.join(", ")` on a value of unknown type calls the user class's own
+      # `join` when v is a P, and Array#join when v is an Array.
       #
-      # The class has to STAY a value type for this to bite, so nothing here hands a
-      # P around by reference -- an extra `show(P.new(...))` was enough to take it
-      # off the value-type path and the test stopped covering the bug.
+      # Nothing here passes a P to `show`: a small class with no mutator is
+      # a special case, and the example must keep P that way.
 
       class P
         def initialize(b)
@@ -2938,18 +2846,9 @@ describe "Classes programs" do
 
   it "poly return value class" do
     result = zr(<<~'RUBY')
-      # Issue #118: a method that returns instances of two or more value-
-      # type-eligible classes per branch used to crash the C compile. Both
-      # A and B detected as value-type (no attr_writer / no mutator) →
-      # `sp_A_new(...)` / `sp_B_new(...)` returned the struct by value →
-      # `sp_box_obj(struct, ci)` tried to put a struct into `sp_RbVal.v.p`
-      # (`void *`), and the unboxing dispatch passed `void *` to a method
-      # taking its receiver by value.
-      #
-      # Fix: detect_poly_returned_types collects every class constructed
-      # inside a poly-returning method and excludes those classes from the
-      # value-type optimization, so they stay heap-allocated and the
-      # existing poly-return / sp_RbVal plumbing handles them as pointers.
+      # A method that returns instances of two or more small classes (no
+      # attr_writer, no mutator), one class per branch. A call on the result
+      # goes to the method of the right class.
 
       class A
         def initialize(v); @v = v; end
@@ -2986,8 +2885,7 @@ describe "Classes programs" do
       puts by_kind(9).label    # A:many
 
       # Method invocation that returns a different type per class — the
-      # poly receiver dispatches through the cls_id table generated for
-      # explicit `def`-defined methods on each class.
+      # receiver dispatches to the `def`-defined method of its class.
       class P
         def initialize(n); @n = n; end
         def double; @n * 2; end
@@ -3696,8 +3594,8 @@ describe "Classes programs" do
 
   it "scoped builtin class values" do
     result = zr(<<~'RUBY')
-      # ::-scoped builtin class constants as first-class values (#2840), and
-      # stat handles reporting File::Stat (#2841).
+      # ::-scoped builtin class constants as first-class values, and
+      # stat handles reporting File::Stat.
       p Math::DomainError
       p Math::DomainError.superclass
       p Process::Status

@@ -46,8 +46,8 @@ describe "Process: raising and rescuing" do
       # with surrounding top-level code, re-executing each reopen's body at
       # its own site; a rescued raise inside a module body shows the
       # `<module:M>` frame and `<main>` at the `module` keyword's line.
-      # (Bodies used to be hoisted wholesale to the head of `run_main`,
-      # printing before earlier top-level output and reading line 0.)
+
+
 
       puts "top1"
       class Foo
@@ -128,7 +128,7 @@ describe "Process: raising and rescuing" do
     result = zr(<<~'RUBY')
       # The CPU-time clock ids resolve to Integers. Their exact value is the
       # platform's own clock id (it differs between Linux and macOS), so assert the
-      # type, not the value. Regression for #2666.
+      # type, not the value.
       p((Process::CLOCK_PROCESS_CPUTIME_ID rescue $!.class).is_a?(Integer))
       p((Process::CLOCK_THREAD_CPUTIME_ID rescue $!.class).is_a?(Integer))
       p(Process::CLOCK_MONOTONIC.is_a?(Integer))

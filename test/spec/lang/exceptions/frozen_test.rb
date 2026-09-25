@@ -548,8 +548,8 @@ describe "Exceptions: frozen literals" do
       show { Class.new(1) }
       show { Class.new(Class) }
       show { Class.new(Object.new.singleton_class) }
-      # LEGAL, and both used to be conflated with the refusals: `Module` is a
-      # Class, it is just not a module instance.
+      # These are LEGAL, not refusals: `Module` is a Class, it is just not a
+      # module instance.
       show { Class.new(Module).ancestors.include?(Module) }
       show { Class.new(BasicObject).ancestors.include?(BasicObject) }
       show { Class.new(String).new("hi") }

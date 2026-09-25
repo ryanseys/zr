@@ -5,30 +5,30 @@ require "spec_helper"
 describe "Array: pattern matching" do
   it "first, last, take, drop and the deconstruct rows answer on an empty array too" do
     result = zr(<<~'RUBY')
-      # Array/Comparable conformance (KieranP #2287,#2289-2294)
+      # Array/Comparable conformance
       class Ver
         include Comparable
         attr_reader :n
         def initialize(n); @n = n; end
         def <=>(o); n <=> o.n; end
       end
-      p(Ver.new(5).respond_to?(:<))       # #2287 Comparable-mixin operators
+      p(Ver.new(5).respond_to?(:<))       # Comparable-mixin operators
       p(Ver.new(5).respond_to?(:between?))
-      p([] + [1])                         # #2289 empty array literal operand
+      p([] + [1])                         # empty array literal operand
       p([1] + [])
       p([] - [1])
-      p([1, "a", 2] - ["a"])              # #2290 different element types
+      p([1, "a", 2] - ["a"])              # different element types
       p([1, 2] - [2, "a"])
       p([1, 2] & [2, 3])
       p([1, 2] | ["a"])
-      p([].push(1))                       # #2291 mutate empty literal directly
+      p([].push(1))                       # mutate empty literal directly
       p([] << 5)
-      p([1, 2].unshift(nil))              # #2292 unshift nil into a numeric array
+      p([1, 2].unshift(nil))              # unshift nil into a numeric array
       p([1.1, 2.2].unshift(nil))
       p([1, 2].unshift(nil, nil))
-      p([1.1, 2.2].include?(2.2))         # #2293 Float array include?
+      p([1.1, 2.2].include?(2.2))         # Float array include?
       p([1.1, 2.2].include?(9.9))
-      p([].nil?)                          # #2294 nil? on an empty array literal
+      p([].nil?)                          # nil? on an empty array literal
       p([].empty?)
     RUBY
 
@@ -125,10 +125,9 @@ describe "Array: pattern matching" do
 
   it "a case/in array pattern reads a poly scrutinee's length and elements through the poly path" do
     result = zr(<<~'RUBY')
-      # A case/in array pattern over a poly-typed scrutinee must read its length and
-      # elements through the poly path (sp_poly_length / sp_poly_index_poly behind a
-      # tag guard), never `->len` on a bare value. One helper fed several element
-      # kinds keeps the scrutinee poly so the typed-array fast path never applies.
+      # A case/in array pattern over a scrutinee of unknown type reads its length and
+      # elements after a check that the value is an Array. One helper fed several
+      # element kinds keeps the scrutinee type unknown, so no typed-array path applies.
       def s(x); x; end
 
       def head1?(v)
@@ -232,10 +231,9 @@ describe "Array: pattern matching" do
     result = zr(<<~'RUBY')
       # A nested array pattern in `case/in` (`in [a, [b, c], d]`) destructures the
       # sub-array element, binding its inner targets, and matches only when the
-      # element is itself a correctly-shaped array. Previously the nested element was
-      # skipped (inner targets bound nil) and matched on outer length alone.
-      # Each scrutinee routes through its own method param (so the runtime path runs);
-      # separate helpers keep each param type concrete and avoid cross-case widening.
+      # element is itself a correctly-shaped array. Each scrutinee routes through
+      # its own method param (so the runtime path runs); separate helpers keep each
+      # param type concrete and avoid cross-case widening.
 
       # nested match
       def n1(x); x; end
@@ -281,7 +279,7 @@ describe "Array: pattern matching" do
       in [[x, y], z] then p [x, y, z]             # ["a", "b", 1]
       end
 
-      # flat pattern still works (regression)
+      # flat pattern
       def n8(x); x; end
       case n8([1, "two", 3])
       in [a, b, c] then p [a, b, c]               # [1, "two", 3]

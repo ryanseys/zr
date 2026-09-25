@@ -48,9 +48,8 @@ describe "Hash: searching and matching" do
 
   it "map.with_index and each.with_index ride the pair array, and a nil-tailed block keeps its side effects" do
     result = zr(<<~'RUBY')
-      # hash.map.with_index / hash.each.with_index interpose to_a and ride the
-      # pair-array chain; a nil-typed block tail (puts) keeps its side effects
-      # through the boxed collect (it used to be folded to a bare nil).
+      # hash.map.with_index / hash.each.with_index iterate the [key, value]
+      # pairs. A block that ends in puts still runs puts for each pair.
       h = { a: 1, b: 2 }
       h.map.with_index { |(k, v), i| puts "#{i}:#{k}" }
       h.each.with_index { |(k, v), i| puts "#{i}=#{v}" }
@@ -192,24 +191,16 @@ describe "Hash: searching and matching" do
 
   it "a callee that widened its hash slot to poly widens its caller's slot to the same variant" do
     result = zr(<<~'RUBY')
-      # Hash-typed parameter back-propagation from callee slot:
-      # `def outer(into); inner(into); end` where `inner` already
-      # widened its `into` slot to a poly variant (via body
-      # heterogeneous writes) should widen `outer`'s `into` slot to
-      # the same poly variant. Symmetric extension of #453's ptr-back-
-      # prop applied to hash types.
+      # A hash goes from `parse` to `assign`. `assign` stores both a String
+      # and a Hash as values in it. The caller passes the same hash object,
+      # so the caller must also accept values of mixed types.
       #
-      # Surfaces in real-blog's
-      # `CgiIo.parse_form_into(into) -> CgiIo.assign_form_pair(into, ...)`
-      # chain where assign_form_pair widens to str_poly_hash via its
-      # body's mixed `into[k] = val` (string) + `into[k] = {}` (hash)
-      # writes; pre-fix the outer parse_form_into kept `into` typed
-      # str_int_hash and the C call passed it into a str_poly_hash *
-      # slot.
+      # This is the shape of a form parser in a blog app: the parser calls
+      # a helper that stores `into[k] = val` (a String) and `into[k] = {}`
+      # (a Hash) in the same hash.
 
       module Form
-        # Heterogeneous body — into[k] = string AND into[k] = {} —
-        # widens `into` to str_poly_hash via narrow_param_hash.
+        # The body stores a String AND a Hash as values of `into`.
         def self.assign(into, k, v)
           if k.include?("[")
             into[k] = {}
@@ -218,15 +209,13 @@ describe "Hash: searching and matching" do
           end
         end
 
-        # Bare-call forward of `into` — outer's `into` should widen
-        # to the same str_poly_hash via callee-slot back-prop.
+        # This passes `into` on to `assign`, so it holds mixed values too.
         def self.parse(input, into)
           input.split("&").each { |pair| assign(into, pair, "v") }
         end
 
-        # Driver that creates a properly-typed sym_poly_hash and
-        # widens through the chain. Using a heterogeneous initial
-        # literal pins the LV at str_poly_hash from the start.
+        # The driver starts with a literal that holds a String value and
+        # a Hash value, then passes it through the chain.
         def self.run
           h = { "x" => "v", "nested" => {} }
           parse("a=1&b=2", h)

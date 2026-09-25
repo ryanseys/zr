@@ -52,12 +52,7 @@ describe "String: formatting and inspection" do
 
   it "empty symbol literal" do
     result = zr(<<~'RUBY')
-      # The empty symbol literal `:""` is a real SymbolNode whose content is
-      # "". collect_sym_names skipped "" (its shared helper guards param-name
-      # callers against a blank), so the symbol got no table entry and
-      # compile_symbol_literal fell back to sp_sym_intern -- a function that is
-      # only emitted when the intern path is otherwise needed, leaving an
-      # `undefined reference to sp_sym_intern` link failure for a bare `:""`.
+      # The empty symbol literal `:""` is a real Symbol whose name is "".
 
       s = :""
       puts s.to_s.length          #=> 0
@@ -155,17 +150,9 @@ describe "String: formatting and inspection" do
 
   it "literal string markers" do
     result = zr(<<~'RUBY')
-      # Every string spinel hands back to Ruby carries a marker byte at [-1].
-      # sp_gc_mark reads it to decide whether a rooted pointer is a literal to skip
-      # or a heap object whose mark word it should write, so a runtime arm that
-      # returns a BARE C literal is a fault waiting for a collection: the collector
-      # reads whatever rodata precedes the literal, fails to recognise a marker,
-      # concludes it has a heap object and writes into read-only memory.
-      #
-      # Each value below is held in a live local across an explicit GC.start, which
-      # is exactly that window. #3393 fixed sp_sym_to_s's empty return; these are the
-      # rest of the same family (class names, the inspect fallbacks, an exception
-      # with no object behind it).
+      # Strings that the runtime returns (class names, the inspect fallbacks, an
+      # exception with no object behind it) must stay valid across a collection.
+      # Each value below is held in a live local across an explicit GC.start.
 
       def churn
         a = []
@@ -197,7 +184,7 @@ describe "String: formatting and inspection" do
         p through_gc(e.message)
       end
 
-      # a nil Symbol slot renders through sp_sym_to_s's out-of-range arm (#3393)
+      # a nil Symbol slot
       class Holder
         def initialize(s)
           @s = s
@@ -311,12 +298,12 @@ describe "String: formatting and inspection" do
       r023 = (1.step("z", 1).to_a rescue $!.class); p r023
       r024 = (1.5.between?("a", "z") rescue $!.class); p r024
 
-      r025 = (5.between?("a", "z") rescue $!.class); p r025   # Ruby: ArgumentError   Spinel: false
+      r025 = (5.between?("a", "z") rescue $!.class); p r025   # Ruby: ArgumentError
 
-      p((5.gcd("x") rescue $!.class))     # both: TypeError
-      p((5.lcm("x") rescue $!.class))     # both: TypeError
-      p((1.5 + "x" rescue $!.class))      # both: TypeError
-      p((1.5 ** "x" rescue $!.class))     # both: TypeError
+      p((5.gcd("x") rescue $!.class))     # TypeError
+      p((5.lcm("x") rescue $!.class))     # TypeError
+      p((1.5 + "x" rescue $!.class))      # TypeError
+      p((1.5 ** "x" rescue $!.class))     # TypeError
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -387,7 +374,7 @@ describe "String: formatting and inspection" do
   it "str int hash missing key nil" do
     result = zr(<<~'RUBY')
       h = {"a" => 1, "b" => 2}
-      # Missing-key reads are value-level nil (#801).
+      # Missing-key reads are value-level nil.
       p h["miss"]
       p h["miss"].nil?
       p h["miss"].inspect
@@ -466,9 +453,8 @@ describe "String: formatting and inspection" do
 
   it "repeat, +@, the justify family and the character walk all keep a NUL and what follows it" do
     result = zr(<<~'RUBY')
-      # A NUL is an ordinary byte in a Ruby String, but repeat, unary plus, the
-      # justify family and the character walk all sized themselves with strlen and
-      # so dropped the NUL and everything after it. #3473.
+      # A NUL is an ordinary byte in a Ruby String. Repeat, unary plus, the justify
+      # family and the character walk all keep the NUL and everything after it.
       s = "a\0b"
       p((s * 2).bytes)
       p((+s).bytes)
@@ -573,7 +559,6 @@ describe "String: formatting and inspection" do
       # String#undump is the inverse of String#dump. Round-tripping a string
       # through dump then undump returns the original (each engine round-trips
       # its own dump format, so the comparison is version-independent).
-      # Previously undump was unresolved.
       ["hello", "a\tb\nc", "q\"u\\o#te", "tab\there", "café"].each do |s|
         puts(s.dump.undump == s)
       end
@@ -692,16 +677,16 @@ describe "String: formatting and inspection" do
 
   it "symbol id2name ruby desc minmax" do
     result = zr(<<~'RUBY')
-      # #1249 Symbol#id2name: the symbol's name as a String (alias of to_s).
+      # Symbol#id2name: the symbol's name as a String (alias of to_s).
       p :hello.id2name
       p :foo_bar.id2name
       puts :sym.id2name.class
 
-      # #1251 RUBY_DESCRIPTION is a String (value is engine-specific; only the
+      # RUBY_DESCRIPTION is a String (value is engine-specific; only the
       # class is asserted so it stays portable).
       puts RUBY_DESCRIPTION.class
 
-      # #1217 Range#minmax: [min, max], honouring exclusive end.
+      # Range#minmax: [min, max], honouring exclusive end.
       p (1..10).minmax
       p (1...10).minmax
       p (5..5).minmax

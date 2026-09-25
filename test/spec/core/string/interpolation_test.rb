@@ -146,10 +146,8 @@ describe "String: interpolation" do
     result = zr(<<~'RUBY')
       # InterpolatedSymbolNode -- `:"foo_#{x}"`.
       #
-      # Lowered to InterpolatedStringNode + sp_intern at codegen side.
-      # The parser emits InterpolatedSymbolNode with parts; codegen
-      # treats it like InterpolatedStringNode then routes through
-      # the intern helper for symbol identity.
+      # It builds the string like InterpolatedStringNode, then interns it,
+      # so equal names give the same Symbol.
 
       x = "world"
       sym = :"hello_#{x}"
@@ -234,11 +232,9 @@ describe "String: interpolation" do
 
   it "interpolation multistmt" do
     result = zr(<<~'RUBY')
-      # Issue #729. `"#{stmt1; stmt2; ...; stmtN}"` should evaluate every
-      # statement in source order (for side effects) and use the LAST
-      # statement's value in the string. spinel used to take stmts.first,
-      # silently dropping later statements -- losing both their effects on
-      # locals and the correct interpolation value.
+      # `"#{stmt1; stmt2; ...; stmtN}"` evaluates every statement in source
+      # order (for side effects) and uses the LAST statement's value in the
+      # string.
 
       y = 0
       s = "#{y = 10; y = 20; y}"
@@ -260,11 +256,7 @@ describe "String: interpolation" do
 
   it "interpolation symbol name" do
     result = zr(<<~'RUBY')
-      # `"#{sym}"` should render the symbol's name, not its int id.
-      # Pre-fix compile_interpolated had no symbol arm in its
-      # type-dispatch switch, so the default int path emitted the raw
-      # `sp_sym` value (`0`, `1`, ...) instead of routing through
-      # sp_sym_to_s. Issue #633.
+      # `"#{sym}"` renders the symbol's name, not an integer id.
 
       s = :hello
       puts s

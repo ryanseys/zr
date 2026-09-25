@@ -8,13 +8,10 @@ describe "Eval programs" do
       # A `class << self` body holding a BARE `private` compiles inside a run-time
       # `eval`.
       #
-      # A class body written in a snippet runs as one more `class_eval` of its own
-      # SOURCE TEXT, sliced from its statements' spans, so a statement with no span
-      # cannot be re-emitted at all. A bare visibility directive in a singleton body
-      # survives lowering as a marker plus a synthesized `public` reset at body end,
-      # and that reset used to be stamped `Span::SYNTH` -- which refused the whole
-      # compile. rubygems' `platform.rb` is the corpus case: its `class << self`
-      # holds a bare `private` two thirds of the way down.
+      # A class body in a snippet runs as a `class_eval` of its own source text.
+      # A bare `private` in a singleton body makes the methods after it private
+      # until the body ends. The `class << self` of rubygems' `platform.rb` has
+      # a bare `private` two thirds of the way down.
 
       src = <<~RUBY
         class Widget
@@ -552,10 +549,8 @@ describe "Eval programs" do
       puts fresh.port  # 22
 
       # ---- 8. Receiver from instance variable inside a class method ----
-      # v2 wider-receiver (ivars): @ivar receiver. cls_ivar_type returns the
-      # ivar's stored type; @current_class_idx is set by ieval_walk_class_methods
-      # when entering each class's instance method bodies, so the lift can
-      # resolve `@routes` to obj_Routes without going through a local copy.
+      # The receiver is an ivar that holds a Routes. The method reads `@routes`
+      # directly, not through a local copy.
       class Boot
         attr_accessor :routes
 
@@ -578,10 +573,10 @@ describe "Eval programs" do
       puts boot.routes.entries[1]      # POST /ivar
 
       # ---- 9. Ivar receiver in tail position of a class method ----
-      # Same lift but the instance_eval call is the method body's last
+      # Same, but the instance_eval call is the method body's last
       # expression. The block's last call (`get("/tail")`) returns the
-      # entries array, so the lift's value would flow out; explicitly
-      # return @routes to keep `setup` returning the receiver.
+      # entries array, so `setup` returns @routes explicitly to give
+      # back the receiver.
       class Configure
         attr_accessor :routes
 
@@ -601,13 +596,8 @@ describe "Eval programs" do
       puts ret.entries[0]      # GET /tail
 
       # ---- 10. Receiver from a method param ----
-      # v2 wider-receiver (params): the param's class comes from the caller,
-      # not the body. infer_param_types_from_callsites widens Wire#wire_param's
-      # `r` ptype from "int" to obj_Routes when it sees `w.wire_param(shared)`
-      # at top level (with `w` declared in scope so the receiver-method
-      # branch fires). ieval_walk_class_methods then declares `r: obj_Routes`
-      # in scope, and find_var_type resolves the LocalVariableReadNode
-      # receiver inside the method body.
+      # The receiver is a method param. Its class comes from the caller
+      # (`w.wire_param(shared)` at top level), not from the method body.
       class Wire
         def wire_param(r)
           r.instance_eval do
@@ -623,7 +613,7 @@ describe "Eval programs" do
       puts shared.entries[0]      # GET /param
 
       # ---- 11. Param receiver in tail position ----
-      # Same as §10 but the lift is the method body's last expression.
+      # Same as §10, but the instance_eval call is the method body's last expression.
       # Block's last call (`get("/tail-param")`) returns the entries
       # array; explicitly return `r` to keep wire_param returning the
       # receiver.
@@ -641,10 +631,7 @@ describe "Eval programs" do
       puts ret2.entries[0]      # GET /tail-param
 
       # ---- 12. Method-local copy of a class instance ----
-      # scan_locals_first_type sees `routes = Routes.new` and declares
-      # `routes : obj_Routes` in scope. The method-param case (§10) and
-      # this method-local case both flow through the same find_var_type
-      # fallback added to ieval_rewrite_call's LocalVariableReadNode branch.
+      # The receiver is a local of the method that holds `Routes.new`.
       class WireLocal
         def setup
           routes = Routes.new
@@ -964,9 +951,9 @@ describe "Eval programs" do
   it "class eval value form" do
     result = zr(<<~'RUBY')
       # The value forms of class_eval / class_exec / module_eval / module_exec: the
-      # block is spliced inline (self = the receiver constant), its value is the
-      # call's value, and class_exec's args bind the block params (#2697). A pure-def
-      # body keeps going through the compile-time reopen path.
+      # block runs with self set to the receiver, its value is the call's value,
+      # and class_exec's args bind the block params. A body of only `def`s reopens
+      # the class.
       class C; end
       module M; end
       r = C.class_eval { 40 + 2 }
@@ -1981,11 +1968,10 @@ describe "Eval programs" do
 
   it "instance eval builtin receiver" do
     result = zr(<<~'RUBY')
-      # instance_eval / instance_exec with a block on a BUILTIN receiver (#2634):
-      # the body is spliced inline with self bound to a temp; receiverless calls
-      # dispatch on the new self (Kernel globals stay receiverless), and the call's
-      # value is the block's. User-object receivers keep the dedicated splice that
-      # handles their ivars and methods.
+      # instance_eval / instance_exec with a block on a BUILTIN receiver: the block
+      # runs with self set to the receiver. Receiverless calls go to the new self
+      # (Kernel methods such as puts still work), and the call's value is the
+      # block's value. A user-object receiver also gives access to its ivars.
       p "abc".instance_eval { upcase }
       p 5.instance_eval { self + 1 }
       p [1, 2].instance_eval { length * 10 }
@@ -2027,19 +2013,10 @@ describe "Eval programs" do
 
   it "instance_eval with an arity-0 block runs the block against the receiver" do
     result = zr(<<~'RUBY')
-      # Inline-at-call-site arity-0 instance-eval trampoline.
+      # An arity-0 DSL trampoline: `def m(&b); instance_eval(&b); end`.
       #
-      # Full Ruby instance-eval is dynamic — `self` is rebound at runtime,
-      # so AOT compilation needs static type information to resolve method
-      # dispatch inside the block. Spinel's compromise: detect the exact
-      # DSL trampoline shape `def m(&b); instance_eval(&b); end` at compile
-      # time, and inline the block body at the call site with `self`
-      # rebound to the receiver. Receiverless calls inside the spliced
-      # body dispatch to the receiver's class via static type inference
-      # (the new `@instance_eval_self_var` / `@instance_eval_self_type`).
-      #
-      # Anything other than the arity-0 single-statement shape falls
-      # through to the previous silent no-op — by design.
+      # instance_eval runs the block with `self` set to the receiver, so
+      # receiverless calls in the block go to the receiver's class.
 
       # 1. Basic trampoline: `recv.configure { add 10 }` rebinds self to
       #    the Builder instance, so `add(10)` resolves as Builder#add.
@@ -2061,19 +2038,10 @@ describe "Eval programs" do
         end
       end
 
-      # Inline-at-call-site arity-0 instance-eval trampoline.
+      # An arity-0 DSL trampoline: `def m(&b); instance_eval(&b); end`.
       #
-      # Full Ruby instance-eval is dynamic — `self` is rebound at runtime,
-      # so AOT compilation needs static type information to resolve method
-      # dispatch inside the block. Spinel's compromise: detect the exact
-      # DSL trampoline shape `def m(&b); instance_eval(&b); end` at compile
-      # time, and inline the block body at the call site with `self`
-      # rebound to the receiver. Receiverless calls inside the spliced
-      # body dispatch to the receiver's class via static type inference
-      # (the new `@instance_eval_self_var` / `@instance_eval_self_type`).
-      #
-      # Anything other than the arity-0 single-statement shape falls
-      # through to the previous silent no-op — by design.
+      # instance_eval runs the block with `self` set to the receiver, so
+      # receiverless calls in the block go to the receiver's class.
 
       # 1. Basic trampoline: `recv.configure { add 10 }` rebinds self to
       #    the Builder instance, so `add(10)` resolves as Builder#add.
@@ -2112,19 +2080,10 @@ describe "Eval programs" do
 
   it "each receiverless call in the block reaches the receiver" do
     result = zr(<<~'RUBY')
-      # Inline-at-call-site arity-0 instance-eval trampoline.
+      # An arity-0 DSL trampoline: `def m(&b); instance_eval(&b); end`.
       #
-      # Full Ruby instance-eval is dynamic — `self` is rebound at runtime,
-      # so AOT compilation needs static type information to resolve method
-      # dispatch inside the block. Spinel's compromise: detect the exact
-      # DSL trampoline shape `def m(&b); instance_eval(&b); end` at compile
-      # time, and inline the block body at the call site with `self`
-      # rebound to the receiver. Receiverless calls inside the spliced
-      # body dispatch to the receiver's class via static type inference
-      # (the new `@instance_eval_self_var` / `@instance_eval_self_type`).
-      #
-      # Anything other than the arity-0 single-statement shape falls
-      # through to the previous silent no-op — by design.
+      # instance_eval runs the block with `self` set to the receiver, so
+      # receiverless calls in the block go to the receiver's class.
 
       # 1. Basic trampoline: `recv.configure { add 10 }` rebinds self to
       #    the Builder instance, so `add(10)` resolves as Builder#add.
@@ -2210,19 +2169,10 @@ describe "Eval programs" do
 
   it "nested trampolines compose, inner receiver inside outer" do
     result = zr(<<~'RUBY')
-      # Inline-at-call-site arity-0 instance-eval trampoline.
+      # An arity-0 DSL trampoline: `def m(&b); instance_eval(&b); end`.
       #
-      # Full Ruby instance-eval is dynamic — `self` is rebound at runtime,
-      # so AOT compilation needs static type information to resolve method
-      # dispatch inside the block. Spinel's compromise: detect the exact
-      # DSL trampoline shape `def m(&b); instance_eval(&b); end` at compile
-      # time, and inline the block body at the call site with `self`
-      # rebound to the receiver. Receiverless calls inside the spliced
-      # body dispatch to the receiver's class via static type inference
-      # (the new `@instance_eval_self_var` / `@instance_eval_self_type`).
-      #
-      # Anything other than the arity-0 single-statement shape falls
-      # through to the previous silent no-op — by design.
+      # instance_eval runs the block with `self` set to the receiver, so
+      # receiverless calls in the block go to the receiver's class.
 
       # 1. Basic trampoline: `recv.configure { add 10 }` rebinds self to
       #    the Builder instance, so `add(10)` resolves as Builder#add.
@@ -2279,9 +2229,8 @@ describe "Eval programs" do
       end
 
       # 3. Nested trampolines compose: an outer Builder#configure block
-      #    contains an inner Counter#with block. The splicer save/restores
-      #    @instance_eval_self_var / @instance_eval_self_type, so the
-      #    outer self is restored after the inner block returns.
+      #    contains an inner Counter#with block. The outer self comes back
+      #    after the inner block returns.
       b2 = Builder.new
       c2 = Counter.new
       b2.configure do
@@ -2305,19 +2254,10 @@ describe "Eval programs" do
 
   it "an ivar read and written inside the block belongs to the receiver" do
     result = zr(<<~'RUBY')
-      # Inline-at-call-site arity-0 instance-eval trampoline.
+      # An arity-0 DSL trampoline: `def m(&b); instance_eval(&b); end`.
       #
-      # Full Ruby instance-eval is dynamic — `self` is rebound at runtime,
-      # so AOT compilation needs static type information to resolve method
-      # dispatch inside the block. Spinel's compromise: detect the exact
-      # DSL trampoline shape `def m(&b); instance_eval(&b); end` at compile
-      # time, and inline the block body at the call site with `self`
-      # rebound to the receiver. Receiverless calls inside the spliced
-      # body dispatch to the receiver's class via static type inference
-      # (the new `@instance_eval_self_var` / `@instance_eval_self_type`).
-      #
-      # Anything other than the arity-0 single-statement shape falls
-      # through to the previous silent no-op — by design.
+      # instance_eval runs the block with `self` set to the receiver, so
+      # receiverless calls in the block go to the receiver's class.
 
       # 1. Basic trampoline: `recv.configure { add 10 }` rebinds self to
       #    the Builder instance, so `add(10)` resolves as Builder#add.
@@ -2374,9 +2314,8 @@ describe "Eval programs" do
       end
 
       # 3. Nested trampolines compose: an outer Builder#configure block
-      #    contains an inner Counter#with block. The splicer save/restores
-      #    @instance_eval_self_var / @instance_eval_self_type, so the
-      #    outer self is restored after the inner block returns.
+      #    contains an inner Counter#with block. The outer self comes back
+      #    after the inner block returns.
       b2 = Builder.new
       c2 = Counter.new
       b2.configure do
@@ -2388,16 +2327,9 @@ describe "Eval programs" do
         add(35)
       end
 
-      # 4. Ivar read/write inside the block body. The block body splices
-      #    into the call site with `self` rebound, so `@n = ...` must
-      #    write the rebound receiver's `iv_n`, not the outer scope's
-      #    self. Without @self_override routing, the ivar would resolve
-      #    to a toplevel static-global slot -- broken silently because no
-      #    prior trampoline test exercises direct ivar access inside the
-      #    spliced block (existing tests only call methods like `bump`).
-      #    Counter is reused here (two instances above) so value-type
-      #    promotion stays disabled; the direct-ivar path needs heap
-      #    receivers.
+      # 4. Ivar read/write inside the block body. `self` is the receiver,
+      #    so `@n = ...` writes the ivar of the receiver, not of the
+      #    outer self.
       c3 = Counter.new
       c3.with do
         @n = @n + 5
@@ -2414,19 +2346,10 @@ describe "Eval programs" do
 
   it "the program runs to the end after the trampolines" do
     result = zr(<<~'RUBY')
-      # Inline-at-call-site arity-0 instance-eval trampoline.
+      # An arity-0 DSL trampoline: `def m(&b); instance_eval(&b); end`.
       #
-      # Full Ruby instance-eval is dynamic — `self` is rebound at runtime,
-      # so AOT compilation needs static type information to resolve method
-      # dispatch inside the block. Spinel's compromise: detect the exact
-      # DSL trampoline shape `def m(&b); instance_eval(&b); end` at compile
-      # time, and inline the block body at the call site with `self`
-      # rebound to the receiver. Receiverless calls inside the spliced
-      # body dispatch to the receiver's class via static type inference
-      # (the new `@instance_eval_self_var` / `@instance_eval_self_type`).
-      #
-      # Anything other than the arity-0 single-statement shape falls
-      # through to the previous silent no-op — by design.
+      # instance_eval runs the block with `self` set to the receiver, so
+      # receiverless calls in the block go to the receiver's class.
 
       # 1. Basic trampoline: `recv.configure { add 10 }` rebinds self to
       #    the Builder instance, so `add(10)` resolves as Builder#add.
@@ -2483,9 +2406,8 @@ describe "Eval programs" do
       end
 
       # 3. Nested trampolines compose: an outer Builder#configure block
-      #    contains an inner Counter#with block. The splicer save/restores
-      #    @instance_eval_self_var / @instance_eval_self_type, so the
-      #    outer self is restored after the inner block returns.
+      #    contains an inner Counter#with block. The outer self comes back
+      #    after the inner block returns.
       b2 = Builder.new
       c2 = Counter.new
       b2.configure do
@@ -2497,16 +2419,9 @@ describe "Eval programs" do
         add(35)
       end
 
-      # 4. Ivar read/write inside the block body. The block body splices
-      #    into the call site with `self` rebound, so `@n = ...` must
-      #    write the rebound receiver's `iv_n`, not the outer scope's
-      #    self. Without @self_override routing, the ivar would resolve
-      #    to a toplevel static-global slot -- broken silently because no
-      #    prior trampoline test exercises direct ivar access inside the
-      #    spliced block (existing tests only call methods like `bump`).
-      #    Counter is reused here (two instances above) so value-type
-      #    promotion stays disabled; the direct-ivar path needs heap
-      #    receivers.
+      # 4. Ivar read/write inside the block body. `self` is the receiver,
+      #    so `@n = ...` writes the ivar of the receiver, not of the
+      #    outer self.
       c3 = Counter.new
       c3.with do
         @n = @n + 5
@@ -2523,9 +2438,8 @@ describe "Eval programs" do
 
   it "instance eval unused param" do
     result = zr(<<~'RUBY')
-      # instance_eval/instance_exec with an unused block parameter must still
-      # compile: the param gets no C declaration, so its binding is skipped (the
-      # exec arg still evaluates for effect).
+      # instance_eval/instance_exec with an unused block parameter works, and the
+      # instance_exec argument still evaluates for its side effect.
       p(true.instance_eval { |o| self })
       p(5.instance_eval { |o| self * 2 })
       p("ab".instance_exec(3) { |n| self })
@@ -2618,9 +2532,8 @@ describe "Eval programs" do
 
   it "iter recv evaluated once" do
     result = zr(<<~'RUBY')
-      # A fused loop must evaluate its receiver expression once, not once per
-      # iteration: re-running a call mid-loop re-reads whatever it returns, so
-      # `Dir.children(dir).each` deleting entries used to skip half of them.
+      # An iterator call evaluates its receiver expression once, not once per
+      # iteration. So `Dir.children(dir).each` that deletes entries sees all of them.
       $n = 0
       def src
         $n += 1

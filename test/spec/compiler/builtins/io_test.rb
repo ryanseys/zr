@@ -5,11 +5,11 @@ require "spec_helper"
 describe "Builtins: reading and writing" do
   it "dir full surface" do
     result = zr(<<~'RUBY')
-      # Dir surface (#2822-#2830): foreach/each_child ride entries/children + .each,
-      # a chdir block splices with save/restore and returns the block's value, a bare
-      # chdir goes home, getwd/Dir[]/delete/unlink are aliases, empty? stats the
-      # path (ENOENT for a missing one), home(user) reads the passwd db, and glob
-      # takes an Array of patterns.
+      # Dir surface: foreach and each_child yield the same names as entries and
+      # children. A chdir block restores the old directory and returns the
+      # block's value. A bare chdir goes home. getwd, Dir[], delete and unlink
+      # are aliases. empty? raises ENOENT for a missing path. home(user) reads
+      # the passwd db, and glob takes an Array of patterns.
       dir = "/tmp/sp_t_dir1"
       Dir.mkdir(dir) unless Dir.exist?(dir)
       File.write("#{dir}/x", "")
@@ -71,8 +71,8 @@ describe "Builtins: reading and writing" do
 
   it "file and dir surface gaps" do
     result = zr(<<~'RUBY')
-      # Dir.glob with an ABSOLUTE-path pattern + a `*` wildcard (used to return
-      # [] because the walk read "" instead of "/"); FNM_DOTMATCH yields "." and
+      # Dir.glob with an ABSOLUTE-path pattern + a `*` wildcard finds the files
+      # under that path; FNM_DOTMATCH yields "." and
       # dotfiles but never ".."; File.mkfifo returns 0 and creates a FIFO;
       # File#lstat returns a File::Stat; File.exists? was removed in Ruby 3.2.
 

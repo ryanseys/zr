@@ -9,18 +9,9 @@ describe "Time: the time library" do
 
 
       def t_sym_hash_method_dispatch
-        # #510. `sym_str_hash` and `sym_poly_hash` got the right type
-        # tag at analyze time but the codegen dispatch had no arms for
-        # merge / fetch / dup / delete — every call emitted 0 with a
-        # "cannot resolve call to '<m>' on sym_<x>_hash" warning.
-        #
-        # Fix: added codegen arms for the missing operations, with
-        # matching runtime helpers (sp_SymStrHash_merge, sp_SymPolyHash_delete)
-        # emitted alongside the existing sp_SymStrHash_* set / declared in
-        # the runtime header. fetch's default value is boxed via
-        # box_expr_to_poly so the ternary's arms agree on sp_RbVal type.
-        # Analyze: fetch on sym_poly_hash / str_poly_hash returns poly
-        # (so the receiving LV slot widens to sp_RbVal).
+        # merge / fetch / dup / delete on a Symbol-keyed Hash with String
+        # values, and on a Symbol-keyed Hash with values of mixed types.
+        # fetch with a default answers the stored value or the default.
 
         # sym_str_hash.merge
         base = { href: "/path" }
@@ -178,22 +169,8 @@ describe "Time: the time library" do
 
 
       def t_time_iso8601_strftime
-        # Issue #414. `Time#iso8601` and `Time#strftime` were unresolved on
-        # a Time receiver -- spinel emitted a `cannot resolve call to ...
-        # on time (emitting 0)` warning and the result fell back to int.
-        # Downstream `.length` / string concat then either cascaded more
-        # (emitting 0) warnings or surfaced as a C-compile error at any
-        # typed-string sink.
-        #
-        # Fix:
-        #   - Runtime: sp_time_iso8601(t) and sp_time_strftime(t, fmt) in
-        #     lib/sp_runtime.h, both delegating to libc strftime against
-        #     the local-time broken-down value. iso8601 splices a colon
-        #     into the %z offset to match CRuby's "+HH:MM" form.
-        #   - Inference: infer_method_name_type returns "string" when
-        #     mname is "iso8601" / "strftime" AND recv is a Time.
-        #   - Codegen: compile_object_method_expr's `recv_type == "time"`
-        #     arm dispatches to the new runtime helpers.
+        # `Time#iso8601` and `Time#strftime` on a Time receiver answer a
+        # String. iso8601 writes the offset in CRuby's "+HH:MM" form.
         #
         # Coverage: shape rather than exact-string assertions, since the
         # output depends on the system clock + local-time offset. We
@@ -201,11 +178,8 @@ describe "Time: the time library" do
         # and that the surrounding format characters land in the right
         # positions.
         #
-        # The runtime computes the offset via mktime(gmtime(s)) - s rather
-        # than strftime's %z, so the format is stable across libcs --
-        # previous attempts relied on POSIX %z (±HHMM) but Windows MSVCRT
-        # emits the timezone *name* instead, blowing past any reasonable
-        # length cap.
+        # The offset is always numeric, never a timezone *name*, so the
+        # length is the same on each platform.
 
         t = Time.now
         iso = t.iso8601
@@ -247,25 +221,10 @@ describe "Time: the time library" do
 
 
       def t_time_utc
-        # Issue #418. `Time#utc` was unresolved on a Time receiver --
-        # emitted a `cannot resolve call to 'utc' on time (emitting 0)`
-        # warning and the result fell back to int. Sibling shape to #414
-        # (iso8601 / strftime); ActiveRecord's `fill_timestamps` does
-        # `Time.now.utc.iso8601` to produce UTC-suffixed timestamp
-        # strings, and with iso8601 resolved post-#414 but utc still
-        # unresolved, the chain broke one step earlier.
-        #
-        # Fix:
-        #   - Runtime: sp_Time gains an `is_utc` flag (C99 compound
-        #     literals zero-init the new field, so existing
-        #     `(sp_Time){sec, nsec}` sites stay valid). sp_time_utc(t)
-        #     returns the same instant with is_utc set; sp_time_iso8601
-        #     and sp_time_strftime check the flag and dispatch through
-        #     gmtime when it's set.
-        #   - Codegen: compile_object_method_expr's recv_type=="time" arm
-        #     dispatches `utc` to sp_time_utc.
-        #   - Inference: infer_method_name_type returns "time" when mname
-        #     is "utc" and recv resolves to time.
+        # `Time#utc` on a Time receiver answers the same instant in UTC.
+        # ActiveRecord's `fill_timestamps` does `Time.now.utc.iso8601` to
+        # make UTC-suffixed timestamp strings. iso8601 and strftime on a
+        # UTC time use the UTC clock fields.
         #
         # Coverage:
         #   - Time.now.utc.iso8601 round-trip (the canonical chain) -- the
@@ -293,7 +252,7 @@ describe "Time: the time library" do
         iso2 = t.utc.iso8601
         puts iso2.length == 20 && iso2[19] == "Z" ? "utc-idempotent-ok" : "utc-idempotent-bad"
 
-        # Local iso8601 still works (regression check on #414's path).
+        # Local iso8601 still works.
         puts Time.now.iso8601.length == 25 ? "local-iso-still-ok" : "local-iso-broken"
       end
       t_time_utc
@@ -314,19 +273,8 @@ describe "Time: the time library" do
 
 
       def t_times_map_nested_array
-        # #553 (cielavenir). `N.times.map { block-returns-array }`
-        # now collects into a sp_PtrArray rather than sp_IntArray.
-        # Pre-fix codegen always built sp_IntArray for the outer
-        # accumulator, then `sp_IntArray_push` was handed an sp_IntArray
-        # pointer as its mrb_int second argument -- -Wint-conversion
-        # warning at compile time, garbage values at runtime.
-        #
-        # The fix routes any block-returns-array shape (int_array,
-        # str_array, float_array, sym_array, poly_array, or any
-        # *_ptr_array nesting) through sp_PtrArray; analyze's
-        # `<inner>_ptr_array` static type already existed for the
-        # normal `recv.map { array }` arm and the inspect helpers
-        # (sp_IntArrayPtrArray_inspect etc.) know how to format it.
+        # `N.times.map { block-returns-array }` answers an Array of
+        # Arrays, and each inner Array keeps its elements.
 
         a = 2.times.map { (0..2).map { |i| i + 1 } }
         p a
@@ -347,13 +295,8 @@ describe "Time: the time library" do
 
       def t_toplevel_ivar_array
         # Top-level instance variables: `@x` at script scope binds to the
-        # main object, the same as inside an instance method. Spinel currently
-        # emits `self->iv_x = ...` for ivar access but the script's top-level
-        # function has no `self` parameter, so the C compiler errors with
-        # `use of undeclared identifier 'self'`. The ivar read also falls
-        # through type inference and gets defaulted to `int`, producing a
-        # bogus "cannot resolve call to 'push' on int" warning before the
-        # hard error.
+        # main object, the same as inside an instance method. An ivar that
+        # holds an Array takes `push` like any other Array.
 
         @n = 0
         @n = @n + 1
@@ -379,17 +322,15 @@ describe "Time: the time library" do
 
   it "a fixed-offset Time keeps its own clock fields through strftime, iso8601 and xmlschema" do
     result = zr(<<~'RUBY')
-      # A fixed-offset Time (is_utc kind 2) renders its CIVIL fields shifted by
-      # utc_off. sp_time_vtm has always done that -- so #hour, #to_s and #inspect
-      # were right -- but strftime / iso8601 / xmlschema read the 3-state kind as a
-      # boolean and took the UTC branch, printing UTC clock fields under a %z that
-      # correctly said otherwise.
+      # A fixed-offset Time renders its CIVIL fields shifted by its UTC offset.
+      # This is true for #hour, #to_s and #inspect, and also for strftime,
+      # iso8601 and xmlschema. They do not print UTC clock fields.
 
       require "time"  # Time#iso8601 / #xmlschema are require-gated stdlib
 
       t = Time.at(1689676186).getlocal(-5 * 3600)
 
-      # the accessors that already routed through sp_time_vtm
+      # the plain accessors
       p t.hour
       p t.to_s
 
@@ -414,9 +355,8 @@ describe "Time: the time library" do
       p e.iso8601
       p Time.new(2000, 1, 1, 12, 0, 0, "+09:00").iso8601
 
-      # a fixed-offset time has no zone NAME, so %Z is empty. (CRuby's Time#zone
-      # returns nil for this kind where spinel returns ""; making #zone nilable is a
-      # return-type change, not a formatter one, so it is left alone here.)
+      # a fixed-offset time has no zone NAME, so %Z is empty. (The example does
+      # not check #zone, which CRuby answers nil for this kind.)
       p t.strftime("%Z")
 
       # the UTC and host-local kinds are unchanged

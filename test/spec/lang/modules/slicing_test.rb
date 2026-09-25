@@ -38,12 +38,6 @@ describe "Modules: slicing" do
       # different: a call written above a reopen answers the FIRST body, in every
       # class that mixed the module in, in a module that includes it, and in an
       # object that extended it.
-      #
-      # zr used to answer the last body everywhere, because a module's rows reach
-      # a host by MATERIALIZATION -- analyze copies them onto each includer once,
-      # for the whole program -- so the reopen's body was the one that got copied
-      # and there was no position to install it at. `analyze::redefs` gives it the
-      # same timeline a plain class already had.
 
       module M
         def z = "first"
@@ -313,12 +307,9 @@ describe "Modules: slicing" do
 
   it "module reopen cmeth redefine" do
     result = zr(<<~'RUBY')
-      # #517. `module M; def self.X; ...; end; end` re-opened with a
-      # second `def self.X` previously emitted two C functions with the
-      # same name but possibly-conflicting return types. CRuby's
-      # semantics: last definition wins; spinel now replaces the
-      # @meth_* row in place when the same `<Mod>_cls_<X>` is seen
-      # again (sibling to the class-reopen fix #489).
+      # `module M; def self.X; ...; end; end` re-opened with a second
+      # `def self.X`, which can return a different type. In Ruby the
+      # last definition wins.
 
       module M
         def self.greet

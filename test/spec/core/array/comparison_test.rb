@@ -8,7 +8,7 @@ describe "Array: comparison and equality" do
       # Array#bsearch / #bsearch_index find-ANY mode: an Integer-valued block follows
       # the comparator protocol (0 found, negative searches left, positive right),
       # distinct from the boolean find-minimum mode. Also: a float-array bsearch miss
-      # is nil (the result temp used to init as NULL, an invalid mrb_float).
+      # is nil.
       a = [0, 4, 7, 10, 12]
       p a.bsearch { |x| x <=> 7 }
       p(a.bsearch { |x| x <=> 3 })
@@ -38,11 +38,9 @@ describe "Array: comparison and equality" do
 
   it "compact's poly result compares equal to a typed literal, in both operand orders" do
     result = zr(<<~'RUBY')
-      # `[1, nil, 2].compact` yields a poly_array, but a literal like `[1, 2]`
-      # stays an int_array, so `compact == [1, 2]` compared distinct pointer
-      # types and failed the -Werror build. Add a poly_array-vs-typed-array
-      # equality that boxes the typed side per element and compares via
-      # sp_poly_eq (both operand orders).
+      # `[1, nil, 2].compact` starts from an array with mixed element types.
+      # It compares equal to a literal like `[1, 2]` element by element, in
+      # both operand orders.
 
       p [1, nil, 2].compact                          #=> [1, 2]
       p([1, nil, 2].compact == [1, 2])               #=> true
@@ -222,10 +220,8 @@ describe "Array: comparison and equality" do
     result = zr(<<~'RUBY')
       # `Array#uniq` confirms hash-equal candidates with `eql?`.
       #
-      # The whole key table used to collapse on the user `hash` alone, so any
-      # two objects with colliding hashes were one key however their `eql?`
-      # read. `uniq` was the visible symptom; `a_user_hash_that_collides.rb`
-      # carries the rest, including the Hash that read back another key's value.
+      # Two objects with colliding hashes are one key only when `eql?` says so.
+      # `a_user_hash_that_collides.rb` checks the rest, including Hash lookup.
       c = Struct.new(:v) do
         def hash = 0
         def eql?(o) = v == o.v
@@ -370,10 +366,8 @@ describe "Array: comparison and equality" do
 
   it "nested array eq" do
     result = zr(<<~'RUBY')
-      # Array#== on an array of arrays/objects (a ptr_array) had no deep
-      # comparison -- the dispatch covered int/str/float/poly arrays but not
-      # ptr_array, so `[[1]] == [[1]]` fell through to FALSE. Compare
-      # element-wise inline using each element's statically-known type.
+      # Array#== on an array of arrays/objects compares deeply, element by
+      # element, so `[[1]] == [[1]]` is true.
 
       p([[1]] == [[1]])                         #=> true
       p([[1, 2], [3]] == [[1, 2], [3]])         #=> true

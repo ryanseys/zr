@@ -5,18 +5,11 @@ require "spec_helper"
 describe "String: arithmetic" do
   it "bigint to s is a heap string" do
     result = zr(<<~'RUBY')
-      # Integer#to_s on a Bignum answers an ordinary String, so it must live on the
-      # string heap with its marker byte.
+      # Integer#to_s on a Bignum answers an ordinary String, with the correct
+      # length, and a concat on it copies only its own bytes.
       #
-      # It used to be a bare malloc'd buffer. Nothing reads the byte before such a
-      # chunk deliberately, but sp_str_byte_len does -- it is how every spinel string
-      # reports its length -- so the length came out of whatever the allocator had
-      # put there, and the next concat memcpy'd that many bytes. Under GC stress that
-      # is a heap-buffer-overflow inside sp_str_concat; the visible symptom is a SEGV
-      # in memcpy with a concat on the stack.
-      #
-      # Interleaving other allocation is the point: it decides what sits before the
-      # chunk, which is what the misread length came from.
+      # Interleaving other allocation is the point: it changes what sits in
+      # memory next to the string.
 
       big = 2**200
       noise = []
@@ -88,17 +81,14 @@ describe "String: arithmetic" do
 
   it "str to i overflow" do
     result = zr(<<~'RUBY')
-      # String#to_i overflow handling. Pre-fix: undefined behavior on
-      # int64 wrap (#743) — addressed by overflow-detected saturation.
-      # Per #842 the saturate path is gone; overflow now raises
-      # RangeError so a `rescue` can react instead of silently
-      # returning INT64_MAX/MIN.
+      # String#to_i past the int64 range gives a Bignum. It does not raise,
+      # and it does not stop at INT64_MAX or INT64_MIN.
 
       # Below int64 limit: unchanged.
       puts "12345".to_i
       puts "-67890".to_i
 
-      # At/over int64 max: raises RangeError.
+      # Past int64 max: a Bignum, so the rescue does not run.
       begin
         puts "99999999999999999999999999999".to_i
       rescue RangeError
@@ -114,7 +104,7 @@ describe "String: arithmetic" do
       # Exactly INT64_MAX: parses fine, no raise.
       puts "9_223_372_036_854_775_807".to_i
 
-      # One past INT64_MAX: raises.
+      # One past INT64_MAX: a Bignum.
       begin
         puts "9_223_372_036_854_775_808".to_i
       rescue RangeError
@@ -134,8 +124,7 @@ describe "String: arithmetic" do
 
   it "* with a huge count raises before it allocates, and a negative count raises too" do
     result = zr(<<~'RUBY')
-      # Issue #836: String * <huge> raises ArgumentError instead of
-      # segfaulting (the implicit malloc-NULL + memcpy chain).
+      # String * <huge> raises ArgumentError and does not crash.
       #
       # The receiver is 1000 bytes, not 1, so `len * times` overflows the size check
       # and raises before anything is allocated. A 1-byte receiver takes the ALLOCATE
@@ -244,16 +233,16 @@ describe "String: arithmetic" do
 
   it "a + loop that touches only the string heap still drives a collection" do
     result = zr(<<~'RUBY')
-      # Regression for matz/spinel#1450. A `String#+` loop allocates only on the
-      # string heap (no object-heap allocation), and before the fix the string heap
-      # was swept only from sp_gc_collect, which fires on OBJECT-heap pressure
-      # (sp_gc_bytes). So a string-only workload never collected and RSS grew without
-      # bound. The fix drives collection off the string heap's own live-byte count.
+      # A `String#+` loop allocates only strings, and no other objects. String
+      # allocation alone must start a collection, so memory does not grow without
+      # bound.
       #
       # Assert that a collection actually fires here: GC.stat["cycle"] counts
-      # sp_gc_collect runs, and since this loop never touches the object heap, the
-      # ONLY thing that can advance it is the string-heap trigger. Pre-fix this prints
-      # "NO COLLECTION"; post-fix it prints "collected".
+      # collections. If none runs, this prints "NO COLLECTION"; otherwise it
+      # prints "collected".
+
+
+
       before = GC.stat["cycle"]
       s = ""
       i = 0
@@ -294,10 +283,8 @@ describe "String: arithmetic" do
 
   it "to_i and Integer() raise RangeError past int64 rather than saturate" do
     result = zr(<<~'RUBY')
-      # String#to_i / Integer() on input exceeding int64 raises
-      # RangeError rather than saturating silently. spinel's int model
-      # is int64-only, so the CRuby Bignum promotion path lowers to a
-      # user-catchable RangeError.
+      # String#to_i and Integer() on input past the int64 range give a
+      # Bignum. They do not raise RangeError, and they do not saturate.
 
       begin
         "99999999999999999999".to_i
