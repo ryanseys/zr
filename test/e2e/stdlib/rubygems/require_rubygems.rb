@@ -1,8 +1,6 @@
 # MILESTONE: `require "rubygems"` works, and the RubyGems API is usable.
 #
-# The umbrella require, not an entry at a sub-file. `tests/bench/rubygems.rb`
-# used to enter at `rubygems/version` and friends precisely because this did
-# not work; this file is what retires that workaround.
+# The umbrella require, not an entry at a sub-file such as `rubygems/version`.
 #
 # Shapes, never versions. Ruby has RubyGems loaded before the program starts,
 # so its `require` answers false where zr's answers true, and zr's bundled

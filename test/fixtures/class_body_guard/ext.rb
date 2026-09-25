@@ -1,5 +1,5 @@
-# Each reopen's body is ONE statement, which is the shape that used to break:
-# the guard was lifted out of the class-body function and asked of `Gm`.
+# Each reopen's body is ONE statement. The guard must ask `Plat`, the class
+# that the body reopens, and not the outer module `Gm`.
 module Gm
   require_relative "plat"
 
