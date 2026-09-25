@@ -6,7 +6,7 @@ require_relative "config"
 module Zr
   # Whether this process is a program that zr compiled (the compiled
   # compiler, or a program with eval support) and not CRuby. A zr binary
-  # gives the same RUBY_ENGINE and RubyVM as ruby 4.0.6, but its RbConfig
+  # gives the same RUBY_ENGINE and RubyVM as ruby 4.0.7, but its RbConfig
   # gives zr as the interpreter (runtime/ext/rbconfig.rb).
   def self.compiled? = RbConfig::CONFIG["ruby_install_name"] == "zr"
 

@@ -10,7 +10,7 @@ PATH
       did_you_mean (= 2.0.0)
       drb (= 2.2.3)
       english (= 0.8.1)
-      erb (= 6.0.1.1)
+      erb (= 6.0.7)
       error_highlight (= 0.7.2)
       fiddle (= 1.1.8)
       fileutils (= 1.8.0)
@@ -44,7 +44,7 @@ PATH
       rake (= 13.4.2)
       readline (= 0.0.4)
       reline (= 0.7.0)
-      resolv (= 0.7.0)
+      resolv (= 0.7.2)
       resolv-replace (= 0.2.0)
       rexml (= 3.4.4)
       rinda (= 0.2.0)
@@ -80,7 +80,7 @@ GEM
     did_you_mean (2.0.0)
     drb (2.2.3)
     english (0.8.1)
-    erb (6.0.1.1)
+    erb (6.0.7)
     error_highlight (0.7.2)
     fiddle (1.1.8)
     fileutils (1.8.0)
@@ -161,7 +161,7 @@ GEM
     regexp_parser (2.13.0)
     reline (0.7.0)
       io-console (~> 0.5)
-    resolv (0.7.0)
+    resolv (0.7.2)
     resolv-replace (0.2.0)
       resolv
     rexml (3.4.4)
@@ -243,7 +243,7 @@ CHECKSUMS
   did_you_mean (2.0.0) sha256=914a5803e310063240799d547c10693a97eef906bbcbdbe23b46d60a96de765a
   drb (2.2.3) sha256=0b00d6fdb50995fe4a45dea13663493c841112e4068656854646f418fda13373
   english (0.8.1) sha256=39a87c5acaf9798850c9abd2189acc1851df19aa0b58f174894d4d9427524380
-  erb (6.0.1.1) sha256=ce5357460652a9a94667c5769eaffc551eea2b14a8531ac7c7b1d77b860758b9
+  erb (6.0.7) sha256=c5ca6dc25b0ef974a44dc8f59fe847577122483b1968a38dec305c60bf91ee92
   error_highlight (0.7.2) sha256=796bcca7048861e3c8e52bf07258ea6adeee711aa351532ecaee6760392b0345
   fiddle (1.1.8) sha256=7fa8ee3627271497f3add5503acdbc3f40b32f610fc1cf49634f083ef3f32eee
   fileutils (1.8.0) sha256=8c6b1df54e2540bdb2f39258f08af78853aa70bad52b4d394bbc6424593c6e02
@@ -289,7 +289,7 @@ CHECKSUMS
   readline (0.0.4) sha256=6138eef17be2b98298b672c3ea63bf9cb5158d401324f26e1e84f235879c1d6a
   regexp_parser (2.13.0) sha256=d105d95d2138954e73914d2fbfb3d0a8f8605a49a3e89864c32e78b9107cb770
   reline (0.7.0) sha256=5b012d8e55dbf9d450f12bde2cf7d15ff546ae80b3f8f3b30e570d431815583d
-  resolv (0.7.0) sha256=e20ce2c00d1e1d1bd13aa98f52d9b5166509f80f50673084ae54dd26a0b083ad
+  resolv (0.7.2) sha256=626d044d975ab2daac759bf898416f1b51e2cb8dcd6727c2b5b5b28b97ead2e1
   resolv-replace (0.2.0) sha256=76d2c92dc6a744b9e27a915d1962b641c52e2c6ef6662a23335672a3ca593b30
   rexml (3.4.4) sha256=19e0a2c3425dfbf2d4fc1189747bdb2f849b6c5e74180401b15734bc97b5d142
   rinda (0.2.0) sha256=bb4566af73c9b78e80bc41202140860e33150ee2a0eacdf6dfe583e1aa0b03fa

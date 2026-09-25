@@ -578,7 +578,7 @@ describe "Refinements: inheritance and ancestors" do
   it "everything lexically after the using sees the refinement, and dispatch is otherwise ordinary" do
     result = zr(<<~'RUBY')
       # Refinements (`Module#refine` / `Kernel#using`), every line oracle-checked
-      # against ruby 4.0.6 -- several are not what the documentation leads you to
+      # against ruby 4.0.7 -- several are not what the documentation leads you to
       # expect.
       #
       # THE RULE, as the oracle behaves: everything lexically AFTER the `using`, in

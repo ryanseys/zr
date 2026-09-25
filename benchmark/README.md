@@ -2,7 +2,7 @@
 
 Whole programs that `zr-dev bench` builds with zr and times beside
 `ruby` and `ruby --yjit`. They are not tests -- the tiers under `test/`
-hold zr to ruby's answers -- but each carries ruby 4.0.6's recording
+hold zr to ruby's answers -- but each carries ruby 4.0.7's recording
 of its output beside it, and the harness checks that answer before it
 keeps any time: the speed of a wrong answer means nothing.
 
@@ -32,7 +32,7 @@ rows are one machine's, so read two reports from one machine.
 | Holds | |
 |---|---|
 | `bm_<name>.rb` | one program, deterministic output |
-| `bm_<name>.out` | what ruby 4.0.6 printed, written by `zr-dev record benchmark/bm_<name>.rb` |
+| `bm_<name>.out` | what ruby 4.0.7 printed, written by `zr-dev record benchmark/bm_<name>.rb` |
 | `bm_startup.rb` | the floor: a program that prints one line, so its time is the process's start alone |
 | `compile/` | the rungs `zr-dev compile` builds, a ladder of require graphs from `hello` to `bundler` |
 | `results/` | one report a run of the whole bank, `<stamp>-<revision>.txt` |

@@ -276,7 +276,7 @@ module Zr
       report = begin
         # ruby's report uses syntax_suggest. Ruby's boot loads it, but a
         # process started with --disable-gems (a harness child) does not.
-        # Load zr's own copy (3.0.0, as ruby 4.0.6 loads), never the
+        # Load zr's own copy (3.0.0, as ruby 4.0.7 loads), never the
         # host's. Load `api` by its path first, so `core_ext` does not
         # require it by name. Only CRuby runs this, with a computed path,
         # so the compiled compiler does not link it in and uses the

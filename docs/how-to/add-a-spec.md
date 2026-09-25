@@ -8,7 +8,7 @@ This guide writes `zr-dev` for `ruby tool/zr-dev.rb`; see
 
 ## Add an example
 
-1. Get the expected output from ruby 4.0.6. Never write it yourself:
+1. Get the expected output from ruby 4.0.7. Never write it yourself:
 
    ```console
    $ ruby -e 'puts "ab".upcase.encoding'

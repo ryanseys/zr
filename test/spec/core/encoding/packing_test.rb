@@ -913,7 +913,7 @@ describe "Encoding: packing and unpacking" do
     result = zr(<<~'RUBY')
       # encoding: ISO-8859-1
       # A `# encoding:` comment on the first line tags every string literal and
-      # __ENCODING__ with that encoding. Verified against ruby 4.0.6. (The
+      # __ENCODING__ with that encoding. Verified against ruby 4.0.7. (The
       # source must start with the comment, so no leading newline here.)
 
       p __ENCODING__

@@ -10,7 +10,7 @@ the ports stay correct.
 | Library | Role | In zr |
 |---|---|---|
 | prism 1.9.0 | the parser that ruby uses | a Ruby port in `runtime/ext/prism/ruby`, under prism's own Ruby half |
-| Onigmo | CRuby 4.0.6's regular expression engine | a Ruby port: the pattern compiler in `runtime/core/regexp/onig/`, and the matcher in the machine dialect in `runtime/kernel/onig_*.rb` |
+| Onigmo | CRuby 4.0.7's regular expression engine | a Ruby port: the pattern compiler in `runtime/core/regexp/onig/`, and the matcher in the machine dialect in `runtime/kernel/onig_*.rb` |
 | zlib 1.3.1 | compression | a port in the machine dialect, `runtime/kernel/zlib_*.rb` |
 
 ## Why no C

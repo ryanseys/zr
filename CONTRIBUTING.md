@@ -5,7 +5,7 @@ Thank you for helping. This page tells you how to start. The guides in
 
 ## Set up
 
-You need ruby 4.0.6 (see `.ruby-version`) on an Apple Silicon Mac.
+You need ruby 4.0.7 (see `.ruby-version`) on an Apple Silicon Mac.
 [wasmtime](https://wasmtime.dev) is optional; without it, the tests
 that run WebAssembly modules skip.
 
@@ -26,7 +26,7 @@ $ bin/test      # runs every tier: unit, spec, e2e
    pull request. See [How to run the tests](docs/how-to/run-the-tests.md).
 4. Add a line to `CHANGELOG.md` under `[Unreleased]`.
 
-ruby 4.0.6 is the reference: a compiled program must print what ruby
+ruby 4.0.7 is the reference: a compiled program must print what ruby
 prints, byte for byte. When zr cannot do that for a form, it refuses the
 form by name. See [The contract](docs/explanation/the-contract.md).
 

@@ -110,7 +110,7 @@ describe "Object: inheritance and ancestors" do
       # The defining property of class-level `@x`, and the whole reason it
       # can't share `@@x`'s storage: a subclass gets its OWN slot, starting
       # empty, even though it inherits the method that reads it. Contrast the
-      # `@@cv` line, which IS shared. Oracle-verified (ruby 4.0.6).
+      # `@@cv` line, which IS shared. Oracle-verified (ruby 4.0.7).
 
       class Base
         @reg = "base-ivar"

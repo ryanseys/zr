@@ -10,7 +10,7 @@ machine def zr_os_argv(argc, argv)
   argv
 end
 
-# RUBY_PLATFORM, as ruby 4.0.6 built for this OS and machine gives it.
+# RUBY_PLATFORM, as ruby 4.0.7 built for this OS and machine gives it.
 sig [] => Value
 machine def zr_os_ruby_platform
   zr_str_new(Machine.bytes("arm64-darwin23"), 14)

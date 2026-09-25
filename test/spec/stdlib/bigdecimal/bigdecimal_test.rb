@@ -99,7 +99,7 @@ describe "BigDecimal programs" do
       require "bigdecimal"
 
       # The SHAPE, not the number: zr vendors bigdecimal's latest upstream release
-      # (vendor/ext/bigdecimal) and the oracle reads the copy ruby 4.0.6 ships.
+      # (vendor/ext/bigdecimal) and the oracle reads the copy ruby 4.0.7 ships.
       p BigDecimal::VERSION.match?(/\A\d+\.\d+\.\d+\z/)
       p [BigDecimal::BASE, BigDecimal.double_fig]
       p [BigDecimal::ROUND_MODE, BigDecimal.mode(BigDecimal::ROUND_MODE), BigDecimal.mode(BigDecimal::EXCEPTION_ALL), BigDecimal.limit]

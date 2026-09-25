@@ -12,7 +12,7 @@ require "stringio"
 # reports it as a refusal with the line. A program that compiles the
 # pattern while it runs gets the SyntaxError that ruby raises.
 #
-# Each message below was checked against ruby 4.0.6.
+# Each message below was checked against ruby 4.0.7.
 class InvalidRegexpTest < Minitest::Test
   Hir = Zr::Hir
 
@@ -49,7 +49,7 @@ class InvalidRegexpTest < Minitest::Test
   # ruby's compiler writes no code for an expression whose value is not
   # used, so it never reads a regexp there. The same pattern is a
   # SyntaxError when it is the value of a scope. Each program below was
-  # checked against ruby 4.0.6, and each one runs.
+  # checked against ruby 4.0.7, and each one runs.
   def test_a_pattern_nothing_takes_the_value_of_is_never_read
     [
       "puts 1\n/[z-a]/\nputs 2\n",                   # before the last statement

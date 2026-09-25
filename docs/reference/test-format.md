@@ -34,8 +34,8 @@ at exit.
 
 ## Recording
 
-`zr-dev record <path>` runs the program under ruby 4.0.6 and writes
-the files above. ruby 4.0.6 is the only source of expected outputs, so
+`zr-dev record <path>` runs the program under ruby 4.0.7 and writes
+the files above. ruby 4.0.7 is the only source of expected outputs, so
 nothing else writes them, and nobody writes them by hand. The command does
 not change a program that has a recording.
 `zr-dev record --again <path>` writes the recording again. A change of

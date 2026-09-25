@@ -168,7 +168,7 @@ describe "Singleton: searching and matching" do
 
   it "five recorded divergences that are not" do
     result = zr(<<~'RUBY')
-      # Five behaviours that zr answers exactly as ruby 4.0.6 does. These rows
+      # Five behaviours that zr answers exactly as ruby 4.0.7 does. These rows
       # catch a change in any of them.
       #
       #   1. Mixed Integer/Float comparison past 2**53

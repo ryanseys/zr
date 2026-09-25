@@ -1058,7 +1058,7 @@ describe "IO programs" do
   it "file pure path family" do
     result = zr(<<~'RUBY')
       # `File`'s pure-path family: string work that never touches the disk. Every
-      # expectation oracle-read from ruby 4.0.6 -- including the two that read
+      # expectation oracle-read from ruby 4.0.7 -- including the two that read
       # like off-by-ones (a TRAILING dot IS an extension, a LEADING one is not).
 
       puts File.basename("/home/user/notes.md")
@@ -1906,7 +1906,7 @@ describe "IO programs" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      4.0.6
+      4.0.7
       ruby
       0
       /

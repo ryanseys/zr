@@ -2,7 +2,7 @@
 
 **A Ruby compiler, written in Ruby.** zr compiles Ruby programs to
 native binaries and WebAssembly modules. A compiled program gives
-exactly the output that ruby 4.0.6 gives. When zr cannot promise this
+exactly the output that ruby 4.0.7 gives. When zr cannot promise this
 for a program, it refuses to compile it, and gives the line.
 
 ```console
@@ -26,7 +26,7 @@ $ gem install zr
 
 You need:
 
-- ruby 4.0.6 exactly. zr runs on this version and checks its output
+- ruby 4.0.7 exactly. zr runs on this version and checks its output
   against it;
 - [wasmtime](https://wasmtime.dev), to run WebAssembly modules;
 - OpenSSL 3 (`brew install openssl@3`), only for a macOS program that
@@ -82,7 +82,7 @@ app.rb ─► prism ─► HIR ─► IR ─┬─► aarch64 machine code ─�
   machine dialect (Ruby syntax, machine semantics), and the core
   library in ordinary Ruby.
 
-ruby 4.0.6 is the only source of expected outputs. zr must match
+ruby 4.0.7 is the only source of expected outputs. zr must match
 ruby's output byte for byte. See
 [Architecture](docs/explanation/architecture.md) and
 [The contract](docs/explanation/the-contract.md).

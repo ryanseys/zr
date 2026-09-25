@@ -128,7 +128,7 @@ under `runtime/kernel/`, always changes the description.
 
 ## Check that a literal is still ruby's output
 
-`zr-dev oracle` runs each example's program under ruby 4.0.6 and checks
+`zr-dev oracle` runs each example's program under ruby 4.0.7 and checks
 the example's expected output against it. It compiles nothing, so it
 is fast:
 

@@ -5,7 +5,7 @@ this host, and what to do with the programs that the target cannot run
 correctly yet. For the targets and what each one supports, see
 [Targets](../reference/targets.md).
 
-ruby 4.0.6 on macOS gives every expected output. A target is correct
+ruby 4.0.7 on macOS gives every expected output. A target is correct
 when it gives the same output.
 
 ## Run the tests for a target
@@ -74,7 +74,7 @@ programs.
 ## Run the Linux tests in the container that CI uses
 
 ```console
-$ docker run -d --name alpine -v "$PWD:/zr" -w /zr ruby:4.0.6-alpine sleep infinity
+$ docker run -d --name alpine -v "$PWD:/zr" -w /zr ruby:4.0.7-alpine sleep infinity
 $ docker exec alpine apk add --no-cache build-base git
 $ docker exec alpine git config --global --add safe.directory /zr
 $ docker exec alpine bundle install

@@ -26,7 +26,7 @@ come before or after `<file.rb>`. For `run`, options come before
 `<file.rb>`, because every word after it goes to the program. Put `--`
 before `<file.rb>` when the file name starts with `-`.
 
-zr builds only on ruby 4.0.6, the version that `.ruby-version` gives.
+zr builds only on ruby 4.0.7, the version that `.ruby-version` gives.
 On a different ruby, `run`, `build` and `machine` stop with exit
 status 3.
 
@@ -123,7 +123,7 @@ Other errors print one line that starts with `zr:`, for example
 | 0 | Success. For `zr run`, the program's own status. |
 | 1 | An error. A build step failed; the message tells which. |
 | 2 | A usage error: the command line is wrong. |
-| 3 | A refusal: zr does not support the program, or this host cannot build the target, or the ruby is not 4.0.6. The message gives the form and its line, or the missing tool. |
+| 3 | A refusal: zr does not support the program, or this host cannot build the target, or the ruby is not 4.0.7. The message gives the form and its line, or the missing tool. |
 
 A program that does not parse still builds. Its binary prints ruby's
 syntax error report and exits with status 1, as ruby does.

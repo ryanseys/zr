@@ -60,8 +60,8 @@ no arguments. Give paths and minitest options to `bin/test`.
 | `rake` | `rake lint`, then `rake test`. |
 | `rake test` | The three tiers: unit, spec, e2e. |
 | `rake test:unit` | The unit tier: zr's own internals (`test/unit`). |
-| `rake test:spec` | The spec tier: Ruby specs, each checked against ruby 4.0.6 (`test/spec`). |
-| `rake test:e2e` | The e2e tier: whole programs, built and linked, checked against ruby 4.0.6 (`test/e2e`). |
+| `rake test:spec` | The spec tier: Ruby specs, each checked against ruby 4.0.7 (`test/spec`). |
+| `rake test:e2e` | The e2e tier: whole programs, built and linked, checked against ruby 4.0.7 (`test/e2e`). |
 | `rake lint` | Runs RuboCop's Lint cops (`.rubocop.yml`). |
 | `rake gen` | Writes every generated file again (`zr-dev gen all`). `CHECK=1 rake gen` writes nothing, and fails if a file is out of date. |
 
@@ -108,8 +108,8 @@ gives more examples.
 
 | Command | Does |
 |---|---|
-| `zr-dev oracle [path...] [-n PATTERN]` | Runs the program of each spec example under ruby 4.0.6 and checks the example's expected output against it. It compiles nothing. A path selects one area or file (`zr-dev oracle test/spec/core/string`). `-n` selects the examples whose name matches. |
-| `zr-dev record [--again] <program>...` | Runs a whole program under ruby 4.0.6 and writes its recording (`.out`, `.err`, `.status`) beside it. It does not change a program that has a recording. `--again` writes the recording again. |
+| `zr-dev oracle [path...] [-n PATTERN]` | Runs the program of each spec example under ruby 4.0.7 and checks the example's expected output against it. It compiles nothing. A path selects one area or file (`zr-dev oracle test/spec/core/string`). `-n` selects the examples whose name matches. |
+| `zr-dev record [--again] <program>...` | Runs a whole program under ruby 4.0.7 and writes its recording (`.out`, `.err`, `.status`) beside it. It does not change a program that has a recording. `--again` writes the recording again. |
 | `zr-dev spec ask <spec file> <program.rb> [-n SENTENCE]` | Runs a candidate program under ruby, as `zr-dev oracle` does, and prints the `must_answer` assertion to paste. `-n` uses the keywords of an existing example. |
 | `zr-dev spec check [path...]` | Checks the format rules of spec files: line length, heredoc tags, trailing spaces, duplicate sentences. With no path, it checks `test/spec`. |
 | `zr-dev spec tidy [path...]` | Fixes what `spec check` reports, where the fix is safe. |
@@ -120,10 +120,10 @@ gives more examples.
 
 ### Generated files
 
-Each generator writes a file from ruby 4.0.6, or from a CRuby source at
-the revision of ruby 4.0.6. The file starts with a header that tells
+Each generator writes a file from ruby 4.0.7, or from a CRuby source at
+the revision of ruby 4.0.7. The file starts with a header that tells
 this. Do not edit a generated file by hand. A generator that reads a
-table from the running ruby stops on a ruby that is not 4.0.6.
+table from the running ruby stops on a ruby that is not 4.0.7.
 
 Every generator takes `--check`. With `--check`, it writes nothing, and
 it fails if the file is out of date. `zr-dev gen all` runs every
@@ -178,10 +178,10 @@ are not in the repository; `git log` finds them.
 | File | Source |
 |---|---|
 | `runtime/ext/nkf/tables.rb` | nkf 0.3.0's `utf8tbl.c` |
-| `runtime/core/regexp/unicode_tables.rb`, `runtime/kernel/onig_tables.rb` | ruby 4.0.6's `enc/unicode/17.0.0` headers |
-| `runtime/core/regexp/onig/encoding_tables.rb` | CRuby 4.0.6's `enc/*.c` |
+| `runtime/core/regexp/unicode_tables.rb`, `runtime/kernel/onig_tables.rb` | ruby 4.0.7's `enc/unicode/17.0.0` headers |
+| `runtime/core/regexp/onig/encoding_tables.rb` | CRuby 4.0.7's `enc/*.c` |
 | `runtime/kernel/zlib_tables.rb` | zlib's `crc32.c` and `trees.c` |
-| `runtime/ext/openssl/ossl/constants.rb` | the openssl 4.0.2 gem of ruby 4.0.6 |
+| `runtime/ext/openssl/ossl/constants.rb` | the openssl 4.0.2 gem of ruby 4.0.7 |
 
 ### Measure
 

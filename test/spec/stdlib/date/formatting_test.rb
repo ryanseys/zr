@@ -5,7 +5,7 @@ require "spec_helper"
 describe "Date: formatting and inspection" do
   it "every Date and DateTime field answers what ruby answers, without reading the machine's zone" do
     result = zr(<<~'RUBY')
-      # The whole `Date`/`DateTime` surface, field by field, against ruby 4.0.6.
+      # The whole `Date`/`DateTime` surface, field by field, against ruby 4.0.7.
       # Nothing here reads the machine's zone: `to_time` appears only through
       # fields that a local Time renders identically everywhere.
       require "date"
@@ -455,7 +455,7 @@ describe "Date: formatting and inspection" do
     result = zr(<<~'RUBY')
       # `Date._parse` -- the heuristic scanner `Date.parse`, `DateTime.parse` and
       # `Time.parse` all read their fields out of. Every line here is oracle-verified
-      # against ruby 4.0.6, including the KEY ORDER: the hash records fields in the
+      # against ruby 4.0.7, including the KEY ORDER: the hash records fields in the
       # order the cascade found them (weekday, then clock and zone, then the date),
       # so the order is part of the answer.
       #
@@ -492,7 +492,7 @@ describe "Date: formatting and inspection" do
     result = zr(<<~'RUBY')
       # `Date._parse` -- the heuristic scanner `Date.parse`, `DateTime.parse` and
       # `Time.parse` all read their fields out of. Every line here is oracle-verified
-      # against ruby 4.0.6, including the KEY ORDER: the hash records fields in the
+      # against ruby 4.0.7, including the KEY ORDER: the hash records fields in the
       # order the cascade found them (weekday, then clock and zone, then the date),
       # so the order is part of the answer.
       #
@@ -523,7 +523,7 @@ describe "Date: formatting and inspection" do
     result = zr(<<~'RUBY')
       # `Date._parse` -- the heuristic scanner `Date.parse`, `DateTime.parse` and
       # `Time.parse` all read their fields out of. Every line here is oracle-verified
-      # against ruby 4.0.6, including the KEY ORDER: the hash records fields in the
+      # against ruby 4.0.7, including the KEY ORDER: the hash records fields in the
       # order the cascade found them (weekday, then clock and zone, then the date),
       # so the order is part of the answer.
       #
@@ -564,7 +564,7 @@ describe "Date: formatting and inspection" do
     result = zr(<<~'RUBY')
       # `Date._parse` -- the heuristic scanner `Date.parse`, `DateTime.parse` and
       # `Time.parse` all read their fields out of. Every line here is oracle-verified
-      # against ruby 4.0.6, including the KEY ORDER: the hash records fields in the
+      # against ruby 4.0.7, including the KEY ORDER: the hash records fields in the
       # order the cascade found them (weekday, then clock and zone, then the date),
       # so the order is part of the answer.
       #
@@ -602,7 +602,7 @@ describe "Date: formatting and inspection" do
     result = zr(<<~'RUBY')
       # `Date._parse` -- the heuristic scanner `Date.parse`, `DateTime.parse` and
       # `Time.parse` all read their fields out of. Every line here is oracle-verified
-      # against ruby 4.0.6, including the KEY ORDER: the hash records fields in the
+      # against ruby 4.0.7, including the KEY ORDER: the hash records fields in the
       # order the cascade found them (weekday, then clock and zone, then the date),
       # so the order is part of the answer.
       #
@@ -643,7 +643,7 @@ describe "Date: formatting and inspection" do
     result = zr(<<~'RUBY')
       # `Date._parse` -- the heuristic scanner `Date.parse`, `DateTime.parse` and
       # `Time.parse` all read their fields out of. Every line here is oracle-verified
-      # against ruby 4.0.6, including the KEY ORDER: the hash records fields in the
+      # against ruby 4.0.7, including the KEY ORDER: the hash records fields in the
       # order the cascade found them (weekday, then clock and zone, then the date),
       # so the order is part of the answer.
       #
@@ -686,7 +686,7 @@ describe "Date: formatting and inspection" do
     result = zr(<<~'RUBY')
       # `Date._parse` -- the heuristic scanner `Date.parse`, `DateTime.parse` and
       # `Time.parse` all read their fields out of. Every line here is oracle-verified
-      # against ruby 4.0.6, including the KEY ORDER: the hash records fields in the
+      # against ruby 4.0.7, including the KEY ORDER: the hash records fields in the
       # order the cascade found them (weekday, then clock and zone, then the date),
       # so the order is part of the answer.
       #
@@ -711,7 +711,7 @@ describe "Date: formatting and inspection" do
     result = zr(<<~'RUBY')
       # `Date._parse` -- the heuristic scanner `Date.parse`, `DateTime.parse` and
       # `Time.parse` all read their fields out of. Every line here is oracle-verified
-      # against ruby 4.0.6, including the KEY ORDER: the hash records fields in the
+      # against ruby 4.0.7, including the KEY ORDER: the hash records fields in the
       # order the cascade found them (weekday, then clock and zone, then the date),
       # so the order is part of the answer.
       #
@@ -742,7 +742,7 @@ describe "Date: formatting and inspection" do
     result = zr(<<~'RUBY')
       # `Date._parse` -- the heuristic scanner `Date.parse`, `DateTime.parse` and
       # `Time.parse` all read their fields out of. Every line here is oracle-verified
-      # against ruby 4.0.6, including the KEY ORDER: the hash records fields in the
+      # against ruby 4.0.7, including the KEY ORDER: the hash records fields in the
       # order the cascade found them (weekday, then clock and zone, then the date),
       # so the order is part of the answer.
       #
@@ -772,7 +772,7 @@ describe "Date: formatting and inspection" do
     result = zr(<<~'RUBY')
       # `Date._parse` -- the heuristic scanner `Date.parse`, `DateTime.parse` and
       # `Time.parse` all read their fields out of. Every line here is oracle-verified
-      # against ruby 4.0.6, including the KEY ORDER: the hash records fields in the
+      # against ruby 4.0.7, including the KEY ORDER: the hash records fields in the
       # order the cascade found them (weekday, then clock and zone, then the date),
       # so the order is part of the answer.
       #
@@ -797,7 +797,7 @@ describe "Date: formatting and inspection" do
     result = zr(<<~'RUBY')
       # `Date._parse` -- the heuristic scanner `Date.parse`, `DateTime.parse` and
       # `Time.parse` all read their fields out of. Every line here is oracle-verified
-      # against ruby 4.0.6, including the KEY ORDER: the hash records fields in the
+      # against ruby 4.0.7, including the KEY ORDER: the hash records fields in the
       # order the cascade found them (weekday, then clock and zone, then the date),
       # so the order is part of the answer.
       #
@@ -843,7 +843,7 @@ describe "Date: formatting and inspection" do
     result = zr(<<~'RUBY')
       # `Date._parse` -- the heuristic scanner `Date.parse`, `DateTime.parse` and
       # `Time.parse` all read their fields out of. Every line here is oracle-verified
-      # against ruby 4.0.6, including the KEY ORDER: the hash records fields in the
+      # against ruby 4.0.7, including the KEY ORDER: the hash records fields in the
       # order the cascade found them (weekday, then clock and zone, then the date),
       # so the order is part of the answer.
       #

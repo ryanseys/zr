@@ -65,7 +65,7 @@ describe "TracePoint programs" do
 
   it "backtrace frames match cruby across definition kinds" do
     result = zr(<<~'RUBY')
-      # The comprehensive frame battery, all verbatim ruby 4.0.6 (invoked as
+      # The comprehensive frame battery, all verbatim ruby 4.0.7 (invoked as
       # `-e`, the same label this harness compiles under): method labels
       # (Object#m / Foo#m / Foo.cm / M.modfun / M#mixed), lexical block
       # frames (`block in ...`), caller windows (0-start, past-the-top nil,
@@ -398,7 +398,7 @@ describe "TracePoint programs" do
       # backtrace carries the real stamped frames; full_message renders the
       # uncaught-report shape from them; inspect renders "#<Class: msg>" (or
       # the bare class name when the message is empty). Expected output is
-      # verbatim ruby 4.0.6 (the harness compiles as `-e`, same as the
+      # verbatim ruby 4.0.7 (the harness compiles as `-e`, same as the
       # oracle's own `-e` labeling).
 
       begin
@@ -1026,7 +1026,7 @@ describe "TracePoint programs" do
       # CRuby implements TracePoint's own surface in Ruby (<internal:trace_point>),
       # so calling one of those methods while a trace is live fires an ordinary
       # :call/:return pair -- `tp.disable` reports one last :disable on its way out.
-      # Line numbers below are trace_point.rb's, ruby 4.0.6.
+      # Line numbers below are trace_point.rb's, ruby 4.0.7.
       events = []
       tp = TracePoint.new(:call) { |t| events << t.method_id }
 

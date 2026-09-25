@@ -997,7 +997,7 @@ describe "Singleton: inheritance and ancestors" do
       # shadowed sibling copies get their own emitted fns registered as
       # singleton super targets (the own_impls distinction, singleton side).
       # A chain also crosses from extends into a parent's `def self.x`.
-      # All three outputs verbatim from ruby 4.0.6.
+      # All three outputs verbatim from ruby 4.0.7.
 
       module A
         def who; "A -> top"; end

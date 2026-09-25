@@ -350,7 +350,7 @@ describe "Methods: splitting and joining" do
       # and the merge is left-to-right last-wins, so the interleaving is
       # observable. The old two-field split got the order wrong for a splat
       # before a pair and couldn't represent two splats at all. All
-      # oracle-verified against ruby 4.0.6.
+      # oracle-verified against ruby 4.0.7.
 
       def capture(**h) = h
       p capture(**{a: 1, b: 2}, c: 3)   # splat before pair

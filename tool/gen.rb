@@ -12,7 +12,7 @@ module Zr
     # A generator reads a reference: the running ruby, a CRuby source file
     # at RUBY_REVISION (`Dev.cruby`), prism's C (`Dev.prism`), or zr's own
     # runtime. A generator that reads the running ruby is `host_ruby!`: it
-    # runs only under ruby 4.0.6 itself.
+    # runs only under ruby 4.0.7 itself.
     class Gen < Group
       summary "Write a generated file again, or check it (--check)"
 

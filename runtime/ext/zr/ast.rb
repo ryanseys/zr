@@ -6,7 +6,7 @@
 # (the NODE_* taxonomy that ast.c shows through Node#children). zr has
 # no parse.y, so this file rebuilds that tree from prism's tree. The
 # Translator walks prism's nodes and replays the grammar actions of parse.y
-# (revision 03b6d3f8898a): it builds nodes with the same fields, calls the
+# (revision 229531a6cfbf): it builds nodes with the same fields, calls the
 # same helpers (block_append, list_append, arg_append, logop, cond0,
 # new_bodystmt, reduce_nodes, ...), and gives each node the span that the
 # grammar rule gives it. Node#children then reads those fields the way
@@ -2188,7 +2188,7 @@ module Zr
           if !list
             list = tail
           else
-            if list.head && tail.head.nil? && tail.next&.type == :LIST && tail.next.head&.type == :HASH
+            if tail.head.nil? && tail.next&.type == :LIST && tail.next.head&.type == :HASH
               tail = tail.next.head.head
             end
             list = list_concat(list, tail) if tail

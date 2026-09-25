@@ -1,7 +1,7 @@
 # Onigmo's constants: the options, the Ruby syntax, the character
 # types, the node and anchor kinds, and the limits. A port of the
 # definitions in onigmo.h, regint.h, regparse.h and regparse.c:47-82
-# of CRuby 4.0.6 (Onigmo 6.2.0), under the BSD-2-Clause license
+# of CRuby 4.0.7 (Onigmo 6.2.0), under the BSD-2-Clause license
 # reproduced in regexp.rb.
 class Regexp
   module Onig

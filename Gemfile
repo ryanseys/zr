@@ -2,7 +2,7 @@
 
 source "https://rubygems.org"
 
-# zr's own dependencies are in zr.gemspec. zr runs on ruby 4.0.6
+# zr's own dependencies are in zr.gemspec. zr runs on ruby 4.0.7
 # (.ruby-version), which is also the ruby that every test's expected
 # output comes from.
 gemspec

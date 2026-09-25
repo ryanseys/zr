@@ -1960,7 +1960,7 @@ describe "Methods: regressions" do
       #
       # Feeds deliberately-wrong arguments to the reflection and collection
       # surface and prints the exception class and message per row. A GOLDEN: the
-      # `.expected` beside it is ruby 4.0.6's own answers, so every row is a
+      # `.expected` beside it is ruby 4.0.7's own answers, so every row is a
       # differential assertion and a divergence fails the suite.
       #
       # The point is to convert a long tail of one-off "zr accepts what ruby

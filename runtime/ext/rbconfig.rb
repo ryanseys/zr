@@ -53,8 +53,8 @@ module RbConfig
   CONFIG = {
     "MAJOR" => "4",
     "MINOR" => "0",
-    "TEENY" => "0",
-    "PATCHLEVEL" => "5",
+    "TEENY" => "7",
+    "PATCHLEVEL" => "0",
     "ruby_version" => ruby_version,
     "RUBY_SO_NAME" => "ruby.4.0",
     "ruby_install_name" => zr_ruby_name,
@@ -170,7 +170,7 @@ module RbConfig
     "COMMON_HEADERS" => "",
     "COMMON_MACROS" => "",
     "COMMON_LIBS" => "",
-    "RUBY_PROGRAM_VERSION" => ruby_version,
+    "RUBY_PROGRAM_VERSION" => RUBY_VERSION,
     "UNIVERSAL_ARCHNAMES" => "",
     "universal" => "",
   }

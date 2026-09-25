@@ -1914,7 +1914,7 @@ describe "Numeric: arithmetic" do
     result = zr(<<~'RUBY')
       # floor/ceil/truncate WITH a precision keep the fraction: 157/50 is
       # 3.14, so floor(1)=3.1=(31/10), ceil(1)=3.2=(16/5), truncate(1)=(31/10)
-      # (checked against ruby 4.0.6).
+      # (checked against ruby 4.0.7).
 
       r = Rational(157, 50)
       p r.round(2)

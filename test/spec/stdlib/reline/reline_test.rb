@@ -57,7 +57,7 @@ describe "Reline programs" do
       require "reline"
 
       # The SHAPE, not the number. Zr vendors reline's latest upstream release,
-      # and the oracle reads the copy ruby 4.0.6 ships, so the two versions differ
+      # and the oracle reads the copy ruby 4.0.7 ships, so the two versions differ
       # on purpose. What has to agree is everything below.
       p Reline::VERSION.match?(/\A\d+\.\d+\.\d+\z/)
 

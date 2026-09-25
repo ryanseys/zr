@@ -58,7 +58,7 @@ describe "Syslog programs" do
       p Syslog::Facility::LOG_LOCAL7
       p Syslog::Constants::LOG_ERR
       # The SHAPE, not the number: zr vendors syslog's latest upstream release
-      # (vendor/ext/syslog) and the oracle reads the copy ruby 4.0.6 ships.
+      # (vendor/ext/syslog) and the oracle reads the copy ruby 4.0.7 ships.
       p Syslog::VERSION.match?(/\A\d+\.\d+\.\d+\z/)
 
       class UsesConstants

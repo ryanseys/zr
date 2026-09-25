@@ -9,7 +9,7 @@ describe "Builtins: defining and naming methods" do
       # callee: the innermost backtrace row is the callee's label at its
       # `def` line, and an `initialize`-less `.new` shows the C-frame shape
       # `'BasicObject#initialize'` at the CALLER's line. This battery was
-      # verified verbatim against ruby 4.0.6.
+      # verified verbatim against ruby 4.0.7.
 
       def f(a, b)
         a + b

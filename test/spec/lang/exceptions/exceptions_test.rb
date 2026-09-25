@@ -811,7 +811,7 @@ describe "Exceptions programs" do
   it "dup and clone of uncopyable handles raise cruby shapes" do
     result = zr(<<~'RUBY')
       # Duplicating or cloning an uncopyable handle raises a real, rescuable
-      # error, with every message verbatim from ruby 4.0.6. Fiber is the
+      # error, with every message verbatim from ruby 4.0.7. Fiber is the
       # special one: CRuby's shallow copy succeeds but skips the machine
       # stack, so the COPY is an uninitialized fiber (resume raises) while
       # the original still runs. Concurrent join/value on one Thread hands
@@ -3320,7 +3320,7 @@ describe "Exceptions programs" do
   it "uncaught exception report matches cruby shape" do
     result = zr(<<~'RUBY')
       # The top-level report: innermost frame heads the message line, outer
-      # frames follow tab-indented -- verbatim ruby 4.0.6 (as `-e`).
+      # frames follow tab-indented -- verbatim ruby 4.0.7 (as `-e`).
 
       def inner; raise "boom"; end
       def outer; inner; end

@@ -20,14 +20,14 @@ The first release as a RubyGem.
 - zr has no C. prism 1.9.0 parses through its Ruby half over a Ruby
   port of its C (`runtime/ext/prism/ruby`), on the host and in every binary;
   zlib is a port of zlib 1.3.1 in the kernel dialect, and `Regexp` a port
-  of Onigmo, CRuby 4.0.6's engine, in Ruby. All of them work on wasm, and
+  of Onigmo, CRuby 4.0.7's engine, in Ruby. All of them work on wasm, and
   the install compiles nothing.
 - `require "openssl"` works in a macOS binary. The binary opens the
   host's OpenSSL 3 (from `OPENSSL_DIR`, else Homebrew or MacPorts) when
   the `require` runs, and raises `LoadError` naming the places it looked
   when the library is absent. The gem's Ruby half is vendored unedited,
   and its C half is Ruby over library calls, so the cryptography is the
-  library's own. ruby 4.0.6's `test/openssl` passes over the port.
+  library's own. ruby 4.0.7's `test/openssl` passes over the port.
 - `Obj::MachO::Executable` links a program beside the runtime's objects
   and writes the signed binary. The runtime is linked once, at fixed
   addresses, and kept in the cache (`prelink-<digest>.bin`), so a link
@@ -50,7 +50,7 @@ The first release as a RubyGem.
   (`~/Library/Caches/zr`) all take the new name. The old names do not
   work any more.
 - The pure-Ruby library a program requires comes from gems, not from
-  copies in the gem. `zr.gemspec` depends on ruby 4.0.6's default and
+  copies in the gem. `zr.gemspec` depends on ruby 4.0.7's default and
   bundled gems at the versions it ships, and on `rubygems-update` for
   rubygems and bundler, each pinned exactly; `vendor/lib` keeps only the
   19 files no gem ships. A build refuses by name a pinned gem that is

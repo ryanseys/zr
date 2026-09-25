@@ -68,7 +68,7 @@ describe "Encoding: case mapping" do
 
   it "every row of Encoding.list carries the names, aliases, dummy? and ascii_compatible? the oracle gives it" do
     result = zr(<<~'RUBY')
-      # Every row of `Encoding.list`, generated from the ruby 4.0.6 oracle by
+      # Every row of `Encoding.list`, generated from the ruby 4.0.7 oracle by
       # `tools/encoding_tables.rb`. The whole list is printed because the registry
       # IS the contract: the order, the names, the aliases, `dummy?` and
       # `ascii_compatible?` are all reflection reads, and each one of them feeds a
@@ -561,7 +561,7 @@ describe "Encoding: case mapping" do
       # The wide Unicode rows (UTF-16LE/BE, UTF-32LE/BE): NOT ASCII-compatible
       # (never ascii_only, even empty; concatenation with anything else only
       # through an empty side), surrogate-pair walking, scalar-based chr/<<,
-      # \uXXXX-escaped inspect. Verbatim ruby 4.0.6 output.
+      # \uXXXX-escaped inspect. Verbatim ruby 4.0.7 output.
 
       u = "ab€".encode("UTF-16LE")
       p u.bytes

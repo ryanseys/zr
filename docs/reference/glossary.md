@@ -120,7 +120,7 @@ same as the global one.
 **Object file.** The output of `zr build --emit obj`: Mach-O, or ELF for
 `aarch64-linux-musl`. It contains only the program's own code.
 
-**Oracle.** ruby 4.0.6, the only source of expected outputs.
+**Oracle.** ruby 4.0.7, the only source of expected outputs.
 `zr-dev oracle` checks spec literals against it.
 
 **OS layer.** The parts of the runtime that each operating system does

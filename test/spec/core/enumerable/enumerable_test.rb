@@ -1306,7 +1306,7 @@ describe "Enumerable programs" do
       # interpolation (string and regexp)/Array+Hash to_s -- it never
       # crashes the process. Partial-output rules are CRuby's own: puts/print/p
       # flush what rendered before the raise, warn flushes nothing.
-      # Expected output is verbatim ruby 4.0.6.
+      # Expected output is verbatim ruby 4.0.7.
 
       class Boom
         def to_s

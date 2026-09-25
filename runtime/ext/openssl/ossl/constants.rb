@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# Generated from ruby 4.0.6's openssl 4.0.2. Do not edit. The generator
+# Generated from ruby 4.0.7's openssl 4.0.2. Do not edit. The generator
 # is not carried here; `git log` finds it.
 module OpenSSL
   BN::CONSTTIME = 4

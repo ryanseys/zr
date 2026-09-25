@@ -977,7 +977,7 @@ describe "Guards programs" do
       # leaves nothing behind. (This is the class-body analogue of the top-level
       # conditional-definition handling.)
       class Host
-        # "4.0.6" >= "3.0" is true -> Modern registers.
+        # "4.0.7" >= "3.0" is true -> Modern registers.
         if RUBY_VERSION >= "3.0"
           class Modern
             def tag
@@ -986,7 +986,7 @@ describe "Guards programs" do
           end
         end
 
-        # "4.0.6" < "3.0" is false -> the legacy nested class is dropped entirely.
+        # "4.0.7" < "3.0" is false -> the legacy nested class is dropped entirely.
         if RUBY_VERSION < "3.0"
           class Legacy
             def tag
@@ -3805,7 +3805,7 @@ describe "Guards programs" do
       # fixture with a real-rubygems oracle.)
 
       class Widget
-        # "4.0.6" < "3.0" is false -> the compat module + prepend are dropped (a
+        # "4.0.7" < "3.0" is false -> the compat module + prepend are dropped (a
         # conditional `prepend` zr cannot express under static MRO).
         if RUBY_VERSION < "3.0"
           module LegacyPatch
@@ -3816,7 +3816,7 @@ describe "Guards programs" do
           prepend LegacyPatch
         end
 
-        # unless ("4.0.6" >= "3.0" == true) -> also dropped.
+        # unless ("4.0.7" >= "3.0" == true) -> also dropped.
         unless RUBY_VERSION >= "3.0"
           class Nested
             def obsolete; end

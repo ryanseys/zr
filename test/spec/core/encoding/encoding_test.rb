@@ -431,7 +431,7 @@ describe "Encoding programs" do
     result = zr(<<~'RUBY')
       # File.read tags bytes with the external encoding (default UTF-8), or a
       # requested one; binread is always ASCII-8BIT; binwrite round-trips raw
-      # bytes. Verified against ruby 4.0.6.
+      # bytes. Verified against ruby 4.0.7.
 
       require "tmpdir"
       Dir.mktmpdir do |dir|
@@ -902,7 +902,7 @@ describe "Encoding programs" do
       # structural walking is CRuby-faithful (a valid-but-unmapped pair is a real
       # character), mapping via encoding_rs; char ops, transcode round trips,
       # Integer#chr / << codepoint splits, and all three
-      # InvalidByteSequenceError message forms. Verbatim ruby 4.0.6 output.
+      # InvalidByteSequenceError message forms. Verbatim ruby 4.0.7 output.
 
       sj = "あいz".encode("Shift_JIS")
       p sj.bytes

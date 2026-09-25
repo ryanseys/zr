@@ -730,7 +730,7 @@ describe "RubyVM programs" do
   it "the literal kinds dump in parse.y's taxonomy" do
     result = zr(<<~'RUBY')
       # `RubyVM::AbstractSyntaxTree` over every prism kind zr maps, checked shape
-      # for shape against ruby 4.0.6.
+      # for shape against ruby 4.0.7.
       #
       # The taxonomy is parse.y's, not prism's, and the two disagree in ways no
       # rule derives: `[]` is its own kind, an absent range endpoint is a NIL NODE,
@@ -798,7 +798,7 @@ describe "RubyVM programs" do
   it "the collection kinds dump in parse.y's taxonomy" do
     result = zr(<<~'RUBY')
       # `RubyVM::AbstractSyntaxTree` over every prism kind zr maps, checked shape
-      # for shape against ruby 4.0.6.
+      # for shape against ruby 4.0.7.
       #
       # The taxonomy is parse.y's, not prism's, and the two disagree in ways no
       # rule derives: `[]` is its own kind, an absent range endpoint is a NIL NODE,
@@ -848,7 +848,7 @@ describe "RubyVM programs" do
   it "the variable kinds dump in parse.y's taxonomy" do
     result = zr(<<~'RUBY')
       # `RubyVM::AbstractSyntaxTree` over every prism kind zr maps, checked shape
-      # for shape against ruby 4.0.6.
+      # for shape against ruby 4.0.7.
       #
       # The taxonomy is parse.y's, not prism's, and the two disagree in ways no
       # rule derives: `[]` is its own kind, an absent range endpoint is a NIL NODE,
@@ -905,7 +905,7 @@ describe "RubyVM programs" do
   it "a multiple assignment dumps in parse.y's taxonomy" do
     result = zr(<<~'RUBY')
       # `RubyVM::AbstractSyntaxTree` over every prism kind zr maps, checked shape
-      # for shape against ruby 4.0.6.
+      # for shape against ruby 4.0.7.
       #
       # The taxonomy is parse.y's, not prism's, and the two disagree in ways no
       # rule derives: `[]` is its own kind, an absent range endpoint is a NIL NODE,
@@ -956,7 +956,7 @@ describe "RubyVM programs" do
   it "an operator assignment dumps in parse.y's taxonomy" do
     result = zr(<<~'RUBY')
       # `RubyVM::AbstractSyntaxTree` over every prism kind zr maps, checked shape
-      # for shape against ruby 4.0.6.
+      # for shape against ruby 4.0.7.
       #
       # The taxonomy is parse.y's, not prism's, and the two disagree in ways no
       # rule derives: `[]` is its own kind, an absent range endpoint is a NIL NODE,
@@ -1009,7 +1009,7 @@ describe "RubyVM programs" do
   it "the call kinds dump in parse.y's taxonomy" do
     result = zr(<<~'RUBY')
       # `RubyVM::AbstractSyntaxTree` over every prism kind zr maps, checked shape
-      # for shape against ruby 4.0.6.
+      # for shape against ruby 4.0.7.
       #
       # The taxonomy is parse.y's, not prism's, and the two disagree in ways no
       # rule derives: `[]` is its own kind, an absent range endpoint is a NIL NODE,
@@ -1098,7 +1098,7 @@ describe "RubyVM programs" do
   it "the definition kinds dump in parse.y's taxonomy" do
     result = zr(<<~'RUBY')
       # `RubyVM::AbstractSyntaxTree` over every prism kind zr maps, checked shape
-      # for shape against ruby 4.0.6.
+      # for shape against ruby 4.0.7.
       #
       # The taxonomy is parse.y's, not prism's, and the two disagree in ways no
       # rule derives: `[]` is its own kind, an absent range endpoint is a NIL NODE,
@@ -1178,7 +1178,7 @@ describe "RubyVM programs" do
   it "the control-flow kinds dump in parse.y's taxonomy" do
     result = zr(<<~'RUBY')
       # `RubyVM::AbstractSyntaxTree` over every prism kind zr maps, checked shape
-      # for shape against ruby 4.0.6.
+      # for shape against ruby 4.0.7.
       #
       # The taxonomy is parse.y's, not prism's, and the two disagree in ways no
       # rule derives: `[]` is its own kind, an absent range endpoint is a NIL NODE,
@@ -1252,7 +1252,7 @@ describe "RubyVM programs" do
   it "the pattern-matching kinds dump in parse.y's taxonomy" do
     result = zr(<<~'RUBY')
       # `RubyVM::AbstractSyntaxTree` over every prism kind zr maps, checked shape
-      # for shape against ruby 4.0.6.
+      # for shape against ruby 4.0.7.
       #
       # The taxonomy is parse.y's, not prism's, and the two disagree in ways no
       # rule derives: `[]` is its own kind, an absent range endpoint is a NIL NODE,
@@ -1315,7 +1315,7 @@ describe "RubyVM programs" do
   it "a hoisted BEGIN and an empty program dump in parse.y's taxonomy" do
     result = zr(<<~'RUBY')
       # `RubyVM::AbstractSyntaxTree` over every prism kind zr maps, checked shape
-      # for shape against ruby 4.0.6.
+      # for shape against ruby 4.0.7.
       #
       # The taxonomy is parse.y's, not prism's, and the two disagree in ways no
       # rule derives: `[]` is its own kind, an absent range endpoint is a NIL NODE,
@@ -1371,7 +1371,7 @@ describe "RubyVM programs" do
   it "a multiline construct carries the spans its lines give it" do
     result = zr(<<~'RUBY')
       # `RubyVM::AbstractSyntaxTree` over every prism kind zr maps, checked shape
-      # for shape against ruby 4.0.6.
+      # for shape against ruby 4.0.7.
       #
       # The taxonomy is parse.y's, not prism's, and the two disagree in ways no
       # rule derives: `[]` is its own kind, an absent range endpoint is a NIL NODE,
@@ -1534,4 +1534,18 @@ describe "RubyVM programs" do
       [:coverage_enabled, :debug_frozen_string_literal, :debug_level, :frozen_string_literal]
     OUT
   end
+
+it "AbstractSyntaxTree splices a literal hash after a leading double splat" do
+  # parse.y at 4.0.7 unwraps `**{...}` after any earlier assoc, a leading
+  # `**a` too (4.0.6 kept the nested HASH there).
+  result = zr(<<~'RUBY')
+    def d(n) = n.is_a?(RubyVM::AbstractSyntaxTree::Node) ? [n.type, *n.children.map { d(it) }] : n
+    ["{**a, **{b: 1}}", "{**a, **{}}"].each { |s| p d(RubyVM::AbstractSyntaxTree.parse(s).children[2]) }
+  RUBY
+
+  _(result).must_answer <<~'OUT'
+    [:HASH, [:LIST, nil, [:VCALL, :a], [:SYM, :b], [:INTEGER, 1], nil]]
+    [:HASH, [:LIST, nil, [:VCALL, :a], nil]]
+  OUT
+end
 end

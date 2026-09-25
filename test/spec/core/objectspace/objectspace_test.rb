@@ -53,7 +53,7 @@ describe "ObjectSpace programs" do
       nil
       7
       true
-      #<RangeError: "1099511627776" is not an id value>
+      #<RangeError: 1099511627776 is not an id value>
       #<TypeError: no implicit conversion of Symbol into Integer>
       #<Enumerator: ObjectSpace:each_object(3)>
       3

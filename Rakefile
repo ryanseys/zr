@@ -65,8 +65,8 @@ end
 # `bin/test <paths>` runs only some test files.
 TIERS = {
   "test:unit" => ["test/unit", "zr's own internals"],
-  "test:spec" => ["test/spec", "Ruby specs, each checked against ruby 4.0.6"],
-  "test:e2e" => ["test/e2e", "Whole programs, built and linked, checked against ruby 4.0.6"]
+  "test:spec" => ["test/spec", "Ruby specs, each checked against ruby 4.0.7"],
+  "test:e2e" => ["test/e2e", "Whole programs, built and linked, checked against ruby 4.0.7"]
 }.freeze
 
 TIERS.each do |name, (dir, what)|

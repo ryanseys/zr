@@ -1307,7 +1307,7 @@ end
 
 # Whether `mid` on `klass` is one of CRuby's basic operators, which the
 # interpreter and the JITs run inline while the core's entry is in place
-# (vm_init_redefined_flag at 4.0.6).
+# (vm_init_redefined_flag at 4.0.7).
 sig [Value, Word] => Bool
 machine def zr_basic_operator_p(klass, mid)
   int = klass == zr_global(G_INTEGER)

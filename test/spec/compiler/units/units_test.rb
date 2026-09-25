@@ -415,7 +415,7 @@ describe "Units programs" do
     result = zr(<<~'RUBY')
       # MatchData indexes like an array `[full, g1, g2, g3]`, so `md[1, 2]`
       # is `[g1, g2]` and `md[1..]` is `[g1, g2, g3]` (verified against
-      # ruby 4.0.6 -- the previous expectation dropped the first capture).
+      # ruby 4.0.7 -- the previous expectation dropped the first capture).
 
       p Time.at(0, 500, :millisecond).to_f
       p Time.at(0, 500, :nanosecond).to_f

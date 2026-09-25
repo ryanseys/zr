@@ -184,7 +184,7 @@ module ObjectSpace
     return SPECIAL_IDS[id] if SPECIAL_IDS.key?(id)
 
     found = Primitive.zr_objspace_id2ref(id)
-    raise RangeError, "#{id.to_s.inspect} is not an id value" if found.nil?
+    raise RangeError, "#{id} is not an id value" if found.nil?
 
     found
   end

@@ -44,7 +44,7 @@ is not in the gem. It is the gems that `zr.gemspec` depends on
 | `runtime/ext/os/<os>/` | extension tables, and the description (`zr_description.rb`) |
 | `runtime/ext/zr/` | zr's own runtime files: the run-time half of eval support, and the files that load a library at its first call (`pp`, `irb`, `unicode_normalize`), as CRuby's prelude does |
 | `vendor/ext/<gem>/lib/` | the Ruby halves of extension gems, not edited |
-| `vendor/lib/` | the files of ruby 4.0.6's library that no gem contains, not edited; `vendor/lib/VERSIONS` lists them |
+| `vendor/lib/` | the files of ruby 4.0.7's library that no gem contains, not edited; `vendor/lib/VERSIONS` lists them |
 | `vendor/prelude/` | ruby's `gem_prelude.rb` |
 
 ### What the host loads

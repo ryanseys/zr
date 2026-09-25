@@ -475,7 +475,7 @@ describe "Builtins programs" do
       # names nothing where ruby names nothing.
       #
       # CLOSED 2026-08-24. The whole-surface census is zero: over 2,594 rows both
-      # ruby 4.0.6 and zr declare, `#parameters` and `#arity` agree on every one.
+      # ruby 4.0.7 and zr declare, `#parameters` and `#arity` agree on every one.
       #
       # The mechanism landed 2026-08-21 -- the DSL spells a row's signature per NAME
       # (`params "fmt, buffer: nil"`) in ruby's own `def` spelling, and the ARITY
@@ -1618,7 +1618,7 @@ describe "Builtins programs" do
       # On an arity mismatch, `send` raises a RESCUABLE ArgumentError, as Ruby
       # does. The program survives every mismatch and the final line prints.
       # All three message shapes -- fixed `N`, range `N..M`, and the rest form
-      # `N+` -- are oracle-verified against ruby 4.0.6.
+      # `N+` -- are oracle-verified against ruby 4.0.7.
 
       class A
         def fixed(a) = a
@@ -1769,7 +1769,7 @@ describe "Builtins programs" do
     result = zr(<<~'RUBY')
       # The Encoding engine: a string is bytes + an encoding, queryable and
       # transcodable, with the Encoding class and its constants. `__ENCODING__`
-      # answers the script encoding (UTF-8). Cross-checked against ruby 4.0.6.
+      # answers the script encoding (UTF-8). Cross-checked against ruby 4.0.7.
 
       p "hello".encoding
       p __ENCODING__

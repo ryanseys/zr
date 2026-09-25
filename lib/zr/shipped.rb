@@ -13,7 +13,7 @@ module Zr
   # sources that the binary was built from instead:
   #
   #     version 0.1.0
-  #     ruby 4.0.6
+  #     ruby 4.0.7
   #     platform arm64-darwin
   #     digest <SHA-256 of the sources below the root and the pinned libraries>
   #

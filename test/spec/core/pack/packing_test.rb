@@ -43,7 +43,7 @@ describe "Pack: packing and unpacking" do
   it "every core directive round-trips, and the result's encoding follows what was written" do
     result = zr(<<~'RUBY')
       # Array#pack / String#unpack across the integer, string, base64, hex,
-      # BER and UTF-8 directives. Verified against ruby 4.0.6.
+      # BER and UTF-8 directives. Verified against ruby 4.0.7.
 
       p [65, 66, 67].pack("C*")
       p [258].pack("v").bytes

@@ -249,7 +249,7 @@ describe "Builtins: slicing" do
 
   it "instance exec parity" do
     result = zr(<<~'RUBY')
-      # Consolidated CRuby-4.0.6 parity anchor for direct instance_exec: one
+      # Consolidated CRuby-4.0.7 parity anchor for direct instance_exec: one
       # file exercising the supported core shapes in combination. Every line's
       # output is cross-checked against `ruby` (the .expected is the oracle).
 
@@ -307,7 +307,7 @@ describe "Builtins: slicing" do
 
   it "range query and step surface" do
     result = zr(<<~'RUBY')
-      # Every `Range` query and `#step` shape, against ruby 4.0.6: the closed forms
+      # Every `Range` query and `#step` shape, against ruby 4.0.7: the closed forms
       # an unbounded range answers without walking, the negative-count refusals, and
       # the bad-stride messages -- which all come from `begin + step`.
       def t(label)

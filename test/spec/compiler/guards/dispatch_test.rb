@@ -1525,12 +1525,12 @@ describe "Guards: dispatch" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      [4, 0, 6]
+      [4, 0, 7]
       [10, 2, 30]
       "ruby"
       false
       true
-      6
+      7
       :modern
       nil
       [3, 4, 0, 0]

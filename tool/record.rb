@@ -17,7 +17,7 @@ module Zr
     # `<name>.signal` when a signal stopped it. There is no format and no
     # escaping, so `diff` shows an incorrect output.
     #
-    # Ruby 4.0.6 is the only reference for correct output, so only this
+    # Ruby 4.0.7 is the only reference for correct output, so only this
     # tool writes these files. It does not replace an existing recording:
     # a new output needs a changed program. Use `--again` to replace it.
     #

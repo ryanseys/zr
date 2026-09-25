@@ -1,6 +1,6 @@
 # Differences from ruby
 
-zr gives ruby 4.0.6's output, or it refuses
+zr gives ruby 4.0.7's output, or it refuses
 ([the contract](../explanation/the-contract.md)). This page lists each
 place where zr does not give ruby's output on purpose. There are two
 kinds:
@@ -9,7 +9,7 @@ kinds:
   does not have, such as YARV bytecode. zr raises `NotImplementedError`
   with a message that gives the method. It does not give a wrong
   result.
-- **A ruby bug.** ruby 4.0.6 itself goes wrong, for example it stops
+- **A ruby bug.** ruby 4.0.7 itself goes wrong, for example it stops
   responding. zr gives the result that ruby's documentation gives, and
   a comment at the code tells the difference.
 
@@ -17,7 +17,7 @@ Each row gives the spec that tests the behavior, where there is one.
 
 ## Refusals
 
-| What | zr | ruby 4.0.6 |
+| What | zr | ruby 4.0.7 |
 |---|---|---|
 | `RubyVM::InstructionSequence#disasm`, `#disassemble`, `#to_a` | `NotImplementedError`: zr compiles to machine code, and has no YARV bytecode to show | the bytecode |
 | `RubyVM::InstructionSequence#to_binary` of a compiled string | `NotImplementedError`, for the same reason | the bytecode as a String |
@@ -42,7 +42,7 @@ locales write the same bytes (`zr-dev repro`).
 
 ## Ruby bugs
 
-| What | zr | ruby 4.0.6 |
+| What | zr | ruby 4.0.7 |
 |---|---|---|
 | A second deadlock after a deadlock that the program rescued (a thread waits on a Queue that no thread feeds, the program rescues the `fatal`, then the main thread waits again) | raises `fatal` "No live threads left. Deadlock?" again | stops responding |
 | `String#grapheme_clusters` of a UTF-16 string with a lone lead surrogate before other characters, such as `"a\x00\x00\xD8b\x00"` in UTF-16LE | keeps each character whole: `["a\x00", "\x00\xD8", "b\x00"]` | splits the code units: `["a\x00", "\x00", "\xD8b"]` |

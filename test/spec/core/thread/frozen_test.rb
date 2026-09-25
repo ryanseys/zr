@@ -188,7 +188,7 @@ describe "Thread: frozen literals" do
       # Enumerator, Thread, Mutex (lockable while frozen) -- with the
       # dup-drops/clone-copies flag rule and the flag never aliasing an
       # earlier copy. Queue/SizedQueue refuse to freeze with CRuby's
-      # TypeError. Expected output is verbatim ruby 4.0.6.
+      # TypeError. Expected output is verbatim ruby 4.0.7.
 
       pr = proc { 1 }
       puts pr.frozen?

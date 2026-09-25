@@ -12,7 +12,7 @@ module Zr
     #   zr-dev oracle test/spec/core/string                     an area
     #   zr-dev oracle test/spec/core/string/frozen_test.rb -n frozen
     #
-    # Ruby 4.0.6 is the only reference for correct output. Every literal in
+    # Ruby 4.0.7 is the only reference for correct output. Every literal in
     # the specs comes from ruby's output. This tool makes sure that stays
     # true after people edit the spec files by hand.
     #
@@ -22,7 +22,7 @@ module Zr
     # and compares it with what the example asserts. It does not run an
     # example that skips, because that example makes no claim about ruby.
     class Oracle < Command
-      summary "Check every spec literal against ruby 4.0.6"
+      summary "Check every spec literal against ruby 4.0.7"
       usage "[path...] [-n PATTERN]"
       host_ruby!
 

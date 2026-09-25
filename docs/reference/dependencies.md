@@ -7,15 +7,15 @@ is C or assembler source in the repository.
 
 | Dependency | Why | Needed for |
 |---|---|---|
-| ruby 4.0.6 exactly | runs the compiler; zr checks its output against this version | everything |
+| ruby 4.0.7 exactly | runs the compiler; zr checks its output against this version | everything |
 | libSystem | the only dynamic library that a macOS binary links | macOS binaries |
 | OpenSSL 3 (libssl and libcrypto) | a macOS binary opens them when it runs `require "openssl"`: from `OPENSSL_DIR`, else from the Homebrew or MacPorts prefix. Without them, that `require` raises `LoadError`. Nothing else needs them | programs that require `openssl` |
 | `cc` (Xcode Command Line Tools) | links a macOS binary only under `ZR_LINKER=cc`, or when zr's own linker refuses one | optional |
 | musl's `cc`, or `aarch64-linux-musl-gcc` | links a static binary | `aarch64-linux-musl` binaries |
 | wasmtime | runs a module; `zr run --emit wasm` uses it | running WASI modules |
 
-The gem depends on the default and bundled gems of ruby 4.0.6. Each is
-pinned to the version that ruby 4.0.6 includes (`Zr::Libraries::PINS`).
+The gem depends on the default and bundled gems of ruby 4.0.7. Each is
+pinned to the version that ruby 4.0.7 includes (`Zr::Libraries::PINS`).
 A program's `require` of a pure-Ruby library reads that gem. The
 install compiles nothing.
 
@@ -31,7 +31,7 @@ Tools does not use its `ld` with an SDK that it cannot read. zr keeps a
 
 | Dependency | Why | Used by |
 |---|---|---|
-| ruby 4.0.6 (`.ruby-version`) | the host, and the only reference for the tests | everything |
+| ruby 4.0.7 (`.ruby-version`) | the host, and the only reference for the tests | everything |
 | `rake` gem ~> 13.0 | the tasks | `Rakefile` |
 | `minitest` gem ~> 6.0 | runs every test | `bin/test` |
 | `minitest-reporters` gem ~> 1.8 | the report of the slowest tests (`SLOW=1`), and the JUnit file for CI | `test/test_helper.rb` |

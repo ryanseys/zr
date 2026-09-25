@@ -11,10 +11,10 @@ The tests are in three tiers. Each tier is a directory below `test/`.
 | Tier | Directory | Tests |
 |---|---|---|
 | unit | `test/unit/` | zr's own internals: the parser port, the passes, the backends, the linkers, the harness |
-| spec | `test/spec/` | Ruby behavior. Each example is a small program that zr compiles and runs, checked against ruby 4.0.6's output |
+| spec | `test/spec/` | Ruby behavior. Each example is a small program that zr compiles and runs, checked against ruby 4.0.7's output |
 | e2e | `test/e2e/` | whole programs, built and linked as a user builds them, checked against their recordings |
 
-ruby 4.0.6 is the reference for the spec and e2e tiers. Every expected
+ruby 4.0.7 is the reference for the spec and e2e tiers. Every expected
 output comes from ruby, never from a person. See
 [The contract](the-contract.md).
 

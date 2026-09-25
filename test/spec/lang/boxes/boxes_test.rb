@@ -816,7 +816,7 @@ describe "Boxes programs" do
       box.eval("begin; p VERSION_COPY; rescue NameError; puts 'invisible'; end")
     RUBY
 
-    _(result).must_answer "4.0.6\ninvisible\n"
+    _(result).must_answer "4.0.7\ninvisible\n"
   end
 
   it "module acc dispatch param box" do

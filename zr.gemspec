@@ -9,7 +9,7 @@ Gem::Specification.new do |spec|
   spec.authors = ["Ryan Seys"]
   spec.email = ["ryan@ryanseys.com"]
 
-  spec.summary = "A Ruby compiler, written in Ruby: its programs give ruby 4.0.6's output, or zr refuses them by name"
+  spec.summary = "A Ruby compiler, written in Ruby: its programs give ruby 4.0.7's output, or zr refuses them by name"
   spec.description = <<~TEXT
     zr compiles Ruby programs to native aarch64-apple-darwin binaries on an
     Apple Silicon Mac, and to WASI modules on any host. The compiler and the

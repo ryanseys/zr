@@ -139,7 +139,7 @@ describe "Socket: reading and writing" do
     result = zr(<<~'RUBY')
       # Addrinfo -- a resolved socket address value. The tcp/udp/ip/unix constructors
       # fix the family, socktype, and protocol; the accessors and #inspect read them
-      # back. Oracle-verified against ruby 4.0.6 (Darwin family numbers: AF_INET 2,
+      # back. Oracle-verified against ruby 4.0.7 (Darwin family numbers: AF_INET 2,
       # AF_INET6 30, AF_UNIX 1).
       require "socket"
 

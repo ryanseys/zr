@@ -5,7 +5,7 @@ checks zr against ruby: we write a small Ruby program, get ruby's
 output, and assert that the program that zr compiles gives the same
 output. Almost every change to zr starts with this loop.
 
-You need an Apple Silicon Mac with ruby 4.0.6 and git.
+You need an Apple Silicon Mac with ruby 4.0.7 and git.
 
 ## Get the code
 
@@ -29,7 +29,7 @@ zr 0.1.0
 
 ## Get the output from ruby first
 
-ruby 4.0.6 is the only source of expected outputs, so we start there.
+ruby 4.0.7 is the only source of expected outputs, so we start there.
 Our program puts a few words into groups by their length:
 
 ```console

@@ -9,7 +9,7 @@ machine def zr_os_argv(argc, argv)
   argv
 end
 
-# RUBY_PLATFORM, as ruby 4.0.6 built against musl gives it.
+# RUBY_PLATFORM, as ruby 4.0.7 built against musl gives it.
 sig [] => Value
 machine def zr_os_ruby_platform
   zr_str_new(Machine.bytes("aarch64-linux-musl"), 18)

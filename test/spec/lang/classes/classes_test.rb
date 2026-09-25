@@ -1777,7 +1777,7 @@ describe "Classes programs" do
       # So the row is silenced in that table and the two framing shapes push their
       # own.
       #
-      # Every row below is oracle-verified against ruby 4.0.6.
+      # Every row below is oracle-verified against ruby 4.0.7.
 
       def frames(label, n = 2)
         yield
@@ -3858,4 +3858,49 @@ describe "Classes programs" do
       9
     OUT
   end
+
+it "super sees a module prepended after an include, on an object that already called it" do
+  result = zr(<<~'RUBY')
+    module M; def f = "M>" + super; end
+    module P; def f = "P>" + super; end
+    class B; def f = "B"; end
+    class C < B; include M; end
+    o = C.new
+    puts o.f
+    C.prepend P
+    puts o.f
+    class D < B; end
+    d = D.new
+    puts d.f
+    D.include M
+    puts d.f
+    D.prepend P
+    puts d.f
+  RUBY
+
+  _(result).must_answer <<~'OUT'
+    M>B
+    P>M>B
+    B
+    M>B
+    P>M>B
+  OUT
+end
+
+it "subclasses includes a clone of a subclass" do
+  result = zr(<<~'RUBY')
+    class A; end
+    class B < A; end
+    c = B.clone
+    p A.subclasses.size, A.subclasses.include?(c), A.subclasses.include?(B)
+    p c.superclass
+  RUBY
+
+  _(result).must_answer <<~'OUT'
+    2
+    true
+    true
+    A
+  OUT
+end
 end

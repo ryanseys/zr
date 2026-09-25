@@ -3470,7 +3470,7 @@ describe "Constants programs" do
   it "the RUBY_* build constants and the File::SEPARATOR family match the oracle's" do
     result = zr(<<~'RUBY')
       # RUBY_* version/build constants and the File::SEPARATOR family that zr
-      # shares with its ruby 4.0.6 oracle. The platform/revision are machine- and
+      # shares with its ruby 4.0.7 oracle. The platform/revision are machine- and
       # build-specific, so this checks the STABLE shared values exactly and the
       # dynamic ones structurally, keeping the golden output portable across build
       # hosts AND identical between zr and the oracle.
@@ -3492,9 +3492,9 @@ describe "Constants programs" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      4.0.6
+      4.0.7
       0
-      2026-07-14
+      2026-09-15
       /
       nil
       :

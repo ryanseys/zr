@@ -121,7 +121,7 @@ jobs:
     steps:
       - uses: ruby/setup-ruby@762794c140bbeda0f1224786aa33b4b46783a6c1 # v1.326.0
         with:
-          ruby-version: "4.0.6"
+          ruby-version: "4.0.7"
       - uses: bytecodealliance/actions/wasmtime/setup@9152e710e9f7182e4c29ad218e4f335a7b203613 # v1
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
@@ -162,9 +162,9 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
-      - name: Start ruby 4.0.6 on Alpine
+      - name: Start ruby 4.0.7 on Alpine
         run: |
-          docker run -d --name alpine -v "$PWD:/zr" -w /zr ruby:4.0.6-alpine sleep infinity
+          docker run -d --name alpine -v "$PWD:/zr" -w /zr ruby:4.0.7-alpine sleep infinity
           docker exec alpine apk add --no-cache build-base git
           docker exec alpine git config --global --add safe.directory /zr
           docker exec alpine bundle config set --global without development
@@ -184,7 +184,7 @@ jobs:
         run: docker exec -e TARGET=aarch64-linux-musl alpine bundle exec bin/test test/spec/lang/methods test/spec/core/string
       - name: Write the linux tables again and compare
         run: |
-          docker exec alpine wget -qO /tmp/mkconstants.rb https://raw.githubusercontent.com/ruby/ruby/03b6d3f8898a28604fe6cb00eae3226b821168f4/ext/socket/mkconstants.rb
+          docker exec alpine wget -qO /tmp/mkconstants.rb https://raw.githubusercontent.com/ruby/ruby/229531a6cfbf07e3caef30dbac24a2a3f3fed482/ext/socket/mkconstants.rb
           docker exec -e MKCONSTANTS=/tmp/mkconstants.rb alpine ruby tool/zr-dev.rb gen tables --check
 
   wasi:

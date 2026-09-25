@@ -1,7 +1,7 @@
 # Targets
 
 A target is what zr builds for. The gem itself runs on any host with
-ruby 4.0.6. `Zr::Target` (`lib/zr/target.rb`) defines each target.
+ruby 4.0.7. `Zr::Target` (`lib/zr/target.rb`) defines each target.
 `zr targets` shows what this host can build.
 
 | Target | Outputs | Object format | Runtime layers |

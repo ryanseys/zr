@@ -437,7 +437,7 @@ describe "Builtins: raising and rescuing" do
       # SignalException/Interrupt resolve a signal name<->number (#signo/#signm,
       # arg-form validation) and the Signal module answers list/signame/trap
       # (trap is a validated no-op that records the prior action). Byte-verified
-      # against ruby 4.0.6 on darwin.
+      # against ruby 4.0.7 on darwin.
 
       p Interrupt.new.signo
       p Interrupt.new.message

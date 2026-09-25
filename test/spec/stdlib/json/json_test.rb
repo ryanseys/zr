@@ -1109,7 +1109,7 @@ describe "JSON programs" do
       #
       # For every serializer and every container, asserts that a value survives
       # its own encoding -- `load(dump(x)) == x`, sizes preserved, key identity
-      # preserved. A GOLDEN: the `.expected` beside it is ruby 4.0.6's own
+      # preserved. A GOLDEN: the `.expected` beside it is ruby 4.0.7's own
       # answers.
       #
       # This is the highest-yield way to catch SILENT corruption, because it needs

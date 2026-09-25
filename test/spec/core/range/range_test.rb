@@ -968,7 +968,7 @@ describe "Range programs" do
 
   it "nil object id range cover and struct not equal" do
     result = zr(<<~'RUBY')
-      # nil.object_id is 4 (CRuby 4.0.6). Range#cover? accepts a Range argument
+      # nil.object_id is 4 (CRuby 4.0.7). Range#cover? accepts a Range argument
       # (containment). Struct#!= negates the struct's value == (not identity).
 
       p nil.object_id

@@ -1,7 +1,7 @@
 # The contract: ruby's output or a refusal
 
 zr makes one promise. A program that zr compiles gives exactly the
-output of ruby 4.0.6: the same stdout, the same stderr, and the same
+output of ruby 4.0.7: the same stdout, the same stderr, and the same
 exit status. When zr cannot keep that promise for a program, it does
 not compile the program. It gives the form that it does not support
 and the line, and exits with status 3.
@@ -35,7 +35,7 @@ program with a message that gives the feature.
 ## Why ruby is the only reference
 
 A test needs a correct result to compare with. zr gets that result
-from one place: ruby 4.0.6, the version in `.ruby-version`. It never
+from one place: ruby 4.0.7, the version in `.ruby-version`. It never
 compares with a different implementation, and a person never writes an
 expected output by hand.
 
@@ -54,7 +54,7 @@ sample.
 
 ## The pinned ruby is part of the toolchain
 
-ruby 4.0.6 is more than the reference. It runs the compiler. Its
+ruby 4.0.7 is more than the reference. It runs the compiler. Its
 pure-Ruby standard library (its default and bundled gems, at the
 versions that `zr.gemspec` pins) is what a program's `require` reads.
 The generated tables (`zr-dev gen`) come from it. Thus

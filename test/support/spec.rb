@@ -16,7 +16,7 @@ require_relative "../../lib/zr/runtime"
 
 module Zr
   # Runs spec examples. An example is a Ruby program that zr compiles and
-  # runs, and the test checks its output against ruby 4.0.6.
+  # runs, and the test checks its output against ruby 4.0.7.
   #
   # The worker that gets the example compiles it in process. A new ruby
   # process for each example would load the whole compiler each time,

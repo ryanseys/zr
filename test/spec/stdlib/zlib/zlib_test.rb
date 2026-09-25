@@ -90,7 +90,7 @@ describe "Zlib programs" do
       Enumerator -> Enumerator
       Math -> Math
       Zlib -> Zlib
-      RUBY_VERSION -> 4.0.6
+      RUBY_VERSION -> 4.0.7
       -- nested, also computed
       Zlib::Error -> Zlib::Error
       Zlib::GzipFile -> Zlib::GzipFile

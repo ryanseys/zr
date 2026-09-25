@@ -1092,7 +1092,7 @@ describe "Array: searching and matching" do
 
   it "rand float bound is integer and digits radix messages" do
     result = zr(<<~'RUBY')
-      # rand(Float) truncates the bound and draws an Integer (CRuby 4.0.6);
+      # rand(Float) truncates the bound and draws an Integer (CRuby 4.0.7);
       # Integer#digits distinguishes a negative radix from a 0/1 radix.
 
       p rand(3.5).class

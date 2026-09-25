@@ -784,7 +784,7 @@ describe "Fusion programs" do
       # UncaughtThrowError#tag/#value, and Exception#detailed_message -- populated
       # both at the raise site (a failed fetch / missing method / const miss /
       # uncaught throw) and from an explicit constructor. Byte-verified against
-      # ruby 4.0.6.
+      # ruby 4.0.7.
 
       begin; {}.fetch(:sym); rescue KeyError => e; p e.key; end
       begin; {}.fetch(42); rescue KeyError => e; p e.key; end

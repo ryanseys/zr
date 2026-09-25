@@ -448,7 +448,7 @@ describe "Time programs" do
       # Rational#round honors the `half:` keyword (:up/:even/:down); Float
       # round/truncate with an extreme ndigits stays finite instead of NaN; and
       # Enumerator.new(callable).size invokes the callable lazily. Byte-verified
-      # against ruby 4.0.6.
+      # against ruby 4.0.7.
 
       p Time.utc(2001, 2, 3, 4, 5, 6, 500.5).nsec
       p Time.utc(2020, 1, 1, 0, 0, 0, Rational(1, 2)).nsec
