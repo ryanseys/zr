@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "../record"
-
 module Zr
   module Hir
     # The error for a source that does not parse, built as CRuby builds it
@@ -16,19 +14,7 @@ module Zr
       # first caret if it is this far in.
       TRUNCATE = 30
 
-      class Row < Record
-        FIELDS = %i[error line column_start column_end].freeze
-        attr_accessor :error, :line, :column_start, :column_end
-
-        def initialize(error = nil, line = nil, column_start = nil, column_end = nil)
-          @error = error
-          @line = line
-          @column_start = column_start
-          @column_end = column_end
-        end
-
-        def to_a = [@error, @line, @column_start, @column_end]
-      end
+      Row = Data.define(:error, :line, :column_start, :column_end)
 
       def self.error(result, file) = new(result, file).error
 

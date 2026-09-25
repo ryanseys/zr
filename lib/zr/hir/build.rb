@@ -1428,7 +1428,7 @@ module Zr
           node.each { |child| usings_in(child, seen, out) }
           return out
         end
-        return out unless node.is_a?(Record)
+        return out unless node.is_a?(Node)
 
         seen[node.object_id] = true
         out << node if node.is_a?(Using)
@@ -1461,7 +1461,7 @@ module Zr
           node.each { |child| mark_using(child, seen) }
           return
         end
-        return unless node.is_a?(Record)
+        return unless node.is_a?(Node)
 
         seen[node.object_id] = true
         node.using = @using if [Send, Super, AttrOpAssign, IndexOpAssign].any? { |type| node.is_a?(type) } && node.using.nil?
@@ -1485,7 +1485,7 @@ module Zr
       # as node_id_for_backtrace_location reads it. A HIR node that an
       # inner prism node already built keeps the inner node's id.
       def noted(hir, node)
-        @node_ids[hir] ||= node.node_id if @node_ids && hir.is_a?(Record)
+        @node_ids[hir] ||= node.node_id if @node_ids && hir.is_a?(Node)
         hir
       end
 
@@ -2399,7 +2399,7 @@ module Zr
         when SingletonClassDef
           node.target = deepen(node.target, level)
           node
-        when Record
+        when Node
           node.each_pair { |k, v| node[k] = deepen(v, level) if Hir.node?(v) || v.is_a?(Array) }
           node
         when Array then node.map! { |v| Hir.node?(v) || v.is_a?(Array) ? deepen(v, level) : v }

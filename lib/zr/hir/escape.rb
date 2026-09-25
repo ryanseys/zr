@@ -44,7 +44,7 @@ module Zr
         when ClassDef then raw?(node.scope, level) && raw?(node.superclass, level)
         when ModuleDef then raw?(node.scope, level)
         when SingletonClassDef then raw?(node.target, level)
-        when Record, Array then Hir.each_child(node).all? { |v| raw?(v, level) }
+        when Node, Array then Hir.each_child(node).all? { |v| raw?(v, level) }
         else true
         end
       end
