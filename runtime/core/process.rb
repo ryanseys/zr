@@ -225,7 +225,7 @@ module Process
 
   def self.spawn(*args, **options)
     pid = spawn_command(args, options)
-    raise SystemCallError.new(command_words(args).first, -pid) if pid.negative?
+    raise start_error(args, options, pid) if pid.negative?
 
     pid
   end
@@ -602,6 +602,12 @@ module Process
     [env, args, options]
   end
 
+  # The error of a command that did not start, named by its program as
+  # rb_exec_fail names it: after the environment and options come off.
+  def self.start_error(args, options, pid)
+    SystemCallError.new(command_words(exec_args(args, options)[1]).first, -pid)
+  end
+
   def self.spawn_command(args, options)
     env, args, options = exec_args(args, options)
     words = command_words(args)
@@ -711,7 +717,7 @@ module Process
     table.map { |key, value| "#{key}=#{value}" }
   end
 
-  private_class_method :spawn_command, :command_words, :shell_words, :environment, :exec_args, :executable, :forked_spawn, :tty_spawn
+  private_class_method :spawn_command, :start_error, :command_words, :shell_words, :environment, :exec_args, :executable, :forked_spawn, :tty_spawn
 end
 
 # The ids a process runs as. Process::Sys makes the system calls by
@@ -927,7 +933,7 @@ module Kernel
 
   def spawn(*args, **options)
     pid = Process.send(:spawn_command, args, options)
-    raise SystemCallError.new(Process.send(:command_words, args).first, -pid) if pid.negative?
+    raise Process.send(:start_error, args, options, pid) if pid.negative?
 
     pid
   end
@@ -935,7 +941,7 @@ module Kernel
   def system(*args, exception: false, **options)
     pid = Process.send(:spawn_command, args, options)
     if pid.negative?
-      raise SystemCallError.new(Process.send(:command_words, args).first, -pid) if exception
+      raise Process.send(:start_error, args, options, pid) if exception
 
       return nil
     end

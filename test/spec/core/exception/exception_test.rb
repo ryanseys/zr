@@ -163,4 +163,22 @@ describe "Exception programs" do
       KeyError
     OUT
   end
+
+  it "DEBUG reports each raise on stderr" do
+    result = zr(<<~'RUBY')
+      $DEBUG = true
+      def m = raise(IOError, "io")
+      begin; m; rescue IOError; end
+      begin; raise RuntimeError, "set", ["elsewhere:9"]; rescue; end
+      begin; [].fetch(3); rescue IndexError; end
+      begin; throw :zz; rescue UncaughtThrowError; end
+      begin; exit 3; rescue SystemExit; end
+      catch(:a) { throw :a }
+      $DEBUG = false
+      begin; raise "quiet"; rescue; end
+      puts "done"
+    RUBY
+
+    _(result).must_answer "done\n", stderr: "Exception 'IOError' at core/exception/exception_test.rb:2 - io\nException 'RuntimeError' at core/exception/exception_test.rb:4 - set\nException 'IndexError' at core/exception/exception_test.rb:5 - index 3 outside of array bounds: 0...0\nException 'UncaughtThrowError' at core/exception/exception_test.rb:6 - uncaught throw :zz\n"
+  end
 end

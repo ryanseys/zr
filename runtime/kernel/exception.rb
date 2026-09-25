@@ -195,6 +195,19 @@ machine def zr_raise_from(exc, top)
     return r if r == QUNDEF
     RException.set_cause(exc, cause == exc ? Machine.value(QNIL) : cause)
   end
+  debug = zr_gvar_get(Machine.id(:$DEBUG))
+  if debug != QNIL && debug != QFALSE && !zr_is_a(exc, zr_core_class(Machine.id(:SystemExit)))
+    # A backtrace set by hand does not tell where the raise is.
+    at = exc
+    if RException.bt(exc) != QNIL
+      at = zr_exc_new(zr_core_class(Machine.id(:Exception)), Machine.value(QNIL))
+      zr_backtrace_capture(at, top)
+    end
+    arg = Machine.slot(8)
+    Machine.store64(arg, 0, Machine.word(at))
+    r = zr_send(exc, Machine.id(:debug_report), 1, arg)
+    return r if r == QUNDEF
+  end
   fired = zr_trace_raise(exc, top)
   return fired if fired == QUNDEF
   Task.set_pending_kind(t, PENDING_RAISE)

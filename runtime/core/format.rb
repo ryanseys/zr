@@ -21,140 +21,245 @@ module Kernel
   # order, by position (`%1$d`) or by name (`%<n>d`, `%{n}`). Its
   # methods are hidden helpers: a backtrace shows Kernel#format alone.
   class Formatter
+    # The bits of sprintf.c's `flags`: the five flag characters, then
+    # whether a width, a precision, and a `.` were given.
+    FSHARP = 1
+    FMINUS = 2
+    FPLUS = 4
+    FZERO = 8
+    FSPACE = 16
+    FWIDTH = 32
+    FPREC = 64
+    FPREC0 = 128
+    FLAG_BITS = { 32 => FSPACE, 35 => FSHARP, 43 => FPLUS, 45 => FMINUS, 48 => FZERO }.freeze
+    CONVERSIONS = "csp{diouxXbBfeEgGaA".bytes.freeze
+    # No value was taken yet for a directive.
+    NONE = Object.new.freeze
+    private_constant :FSHARP, :FMINUS, :FPLUS, :FZERO, :FSPACE, :FWIDTH, :FPREC, :FPREC0, :FLAG_BITS, :CONVERSIONS, :NONE
+
     def initialize(spec, args)
       Primitive.attr! :hidden
       # A subclass's text is read as its bytes, as rb_str_format reads it.
       @spec = Primitive.zr_real_class(spec).equal?(String) ? spec : String.new(spec)
       @args = args
-      @next = 0
-      @numbered = false
+      # sprintf.c's `posarg`: 0 before any argument, the last unnumbered
+      # one taken, -1 after a numbered one, -2 after a named one.
+      @posarg = 0
+      @nextarg = 1
+      @hash = nil
       @out = "".dup.force_encoding(@spec.encoding)
     end
 
     def render
       Primitive.attr! :hidden
       i = 0
-      while i < @spec.bytesize
+      size = @spec.bytesize
+      while i < size
         b = @spec.getbyte(i)
         if b != 37
           @out << @spec.byteslice(i, 1)
           i += 1
           next
         end
+        raise ArgumentError, +"incomplete format specifier; use %% (double %) instead" if i + 1 == size
+
         i = directive(i + 1)
       end
+      too_many
       @out
     end
 
     private
 
+    # rb_str_format's `retry` loop over one directive, from the byte after
+    # its `%`. Returns the index after the directive.
     def directive(i)
       Primitive.attr! :hidden
-      flags = +""
-      width = nil
-      precision = nil
-      value = nil
-      have_value = false
+      flags = 0
+      fl = +""
+      width = 0
+      prec = 0
+      value = NONE
+      sym = nil
       while true
-        raise ArgumentError, +"incomplete format specifier; use %% (double %) instead" if i >= @spec.bytesize
+        b = i < @spec.bytesize ? @spec.getbyte(i) : 0
+        if (bit = FLAG_BITS[b])
+          raise ArgumentError, +"flag after width" if flags & FWIDTH != 0
+          raise ArgumentError, +"flag after precision" if flags & FPREC0 != 0
 
-        b = @spec.getbyte(i)
-        case b
-        when 45, 43, 32, 48, 35 then flags << Primitive.zr_str_from_byte(b)
-        when 42
-          width = Integer(take_next)
+          flags |= bit
+          fl << Primitive.zr_str_from_byte(b)
+          i += 1
+        elsif b >= 49 && b <= 57
+          n, i = get_num(i, "width")
+          if @spec.getbyte(i) == 36
+            raise ArgumentError, "value given twice - #{n}$" unless value.equal?(NONE)
+
+            value = pos_arg(n)
+            i += 1
+          else
+            width_check(flags)
+            width = n
+            flags |= FWIDTH
+          end
+        elsif b == 60 || b == 123
+          term = b == 60 ? 62 : 125
+          stop = i
+          stop += 1 while stop < @spec.bytesize && @spec.getbyte(stop) != term
+          raise ArgumentError, +"malformed name - unmatched parenthesis" if stop >= @spec.bytesize
+
+          text = @spec.byteslice(i, stop - i + 1)
+          raise ArgumentError, "named#{text} after <#{sym}>" if sym
+
+          raise ArgumentError, "named#{text} after unnumbered(#{@posarg})" if @posarg > 0
+          raise ArgumentError, "named#{text} after numbered" if @posarg == -1
+
+          @posarg = -2
+          hash = one_hash
+          sym = @spec.byteslice(i + 1, stop - i - 1).to_sym
+          value = if hash.key?(sym)
+                    hash[sym]
+                  else
+                    found = Primitive.zr_hash_default(hash, sym)
+                    raise KeyError.new("key#{text} not found", receiver: hash, key: sym) if found.nil?
+
+                    found
+                  end
+          if term == 125
+            @out << convert(115, value, fl, flags & FWIDTH != 0 ? width : nil, flags & FPREC != 0 ? prec : nil)
+            return stop + 1
+          end
+          i = stop + 1
+        elsif b == 42
+          width_check(flags)
+          flags |= FWIDTH
+          width, i = aster(i, "width")
           if width < 0
-            flags << "-"
+            flags |= FMINUS
+            fl << "-"
             width = -width
           end
-        when 46
+        elsif b == 46
+          raise ArgumentError, +"precision given twice" if flags & FPREC0 != 0
+
+          flags |= FPREC | FPREC0
+          prec = 0
           i += 1
           if @spec.getbyte(i) == 42
-            precision = Integer(take_next)
-            precision = nil if precision < 0
+            prec, i = aster(i, "precision")
+            flags &= ~FPREC if prec < 0
           else
-            precision, i = number(i)
-            precision ||= 0
-            i -= 1
+            prec, i = get_num(i, "precision")
           end
-        when 49..57
-          n, i = number(i)
-          if @spec.getbyte(i) == 36
-            value = positional(n)
-            have_value = true
-          else
-            width = n
-            i -= 1
-          end
-        when 60
-          stop = @spec.index(">", i)
-          raise ArgumentError, +"malformed name - unmatched parenthesis" unless stop
-
-          value = named(@spec[i + 1...stop], "<", ">")
-          have_value = true
-          i = stop
-        when 123
-          stop = @spec.index("}", i)
-          raise ArgumentError, +"malformed name - unmatched parenthesis" unless stop
-
-          @out << named(@spec[i + 1...stop], "{", "}").to_s
-          return stop + 1
-        when 37
-          raise ArgumentError, +"invalid format character - %" unless flags.empty? && width.nil?
+        elsif b == 37
+          raise ArgumentError, +"invalid format character - %" if flags != 0
 
           @out << "%"
           return i + 1
-        else
-          value = take_next unless have_value
-          @out << convert(b, value, flags, width, precision)
+        elsif CONVERSIONS.include?(b)
+          value = next_arg if value.equal?(NONE)
+          @out << convert(b, value, fl, flags & FWIDTH != 0 ? width : nil, flags & FPREC != 0 ? prec : nil)
           return i + 1
+        elsif b >= 32 && b <= 126
+          raise ArgumentError, "malformed format string - %#{Primitive.zr_str_from_byte(b)}"
+        else
+          raise ArgumentError, +"malformed format string"
         end
-        i += 1
       end
     end
 
-    def number(i)
+    # get_num: the digits from `i`, which must not run to the end.
+    def get_num(i, what)
       Primitive.attr! :hidden
       n = 0
       while i < @spec.bytesize && @spec.getbyte(i).between?(48, 57)
         n = n * 10 + (@spec.getbyte(i) - 48)
+        raise ArgumentError, "#{what} too big" if n > 2_147_483_647
+
         i += 1
       end
+      raise ArgumentError, +"malformed format string - %*[0-9]" if i >= @spec.bytesize
+
       [n, i]
     end
 
-    # An argument taken in order. A template refers to its arguments
-    # in one of the two ways, never both.
-    def take_next
+    # GETASTER at the `*` at `i`: `*n$` takes argument n, a bare `*` the
+    # next one. Returns the Integer and the index after the `*` form.
+    def aster(i, what)
       Primitive.attr! :hidden
-      raise ArgumentError, "unnumbered(#{@next + 1}) mixed with numbered" if @numbered
-      raise ArgumentError, +"too few arguments" if @next >= @args.size
-
-      v = @args[@next]
-      @next += 1
-      v
+      n, after = get_num(i + 1, what)
+      if @spec.getbyte(after) == 36
+        v = pos_arg(n)
+        i = after
+      else
+        v = next_arg
+      end
+      [num2int(v), i + 1]
     end
 
-    def positional(n)
+    def num2int(v)
       Primitive.attr! :hidden
-      raise ArgumentError, "numbered(#{n}) after unnumbered(#{@next})" if @next.positive?
-      raise ArgumentError, "invalid index - #{n}$" if n < 1 || n > @args.size
+      raise TypeError, +"no implicit conversion from nil to integer" if v.nil?
+      return v.to_i if v.is_a?(Float)
 
-      @numbered = true
+      Primitive.zr_index_operand_m(v)
+    end
+
+    # GETNEXTARG: an argument in order, unless a numbered or a named one
+    # came before.
+    def next_arg
+      Primitive.attr! :hidden
+      raise ArgumentError, "unnumbered(#{@nextarg}) mixed with numbered" if @posarg == -1
+      raise ArgumentError, "unnumbered(#{@nextarg}) mixed with named" if @posarg == -2
+
+      @posarg = @nextarg
+      @nextarg += 1
+      nth(@posarg)
+    end
+
+    # GETPOSARG: argument `n`, counted from 1.
+    def pos_arg(n)
+      Primitive.attr! :hidden
+      raise ArgumentError, "numbered(#{n}) after unnumbered(#{@posarg})" if @posarg > 0
+      raise ArgumentError, "numbered(#{n}) after named" if @posarg == -2
+      raise ArgumentError, "invalid index - #{n}$" if n < 1
+
+      @posarg = -1
+      nth(n)
+    end
+
+    def nth(n)
+      Primitive.attr! :hidden
+      raise ArgumentError, +"too few arguments" if n > @args.size
+
       @args[n - 1]
     end
 
-    # The message gives the key inside the brackets that the program wrote.
-    def named(name, open, close)
+    # get_hash: the one argument, as a Hash (to_hash).
+    def one_hash
       Primitive.attr! :hidden
-      raise ArgumentError, "named#{open}#{name}#{close} after unnumbered(#{@next})" if @next.positive?
-      raise ArgumentError, +"one hash required" unless @args.size == 1 && @args[0].is_a?(Hash)
+      return @hash if @hash
+      raise ArgumentError, +"one hash required" unless @args.size == 1
 
-      hash = @args[0]
-      key = name.to_sym
-      raise KeyError.new("key#{open}#{name}#{close} not found", receiver: hash, key: key) unless hash.key?(key)
+      @hash = Hash.try_convert(@args[0]) or raise ArgumentError, +"one hash required"
+    end
 
-      hash[key]
+    def width_check(flags)
+      Primitive.attr! :hidden
+      raise ArgumentError, +"width given twice" if flags & FWIDTH != 0
+      raise ArgumentError, +"width after precision" if flags & FPREC0 != 0
+    end
+
+    # sprint_exit: arguments in order that the string left unused are an
+    # error under $DEBUG and a warning under $VERBOSE.
+    def too_many
+      Primitive.attr! :hidden
+      return unless @posarg >= 0 && @nextarg <= @args.size
+      return if @args.size == 1 && @args[0].is_a?(Hash)
+
+      raise ArgumentError, +"too many arguments for format string" if $DEBUG
+
+      Warning.warn("#{Primitive.zr_warn_position}warning: too many arguments for format string\n") if $VERBOSE
     end
 
     def convert(b, value, flags, width, precision)
@@ -176,20 +281,32 @@ module Kernel
       end
     end
 
+    # `%c`: a String gives its first character; a number is a character
+    # of the result's encoding. US-ASCII past 127 turns the result binary,
+    # as rb_ascii8bit_appendable_encoding_index does.
     def character(value, flags, width)
       Primitive.attr! :hidden
-      if value.is_a?(String)
-        raise ArgumentError, +"%c requires a character" if value.empty?
-
-        pad(value[0], flags, width)
-      else
-        n = Integer(value)
-        raise ArgumentError, +"invalid character" if n < 0
-
-        # `%c` writes the code point, not the byte: past 255 that is a
-        # character of the format string's own encoding.
-        pad(n.chr(Encoding::UTF_8), flags, width)
+      if (text = String.try_convert(value))
+        return pad(text[0] || +"", flags, width)
       end
+
+      n = num2int(value)
+      raise ArgumentError, +"invalid character" if n < 0
+
+      enc = @out.encoding
+      if enc.equal?(Encoding::US_ASCII) && n > 127 && n < 256
+        @out.force_encoding(Encoding::BINARY)
+        enc = Encoding::BINARY
+      end
+      char = if enc.equal?(Encoding::UTF_8)
+               raise ArgumentError, +"invalid character" if n > 0x10FFFF
+
+               # A surrogate is written as its three bytes, as mbcput does.
+               n.between?(0xD800, 0xDFFF) ? [0xED, 0xA0 | ((n >> 6) & 0x1F), 0x80 | (n & 0x3F)].pack("C*").force_encoding(enc) : n.chr(enc)
+             else
+               n.chr(enc)
+             end
+      pad(char, flags, width)
     end
 
     # The digits with sign, prefix, precision and width applied; a
@@ -506,7 +623,10 @@ module Kernel
 end
 
 class String
+  # rb_str_format_m: an Array, or an object with to_ary, gives the
+  # arguments; anything else is the one argument.
   def %(args)
-    format(self, *(args.is_a?(Array) ? args : [args]))
+    list = Array.try_convert(args)
+    format(self, *(list || [args]))
   end
 end

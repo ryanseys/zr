@@ -2631,4 +2631,26 @@ describe "Process programs" do
       [19900, 400, 100, :signalled, "fatal: No live threads left. Deadlock?"]
     OUT
   end
+
+  it "spawn names the command when an options hash follows it" do
+    result = zr(<<~'RUBY')
+      [["no-such-cmd", {}], [{"A" => "1"}, "no-such-cmd", {}], [["no-such-cmd", "argv0"], {}]].each do |args|
+        begin
+          spawn(*args)
+        rescue SystemCallError => e
+          p [e.class, e.message]
+        end
+        p system(*args)
+      end
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [Errno::ENOENT, "No such file or directory - no-such-cmd"]
+      nil
+      [Errno::ENOENT, "No such file or directory - no-such-cmd"]
+      nil
+      [Errno::ENOENT, "No such file or directory - no-such-cmd"]
+      nil
+    OUT
+  end
 end

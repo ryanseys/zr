@@ -2878,4 +2878,25 @@ describe "Date programs" do
       "---\na: &1\n- 1\nb: *1\n"
     OUT
   end
+
+  it "Time converts to a Gregorian Date and DateTime" do
+    result = zr(<<~'RUBY')
+      require "date"
+      t = Time.new(2024, 1, 2, 3, 4, 5.25r, "+05:30")
+      p t.to_date, t.to_date.start
+      p t.to_datetime, t.to_datetime.offset
+      p Time.utc(1500, 3, 1).to_date, Time.utc(1500, 3, 1).to_datetime
+      p t.to_time.equal?(t)
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      #<Date: 2024-01-02 ((2460312j,0s,0n),+0s,2299161j)>
+      2299161.0
+      #<DateTime: 2024-01-02T03:04:05+05:30 ((2460311j,77645s,250000000n),+19800s,2299161j)>
+      (11/48)
+      #<Date: 1500-02-20 ((2268983j,0s,0n),+0s,2299161j)>
+      #<DateTime: 1500-02-20T00:00:00+00:00 ((2268983j,0s,0n),+0s,2299161j)>
+      true
+    OUT
+  end
 end

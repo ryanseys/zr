@@ -747,6 +747,19 @@ end
 
 require_relative "date/format"
 require_relative "date/parse"
+# date_core.c's time_to_*: the proleptic Gregorian day of the time,
+# which then takes the default day of the calendar reform.
+class Time
+  def to_time = self
+
+  def to_date = Date.civil(year, mon, mday, Date::GREGORIAN).new_start
+
+  # A leap second is the last second of its minute.
+  def to_datetime
+    DateTime.new(year, mon, mday, hour, min, [sec, 59].min + subsec, Rational(utc_offset, 86_400), Date::GREGORIAN).new_start
+  end
+end
+
 require_relative "date/readers"
 require_relative "date/strptime"
 require_relative "date/frags"

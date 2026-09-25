@@ -175,6 +175,17 @@ class Exception
     out
   end
 
+  # setup_exception under $DEBUG: each raise tells $stderr the class,
+  # the place of the raise and the message, rescued or not.
+  # `raised` holds the place of the raise as its first frame.
+  def debug_report(raised)
+    Primitive.attr! :hidden
+    text = to_s
+    text = Primitive.zr_any_to_s(self) unless text.is_a?(String)
+    at = raised.backtrace_locations&.first
+    $stderr.write(at ? "Exception '#{self.class}' at #{at.path}:#{at.lineno} - #{text}\n" : "Exception '#{self.class}' - #{text}\n")
+  end
+
   def checked_highlight(value, tty)
     Primitive.attr! :hidden
     unless value.nil? || value == true || value == false
