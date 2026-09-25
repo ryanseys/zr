@@ -2283,4 +2283,25 @@ describe "Struct programs" do
       FrozenError
     OUT
   end
+
+  it "values_at raises for an index outside the members" do
+    result = zr(<<~'RUBY')
+      S = Struct.new(:a, :b)
+      s = S.new(1, 2)
+      p s.values_at(0..3), s.values_at(-1, 0)
+      [-> { s.values_at(5) }, -> { s.values_at(-3) }, -> { s.values_at(-3..-1) }].each do |f|
+        f.call
+      rescue IndexError, RangeError => e
+        p [e.class, e.message]
+      end
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [1, 2, nil, nil]
+      [2, 1]
+      [IndexError, "offset 5 too large for struct(size:2)"]
+      [IndexError, "offset -3 too small for struct(size:2)"]
+      [RangeError, "-3..-1 out of range"]
+    OUT
+  end
 end

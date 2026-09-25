@@ -208,6 +208,7 @@ MISS_VCALL = 2
 MISS_EXPLICIT = 3
 MISS_PRIVATE = 4
 MISS_PROTECTED = 5
+MISS_SUPER = 6
 
 # Sends a miss to the receiver's `method_missing`, with the name before
 # the arguments. The base `method_missing` raises as a plain miss does.
@@ -237,6 +238,9 @@ machine def zr_miss_error(recv, mid, reason, argc, argv)
   end
   if reason == MISS_PROTECTED
     return zr_hidden_method(recv, mid, VIS_PROTECTED, argc, argv)
+  end
+  if reason == MISS_SUPER
+    return zr_no_method_from(recv, mid, false, true, argc, argv)
   end
   zr_no_method(recv, mid, reason == MISS_VCALL, argc, argv)
 end
@@ -433,8 +437,10 @@ machine def zr_super(cc, rec, argc, argv, blk)
   elsif k != QNIL
     e = zr_find_method(RClass.superclass(k), mid)
   end
+  # vm_call_super: with no method above, the receiver's method_missing
+  # gets the call (MISSING_SUPER).
   if e == 0
-    return zr_no_method_from(recv, mid, false, true, argc, argv)
+    return zr_method_missing(recv, mid, argc, argv, blk, kw, MISS_SUPER)
   end
   if cc != 0 && !refined && Task.refine(t) == QNIL && Machine.load64(Machine.static(:mcache_mode, 8), 0) == 0
     SuperCache.set_node(cc, k)

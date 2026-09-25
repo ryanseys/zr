@@ -107,4 +107,24 @@ describe "Data: construction" do
       false
     OUT
   end
+
+  it "new takes String keys and refuses other keys" do
+    result = zr(<<~'RUBY')
+      P = Data.define(:x, :y)
+      p P.new("x" => 1, "y" => 2), P.new("x" => 1, y: 2)
+      [-> { P.new(1 => 1, 2 => 2) }, -> { P.new("x" => 1, "y" => 2, "z" => 3) }, -> { P.new(x: 1, "z" => 2) }].each do |f|
+        f.call
+      rescue ArgumentError, TypeError => e
+        p [e.class, e.message]
+      end
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      #<data P x=1, y=2>
+      #<data P x=1, y=2>
+      [TypeError, "1 is not a symbol nor a string"]
+      [ArgumentError, "unknown keyword: \"z\""]
+      [ArgumentError, "missing keyword: :y"]
+    OUT
+  end
 end

@@ -2877,4 +2877,28 @@ describe "Variables programs" do
       7
     OUT
   end
+
+  it "a class variable that a superclass also gets is overtaken" do
+    result = zr(<<~'RUBY')
+      class Pa; end
+      class Ch < Pa
+        @@s = 1
+        def self.r = @@s
+      end
+      class Pa
+        @@s = 2
+      end
+      begin
+        Ch.r
+      rescue RuntimeError => e
+        p e.message
+      end
+      p Pa.class_variable_get(:@@s)
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "class variable @@s of Ch is overtaken by Pa"
+      2
+    OUT
+  end
 end

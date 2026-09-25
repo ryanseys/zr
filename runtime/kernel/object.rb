@@ -1400,7 +1400,14 @@ machine def zr_class_to_s(recv, argc, argv, cref, blk)
     return zr_buf_take_at(b, ENC_USASCII)
   end
   if zr_singleton_p(recv)
-    inner = zr_inspect(RClass.attached(recv))
+    # rb_mod_to_s inspects a class or a module, and shows any other
+    # object by its address.
+    attached = RClass.attached(recv)
+    if !zr_special_p(attached) && (zr_type(attached) == T_CLASS || zr_type(attached) == T_MODULE)
+      inner = zr_inspect(attached)
+    else
+      inner = zr_any_to_s(attached)
+    end
     return inner if inner == QUNDEF
     b = Machine.slot(Buf.size)
     zr_buf_init(b)

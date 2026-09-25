@@ -417,4 +417,34 @@ describe "Classes: defining and naming methods" do
       D#a gone
     OUT
   end
+
+  it "a class has no module_function or refine, and using takes only a module" do
+    result = zr(<<~'RUBY')
+      begin
+        class K1; module_function :x; end
+      rescue NoMethodError => e
+        p e.message
+      end
+      begin
+        class K2; refine(String) {}; end
+      rescue NoMethodError => e
+        p e.message
+      end
+      class K3; end
+      begin
+        using K3
+      rescue TypeError => e
+        p e.message
+      end
+      p "abc".singleton_class.inspect.start_with?("#<Class:#<String:0x"), String.singleton_class
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "undefined method 'module_function' for class K1"
+      "undefined method 'refine' for class K2"
+      "wrong argument type Class (expected Module)"
+      true
+      #<Class:String>
+    OUT
+  end
 end

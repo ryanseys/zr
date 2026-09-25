@@ -844,7 +844,8 @@ class Fiber
     Kernel.raise ArgumentError, +"tried to create Proc object without a block" unless block
 
     tag = Object.new
-    __make__ { |*args| Primitive.zr_catch(tag, proc { block.call(*args) }) }
+    # The first resume's keywords reach the block as keywords.
+    __make__ { |*args, **kw| Primitive.zr_catch(tag, proc { block.call(*args, **kw) }) }
     Primitive.zr_hidden_set(self, :__kill__, tag)
     Primitive.zr_hidden_set(self, :__block__, block)
     Primitive.zr_hidden_set(self, :__storage__, table)

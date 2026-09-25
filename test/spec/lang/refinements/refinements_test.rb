@@ -449,4 +449,19 @@ describe "Refinements programs" do
       "R"
     OUT
   end
+
+  it "import_methods refuses a method not written as a def" do
+    result = zr(<<~'RUBY')
+      m = Module.new { attr_reader :q }
+      begin
+        Module.new { refine(String) { import_methods m } }
+      rescue ArgumentError => e
+        p e.message.sub(/#<Module:0x\h+>/, "M")
+      end
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "Can't import method which is not defined with Ruby code: M#q"
+    OUT
+  end
 end

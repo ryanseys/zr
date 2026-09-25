@@ -278,7 +278,8 @@ module Kernel
   # The directory of the caller's file, absolute.
   def __dir__
     file = Primitive.zr_caller_file
-    return nil if file.nil?
+    # An eval with no file has no directory (rb_f_dir).
+    return nil if file.nil? || file.start_with?("(eval at ")
     return +"." if file == +"-e"
 
     File.dirname(File.expand_path(file))

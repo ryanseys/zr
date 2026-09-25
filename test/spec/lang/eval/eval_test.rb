@@ -3142,4 +3142,19 @@ describe "Eval programs" do
       'Method#call'
     OUT
   end
+
+  it "a binding's eval reads its method, and an eval with no file has no __dir__" do
+    result = zr(<<~'RUBY')
+      def bm = binding
+      p bm.eval("__method__")
+      p eval("__dir__"), binding.eval("__dir__"), eval("__dir__", nil, "/tmp/x/y.rb")
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      :bm
+      nil
+      nil
+      "/tmp/x"
+    OUT
+  end
 end

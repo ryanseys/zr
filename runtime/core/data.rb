@@ -47,22 +47,32 @@ class Data
     members = member_names
     count = Primitive.zr_ary_len_m(members)
     values = Array.new(count)
+    seen = Array.new(count, false)
     named = 0
-    i = 0
-    while i < count
-      m = Primitive.zr_ary_at_m(members, i)
-      if Primitive.zr_hash_key_p_m(kwargs, m)
-        values[i] = Primitive.zr_hash_aref_m(kwargs, m)
-        named += 1
+    unknown = nil
+    # rb_data_initialize_m: a String key names a member as its Symbol
+    # does; any other key is a TypeError. Missing members raise before
+    # unknown keys.
+    kwargs.each do |key, value|
+      name = case key
+             when Symbol then key
+             when String then key.to_sym
+             else raise TypeError, "#{key.inspect} is not a symbol nor a string"
+             end
+      i = members.index(name)
+      if i
+        named += 1 unless seen[i]
+        values[i] = value
+        seen[i] = true
+      else
+        (unknown ||= []) << key
       end
-      i += 1
     end
     if named < count
-      missing = members - kwargs.keys
+      missing = members.reject.with_index { |_, i| seen[i] }
       raise ArgumentError, "missing keyword#{Primitive.zr_ary_len_m(missing) > 1 ? 's' : ''}: #{missing.map(&:inspect).join(', ')}"
     end
-    if named < Primitive.zr_hash_len_m(kwargs)
-      unknown = kwargs.keys - members
+    if unknown
       raise ArgumentError, "unknown keyword#{Primitive.zr_ary_len_m(unknown) > 1 ? 's' : ''}: #{unknown.map(&:inspect).join(', ')}"
     end
 

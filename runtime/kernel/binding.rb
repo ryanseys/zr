@@ -270,7 +270,11 @@ sig [Value, Value] => Value
 machine def zr_binding_run(code, b)
   e = zr_code_env(code, RProc.env(b))
   RProc.set_env(b, e)
-  zr_eval_at(code, RProc.self(b), RProc.cref(b), e, RProc.blk(b))
+  # The string runs inside the Binding's scope, as CRuby makes the
+  # binding's iseq its parent: `__method__` and a backtrace label read
+  # the scope where the Binding was made.
+  FrameMeta.set_parent(Machine.ptr(zr_code_word(code, 1)), RProc.meta(b))
+  Machine.call(:eval, Machine.ptr(zr_code_word(code, 0)), RProc.self(b), RProc.cref(b), e, RProc.blk(b))
 end
 
 # Adds a name to the Binding, in a new scope inside the Binding's scope.

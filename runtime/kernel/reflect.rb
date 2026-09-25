@@ -158,7 +158,8 @@ machine def zr_mod_class_variable_get(recv, argc, argv, cref, blk)
   id = Machine.load64(slot, 0)
   r = zr_check_cvar_name(id)
   return r if r == QUNDEF
-  owner = zr_cvar_owner(recv, id)
+  owner = zr_cvar_target(recv, id)
+  return owner if owner == QUNDEF
   if owner == QNIL
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
@@ -179,7 +180,8 @@ machine def zr_mod_class_variable_set(recv, argc, argv, cref, blk)
   id = Machine.load64(slot, 0)
   r = zr_check_cvar_name(id)
   return r if r == QUNDEF
-  owner = zr_cvar_owner(recv, id)
+  owner = zr_cvar_target(recv, id)
+  return owner if owner == QUNDEF
   if owner == QNIL
     owner = recv
   end

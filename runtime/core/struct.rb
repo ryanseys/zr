@@ -189,7 +189,25 @@ class Struct
     out
   end
 
-  def values_at(*indexes) = Primitive.zr_struct_values(self).values_at(*indexes)
+  # rb_get_values_at with struct_entry: a Range reads as Array's does, and
+  # an index outside the members raises.
+  def values_at(*indexes)
+    values = Primitive.zr_struct_values(self)
+    size = Primitive.zr_ary_len_m(values)
+    out = []
+    indexes.each do |i|
+      if i.is_a?(Range)
+        out.concat(values.values_at(i))
+        next
+      end
+      n = Primitive.zr_index_operand_m(i)
+      raise IndexError, "offset #{n} too small for struct(size:#{size})" if n < -size
+      raise IndexError, "offset #{n} too large for struct(size:#{size})" if n >= size
+
+      out << values[n]
+    end
+    out
+  end
 
   def dig(key, *rest)
     # A member this struct does not hold is a miss, not an error, which

@@ -445,4 +445,22 @@ describe "Fiber programs" do
       :ended
     OUT
   end
+
+  it "the first resume passes keywords to the block" do
+    result = zr(<<~'RUBY')
+      p Fiber.new { |k:| k }.resume(k: 3)
+      p Fiber.new { |*a, **kw| [a, kw] }.resume(1, k: 2)
+      p Fiber.new { |**kw| kw }.resume({a: 1})
+      f = Fiber.new { |x| Fiber.yield(x) }
+      p f.resume(1), f.resume(k: 2)
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      3
+      [[1], {k: 2}]
+      {}
+      1
+      {k: 2}
+    OUT
+  end
 end

@@ -581,13 +581,77 @@ machine def zr_cvar_owner(klass, id)
   Machine.value(QNIL)
 end
 
+# Whether Refinement#import_methods can copy `name` from `mod`: true for
+# a program's `def`, false for an attr, a define_method, an alias or a
+# builtin, and nil for a core method written in Ruby, which the caller
+# looks up among CRuby's own Ruby methods.
+sig [Value, Value] => Value
+machine def zr_mod_import_ok_p(mod, name)
+  id = zr_sym2id(name)
+  e = zr_find_method(mod, id)
+  if e == 0 || MEntry.kind(e) != KIND_DEF || MEntry.orig(e) != id
+    return Machine.value(QFALSE)
+  end
+  if MEntry.core(e) != 0
+    return Machine.value(QNIL)
+  end
+  Machine.value(QTRUE)
+end
+
+# rb_cvar_get's lookup: the value belongs to the farthest ancestor that
+# has the name. A nearer class that also has it is "overtaken" and
+# raises; a nearer copy in the same module is removed (cvar_overtaken).
+# Returns nil when no ancestor has the name.
+sig [Value, Word] => Value
+machine def zr_cvar_target(klass, id)
+  front = Machine.value(QNIL)
+  target = Machine.value(QNIL)
+  k = klass
+  while k != QNIL
+    if zr_ivtab_row(ClassExt.cv(RClass.ext(k)), id) != 0
+      if front == QNIL
+        front = k
+      end
+      target = k
+    end
+    k = RClass.superclass(k)
+  end
+  if front == QNIL || target == front
+    return target
+  end
+  near = zr_type(front) == T_ICLASS ? RClass.attached(front) : front
+  far = zr_type(target) == T_ICLASS ? RClass.attached(target) : target
+  if near != far
+    b = Machine.slot(Buf.size)
+    zr_buf_init(b)
+    zr_buf_push(b, Machine.bytes("class variable "), 15)
+    zr_buf_sym(b, id)
+    zr_buf_push(b, Machine.bytes(" of "), 4)
+    zr_buf_class(b, near)
+    zr_buf_push(b, Machine.bytes(" is overtaken by "), 17)
+    zr_buf_class(b, far)
+    return zr_raise_buf(zr_global(G_RUNTIME_ERROR), b)
+  end
+  if zr_type(front) == T_CLASS
+    t = ClassExt.cv(RClass.ext(front))
+    e = zr_ivtab_row(t, id)
+    last = IvTab.rows(t) + ((IvTab.len(t) - 1) * IvEntry.size)
+    if e != last
+      zr_memmove(e, e + IvEntry.size, last - e)
+    end
+    IvTab.set_len(t, IvTab.len(t) - 1)
+  end
+  target
+end
+
 sig [Value, Word] => Value
 machine def zr_cvar_get(cref, id)
   base = zr_cvar_base(cref)
   if base == QNIL
     return zr_raise_msg(zr_global(G_RUNTIME_ERROR), Machine.bytes("class variable access from toplevel"), 35)
   end
-  owner = zr_cvar_owner(base, id)
+  owner = zr_cvar_target(base, id)
+  return owner if owner == QUNDEF
   if owner == QNIL
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
@@ -630,7 +694,8 @@ machine def zr_cvar_set(cref, id, v)
   if base == QNIL
     return zr_raise_msg(zr_global(G_RUNTIME_ERROR), Machine.bytes("class variable access from toplevel"), 35)
   end
-  owner = zr_cvar_owner(base, id)
+  owner = zr_cvar_target(base, id)
+  return owner if owner == QUNDEF
   if owner == QNIL
     owner = base
   end
@@ -2540,7 +2605,7 @@ end
 # returns them, so a module written in Ruby also works.
 sig [Value, Value] => Value
 machine def zr_using_holders(list, mod)
-  if zr_special_p(mod) || (zr_type(mod) != T_MODULE && zr_type(mod) != T_CLASS)
+  if zr_special_p(mod) || zr_type(mod) != T_MODULE
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
     zr_buf_push(b, Machine.bytes("wrong argument type "), 20)

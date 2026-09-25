@@ -3,7 +3,7 @@
 # is the current task. Each fiber keeps its own kernel root list.
 Machine.import "munmap", [Ptr, Word] => I32
 
-Machine.struct :RFiber, basic: RBasic, task: Ptr, ctx: Ptr, stack: Ptr, kroots: Ptr, blk: Value, status: Word, prev: Value, resuming: Value, value: Value, yielding: Word, transferred: Word, home: Value
+Machine.struct :RFiber, basic: RBasic, task: Ptr, ctx: Ptr, stack: Ptr, kroots: Ptr, blk: Value, status: Word, prev: Value, resuming: Value, value: Value, yielding: Word, transferred: Word, home: Value, kw: Word
 T_FIBER = 30
 G_FIBER = 39
 FIBER_CREATED = 0
@@ -123,6 +123,7 @@ machine def zr_fiber_alloc(klass)
   RFiber.set_value(f, Machine.value(QNIL))
   RFiber.set_yielding(f, 0)
   RFiber.set_transferred(f, 0)
+  RFiber.set_kw(f, 0)
   RFiber.set_home(f, Machine.value(QNIL))
   zr_fiber_register(f)
   f
@@ -202,6 +203,7 @@ end
 # value that it yields or returns, or QUNDEF with its pending unwind.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_fiber_resume(recv, argc, argv, cref, blk)
+  kw = zr_kw_take()
   if RFiber.ctx(recv) == 0
     return zr_fiber_error(Machine.bytes("uninitialized fiber"), 19)
   end
@@ -223,6 +225,15 @@ machine def zr_fiber_resume(recv, argc, argv, cref, blk)
   end
   if RFiber.home(recv) != RFiber.home(cur)
     return zr_fiber_error(Machine.bytes("fiber called across threads"), 27)
+  end
+  # The first resume's keywords reach the block as keywords; a later
+  # resume's arrive as a Hash, the value of Fiber.yield.
+  if kw > 1
+    argc = zr_kw_tab_in(kw, argc, argv)
+    kw = 1
+  end
+  if RFiber.status(recv) == FIBER_CREATED
+    RFiber.set_kw(recv, kw)
   end
   RFiber.set_prev(recv, cur)
   RFiber.set_resuming(cur, recv)
@@ -342,6 +353,8 @@ machine def zr_fiber_start
   end
   if r != QUNDEF
     args = RFiber.value(cur)
+    Task.set_kw(zr_task(), RFiber.kw(cur))
+    RFiber.set_kw(cur, 0)
     r = zr_yield(RFiber.blk(cur), RArray.len(args), RArray.ptr(args))
   end
   to = zr_fiber_return_to(cur, 1)

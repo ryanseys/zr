@@ -40,18 +40,26 @@ module ObjectSpace
       block_given? ? yield(key) : nil
     end
 
+    # wmap_each and its kin yield with no enumerator: no block is a
+    # LocalJumpError.
     def each(&block)
+      raise LocalJumpError, +"no block given" unless block
+
       @table.each(&block)
       self
     end
     alias each_pair each
 
     def each_key(&block)
+      raise LocalJumpError, +"no block given" unless block
+
       @table.each_key(&block)
       self
     end
 
     def each_value(&block)
+      raise LocalJumpError, +"no block given" unless block
+
       @table.each_value(&block)
       self
     end

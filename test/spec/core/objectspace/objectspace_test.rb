@@ -154,4 +154,23 @@ describe "ObjectSpace programs" do
       [:internal_super, ObjectSpace::InternalObjectWrapper]
     OUT
   end
+
+  it "WeakMap iterators need a block" do
+    result = zr(<<~'RUBY')
+      w = ObjectSpace::WeakMap.new
+      w["a"] = 1
+      %i[each each_pair each_key each_value].each do |m|
+        w.public_send(m)
+      rescue LocalJumpError => e
+        p [m, e.message]
+      end
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [:each, "no block given"]
+      [:each_pair, "no block given"]
+      [:each_key, "no block given"]
+      [:each_value, "no block given"]
+    OUT
+  end
 end
