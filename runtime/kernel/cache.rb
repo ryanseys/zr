@@ -20,6 +20,12 @@
 #   the collector frees (its address can come back as another cref). The
 #   entry never contains an autoload, a deprecated constant, or a read
 #   made inside a box.
+# - A `case` on class arms has a table from the subject's class to the
+#   arm that the `when` chain selected. It is keyed on the cref and on
+#   both stamps, which it reads before the chain runs. The kernel adds a
+#   row only when the class alone decides the result: each arm that the
+#   chain tested read its constant from its cache entry and has
+#   Module#===, and the class has no box shadow (`zr_case_fill`).
 # - An instance variable's cache entry contains only a cached index: the
 #   ivar entry where the name was last time. Each use checks the name at
 #   that index, so the cache is never stale, only wrong. A wrong cached
@@ -66,6 +72,21 @@ Machine.struct :ConstCache, key: Value, stamp: Word, value: Value
 # entry keeps them and the lookup result for the method stamp
 # (runtime/kernel/send.rb, zr_super).
 Machine.struct :SuperCache, node: Value, mid: Word, stamp: Word, entry: Ptr, found: Value, fn: Ptr
+# The cache entry of a `case` with class arms
+# (`Zr::Lower::Function::Control#class_case`). `table` has CASE_ROWS
+# rows of CaseRow, one for each class that hashes to it, and the kernel
+# allocates it on the first reset. `mstamp`, `cstamp` and `cref` tell
+# for which state the rows are valid. `proven` is the count of leading
+# `when` values that the kernel checked for that state: each read its
+# constant from its cache entry, and has Module#===. `due` is the index
+# of the value that the site gives to `zr_case_prove`, or -1 when a
+# value failed the check (a Range, or a class with its own `===`), so
+# the site stops calling the kernel for it.
+Machine.struct :CaseCache, mstamp: Word, cstamp: Word, cref: Value, table: Ptr, proven: Word, due: Word
+# A row: the class of a subject, and the index of the arm (the count of
+# `when` clauses for `else`). A row with class 0 is empty.
+Machine.struct :CaseRow, klass: Value, arm: Word
+CASE_ROWS = 32
 
 # Records a change that a constant lookup can see.
 sig [] => Void
@@ -301,6 +322,106 @@ machine def zr_mod_eqq_fast(mod, obj)
     return zr_is_a_fast(RBasic.klass(obj), mod)
   end
   zr_is_a_fast(zr_class_of(obj), mod)
+end
+
+# Whether the cache entry of a `case` is valid for `cref` and for the
+# stamps `ms` and `cs`, which the site read before its `when` chain. If
+# the stamps are still current but the entry is for a different state,
+# this clears the entry for this state and returns true. If a stamp
+# changed during the chain (a definition, a collection, a constant
+# write), it returns false, and the chain's result is not for the
+# current state. A site stamp of -1 (caches off or verified) also gives
+# false, so no row goes into the table.
+sig [Ptr, Value, Word, Word] => Bool
+machine def zr_case_current(cc, cref, ms, cs)
+  if ms == 0 - 1
+    return false
+  end
+  if ms != Machine.load64(Machine.static(:site_stamp, 8), 0) || cs != Machine.load64(Machine.static(:const_stamp, 8), 0)
+    return false
+  end
+  if CaseCache.mstamp(cc) == ms && CaseCache.cstamp(cc) == cs && CaseCache.cref(cc) == cref
+    return true
+  end
+  t = CaseCache.table(cc)
+  if t == 0
+    t = zr_xmalloc(CASE_ROWS * CaseRow.size)
+    CaseCache.set_table(cc, t)
+  end
+  memset(t, Machine.i32(0), CASE_ROWS * CaseRow.size)
+  CaseCache.set_mstamp(cc, ms)
+  CaseCache.set_cstamp(cc, cs)
+  CaseCache.set_cref(cc, cref)
+  CaseCache.set_proven(cc, 0)
+  CaseCache.set_due(cc, 0)
+  true
+end
+
+# Checks `v`, the `when` value at index `j`, which the site read from its
+# constant's cache entry. The site calls this only when `j` is the
+# entry's `due` index, so the values are checked in order. A value that
+# passes is a module or class with no box shadow, and its `===` is
+# Module#===. Thus `v === subject` is `subject.is_a?(v)`, which only the
+# subject's class decides, and which calls no method of the program.
+# A value that fails stops the checks until the state changes.
+sig [Ptr, Value, Value, Word, Word, Word] => Void
+machine def zr_case_prove(cc, cref, v, j, ms, cs)
+  if !zr_case_current(cc, cref, ms, cs) || j != CaseCache.due(cc)
+    return
+  end
+  if zr_case_plain_arm(v)
+    CaseCache.set_proven(cc, j + 1)
+    CaseCache.set_due(cc, j + 1)
+  else
+    CaseCache.set_due(cc, 0 - 1)
+  end
+end
+
+# Whether `mod === obj` is `obj.is_a?(mod)` for each `obj`: `mod` is a
+# module or class that is not a box shadow, its own class has no box
+# shadow, and the lookup of `===` finds the builtin Module#===. A class
+# that defines `self.===` (SystemCallError, or a program's class), a
+# prepended `===`, or a redefined Module#=== fails. Under a refinement,
+# the lookup can differ from site to site, so that also fails.
+sig [Value] => Bool
+machine def zr_case_plain_arm(mod)
+  if !zr_module_p(mod) || zr_box_origin(mod) != QNIL
+    return false
+  end
+  if Task.refine(zr_task()) != QNIL
+    return false
+  end
+  k = zr_class_of(mod)
+  if ClassExt.boxed(RClass.ext(k)) != QNIL
+    return false
+  end
+  e = zr_search_method(k, Machine.id(:===))
+  e != 0 && MEntry.kind(e) == KIND_BUILTIN && MEntry.fn(e) == Machine.addr(:zr_mod_eqq)
+end
+
+# Adds the row `klass` => `arm` after the `when` chain selected `arm`
+# for a subject of class `klass`. `count` is how many `when` values the
+# chain tested. Each of them must be proven (`zr_case_prove`), because
+# then each one's result depends only on `klass`. The site finds the row
+# by the same hash (`Control#case_row`). A class with a box shadow, a
+# read in a box, a ractor and a refinement in use each give no row,
+# because the chain's result can differ for them.
+sig [Ptr, Value, Value, Word, Word, Word, Word] => Void
+machine def zr_case_fill(cc, cref, klass, arm, count, ms, cs)
+  if !zr_case_current(cc, cref, ms, cs) || count > CaseCache.proven(cc)
+    return
+  end
+  if ClassExt.boxed(RClass.ext(klass)) != QNIL || zr_box_current() != QNIL
+    return
+  end
+  t = zr_task()
+  if Task.ractor(t) != 0 || Task.refine(t) != QNIL
+    return
+  end
+  w = Machine.word(klass)
+  row = CaseCache.table(cc) + ((((w / CELL_MIN) ^ (w / (CELL_MIN * CASE_ROWS))) & (CASE_ROWS - 1)) * CaseRow.size)
+  CaseRow.set_klass(row, klass)
+  CaseRow.set_arm(row, arm)
 end
 
 # `instance_of?` at a site whose cache entry contains
