@@ -907,4 +907,27 @@ describe "BigDecimal programs" do
       Tms: [true, true, false]
     OUT
   end
+
+  it "to_s reads a sign flag before F, and round with a mode keeps a BigDecimal" do
+    result = zr(<<~'RUBY')
+      require "bigdecimal"
+      x = BigDecimal("12345.678")
+      p x.to_s("+F"), x.to_s(" F"), x.to_s("+3F"), x.to_s("E"), x.to_s(3)
+      p x.to_s.encoding, x.inspect.encoding
+      p BigDecimal("2.5").round(0, :half_even), BigDecimal("2.5").round, BigDecimal("2.5").round(half: :even)
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "+12345.678"
+      " 12345.678"
+      "+12 345.678"
+      "0.12345678e5"
+      "0.123 456 78e5"
+      #<Encoding:US-ASCII>
+      #<Encoding:BINARY (ASCII-8BIT)>
+      0.2e1
+      3
+      0.2e1
+    OUT
+  end
 end

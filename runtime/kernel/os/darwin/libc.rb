@@ -3,7 +3,7 @@
 # Libc's BSD qsort.
 sig [Ptr, Word] => Void
 machine def zr_os_sort(st, n)
-  zr_sort_range(st, 0, n)
+  zr_sort_apple_all(st, n)
 end
 
 # The usable size of a malloc'd block. The heap counts it as payload.

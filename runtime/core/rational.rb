@@ -57,31 +57,128 @@ class Rational < Numeric
     end
     private :convert
 
-    # "1/3", "0.75", "-1.5e2", "3": the exact value written.
+    # parse_rat: a sign, a number with a fraction and an exponent, and an
+    # optional `/` and a second such number. `strict` (Rational()) wants
+    # nothing else but white space; String#to_r (`exception` is :loose)
+    # takes the longest start that reads, and 0 when none does.
     def parse(text, exception)
       Primitive.attr! :hidden
-      m = /\A\s*([-+])?(\d+(?:_\d+)*)(?:\.(\d+(?:_\d+)*))?(?:[eE]([-+]?\d+))?(?:\/(\d+(?:_\d+)*))?\s*\z/.match(text)
-      if m.nil? || text.include?("\0")
-        return nil unless exception
+      strict = exception != :loose
+      fail = lambda do
+        return nil unless exception == true
 
         raise ArgumentError, "invalid value for convert(): #{text.inspect}"
       end
-      whole = m[2].delete("_")
-      frac = (m[3] || "").delete("_")
-      n = (whole + frac).to_i
-      d = 10**frac.size
-      e = m[4].to_i
-      if e >= 0
-        n *= 10**e
-      else
-        d *= 10**(-e)
-      end
-      d *= m[5].delete("_").to_i if m[5]
-      raise ZeroDivisionError, +"divided by 0" if d == 0
+      return fail.() if strict && text.include?("\0")
 
-      n = -n if m[1] == +"-"
-      build(n, d)
+      s = skip_space(text, 0)
+      sign = nil
+      if (b = text.getbyte(s)) && (b == 43 || b == 45)
+        sign = b
+        s += 1
+      end
+      num, nexp, s = read_num(text, s)
+      return strict ? fail.() : build(0, 1) if num.nil?
+
+      den = 1
+      if text.getbyte(s) == 47
+        d, dexp, after = read_num(text, s + 1)
+        if d.nil?
+          return fail.() if strict
+        else
+          raise ZeroDivisionError, +"divided by 0" if d.zero?
+
+          s = after
+          return fail.() if strict && skip_space(text, s) != text.bytesize
+
+          den = d
+          nexp -= dexp
+        end
+      elsif strict && skip_space(text, s) != text.bytesize
+        return fail.()
+      end
+      if nexp < 0
+        num *= 10**-nexp
+      elsif nexp > 0
+        den *= 10**nexp
+      end
+      num = -num if sign == 45
+      build(num, den)
     end
+
+    # read_num: [the digits as one Integer, the power of ten that divides
+    # it, the byte after], or nil when no digit starts it.
+    def read_num(text, s)
+      Primitive.attr! :hidden
+      num = 0
+      nexp = 0
+      ok = false
+      if text.getbyte(s) != 46
+        n, count, s = read_int(text, s)
+        return nil if n.nil?
+
+        num = n
+        ok = true
+      end
+      fraction = 0
+      if text.getbyte(s) == 46
+        s += 1
+        fp, count, after = read_int(text, s)
+        return [num, nexp, s] if fp.nil?
+
+        s = after
+        nexp = count
+        num = num * 10**count + fp
+        fraction = count
+        ok = true
+      end
+      return nil unless ok
+
+      if s + 1 < text.bytesize && (text.getbyte(s) | 32) == 101
+        s += 1
+        expsign = nil
+        if (b = text.getbyte(s)) && (b == 43 || b == 45)
+          expsign = b
+          s += 1
+        end
+        exp, _, after = read_int(text, s)
+        return [num, nexp, s] if exp.nil?
+
+        s = after
+        nexp = expsign == 45 ? exp + fraction : -(exp - fraction) if exp != 0
+      end
+      [num, nexp, s]
+    end
+
+    # rb_int_parse_cstr with RB_INT_PARSE_UNDERSCORE: digits, each `_`
+    # between two of them; [value, count of digits, byte after].
+    def read_int(text, s)
+      Primitive.attr! :hidden
+      digit = ->(i) { (b = text.getbyte(i)) && b >= 48 && b <= 57 }
+      return nil unless digit.(s)
+
+      value = 0
+      count = 0
+      while true
+        if digit.(s)
+          value = value * 10 + text.getbyte(s) - 48
+          count += 1
+          s += 1
+        elsif text.getbyte(s) == 95 && digit.(s + 1)
+          s += 1
+        else
+          break
+        end
+      end
+      [value, count, s]
+    end
+
+    def skip_space(text, s)
+      Primitive.attr! :hidden
+      s += 1 while (b = text.getbyte(s)) && (b == 32 || (b >= 9 && b <= 13))
+      s
+    end
+    private :read_num, :read_int, :skip_space
     private :parse
   end
 
@@ -358,7 +455,7 @@ class Float
 end
 
 class String
-  def to_r = Rational.send(:parse, plain[/\A\s*[-+]?\d[\d_]*(?:\.\d[\d_]*)?(?:[eE][-+]?\d+)?(?:\/\d[\d_]*)?/] || "0", true)
+  def to_r = Rational.send(:parse, plain, :loose)
 end
 
 class NilClass

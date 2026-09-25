@@ -342,7 +342,9 @@ class BigDecimal < Numeric
   HALVES = { up: ROUND_HALF_UP, down: ROUND_HALF_DOWN, even: ROUND_HALF_EVEN }.freeze
   private_constant :HALVES
 
-  def round(digits = nil, mode = nil, half: nil)
+  # BigDecimal_round: an Integer only for a place below 1 with no mode;
+  # a mode, as an argument or as `half:`, keeps a BigDecimal.
+  def round(digits = nil, mode = (plain = true; nil), half: nil)
     if half
       mode = HALVES[half.to_sym] or raise ArgumentError, "invalid rounding mode: #{half}"
     end
@@ -352,7 +354,7 @@ class BigDecimal < Numeric
 
     place = digits ? digits.to_int : 0
     answer = round_to(place, mode)
-    half || place.positive? ? answer : answer.whole_part
+    half || !plain || place.positive? ? answer : answer.whole_part
   end
 
   # What is past the point, which keeps the sign even where nothing
@@ -373,17 +375,38 @@ class BigDecimal < Numeric
 
   def mult(other, digits) = digits.zero? ? self * other : (self * other).round_significant(digits)
 
-  def to_s(format = nil)
-    return nan? ? "NaN" : "#{@sign.negative? ? '-' : ''}Infinity" unless finite?
+  # BigDecimal_to_s: a leading space or `+` for the sign, then digits for
+  # the group size, up to the first other character, which is `F` for the
+  # plain form. The text is US-ASCII; `inspect` is the same bytes, binary.
+  def to_s(format = (none = true; nil))
+    return (nan? ? +"NaN" : "#{@sign.negative? ? '-' : ''}Infinity").force_encoding(Encoding::US_ASCII) unless finite?
 
-    text = format.to_s
-    groups = text[/\d+/].to_i
-    kind = text[/[a-zA-Z+ ]/].to_s
-    lead = @sign.negative? ? "-" : (kind == "+" || kind == " " ? kind : "")
-    "#{lead}#{kind.casecmp('f').zero? ? plain_body(groups) : exponent_body(groups)}"
+    plus = nil
+    groups = 0
+    plain = false
+    if format.is_a?(String)
+      chars = format.chars
+      plus = chars.shift if chars.first == " " || chars.first == "+"
+      chars.each do |c|
+        next if c.match?(/\s/)
+        unless c.match?(/\d/)
+          plain = c.casecmp?("f")
+          break
+        end
+        groups = groups * 10 + c.to_i
+      end
+    elsif !none
+      raise TypeError, "no implicit conversion from nil to integer" if format.nil?
+      raise TypeError, "no implicit conversion of #{format.class} into Integer" unless format.respond_to?(:to_int)
+
+      groups = format.to_int
+      raise ArgumentError, "argument must be positive" if groups < 0
+    end
+    lead = @sign.negative? ? "-" : plus.to_s
+    "#{lead}#{plain ? plain_body(groups) : exponent_body(groups)}".force_encoding(Encoding::US_ASCII)
   end
 
-  alias inspect to_s
+  def inspect = to_s.b
 
   def dup = self
 

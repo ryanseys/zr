@@ -144,18 +144,31 @@ module Math
     Primitive.zr_math_call(25, x, 0.0)
   end
 
-  def log(x, base = nil)
+  # rb_math_log, as clang builds it on arm64: the doublings of a wide
+  # Bignum join through a fused multiply-add, and a base divides the
+  # base-2 logarithms. The difference of the two counts of doublings is
+  # a size_t, so it wraps when the base is the wider one.
+  def log(x, base = (plain = true; nil))
     x, bits = split(x)
     x = check(x)
     raise DomainError, +"Numerical argument is out of domain - log" if x < 0.0
 
-    value = Primitive.zr_math_call(12, x, 0.0) + bits * 0.6931471805599453
-    return value if base.nil?
+    if plain
+      return -Float::INFINITY if x == 0.0
 
+      return Primitive.zr_math_fma(bits.to_f, 0.6931471805599453, Primitive.zr_math_call(12, x, 0.0))
+    end
+
+    base, base_bits = split(base)
     base = check(base)
     raise DomainError, +"Numerical argument is out of domain - log" if base < 0.0
+    return base == 0.0 ? Float::NAN : -Float::INFINITY if x == 0.0
+    return -0.0 if base == 0.0
 
-    value / Primitive.zr_math_call(12, base, 0.0)
+    log2_base = Primitive.zr_math_call(13, base, 0.0)
+    wide = bits - base_bits
+    wide += 1 << 64 if wide < 0
+    (Primitive.zr_math_call(13, x, 0.0) / log2_base) + (wide.to_f / log2_base)
   end
 
   def log2(x)
@@ -206,12 +219,18 @@ module Math
 
   # Gamma is exact at the small positive integers, and refused at zero's
   # negative side and the negative integers.
+  # math_gamma: an infinity and a zero of either sign are poles, and only
+  # the negative whole numbers are out of the domain.
   def gamma(x)
     x = check(x)
-    if x.infinite? && x < 0 || (x < 0 && x.finite? && x == x.floor) || (x == 0 && 1.0 / x < 0)
-      raise DomainError, +"Numerical argument is out of domain - gamma"
+    if x.infinite?
+      raise DomainError, +"Numerical argument is out of domain - gamma" if x < 0
+
+      return Float::INFINITY
     end
-    return FACTORIALS[x.to_i - 1] if x == x.floor && x >= 1 && x <= FACTORIALS.size
+    return 1.0 / x < 0 ? -Float::INFINITY : Float::INFINITY if x == 0.0
+    raise DomainError, +"Numerical argument is out of domain - gamma" if x < 0 && x == x.floor
+    return FACTORIALS[x.to_i - 1] if x >= 1 && x <= FACTORIALS.size && x == x.floor
 
     Primitive.zr_math_call(20, x, 0.0)
   end
@@ -282,16 +301,64 @@ class Float
       return self if digits > 0 && digits >= 17 - (binexp > 0 ? binexp / 4 : -(-binexp / 3) - 1)
       return digits > 0 ? 0.0 : 0 if digits < -(binexp > 0 ? binexp / 3 + 1 : -(-binexp / 4))
     end
+    # flo_round: zero keeps its sign past the point; a negative count
+    # rounds the truncated Integer.
+    return digits > 0 ? self : 0 if zero?
+    return to_i.round(digits, half: mode) if digits < 0
+
     plain = Primitive.zr_flo_round_m(self, digits)
     return exactly(digits, :round, half: mode) if plain.nil?
     return plain if mode == :up || !finite?
 
-    scaled = digits > 0 ? self * 10.0**digits : (digits < 0 ? self / 10.0**-digits : self)
-    return plain unless scaled.finite? && scaled - scaled.floor == 0.5
+    if digits > 0
+      s = 10.0**digits
+      return (mode == :even ? half_even(self, s) : half_down(self, s)) / s
+    end
+
+    scaled = self
+    return plain unless scaled - scaled.floor == 0.5
 
     base = scaled.floor
-    n = mode == :down ? (self > 0 ? base : base + 1) : (base.even? ? base : base + 1)
-    digits > 0 ? n / 10.0**digits : (digits < 0 ? n * 10**-digits : n)
+    mode == :down ? (self > 0 ? base : base + 1) : (base.even? ? base : base + 1)
+  end
+
+  # numeric.c's round_half_down and round_half_even: `x` scaled by `s`,
+  # rounded, and checked against `x` once more after the division.
+  def half_down(x, s)
+    Primitive.attr! :hidden
+    f = (x * s).round.to_f
+    if x > 0
+      f -= 1 if (f - 0.5) / s >= x
+    elsif (f + 0.5) / s <= x
+      f += 1
+    end
+    f
+  end
+
+  def half_even(x, s)
+    Primitive.attr! :hidden
+    u = x.truncate.to_f
+    us = u * s
+    vs = (x - u) * s
+    if x > 0.0
+      f = vs.floor.to_f
+      uf = us + f
+      d = vs - f
+      d = if d > 0.5 then 1.0
+          elsif d == 0.5 || (uf + 0.5) / s <= x then uf.remainder(2.0)
+          else 0.0
+          end
+      us + f + d
+    else
+      f = vs.ceil.to_f
+      uf = us + f
+      d = f - vs
+      d = if d > 0.5 then 1.0
+          elsif d == 0.5 || (uf - 0.5) / s >= x then (-uf).remainder(2.0)
+          else 0.0
+          end
+      us + f - d
+    end
   end
 
   # Past DBL_DIG places the power of ten that the scaling needs is not

@@ -779,6 +779,7 @@ module Zr
         d zr_math_call_fast Value which:Value x:Value
         d zr_math_call Value which:Value x:Value y:Value
         d zr_math_frexp Value x:Value
+        d zr_math_fma Value x:Value y:Value z:Value
         d zr_math_lgamma Value x:Value
         d zr_float_adjacent Value recv:Value up:Word
         d zr_flo_next_float Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
@@ -1771,10 +1772,16 @@ module Zr
         d zr_cmp_plain Value a:Value b:Value
         d zr_sort_plain Word
         d zr_sort_cmp Word st:Ptr i:Word j:Word
+        d zr_sort_cmp_values Word st:Ptr x:Value y:Value
         d zr_sort_med3 Word st:Ptr a:Word b:Word c:Word
         d zr_sort_insertion Void st:Ptr a:Word n:Word
         d zr_sort_range Void st:Ptr a:Word n:Word
         d zr_sort_partition Bool st:Ptr a:Word n:Word parts:Ptr
+        d zr_sort_apple_all Void st:Ptr n:Word
+        d zr_sort_apple Void st:Ptr a:Word n:Word depth:Word
+        d zr_sort_isort Bool st:Ptr a:Word n:Word limit:Word
+        d zr_sort_heap_at Ptr st:Ptr a:Word i:Word
+        d zr_sort_heap Void st:Ptr a:Word n:Word
         d zr_ary_sort_copy Value ary:Value blk:Value
         d zr_ary_sort Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_ary_sort_bang Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
@@ -3100,6 +3107,7 @@ module Zr
         e zr_math_call_fast 126
         e zr_math_call 126
         e zr_math_frexp 126
+        e zr_math_fma 126
         e zr_math_lgamma 126
         e zr_float_adjacent 126
         e zr_flo_next_float 126
@@ -4092,10 +4100,16 @@ module Zr
         e zr_cmp_plain 127
         e zr_sort_plain 120
         e zr_sort_cmp 127
+        e zr_sort_cmp_values 127
         e zr_sort_med3 127
         e zr_sort_insertion 127
         e zr_sort_range 127
         e zr_sort_partition 127
+        e zr_sort_apple_all 127
+        e zr_sort_apple 127
+        e zr_sort_isort 127
+        e zr_sort_heap_at 0
+        e zr_sort_heap 127
         e zr_ary_sort_copy 127
         e zr_ary_sort 127
         e zr_ary_sort_bang 127

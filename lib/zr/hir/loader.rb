@@ -328,6 +328,21 @@ module Zr
         # none.
         def data_at(file) = @data[file]
 
+        # The script encoding that `__ENCODING__` answers. Prism's
+        # result gives the source String's own encoding when the text is
+        # not ASCII, so the magic comment is read again here, where ruby
+        # reads it: line 1, or line 2 after a shebang.
+        def source_encoding(result, source)
+          lines = source.b.lines.first(2)
+          lines = lines.first(1) unless lines.first&.start_with?("#!")
+          name = lines.filter_map { |line| line[/\A\s*#.*?coding[:=][ \t]*([\w.-]+)/i, 1] }.first
+          return result.encoding unless name
+
+          ::Encoding.find(name)
+        rescue ArgumentError
+          result.encoding
+        end
+
         def unit(file, source = File.read(file), line = 1, scopes = nil, method: nil)
           result = scopes ? Zr.parse(source, filepath: file, line: line, scopes: scopes) : Zr.parse(source, filepath: file, line: line)
           raise SyntaxReport.error(result, file) unless result.errors.empty?
@@ -344,7 +359,7 @@ module Zr
           @traces ||= !Build.runtime_file?(file) && TRACE_NAMES.match?(source.b) && names_tracing?(result.value)
           @covers ||= !Build.runtime_file?(file) && COVERAGE_NAMES.match?(source.b) && names_coverage?(result.value)
           @coverable[file] = [source.lines.size, []] if @trace && !Build.runtime_file?(file)
-          build = Build.new(file, self, result.encoding, shadowed: shadowed(result.value), root: result.value)
+          build = Build.new(file, self, source_encoding(result, source), shadowed: shadowed(result.value), root: result.value)
           build.within_method(method, scopes) if scopes && method
           # An activation entry belongs to the program, not the file, so
           # the unit cache cannot keep a file that takes one.

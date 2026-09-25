@@ -17,12 +17,13 @@ module Packing
   # with, the modifiers that follow a directive, and the star and the
   # digits a count is written in.
   KNOWN = "CcSsLlQqJjIinNvVUwaAZHhBbmMuxX@dDeEfFgGpP".freeze
-  SPACE = [32, 10, 9].freeze
+  SPACE = [32, 9, 10, 11, 12, 13].freeze
+  NATIVE = "sSiIlLqQjJ".freeze
   MODIFIERS = [60, 62, 95, 33].freeze     # < > _ !
   STAR = 42
   DIGIT_0 = 48
   DIGIT_9 = 57
-  private_constant :KNOWN, :SPACE, :MODIFIERS, :STAR, :DIGIT_0, :DIGIT_9
+  private_constant :KNOWN, :SPACE, :NATIVE, :MODIFIERS, :STAR, :DIGIT_0, :DIGIT_9
 
   # The template as [directive, count, big?] triples; count is nil
   # for none, :all for `*`. `check` off keeps an unknown directive, so
@@ -41,19 +42,30 @@ module Packing
       b = template.getbyte(i)
       i += 1
       next if SPACE.include?(b)
-
-      c = template[i - 1]
-      if check && !KNOWN.include?(c)
-        raise ArgumentError, "unknown #{kind} directive '#{c}' in '#{template}'"
+      # skip_blank: `#` starts a comment to the end of the line.
+      if b == 35
+        i += 1 while i < size && template.getbyte(i) != 10
+        next
       end
 
+      c = template[i - 1]
       big = nil
       native = false
+      # pack_modifiers checks each modifier against the directive first.
       while i < size && MODIFIERS.include?(template.getbyte(i))
         m = template.getbyte(i)
-        big = m == 62 if m == 62 || m == 60
+        raise ArgumentError, "'#{m.chr}' allowed only after types #{NATIVE}" unless NATIVE.include?(c)
+        if m == 62 || m == 60
+          raise RangeError, +"Can't use both '<' and '>'" unless big.nil?
+
+          big = m == 62
+        end
         native = true if m == 95 || m == 33
         i += 1
+      end
+      raise ArgumentError, +"% is not supported" if c == +"%"
+      if check && !KNOWN.include?(c)
+        raise ArgumentError, "unknown #{kind} directive '#{c}' in '#{template}'"
       end
       c = c == +"L" ? +"Q" : +"q" if native && (c == +"L" || c == +"l")
       count = nil
@@ -107,24 +119,45 @@ module Packing
     out
   end
 
+  # unpack's `M`: `=XX` is a byte, `=` before a line end (LF or CRLF) a
+  # soft break. At the first `=` that is neither, the rest of the text,
+  # from that `=`, is kept as it is.
   def self.decode_quoted_printable(text)
     out = "".b
+    size = text.bytesize
     i = 0
-    while i < text.bytesize
-      if text.getbyte(i) != 61
-        out << text.getbyte(i).chr
+    kept = 0
+    while i < size
+      if text.getbyte(i) == 61
         i += 1
-      elsif text.byteslice(i + 1, 1) == +"\n"
-        i += 2
-      elsif text.byteslice(i + 1, 2) =~ /\A\h\h\z/
-        out << text.byteslice(i + 1, 2).to_i(16).chr
-        i += 3
+        break if i == size
+
+        i += 1 if i + 1 < size && text.getbyte(i) == 13 && text.getbyte(i + 1) == 10
+        if text.getbyte(i) != 10
+          high = hex_digit(text.getbyte(i))
+          break if high.nil?
+
+          i += 1
+          break if i == size
+
+          low = hex_digit(text.getbyte(i))
+          break if low.nil?
+
+          out << ((high << 4) | low)
+        end
       else
-        out << "="
-        i += 1
+        out << text.getbyte(i)
       end
+      i += 1
+      kept = i
     end
-    out
+    out << text.byteslice(kept, size - kept)
+  end
+
+  def self.hex_digit(b)
+    n = b.chr.to_i(36)
+    n = -1 if n.zero? && b != 48
+    n.between?(0, 15) ? n : nil
   end
   private_class_method :quoted_printable, :decode_quoted_printable
 
@@ -276,13 +309,13 @@ module Packing
         each_item(items, at, count) { |item| out << utf8(integer_item(item)) }
         at += count == :all ? items.size - at : (count || 1)
       when "w"
-        each_item(items, at, count) { |item| out << ber(Integer(item)) }
+        each_item(items, at, count) { |item| out << ber(integer_item(item)) }
         at += count == :all ? items.size - at : (count || 1)
       when "d", "D", "E", "G"
-        each_item(items, at, count) { |item| out << pack_double(Float(item), c == +"G") }
+        each_item(items, at, count) { |item| out << pack_double(float_item(item), c == +"G") }
         at += count == :all ? items.size - at : (count || 1)
       when "f", "F", "e", "g"
-        each_item(items, at, count) { |item| out << pack_single(Float(item), c == +"g") }
+        each_item(items, at, count) { |item| out << pack_single(float_item(item), c == +"g") }
         at += count == :all ? items.size - at : (count || 1)
       else
         raise ArgumentError, "unknown pack directive '#{c}' in '#{template}'" unless INTEGERS.key?(c)
@@ -323,6 +356,15 @@ module Packing
     raise TypeError, "no implicit conversion of #{item.nil? ? 'nil' : item.class} into Integer" if item.nil? || !item.respond_to?(:to_int)
 
     item.to_int
+  end
+
+  # rb_to_float: a Numeric as a Float, and nothing else.
+  def self.float_item(item)
+    return item if item.is_a?(Float)
+    return item.to_f if item.is_a?(Numeric)
+
+    shown = item.nil? || item == true || item == false ? item.inspect : item.class
+    raise TypeError, "can't convert #{shown} into Float"
   end
 
   # rb_uv_to_utf8: a code point as UTF-8's bytes, in as many as six of
@@ -382,45 +424,62 @@ module Packing
     item + (c == +"A" ? " " : "\0") * (n - item.bytesize)
   end
 
+  # pack_pack's `H` and `h`: two characters to a byte, and past the end
+  # of the text the zero bytes the count still asks for.
   def self.pack_hex(text, high_first, count)
-    n = count == :all ? text.bytesize : (count || 1)
+    len = count == :all ? text.bytesize : (count || 1)
+    pad = 0
+    if len > text.bytesize
+      pad = (len + 1) / 2 - (text.bytesize + 1) / 2
+      len = text.bytesize
+    end
     out = +""
     i = 0
-    while i < n
-      first = i < text.bytesize ? hex_value(text.getbyte(i)) : 0
-      second = i + 1 < n && i + 1 < text.bytesize ? hex_value(text.getbyte(i + 1)) : 0
+    while i < len
+      first = hex_value(text.getbyte(i))
+      second = i + 1 < len ? hex_value(text.getbyte(i + 1)) : 0
       out << (high_first ? (first << 4) | second : (second << 4) | first).chr
       i += 2
     end
-    out
+    out << "\0" * pad
   end
 
+  # A letter counts from 10 by its low four bits, as `a` to `f` do; any
+  # other byte gives its own low four bits.
   def self.hex_value(b)
-    return b - 48 if b >= 48 && b <= 57
-    return (b | 32) - 87 if (b | 32) >= 97 && (b | 32) <= 102
-
-    b & 15
+    alpha = (b | 32) >= 97 && (b | 32) <= 122
+    alpha ? ((b & 15) + 9) & 15 : b & 15
   end
 
+  # `B` and `b`: eight characters to a byte. Past the end of the text,
+  # the C adds (count - length + 1) / 2 zero bytes.
   def self.pack_bits(text, high_first, count)
-    n = count == :all ? text.bytesize : (count || 1)
+    len = count == :all ? text.bytesize : (count || 1)
+    pad = 0
+    if len > text.bytesize
+      pad = (len - text.bytesize + 1) / 2
+      len = text.bytesize
+    end
     out = +""
     i = 0
-    while i < n
+    while i < len
       byte = 0
       8.times do |k|
-        bit = i + k < n && i + k < text.bytesize ? text.getbyte(i + k) & 1 : 0
+        bit = i + k < len ? text.getbyte(i + k) & 1 : 0
         byte |= high_first ? bit << (7 - k) : bit << k
       end
       out << byte.chr
       i += 8
     end
-    out
+    out << "\0" * pad
   end
 
   def self.base64(bytes, count)
-    line = count == :all || count.nil? ? 45 : (count == 0 ? nil : count / 3 * 3)
-    line = 3 if line == 0
+    # A count of 0 writes one line; 1 and 2, as `*` and none, 45 bytes.
+    line = if count == 0 then nil
+           elsif count == :all || count.nil? || count <= 2 then 45
+           else count / 3 * 3
+           end
     out = +""
     i = 0
     while i < bytes.bytesize
@@ -519,7 +578,7 @@ module Packing
 
         at -= n
       when "@"
-        n = count == :all ? 0 : (count || 0)
+        n = count == :all ? bytes.bytesize - at : (count || 0)
         raise ArgumentError, +"@ outside of string" if n > bytes.bytesize
 
         at = n
@@ -548,7 +607,7 @@ module Packing
         at += (n + 7) / 8
       when "m"
         rest = chunk(bytes, at, bytes.bytesize - at)
-        out << decode_base64(rest, count == 0)
+        out << (count == 0 ? strict_base64(rest) : decode_base64(rest))
         at = bytes.bytesize
       when "M"
         rest = chunk(bytes, at, bytes.bytesize - at)
@@ -581,27 +640,24 @@ module Packing
         end
       when "U"
         n = count == :all ? nil : (count || 1)
-        text = chunk(bytes, base, bytes.bytesize - base).force_encoding("UTF-8")
         while (n.nil? || n > 0) && at < bytes.bytesize
-          len = Primitive.zr_str_char_len_at_m(text, at - base)
-          char = text.byteslice(at - base, len)
-          raise ArgumentError, +"malformed UTF-8 character" if len == 1 && bytes.getbyte(at) >= 128
-
-          out << char.ord
+          value, len = utf8_to_uv(bytes, at)
+          out << value
           at += len
           n -= 1 if n
         end
       when "w"
+        # A value whose last byte still has the high bit set is left out.
         n = count == :all ? nil : (count || 1)
+        value = 0
         while (n.nil? || n > 0) && at < bytes.bytesize
-          value = 0
-          loop do
-            b = bytes.getbyte(at)
-            at += 1
-            value = (value << 7) | (b & 127)
-            break if b < 128 || at >= bytes.bytesize
-          end
+          b = bytes.getbyte(at)
+          at += 1
+          value = (value << 7) | (b & 127)
+          next if b >= 128
+
           out << value
+          value = 0
           n -= 1 if n
         end
       when "d", "D", "E", "G"
@@ -667,27 +723,92 @@ module Packing
     out
   end
 
-  def self.decode_base64(text, strict)
-    raise ArgumentError, +"invalid base64" if strict && (text.bytesize % 4 != 0 || text.include?("\n"))
-
+  # `m`: the base64 characters, skipping all others, up to the first `=`
+  # past two of a group.
+  def self.decode_base64(text)
     out = "".b
-    bits = 0
-    have = 0
+    group = []
     text.each_byte do |b|
-      value = BASE64.index(b.chr)
-      if value.nil?
-        raise ArgumentError, +"invalid base64" if strict && b != 61
-        next
-      end
-      bits = (bits << 6) | value
-      have += 6
-      if have >= 8
-        have -= 8
-        out << ((bits >> have) & 255).chr
-        bits &= (1 << have) - 1
-      end
+      break if b == 61 && group.size >= 2
+
+      value = base64_value(b)
+      next if value.nil?
+
+      group << value
+      next if group.size < 4
+
+      a, b1, c, d = group
+      out << ((a << 2 | b1 >> 4) & 255) << ((b1 << 4 | c >> 2) & 255) << ((c << 6 | d) & 255)
+      group.clear
+    end
+    a, b1, c = group
+    if group.size >= 2
+      out << ((a << 2 | b1 >> 4) & 255)
+      out << ((b1 << 4 | c >> 2) & 255) if c
     end
     out
+  end
+
+  # `m0`, RFC 4648: groups of four with no other byte, padding only at
+  # the end, and no bits left over in the last character.
+  def self.strict_base64(text)
+    out = "".b
+    size = text.bytesize
+    i = 0
+    bad = -> { raise ArgumentError, +"invalid base64" }
+    while i < size
+      a = base64_value(text.getbyte(i))
+      i += 1
+      bad.() if i >= size || a.nil?
+      b = base64_value(text.getbyte(i))
+      i += 1
+      bad.() if i >= size || b.nil?
+      if text.getbyte(i) == 61
+        bad.() unless i + 2 == size && text.getbyte(i + 1) == 61
+        bad.() if b & 0xf != 0
+        return out << ((a << 2 | b >> 4) & 255)
+      end
+      c = base64_value(text.getbyte(i))
+      i += 1
+      bad.() if i >= size || c.nil?
+      if i + 1 == size && text.getbyte(i) == 61
+        bad.() if c & 0x3 != 0
+        return out << ((a << 2 | b >> 4) & 255) << ((b << 4 | c >> 2) & 255)
+      end
+      d = base64_value(text.getbyte(i))
+      i += 1
+      bad.() if d.nil?
+      out << ((a << 2 | b >> 4) & 255) << ((b << 4 | c >> 2) & 255) << ((c << 6 | d) & 255)
+    end
+    out
+  end
+
+  def self.base64_value(b) = b && BASE64.index(b.chr)
+
+  # utf8_to_uv: the value of the UTF-8 character at `at`, and its length,
+  # in the forms of up to six bytes that the C reads.
+  def self.utf8_to_uv(bytes, at)
+    lead = bytes.getbyte(at)
+    return [lead, 1] if lead < 0x80
+    raise ArgumentError, +"malformed UTF-8 character" if lead & 0x40 == 0
+
+    n = [0x20, 0x10, 0x08, 0x04, 0x02].index { |bit| lead & bit == 0 }
+    raise ArgumentError, +"malformed UTF-8 character" if n.nil?
+
+    n += 2
+    value = lead & (0x7f >> n)
+    left = bytes.bytesize - at
+    raise ArgumentError, "malformed UTF-8 character (expected #{n} bytes, given #{left} bytes)" if n > left
+
+    (1...n).each do |k|
+      c = bytes.getbyte(at + k)
+      raise ArgumentError, +"malformed UTF-8 character" unless c & 0xc0 == 0x80
+
+      value = (value << 6) | (c & 0x3f)
+    end
+    raise ArgumentError, +"redundant UTF-8 sequence" if value < [0, 0x80, 0x800, 0x10000, 0x200000, 0x4000000][n - 1]
+
+    [value, n]
   end
 
   def self.unpack_double(chunk, big)

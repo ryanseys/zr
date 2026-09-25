@@ -13,12 +13,14 @@ class Date
   JULIAN = Float::INFINITY
   GREGORIAN = -Float::INFINITY
 
+  # date_core.c makes the names US-ASCII.
+  us_ascii = ->(names) { names.map { |name| name&.dup&.force_encoding(Encoding::US_ASCII)&.freeze }.freeze }
   MONTHNAMES = [nil, "January", "February", "March", "April", "May", "June",
-                "July", "August", "September", "October", "November", "December"].freeze
-  DAYNAMES = %w[Sunday Monday Tuesday Wednesday Thursday Friday Saturday].freeze
+                "July", "August", "September", "October", "November", "December"].then(&us_ascii)
+  DAYNAMES = %w[Sunday Monday Tuesday Wednesday Thursday Friday Saturday].then(&us_ascii)
   ABBR_MONTHNAMES = [nil, "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-                     "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"].freeze
-  ABBR_DAYNAMES = %w[Sun Mon Tue Wed Thu Fri Sat].freeze
+                     "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"].then(&us_ascii)
+  ABBR_DAYNAMES = %w[Sun Mon Tue Wed Thu Fri Sat].then(&us_ascii)
 
   DAY = 86_400
   NANOSECOND = 1_000_000_000

@@ -699,4 +699,20 @@ describe "Array: enumeration" do
       6
     OUT
   end
+
+  it "sort keeps darwin qsort_r's order of equal elements, and min(n) and max(n) follow it", only: "macos" do
+    result = zr(<<~'RUBY')
+      p [24, 14, 34, 29, 4, 9, 39].sort { 0 }
+      p (1..40).to_a.max(7) { |x, y| x % 5 <=> y % 5 }
+      p (1..40).to_a.min(7) { |x, y| x % 5 <=> y % 5 }
+      p (1..12).map { |n| (1..n).to_a.sort { 0 } == (1..n).to_a }
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [24, 14, 34, 29, 4, 9, 39]
+      [39, 9, 4, 29, 34, 14, 24]
+      [10, 25, 35, 30, 20, 15, 40]
+      [true, true, true, true, true, true, true, false, false, false, false, false]
+    OUT
+  end
 end

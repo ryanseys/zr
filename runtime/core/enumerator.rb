@@ -511,6 +511,8 @@ class Enumerator::ArithmeticSequence < Enumerator
       return 0.0 if n < 0
 
       n = (n + err).floor
+      d = (n + 1) * unit + first
+      n += 1 if first < last ? d <= last : (first > last && d >= last)
     end
     (n + 1).to_f
   end
@@ -529,7 +531,8 @@ class Enumerator::ArithmeticSequence < Enumerator
     else
       i = 0
       while i < count
-        d = i * unit + first
+        # `i * unit + beg`, which clang fuses on arm64.
+        d = Primitive.zr_math_fma(i.to_f, unit, first)
         d = last if unit >= 0 ? last < d : d < last
         yield d
         i += 1

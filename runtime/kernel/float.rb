@@ -878,6 +878,7 @@ Machine.import "erf", [F64] => F64
 Machine.import "erfc", [F64] => F64
 Machine.import "expm1", [F64] => F64
 Machine.import "log1p", [F64] => F64
+Machine.import "fma", [F64, F64, F64] => F64
 Machine.import "ldexp", [F64, I32] => F64
 Machine.import "frexp", [F64, Ptr] => F64
 
@@ -1175,6 +1176,14 @@ machine def zr_math_frexp(x)
   out
 end
 
+# x * y + z with one rounding, as C compilers contract `a * b + c` on
+# arm64 (math.c's `d += numbits * M_LN2`, ruby_float_step's
+# `i * unit + beg`).
+sig [Value, Value, Value] => Value
+machine def zr_math_fma(x, y, z)
+  zr_float_new(fma(zr_float_value(x), zr_float_value(y), zr_float_value(z)))
+end
+
 # `[log|gamma|, sign]` of lgamma.
 sig [Value] => Value
 machine def zr_math_lgamma(x)
@@ -1193,7 +1202,11 @@ end
 sig [Value, Word] => Value
 machine def zr_float_adjacent(recv, up)
   d = zr_float_value(recv)
-  if zr_nan_p(d) || zr_inf_p(d)
+  if zr_nan_p(d)
+    return recv
+  end
+  # nextafter: an infinity moves only toward zero, to the largest double.
+  if zr_inf_p(d) && (d > Machine.f64(0)) == (up != 0)
     return recv
   end
   bits = Machine.bits(d)

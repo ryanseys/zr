@@ -575,7 +575,7 @@ class Time
     (utc? ? strftime("%Y-%m-%d %H:%M:%S UTC") : strftime("%Y-%m-%d %H:%M:%S %z")).force_encoding(Encoding::US_ASCII)
   end
 
-  def ctime = strftime("%a %b %e %H:%M:%S %Y")
+  def ctime = strftime("%a %b %e %H:%M:%S %Y").force_encoding(Encoding::US_ASCII)
   alias asctime ctime
 
   # ISO 8601: `Z` for UTC, the offset otherwise, and `digits` places of
@@ -583,7 +583,7 @@ class Time
   def iso8601(digits = 0)
     text = strftime("%Y-%m-%dT%H:%M:%S")
     text = "#{text}.#{format("%09d", nsec)[0, digits]}" if digits > 0
-    "#{text}#{utc? ? 'Z' : strftime('%:z')}"
+    "#{text}#{utc? ? 'Z' : strftime('%:z')}".force_encoding(Encoding::US_ASCII)
   end
   alias xmlschema iso8601
 

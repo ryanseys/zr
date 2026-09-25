@@ -767,4 +767,30 @@ describe "String: searching and matching" do
       "string modified"
     OUT
   end
+
+  it "tr takes the replacement's encoding, invalid: :replace leaves undefined characters, and scrub replaces a cut-off character once" do
+    result = zr(<<~'RUBY')
+      x = "hello".b.tr("h", "é")
+      p x, x.encoding
+      p "hello".b.tr("é", "x").encoding
+      begin
+        "é".encode("US-ASCII", invalid: :replace)
+      rescue Encoding::UndefinedConversionError => e
+        p e.message
+      end
+      p "a\xff".encode(invalid: :replace)
+      p "\xe3\x81".scrub, "\xf0\x9f\x98a".scrub("?"), "a\xe3\x81\x81\xe3\x81b".scrub("*")
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "éello"
+      #<Encoding:UTF-8>
+      #<Encoding:BINARY (ASCII-8BIT)>
+      "U+00E9 from UTF-8 to US-ASCII"
+      "a�"
+      "�"
+      "?a"
+      "aぁ*b"
+    OUT
+  end
 end

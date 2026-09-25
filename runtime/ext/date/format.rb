@@ -31,33 +31,34 @@ class Date
     out.force_encoding(format.encoding)
   end
 
-  def to_s = strftime("%Y-%m-%d")
+  # date_core.c writes these with US-ASCII formats, so they are US-ASCII.
+  def to_s = strftime("%Y-%m-%d").force_encoding(Encoding::US_ASCII)
 
   def inspect
     jd, df, sf, of = parts
-    "#<#{self.class}: #{self} ((#{jd}j,#{df}s,#{sf}n),#{format('%+d', of)}s,#{start_text}j)>"
+    "#<#{self.class}: #{self} ((#{jd}j,#{df}s,#{sf}n),#{format('%+d', of)}s,#{start_text}j)>".force_encoding(Encoding::US_ASCII)
   end
 
-  def ctime = strftime("%a %b %e %H:%M:%S %Y")
+  def ctime = strftime("%a %b %e %H:%M:%S %Y").force_encoding(Encoding::US_ASCII)
 
   alias asctime ctime
 
-  def iso8601 = strftime("%Y-%m-%d")
+  def iso8601 = strftime("%Y-%m-%d").force_encoding(Encoding::US_ASCII)
 
   alias xmlschema iso8601
 
-  def rfc3339 = strftime("%Y-%m-%dT%H:%M:%S%:z")
+  def rfc3339 = strftime("%Y-%m-%dT%H:%M:%S%:z").force_encoding(Encoding::US_ASCII)
 
-  def rfc2822 = strftime("%a, %-d %b %Y %H:%M:%S %z")
+  def rfc2822 = strftime("%a, %-d %b %Y %H:%M:%S %z").force_encoding(Encoding::US_ASCII)
 
   alias rfc822 rfc2822
 
   def httpdate
     jd, df, sf, _, sg = parts
-    self.class.send(:at, jd, df, sf, 0, sg).strftime("%a, %d %b %Y %H:%M:%S GMT")
+    self.class.send(:at, jd, df, sf, 0, sg).strftime("%a, %d %b %Y %H:%M:%S GMT").force_encoding(Encoding::US_ASCII)
   end
 
-  def jisx0301 = jisx0301_date
+  def jisx0301 = jisx0301_date.force_encoding(Encoding::US_ASCII)
 
   private
 
@@ -269,13 +270,13 @@ end
 class DateTime < Date
   def strftime(format = "%FT%T%:z") = super
 
-  def to_s = strftime("%Y-%m-%dT%H:%M:%S%:z")
+  def to_s = strftime("%Y-%m-%dT%H:%M:%S%:z").force_encoding(Encoding::US_ASCII)
 
   # ISO 8601, with `digits` of a second when the caller requests them.
   def iso8601(digits = 0)
-    return strftime("%Y-%m-%dT%H:%M:%S%:z") if digits.zero?
+    return strftime("%Y-%m-%dT%H:%M:%S%:z").force_encoding(Encoding::US_ASCII) if digits.zero?
 
-    strftime("%Y-%m-%dT%H:%M:%S.%#{digits}N%:z")
+    strftime("%Y-%m-%dT%H:%M:%S.%#{digits}N%:z").force_encoding(Encoding::US_ASCII)
   end
 
   alias xmlschema iso8601
@@ -283,6 +284,6 @@ class DateTime < Date
   alias rfc3339 iso8601
 
   def jisx0301(digits = 0)
-    "#{send(:jisx0301_date)}T#{iso8601(digits).split('T').last}"
+    "#{send(:jisx0301_date)}T#{iso8601(digits).split('T').last}".force_encoding(Encoding::US_ASCII)
   end
 end

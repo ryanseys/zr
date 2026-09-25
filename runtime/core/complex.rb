@@ -65,16 +65,17 @@ class Complex < Numeric
     NUMBER = "[-+]?(?:\\d+(?:_\\d+)*(?:\\.\\d+(?:_\\d+)*)?(?:[eE][-+]?\\d+)?(?:\\/\\d+(?:_\\d+)*)?)"
     private_constant :NUMBER
 
-    # The forms in which a Complex is written, compiled on first use (a
+    # The forms in which a Complex is written (the imaginary unit is any
+    # of i, I, j and J, as read_comp takes it), compiled on first use (a
     # constant would call the engine at boot).
     def forms
       Primitive.attr! :hidden
       @forms ||= {
         polar: Regexp.new("\\A(#{NUMBER})@(#{NUMBER})\\z"),
-        pair: Regexp.new("\\A(#{NUMBER})?([-+])?(#{NUMBER})?i\\z"),
-        imaginary: Regexp.new("\\A(#{NUMBER})i\\z"),
+        pair: Regexp.new("\\A(#{NUMBER})?([-+])?(#{NUMBER})?[iIjJ]\\z"),
+        imaginary: Regexp.new("\\A(#{NUMBER})[iIjJ]\\z"),
         real: Regexp.new("\\A(#{NUMBER})\\z"),
-        leading: Regexp.new("\\A\\s*(?:#{NUMBER}@#{NUMBER}|#{NUMBER}?[-+]#{NUMBER}?i|#{NUMBER}i|[-+]?i|#{NUMBER})")
+        leading: Regexp.new("\\A\\s*(?:#{NUMBER}@#{NUMBER}|#{NUMBER}?[-+]#{NUMBER}?[iIjJ]|#{NUMBER}[iIjJ]|[-+]?[iIjJ]|#{NUMBER})")
       }
     end
     private :forms
@@ -86,7 +87,7 @@ class Complex < Numeric
       if (m = forms[:polar].match(body))
         return polar(real_part(m[1]), real_part(m[2]))
       end
-      if (m = forms[:pair].match(body)) && (m[2] || m[1].nil?) && !(m[1].nil? && m[2].nil? && m[3].nil? && body != +"i")
+      if (m = forms[:pair].match(body)) && (m[2] || m[1].nil?) && !(m[1].nil? && m[2].nil? && m[3].nil? && !%w[i I j J].include?(body))
         real = m[1] ? real_part(m[1]) : 0
         imag = m[3] ? real_part(m[3]) : 1
         imag = -imag if m[2] == +"-"

@@ -2071,4 +2071,61 @@ describe "Numeric: arithmetic" do
       -2
     OUT
   end
+
+  it "round with half: and digits, prev_float of infinity, gamma's poles, log's fused sum and float steps" do
+    result = zr(<<~'RUBY')
+      p 1.005.round(2, half: :even), 4.45.round(1, half: :even), 0.285.round(2, half: :down), 25.4.round(-1, half: :even)
+      p Float::INFINITY.prev_float, (-Float::INFINITY).next_float
+      p Math.gamma(-0.0), Math.gamma(Float::INFINITY), Math.gamma(Float::NAN).nan?
+      p Math.log(2, 1), Math.log(2, 2**1000), Math.log(2**2000), Math.log(10**400, 2**2000)
+      p (1.0..2.0).step(0.1).to_a
+      p 5.pow(0, 1)
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      1.0
+      4.5
+      0.28
+      20
+      1.7976931348623157e+308
+      -1.7976931348623157e+308
+      -Infinity
+      Infinity
+      true
+      NaN
+      0.001
+      1386.2943611198905
+      3.547450783405683e+17
+      [1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9000000000000001, 2.0]
+      0
+    OUT
+  end
+
+  it "to_r and to_c read as parse_rat and read_comp do, and upto yields a start longer than the end" do
+    result = zr(<<~'RUBY')
+      p "1/2.5".to_r, "1_000.5_5".to_r, "1__2".to_r, ".5".to_r
+      p "1+2j".to_c, "1+2I".to_c, "Infinity".to_c
+      p Rational(".5")
+      begin
+        Rational("1.e3")
+      rescue ArgumentError => e
+        p e.message
+      end
+      p "aa".upto("b").to_a, ("a9".."b").to_a
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      (2/5)
+      (20011/20)
+      (1/1)
+      (1/2)
+      (1+2i)
+      (1+2i)
+      (0+1i)
+      (1/2)
+      "invalid value for convert(): \"1.e3\""
+      ["aa"]
+      ["a9"]
+    OUT
+  end
 end

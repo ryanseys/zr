@@ -1160,7 +1160,6 @@ class String
       end
       return self
     end
-    return self if Primitive.zr_str_bytesize(self) > last.bytesize
     if digits? && last.send(:digits?)
       n = to_i
       finish = last.to_i
@@ -1631,14 +1630,16 @@ class String
       return copied if target.nil? && options.empty?
 
       target ||= Encoding.at(Primitive.zr_str_encoding_index_m(self))
+      explicit = options[:invalid] == :replace
       options = { invalid: :replace, undef: :replace, **options }
     end
     from, target = Encoding.pair(source.nil? ? Encoding.at(Primitive.zr_str_encoding_index_m(self)) : source, target)
     text = escaped(source.nil? ? plain : copied.force_encoding(from), options)
     # No conversion, but an `invalid: :replace` the caller wrote still
     # takes out the bytes that make no character; the one an encode with
-    # no target implies does not (str_transcode0's explicit flag).
-    if from.equal?(target) && !implicit && options[:invalid] == :replace && !text.valid_encoding?
+    # no target implies does not (str_transcode0's
+    # explicitly_invalid_replace).
+    if from.equal?(target) && (!implicit || explicit) && options[:invalid] == :replace && !text.valid_encoding?
       text = text.scrub(Encoding.send(:replacement, target, options))
     end
     # The quotes around an attribute are characters of the text, so
@@ -1798,7 +1799,11 @@ class String
       if piece.valid_encoding?
         out << piece
       else
-        piece = byteslice(i, step = mb_scrub_len(i)) if mb
+        if mb
+          piece = byteslice(i, step = mb_scrub_len(i))
+        elsif encoding.equal?(Encoding::UTF_8)
+          piece = byteslice(i, step = utf8_scrub_len(i))
+        end
         out << (block_given? ? yield(piece) : replacement)
       end
       i += step
@@ -1821,6 +1826,47 @@ class String
     clen -= 1
     clen -= 1 while clen > 1 && Primitive.zr_str_mb_precise_len_m(self, at, at + clen) == -1
     clen
+  end
+
+  # mb_scrub_len for UTF-8, over rb_enc_precise_mbclen's answer for the
+  # bytes from `at` to `stop`: a whole character, a character cut off at
+  # `stop` (:more), or bytes that start no character (:bad).
+  def utf8_scrub_len(at)
+    Primitive.attr! :hidden
+    size = Primitive.zr_str_bytesize(self)
+    return size - at if utf8_precise(at, size) == :more
+
+    clen = [4, size - at].min
+    return 1 if clen <= 2
+
+    clen -= 1
+    clen -= 1 while clen > 1 && utf8_precise(at, at + clen) == :bad
+    clen
+  end
+
+  def utf8_precise(at, stop)
+    Primitive.attr! :hidden
+    lead = Primitive.zr_str_byte_at(self, at)
+    need, low, high = if lead < 0x80 then [1, 0x80, 0xBF]
+                      elsif lead.between?(0xC2, 0xDF) then [2, 0x80, 0xBF]
+                      elsif lead == 0xE0 then [3, 0xA0, 0xBF]
+                      elsif lead == 0xED then [3, 0x80, 0x9F]
+                      elsif lead.between?(0xE1, 0xEF) then [3, 0x80, 0xBF]
+                      elsif lead == 0xF0 then [4, 0x90, 0xBF]
+                      elsif lead.between?(0xF1, 0xF3) then [4, 0x80, 0xBF]
+                      elsif lead == 0xF4 then [4, 0x80, 0x8F]
+                      else return :bad
+                      end
+    k = 1
+    while k < need
+      return :more if at + k >= stop
+
+      byte = Primitive.zr_str_byte_at(self, at + k)
+      return :bad unless k == 1 ? byte.between?(low, high) : byte.between?(0x80, 0xBF)
+
+      k += 1
+    end
+    need
   end
 
   def scrub!(replacement = nil, &block)
@@ -2074,8 +2120,13 @@ class String
   def translate(from, to, squeeze)
     Primitive.attr! :hidden
     source, negated = charset(joined(Primitive.zr_str_operand(from)))
-    target, = charset(joined(Primitive.zr_str_operand(to)))
-    out = empty_like
+    to = joined(Primitive.zr_str_operand(to))
+    target, = charset(to)
+    # tr_trans: the result takes the encoding that rb_enc_check gives the
+    # receiver and the replacement, so an ASCII-only receiver can take
+    # the replacement's.
+    enc = Encoding.compatible?(self, to) || Encoding.at(Primitive.zr_str_encoding_index_m(self))
+    out = OWN[:force_encoding].bind_call(+"", enc)
     last = nil
     OWN[:each_char].bind_call(self) do |c|
       at = charset_index(source, c.ord)
@@ -2089,10 +2140,10 @@ class String
         next
       end
       mapped = negated ? target.last.end : charset_at(target, at)
-      out << char_of(mapped, Encoding.at(Primitive.zr_str_encoding_index_m(self))) unless squeeze && mapped == last
+      out << char_of(mapped, enc) unless squeeze && mapped == last
       last = mapped
     end
-    out
+    OWN[:force_encoding].bind_call(out, enc)
   end
 
   def char_of(cp, enc)
@@ -3717,7 +3768,7 @@ class Encoding
         next
       end
       char = point.chr(UTF_8).force_encoding(hub)
-      if options[:undef] == :replace || options[:invalid] == :replace
+      if options[:undef] == :replace
         out.concat(convert(options[:replace] || "?", target, {}).bytes)
       elsif (given = fallback(options[:fallback], char))
         written = begin
@@ -3760,7 +3811,7 @@ class Encoding
   # path.
   def self.undefined(shown, from, to, path, options, char = nil)
     Primitive.attr! :hidden
-    if options[:undef] == :replace || options[:invalid] == :replace
+    if options[:undef] == :replace
       replacement = options[:replace] || (to.equal?(UTF_8) ? +"\uFFFD" : +"?")
       return yield(replacement)
     end

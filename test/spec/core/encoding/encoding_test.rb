@@ -1742,4 +1742,17 @@ describe "Encoding programs" do
       3
     OUT
   end
+
+  it "__ENCODING__ follows the magic comment of a file with non-ASCII bytes" do
+    result = zr(<<~'RUBY')
+      # encoding: ascii-8bit
+      p __ENCODING__
+      p "é".size
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      #<Encoding:BINARY (ASCII-8BIT)>
+      2
+    OUT
+  end
 end

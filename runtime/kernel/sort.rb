@@ -128,11 +128,16 @@ end
 # Compares the elements at `i` and `j` with the block, or with `<=>`.
 sig [Ptr, Word, Word] => Word
 machine def zr_sort_cmp(st, i, j)
+  zr_sort_cmp_values(st, zr_sort_at(st, i), zr_sort_at(st, j))
+end
+
+# Compares two Values as zr_sort_cmp does: after a failure, 0 and no
+# Ruby.
+sig [Ptr, Value, Value] => Word
+machine def zr_sort_cmp_values(st, x, y)
   if Sort.failed(st) != 0
     return 0
   end
-  x = zr_sort_at(st, i)
-  y = zr_sort_at(st, j)
   if Sort.blk(st) == QNIL
     if Sort.plain(st) != 0
       if zr_fixnum_p(x) && zr_fixnum_p(y)
@@ -299,6 +304,203 @@ machine def zr_sort_partition(st, a, n, parts)
   Machine.store64(parts, 0, pb - pa)
   Machine.store64(parts, 8, pd - pc)
   true
+end
+
+# Apple Libc-1752's qsort_r (stdlib/FreeBSD/qsort.c), which darwin's
+# ruby calls: an insertion sort for 7 elements or fewer, else a split
+# around the pseudomedian. A split that swaps nothing tries an insertion
+# sort with a limit of 1 + n / 4 swaps, and goes on from where it
+# stopped if that is not enough. The smaller part is sorted first, and
+# past a depth of 2 * floor(log2 n) splits, heapsort finishes the range.
+sig [Ptr, Word] => Void
+machine def zr_sort_apple_all(st, n)
+  depth = 0
+  m = n
+  while m > 1
+    depth += 2
+    m = m / 2
+  end
+  zr_sort_apple(st, 0, n, depth)
+end
+
+sig [Ptr, Word, Word, Word] => Void
+machine def zr_sort_apple(st, a, n, depth)
+  while true
+    if depth <= 0
+      zr_sort_heap(st, a, n)
+      return
+    end
+    depth -= 1
+    if n <= 7
+      zr_sort_isort(st, a, n, 0)
+      return
+    end
+    pl = a
+    pm = a + (n / 2)
+    pn = a + n - 1
+    if n > 40
+      d = n / 8
+      pl = zr_sort_med3(st, pl, pl + d, pl + (2 * d))
+      pm = zr_sort_med3(st, pm - d, pm, pm + d)
+      pn = zr_sort_med3(st, pn - (2 * d), pn - d, pn)
+    end
+    pm = zr_sort_med3(st, pl, pm, pn)
+    zr_sort_swap(st, a, pm)
+    swapped = 0
+    pa = a + 1
+    pb = a + 1
+    pc = a + n - 1
+    pd = a + n - 1
+    while true
+      while pb <= pc
+        c = zr_sort_cmp(st, pb, a)
+        break if c > 0
+        if c == 0
+          swapped = 1
+          zr_sort_swap(st, pa, pb)
+          pa += 1
+        end
+        pb += 1
+      end
+      while pb <= pc
+        c = zr_sort_cmp(st, pc, a)
+        break if c < 0
+        if c == 0
+          swapped = 1
+          zr_sort_swap(st, pc, pd)
+          pd -= 1
+        end
+        pc -= 1
+      end
+      break if pb > pc
+      zr_sort_swap(st, pb, pc)
+      swapped = 1
+      pb += 1
+      pc -= 1
+    end
+    pn = a + n
+    r = pa - a
+    if pb - pa < r
+      r = pb - pa
+    end
+    zr_sort_vecswap(st, a, pb - r, r)
+    r = pd - pc
+    if pn - pd - 1 < r
+      r = pn - pd - 1
+    end
+    zr_sort_vecswap(st, pb, pn - r, r)
+    if swapped == 0 && zr_sort_isort(st, a, n, 1 + (n / 4))
+      return
+    end
+    d1 = pb - pa
+    d2 = pd - pc
+    if d1 <= d2
+      if d1 > 1
+        zr_sort_apple(st, a, d1, depth)
+      end
+      if d2 <= 1
+        return
+      end
+      a = pn - d2
+      n = d2
+    else
+      if d2 > 1
+        zr_sort_apple(st, pn - d2, d2, depth)
+      end
+      if d1 <= 1
+        return
+      end
+      n = d1
+    end
+  end
+end
+
+# _isort: an insertion sort that stops, returning false, after `limit`
+# swaps when `limit` is not 0.
+sig [Ptr, Word, Word, Word] => Bool
+machine def zr_sort_isort(st, a, n, limit)
+  count = 0
+  pm = a + 1
+  while pm < a + n
+    pl = pm
+    while pl > a && zr_sort_cmp(st, pl - 1, pl) > 0
+      zr_sort_swap(st, pl, pl - 1)
+      if limit != 0
+        count += 1
+        if count > limit
+          return false
+        end
+      end
+      pl -= 1
+    end
+    pm += 1
+  end
+  true
+end
+
+# The address of element `i` (from 1) of the `n` elements at `a`, as
+# heapsort numbers them.
+sig [Ptr, Word, Word] => Ptr
+machine def zr_sort_heap_at(st, a, i)
+  Sort.base(st) + ((a + i - 1) * Sort.stride(st))
+end
+
+# heapsort (stdlib/FreeBSD/heapsort.c): build the heap, then move the
+# top to the end and sift the displaced element back in. The displaced
+# element waits in an Array, where the collector sees it while the block
+# runs.
+sig [Ptr, Word, Word] => Void
+machine def zr_sort_heap(st, a, n)
+  if n <= 1
+    return
+  end
+  stride = Sort.stride(st)
+  keep = zr_ary_new(2)
+  zr_ary_push(keep, Machine.value(QNIL))
+  zr_ary_push(keep, Machine.value(QNIL))
+  k = RArray.ptr(keep)
+  l = n / 2
+  while l > 0
+    par = l
+    child = par * 2
+    while child <= n
+      if child < n && zr_sort_cmp(st, a + child - 1, a + child) < 0
+        child += 1
+      end
+      if zr_sort_cmp(st, a + child - 1, a + par - 1) <= 0
+        break
+      end
+      zr_sort_swap(st, a + par - 1, a + child - 1)
+      par = child
+      child = par * 2
+    end
+    l -= 1
+  end
+  while n > 1
+    zr_memcpy(k, zr_sort_heap_at(st, a, n), stride)
+    zr_memcpy(zr_sort_heap_at(st, a, n), zr_sort_heap_at(st, a, 1), stride)
+    n -= 1
+    par = 1
+    child = 2
+    while child <= n
+      if child < n && zr_sort_cmp(st, a + child - 1, a + child) < 0
+        child += 1
+      end
+      zr_memcpy(zr_sort_heap_at(st, a, par), zr_sort_heap_at(st, a, child), stride)
+      par = child
+      child = par * 2
+    end
+    while true
+      child = par
+      par = child / 2
+      if child == 1 || zr_sort_cmp_values(st, Machine.value(Machine.load64(k, 0)), zr_sort_at(st, a + par - 1)) < 0
+        zr_memcpy(zr_sort_heap_at(st, a, child), k, stride)
+        break
+      end
+      zr_memcpy(zr_sort_heap_at(st, a, child), zr_sort_heap_at(st, a, par), stride)
+    end
+  end
+  RArray.set_len(keep, 0)
 end
 
 # Sorts `ary` in place. `ary` is a copy that the caller made. Thus a
