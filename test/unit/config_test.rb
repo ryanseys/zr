@@ -110,4 +110,17 @@ class ConfigTest < Minitest::Test
   def test_config_is_frozen
     Zr::Config.with(ZR_LINKER: "cc") { |config| assert_predicate config, :frozen? }
   end
+
+  # Only this class reads a `ZR_*` variable, so a build sees one set of
+  # settings and a test can change them with `Config.with`. The compiled
+  # compiler's hand-over reads its own two before it loads anything else.
+  READERS = %w[lib/zr/compiled_compiler.rb lib/zr/config.rb].freeze
+
+  def test_only_config_reads_a_zr_variable
+    readers = Dir[File.join(ROOT, "lib/**/*.rb")].select do |path|
+      File.read(path).match?(/ENV(\[|\.fetch\(|\.key\?\()"ZR_|Zr\.flag\?\("ZR_/)
+    end
+
+    assert_equal READERS, readers.map { |path| path.delete_prefix("#{ROOT}/") }.sort
+  end
 end

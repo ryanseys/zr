@@ -24,6 +24,15 @@ it.
   `benchmark/`, then make the compiler or the runtime fast, then use the
   idiom.
 
+Two examples. A `case` with many `when` arms on classes, as in
+`case node when Hir::Send ...`, once tested each arm in turn. zr now
+keeps a table from the subject's class to its arm at each such site
+(`CaseCache`, `runtime/kernel/cache.rb`), so the long `case` in the HIR
+builder and in the lowering is fast. And zr once ran `Struct` through the
+core's generic code, so the compiler used its own record class. Struct
+and Data construction and member access are now kernel entries, and the
+HIR nodes are Structs again.
+
 ## Composition over large mixins
 
 A module that is included in a class shares all of that class's
@@ -36,6 +45,15 @@ uses it.
   own state and calls back into the builder through `@b`.
 - The tools are small `Command` objects (`tool/lib/zr/dev/command.rb`),
   each with its own options and `run`, not one module of functions.
+
+A module or a reopened class can still split one large object into files
+by topic, when the parts share the object's state and call its helpers
+freely: `Lower::Function`'s `Sends`, `Regions` and `Tracing`,
+`Hir::Build`'s `build/literals.rb` and `build/requires.rb`, and the
+aarch64 codegen's `codegen/layout.rb`. A separate object for such a
+part would need a wide public interface to the object that it came
+from. Keep the part's own state together instead: the inline copy's
+state is one `Inline::Site` value, not four instance variables.
 
 ## One copy of each fact and helper
 
@@ -72,7 +90,9 @@ Read a `ZR_*` variable through `Zr::Config.current`
 never into a constant when a file loads. A constant that holds an
 environment value sees the value of the first process that loaded the
 file, and a test cannot change it. `Config.with(...)` sets values for a
-test.
+test, and a forked child that changes the environment calls
+`Config.reset!`. `test/unit/config_test.rb` fails when another file in
+`lib/` reads a `ZR_*` variable.
 
 ## Layers depend downward
 
