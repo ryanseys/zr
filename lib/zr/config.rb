@@ -19,14 +19,16 @@ module Zr
     # link), `ruby` (zr's linker only) or `cc`. Empty or unset is `auto`.
     LINKERS = %w[auto ruby cc].freeze
 
-    attr_reader :linker, :jobs, :eval, :wasm_width, :cache, :host_ruby
+    attr_reader :linker, :jobs, :wasm_width, :cache, :host_ruby
 
     def initialize
       @linker = ENV["ZR_LINKER"].to_s.empty? ? "auto" : ENV["ZR_LINKER"]
       raise ArgumentError, "ZR_LINKER=#{@linker}: use #{LINKERS.join(", ")}" unless LINKERS.include?(@linker)
 
       @jobs = Integer(ENV.fetch("ZR_JOBS") { [Etc.nprocessors, 6].min })
-      @eval = ENV["ZR_EVAL"]
+      # Not exposed as a plain reader: `eval` is a Kernel method, and
+      # `eval_walk?` is the only thing anything reads this for.
+      @eval_mode = ENV["ZR_EVAL"]
       @timing = Zr.flag?("ZR_TIMING")
       @verify = Zr.flag?("ZR_VERIFY")
       @wasm_names = Zr.flag?("ZR_WASM_NAMES")
@@ -39,7 +41,7 @@ module Zr
 
     # `ZR_EVAL=walk` builds a native program with the tree-walking
     # interpreter as its eval support, instead of the compiler.
-    def eval_walk? = @eval == "walk"
+    def eval_walk? = @eval_mode == "walk"
 
     # `ZR_TIMING=1` prints one line to stderr for each build phase.
     def timing? = @timing
