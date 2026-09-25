@@ -33,6 +33,10 @@ module Zr
     Def = Struct.new(:name, :params, :ret, :node, :file, :effects)
     # A function delivered as machine code: `Machine.raw "zr_switch"`.
     Raw = Data.define(:name, :params, :ret)
+    # The raw functions by name. The dialect knows only their signatures;
+    # the native build gets their machine code from the backend
+    # (`Backend::Aarch64::Stub`).
+    RAW = [Raw.new("zr_switch", %w[Ptr Ptr], "Void")].to_h { |r| [r.name, r] }.freeze
     # A signature for `Machine.call`: `Machine.sig :name, [types] => type`.
     Signature = Data.define(:name, :params, :ret)
     # `Machine.struct :Name, field: Type, ...`: fields as `name => [offset, type]`.

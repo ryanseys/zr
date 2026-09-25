@@ -44,7 +44,13 @@ module Zr
           Obj::Function.new("zr_switch", a.to_binary, align: 4)
         end
 
-        ALL = { "zr_switch" => [[:Ptr, :Ptr], :Void] }.freeze
+        # The machine code of the raw function `name` (`Machine::RAW`).
+        def function(name)
+          case name
+          when "zr_switch" then switch
+          else raise ArgumentError, "no raw function named #{name}"
+          end
+        end
       end
     end
   end

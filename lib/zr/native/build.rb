@@ -74,8 +74,8 @@ module Zr
       # prebuilt objects to link with this one. `strip` removes code that
       # nothing calls. `linker` (`ZR_LINKER`) selects the linker when the
       # target has more than one.
-      def binary(functions, data, out, work:, raw: [], objects: [], strip: false, linker: LINKER, target: Target.default, jobs: Build.jobs)
-        image = unit(functions, data, raw: raw, export: !objects.empty?, target: target, jobs: jobs)
+      def binary(functions, data, out, work:, raw: [], assembled: [], objects: [], strip: false, linker: LINKER, target: Target.default, jobs: Build.jobs)
+        image = unit(functions, data, raw: raw, assembled: assembled, export: !objects.empty?, target: target, jobs: jobs)
         linker(target).link(image, out, work: work, objects: objects, strip: strip, linker: linker, target: target)
       rescue Backend::Refused => e
         e.message
@@ -89,9 +89,9 @@ module Zr
       def program(program, out, work:, jobs: Build.jobs)
         objects = [runtime_object(program.runtime, jobs: jobs)]
         objects << eval_support_object(program.evals, jobs: jobs) if program.evals
-        functions, raw = program.functions.partition { |f| f.is_a?(IR::Function) }
+        functions, assembled = program.functions.partition { |f| f.is_a?(IR::Function) }
         Zr.clock("program object written and linked") do
-          binary(functions, program.data, out, work: work, raw: raw, objects: objects, strip: !program.evals,
+          binary(functions, program.data, out, work: work, assembled: assembled, objects: objects, strip: !program.evals,
                                                            target: program.runtime.target, jobs: jobs)
         end
       end
@@ -207,11 +207,14 @@ module Zr
       # and of the JIT loader. Inlining needs the whole unit, so it runs
       # here. The passes and assembly of a function need only the function
       # and the unit's symbol names, so a large unit runs them in `jobs`
-      # workers.
-      def unit(functions, data, raw: [], export: false, target: Target.default, jobs: Build.jobs, floor: PARALLEL_THRESHOLD)
+      # workers. `raw` names the raw functions (`Machine::RAW`), whose code
+      # comes from the backend. `assembled` are functions that are already
+      # machine code.
+      def unit(functions, data, raw: [], assembled: [], export: false, target: Target.default, jobs: Build.jobs, floor: PARALLEL_THRESHOLD)
         IR::Passes.inline(functions)
         emitter = backend(target)
-        emitter.unit(functions, data, raw: raw, export: export) do |all, defined|
+        code = assembled + raw.map { |name| emitter::Stub.function(name) }
+        emitter.unit(functions, data, raw: code, export: export) do |all, defined|
           Parallel.map(all, jobs: jobs, weight: ->(f) { f.blocks.sum { |b| b.insts.size } }, floor: floor) do |f|
             IR::Passes.prepare(f)
             emitter.assemble(f, defined)
@@ -306,9 +309,9 @@ module Zr
       # that is not a wasm import, not in `Backend::Wasm.libc_shims` and
       # not in `known`.
       def stops(functions, raw, data, known)
-        out = raw.map do |r|
-          params, ret = Backend::Aarch64::Stub::ALL.fetch(r.name)
-          stop(r.name, params.map { |t| Machine::TYPES.fetch(t.to_s) }, Machine::TYPES.fetch(ret.to_s), data)
+        out = raw.map do |name|
+          r = Machine::RAW.fetch(name)
+          stop(name, r.params.map { |t| Machine::TYPES.fetch(t) }, Machine::TYPES.fetch(r.ret), data)
         end
         defined = Set.new(functions.map(&:name) + out.map(&:name) + Backend::Wasm.libc_shims + known)
         functions.each do |f|

@@ -13,11 +13,8 @@ require "test_helper"
 # This walks every `require_relative` under `lib/zr` and checks that a
 # file requiring into another layer does so only where ALLOWED says the
 # dependency runs downward: the back end does not reach into the front
-# end, and a base format does not reach into what reads it. KNOWN lists
-# today's exceptions to that, each with the file that makes it and the
-# reason a later refactor removes it; a KNOWN entry that no longer has a
-# matching edge fails too, so the list shrinks as each is fixed instead
-# of quietly going stale.
+# end, and a base format does not reach into what reads it. There are no
+# exceptions.
 class LayeringTest < Minitest::Test
   LIB = Pathname.new(File.join(ROOT, "lib/zr")).freeze
 
@@ -38,35 +35,15 @@ class LayeringTest < Minitest::Test
     "prism_backend" => %w[top],
   }.freeze
 
-  # `[from layer, to layer] => the files whose edge this excuses`. A
-  # later refactor removes these; each reaches directly into
-  # `backend/aarch64` for a detail (relocations, the frame stub) that
-  # belongs to the object writer or the machine dialect instead.
-  KNOWN = {
-    %w[machine backend] => %w[machine/lower.rb],
-  }.freeze
+  def test_every_cross_layer_edge_is_allowed
+    violations = edges.reject { |from, to, _| allowed?(from, to) }
 
-  def test_every_cross_layer_edge_is_allowed_or_known
-    violations = edges.reject { |from, to, file| allowed?(from, to) || known?(from, to, file) }
-
-    assert_empty violations.map { |from, to, file| "#{file}: #{from} -> #{to} (not in ALLOWED or KNOWN)" }
-  end
-
-  def test_every_known_violation_still_has_a_matching_edge
-    seen = edges.each_with_object(Hash.new { |h, k| h[k] = [] }) { |(from, to, file), h| h[[from, to]] << file }
-
-    KNOWN.each do |edge, files|
-      missing = files - seen.fetch(edge, [])
-
-      assert_empty missing, "#{edge.join(" -> ")}: shrink KNOWN, it no longer needs #{missing.join(", ")}"
-    end
+    assert_empty violations.map { |from, to, file| "#{file}: #{from} -> #{to} (not in ALLOWED)" }
   end
 
   private
 
   def allowed?(from, to) = from == to || ALLOWED.fetch(from).include?(to)
-
-  def known?(from, to, file) = KNOWN.fetch([from, to], []).include?(file)
 
   # `[from layer, to layer, file]`, relative to `LIB`, for every
   # `require_relative` that reaches into another layer. A require that

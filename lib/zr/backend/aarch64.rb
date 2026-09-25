@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "aarch64/codegen"
+require_relative "aarch64/stub"
 require_relative "../obj/model"
 
 module Zr

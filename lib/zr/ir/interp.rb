@@ -144,12 +144,12 @@ module Zr
 
       attr_reader :memory
 
-      # `functions` are `IR::Function`s; `data` and `raw` are `Obj::Data`
-      # and `Obj::Function`. A `raw` function is machine code, not IR, so a
-      # call to it is refused, with a message that gives the name.
+      # `functions` are `IR::Function`s and `data` is `Obj::Data`. `raw`
+      # names the raw functions. A raw function is machine code, not IR, so
+      # a call to it is refused, with a message that gives the name.
       def initialize(functions, data: [], raw: [], out: $stdout, err: $stderr)
         @functions = functions.to_h { |f| [f.name, f] }
-        @raw = raw.map(&:name)
+        @raw = raw
         @memory = Memory.new
         @types = {}
         @data_at = {}
