@@ -51,9 +51,18 @@ module Kernel
   def self.required(name)
     Primitive.attr! :hidden
     feature = File.path(name)
-    return false if preloaded?(feature)
+    return false if preloaded?(feature) || parserless?(feature)
 
     load_file(feature_path(feature), feature, 0)
+  end
+
+  # syntax_suggest's detailed_message loads its search, which needs
+  # prism, for each SyntaxError. The search reads only an error with a
+  # path, which a program without the compiler cannot get, so there the
+  # method returns the message as it is.
+  def self.parserless?(feature)
+    Primitive.attr! :hidden
+    feature == "syntax_suggest/api" && !defined?(::Zr::Eval) && Primitive.zr_caller_file&.end_with?("/syntax_suggest/core_ext.rb")
   end
 
   # The name is taken from the directory of the file that calls.

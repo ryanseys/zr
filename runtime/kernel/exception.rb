@@ -180,6 +180,15 @@ end
 # task, and returns `undef` for the caller to pass on.
 sig [Value, Ptr] => Value
 machine def zr_raise_from(exc, top)
+  if zr_frozen_p(exc)
+    # setup_exception raises a copy of a frozen exception that has a
+    # backtrace or a cause. One with neither goes as it is, with none.
+    if RException.rows(exc) == 0 && RException.bt(exc) == QNIL && RException.cause(exc) == QUNDEF
+      return zr_raise_as_is(exc, top)
+    end
+    exc = zr_send(exc, Machine.id(:dup), 0, 0)
+    return exc if exc == QUNDEF
+  end
   if RException.rows(exc) == 0 && RException.bt(exc) == QNIL
     zr_backtrace_capture(exc, top)
   end
@@ -195,11 +204,20 @@ machine def zr_raise_from(exc, top)
     return r if r == QUNDEF
     RException.set_cause(exc, cause == exc ? Machine.value(QNIL) : cause)
   end
+  zr_raise_as_is(exc, top)
+end
+
+# The end of a raise: the $DEBUG report, the `:raise` event, then the
+# exception in the pending slot of the task.
+sig [Value, Ptr] => Value
+machine def zr_raise_as_is(exc, top)
+  t = zr_task()
   debug = zr_gvar_get(Machine.id(:$DEBUG))
   if debug != QNIL && debug != QFALSE && !zr_is_a(exc, zr_core_class(Machine.id(:SystemExit)))
-    # A backtrace set by hand does not tell where the raise is.
+    # A backtrace set by hand, or none at all, does not tell where the
+    # raise is.
     at = exc
-    if RException.bt(exc) != QNIL
+    if RException.rows(exc) == 0
       at = zr_exc_new(zr_core_class(Machine.id(:Exception)), Machine.value(QNIL))
       zr_backtrace_capture(at, top)
     end
@@ -635,6 +653,16 @@ end
 # circular cause, so the loop always ends.
 sig [Value, Value] => Void
 machine def zr_error_print_upto(exc, stop)
+  # Exception#uncaught_report writes as rb_error_write does. The frames
+  # below are for a runtime that cannot run it yet.
+  arg = Machine.slot(8)
+  Machine.store64(arg, 0, Machine.word(stop == QUNDEF ? Machine.value(QNIL) : stop))
+  text = zr_send(exc, Machine.id(:uncaught_report), 1, arg)
+  if text != QUNDEF && !zr_special_p(text) && zr_type(text) == T_STRING
+    zr_write_stderr(text)
+    return
+  end
+  Task.set_pending(zr_task(), Machine.value(QNIL))
   e = exc
   while e != QNIL && e != QUNDEF && e != stop && !zr_special_p(e) && zr_is_a(e, zr_global(G_EXCEPTION))
     zr_error_print_one(e)

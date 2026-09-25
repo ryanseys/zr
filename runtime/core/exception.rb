@@ -52,17 +52,15 @@ class Exception
     decorate(message.to_s, checked_highlight(highlight, false))
   end
 
-  # Ruby's `rb_error_write`: the head line, the `from` trail, then the
-  # chain this exception came from. `:bottom` puts the banner first,
-  # numbers the trail and turns the whole report around.
-  def full_message(highlight: nil, order: nil)
-    highlight = checked_highlight(highlight, true)
-    bottom = checked_order(order)
+  # exc_full_message: the report that ruby prints for an uncaught error.
+  # All keywords go on to `detailed_message`.
+  def full_message(**opt)
+    highlight = checked_highlight(opt[:highlight], true)
+    bottom = checked_order(opt[:order])
+    opt[:highlight] = highlight
+    at = caller_locations(1, 1).first
     out = +""
-    out << "#{highlight ? "#{BOLD}Traceback#{RESET}" : 'Traceback'} (most recent call last):\n" if bottom
-    rows = backtrace
-    rows = [asked_from(caller_locations(1, 1)&.first)] if rows.nil? || rows.empty?
-    report(out, self, rows, highlight, bottom, [self])
+    error_write(out, opt, report_backtrace(self), report_message(self, opt), highlight, bottom, at && "#{at.path}:#{at.lineno}:in 'full_message': ", {}.compare_by_identity)
     out
   end
 
@@ -93,55 +91,115 @@ class Exception
   RESET = "\e[m"
   private_constant :BOLD, :UNDERLINE, :RESET
 
-  # An exception with no backtrace uses as its head the position that
-  # requested the report, under this method's name, as CRuby's C frame
-  # does.
-  def asked_from(row)
+  # rb_ec_error_print: the report of an error that ends the program or
+  # a thread, as a String. `stop` is an exception already reported,
+  # which the cause chain does not repeat.
+  def uncaught_report(stop)
     Primitive.attr! :hidden
-    row && "#{row.path}:#{row.lineno}:in 'full_message'"
+    highlight = $stderr.equal?(STDERR) && Exception.to_tty?
+    opt = { highlight: highlight }
+    errat = begin
+      report_backtrace(self)
+    rescue Exception # rubocop:disable Lint/RescueException
+      nil
+    end
+    emesg = begin
+      report_message(self, opt)
+    rescue Exception # rubocop:disable Lint/RescueException
+      nil
+    end
+    # error_pos: the main program has finished, so ruby's frame names
+    # only the file.
+    pos = "#{Primitive.zr_program_name}: " if Thread.current.equal?(Thread.main)
+    shown = {}.compare_by_identity
+    shown[stop] = true if stop.is_a?(Exception)
+    out = +""
+    error_write(out, opt, errat, emesg, highlight, false, pos, shown)
+    out
   end
 
-  def report(out, exc, rows, highlight, bottom, shown)
+  # rb_get_backtrace: the backtrace, from an override when there is one.
+  def report_backtrace(exc)
+    Primitive.attr! :hidden
+    exc.backtrace
+  end
+
+  # rb_get_detailed_message: a String, or nil.
+  def report_message(exc, opt)
+    Primitive.attr! :hidden
+    text = exc.detailed_message(**opt)
+    text.is_a?(String) ? text : String.try_convert(text)
+  end
+
+  # rb_error_write: the head line, the `from` trail, then the chain of
+  # causes, each one once. `:bottom` puts a banner first, numbers the
+  # trail and turns the whole report around. `pos` heads an exception
+  # with no backtrace.
+  def error_write(out, opt, errat, emesg, highlight, bottom, pos, shown)
+    Primitive.attr! :hidden
+    out << (highlight ? "#{BOLD}Traceback#{RESET}" : "Traceback") << " (most recent call last):\n" if bottom
+    write_one(out, self, opt, errat, emesg, highlight, bottom, pos, shown)
+  end
+
+  def write_one(out, exc, opt, errat, emesg, highlight, bottom, pos, shown)
     Primitive.attr! :hidden
     if bottom
-      chain(out, exc, highlight, bottom, shown)
-      trail(out, rows, true)
-      out << errinfo(rows, exc, highlight)
+      show_cause(out, exc, opt, highlight, bottom, pos, shown)
+      print_backtrace(out, exc, errat, bottom)
+      print_errinfo(out, exc, errat, emesg, highlight, pos)
     else
-      out << errinfo(rows, exc, highlight)
-      trail(out, rows, false)
-      chain(out, exc, highlight, bottom, shown)
+      print_errinfo(out, exc, errat, emesg, highlight, pos)
+      print_backtrace(out, exc, errat, bottom)
+      show_cause(out, exc, opt, highlight, bottom, pos, shown)
     end
   end
 
-  def chain(out, exc, highlight, bottom, shown)
+  def show_cause(out, exc, opt, highlight, bottom, pos, shown)
     Primitive.attr! :hidden
     cause = exc.cause
-    return unless cause.is_a?(Exception) && shown.none? { |seen| seen.equal?(cause) }
+    return unless cause.is_a?(Exception) && !shown.key?(cause)
 
-    shown << cause
-    report(out, cause, cause.backtrace || [], highlight, bottom, shown)
+    shown[cause] = true
+    write_one(out, cause, opt, report_backtrace(cause), report_message(cause, opt), highlight, bottom, pos, shown)
   end
 
-  def errinfo(rows, exc, highlight)
+  # The head line: the first frame, the message, or the class for an
+  # empty one.
+  def print_errinfo(out, exc, errat, emesg, highlight, pos)
     Primitive.attr! :hidden
-    detail = exc.detailed_message(highlight: highlight)
-    rows[0] ? "#{rows[0]}: #{detail}\n" : "#{detail}\n"
-  end
-
-  # The frames under the head, in reading order, or numbered and
-  # reversed under the Traceback banner.
-  def trail(out, rows, bottom)
-    Primitive.attr! :hidden
-    return if rows.length < 2
-
-    width = (rows.length - 1).to_s.length
-    if bottom
-      (1...rows.length).each do |i|
-        out << "\t#{(rows.length - i).to_s.rjust(width)}: from #{rows[rows.length - i]}\n"
-      end
+    head = errat&.first
+    if head
+      out << head << ": "
+    elsif pos
+      out << pos
+    end
+    if emesg.nil? || emesg.empty?
+      name = exc.instance_of?(RuntimeError) ? "unhandled exception" : exc.class.name
+      out << (highlight ? "#{UNDERLINE}#{name}#{RESET}" : name) << "\n"
     else
-      rows.drop(1).each { |row| out << "\tfrom #{row}\n" }
+      out << emesg << "\n"
+    end
+  end
+
+  # The frames under the head. A deep SystemStackError shows its first
+  # 9 and last 4 frames.
+  def print_backtrace(out, exc, errat, bottom)
+    Primitive.attr! :hidden
+    return unless errat
+
+    len = errat.size
+    width = (len - 1).to_s.size
+    skip_start = exc.instance_of?(SystemStackError) && len > 18 ? 9 : -1
+    i = 1
+    while i < len
+      if i == skip_start
+        out << "\t ... #{len - 13} levels...\n"
+        i += len - 13
+        break if i >= len
+      end
+      line = errat[bottom ? len - i : i]
+      out << "\t" << (bottom ? "#{(len - i).to_s.rjust(width)}: " : "") << "from " << line << "\n" if line.is_a?(String)
+      i += 1
     end
   end
 
@@ -198,7 +256,7 @@ class Exception
 
   def checked_order(value)
     Primitive.attr! :hidden
-    return Exception.to_tty? if value.nil?
+    return false if value.nil?
     return true if value == :bottom || value == +"bottom"
     return false if value == :top || value == +"top"
 

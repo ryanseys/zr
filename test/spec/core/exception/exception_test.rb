@@ -181,4 +181,120 @@ describe "Exception programs" do
 
     _(result).must_answer "done\n", stderr: "Exception 'IOError' at core/exception/exception_test.rb:2 - io\nException 'RuntimeError' at core/exception/exception_test.rb:4 - set\nException 'IndexError' at core/exception/exception_test.rb:5 - index 3 outside of array bounds: 0...0\nException 'UncaughtThrowError' at core/exception/exception_test.rb:6 - uncaught throw :zz\n"
   end
+
+  it "full_message passes its keywords on and follows rb_error_write" do
+    result = zr(<<~'RUBY')
+      class E < StandardError
+        def detailed_message(highlight: false, **opt) = "#{message} #{opt.inspect} #{highlight}"
+      end
+      e = E.new("m")
+      p e.full_message(foo: 1)
+      p e.full_message(highlight: false, order: :top, bar: 2)
+      p RuntimeError.new("").full_message(highlight: false)
+      p ArgumentError.new("").full_message(highlight: true)
+      e = RuntimeError.new("r")
+      e.set_backtrace(["a:1", "b:2", "c:3"])
+      p e.full_message(highlight: false, order: :bottom)
+      class B < StandardError
+        def backtrace = ["over:1", "over:2"]
+      end
+      p B.new("b").full_message(highlight: false)
+      class D < StandardError
+        def detailed_message(**) = raise("inner")
+      end
+      raise D, "x"
+    RUBY
+
+    _(result).must_answer <<~'OUT', stderr: "core/exception/exception_test.rb:19:in '<main>': D\n", status: 1
+      "core/exception/exception_test.rb:5:in 'full_message': m {foo: 1} false\n"
+      "core/exception/exception_test.rb:6:in 'full_message': m {order: :top, bar: 2} false\n"
+      "core/exception/exception_test.rb:7:in 'full_message': unhandled exception\n"
+      "core/exception/exception_test.rb:8:in 'full_message': \e[1;4mArgumentError\e[m\n"
+      "Traceback (most recent call last):\n\t2: from c:3\n\t1: from b:2\na:1: r (RuntimeError)\n"
+      "over:1: b (B)\n\tfrom over:2\n"
+    OUT
+  end
+
+  it "an uncaught error heads with a backtrace set by hand" do
+    result = zr(<<~'RUBY')
+      e = RuntimeError.new("boom")
+      e.set_backtrace(["a.rb:1:in `x'", "b.rb:2"])
+      raise e
+    RUBY
+
+    _(result).must_answer "", stderr: "a.rb:1:in `x': boom (RuntimeError)\n\tfrom b.rb:2\n", status: 1
+  end
+
+  it "a frozen exception raises as it is, with no backtrace" do
+    result = zr(<<~'RUBY')
+      e = RuntimeError.new("frozen one").freeze
+      raise e
+    RUBY
+
+    _(result).must_answer "", stderr: "core/exception/exception_test.rb: frozen one (RuntimeError)\n", status: 1
+  end
+
+  it "a frozen exception with a backtrace raises a copy" do
+    result = zr(<<~'RUBY')
+      e = RuntimeError.new("f").freeze
+      begin; raise e; rescue => x; p x.equal?(e), x.backtrace; end
+      e2 = RuntimeError.new("g")
+      e2.set_backtrace(["q:1"])
+      e2.freeze
+      begin; raise e2; rescue => x; p x.equal?(e2), x.backtrace, x.frozen?; end
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      true
+      nil
+      false
+      ["q:1"]
+      false
+    OUT
+  end
+
+  it "a SyntaxError raised by hand keeps its message" do
+    result = zr(<<~'RUBY')
+      begin
+        raise SyntaxError, "m2"
+      rescue SyntaxError => e
+        p e.message, e.full_message(highlight: false)
+      end
+      raise SyntaxError, "msg"
+    RUBY
+
+    _(result).must_answer <<~'OUT', stderr: "core/exception/exception_test.rb:6:in '<main>': msg (SyntaxError)\n", status: 1
+      "m2"
+      "core/exception/exception_test.rb:2:in '<main>': m2 (SyntaxError)\n"
+    OUT
+  end
+
+  it "full_message of a detailed_message that is nil and a cause never raised" do
+    result = zr(<<~'RUBY')
+      e = RuntimeError.new("outer")
+      c = ArgumentError.new("inner")
+      e2 = begin; raise c; rescue; RuntimeError.new("w"); end
+      x = RuntimeError.new("top")
+      begin; raise x, cause: ArgumentError.new("never raised"); rescue => e; p e.full_message(highlight: false); p e.cause.backtrace; end
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "core/exception/exception_test.rb:5:in '<main>': top (RuntimeError)\ncore/exception/exception_test.rb:5:in 'full_message': never raised (ArgumentError)\n"
+      nil
+    OUT
+  end
+
+  it "an uncaught error whose detailed_message is nil prints the class" do
+    result = zr(<<~'RUBY')
+      class E < StandardError
+        def detailed_message(**) = nil
+      end
+      begin; raise E, "x"; rescue => e; p e.full_message(highlight: false); end
+      raise E, "y"
+    RUBY
+
+    _(result).must_answer <<~'OUT', stderr: "core/exception/exception_test.rb:5:in '<main>': E\n", status: 1
+      "core/exception/exception_test.rb:4:in '<main>': E\n"
+    OUT
+  end
 end
