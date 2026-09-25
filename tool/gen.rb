@@ -29,6 +29,8 @@ module Zr
         "cjk" => ["runtime/core/cjk.rb: the multibyte code points", -> { require_relative "gen/cjk"; Cjk }],
         "enc_mb" => ["runtime/kernel/enc_mb.rb: the multibyte walkers", -> { require_relative "gen/enc_mb"; EncMb }],
         "tables" => ["runtime/*/os/<os>/: this OS's errno, fcntl, etc and socket", -> { require_relative "gen/tables"; Tables }],
+        "zlib_tables" => ["runtime/kernel/zlib_tables.rb: zlib's tables, computed as zlib's C computes them",
+                          -> { require_relative "gen/zlib_tables"; ZlibTables }],
         "description" => ["runtime/ext/os/<os>/zr_description.rb: the kernel tables", -> { require_relative "gen/description"; Description }],
         "prism" => ["runtime/ext/prism/ruby/*.rb: the pure-Ruby prism", -> { require_relative "gen/prism"; PrismRuby }],
         "prism_encoding_tables" => ["runtime/ext/prism/ruby/encoding_tables.rb: prism's encodings",
