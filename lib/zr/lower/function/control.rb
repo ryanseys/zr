@@ -126,6 +126,8 @@ module Zr
         # visibility check (or, with no subject, the value itself is
         # tested). The body of the first truthy one gives the result.
         def case_when(node)
+          return class_case(node) if class_case?(node)
+
           base = @sp
           subject_at = value_offset(reserve(1))
           @f.store(expr(node.subject), @rec, subject_at) if node.subject
@@ -164,6 +166,143 @@ module Zr
           switch(merge)
           @sp = base
           result
+        end
+
+        # The fewest `when` values for which a `case` gets a table. With
+        # fewer, the chain's inline class tests cost less than the probe.
+        CLASS_CASE_MIN = 6
+
+        # Whether a `case` gets a table from the subject's class to its
+        # arm (`class_case`): it has a subject, each `when` value is a
+        # constant path (`A`, `::A`, `A::B`, with no other expression in
+        # it), and it has at least CLASS_CASE_MIN of them. A traced
+        # program keeps the chain, so each `===` gives its events.
+        def class_case?(node)
+          return false if node.subject.nil? || traced?
+
+          values = node.clauses.flat_map(&:first)
+          values.size >= CLASS_CASE_MIN && values.all? { |v| constant_path?(v) }
+        end
+
+        def constant_path?(node)
+          node.is_a?(Hir::ConstRead) && (node.scope.nil? || node.scope == :top || constant_path?(node.scope))
+        end
+
+        # A `case` on class arms, in constant time for a subject class that
+        # the site saw before. The site's cache entry (CaseCache,
+        # runtime/kernel/cache.rb) has a table from a class to an arm. If
+        # the entry is valid for this cref and the two stamps, and the
+        # subject's class has a row, a tree of branches on the row's arm
+        # index goes to the arm's body. The chain does not run: its reads
+        # and its `===` sends have no effect and give the same result.
+        #
+        # All other cases run the chain as `case_when` does. In it, the
+        # site gives each value that it read from its constant's cell to
+        # the kernel for a check, one time for each state
+        # (`zr_case_prove`). The arm that the chain selects goes into the
+        # table if the kernel proved each value that the chain tested
+        # (`zr_case_fill`). The stamps are read before the chain, so a
+        # change that the chain causes (an autoload, a definition in a
+        # `===`) makes the kernel add no row.
+        def class_case(node)
+          base = @sp
+          subject_at = value_offset(reserve(1))
+          subject = expr(node.subject)
+          @f.store(subject, @rec, subject_at)
+          cc = site_cache(node, "case", "CaseCache")
+          cell = @l.layout("CaseCache")
+          ms = @f.fetch("i64", static("site_stamp"))
+          cs = @f.fetch("i64", static("const_stamp"))
+          klass = class_of(subject)
+          bodies = node.clauses.map { @f.label }
+          other = @f.label
+          probe = @f.label
+          found = @f.label
+          chain = @f.label
+          merge, (result,) = @f.block(["i64"])
+          valid = @f.band(@f.band(@f.icmp("eq", @f.fetch("i64", cc, off(cell, "mstamp")), ms),
+                                  @f.icmp("eq", @f.fetch("i64", cc, off(cell, "cstamp")), cs)),
+                          @f.icmp("eq", @f.fetch("i64", cc, off(cell, "cref")), @cref))
+          @f.brif(valid, probe, chain)
+          switch(probe)
+          row = case_row(@f.fetch("i64", cc, off(cell, "table")), klass)
+          @f.brif(@f.icmp("eq", @f.fetch("i64", row, off(@l.layout("CaseRow"), "klass")), klass), found, chain)
+          switch(found)
+          arm_jump(@f.fetch("i64", row, off(@l.layout("CaseRow"), "arm")), bodies + [other], 0)
+          switch(chain)
+          tested = 0
+          node.clauses.each_with_index do |(values, _), arm|
+            values.each do |value|
+              tested += 1
+              chosen = @f.label
+              miss = @f.label
+              j = tested - 1
+              read = ->(n) { n.equal?(value) ? proved_read(value, j, cc, ms, cs) : expr(n) }
+              cond = staged([value, Hir::Slot.new(base, value.line)], evaluate: read) do |slots|
+                at_node(value)
+                match = Hir::Send.of(value, :===, [node.subject], value.line)
+                truthy(checked(cached_send(match, @f.fetch("i64", slots), imm(1), @f.iadd(slots, imm(8)), @qnil, mode: 0)))
+              end
+              @f.brif(cond, chosen, miss)
+              switch(chosen)
+              kernel("zr_case_fill", cc, @cref, klass, imm(arm), imm(tested), ms, cs)
+              @f.jump(bodies[arm])
+              switch(miss)
+            end
+          end
+          kernel("zr_case_fill", cc, @cref, klass, imm(node.clauses.size), imm(tested), ms, cs)
+          @f.jump(other)
+          node.clauses.each_with_index do |(_, body), arm|
+            switch(bodies[arm])
+            v = expr(body)
+            @f.jump(merge, [v]) unless @f.terminated?
+          end
+          switch(other)
+          v = node.else_body ? expr(node.else_body) : @qnil
+          @f.jump(merge, [v]) unless @f.terminated?
+          switch(merge)
+          @sp = base
+          result
+        end
+
+        # Reads the `when` value at index `j` of a `class_case`. If the
+        # read came from its constant's cell and `j` is the value that the
+        # cache entry is due to check, the kernel checks it.
+        def proved_read(value, j, cc, ms, cs)
+          v, hit = const_hit_read(value)
+          prove = @f.label
+          onward = @f.label
+          due = @f.icmp("eq", @f.fetch("i64", cc, off(@l.layout("CaseCache"), "due")), imm(j))
+          @f.brif(@f.band(due, @f.icmp("ne", hit, imm(0))), prove, onward)
+          switch(prove)
+          kernel("zr_case_prove", cc, @cref, v, imm(j), ms, cs)
+          @f.jump(onward)
+          switch(onward)
+          v
+        end
+
+        # The row of `table` for class `klass`, by the hash of
+        # `zr_case_fill`: the address over CELL_MIN (32), mixed with the
+        # address over CELL_MIN * CASE_ROWS, modulo CASE_ROWS (32).
+        def case_row(table, klass)
+          h = @f.band(@f.bxor(@f.ushr(klass, imm(5)), @f.ushr(klass, imm(10))), imm(@l.const("CASE_ROWS") - 1))
+          @f.iadd(table, @f.ishl(h, imm(Math.log2(@l.layout("CaseRow").size).to_i)))
+        end
+
+        # Jumps to `targets[arm - first]` by a balanced tree of branches on
+        # the arm index. The IR has no jump table, so this costs about
+        # log2 of the arm count in branches.
+        def arm_jump(arm, targets, first)
+          return @f.jump(targets[0]) if targets.size == 1
+
+          half = targets.size / 2
+          low = @f.label
+          high = @f.label
+          @f.brif(@f.icmp("slt", arm, imm(first + half)), low, high)
+          switch(low)
+          arm_jump(arm, targets[0...half], first)
+          switch(high)
+          arm_jump(arm, targets[half..], first + half)
         end
 
         def yield_block(node)
