@@ -279,7 +279,7 @@ describe "String: arithmetic" do
     OUT
   end
 
-  it "to_i and Integer() raise RangeError past int64 rather than saturate" do
+  it "to_i and Integer() give a Bignum past int64" do
     result = zr(<<~'RUBY')
       # String#to_i and Integer() on input past the int64 range give a
       # Bignum. They do not raise RangeError, and they do not saturate.
