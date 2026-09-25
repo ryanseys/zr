@@ -143,7 +143,7 @@ module Zr
                      elsif node.subject
                        staged([value, Hir::Slot.new(base, value.line)]) do |slots|
                          at_node(value)
-                         match = Hir::Send.new(value, :===, [node.subject], value.line, false, false, nil, nil, false, false, nil)
+                         match = Hir::Send.of(value, :===, [node.subject], value.line)
                          truthy(checked(cached_send(match, @f.fetch("i64", slots), imm(1), @f.iadd(slots, imm(8)), @qnil, mode: 0)))
                        end
                      else

@@ -241,7 +241,8 @@ module Zr
           base = @sp
           slot = reserve(1)
           @f.store(expr(node.recv), @rec, value_offset(slot))
-          plain = Hir::Send.new(Hir::Slot.new(slot, node.line), node.name, node.args, node.line, false, node.opt, node.block, node.kwargs, false, node.write, node.using)
+          plain = Hir::Send.of(Hir::Slot.new(slot, node.line), node.name, node.args, node.line,
+                                opt: node.opt, block: node.block, kwargs: node.kwargs, write: node.write, using: node.using)
           is_nil = @f.label
           go = @f.label
           merge, (result,) = @f.block(["i64"])
@@ -1325,7 +1326,7 @@ module Zr
             switch(fast)
             @f.jump(merge, [@f.csel(truthy(v), imm(@l.const("QFALSE")), imm(@l.const("QTRUE")))])
             switch(slow)
-            send = @l.noted(Hir::Send.new(node.value, :!, [], node.line, false, false, nil, nil, false), node)
+            send = @l.noted(Hir::Send.of(node.value, :!, [], node.line), node)
             @f.jump(merge, [dispatch(send, v, @f.iadd(slots, imm(8)), imm(0))])
             switch(merge)
             result

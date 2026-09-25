@@ -115,8 +115,8 @@ module Zr
           # The inline `[]` path checks visibility as an explicit call does,
           # so a literal `self` dispatches instead.
           opt = node.args.none?(Hir::Splat) && !node.recv.is_a?(Hir::SelfRef)
-          read = @l.noted(Hir::Send.new(recv, :[], args, node.line, false, opt, nil, nil, false, nil, node.using), node)
-          result = op_assign(node, read) { |v| @l.noted(Hir::Send.new(recv, :[]=, args + [v], node.line, false, opt, nil, nil, false, nil, node.using), node) }
+          read = @l.noted(Hir::Send.of(recv, :[], args, node.line, opt: opt, using: node.using), node)
+          result = op_assign(node, read) { |v| @l.noted(Hir::Send.of(recv, :[]=, args + [v], node.line, opt: opt, using: node.using), node) }
           @sp = base
           result
         end
@@ -129,8 +129,8 @@ module Zr
           recv = Hir::Slot.new(slot, node.line)
           # A literal `self` keeps its right to call private methods.
           recv = node.recv if node.recv.is_a?(Hir::SelfRef)
-          read = @l.noted(Hir::Send.new(recv, node.name, [], node.line, false, false, nil, nil, false, nil, node.using), node)
-          write = ->(v) { @l.noted(Hir::Send.new(recv, :"#{node.name}=", [v], node.line, false, false, nil, nil, false, nil, node.using), node) }
+          read = @l.noted(Hir::Send.of(recv, node.name, [], node.line, using: node.using), node)
+          write = ->(v) { @l.noted(Hir::Send.of(recv, :"#{node.name}=", [v], node.line, using: node.using), node) }
           result = if node.safe
                      unless_nil(@f.fetch("i64", @rec, value_offset(slot))) { op_assign(node, read, &write) }
                    else
@@ -179,7 +179,7 @@ module Zr
             switch(merge)
             result
           else
-            @f.store(expr(@l.noted(Hir::Send.new(current, node.op, [node.value], node.line, false, false, nil, nil, false, nil, node.using), node)), @rec, current_at)
+            @f.store(expr(@l.noted(Hir::Send.of(current, node.op, [node.value], node.line, using: node.using), node)), @rec, current_at)
             expr(yield(current))
             @f.fetch("i64", @rec, current_at)
           end

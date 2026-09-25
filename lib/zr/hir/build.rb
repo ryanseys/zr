@@ -939,7 +939,7 @@ module Zr
           return If.new(GvarRead.new(flag, line), expr(aliased), GvarRead.new(gvar_name(name), line), line)
         end
         return expr(aliased) if aliased
-        return Send.new(GvarRead.new(:$!, line), :backtrace, [], line, false, nil, nil, nil, true) if name == :$@
+        return Send.of(GvarRead.new(:$!, line), :backtrace, [], line, safe: true) if name == :$@
 
         GvarRead.new(gvar_name(name), line)
       end
@@ -1016,7 +1016,7 @@ module Zr
           if node.literal?
             literally_shareable(node.write.value, write.value, constant_written(node.write), line)
           elsif node.experimental_copy?
-            Send.new(ractor, :make_shareable, [write.value], line, false, nil, nil, HashLit.new([Literal.new(:copy, line), Literal.new(true, line)], line))
+            Send.of(ractor, :make_shareable, [write.value], line, kwargs: HashLit.new([Literal.new(:copy, line), Literal.new(true, line)], line))
           else
             Send.new(ractor, :make_shareable, [write.value], line, false)
           end
@@ -1739,7 +1739,7 @@ module Zr
           body = deepen(node.statements ? seq(node.statements) : Literal.new(nil, line), 0)
           block = Block.new(Params.new([], [], nil, [], [], nil, nil), [], body, line)
           # It registers once for its site, however many times the site runs.
-          Once.new(Send.new(Core.new(:Kernel, line), :at_exit, [], line, false, false, block, nil, false), line)
+          Once.new(Send.of(Core.new(:Kernel, line), :at_exit, [], line, block: block), line)
         when Prism::PreExecutionNode
           refuse(node, "BEGIN { } outside the toplevel is not lowered yet") unless @block_depth.zero?
           node.statements ? seq(node.statements) : Literal.new(nil, line)
@@ -1984,11 +1984,11 @@ module Zr
         when Prism::MultiTargetNode then multi_target(node)
         when Prism::IndexTargetNode
           args = index_args(node, line)
-          Send.new(expr(node.receiver), :[]=, args, line, false, args.none?(Splat), nil, nil)
+          Send.of(expr(node.receiver), :[]=, args, line, opt: args.none?(Splat))
         when Prism::CallTargetNode
           # `rescue => o&.x` and `for o&.x in list` write only if `o` is
           # not nil, as their safe call does.
-          Send.new(expr(node.receiver), node.name, [], line, false, false, nil, nil, node.call_operator == "&.")
+          Send.of(expr(node.receiver), node.name, [], line, safe: node.call_operator == "&.")
         else refuse(node, "#{node.class.name.split("::").last.delete_suffix("Node")} as an assignment target is not lowered yet")
         end
       end
@@ -2361,8 +2361,8 @@ module Zr
           # `for a, b in o` takes all yielded values, as `|a, b|` does. The
           # block collects them, and a single value is used as is.
           got = Local.new(:"*for", 0, line)
-          one = Send.new(Send.new(got, :size, [], line, false, false, nil, nil, false, false), :==, [Literal.new(1, line)], line, false, false, nil, nil, false, false)
-          first = Send.new(got, :[], [Literal.new(0, line)], line, false, false, nil, nil, false, false)
+          one = Send.of(Send.of(got, :size, [], line), :==, [Literal.new(1, line)], line)
+          first = Send.of(got, :[], [Literal.new(0, line)], line)
           bind = MultiAssign.new(target, If.new(one, first, got, line), line)
           params = Params.new([], [], :"*for", [], [], nil, nil)
         else
@@ -2370,7 +2370,7 @@ module Zr
           params = Params.new([:"*for"], [], nil, [], [], nil, nil)
         end
         block = Block.new(params, [:"*for"], Seq.new([bind, body], line), line)
-        Send.new(expr(node.collection), :each, [], line, false, false, block, nil, false)
+        Send.of(expr(node.collection), :each, [], line, block: block)
       end
 
       # `node` as read from one block scope deeper: every local at

@@ -217,6 +217,17 @@ module Zr
       end
 
       def to_a = [@recv, @name, @args, @line, @vcall, @opt, @block, @kwargs, @safe, @write, @using, @covers]
+
+      # `recv.name(args)` at `line`, with keywords for the fields that a
+      # send usually leaves at their default. Every field but the first
+      # four reads as a boolean somewhere in the lowering (`node.opt &&`,
+      # `node.write ?`, ...), so `nil` and `false` mean the same thing;
+      # the boolean-shaped ones default `false` here, and the ones that
+      # hold a value when present (`block`, `kwargs`, `using`, `covers`)
+      # default `nil`.
+      def self.of(recv, name, args, line, vcall: false, opt: false, block: nil, kwargs: nil, safe: false, write: nil, using: nil, covers: nil)
+        new(recv, name, args, line, vcall, opt, block, kwargs, safe, write, using, covers)
+      end
     end
 
     # `using mod`: entry `id` contains the contents of entry `from` plus
