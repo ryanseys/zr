@@ -208,7 +208,7 @@ module Zr
       require_relative "parse_cache" unless HOSTED
       Paths.root = opts[:root]
       program = lower(input, command, target, assemble: emit.nil?)
-      Paths.tmpdir("zr-build-") do |work|
+      status = Paths.tmpdir("zr-build-") do |work|
         out = command == "run" ? File.join(work, "program") : File.expand_path(opts[:output])
         case emit
         when "obj" then object(program, out, target)
@@ -216,6 +216,20 @@ module Zr
         else native(program, out, work, command, opts[:args], target)
         end
       end
+      exit_as(status) if status.is_a?(Process::Status)
+    end
+
+    # The end of `zr run`, once the build is gone: the program's status.
+    # A signal that stopped the program stops zr too, so the shell sees
+    # the status that ruby gives when the signal stops it.
+    def exit_as(status)
+      exit(status.exitstatus) unless status.signaled?
+
+      Signal.trap(status.termsig, "SYSTEM_DEFAULT")
+      Process.kill(status.termsig, Process.pid)
+      # Only a signal that does not stop a process by default comes here.
+      sleep 1
+      exit(128 + status.termsig)
     end
 
     # The target that `--target` gives. `--emit wasm` alone means
@@ -349,9 +363,12 @@ module Zr
       abort "zr: #{why}" if why
       return unless verb == "run"
 
+      # A Ctrl-C goes to the program, which decides what to do with it;
+      # zr waits for the program to end.
+      interrupt = Signal.trap("INT") { nil }
       system(out, *rest)
-      abort "zr: the program died with signal #{$?.termsig}" if $?.signaled?
-      exit($?.exitstatus)
+      Signal.trap("INT", interrupt)
+      $?
     end
   end
 end

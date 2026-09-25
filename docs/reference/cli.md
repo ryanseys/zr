@@ -45,8 +45,9 @@ status 3.
 Compiles `<file.rb>`, runs it with `[args...]` as `ARGV`, then deletes
 the build. Every word after `<file.rb>` goes to the program, also a
 word that starts with `-`. The exit status is the program's own. If a
-signal stops the program, `zr run` prints the signal number and exits
-with status 1.
+signal stops the program, the same signal then stops `zr run`, so the
+shell sees the status that ruby gives (130 for `SIGINT`, 143 for
+`SIGTERM`).
 
 With `--emit wasm`, zr runs the module with `wasmtime run --dir .`, so
 the module can read the working directory. `-o` and `--emit obj` are

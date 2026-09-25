@@ -30,6 +30,28 @@ class CliTest < Minitest::Test
   end
 end
 
+# How `zr run` ends: as the program ended.
+class CliExitTest < Minitest::Test
+  def status_of(command)
+    pid = spawn("sh", "-c", command)
+    Process.wait(pid)
+    $?
+  end
+
+  def test_run_exits_with_the_program_status
+    error = assert_raises(SystemExit) { Zr::CLI.exit_as(status_of("exit 3")) }
+    assert_equal 3, error.status
+  end
+
+  def test_a_signal_that_stops_the_program_stops_zr_too
+    status = status_of("kill -TERM $$")
+    pid = fork { Zr::CLI.exit_as(status) }
+    Process.wait(pid)
+    assert_predicate $?, :signaled?
+    assert_equal Signal.list.fetch("TERM"), $?.termsig
+  end
+end
+
 # How `zr` reads its command line, and what it says when it cannot.
 class CliParseTest < Minitest::Test
   CLI = Zr::CLI
