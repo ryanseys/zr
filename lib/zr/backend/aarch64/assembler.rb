@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require_relative "registers"
-require_relative "../../record"
 require_relative "../../refused"
 
 module Zr
@@ -47,19 +46,7 @@ module Zr
 
         # A branch whose distance is known only when every instruction has
         # an index.
-        class Branch < Record
-          FIELDS = %i[base label shift bits].freeze
-          attr_accessor :base, :label, :shift, :bits
-
-          def initialize(base = nil, label = nil, shift = nil, bits = nil)
-            @base = base
-            @label = label
-            @shift = shift
-            @bits = bits
-          end
-
-          def to_a = [@base, @label, @shift, @bits]
-
+        Branch = Data.define(:base, :label, :shift, :bits) do
           def encode(at)
             distance = label.to_i - at
             limit = 1 << (bits - 1)

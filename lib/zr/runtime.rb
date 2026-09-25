@@ -10,7 +10,6 @@ require_relative "hir"
 require_relative "lower"
 require_relative "unit_cache"
 require_relative "clock"
-require_relative "record"
 
 module Zr
   # The zr runtime: the kernel files, the core library written in Ruby on
@@ -208,19 +207,7 @@ module Zr
   # that uses one unit for everything. `evals` is the EvalSupport that
   # the program links next to the runtime, or nil. Its JIT finds kernel
   # functions by name.
-  class Program < Record
-    FIELDS = %i[runtime functions data evals].freeze
-    attr_accessor :runtime, :functions, :data, :evals
-
-    def initialize(runtime = nil, functions = nil, data = nil, evals = nil)
-      @runtime = runtime
-      @functions = functions
-      @data = data
-      @evals = evals
-    end
-
-    def to_a = [@runtime, @functions, @data, @evals]
-
+  Program = Data.define(:runtime, :functions, :data, :evals) do
     def raw = runtime.raw
 
     def to_ary = [runtime.functions + functions, runtime.data + data, raw]

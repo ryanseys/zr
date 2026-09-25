@@ -2,7 +2,6 @@
 
 require "digest/sha2"
 require_relative "block"
-require_relative "../../record"
 require_relative "../../bytes"
 
 module Zr
@@ -46,20 +45,7 @@ module Zr
         # A slot that contains an external's address: its segment, its
         # offset in the segment's bytes, the distance to the next slot's
         # entry, the name, and the addend.
-        class Late < Record
-          FIELDS = %i[segment offset next name addend].freeze
-          attr_accessor :segment, :offset, :next, :name, :addend
-
-          def initialize(segment = nil, offset = nil, next_ = nil, name = nil, addend = nil)
-            @segment = segment
-            @offset = offset
-            @next = next_
-            @name = name
-            @addend = addend
-          end
-
-          def to_a = [@segment, @offset, @next, @name, @addend]
-        end
+        Late = ::Data.define(:segment, :offset, :next, :name, :addend)
 
         attr_reader :parts, :text_size, :got_vm, :got_size, :data_vm, :data_filesize, :data_vmsize,
                     :externals, :late, :starts, :symbols, :strings, :names, :addresses, :blobs, :hashes

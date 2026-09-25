@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "../record"
-
 module Zr
   # The backend-neutral object model. Every native backend produces it,
   # and every object writer and loader reads it. A function is machine
@@ -21,34 +19,13 @@ module Zr
     # A unit gives a name or requests a slot, and the link sets the number.
     # Thus a unit's code does not depend on what compiled before it. No
     # object writer sees these kinds.
-    class Reloc < Record
-      FIELDS = %i[offset kind symbol addend].freeze
-      attr_accessor :offset, :kind, :symbol, :addend
-
-      def initialize(offset, kind, symbol, addend = 0)
-        @offset = offset
-        @kind = kind
-        @symbol = symbol
-        @addend = addend
-      end
-
-      def to_a = [@offset, @kind, @symbol, @addend]
+    Reloc = Struct.new(:offset, :kind, :symbol, :addend) do
+      def initialize(offset, kind, symbol, addend = 0) = super
     end
 
     # `linkage`: :export (visible to the link), :local (this object only).
-    class Function < Record
-      FIELDS = %i[name bytes relocs align linkage].freeze
-      attr_accessor :name, :bytes, :relocs, :align, :linkage
-
-      def initialize(name, bytes, relocs: [], align: 4, linkage: :export)
-        @name = name
-        @bytes = bytes.b
-        @relocs = relocs
-        @align = align
-        @linkage = linkage
-      end
-
-      def to_a = [@name, @bytes, @relocs, @align, @linkage]
+    Function = Struct.new(:name, :bytes, :relocs, :align, :linkage) do
+      def initialize(name, bytes, relocs: [], align: 4, linkage: :export) = super(name, bytes.b, relocs, align, linkage)
 
       def size
         bytes.bytesize
@@ -58,20 +35,10 @@ module Zr
     # `section`: :text_const (pure bytes), :data_const (contains pointers,
     # read-only after the link), :data (writable), :bss (zeros; `bytes` is
     # then the size).
-    class Data < Record
-      FIELDS = %i[name section bytes relocs align linkage].freeze
-      attr_accessor :name, :section, :bytes, :relocs, :align, :linkage
-
+    Data = Struct.new(:name, :section, :bytes, :relocs, :align, :linkage) do
       def initialize(name, section, bytes, relocs: [], align: 8, linkage: :local)
-        @name = name
-        @section = section
-        @bytes = section == :bss ? bytes : bytes.b
-        @relocs = relocs
-        @align = align
-        @linkage = linkage
+        super(name, section, section == :bss ? bytes : bytes.b, relocs, align, linkage)
       end
-
-      def to_a = [@name, @section, @bytes, @relocs, @align, @linkage]
 
       def size
         section == :bss ? bytes : bytes.bytesize

@@ -1,6 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "../../record"
 
 module Zr
   class Lower
@@ -14,18 +13,7 @@ module Zr
         # `slot` is the first record slot for the region's values: the
         # exit value or the exception, the `$!` that the region replaced,
         # and for an ensure, the `$!` at its start.
-        class Region < Record
-          FIELDS = %i[landing ensure_body slot].freeze
-          attr_accessor :landing, :ensure_body, :slot
-
-          def initialize(landing = nil, ensure_body = nil, slot = nil)
-            @landing = landing
-            @ensure_body = ensure_body
-            @slot = slot
-          end
-
-          def to_a = [@landing, @ensure_body, @slot]
-        end
+        Region = Struct.new(:landing, :ensure_body, :slot)
 
         private
 

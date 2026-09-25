@@ -2,7 +2,6 @@
 
 require_relative "function"
 require_relative "types"
-require_relative "../record"
 require_relative "../bytes"
 require_relative "../refused"
 
@@ -141,18 +140,7 @@ module Zr
 
       # The state of one call: the values it defined, and the addresses of
       # its stack slots.
-      class Frame < Record
-        FIELDS = %i[values slot_at types].freeze
-        attr_accessor :values, :slot_at, :types
-
-        def initialize(values = nil, slot_at = nil, types = nil)
-          @values = values
-          @slot_at = slot_at
-          @types = types
-        end
-
-        def to_a = [@values, @slot_at, @types]
-      end
+      Frame = Struct.new(:values, :slot_at, :types)
 
       attr_reader :memory
 
