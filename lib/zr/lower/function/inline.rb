@@ -39,9 +39,9 @@ module Zr
         READER = /\A[a-z_][A-Za-z0-9_]*\z/
 
         # A copy that runs at a site: the value of each parameter by name,
-        # the block that its `return` goes to, and the block that each
-        # failed guard goes to.
-        Site = Data.define(:locals, :exit, :bail)
+        # the block that its `return` goes to (`done`; not `exit`, which is
+        # Kernel's), and the block that each failed guard goes to.
+        Site = Data.define(:locals, :done, :bail)
 
         # The defs in the unit tree `body` that a site can inline, by name.
         # Each is the only def of its name in the unit, has only required
@@ -310,7 +310,7 @@ module Zr
 
         def spec_return(node)
           v = node.value ? spec(node.value) : @qnil
-          @f.jump(@inline.exit, [v]) unless @f.terminated?
+          @f.jump(@inline.done, [v]) unless @f.terminated?
           @qnil
         end
 

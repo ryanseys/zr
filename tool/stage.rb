@@ -63,7 +63,7 @@ module Zr
           FileUtils.mkdir_p(cache)
           out = File.join(work, "#{n}.o")
           puts "self-compile #{n} -> #{out}#{" (at once, #{jobs} jobs each)" if at_once}"
-          env = { "ZR_CACHE" => cache, "RUBYOPT" => nil, "RUBYLIB" => nil, "ZR_JOBS" => jobs }
+          env = { "ZR_CACHE" => cache, "RUBYOPT" => nil, "RUBYLIB" => nil, "ZR_JOBS" => jobs, **Dev::UNDER_RUBY }
           pid = spawn(env, Dev.ruby, ZR, "build", ZR, "-o", out, "--emit", "obj", chdir: ROOT)
           [n, at_once ? pid : Process.wait2(pid).last]
         end
@@ -117,7 +117,7 @@ module Zr
 
         started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
         step("stage 1: ruby compiles the compiler -> #{stages[0]}") do
-          system(caches[0], Dev.ruby, ZR, "build", ZR, "-o", stages[0]) or
+          system({ **caches[0], **Dev::UNDER_RUBY }, Dev.ruby, ZR, "build", ZR, "-o", stages[0]) or
             fail!("stage 1 did not build")
         end
         puts "stage 1: #{File.size(stages[0])} bytes"

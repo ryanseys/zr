@@ -13,6 +13,13 @@ module Zr
       ENV.fetch("ZR_HOST_RUBY", "ruby")
     end
 
+    # The environment of a child that must run the compiler under ruby.
+    # In a checkout, `exe/zr` gives a build to `bin/zr` when that is
+    # current (`CompiledCompiler.hand_over`); `ZR_COMPILED=0` keeps the
+    # build in ruby. A check that compares ruby with the compiled compiler
+    # needs it, or it compares the compiled compiler with itself.
+    UNDER_RUBY = { "ZR_COMPILED" => "0" }.freeze
+
     # Stops a tool that reads a table from the running ruby, unless that
     # ruby is CRuby at the version that `.ruby-version` pins. A table
     # from another ruby, or from zr's copy of ruby's answers, is not
