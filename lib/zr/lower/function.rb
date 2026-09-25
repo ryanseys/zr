@@ -242,6 +242,7 @@ module Zr
           stmts.take_while { |stmt| attribute_row?(stmt) }.map { |stmt| stmt.args.first.value }
         end
       end
+      protected :attributes
 
       def attribute_row?(node)
         node.is_a?(Hir::Send) && node.name == :attr! && node.recv.is_a?(Hir::ConstRead) && node.recv.name == :Primitive &&
@@ -262,7 +263,7 @@ module Zr
 
         fn = self
         fn = fn.outer while fn.kind == :block && fn.outer
-        fn.send(:attributes).include?(:ivars) ? name : name.to_s.delete_prefix("@").to_sym
+        fn.attributes.include?(:ivars) ? name : name.to_s.delete_prefix("@").to_sym
       end
 
       # The prologue: the stack check, then link the record into the
