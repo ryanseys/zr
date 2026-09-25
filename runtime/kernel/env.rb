@@ -1025,15 +1025,6 @@ machine def zr_sysconf(name)
   zr_fix(got)
 end
 
-sig [Value, Value] => Value
-machine def zr_pathconf(path, name)
-  got = pathconf(RString.ptr(path), Machine.i32(zr_fix2long(name)))
-  if got == 0 - 1
-    return Machine.value(QNIL)
-  end
-  zr_fix(got)
-end
-
 # Returns a confstr value. The first call gets the length, which confstr
 # returns when the buffer is empty.
 sig [Value] => Value

@@ -682,12 +682,6 @@ machine def zr_send(recv, mid, argc, argv)
   zr_dispatch(0, recv, mid, argc, argv, 0, Machine.value(QNIL))
 end
 
-# A send with an explicit receiver, so visibility applies.
-sig [Value, Word, Word, Ptr] => Value
-machine def zr_call(recv, mid, argc, argv)
-  zr_dispatch(0, recv, mid, argc, argv, 2, Machine.value(QNIL))
-end
-
 sig [Value, Word, Word, Ptr, Value] => Value
 machine def zr_send_blk(recv, mid, argc, argv, blk)
   zr_dispatch(0, recv, mid, argc, argv, 0, blk)

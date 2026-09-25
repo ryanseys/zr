@@ -280,11 +280,6 @@ machine def zr_str_copy_encoding(s, src)
   zr_str_set_index(s, zr_str_encoding_index(src))
 end
 
-sig [Value] => Bool
-machine def zr_str_binary_p(s)
-  zr_str_encoding_index(s) == ENC_BINARY
-end
-
 # Whether the String encodes its characters as UTF-8 does: in UTF-8, or
 # in UTF8-MAC or a carrier's UTF-8, which differ from UTF-8 only in the
 # characters that they convert.

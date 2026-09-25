@@ -145,11 +145,6 @@ machine def zr_onig_exact_end(prog)
   prog + OnigProg.exact_off(prog) + OnigProg.exact_len(prog)
 end
 
-sig [Ptr] => Ptr
-machine def zr_onig_map(prog)
-  prog + OnigProg.map_off(prog)
-end
-
 sig [Ptr, Word] => Word
 machine def zr_onig_map_at(prog, c)
   Machine.word(Machine.load8(prog + OnigProg.map_off(prog) + c, 0))

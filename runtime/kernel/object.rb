@@ -1466,35 +1466,6 @@ machine def zr_exc_set_message(recv, m)
   m
 end
 
-# `detailed_message`: `message (Class)`, with the class after the first
-# line. `unhandled exception` for an empty message.
-sig [Value] => Value
-machine def zr_exc_detailed_message(recv)
-  m = zr_send(recv, Machine.id(:message), 0, 0)
-  return m if m == QUNDEF
-  if zr_special_p(m) || zr_type(m) != T_STRING
-    m = zr_send(m, Machine.id(:to_s), 0, 0)
-    return m if m == QUNDEF
-  end
-  if RString.len(m) == 0
-    return zr_str_new(Machine.bytes("unhandled exception"), 19)
-  end
-  b = Machine.slot(Buf.size)
-  zr_buf_init(b)
-  p = RString.ptr(m)
-  n = RString.len(m)
-  first = 0
-  while first < n && Machine.word(Machine.load8(p + first, 0)) != 10
-    first += 1
-  end
-  zr_buf_push(b, p, first)
-  zr_buf_push(b, Machine.bytes(" ("), 2)
-  zr_buf_class_of(b, recv)
-  zr_buf_byte(b, 41)
-  zr_buf_push(b, p + first, n - first)
-  zr_buf_take(b)
-end
-
 # `#<Klass: to_s>`, or only the class name when `to_s` is empty. A
 # message with a newline is shown inspected.
 sig [Value, Word, Ptr, Value, Value] => Value

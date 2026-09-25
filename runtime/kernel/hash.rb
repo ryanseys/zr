@@ -659,19 +659,6 @@ machine def zr_hash_empty_p(recv, argc, argv, cref, blk)
   zr_bool(RHash.live(recv) == 0)
 end
 
-# Returns the live entry at or after index `i`, or 0.
-sig [Value, Word] => Ptr
-machine def zr_hash_next(h, i)
-  while i < RHash.len(h)
-    e = RHash.entries(h) + (i * HEntry.size)
-    if HEntry.live(e) != 0
-      return e
-    end
-    i += 1
-  end
-  0
-end
-
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_hash_keys(recv, argc, argv, cref, blk)
   out = zr_ary_new(RHash.live(recv))
@@ -1353,19 +1340,6 @@ end
 sig [Value] => Value
 machine def zr_hash_iterating_p(h)
   zr_bool(RHash.iter(h) != 0)
-end
-
-# Sets compare_by_identity on or off, as `replace` copies it from the
-# other Hash. It computes the codes again for the keys in the table.
-sig [Value, Value] => Value
-machine def zr_hash_set_identity(h, on)
-  if on != QNIL && on != QFALSE
-    RBasic.set_flags(h, RBasic.flags(h) | FL_IDENTITY)
-  else
-    RBasic.set_flags(h, RBasic.flags(h) & (0 - FL_IDENTITY - 1))
-  end
-  zr_hash_recode(h)
-  h
 end
 
 # `rehash`: computes the codes again after keys changed in the table.

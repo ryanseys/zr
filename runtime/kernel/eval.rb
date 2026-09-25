@@ -43,11 +43,6 @@ machine def zr_yield_under(blk, self_, klass, argc, argv)
   Machine.call(:block, RProc.fn(p), p, argc, argv, Machine.value(QNIL))
 end
 
-sig [] => Value
-machine def zr_no_block_given
-  zr_raise_msg(zr_global(G_LOCAL_JUMP_ERROR), Machine.bytes("no block given (yield)"), 22)
-end
-
 # Raises `no block given` for a call that needs a block and gets none.
 # instance_exec uses this text, not the text of `yield`.
 sig [] => Value

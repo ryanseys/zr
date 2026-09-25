@@ -612,25 +612,6 @@ machine def zr_int_eq(recv, argc, argv, cref, blk)
   zr_bool(r != QNIL && r != QFALSE)
 end
 
-sig [Value, Word, Ptr, Value, Value] => Value
-machine def zr_int_ne(recv, argc, argv, cref, blk)
-  if !zr_fixnum_p(recv)
-    return zr_big_route(recv, Machine.id(:!=), argc, argv)
-  end
-  other = Machine.value(Machine.load64(argv, 0))
-  if zr_float_p(other)
-    return zr_bool(zr_int_float_cmp(zr_fix2long(recv), zr_float_value(other)) != 0)
-  end
-  if zr_fixnum_p(other) || zr_special_p(other)
-    return zr_bool(recv != other)
-  end
-  slot = Machine.slot(8)
-  Machine.store64(slot, 0, Machine.word(recv))
-  r = zr_send(other, Machine.id(:==), 1, slot)
-  return r if r == QUNDEF
-  zr_bool(r == QNIL || r == QFALSE)
-end
-
 # Compares an Integer with a double exactly. Returns -1, 0, 1, or 2 for
 # NaN. If the integer part of the double does not fit a fixnum, its sign
 # gives the result.
@@ -688,9 +669,4 @@ machine def zr_int_float_spaceship(recv, other)
     return Machine.value(QNIL)
   end
   zr_fix(c)
-end
-
-sig [Value] => Value
-machine def zr_float_check_p(v)
-  zr_bool(zr_float_p(v))
 end

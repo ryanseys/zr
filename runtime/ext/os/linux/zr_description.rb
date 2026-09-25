@@ -526,13 +526,11 @@ module Zr
         d zr_gr_done Value
         d zr_nprocessors Value
         d zr_sysconf Value name:Value
-        d zr_pathconf Value path:Value name:Value
         d zr_confstr Value name:Value
         d zr_login_name Value
         d zr_uname Value
         d zr_proc_under Value p:Value self_:Value cref:Value
         d zr_yield_under Value blk:Value self_:Value klass:Value argc:Word argv:Ptr
-        d zr_no_block_given Value
         d zr_block_needed Value
         d zr_class_initialize Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_module_initialize Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
@@ -726,7 +724,6 @@ module Zr
         d zr_flo_le Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_flo_gt Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_flo_ge Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
-        d zr_cmp_failed Value recv:Value other:Value
         d zr_float_to_int Value d:F64
         d zr_flo_to_i Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_flo_floor Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
@@ -818,7 +815,6 @@ module Zr
         d zr_hash_size Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_hash_len_m Value h:Value
         d zr_hash_empty_p Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
-        d zr_hash_next Ptr h:Value i:Word
         d zr_hash_keys Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_hash_values Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_hash_assoc Value e:Ptr
@@ -852,7 +848,6 @@ module Zr
         d zr_hash_clear Value h:Value
         d zr_hash_compare_by_identity Value h:Value
         d zr_hash_iterating_p Value h:Value
-        d zr_hash_set_identity Value h:Value on:Value
         d zr_hash_rehash Value h:Value
         d zr_hash_identity_p Value h:Value
         d zr_hash_default_value Value h:Value
@@ -934,7 +929,6 @@ module Zr
         d zr_gvar_defined_m Value name:Value
         d zr_gvar_get_m Value name:Value
         d zr_gvar_hooked_m Value shown:Value name:Value v:Value
-        d zr_gvar_assign_m Value name:Value v:Value
         d zr_gvar_alias_m Value new_name:Value old_name:Value
         d zr_mark_roots Void
         d zr_mark_task Void t:Ptr
@@ -1011,11 +1005,9 @@ module Zr
         d zr_int_gt Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_int_ge Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_int_eq Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
-        d zr_int_ne Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_int_float_cmp Word n:Word d:F64
         d zr_int_float_relate Value n:Word d:F64 want:Word
         d zr_int_float_spaceship Value recv:Value other:Value
-        d zr_float_check_p Value v:Value
         d zr_errno Word
         d zr_clear_errno Void
         d zr_io_failed Value r:Word
@@ -1266,7 +1258,6 @@ module Zr
         d zr_exc_to_s Value recv:Value
         d zr_exc_raw_message Value recv:Value
         d zr_exc_set_message Value recv:Value m:Value
-        d zr_exc_detailed_message Value recv:Value
         d zr_exc_inspect Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_bytes_index Word p:Ptr n:Word c:Word
         d zr_exc_initialize Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
@@ -1396,7 +1387,6 @@ module Zr
         d zr_onig_region_clear Void region:Ptr num_mem:Word
         d zr_onig_exact Ptr prog:Ptr
         d zr_onig_exact_end Ptr prog:Ptr
-        d zr_onig_map Ptr prog:Ptr
         d zr_onig_map_at Word prog:Ptr c:Word
         d zr_onig_slow_search Ptr enc:Word target:Ptr target_end:Ptr text:Ptr text_end:Ptr text_range:Ptr
         d zr_onig_slow_search_ic Ptr enc:Word flag:Word target:Ptr target_end:Ptr text:Ptr text_end:Ptr text_range:Ptr
@@ -1653,7 +1643,6 @@ module Zr
         d zr_release_regexp Void re:Value
         d zr_regexp_source Value re:Value
         d zr_regexp_options Value re:Value
-        d zr_regexp_p Value v:Value
         d zr_regexp_once Value index:Word
         d zr_regexp_once_set Value index:Word re:Value
         d zr_regexp_literal Value index:Word bytes:Ptr len:Word options:Word pinned:Word
@@ -1707,7 +1696,6 @@ module Zr
         d zr_wrong_arity_in Value given:Word expected:Word e:Ptr recv:Value
         d zr_entry_found Value e:Ptr
         d zr_send Value recv:Value mid:Word argc:Word argv:Ptr
-        d zr_call Value recv:Value mid:Word argc:Word argv:Ptr
         d zr_send_blk Value recv:Value mid:Word argc:Word argv:Ptr blk:Value
         d zr_ruby2_hash_new Value h:Value
         d zr_ruby2_hash_p Value h:Value
@@ -1814,7 +1802,6 @@ module Zr
         d zr_str_encoding_index Word s:Value
         d zr_str_set_index Value s:Value index:Word
         d zr_str_copy_encoding Value s:Value src:Value
-        d zr_str_binary_p Bool s:Value
         d zr_str_wide_p Bool s:Value
         d zr_str_mb_p Bool s:Value
         d zr_str_mb_len Word s:Value off:Word
@@ -2792,13 +2779,11 @@ module Zr
         e zr_gr_done 56
         e zr_nprocessors 56
         e zr_sysconf 56
-        e zr_pathconf 56
         e zr_confstr 126
         e zr_login_name 126
         e zr_uname 126
         e zr_proc_under 127
         e zr_yield_under 127
-        e zr_no_block_given 127
         e zr_block_needed 127
         e zr_class_initialize 127
         e zr_module_initialize 127
@@ -2992,7 +2977,6 @@ module Zr
         e zr_flo_le 127
         e zr_flo_gt 127
         e zr_flo_ge 127
-        e zr_cmp_failed 127
         e zr_float_to_int 127
         e zr_flo_to_i 127
         e zr_flo_floor 127
@@ -3084,7 +3068,6 @@ module Zr
         e zr_hash_size 0
         e zr_hash_len_m 0
         e zr_hash_empty_p 0
-        e zr_hash_next 0
         e zr_hash_keys 126
         e zr_hash_values 126
         e zr_hash_assoc 126
@@ -3118,7 +3101,6 @@ module Zr
         e zr_hash_clear 127
         e zr_hash_compare_by_identity 127
         e zr_hash_iterating_p 0
-        e zr_hash_set_identity 127
         e zr_hash_rehash 127
         e zr_hash_identity_p 0
         e zr_hash_default_value 0
@@ -3200,7 +3182,6 @@ module Zr
         e zr_gvar_defined_m 127
         e zr_gvar_get_m 127
         e zr_gvar_hooked_m 127
-        e zr_gvar_assign_m 127
         e zr_gvar_alias_m 56
         e zr_mark_roots 120
         e zr_mark_task 120
@@ -3277,11 +3258,9 @@ module Zr
         e zr_int_gt 127
         e zr_int_ge 127
         e zr_int_eq 127
-        e zr_int_ne 127
         e zr_int_float_cmp 0
         e zr_int_float_relate 0
         e zr_int_float_spaceship 0
-        e zr_float_check_p 0
         e zr_errno 56
         e zr_clear_errno 120
         e zr_io_failed 56
@@ -3532,7 +3511,6 @@ module Zr
         e zr_exc_to_s 127
         e zr_exc_raw_message 0
         e zr_exc_set_message 120
-        e zr_exc_detailed_message 127
         e zr_exc_inspect 127
         e zr_bytes_index 0
         e zr_exc_initialize 127
@@ -3662,7 +3640,6 @@ module Zr
         e zr_onig_region_clear 120
         e zr_onig_exact 0
         e zr_onig_exact_end 0
-        e zr_onig_map 0
         e zr_onig_map_at 0
         e zr_onig_slow_search 0
         e zr_onig_slow_search_ic 120
@@ -3919,7 +3896,6 @@ module Zr
         e zr_release_regexp 0
         e zr_regexp_source 0
         e zr_regexp_options 0
-        e zr_regexp_p 0
         e zr_regexp_once 127
         e zr_regexp_once_set 127
         e zr_regexp_literal 127
@@ -3973,7 +3949,6 @@ module Zr
         e zr_wrong_arity_in 127
         e zr_entry_found 0
         e zr_send 127
-        e zr_call 127
         e zr_send_blk 127
         e zr_ruby2_hash_new 127
         e zr_ruby2_hash_p 0
@@ -4080,7 +4055,6 @@ module Zr
         e zr_str_encoding_index 0
         e zr_str_set_index 8
         e zr_str_copy_encoding 8
-        e zr_str_binary_p 0
         e zr_str_wide_p 0
         e zr_str_mb_p 0
         e zr_str_mb_len 0

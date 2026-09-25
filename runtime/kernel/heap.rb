@@ -971,11 +971,6 @@ machine def zr_gvar_hooked_m(shown, name, v)
 end
 
 sig [Value, Value] => Value
-machine def zr_gvar_assign_m(name, v)
-  zr_gvar_assign(zr_sym2id(name), v)
-end
-
-sig [Value, Value] => Value
 machine def zr_gvar_alias_m(new_name, old_name)
   zr_gvar_alias(zr_sym2id(new_name), zr_sym2id(old_name))
   Machine.value(QNIL)

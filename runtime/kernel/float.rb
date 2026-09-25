@@ -352,29 +352,6 @@ machine def zr_flo_ge(recv, argc, argv, cref, blk)
   zr_flo_relate(recv, Machine.value(Machine.load64(argv, 0)), 3)
 end
 
-# `comparison of Float with X failed`.
-sig [Value, Value] => Value
-machine def zr_cmp_failed(recv, other)
-  b = Machine.slot(Buf.size)
-  zr_buf_init(b)
-  zr_buf_push(b, Machine.bytes("comparison of "), 14)
-  zr_buf_class_of(b, recv)
-  zr_buf_push(b, Machine.bytes(" with "), 6)
-  if zr_special_p(other) && !zr_fixnum_p(other) && !zr_flonum_p(other) && !zr_symbol_p(other)
-    s = zr_inspect(other)
-    return s if s == QUNDEF
-    zr_buf_str(b, s)
-  elsif zr_fixnum_p(other) || zr_float_p(other)
-    s = zr_inspect(other)
-    return s if s == QUNDEF
-    zr_buf_str(b, s)
-  else
-    zr_buf_class_of(b, other)
-  end
-  zr_buf_push(b, Machine.bytes(" failed"), 7)
-  zr_raise_buf(zr_global(G_ARGUMENT_ERROR), b)
-end
-
 # --- conversions ------------------------------------------------------
 
 # Converts a double to an Integer, truncated. NaN and the infinities

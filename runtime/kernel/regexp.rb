@@ -267,11 +267,6 @@ machine def zr_regexp_options(re)
   zr_fix(RRegexp.options(re))
 end
 
-sig [Value] => Value
-machine def zr_regexp_p(v)
-  zr_bool(!zr_special_p(v) && zr_type(v) == T_REGEXP)
-end
-
 # `/#{x}/o`: the regexp of the site, made once. It is nil until the
 # site runs.
 sig [Word] => Value

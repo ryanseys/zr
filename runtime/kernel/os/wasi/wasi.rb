@@ -67,13 +67,6 @@ machine def zr_wasi_fail(n)
   Machine.i32(0 - 1)
 end
 
-# The same failure, for a call that returns a count.
-sig [Word] => Word
-machine def zr_wasi_fail_count(n)
-  zr_os_set_errno(n)
-  0 - 1
-end
-
 # Writes one iovec of `len` bytes at `buf` into the caller's slot. The
 # host reads two 32-bit words.
 sig [Ptr, Ptr, Word] => I32
