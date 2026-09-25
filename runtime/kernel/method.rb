@@ -521,7 +521,10 @@ machine def zr_method_source_location(recv, argc, argv, cref, blk)
   e = RMethod.entry(recv)
   meta = zr_method_location(e)
   if meta == 0
-    return Machine.value(QNIL)
+    # A method of the core: the def of the ones that CRuby writes in Ruby.
+    arg = Machine.slot(8)
+    Machine.store64(arg, 0, Machine.word(recv))
+    return zr_send(zr_core_class(Machine.id(:TracePoint)), Machine.id(:builtin_source), 1, arg)
   end
   out = zr_ary_new(2)
   zr_ary_push(out, zr_str_new(FrameMeta.file(meta), FrameMeta.file_len(meta)))

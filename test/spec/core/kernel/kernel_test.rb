@@ -2433,4 +2433,28 @@ describe "Kernel programs" do
       false
     OUT
   end
+
+  it "source_location of a core method gives the def of the ones ruby writes in Ruby" do
+    result = zr(<<~'RUBY')
+      p [].method(:each).source_location
+      p method(:Integer).source_location
+      p 1.method(:times).source_location
+      p Kernel.instance_method(:tap).source_location
+      p [].method(:each_slice).source_location
+      p Array.instance_method(:first).source_location
+      p method(:puts).source_location
+      p Comparable.instance_method(:clamp).source_location
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      nil
+      ["<internal:kernel>", 287]
+      ["<internal:numeric>", 255]
+      ["<internal:kernel>", 89]
+      nil
+      ["<internal:array>", 129]
+      nil
+      nil
+    OUT
+  end
 end

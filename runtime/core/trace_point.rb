@@ -159,6 +159,16 @@ class TracePoint
       Primitive.zr_hidden_get(self, :__builtin_places__) || Primitive.zr_hidden_set(self, :__builtin_places__, marked_builtins)
     end
 
+    # Method#source_location of a core method that CRuby writes in Ruby:
+    # the def in its builtin source. Any other core method has none.
+    def builtin_source(method)
+      Primitive.attr! :hidden
+      owner = method.owner
+      key = owner.singleton_class? ? "#{owner.attached_object}.#{method.original_name}" : "#{owner}##{method.original_name}"
+      path, _call, _return, line = BUILTIN_LINES[key]
+      [path, line] if path
+    end
+
     def marked_builtins
       Primitive.attr! :hidden
       places = {}.compare_by_identity
