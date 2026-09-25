@@ -176,7 +176,7 @@ jobs:
       - name: Write the linux tables again and compare
         run: |
           docker exec alpine wget -qO /tmp/mkconstants.rb https://raw.githubusercontent.com/ruby/ruby/03b6d3f8898a28604fe6cb00eae3226b821168f4/ext/socket/mkconstants.rb
-          docker exec -e MKCONSTANTS=/tmp/mkconstants.rb alpine bundle exec rake tables
+          docker exec -e MKCONSTANTS=/tmp/mkconstants.rb alpine ruby tool/zr-dev.rb gen tables --check
 
   wasi:
     name: wasm32-wasi (wasmtime)

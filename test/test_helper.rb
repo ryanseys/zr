@@ -89,6 +89,14 @@ module Checks
     answer
   end
 
+  # Runs `zr-dev gen <name>` with `--check`, or with `ZR_BLESS=1`
+  # writes the file again. Returns `[output, success]`.
+  def generate(name, *argv)
+    argv += ["--check"] unless ENV["ZR_BLESS"] == "1"
+    out = IO.popen([RbConfig.ruby, File.join(ROOT, "tool/zr-dev.rb"), "gen", name, *argv], err: %i[child out], &:read)
+    [out, $?.success?]
+  end
+
   # Returns the limit that stopped `answer`, or nil when it ended normally.
   def killed(answer)
     case answer.code

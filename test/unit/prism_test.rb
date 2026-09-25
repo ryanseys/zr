@@ -2,6 +2,7 @@
 
 require "test_helper"
 require_relative "../support/harness/prism_diff"
+require_relative "../../tool/lib/zr/dev"
 require_relative "../../runtime/ext/prism/ruby"
 require "stringio"
 
@@ -14,10 +15,15 @@ class PrismTest < Minitest::Test
   PrismDiff = Zr::Harness::PrismDiff
 
   def test_the_generated_files_are_current
-    out = IO.popen([RbConfig.ruby, File.join(ROOT, "test/support/generators/prism_generate.rb"), "--check"], err: %i[child out], &:read)
-    assert $?.success?, out
-    out = IO.popen([RbConfig.ruby, File.join(ROOT, "test/support/generators/prism_encoding_tables.rb"), "--check"], err: %i[child out], &:read)
-    assert $?.success?, out
+    out, ok = Checks.generate("prism")
+    assert ok, out
+  end
+
+  def test_the_encoding_tables_are_current
+    skip "no prism source: PRISM_SRC names a prism checkout or a #{Zr::Dev::PRISM} tree" unless Zr::Dev.prism?
+
+    out, ok = Checks.generate("prism_encoding_tables")
+    assert ok, out
   end
 
   # A comparison over thousands of cases runs as SHARDS tests over slices

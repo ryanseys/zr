@@ -18,14 +18,8 @@ class LibsystemTest < Minitest::Test
   PATH = File.join(ROOT, "lib/zr/obj/macho/libsystem.rb")
 
   def test_the_list_matches_the_imports
-    text = IO.popen([RbConfig.ruby, "-I#{File.join(ROOT, "lib")}", File.join(ROOT, "test/support/generators/libsystem.rb")], &:read)
-    assert $?.success?, "test/support/generators/libsystem.rb failed"
-
-    if ENV["ZR_BLESS"] == "1"
-      File.write(PATH, text)
-      skip "blessed #{PATH}"
-    end
-    assert_equal File.read(PATH), text, "#{PATH} is stale (ZR_BLESS=1 to accept)"
+    out, ok = Checks.generate("libsystem")
+    assert ok, "#{out}#{PATH} is stale (ZR_BLESS=1 writes it)"
   end
 
   def test_every_listed_name_is_in_this_hosts_libsystem

@@ -1,5 +1,5 @@
-# How to step through a String in a multibyte encoding. tools/enc_mb.rb
-# generates this from the Onigmo encoders that Regexp uses. Each
+# How to step through a String in a multibyte encoding. `zr-dev gen
+# enc_mb` generates this from the Onigmo encoders that Regexp uses. Each
 # encoding's descriptor (Regexp::Onig::Enc::Base#descriptor) contains the
 # lead-byte lengths and state tables of its enc/*.c file. The matcher's
 # zr_onig_precise_len also reads them, so a String and a Regexp on it

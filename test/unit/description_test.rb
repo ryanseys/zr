@@ -45,14 +45,8 @@ class DescriptionTest < Minitest::Test
 
   TARGETS.each do |target|
     define_method("test_the_#{target.os_layer}_description_matches_its_kernel") do
-      text = IO.popen([RbConfig.ruby, "-I#{File.join(ROOT, "lib")}", File.join(ROOT, "test/support/generators/description.rb"), target.triple], &:read)
-      assert $?.success?, "test/support/generators/description.rb failed"
-
-      if ENV["ZR_BLESS"] == "1"
-        File.write(path(target), text)
-        skip "blessed #{path(target)}"
-      end
-      assert_equal File.read(path(target)), text, "#{path(target)} is stale (ZR_BLESS=1 to accept)"
+      out, ok = Checks.generate("description", "--target", target.triple)
+      assert ok, "#{out}#{path(target)} is stale (ZR_BLESS=1 writes it)"
     end
 
     define_method("test_the_#{target.os_layer}_description_equals_the_lowered_kernel_unit") do

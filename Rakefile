@@ -28,17 +28,6 @@ def zr_tune!
   Zr::CLI.tune!
 end
 
-# Writes a generated file in one step. The task prints into a string,
-# and the file changes only when the string is complete. If a generator
-# stops before it completes, the old file stays.
-def zr_write(path)
-  require "stringio"
-  io = StringIO.new
-  yield io
-  File.write(File.join(ROOT, path), io.string)
-  puts "wrote #{path} (#{io.string.lines.size} lines)"
-end
-
 # `TARGET=<triple>` builds and runs every program for that target, and
 # `GC=stress` collects at every allocation. bin/test reads the same two.
 ENV["ZR_TARGET"] = ENV["TARGET"] if ENV["TARGET"]
@@ -120,6 +109,9 @@ if ZR_TEST_ARGV.empty?
 else
   task(:test) { zr_bin_test(*ZR_TEST_ARGV) }
 end
+
+desc "Write every generated file again (tool/gen); CHECK=1 only compares"
+task(:gen) { sh(RbConfig.ruby, File.join(ROOT, "tool/zr-dev.rb"), "gen", "all", *("--check" if ENV["CHECK"]), verbose: false) }
 
 desc "Check the code with RuboCop's Lint cops (.rubocop.yml)"
 task(:lint) { sh "rubocop", verbose: false }
