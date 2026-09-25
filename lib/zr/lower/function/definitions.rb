@@ -79,44 +79,66 @@ module Zr
           end
         end
 
-        def const_read(node)
+        def const_read(node) = const_value(node, false)
+
+        # A constant read, and a word that is 1 if every read in its path
+        # (`A::B` reads `A` too) came from the site's cell, else 0. A read
+        # from the cell ran no lookup, no autoload and no `const_missing`,
+        # so the same cref reads the same value with no effect while the
+        # constant stamp stays the same. A `case` on class arms trusts
+        # only such reads (`Control#class_case`).
+        def const_hit_read(node)
+          return const_value(node, true) unless node.scope.is_a?(Hir::ConstRead)
+
+          scope, above = const_hit_read(node.scope)
+          value, hit = const_at(node, scope, true)
+          [value, @f.band(above, hit)]
+        end
+
+        def const_value(node, flag)
           if node.scope.nil? && (slot = @l.boot_class_slot(node.name))
-            return global(slot)
+            return flag ? [global(slot), imm(1)] : global(slot)
           end
 
-          id = sym_word(node.name)
           # Read the scope first, so the line record refers to this read's
           # node.
-          scope = scope_class(node.scope) if node.scope
+          const_at(node, (scope_class(node.scope) if node.scope), flag)
+        end
+
+        # Outside the main ractor, a program's read checks whether it can
+        # share the value. The core's reads skip this check, as C's do.
+        def const_at(node, scope, flag)
+          id = sym_word(node.name)
           at_node(node)
-          # Outside the main ractor, a program's read checks whether it can
-          # share the value. The core's reads skip this check, as C's do.
           if node.scope.nil?
-            cached_const(@cref, @l.internal? ? "zr_const_get_cached" : "zr_const_read_cached", id)
+            cached_const(@cref, @l.internal? ? "zr_const_get_cached" : "zr_const_read_cached", id, flag)
           else
-            cached_const(scope, @l.internal? ? "zr_const_get_at_cached" : "zr_const_read_at_cached", id)
+            cached_const(scope, @l.internal? ? "zr_const_get_at_cached" : "zr_const_read_at_cached", id, flag)
           end
         end
 
         # A constant read through the site's own cell (runtime/kernel/cache.rb).
         # The cell keeps the kernel's value for `key` (the cref or the
         # scope) at a constant stamp. If both still match, read the value
-        # here. Else call the kernel's lookup, which fills the cell.
-        def cached_const(key, lookup, id)
+        # here. Else call the kernel's lookup, which fills the cell. With
+        # `flag`, also return 1 for a read from the cell, else 0.
+        def cached_const(key, lookup, id, flag = false)
           cc = cache("cc", "ConstCache")
           cell = @l.layout("ConstCache")
           fast = @f.label
           slow = @f.label
-          merge, (result,) = @f.block(["i64"])
+          merge, (result, hit) = @f.block(flag ? %w[i64 i64] : ["i64"])
           same_key = @f.icmp("eq", @f.fetch("i64", cc, off(cell, "key")), key)
           same_stamp = @f.icmp("eq", @f.fetch("i64", cc, off(cell, "stamp")), @f.fetch("i64", static("const_stamp")))
           @f.brif(@f.band(same_key, same_stamp), fast, slow)
           switch(fast)
-          @f.jump(merge, [@f.fetch("i64", cc, off(cell, "value"))])
+          value = @f.fetch("i64", cc, off(cell, "value"))
+          @f.jump(merge, flag ? [value, imm(1)] : [value])
           switch(slow)
-          @f.jump(merge, [checked(kernel(lookup, cc, key, id))])
+          value = checked(kernel(lookup, cc, key, id))
+          @f.jump(merge, flag ? [value, imm(0)] : [value])
           switch(merge)
-          result
+          flag ? [result, hit] : result
         end
 
         # Set the line to the constant's location. A later incorrect
