@@ -11,3 +11,6 @@ test/*.tmp
 /bin/zr-dev
 /bin/*.manifest
 /bin/*.lock
+
+# The platform directory that `zr-dev gem native` packs and removes.
+/exe/*/

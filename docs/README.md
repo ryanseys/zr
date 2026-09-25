@@ -26,6 +26,7 @@ Steps for a goal that you already have.
 - [How to change the version of a pinned library](how-to/bump-a-library.md)
 - [How to test on another target](how-to/test-on-another-target.md)
 - [How to measure performance](how-to/measure-performance.md)
+- [How to release zr](how-to/release.md)
 
 ## Reference: find a fact
 

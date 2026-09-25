@@ -4,6 +4,7 @@ require "rbconfig"
 require_relative "paths"
 require_relative "version"
 require_relative "self_built"
+require_relative "shipped"
 
 module Zr
   # The compiler that zr compiled, run in place of the one that ruby runs.
@@ -25,12 +26,19 @@ module Zr
     module_function
 
     # Where the compiled compiler is: `ZR_BINARY`, else `bin/zr` in a
-    # checkout, else a directory of the user's cache for this version and
-    # this install. An installed gem writes nothing under itself, and two
+    # checkout, else the binary that a platform gem ships (`Shipped`),
+    # else a directory of the user's cache for this version and this
+    # install. An installed gem writes nothing under itself, and two
     # installed versions do not share a binary.
     def binary
-      ENV["ZR_BINARY"] || (Paths.checkout? ? File.join(Paths::ROOT, "bin/zr") : File.join(install_dir, "zr"))
+      return ENV["ZR_BINARY"] if ENV["ZR_BINARY"]
+      return File.join(Paths::ROOT, "bin/zr") if Paths.checkout?
+
+      shipped || File.join(install_dir, "zr")
     end
+
+    # The binary that this install's platform gem ships, or nil.
+    def shipped = Shipped.binary
 
     def install_dir
       require "digest"
@@ -45,7 +53,19 @@ module Zr
     def manifest = program.manifest
     def sources = program.sources
     def stamps(files = sources) = program.stamps(files)
-    def current? = program.current?
+
+    # A shipped binary is current when its sources have the digest in its
+    # manifest; a built one, when their stamps are those in its manifest.
+    def current?
+      return program.current? unless shipped?
+
+      files = sources
+      Shipped.current?(files, stamps(files))
+    end
+
+    # Whether `binary` is the one that a platform gem ships. zr never
+    # builds over it.
+    def shipped? = !ENV["ZR_BINARY"] && !Paths.checkout? && !shipped.nil?
 
     # Sends the command to the compiled compiler when it is current. If
     # this build is permitted to build one, it builds it first. Does
@@ -54,7 +74,7 @@ module Zr
       return if Zr.compiled? || !VERBS.include?(argv.first)
       return if env["ZR_COMPILED"] == "0"
 
-      build if !current? && (env["ZR_COMPILED"] == "1" || !Paths.checkout?)
+      build if !current? && !shipped? && (env["ZR_COMPILED"] == "1" || !Paths.checkout?)
       # The compiled compiler has no rubygems, so this ruby resolves a
       # library pin again for it.
       exec({ "ZR_HOST_RUBY" => RbConfig.ruby }, binary, *argv) if current?

@@ -215,6 +215,14 @@ See [Bootstrapping](../explanation/bootstrapping.md).
 | `zr-dev cache prune [--days N]` | Deletes all cache files that this checkout does not use and that are older than one day (`ZR_CACHE_DAYS`). `--days 3` keeps files used in the last 3 days. |
 | `zr-dev cache clear` | Deletes all the cache, also the files of this checkout. |
 
+### Platform gem
+
+| Command | Does |
+|---|---|
+| `zr-dev gem native [--install DIR]` | Builds `pkg/zr-<version>-<platform>.gem` for this host's platform, with `bin/zr` and its manifest in `exe/<platform>/`. Run `rake build:self` first. `--install DIR` installs the gem there and builds a program with the installed zr. |
+
+See [How to release zr](../how-to/release.md).
+
 ## The compiled tools
 
 `rake build:tools` compiles `tool/zr-dev.rb` with zr, to `bin/zr-dev`.
