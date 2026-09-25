@@ -38,6 +38,11 @@ module Zr
         # The pattern of a reader method's name.
         READER = /\A[a-z_][A-Za-z0-9_]*\z/
 
+        # A copy that runs at a site: the value of each parameter by name,
+        # the block that its `return` goes to, and the block that each
+        # failed guard goes to.
+        Site = Data.define(:locals, :exit, :bail)
+
         # The defs in the unit tree `body` that a site can inline, by name.
         # Each is the only def of its name in the unit, has only required
         # positionals (four at most, the direct entry's shape) and no other
@@ -168,15 +173,12 @@ module Zr
         # `bail`. Returns the body's value.
         def inline_body(d, recv, given, bail)
           exit, (result,) = @f.block(["i64"])
-          saved = [@self, @inline_locals, @inline_exit, @inline_bail, @inlining]
+          saved = [@self, @inline]
           @self = recv
-          @inline_locals = d.params.required.zip(given).to_h
-          @inline_exit = exit
-          @inline_bail = bail
-          @inlining = true
+          @inline = Site.new(d.params.required.zip(given).to_h, exit, bail)
           v = spec_leading(d.body)
           @f.jump(exit, [v]) unless @f.terminated?
-          @self, @inline_locals, @inline_exit, @inline_bail, @inlining = saved
+          @self, @inline = saved
           switch(exit)
           result
         end
@@ -197,7 +199,7 @@ module Zr
         # rest after a guard clause) is only a bail.
         def spec(node)
           unless Inline.pure?(node, [0])
-            @f.jump(@inline_bail)
+            @f.jump(@inline.bail)
             return @qnil
           end
 
@@ -209,7 +211,7 @@ module Zr
           when Hir::Return then spec_return(node)
           when Hir::Literal then literal(node)
           when Hir::SelfRef then @self
-          when Hir::Local then @inline_locals.fetch(node.name)
+          when Hir::Local then @inline.locals.fetch(node.name)
           when Hir::IvarRead then spec_ivar_read(node)
           when Hir::Send then spec_send(node)
           else @l.refuse(node, "#{node.class.name.split("::").last} is not inlined")
@@ -256,7 +258,7 @@ module Zr
           switch(fixnums)
           @f.brif(@f.icmp(Sends::RELATIONS.fetch(node.name), recv, arg), yes, no)
           switch(rest)
-          return @f.jump(@inline_bail) unless %i[== !=].include?(node.name)
+          return @f.jump(@inline.bail) unless %i[== !=].include?(node.name)
 
           merge, (v,) = @f.block(["i64"])
           spec_identity(node, recv, arg, merge)
@@ -301,14 +303,14 @@ module Zr
           v = spec(node.value)
           go = @f.label
           boolean = @f.icmp("eq", @f.bor(v, imm(28)), imm(28))
-          @f.brif(@f.band(boolean, gate_clear("GATE_NOT")), go, @inline_bail)
+          @f.brif(@f.band(boolean, gate_clear("GATE_NOT")), go, @inline.bail)
           switch(go)
           @f.csel(truthy(v), imm(@l.const("QFALSE")), imm(@l.const("QTRUE")))
         end
 
         def spec_return(node)
           v = node.value ? spec(node.value) : @qnil
-          @f.jump(@inline_exit, [v]) unless @f.terminated?
+          @f.jump(@inline.exit, [v]) unless @f.terminated?
           @qnil
         end
 
@@ -316,7 +318,7 @@ module Zr
         def spec_ivar_read(node)
           ivar = ivar_name(node.name)
           ic = site_cache(node, "iv", "IvarCache")
-          row = guessed_ivar_row(ic, ivar, @inline_bail, writing: false)
+          row = guessed_ivar_row(ic, ivar, @inline.bail, writing: false)
           found = @f.fetch("i64", row, off(@l.layout("IvEntry"), "value"))
           @f.csel(@f.icmp("eq", found, qundef), @qnil, found)
         end
@@ -339,14 +341,14 @@ module Zr
           is_nil = @f.label
           not_nil = @f.label
           ranked = @f.label
-          @f.brif(gate_clear("GATE_NIL_P"), is_nil, @inline_bail)
+          @f.brif(gate_clear("GATE_NIL_P"), is_nil, @inline.bail)
           switch(is_nil)
           @f.brif(@f.icmp("eq", recv, @qnil), not_nil, ranked)
           switch(not_nil)
           @f.jump(merge, [imm(@l.const("QTRUE"))])
           switch(ranked)
           answer = @f.label
-          @f.brif(ranked?(class_of(recv)), answer, @inline_bail)
+          @f.brif(ranked?(class_of(recv)), answer, @inline.bail)
           switch(answer)
           @f.jump(merge, [imm(@l.const("QFALSE"))])
         end
@@ -361,15 +363,15 @@ module Zr
           heap = @f.label
           hit = @f.label
           shaped = @f.label
-          @f.brif(cellp(recv), heap, @inline_bail)
+          @f.brif(cellp(recv), heap, @inline.bail)
           switch(heap)
           klass = @f.fetch("i64", recv, off(@l.layout("RBasic"), "klass"))
-          @f.brif(cell_hit(cc, klass), hit, @inline_bail)
+          @f.brif(cell_hit(cc, klass), hit, @inline.bail)
           switch(hit)
           held = @f.fetch("i64", cc, off(cell, "shape"))
-          @f.brif(@f.bor(@f.icmp("eq", held, imm(@l.const("SHAPE_READER"))), struct_member?(:reader, held)), shaped, @inline_bail)
+          @f.brif(@f.bor(@f.icmp("eq", held, imm(@l.const("SHAPE_READER"))), struct_member?(:reader, held)), shaped, @inline.bail)
           switch(shaped)
-          accessor_in_place(:reader, recv, @f.fetch("i64", cc, off(cell, "entry")), nil, merge, @inline_bail, held)
+          accessor_in_place(:reader, recv, @f.fetch("i64", cc, off(cell, "entry")), nil, merge, @inline.bail, held)
         end
 
         # An operator on two fixnums under its gate. `==` and `!=` by
@@ -383,18 +385,18 @@ module Zr
             both = @f.icmp("ne", @f.band(@f.band(recv, arg), imm(1)), imm(0))
             @f.brif(@f.band(both, gate_clear(Sends::OPS.fetch(op))), fixnums, rest)
             switch(fixnums)
-            @f.jump(merge, [fast_path(op, recv, arg, @inline_bail)])
+            @f.jump(merge, [fast_path(op, recv, arg, @inline.bail)])
             switch(rest)
             return spec_identity(node, recv, arg, merge) if %i[== !=].include?(op)
 
-            @f.jump(@inline_bail)
+            @f.jump(@inline.bail)
           elsif op == :===
             spec_mod_eqq(node, recv, arg, merge)
           else
             gated = @f.label
-            @f.brif(gate_clear("GATE_IS_A"), gated, @inline_bail)
+            @f.brif(gate_clear("GATE_IS_A"), gated, @inline.bail)
             switch(gated)
-            is_a_in_place(class_of(recv), arg, merge, @inline_bail)
+            is_a_in_place(class_of(recv), arg, merge, @inline.bail)
           end
         end
 
@@ -406,14 +408,14 @@ module Zr
           heap = @f.label
           hit = @f.label
           shaped = @f.label
-          @f.brif(cellp(recv), heap, @inline_bail)
+          @f.brif(cellp(recv), heap, @inline.bail)
           switch(heap)
-          @f.brif(cell_hit(cc, @f.fetch("i64", recv, off(@l.layout("RBasic"), "klass"))), hit, @inline_bail)
+          @f.brif(cell_hit(cc, @f.fetch("i64", recv, off(@l.layout("RBasic"), "klass"))), hit, @inline.bail)
           switch(hit)
           held = @f.icmp("eq", @f.fetch("i64", cc, off(cell, "shape")), imm(@l.const("SHAPE_MOD_EQQ")))
-          @f.brif(@f.band(held, ranked?(recv)), shaped, @inline_bail)
+          @f.brif(@f.band(held, ranked?(recv)), shaped, @inline.bail)
           switch(shaped)
-          is_a_in_place(class_of(arg), recv, merge, @inline_bail)
+          is_a_in_place(class_of(arg), recv, merge, @inline.bail)
         end
 
         def spec_identity(node, recv, arg, merge)
@@ -421,10 +423,10 @@ module Zr
           cell = @l.layout("CallCache")
           hit = @f.label
           shaped = @f.label
-          @f.brif(cell_hit(cc, class_of(recv)), hit, @inline_bail)
+          @f.brif(cell_hit(cc, class_of(recv)), hit, @inline.bail)
           switch(hit)
           shape = node.name == :== ? "SHAPE_EQ" : "SHAPE_NE"
-          @f.brif(@f.icmp("eq", @f.fetch("i64", cc, off(cell, "shape")), imm(@l.const(shape))), shaped, @inline_bail)
+          @f.brif(@f.icmp("eq", @f.fetch("i64", cc, off(cell, "shape")), imm(@l.const(shape))), shaped, @inline.bail)
           switch(shaped)
           @f.jump(merge, [ruby_bool(@f.icmp(node.name == :== ? "eq" : "ne", recv, arg))])
         end

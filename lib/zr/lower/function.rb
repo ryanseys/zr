@@ -6,6 +6,9 @@ require_relative "scope"
 require_relative "function/expressions"
 require_relative "function/definitions"
 require_relative "function/sends"
+require_relative "function/sends/refinements"
+require_relative "function/sends/in_place"
+require_relative "function/sends/arith"
 require_relative "function/control"
 require_relative "function/regions"
 require_relative "function/params"
@@ -142,12 +145,9 @@ module Zr
         # block body that runs inline, while it runs.
         @inline_scope = nil
         @line_rec = nil
-        # `Inline#inline_body`: the callee's self and parameters, and
-        # where its body exits, while a copy of it runs at the site.
-        @inline_locals = nil
-        @inline_exit = nil
-        @inline_bail = nil
-        @inlining = nil
+        # `Inline#inline_body`: the `Inline::Site` of the copy that runs
+        # at a call site, while it runs.
+        @inline = nil
       end
 
       def lower
@@ -467,7 +467,7 @@ module Zr
       def at_line(line, node_id = 0)
         # An inlined body's lines are its def's, and nothing in a copy
         # raises or polls. So the record keeps the caller's line.
-        return if @inlining
+        return if @inline
 
         word = line | (node_id << 32)
         return if word == @line
