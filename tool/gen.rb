@@ -28,6 +28,8 @@ module Zr
         "unicode" => ["runtime/core/unicode.rb: the case mappings", -> { require_relative "gen/unicode"; Unicode }],
         "cjk" => ["runtime/core/cjk.rb: the multibyte code points", -> { require_relative "gen/cjk"; Cjk }],
         "enc_mb" => ["runtime/kernel/enc_mb.rb: the multibyte walkers", -> { require_relative "gen/enc_mb"; EncMb }],
+        "onig_encodings" => ["runtime/core/regexp/onig/encoding_tables.rb: Onigmo's encodings past UTF-8",
+                             -> { require_relative "gen/onig_encodings"; OnigEncodings }],
         "tables" => ["runtime/*/os/<os>/: this OS's errno, fcntl, etc and socket", -> { require_relative "gen/tables"; Tables }],
         "nkf" => ["runtime/ext/nkf/tables.rb: nkf's conversion tables", -> { require_relative "gen/nkf"; Nkf }],
         "zlib_tables" => ["runtime/kernel/zlib_tables.rb: zlib's tables, computed as zlib's C computes them",
