@@ -74,6 +74,12 @@ The first release as a RubyGem.
   (`ruby tool/zr-dev.rb help` lists them). The `Rakefile` keeps build,
   test, gen, lint and release. Give test paths and minitest options to
   `bin/test`.
+- A `case` with six or more `when` values that are all constant paths
+  (`when Hir::Send, Hir::Call`) selects its arm from a table keyed on
+  the subject's class, so it no longer sends `===` once for each arm.
+  The table follows the method and constant stamps, and a `===` that is
+  not Module#=== keeps the `when` chain. `bm_case_class` (24 arms) runs
+  in 0.25 s, down from 0.35 s.
 
 ### Removed
 

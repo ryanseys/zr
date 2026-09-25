@@ -126,6 +126,10 @@ module Zr
         d zr_entry_shape Word klass:Value e:Ptr
         d zr_is_a_fast Value klass:Value mod:Value
         d zr_mod_eqq_fast Value mod:Value obj:Value
+        d zr_case_current Bool cc:Ptr cref:Value ms:Word cs:Word
+        d zr_case_prove Void cc:Ptr cref:Value v:Value j:Word ms:Word cs:Word
+        d zr_case_plain_arm Bool mod:Value
+        d zr_case_fill Void cc:Ptr cref:Value klass:Value arm:Word count:Word ms:Word cs:Word
         d zr_instance_of_fast Value klass:Value c:Value
         d zr_entry_fn Ptr e:Ptr
         d zr_invoke_fn Value recv:Value argc:Word argv:Ptr e:Ptr blk:Value found:Value
@@ -2379,6 +2383,10 @@ module Zr
         e zr_entry_shape 127
         e zr_is_a_fast 0
         e zr_mod_eqq_fast 0
+        e zr_case_current 56
+        e zr_case_prove 120
+        e zr_case_plain_arm 120
+        e zr_case_fill 56
         e zr_instance_of_fast 120
         e zr_entry_fn 127
         e zr_invoke_fn 127
@@ -4528,6 +4536,7 @@ module Zr
         c SHAPE_NE 10
         c SHAPE_EQQ 11
         c SHAPE_NEW 12
+        c CASE_ROWS 32
         c KIND_ATTR_READER 3
         c KIND_ATTR_WRITER 4
         c KIND_FRAMELESS 5
@@ -5240,6 +5249,8 @@ module Zr
         s CallCache 56 8 klass:0:Value stamp:8:Word entry:16:Ptr found:24:Value fn:32:Ptr shape:40:Word direct:48:Ptr
         s ConstCache 24 8 key:0:Value stamp:8:Word value:16:Value
         s SuperCache 48 8 node:0:Value mid:8:Word stamp:16:Word entry:24:Ptr found:32:Value fn:40:Ptr
+        s CaseCache 48 8 mstamp:0:Word cstamp:8:Word cref:16:Value table:24:Ptr proven:32:Word due:40:Word
+        s CaseRow 16 8 klass:0:Value arm:8:Word
         s RClass 56 8 basic:0:RBasic name:16:Value superclass:24:Value ext:32:Ptr attached:40:Value origin:48:Value
         s ClassExt 232 8 mtab:0:Ptr mlen:8:Word mcap:16:Word ctab:24:Ptr clen:32:Word ccap:40:Word iv:48:IvTab cv:80:IvTab serial:112:Word refined:120:Value active:128:Value boxed:136:Value shadow:144:Value alloc:152:Word cidx:160:Ptr cbins:168:Word saved:176:Ptr slen:184:Word supers:192:Ptr rank:200:Word midx:208:Ptr mbins:216:Word obj_bytes:224:Word
         s MEntry 104 8 mid:0:Word fn:8:Ptr arity:16:Word kind:24:Word meta:32:Ptr cref:40:Value vis:48:Word orig:56:Word from:64:Value core:72:Word ivar:80:IvarCache cover:88:Word direct:96:Ptr
