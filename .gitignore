@@ -5,3 +5,9 @@
 *.gem
 .bundle/
 test/*.tmp
+
+# The compiler and the tools that zr builds from this checkout.
+/bin/zr
+/bin/zr-dev
+/bin/*.manifest
+/bin/*.lock

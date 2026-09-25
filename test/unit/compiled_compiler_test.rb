@@ -11,58 +11,60 @@ require_relative "../../lib/zr/compiled_compiler"
 class CompiledCompilerTest < Minitest::Test
   EXE = File.join(ROOT, "exe/zr")
 
-  def with_cache
-    Dir.mktmpdir("zr-self-host-") do |cache|
-      self_dir = File.join(cache, "self")
-      FileUtils.mkdir_p(self_dir)
-      File.write(File.join(self_dir, "zr"), "#!/bin/sh\necho compiled \"$@\"\n")
-      File.chmod(0o755, File.join(self_dir, "zr"))
-      yield cache, File.join(self_dir, "manifest.marshal")
+  # Yields a directory with a stand-in compiled compiler, and the path of
+  # its manifest.
+  def with_binary
+    Dir.mktmpdir("zr-self-host-") do |dir|
+      binary = File.join(dir, "zr")
+      File.write(binary, "#!/bin/sh\necho compiled \"$@\"\n")
+      File.chmod(0o755, binary)
+      yield dir, "#{binary}.manifest"
     end
   end
 
-  def zr(cache, *args, self_env: nil)
-    env = { "ZR_CACHE" => cache, "ZR_COMPILED" => self_env, "RUBYOPT" => nil, "BUNDLE_GEMFILE" => nil }
+  def zr(dir, *args, self_env: nil)
+    env = { "ZR_CACHE" => File.join(dir, "cache"), "ZR_BINARY" => File.join(dir, "zr"), "ZR_COMPILED" => self_env,
+            "RUBYOPT" => nil, "BUNDLE_GEMFILE" => nil }
     out, status = Open3.capture2e(env, RbConfig.ruby, EXE, *args, chdir: ROOT)
     [out, status]
   end
 
   def test_a_current_compiled_compiler_takes_the_build
-    with_cache do |cache, manifest|
+    with_binary do |dir, manifest|
       File.binwrite(manifest, Marshal.dump(Zr::CompiledCompiler.stamps))
-      out, status = zr(cache, "build", "missing.rb", "-o", "out")
+      out, status = zr(dir, "build", "missing.rb", "-o", "out")
       assert status.success?, out
       assert_equal "compiled build missing.rb -o out\n", out
     end
   end
 
   def test_changed_source_file_builds_with_ruby
-    with_cache do |cache, manifest|
+    with_binary do |dir, manifest|
       stamps = Zr::CompiledCompiler.stamps
       file = stamps.keys.first
       stamps[file] = stamps[file].dup.tap { |s| s[0] += 1 }
       File.binwrite(manifest, Marshal.dump(stamps))
-      out, = zr(cache, "build", "missing.rb", "-o", "out")
+      out, = zr(dir, "build", "missing.rb", "-o", "out")
       refute_includes out, "compiled"
     end
   end
 
   def test_a_file_the_build_did_not_read_leaves_the_build_to_ruby
-    with_cache do |cache, manifest|
+    with_binary do |dir, manifest|
       stamps = Zr::CompiledCompiler.stamps
       stamps.delete(stamps.keys.last)
       File.binwrite(manifest, Marshal.dump(stamps))
-      out, = zr(cache, "build", "missing.rb", "-o", "out")
+      out, = zr(dir, "build", "missing.rb", "-o", "out")
       refute_includes out, "compiled"
     end
   end
 
   def test_zr_self_0_and_other_commands_stay_with_ruby
-    with_cache do |cache, manifest|
+    with_binary do |dir, manifest|
       File.binwrite(manifest, Marshal.dump(Zr::CompiledCompiler.stamps))
-      out, = zr(cache, "build", "missing.rb", "-o", "out", self_env: "0")
+      out, = zr(dir, "build", "missing.rb", "-o", "out", self_env: "0")
       refute_includes out, "compiled"
-      out, status = zr(cache, "version")
+      out, status = zr(dir, "version")
       assert status.success?, out
       refute_includes out, "compiled"
     end
@@ -72,10 +74,20 @@ class CompiledCompilerTest < Minitest::Test
   # is none. `ZR_COMPILED=1` or `rake build:self` makes one.
   def test_a_checkout_with_no_compiled_compiler_stays_with_ruby
     skip "not a checkout" unless Zr::Paths.checkout?
-    Dir.mktmpdir("zr-self-host-") do |cache|
-      out, = zr(cache, "build", "missing.rb", "-o", "out")
+    Dir.mktmpdir("zr-self-host-") do |dir|
+      out, = zr(dir, "build", "missing.rb", "-o", "out")
       refute_includes out, "building the compiler with itself"
-      refute File.exist?(File.join(cache, "self", "zr"))
+      refute File.exist?(File.join(dir, "zr"))
     end
+  end
+
+  def test_the_compiled_compiler_of_a_checkout_is_bin_zr
+    skip "not a checkout" unless Zr::Paths.checkout?
+    binary = ENV.delete("ZR_BINARY")
+
+    assert_equal File.join(ROOT, "bin/zr"), Zr::CompiledCompiler.binary
+    assert_equal File.join(ROOT, "bin/zr.manifest"), Zr::CompiledCompiler.manifest
+  ensure
+    ENV["ZR_BINARY"] = binary if binary
   end
 end

@@ -2,6 +2,7 @@
 
 require "rbconfig"
 require_relative "paths"
+require_relative "version"
 
 module Zr
   # The compiler that zr compiled, run in place of the one that ruby runs.
@@ -14,7 +15,7 @@ module Zr
   # library tree, and exe/zr. Otherwise ruby runs the command. An
   # installed gem builds the compiled compiler at its first build and
   # tells the user. A checkout, whose files change frequently, builds one
-  # only with `ZR_COMPILED=1` or `rake build:self`. With `ZR_COMPILED=0`,
+  # only with `ZR_COMPILED=1` or `rake build:self`, as `bin/zr`. With `ZR_COMPILED=0`,
   # ruby always runs the command.
   module CompiledCompiler
     # The commands that a compiled compiler runs. Ruby runs all others.
@@ -22,9 +23,23 @@ module Zr
 
     module_function
 
-    def dir = File.join(Paths.cache, "self")
-    def binary = File.join(dir, "zr")
-    def manifest = File.join(dir, "manifest.marshal")
+    # Where the compiled compiler is: `ZR_BINARY`, else `bin/zr` in a
+    # checkout, else a directory of the user's cache for this version and
+    # this install. An installed gem writes nothing under itself, and two
+    # installed versions do not share a binary.
+    def binary
+      ENV["ZR_BINARY"] || (Paths.checkout? ? File.join(Paths::ROOT, "bin/zr") : File.join(install_dir, "zr"))
+    end
+
+    def install_dir
+      require "digest"
+      File.join(Paths.user_cache, "self-#{VERSION}-#{Digest::SHA256.hexdigest(Paths::ROOT)[0, 12]}")
+    end
+
+    # The file stamps of the sources the binary was built from, and the
+    # lock that one build holds. Both are beside the binary.
+    def manifest = "#{binary}.manifest"
+    def lock_path = "#{binary}.lock"
 
     # Sends the command to the compiled compiler when it is current. If
     # this build is permitted to build one, it builds it first. Does
@@ -76,8 +91,8 @@ module Zr
     # Then ruby runs the command. A second build that waits for the lock
     # also runs under ruby.
     def build
-      Paths.mkdir_p(dir)
-      File.open(File.join(dir, "lock"), File::RDWR | File::CREAT, 0o644) do |lock|
+      Paths.mkdir_p(File.dirname(binary))
+      File.open(lock_path, File::RDWR | File::CREAT, 0o644) do |lock|
         return unless lock.flock(File::LOCK_EX | File::LOCK_NB)
         return if current?
 
