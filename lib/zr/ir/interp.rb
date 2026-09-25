@@ -4,6 +4,7 @@ require_relative "function"
 require_relative "types"
 require_relative "../record"
 require_relative "../bytes"
+require_relative "../refused"
 
 module Zr
   module IR
@@ -28,7 +29,9 @@ module Zr
       DEPTH = 4096
 
       # The interpreter does not model this program.
-      class Refused < StandardError; end
+      class Refused < StandardError
+        include Zr::Refusal
+      end
       # The program did an operation that no machine can do.
       class Trapped < StandardError; end
       # The program called `abort`.

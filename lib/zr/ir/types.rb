@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "inst"
+require_relative "../refused"
 
 module Zr
   module IR
@@ -12,7 +13,9 @@ module Zr
     # cannot differ about the type of a value. Such a difference is the
     # miscompile that the interpreter must find.
     class Types
-      class Refused < StandardError; end
+      class Refused < StandardError
+        include Zr::Refusal
+      end
 
       # The bytes that a value of each type uses in memory: what a load of
       # the type reads and a store of the type writes.

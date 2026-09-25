@@ -160,13 +160,13 @@ module Zr
           @types = IR::Types.new(@f)
           @types.all
         rescue IR::Types::Refused => e
-          raise Refused, e.message
+          raise Refused, e.message, cause: e
         end
 
         def type_of(v)
           @types.of(v)
         rescue IR::Types::Refused => e
-          raise Refused, e.message
+          raise Refused, e.message, cause: e
         end
 
         # An `icmp` whose only use is a `brif` or a `select` in the same block,

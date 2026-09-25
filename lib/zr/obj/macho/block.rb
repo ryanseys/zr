@@ -4,12 +4,15 @@ require_relative "object_file"
 require_relative "../patch"
 require_relative "../../bytes"
 require_relative "../../backend/aarch64/relocs"
+require_relative "../../refused"
 
 module Zr
   module Obj
     module MachO
       # zr's linker cannot link these objects. The message gives the reason.
-      class Refused < StandardError; end
+      class Refused < StandardError
+        include Zr::Refusal
+      end
 
       # Objects linked together: the runtime and eval support objects in a
       # `Prelink`, or a program's own objects. Each input section goes into

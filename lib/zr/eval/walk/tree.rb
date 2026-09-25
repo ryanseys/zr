@@ -2,6 +2,7 @@
 
 require_relative "../../hir"
 require_relative "../../record"
+require_relative "../../refused"
 
 module Zr
   class Eval
@@ -22,7 +23,9 @@ module Zr
     class Tree
       # A form that the interpreter does not support yet, with its
       # location. The contract lets zr refuse, but not guess.
-      class Refused < ::NotImplementedError; end
+      class Refused < ::NotImplementedError
+        include Zr::Refusal
+      end
 
       # `return`, `break`, `next`, `redo` and `retry` leave a walked body
       # as a raise does (a pending unwind). They are subclasses of

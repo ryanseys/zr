@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require_relative "refused"
+
 module Zr
   # The backends. Each one turns IR into code that a target runs. A native
   # backend (`Backend::Aarch64`) returns an `Obj::Unit` for an object writer
@@ -7,6 +9,8 @@ module Zr
   module Backend
     # A form that a backend has no code for. The build shows its message as
     # a refusal that gives the form. It never guesses.
-    class Refused < StandardError; end
+    class Refused < StandardError
+      include Zr::Refusal
+    end
   end
 end

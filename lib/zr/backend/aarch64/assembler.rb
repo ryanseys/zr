@@ -2,6 +2,7 @@
 
 require_relative "registers"
 require_relative "../../record"
+require_relative "../../refused"
 
 module Zr
   module Backend
@@ -15,7 +16,9 @@ module Zr
       class Assembler
         include Registers
 
-        class Refused < StandardError; end
+        class Refused < StandardError
+          include Zr::Refusal
+        end
         # A branch whose target is out of the range of its field.
         class OutOfReach < Refused; end
 
