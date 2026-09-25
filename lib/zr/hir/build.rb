@@ -2390,19 +2390,19 @@ module Zr
           node.receiver = deepen(node.receiver, level) if node.receiver
           node
         when ClassDef
-          node.scope = deepen(node.scope, level) if node.scope.is_a?(Record)
+          node.scope = deepen(node.scope, level) if Hir.node?(node.scope)
           node.superclass = deepen(node.superclass, level) if node.superclass
           node
         when ModuleDef
-          node.scope = deepen(node.scope, level) if node.scope.is_a?(Record)
+          node.scope = deepen(node.scope, level) if Hir.node?(node.scope)
           node
         when SingletonClassDef
           node.target = deepen(node.target, level)
           node
         when Record
-          node.each_pair { |k, v| node[k] = deepen(v, level) if v.is_a?(Record) || v.is_a?(Array) }
+          node.each_pair { |k, v| node[k] = deepen(v, level) if Hir.node?(v) || v.is_a?(Array) }
           node
-        when Array then node.map! { |v| v.is_a?(Record) || v.is_a?(Array) ? deepen(v, level) : v }
+        when Array then node.map! { |v| Hir.node?(v) || v.is_a?(Array) ? deepen(v, level) : v }
         else node
         end
       end

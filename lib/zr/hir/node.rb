@@ -12,6 +12,28 @@ module Zr
     # `parameters` and `local_variables` leave it out, as CRuby does.
     IT = :"%it"
 
+    # Whether `value` is a HIR node: one `Record` of the classes below,
+    # never a bare `Array`, `Symbol`, `Integer` or other field value.
+    def self.node?(value) = value.is_a?(Record)
+
+    # Yields each child of `node`: the fields of a HIR node, or the
+    # elements of an Array of nodes. Anything else (nil, a literal value,
+    # ...) has no children. Several walks share this fallback for the
+    # fields or elements that their own scope-boundary rules do not name;
+    # each keeps those rules and only reads its children through this.
+    #
+    # With no block, returns the children as an Array instead of an
+    # Enumerator, so a caller can still write `each_child(node).any? { ... }`
+    # without allocating one on every node.
+    def self.each_child(node)
+      children = case node
+                 when Record then node.to_a
+                 when Array then node
+                 else []
+                 end
+      block_given? ? children.each { |child| yield child } : children
+    end
+
     # `units` are the files that a require or load reaches, each with its
     # own toplevel, in order of first reference. `warnings` are the
     # parse-time warnings that ruby prints for the file, printed when it

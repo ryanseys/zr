@@ -20,8 +20,7 @@ module Zr
         when Hir::Def then holds_block?(node.receiver)
         when Hir::ClassDef, Hir::ModuleDef, nil then false
         when Hir::SingletonClassDef then holds_block?(node.target)
-        when Record then node.to_a.any? { |v| holds_block?(v) }
-        when Array then node.any? { |v| holds_block?(v) }
+        when Record, Array then Hir.each_child(node).any? { |v| holds_block?(v) }
         else false
         end
       end
@@ -41,7 +40,7 @@ module Zr
         when Hir::ClassDef then assignments([node.scope, node.superclass], level, counts)
         when Hir::ModuleDef then assignments(node.scope, level, counts)
         when Hir::SingletonClassDef then assignments(node.target, level, counts)
-        when Record, Array then node.each { |child| assignments(child, level, counts) }
+        when Record, Array then Hir.each_child(node) { |child| assignments(child, level, counts) }
         end
         counts
       end
@@ -72,8 +71,7 @@ module Zr
         when Hir::Block, Hir::Lambda, Hir::ClassDef, Hir::ModuleDef, nil then false
         when Hir::Def then opens_locals?(node.receiver)
         when Hir::SingletonClassDef then opens_locals?(node.target)
-        when Record then node.to_a.any? { |v| opens_locals?(v) }
-        when Array then node.any? { |v| opens_locals?(v) }
+        when Record, Array then Hir.each_child(node).any? { |v| opens_locals?(v) }
         else false
         end
       end
@@ -115,8 +113,7 @@ module Zr
       def loop_body?(node)
         case node
         when Hir::Super, Hir::ZSuper, Hir::Def, Hir::ClassDef, Hir::ModuleDef, Hir::SingletonClassDef, Hir::Trace, Hir::Cover then false
-        when Record then node.to_a.all? { |v| loop_body?(v) }
-        when Array then node.all? { |v| loop_body?(v) }
+        when Record, Array then Hir.each_child(node).all? { |v| loop_body?(v) }
         else true
         end
       end
