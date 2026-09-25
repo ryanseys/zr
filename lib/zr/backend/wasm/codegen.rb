@@ -7,6 +7,7 @@ require_relative "../../obj/model"
 require_relative "locals"
 require_relative "../../record"
 require_relative "../../flags"
+require_relative "../../bytes"
 
 module Zr
   module Backend
@@ -401,29 +402,9 @@ module Zr
 
         # --- encoding ---------------------------------------------------
 
-        def leb(n)
-          out = +"".b
-          loop do
-            byte = n & 0x7F
-            n >>= 7
-            if n.zero?
-              out << byte.chr
-              return out
-            end
-            out << (byte | 0x80).chr
-          end
-        end
+        def leb(n) = Bytes.leb(n)
 
-        def sleb(n)
-          out = +"".b
-          loop do
-            byte = n & 0x7F
-            n >>= 7
-            done = (n.zero? && (byte & 0x40).zero?) || (n == -1 && (byte & 0x40) != 0)
-            out << (done ? byte : byte | 0x80).chr
-            return out if done
-          end
-        end
+        def sleb(n) = Bytes.sleb(n)
 
         def i32c(n)
           "\x41".b + sleb(n)
@@ -445,9 +426,7 @@ module Zr
           id.chr + vec_bytes(payload)
         end
 
-        def align(n, a)
-          (n + a - 1) & ~(a - 1)
-        end
+        def align(n, a) = Bytes.align(n, a)
 
         # One function's body.
         class Body

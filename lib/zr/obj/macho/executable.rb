@@ -7,6 +7,7 @@ require_relative "prelink"
 require_relative "libsystem"
 require_relative "skeleton"
 require_relative "../../record"
+require_relative "../../bytes"
 
 module Zr
   module Obj
@@ -210,14 +211,14 @@ module Zr
         def beside_base
           b = @base
           code_at = BASE + b.text_size
-          code_size = Patch.align(%i[text stubs const].inject(code_at) { |at, part| place(part, at) } - code_at, PAGE)
+          code_size = Bytes.align(%i[text stubs const].inject(code_at) { |at, part| place(part, at) } - code_at, PAGE)
           raise Refused, "a program with no code" if code_size.zero?
           raise Refused, "#{code_size} bytes of code, past the room beside the runtime" if code_size > Prelink::RESERVE
 
           data_at = b.data_end
           file_end = %i[got dconst data].inject(data_at) { |at, part| place(part, at) }
-          data_filesize = Patch.align(file_end - data_at, PAGE)
-          data_vmsize = Patch.align(place(:bss, file_end) - data_at, PAGE)
+          data_filesize = Bytes.align(file_end - data_at, PAGE)
+          data_vmsize = Bytes.align(place(:bss, file_end) - data_at, PAGE)
           raise Refused, "a program with no data" if data_vmsize.zero?
 
           @top.addresses!
@@ -248,13 +249,13 @@ module Zr
         # because an image with a zero-length segment does not load.
         def plain
           groups = PLAIN.select { |name, parts, _, _| name == "__TEXT" || parts.any? { |part| @top.size(part).positive? } }
-          at = BASE + Patch.align(32 + command_size(groups.size, groups.sum { |_, parts, _, _| parts.size }), 16)
+          at = BASE + Bytes.align(32 + command_size(groups.size, groups.sum { |_, parts, _, _| parts.size }), 16)
           placed = groups.map do |name, parts, prot, flags|
             start = name == "__TEXT" ? BASE : at
             file_end = (parts - [:bss]).inject(at) { |a, part| place(part, a) }
             vm_end = parts.include?(:bss) ? place(:bss, file_end) : file_end
-            filesize = Patch.align(file_end - start, PAGE)
-            at = start + [Patch.align(vm_end - start, PAGE), filesize].max
+            filesize = Bytes.align(file_end - start, PAGE)
+            at = start + [Bytes.align(vm_end - start, PAGE), filesize].max
             [name, parts, prot, flags, start, filesize, at - start]
           end
           # A part of a segment that is not written is empty, but it still
@@ -275,7 +276,7 @@ module Zr
         # Places the program's `part` at the first aligned address at or
         # after `at`. Returns the end address.
         def place(part, at)
-          at = Patch.align(at, 1 << @top.align(part))
+          at = Bytes.align(at, 1 << @top.align(part))
           @top.place(part, at)
           at + @top.size(part)
         end
@@ -388,7 +389,7 @@ module Zr
         # it; the start of the signature sets its size.
         def linkedit
           @link_at = after(@segments.last)
-          @link_vm = Patch.align(@segments.map { |s| s.vm + s.vmsize }.max, PAGE)
+          @link_vm = Bytes.align(@segments.map { |s| s.vm + s.vmsize }.max, PAGE)
           fixups = chained_fixups
           trie = exports_trie
           words, strings, names = @top.symbols(@ordinals, @base.strings.bytesize)
@@ -398,13 +399,13 @@ module Zr
           strings += "\0".b * (-strings.bytesize % 8)
           @fixups_at = @link_at
           @fixups_size = fixups.bytesize
-          @trie_at = Patch.align(@fixups_at + @fixups_size, 8)
+          @trie_at = Bytes.align(@fixups_at + @fixups_size, 8)
           @trie_size = trie.bytesize
-          @symoff = Patch.align(@trie_at + @trie_size, 8)
+          @symoff = Bytes.align(@trie_at + @trie_size, 8)
           @nsyms = symbols.bytesize / 16
           @stroff = @symoff + symbols.bytesize
           @strsize = strings.bytesize
-          @sig_at = Patch.align(@stroff + @strsize, 16)
+          @sig_at = Bytes.align(@stroff + @strsize, 16)
           @link_size = (@sig_at + signature_size) - @link_at
 
           out = +"".b
@@ -499,26 +500,18 @@ module Zr
         def trie_bytes(out, address, edges, offsets)
           if address
             out << (1 + uleb_size(address)) << 0
-            uleb(out, address)
+            out << Bytes.uleb(address)
           else
             out << 0
           end
           out << edges.size
           edges.each do |edge, n|
             out << edge << 0
-            uleb(out, offsets[n])
+            out << Bytes.uleb(offsets[n])
           end
         end
 
-        def uleb_size(n) = n.zero? ? 1 : (n.bit_length + 6) / 7
-
-        def uleb(out, n)
-          while n >= 0x80
-            out << ((n & 0x7F) | 0x80)
-            n >>= 7
-          end
-          out << n
-        end
+        def uleb_size(n) = Bytes.uleb_size(n)
 
         # --- load commands -------------------------------------------------
 
@@ -544,7 +537,7 @@ module Zr
           out = []
           out << segment_command("__PAGEZERO", 0, BASE, 0, 0, 0, 0, [])
           @segments.each { |s| out << segment_command(s.name, s.vm, s.vmsize, s.fileoff, s.filesize, s.prot, s.flags, s.sections) }
-          out << segment_command("__LINKEDIT", @link_vm, Patch.align(@link_size, PAGE), @link_at, @link_size, READ, 0, [])
+          out << segment_command("__LINKEDIT", @link_vm, Bytes.align(@link_size, PAGE), @link_at, @link_size, READ, 0, [])
           out << command(LC_DYLD_CHAINED_FIXUPS, [@fixups_at, @fixups_size].pack("L<2"))
           out << command(LC_DYLD_EXPORTS_TRIE, [@trie_at, @trie_size].pack("L<2"))
           out << command(LC_SYMTAB, [@symoff, @nsyms, @stroff, @strsize].pack("L<4"))
@@ -624,9 +617,7 @@ module Zr
           20 + 88 + File.basename(@out).bytesize + 1 + (slots * 32)
         end
 
-        def pad(bytes, to)
-          bytes << ("\0".b * (to - bytes.bytesize)) if to > bytes.bytesize
-        end
+        def pad(bytes, to) = Bytes.pad(bytes, to)
       end
     end
   end

@@ -2,6 +2,7 @@
 
 require_relative "../model"
 require_relative "../../record"
+require_relative "../../bytes"
 
 module Zr
   module Obj
@@ -358,9 +359,7 @@ module Zr
           [address, rows]
         end
 
-        def align_up(n, a)
-          (n + a - 1) & ~(a - 1)
-        end
+        def align_up(n, a) = Bytes.align(n, a)
 
         def pad16(s)
           s.b.ljust(16, "\0")

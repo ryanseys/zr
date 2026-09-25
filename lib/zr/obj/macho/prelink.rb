@@ -3,6 +3,7 @@
 require "digest/sha2"
 require_relative "block"
 require_relative "../../record"
+require_relative "../../bytes"
 
 module Zr
   module Obj
@@ -70,14 +71,14 @@ module Zr
           block = Block.new(objects)
           at = BASE + PAGE
           %i[text stubs const].each { |part| at = place(block, part, at) }
-          text_size = Patch.align(at, PAGE) - BASE
+          text_size = Bytes.align(at, PAGE) - BASE
           got_vm = BASE + text_size + RESERVE
-          got_size = [Patch.align(place(block, :got, got_vm) - got_vm, PAGE), PAGE].max
+          got_size = [Bytes.align(place(block, :got, got_vm) - got_vm, PAGE), PAGE].max
           data_vm = got_vm + got_size
           at = data_vm
           %i[dconst data].each { |part| at = place(block, part, at) }
-          data_filesize = [Patch.align(at - data_vm, PAGE), PAGE].max
-          data_vmsize = [Patch.align(place(block, :bss, at) - data_vm, PAGE), data_filesize].max
+          data_filesize = [Bytes.align(at - data_vm, PAGE), PAGE].max
+          data_vmsize = [Bytes.align(place(block, :bss, at) - data_vm, PAGE), data_filesize].max
           block.addresses!
 
           blobs = { text: [%i[text stubs const], BASE + PAGE, text_size - PAGE], got: [%i[got], got_vm, got_size],
@@ -122,15 +123,12 @@ module Zr
         # Places `part` at the first aligned address at or after `at`.
         # Returns the end address.
         def self.place(block, part, at)
-          at = Patch.align(at, 1 << block.align(part))
+          at = Bytes.align(at, 1 << block.align(part))
           block.place(part, at)
           at + block.size(part)
         end
 
-        def self.pad(bytes, to)
-          bytes << ("\0".b * (to - bytes.bytesize)) if to > bytes.bytesize
-          bytes
-        end
+        def self.pad(bytes, to) = Bytes.pad(bytes, to)
 
         # The SHA-256 of each 4 KB page of `bytes`, one after another.
         def self.page_hashes(bytes)

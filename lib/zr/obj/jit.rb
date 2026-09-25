@@ -2,6 +2,7 @@
 
 require_relative "model"
 require_relative "patch"
+require_relative "../bytes"
 require_relative "../backend/aarch64/relocs"
 
 module Zr
@@ -105,7 +106,7 @@ module Zr
       private
 
       def layout(items, item_align) = Patch.layout(items, item_align)
-      def align(n, a) = Patch.align(n, a)
+      def align(n, a) = Bytes.align(n, a)
 
       def map(size, exec:, at: nil, near: 0)
         @host.map(size, exec: exec, at: at, near: near) or raise "mmap of #{size} bytes failed"

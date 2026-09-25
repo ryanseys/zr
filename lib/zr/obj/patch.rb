@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require_relative "../bytes"
+
 module Zr
   module Obj
     # Applies relocations against known addresses. All formats have
@@ -37,14 +39,12 @@ module Zr
         at = []
         size = 0
         items.each do |item|
-          size = align(size, [item.align, least].max)
+          size = Bytes.align(size, [item.align, least].max)
           at << [item, size]
           size += item.size
         end
         { at: at, size: size }
       end
-
-      def align(n, a) = (n + a - 1) & ~(a - 1)
     end
   end
 end

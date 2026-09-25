@@ -2,6 +2,7 @@
 
 require_relative "object_file"
 require_relative "../patch"
+require_relative "../../bytes"
 require_relative "../../backend/aarch64/relocs"
 
 module Zr
@@ -258,7 +259,7 @@ module Zr
             o.sections.each_with_index do |section, k|
               part = @part_of[i][k] or next
               @aligns[part] = [@aligns[part], section.align].max
-              @sizes[part] = Patch.align(@sizes[part], 1 << section.align) if section.size.positive?
+              @sizes[part] = Bytes.align(@sizes[part], 1 << section.align) if section.size.positive?
               @chunks[part] << [i, k, @sizes[part]]
               @sizes[part] += section.size
             end
@@ -350,9 +351,7 @@ module Zr
           "\0".b * size(:got)
         end
 
-        def pad(bytes, to)
-          bytes << ("\0".b * (to - bytes.bytesize)) if to > bytes.bytesize
-        end
+        def pad(bytes, to) = Bytes.pad(bytes, to)
       end
 
       # Chained fixups. Each slot that dyld writes contains an entry. The
@@ -372,7 +371,7 @@ module Zr
         # past the file maps the next segment's bytes over the tail, and the
         # kernel's pager then caches those bytes without fixups.
         def thread(slots, start, size)
-          starts = Array.new(Patch.align(size, PAGE) / PAGE, START_NONE)
+          starts = Array.new(Bytes.align(size, PAGE) / PAGE, START_NONE)
           nexts = {}
           slots.sort.group_by { |slot| (slot - start) / PAGE }.each do |page, row|
             starts[page] = (row.first - start) % PAGE

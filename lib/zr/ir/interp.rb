@@ -3,6 +3,7 @@
 require_relative "function"
 require_relative "types"
 require_relative "../record"
+require_relative "../bytes"
 
 module Zr
   module IR
@@ -55,7 +56,7 @@ module Zr
 
         # The next address at `align`, with `size` bytes of room after it.
         def reserve(size, align = 8)
-          at = (@bytes.bytesize + align - 1) & ~(align - 1)
+          at = Bytes.align(@bytes.bytesize, align)
           grow(at + size)
           at
         end
@@ -338,7 +339,7 @@ module Zr
         raw >= top ? raw - (top << 1) : raw
       end
 
-      def round_up(n, a) = (n + a - 1) & ~(a - 1)
+      def round_up(n, a) = Bytes.align(n, a)
 
       # An operation on a type narrower than `i64` runs in a w-register. So
       # it is 32 bits wide, and the high bits of its result are zero.

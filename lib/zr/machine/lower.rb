@@ -5,6 +5,7 @@ require_relative "../ir"
 require_relative "../obj/model"
 require_relative "../refused"
 require_relative "../backend/aarch64/stub"
+require_relative "../bytes"
 require_relative "description"
 
 module Zr
@@ -492,13 +493,13 @@ module Zr
           refuse(pair, "a field is `name: Type`") unless pair.is_a?(Prism::AssocNode) && pair.key.is_a?(Prism::SymbolNode) && pair.value.is_a?(Prism::ConstantReadNode)
           type = pair.value.name.to_s
           size, a = field_shape(pair.value, type)
-          off = (off + a - 1) & ~(a - 1)
+          off = Bytes.align(off, a)
           align = [align, a].max
           at = off
           off += size
           [pair.key.unescaped, [at, type]]
         end
-        size = (off + align - 1) & ~(align - 1)
+        size = Bytes.align(off, align)
         Layout.new(name, rows, size, align)
       end
 

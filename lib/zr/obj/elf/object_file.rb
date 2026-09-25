@@ -2,6 +2,7 @@
 
 require_relative "../model"
 require_relative "../../record"
+require_relative "../../bytes"
 
 module Zr
   module Obj
@@ -192,9 +193,7 @@ module Zr
           ident + [ET_REL, EM_AARCH64, 1, 0, 0, shoff, 0, 64, 0, 0, 64, shnum, shstrndx].pack("S<S<L<Q<Q<Q<L<S<S<S<S<S<S<")
         end
 
-        def align_up(n, a)
-          (n + a - 1) & ~(a - 1)
-        end
+        def align_up(n, a) = Bytes.align(n, a)
       end
     end
   end

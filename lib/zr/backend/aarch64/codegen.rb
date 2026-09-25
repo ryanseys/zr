@@ -8,6 +8,7 @@ require_relative "../../ir/function"
 require_relative "../../ir/types"
 require_relative "regalloc"
 require_relative "../../obj/model"
+require_relative "../../bytes"
 
 module Zr
   module Backend
@@ -539,9 +540,7 @@ module Zr
           @frame = align(off, 16)
         end
 
-        def align(n, a)
-          (n + a - 1) & ~(a - 1)
-        end
+        def align(n, a) = Bytes.align(n, a)
 
         # The bytes of the x29 pair at the bottom of the frame.
         PAIR = 16
