@@ -32,6 +32,8 @@ module Zr
       @timing = Zr.flag?("ZR_TIMING")
       @verify = Zr.flag?("ZR_VERIFY")
       @wasm_names = Zr.flag?("ZR_WASM_NAMES")
+      # `ZR_WASM_WIDTH`: the group size of a large wasm function's dispatch
+      # (`Backend::Wasm::Codegen::Body::LADDER` explains the default).
       @wasm_width = Integer(ENV.fetch("ZR_WASM_WIDTH", 256))
       @tune = Zr.flag?("ZR_TUNE", default: true)
       @cache = ENV["ZR_CACHE"]
