@@ -2240,4 +2240,43 @@ describe "IO programs" do
       nil
     OUT
   end
+
+  it "read with a buffer empties the buffer at the end" do
+    result = zr(<<~'RUBY')
+      File.write("f", "x")
+      f = File.open("f")
+      b = +"old"
+      p f.read(10, b), b
+      p f.read(10, b), b
+      b = +"zz"
+      begin
+        f.sysread(3, b)
+      rescue EOFError => e
+        p e.class
+      end
+      p b
+      b = +"zz"
+      p f.read_nonblock(3, b, exception: false), b
+      r, w = IO.pipe
+      w.write("ab")
+      w.close
+      b = +"q"
+      p r.read(5, b), b, r.read(5, b), b
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "x"
+      "x"
+      nil
+      ""
+      EOFError
+      ""
+      nil
+      ""
+      ""
+      ""
+      nil
+      ""
+    OUT
+  end
 end

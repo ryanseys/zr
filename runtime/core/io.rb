@@ -1073,12 +1073,13 @@ class IO
     else
       if scheduled
         text = bufread(length)
-        return nil if text.empty? && length > 0
+        return buffer&.clear && nil if text.empty? && length > 0
 
         return filled(text, buffer)
       end
       fill while !@eof && @buffer.bytesize < length
-      return nil if @buffer.empty? && length > 0
+      # At the end, the buffer is emptied, as io_read does.
+      return buffer&.clear && nil if @buffer.empty? && length > 0
 
       return filled(take(length).force_encoding(Encoding::BINARY), buffer)
     end
@@ -1103,7 +1104,7 @@ class IO
       raise EAGAINWaitReadable, +"read would block"
     end
     text = read_some(len)
-    return nil if text.nil? && !exception
+    return buf&.clear && nil if text.nil? && !exception
 
     filled(text, buf)
   end
@@ -1658,7 +1659,10 @@ class IO
   # which keeps its own encoding.
   def filled(text, buffer)
     Primitive.attr! :hidden
-    raise EOFError, +"end of file reached" if text.nil?
+    if text.nil?
+      buffer&.clear
+      raise EOFError, +"end of file reached"
+    end
     return text unless buffer
 
     encoding = buffer.encoding
