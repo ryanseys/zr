@@ -100,11 +100,54 @@ module Zr
         @has_env = %i[eval main].include?(@kind) || Scope.holds_block?(body) || Scope.opens_locals?(body) ||
                    default_expressions.any? { |d| Scope.holds_block?(d) || Scope.opens_locals?(d) } ||
                    (lower.traced? && !lower.internal? && %i[def block top].include?(@kind))
+        @raw_block = nil
         @raw_block = raw_block?(node.params) ? node.params.block : nil if %i[def block].include?(@kind)
         @sites = 0
         @loops = []
         @regions = []
         @retries = []
+        # Set for real in `lower` and `enter`, once this scope's IR
+        # function exists. Nil here fixes this object's ivar order
+        # before then, so every instance has the same shape
+        # (runtime/kernel/cache.rb, guessed_ivar_row).
+        @f = nil
+        @base = nil
+        @nvalues = nil
+        @sp = nil
+        @record = nil
+        @rec = nil
+        @task_addr = nil
+        @prev = nil
+        @meta = nil
+        @line = nil
+        @proc = nil
+        @qnil = nil
+        @self = nil
+        @cref = nil
+        @blk = nil
+        @env = nil
+        # `lower`, only for a block: the label its body jumps to, so a
+        # `redo` (Control) can jump back to it.
+        @body_label = nil
+        # Memoized on first use (`attributes`, `bindings`).
+        @attributes = nil
+        @bindings = nil
+        # `Params#bind`, `Params#repeated?`: the parameter names bound so far.
+        @bound = nil
+        # `Sends#funcall`: the sends that a bare name turned into a funcall.
+        @funcalls = nil
+        # `Regions#landing`: this scope's own landing block, made on first use.
+        @landing = nil
+        # `Iterators#loop_in_place`: the inline scope and record of the
+        # block body that runs inline, while it runs.
+        @inline_scope = nil
+        @line_rec = nil
+        # `Inline#inline_body`: the callee's self and parameters, and
+        # where its body exits, while a copy of it runs at the site.
+        @inline_locals = nil
+        @inline_exit = nil
+        @inline_bail = nil
+        @inlining = nil
       end
 
       def lower

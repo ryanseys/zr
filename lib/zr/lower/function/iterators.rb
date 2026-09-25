@@ -33,6 +33,10 @@ module Zr
 
           def initialize(slots)
             @slots = slots
+            # An inline scope is never a raw block's own scope, so this
+            # never becomes anything else; kept nil rather than left
+            # unset, for the same ivar shape as `Function#raw_block`.
+            @raw_block = nil
           end
 
           def slot_index(node)
