@@ -647,4 +647,56 @@ describe "Array: enumeration" do
 
     _(result).must_answer "5.0\n29.0\n"
   end
+
+  it "cycle stops once the block empties the array" do
+    result = zr(<<~'RUBY')
+      a = [1, 2, 3]
+      n = 0
+      a.cycle { n += 1; a.clear }
+      p n
+      a = [1, 2, 3]
+      r = []
+      a.cycle(5) { |x| r << x; a.shift if r.size == 2 }
+      p r
+      p [1, 2].cycle(-1) { raise "never" }
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      1
+      [1, 2, 2, 3, 2, 3, 2, 3, 2, 3]
+      nil
+    OUT
+  end
+
+  it "reverse_each, rindex, fill and combination while the block changes the array" do
+    result = zr(<<~'RUBY')
+      a = [1, 2, 3]
+      r = []
+      a.reverse_each { |c| r << c; a.clear }
+      p r
+      a = [1, 2, 3, 4]
+      r = []
+      p a.rindex { |c| r << c; a.pop; false }, r
+      a = [1, 2, 3, 4]
+      a.fill { |i| a.pop; i }
+      p a
+      a = [1, 2, 3]
+      r = []
+      a.combination(2) { |c| r << c; a.clear }
+      p r
+      a = [1, 2, 3]
+      r = []
+      a.permutation(2) { |c| r << c; a.clear }
+      p r.size
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [3]
+      nil
+      [4, 3, 2, 1]
+      [0]
+      [[1, 2], [1, 3], [2, 3]]
+      6
+    OUT
+  end
 end

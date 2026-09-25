@@ -81,8 +81,11 @@ class Hash
   def select
     return to_enum(__callee__) { size } unless block_given?
 
+    # rb_hash_select walks a copy and deletes from it, so the block can
+    # change the receiver.
     out = identity_shaped
-    Primitive.zr_hash_foreach(self) { |k, v| out[k] = v if yield(k, v) }
+    Primitive.zr_hash_foreach(self) { |k, v| out[k] = v }
+    Primitive.zr_hash_foreach(out) { |k, v| Primitive.zr_hash_delete_m(out, k) unless yield(k, v) }
     out
   end
   alias filter select
@@ -91,7 +94,8 @@ class Hash
     return to_enum(:reject) { size } unless block_given?
 
     out = identity_shaped
-    Primitive.zr_hash_foreach(self) { |k, v| out[k] = v unless yield(k, v) }
+    Primitive.zr_hash_foreach(self) { |k, v| out[k] = v }
+    Primitive.zr_hash_foreach(out) { |k, v| Primitive.zr_hash_delete_m(out, k) if yield(k, v) }
     out
   end
 

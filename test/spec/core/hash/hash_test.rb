@@ -2371,4 +2371,19 @@ describe "Hash programs" do
       [:count, "wrong number of arguments (given 1, expected 2)"]
     OUT
   end
+
+  it "select and reject walk a copy while the block deletes" do
+    result = zr(<<~'RUBY')
+      h = {a: 1, b: 2, c: 3}
+      p h.select { h.delete(:c); true }, h
+      h = {a: 1, b: 2, c: 3}
+      p h.reject { |k, v| h.delete(:c); v == 1 }
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      {a: 1, b: 2, c: 3}
+      {a: 1, b: 2}
+      {b: 2, c: 3}
+    OUT
+  end
 end

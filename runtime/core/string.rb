@@ -49,6 +49,9 @@ class String
 
   def each_char
     return to_enum(:each_char) { Primitive.zr_str_length_m(self) } unless block_given?
+    # rb_str_each_char walks a frozen copy, so the block can change the
+    # receiver.
+    return String.new(self).freeze.each_char { |c| yield c } unless frozen?
 
     i = 0
     while i < Primitive.zr_str_bytesize(self)
@@ -715,6 +718,7 @@ class String
     out = nil
     start = 0
     last = nil
+    len = Primitive.zr_str_bytesize(self)
     while start <= Primitive.zr_str_bytesize(self) && (match = first_match(pattern, start))
       out ||= OWN[:force_encoding].bind_call(+"", Encoding.at(Primitive.zr_str_encoding_index_m(self)))
       last = match
@@ -722,6 +726,8 @@ class String
       from = match.send(:begin_at, 0)
       to = match.send(:end_at, 0)
       val = replacement_for(match, replacement, regexp, &block)
+      # str_mod_check: a block or a Hash must leave the receiver as it was.
+      modified_check(len) unless replacement.is_a?(String)
       out.send(:buf_cat, byteslice_of(start, from - start)) if from > start
       out.send(:buf_cat, val)
       start = to
@@ -1268,7 +1274,9 @@ class String
       item = offsets.size > 3 ? (1...(offsets.size - 1) / 2).map { |i| slice_at(offsets[i * 2 + 1], offsets[i * 2 + 2]) } : slice_at(from, to)
       if block_given?
         Primitive.zr_backref_set(MatchData.send(:for, pattern, self, offsets))
+        len = Primitive.zr_str_bytesize(self)
         yield item
+        modified_check(len)
       else
         found << item
       end
@@ -1280,6 +1288,13 @@ class String
       Primitive.zr_backref_set(nil)
     end
     block_given? ? self : found
+  end
+
+  # str_mod_check: the RuntimeError of a block that changed the receiver
+  # while scan or gsub walked it.
+  def modified_check(len)
+    Primitive.attr! :hidden
+    raise RuntimeError, +"string modified" if Primitive.zr_str_bytesize(self) != len
   end
 
   # The bytes from `from` to `to`, or nil for a group that did not take

@@ -76,6 +76,10 @@ class Integer
     return Complex(self, 0)**other if other.is_a?(Complex)
     return Primitive.zr_num_coerce_m(self, other, :**, 0) unless other.is_a?(Integer)
     return Rational(1, 1) / (self**-other) if other < 0
+    return 1 if self == 1 || other == 0
+    return other.odd? ? -1 : 1 if self == -1
+    return 0 if self == 0
+    raise ArgumentError, +"exponent is too large" if pow_too_large?(other)
 
     result = 1
     base = self
@@ -88,6 +92,37 @@ class Integer
     result
   end
 
+  # rb_big_pow refuses a result of more than 2**34 bits: an exponent that
+  # is a Bignum, or bits(x) * y past the limit. A Fixnum base first goes
+  # through int_pow, which squares it while it fits in a long, so the
+  # check reads x and y where int_pow passes them on.
+  def pow_too_large?(y)
+    Primitive.attr! :hidden
+    fixnum = -(1 << 62)...(1 << 62)
+    return true unless fixnum.cover?(y)
+    return false if y <= 1
+
+    x = abs
+    if fixnum.cover?(x)
+      z = y.odd? ? x : 1
+      y &= ~1
+      loop do
+        while y.even?
+          return x.bit_length * y > (1 << 34) unless x < 3_037_000_499
+
+          x *= x
+          y >>= 1
+        end
+        return x.bit_length * y > (1 << 34) unless fixnum.cover?(x * z)
+
+        z *= x
+        y -= 1
+        return false if y == 0
+      end
+    end
+    x.bit_length * y > (1 << 34)
+  end
+
   def pow(exponent, modulus = nil)
     return self**exponent if modulus.nil?
     raise TypeError, +"Integer#pow() 2nd argument not allowed unless a 1st argument is integer" unless exponent.is_a?(Integer)
@@ -95,7 +130,7 @@ class Integer
     raise ZeroDivisionError, +"divided by 0" if modulus.zero?
     raise RangeError, +"Integer#pow() 1st argument cannot be negative when 2nd argument specified" if exponent < 0
 
-    result = 1
+    result = 1 % modulus
     base = self % modulus
     n = exponent
     while n > 0

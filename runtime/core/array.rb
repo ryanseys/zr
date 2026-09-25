@@ -334,7 +334,9 @@ class Array
     if k == 0
       yield []
     elsif k > 0 && !(Primitive.zr_ary_len_m(self) == 0)
-      pick_repeated(k, 0, []) { |c| yield c }
+      # rb_ary_repeated_combination walks a private copy when k > 1, so
+      # the block can change the receiver.
+      (k == 1 ? self : Array.new(self)).__send__(:pick_repeated, k, 0, []) { |c| yield c }
     end
     self
   end
@@ -353,7 +355,7 @@ class Array
     if k == 0
       yield []
     elsif k > 0 && !(Primitive.zr_ary_len_m(self) == 0)
-      place_repeated(k, []) { |c| yield c }
+      (k == 1 ? self : Array.new(self)).__send__(:place_repeated, k, []) { |c| yield c }
     end
     self
   end
@@ -365,7 +367,7 @@ class Array
     if k == 0
       yield []
     elsif k > 0 && k <= Primitive.zr_ary_len_m(self)
-      combine(k, 0, []) { |c| yield c }
+      (k == 1 ? self : Array.new(self)).__send__(:combine, k, 0, []) { |c| yield c }
     end
     self
   end
@@ -377,7 +379,7 @@ class Array
     if k == 0
       yield []
     elsif k > 0 && k <= Primitive.zr_ary_len_m(self)
-      permute(k, [], Array.new(Primitive.zr_ary_len_m(self), false)) { |c| yield c }
+      (k == 1 ? self : Array.new(self)).__send__(:permute, k, [], Array.new(Primitive.zr_ary_len_m(self), false)) { |c| yield c }
     end
     self
   end
@@ -810,9 +812,13 @@ class Array
   def reverse_each
     return to_enum(:reverse_each) { Primitive.zr_ary_len_m(self) } unless block_given?
 
+    # rb_ary_reverse_each: a block that shortens the array moves the
+    # walk to the new end.
     i = Primitive.zr_ary_len_m(self) - 1
     while i >= 0
       yield Primitive.zr_ary_aref1_m(self, i)
+      len = Primitive.zr_ary_len_m(self)
+      i = len if len < i
       i -= 1
     end
     self
@@ -1016,9 +1022,19 @@ class Array
     raise ArgumentError, +"argument too big" if first >= max || len > max - first
 
     stop = first + len
+    # rb_ary_fill sets the new length before the first yield.
+    Primitive.zr_ary_aset_at(self, stop - 1, nil) if block_given? && stop > Primitive.zr_ary_len_m(self)
     i = first
     while i < stop
-      Primitive.zr_ary_aset_at(self, i, block_given? ? yield(i) : value)
+      if block_given?
+        # rb_ary_fill stops at a block that shortens the array past i.
+        v = yield(i)
+        break if i >= Primitive.zr_ary_len_m(self)
+
+        Primitive.zr_ary_aset_at(self, i, v)
+      else
+        Primitive.zr_ary_aset_at(self, i, value)
+      end
       i += 1
     end
     self
@@ -1048,6 +1064,13 @@ class Array
     while i >= 0
       return i if block_given? ? yield(Primitive.zr_ary_aref1_m(self, i)) : Primitive.zr_rb_equal(Primitive.zr_ary_aref1_m(self, i), v)
 
+      # rb_ary_rindex: a shorter array moves the walk to its new end.
+      len = Primitive.zr_ary_len_m(self)
+      if i > len
+        break unless block_given?
+
+        i = len
+      end
       i -= 1
     end
     nil
@@ -1056,10 +1079,14 @@ class Array
   def cycle(n = nil)
     return to_enum(:cycle, *[n].compact) { n.nil? ? ((Primitive.zr_ary_len_m(self) == 0) ? 0 : Float::INFINITY) : Primitive.zr_ary_len_m(self) * n } unless block_given?
 
-    if n.nil?
-      loop { walked { |x| yield x } } unless Primitive.zr_ary_len_m(self) == 0
-    else
-      Primitive.zr_index_operand_m(n).times { walked { |x| yield x } }
+    # rb_ary_cycle: each round starts only while the array is not empty,
+    # so a block that empties it ends the cycle.
+    rounds = n.nil? ? -1 : Primitive.zr_index_operand_m(n)
+    return nil if rounds < 0 && !n.nil?
+
+    while Primitive.zr_ary_len_m(self) > 0 && rounds != 0
+      rounds -= 1 if rounds > 0
+      walked { |x| yield x }
     end
     nil
   end

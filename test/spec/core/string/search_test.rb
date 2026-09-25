@@ -740,4 +740,31 @@ describe "String: searching and matching" do
       false
     OUT
   end
+
+  it "each_char walks a copy, and scan and gsub raise when the block changes the string" do
+    result = zr(<<~'RUBY')
+      s = "abc".dup
+      r = []
+      s.each_char { |c| r << c; s.clear }
+      p r
+      begin
+        s = "abc".dup
+        s.gsub(/./) { s.clear; "x" }
+      rescue RuntimeError => e
+        p e.message
+      end
+      begin
+        s = "abc".dup
+        s.scan(/./) { s << "d" }
+      rescue RuntimeError => e
+        p e.message
+      end
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      ["a", "b", "c"]
+      "string modified"
+      "string modified"
+    OUT
+  end
 end

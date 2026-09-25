@@ -2049,4 +2049,26 @@ describe "Numeric: arithmetic" do
       a File dup reads:   abc
     OUT
   end
+
+  it "** refuses an exponent past ruby's limit, and pow with a modulus of one is zero" do
+    result = zr(<<~'RUBY')
+      def t = (yield rescue $!.message)
+      p t { 2**(2**40) }, t { 3**(2**64) }, t { (2**70)**(2**30) }
+      p 1**(2**64), (-1)**(2**64 + 1), 0**(2**64)
+      p 5.pow(0, 1), 5.pow(0, -1), 5.pow(0, -5), 2.pow(3, -5)
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "exponent is too large"
+      "exponent is too large"
+      "exponent is too large"
+      1
+      -1
+      0
+      0
+      0
+      -4
+      -2
+    OUT
+  end
 end
