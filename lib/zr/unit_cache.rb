@@ -2,6 +2,7 @@
 
 require "digest/sha2"
 require_relative "paths"
+require_relative "settled"
 
 module Zr
   # A file's assembled machine code, kept between builds.

@@ -10,6 +10,7 @@ require_relative "hir"
 require_relative "lower"
 require_relative "unit_cache"
 require_relative "clock"
+require_relative "settled"
 
 module Zr
   # The zr runtime: the kernel files, the core library written in Ruby on
@@ -29,12 +30,6 @@ module Zr
   def self.require_onig
     ONIG_NAMES.each { |name| require File.join(Paths::RUNTIME, "core/#{name}.rb") }
   end
-
-  # The cache directory for the runtime's build output. Its files are
-  # keyed on the digest of all their inputs: the runtime sources and the
-  # compiler. Each bootstrap stage uses its own cache, so it emits the
-  # runtime itself and does not read another stage's output.
-  def self.cache = Paths.cache
 
   # The kernel and the core library, lowered once per process, and only
   # as much as a build needs. A program's lowering reads the kernel's
@@ -75,7 +70,7 @@ module Zr
     def raw = @raw || unit.raw
 
     # The runtime object in the cache (`Native::Build.runtime_object`).
-    def object_path = File.join(Zr.cache, "runtime-#{digest}.o")
+    def object_path = File.join(Paths.cache, "runtime-#{digest}.o")
 
     def digest
       # The target is the first input, so two targets never share build
@@ -112,7 +107,7 @@ module Zr
     # computed again.
     def gem_prelude_files
       @gem_prelude_files ||= begin
-        path = File.join(Zr.cache, "gem-prelude-#{digest_of(sources.keys)}.json")
+        path = File.join(Paths.cache, "gem-prelude-#{digest_of(sources.keys)}.json")
         files = JSON.parse(File.read(path)) if File.exist?(path)
         unless files&.all? { |file| File.file?(file) }
           files = [GEM_PRELUDE, *Zr.gem_prelude(target).units.map(&:file).select { |file| File.file?(file) }].uniq.sort
@@ -171,7 +166,7 @@ module Zr
       @cached ||= read_cached || write_cached
     end
 
-    def cache_path = File.join(Zr.cache, "symbols-#{digest}.json")
+    def cache_path = File.join(Paths.cache, "symbols-#{digest}.json")
 
     def read_cached
       return unless File.exist?(cache_path)
@@ -260,8 +255,8 @@ module Zr
     # The cache files of eval support: the object, by the key in its
     # metadata, and the metadata, by the runtime's digest and the kind
     # of eval (`jit` or `walk`). `zr-dev cache prune` reads these too.
-    def self.object_path(key) = File.join(Zr.cache, "eval-#{key}.o")
-    def self.meta_path(runtime, kind) = File.join(Zr.cache, "eval-#{runtime.digest}-#{kind}.json")
+    def self.object_path(key) = File.join(Paths.cache, "eval-#{key}.o")
+    def self.meta_path(runtime, kind) = File.join(Paths.cache, "eval-#{runtime.digest}-#{kind}.json")
 
     def functions = lowered.fetch(:functions)
     def data = lowered.fetch(:data)
@@ -327,7 +322,7 @@ module Zr
     # So an earlier build's code for a unit is correct for this build.
     # The cache key includes the table that fixes the ids: the runtime's,
     # or the larger eval support table for a program with eval.
-    units = finish && UnitCache.for(hir, dir: Zr.cache, runtime: rt.digest, table: hir.evals ? support.key : "rt",
+    units = finish && UnitCache.for(hir, dir: Paths.cache, runtime: rt.digest, table: hir.evals ? support.key : "rt",
                                          entries: Lower.entries_of("zr_toplevel", hir.units))
     lower = Lower.new(hir, rt.description, symbols, target: target, fixed: symbols.ids.dup.freeze, units: units || nil)
     functions, data = Zr.clock(finish ? "program lowered and assembled" : "program lowered") do
@@ -452,23 +447,6 @@ module Zr
     end.hexdigest
   end
 
-
-  # A source file that changed after a runtime's digest was computed,
-  # or nil (`Runtime#moved`).
-  def moved
-    (@runtimes || {}).each_value.filter_map(&:moved).first
-  end
-
-  # A build whose sources changed during the build stops before it
-  # caches anything. Its output came from a mix of the bytes that the
-  # digest covers and the new bytes on disk, and no cache key describes
-  # that mix.
-  class SourceChanged < StandardError; end
-
-  def settled!
-    file = moved
-    raise SourceChanged, "#{file} changed while this build ran; nothing it built is kept -- run it again" if file
-  end
 
   # Writes `content` to `path` in the cache atomically, so a parallel
   # build never reads a half-written file. Writes nothing if a source

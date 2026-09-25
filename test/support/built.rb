@@ -51,7 +51,7 @@ module Zr
       # mark file last, after every cache file is written.
       def built?(target) = File.exist?(mark(target))
 
-      def mark(target) = File.join(Zr.cache, "built-#{Zr.runtime(target).digest}.ok")
+      def mark(target) = File.join(Zr::Paths.cache, "built-#{Zr.runtime(target).digest}.ok")
 
       # Reads the caches of `target` into this process one time.
       def load(target)
@@ -88,6 +88,7 @@ module Zr
         say&.puts("building the zr runtime for #{target.triple} (a few minutes after a change under lib/ or runtime/)")
         Process.fork do
           ENV["ZR_JOBS"] = jobs.to_s
+          Config.reset!
           began = Process.clock_gettime(Process::CLOCK_MONOTONIC)
           target.link ? build_binary(target) : build_module(target)
           say&.puts(format("built the zr runtime for %s in %.1f s (cache: %s)",
@@ -98,7 +99,7 @@ module Zr
       # The cache directory, relative to the working directory when it
       # is below it.
       def cache_dir
-        dir = Zr.cache
+        dir = Zr::Paths.cache
         dir.start_with?(File.join(Dir.pwd, "")) ? dir.delete_prefix(File.join(Dir.pwd, "")) : dir
       end
 

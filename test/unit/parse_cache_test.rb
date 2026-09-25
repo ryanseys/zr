@@ -44,7 +44,7 @@ class ParseCacheTest < Minitest::Test
     files = ParseCache.parser_files
     [
       "runtime/ext/prism/ruby/parser/core.rb", "runtime/ext/prism/ruby/lexer.rb", "runtime/ext/prism/ruby/ast.rb", "runtime/ext/prism/prism.rb",
-      "lib/zr/prism_backend/prism/prism.rb", "lib/zr/prism.rb", "lib/zr/parse_cache.rb"
+      "lib/zr/prism_shim/prism/prism.rb", "lib/zr/prism.rb", "lib/zr/parse_cache.rb"
     ].each { |path| assert_includes files, File.join(ROOT, path) }
     gem = $LOAD_PATH.resolve_feature_path("prism").last
     assert_includes files, gem

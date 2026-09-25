@@ -4,16 +4,13 @@ require "etc"
 require_relative "flags"
 
 module Zr
-  # The `ZR_*` environment variables that steer a build, read once. Not a
-  # `Data` or a `Struct`: the compiled compiler runs those slowly today,
-  # and this is on the path of every build. `Config.current` reads the
-  # environment on first use; every later call in the same process gets
-  # that same frozen instance, so one build sees one consistent set of
-  # settings even if something changes `ENV` afterward.
-  #
-  # A caller still reads `ENV` directly today (this only collects the
-  # variables and their parsing in one place); a later change moves those
-  # callers to `Config.current`.
+  # The `ZR_*` environment variables that steer a build, read once.
+  # `Config.current` reads the environment on first use; every later call
+  # in the same process gets that same frozen instance, so one build sees
+  # one consistent set of settings even if something changes `ENV`
+  # afterward. Code reads a `ZR_*` variable only through this class.
+  # (`ZR_BINARY` and `ZR_COMPILED` are the exception: `CompiledCompiler`
+  # reads them before it loads anything else.)
   class Config
     # `ZR_LINKER`: `auto` (zr's own linker, and cc for what it cannot
     # link), `ruby` (zr's linker only) or `cc`. Empty or unset is `auto`.
@@ -25,6 +22,7 @@ module Zr
       @linker = ENV["ZR_LINKER"].to_s.empty? ? "auto" : ENV["ZR_LINKER"]
       raise ArgumentError, "ZR_LINKER=#{@linker}: use #{LINKERS.join(", ")}" unless LINKERS.include?(@linker)
 
+      @jobs_given = ENV.key?("ZR_JOBS")
       @jobs = Integer(ENV.fetch("ZR_JOBS") { [Etc.nprocessors, 6].min })
       # Not exposed as a plain reader: `eval` is a Kernel method, and
       # `eval_walk?` is the only thing anything reads this for.
@@ -57,6 +55,10 @@ module Zr
 
     # `ZR_TUNE=0` keeps ruby's limits and leaves YJIT off.
     def tune? = @tune
+
+    # Whether `ZR_JOBS` sets the worker count. Then it also overrides the
+    # memory limit (`Native::Parallel.afforded`).
+    def jobs_given? = @jobs_given
 
     # The one instance for this process. A later call returns the same
     # instance; `reset!` and `with` are the only way to get a new one.

@@ -3,6 +3,7 @@
 require "digest/sha2"
 require_relative "paths"
 require_relative "prism"
+require_relative "settled"
 require "zr/eval/runtime" unless Zr::HOSTED
 
 module Zr
@@ -28,7 +29,7 @@ module Zr
     # The files of the parser: these, and every Ruby file under the trees.
     GEM = File.join(Paths::VENDOR, "ext/prism/lib")
     FILES = [File.join(Paths::RUNTIME, "ext/prism/prism.rb"), File.join(__dir__, "prism.rb"), __FILE__, File.join(GEM, "prism.rb")].freeze
-    TREES = [File.join(Paths::RUNTIME, "ext/prism/ruby"), File.join(__dir__, "prism_backend"), File.join(GEM, "prism")].freeze
+    TREES = [File.join(Paths::RUNTIME, "ext/prism/ruby"), File.join(__dir__, "prism_shim"), File.join(GEM, "prism")].freeze
 
     # The maximum source bytes whose parses a process keeps. A tree in
     # memory is tens of times the size of its source, so this is only a
@@ -206,9 +207,9 @@ module Zr
     # process parses with the code that it loaded, but the key identifies
     # the files on disk.
     def write(path, bytes)
-      Zr.settled! if Zr.respond_to?(:settled!)
+      Zr.settled!
       moved = (@stamps || {}).find { |file, was| Paths.stamp(file) != was }
-      raise (defined?(Zr::SourceChanged) ? Zr::SourceChanged : RuntimeError), "#{moved.first} changed while this build ran; nothing it parsed is kept" if moved
+      raise SourceChanged, "#{moved.first} changed while this build ran; nothing it parsed is kept" if moved
 
       Paths.write_atomic(path, bytes)
     end

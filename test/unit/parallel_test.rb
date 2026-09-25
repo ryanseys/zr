@@ -62,8 +62,8 @@ class ParallelTest < Minitest::Test
   end
 
   def test_zr_jobs_overrules_the_memory_bound
-    with_env("ZR_JOBS" => "6") do
-      on_a_machine_of(16) { assert_equal 6, holding(10) { Parallel.afforded(6) } }
+    on_a_machine_of(16) do
+      Zr::Config.with(ZR_JOBS: "6") { |_| assert_equal 6, holding(10) { Parallel.afforded(6) } }
     end
   end
 
@@ -71,7 +71,10 @@ class ParallelTest < Minitest::Test
 
   Parallel = Zr::Native::Parallel
 
-  def on_a_machine_of(gigabytes, &block) = stub_method(Parallel, :machine_bytes, -> { gigabytes << 30 }, &block)
+  # With no `ZR_JOBS`, which overrides the memory bound.
+  def on_a_machine_of(gigabytes, &block)
+    Zr::Config.with(ZR_JOBS: nil) { |_| stub_method(Parallel, :machine_bytes, -> { gigabytes << 30 }, &block) }
+  end
 
   def holding(gigabytes, &block) = stub_method(Parallel, :held_bytes, -> { gigabytes << 30 }, &block)
 end

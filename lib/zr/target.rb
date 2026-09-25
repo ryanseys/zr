@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require_relative "config"
+
 module Zr
   # A target that zr emits code for: its instruction set, its OS, its
   # object format, and the facts that a build reads from them. The gem
@@ -93,7 +95,7 @@ module Zr
     # selects the system linker. All other links run the target's C
     # compiler driver: the host's own or a cross toolchain's.
     def linkable?
-      return true if link == :darwin && ENV["ZR_LINKER"] != "cc"
+      return true if link == :darwin && Config.current.linker != "cc"
 
       !tool("cc").nil?
     end

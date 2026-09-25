@@ -56,7 +56,7 @@ module Zr
         end
       end
 
-      def directory = File.join(Zr.cache, "binaries")
+      def directory = File.join(Zr::Paths.cache, "binaries")
 
       def limit = Float(ENV.fetch("ZR_TEST_BINARIES_GB", 8)) * (1 << 30)
 
@@ -207,7 +207,7 @@ module Zr
         File.open(kept, "rb") do |file|
           head = Marshal.load(file.read(file.read(8).to_s.unpack1("Q<").to_i))
           src = StringIO.new(Zlib::Inflate.inflate(file.read))
-          objects = head.fetch(:objects).map { |name| File.join(Zr.cache, name) }
+          objects = head.fetch(:objects).map { |name| File.join(Zr::Paths.cache, name) }
           base = Native::Build.prelink(objects)
           holes = head.fetch(:holes)
           text = base.blobs.fetch(:text)

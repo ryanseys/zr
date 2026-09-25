@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require_relative "../prism"
+require_relative "../parse"
 require_relative "../ir"
 require_relative "../obj/model"
 require_relative "../refused"
@@ -43,7 +43,8 @@ module Zr
     end
 
     # Several files as one unit: every declaration is visible to every
-    # file, in any order, and a def may call a def of any file.
+    # file, in any order, and a def may call a def of any file. Only the
+    # tests use it; a build uses `Machine.unit`.
     def self.compile_unit(paths, symbols: Symbols.new)
       unit(paths, symbols: symbols).then { |u| [u.functions, u.data, u.raw] }
     end
@@ -534,7 +535,8 @@ module Zr
       def declared_consts = @consts.keys
       def declared_structs = @structs.keys
 
-      # The file that declares the constant `name`.
+      # The file that declares the constant `name`. Only the tests use it
+      # (test/unit/os_api_test.rb).
       def const_file(name) = @consts.fetch(name).last
 
       # A constant's value. It is folded on first use, so a declaration

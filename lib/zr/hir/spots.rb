@@ -19,7 +19,9 @@ module Zr
     module Spots
       # Spotter reads the file's lines once per spot, and prism splits the
       # source again each time. A compiled file's source never changes, so
-      # keep the lines.
+      # keep the lines. `ErrorHighlight.spot` takes only the node and reads
+      # the lines through the node's `Prism::Source`, so the lines can be
+      # kept only there.
       module Lines
         def lines = @lines ||= super
       end
@@ -93,6 +95,9 @@ module Zr
         end
       end
 
+      # Spotter raises for a form that it does not know. A spot only
+      # adds a highlight to an error message, so a failed spot is no spot,
+      # and it must not stop the build.
       def spot(node, point, name)
         name ||= node.binary_operator if node.type == :call_operator_write_node
         ErrorHighlight.spot(node, point_type: point, name: name)

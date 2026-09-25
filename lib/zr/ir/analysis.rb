@@ -113,6 +113,7 @@ module Zr
       end
 
       # The number of loops that contain `block`: 0 when outside all loops.
+      # Only the tests use it (test/unit/analysis_test.rb).
       def depth_of(block)
         loops unless @depth
         @depth.fetch(block, 0)

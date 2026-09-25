@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require "digest/sha2"
-require "etc"
 require "json"
 require_relative "../ir"
 require_relative "../ir/passes"
@@ -17,6 +16,7 @@ require_relative "../obj/macho/prelink"
 require_relative "../machine/lower"
 require_relative "../runtime"
 require_relative "../clock"
+require_relative "../config"
 require_relative "parallel"
 
 module Zr
@@ -28,13 +28,6 @@ module Zr
     # no link step.
     module Build
       module_function
-
-      # The linker that writes a binary (`ZR_LINKER`): `auto` (zr's linker,
-      # and cc for what zr cannot link), `ruby` (zr's linker only) or `cc`.
-      LINKERS = %w[auto ruby cc].freeze
-      LINKER = (ENV["ZR_LINKER"].to_s.empty? ? "auto" : ENV["ZR_LINKER"]).tap do |name|
-        raise ArgumentError, "ZR_LINKER=#{name}: use #{LINKERS.join(", ")}" unless LINKERS.include?(name)
-      end
 
       # A unit with fewer IR instructions than this assembles in this
       # process. For a program's own functions, a worker costs more than
@@ -52,7 +45,7 @@ module Zr
       # from the parent's memory, which is about 100 times larger for the
       # compiled compiler than for the compiler under ruby. `ZR_JOBS`
       # overrides both limits; the table above was measured with it.
-      def jobs = Integer(ENV.fetch("ZR_JOBS") { [Etc.nprocessors, 6].min })
+      def jobs = Config.current.jobs
 
       # The native backend for `target`.
       def backend(target)
@@ -74,7 +67,7 @@ module Zr
       # prebuilt objects to link with this one. `strip` removes code that
       # nothing calls. `linker` (`ZR_LINKER`) selects the linker when the
       # target has more than one.
-      def binary(functions, data, out, work:, raw: [], assembled: [], objects: [], strip: false, linker: LINKER, target: Target.default, jobs: Build.jobs)
+      def binary(functions, data, out, work:, raw: [], assembled: [], objects: [], strip: false, linker: Config.current.linker, target: Target.default, jobs: Build.jobs)
         image = unit(functions, data, raw: raw, assembled: assembled, export: !objects.empty?, target: target, jobs: jobs)
         linker(target).link(image, out, work: work, objects: objects, strip: strip, linker: linker, target: target)
       rescue Backend::Refused => e
@@ -142,11 +135,11 @@ module Zr
       # the linker's own files, which the object digests do not include
       # on purpose.
       def prelink_path(objects)
-        cache = File.expand_path(Zr.cache)
+        cache = File.expand_path(Paths.cache)
         return nil if objects.empty? || objects.any? { |o| File.dirname(File.expand_path(o)) != cache }
 
         key = Digest::SHA256.hexdigest([*objects.map { |o| File.basename(o) }, Zr.link_digest].join("\n"))
-        File.join(Zr.cache, "prelink-#{key}.bin")
+        File.join(Paths.cache, "prelink-#{key}.bin")
       end
 
       # The cache path of the skeleton of `objects`, next to their prelink.
@@ -278,7 +271,7 @@ module Zr
       # shares the one copy. A build never writes to it.
       def wasm_prelude(runtime, pending, support = nil)
         key = Digest::SHA256.hexdigest("#{runtime.digest}\n#{support&.key}\n#{pending.inspect}")
-        path = File.join(Zr.cache, "wasm-#{key}.marshal")
+        path = File.join(Paths.cache, "wasm-#{key}.marshal")
         kept = (@wasm_preludes ||= {})[path] ||= File.exist?(path) && Marshal.load(File.binread(path))
         return kept if kept
 

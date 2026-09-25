@@ -3,7 +3,7 @@
 require "rbconfig"
 require_relative "version"
 require_relative "paths"
-require_relative "flags"
+require_relative "config"
 require_relative "target"
 
 module Zr
@@ -89,7 +89,7 @@ module Zr
     GC_ENV = { "RUBY_GC_MALLOC_LIMIT" => "64000000", "RUBY_GC_OLDMALLOC_LIMIT" => "128000000" }.freeze
 
     def tune!(script = nil)
-      return unless Zr.flag?("ZR_TUNE", default: true)
+      return unless Config.current.tune?
 
       if !ENV.key?("RUBY_GC_MALLOC_LIMIT") && !Zr.compiled?
         ENV.update(GC_ENV)

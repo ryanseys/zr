@@ -2,6 +2,7 @@
 
 require "etc"
 require_relative "resident"
+require_relative "../config"
 
 module Zr
   module Native
@@ -59,7 +60,7 @@ module Zr
       # `ZR_JOBS` overrides this limit. Use it to measure an entry of the
       # table above `Build.jobs`.
       def afforded(jobs)
-        return jobs if ENV.key?("ZR_JOBS")
+        return jobs if Config.current.jobs_given?
 
         held = held_bytes
         return jobs if held.zero?
@@ -78,6 +79,9 @@ module Zr
         Resident.bytes_of(Process.pid) || heap_bytes
       end
 
+      # Zero if the collector does not give its heap: then the worker
+      # count is not limited by memory. Only an estimate, so a failure
+      # must not stop the build.
       def heap_bytes
         GC.stat_heap.sum { |_, pool| pool[:heap_eden_slots].to_i * pool[:slot_size].to_i } + GC.stat(:malloc_increase_bytes).to_i
       rescue StandardError, NotImplementedError
@@ -86,6 +90,8 @@ module Zr
 
       # Returns the physical memory. POSIX gives it on macOS and on musl.
       # When the system does not give it, this assumes a small machine (8 GB).
+      # (A system without these sysconf names raises NameError or
+      # NotImplementedError, and one with them can raise SystemCallError.)
       def machine_bytes
         Etc.sysconf(Etc::SC_PHYS_PAGES) * Etc.sysconf(Etc::SC_PAGE_SIZE)
       rescue StandardError, NotImplementedError

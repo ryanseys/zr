@@ -56,6 +56,8 @@ module Zr
         @data = []
       end
 
+      # `function` and `datum` add one item and return the unit, so a test
+      # builds a unit in one expression (test/support/obj_unit.rb).
       def function(name, bytes, **opts)
         @functions << Function.new(name, bytes, **opts)
         self

@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# These plain requires resolve only inside a zr binary, where the
+# runtime's extensions are on the load path (runtime/ext/zr). Under ruby,
+# nothing loads this file.
 require "zr/eval/runtime"
 require "zr/eval/forms"
 require_relative "ir/passes"

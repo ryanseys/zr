@@ -48,7 +48,7 @@ module Zr
       end
 
       # The directory whose prism/prism.rb is used in place of the C extension.
-      RUBY_BACKEND = File.join(ROOT, "lib/zr/prism_backend")
+      RUBY_BACKEND = File.join(ROOT, "lib/zr/prism_shim")
 
       # The counts of one test file, as test-unit reports them.
       TestRun = Struct.new(:file, :tests, :assertions, :failures, :errors, :pendings, :omissions, :output) do

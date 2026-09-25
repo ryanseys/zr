@@ -2,6 +2,7 @@
 
 require "rbconfig"
 require_relative "paths"
+require_relative "config"
 
 module Zr
   # The pure-Ruby libraries that a program's `require` reads: ruby 4.0.6's
@@ -117,9 +118,10 @@ module Zr
 
     def manifest_path = File.join(dir, "manifest-#{GEM_ENV.map { |name| ENV[name].to_s }.join("\0").sum.to_s(36)}.marshal")
 
+    # The manifest, or nil if it does not load (a partial or an old file).
     def read
       Marshal.load(File.binread(manifest_path)) if File.file?(manifest_path)
-    rescue StandardError
+    rescue SystemCallError, TypeError, ArgumentError, EOFError
       nil
     end
 
@@ -146,7 +148,7 @@ module Zr
     # Resolves the pins in a ruby with rubygems. If it fails, this build
     # fails with its message.
     def resolve
-      ruby = Zr.compiled? ? ENV.fetch("ZR_HOST_RUBY", "ruby") : RbConfig.ruby
+      ruby = Zr.compiled? ? Config.current.host_ruby : RbConfig.ruby
       script = File.join(__dir__, "libraries/resolve.rb")
       out = IO.popen(UNBUNDLED, [ruby, script, dir], err: %i[child out], &:read)
       raise Unresolved, out.strip.sub(/\Azr: /, "") unless $?.success?

@@ -58,13 +58,13 @@ class SourceChangedTest < Minitest::Test
       File.write(@file, "12\n")
       error = assert_raises(Zr::SourceChanged) { Zr.settled! }
       assert_includes error.message, @file
-      assert_raises(Zr::SourceChanged) { Zr.write_cache(File.join(Zr.cache, "moved-probe"), "x") }
-      assert_raises(Zr::SourceChanged) { Zr::ParseCache.write(File.join(Zr.cache, "moved-probe"), "x") }
-      cache = Zr::UnitCache.new(dir: Zr.cache, runtime: "r", table: "t", traced: 0, entries: [])
+      assert_raises(Zr::SourceChanged) { Zr.write_cache(File.join(Zr::Paths.cache, "moved-probe"), "x") }
+      assert_raises(Zr::SourceChanged) { Zr::ParseCache.write(File.join(Zr::Paths.cache, "moved-probe"), "x") }
+      cache = Zr::UnitCache.new(dir: Zr::Paths.cache, runtime: "r", table: "t", traced: 0, entries: [])
       unit = Zr::Hir::Unit.new("probe.rb", [], nil, [], false, nil, false, "1", false)
       assert_raises(Zr::SourceChanged) { cache.keep(unit, "zr_toplevel", [], []) }
-      assert_raises(Zr::SourceChanged) { Zr::Spec::Binaries.keep(File.join(Zr.cache, "moved-probe"), @file, nil, "/nowhere") }
+      assert_raises(Zr::SourceChanged) { Zr::Spec::Binaries.keep(File.join(Zr::Paths.cache, "moved-probe"), @file, nil, "/nowhere") }
     end
-    refute File.exist?(File.join(Zr.cache, "moved-probe"))
+    refute File.exist?(File.join(Zr::Paths.cache, "moved-probe"))
   end
 end

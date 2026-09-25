@@ -2,7 +2,7 @@
 
 
 require_relative "function"
-require_relative "../flags"
+require_relative "../config"
 require_relative "gvn"
 require_relative "licm"
 require_relative "statics"
@@ -74,7 +74,7 @@ module Zr
       # emitter. The dominance and type checks are slow, so a build runs them
       # only when `ZR_VERIFY=1`. The checks that run the IR against the
       # interpreter always run.
-      def prepare(f, strict: Zr.flag?("ZR_VERIFY"))
+      def prepare(f, strict: Config.current.verify?)
         run(f)
         Verify.check(f, strict: strict)
       end

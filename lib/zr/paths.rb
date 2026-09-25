@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "rbconfig"
+require_relative "config"
 
 module Zr
   # Whether this process is a program that zr compiled (the compiled
@@ -76,14 +77,18 @@ module Zr
       File.join(base, "zr")
     end
 
-    # The cache directory for the runtime's build output. A checkout
-    # uses its own tmp/. An installed gem writes nothing under itself.
+    # The cache directory for the runtime's build output (`ZR_CACHE`). A
+    # checkout uses its own tmp/. An installed gem writes nothing under
+    # itself. Its files are keyed on the digest of all their inputs: the
+    # runtime sources and the compiler. Each bootstrap stage uses its own
+    # cache, so it emits the runtime itself and does not read another
+    # stage's output.
     #
     # Computed when a build calls it, not when this file loads. A program
     # with eval support links in this file but never builds. On wasi,
     # `getpwuid` has no wasm form, so reading the home directory at load
     # would stop the module before its first line.
-    def self.cache = @cache ||= ENV["ZR_CACHE"] || (checkout? ? File.join(ROOT, "tmp/cache") : user_cache)
+    def self.cache = @cache ||= Config.current.cache || (checkout? ? File.join(ROOT, "tmp/cache") : user_cache)
 
     # The two functions that the compiler needs from fileutils and tmpdir,
     # without those libraries. A compiled compiler loads a library when it
