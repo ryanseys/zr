@@ -34,7 +34,7 @@ Gem::Specification.new do |spec|
   # The compiler, its runtime and the vendored sources. The tests and
   # the tasks stay in the repository.
   spec.files = IO.popen(%w[git ls-files -z], chdir: __dir__, err: IO::NULL, &:read).split("\x0").select do |file|
-    file.match?(%r{\A(exe|lib|runtime|vendor/(ext|lib|prelude))/}) ||
+    file.match?(%r{\A(exe|lib|licenses|runtime|vendor/(ext|lib|prelude))/}) ||
       %w[LICENSE.txt THIRD_PARTY_NOTICES.md README.md CHANGELOG.md].include?(file)
   end
   spec.bindir = "exe"

@@ -1,0 +1,69 @@
+From CRuby 4.0.7's LEGAL file, word for word.
+
+[enc/trans/GB/GB12345%UCS.src]
+[enc/trans/GB/UCS%GB12345.src]
+[enc/trans/GB/GB2312%UCS.src]
+[enc/trans/GB/UCS%GB2312.src]
+
+  These files have this explanatory texts.
+
+  >>>
+    This mapping data was created from files provided by Unicode, Inc.
+    (The Unicode Consortium). The files were used to create a product supporting
+    Unicode, as explicitly permitted in the files' copyright notices.
+    Please note that Unicode, Inc. never made any claims as to fitness of these
+    files for any particular purpose, and has ceased to publish the files many
+    years ago.
+
+[enc/trans/JIS/JISX0201-KANA%UCS.src]
+[enc/trans/JIS/JISX0208\@1990%UCS.src]
+[enc/trans/JIS/JISX0212%UCS.src]
+[enc/trans/JIS/UCS%JISX0201-KANA.src]
+[enc/trans/JIS/UCS%JISX0208@1990.src]
+[enc/trans/JIS/UCS%JISX0212.src]
+
+  These files are copyrighted as the following.
+
+  >>>
+    © 2015 Unicode®, Inc.
+
+    For terms of use, see http://www.unicode.org/terms_of_use.html
+
+[enc/trans/JIS/JISX0213-1%UCS@BMP.src]
+[enc/trans/JIS/JISX0213-1%UCS@SIP.src]
+[enc/trans/JIS/JISX0213-2%UCS@BMP.src]
+[enc/trans/JIS/JISX0213-2%UCS@SIP.src]
+
+  These files are copyrighted as the following.
+
+  >>>
+    Copyright (C) 2001:: earthian@tama.or.jp, All Rights Reserved.
+    Copyright (C) 2001:: I'O, All Rights Reserved.
+    Copyright (C) 2006:: Project X0213, All Rights Reserved.
+    You can use, modify, distribute this table freely.
+
+[enc/trans/JIS/UCS@BMP%JISX0213-1.src]
+[enc/trans/JIS/UCS@BMP%JISX0213-2.src]
+[enc/trans/JIS/UCS@SIP%JISX0213-1.src]
+[enc/trans/JIS/UCS@SIP%JISX0213-2.src]
+
+  These files are copyrighted as the following.
+
+  >>>
+    Copyright (C) 2001:: earthian@tama.or.jp, All Rights Reserved.
+    Copyright (C) 2001:: I'O, All Rights Reserved.
+    You can use, modify, distribute this table freely.
+
+[enc/trans/ucm/glibc-BIG5-2.3.3.ucm]
+[enc/trans/ucm/glibc-BIG5HKSCS-2.3.3.ucm]
+
+  >>>
+    Copyright (C) 2001-2005:: International Business Machines
+                              Corporation and others.  All Rights Reserved.
+
+[enc/trans/ucm/windows-950-2000.ucm]
+[enc/trans/ucm/windows-950_hkscs-2001.ucm]
+
+  >>>
+    Copyright (C) 2001-2002:: International Business Machines
+                              Corporation and others.  All Rights Reserved.
