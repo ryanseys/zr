@@ -21,9 +21,11 @@ $ bin/test      # runs every tier: unit, spec, e2e
 1. Write a spec that shows the change: see
    [Add your first spec](docs/tutorials/add-your-first-spec.md).
 2. Change the compiler (`lib/`) or the runtime (`runtime/`).
-3. Run the tests that cover the change, for example
-   `bin/test test/spec/core/string`, then `bin/test` before you open a
-   pull request. See [How to run the tests](docs/how-to/run-the-tests.md).
+3. Run the tests that cover the change: `bin/test --changed`, or a
+   path such as `bin/test test/spec/core/string`. Then run `bin/test`
+   before you open a pull request. A full run takes a long time and
+   much memory; `MT_CPU=4` uses fewer workers. See
+   [How to run the tests](docs/how-to/run-the-tests.md).
 4. Add a line to `CHANGELOG.md` under `[Unreleased]`.
 
 ruby 4.0.7 is the reference: a compiled program must print what ruby

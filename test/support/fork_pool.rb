@@ -39,8 +39,18 @@ module Zr
       # Memory limits this number, not cores. A run that swaps does not
       # fail, but takes ten times as long. Ten workers on a 12-core, 16 GB
       # laptop made a 65-second tier take 11 minutes, with 104 false
-      # errors.
-      def self.size = Integer(ENV.fetch("MT_CPU") { [[Etc.nprocessors, gigabytes / WORKER_GB].min, 1].max })
+      # errors. Eight workers (all 16 GB) stopped the whole machine. So
+      # the pool keeps `reserve` GB for the OS and the other programs,
+      # and two cores for the parent and the OS: 6 workers on that laptop.
+      def self.size = Integer(ENV.fetch("MT_CPU") { fit(Etc.nprocessors, gigabytes) })
+
+      def self.fit(cores, gigabytes)
+        [[cores - 2, (gigabytes - reserve(gigabytes)) / WORKER_GB].min, 1].max
+      end
+
+      # The memory that the workers leave free, in GB: a quarter of the
+      # machine, and at least 4 GB.
+      def self.reserve(gigabytes) = [4, gigabytes / 4].max
 
       # The physical memory of this machine, in GB. The POSIX call works
       # on macOS and on musl. If it fails, assume a small machine.
@@ -93,6 +103,9 @@ module Zr
       # pipe of the worker and reads its result, so the pool never gives
       # a job to a busy worker.
       def start
+        unless ENV["MT_CPU"]
+          warn "#{@size} test worker(s) on #{Etc.nprocessors} cores and #{ForkPool.gigabytes} GB (MT_CPU sets the number)"
+        end
         # A worker shares stdout with this process. Flush the reporter
         # output before a fork, or the worker writes it again.
         $stdout.sync = true

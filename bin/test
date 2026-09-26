@@ -7,6 +7,8 @@
 #   bin/test test/unit                  one directory
 #   bin/test test/unit/cli_test.rb      one file; a bare cli_test.rb also works
 #   bin/test test/spec -n /blocks/      minitest options follow the paths
+#   bin/test --changed [--base REV]     the tests that the change against REV
+#                                       (default: main) can reach
 #
 # The tests need the runtime for this host. If it is not built, this
 # script builds it first (see `rake build`).
@@ -22,6 +24,30 @@ require "rbconfig"
 
 root = File.expand_path("..", __dir__)
 test_dir = File.join(root, "test")
+
+# `--changed` asks tool/affected.rb for the paths. A change that reaches
+# everything runs nothing: the full run is a separate decision.
+if (at = ARGV.index("--changed"))
+  ARGV.delete_at(at)
+  base = "main"
+  if (at = ARGV.index("--base"))
+    base = ARGV.delete_at(at + 1) or abort("bin/test: --base takes a revision")
+    ARGV.delete_at(at)
+  end
+  $LOAD_PATH.unshift(File.join(root, "lib"))
+  require File.join(root, "tool/affected")
+  files, plan = Zr::Dev::Affected.test_paths(base)
+  if plan == :all
+    puts "bin/test: the #{files.size} changed file(s) against #{base} reach every test; " \
+         "run bin/test, or name the paths"
+    exit
+  elsif plan.empty?
+    puts "bin/test: no test reaches the #{files.size} changed file(s) against #{base}"
+    exit
+  end
+  puts "bin/test: #{files.size} file(s) changed against #{base}; running #{plan.size} test path(s)"
+  ARGV.unshift(*plan.map { |path| path.delete_prefix("#{root}/") })
+end
 
 # The words up to the first option are paths. The rest go to minitest.
 split = ARGV.index { |word| word.start_with?("-") } || ARGV.size

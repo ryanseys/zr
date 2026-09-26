@@ -94,6 +94,7 @@ $ git clone https://github.com/ryanseys/zr.git
 $ cd zr
 $ bin/setup                        # install the gems and build the runtime (a few minutes)
 $ bin/test test/spec/core/string   # the tests in one directory
+$ bin/test --changed               # the tests that your change can reach
 $ bin/test                         # all the tests: unit, spec, e2e
 ```
 

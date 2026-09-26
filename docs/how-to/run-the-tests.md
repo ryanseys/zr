@@ -85,20 +85,36 @@ the tier's load order runs only under `bin/test`.
 When a run fails, it prints a command that runs each failure again
 alone.
 
-## Run the specs that a change can reach
+## Run the tests that a change can reach
 
 ```console
-$ ruby tool/zr-dev.rb affected
-$ ruby tool/zr-dev.rb affected --base origin/main
+$ bin/test --changed
+$ bin/test --changed --base origin/main
 $ ruby tool/zr-dev.rb affected --dry-run
 ```
 
-`zr-dev affected` reads the diff against `main`, or against `--base`.
-It runs the specs that the changed files can reach, with `bin/test`.
-For a file under `runtime/core`, these are the directory of its class
-and every spec that uses the class name. For a change to the compiler,
-the kernel or the test support, it runs all the specs. `--dry-run`
-prints the spec paths and runs nothing.
+`bin/test --changed` reads the diff against `main`, or against
+`--base`, and runs the tests that the changed files can reach. A
+changed test file runs itself. For a file under `runtime/core`, these
+are the directory of its class and every spec that uses the class
+name. A change to the compiler, the kernel or the test support reaches
+every test: then `bin/test --changed` runs nothing and tells you so,
+because a full run is a decision for you. `zr-dev affected` does the
+same, and `--dry-run` prints the paths and runs nothing.
+
+## Use fewer workers
+
+`bin/test` runs one worker process for each 2 GB of memory. It keeps a
+quarter of the memory (at least 4 GB) and two cores free, and prints
+the number when it starts. A 16 GB, 12-core Mac gets 6 workers. If the
+machine is slow or swaps during a run, set fewer:
+
+```console
+$ MT_CPU=4 bin/test test/spec/core/string
+```
+
+Do not run two tiers or two `bin/test` commands at the same time. Each
+one takes its workers from the same memory.
 
 ## Collect at every allocation
 

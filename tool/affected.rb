@@ -11,7 +11,7 @@ module Zr
     # tests.
     #
     # How a changed file maps to specs:
-    # - A spec file maps to itself.
+    # - A spec or unit test file maps to itself.
     # - A file under `runtime/core` maps to the spec directory of its
     #   class, and to each spec whose program contains the class name. (A
     #   change to String can affect a Hash spec that uses String keys.)
@@ -33,10 +33,17 @@ module Zr
         o.on("--dry-run", "print the spec paths; run nothing") { @dry = true }
       end
 
+      # The files changed against `base`, and the test paths that they
+      # reach (`:all` for everything). `bin/test --changed` reads this.
+      def self.test_paths(base = "main")
+        tool = new("affected")
+        files = tool.changed(base)
+        [files, tool.plan(files)]
+      end
+
       def run(_argv)
         base = @base || "main"
-        files = changed(base)
-        plan = plan(files)
+        files, plan = Affected.test_paths(base)
         if plan == :all
           puts "the change reaches everything (#{files.size} file(s) against #{base}); run bin/test"
         elsif plan.empty?
@@ -61,7 +68,7 @@ module Zr
       # Returns the spec paths that `file` affects, or :all.
       def reached(file)
         case file
-        when %r{\Atest/spec/.*_test\.rb\z} then [file]
+        when %r{\Atest/(spec|unit)/.*_test\.rb\z} then File.exist?(File.join(ROOT, file)) ? [file] : []
         when %r{\Atest/spec/} then [File.dirname(file)]
         when %r{\Alib/zr/}, %r{\Aruntime/kernel/}, %r{\Atest/(support|test_helper|spec_helper)}, %r{\Atool/}, "Rakefile" then :all
         when %r{\Aruntime/core/([^/]+?)(?:/.*)?\.rb\z} then core($1)

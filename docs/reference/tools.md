@@ -13,6 +13,7 @@ steps to run the tests, see [How to run the tests](../how-to/run-the-tests.md).
 |---|---|
 | `bin/setup` | Installs the gems (`bundle install`) and builds the runtime for this host (`rake build`). It tells you if wasmtime is not installed. |
 | `bin/test [paths] [minitest options]` | Runs the tests. With no paths, it runs `test/unit`, then `test/spec`, then `test/e2e`. It builds the runtime first if the runtime is not built. |
+| `bin/test --changed [--base REVISION]` | Runs the tests that the change against `main` (or `--base`) can reach, as `zr-dev affected` finds them. |
 | `bin/console` | Starts IRB with zr loaded. |
 
 A `bin/test` path can be a directory, a file, or a bare file name that
@@ -32,7 +33,7 @@ tasks read them too, because they call `bin/test`.
 | `N=<pattern>` | Runs only the examples whose name matches (minitest `-n`). |
 | `X=<pattern>` | Leaves out the examples whose name matches (minitest `-e`). |
 | `A="<options>"` | Gives other options to minitest. |
-| `MT_CPU=<n>` | The number of worker processes. |
+| `MT_CPU=<n>` | The number of worker processes. The default is one for each 2 GB of memory, with a quarter of the memory (at least 4 GB) and two cores kept free. |
 
 All the test variables are in
 [Environment variables](environment-variables.md#for-the-tests).
@@ -101,7 +102,7 @@ gives more examples.
 
 | Command | Does |
 |---|---|
-| `zr-dev affected [--base REVISION] [--dry-run]` | Runs the specs that a change can reach, with `bin/test`. It reads the diff against `main`, or against `--base`. If the change can reach everything (the compiler, the kernel, the test support), it runs all the specs. `--dry-run` prints the spec paths and runs nothing. |
+| `zr-dev affected [--base REVISION] [--dry-run]` | Runs the tests that a change can reach, with `bin/test` (the same as `bin/test --changed`). It reads the diff against `main`, or against `--base`. If the change can reach everything (the compiler, the kernel, the test support), it runs nothing and says so. `--dry-run` prints the test paths and runs nothing. |
 | `zr-dev progress` | Prints the progress of the tier that runs now, or of the last tier (`tmp/test-progress.txt`). |
 
 ### Specs and recordings

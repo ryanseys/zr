@@ -189,4 +189,12 @@ class ForkPoolTest < Minitest::Test
     out = IO.popen(env, [RbConfig.ruby, "-I#{ROOT}/lib", "-I#{ROOT}/test", file], err: %i[child out], &:read)
     [out, $?]
   end
+
+  # A 16 GB, 12-core laptop gets 6 workers, which keep 4 GB free. A large
+  # machine is limited by its cores; a small one still gets one worker.
+  def test_the_default_size_keeps_memory_and_cores_free
+    sizes = [[12, 16], [12, 64], [4, 8], [2, 4], [64, 256]].map { |cores, gb| Zr::Test::ForkPool.fit(cores, gb) }
+
+    assert_equal [6, 10, 2, 1, 62], sizes
+  end
 end
