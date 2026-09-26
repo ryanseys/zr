@@ -73,11 +73,35 @@ module Zr
     def hand_over(argv, env = ENV)
       return if Zr.compiled? || !VERBS.include?(argv.first)
       return if env["ZR_COMPILED"] == "0"
+      # A stand-in that `ZR_BINARY` names can run on any host.
+      return unless runnable? || env["ZR_BINARY"]
 
-      build if !current? && !shipped? && (env["ZR_COMPILED"] == "1" || !Paths.checkout?)
+      build if builds?(argv, env)
       # The compiled compiler has no rubygems, so this ruby resolves a
       # library pin again for it.
       exec({ "ZR_HOST_RUBY" => RbConfig.ruby }, binary, *argv) if current?
+    end
+
+    # Whether this host can run the compiled compiler: it is a binary for
+    # the host's own target, which the host must also be able to link.
+    # On any other host (x86_64 Linux, an Intel Mac), ruby runs zr.
+    def runnable?
+      require_relative "target"
+      host = Target.host
+      !host.nil? && host.outputs.include?(:native) && host.linkable?
+    end
+
+    # Whether this command builds the compiled compiler first: the binary
+    # is stale, the install permits a build, the last build of these same
+    # sources did not fail, and the command compiles a file. A help
+    # request or a usage error never starts the build.
+    def builds?(argv, env = ENV)
+      return false if current? || shipped?
+      return false unless env["ZR_COMPILED"] == "1" || !Paths.checkout?
+      return false if env["ZR_COMPILED"] != "1" && program.failed?
+      return false if argv.any? { |word| %w[-h --help].include?(word) }
+
+      argv.drop(1).any? { |word| !word.start_with?("-") && word.end_with?(".rb") && File.file?(word) }
     end
 
     # The files of the library tree, found by ruby's rubygems when the
@@ -97,7 +121,8 @@ module Zr
       began = nil
       quiet = { "ZR_COMPILED" => "0" }
       announce = lambda do
-        warn "zr: building the compiler with itself for faster builds, once for this zr (about a minute)"
+        warn "zr: building the compiler with itself for faster builds, once for this zr " \
+             "(about a minute; ZR_COMPILED=0 skips it)"
         began = Process.clock_gettime(Process::CLOCK_MONOTONIC)
       end
       built = program.build(env: quiet, started: announce) do |out|
@@ -108,7 +133,10 @@ module Zr
       if built
         warn format("zr: built the compiled compiler in %.0f s", Process.clock_gettime(Process::CLOCK_MONOTONIC) - began)
       else
-        warn "zr: the compiled compiler did not build; ruby runs zr"
+        # Ruby runs zr from now on. The next build tries again only when
+        # a source changes, or under `ZR_COMPILED=1`.
+        program.fail!
+        warn "zr: the compiled compiler did not build; ruby runs zr (ZR_COMPILED=1 tries again)"
       end
     end
   end

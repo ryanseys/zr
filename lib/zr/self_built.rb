@@ -26,9 +26,25 @@ module Zr
     def manifest = "#{binary}.manifest"
     def lock_path = "#{binary}.lock"
 
+    # The stamps of the sources of a build that failed. While the sources
+    # keep these stamps, the build fails again, so no build starts.
+    def failure = "#{binary}.failed"
+
+    def failed?
+      File.file?(failure) && Marshal.load(File.binread(failure)) == stamps
+    rescue IOError, SystemCallError, TypeError, ArgumentError
+      false
+    end
+
+    def fail!
+      Paths.mkdir_p(File.dirname(failure))
+      Paths.write_atomic(failure, Marshal.dump(stamps))
+    end
+
     # Every source file, sorted.
     def sources
-      files = Dir[File.join(Paths::ROOT, "{#{@dirs.join(",")}}/**/*")]
+      # An empty brace would glob the whole root.
+      files = @dirs.empty? ? [] : Dir[File.join(Paths::ROOT, "{#{@dirs.join(",")}}/**/*")]
       [entry, *files, *@extra&.call].select { |f| File.file?(f) }.sort
     end
 
@@ -69,13 +85,25 @@ module Zr
           if ok && stamps == before
             File.rename(out, binary)
             Paths.write_atomic(manifest, Marshal.dump(before))
-            [binary, manifest].each { |f| File.unlink(f) } if block_given? && !yield(binary)
+            [binary, manifest].each { |f| File.unlink(f) } if block_given? && !answers? { yield binary }
+            File.unlink(failure) if current? && File.exist?(failure)
           end
         ensure
           File.unlink(out) if File.exist?(out)
         end
       end
       current?
+    end
+
+    private
+
+    # The block's answer. A binary that this host cannot start (the wrong
+    # architecture, the wrong format) answers wrongly, as does one that
+    # raises.
+    def answers?
+      yield
+    rescue SystemCallError, IOError
+      false
     end
   end
 end
