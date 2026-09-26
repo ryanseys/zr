@@ -3,7 +3,7 @@
 require "spec_helper"
 
 describe "Blocks: enumeration" do
-  it "block and proc argument semantics" do
+  it "a block, a proc and a lambda take a pair, keywords and extra or missing arguments as ruby does" do
     result = zr(<<~'RUBY')
       h = { a: 1, b: 2 }
       h.each { |pair| p pair }

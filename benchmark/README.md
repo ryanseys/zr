@@ -1,10 +1,10 @@
 # Benchmarks
 
 Whole programs that `zr-dev bench` builds with zr and times beside
-`ruby` and `ruby --yjit`. They are not tests -- the tiers under `test/`
-hold zr to ruby's answers -- but each carries ruby 4.0.7's recording
-of its output beside it, and the harness checks that answer before it
-keeps any time: the speed of a wrong answer means nothing.
+`ruby` and `ruby --yjit`. They are not tests: the tiers under `test/`
+hold zr to ruby's answers. But each program has ruby 4.0.7's recording
+of its output beside it, and the harness checks the answer before it
+keeps a time. A program that gives a wrong answer gets no time.
 
 ```console
 $ ruby tool/zr-dev.rb bench                  # every program, five runs each
@@ -16,18 +16,20 @@ $ ruby tool/zr-dev.rb bench --check caebda07 be347192
 $ ruby tool/zr-dev.rb compile                # what a build costs, by phase
 ```
 
-Each run of a program is clocked with `Benchmark.measure` from the
-[benchmark](https://github.com/ruby/benchmark) gem, so a row carries the
-binary's own user and system time beside its wall clock. The report is
-printed in that gem's layout. A run of the whole bank writes it to
-`results/<stamp>-<revision>.txt` -- when it was taken, in UTC, so the
-files list in order, and the commit it measured -- and that file is
-committed beside the code, so any later run can be read against it by
-hash (`-dirty` on the name says the tree had changes the hash does not
-name). A run of some rows writes `tmp/bench/latest.txt` instead,
-since a partial report says nothing about the rest. Every report says
-which machine's day it was: the first line carries the time, and the
-rows are one machine's, so read two reports from one machine.
+The harness measures each run with `Benchmark.measure` from the
+[benchmark](https://github.com/ruby/benchmark) gem. So a row gives the
+binary's own user and system time beside its wall-clock time, in that
+gem's layout. A run of all the programs writes its report to
+`results/<stamp>-<revision>.txt`. The stamp is the UTC time of the run,
+so the files list in order, and the revision is the commit that it
+measured (`-dirty` means that the tree had changes that the commit does
+not have). Commit the file with the code, so that a later run can
+compare with it by revision. A run of some programs writes
+`tmp/bench/latest.txt`, because a partial report does not tell about
+the other programs. All the rows of a report come from one machine, so
+compare two reports from the same machine only.
+`zr-dev gen perf` writes `docs/explanation/performance.md` from the
+newest report.
 
 | Holds | |
 |---|---|

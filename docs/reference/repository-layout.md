@@ -2,9 +2,9 @@
 
 ## The gem
 
-The gem contains `exe/`, `lib/`, `runtime/`, `vendor/ext/`,
-`vendor/lib/` and `vendor/prelude/`, with `README.md`, `CHANGELOG.md`
-and the license files. The pure-Ruby library that a program requires
+The gem contains `exe/`, `lib/`, `licenses/`, `runtime/`,
+`vendor/ext/`, `vendor/lib/` and `vendor/prelude/`, with `README.md`,
+`CHANGELOG.md` and the license files. The pure-Ruby library that a program requires
 is not in the gem. It is the gems that `zr.gemspec` depends on
 (`lib/zr/libraries.rb`).
 
@@ -15,6 +15,18 @@ is not in the gem. It is the gems that `zr.gemspec` depends on
 | `lib/zr/version.rb` | `Zr::VERSION`, and `Zr::RUBY`, the ruby that zr needs |
 | `lib/zr/paths.rb` | where zr reads its sources and writes its cache |
 | `lib/zr/flags.rb` | `Zr.flag?`, which reads an on-or-off environment variable |
+| `lib/zr/config.rb` | `Zr::Config`: the `ZR_*` variables that steer a build, read once |
+| `lib/zr/cli.rb` | the commands of `zr`, their options, and what they print |
+| `lib/zr/doctor.rb` | the checks of `zr doctor` |
+| `lib/zr/cache.rb` | the build cache: what it holds, and `zr cache clean` |
+| `lib/zr/refused.rb` | `Zr::Refused`: a program uses a form that zr does not support |
+| `lib/zr/bytes.rb` | byte helpers: alignment and padding |
+| `lib/zr/clock.rb` | `Zr.clock`: the phase times that `ZR_TIMING=1` prints |
+| `lib/zr/settled.rb` | `Zr.settled!`: a cache write stops if a source changed during the build |
+| `lib/zr/parse.rb` | `Zr.parse`: prism, through the parse cache where there is one |
+| `lib/zr/backend.rb` | `Zr::Backend`: what the backends share, and `Backend::Refused` |
+| `lib/zr/self_built.rb` | a binary that zr builds from this checkout's own files: the compiled compiler, or the tools |
+| `lib/zr/shipped.rb` | the compiled compiler that a platform gem ships |
 | `lib/zr/libraries.rb`, `lib/zr/libraries/` | the pinned gems that a program requires from, and the library tree that links them |
 | `lib/zr/library_digests.rb` | the digests of the pinned gems' files (`zr-dev gen libraries`) |
 | `lib/zr/target.rb` | the targets, and what this host can build |
@@ -90,10 +102,20 @@ a ruby with rubygems, when the gems change.
 | `test/e2e/` | the e2e tier: whole programs through a real link, in areas as the specs are, each with its recording |
 | `test/baselines/` | the baselines of the targets other than macOS; see [How to test on another target](../how-to/test-on-another-target.md) |
 | `test/fixtures/` | the files that spec examples read with `fixture` |
+
+The next five directories are not tiers. They hold the programs and
+the snapshots that tests in `test/unit/` read.
+
+| Path | Contains |
+|---|---|
 | `test/programs/` | Ruby programs that `programs_test` runs against ruby; those in `native/` do not run as WASI modules |
 | `test/machine/` | machine-dialect programs, with their outputs; `test/machine/refused/` has one program for each refusal |
 | `test/runtime/` | programs that test the kernel through hand-written top levels |
 | `test/native/` | hand-written IR, and the disassembly snapshot |
 | `test/hir/` | programs and their HIR dumps |
+
+| Path | Contains |
+|---|---|
+| `licenses/` | the license texts of the parts that have no other copy in the gem; see `THIRD_PARTY_NOTICES.md` |
 | `benchmark/` | the benchmarks: whole programs with their recordings, and the rungs that `zr-dev compile` builds (`benchmark/compile/`); see `benchmark/README.md` |
 | `tmp/` | not committed: the cache (`tmp/cache/`), the library tree, the test progress file, the bootstrap stages |

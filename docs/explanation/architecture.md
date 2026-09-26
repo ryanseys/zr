@@ -51,12 +51,18 @@ and a call has at most eight arguments, so no backend needs to pass
 arguments on the stack. No call is variadic.
 
 Before a backend gets a function, `IR::Passes` runs the same passes for
-every emitter: small leaf functions are inlined into their callers,
-then constant folding, store-to-load forwarding, value numbering over
-the dominator tree (a load counts, and is kept across what cannot
-write its region), loop-invariant code motion to a preheader, branch
-chains, block merging and dead code removal. `IR::Verify` then checks
-the result.
+every emitter, in this order:
+
+1. It puts copies of small leaf functions into their callers.
+2. It folds constants.
+3. It forwards a stored value to a load of the same place.
+4. It numbers the values over the dominator tree. A load is a value
+   too, and stays valid across code that cannot write its region.
+5. It moves code that does not change in a loop to the loop's
+   preheader.
+6. It joins chains of branches, merges blocks, and removes dead code.
+
+`IR::Verify` then checks the result.
 
 The kernel's gate word is not loaded from memory. It is in a register
 of its own (`x28`; a global on wasm). The `gates` opcode reads it, the
