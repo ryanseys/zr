@@ -16,7 +16,7 @@ def gen_words(n)
   result
 end
 
-n = Integer(ARGV[0] || 10000)
+n = Integer(ARGV[0] || 1_000_000)
 words = gen_words(n)
 
 freq = {}

@@ -31,7 +31,7 @@ def checksum(arr)
   s
 end
 
-[8000, 16000, 32000].each do |n|
+[250_000, 500_000, 1_000_000].each do |n|
   data = perm_array(n)
   sorted = data.sort_by { |x| x }
   puts "n=#{n} checksum=#{checksum(sorted)}"

@@ -84,5 +84,5 @@ def fannkuch(n)
   end
 end
 
-n = Integer(ARGV[0] || 7)
+n = Integer(ARGV[0] || 9)
 fannkuch(n)

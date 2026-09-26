@@ -11,5 +11,5 @@ def concat_test(n, str_to_add)
   s
 end
 
-result = concat_test(10240, "ssssssee")
+result = concat_test(8_000_000, "ssssssee")
 puts result.length
