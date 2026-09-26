@@ -56,6 +56,10 @@ Facts about commands, formats and layouts.
 
 Why zr is as it is.
 
+- [Questions and answers](explanation/faq.md): the ruby version, gems,
+  binary size, speed, build time, hosts and licenses
+- [zr and other Rubies](explanation/zr-and-other-rubies.md): CRuby,
+  ruby.wasm, TruffleRuby, JRuby, mruby, Natalie and Spinel
 - [The contract: ruby's output or a refusal](explanation/the-contract.md)
 - [Performance](explanation/performance.md): run time against ruby and
   YJIT, build time, and the known slow paths
