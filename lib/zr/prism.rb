@@ -17,3 +17,29 @@ if Zr::HOSTED
   $LOAD_PATH.unshift(File.expand_path("../../vendor/ext/prism/lib", __dir__), File.expand_path("prism_shim", __dir__))
 end
 require "prism"
+
+module Zr
+  # prism finds the line of a byte offset with a binary search over the
+  # line starts. The builder asks once or more for each node (5% of a
+  # warm build of bundler), and reads the nodes mostly in source order.
+  # So the line of the last answer, or the line after it, is almost
+  # always the answer, and a binary search is left for the rest. The
+  # answer is the same as prism's.
+  module LineCursor
+    private
+
+    def find_line(byte_offset)
+      return super if frozen?
+
+      starts = offsets
+      at = @zr_line || 0
+      if starts[at] <= byte_offset
+        after = at + 1
+        return at if after == starts.length || byte_offset < starts[after]
+        return @zr_line = after if after + 1 == starts.length || byte_offset < starts[after + 1]
+      end
+      @zr_line = super
+    end
+  end
+end
+Prism::Source.prepend(Zr::LineCursor)
