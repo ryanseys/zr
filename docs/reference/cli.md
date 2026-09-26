@@ -113,13 +113,13 @@ See [Targets](targets.md).
 Checks what zr needs on this host, and prints one line for each check:
 
 ```
-ok    ruby               4.0.7, the ruby zr 0.1.0 pins
-ok    host               aarch64-apple-darwin; builds for aarch64-apple-darwin, aarch64-linux-musl, wasm32-wasi; runs its own binaries
+ok    ruby               4.0.7
+ok    host               aarch64-apple-darwin
 ok    wasmtime           /opt/homebrew/bin/wasmtime
 ok    openssl            /opt/homebrew/opt/openssl@3/lib/libssl.3.dylib
-ok    pinned gems        62 libraries in ~/Library/Caches/zr/lib/5db86ba5a8ce7e77/lib
-ok    cache              ~/Library/Caches/zr, 2703 MB (`zr cache clean` frees it)
-ok    compiled compiler  current: ~/Library/Caches/zr/self-0.1.0-1c2d3e4f5a6b/zr
+ok    pinned gems        62 libraries
+ok    cache              ~/Library/Caches/zr, 2703 MB
+ok    compiled compiler  current
 ```
 
 `warn` means that zr can do less on this host: for example, with no

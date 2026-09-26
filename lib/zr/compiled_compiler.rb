@@ -121,8 +121,7 @@ module Zr
       began = nil
       quiet = { "ZR_COMPILED" => "0" }
       announce = lambda do
-        warn "zr: building the compiler with itself for faster builds, once for this zr " \
-             "(some minutes; ZR_COMPILED=0 skips it)"
+        warn "zr: building the compiler with itself, once for this zr"
         began = Process.clock_gettime(Process::CLOCK_MONOTONIC)
       end
       built = program.build(env: quiet, started: announce) do |out|
@@ -136,7 +135,7 @@ module Zr
         # Ruby runs zr from now on. The next build tries again only when
         # a source changes, or under `ZR_COMPILED=1`.
         program.fail!
-        warn "zr: the compiled compiler did not build; ruby runs zr (ZR_COMPILED=1 tries again)"
+        warn "zr: the compiled compiler did not build; ruby runs zr"
       end
     end
   end

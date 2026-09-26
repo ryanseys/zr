@@ -14,7 +14,7 @@ class DoctorTest < Minitest::Test
     check = Zr::Doctor.ruby("4.0.8")
 
     assert_equal :fail, check.status
-    assert_includes check.detail, "builds only on ruby #{Zr::RUBY}"
+    assert_equal "4.0.8; zr needs #{Zr::RUBY}", check.detail
   end
 
   def test_the_pinned_ruby_is_ok
@@ -25,7 +25,7 @@ class DoctorTest < Minitest::Test
     check = Zr::Doctor.host("x86_64-linux")
 
     assert_equal :warn, check.status
-    assert_includes check.detail, "wasm32-wasi"
+    assert_includes check.detail, "--emit wasm"
   end
 
   def test_no_wasmtime_warns
