@@ -5,9 +5,16 @@ Thank you for helping. This page tells you how to start. The guides in
 
 ## Set up
 
-You need ruby 4.0.7 (see `.ruby-version`) on an Apple Silicon Mac.
-[wasmtime](https://wasmtime.dev) is optional; without it, the tests
-that run WebAssembly modules skip.
+You need ruby 4.0.7 (see `.ruby-version`; for example
+`mise install ruby@4.0.7` or `rbenv install 4.0.7`) on an Apple
+Silicon Mac with 16 GB of memory or more. The first `bin/setup` takes
+some minutes, and a full `bin/test` takes much longer; start with the
+tests near your change. [wasmtime](https://wasmtime.dev) is optional;
+without it, the tests that run WebAssembly modules skip.
+
+On Linux, you can work on the `wasm32-wasi` target:
+`rake build:all`, then `TARGET=wasm32-wasi bin/test <paths>`. See
+[How to test on another target](docs/how-to/test-on-another-target.md).
 
 ```console
 $ git clone https://github.com/ryanseys/zr.git

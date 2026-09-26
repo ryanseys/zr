@@ -18,22 +18,37 @@ The compiler, the runtime, the core library, the parser and the
 garbage collector are all Ruby. The repository has no C or
 assembler.
 
+> **Status: pre-1.0.** zr compiles large programs, bundler among them,
+> and its tests hold every answer to ruby 4.0.7's. The command line and
+> the environment variables can change in a minor release until 1.0.
+> See [the changelog](CHANGELOG.md).
+
 ## Install
 
 ```console
 $ gem install zr
+$ zr doctor          # what this host has, and what zr can do here
 ```
 
 You need:
 
 - ruby 4.0.7 exactly. zr runs on this version and checks its output
-  against it;
+  against it, so `gem install zr` fails on any other ruby. The gem's
+  dependencies are ruby 4.0.7's own default and bundled gems, so the
+  install downloads only zr;
 - [wasmtime](https://wasmtime.dev), to run WebAssembly modules;
 - OpenSSL 3 (`brew install openssl@3`), only for a macOS program that
   requires `openssl`.
 
 The install compiles nothing. zr links a macOS binary itself, so it
-needs no C compiler and no linker.
+needs no C compiler and no linker. The first build on a machine builds
+zr's runtime into a cache (some minutes), and an Apple Silicon Mac
+then builds a compiled copy of zr for faster builds (about a minute;
+`ZR_COMPILED=0` skips it). `zr cache` shows the cache, and
+`zr cache clean` frees it.
+
+Install zr with `gem install`, not in a Gemfile: its exact pins of
+ruby's gems conflict with most bundles.
 
 ## Use
 
@@ -47,13 +62,18 @@ $ zr targets                                 # what this host can build
 $ zr help build                              # the options of a command
 ```
 
+On a host that cannot run a macOS arm64 binary (Linux, an Intel Mac),
+add `--emit wasm` and run the module with wasmtime:
+`zr run --emit wasm hello.rb Ruby`.
+
 A binary contains your program, Ruby's core library and the runtime.
 It needs no ruby and no gems to run. `zr` exits with status 2 for a
 usage error and 3 when it refuses a program; see
 [The `zr` command](docs/reference/cli.md).
 
 New to zr? Start with the tutorial
-[Compile your first program](docs/tutorials/compile-your-first-program.md).
+[Compile your first program](docs/tutorials/compile-your-first-program.md),
+and read [Questions and answers](docs/explanation/faq.md).
 
 ## What it builds
 
@@ -65,6 +85,30 @@ New to zr? Start with the tutorial
 
 Some features depend on the target. For example, a WASI module has no
 fibers, threads or ractors. See [Targets](docs/reference/targets.md).
+
+## Limits
+
+- **Hosts.** zr builds no x86_64 or Windows binary, and no glibc Linux
+  binary. Any host builds WASI modules and objects.
+- **Size.** A binary contains the whole runtime: 27 MB for "hello
+  world", 46 MB as a WASI module, and about 110 MB for a program that
+  calls `eval`, which carries the compiler.
+- **Libraries.** A program can require all of ruby 4.0.7's library,
+  and a pure-Ruby gem through a literal `$LOAD_PATH`. A gem with a C
+  extension works only if zr has a Ruby port of its C. See
+  [How to use a library or a gem](docs/how-to/use-a-library-or-gem.md).
+- **Refusals.** A few forms and libraries are refused at build time.
+  [What zr supports](docs/reference/support.md) lists them, and
+  [Differences from ruby](docs/reference/differences-from-ruby.md) lists
+  the other differences, all on purpose.
+
+## Performance
+
+Over 54 benchmark programs, a binary takes 0.41 times ruby's time and
+0.59 times YJIT's, and an empty program starts in 11 ms against ruby's
+33 ms. Arithmetic on large bignums and Regexp are slower than in ruby.
+[Performance](docs/explanation/performance.md) has every program and
+the build times.
 
 ## How it works
 
@@ -88,6 +132,10 @@ ruby's output byte for byte. See
 [The contract](docs/explanation/the-contract.md).
 
 ## Contribute
+
+The full test suite needs an Apple Silicon Mac. On Linux you can work
+on the `wasm32-wasi` target (`TARGET=wasm32-wasi bin/test ...`); see
+[How to test on another target](docs/how-to/test-on-another-target.md).
 
 ```console
 $ git clone https://github.com/ryanseys/zr.git
@@ -119,14 +167,7 @@ documentation is in [`docs/`](docs/README.md).
 
 ## Release
 
-1. Change the version in `lib/zr/version.rb`.
-2. In `CHANGELOG.md`, change `[Unreleased]` to the new version and the
-   date.
-3. Commit, then tag the commit `vX.Y.Z` and push the tag.
-
-The release workflow (`.github/workflows/release.yml`) starts on the
-tag. It runs the unit tests (`bin/test test/unit`), then publishes the
-gem to rubygems.org with `rake release`, and to gem.coop.
+See [How to release zr](docs/how-to/release.md).
 
 ## License
 

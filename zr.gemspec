@@ -11,10 +11,12 @@ Gem::Specification.new do |spec|
 
   spec.summary = "A Ruby compiler, written in Ruby: its programs give ruby 4.0.7's output, or zr refuses them by name"
   spec.description = <<~TEXT
-    zr compiles Ruby programs to native aarch64-apple-darwin binaries on an
-    Apple Silicon Mac, and to WASI modules on any host. The compiler and the
-    runtime are Ruby. The Ruby library a program requires is the gems
-    this one depends on, which zr compiles into the program.
+    zr compiles Ruby programs to native aarch64-apple-darwin binaries and
+    WASI modules on any host, and to static aarch64-linux-musl binaries
+    with a musl toolchain. A compiled program gives ruby 4.0.7's output,
+    or zr refuses it at build time. The compiler and the runtime are Ruby,
+    with no C. The Ruby library a program requires is the gems this one
+    depends on, which zr compiles into the program.
   TEXT
   spec.homepage = "https://github.com/ryanseys/zr"
   spec.license = "MIT" # the vendored parts: THIRD_PARTY_NOTICES.md
