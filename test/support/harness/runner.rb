@@ -27,7 +27,6 @@ module Zr
         Target.fetch(triple) or raise ArgumentError, "no target #{triple}; `zr targets` names them"
       end
 
-
       # `compiler` is the wasmtime compiler for a module: the tests'
       # default, or Cranelift when run speed is the result (`zr-dev bench`).
       def initialize(root, target = Target.default, compiler: Wasmtime.compiler)

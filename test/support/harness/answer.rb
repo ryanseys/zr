@@ -1,6 +1,5 @@
 # frozen_string_literal: true
 
-
 module Zr
   module Harness
     # The output of a program: stdout, stderr, exit status and signal.

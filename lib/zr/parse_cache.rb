@@ -193,7 +193,6 @@ module Zr
       FILES.include?(path) || (path.end_with?(".rb") && TREES.any? { |tree| path.start_with?("#{tree}/") })
     end
 
-
     def read(path)
       result = Marshal.load(File.binread(path))
       result if result.is_a?(Prism::ParseResult)

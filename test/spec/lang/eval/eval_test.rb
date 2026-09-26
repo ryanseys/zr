@@ -1748,7 +1748,6 @@ describe "Eval programs" do
     OUT
   end
 
-
   it "a non-literal source is not refused at compile time; it runs in the VM" do
     result = zr(<<~'RUBY')
       # A non-literal source is not rejected at compile time; it runs

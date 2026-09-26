@@ -69,7 +69,6 @@ module Zr
           mb = (readers - utf8_like).select { |encoding| encoders.for(encoding).max_len > 1 && encoding != Encoding::UTF_8 }
           bases = mb.group_by { |encoding| encoders.for(encoding) }
 
-
           random = Random.new(1)
           bases.each do |enc, encodings|
             encodings.each do |encoding|

@@ -1,3 +1,5 @@
+inherit_from: .rubocop_todo.yml
+
 # Only the Lint cops: they find bugs (unused values, shadowed names,
 # unreachable code) and do not change the style of the code.
 AllCops:
@@ -41,3 +43,11 @@ Lint/StructNewOverride: { Enabled: false }           # test fixtures
 # A method that takes a keyword for its interface need not read it.
 Lint/UnusedMethodArgument:
   AllowUnusedKeywordArguments: true
+
+# Layout: only what keeps a diff readable. No formatter, so blame stays.
+Layout/LineLength:
+  Enabled: true
+  Max: 150
+Layout/TrailingWhitespace: { Enabled: true, AllowInHeredoc: true } # heredocs are programs and outputs
+Layout/EmptyLines: { Enabled: true }
+Style/FrozenStringLiteralComment: { Enabled: true }

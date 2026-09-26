@@ -16,7 +16,6 @@ Minitest::Spec.include(Zr::Spec::Baselined)
 Minitest::Spec.include(Zr::Spec::Guards)
 Minitest::Spec.singleton_class.prepend(Zr::Spec::Guards::It)
 
-
 # Before the workers start: trim the kept binaries to their size limit.
 # Then make the directory for the binaries of the workers. This process
 # owns it and removes it.

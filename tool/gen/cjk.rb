@@ -95,7 +95,6 @@ module Zr
           text.length == 1 ? text.ord : text
         end
 
-
         # Ruby's character count for these bytes. The runtime must return the
         # same result.
         def by_length(encoding, bytes)
