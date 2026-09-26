@@ -57,6 +57,8 @@ Facts about commands, formats and layouts.
 Why zr is as it is.
 
 - [The contract: ruby's output or a refusal](explanation/the-contract.md)
+- [Performance](explanation/performance.md): run time against ruby and
+  YJIT, build time, and the known slow paths
 - [Architecture](explanation/architecture.md)
 - [The runtime](explanation/the-runtime.md)
 - [Memory and the collector](explanation/memory-and-the-collector.md)
