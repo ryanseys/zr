@@ -15,6 +15,8 @@ module Zr
   # `pp`, which calls eval, and a compiler that zr compiles would then
   # have to include eval support.
   module CLI
+    DOCS = "https://github.com/ryanseys/zr/blob/main/docs"
+
     USAGE = <<~TEXT
       Usage: zr <command> [options]
 
@@ -23,12 +25,14 @@ module Zr
         build <file.rb> -o <out>    compile a program to a binary, a WASI module or an object
         machine <file.rb> -o <out>  compile one machine-dialect file (for runtime work)
         targets                     list the targets, and what this host can build
+        doctor                      check this host: ruby, wasmtime, OpenSSL, gems, cache
+        cache [path|size|clean]     show or clean the build cache
         version                     print the version
         help [<command>]            print help for zr or for one command
 
       Exit status: 0 success; 1 error; 2 usage error; 3 zr does not support
       the program or the target. `zr run` exits with the program's status.
-      Environment variables: docs/reference/environment-variables.md
+      Environment variables: #{DOCS}/reference/environment-variables.md
     TEXT
 
     OUTPUT = "  -o, --output <path>    write the output to <path>\n"
@@ -61,7 +65,7 @@ module Zr
 
         #{OPTIONS.sub("Options:\n", "Options:\n#{OUTPUT}")}
       TEXT
-      "machine" => <<~TEXT
+      "machine" => <<~TEXT,
         Usage: zr machine [options] <file.rb> -o <out>
 
         Compiles one file of the machine dialect (the typed Ruby that
@@ -69,9 +73,30 @@ module Zr
 
         #{OPTIONS.sub("Options:\n", "Options:\n#{OUTPUT}")}
       TEXT
+      "doctor" => <<~TEXT,
+        Usage: zr doctor
+
+        Checks what zr needs on this host, and prints ok, warn or fail for
+        each: the ruby version, the targets this host builds, wasmtime,
+        OpenSSL 3, the pinned gems, the cache and the compiled compiler.
+        Exits with status 1 if a check fails.
+      TEXT
+      "cache" => <<~TEXT
+        Usage: zr cache [path|size|clean [--all]]
+
+        path          print the cache directory (the default)
+        size          what the cache holds, by kind
+        clean         delete the files that this zr does not use, and the
+                      compiled compilers of other zr versions
+        clean --all   delete every file in the cache, also this zr's own;
+                      the next build makes them again
+
+        An installed zr also cleans its cache when it grows past
+        ZR_CACHE_MAX_GB (default 5).
+      TEXT
     }.freeze
 
-    COMPILE = HELP.keys.freeze
+    COMPILE = %w[run build machine].freeze
     EMITS = { "binary" => nil, "obj" => "obj", "wasm" => "wasm" }.freeze
 
     # Exit status 3: zr does not support the program or the target. The
@@ -122,13 +147,48 @@ module Zr
       case command
       when *COMPILE then compile(command, args)
       when "targets" then targets
-      when "version", "--version", "-v" then puts "zr #{VERSION}"
+      when "doctor" then exit(doctor ? 0 : 1)
+      when "cache" then cache(args)
+      when "version", "--version", "-v" then puts "zr #{VERSION} (ruby #{RUBY})"
       when "help", "-h", "--help" then help(args.first)
       when nil
         warn USAGE
         exit 2
       else
         usage_error("unknown command '#{command}'")
+      end
+    end
+
+    def doctor
+      require_relative "doctor"
+      Doctor.run
+    end
+
+    # `zr cache path`, `size` or `clean [--all]`.
+    def cache(args)
+      require_relative "cache"
+      verb = args.shift || "path"
+      extra = args - (verb == "clean" ? ["--all"] : [])
+      usage_error("unexpected argument '#{extra.first}'", "cache") unless extra.empty?
+      case verb
+      when "path" then puts Paths.cache
+      when "size"
+        files = Cache.all
+        files.group_by { |path| Cache.kind(path) }.sort_by { |_, group| -Cache.bytes(group) }.each do |kind, group|
+          puts format("%6d MB  %5d  %s", Cache.megabytes(group), group.size, kind)
+        end
+        others = Cache.other_compilers
+        puts format("%6d MB  %5d  compiled compilers of other zr versions", others.sum { |dir| Cache.tree_bytes(dir) } >> 20, others.size)
+        puts format("%6d MB  %5d  in all, in %s", Cache.megabytes(files), files.size, Paths.cache)
+      when "clean"
+        all = args.include?("--all")
+        sizes = Cache.all.to_h { |path| [path, File.size(path)] }
+        gone = all ? Cache.clear : Cache.prune
+        others = Cache.other_compilers
+        freed = gone.sum { |path| sizes.fetch(path, 0) } + others.sum { |dir| Cache.tree_bytes(dir) }
+        others.each { |dir| Paths.remove(dir) }
+        puts format("deleted %d file(s) and %d compiled compiler(s), %d MB", gone.size, others.size, freed >> 20)
+      else usage_error("unknown cache command '#{verb}'", "cache")
       end
     end
 
@@ -199,6 +259,7 @@ module Zr
       target = target_for(opts[:triple], opts[:emit], command)
       emit = opts[:emit] || ("wasm" if target.outputs == [:wasm])
       refuse(input, command, emit, target)
+      wasmtime! if command == "run" && emit == "wasm"
 
       require_relative "runtime"
       require_relative "native/build"
@@ -216,7 +277,18 @@ module Zr
         else native(program, out, work, command, opts[:args], target)
         end
       end
+      require_relative "cache"
+      Cache.trim
       exit_as(status) if status.is_a?(Process::Status)
+    end
+
+    # `zr run --emit wasm` runs the module with wasmtime. Without it, stop
+    # before the build.
+    def wasmtime!
+      require_relative "doctor"
+      return if Doctor.which("wasmtime")
+
+      abort "zr: wasmtime is not installed (https://wasmtime.dev); `zr build --emit wasm` writes the module"
     end
 
     # The end of `zr run`, once the build is gone: the program's status.
@@ -269,6 +341,18 @@ module Zr
       exit REFUSED
     end
 
+    # What `zr` prints when it refuses a program: the message, then for a
+    # form of Ruby, the source line with a caret and the page that lists
+    # what zr supports.
+    def refusal_report(error)
+      lines = ["zr: #{error.message}"]
+      if error.form
+        lines << error.excerpt if error.excerpt
+        lines << "zr: #{Refused::DOCS} lists what zr supports"
+      end
+      lines.join("\n")
+    end
+
     # A binary's functions are assembled as they are lowered, so the IR of
     # a large program is never all in memory at once (`Native::Build.lower`).
     def lower(input, verb, target, assemble: false)
@@ -278,10 +362,15 @@ module Zr
 
       Native::Build.lower(source, input, target: target)
     rescue Refused => e
-      warn "zr: #{e.message}"
+      warn refusal_report(e)
       exit REFUSED
-    rescue Backend::Refused, Libraries::Unresolved => e
+    rescue Libraries::Unresolved => e
       abort "zr: #{e.message}"
+    rescue Backend::Refused => e
+      # A backend refuses code that the front end let through: a limit or
+      # a defect in zr, not a form of Ruby that the program must avoid.
+      abort "zr: the backend cannot compile this program: #{e.message} " \
+            "(please report it at https://github.com/ryanseys/zr/issues)"
     rescue SyntaxError => e
       # For a program that does not parse, ruby prints a report and exits
       # 1. The binary does the same, with ruby's own report. In ruby, a
@@ -337,7 +426,7 @@ module Zr
               Native::Build.object(functions, data, out, raw: raw, export: true, target: target)
             end
       abort "zr: #{why}" if why
-      exit 0
+      nil
     end
 
     def wasm(program, out, verb, rest)
@@ -348,9 +437,15 @@ module Zr
               Native::Build.wasm(functions, data, out, raw: raw)
             end
       abort "zr: #{why}" if why
+      return nil unless verb == "run"
+
       # The module can see the working directory, as a ruby program can.
-      exec("wasmtime", "run", "--dir", ".", out, *rest) if verb == "run"
-      exit 0
+      # `system`, not `exec`, so that the build directory goes away after
+      # the run, as for a binary.
+      interrupt = Signal.trap("INT") { nil }
+      system("wasmtime", "run", "--dir", ".", out, *rest)
+      Signal.trap("INT", interrupt)
+      $?
     end
 
     def native(program, out, work, verb, rest, target)

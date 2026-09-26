@@ -12,13 +12,16 @@ Commands:
   build <file.rb> -o <out>    compile a program to a binary, a WASI module or an object
   machine <file.rb> -o <out>  compile one machine-dialect file (for runtime work)
   targets                     list the targets, and what this host can build
+  doctor                      check this host: ruby, wasmtime, OpenSSL, gems, cache
+  cache [path|size|clean]     show or clean the build cache
   version                     print the version
   help [<command>]            print help for zr or for one command
 ```
 
 `zr help <command>` and `zr <command> --help` (or `-h`) print the
-options of `run`, `build` or `machine`. `zr --version` and `zr -v` are
-the same as `zr version`.
+options of a command. `zr version` prints zr's version and the ruby it
+pins (`zr 0.1.0 (ruby 4.0.7)`). `zr --version` and `zr -v` are the
+same.
 
 An option takes its value as the next word or after `=`: `--emit wasm`
 and `--emit=wasm` are the same. For `build` and `machine`, options can
@@ -50,7 +53,8 @@ shell sees the status that ruby gives (130 for `SIGINT`, 143 for
 `SIGTERM`).
 
 With `--emit wasm`, zr runs the module with `wasmtime run --dir .`, so
-the module can read the working directory. `-o` and `--emit obj` are
+the module can read the working directory. If wasmtime is not on
+`PATH`, `zr run --emit wasm` stops with status 1 before it builds. `-o` and `--emit obj` are
 usage errors for `run`: use `zr build` to keep the output.
 
 `zr run` runs a native binary only on a host of the same target. For
@@ -104,6 +108,42 @@ wasm32-wasi            wasm               wasm
 
 See [Targets](targets.md).
 
+## `zr doctor`
+
+Checks what zr needs on this host, and prints one line for each check:
+
+```
+ok    ruby               4.0.7, the ruby zr 0.1.0 pins
+ok    host               aarch64-apple-darwin; builds for aarch64-apple-darwin, aarch64-linux-musl, wasm32-wasi; runs its own binaries
+ok    wasmtime           /opt/homebrew/bin/wasmtime
+ok    openssl            /opt/homebrew/opt/openssl@3/lib/libssl.3.dylib
+ok    pinned gems        62 libraries in ~/Library/Caches/zr/lib/5db86ba5a8ce7e77/lib
+ok    cache              ~/Library/Caches/zr, 2703 MB (`zr cache clean` frees it)
+ok    compiled compiler  current: ~/Library/Caches/zr/self-0.1.0-1c2d3e4f5a6b/zr
+```
+
+`warn` means that zr can do less on this host: for example, with no
+wasmtime, `zr run --emit wasm` does not work. `fail` means that zr
+cannot build, and `zr doctor` then exits with status 1. Put the
+output of `zr doctor` in a bug report.
+
+## `zr cache [path|size|clean [--all]]`
+
+zr keeps what it builds once in a cache: the runtime, eval support, the
+prelinked images and the compiled compiler. The cache is some hundred
+MB for each zr version.
+
+| Command | Effect |
+|---|---|
+| `zr cache` or `zr cache path` | Prints the cache directory. |
+| `zr cache size` | Prints what the cache holds, by kind. |
+| `zr cache clean` | Deletes the files that this zr does not use, and the compiled compilers of other zr versions. The next build rebuilds nothing. |
+| `zr cache clean --all` | Deletes every file in the cache. The next build makes them again. |
+
+An installed zr also cleans its cache after a build when the cache is
+larger than `ZR_CACHE_MAX_GB` (5 GB by default). It measures the cache
+at most once a day.
+
 ## Messages
 
 A usage error prints one line that tells what is wrong, and one line
@@ -116,6 +156,22 @@ Run 'zr help build' for usage.
 
 Other errors print one line that starts with `zr:`, for example
 `zr: no such file: app.rb`.
+
+A refusal of a form of Ruby gives the file, the line and the column,
+the form, the source line with a caret under the column, and the page
+that lists what zr supports:
+
+```
+zr: app.rb:2:1: zr does not support `BEGIN { }` here yet
+    BEGIN { p 2 }
+    ^
+zr: https://github.com/ryanseys/zr/blob/main/docs/reference/support.md lists what zr supports
+```
+
+When a backend cannot compile code that the front end accepted, the
+message starts with `zr: the backend cannot compile this program`. This
+is a limit or a defect in zr, not a problem in the program. Please
+report it.
 
 ## Exit status
 

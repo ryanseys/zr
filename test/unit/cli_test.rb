@@ -30,6 +30,26 @@ class CliTest < Minitest::Test
   end
 end
 
+# What `zr` prints when it refuses a form of Ruby.
+class CliRefusalTest < Minitest::Test
+  def test_a_refused_form_shows_the_line_a_caret_and_the_docs
+    Dir.mktmpdir("zr-cli-refusal-") do |dir|
+      file = File.join(dir, "app.rb")
+      File.write(file, "p 1\nBEGIN { p 2 }\n")
+      error = Zr::Refused.unsupported("`BEGIN { }` here", file: file, line: 2, column: 1)
+
+      report = Zr::CLI.refusal_report(error)
+
+      assert_equal ["zr: #{file}:2:1: zr does not support `BEGIN { }` here yet", "    BEGIN { p 2 }", "    ^",
+                    "zr: #{Zr::Refused::DOCS} lists what zr supports"], report.lines(chomp: true)
+    end
+  end
+
+  def test_a_message_only_refusal_prints_only_the_message
+    assert_equal "zr: a.rb:3: Primitive.x takes keywords", Zr::CLI.refusal_report(Zr::Refused.new("a.rb:3: Primitive.x takes keywords"))
+  end
+end
+
 # How `zr run` ends: as the program ended.
 class CliExitTest < Minitest::Test
   def status_of(command)

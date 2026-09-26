@@ -21,6 +21,7 @@ default. `0` is off. Any other value is on (`Zr.flag?`).
 |---|---|---|---|
 | `ZR_CACHE` | a directory | `tmp/cache` in a checkout; `$XDG_CACHE_HOME/zr` if `XDG_CACHE_HOME` is set; else `~/Library/Caches/zr` on macOS and `~/.cache/zr` on other hosts | Where zr keeps the built runtime, eval support, the prelinked images and the other cache files. |
 | `XDG_CACHE_HOME` | a directory | unset | The base of the user cache for an installed gem (see `ZR_CACHE`). |
+| `ZR_CACHE_MAX_GB` | a number of GB | 5 | After a build, an installed zr deletes the cache files that it does not use, and the compiled compilers of other versions, when the cache is larger than this. It measures at most once a day. `0` turns this off. A checkout never does it; use `zr-dev cache prune`. |
 | `ZR_LINKER` | `auto`, `ruby`, `cc` | `auto` | The macOS linker. `auto`: zr's own Mach-O linker, and `cc` for a link that zr's linker refuses. `ruby`: zr's linker only; a link it cannot do stops with a message. `cc`: the system linker always. Another value is an error. |
 | `ZR_JOBS` | a number | one for each core, at most 6 | How many worker processes assemble a large compilation unit. When it is not set, zr also uses fewer workers if the machine does not have the memory for them. |
 | `ZR_TIMING` | flag | off | Prints to stderr the seconds that each phase of a build takes. |
@@ -72,7 +73,7 @@ A program also reads the variables that ruby reads, for example
 | `N` | a pattern | unset | Runs only the examples whose name matches (minitest `-n`). |
 | `X` | a pattern | unset | Leaves out the examples whose name matches (minitest `-e`). |
 | `A` | minitest options | unset | Other options for minitest. |
-| `MT_CPU` | a number | one for each core, or one for each 2 GB of memory if that is fewer | How many worker processes a tier forks. This is minitest's own name. |
+| `MT_CPU` | a number | one for each 2 GB of memory after a quarter (at least 4 GB) is kept free, and at most two fewer than the cores; 4 for `test/e2e` | How many worker processes a tier forks. This is minitest's own name. |
 | `ZR_COMPILED` | `0`, `1` | `0` | The tests run the compiler under ruby unless this is set. |
 | `ZR_TEST_TIMEOUT` | seconds | 180, or the suite's own limit | How long one example can take before the tier stops its worker and reports a failure. `0` waits forever, for a debugger session. A value that you set applies to every suite. |
 | `ZR_TEST_RECYCLE_MB` | megabytes | 600 | How much a worker can grow after its fork before the tier stops it and forks a new one. |

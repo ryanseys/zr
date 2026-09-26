@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "lib/zr/dev"
+require_relative "../lib/zr/cache"
 
 module Zr
   module Dev
@@ -40,21 +41,14 @@ module Zr
       })
 
       # What the commands share: the files, and which of them this
-      # checkout uses.
+      # checkout uses (lib/zr/cache.rb, which `zr cache` also uses).
       module Files
         module_function
 
-        def load!
-          require_relative "../lib/zr/runtime"
-          require_relative "../lib/zr/native/build"
-        end
-
-        # The cache files, the binaries that the spec tier keeps in the
-        # cache, and the parsed trees (lib/zr/parse_cache.rb). There is one
-        # parsed tree for each file ever parsed (about 70,000 after some
-        # months). Their names come from the source only, so only age
-        # shows which are not used.
-        def all = Dir[File.join(Paths.cache, "{*,binaries/*,parse/*}")].select { |path| File.file?(path) }
+        def all = Zr::Cache.all
+        def live = Zr::Cache.live
+        def megabytes(paths) = Zr::Cache.megabytes(paths)
+        def kind(path) = Zr::Cache.kind(path)
 
         # wasmtime's cache of compiled modules. `zr-dev bench` and `zr run`
         # under Cranelift fill it (the tiers run Winch with the cache off).
@@ -62,43 +56,6 @@ module Zr
         # because it can become large (67 GB on one machine). `wasmtime
         # config new` writes the file that sets its limit.
         def wasmtime = File.expand_path("~/Library/Caches/BytecodeAlliance.wasmtime")
-
-        # The files that this checkout's compiler uses, for each target:
-        # the runtime object, the eval support object and its meta file,
-        # and the prelinked image of each. Only the meta file gives the key
-        # of the eval support object.
-        def live
-          load!
-          Target.all.flat_map { |target| live_for(target) }.compact.uniq
-        rescue StandardError, ScriptError
-          [] # if the compiler does not load, keep no file as live
-        end
-
-        def live_for(target)
-          runtime = Zr.runtime(target)
-          object = runtime.object_path
-          metas = %w[jit walk].map { |kind| EvalSupport.meta_path(runtime, kind) }.select { |path| File.exist?(path) }
-          evals = metas.filter_map { |meta| eval_object(meta) }
-          sets = [[object], *evals.map { |eval| [object, eval] }]
-          [object, *metas, *evals, *sets.map { |set| Native::Build.prelink_path(set) },
-           *sets.map { |set| Native::Build.skeleton_path(set) }] + Dir[File.join(Paths.cache, "*-#{runtime.digest}.*")]
-        end
-
-        # The eval support object. Only its meta file gives its path.
-        def eval_object(meta)
-          require "json"
-          key = JSON.parse(File.read(meta)).fetch("key") if File.exist?(meta)
-          key && EvalSupport.object_path(key)
-        end
-
-        def megabytes(paths) = paths.sum { |path| File.size(path) } / (1 << 20)
-
-        def kind(path)
-          return "binary" if File.basename(File.dirname(path)) == "binaries"
-          return "parse" if File.basename(File.dirname(path)) == "parse"
-
-          File.basename(path).sub(/-[0-9a-f]{64}/, "").sub(/\A[^.]*\./, "")
-        end
       end
 
       class Size < Command
@@ -137,11 +94,9 @@ module Zr
 
         def run(_argv)
           days = @days || Float(ENV.fetch("ZR_CACHE_DAYS", 1))
-          live = Files.live
-          young = Time.now - (days * 86_400)
-          stale = Files.all.reject { |path| live.include?(path) || File.mtime(path) > young }
-          freed = Files.megabytes(stale)
-          stale.each { |path| File.delete(path) }
+          sizes = Files.all.to_h { |path| [path, File.size(path)] }
+          stale = Zr::Cache.prune(days: days)
+          freed = stale.sum { |path| sizes.fetch(path, 0) } / (1 << 20)
           puts format("swept %d file(s), %d MB; %d MB left", stale.size, freed, Files.megabytes(Files.all))
         end
       end
@@ -150,9 +105,8 @@ module Zr
         summary "Empty the runtime cache, whatever this checkout names"
 
         def run(_argv)
-          files = Files.all
-          freed = Files.megabytes(files)
-          files.each { |path| File.delete(path) }
+          freed = Files.megabytes(Files.all)
+          files = Zr::Cache.clear
           puts format("cleared %d file(s), %d MB", files.size, freed)
         end
       end
