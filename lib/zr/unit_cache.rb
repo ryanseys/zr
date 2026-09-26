@@ -23,15 +23,16 @@ module Zr
   #
   # The names of the other units are also an input. A `require` or an
   # `autoload` refers to the entry of the unit it runs
-  # (`Zr::Lower#unit_entry`). That entry is the file path when the path
-  # is absolute, else the unit's position in the program. So the key
-  # contains every entry of the program, and a changed entry list lowers
-  # all units again. A possible compile-speed improvement: key only on
-  # the entries that a unit uses.
+  # (`Zr::Lower#unit_entry`), and to that unit's path as the program
+  # shows it. The entry is made from the file path when the path is
+  # absolute, else from the unit's position in the program. So the key
+  # contains the path and the entry of each unit that this unit's
+  # requires and autoloads reach, and no other entry: a `require` added
+  # to one file lowers only that file again, not every unit.
   class UnitCache
     # The format of the cache entries. Increase it to make every entry
     # from an older zr a miss.
-    VERSION = 2
+    VERSION = 3
 
     # The cache for `program`, or nil if no key can describe this
     # program. `entries` are the program's unit entries, in order.
@@ -47,7 +48,8 @@ module Zr
       # runtime for this target. `table` identifies the symbol table that
       # fixes a unit's ids: the runtime's, or the eval support table when
       # the program links in eval support (it contains more names).
-      @stamp = "#{VERSION}\0#{runtime}\0#{table}\0#{traced}\0#{Digest::SHA256.hexdigest(entries.join("\0"))}"
+      @stamp = "#{VERSION}\0#{runtime}\0#{table}\0#{traced}"
+      @entries = entries
     end
 
     # `[functions, data]` an earlier build left for `unit`, or nil.
@@ -81,7 +83,29 @@ module Zr
       return nil if unit.source.nil? || unit.activates
 
       Digest::SHA256.hexdigest([@stamp, prefix, unit.file, unit.internal ? 1 : 0, unit.hidden ? 1 : 0,
-                                unit.source.b].join("\0"))
+                                unit.source.b, *reached(unit.body)].join("\0"))
+    end
+
+    # The path and the entry of each unit that a require or an autoload
+    # in `body` runs, in the order of the tree.
+    def reached(body)
+      out = []
+      stack = [body]
+      until stack.empty?
+        node = stack.pop
+        if node.is_a?(Hir::Require) || node.is_a?(Hir::Autoload)
+          out << Paths.shown(node.path.to_s) << entry(node.unit)
+        end
+        Hir.each_child(node).reverse_each { |child| stack << child }
+      end
+      out
+    end
+
+    # A unit's entry: a String names it already (a unit of eval support).
+    def entry(unit)
+      return "-" if unit.nil?
+
+      unit.is_a?(String) ? unit : @entries.fetch(unit)
     end
   end
 end

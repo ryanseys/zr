@@ -11,15 +11,6 @@ require_relative "../../lib/zr/native/build"
 # unit kept from the first compile would call an entry that nothing
 # defines. The second build must link.
 class UnitCacheTest < Minitest::Test
-  # One unit, as the key reads it: a plain program file.
-  class StandIn
-    def source = "puts 1\n"
-    def file = "a.rb"
-    def activates = false
-    def internal = false
-    def hidden = false
-  end
-
   MAIN = <<~'RUBY'
     $LOAD_PATH.unshift(File.join(__dir__, "lib"))
     require "demo"
@@ -48,15 +39,38 @@ class UnitCacheTest < Minitest::Test
     end
   end
 
-  def test_key_changes_with_the_entry_of_another_unit
-    Dir.mktmpdir("zr-unit-cache-") do |dir|
-      unit = StandIn.new
-      keys = %w[one two].map do |entry|
-        cache = Zr::UnitCache.new(dir: dir, runtime: "rt", table: "rt", traced: 0, entries: ["zr_toplevel_unit_0", entry])
-        cache.send(:key, unit, "zr_toplevel_unit_0")
-      end
+  # A unit as the key reads it, with a require of the unit at index 1.
+  Unit = Struct.new(:source, :file, :internal, :hidden, :activates, :body)
 
-      refute_equal keys[0], keys[1]
+  def unit(path: "/app/lib/b.rb", target: 1)
+    body = [Zr::Hir::Require.new(:require_relative, "b", path, target, 1)]
+    Unit.new("require_relative 'b'\n", "/app/main.rb", false, false, nil, body)
+  end
+
+  def key(unit, entries)
+    Dir.mktmpdir("zr-unit-cache-") do |dir|
+      cache = Zr::UnitCache.new(dir: dir, runtime: "rt", table: "rt", traced: 0, entries: entries)
+      cache.send(:key, unit, "zr_toplevel_unit_0")
     end
+  end
+
+  # A file added elsewhere in the program does not lower this unit again.
+  def test_an_entry_the_unit_does_not_reach_leaves_the_key
+    assert_equal key(unit, %w[main b]), key(unit, %w[main b c d])
+  end
+
+  def test_the_entry_of_a_reached_unit_is_in_the_key
+    refute_equal key(unit, %w[main b]), key(unit, %w[main other])
+  end
+
+  def test_the_path_of_a_reached_unit_is_in_the_key
+    refute_equal key(unit(path: "/app/lib/b.rb"), %w[main b]), key(unit(path: "/app/vendor/b.rb"), %w[main b])
+  end
+
+  def test_a_require_nested_in_a_def_counts
+    nested = unit
+    nested.body = [[:def, [Zr::Hir::Require.new(:require, "b", "/app/lib/b.rb", 1, 3)]]]
+
+    refute_equal key(nested, %w[main b]), key(nested, %w[main other])
   end
 end
