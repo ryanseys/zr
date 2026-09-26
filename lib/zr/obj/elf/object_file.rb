@@ -2,6 +2,7 @@
 
 require_relative "../model"
 require_relative "../../bytes"
+require_relative "../string_table"
 
 module Zr
   module Obj
@@ -93,11 +94,9 @@ module Zr
           end
           sections << Section.new(name: ".note.GNU-stack", type: SHT_PROGBITS, flags: 0, bytes: "".b, size: 0, align: 1, link: 0, info: 0, entsize: 0)
 
-          strtab = +"\0".b
-          symbols.each do |sym|
-            sym[:strx] = sym[:name].empty? ? 0 : strtab.bytesize
-            strtab << sym[:name].b << "\0".b unless sym[:name].empty?
-          end
+          table = StringTable.new(blank: 0)
+          symbols.each { |sym| sym[:strx] = table.add(sym[:name]) }
+          strtab = table.bytes
           locals = symbols.count { |sym| sym[:bind] == STB_LOCAL }
           symtab = symbols.map do |sym|
             shndx = sym[:shndx] >= SHN_LORESERVE ? SHN_XINDEX : sym[:shndx]
@@ -115,15 +114,10 @@ module Zr
           end
 
           sections << Section.new(name: ".strtab", type: SHT_STRTAB, flags: 0, bytes: strtab, size: strtab.bytesize, align: 1, link: 0, info: 0, entsize: 0)
-          shstrtab = +"\0".b
+          section_names = StringTable.new(blank: 0)
           sections << Section.new(name: ".shstrtab", type: SHT_STRTAB, flags: 0, bytes: "".b, size: 0, align: 1, link: 0, info: 0, entsize: 0)
-          names = sections.map do |s|
-            next 0 if s.name.empty?
-
-            at = shstrtab.bytesize
-            shstrtab << s.name.b << "\0".b
-            at
-          end
+          names = sections.map { |s| section_names.add(s.name) }
+          shstrtab = section_names.bytes
           sections.last.bytes = shstrtab
           sections.last.size = shstrtab.bytesize
 
@@ -132,12 +126,12 @@ module Zr
           sections.drop(1).each do |s|
             next if s.type == SHT_NOBITS
 
-            out << ("\0" * (align_up(out.bytesize, [s.align, 1].max) - out.bytesize)).b
+            out << ("\0" * (Bytes.align(out.bytesize, [s.align, 1].max) - out.bytesize)).b
             s.offset = out.bytesize
             out << s.bytes
           end
           sections.select { |s| s.type == SHT_NOBITS }.each { |s| s.offset = out.bytesize }
-          out << ("\0" * (align_up(out.bytesize, 8) - out.bytesize)).b
+          out << ("\0" * (Bytes.align(out.bytesize, 8) - out.bytesize)).b
           shoff = out.bytesize
           shnum = sections.size
           shstrndx = shnum - 1
@@ -172,8 +166,6 @@ module Zr
           ident = "\x7FELF".b + [2, 1, 1, 0].pack("C4") + ("\0" * 8).b
           ident + [ET_REL, EM_AARCH64, 1, 0, 0, shoff, 0, 64, 0, 0, 64, shnum, shstrndx].pack("S<S<L<Q<Q<Q<L<S<S<S<S<S<S<")
         end
-
-        def align_up(n, a) = Bytes.align(n, a)
       end
     end
   end

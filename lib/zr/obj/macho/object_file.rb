@@ -2,6 +2,7 @@
 
 require_relative "../model"
 require_relative "../../bytes"
+require_relative "../string_table"
 
 module Zr
   module Obj
@@ -167,10 +168,10 @@ module Zr
             kinds = SECTIONS[si][3]
             mine = items.select { |kind, _| kinds.include?(kind) }
             s[:align] = mine.map { |_, i| Math.log2(i.align).ceil }.max || 0
-            addr = align_up(addr, 1 << s[:align])
+            addr = Bytes.align(addr, 1 << s[:align])
             s[:addr] = addr
             mine.each do |_, item|
-              pad = align_up(s[:size], item.align) - s[:size]
+              pad = Bytes.align(s[:size], item.align) - s[:size]
               s[:bytes] << ("\0" * pad).b unless s[:flags] == S_ZEROFILL
               s[:size] += pad
               placed << Placed.new(item, si, addr + s[:size])
@@ -199,17 +200,17 @@ module Zr
 
           segment_cmd = 72 + (80 * sections.size)
           sizeofcmds = segment_cmd + 24 + 24 + 80
-          offset = align_up(32 + sizeofcmds, 16)
+          offset = Bytes.align(32 + sizeofcmds, 16)
           data_start = offset
           sections.each do |s|
             next if s[:flags] == S_ZEROFILL
 
-            offset = align_up(offset, 1 << s[:align])
+            offset = Bytes.align(offset, 1 << s[:align])
             s[:offset] = offset
             offset += s[:size]
           end
           data_end = offset
-          offset = align_up(offset, 8)
+          offset = Bytes.align(offset, 8)
           sections.each do |s|
             s[:reloff] = s[:relocs].empty? ? 0 : offset
             offset += s[:relocs].size * 4
@@ -217,11 +218,9 @@ module Zr
           symoff = offset
           offset += symbols.size * 16
           stroff = offset
-          strtab = +"\0".b
-          symbols.each do |sym|
-            sym[:strx] = strtab.bytesize
-            strtab << sym[:name].b << "\0".b
-          end
+          table = StringTable.new
+          symbols.each { |sym| sym[:strx] = table.add(sym[:name]) }
+          strtab = table.bytes
           Laid.new(sections: sections, symbols: symbols, strtab: strtab, vmsize: vmsize, data_start: data_start,
                    data_end: data_end, symoff: symoff, stroff: stroff, sizeofcmds: sizeofcmds,
                    segment_cmd: segment_cmd)
@@ -259,7 +258,7 @@ module Zr
             out << ("\0" * (s[:offset] - out.bytesize)).b
             out << s[:bytes]
           end
-          out << ("\0" * (align_up(out.bytesize, 8) - out.bytesize)).b
+          out << ("\0" * (Bytes.align(out.bytesize, 8) - out.bytesize)).b
           sections.each { |s| out << s[:relocs].pack("L<*") }
           symbols.each { |sym| out << nlist(sym) }
           out << laid.strtab
@@ -301,8 +300,6 @@ module Zr
           rows << address << (symbol | (pcrel << 24) | (length << 25) | (1 << 27) | (type << 28))
           [address, rows]
         end
-
-        def align_up(n, a) = Bytes.align(n, a)
 
         def pad16(s)
           s.b.ljust(16, "\0")

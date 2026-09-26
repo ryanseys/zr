@@ -1,14 +1,11 @@
 # frozen_string_literal: true
 
-
 module Zr
   module Machine
     TYPES = {
       "I8" => "i8", "Bool" => "i8", "I32" => "i32", "Word" => "i64", "Ptr" => "i64",
       "Value" => "i64", "F64" => "f64", "Void" => nil
     }.freeze
-    # Comparisons that read their operands as unsigned: pointers.
-    UNSIGNED = %w[Ptr].freeze
 
     # Whether a word is an immediate and not a pointer to a cell: a
     # Fixnum, a flonum, a Symbol, nil, true or false. This is the same

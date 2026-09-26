@@ -531,6 +531,8 @@ module Zr
 
           cell = @l.layout("CallCache")
           shapes = site_shapes(node)
+          # The labels are made in this order, before any code, so that a
+          # build numbers them as it always has.
           fixnum = @f.label
           other = @f.label
           heap = @f.label
@@ -544,120 +546,20 @@ module Zr
           direct = @f.label
           miss = @f.label
           merge, (result,) = @f.block(["i64"])
-          # `x.nil?` while no class has defined the name (GATE_NIL_P): true
-          # for nil here, before any class is read. False at `have` for a
-          # receiver whose class is ranked (under Object, where Kernel's
-          # `nil?` applies). The cell for all others.
           nil_p = node.name == :nil? && node.args.empty? && node.block.nil? && node.kwargs.nil? && !traced?
-          if nil_p
-            is_nil = @f.label
-            not_nil = @f.label
-            @f.brif(@f.band(gate_clear("GATE_NIL_P"), @f.icmp("eq", recv, @qnil)), is_nil, not_nil)
-            switch(is_nil)
-            @f.jump(merge, [imm(@l.const("QTRUE"))])
-            switch(not_nil)
-          end
-          # The compiler knows the class of a literal symbol, nil, true or
-          # false receiver. For example, a `case` branch on a symbol sends
-          # `:sym === x` to the literal.
-          if (known = literal_class(node.recv))
-            reach.call(global(known), 0)
-          else
-            @f.brif(@f.icmp("ne", @f.band(recv, imm(1)), imm(0)), fixnum, other)
-            switch(fixnum)
-            reach.call(global("G_INTEGER"), 0)
-            switch(other)
-            if FLONUM_NAMES.include?(node.name)
-              flonum = @f.label
-              rest = @f.label
-              @f.brif(@f.icmp("eq", @f.band(recv, imm(3)), imm(2)), flonum, rest)
-              switch(flonum)
-              reach.call(global("G_FLOAT"), 0)
-              switch(rest)
-            end
-            special = @f.label
-            pointer = @f.band(@f.icmp("eq", @f.band(recv, imm(7)), imm(0)), @f.icmp("ugt", recv, @qnil))
-            @f.brif(pointer, heap, special)
-            switch(heap)
-            reach.call(@f.fetch("i64", recv, off(@l.layout("RBasic"), "klass")), 1)
-            # nil, true, false, a symbol and a flonum each have a class, as a
-            # fixnum does. A site that sends to one (`x.nil?` on nil, a
-            # symbol's `to_proc`, `respond_to?` on a flag) hits its cell as
-            # for a fixnum. The kernel reads the class with one call on this
-            # slow path. Inline tests at every site would add a tenth to the
-            # runtime's code.
-            switch(special)
-            reach.call(kernel("zr_class_of", recv), 0)
-          end
+          nil_before_class(recv, merge) if nil_p
+          receiver_class(node, recv, reach, fixnum, other, heap)
           switch(have)
-          if nil_p
-            not_nil = @f.label
-            cell_path = @f.label
-            @f.brif(@f.band(gate_clear("GATE_NIL_P"), ranked?(klass)), not_nil, cell_path)
-            switch(not_nil)
-            @f.jump(merge, [imm(@l.const("QFALSE"))])
-            switch(cell_path)
-          end
-          # `recv.is_a?(K)` uses only the receiver's class while no class
-          # has defined the name (GATE_IS_A). It uses no cell, because a
-          # site with receivers of many classes would thrash the cells.
-          if (gate = QUESTION_GATES[node.name]) && node.args.size == 1 && node.block.nil? && node.kwargs.nil? && !node.args[0].is_a?(Hir::Splat) && !traced?
-            gated = @f.label
-            cell_path = @f.label
-            @f.brif(gate_clear(gate), gated, cell_path)
-            switch(gated)
-            if node.name == :instance_of?
-              answered(kernel("zr_instance_of_fast", klass, @f.fetch("i64", argv, 0)), merge, cell_path)
-            else
-              is_a_in_place(klass, @f.fetch("i64", argv, 0), merge, cell_path)
-            end
-            switch(cell_path)
-          end
+          nil_after_class(klass, merge) if nil_p
+          question_gate(node, klass, argv, merge)
           same = @f.band(@f.icmp("eq", klass, @f.fetch("i64", cc, off(cell, "klass"))),
                          @f.icmp("eq", @f.fetch("i64", cc, off(cell, "stamp")), @f.fetch("i64", static("site_stamp"))))
           @f.brif(same, direct, miss)
           switch(direct)
           entry = @f.fetch("i64", cc, off(cell, "entry"))
-          unless shapes.empty?
-            call = @f.label
-            held = @f.fetch("i64", cc, off(cell, "shape"))
-            shapes.each_with_index do |shape, i|
-              here = @f.label
-              onward = i == shapes.size - 1 ? call : @f.label
-              wanted = @f.icmp("eq", held, imm(@l.const(SHAPES.fetch(shape))))
-              wanted = @f.bor(wanted, struct_member?(shape, held)) if ACCESSOR_SHAPES.include?(shape)
-              @f.brif(ACCESSOR_SHAPES.include?(shape) ? @f.band(cellular, wanted) : wanted, here, onward)
-              switch(here)
-              in_place(shape, recv, klass, entry, argv, merge, call, miss, held)
-              switch(onward)
-            end
-          end
+          shape_hits(shapes, cc, recv, klass, cellular, entry, argv, merge, miss) unless shapes.empty?
           found = @f.fetch("i64", cc, off(cell, "found"))
-          if direct_site?(node)
-            # The def's direct entry, if the cell has one for this site's
-            # count. The staged arguments go in registers, with no count
-            # and no keyword word for the def to check.
-            fast = @f.label
-            generic = @f.label
-            direct = @f.fetch("i64", cc, off(cell, "direct"))
-            @f.brif(@f.icmp("ne", direct, imm(0)), fast, generic)
-            switch(fast)
-            n = node.args.size
-            given = n.times.map { |i| @f.fetch("i64", argv, 8 * i) }
-            # The unit's def with this name, if the direct entry is its
-            # body: an inline copy of the body, which bails to the call
-            # (`Inline`).
-            if (d = inline_candidate(node))
-              copy = @f.label
-              plain = @f.label
-              @f.brif(@f.icmp("eq", direct, @f.func_addr(@f.callee(@l.def_name(d), ABI.fetch(Function.direct_abi(n)), "i64"))), copy, plain)
-              switch(copy)
-              @f.jump(merge, [inline_body(d, recv, given, plain)])
-              switch(plain)
-            end
-            @f.jump(merge, [@f.call_indirect_val(@f.sig(ABI.fetch(Function.direct_abi(n)), "i64"), direct, [recv, entry, blk, found, *given])])
-            switch(generic)
-          end
+          direct_entry(node, cc, recv, entry, blk, found, argv, merge) if direct_site?(node)
           fn = @f.fetch("i64", cc, off(cell, "fn"))
           args = [recv, argc, argv, entry, blk, found]
           @f.jump(merge, [@f.call_indirect_val(@f.sig(ABI.fetch(:def), "i64"), fn, args)])
@@ -665,6 +567,124 @@ module Zr
           @f.jump(merge, [slow.call])
           switch(merge)
           result
+        end
+
+        # `x.nil?` while no class has defined the name (GATE_NIL_P): true
+        # for nil here, before any class is read. False at `have` for a
+        # receiver whose class is ranked (under Object, where Kernel's
+        # `nil?` applies; `nil_after_class`). The cell for all others.
+        def nil_before_class(recv, merge)
+          is_nil = @f.label
+          not_nil = @f.label
+          @f.brif(@f.band(gate_clear("GATE_NIL_P"), @f.icmp("eq", recv, @qnil)), is_nil, not_nil)
+          switch(is_nil)
+          @f.jump(merge, [imm(@l.const("QTRUE"))])
+          switch(not_nil)
+        end
+
+        def nil_after_class(klass, merge)
+          not_nil = @f.label
+          cell_path = @f.label
+          @f.brif(@f.band(gate_clear("GATE_NIL_P"), ranked?(klass)), not_nil, cell_path)
+          switch(not_nil)
+          @f.jump(merge, [imm(@l.const("QFALSE"))])
+          switch(cell_path)
+        end
+
+        # Reaches the join with the receiver's class, and whether the
+        # receiver is a cell. The compiler knows the class of a literal
+        # symbol, nil, true or false receiver. For example, a `case` branch
+        # on a symbol sends `:sym === x` to the literal.
+        def receiver_class(node, recv, reach, fixnum, other, heap)
+          known = literal_class(node.recv)
+          return reach.call(global(known), 0) if known
+
+          @f.brif(@f.icmp("ne", @f.band(recv, imm(1)), imm(0)), fixnum, other)
+          switch(fixnum)
+          reach.call(global("G_INTEGER"), 0)
+          switch(other)
+          if FLONUM_NAMES.include?(node.name)
+            flonum = @f.label
+            rest = @f.label
+            @f.brif(@f.icmp("eq", @f.band(recv, imm(3)), imm(2)), flonum, rest)
+            switch(flonum)
+            reach.call(global("G_FLOAT"), 0)
+            switch(rest)
+          end
+          special = @f.label
+          pointer = @f.band(@f.icmp("eq", @f.band(recv, imm(7)), imm(0)), @f.icmp("ugt", recv, @qnil))
+          @f.brif(pointer, heap, special)
+          switch(heap)
+          reach.call(@f.fetch("i64", recv, off(@l.layout("RBasic"), "klass")), 1)
+          # nil, true, false, a symbol and a flonum each have a class, as a
+          # fixnum does. A site that sends to one (`x.nil?` on nil, a
+          # symbol's `to_proc`, `respond_to?` on a flag) hits its cell as
+          # for a fixnum. The kernel reads the class with one call on this
+          # slow path. Inline tests at every site would add a tenth to the
+          # runtime's code.
+          switch(special)
+          reach.call(kernel("zr_class_of", recv), 0)
+        end
+
+        # `recv.is_a?(K)` uses only the receiver's class while no class
+        # has defined the name (GATE_IS_A). It uses no cell, because a
+        # site with receivers of many classes would thrash the cells.
+        def question_gate(node, klass, argv, merge)
+          gate = QUESTION_GATES[node.name]
+          return unless gate && node.args.size == 1 && node.block.nil? && node.kwargs.nil? && !node.args[0].is_a?(Hir::Splat) && !traced?
+
+          gated = @f.label
+          cell_path = @f.label
+          @f.brif(gate_clear(gate), gated, cell_path)
+          switch(gated)
+          if node.name == :instance_of?
+            answered(kernel("zr_instance_of_fast", klass, @f.fetch("i64", argv, 0)), merge, cell_path)
+          else
+            is_a_in_place(klass, @f.fetch("i64", argv, 0), merge, cell_path)
+          end
+          switch(cell_path)
+        end
+
+        # A hit whose cell holds one of the site's shapes (an accessor, a
+        # struct member, ...) runs the shape in place.
+        def shape_hits(shapes, cc, recv, klass, cellular, entry, argv, merge, miss)
+          call = @f.label
+          held = @f.fetch("i64", cc, off(@l.layout("CallCache"), "shape"))
+          shapes.each_with_index do |shape, i|
+            here = @f.label
+            onward = i == shapes.size - 1 ? call : @f.label
+            wanted = @f.icmp("eq", held, imm(@l.const(SHAPES.fetch(shape))))
+            wanted = @f.bor(wanted, struct_member?(shape, held)) if ACCESSOR_SHAPES.include?(shape)
+            @f.brif(ACCESSOR_SHAPES.include?(shape) ? @f.band(cellular, wanted) : wanted, here, onward)
+            switch(here)
+            in_place(shape, recv, klass, entry, argv, merge, call, miss, held)
+            switch(onward)
+          end
+        end
+
+        # The def's direct entry, if the cell has one for this site's
+        # count. The staged arguments go in registers, with no count and
+        # no keyword word for the def to check.
+        def direct_entry(node, cc, recv, entry, blk, found, argv, merge)
+          fast = @f.label
+          generic = @f.label
+          direct = @f.fetch("i64", cc, off(@l.layout("CallCache"), "direct"))
+          @f.brif(@f.icmp("ne", direct, imm(0)), fast, generic)
+          switch(fast)
+          n = node.args.size
+          given = n.times.map { |i| @f.fetch("i64", argv, 8 * i) }
+          # The unit's def with this name, if the direct entry is its body:
+          # an inline copy of the body, which bails to the call (`Inline`).
+          if (d = inline_candidate(node))
+            copy = @f.label
+            plain = @f.label
+            @f.brif(@f.icmp("eq", direct, @f.func_addr(@f.callee(@l.def_name(d), ABI.fetch(Function.direct_abi(n)), "i64"))), copy, plain)
+            switch(copy)
+            @f.jump(merge, [inline_body(d, recv, given, plain)])
+            switch(plain)
+          end
+          @f.jump(merge, [@f.call_indirect_val(@f.sig(ABI.fetch(Function.direct_abi(n)), "i64"), direct, [recv, entry, blk, found, *given])])
+          switch(generic)
         end
 
         # The send with a block: a descriptor for a block literal (the

@@ -18,12 +18,25 @@ module Zr
   #
   # Regexp::Onig, the regular expression compiler (runtime/core/regexp/onig).
   # Each file defines what the next file reads.
-  ONIG_NAMES = %w[regexp/unicode_tables regexp/onig/syntax regexp/onig/errors regexp/onig/encoding_tables regexp/onig/encoding regexp/onig/encoding_unicode regexp/onig/encoding_multibyte regexp/onig/node regexp/onig/lexer regexp/onig/parser regexp/onig/tune regexp/onig/optimize regexp/onig/compile regexp/onig/program regexp/onig].freeze
+  ONIG_NAMES = %w[
+    regexp/unicode_tables regexp/onig/syntax regexp/onig/errors regexp/onig/encoding_tables
+    regexp/onig/encoding regexp/onig/encoding_unicode regexp/onig/encoding_multibyte
+    regexp/onig/node regexp/onig/lexer regexp/onig/parser regexp/onig/tune regexp/onig/optimize
+    regexp/onig/compile regexp/onig/program regexp/onig
+  ].freeze
   # The core library files, in the order their toplevels run: a module
   # before the classes that include it. An `os/` name is a file of the OS
   # layer, under runtime/core/os/<os>/. It gives each OS's values for the
   # constants that the next portable file uses, in ruby's order.
-  CORE_NAMES = (%w[module warning encodings transcode cjk exception enumerable enumerator comparable integer bignum array hash range struct unicode string converter iso2022 ruled emoji kernel float proc binding format os/errno os/io_constants io io_buffer os/process_constants process signal env os/file_constants file argf data os/clock_constants gc random thread builtin_lines trace_point monitor time set ractor marshal pack] + ONIG_NAMES + %w[regexp_pattern regexp pathname rational complex objectspace rubyvm box]).freeze
+  CORE_NAMES = (%w[
+    module warning encodings transcode cjk exception enumerable enumerator comparable integer bignum
+    array hash range struct unicode string converter iso2022 ruled emoji kernel float proc binding
+    format os/errno os/io_constants io io_buffer os/process_constants process signal env
+    os/file_constants file argf data os/clock_constants gc random thread builtin_lines trace_point
+    monitor time set ractor marshal pack
+  ] + ONIG_NAMES + %w[
+    regexp_pattern regexp pathname rational complex objectspace rubyvm box
+  ]).freeze
 
   # Loads Regexp::Onig under the host ruby, for the tools and tests that
   # check it against ruby's engine.
@@ -446,7 +459,6 @@ module Zr
       LINK_ONLY.each { |path| d << path << "\0" << File.binread(path) }
     end.hexdigest
   end
-
 
   # Writes `content` to `path` in the cache atomically, so a parallel
   # build never reads a half-written file. Writes nothing if a source

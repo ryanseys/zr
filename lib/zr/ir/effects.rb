@@ -33,7 +33,6 @@ module Zr
         gates: 1, stamps: 2, task: 4, heap: 8, malloc: 16, statics: 32, volatile: 64, slot: 0
       }.freeze
       ALL = 127
-      NONE = 0
       # The regions that a store through an unknown address can write:
       # each word that a pointer can reach. A pointer can reach a guard
       # word only if its address escapes as a value. `Machine::Lower`
