@@ -1,6 +1,5 @@
 # frozen_string_literal: true
 
-
 module Zr
   class Lower
     class Function
@@ -176,7 +175,7 @@ module Zr
 
         # `retry`: restore `$!`, then run the begin body again.
         def retry_region(node)
-          @l.refuse(node, "retry outside a rescue clause is not lowered yet") if @retries.empty?
+          @l.unsupported(node, "retry outside a rescue clause") if @retries.empty?
           head, prev_at, depth = @retries.last
           unwind(depth)
           kernel("zr_errinfo_set", @f.fetch("i64", @rec, prev_at))

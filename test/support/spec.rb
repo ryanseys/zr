@@ -375,6 +375,8 @@ module Zr
       # Returns the refusal message without the file and line, so that
       # `Census` counts unsupported forms, not locations.
       def shape(why)
+        return $1 if why =~ /zr does not support (.*) yet\z/
+
         (why[/(?:line \d+|run time): (.*)\z/, 1] || why).delete_suffix(" is not in zr's subset")
       end
     end

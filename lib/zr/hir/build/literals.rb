@@ -260,7 +260,7 @@ module Zr
           when Prism::EmbeddedStatementsNode then part.statements ? seq(part.statements) : Literal.new(nil, line)
           when Prism::EmbeddedVariableNode then expr(part.variable)
           when Prism::InterpolatedStringNode then interpolation(part, line)
-          else refuse(part, "#{part.class.name.split("::").last.delete_suffix("Node")} in a string is not lowered yet")
+          else unsupported(part, "#{Refused.form_of(part)} in a string")
           end
         end
         # A single embedded part is joined to an empty literal, which gives

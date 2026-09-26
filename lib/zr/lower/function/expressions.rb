@@ -85,7 +85,7 @@ module Zr
           when Hir::Begin then protect(node)
           when Hir::Retry then retry_region(node)
           when Hir::Redo then redo_body(node)
-          else @l.refuse(node, "#{node.class.name.split("::").last} is not lowered yet")
+          else @l.unsupported(node)
           end
         end
 

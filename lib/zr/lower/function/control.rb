@@ -415,7 +415,7 @@ module Zr
             preempt
             @f.jump(loop[:body])
           else
-            @l.refuse(node, "redo outside a block or loop is not lowered yet") unless @kind == :block
+            @l.unsupported(node, "redo outside a block or loop") unless @kind == :block
             through_ensures(@qnil)
             preempt
             @f.jump(@body_label)
@@ -440,7 +440,7 @@ module Zr
             switch(@f.label, open: true)
             return @qnil
           end
-          @l.refuse(node, "#{kind} outside a block or loop is not lowered yet") unless @kind == :block
+          @l.unsupported(node, "#{kind} outside a block or loop") unless @kind == :block
           if kind == :next
             leave(through_ensures(v))
           else

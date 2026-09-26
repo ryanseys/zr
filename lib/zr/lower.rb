@@ -351,6 +351,11 @@ module Zr
       raise Refused, "#{@file}:#{node.line}: #{message}"
     end
 
+    # A form of Ruby that zr does not support yet, at the node's line.
+    def unsupported(node, form = Refused.form_of(node))
+      raise Refused.unsupported(form, file: @file, line: node.line)
+    end
+
     # A read-only string literal, as data in this unit.
     def literal(bytes)
       name = "#{@prefix}_lit_#{@lits}"

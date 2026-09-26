@@ -302,7 +302,7 @@ module Zr
         when :$` then BackRef.new(:pre, nil, line)
         when :$' then BackRef.new(:post, nil, line)
         when :$+ then BackRef.new(:last, nil, line)
-        else refuse(node, "#{node.name} is not lowered yet")
+        else unsupported(node, "the #{node.name} variable")
         end
       end
 
@@ -679,7 +679,7 @@ module Zr
           other = node.else_clause && expr(node.else_clause, taken: taken)
           Case.new(node.predicate && expr(node.predicate), clauses, covered(covers.last, other, line), line)
         when Prism::IndexOperatorWriteNode, Prism::IndexOrWriteNode, Prism::IndexAndWriteNode
-          refuse(node, "a block in an index target is not lowered yet") if node.block
+          unsupported(node, "a block in an index target") if node.block
           args = index_args(node, line)
           op = case node
                when Prism::IndexOperatorWriteNode then node.binary_operator
@@ -703,7 +703,7 @@ module Zr
           # It registers once for its site, however many times the site runs.
           Once.new(Send.of(Core.new(:Kernel, line), :at_exit, [], line, block: block), line)
         when Prism::PreExecutionNode
-          refuse(node, "BEGIN { } outside the toplevel is not lowered yet") unless @block_depth.zero?
+          unsupported(node, "BEGIN { } outside the toplevel") unless @block_depth.zero?
           node.statements ? seq(node.statements) : Literal.new(nil, line)
         when Prism::InstanceVariableWriteNode then IvarWrite.new(node.name, expr(node.value), line)
         when Prism::InstanceVariableOperatorWriteNode
@@ -720,7 +720,7 @@ module Zr
         # never taken, so a `retry` there is never an error.
         when Prism::RetryNode then @dead.positive? ? Literal.new(nil, line) : Retry.new(line)
         when Prism::RedoNode then Redo.new(line)
-        else refuse(node, "#{node.class.name.split("::").last.delete_suffix("Node")} is not lowered yet")
+        else unsupported(node)
         end
       end
 
@@ -770,7 +770,7 @@ module Zr
         when Prism::ConstantReadNode then [nil, node.name]
         when Prism::ConstantPathNode, Prism::ConstantPathTargetNode
           [node.parent ? expr(node.parent) : :top, node.name]
-        else refuse(node, "a dynamic constant path is not lowered yet")
+        else unsupported(node, "a dynamic constant path")
         end
       end
 
@@ -926,7 +926,7 @@ module Zr
                when nil then nil
                when Prism::ImplicitRestNode then :implicit
                when Prism::SplatNode then node.rest.expression ? target(node.rest.expression) : :implicit
-               else refuse(node.rest, "#{node.rest.class.name.split("::").last.delete_suffix("Node")} is not lowered yet")
+               else unsupported(node.rest)
                end
         MultiTarget.new(node.lefts.map { |t| target(t) }, rest, node.rights.map { |t| target(t) }, line)
       end
@@ -951,7 +951,7 @@ module Zr
           # `rescue => o&.x` and `for o&.x in list` write only if `o` is
           # not nil, as their safe call does.
           Send.of(expr(node.receiver), node.name, [], line, safe: node.call_operator == "&.")
-        else refuse(node, "#{node.class.name.split("::").last.delete_suffix("Node")} as an assignment target is not lowered yet")
+        else unsupported(node, "#{Refused.form_of(node)} as an assignment target")
         end
       end
 
@@ -970,7 +970,7 @@ module Zr
         when Prism::KeywordRestParameterNode then node.name || ANONYMOUS[:kwrest]
         when Prism::ForwardingParameterNode then ANONYMOUS[:kwrest]
         when Prism::NoKeywordsParameterNode then :nokey
-        else refuse(node, "#{node.class.name.split("::").last.delete_suffix("Node")} is not lowered yet")
+        else unsupported(node)
         end
       end
 
@@ -1001,7 +1001,7 @@ module Zr
           # A block-local (`|x; y|`) is already in the block's locals,
           # where prism resolves it at depth 0, new at each call.
           [parameters(node.parameters), []]
-        else refuse(node, "#{node.class.name.split("::").last.delete_suffix("Node")} is not lowered yet")
+        else unsupported(node)
         end
       end
 
@@ -1364,6 +1364,12 @@ module Zr
 
       def refuse(node, message)
         raise Refused, "#{@file}:#{node.location.start_line}: #{message}"
+      end
+
+      # A form of Ruby that zr does not support yet, at the node's line and
+      # column. `form` is in user words (Refused.form_of).
+      def unsupported(node, form = Refused.form_of(node))
+        raise Refused.unsupported(form, file: @file, line: node.location.start_line, column: node.location.start_column + 1)
       end
 
       # A refusal of a form that ruby also refuses. A program that compiles

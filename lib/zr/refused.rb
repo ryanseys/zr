@@ -12,9 +12,62 @@ module Zr
   module Refusal; end
 
   # The program uses a form that zr does not support. The message gives
-  # the form, the file and the line. `zr` exits with status 3
-  # (`CLI::REFUSED`), and the spec tier skips the example.
+  # the file, the line (and the column, where the stage knows it) and the
+  # form. `zr` exits with status 3 (`CLI::REFUSED`), and the spec tier
+  # skips the example.
   class Refused < StandardError
     include Refusal
+
+    # The page that lists what zr supports, for the user who reads a
+    # refusal.
+    DOCS = "https://github.com/ryanseys/zr/blob/main/docs/reference/support.md"
+
+    # User words for the syntax nodes that zr refuses by their class. A
+    # node that is not here gets its class name in words.
+    FORMS = {
+      "FlipFlop" => "the flip-flop operator (a range as a condition)",
+      "MatchLastLine" => "a regexp literal as a condition (`if /re/`)",
+      "InterpolatedMatchLastLine" => "an interpolated regexp literal as a condition",
+      "PreExecution" => "`BEGIN { }`",
+      "PostExecution" => "`END { }`"
+    }.freeze
+
+    # The form of a syntax node (a prism node or an HIR node) in words.
+    def self.form_of(node)
+      name = node.class.name.split("::").last.delete_suffix("Node")
+      FORMS.fetch(name) { "#{name.gsub(/(?<=[a-z])(?=[A-Z])/, " ").downcase} (#{name})" }
+    end
+
+    # A refusal of `form` at the place in the source.
+    def self.unsupported(form, file:, line:, column: nil)
+      place = [file, line, column].compact.join(":")
+      new("#{place}: zr does not support #{form} yet", file: file, line: line, column: column, form: form)
+    end
+
+    attr_reader :file, :line, :column, :form
+
+    # A stage that knows only a message (the linkers, the machine
+    # dialect) gives only the message.
+    def initialize(message = nil, file: nil, line: nil, column: nil, form: nil)
+      super(message)
+      @file = file
+      @line = line
+      @column = column
+      @form = form
+    end
+
+    # The source line of the refusal, and a caret under its column, or
+    # nil when the file cannot be read.
+    def excerpt
+      return nil unless file && line && File.file?(file)
+
+      text = File.foreach(file).drop(line - 1).first&.chomp
+      return nil unless text
+
+      caret = column ? "\n    #{" " * (column - 1)}^" : ""
+      "    #{text}#{caret}"
+    rescue SystemCallError, IOError, ArgumentError
+      nil
+    end
   end
 end

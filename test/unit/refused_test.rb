@@ -51,4 +51,38 @@ class RefusedTest < Minitest::Test
   def test_a_refusal_instance_answers_is_a_refusal
     assert_kind_of Zr::Refusal, Zr::Backend::Refused.new("no code for this form")
   end
+
+  def test_an_unsupported_form_gives_the_place_and_the_form
+    e = Zr::Hir::Refused.unsupported("the flip-flop operator", file: "app.rb", line: 12, column: 5)
+
+    assert_equal "app.rb:12:5: zr does not support the flip-flop operator yet", e.message
+    assert_equal ["app.rb", 12, 5, "the flip-flop operator"], [e.file, e.line, e.column, e.form]
+    assert_kind_of Zr::Hir::Refused, e
+  end
+
+  def test_a_node_class_gives_its_form_in_words
+    flip = Class.new { def self.name = "Prism::FlipFlopNode" }.new
+    other = Class.new { def self.name = "Prism::InterpolatedXStringNode" }.new
+
+    forms = [flip, other].map { |node| Zr::Refused.form_of(node) }
+
+    assert_equal ["the flip-flop operator (a range as a condition)", "interpolated xstring (InterpolatedXString)"], forms
+  end
+
+  def test_the_excerpt_puts_a_caret_under_the_column
+    Dir.mktmpdir("zr-refused-") do |dir|
+      file = File.join(dir, "app.rb")
+      File.write(file, "x = 1\nif (a == 1)..(a == 2) then p a end\n")
+      e = Zr::Refused.unsupported("the flip-flop operator", file: file, line: 2, column: 4)
+
+      assert_equal "    if (a == 1)..(a == 2) then p a end\n       ^", e.excerpt
+    end
+  end
+
+  def test_a_message_only_refusal_has_no_excerpt
+    e = Zr::Refused.new("a relocation of type 9")
+
+    assert_nil e.excerpt
+    assert_nil e.form
+  end
 end
