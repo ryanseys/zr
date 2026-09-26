@@ -30,4 +30,25 @@ class LibrariesTest < Minitest::Test
 
     assert_equal [true] * Zr::Libraries::APART.size, held
   end
+
+  # rubygems and bundler are ruby's own copies, so bundler's build
+  # metadata is ruby 4.0.7's (no build date), not that of a
+  # rubygems-update gem.
+  def test_rubygems_and_bundler_come_from_rubys_library
+    pure = Zr::Hir::Build.pure
+    lib = RbConfig::CONFIG["rubylibdir"]
+
+    sources = %w[rubygems.rb bundler.rb bundler/build_metadata.rb].map { |rel| File.readlink(File.join(pure, rel)) }
+
+    assert_equal %w[rubygems.rb bundler.rb bundler/build_metadata.rb].map { |rel| File.join(lib, rel) }, sources
+  end
+
+  def test_the_gem_depends_on_no_rubygems_update
+    spec = Gem::Specification.load(File.join(ROOT, "zr.gemspec"))
+
+    names = spec.runtime_dependencies.map(&:name)
+
+    refute_includes names, "rubygems-update"
+    assert_equal Zr::Libraries::PINS.keys.sort, names.sort
+  end
 end

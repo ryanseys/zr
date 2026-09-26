@@ -49,7 +49,6 @@ PATH
       rexml (= 3.4.4)
       rinda (= 0.2.0)
       rss (= 0.3.3)
-      rubygems-update (= 4.0.20)
       securerandom (= 0.4.1)
       shellwords (= 0.2.2)
       singleton (= 0.3.0)
@@ -186,7 +185,6 @@ GEM
       parser (>= 3.3.7.2)
       prism (~> 1.7)
     ruby-progressbar (1.13.0)
-    rubygems-update (4.0.20)
     securerandom (0.4.1)
     shellwords (0.2.2)
     singleton (0.3.0)
@@ -297,7 +295,6 @@ CHECKSUMS
   rubocop (1.91.0) sha256=9c82b7bf391c5d7e3798c5b9996e22a1fe3bd7468e351dfdeb96140c058296d0
   rubocop-ast (1.50.0) sha256=b9ca88300da0803ee222ad20cdb30494c0a784eed06fdc35d254b06d662788db
   ruby-progressbar (1.13.0) sha256=80fc9c47a9b640d6834e0dc7b3c94c9df37f08cb072b7761e4a71e22cff29b33
-  rubygems-update (4.0.20) sha256=829da7b735d04b2125ec86700134f1b035e0df888512e1513fadfa703519f7d5
   securerandom (0.4.1) sha256=cc5193d414a4341b6e225f0cb4446aceca8e50d5e1888743fac16987638ea0b1
   shellwords (0.2.2) sha256=b8695a791de2f71472de5abdc3f4332f6535a4177f55d8f99e7e44266cd32f94
   singleton (0.3.0) sha256=83ea1bca5f4aa34d00305ab842a7862ea5a8a11c73d362cb52379d94e9615778

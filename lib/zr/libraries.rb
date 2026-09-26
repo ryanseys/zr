@@ -24,10 +24,9 @@ module Zr
   # the tree and a manifest. Later builds read the manifest, stat a few
   # directories, and start no child.
   module Libraries
-    # Each gem that zr supports, and its version: ruby 4.0.7's own, or,
-    # for rubygems and bundler, the version from `gem update --system`.
-    # rubygems-update contains both: rubygems in lib/, bundler in
-    # bundler/lib/.
+    # Each gem that zr supports, and its version: ruby 4.0.7's own. The
+    # gemspec depends on each of them, and a stock ruby 4.0.7 already
+    # has all of them, so `gem install zr` installs only zr.
     PINS = {
       # Bundled gems.
       "abbrev" => "0.1.2", "base64" => "0.3.0", "benchmark" => "0.5.0", "csv" => "3.3.6", "drb" => "2.2.3",
@@ -44,14 +43,15 @@ module Zr
       "open3" => "0.2.1", "optparse" => "0.8.1", "pp" => "0.6.3", "prettyprint" => "0.2.0", "resolv" => "0.7.2",
       "securerandom" => "0.4.1", "shellwords" => "0.2.2", "singleton" => "0.3.0", "tempfile" => "0.3.1",
       "time" => "0.4.2", "timeout" => "0.6.0", "tmpdir" => "0.3.1", "tsort" => "0.2.0", "un" => "0.3.0",
-      "uri" => "1.1.1", "weakref" => "0.1.4",
-      # rubygems and bundler.
-      "rubygems-update" => "4.0.20"
+      "uri" => "1.1.1", "weakref" => "0.1.4"
     }.freeze
 
-    # A gem's directories, when they are not its require_paths.
-    # rubygems-update gives a directory that hides its lib from `require`.
-    DIRS = { "rubygems-update" => %w[lib bundler/lib] }.freeze
+    # rubygems and bundler, as ruby 4.0.7 ships them in its own library
+    # directory (`rubylibdir`). They are not gemspec dependencies: an
+    # exact bundler dependency would activate bundler in zr's process
+    # and conflict with a user's bundle. `gem update --system` writes to
+    # `sitelibdir`, so ruby's own copy stays.
+    HOST = { "rubygems" => "4.0.20", "bundler" => "4.0.20" }.freeze
 
     # Files a gem ships that ruby never loads from it: minitest's Hoe
     # plugin.

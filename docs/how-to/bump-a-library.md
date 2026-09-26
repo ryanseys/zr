@@ -15,8 +15,16 @@ A gem with a C extension is different: see
 
 Change the version in `PINS` in `lib/zr/libraries.rb`.
 
-To add a new library, add its gem to `PINS`. If the gem does not keep
-its files in its `require_paths`, give its directories in `DIRS`.
+To add a new library, add its gem to `PINS`. zr reads the files in the
+gem's `require_paths`.
+
+rubygems and bundler are different. They are in `HOST`, not in
+`PINS`, and the gemspec does not depend on them. zr reads them from
+ruby's own library directory (`RbConfig::CONFIG["rubylibdir"]`): the
+file `rubygems.rb` or `bundler.rb`, and the files under the directory
+of the same name. A new ruby can change their versions. Change `HOST`
+to the versions that `Gem::VERSION` and `Bundler::VERSION` give in a
+stock ruby.
 
 ## 2. Lock and install
 
@@ -51,7 +59,8 @@ ruby, as [How to add a spec](add-a-spec.md) shows.
 ## A new ruby
 
 A new ruby changes every pin. Pin each default and bundled gem to the
-version that the new ruby includes (`gem list` shows them). Copy the
+version that the new ruby includes (`gem list` shows them), and set
+`HOST` to its rubygems and bundler versions. Copy the
 files that `vendor/lib/VERSIONS` lists from the new ruby, without
 edits. See also
 [The pinned ruby is part of the toolchain](../explanation/the-contract.md#the-pinned-ruby-is-part-of-the-toolchain).

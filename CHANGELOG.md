@@ -51,9 +51,10 @@ The first release as a RubyGem.
   work any more.
 - The pure-Ruby library a program requires comes from gems, not from
   copies in the gem. `zr.gemspec` depends on ruby 4.0.7's default and
-  bundled gems at the versions it ships, and on `rubygems-update` for
-  rubygems and bundler, each pinned exactly; `vendor/lib` keeps only the
-  19 files no gem ships. A build refuses by name a pinned gem that is
+  bundled gems at the versions it ships, each pinned exactly, so a
+  stock ruby 4.0.7 installs only zr. rubygems and bundler come from
+  ruby's own library directory; `vendor/lib` keeps only the 19 files no
+  gem ships. A build refuses by name a pinned gem that is
   not installed, or whose files are not the version's.
 - The runtime cache goes to the user's cache directory
   (`~/Library/Caches/zr` on macOS), or to `ZR_CACHE`.
