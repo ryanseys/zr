@@ -63,6 +63,7 @@ module Zr
           fchmod
           fdopendir
           flock
+          fma
           fmod
           fork
           free
