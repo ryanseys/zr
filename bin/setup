@@ -1,17 +1,29 @@
-#!/usr/bin/env bash
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
 # Sets up a checkout: installs the gems, then builds the zr runtime for
 # this host. The first build takes a few minutes. After that, bin/test
 # runs the tests.
-set -euo pipefail
-cd "$(dirname "$0")/.."
 
-bundle install
+require "rbconfig"
 
-if ! command -v wasmtime >/dev/null; then
-  echo "note: wasmtime is not installed; the tests that run WebAssembly modules will skip (https://wasmtime.dev)"
-fi
+root = File.expand_path("..", __dir__)
+Dir.chdir(root)
 
-bundle exec rake build
+# zr builds only on the ruby that .ruby-version pins. Say so before the
+# long steps, not after them.
+pinned = File.read(".ruby-version").strip
+unless RUBY_VERSION == pinned
+  abort "bin/setup: this is ruby #{RUBY_VERSION}; zr needs ruby #{pinned} " \
+        "(for example `mise install ruby@#{pinned}` or `rbenv install #{pinned}`)"
+end
 
-echo
-echo "Ready. Run the tests with: bin/test"
+system("bundle", "install", exception: true)
+
+wasmtime = ENV.fetch("PATH", "").split(File::PATH_SEPARATOR).any? { |dir| File.executable?(File.join(dir, "wasmtime")) }
+warn "note: wasmtime is not installed; the tests that run WebAssembly modules will skip (https://wasmtime.dev)" unless wasmtime
+
+system("bundle", "exec", "rake", "build", exception: true)
+
+puts
+puts "Ready. Run the tests near your change with bin/test <path>, or bin/test --changed."
