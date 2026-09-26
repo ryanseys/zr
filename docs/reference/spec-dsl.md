@@ -153,7 +153,7 @@ When zr can pass it, delete the `skip` line.
   files. The one exception is a sentence that a generator writes into
   one file for each subject (`SpecStyle::GENERATED` lists it).
 
-These rules are for a person, and `spec:check` does not check them:
+These rules are for a person, and `zr-dev spec check` does not check them:
 
 - One example tests one behavior.
 - Two examples do not have the same program. When the same program

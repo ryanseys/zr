@@ -171,19 +171,6 @@ descriptions again. `ZR_BLESS=1` on `test/unit/libsystem_test.rb`
 writes the libSystem list again. See
 [How to run the tests](../how-to/run-the-tests.md#accept-a-new-snapshot).
 
-#### Tables without a generator
-
-These tables come from sources that do not change. Their generators
-are not in the repository; `git log` finds them.
-
-| File | Source |
-|---|---|
-| `runtime/ext/nkf/tables.rb` | nkf 0.3.0's `utf8tbl.c` |
-| `runtime/core/regexp/unicode_tables.rb`, `runtime/kernel/onig_tables.rb` | ruby 4.0.7's `enc/unicode/17.0.0` headers |
-| `runtime/core/regexp/onig/encoding_tables.rb` | CRuby 4.0.7's `enc/*.c` |
-| `runtime/kernel/zlib_tables.rb` | zlib's `crc32.c` and `trees.c` |
-| `runtime/ext/openssl/ossl/constants.rb` | the openssl 4.0.2 gem of ruby 4.0.7 |
-
 ### Measure
 
 | Command | Does |

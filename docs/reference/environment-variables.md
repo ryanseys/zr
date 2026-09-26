@@ -102,6 +102,8 @@ The `zr-dev` commands read these. See [Tools](tools.md#zr-dev).
 |---|---|---|---|
 | `RUBY_SRC` | `zr-dev gen` | `~/dev/github.com/ruby/ruby` | A CRuby checkout that has the commit `Zr::RUBY_REVISION` (`lib/zr/version.rb`). The generators read the C sources at that commit. |
 | `PRISM_SRC` | `zr-dev gen prism`, `zr-dev gen prism_encoding_tables` | `~/dev/prism`, else `tmp/prism-1.9.0` | A prism checkout that has the tag `v1.9.0`, or a release tree of prism 1.9.0. |
+| `NKF_SRC` | `zr-dev gen nkf` | the installed nkf gem's `ext/nkf/nkf-utf8/utf8tbl.c` | The path of nkf's `utf8tbl.c`. The `--source` option has priority. |
+| `CHECK` | `rake gen` | unset | Any value: compare each generated file, and write nothing (`zr-dev gen all --check`). |
 | `MKCONSTANTS` | `zr-dev gen tables` | the file in `RUBY_SRC` | The path of a copy of `ext/socket/mkconstants.rb` from the ruby 4.0.7 source. |
 | `ZR_CACHE_DAYS` | `zr-dev cache prune` | 1 | Keeps cache files used in this many days. The `--days` option (`zr-dev cache prune --days 3`) has priority. |
 | `ZR_DISPATCH_TRACE` | `zr-dev spec dispatch` | off | A flag. Prints each call that the command tries. |

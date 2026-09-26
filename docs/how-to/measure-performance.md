@@ -16,10 +16,13 @@ $ ruby tool/zr-dev.rb bench fib tak nbody
 $ ruby tool/zr-dev.rb bench --runs 5 fib
 ```
 
-A program with a wrong output fails, and has no time. The report gives
-the median of the runs: `zr` is the binary's wall-clock time, and `cpu`
-is the user and system time of the binary itself, which other work on
-the machine does not change. The command measures each run with
+A program with a wrong output fails, and has no time. The summary on
+the terminal gives the median of the runs: `zr` is the binary's
+wall-clock time, `cpu` is the user and system time of the binary
+itself, which other work on the machine does not change, and `ruby` and
+`yjit` are ruby's wall-clock times. The report file gives each program
+in the layout of the benchmark gem: a row each for `zr`, `ruby` and
+`yjit`, with the columns `user`, `system`, `total` and `real`. The command measures each run with
 `Benchmark.measure` from the [benchmark](https://github.com/ruby/benchmark)
 gem, and forks nothing beside a timed run.
 
