@@ -88,15 +88,14 @@ module Zr
 
     # The path and the entry of each unit that a require or an autoload
     # in `body` runs, in the order of the tree.
-    def reached(body)
-      out = []
-      stack = [body]
-      until stack.empty?
-        node = stack.pop
-        if node.is_a?(Hir::Require) || node.is_a?(Hir::Autoload)
-          out << Paths.shown(node.path.to_s) << entry(node.unit)
-        end
-        Hir.each_child(node).reverse_each { |child| stack << child }
+    def reached(body, out = [])
+      case body
+      when Hir::Require, Hir::Autoload
+        out << Paths.shown(body.path.to_s) << entry(body.unit)
+        body.each { |child| reached(child, out) if child.is_a?(Hir::Node) || child.is_a?(Array) }
+      when Hir::Node, Array
+        # No array per node: a walk of a large program visits millions.
+        body.each { |child| reached(child, out) if child.is_a?(Hir::Node) || child.is_a?(Array) }
       end
       out
     end
