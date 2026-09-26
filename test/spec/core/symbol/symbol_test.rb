@@ -81,4 +81,23 @@ describe "Symbol programs" do
       3
     OUT
   end
+
+  it "inspect of NEL and control bytes in a Symbol" do
+    result = zr(<<~'RUBY')
+      p :"\u0085", :"a\u0085", :"\u0000", :"a\u0000b", :"\x01", :"\x7f", :"\u009f", :"a\u0085 b"
+      p "\u0085".to_sym.inspect.bytes
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      :
+      :a
+      :"\x00"
+      :"a\x00b"
+      :"\x01"
+      :"\x7F"
+      :"\u009F"
+      :"a\u0085 b"
+      [58, 194, 133]
+    OUT
+  end
 end

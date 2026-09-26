@@ -1323,4 +1323,31 @@ describe "Range programs" do
 
     _(result).must_answer "42\n"
   end
+
+  it "first of a beginless range and size of a range with no succ" do
+    result = zr(<<~'RUBY')
+      def t
+        p yield
+      rescue RangeError, TypeError => e
+        puts "#{e.class}: #{e.message}"
+      end
+      t { (..5).first(2) }
+      t { (..5).first }
+      t { (1r..3).size }
+      t { (1.5..).size }
+      t { (1..3r).size }
+      t { ("a".."c").size }
+      t { (..5).size }
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      RangeError: cannot get the first element of beginless range
+      RangeError: cannot get the first element of beginless range
+      TypeError: can't iterate from Rational
+      TypeError: can't iterate from Float
+      3
+      nil
+      TypeError: can't iterate from NilClass
+    OUT
+  end
 end

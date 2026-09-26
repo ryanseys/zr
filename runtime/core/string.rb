@@ -1633,7 +1633,9 @@ class String
       explicit = options[:invalid] == :replace
       options = { invalid: :replace, undef: :replace, **options }
     end
+    Encoding.send(:check_options, options)
     from, target = Encoding.pair(source.nil? ? Encoding.at(Primitive.zr_str_encoding_index_m(self)) : source, target)
+    Encoding.send(:check_replacement, self, from, target, options)
     text = escaped(source.nil? ? plain : copied.force_encoding(from), options)
     # No conversion, but an `invalid: :replace` the caller wrote still
     # takes out the bytes that make no character; the one an encode with
@@ -1782,6 +1784,7 @@ class String
     return copied if Primitive.zr_str_valid_p(self)
 
     encoding = Encoding.at(Primitive.zr_str_encoding_index_m(self))
+    replacement = scrub_replacement(replacement, encoding) unless replacement.nil?
     # U+FFFD in UTF-8 itself and in UTF-16 and UTF-32; "?" in every other
     # encoding, UTF8-MAC and CESU-8 as well.
     if replacement.nil? && !block_given?
@@ -1804,7 +1807,7 @@ class String
         elsif encoding.equal?(Encoding::UTF_8)
           piece = byteslice(i, step = utf8_scrub_len(i))
         end
-        out << (block_given? ? yield(piece) : replacement)
+        out << (block_given? ? scrub_replacement(yield(piece), encoding) : replacement)
       end
       i += step
     end
@@ -1867,6 +1870,19 @@ class String
       k += 1
     end
     need
+  end
+
+  # str_compat_and_valid: a replacement that is whole, and in the
+  # receiver's encoding, or plain ASCII where ASCII is one byte.
+  def scrub_replacement(text, encoding)
+    Primitive.attr! :hidden
+    text = String.try_convert(text) or raise TypeError, "no implicit conversion of #{conversion_name(text)} into String"
+    raise ArgumentError, "replacement must be valid byte sequence '#{text.inspect}'" unless text.valid_encoding?
+    unless text.ascii_only? ? !Encoding.wide?(encoding) : text.encoding.equal?(encoding)
+      raise Encoding::CompatibilityError, "incompatible character encodings: #{Encoding.shown(encoding)} and #{Encoding.shown(text.encoding)}"
+    end
+
+    text
   end
 
   def scrub!(replacement = nil, &block)
@@ -2840,7 +2856,13 @@ class Symbol
     Primitive.attr! :hidden
     text = to_s
     shown = text.utf8_inspect
-    return Primitive.zr_sym_inspect_bytes(self) if shown == "\"#{text}\""
+    plain = shown == "\"#{text}\""
+    # sym_printable takes NEL as printable; String#inspect alone escapes
+    # it. So a name that is plain but for NEL is bare.
+    if plain || shown == "\"#{text.gsub("\u0085") { "\\u0085" }}\""
+      bare = Primitive.zr_sym_inspect_bytes(self)
+      return bare if plain || !bare.start_with?(":\"")
+    end
 
     ":#{shown}"
   end
@@ -3423,6 +3445,37 @@ class Encoding
     end
   end
   private_class_method :point_bytes
+
+  # econv_opts and rb_econv_prepare_options: invalid: and undef: take
+  # only :replace, and a replacement is whole in its own encoding.
+  def self.check_options(options)
+    Primitive.attr! :hidden
+    raise ArgumentError, +"unknown value for invalid character option" unless options[:invalid].nil? || options[:invalid] == :replace
+    raise ArgumentError, +"unknown value for undefined character option" unless options[:undef].nil? || options[:undef] == :replace
+
+    replace = options[:replace]
+    return if replace.nil?
+
+    replace = String.try_convert(replace) or raise TypeError, "no implicit conversion of #{conversion_name(options[:replace])} into String"
+    raise ArgumentError, "replacement string is broken: #{replace.dump} as #{replace.encoding}" unless replace.valid_encoding?
+  end
+  private_class_method :check_options
+
+  # A converter that opens takes the replacement in its target encoding,
+  # and does not open when it cannot have one. str_transcode0 opens none
+  # when there is nothing to convert: the same encoding, or ASCII text
+  # between two encodings that contain ASCII, with no decorator.
+  def self.check_replacement(text, from, target, options)
+    Primitive.attr! :hidden
+    replace = options[:replace]
+    return if replace.nil? || from.equal?(target)
+    return if decorators(options).empty? && from.ascii_compatible? && target.ascii_compatible? && text.ascii_only?
+
+    convert(String.try_convert(replace), target, {})
+  rescue EncodingError
+    raise ConverterNotFoundError, "code converter not found (#{from} to #{target})"
+  end
+  private_class_method :check_replacement
 
   # What `invalid: :replace` writes: the caller's text, else U+FFFD into
   # a Unicode encoding and "?" into any other.

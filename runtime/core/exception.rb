@@ -174,7 +174,7 @@ class Exception
       out << pos
     end
     if emesg.nil? || emesg.empty?
-      name = exc.instance_of?(RuntimeError) ? "unhandled exception" : exc.class.name
+      name = Primitive.zr_class_of_is(exc, RuntimeError) ? +"unhandled exception" : exc.class.to_s
       out << (highlight ? "#{UNDERLINE}#{name}#{RESET}" : name) << "\n"
     else
       out << emesg << "\n"
@@ -207,7 +207,7 @@ class Exception
   # line, and an empty message is the class alone.
   def decorate(text, highlight)
     Primitive.attr! :hidden
-    if instance_of?(RuntimeError) && text.empty?
+    if Primitive.zr_class_of_is(self, RuntimeError) && text.empty?
       return highlight ? "#{UNDERLINE}unhandled exception#{RESET}" : +"unhandled exception"
     end
 

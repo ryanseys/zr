@@ -224,10 +224,13 @@ class Array
   def min(n = nil, &block)
     return nmin_run(n, false, false, block, true) unless n.nil?
 
+    # ary_min_generic compares the best so far with each element; a
+    # block gets each element first.
     best = nil
     i = 0
     while i < Primitive.zr_ary_len_m(self)
-      best = Primitive.zr_ary_aref1_m(self, i) if i == 0 || compared(Primitive.zr_ary_aref1_m(self, i), best, block) < 0
+      v = Primitive.zr_ary_aref1_m(self, i)
+      best = v if i == 0 || (block ? compared(v, best, block) < 0 : compared(best, v) > 0)
       i += 1
     end
     best
@@ -239,10 +242,30 @@ class Array
     best = nil
     i = 0
     while i < Primitive.zr_ary_len_m(self)
-      best = Primitive.zr_ary_aref1_m(self, i) if i == 0 || compared(Primitive.zr_ary_aref1_m(self, i), best, block) > 0
+      v = Primitive.zr_ary_aref1_m(self, i)
+      best = v if i == 0 || (block ? compared(v, best, block) > 0 : compared(best, v) < 0)
       i += 1
     end
     best
+  end
+
+  # BASIC_OP_UNREDEFINED_P for a literal's min or max: whether the
+  # program left the core's method in place.
+  def self.newarray_optimized?(name)
+    Primitive.attr! :hidden
+    instance_method(name) == OPTIMIZED[name]
+  end
+
+  # vm_opt_newarray_min and _max: a literal's elements, each compared
+  # with the best so far.
+  def self.newarray_min(items)
+    Primitive.attr! :hidden
+    items.inject { |best, v| items.compared(v, best) < 0 ? v : best }
+  end
+
+  def self.newarray_max(items)
+    Primitive.attr! :hidden
+    items.inject { |best, v| items.compared(v, best) > 0 ? v : best }
   end
 
   # `a <=> b`, or the block's return value, as an Integer; nil fails as
@@ -1105,6 +1128,10 @@ class Array
 
   # With a block, the one pass Enumerable makes.
   def minmax = block_given? ? super : [min, max]
+
+  # The core's own min and max, which a literal's fast path stands in for.
+  OPTIMIZED = { min: instance_method(:min), max: instance_method(:max) }.freeze
+  private_constant :OPTIMIZED
 end
 
 class Array

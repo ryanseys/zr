@@ -983,4 +983,39 @@ describe "String: encodings" do
       [2]
     OUT
   end
+
+  it "encode checks its options and converts the replacement; scrub checks its replacement" do
+    result = zr(<<~'RUBY')
+      def t
+        p yield
+      rescue ArgumentError, EncodingError => e
+        puts "#{e.class}: #{e.message}"
+      end
+      t { "é".encode("US-ASCII", undef: :replace, replace: "é") }
+      t { "é".encode("ISO-8859-1", undef: :replace, replace: "あ") }
+      t { "a".encode("US-ASCII", undef: :replace, replace: "é") }
+      t { "é".encode("US-ASCII", undef: :replace, replace: "\xff".b) }
+      t { "a".encode("UTF-8", undef: :replace, replace: "\xff") }
+      t { "a".encode("UTF-8", invalid: :bogus) }
+      t { "a".encode("UTF-8", undef: "replace") }
+      t { "a\xffb".force_encoding("US-ASCII").scrub("é") }
+      t { "a\xffb".scrub("\xff") }
+      t { "a\xffb".scrub { "é".encode("UTF-16LE") } }
+      t { "a\xffb".scrub("?") }
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      Encoding::ConverterNotFoundError: code converter not found (UTF-8 to US-ASCII)
+      Encoding::ConverterNotFoundError: code converter not found (UTF-8 to ISO-8859-1)
+      "a"
+      Encoding::ConverterNotFoundError: code converter not found (UTF-8 to US-ASCII)
+      ArgumentError: replacement string is broken: "\xFF" as UTF-8
+      ArgumentError: unknown value for invalid character option
+      ArgumentError: unknown value for undefined character option
+      Encoding::CompatibilityError: incompatible character encodings: US-ASCII and UTF-8
+      ArgumentError: replacement must be valid byte sequence '"\xFF"'
+      Encoding::CompatibilityError: incompatible character encodings: UTF-8 and UTF-16LE
+      "a?b"
+    OUT
+  end
 end

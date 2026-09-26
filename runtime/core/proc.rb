@@ -94,6 +94,48 @@ class Proc
 end
 
 class Method
+  # method_inspect: the parameter list that inspect shows, from what
+  # `parameters` gives, for a method with no compiled table of its own.
+  def self.params_shown(params)
+    Primitive.attr! :hidden
+    forwarding = params == [[:rest, :*], [:keyrest, :**], [:block, :&]]
+    out = +"("
+    params.each_with_index do |(kind, name), i|
+      name ||= case kind
+               when :req, :opt then +"_"
+               when :rest, :keyrest then +""
+               when :block then +"block"
+               when :nokey then +"nil"
+               end
+      case kind
+      when :req then out << name.to_s
+      when :opt then out << "#{name}=..."
+      when :keyreq then out << "#{name}:"
+      when :key then out << "#{name}: ..."
+      when :rest then out << (name == :* ? (forwarding ? "..." : "*") : "*#{name}")
+      when :keyrest
+        if name != :**
+          out << "**#{name}"
+        elsif i.positive?
+          out.delete_suffix!(", ")
+        else
+          out << "**"
+        end
+      when :block
+        if name != :&
+          out << "&#{name}"
+        elsif forwarding
+          out.delete_suffix!(", ")
+        else
+          out << "..."
+        end
+      when :nokey then out << "**nil"
+      end
+      out << ", " if i < params.size - 1
+    end
+    out << ")"
+  end
+
   # The box where the method was defined, while boxes are on: its own box
   # for a method a program wrote, the master box for one that ruby includes.
   def box

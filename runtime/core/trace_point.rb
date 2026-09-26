@@ -164,9 +164,14 @@ class TracePoint
     def builtin_source(method)
       Primitive.attr! :hidden
       owner = method.owner
-      key = owner.singleton_class? ? "#{owner.attached_object}.#{method.original_name}" : "#{owner}##{method.original_name}"
-      path, _call, _return, line = BUILTIN_LINES[key]
-      [path, line] if path
+      name = method.original_name
+      # A module_function's copy on the module shares the def.
+      place = if owner.singleton_class?
+                BUILTIN_LINES["#{owner.attached_object}.#{name}"] || (BUILTIN_LINES["#{owner.attached_object}##{name}"] if owner.attached_object.is_a?(Module))
+              else
+                BUILTIN_LINES["#{owner}##{name}"]
+              end
+      [place[0], place[3]] if place
     end
 
     def marked_builtins

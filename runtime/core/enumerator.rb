@@ -1021,7 +1021,7 @@ end
 
 class Enumerator
   def self.product(*enums, **nothing, &block)
-    raise ArgumentError, "unknown keywords: #{nothing.keys.map(&:inspect).join(', ')}" unless nothing.empty?
+    raise ArgumentError, "unknown keyword#{'s' if nothing.size > 1}: #{nothing.keys.map(&:inspect).join(', ')}" unless nothing.empty?
 
     product = Enumerator::Product.new(*enums)
     return product unless block

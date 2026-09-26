@@ -239,6 +239,9 @@ class Module
 
         scope = Object
       else
+        # rb_mod_const_get: a "::" that ends the path is wrong before the
+        # name in front of it is looked up.
+        raise NameError.new("wrong constant name #{name}", name, receiver: self) if i == segments.size - 2 && segments.last.empty?
         raise TypeError, "#{scope.inspect} does not refer to class/module" unless scope.is_a?(Module)
 
         scope = yield(scope, segment, seen.positive?)

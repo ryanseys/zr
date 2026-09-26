@@ -626,8 +626,23 @@ end
 sig [Ptr, Value] => Void
 machine def zr_buf_method_params(b, m)
   e = RMethod.entry(m)
-  zr_buf_byte(b, 40)
   meta = zr_method_meta(e)
+  if meta == 0 || FrameMeta.file_len(meta) == 0
+    # A core method: the list that `parameters` gives, which knows the
+    # ones CRuby writes in Ruby.
+    params = zr_send(m, Machine.id(:parameters), 0, 0)
+    if params != QUNDEF
+      arg = Machine.slot(8)
+      Machine.store64(arg, 0, Machine.word(params))
+      shown = zr_send(zr_core_class(Machine.id(:Method)), Machine.id(:params_shown), 1, arg)
+      if shown != QUNDEF
+        zr_buf_str(b, shown)
+        return
+      end
+    end
+    Task.set_pending(zr_task(), Machine.value(QNIL))
+  end
+  zr_buf_byte(b, 40)
   arity = zr_method_arity_of(m)
   if meta != 0 && FrameMeta.file_len(meta) > 0
     table = FrameMeta.params(meta)
@@ -720,6 +735,16 @@ machine def zr_method_inspect(recv, argc, argv, cref, blk)
     zr_buf_push(b, FrameMeta.file(meta), FrameMeta.file_len(meta))
     zr_buf_byte(b, 58)
     zr_buf_long(b, FrameMeta.line(meta))
+  else
+    # A core method that CRuby writes in Ruby shows its builtin def.
+    place = zr_method_source_location(recv, 0, 0, Machine.value(QNIL), Machine.value(QNIL))
+    return place if place == QUNDEF
+    if place != QNIL
+      zr_buf_byte(b, 32)
+      zr_buf_str(b, zr_ary_at(place, 0))
+      zr_buf_byte(b, 58)
+      zr_buf_long(b, zr_fix2long(zr_ary_at(place, 1)))
+    end
   end
   zr_buf_byte(b, 62)
   zr_buf_take_at(b, ENC_BINARY)

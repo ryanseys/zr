@@ -78,6 +78,15 @@ module Kernel
     when Float then value
     when Integer then value.to_f
     when String
+      # rb_str_to_dbl: ASCII text with no NUL in it.
+      encoding = Encoding.at(Primitive.zr_str_encoding_index_m(value))
+      raise Encoding::CompatibilityError, "ASCII incompatible encoding: #{encoding}" unless encoding.ascii_compatible?
+      if String.instance_method(:include?).bind_call(value, "\0")
+        return nil unless exception
+
+        raise ArgumentError, +"string for Float contains null byte"
+      end
+
       result = Primitive.zr_str_to_f_strict(value)
       return result if result || !exception
 

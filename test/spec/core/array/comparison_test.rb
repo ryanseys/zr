@@ -467,4 +467,68 @@ describe "Array: comparison and equality" do
       "nil"
     OUT
   end
+
+  it "min and max compare the best so far with each element, as ary_min_generic does" do
+    result = zr(<<~'RUBY')
+      def t
+        p yield
+      rescue ArgumentError => e
+        puts e.message
+      end
+      a = [1, nil]
+      b = [1, "a"]
+      c = [2.0, nil]
+      t { a.min }
+      t { a.max }
+      t { b.min }
+      t { c.min }
+      t { a.minmax }
+      t { b.min { |x, y| x <=> y } }
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      comparison of Integer with nil failed
+      comparison of Integer with nil failed
+      comparison of Integer with String failed
+      comparison of Float with nil failed
+      comparison of Integer with nil failed
+      comparison of String with 1 failed
+    OUT
+  end
+
+  it "a literal that is not static compares each element with the best, as opt_newarray_send does" do
+    result = zr(<<~'RUBY')
+      def t
+        p yield
+      rescue ArgumentError => e
+        puts e.message
+      end
+      x = "a"
+      a = [1, nil]
+      t { [1, "a"].min }
+      t { [1, x, 2].min }
+      t { [1, nil].min }
+      t { [1, "a"].max }
+      t { a.min }
+      t { [1, "a"].min { |p, q| p <=> q } }
+      t { [3, 1, 2].min }
+      t { [3, 1, x.size + 5].max }
+      class Array
+        def min = :redefined
+      end
+      t { [1, x].min }
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      comparison of String with 1 failed
+      comparison of String with 1 failed
+      comparison of Integer with nil failed
+      comparison of String with 1 failed
+      comparison of Integer with nil failed
+      comparison of String with 1 failed
+      1
+      6
+      :redefined
+    OUT
+  end
 end

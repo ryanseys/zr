@@ -77,4 +77,25 @@ describe "Float programs" do
       12.0
     OUT
   end
+
+  it "Float of a String with NUL or in UTF-16, and format in UTF-16" do
+    result = zr(<<~'RUBY')
+      def t
+        p yield
+      rescue ArgumentError, EncodingError => e
+        puts "#{e.class}: #{e.message}"
+      end
+      t { Float("1.5\0") }
+      t { Float("1.5\0", exception: false) }
+      t { Float("1.5".encode("UTF-16LE")) }
+      t { format("%s".encode("UTF-16LE"), "x") }
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      ArgumentError: string for Float contains null byte
+      nil
+      Encoding::CompatibilityError: ASCII incompatible encoding: UTF-16LE
+      Encoding::CompatibilityError: ASCII incompatible encoding: UTF-16LE
+    OUT
+  end
 end

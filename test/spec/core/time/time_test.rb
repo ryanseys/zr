@@ -1419,4 +1419,51 @@ describe "Time programs" do
       true
     OUT
   end
+
+  it "utc_offset strings and out-of-range fields follow time.c" do
+    result = zr(<<~'RUBY')
+      def t
+        p yield
+      rescue ArgumentError => e
+        puts e.message
+      end
+      t { Time.at(0, in: "+25:00") }
+      t { Time.at(0, in: "+24:00") }
+      t { Time.at(0, in: "+23:60") }
+      t { Time.at(0, in: 86400) }
+      t { Time.at(0, in: "+0930").utc_offset }
+      t { Time.at(0, in: "-093015").utc_offset }
+      t { Time.at(0, in: "utc").utc? }
+      t { Time.at(0, in: "-00:00").utc? }
+      t { Time.new(2000, 1, 32) }
+      t { Time.new(2000, 1, 0) }
+      t { Time.new(2000, 1, 1, 25) }
+      t { Time.new(2000, 1, 1, 32) }
+      t { Time.new(2000, 1, 1, 24, 1) }
+      t { Time.new(2000, 1, 1, 0, 60) }
+      t { Time.new(2000, 1, 1, 0, 64) }
+      t { Time.new(2000, 1, 1, 24, 0, 1) }
+      t { Time.new(2000, 1, 1, 0, 0, -1) }
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      utc_offset out of range
+      utc_offset out of range
+      "+HH:MM", "-HH:MM", "UTC" or "A".."I","K".."Z" expected for utc_offset: +23:60
+      utc_offset out of range
+      34200
+      -34215
+      true
+      true
+      argument out of range
+      mday out of range
+      hour out of range
+      argument out of range
+      min out of range
+      min out of range
+      argument out of range
+      sec out of range
+      argument out of range
+    OUT
+  end
 end

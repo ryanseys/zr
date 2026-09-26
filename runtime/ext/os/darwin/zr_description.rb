@@ -197,6 +197,7 @@ module Zr
         d zr_singleton_class Value v:Value
         d zr_class_modify_check Value klass:Value
         d zr_real_class Value v:Value
+        d zr_class_of_is Value v:Value klass:Value
         d zr_class_name_of Value v:Value
         d zr_module_new Value
         d zr_gate_bit Word klass:Value mid:Word
@@ -570,6 +571,7 @@ module Zr
         d zr_backtrace_capture Void exc:Value top:Ptr
         d zr_exc_new Value klass:Value message:Value
         d zr_raise_from Value exc:Value top:Ptr
+        d zr_raise_as_is Value exc:Value top:Ptr
         d zr_raise Value exc:Value
         d zr_rescuable Value
         d zr_exc_match Value exc:Value klass:Value
@@ -2467,6 +2469,7 @@ module Zr
         e zr_singleton_class 127
         e zr_class_modify_check 127
         e zr_real_class 0
+        e zr_class_of_is 0
         e zr_class_name_of 126
         e zr_module_new 126
         e zr_gate_bit 0
@@ -2840,6 +2843,7 @@ module Zr
         e zr_backtrace_capture 120
         e zr_exc_new 126
         e zr_raise_from 127
+        e zr_raise_as_is 127
         e zr_raise 127
         e zr_rescuable 0
         e zr_exc_match 127
@@ -3435,7 +3439,7 @@ module Zr
         e zr_method_bind_call 127
         e zr_method_location 0
         e zr_method_box_m 0
-        e zr_method_source_location 126
+        e zr_method_source_location 127
         e zr_method_eq 0
         e zr_method_hash 0
         e zr_buf_param 120

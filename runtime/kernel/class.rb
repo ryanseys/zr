@@ -839,6 +839,13 @@ machine def zr_real_class(v)
   k
 end
 
+# Whether `v`'s class is `klass` with no singleton class of `v` in
+# between, as CRuby's `CLASS_OF(v) == klass` tests.
+sig [Value, Value] => Value
+machine def zr_class_of_is(v, klass)
+  zr_bool(zr_class_of(v) == klass)
+end
+
 # The path of `v`'s class (zr_class_path), always as a String, for a
 # message.
 sig [Value] => Value

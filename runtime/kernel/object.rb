@@ -1195,7 +1195,8 @@ machine def zr_sym_inspect_bytes(sym)
     # A plain name keeps the symbol's encoding: US-ASCII for plain ASCII.
     return zr_buf_take_at(b, ENC_USASCII)
   end
-  zr_buf_str_escaped(b, p, n, zr_symbol_tag(id) != 0)
+  # A plain ASCII name is US-ASCII, and escapes a control byte in hex.
+  zr_buf_str_escaped(b, p, n, zr_symbol_tag(id) != 0 || zr_bytes_ascii_only_p(p, n))
   zr_buf_take(b)
 end
 

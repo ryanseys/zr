@@ -39,6 +39,9 @@ module Kernel
 
     def initialize(spec, args)
       Primitive.attr! :hidden
+      encoding = Encoding.at(Primitive.zr_str_encoding_index_m(spec))
+      raise Encoding::CompatibilityError, "ASCII incompatible encoding: #{encoding}" unless encoding.ascii_compatible?
+
       # A subclass's text is read as its bytes, as rb_str_format reads it.
       @spec = Primitive.zr_real_class(spec).equal?(String) ? spec : String.new(spec)
       @args = args

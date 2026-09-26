@@ -2457,4 +2457,58 @@ describe "Kernel programs" do
       nil
     OUT
   end
+
+  it "product keywords, full_message class, const_get paths and core method inspect" do
+    result = zr(<<~'RUBY')
+      def t
+        p yield
+      rescue StandardError => e
+        puts "#{e.class}: #{e.message}"
+      end
+      t { Enumerator.product([1, 2], [3], k: 1) }
+      t { Enumerator.product([1, 2], [3], k: 1, j: 2) }
+      t { e = RuntimeError.new("m"); def e.detailed_message(**) = nil; e.full_message(highlight: false).sub(/\A.*?: /, "") }
+      t { RuntimeError.new("").full_message(highlight: false).sub(/\A.*?: /, "") }
+      t { Object.const_get("Nope::") }
+      t { Object.const_get("String::Nope::") }
+      t { Object.const_get("Nope::String") }
+      t { Kernel.method(:loop).source_location }
+      t { 1.method(:times).inspect }
+      t { Kernel.method(:Integer).inspect }
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      ArgumentError: unknown keyword: :k
+      ArgumentError: unknown keywords: :k, :j
+      "RuntimeError\n"
+      "unhandled exception\n"
+      NameError: wrong constant name Nope::
+      NameError: wrong constant name String::Nope::
+      NameError: uninitialized constant Nope
+      ["<internal:kernel>", 161]
+      "#<Method: Integer#times() <internal:numeric>:255>"
+      "#<Method: Kernel.Integer(arg, base=..., exception: ...) <internal:kernel>:287>"
+    OUT
+  end
+
+  it "inspect of core methods shows their parameters and builtin place" do
+    result = zr(<<~'RUBY')
+      p 1.method(:+), [].method(:push), [].method(:each_slice), method(:puts), Kernel.method(:Integer), 1.method(:times), "".method(:gsub), {}.method(:fetch)
+      p Array.instance_method(:first), Comparable.instance_method(:clamp), Kernel.instance_method(:then)
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      #<Method: Integer#+(_)>
+      #<Method: Array#push(*)>
+      #<Method: Array(Enumerable)#each_slice(_)>
+      #<Method: Object(Kernel)#puts(*)>
+      #<Method: Kernel.Integer(arg, base=..., exception: ...) <internal:kernel>:287>
+      #<Method: Integer#times() <internal:numeric>:255>
+      #<Method: String#gsub(*)>
+      #<Method: Hash#fetch(*)>
+      #<UnboundMethod: Array#first(n=...) <internal:array>:129>
+      #<UnboundMethod: Comparable#clamp(*)>
+      #<UnboundMethod: Kernel#then() <internal:kernel>:121>
+    OUT
+  end
 end

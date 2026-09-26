@@ -122,6 +122,7 @@ class Time
       when String
         offset = zone_offset(zone)
         raise ArgumentError, "\"+HH:MM\", \"-HH:MM\", \"UTC\" or \"A\"..\"I\",\"K\"..\"Z\" expected for utc_offset: #{zone}" if offset.nil?
+        raise ArgumentError, +"utc_offset out of range" if offset.is_a?(Integer) && offset.abs >= 86400
 
         offset
       else
@@ -137,33 +138,53 @@ class Time
       end
     end
 
+    # utc_offset_arg: "Z" or a military letter, "UTC" in any case, or a
+    # sign and two digits of hours, then minutes and seconds under 60,
+    # with or without colons. A negative zero is UTC. nil for any other
+    # text.
     def zone_offset(zone)
-      return :utc if zone == +"UTC" || zone == +"Z"
-      if zone.size == 1
-        letter = zone.ord
+      return nil unless zone.encoding.ascii_compatible?
+
+      text = zone.b
+      case text.bytesize
+      when 1
+        letter = text.getbyte(0)
         return :utc if letter == 90
-        return (letter - 64) * 3600 if letter >= 65 && letter <= 73
-        return (letter - 65) * 3600 if letter >= 75 && letter <= 77
-        return -(letter - 77) * 3600 if letter >= 78 && letter <= 89
+        return (letter - 64) * 3600 if letter.between?(65, 73)
+        return (letter - 65) * 3600 if letter.between?(75, 77)
+        return (77 - letter) * 3600 if letter.between?(78, 89)
 
         return nil
+      when 3
+        return :utc if text.casecmp?("UTC")
+      when 5 then min = 3
+      when 6 then min = 4
+      when 7 then min, sec = 3, 5
+      when 9 then min, sec = 4, 7
+      else return nil
       end
-      sign = zone[0]
-      return nil unless sign == +"+" || sign == +"-"
+      return nil if min == 4 && text.getbyte(3) != 58
+      return nil if sec == 7 && text.getbyte(6) != 58
 
-      digits = zone[1..]
-      hh, mm, ss = case digits.size
-                   when 2 then [digits, +"00", +"00"]
-                   when 4 then [digits[0, 2], digits[2, 2], +"00"]
-                   when 5 then digits[2] == +":" ? [digits[0, 2], digits[3, 2], +"00"] : nil
-                   when 8 then digits[2] == +":" && digits[5] == +":" ? [digits[0, 2], digits[3, 2], digits[6, 2]] : nil
-                   end
-      return nil if hh.nil? || [hh, mm, ss].any? { |part| part.size != 2 || !part.chars.all? { |ch| ch.between?("0", "9") } }
+      seconds = sec ? offset_digits(text, sec) : 0
+      minutes = min ? offset_digits(text, min) : 0
+      hours = offset_digits(text, 1)
+      return nil if seconds.nil? || seconds >= 60 || minutes.nil? || minutes >= 60 || hours.nil?
 
-      offset = hh.to_i * 3600 + mm.to_i * 60 + ss.to_i
-      return nil if hh.to_i > 23 || mm.to_i > 59 || ss.to_i > 59
+      offset = (hours * 3600) + (minutes * 60) + seconds
+      case text.getbyte(0)
+      when 43 then offset
+      when 45 then offset.zero? ? :utc : -offset
+      end
+    end
 
-      sign == +"-" ? -offset : offset
+    # The number that the two ASCII digits at `i` spell, or nil.
+    def offset_digits(text, i)
+      high = text.getbyte(i)
+      low = text.getbyte(i + 1)
+      return nil unless high&.between?(48, 57) && low&.between?(48, 57)
+
+      ((high - 48) * 10) + low - 48
     end
 
     # `Time.new("2021-12-25 10:00:00 +09:00")`: CRuby's time_init_parse,
@@ -307,21 +328,24 @@ class Time
       # obj2vint: a String reads as decimal digits, anything else as to_int.
       year = year.is_a?(String) ? Integer(year, 10) : to_integer(year)
       month = month_arg(month)
-      day = int_arg(day, 1, 1, 31, "mday")
-      hour = int_arg(hour, 0, 0, 24, "hour")
-      min = int_arg(min, 0, 0, 59, "min")
+      # time_arg reads each field into its bits, then validate_vtm checks
+      # the values.
+      day = day.nil? ? 1 : ubits(day, 5)
+      hour = hour.nil? ? 0 : ubits(hour, 5)
+      min = min.nil? ? 0 : ubits(min, 6)
       sec_ns = 0
       if sec.nil?
         sec = 0
       elsif sec.is_a?(Float) || sec.is_a?(Rational)
-        raise ArgumentError, +"sec out of range" if sec < 0 || sec >= 61
-
         sec_ns = exact_ns(sec - sec.floor, NS)
-        sec = sec.floor
+        sec = ubits(sec.floor, 6)
       else
-        sec = int_arg(sec, 0, 0, 60, "sec")
+        sec = ubits(sec, 6)
       end
-      raise ArgumentError, +"argument out of range" if hour == 24 && (min != 0 || sec != 0)
+      raise ArgumentError, +"mday out of range" if day < 1 || day > 31
+      raise ArgumentError, +"hour out of range" if hour > 24
+      raise ArgumentError, +"min out of range" if min > (hour == 24 ? 0 : 59)
+      raise ArgumentError, +"sec out of range" if sec > (hour == 24 ? 0 : 60)
 
       unless usec.nil?
         raise ArgumentError, +"subsecx out of range" if usec < 0 || usec >= 1_000_000
@@ -355,11 +379,11 @@ class Time
       month
     end
 
-    def int_arg(value, default, low, high, name)
-      return default if value.nil?
-
+    # obj2ubits: a field that fits in `bits` bits, read from decimal
+    # digits or from to_int.
+    def ubits(value, bits)
       value = value.is_a?(String) ? Integer(value, 10) : implicit_integer(value)
-      raise ArgumentError, "#{name} out of range" if value < low || value > high
+      raise ArgumentError, +"argument out of range" unless value >= 0 && value < (1 << bits)
 
       value
     end

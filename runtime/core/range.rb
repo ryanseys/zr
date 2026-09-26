@@ -19,11 +19,8 @@ class Range
   # CRuby counts the arguments itself, and says it wants one.
   def first(*args)
     raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 1)" if args.size > 1
-    if args.empty?
-      raise RangeError, +"cannot get the first element of beginless range" if @begin.nil?
-
-      return @begin
-    end
+    raise RangeError, +"cannot get the first element of beginless range" if @begin.nil?
+    return @begin if args.empty?
 
     n = Primitive.zr_index_operand_m(args[0])
     raise ArgumentError, +"negative array size (or size too big)" if n < 0
@@ -210,9 +207,12 @@ class Range
 
   # Counted only from an Integer: a Float or nil start cannot iterate,
   # any other start has no size.
+  # range_size: a count only from an Integer to a number or to no end.
+  # Any other range has none, and one whose begin has no `succ` cannot
+  # be counted at all.
   def size
-    unless @begin.is_a?(Integer)
-      raise TypeError, "can't iterate from #{@begin.class}" if @begin.nil? || @begin.is_a?(Float)
+    unless @begin.is_a?(Integer) && (@end.nil? || @end.is_a?(Numeric))
+      raise TypeError, "can't iterate from #{@begin.class}" unless @begin.respond_to?(:succ)
 
       return nil
     end

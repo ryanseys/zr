@@ -1019,9 +1019,29 @@ module Zr
         return Literal.new(unescaped(node.receiver), node.location.start_line, false) if node.name == :+@ && node.receiver.is_a?(Prism::StringNode) && node.block.nil? && Build.runtime_file?(@file)
         return require_node(node) if REQUIRES.include?(node.name) && node.receiver.nil? && node.block.nil? && !shadowed?(node.name) && !@loader&.eval? && literal_feature(node)
         return autoload_node(node) if node.name == :autoload && node.block.nil? && literal_autoload?(node)
+        return newarray_send(node) if newarray_send?(node)
 
         send = plain_call(node)
         relative_in_file(node, send)
+      end
+
+      # compile.c's opt_newarray_send: `[a, b].min` or `.max` on a literal
+      # that is not static and has no splat runs without Array#min, which
+      # compares in the other order. The core's own files keep the send.
+      def newarray_send?(node)
+        %i[min max].include?(node.name) && node.receiver.is_a?(Prism::ArrayNode) && !node.receiver.static_literal? &&
+          node.receiver.elements.none? { |e| e.is_a?(Prism::SplatNode) || e.is_a?(Prism::KeywordHashNode) } &&
+          node.arguments.nil? && node.block.nil? && node.call_operator != "&." && !Build.runtime_file?(@file)
+      end
+
+      # The program itself sends the method when it is redefined, so the
+      # send sees what the program sees.
+      def newarray_send(node)
+        line = node.location.start_line
+        items = temp("items")
+        optimized = send_to(core(:Array, line), :newarray_optimized?, [Literal.new(node.name, line)], line)
+        fast = send_to(core(:Array, line), :"newarray_#{node.name}", [read(items, line)], line)
+        Seq.new([set(items, expr(node.receiver), line), If.new(optimized, fast, send_to(read(items, line), node.name, [], line), line)], line)
       end
 
       # A file of the program uses rubygems' API. rubygems' own files and
