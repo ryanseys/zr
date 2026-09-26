@@ -157,13 +157,25 @@ module Zr
         # for each name that it defines or needs, and the runtime has about
         # 250,000 symbols. The search took 12% of a link, and the image stays
         # in memory for the next link, which looks up the same names. A full
-        # table would add 33 ms to a single `zr build`.
+        # table would add 33 ms to a single `zr build`, so only a link that
+        # has searched `INDEXED_AFTER` names makes one (`search`).
         def global(name)
           @addressed ||= {}
           @addressed.fetch(name) { @addressed[name] = search(name) }
         end
 
+        # After this many searches, a Hash of every name is cheaper than
+        # the binary searches still to come: a large program (bundler)
+        # searches about a hundred thousand names.
+        INDEXED_AFTER = 10_000
+
         def search(name)
+          if @indexed
+            n = @indexed[name]
+            return n && @addresses[n]
+          end
+          @searched = (@searched || 0) + 1
+          @indexed = @names.each_with_index.to_h if @searched > INDEXED_AFTER
           n = @names.bsearch_index { |candidate| candidate >= name }
           n && @names[n] == name ? @addresses[n] : nil
         end

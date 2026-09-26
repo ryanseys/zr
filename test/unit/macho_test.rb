@@ -55,4 +55,19 @@ class MachOTest < Minitest::Test
     assert_equal long.sections.map(&:to_h), short.sections.map(&:to_h)
     assert_equal (0...long.count).map { |i| long.name(i) }, (0...short.count).map { |i| short.name(i) }
   end
+
+  # The merge of the program's symbols into the base's finds each
+  # insertion point as a binary search from the start does.
+  def test_insertion_points_are_those_of_a_binary_search
+    random = Random.new(11)
+    word = -> { Array.new(random.rand(1..6)) { ("a".."f").to_a.sample(random: random) }.join }
+    [0, 1, 7, 300].product([0, 1, 5, 200]).each do |base_size, program_size|
+      sorted = Array.new(base_size) { word.() }.uniq.sort
+      names = (Array.new(program_size) { word.() }.uniq - sorted).sort
+
+      points = Zr::Obj::MachO::Executable.insertion_points(sorted, names)
+
+      assert_equal(names.map { |name| sorted.bsearch_index { |candidate| candidate >= name } || sorted.size }, points)
+    end
+  end
 end

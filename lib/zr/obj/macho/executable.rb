@@ -162,6 +162,33 @@ module Zr
           nil
         end
 
+        # For each of the sorted `names`, the index of the first name in
+        # `sorted` that is not less than it (`sorted.size` for none). Each
+        # search starts where the last one ended: it doubles its step until
+        # it passes the name, then halves the window. With some thousand
+        # program names among the runtime's 250,000, a search reads a few
+        # names, where a binary search from the start reads 18 through a
+        # block.
+        def self.insertion_points(sorted, names)
+          size = sorted.size
+          at = 0
+          names.map do |name|
+            reach = 0
+            reach += 1 while at + (1 << reach) - 1 < size && sorted[at + (1 << reach) - 1] < name
+            left = reach.zero? ? at : at + (1 << (reach - 1))
+            right = [at + (1 << reach) - 1, size].min
+            while left < right
+              mid = (left + right) >> 1
+              if sorted[mid] < name
+                left = mid + 1
+              else
+                right = mid
+              end
+            end
+            at = left
+          end
+        end
+
         private
 
         # Writes the segments from index `first`, the linkedit and the signature.
@@ -395,8 +422,9 @@ module Zr
         def merged_symbols(words, names)
           out = +"".b
           at = 0
-          names.each_with_index do |name, n|
-            i = @base.names.bsearch_index { |candidate| candidate >= name } || @base.names.size
+          points = Executable.insertion_points(@base.names, names)
+          names.each_index do |n|
+            i = points[n]
             out << @base.symbols.byteslice(at * 16, (i - at) * 16) if i > at
             out << words[n * 2, 2].pack("Q<2")
             at = i
