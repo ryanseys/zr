@@ -41,7 +41,8 @@ module Zr
         "description" => ["runtime/ext/os/<os>/zr_description.rb: the kernel tables", -> { require_relative "gen/description"; Description }],
         "prism" => ["runtime/ext/prism/ruby/*.rb: the pure-Ruby prism", -> { require_relative "gen/prism"; PrismRuby }],
         "prism_encoding_tables" => ["runtime/ext/prism/ruby/encoding_tables.rb: prism's encodings",
-                                    -> { require_relative "gen/prism_encoding_tables"; PrismEncodingTables }]
+                                    -> { require_relative "gen/prism_encoding_tables"; PrismEncodingTables }],
+        "support" => ["docs/reference/support.md: what zr refuses, from the compiler", -> { require_relative "gen/support"; Support }]
       })
 
       # Runs every generator. A generator that needs a checkout

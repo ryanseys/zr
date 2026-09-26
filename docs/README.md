@@ -17,6 +17,7 @@ Lessons that take you, step by step, to a result.
 
 Steps for a goal that you already have.
 
+- [How to use a library or a gem](how-to/use-a-library-or-gem.md)
 - [How to build for another target](how-to/build-for-another-target.md)
 - [How to run the tests](how-to/run-the-tests.md)
 - [How to add a spec](how-to/add-a-spec.md)
@@ -32,6 +33,8 @@ Steps for a goal that you already have.
 
 Facts about commands, formats and layouts.
 
+- [What zr supports](reference/support.md): the syntax and the
+  libraries that zr refuses, and what each target may fail
 - [The `zr` command](reference/cli.md)
 - [Tools](reference/tools.md): `bin/setup`, `bin/test`, `bin/console`,
   the rake tasks and the `zr-dev` commands
