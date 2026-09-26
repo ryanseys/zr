@@ -13,7 +13,8 @@ namespace :gem do
   require "bundler/gem_tasks"
 end
 
-# rubygems/release-gem runs `rake release`.
+# A release by hand. The release workflow builds and pushes the gem itself
+# (docs/how-to/release.md).
 desc "Build the gem, tag it and push it to rubygems.org"
 task release: "gem:release"
 

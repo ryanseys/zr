@@ -75,7 +75,7 @@ For the report of the slowest files and examples, set `SLOW=1`:
 
 | Task | Does |
 |---|---|
-| `rake release` | Builds the gem, tags the version and pushes the gem to rubygems.org. The release workflow runs it. |
+| `rake release` | Builds the gem, tags the version and pushes the gem to rubygems.org, from your machine. The release workflow does not use it; see [How to release zr](../how-to/release.md). |
 | `rake gem:build` | Builds `pkg/zr-<version>.gem`. |
 | `rake gem:install`, `rake gem:install:local` | Builds the gem and installs it. |
 | `rake gem:build:checksum`, `rake gem:clean`, `rake gem:clobber` | Bundler's other gem tasks. |

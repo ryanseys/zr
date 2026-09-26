@@ -1,22 +1,71 @@
 # How to release zr
 
-A release publishes the `ruby` gem, `zr-<version>.gem`. The release
-workflow (`.github/workflows/release.yml`) runs `rake release`, which
-builds the gem, tags the version and pushes the gem to rubygems.org.
+A release publishes the platform-independent gem, `zr-<version>.gem`,
+to rubygems.org and to gem.coop, and makes a GitHub Release with the
+gem and the version's changelog. A tag starts it: the release workflow
+(`.github/workflows/release.yml`) does the rest.
 
 This page also records the design of the platform gems. They are a
 spike: `zr-dev gem native` builds one and tests it, but no release
 publishes one yet.
 
-## The ruby gem
+## Set up once
 
-1. Update `lib/zr/version.rb` and `CHANGELOG.md`.
-2. Run the full checks (see [How to run the tests](run-the-tests.md)).
-3. Push a tag `v<version>`. The release workflow runs `rake release`.
+Do these by hand before the first release:
 
-The gem contains the compiler, the runtime and the vendored sources. On
-the first build, an installed gem compiles the compiler with itself into
-the user's cache (`lib/zr/compiled_compiler.rb`), and tells the user.
+1. On rubygems.org, add a trusted publisher for the gem `zr`: this
+   repository, the workflow `release.yml` and the environment `release`.
+   The workflow then needs no API key.
+2. On gem.coop, claim the namespace `@ryanseys`, and make a push-only
+   API key for it.
+3. In the repository settings, make the environment `release`, and add
+   the gem.coop key to it as the secret `GEM_COOP_API_KEY`. Limit the
+   environment to tags `v*`.
+4. Make sure that CI can run: the macOS runners need a public
+   repository or an Actions spending limit.
+
+## Release a version
+
+1. Change `VERSION` in `lib/zr/version.rb`.
+2. In `CHANGELOG.md`, change `## [Unreleased]` to
+   `## [X.Y.Z] - YYYY-MM-DD`, and add a new empty `[Unreleased]`
+   section above it.
+3. Commit, and push to `main`. Wait until every CI job passes.
+4. Tag the commit, and push the tag:
+
+   ```console
+   $ git tag vX.Y.Z
+   $ git push origin vX.Y.Z
+   ```
+
+The workflow then:
+
+1. stops unless the tag is `v` and `Zr::VERSION`, and `CHANGELOG.md`
+   has a dated section for the version (`tool/changelog.rb`), which
+   becomes the release notes;
+2. stops unless every job of `ci.yml` passed for the tagged commit
+   (`.github/scripts/ci_passed.rb`);
+3. runs the unit tier, builds the gem, installs it in a clean
+   `GEM_HOME` and runs it as a user would (`.github/scripts/smoke.rb`);
+4. attests the gem's provenance, pushes it to rubygems.org with trusted
+   publishing (rubygems attests the push too), and to
+   `https://gem.coop/@ryanseys`;
+5. makes the GitHub Release, with the gem attached.
+
+## Check a release without publishing
+
+Run the workflow by hand (Actions, then Release, then "Run workflow")
+with the tag, and `publish` off. It runs every check and publishes
+nothing. With `publish` on and `only: gem-coop`, it pushes an already
+published version to gem.coop again, for example after a gem.coop
+failure.
+
+## What the gem contains
+
+The gem contains the compiler, the runtime, the vendored sources and
+the license texts. On the first build, an installed gem on an Apple
+Silicon Mac compiles the compiler with itself into the user's cache
+(`lib/zr/compiled_compiler.rb`), and tells the user.
 
 ## Platform gems (spike)
 
@@ -109,7 +158,7 @@ image and the skeletons are made again in the user's cache.
 
 | Gem | Contains | Status |
 |---|---|---|
-| `zr-<version>.gem` (ruby) | The sources. The first build compiles the compiler. | Released. |
+| `zr-<version>.gem` (platform-independent) | The sources. The first build compiles the compiler. | Released. |
 | `zr-<version>-arm64-darwin.gem` | The sources and the compiled compiler for macOS. | Spike: `zr-dev gem native` builds and tests it. |
 | `zr-<version>-aarch64-linux-gnu.gem`, `zr-<version>-aarch64-linux-musl.gem` | The sources and one static Linux binary. The same binary is in both gems. | Not started. It needs a compiled compiler for `aarch64-linux`, built on a Linux host. |
 
