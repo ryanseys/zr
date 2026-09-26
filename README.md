@@ -43,7 +43,7 @@ You need:
 The install compiles nothing. zr links a macOS binary itself, so it
 needs no C compiler and no linker. The first build on a machine builds
 zr's runtime into a cache (some minutes), and an Apple Silicon Mac
-then builds a compiled copy of zr for faster builds (about a minute;
+then builds a compiled copy of zr for faster builds (some minutes;
 `ZR_COMPILED=0` skips it). `zr cache` shows the cache, and
 `zr cache clean` frees it.
 

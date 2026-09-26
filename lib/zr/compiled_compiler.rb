@@ -122,7 +122,7 @@ module Zr
       quiet = { "ZR_COMPILED" => "0" }
       announce = lambda do
         warn "zr: building the compiler with itself for faster builds, once for this zr " \
-             "(about a minute; ZR_COMPILED=0 skips it)"
+             "(some minutes; ZR_COMPILED=0 skips it)"
         began = Process.clock_gettime(Process::CLOCK_MONOTONIC)
       end
       built = program.build(env: quiet, started: announce) do |out|

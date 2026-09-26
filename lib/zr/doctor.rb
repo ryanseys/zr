@@ -85,7 +85,7 @@ module Zr
               elsif cc.current? then "current: #{cc.binary}"
               elsif cc.program.failed? then "its last build failed; ZR_COMPILED=1 tries again"
               elsif Paths.checkout? then "not built; `rake build:self` builds it"
-              else "not built yet; the first build makes it (about a minute)"
+              else "not built yet; the first build makes it (some minutes)"
               end
       Check.new(:ok, "compiled compiler", state)
     end
