@@ -98,7 +98,7 @@ module Zr
 
     # The most GB that an installed zr keeps in its cache before a build
     # prunes it (`ZR_CACHE_MAX_GB`, default 5; 0 turns the limit off).
-    def limit_gb = Float(ENV.fetch("ZR_CACHE_MAX_GB", 5))
+    def limit_gb = Config.current.cache_max_gb
 
     # How often a build measures the cache. A measure stats every file
     # (tens of thousands of parsed trees), so a build does it at most once

@@ -16,7 +16,7 @@ module Zr
     # link), `ruby` (zr's linker only) or `cc`. Empty or unset is `auto`.
     LINKERS = %w[auto ruby cc].freeze
 
-    attr_reader :linker, :jobs, :wasm_width, :cache, :host_ruby
+    attr_reader :linker, :jobs, :wasm_width, :cache, :cache_max_gb, :host_ruby
 
     def initialize
       @linker = ENV["ZR_LINKER"].to_s.empty? ? "auto" : ENV["ZR_LINKER"]
@@ -35,6 +35,9 @@ module Zr
       @wasm_width = Integer(ENV.fetch("ZR_WASM_WIDTH", 256))
       @tune = Zr.flag?("ZR_TUNE", default: true)
       @cache = ENV["ZR_CACHE"]
+      # `ZR_CACHE_MAX_GB`: the most GB an installed zr keeps in its cache
+      # (default 5; 0 turns the limit off).
+      @cache_max_gb = Float(ENV.fetch("ZR_CACHE_MAX_GB", 5))
       @host_ruby = ENV.fetch("ZR_HOST_RUBY", "ruby")
       freeze
     end

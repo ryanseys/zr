@@ -20,15 +20,13 @@ class CacheTest < Minitest::Test
       old = File.join(dir, "runtime-#{"0" * 64}.o")
       File.binwrite(old, "x" * (2 << 20))
       File.utime(Time.now - (3 * 86_400), Time.now - (3 * 86_400), old)
-      was = ENV.fetch("ZR_CACHE_MAX_GB", nil)
-      ENV["ZR_CACHE_MAX_GB"] = limit_gb
-      swap(Zr::Paths, :cache, dir) do
-        swap(Zr::Cache, :live, []) do
-          swap(Zr::Cache, :other_compilers, []) { yield dir, old }
+      Zr::Config.with(ZR_CACHE_MAX_GB: limit_gb) do
+        swap(Zr::Paths, :cache, dir) do
+          swap(Zr::Cache, :live, []) do
+            swap(Zr::Cache, :other_compilers, []) { yield dir, old }
+          end
         end
       end
-    ensure
-      ENV["ZR_CACHE_MAX_GB"] = was
     end
   end
 
@@ -60,8 +58,7 @@ class CacheTest < Minitest::Test
     with_cache("5") do |dir, old|
       swap(Zr::Paths, :checkout?, false) do
         Zr::Cache.trim
-        ENV["ZR_CACHE_MAX_GB"] = "0.001"
-        Zr::Cache.trim
+        Zr::Config.with(ZR_CACHE_MAX_GB: "0.001") { Zr::Cache.trim }
       end
 
       assert File.exist?(old)
