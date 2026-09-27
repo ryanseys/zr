@@ -101,7 +101,7 @@ The `zr-dev` commands read these. See [Tools](tools.md#zr-dev).
 
 | Variable | Command | Default | Effect |
 |---|---|---|---|
-| `RUBY_SRC` | `zr-dev gen` | `~/dev/github.com/ruby/ruby` | A CRuby checkout that has the commit `Zr::RUBY_REVISION` (`lib/zr/version.rb`). The generators read the C sources at that commit. |
+| `RUBY_SRC` | `zr-dev gen`, `zr-dev rubyspec` | `~/dev/github.com/ruby/ruby` | A CRuby checkout that has the commit `Zr::RUBY_REVISION` (`lib/zr/version.rb`). The generators read the C sources at that commit. `zr-dev rubyspec` runs its `spec/` directory, and needs the checkout at that commit. |
 | `PRISM_SRC` | `zr-dev gen prism`, `zr-dev gen prism_encoding_tables` | `~/dev/prism`, else `tmp/prism-1.9.0` | A prism checkout that has the tag `v1.9.0`, or a release tree of prism 1.9.0. |
 | `NKF_SRC` | `zr-dev gen nkf` | the installed nkf gem's `ext/nkf/nkf-utf8/utf8tbl.c` | The path of nkf's `utf8tbl.c`. The `--source` option has priority. |
 | `CHECK` | `rake gen` | unset | Any value: compare each generated file, and write nothing (`zr-dev gen all --check`). |

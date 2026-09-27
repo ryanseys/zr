@@ -11,6 +11,8 @@ module Zr
       "gen" => ["Write a generated file again, or check it", -> { require_relative "gen"; Gen }],
       "spec" => ["Check, tidy, verify, split or grow the spec files", -> { require_relative "spec"; Specs }],
       "oracle" => ["Check every spec literal against ruby 4.0.7", -> { require_relative "oracle"; Oracle }],
+      "rubyspec" => ["Run ruby/spec in ruby and in a zr binary, and list the gaps",
+                     -> { require_relative "rubyspec"; RubySpec }],
       "record" => ["Ask ruby what a whole program answers, and write it beside the program",
                    -> { require_relative "record"; Record }],
       "affected" => ["Run the specs that a change can reach", -> { require_relative "affected"; Affected }],
