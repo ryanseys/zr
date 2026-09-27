@@ -35,6 +35,13 @@ class ConfigTest < Minitest::Test
     refute_operator ENV, :key?, "ZR_LINKER"
   end
 
+  def test_link_args_split_as_a_shell_splits_them
+    Zr::Config.with(ZR_LINK_ARGS: %(a.o -Wl,-x "-framework Foo")) do |config|
+      assert_equal ["a.o", "-Wl,-x", "-framework Foo"], config.link
+    end
+    Zr::Config.with(ZR_LINK_ARGS: nil) { |config| assert_empty config.link }
+  end
+
   def test_linker_defaults_to_auto_when_unset
     Zr::Config.with(ZR_LINKER: nil) { |config| assert_equal "auto", config.linker }
   end

@@ -41,6 +41,7 @@ status 3.
 | `--emit <kind>` | `binary` or `wasm` | `binary`, `obj` or `wasm` | `binary`, `obj` or `wasm` | The output kind. The default is `binary`. |
 | `--target <triple>` | yes | yes | yes | Builds for `<triple>`. `zr targets` lists the triples. `--emit wasm` without `--target` means `wasm32-wasi`. |
 | `--path-root <dir>` | yes | yes | yes | Writes source paths in the output as `<dir>` plus the path below zr's root or the working directory. `<dir>` must be an absolute path. |
+| `--link <arg>` | yes | yes | yes | Gives `<arg>` to the system linker (`cc`) for a native binary, once for each argument: an object, an archive, `-framework <name>`, `-Wl,<flags>` such as `-Wl,-sectcreate,<segment>,<section>,<file>` or `-Wl,-exported_symbols_list,<file>`. With a link argument, zr links with `cc`, not with its own linker, so the host needs a C toolchain. With `--emit obj` or `--emit wasm` it is a usage error. `ZR_LINK_ARGS` gives the same arguments. |
 | `-h`, `--help` | yes | yes | yes | Prints the help for the command. |
 
 ## `zr run [options] <file.rb> [args...]`

@@ -101,6 +101,12 @@ class CliParseTest < Minitest::Test
     assert_equal ["app.rb", "app", "obj"], opts.values_at(:input, :output, :emit)
   end
 
+  def test_link_collects_each_argument_in_order
+    opts = CLI.parse("build", %w[app.rb -o app --link a.o --link=-Wl,-x --link -framework --link AppKit])
+
+    assert_equal ["a.o", "-Wl,-x", "-framework", "AppKit"], opts[:link]
+  end
+
   def test_emit_binary_is_the_default_kind
     assert_nil CLI.parse("build", %w[app.rb -o app --emit binary])[:emit]
   end
@@ -115,7 +121,8 @@ class CliParseTest < Minitest::Test
       %w[build --emit=elf app.rb -o app] => "zr build: unknown --emit 'elf'; use binary, obj or wasm",
       %w[build --path-root rel app.rb -o app] => "zr build: --path-root needs an absolute path",
       %w[build --bogus app.rb -o app] => "zr build: unknown option '--bogus'",
-      %w[build app.rb -o] => "zr build: -o needs a path"
+      %w[build app.rb -o] => "zr build: -o needs a path",
+      %w[build app.rb -o app --link] => "zr build: --link needs an argument"
     }.each do |(command, *args), line|
       _, err = assert_exit(2) { CLI.parse(command, args) }
       assert_equal "#{line}\nRun 'zr help #{command}' for usage.\n", err, args.inspect

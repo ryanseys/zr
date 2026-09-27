@@ -22,12 +22,12 @@ module Zr
 
         # Returns nil, or the linker's message. zr has no Ruby linker for
         # ELF, so `linker` has only `cc` to select.
-        def link(image, out, work:, objects:, strip:, linker:, target:)
+        def link(image, out, work:, objects:, strip:, linker:, target:, link: [])
           return "no linker but cc writes an ELF binary" if linker == "ruby"
 
           obj = File.join(work, "unit.o")
           File.binwrite(obj, Obj::Elf::ObjectFile.write(image))
-          Link.run(objects + [obj], out, flags: FLAGS + (strip ? STRIP_FLAGS : []), target: target)
+          Link.run(objects + [obj], out, flags: FLAGS + (strip ? STRIP_FLAGS : []) + link, target: target)
         end
 
         # The byte ranges of a linked binary that do not depend on the

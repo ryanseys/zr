@@ -66,10 +66,11 @@ module Zr
       # Returns nil, or the message of the step that refused. `objects` are
       # prebuilt objects to link with this one. `strip` removes code that
       # nothing calls. `linker` (`ZR_LINKER`) selects the linker when the
-      # target has more than one.
-      def binary(functions, data, out, work:, raw: [], assembled: [], objects: [], strip: false, linker: Config.current.linker, target: Target.default, jobs: Build.jobs)
+      # target has more than one. `link` goes to the system linker as it
+      # is (`--link`, `ZR_LINK_ARGS`), so it needs `cc`.
+      def binary(functions, data, out, work:, raw: [], assembled: [], objects: [], strip: false, linker: Config.current.linker, target: Target.default, jobs: Build.jobs, link: [])
         image = unit(functions, data, raw: raw, assembled: assembled, export: !objects.empty?, target: target, jobs: jobs)
-        linker(target).link(image, out, work: work, objects: objects, strip: strip, linker: linker, target: target)
+        linker(target).link(image, out, work: work, objects: objects, strip: strip, linker: linker, target: target, link: link)
       rescue Backend::Refused => e
         e.message
       end
@@ -79,13 +80,13 @@ module Zr
       # A program that uses eval keeps all symbols, because its JIT finds
       # kernel functions by name. Functions that `assemble` already
       # assembled go in unchanged.
-      def program(program, out, work:, jobs: Build.jobs)
+      def program(program, out, work:, jobs: Build.jobs, link: [])
         objects = [runtime_object(program.runtime, jobs: jobs)]
         objects << eval_support_object(program.evals, jobs: jobs) if program.evals
         functions, assembled = program.functions.partition { |f| f.is_a?(IR::Function) }
         Zr.clock("program object written and linked") do
           binary(functions, program.data, out, work: work, assembled: assembled, objects: objects, strip: !program.evals,
-                                                           target: program.runtime.target, jobs: jobs)
+                                                           target: program.runtime.target, jobs: jobs, link: link)
         end
       end
 

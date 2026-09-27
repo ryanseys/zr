@@ -16,7 +16,7 @@ module Zr
     # link), `ruby` (zr's linker only) or `cc`. Empty or unset is `auto`.
     LINKERS = %w[auto ruby cc].freeze
 
-    attr_reader :linker, :jobs, :wasm_width, :cache, :cache_max_gb, :host_ruby
+    attr_reader :linker, :jobs, :wasm_width, :cache, :cache_max_gb, :host_ruby, :link
 
     def initialize
       @linker = ENV["ZR_LINKER"].to_s.empty? ? "auto" : ENV["ZR_LINKER"]
@@ -39,8 +39,31 @@ module Zr
       # (default 5; 0 turns the limit off).
       @cache_max_gb = Float(ENV.fetch("ZR_CACHE_MAX_GB", 5))
       @host_ruby = ENV.fetch("ZR_HOST_RUBY", "ruby")
+      # `ZR_LINK_ARGS`: words for the system linker, as `--link` gives
+      # them, split as a shell splits them.
+      @link = words(ENV.fetch("ZR_LINK_ARGS", "")).freeze
       freeze
     end
+
+    # The words of `line` as Shellwords.split gives them. zr does not
+    # require shellwords: the compiled compiler goes into a program with
+    # eval, and shellwords would give that program String#shellsplit,
+    # String#shellescape and Array#shelljoin.
+    def words(line)
+      words = []
+      field = +""
+      line.scan(/\G\s*(?>([^\0\s\\'"]+)|'([^\0']*)'|"((?:[^\0"\\]|\\[^\0])*)"|(\\[^\0]?)|(\S))(\s|\z)?/m) do |word, sq, dq, esc, garbage, sep|
+        raise ArgumentError, "ZR_LINK_ARGS: a quote has no end: #{line.inspect}" if garbage
+
+        field << (word || sq || dq&.gsub(/\\([$`"\\\n])/, '\\1') || esc.gsub(/\\(.)/, '\\1'))
+        next unless sep
+
+        words << field
+        field = +""
+      end
+      words
+    end
+    private :words
 
     # `ZR_EVAL=walk` builds a native program with the tree-walking
     # interpreter as its eval support, instead of the compiler.

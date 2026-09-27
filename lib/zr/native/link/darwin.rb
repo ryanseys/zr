@@ -37,7 +37,16 @@ module Zr
         # that does not strip uses eval; its JIT finds the runtime's
         # functions by name in the symbol table, which
         # `Obj::MachO::Executable` sorts.
-        def link(image, out, work:, objects:, strip:, linker:, target:)
+        #
+        # `link` goes to `cc` as it is, so it links with `cc`. An exported
+        # symbols list keeps its symbols: then the strip keeps the exports.
+        # A program with eval keeps every export as well (`EVAL_EXPORTS`).
+        def link(image, out, work:, objects:, strip:, linker:, target:, link: [])
+          unless link.empty?
+            return "--link needs cc, and this host has no cc for #{target}" unless target.tool("cc")
+
+            linker = "cc"
+          end
           unless linker == "cc"
             why = begin
               Obj::MachO::Executable.write(image, out, prelink: Build.prelink(objects), skeleton: Build.skeleton(objects))
@@ -49,7 +58,20 @@ module Zr
           end
           obj = File.join(work, "unit.o")
           File.binwrite(obj, Obj::MachO::ObjectFile.write(image))
-          Link.run(objects + [obj], out, flags: STACK_FLAGS + (strip ? STRIP_FLAGS : []), target: target)
+          flags = STACK_FLAGS + (strip ? strip_flags(link) : []) + link
+          flags += EVAL_EXPORTS if !strip && exports?(link)
+          Link.run(objects + [obj], out, flags: flags, target: target)
+        end
+
+        # The JIT of a program with eval finds the runtime's functions with
+        # dlsym when `ld` wrote the symbol table. An exported symbols list
+        # exports only its own names, so the link exports every name too.
+        EVAL_EXPORTS = ["-Wl,-exported_symbol,*"].freeze
+
+        def exports?(link) = link.any? { |arg| arg.include?("-exported_symbol") }
+
+        def strip_flags(link)
+          exports?(link) ? STRIP_FLAGS - ["-Wl,-no_exported_symbols"] : STRIP_FLAGS
         end
 
         # The byte ranges of a linked binary that do not depend on the

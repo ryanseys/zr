@@ -43,6 +43,9 @@ module Zr
         --path-root <dir>      write source paths in the output as <dir> plus the
                                path below zr's root or the working directory,
                                so that two checkouts make the same bytes
+        --link <arg>           give <arg> to the system linker (cc) for a native
+                               binary: an object, an archive, -framework <name>,
+                               -Wl,<flags>; once for each argument
         -h, --help             print this help
     TEXT
 
@@ -209,7 +212,7 @@ module Zr
     # The options and words of `run`, `build` or `machine`, as a Hash.
     # For `run`, every word after the input file goes to the program.
     def parse(command, args)
-      opts = { args: [] }
+      opts = { args: [], link: [] }
       until args.empty?
         word = args.shift
         if opts[:input] && command == "run"
@@ -226,6 +229,7 @@ module Zr
         when "--emit" then opts[:emit] = value || args.shift || usage_error("--emit needs a kind", command)
         when "--target" then opts[:triple] = value || args.shift || usage_error("--target needs a triple", command)
         when "--path-root" then opts[:root] = value || args.shift || usage_error("--path-root needs a directory", command)
+        when "--link" then opts[:link] << (value || args.shift || usage_error("--link needs an argument", command))
         when /\A-./ then usage_error("unknown option '#{word}'", command)
         else
           opts[:input] ? opts[:args] << word : opts[:input] = word
@@ -258,6 +262,7 @@ module Zr
 
       target = target_for(opts[:triple], opts[:emit], command)
       emit = opts[:emit] || ("wasm" if target.outputs == [:wasm])
+      usage_error("--link applies only to a native binary", command) if emit && !opts[:link].empty?
       refuse(input, command, emit, target)
       wasmtime! if command == "run" && emit == "wasm"
 
@@ -274,7 +279,7 @@ module Zr
         case emit
         when "obj" then object(program, out, target)
         when "wasm" then wasm(program, out, command, opts[:args])
-        else native(program, out, work, command, opts[:args], target)
+        else native(program, out, work, command, opts[:args], target, link: Config.current.link + opts[:link])
         end
       end
       require_relative "cache"
@@ -448,12 +453,12 @@ module Zr
       $?
     end
 
-    def native(program, out, work, verb, rest, target)
+    def native(program, out, work, verb, rest, target, link: [])
       why = if program.is_a?(Zr::Program)
-              Native::Build.program(program, out, work: work)
+              Native::Build.program(program, out, work: work, link: link)
             else
               functions, data, raw = program
-              Native::Build.binary(functions, data, out, work: work, raw: raw, target: target)
+              Native::Build.binary(functions, data, out, work: work, raw: raw, target: target, link: link)
             end
       abort "zr: #{why}" if why
       return unless verb == "run"
