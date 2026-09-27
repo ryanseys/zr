@@ -302,7 +302,14 @@ module Zr
     def exit_as(status)
       exit(status.exitstatus) unless status.signaled?
 
-      Signal.trap(status.termsig, "SYSTEM_DEFAULT")
+      begin
+        Signal.trap(status.termsig, "SYSTEM_DEFAULT")
+      rescue ArgumentError
+        # ruby keeps SIGSEGV, SIGBUS, SIGILL, SIGFPE and SIGVTALRM for
+        # itself, and its own handler would print a ruby bug report. A
+        # shell in zr's place sends the signal to itself instead.
+        exec("/bin/sh", "-c", "kill -#{status.termsig} $$")
+      end
       Process.kill(status.termsig, Process.pid)
       # Only a signal that does not stop a process by default comes here.
       sleep 1
