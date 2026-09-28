@@ -841,6 +841,15 @@ machine def zr_kernel_caller(recv, argc, argv, cref, blk)
   if argc > 2
     return zr_wrong_arity_range(argc, 0, 2)
   end
+  if argc == 1 && zr_is_a(Machine.value(Machine.load64(argv, 0)), zr_global(G_RANGE))
+    # `caller(range)`: the frames from this method's own outward, then the
+    # range of them, as `caller(0)[range]` (ec_backtrace_to_ary).
+    level = Machine.slot(8)
+    Machine.store64(level, 0, Machine.word(zr_fix(0)))
+    all = zr_kernel_caller(recv, 1, level, cref, blk)
+    return all if all == QUNDEF
+    return zr_send(all, Machine.id(:[]), 1, argv)
+  end
   start = 1
   limit = 0 - 1
   if argc > 0

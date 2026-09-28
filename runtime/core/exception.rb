@@ -518,7 +518,14 @@ class Thread
 end
 
 module Kernel
+  # A Range selects from the locations outward from this method's
+  # caller, as `caller_locations(0)[range]`.
   def caller_locations(start = 1, length = nil)
+    if Range === start
+      all = caller_locations(0).drop(1)
+      return all[start]
+    end
+
     rows = caller(start + 1, length) or return nil
 
     rows.zip(Primitive.zr_caller_nodes(start + 1, length)).map { |row, node| Thread::Backtrace::Location.new(row, node || 0) }

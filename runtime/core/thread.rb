@@ -490,9 +490,12 @@ class Thread
   # The frames of the thread, innermost first, and nil after it has
   # ended. The current thread returns them from the calling line, as
   # `caller` does; another thread is read where it is parked.
+  # The current thread's frames start at this method's own, as ruby's
+  # do. A Range selects from all of them.
   def backtrace(start = 0, length = nil)
-    return caller(start + 1, length) if equal?(Thread.current)
+    return length.nil? ? caller(start) : caller(start, length) if equal?(Thread.current)
     return nil unless alive?
+    return Primitive.zr_fiber_backtrace_m(local_fiber, 0, -1)&.[](start) if Range === start
 
     Primitive.zr_fiber_backtrace_m(local_fiber, start, length.nil? ? -1 : length)
   end
@@ -506,6 +509,8 @@ class Thread
   end
 
   def backtrace_locations(start = 0, length = nil)
+    return length.nil? ? caller_locations(start) : caller_locations(start, length) if equal?(Thread.current)
+
     backtrace(start, length)&.map { |row| Thread::Backtrace::Location.new(row) }
   end
 
