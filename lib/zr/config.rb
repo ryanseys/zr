@@ -1,6 +1,5 @@
 # frozen_string_literal: true
 
-require "etc"
 require_relative "flags"
 
 module Zr
@@ -16,14 +15,14 @@ module Zr
     # link), `ruby` (zr's linker only) or `cc`. Empty or unset is `auto`.
     LINKERS = %w[auto ruby cc].freeze
 
-    attr_reader :linker, :jobs, :wasm_width, :cache, :cache_max_gb, :host_ruby, :link
+    attr_reader :linker, :wasm_width, :cache, :cache_max_gb, :host_ruby, :link
 
     def initialize
       @linker = ENV["ZR_LINKER"].to_s.empty? ? "auto" : ENV["ZR_LINKER"]
       raise ArgumentError, "ZR_LINKER=#{@linker}: use #{LINKERS.join(", ")}" unless LINKERS.include?(@linker)
 
       @jobs_given = ENV.key?("ZR_JOBS")
-      @jobs = Integer(ENV.fetch("ZR_JOBS") { [Etc.nprocessors, 6].min })
+      @jobs = Integer(ENV["ZR_JOBS"]) if @jobs_given
       # Not exposed as a plain reader: `eval` is a Kernel method, and
       # `eval_walk?` is the only thing anything reads this for.
       @eval_mode = ENV["ZR_EVAL"]
@@ -85,6 +84,16 @@ module Zr
     # Whether `ZR_JOBS` sets the worker count. Then it also overrides the
     # memory limit (`Native::Parallel.afforded`).
     def jobs_given? = @jobs_given
+
+    # `ZR_JOBS`, or the processors up to 6. etc loads at the first call,
+    # not with this file: the compiler goes into a program with eval, and
+    # etc would give that program IO#pathconf.
+    def jobs
+      return @jobs if @jobs_given
+
+      require "etc"
+      [Etc.nprocessors, 6].min
+    end
 
     # The one instance for this process. A later call returns the same
     # instance; `reset!` and `with` are the only way to get a new one.

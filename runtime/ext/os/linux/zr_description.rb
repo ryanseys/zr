@@ -257,6 +257,7 @@ module Zr
         d zr_define_notimplement Value klass:Value name:Value
         d zr_builtin_private Void klass:Value mid:Word fn:Ptr arity:Word
         d zr_builtin_hidden Void klass:Value mid:Word fn:Ptr arity:Word
+        d zr_method_reveal Void klass:Value mid:Word
         d zr_method_index_drop Void ext:Ptr
         d zr_method_index_put Void ext:Ptr row:Word
         d zr_method_index_build Void ext:Ptr
@@ -501,6 +502,7 @@ module Zr
         d zr_hidden_add Void path:Value
         d zr_hidden_forget Void path:Value
         d zr_hidden_defined Void id:Word
+        d zr_hidden_defined_method Void klass:Value mid:Word
         d zr_feature_reveal Void path:Value
         d zr_feature_real_path Value path:Value
         d zr_require Value path:Value fn:Ptr kind:Word
@@ -1064,6 +1066,7 @@ module Zr
         d zr_io_dir_names Value path:Value
         d zr_io_dir_kinds Value path:Value
         d zr_io_pathconf Value path:Value name:Value
+        d zr_io_fpathconf Value fd:Value name:Value
         d zr_io_dir_names_fd Value fd:Value
         d zr_io_fchdir Value fd:Value
         d zr_io_chroot Value path:Value
@@ -2539,19 +2542,20 @@ module Zr
         e zr_mod_module_function 127
         e zr_mod_private_class_method 127
         e zr_mod_public_class_method 127
-        e zr_entry_hidden_p 0
-        e zr_level_method_names 120
+        e zr_entry_hidden_p 127
+        e zr_level_method_names 127
         e zr_mod_undefined_instance_methods 126
-        e zr_method_names 126
-        e zr_mod_instance_methods 126
-        e zr_mod_public_instance_methods 126
-        e zr_mod_private_instance_methods 126
-        e zr_mod_protected_instance_methods 126
+        e zr_method_names 127
+        e zr_mod_instance_methods 127
+        e zr_mod_public_instance_methods 127
+        e zr_mod_private_instance_methods 127
+        e zr_mod_protected_instance_methods 127
         e zr_builtin 127
         e zr_f_notimplement 127
         e zr_define_notimplement 127
         e zr_builtin_private 127
         e zr_builtin_hidden 127
+        e zr_method_reveal 122
         e zr_method_index_drop 56
         e zr_method_index_put 120
         e zr_method_index_build 120
@@ -2796,6 +2800,7 @@ module Zr
         e zr_hidden_add 126
         e zr_hidden_forget 127
         e zr_hidden_defined 127
+        e zr_hidden_defined_method 127
         e zr_feature_reveal 127
         e zr_feature_real_path 126
         e zr_require 127
@@ -3359,6 +3364,7 @@ module Zr
         e zr_io_dir_names 126
         e zr_io_dir_kinds 126
         e zr_io_pathconf 120
+        e zr_io_fpathconf 120
         e zr_io_dir_names_fd 126
         e zr_io_fchdir 56
         e zr_io_chroot 56
@@ -3903,11 +3909,11 @@ module Zr
         e zr_mod_class_variable_set 127
         e zr_mod_remove_class_variable 127
         e zr_mod_class_variable_defined 127
-        e zr_obj_singleton_methods 126
-        e zr_obj_methods 126
-        e zr_obj_public_methods 126
-        e zr_obj_private_methods 126
-        e zr_obj_protected_methods 126
+        e zr_obj_singleton_methods 127
+        e zr_obj_methods 127
+        e zr_obj_public_methods 127
+        e zr_obj_private_methods 127
+        e zr_obj_protected_methods 127
         e zr_mod_method_defined_vis 127
         e zr_mod_method_defined 127
         e zr_mod_public_method_defined 127
@@ -5333,7 +5339,7 @@ module Zr
         s CaseRow 16 8 klass:0:Value arm:8:Word
         s RClass 56 8 basic:0:RBasic name:16:Value superclass:24:Value ext:32:Ptr attached:40:Value origin:48:Value
         s ClassExt 232 8 mtab:0:Ptr mlen:8:Word mcap:16:Word ctab:24:Ptr clen:32:Word ccap:40:Word iv:48:IvTab cv:80:IvTab serial:112:Word refined:120:Value active:128:Value boxed:136:Value shadow:144:Value alloc:152:Word cidx:160:Ptr cbins:168:Word saved:176:Ptr slen:184:Word supers:192:Ptr rank:200:Word midx:208:Ptr mbins:216:Word obj_bytes:224:Word
-        s MEntry 104 8 mid:0:Word fn:8:Ptr arity:16:Word kind:24:Word meta:32:Ptr cref:40:Value vis:48:Word orig:56:Word from:64:Value core:72:Word ivar:80:IvarCache cover:88:Word direct:96:Ptr
+        s MEntry 112 8 mid:0:Word fn:8:Ptr arity:16:Word kind:24:Word meta:32:Ptr cref:40:Value vis:48:Word orig:56:Word from:64:Value core:72:Word ivar:80:IvarCache cover:88:Word direct:96:Ptr concealed:104:Word
         s CEntry 72 8 id:0:Word value:8:Value file:16:Ptr file_len:24:Word line:32:Word private:40:Word deprecated:48:Word owner:56:Value concealed:64:Word
         s GateRow 40 8 klass:0:Word mid:8:Word bit:16:Word fn:24:Ptr vis:32:Word
         s MCache 48 8 klass:0:Value mid:8:Word entry:16:Ptr found:24:Value stamp:32:Word refine:40:Value
@@ -5357,7 +5363,7 @@ module Zr
         s Task 128 8 top:0:Ptr serial:8:Word pending:16:Value errinfo:24:Value pending_kind:32:Word pending_home:40:Ptr pending_site:48:Word kw:56:Word stack_limit:64:Ptr guards:72:Value catches:80:Value throw_tag:88:Value missing:96:Word found:104:Value refine:112:Value ractor:120:Word
         s MarkStack 24 8 ptr:0:Ptr len:8:Word capa:16:Word
         s MReader 32 8 bytes:0:Ptr len:8:Word pos:16:Word bail:24:Word
-        s RMethod 144 8 basic:0:RBasic recv:16:Value klass:24:Value owner:32:Value entry:40:MEntry
+        s RMethod 152 8 basic:0:RBasic recv:16:Value klass:24:Value owner:32:Value entry:40:MEntry
         s IvTab 32 8 rows:0:Ptr len:8:Word cap:16:Word names:24:Word
         s IvEntry 16 8 id:0:Word value:8:Value
         s RObject 48 8 basic:0:RBasic iv:16:IvTab

@@ -266,8 +266,10 @@ Machine.sig :top, [] => Value
 # The files that the runtime loaded hidden from the program. They are not
 # in $LOADED_FEATURES. Each file has a record of three slots: its path,
 # the hidden file that was loading when it started (nil for a root that
-# eval support loads), and an Array (or nil) of the ids of Object's
-# constants that it defined or reopened. When the program requires one
+# eval support loads), and an Array (or nil) of what it defined: the id
+# of each of Object's constants that it defined or reopened, and a pair
+# of the class and the id for each method that it defined on a class of
+# the program. When the program requires one
 # of these files, the file becomes visible, with all that it loaded and
 # defined.
 G_HIDDEN_FEATURES = 50
@@ -472,6 +474,31 @@ machine def zr_hidden_defined(id)
   zr_ary_push(ids, zr_fix(id))
 end
 
+# Records that the hidden file that is loading now defined the method
+# `mid` on `klass`, a class of the program. A later require of the file
+# makes the method visible.
+sig [Value, Word] => Void
+machine def zr_hidden_defined_method(klass, mid)
+  path = zr_hidden_loading_path()
+  if path == QNIL
+    return
+  end
+  i = zr_hidden_row(path)
+  if i < 0
+    return
+  end
+  rows = zr_hidden_features()
+  defined = zr_ary_at(rows, i + 2)
+  if defined == QNIL
+    defined = zr_ary_new(4)
+    zr_ary_store(rows, i + 2, defined)
+  end
+  pair = zr_ary_new(2)
+  zr_ary_push(pair, klass)
+  zr_ary_push(pair, zr_fix(mid))
+  zr_ary_push(defined, pair)
+end
+
 # The program required `path`, which the runtime loaded hidden. The file
 # and its constants become visible and go into $LOADED_FEATURES. The
 # same occurs for each file that it loaded, because one ruby require
@@ -485,7 +512,12 @@ machine def zr_feature_reveal(path)
   ids = zr_ary_at(rows, zr_hidden_row(path) + 2)
   i = 0
   while ids != QNIL && i < RArray.len(ids)
-    zr_const_reveal(zr_fix2long(zr_ary_at(ids, i)))
+    item = zr_ary_at(ids, i)
+    if zr_fixnum_p(item)
+      zr_const_reveal(zr_fix2long(item))
+    else
+      zr_method_reveal(zr_ary_at(item, 0), zr_fix2long(zr_ary_at(item, 1)))
+    end
     i += 1
   end
   i = 0
@@ -919,6 +951,7 @@ Machine.import "getgrent", [] => Ptr
 Machine.import "sysconf", [I32] => Word
 Machine.import "confstr", [I32, Ptr, Word] => Word
 Machine.import "pathconf", [Ptr, I32] => Word
+Machine.import "fpathconf", [I32, I32] => Word
 Machine.import "uname", [Ptr] => I32
 Machine.import "getlogin", [] => Ptr
 

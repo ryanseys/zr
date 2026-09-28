@@ -40,7 +40,7 @@ Machine.struct :ClassExt, mtab: Ptr, mlen: Word, mcap: Word, ctab: Ptr, clen: Wo
 # cache entry (CallCache.direct). The `fn` of such a def is
 # `zr_direct_fn`, which takes the generic arguments and checks what the
 # site proved.
-Machine.struct :MEntry, mid: Word, fn: Ptr, arity: Word, kind: Word, meta: Ptr, cref: Value, vis: Word, orig: Word, from: Value, core: Word, ivar: IvarCache, cover: Word, direct: Ptr
+Machine.struct :MEntry, mid: Word, fn: Ptr, arity: Word, kind: Word, meta: Ptr, cref: Value, vis: Word, orig: Word, from: Value, core: Word, ivar: IvarCache, cover: Word, direct: Ptr, concealed: Word
 Machine.struct :CEntry, id: Word, value: Value, file: Ptr, file_len: Word, line: Word, private: Word, deprecated: Word, owner: Value, concealed: Word
 # A compiled method takes `(recv, argc, argv, entry, blk, found)`: its
 # own entry, whose name and cref its frame records, and the ancestor list
@@ -1359,6 +1359,11 @@ machine def zr_method_add_row(klass, mid, fn, arity, kind, meta, cref, vis)
   if !core
     zr_save_core_row(ext, e)
   end
+  # A method that the hidden eval support defines on a class of the
+  # program stays out of the program's sight, as a constant does, until
+  # the program requires the file itself (zr_feature_reveal).
+  conceal = !core && zr_program_started_p() && zr_hidden_now() && (RBasic.flags(klass) & FL_CONCEALED) == 0
+  conceal = conceal && (e == 0 || MEntry.concealed(e) != 0)
   if e == 0
     n = ClassExt.mlen(ext)
     if n == ClassExt.mcap(ext)
@@ -1394,6 +1399,10 @@ machine def zr_method_add_row(klass, mid, fn, arity, kind, meta, cref, vis)
   MEntry.set_cover(e, 0)
   MEntry.set_direct(e, Machine.ptr(Machine.load64(zr_direct_pending(), 0)))
   IvarCache.set_index(MEntry.ivar(e), 0)
+  MEntry.set_concealed(e, conceal ? 1 : 0)
+  if conceal
+    zr_hidden_defined_method(klass, mid)
+  end
   zr_gates_recheck(mid)
 end
 
@@ -1841,9 +1850,13 @@ end
 # marked `Primitive.attr! :hidden`), where CRuby has no method. No list
 # shows it, and `respond_to?` and `method_defined?` return false. A
 # method from `define_method` has its caller's meta, so only a compiled
-# def or a builtin counts.
+# def or a builtin counts. So does a method that the eval support defined
+# on a class of the program, except to the eval support itself.
 sig [Ptr] => Bool
 machine def zr_entry_hidden_p(e)
+  if MEntry.concealed(e) != 0 && !zr_hidden_now()
+    return true
+  end
   (MEntry.kind(e) == KIND_DEF || MEntry.kind(e) == KIND_BUILTIN) && MEntry.meta(e) != 0 && FrameMeta.kind(MEntry.meta(e)) == KIND_HIDDEN
 end
 
@@ -1974,6 +1987,17 @@ sig [Value, Word, Ptr, Word] => Void
 machine def zr_builtin_hidden(klass, mid, fn, arity)
   zr_builtin_private(klass, mid, fn, arity)
   FrameMeta.set_kind(MEntry.meta(zr_find_method_at(zr_origin(klass), mid)), KIND_HIDDEN)
+end
+
+# Makes the method `mid` on `klass` visible. The eval support defined it,
+# and now the program required the file that defines it.
+sig [Value, Word] => Void
+machine def zr_method_reveal(klass, mid)
+  e = zr_find_method_at(klass, mid)
+  if e != 0 && MEntry.concealed(e) != 0
+    MEntry.set_concealed(e, 0)
+    zr_methods_changed()
+  end
 end
 
 # The entry for `mid` on `klass` only, or 0; the last definition wins.
