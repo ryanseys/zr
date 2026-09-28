@@ -399,6 +399,45 @@ machine def zr_io_dir_names(path)
   out
 end
 
+# The names in a directory with the kind of each, as readdir's d_type
+# gives it (zr_os_dirent_kind), in pairs: name, kind, name, kind, ...
+# glob reads a directory this way, so it needs no lstat(2) for an entry
+# whose kind the directory already knows.
+sig [Value] => Value
+machine def zr_io_dir_kinds(path)
+  d = opendir(RString.ptr(path))
+  if d == 0
+    return zr_fix(0 - zr_errno())
+  end
+  out = zr_ary_new(16)
+  e = readdir(d)
+  while e != 0
+    name = zr_os_dirent_name(e)
+    zr_ary_push(out, zr_str_new(name, zr_cstr_len(name)))
+    zr_ary_push(out, zr_fix(zr_os_dirent_kind(e)))
+    e = readdir(d)
+  end
+  closedir(d)
+  out
+end
+
+# pathconf(2): the value of `name` for the file at `path`, or the
+# negated errno. A limit that the system does not have is -1 with no
+# errno, which answers nil.
+sig [Value, Value] => Value
+machine def zr_io_pathconf(path, name)
+  zr_os_set_errno(0)
+  r = pathconf(RString.ptr(path), Machine.i32(zr_fix2long(name)))
+  if r < 0
+    e = zr_errno()
+    if e == 0
+      return Machine.value(QNIL)
+    end
+    return zr_fix(0 - e)
+  end
+  zr_fix(r)
+end
+
 # The same names through a descriptor. This is the only way to get them
 # when a program has a descriptor and no path.
 sig [Value] => Value

@@ -1060,6 +1060,8 @@ module Zr
         d zr_io_rmdir Value path:Value
         d zr_io_chdir Value path:Value
         d zr_io_dir_names Value path:Value
+        d zr_io_dir_kinds Value path:Value
+        d zr_io_pathconf Value path:Value name:Value
         d zr_io_dir_names_fd Value fd:Value
         d zr_io_fchdir Value fd:Value
         d zr_io_chroot Value path:Value
@@ -2296,6 +2298,7 @@ module Zr
         d opendir Ptr path:Ptr
         d readdir Ptr d:Ptr
         d zr_os_dirent_name Ptr entry:Ptr
+        d zr_os_dirent_kind Word entry:Ptr
         d closedir I32 d:Ptr
         d zr_os_wait_fds Value fds:Value events:Value milliseconds:Value
         d zr_os_wait_fd Value fd:Value events:Value milliseconds:Value
@@ -3394,6 +3397,8 @@ module Zr
         e zr_io_rmdir 120
         e zr_io_chdir 56
         e zr_io_dir_names 126
+        e zr_io_dir_kinds 126
+        e zr_io_pathconf 56
         e zr_io_dir_names_fd 126
         e zr_io_fchdir 56
         e zr_io_chroot 56
@@ -4630,6 +4635,7 @@ module Zr
         e opendir 120
         e readdir 120
         e zr_os_dirent_name 0
+        e zr_os_dirent_kind 0
         e closedir 56
         e zr_os_wait_fds 127
         e zr_os_wait_fd 120

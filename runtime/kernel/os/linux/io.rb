@@ -68,6 +68,24 @@ machine def zr_os_dirent_name(entry)
   entry + 19
 end
 
+# The entry's kind for glob: 0 unknown, 1 a directory, 2 a symbolic
+# link, 3 anything else. d_type is the byte at 18: DT_DIR is 4,
+# DT_LNK 10, DT_UNKNOWN 0.
+sig [Ptr] => Word
+machine def zr_os_dirent_kind(entry)
+  t = Machine.word(Machine.load8(entry, 18))
+  if t == 0
+    return 0
+  end
+  if t == 4
+    return 1
+  end
+  if t == 10
+    return 2
+  end
+  3
+end
+
 # The generic struct stat of aarch64 Linux.
 STAT_LEN = 128
 

@@ -430,88 +430,234 @@ class File < IO
   # `/` under FNM_PATHNAME, where `**/` also matches any run of
   # directories; a leading dot needs FNM_DOTMATCH; `\` escapes unless
   # FNM_NOESCAPE; braces alternate under FNM_EXTGLOB.
+  # file_fnmatch: the pattern as a C string, and with FNM_EXTGLOB each
+  # pattern its braces give, until one matches.
   def self.fnmatch(pattern, path, flags = 0)
-    pattern = path_of(pattern)
+    pattern = Primitive.zr_str_operand(pattern)
+    raise ArgumentError, +"string contains null byte" if File.send(:nul_char?, pattern)
+
     path = path_of(path)
-    patterns = (flags & FNM_EXTGLOB).zero? ? [pattern] : Dir.const_get(:Glob).expand_braces(pattern)
-    patterns.any? { |p| fnmatch_regexp(p, flags).match?(path) }
+    flags = implicit_integer(flags)
+    patterns = (flags & FNM_EXTGLOB).zero? ? [pattern] : Dir.const_get(:Glob).expand_braces(pattern, (flags & FNM_NOESCAPE).zero?)
+    patterns.any? do |each|
+      enc = Encoding.compatible?(each, path)
+      enc && FnMatch.new(each.b, path.b, flags, enc).match?
+    end
   end
 
   def self.fnmatch?(pattern, path, flags = 0) = fnmatch(pattern, path, flags)
 
-  def self.fnmatch_regexp(pattern, flags)
+  # StringValueCStr's check: a NUL character, which in a wide encoding
+  # is a whole code unit of zeros.
+  def self.nul_char?(text)
     Primitive.attr! :hidden
-    pathname = (flags & FNM_PATHNAME) != 0
-    dotmatch = (flags & FNM_DOTMATCH) != 0
-    escape = (flags & FNM_NOESCAPE).zero?
-    one = pathname ? +"[^/]" : +"."
-    nodot = dotmatch ? +"" : +"(?!\\.)"
-    out = +"\\A"
-    i = 0
-    at_start = true
-    while i < pattern.size
-      c = pattern[i]
-      case c
-      when "*"
-        if pathname && pattern[i, 3] == +"**/" && (i.zero? || pattern[i - 1] == +"/")
-          out << (dotmatch ? "(?:[^/]*/)*" : "(?:(?!\\.)[^/]*/)*")
-          i += 3
-          at_start = true
-          next
+    return text.b.include?("\0") if text.encoding.ascii_compatible?
+
+    text.each_char.any? { |char| char.bytes.all?(&:zero?) }
+  end
+  private_class_method :nul_char?
+
+  # dir.c's fnmatch over bytes already in `enc`, as glob calls it.
+  def self.fnmatch_bytes(pattern, name, flags, enc)
+    Primitive.attr! :hidden
+    FnMatch.new(pattern, name, flags, enc).match?
+  end
+
+  # dir.c's fnmatch, fnmatch_helper and bracket over the bytes of a
+  # pattern and a path, a character at a time in their encoding. The end
+  # of either reads as the NUL that ends a C string.
+  class FnMatch
+    Primitive.attr! :hidden
+
+    SLASH = 0x2F
+    STAR = 0x2A
+    QUESTION = 0x3F
+    OPEN = 0x5B
+    CLOSE = 0x5D
+    BACKSLASH = 0x5C
+    DOT = 0x2E
+    BANG = 0x21
+    CARET = 0x5E
+    DASH = 0x2D
+
+    def initialize(pattern, path, flags, enc)
+      @pat = pattern
+      @str = path
+      @onig = Regexp.encoder(enc)
+      @period = (flags & File::FNM_DOTMATCH).zero?
+      @pathname = (flags & File::FNM_PATHNAME) != 0
+      @escape = (flags & File::FNM_NOESCAPE).zero?
+      @nocase = (flags & File::FNM_CASEFOLD) != 0
+    end
+
+    # fnmatch: with FNM_PATHNAME, each "**/" matches any directories,
+    # one at a time; a name that starts with "." needs FNM_DOTMATCH.
+    def match?
+      return helper(0, 0).first unless @pathname
+
+      p = 0
+      s = 0
+      ptmp = stmp = nil
+      loop do
+        if at(@pat, p) == STAR && at(@pat, p + 1) == STAR && at(@pat, p + 2) == SLASH
+          p += 3 while at(@pat, p) == STAR && at(@pat, p + 1) == STAR && at(@pat, p + 2) == SLASH
+          ptmp = p
+          stmp = s
         end
-        out << nodot if at_start
-        out << "#{one}*"
-      when "?"
-        out << nodot if at_start
-        out << one
-      when "["
-        source, close = char_class(pattern, i, escape, one)
-        out << nodot if at_start && close
-        out << source
-        i = close if close
-      when "\\"
-        if escape && i + 1 < pattern.size
-          i += 1
-          out << Regexp.escape(pattern[i])
-        else
-          out << "\\\\"
+        matched, p, s = helper(p, s)
+        if matched
+          s = inc(@str, s) while at(@str, s) != 0 && at(@str, s) != SLASH
+          if at(@pat, p) != 0 && at(@str, s) != 0
+            p += 1
+            s += 1
+            next
+          end
+          return true if at(@pat, p).zero? && at(@str, s).zero?
         end
-      else
-        out << Regexp.escape(c)
+        # Try the next directory for the last "**/".
+        if ptmp && stmp && !(@period && at(@str, stmp) == DOT)
+          stmp = inc(@str, stmp) while at(@str, stmp) != 0 && at(@str, stmp) != SLASH
+          if at(@str, stmp) != 0
+            p = ptmp
+            stmp += 1
+            s = stmp
+            next
+          end
+        end
+        return false
       end
-      at_start = c == +"/" && pathname
-      i += 1
     end
-    Regexp.new("#{out}\\z", (flags & FNM_CASEFOLD).zero? ? 0 : Regexp::IGNORECASE)
-  end
-  private_class_method :fnmatch_regexp
 
-  # An atom no character matches: an empty set, and a `[` that never
-  # closes, both of which fnmatch reads as a pattern nothing satisfies.
-  NOTHING = "[^\\s\\S]"
-  private_constant :NOTHING
+    private
 
-  # A `[...]` set as fnmatch reads it: `!` or `^` right after the bracket
-  # negates, the first `]` closes even with nothing before it, `\` escapes
-  # unless FNM_NOESCAPE, and `[:name:]` is six ordinary characters.
-  # Returns the regexp source and the closing bracket's index.
-  def self.char_class(pattern, open, escape, one)
-    Primitive.attr! :hidden
-    i = open + 1
-    negated = pattern[i] == +"!" || pattern[i] == +"^"
-    i += 1 if negated
-    body = +""
-    while i < pattern.size && pattern[i] != +"]"
-      i += 1 if escape && pattern[i] == +"\\" && i + 1 < pattern.size
-      body << (pattern[i] == +"-" ? "-" : Regexp.escape(pattern[i]))
-      i += 1
+    # The byte at `i`, or 0 past the end.
+    def at(bytes, i) = bytes.getbyte(i) || 0
+
+    def inc(bytes, i) = i + @onig.mbclen(bytes, i)
+
+    def unescape(p) = @escape && at(@pat, p) == BACKSLASH ? p + 1 : p
+
+    def ends?(bytes, i) = at(bytes, i).zero? || (@pathname && at(bytes, i) == SLASH)
+
+    def code(bytes, i) = @onig.mbc_to_code(bytes, i, bytes.bytesize)
+
+    # rb_enc_toupper: ASCII letters alone have another case here.
+    def upper(c) = c.between?(0x61, 0x7A) ? c - 0x20 : c
+
+    def same?(p, len, s) = len <= @str.bytesize - s && @pat.byteslice(p, len) == @str.byteslice(s, len)
+
+    # fnmatch_helper: one path component (or the whole path) against the
+    # pattern from p. Answers [matched, p, s] where it stopped.
+    def helper(p, s)
+      return [false, p, s] if @period && at(@str, s) == DOT && at(@pat, unescape(p)) != DOT
+
+      ptmp = stmp = nil
+      loop do
+        case at(@pat, p)
+        when STAR
+          p += 1 while at(@pat, p) == STAR
+          return [true, unescape(p), s] if ends?(@pat, unescape(p))
+          return [false, p, s] if ends?(@str, s)
+
+          ptmp = p
+          stmp = s
+          next
+        when QUESTION
+          return [false, p, s] if ends?(@str, s)
+
+          p += 1
+          s = inc(@str, s)
+          next
+        when OPEN
+          return [false, p, s] if ends?(@str, s)
+
+          if (t = bracket(p + 1, s))
+            p = t
+            s = inc(@str, s)
+            next
+          end
+        else
+          p = unescape(p)
+          return [ends?(@pat, p), p, s] if ends?(@str, s)
+
+          unless ends?(@pat, p)
+            r = @onig.precise_mbclen(@pat, p)
+            if r.positive?
+              if same?(p, r, s)
+                p += r
+                s += r
+                next
+              end
+              if @nocase && upper(code(@pat, p)) == upper(code(@str, s))
+                p += r
+                s = inc(@str, s)
+                next
+              end
+            end
+          end
+        end
+        # Try the next place for the last "*".
+        return [false, p, s] unless ptmp && stmp
+
+        p = ptmp
+        stmp = inc(@str, stmp)
+        s = stmp
+      end
     end
-    return [NOTHING, nil] if i >= pattern.size
-    return [negated ? one : NOTHING, i] if body.empty?
 
-    ["(?#{negated ? '!' : '='}[#{body}])#{one}", i]
+    # bracket: a `[...]` set from p, against the character at s. Answers
+    # the index after the closing bracket, or nil where the set does not
+    # match or never closes.
+    def bracket(p, s)
+      return nil if p >= @pat.bytesize
+
+      negated = at(@pat, p) == BANG || at(@pat, p) == CARET
+      p += 1 if negated
+      ok = false
+      while at(@pat, p) != CLOSE
+        t1 = @escape && at(@pat, p) == BACKSLASH ? p + 1 : p
+        return nil if at(@pat, t1).zero?
+
+        r = @onig.mbclen(@pat, t1)
+        p = t1 + r
+        return nil if p >= @pat.bytesize
+
+        if at(@pat, p) == DASH && at(@pat, p + 1) != CLOSE
+          t2 = p + 1
+          t2 += 1 if @escape && at(@pat, t2) == BACKSLASH
+          return nil if at(@pat, t2).zero?
+
+          r2 = @onig.mbclen(@pat, t2)
+          p = t2 + r2
+          next if ok
+
+          if same?(t1, r, s) || same?(t2, r2, s)
+            ok = true
+            next
+          end
+          c1 = code(@str, s)
+          c1 = upper(c1) if @nocase
+          low = code(@pat, t1)
+          high = code(@pat, t2)
+          low, high = upper(low), upper(high) if @nocase
+          next if c1 < low || c1 > high
+        else
+          next if ok
+
+          if same?(t1, r, s)
+            ok = true
+            next
+          end
+          # bracket reads the case of the byte after the member, not of the
+          # member itself.
+          next unless @nocase && upper(code(@str, s)) == upper(code(@pat, p))
+        end
+        ok = true
+      end
+      ok == negated ? nil : p + 1
+    end
   end
-  private_class_method :char_class
+  private_constant :FnMatch
 
 
   def self.stat(path) = Stat.send(:of, path_of(path), "rb_file_s_stat")
@@ -726,6 +872,9 @@ class File < IO
     unless path.is_a?(String)
       given = path.respond_to?(:to_path) ? path.to_path : path
       path = String.try_convert(given) or raise TypeError, "no implicit conversion of #{given.nil? ? 'nil' : given.class} into String"
+    end
+    unless path.encoding.ascii_compatible?
+      raise Encoding::CompatibilityError, "path name must be ASCII-compatible (#{path.encoding}): #{path.inspect}"
     end
     raise ArgumentError, +"path name contains null byte" if path.include?("\0")
 
@@ -1052,18 +1201,15 @@ class Dir
     (names - %w[. ..]).empty?
   end
 
-  # `glob(patterns, flags, base:, sort:)`: every path a pattern names,
-  # per pattern in order, each pattern's matches sorted. A pattern is
-  # split on `/`; `**` walks every directory below; braces expand
-  # first; the other pieces match a name as File.fnmatch does with
-  # FNM_PATHNAME, hidden names only under FNM_DOTMATCH or a literal dot.
+  # dir_s_glob: one pattern or an Array of them, the matches in the order
+  # the walk finds them, each directory's names sorted unless `sort:` is
+  # false. FNM_CASEFOLD has no effect here.
   def self.glob(pattern, _flags = 0, flags: _flags, base: nil, sort: true)
     Primitive.attr! :ruby
-    patterns = Array(pattern)
-    found = patterns.flat_map do |pattern|
-      pattern = File.send(:path_of, pattern)
-      Glob.expand_braces(pattern).flat_map { |p| Glob.new(p, flags, base).run }.uniq
-    end
+    flags = (File.send(:implicit_integer, flags) | Glob.sort_option(sort)) & ~File::FNM_CASEFOLD
+    base = Glob.base_option(base)
+    list = Array.try_convert(pattern)
+    found = list ? Glob.each_of(list, base, flags) : Glob.push(pattern, base, flags)
     return found unless block_given?
 
     found.each { |path| yield path }
@@ -1072,138 +1218,432 @@ class Dir
 
   def self.[](*args, base: nil, sort: true)
     Primitive.attr! :ruby
-    glob(args, base: base, sort: sort)
+    flags = Glob.sort_option(sort)
+    base = Glob.base_option(base)
+    args.size == 1 ? Glob.push(args.first, base, flags) : Glob.each_of(args, base, flags)
   end
 
-  # One brace-free pattern matched against the file system.
+  # dir.c's glob: glob_make_pattern splits a pattern into parts, and
+  # glob_helper walks them through the directories they reach, depth
+  # first, reading each directory once. A brace at the head expands
+  # first; a later one expands where the walk reaches it.
   class Glob
-    def initialize(pattern, flags, base)
+    Primitive.attr! :hidden
+
+    PLAIN = 0
+    ALPHA = 1
+    BRACE = 2
+    MAGICAL = 3
+    RECURSIVE = 4
+    MATCH_ALL = 5
+    MATCH_DIR = 6
+
+    # rb_pathtype_t: path_exist is a name that exists as some kind.
+    UNKNOWN = -2
+    NOENT = -1
+    EXIST = 0
+    DIRECTORY = 1
+    SYMLINK = 2
+    OTHER = 3
+
+    # Flags that only the walk uses.
+    NOSORT = 1 << 30
+    SKIPDOT = 1 << 29
+
+    # One part of a pattern: a name to match, `**/`, or the end, which
+    # matches the path itself (with a slash for MATCH_DIR).
+    class Part
+      attr_reader :type, :str
+      attr_accessor :next
+
+      def initialize(type, str)
+        @type = type
+        @str = str
+      end
+    end
+
+    def self.sort_option(sort)
+      return NOSORT if sort == false
+      raise ArgumentError, "expected true or false as sort: #{sort.inspect}" unless sort == true
+
+      0
+    end
+
+    def self.base_option(base)
+      return nil if base.nil?
+
+      base = File.send(:path_of, base)
+      base.empty? ? nil : base
+    end
+
+    # dir_globs: each pattern of a list, which must name a path.
+    def self.each_of(list, base, flags)
+      list.flat_map { |pattern| new(File.send(:path_of, pattern), base, flags).run }
+    end
+
+    # rb_push_glob: a String may not hold a NUL, which once separated
+    # patterns; anything else must name a path.
+    def self.push(pattern, base, flags)
+      if pattern.is_a?(String)
+        raise Encoding::CompatibilityError, "incompatible character encodings: #{pattern.encoding} and US-ASCII" unless pattern.encoding.ascii_compatible?
+        raise ArgumentError, +"nul-separated glob pattern is deprecated" if pattern.include?("\0")
+      else
+        pattern = File.send(:path_of, pattern)
+      end
+      new(pattern, base, flags).run
+    end
+
+    def initialize(pattern, base, flags)
+      @pattern = pattern
+      @base = base
       @flags = flags
-      @base = base && !pattern.start_with?("/") ? File.send(:path_of, base) : nil
-      @root = pattern.start_with?("/") ? +"/" : (@base || +"")
-      @dirs_only = pattern.end_with?("/")
-      @segments = pattern.split("/").reject(&:empty?)
+      @escape = (flags & File::FNM_NOESCAPE).zero?
+      # A darwin volume matches names without their case, and a plain
+      # name reads its real case back (USE_NAME_ON_FS_REAL_BASENAME).
+      @real_basename = RUBY_PLATFORM.include?("darwin")
+      @enc = @real_basename ? Encoding::UTF_8 : pattern.encoding
+      @onig = Regexp.encoder(@enc)
+      @found = []
     end
 
-    # The paths found, relative to the base when one was given, sorted.
     def run
-      return [] if @segments.empty?
-
-      out = []
-      walk(@root, 0, out)
-      out.map! { |path| path.delete_prefix("#{@base}/") } if @base
-      out.sort
+      glob0(@pattern.b)
+      @found
     end
 
-    def self.expand_braces(pattern)
-      open = pattern.index("{")
-      return [pattern] if open.nil?
-
+    # ruby_brace_expand: the patterns that the first outermost `{...}`
+    # gives, one for each of its alternatives, with their own braces
+    # expanded in turn. A `{` that never closes gives no pattern at all,
+    # and a backslash hides the brace or comma after it.
+    def self.expand_braces(pattern, escape = true)
+      bytes = pattern.b
+      onig = Regexp.encoder(pattern.encoding)
+      open = close = nil
       depth = 0
-      close = nil
-      (open...pattern.size).each do |i|
-        depth += 1 if pattern[i] == +"{"
-        depth -= 1 if pattern[i] == +"}"
-        if depth.zero?
+      i = 0
+      while i < bytes.bytesize
+        byte = bytes.getbyte(i)
+        if byte == 0x7B
+          open = i if depth.zero?
+          depth += 1
+        end
+        if byte == 0x7D && open && (depth -= 1).zero?
           close = i
           break
         end
-      end
-      return [pattern] if close.nil?
-
-      choices = []
-      depth = 0
-      piece = +""
-      pattern[(open + 1)...close].each_char do |c|
-        depth += 1 if c == +"{"
-        depth -= 1 if c == +"}"
-        if c == +"," && depth.zero?
-          choices << piece
-          piece = +""
-        else
-          piece << c
+        if byte == 0x5C && escape
+          i += 1
+          break if i >= bytes.bytesize
         end
+        i += onig.mbclen(bytes, i)
       end
-      choices << piece
-      choices.flat_map { |choice| expand_braces(pattern[0...open] + choice + pattern[(close + 1)..]) }
+      return open.nil? ? [pattern] : [] if close.nil?
+
+      head = bytes.byteslice(0, open)
+      tail = bytes.byteslice(close + 1, bytes.bytesize - close - 1)
+      patterns = []
+      p = open
+      while p < close
+        t = p += 1
+        depth = 0
+        while p < close && !(bytes.getbyte(p) == 0x2C && depth.zero?)
+          depth += 1 if bytes.getbyte(p) == 0x7B
+          depth -= 1 if bytes.getbyte(p) == 0x7D
+          break if bytes.getbyte(p) == 0x5C && escape && (p += 1) == close
+
+          p += onig.mbclen(bytes, p)
+        end
+        piece = (head + bytes.byteslice(t, p - t) + tail).force_encoding(pattern.encoding)
+        patterns.concat(expand_braces(piece, escape))
+      end
+      patterns
     end
 
     private
 
-    # The paths under `dir` that match the segments from `i` on. A
-    # `**` before more segments matches zero or more directories; a
-    # last `**` matches like `*`.
-    def walk(dir, i, out)
-      segment = @segments[i]
-      last = i == @segments.size - 1
-      if segment == +"**" && (!last || @dirs_only)
-        walk(dir, i + 1, out) unless last
-        each_entry(dir, dots: dotmatch?) do |_, path|
-          next unless File.directory?(path) && !File.symlink?(path)
-
-          found(path, out) if last
-          walk(path, i, out)
-        end
-      elsif literal?(segment)
-        path = join(dir, segment)
-        return unless File.exist?(path) || File.symlink?(path)
-
-        last ? found(path, out) : walk(path, i + 1, out)
-      else
-        pattern = segment == +"**" ? +"*" : segment
-        each_entry(dir, last, dots: dotmatch? || pattern.start_with?(".")) do |name, path|
-          next unless File.fnmatch?(pattern, name, @flags | File::FNM_PATHNAME)
-
-          if last
-            found(path, out)
-          elsif File.directory?(path)
-            walk(path, i + 1, out)
-          end
-        end
-      end
-    end
-
-    # A match goes out; a pattern ending in `/` wants only directories,
-    # each with its slash.
-    def found(path, out)
-      return out << path unless @dirs_only
-
-      out << "#{path}/" if File.directory?(path)
-    end
-
-    # The names in `dir`. A hidden name shows only where dots are
-    # allowed: under FNM_DOTMATCH, or where the segment itself starts with one.
-    # `.` is one of them, and the pattern decides whether it matches.
-    def each_entry(dir, last = false, dots: false)
-      names = begin
-        Dir.children(here(dir))
-      rescue SystemCallError
+    # ruby_glob0: a brace at the head expands first; an absolute pattern
+    # starts at "/", a relative one at the base or here.
+    def glob0(pattern)
+      if pattern.getbyte(0) == 0x7B
+        Glob.expand_braces(pattern.force_encoding(@enc), @escape).each { |each| glob0(each.b) }
         return
       end
-      names.unshift(".") if last && dots
-      names.sort.each do |name|
-        next if name.start_with?(".") && !dots
+      root = pattern.getbyte(0) == 0x2F ? 1 : 0
+      path = +"/".b * root
+      baselen = 0
+      dirsep = false
+      if root.zero? && @base
+        path = @base.b
+        baselen = path.bytesize
+        dirsep = true
+      end
+      list = make_pattern(pattern.byteslice(root, pattern.bytesize - root))
+      helper(path, baselen, path.bytesize - baselen, dirsep, UNKNOWN, [list], @flags | File::FNM_SYSCASE)
+    end
 
-        yield name, join(dir, name)
+    def at(bytes, i) = bytes.getbyte(i) || 0
+
+    def step(bytes, i) = i + @onig.mbclen(bytes, i)
+
+    # find_dirsep: the slash that ends a part, outside a `[...]`.
+    def find_dirsep(bytes, p)
+      open = false
+      while (c = at(bytes, p)) != 0
+        case c
+        when 0x5B then open = true
+        when 0x5D then open = false
+        when 0x2F then return p unless open
+        when 0x5C
+          if @escape
+            p += 1
+            return p if at(bytes, p).zero?
+          end
+        else
+          p = step(bytes, p)
+          next
+        end
+        p += 1
+      end
+      p
+    end
+
+    # has_magic: BRACE for a `{`, MAGICAL for a wildcard, ALPHA for a
+    # letter, else PLAIN.
+    def magic(bytes, p, stop)
+      alpha = magical = false
+      while p < stop && (c = at(bytes, p)) != 0
+        case c
+        when 0x7B then return BRACE
+        when 0x2A, 0x3F, 0x5B then magical = true
+        when 0x5C
+          if @escape
+            p += 1
+            next if p >= stop
+          end
+        else
+          alpha = true if (0x41..0x5A).cover?(c) || (0x61..0x7A).cover?(c)
+        end
+        p = step(bytes, p)
+      end
+      magical ? MAGICAL : (alpha ? ALPHA : PLAIN)
+    end
+
+    # glob_make_pattern: the parts, then the end, which wants a directory
+    # where the pattern ends in a slash. Plain parts in a row join, where
+    # a name can be looked up as it is.
+    def make_pattern(bytes)
+      non_magic = @real_basename ? PLAIN : ALPHA
+      parts = []
+      dirsep = recursive = false
+      p = 0
+      while p < bytes.bytesize && at(bytes, p) != 0
+        if at(bytes, p) == 0x2A && at(bytes, p + 1) == 0x2A && at(bytes, p + 2) == 0x2F
+          loop do
+            p += 3
+            p += 1 while at(bytes, p) == 0x2F
+            break unless at(bytes, p) == 0x2A && at(bytes, p + 1) == 0x2A && at(bytes, p + 2) == 0x2F
+          end
+          parts << Part.new(RECURSIVE, nil)
+          dirsep = recursive = true
+          next
+        end
+        m = find_dirsep(bytes, p)
+        kind = magic(bytes, p, m)
+        if kind <= non_magic && !recursive && at(bytes, m) != 0
+          while magic(bytes, m + 1, (m2 = find_dirsep(bytes, m + 1))) <= non_magic && at(bytes, m2) != 0
+            m = m2
+          end
+        end
+        type = kind > MAGICAL ? MAGICAL : (kind > non_magic ? kind : PLAIN)
+        parts << Part.new(type, bytes.byteslice(p, m - p))
+        dirsep = at(bytes, m) != 0
+        p = dirsep ? m + 1 : m
+      end
+      parts << Part.new(dirsep ? MATCH_DIR : MATCH_ALL, nil)
+      parts.each_cons(2) { |a, b| a.next = b }
+      parts.first
+    end
+
+    # join_path.
+    def join(path, dirsep, name) = dirsep ? path + "/".b + name : path + name
+
+    # The pattern of the parts from `part` on, as a string again.
+    def joined(part)
+      pieces = []
+      while part
+        case part.type
+        when RECURSIVE then pieces << "**".b
+        when MATCH_DIR then pieces << "".b
+        else pieces << part.str if part.str
+        end
+        part = part.next
+      end
+      pieces.join("/".b)
+    end
+
+    def match?(pattern, name, flags)
+      File.send(:fnmatch_bytes, pattern, name, flags, @enc)
+    end
+
+    def kind_of(path, follow)
+      stat = follow ? File.stat(path) : File.lstat(path)
+      case stat.ftype
+      when "directory" then DIRECTORY
+      when "link" then SYMLINK
+      else OTHER
+      end
+    rescue SystemCallError
+      NOENT
+    end
+
+    def emit(path)
+      @found << path.force_encoding(@enc)
+    end
+
+    # glob_helper: the parts in `parts` at `path`, whose kind is `type`.
+    def helper(path, baselen, namelen, dirsep, type, parts, flags)
+      plain = magical = recursive = match_all = match_dir = brace = false
+      parts.each do |part|
+        if part.type == RECURSIVE
+          recursive = true
+          part = part.next
+        end
+        case part.type
+        when PLAIN then plain = true
+        when ALPHA then @real_basename ? plain = true : magical = true
+        when BRACE then brace = true if !recursive || part.str.include?("/")
+        when MAGICAL then magical = true
+        when MATCH_ALL then match_all = true
+        when MATCH_DIR then match_dir = true
+        end
+      end
+      if brace
+        Glob.expand_braces(joined(parts.first).force_encoding(@enc), @escape).each do |each|
+          helper(path, baselen, namelen, dirsep, type, [make_pattern(each.b)], flags)
+        end
+        return
+      end
+      unless path.empty?
+        type = kind_of(path, false) if match_all && type == UNKNOWN
+        type = kind_of(path, true) if match_dir && (type == UNKNOWN || type == SYMLINK)
+        skip = baselen + (baselen.positive? && at(path, baselen) == 0x2F ? 1 : 0)
+        emit(path.byteslice(skip, path.bytesize - skip)) if match_all && type > NOENT
+        emit(path.byteslice(skip, path.bytesize - skip) + (dirsep ? "/".b : "".b)) if match_dir && type == DIRECTORY
+      end
+      return if type == NOENT
+
+      if magical || recursive
+        walk(path, baselen, namelen, dirsep, parts, flags, recursive)
+      elsif plain
+        plainly(path, baselen, namelen, dirsep, parts, flags)
       end
     end
 
-    # The directory to read for a path: the working directory where the
-    # pattern names none of its own.
-    def here(dir) = dir.empty? ? +"." : dir
+    # The entries of a directory, each against every part.
+    def walk(path, baselen, namelen, dirsep, parts, flags, _recursive)
+      where = path.empty? ? ".".b : path
+      entries = Primitive.zr_io_dir_kinds(where.dup.force_encoding(@enc))
+      return if entries.is_a?(Integer)
 
-    def literal?(segment) = !segment.match?(/[*?\[\\]/)
+      flags |= File::FNM_CASEFOLD if @real_basename && Primitive.zr_io_pathconf(where, 11) == 0
+      pairs = entries.each_slice(2).to_a
+      pairs.sort_by! { |name, _| name.b } if (flags & NOSORT).zero?
+      skipdot = (flags & SKIPDOT) != 0
+      flags |= SKIPDOT
+      dotmatch = (flags & File::FNM_DOTMATCH) != 0
+      pathlen = baselen + namelen
+      pairs.each do |name, kind|
+        name = name.b
+        new_type = UNKNOWN
+        dotfile = 0
+        if name.getbyte(0) == 0x2E
+          dotfile = 1
+          if name.bytesize == 1
+            next if parts.any? { _1.type == RECURSIVE } && !dotmatch
+            next if skipdot
 
-    def dotmatch? = (@flags & File::FNM_DOTMATCH) != 0
+            dotfile = 2
+            new_type = DIRECTORY
+          elsif name == "..".b
+            next
+          end
+        end
+        buf = join(path.byteslice(0, pathlen), dirsep, name)
+        new_type = [UNKNOWN, DIRECTORY, SYMLINK, OTHER][kind] if new_type == UNKNOWN && kind.positive?
+        if parts.any? { _1.type == RECURSIVE } && dotfile < (dotmatch ? 2 : 1) && new_type == UNKNOWN
+          new_type = kind_of(buf, false)
+        end
+        next_parts = []
+        parts.each do |part|
+          if part.type == RECURSIVE
+            next_parts << part if (new_type == DIRECTORY || new_type == EXIST) && dotfile < (dotmatch ? 2 : 1)
+            part = part.next
+          end
+          case part.type
+          when BRACE
+            matched = Glob.expand_braces(part.str.dup.force_encoding(@enc), @escape).any? { |each| match?(each.b, name, flags) }
+            next_parts << part.next if matched
+          when PLAIN, ALPHA, MAGICAL
+            next_parts << part.next if match?(part.str, name, flags)
+          end
+        end
+        helper(buf, baselen, buf.bytesize - baselen, true, new_type, next_parts, flags)
+      end
+    end
 
-    # A path spelled as the pattern spells it: a match under `./x` keeps
-    # its `./`, because the walk starts at the empty name and adds each
-    # segment as written.
-    def join(dir, name)
-      return name if dir.empty?
-      return "/#{name}" if dir == +"/"
+    # The plain parts, each looked up by its name, with the parts that
+    # match the same name walked together.
+    def plainly(path, baselen, namelen, dirsep, parts, flags)
+      copies = parts.map { |part| part.type <= ALPHA ? part : nil }
+      pathlen = baselen + namelen
+      copies.each_with_index do |part, i|
+        next unless part
 
-      "#{dir}/#{name}"
+        name = @escape ? unescaped(part.str) : part.str
+        next_parts = [part.next]
+        ((i + 1)...copies.size).each do |j|
+          other = copies[j]
+          next unless other && match?(other.str, name, flags)
+
+          next_parts << other.next
+          copies[j] = nil
+        end
+        buf = join(path.byteslice(0, pathlen), dirsep, name)
+        new_type = UNKNOWN
+        buf, new_type = real_basename(buf, pathlen + (dirsep ? 1 : 0)) if part.type == ALPHA && @real_basename
+        helper(buf, baselen, buf.bytesize - baselen, true, new_type, next_parts, flags)
+      end
+    end
+
+    # remove_backslashes.
+    def unescaped(bytes)
+      out = +"".b
+      i = 0
+      while i < bytes.bytesize
+        i += 1 if bytes.getbyte(i) == 0x5C && i + 1 < bytes.bytesize
+        n = @onig.mbclen(bytes, i)
+        out << bytes.byteslice(i, n)
+        i += n
+      end
+      out
+    end
+
+    # replace_real_basename: the last name of the path as the directory
+    # spells it, where the volume matches names without their case.
+    def real_basename(path, base)
+      dir = base.positive? ? path.byteslice(0, base - 1) : "".b
+      dir = "/".b if dir.empty? && base == 1
+      name = path.byteslice(base, path.bytesize - base)
+      entries = Primitive.zr_io_dir_kinds((dir.empty? ? ".".b : dir).dup.force_encoding(@enc))
+      return [path, NOENT] if entries.is_a?(Integer)
+
+      # getattrlist gives the name and the kind of the entry together.
+      pairs = entries.each_slice(2).map { |each, kind| [each.b, [EXIST, DIRECTORY, SYMLINK, OTHER][kind]] }
+      real, kind = pairs.find { |each, _| each == name } ||
+                   pairs.find { |each, _| each.dup.force_encoding(@enc).casecmp?(name.dup.force_encoding(@enc)) }
+      return [path, NOENT] unless real
+
+      [path.byteslice(0, base) + real, kind]
     end
   end
   private_constant :Glob

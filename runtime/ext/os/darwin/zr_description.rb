@@ -1060,6 +1060,8 @@ module Zr
         d zr_io_rmdir Value path:Value
         d zr_io_chdir Value path:Value
         d zr_io_dir_names Value path:Value
+        d zr_io_dir_kinds Value path:Value
+        d zr_io_pathconf Value path:Value name:Value
         d zr_io_dir_names_fd Value fd:Value
         d zr_io_fchdir Value fd:Value
         d zr_io_chroot Value path:Value
@@ -2247,6 +2249,7 @@ module Zr
         d zr_os_open I32 path:Ptr flags:I32 mode:I32
         d zr_os_realpath Ptr path:Ptr
         d zr_os_dirent_name Ptr entry:Ptr
+        d zr_os_dirent_kind Word entry:Ptr
         d zr_os_stat_rows Value buf:Ptr
         d zr_os_stat_size Word buf:Ptr
         d zr_os_stat_mode Word buf:Ptr
@@ -3334,6 +3337,8 @@ module Zr
         e zr_io_rmdir 56
         e zr_io_chdir 56
         e zr_io_dir_names 126
+        e zr_io_dir_kinds 126
+        e zr_io_pathconf 120
         e zr_io_dir_names_fd 126
         e zr_io_fchdir 56
         e zr_io_chroot 56
@@ -4521,6 +4526,7 @@ module Zr
         e zr_os_open 56
         e zr_os_realpath 56
         e zr_os_dirent_name 0
+        e zr_os_dirent_kind 0
         e zr_os_stat_rows 126
         e zr_os_stat_size 0
         e zr_os_stat_mode 0

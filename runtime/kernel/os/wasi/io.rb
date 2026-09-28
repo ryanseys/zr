@@ -425,6 +425,24 @@ machine def zr_os_dirent_name(entry)
   entry + 24
 end
 
+# The entry's kind for glob: 0 unknown, 1 a directory, 2 a symbolic
+# link, 3 anything else. The filetype is the byte at 20: a directory is
+# 3, a symbolic link 7, unknown 0.
+sig [Ptr] => Word
+machine def zr_os_dirent_kind(entry)
+  t = Machine.word(Machine.load8(entry, 20))
+  if t == 0
+    return 0
+  end
+  if t == 3
+    return 1
+  end
+  if t == 7
+    return 2
+  end
+  3
+end
+
 sig [Ptr] => I32
 machine def closedir(d)
   r = close(Machine.load32(d, 0))
