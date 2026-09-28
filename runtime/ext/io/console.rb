@@ -16,33 +16,18 @@ class IO
 
   # A terminal's mode, kept as the bytes that tcgetattr gave. ruby calls
   # the class IO::ConsoleMode and keeps the bytes hidden.
+  # Only IO#console_mode makes one: console.c undefines its initialize.
   class ConsoleMode
+    undef_method :initialize
+
     def initialize_copy(other)
       Primitive.zr_hidden_set(self, :__mode__, other.__send__(:mode_bytes).dup)
       self
     end
 
-    def echo? = (IO.send(:flag_of, mode_bytes, TERMIOS_LFLAG) & ECHO_ANY) != 0
-    def echo = echo?
-
     def echo=(flag)
       IO.send(flag ? :echo_mode : :noecho_mode, mode_bytes, nil)
       self
-    end
-
-    def min = mode_bytes.getbyte(TERMIOS_VMIN)
-
-    def min=(value)
-      mode_bytes.setbyte(TERMIOS_VMIN, value.nil? ? 1 : IO.send(:clamp_uchar, IO.send(:int_arg, value)))
-      value
-    end
-
-    # VTIME counts tenths of a second, which ruby reports exactly.
-    def time = Rational(mode_bytes.getbyte(TERMIOS_VTIME), 10)
-
-    def time=(value)
-      mode_bytes.setbyte(TERMIOS_VTIME, value.nil? ? 0 : IO.send(:clamp_uchar, IO.send(:int_arg, value * 10)))
-      value
     end
 
     # In place, and a copy under the same name without the bang.
@@ -137,13 +122,6 @@ class IO
     mode
   end
 
-  # Whether a read would return immediately, which is always true when
-  # the buffer already contains bytes.
-  def input_pending?
-    check_open
-    buffered? || !would_block?(READABLE)
-  end
-
   # ---- the size and the name ------------------------------------------
 
   def winsize
@@ -211,9 +189,6 @@ class IO
   def scroll_forward(lines) = console_scroll(IO.send(:int_arg, lines))
   def scroll_backward(lines) = console_scroll(-IO.send(:int_arg, lines))
 
-  def hide_cursor = escape("#{CSI}?25l")
-  def show_cursor = escape("#{CSI}?25h")
-
   def erase_line(mode) = escape("#{CSI}#{IO.send(:erase_arg, mode, 2, 'line')}K")
   def erase_screen(mode) = escape("#{CSI}#{IO.send(:erase_arg, mode, 3, 'screen')}J")
 
@@ -246,7 +221,32 @@ class IO
   # Only Windows has these two, and ruby refuses them here with their names.
   def pressed?(*) = raise(NotImplementedError, "pressed?() function is unimplemented on this machine")
   def check_winsize_changed(*) = raise(NotImplementedError, "check_winsize_changed() function is unimplemented on this machine")
-  def console_input_events(*) = raise(NotImplementedError, "console_input_events() function is unimplemented on this machine")
+
+  # ---- the readers that StringIO shares -------------------------------
+
+  # io_getch and io_getpass: a reader that is no terminal reads through
+  # its own getc and gets, and a prompt and the newline after the line go
+  # to the reader itself.
+  Primitive.zr_module_define_m(IO, :generic_readable).module_eval do
+    def getch(*args) = getc(*args)
+
+    def getpass(prompt = nil)
+      unless prompt.nil?
+        text = String.try_convert(prompt) or raise TypeError, "no implicit conversion of #{conversion_name(prompt)} into String"
+        raise ArgumentError, "string contains null byte" if text.include?("\0")
+
+        write(text)
+      end
+      flush if respond_to?(:flush)
+      begin
+        line = gets
+      ensure
+        write("\n")
+      end
+      line&.chomp!("\n")
+      line
+    end
+  end
 
   # ---- the terminal of the process ------------------------------------
 

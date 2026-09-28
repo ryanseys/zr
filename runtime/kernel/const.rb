@@ -1112,15 +1112,20 @@ machine def zr_mod_const_set(recv, argc, argv, cref, blk)
   zr_const_set(recv, Machine.load64(slot, 0), v)
 end
 
-# Adds each public constant name of `klass` itself to `out`, once.
+# Adds each public constant name of `klass` itself to `out`, once. A
+# module that an extension defines under a name that is no constant name
+# (IO::generic_readable) is left out, as rb_local_constants_i leaves out
+# an id that is not rb_is_const_id.
 sig [Value, Value] => Void
 machine def zr_const_names_at(klass, out)
   ext = RClass.ext(klass)
   i = 0
   while i < ClassExt.clen(ext)
     e = ClassExt.ctab(ext) + (i * CEntry.size)
-    name = zr_sym(CEntry.id(e))
-    if CEntry.private(e) == 0 && (CEntry.concealed(e) == 0 || zr_const_sees_reflectively()) && zr_ary_index_of(out, name) < 0
+    id = CEntry.id(e)
+    name = zr_sym(id)
+    visible = CEntry.private(e) == 0 && (CEntry.concealed(e) == 0 || zr_const_sees_reflectively())
+    if visible && zr_const_name_p(zr_symbol_name_ptr(id), zr_symbol_name_len(id)) && zr_ary_index_of(out, name) < 0
       zr_ary_push(out, name)
     end
     i += 1

@@ -476,6 +476,7 @@ class IO
   # nil. With a block both run it, and the child ends after it, as
   # popen_finish ends it.
   def self.popen_fork(mode)
+    Primitive.attr! :hidden
     duplex = mode.include?("+")
     reading = duplex || mode.start_with?("r")
     raise ArgumentError, "invalid access mode #{mode}" unless reading || mode.start_with?("w", "a")
@@ -517,6 +518,7 @@ class IO
 
   # A pipe's two descriptors, or a SystemCallError.
   def self.pipe_ends
+    Primitive.attr! :hidden
     ends = Primitive.zr_io_pipe
     raise SystemCallError.new(nil, -ends) if ends.is_a?(Integer)
 
@@ -533,6 +535,7 @@ class IO
   private_constant :STREAM_OPTIONS
 
   def self.popen_stream(command, mode, options, env = nil)
+    Primitive.attr! :hidden
     stream_options = options.slice(*STREAM_OPTIONS)
     options = options.except(*STREAM_OPTIONS)
     duplex = mode.include?("+")

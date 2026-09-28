@@ -585,4 +585,24 @@ describe "Etc programs" do
       true
     OUT
   end
+
+  it "etc gives IO#pathconf over fpathconf, and raises its errno" do
+    result = zr(<<~'RUBY')
+      # etc gives IO#pathconf: fpathconf(3) on the stream's descriptor.
+      p IO.method_defined?(:pathconf)
+      require "etc"
+      p File.open("/") { |f| f.pathconf(Etc::PC_NAME_MAX) }.class, IO.pipe { |r, _| r.pathconf(Etc::PC_PIPE_BUF) }.positive?
+      p (File.open("/") { |f| f.pathconf(99999) } rescue $!), (File.open("/") { |f| f.pathconf("x") } rescue $!)
+      p IO.instance_method(:pathconf).owner
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      false
+      Integer
+      true
+      #<Errno::EINVAL: Invalid argument - fpathconf>
+      #<TypeError: no implicit conversion of String into Integer>
+      IO
+    OUT
+  end
 end

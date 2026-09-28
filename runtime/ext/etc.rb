@@ -104,3 +104,14 @@ module Etc
   private :each_row
   private_class_method :each_row
 end
+
+class IO
+  # etc's io_pathconf: fpathconf(3) on the stream's descriptor, and nil
+  # for a limit that the system does not have.
+  def pathconf(name)
+    got = Primitive.zr_io_fpathconf(fileno, IO.send(:c_int, name))
+    raise SystemCallError.new("fpathconf", -got) if got.is_a?(Integer) && got.negative?
+
+    got
+  end
+end

@@ -66,6 +66,7 @@ module Zr
           fma
           fmod
           fork
+          fpathconf
           free
           freeaddrinfo
           freeifaddrs

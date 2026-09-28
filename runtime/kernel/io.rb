@@ -438,6 +438,21 @@ machine def zr_io_pathconf(path, name)
   zr_fix(r)
 end
 
+# fpathconf(3): pathconf for an open descriptor, with the same answers.
+sig [Value, Value] => Value
+machine def zr_io_fpathconf(fd, name)
+  zr_os_set_errno(0)
+  r = fpathconf(Machine.i32(zr_fix2long(fd)), Machine.i32(zr_fix2long(name)))
+  if r < 0
+    e = zr_errno()
+    if e == 0
+      return Machine.value(QNIL)
+    end
+    return zr_fix(0 - e)
+  end
+  zr_fix(r)
+end
+
 # The same names through a descriptor. This is the only way to get them
 # when a program has a descriptor and no path.
 sig [Value] => Value
