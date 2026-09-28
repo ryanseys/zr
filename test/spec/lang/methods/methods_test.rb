@@ -4981,4 +4981,124 @@ describe "Methods programs" do
       Did you mean?  helpr
     OUT
   end
+
+  it "a redefined builtin warns as ruby's table of its core says" do
+    result = zr(<<~'RUBY')
+      # ruby warns for a redefined builtin as its own table says: with the
+      # <internal:*> line of a method written in Ruby, not at all for a name
+      # that another shares, and about four names on Object whatever else.
+      $VERBOSE = true
+      module Kernel; def tap = 1; def then = 1; def frozen? = 1; end
+      class Integer; def times = 1; def zero? = 1; def ceildiv(x) = 1; def to_i = 1; end
+      class Array; def first = 1; def sample = 1; def shuffle = 1; def pack(x) = 1; end
+      class String; def unpack(x) = 1; def unpack1(x) = 1; end
+      class Float; def to_f = 1; end
+      class NilClass; def to_i = 1; end
+      class << Time; def now = 1; def at(x) = 1; end
+      class Hash; def each = 1; end
+      module Enumerable; def map = 1; end
+      class Symbol; def to_sym = 1; end
+      class TrueClass; def to_s = "t"; end
+      class << Thread; def new = 1; end
+      class Proc; def call = 1; end
+      class Object; def respond_to?(*) = true; def method_missing(*) = 1; end
+      class Integer; def +(x) = 1; end
+      p :done
+    RUBY
+
+    _(result).must_answer <<~'OUT', stderr: <<~'ERR'
+      :done
+    OUT
+      lang/methods/methods_test.rb:5: warning: method redefined; discarding old tap
+      <internal:kernel>:89: warning: previous definition of tap was here
+      lang/methods/methods_test.rb:5: warning: method redefined; discarding old frozen?
+      <internal:kernel>:67: warning: previous definition of frozen? was here
+      lang/methods/methods_test.rb:6: warning: method redefined; discarding old times
+      <internal:numeric>:255: warning: previous definition of times was here
+      lang/methods/methods_test.rb:6: warning: method redefined; discarding old zero?
+      <internal:numeric>:288: warning: previous definition of zero? was here
+      lang/methods/methods_test.rb:6: warning: method redefined; discarding old ceildiv
+      <internal:numeric>:308: warning: previous definition of ceildiv was here
+      lang/methods/methods_test.rb:6: warning: method redefined; discarding old to_i
+      <internal:numeric>:272: warning: previous definition of to_i was here
+      lang/methods/methods_test.rb:7: warning: method redefined; discarding old first
+      <internal:array>:129: warning: previous definition of first was here
+      lang/methods/methods_test.rb:7: warning: method redefined; discarding old sample
+      <internal:array>:95: warning: previous definition of sample was here
+      lang/methods/methods_test.rb:7: warning: method redefined; discarding old shuffle
+      <internal:array>:45: warning: previous definition of shuffle was here
+      lang/methods/methods_test.rb:7: warning: method redefined; discarding old pack
+      <internal:pack>:7: warning: previous definition of pack was here
+      lang/methods/methods_test.rb:8: warning: method redefined; discarding old unpack
+      <internal:pack>:25: warning: previous definition of unpack was here
+      lang/methods/methods_test.rb:8: warning: method redefined; discarding old unpack1
+      <internal:pack>:37: warning: previous definition of unpack1 was here
+      lang/methods/methods_test.rb:9: warning: method redefined; discarding old to_f
+      <internal:numeric>:360: warning: previous definition of to_f was here
+      lang/methods/methods_test.rb:10: warning: method redefined; discarding old to_i
+      <internal:nilclass>:36: warning: previous definition of to_i was here
+      lang/methods/methods_test.rb:11: warning: method redefined; discarding old now
+      <internal:timev>:270: warning: previous definition of now was here
+      lang/methods/methods_test.rb:11: warning: method redefined; discarding old at
+      <internal:timev>:329: warning: previous definition of at was here
+      lang/methods/methods_test.rb:12: warning: method redefined; discarding old each
+      lang/methods/methods_test.rb:16: warning: method redefined; discarding old new
+      lang/methods/methods_test.rb:17: warning: method redefined; discarding old call
+      lang/methods/methods_test.rb:18: warning: redefining Object#respond_to? may cause infinite loop
+      lang/methods/methods_test.rb:18: warning: redefining Object#method_missing may cause infinite loop
+      lang/methods/methods_test.rb:19: warning: method redefined; discarding old +
+    ERR
+  end
+
+  it "redefinitions of accessors, aliases and removed methods warn as ruby's do" do
+    result = zr(<<~'RUBY')
+      # Redefinitions of the program's own methods, of accessors, of aliased
+      # and removed methods, and the names ruby itself depends on.
+      $VERBOSE = true
+      class Foo; def a = 1; def a = 2; attr_reader :b; def b = 3; end
+      class Foo; alias c a; def a = 4; end
+      module Kernel; def puts(*) = nil; end
+      class String; define_method(:+) { |x| x }; end
+      module Comparable; def <(o) = true; end
+      class Array; alias_method :my_first, :first; def first = 9; end
+      o = Object.new; def o.x = 1; def o.x = 2
+      class Integer; undef_method :succ; def succ = 1; end
+      class Hash; remove_method :fetch; def fetch(*) = 1; end
+      class Bar; def object_id = 1; def __send__(*) = 1; end
+      class Object; def initialize(*) = nil; end
+      module M; def to_s = "m"; end
+      class Symbol; prepend M; end
+      module R; refine(String) { def upcase = "r" }; end
+      class << Kernel; def puts(*) = nil; end
+      $VERBOSE = false
+      class Foo; def a = 5; end
+      class Object; def respond_to_missing?(*) = false; end
+      $VERBOSE = nil
+      class Object; def method_missing(*) = nil; end
+      S = Struct.new(:a)
+      class S; def a; end; end
+      Struct.new(:b).class_eval { def b; end }
+      D = Data.define(:c)
+      class D; def c; end; end
+      p :done
+    RUBY
+
+    _(result).must_answer <<~'OUT', stderr: <<~'ERR'
+      :done
+    OUT
+      lang/methods/methods_test.rb:4: warning: method redefined; discarding old a
+      lang/methods/methods_test.rb:4: warning: previous definition of a was here
+      lang/methods/methods_test.rb:4: warning: method redefined; discarding old b
+      lang/methods/methods_test.rb:6: warning: method redefined; discarding old puts
+      lang/methods/methods_test.rb:7: warning: method redefined; discarding old +
+      lang/methods/methods_test.rb:8: warning: method redefined; discarding old <
+      lang/methods/methods_test.rb:10: warning: method redefined; discarding old x
+      lang/methods/methods_test.rb:10: warning: previous definition of x was here
+      lang/methods/methods_test.rb:13: warning: redefining 'object_id' may cause serious problems
+      lang/methods/methods_test.rb:13: warning: redefining '__send__' may cause serious problems
+      lang/methods/methods_test.rb:14: warning: redefining Object#initialize may cause infinite loop
+      lang/methods/methods_test.rb:18: warning: method redefined; discarding old puts
+      lang/methods/methods_test.rb:21: warning: redefining Object#respond_to_missing? may cause infinite loop
+    ERR
+  end
 end

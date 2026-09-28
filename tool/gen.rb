@@ -25,6 +25,8 @@ module Zr
         "transcode" => ["runtime/core/transcode.rb: the single-byte tables", -> { require_relative "gen/transcode"; Transcode }],
         "emoji" => ["runtime/core/emoji.rb: the carriers' emoji", -> { require_relative "gen/emoji"; Emoji }],
         "builtin_lines" => ["runtime/core/builtin_lines.rb: CRuby's own Ruby methods", -> { require_relative "gen/builtin_lines"; BuiltinLines }],
+        "redefinitions" => ["runtime/core/redefinitions.rb: the core methods whose redefinition warns",
+                            -> { require_relative "gen/redefinitions"; Redefinitions }],
         "unicode" => ["runtime/core/unicode.rb: the case mappings", -> { require_relative "gen/unicode"; Unicode }],
         "cjk" => ["runtime/core/cjk.rb: the multibyte code points", -> { require_relative "gen/cjk"; Cjk }],
         "enc_mb" => ["runtime/kernel/enc_mb.rb: the multibyte walkers", -> { require_relative "gen/enc_mb"; EncMb }],

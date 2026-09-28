@@ -1315,6 +1315,9 @@ machine def zr_method_add_row(klass, mid, fn, arity, kind, meta, cref, vis)
   vis = vis & (ROW_CORE - 1)
   owner = klass
   klass = zr_origin(klass)
+  if !core && zr_program_started_p() && !zr_hidden_now()
+    zr_warn_dangerous(owner, mid, kind)
+  end
   # Only a small number of names have a gate, so get the bit before
   # checking the ancestor list for a redefinition. A builtin entry that
   # the runtime writes at boot is in place of the kernel's own: `freeze`
@@ -1350,11 +1353,11 @@ machine def zr_method_add_row(klass, mid, fn, arity, kind, meta, cref, vis)
   # `instance_methods` shows it at the position of the first definition,
   # and a later `remove_method` leaves nothing.
   e = zr_find_method_at(klass, mid)
-  if e != 0
-    if !core
-      zr_warn_operator(owner, mid, e)
-    end
-    zr_warn_redefined(ext, mid, e, fn, kind, meta, cref)
+  if e != 0 && !core
+    zr_warn_operator(owner, mid, e)
+  end
+  if !core
+    zr_warn_redefined(owner, ext, mid, e, fn, kind, meta, cref)
   end
   if !core
     zr_save_core_row(ext, e)
@@ -1528,12 +1531,32 @@ end
 # not an undef, not an alias, not a copy that a visibility call made of
 # an ancestor's method, and not aliased. A method written in Ruby tells
 # where it was defined. The runtime's own definitions give no warning.
-sig [Ptr, Word, Ptr, Ptr, Word, Ptr, Value] => Void
-machine def zr_warn_redefined(ext, mid, e, fn, kind, meta, cref)
-  if zr_gvar_get(Machine.id(:$VERBOSE)) != QTRUE || !zr_program_started_p() || Task.top(zr_task()) == 0
+sig [Value, Ptr, Word, Ptr, Ptr, Word, Ptr, Value] => Void
+machine def zr_warn_redefined(owner, ext, mid, e, fn, kind, meta, cref)
+  if zr_gvar_get(Machine.id(:$VERBOSE)) != QTRUE || !zr_program_started_p() || Task.top(zr_task()) == 0 || zr_hidden_now()
     return
   end
-  if kind == KIND_UNDEF || MEntry.kind(e) == KIND_UNDEF || MEntry.orig(e) != mid || MEntry.from(e) != QNIL || zr_entry_hidden_p(e)
+  if kind == KIND_UNDEF || (zr_internal_meta_p(meta) && !zr_word_entry_p(kind))
+    return
+  end
+  # A name that ruby defines in its core: the table from ruby decides,
+  # whatever entry the runtime keeps for it (a builtin, an alias of
+  # another name, or one on an ancestor). Only an alias that the program
+  # made keeps it quiet, as it does in ruby. A core method that the
+  # program removed is no longer there to redefine.
+  if e == 0 && zr_saved_row(ext, mid) != 0
+    return
+  end
+  if e == 0 || (MEntry.core(e) & 1) != 0
+    known = true
+    if e == 0 || (MEntry.kind(e) != KIND_UNDEF && !zr_entry_hidden_p(e) && !zr_program_aliased_p(ext, e, mid))
+      known = zr_warn_core_redefined(owner, mid)
+    end
+    if known || e == 0
+      return
+    end
+  end
+  if MEntry.kind(e) == KIND_UNDEF || MEntry.orig(e) != mid || MEntry.from(e) != QNIL || zr_entry_hidden_p(e)
     return
   end
   # The same definition again, as from `alias_method :m, :m` or a second
@@ -1545,19 +1568,11 @@ machine def zr_warn_redefined(ext, mid, e, fn, kind, meta, cref)
   if MEntry.kind(e) == kind && (kind == KIND_BMETHOD ? MEntry.cref(e) == cref : zr_entry_body(e) == body && !zr_word_entry_p(kind))
     return
   end
-  if zr_internal_meta_p(meta) && !zr_word_entry_p(kind)
-    return
-  end
   if MEntry.fn(e) == 0 && MEntry.kind(e) != KIND_BMETHOD && !zr_word_entry_p(MEntry.kind(e))
     return
   end
-  i = 0
-  while i < ClassExt.mlen(ext)
-    row = ClassExt.mtab(ext) + (i * MEntry.size)
-    if row != e && MEntry.orig(row) == mid && MEntry.mid(row) != mid && MEntry.kind(row) != KIND_UNDEF
-      return
-    end
-    i += 1
+  if zr_program_aliased_p(ext, e, mid)
+    return
   end
   b = Machine.slot(Buf.size)
   zr_buf_init(b)
@@ -1574,6 +1589,77 @@ machine def zr_warn_redefined(ext, mid, e, fn, kind, meta, cref)
     zr_buf_push(b, Machine.bytes(" was here"), 9)
   end
   zr_warn_here(Buf.ptr(b), Buf.len(b))
+  zr_buf_free(b)
+end
+
+# Whether `ext` holds an alias of `mid` other than the entry `e`: an
+# aliased method gives no warning when it is redefined. The core's own
+# aliases do not count, because ruby's core has other ones.
+sig [Ptr, Ptr, Word] => Bool
+machine def zr_program_aliased_p(ext, e, mid)
+  i = 0
+  while i < ClassExt.mlen(ext)
+    row = ClassExt.mtab(ext) + (i * MEntry.size)
+    if row != e && MEntry.orig(row) == mid && MEntry.mid(row) != mid && MEntry.kind(row) != KIND_UNDEF && (MEntry.core(row) & 1) == 0
+      return true
+    end
+    i += 1
+  end
+  false
+end
+
+# The warning for a method of the core that a program redefines, as
+# ruby 4.0.7 gives it: Warning.redefinition reads the generated table
+# (runtime/core/redefinitions.rb), which knows the methods that ruby
+# does not warn for and the <internal:*> line of each def.
+sig [Value, Word] => Bool
+machine def zr_warn_core_redefined(owner, mid)
+  slot = Machine.slot(16)
+  Machine.store64(slot, 0, Machine.word(owner))
+  Machine.store64(slot, 8, Machine.word(zr_sym(mid)))
+  where = zr_send(zr_const_get_at(zr_global(G_OBJECT), Machine.id(:Warning)), Machine.id(:redefinition), 2, slot)
+  if where == QTRUE
+    return false
+  end
+  if where == QFALSE || where == QUNDEF
+    return true
+  end
+  b = Machine.slot(Buf.size)
+  zr_buf_init(b)
+  zr_buf_push(b, Machine.bytes("method redefined; discarding old "), 33)
+  zr_buf_sym(b, mid)
+  if where != QNIL
+    zr_buf_byte(b, 10)
+    zr_buf_push(b, RString.ptr(where), RString.len(where))
+    zr_buf_push(b, Machine.bytes(": warning: previous definition of "), 34)
+    zr_buf_sym(b, mid)
+    zr_buf_push(b, Machine.bytes(" was here"), 9)
+  end
+  zr_warn_here(Buf.ptr(b), Buf.len(b))
+  zr_buf_free(b)
+  true
+end
+
+# rb_method_entry_make's warnings about names that ruby itself depends
+# on, whatever $VERBOSE says unless it is nil: four names on Object, and
+# a def of object_id or __send__ over one that exists.
+sig [Value, Word, Word] => Void
+machine def zr_warn_dangerous(owner, mid, kind)
+  b = Machine.slot(Buf.size)
+  zr_buf_init(b)
+  object = mid == Machine.id(:initialize) || mid == Machine.id(:respond_to_missing?)
+  object = object || mid == Machine.id(:method_missing) || mid == Machine.id(:respond_to?)
+  if owner == zr_global(G_OBJECT) && object
+    zr_buf_push(b, Machine.bytes("redefining Object#"), 18)
+    zr_buf_sym(b, mid)
+    zr_buf_push(b, Machine.bytes(" may cause infinite loop"), 24)
+    zr_warn_here(Buf.ptr(b), Buf.len(b))
+  elsif (mid == Machine.id(:object_id) || mid == Machine.id(:__send__)) && kind == KIND_DEF && zr_find_method(owner, mid) != 0
+    zr_buf_push(b, Machine.bytes("redefining '"), 12)
+    zr_buf_sym(b, mid)
+    zr_buf_push(b, Machine.bytes("' may cause serious problems"), 28)
+    zr_warn_here(Buf.ptr(b), Buf.len(b))
+  end
   zr_buf_free(b)
 end
 

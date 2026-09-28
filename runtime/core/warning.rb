@@ -82,5 +82,23 @@ module Warning
     emit("#{Primitive.zr_warn_position}warning: Redefining '#{klass}##{name}' disables interpreter and JIT optimizations\n", :performance)
   end
 
+  # The runtime's way in when a program redefines a method of the core
+  # (runtime/kernel/class.rb, zr_warn_core_redefined): false where ruby
+  # gives no warning, nil for a warning that names no line, the
+  # <internal:*> line of the previous definition, or true for a name that
+  # is not one of ruby's methods, which the runtime judges by itself.
+  def self.redefinition(klass, name)
+    Primitive.attr! :hidden
+    if klass.singleton_class?
+      owner = klass.attached_object
+      return true unless owner.is_a?(Module)
+
+      key = "#{owner.name}.#{name}"
+    else
+      key = "#{klass.name}##{name}"
+    end
+    REDEFINITIONS.fetch(key, true)
+  end
+
   extend self
 end

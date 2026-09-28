@@ -227,7 +227,10 @@ module Zr
         d zr_warn_operator Void klass:Value mid:Word e:Ptr
         d zr_warn_prepended_operator Void klass:Value mid:Word
         d zr_warn_prepended_operators Value klass:Value
-        d zr_warn_redefined Void ext:Ptr mid:Word e:Ptr fn:Ptr kind:Word meta:Ptr cref:Value
+        d zr_warn_redefined Void owner:Value ext:Ptr mid:Word e:Ptr fn:Ptr kind:Word meta:Ptr cref:Value
+        d zr_program_aliased_p Bool ext:Ptr e:Ptr mid:Word
+        d zr_warn_core_redefined Bool owner:Value mid:Word
+        d zr_warn_dangerous Void owner:Value mid:Word kind:Word
         d zr_program_started_p Bool
         d zr_runtime_written Void
         d zr_save_core_row Void ext:Ptr e:Ptr
@@ -2515,6 +2518,9 @@ module Zr
         e zr_warn_prepended_operator 127
         e zr_warn_prepended_operators 127
         e zr_warn_redefined 127
+        e zr_program_aliased_p 0
+        e zr_warn_core_redefined 127
+        e zr_warn_dangerous 127
         e zr_program_started_p 0
         e zr_runtime_written 32
         e zr_save_core_row 56
