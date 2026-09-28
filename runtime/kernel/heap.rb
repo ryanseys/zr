@@ -965,6 +965,13 @@ machine def zr_gvar_get_m(name)
   zr_gvar_get(zr_sym2id(name))
 end
 
+# `$name = v` with no hook, for eval support, which puts a program's
+# separators back after it compiles.
+sig [Value, Value] => Value
+machine def zr_gvar_set_m(name, v)
+  zr_gvar_set(zr_sym2id(name), v)
+end
+
 sig [Value, Value, Value] => Value
 machine def zr_gvar_hooked_m(shown, name, v)
   zr_gvar_hooked(zr_sym2id(shown), zr_sym2id(name), v)

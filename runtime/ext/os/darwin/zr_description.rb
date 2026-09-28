@@ -167,6 +167,7 @@ module Zr
         d zr_prepend_module Void klass:Value mod:Value
         d zr_mod_prepend_features Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_hook Value recv:Value mid:Word arg:Value
+        d zr_program_hook_p Bool recv:Value mid:Word
         d zr_check_module Value m:Value
         d zr_mod_append_features Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_obj_extend Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
@@ -944,6 +945,7 @@ module Zr
         d zr_gvar_resolve_m Value name:Value
         d zr_gvar_defined_m Value name:Value
         d zr_gvar_get_m Value name:Value
+        d zr_gvar_set_m Value name:Value v:Value
         d zr_gvar_hooked_m Value shown:Value name:Value v:Value
         d zr_gvar_alias_m Value new_name:Value old_name:Value
         d zr_mark_roots Void
@@ -2009,6 +2011,7 @@ module Zr
         d zr_trace_events_arm Void
         d zr_trace_c_p Bool
         d zr_trace_sends_p Bool
+        d zr_trace_armed_m Value
         d zr_trace_ruby_entry_p Bool e:Ptr
         d zr_trace_mark_ruby Value klass:Value name:Value
         d zr_trace_c_entry_p Bool e:Ptr
@@ -2430,9 +2433,9 @@ module Zr
         e zr_ivar_set_cached 127
         e zr_ivar_row_guessed 0
         e zr_ivtab_guess 16
-        e zr_class_alloc 126
+        e zr_class_alloc 127
         e zr_check_inheritable 127
-        e zr_class_boot 126
+        e zr_class_boot 127
         e zr_class_new 127
         e zr_chain_includes 0
         e zr_iclass_new 126
@@ -2444,6 +2447,7 @@ module Zr
         e zr_prepend_module 127
         e zr_mod_prepend_features 127
         e zr_hook 127
+        e zr_program_hook_p 120
         e zr_check_module 127
         e zr_mod_append_features 127
         e zr_obj_extend 127
@@ -2476,7 +2480,7 @@ module Zr
         e zr_real_class 0
         e zr_class_of_is 0
         e zr_class_name_of 126
-        e zr_module_new 126
+        e zr_module_new 127
         e zr_gate_bit 0
         e zr_not_gated_p 0
         e zr_gate_row 120
@@ -2557,7 +2561,7 @@ module Zr
         e zr_release 58
         e zr_release_other 58
         e zr_mod_set_temporary_name 120
-        e zr_refinement_new 126
+        e zr_refinement_new 127
         e zr_refined_class 0
         e zr_activation_row 0
         e zr_activate 16
@@ -3221,6 +3225,7 @@ module Zr
         e zr_gvar_resolve_m 0
         e zr_gvar_defined_m 127
         e zr_gvar_get_m 127
+        e zr_gvar_set_m 127
         e zr_gvar_hooked_m 127
         e zr_gvar_alias_m 56
         e zr_mark_roots 120
@@ -3378,7 +3383,7 @@ module Zr
         e zr_warn_here_m 127
         e zr_obj_head 126
         e zr_special_p_m 0
-        e zr_boot_class 126
+        e zr_boot_class 127
         e zr_boot_name 127
         e zr_boot_method_class 127
         e zr_main_stack_limit 56
@@ -3487,9 +3492,9 @@ module Zr
         e zr_range_fix_bounds 120
         e zr_range_new 127
         e zr_class_allocate 127
-        e zr_class_build 126
+        e zr_class_build 127
         e zr_alloc_class 0
-        e zr_alloc_shape 126
+        e zr_alloc_shape 127
         e zr_alloc_undefined_p 0
         e zr_alloc_kind 16
         e zr_alloc_record 16
@@ -4286,6 +4291,7 @@ module Zr
         e zr_trace_events_arm 34
         e zr_trace_c_p 0
         e zr_trace_sends_p 0
+        e zr_trace_armed_m 0
         e zr_trace_ruby_entry_p 0
         e zr_trace_mark_ruby 120
         e zr_trace_c_entry_p 0
@@ -5097,6 +5103,7 @@ module Zr
         c FL_RUBY2 262144
         c FL_RANKED 17179869184
         c FL_RANKED_CLEAR -17179869185
+        c FL_CONCEALED 68719476736
         c FL_WEAK 524288
         c FL_WEAKKEY 1048576
         c WEAK_BOTH 1

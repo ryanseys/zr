@@ -18,6 +18,9 @@ machine def zr_objspace_visible_p(v)
   if Machine.word(klass) == 0 || zr_special_p(klass)
     return false
   end
+  if (RBasic.flags(v) & FL_CONCEALED) != 0 || (RBasic.flags(klass) & FL_CONCEALED) != 0
+    return false
+  end
   if t == T_CLASS && (RBasic.flags(v) & FL_SINGLETON) != 0
     attached = RClass.attached(v)
     if !zr_special_p(attached) && (RBasic.flags(attached) & T_MASK) == T_CLASS

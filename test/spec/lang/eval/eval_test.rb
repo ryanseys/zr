@@ -3156,4 +3156,88 @@ describe "Eval programs" do
       "/tmp/x"
     OUT
   end
+
+  it "an eval compiles with ruby's separators whatever the program sets" do
+    result = zr(<<~'RUBY')
+      # The separators a program sets reach its own code, not the compiler
+      # that evals its strings.
+      $, = "-"
+      $; = ","
+      $/ = "x"
+      $\ = "!"
+      p eval("[1, 2].join"), eval("'a,b c'.split"), eval("[1, 2].to_s")
+      $, = $; = $\ = nil
+      $/ = "\n"
+      require "json"
+      p JSON.generate({ "a" => [1, 2] })
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "1-2"
+      ["a", "b c"]
+      "[1, 2]"
+      "{\"a\":[1,2]}"
+    OUT
+  end
+
+  it "a redefined core method reaches the program's code and not the compiler" do
+    result = zr(<<~'RUBY')
+      # A program's redefinition of a core method reaches its own code, not
+      # the compiler's.
+      class Hash
+        alias_method :plain_fetch, :[]
+        def [](key) = key == :probe ? :redefined : plain_fetch(key)
+      end
+      class Integer
+        alias_method :plain_plus, :+
+        def +(other) = other == 1000 ? :redefined : plain_plus(other)
+      end
+      p eval("{ a: 1 }[:a] + 1"), eval("{ a: 1 }[:probe]"), eval("1 + 1000")
+      p Object.new.instance_eval("self.class")
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      2
+      :redefined
+      :redefined
+      Object
+    OUT
+  end
+
+  it "TracePoint sees an eval's own code and nothing of the compiler" do
+    result = zr(<<~'RUBY')
+      # TracePoint sees the evaluated code, and nothing of the compiler.
+      calls = []
+      tp = TracePoint.new(:call, :c_call) { |t| calls << t.method_id }
+      tp.enable
+      x = eval("1 + 2")
+      tp.disable
+      p x, calls
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      3
+      [:eval, :+, :disable]
+    OUT
+  end
+
+  it "the compiler's classes are in no ObjectSpace walk, subclasses list or program hook" do
+    result = zr(<<~'RUBY')
+      # The compiler's classes are in no ObjectSpace walk, no subclasses list
+      # and no hook of the program.
+      added = []
+      Object.define_singleton_method(:inherited) { |k| added << k.name; super(k) }
+      Module.define_method(:method_added) { |m| added << m if Integer == self }
+      before = ObjectSpace.each_object(Class).count
+      subclasses = Object.subclasses.size
+      eval("class Mine; end")
+      p ObjectSpace.each_object(Class).count - before, Object.subclasses.size - subclasses, added
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      1
+      1
+      ["Mine"]
+    OUT
+  end
 end

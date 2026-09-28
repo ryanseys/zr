@@ -18,7 +18,7 @@ module Zr
         private
 
         def traced?
-          @l.traced? && !@l.internal?
+          @l.traced? && !@l.internal? && !@l.support?
         end
 
         # `Hir::Trace`: the `:line` event, on the line the statement starts.

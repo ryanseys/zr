@@ -152,6 +152,10 @@ FL_RUBY2 = 1 << 18
 # walk the ancestor list.
 FL_RANKED = 1 << 34
 FL_RANKED_CLEAR = 0 - FL_RANKED - 1
+# A class or module that eval support made while the program ran. ruby's
+# compiler is C and makes none, so ObjectSpace and `subclasses` show
+# neither it nor its instances.
+FL_CONCEALED = 1 << 36
 
 Machine.struct :RBasic, flags: Word, klass: Value
 

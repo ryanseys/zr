@@ -78,6 +78,13 @@ module Zr
       @internal || @unit_internal
     end
 
+    # True in a unit of eval support (a hidden unit): the compiler that a
+    # program carries. ruby's compiler is C, so what the program redefines
+    # or traces must not reach this code either.
+    def support?
+      @unit_hidden
+    end
+
     # The builtin classes that the kernel sets at boot, each with its
     # global slot. The core library reads them directly from the slot, as
     # CRuby's C reads rb_cInteger. So a constant that a program defines

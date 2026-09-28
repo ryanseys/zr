@@ -110,6 +110,9 @@ machine def zr_class_alloc(type, sup, klass)
   if type == T_CLASS && sup != QNIL && zr_global(G_OBJECT) != QFALSE
     zr_class_rank(c)
   end
+  if zr_program_started_p() && zr_hidden_now()
+    RBasic.set_flags(c, RBasic.flags(c) | FL_CONCEALED)
+  end
   c
 end
 
@@ -381,9 +384,25 @@ end
 # private or not.
 sig [Value, Word, Value] => Value
 machine def zr_hook(recv, mid, arg)
+  if zr_hidden_now() && zr_program_hook_p(recv, mid)
+    return Machine.value(QNIL)
+  end
   slot = Machine.slot(8)
   Machine.store64(slot, 0, Machine.word(arg))
   zr_send(recv, mid, 1, slot)
+end
+
+# Whether the method that answers hook `mid` on `recv` is the program's
+# own. What eval support defines never reaches one, as ruby's compiler
+# defines nothing; its own hooks and the core library's still run.
+sig [Value, Word] => Bool
+machine def zr_program_hook_p(recv, mid)
+  e = zr_find_method(zr_class_of(recv), mid)
+  if e == 0 || MEntry.core(e) != 0
+    return false
+  end
+  meta = MEntry.meta(e)
+  meta == 0 || FrameMeta.hidden(meta) == 0
 end
 
 sig [Value] => Value

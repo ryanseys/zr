@@ -35,10 +35,13 @@ module Zr
     # compiler leaves about 90,000 live objects, and an eval makes about
     # 30,000 allocations. Under stress, each allocation marks all of them
     # again, so one eval would take minutes.
-    def self.plainly
+    #
+    # The program's separators ($, $; $/ $\\) are set aside too: the
+    # compiler joins, splits and reads lines with ruby's defaults.
+    def self.plainly(&)
       stress = GC.stress
       GC.stress = false
-      yield
+      Runtime.plain_separators(&)
     ensure
       GC.stress = stress
     end
@@ -103,7 +106,7 @@ module Zr
       # entries, and takes them now, because no other code runs before
       # the next compile.
       hir = Hir.build(string(source), string(file), eval_support: false, line: line.to_int, scopes: [*scopes.reverse, []], method: method,
-                                                    activations: @runtime.activations)
+                                                    activations: @runtime.activations, trace: @runtime.tracing?)
       @runtime.take_activations(hir.activations)
       functions, data = Zr::Lower.new(hir, @description, @symbols, entry: name, kind: :eval, outer: outer(scopes)).run
       symbols = Obj::JIT.load(unit(functions, data), host: @host)

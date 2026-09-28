@@ -85,7 +85,10 @@ module Zr
       # runs inside, as from Method#parameters, or nil outside a method:
       # a `yield` has a block only inside a method, and a bare `super`
       # passes those parameters.
-      def self.program(source, file, roots: [], eval_support: true, prebuilt: nil, line: 1, scopes: nil, method: nil, activations: nil, target: Target.default)
+      # `trace` arms the events from the start, for an eval under an
+      # enabled TracePoint.
+      def self.program(source, file, roots: [], eval_support: true, prebuilt: nil, line: 1, scopes: nil, method: nil, activations: nil, target: Target.default,
+                       trace: false)
         # The main file's name came from the build's command line, in the
         # build's locale. A program's locale is UTF-8
         # (Encoding.locale_charmap), and the name must not depend on the
@@ -105,17 +108,17 @@ module Zr
         # the preludes, and build again while any fact changed. Each fact
         # can only change from false to true, so the loop ends.
         loader = main = preludes = nil
-        evals = trace = covers = false
+        evals = covers = false
         external = nil
         loop do
           loader, main = built.call(external, trace, evals, covers)
           preludes = eval_support ? Build.preludes(loader, target) : []
           over = loader.evals? ? prebuilt : nil
-          break if over.equal?(external) && loader.traces? == trace && loader.covers? == covers
+          break if over.equal?(external) && (loader.traces? || trace) == trace && loader.covers? == covers
 
           evals = loader.evals?
           external = over
-          trace = loader.traces?
+          trace ||= loader.traces?
           covers = loader.covers?
         end
         # A program with eval numbers its `using` entries here. A compile
@@ -351,7 +354,10 @@ module Zr
         return Seq.new([], 1) if node.nil?
 
         body = node.body
-        body = body.partition { |s| s.is_a?(Prism::PreExecutionNode) }.flatten if hoist
+        if hoist
+          early, rest = body.partition { |s| s.is_a?(Prism::PreExecutionNode) }
+          body = early + rest
+        end
         last = body.size - 1
         Seq.new(body.each_with_index.map { |s, i| statement(s, taken: taken && i == last) }, node.location.start_line)
       end

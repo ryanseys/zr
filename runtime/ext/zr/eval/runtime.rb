@@ -14,6 +14,10 @@ module Zr
       # so a snippet numbers its own entries after them and takes them
       # immediately: nothing runs in between to take them for it.
       def activations = Primitive.zr_activations_count
+
+      # An eval compiles its string with TracePoint's events armed when one
+      # is enabled, as ruby's instructions fire them.
+      def tracing? = Primitive.zr_trace_armed_m
       def take_activations(count) = Primitive.zr_activations_reserve_m(count)
 
       # The SHA-256 of each source file of the compiler that this program
@@ -24,6 +28,19 @@ module Zr
       # build named them (Hir::Build.stdlib), or none where it does not
       # eval.
       def self.library_roots = Primitive.zr_load_names(0).split("\n")
+
+      # The separators that the core library reads from globals, which a
+      # program can set: while the compiler runs they are ruby's defaults,
+      # and the program's come back after, with no hook and no warning.
+      SEPARATORS = %i[$, $; $/ $\\].freeze
+
+      def self.plain_separators
+        kept = SEPARATORS.map { |name| Primitive.zr_gvar_get_m(name) }
+        SEPARATORS.each { |name| Primitive.zr_gvar_set_m(name, name == :$/ ? String.send(:default_rs) : nil) }
+        yield
+      ensure
+        SEPARATORS.zip(kept) { |name, value| Primitive.zr_gvar_set_m(name, value) } if kept
+      end
     end
   end
 end

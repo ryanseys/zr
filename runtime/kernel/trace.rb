@@ -68,6 +68,13 @@ end
 # around such a method, as around a method of the program.
 MENTRY_CRUBY_RUBY = 2
 
+# Whether any TracePoint is enabled now, for an eval that compiles its
+# string with the events armed only while one can fire.
+sig [] => Value
+machine def zr_trace_armed_m
+  zr_bool(Machine.load64(Machine.static(:trace_events, 8), 0) != 0)
+end
+
 sig [Ptr] => Bool
 machine def zr_trace_ruby_entry_p(e)
   (MEntry.core(e) & MENTRY_CRUBY_RUBY) != 0
@@ -115,8 +122,9 @@ machine def zr_trace_c_caller_p
   if top == 0
     return true
   end
-  kind = FrameMeta.kind(Frame.meta(top))
-  kind != KIND_BUILTIN && kind != KIND_HIDDEN
+  meta = Frame.meta(top)
+  kind = FrameMeta.kind(meta)
+  kind != KIND_BUILTIN && kind != KIND_HIDDEN && FrameMeta.hidden(meta) == 0
 end
 
 # Calls through the method entry `e` and fires an event before and

@@ -370,7 +370,7 @@ module Zr
         # applies).
         def send_mode(node)
           mode = node.vcall ? 1 : (explicit?(node) && !@funcalls&.key?(node) ? 2 : 0)
-          mode |= SEND_CORE if @l.internal? && !PROTOCOL.include?(node.name)
+          mode |= SEND_CORE if (@l.internal? || @l.support?) && !PROTOCOL.include?(node.name)
           node.using ? mode | SEND_USING : mode
         end
 
