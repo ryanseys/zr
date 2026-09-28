@@ -84,6 +84,13 @@ module Coverage
 
   def self.running? = state == :running
 
+  # coverage.c defines these with rb_define_module_function, so a class
+  # that includes Coverage has a private copy of each.
+  %i[setup start resume suspend peek_result result state running?].each do |name|
+    define_method(name) { |*args| Coverage.public_send(name, *args) }
+    private name
+  end
+
   class << self
     private
 

@@ -41,14 +41,13 @@ module OpenSSL
 
   raise RuntimeError, "OPENSSL_init_ssl" if Lib.OPENSSL_init_ssl(0, nil).zero?
 
-  VERSION_TEXT = Lib.OpenSSL_version(Lib::OPENSSL_VERSION).force_encoding(Encoding::US_ASCII).freeze
+  VERSION_TEXT = Lib.OpenSSL_version(Lib::OPENSSL_VERSION).b.freeze
   private_constant :VERSION_TEXT
 
-  # The C extension gives the headers it was built against here, and the
-  # library it runs on below; the port has only the library.
-  OPENSSL_VERSION = VERSION_TEXT
+  # The library that the port runs on. The headers that the C extension
+  # was built against, OPENSSL_VERSION and OPENSSL_VERSION_NUMBER, are
+  # ruby's, and come with the generated constants.
   OPENSSL_LIBRARY_VERSION = VERSION_TEXT
-  OPENSSL_VERSION_NUMBER = Lib.OpenSSL_version_num
   OPENSSL_FIPS = true
 
   def self.fixed_length_secure_compare(str1, str2)

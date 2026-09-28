@@ -39,8 +39,12 @@ module PTY
   # with the slave for its terminal, and the master as a reading File and
   # a writing one, both named for the slave. With no command the child
   # is the user's shell. A block takes the three, and the child is
-  # detached after it.
-  def self.spawn(*command)
+  # detached after it. pty.c gives the one function both names.
+  def self.spawn(*command, &) = pty_getpty(command, &)
+  def self.getpty(*command, &) = pty_getpty(command, &)
+
+  def self.pty_getpty(command)
+    Primitive.attr! :hidden
     command = [login_shell] if command.empty?
     answer = Primitive.zr_pty_open
     raise RuntimeError, "can't get Master/Slave device" if answer.is_a?(Integer) # rubocop:disable Style/RedundantException
@@ -72,9 +76,13 @@ module PTY
     nil
   end
 
-  class << self
-    alias getpty spawn
-  end
+  private_class_method :pty_getpty
+
+  # pty.c defines both with rb_define_module_function, so a class that
+  # includes PTY has a private copy of each.
+  def spawn(*, &) = PTY.spawn(*, &)
+  def getpty(*, &) = PTY.getpty(*, &)
+  private :spawn, :getpty
 
   # Whether a child changed state: nil while it runs, its status after
   # it ended or stopped, and a ChildExited raise when the caller

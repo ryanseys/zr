@@ -3,6 +3,11 @@
 # Generated from ruby 4.0.7's openssl 4.0.2. Do not edit. The generator
 # is not carried here; `git log` finds it.
 module OpenSSL
+  # The OpenSSL headers that ruby's openssl was built against. The port
+  # runs on the library alone, which OPENSSL_LIBRARY_VERSION names.
+  OPENSSL_VERSION = "OpenSSL 3.5.5 27 Jan 2026".b.freeze
+  OPENSSL_VERSION_NUMBER = 0x30500050
+
   BN::CONSTTIME = 4
 
   PKey::EC::EXPLICIT_CURVE = 0

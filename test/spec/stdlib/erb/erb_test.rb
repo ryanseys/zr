@@ -141,4 +141,19 @@ describe "ERB programs" do
       "tpl.erb:1"
     OUT
   end
+
+  it "erb/escape defines ERB itself, so it works without erb" do
+    result = zr(<<~'RUBY')
+      # erb/escape.so defines the class ERB itself, so the file works alone.
+      require "erb/escape"
+      p ERB.class, ERB::Escape.html_escape("<a & 'b'>"), ERB::Escape.singleton_methods, ERB::Escape.private_instance_methods(false)
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      Class
+      "&lt;a &amp; &#39;b&#39;&gt;"
+      [:html_escape]
+      [:html_escape]
+    OUT
+  end
 end
