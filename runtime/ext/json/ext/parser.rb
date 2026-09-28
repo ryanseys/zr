@@ -11,14 +11,14 @@ module JSON
     class ParserConfig
       # parser.c's JSON_ParserConfig, out of the program's sight as the C
       # struct is.
-      Fields = Struct.new(:on_load_proc, :decimal_class, :decimal_method, :on_duplicate_key, :on_comment, :max_nesting,
+      Fields = Struct.new(:on_load_proc, :decimal_class, :decimal_method, :max_nesting, :allow_comments, :allow_duplicate_key,
                           :allow_nan, :allow_trailing_comma, :allow_control_characters, :allow_invalid_escape,
                           :symbolize_names, :freeze)
       private_constant :Fields
 
-      def self.fields_for(opts, strict: false)
+      def self.fields_for(opts)
         Primitive.attr! :hidden
-        fields = Fields.new(nil, nil, nil, :deprecated, :deprecated, 100, false, false, false, false, false, false)
+        fields = Fields.new(nil, nil, nil, 100, false, false, false, false, false, false, false, false)
         return fields if opts.nil?
         raise TypeError, "wrong argument type #{conversion_name(opts)} (expected Hash)" unless opts.is_a?(Hash)
 
@@ -28,21 +28,21 @@ module JSON
           when :max_nesting then fields.max_nesting = val ? Primitive.zr_index_operand_m(val) : 0
           when :allow_nan then fields.allow_nan = val ? true : false
           when :allow_trailing_comma then fields.allow_trailing_comma = val ? true : false
-          when :allow_comments then fields.on_comment = val ? :ignore : :raise
+          when :allow_comments then fields.allow_comments = val ? true : false
           when :allow_control_characters then fields.allow_control_characters = val ? true : false
           when :allow_invalid_escape then fields.allow_invalid_escape = val ? true : false
           when :symbolize_names then fields.symbolize_names = val ? true : false
           when :freeze then fields.freeze = val ? true : false
           when :on_load then fields.on_load_proc = val || nil
-          when :allow_duplicate_key then fields.on_duplicate_key = val ? :ignore : :raise
+          when :allow_duplicate_key then fields.allow_duplicate_key = val ? true : false
           when :decimal_class then decimal(fields, val) if val
-          else unknown << key if strict
+          else unknown << key
           end
         end
         return fields if unknown.empty?
-        raise ArgumentError, "unknown keyword: #{unknown[0].inspect}" if unknown.size == 1
+        raise ArgumentError, "unknown keyword: #{unknown[0]}" if unknown.size == 1
 
-        raise ArgumentError, "unknown keywords: #{unknown.map(&:inspect).join(', ')}"
+        raise ArgumentError, "unknown keywords: #{unknown.join(', ')}"
       end
 
       # A decimal class converts a number's text through try_convert, new,
@@ -104,9 +104,6 @@ module JSON
       VALUE = 3
       OBJECT_KEY = 4
       OBJECT_COLON = 5
-      MAX_DEPRECATIONS = 5
-      COMMENT_DEPRECATION = "Encountered comment in JSON. This will raise an error in json 3.0 unless enabled via " \
-                            "`allow_comments: true`"
       STRING_STOP = /["\\\x00-\x1f]/n
       ESCAPES = { 0x5c => "\\", 0x6e => "\n", 0x72 => "\r", 0x74 => "\t", 0x62 => "\b", 0x66 => "\f" }.freeze
 
@@ -125,7 +122,6 @@ module JSON
         @heads = [0]
         @starts = [0]
         @nesting = 0
-        @deprecations = 0
       end
 
       # convert_encoding: the source as UTF-8 bytes; binary is read as
@@ -425,21 +421,16 @@ module JSON
         @fields.freeze ? object.freeze : object
       end
 
+      # raise_duplicate_key_error: the error's path ends at the key that
+      # the object has twice.
       def duplicate_key(pairs)
-        case @fields.on_duplicate_key
-        when :deprecated
-          return if @deprecations >= MAX_DEPRECATIONS
+        return if @fields.allow_duplicate_key
 
-          @deprecations += 1
-          warning("detected duplicate key #{duplicated(pairs).inspect} in JSON object. This will raise an error in json 3.0 unless " \
-                  "enabled via `allow_duplicate_key: true`")
-        when :raise
-          line, column = position
-          error = ParserError.new("duplicate key #{duplicated(pairs).inspect} at line #{line} column #{column}")
-          error.instance_variable_set(:@line, line)
-          error.instance_variable_set(:@column, column)
-          raise error
-        end
+        key = duplicated(pairs)
+        raise parse_error("duplicate key #{key.inspect}", 0, 0, key) if @resumable
+
+        line, column = position
+        raise parse_error("duplicate key #{key.inspect} at line #{line} column #{column}", line, column, key)
       end
 
       def duplicated(pairs)
@@ -451,13 +442,6 @@ module JSON
           seen[key] = true
         end
         false
-      end
-
-      def warning(message)
-        return JSON.deprecation_warning(message) if @resumable
-
-        line, column = position
-        JSON.deprecation_warning("#{message} at line #{line} column #{column}")
       end
 
       # json_eat_whitespace, and a comment where the walk takes one.
@@ -475,7 +459,7 @@ module JSON
       end
 
       def comment
-        syntax_error("unexpected token %s") if @fields.on_comment == :raise
+        syntax_error("unexpected token %s") unless @fields.allow_comments
 
         start = @cursor
         @cursor += 1
@@ -501,10 +485,6 @@ module JSON
           suspend if at_end?
           syntax_error_at("unexpected token %s", start)
         end
-        return unless @fields.on_comment == :deprecated && @deprecations < MAX_DEPRECATIONS
-
-        @deprecations += 1
-        warning(COMMENT_DEPRECATION)
       end
 
       def keyword(word)
@@ -631,6 +611,8 @@ module JSON
               syntax_error_at("invalid surrogate pair at %s", p) unless (low & 0xFC00) == 0xDC00
               code = ((code & 0x3F) << 10) | ((((code >> 6) & 0xF) + 1) << 16) | (low & 0x3FF)
               pe += 5
+            elsif (code & 0xFC00) == 0xDC00
+              syntax_error_at("unpaired trailing surrogate at %s", p)
             end
             out << [code].pack("U").b
             p = pe + 1
@@ -678,17 +660,44 @@ module JSON
       # the cursor, and the cursor's line and column.
       def raise_error(format)
         # parser.c keeps no lines across a resumable source's pieces.
-        if @resumable
-          error = ParserError.new(format.sub("%s") { fragment }.force_encoding(Encoding::UTF_8))
-          error.instance_variable_set(:@line, 0)
-          error.instance_variable_set(:@column, 0)
-          raise error
-        end
+        raise parse_error(format.sub("%s") { fragment }.force_encoding(Encoding::UTF_8), 0, 0) if @resumable
+
         line, column = position
-        error = ParserError.new("#{format.sub('%s') { fragment }} at line #{line} column #{column}".force_encoding(Encoding::UTF_8))
+        raise parse_error("#{format.sub('%s') { fragment }} at line #{line} column #{column}".force_encoding(Encoding::UTF_8), line, column)
+      end
+
+      # parse_error_new: the error knows its line, its column, and the
+      # path to the value that the walk was in.
+      def parse_error(message, line, column, duplicate = Walk)
+        error = ParserError.new(message)
         error.instance_variable_set(:@line, line)
         error.instance_variable_set(:@column, column)
-        raise error
+        error.instance_variable_set(:@json_path, json_path(duplicate))
+        error
+      end
+
+      # json_path_new: for each open container, outermost first, the index
+      # or the key that the walk is at. The path stops at an object that
+      # has no key yet.
+      def json_path(duplicate)
+        path = []
+        last = @types.size - 1
+        (1..last).each do |depth|
+          child_head = depth == last ? @values.size : @heads[depth + 1]
+          count = child_head - @heads[depth]
+          if @types[depth] == ARRAY
+            path << (@phases[depth] == ARRAY_COMMA ? count - 1 : count)
+          elsif depth == last && !duplicate.equal?(Walk)
+            path << duplicate
+          elsif count.odd?
+            path << @values[child_head - 1]
+          elsif @phases[depth] == OBJECT_COMMA && count >= 2
+            path << @values[child_head - 2]
+          else
+            break
+          end
+        end
+        path
       end
 
       def fragment

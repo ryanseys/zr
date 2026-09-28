@@ -32,7 +32,7 @@ module JSON
         # program's sight, as the C struct is, so `to_h` lists only the
         # instance variables a program set.
         Fields = Struct.new(:indent, :space, :space_before, :object_nl, :array_nl, :as_json, :max_nesting, :depth,
-                            :buffer_initial_length, :on_duplicate_key, :as_json_single_arg, :allow_nan, :ascii_only,
+                            :buffer_initial_length, :allow_duplicate_key, :as_json_single_arg, :allow_nan, :ascii_only,
                             :script_safe, :strict, :sort_keys)
         # The C string escapes, and the bytes each class of escape reads.
         ESCAPES = { '"' => '\\"', "\\" => "\\\\", "/" => "\\/", "\b" => "\\b", "\f" => "\\f", "\n" => "\\n", "\r" => "\\r",
@@ -79,7 +79,7 @@ module JSON
 
           def fresh_fields
             Primitive.attr! :hidden
-            Fields.new(false, false, false, false, false, false, 100, 0, FBUFFER_INITIAL_LENGTH_DEFAULT, :deprecated,
+            Fields.new(false, false, false, false, false, false, 100, 0, FBUFFER_INITIAL_LENGTH_DEFAULT, false,
                        false, false, false, false, false, false)
           end
 
@@ -96,6 +96,7 @@ module JSON
             return unless config
             raise TypeError, "wrong argument type #{conversion_name(config)} (expected Hash)" unless config.is_a?(Hash)
 
+            unknown = []
             Primitive.zr_hash_foreach(config) do |key, val|
               case key
               when :indent then fields.indent = string_config(val)
@@ -108,16 +109,21 @@ module JSON
               when :ascii_only then fields.ascii_only = val ? true : false
               when :depth then fields.depth = depth_config(val)
               when :buffer_initial_length then initial_length(fields, val)
-              when :script_safe, :escape_slash then fields.script_safe = val ? true : false
+              when :script_safe then fields.script_safe = val ? true : false
               when :strict then fields.strict = val ? true : false
-              when :allow_duplicate_key then fields.on_duplicate_key = val ? :ignore : :raise
+              when :allow_duplicate_key then fields.allow_duplicate_key = val ? true : false
               when :as_json
                 proc = val ? JSON::Ext::Generator.send(:convert_type, val, Proc, :to_proc) : false
                 fields.as_json_single_arg = proc && proc.arity == 1
                 fields.as_json = proc
               when :sort_keys then fields.sort_keys = sort_keys_config(val)
+              else unknown << key
               end
             end
+            return if unknown.empty?
+            raise ArgumentError, "unknown keyword: #{unknown[0]}" if unknown.size == 1
+
+            raise ArgumentError, "unknown keywords: #{unknown.join(', ')}"
           end
 
           def string_config(config)
@@ -226,9 +232,6 @@ module JSON
           fields!.script_safe = enable ? true : false
           nil
         end
-        alias escape_slash script_safe
-        alias escape_slash? script_safe?
-        alias escape_slash= script_safe=
 
         def strict = fields.strict
         alias strict? strict
@@ -294,13 +297,7 @@ module JSON
           self
         end
 
-        def allow_duplicate_key?
-          case fields.on_duplicate_key
-          when :ignore then true
-          when :deprecated then nil
-          else false
-          end
-        end
+        def allow_duplicate_key? = fields.allow_duplicate_key
 
         # The fields, made as cState_s_allocate makes them the first time
         # a State is read.
@@ -348,7 +345,11 @@ module JSON
               when false then return @out << "false"
               when true then return @out << "true"
               when Integer then return @out << obj.to_s
-              when Symbol then return symbol(obj)
+              when Symbol
+                return fallback(obj) unless @fields.strict
+
+                obj = obj.name
+                next
               when Float then return float(obj)
               when Hash
                 return object(obj) unless fallback && !obj.instance_of?(Hash)
@@ -392,14 +393,6 @@ module JSON
               raise TypeError, "wrong argument type #{conversion_name(text)} (expected String)" unless text.is_a?(String)
 
               raw_string(valid_encoding(text, false, false))
-            end
-          end
-
-          def symbol(obj)
-            if @fields.strict
-              raw_string(valid_encoding(obj.name, false, false))
-            else
-              fallback(obj)
             end
           end
 
@@ -531,7 +524,7 @@ module JSON
               indent(depth)
               if (type == :string || type == :symbol) && first_type != type && !mixed
                 mixed = true
-                JSON.send(:on_mixed_keys_hash, obj, @fields.on_duplicate_key == :raise) if @fields.on_duplicate_key != :ignore
+                JSON.send(:on_mixed_keys_hash, obj) unless @fields.allow_duplicate_key
               end
               key(key, type)
               @out << @fields.space_before if @fields.space_before

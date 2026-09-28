@@ -16,7 +16,7 @@ class BigDecimal
 
   # Methods <tt>BigDecimal#as_json</tt> and +BigDecimal.json_create+ may be used
   # to serialize and deserialize a \BigDecimal object;
-  # see Marshal[https://docs.ruby-lang.org/en/master/Marshal.html].
+  # see Marshal[rdoc-ref:Marshal].
   #
   # \Method <tt>BigDecimal#as_json</tt> serializes +self+,
   # returning a 2-element hash representing +self+:

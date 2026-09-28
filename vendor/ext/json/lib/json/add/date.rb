@@ -15,7 +15,7 @@ class Date
 
   # Methods <tt>Date#as_json</tt> and +Date.json_create+ may be used
   # to serialize and deserialize a \Date object;
-  # see Marshal[https://docs.ruby-lang.org/en/master/Marshal.html].
+  # see Marshal[rdoc-ref:Marshal].
   #
   # \Method <tt>Date#as_json</tt> serializes +self+,
   # returning a 2-element hash representing +self+:

@@ -12,7 +12,7 @@ class Range
 
   # Methods <tt>Range#as_json</tt> and +Range.json_create+ may be used
   # to serialize and deserialize a \Range object;
-  # see Marshal[https://docs.ruby-lang.org/en/master/Marshal.html].
+  # see Marshal[rdoc-ref:Marshal].
   #
   # \Method <tt>Range#as_json</tt> serializes +self+,
   # returning a 2-element hash representing +self+:

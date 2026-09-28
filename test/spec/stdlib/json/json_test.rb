@@ -120,17 +120,14 @@ describe "JSON programs" do
     _(result).must_answer "\"{\\\"a\\\":1}\"\n"
   end
 
-  it "json/add revives a class innermost first, and load turns create_additions on where parse leaves it off" do
+  it "json 3.0.2 refuses create_additions, and the json/add files that ruby's own library keeps find no JSON.create_id" do
     result = zr(<<~'RUBY')
-      # `json/add/*` teaches a core class to serialize itself, and `create_additions`
-      # is what reads it back: a parsed object naming a class under `JSON.create_id`
-      # becomes that class's `json_create` of itself. INNERMOST FIRST, so an
-      # addition receives children that are already revived. A name that resolves to
-      # no constant is an ArgumentError; one whose class has no `json_create` is left
-      # alone, because `json_class` is an ordinary key until some class claims it.
-      #
-      # `parse` leaves the option OFF and `load` turns it ON -- that difference is
-      # the whole distinction between the two entry points.
+      # json 3.0.2 took `create_additions` out: parse and load raise on the
+      # keyword, and load no longer revives a `json_class` object. ruby's
+      # library directory still has json 2.18.0's `json/add/*`, which a
+      # require finds after the gem, and they call `JSON.create_id`, which
+      # 3.0.2 no longer defines. The State lost `[]`, `[]=` and
+      # `escape_slash`, and its to_h names `allow_duplicate_key`.
 
       require "json"
       require "json/add/core"
@@ -206,39 +203,39 @@ describe "JSON programs" do
 
     _(result).must_answer <<~'OUT'
       parse default          {"json_class" => "Range", "a" => [1, 3, false]}
-      parse additions        1..3
-      parse off              {"json_class" => "Range", "a" => [1, 3, false]}
-      load default           1..3
-      load off               {"json_class" => "Range", "a" => [1, 3, false]}
-      symbolize+add          ArgumentError: options :symbolize_names and :create_additions cannot be  used in conjunction
-      range to_json          "{\"json_class\":\"Range\",\"a\":[1,3,false]}"
-      exclusive              1...3
-      revived class          Range
-      nested                 :a..:z
-      in array               [1..3]
-      as value               {"k" => 1..3}
-      unknown class          ArgumentError: can't get const NoSuchThing: uninitialized constant NoSuchThing
-      no json_create         {"json_class" => "Comparable"}
-      symbol                 :a
-      struct                 1
-      exception              "boom"
-      time                   "2000-01-01 00:00:00 UTC"
-      regexp                 "/ab/i"
-      date                   "2001-02-03"
-      string                 "abc"
-      create_id              "json_class"
-      constants              ["constant", "constant", "constant"]
-      JSON_LOADED            true
+      parse additions        ArgumentError: unknown keyword: create_additions
+      parse off              ArgumentError: unknown keyword: create_additions
+      load default           {"json_class" => "Range", "a" => [1, 3, false]}
+      load off               ArgumentError: unknown keyword: create_additions
+      symbolize+add          ArgumentError: unknown keyword: create_additions
+      range to_json          NoMethodError: undefined method 'create_id' for module JSON
+      exclusive              NoMethodError: undefined method 'create_id' for module JSON
+      revived class          ArgumentError: unknown keyword: create_additions
+      nested                 ArgumentError: unknown keyword: create_additions
+      in array               ArgumentError: unknown keyword: create_additions
+      as value               ArgumentError: unknown keyword: create_additions
+      unknown class          ArgumentError: unknown keyword: create_additions
+      no json_create         ArgumentError: unknown keyword: create_additions
+      symbol                 NoMethodError: undefined method 'create_id' for module JSON
+      struct                 NoMethodError: undefined method 'create_id' for module JSON
+      exception              NoMethodError: undefined method 'create_id' for module JSON
+      time                   NoMethodError: undefined method 'create_id' for module JSON
+      regexp                 NoMethodError: undefined method 'create_id' for module JSON
+      date                   NoMethodError: undefined method 'create_id' for module JSON
+      string                 ArgumentError: unknown keyword: create_additions
+      create_id              NoMethodError: undefined method 'create_id' for module JSON
+      constants              ["constant", "constant", nil]
+      JSON_LOADED            NameError: uninitialized constant JSON::JSON_LOADED
       non-finite             [true, Infinity, -Infinity]
       fragment               "{\"pre\":[1,2]}"
       state class            "JSON::Ext::Generator::State"
       state is aliased       true
-      state to_h             {indent: "", space: "", space_before: "", object_nl: "", array_nl: "", as_json: false, allow_nan: false, ascii_only: false, max_nesting: 100, script_safe: false, strict: false, depth: 0, buffer_initial_length: 1024, sort_keys: false}
-      state predicates       [false, false, false, false, true, false]
+      state to_h             {indent: "", space: "", space_before: "", object_nl: "", array_nl: "", as_json: false, allow_nan: false, ascii_only: false, max_nesting: 100, script_safe: false, strict: false, depth: 0, buffer_initial_length: 1024, sort_keys: false, allow_duplicate_key: false}
+      state predicates       NoMethodError: undefined method 'escape_slash?' for an instance of JSON::Ext::Generator::State
       no limit, no circle    false
-      state []               "  "
-      state [] unknown       nil
-      state []= unknown      1
+      state []               NoMethodError: undefined method '[]' for an instance of JSON::Ext::Generator::State
+      state [] unknown       NoMethodError: undefined method '[]' for an instance of JSON::Ext::Generator::State
+      state []= unknown      NoMethodError: undefined method '[]=' for an instance of JSON::Ext::Generator::State
       sort_keys is a proc    Proc
       sort_keys effect       "{\"a\":2,\"b\":1}"
       as_json from symbol    Proc
@@ -363,7 +360,7 @@ describe "JSON programs" do
     _(result).must_answer <<~'OUT'
       "{\n  \"a\": [\n    1\n  ]\n}"
       true
-      "{\"a\":1}"
+      NoMethodError: undefined method 'fast_generate' for module JSON
       "{\"a\"_:1}"
       "{\"k\":\"\\u00e9\"}"
       "\"<\\/script>\""
@@ -373,7 +370,7 @@ describe "JSON programs" do
 
   it "dump takes a depth limit and an IO, and load takes nil, a proc and allow_nan:" do
     result = zr(<<~'RUBY')
-      # JSON.dump/load surface: dump with a LIMIT raises ArgumentError beyond
+      # JSON.dump/load surface: dump with a LIMIT raises NestingError beyond
       # it; dump to an IO WRITES to it (zr returns "" and writes nothing --
       # silent data loss); load(nil) answers nil; load's proc argument visits
       # every parsed object; JSON.parse! exists (NaN/Infinity allowed); and
@@ -399,7 +396,7 @@ describe "JSON programs" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      ArgumentError: exceed depth limit
+      JSON::NestingError: nesting of 2 is too deep. Did you try to serialize objects with circular references?
       "{\"a\":1}"
       nil
       ["Array", "Hash", "Integer", "String"]
@@ -688,9 +685,9 @@ describe "JSON programs" do
       truncated "nul"	JSON::ParserError: unexpected token 'nul' at line 1 column 1
       empty	JSON::ParserError: unexpected end of input at line 1 column 1
       space only	JSON::ParserError: unexpected end of input at line 2 column 3
-      comment only	JSON::ParserError: unexpected end of input at line 2 column 1
-      block comment only	JSON::ParserError: unexpected end of input at line 1 column 14
-      unterminated block comment	JSON::ParserError: unterminated comment, expected closing '*/' at line 1 column 5
+      comment only	JSON::ParserError: unexpected token '//' at line 1 column 1
+      block comment only	JSON::ParserError: unexpected token '/*' at line 1 column 1
+      unterminated block comment	JSON::ParserError: unexpected token '/*' at line 1 column 5
       nul byte	JSON::ParserError: unexpected token at end of stream  at line 1 column 4
       bom	JSON::ParserError: unexpected character: '﻿[1]' at line 1 column 1
       huge exponent	Infinity
@@ -720,8 +717,8 @@ describe "JSON programs" do
       short unicode escape	JSON::ParserError: incomplete unicode character escape sequence at '\u12"' at line 1 column 2
       non-hex unicode escape	JSON::ParserError: incomplete unicode character escape sequence at '\uZZZZ"' at line 1 column 2
       lone high surrogate	JSON::ParserError: incomplete surrogate pair at '\ud800"' at line 1 column 2
-      lone low surrogate	"\xED\xB0\x80"
-      reversed surrogates	JSON::ParserError: incomplete surrogate pair at '\ud800"' at line 1 column 8
+      lone low surrogate	JSON::ParserError: unpaired trailing surrogate at '\udc00"' at line 1 column 2
+      reversed surrogates	JSON::ParserError: unpaired trailing surrogate at '\udc00\ud800"' at line 1 column 2
       valid surrogate pair	"😀"
       high surrogate then escape	JSON::ParserError: incomplete surrogate pair at '\ud800\n"' at line 1 column 2
       escaped nul	[0]
@@ -734,7 +731,7 @@ describe "JSON programs" do
       quote caps at 32	JSON::ParserError: unexpected character: 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx' at line 2 column 1
       long string	100000
       deep escapes	10000
-      duplicate keys	{"a" => 2}
+      duplicate keys	JSON::ParserError: duplicate key "a" at line 1 column 1
       non-string key	JSON::ParserError: expected object key, got '1:2}' at line 1 column 2
       missing colon	JSON::ParserError: expected ':' after object key at line 1 column 6
       missing value	JSON::ParserError: unexpected character: '}' at line 1 column 6
@@ -768,10 +765,11 @@ describe "JSON programs" do
     OUT
   end
 
-  it "-0 parses as Integer, and a trailing comma and a trailing comment are accepted" do
+  it "-0 parses as Integer, and allow_trailing_comma: and allow_comments: accept what they name" do
     result = zr(<<~'RUBY')
       # Three parser rows: `-0` parses as INTEGER 0, `allow_trailing_comma: true`
-      # admits `[1,]`, and trailing `// c` after the document is accepted.
+      # admits `[1,]`, and `allow_comments: true` admits a trailing `// c`,
+      # which json 3.0 refuses by default.
       # (Found by the 2026-08-24 probe sweep.)
       require "json"
       def show
@@ -782,11 +780,13 @@ describe "JSON programs" do
       show { JSON.parse("[-0]").first }
       show { JSON.parse("[1,]", allow_trailing_comma: true) }
       show { JSON.parse("[1] // c") }
+      show { JSON.parse("[1] // c", allow_comments: true) }
     RUBY
 
     _(result).must_answer <<~'OUT'
       0
       [1]
+      JSON::ParserError: unexpected token '//' at line 1 column 5
       [1]
     OUT
   end
@@ -942,8 +942,8 @@ describe "JSON programs" do
     _(result).must_answer <<~'OUT'
       outcomes
         nesting	2
-        parser	25328
-        value	920
+        parser	25340
+        value	908
       round trips	21
       still running	true
     OUT
@@ -1551,7 +1551,9 @@ describe "JSON programs" do
       pr << "123"; p pr.parse, pr.rest; pr << " "; p pr.parse, pr.value
       pr << "[1, [2, 3,"; p pr.parse, pr.partial_value, (pr.value rescue $!)
       pr.clear; pr << "tr"; p pr.parse, pr.rest; pr << "ue x"; p pr.parse, pr.value; p (pr.parse rescue $!), pr.rest
-      pr.clear; pr << "/* c"; p pr.parse; pr << " */ 1 "; p pr.parse, pr.value
+      pr.clear; pr << "/* c"; p (pr.parse rescue $!)
+      pc = JSON::ResumableParser.new(allow_comments: true)
+      pc << "/* c"; p pc.parse; pc << " */ 1 "; p pc.parse, pc.value
       pr2 = JSON::ResumableParser.new(symbolize_names: true); pr2 << %({"a":1}); p pr2.parse, pr2.value
       pr3 = JSON::ResumableParser.new
       ["[", " {\"k\" : [1 , 2.5", "e3 ] , \"s\": \"a\\u00", "e9\" } ", "]", " -"].each { |piece| pr3 << piece; p [piece, pr3.parse, pr3.partial_value, pr3.rest] }
@@ -1595,6 +1597,7 @@ describe "JSON programs" do
       true
       #<JSON::ParserError: unexpected character: 'x'>
       "x"
+      #<JSON::ParserError: unexpected token '/*'>
       false
       true
       1
@@ -1647,6 +1650,129 @@ describe "JSON programs" do
           "y": 6
         }
       ]
+    OUT
+  end
+
+  it "ParserError#json_path names the index or the key that each open container was at" do
+    result = zr(<<~'RUBY')
+      # ParserError#json_path: where in the document the parse stopped, as
+      # parser.c counts it from its open containers.
+      require "json"
+      def path(src, **o) = (JSON.parse(src, **o) rescue $!.json_path)
+
+      p path('{"a": {"b": [0, 1, {"c": nil}]}}'), path('[[[], [1, 2,]]]'), path('{"x": 1, "y": {"z" 1}}')
+      p path('{"k": [1, 2'), path('[1, {"a": 1, "a": 2}]'), path('{"a": {"a": 1, "b": 2, "a": 3}}')
+      p path('{"a": [1,, 2]}'), path('{"q": 1 "r": 2}'), path('{"a": [1, 2]]}'), path('"\\x"')
+      p path('{"a": [[1] x]}'), path('[1, [2, [3, "\\u12"]]]')
+      p (JSON.parse('[1] x') rescue $!.json_path.class)
+      q = JSON::ResumableParser.new
+      q << '{"a": [1, {"b": 2, "b": 3}]}'
+      p (q.parse rescue [$!, $!.json_path, $!.line])
+      q = JSON::ResumableParser.new
+      q << '{"a": [1, x'
+      p (q.parse rescue [$!, $!.json_path])
+      p (JSON.parse('[' * 3 + ']' * 3, max_nesting: 2) rescue [$!, $!.json_path])
+      p JSON::ParserError.new("m").json_path
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "$.a.b[2].c"
+      "$[0][1][2]"
+      "$.y.z"
+      "$.k[1]"
+      "$[1].a"
+      "$.a.a"
+      "$.a[1]"
+      "$.q"
+      "$.a"
+      "$"
+      "$.a[0]"
+      "$[1][1][1]"
+      String
+      [#<JSON::ParserError: duplicate key "b">, "$.a[1].b", 0]
+      [#<JSON::ParserError: unexpected character: 'x'>, "$.a[1]"]
+      [[[]]]
+      nil
+    OUT
+  end
+
+  it "json 3.0.2 raises on duplicate keys, comments and unknown keywords unless a program allows them" do
+    result = zr(<<~'RUBY')
+      # json 3.0.2: duplicate keys and comments raise unless allowed, unknown
+      # keywords raise, a trailing surrogate alone raises, and a strict Symbol
+      # is written as its name.
+      require "json"
+      def try = yield rescue $!
+
+      p JSON::VERSION, defined?(JSON::GenericObject), JSON.const_defined?(:ParserOptions)
+      p try { JSON.parse('{"a": 1, "a": 2}') }
+      e = try { JSON.parse('{"a": [1, {"b": 2, "b": 3}]}') }
+      p e, e.json_path
+      e = try { JSON.parse('{"a": [1, {"b": tru}]}') }
+      p e, e.json_path, e.line, e.column
+      e = try { JSON.parse('[1, 2, [3, x]]') }
+      p e.json_path
+      e = try { JSON.parse('{"a": 1, "b": ') }
+      p e, e.json_path
+      e = try { JSON.parse('{"a": 1, ') }
+      p e.json_path
+      p try { JSON.parse('/* c */ [1]') }, JSON.parse('/* c */ [1]', allow_comments: true)
+      p try { JSON.parse('[1]', bogus: 1) }, try { JSON.parse('[1]', bogus: 1, other: 2) }
+      p try { JSON.generate([1], bogus: 1) }, try { JSON::State.new(escape_slash: true) }
+      p JSON::State.new.respond_to?(:escape_slash), JSON::State.new.send(:allow_duplicate_key?)
+      p try { JSON.parse('"\udc00"') }, JSON.parse('"😀"')
+      p JSON.generate({ a: 1, "a" => 2 }) rescue p $!
+      p JSON.generate({ a: 1, "a" => 2 }, allow_duplicate_key: true)
+      p JSON.generate(:sym, strict: true), JSON.generate([:sym]), JSON[ '[1]' ], JSON['{"a":1}', symbolize_names: true]
+      p JSON.parse("18446744073709551615"), JSON.parse("-9223372036854775808"), JSON.parse("-9223372036854775809")
+      p JSON.load('{"json_class": "Range", "a": [1, 2, false]}')
+      p try { JSON.load("[1]", nil, bogus: 1) }
+      p JSON.dump({ "a" => 1 }), JSON.pretty_generate({ "a" => [1] })
+      p try { JSON::Coder.new(bogus: 1) }
+      require "json/generic_object"
+      p defined?(JSON::GenericObject)
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "3.0.2"
+      nil
+      true
+      #<JSON::ParserError: duplicate key "a" at line 1 column 1>
+      #<JSON::ParserError: duplicate key "b" at line 1 column 11>
+      "$.a[1].b"
+      #<JSON::ParserError: unexpected token 'tru}]}' at line 1 column 17>
+      "$.a[1].b"
+      1
+      17
+      "$[2][1]"
+      #<JSON::ParserError: unexpected end of input at line 1 column 15>
+      "$.b"
+      "$"
+      #<JSON::ParserError: unexpected token '/*' at line 1 column 1>
+      [1]
+      #<ArgumentError: unknown keyword: bogus>
+      #<ArgumentError: unknown keywords: bogus, other>
+      #<ArgumentError: unknown keyword: bogus>
+      #<ArgumentError: unknown keyword: escape_slash>
+      false
+      false
+      #<JSON::ParserError: unpaired trailing surrogate at '\udc00"' at line 1 column 2>
+      "😀"
+      #<JSON::GeneratorError: detected duplicate key "a" in {a: 1, "a" => 2}>
+      "{\"a\":1,\"a\":2}"
+      "\"sym\""
+      "[\"sym\"]"
+      [1]
+      {a: 1}
+      18446744073709551615
+      -9223372036854775808
+      -9223372036854775809
+      {"json_class" => "Range", "a" => [1, 2, false]}
+      #<ArgumentError: unknown keyword: bogus>
+      "{\"a\":1}"
+      "{\n  \"a\": [\n    1\n  ]\n}"
+      #<ArgumentError: unknown keyword: bogus>
+      "constant"
     OUT
   end
 end

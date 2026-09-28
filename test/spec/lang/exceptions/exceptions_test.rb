@@ -461,8 +461,8 @@ describe "Exceptions programs" do
       exceptions_test.rb:7:Object#show
       exceptions_test.rb:14:<main>
       JSON::ParserError: expected object key, got EOF at line 1 column 2
-      common.rb:364:JSON::Ext::Parser.parse
-      common.rb:364:JSON.parse
+      common.rb:302:JSON::Ext::Parser.parse
+      common.rb:302:JSON.parse
       exceptions_test.rb:15:block in <main>
       exceptions_test.rb:7:Object#show
       exceptions_test.rb:15:<main>

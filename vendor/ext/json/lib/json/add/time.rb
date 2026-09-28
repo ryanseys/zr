@@ -15,7 +15,7 @@ class Time
 
   # Methods <tt>Time#as_json</tt> and +Time.json_create+ may be used
   # to serialize and deserialize a \Time object;
-  # see Marshal[https://docs.ruby-lang.org/en/master/Marshal.html].
+  # see Marshal[rdoc-ref:Marshal].
   #
   # \Method <tt>Time#as_json</tt> serializes +self+,
   # returning a 2-element hash representing +self+:

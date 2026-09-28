@@ -23,7 +23,7 @@ class DateTime
 
   # Methods <tt>DateTime#as_json</tt> and +DateTime.json_create+ may be used
   # to serialize and deserialize a \DateTime object;
-  # see Marshal[https://docs.ruby-lang.org/en/master/Marshal.html].
+  # see Marshal[rdoc-ref:Marshal].
   #
   # \Method <tt>DateTime#as_json</tt> serializes +self+,
   # returning a 2-element hash representing +self+:
