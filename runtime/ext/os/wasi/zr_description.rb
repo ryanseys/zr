@@ -1721,6 +1721,7 @@ module Zr
         d zr_preempt_expired Value
         d zr_preempt_send Value mid:Word
         d zr_check_funcall Value v:Value mid:Word
+        d zr_check_call Value v:Value name:Value
         d zr_trap_caught Void signo:I32
         d zr_chld_caught Void signo:I32
         d zr_chld_note Void signo:I32
@@ -4053,6 +4054,7 @@ module Zr
         e zr_preempt_expired 127
         e zr_preempt_send 127
         e zr_check_funcall 127
+        e zr_check_call 127
         e zr_trap_caught 120
         e zr_chld_caught 120
         e zr_chld_note 120

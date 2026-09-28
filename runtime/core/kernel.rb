@@ -27,7 +27,7 @@ module Kernel
   # compared by identity.
   def conversion_name(value)
     Primitive.attr! :hidden
-    value.nil? || value.equal?(true) || value.equal?(false) ? value.inspect : value.class.to_s
+    nil.equal?(value) || true.equal?(value) || false.equal?(value) ? value.inspect : Primitive.zr_real_class(value).to_s
   end
   private :conversion_name
 
@@ -253,12 +253,18 @@ module Kernel
     raise TypeError, "can't convert #{conversion_name(value)} into Integer"
   end
 
+  # rb_String: to_str, else to_s, each as rb_check_funcall calls it.
   def String(value)
-    return value if value.is_a?(String)
-    return value.to_str if value.respond_to?(:to_str)
-    return value.to_s if value.respond_to?(:to_s)
+    converted = String.try_convert(value)
+    return converted if converted
 
-    raise TypeError, "can't convert #{conversion_name(value)} into String"
+    converted = Primitive.zr_check_call(value, :to_s)
+    return converted if String === converted
+
+    name = conversion_name(value)
+    raise TypeError, "can't convert #{name} into String" if converted.nil?
+
+    raise TypeError, "can't convert #{name} to String (#{name}#to_s gives #{conversion_name(converted)})"
   end
 
   # rb_Array: to_ary, else to_a, else the value alone. If either returns

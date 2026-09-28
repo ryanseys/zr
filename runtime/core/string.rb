@@ -1135,11 +1135,10 @@ class String
   end
 
   def self.try_convert(object)
-    return object if object.is_a?(String)
-    return nil unless object.respond_to?(:to_str)
+    return object if String === object
 
-    converted = object.to_str
-    raise TypeError, "can't convert #{conversion_name(object)} to String (#{conversion_name(object)}#to_str gives #{conversion_name(converted)})" unless converted.nil? || converted.is_a?(String)
+    converted = Primitive.zr_check_call(object, :to_str)
+    raise TypeError, "can't convert #{conversion_name(object)} to String (#{conversion_name(object)}#to_str gives #{conversion_name(converted)})" unless converted.nil? || String === converted
 
     converted
   end

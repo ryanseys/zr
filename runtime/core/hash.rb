@@ -473,11 +473,10 @@ class Hash
   def deconstruct_keys(keys) = self
 
   def self.try_convert(object)
-    return object if object.is_a?(Hash)
-    return nil unless object.respond_to?(:to_hash)
+    return object if Hash === object
 
-    converted = object.to_hash
-    raise TypeError, "can't convert #{conversion_name(object)} to Hash (#{conversion_name(object)}#to_hash gives #{conversion_name(converted)})" unless converted.nil? || converted.is_a?(Hash)
+    converted = Primitive.zr_check_call(object, :to_hash)
+    raise TypeError, "can't convert #{conversion_name(object)} to Hash (#{conversion_name(object)}#to_hash gives #{conversion_name(converted)})" unless converted.nil? || Hash === converted
 
     converted
   end

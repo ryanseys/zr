@@ -826,3 +826,38 @@ machine def zr_check_funcall(v, mid)
   return r if r == QUNDEF
   zr_bool(r != QNIL && r != QFALSE)
 end
+
+# rb_check_funcall with no arguments: the result of `name`, or nil when
+# `v` does not respond to it. As in ruby, a method_missing of the
+# program answers when respond_to_missing? and respond_to? are the
+# core's, and a NoMethodError from it means that `v` does not respond
+# (check_funcall_missing). Works on a BasicObject, which has neither
+# respond_to? nor is_a?. Returns QUNDEF when a call raised.
+sig [Value, Value] => Value
+machine def zr_check_call(v, name)
+  mid = zr_sym2id(name)
+  responds = zr_check_funcall(v, mid)
+  return responds if responds == QUNDEF
+  if responds == QTRUE
+    return zr_send(v, mid, 0, 0)
+  end
+  klass = zr_class_of(v)
+  missing = zr_find_method(klass, Machine.id(:method_missing))
+  if missing == 0 || MEntry.core(missing) != 0
+    return Machine.value(QNIL)
+  end
+  answers = zr_find_method(klass, Machine.id(:respond_to_missing?))
+  asks = zr_find_method(klass, Machine.id(:respond_to?))
+  if (answers != 0 && MEntry.core(answers) == 0) || (asks != 0 && MEntry.core(asks) == 0)
+    return Machine.value(QNIL)
+  end
+  r = zr_send(v, mid, 0, 0)
+  if r == QUNDEF
+    exc = zr_rescuable()
+    if exc != QUNDEF && zr_is_a(exc, zr_global(G_NO_METHOD_ERROR))
+      Task.set_pending(zr_task(), Machine.value(QNIL))
+      return Machine.value(QNIL)
+    end
+  end
+  r
+end

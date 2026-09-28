@@ -388,10 +388,12 @@ class Integer
   # An Integer through `to_int` alone, or nil: `String` is not a form
   # this conversion reads.
   def self.try_convert(value)
-    return value if value.is_a?(Integer)
-    return nil unless value.respond_to?(:to_int)
+    return value if Integer === value
 
-    value.to_int
+    converted = Primitive.zr_check_call(value, :to_int)
+    raise TypeError, "can't convert #{conversion_name(value)} to Integer (#{conversion_name(value)}#to_int gives #{conversion_name(converted)})" unless converted.nil? || Integer === converted
+
+    converted
   end
 
   def self.sqrt(n)

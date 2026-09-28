@@ -520,4 +520,47 @@ describe "Kernel: conversion" do
       [5]
     OUT
   end
+
+  it "an implicit conversion works on a BasicObject and through method_missing, and nil converts nothing" do
+    result = zr(<<~'RUBY')
+      # An implicit conversion asks as rb_check_funcall does: a BasicObject
+      # converts, a method_missing answers unless it raises NoMethodError, and
+      # a nil result converts nothing.
+      b = BasicObject.new
+      def b.to_str = "b"
+      i = BasicObject.new
+      def i.to_int = 66
+      p [String.try_convert(b), format("%c%c", b, i), Integer.try_convert(i)]
+      m = Object.new
+      def m.method_missing(name, *) = name == :to_hash ? { a: 1 } : super
+      p [Hash.try_convert(m), String.try_convert(m)]
+      def splat(*a) = a
+      x = Object.new
+      x.singleton_class.define_method(:to_a) { nil }
+      y = Object.new
+      def y.method_missing(name, *) = name == :to_a ? [7, 8] : super
+      p [splat(*x).size, splat(*y)]
+      s = Object.new
+      class << s
+        undef_method :to_s
+        def method_missing(name, *) = name == :to_s ? "via missing" : super
+      end
+      p String(s)
+      t = Object.new
+      def t.to_s = 5
+      begin
+        String(t)
+      rescue TypeError => e
+        p e.message
+      end
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      ["b", "bB", 66]
+      [{a: 1}, nil]
+      [1, [7, 8]]
+      "via missing"
+      "can't convert Object to String (Object#to_s gives Integer)"
+    OUT
+  end
 end

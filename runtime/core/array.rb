@@ -444,11 +444,10 @@ class Array
   end
 
   def self.try_convert(object)
-    return object if object.is_a?(Array)
-    return nil unless object.respond_to?(:to_ary)
+    return object if Array === object
 
-    converted = object.to_ary
-    raise TypeError, "can't convert #{conversion_name(object)} to Array (#{conversion_name(object)}#to_ary gives #{conversion_name(converted)})" unless converted.nil? || converted.is_a?(Array)
+    converted = Primitive.zr_check_call(object, :to_ary)
+    raise TypeError, "can't convert #{conversion_name(object)} to Array (#{conversion_name(object)}#to_ary gives #{conversion_name(converted)})" unless converted.nil? || Array === converted
 
     converted
   end

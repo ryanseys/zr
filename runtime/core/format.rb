@@ -202,8 +202,8 @@ module Kernel
 
     def num2int(v)
       Primitive.attr! :hidden
-      raise TypeError, +"no implicit conversion from nil to integer" if v.nil?
-      return v.to_i if v.is_a?(Float)
+      raise TypeError, +"no implicit conversion from nil to integer" if nil.equal?(v)
+      return v.to_i if Float === v
 
       Primitive.zr_index_operand_m(v)
     end
@@ -258,7 +258,7 @@ module Kernel
     def too_many
       Primitive.attr! :hidden
       return unless @posarg >= 0 && @nextarg <= @args.size
-      return if @args.size == 1 && @args[0].is_a?(Hash)
+      return if @args.size == 1 && Hash === @args[0]
 
       raise ArgumentError, +"too many arguments for format string" if $DEBUG
 

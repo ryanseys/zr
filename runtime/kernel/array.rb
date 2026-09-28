@@ -239,7 +239,8 @@ end
 
 # Returns the Array for a splat: nil gives no elements, an Array gives
 # itself, an object with `to_a` gives its result, and all other values
-# give one element.
+# give one element. A `to_a` that returns nil converts nothing, so the
+# object is the one element (rb_check_to_array).
 sig [Value] => Value
 machine def zr_splat_to_a(v)
   if v == QNIL
@@ -248,15 +249,13 @@ machine def zr_splat_to_a(v)
   if !zr_special_p(v) && zr_type(v) == T_ARRAY
     return v
   end
-  responds = zr_check_funcall(v, Machine.id(:to_a))
-  return responds if responds == QUNDEF
-  if responds == QFALSE
+  r = zr_check_call(v, zr_sym(Machine.id(:to_a)))
+  return r if r == QUNDEF
+  if r == QNIL
     a = zr_ary_new(1)
     zr_ary_push(a, v)
     return a
   end
-  r = zr_send(v, Machine.id(:to_a), 0, 0)
-  return r if r == QUNDEF
   if zr_special_p(r) || zr_type(r) != T_ARRAY
     return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("can't convert to Array (to_a gives something else)"), 50)
   end
