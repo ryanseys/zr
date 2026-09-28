@@ -3,8 +3,10 @@
 # `Kernel#format` over Integer, Float, String, Symbol and the `%c` and
 # `%p` directives.
 module Kernel
-  def format(spec, *args)
-    Formatter.new(Primitive.zr_str_operand(spec), args).render
+  def format(*args)
+    raise ArgumentError, +"too few arguments" if args.empty?
+
+    Formatter.new(Primitive.zr_str_operand(args.first), args.drop(1)).render
   end
   alias sprintf format
 

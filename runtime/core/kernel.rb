@@ -650,14 +650,8 @@ class Module
 end
 
 module Kernel
-  def putc(char)
-    if char.is_a?(String)
-      print char[0]
-    else
-      print (Integer(char) & 255).chr
-    end
-    char
-  end
+  # rb_f_putc: $stdout's own putc, which adds no `$\`.
+  def putc(char) = $stdout.putc(char)
 
   PRETTY_PRINTER = []
   private_constant :PRETTY_PRINTER

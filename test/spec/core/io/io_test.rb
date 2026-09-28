@@ -1785,7 +1785,7 @@ describe "IO programs" do
       STDERR.puts("edone\n")                  # edone\n (no double newline)
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "err=5\nerrp=6\ne1\ne2\nedone\n"
+    _(result).must_answer <<~'OUT', stderr: <<~'ERR'
       x=5
       y=7
       1,2,3
@@ -1805,6 +1805,12 @@ describe "IO programs" do
 
       dprint-guard
     OUT
+      err=5
+      errp=6
+      e1
+      e2
+      edone
+    ERR
   end
 
   it "puts in case value arm" do
@@ -2319,6 +2325,175 @@ describe "IO programs" do
       ["b1\n", "b.txt", 1]
       true
       ["a1\n", "a2\n"]
+    OUT
+  end
+
+  it "sysread and sysseek raise on a buffered stream, and syswrite warns with the line" do
+    result = zr(<<~'RUBY')
+      # sysread and sysseek go past the buffer, so a buffer with bytes in it is
+      # an error; syswrite warns about one, with the program's line.
+      path = "/tmp/zr_spec_sysread.txt"
+      File.write(path, "ab\ncd\n")
+      File.open(path) { |f| f.gets; p((f.sysread(1) rescue $!)) }
+      File.open(path) { |f| f.gets; p((f.sysseek(0) rescue $!)) }
+      File.open(path) { |f| p f.sysread(2) + f.sysread(1) }
+      File.open(path) { |f| p [f.sysseek(1), f.sysread(1)] }
+      File.open(path, "r+") { |f| f.ungetc("z"); p((f.sysseek(0) rescue $!)) }
+      File.open(path, "w") { |f| f.write("x"); f.syswrite("y") }
+      p File.read(path)
+      File.delete(path)
+    RUBY
+
+    _(result).must_answer <<~'OUT', stderr: <<~'ERR'
+      #<IOError: sysread for buffered IO>
+      #<IOError: sysseek for buffered IO>
+      "ab\n"
+      [1, "b"]
+      #<IOError: sysseek for buffered IO>
+      "yx"
+    OUT
+      core/io/io_test.rb:10: warning: syswrite for buffered IO
+    ERR
+  end
+
+  it "a closed stream raises IOError for its state and shows (closed)" do
+    result = zr(<<~'RUBY')
+      # A closed stream answers IOError for its state, not the values it had.
+      %i[sync binmode binmode? lineno pid autoclose? close_on_exec? fsync fdatasync eof pos external_encoding fileno].each do |name|
+        r, = IO.pipe
+        r.close
+        p [name, (r.public_send(name) rescue $!)]
+      end
+      [[:sync=, true], [:lineno=, 1], [:autoclose=, true], [:close_on_exec=, true], [:set_encoding, "utf-8"]].each do |name, arg|
+        r, = IO.pipe
+        r.close
+        p [name, (r.public_send(name, arg) rescue $!)]
+      end
+      r, = IO.pipe
+      r.close
+      p r.inspect, r.to_io, r.each_line
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [:sync, #<IOError: closed stream>]
+      [:binmode, #<IOError: closed stream>]
+      [:binmode?, #<IOError: closed stream>]
+      [:lineno, #<IOError: closed stream>]
+      [:pid, #<IOError: closed stream>]
+      [:autoclose?, #<IOError: closed stream>]
+      [:close_on_exec?, #<IOError: closed stream>]
+      [:fsync, #<IOError: closed stream>]
+      [:fdatasync, #<IOError: closed stream>]
+      [:eof, #<IOError: closed stream>]
+      [:pos, #<IOError: closed stream>]
+      [:external_encoding, #<Encoding:UTF-8>]
+      [:fileno, #<IOError: closed stream>]
+      [:sync=, #<IOError: closed stream>]
+      [:lineno=, #<IOError: closed stream>]
+      [:autoclose=, #<IOError: closed stream>]
+      [:close_on_exec=, #<IOError: closed stream>]
+      [:set_encoding, #<IOError: closed stream>]
+      "#<IO:(closed)>"
+      #<IO:(closed)>
+      #<Enumerator: #<IO:(closed)>:each_line>
+    OUT
+  end
+
+  it "close_on_exec reads and sets FD_CLOEXEC, and fsync reports its error" do
+    result = zr(<<~'RUBY')
+      # close_on_exec reads and sets FD_CLOEXEC on the descriptor; fsync and
+      # fdatasync report the call's error.
+      path = "/tmp/zr_spec_cloexec.txt"
+      File.write(path, "x")
+      p [STDOUT.close_on_exec?, STDIN.close_on_exec?, STDERR.close_on_exec?, File.open(path, &:close_on_exec?)]
+      r, w = IO.pipe
+      before = r.close_on_exec?
+      r.close_on_exec = false
+      p [before, r.close_on_exec?, r.fcntl(1)]
+      p((w.fsync rescue $!), (w.fdatasync rescue $!))
+      File.open(path, "w") { |f| p f.fsync }
+      File.delete(path)
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [false, false, false, true]
+      [true, false, 0]
+      #<Errno::EINVAL: Invalid argument>
+      #<Errno::EINVAL: Invalid argument>
+      0
+    OUT
+  end
+
+  it "inspect shows the path or the descriptor, and an allocated stream is any object" do
+    result = zr(<<~'RUBY')
+      # inspect shows the path, or the descriptor, which a closed stream no
+      # longer has; an allocated stream is any object, and closes with an error.
+      path = "/tmp/zr_spec_inspect.txt"
+      File.write(path, "x")
+      f = File.open(path)
+      f.close
+      p f.inspect
+      p IO.popen("true").tap(&:close).inspect
+      p IO.allocate.inspect.sub(/0x\h+/, "X")
+      p((IO.allocate.close rescue $!))
+      File.delete(path)
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "#<File:/tmp/zr_spec_inspect.txt (closed)>"
+      "#<IO:(closed)>"
+      "#<IO:X>"
+      #<IOError: uninitialized stream>
+    OUT
+  end
+
+  it "putc writes the first character or the NUM2CHR byte, and printf needs a format" do
+    result = zr(<<~'RUBY')
+      # putc writes a String's first character, or the byte NUM2CHR makes of
+      # anything else; Kernel#putc is $stdout's, which adds no $\. printf with
+      # no format has too few arguments.
+      r, w = IO.pipe
+      p [w.putc(65.5), w.putc("xyz"), w.putc(0x141), (w.putc(nil) rescue $!), (w.putc(:a) rescue $!), (w.putc(2**70) rescue $!)]
+      w.close
+      p r.read
+      p((IO.pipe.last.printf rescue $!))
+      p((format rescue $!), method(:format).parameters)
+      $\ = "!"
+      putc "a"
+      print "b"
+      $\ = nil
+      putc 66
+      putc "cd"
+      p(putc(67.9))
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [65.5, "xyz", 321, #<TypeError: no implicit conversion from nil to integer>, #<TypeError: no implicit conversion of Symbol into Integer>, #<RangeError: bignum too big to convert into 'long'>]
+      "AxA"
+      #<ArgumentError: too few arguments>
+      #<ArgumentError: too few arguments>
+      [[:rest]]
+      ab!BcC67.9
+    OUT
+  end
+
+  it "lineno needs a stream that reads, and lineno= takes a C int" do
+    result = zr(<<~'RUBY')
+      # lineno belongs to a stream that reads, and lineno= takes a C int.
+      r, w = IO.pipe
+      p((w.lineno rescue $!), (begin; w.lineno = 3; rescue => e; e; end))
+      p((begin; r.lineno = "5"; rescue => e; e; end))
+      r.lineno = 2.7
+      p r.lineno
+      p((begin; r.lineno = 2**40; rescue => e; e; end))
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      #<IOError: not opened for reading>
+      #<IOError: not opened for reading>
+      #<TypeError: no implicit conversion of String into Integer>
+      2
+      #<RangeError: integer 1099511627776 too big to convert to 'int'>
     OUT
   end
 end

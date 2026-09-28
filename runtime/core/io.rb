@@ -232,6 +232,17 @@ class IO
     [external, internal, bom]
   end
 
+  # NUM2INT: a Float truncates, and the value must fit a C int.
+  def self.c_int(value)
+    Primitive.attr! :hidden
+    value = Float === value ? value.to_i : implicit_integer(value)
+    raise RangeError, +"bignum too big to convert into 'long'" unless value.bit_length < 64
+    raise RangeError, "integer #{value} too big to convert to 'int'" if value > 2_147_483_647
+    raise RangeError, "integer #{value} too small to convert to 'int'" if value < -2_147_483_648
+
+    value
+  end
+
   # io.c's find_encoding: an Encoding, or the one a String names; a name
   # that matches nothing warns and gives none.
   def self.found_encoding(value)
@@ -330,7 +341,7 @@ class IO
     rest.include?("+") ? "#{first}+" : first
   end
   private_class_method :open_options, :encodings, :spec, :access_mode, :mode_encodings, :binmode_options,
-                       :conversion_options, :check_binmode, :found_encoding
+                       :conversion_options, :check_binmode, :found_encoding, :c_int
 
   # `IO.open` is `new` with a block that closes the stream after it; the
   # receiver's initialize decides what the arguments mean.
@@ -766,20 +777,29 @@ class IO
     @bom_written = false
   end
 
-  attr_reader :lineno
+  def lineno
+    check_readable
+    @lineno
+  end
 
   def path = @path || @name
-  attr_reader :sync
+
+  def sync
+    check_open
+    @sync
+  end
 
   # A stream that becomes synchronous writes its buffered bytes immediately.
   def sync=(flag)
-    @sync = flag
-    write_pending if flag && !@closed
+    check_open
+    @sync = flag ? true : false
+    write_pending if flag
     flag
   end
 
   def lineno=(n)
-    @lineno = n
+    check_readable
+    @lineno = IO.send(:c_int, n)
   end
 
   def fileno
@@ -803,6 +823,7 @@ class IO
   end
 
   def close
+    raise IOError, +"uninitialized stream" if @fd.nil?
     return nil if @closed
 
     write_pending
@@ -874,7 +895,9 @@ class IO
   def fsync
     check_open
     write_pending
-    Primitive.zr_io_fsync(@fd)
+    result = Primitive.zr_io_fsync(@fd)
+    raise SystemCallError.new(@path, -result) if result.negative?
+
     0
   end
 
@@ -910,6 +933,7 @@ class IO
   # Binary mode: all that is read after this is binary, and so are the
   # bytes already in the buffer.
   def binmode
+    check_open
     @binmode = true
     # Binary mode sets the stream's encoding, whatever encoding it was
     # opened with.
@@ -919,7 +943,10 @@ class IO
     self
   end
 
-  def binmode? = @binmode
+  def binmode?
+    check_open
+    @binmode
+  end
 
   def fdatasync = fsync
 
@@ -996,19 +1023,46 @@ class IO
   end
 
   # The child a popen started, waited for when this stream closes.
-  attr_reader :pid
+  def pid
+    check_open
+    @pid
+  end
 
-  def autoclose? = @autoclose
+  def autoclose?
+    check_open
+    @autoclose
+  end
 
   def autoclose=(flag)
+    check_open
     @autoclose = flag ? true : false
     flag
   end
 
-  # A descriptor ruby opens closes itself across an exec.
-  def close_on_exec? = true
+  # FD_CLOEXEC on the descriptor, and on the twin that a duplex popen
+  # writes to, as rb_io_close_on_exec_p reads both.
+  F_GETFD = 1
+  F_SETFD = 2
+  FD_CLOEXEC = 1
+  private_constant :F_GETFD, :F_SETFD, :FD_CLOEXEC
+
+  def close_on_exec?
+    check_open
+    [@fd, @twin].compact.all? { |fd| Primitive.zr_io_fcntl(fd, F_GETFD, 0) & FD_CLOEXEC != 0 }
+  end
 
   def close_on_exec=(flag)
+    check_open
+    [@fd, @twin].compact.each do |fd|
+      flags = Primitive.zr_io_fcntl(fd, F_GETFD, 0)
+      raise SystemCallError.new(@path, -flags) if flags.negative?
+
+      wanted = flag ? flags | FD_CLOEXEC : flags & ~FD_CLOEXEC
+      next if wanted == flags
+
+      result = Primitive.zr_io_fcntl(fd, F_SETFD, wanted)
+      raise SystemCallError.new(@path, -result) if result.negative?
+    end
     flag
   end
 
@@ -1062,6 +1116,10 @@ class IO
 
   # The offset where the seek lands, as lseek returns it.
   def sysseek(offset, whence = SEEK_SET)
+    check_open
+    raise IOError, +"sysseek for buffered IO" unless @buffer.empty?
+
+    Primitive.zr_warn_here_m("sysseek for buffered IO") unless @wbuf.empty?
     seek(offset, whence)
     pos
   end
@@ -1118,10 +1176,16 @@ class IO
     self
   end
 
+  # rb_io_inspect: the path, or the descriptor, which a closed stream no
+  # longer has; a stream with no descriptor at all is any object.
   def inspect
-    text = "#<#{self.class}:#{label}"
-    text = "#{text} (closed)" if @closed
-    Primitive.zr_obj_form("#{text}>")
+    return "#{Primitive.zr_obj_head(self)}>" if @fd.nil?
+
+    shown = @name || @path
+    text = if shown then @closed ? "#{shown} (closed)" : shown
+           else @closed ? +"(closed)" : "fd #{@fd}"
+           end
+    Primitive.zr_obj_form("#<#{self.class}:#{text}>")
   end
 
   # The arguments are walked without Array's own methods: a program
@@ -1176,7 +1240,7 @@ class IO
   def syswrite(text)
     check_writable
     text = Primitive.zr_obj_as_string(text)
-    warn "syswrite for buffered IO" unless @wbuf.empty?
+    Primitive.zr_warn_here_m("syswrite for buffered IO") unless @wbuf.empty?
     write_now(text.b)
   end
 
@@ -1253,8 +1317,8 @@ class IO
     nil
   end
 
-  def printf(format, *args)
-    write(Kernel.format(format, *args))
+  def printf(*args)
+    write(Kernel.format(*args))
     nil
   end
 
@@ -1294,7 +1358,24 @@ class IO
 
   # These three all read what is there and fill a buffer when one is
   # given; the end of the stream is an error, not a nil.
-  def sysread(length, buffer = nil) = filled(read_some(length), buffer)
+  # rb_io_sysread: one read(2) of the descriptor, past the buffer, which
+  # must be empty.
+  def sysread(length, buffer = nil)
+    check_readable
+    raise IOError, +"sysread for buffered IO" unless @buffer.empty?
+    raise ArgumentError, "negative length #{length} given" if length < 0
+    return filled(+"".b, buffer) if length.zero?
+
+    IO.send(:room_for!, length)
+    park_until(READABLE) unless IO.send(:scheduler_taking, :io_read)
+    loop do
+      chunk = read_memory(length)
+      return filled(chunk&.b, buffer) unless chunk.is_a?(Integer)
+      raise SystemCallError.new(label, -chunk, +"sysread") unless -chunk == Errno::EAGAIN::Errno
+
+      wait_again(READABLE)
+    end
+  end
 
   def readpartial(length, buffer = nil) = filled(read_some(length), buffer)
 
@@ -1335,8 +1416,10 @@ class IO
     checked_write(wrote)
   end
 
+  # rb_io_putc: a String's first character, or the byte NUM2CHR makes of
+  # anything else.
   def putc(c)
-    write(c.is_a?(Integer) ? (c & 0xff).chr : c.to_s[0, 1])
+    write(c.is_a?(String) ? c[0, 1] : (IO.send(:c_int, c) & 0xff).chr)
     c
   end
 
