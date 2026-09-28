@@ -3,6 +3,54 @@
 require "spec_helper"
 
 describe "Exceptions: control flow" do
+  it "a return from an inlined loop runs the ensure clauses outside it with the method's locals" do
+    result = zr(<<~'RUBY')
+      # The loop runs inline, and a `return` from its block runs the ensure
+      # clauses outside the loop. They read the method's locals.
+      def first_stop(stop)
+        res = +"r"
+        begin
+          3.times do |i|
+            return "early #{i}" if i == stop
+            res << i.to_s
+          end
+          res
+        ensure
+          puts "ensure #{res}"
+        end
+      end
+      p first_stop(1)
+      p first_stop(9)
+
+      def nested
+        acc = []
+        begin
+          [1, 2].each do |a|
+            begin
+              [10, 20].each do |b|
+                return acc if a == 2 && b == 20
+                acc << a + b
+              end
+            ensure
+              acc << :inner
+            end
+          end
+        ensure
+          acc << :outer
+        end
+      end
+      p nested
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      ensure r0
+      "early 1"
+      ensure r012
+      "r012"
+      [11, 21, :inner, 12, :inner, :outer]
+    OUT
+  end
+
   it "abstract raise override return" do
     result = zr(<<~'RUBY')
       # A base method that always raises can have an override in a subclass that
@@ -39,6 +87,33 @@ describe "Exceptions: control flow" do
       0
       area=4
       area=n/a
+    OUT
+  end
+
+  it "an ensure clause outside an inlined loop runs in the method's frame after a return from the loop" do
+    result = zr(<<~'RUBY')
+      # The ensure clause outside the loop runs in the method's frame: its
+      # raise and its caller give the method's lines.
+      def raises
+        n = 5
+        begin
+          2.times { |i| return i if i == 1 }
+        ensure
+          puts caller(0, 1).first
+          raise "in ensure #{n}"
+        end
+      end
+      begin
+        raises
+      rescue => e
+        puts e.message, e.backtrace.first
+      end
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      lang/exceptions/control_flow_test.rb:8:in 'Object#raises'
+      in ensure 5
+      lang/exceptions/control_flow_test.rb:9:in 'Object#raises'
     OUT
   end
 

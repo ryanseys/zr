@@ -11,8 +11,10 @@ module Zr
       module Regions
         # `slot` is the first record slot for the region's values: the
         # exit value or the exception, the `$!` that the region replaced,
-        # and for an ensure, the `$!` at its start.
-        Region = Struct.new(:landing, :ensure_body, :slot)
+        # and for an ensure, the `$!` at its start. `outer` marks an inline
+        # loop (Iterators): it holds the site's own inline scope and line
+        # record, which the regions under it lower with.
+        Region = Struct.new(:landing, :ensure_body, :slot, :outer)
 
         private
 
@@ -189,12 +191,28 @@ module Zr
         # leaves.
         def unwind(depth)
           left = []
+          inner = [@inline_scope, @line_rec]
           while @regions.size > depth && !@f.terminated?
             region = @regions.pop
             left.unshift(region)
-            run_ensure(region.ensure_body) if region.ensure_body
+            if region.outer
+              leave_inline(region.outer) if @regions.size > depth
+            elsif region.ensure_body
+              run_ensure(region.ensure_body)
+            end
           end
+          @inline_scope, @line_rec = inner
+          @line = nil
           @regions.concat(left)
+        end
+
+        # An unwind that goes on past an inline loop leaves the loop: the
+        # caller's frame goes back on top, and the ensure bodies outside
+        # the loop read the site's locals, not the block's.
+        def leave_inline(outer)
+          @f.store(@rec, @task_addr, off(@task, "top"), region: :task)
+          @inline_scope, @line_rec = outer
+          @line = nil
         end
 
         # Runs the ensure bodies down to region depth `depth`, then returns
