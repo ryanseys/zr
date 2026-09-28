@@ -900,4 +900,66 @@ describe "IO: regressions" do
       true
     OUT
   end
+
+  it "a zero limit reads nothing, a negative limit is no limit, and each_line, readlines and foreach refuse zero by name" do
+    result = zr(<<~'RUBY')
+      # A zero limit reads nothing and counts no line; a negative limit is no
+      # limit. Each of each_line, readlines and foreach names itself when it
+      # refuses a zero limit.
+      path = "/tmp/zr_spec_limits.txt"
+      File.write(path, "ab\ncd\n")
+      File.open(path) do |f|
+        p f.gets(0), $_, f.lineno, f.gets(-5), f.lineno
+        p((f.each_line(0) {} rescue $!), (f.readlines(0) rescue $!))
+        f.rewind
+        p f.readlines(-2), f.each_line(0), f.each(1)
+      end
+      p((IO.foreach(path, 0) {} rescue $!), (IO.readlines(path, 0) rescue $!))
+      r, w = IO.pipe
+      w.write("ab\n")
+      w.close
+      p r.gets(0), r.gets(-1), r.gets(0)
+      File.delete(path)
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      ""
+      ""
+      0
+      "ab\n"
+      1
+      #<ArgumentError: invalid limit: 0 for each_line>
+      #<ArgumentError: invalid limit: 0 for readlines>
+      ["ab\n", "cd\n"]
+      #<Enumerator: #<File:/tmp/zr_spec_limits.txt>:each_line(0)>
+      #<Enumerator: #<File:/tmp/zr_spec_limits.txt>:each(1)>
+      #<ArgumentError: invalid limit: 0 for foreach>
+      #<ArgumentError: invalid limit: 0 for readlines>
+      ""
+      "ab\n"
+      ""
+    OUT
+  end
+
+  it "IO.select takes an Array or nil for each list and raises TypeError for a bare IO" do
+    result = zr(<<~'RUBY')
+      # Each list that IO.select takes is an Array or nil. A bare IO is a type
+      # error, not a list of its own lines, so the call never reads the stream.
+      r, w = IO.pipe
+      w.write("ready\n")
+      p((IO.select(r, nil, nil, 0) rescue $!))
+      p((IO.select(nil, "x", nil, 0) rescue $!))
+      p((IO.select([], nil, true, 0) rescue $!))
+      p IO.select([r], nil, nil, 0).map(&:size)
+      p r.gets
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      #<TypeError: wrong argument type IO (expected Array)>
+      #<TypeError: wrong argument type String (expected Array)>
+      #<TypeError: wrong argument type true (expected Array)>
+      [1, 0, 0]
+      "ready\n"
+    OUT
+  end
 end

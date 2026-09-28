@@ -2215,6 +2215,9 @@ machine def zr_str_shift_front(s, n)
   if k > len
     k = len
   end
+  if k < 0
+    k = 0
+  end
   out = zr_str_copy_encoding(zr_str_new(RString.ptr(s), k), s)
   RBasic.set_flags(s, RBasic.flags(s) & FL_SNAPSHOT_CLEAR)
   zr_memmove(RString.ptr(s), RString.ptr(s) + k, len - k)

@@ -106,7 +106,9 @@ class IO
     return to_enum(:foreach, path, *args, **options) unless block
 
     line = options.key?(:chomp) ? { chomp: options.delete(:chomp) } : {}
-    File.open(File.send(:path_of, path), "r", **options) { |file| file.each_line(*args, **line, &block) }
+    File.open(File.send(:path_of, path), "r", **options) do |file|
+      file.send(:each_line_for, :foreach, args, line.fetch(:chomp, false), &block)
+    end
     nil
   end
 
@@ -286,7 +288,7 @@ class IO
 
     timeout = time_interval(timeout)
     rows = [readers, writers, priority].zip([POLL_IN, POLL_OUT, POLL_PRI]).flat_map do |list, event|
-      Array(list).map { |io| [io, select_stream(io), event] }
+      select_list(list).map { |io| [io, select_stream(io), event] }
     end
     now = Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond)
     # A reader whose buffer contains bytes is ready without a wait.
@@ -305,6 +307,16 @@ class IO
   # What a `select` list entry represents: a stream, or the value that
   # its `to_io` returns. An object with no `to_io` is not a stream, and
   # ruby gives its name in the error.
+  # Each list is an Array or nil, as rb_f_select's Check_Type wants: a
+  # bare IO is an error, not a list of its own lines.
+  def self.select_list(list)
+    Primitive.attr! :hidden
+    return [] if list.nil?
+    raise TypeError, "wrong argument type #{conversion_name(list)} (expected Array)" unless list.is_a?(Array)
+
+    list
+  end
+
   def self.select_stream(entry)
     Primitive.attr! :hidden
     return entry if entry.is_a?(IO)
@@ -1255,6 +1267,10 @@ class IO
   def gets(*args, chomp: false)
     check_readable
     separator, limit = getline_args(args)
+    # A zero limit reads nothing and counts no line, as rb_io_getline_0
+    # returns before it touches the stream.
+    return $_ = fresh_buffer if limit == 0
+
     line = transcoded(read_line(separator, limit))
     $_ = nil
     return nil if line.nil?
@@ -1272,23 +1288,34 @@ class IO
 
   # Each line as `gets` reads it, counted in `$.`; `$_` is `gets`'s
   # alone, as rb_io_each_line leaves it.
-  def each_line(*args, chomp: false)
-    return to_enum(:each_line, *args, chomp: chomp) unless block_given?
+  def each_line(*args, chomp: (bare = true; false), &block)
+    return to_enum(__callee__, *args, **(bare ? {} : { chomp: chomp })) unless block
 
+    each_line_for(:each_line, args, chomp, &block)
+  end
+
+  alias each each_line
+
+  def readlines(*args, chomp: false)
+    lines = []
+    each_line_for(:readlines, args, chomp) { |line| lines << line }
+    lines
+  end
+
+  # Each line as `gets` reads it, for the method `name`, which a zero
+  # limit's error names.
+  def each_line_for(name, args, chomp)
+    Primitive.attr! :hidden
     check_readable
     separator, limit = getline_args(args)
+    raise ArgumentError, "invalid limit: 0 for #{name}" if limit == 0
+
     while (line = transcoded(read_line(separator, limit)))
       @lineno += 1
       $. = @lineno
       yield chomp ? chomp_line(line, separator) : line
     end
     self
-  end
-
-  alias each each_line
-
-  def readlines(*args, chomp: false)
-    each_line(*args, chomp: chomp).to_a
   end
 
   def each_char
@@ -1782,7 +1809,9 @@ class IO
       separator, limit = args
       separator = Primitive.zr_str_operand(separator) unless separator.nil?
     end
-    [separator, limit.nil? ? nil : implicit_integer(limit)]
+    # A negative limit is no limit.
+    limit = implicit_integer(limit) unless limit.nil?
+    [separator, limit&.negative? ? nil : limit]
   end
 
   def read_line(separator, limit)
