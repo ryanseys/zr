@@ -1293,6 +1293,9 @@ module Zr
         d zr_objspace_objects Value mod:Value
         d zr_objspace_census Value
         d zr_objspace_id2ref Value id:Value
+        d zr_objspace_word_value Value high:Value low:Value
+        d zr_objspace_next_id Value
+        d zr_objspace_symbol_word_p Value high:Value low:Value
         d zr_objspace_reachable Value v:Value
         d zr_objspace_roots Value
         d zr_objspace_take Void s:Ptr from:Word into:Value out:Value
@@ -3633,6 +3636,9 @@ module Zr
         e zr_objspace_objects 126
         e zr_objspace_census 126
         e zr_objspace_id2ref 0
+        e zr_objspace_word_value 0
+        e zr_objspace_next_id 0
+        e zr_objspace_symbol_word_p 0
         e zr_objspace_reachable 126
         e zr_objspace_roots 127
         e zr_objspace_take 120

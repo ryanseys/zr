@@ -125,11 +125,23 @@ class Ripper
     # and event; then the parser events.
     def parse
       lexed = Prism.lex_compat(@cursor.source, filepath: @cursor.filename, line: @cursor.first_lineno, version: "current").value
+      before = nil
       lexed.each do |(line, col), event, text, lex_state|
+        # parse.y leaves the state after a heredoc's body as it was, where
+        # prism's lexer moves it on.
+        lex_state = before if event == :on_heredoc_end && before
+        before = lex_state
         @cursor.at(line, col, lex_state.to_i, text)
         @tokens[[line, event]] << [col, @ripper.__send__(event, text)]
       end
       super
+    end
+
+    # The whole program: a jump with nowhere to go (`yield` outside a
+    # method, a bare `break`) is an error, as parse.y reports it, where
+    # prism's own translation reads the source as part of a script.
+    def result
+      @result ||= Prism.parse(source, version: "current")
     end
 
     # A superclass takes the terminator after it, as parse.y's

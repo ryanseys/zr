@@ -275,4 +275,32 @@ describe "Ripper programs" do
       SyntaxError
     OUT
   end
+
+  it "a jump with nowhere to go is a parse error, and a heredoc's end keeps its state" do
+    result = zr(<<~'RUBY')
+      # A jump with nowhere to go is a parse error, so sexp is nil, and the
+      # state after a heredoc's end is the state its body had.
+      require "ripper"
+      class Errors < Ripper::SexpBuilder
+        def on_parse_error(message) = (print "#{message}; "; super)
+      end
+      ["yield 1", "break", "next", "redo", "-> { yield }", "module M; yield; end", "def f = yield", "[].each { break }"].each do |source|
+        Errors.new(source).parse
+        puts Ripper.sexp(source).nil?
+      end
+      p Ripper.lex("<<~X\n  q\nX\nx").map { |(_, event, _, state)| [event, state.to_s] }
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      Invalid yield; true
+      Invalid break; true
+      Invalid next; true
+      Invalid redo; true
+      Invalid yield; true
+      Invalid yield; true
+      false
+      false
+      [[:on_heredoc_beg, "BEG"], [:on_nl, "BEG"], [:on_ignored_sp, "BEG"], [:on_tstring_content, "BEG"], [:on_heredoc_end, "BEG"], [:on_ident, "CMDARG"]]
+    OUT
+  end
 end

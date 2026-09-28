@@ -112,6 +112,27 @@ machine def zr_objspace_id2ref(id)
   Machine.value(QNIL)
 end
 
+# The special constant whose word an id is, given as its high and low
+# 32 bits. Only `_id2ref` calls this, for a word that it checked is an
+# immediate's.
+sig [Value, Value] => Value
+machine def zr_objspace_word_value(high, low)
+  Machine.value((Machine.word(zr_fix2long(high)) << 32) | Machine.word(zr_fix2long(low)))
+end
+
+# The id that the next object to ask for one gets.
+sig [] => Value
+machine def zr_objspace_next_id
+  zr_fix(Machine.load64(Machine.static(:object_id_counter, 8), 0) + 8)
+end
+
+# Whether a Symbol's word names a symbol that exists.
+sig [Value, Value] => Value
+machine def zr_objspace_symbol_word_p(high, low)
+  w = (Machine.word(zr_fix2long(high)) << 32) | Machine.word(zr_fix2long(low))
+  zr_bool((w >> 8) < zr_static_symbol_count() + Symtab.len(zr_symtab()))
+end
+
 # The objects that `v` refers to, as the collector reads them: its class,
 # then its children in mark order, each one time. The mark puts them on
 # the mark stack, where this code reads them and clears their marks. No

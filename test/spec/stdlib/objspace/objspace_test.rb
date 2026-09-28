@@ -213,4 +213,25 @@ describe "ObjectSpace: the objspace library" do
       "true"
     OUT
   end
+
+  it "dump writes special constants as ruby does and ends each object with a newline" do
+    result = zr(<<~'RUBY')
+      require "objspace"
+      # A special constant is its JSON value, a static Symbol its name, and a
+      # flonum "%#g"; any other object is a line of its own.
+      p ObjectSpace.dump(nil), ObjectSpace.dump(7), ObjectSpace.dump(:sym), ObjectSpace.dump(1.5)
+      p ObjectSpace.dump("x").end_with?("}\n"), ObjectSpace.dump(1e300)[/"frozen":true, "value":"[^"]*"/]
+      p ObjectSpace.dump(Object.new)[/"address":"(0x\h+)"/, 1].match?(/\A0x[1-9a-f]/)
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "null"
+      "7"
+      "{\"type\":\"SYMBOL\", \"value\":\"sym\"}"
+      "1.50000"
+      true
+      "\"frozen\":true, \"value\":\"1.00000e+300\""
+      true
+    OUT
+  end
 end

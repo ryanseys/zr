@@ -254,6 +254,13 @@ class Ractor
 
   def self.count = RACTORS.count { |ractor| ractor.__send__(:live?) } + 1
 
+  # rb_multi_ractor_p: once a second ractor has been made, the process
+  # stays multi-ractor.
+  def self.multi?
+    Primitive.attr! :hidden
+    !RACTORS.empty?
+  end
+
   def self.main? = current.equal?(main)
 
   # A message from this ractor's own port.

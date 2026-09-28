@@ -173,4 +173,44 @@ describe "ObjectSpace programs" do
       [:each_value, "no block given"]
     OUT
   end
+
+  it "_id2ref raises RangeError for ids that name no object and for unshareable objects once a Ractor has run" do
+    result = zr(<<~'RUBY')
+      def found(id) = ObjectSpace._id2ref(id) rescue $!
+
+      x = Object.new
+      id = x.object_id
+      p found(id).equal?(x), found(4), found(12345678), found(1.object_id)
+      p found(id + 800000), found(2**64), found(-(2**63) - 1), found(1 << 40), found(2**64 - 1)
+      p found(1.5.object_id), found(0), found(8), found(2), found(99999999999998)
+      Ractor.new {}.value
+      p found(id).class, found(nil.object_id), found(1.object_id), found(:a.object_id)
+      p found("x".freeze.object_id), found(Object.object_id)
+    RUBY
+
+    _(result).must_answer <<~'OUT', stderr: <<~'ERR'
+      true
+      nil
+      -2.0000000006853225
+      1
+      #<RangeError: 800016 is not an id value>
+      #<RangeError: 18446744073709551616 is not an id value>
+      #<RangeError: bignum out of range of unsigned long>
+      #<RangeError: 1099511627776 is not an id value>
+      -1
+      1.5
+      false
+      NilClass
+      2.0
+      -2.0055511151231253
+      RangeError
+      nil
+      1
+      :a
+      "x"
+      Object
+    OUT
+      core/objectspace/objectspace_test.rb:8: warning: Ractor API is experimental and may change in future versions of Ruby.
+    ERR
+  end
 end

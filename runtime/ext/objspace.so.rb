@@ -141,7 +141,7 @@ module ObjectSpace
     lines = Primitive.zr_objspace_objects(nil).filter_map do |obj|
       next unless since.nil? || (allocation_generation(obj) || -1) >= since
 
-      "#{dumped(obj)}\n"
+      dumped(obj)
     end
     written(out, lines.join)
   end
@@ -156,23 +156,32 @@ module ObjectSpace
       HEAP_TYPES.find { |klass, _| obj.is_a?(klass) }&.last || "OBJECT"
     end
 
-    # One object as dump writes it: a special constant as its JSON value,
-    # anything else as an object with its address, type and class.
+    # One object as dump writes it (dump_append_special_const): a special
+    # constant as its JSON value, a static Symbol as its name, a flonum in
+    # "%#g", and anything else as an object with its address, type and
+    # class, on a line of its own.
     def dumped(obj)
       return "null" if obj.nil?
-      return obj.to_s if obj == true || obj == false || (obj.is_a?(Integer) && Primitive.zr_special_p_m(obj))
+      return obj.to_s if obj == true || obj == false
+      if Primitive.zr_special_p_m(obj)
+        return obj.to_s if obj.is_a?(Integer)
+        return format("%#g", obj) if obj.is_a?(Float)
+        return "{\"type\":\"SYMBOL\", \"value\":#{json(obj)}}" if obj.is_a?(Symbol)
+      end
 
-      dumped_cell(obj)
+      "#{dumped_cell(obj)}\n"
     end
 
     def dumped_cell(obj)
-      fields = { address: address(obj), type: heap_type(obj) }
-      fields[:class] = address(Primitive.zr_real_class(obj)) unless obj.is_a?(Symbol) || obj.is_a?(Float)
+      fields = { address: address(obj), type: heap_type(obj), class: address(Primitive.zr_real_class(obj)) }
+      fields[:frozen] = true if obj.frozen?
       case obj
       when String
         fields.update(bytesize: obj.bytesize, value: obj, encoding: obj.encoding.name)
-      when Symbol, Float
-        fields[:value] = obj
+      when Symbol
+        fields.update(bytesize: obj.name.bytesize, value: obj)
+      when Float
+        fields[:value] = format("%#g", obj)
       when Array, Hash
         fields[:length] = obj.size
       when Module
@@ -182,12 +191,12 @@ module ObjectSpace
       "{#{fields.map { |key, value| "#{key.to_s.dump}:#{json(value)}" }.join(', ')}}"
     end
 
-    def address(obj) = Primitive.zr_any_to_s(obj)[/0x\h+/]
+    # "%p": the address in hex, without the zeros in front.
+    def address(obj) = format("0x%x", Primitive.zr_any_to_s(obj)[/0x(\h+)/, 1].hex)
 
     def json(value)
       case value
-      when Integer then value.to_s
-      when Float then value.to_s
+      when Integer, true, false then value.to_s
       else value.to_s.encode("UTF-8", invalid: :replace, undef: :replace).dump
       end
     end
