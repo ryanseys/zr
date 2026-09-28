@@ -436,11 +436,12 @@ class Array
   end
 
   # `Array[1, 2]` is the constructor spelling of `[1, 2]`. A subclass
-  # makes its own instance, which `Array[...].class` shows.
+  # makes its own instance, which `Array[...].class` shows, with neither
+  # its `initialize` nor its `replace` called (rb_ary_s_create).
   def self.[](*args)
-    return args if self == Array
+    return args if equal?(Array)
 
-    new.replace(args)
+    Primitive.zr_ary_splice(Primitive.zr_class_allocate(self), 0, 0, args)
   end
 
   def self.try_convert(object)
@@ -980,21 +981,48 @@ class Array
     block_given? ? nil : out
   end
 
+  # rb_ary_product: the combinations in order, the last array turning
+  # fastest. Without a block the result's length comes first, and a
+  # length past a long is a RangeError. With a block, each combination
+  # goes to it as it is made, however many there are.
   def product(*others)
-    others = others.map do |other|
-      Array.try_convert(other) or raise TypeError, "no implicit conversion of #{conversion_name(other)} into Array"
+    arrays = [Array.new(self)]
+    i = 0
+    while i < others.size
+      other = others[i]
+      arrays << (Array.try_convert(other) or raise TypeError, "no implicit conversion of #{conversion_name(other)} into Array")
+      i += 1
     end
-    mine = Array.new(self)
-    combos = if others.empty?
-               mine.map { |x| [x] }
-             else
-               rest = others[0].product(*others[1..])
-               mine.flat_map { |x| rest.map { |r| [x] + r } }
-             end
-    return combos unless block_given?
+    total = 1
+    i = 0
+    while i < arrays.size
+      return block_given? ? self : [] if arrays[i].empty?
 
-    combos.each { |c| yield c }
-    self
+      total *= arrays[i].size
+      raise RangeError, +"too big to product" if total > 0x7fff_ffff_ffff_ffff && !block_given?
+
+      i += 1
+    end
+    result = [] unless block_given?
+    counters = Array.new(arrays.size, 0)
+    while true
+      combo = Array.new(arrays.size)
+      i = 0
+      while i < arrays.size
+        combo[i] = arrays[i][counters[i]]
+        i += 1
+      end
+      block_given? ? yield(combo) : result << combo
+      i = arrays.size - 1
+      while i >= 0
+        counters[i] += 1
+        break if counters[i] < arrays[i].size
+
+        counters[i] = 0
+        i -= 1
+      end
+      return block_given? ? self : result if i < 0
+    end
   end
 
   def transpose
