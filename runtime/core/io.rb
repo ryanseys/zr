@@ -773,9 +773,11 @@ class IO
 
   # A stream opened from a descriptor has no path behind it, so its
   # rows come from fstat(2).
+  # rb_io_stat: fstat(2) on the descriptor, never the path, which can
+  # name another file by now, or none (`<STDIN>`).
   def stat
     check_open
-    path ? File::Stat.new(path) : File::Stat.for_fd(@fd)
+    File::Stat.for_fd(@fd)
   end
 
   # fcntl(2) on the stream's own descriptor: F_GETFD reads the

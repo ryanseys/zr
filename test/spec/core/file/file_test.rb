@@ -160,4 +160,32 @@ describe "File programs" do
       true
     OUT
   end
+
+  it "a File test asks an IO or a to_io object with fstat, and IO#stat never stats the path" do
+    result = zr(<<~'RUBY')
+      # A File test asks an IO, or an object whose to_io gives one, with
+      # fstat(2) on its descriptor, and IO#stat never stats a path.
+      wrapper = Object.new
+      wrapper.singleton_class.define_method(:to_io) { $stdin }
+      p [File.size?(wrapper).class, File.directory?(wrapper), File.exist?(wrapper)]
+      File.write("gone.txt", "abc")
+      f = File.open("gone.txt")
+      File.delete("gone.txt")
+      p [File.size(f), File.file?(f), f.stat.size, f.stat.nlink]
+      f.close
+      bad = Object.new
+      def bad.to_io = 5
+      begin
+        File.size(bad)
+      rescue TypeError => e
+        p e.message
+      end
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [NilClass, false, true]
+      [3, true, 3, 0]
+      "can't convert Object to IO (Object#to_io gives Integer)"
+    OUT
+  end
 end

@@ -153,10 +153,28 @@ class File < IO
   # What a path names, as rb_stat reads it: 0 nothing, 1 a directory,
   # 2 a file, and more for the other kinds.
   def self.kind_of_path(path)
+    if (io = stat_io(path))
+      stat = io.stat
+      return stat.directory? ? 1 : stat.file? ? 2 : 3
+    end
+
     path = path_of(path)
     without_gvl { Primitive.zr_path_kind(path) }
   end
-  private_class_method :without_gvl, :kind_of_path
+
+  # rb_stat: an IO, or an object whose `to_io` gives one, is asked with
+  # fstat(2) on its descriptor, not by a path. Else nil.
+  def self.stat_io(file)
+    return file if IO === file
+    return nil if String === file
+
+    io = Primitive.zr_check_call(file, :to_io)
+    return nil if io.nil?
+    raise TypeError, "can't convert #{conversion_name(file)} to IO (#{conversion_name(file)}#to_io gives #{conversion_name(io)})" unless IO === io
+
+    io
+  end
+  private_class_method :without_gvl, :kind_of_path, :stat_io
 
   MODES = %w[r r+ w w+ a a+].freeze
   private_constant :MODES
@@ -217,6 +235,8 @@ class File < IO
   private :fifo_fd
 
   def self.size(path)
+    return stat_io(path).stat.size if stat_io(path)
+
     path = path_of(path)
     result = without_gvl { Primitive.zr_io_file_size(path) }
     raise SystemCallError.new(path, -result, +"rb_file_s_size") if result < 0
@@ -225,12 +245,19 @@ class File < IO
   end
 
   def self.size?(path)
+    if (io = stat_io(path))
+      size = io.stat.size
+      return size.zero? ? nil : size
+    end
+
     path = path_of(path)
     result = without_gvl { Primitive.zr_io_file_size(path) }
     result <= 0 ? nil : result
   end
 
   def self.zero?(path)
+    return stat_io(path).stat.size.zero? if stat_io(path)
+
     path = path_of(path)
     without_gvl { Primitive.zr_io_file_size(path) }.zero?
   end
