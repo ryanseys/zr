@@ -422,3 +422,12 @@ machine def zr_alloc_trace_info(v)
   zr_ary_push(out, zr_fix(AllocRow.generation(row)))
   out
 end
+
+# Keeps a helper class of the core library out of ObjectSpace and out of
+# Class#subclasses, as a class that the eval support makes is kept: ruby
+# writes these helpers in C.
+sig [Value] => Value
+machine def zr_class_conceal_m(klass)
+  RBasic.set_flags(klass, RBasic.flags(klass) | FL_CONCEALED)
+  klass
+end

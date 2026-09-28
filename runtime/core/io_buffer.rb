@@ -20,6 +20,8 @@ class IO
     PRIVATE = 64
     READONLY = 128
     FILE = 256
+    # io_buffer.c keeps these two flags to itself.
+    private_constant :SLICE, :FILE
 
     LITTLE_ENDIAN = 4
     BIG_ENDIAN = 8
@@ -205,8 +207,6 @@ class IO
 
       @bytes.byteslice(@start + offset, length).force_encoding(encoding)
     end
-
-    alias to_str get_string
 
     def set_string(string, offset = 0, length = nil, source_offset = 0)
       string = Primitive.zr_str_operand(string)

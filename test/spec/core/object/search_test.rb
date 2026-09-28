@@ -268,4 +268,52 @@ describe "Object: searching and matching" do
       true
     OUT
   end
+
+  it "helpers that ruby keeps in C stay out of reflection" do
+    result = zr(<<~'RUBY')
+      # Helpers that ruby keeps in C are out of reflection's sight: Errno's
+      # lookups, Ruby::Box's privates, the initialize of three C classes,
+      # IO::Buffer's own flags, and a second File::Constants in File.
+      require "monitor"
+      p Errno.singleton_methods.sort, Ruby::Box.private_instance_methods(false).sort
+      p Enumerator::Producer.private_instance_methods(false), Thread::Backtrace::Location.private_instance_methods(false)
+      p Monitor.private_instance_methods(false), IO::Buffer.constants.include?(:SLICE), IO::Buffer.method_defined?(:to_str)
+      p File.ancestors.take(4), File::NONBLOCK == IO::NONBLOCK
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      []
+      [:initialize]
+      []
+      []
+      []
+      false
+      false
+      [File, IO, File::Constants, Enumerable]
+      true
+    OUT
+  end
+
+  it "the runtime's helper classes are not in ObjectSpace, and an AST node shows only ruby's members" do
+    result = zr(<<~'RUBY')
+      # The runtime's helper classes, which ruby writes in C, are not modules
+      # that ObjectSpace or Class#subclasses shows.
+      names = ObjectSpace.each_object(Module).filter_map(&:name)
+      p names.grep(/\A(Regexp::Onig|Regexp::Pattern|Dir::Glob|File::FnMatch|Marshal::Reader|Marshal::Writer|Packing|Kernel::Formatter)/)
+      p Object.subclasses.map(&:name).grep(/Marshal|Glob|FnMatch|Redirects/)
+      n = RubyVM::AbstractSyntaxTree.parse("1 + 2")
+      p n.instance_variables, RubyVM::AbstractSyntaxTree::Node.constants, RubyVM::AbstractSyntaxTree::Node.singleton_methods
+      p RubyVM::AbstractSyntaxTree::Node.private_instance_methods(false), (RubyVM::AbstractSyntaxTree::Node.new rescue $!)
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      []
+      []
+      []
+      []
+      []
+      []
+      #<TypeError: allocator undefined for RubyVM::AbstractSyntaxTree::Node>
+    OUT
+  end
 end

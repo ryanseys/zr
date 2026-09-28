@@ -66,6 +66,7 @@ class RubyVM
         iseq
       end
       alias compile_prism compile
+      alias compile_parsey compile
       alias new compile
 
       def compile_file(file, options = nil)
@@ -93,6 +94,7 @@ class RubyVM
       # There is no bytecode to load: every binary is one this runtime
       # cannot read.
       def load_from_binary(binary) = raise(RuntimeError, +"broken binary format")
+      def load_from_binary_extra_data(binary) = raise(RuntimeError, +"broken binary format")
 
       private
 

@@ -16,14 +16,14 @@ module Comparable
     end
   end
 
-  def <(other) = compare_to(other) < 0
-  def <=(other) = compare_to(other) <= 0
-  def >(other) = compare_to(other) > 0
-  def >=(other) = compare_to(other) >= 0
+  def <(other) = Comparable.cmp(self, other) < 0
+  def <=(other) = Comparable.cmp(self, other) <= 0
+  def >(other) = Comparable.cmp(self, other) > 0
+  def >=(other) = Comparable.cmp(self, other) >= 0
 
   # cmp_between: `<=>` against each bound, never the receiver's own
   # operators.
-  def between?(low, high) = compare_to(low) >= 0 && compare_to(high) <= 0
+  def between?(low, high) = Comparable.cmp(self, low) >= 0 && Comparable.cmp(self, high) <= 0
 
   # One argument must be a Range, as cmp_clamp reads it; two are the
   # bounds, either of them nil.
@@ -48,21 +48,21 @@ module Comparable
       Primitive.zr_cmperr(low, high) if c.nil?
       raise ArgumentError, +"min argument must be less than or equal to max argument" if c > 0
     end
-    return low if !low.nil? && compare_to(low) < 0
-    return high if !high.nil? && compare_to(high) > 0
+    return low if !low.nil? && Comparable.cmp(self, low) < 0
+    return high if !high.nil? && Comparable.cmp(self, high) > 0
 
     self
   end
 
-  private
-
-  def compare_to(other)
+  # cmpint over `<=>`. It takes both sides, not self, so that a method
+  # of Comparable bound to any object reports the comparison that failed.
+  def self.cmp(left, right)
     Primitive.attr! :hidden
-    plain = Primitive.zr_cmp_plain(self, other)
+    plain = Primitive.zr_cmp_plain(left, right)
     return plain if plain
 
-    c = self <=> other
-    Primitive.zr_cmperr(self, other) if c.nil?
+    c = left <=> right
+    Primitive.zr_cmperr(left, right) if c.nil?
 
     c
   end

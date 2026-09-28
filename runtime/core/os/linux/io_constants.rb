@@ -8,7 +8,7 @@ class IO
   SEEK_DATA = 3
   SEEK_HOLE = 4
 
-  NONBLOCK = 2048
+  O_NONBLOCK = 2048
   ACCESS = { read: 0, write: 1, both: 2, mask: 3 }.freeze
-  private_constant :NONBLOCK, :ACCESS
+  private_constant :O_NONBLOCK, :ACCESS
 end

@@ -38,10 +38,12 @@ module Zr
 
       class << self
         def new(*)
+          Primitive.attr! :hidden
           raise TypeError, "allocator undefined for RubyVM::AbstractSyntaxTree::Location"
         end
 
         def build(first_lineno, first_column, last_lineno, last_column)
+          Primitive.attr! :hidden
           location = allocate
           location.send(:setup, first_lineno, first_column, last_lineno, last_column)
           location
@@ -55,6 +57,7 @@ module Zr
       private
 
       def setup(first_lineno, first_column, last_lineno, last_column)
+        Primitive.attr! :hidden
         @first_lineno = first_lineno
         @first_column = first_column
         @last_lineno = last_lineno
@@ -84,15 +87,18 @@ module Zr
         SCLASS: 3, SPLAT: 1, SUPER: 3, UNDEF: 1, UNLESS: 3, VALIAS: 1, WHEN: 2,
         WHILE: 2, UNTIL: 2, YIELD: 3
       }.freeze
+      private_constant :EXTRA_LOCATIONS
 
       class << self
         def new(*)
+          Primitive.attr! :hidden
           raise TypeError, "allocator undefined for RubyVM::AbstractSyntaxTree::Node"
         end
 
         # Makes a node; `spans` contains the node's own span and then its keyword
         # spans, each [first_lineno, first_column, last_lineno, last_column] or nil.
         def build(type, spans, children, node_id, tree)
+          Primitive.attr! :hidden
           node = allocate
           node.send(:setup, type, spans, children, node_id, tree)
           node
@@ -151,6 +157,7 @@ module Zr
       private
 
       def setup(type, spans, children, node_id, tree)
+        Primitive.attr! :hidden
         @type = type
         @spans = spans
         @first_lineno, @first_column, @last_lineno, @last_column = spans.first

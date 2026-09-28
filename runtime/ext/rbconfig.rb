@@ -12,6 +12,10 @@
 # read: version, platform, and the install layout.
 #
 module RbConfig
+  # rbconfig.rb is Ruby in CRuby as well, so its methods show their
+  # parameters and frames as Ruby methods do.
+  Primitive.attr! :ruby
+
   ruby_version = "4.0.0"
 
   # The platform facts are the running program's own. `RUBY_PLATFORM` is
@@ -50,7 +54,11 @@ module RbConfig
   zr_bindir = ENV["ZR_BINDIR"] || "#{prefix}/bin"
   zr_ruby_name = ENV["ZR_RUBY_INSTALL_NAME"] || "zr"
 
+  # The staging root of `make install`, empty for an installed ruby.
+  DESTDIR = ""
+
   CONFIG = {
+    "DESTDIR" => DESTDIR,
     "MAJOR" => "4",
     "MINOR" => "0",
     "TEENY" => "7",
@@ -185,6 +193,26 @@ module RbConfig
   # `RbConfig.ruby` -- the full path to the running interpreter.
   def self.ruby
     File.join(CONFIG["bindir"], CONFIG["ruby_install_name"] + CONFIG["EXEEXT"])
+  end
+
+  # `RbConfig.fire_update!` -- upstream's, transcribed: sets `key` in
+  # MAKEFILE_CONFIG, then expands again each entry of CONFIG that refers
+  # to it, directly or through another entry. It returns those keys.
+  def self.fire_update!(key, val, mkconf = MAKEFILE_CONFIG, conf = CONFIG)
+    return if mkconf[key] == val
+
+    mkconf[key] = val
+    keys = [key]
+    deps = []
+    begin
+      re = Regexp.new("\\$\\((?:%1$s)\\)|\\$\\{(?:%1$s)\\}" % keys.join("|"))
+      deps |= keys
+      keys.clear
+      mkconf.each { |k, v| keys << k if re =~ v }
+    end until keys.empty?
+    deps.each { |k| conf[k] = mkconf[k].dup }
+    deps.each { |k| expand(conf[k]) }
+    deps
   end
 
   # `RbConfig.expand` -- upstream's implementation, transcribed.

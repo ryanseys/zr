@@ -69,6 +69,8 @@ module Ruby
 
     private
 
+    Primitive.attr! :hidden
+
     # The class that this box sees in place of a shared one: its own, with
     # the shared class under it, so the box reads what it does not patch
     # from there. A shared MODULE's replacement goes into every shadow

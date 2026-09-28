@@ -229,3 +229,16 @@ module ObjectSpace
     false
   end
 end
+
+# The core library's own helper classes, and every class under them,
+# where ruby has C. No program sees them through ObjectSpace.
+conceal = lambda do |mod|
+  Primitive.zr_class_conceal_m(mod)
+  mod.constants(false).each do |name|
+    inner = mod.const_get(name, false)
+    conceal.(inner) if inner.is_a?(Module) && inner.name&.start_with?("#{mod.name}::")
+  end
+end
+[[Dir, :Glob], [File, :FnMatch], [Enumerator::Lazy, :Step], [Fiber, :Blocked], [Kernel, :Formatter],
+ [Marshal, :Reader], [Marshal, :Writer], [Object, :Packing], [Process, :Redirects], [Regexp, :Onig],
+ [Regexp, :Pattern]].each { |scope, name| conceal.(scope.const_get(name, false)) }

@@ -5,6 +5,7 @@
 # the outermost exit. MonitorMixin layers the same over any object.
 class Monitor
   def initialize
+    Primitive.attr! :hidden
     @mutex = Thread::Mutex.new
     @owner = nil
     @count = 0

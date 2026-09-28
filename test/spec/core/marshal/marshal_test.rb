@@ -948,4 +948,32 @@ describe "Marshal programs" do
       ["S", "Absent", ArgumentError, "undefined class/module Absent"]
     OUT
   end
+
+  it "Marshal.load puts what the proc returns in place of each value" do
+    result = zr(<<~'RUBY')
+      # Marshal.load with a proc: what the proc returns takes the place of each
+      # value, links too, and a symbol named again is not passed to it.
+      seen = []
+      tag = ->(v) { seen << v; v.is_a?(Integer) ? v * 10 : (v.is_a?(String) ? v.upcase : v) }
+      s = "x"
+      p Marshal.load(Marshal.dump([:a, :a, s, s, 1, [2], { k: 3 }, 1.5, nil, true, 2**70]), tag), seen
+      seen.clear
+      S = Struct.new(:a)
+      p Marshal.load(Marshal.dump([S.new(4), "é".encode("UTF-16LE"), /r/i, 1..2, Object]), tag).map(&:inspect), seen.map(&:class)
+      p Marshal.load(Marshal.dump("s"), proc { |v| v.is_a?(String) ? v.upcase : v })
+      p Marshal.load(Marshal.dump([1, 2]), ->(v) { v.is_a?(Array) ? :gone : v })
+      p Marshal.load(Marshal.dump("abc"), ->(v) { nil }), Marshal.load(Marshal.dump("abc"), ->(v) { v.frozen? }, freeze: true)
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [:a, :a, "X", "X", 10, [20], {k: 30}, 1.5, nil, true, 11805916207174113034240]
+      [:a, true, "x", "x", 1, 2, [20], :k, 3, {k: 30}, 1.5, nil, true, 1180591620717411303424, [:a, :a, "X", "X", 10, [20], {k: 30}, 1.5, nil, true, 11805916207174113034240]]
+      ["#<struct S a=40>", "\"\\u00C9\"", "/r/i", "10..20", "Object"]
+      [Integer, S, String, String, FalseClass, Regexp, FalseClass, Integer, Integer, Range, Class, Array]
+      "S"
+      :gone
+      nil
+      true
+    OUT
+  end
 end

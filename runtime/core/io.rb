@@ -1744,7 +1744,7 @@ class IO
   def nonblock_flag?
     Primitive.attr! :hidden
     flags = Primitive.zr_io_flags(@fd)
-    flags >= 0 && (flags & NONBLOCK) != 0
+    flags >= 0 && (flags & O_NONBLOCK) != 0
   end
 
   # The bytes out, in pieces a ready descriptor takes without waiting:
@@ -2476,9 +2476,13 @@ module Errno
   end
   ALIASES.each { |name, to| const_set(name, const_get(to)) }
 
-  def self.for(code) = CODES.key(code)&.then { |name| const_get(name) }
+  def self.for(code)
+    Primitive.attr! :hidden
+    CODES.key(code)&.then { |name| const_get(name) }
+  end
 
   def self.text(code)
+    Primitive.attr! :hidden
     message = Primitive.zr_io_strerror(code)
     message.start_with?("Unknown error") ? "Unknown error: #{code}" : message
   end

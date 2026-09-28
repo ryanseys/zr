@@ -70,6 +70,10 @@ class Ractor
       freeze
     end
 
+    # A port is frozen from its allocation, so ractor.c's copy never
+    # starts: init_copy refuses the frozen copy first.
+    def initialize_copy(_orig) = raise(TypeError, "[bug] frozen object (#{self.class}) allocated")
+
     # A message for the owner, copied over the boundary, or handed over
     # when the sender gives the graph up.
     def send(obj, move: false)

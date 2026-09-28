@@ -484,6 +484,7 @@ class Thread
       # `node_id` is the id of the prism node the row's line ran, which
       # RubyVM::AbstractSyntaxTree.node_id_for_backtrace_location reads.
       def initialize(row, node_id = 0)
+        Primitive.attr! :hidden
         Primitive.zr_hidden_set(self, :__node_id__, node_id)
         at = row.index(":in '")
         head = row[0, at]

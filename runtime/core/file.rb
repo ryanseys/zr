@@ -3,8 +3,6 @@
 # File and Dir: the path functions, which are pure, and the file
 # system calls of a program.
 class File < IO
-  include Constants
-
   Separator = "/"
   SEPARATOR = Separator
   ALT_SEPARATOR = nil

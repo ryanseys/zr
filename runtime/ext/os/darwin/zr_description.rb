@@ -1314,6 +1314,7 @@ module Zr
         d zr_alloc_trace_set Value on:Value
         d zr_alloc_trace_clear Value
         d zr_alloc_trace_info Value v:Value
+        d zr_class_conceal_m Value klass:Value
         d zr_onig_cache_skip Ptr m:Ptr op:Word p:Ptr pend:Ptr
         d zr_onig_count_cache_opcodes Word m:Ptr current_repeat_mem:Word lookaround_nesting:Word pp:Ptr np:Ptr
         d zr_onig_count_num_cache_opcodes Word m:Ptr np:Ptr
@@ -3600,6 +3601,7 @@ module Zr
         e zr_alloc_trace_set 16
         e zr_alloc_trace_clear 56
         e zr_alloc_trace_info 126
+        e zr_class_conceal_m 8
         e zr_onig_cache_skip 0
         e zr_onig_count_cache_opcodes 120
         e zr_onig_count_num_cache_opcodes 120

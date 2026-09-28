@@ -73,6 +73,7 @@ class Enumerator
   # each block return value, until the block raises StopIteration.
   class Producer
     def initialize(initial, has_initial, block)
+      Primitive.attr! :hidden
       Primitive.zr_hidden_set(self, :__initial__, initial)
       Primitive.zr_hidden_set(self, :__has_initial__, has_initial)
       Primitive.zr_hidden_set(self, :__block__, block)

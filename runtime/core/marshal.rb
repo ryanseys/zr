@@ -468,13 +468,20 @@ module Marshal
     # a tag that only wraps another one does neither, so a wrapped value
     # is reported once, after its ivars.
     def read
+      # r_symlink: a symbol named again is no new value, so neither the
+      # proc nor the freeze sees it.
+      need(1)
+      if @bytes.getbyte(@pos) == SYMLINK
+        @pos += 1
+        return @symbols.fetch(long)
+      end
       leave(read_value)
     end
 
     def leave(value)
       value.freeze if @freeze && !value.is_a?(Module)
-      @handler&.call(value)
-      value
+      # r_post_proc: what the proc returns takes the place of the value.
+      @handler ? @handler.call(value) : value
     end
 
     # The kinds a tree dump is mostly made of come first: an object, a

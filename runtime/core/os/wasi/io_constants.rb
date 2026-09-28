@@ -6,7 +6,7 @@ class IO
   SEEK_CUR = 1
   SEEK_END = 2
 
-  NONBLOCK = 4
+  O_NONBLOCK = 4
   ACCESS = { read: 67108864, write: 268435456, both: 335544320, mask: 335544320 }.freeze
-  private_constant :NONBLOCK, :ACCESS
+  private_constant :O_NONBLOCK, :ACCESS
 end
