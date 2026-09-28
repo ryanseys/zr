@@ -339,6 +339,7 @@ module Zr
         d zr_mod_private_constant Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_mod_public_constant Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_mod_deprecate_constant Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
+        d zr_namespace_check Value scope:Value
         d zr_const_get_at Value scope:Value id:Word
         d zr_class_name_under Value scope:Value id:Word
         d zr_class_name_str Value s:Value
@@ -2624,6 +2625,7 @@ module Zr
         e zr_mod_private_constant 127
         e zr_mod_public_constant 127
         e zr_mod_deprecate_constant 127
+        e zr_namespace_check 127
         e zr_const_get_at 127
         e zr_class_name_under 126
         e zr_class_name_str 8

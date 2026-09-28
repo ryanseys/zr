@@ -710,9 +710,11 @@ machine def zr_mod_deprecate_constant(recv, argc, argv, cref, blk)
   zr_mod_constant_visibility(recv, argc, argv, 0 - 1)
 end
 
-# Reads `scope::Name`.
-sig [Value, Word] => Value
-machine def zr_const_get_at(scope, id)
+# Raises TypeError unless `scope` is a class or a module, as the scope of
+# a constant path must be (`12::Name`, `class nil::Name`). Returns QUNDEF
+# after the raise, else nil.
+sig [Value] => Value
+machine def zr_namespace_check(scope)
   if zr_special_p(scope) || (zr_type(scope) != T_CLASS && zr_type(scope) != T_MODULE)
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
@@ -722,6 +724,14 @@ machine def zr_const_get_at(scope, id)
     zr_buf_push(b, Machine.bytes(" is not a class/module"), 22)
     return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
   end
+  Machine.value(QNIL)
+end
+
+# Reads `scope::Name`.
+sig [Value, Word] => Value
+machine def zr_const_get_at(scope, id)
+  checked = zr_namespace_check(scope)
+  return checked if checked == QUNDEF
   gone = Machine.slot(16)
   while true
     e = zr_const_row_read_in(scope, id, scope != zr_global(G_OBJECT))
@@ -805,6 +815,8 @@ end
 # when the program gave no superclass.
 sig [Value, Word, Value] => Value
 machine def zr_class_define(scope, id, sup)
+  checked = zr_namespace_check(scope)
+  return checked if checked == QUNDEF
   e = zr_const_row_opened(scope, id)
   if e == 0 && (scope == zr_global(G_OBJECT) || zr_box_current() != QNIL)
     e = zr_const_row_in(zr_global(G_OBJECT), id, false)
@@ -857,6 +869,8 @@ end
 
 sig [Value, Word] => Value
 machine def zr_module_define(scope, id)
+  checked = zr_namespace_check(scope)
+  return checked if checked == QUNDEF
   e = zr_const_row_opened(scope, id)
   if e == 0 && (scope == zr_global(G_OBJECT) || zr_box_current() != QNIL)
     e = zr_const_row_in(zr_global(G_OBJECT), id, false)

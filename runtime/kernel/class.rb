@@ -1189,7 +1189,8 @@ end
 # `initialize` and related methods.
 sig [Word, Value] => Word
 machine def zr_definition_vis(mid, cref)
-  if mid == Machine.id(:initialize) || mid == Machine.id(:initialize_copy) || mid == Machine.id(:respond_to_missing?)
+  if mid == Machine.id(:initialize) || mid == Machine.id(:initialize_copy) || mid == Machine.id(:initialize_clone) ||
+     mid == Machine.id(:initialize_dup) || mid == Machine.id(:respond_to_missing?)
     return VIS_PRIVATE
   end
   if cref == QNIL
@@ -1749,6 +1750,11 @@ machine def zr_set_method_visibility(klass, mid, vis, modfn)
   frozen = zr_class_modify_check(klass)
   return frozen if frozen == QUNDEF
   e = zr_find_method(klass, mid)
+  if e == 0 && !zr_special_p(klass) && zr_type(klass) == T_MODULE
+    # A module looks in Object too, as rb_export_method does:
+    # `module Kernel; public :m; end` for an m that Object defines.
+    e = zr_find_method(zr_global(G_OBJECT), mid)
+  end
   if e == 0
     # With the name and the receiver, which did_you_mean reads.
     return zr_undefined_method(klass, mid, VIS_PUBLIC)

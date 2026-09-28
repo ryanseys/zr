@@ -902,6 +902,27 @@ describe "Classes programs" do
     _(result).must_answer "TOP is not a class\nlang/classes/classes_test.rb:5: previous definition of TOP was here\n"
   end
 
+  it "a class or module under a scope that is not a module is a type error" do
+    result = zr(<<~'RUBY')
+      # The scope of `class A::B` or `module A::B` must be a class or a
+      # module, as for a constant read.
+      X = 12
+      [-> { class X::C; end }, -> { module X::M; end }, -> { class nil::Foo; end },
+       -> { class "s"::C < Object; end }].each do |f|
+        f.call
+      rescue TypeError => e
+        p e.message
+      end
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "12 is not a class/module"
+      "12 is not a class/module"
+      "nil is not a class/module"
+      "\"s\" is not a class/module"
+    OUT
+  end
+
   it "class new creates an anonymous runtime class" do
     result = zr(<<~'RUBY')
       # `Class.new(Super) { ... }` mints a runtime class. The block body
@@ -3903,4 +3924,22 @@ it "subclasses includes a clone of a subclass" do
     A
   OUT
 end
+
+  it "initialize_dup and initialize_clone are private in a class body inside a block" do
+    result = zr(<<~'RUBY')
+      # initialize_dup and initialize_clone are private wherever the class
+      # body is, as initialize and initialize_copy are.
+      [1].each do
+        class Copied
+          def initialize_dup(other) = super
+          def initialize_clone(other, freeze: nil) = super
+        end
+      end
+      p [Copied.private_method_defined?(:initialize_dup), Copied.private_method_defined?(:initialize_clone)]
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [true, true]
+    OUT
+  end
 end
