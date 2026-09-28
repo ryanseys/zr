@@ -12,12 +12,17 @@ $. = 0
 stream = Class.new do
   include Enumerable
 
-  def initialize(argv)
+  # argf_initialize: an ARGF.class of its own reads the files it is given.
+  def initialize(*argv) = start(argv)
+
+  # The program's ARGF starts on ARGV itself, so it sees a change to ARGV.
+  private def start(argv)
     @argv = argv
     @stream = nil
     @lineno = 0
     @closed = false
     @inplace_mode = nil
+    self
   end
 
   attr_reader :argv, :lineno
@@ -211,4 +216,4 @@ stream = Class.new do
 end
 
 stream.set_temporary_name("ARGF.class")
-ARGF = stream.new(ARGV)
+ARGF = stream.allocate.send(:start, ARGV)

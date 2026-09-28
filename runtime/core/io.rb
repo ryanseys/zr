@@ -321,6 +321,12 @@ class IO
   # a block, the stream closes and the child is waited for after the
   # block, and the block's value is the return value.
   def self.popen(*args, **options, &block)
+    # rb_io_s_popen: a Hash after the command is the options, also when
+    # it comes as a positional argument (`popen(cmd, *[{err: ...}])`).
+    if options.empty? && args.size > 1 && (last = Hash.try_convert(args.last))
+      args.pop
+      options = last
+    end
     env = args.first.is_a?(Hash) ? args.shift : nil
     command, mode = args
     raise ArgumentError, +"wrong number of arguments (given 0, expected 1+)" if args.empty?
@@ -1900,14 +1906,13 @@ module Kernel
     Primitive.zr_ary_len_m(objects) <= 1 ? Primitive.zr_ary_at_m(objects, 0) : objects
   end
 
-  def printf(format = nil, *args)
-    return nil if format.nil?
+  # rb_f_printf: to $stdout when the first argument is a String, else to
+  # the first argument, whatever it is, with its `write`.
+  def printf(*args)
+    return nil if args.empty?
 
-    if format.is_a?(IO)
-      format.printf(*args)
-    else
-      $stdout.write(Kernel.format(format, *args))
-    end
+    out = String === args.first ? $stdout : args.shift
+    out.write(Kernel.format(*args))
     nil
   end
 

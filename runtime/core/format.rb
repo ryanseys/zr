@@ -8,14 +8,7 @@ module Kernel
   end
   alias sprintf format
 
-  def printf(*args)
-    return nil if args.empty?
-
-    print(format(*args))
-    nil
-  end
-
-  private :format, :sprintf, :printf
+  private :format, :sprintf
 
   # One `format` call: walks the spec's bytes, taking arguments in
   # order, by position (`%1$d`) or by name (`%<n>d`, `%{n}`). Its

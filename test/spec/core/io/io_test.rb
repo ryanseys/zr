@@ -2279,4 +2279,46 @@ describe "IO programs" do
       ""
     OUT
   end
+
+  it "popen takes its options from a trailing Hash, also a positional one" do
+    result = zr(<<~'RUBY')
+      # A Hash after the command is the options, also as a positional
+      # argument, and a Hash before it is the environment.
+      opts = [{ err: [:child, :out] }]
+      p IO.popen("echo out; echo err 1>&2", *opts, &:read)
+      p IO.popen("echo x", "r", { err: File::NULL }, &:read)
+      p IO.popen({ "V" => "1" }, "echo $V", &:read)
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "out\nerr\n"
+      "x\n"
+      "1\n"
+    OUT
+  end
+
+  it "ARGF.class.new reads its own files, and ARGF reads ARGV itself" do
+    result = zr(<<~'RUBY')
+      # ARGF.class.new reads the files it is given, and the program's ARGF
+      # reads ARGV itself, so a change to ARGV changes what it reads.
+      File.write("a.txt", "a1\na2\n")
+      File.write("b.txt", "b1\n")
+      own = ARGF.class.new("a.txt", "b.txt")
+      p own.argv, own.read, own.argv
+      one = ARGF.class.new("b.txt")
+      p [one.gets, one.filename, one.lineno]
+      p ARGF.argv.equal?(ARGV)
+      ARGV.replace(["a.txt"])
+      p ARGF.readlines
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      []
+      "a1\na2\nb1\n"
+      []
+      ["b1\n", "b.txt", 1]
+      true
+      ["a1\n", "a2\n"]
+    OUT
+  end
 end
