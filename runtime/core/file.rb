@@ -10,8 +10,9 @@ class File < IO
   ALT_SEPARATOR = nil
   PATH_SEPARATOR = ":"
 
-  def self.basename(path, suffix = nil)
+  def self.basename(path, suffix = (none = true; nil))
     path = path_of(path)
+    suffix = Primitive.zr_str_operand(suffix) unless none
 
     return +"/" if path.delete("/").empty? && !path.empty?
 
@@ -86,6 +87,10 @@ class File < IO
                joined(part, joining)
              else Primitive.zr_str_operand(part.respond_to?(:to_path) ? part.to_path : part)
              end
+      unless part.encoding.ascii_compatible?
+        raise Encoding::CompatibilityError, "path name must be ASCII-compatible (#{part.encoding}): #{part.inspect}"
+      end
+      raise ArgumentError, +"string contains null byte" if nul_char?(part)
       if i.positive?
         if part.start_with?("/")
           out.sub!(%r{/+\z}, "")
@@ -100,26 +105,32 @@ class File < IO
   end
   private_class_method :joined
 
-  def self.absolute_path?(path) = path.start_with?("/")
+  def self.absolute_path?(path) = path_of(path).start_with?("/")
 
   def self.expand_path(path, dir = nil)
     path = expand_home(path_of(path))
-    dir = expand_home(path_of(dir)) if dir
-    base = if path.start_with?("/") then +""
-           elsif dir.nil? then Dir.pwd
-           elsif dir.start_with?("/") then dir
-           else "#{Dir.pwd}/#{dir}"
-           end
+    return normalized(path) if path.start_with?("/")
+
+    base = dir.nil? ? Dir.pwd : expand_path(dir)
+    normalized(base.end_with?("/") ? base + path : "#{base}/#{path}")
+  end
+
+  # An absolute path with its `.` and `..` names and repeated slashes
+  # gone. The slashes that start it stay as they are, as
+  # rb_file_expand_path_internal copies them.
+  def self.normalized(full)
+    Primitive.attr! :hidden
     parts = []
-    "#{base}/#{path}".split("/").each do |part|
+    full.split("/").each do |part|
       case part
       when "", "." then nil
       when ".." then parts.pop
       else parts << part
       end
     end
-    "/" + parts.join("/")
+    full[%r{\A/+}] + parts.join("/")
   end
+  private_class_method :normalized
 
   # `~` and `~user` at the front name a home directory.
   def self.expand_home(path)
@@ -308,7 +319,7 @@ class File < IO
     attr_reader(*FIELDS)
 
     def initialize(path)
-      stat(path, "rb_file_s_stat")
+      stat(path, "rb_stat_init")
     end
 
     # A Stat's rows are plain values, and a copy takes them all.
@@ -340,7 +351,8 @@ class File < IO
     def atime = Time.at(@atime_s, @atime_ns, :nsec)
     def mtime = Time.at(@mtime_s, @mtime_ns, :nsec)
     def ctime = Time.at(@ctime_s, @ctime_ns, :nsec)
-    def birthtime = ctime
+    # darwin keeps a birth time; another system gives the change time.
+    def birthtime = @birth_s ? Time.at(@birth_s, @birth_ns, :nsec) : ctime
 
     # A device is one number whose halves name the driver and the unit,
     # which is where darwin's major() and minor() cut it.
@@ -411,16 +423,16 @@ class File < IO
     def take(fields)
       Primitive.attr! :hidden
       @dev, @ino, @mode, @nlink, @uid, @gid, @rdev, @size, @blksize, @blocks,
-        @atime_s, @atime_ns, @mtime_s, @mtime_ns, @ctime_s, @ctime_ns = fields
+        @atime_s, @atime_ns, @mtime_s, @mtime_ns, @ctime_s, @ctime_ns, @birth_s, @birth_ns = fields
       self
     end
 
     # Made from lstat(2), which does not follow a symbolic link.
-    def self.link(path)
+    def self.link(path, site = +"rb_file_s_lstat")
       Primitive.attr! :hidden
       path = File.send(:path_of, path)
       fields = File.send(:stat_fields, path, false)
-      raise SystemCallError.new(path, -fields, +"rb_file_s_lstat") if fields.is_a?(Integer)
+      raise SystemCallError.new(path, -fields, site) if fields.is_a?(Integer)
 
       allocate.tap { |stat| stat.send(:take, fields) }
     end
@@ -665,7 +677,7 @@ class File < IO
   def self.mtime(path) = Stat.of(path_of(path), "rb_file_s_mtime").mtime
   def self.atime(path) = Stat.of(path_of(path), "rb_file_s_atime").atime
   def self.ctime(path) = Stat.of(path_of(path), "rb_file_s_ctime").ctime
-  def self.ftype(path) = lstat(path).ftype
+  def self.ftype(path) = Stat.send(:link, path, "rb_file_s_ftype").ftype
   def self.symlink?(path) = stat_fields(path, false).then { |f| f.is_a?(Array) && (f[2] & 0o170000) == 0o120000 }
 
   # stat(2), or lstat(2) where `follow` is false, as the call that may
@@ -677,14 +689,64 @@ class File < IO
   end
   private_class_method :stat_fields
 
+  # rb_check_realpath_internal: realpath(3), and where it stops at a
+  # file in the middle or at a name that exists after all, the walk of
+  # rb_check_realpath_emulate.
   def self.realpath(path, dir = nil)
     path = path_of(path)
     path = File.join(path_of(dir), path) if dir && !path.start_with?("/")
     result = Primitive.zr_realpath_m(path)
-    raise SystemCallError.new(path, -result, +"rb_check_realpath_internal") if result.is_a?(Integer)
+    return result unless result.is_a?(Integer)
+    return realpath_walk(path, false) if -result == Errno::ENOTDIR::Errno || (-result == Errno::ENOENT::Errno && exist?(path))
 
-    result
+    raise SystemCallError.new(path, -result, +"rb_check_realpath_internal")
   end
+
+  # rb_check_realpath_emulate and realpath_rec: each name in turn from
+  # the working directory or the root, a link followed where it points.
+  # A name that is missing is an error, which names the path resolved so
+  # far, except the last name for realdirpath.
+  def self.realpath_walk(path, last_may_miss)
+    Primitive.attr! :hidden
+    resolved = path.start_with?("/") ? +"" : realpath_names(+"", Dir.pwd.split("/"), false, {})
+    resolved = realpath_names(resolved, path.split("/"), last_may_miss, {})
+    resolved.empty? ? +"/" : resolved
+  end
+
+  # The names resolved onto `resolved`, where "" is the root.
+  def self.realpath_names(resolved, names, last_may_miss, seen)
+    Primitive.attr! :hidden
+    names = names.reject(&:empty?)
+    names.each_with_index do |name, i|
+      next if name == +"."
+
+      if name == +".."
+        resolved = resolved[0, resolved.rindex("/") || 0]
+        next
+      end
+      candidate = "#{resolved}/#{name}"
+      fields = stat_fields(candidate, false)
+      if fields.is_a?(Integer)
+        if -fields == Errno::ENOENT::Errno && last_may_miss && i == names.size - 1
+          resolved = candidate
+          next
+        end
+        raise SystemCallError.new(candidate, -fields, +"realpath_rec")
+      end
+      if (fields[2] & 0o170000) == 0o120000
+        raise SystemCallError.new(candidate, Errno::ELOOP::Errno, +"realpath_rec") if seen[candidate]
+
+        seen[candidate] = true
+        target = readlink(candidate)
+        resolved = realpath_names(target.start_with?("/") ? +"" : resolved, target.split("/"), last_may_miss && i == names.size - 1, seen)
+        seen.delete(candidate)
+      else
+        resolved = candidate
+      end
+    end
+    resolved
+  end
+  private_class_method :realpath_walk, :realpath_names
 
   def self.chmod(mode, *paths) = each_path(paths) { |path| Primitive.zr_chmod_m(path, mode) }
 
@@ -770,7 +832,7 @@ class File < IO
   def self.mkfifo(path, mode = 0o666)
     fifo = path_of(path)
     result = without_gvl { Primitive.zr_fs_call(4, fifo, mode, 0) }
-    raise SystemCallError.new(path, -result, +"mkfifo") if result < 0
+    raise SystemCallError.new(path, -result, +"rb_file_s_mkfifo") if result < 0
 
     0
   end
@@ -860,9 +922,7 @@ class File < IO
   def self.realdirpath(path, dir = nil)
     path = path_of(path)
     path = File.join(path_of(dir), path) if dir && !path.start_with?("/")
-    return realpath(path) unless Primitive.zr_path_kind(path).zero?
-
-    File.join(realpath(dirname(path)), basename(path))
+    realpath_walk(path, true)
   end
 
   # A path argument, as CRuby's rb_get_path takes it: a String, or the
@@ -992,6 +1052,7 @@ class Dir
   # for Dir.chdir.
   def self.fchdir(fd)
     fd = Integer.send(:int_operand, fd)
+    check_chdir(block_given?)
     unless block_given?
       move_to_fd(fd)
       return 0
@@ -1000,7 +1061,7 @@ class Dir
     before = Dir.new(+".")
     begin
       move_to_fd(fd)
-      yield
+      chdir_block(caller_locations(1, 1).first) { yield }
     ensure
       move_to_fd(before.fileno)
       before.close
@@ -1649,22 +1710,48 @@ class Dir
   private_constant :Glob
   # With a block, the directory changes back afterwards; without one
   # it stays. No argument means the home directory.
-  def self.chdir(path = nil)
-    if path.nil?
+  def self.chdir(path = (home = true; nil))
+    if home
       path = ENV["HOME"] || ENV["LOGDIR"]
       raise ArgumentError, +"HOME/LOGDIR not set" if path.nil?
     end
-    path = path.to_path if path.respond_to?(:to_path)
+    path = File.send(:path_of, path)
+    check_chdir(block_given?)
     return move_to(path) unless block_given?
 
     before = pwd
     move_to(path, "dir_chdir0")
-    begin
-      yield path
-    ensure
-      move_to(before)
-    end
+    chdir_block(caller_locations(1, 1).first) { yield path }
+  ensure
+    move_to(before) if before
   end
+
+  # dir.c's chdir lock: a chdir inside another thread's chdir block is
+  # an error, and one without a block inside a block of this thread
+  # warns, with where that block began.
+  def self.check_chdir(block)
+    Primitive.attr! :hidden
+    return if @chdir_depth.nil? || @chdir_depth.zero?
+    raise RuntimeError, +"conflicting chdir during another chdir block" unless Thread.current.equal?(@chdir_thread)
+    return if block || $VERBOSE.nil?
+
+    Primitive.zr_warn_here_m("conflicting chdir during another chdir block")
+    where = @chdir_where.last
+    Warning.warn("#{where.path}:#{where.lineno}: note: previous chdir was here\n") if where
+  end
+
+  def self.chdir_block(where)
+    Primitive.attr! :hidden
+    @chdir_depth = (@chdir_depth || 0) + 1
+    @chdir_thread = Thread.current
+    (@chdir_where ||= []) << where
+    yield
+  ensure
+    @chdir_where.pop
+    @chdir_depth -= 1
+    @chdir_thread = nil if @chdir_depth.zero?
+  end
+  private_class_method :check_chdir, :chdir_block
 
   def self.move_to(path, site = +"chdir_path")
     Primitive.attr! :hidden
@@ -1677,11 +1764,12 @@ class Dir
   private_class_method :move_to
   # This process's home from the environment, a named user's from the
   # password file.
+  # dir_s_home: a user named by an empty String is no user at all.
   def self.home(user = nil)
+    user = Primitive.zr_str_operand(user) unless user.nil?
+    user = nil if user&.empty?
     return Primitive.zr_home_dir(nil) if user.nil? && ENV["HOME"].nil?
     return ENV["HOME"] if user.nil?
-
-    raise TypeError, "no implicit conversion of #{conversion_name(user)} into String" unless user.is_a?(String)
 
     Primitive.zr_home_dir(user) || raise(ArgumentError, "user #{user} doesn't exist")
   end

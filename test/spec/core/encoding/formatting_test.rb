@@ -1872,4 +1872,37 @@ describe "Encoding: formatting and inspection" do
       core/encoding/formatting_test.rb:4: warning: :newline option precedes other newline options
     ERR
   end
+
+  it "a converter keeps the bytes it reads again after a broken character" do
+    result = zr(<<~'RUBY')
+      # A converter keeps the bytes it must read again after a broken
+      # character: its errinfo, the error and putback give them, and the
+      # message says what followed.
+      def show(from, to, src)
+        ec = Encoding::Converter.new(from, to)
+        s = src.dup.force_encoding(from)
+        d = +""
+        r = ec.primitive_convert(s, d)
+        [r, s, ec.primitive_errinfo, ec.putback, ec.last_error&.message, ec.last_error&.readagain_bytes]
+      end
+      p show("UTF-8", "ISO-8859-1", "\xf1abcd")
+      p show("UTF-8", "ISO-8859-1", "\xffab")
+      p show("UTF-8", "ISO-8859-1", "a\xf0\x90\x80b")
+      p show("EUC-JP", "UTF-8", "\xa4\x41b")
+      p show("UTF-16LE", "UTF-8", "\x00\xd8a\x00")
+      p show("UTF-8", "EUC-JP", "\xed\xa0\x80z")
+      p(("\xf1abc".encode("iso-8859-1") rescue $!), ("\xe3\x81a".encode("utf-16le") rescue $!))
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [:invalid_byte_sequence, "bcd", [:invalid_byte_sequence, "UTF-8", "ISO-8859-1", "\xF1", "a"], "a", "\"\\xF1\" followed by \"a\" on UTF-8", "a"]
+      [:invalid_byte_sequence, "ab", [:invalid_byte_sequence, "UTF-8", "ISO-8859-1", "\xFF", ""], "", "\"\\xFF\" on UTF-8", nil]
+      [:invalid_byte_sequence, "", [:invalid_byte_sequence, "UTF-8", "ISO-8859-1", "\xF0\x90\x80", "b"], "b", "\"\\xF0\\x90\\x80\" followed by \"b\" on UTF-8", "b"]
+      [:invalid_byte_sequence, "b", [:invalid_byte_sequence, "EUC-JP", "UTF-8", "\xA4", "A"], "A", "\"\\xA4\" followed by \"A\" on EUC-JP", "A"]
+      [:invalid_byte_sequence, "", [:invalid_byte_sequence, "UTF-16LE", "UTF-8", "\x00\xD8", "a\x00"], "a", "\"\\x00\\xD8\" followed by \"a\\x00\" on UTF-16LE", "a\x00"]
+      [:invalid_byte_sequence, "\x80z", [:invalid_byte_sequence, "UTF-8", "EUC-JP", "\xED", "\xA0"], "\xA0", "\"\\xED\" followed by \"\\xA0\" on UTF-8", "\xA0"]
+      #<Encoding::InvalidByteSequenceError: "\xF1" followed by "a" on UTF-8>
+      #<Encoding::InvalidByteSequenceError: "\xE3\x81" followed by "a" on UTF-8>
+    OUT
+  end
 end

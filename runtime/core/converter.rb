@@ -383,11 +383,29 @@ class Encoding
       :finished
     end
 
+    # A character that is broken where it stands: the transcoder takes
+    # the bytes that still began one, and the code unit that broke them
+    # is read again after, as its readagain bytes.
     def broken(bytes, at, width)
       Primitive.attr! :hidden
-      error = bytes.byteslice(at, width)
-      @rest = bytes.byteslice(at + width, bytes.bytesize - at - width)
-      stop(:invalid_byte_sequence, invalid_error(error), error)
+      error, again = @reading ? [bytes.byteslice(at, width), +"".b] : broken_split(bytes, at)
+      @readagain = again
+      stop_at = at + error.bytesize + again.bytesize
+      @rest = bytes.byteslice(stop_at, bytes.bytesize - stop_at)
+      stop(:invalid_byte_sequence, invalid_error(error, again), error, again)
+    end
+
+    # The longest head from `at` that is still an incomplete character,
+    # and the unit after it that no character continues with.
+    def broken_split(bytes, at)
+      Primitive.attr! :hidden
+      onig = Regexp.encoder(@source)
+      unit = onig.min_len
+      k = unit
+      k += unit while at + k < bytes.bytesize && onig.precise_mbclen(bytes.byteslice(at, k), 0) < -1
+      return [bytes.byteslice(at, [unit, bytes.bytesize - at].min), +"".b] if k == unit
+
+      [bytes.byteslice(at, k - unit), bytes.byteslice(at + k - unit, unit)]
     end
 
     def incomplete_error(tail)
@@ -395,14 +413,15 @@ class Encoding
       Encoding.send(:byte_error, "incomplete #{tail.dump} on #{@source_name}", @source, @destination, tail, nil, true)
     end
 
-    def invalid_error(error)
+    def invalid_error(error, again = +"".b)
       Primitive.attr! :hidden
-      Encoding.send(:byte_error, "#{error.dump} on #{@source_name}", @source, @destination, error, +"".b, false)
+      followed = again.empty? ? +"" : " followed by #{again.dump}"
+      Encoding.send(:byte_error, "#{error.dump}#{followed} on #{@source_name}", @source, @destination, error, again.empty? ? nil : again, false)
     end
 
-    def stop(symbol, error, bytes)
+    def stop(symbol, error, bytes, again = +"".b)
       Primitive.attr! :hidden
-      @errinfo = [symbol, @source_name, @destination_name, bytes.b, +"".b]
+      @errinfo = [symbol, @source_name, @destination_name, bytes.b, again.b]
       @last_error = error
       symbol
     end

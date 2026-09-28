@@ -57,8 +57,9 @@ ENV = Object.new
 class << ENV
   include Enumerable
 
+  # env_str_new: what the environment gives is frozen.
   def [](name)
-    Primitive.zr_environment_get(variable_name(name))
+    Primitive.zr_environment_get(variable_name(name))&.freeze
   end
 
   def fetch(*args)
@@ -75,8 +76,14 @@ class << ENV
     raise KeyError.new("key not found: #{name.inspect}", receiver: self, key: name)
   end
 
+  # ruby_setenv: a name that setenv(3) refuses raises its error, and an
+  # unsetenv(3) that fails is quiet.
   def []=(name, value)
-    Primitive.zr_environment_set(variable_name(name), value.nil? ? nil : variable_name(value, "value"))
+    name = variable_name(name)
+    result = Primitive.zr_environment_set(name, value.nil? ? nil : variable_name(value, "value"))
+    raise SystemCallError.new("setenv(#{name})", -result) if result.is_a?(Integer)
+
+    value
   end
   alias store []=
 
@@ -117,11 +124,11 @@ class << ENV
   end
 
   def to_h(&block)
-    pairs = Primitive.zr_environment_list.map do |entry|
+    hash = Primitive.zr_environment_list.to_h do |entry|
       i = entry.index("=") || entry.bytesize
-      [entry[0, i], entry[i + 1..] || +""]
+      [entry[0, i].freeze, (entry[i + 1..] || +"").freeze]
     end
-    block ? pairs.to_h(&block) : pairs.to_h
+    block ? hash.to_h(&block) : hash
   end
   alias to_hash to_h
 
@@ -160,7 +167,8 @@ class << ENV
   alias filter select
   def reject(&block) = to_h.reject(&block)
   def update(*others)
-    others.each do |other|
+    others.each do |given|
+      other = Hash.try_convert(given) or raise TypeError, "no implicit conversion of #{conversion_name(given)} into Hash"
       other.each do |k, v|
         k = variable_name(k)
         self[k] = block_given? && key?(k) ? yield(k, self[k], v) : v
@@ -267,6 +275,9 @@ class << ENV
       raise TypeError, "no implicit conversion of #{value.nil? ? 'nil' : value.class} into String" unless value.respond_to?(:to_str)
 
       value = value.to_str
+    end
+    unless value.encoding.ascii_compatible?
+      raise ArgumentError, "bad environment variable #{role}: ASCII incompatible encoding: #{value.encoding}"
     end
     raise ArgumentError, "bad environment variable #{role}: contains null byte" if value.include?("\0")
 

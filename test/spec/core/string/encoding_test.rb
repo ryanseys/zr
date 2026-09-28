@@ -1018,4 +1018,57 @@ describe "String: encodings" do
       "a?b"
     OUT
   end
+
+  it "undump raises what str_undump raises and reverses dump in every encoding" do
+    result = zr(<<~'RUBY')
+      # undump reverses dump, in every encoding dump writes, and raises what
+      # str_undump raises.
+      cases = ['"\\u{110000}"', '"\\uD800"', '"\\u12"', '"\\u"', '"\\u{zz}"', '"\\u{1234567}"', '"\\c"', '"a', '"a\\', '"\\u{41',
+               '"x".dup.force_encoding("EUC-JP")', '"x".force_encoding("Nope")', '"\\u3042".force_encoding("EUC-JP")', '"\\xff\\u3042"',
+               '"\\x7f\\u3042"', '"a"'.encode("utf-16le"), "\"a\0\""]
+      cases.each { |c| p [c, (c.undump rescue $!)] }
+      ["é".encode("utf-16le"), "é".encode("utf-32be"), "é".dup.force_encoding("utf-16"), "あ".encode("sjis")].each { |s| p s.dump.undump == s }
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      ["\"\\u{110000}\"", #<RuntimeError: invalid Unicode codepoint (too large)>]
+      ["\"\\uD800\"", #<RuntimeError: invalid Unicode codepoint>]
+      ["\"\\u12\"", #<RuntimeError: invalid Unicode escape>]
+      ["\"\\u\"", #<RuntimeError: invalid Unicode escape>]
+      ["\"\\u{zz}\"", #<RuntimeError: invalid Unicode escape>]
+      ["\"\\u{1234567}\"", #<RuntimeError: invalid Unicode escape>]
+      ["\"\\c\"", "\\c"]
+      ["\"a", #<RuntimeError: unterminated dumped string>]
+      ["\"a\\", #<RuntimeError: invalid escape>]
+      ["\"\\u{41", #<RuntimeError: unterminated Unicode escape>]
+      ["\"x\".dup.force_encoding(\"EUC-JP\")", "x"]
+      ["\"x\".force_encoding(\"Nope\")", #<RuntimeError: dumped string has unknown encoding name>]
+      ["\"\\u3042\".force_encoding(\"EUC-JP\")", #<RuntimeError: dumped string contained Unicode escape but used force_encoding>]
+      ["\"\\xff\\u3042\"", #<RuntimeError: hex escape and Unicode escape are mixed>]
+      ["\"\\x7f\\u3042\"", "\u007Fあ"]
+      ["\"a\"", #<Encoding::CompatibilityError: ASCII incompatible encoding: UTF-16LE>]
+      ["\"a\u0000\"", #<RuntimeError: string contains null byte>]
+      true
+      true
+      true
+      true
+    OUT
+  end
+
+  it "inspect writes a control byte as a byte in an encoding that is not Unicode" do
+    result = zr(<<~'RUBY')
+      # In an encoding that is not Unicode, inspect writes a control byte as a
+      # byte, not as a Unicode escape.
+      %w[EUC-JP Shift_JIS GBK CESU-8].each do |e|
+        p "\x00\x07\x1b\x7f\n\\u0000a".dup.force_encoding(e).inspect
+      end
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "\"\\x00\\a\\e\\x7F\\n\\\\u0000a\""
+      "\"\\x00\\a\\e\\x7F\\n\\\\u0000a\""
+      "\"\\x00\\a\\e\\x7F\\n\\\\u0000a\""
+      "\"\\u0000\\a\\e\\u007F\\n\\\\u0000a\""
+    OUT
+  end
 end

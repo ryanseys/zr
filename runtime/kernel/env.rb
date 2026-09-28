@@ -177,8 +177,8 @@ sig [Value, Value] => Value
 machine def zr_environment_set(name, value)
   if value == QNIL
     unsetenv(RString.ptr(name))
-  else
-    setenv(RString.ptr(name), RString.ptr(value), Machine.i32(1))
+  elsif setenv(RString.ptr(name), RString.ptr(value), Machine.i32(1)) != Machine.i32(0)
+    return zr_fix(0 - zr_errno())
   end
   value
 end

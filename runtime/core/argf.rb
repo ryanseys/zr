@@ -1,8 +1,9 @@
 # frozen_string_literal: true
 
 # ARGF: one stream over the files ARGV names, and over standard input
-# when it names none. Each file opens as the walk reaches it, and the
-# line numbers run on across the whole set.
+# when it names none. This follows io.c's ARGF: argf_next_argv opens
+# each file as the walk reaches it, a read that ends a file closes it
+# and moves on, and the line numbers run on across the whole set.
 # ruby's ARGF is the only instance of an unnamed class, whose report
 # is the words "ARGF.class".
 # `$.`: the number of the line the last read took, from any IO, or from
@@ -16,11 +17,18 @@ stream = Class.new do
   def initialize(*argv) = start(argv)
 
   # The program's ARGF starts on ARGV itself, so it sees a change to ARGV.
+  # `@init` and `@next` are io.c's init_p and next_p: 0 before the first
+  # read and -1 after a close, then 1; and 1 to open the next name, 0
+  # while a file is open, -1 on standard input.
   private def start(argv)
     @argv = argv
-    @stream = nil
+    @filename = nil
+    @current = nil
     @lineno = 0
-    @closed = false
+    @init = 0
+    @next = 0
+    @binmode = false
+    @encodings = nil
     @inplace_mode = nil
     self
   end
@@ -29,188 +37,360 @@ stream = Class.new do
   attr_accessor :inplace_mode
 
   def lineno=(n)
-    @lineno = n
-    $. = n
+    @lineno = Integer.send(:int_operand, n)
+    $. = @lineno
   end
 
-  # The file being read: "-" when the walk is on standard input, which
-  # is where a program with no arguments reads.
   def filename
-    current
-    @path || +"-"
+    next_argv
+    @filename
   end
 
   alias path filename
 
-  def file = current || $stdin
+  def file
+    next_argv
+    @current
+  end
 
-  def to_io = file
+  def to_io
+    next_argv
+    return @current if generic?
 
-  def to_write_io = file
+    @current
+  end
+
+  def to_write_io
+    raise IOError, +"not opened for writing" unless @current
+
+    @current
+  end
 
   def to_s = +"ARGF"
 
-  def inspect = +"ARGF"
+  alias inspect to_s
 
-  def to_i = file.fileno
-  alias fileno to_i
+  def fileno
+    raise ArgumentError, +"no stream" unless next_argv
+    return @current.fileno if generic?
 
-  def closed? = @closed
+    @current.fileno
+  end
 
+  alias to_i fileno
+
+  def closed?
+    next_argv
+    @current.closed?
+  end
+
+  # argf_close_m: the current file closes, the next read takes the next
+  # name, and the line numbers start again.
   def close
-    @stream&.close unless @stream.equal?($stdin)
-    @stream = nil
-    @closed = true
+    next_argv
+    close_current
+    @next = 1 unless @next == -1
+    @lineno = 0
+    self
+  end
+
+  # argf_skip: the rest of the current file goes unread.
+  def skip
+    if @init.nonzero? && @next.zero?
+      close_current
+      @next = 1
+    end
     self
   end
 
   def binmode
     @binmode = true
+    next_argv
+    @current.binmode unless generic?
     self
   end
 
-  def binmode? = @binmode == true
+  def binmode? = @binmode
 
-  def external_encoding = file.external_encoding || Encoding.default_external
+  def external_encoding = @current ? @current.external_encoding : Encoding.default_external
 
-  def internal_encoding = file.internal_encoding
+  def internal_encoding = @current ? @current.internal_encoding : Encoding.default_external
 
-  def set_encoding(*args) = file.set_encoding(*args)
+  # argf_set_encoding: the encodings hold for each file the walk opens.
+  def set_encoding(*args, **options)
+    raise ArgumentError, +"no stream to set encoding" unless next_argv
 
-  # The walk moves to the next file when the current one runs out, so
-  # every read is written the same way: read, and advance on nil.
+    @current.set_encoding(*args, **options)
+    @encodings = [@current.external_encoding, @current.internal_encoding]
+    self
+  end
+
+  # argf_getline: a file that runs out closes, and the next one goes on.
   def gets(*args, **options)
-    each_stream do |io|
-      line = io.gets(*args, **options)
-      next if line.nil?
+    loop do
+      return nil unless next_argv
 
-      @lineno += 1
-      $. = @lineno
+      line = @current.gets(*args, **options)
+      if line.nil? && @next != -1 && !generic?
+        close_current
+        @next = 1
+        next
+      end
+      unless line.nil?
+        @lineno += 1
+        $. = @lineno if equal?(ARGF)
+      end
       return line
     end
   end
 
   def readline(*args, **options) = gets(*args, **options) || raise(EOFError, +"end of file reached")
 
-  def getc = each_stream { |io| (c = io.getc) and return c }
+  def getc = each_read(:getc)
 
-  def getbyte = each_stream { |io| (b = io.getbyte) and return b }
+  def getbyte = each_read(:getbyte)
 
   def readchar = getc || raise(EOFError, +"end of file reached")
 
   def readbyte = getbyte || raise(EOFError, +"end of file reached")
 
+  # argf_read: a length reads on into the next files until it is met;
+  # none reads every file.
   def read(length = nil, buffer = nil)
-    text = +""
-    each_stream { |io| text << io.read.to_s }
-    text = text[0, length] || +"" if length
-    return nil if length && text.empty?
+    length = Integer.send(:int_operand, length) unless length.nil?
+    unless buffer.nil?
+      buffer = Primitive.zr_str_operand(buffer)
+      buffer.clear
+    end
+    text = buffer
+    loop do
+      return text unless next_argv
 
-    buffer ? buffer.replace(text) : text
+      want = length && (length - (text ? text.bytesize : 0))
+      piece = want ? @current.read(want) : @current.read
+      if text.nil?
+        text = piece
+      elsif piece
+        text << piece
+      end
+      if piece.nil? || length.nil?
+        break if @next == -1
+
+        close_current
+        @next = 1
+        next
+      end
+      break if text.bytesize >= length
+    end
+    text
   end
 
-  def readpartial(length, buffer = nil) = read(length, buffer)
-  def read_nonblock(length, buffer = nil, **) = read(length, buffer)
+  # argf_getpartial: what the current file has; its end is an empty
+  # String while more files follow, and EOFError after the last.
+  def readpartial(length, buffer = nil) = partial(length, buffer, false, true)
 
-  def each_line(*args, **options, &block)
-    return to_enum(:each_line, *args, **options) unless block
+  def read_nonblock(length, buffer = nil, exception: true) = partial(length, buffer, true, exception)
 
-    while (line = gets(*args, **options))
-      yield line
+  def each_line(*args, **options)
+    return to_enum(:each_line, *args, **options) unless block_given?
+
+    while next_argv
+      counted = @current.lineno
+      @current.each_line(*args, **options) do |line|
+        # The program's ARGF counts the lines its file counts; another
+        # counts every piece, and leaves `$.` alone.
+        if !equal?(ARGF)
+          @lineno += 1
+        elsif @current.lineno != counted
+          counted = @current.lineno
+          @lineno += 1
+          $. = @lineno
+        end
+        yield line
+      end
+      @next = 1
     end
     self
   end
 
   alias each each_line
-  alias each_entry each_line
 
-  def each_byte(&block)
-    return to_enum(:each_byte) unless block
+  def each_byte(&block) = each_part(:each_byte, &block)
 
-    while (byte = getbyte)
-      yield byte
+  def each_char(&block) = each_part(:each_char, &block)
+
+  def each_codepoint(&block) = each_part(:each_codepoint, &block)
+
+  # argf_readlines: every file's lines, each file closed after them.
+  def readlines(*args, **options)
+    lineno = @lineno
+    lines = []
+    while next_argv
+      lines.concat(@current.readlines(*args, **options))
+      close_current unless generic?
+      @next = 1
+      @lineno = lineno + lines.size
+      $. = @lineno if equal?(ARGF)
     end
-    self
+    @init = 0
+    lines
   end
 
-  def each_char(&block)
-    return to_enum(:each_char) unless block
-
-    while (c = getc)
-      yield c
-    end
-    self
-  end
-
-  def each_codepoint(&block)
-    return to_enum(:each_codepoint) unless block
-
-    each_char { |c| yield c.ord }
-  end
-
-  def readlines(*args, **options) = each_line(*args, **options).to_a
   alias to_a readlines
 
+  # argf_eof: at the end of the current file, before the walk moves on.
   def eof?
-    io = current
-    io ? io.eof? && @argv.empty? : @stream.eof?
+    next_argv
+    return false unless @current
+    return true if @init.zero?
+
+    next_argv
+    @current.eof?
   end
+
   alias eof eof?
 
-  # The current file's own position; `skip` drops it and moves on.
-  def pos = file.pos
+  def pos
+    raise ArgumentError, +"no stream to tell" unless next_argv
+
+    @current.pos
+  end
+
   alias tell pos
 
   def pos=(offset)
-    file.pos = offset
+    raise ArgumentError, +"no stream to set position" unless next_argv
+
+    @current.pos = offset
   end
 
-  def seek(offset, whence = IO::SEEK_SET) = file.seek(offset, whence)
+  def seek(offset, whence = IO::SEEK_SET)
+    raise ArgumentError, +"no stream to seek" unless next_argv
 
+    @current.seek(offset, whence)
+  end
+
+  # argf_rewind: the lines of the current file no longer count.
   def rewind
-    file.rewind
-    @lineno = 0
-    0
+    raise ArgumentError, +"no stream to rewind" unless next_argv
+
+    before = @current.lineno
+    result = @current.rewind
+    @lineno -= before
+    $. = @lineno unless equal?(ARGF)
+    result
   end
 
-  def skip
-    @stream = nil unless @stream.equal?($stdin)
-    self
-  end
-
-  def write(*texts) = file.write(*texts)
-  def print(*args) = file.print(*args)
-  def printf(*args) = file.printf(*args)
-  def putc(c) = file.putc(c)
-  def puts(*args) = file.puts(*args)
+  def write(*texts) = to_write_io.write(*texts)
+  def print(*args) = to_write_io.print(*args)
+  def printf(*args) = to_write_io.printf(*args)
+  def putc(c) = to_write_io.putc(c)
+  def puts(*args) = to_write_io.puts(*args)
 
   private
 
-  # The current stream, opening the next named file when the current
-  # one ran out. A program with no arguments reads standard input;
-  # one with arguments never falls back to it. A file that ran out
-  # stays here closed, so a later `eof?` reports on it as ruby's
-  # does.
-  def current
+  # ARGF_GENERIC_INPUT_P: standard input that is not an IO, which ARGF
+  # reads through its own methods.
+  def generic?
     Primitive.attr! :hidden
-    return @stream if @stream && !@stream.closed?
-    return nil if @closed || (@started && @argv.empty?)
-
-    @started = true
-    @path = @argv.empty? ? +"-" : @argv.shift
-    @stream = @path == +"-" ? $stdin : File.open(@path, "r")
+    @current.equal?($stdin) && !$stdin.is_a?(IO)
   end
 
-  # Runs the block on each stream in sequence, moving on when the block
-  # took nothing from the current one.
-  def each_stream
+  # argf_next_argv: whether there is a stream to read, opening the next
+  # name when the last one ran out. With no names, it is standard input.
+  def next_argv
     Primitive.attr! :hidden
-    while (io = current)
-      yield io
-      break if io.equal?($stdin) && @argv.empty?
-
-      io.equal?($stdin) ? @stream = nil : io.close
+    if @init.zero?
+      @next = @argv && !@argv.empty? ? 1 : -1
+      @init = 1
+    elsif @argv.nil?
+      @next = -1
+    elsif @next == -1 && !@argv.empty?
+      @next = 1
     end
+    if @next == 1
+      close_current if @init == 1
+      if @argv.empty?
+        @next = 1
+        return false
+      end
+      name = File.send(:path_of, @argv.shift)
+      @filename = name
+      @current = name == +"-" ? $stdin : File.open(name, "r")
+      @current.binmode if @binmode && !generic?
+      @current.set_encoding(*@encodings) if @encodings && !generic?
+      @next = 0
+    elsif @next == -1
+      @current = $stdin
+      @filename = +"-"
+    end
+    @init = 1 if @init == -1
+    true
+  end
+
+  # argf_close: the current file closes; standard input stays open.
+  def close_current
+    Primitive.attr! :hidden
+    return if @current.nil? || @current.equal?($stdin)
+
+    @current.close unless @current.closed?
+    @init = -1
+  end
+
+  # A read of one character or byte, which moves on at a file's end.
+  def each_read(name)
+    Primitive.attr! :hidden
+    loop do
+      return nil unless next_argv
+
+      got = @current.public_send(name)
+      if got.nil? && @next != -1 && !generic?
+        close_current
+        @next = 1
+        next
+      end
+      return got
+    end
+  end
+
+  # FOREACH_ARGF: each file's own iterator, then the next file.
+  def each_part(name, &block)
+    Primitive.attr! :hidden
+    return to_enum(name) unless block
+
+    while next_argv
+      @current.public_send(name, &block)
+      @next = 1
+    end
+    self
+  end
+
+  def partial(length, buffer, nonblock, exception)
+    Primitive.attr! :hidden
+    buffer = Primitive.zr_str_operand(buffer) unless buffer.nil?
+    unless next_argv
+      buffer&.clear
+      raise EOFError, +"end of file reached"
+    end
+    got = begin
+      nonblock ? @current.read_nonblock(length, buffer, exception: exception) : @current.readpartial(length, buffer)
+    rescue EOFError
+      nil
+    end
+    return got unless got.nil?
+    return partial_end(exception) if @next == -1
+
+    close_current
+    @next = 1
+    return partial_end(exception) if @argv.empty?
+
+    buffer || +""
+  end
+
+  def partial_end(exception)
+    Primitive.attr! :hidden
+    raise EOFError, +"end of file reached" if exception
+
     nil
   end
 end

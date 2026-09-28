@@ -1566,8 +1566,10 @@ class IO
     $_ = nil
     return nil if line.nil?
 
-    @lineno += 1
-    $. = @lineno
+    unless @cut
+      @lineno += 1
+      $. = @lineno
+    end
     $_ = chomp ? chomp_line(line, separator) : line
   end
 
@@ -1604,8 +1606,10 @@ class IO
     separator = stream_separator(separator)
 
     while (line = transcoded(read_line(separator, limit)))
-      @lineno += 1
-      $. = @lineno
+      unless @cut
+        @lineno += 1
+        $. = @lineno
+      end
       yield chomp ? chomp_line(line, separator) : line
     end
     self
@@ -2210,14 +2214,20 @@ class IO
     [separator, limit&.negative? ? nil : limit]
   end
 
+  # A line the limit cut short counts no line: `@cut` says so, as
+  # rb_io_getline_0 leaves fptr->lineno alone then.
   def read_line(separator, limit)
     Primitive.attr! :hidden
+    @cut = false
     cook
     if separator.nil?
       fill_cooked until @eof
       return nil if @buffer.empty?
+      return take(@buffer.bytesize) unless limit
 
-      return take(limit ? whole_char(limit) : @buffer.bytesize)
+      n = whole_char(limit)
+      @cut = n >= limit
+      return take(n)
     end
     paragraph = separator.empty?
     separator = +"\n\n" if paragraph
@@ -2237,7 +2247,10 @@ class IO
       end
       if at
         stop = at + separator.bytesize
-        stop = whole_char([stop, limit].min) if limit
+        if limit && limit < stop
+          stop = whole_char(limit)
+          @cut = stop < at + separator.bytesize
+        end
         line = take(stop)
         if paragraph
           fill_cooked while !@eof && @buffer.start_with?("\n")
@@ -2245,7 +2258,10 @@ class IO
         end
         return line
       end
-      return take(whole_char(limit)) if limit && @buffer.bytesize >= limit
+      if limit && @buffer.bytesize >= limit
+        @cut = true
+        return take(whole_char(limit))
+      end
       break if @eof
 
       from = [@buffer.bytesize - separator.bytesize + 1, 0].max

@@ -105,11 +105,11 @@ end
 STAT_LEN = 160
 
 # Returns stat(2) as fixnums in an Array: dev, ino, mode, nlink, uid,
-# gid, rdev, size, blksize, blocks, then atime, mtime and ctime as
-# seconds and nanoseconds.
+# gid, rdev, size, blksize, blocks, then atime, mtime, ctime and the
+# birth time as seconds and nanoseconds.
 sig [Ptr] => Value
 machine def zr_os_stat_rows(buf)
-  out = zr_ary_new(16)
+  out = zr_ary_new(18)
   zr_ary_push(out, zr_fix(Machine.sword(Machine.load32(buf, 0))))
   zr_ary_push(out, zr_fix(Machine.load64(buf, 8)))
   zr_ary_push(out, zr_fix(Machine.word(Machine.load32(buf, 4)) & 65535))
@@ -126,6 +126,8 @@ machine def zr_os_stat_rows(buf)
   zr_ary_push(out, zr_fix(Machine.load64(buf, 56)))
   zr_ary_push(out, zr_fix(Machine.load64(buf, 64)))
   zr_ary_push(out, zr_fix(Machine.load64(buf, 72)))
+  zr_ary_push(out, zr_fix(Machine.load64(buf, 80)))
+  zr_ary_push(out, zr_fix(Machine.load64(buf, 88)))
   out
 end
 

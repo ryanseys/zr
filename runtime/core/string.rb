@@ -1469,64 +1469,132 @@ class String
 
   # The text that `dump` wrote, read back; a trailing
   # `.force_encoding(...)` gives the encoding.
+  # str_undump: the inverse of dump, byte by byte. Every error is a
+  # RuntimeError, as CRuby raises them.
   def undump
+    raise Encoding::CompatibilityError, "ASCII incompatible encoding: #{encoding}" unless encoding.ascii_compatible?
     raise RuntimeError, +"non-ASCII character detected" unless Primitive.zr_str_ascii_only_m(self)
+    raise RuntimeError, +"string contains null byte" if include?("\0")
 
-    text = self
-    encoding = nil
-    if (m = /\A(".*")\.force_encoding\("([^"]+)"\)\z/m.match(text))
-      text = m[1]
-      encoding = m[2]
-    end
-    raise RuntimeError, +"invalid dumped string; not wrapped with '\"' nor '\"...\".force_encoding(\"...\")' form" unless text.size >= 2 && text.start_with?("\"") && text.end_with?("\"")
+    bytes = b
+    invalid = +"invalid dumped string; not wrapped with '\"' nor '\"...\".force_encoding(\"...\")' form"
+    raise RuntimeError, invalid if bytes.bytesize < 2 || bytes.getbyte(0) != 0x22
 
-    out = "".b
+    out = +"".b
+    state = { utf8: false, binary: false }
+    target = encoding
     i = 1
-    stop = text.bytesize - 1
-    while i < stop
-      b = text.getbyte(i)
-      if b != 92
-        raise RuntimeError, +"invalid dumped string; not wrapped with '\"' nor '\"...\".force_encoding(\"...\")' form" if b == 34
+    loop do
+      raise RuntimeError, +"unterminated dumped string" if i >= bytes.bytesize
 
-        out << b
+      byte = bytes.getbyte(i)
+      if byte == 0x22
+        rest = bytes.byteslice(i + 1, bytes.bytesize - i - 1)
+        break if rest.empty?
+
+        rest = rest.delete_prefix(".dup") if rest.bytesize > 4
+        head = ".force_encoding(\""
+        raise RuntimeError, invalid unless rest.bytesize > head.bytesize && rest.start_with?(head)
+        raise RuntimeError, +"dumped string contained Unicode escape but used force_encoding" if state[:utf8]
+
+        name = rest.byteslice(head.bytesize, rest.bytesize - head.bytesize)
+        close = name.index("\"")
+        raise RuntimeError, invalid unless close && name.bytesize - close == 2 && name.end_with?("\")")
+
+        target = Encoding.find(name.byteslice(0, close)) rescue raise(RuntimeError, +"dumped string has unknown encoding name")
+        break
+      end
+      if byte == 0x5C
+        i += 1
+        raise RuntimeError, +"invalid escape" if i >= bytes.bytesize
+
+        i = undump_escape(bytes, i, out, state)
+        target = Encoding::UTF_8 if state[:utf8]
+      else
+        out << byte
+        i += 1
+      end
+    end
+    out.force_encoding(target)
+  end
+
+  # undump_after_backslash: the escape at `i`, onto `out`. Returns the
+  # index after it.
+  def undump_escape(bytes, i, out, state)
+    Primitive.attr! :hidden
+    c = bytes.getbyte(i)
+    case c
+    when 0x5C, 0x22, 0x23 then out << c
+    when 0x6E then out << 10
+    when 0x72 then out << 13
+    when 0x74 then out << 9
+    when 0x66 then out << 12
+    when 0x76 then out << 11
+    when 0x62 then out << 8
+    when 0x61 then out << 7
+    when 0x65 then out << 27
+    when 0x75
+      raise RuntimeError, +"hex escape and Unicode escape are mixed" if state[:binary]
+
+      state[:utf8] = true
+      i += 1
+      raise RuntimeError, +"invalid Unicode escape" if i >= bytes.bytesize
+      return undump_braced(bytes, i + 1, out) if bytes.getbyte(i) == 0x7B
+
+      hex = bytes.byteslice(i, 4)[/\A\h*/]
+      raise RuntimeError, +"invalid Unicode escape" unless hex.bytesize == 4
+
+      out << undump_point(hex.to_i(16))
+      return i + 4
+    when 0x78
+      i += 1
+      raise RuntimeError, +"invalid hex escape" if i >= bytes.bytesize
+
+      hex = bytes.byteslice(i, 2)[/\A\h*/]
+      raise RuntimeError, +"invalid hex escape" unless hex.bytesize == 2
+
+      byte = hex.to_i(16)
+      # Only a byte past ASCII makes the string binary.
+      if byte >= 0x80
+        raise RuntimeError, +"hex escape and Unicode escape are mixed" if state[:utf8]
+
+        state[:binary] = true
+      end
+      out << byte
+      return i + 2
+    else
+      out << 0x5C << c
+    end
+    i + 1
+  end
+
+  # The `\u{...}` form: code points apart by spaces, up to the brace.
+  def undump_braced(bytes, i, out)
+    Primitive.attr! :hidden
+    loop do
+      raise RuntimeError, +"unterminated Unicode escape" if i >= bytes.bytesize
+      return i + 1 if bytes.getbyte(i) == 0x7D
+
+      if [0x20, 0x09, 0x0A, 0x0B, 0x0C, 0x0D].include?(bytes.getbyte(i))
         i += 1
         next
       end
-      raise RuntimeError, +"invalid escape" if i + 1 >= stop
+      hex = bytes.byteslice(i, bytes.bytesize - i)[/\A\h*/]
+      raise RuntimeError, +"invalid Unicode escape" if hex.empty? || hex.bytesize > 6
 
-      c = text.getbyte(i + 1)
-      i += 2
-      case c
-      when 110 then out << 10
-      when 116 then out << 9
-      when 114 then out << 13
-      when 101 then out << 27
-      when 97 then out << 7
-      when 98 then out << 8
-      when 102 then out << 12
-      when 118 then out << 11
-      when 120
-        hex = text.byteslice(i, 2)
-        raise RuntimeError, +"invalid hex escape" unless hex.match?(/\A[0-9a-fA-F]{1,2}\z/)
+      point = hex.to_i(16)
+      raise RuntimeError, +"invalid Unicode codepoint (too large)" if point > 0x10FFFF
 
-        out << hex.to_i(16)
-        i += hex.size
-      when 117
-        if text.getbyte(i) == 123
-          close = text.index("}", i)
-          raise RuntimeError, +"unterminated Unicode escape" if close.nil?
-
-          text[(i + 1)...close].split.each { |code| out << code.to_i(16).chr(Encoding::UTF_8).b }
-          i = close + 1
-        else
-          out << text.byteslice(i, 4).to_i(16).chr(Encoding::UTF_8).b
-          i += 4
-        end
-      else
-        out << c
-      end
+      out << undump_point(point)
+      i += hex.bytesize
     end
-    out.force_encoding(encoding || Encoding.at(Primitive.zr_str_encoding_index_m(self)))
+  end
+
+  def undump_point(point)
+    Primitive.attr! :hidden
+    raise RuntimeError, +"invalid Unicode codepoint" if point.between?(0xD800, 0xDFFF)
+
+    point.chr(Encoding::UTF_8).b
   end
 
   def hex = lenient_integer(16)
@@ -1680,7 +1748,7 @@ class String
         run << char
         next
       end
-      out << ascii_escaped(run)
+      out << ascii_escaped(run, cesu)
       run = +"".b
       out << if !char.valid_encoding?
                char.bytes.map { |byte| "\\x#{format('%02X', byte)}" }.join
@@ -1695,17 +1763,21 @@ class String
                "\\x{#{format('%X', char.ord)}}"
              end
     end
-    out << ascii_escaped(run) << "\""
+    out << ascii_escaped(run, cesu) << "\""
   end
 
   # An ASCII run escaped as any String is. The runtime's own inspect
   # returns this after the bytes are tagged as UTF-8.
-  def ascii_escaped(run)
+  def ascii_escaped(run, unicode = false)
     Primitive.attr! :hidden
     return +"" if run.empty?
 
     shown = run.dup.force_encoding(Encoding::UTF_8).inspect
-    shown.byteslice(1, shown.bytesize - 2)
+    shown = shown.byteslice(1, shown.bytesize - 2)
+    return shown if unicode
+
+    # An encoding that is not Unicode writes a control byte as a byte.
+    shown.gsub(/\\(\\|u00([0-7][0-9A-F]))/) { $2 ? "\\x#{$2}" : $& }
   end
 
   # `xml: :text` writes the three characters XML reserves as entities,

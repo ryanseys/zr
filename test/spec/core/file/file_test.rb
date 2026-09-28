@@ -188,4 +188,88 @@ describe "File programs" do
       "can't convert Object to IO (Object#to_io gives Integer)"
     OUT
   end
+
+  it "failures name CRuby's functions, and realdirpath walks the path as realpath_rec does" do
+    result = zr(<<~'RUBY')
+      # Each failure names the C function that CRuby names, and realdirpath
+      # and a realpath past a file walk the path as realpath_rec does.
+      [-> { File::Stat.new("/nonexistent") }, -> { File.ftype("/nonexistent") }, -> { File.mkfifo("/nonexistent/x") },
+       -> { File.realdirpath("/tmp/nonexist_zz/x") }, -> { File.realpath("/tmp/nonexist_zz") }, -> { File.realpath("/etc/hosts/x") },
+       -> { File.realdirpath("/etc/hosts/x") }].each { |call| p((call.call rescue $!)) }
+      p File.realdirpath("/tmp/zz_none"), File.realdirpath("zz_none", "/tmp"), File.realdirpath("/")
+      p File.birthtime(__FILE__) == File.ctime(__FILE__), File.stat(__FILE__).birthtime.class
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      #<Errno::ENOENT: No such file or directory @ rb_stat_init - /nonexistent>
+      #<Errno::ENOENT: No such file or directory @ rb_file_s_ftype - /nonexistent>
+      #<Errno::ENOENT: No such file or directory @ rb_file_s_mkfifo - /nonexistent/x>
+      #<Errno::ENOENT: No such file or directory @ realpath_rec - /private/tmp/nonexist_zz>
+      #<Errno::ENOENT: No such file or directory @ rb_check_realpath_internal - /tmp/nonexist_zz>
+      #<Errno::ENOTDIR: Not a directory @ realpath_rec - /private/etc/hosts/x>
+      #<Errno::ENOTDIR: Not a directory @ realpath_rec - /private/etc/hosts/x>
+      "/private/tmp/zz_none"
+      "/private/tmp/zz_none"
+      "/"
+      false
+      Time
+    OUT
+  end
+
+  it "Dir.chdir warns for a chdir inside a chdir block and Dir.home reads an empty user as none" do
+    result = zr(<<~'RUBY')
+      # Dir.chdir with no argument goes home, and nil is a TypeError. A chdir
+      # with no block inside a chdir block warns, with where the block began;
+      # one inside another thread's block is an error.
+      require "tmpdir"
+      p((Dir.chdir(nil) rescue $!))
+      Dir.chdir(Dir.tmpdir) { Dir.chdir(Dir.tmpdir) { :nested } }
+      Dir.chdir(Dir.tmpdir) do
+        Dir.chdir("/")
+      end
+      Dir.chdir(Dir.tmpdir) { p((Thread.new { Thread.current.report_on_exception = false; Dir.chdir("/") }.join rescue $!)) }
+      p Dir.home("") == Dir.home, (Dir.home("nosuchuserzz") rescue $!), (Dir.home(1) rescue $!)
+    RUBY
+
+    _(result).must_answer <<~'OUT', stderr: <<~'ERR'
+      #<TypeError: no implicit conversion of nil into String>
+      #<RuntimeError: conflicting chdir during another chdir block>
+      true
+      #<ArgumentError: user nosuchuserzz doesn't exist>
+      #<TypeError: no implicit conversion of Integer into String>
+    OUT
+      core/file/file_test.rb:8: warning: conflicting chdir during another chdir block
+      core/file/file_test.rb:7: note: previous chdir was here
+    ERR
+  end
+
+  it "the path helpers check their arguments, and expand_path keeps leading slashes" do
+    result = zr(<<~'RUBY')
+      # The path helpers check their arguments as rb_get_path does, and
+      # expand_path keeps the slashes that start a path.
+      p((File.basename("a.rb", nil) rescue $!), (File.basename("a.rb", 1) rescue $!), File.basename("a.rb", ".*"))
+      p File.expand_path("//a"), File.expand_path("a", "//b"), File.expand_path("///a//b/"), File.expand_path("a/..", "/"),
+        File.expand_path("..", "//"), File.expand_path("/a/../../b")
+      p((File.join("a\0", "b") rescue $!), (File.join("a", ["b\0"]) rescue $!), (File.absolute_path?(1) rescue $!), File.absolute_path?("/a"))
+      p((File.exist?("a".encode("utf-16le")) rescue $!), (File.join("a", "b".encode("utf-16le")) rescue $!))
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      #<TypeError: no implicit conversion of nil into String>
+      #<TypeError: no implicit conversion of Integer into String>
+      "a"
+      "//a"
+      "//b/a"
+      "///a/b"
+      "/"
+      "//"
+      "/b"
+      #<ArgumentError: string contains null byte>
+      #<ArgumentError: string contains null byte>
+      #<TypeError: no implicit conversion of Integer into String>
+      true
+      #<Encoding::CompatibilityError: path name must be ASCII-compatible (UTF-16LE): "a">
+      #<Encoding::CompatibilityError: path name must be ASCII-compatible (UTF-16LE): "b">
+    OUT
+  end
 end
