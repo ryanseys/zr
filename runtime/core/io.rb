@@ -876,10 +876,17 @@ class IO
     flag
   end
 
-  def each_codepoint(&block)
-    return to_enum(:each_codepoint) unless block
+  # One character at a time, as rb_io_each_codepoint reads them: a byte
+  # that starts no character is an error, not a code point.
+  def each_codepoint
+    return to_enum(:each_codepoint) unless block_given?
 
-    read.each_codepoint(&block)
+    check_readable
+    while (char = transcoded(read_char))
+      raise ArgumentError, "invalid byte sequence in #{char.encoding}" unless char.valid_encoding?
+
+      yield char.ord
+    end
     self
   end
 
@@ -945,7 +952,7 @@ class IO
     end
     @external, @internal = IO.send(:encodings, external, internal)
     # What is already buffered reads as the new encoding too.
-    @buffer.force_encoding(@external) unless @external.nil? || @binmode
+    @buffer.force_encoding(read_encoding)
     self
   end
 
@@ -1230,18 +1237,11 @@ class IO
     nil
   end
 
-  # One character: a UTF-8 lead byte brings its continuation bytes.
+  # One character in the read encoding, in the internal one when the
+  # stream has one.
   def getc
-    first = read(1)
-    return nil if first.nil?
-
-    lead = first.getbyte(0)
-    more = if lead >= 0xF0 then 3
-           elsif lead >= 0xE0 then 2
-           elsif lead >= 0xC2 then 1
-           else 0
-           end
-    more > 0 ? first + (read(more) || "") : first
+    check_readable
+    transcoded(read_char)
   end
 
   def readchar = getc || raise(EOFError, +"end of file reached")
@@ -1250,16 +1250,26 @@ class IO
 
   def readbyte = getbyte || raise(EOFError, +"end of file reached")
 
-  # An Integer here is a codepoint, not the text of a number.
+  # rb_io_ungetc: an Integer is a code point in the read encoding, as an
+  # unsigned int; anything else must convert to a String. Either way its
+  # bytes go back in front of the buffer.
   def ungetc(text)
-    @buffer = (text.is_a?(Integer) ? text.chr(@buffer.encoding) : text.to_s) + @buffer
-    nil
+    check_readable
+    text = if text.is_a?(Integer)
+             ungot_code(text).chr(read_encoding)
+           else
+             Primitive.zr_str_operand(text)
+           end
+    push_back(text)
   end
 
-  # An Integer here is one byte, not the text of a number.
+  # rb_io_ungetbyte: nil puts back nothing, and an Integer is one byte,
+  # modulo 256.
   def ungetbyte(byte)
-    @buffer = (byte.is_a?(Integer) ? (byte & 0xff).chr : byte.to_s) + @buffer
-    nil
+    check_readable
+    return nil if byte.nil?
+
+    push_back(byte.is_a?(Integer) ? (byte % 256).chr : Primitive.zr_str_operand(byte))
   end
 
   # A line up to and with `separator`; "" separates paragraphs; nil
@@ -1267,6 +1277,7 @@ class IO
   def gets(*args, chomp: false)
     check_readable
     separator, limit = getline_args(args)
+    separator = stream_separator(separator)
     # A zero limit reads nothing and counts no line, as rb_io_getline_0
     # returns before it touches the stream.
     return $_ = fresh_buffer if limit == 0
@@ -1310,6 +1321,8 @@ class IO
     separator, limit = getline_args(args)
     raise ArgumentError, "invalid limit: 0 for #{name}" if limit == 0
 
+    separator = stream_separator(separator)
+
     while (line = transcoded(read_line(separator, limit)))
       @lineno += 1
       $. = @lineno
@@ -1321,8 +1334,9 @@ class IO
   def each_char
     return to_enum(:each_char) unless block_given?
 
-    while (c = getc)
-      yield c
+    check_readable
+    while (char = transcoded(read_char))
+      yield char
     end
     self
   end
@@ -1783,10 +1797,79 @@ class IO
   # stream is binary, else the external encoding it was opened with.
   def fresh_buffer
     Primitive.attr! :hidden
-    return "".b if @binmode
+    (+"").force_encoding(read_encoding)
+  end
 
-    text = +""
-    text.force_encoding(@external || Encoding.default_external)
+  # io_read_encoding: the encoding that the stream's bytes are in.
+  def read_encoding
+    Primitive.attr! :hidden
+    @external || (@binmode ? Encoding::BINARY : Encoding.default_external)
+  end
+
+  # One character off the buffer, as io_getc takes it: a whole character
+  # in the read encoding, or one byte where no character starts. Where
+  # the buffer ends inside a character, the next bytes join it one at a
+  # time until it is whole or broken, or the stream ends.
+  def read_char
+    Primitive.attr! :hidden
+    fill if @buffer.empty? && !@eof
+    return nil if @buffer.empty?
+
+    enc = read_encoding
+    onig = Regexp.encoder(enc)
+    n = onig.precise_mbclen(@buffer, 0)
+    if n < -1
+      n = @buffer.bytesize
+      loop do
+        fill while !@eof && @buffer.bytesize <= n
+        break if @buffer.bytesize <= n
+
+        n += 1
+        break unless onig.precise_mbclen(@buffer.byteslice(0, n), 0) < -1
+      end
+    elsif n < 0
+      n = 1
+    end
+    take(n).force_encoding(enc)
+  end
+
+  # Bytes in front of the buffer, for ungetc and ungetbyte to hand back.
+  def push_back(text)
+    Primitive.attr! :hidden
+    @buffer = text.b.force_encoding(@buffer.encoding) + @buffer
+    nil
+  end
+
+  # rb_io_ungetc's code point: NUM2UINT's range, where a negative Integer
+  # wraps.
+  def ungot_code(code)
+    Primitive.attr! :hidden
+    raise RangeError, "integer #{code} too big to convert to 'unsigned int'" if code > 0xFFFF_FFFF
+    raise RangeError, "integer #{code} too small to convert to 'unsigned int'" if code < -0x8000_0000
+
+    code.negative? ? code & 0xFFFF_FFFF : code
+  end
+
+  # check_getline_args: a separator in another encoding than the
+  # stream's is an error, except ruby's own default, which is written in
+  # the stream's encoding.
+  def stream_separator(separator)
+    Primitive.attr! :hidden
+    enc = read_encoding
+    return separator if separator.nil? || separator.encoding == enc
+    return separator if separator.ascii_only? && (separator.empty? || enc.ascii_compatible?)
+    return "\n".encode(enc) if separator.equal?(String.default_rs)
+
+    raise ArgumentError, "encoding mismatch: #{enc} IO with #{separator.encoding} RS"
+  end
+
+  # Whether `at` starts a character. A separator counts only there. In
+  # UTF-8 and the single-byte encodings, every ASCII byte does.
+  def char_boundary?(onig, at)
+    Primitive.attr! :hidden
+    return true if at.zero? || onig.max_len == 1 || read_encoding.equal?(Encoding::UTF_8)
+
+    onig.left_adjust_char_head(@buffer, 0, at, @buffer.bytesize) == at
   end
 
   # gets' arguments as ruby reads them: one argument is the separator
@@ -1826,25 +1909,32 @@ class IO
     separator = +"\n\n" if paragraph
     if paragraph
       fill while !@eof && @buffer.start_with?("\n")
-      @buffer = @buffer.byteslice(1, @buffer.bytesize - 1) || +"" while @buffer.start_with?("\n")
+      @buffer = @buffer.byteslice(1, @buffer.bytesize - 1) || fresh_buffer while @buffer.start_with?("\n")
     end
+    onig = Regexp.encoder(read_encoding)
+    from = 0
     while true
       # A byte offset: `take` counts bytes, and a character index would
       # also walk the whole buffer for every line.
-      at = Primitive.zr_str_find_from(@buffer, separator, 0)
+      at = Primitive.zr_str_find_from(@buffer, separator, from)
+      if at && !char_boundary?(onig, at)
+        from = at + 1
+        next
+      end
       if at
         stop = at + separator.bytesize
         stop = whole_char([stop, limit].min) if limit
         line = take(stop)
         if paragraph
           fill while !@eof && @buffer.start_with?("\n")
-          @buffer = @buffer.byteslice(1, @buffer.bytesize - 1) || +"" while @buffer.start_with?("\n")
+          @buffer = @buffer.byteslice(1, @buffer.bytesize - 1) || fresh_buffer while @buffer.start_with?("\n")
         end
         return line
       end
       return take(whole_char(limit)) if limit && @buffer.bytesize >= limit
       break if @eof
 
+      from = [@buffer.bytesize - separator.bytesize + 1, 0].max
       fill
     end
     return nil if @buffer.empty?
@@ -1852,16 +1942,28 @@ class IO
     take(@buffer.bytesize)
   end
 
-  # A limit that falls inside a character grows to that character's
-  # end, as ruby's does, but never past the bytes in the buffer. A binary
-  # stream counts bytes.
+  # A limit that ends inside a character reads on, one byte at a time
+  # and at most 16 bytes more, until the character is whole, as
+  # rb_io_getline_0 relaxes it. A single-byte encoding counts bytes.
   def whole_char(n)
     Primitive.attr! :hidden
-    fill while !@eof && @buffer.bytesize <= n
-    return [n, @buffer.bytesize].min if @binmode
+    fill while !@eof && @buffer.bytesize < n
+    n = [n, @buffer.bytesize].min
+    onig = Regexp.encoder(read_encoding)
+    return n if onig.max_len == 1
 
-    n += 1 while n < @buffer.bytesize && (@buffer.getbyte(n) & 0xC0) == 0x80
-    [n, @buffer.bytesize].min
+    16.times do
+      break if n.zero?
+
+      head = onig.left_adjust_char_head(@buffer, 0, n - 1, n)
+      break unless onig.precise_mbclen(@buffer.byteslice(head, n - head), 0) < -1
+
+      fill while !@eof && @buffer.bytesize <= n
+      break if @buffer.bytesize <= n
+
+      n += 1
+    end
+    n
   end
 
   # The first `n` bytes out of the buffer, which keeps the rest.
@@ -1885,11 +1987,20 @@ class IO
     chunk
   end
 
+  # The line without its separator, as rb_io_getline_0 cuts it: a "\n"
+  # takes one "\r" before it too, a paragraph loses its "\n\n", and a
+  # line that the limit or the end stopped keeps all its bytes.
   def chomp_line(line, separator)
     Primitive.attr! :hidden
-    return line.chomp if separator == +"\n" || separator == +""
+    return line if separator.nil?
 
-    line.end_with?(separator) ? line[0, line.bytesize - separator.bytesize] : line
+    separator = +"\n\n" if separator.empty?
+    bytes = line.b
+    return line unless bytes.end_with?(separator.b)
+
+    cut = separator.bytesize
+    cut += 1 if separator.b == "\n" && bytes.getbyte(-2) == 0x0D && bytes.bytesize > 1
+    line.byteslice(0, line.bytesize - cut)
   end
 end
 

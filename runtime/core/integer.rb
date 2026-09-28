@@ -189,13 +189,18 @@ class Integer
   # Without an encoding: US-ASCII below 128, else one binary byte.
   def chr(encoding = nil)
     if encoding
+      # rb_num_to_uint first: a code point is an unsigned int.
+      raise RangeError, "#{Primitive.zr_fixnum_p_m(self) ? self : "bignum"} out of char range" if self < 0 || self > 0xFFFF_FFFF
+
       encoding = Encoding.find(encoding) unless encoding.is_a?(Encoding)
       index = Encoding.carried(encoding)
-      raise RangeError, "#{Primitive.zr_fixnum_p_m(self) ? self : "bignum"} out of char range" if self < 0
       return (+"").force_encoding(encoding).send(:append_unit_point, self) if Encoding.wide?(encoding)
       if encoding.equal?(Encoding::UTF_8) || Encoding.send(:utf8_like?, encoding) || encoding.name == +"CESU-8"
-        raise RangeError, "#{Primitive.zr_fixnum_p_m(self) ? self : "bignum"} out of char range" if self > 0x10FFFF
-        raise RangeError, "invalid codepoint 0x#{format("%04X", self)} in #{encoding.name}" if self >= 0xD800 && self <= 0xDFFF
+        # Onigmo gives 0xFFFFFFFE and 0xFFFFFFFF one byte each, which is
+        # then no character; every other code past U+10FFFF is too big.
+        raise RangeError, "invalid codepoint 0x#{format("%X", self)} in #{encoding.name}" if self >= 0xFFFF_FFFE
+        raise RangeError, "#{self} out of char range" if self > 0x10FFFF
+        raise RangeError, "invalid codepoint 0x#{format("%X", self)} in #{encoding.name}" if self >= 0xD800 && self <= 0xDFFF
         return (+"" << self).force_encoding(encoding) unless encoding.name == +"CESU-8"
 
         return Encoding.send(:cesu8_bytes, self).pack("C*").force_encoding(encoding)
@@ -204,6 +209,10 @@ class Integer
       # spell, as rb_enc_codepoint reads one, and the encoding says
       # whether those bytes make a character at all.
       if Encoding.send(:mb?, encoding)
+        # A code wider than the encoding's longest character is too big;
+        # a narrower one must spell a character.
+        raise RangeError, "#{self} out of char range" if self >= 256**Regexp.encoder(encoding).max_len
+
         bytes = []
         value = self
         while value.positive?
@@ -213,12 +222,13 @@ class Integer
         bytes = [0] if bytes.empty?
         text = bytes.pack("C*").force_encoding(encoding)
         unless text.length == 1 && text.valid_encoding?
-          raise RangeError, "invalid codepoint 0x#{format('%04X', self)} in #{encoding.name}"
+          raise RangeError, "invalid codepoint 0x#{format('%X', self)} in #{encoding.name}"
         end
 
         return text
       end
-      raise RangeError, "#{Primitive.zr_fixnum_p_m(self) ? self : "bignum"} out of char range" if self > 255
+      raise RangeError, "#{self} out of char range" if self > 255
+      raise RangeError, "invalid codepoint 0x#{format('%X', self)} in US-ASCII" if self > 127 && encoding.equal?(Encoding::US_ASCII)
 
       return Primitive.zr_str_set_index_m(Primitive.zr_str_from_byte(self), index)
     end
