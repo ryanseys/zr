@@ -63,12 +63,14 @@ class Date
   private
 
   def start_text
+    Primitive.attr! :hidden
     return reform.to_s if reform.is_a?(Integer)
 
     reform.infinite? ? (reform.positive? ? "Inf" : "-Inf") : reform.to_i.to_s
   end
 
   def jisx0301_date
+    Primitive.attr! :hidden
     y, m, d = year, mon, mday
     era = ERAS.find { |ey, em, ed, _, _| ([y, m, d] <=> [ey, em, ed]) >= 0 }
     return strftime("%Y-%m-%d") unless era
@@ -77,6 +79,7 @@ class Date
   end
 
   def seconds
+    Primitive.attr! :hidden
     jd, df = parts
     ((jd - EPOCH_JD) * 86_400) + df
   end
@@ -84,6 +87,7 @@ class Date
   # date_strftime_with_tmx: the bytes of `format` with each directive
   # rendered.
   def rendered(format)
+    Primitive.attr! :hidden
     out = "".b
     at = 0
     while at < format.bytesize
@@ -102,6 +106,7 @@ class Date
   # Text that is not a directive, including a directive cut short by the
   # end, is copied as it is written.
   def directive(format, from, out)
+    Primitive.attr! :hidden
     width = -1
     padding = nil
     left = upper = swap = modified = false
@@ -190,6 +195,7 @@ class Date
   # Text that is not a directive, from its `%` through `to`, as it is
   # written.
   def verbatim(format, from, to, out)
+    Primitive.attr! :hidden
     out << format.byteslice(from, to - from + 1)
     to + 1
   end
@@ -197,6 +203,7 @@ class Date
   # A width, from its first digit at `at`, and where its digits end. A
   # width the C renderer has no room for is a range error.
   def width_at(format, at)
+    Primitive.attr! :hidden
     digits = format.byteslice(at, format.bytesize - at)[/\A\d+/]
     raise Errno::ERANGE, format if digits.to_i > INT_MAX
 
@@ -206,6 +213,7 @@ class Date
   # FILL_PADDING and the case change: a word right-aligned in `width`,
   # unless `-` leaves it bare.
   def put_word(out, word, width, padding, left, casing = nil)
+    Primitive.attr! :hidden
     return if word.empty?
 
     out << (padding || " ") * (width - word.bytesize) if !left && width > word.bytesize
@@ -220,6 +228,7 @@ class Date
   # directive's own `least`, with its own `pad` unless a flag names
   # another, as sprintf pads it; `-` leaves it bare.
   def put_number(out, value, pad, least, width, padding, left)
+    Primitive.attr! :hidden
     width = least if width <= 0
     width = 1 if left
     out << ((padding || pad) == "0" ? format("%0*d", width, value) : format("%*d", width, value))
@@ -228,6 +237,7 @@ class Date
   # STRFTIME: a directive that represents a format of other directives,
   # upcased by `^` and right-aligned in `width` unless `-` leaves it bare.
   def put_compound(out, format, width, padding, left, upper)
+    Primitive.attr! :hidden
     text = rendered(format)
     text.upcase! if upper
     out << (padding || " ") * (width - text.bytesize) if !left && width > text.bytesize
@@ -239,6 +249,7 @@ class Date
   # The width counts past the sign and the minutes; `-` lets an hour
   # under ten show as one digit, and `_` pads before the sign.
   def put_offset(out, colons, width, padding, left)
+    Primitive.attr! :hidden
     off = offset_seconds
     aoff = off.abs
     short = aoff / 3600 < 10 ? 1 : 2

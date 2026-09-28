@@ -43,6 +43,7 @@ class Date
     # The date the elements name, or nil, so every reader raises where
     # its own caller can see it.
     def frags_date(found, start)
+      Primitive.attr! :hidden
       return nil if found.nil?
 
       start = valid_start(start)
@@ -53,6 +54,7 @@ class Date
 
     # The day the elements name. A plain civil date needs no completion.
     def frags_jd(found, start, datetime)
+      Primitive.attr! :hidden
       if found[:jd].nil? && found[:yday].nil? && found[:year] && found[:mon] && found[:mday]
         jd = valid_civil_jd(found[:year], found[:mon], found[:mday], start)
         complete_time(found, 60) if datetime
@@ -65,6 +67,7 @@ class Date
 
     # Seconds since the epoch represent a whole date and time.
     def rewrite_frags(found)
+      Primitive.attr! :hidden
       seconds = found.delete(:seconds) or return
 
       seconds += found[:offset] if found[:offset]
@@ -76,6 +79,7 @@ class Date
     end
 
     def complete_frags(found, datetime)
+      Primitive.attr! :hidden
       kind, names, present = widest_frag_set(found)
       complete_kind(found, kind, names) if kind && names.length > present
       found[:jd] ||= Date.today.jd if kind == :time && datetime
@@ -83,6 +87,7 @@ class Date
     end
 
     def widest_frag_set(found)
+      Primitive.attr! :hidden
       best = [nil, nil]
       present = 0
       FRAG_SETS.each do |kind, names|
@@ -98,6 +103,7 @@ class Date
     # What a set is missing comes from today, up to its first element
     # that the reader did find.
     def complete_kind(found, kind, names)
+      Primitive.attr! :hidden
       return found[:jd] = (Date.today - Date.today.wday + found[:wday]).jd if kind == :wday
 
       if kind == :ordinal
@@ -120,6 +126,7 @@ class Date
 
     # A leap second reads as the last second of the minute.
     def complete_time(found, leap)
+      Primitive.attr! :hidden
       found[:hour] ||= 0
       found[:min] ||= 0
       if found[:sec].nil?
@@ -131,6 +138,7 @@ class Date
 
     # The first shape the elements make a real day in.
     def valid_date_frags(found, start)
+      Primitive.attr! :hidden
       return found[:jd] if found[:jd]
 
       if found[:yday] && found[:year] && (jd = valid_ordinal_jd(found[:year], found[:yday], start))
@@ -144,6 +152,7 @@ class Date
     end
 
     def commercial_frags(found, start)
+      Primitive.attr! :hidden
       wday = found[:cwday]
       if wday.nil? && found[:wday]
         wday = found[:wday].zero? ? 7 : found[:wday]
@@ -154,6 +163,7 @@ class Date
     end
 
     def weeknum_frags(found, start, first)
+      Primitive.attr! :hidden
       week = found[first.zero? ? :wnum0 : :wnum1]
       wday = found[:wday]
       if first.zero?
@@ -169,11 +179,13 @@ class Date
 
     # A week number counted from the first `first` day of the year.
     def weeknum_jd(year, week, wday, first, start)
+      Primitive.attr! :hidden
       base = first_day_jd(year, start) + 6
       (base - (((base - first) + 1) % 7) - 7) + (7 * week) + wday
     end
 
     def jd_weeknum(jd, first, start)
+      Primitive.attr! :hidden
       year = jd_civil(jd, start).first
       base = first_day_jd(year, start) + 6
       j = jd - (base - (((base - first) + 1) % 7)) + 7
@@ -181,6 +193,7 @@ class Date
     end
 
     def valid_weeknum_jd(year, week, wday, first, start)
+      Primitive.attr! :hidden
       wday += 7 if wday.negative?
       jd = weeknum_jd(year, week, wday, first, start)
       jd_weeknum(jd, first, start) == [year, week, wday] ? jd : nil
@@ -206,6 +219,10 @@ class DateTime < Date
 
     def jisx0301(text = "-4712-01-01T00:00:00+00:00", start = Date::ITALY) = frags_date(_jisx0301(text), start) || raise(Date::Error, "invalid date")
 
+    # datetime_s__strptime: Date's reader, with a time and a zone in the
+    # format that it takes by default.
+    def _strptime(text, format = "%FT%T%z") = super
+
     def strptime(text = "-4712-01-01T00:00:00+00:00", format = "%FT%T%z", start = Date::ITALY)
       frags_date(_strptime(text, format), start) || raise(Date::Error, "invalid date")
     end
@@ -213,6 +230,7 @@ class DateTime < Date
     private
 
     def frags_date(found, start)
+      Primitive.attr! :hidden
       return nil if found.nil?
 
       start = valid_start(start)
@@ -226,6 +244,7 @@ class DateTime < Date
 
     # An offset past a whole day is no offset at all.
     def offset_seconds(offset)
+      Primitive.attr! :hidden
       return 0 if offset.nil?
 
       seconds = offset.to_i

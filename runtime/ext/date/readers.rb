@@ -85,16 +85,29 @@ class Date
 
     private
 
-    def fraction_of(digits) = Rational(digits.to_i, 10**digits.length)
+    def fraction_of(digits)
+      Primitive.attr! :hidden
+      Rational(digits.to_i, 10**digits.length)
+    end
 
-    def comp_year50(year) = year + (year >= 50 ? 1900 : 2000)
+    def comp_year50(year)
+      Primitive.attr! :hidden
+      year + (year >= 50 ? 1900 : 2000)
+    end
 
-    def comp_year69(year) = year + (year >= 69 ? 1900 : 2000)
+    def comp_year69(year)
+      Primitive.attr! :hidden
+      year + (year >= 69 ? 1900 : 2000)
+    end
 
     # A year of fewer than four digits is this century or the last.
-    def wide_year(text) = text.length < 4 ? comp_year69(text.to_i) : text.to_i
+    def wide_year(text)
+      Primitive.attr! :hidden
+      text.length < 4 ? comp_year69(text.to_i) : text.to_i
+    end
 
     def iso_ext_datetime(text, found)
+      Primitive.attr! :hidden
       m = ISO_EXT_DATETIME_RE.match(text) or return false
 
       if m[1]
@@ -118,6 +131,7 @@ class Date
     end
 
     def iso_bas_datetime(text, found)
+      Primitive.attr! :hidden
       m = ISO_BAS_DATETIME_RE.match(text) or return false
 
       if m[3]
@@ -143,6 +157,7 @@ class Date
     end
 
     def iso_tail(found, hour, min, sec, fraction, zone)
+      Primitive.attr! :hidden
       if hour
         found.merge!(hour: hour.to_i, min: min.to_i)
         found[:sec] = sec.to_i if sec
@@ -153,6 +168,7 @@ class Date
     end
 
     def iso_ext_time(text, found)
+      Primitive.attr! :hidden
       m = ISO_EXT_TIME_RE.match(text) or return false
 
       found.merge!(hour: m[1].to_i, min: m[2].to_i)
@@ -163,6 +179,7 @@ class Date
     end
 
     def iso_bas_time(text, found)
+      Primitive.attr! :hidden
       m = ISO_BAS_TIME_RE.match(text) or return false
 
       found.merge!(hour: m[1].to_i, min: m[2].to_i)
@@ -173,6 +190,7 @@ class Date
     end
 
     def xsd_datetime(text, found)
+      Primitive.attr! :hidden
       m = XSD_DATETIME_RE.match(text) or return false
 
       found[:year] = m[1].to_i
@@ -187,6 +205,7 @@ class Date
     end
 
     def xsd_time(text, found)
+      Primitive.attr! :hidden
       m = XSD_TIME_RE.match(text) or return false
 
       found.merge!(hour: m[1].to_i, min: m[2].to_i)
@@ -197,6 +216,7 @@ class Date
     end
 
     def xsd_trunc(text, found)
+      Primitive.attr! :hidden
       m = XSD_TRUNC_RE.match(text) or return false
 
       found[:mon] = m[1].to_i if m[1]
@@ -207,6 +227,7 @@ class Date
     end
 
     def httpdate1(text, found)
+      Primitive.attr! :hidden
       m = HTTPDATE1_RE.match(text) or return false
 
       found.merge!(wday: day_num(m[1]), mday: m[2].to_i, mon: mon_num(m[3]), year: m[4].to_i,
@@ -215,6 +236,7 @@ class Date
     end
 
     def httpdate2(text, found)
+      Primitive.attr! :hidden
       m = HTTPDATE2_RE.match(text) or return false
 
       year = m[4].to_i
@@ -225,6 +247,7 @@ class Date
     end
 
     def httpdate3(text, found)
+      Primitive.attr! :hidden
       m = HTTPDATE3_RE.match(text) or return false
 
       found.merge!(wday: day_num(m[1]), mon: mon_num(m[2]), mday: m[3].to_i,

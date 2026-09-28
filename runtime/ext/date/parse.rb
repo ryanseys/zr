@@ -92,6 +92,7 @@ class Date
     # The date shapes, in the order that ruby tries them: the first that
     # fits wins, and the others never see the text it read.
     def parse_date(str, found)
+      Primitive.attr! :hidden
       return if ascii?(str, :alpha, :digit) && (parse_eu(str, found) || parse_us(str, found))
       return if ascii?(str, :digit, :dash) && parse_iso(str, found)
       return if ascii?(str, :digit, :dot) && parse_jis(str, found)
@@ -107,6 +108,7 @@ class Date
     end
 
     def text_of(text)
+      Primitive.attr! :hidden
       text = String.try_convert(text) or raise TypeError, "no implicit conversion of #{conversion_name(text)} into String"
       raise ArgumentError, "string should have ASCII compatible encoding" unless text.encoding.ascii_compatible?
 
@@ -116,6 +118,7 @@ class Date
     # The character classes that ruby's own reader checks. It reads them
     # as bytes, so only ASCII counts.
     def ascii?(str, *kinds)
+      Primitive.attr! :hidden
       kinds.all? do |kind|
         case kind
         when :alpha then str.match?(/[A-Za-z]/)
@@ -129,17 +132,25 @@ class Date
 
     # Reads one shape and blanks what it read.
     def subs(str, pattern)
+      Primitive.attr! :hidden
       m = pattern.match(str) or return false
       str[m.begin(0), m.end(0) - m.begin(0)] = " "
       yield(m)
       true
     end
 
-    def day_num(text) = ABBR_DAYS.split("|").index { |name| name.casecmp?(text[0, 3]) } || 7
+    def day_num(text)
+      Primitive.attr! :hidden
+      ABBR_DAYS.split("|").index { |name| name.casecmp?(text[0, 3]) } || 7
+    end
 
-    def mon_num(text) = (ABBR_MONS.split("|").index { |name| name.casecmp?(text[0, 3]) } || 12) + 1
+    def mon_num(text)
+      Primitive.attr! :hidden
+      (ABBR_MONS.split("|").index { |name| name.casecmp?(text[0, 3]) } || 12) + 1
+    end
 
     def digit_span(text, from)
+      Primitive.attr! :hidden
       length = 0
       length += 1 while text[from + length]&.match?(/[0-9]/)
       length
@@ -148,6 +159,7 @@ class Date
     # The year, month and day three loose texts name, put in the order
     # their own shapes imply.
     def s3e(found, y, m, d, bc)
+      Primitive.attr! :hidden
       m = m.to_s unless m.nil? || m.is_a?(String)
       y, m, d = d, y, m if y && m && d.nil?
       if y.nil? && d && (d.length > 2 || d.start_with?("'"))
@@ -181,16 +193,19 @@ class Date
     end
 
     def digits_in(text)
+      Primitive.attr! :hidden
       at = text.index(/[0-9]/) or return nil
 
       text[at, digit_span(text, at)].to_i
     end
 
     def parse_day(str, found)
+      Primitive.attr! :hidden
       subs(str, DAY_RE) { |m| found[:wday] = day_num(m[1]) }
     end
 
     def parse_time(str, found)
+      Primitive.attr! :hidden
       subs(str, TIME_RE) do |m|
         found[:zone] = m[2] if m[2]
         time = TIME2_RE.match(m[1]) or next
@@ -207,24 +222,29 @@ class Date
     # The half day that an "am" or a "pm" gives is counted in a machine
     # int, so an hour past its range has no result.
     def int_hour(hour)
+      Primitive.attr! :hidden
       raise RangeError, "integer #{hour} too big to convert to 'int'" unless (-2**31...2**31).cover?(hour)
 
       hour
     end
 
     def parse_eu(str, found)
+      Primitive.attr! :hidden
       subs(str, EU_RE) { |m| s3e(found, m[4], mon_num(m[2]), m[1], m[3]&.downcase&.start_with?("b")) }
     end
 
     def parse_us(str, found)
+      Primitive.attr! :hidden
       subs(str, US_RE) { |m| s3e(found, m[4], mon_num(m[1]), m[2], m[3]&.downcase&.start_with?("b")) }
     end
 
     def parse_iso(str, found)
+      Primitive.attr! :hidden
       subs(str, ISO_RE) { |m| s3e(found, m[1], m[2], m[3], false) }
     end
 
     def parse_jis(str, found)
+      Primitive.attr! :hidden
       subs(str, JIS_RE) do |m|
         found[:year] = m[2].to_i + GENGO.fetch(m[1].downcase, 0)
         found[:mon] = m[3].to_i
@@ -233,19 +253,23 @@ class Date
     end
 
     def parse_vms(str, found)
+      Primitive.attr! :hidden
       subs(str, VMS11_RE) { |m| s3e(found, m[3], mon_num(m[2]), m[1], false) } ||
         subs(str, VMS12_RE) { |m| s3e(found, m[3], mon_num(m[1]), m[2], false) }
     end
 
     def parse_sla(str, found)
+      Primitive.attr! :hidden
       subs(str, SLA_RE) { |m| s3e(found, m[1], m[2], m[3], false) }
     end
 
     def parse_dot(str, found)
+      Primitive.attr! :hidden
       subs(str, DOT_RE) { |m| s3e(found, m[1], m[2], m[3], false) }
     end
 
     def parse_iso2(str, found)
+      Primitive.attr! :hidden
       return true if subs(str, ISO21_RE) do |m|
         found[:cwyear] = m[1].to_i if m[1]
         found[:cweek] = m[2].to_i
@@ -272,20 +296,24 @@ class Date
     end
 
     def parse_quoted_year(str, found)
+      Primitive.attr! :hidden
       subs(str, YEAR_RE) { |m| found[:year] = m[1].to_i }
     end
 
     def parse_mon(str, found)
+      Primitive.attr! :hidden
       subs(str, MON_RE) { |m| found[:mon] = mon_num(m[1]) }
     end
 
     def parse_mday(str, found)
+      Primitive.attr! :hidden
       subs(str, MDAY_RE) { |m| found[:mday] = m[1].to_i }
     end
 
     # A run of digits with no separators. How many there are says what
     # they name, and a fraction with no time before it means a clock.
     def parse_ddd(str, found)
+      Primitive.attr! :hidden
       subs(str, DDD_RE) do |m|
         ddd_digits(found, m[2], m[1] == "-", m[3].nil? && !m[4].nil?)
         ddd_time(found, m[3], m[4]) if m[3]
@@ -295,6 +323,7 @@ class Date
     end
 
     def ddd_digits(found, digits, negative, clock)
+      Primitive.attr! :hidden
       size = digits.length
       return clock_tail(found, digits, size) if clock
 
@@ -316,6 +345,7 @@ class Date
 
     # The same digits read from the right, as a clock.
     def clock_tail(found, digits, size)
+      Primitive.attr! :hidden
       case size
       when 2 then found[:sec] = digits[-2, 2].to_i
       when 3 then found.merge!(sec: digits[-2, 2].to_i, min: digits[-3, 1].to_i)
@@ -332,6 +362,7 @@ class Date
     end
 
     def ddd_time(found, time, fraction)
+      Primitive.attr! :hidden
       return unless [2, 4, 6].include?(time.length)
 
       return clock_tail(found, time, time.length) if fraction
@@ -343,6 +374,7 @@ class Date
 
     # A zone in brackets contains an offset, and after a colon its name.
     def ddd_zone(found, text)
+      Primitive.attr! :hidden
       found[:zone] = text
       return unless text.start_with?("[")
 
@@ -357,15 +389,20 @@ class Date
       found[:offset] = zone_to_diff(source)
     end
 
-    def signed(value, negative) = negative ? -value : value
+    def signed(value, negative)
+      Primitive.attr! :hidden
+      negative ? -value : value
+    end
 
     def parse_bc(str, found)
+      Primitive.attr! :hidden
       subs(str, BC_RE) { found[:_bc] = true }
     end
 
     # A lone one or two digit number beside a time is a day, and beside
     # a day it is an hour.
     def parse_frag(str, found)
+      Primitive.attr! :hidden
       subs(str, FRAG_RE) do |m|
         number = m[1].to_i
         found[:mday] = number if found[:hour] && !found[:mday] && (1..31).cover?(number)
@@ -374,6 +411,7 @@ class Date
     end
 
     def complete_era(found)
+      Primitive.attr! :hidden
       return unless found.delete(:_bc)
 
       found[:cwyear] = -found[:cwyear] + 1 if found[:cwyear]
@@ -382,6 +420,7 @@ class Date
 
     # A two digit year is this century when it is under 69.
     def complete_century(found)
+      Primitive.attr! :hidden
       %i[cwyear year].each do |key|
         value = found[key]
         found[key] = value + (value >= 69 ? 1900 : 2000) if value && (0..99).cover?(value)

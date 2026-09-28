@@ -58,6 +58,7 @@ class Date
     # The directive at `fi`, which starts with a `%`. Returns the position
     # where the format continues.
     def directive(format, fi)
+      Primitive.attr! :hidden
       start = fi
       fi += 1
       fi += 1 while modifier?(format, fi)
@@ -288,6 +289,7 @@ class Date
     private
 
     def complete_century_frag(found)
+      Primitive.attr! :hidden
       cent = found.delete(:_cent) or return
 
       found[:cwyear] += cent * 100 if found[:cwyear]
@@ -295,6 +297,7 @@ class Date
     end
 
     def complete_meridian(found)
+      Primitive.attr! :hidden
       half = found.delete(:_merid) or return
 
       found[:hour] = (found[:hour] % 12) + half if found[:hour]

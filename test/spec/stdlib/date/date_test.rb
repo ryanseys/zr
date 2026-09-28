@@ -2899,4 +2899,77 @@ describe "Date programs" do
       true
     OUT
   end
+
+  it "date shows VERSION, DateTime._strptime, and Date.new through initialize, with no helper in sight" do
+    result = zr(<<~'RUBY')
+      # date_core.c's surface: VERSION, DateTime._strptime, Date.new through
+      # Class#new and Date#initialize, and no helper a program can see.
+      require "date"
+      p Date::VERSION
+      p DateTime._strptime("2001-02-03T04:05:06+07:00")
+      p DateTime._strptime("2001 3", "%Y %j"), DateTime._strptime("x", "%Y")
+      p Date.private_methods(false).sort - Class.private_instance_methods, DateTime.private_methods(false).sort - Class.private_instance_methods
+      p Date.private_instance_methods(false).sort, DateTime.private_instance_methods(false)
+      p Date.singleton_methods(false).include?(:new), DateTime.singleton_methods(false).include?(:_strptime)
+      p Date.method(:new).owner, Date.instance_method(:initialize).owner, DateTime.method(:new).owner
+      p Date.new(2001).instance_variables, DateTime.instance_variables
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "3.5.1"
+      {year: 2001, mon: 2, mday: 3, hour: 4, min: 5, sec: 6, zone: "+07:00", offset: 25200}
+      {year: 2001, yday: 3}
+      nil
+      []
+      []
+      [:hour, :initialize, :initialize_copy, :min, :minute, :sec, :second]
+      []
+      false
+      true
+      Class
+      Date
+      #<Class:DateTime>
+      []
+      []
+    OUT
+  end
+
+  it "Date#initialize and initialize_copy check what they are given as date_core.c does" do
+    result = zr(<<~'RUBY')
+      # Date#initialize takes the civil parts, and Date.civil never calls a
+      # subclass's initialize. initialize_copy takes only another Date, and a
+      # simple date cannot take the parts of one with a time of day.
+      require "date"
+      d = Date.new(2001, 2, 3)
+      p((d.send(:initialize_copy, 1) rescue $!), (Date.allocate.send(:initialize_copy, DateTime.now).class rescue $!))
+      p((d.dup.freeze.send(:initialize_copy, Date.new) rescue $!))
+      c = Class.new(Date) { def initialize(*a) = (p a; super) }
+      p c.new(2001, 2).to_s, c.civil(2001, 3).to_s, c.new.class == c
+      p Date.new(2001, 2, 3.5), Date.allocate.send(:initialize, 2000), Date.instance_method(:initialize).arity, DateTime.new(2001).class
+      p (DateTime.allocate.send(:initialize, 2001, 2, 3) rescue $!)
+      p d.dup == d, d.clone.frozen?, DateTime.now.dup.class, Date.new(-1, -1, -1), (Date.new(2001, 2, 30) rescue $!), (Date.new("x") rescue $!)
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      #<TypeError: wrong argument type Integer (expected Date)>
+      #<ArgumentError: cannot load complex into simple>
+      #<FrozenError: can't modify frozen Date: #<Date: 2001-02-03 ((2451944j,0s,0n),+0s,2299161j)>>
+      [2001, 2]
+      []
+      "2001-02-01"
+      "2001-03-01"
+      true
+      #<Date: 2001-02-03 ((2451944j,0s,0n),+0s,2299161j)>
+      #<Date: 2000-01-01 ((2451545j,0s,0n),+0s,2299161j)>
+      -1
+      DateTime
+      #<TypeError: Date expected>
+      true
+      false
+      DateTime
+      #<Date: -0001-12-31 ((1721057j,0s,0n),+0s,2299161j)>
+      #<Date::Error: invalid date>
+      #<TypeError: invalid year (not numeric)>
+    OUT
+  end
 end

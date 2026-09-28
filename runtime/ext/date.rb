@@ -8,6 +8,8 @@
 class Date
   include Comparable
 
+  VERSION = "3.5.1"
+
   ITALY = 2299161
   ENGLAND = 2361222
   JULIAN = Float::INFINITY
@@ -83,6 +85,7 @@ class Date
   class << self
     # The Julian day number of a civil date, with no validity check.
     def civil_jd(year, month, day, start)
+      Primitive.attr! :hidden
       if month <= 2
         year -= 1
         month += 12
@@ -95,6 +98,7 @@ class Date
 
     # The year, month and day a Julian day number names.
     def jd_civil(jd, start)
+      Primitive.attr! :hidden
       if jd < start
         a = jd
       else
@@ -112,6 +116,7 @@ class Date
     # The Julian day number of a valid civil date, or nil. A negative
     # month or day counts back from the end of the year or the month.
     def valid_civil_jd(year, month, day, start)
+      Primitive.attr! :hidden
       month += 13 if month.negative?
       return nil unless (1..12).cover?(month)
 
@@ -126,6 +131,7 @@ class Date
 
     # The last day of a month, which the Gregorian reform can shorten.
     def last_day_jd(year, month, start)
+      Primitive.attr! :hidden
       31.downto(1) do |day|
         jd = civil_jd(year, month, day, start)
         return jd if jd_civil(jd, start) == [year, month, day]
@@ -134,6 +140,7 @@ class Date
     end
 
     def first_day_jd(year, start)
+      Primitive.attr! :hidden
       1.upto(31) do |day|
         jd = civil_jd(year, 1, day, start)
         return jd if jd_civil(jd, start) == [year, 1, day]
@@ -142,6 +149,7 @@ class Date
     end
 
     def valid_ordinal_jd(year, yday, start)
+      Primitive.attr! :hidden
       first = first_day_jd(year, start) or return nil
       if yday.negative?
         last = first_day_jd(year + 1, start) or return nil
@@ -156,11 +164,13 @@ class Date
     end
 
     def commercial_jd(cwyear, cweek, cwday, start)
+      Primitive.attr! :hidden
       first = first_day_jd(cwyear, start) + 3
       (first - jd_wday(first) - 7) + (7 * cweek) + cwday
     end
 
     def valid_commercial_jd(cwyear, cweek, cwday, start)
+      Primitive.attr! :hidden
       cwday += 8 if cwday.negative?
       cweek += jd_commercial(commercial_jd(cwyear + 1, 1, 1, start) - 1, start)[1] + 1 if cweek.negative?
       return nil unless (1..7).cover?(cwday) && cweek.positive?
@@ -170,6 +180,7 @@ class Date
     end
 
     def jd_commercial(jd, start)
+      Primitive.attr! :hidden
       year = jd_civil(jd - 3, start).first
       year += 1 if jd >= commercial_jd(year + 1, 1, 1, start)
       week = 1 + ((jd - commercial_jd(year, 1, 1, start)) / 7)
@@ -177,7 +188,10 @@ class Date
       [year, week, day.zero? ? 7 : day]
     end
 
-    def jd_wday(jd) = (jd + 1) % 7
+    def jd_wday(jd)
+      Primitive.attr! :hidden
+      (jd + 1) % 7
+    end
 
     private :civil_jd, :jd_civil, :valid_civil_jd, :last_day_jd, :first_day_jd,
             :valid_ordinal_jd, :commercial_jd, :valid_commercial_jd, :jd_commercial, :jd_wday
@@ -201,21 +215,48 @@ class Date
     jd.integer? ? date : date + (jd - jd.floor)
   end
 
+  # date_s_civil: a date from its civil parts. It never calls the
+  # initialize that a subclass defines.
+  def self.civil(year = -4712, month = 1, day = 1, start = ITALY)
+    jd, start = civil_day(year, month, day, start)
+    at(jd, 0, 0, 0, start, simple: true)
+  end
+
   # date_initialize reads the parts last to first. A fraction of a day
   # is lost, because `new` returns the date it allocated and not the one
   # that the fraction moved.
-  def self.civil(year = -4712, month = 1, day = 1, start = ITALY)
+  def self.civil_day(year, month, day, start)
+    Primitive.attr! :hidden
     start = valid_start(start)
     day = numeric(day, "day").floor
     month = numeric(month, "month").to_i
     jd = send(:valid_civil_jd, integer(numeric(year, "year")), month, day, start)
     raise Error, "invalid date" unless jd
 
-    at(jd, 0, 0, 0, start, simple: true)
+    [jd, start]
+  end
+  private_class_method :civil_day
+
+  # Date.new: date_initialize, on the simple date that Date.allocate
+  # makes. A DateTime's allocation is not simple.
+  def initialize(year = -4712, month = 1, day = 1, start = ITALY)
+    raise TypeError, "Date expected" unless parts[5]
+
+    jd, start = Date.send(:civil_day, year, month, day, start)
+    setup(jd, 0, 0, 0, start, true)
   end
 
-  class << self
-    alias new civil
+  # d_lite_initialize_copy: a copy takes the other date's parts. A
+  # simple date cannot take the parts of one with a time of day.
+  def initialize_copy(date)
+    raise FrozenError, "can't modify frozen #{self.class}: #{inspect}" if frozen?
+    raise TypeError, "wrong argument type #{conversion_name(date)} (expected Date)" unless date.is_a?(Date)
+    return self if equal?(date)
+
+    jd, df, sf, of, sg, simple = date.send(:parts)
+    raise ArgumentError, "cannot load complex into simple" if parts[5] && !simple
+
+    setup(jd, df, sf, of, sg, simple && parts[5])
   end
 
   def self.ordinal(year = -4712, yday = 1, start = ITALY)
@@ -283,6 +324,7 @@ class Date
 
   # check_numeric: each part of a date is a Numeric.
   def self.numeric(value, name)
+    Primitive.attr! :hidden
     raise TypeError, "invalid #{name} (not numeric)" unless value.is_a?(Numeric)
 
     value
@@ -290,6 +332,7 @@ class Date
 
   # A year as a whole number; a year past every whole number is no date.
   def self.integer(value)
+    Primitive.attr! :hidden
     raise Error, "invalid date" unless value.integer? || value.finite?
 
     value.to_i
@@ -298,6 +341,7 @@ class Date
   # val2sg: the day the Gregorian calendar starts, as NUM2DBL reads it.
   # A day outside the years of the reform is ignored for ITALY.
   def self.valid_start(start)
+    Primitive.attr! :hidden
     sg = case start
          when Float then start
          when nil, true, false then raise TypeError, "no implicit conversion to float from #{start.inspect}"
@@ -347,6 +391,7 @@ class Date
 
   # The local day and second, which the offset moves off the stored UTC.
   def local
+    Primitive.attr! :hidden
     jd, df, _, of = parts
     seconds = df + of
     [jd + seconds.div(DAY), seconds % DAY]
@@ -393,7 +438,10 @@ class Date
 
   def gregorian = new_start(GREGORIAN)
 
-  def civil = self.class.send(:jd_civil, jd, reform)
+  def civil
+    Primitive.attr! :hidden
+    self.class.send(:jd_civil, jd, reform)
+  end
   private :civil
 
   def year = civil[0]
@@ -410,7 +458,10 @@ class Date
 
   def wday = self.class.send(:jd_wday, jd)
 
-  def commercial = self.class.send(:jd_commercial, jd, reform)
+  def commercial
+    Primitive.attr! :hidden
+    self.class.send(:jd_commercial, jd, reform)
+  end
   private :commercial
 
   def cwyear = commercial[0]
@@ -448,6 +499,7 @@ class Date
   private :hour, :min, :minute, :sec, :second
 
   private_class_method def self.offset_string(of)
+    Primitive.attr! :hidden
     sign = of.negative? ? "-" : "+"
     of = of.abs
     format("%s%02d:%02d", sign, of / 3600, (of % 3600) / 60)
@@ -455,6 +507,7 @@ class Date
 
   # An offset as a count of seconds: a number of days, or "+HH:MM".
   private_class_method def self.seconds_of(offset)
+    Primitive.attr! :hidden
     return (offset * DAY).round if offset.is_a?(Numeric)
 
     text = String.try_convert(offset) or raise TypeError, "no implicit conversion of #{conversion_name(offset)} into String"
@@ -463,6 +516,7 @@ class Date
   end
 
   private_class_method def self.zone_seconds(text)
+    Primitive.attr! :hidden
     return 0 if /\A(?:Z|UTC?|GMT)\z/i.match?(text)
     return nil unless (m = /\A([-+])(\d{1,2})(?::?(\d{2})(?::?(\d{2}))?)?\z/.match(text))
 
@@ -671,6 +725,7 @@ class DateTime < Date
   # The second of the day and its nanosecond, with a negative part
   # counting back from the end of the hour, minute or day.
   private_class_method def self.time_of_day(hour, minute, second)
+    Primitive.attr! :hidden
     hour += 24 if hour.negative?
     minute += 60 if minute.negative?
     second += 60 if second.negative?
@@ -683,6 +738,7 @@ class DateTime < Date
 
   # A day number and second put back in range after the offset moved it.
   def carry
+    Primitive.attr! :hidden
     jd, df, sf, of, sg = parts
     self.class.send(:at, jd + df.div(86_400), df % 86_400, sf, of, sg)
   end
