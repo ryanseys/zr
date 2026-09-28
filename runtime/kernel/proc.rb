@@ -937,7 +937,15 @@ machine def zr_block_call_live(p)
       if zr_bmethod_entry(rec) != 0 && zr_same_block(Frame.defined(rec), p)
         return true
       end
-      return zr_same_block(Frame.blk(rec), p)
+      # The call at the literal's site got the literal's descriptor. A call
+      # that got a Proc in its own cell got it with `&`, after the call at
+      # the site returned (`capture { break }` then `yielding(&b)`), and
+      # ruby raises there as for any orphan break.
+      given = Frame.blk(rec)
+      if !zr_special_p(given) && zr_type(given) == T_PROC && (RBasic.flags(given) & FL_STACK) == 0
+        return false
+      end
+      return zr_same_block(given, p)
     end
     rec = Frame.prev(rec)
   end
