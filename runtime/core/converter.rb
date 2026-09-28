@@ -228,22 +228,18 @@ class Encoding
         BITS.each { |name, bit| @decorators << name if flags & bit != 0 }
         return
       end
+      Encoding.send(:check_options, options)
       @replacement = options[:replace]
       @flags |= INVALID_REPLACE if options[:invalid] == :replace
       @flags |= UNDEF_REPLACE if options[:undef] == :replace
       case options[:xml]
-      when nil then nil
       when :text then @decorators << :xml_text
       when :attr then @decorators.concat(%i[xml_attr_content xml_attr_quote])
-      else raise ArgumentError, "unexpected value for xml option: #{options[:xml]}"
       end
       # An XML decorator writes a character reference where a character
       # has no place in the destination, rather than refusing it.
       @flags |= UNDEF_HEX_CHARREF if options[:xml]
-      @decorators << :universal_newline if options[:universal_newline]
-      @decorators << :crlf_newline if options[:crlf_newline]
-      @decorators << :cr_newline if options[:cr_newline]
-      @decorators << Encoding.send(:newline_decorator, options[:newline]) if options[:newline]
+      @decorators.concat(Encoding.send(:newline_decorators, options))
       @decorators.uniq!
       @decorators.each { |name| @flags |= BITS[name] }
     end

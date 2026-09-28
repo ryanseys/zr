@@ -1634,6 +1634,7 @@ class String
     end
     Encoding.send(:check_options, options)
     from, target = Encoding.pair(source.nil? ? Encoding.at(Primitive.zr_str_encoding_index_m(self)) : source, target)
+    options = Encoding.send(:one_newline, options, from, target)
     Encoding.send(:check_replacement, self, from, target, options)
     text = escaped(source.nil? ? plain : copied.force_encoding(from), options)
     # No conversion, but an `invalid: :replace` the caller wrote still
@@ -1651,7 +1652,7 @@ class String
     # conversion: before it when the source is ASCII-compatible, after
     # it when only the target is, and through UTF-8 between two wide
     # encodings.
-    return Encoding.convert(text, target, options) unless options[:newline] || options[:cr_newline] || options[:crlf_newline] || options[:universal_newline]
+    return Encoding.convert(text, target, options) unless options[:newline]
     return Encoding.convert(newlines(text, options), target, options) if text.encoding.ascii_compatible?
     return newlines(Encoding.convert(text, target, options), options) if target.ascii_compatible?
 
@@ -1731,12 +1732,7 @@ class String
   # rewrite the line ends once the conversion is done.
   def newlines(text, options)
     Primitive.attr! :hidden
-    kind = options[:newline]
-    kind = :cr if options[:cr_newline]
-    kind = :crlf if options[:crlf_newline]
-    kind = :lf if options[:universal_newline]
-
-    case kind
+    case (kind = options[:newline])
     when nil then text
     when :universal, :lf then text.gsub(/\r\n|\r/, "\n")
     when :cr then text.gsub("\n", "\r")
@@ -3349,9 +3345,10 @@ class Encoding
             when :attr then %w[xml_attr_content xml_attr_quote]
             else []
             end
-    names << "crlf_newline" if options[:crlf_newline] || options[:newline] == :crlf
-    names << "cr_newline" if options[:cr_newline] || options[:newline] == :cr
-    names << "universal_newline" if options[:universal_newline] || options[:newline] == :universal
+    names << "crlf_newline" if options[:newline] == :crlf
+    names << "cr_newline" if options[:newline] == :cr
+    names << "universal_newline" if options[:newline] == :universal
+    names << "lf_newline" if options[:newline] == :lf
     names
   end
   private_class_method :decorators
@@ -3451,6 +3448,10 @@ class Encoding
     Primitive.attr! :hidden
     raise ArgumentError, +"unknown value for invalid character option" unless options[:invalid].nil? || options[:invalid] == :replace
     raise ArgumentError, +"unknown value for undefined character option" unless options[:undef].nil? || options[:undef] == :replace
+    xml = options[:xml]
+    unless xml.nil? || xml == :text || xml == :attr
+      raise ArgumentError, xml.is_a?(Symbol) ? "unexpected value for xml option: #{xml}" : +"unexpected value for xml option"
+    end
 
     replace = options[:replace]
     return if replace.nil?
@@ -4052,6 +4053,36 @@ class Encoding
       end
     end
     raise ConverterNotFoundError, "code converter not found (#{source} to #{destination}#{shown})"
+  end
+
+  # econv_opts' line ends, by decorator name: `newline:` names one and
+  # wins over the older booleans, which can name several, and the
+  # conversion then finds no converter. A nil names none.
+  NEWLINE_OPTIONS = %i[universal_newline crlf_newline cr_newline lf_newline].freeze
+  private_constant :NEWLINE_OPTIONS
+
+  def self.newline_decorators(options)
+    Primitive.attr! :hidden
+    given = NEWLINE_OPTIONS.reject { |name| options[name].nil? }
+    if options[:newline].nil?
+      given.select { |name| options[name] }
+    else
+      Primitive.zr_warn_here_m(":newline option precedes other newline options") if $VERBOSE && !given.empty?
+      [newline_decorator(options[:newline])]
+    end
+  end
+
+  # The options with their line end as one `newline:`, or none. Two line
+  # ends are no conversion that ruby has.
+  def self.one_newline(options, from, target)
+    Primitive.attr! :hidden
+    lines = newline_decorators(options)
+    if lines.size > 1
+      ends = from.equal?(target) ? +"" : "#{from} to #{target} with "
+      raise ConverterNotFoundError, "code converter not found (#{ends}#{lines.join(',')})"
+    end
+    options = options.except(:newline, *NEWLINE_OPTIONS)
+    lines.empty? ? options : options.merge(newline: lines.first.to_s.delete_suffix("_newline").to_sym)
   end
 
   # The decorator a `newline:` option names. A name that is no Symbol is

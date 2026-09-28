@@ -1792,4 +1792,84 @@ describe "Encoding: formatting and inspection" do
       ["EUC-JP", "\"\\xA4\"", "\"a\\x81\""]
     OUT
   end
+
+  it "newline names one line end over the older booleans, and two line ends find no converter" do
+    result = zr(<<~'RUBY')
+      # newline: names one line end and wins over the older booleans, which
+      # combine; two line ends are a conversion ruby has none of. lf_newline
+      # turns CRLF and CR into LF, as universal does.
+      text = "a\r\nb\rc\n"
+      [{ newline: :crlf }, { newline: :lf }, { lf_newline: true }, { newline: nil }, { crlf_newline: false },
+       { newline: :cr, crlf_newline: false }, { newline: :crlf, universal_newline: true },
+       { crlf_newline: true, cr_newline: true }, { universal_newline: true, lf_newline: true }, { newline: :bogus },
+       { newline: "x" }, { xml: :bogus }, { xml: "x" }].each do |options|
+        p [options, (text.encode("UTF-8", "UTF-8", **options) rescue $!)]
+        p [options, (text.encode("EUC-JP", "UTF-8", **options) rescue $!)]
+        p [options, (Encoding::Converter.new("UTF-8", "EUC-JP", **options).convpath.drop(1) rescue $!)]
+      end
+      p((Encoding::Converter.new("UTF-8", "EUC-JP", invalid: :bogus) rescue $!))
+      p((Encoding::Converter.new("UTF-8", "EUC-JP", undef: :bogus) rescue $!))
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [{newline: :crlf}, "a\r\r\nb\rc\r\n"]
+      [{newline: :crlf}, "a\r\r\nb\rc\r\n"]
+      [{newline: :crlf}, ["crlf_newline"]]
+      [{newline: :lf}, "a\nb\nc\n"]
+      [{newline: :lf}, "a\nb\nc\n"]
+      [{newline: :lf}, ["lf_newline"]]
+      [{lf_newline: true}, "a\nb\nc\n"]
+      [{lf_newline: true}, "a\nb\nc\n"]
+      [{lf_newline: true}, ["lf_newline"]]
+      [{newline: nil}, "a\r\nb\rc\n"]
+      [{newline: nil}, "a\r\nb\rc\n"]
+      [{newline: nil}, []]
+      [{crlf_newline: false}, "a\r\nb\rc\n"]
+      [{crlf_newline: false}, "a\r\nb\rc\n"]
+      [{crlf_newline: false}, []]
+      [{newline: :cr, crlf_newline: false}, "a\r\rb\rc\r"]
+      [{newline: :cr, crlf_newline: false}, "a\r\rb\rc\r"]
+      [{newline: :cr, crlf_newline: false}, ["cr_newline"]]
+      [{newline: :crlf, universal_newline: true}, "a\r\r\nb\rc\r\n"]
+      [{newline: :crlf, universal_newline: true}, "a\r\r\nb\rc\r\n"]
+      [{newline: :crlf, universal_newline: true}, ["crlf_newline"]]
+      [{crlf_newline: true, cr_newline: true}, #<Encoding::ConverterNotFoundError: code converter not found (crlf_newline,cr_newline)>]
+      [{crlf_newline: true, cr_newline: true}, #<Encoding::ConverterNotFoundError: code converter not found (UTF-8 to EUC-JP with crlf_newline,cr_newline)>]
+      [{crlf_newline: true, cr_newline: true}, #<Encoding::ConverterNotFoundError: code converter not found (UTF-8 to EUC-JP with crlf_newline,cr_newline)>]
+      [{universal_newline: true, lf_newline: true}, #<Encoding::ConverterNotFoundError: code converter not found (universal_newline,lf_newline)>]
+      [{universal_newline: true, lf_newline: true}, #<Encoding::ConverterNotFoundError: code converter not found (UTF-8 to EUC-JP with universal_newline,lf_newline)>]
+      [{universal_newline: true, lf_newline: true}, #<Encoding::ConverterNotFoundError: code converter not found (UTF-8 to EUC-JP with universal_newline,lf_newline)>]
+      [{newline: :bogus}, #<ArgumentError: unexpected value for newline option: bogus>]
+      [{newline: :bogus}, #<ArgumentError: unexpected value for newline option: bogus>]
+      [{newline: :bogus}, #<ArgumentError: unexpected value for newline option: bogus>]
+      [{newline: "x"}, #<ArgumentError: unexpected value for newline option>]
+      [{newline: "x"}, #<ArgumentError: unexpected value for newline option>]
+      [{newline: "x"}, #<ArgumentError: unexpected value for newline option>]
+      [{xml: :bogus}, #<ArgumentError: unexpected value for xml option: bogus>]
+      [{xml: :bogus}, #<ArgumentError: unexpected value for xml option: bogus>]
+      [{xml: :bogus}, #<ArgumentError: unexpected value for xml option: bogus>]
+      [{xml: "x"}, #<ArgumentError: unexpected value for xml option>]
+      [{xml: "x"}, #<ArgumentError: unexpected value for xml option>]
+      [{xml: "x"}, #<ArgumentError: unexpected value for xml option>]
+      #<ArgumentError: unknown value for invalid character option>
+      #<ArgumentError: unknown value for undefined character option>
+    OUT
+  end
+
+  it "newline with an older boolean warns under VERBOSE that it wins" do
+    result = zr(<<~'RUBY')
+      $VERBOSE = true
+      # Under $VERBOSE, newline: with an older boolean warns that it wins.
+      p "a\n".encode("UTF-8", "UTF-8", newline: :crlf, cr_newline: true)
+      p Encoding::Converter.new("UTF-8", "EUC-JP", newline: :cr, crlf_newline: true).convpath.drop(1)
+    RUBY
+
+    _(result).must_answer <<~'OUT', stderr: <<~'ERR'
+      "a\r\n"
+      ["cr_newline"]
+    OUT
+      core/encoding/formatting_test.rb:3: warning: :newline option precedes other newline options
+      core/encoding/formatting_test.rb:4: warning: :newline option precedes other newline options
+    ERR
+  end
 end

@@ -190,8 +190,17 @@ class File < IO
       return super(fd, no_mode ? nil : mode, **options)
     end
 
-    mode = options[:mode] if options.key?(:mode)
-    perm = options[:perm] if options.key?(:perm)
+    unless options[:mode].nil?
+      raise ArgumentError, +"mode specified twice" unless no_mode || mode.nil?
+
+      mode = options[:mode]
+    end
+    unless options[:perm].nil?
+      raise ArgumentError, +"perm specified twice" unless no_perm || perm.nil?
+
+      perm = options[:perm]
+    end
+    options = options.except(:mode, :perm)
     # rb_io_extract_modeenc: flags when `to_int` returns a value, else a mode string.
     mode = Integer.try_convert(mode) || mode unless mode.nil? || mode.is_a?(String)
     perm = perm.nil? ? 0o666 : implicit_integer(perm)
@@ -203,6 +212,7 @@ class File < IO
     text = File.send(:open_mode, mode)
     flags = mode.is_a?(Integer) ? mode : File.send(:open_flags, text)
     flags |= File::EXCL if mode.is_a?(String) && mode.split(":", 2).first.include?("x")
+    flags |= implicit_integer(options[:flags]) unless options[:flags].nil?
     if File.send(:mode_kind_now?, path, 0o010000) && Primitive.zr_threaded && !Thread.send(:alone?)
       # open(2) on a FIFO waits for the other end, which would stop
       # every green thread. A task that shares the process opens the
