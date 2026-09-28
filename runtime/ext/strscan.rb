@@ -47,16 +47,15 @@ class StringScanner
     self
   end
 
-  alias clear terminate
-
   def string=(text)
     Primitive.zr_hidden_set(self, :__string__, text.to_str)
     reset
     string
   end
 
+  # strscan_concat: the string itself grows, as rb_str_append grows it.
   def concat(more)
-    Primitive.zr_hidden_set(self, :__string__, string + more.to_str)
+    scanner << Primitive.zr_str_operand(more)
     self
   end
 
@@ -83,9 +82,10 @@ class StringScanner
 
   def eos? = pos >= string.bytesize
 
-  def rest = string.byteslice(pos, string.bytesize - pos)
+  # Past the end of a string that shrank, the rest is empty.
+  def rest = eos? ? +"" : string.byteslice(pos, string.bytesize - pos)
 
-  def rest_size = string.bytesize - pos
+  def rest_size = eos? ? 0 : string.bytesize - pos
 
   def rest? = !eos?
 
@@ -202,11 +202,23 @@ class StringScanner
 
   # A group by number or by name. A match with no groups of its own —
   # a byte or a character taken alone — has the whole of itself at 0.
+  # strscan_aref: a name reads only a Regexp's groups; a number counts
+  # from the end where it is negative.
   def [](index)
     return nil unless matched?
-    return groups[group_index(index)] if groups
 
-    group_index(index) == 0 ? matched : nil
+    index = group_index(index)
+    if index.is_a?(String) || index.is_a?(Symbol)
+      raise IndexError, "undefined group name reference: #{index}" unless groups
+
+      return groups[index]
+    end
+
+    count = groups ? groups.size : 1
+    index += count if index.negative?
+    return nil if index.negative? || index >= count
+
+    groups ? groups[index] : matched
   end
 
   def values_at(*indexes) = matched? ? indexes.map { |i| self[i] } : nil
@@ -217,7 +229,14 @@ class StringScanner
     groups ? groups.captures : []
   end
 
-  def named_captures = groups ? groups.named_captures : {}
+  # The names of the last Regexp that a scan tried, matched or not.
+  def named_captures
+    scanner
+    regex = Primitive.zr_hidden_get(self, :__regex__)
+    return {} unless regex
+
+    regex.names.to_h { |name| [name, self[name]] }
+  end
 
   # `#<StringScanner 5/11 "test " @ "strin...">`: the position, the five
   # bytes on each side of the pointer, and the rest of the text. A
@@ -247,11 +266,13 @@ class StringScanner
   # `[+-]?\d+` and `[+-]?(0x)?[0-9a-fA-F]+`, which is what CRuby's own
   # rows scan for the two bases it takes.
   def scan_base10_integer
+    ascii_compatible!
     text = scan(/[+-]?\d+/)
     text&.to_i
   end
 
   def scan_base16_integer
+    ascii_compatible!
     text = scan(/[+-]?(?:0x)?[0-9a-fA-F]+/)
     return nil unless text
 
@@ -259,6 +280,20 @@ class StringScanner
     digits = text.start_with?("+", "-") ? text[1..] : text
     digits = digits[2..] if digits.start_with?("0x", "0X")
     sign * digits.to_i(16)
+  end
+
+  # strscan_must_ascii_compat.
+  def ascii_compatible!
+    Primitive.attr! :hidden
+    raise Encoding::CompatibilityError, "ASCII incompatible encoding: #{string.encoding}" unless string.encoding.ascii_compatible?
+  end
+
+  # A copy scans the same string from the same place.
+  def initialize_copy(other)
+    %i[__string__ __anchor__ __pos__ __prev__ __from__ __len__ __groups__ __regex__].each do |slot|
+      Primitive.zr_hidden_set(self, slot, Primitive.zr_hidden_get(other, slot))
+    end
+    self
   end
 
   # Where the last match sits in the string, how long it is, and the
@@ -293,6 +328,8 @@ class StringScanner
   # the bytes or their count comes back, and `advance` whether the
   # pointer moves past them.
   def run(pattern, anchored, answer, advance)
+    Primitive.attr! :hidden
+    Primitive.zr_hidden_set(self, :__regex__, pattern.is_a?(Regexp) ? pattern : nil)
     unless pattern.is_a?(Regexp)
       pattern = String.try_convert(pattern) or raise TypeError, "no implicit conversion of #{conversion_name(pattern)} into String"
     end
@@ -347,6 +384,7 @@ class StringScanner
   # with no groups behind it.
   def keep(at, len)
     Primitive.attr! :hidden
+    Primitive.zr_hidden_set(self, :__regex__, nil)
     Primitive.zr_hidden_set(self, :__prev__, pos)
     Primitive.zr_hidden_set(self, :__from__, at)
     Primitive.zr_hidden_set(self, :__len__, len)

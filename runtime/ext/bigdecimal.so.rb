@@ -41,7 +41,11 @@ class BigDecimal < Numeric
   ALLOCATE = Class.instance_method(:allocate)
   private_constant :ALLOCATE
 
-  def self.allocate = raise(TypeError, "allocator undefined for BigDecimal")
+  # rb_undef_alloc_func: no allocate method, only the error.
+  def self.allocate
+    Primitive.attr! :hidden
+    raise TypeError, "allocator undefined for BigDecimal"
+  end
 
   # As many digits as a Float has, which is the number that a division
   # adds to the wider operand before it stops.
@@ -55,7 +59,8 @@ class BigDecimal < Numeric
       @mode ||= ROUND_HALF_UP
       @flags ||= 0
       return @mode = value.nil? ? @mode : rounding(value) if selector == ROUND_MODE
-      return @flags unless value == true || value == false
+      return @flags if value.nil?
+      raise ArgumentError, +"second argument must be true or false" unless value == true || value == false
 
       @flags = value ? @flags | selector : @flags & ~selector
     end
@@ -94,40 +99,71 @@ class BigDecimal < Numeric
 
     # The results that ruby refuses to return when the matching bit is
     # set in the mode word.
-    def nan_result
-      raise FloatDomainError, "Computation results in 'NaN' (Not a Number)" unless (mode(EXCEPTION_ALL) & EXCEPTION_NaN).zero?
+    # A NaN that an operation makes "results to" NaN; one that an operand
+    # brings in "results in" it, as VpException words the two.
+    def nan_result(given = false)
+      Primitive.attr! :hidden
+      unless (mode(EXCEPTION_ALL) & EXCEPTION_NaN).zero?
+        raise FloatDomainError, given ? refused(NAN) : +"Computation results to 'NaN'"
+      end
 
       NAN
     end
 
-    def infinity_result(sign)
-      raise FloatDomainError, "Computation results in 'Infinity'" unless (mode(EXCEPTION_ALL) & EXCEPTION_INFINITY).zero?
+    def infinity_result(sign, word = "to")
+      Primitive.attr! :hidden
+      unless (mode(EXCEPTION_ALL) & EXCEPTION_INFINITY).zero?
+        raise FloatDomainError, "Computation results #{word} '#{sign.negative? ? '-' : ''}Infinity'"
+      end
 
       sign.negative? ? -INFINITY : INFINITY
     end
 
     def zero_divide_result(sign)
-      raise FloatDomainError, "Divide by zero" unless (mode(EXCEPTION_ALL) & EXCEPTION_ZERODIVIDE).zero?
+      Primitive.attr! :hidden
+      raise FloatDomainError, +"Divide by zero" unless (mode(EXCEPTION_ALL) & EXCEPTION_ZERODIVIDE).zero?
 
-      infinity_result(sign)
+      infinity_result(sign, "in")
     end
 
-    # The rounding that a name or a number represents.
+    # How an error names a value: a special constant by its inspect, any
+    # other object by its class, as rb_special_const_p decides.
+    def named(value)
+      Primitive.attr! :hidden
+      value.nil? || value == true || value == false || value.is_a?(Symbol) ? value.inspect : value.class
+    end
+
+    # What a value that is not finite says where ruby refuses it: at a
+    # parse, or where it must become an Integer.
+    def refused(value)
+      Primitive.attr! :hidden
+      return "Computation results in 'NaN' (Not a Number)" if value.nan?
+
+      "Computation results in '#{value.infinite?.negative? ? '-' : ''}Infinity'"
+    end
+
+    # check_rounding_mode: a Symbol names a rounding, anything else is its
+    # number.
+    ROUNDINGS = { up: ROUND_UP, down: ROUND_DOWN, truncate: ROUND_DOWN, half_up: ROUND_HALF_UP,
+                  default: ROUND_HALF_UP, half_down: ROUND_HALF_DOWN, half_even: ROUND_HALF_EVEN,
+                  banker: ROUND_HALF_EVEN, ceiling: ROUND_CEILING, ceil: ROUND_CEILING,
+                  floor: ROUND_FLOOR }.freeze
+
     def rounding(value)
-      return value if value.is_a?(Integer) && (ROUND_UP..ROUND_HALF_EVEN).cover?(value)
+      Primitive.attr! :hidden
+      if value.is_a?(Symbol)
+        return ROUNDINGS.fetch(value) { raise ArgumentError, "invalid rounding mode (#{value})" }
+      end
 
-      name = value.is_a?(String) || value.is_a?(Symbol) ? value.to_sym : nil
-      found = { up: ROUND_UP, down: ROUND_DOWN, truncate: ROUND_DOWN, half_up: ROUND_HALF_UP,
-                default: ROUND_HALF_UP, half_down: ROUND_HALF_DOWN, half_even: ROUND_HALF_EVEN,
-                banker: ROUND_HALF_EVEN, ceiling: ROUND_CEILING, ceil: ROUND_CEILING,
-                floor: ROUND_FLOOR }[name]
-      raise ArgumentError, "invalid rounding mode (#{value.inspect})" unless found
+      number = Integer.send(:int_operand, value)
+      raise ArgumentError, "invalid rounding mode (#{value.inspect})" unless (ROUND_UP..ROUND_HALF_EVEN).cover?(number)
 
-      found
+      number
     end
 
     # The one way an instance is built: nothing else writes the fields.
     def build(sign, digits, exponent, special = nil)
+      Primitive.attr! :hidden
       value = ALLOCATE.bind_call(self)
       value.send(:setup, sign, digits, exponent, special)
       value
@@ -139,9 +175,16 @@ class BigDecimal < Numeric
     # over, which is what `BigDecimal("1x")` does; loose reading keeps
     # as much as it understood.
     def read(source, strict)
-      text = source.tr("_", "")
-      special = text[/\A\s*([-+]?)(NaN|Infinity)\s*\z/, 2]
-      return special == "NaN" ? build(1, 0, 0, :nan) : build(Regexp.last_match(1) == "-" ? -1 : 1, 0, 0, :infinity) if special
+      Primitive.attr! :hidden
+      # An underscore stands between two digits, or after the last one.
+      text = source.gsub(/(?<=\d)_(?=\d|\s*\z)/, "")
+      if (special = text[/\A\s*(NaN|[-+]?Infinity)\s*\z/, 1])
+        value = special == "NaN" ? NAN : (special.start_with?("-") ? -INFINITY : INFINITY)
+        bit = value.nan? ? EXCEPTION_NaN : EXCEPTION_INFINITY
+        raise FloatDomainError, refused(value) unless (mode(EXCEPTION_ALL) & bit).zero?
+
+        return value
+      end
 
       match = /\A\s*([-+]?)(\d*)(?:\.(\d*))?(?:[eEdD]([-+]?\d+))?/.match(text)
       whole = match[2].to_s
@@ -158,6 +201,7 @@ class BigDecimal < Numeric
     # A value from an Integer of digits, with the trailing zeros taken
     # off so that one number has one form.
     def from_int(sign, digits, exponent)
+      Primitive.attr! :hidden
       return build(sign, 0, 0) if digits.zero?
 
       while (digits % 10).zero?
@@ -169,15 +213,17 @@ class BigDecimal < Numeric
     # A Float has no more digits than its own round trip shows, so with
     # no precision given, those are the digits it gives.
     def from_float(value, precision)
+      Primitive.attr! :hidden
       raise TypeError, "can't convert #{value} into BigDecimal" if value.nan? || value.infinite?
       raise ArgumentError, "negative precision" if precision.negative?
-      raise ArgumentError, "precision too large." if precision > 17
+      raise ArgumentError, "precision too large." if precision > DOUBLE_FIG
       return read(value.to_s, false) if precision.zero?
 
       read(format("%.*e", [precision, 17].max, value), false).round_significant(precision)
     end
 
     def from_rational(value, precision)
+      Primitive.attr! :hidden
       raise ArgumentError, "can't omit precision for a Rational." if precision.zero?
 
       BigDecimal(value.numerator).div(BigDecimal(value.denominator), precision)
@@ -228,7 +274,13 @@ class BigDecimal < Numeric
 
   def abs = @sign.negative? ? -self : self
 
-  def coerce(other) = [BigDecimal(other), self]
+  # BigDecimal_coerce: a number of the kinds that meet a BigDecimal.
+  def coerce(other)
+    them = other.is_a?(BigDecimal) ? other : cast(other)
+    raise TypeError, "#{BigDecimal.send(:named, other)} can't be coerced into BigDecimal" unless them
+
+    [them, self]
+  end
 
   def +(other) = limited(combine(other, :+))
 
@@ -253,16 +305,19 @@ class BigDecimal < Numeric
     return divide(other, digits.to_int) if digits
 
     them = cast(other) or return coerced(other, :div)
-    raise ZeroDivisionError, "divided by 0" if them.zero?
-    raise FloatDomainError, to_s if !finite? || !them.finite?
-
-    (self / them).floor
+    quotient, = floored(them)
+    quotient
   end
 
+  # BigDecimal_DoDivmod: the floor of the quotient and what is left. A
+  # finite value over an infinite one is 0 with itself left, or -1 with
+  # the infinity left where their signs differ.
   def modulo(other)
     them = cast(other) or return coerced(other, :modulo)
-    raise ZeroDivisionError, "divided by 0" if them.zero?
-    return BigDecimal.build(1, 0, 0, :nan) if !finite? || !them.finite?
+    return BigDecimal.nan_result(true) if nan? || them.nan?
+    raise ZeroDivisionError, +"divided by 0" if them.zero?
+    return BigDecimal.nan_result unless finite?
+    return floored(them).last unless them.finite?
 
     self - (them * BigDecimal((self / them).floor))
   end
@@ -271,16 +326,24 @@ class BigDecimal < Numeric
 
   def remainder(other)
     them = cast(other) or return coerced(other, :remainder)
-    raise ZeroDivisionError, "divided by 0" if them.zero?
-    return BigDecimal.build(1, 0, 0, :nan) if !finite? || !them.finite?
+    return BigDecimal.nan_result(true) if nan? || them.nan?
+    raise ZeroDivisionError, +"divided by 0" if them.zero?
+    return BigDecimal.nan_result unless finite?
+    return self unless them.finite?
 
     self - (them * BigDecimal((self / them).truncate))
   end
 
   def divmod(other)
-    quotient = div(other)
-    [quotient, self - (cast(other) * BigDecimal(quotient))]
+    them = cast(other) or return coerced(other, :divmod)
+    floored(them)
   end
+
+  # BigDecimalCmp: NaN is neither less nor more than anything.
+  def <(other) = related(other, :<) { |c| c.negative? }
+  def <=(other) = related(other, :<=) { |c| !c.positive? }
+  def >(other) = related(other, :>) { |c| c.positive? }
+  def >=(other) = related(other, :>=) { |c| !c.negative? }
 
   def <=>(other)
     them = cast(other)
@@ -327,8 +390,6 @@ class BigDecimal < Numeric
     shift.negative? ? Rational(@sign * @digits * (10**-shift), 1) : Rational(@sign * @digits, 10**shift)
   end
 
-  def to_d = self
-
   def truncate(digits = nil) = shortened(digits, ROUND_DOWN)
 
   def floor(digits = nil) = shortened(digits, ROUND_FLOOR)
@@ -344,17 +405,18 @@ class BigDecimal < Numeric
 
   # BigDecimal_round: an Integer only for a place below 1 with no mode;
   # a mode, as an argument or as `half:`, keeps a BigDecimal.
-  def round(digits = nil, mode = (plain = true; nil), half: nil)
-    if half
-      mode = HALVES[half.to_sym] or raise ArgumentError, "invalid rounding mode: #{half}"
+  def round(digits = (whole = true; nil), mode = (plain = true; nil), half: (plain_half = true; nil))
+    unless plain_half || half.nil?
+      name = half.is_a?(Symbol) ? half.to_s : String.try_convert(half)
+      mode = HALVES[name&.to_sym] or raise ArgumentError, "invalid rounding mode (#{name || half.inspect})"
     end
     mode = BigDecimal.mode(ROUND_MODE) if mode.nil?
-    mode = BigDecimal.rounding(mode)
+    mode = BigDecimal.send(:rounding, mode)
+    place = whole ? 0 : Integer.send(:int_operand, digits)
     return self unless finite?
 
-    place = digits ? digits.to_int : 0
     answer = round_to(place, mode)
-    half || !plain || place.positive? ? answer : answer.whole_part
+    !plain_half || !plain || place.positive? ? answer : answer.whole_part
   end
 
   # What is past the point, which keeps the sign even where nothing
@@ -412,7 +474,9 @@ class BigDecimal < Numeric
 
   alias clone dup
 
-  def _dump(_limit = nil) = "#{precision}:#{self}"
+  # BigDecimal_dump: the precision it keeps, as nine-digit words times
+  # nine, then the value.
+  def _dump(_limit = nil) = "#{word_count * 9}:#{self}".b
 
   def self._load(text) = BigDecimal(text.split(":", 2).last)
 
@@ -425,6 +489,7 @@ class BigDecimal < Numeric
   # The receiver limited to `digits` significant digits, which division
   # and the `add` family both need.
   def round_significant(digits)
+    Primitive.attr! :hidden
     return self unless finite?
     return self if digits <= 0 || n_significant_digits <= digits
 
@@ -435,9 +500,12 @@ class BigDecimal < Numeric
 
   # The Integer the value truncates to.
   def whole_part
+    Primitive.attr! :hidden
     shift = @exp - n_significant_digits
     shift.negative? ? @sign * (@digits / (10**-shift)) : @sign * @digits * (10**shift)
   end
+
+  Primitive.attr! :hidden
 
   protected
 
@@ -474,10 +542,45 @@ class BigDecimal < Numeric
   end
 
   def coerced(other, op)
-    raise TypeError, "#{other.class} can't be coerced into BigDecimal" unless other.respond_to?(:coerce)
+    raise TypeError, "#{BigDecimal.send(:named, other)} can't be coerced into BigDecimal" unless other.respond_to?(:coerce)
 
     a, b = other.coerce(self)
     a.send(op, b)
+  end
+
+  # A comparison: false with NaN on either side, and coerce for an other
+  # kind of value, as rb_num_coerce_relop does.
+  def related(other, op)
+    them = cast(other)
+    if them.nil?
+      raise ArgumentError, "comparison of BigDecimal with #{BigDecimal.send(:named, other)} failed" unless other.respond_to?(:coerce)
+
+      a, b = other.coerce(self)
+      return a.send(op, b)
+    end
+    return false if nan? || them.nan?
+
+    yield(self <=> them)
+  end
+
+  # The floor of the quotient, and what is left, for div, divmod and %.
+  def floored(them)
+    raise FloatDomainError, BigDecimal.send(:refused, self) if nan?
+    raise ZeroDivisionError, +"divided by 0" if them.zero?
+    raise FloatDomainError, BigDecimal.send(:refused, BigDecimal::NAN) if them.nan? || (!finite? && !them.finite?)
+    raise FloatDomainError, BigDecimal.send(:refused, self) unless finite?
+    return [0, self] if zero? && !them.finite?
+    return (@sign == them.sign_bit ? [0, self] : [-1, them]) unless them.finite?
+
+    quotient = (self / them).floor
+    [quotient, self - (them * BigDecimal(quotient))]
+  end
+
+  # The nine-digit words that the digits take, aligned at the point.
+  def word_count
+    return 1 unless finite? && !@digits.zero?
+
+    ((@exp - 1).div(9)) - ((@exp - n_significant_digits).div(9)) + 1
   end
 
   def combine(other, op)
@@ -505,7 +608,7 @@ class BigDecimal < Numeric
   end
 
   def sum_special(them)
-    return BigDecimal.nan_result if nan? || them.nan?
+    return BigDecimal.nan_result(true) if nan? || them.nan?
     return them if finite?
     return self if them.finite? || @sign == them.sign_bit
 
@@ -513,7 +616,8 @@ class BigDecimal < Numeric
   end
 
   def product_special(them)
-    return BigDecimal.nan_result if nan? || them.nan? || zero? || them.zero?
+    return BigDecimal.nan_result(true) if nan? || them.nan?
+    return BigDecimal.nan_result if zero? || them.zero?
 
     BigDecimal.infinity_result(@sign * them.sign_bit)
   end
@@ -552,7 +656,7 @@ class BigDecimal < Numeric
   end
 
   def divide_special(them)
-    return BigDecimal.nan_result if nan? || them.nan?
+    return BigDecimal.nan_result(true) if nan? || them.nan?
     return BigDecimal.nan_result if (@special == :infinity && them.special == :infinity) || (zero? && them.zero?)
     return BigDecimal.build(@sign * them.sign_bit, 0, 0) if them.special == :infinity || zero?
     return BigDecimal.zero_divide_result(@sign * them.sign_bit) if them.zero?

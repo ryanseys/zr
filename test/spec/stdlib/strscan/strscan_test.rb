@@ -1305,4 +1305,63 @@ describe "StringScanner programs" do
       "def"
     OUT
   end
+
+  it "concat grows the scanner's string, and groups and names read as strscan_aref reads them" do
+    result = zr(<<~'RUBY')
+      # concat grows the scanner's own string; a number counts groups from the
+      # end; a name needs a Regexp's groups, and named_captures reads the names
+      # of the last Regexp tried.
+      require "strscan"
+      x = +"ab"
+      s = StringScanner.new(x)
+      s << "cd"
+      p [x, s.string.equal?(x), s.scan(/abcd/)]
+      s = StringScanner.new("abc")
+      s.scan("ab")
+      p [s[-1], s[0], s[1], s[-2], (s[:x] rescue $!)]
+      s = StringScanner.new("abc")
+      s.scan(/(?<a>x)/)
+      p s.named_captures
+      s.scan(/(?<a>a)(?<b>b)?/)
+      p [s.named_captures, s[:a], s["b"], (s[:zz] rescue $!), s[-1], s[-3]]
+      s.scan("c")
+      p s.named_captures
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      ["abcd", true, "abcd"]
+      ["ab", "ab", nil, nil, #<IndexError: undefined group name reference: x>]
+      {"a" => nil}
+      [{"a" => "a", "b" => "b"}, "a", "b", #<IndexError: undefined group name reference: zz>, "b", "ab"]
+      {}
+    OUT
+  end
+
+  it "the rest past a shrunk string is empty, and a copy scans on by itself" do
+    result = zr(<<~'RUBY')
+      # The rest past a string that shrank is empty; scan_integer needs an
+      # ASCII-compatible string; a copy scans on by itself; there is no clear.
+      require "strscan"
+      x = +"abcdef"
+      s = StringScanner.new(x)
+      s.pos = 6
+      x.replace("ab")
+      p [s.rest, s.rest_size, s.eos?]
+      p((StringScanner.new("1".encode("UTF-16LE")).scan_integer rescue $!))
+      s = StringScanner.new("abc")
+      s.scan(/a/)
+      d = s.dup
+      d.scan(/b/)
+      p [s.pos, d.pos, d.matched, s.matched]
+      p((StringScanner.new("a").clear rescue $!), StringScanner.private_instance_methods(false).sort)
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      ["", 0, true]
+      #<Encoding::CompatibilityError: ASCII incompatible encoding: UTF-16LE>
+      [1, 2, "b", "a"]
+      #<NoMethodError: undefined method 'clear' for an instance of StringScanner>
+      [:initialize, :initialize_copy, :scan_base10_integer, :scan_base16_integer]
+    OUT
+  end
 end

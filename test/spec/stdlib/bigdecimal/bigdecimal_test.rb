@@ -930,4 +930,169 @@ describe "BigDecimal programs" do
       0.2e1
     OUT
   end
+
+  it "BigDecimal() reads underscores, signs and Float precision as VpAlloc does" do
+    result = zr(<<~'RUBY')
+      # BigDecimal() reads an underscore only between digits or after the
+      # last, a sign only before Infinity, and a Float to at most 16 digits.
+      require "bigdecimal"
+      %w[1_000 1__2 _1 1_ 1.2_3 1_.5 1_e2 1e2_0 -NaN +NaN -Infinity +Infinity].each do |s|
+        p [s, (BigDecimal(s) rescue $!)]
+      end
+      p((BigDecimal(1.0 / 3, 17) rescue $!), BigDecimal(1.0 / 3, 16))
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      ["1_000", 0.1e4]
+      ["1__2", #<ArgumentError: invalid value for BigDecimal(): "1__2">]
+      ["_1", #<ArgumentError: invalid value for BigDecimal(): "_1">]
+      ["1_", 0.1e1]
+      ["1.2_3", 0.123e1]
+      ["1_.5", #<ArgumentError: invalid value for BigDecimal(): "1_.5">]
+      ["1_e2", #<ArgumentError: invalid value for BigDecimal(): "1_e2">]
+      ["1e2_0", 0.1e21]
+      ["-NaN", #<ArgumentError: invalid value for BigDecimal(): "-NaN">]
+      ["+NaN", #<ArgumentError: invalid value for BigDecimal(): "+NaN">]
+      ["-Infinity", -Infinity]
+      ["+Infinity", Infinity]
+      #<ArgumentError: precision too large.>
+      0.3333333333333333e0
+    OUT
+  end
+
+  it "the exception modes raise with VpException's words, and mode and round check arguments" do
+    result = zr(<<~'RUBY')
+      # The exception modes raise at a parse and at a result, each with
+      # VpException's words, and mode and round check their arguments.
+      require "bigdecimal"
+      zero, inf, nan = BigDecimal("0"), BigDecimal("Infinity"), BigDecimal("NaN")
+      BigDecimal.save_exception_mode do
+        BigDecimal.mode(BigDecimal::EXCEPTION_NaN, true)
+        [-> { BigDecimal("NaN") }, -> { zero / zero }, -> { inf - inf }, -> { nan + 1 }].each { |c| p((c.call rescue $!)) }
+      end
+      BigDecimal.save_exception_mode do
+        BigDecimal.mode(BigDecimal::EXCEPTION_INFINITY, true)
+        [-> { BigDecimal("-Infinity") }, -> { inf * 2 }, -> { BigDecimal("1") / 0 }].each { |c| p((c.call rescue $!)) }
+      end
+      p((BigDecimal.mode(BigDecimal::EXCEPTION_NaN, 1) rescue $!), (BigDecimal.mode(BigDecimal::ROUND_MODE, :bogus) rescue $!),
+        (BigDecimal.mode(BigDecimal::ROUND_MODE, "bogus") rescue $!))
+      one = BigDecimal("1")
+      p((one.round(half: :bogus) rescue $!), (one.round(nil) rescue $!), (one.round(1, :bogus) rescue $!), one.round(half: nil))
+      p [BigDecimal("1.5")._dump, BigDecimal("1.23456789012345678901")._dump, (BigDecimal("1") / 3)._dump, BigDecimal("1e20")._dump]
+      p Marshal.dump(BigDecimal("1.5")).bytesize, BigDecimal.singleton_methods(false).sort, BigDecimal.private_instance_methods(false)
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      #<FloatDomainError: Computation results in 'NaN' (Not a Number)>
+      #<FloatDomainError: Computation results to 'NaN'>
+      #<FloatDomainError: Computation results to 'NaN'>
+      #<FloatDomainError: Computation results in 'NaN' (Not a Number)>
+      #<FloatDomainError: Computation results in '-Infinity'>
+      #<FloatDomainError: Computation results to 'Infinity'>
+      #<FloatDomainError: Computation results in 'Infinity'>
+      #<ArgumentError: second argument must be true or false>
+      #<ArgumentError: invalid rounding mode (bogus)>
+      #<TypeError: no implicit conversion of String into Integer>
+      #<ArgumentError: invalid rounding mode (bogus)>
+      #<TypeError: no implicit conversion from nil to integer>
+      #<ArgumentError: invalid rounding mode (bogus)>
+      0.1e1
+      ["18:0.15e1", "36:0.123456789012345678901e1", "36:0.33333333333333333333333333333333e0", "9:0.1e21"]
+      25
+      [:_load, :double_fig, :interpret_loosely, :limit, :mode, :save_exception_mode, :save_limit, :save_rounding_mode]
+      []
+    OUT
+  end
+
+  it "div, divmod and modulo follow BigDecimal_DoDivmod with NaN, infinities and zero" do
+    result = zr(<<~'RUBY')
+      # div, divmod and % follow BigDecimal_DoDivmod with NaN, an infinity and
+      # zero on either side.
+      require "bigdecimal"
+      one, nan, inf = BigDecimal("1"), BigDecimal("NaN"), BigDecimal("Infinity")
+      [[:div, 1], [:div, 0], [:%, inf], [:%, -inf], [:%, 0], [:divmod, inf], [:divmod, -inf], [:remainder, inf]].each do |op, arg|
+        [one, -one, nan, inf, BigDecimal("0")].each do |x|
+          result = begin
+            x.send(op, arg)
+          rescue => e
+            e.class
+          end
+          p [x, op, arg, result]
+        end
+      end
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [0.1e1, :div, 1, 1]
+      [-0.1e1, :div, 1, -1]
+      [NaN, :div, 1, FloatDomainError]
+      [Infinity, :div, 1, FloatDomainError]
+      [0.0, :div, 1, 0]
+      [0.1e1, :div, 0, ZeroDivisionError]
+      [-0.1e1, :div, 0, ZeroDivisionError]
+      [NaN, :div, 0, FloatDomainError]
+      [Infinity, :div, 0, ZeroDivisionError]
+      [0.0, :div, 0, ZeroDivisionError]
+      [0.1e1, :%, Infinity, 0.1e1]
+      [-0.1e1, :%, Infinity, Infinity]
+      [NaN, :%, Infinity, NaN]
+      [Infinity, :%, Infinity, NaN]
+      [0.0, :%, Infinity, 0.0]
+      [0.1e1, :%, -Infinity, -Infinity]
+      [-0.1e1, :%, -Infinity, -0.1e1]
+      [NaN, :%, -Infinity, NaN]
+      [Infinity, :%, -Infinity, NaN]
+      [0.0, :%, -Infinity, 0.0]
+      [0.1e1, :%, 0, ZeroDivisionError]
+      [-0.1e1, :%, 0, ZeroDivisionError]
+      [NaN, :%, 0, NaN]
+      [Infinity, :%, 0, ZeroDivisionError]
+      [0.0, :%, 0, ZeroDivisionError]
+      [0.1e1, :divmod, Infinity, [0, 0.1e1]]
+      [-0.1e1, :divmod, Infinity, [-1, Infinity]]
+      [NaN, :divmod, Infinity, FloatDomainError]
+      [Infinity, :divmod, Infinity, FloatDomainError]
+      [0.0, :divmod, Infinity, [0, 0.0]]
+      [0.1e1, :divmod, -Infinity, [-1, -Infinity]]
+      [-0.1e1, :divmod, -Infinity, [0, -0.1e1]]
+      [NaN, :divmod, -Infinity, FloatDomainError]
+      [Infinity, :divmod, -Infinity, FloatDomainError]
+      [0.0, :divmod, -Infinity, [0, 0.0]]
+      [0.1e1, :remainder, Infinity, 0.1e1]
+      [-0.1e1, :remainder, Infinity, -0.1e1]
+      [NaN, :remainder, Infinity, NaN]
+      [Infinity, :remainder, Infinity, NaN]
+      [0.0, :remainder, Infinity, 0.0]
+    OUT
+  end
+
+  it "coerce takes the numbers that meet a BigDecimal, and comparisons treat NaN as false" do
+    result = zr(<<~'RUBY')
+      # coerce takes the numbers that meet a BigDecimal, and an error names a
+      # special constant by its inspect.
+      require "bigdecimal"
+      one = BigDecimal("1")
+      p one.coerce(2), one.coerce(1.5), one.coerce(Rational(1, 2)), (one.coerce("2") rescue $!)
+      [nil, true, :s, "x"].each { |o| p((one + o rescue $!)) }
+      p((one < "1" rescue $!), (BigDecimal("NaN") < 1), (BigDecimal("NaN") >= 1), one >= 1)
+      p BigDecimal.public_instance_methods(false).include?(:<), (one.to_d rescue $!)
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [0.2e1, 0.1e1]
+      [0.15e1, 0.1e1]
+      [0.5e0, 0.1e1]
+      #<TypeError: String can't be coerced into BigDecimal>
+      #<TypeError: nil can't be coerced into BigDecimal>
+      #<TypeError: true can't be coerced into BigDecimal>
+      #<TypeError: :s can't be coerced into BigDecimal>
+      #<TypeError: String can't be coerced into BigDecimal>
+      #<ArgumentError: comparison of BigDecimal with String failed>
+      false
+      false
+      true
+      true
+      #<NoMethodError: undefined method 'to_d' for an instance of BigDecimal>
+    OUT
+  end
 end
