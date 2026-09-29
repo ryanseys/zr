@@ -3,6 +3,7 @@
 require "etc"
 require_relative "resident"
 require_relative "../config"
+require_relative "../paths"
 
 module Zr
   module Native
@@ -49,23 +50,55 @@ module Zr
 
       # Limits the worker count to the number that fits in this machine's
       # memory. Memory is the limit, not cores. A worker shares the
-      # parent's heap (copy on write) and then grows a heap of about the
-      # same size. Thus the parent's live set (after `warmed`) is the cost
-      # of one worker, and the free memory divided by that cost is the count.
+      # parent's heap (copy on write), and after `warmed` it copies only
+      # the pages that it writes. Under ruby, a worker that assembles eval
+      # support's functions added 1.1 GB to a parent of 4.8 GB, and one that
+      # only took fingerprints 0.34 GB (the machine's used memory, from
+      # `vm_stat`; a worker's own phys_footprint also counts the shared pages
+      # that it reads). Five workers that assembled, from an estimate of a
+      # quarter, made the machine swap 1.8 GB. Thus a worker costs a third
+      # of the parent (WORKER_SHARE), and the workers get three quarters
+      # of the available memory.
       #
-      # A fixed count does not work for both compilers: a worker of the
-      # compiled compiler uses about 10 GB. Six such workers put a 16 GB
-      # machine into swap, and a run that swaps takes about ten times as long.
+      # A worker of the compiled compiler copies about all of the parent:
+      # about 10 GB. Six such workers put a 16 GB machine into swap, and a
+      # run that swaps takes about ten times as long.
       #
       # `ZR_JOBS` overrides this limit. Use it to measure an entry of the
       # table above `Build.jobs`.
+      WORKER_SHARE = 3
+
       def afforded(jobs)
         return jobs if Config.current.jobs_given?
 
         held = held_bytes
         return jobs if held.zero?
 
-        [[(machine_bytes - held) / held, jobs].min, 1].max
+        cost = Zr.compiled? ? held : held / WORKER_SHARE
+        available = available_bytes
+        free = available ? available * 3 / 4 : machine_bytes - held
+        [[free / cost, jobs].min, 1].max
+      end
+
+      # The memory that the system can give to new work now, or nil: Linux
+      # gives it as MemAvailable. On macOS it is the machine less the
+      # memory of processes (anonymous pages that are not purgeable), the
+      # wired pages and the compressor; the file cache can be dropped.
+      def available_bytes
+        if File.readable?("/proc/meminfo")
+          kb = File.read("/proc/meminfo")[/^MemAvailable:\s+(\d+)/, 1]
+          return kb && kb.to_i * 1024
+        end
+        stat = IO.popen(["vm_stat"], err: File::NULL, &:read)
+        page = stat[/page size of (\d+) bytes/, 1]
+        anonymous = stat[/^Anonymous pages:\s+(\d+)/, 1]
+        return nil unless page && anonymous
+
+        count = ->(name) { stat[/^#{name}:\s+(\d+)/, 1].to_i }
+        used = anonymous.to_i - count["Pages purgeable"] + count["Pages wired down"] + count["Pages occupied by compressor"]
+        [machine_bytes - (used * page.to_i), 0].max
+      rescue SystemCallError, IOError, NotImplementedError
+        nil
       end
 
       # Returns the memory of this process, which a forked worker starts

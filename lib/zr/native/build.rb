@@ -267,8 +267,8 @@ module Zr
           next [*known.fetch(f.name), false] unless f.is_a?(IR::Function)
 
           key = IR::Fingerprint.of(f, defined)
-          found = cache.take(key)
-          next [key, found.last, false] if found && !verify
+          found = verify ? cache.take(key) : cache.blob(key)
+          next [key, found, false] if found && !verify
 
           IR::Passes.prepare(f)
           made = emitter.assemble(f, defined)

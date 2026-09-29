@@ -38,16 +38,39 @@ class ParallelTest < Minitest::Test
     assert one == three, "the kernel object differs between one worker and three"
   end
 
-  # A worker uses about as much memory as the parent, because it inherits
-  # that heap and grows its own heap too. Six workers of the compiled
-  # compiler, ten gigabytes each, pushed a sixteen gigabyte machine into
-  # swap. A run that swaps does not fail, but it takes ten times as long.
-  def test_worker_count_is_limited_by_machine_memory
-    on_a_machine_of(16) do
-      assert_equal 6, holding(1) { Parallel.afforded(6) }
-      assert_equal 3, holding(4) { Parallel.afforded(6) }
-      assert_equal 1, holding(10) { Parallel.afforded(6) }
+  # A worker copies only the pages it writes: about a third of the parent
+  # under ruby. The count is three quarters of the available memory over
+  # that cost.
+  def test_worker_count_is_limited_by_available_memory
+    on_a_machine_of(16, available: 12) do
+      assert_equal 6, holding(3) { Parallel.afforded(6) }
+      assert_equal 4, holding(6) { Parallel.afforded(6) }
     end
+    on_a_machine_of(16, available: 4) { assert_equal 3, holding(3) { Parallel.afforded(6) } }
+  end
+
+  # A worker of the compiled compiler copies about all of the parent. Six
+  # such workers, ten gigabytes each, pushed a sixteen gigabyte machine
+  # into swap. A run that swaps does not fail, but it takes ten times as
+  # long.
+  def test_a_worker_of_the_compiled_compiler_costs_the_whole_parent
+    stub_method(Zr, :compiled?, -> { true }) do
+      on_a_machine_of(16, available: 12) { assert_equal 2, holding(4) { Parallel.afforded(6) } }
+    end
+  end
+
+  # Without the system's available memory, the machine less the parent.
+  def test_worker_count_without_available_memory_uses_the_machine
+    on_a_machine_of(16) do
+      assert_equal 6, holding(3) { Parallel.afforded(6) }
+      assert_equal 5, holding(6) { Parallel.afforded(6) }
+    end
+  end
+
+  def test_available_bytes_is_below_the_machine
+    available = Parallel.available_bytes
+    skip "this system gives no available memory" unless available
+    assert_operator available, :<=, Parallel.machine_bytes
   end
 
   def test_machine_bytes_is_8gb_when_sysconf_fails
@@ -71,9 +94,14 @@ class ParallelTest < Minitest::Test
 
   Parallel = Zr::Native::Parallel
 
-  # With no `ZR_JOBS`, which overrides the memory bound.
-  def on_a_machine_of(gigabytes, &block)
-    Zr::Config.with(ZR_JOBS: nil) { |_| stub_method(Parallel, :machine_bytes, -> { gigabytes << 30 }, &block) }
+  # With no `ZR_JOBS`, which overrides the memory bound. `available` is
+  # the memory the system can give now, nil when it does not say.
+  def on_a_machine_of(gigabytes, available: nil, &block)
+    Zr::Config.with(ZR_JOBS: nil) do |_|
+      stub_method(Parallel, :available_bytes, -> { available && available << 30 }) do
+        stub_method(Parallel, :machine_bytes, -> { gigabytes << 30 }, &block)
+      end
+    end
   end
 
   def holding(gigabytes, &block) = stub_method(Parallel, :held_bytes, -> { gigabytes << 30 }, &block)

@@ -93,12 +93,22 @@ module Zr
       # The code for `key`, or nil. The raw bytes come with it, for the new
       # pack.
       def take(key)
+        blob = blob(key)
+        blob && [Marshal.load(blob), blob]
+      rescue TypeError, ArgumentError
+        nil
+      end
+
+      # Only the raw bytes of the code for `key`, or nil. A worker sends
+      # them to the build, which loads them once: a load in the worker as
+      # well was 7% of its time.
+      def blob(key)
         pack, at, size = @index[key]
         return nil unless pack
 
         blob = handle(pack).pread(size, at)
-        [Marshal.load(blob), blob]
-      rescue SystemCallError, TypeError, ArgumentError, EOFError
+        blob if blob.bytesize == size
+      rescue SystemCallError, EOFError
         nil
       end
 
