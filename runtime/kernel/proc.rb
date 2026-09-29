@@ -1030,38 +1030,45 @@ machine def zr_catch_break(rec, site)
   Machine.value(QUNDEF)
 end
 
-# A `return` in an eval has no home. The pending unwind belongs to the
-# nearest method that set up the catch, which is the method that contains
-# the eval.
+# A `return` in an eval or in a `class << self` body has no home. The
+# pending unwind belongs to the method that holds the scope, which set up
+# the catch. The scopes outside the method are in the frame metadata:
+# when they end at the toplevel or a class body, or the method no longer
+# runs, the return raises LocalJumpError, as ruby's does. An eval whose
+# scope is not known leaves the unwind to the nearest method.
 sig [Value] => Value
 machine def zr_return_here(v)
+  rec = Task.top(zr_task())
+  meta = FrameMeta.parent(Frame.meta(rec))
+  in_block = false
+  while meta != 0 && FrameMeta.kind(meta) != KIND_DEF
+    kind = FrameMeta.kind(meta)
+    # An eval straight in the toplevel returns from the file.
+    if (kind == KIND_MAIN || kind == KIND_TOP) && !in_block
+      return zr_signal(PENDING_RETURN, v, 0, 0)
+    end
+    if kind != KIND_BLOCK && kind != KIND_SCLASS && kind != KIND_EVAL
+      return zr_local_jump_error(Machine.bytes("unexpected return"), 17, Machine.id(:return), v)
+    end
+    in_block = in_block || kind != KIND_EVAL
+    meta = FrameMeta.parent(meta)
+  end
+  if meta != 0 && !zr_meta_running(Frame.prev(rec), meta)
+    return zr_local_jump_error(Machine.bytes("unexpected return"), 17, Machine.id(:return), v)
+  end
   zr_signal(PENDING_RETURN, v, 0, 0)
 end
 
-# A `return` in a `class << self` body returns from the method that holds
-# the body, when that method still runs. A body outside a method, or in a
-# block that outlived its method, raises LocalJumpError, as ruby's does.
-sig [Value] => Value
-machine def zr_sclass_return(v)
-  rec = Task.top(zr_task())
-  meta = FrameMeta.parent(Frame.meta(rec))
-  while meta != 0 && FrameMeta.kind(meta) != KIND_DEF
-    if FrameMeta.kind(meta) != KIND_BLOCK && FrameMeta.kind(meta) != KIND_SCLASS
-      meta = 0
-    else
-      meta = FrameMeta.parent(meta)
+# Whether a frame from `rec` down runs the function of `meta`.
+sig [Ptr, Ptr] => Bool
+machine def zr_meta_running(rec, meta)
+  while rec != 0
+    if Frame.meta(rec) == meta
+      return true
     end
-  end
-  if meta != 0
     rec = Frame.prev(rec)
-    while rec != 0
-      if Frame.meta(rec) == meta
-        return zr_signal(PENDING_RETURN, v, 0, 0)
-      end
-      rec = Frame.prev(rec)
-    end
   end
-  zr_local_jump_error(Machine.bytes("unexpected return"), 17, Machine.id(:return), v)
+  false
 end
 
 # In the landing block of a method that contains an eval: returns the

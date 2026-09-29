@@ -404,7 +404,8 @@ module Zr
         if %i[def main top eval block].include?(@kind) && @has_env
           take(kernel("zr_catch_return", @rec))
         end
-        take(kernel("zr_catch_return_here")) if @kind == :def && @def&.evals
+        # A `return` in an eval straight in a file's toplevel ends the file.
+        take(kernel("zr_catch_return_here")) if (@kind == :def && @def&.evals) || %i[main top].include?(@kind)
         leave(qundef, unwinding: true)
       end
 

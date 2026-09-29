@@ -354,12 +354,11 @@ module Zr
         # the runtime to the method that made the block.
         def return_from(node)
           v = expr(node.value)
-          if @kind == :eval
+          # A `return` in an eval or in `class << self` returns from the
+          # method that holds the scope.
+          if @kind == :eval || @kind == :sclass
             at_node(node)
             checked(kernel("zr_return_here", v))
-          elsif @kind == :sclass
-            at_node(node)
-            checked(kernel("zr_sclass_return", v))
           elsif @kind == :block
             unless_lambda(v) do
               at_node(node)

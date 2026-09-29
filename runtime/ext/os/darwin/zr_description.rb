@@ -1554,7 +1554,7 @@ module Zr
         d zr_return Value p:Value v:Value
         d zr_catch_break Value rec:Ptr site:Word
         d zr_return_here Value v:Value
-        d zr_sclass_return Value v:Value
+        d zr_meta_running Bool rec:Ptr meta:Ptr
         d zr_catch_return_here Value
         d zr_catch_return Value rec:Ptr
         d zr_block_given_p Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
@@ -3858,8 +3858,8 @@ module Zr
         e zr_same_block 127
         e zr_return 127
         e zr_catch_break 16
-        e zr_return_here 16
-        e zr_sclass_return 127
+        e zr_return_here 127
+        e zr_meta_running 0
         e zr_catch_return_here 16
         e zr_catch_return 16
         e zr_block_given_p 0
