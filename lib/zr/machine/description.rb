@@ -106,10 +106,23 @@ module Zr
       # adds no name.
       def holds?(names) = names.all? { |name, at| @ids[name] == at }
 
-      # Marks `names` as asked for, as a lowering that asked for them would.
+      # Whether asking for `names` in their order (as `record` gives them)
+      # would give each its id: a name in the table has it, and a new name
+      # would take it next. It adds no name.
+      def fits?(names)
+        free = @free.dup
+        size = @names.size
+        names.all? do |name, at|
+          next @ids[name] == at if @ids.key?(name)
+
+          (free.shift || (size += 1) - 1) == at
+        end
+      end
+
+      # Asks for `names` in their order, as the lowering that recorded them
+      # did (`fits?` said each gets its id).
       def replay(names)
-        names.each_value { |at| @used[at] = true }
-        @record&.merge!(names)
+        names.each_key { |name| id(name) }
       end
 
       # Ends the table in pads up to a multiple of BLOCK.

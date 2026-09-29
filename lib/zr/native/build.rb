@@ -163,9 +163,19 @@ module Zr
 
         Paths.tmpdir("zr-eval-") do |work|
           fresh = File.join(work, "eval.o")
+          # An EvalCache took some units from an earlier build, and inlined
+          # the unit already; its code cache has their code. It writes its
+          # entries once the code is made, before the IR goes.
+          units = support.cache
+          code = units&.code || CodeCache.for("eval", support.target)
+          done = lambda do
+            units&.keep(*code.built)
+            units = nil # the lambda would keep the IR alive
+            support.release
+          end
           why = Zr.clock("eval support object assembled and written") do
-            object(support.functions, support.data, fresh, export: true, target: support.target, jobs: jobs,
-                                                           cache: CodeCache.for("eval", support.target), release: -> { support.release })
+            object(support.functions, support.data, fresh, export: true, target: support.target, jobs: jobs, cache: code,
+                                                           inlined: !units.nil?, known: units&.known || {}, release: done)
           end
           raise "the compiler did not build: #{why}" if why
 

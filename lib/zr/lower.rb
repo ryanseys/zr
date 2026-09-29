@@ -281,6 +281,43 @@ module Zr
       [finish ? finished : @functions, @data]
     end
 
+    # The program's toplevel alone, as `run` lowers it first: its
+    # `[functions, data]`. With `lower_unit`, a caller can lower the units
+    # one at a time, in any order (`EvalCache`): each unit uses its own
+    # names and counters, so its code is the same as in `run`. The pool
+    # closes at the end of each, where `run` puts it.
+    def lower_entry
+      sliced do
+        open_unit(@entry, @program.body)
+        Function.new(self, @entry, @program.locals, @program.body, nil, @kind, outer: @outer).lower
+        close_pool
+      end
+    end
+
+    # The unit at `index` of the program, as `run` lowers it: its
+    # `[functions, data]`.
+    def lower_unit(index)
+      u = @program.units[index]
+      sliced do
+        @file = u.file
+        @warnings = u.warnings || []
+        @unit_internal = u.internal
+        @unit_hidden = u.hidden
+        open_unit(unit_entry(index), u.body)
+        Function.new(self, @prefix, u.locals, u.body, nil, :top).lower
+        close_pool
+      end
+    end
+
+    # The functions and data that the block adds.
+    def sliced
+      functions = @functions.size
+      data = @data.size
+      yield
+      [@functions[functions..], @data[data..]]
+    end
+    private :sliced
+
     # Releases a unit after its code is made and cached. Only the
     # lowering reads its tree, locals and source, and the cache already
     # has the source for its key. A self-compile lowers about 4,000

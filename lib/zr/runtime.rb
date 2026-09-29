@@ -14,6 +14,7 @@ require_relative "tune"
 require_relative "settled"
 require_relative "sources"
 require_relative "core_cache"
+require_relative "eval_cache"
 
 module Zr
   # The kernel and the core library, lowered once per process, and only
@@ -360,7 +361,13 @@ module Zr
     # follows mark it again: 11 s of a link after eval support was built.
     def release
       meta
-      @lowered = nil
+      @lowered = @cache = nil
+    end
+
+    # The `EvalCache` of this build's lowering, or nil.
+    def cache
+      lowered
+      @cache
     end
 
     private
@@ -396,7 +403,8 @@ module Zr
         symbols = Machine::Symbols.new(@runtime.symbols.names, sites: @runtime.symbols.sites)
         lower = Lower.new(program, @runtime.description, symbols, entry: "zr_eval_support", target: target)
         functions = data = nil
-        asked = symbols.record { functions, data = lower.run }
+        @cache = EvalCache.for(target, kind)
+        asked = symbols.record { functions, data = @cache ? @cache.lower(lower, symbols, @runtime.description) : lower.run }
         runtime_size = @runtime.symbols.names.size
         files = loader.units.filter_map { |u| u.file if u.file.start_with?("/") }.uniq.sort
         sources = loader.units.each_with_object({}) { |u, h| h[u.file] ||= u.source if u.source }
