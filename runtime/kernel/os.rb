@@ -26,6 +26,7 @@
 #   zr_os_open           [Ptr, I32, I32] => I32
 #   zr_os_realpath       [Ptr] => Ptr
 #   zr_os_dirent_name    [Ptr] => Ptr
+#   zr_os_dirent_kind    [Ptr] => Word
 #   zr_os_stat_rows      [Ptr] => Value
 #   zr_os_stat_size      [Ptr] => Word
 #   zr_os_stat_mode      [Ptr] => Word
