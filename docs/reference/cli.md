@@ -58,6 +58,11 @@ the module can read the working directory. If wasmtime is not on
 `PATH`, `zr run --emit wasm` stops with status 1 before it builds. `-o` and `--emit obj` are
 usage errors for `run`: use `zr build` to keep the output.
 
+`zr run` keeps each native binary that it builds. A second run of the
+same program, with the same bytes in the program and in every file it
+requires, runs the kept binary without a build. `ZR_RUN_CACHE=0` turns
+this off (see [Environment variables](environment-variables.md)).
+
 `zr run` runs a native binary only on a host of the same target. For
 another target, `zr run` exits with status 3; use `zr build` and copy
 the binary.

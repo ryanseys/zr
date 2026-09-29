@@ -262,20 +262,25 @@ module Zr
       refuse(input, command, emit, target)
       wasmtime! if command == "run" && emit == "wasm"
 
+      Paths.root = opts[:root]
+      link = Config.current.link + opts[:link]
+      cache = kept_run(input, target, link, opts[:args]) if command == "run" && emit.nil?
       require_relative "runtime"
       require_relative "native/build"
       # Under ruby, lib/zr/prism.rb turns the parse cache on. A compiled
       # compiler turns it on here. A program that calls eval includes the
       # same files but never comes here, so it never writes to the cache.
       require_relative "parse_cache" unless HOSTED
-      Paths.root = opts[:root]
+      if command == "run" && emit.nil? && RunCache.wanted?
+        cache ||= RunCache.new(input, target: target, digest: Zr.runtime(target).digest, link: link)
+      end
       program = lower(input, command, target, assemble: emit.nil?)
       status = Paths.tmpdir("zr-build-") do |work|
         out = command == "run" ? File.join(work, "program") : File.expand_path(opts[:output])
         case emit
         when "obj" then object(program, out, target)
         when "wasm" then wasm(program, out, command, opts[:args])
-        else native(program, out, work, command, opts[:args], target, link: Config.current.link + opts[:link])
+        else native(program, out, work, command, opts[:args], target, link: link, cache: cache)
         end
       end
       require_relative "cache"
@@ -368,7 +373,7 @@ module Zr
       return Machine.compile(source, input) if verb == "machine"
       return Zr.program(source, input, target: target) unless assemble
 
-      Native::Build.lower(source, input, target: target)
+      Native::Build.lower(source, input, target: target, sources: verb == "run")
     rescue Refused => e
       warn refusal_report(e)
       exit REFUSED
@@ -456,7 +461,7 @@ module Zr
       $?
     end
 
-    def native(program, out, work, verb, rest, target, link: [])
+    def native(program, out, work, verb, rest, target, link: [], cache: nil)
       why = if program.is_a?(Zr::Program)
               Native::Build.program(program, out, work: work, link: link)
             else
@@ -466,10 +471,31 @@ module Zr
       abort "zr: #{why}" if why
       return unless verb == "run"
 
-      # A Ctrl-C goes to the program, which decides what to do with it;
-      # zr waits for the program to end.
+      cache&.keep(out, program, work) if program.is_a?(Zr::Program)
+      run_binary(out, rest)
+    end
+
+    # A program that ran before with the same sources runs from the run
+    # cache, and zr exits as it does. This loads only the digests, not the
+    # compiler. Returns the cache for the build otherwise, or nil when zr
+    # needs a build to know the runtime's digest.
+    def kept_run(input, target, link, args)
+      require_relative "run_cache"
+      return nil unless RunCache.wanted?
+
+      digest = Zr.runtime_digest(target) or return nil
+      cache = RunCache.new(input, target: target, digest: digest, link: link)
+      kept = cache.hit
+      exit_as(run_binary(kept, args)) if kept
+      cache
+    end
+
+    # Runs a binary with the arguments after the program's path, and
+    # returns its status. A Ctrl-C goes to the program, which decides what
+    # to do with it; zr waits for the program to end.
+    def run_binary(binary, rest)
       interrupt = Signal.trap("INT") { nil }
-      system(Tune.program_env, out, *rest)
+      system(Tune.program_env, binary, *rest)
       Signal.trap("INT", interrupt)
       $?
     end

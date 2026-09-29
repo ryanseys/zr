@@ -35,6 +35,7 @@ is not in the gem. It is the gems that `zr.gemspec` depends on
 | `lib/zr/hir.rb`, `lib/zr/hir/` | prism's tree to the HIR: desugaring, requires, refusals |
 | `lib/zr/lower.rb`, `lib/zr/lower/` | `Zr::Lower`: the HIR to the IR, for the zr runtime |
 | `lib/zr/runtime.rb` | `Zr::Runtime`, `Zr::Program` and `Zr::EvalSupport`: the runtime's files and built forms |
+| `lib/zr/sources.rb` | the source files of the runtime and the compiler, and the digests that name the cache's files |
 | `lib/zr/machine/` | the machine dialect to the IR, and the kernel's description |
 | `lib/zr/ir.rb`, `lib/zr/ir/` | the IR, its passes, its verifier, and `IR::Interp` |
 | `lib/zr/backend/aarch64/` | the aarch64 backend: assembler, register allocator, code generator |
@@ -43,6 +44,8 @@ is not in the gem. It is the gems that `zr.gemspec` depends on
 | `lib/zr/obj/macho/`, `lib/zr/obj/elf/` | the Mach-O object and executable writers, the prelinked image and the skeleton; the ELF object writer |
 | `lib/zr/native/` | the build driver, parallel assembly, the linkers |
 | `lib/zr/unit_cache.rb` | the cache of each compilation unit's machine code |
+| `lib/zr/run_cache.rb` | the binaries that `zr run` keeps, and the files each was built from |
+| `lib/zr/tune.rb` | the collector limits and YJIT of a compile |
 | `lib/zr/compiled_compiler.rb` | the compiled compiler: when `exe/zr` gives it a build |
 | `lib/zr/eval.rb` | the eval compiler |
 | `lib/zr/eval/walk.rb`, `lib/zr/eval/walk/` | the tree-walking interpreter |

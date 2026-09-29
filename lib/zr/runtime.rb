@@ -12,39 +12,9 @@ require_relative "unit_cache"
 require_relative "clock"
 require_relative "tune"
 require_relative "settled"
+require_relative "sources"
 
 module Zr
-  # The zr runtime: the kernel files, the core library written in Ruby on
-  # top of them, and the data that the compiler lays out next to them.
-  #
-  # Regexp::Onig, the regular expression compiler (runtime/core/regexp/onig).
-  # Each file defines what the next file reads.
-  ONIG_NAMES = %w[
-    regexp/unicode_tables regexp/onig/syntax regexp/onig/errors regexp/onig/encoding_tables
-    regexp/onig/encoding regexp/onig/encoding_unicode regexp/onig/encoding_multibyte
-    regexp/onig/node regexp/onig/lexer regexp/onig/parser regexp/onig/tune regexp/onig/optimize
-    regexp/onig/compile regexp/onig/program regexp/onig
-  ].freeze
-  # The core library files, in the order their toplevels run: a module
-  # before the classes that include it. An `os/` name is a file of the OS
-  # layer, under runtime/core/os/<os>/. It gives each OS's values for the
-  # constants that the next portable file uses, in ruby's order.
-  CORE_NAMES = (%w[
-    module warning redefinitions encodings transcode cjk exception enumerable enumerator comparable integer bignum
-    array hash range struct unicode string converter iso2022 ruled emoji kernel float proc binding
-    format os/errno os/io_constants io io_buffer os/process_constants process signal env
-    os/file_constants file argf data os/clock_constants gc random thread builtin_lines trace_point
-    monitor time set ractor marshal pack
-  ] + ONIG_NAMES + %w[
-    regexp_pattern regexp pathname rational complex objectspace rubyvm box
-  ]).freeze
-
-  # Loads Regexp::Onig under the host ruby, for the tools and tests that
-  # check it against ruby's engine.
-  def self.require_onig
-    ONIG_NAMES.each { |name| require File.join(Paths::RUNTIME, "core/#{name}.rb") }
-  end
-
   # The kernel and the core library, lowered once per process, and only
   # as much as a build needs. A program's lowering reads the kernel's
   # description and the symbol table from the cache. Only a build with
@@ -121,7 +91,7 @@ module Zr
     # them adds or removes a file, the digest changes and the list is
     # computed again.
     # The cache file that lists them.
-    def gem_prelude_path = File.join(Paths.cache, "gem-prelude-#{digest_of(sources.keys)}.json")
+    def gem_prelude_path = Zr.gem_prelude_list(digest_of(sources.keys))
 
     def gem_prelude_files
       @gem_prelude_files ||= begin
@@ -135,13 +105,7 @@ module Zr
       end
     end
 
-    def digest_of(files)
-      Digest::SHA256.new.tap do |d|
-        d << target.triple << "\0"
-        d << "root\0" << Paths.root << "\0" if Paths.root
-        files.each { |path| d << path << "\0" << (sources[path] || File.binread(path)) }
-      end.hexdigest
-    end
+    def digest_of(files) = Zr.source_digest(target, files, sources)
 
     # The symbol table after the core library. It comes from the cache if
     # an earlier build lowered the core with this digest.
@@ -244,8 +208,14 @@ module Zr
   # as `[functions, data, raw]` with the runtime included, for a build
   # that uses one unit for everything. `evals` is the EvalSupport that
   # the program links next to the runtime, or nil. Its JIT finds kernel
-  # functions by name.
-  Program = Data.define(:runtime, :functions, :data, :evals) do
+  # functions by name. `sources` maps the path of each file the program was
+  # built from to the digest of the bytes that were compiled (the run
+  # cache checks them); it is empty when the build does not know them.
+  Program = Data.define(:runtime, :functions, :data, :evals, :sources) do
+    def initialize(runtime:, functions:, data:, evals:, sources: {})
+      super
+    end
+
     def raw = runtime.raw
 
     def to_ary = [runtime.functions + functions, runtime.data + data, raw]
@@ -295,6 +265,9 @@ module Zr
 
     def object_path = self.class.object_path(key)
 
+    # The metadata file of this eval support. The run cache checks it.
+    def meta_path = self.class.meta_path(@runtime, kind)
+
     # The cache files of eval support: the object, by the key in its
     # metadata, and the metadata, by the runtime's digest and the kind
     # of eval (`jit` or `walk`). `zr-dev cache prune` reads these too.
@@ -311,8 +284,6 @@ module Zr
     # files, so the metadata of one must never be used for the other.
     def kind = Hir::Build.eval_file(target) == Hir::Build::EVAL_COMPILER ? "jit" : "walk"
 
-    def meta_path = self.class.meta_path(@runtime, kind)
-
     def meta
       @meta ||= begin
         meta = JSON.parse(File.read(meta_path)) if File.exist?(meta_path)
@@ -324,14 +295,7 @@ module Zr
     # file. A build gives the bytes that it lowered (`sources`), so an edit
     # during the build cannot put old output under the new bytes' key. A
     # check of the cache reads the files as they are now.
-    def files_key(files, sources = {})
-      Digest::SHA256.new.tap do |d|
-        d << @runtime.digest
-        files.each do |path|
-          d << path << "\0" << (sources[path] || (File.exist?(path) ? File.binread(path) : ""))
-        end
-      end.hexdigest
-    end
+    def files_key(files, sources = {}) = Zr.eval_files_key(@runtime.digest, files, sources)
 
     def lowered
       @lowered ||= Zr.clock("eval support lowered") do
@@ -368,13 +332,18 @@ module Zr
   # With a block, each function goes to the block when its file is
   # lowered (`Lower#run`), with the lowering's entry name. The program
   # contains the block's results.
-  def program(source, file, target: Target.default, &finish)
+  #
+  # With `sources`, the program lists the files it was built from
+  # (`Program#sources`), for the run cache.
+  def program(source, file, target: Target.default, sources: false, &finish)
     rt = runtime(target)
     support = eval_support(target)
     hir = Zr.clock("hir built") { Hir.build(source, file, prebuilt: support, target: target) }
     # A large program is heavy work too (`Tune`): bundler's 1.2 MB of source
     # takes seconds to lower.
     Tune.heavy! if source.bytesize + hir.units.sum { |u| u.source.to_s.bytesize } > HEAVY_SOURCE
+    # Before the lowering, which lets go of each unit's source.
+    sources = sources ? built_from(source, file, hir) : {}
     symbols = hir.evals ? support.symbols : Machine::Symbols.new(rt.symbols.ids.keys, sites: rt.symbols.sites)
     # Each name already in the table has a fixed id. The link numbers all
     # other names, so a unit's code does not depend on the compile order.
@@ -392,7 +361,36 @@ module Zr
     tables = load_tables(units, evals: hir.evals, spots: hir.spots || {}, coverable: hir.coverable || {},
                          branches: hir.branches || {}, defs: hir.defs || {}, sources: hir.evals ? support.digests : {},
                          target: target)
-    Program.new(rt, functions, data + symbol_names(symbols) + tables, hir.evals && support)
+    Program.new(rt, functions, data + symbol_names(symbols) + tables, hir.evals && support, sources)
+  end
+
+  # The path and digest of each file that `hir` was built from: `file`,
+  # with `source`, and each unit that has its own file. Empty when a
+  # require stays for the run time (a file that did not exist, or a name
+  # built at run time): a file that appears later would change the build,
+  # and no list of paths can say which.
+  def built_from(source, file, hir)
+    return {} if run_time_require?([hir.body, *hir.units.map(&:body)])
+
+    [[file, source], *hir.units.filter_map { |u| [u.file, u.source] if u.source && File.file?(u.file) }]
+      .to_h { |path, bytes| [File.expand_path(path), Digest::SHA256.hexdigest(bytes)] }
+  end
+
+  REQUIRES = %i[require require_relative load].freeze
+
+  # A require, require_relative or load of Kernel, or any autoload, that
+  # the HIR left as a call.
+  def run_time_require?(node)
+    case node
+    when Hir::Send
+      kernel = node.recv.nil? || (node.recv.is_a?(Hir::ConstRead) && node.recv.name == :Kernel && node.recv.scope.nil?)
+      return true if node.name == :autoload || (kernel && REQUIRES.include?(node.name))
+    when Array then return node.any? { |child| run_time_require?(child) }
+    when Hir::Node then nil
+    else return false
+    end
+    Hir.each_child(node) { |child| return true if run_time_require?(child) }
+    false
   end
 
   # The relocation kinds that the link numbers.
@@ -435,75 +433,6 @@ module Zr
 
   def eval_support(target = Target.default)
     (@eval_supports ||= {})[target.triple] ||= EvalSupport.new(runtime(target))
-  end
-
-  # The kernel files of `target`'s runtime: the portable kernel, then its
-  # OS layer, then its architecture layer.
-  def kernel_files(target = Target.default)
-    Dir[File.join(Paths::RUNTIME, "kernel/*.rb")].sort +
-      Dir[File.join(Paths::RUNTIME, "kernel/os/#{target.os_layer}/*.rb")].sort +
-      Dir[File.join(Paths::RUNTIME, "kernel/arch/#{target.arch_layer}/*.rb")].sort
-  end
-
-  # The core library files for `target`, in the order their toplevels
-  # run.
-  def core_files(target = Target.default)
-    layer = target.os_layer
-    CORE_NAMES.map do |name|
-      File.join(Paths::RUNTIME, name.start_with?("os/") ? "core/os/#{layer}/#{name.delete_prefix("os/")}.rb" : "core/#{name}.rb")
-    end
-  end
-
-  # The compiler files that no runtime object can depend on: the command
-  # line, the linkers, and the images and processes that they write.
-  # All other files under `lib` are in the digest, so a new compiler file
-  # is included until someone adds it here. A stale runtime object gives
-  # a wrong binary with no error.
-  #
-  # These files do change the link, so `link_digest` is part of the name
-  # of the prelinked image.
-  LINK_ONLY = %w[
-    cli.rb
-    native/link.rb native/link/darwin.rb native/link/static.rb native/toolchain.rb
-    obj/jit.rb obj/jit/fiddle.rb
-    obj/macho/block.rb obj/macho/executable.rb obj/macho/libsystem.rb obj/macho/prelink.rb obj/macho/skeleton.rb
-  ].map { |name| File.join(__dir__, name) }.freeze
-
-  # The compiler files that belong to one target: an instruction set's
-  # backend, and an object format's writer. A runtime object for a
-  # different target contains no byte of them, so they are not in other
-  # targets' digests. For example, a wasm backend edit does not rebuild
-  # the native runtime.
-  #
-  # As with LINK_ONLY, the list is by name and the default is to include
-  # a file. A directory not listed here is in every target's digest.
-  PER_TARGET = {
-    "backend/aarch64" => ->(target) { target.arch == :aarch64 },
-    "backend/wasm" => ->(target) { target.arch == :wasm32 },
-    "obj/macho" => ->(target) { target.object_format == :macho },
-    "obj/elf" => ->(target) { target.object_format == :elf }
-  }.freeze
-
-  # The source files of `target`'s runtime, and the compiler files that
-  # lower them.
-  def sources(target = Target.default)
-    kernel_files(target) + core_files(target) + compiler_files(target)
-  end
-
-  # The compiler's files that can reach `target`'s runtime object.
-  def compiler_files(target = Target.default)
-    (Dir[File.join(__dir__, "**/*.rb")].sort - LINK_ONLY).reject do |path|
-      name = path.delete_prefix("#{__dir__}/")
-      PER_TARGET.any? { |prefix, wants| name.start_with?(prefix) && !wants.call(target) }
-    end
-  end
-
-  # One digest of the LINK_ONLY files. A cache that the link writes
-  # includes this digest in its name, with its other inputs.
-  def link_digest
-    @link_digest ||= Digest::SHA256.new.tap do |d|
-      LINK_ONLY.each { |path| d << path << "\0" << File.binread(path) }
-    end.hexdigest
   end
 
   # Writes `content` to `path` in the cache atomically, so a parallel

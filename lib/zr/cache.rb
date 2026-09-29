@@ -21,7 +21,7 @@ module Zr
     # The cache files, the binaries that the spec tier keeps in the cache,
     # and the parsed trees (lib/zr/parse_cache.rb). Their names come from
     # the source only, so only age shows which are not used.
-    def all = Dir[File.join(Paths.cache, "{*,binaries/*,parse/*}")].select { |path| File.file?(path) }
+    def all = Dir[File.join(Paths.cache, "{*,binaries/*,parse/*,run/*/*}")].select { |path| File.file?(path) }
 
     # The compiled compilers of other zr versions and installs, in the
     # user's cache (lib/zr/compiled_compiler.rb). Each one is about

@@ -95,12 +95,12 @@ module Zr
       # at one time. It builds the runtime object first and then releases
       # the runtime's IR, so on a cold cache the two are not in memory
       # together.
-      def lower(source, file, target: Target.default, jobs: Build.jobs)
+      def lower(source, file, target: Target.default, jobs: Build.jobs, sources: false)
         runtime = Zr.runtime(target)
         runtime.description
         runtime_object(runtime, jobs: jobs)
         runtime.release
-        Zr.program(source, file, target: target) { |f, entry| assemble(f, entry, target: target) }
+        Zr.program(source, file, target: target, sources: sources) { |f, entry| assemble(f, entry, target: target) }
       end
 
       # Prepares and assembles one function immediately after `Zr.program`
