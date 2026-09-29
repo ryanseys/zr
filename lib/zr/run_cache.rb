@@ -40,6 +40,7 @@ module Zr
       config = Config.current
       key = Digest::SHA256.new
       @digest = digest
+      @target = target
       [VERSION, Zr::VERSION, digest, Zr.link_digest, target.triple, Paths.root.to_s,
        config.linker, config.eval_walk?, config.verify?, *link, "\0", @input, File.binread(@input)].each do |part|
         key << part.to_s << "\0"
@@ -97,7 +98,8 @@ module Zr
     def eval_current?(meta_path, key)
       require "json"
       meta = JSON.parse(File.read(meta_path))
-      meta.fetch("key") == key && Zr.eval_files_key(@digest, meta.fetch("files")) == key
+      abi = Zr.abi_digest(@target, @digest) or return false
+      meta.fetch("key") == key && Zr.eval_files_key(abi, meta.fetch("files")) == key
     rescue JSON::ParserError, KeyError, SystemCallError
       false
     end

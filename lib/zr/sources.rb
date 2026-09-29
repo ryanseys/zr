@@ -123,12 +123,39 @@ module Zr
     end.hexdigest
   end
 
-  # The key of an eval support object: the runtime's digest and the bytes
+  # The cache file of a runtime's symbol table, its wanted symbols and its
+  # kernel's description (`Runtime#cached`).
+  def symbols_path(runtime_digest) = File.join(Paths.cache, "symbols-#{runtime_digest}.json")
+
+  # The digest of what code outside the runtime object takes from the
+  # runtime: the compiler files that lower it, the kernel's description
+  # (the constants, layouts, signatures and effects that it bakes in), and
+  # the symbol table (each name's id, and the count of sites). Eval support
+  # and a program's units call the core only by name and by send, so an
+  # edit to a core or kernel body that changes none of these keeps them.
+  # Nil when the runtime's symbol table is not cached.
+  def abi_digest(target, runtime_digest)
+    rows = JSON.parse(File.read(symbols_path(runtime_digest)))
+    Digest::SHA256.new.tap do |d|
+      d << "abi 1\0" << compiler_digest(target) << "\0" << rows.fetch("description") << "\0"
+      rows.fetch("names").each { |name| d << name << "\0" }
+      d << rows.fetch("sites").to_s
+    end.hexdigest
+  rescue JSON::ParserError, KeyError, SystemCallError
+    nil
+  end
+
+  # The digest of the compiler files of `target` (part of the runtime's).
+  def compiler_digest(target)
+    (@compiler_digests ||= {})[[target.triple, Paths.root]] ||= source_digest(target, compiler_files(target))
+  end
+
+  # The key of an eval support object: the ABI digest and the bytes
   # of each file (`EvalSupport#files_key`). `bytes` has the ones that a
   # build already read.
-  def eval_files_key(runtime_digest, files, bytes = {})
+  def eval_files_key(abi_digest, files, bytes = {})
     Digest::SHA256.new.tap do |d|
-      d << runtime_digest
+      d << abi_digest
       files.each do |path|
         d << path << "\0" << (bytes[path] || (File.exist?(path) ? File.binread(path) : ""))
       end

@@ -44,8 +44,10 @@ module Zr
 
     def initialize(dir:, runtime:, table:, traced:, entries:)
       @dir = dir
-      # `runtime` is the digest of everything that lowers and emits the
-      # runtime for this target. `table` identifies the symbol table that
+      # `runtime` is the runtime's ABI digest (`Zr.abi_digest`): the
+      # compiler, the kernel's description and the symbol table. A unit's
+      # code calls the core only by name, so a core body edit keeps it.
+      # `table` identifies the symbol table that
       # fixes a unit's ids: the runtime's, or the eval support table when
       # the program links in eval support (it contains more names).
       @stamp = "#{VERSION}\0#{runtime}\0#{table}\0#{traced}"

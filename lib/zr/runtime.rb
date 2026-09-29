@@ -160,6 +160,12 @@ module Zr
       warn "zr: #{shown} was out of date with runtime/kernel; zr wrote it again"
     end
 
+    # `Zr.abi_digest`: what eval support and a program's units take from
+    # this runtime. It reads the symbol table's cache, which it makes first.
+    def abi_digest
+      @abi_digest ||= (cached && Zr.abi_digest(target, digest)) || raise("no symbol table for runtime #{digest}")
+    end
+
     private
 
     def kernel_symbols
@@ -173,7 +179,8 @@ module Zr
       @cached ||= read_cached || write_cached
     end
 
-    def cache_path = File.join(Paths.cache, "symbols-#{digest}.json")
+    def cache_path = Zr.symbols_path(digest)
+
 
     def read_cached
       return unless File.exist?(cache_path)
@@ -226,8 +233,11 @@ module Zr
   # own object, so a program with eval lowers and assembles only itself.
   # Next to the object, the cache keeps the metadata that a program
   # needs: the entry of each file, its dependencies, and the symbol table
-  # after it. The key is the runtime's digest and the bytes of each file
-  # in eval support, so an edit to any of them builds it again.
+  # after it. The key is the runtime's ABI digest (`Zr.abi_digest`) and
+  # the bytes of each file in eval support. An edit to a file of eval
+  # support, to the compiler, to the kernel's description or to the
+  # symbol table builds it again; an edit to a core or kernel body does
+  # not, because eval support calls the core only by name.
   class EvalSupport
     def initialize(runtime)
       @runtime = runtime
@@ -258,9 +268,9 @@ module Zr
     # ParseCache.maker).
     def digests = meta.fetch("digests")
 
-    # The key of eval support: the runtime's digest and the bytes of each
-    # file in eval support. The unit cache uses it for a program that
-    # uses this symbol table.
+    # The key of eval support: the runtime's ABI digest (`Zr.abi_digest`)
+    # and the bytes of each file in eval support. The unit cache uses it
+    # for a program that uses this symbol table.
     def key = meta.fetch("key")
 
     def object_path = self.class.object_path(key)
@@ -272,7 +282,7 @@ module Zr
     # metadata, and the metadata, by the runtime's digest and the kind
     # of eval (`jit` or `walk`). `zr-dev cache prune` reads these too.
     def self.object_path(key) = File.join(Paths.cache, "eval-#{key}.o")
-    def self.meta_path(runtime, kind) = File.join(Paths.cache, "eval-#{runtime.digest}-#{kind}.json")
+    def self.meta_path(runtime, kind) = File.join(Paths.cache, "eval-#{runtime.abi_digest}-#{kind}.json")
 
     def functions = lowered.fetch(:functions)
     def data = lowered.fetch(:data)
@@ -291,11 +301,11 @@ module Zr
       end
     end
 
-    # The key of eval support: the runtime's digest and the bytes of each
-    # file. A build gives the bytes that it lowered (`sources`), so an edit
+    # The key of eval support: the runtime's ABI digest and the bytes of
+    # each file. A build gives the bytes that it lowered (`sources`), so an edit
     # during the build cannot put old output under the new bytes' key. A
     # check of the cache reads the files as they are now.
-    def files_key(files, sources = {}) = Zr.eval_files_key(@runtime.digest, files, sources)
+    def files_key(files, sources = {}) = Zr.eval_files_key(@runtime.abi_digest, files, sources)
 
     def lowered
       @lowered ||= Zr.clock("eval support lowered") do
@@ -350,7 +360,7 @@ module Zr
     # So an earlier build's code for a unit is correct for this build.
     # The cache key includes the table that fixes the ids: the runtime's,
     # or the larger eval support table for a program with eval.
-    units = finish && UnitCache.for(hir, dir: Paths.cache, runtime: rt.digest, table: hir.evals ? support.key : "rt",
+    units = finish && UnitCache.for(hir, dir: Paths.cache, runtime: rt.abi_digest, table: hir.evals ? support.key : "rt",
                                          entries: Lower.entries_of("zr_toplevel", hir.units))
     lower = Lower.new(hir, rt.description, symbols, target: target, fixed: symbols.ids.dup.freeze, units: units || nil)
     functions, data = Zr.clock(finish ? "program lowered and assembled" : "program lowered") do
