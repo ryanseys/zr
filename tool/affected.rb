@@ -17,8 +17,13 @@ module Zr
     #   change to String can affect a Hash spec that uses String keys.)
     # - A vendored library or an extension maps to its stdlib directory,
     #   and to each spec that requires it by name.
-    # - A change to the compiler (and its pinned gems), the kernel, the
-    #   test support or the tools maps to all specs.
+    # - A file of an OS layer of the core maps as its own name does
+    #   (runtime/core/os/darwin/errno.rb as errno). The kernel's description
+    #   of an OS layer (runtime/ext/os/) is in every program that evals, so
+    #   it maps to all specs.
+    # - A change to the compiler (and its pinned gems), the kernel or the
+    #   test support maps to all specs. A change to a tool maps to the unit
+    #   tests, which test the tools; no spec runs one.
     class Affected < Command
       summary "Run the specs that a change can reach"
       usage "[--base REVISION] [--dry-run]"
@@ -70,7 +75,9 @@ module Zr
         case file
         when %r{\Atest/(spec|unit)/.*_test\.rb\z} then File.exist?(File.join(ROOT, file)) ? [file] : []
         when %r{\Atest/spec/} then [File.dirname(file)]
-        when %r{\Alib/zr/}, %r{\Aruntime/kernel/}, %r{\Atest/(support|test_helper|spec_helper)}, %r{\Atool/}, "Rakefile" then :all
+        when %r{\Alib/zr/}, %r{\Aruntime/kernel/}, %r{\Aruntime/ext/os/}, %r{\Atest/(support|test_helper|spec_helper)}, "Rakefile" then :all
+        when %r{\Atool/} then [File.join(ROOT, "test/unit")]
+        when %r{\Aruntime/core/os/[^/]+/([^/]+)\.rb\z} then core($1)
         when %r{\Aruntime/core/([^/]+?)(?:/.*)?\.rb\z} then core($1)
         when %r{\Aruntime/ext/([^/.]+)}, %r{\Avendor/lib/([^/.]+)} then library($1)
         when "Gemfile.lock", "zr.gemspec" then :all

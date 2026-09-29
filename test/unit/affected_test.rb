@@ -25,4 +25,16 @@ class AffectedTest < Minitest::Test
   def test_a_doc_change_reaches_nothing
     assert_equal [], affected.plan(%w[docs/README.md])
   end
+
+  def test_the_carried_description_reaches_everything
+    assert_equal :all, affected.plan(%w[runtime/ext/os/darwin/zr_description.rb])
+  end
+
+  def test_a_tool_change_reaches_the_unit_tests
+    assert_equal [File.join(Zr::Dev::ROOT, "test/unit")], affected.plan(%w[tool/edit.rb])
+  end
+
+  def test_a_file_of_an_os_layer_maps_as_its_name
+    assert_equal affected.core("errno"), affected.plan(%w[runtime/core/os/darwin/errno.rb])
+  end
 end
