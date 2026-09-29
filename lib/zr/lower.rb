@@ -309,12 +309,14 @@ module Zr
       end
     end
 
-    # The functions and data that the block adds.
+    # The functions and data that the block adds. Each is a copy: a slice
+    # (`@data[data..]`) shares the whole buffer of the array, and eval
+    # support's 411 slices kept 0.9 GB for the collector to mark.
     def sliced
       functions = @functions.size
       data = @data.size
       yield
-      [@functions[functions..], @data[data..]]
+      [@functions.values_at(functions...@functions.size), @data.values_at(data...@data.size)]
     end
     private :sliced
 
