@@ -2,7 +2,7 @@
 
 zr gives ruby 4.0.7's output, or it refuses
 ([the contract](../explanation/the-contract.md)). This page lists each
-place where zr does not give ruby's output on purpose. There are two
+place where zr does not give ruby's output on purpose. There are three
 kinds:
 
 - **A refusal.** The result needs something that a compiled program
@@ -12,6 +12,10 @@ kinds:
 - **A ruby bug.** ruby 4.0.7 itself goes wrong, for example it stops
   responding. zr gives the result that ruby's documentation gives, and
   a comment at the code tells the difference.
+- **A detail that zr does not copy.** The result comes from how CRuby
+  keeps its tables or builds its extensions, and a program cannot
+  depend on it portably. zr gives a result that is correct, but not
+  the same bytes.
 
 Each row gives the spec that tests the behavior, where there is one.
 
@@ -30,6 +34,18 @@ Each row gives the spec that tests the behavior, where there is one.
 The spec `core/rubyvm/rubyvm_test.rb` "an InstructionSequence answers
 eval, to_binary and each_child as ruby does" tests the parts of
 `InstructionSequence` that zr supports.
+
+## Details that zr does not copy
+
+| What | zr | ruby 4.0.7 |
+|---|---|---|
+| The order of `instance_methods`, `methods`, `constants`, `global_variables` and the other lists of names | the order of definition | the order of CRuby's id tables, which comes from the symbols that the boot interned and changes with the installed gems. `core/object/search_test.rb` sorts the lists that it compares. |
+| `ObjectSpace.dump` of an object on the heap | the address, the type, the class, `frozen`, the value, the size and `memsize` | also `shape_id`, `slot_size`, `embedded`, `chilled`, `coderange` and `flags`, which describe CRuby's heap |
+| `Ripper` on source that does not parse | prism's recovery, translated to Ripper's events | the events of parse.y's own error recovery |
+| `$LOADED_FEATURES` after a `require` of a library that ruby ships as a C extension | the files of zr's Ruby port, such as `runtime/ext/etc.rb` and its table of names | one `.bundle` or `.so` file |
+| rubygems' boot files, such as `bundled_gems.rb` and its `LoadError#message` | loaded only when the program uses `Gem` | loaded before the program starts |
+| `OpenSSL::OPENSSL_LIBRARY_VERSION` | the OpenSSL library that zr runs on. `OPENSSL_VERSION` is ruby's. | the library that ruby's openssl was built against |
+| The core library's own helpers (for example `Packing`) | hidden from `constants`, `ObjectSpace` and the other reflection, but a program that names one (`Packing`, or `const_get`) finds it | not there |
 
 ## The locale
 
