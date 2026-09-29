@@ -176,8 +176,7 @@ module Zr
         from = order.map { |b| preds.fetch(b.name).filter_map { |p| at[p] } }
         doms = Array.new(order.size)
         doms[0] = 0
-        changed = true
-        while changed
+        loop do
           changed = false
           n = 1
           while n < order.size
@@ -193,6 +192,7 @@ module Zr
             end
             n += 1
           end
+          break unless changed
         end
         idom = { order[0].name => nil }
         (1...order.size).each { |n| idom[order[n].name] = order[doms[n]].name if doms[n] }
