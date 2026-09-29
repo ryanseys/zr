@@ -165,7 +165,7 @@ module Zr
           fresh = File.join(work, "eval.o")
           why = Zr.clock("eval support object assembled and written") do
             object(support.functions, support.data, fresh, export: true, target: support.target, jobs: jobs,
-                                                           cache: CodeCache.for("eval", support.target))
+                                                           cache: CodeCache.for("eval", support.target), release: -> { support.release })
           end
           raise "the compiler did not build: #{why}" if why
 
@@ -201,11 +201,17 @@ module Zr
       # Writes functions and data to one object file. `export` makes all
       # data visible to the linker, for an object that other objects refer to.
       # `cache` is the code cache of the object's kind, or nil. `inlined`
-      # and `known` are `unit`'s.
+      # and `known` are `unit`'s. `release` lets the caller drop the IR once
+      # it is machine code, before the writer allocates: then a collection
+      # does not mark the IR again (4 s of eval support's write).
       def object(functions, data, obj, raw: [], export: false, target: Target.default, jobs: Build.jobs, cache: nil, inlined: false,
-                 known: {})
+                 known: {}, release: nil)
         built = unit(functions, data, raw: raw, export: export, target: target, jobs: jobs, cache: cache, inlined: inlined,
                                       known: known)
+        if release
+          functions = nil # rubocop:disable Lint/UselessAssignment -- the frame would keep the IR alive
+          release.call
+        end
         File.binwrite(obj, Zr.clock("object file written") { writer(target).write(built) })
         nil
       rescue Backend::Refused => e

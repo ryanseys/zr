@@ -355,6 +355,14 @@ module Zr
     def functions = lowered.fetch(:functions)
     def data = lowered.fetch(:data)
 
+    # Lets go of the IR once the object is written. Only the metadata stays.
+    # The IR of 18,000 functions made each collection of the link that
+    # follows mark it again: 11 s of a link after eval support was built.
+    def release
+      meta
+      @lowered = nil
+    end
+
     private
 
     # The eval kind of the target is part of the cache name. The eval
