@@ -10,6 +10,7 @@ require_relative "hir"
 require_relative "lower"
 require_relative "unit_cache"
 require_relative "clock"
+require_relative "tune"
 require_relative "settled"
 
 module Zr
@@ -69,6 +70,7 @@ module Zr
       raise "the runtime's IR was released" if @released
 
       @unit ||= Zr.clock("kernel lowered") do
+        Tune.heavy!
         Machine::Lower.new(Zr.kernel_files(target).map { |path| [sources.fetch(path), path] }, kernel_symbols).tap(&:run)
       end
     end
@@ -333,6 +335,7 @@ module Zr
 
     def lowered
       @lowered ||= Zr.clock("eval support lowered") do
+        Tune.heavy!
         @runtime.carry_description!
         loader = Hir::Build.eval_support(target)
         program = Hir::Program.new(Hir::Build.eval_file(target), [], Hir::Seq.new([], 0), loader.units, [], true, loader.entries)
@@ -357,6 +360,11 @@ module Zr
 
   module_function
 
+  # The bytes of source above which a program's build tunes (`Tune.heavy!`).
+  # hello and a probe are far below it; the stdlib rung of the compile
+  # benchmark is above.
+  HEAVY_SOURCE = 256 * 1024
+
   # With a block, each function goes to the block when its file is
   # lowered (`Lower#run`), with the lowering's entry name. The program
   # contains the block's results.
@@ -364,6 +372,9 @@ module Zr
     rt = runtime(target)
     support = eval_support(target)
     hir = Zr.clock("hir built") { Hir.build(source, file, prebuilt: support, target: target) }
+    # A large program is heavy work too (`Tune`): bundler's 1.2 MB of source
+    # takes seconds to lower.
+    Tune.heavy! if source.bytesize + hir.units.sum { |u| u.source.to_s.bytesize } > HEAVY_SOURCE
     symbols = hir.evals ? support.symbols : Machine::Symbols.new(rt.symbols.ids.keys, sites: rt.symbols.sites)
     # Each name already in the table has a fixed id. The link numbers all
     # other names, so a unit's code does not depend on the compile order.

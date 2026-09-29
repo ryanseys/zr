@@ -5,6 +5,7 @@ require_relative "version"
 require_relative "paths"
 require_relative "config"
 require_relative "target"
+require_relative "tune"
 
 module Zr
   # The `zr` command: `exe/zr` in a checkout, and the gem's executable
@@ -108,22 +109,17 @@ module Zr
 
     module_function
 
-    # A compile allocates tens of millions of objects. Ruby reads the
-    # collector's malloc limits only at startup, so a process without
-    # them starts `script` again with them set (3.17 s against 3.47 s
-    # for the runtime's 4,733 functions). With no `script` (a rake task),
-    # the limits go only to the child processes. Only CRuby reads them.
-    # `ZR_TUNE=0` keeps ruby's limits and leaves YJIT off.
-    GC_ENV = { "RUBY_GC_MALLOC_LIMIT" => "64000000", "RUBY_GC_OLDMALLOC_LIMIT" => "128000000" }.freeze
+    # The collector limits of a compile (lib/zr/tune.rb).
+    GC_ENV = Tune::GC_ENV
 
-    def tune!(script = nil)
-      return unless Config.current.tune?
-
-      if !ENV.key?("RUBY_GC_MALLOC_LIMIT") && !Zr.compiled?
-        ENV.update(GC_ENV)
-        exec(RbConfig.ruby, script, *ARGV) if script
-      end
-      RubyVM::YJIT.enable if defined?(RubyVM::YJIT.enable)
+    # Sets the collector limits and YJIT for a compile (`Tune`). With
+    # `later`, only the first step of heavy work tunes, so a warm build
+    # pays for neither. `handed` says that `CompiledCompiler.hand_over`
+    # already kept the command in this process; a new start of zr then
+    # does not check again.
+    def tune!(script = nil, handed: false, later: false)
+      env = handed ? { CompiledCompiler::HANDED => "1" } : {}
+      later ? Tune.later(script, ARGV, env: env) : Tune.now(script, ARGV, env: env)
     end
 
     # Why this compiler must not build on a ruby of `version`, or nil
@@ -473,7 +469,7 @@ module Zr
       # A Ctrl-C goes to the program, which decides what to do with it;
       # zr waits for the program to end.
       interrupt = Signal.trap("INT") { nil }
-      system(out, *rest)
+      system(Tune.program_env, out, *rest)
       Signal.trap("INT", interrupt)
       $?
     end

@@ -11,5 +11,5 @@ require_relative "../lib/zr/compiled_compiler"
 Zr::CompiledCompiler.hand_over(ARGV)
 require_relative "../lib/zr/cli"
 
-Zr::CLI.tune!(__FILE__)
+Zr::CLI.tune!(__FILE__, handed: true, later: true)
 Zr::CLI.start(ARGV)

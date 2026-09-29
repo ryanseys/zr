@@ -67,19 +67,32 @@ module Zr
     # builds over it.
     def shipped? = !ENV["ZR_BINARY"] && !Paths.checkout? && !shipped.nil?
 
+    # The variable that `CLI.tune!` sets when it starts zr again with the
+    # collector's limits. It says that this process already decided to
+    # keep the command, so the new process does not check every source
+    # file again. `hand_over` deletes it, so the program never sees it.
+    HANDED = "ZR_HANDED"
+
     # Sends the command to the compiled compiler when it is current. If
     # this build is permitted to build one, it builds it first. Does
     # nothing inside the compiled compiler or for other commands.
     def hand_over(argv, env = ENV)
+      return if env.delete(HANDED)
       return if Zr.compiled? || !VERBS.include?(argv.first)
       return if env["ZR_COMPILED"] == "0"
       # A stand-in that `ZR_BINARY` names can run on any host.
       return unless runnable? || env["ZR_BINARY"]
 
-      build if builds?(argv, env)
+      # One check of every source file: `current?` stats about two
+      # thousand files and reads the manifest.
+      current = current?
+      if builds?(argv, env, current: current)
+        build
+        current = current?
+      end
       # The compiled compiler has no rubygems, so this ruby resolves a
       # library pin again for it.
-      exec({ "ZR_HOST_RUBY" => RbConfig.ruby }, binary, *argv) if current?
+      exec({ "ZR_HOST_RUBY" => RbConfig.ruby }, binary, *argv) if current
     end
 
     # Whether this host can run the compiled compiler: it is a binary for
@@ -95,8 +108,8 @@ module Zr
     # is stale, the install permits a build, the last build of these same
     # sources did not fail, and the command compiles a file. A help
     # request or a usage error never starts the build.
-    def builds?(argv, env = ENV)
-      return false if current? || shipped?
+    def builds?(argv, env = ENV, current: current?)
+      return false if current || shipped?
       return false unless env["ZR_COMPILED"] == "1" || !Paths.checkout?
       return false if env["ZR_COMPILED"] != "1" && program.failed?
       return false if argv.any? { |word| %w[-h --help].include?(word) }
