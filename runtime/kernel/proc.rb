@@ -1038,6 +1038,32 @@ machine def zr_return_here(v)
   zr_signal(PENDING_RETURN, v, 0, 0)
 end
 
+# A `return` in a `class << self` body returns from the method that holds
+# the body, when that method still runs. A body outside a method, or in a
+# block that outlived its method, raises LocalJumpError, as ruby's does.
+sig [Value] => Value
+machine def zr_sclass_return(v)
+  rec = Task.top(zr_task())
+  meta = FrameMeta.parent(Frame.meta(rec))
+  while meta != 0 && FrameMeta.kind(meta) != KIND_DEF
+    if FrameMeta.kind(meta) != KIND_BLOCK && FrameMeta.kind(meta) != KIND_SCLASS
+      meta = 0
+    else
+      meta = FrameMeta.parent(meta)
+    end
+  end
+  if meta != 0
+    rec = Frame.prev(rec)
+    while rec != 0
+      if Frame.meta(rec) == meta
+        return zr_signal(PENDING_RETURN, v, 0, 0)
+      end
+      rec = Frame.prev(rec)
+    end
+  end
+  zr_local_jump_error(Machine.bytes("unexpected return"), 17, Machine.id(:return), v)
+end
+
 # In the landing block of a method that contains an eval: returns the
 # value of the pending return when it has no home of its own, else undef.
 sig [] => Value

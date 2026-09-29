@@ -490,10 +490,14 @@ module Zr
     end
 
     # Lowers a class, module or singleton class body into a function.
-    def body(node)
+    #
+    # A `class << self` body keeps `outer`, the Function that contains it,
+    # as the parent of its frame metadata, so a `return` in it finds its
+    # method.
+    def body(node, outer = nil)
       kind = { Hir::ClassDef => :class, Hir::ModuleDef => :module, Hir::SingletonClassDef => :sclass }.fetch(node.class)
       name = "#{@prefix}_body_#{number}_#{kind == :sclass ? "singleton" : node.name}"
-      Function.new(self, name, node.locals, node.body, node, kind).lower
+      Function.new(self, name, node.locals, node.body, node, kind, outer: kind == :sclass ? outer : nil).lower
       name
     end
 

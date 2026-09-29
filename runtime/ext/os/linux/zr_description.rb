@@ -330,6 +330,9 @@ module Zr
         d zr_buf_previous_definition Void b:Ptr e:Ptr id:Word
         d zr_const_row_in Ptr klass:Value id:Word skip_object:Bool
         d zr_const_row_read_in Ptr klass:Value id:Word skip_object:Bool
+        d zr_own_const_missing_p Bool home:Value
+        d zr_send_const_missing Value home:Value id:Word
+        d zr_private_constant_read Value scope:Value e:Ptr id:Word
         d zr_uninitialized_constant Value scope:Value id:Word
         d zr_const_get Value cref:Value id:Word
         d zr_const_row_under Ptr cref:Value id:Word
@@ -350,8 +353,8 @@ module Zr
         d zr_class_name_str Value s:Value
         d zr_class_named_for_good Bool scope:Value
         d zr_name_nested Void mod:Value
-        d zr_class_define Value scope:Value id:Word sup:Value
-        d zr_module_define Value scope:Value id:Word
+        d zr_class_define Value scope:Value id:Word sup:Value scoped:Word
+        d zr_module_define Value scope:Value id:Word scoped:Word
         d zr_module_define_m Value scope:Value name:Value
         d zr_const_name_id Value recv:Value name:Value out:Ptr
         d zr_const_name_p Bool p:Ptr n:Word
@@ -1550,6 +1553,7 @@ module Zr
         d zr_return Value p:Value v:Value
         d zr_catch_break Value rec:Ptr site:Word
         d zr_return_here Value v:Value
+        d zr_sclass_return Value v:Value
         d zr_catch_return_here Value
         d zr_catch_return Value rec:Ptr
         d zr_block_given_p Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
@@ -2642,6 +2646,9 @@ module Zr
         e zr_buf_previous_definition 120
         e zr_const_row_in 120
         e zr_const_row_read_in 120
+        e zr_own_const_missing_p 120
+        e zr_send_const_missing 127
+        e zr_private_constant_read 127
         e zr_uninitialized_constant 127
         e zr_const_get 127
         e zr_const_row_under 127
@@ -3862,6 +3869,7 @@ module Zr
         e zr_return 127
         e zr_catch_break 16
         e zr_return_here 16
+        e zr_sclass_return 127
         e zr_catch_return_here 16
         e zr_catch_return 16
         e zr_block_given_p 0

@@ -45,7 +45,7 @@ module Zr
 
         # `class << target`: the singleton class is self and the definee.
         def singleton_class_body(node)
-          fn = @l.body(node)
+          fn = @l.body(node, self)
           at_node(node)
           klass = checked(kernel("zr_singleton_class", expr(node.target)))
           cref = kernel("zr_cref_push", klass, @cref)
@@ -59,11 +59,12 @@ module Zr
           scope = scope_class(node.scope)
           id = sym_word(node.name)
           at_node(node)
+          scoped = imm(node.scope ? 1 : 0)
           klass = if node.is_a?(Hir::ClassDef)
                     sup = node.superclass ? expr(node.superclass) : qundef
-                    checked(kernel("zr_class_define", scope, id, sup))
+                    checked(kernel("zr_class_define", scope, id, sup, scoped))
                   else
-                    checked(kernel("zr_module_define", scope, id))
+                    checked(kernel("zr_module_define", scope, id, scoped))
                   end
           cref = kernel("zr_cref_push", klass, @cref)
           checked(@f.call_val(@f.callee(fn, ABI.fetch(:class), "i64"), [klass, cref]))

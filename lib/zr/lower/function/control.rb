@@ -357,6 +357,9 @@ module Zr
           if @kind == :eval
             at_node(node)
             checked(kernel("zr_return_here", v))
+          elsif @kind == :sclass
+            at_node(node)
+            checked(kernel("zr_sclass_return", v))
           elsif @kind == :block
             unless_lambda(v) do
               at_node(node)

@@ -153,6 +153,7 @@ module Zr
         # reads it to know if a search of its new statement can find one.
         @usings = 0
         @in_def = false
+        @in_sclass = false
         @dead = 0
         @activations = -1
         @temps = [[]]
@@ -197,9 +198,10 @@ module Zr
 
       # Ruby's compiler warns as it compiles a file (not an eval) with a
       # `return` of a value at its top level, where the value goes
-      # nowhere. The warning has the file and no line.
+      # nowhere. The warning has the file and no line. A `return` in a
+      # `class << self` body belongs to a method or a block, never to the top level.
       def top_return_warning
-        return if @eval || @in_def || @block_depth.positive? || @path != [Object.name]
+        return if @eval || @in_def || @in_sclass || @block_depth.positive? || @path != [Object.name]
 
         @warnings << "#{Paths.shown(@file)}: warning: argument of top-level return is ignored"
       end
@@ -565,7 +567,9 @@ module Zr
           target = expr(node.expression)
           in_definee(nil, true) do
             in_scope do
+              was, @in_sclass = @in_sclass, true
               body = node.body ? expr(node.body) : Literal.new(nil, line)
+              @in_sclass = was
               SingletonClassDef.new(target, with_temps(node.locals), body, line, node.location.end_line)
             end
           end
@@ -835,11 +839,15 @@ module Zr
       # Every form of eval counts, because ruby gives them all that
       # return: `instance_eval`, `class_eval` and `module_eval` of a
       # string, and a `send` or `method` that calls one of them by name.
-      def evals?(node)
+      # A `return` in a `class << self` body has no home either: it returns
+      # from the method that holds the body.
+      def evals?(node, sclass = false)
         return false if node.nil? || node.is_a?(Prism::DefNode)
         return true if node.is_a?(Prism::CallNode) && eval_call?(node)
+        return true if sclass && node.is_a?(Prism::ReturnNode)
 
-        node.child_nodes.any? { |child| evals?(child) }
+        sclass ||= node.is_a?(Prism::SingletonClassNode)
+        node.child_nodes.any? { |child| evals?(child, sclass) }
       end
 
       # `Build.eval_call?` for a prism call, whose arguments are still

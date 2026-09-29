@@ -470,17 +470,35 @@ machine def zr_const_row_read_in(klass, id, skip_object)
   0
 end
 
+# Whether `home` answers const_missing with a method that the program
+# defined. Only such a method gets its own frame. The const_missing of
+# Module raises where the lookup fails, as ruby's does.
+sig [Value] => Bool
+machine def zr_own_const_missing_p(home)
+  entry = zr_find_method(zr_class_of(home), Machine.id(:const_missing))
+  entry != 0 && entry != zr_find_method_at(zr_global(G_MODULE), Machine.id(:const_missing))
+end
+
+sig [Value, Word] => Value
+machine def zr_send_const_missing(home, id)
+  slot = Machine.slot(8)
+  Machine.store64(slot, 0, Machine.word(zr_sym(id)))
+  zr_send(home, Machine.id(:const_missing), 1, slot)
+end
+
+# A private constant read as `scope::Name`: the scope's own const_missing
+# answers, else the NameError names the class that holds the constant,
+# as rb_const_get_0 and rb_mod_const_missing do.
+sig [Value, Ptr, Word] => Value
+machine def zr_private_constant_read(scope, e, id)
+  return zr_send_const_missing(scope, id) if zr_own_const_missing_p(scope)
+  zr_private_constant(CEntry.owner(e), id)
+end
+
 sig [Value, Word] => Value
 machine def zr_uninitialized_constant(scope, id)
   home = scope == QNIL ? zr_global(G_OBJECT) : scope
-  entry = zr_find_method(zr_class_of(home), Machine.id(:const_missing))
-  # Only a const_missing that the program defined gets its own frame. The
-  # const_missing of Module raises here, as ruby's does.
-  if entry != 0 && entry != zr_find_method_at(zr_global(G_MODULE), Machine.id(:const_missing))
-    slot = Machine.slot(8)
-    Machine.store64(slot, 0, Machine.word(zr_sym(id)))
-    return zr_send(home, Machine.id(:const_missing), 1, slot)
-  end
+  return zr_send_const_missing(home, id) if zr_own_const_missing_p(home)
   b = Machine.slot(Buf.size)
   zr_buf_init(b)
   zr_buf_push(b, Machine.bytes("uninitialized constant "), 23)
@@ -620,10 +638,8 @@ machine def zr_private_constant(scope, id)
   b = Machine.slot(Buf.size)
   zr_buf_init(b)
   zr_buf_push(b, Machine.bytes("private constant "), 17)
-  if scope != zr_global(G_OBJECT)
-    zr_buf_str(b, zr_class_to_s(scope, 0, 0, Machine.value(QNIL), Machine.value(QNIL)))
-    zr_buf_push(b, Machine.bytes("::"), 2)
-  end
+  zr_buf_str(b, zr_class_to_s(scope, 0, 0, Machine.value(QNIL), Machine.value(QNIL)))
+  zr_buf_push(b, Machine.bytes("::"), 2)
   zr_buf_sym(b, id)
   zr_buf_push(b, Machine.bytes(" referenced"), 11)
   exc = zr_exc_new(zr_global(G_NAME_ERROR), zr_buf_take(b))
@@ -743,7 +759,7 @@ machine def zr_const_get_at(scope, id)
       return zr_uninitialized_constant(scope, id)
     end
     if CEntry.private(e) != 0
-      return zr_private_constant(scope, id)
+      return zr_private_constant_read(scope, e, id)
     end
     r = zr_const_deprecated(e, id)
     return r if r == QUNDEF
@@ -812,9 +828,11 @@ end
 
 # `class Name < sup` under `scope`. Returns the class of the constant when
 # it exists (and its superclass agrees), else a new class. `sup` is undef
-# when the program gave no superclass.
-sig [Value, Word, Value] => Value
-machine def zr_class_define(scope, id, sup)
+# when the program gave no superclass. `scoped` is 1 for a path with a
+# scope (`class A::Name`, `class ::Name`), which cannot reopen a private
+# constant.
+sig [Value, Word, Value, Word] => Value
+machine def zr_class_define(scope, id, sup, scoped)
   checked = zr_namespace_check(scope)
   return checked if checked == QUNDEF
   e = zr_const_row_opened(scope, id)
@@ -825,6 +843,10 @@ machine def zr_class_define(scope, id, sup)
     e = 0
   end
   k = Machine.value(QUNDEF)
+  # vm_const_get_under: a scoped path reads the constant as a public one.
+  if e != 0 && scoped != 0 && CEntry.private(e) != 0
+    return zr_private_constant_read(scope, e, id)
+  end
   if e != 0
     # If the autoload file leaves the name undefined, or is the file that
     # loads now, this definition defines the name.
@@ -867,8 +889,8 @@ machine def zr_class_define(scope, id, sup)
   k
 end
 
-sig [Value, Word] => Value
-machine def zr_module_define(scope, id)
+sig [Value, Word, Word] => Value
+machine def zr_module_define(scope, id, scoped)
   checked = zr_namespace_check(scope)
   return checked if checked == QUNDEF
   e = zr_const_row_opened(scope, id)
@@ -879,6 +901,10 @@ machine def zr_module_define(scope, id)
     e = 0
   end
   m = Machine.value(QUNDEF)
+  # vm_const_get_under: a scoped path reads the constant as a public one.
+  if e != 0 && scoped != 0 && CEntry.private(e) != 0
+    return zr_private_constant_read(scope, e, id)
+  end
   if e != 0
     # If the autoload file leaves the name undefined, or is the file that
     # loads now, this definition defines the name.
@@ -908,7 +934,7 @@ end
 # that is not a valid constant name (IO::generic_readable).
 sig [Value, Value] => Value
 machine def zr_module_define_m(scope, name)
-  zr_module_define(scope, zr_sym2id(name))
+  zr_module_define(scope, zr_sym2id(name), 0)
 end
 
 # Writes the id of a constant name, given as a Symbol or String, to
