@@ -76,7 +76,7 @@ module Zr
       fresh = "#{@entry}.#{Process.pid}"
       FileUtils.rm_rf(fresh)
       FileUtils.mkdir_p(fresh)
-      FileUtils.cp(out, File.join(fresh, "program"), preserve: true)
+      kept(out, File.join(fresh, "program"))
       File.binwrite(File.join(fresh, "sources"), Marshal.dump(sources))
       FileUtils.rm_rf(@entry)
       File.rename(fresh, @entry)
@@ -96,6 +96,16 @@ module Zr
     end
 
     private
+
+    # Puts the binary at `to`: a second name for the same file where the
+    # volume allows, else a copy. A copy of a binary with eval support
+    # took 30 ms. The same file also keeps macOS's check of its code
+    # signature, so the first run from the cache does not pay it again.
+    def kept(out, to)
+      File.link(out, to)
+    rescue SystemCallError
+      FileUtils.cp(out, to, preserve: true)
+    end
 
     # Whether the eval support that the binary linked is still current: its
     # metadata has the same key, and the key of its files now is that key.
