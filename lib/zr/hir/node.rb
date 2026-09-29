@@ -107,8 +107,9 @@ module Zr
     # refinement is active.
     # `covers` is a safe call's two branches, `[then, else]`, which
     # Coverage counts for a non-nil and a nil receiver. It is nil for all
-    # other calls.
-    Send = Node.new(:recv, :name, :args, :line, :vcall, :opt, :block, :kwargs, :safe, :write, :using, :covers) do
+    # other calls. `interp` marks the `to_s` of an interpolated part under
+    # refinements, which a String or a Symbol does not get.
+    Send = Node.new(:recv, :name, :args, :line, :vcall, :opt, :block, :kwargs, :safe, :write, :using, :covers, :interp) do
       # `recv.name(args)` at `line`, with keywords for the fields that a
       # send usually leaves at their default. Every field but the first
       # four reads as a boolean somewhere in the lowering (`node.opt &&`,
@@ -116,8 +117,9 @@ module Zr
       # the boolean-shaped ones default `false` here, and the ones that
       # hold a value when present (`block`, `kwargs`, `using`, `covers`)
       # default `nil`.
-      def self.of(recv, name, args, line, vcall: false, opt: false, block: nil, kwargs: nil, safe: false, write: nil, using: nil, covers: nil)
-        new(recv, name, args, line, vcall, opt, block, kwargs, safe, write, using, covers)
+      def self.of(recv, name, args, line, vcall: false, opt: false, block: nil, kwargs: nil, safe: false, write: nil, using: nil,
+                  covers: nil, interp: false)
+        new(recv, name, args, line, vcall, opt, block, kwargs, safe, write, using, covers, interp)
       end
     end
 

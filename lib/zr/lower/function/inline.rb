@@ -145,7 +145,7 @@ module Zr
         # refinement: a reader or `nil?` with no argument, or one of the
         # ARGUED forms.
         def self.pure_send?(node, count)
-          return false if node.recv.nil? || node.vcall || node.block || node.kwargs || node.safe || node.using || node.write
+          return false if node.recv.nil? || node.vcall || node.block || node.kwargs || node.safe || node.interp || node.using || node.write
           return false unless pure?(node.recv, count) && node.args.all? { |a| !a.is_a?(Hir::Splat) && pure?(a, count) }
 
           case node.args.size

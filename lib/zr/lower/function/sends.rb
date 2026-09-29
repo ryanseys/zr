@@ -108,6 +108,7 @@ module Zr
         # flags, then the send.
         def call(node)
           return safe_call(node) if node.safe
+          return interp_to_s(node) if node.interp
           return call(funcall(node)) if kernel_send?(node)
           return primitive(node) if primitive?(node)
 
@@ -255,6 +256,27 @@ module Zr
           cover(node.covers.first.id) if node.covers
           v = call(plain)
           @f.jump(merge, [v]) unless @f.terminated?
+          switch(merge)
+          @sp = base
+          result
+        end
+
+        # The `to_s` of an interpolated part under refinements: a String or a
+        # Symbol is the part as it is, and any other value gets the send.
+        def interp_to_s(node)
+          base = @sp
+          slot = reserve(1)
+          @f.store(expr(node.recv), @rec, value_offset(slot))
+          plain = @f.label
+          go = @f.label
+          merge, (result,) = @f.block(["i64"])
+          v = @f.fetch("i64", @rec, value_offset(slot))
+          @f.brif(kernel("zr_interp_plain_p", v), plain, go)
+          switch(plain)
+          @f.jump(merge, [v])
+          switch(go)
+          sent = call(node.dup.tap { |n| n.recv = Hir::Slot.new(slot, node.line); n.interp = false })
+          @f.jump(merge, [sent]) unless @f.terminated?
           switch(merge)
           @sp = base
           result

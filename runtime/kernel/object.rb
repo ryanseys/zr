@@ -946,6 +946,17 @@ machine def zr_obj_form(text)
   zr_str_set_index(text, ENC_BINARY)
 end
 
+# vm_objtostring under refinements: a String or a Symbol goes into an
+# interpolation as it is, whatever `to_s` a refinement gives it. Any other
+# part gets the refined `to_s`.
+sig [Value] => Bool
+machine def zr_interp_plain_p(v)
+  if zr_symbol_p(v)
+    return true
+  end
+  !zr_special_p(v) && (zr_type(v) == T_STRING || zr_type(v) == T_SYMBOL)
+end
+
 # rb_obj_as_string: returns a String unchanged, else the result of
 # `to_s`. When that is also not a String, it returns `v` as rb_any_to_s
 # writes it. Returns undef when `to_s` raised.

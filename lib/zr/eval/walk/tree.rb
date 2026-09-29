@@ -409,6 +409,7 @@ module Zr
 
         recv = node.recv ? walk(node.recv, ctx) : ctx.self_
         return nil if node.safe && recv.nil?
+        return recv if node.interp && (String === recv || Symbol === recv)
 
         args = elements(node.args, ctx)
         kwargs = node.kwargs ? hash_lit(node.kwargs.pairs, ctx) : nil

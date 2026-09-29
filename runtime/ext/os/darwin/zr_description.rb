@@ -1262,6 +1262,7 @@ module Zr
         d zr_buf_class_of Void b:Ptr v:Value
         d zr_any_to_s Value v:Value
         d zr_obj_form Value text:Value
+        d zr_interp_plain_p Bool v:Value
         d zr_obj_as_string Value v:Value
         d zr_inspect Value v:Value
         d zr_obj_inspect Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
@@ -3566,6 +3567,7 @@ module Zr
         e zr_buf_class_of 126
         e zr_any_to_s 126
         e zr_obj_form 126
+        e zr_interp_plain_p 0
         e zr_obj_as_string 127
         e zr_inspect 127
         e zr_obj_inspect 127

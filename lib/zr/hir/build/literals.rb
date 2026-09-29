@@ -268,14 +268,15 @@ module Zr
         parts.unshift(Literal.new(+"", line)) if node.parts.size == 1 && !node.parts[0].is_a?(Prism::StringNode)
         # If refinements are active, each part gets `to_s` at its own site,
         # which does the lookup with them. Ruby folds a String or Symbol
-        # part into the text first.
-        parts = parts.map { |part| folded?(part) ? part : Send.new(part, :to_s, [], line, false) } if @using
+        # part into the text first, and a String or Symbol value skips the
+        # refined `to_s` at run time.
+        parts = parts.map { |part| folded?(part) ? part : Send.of(part, :to_s, [], line, interp: true) } if @using
         Interp.new(parts, line)
       end
 
       def folded?(part)
         part = part.stmts.first if part.is_a?(Seq) && part.stmts.size == 1
-        part.is_a?(Interp) || (part.is_a?(Literal) && [String, Symbol, NilClass].include?(part.value.class))
+        part.is_a?(Interp) || (part.is_a?(Literal) && [String, Symbol].include?(part.value.class))
       end
     end
   end
