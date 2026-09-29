@@ -70,10 +70,11 @@ module Zr
       @kernel_calls = @kernel.flat_map { |f| kernel.calls(f.name) }.uniq.reject { |sym| @kernel_names[sym] }
 
       files = Zr.clock("core cache: files") { each_file(sources) }
-      gem_hir = Zr.clock("core cache: gem prelude built") { Zr.gem_prelude(@target) }
-      prelude = Lower.new(gem_hir, unit, @symbols, entry: "zr_gem_prelude", kind: :top, target: @target)
-      @gem = Zr.clock("core cache: gem prelude lowered") { prelude.run }
-      @prelude = Zr.prelude(files.map(&:entry), unit)
+      @core_entries = files.map(&:entry)
+      # The gem prelude is one more file: its key has each file it loads.
+      @gem_hir = Zr.clock("core cache: gem prelude built") { Zr.gem_prelude(@target) }
+      files << file(Zr::GEM_PRELUDE, "zr_gem_prelude", gem_source)
+      @prelude = Zr.prelude(@core_entries, unit)
 
       files = Zr.clock("core cache: checked") { settle(files, sources) }
       @files = files
@@ -86,9 +87,8 @@ module Zr
       core_call = @kernel_calls.find { |sym| @core_names[sym] }
       raise "the kernel calls #{core_call} of the core, so CoreCache cannot inline it alone" if core_call
       functions = Zr.clock("core cache: code read") { files.flat_map { |file| file.is_a?(Kept) ? kept_code(file) : file.functions } }
-      functions += @gem.first << @prelude
+      functions << @prelude
       data = Zr.clock("core cache: data read") { files.flat_map { |file| file.data || (file.data = Marshal.load(file.record[:data])) } }
-      data += @gem.last
       [functions, data]
     end
 
@@ -131,21 +131,27 @@ module Zr
 
     def each_file(sources)
       Zr.core_files(@target).map do |path|
-        source = sources.fetch(path) { File.read(path) }
-        entry = "zr_core_#{File.basename(path, ".rb")}"
-        key = key_of(path, entry, source)
-        record = fetch(key)
-        why(path, record ? (@symbols.holds?(record[:names]) ? "sites" : "names") : "no entry") unless
-          record && @symbols.holds?(record[:names]) && @symbols.sites == record[:sites].first
-        if record && @symbols.holds?(record[:names]) && @symbols.sites == record[:sites].first
-          @symbols.replay(record[:names])
-          @symbols.sites = record[:sites].last
-          Kept.new(path, entry, key, record)
-        else
-          lower_file(path, entry, key, source)
-        end
+        file(path, "zr_core_#{File.basename(path, ".rb")}", sources.fetch(path) { File.read(path) })
       end
     end
+
+    # A file from its entry, or lowered now.
+    def file(path, entry, source)
+      key = key_of(path, entry, source)
+      record = fetch(key)
+      if record && @symbols.holds?(record[:names]) && @symbols.sites == record[:sites].first
+        @symbols.replay(record[:names])
+        @symbols.sites = record[:sites].last
+        Kept.new(path, entry, key, record)
+      else
+        why(path, record ? (@symbols.holds?(record[:names]) ? "sites" : "names") : "no entry")
+        lower_file(path, entry, key, source)
+      end
+    end
+
+    # The key text of the gem prelude: the path and the bytes of each file
+    # that its program loads.
+    def gem_source = @gem_hir.units.map { |u| "#{u.file}\0#{u.source}" }.join("\0") + File.read(Zr::GEM_PRELUDE)
 
 
     def base_key(unit)
@@ -170,8 +176,13 @@ module Zr
       before = @symbols.sites
       functions = data = nil
       names = @symbols.record do
-        functions, data = Lower.new(Hir.build(source, path, eval_support: false, target: @target), @unit, @symbols, entry: entry,
-                                                                                                      internal: true, target: @target).run
+        functions, data =
+          if path == Zr::GEM_PRELUDE
+            Lower.new(@gem_hir, @unit, @symbols, entry: entry, kind: :top, target: @target).run
+          else
+            Lower.new(Hir.build(source, path, eval_support: false, target: @target), @unit, @symbols, entry: entry, internal: true,
+                                                                                         target: @target).run
+          end
       end
       lowered = Lowered.new(path, entry, key, functions, data, names, [before, @symbols.sites], wants_of(functions, data))
       @symbols.sites = after if sites
@@ -193,15 +204,15 @@ module Zr
           names = file.is_a?(Kept) ? file.record[:functions].map(&:first) : file.functions.map(&:name)
           names.each { |name| core[name] = file }
         end
-        (@gem.first.map(&:name) + [@prelude.name]).each { |name| core[name] = :lowered }
+        core[@prelude.name] = :lowered
         defined = defined_names(files)
         failed = files.select { |file| file.is_a?(Kept) && !current?(file, core, defined) }
         return files if failed.empty?
 
         failed.each do |file|
           at = files.index(file)
-          files[at] = lower_file(file.path, file.entry, file.key, sources.fetch(file.path) { File.read(file.path) },
-                                 sites: file.record[:sites].first)
+          source = file.path == Zr::GEM_PRELUDE ? gem_source : sources.fetch(file.path) { File.read(file.path) }
+          files[at] = lower_file(file.path, file.entry, file.key, source, sites: file.record[:sites].first)
         end
       end
     end
@@ -218,7 +229,7 @@ module Zr
           names.concat(file.functions.map(&:name), file.data.map(&:name))
         end
       end
-      names.concat(@gem.first.map(&:name), @gem.last.map(&:name)) << @prelude.name
+      names << @prelude.name
       names.to_set
     end
 
@@ -265,10 +276,10 @@ module Zr
     # One pass of inlining over the kernel and the IR this build lowered,
     # with the leaves of each file taken from an entry as sources.
     def inline(files)
-      ir = @kernel + files.flat_map { |file| file.is_a?(Kept) ? [] : file.functions } + @gem.first + [@prelude]
+      ir = @kernel + files.flat_map { |file| file.is_a?(Kept) ? [] : file.functions } + [@prelude]
       sources = files.flat_map { |file| file.is_a?(Kept) ? file.record[:leaves].values.map { |blob| Marshal.load(blob) } : [] }
       @core_names = files.flat_map { |file| file.is_a?(Kept) ? file.record[:functions].map(&:first) : file.functions.map(&:name) }
-                         .concat(@gem.first.map(&:name), [@prelude.name]).to_h { |name| [name, true] }
+                         .push(@prelude.name).to_h { |name| [name, true] }
       @inliner = IR::Passes::Inline.new(ir, sources: sources)
       @inliner.run
     end
