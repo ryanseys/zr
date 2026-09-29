@@ -25,6 +25,20 @@ class BinaryCacheTest < Minitest::Test
     FileUtils.rm_rf(@work) if @work
   end
 
+  def test_an_edit_to_a_library_port_is_a_miss
+    root = File.join(@work, "root")
+    FileUtils.mkdir_p(File.join(root, "runtime/ext"))
+    File.write(File.join(root, "runtime/ext/stringio.rb"), "# one\n")
+    before = Binaries.library_digest(root)
+    File.write(File.join(root, "runtime/ext/stringio.rb"), "# two\n")
+    refute_equal before, Binaries.library_digest(root)
+
+    target = Zr::Target.default
+    a = stub_method(Binaries, :libraries, "a") { Binaries.path(target, SOURCE, "p.rb", {}) }
+    b = stub_method(Binaries, :libraries, "b") { Binaries.path(target, SOURCE, "p.rb", {}) }
+    refute_equal a, b
+  end
+
   def test_a_kept_binary_comes_back_byte_for_byte
     kept = File.join(@work, "kept")
     Binaries.keep(kept, @bin, @program, @work)

@@ -32,7 +32,7 @@ module Zr
     #
     # The key fails closed. It contains the runtime digest for the target
     # (all code that lowers and emits the runtime), the link digest, the
-    # target, the environment variables that change the bytes of a build,
+    # library files that a program can require (`libraries`), the target, the environment variables that change the bytes of a build,
     # the path and source of the program, and each fixture written next to
     # it (a symbolic link by its target). An example whose fixtures have no
     # key builds as usual. A hole is cut only where the bytes of the binary
@@ -67,9 +67,25 @@ module Zr
         return nil unless parts.all? { |_, bytes| bytes.is_a?(String) }
 
         key = Digest::SHA256.new
-        [VERSION, Zr.runtime(target).digest, Zr.link_digest, target.triple,
+        [VERSION, Zr.runtime(target).digest, Zr.link_digest, libraries, target.triple,
          *ENVIRONMENT.map { |name| ENV[name].to_s }, rb, source, *parts.flatten].each { |part| key << part.to_s << "\0" }
         File.join(directory, "#{key.hexdigest}#{'.wasm' unless target.link}")
+      end
+
+      # The digest of the library files that a program can require and that
+      # the runtime's digest does not cover: zr's ports under runtime/ext
+      # and the vendored gems under vendor/ext. A program compiles in the
+      # ones it requires, so an edit to one must miss.
+      def libraries = @libraries ||= library_digest(Zr::Paths::ROOT)
+
+      def library_digest(root)
+        key = Digest::SHA256.new
+        %w[runtime/ext vendor/ext].each do |dir|
+          Dir[File.join(root, dir, "**/*")].sort.each do |path|
+            key << path << "\0" << File.binread(path) << "\0" if File.file?(path)
+          end
+        end
+        key.hexdigest
       end
 
       # Restores the kept binary to `bin`. Returns false when there is no
