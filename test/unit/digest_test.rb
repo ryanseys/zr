@@ -10,8 +10,9 @@ require_relative "../../lib/zr/runtime"
 # The digest identifies the cached runtime object, the prelinked image
 # and eval support. A change to a file that it leaves out is not seen,
 # and a stale runtime object gives a wrong binary with no error. Thus all
-# of `lib` counts, except the files in `Zr::LINK_ONLY`; those go into the
-# link digest. `Zr::PER_TARGET` keeps a backend and an object writer only
+# of `lib` counts, except the files in `Zr::LINK_ONLY`, which go into the
+# link digest, and the files in `Zr::DRIVER_ONLY`, which no build or link
+# loads (`compiler_digest_test.rb`). `Zr::PER_TARGET` keeps a backend and an object writer only
 # in the digest of the target that uses them.
 class DigestTest < Minitest::Test
   LIB = File.join(ROOT, "lib/zr")
@@ -19,14 +20,14 @@ class DigestTest < Minitest::Test
   def compiler = Dir[File.join(LIB, "**/*.rb")].sort
 
   def test_every_compiler_file_is_in_a_digest
-    covered = Zr::Target.all.flat_map { |target| Zr.compiler_files(target) } + Zr::LINK_ONLY
+    covered = Zr::Target.all.flat_map { |target| Zr.compiler_files(target) } + Zr::LINK_ONLY + Zr::DRIVER_ONLY
 
     assert_equal compiler, covered.uniq.sort
   end
 
   def test_the_files_left_out_are_left_out_by_name
-    Zr::LINK_ONLY.each { |path| assert_path_exists path }
-    assert_empty Zr::LINK_ONLY & Zr.sources
+    (Zr::LINK_ONLY + Zr::DRIVER_ONLY).each { |path| assert_path_exists path }
+    assert_empty (Zr::LINK_ONLY + Zr::DRIVER_ONLY) & Zr.sources
   end
 
   # By default a file counts. A file that no prefix matches is in the
@@ -38,7 +39,7 @@ class DigestTest < Minitest::Test
     end
     shared = Zr::Target.all.map { |target| Zr.compiler_files(target) }.reduce(:&)
 
-    assert_equal (compiler - named - Zr::LINK_ONLY).sort, shared.sort
+    assert_equal (compiler - named - Zr::LINK_ONLY - Zr::DRIVER_ONLY).sort, shared.sort
   end
 
   def test_backend_files_are_only_in_their_target_digest
