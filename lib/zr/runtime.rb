@@ -128,7 +128,6 @@ module Zr
       @core_cache
     end
 
-
     def data = unit.data + lowered.last
 
     # Releases the kernel's and the core's IR, after the runtime object
@@ -225,7 +224,6 @@ module Zr
     end
 
     def cache_path = Zr.symbols_path(digest)
-
 
     def read_cached
       return unless File.exist?(cache_path)
