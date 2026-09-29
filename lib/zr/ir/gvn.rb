@@ -191,7 +191,10 @@ module Zr
       # names: a step up the dominator chain is then an array read (0.16 s
       # to 0.04 s for a function of 23,000 blocks). A predecessor that the
       # entry does not reach has no dominator: its writes count, and the
-      # walk stops there.
+      # walk stops there. The walks from the predecessors of one block stop
+      # at a block that an earlier walk passed, whose bits and those above
+      # it are in already: a join of the UnicodeNormalize body walked
+      # 13.5 million steps a round.
       def between_dominators
         blocks = @f.blocks
         at = {}
@@ -203,13 +206,16 @@ module Zr
         preds = @analysis.preds
         from = order.to_h { |n| [n, preds[blocks[n].name].map { |p| at.fetch(p) }] }
         bits_of = Array.new(blocks.size, 0)
+        seen = Array.new(blocks.size)
         loop do
           moved = false
           order.each do |n|
             d = up[n]
             bits = bits_of[n]
+            stamp = Object.new
             from[n].each do |x|
-              while x && x != d
+              while x && x != d && !seen[x].equal?(stamp)
+                seen[x] = stamp
                 bits |= written[x] | bits_of[x]
                 x = up[x]
               end
