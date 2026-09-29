@@ -54,8 +54,8 @@ module Zr
       object = runtime.object_path
       # Without its symbol table, a runtime was never built here, so no eval
       # support was either; the ABI digest would need the core lowered.
-      abi = Zr.abi_digest(target, runtime.digest)
-      metas = abi ? %w[jit walk].map { |kind| EvalSupport.meta_file(abi, kind) }.select { |path| File.exist?(path) } : []
+      base = Zr.eval_digest(target, runtime.digest)
+      metas = base ? %w[jit walk].map { |kind| EvalSupport.meta_file(base, kind) }.select { |path| File.exist?(path) } : []
       evals = metas.filter_map { |meta| eval_object(meta) }
       sets = [[object], *evals.map { |eval| [object, eval] }]
       [object, runtime.gem_prelude_path, *metas, *evals, *sets.map { |set| Native::Build.prelink_path(set) },

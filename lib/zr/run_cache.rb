@@ -98,8 +98,8 @@ module Zr
     def eval_current?(meta_path, key)
       require "json"
       meta = JSON.parse(File.read(meta_path))
-      abi = Zr.abi_digest(@target, @digest) or return false
-      meta.fetch("key") == key && Zr.eval_files_key(abi, meta.fetch("files")) == key
+      base = Zr.eval_digest(@target, @digest) or return false
+      meta.fetch("key") == key && Zr.eval_files_key(base, meta.fetch("files")) == key
     rescue JSON::ParserError, KeyError, SystemCallError
       false
     end

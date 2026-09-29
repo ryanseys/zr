@@ -167,10 +167,15 @@ module Zr
       warn "zr: #{shown} was out of date with runtime/kernel; zr wrote it again"
     end
 
-    # `Zr.abi_digest`: what eval support and a program's units take from
-    # this runtime. It reads the symbol table's cache, which it makes first.
+    # `Zr.abi_digest`: what a program's units take from this runtime. It reads the symbol table's cache, which it makes first.
     def abi_digest
       @abi_digest ||= (cached && Zr.abi_digest(target, digest)) || raise("no symbol table for runtime #{digest}")
+    end
+
+    # `Zr.eval_digest`: what eval support takes from this runtime, besides
+    # the ids of the names it uses.
+    def eval_digest
+      @eval_digest ||= (cached && Zr.eval_digest(target, digest)) || raise("no symbol table for runtime #{digest}")
     end
 
     private
@@ -290,11 +295,12 @@ module Zr
   # own object, so a program with eval lowers and assembles only itself.
   # Next to the object, the cache keeps the metadata that a program
   # needs: the entry of each file, its dependencies, and the symbol table
-  # after it. The key is the runtime's ABI digest (`Zr.abi_digest`) and
-  # the bytes of each file in eval support. An edit to a file of eval
-  # support, to the compiler, to the kernel's description or to the
-  # symbol table builds it again; an edit to a core or kernel body does
-  # not, because eval support calls the core only by name.
+  # after it. The key is the eval digest (`Zr.eval_digest`) and the bytes
+  # of each file in eval support, and the metadata lists the runtime names
+  # it used. An edit to a file of eval support, to the compiler or to the
+  # kernel's description builds it again, as does a runtime name it used
+  # that moved; an edit to a core or kernel body does not, nor a new name,
+  # because eval support calls the core only by name.
   class EvalSupport
     def initialize(runtime)
       @runtime = runtime
@@ -310,8 +316,12 @@ module Zr
     def gems? = meta.fetch("gems")
 
     # A new symbol table for a program's lowering. It continues from the
-    # eval support table.
-    def symbols = Machine::Symbols.new(meta.fetch("names"), sites: meta.fetch("sites"))
+    # eval support table: the runtime's names now, then eval support's own,
+    # which start after the runtime's table.
+    def symbols
+      runtime = @runtime.symbols.names
+      Machine::Symbols.new(runtime + meta.fetch("names").drop(runtime.size), sites: meta.fetch("sites"))
+    end
 
     # The number of `using` entries that eval support itself uses. Its
     # files activate refinements when they load (the prism port gets its
@@ -325,9 +335,9 @@ module Zr
     # ParseCache.maker).
     def digests = meta.fetch("digests")
 
-    # The key of eval support: the runtime's ABI digest (`Zr.abi_digest`)
-    # and the bytes of each file in eval support. The unit cache uses it
-    # for a program that uses this symbol table.
+    # The key of eval support: the eval digest (`Zr.eval_digest`) and the
+    # bytes of each file in eval support. The unit cache uses it for a
+    # program that uses this symbol table.
     def key = meta.fetch("key")
 
     def object_path = self.class.object_path(key)
@@ -339,8 +349,8 @@ module Zr
     # metadata, and the metadata, by the runtime's digest and the kind
     # of eval (`jit` or `walk`). `zr-dev cache prune` reads these too.
     def self.object_path(key) = File.join(Paths.cache, "eval-#{key}.o")
-    def self.meta_path(runtime, kind) = meta_file(runtime.abi_digest, kind)
-    def self.meta_file(abi_digest, kind) = File.join(Paths.cache, "eval-#{abi_digest}-#{kind}.json")
+    def self.meta_path(runtime, kind) = meta_file(runtime.eval_digest, kind)
+    def self.meta_file(eval_digest, kind) = File.join(Paths.cache, "eval-#{eval_digest}-#{kind}.json")
 
     def functions = lowered.fetch(:functions)
     def data = lowered.fetch(:data)
@@ -352,10 +362,14 @@ module Zr
     # files, so the metadata of one must never be used for the other.
     def kind = Hir::Build.eval_file(target) == Hir::Build::EVAL_COMPILER ? "jit" : "walk"
 
+    # The cached metadata, while its files have the same bytes and the
+    # runtime's table has each runtime name it used at the same id; else
+    # the metadata of a new lowering.
     def meta
       @meta ||= begin
         meta = JSON.parse(File.read(meta_path)) if File.exist?(meta_path)
-        meta && meta.fetch("key") == files_key(meta.fetch("files")) ? meta : lowered.fetch(:meta)
+        current = meta && meta.fetch("key") == files_key(meta.fetch("files")) && @runtime.symbols.holds?(meta.fetch("used"))
+        current ? meta : lowered.fetch(:meta)
       end
     end
 
@@ -363,7 +377,7 @@ module Zr
     # each file. A build gives the bytes that it lowered (`sources`), so an edit
     # during the build cannot put old output under the new bytes' key. A
     # check of the cache reads the files as they are now.
-    def files_key(files, sources = {}) = Zr.eval_files_key(@runtime.abi_digest, files, sources)
+    def files_key(files, sources = {}) = Zr.eval_files_key(@runtime.eval_digest, files, sources)
 
     def lowered
       @lowered ||= Zr.clock("eval support lowered") do
@@ -373,7 +387,9 @@ module Zr
         program = Hir::Program.new(Hir::Build.eval_file(target), [], Hir::Seq.new([], 0), loader.units, [], true, loader.entries)
         symbols = Machine::Symbols.new(@runtime.symbols.names, sites: @runtime.symbols.sites)
         lower = Lower.new(program, @runtime.description, symbols, entry: "zr_eval_support", target: target)
-        functions, data = lower.run
+        functions = data = nil
+        asked = symbols.record { functions, data = lower.run }
+        runtime_size = @runtime.symbols.names.size
         files = loader.units.filter_map { |u| u.file if u.file.start_with?("/") }.uniq.sort
         sources = loader.units.each_with_object({}) { |u, h| h[u.file] ||= u.source if u.source }
         digests = (files + @runtime.gem_prelude_files).uniq.sort.to_h do |path|
@@ -383,7 +399,8 @@ module Zr
                  "units" => loader.entries.to_h { |path, i| [path, lower.unit_entry(i)] },
                  "configures" => loader.configures?, "normalizes" => loader.normalizes?, "pretty_prints" => loader.pretty_prints?,
                  "irbs" => loader.irbs?, "gems" => loader.gems?,
-                 "names" => symbols.names, "sites" => symbols.sites, "activations" => loader.activations }
+                 "names" => symbols.names, "sites" => symbols.sites, "activations" => loader.activations,
+                 "used" => asked.select { |_, at| at < runtime_size } }
         Zr.write_cache(meta_path, JSON.generate(meta))
         { functions: functions, data: data, meta: meta }
       end

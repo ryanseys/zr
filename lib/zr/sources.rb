@@ -146,17 +146,33 @@ module Zr
     nil
   end
 
+  # The digest of what eval support takes from the runtime besides the ids
+  # of the names it uses: the compiler, the kernel's description, where its
+  # own ids start (the size of the runtime's table, with its pads) and the
+  # count of the runtime's sites. The metadata of eval support lists the
+  # runtime names it used, and a build keeps it while the runtime's table
+  # still has each of them at its id (`EvalSupport#meta`). A new runtime
+  # name that eval support does not use keeps it. Nil when the runtime's
+  # symbol table is not cached.
+  def eval_digest(target, runtime_digest)
+    rows = JSON.parse(File.read(symbols_path(runtime_digest)))
+    Digest::SHA256.hexdigest(["eval 1", compiler_digest(target), rows.fetch("description"), rows.fetch("names").size,
+                              rows.fetch("sites")].join("\0"))
+  rescue JSON::ParserError, KeyError, SystemCallError
+    nil
+  end
+
   # The digest of the compiler files of `target` (part of the runtime's).
   def compiler_digest(target)
     (@compiler_digests ||= {})[[target.triple, Paths.root]] ||= source_digest(target, compiler_files(target))
   end
 
-  # The key of an eval support object: the ABI digest and the bytes
+  # The key of an eval support object: the eval digest and the bytes
   # of each file (`EvalSupport#files_key`). `bytes` has the ones that a
   # build already read.
-  def eval_files_key(abi_digest, files, bytes = {})
+  def eval_files_key(eval_digest, files, bytes = {})
     Digest::SHA256.new.tap do |d|
-      d << abi_digest
+      d << eval_digest
       files.each do |path|
         d << path << "\0" << (bytes[path] || (File.exist?(path) ? File.binread(path) : ""))
       end
