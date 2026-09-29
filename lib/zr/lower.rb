@@ -136,6 +136,7 @@ module Zr
       @lits = 0
       @sites = 0
       @pool = []
+      @pool_at = {}
       @spelled = {}
       @file_bytes = {}
       @keyword_tables = {}
@@ -186,7 +187,7 @@ module Zr
     # not contain a number that depends on the compile order.
     def pool_word(kind, name)
       row = [kind, name.to_s]
-      at = @pool.index(row) || (@pool << row).size - 1
+      at = @pool_at[row] ||= (@pool << row).size - 1
       ["#{@prefix}_pool", at * 8]
     end
 
@@ -198,6 +199,7 @@ module Zr
       relocs = @pool.each_with_index.map { |(kind, name), i| Obj::Reloc.new(i * 8, kind, name) }
       @data << Obj::Data.new("#{@prefix}_pool", :data_const, "\0".b * (@pool.size * 8), relocs: relocs, align: 8)
       @pool = []
+      @pool_at = {}
     end
 
     # The unit's code from an earlier build's cache, with its data added
