@@ -416,10 +416,14 @@ module Zr
       def block_before(before) = block_beside(@blocks.index(before))
 
       def block_beside(at)
-        b = @block_of.fetch(block_named([]))
+        b = unplaced_block
         @blocks.insert(at, b)
         b
       end
+
+      # A new block with no parameters that is not in `blocks` yet. The pass
+      # puts it there.
+      def unplaced_block = @block_of.fetch(block_named([]))
 
       # A value name that no instruction uses. A pass on a finished function
       # uses it for a new block parameter.

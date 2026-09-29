@@ -455,6 +455,7 @@ module Zr
 
         def run
           @uses = @f.analysis.uses
+          @after = {}.compare_by_identity
           # A split gives two branches to examine again: the branch of the block
           # (now on the first operand), and the branch of `mid` (on the second).
           work = @f.blocks.dup
@@ -463,10 +464,26 @@ module Zr
             mid = split(b)
             work.push(b, mid) if mid
           end
+          lay_out unless @after.empty?
           @f.changed!(:cfg)
         end
 
         private
+
+        # Puts each new block just after the block that it split, before
+        # the blocks of that block's earlier splits: the layout of an insert
+        # into `blocks` at each split, which was quadratic (0.5 s of a
+        # function of 23,000 blocks).
+        def lay_out
+          laid = []
+          work = @f.blocks.reverse
+          until work.empty?
+            b = work.pop
+            laid << b
+            work.concat(@after[b].reverse) if @after.key?(b)
+          end
+          @f.blocks.replace(laid)
+        end
 
         # Returns the block of the second test, or nil.
         def split(b)
@@ -482,7 +499,8 @@ module Zr
           # that only the gate reads moves after the first test.
           moved = (@uses.fetch(second, 0) == 1 && chain_of(b, second, b.insts.index(gate))) || []
           yes, no = br.targets
-          mid = @f.block_after(b)
+          mid = @f.unplaced_block
+          (@after[b] ||= []).unshift(mid)
           mid.insts.concat(moved)
           mid.insts << Inst.new(:brif, args: [second], targets: [yes, no])
           b.insts.reject! { |i| i.equal?(gate) || moved.any? { |m| m.equal?(i) } }
