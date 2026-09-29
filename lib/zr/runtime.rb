@@ -673,10 +673,13 @@ module Zr
   end
 
   # `zr_symbol_names`: one (bytes, length) record per symbol id. The bytes
-  # are in their own read-only objects.
+  # of all names are one read-only object, and each record points into it
+  # (an addend). An object for each name made a program that evals carry
+  # 18,000 more data items and symbols, which each link read, laid out
+  # and wrote again.
   def symbol_names(symbols)
     names = symbols.names
-    bytes = names.each_with_index.filter_map { |name, i| Obj::Data.new("zr_symname_#{i}", :text_const, name.b, align: 1) if name }
+    all = +"".b
     table = +"".b
     relocs = []
     names.each_with_index do |name, i|
@@ -685,11 +688,13 @@ module Zr
         table << [0, 255 << 56].pack("Q<Q<")
         next
       end
-      relocs << Obj::Reloc.new(i * 16, :abs64, "zr_symname_#{i}")
+      relocs << Obj::Reloc.new(i * 16, :abs64, "zr_symname_bytes", all.bytesize)
       table << [0, name.bytesize].pack("Q<Q<")
+      all << name.b
     end
-    bytes + [Obj::Data.new("zr_symbol_names", :data_const, table, relocs: relocs, align: 8, linkage: :export),
-             Obj::Data.new("zr_symbol_count", :data_const, [names.size].pack("Q<"), align: 8, linkage: :export),
-             Obj::Data.new("zr_site_count", :data_const, [symbols.sites].pack("Q<"), align: 8, linkage: :export)]
+    [Obj::Data.new("zr_symname_bytes", :text_const, all.empty? ? "\0".b : all, align: 1),
+     Obj::Data.new("zr_symbol_names", :data_const, table, relocs: relocs, align: 8, linkage: :export),
+     Obj::Data.new("zr_symbol_count", :data_const, [names.size].pack("Q<"), align: 8, linkage: :export),
+     Obj::Data.new("zr_site_count", :data_const, [symbols.sites].pack("Q<"), align: 8, linkage: :export)]
   end
 end
