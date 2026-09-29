@@ -39,7 +39,7 @@ module Zr
         # three in `__TEXT`, three in `__PROGRAM`, the GOT in
         # `__DATA_CONST`, then three in `__DATA`.
         ORDINALS = { text: 1, stubs: 2, const: 3, got: 7, dconst: 8, data: 9, bss: 10 }.freeze
-        MAGIC = "zr prelink 1\n".b
+        MAGIC = "zr prelink 2\n".b
         SEGMENTS = %i[got data].freeze
 
         # A slot that contains an external's address: its segment, its
@@ -175,7 +175,7 @@ module Zr
             return n && @addresses[n]
           end
           @searched = (@searched || 0) + 1
-          @indexed = @names.each_with_index.to_h if @searched > INDEXED_AFTER
+          @indexed = @names.to_a.each_with_index.to_h if @searched > INDEXED_AFTER
           n = @names.bsearch_index { |candidate| candidate >= name }
           n && @names[n] == name ? @addresses[n] : nil
         end
@@ -192,7 +192,7 @@ module Zr
           late = @late.flat_map { |l| [SEGMENTS.index(l.segment), l.offset, l.next, @externals.index(l.name), l.addend] }
           fields = [layout.pack("q<*"), Prelink.joined(@externals), late.pack("q<*"),
                     @starts.fetch(:got).pack("S<*"), @starts.fetch(:data).pack("S<*"), @symbols, @strings,
-                    Prelink.joined(@names), @addresses.pack("Q<*"),
+                    *Names.dumped(@names), @addresses.pack("Q<*"),
                     *SEGMENTS.dup.unshift(:text).flat_map { |b| [@blobs.fetch(b), @hashes.fetch(b)] }]
           fields.inject(MAGIC.dup) { |out, field| out << [field.bytesize].pack("Q<") << field }
         end
@@ -213,7 +213,7 @@ module Zr
             fields << bytes.byteslice(at + 8, size)
             at += 8 + size
           end
-          return nil unless fields.size == 15
+          return nil unless fields.size == 16
 
           layout = fields[0].unpack("q<*")
           parts = Block::PARTS.each_with_index.to_h { |part, n| [part, layout[6 + (n * 3), 3]] }
@@ -224,11 +224,46 @@ module Zr
           new(parts: parts, text_size: layout[0], got_vm: layout[1], got_size: layout[2], data_vm: layout[3],
               data_filesize: layout[4], data_vmsize: layout[5], externals: externals, late: late,
               starts: { got: fields[3].unpack("S<*"), data: fields[4].unpack("S<*") },
-              symbols: fields[5], strings: fields[6], names: fields[7].split("\0"), addresses: fields[8].unpack("Q<*"),
-              blobs: { text: fields[9], got: fields[11], data: fields[13] },
-              hashes: { text: fields[10], got: fields[12], data: fields[14] })
+              symbols: fields[5], strings: fields[6], names: Names.new(fields[7], fields[8].unpack("L<*")),
+              addresses: fields[9].unpack("Q<*"),
+              blobs: { text: fields[10], got: fields[12], data: fields[14] },
+              hashes: { text: fields[11], got: fields[13], data: fields[15] })
         rescue ArgumentError, IndexError # KeyError is an IndexError
           nil
+        end
+
+        # The sorted names of a loaded base, in one string. A link reads a
+        # few thousand of them, and a split into 387,000 strings took half
+        # of a load of eval support's base. A name is made when it is read.
+        class Names
+          # The joined names and the offset where each one starts.
+          def self.dumped(names)
+            return [names.joined, names.starts.pack("L<*")] if names.is_a?(Names)
+
+            at = 0
+            starts = names.map { |name| at.tap { at += name.bytesize + 1 } }
+            [Prelink.joined(names), starts.pack("L<*")]
+          end
+
+          attr_reader :joined, :starts
+
+          def initialize(joined, starts)
+            @joined = joined
+            @starts = starts
+          end
+
+          def size = @starts.size
+
+          def [](n)
+            return nil unless n >= 0 && n < @starts.size
+
+            from = @starts[n]
+            @joined.byteslice(from, (n + 1 < @starts.size ? @starts[n + 1] : @joined.bytesize) - from - 1)
+          end
+
+          def bsearch_index(&) = (0...size).bsearch { |n| yield self[n] }
+
+          def to_a = Array.new(size) { |n| self[n] }
         end
       end
     end
