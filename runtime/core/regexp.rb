@@ -45,9 +45,11 @@ class Regexp
     when true then IGNORECASE
     when Integer then options & (IGNORECASE | EXTENDED | MULTILINE | FIXEDENCODING | NOENCODING)
     when String
-      options.each_char.reduce(0) do |acc, c|
-        acc | { "i" => IGNORECASE, "x" => EXTENDED, "m" => MULTILINE }.fetch(c) { raise ArgumentError, "unknown regexp option: #{options}" }
+      bits = 0
+      options.each_char do |c|
+        bits |= { "i" => IGNORECASE, "x" => EXTENDED, "m" => MULTILINE }.fetch(c) { raise ArgumentError, "unknown regexp option: #{options}" }
       end
+      bits
     else raise TypeError, "no implicit conversion of #{conversion_name(options)} into Integer"
     end
   end
@@ -131,7 +133,7 @@ class Regexp
     Primitive.attr! :hidden
     return [].freeze unless compiled.name_table
 
-    compiled.name_table.map { |name, entry| [name.dup.force_encoding(encoding).freeze, entry.back_refs.dup.freeze].freeze }.freeze
+    compiled.name_table.to_a.map { |name, entry| [name.dup.force_encoding(encoding).freeze, entry.back_refs.dup.freeze].freeze }.freeze
   end
   private_class_method :name_rows_of
 
@@ -305,7 +307,8 @@ class Regexp
     end
     source = nil
     source_encoding = nil
-    patterns.each_with_index do |pattern, i|
+    patterns.each_index do |i|
+      pattern = patterns[i]
       if i.positive?
         source << (source_encoding.ascii_compatible? || source_encoding.dummy? ? "|" : "|".encode(source_encoding).b)
       end
@@ -569,7 +572,7 @@ class Regexp
   def name_rows
     Primitive.attr! :hidden
     pattern
-    Primitive.zr_regexp_names(self).sort_by { |_, groups| groups.first }
+    Primitive.zr_regexp_names(self).to_a.sort { |a, b| a[1].first <=> b[1].first }
   end
 
   # The match at byte `from`, searching forward, or backward to it.
@@ -719,7 +722,11 @@ class MatchData
     end
   end
 
-  def values_at(*indexes) = indexes.flat_map { |i| i.is_a?(Range) ? to_a.values_at(i) : [self[i]] }
+  def values_at(*indexes)
+    out = []
+    indexes.each { |i| i.is_a?(Range) ? out.concat(to_a.values_at(i)) : out << self[i] }
+    out
+  end
 
   def begin(index)
     b = byte_begin(index)
@@ -768,7 +775,7 @@ class MatchData
     labels = Array.new(size - 1) { |i| (i + 1).to_s }
     regexp.send(:name_rows).each { |name, groups| groups.each { |g| labels[g - 1] = name } } if regexp.is_a?(Regexp)
     parts = [group(0).inspect]
-    labels.each_with_index { |label, i| parts << "#{label}:#{group(i + 1).inspect}" }
+    labels.each_index { |i| parts << "#{labels[i]}:#{group(i + 1).inspect}" }
     Primitive.zr_obj_form("#<MatchData #{parts.join(' ')}>")
   end
 

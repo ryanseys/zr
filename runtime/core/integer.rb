@@ -498,7 +498,10 @@ class Numeric
   # operators and conversions the subclass defines.
   def abs = self < 0 ? -self : self
 
-  def -@ = coerce(0).reduce(:-)
+  def -@
+    zero, own = coerce(0)
+    zero - own
+  end
 
   def +@ = self
 

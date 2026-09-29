@@ -217,7 +217,8 @@ class Set
     end
     answer = Set.allocate
     parts = {}
-    items.each_with_index do |item, i|
+    items.each_index do |i|
+      item = items[i]
       root = root_of(parents, i)
       unless parts.key?(root)
         parts[root] = self.class.allocate
@@ -408,7 +409,8 @@ class Set
   # lib/set/subclass_compatible.rb: the layer a direct subclass takes,
   # which keeps a subclass written for the pure-Ruby Set of Ruby 3 at
   # home. set.c loads it when the first subclass is made, so until then
-  # the constant is not there.
+  # the constant is not there. It is Ruby in CRuby, so the defs whose
+  # `each` can reach a core Array or Hash send it by name (`:sends_each`).
   compatible = Module.new do
     const_set(:ClassMethods, Module.new do
       def [](*ary)
@@ -427,6 +429,7 @@ class Set
     end
 
     def do_with_enum(enum, &block) # :nodoc:
+      Primitive.attr! :sends_each
       if enum.respond_to?(:each_entry)
         enum.each_entry(&block) if block
       elsif enum.respond_to?(:each)
@@ -459,6 +462,7 @@ class Set
     end
 
     def flatten_merge(set, seen = {}) # :nodoc:
+      Primitive.attr! :sends_each
       set.each { |e|
         if e.is_a?(Set)
           case seen[e_id = e.object_id]
@@ -610,6 +614,7 @@ class Set
     alias filter! select!
 
     def merge(*enums, **nil)
+      Primitive.attr! :sends_each
       enums.each do |enum|
         if enum.instance_of?(self.class)
           super(enum)
@@ -638,6 +643,7 @@ class Set
     alias difference -
 
     def &(enum)
+      Primitive.attr! :sends_each
       n = self.class.new
       if enum.is_a?(Set)
         if enum.size > size

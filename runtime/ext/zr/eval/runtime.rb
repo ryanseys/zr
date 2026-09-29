@@ -41,6 +41,15 @@ module Zr
       ensure
         SEPARATORS.zip(kept) { |name, value| Primitive.zr_gvar_set_m(name, value) } if kept
       end
+
+      # The compiler's Enumerable methods walk the core's collections with
+      # the core's own `each` (zr_eval_compiling_m) while it runs.
+      def self.compiling
+        was = Primitive.zr_eval_compiling_m(true)
+        yield
+      ensure
+        Primitive.zr_eval_compiling_m(was)
+      end
     end
   end
 end

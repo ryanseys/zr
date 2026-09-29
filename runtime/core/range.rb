@@ -17,7 +17,10 @@ class Range
   def end = @end
 
   # CRuby counts the arguments itself, and says it wants one.
+  # `first(n)` sends `each` by name, as range_first does, and stops at
+  # the element after the nth, as first_i does.
   def first(*args)
+    Primitive.attr! :sends_each
     raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 1)" if args.size > 1
     raise RangeError, +"cannot get the first element of beginless range" if @begin.nil?
     return @begin if args.empty?
@@ -26,11 +29,10 @@ class Range
     raise ArgumentError, +"negative array size (or size too big)" if n < 0
 
     out = []
-    return out if n == 0
-
     each do |v|
-      out << v
       break if out.size >= n
+
+      out << v
     end
     out
   end

@@ -137,8 +137,8 @@ class Binding
   # local of the lowering keeps its slot but has no name.
   def place(name)
     Primitive.attr! :hidden
-    scopes.each_with_index do |names, depth|
-      i = names.index(name)
+    scopes.each_index do |depth|
+      i = scopes[depth].index(name)
       return [depth, i] if i
     end
     nil

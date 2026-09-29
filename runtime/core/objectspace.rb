@@ -178,7 +178,7 @@ module ObjectSpace
 
     total, free, *by_type = Primitive.zr_objspace_census
     counts = Hash.new(0)
-    by_type.each_with_index { |n, tag| counts[TYPE_NAMES.fetch(tag, :T_OBJECT)] += n if n.positive? }
+    by_type.each_index { |tag| counts[TYPE_NAMES.fetch(tag, :T_OBJECT)] += by_type[tag] if by_type[tag].positive? }
     result.clear
     result[:TOTAL] = total
     result[:FREE] = free

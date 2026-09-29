@@ -376,7 +376,7 @@ class NameError
 
   # The locals of the scope the error was raised in; the lowering's own
   # have no name a program can spell.
-  def local_variables = (@local_variables || []).grep(/\A[a-z_][A-Za-z0-9_]*\z/)
+  def local_variables = (@local_variables || []).select { |name| name.match?(/\A[a-z_][A-Za-z0-9_]*\z/) }
 end
 
 class NoMethodError

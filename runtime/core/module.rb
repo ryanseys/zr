@@ -233,7 +233,8 @@ class Module
     Primitive.attr! :hidden
     scope = self
     seen = 0
-    segments.each_with_index do |segment, i|
+    segments.each_index do |i|
+      segment = segments[i]
       if segment.empty?
         raise NameError.new("wrong constant name #{name}", name, receiver: self) unless i.zero?
 

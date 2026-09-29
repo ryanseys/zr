@@ -77,7 +77,8 @@ class File < IO
     Primitive.attr! :hidden
     out = +""
     joining[parts] = true
-    parts.each_with_index do |part, i|
+    parts.each_index do |i|
+      part = parts[i]
       part = if part.is_a?(String) then part
              elsif part.is_a?(Array)
                raise ArgumentError, +"recursive array" if joining.key?(part)
@@ -715,7 +716,8 @@ class File < IO
   def self.realpath_names(resolved, names, last_may_miss, seen)
     Primitive.attr! :hidden
     names = names.reject(&:empty?)
-    names.each_with_index do |name, i|
+    names.each_index do |i|
+      name = names[i]
       next if name == +"."
 
       if name == +".."
@@ -1337,7 +1339,9 @@ class Dir
 
     # dir_globs: each pattern of a list, which must name a path.
     def self.each_of(list, base, flags)
-      list.flat_map { |pattern| new(File.send(:path_of, pattern), base, flags).run }
+      found = []
+      list.each { |pattern| found.concat(new(File.send(:path_of, pattern), base, flags).run) }
+      found
     end
 
     # rb_push_glob: a String may not hold a NUL, which once separated
@@ -1519,7 +1523,7 @@ class Dir
         p = dirsep ? m + 1 : m
       end
       parts << Part.new(dirsep ? MATCH_DIR : MATCH_ALL, nil)
-      parts.each_cons(2) { |a, b| a.next = b }
+      (1...parts.size).each { |i| parts[i - 1].next = parts[i] }
       parts.first
     end
 
@@ -1605,8 +1609,8 @@ class Dir
       return if entries.is_a?(Integer)
 
       flags |= File::FNM_CASEFOLD if @real_basename && Primitive.zr_io_pathconf(where, 11) == 0
-      pairs = entries.each_slice(2).to_a
-      pairs.sort_by! { |name, _| name.b } if (flags & NOSORT).zero?
+      pairs = Array.new(entries.size / 2) { |i| [entries[2 * i].b, entries[(2 * i) + 1]] }
+      pairs.sort! { |a, b| a[0] <=> b[0] } if (flags & NOSORT).zero?
       skipdot = (flags & SKIPDOT) != 0
       flags |= SKIPDOT
       dotmatch = (flags & File::FNM_DOTMATCH) != 0
@@ -1655,7 +1659,8 @@ class Dir
     def plainly(path, baselen, namelen, dirsep, parts, flags)
       copies = parts.map { |part| part.type <= ALPHA ? part : nil }
       pathlen = baselen + namelen
-      copies.each_with_index do |part, i|
+      copies.each_index do |i|
+        part = copies[i]
         next unless part
 
         name = @escape ? unescaped(part.str) : part.str
@@ -1697,7 +1702,7 @@ class Dir
       return [path, NOENT] if entries.is_a?(Integer)
 
       # getattrlist gives the name and the kind of the entry together.
-      pairs = entries.each_slice(2).map { |each, kind| [each.b, [EXIST, DIRECTORY, SYMLINK, OTHER][kind]] }
+      pairs = Array.new(entries.size / 2) { |i| [entries[2 * i].b, [EXIST, DIRECTORY, SYMLINK, OTHER][entries[(2 * i) + 1]]] }
       real, kind = pairs.find { |each, _| each == name } ||
                    pairs.find { |each, _| each.dup.force_encoding(@enc).casecmp?(name.dup.force_encoding(@enc)) }
       return [path, NOENT] unless real

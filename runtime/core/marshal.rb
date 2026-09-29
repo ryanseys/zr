@@ -208,8 +208,8 @@ module Marshal
       members = obj.class.members
       values = obj.is_a?(Data) ? obj.send(:values_store) : members.map { |name| obj[name] }
       @out << "S" << symbol_bytes(class_path(obj.class).to_sym) << long(members.size)
-      members.each_with_index do |name, i|
-        @out << symbol_bytes(name)
+      members.each_index do |i|
+        @out << symbol_bytes(members[i])
         write(values[i], limit)
       end
     end
@@ -372,7 +372,7 @@ module Marshal
         rest >>= 16
       end
       words << 0 if words.empty?
-      (n < 0 ? "-" : "+") + long(words.size) + words.flat_map { |w| [w & 0xff, w >> 8] }.pack("C*")
+      (n < 0 ? "-" : "+") + long(words.size) + words.pack("v*")
     end
 
     def bytes(text)

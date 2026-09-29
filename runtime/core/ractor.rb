@@ -229,7 +229,7 @@ class Ractor
     raise IsolationError, "self should be shareable: #{receiver.inspect}" unless shareable?(receiver)
 
     rows = Primitive.zr_proc_capture_rows_m(block)
-    written = rows.filter_map { |name, write, _| name if write }
+    written = rows.select { |_, write, _| write }.map(&:first)
     raise ArgumentError, "can not make a Proc shareable because it accesses outer variables (#{written.join(", ")})." unless written.empty?
 
     scope = Primitive.zr_proc_scope(block) unless rows.empty?
@@ -278,6 +278,7 @@ class Ractor
   # ractor to end. A Ractor is in place of a port of its own here: it is
   # watched, and the token that its end sends is the return value.
   def self.select(*ports)
+    Primitive.attr! :sends_each
     raise ArgumentError, "specify at least one Ractor::Port or Ractor" if ports.empty?
 
     watched = {}
@@ -449,18 +450,19 @@ class Ractor
   # Gives each object that one object refers to, to the block: its parts,
   # then its instance variables. A walk over a graph of Strings and
   # numbers makes no Array a node. The return value is true, so a caller
-  # can `return` its own value out of the block.
+  # can `return` its own value out of the block. The parts are read as
+  # the C reads them, with no `each` of a subclass.
   def self.each_reachable(obj)
     Primitive.attr! :hidden
     case obj
-    when Array then obj.each { |part| yield part }
+    when Array then Primitive.zr_ary_len_m(obj).times { |i| yield Primitive.zr_ary_at_m(obj, i) }
     when Hash
-      obj.each { |key, value| yield key; yield value }
+      Primitive.zr_hash_foreach(obj) { |key, value| yield key; yield value }
       yield obj.default
     when Range
       yield obj.begin
       yield obj.end
-    when Struct then obj.each { |part| yield part }
+    when Struct then Primitive.zr_struct_values(obj).each { |part| yield part }
     end
     obj.instance_variables.each { |name| yield obj.instance_variable_get(name) }
     true
@@ -495,10 +497,10 @@ class Ractor
     Primitive.attr! :hidden
     case value
     when String then copy.replace(value)
-    when Array then value.each { |part| copy << cross(part, seen, deeply, given) }
+    when Array then Primitive.zr_ary_len_m(value).times { |i| copy << cross(Primitive.zr_ary_at_m(value, i), seen, deeply, given) }
     when Hash
       copy.compare_by_identity if value.compare_by_identity?
-      value.each { |key, part| copy[cross(key, seen, deeply, given)] = cross(part, seen, deeply, given) }
+      Primitive.zr_hash_foreach(value) { |key, part| copy[cross(key, seen, deeply, given)] = cross(part, seen, deeply, given) }
       copy.default = cross(value.default, seen, deeply, given) unless value.default.nil?
     end
     nil

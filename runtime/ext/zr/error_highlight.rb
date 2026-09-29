@@ -24,8 +24,10 @@ module ErrorHighlight
     def self.table
       @table ||= Primitive.zr_load_names(4).split("\f").to_h do |text|
         file, *lines = text.split("\n")
-        rows = lines.map(&:split).group_by { |id, *| id.to_i }.transform_values do |group|
-          group.map { |_, point, name, *numbers| [point == "n" ? :name : :args, name == "-" ? nil : name.to_sym, *numbers.map(&:to_i)] }
+        rows = {}
+        lines.each do |line|
+          id, point, name, *numbers = line.split
+          (rows[id.to_i] ||= []) << [point == "n" ? :name : :args, name == "-" ? nil : name.to_sym, *numbers.map(&:to_i)]
         end
         [file, rows]
       end

@@ -1505,7 +1505,9 @@ module Zr
         d zr_symbol_block Value p:Value argc:Word argv:Ptr blk:Value
         d zr_sym_to_proc_here Value sym:Value
         d zr_sym_to_proc Value sym:Value
+        d zr_eval_compiling_m Value on:Value
         d zr_enum_each Value recv:Value args:Value blk:Value
+        d zr_enum_send_each Value recv:Value argc:Word argv:Ptr p:Value
         d zr_enum_each_block Value p:Value argc:Word argv:Ptr blk:Value
         d zr_enum_collect Value recv:Value args:Value blk:Value
         d zr_block_asks_pair Void p:Value blk:Value
@@ -3803,7 +3805,9 @@ module Zr
         e zr_symbol_block 127
         e zr_sym_to_proc_here 127
         e zr_sym_to_proc 127
+        e zr_eval_compiling_m 32
         e zr_enum_each 127
+        e zr_enum_send_each 127
         e zr_enum_each_block 127
         e zr_enum_collect 127
         e zr_block_asks_pair 8

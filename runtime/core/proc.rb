@@ -100,7 +100,8 @@ class Method
     Primitive.attr! :hidden
     forwarding = params == [[:rest, :*], [:keyrest, :**], [:block, :&]]
     out = +"("
-    params.each_with_index do |(kind, name), i|
+    params.each_index do |i|
+      kind, name = params[i]
       name ||= case kind
                when :req, :opt then +"_"
                when :rest, :keyrest then +""

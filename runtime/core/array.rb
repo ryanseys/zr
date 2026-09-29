@@ -264,12 +264,16 @@ class Array
   # with the best so far.
   def self.newarray_min(items)
     Primitive.attr! :hidden
-    items.inject { |best, v| items.compared(v, best) < 0 ? v : best }
+    best = items[0]
+    (1...items.size).each { |i| best = items[i] if items.compared(items[i], best) < 0 }
+    best
   end
 
   def self.newarray_max(items)
     Primitive.attr! :hidden
-    items.inject { |best, v| items.compared(v, best) > 0 ? v : best }
+    best = items[0]
+    (1...items.size).each { |i| best = items[i] if items.compared(items[i], best) > 0 }
+    best
   end
 
   # `a <=> b`, or the block's return value, as an Integer; nil fails as
@@ -344,13 +348,21 @@ class Array
 
   # The forms of many operands start from a plain copy, as the C starts
   # from rb_ary_dup, so the receiver's own operators are not called.
-  def intersection(*others) = others.inject(Array.new(self)) { |acc, other| acc & other }
+  def intersection(*others)
+    out = Array.new(self)
+    others.each { |other| out &= other }
+    out
+  end
 
   # rb_ary_union_multi: arrays that are short together are merged by
   # rb_eql, and longer ones through a Hash.
   def union(*others)
     others = others.map { |other| ary_operand(other) }
-    return others.inject(unique) { |acc, other| acc | other } if others.sum(Primitive.zr_ary_len_m(self)) { |o| Primitive.zr_ary_len_m(o) } > SMALL_ARRAY_LEN
+    if others.sum(Primitive.zr_ary_len_m(self)) { |o| Primitive.zr_ary_len_m(o) } > SMALL_ARRAY_LEN
+      out = unique
+      others.each { |other| out |= other }
+      return out
+    end
 
     out = []
     Array.send(:merge_by_eql, out, self)
@@ -918,8 +930,9 @@ class Array
 
   # A Range past the end pads with nils up to its end.
   def values_at(*indexes)
-    indexes.flat_map do |i|
-      next [Primitive.zr_ary_aref1_m(self, Primitive.zr_index_operand_m(i))] unless i.is_a?(Range)
+    out = []
+    indexes.each do |i|
+      next out << Primitive.zr_ary_aref1_m(self, Primitive.zr_index_operand_m(i)) unless i.is_a?(Range)
 
       first = i.begin || 0
       first += Primitive.zr_ary_len_m(self) if first < 0
@@ -928,10 +941,9 @@ class Array
       last = i.end || Primitive.zr_ary_len_m(self) - 1
       last += Primitive.zr_ary_len_m(self) if last < 0
       last -= 1 if i.exclude_end? && i.end
-      next [] if last < first
-
-      (first..last).map { |j| Primitive.zr_ary_aref1_m(self, j) }
+      (first..last).each { |j| out << Primitive.zr_ary_aref1_m(self, j) }
     end
+    out
   end
 
   def dig(index, *rest)
@@ -1208,8 +1220,13 @@ class Array
     self
   end
 
+  # rb_ary_sort_by_bang: Enumerable#sort_by, which sends `each`, only for
+  # two elements or more.
   def sort_by!
     return to_enum(:sort_by!) { Primitive.zr_ary_len_m(self) } unless block_given?
+
+    Primitive.zr_frozen_error(self) if frozen?
+    return self if Primitive.zr_ary_len_m(self) <= 1
 
     replaced(sort_by { |x| yield(x) })
   end
@@ -1514,9 +1531,10 @@ class Array
   end
 
   # The first n items of one zip argument: an Array as it is, else
-  # what its `each` yields.
+  # what its `each` yields, sent by name as take_items sends it.
   def zip_column(other, n)
     Primitive.attr! :hidden
+    Primitive.attr! :sends_each
     return other if other.is_a?(Array)
     return other.to_ary if other.respond_to?(:to_ary)
     return [] if n == 0

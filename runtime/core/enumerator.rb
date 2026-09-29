@@ -722,8 +722,12 @@ class Enumerator::Lazy < Enumerator
     Enumerator::Lazy.allocate.send(:chain, self, method, runner, block:, args:, &size)
   end
 
-  # What a lazy's `each` runs: its receiver, through one runner.
+  # What a lazy's `each` runs: its receiver, through one runner. Each
+  # runner sends `each` to its receiver by name, as CRuby's
+  # lazy_init_iterator does, so a program's own `each` is called.
   class Step
+    Primitive.attr! :sends_each
+
     def initialize(receiver, method, runner, block, args, kwargs)
       @receiver = receiver
       @method = method
@@ -771,8 +775,15 @@ class Enumerator::Lazy < Enumerator
       block = @block
       @receiver.each do |*values|
         result = block.call(*values)
-        if result.is_a?(Array) || (result.respond_to?(:force) && result.respond_to?(:each))
+        if !result.is_a?(Array) && result.respond_to?(:force) && result.respond_to?(:each)
           result.each { |v| yield v }
+        elsif (items = Array.try_convert(result))
+          # An Array is read by index, as lazy_flat_map_proc reads it.
+          i = 0
+          while i < Primitive.zr_ary_len_m(items)
+            yield Primitive.zr_ary_at_m(items, i)
+            i += 1
+          end
         else
           yield result
         end
@@ -870,7 +881,9 @@ class Enumerator::Lazy < Enumerator
       i = 0
       @receiver.each do |*values|
         row = [Primitive.zr_enum_value(values)]
-        cursors.each do |cursor|
+        j = 0
+        while j < Primitive.zr_ary_len_m(cursors)
+          cursor = Primitive.zr_ary_at_m(cursors, j)
           row << if cursor.is_a?(Array)
                    cursor[i]
                  else
@@ -880,6 +893,7 @@ class Enumerator::Lazy < Enumerator
                      nil
                    end
                  end
+          j += 1
         end
         yield row
         i += 1
@@ -940,11 +954,17 @@ class Enumerator::Chain < Enumerator
     self
   end
 
-  # Without a block, CRuby wraps the chain twice.
+  # Without a block, CRuby wraps the chain twice. Each enumerable gets
+  # `each` by name, as enum_chain_each sends it.
   def each(*args, &block)
+    Primitive.attr! :sends_each
     return to_enum(:each, *args).to_enum(:each) unless block
 
-    @enums.each { |e| e.each(*args, &block) }
+    i = 0
+    while i < Primitive.zr_ary_len_m(@enums)
+      Primitive.zr_ary_at_m(@enums, i).each(*args, &block)
+      i += 1
+    end
     self
   end
 

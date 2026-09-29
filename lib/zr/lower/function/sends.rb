@@ -79,7 +79,7 @@ module Zr
           initialize initialize_copy initialize_dup initialize_clone
           to_s inspect to_str to_sym to_proc to_ary to_a to_hash to_h to_int to_i to_f to_r to_c to_path to_io to_regexp
           == != eql? hash <=> === =~ ! coerce
-          each call write warn default
+          call write warn default
           respond_to? respond_to_missing? method_missing
           method_added singleton_method_added method_removed singleton_method_removed method_undefined
           singleton_method_undefined inherited included extended prepended const_added const_missing
@@ -377,8 +377,17 @@ module Zr
         # applies).
         def send_mode(node)
           mode = node.vcall ? 1 : (explicit?(node) && !@funcalls&.key?(node) ? 2 : 0)
-          mode |= SEND_CORE if (@l.internal? || @l.support?) && !PROTOCOL.include?(node.name)
+          mode |= SEND_CORE if core_send?(node.name)
           node.using ? mode | SEND_USING : mode
+        end
+
+        # Whether a send of `name` finds the core's own method: in the
+        # core library and eval's compiler, for any name but PROTOCOL, and
+        # for `each` as CRuby's C sends it (`native_each?`).
+        def core_send?(name)
+          return false unless @l.internal? || @l.support?
+
+          name == :each ? native_each? : !PROTOCOL.include?(name)
         end
 
         def dispatch(node, recv, argv, argc)

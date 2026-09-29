@@ -233,10 +233,12 @@ module Packing
     at = 0
     associates = nil
     list = directives(template, "pack", check: false)
-    encoding = list.reduce(Encoding::US_ASCII) do |so_far, (c, _, _)|
-      if "mMu".include?(c) then so_far
-      elsif c == +"U" then so_far == Encoding::US_ASCII ? Encoding::UTF_8 : so_far
-      else Encoding::BINARY
+    encoding = Encoding::US_ASCII
+    list.each do |c, _, _|
+      if c == +"U"
+        encoding = Encoding::UTF_8 if encoding == Encoding::US_ASCII
+      elsif !"mMu".include?(c)
+        encoding = Encoding::BINARY
       end
     end
     list.each do |c, count, big|

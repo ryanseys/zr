@@ -259,7 +259,8 @@ class IO
     end
 
     def set_values(types, offset, values)
-      types.each_with_index do |type, i|
+      types.each_index do |i|
+        type = types[i]
         set_value(type, offset, values[i])
         offset += Buffer.size_of(type)
       end
@@ -616,7 +617,8 @@ class IO
     def masked(other)
       Primitive.attr! :hidden
       bytes = mask(other)
-      get_string.bytes.each_with_index.map { |b, i| yield(b, bytes[i % bytes.size]) }.pack("C*")
+      own = get_string.bytes
+      Array.new(own.size) { |i| yield(own[i], bytes[i % bytes.size]) }.pack("C*")
     end
   end
 end

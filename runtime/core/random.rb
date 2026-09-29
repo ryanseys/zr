@@ -32,7 +32,11 @@ class Random < random_base
   end
 
   # The generator's 624 words as one Integer, the first word lowest.
-  def state = mt.reverse.inject(0) { |all, word| (all << 32) | word }
+  def state
+    all = 0
+    mt.reverse_each { |word| all = (all << 32) | word }
+    all
+  end
 
   # How many draws are left before the words are made again, counting
   # the one that makes them, as CRuby's MT counts `left`.
@@ -198,7 +202,9 @@ class Random
         end
         next if again
 
-        return draws.inject(0) { |all, word| (all << 32) | word }
+        all = 0
+        draws.each { |word| all = (all << 32) | word }
+        return all
       end
     end
 

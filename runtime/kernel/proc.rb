@@ -326,6 +326,26 @@ end
 
 G_SYM_PROCS = 61
 
+# Marks the task that runs eval's compiler (`on` true), or clears the
+# mark, and answers whether it was set. CRuby's compiler is C, which
+# walks its own Arrays and Hashes directly. zr's is Ruby, and its
+# Enumerable methods send `each`. While it runs, zr_enum_each takes the
+# core's own `each` for an instance of a core class, as SEND_CORE does,
+# so a program's Array#each does not run inside it. No code of the
+# program runs in the compiler; another thread that runs meanwhile has
+# a task of its own.
+sig [Value] => Value
+machine def zr_eval_compiling_m(on)
+  slot = Machine.static(:eval_task, 8)
+  was = Machine.load64(slot, 0)
+  if on == QTRUE
+    Machine.store64(slot, 0, Machine.load64(zr_current_task_slot(), 0))
+  else
+    Machine.store64(slot, 0, 0)
+  end
+  zr_bool(was != 0)
+end
+
 # Calls `each` on `recv` and gives `blk` one value for each element: the
 # yielded value, or an Array of them when there are several (nil for
 # none), packed as rb_enum_values_pack packs them. Thus a core method
@@ -353,9 +373,21 @@ machine def zr_enum_each(recv, args, blk)
   RProc.set_lambda(p, 0)
   RProc.set_passed(p, 1)
   if args == QNIL
-    return zr_send_blk(recv, Machine.id(:each), 0, 0, p)
+    return zr_enum_send_each(recv, 0, 0, p)
   end
-  zr_send_blk(recv, Machine.id(:each), RArray.len(args), RArray.ptr(args), p)
+  zr_enum_send_each(recv, RArray.len(args), RArray.ptr(args), p)
+end
+
+# The `each` of an Enumerable method: sent by name, as rb_block_call
+# sends it, except inside eval's compiler, which takes the core's own
+# (zr_eval_compiling_m).
+sig [Value, Word, Ptr, Value] => Value
+machine def zr_enum_send_each(recv, argc, argv, p)
+  mode = 0
+  if Machine.load64(Machine.static(:eval_task, 8), 0) == Machine.load64(zr_current_task_slot(), 0)
+    mode = SEND_CORE
+  end
+  zr_dispatch(0, recv, Machine.id(:each), argc, argv, mode, p)
 end
 
 sig [Value, Word, Ptr, Value] => Value
@@ -390,9 +422,9 @@ machine def zr_enum_collect(recv, args, blk)
   # its key and value as two values to a block that takes two or more.
   zr_block_asks_pair(p, blk)
   if args == QNIL
-    r = zr_send_blk(recv, Machine.id(:each), 0, 0, p)
+    r = zr_enum_send_each(recv, 0, 0, p)
   else
-    r = zr_send_blk(recv, Machine.id(:each), RArray.len(args), RArray.ptr(args), p)
+    r = zr_enum_send_each(recv, RArray.len(args), RArray.ptr(args), p)
   end
   return r if r == QUNDEF
   zr_ary_at(kept, 0)
@@ -433,9 +465,9 @@ machine def zr_enum_each_asked(recv, args, blk, ask)
   RProc.set_spread(p, 1)
   RProc.set_lambda(p, 0)
   if args == QNIL
-    return zr_send_blk(recv, Machine.id(:each), 0, 0, p)
+    return zr_enum_send_each(recv, 0, 0, p)
   end
-  zr_send_blk(recv, Machine.id(:each), RArray.len(args), RArray.ptr(args), p)
+  zr_enum_send_each(recv, RArray.len(args), RArray.ptr(args), p)
 end
 
 sig [Value, Word, Ptr, Value] => Value
@@ -496,7 +528,7 @@ machine def zr_lazy_stage(recv, kind, blk, out)
   zr_ary_push(kept, blk)
   zr_ary_push(kept, out)
   p = zr_native_proc(Machine.addr(:zr_lazy_stage_block), kept)
-  r = zr_send_blk(recv, Machine.id(:each), 0, 0, p)
+  r = zr_enum_send_each(recv, 0, 0, p)
   return r if r == QUNDEF
   Machine.value(QNIL)
 end

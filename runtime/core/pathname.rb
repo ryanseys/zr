@@ -28,6 +28,7 @@ end
 # The rest is also Ruby in CRuby, and reports its parameters by name.
 class Pathname
   Primitive.attr! :ruby
+  Primitive.attr! :sends_each
   Primitive.attr! :ivars
 
   VERSION = "0.4.0"

@@ -470,7 +470,9 @@ class Integer
         mag, rem = big_divmod_small_mag(mag, chunk)
         parts << rem
       end
-      text = parts.reverse.each_with_index.map { |r, i| i.zero? ? r.to_s(base) : r.to_s(base).rjust(per, "0") }.join
+      parts.reverse!
+      text = parts[0].to_s(base)
+      (1...parts.size).each { |i| text << parts[i].to_s(base).rjust(per, "0") }
       text = "-#{text}" if big_neg?(x)
       text.force_encoding(Encoding::US_ASCII)
     end

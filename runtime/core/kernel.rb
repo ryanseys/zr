@@ -340,7 +340,7 @@ module Kernel
         at = caller_locations(level + 1, 1)&.first
         text << (at&.path ? "#{at.path}:#{at.lineno}: warning: " : "warning: ")
       end
-      IO.send(:each_line_of, msgs) { |*parts| parts.each { |part| text << part } }
+      IO.send(:each_line_of, msgs) { |*parts| text.concat(*parts) }
     end
     Warning.send(:emit, text, category)
     nil

@@ -184,7 +184,7 @@ module Process
       when Integer then [key]
       when Symbol then [STREAMS.fetch(key) { raise ArgumentError, "wrong exec option symbol: #{key.inspect}" }]
       when IO then [key.fileno]
-      when Array then key.flat_map { |one| descriptors(one) }
+      when Array then key.map { |one| descriptors(one) }.flatten(1)
       else raise ArgumentError, "wrong exec option: #{key.inspect}"
       end
     end

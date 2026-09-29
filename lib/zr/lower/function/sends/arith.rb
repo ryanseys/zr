@@ -272,11 +272,39 @@ module Zr
           @native_operators = (@l.internal? || @l.support?) && !fn.attributes.include?(:ruby)
         end
 
+        # Whether `each` finds the core's own method. Ruby's C walks its
+        # own Arrays and Hashes directly, and sends `each` by name only in
+        # Enumerable (Primitive.zr_enum_each) and where a def is marked
+        # `:sends_each`: rb_block_call(obj, id_each) in the Lazy and Chain
+        # enumerators, zip of an enumerable and Range#first, and the few
+        # methods that CRuby writes in Ruby with an `each` of their own
+        # (Pathname, Ractor.select). A `:ruby` method alone, such as
+        # Kernel#warn, has a C body behind its Ruby signature.
+        def native_each?
+          return @native_each unless @native_each.nil?
+
+          fn = self
+          fn = fn.outer while fn.kind == :block && fn.outer
+          @native_each = (@l.internal? || @l.support?) && !fn.attributes.include?(:sends_each)
+        end
+
         # Whether all the given gates are clear: one test of the gate word,
         # from its register.
         def gates_clear(*names)
           return @f.icmp("eq", imm(0), imm(0)) if native_operators?
 
+          gate_test(names)
+        end
+
+        # The gate of an inline `each` over an Array or a Range, which a
+        # def marked `:sends_each` keeps (`native_each?`).
+        def each_gate_clear(name)
+          return @f.icmp("eq", imm(0), imm(0)) if native_each?
+
+          gate_test([name])
+        end
+
+        def gate_test(names)
           @f.icmp("eq", @f.band(@f.gates, imm(names.sum { |name| @l.const(name) })), imm(0))
         end
 

@@ -163,7 +163,8 @@ class Struct
     return to_enum(:each_pair) { size } unless block_given?
 
     values = Primitive.zr_struct_values(self)
-    member_names.each_with_index { |m, i| yield [m, values[i]] }
+    names = member_names
+    names.each_index { |i| yield [names[i], values[i]] }
     self
   end
 

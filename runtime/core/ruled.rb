@@ -155,9 +155,9 @@ class Encoding
     return point.chr(UTF_8).bytes if point < 0x10000
 
     offset = point - 0x10000
-    [0xD800 + (offset >> 10), 0xDC00 + (offset & 0x3FF)].flat_map do |unit|
+    [0xD800 + (offset >> 10), 0xDC00 + (offset & 0x3FF)].map do |unit|
       [0xE0 | (unit >> 12), 0x80 | ((unit >> 6) & 0x3F), 0x80 | (unit & 0x3F)]
-    end
+    end.flatten(1)
   end
 
   # IBM037 as ISO-8859-1 in EBCDIC order: UTF-8 `text` into IBM037
@@ -178,7 +178,9 @@ class Encoding
     Primitive.attr! :hidden
     EBCDIC[0] ||= begin
       bytes = [EBCDIC_HEX].pack("H*")
-      [bytes, bytes.bytes.each_with_index.sort.map(&:last).pack("C*")]
+      codes = bytes.bytes
+      order = Array.new(codes.size) { |i| i }.sort! { |a, b| [codes[a], a] <=> [codes[b], b] }
+      [bytes, order.pack("C*")]
     end
   end
   private_class_method :ruled?, :ruled_char, :gb18030_char, :cesu8_char, :ruled_bytes_or_stop, :ruled_bytes, :cesu8_bytes,

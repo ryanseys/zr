@@ -143,10 +143,12 @@ class << ENV
   # Each name is read as a name, so a Symbol refuses here rather than
   # quietly missing.
   def slice(*names)
-    names.each_with_object({}) do |name, taken|
+    taken = {}
+    names.each do |name|
       value = self[name]
       taken[name] = value unless value.nil?
     end
+    taken
   end
 
   def assoc(name)

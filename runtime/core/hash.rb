@@ -52,7 +52,11 @@ class Hash
     raise ArgumentError, +"odd number of arguments for Hash" if args.size.odd?
 
     out = allocate
-    args.each_slice(2) { |k, v| Primitive.zr_hash_aset_m(out, k, v) }
+    i = 0
+    while i < args.size
+      Primitive.zr_hash_aset_m(out, args[i], args[i + 1])
+      i += 2
+    end
     out
   end
 
@@ -250,8 +254,8 @@ class Hash
     mapping = Hash.try_convert(mapping) || raise(TypeError, "no implicit conversion of #{conversion_name(mapping)} into Hash") if mapping
     moved = {}
     pairs = []
-    Primitive.zr_hash_foreach(self) { |k, v| pairs << k << v }
-    pairs.each_slice(2) do |k, v|
+    Primitive.zr_hash_foreach(self) { |k, v| pairs << [k, v] }
+    pairs.each do |k, v|
       new_key = if mapping && Primitive.zr_hash_key_p_m(mapping, k) then Primitive.zr_hash_fetch_m(mapping, k, nil)
                 elsif block_given? then yield(k)
                 else k

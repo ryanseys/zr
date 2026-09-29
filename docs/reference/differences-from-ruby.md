@@ -44,6 +44,8 @@ eval, to_binary and each_child as ruby does" tests the parts of
 | `Ripper` on source that does not parse | prism's recovery, translated to Ripper's events | the events of parse.y's own error recovery |
 | `$LOADED_FEATURES` after a `require` of a library that ruby ships as a C extension | the files of zr's Ruby port, such as `runtime/ext/etc.rb` and its table of names | one `.bundle` or `.so` file |
 | rubygems' boot files, such as `bundled_gems.rb` and its `LoadError#message` | loaded only when the program uses `Gem` | loaded before the program starts |
+| A `require` of a default or bundled gem | the pinned gem's files, compiled in; no rubygems code runs | rubygems activates the gem in Ruby code of its own, which a program's redefined methods (such as a counting `Array#each`) see |
+| A default gem that is also installed as an ordinary gem of the same version | the copy in ruby's own library, which the release digests cover | the installed copy, which can differ by a comment line and so gives other line numbers in a backtrace |
 | `OpenSSL::OPENSSL_LIBRARY_VERSION` | the OpenSSL library that zr runs on. `OPENSSL_VERSION` is ruby's. | the library that ruby's openssl was built against |
 | The core library's own helpers (for example `Packing`) | hidden from `constants`, `ObjectSpace` and the other reflection, but a program that names one (`Packing`, or `const_get`) finds it | not there |
 

@@ -66,11 +66,11 @@ module Zr
             @f.brif(@f.band(@f.icmp("eq", @f.band(recv, imm(7)), imm(0)), @f.icmp("ugt", recv, @qnil)), cell, slow)
             switch(cell)
             klass = @f.fetch("i64", recv, off(@l.layout("RBasic"), "klass"))
-            @f.brif(@f.band(@f.icmp("eq", klass, global("G_ARRAY")), gate_clear("GATE_EACH")), array, other)
+            @f.brif(@f.band(@f.icmp("eq", klass, global("G_ARRAY")), each_gate_clear("GATE_EACH")), array, other)
             switch(array)
             @f.jump(merge, [loop_in_place(node, recv, :array)])
             switch(other)
-            @f.brif(@f.band(@f.icmp("eq", klass, global("G_RANGE")), gate_clear("GATE_RANGE_EACH")), ranged, slow)
+            @f.brif(@f.band(@f.icmp("eq", klass, global("G_RANGE")), each_gate_clear("GATE_RANGE_EACH")), ranged, slow)
             switch(ranged)
             # A Range of fixnums loops over its ends. Other ranges use the call.
             bounds = @f.stack_addr(@f.slot(16))

@@ -1377,7 +1377,8 @@ class String
 
     chars = characters.to_a
     out = +"\""
-    chars.each_with_index do |char, i|
+    chars.each_index do |i|
+      char = chars[i]
       unless char.valid_encoding?
         char.each_byte { |byte| out << format("\\x%02X", byte) }
         next
@@ -2702,7 +2703,9 @@ class String
     return Primitive.zr_str_map_case_m(self, KERNEL_CASE[kind]) if mode != :turkic && KERNEL_CASE.key?(kind) && Primitive.zr_str_ascii_check(self)
 
     out = empty_like
-    characters.each_with_index do |char, i|
+    chars = characters
+    chars.each_index do |i|
+      char = chars[i]
       step = kind == :title ? (i.zero? ? :title : :down) : kind
       out << case_char(char, step, mode)
     end
@@ -2749,7 +2752,9 @@ class String
     Primitive.attr! :hidden
     target = Encoding.at(Primitive.zr_str_encoding_index_m(self))
     out = +"".b
-    characters.each_with_index do |char, i|
+    chars = characters
+    chars.each_index do |i|
+      char = chars[i]
       step = kind == :title && !i.zero? ? :down : kind
       out << (recased_char(char, step, options, target) || char.b)
     end
@@ -3188,7 +3193,8 @@ class Encoding
   def self.mb_rows(name)
     Primitive.attr! :hidden
     multi = mb_multi(name)
-    MB.fetch(name).each_with_object({}) do |(prefix, first, _count, id), out|
+    out = {}
+    MB.fetch(name).each do |prefix, first, _count, id|
       row = {}
       packed = MB_ROWS[id].unpack1("m")
       key = prefix.b
@@ -3222,6 +3228,7 @@ class Encoding
       # encoding; a walk reaches them with bytes.
       out[key] = row
     end
+    out
   end
 
   # The characters of an encoding that need more than one code point,
@@ -3374,7 +3381,7 @@ class Encoding
     return exchange(text, target, [from, target], options) if carrier?(from) && carrier?(target)
 
     path = from.equal?(UTF_8) || target.equal?(UTF_8) ? [from, target] : [from, UTF_8, target]
-    path.each_cons(2) { |a, b| converter(a, b, path, text.ascii_only?, decorators(options)) }
+    (1...path.size).each { |i| converter(path[i - 1], path[i], path, text.ascii_only?, decorators(options)) }
     text = to_utf8(text, path, options) unless from.equal?(UTF_8)
     text = from_utf8(text, target, path, options) unless target.equal?(UTF_8)
     text
@@ -3500,10 +3507,10 @@ class Encoding
     Primitive.attr! :hidden
     if unit
       units = unit == 4 || point < 0x10000 ? [point] : [0xD800 + ((point - 0x10000) >> 10), 0xDC00 + ((point - 0x10000) & 0x3FF)]
-      units.flat_map do |code|
-        bytes = (0...unit).map { |k| (code >> (8 * k)) & 0xFF }
+      units.map do |code|
+        bytes = Array.new(unit) { |k| (code >> (8 * k)) & 0xFF }
         big ? bytes.reverse : bytes
-      end
+      end.flatten(1)
     elsif point < 128
       [point]
     elsif writer
@@ -3764,7 +3771,7 @@ class Encoding
       return true if rest < unit
       return false unless unit == 2 && rest < 4
 
-      code = bytes.byteslice(at, 2).bytes.inject(0) { |out, byte| (out << 8) | byte }
+      code = (bytes.getbyte(at) << 8) | bytes.getbyte(at + 1)
       code = ((code & 0xFF) << 8) | (code >> 8) unless UNITS[encoding.name][1]
       return code.between?(0xD800, 0xDBFF)
     end
@@ -4040,10 +4047,12 @@ class Encoding
   # ASCII name (every encoding name is ASCII) one step.
   def self.by_name
     Primitive.attr! :hidden
-    @by_name ||= LIST.each_with_object({}) do |encoding, index|
-      encoding.names.each do |name|
-        index[name.upcase(:ascii)] ||= encoding
-        index[name] ||= encoding
+    @by_name ||= {}.tap do |index|
+      LIST.each do |encoding|
+        encoding.names.each do |name|
+          index[name.upcase(:ascii)] ||= encoding
+          index[name] ||= encoding
+        end
       end
     end
   end

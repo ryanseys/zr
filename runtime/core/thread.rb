@@ -212,8 +212,8 @@ class Thread
       return nil if @sleepers.empty?
 
       now = Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond)
-      due, rest = @sleepers.partition { |deadline, _| deadline <= now }
-      @sleepers = rest
+      due = @sleepers.select { |deadline, _| deadline <= now }
+      @sleepers = @sleepers.reject { |deadline, _| deadline <= now }
       due.each do |_, thread|
         thread.send(:timed_out)
         enqueue(thread)
@@ -253,7 +253,7 @@ class Thread
     # signal cut the wait short, since its handler may have woken
     # another thread.
     def next_sleeper
-      @sleepers.sort_by!(&:first)
+      @sleepers.sort! { |a, b| a[0] <=> b[0] }
       deadline, thread = @sleepers.first
       left = deadline - Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond)
       return nil if left > 0 && !Primitive.zr_nanosleep(left)

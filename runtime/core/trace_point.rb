@@ -29,7 +29,8 @@ class TracePoint
     undef_method :new
 
     def new(*events, &block)
-      mask = events.empty? ? ALL : events.inject(0) { |all, event| all | flag(event) }
+      mask = events.empty? ? ALL : 0
+      events.each { |event| mask |= flag(event) }
       raise ArgumentError, +"must be called with a block" unless block
 
       point = Primitive.zr_class_build(self)
@@ -125,7 +126,8 @@ class TracePoint
     # The kernel's mask: every event that an enabled TracePoint wants.
     def rearm
       Primitive.attr! :hidden
-      mask = enabled.inject(0) { |all, point| all | Primitive.zr_hidden_get(point, :__events__) }
+      mask = 0
+      enabled.each { |point| mask |= Primitive.zr_hidden_get(point, :__events__) }
       Primitive.zr_hidden_set(self, :__armed__, mask)
       builtin_places if (mask & 0x78).nonzero?
       Primitive.zr_trace_events_set(mask & ALL)
@@ -180,7 +182,7 @@ class TracePoint
       BUILTIN_LINES.each do |key, place|
         singleton = key.include?(".")
         owner_path, name = key.split(singleton ? "." : "#", 2)
-        owner = owner_path.split("::").inject(Object) { |scope, part| scope.const_get(part, false) } rescue next
+        owner = Object.const_get(owner_path, false) rescue next
         target = singleton ? owner.singleton_class : owner
         next unless Primitive.zr_trace_mark_ruby(target, name.to_sym)
 

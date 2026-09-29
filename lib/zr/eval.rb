@@ -36,12 +36,14 @@ module Zr
     # 30,000 allocations. Under stress, each allocation marks all of them
     # again, so one eval would take minutes.
     #
-    # The program's separators ($, $; $/ $\\) are set aside too: the
-    # compiler joins, splits and reads lines with ruby's defaults.
+    # The program's separators ($, $; $/ $\) are set aside too: the
+    # compiler joins, splits and reads lines with ruby's defaults. And
+    # its Enumerable methods walk Arrays and Hashes with the core's own
+    # `each`, not one that the program redefines (Runtime.compiling).
     def self.plainly(&)
       stress = GC.stress
       GC.stress = false
-      Runtime.plain_separators(&)
+      Runtime.plain_separators { Runtime.compiling(&) }
     ensure
       GC.stress = stress
     end

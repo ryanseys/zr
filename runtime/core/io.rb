@@ -1312,9 +1312,11 @@ class IO
   def self.print_to(out, objects)
     Primitive.attr! :hidden
     objects = [$_] if objects.empty?
-    objects.each_with_index do |object, i|
-      out.write($,) if $, && i > 0
+    first = true
+    objects.each do |object|
+      out.write($,) if $, && !first
       out.write(object)
+      first = false
     end
     out.write($\) if $\
     nil

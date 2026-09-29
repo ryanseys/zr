@@ -113,7 +113,7 @@ class Encoding
     def destination_encoding = @destination
 
     def convpath
-      @path.each_cons(2).to_a + WALKED.select { |name| @decorators.include?(name) }.map { |name| PATH_NAMES[name] }
+      Array.new([@path.size - 1, 0].max) { |i| [@path[i], @path[i + 1]] } + WALKED.select { |name| @decorators.include?(name) }.map { |name| PATH_NAMES[name] }
     end
 
     def inspect = Primitive.zr_obj_form("#<#{self.class}: #{description(true)}>")

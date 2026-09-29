@@ -396,7 +396,7 @@ class Time
       return offsets[0] if offsets.size == 1
 
       fitting = offsets.select { |offset| zone_at(secs - offset)[0] == offset }
-      (fitting.empty? ? offsets : fitting).inject { |least, x| x < least ? x : least }
+      (fitting.empty? ? offsets : fitting).min
     end
 
     # The zone's offset, daylight flag and name at `secs`, as localtimew
