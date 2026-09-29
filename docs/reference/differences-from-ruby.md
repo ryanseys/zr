@@ -43,6 +43,7 @@ eval, to_binary and each_child as ruby does" tests the parts of
 | `ObjectSpace.dump` of an object on the heap | the address, the type, the class, `frozen`, the value, the size and `memsize` | also `shape_id`, `slot_size`, `embedded`, `chilled`, `coderange` and `flags`, which describe CRuby's heap |
 | `Ripper` on source that does not parse | prism's recovery, translated to Ripper's events | the events of parse.y's own error recovery |
 | `$LOADED_FEATURES` after a `require` of a library that ruby ships as a C extension | the files of zr's Ruby port, such as `runtime/ext/etc.rb` and its table of names | one `.bundle` or `.so` file |
+| `source_location` and `Method#inspect` of a method that a ported library defines in Ruby, such as `RbConfig.expand` | nil, and no file in `inspect` | the library's file in ruby's own directory and the line |
 | rubygems' boot files, such as `bundled_gems.rb` and its `LoadError#message` | loaded only when the program uses `Gem` | loaded before the program starts |
 | A `require` of a default or bundled gem | the pinned gem's files, compiled in; no rubygems code runs | rubygems activates the gem in Ruby code of its own, which a program's redefined methods (such as a counting `Array#each`) see |
 | A default gem that is also installed as an ordinary gem of the same version | the copy in ruby's own library, which the release digests cover | the installed copy, which can differ by a comment line and so gives other line numbers in a backtrace |
