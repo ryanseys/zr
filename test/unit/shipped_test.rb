@@ -21,7 +21,7 @@ class ShippedTest < Minitest::Test
 
   # The digest names each file by its path below the root, so the same
   # tree in another place gives the same digest. A file outside the root
-  # (the library tree) is not part of it.
+  # is not part of it.
   def test_the_digest_leaves_out_files_outside_the_root
     Dir.mktmpdir("zr-shipped-") do |dir|
       outside = File.join(dir, "library.rb")

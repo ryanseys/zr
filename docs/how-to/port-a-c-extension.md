@@ -5,8 +5,8 @@ programs that zr compiles. zr never compiles C, so the C half of the
 extension becomes Ruby. To learn why, read
 [Why zr has no C](../explanation/why-zr-has-no-c.md).
 
-A gem without C needs no port: pin it, as
-[How to change the version of a pinned library](bump-a-library.md)
+A gem without C needs no port: ruby 4.0.7's copy is in `stdlib/`, as
+[How to update zr's standard library](update-the-stdlib.md)
 shows.
 
 ## 1. Add the gem's Ruby half
@@ -24,8 +24,14 @@ vendor/ext/digest/
 
 Never edit these files. If the gem does not work, fix zr.
 
-Add the gem's name to `GEMS` in `lib/zr/hir/build.rb`, so that a
-`require` finds it. Add a row for it to `THIRD_PARTY_NOTICES.md`.
+Add the gem to `ALL` in `lib/zr/ports.rb`, with its version and the
+compat range of the Ruby halves that the port supports (`~> x.y.z` by
+default). Then a `require` finds it, and `zr-dev reference` installs
+that version for the tests. If `stdlib/` has the gem, remove it from
+`BUNDLED` or `DEFAULT` in `tool/gen/stdlib.rb` and run
+`zr-dev gen stdlib`. Add a row for it to `THIRD_PARTY_NOTICES.md`, and
+to [Library versions](../reference/differences-from-ruby.md#library-versions)
+when its version is not ruby 4.0.7's.
 
 ## 2. Write the C half in Ruby
 

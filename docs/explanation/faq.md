@@ -4,10 +4,11 @@
 
 zr promises the output that ruby 4.0.7 gives. Each test compares zr's
 output with a recording from that one ruby, and zr compiles that
-ruby's own library into each program. Another ruby, even 4.0.8, has
-another library and other answers. So `gem install zr` works only on
-ruby 4.0.7, and a new ruby release needs a new zr release. See
-[The pinned ruby is part of the toolchain](the-contract.md#the-pinned-ruby-is-part-of-the-toolchain).
+ruby's own library, which zr carries, into each program. The host ruby
+only runs the compiler, so zr also runs on a later 4.0 release, with a
+warning: the programs that it builds still give ruby 4.0.7's answers.
+A ruby outside 4.0 is refused. See
+[ruby 4.0.7 is part of the toolchain](the-contract.md#ruby-407-is-part-of-the-toolchain).
 
 ## What happens when my program uses something zr does not support?
 

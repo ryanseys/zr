@@ -7,8 +7,8 @@ zr compiles each file that a program requires into the binary, when it
 builds. So a `require` works only for a file that zr can find at build
 time, or for a file that the binary can compile when it runs (see
 [A require that zr cannot read at build time](#a-require-that-zr-cannot-read-at-build-time)).
-zr never uses the host's rubygems to find a gem: the same source gives
-the same binary on any machine.
+zr never reads the host's installed gems: the same source gives the
+same binary on any machine.
 
 ## Ruby's own library: nothing to do
 
@@ -21,14 +21,19 @@ require "net/http"
 require "csv"        # a bundled gem
 ```
 
-zr reads these files from the default and bundled gems of ruby 4.0.7,
-at the versions that ruby ships, and from `vendor/lib`. A small number
-of names have no file in zr, for example `mkmf`. A `require` of one of
-them raises `LoadError` when it runs.
+zr reads these files from its own copy of ruby 4.0.7's standard
+library (`stdlib/` in the gem): the default and bundled gems, at the
+versions that ruby 4.0.7 ships. A gem that you install on the host
+(for example a newer `csv`) does not change what the program gets. A
+small number of names have no file in zr, for example `mkmf`. A
+`require` of one of them raises `LoadError` when it runs.
 [What zr supports](../reference/support.md) lists them.
 
 A library with a C extension, such as `json`, `psych` or `zlib`, works
-because zr has a Ruby port of its C. See
+because zr has a Ruby port of its C. Some ports are at a later version
+than ruby 4.0.7 ships, for example json 3.0.2; see
+[Library versions](../reference/differences-from-ruby.md#library-versions).
+To port another one, see
 [How to port a C extension](port-a-c-extension.md).
 
 ## Your own files
@@ -75,7 +80,7 @@ path. The binary then includes eval support (the compiler, about
 It has these limits:
 
 - The binary needs the file on the machine where it runs, at the same
-  path, and the same versions of the pinned gems.
+  path.
 - A `wasm32-wasi` module refuses it: the tree-walking interpreter
   cannot run a file that zr did not compile into the module.
 - zr does not test a Gemfile of third-party gems. A pure-Ruby gem that
@@ -85,6 +90,7 @@ See [Eval in a compiled program](../explanation/eval-in-a-compiled-program.md).
 
 ## zr in a Gemfile
 
-Install zr with `gem install zr`, not with a Gemfile. zr's gemspec
-pins each default and bundled gem of ruby 4.0.7 to one version, so
-most bundles cannot resolve beside it.
+zr has no gem dependencies, so you can add it to a Gemfile
+(`gem "zr", group: :development`) or install it with `gem install zr`.
+A build reads zr's own standard library in both cases, not the
+bundle's gems.

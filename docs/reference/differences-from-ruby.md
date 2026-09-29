@@ -45,10 +45,30 @@ eval, to_binary and each_child as ruby does" tests the parts of
 | `$LOADED_FEATURES` after a `require` of a library that ruby ships as a C extension | the files of zr's Ruby port, such as `runtime/ext/etc.rb` and its table of names | one `.bundle` or `.so` file |
 | `source_location` and `Method#inspect` of a method that a ported library defines in Ruby, such as `RbConfig.expand` | nil, and no file in `inspect` | the library's file in ruby's own directory and the line |
 | rubygems' boot files, such as `bundled_gems.rb` and its `LoadError#message` | loaded only when the program uses `Gem` | loaded before the program starts |
-| A `require` of a default or bundled gem | the pinned gem's files, compiled in; no rubygems code runs | rubygems activates the gem in Ruby code of its own, which a program's redefined methods (such as a counting `Array#each`) see |
-| A default gem that is also installed as an ordinary gem of the same version | the copy in ruby's own library, which the release digests cover | the installed copy, which can differ by a comment line and so gives other line numbers in a backtrace |
+| A `require` of a default or bundled gem | the gem's files from zr's `stdlib/`, compiled in; no rubygems code runs | rubygems activates the gem in Ruby code of its own, which a program's redefined methods (such as a counting `Array#each`) see |
+| A default or bundled gem that is also installed at another version | the version that ruby 4.0.7 ships, from `stdlib/` | the newest installed version |
 | `OpenSSL::OPENSSL_LIBRARY_VERSION` | the OpenSSL library that zr runs on. `OPENSSL_VERSION` is ruby's. | the library that ruby's openssl was built against |
 | The core library's own helpers (for example `Packing`) | hidden from `constants`, `ObjectSpace` and the other reflection, but a program that names one (`Packing`, or `const_get`) finds it | not there |
+
+## Library versions
+
+zr carries the pure-Ruby files of ruby 4.0.7's default and bundled gems
+at the versions that ruby 4.0.7 ships (`Zr::Stdlib`). The gems with a
+C part are zr's own ports (`Zr::Ports`). Five of them are at a later
+version than ruby 4.0.7 ships, so their Ruby files and their behavior
+are those of the later version:
+
+| Gem | zr | ruby 4.0.7 |
+|---|---|---|
+| prism | 1.9.0 | 1.8.1 (default gem) |
+| json | 3.0.2 | 2.18.0 (default gem) |
+| bigdecimal | 4.1.2 | 4.0.1 (bundled gem) |
+| syslog | 0.4.0 | 0.3.0 (bundled gem) |
+| nkf | 0.3.0 | 0.2.0 (bundled gem) |
+
+ffi 1.17.4 is also a port; ruby 4.0.7 does not ship ffi. The other
+ports (psych, digest, openssl, fiddle, date, stringio, strscan, zlib,
+io-console, etc, fcntl) are at ruby 4.0.7's versions.
 
 ## The locale
 

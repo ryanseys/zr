@@ -2,10 +2,10 @@
 
 ## The gem
 
-The gem contains `exe/`, `lib/`, `licenses/`, `runtime/`,
-`vendor/ext/`, `vendor/lib/` and `vendor/prelude/`, with `README.md`,
-`CHANGELOG.md` and the license files. The pure-Ruby library that a program requires
-is not in the gem. It is the gems that `zr.gemspec` depends on
+The gem contains `exe/`, `lib/`, `licenses/`, `runtime/`, `stdlib/`,
+`vendor/ext/` and `vendor/prelude/`, with `README.md`, `CHANGELOG.md`
+and the license files. It has no gem dependencies: the pure-Ruby
+library that a program requires is `stdlib/`
 (`lib/zr/libraries.rb`).
 
 | Path | Contains |
@@ -27,8 +27,9 @@ is not in the gem. It is the gems that `zr.gemspec` depends on
 | `lib/zr/backend.rb` | `Zr::Backend`: what the backends share, and `Backend::Refused` |
 | `lib/zr/self_built.rb` | a binary that zr builds from this checkout's own files: the compiled compiler, or the tools |
 | `lib/zr/shipped.rb` | the compiled compiler that a platform gem ships |
-| `lib/zr/libraries.rb`, `lib/zr/libraries/` | the pinned gems that a program requires from, and the library tree that links them |
-| `lib/zr/library_digests.rb` | the digests of the pinned gems' files (`zr-dev gen libraries`) |
+| `lib/zr/libraries.rb` | the directories of `stdlib/` that a program requires from |
+| `lib/zr/stdlib.rb` | the name and version of each gem in `stdlib/` (`zr-dev gen stdlib`) |
+| `lib/zr/ports.rb` | the gems with a C part that zr ports, with their versions and compat ranges |
 | `lib/zr/target.rb` | the targets, and what this host can build |
 | `lib/zr/prism.rb` | loads prism on the host; `Zr.parse` |
 | `lib/zr/parse_cache.rb` | the host's cache of parse results |
@@ -62,7 +63,7 @@ is not in the gem. It is the gems that `zr.gemspec` depends on
 | `runtime/ext/os/<os>/` | extension tables, and the description (`zr_description.rb`) |
 | `runtime/ext/zr/` | zr's own runtime files: the run-time half of eval support, and the files that load a library at its first call (`pp`, `irb`, `unicode_normalize`), as CRuby's prelude does |
 | `vendor/ext/<gem>/lib/` | the Ruby halves of extension gems, not edited |
-| `vendor/lib/` | the files of ruby 4.0.7's library that no gem contains, not edited; `vendor/lib/VERSIONS` lists them |
+| `stdlib/` | ruby 4.0.7's pure-Ruby standard library, as a stock ruby installs it, not edited (`zr-dev gen stdlib`); see [How to update zr's standard library](../how-to/update-the-stdlib.md) |
 | `vendor/prelude/` | ruby's `gem_prelude.rb` |
 
 ### What the host loads
@@ -73,16 +74,9 @@ beside `lib/`, not in it:
 - `runtime/` is never on the host's load path. zr compiles it into
   programs. The host loads only namespaced, pure parts of it, by path:
   `Regexp::Onig`, `Prism::Ruby` and `zr_description`.
-- `vendor/` is never on the host's load path. A file such as
-  `vendor/lib/pathname.rb` must never replace ruby's own.
-
-### The library tree
-
-A build requires ruby's library from one directory, the library tree.
-It has a link to each file of each pinned gem and of `vendor/lib`. It
-is `tmp/lib/` in a checkout, and `lib/` in the user cache directory
-(for example `~/Library/Caches/zr/lib/`) for an installed gem. `lib/zr/libraries/resolve.rb` writes it, in
-a ruby with rubygems, when the gems change.
+- `stdlib/` and `vendor/` are never on the host's load path. A file
+  such as `stdlib/lib/ruby/4.0.0/pathname.rb` must never replace the
+  host ruby's own.
 
 ## The repository only
 
@@ -124,4 +118,4 @@ the snapshots that tests in `test/unit/` read.
 |---|---|
 | `licenses/` | the license texts of the parts that have no other copy in the gem; see `THIRD_PARTY_NOTICES.md` |
 | `benchmark/` | the benchmarks: whole programs with their recordings, and the rungs that `zr-dev compile` builds (`benchmark/compile/`); see `benchmark/README.md` |
-| `tmp/` | not committed: the cache (`tmp/cache/`), the library tree, the test progress file, the bootstrap stages |
+| `tmp/` | not committed: the cache (`tmp/cache/`), the test reference (`tmp/reference/`), the stdlib download cache (`tmp/stdlib/`), the test progress file, the bootstrap stages |

@@ -19,8 +19,8 @@ Commands:
 ```
 
 `zr help <command>` and `zr <command> --help` (or `-h`) print the
-options of a command. `zr version` prints zr's version and the ruby it
-pins (`zr 0.1.0 (ruby 4.0.7)`). `zr --version` and `zr -v` are the
+options of a command. `zr version` prints zr's version and the ruby
+whose output it gives (`zr 0.1.0 (ruby 4.0.7)`). `zr --version` and `zr -v` are the
 same.
 
 An option takes its value as the next word or after `=`: `--emit wasm`
@@ -123,7 +123,7 @@ ok    ruby               4.0.7
 ok    host               aarch64-apple-darwin
 ok    wasmtime           /opt/homebrew/bin/wasmtime
 ok    openssl            /opt/homebrew/opt/openssl@3/lib/libssl.3.dylib
-ok    pinned gems        62 libraries
+ok    libraries          stdlib of ruby 4.0.7 (59 gems), 17 ports
 ok    cache              ~/Library/Caches/zr, 2703 MB
 ok    compiled compiler  current
 ```

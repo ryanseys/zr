@@ -32,10 +32,10 @@ $ zr doctor          # what this host has, and what zr can do here
 
 You need:
 
-- ruby 4.0.7 exactly. zr runs on this version and checks its output
-  against it, so `gem install zr` fails on any other ruby. The gem's
-  dependencies are ruby 4.0.7's own default and bundled gems, so the
-  install downloads only zr;
+- ruby 4.0.7, or a later 4.0 release. zr checks its output against
+  ruby 4.0.7, and gives a warning on a later 4.0 release. The gem has
+  no dependencies: it carries ruby 4.0.7's standard library itself, so
+  the install downloads only zr;
 - [wasmtime](https://wasmtime.dev), to run WebAssembly modules;
 - OpenSSL 3 (`brew install openssl@3`), only for a macOS program that
   requires `openssl`.
@@ -46,9 +46,6 @@ zr's runtime into a cache (some minutes), and an Apple Silicon Mac
 then builds a compiled copy of zr for faster builds (some minutes;
 `ZR_COMPILED=0` skips it). `zr cache` shows the cache, and
 `zr cache clean` frees it.
-
-Install zr with `gem install`, not in a Gemfile: its exact pins of
-ruby's gems conflict with most bundles.
 
 ## Use
 

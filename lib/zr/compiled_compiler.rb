@@ -13,8 +13,8 @@ module Zr
   #
   # `exe/zr` calls this module first. The compiled compiler runs a build
   # only if its source files are unchanged: the same list of files, and
-  # the same file stamp for each file under lib/, runtime/, vendor/, the
-  # library tree, and exe/zr. Otherwise ruby runs the command. An
+  # the same file stamp for each file under lib/, runtime/, stdlib/,
+  # vendor/ and exe/zr. Otherwise ruby runs the command. An
   # installed gem builds the compiled compiler at its first build and
   # tells the user. A checkout, whose files change frequently, builds one
   # only with `ZR_COMPILED=1` or `rake build:self`, as `bin/zr`. With `ZR_COMPILED=0`,
@@ -90,9 +90,7 @@ module Zr
         build
         current = current?
       end
-      # The compiled compiler has no rubygems, so this ruby resolves a
-      # library pin again for it.
-      exec({ "ZR_HOST_RUBY" => RbConfig.ruby }, binary, *argv) if current
+      exec(binary, *argv) if current
     end
 
     # Whether this host can run the compiled compiler: it is a binary for

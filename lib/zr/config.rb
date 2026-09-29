@@ -15,7 +15,7 @@ module Zr
     # link), `ruby` (zr's linker only) or `cc`. Empty or unset is `auto`.
     LINKERS = %w[auto ruby cc].freeze
 
-    attr_reader :linker, :wasm_width, :cache, :cache_max_gb, :host_ruby, :link
+    attr_reader :linker, :wasm_width, :cache, :cache_max_gb, :link
 
     def initialize
       @linker = ENV["ZR_LINKER"].to_s.empty? ? "auto" : ENV["ZR_LINKER"]
@@ -37,7 +37,6 @@ module Zr
       # `ZR_CACHE_MAX_GB`: the most GB an installed zr keeps in its cache
       # (default 5; 0 turns the limit off).
       @cache_max_gb = Float(ENV.fetch("ZR_CACHE_MAX_GB", 5))
-      @host_ruby = ENV.fetch("ZR_HOST_RUBY", "ruby")
       # `ZR_LINK_ARGS`: words for the system linker, as `--link` gives
       # them, split as a shell splits them.
       @link = words(ENV.fetch("ZR_LINK_ARGS", "")).freeze

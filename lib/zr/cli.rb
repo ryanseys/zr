@@ -82,7 +82,7 @@ module Zr
 
         Checks what zr needs on this host, and prints ok, warn or fail for
         each: the ruby version, the targets this host builds, wasmtime,
-        OpenSSL 3, the pinned gems, the cache and the compiled compiler.
+        OpenSSL 3, the standard library, the cache and the compiled compiler.
         Exits with status 1 if a check fails.
       TEXT
       "cache" => <<~TEXT

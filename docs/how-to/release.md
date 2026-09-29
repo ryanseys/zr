@@ -162,9 +162,8 @@ image and the skeletons are made again in the user's cache.
 | `zr-<version>-arm64-darwin.gem` | The sources and the compiled compiler for macOS. | Spike: `zr-dev gem native` builds and tests it. |
 | `zr-<version>-aarch64-linux-gnu.gem`, `zr-<version>-aarch64-linux-musl.gem` | The sources and one static Linux binary. The same binary is in both gems. | Not started. It needs a compiled compiler for `aarch64-linux`, built on a Linux host. |
 
-Every gem keeps `required_ruby_version "= 4.0.7"`. A platform gem still
-needs a host ruby, which resolves the library pins
-(`Libraries.resolve`, `ZR_HOST_RUBY`).
+Every gem keeps `required_ruby_version ">= 4.0.7", "< 4.1"`. A platform
+gem still needs a host ruby, which runs `exe/zr`.
 
 Before a release publishes platform gems, decide:
 

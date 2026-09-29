@@ -106,14 +106,6 @@ class ConfigTest < Minitest::Test
     Zr::Config.with(ZR_CACHE: "/tmp/zr-cache") { |config| assert_equal "/tmp/zr-cache", config.cache }
   end
 
-  def test_host_ruby_defaults_to_ruby
-    Zr::Config.with(ZR_HOST_RUBY: nil) { |config| assert_equal "ruby", config.host_ruby }
-  end
-
-  def test_host_ruby_reads_an_explicit_path
-    Zr::Config.with(ZR_HOST_RUBY: "/opt/ruby/bin/ruby") { |config| assert_equal "/opt/ruby/bin/ruby", config.host_ruby }
-  end
-
   def test_config_is_frozen
     Zr::Config.with(ZR_LINKER: "cc") { |config| assert_predicate config, :frozen? }
   end

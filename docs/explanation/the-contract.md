@@ -52,20 +52,22 @@ two times: `test/unit/prism_test.rb` and `regexp_diff_test.rb` compare
 the port with ruby's C on the host, object by object, over a committed
 sample.
 
-## The pinned ruby is part of the toolchain
+## ruby 4.0.7 is part of the toolchain
 
-ruby 4.0.7 is more than the reference. It runs the compiler. Its
-pure-Ruby standard library (its default and bundled gems, at the
-versions that `zr.gemspec` pins) is what a program's `require` reads.
-The generated tables (`zr-dev gen`) come from it. Thus
-`zr build` and `zr run` refuse to compile on a different ruby, with
-status 3, and each generator task stops on one.
+ruby 4.0.7 is more than the reference. Its pure-Ruby standard library
+is what a program's `require` reads, and the generated tables
+(`zr-dev gen`) come from it. zr carries that library itself, in
+`stdlib/`, as JRuby and TruffleRuby carry theirs: a stock ruby 4.0.7's
+files, byte for byte (`zr-dev gen stdlib --check`). A build never reads
+the host's gems, so a distributor's patched copy of a gem, or a newer
+gem that `gem update` installed, does not change a program.
 
-A build also refuses a pinned gem whose files are not the files that
-zr was tested with (`lib/zr/library_digests.rb`). A distributor's
-patched copy of a default gem is not ruby's. A newer ruby is a new
-toolchain: `.ruby-version`, the pins and their digests, `vendor/lib`,
-the tables and the recordings all change to it together.
+The host ruby only runs the compiler. `zr build` and `zr run` run on
+ruby 4.0.7 or a later 4.0 release (a later release gives a warning),
+and refuse any other ruby with status 3. Each generator task stops on a
+ruby other than 4.0.7. A newer ruby is a new toolchain:
+`.ruby-version`, `stdlib/`, the tables and the recordings all change
+to it together.
 
 ## How the specs keep the promise
 

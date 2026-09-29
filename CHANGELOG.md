@@ -13,8 +13,9 @@ The first public release.
 
 - `gem install zr` installs the `zr` command on ruby 4.0.7: `run`,
   `build`, `machine`, `targets`, `doctor`, `cache`, `version` and
-  `help`. The gem's dependencies are ruby 4.0.7's own default and
-  bundled gems, so the install downloads only zr, and compiles nothing.
+  `help`. The gem has no dependencies: it carries ruby 4.0.7's
+  standard library (`stdlib/`), so the install downloads only zr, and
+  compiles nothing. zr runs on ruby 4.0.7 or a later 4.0 release.
 - A compiled program gives ruby 4.0.7's output byte for byte, or zr
   refuses it at build time with exit status 3. A refusal gives the
   file, the line and the column, the form, the source line with a
@@ -41,7 +42,7 @@ The first public release.
   in a cache, which `zr cache` shows and cleans, and which an installed
   zr keeps under `ZR_CACHE_MAX_GB`.
 - `zr doctor` checks the ruby, the host's targets, wasmtime, OpenSSL,
-  the pinned gems, the cache and the compiled compiler.
+  the standard library, the cache and the compiled compiler.
 - MIT License. `THIRD_PARTY_NOTICES.md` names every part from other
   work, and `licenses/` holds the license texts that have no other copy
   in the gem.

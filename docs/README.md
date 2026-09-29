@@ -24,7 +24,7 @@ Steps for a goal that you already have.
 - [How to debug a wrong answer](how-to/debug-a-wrong-answer.md)
 - [How to add a method to the core library](how-to/add-a-core-method.md)
 - [How to port a C extension](how-to/port-a-c-extension.md)
-- [How to change the version of a pinned library](how-to/bump-a-library.md)
+- [How to update zr's standard library](how-to/update-the-stdlib.md)
 - [How to test on another target](how-to/test-on-another-target.md)
 - [How to measure performance](how-to/measure-performance.md)
 - [How to release zr](how-to/release.md)

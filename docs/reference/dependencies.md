@@ -7,17 +7,20 @@ is C or assembler source in the repository.
 
 | Dependency | Why | Needed for |
 |---|---|---|
-| ruby 4.0.7 exactly | runs the compiler; zr checks its output against this version | everything |
+| ruby 4.0.7, or a later 4.0 release | runs the compiler; zr checks its output against ruby 4.0.7, and warns on a later release | everything |
 | libSystem | the only dynamic library that a macOS binary links | macOS binaries |
 | OpenSSL 3 (libssl and libcrypto) | a macOS binary opens them when it runs `require "openssl"`: from `OPENSSL_DIR`, else from the Homebrew or MacPorts prefix. Without them, that `require` raises `LoadError`. Nothing else needs them | programs that require `openssl` |
 | `cc` (Xcode Command Line Tools) | links a macOS binary only under `ZR_LINKER=cc`, or when zr's own linker refuses one | optional |
 | musl's `cc`, or `aarch64-linux-musl-gcc` | links a static binary | `aarch64-linux-musl` binaries |
 | wasmtime | runs a module; `zr run --emit wasm` uses it | running WASI modules |
 
-The gem depends on the default and bundled gems of ruby 4.0.7. Each is
-pinned to the version that ruby 4.0.7 includes (`Zr::Libraries::PINS`).
-A program's `require` of a pure-Ruby library reads that gem. The
-install compiles nothing.
+The gem has no dependencies. It carries ruby 4.0.7's pure-Ruby
+standard library in `stdlib/`, as a stock ruby 4.0.7 installs it: the
+default gems and the bundled gems, at the versions that ruby 4.0.7
+includes (`Zr::Stdlib`). A program's `require` reads those files, and
+never the host's gems. The gems with a C part are zr's own ports
+(`Zr::Ports`); [Differences from ruby](differences-from-ruby.md#library-versions)
+lists the versions. The install compiles nothing.
 
 zr links a macOS binary itself (`Obj::MachO::Executable`). When it
 runs `cc`, it sets `DEVELOPER_DIR` and `SDKROOT` to the install that
@@ -27,7 +30,7 @@ Tools does not use its `ld` with an SDK that it cannot read. zr keeps a
 
 ## To work in a checkout
 
-`bin/setup` installs the gems.
+`bin/setup` installs the gems, and the test reference (`zr-dev reference`).
 
 | Dependency | Why | Used by |
 |---|---|---|
@@ -39,6 +42,8 @@ Tools does not use its `ld` with an SDK that it cannot read. zr keeps a
 | `fiddle` gem ~> 1.1 | loads code into the test process | `lib/zr/obj/jit/fiddle.rb`, `Harness::KernelJIT` |
 | `benchmark` gem ~> 0.5 | the clock of `zr-dev bench` and `zr-dev compile` | `test/support/harness/bench.rb`, `tool/compile.rb` |
 | `rubocop` gem ~> 1.89 | `rake lint` | `.rubocop.yml` |
+| `irb` gem | `bin/console` | by hand |
 | `vernier` gem ~> 1.0 | profiles the compiler; never part of a build or a test | by hand |
 | wasmtime | runs the wasm tests; a test skips without it | `wasm_test`, `programs_test`, the tiers under `TARGET=wasm32-wasi` |
+| the test reference | ruby 4.0.7's bundled gems, and each port's gem at zr's version, in `tmp/reference/gems` (`zr-dev reference`). Every expected output comes from ruby with only these gems | `zr-dev oracle`, `zr-dev record`, `zr-dev probe`, the syntax-error specs |
 | `nm`, `otool` | read an object and a binary back | `macho_test`, `exe_test`, `native_test` |

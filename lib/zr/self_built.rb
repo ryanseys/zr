@@ -15,7 +15,7 @@ module Zr
 
     # `entry` is the program, `dirs` the directories below the root whose
     # files it is built from, and `extra` a block that gives more source
-    # files (the compiler's library tree).
+    # files.
     def initialize(entry:, binary:, dirs:, &extra)
       @entry = File.join(Paths::ROOT, entry)
       @binary = binary

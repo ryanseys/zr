@@ -253,6 +253,6 @@ string.
   The program's own memory is a small part of this. `wasmtime compile`
   moves this cost out of the run.
 - A binary with eval support contains the absolute paths of the gem's
-  `runtime/ext` and `vendor/ext/*/lib`, and of the library tree it was
-  built with. A computed `require` in such a binary works only while
-  that version of the gem and its pinned gems stay installed.
+  `runtime/ext`, `vendor/ext/*/lib` and `stdlib/`. A computed
+  `require` in such a binary works only while that version of the gem
+  stays installed.

@@ -21,7 +21,7 @@ module Zr
     #   (runtime/core/os/darwin/errno.rb as errno). The kernel's description
     #   of an OS layer (runtime/ext/os/) is in every program that evals, so
     #   it maps to all specs.
-    # - A change to the compiler (and its pinned gems), the kernel or the
+    # - A change to the compiler, the kernel or the
     #   test support maps to all specs. A change to a tool maps to the unit
     #   tests, which test the tools; no spec runs one.
     class Affected < Command
