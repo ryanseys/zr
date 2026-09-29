@@ -264,7 +264,7 @@ module Zr
 
       Paths.root = opts[:root]
       link = Config.current.link + opts[:link]
-      cache = kept_run(input, target, link, opts[:args]) if command == "run" && emit.nil?
+      cache = @missed || kept_run(input, target, link, opts[:args]) if command == "run" && emit.nil?
       require_relative "runtime"
       require_relative "native/build"
       # Under ruby, lib/zr/prism.rb turns the parse cache on. A compiled
@@ -473,6 +473,33 @@ module Zr
 
       cache&.keep(out, program, work) if program.is_a?(Zr::Program)
       run_binary(out, rest)
+    end
+
+    # A `zr run` whose binary is in the run cache: execs the binary now,
+    # before zr looks for a compiled compiler or starts again with the
+    # collector limits (40 ms each). This process then is the program, so
+    # its status and signals are the program's own. Does nothing for any
+    # other command, for a `zr run` that needs a build, and in the second
+    # start (whose first start already looked).
+    def kept!(argv)
+      return unless argv.first == "run" && !ENV.key?(Tune::ADDED) && !Zr.compiled?
+
+      require_relative "run_cache"
+      return unless RunCache.wanted?
+
+      opts = parse("run", argv.drop(1))
+      return if opts[:emit] || opts[:triple] || host_refusal || !File.file?(opts[:input])
+
+      target = Target.default
+      return unless target.native? && target.refusal(nil).nil?
+
+      Paths.root = opts[:root]
+      digest = Zr.runtime_digest(target) or return
+      cache = RunCache.new(opts[:input], target: target, digest: digest, link: Config.current.link + opts[:link])
+      kept = cache.hit
+      exec(Tune.program_env, kept, *opts[:args]) if kept
+      # The build keeps its binary here, with no second digest.
+      @missed = cache
     end
 
     # A program that ran before with the same sources runs from the run

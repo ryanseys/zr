@@ -20,9 +20,10 @@ module Zr
 
     # The cache files, the binaries that the spec tier and `zr run` keep in
     # the cache, the parsed trees (lib/zr/parse_cache.rb) and the packs of
-    # machine code (lib/zr/native/code_cache.rb). Their names come from the
+    # machine code (lib/zr/native/code_cache.rb), and the compiled
+    # instructions of zr's own files (lib/zr/iseq_cache.rb). Their names come from the
     # source only, so only age shows which are not used.
-    def all = Dir[File.join(Paths.cache, "{*,binaries/*,parse/*,run/*/*,code/*/*,core/*/*,eval-*/*/*}")].select { |path| File.file?(path) }
+    def all = Dir[File.join(Paths.cache, "{*,binaries/*,parse/*,iseq/*,run/*/*,code/*/*,core/*/*,eval-*/*/*}")].select { |path| File.file?(path) }
 
     # The compiled compilers of other zr versions and installs, in the
     # user's cache (lib/zr/compiled_compiler.rb). Each one is about
@@ -86,6 +87,7 @@ module Zr
     def kind(path)
       return "binary" if File.basename(File.dirname(path)) == "binaries"
       return "parse" if File.basename(File.dirname(path)) == "parse"
+      return "iseq" if File.basename(File.dirname(path)) == "iseq"
       return "code" if File.basename(File.dirname(path, 2)) == "code"
       return "core" if File.basename(File.dirname(path, 2)) == "core"
       return "eval units" if File.basename(File.dirname(path, 2)).start_with?("eval-")

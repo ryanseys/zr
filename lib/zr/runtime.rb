@@ -440,7 +440,7 @@ module Zr
     hir = Zr.clock("hir built") { Hir.build(source, file, prebuilt: support, target: target) }
     # A large program is heavy work too (`Tune`): bundler's 1.2 MB of source
     # takes seconds to lower.
-    Tune.heavy! if source.bytesize + hir.units.sum { |u| u.source.to_s.bytesize } > HEAVY_SOURCE
+    Tune.heavy!(restart: false) if source.bytesize + hir.units.sum { |u| u.source.to_s.bytesize } > HEAVY_SOURCE
     # Before the lowering, which lets go of each unit's source.
     sources = sources ? built_from(source, file, hir) : {}
     symbols = hir.evals ? support.symbols : Machine::Symbols.new(rt.symbols.names, sites: rt.symbols.sites)

@@ -3,9 +3,9 @@
 require "test_helper"
 require "zr/tune"
 
-# `exe/zr` sets the collector limits at once, and turns YJIT on only at
-# the first step of heavy work: a warm build of a small program is faster
-# without YJIT's own compiling.
+# `exe/zr` waits for the first step of heavy work: a warm build of a small
+# program is faster without YJIT's own compiling, and without a second
+# start of ruby for the collector limits.
 class TuneTest < Minitest::Test
   Tune = Zr::Tune
 
@@ -21,6 +21,44 @@ class TuneTest < Minitest::Test
     end
   ensure
     Tune.instance_variable_set(:@pending, false)
+  end
+
+  # Without the limits, the first heavy step starts zr again with them,
+  # and marks them as zr's.
+  def test_heavy_work_starts_zr_again_with_the_limits
+    started = nil
+    with_env("RUBY_GC_MALLOC_LIMIT" => nil, "RUBY_GC_OLDMALLOC_LIMIT" => nil, Tune::ADDED => nil) do
+      stub_method(Tune, :exec, ->(*args) { started = args }) do
+        stub_method(Tune, :yjit, -> {}) do
+          Tune.later("exe/zr", %w[run a.rb], env: { "ZR_HANDED" => "1" })
+          assert_nil started, "a warm build does not start again"
+          Tune.heavy!
+        end
+      end
+    end
+    env, ruby, script, *argv = started
+    assert_equal({ "ZR_HANDED" => "1", Tune::ADDED => "1" }, env)
+    assert_equal [RbConfig.ruby, "exe/zr", %w[run a.rb]], [ruby, script, argv]
+  ensure
+    Tune.instance_variable_set(:@pending, false)
+    Tune.instance_variable_set(:@restart, nil)
+  end
+
+  # A large program's lowering and an open build directory only turn YJIT
+  # on: a start again would build the HIR twice, or leave the directory.
+  def test_some_heavy_work_does_not_start_again
+    with_env("RUBY_GC_MALLOC_LIMIT" => nil, "RUBY_GC_OLDMALLOC_LIMIT" => nil) do
+      stub_method(Tune, :exec, ->(*) { flunk "started again" }) do
+        stub_method(Tune, :yjit, -> {}) do
+          Tune.later("exe/zr", [])
+          Tune.heavy!(restart: false)
+          Zr::Paths.tmpdir("zr-tune-") { Tune.heavy! }
+        end
+      end
+    end
+  ensure
+    Tune.instance_variable_set(:@pending, false)
+    Tune.instance_variable_set(:@restart, nil)
   end
 
   def test_heavy_work_with_nothing_pending_does_nothing

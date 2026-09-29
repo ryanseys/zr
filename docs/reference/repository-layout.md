@@ -47,6 +47,7 @@ is not in the gem. It is the gems that `zr.gemspec` depends on
 | `lib/zr/lowering_cache.rb`, `lib/zr/core_cache.rb`, `lib/zr/eval_cache.rb` | the core files and eval support's files that a build takes from an earlier build's machine code, and the checks that keep that code the same as a full build's |
 | `lib/zr/run_cache.rb` | the binaries that `zr run` keeps, and the files each was built from |
 | `lib/zr/tune.rb` | the collector limits and YJIT of a compile |
+| `lib/zr/iseq_cache.rb` | the compiled instructions of zr's own files, kept in the cache |
 | `lib/zr/compiled_compiler.rb` | the compiled compiler: when `exe/zr` gives it a build |
 | `lib/zr/eval.rb` | the eval compiler |
 | `lib/zr/eval/walk.rb`, `lib/zr/eval/walk/` | the tree-walking interpreter |

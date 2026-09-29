@@ -140,10 +140,20 @@ module Zr
           nil
         end
       end
+      @open = open_tmpdirs + 1
       yield dir
     ensure
-      remove(dir) if dir
+      if dir
+        @open = open_tmpdirs - 1
+        remove(dir)
+      end
     end
+
+    def self.open_tmpdirs = @open || 0
+
+    # Whether a `tmpdir` block runs now. A process that execs then would
+    # leave the directory behind (`Tune.heavy!`).
+    def self.tmpdir_open? = open_tmpdirs.positive?
 
     # Removes `path` and, for a directory, all of its contents. It removes
     # a link and does not follow it.

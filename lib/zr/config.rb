@@ -45,6 +45,7 @@ module Zr
       @ledger = ENV["ZR_LEDGER"].to_s.empty? ? nil : ENV["ZR_LEDGER"] != "0"
       @run_cache = Zr.flag?("ZR_RUN_CACHE", default: true)
       @code_cache = ENV.fetch("ZR_CODE_CACHE", "1")
+      @iseq_cache = Zr.flag?("ZR_ISEQ_CACHE", default: true)
       freeze
     end
 
@@ -93,6 +94,10 @@ module Zr
 
     # `ZR_CODE_CACHE`: "1", "0" or "verify" (`Native::CodeCache`).
     def code_cache = @code_cache
+
+    # `ZR_ISEQ_CACHE=0` makes ruby compile zr's own files at each start
+    # (`IseqCache`).
+    def iseq_cache? = @iseq_cache
 
     # Whether `ZR_JOBS` sets the worker count. Then it also overrides the
     # memory limit (`Native::Parallel.afforded`).
