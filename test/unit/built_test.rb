@@ -20,7 +20,7 @@ class BuiltTest < Minitest::Test
   def test_ready_builds_a_target_that_is_not_built_then_loads_it
     started = []
     loaded = []
-    stub_method(Built, :built?, ->(target) { started.include?(target) }) do
+    stub_method(Built, :built?, ->(target, **) { started.include?(target) }) do
       stub_method(Built, :start, ->(target, **) { started << target; fork { exit! 0 } }) do
         stub_method(Built, :load, ->(target) { loaded << target }) { capture_io { Built.ready! } }
       end
@@ -64,5 +64,27 @@ class BuiltTest < Minitest::Test
     assert_match(/built-\h+\.ok\z/, Built.mark(Zr::Target.default))
     assert_match(/built-\h+\.ok\z/, Built.mark(Zr::Target::WASM32_WASI))
     refute_equal Built.mark(Zr::Target.default), Built.mark(Zr::Target::WASM32_WASI)
+  end
+
+  def test_a_run_needs_eval_support_only_when_a_program_evals
+    spec = File.expand_path("../spec", __dir__)
+    assert Built.evals?(nil), "an unknown run"
+    assert Built.evals?([__FILE__]), "a unit test"
+    refute Built.evals?(["#{spec}/core/comparable/comparison_test.rb"]), "a spec with no eval"
+    assert Built.evals?(["#{spec}/core/comparable/comparison_test.rb", "#{spec}/lang/eval/eval_test.rb"]), "a spec that evals"
+  end
+
+  def test_a_build_with_eval_support_serves_a_run_without
+    target = Zr::Target.default
+    full = Built.mark(target, evals: true)
+    plain = Built.mark(target, evals: false)
+    stub_method(File, :exist?, ->(path) { path == full }) do
+      assert Built.built?(target, evals: false)
+      assert Built.built?(target, evals: true)
+    end
+    stub_method(File, :exist?, ->(path) { path == plain }) do
+      assert Built.built?(target, evals: false)
+      refute Built.built?(target, evals: true)
+    end
   end
 end
