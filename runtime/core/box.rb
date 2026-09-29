@@ -20,8 +20,21 @@ module Ruby
     # A loaded feature, which a box counts for itself.
     class Entry; end
 
-    # Where a box finds a feature to load.
-    module Loader; end
+    # box.c's Loader: require, require_relative and load, each a private
+    # method and a singleton method that marks the frame as a box's load
+    # and passes the call on to Kernel's. Object includes it when boxes
+    # are enabled.
+    module Loader
+      def self.require(...) = super
+      def self.require_relative(...) = super
+      def self.load(...) = super
+
+      private
+
+      def require(...) = super
+      def require_relative(...) = super
+      def load(...) = super
+    end
 
     def self.enabled? = !ENV["RUBY_BOX"].nil?
 
@@ -161,5 +174,9 @@ if Ruby::Box.enabled?
       box
     end
     private_class_method :reserved
+  end
+
+  class Object
+    include Ruby::Box::Loader
   end
 end
