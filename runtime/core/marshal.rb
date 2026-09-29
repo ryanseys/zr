@@ -223,7 +223,11 @@ module Marshal
       raise TypeError, "can't dump hash with default proc" if obj.default_proc
 
       default = obj.default
-      uclass(obj, Hash) << (default.nil? ? "{" : "}") << long(obj.size)
+      uclass(obj, Hash)
+      # An identity hash names Hash itself as its user class, as w_object
+      # marks it.
+      @out << "C" << symbol_bytes(:Hash) if obj.compare_by_identity?
+      @out << (default.nil? ? "{" : "}") << long(obj.size)
       obj.each_pair do |key, value|
         write(key, limit)
         write(value, limit)
@@ -582,8 +586,21 @@ module Marshal
 
     def subclass
       klass = constant(symbol_or_link, Class)
+      # r_object_for: Hash as its own user class marks an identity hash.
+      if klass == Hash
+        need(1)
+        tag = @bytes.getbyte(@pos)
+        if tag == HASH || tag == HASH_DEF
+          @pos += 1
+          return hash(Hash, tag == HASH_DEF, identity: true)
+        end
+      end
       value = read_value
       built = Primitive.zr_class_allocate(klass)
+      # The user class must make a value of the same type as the record.
+      base = [String, Array, Hash, Regexp].find { |type| value.is_a?(type) }
+      raise ArgumentError, "dump format error (user class)" unless base && built.is_a?(base)
+
       case value
       when String then built.replace(value)
       when Array then built.replace(value)
@@ -607,8 +624,9 @@ module Marshal
       out
     end
 
-    def hash(klass, defaulted)
+    def hash(klass, defaulted, identity: false)
       out = keep(klass == Hash ? {} : Primitive.zr_class_allocate(klass))
+      out.compare_by_identity if identity
       long.times do
         key = read
         out[key] = read
