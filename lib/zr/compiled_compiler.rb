@@ -132,7 +132,9 @@ module Zr
     # runs the command.
     def build
       began = nil
-      quiet = { "ZR_COMPILED" => "0" }
+      # Without the ledger (Runtime#ledger), the binary's symbol ids come
+      # from its sources only, as a release's must.
+      quiet = { "ZR_COMPILED" => "0", "ZR_LEDGER" => "0" }
       announce = lambda do
         warn "zr: building the compiler with itself, once for this zr"
         began = Process.clock_gettime(Process::CLOCK_MONOTONIC)

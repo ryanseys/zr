@@ -67,7 +67,7 @@ class CodeCacheTest < Minitest::Test
       cache = File.join(dir, "cache")
       objects = %w[off cold warm].map do |mode|
         out = File.join(dir, "#{mode}.o")
-        with_env("ZR_CODE_CACHE" => mode == "off" ? "0" : "1") do
+        Zr::Config.with(ZR_CODE_CACHE: mode == "off" ? "0" : "1") do
           Zr::Paths.instance_variable_set(:@cache, cache)
           why = Zr::Native::Build.object(Marshal.load(functions), runtime.data, out, export: true,
                                          cache: Zr::Native::CodeCache.for("test", Zr::Target.default))

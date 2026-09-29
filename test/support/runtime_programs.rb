@@ -31,7 +31,7 @@ module Zr
         Zr::Program.new(runtime, functions, data + Zr.symbol_names(unit.symbols) + Zr.load_tables(target: target), nil)
       end
 
-      def runtime_symbols(runtime) = Zr::Machine::Symbols.new(runtime.symbols.ids.keys, sites: runtime.symbols.sites)
+      def runtime_symbols(runtime) = Zr::Machine::Symbols.new(runtime.symbols.names, sites: runtime.symbols.sites)
 
       # Returns the names of the data that the kernel makes. The runtime
       # object already contains this data. It is lowered one time in each

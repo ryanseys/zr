@@ -41,6 +41,10 @@ module Zr
       # `ZR_LINK_ARGS`: words for the system linker, as `--link` gives
       # them, split as a shell splits them.
       @link = words(ENV.fetch("ZR_LINK_ARGS", "")).freeze
+      # `ZR_LEDGER`: nil when unset, so the default can be a checkout's.
+      @ledger = ENV["ZR_LEDGER"].to_s.empty? ? nil : ENV["ZR_LEDGER"] != "0"
+      @run_cache = Zr.flag?("ZR_RUN_CACHE", default: true)
+      @code_cache = ENV.fetch("ZR_CODE_CACHE", "1")
       freeze
     end
 
@@ -80,6 +84,15 @@ module Zr
 
     # `ZR_TUNE=0` keeps ruby's limits and leaves YJIT off.
     def tune? = @tune
+
+    # `ZR_LEDGER`: true or false when set, else nil (`Zr.ledger?`).
+    def ledger = @ledger
+
+    # `ZR_RUN_CACHE=0` makes `zr run` build each run (`RunCache`).
+    def run_cache? = @run_cache
+
+    # `ZR_CODE_CACHE`: "1", "0" or "verify" (`Native::CodeCache`).
+    def code_cache = @code_cache
 
     # Whether `ZR_JOBS` sets the worker count. Then it also overrides the
     # memory limit (`Native::Parallel.afforded`).

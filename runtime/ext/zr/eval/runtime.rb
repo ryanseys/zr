@@ -5,7 +5,8 @@ module Zr
     # What an eval needs from the program it runs inside: the symbol
     # table that the program was built on, and the program's `using` entries.
     class Runtime
-      def symbol_names = Primitive.zr_all_symbols.map(&:to_s)
+      # A name for each id, nil for a pad (`Machine::Symbols`).
+      def symbol_names = Primitive.zr_symbol_table.map { |sym| sym&.to_s }
       def sites = Primitive.zr_static_sites
       def intern(name) = Primitive.zr_intern_id(name)
 

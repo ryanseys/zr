@@ -32,7 +32,7 @@ module Zr
     def self.dir = File.join(Paths.cache, "run")
 
     # `ZR_RUN_CACHE=0` builds each run again.
-    def self.wanted? = Zr.flag?("ZR_RUN_CACHE", default: true)
+    def self.wanted? = Config.current.run_cache?
 
     # `digest` is the runtime's digest (`Zr.runtime_digest`).
     def initialize(input, target:, digest:, link:)

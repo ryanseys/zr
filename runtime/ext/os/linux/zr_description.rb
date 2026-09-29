@@ -2002,6 +2002,7 @@ module Zr
         d zr_struct_builtins Value klass:Value
         d zr_word_entry_p Bool kind:Word
         d zr_symtab Ptr
+        d zr_symbol_pad_p Bool id:Word
         d zr_static_symbol_count Word
         d zr_symbol_row Ptr id:Word
         d zr_symbol_name_ptr Ptr id:Word
@@ -2021,6 +2022,7 @@ module Zr
         d zr_sym_cmp Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_sym_to_proc_m Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_all_symbols Value
+        d zr_symbol_table Value
         d zr_intern_id Value name:Value
         d zr_static_sites Value
         d zr_syslog_ident_slot Ptr
@@ -4319,6 +4321,7 @@ module Zr
         e zr_struct_builtins 127
         e zr_word_entry_p 0
         e zr_symtab 0
+        e zr_symbol_pad_p 0
         e zr_static_symbol_count 0
         e zr_symbol_row 0
         e zr_symbol_name_ptr 0
@@ -4338,6 +4341,7 @@ module Zr
         e zr_sym_cmp 0
         e zr_sym_to_proc_m 127
         e zr_all_symbols 126
+        e zr_symbol_table 126
         e zr_intern_id 120
         e zr_static_sites 0
         e zr_syslog_ident_slot 0
@@ -5127,6 +5131,7 @@ module Zr
         c GATE_LTLT 16384
         c KIND_STRUCT_AREF 10
         c KIND_STRUCT_ASET 11
+        c SYM_PAD 255
         c TRACE_LINE 1
         c TRACE_CALL 8
         c TRACE_RETURN 16

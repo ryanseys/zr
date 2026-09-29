@@ -47,7 +47,7 @@ module Zr
 
       LIB = File.expand_path("..", __dir__)
 
-      def self.mode = ENV.fetch("ZR_CODE_CACHE", "1")
+      def self.mode = Config.current.code_cache
 
       # The cache for objects of `kind` (such as "runtime"), or nil when the
       # cache is off or the target has another backend.

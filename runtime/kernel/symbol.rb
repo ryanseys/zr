@@ -9,6 +9,17 @@ machine def zr_symtab
   Machine.static(:symtab, Symtab.size)
 end
 
+# The tag of a pad: a row of the static table that no symbol has. The
+# runtime's table ends in pads, so the ids after it stay the same while
+# the runtime gains names (Machine::Symbols). No encoding has this index.
+SYM_PAD = 255
+
+# Whether `id` is a pad.
+sig [Word] => Bool
+machine def zr_symbol_pad_p(id)
+  zr_symbol_tag(id) == SYM_PAD
+end
+
 sig [] => Word
 machine def zr_static_symbol_count
   Machine.load64(Machine.extern(:zr_symbol_count), 0)
@@ -129,7 +140,9 @@ machine def zr_symbol_index_build
   Symtab.set_nbins(t, bins)
   id = 0
   while id < total
-    zr_symbol_index_put(id)
+    unless zr_symbol_pad_p(id)
+      zr_symbol_index_put(id)
+    end
     id += 1
   end
 end
@@ -248,7 +261,23 @@ machine def zr_all_symbols
   out = zr_ary_new(total)
   id = 0
   while id < total
-    zr_ary_push(out, zr_sym(id))
+    unless zr_symbol_pad_p(id)
+      zr_ary_push(out, zr_sym(id))
+    end
+    id += 1
+  end
+  out
+end
+
+# The symbol of each id, in order, with nil for a pad. Eval support's JIT
+# numbers its names from this, so that its ids are the program's.
+sig [] => Value
+machine def zr_symbol_table
+  total = zr_static_symbol_count() + Symtab.len(zr_symtab())
+  out = zr_ary_new(total)
+  id = 0
+  while id < total
+    zr_ary_push(out, zr_symbol_pad_p(id) ? Machine.value(QNIL) : zr_sym(id))
     id += 1
   end
   out

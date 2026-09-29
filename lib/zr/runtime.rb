@@ -66,7 +66,7 @@ module Zr
       @digest ||= Zr.clock("runtime digest") do
         files = sources.keys + gem_prelude_files
         @stamps = files.to_h { |path| [path, Paths.stamp(path)] }
-        digest_of(files)
+        Zr.with_ledger(digest_of(files), ledger_text)
       end
     end
 
@@ -168,8 +168,40 @@ module Zr
 
     private
 
+    # The runtime's symbol table, which the kernel and the core fill. In a
+    # checkout it starts from the ledger, so each name keeps its id.
     def kernel_symbols
-      @kernel_symbols ||= Machine::Symbols.new
+      @kernel_symbols ||= Machine::Symbols.new(ledger, fill: true)
+    end
+
+    # The ledger: the runtime's names by id at this checkout's last build,
+    # nil for an id free to take (a pad, or a name that build did not use).
+    # Each name then keeps its id, and a new name takes a free id. Without
+    # it, a new name in an early core file moved the id of every name after
+    # it, and with that the code of most functions (`Native::CodeCache`)
+    # and all of eval support. A table from a ledger depends on the builds
+    # before it, so an install, `zr-dev repro` (a new cache) and a release
+    # (`ZR_LEDGER=0`) never read one; their ids come from the sources only.
+    def ledger
+      ledger_text ? JSON.parse(ledger_text) : []
+    rescue JSON::ParserError
+      []
+    end
+
+    # The ledger's bytes, read once: the digest covers the same bytes that
+    # number the symbols.
+    def ledger_text
+      return @ledger_text if defined?(@ledger_text)
+
+      @ledger_text = Zr.ledger_text(target)
+    end
+
+    # Writes the ledger for the next build: this table's names, with nil
+    # for each name that this build did not ask for.
+    def keep_ledger(symbols)
+      return unless Zr.ledger?
+
+      Zr.write_cache(Zr.ledger_path(target), JSON.generate(symbols.names.each_with_index.map { |name, i| name if symbols.used?(i) }))
     end
 
     # The symbol table, the wanted symbols and the kernel's description.
@@ -195,12 +227,14 @@ module Zr
 
     def write_cached
       lowered
+      kernel_symbols.pad!
+      keep_ledger(kernel_symbols)
       defined = functions.map(&:name)
       wanted_functions = (functions.flat_map { |f| f.callees.map(&:symbol) }.uniq - defined).sort
       wanted_data = (functions.flat_map { |f| f.globals.reject(&:colocated).map(&:symbol) }.uniq - data.map(&:name)).sort
       description = Machine::Description.of(unit).to_text
       Zr.write_cache(cache_path,
-                     JSON.generate({ "names" => kernel_symbols.ids.keys, "sites" => kernel_symbols.sites,
+                     JSON.generate({ "names" => kernel_symbols.names, "sites" => kernel_symbols.sites,
                                      "functions" => wanted_functions, "data" => wanted_data, "description" => description }))
       { symbols: kernel_symbols, wants: { functions: wanted_functions, data: wanted_data }, description: description }
     end
@@ -314,7 +348,7 @@ module Zr
         @runtime.carry_description!
         loader = Hir::Build.eval_support(target)
         program = Hir::Program.new(Hir::Build.eval_file(target), [], Hir::Seq.new([], 0), loader.units, [], true, loader.entries)
-        symbols = Machine::Symbols.new(@runtime.symbols.ids.keys, sites: @runtime.symbols.sites)
+        symbols = Machine::Symbols.new(@runtime.symbols.names, sites: @runtime.symbols.sites)
         lower = Lower.new(program, @runtime.description, symbols, entry: "zr_eval_support", target: target)
         functions, data = lower.run
         files = loader.units.filter_map { |u| u.file if u.file.start_with?("/") }.uniq.sort
@@ -326,7 +360,7 @@ module Zr
                  "units" => loader.entries.to_h { |path, i| [path, lower.unit_entry(i)] },
                  "configures" => loader.configures?, "normalizes" => loader.normalizes?, "pretty_prints" => loader.pretty_prints?,
                  "irbs" => loader.irbs?, "gems" => loader.gems?,
-                 "names" => symbols.ids.keys, "sites" => symbols.sites, "activations" => loader.activations }
+                 "names" => symbols.names, "sites" => symbols.sites, "activations" => loader.activations }
         Zr.write_cache(meta_path, JSON.generate(meta))
         { functions: functions, data: data, meta: meta }
       end
@@ -355,7 +389,7 @@ module Zr
     Tune.heavy! if source.bytesize + hir.units.sum { |u| u.source.to_s.bytesize } > HEAVY_SOURCE
     # Before the lowering, which lets go of each unit's source.
     sources = sources ? built_from(source, file, hir) : {}
-    symbols = hir.evals ? support.symbols : Machine::Symbols.new(rt.symbols.ids.keys, sites: rt.symbols.sites)
+    symbols = hir.evals ? support.symbols : Machine::Symbols.new(rt.symbols.names, sites: rt.symbols.sites)
     # Each name already in the table has a fixed id. The link numbers all
     # other names, so a unit's code does not depend on the compile order.
     # So an earlier build's code for a unit is correct for this build.
@@ -585,11 +619,16 @@ module Zr
   # `zr_symbol_names`: one (bytes, length) record per symbol id. The bytes
   # are in their own read-only objects.
   def symbol_names(symbols)
-    names = symbols.ids.keys
-    bytes = names.each_with_index.map { |name, i| Obj::Data.new("zr_symname_#{i}", :text_const, name.b, align: 1) }
+    names = symbols.names
+    bytes = names.each_with_index.filter_map { |name, i| Obj::Data.new("zr_symname_#{i}", :text_const, name.b, align: 1) if name }
     table = +"".b
     relocs = []
     names.each_with_index do |name, i|
+      # A pad has no bytes, and the tag SYM_PAD (runtime/kernel/symbol.rb).
+      if name.nil?
+        table << [0, 255 << 56].pack("Q<Q<")
+        next
+      end
       relocs << Obj::Reloc.new(i * 16, :abs64, "zr_symname_#{i}")
       table << [0, name.bytesize].pack("Q<Q<")
     end

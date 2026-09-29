@@ -2,6 +2,7 @@
 
 require "digest/sha2"
 require "json"
+require_relative "config"
 require_relative "paths"
 require_relative "target"
 
@@ -138,7 +139,7 @@ module Zr
     rows = JSON.parse(File.read(symbols_path(runtime_digest)))
     Digest::SHA256.new.tap do |d|
       d << "abi 1\0" << compiler_digest(target) << "\0" << rows.fetch("description") << "\0"
-      rows.fetch("names").each { |name| d << name << "\0" }
+      rows.fetch("names").each { |name| d << (name ? "+#{name}" : "-") << "\0" }
       d << rows.fetch("sites").to_s
     end.hexdigest
   rescue JSON::ParserError, KeyError, SystemCallError
@@ -166,6 +167,26 @@ module Zr
   # digest `of` the runtime's other sources (`Runtime#gem_prelude_files`).
   def gem_prelude_list(of) = File.join(Paths.cache, "gem-prelude-#{of}.json")
 
+  # The ledger of `target`'s symbol ids (`Runtime#ledger`), and its bytes,
+  # or nil when there is none or the ledger is off.
+  def ledger_path(target) = File.join(Paths.cache, "ledger-#{target.triple}.json")
+
+  # The ledger is on in a checkout, and anywhere with `ZR_LEDGER=1`.
+  def ledger? = Config.current.ledger.nil? ? Paths.checkout? : Config.current.ledger
+
+  def ledger_text(target)
+    return nil unless ledger?
+
+    path = ledger_path(target)
+    File.exist?(path) ? File.binread(path) : nil
+  end
+
+  # A runtime's digest: its sources' digest, and the ledger that numbered
+  # its symbols, when one did. A table from a ledger is another runtime.
+  def with_ledger(digest, ledger)
+    ledger ? Digest::SHA256.hexdigest("#{digest}\0ledger\0#{ledger}") : digest
+  end
+
   # `Runtime#digest` without the compiler: from the sources and the cached
   # gem prelude list. Nil when that list is not cached; then only a build
   # knows the digest.
@@ -177,7 +198,7 @@ module Zr
     prelude = JSON.parse(File.read(list))
     return nil unless prelude.all? { |file| File.file?(file) }
 
-    source_digest(target, files + prelude)
+    with_ledger(source_digest(target, files + prelude), ledger_text(target))
   rescue JSON::ParserError, SystemCallError
     nil
   end
