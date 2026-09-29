@@ -76,6 +76,16 @@ module Zr
     obj/macho/block.rb obj/macho/executable.rb obj/macho/libsystem.rb obj/macho/prelink.rb obj/macho/skeleton.rb
   ].map { |name| File.join(__dir__, name) }.freeze
 
+  # The compiler files that drive zr but that neither a build nor a link
+  # loads: the caches of whole runs and of zr's own files, the server, the
+  # compiled compiler's checks, `zr doctor` and `zr cache`. An edit to one
+  # of them rebuilt the runtime (16 s, and eval support too), although no
+  # output can depend on it. `compiler_digest_test.rb` checks that a build
+  # and a link load none of them.
+  DRIVER_ONLY = %w[
+    cache.rb compiled_compiler.rb doctor.rb iseq_cache.rb run_cache.rb self_built.rb server.rb shipped.rb
+  ].map { |name| File.join(__dir__, name) }.freeze
+
   # The compiler files that belong to one target: an instruction set's
   # backend, and an object format's writer. A runtime object for a
   # different target contains no byte of them, so they are not in other
@@ -99,7 +109,7 @@ module Zr
 
   # The compiler's files that can reach `target`'s runtime object.
   def compiler_files(target = Target.default)
-    (Dir[File.join(__dir__, "**/*.rb")].sort - LINK_ONLY).reject do |path|
+    (Dir[File.join(__dir__, "**/*.rb")].sort - LINK_ONLY - DRIVER_ONLY).reject do |path|
       name = path.delete_prefix("#{__dir__}/")
       PER_TARGET.any? { |prefix, wants| name.start_with?(prefix) && !wants.call(target) }
     end
