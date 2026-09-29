@@ -200,6 +200,7 @@ module Zr
             @f.brif(@f.fcmp(FLOAT_OPS.fetch(node.name).first, x, y), yes, no)
           end
           switch(slow)
+          native_equality(node, recv, arg) { |equal| @f.brif(equal, yes, no) }
           v = sent_directly(node, recv, [arg])
           deactivate(node)
           @f.brif(truthy(v), yes, no) unless @f.terminated?
@@ -312,6 +313,12 @@ module Zr
             operator(node, recv, argv)
           elsif node.args.empty? && node.kwargs.nil? && UNARY.key?(node.name) && explicit?(node) && !owner_using?(node) && !traced?
             unary(node, recv, argv)
+          elsif node.name == :<=> && node.args.size == 1 && node.kwargs.nil? && !node.vcall && native_operators? && !traced?
+            native_compare(node, recv, argv)
+          elsif node.name == :between? && node.args.size == 2 && node.kwargs.nil? && explicit?(node) && native_operators? && !traced?
+            # The core library's range checks of its own integers, which C
+            # writes as two comparisons.
+            checked(kernel("zr_native_between", recv, argv))
           else
             dispatch(node, recv, argv, argc)
           end.tap { deactivate(node) }

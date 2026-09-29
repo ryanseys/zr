@@ -787,7 +787,9 @@ sig [Value] => Value
 machine def zr_sort_by(pairs)
   n = RArray.len(pairs) / 2
   base = RArray.ptr(pairs)
-  uniform = 1
+  # enum.c sorts the keys natively only while Integer and Float have the
+  # core's own `<=>`.
+  uniform = zr_core_cmp_p(G_INTEGER) && zr_core_cmp_p(G_FLOAT) ? 1 : 0
   i = 0
   while i < n
     k = Pair.key(base + (i * Pair.size))

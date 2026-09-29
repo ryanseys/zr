@@ -114,14 +114,18 @@ class Array
     return 0 if Primitive.zr_recursive_enter(self, :<=>)
 
     begin
+      # recursive_cmp: each pair's `<=>` until one is not the fixnum 0,
+      # then the lengths, compared natively.
       i = 0
-      while i < Primitive.zr_ary_len_m(self) && i < other.size
-        c = Primitive.zr_ary_aref1_m(self, i) <=> other[i]
-        return c if c != 0
+      while i < Primitive.zr_ary_len_m(self) && i < Primitive.zr_ary_len_m(other)
+        c = Primitive.zr_ary_aref1_m(self, i) <=> Primitive.zr_ary_aref1_m(other, i)
+        return c unless c.equal?(0)
 
         i += 1
       end
-      Primitive.zr_ary_len_m(self) <=> other.size
+      mine = Primitive.zr_ary_len_m(self)
+      theirs = Primitive.zr_ary_len_m(other)
+      mine < theirs ? -1 : (mine > theirs ? 1 : 0)
     ensure
       Primitive.zr_recursive_leave(self, :<=>)
     end
@@ -342,11 +346,67 @@ class Array
   # from rb_ary_dup, so the receiver's own operators are not called.
   def intersection(*others) = others.inject(Array.new(self)) { |acc, other| acc & other }
 
-  def union(*others) = others.inject(unique) { |acc, other| acc | other }
+  # rb_ary_union_multi: arrays that are short together are merged by
+  # rb_eql, and longer ones through a Hash.
+  def union(*others)
+    others = others.map { |other| ary_operand(other) }
+    return others.inject(unique) { |acc, other| acc | other } if others.sum(Primitive.zr_ary_len_m(self)) { |o| Primitive.zr_ary_len_m(o) } > SMALL_ARRAY_LEN
 
-  def difference(*others) = others.inject(Array.new(self)) { |acc, other| acc - other }
+    out = []
+    Array.send(:merge_by_eql, out, self)
+    others.each { |other| Array.send(:merge_by_eql, out, other) }
+    out
+  end
 
-  def intersect?(other) = !(Array.new(self) & other).empty?
+  # rb_ary_difference_multi: each element is checked against each array
+  # in turn, by rb_eql, or through a Hash when both sides are long.
+  def difference(*others)
+    long = Primitive.zr_ary_len_m(self) > SMALL_ARRAY_LEN
+    tables = others.map do |other|
+      other = ary_operand(other)
+      long && Primitive.zr_ary_len_m(other) > SMALL_ARRAY_LEN ? other.to_h { |x| [x, true] } : other
+    end
+    out = []
+    i = 0
+    while i < Primitive.zr_ary_len_m(self)
+      x = Primitive.zr_ary_aref1_m(self, i)
+      found = tables.any? { |table| table.is_a?(Hash) ? table.key?(x) : Array.send(:includes_by_eql, table, x) }
+      out << x unless found
+      i += 1
+    end
+    out
+  end
+
+  # rb_ary_intersect_p: short arrays compare by rb_eql, and longer ones
+  # look the longer one's elements up in a Hash of the shorter.
+  def intersect?(other)
+    other = ary_operand(other)
+    return false if Primitive.zr_ary_len_m(self) == 0 || Primitive.zr_ary_len_m(other) == 0
+
+    if Primitive.zr_ary_len_m(self) <= SMALL_ARRAY_LEN && Primitive.zr_ary_len_m(other) <= SMALL_ARRAY_LEN
+      i = 0
+      while i < Primitive.zr_ary_len_m(self)
+        return true if Array.send(:includes_by_eql, other, Primitive.zr_ary_aref1_m(self, i))
+
+        i += 1
+      end
+      return false
+    end
+    shorter, longer = Primitive.zr_ary_len_m(self) > Primitive.zr_ary_len_m(other) ? [other, self] : [self, other]
+    table = {}
+    i = 0
+    while i < Primitive.zr_ary_len_m(shorter)
+      table[Primitive.zr_ary_aref1_m(shorter, i)] = true
+      i += 1
+    end
+    i = 0
+    while i < Primitive.zr_ary_len_m(longer)
+      return true if table.key?(Primitive.zr_ary_aref1_m(longer, i))
+
+      i += 1
+    end
+    false
+  end
 
   def repeated_combination(k)
     k = Primitive.zr_index_operand_m(k)
@@ -499,7 +559,7 @@ class Array
     begin
       i = 0
       while i < Primitive.zr_ary_len_m(self)
-        return false unless Primitive.zr_ary_aref1_m(self, i).eql?(other[i])
+        return false unless Primitive.zr_rb_eql(Primitive.zr_ary_aref1_m(self, i), Primitive.zr_ary_aref1_m(other, i))
 
         i += 1
       end
@@ -517,7 +577,7 @@ class Array
       h = 7
       i = 0
       while i < Primitive.zr_ary_len_m(self)
-        h = (h * 31 + (Primitive.zr_ary_aref1_m(self, i).hash & mask)) & mask
+        h = (h * 31 + (Primitive.zr_rb_hash(Primitive.zr_ary_aref1_m(self, i)) & mask)) & mask
         i += 1
       end
       h
@@ -928,27 +988,87 @@ class Array
     out
   end
 
+  # rb_ary_diff: a short array on either side compares each pair with
+  # rb_eql, and longer ones go through a Hash of the operand.
   def -(other)
-    members = {}
-    ary_operand(other).each { |x| members[x] = true }
+    other = ary_operand(other)
     out = []
+    small = Primitive.zr_ary_len_m(self) <= SMALL_ARRAY_LEN || Primitive.zr_ary_len_m(other) <= SMALL_ARRAY_LEN
+    unless small
+      members = {}
+      other.each { |x| members[x] = true }
+    end
     i = 0
     while i < Primitive.zr_ary_len_m(self)
       x = Primitive.zr_ary_aref1_m(self, i)
-      out << x unless members.key?(x)
+      out << x unless small ? Array.send(:includes_by_eql, other, x) : members.key?(x)
       i += 1
     end
     out
   end
 
+  # rb_ary_and: short arrays on both sides compare with rb_eql, and
+  # longer ones go through a Hash of the operand.
   def &(other)
+    other = ary_operand(other)
+    return [] if Primitive.zr_ary_len_m(self) == 0 || Primitive.zr_ary_len_m(other) == 0
+
+    if Primitive.zr_ary_len_m(self) <= SMALL_ARRAY_LEN && Primitive.zr_ary_len_m(other) <= SMALL_ARRAY_LEN
+      out = []
+      i = 0
+      while i < Primitive.zr_ary_len_m(self)
+        x = Primitive.zr_ary_aref1_m(self, i)
+        out << x if Array.send(:includes_by_eql, other, x) && !Array.send(:includes_by_eql, out, x)
+        i += 1
+      end
+      return out
+    end
     members = {}
-    ary_operand(other).each { |x| members[x] = true }
+    other.each { |x| members[x] = true }
     unique.select { |x| members.key?(x) }
   end
 
+  # CRuby's SMALL_ARRAY_LEN: up to this length, a set operation walks
+  # the array instead of hashing it.
+  SMALL_ARRAY_LEN = 16
+  private_constant :SMALL_ARRAY_LEN
+
+  # rb_ary_includes_by_eql: `item.eql?` each element, after identity.
+  def self.includes_by_eql(ary, item)
+    Primitive.attr! :hidden
+    i = 0
+    while i < Primitive.zr_ary_len_m(ary)
+      return true if Primitive.zr_rb_eql(item, Primitive.zr_ary_aref1_m(ary, i))
+
+      i += 1
+    end
+    false
+  end
+  private_class_method :includes_by_eql
+
+  # rb_ary_union: each element of `ary` that `out` does not hold yet.
+  def self.merge_by_eql(out, ary)
+    Primitive.attr! :hidden
+    i = 0
+    while i < Primitive.zr_ary_len_m(ary)
+      x = Primitive.zr_ary_aref1_m(ary, i)
+      out << x unless includes_by_eql(out, x)
+      i += 1
+    end
+    out
+  end
+  private_class_method :merge_by_eql
+
+  # rb_ary_or: short arrays together merge by rb_eql, and longer ones
+  # through a Hash.
   def |(other)
-    Array.new(self).concat(ary_operand(other)).uniq
+    other = ary_operand(other)
+    return Array.new(self).concat(other).uniq if Primitive.zr_ary_len_m(self) + Primitive.zr_ary_len_m(other) > SMALL_ARRAY_LEN
+
+    out = []
+    Array.send(:merge_by_eql, out, self)
+    Array.send(:merge_by_eql, out, other)
+    out
   end
 
   # An operand as CRuby's to_ary() takes one: an Array, or the value of

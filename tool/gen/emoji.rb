@@ -49,7 +49,7 @@ module Zr
 
               def self.carrier?(encoding)
                 Primitive.attr! :hidden
-                CARRIERS.include?(encoding.name)
+                Primitive.zr_table_member_p(CARRIERS, encoding.name)
               end
 
               # The exchange from one encoding to another, read once: each code

@@ -58,7 +58,7 @@ class Encoding
 
   def self.ruled?(encoding)
     Primitive.attr! :hidden
-    RULED.include?(encoding.name)
+    Primitive.zr_table_member_p(RULED, encoding.name)
   end
 
   # The character at `at` that the rule reads, as [UTF-8 text, width],

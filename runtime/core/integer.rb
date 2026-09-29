@@ -98,12 +98,11 @@ class Integer
   # check reads x and y where int_pow passes them on.
   def pow_too_large?(y)
     Primitive.attr! :hidden
-    fixnum = -(1 << 62)...(1 << 62)
-    return true unless fixnum.cover?(y)
+    return true unless Primitive.zr_fixnum_p_m(y)
     return false if y <= 1
 
     x = abs
-    if fixnum.cover?(x)
+    if Primitive.zr_fixnum_p_m(x)
       z = y.odd? ? x : 1
       y &= ~1
       loop do
@@ -113,7 +112,7 @@ class Integer
           x *= x
           y >>= 1
         end
-        return x.bit_length * y > (1 << 34) unless fixnum.cover?(x * z)
+        return x.bit_length * y > (1 << 34) unless Primitive.zr_fixnum_p_m(x * z)
 
         z *= x
         y -= 1
@@ -335,11 +334,14 @@ class Integer
     Integer.send(:big_bit_length, self)
   end
 
+  # rb_int_digits: the receiver's sign first, as rb_num_negative_int_p
+  # reads it, then the radix.
   def digits(base = 10)
+    raise Math::DomainError, +"out of domain" if Integer.send(:negative_int?, self)
+
     base = to_integer(base)
     raise ArgumentError, +"negative radix" if base < 0
     raise ArgumentError, "invalid radix #{base}" if base < 2
-    raise Math::DomainError, +"out of domain" if negative?
 
     return [0] if zero?
 
@@ -351,6 +353,14 @@ class Integer
     end
     out
   end
+
+  # rb_num_negative_int_p: the sign natively while Integer#< is ruby's
+  # own, else `n < 0` sent.
+  def self.negative_int?(n)
+    Primitive.attr! :hidden
+    n.is_a?(Integer) && Primitive.zr_int_lt_basic_p ? n < 0 : n.public_send(:<, 0)
+  end
+  private_class_method :negative_int?
 
   def ceil(digits = 0) = round_to(digits, :ceil)
 
@@ -376,7 +386,7 @@ class Integer
 
   def ceildiv(other)
     Primitive.attr! :ruby
-    -(-self).div(other)
+    -div(0 - other)
   end
 
   def floor(digits = 0) = round_to(digits, :floor)
@@ -467,7 +477,9 @@ class Numeric
 
   def <=>(other) = equal?(other) ? 0 : nil
 
-  def eql?(other) = self.class == other.class && self == other
+  # num_eql: a number of the same type, then rb_equal, which sends a
+  # redefined `==`.
+  def eql?(other) = self.class.equal?(other.class) && Primitive.zr_rb_equal(self, other)
 
   # CRuby's rule: the modulo, moved back by the divisor when the signs
   # differ, so the remainder takes the receiver's sign.
@@ -584,7 +596,7 @@ class Numeric
     elsif block && args.size > 1 && step.nil?
       raise TypeError, +"step must be numeric"
     end
-    raise ArgumentError, +"step can't be 0" if !step.nil? && step == 0
+    raise ArgumentError, +"step can't be 0" if !step.nil? && Primitive.zr_rb_equal(step, 0)
 
     step = 1 if step.nil?
     unless block
@@ -605,12 +617,14 @@ class Numeric
   # other value is compared with the limit before each yield.
   def stepping(limit, step)
     Primitive.attr! :hidden
-    descending = if step.is_a?(Integer) then step.negative?
-                 elsif step.respond_to?(:>) then !(step > 0)
+    # num_step_negative_p: an Integer's sign while Integer#< is ruby's
+    # own, else `step > 0` sent.
+    descending = if step.is_a?(Integer) && Primitive.zr_int_lt_basic_p then step < 0
+                 elsif step.respond_to?(:>) then !step.public_send(:>, 0)
                  else raise TypeError, "#{step.class} can't be coerced into Integer"
                  end
     limit = descending ? -Float::INFINITY : Float::INFINITY if limit.nil?
-    endless = step == 0 || (limit.is_a?(Float) && limit.infinite? && (limit.negative? ? descending : !descending))
+    endless = Primitive.zr_rb_equal(step, 0) || (limit.is_a?(Float) && limit.infinite? && (limit.negative? ? descending : !descending))
     whole = is_a?(Integer) && step.is_a?(Integer) && (endless || limit.is_a?(Integer))
     if !whole && (is_a?(Float) || limit.is_a?(Float) || step.is_a?(Float))
       return Enumerator::ArithmeticSequence.for(self, :step, [], {}, self, limit, step, false).each { |v| yield v }

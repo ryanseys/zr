@@ -41,7 +41,7 @@ module Packing
     while i < size
       b = template.getbyte(i)
       i += 1
-      next if SPACE.include?(b)
+      next if Primitive.zr_table_member_p(SPACE, b)
       # skip_blank: `#` starts a comment to the end of the line.
       if b == 35
         i += 1 while i < size && template.getbyte(i) != 10
@@ -52,7 +52,7 @@ module Packing
       big = nil
       native = false
       # pack_modifiers checks each modifier against the directive first.
-      while i < size && MODIFIERS.include?(template.getbyte(i))
+      while i < size && Primitive.zr_table_member_p(MODIFIERS, template.getbyte(i))
         m = template.getbyte(i)
         raise ArgumentError, "'#{m.chr}' allowed only after types #{NATIVE}" unless NATIVE.include?(c)
         if m == 62 || m == 60
@@ -181,7 +181,7 @@ module Packing
   # four characters of six bits over a space, with a zero as a
   # backquote.
   def self.uuencode(bytes, count)
-    line = count.nil? || count == :all || count <= 2 ? 45 : [count, 63].min / 3 * 3
+    line = count.nil? || count == :all || count <= 2 ? 45 : (count < 63 ? count : 63) / 3 * 3
     out = +""
     i = 0
     while i < bytes.bytesize

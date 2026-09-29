@@ -162,7 +162,7 @@ module Signal
       if command.equal?(UNSET)
         if signo == INT
           interrupt(Interrupt.new(+""))
-        elsif RAISING.include?(signo)
+        elsif Primitive.zr_table_member_p(RAISING, signo)
           interrupt(SignalException.new(signo))
         end
       elsif command == :exit

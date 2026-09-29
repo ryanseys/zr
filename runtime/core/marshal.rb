@@ -140,7 +140,7 @@ module Marshal
 
     def refuse(obj)
       raise TypeError, "can't dump #{obj.class}" if obj.is_a?(IO)
-      return unless obj.class.ancestors.any? { |kind| UNDUMPABLE.include?(kind.name) }
+      return unless obj.class.ancestors.any? { |kind| Primitive.zr_table_member_p(UNDUMPABLE, kind.name) }
 
       raise TypeError, "no _dump_data is defined for class #{obj.class}"
     end

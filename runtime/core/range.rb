@@ -249,17 +249,21 @@ class Range
     covers_value?(v)
   end
 
+  # r_cover_p: `begin <=> v`, then `v <=> end`, each sent once.
   def covers_value?(v)
     Primitive.attr! :hidden
-    return false if @begin && (v <=> @begin).nil?
-    return false if @begin && (v <=> @begin) < 0
-    return true if @end.nil?
+    return false unless @begin.nil? || Range.send(:r_less, @begin, v) <= 0
 
-    c = v <=> @end
-    return false if c.nil?
-
-    @excl ? c < 0 : c <= 0
+    @end.nil? || Range.send(:r_less, v, @end) <= (@excl ? -1 : 0)
   end
+
+  # r_less: `a <=> b` as rb_cmpint reads it, with nil above everything.
+  def self.r_less(a, b)
+    Primitive.attr! :hidden
+    c = a <=> b
+    c.nil? ? 2_147_483_647 : Primitive.zr_cmpint(c, a, b)
+  end
+  private_class_method :r_less
 
   # A String range covers single characters by order and walks the rest.
   def include?(v)
@@ -293,7 +297,7 @@ class Range
 
     n = args.empty? ? 1 : args[0]
     numeric = n.is_a?(Numeric)
-    raise ArgumentError, +"step can't be 0" if numeric && @begin.is_a?(Numeric) && n == 0
+    raise ArgumentError, +"step can't be 0" if numeric && @begin.is_a?(Numeric) && Primitive.zr_rb_equal(n, 0)
 
     sequence = numeric && ((@begin.is_a?(Numeric) && (@end.nil? || @end.is_a?(Numeric))) || (@begin.nil? && @end.is_a?(Numeric)))
     return Enumerator::ArithmeticSequence.for(self, name, args, {}, @begin, @end, n, @excl) if sequence && !block
@@ -301,8 +305,35 @@ class Range
     raise ArgumentError, +"#step for non-numeric beginless ranges is meaningless" if @begin.nil? && !block
     raise ArgumentError, +"#step iteration for beginless ranges is meaningless" if @begin.nil?
     return added(n, name, &block) unless sequence
+    return fixnum_step(n, &block) if Primitive.zr_fixnum_p_m(@begin) && Primitive.zr_fixnum_p_m(n) && (@end.nil? || Primitive.zr_fixnum_p_m(@end))
 
     Enumerator::ArithmeticSequence.for(self, name, args, {}, @begin, @end, n, @excl).each(&block)
+    self
+  end
+
+  # range_step's fixnum walk, which adds and compares in C.
+  def fixnum_step(unit)
+    Primitive.attr! :hidden
+    i = @begin
+    if @end.nil?
+      while true
+        yield i
+        i += unit
+      end
+    end
+    if unit < 0
+      last = @excl ? @end : @end - 1
+      while i > last
+        yield i
+        i += unit
+      end
+    else
+      last = @excl ? @end : @end + 1
+      while i < last
+        yield i
+        i += unit
+      end
+    end
     self
   end
 

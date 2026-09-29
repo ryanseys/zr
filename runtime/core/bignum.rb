@@ -132,11 +132,11 @@ class Integer
 
     def big_cmp_mag(a, b)
       Primitive.attr! :hidden
-      return a.size <=> b.size if a.size != b.size
+      return a.size < b.size ? -1 : 1 if a.size != b.size
 
       i = a.size - 1
       while i >= 0
-        return a[i] <=> b[i] if a[i] != b[i]
+        return a[i] < b[i] ? -1 : 1 if a[i] != b[i]
 
         i -= 1
       end
@@ -440,7 +440,9 @@ class Integer
 
     def big_bitwise(x, y, op)
       Primitive.attr! :hidden
-      len = [big_mag(x).size, big_mag(y).size].max + 1
+      x_size = big_mag(x).size
+      y_size = big_mag(y).size
+      len = (x_size > y_size ? x_size : y_size) + 1
       a = big_twos(x, len)
       b = big_twos(y, len)
       xn = big_neg?(x)

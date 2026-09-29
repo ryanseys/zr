@@ -813,6 +813,8 @@ module Zr
         d zr_key_hash Bool h:Value key:Value out:Ptr
         d zr_key_builtin_p Bool key:Value mid:Word builtin:Ptr
         d zr_key_code Word h:Value key:Value
+        d zr_value_code Word key:Value
+        d zr_rb_hash Value v:Value
         d zr_str_bytes_hash Word s:Value
         d zr_hash_seed Ptr
         d zr_hash_seed_init Void
@@ -1294,6 +1296,10 @@ module Zr
         d zr_mod_attr_writer Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_mod_attr_accessor Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_dig_into Value v:Value rest:Value
+        d zr_native_eq_kind Word a:Value b:Value
+        d zr_native_between Value x:Value argv:Ptr
+        d zr_table_member_p Value ary:Value x:Value
+        d zr_rb_eql Value a:Value b:Value
         d zr_rb_equal Value a:Value b:Value
         d zr_objspace_visible_p Bool v:Value
         d zr_objspace_objects Value mod:Value
@@ -1546,6 +1552,8 @@ module Zr
         d zr_catch_return Value rec:Ptr
         d zr_block_given_p Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_int_times Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
+        d zr_int_lt_basic_p Value
+        d zr_int_times_sent Value recv:Value blk:Value
         d zr_int_bound Value recv:Value argv:Ptr out:Ptr dir:Word
         d zr_int_step_size Value recv:Value argc:Word argv:Ptr dir:Word
         d zr_int_upto Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
@@ -3115,6 +3123,8 @@ module Zr
         e zr_key_hash 127
         e zr_key_builtin_p 120
         e zr_key_code 8
+        e zr_value_code 8
+        e zr_rb_hash 127
         e zr_str_bytes_hash 0
         e zr_hash_seed 0
         e zr_hash_seed_init 56
@@ -3596,6 +3606,10 @@ module Zr
         e zr_mod_attr_writer 127
         e zr_mod_attr_accessor 127
         e zr_dig_into 127
+        e zr_native_eq_kind 8
+        e zr_native_between 127
+        e zr_table_member_p 127
+        e zr_rb_eql 127
         e zr_rb_equal 127
         e zr_objspace_visible_p 0
         e zr_objspace_objects 126
@@ -3848,6 +3862,8 @@ module Zr
         e zr_catch_return 16
         e zr_block_given_p 0
         e zr_int_times 127
+        e zr_int_lt_basic_p 0
+        e zr_int_times_sent 127
         e zr_int_bound 127
         e zr_int_step_size 127
         e zr_int_upto 127
@@ -4635,7 +4651,7 @@ module Zr
         c KIND_UNDEF 6
         c KIND_MISSING 9
         c T_ICLASS 28
-        c GATE_ROWS 44
+        c GATE_ROWS 45
         c ROW_CORE 256
         c CORE_KEY 4611686018427387904
         c METHOD_INDEX_MIN 16
@@ -4809,6 +4825,7 @@ module Zr
         c GATE_RANGE_EACH 35184372088832
         c GATE_UMINUS 70368744177664
         c GATE_FLO_UMINUS 140737488355328
+        c GATE_CMP 281474976710656
         c G_BIG_LITERALS 54
         c F_GETFL 3
         c F_SETFL 4

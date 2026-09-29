@@ -151,7 +151,7 @@ module Kernel
     return true if preloaded?(feature)
 
     path = feature_file(feature)
-    !path.nil? && $LOADED_FEATURES.include?(path)
+    !path.nil? && Primitive.zr_table_member_p($LOADED_FEATURES, path)
   end
 
   # The path that a require of `feature` would read, or nil when no file
@@ -179,7 +179,7 @@ module Kernel
     # pending. This is the same check, done once, where both the name
     # and its resolved file are available.
     Primitive.zr_autoload_provided(feature, path) if kind != 2
-    return false if kind != 2 && $LOADED_FEATURES.include?(path)
+    return false if kind != 2 && Primitive.zr_table_member_p($LOADED_FEATURES, path)
 
     Primitive.zr_require_computed(path, Primitive.zr_unit_for(path) || compile(path), kind)
   end

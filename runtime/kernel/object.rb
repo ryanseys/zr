@@ -1665,6 +1665,86 @@ machine def zr_dig_into(v, rest)
   zr_send(v, Machine.id(:dig), RArray.len(rest), RArray.ptr(rest))
 end
 
+# How the core library's own `a == b` answers where CRuby's C compares
+# natively, whatever a program redefines: 1 when equal, 2 when not, and
+# 0 when it sends `==`. A Symbol, nil, true or false compares by
+# identity, and a plain String with a String by its bytes.
+sig [Value, Value] => Word
+machine def zr_native_eq_kind(a, b)
+  if zr_symbol_p(a) || a == QNIL || a == QTRUE || a == QFALSE
+    return a == b ? 1 : 2
+  end
+  if !zr_special_p(a) && !zr_special_p(b) && RBasic.klass(a) == zr_global(G_STRING) && zr_type(b) == T_STRING
+    same = zr_bytes_eq(RString.ptr(a), RString.len(a), RString.ptr(b), RString.len(b)) && zr_str_comparable(a, b)
+    return same ? 1 : 2
+  end
+  0
+end
+
+# The core library's own `x.between?(low, high)`: three fixnums compare
+# natively, as CRuby's C checks a range. Anything else sends between?.
+sig [Value, Ptr] => Value
+machine def zr_native_between(x, argv)
+  low = Machine.value(Machine.load64(argv, 0))
+  high = Machine.value(Machine.load64(argv, 8))
+  if zr_fixnum_p(x) && zr_fixnum_p(low) && zr_fixnum_p(high)
+    n = zr_fix2long(x)
+    return zr_bool(n >= zr_fix2long(low) && n <= zr_fix2long(high))
+  end
+  zr_send(x, Machine.id(:between?), 2, argv)
+end
+
+# Whether one of the core library's own tables (an Array) holds `x`, as
+# CRuby's C finds it with a switch or strcmp: identity, a String by its
+# bytes, and rb_equal for anything else. Thus a program that redefines
+# Integer#== or String#== sees no call from the lookup.
+sig [Value, Value] => Value
+machine def zr_table_member_p(ary, x)
+  i = 0
+  while i < RArray.len(ary)
+    e = zr_ary_at(ary, i)
+    if e == x
+      return Machine.value(QTRUE)
+    end
+    if !zr_special_p(e) && !zr_special_p(x) && zr_type(e) == T_STRING && zr_type(x) == T_STRING
+      if zr_bytes_eq(RString.ptr(e), RString.len(e), RString.ptr(x), RString.len(x)) && zr_str_comparable(e, x)
+        return Machine.value(QTRUE)
+      end
+    elsif !zr_special_p(e) && zr_type(e) != T_STRING
+      r = zr_rb_equal(e, x)
+      if r != QFALSE
+        return r
+      end
+    end
+    i += 1
+  end
+  Machine.value(QFALSE)
+end
+
+# CRuby's rb_eql, which Array#-, Array#& and Array#eql? compare with:
+# identity, then the answer without a send where rb_eql_opt has one (the
+# same rule as for `==`, which rb_eql_opt reads), then `eql?`.
+sig [Value, Value] => Value
+machine def zr_rb_eql(a, b)
+  if a == b
+    return Machine.value(QTRUE)
+  end
+  if zr_fixnum_p(a) && zr_fixnum_p(b) && (Machine.gates & GATE_EQ) == 0
+    return Machine.value(QFALSE)
+  end
+  if zr_flonum_p(a) && zr_flonum_p(b) && (Machine.gates & GATE_FLO_EQ) == 0
+    return Machine.value(QFALSE)
+  end
+  if zr_key_builtin_p(a, Machine.id(:eql?), Machine.addr(:zr_obj_eql_p))
+    return Machine.value(QFALSE)
+  end
+  slot = Machine.slot(8)
+  Machine.store64(slot, 0, Machine.word(b))
+  r = zr_send(a, Machine.id(:eql?), 1, slot)
+  return r if r == QUNDEF
+  (r == QNIL || r == QFALSE) ? Machine.value(QFALSE) : Machine.value(QTRUE)
+end
+
 # CRuby's rb_equal: an object is equal to itself, with no call of `==`.
 # All containers compare their elements this way. That is why
 # `[nan].include?(nan)` is true while `nan == nan` is false.
@@ -1673,9 +1753,13 @@ machine def zr_rb_equal(a, b)
   if a == b
     return Machine.value(QTRUE)
   end
-  # Two different fixnums, or a receiver that uses BasicObject's `==`
-  # (a Symbol, an Object), are not equal, with no send.
-  if zr_fixnum_p(a) && zr_fixnum_p(b)
+  # Two different fixnums or flonums while their class's `==` is ruby's
+  # own, or a receiver that uses BasicObject's `==` (a Symbol, an
+  # Object), are not equal, with no send (opt_equality_specialized).
+  if zr_fixnum_p(a) && zr_fixnum_p(b) && (Machine.gates & GATE_EQ) == 0
+    return Machine.value(QFALSE)
+  end
+  if zr_flonum_p(a) && zr_flonum_p(b) && (Machine.gates & GATE_FLO_EQ) == 0
     return Machine.value(QFALSE)
   end
   if zr_key_builtin_p(a, Machine.id(:==), Machine.addr(:zr_obj_eq))

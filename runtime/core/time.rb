@@ -150,9 +150,9 @@ class Time
       when 1
         letter = text.getbyte(0)
         return :utc if letter == 90
-        return (letter - 64) * 3600 if letter.between?(65, 73)
-        return (letter - 65) * 3600 if letter.between?(75, 77)
-        return (77 - letter) * 3600 if letter.between?(78, 89)
+        return (letter - 64) * 3600 if letter >= 65 && letter <= 73
+        return (letter - 65) * 3600 if letter >= 75 && letter <= 77
+        return (77 - letter) * 3600 if letter >= 78 && letter <= 89
 
         return nil
       when 3
@@ -182,7 +182,7 @@ class Time
     def offset_digits(text, i)
       high = text.getbyte(i)
       low = text.getbyte(i + 1)
-      return nil unless high&.between?(48, 57) && low&.between?(48, 57)
+      return nil unless high && high >= 48 && high <= 57 && low && low >= 48 && low <= 57
 
       ((high - 48) * 10) + low - 48
     end
@@ -396,7 +396,7 @@ class Time
       return offsets[0] if offsets.size == 1
 
       fitting = offsets.select { |offset| zone_at(secs - offset)[0] == offset }
-      (fitting.empty? ? offsets : fitting).min
+      (fitting.empty? ? offsets : fitting).inject { |least, x| x < least ? x : least }
     end
 
     # The zone's offset, daylight flag and name at `secs`, as localtimew
@@ -406,7 +406,7 @@ class Time
     # epoch's zone. A time past 2038 takes the zone of the year before
     # 2038 whose month starts on the same day of the week.
     def zone_at(secs)
-      return Primitive.zr_time_local(secs) if secs.between?(-0x8000_0000, 0x7fff_ffff)
+      return Primitive.zr_time_local(secs) if secs >= -0x8000_0000 && secs <= 0x7fff_ffff
 
       year, month, day = civil_from_days(secs.div(86_400))
       return Primitive.zr_time_local(0) if year < 1916
@@ -568,7 +568,8 @@ class Time
   def <=>(other)
     return nil unless other.is_a?(Time)
 
-    ns <=> other.send(:ns)
+    theirs = other.send(:ns)
+    ns < theirs ? -1 : (ns > theirs ? 1 : 0)
   end
 
   def eql?(other) = other.is_a?(Time) && ns == other.send(:ns)

@@ -691,7 +691,7 @@ module Process
     # rb_exec_fillarg gives the shell its own name as argv[0], which is
     # the name that a shell puts in front of its own error messages, and
     # the spawn finds it on PATH.
-    return [+"sh", +"-c", command] if command.each_char.any? { |c| SHELL_META.include?(c) } || SHELL_WORDS.include?(first) || first.include?("=")
+    return [+"sh", +"-c", command] if command.each_char.any? { |c| SHELL_META.include?(c) } || Primitive.zr_table_member_p(SHELL_WORDS, first) || first.include?("=")
 
     words = command.split(" ")
     # A command of no words still gives a program: rb_exec_fillarg

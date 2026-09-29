@@ -354,7 +354,8 @@ machine def zr_boot
   zr_builtin(zr_global(G_NIL), Machine.id(:===), Machine.addr(:zr_obj_eqq), 1)
   zr_builtin(zr_global(G_TRUE), Machine.id(:===), Machine.addr(:zr_obj_eqq), 1)
   zr_builtin(zr_global(G_FALSE), Machine.id(:===), Machine.addr(:zr_obj_eqq), 1)
-  zr_builtin(zr_global(G_SYMBOL), Machine.id(:===), Machine.addr(:zr_obj_eqq), 1)
+  # symbol.c's sym_equal: `===` is identity, as `==` is.
+  zr_builtin(zr_global(G_SYMBOL), Machine.id(:===), Machine.addr(:zr_obj_eq), 1)
   zr_builtin(zr_global(G_MODULE), Machine.id(:==), Machine.addr(:zr_obj_eq), 1)
   zr_builtin(zr_global(G_MODULE), Machine.id(:freeze), Machine.addr(:zr_obj_freeze), 0)
   zr_builtin(zr_global(G_STRING), Machine.id(:freeze), Machine.addr(:zr_obj_freeze), 0)

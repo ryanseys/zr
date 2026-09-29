@@ -59,6 +59,9 @@ GATE_RANGE_EACH = 1 << 45
 # Integer#-@ and Float#-@: a site negates a fixnum or a flonum inline.
 GATE_UMINUS = 1 << 46
 GATE_FLO_UMINUS = 1 << 47
+# Integer#<=>: the core library compares two fixnums natively while it
+# is ruby's own, as CRuby's OPTIMIZED_CMP does.
+GATE_CMP = 1 << 48
 
 # Writes the decimal digits of `n` into `buf` and returns the number of
 # bytes. `buf` must have 24 bytes.

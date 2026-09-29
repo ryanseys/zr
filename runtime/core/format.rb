@@ -154,7 +154,7 @@ module Kernel
 
           @out << "%"
           return i + 1
-        elsif CONVERSIONS.include?(b)
+        elsif Primitive.zr_table_member_p(CONVERSIONS, b)
           value = next_arg if value.equal?(NONE)
           @out << convert(b, value, fl, flags & FWIDTH != 0 ? width : nil, flags & FPREC != 0 ? prec : nil)
           return i + 1
@@ -170,8 +170,8 @@ module Kernel
     def get_num(i, what)
       Primitive.attr! :hidden
       n = 0
-      while i < @spec.bytesize && @spec.getbyte(i).between?(48, 57)
-        n = n * 10 + (@spec.getbyte(i) - 48)
+      while i < @spec.bytesize && (digit = @spec.getbyte(i)) >= 48 && digit <= 57
+        n = n * 10 + (digit - 48)
         raise ArgumentError, "#{what} too big" if n > 2_147_483_647
 
         i += 1
@@ -300,7 +300,7 @@ module Kernel
                raise ArgumentError, +"invalid character" if n > 0x10FFFF
 
                # A surrogate is written as its three bytes, as mbcput does.
-               n.between?(0xD800, 0xDFFF) ? [0xED, 0xA0 | ((n >> 6) & 0x1F), 0x80 | (n & 0x3F)].pack("C*").force_encoding(enc) : n.chr(enc)
+               n >= 0xD800 && n <= 0xDFFF ? [0xED, 0xA0 | ((n >> 6) & 0x1F), 0x80 | (n & 0x3F)].pack("C*").force_encoding(enc) : n.chr(enc)
              else
                n.chr(enc)
              end
@@ -510,9 +510,9 @@ module Kernel
       else
         digits, point = rounded_digits(x, digits, point, k)
       end
-      whole = point <= 0 ? +"0" : (digits[0, point] + "0" * [point - digits.size, 0].max)
+      whole = point <= 0 ? +"0" : (digits[0, point] + ("0" * (point > digits.size ? point - digits.size : 0)))
       fraction = point >= 0 ? digits[point..].to_s : "0" * -point + digits
-      fraction = fraction[0, precision] + "0" * [precision - fraction.size, 0].max
+      fraction = fraction[0, precision] + ("0" * (precision > fraction.size ? precision - fraction.size : 0))
       precision == 0 && !flags.include?("#") ? whole : "#{whole}.#{fraction}"
     end
 

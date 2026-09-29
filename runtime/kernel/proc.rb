@@ -1049,12 +1049,44 @@ machine def zr_int_times(recv, argc, argv, cref, blk)
   if blk == QNIL
     return zr_enum_for(recv, Machine.id(:times), argc, argv, recv)
   end
+  if (Machine.gates & (GATE_LT | GATE_SUCC)) != 0
+    return zr_int_times_sent(recv, blk)
+  end
   n = zr_fix2long(recv)
   i = 0
   while i < n
     r = zr_yield1(blk, zr_fix(i))
     return r if r == QUNDEF
     i += 1
+  end
+  recv
+end
+
+# Whether Integer#< is ruby's own, which num_step_negative_p asks
+# (method_basic_p) before it reads a step's sign natively.
+sig [] => Value
+machine def zr_int_lt_basic_p
+  zr_bool((Machine.gates & GATE_LT) == 0)
+end
+
+# Integer#times as <internal:numeric> writes it, for a program that
+# redefined Integer#< or Integer#succ: `while i < self`, then
+# `i = i.succ`, each a send.
+sig [Value, Value] => Value
+machine def zr_int_times_sent(recv, blk)
+  slot = Machine.slot(8)
+  i = zr_fix(0)
+  while true
+    Machine.store64(slot, 0, Machine.word(recv))
+    more = zr_send(i, Machine.id(:<), 1, slot)
+    return more if more == QUNDEF
+    if more == QNIL || more == QFALSE
+      return recv
+    end
+    r = zr_yield1(blk, i)
+    return r if r == QUNDEF
+    i = zr_send(i, Machine.id(:succ), 0, slot)
+    return i if i == QUNDEF
   end
   recv
 end

@@ -79,7 +79,9 @@ module Zr
             @f.jump(merge, [loop_in_place(node, recv, :range, bounds)])
           when :times
             fix = @f.icmp("ne", @f.band(recv, imm(1)), imm(0))
-            @f.brif(@f.band(fix, gate_clear("GATE_TIMES")), fast, slow)
+            # <internal:numeric> counts with `<` and `succ`, so a program that
+            # redefines either sends them from times as well.
+            @f.brif(@f.band(fix, gates_clear("GATE_TIMES", "GATE_LT", "GATE_SUCC")), fast, slow)
             switch(fast)
             @f.jump(merge, [loop_in_place(node, recv, :times)])
           end

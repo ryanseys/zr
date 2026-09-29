@@ -412,7 +412,7 @@ class Hash
 
     begin
       Primitive.zr_hash_foreach(self) do |k, v|
-        return false unless Primitive.zr_hash_key_p_m(other, k) && v.eql?(Primitive.zr_hash_fetch_m(other, k, nil))
+        return false unless Primitive.zr_hash_key_p_m(other, k) && Primitive.zr_rb_eql(v, Primitive.zr_hash_fetch_m(other, k, nil))
       end
       true
     ensure

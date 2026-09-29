@@ -1350,7 +1350,7 @@ class String
   # it is and every other character escaped, in US-ASCII.
   def escape
     Primitive.attr! :hidden
-    unicode = UNICODE_NAMES.include?(Encoding.at(Primitive.zr_str_encoding_index_m(self)).name)
+    unicode = Primitive.zr_table_member_p(UNICODE_NAMES, Encoding.at(Primitive.zr_str_encoding_index_m(self)).name)
     plain = unicode || Encoding.at(Primitive.zr_str_encoding_index_m(self)).ascii_compatible?
     out = String.new(encoding: Encoding::US_ASCII)
     OWN[:each_char].bind_call(self) do |char|
@@ -1645,13 +1645,13 @@ class String
   def casecmp(other)
     return nil unless other.is_a?(String) && Encoding.compatible?(self, other)
 
-    OWN[:downcase].bind_call(self, :ascii) <=> other.downcase(:ascii)
+    OWN[:<=>].bind_call(OWN[:downcase].bind_call(self, :ascii), OWN[:downcase].bind_call(other, :ascii))
   end
 
   def casecmp?(other)
     return nil unless other.is_a?(String) && Encoding.compatible?(self, other)
 
-    OWN[:downcase].bind_call(self, :fold) == other.downcase(:fold)
+    OWN[:==].bind_call(OWN[:downcase].bind_call(self, :fold), OWN[:downcase].bind_call(other, :fold))
   end
 
   def chr = (Primitive.zr_str_bytesize(self) == 0) ? +"" : OWN[:[]].bind_call(self, 0)
@@ -2040,7 +2040,7 @@ class String
   # that is not Unicode has only characters.
   def grapheme_clusters
     encoding = Encoding.at(Primitive.zr_str_encoding_index_m(self))
-    return characters unless GRAPHEMES.include?(encoding.name)
+    return characters unless Primitive.zr_table_member_p(GRAPHEMES, encoding.name)
     return wide_clusters unless encoding.ascii_compatible? && encoding.name != +"CESU-8"
 
     out = []
@@ -2877,7 +2877,7 @@ class String
   # redefinition of one does not change what another reaches.
   OWN = %i[[] each_char each_byte end_with? start_with? index rindex lstrip strip rstrip succ reverse capitalize
            downcase upcase swapcase delete squeeze chomp chop sub scrub tr tr_s count lines each_line scan include?
-           unicode_normalize encode force_encoding b grapheme_clusters].to_h { |name| [name, instance_method(name)] }.freeze
+           unicode_normalize encode force_encoding b grapheme_clusters <=> ==].to_h { |name| [name, instance_method(name)] }.freeze
   # The encodings whose characters rb_enc_unicode_p says are Unicode.
   GRAPHEMES = %w[UTF-8 UTF-16BE UTF-16LE UTF-32BE UTF-32LE UTF8-MAC CESU-8 UTF8-DoCoMo UTF8-KDDI UTF8-SoftBank].freeze
   private_constant :OWN, :GRAPHEMES
@@ -3128,7 +3128,7 @@ class Encoding
   # Whether this encoding cases its non-ASCII characters at all.
   def self.cased?(encoding)
     Primitive.attr! :hidden
-    CASED.include?(encoding.name)
+    Primitive.zr_table_member_p(CASED, encoding.name)
   end
 
   # A String has a byte-oriented encoding, UTF-8, or UTF-16 or UTF-32.
@@ -3151,7 +3151,7 @@ class Encoding
 
   def self.utf8_like?(encoding)
     Primitive.attr! :hidden
-    MB_UTF8.include?(encoding.name)
+    Primitive.zr_table_member_p(MB_UTF8, encoding.name)
   end
 
   # Whether a conversion out of this multibyte encoding has entries to
@@ -3721,7 +3721,7 @@ class Encoding
       end
       # A partial encoding's rows stop at the characters every row of
       # which was read; the walk reaches the longer ones and says so.
-      if row.nil? && steps.positive? && MB_PARTIAL.include?(from.name)
+      if row.nil? && steps.positive? && Primitive.zr_table_member_p(MB_PARTIAL, from.name)
         Primitive.zr_unimplemented("String#encode of a #{from} character of more than two bytes")
       end
       slot = nil unless row && bytes[i + steps]

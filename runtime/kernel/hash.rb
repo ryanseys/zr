@@ -194,6 +194,13 @@ machine def zr_key_code(h, key)
   if (RBasic.flags(h) & FL_IDENTITY) != 0
     return zr_hash_mix(Machine.word(key))
   end
+  zr_value_code(key)
+end
+
+# The code of a value that needs no Ruby code, as zr_key_code gives it
+# to a table that compares by value.
+sig [Value] => Word
+machine def zr_value_code(key)
   if zr_float_p(key)
     d = zr_float_value(key)
     if d == Machine.f64(0)
@@ -209,9 +216,28 @@ machine def zr_key_code(h, key)
     return zr_hash_mix(zr_str_bytes_hash(key) ^ (zr_str_ascii_only(key) ? 0 : zr_str_encoding_index(key) + 1))
   end
   if t == T_REGEXP
-    return zr_hash_mix(zr_key_code(h, RRegexp.source(key)) + RRegexp.options(key))
+    return zr_hash_mix(zr_value_code(RRegexp.source(key)) + RRegexp.options(key))
   end
   zr_hash_mix(Machine.word(key))
+end
+
+# CRuby's rb_hash: a Symbol, a fixnum, true, false, nil, a String, a
+# Bignum or a Float hashes without a send, even when its class redefines
+# `hash`. Anything else answers its own `hash`, folded to a fixnum.
+sig [Value] => Value
+machine def zr_rb_hash(v)
+  if zr_big_p(v)
+    return zr_big_hash(v)
+  end
+  if zr_special_p(v) || zr_float_p(v) || zr_type(v) == T_STRING
+    return zr_fix(zr_value_code(v) & 4611686018427387903)
+  end
+  r = zr_send(v, Machine.id(:hash), 0, 0)
+  return r if r == QUNDEF
+  if zr_big_p(r)
+    r = zr_send(r, Machine.id(:hash), 0, 0)
+  end
+  r
 end
 
 # Hashes a String's bytes with the process's seed. Thus a String's hash

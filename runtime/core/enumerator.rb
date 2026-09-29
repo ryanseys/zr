@@ -338,23 +338,40 @@ class Enumerator::ArithmeticSequence < Enumerator
         c += @step
       end
     end
-    while @step == 0
-      yield c
+    if Primitive.zr_rb_equal(@step, 0)
+      while true
+        yield c
+      end
     end
     last = last_element
-    if @step < 0
-      while c >= last
+    if Integer.send(:negative_int?, @step)
+      while ArithmeticSequence.send(:coerce_relop, c, last, :>=)
         yield c
         c += @step
       end
     else
-      while last >= c
+      while ArithmeticSequence.send(:coerce_relop, last, c, :>=)
         yield c
         c += @step
       end
     end
     self
   end
+
+  # rb_num_coerce_relop, which arith_seq_each's NUM_GE is: `y.coerce(x)`,
+  # then the operator on the pair it gives. No pair, or a nil answer, is
+  # a failed comparison.
+  def self.coerce_relop(x, y, op)
+    Primitive.attr! :hidden
+    pair = y.respond_to?(:coerce, true) ? y.__send__(:coerce, x) : nil
+    Primitive.zr_cmperr(x, y) if pair.nil?
+    raise TypeError, +"coerce must return [x, y]" unless pair.is_a?(Array) && pair.size == 2
+
+    answer = pair[0].__send__(op, pair[1])
+    Primitive.zr_cmperr(x, y) if answer.nil?
+    answer
+  end
+  private_class_method :coerce_relop
 
   # arith_seq_size: counted, never walked.
   def size
@@ -478,7 +495,7 @@ class Enumerator::ArithmeticSequence < Enumerator
   def last_element
     Primitive.attr! :hidden
     last = @begin + (@step * idiv(@end - @begin, @step))
-    @exclude_end && last == @end ? last - @step : last
+    @exclude_end && Primitive.zr_rb_equal(last, @end) ? last - @step : last
   end
 
   # num_idiv: a quotient taken down to a whole number.

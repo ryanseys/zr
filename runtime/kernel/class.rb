@@ -917,6 +917,8 @@ machine def zr_gate_bit(klass, mid)
       GATE_TIMES
     elsif mid == Machine.id(:-@)
       GATE_UMINUS
+    elsif mid == Machine.id(:<=>)
+      GATE_CMP
     else
       0
     end
@@ -993,7 +995,7 @@ end
 # start: the class the gate guards (a global's index), the name, the
 # gate bit, and the body and visibility that the class found then.
 Machine.struct :GateRow, klass: Word, mid: Word, bit: Word, fn: Ptr, vis: Word
-GATE_ROWS = 44
+GATE_ROWS = 45
 
 sig [Word, Word, Word, Word] => Word
 machine def zr_gate_row(i, klass, mid, bit)
@@ -1056,6 +1058,7 @@ machine def zr_gates_snapshot
   i = zr_gate_row(i, G_INTEGER, Machine.id(:times), GATE_TIMES)
   i = zr_gate_row(i, G_INTEGER, Machine.id(:-@), GATE_UMINUS)
   i = zr_gate_row(i, G_FLOAT, Machine.id(:-@), GATE_FLO_UMINUS)
+  i = zr_gate_row(i, G_INTEGER, Machine.id(:<=>), GATE_CMP)
   zr_gate_row(i, G_RANGE, Machine.id(:each), GATE_RANGE_EACH)
   Machine.store64(Machine.static(:gates_taken, 8), 0, 1)
 end
@@ -1362,10 +1365,12 @@ machine def zr_method_add_row(klass, mid, fn, arity, kind, meta, cref, vis)
   if !core
     zr_save_core_row(ext, e)
   end
-  # A method that the hidden eval support defines on a class of the
-  # program stays out of the program's sight, as a constant does, until
-  # the program requires the file itself (zr_feature_reveal).
-  conceal = !core && zr_program_started_p() && zr_hidden_now() && (RBasic.flags(klass) & FL_CONCEALED) == 0
+  # A method that a file loads onto a class of the program while the
+  # eval support loads that file stays out of the program's sight, as a
+  # constant does, until the program requires the file itself
+  # (zr_feature_reveal). A method that eval support defines for the
+  # program, as an FFI attach does, is the program's.
+  conceal = !core && zr_program_started_p() && zr_loading_hidden() && (RBasic.flags(klass) & FL_CONCEALED) == 0
   conceal = conceal && (e == 0 || MEntry.concealed(e) != 0)
   if e == 0
     n = ClassExt.mlen(ext)

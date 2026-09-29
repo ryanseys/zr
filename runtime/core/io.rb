@@ -1922,7 +1922,7 @@ class IO
   rescue SystemCallError
     # io_fflush keeps what it could not write for the next flush.
     @wbuf = waiting << @wbuf
-    PENDING << self unless PENDING.include?(self)
+    PENDING << self unless Primitive.zr_table_member_p(PENDING, self)
     raise
   end
 

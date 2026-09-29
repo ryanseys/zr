@@ -28,7 +28,44 @@ module Zr
             @f.jump(merge, [float_path(node.name, recv, arg, slow)])
           end
           switch(slow)
+          native_equality(node, recv, arg) { |equal| @f.jump(merge, [ruby_bool(equal)]) }
           @f.jump(merge, [sends ? sends.call : dispatch(node, recv, argv, imm(1))])
+          switch(merge)
+          result
+        end
+
+        # In the core library, `==` and `!=` answer natively for the values
+        # that CRuby's C compares natively (zr_native_eq_kind). The block
+        # takes the answer as a condition, and the send follows for all
+        # other operands.
+        def native_equality(node, recv, arg)
+          return unless native_operators? && %i[== !=].include?(node.name)
+
+          kind = kernel("zr_native_eq_kind", recv, arg)
+          answered = @f.label
+          sent = @f.label
+          @f.brif(@f.icmp("ne", kind, imm(0)), answered, sent)
+          switch(answered)
+          yield @f.icmp(node.name == :== ? "eq" : "ne", kind, imm(1))
+          switch(sent)
+        end
+
+        # In the core library, `<=>` of two fixnums answers natively while
+        # Integer#<=> is ruby's own, as CRuby's OPTIMIZED_CMP does. All
+        # other operands send it.
+        def native_compare(node, recv, argv)
+          arg = @f.fetch("i64", argv)
+          fast = @f.label
+          slow = @f.label
+          merge, (result,) = @f.block(["i64"])
+          own = @f.icmp("eq", @f.band(@f.gates, imm(@l.const("GATE_CMP"))), imm(0))
+          @f.brif(@f.band(fixnums?(recv, arg), own), fast, slow)
+          switch(fast)
+          less = @f.icmp("slt", recv, arg)
+          more = @f.icmp("sgt", recv, arg)
+          @f.jump(merge, [@f.csel(less, imm(-1), @f.csel(more, imm(3), imm(1)))])
+          switch(slow)
+          @f.jump(merge, [dispatch(node, recv, argv, imm(1))])
           switch(merge)
           result
         end
@@ -223,9 +260,23 @@ module Zr
 
         def gate_clear(name) = gates_clear(name)
 
+        # Whether the fast paths ignore the gates. The core library and
+        # the compiler that eval carries are ruby's C, which compares and
+        # counts its own values natively whatever a program redefines. A
+        # method that CRuby writes in Ruby (`:ruby`) sends as Ruby does.
+        def native_operators?
+          return @native_operators unless @native_operators.nil?
+
+          fn = self
+          fn = fn.outer while fn.kind == :block && fn.outer
+          @native_operators = (@l.internal? || @l.support?) && !fn.attributes.include?(:ruby)
+        end
+
         # Whether all the given gates are clear: one test of the gate word,
         # from its register.
         def gates_clear(*names)
+          return @f.icmp("eq", imm(0), imm(0)) if native_operators?
+
           @f.icmp("eq", @f.band(@f.gates, imm(names.sum { |name| @l.const(name) })), imm(0))
         end
 
