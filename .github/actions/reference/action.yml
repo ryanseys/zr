@@ -1,0 +1,16 @@
+name: Reference ruby
+description: >-
+  Restores or installs the gems of the ruby that the tests compare with
+  (`zr-dev reference`): ruby 4.0.7's bundled gems, and zr's versions of
+  the gems whose C it ports, in tmp/reference. The key covers the lists
+  that name them.
+runs:
+  using: composite
+  steps:
+    - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+      with:
+        path: tmp/reference
+        key: reference-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('lib/zr/stdlib.rb', 'lib/zr/ports.rb', '.ruby-version') }}
+    - name: Install the reference ruby's gems
+      shell: bash
+      run: ruby tool/zr-dev.rb reference

@@ -8,6 +8,7 @@ require_relative "harness/answer"
 require_relative "fixtures"
 require_relative "reader"
 require_relative "harness/child"
+require_relative "harness/reference"
 require_relative "harness/runner"
 require_relative "slow"
 require_relative "binaries"
@@ -245,17 +246,15 @@ module Zr
     # Returns the ruby report for a file that does not parse. Returns nil
     # when ruby parses it, and the error came from a required file.
     #
-    # A bare ruby writes the report, not this process. The report uses
-    # syntax_suggest. Under `bundle exec`, a gem that the Gemfile does
-    # not list is hidden, so this process gets the older copy in lib/ruby
-    # (2.0.3, not 3.0.0), which writes different text. A bare ruby made
-    # the recordings, so a bare ruby writes this report too.
-    # `Zr::CLI.lower` uses the ruby that it runs under, which for a user
-    # is also a bare ruby.
+    # The reference ruby (Harness::Reference) writes the report, not this
+    # process: the report uses syntax_suggest, and this process under
+    # `bundle exec` sees the bundle's gems. The reference ruby made the
+    # recordings, so it writes this report too. It has syntax_suggest
+    # 2.0.3, as stdlib/ does, which `Zr::CLI.lower` loads.
     def syntax_report(rb)
       out, = Harness::Child.run([RbConfig.ruby, "-e", REPORT, rb], cwd: Dir.pwd, seconds: Spec.limit,
                                                                    megabytes: Harness::Child::RUN_MB,
-                                                                   env: Harness::Child::BARE_RUBY)
+                                                                   env: Harness::Reference.env)
       out.stdout.empty? ? nil : Spec.text(out.stdout)
     end
 

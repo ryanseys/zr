@@ -26,8 +26,9 @@ module Zr
 
     def ruby(version = RUBY_VERSION)
       return Check.new(:ok, "ruby", version) if version == RUBY
+      return Check.new(:warn, "ruby", "#{version}; zr is tested with #{RUBY}") if Zr.supported_ruby?(version)
 
-      Check.new(:fail, "ruby", "#{version}; zr needs #{RUBY}")
+      Check.new(:fail, "ruby", "#{version}; zr needs #{RUBY} or a later 4.0 release")
     end
 
     def host(triple = Target.host_triple)
@@ -59,9 +60,11 @@ module Zr
 
     def gems
       require_relative "libraries"
-      Check.new(:ok, "pinned gems", "#{Libraries::PINS.size + Libraries::HOST.size} libraries")
-    rescue Libraries::Unresolved => e
-      Check.new(:fail, "pinned gems", e.message)
+      require_relative "ports"
+      missing = Libraries.roots.flatten.reject { |dir| File.directory?(dir) }
+      return Check.new(:fail, "libraries", "#{missing.first} is missing; reinstall zr (gem install zr)") unless missing.empty?
+
+      Check.new(:ok, "libraries", "stdlib of ruby #{RUBY} (#{Stdlib::DEFAULT.size + Stdlib::BUNDLED.size} gems), #{Ports::ALL.size} ports")
     end
 
     def cache

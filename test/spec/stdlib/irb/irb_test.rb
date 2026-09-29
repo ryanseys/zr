@@ -53,7 +53,7 @@ describe "irb" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      "1.18.0"
+      "1.16.0"
       false
       false
     OUT

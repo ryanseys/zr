@@ -56,6 +56,9 @@ class RubyVM
 
       def compile(source, file = +"<compiled>", path = file, line = 1, options = nil)
         source = source.read if source.is_a?(IO)
+        # A nil file is ruby's default, as irb's syntax check passes it.
+        file = +"<compiled>" if file.nil?
+        path = file if path.nil?
         return Primitive.zr_unimplemented(+"RubyVM::InstructionSequence.compile") unless defined?(::Zr::Eval)
 
         code = ::Zr::Eval.current.compile(source, file, line, [])

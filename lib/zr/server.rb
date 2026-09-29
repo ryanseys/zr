@@ -263,7 +263,6 @@ module Zr
     def fresh!(message = nil)
       Config.instance_variable_set(:@current, nil)
       Paths.instance_variable_set(:@cache, nil)
-      Paths.instance_variable_set(:@libraries, nil)
       Libraries.instance_variable_set(:@roots, nil) if defined?(Libraries)
       return if message && @digest && settings(message[:env]) == settings(ENV) && message[:argv].none? { |word| word.start_with?("--path-root") } &&
                 Zr.runtime_digest(Target.default) == @digest

@@ -303,4 +303,16 @@ describe "Ripper programs" do
       [[:on_heredoc_beg, "BEG"], [:on_nl, "BEG"], [:on_ignored_sp, "BEG"], [:on_tstring_content, "BEG"], [:on_heredoc_end, "BEG"], [:on_ident, "CMDARG"]]
     OUT
   end
+  it "a lexer that starts at line 0 gives each token its line, as irb lexes" do
+    result = zr(<<~'RUBY')
+      # irb puts a line that declares its local variables before the code
+      # and lexes from line 0, so the code starts at line 1.
+      require "ripper"
+      p Ripper::Lexer.new("x=nil;\np x\n", "-", 0).scan.map { |t| [t.pos, t.event, t.tok] }
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [[[0, 0], :on_ident, "x"], [[0, 1], :on_op, "="], [[0, 2], :on_kw, "nil"], [[0, 5], :on_semicolon, ";"], [[0, 6], :on_ignored_nl, "\n"], [[1, 0], :on_ident, "p"], [[1, 1], :on_sp, " "], [[1, 2], :on_ident, "x"], [[1, 3], :on_nl, "\n"]]
+    OUT
+  end
 end

@@ -139,9 +139,11 @@ class Ripper
 
     # The whole program: a jump with nowhere to go (`yield` outside a
     # method, a bare `break`) is an error, as parse.y reports it, where
-    # prism's own translation reads the source as part of a script.
+    # prism's own translation reads the source as part of a script. It
+    # starts at the parse's first line, as the tokens do (irb lexes from
+    # line 0, after a line that declares its local variables).
     def result
-      @result ||= Prism.parse(source, version: "current")
+      @result ||= Prism.parse(source, version: "current", line: @cursor.first_lineno)
     end
 
     # A superclass takes the terminator after it, as parse.y's

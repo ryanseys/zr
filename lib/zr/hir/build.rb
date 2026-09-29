@@ -4,6 +4,7 @@ require_relative "../parse"
 require_relative "../paths"
 require_relative "../refused"
 require_relative "../libraries"
+require_relative "../ports"
 require_relative "../target"
 require_relative "../config"
 require_relative "node"
@@ -24,8 +25,8 @@ module Zr
     # with a message that gives the form and the line. The rule: the same
     # as CRuby, or refused. Never a guess.
     class Build
-      # Ruby's own pure-Ruby stdlib, unchanged: the pinned gems' files and
-      # vendor/lib's, found when a build calls this (lib/zr/libraries.rb).
+      # Ruby's own library and the default gems, from zr's standard
+      # library (stdlib/, lib/zr/libraries.rb).
       def self.pure = Libraries.root
 
       # The extensions whose native part is zr's. A file here is part of
@@ -46,9 +47,8 @@ module Zr
       # The Ruby part of an extension, as its gem ships it. A gem is on
       # the path only after zr ports its native part, so a require of an
       # unsupported one stops with a message, and does not fail halfway.
-      GEMS = %w[prism json psych bigdecimal digest syslog socket ffi openssl].map { |name| File.join(Paths::VENDOR, "ext/#{name}/lib") }.freeze
-      # A bundled gem that identifies its own files by their directory.
-      # That directory must contain only this gem.
+      GEMS = Ports.roots.freeze
+      # The bundled gems, each in its own directory, as ruby installs them.
       def self.bundled = Libraries.apart
 
       # The library roots for `target`, in search order: ruby's own, then

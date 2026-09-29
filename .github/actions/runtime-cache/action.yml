@@ -19,4 +19,4 @@ runs:
           tmp/cache/eval-*
           tmp/cache/wasm-*.marshal
           tmp/cache/built-*.ok
-        key: runtime-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('lib/**', 'runtime/**', 'vendor/**', 'Gemfile.lock', '.ruby-version') }}
+        key: runtime-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('lib/**', 'runtime/**', 'stdlib/**', 'vendor/**', 'Gemfile.lock', '.ruby-version') }}

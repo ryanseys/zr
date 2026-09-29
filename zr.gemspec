@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require_relative "lib/zr/version"
-require_relative "lib/zr/libraries"
 
 Gem::Specification.new do |spec|
   spec.name = "zr"
@@ -15,14 +14,15 @@ Gem::Specification.new do |spec|
     WASI modules on any host, and to static aarch64-linux-musl binaries
     with a musl toolchain. A compiled program gives ruby 4.0.7's output,
     or zr refuses it at build time. The compiler and the runtime are Ruby,
-    with no C. The Ruby library a program requires is the gems this one
-    depends on, which zr compiles into the program.
+    with no C. zr carries ruby's standard library itself, so the gem
+    depends on nothing.
   TEXT
   spec.homepage = "https://github.com/ryanseys/zr"
   spec.license = "MIT" # the vendored parts: THIRD_PARTY_NOTICES.md
-  # Exactly the ruby that zr checks its output against (.ruby-version).
-  # Another ruby has another standard library, which zr is not tested with.
-  spec.required_ruby_version = "= #{Zr::RUBY}"
+  # The ruby that zr checks its output against (.ruby-version), or a later
+  # 4.0 release. zr carries its own standard library (stdlib/), so the
+  # host ruby only runs the compiler. zr warns on any ruby but Zr::RUBY.
+  spec.required_ruby_version = [">= #{Zr::RUBY}", "< 4.1"]
 
   spec.metadata = {
     "homepage_uri" => spec.homepage,
@@ -33,21 +33,21 @@ Gem::Specification.new do |spec|
     "rubygems_mfa_required" => "true"
   }
 
-  # The compiler, its runtime and the vendored sources. The tests and
-  # the tasks stay in the repository.
+  # The compiler, its runtime, its standard library and the vendored
+  # sources. The tests and the tasks stay in the repository.
   spec.files = IO.popen(%w[git ls-files -z], chdir: __dir__, err: IO::NULL, &:read).split("\x0").select do |file|
-    file.match?(%r{\A(exe|lib|licenses|runtime|vendor/(ext|lib|prelude))/}) ||
+    file.match?(%r{\A(exe|lib|licenses|runtime|stdlib|vendor/(ext|prelude))/}) ||
       %w[LICENSE.txt THIRD_PARTY_NOTICES.md README.md CHANGELOG.md].include?(file)
   end
+  # Outside a git checkout, the list is empty, and so would the gem be.
+  raise "zr.gemspec: `git ls-files` listed no files; build the gem in a git checkout" if spec.files.empty?
+
   spec.bindir = "exe"
   spec.executables = ["zr"]
-  # Only lib/: runtime/ and vendor/ hold files named like ruby's own libraries
-  # (rbconfig, set, json), and must never shadow them.
+  # Only lib/: runtime/, stdlib/ and vendor/ hold files named like ruby's
+  # own libraries (rbconfig, set, json), and must never shadow them.
   spec.require_paths = ["lib"]
 
-  # The libraries a program's `require` reads, which zr compiles into
-  # it and never loads itself (lib/zr/libraries.rb). Pinned exactly: a
-  # program answers what ruby answers with these versions, and a digest
-  # of each holds zr to the files it was checked against.
-  Zr::Libraries::PINS.each { |name, version| spec.add_dependency name, "= #{version}" }
+  # No runtime dependencies: a program's library is stdlib/ and
+  # vendor/ext, which zr compiles into the program.
 end

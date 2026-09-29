@@ -1548,4 +1548,19 @@ it "AbstractSyntaxTree splices a literal hash after a leading double splat" do
     [:HASH, [:LIST, nil, [:VCALL, :a], nil]]
   OUT
 end
+  it "iseq compiles a string with a nil file as <compiled>" do
+    result = zr(<<~'RUBY')
+      # A nil file and path are the defaults, as irb passes them to check
+      # a line of input.
+      i = RubyVM::InstructionSequence.compile("1 + 1", nil, nil, 3)
+      p i.path, i.absolute_path, i.first_lineno, i.eval
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "<compiled>"
+      "<compiled>"
+      3
+      2
+    OUT
+  end
 end

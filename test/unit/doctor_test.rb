@@ -11,10 +11,17 @@ class DoctorTest < Minitest::Test
   EXE = File.join(ROOT, "exe/zr")
 
   def test_another_ruby_fails
-    check = Zr::Doctor.ruby("4.0.8")
+    check = Zr::Doctor.ruby("4.1.0")
 
     assert_equal :fail, check.status
-    assert_equal "4.0.8; zr needs #{Zr::RUBY}", check.detail
+    assert_equal "4.1.0; zr needs #{Zr::RUBY} or a later 4.0 release", check.detail
+  end
+
+  def test_a_later_patch_release_warns
+    check = Zr::Doctor.ruby("4.0.9")
+
+    assert_equal :warn, check.status
+    assert_equal "4.0.9; zr is tested with #{Zr::RUBY}", check.detail
   end
 
   def test_the_pinned_ruby_is_ok
@@ -45,7 +52,9 @@ class DoctorTest < Minitest::Test
   end
 
   def zr(*args, env: {})
-    Open3.capture3({ "RUBYOPT" => nil, "BUNDLE_GEMFILE" => nil, "ZR_COMPILED" => "0" }.merge(env), RbConfig.ruby, EXE, *args, chdir: ROOT)
+    # rubygems requires BUNDLER_SETUP at boot, so a bundle leaks through it too.
+    unbundled = { "RUBYOPT" => nil, "BUNDLE_GEMFILE" => nil, "BUNDLER_SETUP" => nil, "BUNDLE_BIN_PATH" => nil, "BUNDLER_VERSION" => nil }
+    Open3.capture3(unbundled.merge("ZR_COMPILED" => "0").merge(env), RbConfig.ruby, EXE, *args, chdir: ROOT)
   end
 
   def test_version_names_the_pinned_ruby

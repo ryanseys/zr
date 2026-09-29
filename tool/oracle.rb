@@ -58,6 +58,7 @@ module Zr
         require "etc"
         require_relative "../test/support/harness/answer"
         require_relative "../test/support/harness/child"
+        require_relative "../test/support/harness/reference"
         require_relative "../lib/zr/native/parallel"
       end
 
@@ -90,9 +91,9 @@ module Zr
           end
 
           argv = [Dev.ruby, *kwargs.fetch(:ruby, []), kwargs.fetch(:path, "spec.rb"), *kwargs.fetch(:argv, [])]
-          # Use `BARE_RUBY`, because a bare ruby made the recordings, not a
+          # The reference ruby (Harness::Reference) made the recordings, not a
           # ruby under `bundle exec`. The example's own `env:` has priority.
-          env = Harness::Child::BARE_RUBY.merge(kwargs.fetch(:env, {}))
+          env = Harness::Reference.env.merge(kwargs.fetch(:env, {}))
           out, = Harness::Child.run(argv, cwd: run, stdin: kwargs[:stdin], env: env,
                                                seconds: LIMIT, megabytes: Harness::Child::RUN_MB)
           return nil unless out.code.is_a?(Integer)

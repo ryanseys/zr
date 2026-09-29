@@ -2,9 +2,10 @@
 
 source "https://rubygems.org"
 
-# zr's own dependencies are in zr.gemspec. zr runs on ruby 4.0.7
-# (.ruby-version), which is also the ruby that every test's expected
-# output comes from.
+# zr has no runtime dependencies (zr.gemspec): a program's library is
+# stdlib/ and vendor/ext. These are the tools to build and test zr. The
+# ruby that every expected output comes from is ruby 4.0.7 with its own
+# gems in tmp/reference (`zr-dev reference`), never this bundle.
 gemspec
 
 group :development, :test do
@@ -29,6 +30,9 @@ end
 
 # Not part of a build or a test run.
 group :development do
+  # bin/console. A bundled gem, so it is named here to be required under
+  # bundler.
+  gem "irb"
   # The sampling profiler for the compiler's hot paths.
   gem "vernier", "~> 1.0"
   # `rake lint`: RuboCop's Lint cops only (.rubocop.yml).

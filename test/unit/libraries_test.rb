@@ -3,9 +3,9 @@
 require "test_helper"
 require "zr/hir/build"
 
-# Tests the library tree that a build requires files from
-# (lib/zr/libraries.rb). Each root that the loader searches must exist
-# and contain the files that a require reads.
+# Tests zr's standard library (stdlib/, lib/zr/libraries.rb) and the gems
+# whose C part zr ports (lib/zr/ports.rb). A build reads a program's
+# library from these, and never from the host's gems.
 class LibrariesTest < Minitest::Test
   def test_every_library_root_is_a_directory
     roots = Zr::Hir::Build.stdlib(Zr::Target.default)
@@ -15,40 +15,48 @@ class LibrariesTest < Minitest::Test
     assert_equal [], missing
   end
 
-  def test_pure_tree_contains_default_and_bundled_gems
+  def test_ruby_lib_holds_the_default_gems_and_rubygems
     pure = Zr::Hir::Build.pure
 
-    found = %w[net/http.rb csv.rb rubygems.rb bundler.rb pathname.rb].reject { |rel| File.file?(File.join(pure, rel)) }
+    found = %w[net/http.rb rubygems.rb bundler.rb pathname.rb syntax_suggest/api.rb].reject { |rel| File.file?(File.join(pure, rel)) }
 
     assert_equal [], found
   end
 
-  def test_a_gem_kept_apart_has_its_own_lib
-    apart = Zr::Hir::Build.bundled
+  def test_each_bundled_gem_is_installed_in_its_own_directory
+    held = Zr::Stdlib::BUNDLED.zip(Zr::Hir::Build.bundled).reject do |(name, version), dir|
+      dir.end_with?("/gems/#{name}-#{version}/lib") && File.file?(File.join(dir, "..", "..", "..", "specifications", "#{name}-#{version}.gemspec"))
+    end
 
-    held = apart.map { |dir| File.file?(File.join(dir, "#{File.basename(File.dirname(dir))}.rb")) }
-
-    assert_equal [true] * Zr::Libraries::APART.size, held
+    assert_equal [], held
   end
 
-  # rubygems and bundler are ruby's own copies, so bundler's build
-  # metadata is ruby 4.0.7's (no build date), not that of a
-  # rubygems-update gem.
-  def test_rubygems_and_bundler_come_from_rubys_library
-    pure = Zr::Hir::Build.pure
-    lib = RbConfig::CONFIG["rubylibdir"]
+  # The versions are stock ruby 4.0.7's (`zr-dev gen stdlib` reads them
+  # from ruby itself), so each default gem's specification is this ruby's.
+  def test_default_gems_are_this_rubys_versions
+    stale = Zr::Stdlib::DEFAULT.reject do |name, version|
+      File.file?(File.join(Gem.default_specifications_dir, "#{name}-#{version}.gemspec"))
+    end
 
-    sources = %w[rubygems.rb bundler.rb bundler/build_metadata.rb].map { |rel| File.readlink(File.join(pure, rel)) }
-
-    assert_equal %w[rubygems.rb bundler.rb bundler/build_metadata.rb].map { |rel| File.join(lib, rel) }, sources
+    assert_equal({}, stale)
   end
 
-  def test_the_gem_depends_on_no_rubygems_update
+  def test_no_ported_gem_is_in_the_stdlib
+    both = Zr::Ports::ALL.keys & (Zr::Stdlib::DEFAULT.keys + Zr::Stdlib::BUNDLED.keys)
+
+    assert_equal [], both
+  end
+
+  def test_each_ported_ruby_half_is_vendored
+    missing = Zr::Ports.roots.reject { |dir| File.directory?(dir) }
+
+    assert_equal [], missing
+  end
+
+  def test_the_gem_depends_on_nothing
     spec = Gem::Specification.load(File.join(ROOT, "zr.gemspec"))
 
-    names = spec.runtime_dependencies.map(&:name)
-
-    refute_includes names, "rubygems-update"
-    assert_equal Zr::Libraries::PINS.keys.sort, names.sort
+    assert_equal [], spec.runtime_dependencies.map(&:name)
+    assert(spec.files.any? { |file| file.start_with?("stdlib/lib/ruby/4.0.0/") })
   end
 end

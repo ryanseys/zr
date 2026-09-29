@@ -49,10 +49,6 @@ ship (see [Use a library or gem](../how-to/use-a-library-or-gem.md)).
 - `prism/translation/ruby_parser`
 - `ractor`
 - `strscan/strscan`
-- `syntax_suggest/left_right_lex_count`
-- `syntax_suggest/lex_all`
-- `syntax_suggest/lex_value`
-- `syntax_suggest/ripper_errors`
 - 61 encoding libraries under `enc/`: ruby loads them itself, and zr's runtime has every encoding built in
 
 ## Tests that a target may fail

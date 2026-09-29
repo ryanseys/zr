@@ -14,16 +14,25 @@ class CliTest < Minitest::Test
 
   def test_the_pinned_ruby_builds
     assert_nil Zr::CLI.host_refusal(Zr::RUBY)
+    assert_nil Zr::CLI.host_note(Zr::RUBY)
+  end
+
+  def test_a_later_patch_release_builds_with_a_note
+    assert_nil Zr::CLI.host_refusal("4.0.9")
+    assert_equal "zr #{Zr::VERSION} is tested with ruby #{Zr::RUBY}; this is ruby 4.0.9", Zr::CLI.host_note("4.0.9")
+    assert_output(nil, "zr: warning: #{Zr::CLI.host_note("4.0.9")}\n") { Zr::CLI.pinned!("4.0.9") }
   end
 
   def test_other_ruby_is_refused_with_message
-    assert_equal "zr #{Zr::VERSION} builds on ruby #{Zr::RUBY}, the ruby .ruby-version pins; this is ruby 4.0.8",
-                 Zr::CLI.host_refusal("4.0.8")
+    assert_equal "zr #{Zr::VERSION} runs on ruby #{Zr::RUBY} or a later 4.0 release; this is ruby 4.0.6",
+                 Zr::CLI.host_refusal("4.0.6")
+    refute_nil Zr::CLI.host_refusal("4.1.0")
+    refute_nil Zr::CLI.host_refusal("3.4.7")
   end
 
   def test_a_build_on_another_ruby_stops_with_the_refusal_status
     error = assert_raises(SystemExit) do
-      assert_output(nil, "zr: #{Zr::CLI.host_refusal("4.0.8")}\n") { Zr::CLI.pinned!("4.0.8") }
+      assert_output(nil, "zr: #{Zr::CLI.host_refusal("4.1.0")}\n") { Zr::CLI.pinned!("4.1.0") }
     end
     assert_equal Zr::CLI::REFUSED, error.status
     assert_nil Zr::CLI.pinned!(Zr::RUBY)

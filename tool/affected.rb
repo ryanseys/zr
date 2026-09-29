@@ -79,7 +79,8 @@ module Zr
         when %r{\Atool/} then [File.join(ROOT, "test/unit")]
         when %r{\Aruntime/core/os/[^/]+/([^/]+)\.rb\z} then core($1)
         when %r{\Aruntime/core/([^/]+?)(?:/.*)?\.rb\z} then core($1)
-        when %r{\Aruntime/ext/([^/.]+)}, %r{\Avendor/lib/([^/.]+)} then library($1)
+        when %r{\Aruntime/ext/([^/.]+)}, %r{\Astdlib/lib/ruby/[\d.]+/([^/.]+)}, %r{\Avendor/ext/([^/]+)/} then library($1)
+        when %r{\Astdlib/lib/ruby/gems/[\d.]+/gems/(.+)-[\d.]+/} then library($1.tr("-", "/"))
         when "Gemfile.lock", "zr.gemspec" then :all
         else []
         end

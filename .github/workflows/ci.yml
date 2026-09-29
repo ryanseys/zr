@@ -23,6 +23,7 @@ jobs:
           bundler-cache: true
       - uses: bytecodealliance/actions/wasmtime/setup@9152e710e9f7182e4c29ad218e4f335a7b203613 # v1
       - uses: ./.github/actions/runtime-cache
+      - uses: ./.github/actions/reference
       - name: Lint
         run: bundle exec rake lint
       # Under ZR_VERIFY=1 every IR function is checked for dominance and
@@ -73,6 +74,7 @@ jobs:
           ruby-version: .ruby-version
           bundler-cache: true
       - uses: ./.github/actions/runtime-cache
+      - uses: ./.github/actions/reference
       - name: Build the runtime for the checks
         run: bundle exec rake build
       - run: bundle exec ruby tool/zr-dev.rb stage 1
@@ -151,19 +153,15 @@ jobs:
           docker exec alpine git config --global --add safe.directory /zr
           docker exec alpine bundle config set --global without development
           docker exec alpine bundle install
-      # A stock ruby 4.0.7 image: its own rubygems and bundler must be the
-      # versions that zr pins (Zr::Libraries::HOST), so a user needs no
-      # rubygems-update gem.
-      - name: Check the rubygems and bundler of a stock ruby
+          docker exec alpine ruby tool/zr-dev.rb reference
+      # A stock ruby 4.0.7 image: zr's standard library (stdlib/) must be
+      # this ruby's own library, byte for byte, and the bundled gems must be
+      # the .gem files of CRuby's gems/bundled_gems at RUBY_REVISION.
+      - name: Check that stdlib/ is stock ruby 4.0.7
         run: |
-          docker exec alpine ruby -Ilib -e '
-            require "zr/libraries"
-            require "bundler/version"
-            have = { "rubygems" => Gem::VERSION, "bundler" => Bundler::VERSION }
-            Zr::Libraries::HOST.each do |name, version|
-              abort "#{name} #{have[name]}, not #{version}" unless have[name] == version
-              puts "#{name} #{version}"
-            end
+          docker exec alpine sh -c 'rev="$(ruby -Ilib -rzr/version -e "print Zr::RUBY_REVISION")" &&
+            git init -q /tmp/ruby && git -C /tmp/ruby fetch -q --depth 1 https://github.com/ruby/ruby.git "$rev" &&
+            RUBY_SRC=/tmp/ruby ruby tool/zr-dev.rb gen stdlib --check'
       - name: Build the runtime for the checks
         run: docker exec alpine bundle exec rake build
       - name: Run the units this target answers
@@ -196,6 +194,7 @@ jobs:
           bundler-cache: true
       - uses: bytecodealliance/actions/wasmtime/setup@9152e710e9f7182e4c29ad218e4f335a7b203613 # v1
       - uses: ./.github/actions/runtime-cache
+      - uses: ./.github/actions/reference
       - name: Build the runtime for the checks, and the wasm32-wasi one
         run: bundle exec rake build:all
       - name: Run the units this target answers

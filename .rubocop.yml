@@ -19,7 +19,8 @@ AllCops:
     - "test/hir/**/*"     # input programs for the HIR snapshots
     - "tmp/**/*"
     - "lib/zr/hir/features.rb"      # generated
-    - "lib/zr/library_digests.rb"   # generated
+    - "lib/zr/stdlib.rb"            # generated
+    - "stdlib/**/*"                 # ruby's own library, unedited
 
 Lint:
   Enabled: true

@@ -46,9 +46,6 @@ module Zr
     def self.shown(path)
       return path unless @root && path.start_with?("/")
 
-      libraries.each do |prefix, as|
-        return "#{@root}/#{as}#{path[prefix.size..]}" if path == prefix || path.start_with?("#{prefix}/")
-      end
       @prefixes.each do |prefix|
         next unless path == prefix || path.start_with?("#{prefix}/")
 
@@ -56,15 +53,6 @@ module Zr
         return shown.empty? ? "/" : shown
       end
       path
-    end
-
-    # The library tree (lib/zr/libraries.rb) is written as the vendor/
-    # layout, so a build with a root gives the same paths on any machine,
-    # wherever its gems are.
-    def self.libraries
-      return [] unless defined?(Libraries)
-
-      @libraries ||= [[Libraries.root, "vendor/lib"], *Libraries::APART.zip(Libraries.apart).map { |name, dir| [dir, "vendor/gems/#{name}/lib"] }]
     end
 
     # The user's cache directory for zr: `XDG_CACHE_HOME` when it is

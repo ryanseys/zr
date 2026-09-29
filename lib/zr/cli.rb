@@ -123,17 +123,27 @@ module Zr
     end
 
     # Why this compiler must not build on a ruby of `version`, or nil
-    # when it is the ruby that zr pins. zr checks its output against that
-    # one ruby only.
+    # when it runs there.
     def host_refusal(version = RUBY_VERSION)
-      return if version == RUBY
+      return if Zr.supported_ruby?(version)
 
-      "zr #{VERSION} builds on ruby #{RUBY}, the ruby .ruby-version pins; this is ruby #{version}"
+      "zr #{VERSION} runs on ruby #{RUBY} or a later 4.0 release; this is ruby #{version}"
     end
 
-    # Stops a build on any ruby but the pinned one, before it reads the
-    # program.
+    # A note for a ruby that zr runs on but is not tested with, or nil.
+    def host_note(version = RUBY_VERSION)
+      return if version == RUBY || !Zr.supported_ruby?(version)
+
+      "zr #{VERSION} is tested with ruby #{RUBY}; this is ruby #{version}"
+    end
+
+    # Stops a build on a ruby that zr does not run on, before it reads
+    # the program. Warns once on a ruby that it is not tested with.
     def pinned!(version = RUBY_VERSION)
+      if (note = host_note(version))
+        warn "zr: warning: #{note}"
+        return
+      end
       return unless (why = host_refusal(version))
 
       warn "zr: #{why}"
@@ -366,6 +376,46 @@ module Zr
       lines.join("\n")
     end
 
+    # ruby's report for `input`, which does not parse, or nil when it
+    # parses (then a file that it requires did not). The report uses
+    # syntax_suggest, and always zr's own copy (stdlib/), as a stock ruby
+    # 4.0.7 has it. A ruby that booted with gems has loaded one already; if
+    # that one is another version, a ruby without gems writes the report.
+    # Only CRuby runs this, with a computed path, so the compiled compiler
+    # does not link syntax_suggest in and uses the parser's report.
+    def syntax_report(input)
+      unless Zr.compiled?
+        require_relative "libraries"
+        if defined?(SyntaxSuggest::VERSION) && SyntaxSuggest::VERSION != Stdlib::DEFAULT.fetch("syntax_suggest")
+          script = "require ARGV[0]; report = Zr::CLI.syntax_report(ARGV[1]); report ? print(report) : exit(2)"
+          out = IO.popen([RbConfig.ruby, "--disable-gems", "-e", script, File.expand_path("cli.rb", __dir__), input], err: File::NULL, &:read)
+          return $?.exitstatus == 2 ? nil : out
+        end
+        # Load `api` by its path first, so `core_ext` does not require it by
+        # name. A second core_ext would wrap the message twice.
+        unless defined?(SyntaxSuggest.module_for_detailed_message)
+          syntax_suggest = File.join(Libraries.root, "syntax_suggest")
+          require File.join(syntax_suggest, "api")
+          require File.join(syntax_suggest, "core_ext")
+        end
+      end
+      # ruby prints the parse's warnings before it reports the error, so the
+      # report includes them.
+      warned = +""
+      sink = Object.new
+      sink.define_singleton_method(:write) { |*parts| warned << parts.join }
+      was = $stderr
+      $stderr = sink
+      begin
+        RubyVM::InstructionSequence.compile_file(input)
+      ensure
+        $stderr = was
+      end
+      nil
+    rescue SyntaxError => e
+      "#{warned}#{input}: #{e.detailed_message(highlight: false)}\n"
+    end
+
     # A binary's functions are assembled as they are lowered, so the IR of
     # a large program is never all in memory at once (`Native::Build.lower`).
     def lower(input, verb, target, assemble: false)
@@ -377,8 +427,6 @@ module Zr
     rescue Refused => e
       warn refusal_report(e)
       exit REFUSED
-    rescue Libraries::Unresolved => e
-      abort "zr: #{e.message}"
     rescue Backend::Refused => e
       # A backend refuses code that the front end let through: a limit or
       # a defect in zr, not a form of Ruby that the program must avoid.
@@ -389,38 +437,7 @@ module Zr
       # 1. The binary does the same, with ruby's own report. In ruby, a
       # required file that does not parse raises when the require runs.
       # zr does not support this, so it refuses.
-      report = begin
-        # ruby's report uses syntax_suggest. Ruby's boot loads it, but a
-        # process started with --disable-gems (a harness child) does not.
-        # Load zr's own copy (3.0.0, as ruby 4.0.7 loads), never the
-        # host's. Load `api` by its path first, so `core_ext` does not
-        # require it by name. Only CRuby runs this, with a computed path,
-        # so the compiled compiler does not link it in and uses the
-        # parser's report. If ruby booted with gems, syntax_suggest is
-        # already loaded, and a second core_ext would wrap the message
-        # twice.
-        if !Zr.compiled? && !defined?(SyntaxSuggest.module_for_detailed_message)
-          require_relative "libraries"
-          syntax_suggest = File.join(Libraries.root, "syntax_suggest")
-          require File.join(syntax_suggest, "api")
-          require File.join(syntax_suggest, "core_ext")
-        end
-        # ruby prints the parse's warnings before it reports the error,
-        # so the report includes them.
-        warned = +""
-        sink = Object.new
-        sink.define_singleton_method(:write) { |*parts| warned << parts.join }
-        was = $stderr
-        $stderr = sink
-        begin
-          RubyVM::InstructionSequence.compile_file(input)
-        ensure
-          $stderr = was
-        end
-        nil
-      rescue SyntaxError => own
-        "#{warned}#{input}: #{own.detailed_message(highlight: false)}\n"
-      end
+      report = syntax_report(input)
       unless report
         warn "zr: a required file does not parse: #{e.message.lines.first.chomp}"
         exit REFUSED

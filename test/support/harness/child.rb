@@ -19,21 +19,6 @@ module Zr
       BUILD_MB = Integer(ENV.fetch("ZR_TEST_BUILD_MB", "2048"))
       RUN_MB = Integer(ENV.fetch("ZR_TEST_RUN_MB", "1024"))
 
-      # The environment for a program that ruby runs to get the expected
-      # output. It is not the environment of `bundle exec rake`, where
-      # bundler sets its own `GEM_HOME` and `BUNDLE_GEMFILE`. Under
-      # bundler, the child's `require` finds bundler's gems, not the gems
-      # that ruby ships. `Kernel#require` is also a different method:
-      # `[[:req, :name]]` under bundler, and rubygems' `[[:req, :path]]`
-      # in a bare ruby.
-      #
-      # A bare ruby made the recordings, so a caller that runs ruby merges
-      # this. A caller that builds with zr does not, because the compiler
-      # needs the gems that bundler set up.
-      BARE_RUBY = { "GEM_HOME" => nil, "GEM_PATH" => nil, "BUNDLE_GEMFILE" => nil,
-                    "BUNDLE_BIN_PATH" => nil, "BUNDLE_LOCKFILE" => nil,
-                    "BUNDLER_SETUP" => nil, "BUNDLER_VERSION" => nil }.freeze
-
       # How often the group's memory is read, in seconds.
       EVERY = 0.2
 

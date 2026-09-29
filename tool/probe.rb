@@ -4,6 +4,7 @@ require "fileutils"
 require "open3"
 require "tmpdir"
 require_relative "lib/zr/dev"
+require_relative "../test/support/harness/reference"
 
 module Zr
   module Dev
@@ -93,7 +94,7 @@ module Zr
 
       def ruby(file)
         work = Dir.mktmpdir("zr-probe-ruby-")
-        answer([Dev.ruby, File.basename(file)], stage(file, work))
+        answer([Dev.ruby, File.basename(file)], stage(file, work), Harness::Reference.env)
       ensure
         FileUtils.rm_rf(work) if work
       end
@@ -132,8 +133,8 @@ module Zr
 
       # Runs `command` in `dir` with an empty stdin. A program that runs
       # longer than LIMIT is killed, and its signal is the answer's.
-      def answer(command, dir)
-        Open3.popen3(*command, chdir: dir) do |stdin, stdout, stderr, waiter|
+      def answer(command, dir, env = {})
+        Open3.popen3(env, *command, chdir: dir) do |stdin, stdout, stderr, waiter|
           stdin.close
           out = Thread.new { stdout.read }
           err = Thread.new { stderr.read }

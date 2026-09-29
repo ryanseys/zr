@@ -3,7 +3,6 @@
 require "rbconfig"
 require_relative "paths"
 require_relative "version"
-require_relative "library_digests"
 
 module Zr
   # A compiled compiler that a platform gem ships, at
@@ -15,7 +14,7 @@ module Zr
   #     version 0.1.0
   #     ruby 4.0.7
   #     platform arm64-darwin
-  #     digest <SHA-256 of the sources below the root and the pinned libraries>
+  #     digest <SHA-256 of the sources below the root>
   #
   # The first build reads every source to check the digest, then keeps
   # the file stamps that it checked in the user's cache. A later build
@@ -45,10 +44,8 @@ module Zr
     end
 
     # The SHA-256 of the files of `files` below the root, each by its
-    # path below the root and its bytes, and of the pinned libraries'
-    # digests. The same tree gives the same digest wherever it is
-    # installed. The library tree is elsewhere on each machine, and
-    # `Libraries` checks its files against these digests.
+    # path below the root and its bytes. The same tree gives the same
+    # digest wherever it is installed. stdlib/ is below the root too.
     def digest(files)
       require "digest"
       d = Digest::SHA256.new
@@ -57,7 +54,6 @@ module Zr
 
         d << f.delete_prefix("#{Paths::ROOT}/") << "\0" << File.binread(f) << "\0"
       end
-      Libraries::DIGESTS_BY_NAME.sort.each { |name, sha| d << name << "\0" << sha << "\0" }
       d.hexdigest
     end
 

@@ -102,7 +102,7 @@ module Zr
       # contains its files and has no directory to search. So the program
       # includes it: added and not required, because irb loads it and a
       # load does not change $LOADED_FEATURES.
-      def self.irb_messages = File.join(pure, "irb/lc/error.rb")
+      def self.irb_messages = File.join(Libraries.lib_of("irb"), "irb/lc/error.rb")
 
       # The file that arms Binding#irb's load of irb, as CRuby's prelude
       # requires it on the first call.

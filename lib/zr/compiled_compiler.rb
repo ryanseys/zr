@@ -46,9 +46,9 @@ module Zr
     end
 
     # The compiler as a SelfBuilt program: `exe/zr`, built from lib/,
-    # runtime/, vendor/ and the library tree. The library tree is
-    # included, because a changed pin refers to a different tree.
-    def program = SelfBuilt.new(entry: "exe/zr", binary: binary, dirs: %w[lib runtime vendor]) { library_files }
+    # runtime/, stdlib/ and the vendored sources. Not all of vendor/: a
+    # checkout can keep a bundle in vendor/bundle.
+    def program = SelfBuilt.new(entry: "exe/zr", binary: binary, dirs: %w[lib runtime stdlib vendor/ext vendor/prelude])
 
     def manifest = program.manifest
     def sources = program.sources
@@ -115,16 +115,6 @@ module Zr
       return false if argv.any? { |word| %w[-h --help].include?(word) }
 
       argv.drop(1).any? { |word| !word.start_with?("-") && word.end_with?(".rb") && File.file?(word) }
-    end
-
-    # The files of the library tree, found by ruby's rubygems when the
-    # manifest is stale. If the tree does not resolve, this returns a
-    # placeholder path. Ruby then runs the build and reports the cause.
-    def library_files
-      require_relative "libraries"
-      Dir[File.join(Libraries.tree, "**/*")]
-    rescue Libraries::Unresolved
-      [File.join(Libraries.dir, "unresolved")]
     end
 
     # Builds the compiled compiler with ruby from this tree. It keeps

@@ -2,6 +2,7 @@
 
 require "open3"
 require_relative "lib/zr/dev"
+require_relative "../test/support/harness/reference"
 
 module Zr
   module Dev
@@ -54,7 +55,7 @@ module Zr
         stdin = how[:stdin] && File.binread(File.expand_path(how[:stdin], File.dirname(path)))
         # Clear RUBYOPT, so that the shell's settings do not change the
         # recorded output.
-        env = how.fetch(:env, {}).merge("RUBYOPT" => nil)
+        env = Harness::Reference.env.merge(how.fetch(:env, {})).merge("RUBYOPT" => nil)
         out, err, status = Open3.capture3(env, Dev.ruby, path, *Array(how[:argv]), stdin_data: stdin || "")
 
         File.binwrite("#{base}.out", out)

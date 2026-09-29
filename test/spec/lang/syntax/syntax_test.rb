@@ -1801,7 +1801,7 @@ describe "Syntax programs" do
     _(result).must_answer "", stderr: <<~'ERR', status: 1
       lang/syntax/syntax_test.rb: --> lang/syntax/syntax_test.rb
 
-      invalid method name; a setter method cannot be defined in an endless method definition
+      Unmatched keyword, missing `end' ?
 
       > 3  puts "never printed"
       > 4  class O; def s=(v) = @s = v; end
