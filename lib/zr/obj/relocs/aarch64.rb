@@ -46,8 +46,12 @@ module Zr
           end
         end
 
-        # Whether a signed field of `bits` bits can contain `value`.
-        def fits?(value, bits) = value.between?(-(1 << (bits - 1)), (1 << (bits - 1)) - 1)
+        # Whether a signed field of `bits` bits can contain `value`. A link
+        # asks this about a million times: `between?` cost 4% of a prelink.
+        def fits?(value, bits)
+          half = 1 << (bits - 1)
+          value >= -half && value < half
+        end
       end
     end
   end

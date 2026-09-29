@@ -41,6 +41,7 @@ module Zr
         ABS64 = ObjectFile::RELOC.fetch(:abs64).first
         BRANCH26 = ObjectFile::RELOC.fetch(:branch26).first
         GOT = ObjectFile::RELOC.values_at(:got_page21, :got_pageoff12).map(&:first).freeze
+        GOT_PAGE21, GOT_PAGEOFF12 = GOT
 
         # The parts, in image order, and the input sections that each part
         # contains. The block makes `stubs` and `got` itself.
@@ -303,7 +304,7 @@ module Zr
               @fixups << (target ? [place, :rebase, target + held] : [place, :external, @links[i][s], held])
             else
               kind = KINDS[type] or raise Refused, "a relocation of type #{type}"
-              if GOT.include?(type)
+              if type == GOT_PAGE21 || type == GOT_PAGEOFF12
                 target = @got_at.fetch(meaning(i, s))
               elsif type == BRANCH26
                 target ||= @stub_at.fetch(@links[i][s])
@@ -313,7 +314,12 @@ module Zr
               patched = Relocs::Aarch64.encode(kind, word(out, here), target + addend, place)
               raise Refused, "a #{kind} to #{@inputs[i].name(s).delete_prefix("_")} is out of reach" unless patched
 
-              4.times { |n| out.setbyte(here + n, (patched >> (8 * n)) & 0xFF) }
+              # One byte at a time, unrolled: a block would cost more than
+              # the write, a million times a link.
+              out.setbyte(here, patched & 0xFF)
+              out.setbyte(here + 1, (patched >> 8) & 0xFF)
+              out.setbyte(here + 2, (patched >> 16) & 0xFF)
+              out.setbyte(here + 3, (patched >> 24) & 0xFF)
             end
             addend = 0
           end
