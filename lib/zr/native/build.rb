@@ -18,6 +18,7 @@ require_relative "../runtime"
 require_relative "../clock"
 require_relative "../config"
 require_relative "parallel"
+require_relative "code_cache"
 
 module Zr
   module Native
@@ -162,7 +163,10 @@ module Zr
 
         Paths.tmpdir("zr-eval-") do |work|
           fresh = File.join(work, "eval.o")
-          why = Zr.clock("eval support object assembled and written") { object(support.functions, support.data, fresh, export: true, target: support.target, jobs: jobs) }
+          why = Zr.clock("eval support object assembled and written") do
+            object(support.functions, support.data, fresh, export: true, target: support.target, jobs: jobs,
+                                                           cache: CodeCache.for("eval", support.target))
+          end
           raise "the compiler did not build: #{why}" if why
 
           Zr.write_cache(obj, File.binread(fresh))
@@ -179,7 +183,8 @@ module Zr
         Paths.tmpdir("zr-runtime-") do |work|
           fresh = File.join(work, "runtime.o")
           why = Zr.clock("runtime object assembled and written") do
-            object(runtime.functions, runtime.data, fresh, raw: runtime.raw, export: true, target: runtime.target, jobs: jobs)
+            object(runtime.functions, runtime.data, fresh, raw: runtime.raw, export: true, target: runtime.target, jobs: jobs,
+                                                                         cache: CodeCache.for("runtime", runtime.target))
           end
           raise "the runtime did not build: #{why}" if why
 
@@ -190,8 +195,10 @@ module Zr
 
       # Writes functions and data to one object file. `export` makes all
       # data visible to the linker, for an object that other objects refer to.
-      def object(functions, data, obj, raw: [], export: false, target: Target.default, jobs: Build.jobs)
-        File.binwrite(obj, writer(target).write(unit(functions, data, raw: raw, export: export, target: target, jobs: jobs)))
+      # `cache` is the code cache of the object's kind, or nil.
+      def object(functions, data, obj, raw: [], export: false, target: Target.default, jobs: Build.jobs, cache: nil)
+        built = unit(functions, data, raw: raw, export: export, target: target, jobs: jobs, cache: cache)
+        File.binwrite(obj, Zr.clock("object file written") { writer(target).write(built) })
         nil
       rescue Backend::Refused => e
         e.message
@@ -203,17 +210,45 @@ module Zr
       # and the unit's symbol names, so a large unit runs them in `jobs`
       # workers. `raw` names the raw functions (`Machine::RAW`), whose code
       # comes from the backend. `assembled` are functions that are already
-      # machine code.
-      def unit(functions, data, raw: [], assembled: [], export: false, target: Target.default, jobs: Build.jobs, floor: PARALLEL_THRESHOLD)
-        IR::Passes.inline(functions)
+      # machine code. With a `cache` (`CodeCache`), a function whose
+      # fingerprint the cache has takes its code from there.
+      def unit(functions, data, raw: [], assembled: [], export: false, target: Target.default, jobs: Build.jobs,
+               floor: PARALLEL_THRESHOLD, cache: nil)
+        Zr.clock("unit inlined") { IR::Passes.inline(functions) }
         emitter = backend(target)
         code = assembled + raw.map { |name| emitter::Stub.function(name) }
         emitter.unit(functions, data, raw: code, export: export) do |all, defined|
+          next cached(all, defined, emitter, cache, jobs, floor) if cache
+
           Parallel.map(all, jobs: jobs, weight: ->(f) { f.blocks.sum { |b| b.insts.size } }, floor: floor) do |f|
             IR::Passes.prepare(f)
             emitter.assemble(f, defined)
           end
         end
+      end
+
+      # The code of `all` through the code cache. Each worker takes the
+      # fingerprints of its functions and assembles only those whose code
+      # the cache does not have. (A first map that only took fingerprints,
+      # without the warmup of the heap, spent its time in the workers'
+      # collections instead.) Returns the code in the order of `all`, and
+      # keeps all of it as the cache's newest pack.
+      def cached(all, defined, emitter, cache, jobs, floor)
+        verify = cache.verify?
+        answers = Parallel.map(all, jobs: jobs, weight: ->(f) { f.blocks.sum { |b| b.insts.size } }, floor: floor) do |f|
+          key = IR::Fingerprint.of(f, defined)
+          found = cache.take(key)
+          next [key, found.last, false] if found && !verify
+
+          IR::Passes.prepare(f)
+          made = emitter.assemble(f, defined)
+          raise "the code cache has other code for #{f.name}" if found && made != found.first
+
+          [key, Marshal.dump(made), true]
+        end
+        Zr.clock("code cache kept") { cache.keep(answers.map { |key, blob, _| [key, blob] }) }
+        warn format("zr: code cache: %d of %d functions assembled", answers.count(&:last), all.size) if Config.current.timing?
+        Zr.clock("code cache loaded") { answers.map { |_, blob, _| Marshal.load(blob) } }
       end
 
       # Writes the same functions and data as one WASI module. A raw

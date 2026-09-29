@@ -18,10 +18,11 @@ module Zr
   module Cache
     module_function
 
-    # The cache files, the binaries that the spec tier keeps in the cache,
-    # and the parsed trees (lib/zr/parse_cache.rb). Their names come from
-    # the source only, so only age shows which are not used.
-    def all = Dir[File.join(Paths.cache, "{*,binaries/*,parse/*,run/*/*}")].select { |path| File.file?(path) }
+    # The cache files, the binaries that the spec tier and `zr run` keep in
+    # the cache, the parsed trees (lib/zr/parse_cache.rb) and the packs of
+    # machine code (lib/zr/native/code_cache.rb). Their names come from the
+    # source only, so only age shows which are not used.
+    def all = Dir[File.join(Paths.cache, "{*,binaries/*,parse/*,run/*/*,code/*/*}")].select { |path| File.file?(path) }
 
     # The compiled compilers of other zr versions and installs, in the
     # user's cache (lib/zr/compiled_compiler.rb). Each one is about
@@ -51,7 +52,10 @@ module Zr
     def live_for(target)
       runtime = Zr.runtime(target)
       object = runtime.object_path
-      metas = %w[jit walk].map { |kind| EvalSupport.meta_path(runtime, kind) }.select { |path| File.exist?(path) }
+      # Without its symbol table, a runtime was never built here, so no eval
+      # support was either; the ABI digest would need the core lowered.
+      abi = Zr.abi_digest(target, runtime.digest)
+      metas = abi ? %w[jit walk].map { |kind| EvalSupport.meta_file(abi, kind) }.select { |path| File.exist?(path) } : []
       evals = metas.filter_map { |meta| eval_object(meta) }
       sets = [[object], *evals.map { |eval| [object, eval] }]
       [object, runtime.gem_prelude_path, *metas, *evals, *sets.map { |set| Native::Build.prelink_path(set) },
@@ -74,6 +78,8 @@ module Zr
     def kind(path)
       return "binary" if File.basename(File.dirname(path)) == "binaries"
       return "parse" if File.basename(File.dirname(path)) == "parse"
+      return "code" if File.basename(File.dirname(path, 2)) == "code"
+      return "run" if File.basename(File.dirname(path, 2)) == "run"
 
       File.basename(path).sub(/-[0-9a-f]{64}/, "").sub(/\A[^.]*\./, "")
     end

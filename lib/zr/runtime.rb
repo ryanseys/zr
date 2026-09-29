@@ -282,7 +282,8 @@ module Zr
     # metadata, and the metadata, by the runtime's digest and the kind
     # of eval (`jit` or `walk`). `zr-dev cache prune` reads these too.
     def self.object_path(key) = File.join(Paths.cache, "eval-#{key}.o")
-    def self.meta_path(runtime, kind) = File.join(Paths.cache, "eval-#{runtime.abi_digest}-#{kind}.json")
+    def self.meta_path(runtime, kind) = meta_file(runtime.abi_digest, kind)
+    def self.meta_file(abi_digest, kind) = File.join(Paths.cache, "eval-#{abi_digest}-#{kind}.json")
 
     def functions = lowered.fetch(:functions)
     def data = lowered.fetch(:data)
