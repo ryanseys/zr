@@ -23,8 +23,8 @@ module Zr
     # the lowering keeps the directory; an edit to a pass or to the backend
     # starts a new one. Each build of an object writes one pack, with the
     # code of all its functions, and an index of it. A build reads the
-    # indexes of the packs that are there, and keeps the `KEPT` newest packs
-    # of each kind of object.
+    # indexes of the packs of its kind, and keeps the `KEPT` newest packs of
+    # each kind of object.
     #
     # `ZR_CODE_CACHE=0` turns it off. `ZR_CODE_CACHE=verify` assembles each
     # function that the cache has, too, and raises when the bytes differ.
@@ -67,12 +67,17 @@ module Zr
       def self.dir = File.join(Paths.cache, "code", backend_digest[0, 32])
 
       attr_reader :hits, :misses
+      # `[fingerprints by name, defined]` of the last unit that this cache
+      # built (`Build.cached`), for `CoreCache#keep`.
+      attr_accessor :built
 
       def initialize(kind)
         @kind = kind
         @dir = self.class.dir
         @index = {}
-        Dir[File.join(@dir, "*.index")].sort.each do |index|
+        # Only this kind's packs: the functions of one kind of object are not
+        # in another's, and eval support's indexes alone take a second.
+        Dir[File.join(@dir, "#{kind}-*.index")].sort.each do |index|
           pack = index.sub(/\.index\z/, ".pack")
           next unless File.file?(pack)
 

@@ -182,10 +182,15 @@ module Zr
 
         Paths.tmpdir("zr-runtime-") do |work|
           fresh = File.join(work, "runtime.o")
+          # A CoreCache took some of the core's code from an earlier build,
+          # and inlined the unit already; its code cache has that code.
+          core = runtime.core_cache
+          cache = core&.code || CodeCache.for("runtime", runtime.target)
           why = Zr.clock("runtime object assembled and written") do
             object(runtime.functions, runtime.data, fresh, raw: runtime.raw, export: true, target: runtime.target, jobs: jobs,
-                                                                         cache: CodeCache.for("runtime", runtime.target))
+                                                                         cache: cache, inlined: !core.nil?, known: core&.known || {})
           end
+          core&.keep(*cache.built) unless why
           raise "the runtime did not build: #{why}" if why
 
           Zr.write_cache(obj, File.binread(fresh))
@@ -195,9 +200,12 @@ module Zr
 
       # Writes functions and data to one object file. `export` makes all
       # data visible to the linker, for an object that other objects refer to.
-      # `cache` is the code cache of the object's kind, or nil.
-      def object(functions, data, obj, raw: [], export: false, target: Target.default, jobs: Build.jobs, cache: nil)
-        built = unit(functions, data, raw: raw, export: export, target: target, jobs: jobs, cache: cache)
+      # `cache` is the code cache of the object's kind, or nil. `inlined`
+      # and `known` are `unit`'s.
+      def object(functions, data, obj, raw: [], export: false, target: Target.default, jobs: Build.jobs, cache: nil, inlined: false,
+                 known: {})
+        built = unit(functions, data, raw: raw, export: export, target: target, jobs: jobs, cache: cache, inlined: inlined,
+                                      known: known)
         File.binwrite(obj, Zr.clock("object file written") { writer(target).write(built) })
         nil
       rescue Backend::Refused => e
@@ -211,14 +219,17 @@ module Zr
       # workers. `raw` names the raw functions (`Machine::RAW`), whose code
       # comes from the backend. `assembled` are functions that are already
       # machine code. With a `cache` (`CodeCache`), a function whose
-      # fingerprint the cache has takes its code from there.
+      # fingerprint the cache has takes its code from there. `inlined` says
+      # that the functions are inlined already (`CoreCache`). `functions` can
+      # then have machine code in place of IR, whose fingerprint and bytes
+      # `known` gives by name.
       def unit(functions, data, raw: [], assembled: [], export: false, target: Target.default, jobs: Build.jobs,
-               floor: PARALLEL_THRESHOLD, cache: nil)
-        Zr.clock("unit inlined") { IR::Passes.inline(functions) }
+               floor: PARALLEL_THRESHOLD, cache: nil, inlined: false, known: {})
+        Zr.clock("unit inlined") { IR::Passes.inline(functions) } unless inlined
         emitter = backend(target)
         code = assembled + raw.map { |name| emitter::Stub.function(name) }
         emitter.unit(functions, data, raw: code, export: export) do |all, defined|
-          next cached(all, defined, emitter, cache, jobs, floor) if cache
+          next cached(all, defined, emitter, cache, jobs, floor, known) if cache
 
           Parallel.map(all, jobs: jobs, weight: ->(f) { f.blocks.sum { |b| b.insts.size } }, floor: floor) do |f|
             IR::Passes.prepare(f)
@@ -233,9 +244,12 @@ module Zr
       # without the warmup of the heap, spent its time in the workers'
       # collections instead.) Returns the code in the order of `all`, and
       # keeps all of it as the cache's newest pack.
-      def cached(all, defined, emitter, cache, jobs, floor)
+      def cached(all, defined, emitter, cache, jobs, floor, known = {})
         verify = cache.verify?
-        answers = Parallel.map(all, jobs: jobs, weight: ->(f) { f.blocks.sum { |b| b.insts.size } }, floor: floor) do |f|
+        weight = ->(f) { f.is_a?(IR::Function) ? f.blocks.sum { |b| b.insts.size } : 0 }
+        answers = Parallel.map(all, jobs: jobs, weight: weight, floor: floor) do |f|
+          next [*known.fetch(f.name), false] unless f.is_a?(IR::Function)
+
           key = IR::Fingerprint.of(f, defined)
           found = cache.take(key)
           next [key, found.last, false] if found && !verify
@@ -247,6 +261,7 @@ module Zr
           [key, Marshal.dump(made), true]
         end
         Zr.clock("code cache kept") { cache.keep(answers.map { |key, blob, _| [key, blob] }) }
+        cache.built = [all.map(&:name).zip(answers.map(&:first)).to_h, defined]
         warn format("zr: code cache: %d of %d functions assembled", answers.count(&:last), all.size) if Config.current.timing?
         Zr.clock("code cache loaded") { answers.map { |_, blob, _| Marshal.load(blob) } }
       end

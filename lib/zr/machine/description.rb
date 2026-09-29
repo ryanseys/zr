@@ -52,7 +52,8 @@ module Zr
     class Symbols
       BLOCK = 1024
 
-      attr_reader :ids, :sites, :names
+      attr_reader :ids, :names
+      attr_accessor :sites
 
       # `intern` lets a running program get an id for a new symbol. Only
       # eval support has one, and it applies only to names after `names`.
@@ -86,7 +87,29 @@ module Zr
           @ids[name] = fresh
         end
         @used[at] = true
+        @record[name] = at if @record
         at
+      end
+
+      # The names that the block asks for, with their ids.
+      def record
+        outer = @record
+        @record = {}
+        yield
+        @record
+      ensure
+        outer&.merge!(@record) if @record
+        @record = outer
+      end
+
+      # Whether each of `names` (name to id) has its id in this table. It
+      # adds no name.
+      def holds?(names) = names.all? { |name, at| @ids[name] == at }
+
+      # Marks `names` as asked for, as a lowering that asked for them would.
+      def replay(names)
+        names.each_value { |at| @used[at] = true }
+        @record&.merge!(names)
       end
 
       # Ends the table in pads up to a multiple of BLOCK.

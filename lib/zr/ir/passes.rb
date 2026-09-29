@@ -688,15 +688,30 @@ module Zr
 
         def self.run(functions) = new(functions).run
 
-        def initialize(functions)
+        # `sources` are functions that can be inlined but that this pass
+        # does not change: the leaves of a file whose code the build already
+        # has (`CoreCache`).
+        def initialize(functions, sources: [])
           @by_name = functions.to_h { |f| [f.name, f] }
+          @outputs = @by_name.values
+          sources.each { |f| @by_name[f.name] ||= f }
           @state = {}
+          @calls = Hash.new { |h, name| h[name] = {} }
         end
 
         def run
           @by_name.each_key { |name| settle(name) }
-          @by_name.values
+          @outputs
         end
+
+        # Whether the function `name` is a leaf that this pass inlines, once
+        # it ran.
+        def settled_leaf?(name) = @state[name] == :leaf
+
+        # The colocated symbols that the calls of the function `name` named,
+        # before this pass inlined any of them: a `CoreCache` entry depends on
+        # what each of them is.
+        def calls(name) = @calls[name].keys
 
         private
 
@@ -750,6 +765,8 @@ module Zr
 
               c = f.callees.find { |x| x.fn == i.callee }
               next if c.nil? || c.from || !c.colocated
+
+              @calls[f.name][c.symbol] = true
 
               target = @by_name[c.symbol]
               next if target.nil? || target.equal?(f) || !settle(target.name)

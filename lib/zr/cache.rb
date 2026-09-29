@@ -22,7 +22,7 @@ module Zr
     # the cache, the parsed trees (lib/zr/parse_cache.rb) and the packs of
     # machine code (lib/zr/native/code_cache.rb). Their names come from the
     # source only, so only age shows which are not used.
-    def all = Dir[File.join(Paths.cache, "{*,binaries/*,parse/*,run/*/*,code/*/*}")].select { |path| File.file?(path) }
+    def all = Dir[File.join(Paths.cache, "{*,binaries/*,parse/*,run/*/*,code/*/*,core/*/*}")].select { |path| File.file?(path) }
 
     # The compiled compilers of other zr versions and installs, in the
     # user's cache (lib/zr/compiled_compiler.rb). Each one is about
@@ -79,6 +79,7 @@ module Zr
       return "binary" if File.basename(File.dirname(path)) == "binaries"
       return "parse" if File.basename(File.dirname(path)) == "parse"
       return "code" if File.basename(File.dirname(path, 2)) == "code"
+      return "core" if File.basename(File.dirname(path, 2)) == "core"
       return "run" if File.basename(File.dirname(path, 2)) == "run"
 
       File.basename(path).sub(/-[0-9a-f]{64}/, "").sub(/\A[^.]*\./, "")

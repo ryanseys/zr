@@ -13,6 +13,7 @@ require_relative "clock"
 require_relative "tune"
 require_relative "settled"
 require_relative "sources"
+require_relative "core_cache"
 
 module Zr
   # The kernel and the core library, lowered once per process, and only
@@ -120,6 +121,12 @@ module Zr
     end
 
     def functions = unit.functions + lowered.first
+    # The `CoreCache` of this build's lowering, or nil.
+    def core_cache
+      lowered
+      @core_cache
+    end
+
 
     def data = unit.data + lowered.last
 
@@ -131,7 +138,7 @@ module Zr
     # runtime object contains them).
     def release
       @raw = @unit&.raw
-      @unit = @lowered = nil
+      @unit = @lowered = @core_cache = nil
       @released = true
     end
 
@@ -230,8 +237,16 @@ module Zr
       kernel_symbols.pad!
       keep_ledger(kernel_symbols)
       defined = functions.map(&:name)
-      wanted_functions = (functions.flat_map { |f| f.callees.map(&:symbol) }.uniq - defined).sort
-      wanted_data = (functions.flat_map { |f| f.globals.reject(&:colocated).map(&:symbol) }.uniq - data.map(&:name)).sort
+      ir = functions.grep(IR::Function)
+      calls = ir.flat_map { |f| f.callees.map(&:symbol) }
+      reads = ir.flat_map { |f| f.globals.reject(&:colocated).map(&:symbol) }
+      if (core = @core_cache)
+        kept_calls, kept_reads = core.calls_and_reads
+        calls += kept_calls
+        reads += kept_reads
+      end
+      wanted_functions = (calls.uniq - defined).sort
+      wanted_data = (reads.uniq - data.map(&:name)).sort
       description = Machine::Description.of(unit).to_text
       Zr.write_cache(cache_path,
                      JSON.generate({ "names" => kernel_symbols.names, "sites" => kernel_symbols.sites,
@@ -240,9 +255,17 @@ module Zr
     end
 
     # The core library's `[functions, data]`, lowered over the kernel.
+    #
+    # For an aarch64 build, `CoreCache` takes each file it can from an
+    # earlier build, and the list then has the machine code of those files
+    # (`Obj::Function`) in place of their IR. It also inlines the unit.
     def lowered
-      @lowered ||= Zr.clock("core lowered") { Zr.core(unit, kernel_symbols, target, sources) }
+      @lowered ||= Zr.clock("core lowered") do
+        @core_cache = Zr.clock("core cache: opened") { CoreCache.for(target) }
+        @core_cache ? @core_cache.lower(unit, kernel_symbols, sources) : Zr.core(unit, kernel_symbols, target, sources)
+      end
     end
+
   end
 
   # A program's own functions and data, and its runtime. It destructures
