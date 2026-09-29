@@ -58,8 +58,16 @@ module Zr
       metas = base ? %w[jit walk].map { |kind| EvalSupport.meta_file(base, kind) }.select { |path| File.exist?(path) } : []
       evals = metas.filter_map { |meta| eval_object(meta) }
       sets = [[object], *evals.map { |eval| [object, eval] }]
-      [object, runtime.gem_prelude_path, *metas, *evals, *sets.map { |set| Native::Build.prelink_path(set) },
-       *sets.map { |set| Native::Build.skeleton_path(set) }] + Dir[File.join(Paths.cache, "*-#{runtime.digest}.*")]
+      [object, runtime.gem_prelude_path, Zr.ledger_path(target), *metas, *evals, *sets.map { |set| Native::Build.prelink_path(set) },
+       *sets.map { |set| Native::Build.skeleton_path(set) }] + Dir[File.join(Paths.cache, "*-#{runtime.digest}.*")] + reused
+    end
+
+    # The machine code and the entries of this backend (`Native::CodeCache`,
+    # `LoweringCache`): the next build after an edit takes most of its code
+    # from them, so a prune keeps them whatever their age.
+    def reused
+      backend = Native::CodeCache.backend_digest
+      Dir[File.join(Native::CodeCache.dir, "*")] + Dir[File.join(Paths.cache, "{core,eval-*}", backend[0, 16], "*")]
     end
 
     # The eval support object. Only its meta file gives its path.

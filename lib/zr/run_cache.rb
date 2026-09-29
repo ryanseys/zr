@@ -26,8 +26,10 @@ module Zr
   # give most of that back.
   class RunCache
     VERSION = 1
-    # The most binaries kept. A new one removes the ones used longest ago.
+    # The most binaries kept, and their most bytes (a binary with eval
+    # support is 130 MB). A new one removes the ones used longest ago.
     KEPT = 100
+    KEPT_BYTES = 2 << 30
 
     def self.dir = File.join(Paths.cache, "run")
 
@@ -83,12 +85,14 @@ module Zr
       FileUtils.rm_rf(fresh) if fresh
     end
 
-    # Removes the entries used longest ago, beyond KEPT.
+    # Removes the entries used longest ago, beyond KEPT or KEPT_BYTES.
     def trim
-      entries = Dir[File.join(self.class.dir, "*")].select { |dir| File.directory?(dir) }
-      return if entries.size <= KEPT
-
-      entries.sort_by { |dir| File.mtime(dir) }.first(entries.size - KEPT).each { |dir| FileUtils.rm_rf(dir) }
+      entries = Dir[File.join(self.class.dir, "*")].select { |dir| File.directory?(dir) }.sort_by { |dir| -File.mtime(dir).to_f }
+      bytes = 0
+      entries.each_with_index do |dir, i|
+        bytes += File.size?(File.join(dir, "program")).to_i
+        FileUtils.rm_rf(dir) if i >= KEPT || bytes > KEPT_BYTES
+      end
     end
 
     private
