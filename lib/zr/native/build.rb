@@ -153,7 +153,7 @@ module Zr
       # prelink. Returns nil when the prelink is not in the cache.
       def skeleton(objects)
         path = skeleton_path(objects) or return nil
-        (@skeletons ||= {})[path] ||= File.exist?(path) ? path : Zr.write_cache(path, Obj::MachO::Skeleton.bytes(prelink(objects)))
+        (@skeletons ||= {})[path] ||= File.exist?(path) ? path : Zr.clock("skeleton written") { Zr.write_cache(path, Obj::MachO::Skeleton.bytes(prelink(objects))) }
       end
 
       # The eval support object, built once for each key.
