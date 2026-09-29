@@ -36,15 +36,18 @@ module Zr
     # `ZR_RUN_CACHE=0` builds each run again.
     def self.wanted? = Config.current.run_cache?
 
-    # `digest` is the runtime's digest (`Zr.runtime_digest`).
-    def initialize(input, target:, digest:, link:)
+    # `digest` is the runtime's digest (`Zr.runtime_digest`). `gems` is the
+    # build's GemSet: a program built with other gems is another entry,
+    # also when the files of the first gems are still there.
+    def initialize(input, target:, digest:, link:, gems: nil)
       @input = File.expand_path(input)
       config = Config.current
       key = Digest::SHA256.new
       @digest = digest
       @target = target
       [VERSION, Zr::VERSION, digest, Zr.link_digest, target.triple, Paths.root.to_s,
-       config.linker, config.eval_walk?, config.verify?, *link, "\0", @input, File.binread(@input)].each do |part|
+       config.linker, config.eval_walk?, config.verify?, *link, "\0", gems && !gems.empty? ? gems.digest : "",
+       @input, File.binread(@input)].each do |part|
         key << part.to_s << "\0"
       end
       @entry = File.join(self.class.dir, key.hexdigest)

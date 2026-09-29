@@ -3,6 +3,7 @@
 require "test_helper"
 require "tmpdir"
 require "zr/run_cache"
+require "zr/gem_set"
 require "zr/native/build"
 
 # `zr run` keeps each binary it builds. A second run with the same
@@ -62,6 +63,17 @@ class RunCacheTest < Minitest::Test
 
     assert_empty program.sources
     assert_nil cache.hit
+  end
+
+  # The files of both gem sets are still there, so only the key tells
+  # the two builds apart.
+  def test_a_build_with_other_gems_is_a_miss
+    build_and_keep
+    gems = Zr::GemSet.new([Zr::GemSet::Entry.new(name: "dep", version: "2.0.0", source: "--gem", roots: [@work], refusal: nil)])
+
+    other = Zr::RunCache.new(@main, target: Zr::Target.default, digest: Zr.runtime.digest, link: [], gems: gems)
+
+    assert_nil other.hit
   end
 
   def test_the_list_of_sources_names_every_file

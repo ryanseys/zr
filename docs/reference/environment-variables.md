@@ -41,7 +41,8 @@ default. `0` is off. Any other value is on (`Zr.flag?`).
 | `ZR_EVAL` | `walk` | unset | `walk` makes a native program use the tree-walking interpreter for eval, in place of the eval compiler. A wasm program always uses the tree-walking interpreter. See [Eval in a compiled program](../explanation/eval-in-a-compiled-program.md). |
 | `ZR_WASM_NAMES` | flag | off | A WASI module gets a `name` section, so that wasmtime's traps and profiles show zr's function names. It changes the module's bytes. |
 | `ZR_WASM_WIDTH` | a number | 256 | In a WASI module, a function with more blocks than this dispatches to its blocks in two steps, in groups of this size. |
-| `GEM_HOME`, `GEM_PATH` | directories | ruby's | Where rubygems finds the zr gem itself. A build never reads other gems from here: a program's library is zr's `stdlib/`. |
+| `GEM_HOME`, `GEM_PATH` | directories | ruby's | Where rubygems finds the zr gem itself, and the gems that `--gem NAME=VERSION` and a Gemfile.lock name. A build reads no other gem from here: a program's library is zr's `stdlib/`. |
+| `BUNDLE_GEMFILE` | a Gemfile | unset | `bundle exec` sets it. A build then reads the gems of its lock before zr's standard library, as `bundle exec ruby` does; `--gemfile` wins over it. zr never needs `bundle exec`, and never starts bundler inside itself. See [How to use a library or a gem](../how-to/use-a-library-or-gem.md#another-version-of-a-gem). zr's own development Gemfile never applies. |
 | `TMPDIR` | a directory | `/tmp` | Where a build writes its temporary files. |
 | `PATH` | directories | | zr looks here for the tools of a target (for example `aarch64-linux-musl-gcc`), and `zr run --emit wasm` looks here for `wasmtime`. |
 | `DEVELOPER_DIR`, `SDKROOT` | directories | set by zr | When zr runs `cc` on macOS, it sets these to the install that the SDK comes from. zr keeps values that you set. |

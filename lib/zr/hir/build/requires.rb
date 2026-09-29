@@ -66,6 +66,7 @@ module Zr
         return plain_call(node, compiles: false) if @loader.deferred?(feature) || (@in_def && @loader.ahead?(@file))
 
         path = @loader.resolve(node.name, feature, @file)
+        gem_refusal(node, feature, path)
         stop = path.nil? && node.name != :require_relative && stop_for(node, feature)
         return stop if stop
 
@@ -80,6 +81,14 @@ module Zr
         # compiler. The runtime knows this at run time, so one unit serves
         # eval support and a program that requires the same file.
         Require.new(node.name, feature, path, @loader.add(path), line)
+      end
+
+      # A require that reaches a file of a gem that zr cannot compile
+      # (`GemSet#refusal`) stops the build at the require's line: ruby
+      # would load the gem's C extension there.
+      def gem_refusal(node, feature, path)
+        why = @loader.refused_gem(path, (feature unless node.name == :require_relative))
+        refuse(node, "require of #{feature.to_s.inspect}: #{why}") if why
       end
 
       # The reason that a ruby library is not here, when the reason is a
@@ -136,6 +145,7 @@ module Zr
                             true) if preloaded?(feature)
 
         path = @loader.resolve(:require, feature, @file)
+        gem_refusal(node, feature, path)
         # An autoload that the gem prelude's boot does not read leaves its
         # file to the program that reads the constant.
         return Autoload.new(node.receiver && expr(node.receiver), name_node.unescaped.to_sym, path || feature, path || feature, nil, line) if path && @loader.ahead?(@file) && !@loader.booted?(path)

@@ -116,6 +116,16 @@ class CliParseTest < Minitest::Test
     assert_equal ["a.o", "-Wl,-x", "-framework", "AppKit"], opts[:link]
   end
 
+  def test_gem_collects_each_name_and_value_in_order
+    opts = CLI.parse("build", %w[app.rb -o app --gem csv=3.3.6 --gem=rainbow=vendor/rainbow])
+
+    assert_equal [%w[csv 3.3.6], %w[rainbow vendor/rainbow]], opts[:gems]
+  end
+
+  def test_gemfile_names_the_lock_to_read
+    assert_equal "app/Gemfile", CLI.parse("run", %w[--gemfile app/Gemfile app.rb])[:gemfile]
+  end
+
   def test_emit_binary_is_the_default_kind
     assert_nil CLI.parse("build", %w[app.rb -o app --emit binary])[:emit]
   end
@@ -131,7 +141,8 @@ class CliParseTest < Minitest::Test
       %w[build --path-root rel app.rb -o app] => "zr build: --path-root needs an absolute path",
       %w[build --bogus app.rb -o app] => "zr build: unknown option '--bogus'",
       %w[build app.rb -o] => "zr build: -o needs a path",
-      %w[build app.rb -o app --link] => "zr build: --link needs an argument"
+      %w[build app.rb -o app --link] => "zr build: --link needs an argument",
+      %w[build app.rb -o app --gem csv] => "zr build: --gem needs <name>=<version> or <name>=<dir>, for example --gem csv=3.3.6"
     }.each do |(command, *args), line|
       _, err = assert_exit(2) { CLI.parse(command, args) }
       assert_equal "#{line}\nRun 'zr help #{command}' for usage.\n", err, args.inspect

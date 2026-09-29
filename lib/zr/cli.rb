@@ -37,7 +37,16 @@ module Zr
     TEXT
 
     OUTPUT = "  -o, --output <path>    write the output to <path>\n"
-    OPTIONS = <<~TEXT
+    # `run` and `build` only: a machine file requires nothing.
+    GEMS = <<~TEXT.gsub(/^/, "  ")
+      --gem <name>=<version|dir>
+                             use this gem in place of the Gemfile.lock's or zr's
+                             own: an installed version, or a directory with a
+                             gemspec or lib/; once for each gem
+      --gemfile <path>       read the gems of <path>'s lock before zr's own, as
+                             `bundle exec ruby` does (BUNDLE_GEMFILE also names it)
+    TEXT
+    OPTIONS = <<~TEXT.sub("  -h, --help", "#{GEMS}  -h, --help")
       Options:
         --emit <kind>          binary (the default), obj, or wasm
         --target <triple>      build for <triple> (see `zr targets`)
@@ -75,7 +84,7 @@ module Zr
         Compiles one file of the machine dialect (the typed Ruby that
         runtime/kernel is written in), without the zr runtime.
 
-        #{OPTIONS.sub("Options:\n", "Options:\n#{OUTPUT}")}
+        #{OPTIONS.sub(GEMS, "").sub("Options:\n", "Options:\n#{OUTPUT}")}
       TEXT
       "doctor" => <<~TEXT,
         Usage: zr doctor
@@ -218,7 +227,7 @@ module Zr
     # The options and words of `run`, `build` or `machine`, as a Hash.
     # For `run`, every word after the input file goes to the program.
     def parse(command, args)
-      opts = { args: [], link: [] }
+      opts = { args: [], link: [], gems: [] }
       until args.empty?
         word = args.shift
         if opts[:input] && command == "run"
@@ -236,6 +245,8 @@ module Zr
         when "--target" then opts[:triple] = value || args.shift || usage_error("--target needs a triple", command)
         when "--path-root" then opts[:root] = value || args.shift || usage_error("--path-root needs a directory", command)
         when "--link" then opts[:link] << (value || args.shift || usage_error("--link needs an argument", command))
+        when "--gem" then opts[:gems] << gem_flag(value || args.shift, command)
+        when "--gemfile" then opts[:gemfile] = value || args.shift || usage_error("--gemfile needs a path", command)
         when /\A-./ then usage_error("unknown option '#{word}'", command)
         else
           opts[:input] ? opts[:args] << word : opts[:input] = word
@@ -244,10 +255,32 @@ module Zr
       check(command, opts)
     end
 
+    # `--gem NAME=VERSION` or `--gem NAME=DIR`, as [name, value].
+    def gem_flag(word, command)
+      name, value = word.to_s.split("=", 2)
+      if value.to_s.empty? || !name.match?(/\A[\w.-]+\z/)
+        usage_error("--gem needs <name>=<version> or <name>=<dir>, for example --gem csv=3.3.6", command)
+      end
+      [name, value]
+    end
+
+    # The gems that a compile reads before zr's standard library: the
+    # `--gem` flags, then the Gemfile.lock of `--gemfile` or
+    # BUNDLE_GEMFILE (lib/zr/gem_set.rb).
+    def gem_set(opts)
+      require_relative "gem_set"
+      GemSet.resolve(opts[:gems], gemfile: opts[:gemfile])
+    rescue GemSet::Unresolved => e
+      abort "zr: #{e.message}"
+    end
+
     def check(command, opts)
       usage_error("missing <file.rb>", command) unless opts[:input]
       usage_error("unknown --emit '#{opts[:emit]}'; use binary, obj or wasm", command) if opts[:emit] && !EMITS.key?(opts[:emit])
       usage_error("--path-root needs an absolute path", command) if opts[:root] && !opts[:root].start_with?("/")
+      if command == "machine" && (!opts[:gems].empty? || opts[:gemfile])
+        usage_error("--gem and --gemfile do not apply; a machine file requires nothing", command)
+      end
       if command == "run"
         usage_error("-o does not apply; use 'zr build' to keep the output", command) if opts[:output]
         usage_error("cannot run an object file; use 'zr build --emit obj'", command) if opts[:emit] == "obj"
@@ -265,6 +298,7 @@ module Zr
       pinned!
       input = opts[:input]
       abort "zr: no such file: #{input}" unless File.file?(input)
+      gems = gem_set(opts) unless command == "machine"
 
       target = target_for(opts[:triple], opts[:emit], command)
       emit = opts[:emit] || ("wasm" if target.outputs == [:wasm])
@@ -274,7 +308,7 @@ module Zr
 
       Paths.root = opts[:root]
       link = Config.current.link + opts[:link]
-      cache = @missed || kept_run(input, target, link, opts[:args]) if command == "run" && emit.nil?
+      cache = @missed || kept_run(input, target, link, opts[:args], gems) if command == "run" && emit.nil?
       require_relative "runtime"
       require_relative "native/build"
       # Under ruby, lib/zr/prism.rb turns the parse cache on. A compiled
@@ -282,9 +316,9 @@ module Zr
       # same files but never comes here, so it never writes to the cache.
       require_relative "parse_cache" unless HOSTED
       if command == "run" && emit.nil? && RunCache.wanted?
-        cache ||= RunCache.new(input, target: target, digest: Zr.runtime(target).digest, link: link)
+        cache ||= RunCache.new(input, target: target, digest: Zr.runtime(target).digest, link: link, gems: gems)
       end
-      program = lower(input, command, target, assemble: emit.nil?)
+      program = lower(input, command, target, assemble: emit.nil?, gem_set: gems)
       status = Paths.tmpdir("zr-build-") do |work|
         out = command == "run" ? File.join(work, "program") : File.expand_path(opts[:output])
         case emit
@@ -418,12 +452,12 @@ module Zr
 
     # A binary's functions are assembled as they are lowered, so the IR of
     # a large program is never all in memory at once (`Native::Build.lower`).
-    def lower(input, verb, target, assemble: false)
+    def lower(input, verb, target, assemble: false, gem_set: nil)
       source = File.read(input)
       return Machine.compile(source, input) if verb == "machine"
-      return Zr.program(source, input, target: target) unless assemble
+      return Zr.program(source, input, target: target, gem_set: gem_set) unless assemble
 
-      Native::Build.lower(source, input, target: target, sources: verb == "run")
+      Native::Build.lower(source, input, target: target, sources: verb == "run", gem_set: gem_set)
     rescue Refused => e
       warn refusal_report(e)
       exit REFUSED
@@ -521,24 +555,35 @@ module Zr
       return unless target.native? && target.refusal(nil).nil?
 
       Paths.root = opts[:root]
+      # A set that does not resolve goes on to the build, which says why.
+      gems = kept_gems(opts) or return
       digest = Zr.runtime_digest(target) or return
-      cache = RunCache.new(opts[:input], target: target, digest: digest, link: Config.current.link + opts[:link])
+      cache = RunCache.new(opts[:input], target: target, digest: digest, link: Config.current.link + opts[:link], gems: gems)
       kept = cache.hit
       exec(Tune.program_env, [kept, kept], *opts[:args]) if kept
       # The build keeps its binary here, with no second digest.
       @missed = cache
     end
 
+    # The GemSet of a `zr run` before the build, or nil when it does not
+    # resolve.
+    def kept_gems(opts)
+      require_relative "gem_set"
+      GemSet.resolve(opts[:gems], gemfile: opts[:gemfile])
+    rescue GemSet::Unresolved
+      nil
+    end
+
     # A program that ran before with the same sources runs from the run
     # cache, and zr exits as it does. This loads only the digests, not the
     # compiler. Returns the cache for the build otherwise, or nil when zr
     # needs a build to know the runtime's digest.
-    def kept_run(input, target, link, args)
+    def kept_run(input, target, link, args, gems)
       require_relative "run_cache"
       return nil unless RunCache.wanted?
 
       digest = Zr.runtime_digest(target) or return nil
-      cache = RunCache.new(input, target: target, digest: digest, link: link)
+      cache = RunCache.new(input, target: target, digest: digest, link: link, gems: gems)
       kept = cache.hit
       exit_as(run_binary(kept, args)) if kept
       cache

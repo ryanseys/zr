@@ -434,10 +434,14 @@ module Zr
   #
   # With `sources`, the program lists the files it was built from
   # (`Program#sources`), for the run cache.
-  def program(source, file, target: Target.default, sources: false, &finish)
+  #
+  # `gem_set` is the GemSet whose gems come before zr's standard library
+  # (lib/zr/gem_set.rb), or nil.
+  def program(source, file, target: Target.default, sources: false, gem_set: nil, &finish)
     rt = runtime(target)
     support = eval_support(target)
-    hir = Zr.clock("hir built") { Hir.build(source, file, prebuilt: support, target: target) }
+    hir = Zr.clock("hir built") { Hir.build(source, file, prebuilt: support, target: target, gem_set: gem_set) }
+    gem_conflicts!(hir, support, gem_set, target) if hir.evals && gem_set && !gem_set.empty?
     # A large program is heavy work too (`Tune`): bundler's 1.2 MB of source
     # takes seconds to lower.
     Tune.heavy!(restart: false) if source.bytesize + hir.units.sum { |u| u.source.to_s.bytesize } > HEAVY_SOURCE
@@ -459,8 +463,33 @@ module Zr
     number_symbols(data, symbols, rt.description.const_for("SYMBOL_TAG"))
     tables = load_tables(units, evals: hir.evals, spots: hir.spots || {}, coverable: hir.coverable || {},
                          branches: hir.branches || {}, defs: hir.defs || {}, sources: hir.evals ? support.digests : {},
-                         target: target)
+                         target: target, gem_roots: gem_set ? gem_set.gems.reject(&:refusal).flat_map(&:roots) : [])
     Program.new(rt, functions, data + symbol_names(symbols) + tables, hir.evals && support, sources)
+  end
+
+  # A program with eval carries eval support, which has zr's own copy of
+  # some libraries (fileutils, pp, irb, reline, rubygems and others). A
+  # file of a gem in the GemSet with the same feature name would load a
+  # second copy beside it, where ruby loads one. So such a build stops.
+  def gem_conflicts!(hir, support, gem_set, target)
+    stdlib = Hir::Build.stdlib(target)
+    carried = support.units.keys.filter_map do |path|
+      root = stdlib.find { |dir| path.start_with?("#{dir}/") }
+      path.delete_prefix("#{root}/") if root
+    end.to_h { |feature| [feature, true] }
+    hir.units.each do |unit|
+      next unless unit.file
+
+      gem_set.gems.each do |gem|
+        root = gem.roots.find { |dir| unit.file.start_with?("#{dir}/") } or next
+        feature = unit.file.delete_prefix("#{root}/")
+        next unless carried[feature]
+
+        raise Refused, "#{feature} of #{gem.name} #{gem.version} (#{gem.source}): this program uses eval, so it carries " \
+                       "zr's own #{feature}, and ruby loads only one copy. Use ruby #{RUBY}'s #{gem.name} " \
+                       "(remove the override), or remove the eval"
+      end
+    end
   end
 
   # The path and digest of each file that `hir` was built from: `file`,
@@ -621,15 +650,27 @@ module Zr
   # Nothing here comes from the build machine: a binary contains no path
   # or flag of the ruby that compiled it. `units` are `[path, entry]`
   # pairs. A unit that only stops has no path.
+  #
+  # `gem_roots` are the roots of the build's GemSet. A program with eval
+  # searches them right after ruby's own library, as its build did, so a
+  # computed require finds the same gem.
   def load_tables(units = [], evals: false, spots: {}, coverable: {}, branches: {}, defs: {}, sources: {},
-                  target: Target.default)
+                  target: Target.default, gem_roots: [])
     shown = ->(path) { Paths.shown(path) }
     units = units.select { |path, _| path.start_with?("/") }.map { |path, entry| [shown[path], entry] }.sort
     # A ruby feature that no root here contains, then a tab and the reason
     # if there is one. So a computed require stops for the same reason as
     # a literal one.
     uncarried = Hir::Build.missing_features(target).map { |name| [name, *Hir::Build::UNSUPPORTED_LIBRARIES[name]].join("\t") }
-    names = evals ? [Hir::Build.stdlib(target).map(&shown), uncarried, Hir::Build::PRELOADED, [shown[Hir::Build::EXT]]] : [[]] * 4
+    # Only a build reads the roots. An eval in a program (evals false)
+    # builds its tables here too, and must not read them: they are the
+    # build machine's directories.
+    names = if evals
+              pure, *roots = Hir::Build.stdlib(target)
+              [[pure, *gem_roots, *roots].map(&shown), uncarried, Hir::Build::PRELOADED, [shown[Hir::Build::EXT]]]
+            else
+              [[]] * 4
+            end
     # error_highlight's spots, one file at a time: its name, a newline,
     # then its records, and a form feed before the next file.
     names << [spots.map { |file, rows| "#{shown[file]}\n#{rows}" }.join("\f")]

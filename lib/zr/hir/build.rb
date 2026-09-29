@@ -87,16 +87,18 @@ module Zr
       # passes those parameters.
       # `trace` arms the events from the start, for an eval under an
       # enabled TracePoint.
+      # `gem_set` is a GemSet (lib/zr/gem_set.rb): the gems that come
+      # before zr's standard library, or nil.
       def self.program(source, file, roots: [], eval_support: true, prebuilt: nil, line: 1, scopes: nil, method: nil, activations: nil, target: Target.default,
-                       trace: false)
+                       trace: false, gem_set: nil)
         # The main file's name came from the build's command line, in the
         # build's locale. A program's locale is UTF-8
         # (Encoding.locale_charmap), and the name must not depend on the
         # build machine.
         file = file.dup.force_encoding(::Encoding::UTF_8) if eval_support && file.encoding != ::Encoding::UTF_8
         built = lambda do |external, trace, evals, covers|
-          loader = Loader.new(roots + stdlib(target), eval: !eval_support, external: external, trace: trace, evals: evals,
-                              covers: covers, activations: activations, prebuilt_eval: prebuilt)
+          loader = Loader.new(roots + (gem_set&.roots || []) + stdlib(target), eval: !eval_support, external: external, trace: trace,
+                              evals: evals, covers: covers, activations: activations, prebuilt_eval: prebuilt, gem_set: gem_set)
           [loader, loader.unit(file, source, line, scopes, method: method)]
         end
         # A build knows three facts only after it reads every file: that

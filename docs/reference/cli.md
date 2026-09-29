@@ -42,6 +42,8 @@ status 3.
 | `--target <triple>` | yes | yes | yes | Builds for `<triple>`. `zr targets` lists the triples. `--emit wasm` without `--target` means `wasm32-wasi`. |
 | `--path-root <dir>` | yes | yes | yes | Writes source paths in the output as `<dir>` plus the path below zr's root or the working directory. `<dir>` must be an absolute path. |
 | `--link <arg>` | yes | yes | yes | Gives `<arg>` to the system linker (`cc`) for a native binary, once for each argument: an object, an archive, `-framework <name>`, `-Wl,<flags>` such as `-Wl,-sectcreate,<segment>,<section>,<file>` or `-Wl,-exported_symbols_list,<file>`. With a link argument, zr links with `cc`, not with its own linker, so the host needs a C toolchain. With `--emit obj` or `--emit wasm` it is a usage error. `ZR_LINK_ARGS` gives the same arguments. |
+| `--gem <name>=<version\|dir>` | yes | yes | no | Uses this gem in place of the one in the Gemfile.lock or in zr's standard library, once for each gem: an installed version (`--gem csv=3.3.6`), or a directory with a gemspec or a `lib/` (`--gem rainbow=vendor/rainbow`). See [How to use a library or a gem](../how-to/use-a-library-or-gem.md#another-version-of-a-gem). |
+| `--gemfile <path>` | yes | yes | no | Reads the gems of `<path>`'s lock (`Gemfile.lock`, or `gems.locked` for `gems.rb`) before zr's standard library, as `bundle exec ruby` does. `BUNDLE_GEMFILE` does the same. zr reads the lock with its own bundler, not the host's. |
 | `-h`, `--help` | yes | yes | yes | Prints the help for the command. |
 
 ## `zr run [options] <file.rb> [args...]`

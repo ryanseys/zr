@@ -90,7 +90,26 @@ module Zr
         build
         current = current?
       end
-      exec(binary, *argv) if current
+      exec(UNBUNDLED, binary, *argv) if current && gems_kept?(argv, env)
+    end
+
+    # The compiled compiler's gem prelude requires what BUNDLER_SETUP
+    # names, as ruby's does, so under `bundle exec` bundler would start
+    # inside zr. zr never runs bundler itself (lib/zr/gem_set.rb).
+    UNBUNDLED = { "BUNDLER_SETUP" => nil }.freeze
+
+    # The compiled compiler has no rubygems, so it reads the build's
+    # GemSet from the cache (lib/zr/gem_set.rb). This ruby resolves it
+    # first. When it cannot, ruby runs the command, which says why.
+    def gems_kept?(argv, env)
+      return true if env["BUNDLE_GEMFILE"].to_s.empty? && argv.none? { |word| word.start_with?("--gem") }
+
+      require_relative "gem_set"
+      opts = CLI.parse(argv.first, argv.drop(1))
+      GemSet.resolve(opts[:gems], gemfile: opts[:gemfile], env: env)
+      true
+    rescue GemSet::Unresolved
+      false
     end
 
     # Whether this host can run the compiled compiler: it is a binary for
@@ -116,19 +135,23 @@ module Zr
     end
 
     # Builds the compiled compiler with ruby from this tree. It keeps
-    # nothing if the binary's `zr version` differs from ruby's. Then ruby
-    # runs the command.
+    # nothing if the binary's `zr version` or `zr targets` differs from
+    # ruby's. Then ruby runs the command.
     def build
       began = nil
       # Without the ledger (Runtime#ledger), the binary's symbol ids come
       # from its sources only, as a release's must.
-      quiet = { "ZR_COMPILED" => "0", "ZR_LEDGER" => "0" }
+      quiet = { "ZR_COMPILED" => "0", "ZR_LEDGER" => "0", **UNBUNDLED }
       announce = lambda do
         warn "zr: building the compiler with itself, once for this zr"
         began = Process.clock_gettime(Process::CLOCK_MONOTONIC)
       end
+      # `targets` also reads the Target objects, which a miscompile of
+      # the compiler has broken before while `version` still answered.
       built = program.build(env: quiet, started: announce) do |out|
-        IO.popen(quiet, [out, "version"], &:read) == IO.popen(quiet, [RbConfig.ruby, program.entry, "version"], &:read)
+        %w[version targets].all? do |command|
+          IO.popen(quiet, [out, command], err: File::NULL, &:read) == IO.popen(quiet, [RbConfig.ruby, program.entry, command], &:read)
+        end
       end
       return unless began
 

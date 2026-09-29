@@ -41,6 +41,12 @@ The first public release.
   keeps the runtime, the prelinked image and each file's machine code
   in a cache, which `zr cache` shows and cleans, and which an installed
   zr keeps under `ZR_CACHE_MAX_GB`.
+- `zr run` and `zr build` read another version of a gem from
+  `--gem NAME=VERSION` or `--gem NAME=DIR`, and from the Gemfile.lock
+  of `--gemfile` or `BUNDLE_GEMFILE`, before zr's standard library. zr
+  reads the lock with its own copy of bundler and needs no `bundle exec`. A gem with a C
+  extension that zr does not port, or a port's gem outside the
+  versions whose C zr implements, stops the build at its `require`.
 - `zr doctor` checks the ruby, the host's targets, wasmtime, OpenSSL,
   the standard library, the cache and the compiled compiler.
 - MIT License. `THIRD_PARTY_NOTICES.md` names every part from other

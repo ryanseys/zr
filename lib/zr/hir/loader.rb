@@ -27,9 +27,12 @@ module Zr
         # there. In these files, a require inside a method waits for run
         # time, which finds and compiles the file then. So does an autoload
         # of a file outside `booted` (the files that the boot reads).
+        # `gem_set` is the build's GemSet (lib/zr/gem_set.rb), whose roots
+        # come first in `roots`, or nil.
         def initialize(roots, eval: false, external: nil, trace: false, evals: false, covers: false, activations: nil,
-                       deferred: [], preloaded: PRELOADED, ahead: Build.ahead, booted: Build.booted, prebuilt_eval: nil)
+                       deferred: [], preloaded: PRELOADED, ahead: Build.ahead, booted: Build.booted, prebuilt_eval: nil, gem_set: nil)
           @deferred = deferred
+          @gem_set = gem_set
           @data = {}
           @prebuilt_eval = external ? nil : prebuilt_eval
           @preloaded = preloaded
@@ -446,6 +449,10 @@ module Zr
           @units << Unit.new(what, [], Stop.new(what, line), [], false)
           i
         end
+
+        # Why a build cannot use the file at `path`: it is in a gem of the
+        # GemSet that zr cannot compile (a C extension). Nil otherwise.
+        def refused_gem(path, feature = nil) = @gem_set&.refusal(path, feature)
 
         # The file for `feature`, required from `from`, or nil.
         def resolve(kind, feature, from)
