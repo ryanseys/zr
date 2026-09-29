@@ -114,12 +114,13 @@ module Zr
     end
 
     # Whether the eval support that the binary linked is still current: its
-    # metadata has the same key, and the key of its files now is that key.
+    # metadata has the same key (the same code), and its files are as that
+    # metadata read them.
     def eval_current?(meta_path, key)
       require "json"
       meta = JSON.parse(File.read(meta_path))
       base = Zr.eval_digest(@target, @digest) or return false
-      meta.fetch("key") == key && Zr.eval_files_key(base, meta.fetch("files")) == key
+      meta.fetch("key") == key && Zr.eval_files_key(base, meta.fetch("files")) == meta.fetch("files_key")
     rescue JSON::ParserError, KeyError, SystemCallError
       false
     end

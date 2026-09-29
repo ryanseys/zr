@@ -334,9 +334,12 @@ module Zr
     # ParseCache.maker).
     def digests = meta.fetch("digests")
 
-    # The key of eval support: the eval digest (`Zr.eval_digest`) and the
-    # bytes of each file in eval support. The unit cache uses it for a
-    # program that uses this symbol table.
+    # The key of eval support's code (`Zr.eval_key`): the key of its files
+    # (the eval digest and the bytes of each file), and the symbol table
+    # that its code uses. The object has this name, and the unit cache
+    # uses it for a program that uses this symbol table. The same files
+    # lowered with other runtime ids get another key, so a build never
+    # links code that uses one table with a program that uses another.
     def key = meta.fetch("key")
 
     def object_path = self.class.object_path(key)
@@ -381,7 +384,7 @@ module Zr
     def meta
       @meta ||= begin
         meta = JSON.parse(File.read(meta_path)) if File.exist?(meta_path)
-        current = meta && meta.fetch("key") == files_key(meta.fetch("files")) && @runtime.symbols.holds?(meta.fetch("used"))
+        current = meta && meta["files_key"] == files_key(meta.fetch("files")) && @runtime.symbols.holds?(meta.fetch("used"))
         current ? meta : lowered.fetch(:meta)
       end
     end
@@ -409,7 +412,8 @@ module Zr
         digests = (files + @runtime.gem_prelude_files).uniq.sort.to_h do |path|
           [path, Digest::SHA256.hexdigest(sources[path] || File.binread(path))]
         end
-        meta = { "key" => files_key(files, sources), "files" => files, "digests" => digests,
+        read = files_key(files, sources)
+        meta = { "key" => Zr.eval_key(read, symbols.names, symbols.sites), "files_key" => read, "files" => files, "digests" => digests,
                  "units" => loader.entries.to_h { |path, i| [path, lower.unit_entry(i)] },
                  "configures" => loader.configures?, "normalizes" => loader.normalizes?, "pretty_prints" => loader.pretty_prints?,
                  "irbs" => loader.irbs?, "gems" => loader.gems?,

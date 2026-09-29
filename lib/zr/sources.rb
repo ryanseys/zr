@@ -177,15 +177,29 @@ module Zr
     (@compiler_digests ||= {})[[target.triple, Paths.root]] ||= source_digest(target, compiler_files(target))
   end
 
-  # The key of an eval support object: the eval digest and the bytes
-  # of each file (`EvalSupport#files_key`). `bytes` has the ones that a
-  # build already read.
+  # The key of what eval support reads: the eval digest and the bytes of
+  # each file (`EvalSupport#files_key`). `bytes` has the ones that a build
+  # already read.
   def eval_files_key(eval_digest, files, bytes = {})
     Digest::SHA256.new.tap do |d|
       d << eval_digest
       files.each do |path|
         d << path << "\0" << (bytes[path] || (File.exist?(path) ? File.binread(path) : ""))
       end
+    end.hexdigest
+  end
+
+  # The key of an eval support object and of its symbol table: the key of
+  # its files, and the names and site count that its code was lowered
+  # with. The code contains the id of each name, also of the runtime's
+  # names. Other runtime ids (a build with the ledger, and one without)
+  # lower the same files to other code, so they must never share a key.
+  def eval_key(files_key, names, sites)
+    Digest::SHA256.new.tap do |d|
+      d << files_key << "\0" << sites.to_s
+      # Each name with its length, so no name can look like two; a pad
+      # (nil) has no length.
+      names.each { |name| d << (name.nil? ? "\0-" : "\0#{name.bytesize}:#{name}") }
     end.hexdigest
   end
 
