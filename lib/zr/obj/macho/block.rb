@@ -42,6 +42,9 @@ module Zr
         BRANCH26 = ObjectFile::RELOC.fetch(:branch26).first
         GOT = ObjectFile::RELOC.values_at(:got_page21, :got_pageoff12).map(&:first).freeze
         GOT_PAGE21, GOT_PAGEOFF12 = GOT
+        ARM64_RELOC_ADDEND = ObjectFile::ARM64_RELOC_ADDEND
+        # `r_extern` of a relocation: it names a symbol, not a section.
+        EXTERN = 1 << 27
 
         # The parts, in image order, and the input sections that each part
         # contains. The block makes `stubs` and `got` itself.
@@ -282,17 +285,19 @@ module Zr
           base = at(part) + off
           addend = 0
           j = 0
-          while j < words.size
-            here = off + words[j]
-            place = base + words[j]
+          size = words.size
+          while j < size
+            at = words[j]
             info = words[j + 1]
             j += 2
+            here = off + at
+            place = base + at
             type = info >> 28
-            if type == ObjectFile::ARM64_RELOC_ADDEND
+            if type == ARM64_RELOC_ADDEND
               addend = ((info & 0xFF_FFFF) ^ 0x80_0000) - 0x80_0000
               next
             end
-            raise Refused, "a relocation that names a section, not a symbol" if info[27].zero?
+            raise Refused, "a relocation that names a section, not a symbol" if (info & EXTERN).zero?
 
             s = info & 0xFF_FFFF
             target = addr[s]
