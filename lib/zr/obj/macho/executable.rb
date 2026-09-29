@@ -133,7 +133,7 @@ module Zr
         end
 
         def write
-          twice = @top.names.find { |name| @base.global(name) }
+          twice = defined_twice
           raise Refused, "#{twice.delete_prefix("_")} is defined twice" if twice
 
           @imports = (@base.externals.reject { |name| @top.defines?("_#{name}") } + @top.externals).uniq.sort
@@ -191,6 +191,21 @@ module Zr
         end
 
         private
+
+        # The first program global (in the order of the program) that the
+        # base defines too, or nil. The sorted names walk the base's sorted
+        # names once (`insertion_points`): a binary search for each name
+        # took 8% of a `zr run` after an edit to a program that evals.
+        def defined_twice
+          names = @top.names.sort
+          base = @base.names
+          points = Executable.insertion_points(base, names)
+          both = names.each_index.filter_map { |n| names[n] if base[points[n]] == names[n] }
+          return nil if both.empty?
+
+          both = both.to_set
+          @top.names.find { |name| both.include?(name) }
+        end
 
         # Writes the segments from index `first`, the linkedit and the signature.
         def write_after(file, first, signed)
