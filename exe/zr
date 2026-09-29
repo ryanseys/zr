@@ -6,7 +6,8 @@
 # Use require_relative, not require: the collector tuning starts this file
 # again, and it must load this same copy of zr. zr's own files load from
 # the iseq cache (lib/zr/iseq_cache.rb). A `zr run` whose binary is in the
-# run cache execs it at once. If a current compiled compiler exists, it
+# run cache execs it at once. When `zr-dev serve` runs, it builds the
+# program (lib/zr/server.rb). If a current compiled compiler exists, it
 # runs the build next (lib/zr/compiled_compiler.rb), before ruby loads the
 # rest of zr. A compile starts ruby again with the collector limits at its
 # first step of heavy work (lib/zr/tune.rb).
@@ -14,6 +15,8 @@ require_relative "../lib/zr/iseq_cache"
 Zr::IseqCache.install
 require_relative "../lib/zr/cli"
 Zr::CLI.kept!(ARGV)
+require_relative "../lib/zr/server"
+Zr::Server.hand_to(ARGV)
 require_relative "../lib/zr/compiled_compiler"
 Zr::CompiledCompiler.hand_over(ARGV)
 

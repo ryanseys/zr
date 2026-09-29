@@ -63,10 +63,11 @@ module Zr
       nil
     end
 
-    # Keeps the binary at `out`, built from `program`. It keeps nothing when
-    # a source changed during the build (`Zr.moved`), when the build does
-    # not know its sources, or when the binary spells the build directory
-    # `work`, which a later run would not have.
+    # Keeps the binary at `out`, built from `program`, and returns the path
+    # of the kept binary. It keeps nothing, and returns nil, when a source
+    # changed during the build (`Zr.moved`), when the build does not know
+    # its sources, or when the binary spells the build directory `work`,
+    # which a later run would not have.
     def keep(out, program, work)
       return if program.sources.empty? || Zr.moved
       return if File.binread(out).include?(work)
@@ -81,8 +82,10 @@ module Zr
       FileUtils.rm_rf(@entry)
       File.rename(fresh, @entry)
       trim
+      File.join(@entry, "program")
     rescue SystemCallError
       FileUtils.rm_rf(fresh) if fresh
+      nil
     end
 
     # Removes the entries used longest ago, beyond KEPT or KEPT_BYTES.

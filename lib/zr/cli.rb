@@ -471,8 +471,18 @@ module Zr
       abort "zr: #{why}" if why
       return unless verb == "run"
 
-      cache&.keep(out, program, work) if program.is_a?(Zr::Program)
+      kept = cache&.keep(out, program, work) if program.is_a?(Zr::Program)
+      return @served.call(kept || out, rest, kept.nil?) if @served
+
       run_binary(out, rest)
+    end
+
+    # In a build that the server runs (lib/zr/server.rb), `zr run` gives
+    # its binary to the block, in place of running it: the path, the
+    # program's arguments, and whether the path is in the build directory,
+    # which goes away when the build ends.
+    def served!(&back)
+      @served = back
     end
 
     # A `zr run` whose binary is in the run cache: execs the binary now,
@@ -497,7 +507,7 @@ module Zr
       digest = Zr.runtime_digest(target) or return
       cache = RunCache.new(opts[:input], target: target, digest: digest, link: Config.current.link + opts[:link])
       kept = cache.hit
-      exec(Tune.program_env, kept, *opts[:args]) if kept
+      exec(Tune.program_env, [kept, kept], *opts[:args]) if kept
       # The build keeps its binary here, with no second digest.
       @missed = cache
     end
@@ -522,7 +532,9 @@ module Zr
     # to do with it; zr waits for the program to end.
     def run_binary(binary, rest)
       interrupt = Signal.trap("INT") { nil }
-      system(Tune.program_env, binary, *rest)
+      # `[binary, binary]`: with no arguments, a lone string would be a
+      # command for the shell.
+      system(Tune.program_env, [binary, binary], *rest)
       Signal.trap("INT", interrupt)
       $?
     end

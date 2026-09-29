@@ -26,7 +26,8 @@ module Zr
       "stage" => ["Check that zr compiles itself to the same bytes (1 or 2)", -> { require_relative "stage"; Stage }],
       "repro" => ["Build one program from two copies of the tree, and compare the bytes", -> { require_relative "repro"; Repro }],
       "cache" => ["Show, prune or clear the runtime cache", -> { require_relative "cache"; Cache }],
-      "gem" => ["Build the platform gem, with the compiled compiler in it", -> { require_relative "gem"; PlatformGem }]
+      "gem" => ["Build the platform gem, with the compiled compiler in it", -> { require_relative "gem"; PlatformGem }],
+      "serve" => ["Keep a warm compiler that zr run and zr build of this checkout use", -> { require_relative "serve"; Serve }]
     }.freeze
 
     def self.start(argv)

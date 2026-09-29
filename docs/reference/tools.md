@@ -207,6 +207,12 @@ See [Bootstrapping](../explanation/bootstrapping.md).
 | `zr-dev cache prune [--days N]` | Deletes all cache files that this checkout does not use and that are older than one day (`ZR_CACHE_DAYS`). `--days 3` keeps files used in the last 3 days. |
 | `zr-dev cache clear` | Deletes all the cache, also the files of this checkout. |
 
+### Build server
+
+| Command | Does |
+|---|---|
+| `zr-dev serve [--idle MINUTES] [--socket PATH]` | Keeps one warm compiler for the edit loop: the compiler loaded, YJIT warm, and the runtime's description, symbols and prelinked images in memory. While it runs, each `zr run` and `zr build` of this checkout sends it the build. The server forks one child for each build. The client then runs the program itself, so the program keeps the terminal, the signals and the exit status. A Ctrl-C in the client stops the build. The server starts again when a file of zr that it loaded changes, and stops after `--idle` minutes with no request (default 30). It listens at `<cache>/server.sock`. `ZR_SERVER=0` makes a command build alone, and `ZR_SERVER=PATH` uses the server at `PATH`. After an edit to a core file, `zr run` of hello took 4.2 s with the server and 4.9 s without it. After an edit to a program, it took 0.23 s against 0.25 s (hello) and 0.40 s against 0.46 s (a program with eval). The server holds about 700 MB. |
+
 ### Platform gem
 
 | Command | Does |

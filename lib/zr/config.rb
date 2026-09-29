@@ -46,6 +46,7 @@ module Zr
       @run_cache = Zr.flag?("ZR_RUN_CACHE", default: true)
       @code_cache = ENV.fetch("ZR_CODE_CACHE", "1")
       @iseq_cache = Zr.flag?("ZR_ISEQ_CACHE", default: true)
+      @server = ENV["ZR_SERVER"].to_s.empty? ? nil : ENV["ZR_SERVER"]
       freeze
     end
 
@@ -98,6 +99,10 @@ module Zr
     # `ZR_ISEQ_CACHE=0` makes ruby compile zr's own files at each start
     # (`IseqCache`).
     def iseq_cache? = @iseq_cache
+
+    # `ZR_SERVER`: nil (use the server if one listens at its default
+    # socket), "0" (never), or the path of a socket (lib/zr/server.rb).
+    def server = @server
 
     # Whether `ZR_JOBS` sets the worker count. Then it also overrides the
     # memory limit (`Native::Parallel.afforded`).
