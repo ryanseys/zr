@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "benchmark"
 require "fileutils"
 require "tmpdir"
 require_relative "lib/zr/dev"
@@ -15,6 +16,7 @@ module Zr
     #   zr-dev compile --zr              also time the compiled compiler
     #   zr-dev compile --zr --commit     write a baseline to benchmark/results/compile/
     #   zr-dev compile --zr --check      fail if slower than the newest baseline
+    #   zr-dev compile --profile eval    each function's passes and assembly
     #
     # `zr-dev bench` times what a binary does; this tool times how long it
     # takes to make one. The programs in `benchmark/compile` have require
@@ -71,9 +73,12 @@ module Zr
         o.on("--zr", "also time the compiled compiler") { @compiled = true }
         o.on("--commit", "write a baseline to benchmark/results/compile/ (needs --zr)") { @commit = true }
         o.on("--check", "fail if slower than the newest baseline (needs --zr)") { @check = true }
+        o.on("--profile OBJECT", %w[runtime eval], "time each function of the runtime or eval support object") { |v| @profile = v }
       end
 
       def run(argv)
+        return profile(@profile) if @profile
+
         require "benchmark"
         require_relative "../lib/zr/cli"
         runs = @runs || RUNS
@@ -94,6 +99,57 @@ module Zr
         write!(rows, runs, RESULTS) if @write
         write!(rows, runs, baseline_path) if @commit
         @check ? check(read(File.read(newest_baseline)), rows) : true
+      end
+
+      # Lowers the runtime or eval support object, then runs the passes and
+      # the assembly of each function in this process, one at a time, and
+      # prints the phases, the sums and the slowest functions. A build runs
+      # the same work in workers, so this shows the work, not the wall time.
+      # Writes every function to tmp/bench/profile-<object>.tsv.
+      def profile(object)
+        require_relative "../lib/zr/runtime"
+        require_relative "../lib/zr/native/build"
+        target = Target.default
+        functions, data, raw =
+          if object == "runtime"
+            rt = Zr.runtime(target)
+            timed("runtime lowered") { [rt.functions, rt.data, rt.raw] }
+          else
+            support = Zr.eval_support(target)
+            timed("eval support lowered") { [support.functions, support.data, []] }
+          end
+        puts "#{functions.size} functions, #{data.size} data"
+        timed("inlined, for the whole unit") { IR::Passes.inline(functions) }
+        emitter = Native::Build.backend(target)
+        defined = (functions.map(&:name) + data.map(&:name) + raw).to_set
+        rows = timed("prepared and assembled, one at a time") do
+          functions.map do |f|
+            insts = f.blocks.sum { |b| b.insts.size }
+            blocks = f.blocks.size
+            prepared = Benchmark.realtime { IR::Passes.prepare(f) }
+            assembled = Benchmark.realtime { emitter.assemble(f, defined) }
+            [f.name, blocks, insts, prepared, assembled]
+          end
+        end
+        FileUtils.mkdir_p(File.dirname(RESULTS))
+        path = Dev.path("tmp/bench/profile-#{object}.tsv")
+        File.write(path, (["name\tblocks\tinsts\tprepare_s\tassemble_s"] + rows.map { |r| r.join("\t") }).join("\n") << "\n")
+        prepared = rows.sum { |r| r[3] }
+        assembled = rows.sum { |r| r[4] }
+        puts format("passes %.1fs, assembly %.1fs, over %d functions", prepared, assembled, rows.size)
+        slowest = rows.max_by(20) { |r| r[3] + r[4] }
+        puts "the 20 slowest (blocks, instructions, passes s, assembly s):"
+        slowest.each { |r| puts format("  %-60s %6d %7d %7.2f %7.2f", r[0][0, 60], *r[1..]) }
+        puts format("the 20 slowest take %.0f%% of the time; all rows in %s",
+                    100 * slowest.sum { |r| r[3] + r[4] } / (prepared + assembled), Dev.rel(path))
+        true
+      end
+
+      def timed(label)
+        result = nil
+        took = Benchmark.realtime { result = yield }
+        puts format("%-40s %8.2fs", label, took)
+        result
       end
 
       # Runs one build and returns its phases as `{label => seconds}`. The

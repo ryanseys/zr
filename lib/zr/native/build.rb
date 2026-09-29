@@ -122,7 +122,7 @@ module Zr
         # Kept in memory for the life of the process, and on disk. Reading
         # and parsing the 25 MB image took 21% of a link, and a test tier
         # links thousands of times. A link never writes to it.
-        kept = (@prelinks ||= {})[path] ||= File.exist?(path) && Obj::MachO::Prelink.load(File.binread(path))
+        kept = (@prelinks ||= {})[path] ||= File.exist?(path) && Zr.clock("prelink loaded") { Obj::MachO::Prelink.load(File.binread(path)) }
         return kept if kept
 
         Zr.clock("objects prelinked") do

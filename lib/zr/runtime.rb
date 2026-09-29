@@ -91,7 +91,7 @@ module Zr
       # object contains the core's file names; so two checkouts never
       # share one. A build with a path root (`Paths.root`) writes
       # different names, so the root is also an input.
-      @digest ||= begin
+      @digest ||= Zr.clock("runtime digest") do
         files = sources.keys + gem_prelude_files
         @stamps = files.to_h { |path| [path, Paths.stamp(path)] }
         digest_of(files)
