@@ -14,8 +14,9 @@ module Zr
     #
     # It also gets one `unit-<key>.marshal` for each file that a program
     # is built from (lib/zr/unit_cache.rb). Each is small, but a tier run
-    # makes thousands. Each name contains the digest of the compiler that
-    # made it, so a prune removes them with that compiler's other files.
+    # makes thousands. The name is a digest of all the unit's inputs, not
+    # of the compiler alone, so a prune cannot tell the live ones: it keeps
+    # them by age only, as it keeps the binaries.
     #
     #   zr-dev cache size             what is there, by kind
     #   zr-dev cache prune            all except the files this checkout uses
@@ -26,10 +27,9 @@ module Zr
     # the next build does not rebuild the runtime, eval support or the
     # images. `clear` removes those too; use it when the disk is full. All
     # other files are content-addressed and are made again on demand. A
-    # wasm prelude and a gem prelude have names that come from more than
-    # the runtime digest (the program's pending symbols, the files the
-    # prelude loaded). Thus a prune keeps them by age only, and a prune
-    # with 0 days makes the next wasm build rebuild its prelude.
+    # wasm prelude has a name that comes from more than the runtime digest
+    # (the program's pending symbols). Thus a prune keeps it by age only,
+    # and a prune with 0 days makes the next wasm build rebuild it.
     class Cache < Group
       summary "Show, prune or clear the runtime cache"
 

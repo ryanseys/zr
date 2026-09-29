@@ -118,9 +118,12 @@ module Zr
     # inputs), or from building the prelude's HIR. If a change to one of
     # them adds or removes a file, the digest changes and the list is
     # computed again.
+    # The cache file that lists them.
+    def gem_prelude_path = File.join(Paths.cache, "gem-prelude-#{digest_of(sources.keys)}.json")
+
     def gem_prelude_files
       @gem_prelude_files ||= begin
-        path = File.join(Paths.cache, "gem-prelude-#{digest_of(sources.keys)}.json")
+        path = gem_prelude_path
         files = JSON.parse(File.read(path)) if File.exist?(path)
         unless files&.all? { |file| File.file?(file) }
           files = [GEM_PRELUDE, *Zr.gem_prelude(target).units.map(&:file).select { |file| File.file?(file) }].uniq.sort
@@ -164,6 +167,31 @@ module Zr
       @raw = @unit&.raw
       @unit = @lowered = nil
       @released = true
+    end
+
+    # The kernel's description as eval support carries it: a generated file
+    # of the target's OS layer (`zr-dev gen description`). The JIT of a
+    # binary lowers eval'd code against that file, not against the kernel,
+    # so a file that is out of date miscompiles evals with no error.
+    def carried_description = File.join(Paths::RUNTIME, "ext/os/#{target.os_layer}/zr_description.rb")
+
+    # Checks the carried description against the kernel before eval
+    # support is built. In a checkout, zr writes the file again and says
+    # so. An install never has a stale file, so there it stops the build.
+    # Only the target that `zr-dev gen description` writes a layer from
+    # checks it, because the other targets of a layer can differ in a row.
+    def carry_description!
+      return unless Target.all.find { |t| t.os_layer == target.os_layer && t.os_layer == t.os.to_s }&.triple == target.triple
+
+      path = carried_description
+      want = Machine::Description.carried(cached.fetch(:description))
+      return if File.exist?(path) && File.binread(path) == want
+
+      shown = path.delete_prefix("#{Paths::ROOT}/")
+      raise "#{shown} is out of date with runtime/kernel; run `zr-dev gen description`" unless Paths.checkout?
+
+      Paths.write_atomic(path, want)
+      warn "zr: #{shown} was out of date with runtime/kernel; zr wrote it again"
     end
 
     private
@@ -290,15 +318,22 @@ module Zr
       end
     end
 
-    def files_key(files)
+    # The key of eval support: the runtime's digest and the bytes of each
+    # file. A build gives the bytes that it lowered (`sources`), so an edit
+    # during the build cannot put old output under the new bytes' key. A
+    # check of the cache reads the files as they are now.
+    def files_key(files, sources = {})
       Digest::SHA256.new.tap do |d|
         d << @runtime.digest
-        files.each { |path| d << path << "\0" << (File.exist?(path) ? File.binread(path) : "") }
+        files.each do |path|
+          d << path << "\0" << (sources[path] || (File.exist?(path) ? File.binread(path) : ""))
+        end
       end.hexdigest
     end
 
     def lowered
       @lowered ||= Zr.clock("eval support lowered") do
+        @runtime.carry_description!
         loader = Hir::Build.eval_support(target)
         program = Hir::Program.new(Hir::Build.eval_file(target), [], Hir::Seq.new([], 0), loader.units, [], true, loader.entries)
         symbols = Machine::Symbols.new(@runtime.symbols.ids.keys, sites: @runtime.symbols.sites)
@@ -309,7 +344,7 @@ module Zr
         digests = (files + @runtime.gem_prelude_files).uniq.sort.to_h do |path|
           [path, Digest::SHA256.hexdigest(sources[path] || File.binread(path))]
         end
-        meta = { "key" => files_key(files), "files" => files, "digests" => digests,
+        meta = { "key" => files_key(files, sources), "files" => files, "digests" => digests,
                  "units" => loader.entries.to_h { |path, i| [path, lower.unit_entry(i)] },
                  "configures" => loader.configures?, "normalizes" => loader.normalizes?, "pretty_prints" => loader.pretty_prints?,
                  "irbs" => loader.irbs?, "gems" => loader.gems?,

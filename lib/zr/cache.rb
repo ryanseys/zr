@@ -54,7 +54,7 @@ module Zr
       metas = %w[jit walk].map { |kind| EvalSupport.meta_path(runtime, kind) }.select { |path| File.exist?(path) }
       evals = metas.filter_map { |meta| eval_object(meta) }
       sets = [[object], *evals.map { |eval| [object, eval] }]
-      [object, *metas, *evals, *sets.map { |set| Native::Build.prelink_path(set) },
+      [object, runtime.gem_prelude_path, *metas, *evals, *sets.map { |set| Native::Build.prelink_path(set) },
        *sets.map { |set| Native::Build.skeleton_path(set) }] + Dir[File.join(Paths.cache, "*-#{runtime.digest}.*")]
     end
 
