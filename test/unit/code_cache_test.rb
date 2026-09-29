@@ -61,7 +61,9 @@ class CodeCacheTest < Minitest::Test
   def test_an_object_is_the_same_with_the_cache_cold_warm_and_off
     skip "a native link on this host only" unless Zr::Target.default.link
 
-    runtime = Zr.runtime
+    # Its own runtime: `Native::Build.lower` releases the IR of the
+    # process's `Zr.runtime`, so an earlier build would leave none here.
+    runtime = Zr::Runtime.new(Zr::Target.default)
     functions = Marshal.dump(runtime.functions.first(600))
     Dir.mktmpdir("zr-code-cache-") do |dir|
       cache = File.join(dir, "cache")
