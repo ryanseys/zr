@@ -112,7 +112,7 @@ module Zr
       # zr's file that a require of `feature` finds before vendor/.
       def overlay(feature)
         base = feature.delete_suffix(".rb")
-        [Layout::EXT, *Dir[File.join(Layout::EXT, "os", "*")]].each do |dir|
+        [Layout::EXT, *Dir[File.join(Layout::EXT, "os", "*")], Layout::RUNTIME_LIB].each do |dir|
           ["#{base}.rb", "#{base}.so.rb"].each do |name|
             path = File.join(dir, name)
             return path if File.file?(path)

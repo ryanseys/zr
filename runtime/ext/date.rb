@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+# zr overlay: replaces date.rb of date 3.5.1 (sha256 6026af9d0963)
 
 # Date and DateTime over a chronological Julian day number, a second of
 # that day and a nanosecond, all in UTC, with the offset and the day the
