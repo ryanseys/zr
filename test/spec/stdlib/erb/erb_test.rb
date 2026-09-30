@@ -156,4 +156,36 @@ describe "ERB programs" do
       [:html_escape]
     OUT
   end
+
+  it "erb/escape escapes as its C does, with an empty CGI and no cgi/escape" do
+    result = zr(<<~'RUBY')
+      require "erb/escape"
+      # The C defines an empty CGI class and does not load cgi/escape.
+      p defined?(CGI), CGI.constants, ERB::Escape.singleton_methods
+      s = "abc"
+      p ERB::Escape.html_escape(s).equal?(s)
+      p ERB::Escape.html_escape(%(<a href="x">'&'</a>))
+      o = Object.new
+      def o.to_s = 1
+      p (ERB::Escape.html_escape(o) rescue $!)
+      class Sub < String; end
+      p ERB::Escape.html_escape(Sub.new("<")).class, ERB::Escape.html_escape(Sub.new("a")).class
+      p ERB::Escape.html_escape("\xff<".b), ERB::Escape.html_escape("é<").encoding
+      p (ERB::Escape.html_escape("a<".encode("UTF-16LE")) rescue $!)
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "constant"
+      []
+      [:html_escape]
+      true
+      "&lt;a href=&quot;x&quot;&gt;&#39;&amp;&#39;&lt;/a&gt;"
+      #<TypeError: can't convert Object to String (Object#to_s gives Integer)>
+      String
+      Sub
+      "\xFF&lt;"
+      #<Encoding:UTF-8>
+      #<NoMethodError: undefined method 'escapeHTML' for class CGI>
+    OUT
+  end
 end
