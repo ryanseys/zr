@@ -4,6 +4,7 @@ require "digest/sha2"
 require "rbconfig"
 require_relative "paths"
 require_relative "ports"
+require_relative "store"
 require_relative "version"
 
 module Zr
@@ -98,10 +99,10 @@ module Zr
       end
       return EMPTY if flags.empty? && gemfile.nil?
 
-      path = File.join(Paths.cache, "gems", "#{key(flags, gemfile, env)}.set")
-      kept(path) || begin
+      key = key(flags, gemfile, env)
+      kept(Store.read(:gems, key)) || begin
         set = child(flags, gemfile, env)
-        Paths.write_atomic(path, Marshal.dump(set.gems.map(&:to_h)))
+        Store.write(:gems, key, set.gems.map(&:to_h))
         set
       end
     end
@@ -109,15 +110,13 @@ module Zr
     # What the child reads: the flags, the Gemfile and its lock, and the
     # variables that move the gems.
     def self.key(flags, gemfile, env)
-      key = Digest::SHA256.new
       parts = [VERSION, Zr::VERSION, *flags.flatten, "\0", gemfile.to_s, *READS.map { |name| env[name].to_s }]
       if gemfile
         parts << read(gemfile) << read(lockfile(gemfile))
         parts << read(File.join(File.dirname(gemfile), ".bundle/config"))
       end
       flags.each { |_, value| parts << Paths.stamp(File.expand_path(value)).to_s }
-      parts.each { |part| key << part.to_s << "\0" }
-      key.hexdigest
+      Store.key(*parts)
     end
 
     # The lock of `gemfile`, as bundler names it: `gems.locked` for
@@ -126,14 +125,14 @@ module Zr
 
     def self.read(path) = File.file?(path) ? File.binread(path) : ""
 
-    # The set that the cache keeps at `path`, while each root is still
-    # there. A `gem uninstall` removes a root, and the child runs again.
-    def self.kept(path)
-      return nil unless File.file?(path)
+    # The set of the kept `rows`, while each root is still there. A
+    # `gem uninstall` removes a root, and the child runs again.
+    def self.kept(rows)
+      return nil unless rows
 
-      set = new(Marshal.load(File.binread(path)).map { |fields| Entry.new(**fields).freeze })
+      set = new(rows.map { |fields| Entry.new(**fields).freeze })
       set.gems.all? { |gem| gem.roots.all? { |root| File.directory?(root) } } ? set : nil
-    rescue TypeError, ArgumentError, EOFError
+    rescue TypeError, ArgumentError
       nil
     end
 

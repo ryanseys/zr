@@ -27,8 +27,8 @@ module Zr
       @symbols = symbols
       @sources = sources
       @base = Zr.clock("core cache: key") do
-        Digest::SHA256.hexdigest([VERSION, @target.triple, Paths.root.to_s, Zr.compiler_digest(@target),
-                                  Machine::Description.of(unit).to_text, Lower.boot_classes.inspect].join("\0"))
+        Store.key(VERSION, @target.triple, Paths.root.to_s, Zr.compiler_digest(@target),
+                                  Machine::Description.of(unit).to_text, Lower.boot_classes.inspect)
       end
       @kernel = unit.functions
       @kernel_names = @kernel.to_h { |f| [f.name, true] }

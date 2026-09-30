@@ -1,11 +1,11 @@
 # frozen_string_literal: true
 
-require "digest/sha2"
 require_relative "paths"
-require_relative "settled"
+require_relative "store"
 
 module Zr
-  # A file's assembled machine code, kept between builds.
+  # A file's assembled machine code, kept between builds in the store
+  # (lib/zr/store.rb) as kind `unit`.
   #
   # A unit's code does not depend on the compile order. Its names come
   # from its source file, and its symbol ids and literal slots are words
@@ -36,14 +36,13 @@ module Zr
 
     # The cache for `program`, or nil if no key can describe this
     # program. `entries` are the program's unit entries, in order.
-    def self.for(program, dir:, runtime:, table:, entries:)
+    def self.for(program, runtime:, table:, entries:)
       return nil if program.coverable&.any?
 
-      new(dir: dir, runtime: runtime, table: table, traced: program.traced ? 1 : 0, entries: entries)
+      new(runtime: runtime, table: table, traced: program.traced ? 1 : 0, entries: entries)
     end
 
-    def initialize(dir:, runtime:, table:, traced:, entries:)
-      @dir = dir
+    def initialize(runtime:, table:, traced:, entries:)
       # `runtime` is the runtime's ABI digest (`Zr.abi_digest`): the
       # compiler, the kernel's description and the symbol table. A unit's
       # code calls the core only by name, so a core body edit keeps it.
@@ -58,10 +57,7 @@ module Zr
     def take(unit, prefix)
       key = key(unit, prefix) or return nil
 
-      bytes = File.binread(path(key))
-      Marshal.load(bytes)
-    rescue SystemCallError, TypeError, ArgumentError
-      nil
+      Store.read(:unit, key)
     end
 
     # Stores the code that this build made for `unit`, for the next build.
@@ -69,43 +65,40 @@ module Zr
     def keep(unit, prefix, functions, data)
       key = key(unit, prefix) or return nil
 
-      Zr.settled!
-      Paths.write_atomic(path(key), Marshal.dump([functions, data]))
+      Store.write(:unit, key, [functions, data])
     rescue SystemCallError
       nil
     end
 
-    private
+    # The path and the entry of each unit that a require or an autoload
+    # in `body` runs, in the order of the tree. The block gives the entry
+    # of a unit; a require that runs no unit adds "-". EvalCache keys its
+    # pieces the same way.
+    def self.reached(body, out = [], &entry)
+      case body
+      when Hir::Require, Hir::Autoload
+        out << Paths.shown(body.path.to_s) << (body.unit.nil? ? "-" : yield(body.unit))
+        body.each { |child| reached(child, out, &entry) if child.is_a?(Hir::Node) || child.is_a?(Array) }
+      when Hir::Node, Array
+        # No array per node: a walk of a large program visits millions.
+        body.each { |child| reached(child, out, &entry) if child.is_a?(Hir::Node) || child.is_a?(Array) }
+      end
+      out
+    end
 
-    def path(key) = File.join(@dir, "unit-#{key}.marshal")
+    private
 
     # A digest of every input of the unit's bytes, or nil if one input is
     # a number that this key cannot contain.
     def key(unit, prefix)
       return nil if unit.source.nil? || unit.activates
 
-      Digest::SHA256.hexdigest([@stamp, prefix, unit.file, unit.internal ? 1 : 0, unit.hidden ? 1 : 0,
-                                unit.source.b, *reached(unit.body)].join("\0"))
-    end
-
-    # The path and the entry of each unit that a require or an autoload
-    # in `body` runs, in the order of the tree.
-    def reached(body, out = [])
-      case body
-      when Hir::Require, Hir::Autoload
-        out << Paths.shown(body.path.to_s) << entry(body.unit)
-        body.each { |child| reached(child, out) if child.is_a?(Hir::Node) || child.is_a?(Array) }
-      when Hir::Node, Array
-        # No array per node: a walk of a large program visits millions.
-        body.each { |child| reached(child, out) if child.is_a?(Hir::Node) || child.is_a?(Array) }
-      end
-      out
+      Store.key(@stamp, prefix, unit.file, unit.internal ? 1 : 0, unit.hidden ? 1 : 0, unit.source.b,
+                *UnitCache.reached(unit.body) { |reached| entry(reached) })
     end
 
     # A unit's entry: a String names it already (a unit of eval support).
     def entry(unit)
-      return "-" if unit.nil?
-
       unit.is_a?(String) ? unit : @entries.fetch(unit)
     end
   end

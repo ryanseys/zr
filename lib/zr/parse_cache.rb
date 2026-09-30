@@ -4,10 +4,12 @@ require "digest/sha2"
 require_relative "paths"
 require_relative "prism"
 require_relative "settled"
+require_relative "store"
 require_relative "../../runtime/lib/zr/eval/runtime" unless Zr::HOSTED
 
 module Zr
-  # A cache of Prism.parse results. A build reads back the parse of a
+  # A cache of Prism.parse results, in the store (lib/zr/store.rb) as
+  # kind `parse`. A build reads back the parse of a
   # source that it parsed before. Marshal loads it about 40 times faster
   # than the port parses a file in a new process.
   #
@@ -24,8 +26,6 @@ module Zr
   # sets differ (the binary contains only the gem files that the port
   # loads), so ruby and a binary never share a parse.
   module ParseCache
-    def self.directory = File.join(Paths.cache, "parse")
-
     # The files of the parser: these, and every Ruby file under the trees.
     GEM = Ports.lib("prism")
     FILES = [File.join(Layout::EXT, "prism/prism.rb"), File.join(__dir__, "prism.rb"), __FILE__, File.join(GEM, "prism.rb")].freeze
@@ -114,7 +114,7 @@ module Zr
     # The parse for `key`: from an earlier build's cache file, else a new
     # parse by the port, written for the next build.
     def parsed(key, source, options)
-      path = File.join(directory, "#{key}.marshal")
+      path = Store.path(:parse, "#{key}.marshal")
       read(path) || Prism.parse(source, **options).tap { |result| write(path, Marshal.dump(result)) }
     end
 
@@ -156,7 +156,7 @@ module Zr
     def derived(kind, source, options, files)
       maker = maker(files) or return yield
 
-      path = File.join(directory, "#{Digest::SHA256.hexdigest("#{key(source, options)}\0#{kind}\0#{maker}")}.#{kind}")
+      path = Store.path(:parse, "#{Store.key(key(source, options), kind, maker)}.#{kind}")
       text = File.binread(path).force_encoding(Encoding::UTF_8) if File.file?(path)
       return text if text&.valid_encoding?
 

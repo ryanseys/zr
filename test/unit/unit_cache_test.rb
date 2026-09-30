@@ -48,10 +48,8 @@ class UnitCacheTest < Minitest::Test
   end
 
   def key(unit, entries)
-    Dir.mktmpdir("zr-unit-cache-") do |dir|
-      cache = Zr::UnitCache.new(dir: dir, runtime: "rt", table: "rt", traced: 0, entries: entries)
-      cache.send(:key, unit, "zr_toplevel_unit_0")
-    end
+    cache = Zr::UnitCache.new(runtime: "rt", table: "rt", traced: 0, entries: entries)
+    cache.send(:key, unit, "zr_toplevel_unit_0")
   end
 
   # A file added elsewhere in the program does not lower this unit again.

@@ -472,7 +472,7 @@ module Zr
     # So an earlier build's code for a unit is correct for this build.
     # The cache key includes the table that fixes the ids: the runtime's,
     # or the larger eval support table for a program with eval.
-    units = finish && UnitCache.for(hir, dir: Paths.cache, runtime: rt.abi_digest, table: hir.evals ? support.key : "rt",
+    units = finish && UnitCache.for(hir, runtime: rt.abi_digest, table: hir.evals ? support.key : "rt",
                                          entries: Lower.entries_of("zr_toplevel", hir.units))
     lower = Lower.new(hir, rt.description, symbols, target: target, fixed: symbols.ids.dup.freeze, units: units || nil)
     functions, data = Zr.clock(finish ? "program lowered and assembled" : "program lowered") do

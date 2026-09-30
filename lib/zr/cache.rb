@@ -23,7 +23,7 @@ module Zr
     # machine code (lib/zr/native/code_cache.rb), and the compiled
     # instructions of zr's own files (lib/zr/iseq_cache.rb). Their names come from the
     # source only, so only age shows which are not used.
-    def all = Dir[File.join(Paths.cache, "{*,binaries/*,parse/*,iseq/*,run/*/*,code/*/*,core/*/*,eval-*/*/*}")].select { |path| File.file?(path) }
+    def all = Dir[File.join(Paths.cache, "{*,binaries/*,parse/*,iseq/*,run/*/*,code/*/*,core/*/*,eval-*/*/*,store/*/*/*}")].select { |path| File.file?(path) }
 
     # The compiled compilers of other zr versions and installs, in the
     # user's cache (lib/zr/compiled_compiler.rb). Each one is about
@@ -85,6 +85,7 @@ module Zr
     def tree_bytes(dir) = bytes(Dir[File.join(dir, "**/*")].select { |path| File.file?(path) })
 
     def kind(path)
+      return File.basename(File.dirname(path, 2)) if File.basename(File.dirname(path, 3)) == "store"
       return "binary" if File.basename(File.dirname(path)) == "binaries"
       return "parse" if File.basename(File.dirname(path)) == "parse"
       return "iseq" if File.basename(File.dirname(path)) == "iseq"

@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "lowering_cache"
+require_relative "unit_cache"
 
 module Zr
   # The files of eval support as the pieces of a `LoweringCache`. Eval
@@ -33,7 +34,7 @@ module Zr
       @symbols = symbols
       @program = lower.program
       @description = description
-      @base = Digest::SHA256.hexdigest([VERSION, @target.triple, Paths.root.to_s, Zr.compiler_digest(@target), @program.file].join("\0"))
+      @base = Store.key(VERSION, @target.triple, Paths.root.to_s, Zr.compiler_digest(@target), @program.file)
       @entry_functions, @entry_data = lower.lower_entry
       pieces = Zr.clock("eval cache: units") do
         @program.units.each_index.map do |i|
@@ -57,7 +58,8 @@ module Zr
       return nil if unit.source.nil?
 
       usings = unit.activates ? usings(unit.body) : []
-      key_of(unit.file, entry, unit.internal ? 1 : 0, unit.hidden ? 1 : 0, unit.source, *reached(unit.body), "usings", *usings)
+      key_of(unit.file, entry, unit.internal ? 1 : 0, unit.hidden ? 1 : 0, unit.source, *UnitCache.reached(unit.body) { |reached|
+ @lower.unit_entry(reached) }, "usings", *usings)
     end
 
     # The activation numbers in `body`: each `using`'s entry, and the
@@ -68,19 +70,6 @@ module Zr
       when Hir::Send, Hir::Super, Hir::AttrOpAssign, Hir::IndexOpAssign then out << body.using.inspect
       end
       body.each { |child| usings(child, out) if child.is_a?(Hir::Node) || child.is_a?(Array) } if body.is_a?(Hir::Node) || body.is_a?(Array)
-      out
-    end
-
-    # The path and the entry of each unit that a require or an autoload in
-    # `body` runs, in the order of the tree (as `UnitCache` keys a unit).
-    def reached(body, out = [])
-      case body
-      when Hir::Require, Hir::Autoload
-        out << Paths.shown(body.path.to_s) << (body.unit.nil? ? "-" : @lower.unit_entry(body.unit))
-        body.each { |child| reached(child, out) if child.is_a?(Hir::Node) || child.is_a?(Array) }
-      when Hir::Node, Array
-        body.each { |child| reached(child, out) if child.is_a?(Hir::Node) || child.is_a?(Array) }
-      end
       out
     end
 

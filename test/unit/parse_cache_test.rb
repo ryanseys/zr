@@ -120,7 +120,7 @@ class ParseCacheTest < Minitest::Test
   def test_parse_returns_memoized_tree_without_reading_the_cache
     source = "def memoized(a) = a + 1\n"
     first = ParseCache.parse(source, filepath: "memo.rb")
-    File.delete(File.join(ParseCache.directory, "#{ParseCache.key(source, { filepath: "memo.rb" })}.marshal"))
+    File.delete(Zr::Store.path(:parse, "#{ParseCache.key(source, { filepath: "memo.rb" })}.marshal"))
     assert_same first, ParseCache.parse(source, filepath: "memo.rb")
   ensure
     ParseCache.memo.clear

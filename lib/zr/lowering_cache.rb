@@ -1,10 +1,9 @@
 # frozen_string_literal: true
 
-require "digest/sha2"
-require "fileutils"
 require_relative "config"
 require_relative "paths"
 require_relative "sources"
+require_relative "store"
 require_relative "ir/fingerprint"
 require_relative "ir/passes"
 require_relative "native/code_cache"
@@ -49,7 +48,7 @@ module Zr
       @kind = kind
       @target = target
       @code = code
-      @dir = File.join(Paths.cache, kind, Native::CodeCache.backend_digest[0, 16])
+      @backend = Native::CodeCache.backend_digest
     end
 
     # Writes an entry for each piece this build lowered. `fingerprints` gives
@@ -57,7 +56,6 @@ module Zr
     def keep(fingerprints, defined)
       return if Zr.moved
 
-      FileUtils.mkdir_p(@dir)
       @pieces.each do |piece|
         next if piece.is_a?(Kept) || piece.key.nil?
 
@@ -70,7 +68,7 @@ module Zr
           leaves: leaves.to_h { |f| [f.name, Marshal.dump(f)] },
           leaf_prints: leaves.to_h { |f| [f.name, IR::Fingerprint.of(f, EMPTY)] }
         }
-        Paths.write_atomic(File.join(@dir, "#{piece.key}.marshal"), Marshal.dump(record))
+        Store.write(:lowering, piece.key, record)
       end
     rescue SystemCallError
       nil
@@ -149,14 +147,11 @@ module Zr
       [functions.flat_map { |f| f.callees.map(&:symbol) }.uniq, functions.flat_map { |f| f.globals.reject(&:colocated).map(&:symbol) }.uniq]
     end
 
-    def key_of(*parts) = Digest::SHA256.hexdigest([@base, *parts].map { |part| part.to_s.b }.join("\0"))
+    # An entry's key: the cache's kind (core, eval-jit, eval-walk), the
+    # backend, the base of the unit and the piece's own parts.
+    def key_of(*parts) = Store.key(@kind, @backend, @base, *parts)
 
-    def fetch(key)
-      path = File.join(@dir, "#{key}.marshal")
-      File.exist?(path) ? Marshal.load(File.binread(path)) : nil
-    rescue SystemCallError, TypeError, ArgumentError
-      nil
-    end
+    def fetch(key) = Store.read(:lowering, key)
 
     # The pieces this build takes from an entry, after the checks; the
     # others it lowers now (`again`), each with the site counter it had.

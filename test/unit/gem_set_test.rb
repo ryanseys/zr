@@ -205,7 +205,7 @@ class GemSetTest < Minitest::Test
     dir = gem_dir("rainbow", "3.1.1")
     first = resolve([["rainbow", dir]], "BUNDLE_GEMFILE" => nil)
 
-    kept = Dir[File.join(@dir, "cache/gems/*.set")]
+    kept = Dir[File.join(@dir, "cache/store/gems/*/*.marshal")]
     second = resolve([["rainbow", dir]], "BUNDLE_GEMFILE" => nil)
 
     assert_equal 1, kept.size
@@ -215,7 +215,7 @@ class GemSetTest < Minitest::Test
   def test_a_removed_root_resolves_again
     dir = gem_dir("rainbow", "3.1.1")
     resolve([["rainbow", dir]], "BUNDLE_GEMFILE" => nil)
-    kept = Dir[File.join(@dir, "cache/gems/*.set")].first
+    kept = Marshal.load(File.binread(Dir[File.join(@dir, "cache/store/gems/*/*.marshal")].first))
 
     FileUtils.rm_rf(File.join(dir, "lib"))
 

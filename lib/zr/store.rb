@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require "digest/sha2"
-require "json"
 require_relative "paths"
 require_relative "settled"
 
@@ -78,7 +77,7 @@ module Zr
       value = decode(kind(name).codec, file)
       touch(file)
       value
-    rescue SystemCallError, TypeError, ArgumentError, EOFError, JSON::ParserError, EncodingError
+    rescue StandardError # a missing file, a bad Marshal or JSON, an old class: a miss
       nil
     end
 
@@ -209,10 +208,16 @@ module Zr
       nil
     end
 
+    # JSON loads on first use: the iseq cache reads the store as zr starts.
+    def json
+      require "json"
+      JSON
+    end
+
     def decode(codec, file)
       case codec
       when :raw then File.binread(file)
-      when :json then JSON.parse(File.read(file))
+      when :json then json.parse(File.read(file))
       when :marshal then Marshal.load(File.binread(file))
       when :dir then File.directory?(file) ? file : raise(Errno::ENOENT, file)
       end
@@ -221,7 +226,7 @@ module Zr
     def encode(codec, value)
       case codec
       when :raw then value
-      when :json then JSON.generate(value)
+      when :json then json.generate(value)
       when :marshal then Marshal.dump(value)
       end
     end
@@ -242,6 +247,6 @@ module Zr
       Paths.remove(fresh) if fresh && File.exist?(fresh)
     end
 
-    private_class_method :children, :tree_bytes, :touch, :decode, :encode, :write_dir
+    private_class_method :children, :tree_bytes, :touch, :json, :decode, :encode, :write_dir
   end
 end

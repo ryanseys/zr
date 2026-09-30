@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
-require "digest/sha2"
-require_relative "paths"
+require_relative "store"
 
 module Zr
   # The compiled instructions of zr's own Ruby files, kept in the cache.
@@ -20,40 +19,41 @@ module Zr
 
     def install
       return if Zr.compiled? || !defined?(RubyVM::InstructionSequence.load_from_binary)
-      return if defined?(Coverage) && Coverage.running?
+      return if (defined?(Coverage) && Coverage.running?) || !wanted?
 
-      dir = cache_dir or return
       root = "#{Paths::ROOT}/"
       salt = [RUBY_VERSION, RUBY_PLATFORM, RubyVM::InstructionSequence.compile_option.sort.inspect].join("\0")
       RubyVM::InstructionSequence.singleton_class.define_method(:load_iseq) do |path|
-        IseqCache.load(path, dir, salt) if path.start_with?(root)
+        IseqCache.load(path, salt) if path.start_with?(root)
       end
     end
 
-    # The cache's directory, or nil when the cache is off. With a bad
-    # ZR_* value, or no cache directory (HOME is not set), ruby compiles
-    # zr's files as usual, and the command reports the problem.
-    def cache_dir
-      File.join(Paths.cache, "iseq") if Config.current.iseq_cache?
+    # Whether the cache is on. With a bad ZR_* value, or no cache
+    # directory (HOME is not set), ruby compiles zr's files as usual, and
+    # the command reports the problem.
+    def wanted?
+      Config.current.iseq_cache? && Paths.cache
     rescue StandardError
-      nil
+      false
     end
 
     # The instructions of the file at `path`, from the cache or compiled
     # now and kept. Nil makes ruby compile the file as it does without
     # the hook: a cache that fails must not stop zr.
-    def load(path, dir, salt)
+    def load(path, salt)
       source = File.binread(path)
-      entry = File.join(dir, "#{Digest::SHA256.hexdigest("#{salt}\0#{path}\0#{source}")}.bin")
-      begin
-        return RubyVM::InstructionSequence.load_from_binary(File.binread(entry))
-      rescue SystemCallError, TypeError, ArgumentError, RuntimeError
-        nil
+      key = Store.key(salt, path, source)
+      if (binary = Store.read(:iseq, key))
+        begin
+          return RubyVM::InstructionSequence.load_from_binary(binary)
+        rescue TypeError, ArgumentError, RuntimeError
+          nil
+        end
       end
       iseq = RubyVM::InstructionSequence.compile(source, path, path)
       begin
-        Paths.write_atomic(entry, iseq.to_binary)
-      rescue SystemCallError
+        Store.write(:iseq, key, iseq.to_binary)
+      rescue SystemCallError, SourceChanged
         nil
       end
       iseq
