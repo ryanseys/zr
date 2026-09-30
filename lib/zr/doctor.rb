@@ -91,7 +91,7 @@ module Zr
       require_relative "compiled_compiler"
       cc = CompiledCompiler
       program = cc.program
-      return Check.new(:ok, "fast compiler", "off (ZR_COMPILED=0)") if env["ZR_COMPILED"] == "0"
+      return Check.new(:ok, "fast compiler", "off (ZR_COMPILED=0)") if cc.off?(env)
       return Check.new(:ok, "fast compiler", "off in a checkout; ZR_COMPILED=1 uses bin/zr") unless cc.wanted?(env)
       return Check.new(:ok, "fast compiler", "not for this host; ruby runs zr") unless cc.runnable?
       return Check.new(:ok, "fast compiler", "current") if cc.current?

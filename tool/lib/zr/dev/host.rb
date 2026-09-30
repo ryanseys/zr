@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "rbconfig"
+require_relative "../../../../lib/zr/config"
 
 module Zr
   module Dev
@@ -10,7 +11,7 @@ module Zr
     def self.ruby
       return RbConfig.ruby unless Zr.compiled?
 
-      ENV.fetch("ZR_HOST_RUBY", "ruby")
+      Config.current.host_ruby
     end
 
     # The environment of a child that must run the compiler under ruby.

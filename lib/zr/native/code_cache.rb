@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require "digest/sha2"
-require "fileutils"
 require_relative "../config"
 require_relative "../flags"
 require_relative "../paths"
@@ -132,7 +131,7 @@ module Zr
         close
         return if Zr.moved
 
-        FileUtils.mkdir_p(@dir)
+        Paths.mkdir_p(@dir)
         stem = File.join(@dir, "#{@kind}-#{Time.now.strftime("%Y%m%d%H%M%S%N")}-#{Process.pid}")
         index = {}
         File.open("#{stem}.pack.tmp", "wb") do |io|

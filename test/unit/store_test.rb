@@ -77,10 +77,9 @@ class StoreTest < Minitest::Test
   end
 
   def test_a_write_after_a_source_moved_keeps_nothing
-    was = Zr.method(:moved)
-    Zr.define_singleton_method(:moved) { "lib/zr/lower.rb" }
-    assert_raises(Zr::SourceChanged) { Store.write(:unit, Store.key("moved"), [1]) }
-    Zr.define_singleton_method(:moved, was)
+    stub_method(Zr, :moved, "lib/zr/lower.rb") do
+      assert_raises(Zr::SourceChanged) { Store.write(:unit, Store.key("moved"), [1]) }
+    end
     assert_nil Store.read(:unit, Store.key("moved"))
   end
 

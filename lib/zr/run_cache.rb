@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require "digest/sha2"
-require "fileutils"
 require_relative "config"
 require_relative "paths"
 require_relative "settled"
@@ -87,7 +86,7 @@ module Zr
     def kept(out, to)
       File.link(out, to)
     rescue SystemCallError
-      FileUtils.cp(out, to, preserve: true)
+      Paths.copy(out, to)
     end
 
     # Whether the eval support that the binary linked is still current: its

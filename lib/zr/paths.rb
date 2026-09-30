@@ -91,7 +91,7 @@ module Zr
     # would stop the module before its first line.
     def self.cache = @cache ||= Config.current.cache || (checkout? ? File.join(ROOT, "tmp/cache") : user_cache)
 
-    # The two functions that the compiler needs from fileutils and tmpdir,
+    # The functions that the compiler needs from fileutils and tmpdir,
     # without those libraries. A compiled compiler loads a library when it
     # runs its first lines. fileutils defines its NoWrite, DryRun and
     # Verbose methods with a `module_eval` of a string each: about a
@@ -120,6 +120,15 @@ module Zr
         File.unlink(fresh) if File.exist?(fresh)
       end
       path
+    end
+
+    # Copies `from` to `to` with its mode and times, as `FileUtils.cp`
+    # with `preserve: true` does.
+    def self.copy(from, to)
+      IO.copy_stream(from, to)
+      stat = File.stat(from)
+      File.chmod(stat.mode & 0o7777, to)
+      File.utime(stat.atime, stat.mtime, to)
     end
 
     # Runs the block while this process holds the lock of `path`, unless

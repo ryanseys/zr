@@ -99,10 +99,13 @@ module Zr
     # fell back to ruby anyway. CI still builds `bin/zr` to check that zr
     # compiles itself (`zr-dev stage 2`).
     def wanted?(env = ENV)
-      return false if env["ZR_COMPILED"] == "0"
+      return false if off?(env)
 
       !Paths.checkout? || env["ZR_COMPILED"] == "1" || !env["ZR_BINARY"].to_s.empty?
     end
+
+    # Whether `ZR_COMPILED=0` turns the compiled compiler off.
+    def off?(env = ENV) = env["ZR_COMPILED"] == "0"
 
     # The compiled compiler's gem prelude requires what BUNDLER_SETUP
     # names, as ruby's does, so under `bundle exec` bundler would start
