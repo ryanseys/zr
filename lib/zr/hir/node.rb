@@ -55,7 +55,8 @@ module Zr
     # or the entry of a file in eval support.
     # `traced` tells that the program uses TracePoint, so its code fires
     # the events that a TracePoint listens for.
-    # `node_ids` maps a HIR node, by identity, to its prism node id.
+    # `node_ids` maps a HIR node of the main file, by identity, to its prism
+    # node id; each Unit has its own.
     # `spots` contains each file's error_highlight spots (Hir::Spots), by
     # the file name in its frames.
     # `activations` is the number of `using` entries in this program. A
@@ -72,8 +73,9 @@ module Zr
     # unit cache uses both (lib/zr/unit_cache.rb). It keeps the bytes,
     # not a digest, because the loader also runs in a program with eval,
     # and there it must not require a library that it would then have to
-    # load.
-    Unit = Node.new(:file, :locals, :body, :warnings, :internal, :spots, :hidden, :source, :activates)
+    # load. `node_ids` maps each HIR node of the unit, by identity, to its
+    # prism node id.
+    Unit = Node.new(:file, :locals, :body, :warnings, :internal, :spots, :hidden, :source, :activates, :node_ids)
     # `require`, `require_relative` or `load` of a literal name: `path`
     # is the resolved file and `unit` is that file's index. Both are nil
     # if no file is found.

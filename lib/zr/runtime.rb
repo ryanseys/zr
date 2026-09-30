@@ -392,7 +392,8 @@ module Zr
     def meta
       @meta ||= begin
         meta = JSON.parse(File.read(meta_path)) if File.exist?(meta_path)
-        current = meta && meta["files_key"] == files_key(meta.fetch("files")) && @runtime.symbols.holds?(meta.fetch("used"))
+        current = meta && meta["files_key"] == files_key(meta.fetch("files"), {}, meta.fetch("absent", [])) &&
+                  @runtime.symbols.holds?(meta.fetch("used"))
         current ? meta : lowered.fetch(:meta)
       end
     end
@@ -401,7 +402,7 @@ module Zr
     # each file. A build gives the bytes that it lowered (`sources`), so an edit
     # during the build cannot put old output under the new bytes' key. A
     # check of the cache reads the files as they are now.
-    def files_key(files, sources = {}) = Zr.eval_files_key(@runtime.eval_digest, files, sources)
+    def files_key(files, sources = {}, absent = []) = Zr.eval_files_key(@runtime.eval_digest, files, sources, absent)
 
     def lowered
       @lowered ||= Zr.clock("eval support lowered") do
@@ -421,8 +422,11 @@ module Zr
         digests = (files + @runtime.gem_prelude_files).uniq.sort.to_h do |path|
           [path, Digest::SHA256.hexdigest(sources[path] || File.binread(path))]
         end
-        read = files_key(files, sources)
-        meta = { "key" => Zr.eval_key(read, symbols.names, symbols.sites), "files_key" => read, "files" => files, "digests" => digests,
+        # A file that appears where a stopped feature would be makes this
+        # lowering stale, though no file that it read changed.
+        absent = loader.stopped.uniq.sort.flat_map { |feature| Hir::Build.stdlib(target).map { |root| File.join(root, "#{feature}.rb") } }
+        read = files_key(files, sources, absent)
+        meta = { "key" => Zr.eval_key(read, symbols.names, symbols.sites), "files_key" => read, "files" => files, "absent" => absent, "digests" => digests,
                  "units" => loader.entries.to_h { |path, i| [path, lower.unit_entry(i)] },
                  "configures" => loader.configures?, "normalizes" => loader.normalizes?, "pretty_prints" => loader.pretty_prints?,
                  "irbs" => loader.irbs?, "gems" => loader.gems?,
@@ -642,7 +646,7 @@ module Zr
     # did_you_mean reads RbConfig, which ruby has loaded by then.
     rbconfig = loader.configures? ? [Hir::Build.rbconfig(loader)] : []
     body = Hir::Seq.new([*rbconfig, main.body, spotted], 0)
-    Hir::Program.new(main.file, main.locals, body, loader.units, main.warnings, false, loader.entries, false, loader.node_ids, {})
+    Hir::Program.new(main.file, main.locals, body, loader.units, main.warnings, false, loader.entries, false, main.node_ids, {})
   end
 
   # `zr_prelude`: boot runs each core file's toplevel in turn, and

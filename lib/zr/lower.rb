@@ -54,16 +54,17 @@ module Zr
 
     attr_reader :program, :unit, :symbols, :data, :functions, :file, :warnings
 
-    # The id of the prism node that `node` came from, or 0.
+    # The id of the prism node that `node` came from, or 0. The ids are
+    # those of the file that is lowering now (`@ids`): the program's main
+    # file, or a unit. A unit's ids go with its tree (`spent`).
     def node_id(node)
-      @program.node_ids&.[](node) || 0
+      @ids&.[](node) || 0
     end
 
     # Gives `made` (a node that the lowering builds for `node`) the same
     # node id as `node`.
     def noted(made, node)
-      ids = @program.node_ids
-      ids[made] ||= ids[node] if ids&.key?(node)
+      @ids[made] ||= @ids[node] if @ids&.key?(node)
       made
     end
 
@@ -107,6 +108,7 @@ module Zr
     def initialize(program, kernel, symbols, entry: "zr_toplevel", internal: false, ext: false, kind: :main, outer: nil,
                    target: Target.default, fixed: nil, units: nil)
       @program = program
+      @ids = program.node_ids
       @kernel = kernel
       @target = target
       @symbols = symbols
@@ -257,6 +259,7 @@ module Zr
         @warnings = u.warnings || []
         @unit_internal = u.internal
         @unit_hidden = u.hidden
+        @ids = u.node_ids
         open_unit(unit_entry(i), u.body)
         kept = finish && taken(u)
         if kept
@@ -276,6 +279,7 @@ module Zr
       end
       open_unit
       close_pool
+      @ids = @program.node_ids
       @unit_internal = @ext
       @unit_hidden = false
       @file = @program.file
@@ -305,9 +309,12 @@ module Zr
         @warnings = u.warnings || []
         @unit_internal = u.internal
         @unit_hidden = u.hidden
+        @ids = u.node_ids
         open_unit(unit_entry(index), u.body)
         Function.new(self, @prefix, u.locals, u.body, nil, :top).lower
         close_pool
+      ensure
+        @ids = @program.node_ids
       end
     end
 
@@ -333,6 +340,7 @@ module Zr
     # program and then dumps it.
     def spent(unit)
       unit.body = nil
+      unit.node_ids = nil
       unit.locals = nil
       unit.source = nil
     end

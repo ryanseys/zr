@@ -142,7 +142,7 @@ module Zr
         spots = [main, *loader.units].filter_map { |unit| [unit.file, unit.spots] if unit.spots && !unit.spots.empty? }.to_h
         coverable = loader.covers? ? loader.coverable : {}
         Program.new(main.file, main.locals, body, loader.units, main.warnings, eval_support && loader.evals?, loader.entries, loader.tracing?,
-                    loader.node_ids, spots, coverable, loader.activations, loader.covers? ? loader.branches : {},
+                    main.node_ids, spots, coverable, loader.activations, loader.covers? ? loader.branches : {},
                     loader.covers? ? loader.defs : {})
       end
 
@@ -151,7 +151,10 @@ module Zr
         @eval = eval
         @loader = loader
         @root = root
-        @node_ids = loader&.node_ids
+        # The prism node id of each HIR node that this file builds, by
+        # identity. The file's Unit keeps it, and the lowering drops it
+        # with the unit's tree (`Lower#spent`).
+        @node_ids = loader && {}.compare_by_identity
         @encoding = encoding
         @shadowed = shadowed
         @path = [Object.name]
@@ -205,6 +208,9 @@ module Zr
       # The warnings ruby's compiler gives for the file's regexp literals,
       # after the parser's own.
       attr_reader :warnings
+
+      # The prism node id of each HIR node that this file built, or nil.
+      attr_reader :node_ids
 
       # Ruby's compiler warns as it compiles a file (not an eval) with a
       # `return` of a value at its top level, where the value goes

@@ -134,6 +134,7 @@ module Zr
         return unless FEATURES.include?(name)
 
         line = node.location.start_line
+        @loader&.stopped&.push(name)
         Stop.new(UNSUPPORTED_LIBRARIES[name] || "#{node.name} of #{feature.inspect}", line)
       end
 

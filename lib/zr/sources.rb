@@ -179,13 +179,18 @@ module Zr
 
   # The key of what eval support reads: the eval digest and the bytes of
   # each file (`EvalSupport#files_key`). `bytes` has the ones that a build
-  # already read.
-  def eval_files_key(eval_digest, files, bytes = {})
+  # already read. `absent` lists the paths that must still not exist.
+  def eval_files_key(eval_digest, files, bytes = {}, absent = [])
     Digest::SHA256.new.tap do |d|
       d << eval_digest
       files.each do |path|
         d << path << "\0" << (bytes[path] || (File.exist?(path) ? File.binread(path) : ""))
       end
+      # The paths where a feature that the lowering stopped on would be:
+      # each one that exists now changes the key. `absent` names the form
+      # of the key, so a key from before the paths counted is stale.
+      d << "\0absent"
+      absent.each { |path| d << "\0" << path if File.exist?(path) }
     end.hexdigest
   end
 

@@ -120,7 +120,7 @@ module Zr
       require "json"
       meta = JSON.parse(File.read(meta_path))
       base = Zr.eval_digest(@target, @digest) or return false
-      meta.fetch("key") == key && Zr.eval_files_key(base, meta.fetch("files")) == meta.fetch("files_key")
+      meta.fetch("key") == key && Zr.eval_files_key(base, meta.fetch("files"), {}, meta.fetch("absent", [])) == meta.fetch("files_key")
     rescue JSON::ParserError, KeyError, SystemCallError
       false
     end

@@ -11,8 +11,9 @@ module Zr
       class Loader
         attr_reader :units
 
-        # The prism node id of each HIR node, by identity.
-        attr_reader :node_ids
+        # The ruby features that a require or an autoload stopped on,
+        # because no root has the file (`Build#stop_for`).
+        attr_reader :stopped
 
         # `external` is an EvalSupport that is already built. A file in it
         # is referred to by its entry, and needs nothing that eval support
@@ -44,7 +45,6 @@ module Zr
           @preloaded = preloaded
           @ahead = ahead
           @booted = booted
-          @node_ids = {}.compare_by_identity
           @gems = false
           @eval = eval
           @trace = trace
@@ -57,6 +57,7 @@ module Zr
           @def_count = 0
           @roots = roots.map { |r| File.expand_path(r) }
           @units = []
+          @stopped = []
           @index = external ? external.units.dup : {}
           # A build that already read the program knows that it evals. A
           # build with eval support cannot find it again, because the
@@ -379,7 +380,7 @@ module Zr
             spots = Spots.for(result, source, { filepath: file, line: line })
           end
           Unit.new(file, result.value.locals + build.temps, body, warnings(result, file) + build.warnings, file.start_with?("#{EXT}/"), spots, @hiding,
-                   source, @activations != rows)
+                   source, @activations != rows, build.node_ids)
         end
 
         # The SyntaxError for a `yield` in an eval string, outside any
