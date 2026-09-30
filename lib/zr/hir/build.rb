@@ -49,6 +49,11 @@ module Zr
 
       def self.runtime_file?(file) = File.expand_path(file).start_with?("#{RUNTIME}/")
 
+      # A file of the runtime's libraries (EXT, Layout::RUNTIME_LIB): it is
+      # internal, as the core is, so a backtrace shows its methods as
+      # builtins.
+      def self.internal_library?(file) = file.start_with?("#{EXT}/", "#{Layout::RUNTIME_LIB}/")
+
       # The gems whose C zr ports, at zr's versions, as vendor/ holds
       # them (lib/zr/ports.rb).
       GEMS = Ports.roots.freeze
@@ -57,13 +62,13 @@ module Zr
 
       # The library roots for `target`, in search order. zr's own code
       # comes first: the OS layer's native parts and tables, then the
-      # portable ones. A file there replaces an upstream file of the same
+      # portable ones, then zr's own libraries. A file there replaces an upstream file of the same
       # name (runtime/ext/date.rb, not ruby's date.rb). Then the port gems,
       # which win over ruby's own copies as an installed gem wins over a
       # default gem (json 3.0.2, not 2.18.0), then ruby's own library,
       # then the bundled gems in their own directories.
       def self.stdlib(target = Target.default)
-        (@stdlib ||= {})[target.triple] ||= [Layout.ext_os(target), EXT, *GEMS, pure, *bundled].freeze
+        (@stdlib ||= {})[target.triple] ||= [Layout.ext_os(target), EXT, Layout::RUNTIME_LIB, *GEMS, pure, *bundled].freeze
       end
 
       # The compiler that a program with eval links in, and the

@@ -74,7 +74,7 @@ module Zr
       # The file that arms String#unicode_normalize's load of ruby's own
       # normalize.rb. It is a runtime file, so it is not in
       # $LOADED_FEATURES. The load that it arms (at the first call) is.
-      NORMALIZER = File.join(EXT, "zr/normalizer.rb")
+      NORMALIZER = File.join(Layout::RUNTIME_LIB, "zr/normalizer.rb")
 
       def self.normalizer(loader)
         Require.new(:hidden, "zr/normalizer", NORMALIZER, loader.add(NORMALIZER), 0)
@@ -82,9 +82,9 @@ module Zr
 
       # The file that arms Kernel#pp's load of ruby's own pp.rb, as
       # CRuby's prelude requires it on the first call.
-      PRETTY_PRINTER = File.join(EXT, "zr/pretty_printer.rb")
-      IRB_SESSION = File.join(EXT, "zr/irb_session.rb")
-      SYNTAX_TREE = File.join(EXT, "zr/syntax_tree.rb")
+      PRETTY_PRINTER = File.join(Layout::RUNTIME_LIB, "zr/pretty_printer.rb")
+      IRB_SESSION = File.join(Layout::RUNTIME_LIB, "zr/irb_session.rb")
+      SYNTAX_TREE = File.join(Layout::RUNTIME_LIB, "zr/syntax_tree.rb")
 
       # The file that loads RubyVM::AbstractSyntaxTree's translator. A
       # program that uses the module loads it before its body. Both are

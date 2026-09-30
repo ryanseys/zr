@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # The escapes cgi/escape.so writes in C, in ruby. The library's own ruby
-# half (vendor/lib/cgi/escape.rb) requires this file where it requires
+# half (vendor/ruby/lib/ruby/4.0.0/cgi/escape.rb) requires this file where it requires
 # the extension, so everything around it is the library as written. An
 # escape reads the bytes of a string in an ASCII-compatible encoding and
 # leaves any other string to that ruby half, as the extension calls

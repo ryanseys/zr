@@ -45,7 +45,7 @@ module Zr
 
     # The SHA-256 of the files of `files` below the root, each by its
     # path below the root and its bytes. The same tree gives the same
-    # digest wherever it is installed. stdlib/ is below the root too.
+    # digest wherever it is installed. vendor/ is below the root too.
     def digest(files)
       require "digest"
       d = Digest::SHA256.new

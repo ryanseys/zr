@@ -11,7 +11,7 @@ module Zr
 
   # The ruby version that zr runs on and matches, as pinned in
   # `.ruby-version`. This ruby runs the compiler. A program's standard
-  # library is zr's copy of this ruby's own (stdlib/, lib/zr/libraries.rb).
+  # library is zr's copy of this ruby's own (vendor/ruby, lib/zr/libraries.rb).
   # The generated tables come from it, and the tests check zr against its
   # output.
   RUBY = "4.0.7"
@@ -26,7 +26,7 @@ end
 module Zr
   # Whether zr runs on a ruby of `version`: RUBY, or a later 4.0 release.
   # The host ruby only runs the compiler. A program's library is zr's own
-  # (stdlib/), so a patch release of ruby changes nothing that a program
+  # (vendor/ruby), so a patch release of ruby changes nothing that a program
   # sees.
   def self.supported_ruby?(version)
     major, minor, patch = version.split(".").map(&:to_i)

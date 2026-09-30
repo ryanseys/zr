@@ -411,7 +411,7 @@ end
 # location of the call. In CRuby that form is a C frame, which has the
 # self, the name and the owner but no location, so `rb_tracearg_path`
 # goes out to the nearest Ruby frame for the location. Here the forms
-# (runtime/ext/zr/eval/forms.rb) are ordinary Ruby, so this frame gives
+# (runtime/lib/zr/eval/forms.rb) are ordinary Ruby, so this frame gives
 # the self, name and owner, and the frame before it gives the location.
 # For example, `1.instance_eval("...")` gives 1, `:instance_eval` and
 # BasicObject, at the line of the call.

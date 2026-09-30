@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # These plain requires resolve only inside a zr binary, where the
-# runtime's extensions are on the load path (runtime/ext/zr). Under ruby,
+# runtime's own libraries are on the load path (runtime/lib/zr). Under ruby,
 # nothing loads this file.
 require "zr/eval/runtime"
 require "zr/eval/forms"
@@ -91,7 +91,7 @@ module Zr
         @count += 1
         name = "zr_load_#{@count}"
         hir = Hir.build(File.read(path), path, eval_support: false)
-        ext = path.start_with?("#{Hir::Build::EXT}/")
+        ext = Hir::Build.internal_library?(path)
         functions, data = Zr::Lower.new(hir, @description, @symbols, entry: name, kind: :top, ext: ext).run
         Obj::JIT.load(unit(functions, data), host: @host).fetch(name)
       end

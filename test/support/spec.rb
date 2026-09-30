@@ -250,7 +250,7 @@ module Zr
     # process: the report uses syntax_suggest, and this process under
     # `bundle exec` sees the bundle's gems. The reference ruby made the
     # recordings, so it writes this report too. It has syntax_suggest
-    # 2.0.3, as stdlib/ does, which `Zr::CLI.lower` loads.
+    # 2.0.3, as vendor/ruby does, which `Zr::CLI.lower` loads.
     def syntax_report(rb)
       out, = Harness::Child.run([RbConfig.ruby, "-e", REPORT, rb], cwd: Dir.pwd, seconds: Spec.limit,
                                                                    megabytes: Harness::Child::RUN_MB,

@@ -3,7 +3,7 @@
 # psych's C extension, in Ruby: the libyaml 0.2.5 parser and emitter
 # (a port under psych/libyaml) and the glue psych puts around them
 # (psych_parser.c, psych_emitter.c, psych_to_ruby.c and psych.c). The
-# gem's own Ruby half (vendor/ext/psych/lib) reaches these classes the
+# gem's own Ruby half (vendor/ruby/lib/ruby/4.0.0/psych) reaches these classes the
 # way it reaches CRuby's, so everything above this file is the gem as
 # written.
 #

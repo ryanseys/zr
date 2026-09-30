@@ -204,8 +204,9 @@ module Zr
   # - upstream code, as its authors ship it, in vendor/
   #   (lib/zr/vendor.rb): ruby's own library, the default and bundled
   #   gems, and the gems whose C zr ports;
-  # - zr's own code under runtime/: the C halves in Ruby (EXT). It comes
-  #   first, so a file there replaces an upstream file of its name.
+  # - zr's own code under runtime/: the C halves in Ruby (EXT) and zr's
+  #   own libraries (RUNTIME_LIB). It comes first, so a file there
+  #   replaces an upstream file of its name.
   module Layout
     # The directory name of ruby's library version (RbConfig's
     # `ruby_version`): 4.0.0 for every ruby 4.0.x.
@@ -238,6 +239,9 @@ module Zr
     # The C halves of extensions, in Ruby. A file here is part of the
     # runtime, so it can call a kernel def through `Primitive`.
     EXT = File.join(Paths::RUNTIME, "ext")
+    # zr's own libraries (zr/eval/runtime, zr/pretty_printer): part of the
+    # runtime too, but no replacement of an upstream file.
+    RUNTIME_LIB = File.join(Paths::RUNTIME, "lib")
 
     module_function
 

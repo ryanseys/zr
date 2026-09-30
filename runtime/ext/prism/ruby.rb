@@ -2,8 +2,8 @@
 # shareable_constant_value: literal
 
 # prism's parser in Ruby: a port of prism 1.9.0's C (src/prism.c and its
-# helpers), which runtime/ext/prism.so.rb uses in place of the C extension.
-# prism is MIT licensed; see vendor/ext/prism/LICENSE.md.
+# helpers), which runtime/ext/prism/prism.rb uses in place of the C extension.
+# prism is MIT licensed; see vendor/ruby/lib/ruby/gems/4.0.0/gems/prism-1.9.0/LICENSE.md.
 require_relative "ruby/parser"
 require_relative "ruby/mutation"
 require_relative "ruby/dump"

@@ -595,7 +595,7 @@ module Zr
 
     # ruby's report for `input`, which does not parse, or nil when it
     # parses (then a file that it requires did not). The report uses
-    # syntax_suggest, and always zr's own copy (stdlib/), as a stock ruby
+    # syntax_suggest, and always zr's own copy (vendor/ruby), as a stock ruby
     # 4.0.7 has it. A ruby that booted with gems has loaded one already; if
     # that one is another version, a ruby without gems writes the report.
     # Only CRuby runs this, with a computed path, so the compiled compiler

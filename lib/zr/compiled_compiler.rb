@@ -13,7 +13,7 @@ module Zr
   #
   # `exe/zr` calls this module first. The compiled compiler runs a build
   # only if its source files are unchanged: the same list of files, and
-  # the same file stamp for each file under lib/, runtime/, stdlib/,
+  # the same file stamp for each file under lib/, runtime/, vendor/ruby,
   # vendor/ and exe/zr. Otherwise ruby runs the command. An
   # installed gem builds the compiled compiler at its first build and
   # tells the user. A checkout, whose files change frequently, builds one

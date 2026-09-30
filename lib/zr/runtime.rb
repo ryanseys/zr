@@ -629,7 +629,7 @@ module Zr
   # a program compiled ahead of time. Boot runs it after the core
   # library loads, before the program.
   GEM_PRELUDE = Layout::GEM_PRELUDE
-  SPOTTED = File.join(Layout::EXT, "zr/error_highlight.rb")
+  SPOTTED = File.join(Layout::RUNTIME_LIB, "zr/error_highlight.rb")
 
   # The parsers that the prelude's libraries require for work that this
   # runtime does differently. error_highlight's prism_find: the compiled

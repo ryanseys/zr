@@ -276,8 +276,8 @@ class RubyVM
     class Node; end
     class Location; end
 
-    # The translator (runtime/ext/zr/ast.rb) that a program links in when
-    # it refers to this module. runtime/ext/zr/syntax_tree.rb loads it
+    # The translator (runtime/lib/zr/ast.rb) that a program links in when
+    # it refers to this module. runtime/lib/zr/syntax_tree.rb loads it
     # before the program's first line. It defines the two classes above,
     # so a program that refers to only one of them finds it complete.
     def self.translator

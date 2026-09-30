@@ -38,7 +38,7 @@ module Zr
     # build, because it can run on a machine with no zr. Only a build
     # with eval support writes them (Zr.load_tables): the roots of
     # `Hir::Build.stdlib`, ruby's library first and the bundled gems
-    # last. Other compiled compilers find stdlib/ beside themselves.
+    # last. Other compiled compilers find vendor/ruby beside themselves.
     def carried
       return nil unless Zr.compiled? && defined?(::Zr::Eval::Runtime)
 

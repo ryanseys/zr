@@ -8,7 +8,7 @@ module Zr
     # The ruby that every expected output comes from: ruby 4.0.7 with the
     # gems that a stock install has, except that a gem whose C zr ports
     # comes at zr's version (json 3.0.2, not 2.18.0). Those are the same
-    # libraries that a zr build compiles in (stdlib/ and lib/zr/ports.rb).
+    # libraries that a zr build compiles in (vendor/ruby and lib/zr/ports.rb).
     #
     # The gems live in their own GEM_HOME, tmp/reference/gems, which
     # `zr-dev reference` fills. GEM_PATH names only that directory, so

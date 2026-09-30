@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # json's generator.c, in ruby. The gem's own ruby (json/common and
-# json/ext/generator/state, vendored under vendor/ext/json) uses it
+# json/ext/generator/state, vendored in vendor/ruby/lib/ruby/gems/4.0.0/gems/json-3.0.2) uses it
 # as it uses the C extension: JSON::Ext::Generator::State with
 # the fields that generator.c keeps in its struct, its accessors, and
 # the walk that writes a document.

@@ -75,7 +75,7 @@ module Zr
         case file
         when %r{\Atest/(spec|unit)/.*_test\.rb\z} then File.exist?(File.join(ROOT, file)) ? [file] : []
         when %r{\Atest/spec/} then [File.dirname(file)]
-        when %r{\Alib/zr/}, %r{\Aruntime/kernel/}, %r{\Aruntime/ext/os/}, %r{\Atest/(support|test_helper|spec_helper)}, "Rakefile" then :all
+        when %r{\Alib/zr/}, %r{\Aruntime/kernel/}, %r{\Aruntime/(ext/os|lib)/}, %r{\Atest/(support|test_helper|spec_helper)}, "Rakefile" then :all
         when %r{\Atool/} then [File.join(ROOT, "test/unit")]
         when %r{\Aruntime/core/os/[^/]+/([^/]+)\.rb\z} then core($1)
         when %r{\Aruntime/core/([^/]+?)(?:/.*)?\.rb\z} then core($1)

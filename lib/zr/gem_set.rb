@@ -17,7 +17,7 @@ module Zr
   # 3. zr's standard library (lib/zr/libraries.rb), which is always last.
   #
   # zr never reads another installed gem. The rubygems and bundler that
-  # resolve the set are zr's own copies (stdlib/), as JRuby and
+  # resolve the set are zr's own copies (vendor/ruby), as JRuby and
   # TruffleRuby ship theirs, so zr needs no bundler of the host and no
   # `bundle exec`. They run in a child of the host ruby
   # (gem_set/resolve.rb): zr itself loads neither, and the compiled
