@@ -12,6 +12,7 @@ require_relative "unit_cache"
 require_relative "clock"
 require_relative "tune"
 require_relative "settled"
+require_relative "store"
 require_relative "sources"
 require_relative "core_cache"
 require_relative "eval_cache"
@@ -61,7 +62,7 @@ module Zr
     def raw = @raw || unit.raw
 
     # The runtime object in the cache (`Native::Build.runtime_object`).
-    def object_path = File.join(Paths.cache, "runtime-#{digest}.o")
+    def object_path = Store.path(:object, digest)
 
     def digest
       # The target is the first input, so two targets never share build
@@ -358,9 +359,9 @@ module Zr
     # The cache files of eval support: the object, by the key in its
     # metadata, and the metadata, by the runtime's digest and the kind
     # of eval (`jit` or `walk`). `zr-dev cache prune` reads these too.
-    def self.object_path(key) = File.join(Paths.cache, "eval-#{key}.o")
+    def self.object_path(key) = Store.path(:object, key)
     def self.meta_path(runtime, kind) = meta_file(runtime.eval_digest, kind)
-    def self.meta_file(eval_digest, kind) = File.join(Paths.cache, "eval-#{eval_digest}-#{kind}.json")
+    def self.meta_file(eval_digest, kind) = Store.path(:meta, "#{eval_digest}-eval-#{kind}")
 
     def functions = lowered.fetch(:functions)
     def data = lowered.fetch(:data)
@@ -379,12 +380,12 @@ module Zr
       @cache
     end
 
-    private
-
     # The eval kind of the target is part of the cache name. The eval
     # compiler (JIT) and the tree-walking interpreter contain different
     # files, so the metadata of one must never be used for the other.
     def kind = Hir::Build.eval_file(target) == Hir::Build::EVAL_COMPILER ? "jit" : "walk"
+
+    private
 
     # The cached metadata, while its files have the same bytes and the
     # runtime's table has each runtime name it used at the same id; else

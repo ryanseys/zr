@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "paths"
+require_relative "store"
 require_relative "version"
 
 module Zr
@@ -23,7 +24,10 @@ module Zr
     # machine code (lib/zr/native/code_cache.rb), and the compiled
     # instructions of zr's own files (lib/zr/iseq_cache.rb). Their names come from the
     # source only, so only age shows which are not used.
-    def all = Dir[File.join(Paths.cache, "{*,binaries/*,parse/*,iseq/*,run/*/*,code/*/*,core/*/*,eval-*/*/*,store/*/*/*}")].select { |path| File.file?(path) }
+    # The old directories stay in the list, so a clean removes what an
+    # older zr wrote before the store.
+    GLOB = "{*,binaries/*,parse/*,iseq/*,run/*/*,code/*/*,core/*/*,eval-*/*/*,store/*/*/*}"
+    def all = Dir[File.join(Paths.cache, GLOB)].select { |path| File.file?(path) }
 
     # The compiled compilers of other zr versions and installs, in the
     # user's cache (lib/zr/compiled_compiler.rb). Each one is about
@@ -34,49 +38,14 @@ module Zr
       Dir[File.join(Paths.user_cache, "self-*")].select { |dir| File.directory?(dir) && dir != own }
     end
 
-    def load!
-      require_relative "runtime"
-      require_relative "native/build"
-    end
+    # The files that this zr uses: each entry that a fresh root of the
+    # store names (lib/zr/store.rb). A build writes its roots: the runtime
+    # and eval support objects, their images and metadata, and the code
+    # and lowering entries of the backend.
+    def live = Store.rooted.map { |line| File.join(Store.dir, line) }
 
-    # The files that this zr uses, for each target: the runtime object,
-    # the eval support object and its meta file, and the prelinked image
-    # of each. Only the meta file gives the key of the eval support
-    # object.
-    def live
-      load!
-      Target.all.flat_map { |target| live_for(target) }.compact.uniq
-    rescue StandardError, ScriptError
-      [] # if the compiler does not load, keep no file as live
-    end
-
-    def live_for(target)
-      runtime = Zr.runtime(target)
-      object = runtime.object_path
-      # Without its symbol table, a runtime was never built here, so no eval
-      # support was either; the ABI digest would need the core lowered.
-      base = Zr.eval_digest(target, runtime.digest)
-      metas = base ? %w[jit walk].map { |kind| EvalSupport.meta_file(base, kind) }.select { |path| File.exist?(path) } : []
-      evals = metas.filter_map { |meta| eval_object(meta) }
-      sets = [[object], *evals.map { |eval| [object, eval] }]
-      [object, runtime.gem_prelude_path, Zr.ledger_path(target), *metas, *evals, *sets.map { |set| Native::Build.prelink_path(set) },
-       *sets.map { |set| Native::Build.skeleton_path(set) }] + Dir[File.join(Paths.cache, "*-#{runtime.digest}.*")] + reused
-    end
-
-    # The machine code and the entries of this backend (`Native::CodeCache`,
-    # `LoweringCache`): the next build after an edit takes most of its code
-    # from them, so a prune keeps them whatever their age.
-    def reused
-      backend = Native::CodeCache.backend_digest
-      Dir[File.join(Native::CodeCache.dir, "*")] + Dir[File.join(Paths.cache, "{core,eval-*}", backend[0, 16], "*")]
-    end
-
-    # The eval support object. Only its meta file gives its path.
-    def eval_object(meta)
-      require "json"
-      key = JSON.parse(File.read(meta)).fetch("key") if File.exist?(meta)
-      key && EvalSupport.object_path(key)
-    end
+    # The entries that the roots of `target` name.
+    def live_for(target) = Store.rooted(prefix: "#{target.triple}-").map { |line| File.join(Store.dir, line) }
 
     def bytes(paths) = paths.sum { |path| File.size?(path).to_i }
     def megabytes(paths) = bytes(paths) / (1 << 20)

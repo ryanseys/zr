@@ -292,10 +292,10 @@ module Zr
       runtime.description
       runtime.symbols
       live = Cache.live_for(target)
-      images = live.select { |path| File.basename(path).start_with?("prelink-") && File.exist?(path) }
+      images = live.select { |path| path.end_with?("-prelink.bin") && File.exist?(path) }
       prelinks = Native::Build.instance_variable_get(:@prelinks) || {}
       prelinks.select! { |path, _| images.include?(path) }
-      evals = live.select { |path| File.basename(path).start_with?("eval-") && path.end_with?(".o") }
+      evals = live.select { |path| path.end_with?(".o") && path != runtime.object_path }
       [[runtime.object_path], *evals.map { |eval| [runtime.object_path, eval] }].each do |set|
         Native::Build.prelink(set) if images.include?(Native::Build.prelink_path(set))
       end

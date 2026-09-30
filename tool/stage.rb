@@ -70,10 +70,11 @@ module Zr
         outs = started.map do |n, pid_or_status|
           status = pid_or_status.is_a?(Integer) ? Process.wait2(pid_or_status).last : pid_or_status
           fail!("self-compile #{n} failed; its work is in #{work}") unless status.success?
-          runtime = Dir[File.join(work, "#{n}-cache", "runtime-*.o")]
-          fail!("the runtime object was not cached; the work is in #{work}") unless runtime.size == 1
+          digest = Zr.runtime(Target.default).digest
+          runtime = File.join(work, "#{n}-cache", "store", "object", digest[0, 2], "#{digest}.o")
+          fail!("the runtime object was not cached; the work is in #{work}") unless File.file?(runtime)
 
-          [File.binread(File.join(work, "#{n}.o")), File.binread(runtime.first)]
+          [File.binread(File.join(work, "#{n}.o")), File.binread(runtime)]
         end
 
         a, b = outs

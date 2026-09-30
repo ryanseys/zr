@@ -42,7 +42,7 @@ module Zr
         backend/aarch64/registers.rb backend/aarch64/stub.rb bytes.rb config.rb flags.rb ir/analysis.rb
         ir/effects.rb ir/fingerprint.rb ir/function.rb ir/gvn.rb ir/inst.rb ir/licm.rb ir/passes.rb
         ir/promotion.rb ir/regions.rb ir/statics.rb ir/types.rb ir/verify.rb obj/model.rb refused.rb
-        native/code_cache.rb paths.rb
+        native/code_cache.rb paths.rb version.rb
       ].freeze
 
       LIB = File.expand_path("..", __dir__)
@@ -64,7 +64,13 @@ module Zr
         end.hexdigest
       end
 
-      def self.dir = File.join(Paths.cache, "code", backend_digest[0, 32])
+      # The store loads here, not with this file: a file that the backend
+      # loads is in BACKEND, and an edit to the store must not make every
+      # pack a miss.
+      def self.dir
+        require_relative "../store"
+        Store.path(:code, backend_digest[0, 32])
+      end
 
       attr_reader :hits, :misses
       # `[fingerprints by name, defined]` of the last unit that this cache

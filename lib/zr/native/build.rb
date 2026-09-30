@@ -87,11 +87,26 @@ module Zr
       def program(program, out, work:, jobs: Build.jobs, link: [])
         objects = [runtime_object(program.runtime, jobs: jobs)]
         objects << eval_support_object(program.evals, jobs: jobs) if program.evals
+        root(program.runtime, objects, program.evals)
         functions, assembled = program.functions.partition { |f| f.is_a?(IR::Function) }
         Zr.clock("program object written and linked") do
           binary(functions, program.data, out, work: work, assembled: assembled, objects: objects, strip: !program.evals,
                                                            target: program.runtime.target, jobs: jobs, link: link)
         end
+      end
+
+      # Names the store entries that a link of `objects` reads (lib/zr/store.rb),
+      # so no eviction removes them: the objects, their prelinked image and
+      # skeleton, the runtime's symbol table, gem prelude list and ledger,
+      # eval support's metadata, and the code packs of this backend. A
+      # link with eval support and one without each have a root.
+      def root(runtime, objects, evals)
+        target = runtime.target
+        Store.root("#{target.triple}-link-#{evals ? "eval-#{evals.kind}" : "plain"}",
+                   [*objects, prelink_path(objects), skeleton_path(objects), Zr.symbols_path(runtime.digest),
+                    runtime.gem_prelude_path, Zr.ledger_path(target), (evals.meta_path if evals), CodeCache.dir])
+      rescue SystemCallError, SourceChanged
+        nil # a root that is not written protects less; the link goes on
       end
 
       # Lowers a program for a binary. It assembles the functions of each
@@ -140,15 +155,16 @@ module Zr
       # the linker's own files, which the object digests do not include
       # on purpose.
       def prelink_path(objects)
-        cache = File.expand_path(Paths.cache)
-        return nil if objects.empty? || objects.any? { |o| File.dirname(File.expand_path(o)) != cache }
+        top = File.dirname(Store.path(:object, "00"), 2)
+        return nil if objects.empty? || objects.any? { |o| File.dirname(File.expand_path(o), 2) != top }
 
-        key = Digest::SHA256.hexdigest([*objects.map { |o| File.basename(o) }, Zr.link_digest].join("\n"))
-        File.join(Paths.cache, "prelink-#{key}.bin")
+        Store.path(:image, "#{image_key(objects)}-prelink")
       end
 
       # The cache path of the skeleton of `objects`, next to their prelink.
-      def skeleton_path(objects) = prelink_path(objects)&.sub(/prelink-(\h+)\.bin\z/, 'skeleton-\1.bin')
+      def skeleton_path(objects) = prelink_path(objects) && Store.path(:image, "#{image_key(objects)}-skeleton")
+
+      def image_key(objects) = Digest::SHA256.hexdigest([*objects.map { |o| File.basename(o) }, Zr.link_digest].join("\n"))
 
       # Returns the path of the skeleton file for `objects`: the bytes that
       # every binary linked against them starts with (`Obj::MachO::Skeleton`).
@@ -351,7 +367,7 @@ module Zr
       # shares the one copy. A build never writes to it.
       def wasm_prelude(runtime, pending, support = nil)
         key = Digest::SHA256.hexdigest("#{runtime.digest}\n#{support&.key}\n#{pending.inspect}")
-        path = File.join(Paths.cache, "wasm-#{key}.marshal")
+        path = Store.path(:wasm, key)
         kept = (@wasm_preludes ||= {})[path] ||= File.exist?(path) && Marshal.load(File.binread(path))
         return kept if kept
 

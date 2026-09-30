@@ -99,7 +99,7 @@ class StoreTest < Minitest::Test
     [old, rooted, young].each_with_index do |key, i|
       age(Store.write(:object, key, "x" * 1000), 10 - i)
     end
-    Store.root("runtime", [[:object, rooted]])
+    Store.root("runtime", [Store.path(:object, rooted)])
 
     removed = Store.evict(limit: 2500)
 
@@ -110,7 +110,7 @@ class StoreTest < Minitest::Test
   def test_a_stale_root_protects_nothing
     key = Store.key("stale")
     Store.write(:object, key, "x")
-    Store.root("gone", [[:object, key]])
+    Store.root("gone", [Store.path(:object, key)])
     age(File.join(@dir, "store/roots/gone"), Store::ROOT_DAYS + 1)
 
     assert_equal [key], Store.clean.map(&:key)
@@ -130,7 +130,7 @@ class StoreTest < Minitest::Test
     kept, gone = %w[kept gone].map { |name| Store.key(name) }
     Store.write(:meta, kept, {})
     Store.write(:meta, gone, {})
-    Store.root("build", [[:meta, kept]])
+    Store.root("build", [Store.path(:meta, kept)])
 
     assert_equal [gone], Store.clean.map(&:key)
     Store.clear

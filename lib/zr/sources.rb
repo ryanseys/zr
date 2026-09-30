@@ -4,6 +4,7 @@ require "digest/sha2"
 require "json"
 require_relative "config"
 require_relative "paths"
+require_relative "store"
 require_relative "target"
 
 # The source files of the runtime and of the compiler that lowers it, and
@@ -136,7 +137,7 @@ module Zr
 
   # The cache file of a runtime's symbol table, its wanted symbols and its
   # kernel's description (`Runtime#cached`).
-  def symbols_path(runtime_digest) = File.join(Paths.cache, "symbols-#{runtime_digest}.json")
+  def symbols_path(runtime_digest) = Store.path(:meta, "#{runtime_digest}-symbols")
 
   # The digest of what code outside the runtime object takes from the
   # runtime: the compiler files that lower it, the kernel's description
@@ -210,11 +211,11 @@ module Zr
 
   # The cache file that lists the files the gem prelude loads, for the
   # digest `of` the runtime's other sources (`Runtime#gem_prelude_files`).
-  def gem_prelude_list(of) = File.join(Paths.cache, "gem-prelude-#{of}.json")
+  def gem_prelude_list(of) = Store.path(:meta, "#{of}-gem-prelude")
 
   # The ledger of `target`'s symbol ids (`Runtime#ledger`), and its bytes,
   # or nil when there is none or the ledger is off.
-  def ledger_path(target) = File.join(Paths.cache, "ledger-#{target.triple}.json")
+  def ledger_path(target) = Store.path(:meta, "#{Store.key("ledger", target.triple)}-ledger")
 
   # The ledger is on in a checkout, and anywhere with `ZR_LEDGER=1`.
   def ledger? = Config.current.ledger.nil? ? Paths.checkout? : Config.current.ledger

@@ -39,7 +39,7 @@ module Zr
     # are equal to the bytes of the prelinked image. When `take` cannot
     # restore the whole binary, it returns false and the example builds.
     module Binaries
-      VERSION = 3
+      VERSION = 4
       # The environment variables that change the bytes of a build. Also
       # `ZR_VERIFY`, which makes the lowering verify itself: with it, a
       # run lowers again and does not use a kept binary.
@@ -166,7 +166,7 @@ module Zr
       def sparse(bytes, objects)
         base = Native::Build.prelink(objects)
         holes = cuts(bytes, base).select { |at, size, name| bytes[at, size] == filling(base, name) }
-        head = Marshal.dump({ size: bytes.bytesize, objects: objects.map { |o| File.basename(o) }, holes: holes })
+        head = Marshal.dump({ size: bytes.bytesize, objects: objects.map { |o| File.basename(o, ".o") }, holes: holes })
         body = +"".b
         at = 0
         holes.each do |hole_at, size, _|
@@ -224,7 +224,7 @@ module Zr
         File.open(kept, "rb") do |file|
           head = Marshal.load(file.read(file.read(8).to_s.unpack1("Q<").to_i))
           src = StringIO.new(Zlib::Inflate.inflate(file.read))
-          objects = head.fetch(:objects).map { |name| File.join(Zr::Paths.cache, name) }
+          objects = head.fetch(:objects).map { |key| Zr::Store.path(:object, key) }
           base = Native::Build.prelink(objects)
           holes = head.fetch(:holes)
           text = base.blobs.fetch(:text)

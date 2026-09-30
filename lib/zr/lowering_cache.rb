@@ -70,6 +70,9 @@ module Zr
         }
         Store.write(:lowering, piece.key, record)
       end
+      # The entries of this build, kept or new, are the ones that the next
+      # build after an edit reads.
+      Store.root("#{@target.triple}-#{@kind}", @pieces.filter_map { |piece| piece.key && Store.path(:lowering, piece.key) })
     rescue SystemCallError
       nil
     end

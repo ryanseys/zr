@@ -113,22 +113,36 @@ module Zr
       file
     end
 
-    # Records that the entries `keys` (`[[kind, key], ...]`) are the ones
-    # that `root` needs. A root is replaced, not added to.
-    def root(name, keys)
+    # Records that the entries at `paths` (from `path`) are the ones that
+    # root `name` needs. A root is replaced, not added to. A root that
+    # has the same entries is only touched, so each build can call this.
+    def root(name, paths)
       raise ArgumentError, "not a root name: #{name.inspect}" unless name.match?(/\A[\w.-]+\z/)
 
-      lines = keys.map { |kind, key| "#{kind}/#{key}\n" }.uniq.sort.join
+      lines = paths.compact.map { |path| "#{relative(path)}\n" }.uniq.sort.join
+      file = File.join(dir, "roots", name)
+      return touch(file, 0) if (File.binread(file) rescue nil) == lines
+
       Zr.settled!
-      Paths.write_atomic(File.join(dir, "roots", name), lines)
+      Paths.write_atomic(file, lines)
     end
 
-    # The `kind/key` of each entry that a fresh root names.
-    def rooted(now = Time.now)
+    # The path of an entry below the store's directory (`object/ab/ab12….o`).
+    def relative(path)
+      top = "#{dir}/"
+      raise ArgumentError, "not a store entry: #{path}" unless path.start_with?(top)
+
+      path.delete_prefix(top)
+    end
+
+    # The relative path of each entry that a fresh root names.
+    def rooted(now = Time.now, prefix: nil)
       roots = File.join(dir, "roots")
       return [] unless File.directory?(roots)
 
       Dir.children(roots).flat_map do |name|
+        next [] if prefix && !name.start_with?(prefix)
+
         file = File.join(roots, name)
         File.mtime(file) < now - (ROOT_DAYS * 86_400) ? [] : File.readlines(file, chomp: true)
       rescue SystemCallError
@@ -171,7 +185,7 @@ module Zr
       by_kind = all.group_by(&:kind).transform_values { |list| list.sum(&:bytes) }
       removed = []
       all.sort_by(&:mtime).each do |entry|
-        next if kept["#{entry.kind}/#{entry.key}"]
+        next if kept[relative(entry.path)]
 
         over = (limit && total > limit) || ((q = quota(entry.kind)) && by_kind[entry.kind] > q)
         next unless over
@@ -187,7 +201,7 @@ module Zr
     # Removes every entry that no fresh root names. Returns them.
     def clean(now: Time.now)
       kept = rooted(now).to_h { |line| [line, true] }
-      entries.reject { |entry| kept["#{entry.kind}/#{entry.key}"] }.each { |entry| Paths.remove(entry.path) }
+      entries.reject { |entry| kept[relative(entry.path)] }.each { |entry| Paths.remove(entry.path) }
     end
 
     # Removes the whole store.
@@ -201,9 +215,9 @@ module Zr
       Dir.glob("**/*", base: dir).sum { |name| File.size?(File.join(dir, name)).to_i }
     end
 
-    def touch(file)
+    def touch(file, every = TOUCH_EVERY)
       now = Time.now
-      File.utime(now, now, file) if File.mtime(file) < now - TOUCH_EVERY
+      File.utime(now, now, file) if File.mtime(file) < now - every
     rescue SystemCallError
       nil
     end
