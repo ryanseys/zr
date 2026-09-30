@@ -100,8 +100,6 @@ module Zr
 
       path = File.join(Paths.cache, "gems", "#{key(flags, gemfile, env)}.set")
       kept(path) || begin
-        raise Unresolved, "zr cannot resolve --gem or a Gemfile here. Run zr with ZR_COMPILED=0" if Zr.compiled?
-
         set = child(flags, gemfile, env)
         Paths.write_atomic(path, Marshal.dump(set.gems.map(&:to_h)))
         set
@@ -139,6 +137,11 @@ module Zr
       nil
     end
 
+    # The ruby that runs the resolver: this one, or in the compiled
+    # compiler (whose `RbConfig.ruby` names zr itself) the ruby that
+    # `ZR_HOST_RUBY` names or the one on PATH.
+    def self.ruby = Zr.compiled? ? ENV.fetch("ZR_HOST_RUBY", "ruby") : RbConfig.ruby
+
     def self.child(flags, gemfile, env)
       require "json"
       require_relative "libraries"
@@ -146,7 +149,7 @@ module Zr
       child_env = CHILD_ENV.merge("BUNDLE_GEMFILE" => gemfile)
       READS.each { |name| child_env[name] = env[name] }
       # The child's warnings go to this stderr, where the user sees them.
-      command = [RbConfig.ruby, "--disable-gems", "-I", Libraries.root, RESOLVE]
+      command = [ruby, "--disable-gems", "-I", Libraries.root, RESOLVE]
       out = IO.popen(child_env, command, "r+", chdir: gemfile ? File.dirname(gemfile) : Dir.pwd) do |io|
         io.write(request)
         io.close_write
@@ -155,7 +158,7 @@ module Zr
       answer = begin
         JSON.parse(out)
       rescue JSON::ParserError
-        raise Unresolved, "the gem resolver (#{RbConfig.ruby} #{RESOLVE}) failed with status #{$?.exitstatus}"
+        raise Unresolved, "the gem resolver (#{ruby} #{RESOLVE}) failed with status #{$?.exitstatus}"
       end
       raise Unresolved, answer["error"] if answer["error"]
       if answer["rubygems"] != Libraries.root

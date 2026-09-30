@@ -68,6 +68,23 @@ class GemSetTest < Minitest::Test
     assert_equal ["rainbow", "3.1.1", [File.join(dir, "lib")], nil], [gem.name, gem.version, gem.roots, gem.refusal]
   end
 
+  # The compiled compiler's `RbConfig.ruby` names zr itself, so it starts
+  # the ruby that ZR_HOST_RUBY names for the resolver.
+  def test_the_compiled_compiler_resolves_with_the_host_ruby
+    dir = gem_dir("rainbow", "3.1.1")
+    zr = Zr.singleton_class
+    zr.alias_method(:real_compiled?, :compiled?)
+    zr.define_method(:compiled?) { true }
+
+    assert_equal "zr-no-such-ruby", with_env("ZR_HOST_RUBY" => "zr-no-such-ruby") { Zr::GemSet.ruby }
+    gem = resolve([["rainbow", dir]], "BUNDLE_GEMFILE" => nil, "ZR_HOST_RUBY" => RbConfig.ruby).gems.first
+
+    assert_equal ["rainbow", "3.1.1"], [gem.name, gem.version]
+  ensure
+    zr.alias_method(:compiled?, :real_compiled?)
+    zr.remove_method(:real_compiled?)
+  end
+
   def test_a_path_flag_to_a_directory_of_ruby_files_uses_it_as_a_root
     dir = File.join(@dir, "src")
     FileUtils.mkdir_p(dir)
