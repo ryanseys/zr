@@ -135,12 +135,24 @@ zr into `bin/zr-dev` (see [Tools](../reference/tools.md)).
 
 ## Lint
 
-`rake lint` runs only RuboCop's Lint cops (`.rubocop.yml`). They find
-defects, not style. Add another cop only when it finds real problems in
-this code, one cop at a time, with the reason in `.rubocop.yml`. Do not
-add a cop that makes large edits for small gains. When a new cop fires
-on a lot of existing code, list that code in a `.rubocop_todo.yml` and
-fix it in small changes.
+`rake lint` runs RuboCop's Lint cops, which find defects, and a short
+list of other cops (`.rubocop.yml`), each with the reason that it is on:
+
+- the Performance plugin (rubocop-performance), for the allocations and
+  calls that the compiler's hot paths do not need;
+- the Minitest plugin (rubocop-minitest), for one form of each
+  assertion;
+- Style and Naming cops that keep one form where the code had two:
+  quotes, ternaries, semicolons, `lambda.call`, rescue modifiers,
+  mutable constants, trivial readers, the core collection methods,
+  anonymous block forwarding, and `?` on a method that answers true
+  or false.
+
+Add another cop only when it finds real problems in this code, one cop
+at a time, with the reason in `.rubocop.yml`. Do not add a cop that
+makes large edits for small gains, or a formatter: blame stays useful.
+When a new cop fires on a lot of existing code, list that code in a
+`.rubocop_todo.yml` and fix it in small changes.
 
 ## Comments and names
 

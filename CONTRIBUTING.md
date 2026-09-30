@@ -51,7 +51,8 @@ form by name. See [The contract](docs/explanation/the-contract.md).
 - A spec sentence (`it "..."`) says what the program does, in the
   present tense: `a frozen String raises FrozenError on <<`. It names no
   issue number.
-- `bundle exec rake lint` runs RuboCop's Lint cops.
+- `bundle exec rake lint` runs RuboCop: the Lint cops and the cops that
+  `.rubocop.yml` adds, each with its reason.
 
 ## Report a security problem
 

@@ -63,7 +63,7 @@ no arguments. Give paths and minitest options to `bin/test`.
 | `rake test:unit` | The unit tier: zr's own internals (`test/unit`). |
 | `rake test:spec` | The spec tier: Ruby specs, each checked against ruby 4.0.7 (`test/spec`). |
 | `rake test:e2e` | The e2e tier: whole programs, built and linked, checked against ruby 4.0.7 (`test/e2e`). |
-| `rake lint` | Runs RuboCop's Lint cops (`.rubocop.yml`). |
+| `rake lint` | Runs RuboCop with the cops that `.rubocop.yml` turns on. |
 | `rake gen` | Writes every generated file again (`zr-dev gen all`). `CHECK=1 rake gen` writes nothing, and fails if a file is out of date. |
 
 To run some test files, give their paths to `bin/test`:

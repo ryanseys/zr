@@ -159,7 +159,7 @@ before you open a pull request, and the tutorial
 ## Development
 
 ```console
-$ rake lint       # RuboCop's Lint cops
+$ rake lint       # RuboCop (.rubocop.yml)
 $ rake build      # build the runtime for this host
 $ bin/console     # IRB with zr loaded
 $ rake -T         # every rake task
