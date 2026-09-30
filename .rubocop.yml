@@ -104,7 +104,6 @@ Style/SymbolProc: { Enabled: true }          # &:name
 # One statement to a line; a semicolon hides the second one.
 Style/Semicolon:
   Enabled: true
-  AllowAsTerminator: false
   # The zr-dev command tables: `-> { require_relative "gen"; Gen }`
   # loads a command when it runs. The require stays literal, so that zr
   # finds the file when it compiles the tools.
