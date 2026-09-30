@@ -262,7 +262,7 @@ module Zr
           end
 
           def id(packed)
-            @ids[packed] ||= (@rows << packed; @rows.size - 1)
+            @ids[packed] ||= @rows.push(packed).size - 1
           end
 
           attr_reader :rows

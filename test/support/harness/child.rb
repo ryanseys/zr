@@ -52,7 +52,7 @@ module Zr
         ensure
           in_w.close
         end
-        reader = [out_r, err_r].map { |io| Thread.new { io.binmode; io.read } }
+        reader = [out_r, err_r].map { |io| Thread.new { io.binmode.read } }
         status, over = watch(pid, started + seconds, megabytes)
         writer.join
         stdout, stderr = reader.map(&:value)

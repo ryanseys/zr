@@ -275,7 +275,11 @@ module Zr
           switch(plain)
           @f.jump(merge, [v])
           switch(go)
-          sent = call(node.dup.tap { |n| n.recv = Hir::Slot.new(slot, node.line); n.interp = false })
+          plain_send = node.dup.tap do |n|
+            n.recv = Hir::Slot.new(slot, node.line)
+            n.interp = false
+          end
+          sent = call(plain_send)
           @f.jump(merge, [sent]) unless @f.terminated?
           switch(merge)
           @sp = base

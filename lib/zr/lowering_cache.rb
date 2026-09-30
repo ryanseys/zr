@@ -126,9 +126,10 @@ module Zr
     attr_reader :description
 
     def reading(&)
-      return (yield; {}) unless description
+      return description.record(&) if description
 
-      description.record(&)
+      yield
+      {}
     end
 
     def reads_hold?(record)

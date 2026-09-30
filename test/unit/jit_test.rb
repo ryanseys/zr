@@ -20,7 +20,10 @@ class JITTest < Minitest::Test
     unit.functions.each { |f| f.relocs.each { |r| r.symbol = "getpid" if r.symbol == "exit" } }
     symbols = Zr::Obj::JIT.load(unit, host: Zr::Obj::JIT::Fiddle.new)
     main = Fiddle::Function.new(symbols["main"], [Fiddle::TYPE_INT, Fiddle::TYPE_VOIDP], Fiddle::TYPE_INT)
-    out, = capture_subprocess_io { $stdout.flush; main.call(0, 0) }
+    out, = capture_subprocess_io do
+      $stdout.flush
+      main.call(0, 0)
+    end
     out
   end
 

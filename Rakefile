@@ -59,7 +59,7 @@ task("build:tools") do
   require_relative "tool/lib/zr/dev"
   # A zr binary reads RUBYOPT as ruby does, so it runs outside the bundle.
   help = ->(*command) { IO.popen(Zr::Dev::BUNDLE.to_h { |name| [name, nil] }, [*command, "help"], &:read) }
-  built = Zr::Dev.tools.build { |out| help.(out) == help.(RbConfig.ruby, Zr::Dev.path("tool/zr-dev.rb")) }
+  built = Zr::Dev.tools.build { |out| help.call(out) == help.call(RbConfig.ruby, Zr::Dev.path("tool/zr-dev.rb")) }
   abort("rake build:tools: bin/zr-dev did not build") unless built
   puts "the tools: #{Zr::Dev.tools.binary}"
 end

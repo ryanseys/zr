@@ -96,8 +96,14 @@ class ParseCacheTest < Minitest::Test
     options = { filepath: "derived.rb", line: 1 }
     spotter = [File.join(ROOT, "lib/zr/hir/spots.rb")]
     made = 0
-    first = ParseCache.derived("spots", source, options, spotter) { made += 1; "1 n - 1 0 1 5\n" }
-    again = ParseCache.derived("spots", source, options, spotter) { made += 1; "other" }
+    first = ParseCache.derived("spots", source, options, spotter) do
+      made += 1
+      "1 n - 1 0 1 5\n"
+    end
+    again = ParseCache.derived("spots", source, options, spotter) do
+      made += 1
+      "other"
+    end
 
     assert_equal 1, made
     assert_equal first, again

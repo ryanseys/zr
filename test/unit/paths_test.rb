@@ -22,7 +22,12 @@ class PathsTest < Minitest::Test
 
   def test_a_scratch_directory_is_removed_when_the_block_raises
     kept = nil
-    assert_raises(RuntimeError) { Zr::Paths.tmpdir("zr-paths-") { |dir| kept = dir; raise "no" } }
+    assert_raises(RuntimeError) do
+      Zr::Paths.tmpdir("zr-paths-") do |dir|
+        kept = dir
+        raise "no"
+      end
+    end
     refute_path_exists kept
   end
 
@@ -129,7 +134,11 @@ class PathsTest < Minitest::Test
     Dir.mktmpdir do |dir|
       path = File.join(dir, "sub/runtime.o")
       built = 0
-      assert_equal path, Zr::Paths.once(path) { built += 1; File.write(path, "x") }
+      once = Zr::Paths.once(path) do
+        built += 1
+        File.write(path, "x")
+      end
+      assert_equal path, once
       Zr::Paths.once(path) { built += 1 }
       assert_equal 1, built
 

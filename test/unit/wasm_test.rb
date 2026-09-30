@@ -109,8 +109,8 @@ class WasmTest < Minitest::Test
     while at < bytes.bytesize
       id = bytes.getbyte(at)
       at += 1
-      size = leb.()
-      return leb.() if id == 11
+      size = leb.call
+      return leb.call if id == 11
 
       at += size
     end

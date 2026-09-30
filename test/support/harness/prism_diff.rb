@@ -234,7 +234,7 @@ module Zr
         common = [expected.bytesize, actual.bytesize].min
         at = (0...common).find { |i| expected.getbyte(i) != actual.getbyte(i) } || common
         window = ->(bytes) { bytes.byteslice([at - 16, 0].max, 32).unpack1("H*") }
-        "sizes #{expected.bytesize}/#{actual.bytesize}, first difference at byte #{at}\n  C:    #{window.(expected)}\n  Ruby: #{window.(actual)}"
+        "sizes #{expected.bytesize}/#{actual.bytesize}, first difference at byte #{at}\n  C:    #{window.call(expected)}\n  Ruby: #{window.call(actual)}"
       end
 
       # Writes the C dump of each case again with the Ruby writer. Returns

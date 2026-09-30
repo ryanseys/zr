@@ -185,7 +185,10 @@ module Zr
           when "e" then defs.fetch(name).effects = Integer(rest.first)
           when "c" then consts[name] = Integer(rest.first)
           when "s"
-            fields = rest.drop(2).to_h { |f| n, at, type = f.split(":"); [n, [Integer(at), type]] }
+            fields = rest.drop(2).to_h do |f|
+              n, at, type = f.split(":")
+              [n, [Integer(at), type]]
+            end
             structs[name] = Layout.new(name, fields, Integer(rest[0]), Integer(rest[1]))
           end
         end

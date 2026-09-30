@@ -56,8 +56,8 @@ module Zr
 
         def label
           shown = ->(s) { s.encoding == Encoding::UTF_8 ? "" : " (#{s.encoding})" }
-          "/#{pattern.b.inspect[1..-2]}/#{flags}#{shown.(pattern)}#{options & (FIXEDENCODING | NOENCODING) != 0 ? " o=#{options}" : ""} " \
-            "#{mode}@#{start} on #{subject.inspect}#{shown.(subject)}"
+          "/#{pattern.b.inspect[1..-2]}/#{flags}#{shown.call(pattern)}#{options & (FIXEDENCODING | NOENCODING) != 0 ? " o=#{options}" : ""} " \
+            "#{mode}@#{start} on #{subject.inspect}#{shown.call(subject)}"
         end
       end
 

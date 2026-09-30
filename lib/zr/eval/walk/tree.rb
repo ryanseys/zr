@@ -145,8 +145,8 @@ module Zr
         when Hir::Local then read_local(node, ctx)
         when Hir::Assign then write_local(node, walk(node.value, ctx), ctx)
         when Hir::If then truthy(walk(node.cond, ctx)) ? walk(node.yes, ctx) : walk(node.no, ctx)
-        when Hir::And then (left = walk(node.left, ctx); truthy(left) ? walk(node.right, ctx) : left)
-        when Hir::Or then (left = walk(node.left, ctx); truthy(left) ? left : walk(node.right, ctx))
+        when Hir::And then and_node(node, ctx)
+        when Hir::Or then or_node(node, ctx)
         when Hir::Not then !truthy(walk(node.value, ctx))
         when Hir::While then while_node(node, ctx)
         when Hir::ArrayLit then elements(node.elements, ctx)
@@ -262,6 +262,16 @@ module Zr
       end
 
       # A `while` or `until`. Its value is nil, or the value of a `break`.
+      def and_node(node, ctx)
+        left = walk(node.left, ctx)
+        truthy(left) ? walk(node.right, ctx) : left
+      end
+
+      def or_node(node, ctx)
+        left = walk(node.left, ctx)
+        truthy(left) ? left : walk(node.right, ctx)
+      end
+
       def while_node(node, ctx)
         tag = node.__id__
         inner = ctx.with(tag: tag)

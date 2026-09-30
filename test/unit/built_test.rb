@@ -21,7 +21,11 @@ class BuiltTest < Minitest::Test
     started = []
     loaded = []
     stub_method(Built, :built?, ->(target, **) { started.include?(target) }) do
-      stub_method(Built, :start, ->(target, **) { started << target; fork { exit! 0 } }) do
+      start = lambda do |target, **|
+        started << target
+        fork { exit! 0 }
+      end
+      stub_method(Built, :start, start) do
         stub_method(Built, :load, ->(target) { loaded << target }) { capture_io { Built.ready! } }
       end
     end

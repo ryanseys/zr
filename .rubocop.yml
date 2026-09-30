@@ -100,3 +100,18 @@ Style/InverseMethods: { Enabled: true }      # reject, not select { !... }
 Style/MapToSet: { Enabled: true }            # to_set { }
 Style/SelectByRange: { Enabled: true }       # grep and grep_v
 Style/SymbolProc: { Enabled: true }          # &:name
+
+# One statement to a line; a semicolon hides the second one.
+Style/Semicolon:
+  Enabled: true
+  AllowAsTerminator: false
+  # The zr-dev command tables: `-> { require_relative "gen"; Gen }`
+  # loads a command when it runs. The require stays literal, so that zr
+  # finds the file when it compiles the tools.
+  Exclude:
+    - "tool/commands.rb"
+    - "tool/gen.rb"
+    - "tool/gems.rb"
+    - "tool/spec.rb"
+# lambda.call(x), not lambda.(x).
+Style/LambdaCall: { Enabled: true }

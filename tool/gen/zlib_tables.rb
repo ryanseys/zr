@@ -141,7 +141,12 @@ module Zr
           offs = Array.new(16, 0)
           (1...15).each { |len| offs[len + 1] = offs[len] + count[len] }
           work = Array.new(lens.size, 0)
-          lens.each_with_index { |len, sym| next if len.zero?; work[offs[len]] = sym; offs[len] += 1 }
+          lens.each_with_index do |len, sym|
+            next if len.zero?
+
+            work[offs[len]] = sym
+            offs[len] += 1
+          end
           base, extra, match = { codes: [work, work, 20], lens: [LBASE, LEXT, 257], dists: [DBASE, DEXT, 0] }.fetch(type)
           table = []
           huff = 0
@@ -225,7 +230,10 @@ module Zr
           length = 0
           (0...28).each do |code|
             base_length[code] = length
-            (1 << EXTRA_LBITS[code]).times { length_code[length] = code; length += 1 }
+            (1 << EXTRA_LBITS[code]).times do
+              length_code[length] = code
+              length += 1
+            end
           end
           length_code[255] = 28
           base_length[28] = 0
@@ -234,12 +242,18 @@ module Zr
           dist = 0
           (0...16).each do |code|
             base_dist[code] = dist
-            (1 << EXTRA_DBITS[code]).times { dist_code[dist] = code; dist += 1 }
+            (1 << EXTRA_DBITS[code]).times do
+              dist_code[dist] = code
+              dist += 1
+            end
           end
           dist >>= 7
           (16...30).each do |code|
             base_dist[code] = dist << 7
-            (1 << (EXTRA_DBITS[code] - 7)).times { dist_code[256 + dist] = code; dist += 1 }
+            (1 << (EXTRA_DBITS[code] - 7)).times do
+              dist_code[256 + dist] = code
+              dist += 1
+            end
           end
           lens = ([8] * 144) + ([9] * 112) + ([7] * 24) + ([8] * 8)
           bl_count = Array.new(16, 0)
