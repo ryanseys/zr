@@ -6,6 +6,7 @@ require_relative "../../lib/zr/runtime"
 require_relative "../../lib/zr/native/build"
 require_relative "../../lib/zr/native/parallel"
 require_relative "harness/wasmtime"
+require_relative "needs"
 
 module Zr
   module Test
@@ -41,17 +42,29 @@ module Zr
 
       # Builds the caches of each target that has none, then loads them
       # into this process for the workers to share. `ZR_TEST_BUILT=0` skips
-      # both, for a test file that builds no program.
+      # both.
       #
-      # `files` are the test files of the run. Eval support takes minutes
-      # to build after an edit, so it is built only when one of them can
-      # need it (`evals?`). Nil means that the run is not known.
+      # `files` are the test files of the run. A file outside the spec tier
+      # declares what it needs (`Needs`); a run of files that build no program
+      # builds and loads nothing. Eval support takes minutes to build after
+      # an edit, so it is built only when one of them can need it (`evals?`).
+      # Nil means that the run is not known.
       def ready!(wasm: false, files: nil)
         return unless Zr.flag?("ZR_TEST_BUILT", default: true)
+        return if files && need(files) == :none
 
         build(targets(wasm: wasm), evals: evals?(files))
         targets(wasm: wasm).each { |target| load(target) }
       end
+
+      # The most that a run of `files` needs: a spec file needs the runtime,
+      # and eval support when one of its examples evals (`evals?`).
+      def need(files)
+        specs, others = files.partition { |file| spec?(file) }
+        [Needs.most(others), *(:runtime if specs.any?)].max_by { |need| Needs::LEVELS.fetch(need) }
+      end
+
+      def spec?(file) = File.expand_path(file).start_with?(File.join(File.expand_path("../spec", __dir__), ""))
 
       # Whether the caches of `target` are complete. A build writes the
       # mark file last, after every cache file is written. A build with
@@ -68,20 +81,21 @@ module Zr
       # build, so a larger run builds eval support as before.
       EXAMPLES_READ = 400
 
-      # Whether a run of `files` can need eval support: a file that is not
-      # a spec, more than EXAMPLES_READ examples, or an example whose
-      # program evals (`Hir::Program#evals`, the flag that makes a build
-      # link eval support). An error in the check means yes. A worker
-      # that meets an eval program without eval support builds it, which
-      # is slow but correct.
+      # Whether a run of `files` can need eval support: a file that declares
+      # `eval`, more than EXAMPLES_READ spec examples, or a spec example whose
+      # program evals (`Hir::Program#evals`, the flag that makes a build link
+      # eval support). An error in the check means yes. A worker that meets
+      # an eval program without eval support builds it, which is slow but
+      # correct.
       def evals?(files)
         return true if files.nil?
 
-        spec = File.expand_path("../spec", __dir__)
-        return true unless files.all? { |file| File.expand_path(file).start_with?(File.join(spec, "")) }
+        specs, others = files.partition { |file| spec?(file) }
+        return true if Needs.most(others) == :eval
+        return false if specs.empty?
 
         require_relative "reader"
-        examples = files.flat_map { |file| Zr::Reader.read(file) }
+        examples = specs.flat_map { |file| Zr::Reader.read(file) }
         return true if examples.size > EXAMPLES_READ
 
         examples.any? { |example| example_evals?(example) }

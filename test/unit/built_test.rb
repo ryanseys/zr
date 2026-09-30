@@ -70,10 +70,31 @@ class BuiltTest < Minitest::Test
     refute_equal Built.mark(Zr::Target.default), Built.mark(Zr::Target::WASM32_WASI)
   end
 
+  def test_a_run_builds_only_what_its_files_declare
+    unit = File.expand_path(".", __dir__)
+    spec = File.expand_path("../spec", __dir__)
+    assert_equal :none, Built.need([__FILE__])
+    assert_equal :runtime, Built.need([__FILE__, "#{unit}/runtime_test.rb"])
+    assert_equal :eval, Built.need(["#{unit}/runtime_test.rb", "#{unit}/programs_test.rb"])
+    assert_equal :runtime, Built.need(["#{spec}/core/comparable/comparison_test.rb"])
+  end
+
+  def test_ready_builds_nothing_for_files_that_declare_nothing
+    stub_method(Built, :build, ->(*) { flunk "built" }) do
+      stub_method(Built, :load, ->(*) { flunk "loaded" }) { Built.ready!(files: [__FILE__]) }
+    end
+  end
+
+  def test_the_guard_stops_a_test_that_uses_the_runtime_without_declaring_it
+    error = assert_raises(RuntimeError) { Zr.runtime(Zr::Target.default).unit }
+    assert_includes error.message, "declare `# zr-test: runtime`"
+  end
+
   def test_a_run_needs_eval_support_only_when_a_program_evals
     spec = File.expand_path("../spec", __dir__)
     assert Built.evals?(nil), "an unknown run"
-    assert Built.evals?([__FILE__]), "a unit test"
+    refute Built.evals?([__FILE__]), "a unit test that declares nothing"
+    assert Built.evals?([File.expand_path("programs_test.rb", __dir__)]), "a unit test that declares eval"
     refute Built.evals?(["#{spec}/core/comparable/comparison_test.rb"]), "a spec with no eval"
     assert Built.evals?(["#{spec}/core/comparable/comparison_test.rb", "#{spec}/lang/eval/eval_test.rb"]), "a spec that evals"
   end

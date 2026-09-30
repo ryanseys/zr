@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+# zr-test: eval
 
 require "test_helper"
 require_relative "../../lib/zr/runtime"

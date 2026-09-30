@@ -48,6 +48,9 @@ ROOT = File.expand_path("..", __dir__)
 require_relative "support/harness/wasmtime"
 require_relative "support/harness/child"
 require_relative "support/built"
+require_relative "support/needs"
+Zr::Test::Needs.install!
+Minitest::Test.include(Zr::Test::Needs::Hook)
 
 # Helpers that the tests share. They are in a module, not at the top
 # level. A top-level method becomes a method on `Object`, and

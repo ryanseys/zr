@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+# zr-test: runtime
 
 require "support/runtime_programs"
 
