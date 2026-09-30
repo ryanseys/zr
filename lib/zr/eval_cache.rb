@@ -26,7 +26,7 @@ module Zr
     end
 
     # Lowers `program` (eval support's) with `lower`, taking each unit it
-    # can from an entry. Returns `[functions, data]`, with `Obj::Function`
+    # can from an entry. Returns `[functions, data]`, with `Obj::Code`
     # for each unit that it took, and inlined, so the object build must not
     # inline again.
     def lower(lower, symbols, description)

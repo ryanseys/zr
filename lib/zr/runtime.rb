@@ -265,7 +265,7 @@ module Zr
     #
     # For an aarch64 build, `CoreCache` takes each file it can from an
     # earlier build, and the list then has the machine code of those files
-    # (`Obj::Function`) in place of their IR. It also inlines the unit.
+    # (`Obj::Code`) in place of their IR. It also inlines the unit.
     def lowered
       @lowered ||= Zr.clock("core lowered") do
         @core_cache = Zr.clock("core cache: opened") { CoreCache.for(target) }
@@ -727,7 +727,7 @@ module Zr
     names << sources.map { |path, digest| [shown[path], digest] }.sort.map { |path, digest| "#{path}\t#{digest}" }
     names << [manifest.to_s.chomp]
     out = []
-    text = ->(name, bytes) { out << Obj::Data.new(name, :text_const, "#{bytes}\0".b, align: 1) }
+    text = ->(name, bytes) { out << Obj::Datum.new(name, :text_const, "#{bytes}\0".b, align: 1) }
     rows = +"".b
     row_relocs = []
     units.each_with_index do |(path, entry), i|
@@ -735,7 +735,7 @@ module Zr
       row_relocs << Obj::Reloc.new(i * 24, :abs64, "zr_unit_path_#{i}") << Obj::Reloc.new((i * 24) + 16, :abs64, entry)
       rows << [0, path.bytesize, 0].pack("Q<3")
     end
-    out << Obj::Data.new("zr_unit_rows", :data_const, rows.empty? ? "\0".b * 8 : rows, relocs: row_relocs, align: 8)
+    out << Obj::Datum.new("zr_unit_rows", :data_const, rows.empty? ? "\0".b * 8 : rows, relocs: row_relocs, align: 8)
     words = [units.size, 0]
     relocs = [Obj::Reloc.new(8, :abs64, "zr_unit_rows")]
     names.each_with_index do |lines, i|
@@ -744,8 +744,8 @@ module Zr
       relocs << Obj::Reloc.new(words.size * 8, :abs64, "zr_load_names_#{i}")
       words << 0 << joined.bytesize
     end
-    out << Obj::Data.new("zr_load_table_words", :data_const, words.pack("Q<*"), relocs: relocs, align: 8)
-    out << Obj::Data.new("zr_load_tables", :data_const, "\0".b * 8, relocs: [Obj::Reloc.new(0, :abs64, "zr_load_table_words")], align: 8, linkage: :export)
+    out << Obj::Datum.new("zr_load_table_words", :data_const, words.pack("Q<*"), relocs: relocs, align: 8)
+    out << Obj::Datum.new("zr_load_tables", :data_const, "\0".b * 8, relocs: [Obj::Reloc.new(0, :abs64, "zr_load_table_words")], align: 8, linkage: :export)
   end
 
   # `zr_symbol_names`: one (bytes, length) record per symbol id. The bytes
@@ -768,9 +768,9 @@ module Zr
       table << [0, name.bytesize].pack("Q<Q<")
       all << name.b
     end
-    [Obj::Data.new("zr_symname_bytes", :text_const, all.empty? ? "\0".b : all, align: 1),
-     Obj::Data.new("zr_symbol_names", :data_const, table, relocs: relocs, align: 8, linkage: :export),
-     Obj::Data.new("zr_symbol_count", :data_const, [names.size].pack("Q<"), align: 8, linkage: :export),
-     Obj::Data.new("zr_site_count", :data_const, [symbols.sites].pack("Q<"), align: 8, linkage: :export)]
+    [Obj::Datum.new("zr_symname_bytes", :text_const, all.empty? ? "\0".b : all, align: 1),
+     Obj::Datum.new("zr_symbol_names", :data_const, table, relocs: relocs, align: 8, linkage: :export),
+     Obj::Datum.new("zr_symbol_count", :data_const, [names.size].pack("Q<"), align: 8, linkage: :export),
+     Obj::Datum.new("zr_site_count", :data_const, [symbols.sites].pack("Q<"), align: 8, linkage: :export)]
   end
 end

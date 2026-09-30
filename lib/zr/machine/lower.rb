@@ -575,7 +575,7 @@ module Zr
       def bytes(string)
         name = "zr_bytes_#{@next_bytes}"
         @next_bytes += 1
-        @data << Obj::Data.new(name, :text_const, string, align: 1)
+        @data << Obj::Datum.new(name, :text_const, string, align: 1)
         name
       end
 
@@ -585,7 +585,7 @@ module Zr
           refuse(node, "#{name} is #{@statics[name]} bytes, not #{size}") if @statics[name] != size
         else
           @statics[name] = size
-          @data << Obj::Data.new("zr_static_#{name}", :bss, size, align: 16)
+          @data << Obj::Datum.new("zr_static_#{name}", :bss, size, align: 16)
         end
         "zr_static_#{name}"
       end

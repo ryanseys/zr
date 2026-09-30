@@ -144,7 +144,7 @@ module Zr
 
       attr_reader :memory
 
-      # `functions` are `IR::Function`s and `data` is `Obj::Data`. `raw`
+      # `functions` are `IR::Function`s and `data` is `Obj::Datum`. `raw`
       # names the raw functions. A raw function is machine code, not IR, so
       # a call to it is refused, with a message that gives the name.
       def initialize(functions, data: [], raw: [], out: $stdout, err: $stderr)

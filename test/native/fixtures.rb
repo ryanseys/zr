@@ -25,7 +25,7 @@ module Zr
         f.call_val(write, [f.iconst("i32", 1), f.symbol_value(f.symbol("msg")), f.iconst("i64", 11)])
         f.call(exit, [f.iconst("i32", 0)])
         f.ret(f.iconst("i32", 0))
-        [[f], [Obj::Data.new("msg", :text_const, "hello, zr!\n", align: 1)]]
+        [[f], [Obj::Datum.new("msg", :text_const, "hello, zr!\n", align: 1)]]
       end
 
       # Overflow flags, select, bit operations, wide and negative
@@ -206,7 +206,7 @@ module Zr
         f.ret(f.iconst("i32", 0))
 
         rows = [Obj::Reloc.new(0, :abs64, "twice"), Obj::Reloc.new(8, :abs64, "negate")]
-        [[twice, negate, f], [Obj::Data.new("table", :data, [0, 0].pack("Q<2"), relocs: rows)]]
+        [[twice, negate, f], [Obj::Datum.new("table", :data, [0, 0].pack("Q<2"), relocs: rows)]]
       end
 
       # The sum 1..100 printed in decimal through a stack buffer: block

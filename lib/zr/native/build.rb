@@ -391,7 +391,7 @@ module Zr
       # A zero word into `data` for each foreign data symbol not in `known`.
       def zero_words(functions, data, known)
         (foreign(functions, data) - known).each do |symbol|
-          data << Obj::Data.new(symbol, :data_const, "\0".b * 8, align: 8)
+          data << Obj::Datum.new(symbol, :data_const, "\0".b * 8, align: 8)
         end
       end
 
@@ -419,7 +419,7 @@ module Zr
       def stop(name, params, ret, data)
         message = "zr: #{name} has no wasm form\n"
         bytes = "zr_stop_#{name}"
-        data << Obj::Data.new(bytes, :text_const, message.b, align: 1)
+        data << Obj::Datum.new(bytes, :text_const, message.b, align: 1)
         f = IR::Function.new(name, params, ret)
         f.call(f.callee("write", %w[i32 i64 i64], "i64", colocated: false), [f.iconst("i32", 2), f.symbol_value(f.symbol(bytes)), f.iconst("i64", message.bytesize)])
         f.call(f.callee("abort", [], nil, colocated: false), [])

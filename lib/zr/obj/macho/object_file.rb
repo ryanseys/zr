@@ -54,7 +54,7 @@ module Zr
           ["__bss", "__DATA", S_ZEROFILL, [:bss]]
         ].freeze
 
-        Placed = ::Data.define(:item, :section, :addr)
+        Placed = Data.define(:item, :section, :addr)
 
         # An object as `read` returns it. `symbols` contains two words for
         # each symbol, packed as in `nlist_64`: the string offset, type,

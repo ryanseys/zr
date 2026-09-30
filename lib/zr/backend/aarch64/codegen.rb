@@ -13,7 +13,7 @@ require_relative "codegen/moves"
 module Zr
   module Backend
     module Aarch64
-      # Compiles an `IR::Function` to an `Obj::Function` of Apple arm64
+      # Compiles an `IR::Function` to `Obj::Code` of Apple arm64
       # machine code, with a relocation for each symbol that it refers to.
       #
       # A value is in the register that `Regalloc` gives it, or else in an
@@ -137,7 +137,7 @@ module Zr
             @asm.put_label(@epilogue)
             epilogue
           end
-          Obj::Function.new(@f.name, @asm.to_binary, relocs: @relocs, linkage: :export)
+          Obj::Code.new(@f.name, @asm.to_binary, relocs: @relocs, linkage: :export)
         rescue Assembler::OutOfReach
           # A conditional branch cannot reach its block. Compile the
           # function again, with every such branch in the far form.

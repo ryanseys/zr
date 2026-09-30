@@ -131,7 +131,7 @@ class ExeTest < Minitest::Test
     write = f.callee("write", %w[i32 i64 i64], "i64", colocated: false)
     f.call_val(write, [f.iconst("i32", 1), f.symbol_value(f.symbol("msg", colocated: false)), f.iconst("i64", 8)])
     f.ret(f.iconst("i32", 0))
-    data = [Zr::Obj::Data.new("msg", :text_const, "got slot\n", align: 8)]
+    data = [Zr::Obj::Datum.new("msg", :text_const, "got slot\n", align: 8)]
     Dir.mktmpdir("zr-exe-") do |dir|
       assert_equal [0, "got slot"], ran(written(Zr::Native::Build.unit([f], data), dir, "got"))
     end
@@ -157,7 +157,7 @@ class ExeTest < Minitest::Test
     f = Zr::IR::Function.new(name, %w[i64 i64], "i64")
     write = f.callee("write", %w[i32 i64 i64], "i64", colocated: false)
     f.ret(f.call_val(write, [f.iconst("i32", 1), f.args[0], f.args[1]]))
-    data = [Zr::Obj::Data.new("b_msg", :text_const, "unused from b\n", align: 8)]
+    data = [Zr::Obj::Datum.new("b_msg", :text_const, "unused from b\n", align: 8)]
     Zr::Obj::MachO::ObjectFile.write(Zr::Native::Build.unit([f], data, export: true))
   end
 
@@ -171,7 +171,7 @@ class ExeTest < Minitest::Test
     f.call(shout, [pointer, f.iconst("i64", 7)])
     f.call(shout, [f.symbol_value(f.symbol("b_msg", colocated: false)), f.iconst("i64", 7)])
     f.ret(f.iconst("i32", 0))
-    data = [Zr::Obj::Data.new("a_ptr", :data, "\0".b * 8, relocs: [Zr::Obj::Reloc.new(0, :abs64, "b_msg", 7)], align: 8)]
+    data = [Zr::Obj::Datum.new("a_ptr", :data, "\0".b * 8, relocs: [Zr::Obj::Reloc.new(0, :abs64, "b_msg", 7)], align: 8)]
     Zr::Native::Build.unit([f], data)
   end
 
@@ -215,8 +215,8 @@ class ExeTest < Minitest::Test
   def calling_object
     f = Zr::IR::Function.new("shout", %w[i64 i64], "i64")
     f.ret(f.call_val(f.callee("hook", %w[i64 i64], "i64", colocated: false), [f.args[0], f.args[1]]))
-    table = Zr::Obj::Data.new("b_table", :data, "\0".b * 8, relocs: [Zr::Obj::Reloc.new(0, :abs64, "a_msg")], align: 8, linkage: :export)
-    data = [Zr::Obj::Data.new("b_msg", :text_const, "unused from b\n", align: 8), table]
+    table = Zr::Obj::Datum.new("b_table", :data, "\0".b * 8, relocs: [Zr::Obj::Reloc.new(0, :abs64, "a_msg")], align: 8, linkage: :export)
+    data = [Zr::Obj::Datum.new("b_msg", :text_const, "unused from b\n", align: 8), table]
     Zr::Obj::MachO::ObjectFile.write(Zr::Native::Build.unit([f], data, export: true))
   end
 
@@ -228,7 +228,7 @@ class ExeTest < Minitest::Test
     shout = f.callee("shout", %w[i64 i64], "i64", colocated: false)
     f.call(shout, [f.fetch("i64", f.symbol_value(f.symbol("b_table", colocated: false))), f.iconst("i64", 6)])
     f.ret(f.iconst("i32", 0))
-    data = [Zr::Obj::Data.new("a_msg", :text_const, "hooks\n", align: 8, linkage: :export)]
+    data = [Zr::Obj::Datum.new("a_msg", :text_const, "hooks\n", align: 8, linkage: :export)]
     Zr::Native::Build.unit([f, hook], data)
   end
 

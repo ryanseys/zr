@@ -125,7 +125,7 @@ module Zr
 
       # Writes one pack with the code of every function of this build:
       # `entries` are `[key, blob]` pairs, a blob being Marshal of an
-      # `Obj::Function`. Then removes the packs of this kind beyond KEPT.
+      # `Obj::Code`. Then removes the packs of this kind beyond KEPT.
       # Writes nothing if a source changed during the build.
       def keep(entries)
         close

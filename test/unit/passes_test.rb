@@ -329,7 +329,7 @@ class PassesTest < Minitest::Test
 
   # `Statics`: a word that the kernel keeps in a static (`bss` here), and
   # a program that returns the words it read.
-  def static(name, bytes = "\0".b * 8) = Zr::Obj::Data.new("zr_static_#{name}", :data, bytes, align: 16)
+  def static(name, bytes = "\0".b * 8) = Zr::Obj::Datum.new("zr_static_#{name}", :data, bytes, align: 16)
 
   def answer_with(functions, data, args)
     Zr::IR::Interp.new(functions, data: data).answer(functions[0].name, args)

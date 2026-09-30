@@ -83,7 +83,7 @@ class WasmTest < Minitest::Test
   def test_data_objects_share_a_segment
     functions, data = Zr::Machine.compile(IMPORTED, "imported.rb")
     data += 100.times.flat_map do |i|
-      [Zr::Obj::Data.new("zr_test_data_#{i}", :data, i.to_s, align: 8), Zr::Obj::Data.new("zr_test_bss_#{i}", :bss, 64, align: 8)]
+      [Zr::Obj::Datum.new("zr_test_data_#{i}", :data, i.to_s, align: 8), Zr::Obj::Datum.new("zr_test_bss_#{i}", :bss, 64, align: 8)]
     end
     Dir.mktmpdir("zr-wasm-") do |dir|
       wasm = File.join(dir, "segments.wasm")

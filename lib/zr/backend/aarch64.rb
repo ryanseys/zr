@@ -52,7 +52,7 @@ module Zr
       end
 
       def exported(d)
-        d.linkage == :export ? d : Obj::Data.new(d.name, d.section, d.bytes, relocs: d.relocs, align: d.align, linkage: :export)
+        d.linkage == :export ? d : Obj::Datum.new(d.name, d.section, d.bytes, relocs: d.relocs, align: d.align, linkage: :export)
       end
     end
   end

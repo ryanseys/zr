@@ -23,8 +23,9 @@ module Zr
       def initialize(offset, kind, symbol, addend = 0) = super
     end
 
+    # The machine code of one function, as a backend assembled it.
     # `linkage`: :export (visible to the link), :local (this object only).
-    Function = Struct.new(:name, :bytes, :relocs, :align, :linkage) do
+    Code = Struct.new(:name, :bytes, :relocs, :align, :linkage) do
       def initialize(name, bytes, relocs: [], align: 4, linkage: :export) = super(name, bytes.b, relocs, align, linkage)
 
       def size
@@ -32,10 +33,11 @@ module Zr
       end
     end
 
+    # One item of data: a string, a table, or a static slot.
     # `section`: :text_const (pure bytes), :data_const (contains pointers,
     # read-only after the link), :data (writable), :bss (zeros; `bytes` is
     # then the size).
-    Data = Struct.new(:name, :section, :bytes, :relocs, :align, :linkage) do
+    Datum = Struct.new(:name, :section, :bytes, :relocs, :align, :linkage) do
       def initialize(name, section, bytes, relocs: [], align: 8, linkage: :local)
         super(name, section, section == :bss ? bytes : bytes.b, relocs, align, linkage)
       end
@@ -59,12 +61,12 @@ module Zr
       # `function` and `datum` add one item and return the unit, so a test
       # builds a unit in one expression (test/support/obj_unit.rb).
       def function(name, bytes, **opts)
-        @functions << Function.new(name, bytes, **opts)
+        @functions << Code.new(name, bytes, **opts)
         self
       end
 
       def datum(name, section, bytes, **opts)
-        @data << Data.new(name, section, bytes, **opts)
+        @data << Datum.new(name, section, bytes, **opts)
         self
       end
 

@@ -20,7 +20,7 @@ module Zr
 
     # Lowers the core over the kernel `unit`, as `Zr.core` does, taking each
     # file it can from an entry. Returns `[functions, data]`: IR for a file
-    # that it lowered, `Obj::Function` for one that it took. It inlines the
+    # that it lowered, `Obj::Code` for one that it took. It inlines the
     # whole unit (the kernel's functions too), so the object build must not.
     def lower(unit, symbols, sources)
       @unit = unit
