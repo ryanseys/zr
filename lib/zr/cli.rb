@@ -18,7 +18,7 @@ module Zr
   module CLI
     DOCS = DOCS_URL
 
-    USAGE = <<~TEXT
+    USAGE = <<~TEXT.freeze
       Usage: zr <command> [options]
 
       Commands:

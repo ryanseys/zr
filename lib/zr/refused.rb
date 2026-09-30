@@ -22,7 +22,7 @@ module Zr
 
     # The page that lists what zr supports, for the user who reads a
     # refusal.
-    DOCS = "#{DOCS_URL}/reference/support.md"
+    DOCS = "#{DOCS_URL}/reference/support.md".freeze
 
     # User words for the syntax nodes that zr refuses by their class. A
     # node that is not here gets its class name in words.

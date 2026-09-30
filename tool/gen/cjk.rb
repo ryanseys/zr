@@ -30,11 +30,10 @@ module Zr
         # The walk also uses them for an encoding that has no ruby converter.
         SAMPLE = [0x30, 0x39, 0x40, 0x41, 0x7E, 0x80, 0x81, 0xA1, 0xB0, 0xC1, 0xFE].freeze
 
-        CONVERTS = {}
-
         def converts?(encoding)
-          CONVERTS.fetch(encoding) do
-            CONVERTS[encoding] = begin
+          @converts ||= {}
+          @converts.fetch(encoding) do
+            @converts[encoding] = begin
               Encoding::Converter.new(encoding, pivot(encoding))
               true
             rescue StandardError

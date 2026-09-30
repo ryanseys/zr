@@ -118,3 +118,6 @@ Style/LambdaCall: { Enabled: true }
 
 # A block that a method only passes on needs no name: `def f(&) = g(&)`.
 Naming/BlockForwarding: { Enabled: true }
+
+# A constant that code changes is state; an object or a variable owns it.
+Style/MutableConstant: { Enabled: true }

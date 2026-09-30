@@ -24,7 +24,7 @@ module Zr
 
       # The process group of each child that runs now. Each child has its
       # own group, so a kill of the caller's group does not stop it.
-      LIVE = {}
+      @live = {}
 
       module_function
 
@@ -66,7 +66,7 @@ module Zr
       # worker calls this before it stops, so that no build continues
       # after the worker.
       def stop_all
-        LIVE.each_key do |pid|
+        @live.each_key do |pid|
           Process.kill("KILL", -pid)
         rescue Errno::ESRCH, Errno::EPERM
           nil
@@ -81,7 +81,7 @@ module Zr
       # soon as the child ends. Polling would add up to one poll interval
       # to each run of a tier. This thread checks the limits between joins.
       def watch(pid, deadline, megabytes)
-        LIVE[pid] = true
+        @live[pid] = true
         Watch.add(pid) if megabytes
         waiter = Thread.new { Process.wait2(pid).last }
         loop do
@@ -97,7 +97,7 @@ module Zr
           return [nil, over]
         end
       ensure
-        LIVE.delete(pid)
+        @live.delete(pid)
         Watch.drop(pid) if megabytes
       end
 
