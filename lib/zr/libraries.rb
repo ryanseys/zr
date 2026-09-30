@@ -14,10 +14,10 @@ module Zr
   # The gems with a C part are not here: zr owns them (lib/zr/ports.rb).
   module Libraries
     # ruby's own library and the default gems, as `rubylibdir` holds them.
-    LIB = File.join(Paths::ROOT, "stdlib/lib/ruby/4.0.0")
+    LIB = Layout::RUBYLIBDIR
 
     # Where the bundled gems are installed, each in its own directory.
-    GEMS = File.join(Paths::ROOT, "stdlib/lib/ruby/gems/4.0.0/gems")
+    GEMS = Layout::GEMS
 
     module_function
 
@@ -31,7 +31,7 @@ module Zr
     def lib_of(name) = apart.fetch(Stdlib::BUNDLED.keys.index(name) || raise(KeyError, "no bundled gem #{name}"))
 
     def roots
-      @roots ||= carried || [LIB, Stdlib::BUNDLED.map { |name, version| File.join(GEMS, "#{name}-#{version}", "lib") }]
+      @roots ||= carried || [LIB, Stdlib::BUNDLED.map { |name, version| File.join(Layout.gem_root(name, version), "lib") }]
     end
 
     # A program that includes the compiler uses the directories from its
@@ -47,6 +47,6 @@ module Zr
     end
 
     # Every file of the library, for a stamp of what a build can read.
-    def files = Dir[File.join(Paths::ROOT, "stdlib/lib/**/*")].select { |path| File.file?(path) }
+    def files = Dir[File.join(Layout::PREFIX, "lib/**/*")].select { |path| File.file?(path) }
   end
 end

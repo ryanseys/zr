@@ -150,7 +150,7 @@ module Zr
     # of the target's OS layer (`zr-dev gen description`). The JIT of a
     # binary lowers eval'd code against that file, not against the kernel,
     # so a file that is out of date miscompiles evals with no error.
-    def carried_description = File.join(Paths::RUNTIME, "ext/os/#{target.os_layer}/zr_description.rb")
+    def carried_description = File.join(Layout.ext_os(target), "zr_description.rb")
 
     # Checks the carried description against the kernel before eval
     # support is built. In a checkout, zr writes the file again and says
@@ -628,8 +628,8 @@ module Zr
   # a program's first line. After it comes error_highlight's lookup for
   # a program compiled ahead of time. Boot runs it after the core
   # library loads, before the program.
-  GEM_PRELUDE = File.join(Paths::VENDOR, "prelude/gem_prelude.rb")
-  SPOTTED = File.join(Paths::RUNTIME, "ext/zr/error_highlight.rb")
+  GEM_PRELUDE = Layout::GEM_PRELUDE
+  SPOTTED = File.join(Layout::EXT, "zr/error_highlight.rb")
 
   # The parsers that the prelude's libraries require for work that this
   # runtime does differently. error_highlight's prism_find: the compiled

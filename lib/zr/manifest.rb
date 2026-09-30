@@ -79,10 +79,10 @@ module Zr
       return Row.new(gem.name, gem.version, source_of(gem)) if gem
 
       Ports::ALL.each do |name, port|
-        return Row.new(name, port.version, "port") if file.start_with?(File.join(Paths::VENDOR, "ext", name, "lib") + "/")
+        return Row.new(name, port.version, "port") if file.start_with?("#{Layout.port_lib(name)}/")
       end
       Stdlib::BUNDLED.each do |name, version|
-        return Row.new(name, version, "stdlib") if file.start_with?(File.join(Libraries::GEMS, "#{name}-#{version}") + "/")
+        return Row.new(name, version, "stdlib") if file.start_with?("#{Layout.gem_root(name, version)}/")
       end
       return nil unless file.start_with?("#{Libraries::LIB}/")
 
@@ -96,7 +96,7 @@ module Zr
     # from the gem's specification (`s.files`).
     def default_gems
       @default_gems ||= Stdlib::DEFAULT.each_with_object({}) do |(name, version), out|
-        spec = File.join(Libraries::GEMS, "..", "specifications", "default", "#{name}-#{version}.gemspec")
+        spec = File.join(Layout::SPECIFICATIONS, "default", "#{name}-#{version}.gemspec")
         next unless File.file?(spec)
 
         File.read(spec)[/^\s*s\.files = \[(.*)\]/, 1].to_s.scan(/"([^"]+)"/).flatten.each do |path|

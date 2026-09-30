@@ -44,6 +44,6 @@ module Zr
 
     # The Ruby halves in vendor/ext, in the order a require searches them.
     # socket is part of ruby, not a gem, and comes with them.
-    def self.roots = (ALL.select { |_, port| port.ruby }.keys + ["socket"]).map { |name| File.join(Paths::VENDOR, "ext/#{name}/lib") }
+    def self.roots = (ALL.select { |_, port| port.ruby }.keys + ["socket"]).map { |name| Layout.port_lib(name) }
   end
 end

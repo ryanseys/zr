@@ -9,7 +9,7 @@ module Zr
     # so it must not run once a source changed: a stale `cache prune`
     # would compute the old digests and remove the live runtime.
     def self.tools
-      SelfBuilt.new(entry: "tool/zr-dev.rb", binary: path("bin/zr-dev"), dirs: %w[lib runtime stdlib vendor/ext vendor/prelude tool test/support]) do
+      SelfBuilt.new(entry: "tool/zr-dev.rb", binary: path("bin/zr-dev"), dirs: ["lib", "runtime", *Layout::UPSTREAM, "tool", "test/support"]) do
         [path("Gemfile.lock"), path("zr.gemspec")]
       end
     end

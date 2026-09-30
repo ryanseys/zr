@@ -192,4 +192,53 @@ module Zr
       nil
     end
   end
+
+  # Where each part of the library that a program's `require` reads is.
+  # Every other file asks here, so a move or a new ruby version changes
+  # only this module. The names are RbConfig's and rubygems' where they
+  # have one.
+  #
+  # Two kinds of code meet on the load path (Hir::Build.stdlib):
+  #
+  # - upstream code, as its authors ship it: ruby's own library, the
+  #   default and bundled gems, and the Ruby halves of the gems whose C
+  #   zr ports;
+  # - zr's own code under runtime/: the C halves in Ruby (EXT), which
+  #   come first.
+  module Layout
+    # The directory name of ruby's library version (RbConfig's
+    # `ruby_version`): 4.0.0 for every ruby 4.0.x.
+    API = "4.0.0"
+
+    # The install prefix that holds ruby's library and gems.
+    PREFIX = File.join(Paths::ROOT, "stdlib")
+    # ruby's own library and the default gems.
+    RUBYLIBDIR = File.join(PREFIX, "lib/ruby", API)
+    # The gem home: gems/<name>-<version>/ and specifications/.
+    GEM_DIR = File.join(PREFIX, "lib/ruby/gems", API)
+    GEMS = File.join(GEM_DIR, "gems")
+    SPECIFICATIONS = File.join(GEM_DIR, "specifications")
+
+    # The C halves of extensions, in Ruby. A file here is part of the
+    # runtime, so it can call a kernel def through `Primitive`.
+    EXT = File.join(Paths::RUNTIME, "ext")
+
+    # ruby's gem_prelude.rb, which every ruby runs at boot.
+    GEM_PRELUDE = File.join(Paths::VENDOR, "prelude/gem_prelude.rb")
+
+    # The directories below ROOT that hold upstream code a build reads.
+    # Not all of vendor/: a checkout can keep a bundle in vendor/bundle.
+    UPSTREAM = %w[stdlib vendor/ext vendor/prelude].freeze
+
+    module_function
+
+    # The directory of gem `name` at `version` in the gem home.
+    def gem_root(name, version) = File.join(GEMS, "#{name}-#{version}")
+
+    # The Ruby half of port `name` (lib/zr/ports.rb).
+    def port_lib(name) = File.join(Paths::VENDOR, "ext", name, "lib")
+
+    # The OS layer of EXT for `target`.
+    def ext_os(target) = File.join(EXT, "os", target.os_layer)
+  end
 end

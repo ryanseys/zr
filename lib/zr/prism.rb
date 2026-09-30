@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require_relative "paths"
+
 module Zr
   # Whether ruby itself runs the compiler. Ruby finds prism on its load
   # path. A zr binary that includes the compiler has prism compiled in
@@ -14,7 +16,7 @@ end
 # prism/prism.rb. A process that loaded ruby's prism first keeps it,
 # because both return the same objects.
 if Zr::HOSTED
-  $LOAD_PATH.unshift(File.expand_path("../../vendor/ext/prism/lib", __dir__), File.expand_path("prism_shim", __dir__))
+  $LOAD_PATH.unshift(Zr::Layout.port_lib("prism"), File.expand_path("prism_shim", __dir__))
 end
 require "prism"
 

@@ -21,7 +21,7 @@ module Zr
       #
       # `test/unit/prism_test.rb` fails when a file is out of date.
       class PrismRuby < Generator
-        UPSTREAM = Dev.path("vendor/ext/prism")
+        UPSTREAM = File.dirname(Layout.port_lib("prism"))
         TEMPLATES = Dev.path("tool/gen/prism/templates")
         OUT = Dev.path("runtime/ext/prism/ruby")
 

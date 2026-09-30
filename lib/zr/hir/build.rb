@@ -36,7 +36,7 @@ module Zr
 
       # The extensions whose native part is zr's. A file here is part of
       # the runtime, so it can call a kernel def through `Primitive`.
-      EXT = File.join(Paths::RUNTIME, "ext")
+      EXT = Layout::EXT
       # The runtime's own Ruby, the core library and the extensions: code
       # that a TracePoint never sees.
       RUNTIME = Paths::RUNTIME
@@ -61,7 +61,7 @@ module Zr
       # then the gems' Ruby parts, then the bundled gems in their own
       # directories.
       def self.stdlib(target = Target.default)
-        (@stdlib ||= {})[target.triple] ||= [pure, File.join(EXT, "os", target.os_layer), EXT, *GEMS, *bundled].freeze
+        (@stdlib ||= {})[target.triple] ||= [pure, Layout.ext_os(target), EXT, *GEMS, *bundled].freeze
       end
 
       # The compiler that a program with eval links in, and the

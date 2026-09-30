@@ -46,9 +46,8 @@ module Zr
     end
 
     # The compiler as a SelfBuilt program: `exe/zr`, built from lib/,
-    # runtime/, stdlib/ and the vendored sources. Not all of vendor/: a
-    # checkout can keep a bundle in vendor/bundle.
-    def program = SelfBuilt.new(entry: "exe/zr", binary: binary, dirs: %w[lib runtime stdlib vendor/ext vendor/prelude])
+    # runtime/ and the upstream library (Layout::UPSTREAM).
+    def program = SelfBuilt.new(entry: "exe/zr", binary: binary, dirs: ["lib", "runtime", *Layout::UPSTREAM])
 
     def manifest = program.manifest
     def sources = program.sources
