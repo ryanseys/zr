@@ -172,7 +172,7 @@ module Zr
 
       def first_line(out)
         text = out.stderr.empty? ? out.stdout : out.stderr
-        (text.lines.first&.strip || "(no message)").sub(/\Azr: /, "")
+        (text.lines.first&.strip || "(no message)").delete_prefix("zr: ")
       end
 
       # Prints the table and the two geometric means. Returns true when

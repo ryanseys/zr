@@ -483,7 +483,7 @@ module Zr
         def array_element?(node)
           return false unless %i[[] []=].include?(node.name)
 
-          plain = node.kwargs.nil? && node.block.nil? && node.args.none? { |a| a.is_a?(Hir::Splat) }
+          plain = node.kwargs.nil? && node.block.nil? && node.args.none?(Hir::Splat)
           plain && node.args.size == (node.name == :[] ? 1 : 2)
         end
 
@@ -710,7 +710,7 @@ module Zr
           @f.brif(@f.icmp("ne", direct, imm(0)), fast, generic)
           switch(fast)
           n = node.args.size
-          given = n.times.map { |i| @f.fetch("i64", argv, 8 * i) }
+          given = Array.new(n) { |i| @f.fetch("i64", argv, 8 * i) }
           # The unit's def with this name, if the direct entry is its body:
           # an inline copy of the body, which bails to the call (`Inline`).
           if (d = inline_candidate(node))

@@ -2,6 +2,7 @@ inherit_from: .rubocop_todo.yml
 
 plugins:
   - rubocop-minitest
+  - rubocop-performance
 
 # The Lint cops find bugs (unused values, shadowed names, unreachable
 # code). Each other cop below is on for a reason that it gives.
@@ -64,3 +65,14 @@ Minitest:
 Minitest/MultipleAssertions: { Enabled: false }              # a test checks one behavior, with its parts
 Minitest/EmptyLineBeforeAssertionMethods: { Enabled: false } # layout
 Minitest/AssertWithExpectedArgument: { Enabled: false }      # assert(x, message) is the form it flags
+
+# The Performance cops find an allocation or a call that the code does
+# not need. The compiler's own speed is a feature.
+Performance:
+  Enabled: true
+# A literal list in a loop of a test or a generator runs a few times;
+# in lib/ a loop can be hot.
+Performance/CollectionLiteralInLoop:
+  Exclude:
+    - "test/**/*"
+    - "tool/**/*"

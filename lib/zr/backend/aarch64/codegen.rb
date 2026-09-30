@@ -924,7 +924,7 @@ module Zr
         # The number of instructions that `materialize` uses for `n`.
         def materialized(n)
           n &= 0xFFFF_FFFF_FFFF_FFFF
-          chunks = 4.times.map { |k| (n >> (16 * k)) & 0xFFFF }
+          chunks = Array.new(4) { |k| (n >> (16 * k)) & 0xFFFF }
           filler = chunks.count(0xFFFF) > chunks.count(0) ? 0xFFFF : 0
           [chunks.count { |c| c != filler }, 1].max
         end
@@ -933,7 +933,7 @@ module Zr
         # complement, so the high halves need no instruction.
         def materialize(reg, n)
           n &= 0xFFFF_FFFF_FFFF_FFFF
-          chunks = 4.times.map { |k| (n >> (16 * k)) & 0xFFFF }
+          chunks = Array.new(4) { |k| (n >> (16 * k)) & 0xFFFF }
           if chunks.count(0xFFFF) > chunks.count(0)
             first = chunks.index { |c| c != 0xFFFF } || 0
             @asm.movn reg, chunks[first] ^ 0xFFFF, lsl: 16 * first

@@ -35,7 +35,7 @@ class RegallocDifferentialTest < Minitest::Test
   def test_allocated_and_spilled_code_match_the_interpreter
     seed = Integer(ENV.fetch("ZR_SEED") { Random.new_seed % (1 << 31) })
     rng = Random.new(seed)
-    functions = [callee] + COUNT.times.map { |n| generate(rng, "probe_#{n}") }
+    functions = [callee] + Array.new(COUNT) { |n| generate(rng, "probe_#{n}") }
     functions.each { |f| Zr::IR::Passes.prepare(f, strict: true) }
     interp = Zr::IR::Interp.new(functions)
     allocated = loaded(functions, allocate: true)

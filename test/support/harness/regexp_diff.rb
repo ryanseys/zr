@@ -384,7 +384,7 @@ module Zr
         end
 
         def pattern(depth = 0)
-          parts = (1 + @rng.rand(4)).times.map { term(depth) }
+          parts = Array.new(1 + @rng.rand(4)) { term(depth) }
           out = parts.join
           out = "#{out}|#{pattern(depth + 1)}" if depth < 2 && @rng.rand < 0.2
           out
@@ -415,7 +415,7 @@ module Zr
 
         def subject
           alphabet = ["a", "b", "c", "x", " ", "\n", "1", "A", "é", "日", "ß", "K", "-", "_", "\t", "\u{1F600}", "あ", "ア", "Ａ", "ｱ", "Ω", "я", "Я", "ς", "Σ", "\u00FF", "\u0130", "ı", "中", "한"]
-          (@rng.rand(12)).times.map { alphabet.sample(random: @rng) }.join
+          Array.new(@rng.rand(12)) { alphabet.sample(random: @rng) }.join
         end
 
         # Usually the String in UTF-8, else the String in another encoding

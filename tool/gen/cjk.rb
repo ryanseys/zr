@@ -365,7 +365,7 @@ module Zr
                 out[second] = length
               end
             end
-            table.lengths.each_value { |seconds| seconds.merge!(rule) if seconds.values.include?(2) } unless rule.empty?
+            table.lengths.each_value { |seconds| seconds.merge!(rule) if seconds.value?(2) } unless rule.empty?
           end
           irregular = own.select { |_, table| table.irregular }
           own = own.reject { |encoding, _| irregular.key?(encoding) }

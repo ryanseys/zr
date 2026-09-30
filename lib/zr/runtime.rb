@@ -473,7 +473,7 @@ module Zr
                                          entries: Lower.entries_of("zr_toplevel", hir.units))
     lower = Lower.new(hir, rt.description, symbols, target: target, fixed: symbols.ids.dup.freeze, units: units || nil)
     functions, data = Zr.clock(finish ? "program lowered and assembled" : "program lowered") do
-      finish ? lower.run { |f| finish.call(f, lower.entry) } : lower.run
+      finish ? lower.run { |f| yield(f, lower.entry) } : lower.run
     end
     units = hir.entries.map { |path, i| [path, lower.unit_entry(i)] }
     number_symbols(data, symbols, rt.description.const_for("SYMBOL_TAG"))
