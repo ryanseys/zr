@@ -24,7 +24,8 @@ class CliTest < Minitest::Test
   end
 
   def test_other_ruby_is_refused_with_message
-    assert_equal "zr #{Zr::VERSION} runs on ruby #{Zr::RUBY} or a later 4.0 release; this is ruby 4.0.6",
+    assert_equal "zr #{Zr::VERSION} runs on ruby #{Zr::RUBY} or a later 4.0 release. " \
+                 "Install ruby #{Zr::RUBY}: #{Zr::DOCS_URL}/how-to/install.md",
                  Zr::CLI.host_refusal("4.0.6")
     refute_nil Zr::CLI.host_refusal("4.1.0")
     refute_nil Zr::CLI.host_refusal("3.4.7")
@@ -153,6 +154,7 @@ class CliParseTest < Minitest::Test
       %w[build --bogus app.rb -o app] => "zr build: unknown option '--bogus'",
       %w[build app.rb -o] => "zr build: -o needs a path",
       %w[build app.rb -o app --link] => "zr build: --link needs an argument",
+      %w[build app.rb -o no/such/dir/app] => "zr build: -o no/such/dir/app: the directory no/such/dir does not exist",
       %w[build app.rb -o app --gem csv] => "zr build: --gem needs <name>=<version> or <name>=<dir>, for example --gem csv=3.3.6"
     }.each do |(command, *args), line|
       _, err = assert_exit(2) { CLI.parse(command, args) }
@@ -164,6 +166,36 @@ class CliParseTest < Minitest::Test
     _, err = assert_exit(2) { CLI.start(%w[compile app.rb]) }
 
     assert_equal "zr: unknown command 'compile'\nRun 'zr help' for usage.\n", err
+  end
+
+  def test_an_unknown_option_or_a_near_command_says_so
+    _, err = assert_exit(2) { CLI.start(%w[--frob]) }
+    assert_equal "zr: unknown option '--frob'\nRun 'zr help' for usage.\n", err
+
+    { "biuld" => "build", "rn" => "run", "doctr" => "doctor", "targetss" => "targets" }.each do |typo, name|
+      _, err = assert_exit(2) { CLI.start([typo]) }
+      assert_equal "zr: unknown command '#{typo}'; did you mean '#{name}'?\nRun 'zr help' for usage.\n", err
+    end
+  end
+
+  # Each command prints its help for -h and --help, and nothing else.
+  def test_every_command_has_help
+    %w[targets doctor cache version help inspect diff gems].each do |command|
+      out, = assert_exit(0) { CLI.start([command, "--help"]) }
+      assert_match(/\AUsage: zr #{command}/, out, command)
+    end
+    _, err = assert_exit(2) { CLI.start(%w[targets extra]) }
+    assert_equal "zr targets: unexpected argument 'extra'\nRun 'zr help targets' for usage.\n", err
+  end
+
+  def test_an_unknown_target_lists_the_targets
+    _, err = assert_exit(2) { CLI.target_for("sparc", nil, "build") }
+    assert_equal "zr build: unknown target 'sparc'. The targets are aarch64-apple-darwin, aarch64-linux-musl, " \
+                 "wasm32-wasi\nRun 'zr help build' for usage.\n", err
+  end
+
+  def test_version_names_the_ruby_that_zr_matches
+    assert_equal "zr #{Zr::VERSION} (for ruby #{Zr::RUBY})\n", capture_io { CLI.start(%w[-v]) }.first
   end
 
   def test_no_command_prints_the_usage_on_stderr_and_exits_2

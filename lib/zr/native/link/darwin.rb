@@ -47,7 +47,7 @@ module Zr
         # A program with eval keeps every export as well (`EVAL_EXPORTS`).
         def link(image, out, work:, objects:, strip:, linker:, target:, link: [])
           unless link.empty?
-            return "--link needs cc, and this host has no cc for #{target}" unless target.tool("cc")
+            return "--link needs cc, and this host has no cc for #{target} (#{Target.cc_hint})" unless target.tool("cc")
 
             linker = "cc"
           end
@@ -58,7 +58,8 @@ module Zr
               e.message
             end
             return nil unless why
-            return "Obj::MachO::Executable cannot link this: #{why}" if linker == "ruby" || !target.tool("cc")
+            return "zr's linker cannot link this program: #{why}. Set ZR_LINKER=auto to link it with cc" if linker == "ruby"
+            return "zr's linker cannot link this program: #{why}. cc can, and this host has no cc (#{Target.cc_hint})" unless target.tool("cc")
           end
           obj = File.join(work, "unit.o")
           File.binwrite(obj, Obj::MachO::ObjectFile.write(image))

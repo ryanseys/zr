@@ -20,7 +20,7 @@ Commands:
 
 `zr help <command>` and `zr <command> --help` (or `-h`) print the
 options of a command. `zr version` prints zr's version and the ruby
-whose output it gives (`zr 0.1.0 (ruby 4.0.7)`). `zr --version` and `zr -v` are the
+whose output it gives (`zr 0.1.0 (for ruby 4.0.7)`). `zr --version` and `zr -v` are the
 same.
 
 An option takes its value as the next word or after `=`: `--emit wasm`

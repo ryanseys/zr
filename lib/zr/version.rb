@@ -3,6 +3,12 @@
 module Zr
   VERSION = "0.1.0"
 
+  # The docs of this version, at its release tag, so that a link that zr
+  # prints matches what it does.
+  DOCS_URL = "https://github.com/ryanseys/zr/blob/v#{VERSION}/docs".freeze
+  # Where to report a defect.
+  ISSUES_URL = "https://github.com/ryanseys/zr/issues"
+
   # The ruby version that zr runs on and matches, as pinned in
   # `.ruby-version`. This ruby runs the compiler. A program's standard
   # library is zr's copy of this ruby's own (stdlib/, lib/zr/libraries.rb).

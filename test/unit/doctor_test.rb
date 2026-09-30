@@ -61,7 +61,7 @@ class DoctorTest < Minitest::Test
     out, _, status = zr("version")
 
     assert_predicate status, :success?
-    assert_equal "zr #{Zr::VERSION} (ruby #{Zr::RUBY})\n", out
+    assert_equal "zr #{Zr::VERSION} (for ruby #{Zr::RUBY})\n", out
   end
 
   def test_cache_prints_its_path
@@ -81,7 +81,7 @@ class DoctorTest < Minitest::Test
       _, err, status = zr("run", "--emit", "wasm", program, env: { "PATH" => dir })
 
       assert_equal 1, status.exitstatus
-      assert_includes err, "wasmtime is not installed"
+      assert_includes err, "needs wasmtime, and it is not on the PATH"
     end
   end
 end

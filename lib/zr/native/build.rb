@@ -28,6 +28,9 @@ module Zr
     # (`Link::Darwin`, `Link::Static`). A wasm32 target has one module and
     # no link step.
     module Build
+      # The runtime or the eval support did not assemble: a defect in zr.
+      class Failed < StandardError; end
+
       module_function
 
       # A unit with fewer IR instructions than this assembles in this
@@ -177,7 +180,7 @@ module Zr
             object(support.functions, support.data, fresh, export: true, target: support.target, jobs: jobs, cache: code,
                                                            inlined: !units.nil?, known: units&.known || {}, release: done)
           end
-          raise "the compiler did not build: #{why}" if why
+          raise Failed, "the eval support for #{support.target} did not build: #{why}" if why
 
           Zr.write_cache(obj, File.binread(fresh))
         end
@@ -201,7 +204,7 @@ module Zr
                                                                          cache: cache, inlined: !core.nil?, known: core&.known || {})
           end
           core&.keep(*cache.built) unless why
-          raise "the runtime did not build: #{why}" if why
+          raise Failed, "the zr runtime for #{runtime.target} did not build: #{why}" if why
 
           Zr.write_cache(obj, File.binread(fresh))
         end

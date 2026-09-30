@@ -16,7 +16,7 @@ module Zr
   # `pp`, which calls eval, and a compiler that zr compiles would then
   # have to include eval support.
   module CLI
-    DOCS = "https://github.com/ryanseys/zr/blob/main/docs"
+    DOCS = DOCS_URL
 
     USAGE = <<~TEXT
       Usage: zr <command> [options]
@@ -34,8 +34,9 @@ module Zr
         version                     print the version
         help [<command>]            print help for zr or for one command
 
-      Exit status: 0 success; 1 error; 2 usage error; 3 zr does not support
-      the program or the target. `zr run` exits with the program's status.
+      Exit status: 0 success; 1 error; 2 usage error or a bad ZR_* value;
+      3 zr does not support the program, the target or this ruby; 130 Ctrl-C.
+      `zr run` exits with the program's status.
       Environment variables: #{DOCS}/reference/environment-variables.md
     TEXT
 
@@ -136,6 +137,24 @@ module Zr
 
         #{OPTIONS.sub(/^  --emit .*\n/, "")}
       TEXT
+      "targets" => <<~TEXT,
+        Usage: zr targets
+
+        Lists each target that zr builds for, the outputs it makes for the
+        target (binary, obj, wasm), and the outputs that this host can make.
+      TEXT
+      "version" => <<~TEXT,
+        Usage: zr version
+
+        Prints zr's version and the ruby version that it matches:
+        zr #{VERSION} (for ruby #{RUBY}). `zr --version` and `zr -v` do the same.
+      TEXT
+      "help" => <<~TEXT,
+        Usage: zr help [<command>]
+
+        Prints the commands of zr, or the help of one command.
+        `zr <command> --help` does the same.
+      TEXT
       "cache" => <<~TEXT
         Usage: zr cache [path|size|clean [--all]]
 
@@ -178,7 +197,8 @@ module Zr
     def host_refusal(version = RUBY_VERSION)
       return if Zr.supported_ruby?(version)
 
-      "zr #{VERSION} runs on ruby #{RUBY} or a later 4.0 release; this is ruby #{version}"
+      "zr #{VERSION} runs on ruby #{RUBY} or a later 4.0 release. " \
+        "Install ruby #{RUBY}: #{DOCS}/how-to/install.md"
     end
 
     # A note for a ruby that zr runs on but is not tested with, or nil.
@@ -201,12 +221,12 @@ module Zr
       exit REFUSED
     end
 
-    ISSUES = "https://github.com/ryanseys/zr/issues"
+    ISSUES = ISSUES_URL
 
     # The errors that say what the user must change, not a defect in zr.
     # They print their message only. Named as strings: not every command
     # loads the file that defines each one.
-    EXPECTED = %w[Zr::Config::Invalid Zr::SourceChanged Zr::GemSet::Unresolved Zr::Paths::Missing].freeze
+    EXPECTED = %w[Zr::Config::Invalid Zr::SourceChanged Zr::GemSet::Unresolved Zr::Paths::Missing Zr::Damaged].freeze
     # The errors of a directory that zr cannot write to or that is full.
     UNWRITABLE = %w[EACCES EROFS ENOSPC EPERM].freeze
 
@@ -247,9 +267,20 @@ module Zr
       ""
     end
 
+    # The commands that take no file and no option but -h and --help.
+    PLAIN = %w[targets doctor version].freeze
+
     def start(argv)
       args = argv.dup
       command = args.shift
+      command = "version" if %w[--version -v].include?(command)
+      command = "help" if %w[-h --help].include?(command)
+      if HELP.key?(command) && !COMPILE.include?(command) && command != "gems" &&
+         args.take_while { |word| word.start_with?("-") }.intersect?(%w[-h --help])
+        help(command)
+        exit
+      end
+      usage_error("unexpected argument '#{args.first}'", command) if PLAIN.include?(command) && !args.empty?
       case command
       when *COMPILE then compile(command, args)
       when "targets" then targets
@@ -258,14 +289,29 @@ module Zr
         GemsCommand.public_send(command, args)
       when "doctor" then exit(doctor ? 0 : 1)
       when "cache" then cache(args)
-      when "version", "--version", "-v" then puts "zr #{VERSION} (ruby #{RUBY})"
-      when "help", "-h", "--help" then help(args.first)
+      when "version" then puts "zr #{VERSION} (for ruby #{RUBY})"
+      when "help" then help(args.first)
       when nil
         warn USAGE
         exit 2
+      when /\A-/ then usage_error("unknown option '#{command}'")
       else
-        usage_error("unknown command '#{command}'")
+        near = HELP.keys.find { |name| near?(command, name) }
+        usage_error("unknown command '#{command}'#{"; did you mean '#{near}'?" if near}")
       end
+    end
+
+    # Whether `word` is one edit (a letter added, removed, changed, or
+    # two letters swapped) from `name`.
+    def near?(word, name)
+      return false if (word.size - name.size).abs > 1
+
+      a, b = [word, name].sort_by(&:size)
+      i = 0
+      i += 1 while i < a.size && a[i] == b[i]
+      return a[i..] == b[(i + 1)..] if a.size < b.size
+
+      a[(i + 1)..] == b[(i + 1)..] || (a[i] == b[i + 1] && a[i + 1] == b[i] && a[(i + 2)..] == b[(i + 2)..])
     end
 
     def doctor
@@ -382,6 +428,8 @@ module Zr
         usage_error("cannot run an object file; use 'zr build --emit obj'", command) if opts[:emit] == "obj"
       else
         usage_error("missing -o <path>", command) unless opts[:output]
+        dir = File.dirname(opts[:output])
+        usage_error("-o #{opts[:output]}: the directory #{dir} does not exist", command) unless File.directory?(dir)
         usage_error("unexpected argument '#{opts[:args].first}'", command) unless opts[:args].empty?
       end
       opts[:emit] = EMITS[opts[:emit]]
@@ -446,7 +494,8 @@ module Zr
       require_relative "doctor"
       return if Doctor.which("wasmtime")
 
-      abort "zr: wasmtime is not installed (https://wasmtime.dev); `zr build --emit wasm` writes the module"
+      abort "zr: zr run --emit wasm needs wasmtime, and it is not on the PATH. Install it from https://wasmtime.dev, " \
+            "or use 'zr build --emit wasm' to write the module only."
     end
 
     # The end of `zr run`, once the build is gone: the program's status.
@@ -486,7 +535,7 @@ module Zr
     def target_for(triple, emit, command)
       return emit == "wasm" ? Target::WASM32_WASI : Target.default unless triple
 
-      Target.fetch(triple) || usage_error("unknown target '#{triple}'; 'zr targets' lists them", command)
+      Target.fetch(triple) || usage_error("unknown target '#{triple}'. The targets are #{Target.all.map(&:triple).join(", ")}", command)
     end
 
     # A table of each target, the outputs zr makes for it, and the
@@ -600,8 +649,8 @@ module Zr
     rescue Backend::Refused => e
       # A backend refuses code that the front end let through: a limit or
       # a defect in zr, not a form of Ruby that the program must avoid.
-      abort "zr: the backend cannot compile this program: #{e.message} " \
-            "(please report it at https://github.com/ryanseys/zr/issues)"
+      abort "zr: zr cannot compile this program: #{e.message}. This is a limit or a defect in zr. " \
+            "Report it at #{ISSUES}."
     rescue SyntaxError => e
       # For a program that does not parse, ruby prints a report and exits
       # 1. The binary does the same, with ruby's own report. In ruby, a
@@ -612,6 +661,7 @@ module Zr
         warn "zr: a required file does not parse: #{e.message.lines.first.chomp}"
         exit REFUSED
       end
+      warn "zr: warning: #{input} does not parse. The output prints ruby's syntax error and exits with status 1" if verb == "build"
       Zr.program("$stderr.write(#{report.inspect})\nexit 1\n", input, target: target)
     end
 

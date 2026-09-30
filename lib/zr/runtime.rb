@@ -18,6 +18,9 @@ require_relative "eval_cache"
 require_relative "manifest"
 
 module Zr
+  # An installed zr whose files do not agree with each other.
+  class Damaged < StandardError; end
+
   # The kernel and the core library, lowered once per process, and only
   # as much as a build needs. A program's lowering reads the kernel's
   # description and the symbol table from the cache. Only a build with
@@ -162,7 +165,7 @@ module Zr
       return if File.exist?(path) && File.binread(path) == want
 
       shown = path.delete_prefix("#{Paths::ROOT}/")
-      raise "#{shown} is out of date with runtime/kernel; run `zr-dev gen description`" unless Paths.checkout?
+      raise Damaged, "zr's install is damaged: #{shown} does not match runtime/kernel. Reinstall zr with 'gem install zr -v #{VERSION}'" unless Paths.checkout?
 
       Paths.write_atomic(path, want)
       warn "zr: #{shown} was out of date with runtime/kernel; zr wrote it again"
