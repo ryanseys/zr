@@ -39,7 +39,7 @@ module Zr
         # `rake build:self` does. A build then takes seconds, not minutes.
         # Returns true when it is current.
         def warm!
-          script = "require #{File.join(@root, "lib/zr/compiled_compiler").dump}; Zr::CompiledCompiler.build; exit Zr::CompiledCompiler.current?"
+          script = "require #{File.join(@root, "lib/zr/bootstrap/handoff").dump}; Zr::Bootstrap::Handoff.build; exit Zr::Bootstrap::Handoff.current?"
           system({ "BUNDLE_GEMFILE" => nil, "RUBYOPT" => nil }, Dev.ruby, "-e", script, chdir: @root)
         end
 

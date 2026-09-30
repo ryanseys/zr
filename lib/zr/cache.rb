@@ -45,11 +45,11 @@ module Zr
     end
 
     # The compiled compilers of other zr versions and installs, in the
-    # user's cache (lib/zr/compiled_compiler.rb). Each one is about
+    # user's cache (lib/zr/bootstrap/handoff.rb). Each one is about
     # 120 MB.
     def other_compilers
-      require_relative "compiled_compiler"
-      own = CompiledCompiler.install_dir
+      require_relative "bootstrap/handoff"
+      own = Bootstrap::Handoff.install_dir
       Dir[File.join(Paths.user_cache, "self-*")].select { |dir| File.directory?(dir) && dir != own }
     end
 

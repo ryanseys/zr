@@ -1,22 +1,22 @@
 # frozen_string_literal: true
 
 require "test_helper"
-require_relative "../../lib/zr/shipped"
+require_relative "../../lib/zr/bootstrap/prebuilt"
 
 # A platform gem ships a compiled compiler with a manifest that gives the
 # content digest of its sources. The binary runs only while the sources
 # still have that digest. Here the manifest is in a temporary directory,
 # and nothing under the root changes.
-class ShippedTest < Minitest::Test
-  Shipped = Zr::Shipped
+class BootstrapPrebuiltTest < Minitest::Test
+  Prebuilt = Zr::Bootstrap::Prebuilt
   FILES = [File.join(ROOT, "exe/zr"), File.join(ROOT, "lib/zr/version.rb")].freeze
 
   def test_a_platform_matches_only_an_aarch64_host_of_its_os
-    refute Shipped.host?("x86_64-linux")
+    refute Prebuilt.host?("x86_64-linux")
     skip "not an arm64 Mac" unless RUBY_PLATFORM.start_with?("arm64-darwin")
 
-    assert Shipped.host?("arm64-darwin")
-    refute Shipped.host?("aarch64-linux-gnu")
+    assert Prebuilt.host?("arm64-darwin")
+    refute Prebuilt.host?("aarch64-linux-gnu")
   end
 
   # The digest names each file by its path below the root, so the same
@@ -27,24 +27,24 @@ class ShippedTest < Minitest::Test
       outside = File.join(dir, "library.rb")
       File.write(outside, "1\n")
 
-      assert_equal Shipped.digest(FILES), Shipped.digest(FILES + [outside])
-      refute_equal Shipped.digest(FILES), Shipped.digest(FILES.take(1))
+      assert_equal Prebuilt.digest(FILES), Prebuilt.digest(FILES + [outside])
+      refute_equal Prebuilt.digest(FILES), Prebuilt.digest(FILES.take(1))
     end
   end
 
   def test_a_matching_digest_is_current_and_later_only_the_stamps_are_compared
-    with_manifest(Shipped.manifest(FILES, "arm64-darwin")) do
-      assert Shipped.current?(FILES, :stamps)
-      stub_method(Shipped, :digest, ->(_) { raise "the digest is read again" }) do
-        assert Shipped.current?(FILES, :stamps)
+    with_manifest(Prebuilt.manifest(FILES, "arm64-darwin")) do
+      assert Prebuilt.current?(FILES, :stamps)
+      stub_method(Prebuilt, :digest, ->(_) { raise "the digest is read again" }) do
+        assert Prebuilt.current?(FILES, :stamps)
       end
     end
   end
 
   def test_a_different_digest_or_version_is_not_current
-    with_manifest(Shipped.manifest(FILES.take(1), "arm64-darwin")) { refute Shipped.current?(FILES, :stamps) }
-    with_manifest(Shipped.manifest(FILES, "arm64-darwin").sub(/^version .*/, "version 0.0.0")) do
-      refute Shipped.current?(FILES, :stamps)
+    with_manifest(Prebuilt.manifest(FILES.take(1), "arm64-darwin")) { refute Prebuilt.current?(FILES, :stamps) }
+    with_manifest(Prebuilt.manifest(FILES, "arm64-darwin").sub(/^version .*/, "version 0.0.0")) do
+      refute Prebuilt.current?(FILES, :stamps)
     end
   end
 
@@ -59,9 +59,9 @@ class ShippedTest < Minitest::Test
       File.write(manifest, text)
       File.write(binary, "")
       File.chmod(0o755, binary)
-      stub_method(Shipped, :manifest_path, manifest) do
-        stub_method(Shipped, :binary, binary) do
-          stub_method(Shipped, :verified_path, File.join(dir, "cache", "verified.marshal")) { yield }
+      stub_method(Prebuilt, :manifest_path, manifest) do
+        stub_method(Prebuilt, :binary, binary) do
+          stub_method(Prebuilt, :verified_path, File.join(dir, "cache", "verified.marshal")) { yield }
         end
       end
     end

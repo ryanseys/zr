@@ -84,7 +84,7 @@ module Zr
   # output can depend on it. `compiler_digest_test.rb` checks that a build
   # and a link load none of them.
   DRIVER_ONLY = %w[
-    cache.rb compiled_compiler.rb doctor.rb iseq_cache.rb run_cache.rb self_built.rb server.rb shipped.rb
+    bootstrap/binary.rb bootstrap/handoff.rb bootstrap/prebuilt.rb cache.rb doctor.rb iseq_cache.rb run_cache.rb server.rb
   ].map { |name| File.join(__dir__, name) }.freeze
 
   # The compiler files that belong to one target: an instruction set's

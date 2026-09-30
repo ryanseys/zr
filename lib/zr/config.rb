@@ -8,7 +8,7 @@ module Zr
   # in the same process gets that same frozen instance, so one build sees
   # one consistent set of settings even if something changes `ENV`
   # afterward. Code reads a `ZR_*` variable only through this class.
-  # (`ZR_BINARY` and `ZR_COMPILED` are the exception: `CompiledCompiler`
+  # (`ZR_BINARY` and `ZR_COMPILED` are the exception: `Bootstrap::Handoff`
   # reads them before it loads anything else.)
   class Config
     # `ZR_LINKER`: `auto` (zr's own linker, and cc for what it cannot

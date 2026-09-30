@@ -2,7 +2,7 @@
 
 require "test_helper"
 require "open3"
-require_relative "../../lib/zr/compiled_compiler"
+require_relative "../../lib/zr/bootstrap/handoff"
 require_relative "../../lib/zr/stdlib"
 
 # The compiled compiler, as an installed gem on an Apple Silicon Mac runs
@@ -17,12 +17,12 @@ require_relative "../../lib/zr/stdlib"
 # This test builds one such program in turn with the compiled compiler,
 # with ruby and no ledger, and with the compiled compiler again, all in
 # this checkout's one cache.
-class CompiledCompilerE2ETest < Minitest::Test
+class BootstrapHandoffE2ETest < Minitest::Test
   EXE = File.join(ROOT, "exe/zr")
 
   # Not bin/zr: the test never replaces the checkout's own compiled
   # compiler. It stays between runs, so a run builds it again only after a
-  # source changes (lib/zr/self_built.rb).
+  # source changes (lib/zr/bootstrap/binary.rb).
   BINARY = File.join(ROOT, "tmp/e2e-compiled/zr")
 
   # A self-build, and three builds of a program with eval support.
@@ -35,7 +35,7 @@ class CompiledCompilerE2ETest < Minitest::Test
   RUBY
 
   def setup
-    skip "this host cannot run the compiled compiler" unless Zr::CompiledCompiler.runnable?
+    skip "this host cannot run the compiled compiler" unless Zr::Bootstrap::Handoff.runnable?
   end
 
   # `zr build` in a child with only the environment that this suite
@@ -55,7 +55,7 @@ class CompiledCompilerE2ETest < Minitest::Test
     refute_includes log, "did not build"
     was = ENV["ZR_BINARY"]
     ENV["ZR_BINARY"] = BINARY
-    assert Zr::CompiledCompiler.current?, "the compiled compiler at #{BINARY} is not current:\n#{log}"
+    assert Zr::Bootstrap::Handoff.current?, "the compiled compiler at #{BINARY} is not current:\n#{log}"
   ensure
     ENV["ZR_BINARY"] = was
   end

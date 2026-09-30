@@ -170,6 +170,8 @@ module Zr
       TEXT
     }.freeze
 
+    # The commands that compile. The compiled compiler runs these
+    # (Bootstrap::Handoff); ruby runs all others.
     COMPILE = %w[run build machine].freeze
     EMITS = { "binary" => nil, "obj" => "obj", "wasm" => "wasm" }.freeze
 
@@ -184,11 +186,11 @@ module Zr
 
     # Sets the collector limits and YJIT for a compile (`Tune`). With
     # `later`, only the first step of heavy work tunes, so a warm build
-    # pays for neither. `handed` says that `CompiledCompiler.hand_over`
+    # pays for neither. `handed` says that `Bootstrap::Handoff.hand_over`
     # already kept the command in this process; a new start of zr then
     # does not check again.
     def tune!(script = nil, handed: false, later: false)
-      env = handed ? { CompiledCompiler::HANDED => "1" } : {}
+      env = handed ? { Bootstrap::Handoff::HANDED => "1" } : {}
       later ? Tune.later(script, ARGV, env: env) : Tune.now(script, ARGV, env: env)
     end
 

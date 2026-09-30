@@ -33,8 +33,8 @@ Two kinds of code meet on a program's load path (`Zr::Layout`):
 | `lib/zr/settled.rb` | `Zr.settled!`: a cache write stops if a source changed during the build |
 | `lib/zr/parse.rb` | `Zr.parse`: prism, through the parse cache where there is one |
 | `lib/zr/backend.rb` | `Zr::Backend`: what the backends share, and `Backend::Refused` |
-| `lib/zr/self_built.rb` | a binary that zr builds from this checkout's own files: the compiled compiler, or the tools |
-| `lib/zr/shipped.rb` | the compiled compiler that a platform gem ships |
+| `lib/zr/bootstrap/binary.rb` | a binary that zr builds from this checkout's own files: the compiled compiler, or the tools |
+| `lib/zr/bootstrap/prebuilt.rb` | the compiled compiler that a platform gem ships |
 | `lib/zr/libraries.rb` | the directories of `vendor/ruby` that a program requires from |
 | `lib/zr/vendor.rb` | what `vendor/` holds, and what it leaves out and why: the input of `zr-dev vendor` |
 | `lib/zr/stdlib.rb` | the name and version of each gem in `vendor/ruby` (`zr-dev vendor` writes it) |
@@ -59,7 +59,7 @@ Two kinds of code meet on a program's load path (`Zr::Layout`):
 | `lib/zr/tune.rb` | the collector limits and YJIT of a compile |
 | `lib/zr/iseq_cache.rb` | the compiled instructions of zr's own files, kept in the cache |
 | `lib/zr/server.rb` | the build server of `zr-dev serve`, and its client in `exe/zr` |
-| `lib/zr/compiled_compiler.rb` | the compiled compiler: when `exe/zr` gives it a build |
+| `lib/zr/bootstrap/handoff.rb` | the compiled compiler: when `exe/zr` gives it a build |
 | `lib/zr/eval.rb` | the eval compiler |
 | `lib/zr/eval/walk.rb`, `lib/zr/eval/walk/` | the tree-walking interpreter |
 | `runtime/kernel/` | the kernel, in the machine dialect |
