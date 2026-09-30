@@ -52,11 +52,11 @@ module Zr
         ].freeze
 
         # The bundled gems whose files the tree holds. The others are
-        # ports (bigdecimal, syslog, nkf, fiddle) or refused (rbs,
+        # ports (bigdecimal, syslog, nkf, fiddle, racc) or refused (rbs,
         # typeprof, debug, rdoc, repl_type_completor, win32ole).
         BUNDLED = %w[
           abbrev base64 benchmark csv drb getoptlong irb logger matrix minitest mutex_m net-ftp
-          net-imap net-pop net-smtp observer ostruct power_assert prime pstore racc rake readline
+          net-imap net-pop net-smtp observer ostruct power_assert prime pstore rake readline
           reline resolv-replace rexml rinda rss test-unit
         ].freeze
 

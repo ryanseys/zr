@@ -19,6 +19,7 @@ version, its license, and where its license text is.
 | openssl | 4.0.2 | Ruby or BSD-2-Clause | `vendor/ext/openssl` | `vendor/ext/openssl/COPYING`, `BSDL` |
 | nkf | 0.3.0 | Ruby or BSD-2-Clause | `vendor/ext/nkf` | `vendor/ext/nkf/COPYING`, `BSDL`, `LEGAL` |
 | fiddle | 1.1.8 | Ruby or BSD-2-Clause | `vendor/ext/fiddle` | `vendor/ext/fiddle/LICENSE.txt` |
+| racc | 1.8.1 | Ruby or BSD-2-Clause | `vendor/ext/racc` | `vendor/ext/racc/COPYING`, `BSDL` |
 
 ## Ruby's pure-Ruby standard library
 
@@ -63,6 +64,7 @@ unedited, under Ruby or BSD-2-Clause.
 | `runtime/core/unicode.rb`, `runtime/core/regexp/unicode_tables.rb`, `runtime/kernel/onig_tables.rb`, `stdlib/lib/ruby/4.0.0/unicode_normalize/tables.rb` | the Unicode Character Database 17.0.0, as ruby 4.0.7 carries it; the license text is in `licenses/unicode.txt` | Unicode-3.0 |
 | `runtime/core/cjk.rb`, `runtime/core/transcode.rb`, `runtime/core/emoji.rb`, `runtime/core/iso2022.rb` | CRuby 4.0.7's `enc/trans` tables; the notices of the mapping data are in `licenses/enc-trans.txt` | Ruby or BSD-2-Clause, and the mapping data's own notices |
 | `runtime/ext/json/ext/*.rb` | the C half of the json gem 3.0.2; the license text is in `vendor/ext/json/COPYING` | Ruby or BSD-2-Clause |
+| `runtime/ext/racc/cparse.rb` | the C half of the racc gem 1.8.1 (`cparse.c`); the license text is in `vendor/ext/racc/COPYING` | Ruby or BSD-2-Clause |
 | `runtime/ext/ffi_c/*.rb`, `runtime/ext/ffi_c.rb` | the C half of the ffi gem 1.17.4; the license text is in `vendor/ext/ffi/LICENSE` | BSD-3-Clause |
 | `runtime/ext/date.rb`, `runtime/ext/date/*.rb`, `runtime/ext/stringio.rb`, `runtime/ext/strscan.rb`, `runtime/ext/socket/*.rb`, `runtime/ext/socket.so.rb`, `runtime/ext/syslog_ext.rb`, `runtime/ext/fiddle.so.rb`, `runtime/ext/ripper.so.rb`, `runtime/ext/zr/ast.rb`, `runtime/ext/os/*/io/console/*.rb`, `runtime/core/hash.rb`, `runtime/core/set.rb`, `runtime/core/time.rb`, `runtime/core/format.rb`, `runtime/core/pathname.rb`, `runtime/kernel/objspace.rb`, `runtime/kernel/os/*/env.rb`, `runtime/kernel/zlib.rb` | the C of CRuby 4.0.7 and of its default gems (date, stringio, strscan, socket, syslog, fiddle, io-console, etc and others): these files follow the C functions they name; the license texts are in `stdlib/LICENSES/ruby` | Ruby or BSD-2-Clause |
 

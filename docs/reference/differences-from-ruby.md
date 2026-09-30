@@ -68,8 +68,8 @@ are those of the later version:
 | nkf | 0.3.0 | 0.2.0 (bundled gem) |
 
 ffi 1.17.4 is also a port; ruby 4.0.7 does not ship ffi. The other
-ports (psych, digest, openssl, fiddle, date, stringio, strscan, zlib,
-io-console, etc, fcntl) are at ruby 4.0.7's versions.
+ports (psych, digest, openssl, fiddle, racc, date, stringio, strscan,
+zlib, io-console, etc, fcntl) are at ruby 4.0.7's versions.
 
 ## The locale
 

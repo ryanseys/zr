@@ -31,6 +31,7 @@ module Zr
       "openssl" => port("4.0.2"),
       "nkf" => port("0.3.0"),
       "fiddle" => port("1.1.8"),
+      "racc" => port("1.8.1"),
       # All in runtime/ext: the C of ruby 4.0.7's default gem, in Ruby.
       "date" => port("3.5.1", ruby: false),
       "stringio" => port("3.2.0", ruby: false),
