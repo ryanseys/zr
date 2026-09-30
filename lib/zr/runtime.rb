@@ -13,7 +13,7 @@ require_relative "clock"
 require_relative "tune"
 require_relative "settled"
 require_relative "cache/store"
-require_relative "sources"
+require_relative "runtime_sources"
 require_relative "cache/lowering/core"
 require_relative "cache/lowering/eval_support"
 require_relative "manifest"
@@ -36,7 +36,7 @@ module Zr
     # that runs while a file changes cannot cache old output under the
     # new digest.
     def sources
-      @sources ||= Zr.sources(target).to_h { |path| [path, File.read(path)] }
+      @sources ||= RuntimeSources.for(target).sources.to_h { |path| [path, File.read(path)] }
     end
 
     # The lowered kernel. The core's lowering and the runtime object need
@@ -46,7 +46,7 @@ module Zr
 
       @unit ||= Zr.clock("kernel lowered") do
         Tune.heavy!
-        Machine::Lower.new(Zr.kernel_files(target).map { |path| [sources.fetch(path), path] }, kernel_symbols).tap(&:run)
+        Machine::Lower.new(RuntimeSources.for(target).kernel_files.map { |path| [sources.fetch(path), path] }, kernel_symbols).tap(&:run)
       end
     end
 
@@ -71,7 +71,7 @@ module Zr
       @digest ||= Zr.clock("runtime digest") do
         files = sources.keys + gem_prelude_files
         @stamps = files.to_h { |path| [path, Paths.stamp(path)] }
-        Zr.with_ledger(digest_of(files), ledger_text)
+        Digests.with_ledger(digest_of(files), ledger_text)
       end
     end
 
@@ -96,7 +96,7 @@ module Zr
     # them adds or removes a file, the digest changes and the list is
     # computed again.
     # The cache file that lists them.
-    def gem_prelude_path = Zr.gem_prelude_list(digest_of(sources.keys))
+    def gem_prelude_path = RuntimeSources.gem_prelude_list(digest_of(sources.keys))
 
     def gem_prelude_files
       @gem_prelude_files ||= begin
@@ -110,7 +110,7 @@ module Zr
       end
     end
 
-    def digest_of(files) = Zr.source_digest(target, files, sources)
+    def digest_of(files) = Digests.sources(target, files, sources)
 
     # The symbol table after the core library. It comes from the cache if
     # an earlier build lowered the core with this digest.
@@ -168,15 +168,15 @@ module Zr
 
     def carried_text = @carried_text ||= Machine::Description.carried(cached.fetch(:description))
 
-    # `Zr.abi_digest`: what a program's units take from this runtime. It reads the symbol table's cache, which it makes first.
+    # `RuntimeSources#abi_digest`: what a program's units take from this runtime. It reads the symbol table's cache, which it makes first.
     def abi_digest
-      @abi_digest ||= (cached && Zr.abi_digest(target, digest)) || raise("no symbol table for runtime #{digest}")
+      @abi_digest ||= (cached && RuntimeSources.for(target).abi_digest(digest)) || raise("no symbol table for runtime #{digest}")
     end
 
-    # `Zr.eval_digest`: what eval support takes from this runtime, besides
+    # `RuntimeSources#eval_digest`: what eval support takes from this runtime, besides
     # the ids of the names it uses.
     def eval_digest
-      @eval_digest ||= (cached && Zr.eval_digest(target, digest)) || raise("no symbol table for runtime #{digest}")
+      @eval_digest ||= (cached && RuntimeSources.for(target).eval_digest(digest)) || raise("no symbol table for runtime #{digest}")
     end
 
     private
@@ -206,15 +206,15 @@ module Zr
     def ledger_text
       return @ledger_text if defined?(@ledger_text)
 
-      @ledger_text = Zr.ledger_text(target)
+      @ledger_text = RuntimeSources.for(target).ledger_text
     end
 
     # Writes the ledger for the next build: this table's names, with nil
     # for each name that this build did not ask for.
     def keep_ledger(symbols)
-      return unless Zr.ledger?
+      return unless RuntimeSources.ledger?
 
-      Cache::Store.write_file(Zr.ledger_path(target), JSON.generate(symbols.names.each_with_index.map { |name, i| name if symbols.used?(i) }))
+      Cache::Store.write_file(RuntimeSources.for(target).ledger_path, JSON.generate(symbols.names.each_with_index.map { |name, i| name if symbols.used?(i) }))
     end
 
     # The symbol table, the wanted symbols and the kernel's description.
@@ -224,7 +224,7 @@ module Zr
       @cached ||= read_cached || write_cached
     end
 
-    def cache_path = Zr.symbols_path(digest)
+    def cache_path = RuntimeSources.symbols_path(digest)
 
     def read_cached
       return unless File.exist?(cache_path)
@@ -299,7 +299,7 @@ module Zr
   # own object, so a program with eval lowers and assembles only itself.
   # Next to the object, the cache keeps the metadata that a program
   # needs: the entry of each file, its dependencies, and the symbol table
-  # after it. The key is the eval digest (`Zr.eval_digest`) and the bytes
+  # after it. The key is the eval digest (`RuntimeSources#eval_digest`) and the bytes
   # of each file in eval support, and the metadata lists the runtime names
   # it used. An edit to a file of eval support, to the compiler or to the
   # kernel's description builds it again, as does a runtime name it used
@@ -339,7 +339,7 @@ module Zr
     # `Cache::Parse.maker`).
     def digests = meta.fetch("digests")
 
-    # The key of eval support's code (`Zr.eval_key`): the key of its files
+    # The key of eval support's code (`Digests.eval_key`): the key of its files
     # (the eval digest and the bytes of each file), and the symbol table
     # that its code uses. The object has this name, and the unit cache
     # uses it for a program that uses this symbol table. The same files
@@ -399,7 +399,7 @@ module Zr
     # each file. A build gives the bytes that it lowered (`sources`), so an edit
     # during the build cannot put old output under the new bytes' key. A
     # check of the cache reads the files as they are now.
-    def files_key(files, sources = {}, absent = []) = Zr.eval_files_key(@runtime.eval_digest, files, sources, absent)
+    def files_key(files, sources = {}, absent = []) = Digests.eval_files_key(@runtime.eval_digest, files, sources, absent)
 
     def lowered
       @lowered ||= Zr.clock("eval support lowered") do
@@ -423,7 +423,7 @@ module Zr
         # lowering stale, though no file that it read changed.
         absent = loader.stopped.uniq.sort.flat_map { |feature| Hir::Build.stdlib(target).map { |root| File.join(root, "#{feature}.rb") } }
         read = files_key(files, sources, absent)
-        meta = { "key" => Zr.eval_key(read, symbols.names, symbols.sites), "files_key" => read, "files" => files, "absent" => absent, "digests" => digests,
+        meta = { "key" => Digests.eval_key(read, symbols.names, symbols.sites), "files_key" => read, "files" => files, "absent" => absent, "digests" => digests,
                  "units" => loader.entries.to_h { |path, i| [path, lower.unit_entry(i)] },
                  "configures" => loader.configures?, "normalizes" => loader.normalizes?, "pretty_prints" => loader.pretty_prints?,
                  "irbs" => loader.irbs?, "gems" => loader.gems?,
@@ -600,7 +600,7 @@ module Zr
   def core(unit, symbols, target = Target.default, sources = {})
     functions = []
     data = []
-    entries = core_files(target).map do |path|
+    entries = RuntimeSources.for(target).core_files.map do |path|
       f, d = lower_core_file(path, sources.fetch(path) { File.read(path) }, unit, symbols, target)
       functions.concat(f)
       data.concat(d)

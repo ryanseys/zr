@@ -45,7 +45,8 @@ Two kinds of code meet on a program's load path (`Zr::Layout`):
 | `lib/zr/hir.rb`, `lib/zr/hir/` | prism's tree to the HIR: desugaring, requires, refusals |
 | `lib/zr/lower.rb`, `lib/zr/lower/` | `Zr::Lower`: the HIR to the IR, for the zr runtime |
 | `lib/zr/runtime.rb` | `Zr::Runtime`, `Zr::Program` and `Zr::EvalSupport`: the runtime's files and built forms |
-| `lib/zr/sources.rb` | the source files of the runtime and the compiler, and the digests that name the cache's files |
+| `lib/zr/runtime_sources.rb` | the source files of one target's runtime and of the compiler, and their digests |
+| `lib/zr/digests.rb` | the digests of the cache's names that belong to no one target: the link, eval support's keys, the ledger |
 | `lib/zr/machine/` | the machine dialect to the IR, and the kernel's description |
 | `lib/zr/ir.rb`, `lib/zr/ir/` | the IR, its passes, its verifier, and `IR::Interp` |
 | `lib/zr/backend/aarch64/` | the aarch64 backend: assembler, register allocator, code generator |

@@ -4,7 +4,7 @@ require "digest/sha2"
 require_relative "../config"
 require_relative "../paths"
 require_relative "../settled"
-require_relative "../sources"
+require_relative "../runtime_sources"
 require_relative "store"
 require_relative "../version"
 
@@ -33,7 +33,7 @@ module Zr
       # `ZR_RUN_CACHE=0` builds each run again.
       def self.wanted? = Config.current.run_cache?
 
-      # `digest` is the runtime's digest (`Zr.runtime_digest`). `gems` is the
+      # `digest` is the runtime's digest (`RuntimeSources#runtime_digest`). `gems` is the
       # build's GemSet: a program built with other gems is another entry,
       # also when the files of the first gems are still there.
       def initialize(input, target:, digest:, link:, gems: nil)
@@ -41,7 +41,7 @@ module Zr
         config = Config.current
         @digest = digest
         @target = target
-        @key = Store.key(VERSION, Zr::VERSION, digest, Zr.link_digest, target.triple, Paths.root.to_s,
+        @key = Store.key(VERSION, Zr::VERSION, digest, Digests.link, target.triple, Paths.root.to_s,
                          config.linker, config.eval_walk?, config.verify?, *link, "\0", gems && !gems.empty? ? gems.digest : "",
                          @input, File.binread(@input))
       end
@@ -96,8 +96,8 @@ module Zr
       def eval_current?(meta_path, key)
         require "json"
         meta = JSON.parse(File.read(meta_path))
-        base = Zr.eval_digest(@target, @digest) or return false
-        meta.fetch("key") == key && Zr.eval_files_key(base, meta.fetch("files"), {}, meta.fetch("absent", [])) == meta.fetch("files_key")
+        base = RuntimeSources.for(@target).eval_digest(@digest) or return false
+        meta.fetch("key") == key && Digests.eval_files_key(base, meta.fetch("files"), {}, meta.fetch("absent", [])) == meta.fetch("files_key")
       rescue JSON::ParserError, KeyError, SystemCallError
         false
       end

@@ -5,7 +5,7 @@ require "open3"
 require "rbconfig"
 
 # The compiler digest leaves out the files that only drive zr
-# (`Zr::DRIVER_ONLY`), so an edit to them rebuilds nothing. That holds only
+# (`Zr::RuntimeSources::DRIVER_ONLY`), so an edit to them rebuilds nothing. That holds only
 # while no build or link loads them: a file that a build loads can change
 # its output.
 class CompilerDigestTest < Minitest::Test
@@ -16,16 +16,16 @@ class CompilerDigestTest < Minitest::Test
       require "zr/runtime"
       require "zr/native/build"
       Zr::Native::Build.linker(Zr::Target.default)
-      puts $LOADED_FEATURES.select { |f| Zr::DRIVER_ONLY.include?(f) }
+      puts $LOADED_FEATURES.select { |f| Zr::RuntimeSources::DRIVER_ONLY.include?(f) }
     RUBY
     out, status = Open3.capture2(RbConfig.ruby, "-I#{LIB}", "-e", code)
     assert_predicate status, :success?
-    assert_empty out.split("\n"), "a build loads a file of Zr::DRIVER_ONLY; take it out of the list"
+    assert_empty out.split("\n"), "a build loads a file of Zr::RuntimeSources::DRIVER_ONLY; take it out of the list"
   end
 
   def test_the_digest_has_no_driver_file
-    files = Zr.compiler_files(Zr::Target.default)
-    assert_empty files & Zr::DRIVER_ONLY
+    files = Zr::RuntimeSources.for(Zr::Target.default).compiler_files
+    assert_empty files & Zr::RuntimeSources::DRIVER_ONLY
     assert_includes files, File.join(LIB, "zr/lower.rb")
   end
 end

@@ -44,7 +44,7 @@ module Zr
       end
 
       def initialize(runtime:, table:, traced:, entries:)
-        # `runtime` is the runtime's ABI digest (`Zr.abi_digest`): the
+        # `runtime` is the runtime's ABI digest (`RuntimeSources#abi_digest`): the
         # compiler, the kernel's description and the symbol table. A unit's
         # code calls the core only by name, so a core body edit keeps it.
         # `table` identifies the symbol table that

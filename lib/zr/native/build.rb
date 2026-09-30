@@ -103,8 +103,8 @@ module Zr
       def root(runtime, objects, evals)
         target = runtime.target
         Cache::Store.root("#{target.triple}-link-#{evals ? "eval-#{evals.kind}" : "plain"}",
-                   [*objects, prelink_path(objects), skeleton_path(objects), Zr.symbols_path(runtime.digest),
-                    runtime.gem_prelude_path, Zr.ledger_path(target), (evals.meta_path if evals),
+                   [*objects, prelink_path(objects), skeleton_path(objects), RuntimeSources.symbols_path(runtime.digest),
+                    runtime.gem_prelude_path, RuntimeSources.for(target).ledger_path, (evals.meta_path if evals),
                     (File.dirname(runtime.carried_description) if evals), CodeCache.dir])
       rescue SystemCallError, SourceChanged
         nil # a root that is not written protects less; the link goes on
@@ -152,7 +152,7 @@ module Zr
 
       # Returns the cache path of the prelink of `objects`, or nil when the
       # objects are not in the cache. The object names are the digests of
-      # their inputs. `Zr.link_digest` adds the other input of the image:
+      # their inputs. `Digests.link` adds the other input of the image:
       # the linker's own files, which the object digests do not include
       # on purpose.
       def prelink_path(objects)
@@ -165,7 +165,7 @@ module Zr
       # The cache path of the skeleton of `objects`, next to their prelink.
       def skeleton_path(objects) = prelink_path(objects) && Cache::Store.path(:image, "#{image_key(objects)}-skeleton")
 
-      def image_key(objects) = Digest::SHA256.hexdigest([*objects.map { |o| File.basename(o) }, Zr.link_digest].join("\n"))
+      def image_key(objects) = Digest::SHA256.hexdigest([*objects.map { |o| File.basename(o) }, Digests.link].join("\n"))
 
       # Returns the path of the skeleton file for `objects`: the bytes that
       # every binary linked against them starts with (`Obj::MachO::Skeleton`).

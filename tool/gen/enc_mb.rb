@@ -59,7 +59,7 @@ module Zr
         def write(io)
           require_relative "../../lib/zr/runtime"
 
-          Zr.require_onig
+          Zr::RuntimeSources.require_onig
 
           # The encodings that need their own encoder to walk a String: they
           # are ASCII-compatible, a character can have more than one byte, and

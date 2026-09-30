@@ -23,7 +23,7 @@ module Zr
       # so its symbol ids agree with the runtime.
       def compile(rb, target = Zr::Target.default)
         runtime = Zr.runtime(target)
-        unit = Zr::Machine.unit(Zr.kernel_files(target) + [rb], symbols: runtime_symbols(runtime))
+        unit = Zr::Machine.unit(Zr::RuntimeSources.for(target).kernel_files + [rb], symbols: runtime_symbols(runtime))
         own = unit.declared_defs.filter_map { |name, d| name if d.file == rb }
         kernel = kernel_data(runtime)
         functions = unit.functions.select { |f| own.include?(f.name) }
@@ -39,7 +39,7 @@ module Zr
       # a file that is lowered after it.
       def kernel_data(runtime)
         (@kernel_data ||= {})[runtime.target.triple] ||=
-          Zr::Machine.unit(Zr.kernel_files(runtime.target), symbols: runtime_symbols(runtime)).data.map(&:name)
+          Zr::Machine.unit(Zr::RuntimeSources.for(runtime.target).kernel_files, symbols: runtime_symbols(runtime)).data.map(&:name)
       end
 
       # Returns the expected output (stdout and stderr together) and exit

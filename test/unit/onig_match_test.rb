@@ -8,7 +8,7 @@ require_relative "../../lib/zr/runtime"
 # engine. The core compiles each pattern under this ruby. The test
 # JIT-loads the kernel unit, which does the search. `Regexp` on the same
 # subject gives the expected position and byte offsets of each capture.
-Zr.require_onig
+Zr::RuntimeSources.require_onig
 
 class OnigMatchTest < Minitest::Test
   O = Regexp::Onig

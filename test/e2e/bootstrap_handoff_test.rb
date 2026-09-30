@@ -13,7 +13,7 @@ require_relative "../../lib/zr/stdlib"
 # without (`rake build:self`, `ZR_LEDGER=0`) give the runtime's names other
 # ids. When the object's key had only its files, a build with one table
 # linked the object that a build with the other table wrote, and each eval
-# read names by the wrong ids (`Zr.eval_key`, test/unit/eval_key_test.rb).
+# read names by the wrong ids (`Zr::Digests.eval_key`, test/unit/eval_key_test.rb).
 # This test builds one such program in turn with the compiled compiler,
 # with ruby and no ledger, and with the compiled compiler again, all in
 # this checkout's one cache.

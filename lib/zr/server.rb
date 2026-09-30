@@ -268,7 +268,7 @@ module Zr
       Paths.instance_variable_set(:@cache, nil)
       Libraries.instance_variable_set(:@roots, nil) if defined?(Libraries)
       return if message && @digest && settings(message[:env]) == settings(ENV) && message[:argv].none? { |word| word.start_with?("--path-root") } &&
-                Zr.runtime_digest(Target.default) == @digest
+                RuntimeSources.for(Target.default).runtime_digest == @digest
 
       Zr.instance_variable_set(:@runtimes, nil)
       Zr.instance_variable_set(:@eval_supports, nil)
@@ -285,7 +285,7 @@ module Zr
     # build after an edit to the runtime starts warm too.
     def refresh
       target = Target.default
-      digest = Zr.runtime_digest(target)
+      digest = RuntimeSources.for(target).runtime_digest
       return if digest.nil? || digest == @digest
 
       fresh!

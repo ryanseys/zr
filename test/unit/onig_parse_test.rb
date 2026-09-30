@@ -9,7 +9,7 @@ require_relative "../../lib/zr/runtime"
 # preprocess (the text and the pattern after it), each warning (quiet
 # and verbose), the group names, and the limits. onig_match_test and
 # regexp_diff_test check matching.
-Zr.require_onig
+Zr::RuntimeSources.require_onig
 require File.join(ROOT, "runtime/core/regexp_pattern.rb")
 
 class OnigParseTest < Minitest::Test
@@ -111,7 +111,7 @@ class OnigParseTest < Minitest::Test
     assert_like_ruby("a{100001}")
     script = <<~'RUBY'
       require "./lib/zr/runtime"
-      Zr.require_onig
+      Zr::RuntimeSources.require_onig
       require "./runtime/core/regexp_pattern.rb"
       pattern = Regexp.const_get(:Pattern)
       [4095, 4096, 4097].each do |depth|

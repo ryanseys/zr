@@ -14,7 +14,7 @@ module Zr
       TIMEOUT = -23
 
       def initialize
-        Zr.require_onig
+        Zr::RuntimeSources.require_onig
         @kernel = KernelJIT.new("onig_*.rb", constants: { "CLOCK_MONOTONIC" => 6 })
       end
 

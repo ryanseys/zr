@@ -3,7 +3,7 @@
 require "test_helper"
 require_relative "../../lib/zr/runtime"
 
-# The eval support object's key names its code (`Zr.eval_key`), not only
+# The eval support object's key names its code (`Zr::Digests.eval_key`), not only
 # the files that it was lowered from.
 #
 # The code contains the id of each name that it uses, the runtime's
@@ -18,7 +18,7 @@ class EvalKeyTest < Minitest::Test
   FILES = "files"
   NAMES = ["zr_intern", "os", "triple", nil, "@os"].freeze
 
-  def key(names, sites = 3) = Zr.eval_key(FILES, names, sites)
+  def key(names, sites = 3) = Zr::Digests.eval_key(FILES, names, sites)
 
   def test_the_same_files_and_table_give_the_same_key
     assert_equal key(NAMES), key(NAMES.dup)
@@ -50,7 +50,7 @@ class EvalKeyTest < Minitest::Test
     support = Zr.eval_support(Zr::Target.default)
     meta = support.send(:meta)
 
-    assert_equal Zr.eval_key(meta.fetch("files_key"), meta.fetch("names"), meta.fetch("sites")), support.key
+    assert_equal Zr::Digests.eval_key(meta.fetch("files_key"), meta.fetch("names"), meta.fetch("sites")), support.key
     refute_equal meta.fetch("files_key"), support.key
     assert_equal Zr::EvalSupport.object_path(support.key), support.object_path
   end
@@ -61,11 +61,11 @@ class EvalKeyTest < Minitest::Test
   def test_a_file_where_a_stopped_feature_would_be_changes_the_files_key
     Dir.mktmpdir("zr-eval-key-") do |dir|
       absent = File.join(dir, "prism/translation/parser.rb")
-      before = Zr.eval_files_key("digest", [], {}, [absent])
+      before = Zr::Digests.eval_files_key("digest", [], {}, [absent])
       FileUtils.mkdir_p(File.dirname(absent))
       File.write(absent, "")
 
-      refute_equal before, Zr.eval_files_key("digest", [], {}, [absent])
+      refute_equal before, Zr::Digests.eval_files_key("digest", [], {}, [absent])
     end
   end
 end

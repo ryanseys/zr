@@ -37,7 +37,7 @@ module Zr
           @kernel_calls = @kernel.flat_map { |f| kernel.calls(f.name) }.uniq.reject { |sym| @kernel_names[sym] }
 
           pieces = Zr.clock("core cache: files") do
-            Zr.core_files(@target).map { |path| core_file(path) }
+            RuntimeSources.for(@target).core_files.map { |path| core_file(path) }
           end
           @prelude = Zr.prelude(pieces.map(&:entry), unit)
           # The gem prelude is one more piece: its key has each file it loads.

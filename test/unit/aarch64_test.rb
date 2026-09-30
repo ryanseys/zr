@@ -96,7 +96,7 @@ class Aarch64Test < Minitest::Test
   def self.runtime
     @runtime ||= begin
       symbols = Zr::Machine::Symbols.new
-      unit = Zr::Machine.unit(Zr.kernel_files + [File.join(ROOT, "test/runtime/puts.rb")], symbols: symbols)
+      unit = Zr::Machine.unit(Zr::RuntimeSources.for.kernel_files + [File.join(ROOT, "test/runtime/puts.rb")], symbols: symbols)
       functions, = Zr.core(unit, symbols)
       unit.functions + functions
     end

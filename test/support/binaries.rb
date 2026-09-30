@@ -63,7 +63,7 @@ module Zr
         return nil unless parts.all? { |_, bytes| bytes.is_a?(String) }
 
         key = Digest::SHA256.new
-        [VERSION, Zr.runtime(target).digest, Zr.link_digest, libraries, target.triple,
+        [VERSION, Zr.runtime(target).digest, Zr::Digests.link, libraries, target.triple,
          *ENVIRONMENT.map { |name| ENV[name].to_s }, rb, source, *parts.flatten].each { |part| key << part.to_s << "\0" }
         Zr::Cache::Store.path(:binary, "#{key.hexdigest}#{".wasm" unless target.link}")
       end

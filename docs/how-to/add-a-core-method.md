@@ -82,8 +82,8 @@ $ ZR_BLESS=1 bin/test test/unit/description_test.rb
 
 ## 5. Add a new file, if the class has none
 
-Add a new file in `runtime/core/` also to `Zr::CORE_NAMES` in
-`lib/zr/runtime.rb`. The list is in the order that the files run, so
+Add a new file in `runtime/core/` also to `Zr::RuntimeSources::CORE_NAMES` in
+`lib/zr/runtime_sources.rb`. The list is in the order that the files run, so
 put a module before the classes that include it.
 
 ## 6. Run the example again

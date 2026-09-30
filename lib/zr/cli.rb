@@ -738,7 +738,7 @@ module Zr
       Paths.root = opts[:root]
       # A set that does not resolve goes on to the build, which says why.
       gems = kept_gems(opts) or return
-      digest = Zr.runtime_digest(target) or return
+      digest = RuntimeSources.for(target).runtime_digest or return
       cache = Cache::Run.new(opts[:input], target: target, digest: digest, link: Config.current.link + opts[:link], gems: gems)
       kept = cache.hit
       exec(Tune.program_env, [kept, kept], *opts[:args]) if kept
@@ -763,7 +763,7 @@ module Zr
       require_relative "cache/run"
       return nil unless Cache::Run.wanted?
 
-      digest = Zr.runtime_digest(target) or return nil
+      digest = RuntimeSources.for(target).runtime_digest or return nil
       cache = Cache::Run.new(input, target: target, digest: digest, link: link, gems: gems)
       kept = cache.hit
       exit_as(run_binary(kept, args)) if kept

@@ -4,7 +4,7 @@ require "json"
 require "strscan"
 require_relative "onig_jit"
 
-Zr.require_onig
+Zr::RuntimeSources.require_onig
 require File.join(Zr::Paths::RUNTIME, "core/regexp_pattern.rb")
 
 module Zr

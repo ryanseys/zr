@@ -2,7 +2,7 @@
 
 require_relative "../config"
 require_relative "../paths"
-require_relative "../sources"
+require_relative "../runtime_sources"
 require_relative "store"
 require_relative "../ir/fingerprint"
 require_relative "../ir/passes"
@@ -265,7 +265,7 @@ module Zr
 
       # The base of every key of this lowering: the format, the target, the
       # path root and the compiler, then `parts` of the unit.
-      def base_key(*parts) = Store.key(VERSION, @target.triple, Paths.root.to_s, Zr.compiler_digest(@target), *parts)
+      def base_key(*parts) = Store.key(VERSION, @target.triple, Paths.root.to_s, RuntimeSources.for(@target).compiler_digest, *parts)
 
       # Checks the pieces, inlines over the unit, and returns the code of
       # each function: IR from a piece lowered now, `Obj::Code` from a

@@ -55,7 +55,7 @@ class OsApiTest < Minitest::Test
 
   def test_every_core_layer_file_exists
     Zr::Target.all.each do |target|
-      Zr.core_files(target).each { |path| assert File.file?(path), "#{target.triple}: #{path}" }
+      Zr::RuntimeSources.for(target).core_files.each { |path| assert File.file?(path), "#{target.triple}: #{path}" }
     end
   end
 
@@ -69,7 +69,7 @@ class OsApiTest < Minitest::Test
   def test_each_layer_defines_the_spec_and_nothing_else_does
     expected = spec
     Zr::Target.all.map { |target| [target.os_layer, target] }.uniq(&:first).each do |layer, target|
-      unit = Zr::Machine.unit(Zr.kernel_files(target))
+      unit = Zr::Machine.unit(Zr::RuntimeSources.for(target).kernel_files)
       calls = unit.declared_defs.select { |name, _| name.start_with?("zr_os_", "zr_arch_") }
       got = calls.transform_values { |d| [d.params.map(&:last), d.ret] }
       assert_equal expected.keys.sort, got.keys.sort, "#{layer}: the zr_os_ and zr_arch_ defs"

@@ -30,7 +30,7 @@ class ParallelTest < Minitest::Test
 
   def test_kernel_object_bytes_are_the_same_for_any_worker_count
     one, three = [1, 3].map do |jobs|
-      unit = Zr::Machine.unit(Zr.kernel_files)
+      unit = Zr::Machine.unit(Zr::RuntimeSources.for.kernel_files)
       image = Zr::Native::Build.unit(unit.functions, unit.data, raw: unit.raw, export: true, jobs: jobs, floor: 0)
       Zr::Native::Build.writer(Zr::Target.default).write(image)
     end

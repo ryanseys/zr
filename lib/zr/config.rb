@@ -123,7 +123,7 @@ module Zr
     # `ZR_TUNE=0` keeps ruby's limits and leaves YJIT off.
     def tune? = @tune
 
-    # `ZR_LEDGER`: true or false when set, else nil (`Zr.ledger?`).
+    # `ZR_LEDGER`: true or false when set, else nil (`RuntimeSources.ledger?`).
     attr_reader :ledger
 
     # `ZR_RUN_CACHE=0` makes `zr run` build each run (`Cache::Run`).
