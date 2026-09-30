@@ -30,6 +30,43 @@ module Zr
         bytes && bytes / (1 << 20)
       end
 
+      # `host_statistics64(mach_host_self(), HOST_VM_INFO64, &stats, &count)`
+      # fills a vm_statistics64 (152 bytes, `count` in 4-byte words), the
+      # numbers that `vm_stat` prints.
+      HOST_VM_INFO64 = 4
+      VM_STATS = 152
+
+      # The pages that macOS processes hold: the anonymous pages that are
+      # not purgeable, the wired pages, and the compressor's pages (the
+      # file cache can be dropped). Nil where the call is missing.
+      def self.used_pages
+        return nil unless (stats = host_stats)
+
+        buffer = ::Fiddle::Pointer.malloc(VM_STATS, ::Fiddle::RUBY_FREE)
+        count = ::Fiddle::Pointer.malloc(4, ::Fiddle::RUBY_FREE)
+        count[0, 4] = [VM_STATS / 4].pack("L<")
+        return nil unless stats.fetch(:stats).call(stats.fetch(:host).call, HOST_VM_INFO64, buffer, count).zero?
+
+        word = ->(at) { buffer[at, 4].unpack1("L<") }
+        # internal_page_count - purgeable_count + wire_count + compressor_page_count
+        word[140] - word[88] + word[12] + word[128]
+      end
+
+      def self.host_stats
+        return @host_stats if defined?(@host_stats)
+
+        @host_stats = begin
+          require "fiddle"
+          handle = ::Fiddle::Handle::DEFAULT
+          { host: ::Fiddle::Function.new(handle["mach_host_self"], [], ::Fiddle::TYPE_UINT32_T),
+            stats: ::Fiddle::Function.new(handle["host_statistics64"],
+                                          [::Fiddle::TYPE_UINT32_T, ::Fiddle::TYPE_INT, ::Fiddle::TYPE_VOIDP, ::Fiddle::TYPE_VOIDP],
+                                          ::Fiddle::TYPE_INT) }
+        rescue LoadError, ::Fiddle::DLError, NameError
+          nil
+        end
+      end
+
       def self.asker
         return @asker if defined?(@asker)
 

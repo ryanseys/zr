@@ -44,6 +44,8 @@ status 3.
 | `--link <arg>` | yes | yes | yes | Gives `<arg>` to the system linker (`cc`) for a native binary, once for each argument: an object, an archive, `-framework <name>`, `-Wl,<flags>` such as `-Wl,-sectcreate,<segment>,<section>,<file>` or `-Wl,-exported_symbols_list,<file>`. With a link argument, zr links with `cc`, not with its own linker, so the host needs a C toolchain. With `--emit obj` or `--emit wasm` it is a usage error. `ZR_LINK_ARGS` gives the same arguments. |
 | `--gem <name>=<version\|dir>` | yes | yes | no | Uses this gem in place of the one in the Gemfile.lock or in zr's standard library, once for each gem: an installed version (`--gem csv=3.3.6`), or a directory with a gemspec or a `lib/` (`--gem rainbow=vendor/rainbow`). See [How to use a library or a gem](../how-to/use-a-library-or-gem.md#another-version-of-a-gem). |
 | `--gemfile <path>` | yes | yes | no | Reads the gems of `<path>`'s lock (`Gemfile.lock`, or `gems.locked` for `gems.rb`) before zr's standard library, as `bundle exec ruby` does. `BUNDLE_GEMFILE` does the same. zr reads the lock with its own bundler, not the host's. |
+| `--allow-runtime-require` | yes | yes | no | Lets a literal `require` in the program's own files that zr cannot find wait for the run time. The binary then carries the compiler (about 90 MB) to compile what it finds then. Without it, such a require stops the build; see [the require gate](#the-require-gate). |
+| `--print-gems` | no | yes | no | After the build, prints the gems that the output was built with, as `zr inspect` does. |
 | `-h`, `--help` | yes | yes | yes | Prints the help for the command. |
 
 ## `zr run [options] <file.rb> [args...]`
@@ -116,6 +118,55 @@ wasm32-wasi            wasm               wasm
 
 See [Targets](targets.md).
 
+## `zr gems [options] [<file.rb>]`
+
+Prints each gem that a build can read, with its version and its
+source: `stdlib` (ruby 4.0.7's library in zr), `port` (a gem with a C
+part that zr ports), `Gemfile.lock` or `--gem`. For a gem that
+replaces a port, the row also gives the versions whose C zr
+implements. With `<file.rb>`, it prints only the gems that the build
+of `<file.rb>` reads. `--gem`, `--gemfile` and `--target` work as for
+`zr build`, and `--json` prints one JSON object for each gem.
+
+```
+$ zr gems app.rb
+NAME     VERSION    SOURCE
+csv      3.3.5      stdlib
+english  0.8.1      stdlib
+time     0.4.2      stdlib
+```
+
+## `zr inspect [--json] <binary>`
+
+Prints the gems that zr built `<binary>` with. Each binary, object and
+WASI module carries a manifest: the zr version, the ruby version, the
+target, and each gem with its version and source. The manifest has no
+paths, so two machines build the same bytes.
+
+## `zr diff [options] <file.rb> [args...]`
+
+Runs `<file.rb>` with `[args...]` under ruby and as a zr binary, and
+compares stdout, stderr, the exit status and the signal. It prints the
+kind of difference, then a unified diff of each part that differs. It
+exits with status 0 only when the two runs are the same.
+
+| Kind | Meaning |
+|---|---|
+| `same` | Every part is the same. |
+| `output-diff` | Only stdout differs. |
+| `exception-diff` | stderr differs: ruby's report of an exception, or a warning. |
+| `status-diff` | The exit statuses differ. |
+| `crash` | A signal stopped the zr binary, and not ruby. |
+| `timeout` | The zr binary ran longer than 60 seconds. |
+| `refused` | zr does not support the program (the build's status 3). |
+| `build-error` | The build failed for another reason. |
+
+An object address (`0x` and 16 hex digits) is `0x...` in both outputs.
+ruby reads the same `--gem` directories, and with `--gemfile` or
+`BUNDLE_GEMFILE` it runs as `bundle exec ruby` does. Where ruby has
+other versions of its gems than zr, the two runs can differ for that
+reason; `zr gems` shows zr's.
+
 ## `zr doctor`
 
 Checks what zr needs on this host, and prints one line for each check:
@@ -176,6 +227,24 @@ zr: app.rb:2:1: zr does not support `BEGIN { }` here yet
 zr: https://github.com/ryanseys/zr/blob/main/docs/reference/support.md lists what zr supports
 ```
 
+### The require gate
+
+A literal `require` in the program's own files (the main file, and
+each file that it reaches by `require_relative` or by a path) that zr
+finds nowhere stops the build, with status 1:
+
+```
+zr: app.rb:2: cannot load such file -- rainbow. Give --gem rainbow=<dir> or a --gemfile that has it, put the require in `begin ... rescue LoadError`, or build with --allow-runtime-require
+```
+
+Without the gate, the require would wait for the run time, and the
+binary would carry the compiler (about 90 MB) to compile what it finds
+then. A require inside `begin ... rescue LoadError` (or `ScriptError`,
+or `Exception`) does not stop the build: the program handles the
+LoadError, as in ruby. A bare `rescue` does not catch LoadError, so it
+does not count. A require in a library's file, and a require of a
+computed name, do not stop the build either.
+
 When a backend cannot compile code that the front end accepted, the
 message starts with `zr: the backend cannot compile this program`. This
 is a limit or a defect in zr, not a problem in the program. Please
@@ -186,7 +255,7 @@ report it.
 | Status | Meaning |
 |---|---|
 | 0 | Success. For `zr run`, the program's own status. |
-| 1 | An error. A build step failed; the message tells which. |
+| 1 | An error. A build step failed, or a require in the program's own files has no file; the message tells which. For `zr diff`, the two runs differ. |
 | 2 | A usage error: the command line is wrong. |
 | 3 | A refusal: zr does not support the program, or this host cannot build the target, or the ruby is not 4.0.7. The message gives the form and its line, or the missing tool. |
 

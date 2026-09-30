@@ -32,38 +32,32 @@ module Zr
         [log, $?.success?]
       end
 
+      # The developer directory that `xcode-select` chose: its link, else
+      # the Command Line Tools.
+      SELECTED = "/var/db/xcode_select_link"
+      TOOLS = "/Library/Developer/CommandLineTools"
+
+      # The macOS SDK in a developer directory: an Xcode's, or the Command
+      # Line Tools'.
+      SDKS = %w[Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk SDKs/MacOSX.sdk].freeze
+
       # Returns the user's DEVELOPER_DIR and SDKROOT unchanged when set.
+      # Else the developer directory that `xcode-select` chose and its
+      # SDK, which is what `xcrun --show-sdk-path` gives, read without
+      # starting xcrun. On a host with neither, nothing is pinned.
       def pinned
         chosen = ENV.slice("DEVELOPER_DIR", "SDKROOT")
         return chosen unless chosen.empty?
 
-        out = IO.popen(["xcrun", "--show-sdk-path"], err: %i[child out], &:read)
-        return {} unless $?.success?
-
-        sdk = out.lines.map(&:strip).reverse.find { |line| line.start_with?("/") }
-        return {} unless sdk && File.directory?(sdk)
-
-        developer = developer_dir(sdk)
-        developer && File.directory?(developer) ? { "DEVELOPER_DIR" => developer, "SDKROOT" => sdk } : {}
-      rescue SystemCallError
-        # No xcrun: not a macOS host, and nothing to pin.
-        {}
+        developer = selected_developer_dir
+        sdk = developer && SDKS.map { |path| File.join(developer, path) }.find { |path| File.directory?(path) }
+        sdk ? { "DEVELOPER_DIR" => developer, "SDKROOT" => sdk } : {}
       end
 
-      # The developer directory that contains an SDK:
-      # `/Library/Developer/CommandLineTools` for
-      # `/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk`, and
-      # `/Applications/Xcode.app/Contents/Developer` for an SDK under that
-      # directory's `Platforms/MacOSX.platform/Developer/SDKs`.
-      def developer_dir(sdk)
-        dir = File.dirname(File.expand_path(sdk))
-        return nil unless File.basename(dir) == "SDKs"
-
-        dir = File.dirname(dir)
-        if File.basename(dir) == "Developer" && File.basename(File.dirname(dir)).end_with?(".platform")
-          dir = File.dirname(File.dirname(File.dirname(dir)))
-        end
-        dir
+      def selected_developer_dir
+        File.realpath(SELECTED)
+      rescue SystemCallError
+        File.directory?(TOOLS) ? TOOLS : nil
       end
     end
   end

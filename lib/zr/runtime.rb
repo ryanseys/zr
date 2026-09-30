@@ -15,6 +15,7 @@ require_relative "settled"
 require_relative "sources"
 require_relative "core_cache"
 require_relative "eval_cache"
+require_relative "manifest"
 
 module Zr
   # The kernel and the core library, lowered once per process, and only
@@ -279,8 +280,10 @@ module Zr
   # functions by name. `sources` maps the path of each file the program was
   # built from to the digest of the bytes that were compiled (the run
   # cache checks them); it is empty when the build does not know them.
-  Program = Data.define(:runtime, :functions, :data, :evals, :sources) do
-    def initialize(runtime:, functions:, data:, evals:, sources: {})
+  # `gems` are the manifest's rows (lib/zr/manifest.rb): the gems that the
+  # program's files come from.
+  Program = Data.define(:runtime, :functions, :data, :evals, :sources, :gems) do
+    def initialize(runtime:, functions:, data:, evals:, sources: {}, gems: [])
       super
     end
 
@@ -440,17 +443,19 @@ module Zr
   # (`Program#sources`), for the run cache.
   #
   # `gem_set` is the GemSet whose gems come before zr's standard library
-  # (lib/zr/gem_set.rb), or nil.
-  def program(source, file, target: Target.default, sources: false, gem_set: nil, &finish)
+  # (lib/zr/gem_set.rb), or nil. `gate` stops the build at a require that
+  # nothing has in the program's own files (`Hir::Build#gate!`).
+  def program(source, file, target: Target.default, sources: false, gem_set: nil, gate: false, &finish)
     rt = runtime(target)
     support = eval_support(target)
-    hir = Zr.clock("hir built") { Hir.build(source, file, prebuilt: support, target: target, gem_set: gem_set) }
+    hir = Zr.clock("hir built") { Hir.build(source, file, prebuilt: support, target: target, gem_set: gem_set, gate: gate) }
     gem_conflicts!(hir, support, gem_set, target) if hir.evals && gem_set && !gem_set.empty?
     # A large program is heavy work too (`Tune`): bundler's 1.2 MB of source
     # takes seconds to lower.
     Tune.heavy!(restart: false) if source.bytesize + hir.units.sum { |u| u.source.to_s.bytesize } > HEAVY_SOURCE
     # Before the lowering, which lets go of each unit's source.
     sources = sources ? built_from(source, file, hir) : {}
+    gems = Manifest.of(hir.units.filter_map { |unit| unit.file if unit.file&.start_with?("/") }, gem_set)
     symbols = hir.evals ? support.symbols : Machine::Symbols.new(rt.symbols.names, sites: rt.symbols.sites)
     # Each name already in the table has a fixed id. The link numbers all
     # other names, so a unit's code does not depend on the compile order.
@@ -467,8 +472,9 @@ module Zr
     number_symbols(data, symbols, rt.description.const_for("SYMBOL_TAG"))
     tables = load_tables(units, evals: hir.evals, spots: hir.spots || {}, coverable: hir.coverable || {},
                          branches: hir.branches || {}, defs: hir.defs || {}, sources: hir.evals ? support.digests : {},
-                         target: target, gem_roots: gem_set ? gem_set.gems.reject(&:refusal).flat_map(&:roots) : [])
-    Program.new(rt, functions, data + symbol_names(symbols) + tables, hir.evals && support, sources)
+                         target: target, gem_roots: gem_set ? gem_set.gems.reject(&:refusal).flat_map(&:roots) : [],
+                         manifest: Manifest.bytes(gems, target))
+    Program.new(rt, functions, data + symbol_names(symbols) + tables, hir.evals && support, sources, gems)
   end
 
   # A program with eval carries eval support, which has zr's own copy of
@@ -658,8 +664,13 @@ module Zr
   # `gem_roots` are the roots of the build's GemSet. A program with eval
   # searches them right after ruby's own library, as its build did, so a
   # computed require finds the same gem.
+  #
+  # `manifest` is the gem manifest (lib/zr/manifest.rb), or nil. It is the
+  # last text: the kernel reads only the texts before it, and the manifest
+  # is there so that `zr inspect` finds it, and a linker that removes
+  # data that nothing refers to keeps it.
   def load_tables(units = [], evals: false, spots: {}, coverable: {}, branches: {}, defs: {}, sources: {},
-                  target: Target.default, gem_roots: [])
+                  target: Target.default, gem_roots: [], manifest: nil)
     shown = ->(path) { Paths.shown(path) }
     units = units.select { |path, _| path.start_with?("/") }.map { |path, entry| [shown[path], entry] }.sort
     # A ruby feature that no root here contains, then a tab and the reason
@@ -693,6 +704,7 @@ module Zr
     # its id, and so gets its span.
     names << defs.map { |file, rows| "#{shown[file]}\t#{rows.map { |row| row.join(',') }.join("\t")}" }
     names << sources.map { |path, digest| [shown[path], digest] }.sort.map { |path, digest| "#{path}\t#{digest}" }
+    names << [manifest.chomp] if manifest
     out = []
     text = ->(name, bytes) { out << Obj::Data.new(name, :text_const, "#{bytes}\0".b, align: 1) }
     rows = +"".b

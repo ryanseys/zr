@@ -26,6 +26,9 @@ module Zr
         build <file.rb> -o <out>    compile a program to a binary, a WASI module or an object
         machine <file.rb> -o <out>  compile one machine-dialect file (for runtime work)
         targets                     list the targets, and what this host can build
+        gems [<file.rb>]            list the gems that a build reads, and their sources
+        inspect <binary>            print the gems that a binary was built with
+        diff <file.rb> [args...]    run a program under ruby and as a zr binary, and compare
         doctor                      check this host: ruby, wasmtime, OpenSSL, gems, cache
         cache [path|size|clean]     show or clean the build cache
         version                     print the version
@@ -37,6 +40,7 @@ module Zr
     TEXT
 
     OUTPUT = "  -o, --output <path>    write the output to <path>\n"
+    PRINT_GEMS = "  --print-gems           print the gems that the output was built with\n"
     # `run` and `build` only: a machine file requires nothing.
     GEMS = <<~TEXT.gsub(/^/, "  ")
       --gem <name>=<version|dir>
@@ -45,6 +49,10 @@ module Zr
                              gemspec or lib/; once for each gem
       --gemfile <path>       read the gems of <path>'s lock before zr's own, as
                              `bundle exec ruby` does (BUNDLE_GEMFILE also names it)
+      --allow-runtime-require
+                             let a require in the program's files that zr cannot
+                             find wait for the run time (the binary then carries
+                             the compiler to compile what it finds then)
     TEXT
     OPTIONS = <<~TEXT.sub("  -h, --help", "#{GEMS}  -h, --help")
       Options:
@@ -76,7 +84,7 @@ module Zr
         binary, a WASI module (--emit wasm, or a wasm32 --target) or an
         object file (--emit obj).
 
-        #{OPTIONS.sub("Options:\n", "Options:\n#{OUTPUT}")}
+        #{OPTIONS.sub("Options:\n", "Options:\n#{OUTPUT}#{PRINT_GEMS}")}
       TEXT
       "machine" => <<~TEXT,
         Usage: zr machine [options] <file.rb> -o <out>
@@ -93,6 +101,40 @@ module Zr
         each: the ruby version, the targets this host builds, wasmtime,
         OpenSSL 3, the standard library, the cache and the compiled compiler.
         Exits with status 1 if a check fails.
+      TEXT
+      "gems" => <<~TEXT,
+        Usage: zr gems [--gem <name>=<version|dir>]... [--gemfile <path>] [--json] [<file.rb>]
+
+        Lists each gem that a build can read, with its version and its
+        source: stdlib (ruby 4.0.7's library in zr), port (a gem with a C
+        part that zr ports), Gemfile.lock, or --gem. With <file.rb>, lists
+        only the gems that the build of <file.rb> reads.
+
+        --json                 print JSON, one object for each gem
+        --target <triple>      the target of the build of <file.rb>
+      TEXT
+      "inspect" => <<~TEXT,
+        Usage: zr inspect [--json] <binary>
+
+        Prints the gems that zr built <binary> with, from the manifest that
+        each binary, object and WASI module carries: the zr and ruby
+        versions, the target, and each gem with its version and source.
+      TEXT
+      "diff" => <<~TEXT,
+        Usage: zr diff [options] <file.rb> [args...]
+
+        Runs <file.rb> with [args...] under ruby and as a zr binary, and
+        compares stdout, stderr, the exit status and the signal. Prints
+        the kind of difference (same, output-diff, exception-diff,
+        status-diff, crash, timeout, refused or build-error), then a diff
+        of each part. Exits with status 0 only when the two are the same.
+
+        ruby reads the same --gem directories, and runs as `bundle exec
+        ruby` does with --gemfile or BUNDLE_GEMFILE. The two runs can
+        differ where ruby has other versions of its gems than zr: see
+        `zr gems`.
+
+        #{OPTIONS.sub(/^  --emit .*\n/, "")}
       TEXT
       "cache" => <<~TEXT
         Usage: zr cache [path|size|clean [--all]]
@@ -165,6 +207,9 @@ module Zr
       case command
       when *COMPILE then compile(command, args)
       when "targets" then targets
+      when "gems", "inspect", "diff"
+        require_relative "gems_command"
+        GemsCommand.public_send(command, args)
       when "doctor" then exit(doctor ? 0 : 1)
       when "cache" then cache(args)
       when "version", "--version", "-v" then puts "zr #{VERSION} (ruby #{RUBY})"
@@ -246,6 +291,8 @@ module Zr
         when "--path-root" then opts[:root] = value || args.shift || usage_error("--path-root needs a directory", command)
         when "--link" then opts[:link] << (value || args.shift || usage_error("--link needs an argument", command))
         when "--gem" then opts[:gems] << gem_flag(value || args.shift, command)
+        when "--print-gems" then opts[:print_gems] = true
+        when "--allow-runtime-require" then opts[:runtime_require] = true
         when "--gemfile" then opts[:gemfile] = value || args.shift || usage_error("--gemfile needs a path", command)
         when /\A-./ then usage_error("unknown option '#{word}'", command)
         else
@@ -275,12 +322,15 @@ module Zr
     end
 
     def check(command, opts)
+      return check_gems(opts) if command == "gems"
+
       usage_error("missing <file.rb>", command) unless opts[:input]
       usage_error("unknown --emit '#{opts[:emit]}'; use binary, obj or wasm", command) if opts[:emit] && !EMITS.key?(opts[:emit])
       usage_error("--path-root needs an absolute path", command) if opts[:root] && !opts[:root].start_with?("/")
       if command == "machine" && (!opts[:gems].empty? || opts[:gemfile])
         usage_error("--gem and --gemfile do not apply; a machine file requires nothing", command)
       end
+      usage_error("--print-gems applies only to 'zr build'", command) if opts[:print_gems] && command != "build"
       if command == "run"
         usage_error("-o does not apply; use 'zr build' to keep the output", command) if opts[:output]
         usage_error("cannot run an object file; use 'zr build --emit obj'", command) if opts[:emit] == "obj"
@@ -288,6 +338,14 @@ module Zr
         usage_error("missing -o <path>", command) unless opts[:output]
         usage_error("unexpected argument '#{opts[:args].first}'", command) unless opts[:args].empty?
       end
+      opts[:emit] = EMITS[opts[:emit]]
+      opts
+    end
+
+    # `zr gems` takes the options that choose the gems, and at most one file.
+    def check_gems(opts)
+      usage_error("-o does not apply", "gems") if opts[:output]
+      usage_error("unexpected argument '#{opts[:args].first}'", "gems") unless opts[:args].empty?
       opts[:emit] = EMITS[opts[:emit]]
       opts
     end
@@ -318,7 +376,7 @@ module Zr
       if command == "run" && emit.nil? && RunCache.wanted?
         cache ||= RunCache.new(input, target: target, digest: Zr.runtime(target).digest, link: link, gems: gems)
       end
-      program = lower(input, command, target, assemble: emit.nil?, gem_set: gems)
+      program = lower(input, command, target, assemble: emit.nil?, gem_set: gems, gate: !opts[:runtime_require])
       status = Paths.tmpdir("zr-build-") do |work|
         out = command == "run" ? File.join(work, "program") : File.expand_path(opts[:output])
         case emit
@@ -326,6 +384,10 @@ module Zr
         when "wasm" then wasm(program, out, command, opts[:args])
         else native(program, out, work, command, opts[:args], target, link: link, cache: cache)
         end
+      end
+      if opts[:print_gems]
+        require_relative "gems_command"
+        print GemsCommand.table(program.gems)
       end
       require_relative "cache"
       Cache.trim
@@ -351,14 +413,26 @@ module Zr
         Signal.trap(status.termsig, "SYSTEM_DEFAULT")
       rescue ArgumentError
         # ruby keeps SIGSEGV, SIGBUS, SIGILL, SIGFPE and SIGVTALRM for
-        # itself, and its own handler would print a ruby bug report. A
-        # shell in zr's place sends the signal to itself instead.
-        exec("/bin/sh", "-c", "kill -#{status.termsig} $$")
+        # itself, and its own handler would print a ruby bug report. The
+        # C library's `signal` sets the default action again. Without
+        # Fiddle (a zr binary), zr exits with the status that a shell
+        # gives for the signal.
+        exit(128 + status.termsig) unless default_action!(status.termsig)
       end
       Process.kill(status.termsig, Process.pid)
       # Only a signal that does not stop a process by default comes here.
       sleep 1
       exit(128 + status.termsig)
+    end
+
+    # `signal(signo, SIG_DFL)` through Fiddle. Returns whether it was set.
+    def default_action!(signo)
+      require "fiddle"
+      set = ::Fiddle::Function.new(::Fiddle::Handle::DEFAULT["signal"], [::Fiddle::TYPE_INT, ::Fiddle::TYPE_VOIDP], ::Fiddle::TYPE_VOIDP)
+      set.call(signo, 0)
+      true
+    rescue LoadError, NameError, StandardError
+      false
     end
 
     # The target that `--target` gives. `--emit wasm` alone means
@@ -452,12 +526,14 @@ module Zr
 
     # A binary's functions are assembled as they are lowered, so the IR of
     # a large program is never all in memory at once (`Native::Build.lower`).
-    def lower(input, verb, target, assemble: false, gem_set: nil)
+    def lower(input, verb, target, assemble: false, gem_set: nil, gate: false)
       source = File.read(input)
       return Machine.compile(source, input) if verb == "machine"
-      return Zr.program(source, input, target: target, gem_set: gem_set) unless assemble
+      return Zr.program(source, input, target: target, gem_set: gem_set, gate: gate) unless assemble
 
-      Native::Build.lower(source, input, target: target, sources: verb == "run", gem_set: gem_set)
+      Native::Build.lower(source, input, target: target, sources: verb == "run", gem_set: gem_set, gate: gate)
+    rescue Hir::Missing => e
+      abort "zr: #{e.message}"
     rescue Refused => e
       warn refusal_report(e)
       exit REFUSED

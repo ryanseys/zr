@@ -137,6 +137,24 @@ If zr cannot find a gem, it stops before the build and tells you what
 to run, for example `rack 3.1.8 is in Gemfile.lock but not installed.
 Run 'bundle install'`.
 
+## A require that zr cannot find
+
+A literal `require` in your own files that zr finds nowhere stops the
+build, and the message tells you what to do: give the gem with
+`--gem` or `--gemfile`, add the file, or guard the require:
+
+```ruby
+begin
+  require "rainbow"
+rescue LoadError
+  # run without colors
+end
+```
+
+A guarded require waits for the run time, as below. So does every
+such require when you build with `--allow-runtime-require`. See
+[the require gate](../reference/cli.md#the-require-gate).
+
 ## A require that zr cannot read at build time
 
 A `require` of a name that zr cannot read or find at build time runs

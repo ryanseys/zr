@@ -75,12 +75,38 @@ module Zr
         # rubygems for a gem with the feature. A binary contains only what
         # zr vendors and what the program's own roots contain, so the same
         # source builds the same bytes on any machine.
-        return plain_call(node, compiles: false) unless path
+        unless path
+          gate!(node, feature)
+          return plain_call(node, compiles: false)
+        end
+
+        # A file that the program's own file reaches by its path is the
+        # program's too; one that a root gives is a library's.
+        @loader.own!(path) if @loader.own?(@file) && (node.name != :require || feature.to_s.start_with?("/", "./", "../", "~"))
 
         # A require in a file that only eval support loads belongs to the
         # compiler. The runtime knows this at run time, so one unit serves
         # eval support and a program that requires the same file.
         Require.new(node.name, feature, path, @loader.add(path), line)
+      end
+
+      # A literal require in the program's own file that no root has would
+      # stay for the run time, and the binary would carry the compiler to
+      # compile what it finds then (about 90 MB). In a build with the gate
+      # (the CLI's, without --allow-runtime-require), it stops the build
+      # instead. A require that a `rescue LoadError` guards stays, as does
+      # one in a library's file: code there can handle the LoadError.
+      def gate!(node, feature)
+        return unless @loader.gated? && @loader.own?(@file) && @guarded.to_i.zero?
+
+        name = feature.to_s.delete_suffix(".rb")
+        fix = if node.name == :require && !name.start_with?("/", ".", "~")
+                "Give --gem #{name.split("/").first}=<dir> or a --gemfile that has it, "
+              else
+                "Add the file, "
+              end
+        raise Missing, "#{@file}:#{node.location.start_line}: cannot load such file -- #{name}. #{fix}" \
+                       "put the #{node.name} in `begin ... rescue LoadError`, or build with --allow-runtime-require"
       end
 
       # A require that reaches a file of a gem that zr cannot compile

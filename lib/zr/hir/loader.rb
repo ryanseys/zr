@@ -29,10 +29,16 @@ module Zr
         # of a file outside `booted` (the files that the boot reads).
         # `gem_set` is the build's GemSet (lib/zr/gem_set.rb), whose roots
         # come first in `roots`, or nil.
+        # `gate`: a literal require in the program's own files that no
+        # root has stops the build (`Build#gate!`). A build from the CLI
+        # sets it; `--allow-runtime-require` does not.
         def initialize(roots, eval: false, external: nil, trace: false, evals: false, covers: false, activations: nil,
-                       deferred: [], preloaded: PRELOADED, ahead: Build.ahead, booted: Build.booted, prebuilt_eval: nil, gem_set: nil)
+                       deferred: [], preloaded: PRELOADED, ahead: Build.ahead, booted: Build.booted, prebuilt_eval: nil, gem_set: nil,
+                       gate: false)
           @deferred = deferred
           @gem_set = gem_set
+          @gate = gate
+          @own = {}
           @data = {}
           @prebuilt_eval = external ? nil : prebuilt_eval
           @preloaded = preloaded
@@ -449,6 +455,15 @@ module Zr
           @units << Unit.new(what, [], Stop.new(what, line), [], false)
           i
         end
+
+        # Whether a missing literal require stops the build (`gate`).
+        def gated? = @gate
+
+        # The program's own files: the main file, and each file that one of
+        # them reaches by `require_relative` or by a path. A file that a
+        # require finds in a root is a library's.
+        def own!(path) = @own[File.expand_path(path)] = true
+        def own?(path) = @own.key?(File.expand_path(path))
 
         # Why a build cannot use the file at `path`: it is in a gem of the
         # GemSet that zr cannot compile (a C extension). Nil otherwise.

@@ -21,6 +21,11 @@ module Zr
     # it one.
     class Invalid < Refused; end
 
+    # A literal require in the program's own files that no root has, in a
+    # build with the gate (`Build#gate!`). It is an error in the program's
+    # setup, not a form of Ruby that zr refuses.
+    class Missing < StandardError; end
+
     # Prism to HIR. A form that the HIR does not support yet is refused,
     # with a message that gives the form and the line. The rule: the same
     # as CRuby, or refused. Never a guess.
@@ -88,9 +93,10 @@ module Zr
       # `trace` arms the events from the start, for an eval under an
       # enabled TracePoint.
       # `gem_set` is a GemSet (lib/zr/gem_set.rb): the gems that come
-      # before zr's standard library, or nil.
+      # before zr's standard library, or nil. `gate` stops the build at a
+      # require in the program's own files that no root has (Loader).
       def self.program(source, file, roots: [], eval_support: true, prebuilt: nil, line: 1, scopes: nil, method: nil, activations: nil, target: Target.default,
-                       trace: false, gem_set: nil)
+                       trace: false, gem_set: nil, gate: false)
         # The main file's name came from the build's command line, in the
         # build's locale. A program's locale is UTF-8
         # (Encoding.locale_charmap), and the name must not depend on the
@@ -98,7 +104,9 @@ module Zr
         file = file.dup.force_encoding(::Encoding::UTF_8) if eval_support && file.encoding != ::Encoding::UTF_8
         built = lambda do |external, trace, evals, covers|
           loader = Loader.new(roots + (gem_set&.roots || []) + stdlib(target), eval: !eval_support, external: external, trace: trace,
-                              evals: evals, covers: covers, activations: activations, prebuilt_eval: prebuilt, gem_set: gem_set)
+                              evals: evals, covers: covers, activations: activations, prebuilt_eval: prebuilt, gem_set: gem_set,
+                              gate: gate)
+          loader.own!(file)
           [loader, loader.unit(file, source, line, scopes, method: method)]
         end
         # A build knows three facts only after it reads every file: that
@@ -743,7 +751,7 @@ module Zr
       # regexp there even if the region's value is not used.
       def protected_region(node, taken = true)
         line = node.location.start_line
-        body = node.statements ? seq(node.statements, taken: taken) : Literal.new(nil, line)
+        body = guarded(node.rescue_clause) { node.statements ? seq(node.statements, taken: taken) : Literal.new(nil, line) }
         return body if node.rescue_clause.nil? && node.ensure_clause.nil?
 
         rescues = []
@@ -755,6 +763,25 @@ module Zr
         else_body = node.else_clause && (node.else_clause.statements ? seq(node.else_clause.statements, taken: taken) : Literal.new(nil, line))
         ensure_body = node.ensure_clause && (node.ensure_clause.statements ? seq(node.ensure_clause.statements, taken: false) : Literal.new(nil, line))
         Begin.new(body, rescues, else_body, ensure_body, line)
+      end
+
+      # The exceptions that rescue a missing file: ruby raises LoadError,
+      # a ScriptError, which a bare `rescue` (StandardError) does not catch.
+      LOAD_RESCUES = %i[LoadError ScriptError Exception].freeze
+
+      # Builds the block's body as the body of a region whose clauses
+      # start at `clause`. When one of them rescues LoadError, a require in
+      # the body is guarded: it can fail when it runs (`gate!`).
+      def guarded(clause)
+        rescues = false
+        while clause
+          rescues ||= clause.exceptions.any? { |e| e.is_a?(Prism::ConstantReadNode) && LOAD_RESCUES.include?(e.name) }
+          clause = clause.subsequent
+        end
+        @guarded = (@guarded || 0) + 1 if rescues
+        yield
+      ensure
+        @guarded -= 1 if rescues
       end
 
       def rescue_clause(node)

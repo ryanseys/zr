@@ -47,6 +47,14 @@ The first public release.
   reads the lock with its own copy of bundler and needs no `bundle exec`. A gem with a C
   extension that zr does not port, or a port's gem outside the
   versions whose C zr implements, stops the build at its `require`.
+- `zr gems` lists the gems that a build reads and where each comes
+  from. Each binary carries a manifest of its gems, which
+  `zr inspect` and `zr build --print-gems` print. `zr diff` runs a
+  program under ruby and as a zr binary, and names and shows the
+  difference.
+- A literal `require` in the program's own files that zr cannot find
+  stops the build with the fix, unless `rescue LoadError` guards it
+  or the build has `--allow-runtime-require`.
 - `zr doctor` checks the ruby, the host's targets, wasmtime, OpenSSL,
   the standard library, the cache and the compiled compiler.
 - MIT License. `THIRD_PARTY_NOTICES.md` names every part from other

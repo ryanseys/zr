@@ -5,6 +5,7 @@ require "open3"
 require "tmpdir"
 require_relative "lib/zr/dev"
 require_relative "../test/support/harness/reference"
+require_relative "../lib/zr/diff"
 
 module Zr
   module Dev
@@ -21,8 +22,8 @@ module Zr
     # stdout, stderr, the exit status and the signal, and prints a unified
     # diff of each part that differs. Each program runs in its own
     # directory with its own relative path, so the two backtraces agree.
-    # An object address (`0x` and 16 hex digits) is never the same in two
-    # processes, so the tool writes each one as `0x...` in both outputs.
+    # An object address is `0x...` in both outputs (lib/zr/diff.rb, which
+    # `zr diff` uses too).
     #
     # Exit status: 0 when every probe gives ruby's output, else 1.
     class Probe < Command
@@ -31,11 +32,6 @@ module Zr
       host_ruby!
 
       JOBS = 4
-      # Seconds for one program. A probe that loops forever does not stop
-      # the run.
-      LIMIT = 60
-
-      Answer = Struct.new(:stdout, :stderr, :status, :signal)
 
       def options(o) = o.on("-j JOBS", Integer, "probes at a time (default #{JOBS})") { |v| @jobs = v }
 
@@ -48,7 +44,9 @@ module Zr
 
         differ = 0
         results = in_parallel(files, @jobs || JOBS) { |file| [file, ruby(file), zr(file)] }
-        results.each do |file, want, got|
+        results.each do |file, want_answer, got_answer|
+          want = want_answer.parts
+          got = got_answer.parts
           name = Dev.rel(file)
           if want == got
             puts "SAME #{name}"
@@ -60,7 +58,7 @@ module Zr
             next if value == got[part]
 
             puts "--- #{part} (ruby, then zr)"
-            puts diff(value.to_s, got[part].to_s)
+            puts Zr::Diff.unified(value.to_s, got[part].to_s)
           end
         end
         puts "#{files.size - differ} of #{files.size} probe(s) give ruby's output"
@@ -116,7 +114,7 @@ module Zr
           exit!(0)
         end
         _, status = Process.wait2(pid)
-        return Answer.new("".b, unaddressed(File.binread(err)), status.exitstatus, status.termsig) unless status.success?
+        return Zr::Diff::Answer.new("".b, Zr::Diff.unaddressed(File.binread(err)), status.exitstatus, status.termsig, false) unless status.success?
 
         answer([bin], dir)
       ensure
@@ -131,22 +129,8 @@ module Zr
         dir
       end
 
-      # Runs `command` in `dir` with an empty stdin. A program that runs
-      # longer than LIMIT is killed, and its signal is the answer's.
-      def answer(command, dir, env = {})
-        Open3.popen3(env, *command, chdir: dir) do |stdin, stdout, stderr, waiter|
-          stdin.close
-          out = Thread.new { stdout.read }
-          err = Thread.new { stderr.read }
-          Process.kill("KILL", waiter.pid) unless waiter.join(LIMIT)
-          status = waiter.value
-          Answer.new(unaddressed(out.value), unaddressed(err.value), status.exitstatus, status.termsig)
-        end
-      end
-
-      ADDRESS = /0x\h{16}/n
-
-      def unaddressed(text) = text.b.gsub(ADDRESS, "0x...")
+      # Runs `command` in `dir` with an empty stdin (`Diff.run`).
+      def answer(command, dir, env = {}) = Zr::Diff.run(command, dir: dir, env: env)
 
       # Maps `items` with `jobs` threads. Each item runs its own processes,
       # so threads are enough.
@@ -163,15 +147,6 @@ module Zr
           end
         end.each(&:join)
         out
-      end
-
-      def diff(a, b)
-        Dir.mktmpdir("zr-probe-diff-") do |dir|
-          File.binwrite(File.join(dir, "ruby"), a)
-          File.binwrite(File.join(dir, "zr"), b)
-          text, = Open3.capture2("diff", "-u", "ruby", "zr", chdir: dir)
-          text.lines.drop(2).join
-        end
       end
     end
   end

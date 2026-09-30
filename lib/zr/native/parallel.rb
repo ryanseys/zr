@@ -89,14 +89,8 @@ module Zr
           kb = File.read("/proc/meminfo")[/^MemAvailable:\s+(\d+)/, 1]
           return kb && kb.to_i * 1024
         end
-        stat = IO.popen(["vm_stat"], err: File::NULL, &:read)
-        page = stat[/page size of (\d+) bytes/, 1]
-        anonymous = stat[/^Anonymous pages:\s+(\d+)/, 1]
-        return nil unless page && anonymous
-
-        count = ->(name) { stat[/^#{name}:\s+(\d+)/, 1].to_i }
-        used = anonymous.to_i - count["Pages purgeable"] + count["Pages wired down"] + count["Pages occupied by compressor"]
-        [machine_bytes - (used * page.to_i), 0].max
+        used = Resident.used_pages or return nil
+        [machine_bytes - (used * Etc.sysconf(Etc::SC_PAGESIZE)), 0].max
       rescue SystemCallError, IOError, NotImplementedError
         nil
       end

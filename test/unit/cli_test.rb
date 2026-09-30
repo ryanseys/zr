@@ -61,23 +61,34 @@ end
 
 # How `zr run` ends: as the program ended.
 class CliExitTest < Minitest::Test
-  def status_of(command)
-    pid = spawn("sh", "-c", command)
+  # The status of a child that exits with `code`, or that `signal` stops.
+  def status_of(code: 0, signal: nil)
+    pid = fork do
+      if signal
+        Zr::CLI.default_action!(Signal.list.fetch(signal))
+        Process.kill(signal, Process.pid)
+        sleep 1
+      end
+      exit!(code)
+    end
     Process.wait(pid)
     $?
   end
 
   def test_run_exits_with_the_program_status
-    error = assert_raises(SystemExit) { Zr::CLI.exit_as(status_of("exit 3")) }
+    error = assert_raises(SystemExit) { Zr::CLI.exit_as(status_of(code: 3)) }
     assert_equal 3, error.status
   end
 
   def test_a_signal_that_stops_the_program_stops_zr_too
-    status = status_of("kill -TERM $$")
-    pid = fork { Zr::CLI.exit_as(status) }
-    Process.wait(pid)
-    assert_predicate $?, :signaled?
-    assert_equal Signal.list.fetch("TERM"), $?.termsig
+    %w[TERM SEGV].each do |signal|
+      status = status_of(signal: signal)
+      pid = fork { Zr::CLI.exit_as(status) }
+      Process.wait(pid)
+
+      assert_predicate $?, :signaled?, signal
+      assert_equal Signal.list.fetch(signal), $?.termsig, signal
+    end
   end
 end
 
