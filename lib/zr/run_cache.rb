@@ -6,11 +6,14 @@ require_relative "config"
 require_relative "paths"
 require_relative "settled"
 require_relative "sources"
+require_relative "store"
 require_relative "version"
 
 module Zr
   # The binaries that `zr run` built, kept so that a second run of the
-  # same program runs at once, with no lowering and no link.
+  # same program runs at once, with no lowering and no link. Each is a
+  # directory entry of the store (kind `run`), which keeps them under
+  # its quota: a binary with eval support is 130 MB.
   #
   # An entry is found by a digest of what a build reads before it knows
   # which files the program requires: zr's version, the runtime and link
@@ -26,12 +29,6 @@ module Zr
   # give most of that back.
   class RunCache
     VERSION = 1
-    # The most binaries kept, and their most bytes (a binary with eval
-    # support is 130 MB). A new one removes the ones used longest ago.
-    KEPT = 100
-    KEPT_BYTES = 2 << 30
-
-    def self.dir = File.join(Paths.cache, "run")
 
     # `ZR_RUN_CACHE=0` builds each run again.
     def self.wanted? = Config.current.run_cache?
@@ -42,26 +39,20 @@ module Zr
     def initialize(input, target:, digest:, link:, gems: nil)
       @input = File.expand_path(input)
       config = Config.current
-      key = Digest::SHA256.new
       @digest = digest
       @target = target
-      [VERSION, Zr::VERSION, digest, Zr.link_digest, target.triple, Paths.root.to_s,
-       config.linker, config.eval_walk?, config.verify?, *link, "\0", gems && !gems.empty? ? gems.digest : "",
-       @input, File.binread(@input)].each do |part|
-        key << part.to_s << "\0"
-      end
-      @entry = File.join(self.class.dir, key.hexdigest)
+      @key = Store.key(VERSION, Zr::VERSION, digest, Zr.link_digest, target.triple, Paths.root.to_s,
+                       config.linker, config.eval_walk?, config.verify?, *link, "\0", gems && !gems.empty? ? gems.digest : "",
+                       @input, File.binread(@input))
     end
 
     # The path of the kept binary when every file it was built from is as
     # it was, else nil.
     def hit
-      binary = File.join(@entry, "program")
-      sources = Marshal.load(File.binread(File.join(@entry, "sources")))
-      return nil unless File.executable?(binary) && current?(sources)
-
-      FileUtils.touch(@entry)
-      binary
+      entry = Store.read(:run, @key) or return nil
+      binary = File.join(entry, "program")
+      sources = Marshal.load(File.binread(File.join(entry, "sources")))
+      File.executable?(binary) && current?(sources) ? binary : nil
     rescue SystemCallError, TypeError, ArgumentError, EOFError
       nil
     end
@@ -77,28 +68,14 @@ module Zr
 
       sources = program.sources.dup
       sources[:eval] = [program.evals.meta_path, program.evals.key] if program.evals
-      fresh = "#{@entry}.#{Process.pid}"
-      FileUtils.rm_rf(fresh)
-      FileUtils.mkdir_p(fresh)
-      kept(out, File.join(fresh, "program"))
-      File.binwrite(File.join(fresh, "sources"), Marshal.dump(sources))
-      FileUtils.rm_rf(@entry)
-      File.rename(fresh, @entry)
-      trim
-      File.join(@entry, "program")
-    rescue SystemCallError
-      FileUtils.rm_rf(fresh) if fresh
-      nil
-    end
-
-    # Removes the entries used longest ago, beyond KEPT or KEPT_BYTES.
-    def trim
-      entries = Dir[File.join(self.class.dir, "*")].select { |dir| File.directory?(dir) }.sort_by { |dir| -File.mtime(dir).to_f }
-      bytes = 0
-      entries.each_with_index do |dir, i|
-        bytes += File.size?(File.join(dir, "program")).to_i
-        FileUtils.rm_rf(dir) if i >= KEPT || bytes > KEPT_BYTES
+      entry = Store.write(:run, @key) do |dir|
+        kept(out, File.join(dir, "program"))
+        File.binwrite(File.join(dir, "sources"), Marshal.dump(sources))
       end
+      Store.evict(kinds: [:run])
+      File.join(entry, "program")
+    rescue SystemCallError, SourceChanged
+      nil
     end
 
     private

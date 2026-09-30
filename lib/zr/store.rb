@@ -150,9 +150,9 @@ module Zr
       end.uniq
     end
 
-    # Every entry, of each kind.
-    def entries
-      KINDS.each_value.flat_map do |kind|
+    # Every entry of the kinds `names` (all kinds by default).
+    def entries(names = KINDS.keys)
+      names.map { |name| kind(name) }.flat_map do |kind|
         top = File.join(dir, kind.name.to_s)
         children(top).flat_map do |prefix|
           children(File.join(top, prefix)).filter_map do |base|
@@ -177,9 +177,11 @@ module Zr
 
     # Removes the entries used longest ago that no fresh root names, until
     # each kind is within its quota and all entries are within `limit`
-    # bytes (nil: no limit). Returns the entries it removed.
-    def evict(limit: nil, now: Time.now)
-      all = entries
+    # bytes (nil: no limit). `kinds` limits the pass to those kinds: a
+    # write of a kind with a quota evicts only that kind. Returns the
+    # entries it removed.
+    def evict(limit: nil, kinds: KINDS.keys, now: Time.now)
+      all = entries(kinds)
       kept = rooted(now).to_h { |line| [line, true] }
       total = all.sum(&:bytes)
       by_kind = all.group_by(&:kind).transform_values { |list| list.sum(&:bytes) }

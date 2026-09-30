@@ -86,18 +86,4 @@ class BinaryCacheTest < Minitest::Test
     assert_includes File.binread(bin), @work, "the required file's path is the directory's, today"
     refute File.exist?(kept)
   end
-
-  def test_trim_drops_the_binaries_used_longest_ago
-    dir = File.join(@work, "binaries")
-    FileUtils.mkdir_p(dir)
-    %w[old mid new].each_with_index do |name, age|
-      path = File.join(dir, name)
-      File.binwrite(path, "x" * 100)
-      File.utime(Time.now - (3 - age) * 60, Time.now - (3 - age) * 60, path)
-    end
-
-    Binaries.trim(250, dir)
-
-    assert_equal %w[mid new], Dir.children(dir).sort
-  end
 end

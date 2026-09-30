@@ -24,9 +24,9 @@ module Zr
     # `__DATA` segment, and the symbol and string tables of the image. The
     # kept form leaves out these parts ("holes"), records where they were,
     # and deflates the rest. `take` writes the holes back from the prelinked
-    # image in memory. A full spec tier is then 5 GB, not 200 GB. `trim`
-    # keeps the directory under `ZR_TEST_BINARIES_GB` and removes the least
-    # recently used files first. A WASI module has no prelinked image, so
+    # image in memory. A full spec tier is then 5 GB, not 200 GB. The
+    # binaries are entries of the store (kind `binary`), and `trim` keeps
+    # them under `ZR_TEST_BINARIES_GB`, the least recently used first. A WASI module has no prelinked image, so
     # it is kept whole, and only with `ZR_TEST_BINARIES=1`.
     # `ZR_TEST_BINARIES=0` keeps nothing.
     #
@@ -56,10 +56,6 @@ module Zr
         end
       end
 
-      def directory = File.join(Zr::Paths.cache, "binaries")
-
-      def limit = Float(ENV.fetch("ZR_TEST_BINARIES_GB", 8)) * (1 << 30)
-
       # Returns the path of the kept binary for this example, or nil when
       # no key can describe it.
       def path(target, source, rb, files)
@@ -69,7 +65,7 @@ module Zr
         key = Digest::SHA256.new
         [VERSION, Zr.runtime(target).digest, Zr.link_digest, libraries, target.triple,
          *ENVIRONMENT.map { |name| ENV[name].to_s }, rb, source, *parts.flatten].each { |part| key << part.to_s << "\0" }
-        File.join(directory, "#{key.hexdigest}#{'.wasm' unless target.link}")
+        Zr::Store.path(:binary, "#{key.hexdigest}#{'.wasm' unless target.link}")
       end
 
       # The digest of the library files that a program can require and that
@@ -121,26 +117,14 @@ module Zr
         # two versions of the tree, but the key identifies only one. So
         # do not keep it: `settled!` stops the tier and gives the file name.
         Zr.settled!
-        FileUtils.mkdir_p(directory)
-        tmp = "#{kept}.#{Process.pid}"
         objects = objects_of(program)
         sparse = !kept.end_with?(".wasm") && Native::Build.prelink_path(objects)
-        File.binwrite(tmp, sparse ? sparse(bytes, objects) : bytes)
-        File.rename(tmp, kept)
+        Zr::Paths.write_atomic(kept, sparse ? sparse(bytes, objects) : bytes)
       end
 
-      # Removes the least recently used binaries until the total size is
-      # at most `limit`. Call it once, before the workers start.
-      def trim(limit = self.limit, directory = self.directory)
-        files = Dir[File.join(directory, "*")].map { |path| [path, File.mtime(path), File.size(path)] }
-        held = files.sum { |_, _, size| size }
-        files.sort_by { |_, used, _| used }.each do |path, _, size|
-          break unless held > limit
-
-          File.unlink(path)
-          held -= size
-        end
-      end
+      # Removes the least recently used binaries beyond their quota. Call
+      # it once, before the workers start.
+      def trim = Zr::Store.evict(kinds: [:binary])
 
       # Returns the cached objects that `program` links with: the runtime,
       # and eval support when the program evals (`Native::Build.program`).
