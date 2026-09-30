@@ -52,7 +52,7 @@ class CodeCacheTest < Minitest::Test
       puts ($LOADED_FEATURES - before).select { |f| f.start_with?(#{"#{CodeCache::LIB}/".inspect}) }.map { |f| f.delete_prefix(#{"#{CodeCache::LIB}/".inspect}) }.sort
     RUBY
     out, status = Open3.capture2(RbConfig.ruby, "-e", code)
-    assert status.success?
+    assert_predicate status, :success?
     assert_equal CodeCache::BACKEND.sort, out.split("\n"), "CodeCache::BACKEND must list each file that the passes and the backend load"
   end
 

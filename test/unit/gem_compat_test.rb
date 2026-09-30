@@ -192,7 +192,7 @@ class GemCompatTest < Minitest::Test
     assert_equal "needs a running server", Gems::Override.for("skipped", dir: OVERRIDES).skip
     parts = Gems::Override.for("multi-part", dir: OVERRIDES)
     assert_equal [nil, ["multi/part"], false], [parts.skip, parts.requires, parts.smoke?]
-    assert Gems::Override.for("tiny", dir: OVERRIDES).smoke?
+    assert_predicate Gems::Override.for("tiny", dir: OVERRIDES), :smoke?
     assert_nil Gems::Override.for("helper", dir: OVERRIDES)
   end
 

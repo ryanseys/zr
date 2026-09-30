@@ -147,7 +147,7 @@ class ExeTest < Minitest::Test
     Dir.mktmpdir("zr-exe-") do |dir|
       why = Zr::Obj::MachO::Executable.write(Zr::Native::Build.unit([f], []), File.join(dir, "parse"))
       assert_equal "zr_elsewhere is not libSystem's", why
-      refute File.exist?(File.join(dir, "parse")), "it wrote a file it had refused"
+      refute_path_exists File.join(dir, "parse"), "it wrote a file it had refused"
     end
   end
 
@@ -205,7 +205,7 @@ class ExeTest < Minitest::Test
       bin = File.join(dir, "twice")
       why = Zr::Obj::MachO::Executable.write(reaching_unit, bin, objects: [other_object, other_object])
       assert_equal "b_msg is defined twice", why
-      refute File.exist?(bin), "it wrote a file it had refused"
+      refute_path_exists bin, "it wrote a file it had refused"
     end
   end
 

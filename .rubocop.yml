@@ -1,7 +1,10 @@
 inherit_from: .rubocop_todo.yml
 
-# Only the Lint cops: they find bugs (unused values, shadowed names,
-# unreachable code) and do not change the style of the code.
+plugins:
+  - rubocop-minitest
+
+# The Lint cops find bugs (unused values, shadowed names, unreachable
+# code). Each other cop below is on for a reason that it gives.
 AllCops:
   TargetRubyVersion: 4.0
   NewCops: enable
@@ -52,3 +55,12 @@ Layout/LineLength:
 Layout/TrailingWhitespace: { Enabled: true, AllowInHeredoc: true } # heredocs are programs and outputs
 Layout/EmptyLines: { Enabled: true }
 Style/FrozenStringLiteralComment: { Enabled: true }
+
+# The Minitest cops keep one form for each assertion. The form gives the
+# better failure message: assert_predicate names the receiver, and
+# assert_path_exists names the path.
+Minitest:
+  Enabled: true
+Minitest/MultipleAssertions: { Enabled: false }              # a test checks one behavior, with its parts
+Minitest/EmptyLineBeforeAssertionMethods: { Enabled: false } # layout
+Minitest/AssertWithExpectedArgument: { Enabled: false }      # assert(x, message) is the form it flags

@@ -72,7 +72,7 @@ class ServerTest < Minitest::Test
         assert_equal ["[\"a b\"]\n", 3], [out, status.exitstatus], err
 
         _, err, status = Open3.capture3(env, RbConfig.ruby, File.join(ROOT, "exe/zr"), "build", program, "-o", File.join(dir, "p"))
-        assert status.success?, err
+        assert_predicate status, :success?, err
         assert File.executable?(File.join(dir, "p"))
 
         _, err, status = Open3.capture3(env, RbConfig.ruby, File.join(ROOT, "exe/zr"), "run", "--bogus", program)

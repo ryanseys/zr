@@ -118,7 +118,7 @@ class ElfTest < Minitest::Test
       obj = File.join(dir, "u.o")
       File.binwrite(obj, Elf.write(unit))
       out = IO.popen([readelf, "-r", "-s", obj], err: %i[child out], &:read)
-      assert $?.success?, out
+      assert_predicate $?, :success?, out
       assert_match(/R_AARCH64_CALL26\s+0+\s+exit/, out)
       assert_match(/R_AARCH64_ABS64\s+0+\s+msg \+ 4/, out)
     end

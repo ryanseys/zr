@@ -14,7 +14,7 @@ class LayoutTest < Minitest::Test
   def read(rel) = File.read(File.join(ROOT, rel))
 
   def test_no_rakelib_directory
-    refute File.exist?(File.join(ROOT, "rakelib")), "a tool is a zr-dev command in tool/, not a rake task in rakelib/"
+    refute_path_exists File.join(ROOT, "rakelib"), "a tool is a zr-dev command in tool/, not a rake task in rakelib/"
   end
 
   def test_the_rakefile_stays_short

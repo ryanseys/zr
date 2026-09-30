@@ -17,13 +17,13 @@ class PathsTest < Minitest::Test
       File.write(File.join(dir, "a/b/c/file"), "x")
       File.symlink("/", File.join(dir, "a/root"))
     end
-    refute File.exist?(kept)
+    refute_path_exists kept
   end
 
   def test_a_scratch_directory_is_removed_when_the_block_raises
     kept = nil
     assert_raises(RuntimeError) { Zr::Paths.tmpdir("zr-paths-") { |dir| kept = dir; raise "no" } }
-    refute File.exist?(kept)
+    refute_path_exists kept
   end
 
   def test_copy_keeps_the_bytes_the_mode_and_the_times

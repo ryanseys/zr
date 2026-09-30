@@ -22,7 +22,7 @@ class ReadmeTest < Minitest::Test
     links.each do |url|
       assert url.start_with?(TREE), "#{url}: link to #{TREE}"
       path = url.delete_prefix(TREE).sub(/#.*\z/, "")
-      assert File.exist?(File.join(ROOT, path)), "#{url}: no #{path}"
+      assert_path_exists File.join(ROOT, path), "#{url}: no #{path}"
     end
   end
 

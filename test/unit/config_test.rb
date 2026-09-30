@@ -66,7 +66,7 @@ class ConfigTest < Minitest::Test
     end
     Zr::Config.with(ZR_CACHE_MAX_GB: "0.5", ZR_JOBS: "") do |config|
       assert_in_delta 0.5, config.cache_max_gb
-      refute config.jobs_given?
+      refute_predicate config, :jobs_given?
     end
   end
 
@@ -79,25 +79,25 @@ class ConfigTest < Minitest::Test
   end
 
   def test_eval_walk_is_true_only_for_walk
-    Zr::Config.with(ZR_EVAL: "walk") { |config| assert config.eval_walk? }
-    Zr::Config.with(ZR_EVAL: nil) { |config| refute config.eval_walk? }
+    Zr::Config.with(ZR_EVAL: "walk") { |config| assert_predicate config, :eval_walk? }
+    Zr::Config.with(ZR_EVAL: nil) { |config| refute_predicate config, :eval_walk? }
   end
 
   def test_timing_defaults_to_off
-    Zr::Config.with(ZR_TIMING: nil) { |config| refute config.timing? }
+    Zr::Config.with(ZR_TIMING: nil) { |config| refute_predicate config, :timing? }
   end
 
   def test_timing_is_on_for_any_value_but_zero
-    Zr::Config.with(ZR_TIMING: "1") { |config| assert config.timing? }
-    Zr::Config.with(ZR_TIMING: "0") { |config| refute config.timing? }
+    Zr::Config.with(ZR_TIMING: "1") { |config| assert_predicate config, :timing? }
+    Zr::Config.with(ZR_TIMING: "0") { |config| refute_predicate config, :timing? }
   end
 
   def test_verify_defaults_to_off
-    Zr::Config.with(ZR_VERIFY: nil) { |config| refute config.verify? }
+    Zr::Config.with(ZR_VERIFY: nil) { |config| refute_predicate config, :verify? }
   end
 
   def test_wasm_names_defaults_to_off
-    Zr::Config.with(ZR_WASM_NAMES: nil) { |config| refute config.wasm_names? }
+    Zr::Config.with(ZR_WASM_NAMES: nil) { |config| refute_predicate config, :wasm_names? }
   end
 
   def test_wasm_width_defaults_to_256
@@ -109,11 +109,11 @@ class ConfigTest < Minitest::Test
   end
 
   def test_tune_defaults_to_on
-    Zr::Config.with(ZR_TUNE: nil) { |config| assert config.tune? }
+    Zr::Config.with(ZR_TUNE: nil) { |config| assert_predicate config, :tune? }
   end
 
   def test_tune_is_off_for_zero
-    Zr::Config.with(ZR_TUNE: "0") { |config| refute config.tune? }
+    Zr::Config.with(ZR_TUNE: "0") { |config| refute_predicate config, :tune? }
   end
 
   def test_cache_defaults_to_nil

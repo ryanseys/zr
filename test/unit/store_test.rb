@@ -133,7 +133,7 @@ class StoreTest < Minitest::Test
 
     assert_equal [gone], Store.clean.map(&:key)
     Store.clear
-    refute File.exist?(Store.dir)
+    refute_path_exists Store.dir
   end
 
   def test_clean_removes_a_lock_whose_entry_is_gone
@@ -144,7 +144,7 @@ class StoreTest < Minitest::Test
 
     Store.clean
 
-    assert File.exist?("#{Store.path(:object, kept)}.lock")
-    refute File.exist?("#{Store.path(:object, gone)}.lock")
+    assert_path_exists "#{Store.path(:object, kept)}.lock"
+    refute_path_exists "#{Store.path(:object, gone)}.lock"
   end
 end

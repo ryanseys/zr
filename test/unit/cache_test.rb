@@ -32,7 +32,7 @@ class CacheTest < Minitest::Test
     with_cache("0.001") do |_dir, old|
       swap(Zr::Paths, :checkout?, false) { Zr::Cache.trim }
 
-      refute File.exist?(old)
+      refute_path_exists old
     end
   end
 
@@ -40,7 +40,7 @@ class CacheTest < Minitest::Test
     with_cache("5") do |_dir, old|
       swap(Zr::Paths, :checkout?, false) { Zr::Cache.trim }
 
-      assert File.exist?(old)
+      assert_path_exists old
     end
   end
 
@@ -48,7 +48,7 @@ class CacheTest < Minitest::Test
     with_cache("0.001") do |_dir, old|
       swap(Zr::Paths, :checkout?, true) { Zr::Cache.trim }
 
-      assert File.exist?(old)
+      assert_path_exists old
     end
   end
 
@@ -59,8 +59,8 @@ class CacheTest < Minitest::Test
         Zr::Config.with(ZR_CACHE_MAX_GB: "0.001") { Zr::Cache.trim }
       end
 
-      assert File.exist?(old)
-      assert File.exist?(File.join(dir, ".measured"))
+      assert_path_exists old
+      assert_path_exists File.join(dir, ".measured")
     end
   end
   def test_a_rooted_entry_stays_over_the_limit
@@ -68,7 +68,7 @@ class CacheTest < Minitest::Test
       Zr::Store.root("build", [old])
       swap(Zr::Paths, :checkout?, false) { Zr::Cache.trim }
 
-      assert File.exist?(old)
+      assert_path_exists old
     end
   end
 
@@ -85,8 +85,8 @@ class CacheTest < Minitest::Test
       gone = Zr::Cache.prune
 
       assert_empty old_layout.select { |path| File.exist?(path) }
-      assert File.exist?(mark)
-      refute File.exist?(File.join(dir, "parse"))
+      assert_path_exists mark
+      refute_path_exists File.join(dir, "parse")
       assert_equal "old layout", Zr::Cache.kind(old_layout.first)
       assert_equal "object", Zr::Cache.kind(Zr::Store.path(:object, "1" * 64))
       assert_includes gone, old_layout.first

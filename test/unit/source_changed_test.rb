@@ -65,6 +65,6 @@ class SourceChangedTest < Minitest::Test
       assert_raises(Zr::SourceChanged) { cache.keep(unit, "zr_toplevel", [], []) }
       assert_raises(Zr::SourceChanged) { Zr::Spec::Binaries.keep(File.join(Zr::Paths.cache, "moved-probe"), @file, nil, "/nowhere") }
     end
-    refute File.exist?(File.join(Zr::Paths.cache, "moved-probe"))
+    refute_path_exists File.join(Zr::Paths.cache, "moved-probe")
   end
 end

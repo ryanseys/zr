@@ -82,7 +82,7 @@ class ParseCacheTest < Minitest::Test
     Dir.mktmpdir("zr-parse-") do |dir|
       error = assert_raises(Zr::SourceChanged) { ParseCache.write(File.join(dir, "x.marshal"), "x") }
       assert_includes error.message, file
-      refute File.exist?(File.join(dir, "x.marshal"))
+      refute_path_exists File.join(dir, "x.marshal")
     end
   ensure
     ParseCache.instance_variable_set(:@stamps, stamps)
@@ -167,7 +167,7 @@ class ParseCacheTest < Minitest::Test
       parsed = Prism.parse(source, filepath: "build.rb")
       ParseCache.write(path, Marshal.dump(parsed))
       read = ParseCache.read(path)
-      assert parsed.value.inspect == read.value.inspect, "the tree read back differs"
+      assert_equal parsed.value.inspect, read.value.inspect, "the tree read back differs"
       assert_equal parsed.value.location.start_line, read.value.location.start_line
       assert_equal parsed.comments.map(&:slice), read.comments.map(&:slice)
       assert_equal parsed.errors.map(&:message), read.errors.map(&:message)

@@ -33,7 +33,7 @@ class CompiledCompilerTest < Minitest::Test
     with_binary do |dir, manifest|
       File.binwrite(manifest, Marshal.dump(Zr::CompiledCompiler.stamps))
       out, status = zr(dir, "build", "missing.rb", "-o", "out")
-      assert status.success?, out
+      assert_predicate status, :success?, out
       assert_equal "compiled build missing.rb -o out\n", out
     end
   end
@@ -65,7 +65,7 @@ class CompiledCompilerTest < Minitest::Test
       out, = zr(dir, "build", "missing.rb", "-o", "out", self_env: "0")
       refute_includes out, "compiled"
       out, status = zr(dir, "version")
-      assert status.success?, out
+      assert_predicate status, :success?, out
       refute_includes out, "compiled"
     end
   end
@@ -77,7 +77,7 @@ class CompiledCompilerTest < Minitest::Test
     Dir.mktmpdir("zr-self-host-") do |dir|
       out, = zr(dir, "build", "missing.rb", "-o", "out")
       refute_includes out, "building the compiler with itself"
-      refute File.exist?(File.join(dir, "zr"))
+      refute_path_exists File.join(dir, "zr")
     end
   end
 
@@ -101,12 +101,11 @@ class CompiledCompilerTest < Minitest::Test
 
   def test_the_compiled_compiler_of_a_checkout_is_bin_zr
     skip "not a checkout" unless Zr::Paths.checkout?
-    binary = ENV.delete("ZR_BINARY")
 
-    assert_equal File.join(ROOT, "bin/zr"), Zr::CompiledCompiler.binary
-    assert_equal File.join(ROOT, "bin/zr.manifest"), Zr::CompiledCompiler.manifest
-  ensure
-    ENV["ZR_BINARY"] = binary if binary
+    with_env("ZR_BINARY" => nil) do
+      assert_equal File.join(ROOT, "bin/zr"), Zr::CompiledCompiler.binary
+      assert_equal File.join(ROOT, "bin/zr.manifest"), Zr::CompiledCompiler.manifest
+    end
   end
 
   # Replaces a class method for the block, then puts it back.
@@ -168,12 +167,12 @@ class CompiledCompilerTest < Minitest::Test
       File.write(source, "p 1\n")
       program = Zr::SelfBuilt.new(entry: "exe/zr", binary: File.join(dir, "zr"), dirs: []) { [source] }
 
-      refute program.failed?
+      refute_predicate program, :failed?
       program.fail!
-      assert program.failed?
+      assert_predicate program, :failed?
 
       File.write(source, "p 22\n")
-      refute program.failed?
+      refute_predicate program, :failed?
     end
   end
 

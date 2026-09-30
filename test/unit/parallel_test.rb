@@ -35,7 +35,7 @@ class ParallelTest < Minitest::Test
       Zr::Native::Build.writer(Zr::Target.default).write(image)
     end
     assert_equal one.bytesize, three.bytesize
-    assert one == three, "the kernel object differs between one worker and three"
+    assert_equal one, three, "the kernel object differs between one worker and three"
   end
 
   # A worker copies only the pages it writes: about a third of the parent

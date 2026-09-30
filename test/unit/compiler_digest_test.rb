@@ -19,7 +19,7 @@ class CompilerDigestTest < Minitest::Test
       puts $LOADED_FEATURES.select { |f| Zr::DRIVER_ONLY.include?(f) }
     RUBY
     out, status = Open3.capture2(RbConfig.ruby, "-I#{LIB}", "-e", code)
-    assert status.success?
+    assert_predicate status, :success?
     assert_empty out.split("\n"), "a build loads a file of Zr::DRIVER_ONLY; take it out of the list"
   end
 
