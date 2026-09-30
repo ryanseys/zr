@@ -36,7 +36,7 @@ module Zr
             @offset = nil
           end
 
-          def set_offset(offset)
+          def at_offset(offset)
             @offset = offset
             self
           end
@@ -123,7 +123,7 @@ module Zr
         def make_label(name) = Label.new(name)
 
         def put_label(label)
-          label.set_offset(@insns.length)
+          label.at_offset(@insns.length)
           self
         end
 

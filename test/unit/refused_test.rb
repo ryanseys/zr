@@ -25,7 +25,7 @@ class RefusedTest < Minitest::Test
     Zr::IR::Interp::Refused,
     Zr::Backend::Aarch64::Assembler::Refused,
     Zr::Obj::MachO::Refused,
-    Zr::Eval::Tree::Refused,
+    Zr::Eval::Walk::Tree::Refused,
     # Inherit `Zr::Refusal` from a stage's own `Refused` above, rather
     # than including it a second time.
     Zr::Backend::Aarch64::Codegen::Refused,
@@ -45,7 +45,7 @@ class RefusedTest < Minitest::Test
   end
 
   def test_eval_tree_refused_keeps_not_implemented_error_as_its_superclass
-    assert_operator Zr::Eval::Tree::Refused, :<, ::NotImplementedError
+    assert_operator Zr::Eval::Walk::Tree::Refused, :<, ::NotImplementedError
   end
 
   def test_a_refusal_instance_answers_is_a_refusal
