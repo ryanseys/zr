@@ -36,9 +36,9 @@ module Zr
         @spec_file = spec_file
       end
 
-      def describe(name, &block)
+      def describe(name, &)
         @about = name
-        instance_eval(&block)
+        instance_eval(&)
       end
 
       # A guard that this machine does not meet makes the example skip, as

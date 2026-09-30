@@ -83,26 +83,26 @@ module Zr
 
         # Every Def under `node`, at any depth. The walk goes into class
         # bodies, blocks and defs.
-        def self.each_def(node, &blk)
+        def self.each_def(node, &)
           case node
           when Hir::Def
             yield node
-            each_def(node.body, &blk)
-          when Hir::Seq then node.stmts.each { |n| each_def(n, &blk) }
-          when Hir::ClassDef, Hir::ModuleDef, Hir::SingletonClassDef then each_def(node.body, &blk)
+            each_def(node.body, &)
+          when Hir::Seq then node.stmts.each { |n| each_def(n, &) }
+          when Hir::ClassDef, Hir::ModuleDef, Hir::SingletonClassDef then each_def(node.body, &)
           when Hir::If
-            each_def(node.cond, &blk)
-            each_def(node.yes, &blk) if node.yes
-            each_def(node.no, &blk) if node.no
+            each_def(node.cond, &)
+            each_def(node.yes, &) if node.yes
+            each_def(node.no, &) if node.no
           when Hir::While
-            each_def(node.cond, &blk)
-            each_def(node.body, &blk)
+            each_def(node.cond, &)
+            each_def(node.body, &)
           when Hir::Send
-            each_def(node.recv, &blk) if node.recv
-            node.args.each { |a| each_def(a, &blk) }
-            each_def(node.block.body, &blk) if node.block.is_a?(Hir::Block)
+            each_def(node.recv, &) if node.recv
+            node.args.each { |a| each_def(a, &) }
+            each_def(node.block.body, &) if node.block.is_a?(Hir::Block)
           when Hir::Begin
-            each_def(node.body, &blk) if node.body
+            each_def(node.body, &) if node.body
           end
         end
 

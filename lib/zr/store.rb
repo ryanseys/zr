@@ -88,11 +88,11 @@ module Zr
     # Writes the entry and returns its path. A `:dir` kind takes a block
     # that fills the directory it gets. Writes nothing when a source
     # changed during the build (`Zr.settled!` raises SourceChanged).
-    def write(name, key, value = nil, &fill)
+    def write(name, key, value = nil, &)
       Zr.settled!
       file = path(name, key)
       codec = kind(name).codec
-      return write_dir(file, &fill) if codec == :dir
+      return write_dir(file, &) if codec == :dir
 
       Paths.write_atomic(file, encode(codec, value))
     end

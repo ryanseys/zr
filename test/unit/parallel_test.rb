@@ -104,5 +104,5 @@ class ParallelTest < Minitest::Test
     end
   end
 
-  def holding(gigabytes, &block) = stub_method(Parallel, :held_bytes, -> { gigabytes << 30 }, &block)
+  def holding(gigabytes, &) = stub_method(Parallel, :held_bytes, -> { gigabytes << 30 }, &)
 end

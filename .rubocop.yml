@@ -115,3 +115,6 @@ Style/Semicolon:
     - "tool/spec.rb"
 # lambda.call(x), not lambda.(x).
 Style/LambdaCall: { Enabled: true }
+
+# A block that a method only passes on needs no name: `def f(&) = g(&)`.
+Naming/BlockForwarding: { Enabled: true }

@@ -564,8 +564,8 @@ module Zr
 
     # Sends the functions lowered since the last call to `finish`. The
     # lowering keeps none of them.
-    def finished_functions(&finish)
-      done = @functions.map(&finish)
+    def finished_functions(&)
+      done = @functions.map(&)
       @functions = []
       done
     end

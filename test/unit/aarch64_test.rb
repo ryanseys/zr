@@ -34,7 +34,7 @@ class Aarch64Test < Minitest::Test
 
     def make_label(name) = @asm.make_label(name)
     def put_label(label) = @asm.put_label(label)
-    def patch_location(&block) = @asm.patch_location(&block)
+    def patch_location(&) = @asm.patch_location(&)
 
     def to_binary
       words = @asm.to_binary.unpack("L<*")
@@ -42,12 +42,12 @@ class Aarch64Test < Minitest::Test
       words.pack("L<*")
     end
 
-    def method_missing(name, *args, **options, &block)
+    def method_missing(name, *args, **options, &)
       if args.flatten.any? { |a| a.is_a?(Aarch64::Registers::Register) && a.float? }
         @floats << [@count, float_word(name, args)]
         @asm.nop
       else
-        @asm.public_send(name, *args.map { |a| translate(a) }, **options, &block)
+        @asm.public_send(name, *args.map { |a| translate(a) }, **options, &)
       end
       @count += 1
       self

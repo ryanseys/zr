@@ -85,7 +85,7 @@ module Zr
 
     # A piece from its entry, or lowered now. A nil `key` is a piece that
     # no key can describe; it is always lowered.
-    def piece(path, entry, key, &lower)
+    def piece(path, entry, key, &)
       record = key && fetch(key)
       if record && @symbols.fits?(record[:names]) && @symbols.sites == record[:sites].first && reads_hold?(record)
         @symbols.replay(record[:names])
@@ -97,7 +97,7 @@ module Zr
                  else "no entry"
                  end
         why(path, reason)
-        lowered(path, entry, key, &lower)
+        lowered(path, entry, key, &)
       end
     end
 

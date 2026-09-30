@@ -74,14 +74,14 @@ module Zr
     # in `body` runs, in the order of the tree. The block gives the entry
     # of a unit; a require that runs no unit adds "-". EvalCache keys its
     # pieces the same way.
-    def self.reached(body, out = [], &entry)
+    def self.reached(body, out = [], &)
       case body
       when Hir::Require, Hir::Autoload
         out << Paths.shown(body.path.to_s) << (body.unit.nil? ? "-" : yield(body.unit))
-        body.each { |child| reached(child, out, &entry) if child.is_a?(Hir::Node) || child.is_a?(Array) }
+        body.each { |child| reached(child, out, &) if child.is_a?(Hir::Node) || child.is_a?(Array) }
       when Hir::Node, Array
         # No array per node: a walk of a large program visits millions.
-        body.each { |child| reached(child, out, &entry) if child.is_a?(Hir::Node) || child.is_a?(Array) }
+        body.each { |child| reached(child, out, &) if child.is_a?(Hir::Node) || child.is_a?(Array) }
       end
       out
     end
