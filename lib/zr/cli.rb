@@ -337,7 +337,7 @@ module Zr
         puts format("%6d MB  %5d  in all, in %s", Cache.megabytes(files), files.size, Paths.cache)
       when "clean"
         all = args.include?("--all")
-        sizes = Cache.all.to_h { |path| [path, File.size(path)] }
+        sizes = Cache.all.to_h { |path| [path, Cache.bytes([path])] }
         gone = all ? Cache.clear : Cache.prune
         others = Cache.other_compilers
         freed = gone.sum { |path| sizes.fetch(path, 0) } + others.sum { |dir| Cache.tree_bytes(dir) }

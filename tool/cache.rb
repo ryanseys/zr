@@ -5,31 +5,27 @@ require_relative "../lib/zr/cache"
 
 module Zr
   module Dev
-    # Commands that clean the runtime cache.
+    # Commands that clean the runtime cache: the store of lib/zr/store.rb,
+    # and the files that a zr wrote before it (lib/zr/cache.rb).
     #
-    # `tmp/cache` gets a runtime object, a prelinked image, an eval support
+    # The store gets a runtime object, a prelinked image, an eval support
     # object and a symbol table for each digest that this checkout builds.
     # The digest changes when any file under `lib` or `runtime` changes,
-    # so old entries collect (9.5 GB after one week of work).
-    #
-    # It also gets one `unit-<key>.marshal` for each file that a program
-    # is built from (lib/zr/unit_cache.rb). Each is small, but a tier run
-    # makes thousands. The name is a digest of all the unit's inputs, not
-    # of the compiler alone, so a prune cannot tell the live ones: it keeps
-    # them by age only, as it keeps the binaries.
+    # so old entries collect (9.5 GB after one week of work). It also gets
+    # the code and the lowering of each unit, parsed trees, and the
+    # binaries of `zr run` and the tiers.
     #
     #   zr-dev cache size             what is there, by kind
-    #   zr-dev cache prune            all except the files this checkout uses
-    #   zr-dev cache prune --days 3   ... and keep files touched in 3 days
-    #   zr-dev cache clear            all files, also this checkout's files
+    #   zr-dev cache prune            all except the entries this checkout uses
+    #   zr-dev cache prune --days 3   ... and keep entries used in 3 days
+    #   zr-dev cache clear            everything, also this checkout's entries
     #
-    # A prune keeps the files this checkout uses, whatever their age. Thus
-    # the next build does not rebuild the runtime, eval support or the
-    # images. `clear` removes those too; use it when the disk is full. All
-    # other files are content-addressed and are made again on demand. A
-    # wasm prelude has a name that comes from more than the runtime digest
-    # (the program's pending symbols). Thus a prune keeps it by age only,
-    # and a prune with 0 days makes the next wasm build rebuild it.
+    # Each build names the entries it needs in a root of the store: the
+    # runtime and eval support objects, their images and metadata, and the
+    # code and lowering of this backend. A prune keeps them, whatever their
+    # age, so the next build rebuilds nothing. `clear` removes them too;
+    # use it when the disk is full. All other entries are made again on
+    # demand.
     class Cache < Group
       summary "Show, prune or clear the runtime cache"
 
@@ -94,7 +90,7 @@ module Zr
 
         def run(_argv)
           days = @days || Float(ENV.fetch("ZR_CACHE_DAYS", 1))
-          sizes = Files.all.to_h { |path| [path, File.size(path)] }
+          sizes = Files.all.to_h { |path| [path, Zr::Cache.bytes([path])] }
           stale = Zr::Cache.prune(days: days)
           freed = stale.sum { |path| sizes.fetch(path, 0) } / (1 << 20)
           puts format("swept %d file(s), %d MB; %d MB left", stale.size, freed, Files.megabytes(Files.all))

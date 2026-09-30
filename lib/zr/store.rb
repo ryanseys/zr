@@ -200,10 +200,12 @@ module Zr
       removed
     end
 
-    # Removes every entry that no fresh root names. Returns them.
-    def clean(now: Time.now)
+    # Removes every entry that no fresh root names and that was not used
+    # in the last `days`. Returns them.
+    def clean(days: 0, now: Time.now)
       kept = rooted(now).to_h { |line| [line, true] }
-      entries.reject { |entry| kept[relative(entry.path)] }.each { |entry| Paths.remove(entry.path) }
+      young = now - (days * 86_400)
+      entries.reject { |entry| kept[relative(entry.path)] || entry.mtime > young }.each { |entry| Paths.remove(entry.path) }
     end
 
     # Removes the whole store.
