@@ -100,7 +100,8 @@ with no file format. Three writers read it:
   compiler.
 
 The runtime is large, so zr compiles it one time for each version of
-its sources and keeps the object in the cache (`runtime-<digest>.o`).
+its sources and keeps the object in the cache (`store/object/`, by its
+digest).
 The build of a program lowers only the program, and zr's linker links
 it beside the cached runtime. A cold build assembles the runtime in
 parallel worker processes. The result is the same bytes for any number
@@ -109,7 +110,7 @@ of workers.
 zr also links the runtime one time. `Obj::MachO::Prelink` reads the
 runtime object back (and eval support, for a program that evals), puts
 it at fixed addresses, applies its relocations, and keeps the result
-in the cache as the prelinked image (`prelink-<digest>.bin`). Every
+in the cache as the prelinked image (`store/image/`). Every
 binary has the runtime at those addresses:
 
 - The program's code is in a `__PROGRAM` segment after the runtime's

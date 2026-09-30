@@ -25,7 +25,8 @@ Two kinds of code meet on a program's load path (`Zr::Layout`):
 | `lib/zr/config.rb` | `Zr::Config`: the `ZR_*` variables that steer a build, read once |
 | `lib/zr/cli.rb` | the commands of `zr`, their options, and what they print |
 | `lib/zr/doctor.rb` | the checks of `zr doctor` |
-| `lib/zr/cache.rb` | the build cache: what it holds, and `zr cache clean` |
+| `lib/zr/store.rb` | the one content store of every cache: layout, keys, reads, writes, roots and eviction |
+| `lib/zr/cache.rb` | the build cache as `zr cache` sees it: size, clean, and the daily trim |
 | `lib/zr/refused.rb` | `Zr::Refused`: a program uses a form that zr does not support |
 | `lib/zr/bytes.rb` | byte helpers: alignment and padding |
 | `lib/zr/clock.rb` | `Zr.clock`: the phase times that `ZR_TIMING=1` prints |

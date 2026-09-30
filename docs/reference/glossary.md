@@ -45,9 +45,9 @@ layouts, as text (`runtime/ext/os/<os>/zr_description.rb`). A program
 that evals includes the description in place of the kernel's sources.
 
 **Digest.** A SHA-256 hash of all the inputs of a built file. zr gives
-the digest to the file name of each cache file, for example
-`runtime-<digest>.o`. A change to an input makes a new digest, and thus
-a new build.
+the digest to the name of each entry of the cache, for example
+`store/object/ab/ab12….o` for the runtime object. A change to an input
+makes a new digest, and thus a new build.
 
 **Effects.** The regions of memory that a call can write, one bit for
 each region: the gate word, the stamps, the task, the heap cells, the
@@ -137,7 +137,7 @@ Compiled code tests it at safe points to switch threads.
 Not a pending unwind.
 
 **Prelinked image.** The runtime object, read back, put at fixed
-addresses, with its relocations applied (`prelink-<digest>.bin` in the
+addresses, with its relocations applied (`store/image/` in the
 cache). Every binary starts with the runtime at those addresses, so a
 link relocates only the program.
 

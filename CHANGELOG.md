@@ -39,8 +39,10 @@ The first public release.
   itself at its first build, which makes later builds faster
   (`ZR_COMPILED=0` skips it). Other hosts run zr under ruby. A build
   keeps the runtime, the prelinked image and each file's machine code
-  in a cache, which `zr cache` shows and cleans, and which an installed
-  zr keeps under `ZR_CACHE_MAX_GB`.
+  in one content store (`<cache>/store/`), which `zr cache` shows and
+  cleans. Each build names in a root what the next build needs, so a
+  clean keeps it, and an installed zr evicts the entries used longest
+  ago to stay under `ZR_CACHE_MAX_GB`.
 - `zr run` and `zr build` read another version of a gem from
   `--gem NAME=VERSION` or `--gem NAME=DIR`, and from the Gemfile.lock
   of `--gemfile` or `BUNDLE_GEMFILE`, before zr's standard library. zr
