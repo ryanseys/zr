@@ -167,7 +167,7 @@ module Zr
           addr = 0
           sections.each_with_index do |s, si|
             kinds = SECTIONS[si][3]
-            mine = items.select { |kind, _| kinds.include?(kind) }
+            mine = items.select { |item| kinds.include?(item.first) }
             s[:align] = mine.map { |_, i| Math.log2(i.align).ceil }.max || 0
             addr = Bytes.align(addr, 1 << s[:align])
             s[:addr] = addr

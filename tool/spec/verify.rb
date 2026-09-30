@@ -39,7 +39,7 @@ module Zr
 
         # The names of the parts of an example that differ, so that a report
         # tells which part changed.
-        def moved(was, now) = was.keys.select { |k| was[k] != now[k] }
+        def moved(was, now) = was.keys.reject { |k| was[k] == now[k] }
 
         # Changes each string in a hash or array to its bytes, so that a
         # comparison ignores the encoding tag.

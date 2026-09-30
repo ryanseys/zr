@@ -397,7 +397,7 @@ class PassesTest < Minitest::Test
       e = f.fetch("i64", at)
       f.ret(f.iadd(f.iadd(a, b), f.iadd(f.iadd(c, d), e)))
     end
-    allocate = function("allocate", [], nil) { |g| g.ret }
+    allocate = function("allocate", [], nil, &:ret)
     Zr::IR::Passes.prepare(f, strict: true)
     assert_equal [0, 8, 8], loads(f).map(&:offset).sort
     assert_equal 27, answer_with([f, allocate], [static("current_task", [7, 3].pack("q<q<"))], [])

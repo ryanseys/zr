@@ -124,13 +124,13 @@ module Zr
     def tune? = @tune
 
     # `ZR_LEDGER`: true or false when set, else nil (`Zr.ledger?`).
-    def ledger = @ledger
+    attr_reader :ledger
 
     # `ZR_RUN_CACHE=0` makes `zr run` build each run (`RunCache`).
     def run_cache? = @run_cache
 
     # `ZR_CODE_CACHE`: "1", "0" or "verify" (`Native::CodeCache`).
-    def code_cache = @code_cache
+    attr_reader :code_cache
 
     # `ZR_ISEQ_CACHE=0` makes ruby compile zr's own files at each start
     # (`IseqCache`).
@@ -138,7 +138,7 @@ module Zr
 
     # `ZR_SERVER`: nil (use the server if one listens at its default
     # socket), "0" (never), or the path of a socket (lib/zr/server.rb).
-    def server = @server
+    attr_reader :server
 
     # Whether `ZR_JOBS` sets the worker count. Then it also overrides the
     # memory limit (`Native::Parallel.afforded`).

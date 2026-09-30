@@ -82,7 +82,7 @@ module Zr
           end
           bi += 1
         end
-        type.reject { |addr, _| refused.include?(addr) }
+        type.except(*refused)
       end
 
       # If the address of a slot is in `args`, the slot does not qualify.

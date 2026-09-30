@@ -65,7 +65,7 @@ class OnigParseTest < Minitest::Test
   def compile_in_core(pattern, options, verbose)
     _, _, compiled, warnings = Pattern.compile(pattern.dup.freeze, options)
     names = compiled.name_table ? compiled.name_table.keys.map { |name| name.dup.force_encoding(pattern.encoding) } : []
-    [:ok, names, pattern, warnings.rows.reject { |row| row.verbose && !verbose }.map { |row| row.text }]
+    [:ok, names, pattern, warnings.rows.reject { |row| row.verbose && !verbose }.map(&:text)]
   rescue RegexpError, ArgumentError => e
     [:error, e.class, e.message.b]
   end

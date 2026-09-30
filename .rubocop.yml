@@ -87,3 +87,16 @@ Style/StringLiteralsInInterpolation:
 
 # A ternary inside a ternary is hard to read; an if or a case says it.
 Style/NestedTernaryOperator: { Enabled: true }
+
+# attr_reader for a reader that only returns its variable.
+Style/TrivialAccessors: { Enabled: true }
+
+# The method of the core library that says what the block does.
+Style/ArrayIntersect: { Enabled: true }      # a.intersect?(b)
+Style/CollectionCompact: { Enabled: true }   # compact
+Style/HashExcept: { Enabled: true }          # except
+Style/HashSlice: { Enabled: true }           # slice
+Style/InverseMethods: { Enabled: true }      # reject, not select { !... }
+Style/MapToSet: { Enabled: true }            # to_set { }
+Style/SelectByRange: { Enabled: true }       # grep and grep_v
+Style/SymbolProc: { Enabled: true }          # &:name

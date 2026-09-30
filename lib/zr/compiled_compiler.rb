@@ -143,7 +143,7 @@ module Zr
       return false if current || shipped?
       return false unless env["ZR_COMPILED"] == "1" || !Paths.checkout?
       return false if env["ZR_COMPILED"] != "1" && program.failed?
-      return false if argv.any? { |word| %w[-h --help].include?(word) }
+      return false if argv.intersect?(%w[-h --help])
 
       argv.drop(1).any? { |word| !word.start_with?("-") && word.end_with?(".rb") && File.file?(word) }
     end

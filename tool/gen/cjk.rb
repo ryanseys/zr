@@ -265,7 +265,7 @@ module Zr
             @ids[packed] ||= (@rows << packed; @rows.size - 1)
           end
 
-          def rows = @rows
+          attr_reader :rows
         end
 
         # Compares the bytes that ruby writes for each code point with the lowest
@@ -481,7 +481,7 @@ module Zr
             end
           end
           compat = Encoding.list.to_h { |encoding| [encoding.name, (Encoding::Converter.asciicompat_encoding(encoding)&.name rescue nil)] }
-                                .reject { |_, value| value.nil? }
+                                .compact
           core << "  # The pairs ruby converts in one step, which a conversion path is\n  # searched over.\n"
           core << "  CONVERTERS = [\n"
           edges.each { |a, b| core << "    [#{a.inspect}, #{b.inspect}],\n" }

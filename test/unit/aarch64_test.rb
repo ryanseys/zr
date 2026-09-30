@@ -114,7 +114,7 @@ class Aarch64Test < Minitest::Test
       require "aarch64"
       functions = self.class.runtime
       assert_operator functions.size, :>, 3000
-      names = functions.map(&:name).to_set
+      names = functions.to_set(&:name)
       functions.each_with_index do |f, i|
         next unless i % SHARDS == n
 

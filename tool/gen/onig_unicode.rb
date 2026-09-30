@@ -182,7 +182,7 @@ module Zr
         # Every code point ruby can hold, as one String, and the code
         # point at each character offset of it (the surrogates are
         # skipped).
-        def all_codes = @all_codes ||= (0..0x10FFFF).reject { |cp| (0xD800..0xDFFF).cover?(cp) }.pack("U*").freeze
+        def all_codes = @all_codes ||= (0..0x10FFFF).grep_v(0xD800..0xDFFF).pack("U*").freeze
 
         def code_at(offset) = offset < 0xD800 ? offset : offset + 0x800
 
