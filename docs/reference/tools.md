@@ -51,7 +51,7 @@ no arguments. Give paths and minitest options to `bin/test`.
 | `rake build` | Builds the runtime for this host: the runtime object, the prelinked image and eval support. `bin/test` also does this when the runtime is not built. |
 | `rake build:wasm` | Builds the runtime for `wasm32-wasi`. |
 | `rake build:all` | Builds the runtime for this host and for `wasm32-wasi`. |
-| `rake build:self` | Builds the compiled compiler, `bin/zr`. `exe/zr` then uses it until a file under `lib`, `runtime`, `stdlib` or `vendor` changes (see `ZR_COMPILED`). |
+| `rake build:self` | Builds the compiled compiler, `bin/zr`. In a checkout, `exe/zr` uses it only with `ZR_COMPILED=1`, and only until a file under `lib`, `runtime` or `vendor/ruby` changes. |
 | `rake build:tools` | Compiles the `zr-dev` tools with zr, to `bin/zr-dev`. See [The compiled tools](#the-compiled-tools). |
 
 ### Test, lint and generate

@@ -81,6 +81,24 @@ class CompiledCompilerTest < Minitest::Test
     end
   end
 
+  # A checkout builds under ruby even when bin/zr is current: nearly every
+  # edit makes it stale. ZR_COMPILED=1 or ZR_BINARY asks for it.
+  def test_a_checkout_uses_the_compiled_compiler_only_when_asked
+    skip "not a checkout" unless Zr::Paths.checkout?
+
+    refute Zr::CompiledCompiler.wanted?({})
+    assert Zr::CompiledCompiler.wanted?({ "ZR_COMPILED" => "1" })
+    assert Zr::CompiledCompiler.wanted?({ "ZR_BINARY" => "/stand/in/zr" })
+    refute Zr::CompiledCompiler.wanted?({ "ZR_COMPILED" => "0", "ZR_BINARY" => "/stand/in/zr" })
+  end
+
+  def test_an_install_uses_the_compiled_compiler_unless_zr_compiled_is_0
+    swap(Zr::Paths, :checkout?, false) do
+      assert Zr::CompiledCompiler.wanted?({})
+      refute Zr::CompiledCompiler.wanted?({ "ZR_COMPILED" => "0" })
+    end
+  end
+
   def test_the_compiled_compiler_of_a_checkout_is_bin_zr
     skip "not a checkout" unless Zr::Paths.checkout?
     binary = ENV.delete("ZR_BINARY")

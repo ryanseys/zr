@@ -13,12 +13,12 @@ module Zr
   #
   # `exe/zr` calls this module first. The compiled compiler runs a build
   # only if its source files are unchanged: the same list of files, and
-  # the same file stamp for each file under lib/, runtime/, vendor/ruby,
-  # vendor/ and exe/zr. Otherwise ruby runs the command. An
-  # installed gem builds the compiled compiler at its first build and
-  # tells the user. A checkout, whose files change frequently, builds one
-  # only with `ZR_COMPILED=1` or `rake build:self`, as `bin/zr`. With `ZR_COMPILED=0`,
-  # ruby always runs the command.
+  # the same file stamp for each file under lib/, runtime/, vendor/ruby
+  # and exe/zr. Otherwise ruby runs the command. An installed gem builds
+  # the compiled compiler at its first build and tells the user. A
+  # checkout builds under ruby; with `ZR_COMPILED=1` it uses `bin/zr`
+  # (and builds it when it is out of date), as does `rake build:self`.
+  # With `ZR_COMPILED=0`, ruby always runs the command.
   module CompiledCompiler
     # The commands that a compiled compiler runs. Ruby runs all others.
     VERBS = %w[run build machine].freeze
@@ -78,7 +78,7 @@ module Zr
     def hand_over(argv, env = ENV)
       return if env.delete(HANDED)
       return if Zr.compiled? || !VERBS.include?(argv.first)
-      return if env["ZR_COMPILED"] == "0"
+      return unless wanted?(env)
       # A stand-in that `ZR_BINARY` names can run on any host.
       return unless runnable? || env["ZR_BINARY"]
 
@@ -90,6 +90,18 @@ module Zr
         current = current?
       end
       exec(UNBUNDLED, binary, *argv) if current && gems_kept?(argv, env)
+    end
+
+    # Whether this zr may give a build to the compiled compiler. An
+    # install uses it unless `ZR_COMPILED=0`. A checkout builds under ruby
+    # unless `ZR_COMPILED=1` or `ZR_BINARY` asks for it: nearly every edit
+    # makes `bin/zr` out of date, so the check cost time and the build
+    # fell back to ruby anyway. CI still builds `bin/zr` to check that zr
+    # compiles itself (`zr-dev stage 2`).
+    def wanted?(env = ENV)
+      return false if env["ZR_COMPILED"] == "0"
+
+      !Paths.checkout? || env["ZR_COMPILED"] == "1" || !env["ZR_BINARY"].to_s.empty?
     end
 
     # The compiled compiler's gem prelude requires what BUNDLER_SETUP

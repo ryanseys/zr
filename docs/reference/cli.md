@@ -192,7 +192,8 @@ line says what to do.
 The fast compiler is zr compiled by itself. An installed zr builds it at
 its first build (some minutes), and uses it for each later build. If
 that build fails, ruby runs zr, and zr tries again one day later, at
-most three times. `ZR_COMPILED=1` tries at once. `fail` means that zr
+most three times. `ZR_COMPILED=1` tries at once. A checkout of zr
+builds under ruby, unless `ZR_COMPILED=1` asks for `bin/zr`. `fail` means that zr
 cannot build, and `zr doctor` then exits with status 1. Put the
 output of `zr doctor` in a bug report.
 
