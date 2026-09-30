@@ -431,7 +431,7 @@ module Zr
       set = ::Fiddle::Function.new(::Fiddle::Handle::DEFAULT["signal"], [::Fiddle::TYPE_INT, ::Fiddle::TYPE_VOIDP], ::Fiddle::TYPE_VOIDP)
       set.call(signo, 0)
       true
-    rescue LoadError, NameError, StandardError
+    rescue LoadError, StandardError
       false
     end
 

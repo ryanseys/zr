@@ -98,13 +98,13 @@ module Zr
             y += 1
           end
           v[k] = x
-          return backtrack(trace, old, new, n, m) if x >= n && y >= m
+          return backtrack(trace, n, m) if x >= n && y >= m
         end
       end
       []
     end
 
-    def backtrack(trace, old, new, x, y)
+    def backtrack(trace, x, y)
       edits = []
       (trace.size - 1).downto(0) do |d|
         v = trace[d]
