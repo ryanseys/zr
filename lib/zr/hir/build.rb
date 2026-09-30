@@ -43,16 +43,20 @@ module Zr
 
       def self.runtime_file?(file) = File.expand_path(file).start_with?("#{Paths::RUNTIME}/") || description?(file)
 
-      # The kernel's description that the build writes into the store
-      # (`Runtime#carried_description`). It is part of the runtime, as its
-      # kernel is, though it is not under runtime/. The test reads only
-      # the path: under wasi, a zr binary cannot ask for the cache.
-      def self.description?(file) = file.match?(%r{/store/description/\h{2}/\h+/zr_description\.rb\z})
+      # The name of the kernel's description (`Runtime#carried_text`), which
+      # `require "zr_description"` finds. No file has it: the loader takes
+      # its source from the runtime. So the name is the same in every
+      # checkout and cache, and a compiler that zr builds does not carry
+      # where its cache was. It is part of the runtime, as its kernel is.
+      DESCRIPTION = "<zr>/zr_description.rb"
 
-      # Gives the kernel's description of `target` when a file requires
-      # `zr_description`: only eval support and a program that compiles
-      # itself do. Nil where no runtime is loaded (an eval in a binary).
-      def self.description(target) = -> { Zr.runtime(target).carry_description! if Zr.respond_to?(:runtime) }
+      def self.description?(file) = file == DESCRIPTION
+
+      # Gives the source of the kernel's description of `target` when a
+      # file requires `zr_description`: only eval support and a program
+      # that compiles itself do. Nil where no runtime is loaded (an eval
+      # in a binary).
+      def self.description(target) = -> { Zr.runtime(target).carried_text if Zr.respond_to?(:runtime) }
 
       # A file of the runtime's libraries (Layout::EXT, Layout::RUNTIME_LIB): it is
       # internal, as the core is, so a backtrace shows its methods as

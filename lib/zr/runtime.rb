@@ -145,27 +145,12 @@ module Zr
       @released = true
     end
 
-    # The kernel's description as eval support carries it: `zr_description.rb`,
-    # which `require "zr_description"` finds (lib/zr/eval.rb). The JIT of a
-    # binary lowers eval'd code against it, not against the kernel. zr
-    # writes it from this runtime's description into the store, keyed by
-    # its bytes, so it is never out of date and nobody commits it.
-    def carried_description
-      @carried_description ||= File.join(Cache::Store.path(:description, Cache::Store.key(carried_text)), DESCRIPTION_FILE)
-    end
-
-    DESCRIPTION_FILE = "zr_description.rb"
-
-    # Writes the carried description unless the store has it. Returns its
-    # path.
-    def carry_description!
-      path = carried_description
-      return path if File.file?(path)
-
-      Cache::Store.write(:description, File.basename(File.dirname(path))) { |dir| File.binwrite(File.join(dir, DESCRIPTION_FILE), carried_text) }
-      path
-    end
-
+    # The kernel's description as eval support carries it: the source of
+    # `zr_description.rb`, which `require "zr_description"` finds
+    # (lib/zr/eval.rb, `Hir::Build::DESCRIPTION`). The JIT of a binary
+    # lowers eval'd code against it, not against the kernel. zr makes it
+    # from this runtime's description, so it is never out of date and
+    # nobody commits it.
     def carried_text = @carried_text ||= Machine::Description.carried(cached.fetch(:description))
 
     # `RuntimeSources#abi_digest`: what a program's units take from this runtime. It reads the symbol table's cache, which it makes first.
@@ -405,7 +390,6 @@ module Zr
       @lowered ||= Zr.clock("eval support lowered") do
         Tune.heavy!
         Zr.announce("eval support (the compiler in a program that calls eval)", target)
-        @runtime.carry_description!
         loader = Hir::Build.eval_support(target)
         program = Hir::Program.new(Hir::Build.eval_file(target), [], Hir::Seq.new([], 0), loader.units, [], true, loader.entries)
         symbols = Machine::Symbols.new(@runtime.symbols.names, sites: @runtime.symbols.sites)

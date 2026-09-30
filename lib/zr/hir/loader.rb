@@ -445,7 +445,7 @@ module Zr
           i = @units.size
           @index[path] = i
           @units << nil
-          @units[i] = unit(path)
+          @units[i] = Build.description?(path) ? unit(path, @description.call) : unit(path)
           i
         end
 
@@ -481,9 +481,9 @@ module Zr
             # place to look.
             candidate(File.expand_path(feature)) || candidate(File.expand_path(feature, File.dirname(from)))
           elsif feature == "zr_description" && @description
-            # The kernel's description, which the build writes
-            # (`Runtime#carry_description!`); no root holds it.
-            @description.call
+            # The kernel's description, which the runtime gives
+            # (`Runtime#carried_text`); no root holds it.
+            Build::DESCRIPTION
           else
             @roots.each do |root|
               found = candidate(File.join(root, feature)) || native(root, feature)

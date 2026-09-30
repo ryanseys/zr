@@ -1,12 +1,13 @@
 # frozen_string_literal: true
+# zr-test: runtime
 
 require "test_helper"
 require "zr/runtime"
 require "zr/native/build"
 
 # Tests the kernel description that a program includes for eval support.
-# A build writes it into the store from the kernel it lowered
-# (`Runtime#carry_description!`), so it cannot be stale. The test checks
+# The runtime makes it from the kernel it lowered
+# (`Runtime#carried_text`), so it cannot be stale. The test checks
 # that the carried file gives back each row of the kernel.
 class DescriptionTest < Minitest::Test
   # One target per OS layer that is its own.
