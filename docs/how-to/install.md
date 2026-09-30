@@ -58,7 +58,6 @@ warn  wasmtime           not on PATH; needed only for 'zr run --emit wasm'. See 
 ok    openssl            /opt/homebrew/opt/openssl@3/lib/libssl.3.dylib
 ok    libraries          stdlib of ruby 4.0.7 (59 gems), 17 ports
 ok    cache              /Users/you/Library/Caches/zr, 0 MB
-ok    fast compiler      not built yet; the first build makes it
 ```
 
 Each `warn` line says what zr cannot do here, and what to do. Only a
@@ -82,7 +81,6 @@ Each `warn` line says what zr cannot do here, and what to do. Only a
 $ echo 'puts "Hello from #{RUBY_PLATFORM}"' > hello.rb
 $ zr run hello.rb
 zr: building the zr runtime for aarch64-apple-darwin. This occurs one time and takes some minutes.
-zr: zr is compiling itself to make later builds faster. This occurs one time for each zr version and takes some minutes. You can stop it with Ctrl-C. ZR_COMPILED=0 turns it off.
 Hello from arm64-darwin23
 ```
 

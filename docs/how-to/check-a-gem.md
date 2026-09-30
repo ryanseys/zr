@@ -131,7 +131,7 @@ A build fails when zr changes under it. To change zr while a long
 sweep runs, sweep with a copy of zr:
 
 ```
-$ dir=$(zr-dev gems snapshot)            # a copy of HEAD, with its compiled compiler
+$ dir=$(zr-dev gems snapshot)            # a copy of HEAD, with its runtime built
 $ zr-dev gems sweep --zr "$dir" --top 200 --save
 ```
 

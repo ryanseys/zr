@@ -22,8 +22,10 @@ does. Then stage 1 builds stage 2 with the same decisions that stage 0
 made when it built stage 1, and the two binaries are the same bytes.
 This is a *fixed point*.
 
-The compiled compiler that `rake build:self` builds, and that `exe/zr`
-can use for a build (`ZR_COMPILED`), is stage 1.
+zr compiles itself only to check itself. `zr-dev stage 2` builds stage 1
+in `tmp/stage1/zr` (`tool/stage.rb`), and `zr-dev compile --zr` builds
+it in `tmp/compile/zr` to time it (`tool/compile.rb`). The `zr` command
+does not use stage 1: ruby runs every command of `exe/zr`.
 
 ## What `stage 1` checks
 

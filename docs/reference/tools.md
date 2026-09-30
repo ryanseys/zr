@@ -53,7 +53,6 @@ no arguments. Give paths and minitest options to `bin/test`.
 | `rake build` | Builds the runtime for this host: the runtime object, the prelinked image and eval support. `bin/test` also does this when the runtime is not built. |
 | `rake build:wasm` | Builds the runtime for `wasm32-wasi`. |
 | `rake build:all` | Builds the runtime for this host and for `wasm32-wasi`. |
-| `rake build:self` | Builds the compiled compiler, `bin/zr`. In a checkout, `exe/zr` uses it only with `ZR_COMPILED=1`, and only until a file under `lib`, `runtime` or `vendor/ruby` changes. |
 | `rake build:tools` | Compiles the `zr-dev` tools with zr, to `bin/zr-dev`. See [The compiled tools](#the-compiled-tools). |
 
 ### Test, lint and generate
@@ -122,7 +121,7 @@ gives more examples.
 | `zr-dev gems sweep [GEM...] [--top N] [--jobs N] [--save]` | Tries many gems, one line each, then counts the tiers. `--top N` adds the N most downloaded gems of `gems/top.tsv`. The rows go into `tmp/gems/sweep-<time>.tsv`, or with `--save` into `gems/compat.tsv`. |
 | `zr-dev gems triage [KIND] [--file TSV]` | Groups the gems that do not load by the kind of failure, the kind that stops the most gems first. With `KIND`, it gives each gem of that kind with its detail. |
 | `zr-dev gems top [--refresh] [--count N]` | Prints the most downloaded gems with their tiers. `--refresh` writes `gems/top.tsv` again from packages.ecosyste.ms. |
-| `zr-dev gems snapshot [REVISION] [--list] [--remove DIR]` | Makes a copy of zr at a commit (HEAD by default) in `tmp/gems/zr/<commit>`, a git worktree with its own cache, and builds its compiled compiler. `try` and `sweep` take `--zr DIR` (or `ZR_GEMS_ZR`) to build with the copy, so zr can change in the checkout while a sweep runs. |
+| `zr-dev gems snapshot [REVISION] [--list] [--remove DIR]` | Makes a copy of zr at a commit (HEAD by default) in `tmp/gems/zr/<commit>`, a git worktree with its own cache, and builds its runtime, as `rake build` does. `try` and `sweep` take `--zr DIR` (or `ZR_GEMS_ZR`) to build with the copy, so zr can change in the checkout while a sweep runs. |
 
 ### Expected outputs
 
@@ -191,7 +190,7 @@ writes the libSystem list again. See
 |---|---|
 | `zr-dev bench [--runs N] [--target TRIPLE] [filter...]` | Builds each program in `benchmark/`, checks its output, and times it beside `ruby` and `ruby --yjit`. `--runs` sets the runs of each program (default 5). `--target` sets the target to build for. The words select benchmarks by name: `zr-dev bench --runs 5 fib`. |
 | `zr-dev bench --check [before after]` | Compares the newest report with the one before it, and runs nothing. With two arguments, it compares those two reports, given as paths or revisions. |
-| `zr-dev compile [--runs N] [--write] [--zr [--commit \| --check]] [filter...]` | Times how long zr takes to compile each rung of `benchmark/compile/`, phase by phase. `--runs` sets the builds of each rung, after one warmup (default 3). `--write` writes the table to `tmp/bench/compile.txt`. `--zr` also times the compiled compiler. The words select rungs by name. |
+| `zr-dev compile [--runs N] [--write] [--zr [--commit \| --check]] [filter...]` | Times how long zr takes to compile each rung of `benchmark/compile/`, phase by phase. `--runs` sets the builds of each rung, after one warmup (default 3). `--write` writes the table to `tmp/bench/compile.txt`. `--zr` also builds the compiled compiler with ruby (`tmp/compile/zr`), and times it. The words select rungs by name. |
 | `zr-dev compile --zr --commit` | Also writes a baseline to `benchmark/results/compile/`. |
 | `zr-dev compile --profile runtime\|eval` | Lowers the runtime or eval support object, then times the passes and the assembly of each function, one at a time. It prints the sums and the 20 slowest functions, and writes all of them to `tmp/bench/profile-<object>.tsv`. |
 | `zr-dev compile --zr --check` | Fails if the compiled compiler is slower than the newest baseline in `benchmark/results/compile/`. |
@@ -225,14 +224,6 @@ See [Bootstrapping](../explanation/bootstrapping.md).
 | Command | Does |
 |---|---|
 | `zr-dev serve [--idle MINUTES] [--socket PATH]` | Keeps one warm compiler for the edit loop: the compiler loaded, YJIT warm, and the runtime's description, symbols and prelinked images in memory. While it runs, each `zr run` and `zr build` of this checkout sends it the build. The server forks one child for each build. The client then runs the program itself, so the program keeps the terminal, the signals and the exit status. A Ctrl-C in the client stops the build. The server starts again when a file of zr that it loaded changes, and stops after `--idle` minutes with no request (default 30). It listens at `<cache>/server.sock`. `ZR_SERVER=0` makes a command build alone, and `ZR_SERVER=PATH` uses the server at `PATH`. After an edit to a core file, `zr run` of hello took 4.2 s with the server and 4.9 s without it. After an edit to a program, it took 0.23 s against 0.25 s (hello) and 0.40 s against 0.46 s (a program with eval). The server holds about 700 MB. |
-
-### Platform gem
-
-| Command | Does |
-|---|---|
-| `zr-dev gem native [--install DIR] [--local]` | Builds `pkg/zr-<version>-<platform>.gem` for this host's platform, with `bin/zr` and its manifest in `exe/<platform>/`. Run `rake build:self` first. It refuses a binary that holds this checkout's path, which `bin/zr` does; `--local` packs it for a test on this machine, never for a release. `--install DIR` installs the gem there and builds a program with the installed zr. |
-
-See [How to release zr](../how-to/release.md).
 
 ## The compiled tools
 

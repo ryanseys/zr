@@ -7,9 +7,6 @@ gem and the version's changelog. A tag starts it: the release workflow
 not release: it stops and points here, because a gem that no CI run
 checked must not go out.
 
-This page also records the design of the platform gems. No release
-publishes one yet; see [Platform gems](#platform-gems-not-released).
-
 ## Set up once
 
 Do these by hand before the first release:
@@ -134,116 +131,7 @@ A published version cannot change. If a release is broken:
 ## What the gem contains
 
 The gem contains the compiler, the runtime, the vendored sources and
-the license texts. On the first build, an installed gem on an Apple
-Silicon Mac compiles the compiler with itself into the user's cache
-(`lib/zr/bootstrap/handoff.rb`), and tells the user.
-
-## Platform gems (not released)
-
-A platform gem is the ruby gem plus the compiled compiler for one
-platform, in `exe/<platform>/zr`, with a manifest beside it. RubyGems
-installs the platform gem in place of the ruby gem on a host of that
-platform. Then the first build needs no self-build.
-
-### Build and test one
-
-```sh
-bundle exec rake build:self                                # bin/zr, for this host
-ruby tool/zr-dev.rb gem native --local                      # pkg/zr-<version>-arm64-darwin.gem
-ruby tool/zr-dev.rb gem native --local --install /tmp/zr    # ... installed, and a program built with it
-```
-
-`--install` fails if the installed zr did not build the program with its
-shipped binary. `zr-dev gem native` refuses a manifest whose ruby is not
-`Zr::RUBY`, and a binary that holds this checkout's path: `Paths::ROOT`
-comes from `__dir__`, so `bin/zr` holds the path of the machine that
-built it. `--local` packs it anyway, for a test on that machine only.
-Such a gem must never be published. A gem to publish needs a compiled
-compiler that finds its files from where it is installed.
-
-### How the installed gem finds the binary
-
-`Bootstrap::Handoff.binary` looks in this order: `ZR_BINARY`, then `bin/zr`
-in a checkout, then the shipped binary (`Zr::Bootstrap::Prebuilt`), then the user's
-cache.
-
-The file stamps of an installed gem say nothing about the build, so the
-manifest gives a content digest (`lib/zr/bootstrap/prebuilt.rb`):
-
-```
-version 0.1.0
-ruby 4.0.7
-platform arm64-darwin
-digest <SHA-256>
-```
-
-The digest covers each source file that the gem contains (`exe/zr`,
-`lib/`, `runtime/`, `vendor/`), by its path below the gem's root and its
-bytes, and the digests of the pinned libraries. The same gem gives the
-same digest wherever it is installed. The first build reads every source
-to check the digest, then keeps the file stamps in the user's cache.
-Later builds compare only the stamps. zr never builds over a shipped
-binary; if the check fails, ruby runs the build.
-
-### Measurements (arm64-darwin, M2 Pro, 12 cores)
-
-| What | Result |
-|---|---|
-| The binary | 116 MB |
-| The platform gem | 24.5 MB |
-| The first digest check | 0.18 s |
-| A later check (stamps only) | 0.02 s |
-| A small program, empty runtime cache, shipped binary | 57 s |
-| The same, ruby | 26 s |
-| The same program, warm cache, shipped binary | 0.65 s |
-| The same, ruby | 0.77 s |
-
-The committed compile baseline (`benchmark/results/compile/`) gives the
-warm-build ratio of the compiled compiler to ruby: 0.56 for a small
-program, 0.73 for a program that requires rubygems, and 1.02 for bundler.
-
-The shipped binary is slower than ruby when it builds the runtime: 57 s
-against 26 s. A worker of the compiled compiler uses more memory, so
-`Native::Parallel.afforded` gives it fewer workers. A platform gem thus
-helps warm builds a little, and does not help the first build. Shipping
-the runtime objects (next section) would help the first build more.
-
-### The runtime objects
-
-The runtime objects cannot ship today. `Runtime#digest_of`
-(`lib/zr/runtime.rb`) hashes the absolute path of each source, so the
-cache key of an installed gem depends on where it is installed. To ship
-them, the digest must hash each path below a fixed root, as `--path-root`
-does (`Paths.shown`). Then the backtraces into the core library show that
-root (for example `/zr/runtime/...`) in place of the real path. This is
-a decision for later.
-
-The sizes, if a gem ships them:
-
-| File | Size | Compressed |
-|---|---|---|
-| The runtime object (`runtime-*.o`) | 28.8 MB | 5.8 MB |
-| Its symbol table (`symbols-*.json`) | 0.3 MB | 0.1 MB |
-| The eval support object (`eval-*.o`) | 89.2 MB | 15.0 MB |
-| The prelinked runtime (`prelink-*.bin`) | 29.7 MB | 6.2 MB |
-
-A gem ships the runtime object and its symbols at most. The prelinked
-image and the skeletons are made again in the user's cache.
-
-### The release matrix
-
-| Gem | Contains | Status |
-|---|---|---|
-| `zr-<version>.gem` (platform-independent) | The sources. The first build compiles the compiler. | Released. |
-| `zr-<version>-arm64-darwin.gem` | The sources and the compiled compiler for macOS. | Not released: `zr-dev gem native --local` builds and tests one on this machine. |
-| `zr-<version>-aarch64-linux-gnu.gem`, `zr-<version>-aarch64-linux-musl.gem` | The sources and one static Linux binary. The same binary is in both gems. | Not started. It needs a compiled compiler for `aarch64-linux`, built on a Linux host. |
-
-Every gem keeps `required_ruby_version ">= 4.0.7", "< 4.1"`. A platform
-gem still needs a host ruby, which runs `exe/zr`.
-
-Before a release publishes platform gems, decide:
-
-- whether a gem ships the runtime objects, and thus the path root of the
-  backtraces;
-- how CI builds each platform's binary, and checks it with `zr-dev stage 2`
-  before it packs it.
+the license texts. It contains no binary: a release ships the
+platform-independent gem only. The host ruby runs zr (`exe/zr`). On
+the first build, an installed gem builds the runtime into the user's
+cache, and tells the user (`lib/zr/runtime.rb`).

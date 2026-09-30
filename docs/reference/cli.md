@@ -182,33 +182,26 @@ ok    wasmtime           /opt/homebrew/bin/wasmtime
 ok    openssl            /opt/homebrew/opt/openssl@3/lib/libssl.3.dylib
 ok    libraries          stdlib of ruby 4.0.7 (59 gems), 17 ports
 ok    cache              ~/Library/Caches/zr, 2703 MB
-ok    fast compiler      current
 ```
 
 `warn` means that zr can do less on this host: for example, with no
 wasmtime, `zr run --emit wasm` does not work. Each `warn` and `fail`
 line says what to do.
 
-The fast compiler is zr compiled by itself. An installed zr builds it at
-its first build (some minutes), and uses it for each later build. If
-that build fails, ruby runs zr, and zr tries again one day later, at
-most three times. `ZR_COMPILED=1` tries at once. A checkout of zr
-builds under ruby, unless `ZR_COMPILED=1` asks for `bin/zr`. `fail` means that zr
-cannot build, and `zr doctor` then exits with status 1. Put the
-output of `zr doctor` in a bug report.
+`fail` means that zr cannot build, and `zr doctor` then exits with
+status 1. Put the output of `zr doctor` in a bug report.
 
 ## `zr cache [path|size|clean [--all]]`
 
 zr keeps what it builds once in a cache: the runtime, eval support, the
-prelinked images, machine code, parsed trees, the binaries of `zr run`
-and the compiled compiler. The cache is some hundred MB for each zr
-version.
+prelinked images, machine code, parsed trees and the binaries of
+`zr run`. The cache is some hundred MB for each zr version.
 
 | Command | Effect |
 |---|---|
 | `zr cache` or `zr cache path` | Prints the cache directory. |
-| `zr cache size` | Prints what the cache holds, by kind. |
-| `zr cache clean` | Deletes the entries that this zr does not use, the files of a zr from before the store, and the compiled compilers of other zr versions. The next build rebuilds nothing. |
+| `zr cache size` | Prints what the cache holds, by kind, and the compiled compilers that older zr versions kept. |
+| `zr cache clean` | Deletes the entries that this zr does not use, the files of a zr from before the store, and the compiled compilers that older zr versions kept. The next build rebuilds nothing. |
 | `zr cache clean --all` | Deletes every entry in the cache. The next build makes them again. |
 
 The cache is one content store, `<cache>/store/`. Each entry is at
@@ -220,12 +213,10 @@ SHA-256 digest of every input of the entry:
 | `object` | the runtime object and the eval support object |
 | `image` | the prelinked images and their skeletons |
 | `meta` | symbol tables, gem prelude lists, ledgers and eval support metadata |
-| `description` | the kernel's description that eval support carries (`zr_description.rb`) |
 | `code` | the machine code of each function, one directory for each backend |
 | `lowering` | what the core and eval support need from each file that they did not lower again |
 | `unit` | the machine code of each file of a program |
 | `parse` | parsed trees |
-| `iseq` | the compiled instructions of zr's own files (under ruby only) |
 | `gems` | the gems that `--gem` and a Gemfile.lock resolved |
 | `wasm` | the prelude of a WASI module |
 | `run` | the binaries of `zr run` (at most 2 GB) |
@@ -239,8 +230,10 @@ limit, zr deletes its entries that were used longest ago.
 
 An installed zr also cleans its cache after a build when the cache is
 larger than `ZR_CACHE_MAX_GB` (5 GB by default). It deletes the entries
-that were used longest ago and that no root names. It measures the
-cache at most once a day.
+that were used longest ago and that no root names. If the cache is
+still too large, it then deletes the compiled compilers that older zr
+versions kept. It measures the cache at most once a day
+(`Cache::Janitor.trim`, `lib/zr/cache/janitor.rb`).
 
 ## Messages
 

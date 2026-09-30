@@ -52,10 +52,8 @@ tool writes that page from the last benchmark run.
 
 The first build on a machine builds the runtime and caches it: some
 minutes on a Mac. After that, a small program builds in about half a
-second, and a large one (all of bundler) in about six seconds. An
-installed zr also builds a compiled copy of itself at its first build
-(some minutes), which makes later builds faster; set `ZR_COMPILED=0`
-to skip it. `zr cache clean` frees the cache of older versions.
+second, and a large one (all of bundler) in about six seconds.
+`zr cache clean` frees the cache of older versions.
 
 ## Which machines can build, and which can run the output?
 

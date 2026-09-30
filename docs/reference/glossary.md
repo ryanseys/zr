@@ -29,9 +29,10 @@ For a program, each source file is a compilation unit, and the cache
 keeps its machine code. In the machine dialect, a compilation unit is
 a group of files whose declarations see each other.
 
-**Compiled compiler.** zr, compiled by zr (`rake build:self`,
-`lib/zr/bootstrap/handoff.rb`). `exe/zr` gives a build to it when it is
-current.
+**Compiled compiler.** zr, compiled by zr: stage 1 of
+[Bootstrapping](../explanation/bootstrapping.md). `zr-dev stage 2` and
+`zr-dev compile --zr` build it to check and time the compiler. The `zr`
+command does not use it; ruby runs zr.
 
 **Core library.** `runtime/core/`: Ruby's core classes, written in
 ordinary Ruby over the kernel.

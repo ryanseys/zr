@@ -10,7 +10,7 @@ and when zr makes that Ruby slow, fix zr.
 
 ## Idiomatic Ruby first; fix zr when it is slow
 
-The compiled compiler (`bin/zr`, see [Bootstrapping](bootstrapping.md))
+The compiled compiler (stage 1, see [Bootstrapping](bootstrapping.md))
 runs the same code as ruby does. A workaround that makes the source less
 clear, so that the compiled compiler runs faster, is a defect in zr. The
 correct fix is in the compiler or the runtime, where every program gets

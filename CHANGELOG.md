@@ -35,11 +35,8 @@ The first public release.
   gem through a literal `$LOAD_PATH`. A program that evals, or requires
   a computed name, carries the compiler (native targets) or a
   tree-walking interpreter (wasm32-wasi).
-- An installed zr on an Apple Silicon Mac builds a compiled copy of
-  itself at its first build, which makes later builds faster
-  (`ZR_COMPILED=0` skips it). Other hosts run zr under ruby. A build
-  keeps the runtime, the prelinked image and each file's machine code
-  in one content store (`<cache>/store/`), which `zr cache` shows and
+- ruby runs zr on every host. A build keeps the runtime, the prelinked
+  image and each file's machine code in one content store (`<cache>/store/`), which `zr cache` shows and
   cleans. Each build names in a root what the next build needs, so a
   clean keeps it, and an installed zr evicts the entries used longest
   ago to stay under `ZR_CACHE_MAX_GB`.
@@ -58,17 +55,15 @@ The first public release.
   stops the build with the fix, unless `rescue LoadError` guards it
   or the build has `--allow-runtime-require`.
 - `zr doctor` checks the ruby, the host's targets, wasmtime, OpenSSL,
-  the standard library, the cache and the compiled compiler, and says
+  the standard library and the cache, and says
   what to do for each problem. [How to install zr](docs/how-to/install.md)
   shows how to get ruby 4.0.7, and lists each problem and its fix.
 - An error prints one line and no backtrace (`ZR_DEBUG=1` shows it).
   A bad `ZR_*` value exits with status 2 and names a value that works.
   Ctrl-C exits with status 130. Every command takes `--help`, and a
   mistyped command gets a suggestion.
-- The first build says that it builds the runtime and the compiled
-  compiler, which take some minutes one time. Two builds at once build
-  the runtime one time. A compiled compiler that did not build is tried
-  again a day later, at most three times.
+- The first build says that it builds the runtime, which takes some
+  minutes one time. Two builds at once build the runtime one time.
 - A binary loads on macOS 14 or later, and its `RUBY_PLATFORM` is
   `arm64-darwin23`, the platform of macOS 14. A glibc aarch64 Linux
   runs the static `aarch64-linux-musl` binary, and links it with
@@ -110,6 +105,22 @@ The first public release.
   of files without it does not build the runtime. `bin/test --changed`
   and `zr-dev affected` map a change to unit tests and to program
   tests.
+
+### Removed
+
+- The handoff to a compiled compiler: `exe/zr` no longer gives `run`,
+  `build` and `machine` to `bin/zr` or to a compiled compiler in the
+  user's cache, and the first build no longer compiles zr. ruby runs
+  every command. zr still compiles itself as a check (`zr-dev stage 1`,
+  `zr-dev stage 2`, `zr-dev compile --zr`). `rake build:self` and the
+  `fast compiler` check of `zr doctor` are gone. `zr cache size` shows,
+  and `zr cache clean` deletes, the compiled compilers that older zr
+  versions kept in the user's cache (`self-*`, `shipped-*`).
+- The platform gems and `zr-dev gem native`. A release ships the
+  platform-independent gem only.
+- The iseq cache (the `iseq` kind of the store). `exe/zr` loads zr's
+  files with plain ruby.
+- The variables `ZR_COMPILED`, `ZR_BINARY` and `ZR_ISEQ_CACHE`.
 
 ### Planned for 0.2
 

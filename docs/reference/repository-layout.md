@@ -33,8 +33,6 @@ Two kinds of code meet on a program's load path (`Zr::Layout`):
 | `lib/zr/settled.rb` | `Zr.settled!`: a cache write stops if a source changed during the build |
 | `lib/zr/parse.rb` | `Zr.parse`: prism, through the parse cache where there is one |
 | `lib/zr/backend.rb` | `Zr::Backend`: what the backends share, and `Backend::Refused` |
-| `lib/zr/bootstrap/binary.rb` | a binary that zr builds from this checkout's own files: the compiled compiler, or the tools |
-| `lib/zr/bootstrap/prebuilt.rb` | the compiled compiler that a platform gem ships |
 | `lib/zr/libraries.rb` | the directories of `vendor/ruby` that a program requires from |
 | `lib/zr/vendor.rb` | what `vendor/` holds, and what it leaves out and why: the input of `zr-dev vendor` |
 | `lib/zr/stdlib.rb` | the name and version of each gem in `vendor/ruby` (`zr-dev vendor` writes it) |
@@ -58,9 +56,7 @@ Two kinds of code meet on a program's load path (`Zr::Layout`):
 | `lib/zr/cache/lowering.rb`, `lib/zr/cache/lowering/core.rb`, `lib/zr/cache/lowering/eval_support.rb` | the core files and eval support's files that a build takes from an earlier build's machine code, and the checks that keep that code the same as a full build's |
 | `lib/zr/cache/run.rb` | the binaries that `zr run` keeps, and the files each was built from |
 | `lib/zr/tune.rb` | the collector limits and YJIT of a compile |
-| `lib/zr/cache/iseq.rb` | the compiled instructions of zr's own files, kept in the cache |
 | `lib/zr/server.rb` | the build server of `zr-dev serve`, and its client in `exe/zr` |
-| `lib/zr/bootstrap/handoff.rb` | the compiled compiler: when `exe/zr` gives it a build |
 | `lib/zr/eval.rb` | the eval compiler |
 | `lib/zr/eval/walk.rb`, `lib/zr/eval/walk/` | the tree-walking interpreter |
 | `runtime/kernel/` | the kernel, in the machine dialect |
@@ -99,6 +95,7 @@ beside `lib/`, not in it:
 | `tool/zr-dev.rb` | the `zr-dev` command, which lists and starts the maintainer tools; see [Tools](tools.md#zr-dev) |
 | `tool/*.rb` | the body of each `zr-dev` command, one file for each command (`tool/bench.rb` for `zr-dev bench`) |
 | `tool/lib/zr/dev.rb`, `tool/lib/zr/dev/` | the code that the commands share: the command class, the paths, the host ruby and the C sources |
+| `tool/lib/zr/dev/binary.rb` | `Zr::Dev::Binary`: a binary that zr builds from this checkout's own files (`bin/zr-dev`), and whether it is current |
 | `tool/gen/` | the generators of `zr-dev gen`, one file for each generated file; `tool/gen/prism/templates/` has the templates of the pure-Ruby prism |
 | `vendor/src/` | upstream sources that only the tools read: prism's templates (`zr-dev gen prism`) |
 | `lib/zr/prism_shim/` | makes `require "prism/prism"` load the port on the host |

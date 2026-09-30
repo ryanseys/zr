@@ -69,15 +69,14 @@ Now run the same file with zr:
 ```console
 $ zr run greet.rb
 zr: building the zr runtime for aarch64-apple-darwin. This occurs one time and takes some minutes.
-zr: zr is compiling itself to make later builds faster. This occurs one time for each zr version and takes some minutes. You can stop it with Ctrl-C. ZR_COMPILED=0 turns it off.
 Matz writes Ruby
 Ada writes Analytical Engine
 2 people, 7 letters of names
 ```
 
-The two `zr:` lines come only from the first build on this Mac. zr
-compiles its runtime one time and keeps it in a cache. Then it compiles
-itself, so that later builds are faster. Wait for them to finish.
+The `zr:` line comes only from the first build on this Mac. zr
+compiles its runtime one time and keeps it in a cache. Wait for it to
+finish.
 
 Run it again. Now only the program's output shows:
 
