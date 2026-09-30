@@ -1,51 +1,51 @@
 gem	version	source	tier	kind	detail	zr_commit	date	downloads
-actionmailer	8.1.4	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	22dc97a41a7f	2026-09-29	778753177
-actionpack	8.1.4	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	22dc97a41a7f	2026-09-29	831481115
-actionview	8.1.4	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	22dc97a41a7f	2026-09-29	782446822
-activemodel	8.1.4	rubygems	loads			22dc97a41a7f	2026-09-29	899522696
-activerecord	8.1.4	rubygems	loads			22dc97a41a7f	2026-09-29	843626829
-activesupport	8.1.4	rubygems	loads			22dc97a41a7f	2026-09-29	1439815647
-addressable	2.9.0	rubygems	loads			22dc97a41a7f	2026-09-29	1272782254
-ast	2.4.3	rubygems	loads			22dc97a41a7f	2026-09-29	801984296
-aws-eventstream	1.4.0	rubygems	compiles	output-diff	stdout line 7: ruby " VERSION 1.4.6", zr " CS_PATH CS_POSIX_V6_ILP32_OFF32_CFLAGS CS_POSIX_V6_ILP32_OFF32_LDFLAGS CS_POSIX_V6_ILP32_OFF32_LIBS CS_POSIX_V6_ILP32_OFFBIG_CFLAGS CS_POSIX_V6_ILP32_OFFB...	22dc97a41a7f	2026-09-29	1366604331
-aws-partitions	1.1290.0	rubygems	loads			22dc97a41a7f	2026-09-29	1525521031
-aws-sdk-core	3.257.0	rubygems	compiles	output-diff	stdout line 19: ruby " Base Class Instance REQUIRE_MUTEX VERSION", zr " Base Class Instance REQUIRE_MUTEX SHA2 SHA256 SHA384 SHA512 VERSION"	22dc97a41a7f	2026-09-29	1759597732
-aws-sdk-kms	1.132.0	rubygems	compiles	output-diff	stdout line 19: ruby " Base Class Instance REQUIRE_MUTEX VERSION", zr " Base Class Instance REQUIRE_MUTEX SHA2 SHA256 SHA384 SHA512 VERSION"	22dc97a41a7f	2026-09-29	1074307762
-aws-sdk-s3	1.232.3	rubygems	compiles	output-diff	stdout line 19: ruby " Base Class Instance REQUIRE_MUTEX VERSION", zr " Base Class Instance REQUIRE_MUTEX SHA2 SHA256 SHA384 SHA512 VERSION"	22dc97a41a7f	2026-09-29	1111135734
-aws-sigv4	1.12.1	rubygems	compiles	output-diff	stdout line 19: ruby " Base Class Instance REQUIRE_MUTEX VERSION", zr " Base Class Instance REQUIRE_MUTEX SHA2 SHA256 SHA384 SHA512 VERSION"	22dc97a41a7f	2026-09-29	1562727482
-builder	3.3.0	rubygems	loads			22dc97a41a7f	2026-09-29	935875773
-bundler	4.0.21	rubygems	loads			22dc97a41a7f	2026-09-29	3778187537
-concurrent-ruby	1.3.8	rubygems	compiles	output-diff	stdout line 8: ruby " VERSION 1.4.6", zr " CS_PATH CS_POSIX_V6_ILP32_OFF32_CFLAGS CS_POSIX_V6_ILP32_OFF32_LDFLAGS CS_POSIX_V6_ILP32_OFF32_LIBS CS_POSIX_V6_ILP32_OFFBIG_CFLAGS CS_POSIX_V6_ILP32_OFFB...	22dc97a41a7f	2026-09-29	1380778911
-diff-lcs	2.0.0	rubygems	loads			22dc97a41a7f	2026-09-29	1236352793
-faraday	2.14.4	rubygems	compiles	output-diff	stdout line 14: ruby " Base Class Instance REQUIRE_MUTEX VERSION", zr " Base Class Instance REQUIRE_MUTEX SHA2 SHA256 SHA384 SHA512 VERSION"	22dc97a41a7f	2026-09-29	1266007152
-ffi	1.17.4	rubygems	loads			22dc97a41a7f	2026-09-29	1094257199
-i18n	1.15.2	rubygems	loads			22dc97a41a7f	2026-09-29	1442899922
-jmespath	1.6.2	rubygems	loads			22dc97a41a7f	2026-09-29	1445128064
-json	3.0.2	rubygems	loads			22dc97a41a7f	2026-09-29	1387809196
-jwt	3.3.0	rubygems	compiles	output-diff	stdout line 10: ruby " Base Class Instance REQUIRE_MUTEX VERSION", zr " Base Class Instance REQUIRE_MUTEX SHA2 SHA256 SHA384 SHA512 VERSION"	22dc97a41a7f	2026-09-29	818471834
-method_source	1.1.0	rubygems	loads			22dc97a41a7f	2026-09-29	778230072
-mime-types	3.7.0	rubygems	loads			22dc97a41a7f	2026-09-29	932359453
-mini_mime	1.1.5	rubygems	loads			22dc97a41a7f	2026-09-29	889751663
-minitest	6.0.6	rubygems	compiles	output-diff	stdout line 5: ruby " VERSION 1.4.6", zr " CS_PATH CS_POSIX_V6_ILP32_OFF32_CFLAGS CS_POSIX_V6_ILP32_OFF32_LDFLAGS CS_POSIX_V6_ILP32_OFF32_LIBS CS_POSIX_V6_ILP32_OFFBIG_CFLAGS CS_POSIX_V6_ILP32_OFFB...	22dc97a41a7f	2026-09-29	1306829988
-multi_json	1.21.2	rubygems	loads			22dc97a41a7f	2026-09-29	1168755974
-multipart-post	2.4.1	rubygems	loads			22dc97a41a7f	2026-09-29	928656920
-nokogiri	1.19.4	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	22dc97a41a7f	2026-09-29	1269876588
-parallel	2.2.0	rubygems	compiles	output-diff	stdout line 7: ruby " Base Class Instance REQUIRE_MUTEX VERSION", zr " Base Class Instance REQUIRE_MUTEX SHA2 SHA256 SHA384 SHA512 VERSION"	22dc97a41a7f	2026-09-29	830001160
-parser	3.3.12.0	rubygems	compiles	output-diff	stdout line 10: ruby " Copyright CparseParams ParseError Parser Racc_No_Extensions VERSION Version", zr " Copyright ParseError Parser Racc_No_Extensions VERSION Version"	22dc97a41a7f	2026-09-29	846834249
-public_suffix	7.0.5	rubygems	loads			22dc97a41a7f	2026-09-29	1245257461
-rack	3.2.7	rubygems	loads			22dc97a41a7f	2026-09-29	1355400670
-rack-test	2.2.0	rubygems	compiles	output-diff	stdout line 15: ruby " VERSION 1.4.6", zr " CS_PATH CS_POSIX_V6_ILP32_OFF32_CFLAGS CS_POSIX_V6_ILP32_OFF32_LDFLAGS CS_POSIX_V6_ILP32_OFF32_LIBS CS_POSIX_V6_ILP32_OFFBIG_CFLAGS CS_POSIX_V6_ILP32_OFF...	22dc97a41a7f	2026-09-29	816907085
-rails	8.1.4	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	22dc97a41a7f	2026-09-29	794120052
-railties	8.1.4	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	22dc97a41a7f	2026-09-29	792940964
-rake	13.4.2	rubygems	compiles	output-diff	stdout line 2: ruby " VERSION 1.4.6", zr " CS_PATH CS_POSIX_V6_ILP32_OFF32_CFLAGS CS_POSIX_V6_ILP32_OFF32_LDFLAGS CS_POSIX_V6_ILP32_OFF32_LIBS CS_POSIX_V6_ILP32_OFFBIG_CFLAGS CS_POSIX_V6_ILP32_OFFB...	22dc97a41a7f	2026-09-29	1423664976
-rexml	3.4.4	rubygems	compiles	output-diff	stdout line 10: ruby "ScanError Class", zr "StringIO Class"	22dc97a41a7f	2026-09-29	832081112
-rspec	3.13.2	rubygems	compiles	output-diff	stdout line 14: ruby "ScanError Class", zr "Shellwords Module"	22dc97a41a7f	2026-09-29	1023890284
-rspec-core	3.13.6	rubygems	compiles	output-diff	stdout line 14: ruby "ScanError Class", zr "Shellwords Module"	22dc97a41a7f	2026-09-29	1204651281
-rspec-expectations	3.13.5	rubygems	loads			22dc97a41a7f	2026-09-29	1204077219
-rspec-mocks	3.13.8	rubygems	loads			22dc97a41a7f	2026-09-29	1198799797
-rspec-support	3.13.7	rubygems	loads			22dc97a41a7f	2026-09-29	1191357549
-rubyzip	3.7.0	rubygems	compiles	output-diff	stdout line 5: ruby " VERSION 1.4.6", zr " CS_PATH CS_POSIX_V6_ILP32_OFF32_CFLAGS CS_POSIX_V6_ILP32_OFF32_LDFLAGS CS_POSIX_V6_ILP32_OFF32_LIBS CS_POSIX_V6_ILP32_OFFBIG_CFLAGS CS_POSIX_V6_ILP32_OFFB...	22dc97a41a7f	2026-09-29	792569109
-thor	1.5.0	rubygems	loads			22dc97a41a7f	2026-09-29	1158052913
-tilt	2.9.0	rubygems	loads			22dc97a41a7f	2026-09-29	796537587
-tzinfo	2.0.6	rubygems	compiles	output-diff	stdout line 13: ruby " VERSION 1.4.6", zr " CS_PATH CS_POSIX_V6_ILP32_OFF32_CFLAGS CS_POSIX_V6_ILP32_OFF32_LDFLAGS CS_POSIX_V6_ILP32_OFF32_LIBS CS_POSIX_V6_ILP32_OFFBIG_CFLAGS CS_POSIX_V6_ILP32_OFF...	22dc97a41a7f	2026-09-29	1325144193
-unicode-display_width	3.3.0	rubygems	loads			22dc97a41a7f	2026-09-29	991351990
+actionmailer	8.1.4	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	24776b6a8e96	2026-09-29	778753177
+actionpack	8.1.4	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	24776b6a8e96	2026-09-29	831481115
+actionview	8.1.4	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	24776b6a8e96	2026-09-29	782446822
+activemodel	8.1.4	rubygems	loads			24776b6a8e96	2026-09-29	899522696
+activerecord	8.1.4	rubygems	loads			24776b6a8e96	2026-09-29	843626829
+activesupport	8.1.4	rubygems	loads			24776b6a8e96	2026-09-29	1439815647
+addressable	2.9.0	rubygems	loads			24776b6a8e96	2026-09-29	1272782254
+ast	2.4.3	rubygems	loads			24776b6a8e96	2026-09-29	801984296
+aws-eventstream	1.4.0	rubygems	loads			24776b6a8e96	2026-09-29	1366604331
+aws-partitions	1.1290.0	rubygems	loads			24776b6a8e96	2026-09-29	1525521031
+aws-sdk-core	3.257.0	rubygems	loads			24776b6a8e96	2026-09-29	1759597732
+aws-sdk-kms	1.132.0	rubygems	loads			24776b6a8e96	2026-09-29	1074307762
+aws-sdk-s3	1.232.3	rubygems	loads			24776b6a8e96	2026-09-29	1111135734
+aws-sigv4	1.12.1	rubygems	loads			24776b6a8e96	2026-09-29	1562727482
+builder	3.3.0	rubygems	loads			24776b6a8e96	2026-09-29	935875773
+bundler	4.0.21	rubygems	loads			24776b6a8e96	2026-09-29	3778187537
+concurrent-ruby	1.3.8	rubygems	loads			24776b6a8e96	2026-09-29	1380778911
+diff-lcs	2.0.0	rubygems	loads			24776b6a8e96	2026-09-29	1236352793
+faraday	2.14.4	rubygems	loads			24776b6a8e96	2026-09-29	1266007152
+ffi	1.17.4	rubygems	loads			24776b6a8e96	2026-09-29	1094257199
+i18n	1.15.2	rubygems	loads			24776b6a8e96	2026-09-29	1442899922
+jmespath	1.6.2	rubygems	loads			24776b6a8e96	2026-09-29	1445128064
+json	3.0.2	rubygems	loads			24776b6a8e96	2026-09-29	1387809196
+jwt	3.3.0	rubygems	loads			24776b6a8e96	2026-09-29	818471834
+method_source	1.1.0	rubygems	loads			24776b6a8e96	2026-09-29	778230072
+mime-types	3.7.0	rubygems	loads			24776b6a8e96	2026-09-29	932359453
+mini_mime	1.1.5	rubygems	loads			24776b6a8e96	2026-09-29	889751663
+minitest	6.0.6	rubygems	loads			24776b6a8e96	2026-09-29	1306829988
+multi_json	1.21.2	rubygems	loads			24776b6a8e96	2026-09-29	1168755974
+multipart-post	2.4.1	rubygems	loads			24776b6a8e96	2026-09-29	928656920
+nokogiri	1.19.4	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	24776b6a8e96	2026-09-29	1269876588
+parallel	2.2.0	rubygems	loads			24776b6a8e96	2026-09-29	830001160
+parser	3.3.12.0	rubygems	loads			24776b6a8e96	2026-09-29	846834249
+public_suffix	7.0.5	rubygems	loads			24776b6a8e96	2026-09-29	1245257461
+rack	3.2.7	rubygems	loads			24776b6a8e96	2026-09-29	1355400670
+rack-test	2.2.0	rubygems	loads			24776b6a8e96	2026-09-29	816907085
+rails	8.1.4	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	24776b6a8e96	2026-09-29	794120052
+railties	8.1.4	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	24776b6a8e96	2026-09-29	792940964
+rake	13.4.2	rubygems	loads			24776b6a8e96	2026-09-29	1423664976
+rexml	3.4.4	rubygems	loads			24776b6a8e96	2026-09-29	832081112
+rspec	3.13.2	rubygems	loads			24776b6a8e96	2026-09-29	1023890284
+rspec-core	3.13.6	rubygems	loads			24776b6a8e96	2026-09-29	1204651281
+rspec-expectations	3.13.5	rubygems	loads			24776b6a8e96	2026-09-29	1204077219
+rspec-mocks	3.13.8	rubygems	loads			24776b6a8e96	2026-09-29	1198799797
+rspec-support	3.13.7	rubygems	loads			24776b6a8e96	2026-09-29	1191357549
+rubyzip	3.7.0	rubygems	loads			24776b6a8e96	2026-09-29	792569109
+thor	1.5.0	rubygems	loads			24776b6a8e96	2026-09-29	1158052913
+tilt	2.9.0	rubygems	loads			24776b6a8e96	2026-09-29	796537587
+tzinfo	2.0.6	rubygems	loads			24776b6a8e96	2026-09-29	1325144193
+unicode-display_width	3.3.0	rubygems	loads			24776b6a8e96	2026-09-29	991351990

@@ -17,15 +17,15 @@ constant that the require defines. It runs the probe under ruby
 | refused | zr refuses the gem: it has a C extension that zr does not port, or it uses a form of Ruby that zr does not support. |
 | skipped | The tool did not try the gem: `gems/<name>.rb` skips it, or the probe fails under ruby too. |
 
-The results come from zr commit 22dc97a41a7f, on 2026-09-29.
+The results come from zr commit 24776b6a8e96, on 2026-09-29.
 
 ## Summary
 
 | Tier | Gems |
 |---|---|
 | verified | 0 |
-| loads | 26 |
-| compiles | 18 |
+| loads | 44 |
+| compiles | 0 |
 | fails | 0 |
 | refused | 6 |
 | skipped | 0 |
@@ -37,7 +37,6 @@ The results come from zr commit 22dc97a41a7f, on 2026-09-29.
 
 | Cause | Gems | Most downloaded |
 |---|---|---|
-| `output-diff` | 18 | aws-sdk-core, aws-sigv4, rake |
 | `cext:nokogiri` | 6 | nokogiri, actionpack, rails |
 
 ## All gems
@@ -47,52 +46,52 @@ The most downloaded first.
 | Gem | Version | Tier | Cause |
 |---|---|---|---|
 | bundler | 4.0.21 | loads |  |
-| aws-sdk-core | 3.257.0 | compiles | `output-diff` |
-| aws-sigv4 | 1.12.1 | compiles | `output-diff` |
+| aws-sdk-core | 3.257.0 | loads |  |
+| aws-sigv4 | 1.12.1 | loads |  |
 | aws-partitions | 1.1290.0 | loads |  |
 | jmespath | 1.6.2 | loads |  |
 | i18n | 1.15.2 | loads |  |
 | activesupport | 8.1.4 | loads |  |
-| rake | 13.4.2 | compiles | `output-diff` |
+| rake | 13.4.2 | loads |  |
 | json | 3.0.2 | loads |  |
-| concurrent-ruby | 1.3.8 | compiles | `output-diff` |
-| aws-eventstream | 1.4.0 | compiles | `output-diff` |
+| concurrent-ruby | 1.3.8 | loads |  |
+| aws-eventstream | 1.4.0 | loads |  |
 | rack | 3.2.7 | loads |  |
-| tzinfo | 2.0.6 | compiles | `output-diff` |
-| minitest | 6.0.6 | compiles | `output-diff` |
+| tzinfo | 2.0.6 | loads |  |
+| minitest | 6.0.6 | loads |  |
 | addressable | 2.9.0 | loads |  |
 | nokogiri | 1.19.4 | refused | `cext:nokogiri` |
-| faraday | 2.14.4 | compiles | `output-diff` |
+| faraday | 2.14.4 | loads |  |
 | public_suffix | 7.0.5 | loads |  |
 | diff-lcs | 2.0.0 | loads |  |
-| rspec-core | 3.13.6 | compiles | `output-diff` |
+| rspec-core | 3.13.6 | loads |  |
 | rspec-expectations | 3.13.5 | loads |  |
 | rspec-mocks | 3.13.8 | loads |  |
 | rspec-support | 3.13.7 | loads |  |
 | multi_json | 1.21.2 | loads |  |
 | thor | 1.5.0 | loads |  |
-| aws-sdk-s3 | 1.232.3 | compiles | `output-diff` |
+| aws-sdk-s3 | 1.232.3 | loads |  |
 | ffi | 1.17.4 | loads |  |
-| aws-sdk-kms | 1.132.0 | compiles | `output-diff` |
-| rspec | 3.13.2 | compiles | `output-diff` |
+| aws-sdk-kms | 1.132.0 | loads |  |
+| rspec | 3.13.2 | loads |  |
 | unicode-display_width | 3.3.0 | loads |  |
 | builder | 3.3.0 | loads |  |
 | mime-types | 3.7.0 | loads |  |
 | multipart-post | 2.4.1 | loads |  |
 | activemodel | 8.1.4 | loads |  |
 | mini_mime | 1.1.5 | loads |  |
-| parser | 3.3.12.0 | compiles | `output-diff` |
+| parser | 3.3.12.0 | loads |  |
 | activerecord | 8.1.4 | loads |  |
-| rexml | 3.4.4 | compiles | `output-diff` |
+| rexml | 3.4.4 | loads |  |
 | actionpack | 8.1.4 | refused | `cext:nokogiri` |
-| parallel | 2.2.0 | compiles | `output-diff` |
-| jwt | 3.3.0 | compiles | `output-diff` |
-| rack-test | 2.2.0 | compiles | `output-diff` |
+| parallel | 2.2.0 | loads |  |
+| jwt | 3.3.0 | loads |  |
+| rack-test | 2.2.0 | loads |  |
 | ast | 2.4.3 | loads |  |
 | tilt | 2.9.0 | loads |  |
 | rails | 8.1.4 | refused | `cext:nokogiri` |
 | railties | 8.1.4 | refused | `cext:nokogiri` |
-| rubyzip | 3.7.0 | compiles | `output-diff` |
+| rubyzip | 3.7.0 | loads |  |
 | actionview | 8.1.4 | refused | `cext:nokogiri` |
 | actionmailer | 8.1.4 | refused | `cext:nokogiri` |
 | method_source | 1.1.0 | loads |  |
