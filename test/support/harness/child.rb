@@ -66,11 +66,14 @@ module Zr
       # worker calls this before it stops, so that no build continues
       # after the worker.
       def stop_all
-        @live.each_key do |pid|
-          Process.kill("KILL", -pid)
-        rescue Errno::ESRCH, Errno::EPERM
-          nil
-        end
+        @live.each_key { |pid| kill_group(pid) }
+      end
+
+      # Kills the process group of `pid`, if it still runs.
+      def kill_group(pid)
+        Process.kill("KILL", -pid)
+      rescue Errno::ESRCH, Errno::EPERM
+        nil
       end
 
       # How often the limits are checked while the child runs, in seconds.
@@ -92,7 +95,7 @@ module Zr
                  end
           next unless over
 
-          Process.kill("KILL", -pid) rescue nil
+          kill_group(pid)
           waiter.join
           return [nil, over]
         end

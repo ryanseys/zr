@@ -20,7 +20,7 @@ module Zr
         # `X from A to B` or as a chain. This method causes an error to read
         # both. Returns nil when the encoding has no converter.
         def shape(encoding)
-          message = (UNMAPPED.encode(encoding) rescue $!.message)
+          message = conversion_message { UNMAPPED.encode(encoding) }
           return nil if message.start_with?("code converter not found")
 
           short = !message.include?(" in conversion from ")
@@ -32,10 +32,10 @@ module Zr
         # encoding does not define. An encoding that defines all bytes never
         # raises here, so the result does not matter (it returns true).
         def from_shape(encoding)
-          byte = (128..255).find { |b| ([b].pack("C").force_encoding(encoding).encode("UTF-8") rescue nil).nil? }
+          byte = (128..255).find { |b| converted { [b].pack("C").force_encoding(encoding).encode("UTF-8") }.nil? }
           return true if byte.nil?
 
-          message = ([byte].pack("C").force_encoding(encoding).encode("UTF-8") rescue $!.message)
+          message = conversion_message { [byte].pack("C").force_encoding(encoding).encode("UTF-8") }
           !message.include?(" in conversion from ")
         end
 
@@ -43,14 +43,14 @@ module Zr
           pairs = (0..255).flat_map { |a| (0..255).map { |b| [a, b].pack("CC") } }
 
           single = Encoding.list.reject(&:dummy?).select do |encoding|
-            pairs.none? { |text| (text.force_encoding(encoding).length == 1 rescue false) }
+            pairs.none? { |text| converted { text.force_encoding(encoding).length == 1 } }
           end
 
           rows = single.filter_map do |encoding|
             next if encoding == Encoding::BINARY || encoding == Encoding::US_ASCII
 
             points = (128..255).map do |byte|
-              code = ([byte].pack("C").force_encoding(encoding).encode("UTF-8").ord rescue nil)
+              code = converted { [byte].pack("C").force_encoding(encoding).encode("UTF-8").ord }
               code ? format("%04X", code) : "----"
             end
             "  #{encoding.name.inspect} => #{points.join.inspect},"

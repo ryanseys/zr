@@ -287,7 +287,7 @@ module Zr
           (0x80..0x2FFFF).each do |point|
             next if point.between?(0xD800, 0xDFFF)
 
-            written = (point.chr(Encoding::UTF_8).force_encoding(HUBS.fetch(encoding.name, "UTF-8")).encode(encoding).b rescue nil)
+            written = converted { point.chr(Encoding::UTF_8).force_encoding(HUBS.fetch(encoding.name, "UTF-8")).encode(encoding).b }
             next if written.nil? || written == lowest[point]
             # The runtime refuses the longer characters of a partial encoding,
             # so the table does not include them here either.
@@ -306,7 +306,7 @@ module Zr
         UNMAPPED = "\u{1F600}"
 
         def shape_of(encoding)
-          message = (UNMAPPED.encode(encoding) rescue $!.message)
+          message = conversion_message { UNMAPPED.encode(encoding) }
           return nil if message.start_with?("code converter not found")
 
           short = !message.include?(" in conversion from ")
@@ -321,7 +321,7 @@ module Zr
                                  .find { |bytes| convert(encoding, bytes) == :undef }
           return true if sequence.nil?
 
-          message = (sequence.pack("C*").dup.force_encoding(encoding).encode("UTF-8") rescue $!.message)
+          message = conversion_message { sequence.pack("C*").dup.force_encoding(encoding).encode("UTF-8") }
           !message.include?(" in conversion from ")
         end
         def write(io)
@@ -475,11 +475,11 @@ module Zr
             Encoding.list.each do |b|
               next if a == b
 
-              path = (Encoding::Converter.search_convpath(a, b) rescue nil)
+              path = converted { Encoding::Converter.search_convpath(a, b) }
               edges << [a.name, b.name] if path.is_a?(Array) && path.size == 1 && path.first.is_a?(Array)
             end
           end
-          compat = Encoding.list.to_h { |encoding| [encoding.name, (Encoding::Converter.asciicompat_encoding(encoding)&.name rescue nil)] }
+          compat = Encoding.list.to_h { |encoding| [encoding.name, converted { Encoding::Converter.asciicompat_encoding(encoding)&.name }] }
                                 .compact
           core << "  # The pairs ruby converts in one step, which a conversion path is\n  # searched over.\n"
           core << "  CONVERTERS = [\n"

@@ -121,3 +121,7 @@ Naming/BlockForwarding: { Enabled: true }
 
 # A constant that code changes is state; an object or a variable owns it.
 Style/MutableConstant: { Enabled: true }
+
+# `x rescue nil` rescues every StandardError, also a bug's NoMethodError.
+# Name the error that you expect (docs/explanation/ruby-style.md).
+Style/RescueModifier: { Enabled: true }

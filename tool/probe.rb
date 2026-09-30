@@ -140,13 +140,20 @@ module Zr
         out = Array.new(items.size)
         Array.new([jobs, items.size].min) do
           Thread.new do
-            while (job = (queue.pop(true) rescue nil))
+            while (job = next_job(queue))
               item, i = job
               out[i] = yield(item)
             end
           end
         end.each(&:join)
         out
+      end
+
+      # The next job, or nil when the queue is empty.
+      def next_job(queue)
+        queue.pop(true)
+      rescue ThreadError
+        nil
       end
     end
   end

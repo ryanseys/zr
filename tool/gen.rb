@@ -91,6 +91,23 @@ module Zr
       end
 
       def write(_io) = raise(NotImplementedError, "#{self.class} writes nothing")
+
+      # The tables come from what ruby answers, also from the errors that
+      # it raises for a conversion.
+
+      # The block's value, or nil when ruby cannot convert.
+      def converted
+        yield
+      rescue EncodingError
+        nil
+      end
+
+      # The block's value, or the message of ruby's conversion error.
+      def conversion_message
+        yield
+      rescue EncodingError => e
+        e.message
+      end
     end
   end
 end

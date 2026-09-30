@@ -125,10 +125,17 @@ module Zr
 
       lines = paths.compact.map { |path| "#{relative(path)}\n" }.uniq.sort.join
       file = File.join(dir, "roots", name)
-      return touch(file, 0) if (File.binread(file) rescue nil) == lines
+      return touch(file, 0) if roots_of(file) == lines
 
       Zr.settled!
       Paths.write_atomic(file, lines)
+    end
+
+    # The entries that the root file `file` lists, or nil when it has none.
+    def roots_of(file)
+      File.binread(file)
+    rescue SystemCallError
+      nil
     end
 
     # The path of an entry below the store's directory (`object/ab/ab12….o`).
@@ -289,6 +296,6 @@ module Zr
       Paths.remove(fresh) if fresh && File.exist?(fresh)
     end
 
-    private_class_method :children, :tree_bytes, :touch, :json, :decode, :encode, :write_dir
+    private_class_method :children, :tree_bytes, :touch, :json, :decode, :encode, :write_dir, :roots_of
   end
 end
