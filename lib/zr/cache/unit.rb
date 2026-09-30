@@ -71,6 +71,10 @@ module Zr
         nil
       end
 
+      # The inputs of a unit's bytes after its file: its flags, its source,
+      # and what `reached` gives. The block gives the entry of a unit.
+      def self.parts(unit, &) = [unit.internal ? 1 : 0, unit.hidden ? 1 : 0, unit.source.b, *reached(unit.body, &)]
+
       # The path and the entry of each unit that a require or an autoload
       # in `body` runs, in the order of the tree. The block gives the entry
       # of a unit; a require that runs no unit adds "-". Lowering::EvalSupport keys its
@@ -94,8 +98,7 @@ module Zr
       def key(unit, prefix)
         return nil if unit.source.nil? || unit.activates
 
-        Store.key(@stamp, prefix, unit.file, unit.internal ? 1 : 0, unit.hidden ? 1 : 0, unit.source.b,
-                  *Unit.reached(unit.body) { |reached| entry(reached) })
+        Store.key(@stamp, prefix, unit.file, *Unit.parts(unit) { |reached| entry(reached) })
       end
 
       # A unit's entry: a String names it already (a unit of eval support).

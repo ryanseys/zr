@@ -28,10 +28,7 @@ module Zr
           @unit = unit
           @symbols = symbols
           @sources = sources
-          @base = Zr.clock("core cache: key") do
-            Store.key(VERSION, @target.triple, Paths.root.to_s, Zr.compiler_digest(@target),
-                                      Machine::Description.of(unit).to_text, Lower.boot_classes.inspect)
-          end
+          @base = Zr.clock("core cache: key") { base_key(Machine::Description.of(unit).to_text, Lower.boot_classes.inspect) }
           @kernel = unit.functions
           @kernel_names = @kernel.to_h { |f| [f.name, true] }
           kernel = IR::Passes::Inline.new(@kernel)
@@ -47,22 +44,18 @@ module Zr
           @gem_hir = Zr.clock("core cache: gem prelude built") { Zr.gem_prelude(@target) }
           pieces << gem_piece
 
-          pieces = Zr.clock("core cache: checked") { settle(pieces) }
-          @pieces = pieces
-          report("core cache", pieces)
-          Zr.clock("core cache: inlined") { inline(pieces, @kernel + [@prelude]) }
+          functions = finish(pieces, @kernel + [@prelude], "core cache")
           # The kernel inlines alone only while it calls nothing of the core.
           core_call = @kernel_calls.find { |sym| @piece_names[sym] }
           raise "the kernel calls #{core_call} of the core, so Lowering::Core cannot inline it alone" if core_call
 
-          functions = Zr.clock("core cache: code read") { pieces.flat_map { |piece| piece.is_a?(Kept) ? kept_code(piece) : piece.functions } }
-          [functions << @prelude, pieces.flat_map { |piece| data_of(piece) }]
+          [functions << @prelude, @pieces.flat_map(&:data)]
         end
 
         # The symbols that the core's functions call, and the symbols of the
         # data that they read and that are not colocated (`Runtime#wants`).
         def calls_and_reads
-          pairs = @pieces.map { |piece| piece.is_a?(Kept) ? piece.record[:wants] : piece.wants }
+          pairs = @pieces.map(&:wants)
           [pairs.flat_map(&:first).uniq, pairs.flat_map(&:last).uniq]
         end
 

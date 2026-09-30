@@ -38,8 +38,27 @@ module Zr
     class Lowering
       VERSION = 2
 
-      Lowered = Struct.new(:path, :entry, :key, :functions, :data, :names, :sites, :wants, :small, :reads)
-      Kept = Struct.new(:path, :entry, :key, :record, :data)
+      # A piece that this build lowered: its IR and data, and what its
+      # entry keeps (`names` are the symbol names it asked for).
+      Lowered = Struct.new(:path, :entry, :key, :functions, :data, :names, :sites, :wants, :small, :reads) do
+        def kept? = false
+        def function_names = functions.map(&:name)
+        # The IR that the inlining pass works on.
+        def ir = functions
+        # The IR of the leaves that other pieces inline: in `ir`.
+        def leaves = []
+      end
+
+      # A piece that this build takes from its entry, `record`. Its data
+      # loads on first use.
+      Kept = Struct.new(:path, :entry, :key, :record, :data) do
+        def kept? = true
+        def function_names = record[:functions].map(&:first)
+        def data = self[:data] ||= Marshal.load(record[:data])
+        def wants = record[:wants]
+        def ir = []
+        def leaves = record[:leaves].values.map { |blob| Marshal.load(blob) }
+      end
 
       EMPTY = Set.new.freeze
 
@@ -58,7 +77,7 @@ module Zr
         return if Zr.moved
 
         @pieces.each do |piece|
-          next if piece.is_a?(Kept) || piece.key.nil?
+          next if piece.kept? || piece.key.nil?
 
           leaves = piece.functions.select { |f| @inliner.settled_leaf?(f.name) }
           record = {
@@ -167,24 +186,20 @@ module Zr
       def settle(pieces)
         loop do
           owner = {}
-          pieces.each { |piece| names_of(piece).each { |name| owner[name] = piece } }
+          pieces.each { |piece| piece.function_names.each { |name| owner[name] = piece } }
           defined = defined_names(pieces)
-          failed = pieces.select { |piece| piece.is_a?(Kept) && !current?(piece, owner, defined) }
+          failed = pieces.select { |piece| piece.kept? && !current?(piece, owner, defined) }
           return pieces if failed.empty?
 
           failed.each { |piece| pieces[pieces.index(piece)] = again(piece) }
         end
       end
 
-      def names_of(piece) = piece.is_a?(Kept) ? piece.record[:functions].map(&:first) : piece.functions.map(&:name)
-
-      def data_of(piece) = piece.is_a?(Kept) ? (piece.data ||= Marshal.load(piece.record[:data])) : piece.data
-
       # What `Aarch64.unit` counts as defined: the fixed part's names
       # (`fixed_names`) and every function and data of the pieces.
       def defined_names(pieces)
         names = fixed_names.dup
-        pieces.each { |piece| names.concat(names_of(piece), data_of(piece).map(&:name)) }
+        pieces.each { |piece| names.concat(piece.function_names, piece.data.map(&:name)) }
         names.to_set
       end
 
@@ -222,7 +237,7 @@ module Zr
 
         piece = owner[sym]
         return :absent if piece.nil?
-        return [:piece, piece.record[:leaf_prints][sym]] if piece.is_a?(Kept)
+        return [:piece, piece.record[:leaf_prints][sym]] if piece.kept?
 
         # Lowered now: it can have changed, unless it is too large to inline.
         piece.small.fetch(sym, true) ? :changed : [:piece, nil]
@@ -240,12 +255,26 @@ module Zr
       # One pass of inlining over the fixed part and the IR this build
       # lowered, with the leaves of each piece taken from an entry as sources.
       def inline(pieces, fixed_ir)
-        ir = fixed_ir + pieces.flat_map { |piece| piece.is_a?(Kept) ? [] : piece.functions }
-        sources = pieces.flat_map { |piece| piece.is_a?(Kept) ? piece.record[:leaves].values.map { |blob| Marshal.load(blob) } : [] }
-        @piece_names = pieces.flat_map { |piece| names_of(piece) }.to_h { |name| [name, true] }
+        ir = fixed_ir + pieces.flat_map(&:ir)
+        sources = pieces.flat_map(&:leaves)
+        @piece_names = pieces.flat_map(&:function_names).to_h { |name| [name, true] }
         @inliner_functions = (ir + sources).to_h { |f| [f.name, f] }
         @inliner = IR::Passes::Inline.new(ir, sources: sources)
         @inliner.run
+      end
+
+      # The base of every key of this lowering: the format, the target, the
+      # path root and the compiler, then `parts` of the unit.
+      def base_key(*parts) = Store.key(VERSION, @target.triple, Paths.root.to_s, Zr.compiler_digest(@target), *parts)
+
+      # Checks the pieces, inlines over the unit, and returns the code of
+      # each function: IR from a piece lowered now, `Obj::Code` from a
+      # kept one. `label` names the steps for ZR_TIMING.
+      def finish(pieces, fixed_ir, label)
+        @pieces = Zr.clock("#{label}: checked") { settle(pieces) }
+        report(label, @pieces)
+        Zr.clock("#{label}: inlined") { inline(@pieces, fixed_ir) }
+        Zr.clock("#{label}: code read") { @pieces.flat_map { |piece| piece.kept? ? kept_code(piece) : piece.functions } }
       end
 
       def kept_code(piece)
@@ -259,7 +288,7 @@ module Zr
       def report(label, pieces)
         return unless Config.current.timing?
 
-        warn format("zr: %s: %d of %d pieces from entries%s", label, pieces.count { |p| p.is_a?(Kept) }, pieces.size,
+        warn format("zr: %s: %d of %d pieces from entries%s", label, pieces.count(&:kept?), pieces.size,
                     @why ? " (first lowered: #{@why})" : "")
         @whys&.sort_by { |_, n| -n }&.first(5)&.each { |reason, n| warn format("zr: %s:   %4d lowered: %s", label, n, reason) }
       end

@@ -36,7 +36,7 @@ module Zr
           @symbols = symbols
           @program = lower.program
           @description = description
-          @base = Store.key(VERSION, @target.triple, Paths.root.to_s, Zr.compiler_digest(@target), @program.file)
+          @base = base_key(@program.file)
           @entry_functions, @entry_data = lower.lower_entry
           pieces = Zr.clock("eval cache: units") do
             @program.units.each_index.map do |i|
@@ -46,12 +46,8 @@ module Zr
             end
           end
           @index = pieces.each_with_index.to_h { |piece, i| [piece.entry, i] }
-          pieces = Zr.clock("eval cache: checked") { settle(pieces) }
-          @pieces = pieces
-          report("eval cache", pieces)
-          Zr.clock("eval cache: inlined") { inline(pieces, @entry_functions) }
-          functions = Zr.clock("eval cache: code read") { pieces.flat_map { |piece| piece.is_a?(Kept) ? kept_code(piece) : piece.functions } }
-          [@entry_functions + functions, @entry_data + pieces.flat_map { |piece| data_of(piece) }]
+          functions = finish(pieces, @entry_functions, "eval cache")
+          [@entry_functions + functions, @entry_data + @pieces.flat_map(&:data)]
         end
 
         private
@@ -60,8 +56,7 @@ module Zr
           return nil if unit.source.nil?
 
           usings = unit.activates ? usings(unit.body) : []
-          key_of(unit.file, entry, unit.internal ? 1 : 0, unit.hidden ? 1 : 0, unit.source, *Unit.reached(unit.body) { |reached|
-     @lower.unit_entry(reached) }, "usings", *usings)
+          key_of(unit.file, entry, *Unit.parts(unit) { |reached| @lower.unit_entry(reached) }, "usings", *usings)
         end
 
         # The activation numbers in `body`: each `using`'s entry, and the
