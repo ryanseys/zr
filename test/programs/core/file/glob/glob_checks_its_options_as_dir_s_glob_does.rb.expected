@@ -1,0 +1,6 @@
+#<ArgumentError: expected true or false as sort: nil>
+#<TypeError: no implicit conversion of String into Integer>
+#<ArgumentError: nul-separated glob pattern is deprecated>
+#<TypeError: no implicit conversion of Integer into String>
+Array
+#<Encoding::CompatibilityError: incompatible character encodings: UTF-16LE and US-ASCII>

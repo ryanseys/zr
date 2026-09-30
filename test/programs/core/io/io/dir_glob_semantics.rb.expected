@@ -1,0 +1,9 @@
+["x.rb"]
+["sub/z.rb", "x.rb"]
+["sub/z.rb"]
+["x.rb", "y.txt"]
+["x.rb"]
+["x.rb"]
+["sub", "x.rb", "y.txt"]
+false
+true

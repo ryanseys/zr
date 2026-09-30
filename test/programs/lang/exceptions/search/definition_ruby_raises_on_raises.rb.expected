@@ -1,0 +1,7 @@
+Foo is not a class
+lang/exceptions/search/definition_ruby_raises_on_raises.rb:14: previous definition of Foo was here
+1
+true
+false
+superclass mismatch for class Sub
+Base

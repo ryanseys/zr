@@ -1,0 +1,9 @@
+hi
+T
+T
+:v2
+"old"
+"new"
+undefined method 'nope' for class 'T'
+can't modify frozen Class: Fz
+done

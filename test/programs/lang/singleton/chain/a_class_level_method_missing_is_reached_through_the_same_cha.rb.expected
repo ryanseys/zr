@@ -1,0 +1,3 @@
+== a class-level method_missing is reached through the same chain
+"mmod_ghost"
+true

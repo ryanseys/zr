@@ -1,0 +1,7 @@
+"a\nb\nc\nd\n"
+"a\nb\nc\nd\n"
+"a\nb\nc\nd\n"
+"a\nb\nc\nd\n"
+["a\n", "b\n", "c\n", "d\n", nil]
+["a", "\n", "b", "\n", "c", "\n", "d", "\n"]
+["a\r", "\nb\r", "c\nd\n"]

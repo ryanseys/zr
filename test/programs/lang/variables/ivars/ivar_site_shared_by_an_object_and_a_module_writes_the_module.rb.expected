@@ -1,0 +1,7 @@
+[1, 2, 3]
+[1, 2, 3]
+["M", [M], [:@first, :@second, :@third], Module]
+[1, 2, 3]
+["K", Object, [K, Object, Kernel, BasicObject], [:@first, :@second, :@third], K]
+[[1, 2, 3], [1, 2, 3], [1, 2, 3]]
+[1, 4, [:@first, :@second, :@third, :@fourth]]

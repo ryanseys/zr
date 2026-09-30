@@ -1,0 +1,6 @@
+[TypeError, "no implicit conversion of nil into String"]
+[TypeError, "no implicit conversion of true into String"]
+[TypeError, "no implicit conversion of nil into String"]
+[TypeError, "no implicit conversion of nil into String"]
+[TypeError, "no implicit conversion of Integer into String"]
+[TypeError, "no implicit conversion of nil into String"]

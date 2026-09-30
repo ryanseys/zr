@@ -1,0 +1,12 @@
+[["iso-8859-1", "-"], [#<Encoding:ISO-8859-1>, nil]]
+[["binary", "utf-8"], [#<Encoding:BINARY (ASCII-8BIT)>, nil]]
+[[#<Encoding:UTF-8>, #<Encoding:UTF-8>], [#<Encoding:UTF-8>, nil]]
+[["euc-jp", "utf-8"], [#<Encoding:EUC-JP>, #<Encoding:UTF-8>]]
+[["bogus", "bogus2"], [#<Encoding:UTF-8>, nil]]
+[["utf-8", "bogus"], [#<Encoding:UTF-8>, #<Encoding:UTF-8>]]
+[[#<Encoding:EUC-JP>, "utf-8"], [#<Encoding:EUC-JP>, #<Encoding:UTF-8>]]
+[["euc-jp", nil], [#<Encoding:EUC-JP>, nil]]
+[[nil, nil], [#<Encoding:UTF-8>, nil]]
+[[#<Encoding:BINARY (ASCII-8BIT)>], [#<Encoding:BINARY (ASCII-8BIT)>, nil]]
+[#<Encoding:ISO-8859-1>, #<Encoding:UTF-8>]
+#<ArgumentError: unknown value for invalid character option>

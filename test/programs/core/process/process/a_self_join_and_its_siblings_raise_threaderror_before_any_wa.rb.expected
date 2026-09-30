@@ -1,0 +1,4 @@
+self join	ThreadError: Target thread must not be current thread
+main join	ThreadError: Target thread must not be current thread
+stop alone	ThreadError: stopping only thread
+recursive lock	ThreadError: deadlock; recursive locking

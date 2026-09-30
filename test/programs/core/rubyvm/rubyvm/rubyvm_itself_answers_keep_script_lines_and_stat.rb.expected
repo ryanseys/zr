@@ -1,0 +1,11 @@
+[:keep_script_lines, :keep_script_lines=, :stat]
+[:AbstractSyntaxTree, :DEFAULT_PARAMS, :INSTRUCTION_NAMES, :InstructionSequence, :OPTS, :YJIT]
+false
+true
+[:constant_cache_invalidations, :constant_cache_misses, :global_cvar_state, :next_shape_id, :shape_cache_size]
+true
+true
+[ArgumentError, "unknown key: bogus"]
+[Array, false]
+[Array, true]
+[[:fiber_machine_stack_size, :fiber_vm_stack_size, :thread_machine_stack_size, :thread_vm_stack_size], true]

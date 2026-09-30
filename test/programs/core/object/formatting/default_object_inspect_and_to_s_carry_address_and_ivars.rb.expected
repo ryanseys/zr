@@ -1,0 +1,5 @@
+#<Widget:0xADDR>
+#<Widget:0xADDR @name="gadget", @size=3>
+#<Empty:0xADDR>
+#<Object:0xADDR>
+can't modify frozen Frozen: #<Frozen:0xADDR @v=1>

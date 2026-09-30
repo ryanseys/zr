@@ -1,0 +1,19 @@
+a_data_subclass_s_constructor_reports_two_frames_and_its_str.rb:32:in 'D2#initialize'
+a_data_subclass_s_constructor_reports_two_frames_and_its_str.rb:37:in 'D.new'
+a_data_subclass_s_constructor_reports_two_frames_and_its_str.rb:46:in 'S2#initialize'
+a_data_subclass_s_constructor_reports_two_frames_and_its_str.rb:50:in '<main>'
+Data sub-subclass:
+  a_data_subclass_s_constructor_reports_two_frames_and_its_str.rb:32:in 'D2#initialize'
+  a_data_subclass_s_constructor_reports_two_frames_and_its_str.rb:67:in 'D3#initialize'
+Data direct, arity error:
+  a_data_subclass_s_constructor_reports_two_frames_and_its_str.rb:75:in 'DD.new'
+  a_data_subclass_s_constructor_reports_two_frames_and_its_str.rb:75:in 'block in <main>'
+named runtime class:
+  a_data_subclass_s_constructor_reports_two_frames_and_its_str.rb:81:in 'Named#boom'
+anonymous runtime class:
+  a_data_subclass_s_constructor_reports_two_frames_and_its_str.rb:88:in 'boom'
+subclass of a runtime class:
+  a_data_subclass_s_constructor_reports_two_frames_and_its_str.rb:96:in 'NamedSub#other'
+top-level def called from a runtime method:
+  a_data_subclass_s_constructor_reports_two_frames_and_its_str.rb:104:in 'Object#top_level_helper'
+  a_data_subclass_s_constructor_reports_two_frames_and_its_str.rb:108:in 'Leaky#outer'

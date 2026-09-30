@@ -1,0 +1,41 @@
+"This"
+" "
+"is an exam"
+15
+15
+"This is an "
+"ple string"
+"exam"
+4
+10
+"ple"
+3
+" "
+"string"
+false
+false
+"This is"
+"This"
+"is"
+["This", "is"]
+"#<StringScanner 7/25 \"...is is\" @ \" an e...\">"
+18
+18
+true
+"&lt;a href=&quot;x&quot;&gt;&amp;&#39;"
+"a+b%2Bc%2Fd"
+"a%20b%2Bc%2Fd"
+"a b/c"
+"<a>&A"
+"ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+"a9993e364706816aba3e25717850c26c9cd0d89d"
+"900150983cd24fb0d6963f7d28e17f72"
+"ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+Hello world! [0][1]
+"&lt;b&gt;"
+"a%20b"
+"o world"
+"hell"
+""
+"world"
+"world"

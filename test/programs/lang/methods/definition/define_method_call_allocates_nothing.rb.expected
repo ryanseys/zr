@@ -1,0 +1,27 @@
+"kid base 1"
+"kid base 2"
+[false, 2]
+[false, :none]
+[:defines, :each_twice, :early, :greet, :greet2, :lam, :made, :pro, :with_block]
+:early
+:late
+:broke
+:done
+[1, 2]
+[1, 3]
+ArgumentError
+5
+ArgumentError
+[false, 7]
+[false, 8]
+true
+true
+0
+[[:block, :b]]
+[[:req, :a], [:opt, :b]]
+Kid
+[[:call, :early, 12], [:return, :early, 12], [:call, :early, 12], [:return, :early, 12]]
+308890
+Kid
+"again 3"
+"kid base 3"

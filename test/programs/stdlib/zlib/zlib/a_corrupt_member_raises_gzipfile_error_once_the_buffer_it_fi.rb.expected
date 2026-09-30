@@ -1,0 +1,6 @@
+not gzip at all: Zlib::GzipFile::Error: not in gzip format
+bad crc via read: "hello\nworld\n"
+bad crc via readlines: Zlib::GzipFile::CRCError: invalid compressed data -- crc error
+bad length via gunzip: Zlib::GzipFile::LengthError: invalid compressed data -- length error
+bad crc via gunzip: Zlib::GzipFile::CRCError: invalid compressed data -- crc error
+truncated member: Zlib::GzipFile::Error: unexpected end of file

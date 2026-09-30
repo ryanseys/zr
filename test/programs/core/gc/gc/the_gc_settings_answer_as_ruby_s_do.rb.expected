@@ -1,0 +1,7 @@
+[:auto_compact, [true, true]]
+[:auto_compact_int, [1, true]]
+[:verify_bad, :raise, ArgumentError, "unknown keyword: :foo"]
+[:config_full_mark, true]
+[:config_bad, :raise, ArgumentError, "ArgumentError"]
+[:stress_int, [1, 1]]
+[:raw_data, Array]

@@ -9,15 +9,14 @@ module Zr
   module Dev
     COMMANDS = {
       "gen" => ["Write a generated file again, or check it", -> { require_relative "gen"; Gen }],
-      "spec" => ["Check, tidy, verify, split or grow the spec files", -> { require_relative "spec"; Specs }],
-      "oracle" => ["Check every spec literal against ruby 4.0.7", -> { require_relative "oracle"; Oracle }],
       "rubyspec" => ["Run ruby/spec in ruby and in a zr binary, and list the gaps",
                      -> { require_relative "rubyspec"; RubySpec }],
       "probe" => ["Run Ruby files under ruby and as zr binaries, and show the differences",
                   -> { require_relative "probe"; Probe }],
-      "record" => ["Ask ruby what a whole program answers, and write it beside the program",
+      "expect" => ["Write the expected output of program tests from ruby 4.0.7", -> { require_relative "expect"; Expect }],
+      "record" => ["Ask ruby what a benchmark answers, and write it beside the benchmark",
                    -> { require_relative "record"; Record }],
-      "affected" => ["Run the specs that a change can reach", -> { require_relative "affected"; Affected }],
+      "affected" => ["Run the tests that a change can reach", -> { require_relative "affected"; Affected }],
       "progress" => ["Where the test tier running now stands", -> { require_relative "progress"; Progress }],
       "bench" => ["How long the programs that zr builds take to run", -> { require_relative "bench"; Bench }],
       "compile" => ["How long zr takes to compile, and where", -> { require_relative "compile"; Compile }],

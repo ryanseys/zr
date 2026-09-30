@@ -1,0 +1,14 @@
+Sys.setuid self: nil
+Sys.setgid self: nil
+Sys.seteuid self: nil
+Sys.setegid self: nil
+Sys.setruid self: nil
+Sys.setrgid self: nil
+Sys.setreuid self: nil
+Sys.setregid self: nil
+UID.change_privilege self: true
+GID.change_privilege self: true
+UID.grant_privilege self: true
+GID.grant_privilege self: true
+UID.eid= self: true
+GID.eid= self: true

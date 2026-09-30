@@ -1,0 +1,244 @@
+"AB"
+"AB"
+"A"
+"\xFF\xFF\x00"
+"\xFF"
+"\x01\x00\x02\x00"
+"\x00\x01"
+"\x01\x00"
+"\x00\x01"
+"\x01\x00"
+"\x00\x00\x00\x01"
+"\x01\x00\x00\x00"
+"\x01\x00\x00\x00"
+"\x00\x00\x00\x01"
+"\x01\x00\x00\x00\x00\x00\x00\x00"
+"\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF"
+"\x00\x00\x00\x00\x00\x00\x00\x01"
+"\x01\x00\x00\x00\x00\x00\x00\x00"
+"\x01\x00\x00\x00\x00\x00\x00\x00"
+"\x124Vx"
+"xV4\x12"
+"\xFE\xFF\xFF\xFF"
+"\xFE\xFF\xFF\xFF"
+"\xFF\xFF"
+"\x01\x00"
+"\x01\x00\x00\x00\x00\x00\x00\x00"
+"\x01\x00\x00\x00"
+"\xFF\xFF\xFF\xFF"
+#<Encoding:BINARY (ASCII-8BIT)>
+#<Encoding:UTF-8>
+"☺😀A"
+[226, 152, 186]
+"A"
+"\x01"
+"\x82,"
+[135, 255, 255, 255, 127]
+[129, 128, 0]
+"a"
+"abc\x00\x00"
+"abc  "
+"abc\x00\x00"
+"abc"
+"abc"
+"abc\x00"
+"ab"
+"abcdef\x00"
+"abde"
+"\x00\x00\x00"
+"a"
+"a b "
+#<Encoding:BINARY (ASCII-8BIT)>
+"\xC3\xB1"
+[195, 177]
+5
+"AB"
+"@"
+"A@"
+"A$"
+"\xAB\xCD"
+"A"
+"A"
+"@"
+[65, 64]
+"\x80"
+"aGVsbG8=\n"
+"aGVsbG8="
+"aGVsbG8gd29ybGQsIHRoaXMgaXMgYSBsb25nZXIgc3RyaW5nIHRoYXQgd2ls\nbCB3cmFwIHBhc3Qgc2l4dHkgY2hhcmFjdGVycyE=\n"
+"aGVsbG8gd29ybGQsIHRoaXMgaXMgYSBsb25nZXIgc3RyaW5nIHRoYXQgd2lsbCB3cmFwIHBhc3Qgc2l4dHkgY2hhcmFjdGVycyE="
+""
+"YQ==\n"
+"YWI=\n"
+"YWJj\n"
+"YWJj\n"
+"YWJj\nZGVm\nZ2hp\namts\nbW5v\ncHFy\nc3R1\ndnd4\neXo=\n"
+"\x01\x00\x02"
+"\x01\x00\x00\x00\x02"
+"\x01"
+"\x01\x02\x00\x00"
+"\x01"
+"\x00"
+"\x00\x00\x00\x01"
+"\x01\x00\x02"
+"\x01"
+"X outside of string"
+"X outside of string"
+[0, 0, 0, 0, 0, 0, 248, 63]
+[0, 0, 0, 0, 0, 0, 248, 63]
+[0, 0, 0, 0, 0, 0, 248, 63]
+[63, 248, 0, 0, 0, 0, 0, 0]
+[0, 0, 192, 63]
+[0, 0, 192, 63]
+[0, 0, 192, 63]
+[63, 192, 0, 0]
+[128, 0, 0, 0, 0, 0, 0, 0]
+[127, 240, 0, 0, 0, 0, 0, 0]
+[0, 0, 0, 0, 0, 0, 240, 63]
+[205, 204, 204, 61]
+[0, 0, 128, 127]
+[0, 0, 0, 0]
+[65, 66]
+[65]
+[65, 66]
+[-1]
+[255]
+[513]
+[258]
+[258]
+[513]
+[1]
+[1]
+[1]
+[-2]
+[4294967294]
+[1]
+[-1]
+[1]
+[1, 770]
+[nil]
+[nil]
+[1, 2, 3]
+[1, 2]
+[1, 2, 3, nil, nil]
+65
+65
+258
+"ab"
+""
+["abc"]
+["abc  "]
+["abc"]
+["abc"]
+["abc"]
+["ab"]
+["abc"]
+["ab", "c"]
+["ab", "cd"]
+["ab", "cd"]
+["a b"]
+[""]
+["ab", "c"]
+["ab"]
+["a"]
+#<Encoding:BINARY (ASCII-8BIT)>
+#<Encoding:BINARY (ASCII-8BIT)>
+[241]
+[128512, 65]
+[9786]
+"malformed UTF-8 character"
+["4142"]
+["4"]
+["414"]
+["1424"]
+["0100000101000010"]
+["1000001001000010"]
+["0100"]
+["0100000101"]
+["hello"]
+["hello"]
+["hello"]
+"invalid base64"
+["hello"]
+[""]
+[1, 300]
+[1]
+[127]
+[34359738367]
+[1, 3]
+[1, nil]
+[1, 2, 2]
+[1, 3]
+[1, 1]
+[nil]
+"x outside of string"
+"X outside of string"
+[1, 1]
+[1, 2]
+[1.5]
+[1.5]
+[1.5]
+[1.5]
+[1.5]
+[Infinity]
+true
+[-0.0]
+[0.0]
+[5.0e-324]
+[Infinity]
+[0.0]
+[1.401298464324817e-45]
+[3.4028234663852886e+38]
+[1.401298464324817e-45]
+[nil]
+[0.10000000149011612]
+[1.5, 1]
+[1, 2]
+"no implicit conversion of String into Integer"
+"no implicit conversion of String into Integer"
+"no implicit conversion of Integer into String"
+"too few arguments"
+"unknown pack directive 'y' in 'y'"
+"unknown unpack directive 'y' in 'y'"
+false
+"\x00"
+"no implicit conversion of nil into Integer"
+"\x01"
+"no implicit conversion of String into Integer"
+"\x01\x02\x03"
+"\x01\x02"
+"too few arguments"
+"too few arguments"
+"too few arguments"
+"\x03\x00"
+["AB"]
+[258, 772]
+[258, 772]
+[258]
+"\x00\x01\x00\x02"
+[13330]
+[1, 2, 3]
+"hello"
+[104, 233, 108, 108, 111]
+[104, 195, 169, 108, 108, 111]
+6
+6
+String
+Array
+#<Encoding:UTF-8>
+#<Encoding:BINARY (ASCII-8BIT)>
+#<Encoding:US-ASCII>
+#<Encoding:BINARY (ASCII-8BIT)>
+[65]
+#<Encoding:UTF-8>
+true
+1
+[58]
+[1, 2]
+[4464]
+[65535]
+[-1]
+[0]
+[1099511627776]
+[-1099511627776]
+[32, 0, 0, 0, 0, 0, 0, 0]
+[4611686018427387903]

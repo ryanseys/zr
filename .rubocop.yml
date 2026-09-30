@@ -15,7 +15,6 @@ AllCops:
     - "runtime/**/*"      # compiled by zr, not run by ruby
     - "vendor/**/*"       # third-party code
     - "benchmark/**/*"    # programs that zr compiles
-    - "test/e2e/**/*"
     - "test/programs/**/*"
     - "test/fixtures/**/*"
     - "test/runtime/**/*"

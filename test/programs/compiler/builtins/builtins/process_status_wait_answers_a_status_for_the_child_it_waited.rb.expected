@@ -1,0 +1,4 @@
+Status.wait: Process::Status
+Status.wait exit: 0
+Status coredump?: false
+Status stopsig: nil

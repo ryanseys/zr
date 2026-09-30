@@ -13,8 +13,8 @@ when it gives the same output.
 Set `TARGET` to the triple:
 
 ```console
-$ TARGET=wasm32-wasi bin/test test/e2e
-$ rake test:spec TARGET=aarch64-linux-musl N=/blocks/
+$ TARGET=wasm32-wasi bin/test test/programs/cli
+$ TARGET=aarch64-linux-musl bin/test test/programs/lang/methods
 ```
 
 The tests build each program for that target and start it as that
@@ -26,21 +26,23 @@ and install [wasmtime](https://wasmtime.dev).
 ## Let a target fail what it cannot do yet
 
 A new target does not pass every test at first. Its baseline file,
-`test/baselines/<triple>.txt`, lists the e2e programs and the spec
-examples that the target is allowed to fail, and the reason for each.
-One line has a key, a tab, and the reason. The key of a program is its
-path below `test/`. The key of a spec example is its file below `test/`,
-`: `, and its description. A line that starts with `#` is a comment:
+`test/baselines/<triple>.txt`, lists the program tests that the
+target is allowed to fail, and the reason for each. The host,
+`aarch64-apple-darwin`, has a baseline too. One line has a key, a tab,
+and the reason. The key is the path of the program below
+`test/programs`. A line that starts with `#` is a comment:
 
 ```
 # wasi has no processes and no signals.
-e2e/core/process/process_spawn.rb	spawn() is unimplemented on wasi
-spec/core/hash/hash_test.rb: dir chdir block form restores the previous directory	chdir has no wasm form
+cli/core/process/process_spawn.rb	spawn() is unimplemented on wasi
+core/hash/hash/dir_chdir_block_form_restores_the_previous_directory.rb	chdir has no wasm form
 ```
 
-The e2e and spec tiers read the baseline of the target that they run:
+The program tests read the baseline of the target that they run
+(`test/support/baseline.rb`):
 
-- A test in the baseline that fails is skipped, with the reason.
+- A test in the baseline that fails, or that zr refuses, is skipped,
+  with the reason.
 - A test in the baseline that **passes** makes the run fail, with the
   message `this now passes: take it off test/baselines/<triple>.txt`.
   Thus you learn when a change fixes a test, and the file cannot become
@@ -54,22 +56,25 @@ To add a line:
 
 To remove a line, delete it when the run tells you that the test passes.
 
-The spec tier is large, so on another target run the directories that
-CI runs, and give the baseline the examples in them that fail.
+There are thousands of program tests, so on another target run the
+directories that CI runs (`.github/workflows/ci.yml`): `test/programs/cli`
+and a slice of the language and core areas. Give the baseline the
+tests in them that fail.
 
 ## When the correct output is different on a target
 
-A spec example gives the stdout of each platform that is different:
+A program test can have the stdout of a platform in its own file,
+`foo.rb.linux.expected` or `foo.rb.wasi.expected`. A test on that
+platform compares with that file, and a test on another platform with
+`foo.rb.expected`. On Linux, `zr-dev expect` writes
+`foo.rb.linux.expected` when the stdout is not the same as
+`foo.rb.expected`. See [Program tests](../reference/program-tests.md).
 
-```ruby
-_(result).must_answer "arm64-darwin23\n", linux: "aarch64-linux-musl\n", wasi: "wasm32-wasi\n"
-```
+A program whose output depends on the target usually tests two
+things. Split it into two programs.
 
-See [The spec DSL](../reference/spec-dsl.md).
-
-A whole program in `test/e2e/` has no such form. A program whose output
-depends on the target usually tests two things. Split it into two
-programs.
+A test that a platform cannot run at all gives the platforms that can
+run it in `foo.rb.needs` (`macos`, `linux`, `wasi`).
 
 ## Run the Linux tests in the container that CI uses
 
@@ -79,7 +84,7 @@ $ docker exec alpine apk add --no-cache build-base git
 $ docker exec alpine git config --global --add safe.directory /zr
 $ docker exec alpine bundle install
 $ docker exec alpine bundle exec rake build
-$ docker exec -e TARGET=aarch64-linux-musl alpine bundle exec rake test:e2e
+$ docker exec -e TARGET=aarch64-linux-musl alpine bundle exec bin/test test/programs/cli
 ```
 
 These are the commands of the `linux-musl` job in

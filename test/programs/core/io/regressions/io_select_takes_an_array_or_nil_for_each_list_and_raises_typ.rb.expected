@@ -1,0 +1,5 @@
+#<TypeError: wrong argument type IO (expected Array)>
+#<TypeError: wrong argument type String (expected Array)>
+#<TypeError: wrong argument type true (expected Array)>
+[1, 0, 0]
+"ready\n"

@@ -1,0 +1,3 @@
+[RuntimeError, "boom"]
+[RuntimeError, "boom"]
+{a: 1, b: 2}

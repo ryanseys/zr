@@ -1,0 +1,25 @@
+[0, 1, 2]
+4
+3
+[0, 1, 2]
+[0, 1]
+1
+2
+KeyError
+true
+:z
+ArgumentError
+"wrong number of arguments (given 2, expected 0..1)"
+"wrong number of arguments (given 2, expected 0..1)"
+10
+10
+10
+[:missing, 1]
+true
+NoMethodError
+true
+"Array#fetch"
+6
+3
+6
+{2 => 1}

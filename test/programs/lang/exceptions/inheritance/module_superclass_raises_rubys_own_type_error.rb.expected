@@ -1,0 +1,2 @@
+module: superclass must be an instance of Class (given an instance of Module)
+class: can't make subclass of Class

@@ -1,0 +1,133 @@
+[RangeError, "cannot get the maximum of endless range"]
+[RangeError, "cannot get the maximum of endless range"]
+[RangeError, "cannot get the maximum of endless range"]
+[RangeError, "cannot get the minimum of beginless range"]
+1
+true
+true
+false
+5
+4
+4
+2
+1
+2
+true
+false
+false
+false
+false
+false
+false
+false
+false
+false
+false
+[TypeError, "no implicit conversion of String into Integer"]
+[TypeError, "no implicit conversion of String into Integer"]
+false
+true
+nil
+nil
+[nil, nil]
+nil
+[1, 5]
+Range
+[ArgumentError, "negative array size (or size too big)"]
+[ArgumentError, "negative array size"]
+[ArgumentError, "negative array size (or size too big)"]
+[ArgumentError, "negative array size (or size too big)"]
+[ArgumentError, "negative array size (or size too big)"]
+5
+[RangeError, "cannot get the first element of beginless range"]
+[RangeError, "cannot get the last element of endless range"]
+[RangeError, "cannot get the maximum of endless range"]
+[TypeError, "can't iterate from NilClass"]
+Infinity
+[1, 2, 3]
+[5, 6]
+[]
+[RangeError, "cannot get the last element of endless range"]
+[RangeError, "cannot convert endless range to an array"]
+[5, 4]
+[5, 4, 3]
+4
+[4, 3, 2]
+[]
+5.0
+[TypeError, "cannot exclude non Integer end value"]
+[TypeError, "can't iterate from NilClass"]
+[RangeError, "cannot get the minimum of endless range with custom comparison method"]
+[RangeError, "cannot get the minimum of endless range with custom comparison method"]
+[RangeError, "cannot get the maximum of beginless range with custom comparison method"]
+[1, 2]
+[5, 4]
+[4, 3]
+[1, 2, 3, 4, 5]
+[5, 4, 3, 2, 1]
+[5, 4]
+[1, 2]
+[]
+[]
+["a", "b"]
+[5, 4, 3]
+Enumerator
+Infinity
+[1, 2, 4]
+[1, 2, 3, 4]
+0
+2
+[1, 2, 3]
+Infinity
+true
+Enumerator
+[1, 2, 3, 4, 5]
+[1, 1, 2, 3, 5, 8]
+comparison of W with W failed
+comparison of W with 1 failed
+comparison of W with String failed
+comparison of W with nil failed
+comparison of W with 1.5 failed
+comparison of W with :s failed
+comparison of W with true failed
+"comparison of String with 1 failed"
+"comparison of String with 1 failed"
+"comparison of Rational with String failed"
+#<Proc:X native/range_batch.rb:31>
+#<Proc:X native/range_batch.rb:32 (lambda)>
+#<Proc:X(&:x) (lambda)>
+#<Proc:X (lambda)>
+"#<Proc:X native/range_batch.rb:31>"
+#<Proc:X>
+#<Proc:X (lambda)>
+#<Proc:X native/range_batch.rb:35>
+#<Q:X @b=#<Proc:X native/range_batch.rb:31>>
+1
+15
+15
+0
+3
+14
+31
+0
+0
+0
+0
+2
+0
+1
+"The beginless range for Integer#[] results in infinity"
+"bad value for range"
+Range
+Range
+"bad value for range"
+"bad value for range"
+"bad value for range"
+nil
+nil
+1
+"Numerical argument out of domain"
+"float 1e+300 out of range of integer"
+"float -1e+30 out of range of integer"
+nil
+3

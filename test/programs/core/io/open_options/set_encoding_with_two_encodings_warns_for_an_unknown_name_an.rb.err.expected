@@ -1,0 +1,3 @@
+core/io/open_options/set_encoding_with_two_encodings_warns_for_an_unknown_name_an.rb:7: warning: Unsupported encoding bogus ignored
+core/io/open_options/set_encoding_with_two_encodings_warns_for_an_unknown_name_an.rb:7: warning: Unsupported encoding bogus2 ignored
+core/io/open_options/set_encoding_with_two_encodings_warns_for_an_unknown_name_an.rb:7: warning: Unsupported encoding bogus ignored

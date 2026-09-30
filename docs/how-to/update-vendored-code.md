@@ -132,7 +132,8 @@ it, and put the new digest in the line.
    ```
 
    If ruby gives a different output with the new version, get the new
-   output from ruby, as [How to add a spec](add-a-spec.md) shows.
+   output from ruby with `zr-dev expect --all <path>`, as
+   [How to add a program test](add-a-program-test.md) shows.
 
 ## A new ruby
 

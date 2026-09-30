@@ -1,0 +1,25 @@
+collect_concat: collect_concat->each
+each_cons: each_cons->size each_cons->each
+each_entry: each_entry->each
+each_slice: each_slice->size each_slice->each
+each_with_index: each_with_index->each
+each_with_object: each_with_object->each
+entries: entries->each
+filter_map: filter_map->each
+find_all: find_all->each
+flat_map: flat_map->each
+grep: grep->each
+grep_v: grep_v->each
+group_by: group_by->each
+initialize_copy: raised NoMethodError
+inject: inject->each
+max_by: max_by->each
+member?: member?->each
+min_by: min_by->each
+minmax: minmax->each
+minmax_by: minmax_by->each
+partition: partition->each
+reduce: reduce->each
+sort_by: sort_by->each
+sort_by!: sort_by!->sort_by sort_by->each
+tally: tally->each

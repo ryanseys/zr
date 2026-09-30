@@ -1,0 +1,9 @@
+Invalid yield; true
+Invalid break; true
+Invalid next; true
+Invalid redo; true
+Invalid yield; true
+Invalid yield; true
+false
+false
+[[:on_heredoc_beg, "BEG"], [:on_nl, "BEG"], [:on_ignored_sp, "BEG"], [:on_tstring_content, "BEG"], [:on_heredoc_end, "BEG"], [:on_ident, "CMDARG"]]

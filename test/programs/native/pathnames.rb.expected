@@ -1,0 +1,47 @@
+"constant"
+"/a/b/c"
+"c"
+"/a/b"
+"/a/b"
+""
+true
+false
+false
+true
+"/a/b/c/d"
+"/a/b/c/d"
+"/b"
+"a/c/d/e"
+"/a/c"
+"../a"
+"b/c"
+"../../b/c"
+"."
+["a", "b", "c"]
+["/", "/a", "/a/b", "/a/b/c"]
+["/a/b/c", "/a/b", "/a", "/"]
+"/a/b/c"
+"/b"
+["/a/b", "c"]
+"/a/z/c"
+"a.c"
+true
+true
+-1
+["/a/b", "/a/c"]
+"#<Pathname:/a/b/c>"
+true
+Pathname
+true
+false
+true
+true
+true
+true
+"# Pathname is a builtin in ruby 4.0, and require \"pathname\" adds the rest.\n"
+"# Pathname is a builtin in ruby 4.0, and require \"pathname\" adds the rest.\n"
+Array
+Array
+true
+Pathname
+[ArgumentError, "path name contains null byte"]

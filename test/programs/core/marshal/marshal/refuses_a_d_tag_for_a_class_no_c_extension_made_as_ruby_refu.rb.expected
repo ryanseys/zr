@@ -1,0 +1,3 @@
+["Plain", ArgumentError, "dump format error"]
+["Loader", ArgumentError, "dump format error"]
+["Absent", ArgumentError, "undefined class/module Absent"]

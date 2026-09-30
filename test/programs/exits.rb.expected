@@ -1,0 +1,47 @@
+"msg"
+1
+"exit"
+1
+"exit"
+0
+true
+1
+7
+exits.rb:6:in '<main>'
+exits.rb:7:in 'Kernel#exit'
+exits.rb:7:in 'Object#m'
+exits.rb:8:in '<main>'
+#<TypeError: no implicit conversion of String into Integer>
+#<TypeError: no implicit conversion from nil to integer>
+no implicit conversion of nil into String
+exits.rb:11:in 'Kernel#abort'
+exits.rb:11:in '<main>'
+no implicit conversion of Integer into String
+Proc
+#<ArgumentError: called without a block>
+true
+true
+hi
+1
+2
+ab
+3
+"4"
+[]
+"007"
+"x"
+false
+true
+false
+9
+3
+#<ArgumentError: boom>
+#<RuntimeError: f>
+nil
+#<Class:Kernel>
+-1
+Kernel
+#<Class:Kernel>
+body
+two
+one

@@ -1,0 +1,62 @@
+"4.0.7"
+"ruby"
+"4.0.7"
+"arm64-darwin23"
+0
+"2026-09-15"
+"ruby - Copyright (C) 1993-2026 Yukihiro Matsumoto"
+"ruby 4.0.7 (2026-09-15 revision 229531a6cf) +PRISM [arm64-darwin23]"
+[]
+[]
+"native/environment.rb"
+"native/environment.rb"
+"native/environment.rb"
+3
+true
+false
+Object
+String
+nil
+1
+"ZR_NOPE_XZR_NOPE_X"
+true
+false
+Hash
+true
+"ENV"
+true
+"one"
+"one"
+"one"
+nil
+nil
+nil
+[String, NilClass]
+["HOME"]
+true
+Enumerator
+key not found: "ZR_NOPE_X"
+"ZR_NOPE_X"
+true
+no implicit conversion of Integer into String
+true
+nil
+["native/environment.rb", 13]
+nil
+nil
+"\n"
+nil
+false
+false
+false
+"-"
+Integer
+true
+nil
+Array
+"native/environment.rb:15:in '<main>'"
+"renamed"
+"renamed"
+true
+true
+true

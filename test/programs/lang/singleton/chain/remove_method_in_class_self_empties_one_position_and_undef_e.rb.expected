@@ -1,0 +1,3 @@
+== remove_method in class << self empties one position, undef ends the walk
+"M1(top)"
+"undef ends the walk"

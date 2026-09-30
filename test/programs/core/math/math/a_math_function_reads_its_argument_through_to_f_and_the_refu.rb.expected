@@ -1,0 +1,21 @@
+0.0
+4.0
+Float
+0.54
+0.693
+5.0
+[TypeError, "can't convert Lengthy into Float"]
+[TypeError, "can't convert nil into Float"]
+[TypeError, "can't convert String into Float"]
+[TypeError, "can't convert Symbol into Float"]
+[Math::DomainError, "Numerical argument is out of domain - sqrt"]
+[TypeError, "can't convert nil into Float"]
+1.0
+3.0
+true
+0.5
+3.0
+3.0
+3.0
+Math::DomainError
+892.933959

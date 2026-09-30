@@ -1,0 +1,27 @@
+boom
+#<E: E>
+#<E: E>
+nil
+#<E: with message>
+ensure
+3
+g ensure
+1
+n=3
+"rescued"
+#<TypeError: exception class/object expected>
+NameError
+h ensure
+after
+inner ensure
+outer inner
+RuntimeError
+k: divided by 0
+:k
+loop ensure 1
+loop ensure 2
+loop ensure 3
+30
+yes
+#<RuntimeError: b>
+#<RuntimeError: q>

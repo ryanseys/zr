@@ -1,0 +1,5 @@
+[0, 0, 0, nil, 0, nil, 0, 0, 0, nil, nil, nil, 0, nil, 0, nil, 0, nil, 0]
+[1, 2, 3, 5, 7, 13, 17, 19]
+["rescue in <main>", 14, [15]]
+["ensure in <main>", 17, [17]]
+["m", 7, [8]]

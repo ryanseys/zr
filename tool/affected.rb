@@ -5,39 +5,40 @@ require_relative "../lib/zr/runtime_sources"
 
 module Zr
   module Dev
-    # `zr-dev affected` runs only the specs that a change can affect. Use
+    # `zr-dev affected` runs only the tests that a change can affect. Use
     # it after an edit, before you run the full tier. It reads the diff
-    # against `main` (or `--base`), finds the specs for each changed file,
+    # against `main` (or `--base`), finds the tests for each changed file,
     # and runs them with bin/test. It is for local work; CI runs all
     # tests.
     #
-    # How a changed file maps to specs:
-    # - A spec or unit test file maps to itself.
-    # - A file under `runtime/core` maps to the spec directory of its
-    #   class, and to each spec whose program contains the class name. (A
-    #   change to String can affect a Hash spec that uses String keys.)
+    # How a changed file maps to tests:
+    # - A unit test file maps to itself, and a program test's program or
+    #   one of the files beside it maps to the program.
+    # - A file under `runtime/core` maps to the program tests of its
+    #   class, and to each program test that contains the class name. (A
+    #   change to String can affect a Hash test that uses String keys.)
     # - A vendored library or an extension maps to its stdlib directory,
-    #   and to each spec that requires it by name.
+    #   and to each program test that requires it by name.
     # - A file of an OS layer of the core maps as its own name does
     #   (runtime/core/os/darwin/errno.rb as errno).
     # - A change to a compiler file that a program's code can depend on
     #   (`RuntimeSources#compiler_files`), the kernel or the test support
-    #   maps to all specs. A change to another file under lib/zr (the CLI,
+    #   maps to all tests. A change to another file under lib/zr (the CLI,
     #   the caches, the linkers) maps to the unit tests that load it
-    #   (`LoadGraph`), and to test/e2e when exe/zr loads it. A change to a
-    #   tool maps to the unit tests, which test the tools; no spec runs one.
+    #   (`LoadGraph`), and to test/programs/cli when exe/zr loads it. A
+    #   change to a tool maps to the unit tests, which test the tools.
     class Affected < Command
-      summary "Run the specs that a change can reach"
+      summary "Run the tests that a change can reach"
       usage "[--base REVISION] [--dry-run]"
 
-      SPEC = Dev.path("test/spec")
-      # Core files that also affect the language specs: every program
+      PROGRAMS = Dev.path("test/programs")
+      # Core files that also affect the language tests: every program
       # makes objects, calls methods and raises exceptions.
       LANGUAGE = %w[kernel module proc binding exception comparable].freeze
 
       def options(o)
         o.on("--base REVISION", "the revision to diff against (default: main)") { |v| @base = v }
-        o.on("--dry-run", "print the spec paths; run nothing") { @dry = true }
+        o.on("--dry-run", "print the test paths; run nothing") { @dry = true }
       end
 
       # The files changed against `base`, and the test paths that they
@@ -54,10 +55,10 @@ module Zr
         if plan == :all
           puts "the change reaches everything (#{files.size} file(s) against #{base}); run bin/test"
         elsif plan.empty?
-          puts "no spec reaches the #{files.size} changed file(s) against #{base}"
+          puts "no test reaches the #{files.size} changed file(s) against #{base}"
         else
           rel = plan.map { |path| Dev.rel(path) }
-          puts "#{files.size} file(s) changed against #{base}; running #{rel.size} spec path(s)"
+          puts "#{files.size} file(s) changed against #{base}; running #{rel.size} test path(s)"
           return rel.each { |path| puts "  #{path}" } if @dry
 
           system(Dev.ruby, Dev.path("bin/test"), *rel)
@@ -72,13 +73,13 @@ module Zr
         (tracked + untracked).uniq
       end
 
-      # Returns the spec paths that `file` affects, or :all.
+      # Returns the test paths that `file` affects, or :all.
       def reached(file)
         case file
-        when %r{\Atest/(spec|unit)/.*_test\.rb\z} then File.exist?(File.join(ROOT, file)) ? [file] : []
-        when %r{\Atest/spec/} then [File.dirname(file)]
+        when %r{\Atest/unit/.*_test\.rb\z} then File.exist?(File.join(ROOT, file)) ? [file] : []
+        when %r{\A(test/programs/.+?\.rb)(?:\.|\z)} then File.exist?(File.join(ROOT, $1)) ? [$1] : []
         when %r{\Alib/zr/.*\.rb\z} then lib(file)
-        when %r{\Aruntime/kernel/}, %r{\Aruntime/(ext/os|lib)/}, %r{\Atest/(support|test_helper|spec_helper)}, "Rakefile" then :all
+        when %r{\Aruntime/kernel/}, %r{\Aruntime/(ext/os|lib)/}, %r{\Atest/(support|test_helper)}, "Rakefile" then :all
         when %r{\Atool/} then [File.join(ROOT, "test/unit")]
         when %r{\Aruntime/core/os/[^/]+/([^/]+)\.rb\z} then core($1)
         when %r{\Aruntime/core/([^/]+?)(?:/.*)?\.rb\z} then core($1)
@@ -98,7 +99,7 @@ module Zr
         units = Dir[File.join(ROOT, "test/unit/**/*_test.rb")].select { |test| graph.reaches?(test, path) }
         exe = graph.closure(File.join(ROOT, "exe/zr")).include?(path)
         units |= Dir[File.join(ROOT, "test/unit/**/*_test.rb")].select { |test| File.read(test).include?("exe/zr") } if exe
-        (units.map { |test| Dev.rel(test) } + (exe ? ["test/e2e"] : [])).sort
+        (units.map { |test| Dev.rel(test) } + (exe ? ["test/programs/cli"] : [])).sort
       end
 
       # Whether `path` can change what a build writes: a compiler file that
@@ -158,25 +159,25 @@ module Zr
       end
 
       def core(name)
-        own = Dir[File.join(SPEC, "core", name)]
-        named = specs_naming(name.split("_").map(&:capitalize).join)
-        language = LANGUAGE.include?(name) ? [File.join(SPEC, "lang")] : []
+        own = Dir[File.join(PROGRAMS, "core", name)]
+        named = programs_naming(name.split("_").map(&:capitalize).join)
+        language = LANGUAGE.include?(name) ? [File.join(PROGRAMS, "lang")] : []
         (own + named + language).uniq
       end
 
       def library(name)
-        own = Dir[File.join(SPEC, "stdlib", name)]
-        (own + specs_matching(/require ["']#{Regexp.escape(name)}["']/)).uniq
+        own = Dir[File.join(PROGRAMS, "stdlib", name)]
+        (own + programs_matching(/require ["']#{Regexp.escape(name)}["']/)).uniq
       end
 
-      # Every spec file whose programs contain the word `constant`.
-      def specs_naming(constant) = specs_matching(/\b#{Regexp.escape(constant)}\b/)
+      # Every program test that contains the word `constant`.
+      def programs_naming(constant) = programs_matching(/\b#{Regexp.escape(constant)}\b/)
 
-      def specs_matching(pattern)
-        Dir[File.join(SPEC, "**/*_test.rb")].select { |path| File.read(path).match?(pattern) }
+      def programs_matching(pattern)
+        Dir[File.join(PROGRAMS, "**/*.rb")].select { |path| !path.include?(".rb.files/") && File.read(path).match?(pattern) }
       end
 
-      # The spec paths to run for `files`, or :all.
+      # The test paths to run for `files`, or :all.
       def plan(files)
         reached = files.map { |file| reached(file) }
         return :all if reached.include?(:all)

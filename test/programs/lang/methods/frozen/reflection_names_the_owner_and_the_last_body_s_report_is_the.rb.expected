@@ -1,0 +1,3 @@
+== reflection names the owner, and the last body's report
+["#<Class:Reflect>", "r1"]
+["#<Class:Reflect>", 1, "r2!"]

@@ -1,0 +1,5 @@
+before require
+greeter loaded
+after require
+hello, world!
+hello

@@ -1,0 +1,22 @@
+tcp_server_sockets: [[Socket, true]]
+udp_server_sockets: [Socket]
+addrinfo bind/connect: ["x", true, Socket]
+nonblock connect/accept: [:wait_writable, Array, Addrinfo, 0]
+accept_nonblock empty: [:wait_readable, IO::EAGAINWaitReadable, "Resource temporarily unavailable - accept(2) would block"]
+sendmsg/recvmsg rights: ["hey", "#<Addrinfo: empty-sockaddr SOCK_STREAM>", 0, "#<Socket::AncillaryData: UNIX SOCKET RIGHTS N>", IO, "pipe"]
+recvmsg nonblock: [:wait_readable, "q"]
+recvfrom unix: ["u", ["AF_UNIX", ""]]
+socket recvfrom: ["d", Addrinfo, "#<Addrinfo: empty-path-AF_UNIX-sockaddr SOCK_DGRAM>"]
+unix_server_socket: [Socket, true]
+Socket.unix: "ok"
+ipv6 loop: ["AF_INET6", "::1", "#<Addrinfo: [::1]:P TCP>"]
+udp connect send: ["six", "AF_INET6"]
+getpeereid: true
+local peercred: "#<Socket::Option: UNIX level:0 PEERCRED version=0 euid=N (xucred)>"
+so_error inspect: "#<Socket::Option: INET SOCKET ERROR Undefined error: 0 (0)>"
+getsockopt rcvbuf: [true, "#<Socket::Option: INET SOCKET RCVBUF N>"]
+closed ops: IOError: closed stream
+instance vars: []
+ip_address_list: [2, 30]
+tcp timeout: true
+tcpserver port only: "AF_INET6"

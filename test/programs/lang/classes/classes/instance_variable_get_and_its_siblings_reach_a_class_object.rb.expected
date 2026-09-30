@@ -1,0 +1,8 @@
+1
+1
+nil
+2
+[:@a, :@b]
+true
+false
+NameError: 'a' is not allowed as an instance variable name

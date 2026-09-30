@@ -1,0 +1,50 @@
+# The cycle this program builds on purpose, and the census it leaves
+# behind. A cycle alive at exit is not a defect: it is a ring the
+# program never broke, so the census below is recorded as an
+# observation rather than gated on.
+#
+# `@right = self`, plus a Node and a Column pointing at each other. The ring IS the subject.
+# At exit: cycle leak: 2 objects (Column x1, Node x1)
+# An attribute that holds a base class AND its subclass reads as a boxed value.
+# A local assigned from such a read takes the boxed type too, so the program
+# compiles and the local holds the object.
+class Node
+  attr_accessor :right, :column
+
+  def initialize
+    @right = self
+    @column = nil
+  end
+end
+
+class Column < Node
+  attr_accessor :size
+
+  def initialize
+    super()
+    @size = 0
+    @column = self
+  end
+end
+
+col = Column.new
+n = Node.new
+n.right = col
+n.column = col
+col.right = n
+
+# the ring holds both classes, so each read is boxed
+j = n.right
+p j.class
+k = j.right
+p k.class
+m = n.column
+p m.class
+p m.size
+
+# walking it keeps working
+cur = col
+2.times do
+  cur = cur.right
+end
+p cur.class

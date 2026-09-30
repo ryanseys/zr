@@ -1,0 +1,23 @@
+["a", "b", "", "c"]
+["a", "b", "", "c", "", ""]
+["a", "b,,c,,"]
+["a", "b", "", "c"]
+[]
+[]
+["abc"]
+["a", "b", "c"]
+["a", "b"]
+["a", "b", "c"]
+["a,b"]
+ABC"a,b,c"
+
+["a", "b", "c"]
+["a", "b"]
+["x", "y"]
+["x", "y"]
+RangeError
+[#<Encoding:UTF-8>]
+Encoding::CompatibilityError
+ArgumentError
+["a", "b"]
+TypeError

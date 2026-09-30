@@ -1,0 +1,5 @@
+["\xE9A\xC9B", "\xE9a\xC9b", "\xE9a\xC9b", "\xE9A\xC9b", #<Encoding:BINARY (ASCII-8BIT)>]
+["\xE9A\xC9B", "\xE9a\xC9b", "\xE9A\xC9b", #<Encoding:KOI8-R>]
+["\xC9A\xC9B", "\xE9a\xE9b", "\xC9A\xE9b"]
+["\xA4\xA2A", #<Encoding:EUC-JP>]
+["\xE9A", #<Encoding:BINARY (ASCII-8BIT)>]

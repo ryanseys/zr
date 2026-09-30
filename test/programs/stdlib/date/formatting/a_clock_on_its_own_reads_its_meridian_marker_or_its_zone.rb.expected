@@ -1,0 +1,11 @@
+{hour: 10, min: 30}
+{hour: 10, min: 30, sec: 0, sec_fraction: (1/2)}
+{hour: 12, min: 0}
+{hour: 0, min: 0}
+{hour: 13, min: 30}
+{hour: 23, min: 59, sec: 60}
+{zone: "JST", hour: 10, min: 30, offset: 32400}
+{zone: "-0530", hour: 10, min: 30, offset: -19800}
+{zone: "gmt-3", hour: 10, min: 30, offset: -10800}
+{zone: "Eastern Standard Time", hour: 10, min: 30, offset: -18000}
+{hour: 10, min: 30}

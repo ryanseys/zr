@@ -1,0 +1,3 @@
+== a prepend on the PARENT's singleton, reached by super from the child
+["PA(pp(top))", "pc(PA(pp(top)))"]
+["#<Class:PrependedChild>", "PA", "#<Class:PrependedParent>", "#<Class:Object>", "#<Class:BasicObject>"]

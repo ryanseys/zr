@@ -1,0 +1,5 @@
+#<IOError: not opened for reading>
+#<IOError: not opened for reading>
+#<TypeError: no implicit conversion of String into Integer>
+2
+#<RangeError: integer 1099511627776 too big to convert to 'int'>

@@ -1,0 +1,36 @@
+-- request --
+1
+true
+nil
+nil
+"SHA256"
+32
+"1.2.3.4.5"
+42
+true
+TimestampError Message imprint missing algorithm
+-- factory --
+0
+nil
+[]
+1
+"1.2.3.4.5"
+"SHA256"
+7
+2026-09-17 08:00:00 UTC
+false
+42
+true
+"/CN=tsa"
+:signed
+7
+-- verify --
+true
+TimestampError true
+-- refusals --
+TimestampError Certificate does not contain the timestamping extension: invalid signer certificate purpose
+TimestampError @serial_number must be set.
+2
+:BAD_ALG
+["Message digest algorithm is not supported."]
+nil

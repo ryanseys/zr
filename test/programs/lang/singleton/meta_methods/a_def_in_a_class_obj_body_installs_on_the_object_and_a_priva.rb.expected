@@ -1,0 +1,33 @@
+3
+"box"
+"box: quiet"
+[:described, :label, :make]
+false
+true
+true
+1
+[:one]
+false
+true
+:mine
+false
+[:only_mine]
+"A-B"
+"a+b"
+-1
+"hi you"
+"hi ada"
+:small
+:big
+[:early, :greet]
+-1
+[[:opt, :who]]
+true
+false
+:later
+1
+Boxed
+:boxed
+[:of, :tag]
+:made
+[:instance_side]

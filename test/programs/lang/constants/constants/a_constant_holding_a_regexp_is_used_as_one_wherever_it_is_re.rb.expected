@@ -1,0 +1,7 @@
+/\A[a-z]+\z/
+true
+false
+true
+["a", "b", "c"]
+"x<1>y<2>"
+"\\A[a-z]+\\z"

@@ -12,15 +12,17 @@ steps to run the tests, see [How to run the tests](../how-to/run-the-tests.md).
 | Script | Does |
 |---|---|
 | `bin/setup` | Installs the gems (`bundle install`), sets up the reference ruby (`zr-dev reference`) and builds the runtime for this host (`rake build`). It tells you if wasmtime is not installed. |
-| `bin/test [paths] [minitest options]` | Runs the tests. With no paths, it runs `test/unit`, then `test/spec`, then `test/e2e`. It builds the runtime first if the runtime is not built. |
+| `bin/test [paths] [minitest options]` | Runs the tests. With no paths, it runs `test/unit`, then `test/programs`. It builds the runtime first if the tests need it and it is not built. At the end, it prints the time of each step to stderr: `bin/test: X s (load, prebuild, require, tests)`. |
+| `bin/test --corpus DIR` | Runs the program tests of another project below `DIR`, such as spinel's `test/`, with the baseline `test/baselines/corpus/<project>-<triple>.txt`. See [Program tests](program-tests.md#another-projects-tests). |
 | `bin/test --changed [--base REVISION]` | Runs the tests that the change against `main` (or `--base`) can reach, as `zr-dev affected` finds them. |
 | `bin/console` | Starts IRB with zr loaded. |
 
 A `bin/test` path can be a directory, a file, or a bare file name that
 zr finds below `test/` (`bin/test cli_test.rb`). The words up to the
 first word that starts with `-` are paths. The words after it go to
-minitest (`bin/test test/spec -n /blocks/`). Each tier runs in its own
-process.
+minitest (`bin/test test/unit -n /blocks/`). Each tier runs in its own
+process. The program tests use no test framework, so they take no
+minitest options: select them by path.
 
 `bin/test` reads these environment variables. `rake test` and the tier
 tasks read them too, because they call `bin/test`.
@@ -29,9 +31,9 @@ tasks read them too, because they call `bin/test`.
 |---|---|
 | `TARGET=<triple>` | Builds and runs the programs for that target (sets `ZR_TARGET`). |
 | `GC=stress` | Collects at every allocation (sets `ZR_GC_STRESS=1`). |
-| `SLOW=1` | Also reports the 25 slowest files and the 20 slowest examples. `SLOW=<n>` with `n` > 1 reports `n` examples. |
-| `N=<pattern>` | Runs only the examples whose name matches (minitest `-n`). |
-| `X=<pattern>` | Leaves out the examples whose name matches (minitest `-e`). |
+| `SLOW=1` | Also reports the 25 slowest files and the 20 slowest tests of the unit tier. `SLOW=<n>` with `n` > 1 reports `n` tests. |
+| `N=<pattern>` | Runs only the unit tests whose name matches (minitest `-n`). |
+| `X=<pattern>` | Leaves out the unit tests whose name matches (minitest `-e`). |
 | `A="<options>"` | Gives other options to minitest. |
 | `MT_CPU=<n>` | The number of worker processes. The default is one for each 2 GB of memory, with a quarter of the memory (at least 4 GB) and two cores kept free. |
 
@@ -59,17 +61,17 @@ no arguments. Give paths and minitest options to `bin/test`.
 | Task | Does |
 |---|---|
 | `rake` | `rake lint`, then `rake test`. |
-| `rake test` | The three tiers: unit, spec, e2e. |
+| `rake test` | The two tiers: unit, programs. |
 | `rake test:unit` | The unit tier: zr's own internals (`test/unit`). |
-| `rake test:spec` | The spec tier: Ruby specs, each checked against ruby 4.0.7 (`test/spec`). |
-| `rake test:e2e` | The e2e tier: whole programs, built and linked, checked against ruby 4.0.7 (`test/e2e`). |
+| `rake test:programs` | The program tests: Ruby programs that zr builds, each checked against ruby 4.0.7 (`test/programs`). |
 | `rake lint` | Runs RuboCop with the cops that `.rubocop.yml` turns on. |
 | `rake gen` | Writes every generated file again (`zr-dev gen all`). `CHECK=1 rake gen` writes nothing, and fails if a file is out of date. |
 
 To run some test files, give their paths to `bin/test`:
-`bin/test test/unit/cli_test.rb`, or `bin/test test/spec -n /blocks/`.
-For the report of the slowest files and examples, set `SLOW=1`:
-`SLOW=1 rake test:unit`, or `SLOW=1 bin/test test/spec/core/string`.
+`bin/test test/unit/cli_test.rb`, `bin/test test/unit -n /blocks/`, or
+`bin/test test/programs/core/string`. For the report of the slowest
+unit files and tests, set `SLOW=1`: `SLOW=1 rake test:unit`, or
+`SLOW=1 bin/test test/unit/cli_test.rb`.
 
 ### Gem and release
 
@@ -91,7 +93,7 @@ of the checkout, from any directory:
 ```
 $ ruby tool/zr-dev.rb help                 # every command
 $ ruby tool/zr-dev.rb bench --help         # the options of one command
-$ ruby tool/zr-dev.rb spec help            # the commands of a group
+$ ruby tool/zr-dev.rb gems help            # the commands of a group
 ```
 
 The tables below write `zr-dev` for `ruby tool/zr-dev.rb`. The code of
@@ -102,13 +104,13 @@ gives more examples.
 
 | Command | Does |
 |---|---|
-| `zr-dev affected [--base REVISION] [--dry-run]` | Runs the tests that a change can reach, with `bin/test` (the same as `bin/test --changed`). It reads the diff against `main`, or against `--base`. If the change can reach everything (the compiler, the kernel, the test support), it runs nothing and says so. `--dry-run` prints the test paths and runs nothing. |
+| `zr-dev affected [--base REVISION] [--dry-run]` | Runs the tests that a change can reach, with `bin/test` (the same as `bin/test --changed`). It reads the diff against `main`, or against `--base`, and maps each changed file to unit tests and program tests (`tool/affected.rb`): a changed test to itself, a file beside a program to the program, a core class to its program tests, a library to its `stdlib/` area and the programs that require it, and a file under `lib/zr` that does not change a build to the unit tests that load it. If the change can reach everything (the compiler, the kernel, the test support), it runs nothing and says so. `--dry-run` prints the test paths and runs nothing. |
 | `zr-dev vendor` | Writes `vendor/` (ruby 4.0.7's own library from its source at `RUBY_REVISION`, the bundled gems and the port gems from their `.gem` files, prism's templates from its tag), `vendor/vendor.lock` and `lib/zr/stdlib.rb`, from `lib/zr/vendor.rb`, `lib/zr/ports.rb` and `lib/zr/version.rb`. It needs `RUBY_SRC` and `PRISM_SRC`. See [How to update the vendored code](../how-to/update-vendored-code.md). |
 | `zr-dev vendor --check` | Checks each file of `vendor/` against the lock, offline. |
 | `zr-dev vendor outdated` | Lists the gems of `vendor/` that have a newer release on rubygems.org. |
 | `zr-dev vendor diff GEM [VERSION]` | Lists the files that change from the locked GEM to VERSION (default: the newest), and zr's files under `runtime/` that replace one of them. |
-| `zr-dev reference [--check]` | Installs the gems of the ruby that every expected output comes from, into `tmp/reference/gems`: ruby 4.0.7's bundled gems, and zr's versions of the gems whose C it ports (`lib/zr/ports.rb`). `bin/setup` runs it. The oracle, `record`, `probe` and the spec tier run ruby with only these gems (`test/support/harness/reference.rb`). `--check` installs nothing. |
-| `zr-dev progress` | Prints the progress of the tier that runs now, or of the last tier (`tmp/test-progress.txt`). |
+| `zr-dev reference [--check]` | Installs the gems of the ruby that every expected output comes from, into `tmp/reference/gems`: ruby 4.0.7's bundled gems, and zr's versions of the gems whose C it ports (`lib/zr/ports.rb`). `bin/setup` runs it. `expect`, `record`, `probe` and the program tests run ruby with only these gems (`test/support/harness/reference.rb`). `--check` installs nothing. |
+| `zr-dev progress` | Prints the progress of the unit tier that runs now, or of the last one (`tmp/test-progress.txt`). |
 
 ### Gems
 
@@ -122,20 +124,13 @@ gives more examples.
 | `zr-dev gems top [--refresh] [--count N]` | Prints the most downloaded gems with their tiers. `--refresh` writes `gems/top.tsv` again from packages.ecosyste.ms. |
 | `zr-dev gems snapshot [REVISION] [--list] [--remove DIR]` | Makes a copy of zr at a commit (HEAD by default) in `tmp/gems/zr/<commit>`, a git worktree with its own cache, and builds its compiled compiler. `try` and `sweep` take `--zr DIR` (or `ZR_GEMS_ZR`) to build with the copy, so zr can change in the checkout while a sweep runs. |
 
-### Specs and recordings
+### Expected outputs
 
 | Command | Does |
 |---|---|
-| `zr-dev oracle [path...] [-n PATTERN]` | Runs the program of each spec example under ruby 4.0.7 and checks the example's expected output against it. It compiles nothing. A path selects one area or file (`zr-dev oracle test/spec/core/string`). `-n` selects the examples whose name matches. |
-| `zr-dev record [--again] <program>...` | Runs a whole program under ruby 4.0.7 and writes its recording (`.out`, `.err`, `.status`) beside it. It does not change a program that has a recording. `--again` writes the recording again. |
+| `zr-dev expect [--all] [--check] [path...]` | Runs each program test under ruby 4.0.7, in a run directory as the test does, and writes its files beside it: `foo.rb.expected`, and `foo.rb.err.expected` and `foo.rb.status` when they are not empty and not `exit 0` (`tool/expect.rb`). On Linux, it writes `foo.rb.linux.expected` when the stdout is different. With no path, it takes `test/programs`. It writes only a test whose `foo.rb.expected` is missing or older than the program; `--all` writes each test. `--check` writes nothing, lists each test whose files differ from ruby, and fails if there is one. See [Program tests](program-tests.md#expected-output). |
+| `zr-dev record [--again] <benchmark>...` | Runs a benchmark under ruby 4.0.7 and writes its recording (`.out`, `.err`, `.status`, `.signal`) beside it. It takes only paths below `benchmark/`. It does not change a benchmark that has a recording. `--again` writes the recording again. See [Benchmark recordings](test-format.md). |
 | `zr-dev rubyspec <area>... [-f PATTERN] [-j JOBS] [--keep]` | Runs ruby/spec from the CRuby checkout at `RUBY_SRC` (at `Zr::RUBY_REVISION`) under ruby 4.0.7 and in a zr binary, one spec file per process with a limit of 60 s, and lists each example that passes in ruby and fails in the binary. An area is a directory of `spec/ruby`, such as `language` or `core/array`; `core` and `library` are each of their directories. `-f` selects the spec files whose path matches. The report of each area is in `tmp/rubyspec/<area>.txt`, and `tmp/rubyspec/summary.tsv` has a line for each area. |
-| `zr-dev spec ask <spec file> <program.rb> [-n SENTENCE]` | Runs a candidate program under ruby, as `zr-dev oracle` does, and prints the `must_answer` assertion to paste. `-n` uses the keywords of an existing example. |
-| `zr-dev spec check [path...]` | Checks the format rules of spec files: line length, heredoc tags, trailing spaces, duplicate sentences. With no path, it checks `test/spec`. |
-| `zr-dev spec tidy [path...]` | Fixes what `spec check` reports, where the fix is safe. |
-| `zr-dev spec verify [REVISION] [--renames] [path...]` | Compares each example with the same example at `REVISION` (default `HEAD`): its sentence, program, keywords and expected output. `--renames` lets the sentences change. `zr-dev spec verify main test/spec/core` checks one area. |
-| `zr-dev spec fingerprint [path...]` | Prints a digest for each example, to compare before and after a change (`zr-dev spec fingerprint > before.txt`). |
-| `zr-dev spec split [path...]` | Lists the bundled examples that can be split, and how. |
-| `zr-dev spec dispatch [class...]` | Prints the programs that show which of its own methods a core class calls. It writes nothing: compare the output with the spec example. |
 
 ### Generated files
 
@@ -252,7 +247,6 @@ manifests.
   `test/support` changes, the binary gives the command to
   `ruby tool/zr-dev.rb`. Run `rake build:tools` again to use the binary.
 - **Some commands run under ruby.** A generator that reads the running
-  ruby's own tables, the oracle, `record` and the `spec` commands that
-  ask ruby are `host_ruby!` commands. The binary gives them to ruby.
+  ruby's own tables, `expect` and `record` are `host_ruby!` commands. The binary gives them to ruby.
 - **Run it outside `bundle exec`.** A zr binary reads `RUBYOPT` as ruby
   does, and bundler's setup does not run in a zr binary.

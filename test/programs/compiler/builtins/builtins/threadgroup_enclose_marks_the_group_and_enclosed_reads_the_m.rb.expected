@@ -1,0 +1,4 @@
+ThreadGroup enclosed? before: false
+ThreadGroup enclose: ThreadGroup
+ThreadGroup enclosed? after: true
+Default enclosed?: false

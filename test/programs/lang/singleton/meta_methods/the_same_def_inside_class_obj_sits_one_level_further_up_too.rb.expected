@@ -1,0 +1,4 @@
+== the same inside class << obj
+"obj_plain"
+"target.meta -> NoMethodError"
+"obj_meta"

@@ -1,0 +1,15 @@
+[Fiber, false, [:ensured]]
+:"rescued-boom"
+[FiberError, "cannot raise exception on unborn fiber"]
+false
+[FiberError, "attempt to resume a resumed fiber (double resume)"]
+[FiberError, "fiber called across threads"]
+1
+true
+nil
+[true, Thread::Mutex, true, Thread::Mutex]
+3
+true
+false
+ThreadGroup
+ThreadGroup

@@ -1,0 +1,5 @@
+raw deflate: [203, "hi"]
+gzip via window bits: [[31, 139], "hi"]
+auto-detect gzip: "hello"
+auto-detect zlib: "hello"
+split across writes: true

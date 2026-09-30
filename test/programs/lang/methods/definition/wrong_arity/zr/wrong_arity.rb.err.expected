@@ -1,0 +1,9 @@
+lang/methods/definition/wrong_arity/zr/wrong_arity.rb:1:in 'Object#two': wrong number of arguments (given 1, expected 2) (ArgumentError)
+
+    caller: lang/methods/definition/wrong_arity/zr/wrong_arity.rb:5
+    | puts two(1)
+           ^^^
+    callee: lang/methods/definition/wrong_arity/zr/wrong_arity.rb:1
+    | def two(a, b)
+          ^^^
+	from lang/methods/definition/wrong_arity/zr/wrong_arity.rb:5:in '<main>'

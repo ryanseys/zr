@@ -1,0 +1,66 @@
+structs.rb:4:in 'S#initialize'
+structs.rb:7:in '<main>'
+[:[], :inspect, :keyword_init?, :members, :new]
+[:a, :a=, :b, :b=]
+[:==, :[], :[]=, :deconstruct, :deconstruct_keys, :dig, :each, :each_pair, :eql?, :filter, :hash, :inspect, :length, :members, :select, :size, :to_a, :to_h, :to_s, :values, :values_at]
+[:new]
+#<struct S a=1, b=nil>
+[1, 2]
+[:a, :b]
+false
+[]
+true
+true
+true
+1
+1
+2
+2
+IndexError: offset 2 too large for struct(size:2)
+NameError: no member 'c' in struct
+NameError: no member 'c' in struct
+IndexError: offset -3 too small for struct(size:2)
+ArgumentError: struct size differs
+FrozenError: can't modify frozen S: #<struct S a=1, b=2>
+FrozenError: can't modify frozen S: #<struct S a=1, b=2>
+#<struct K x=1>
+true
+nil
+ArgumentError: wrong number of arguments (given 1, expected 0)
+ArgumentError: unknown keywords: y
+#<struct S a={a: 1, b: 2}, b=nil>
+#<struct Struct::Named q=1>
+Struct::Named
+NameError: identifier lower needs to be constant
+ArgumentError: duplicate member: a
+TypeError: no implicit conversion of Integer into String
+{a: 1, b: 2}
+[1, 2]
+[[:a, 1], [:b, 2]]
+[1, 2]
+2
+1
+{"a" => 2, "b" => 4}
+"#<struct a=1>"
+"#<struct a=1>"
+[1, 2]
+{a: 1}
+{a: 1, b: 2}
+[1]
+#<struct S a=3, b=4>
+#<struct S a=[1, 5], b=2>
+#<struct S a=1, b=2>
+#<struct S a=7, b=2>
+Struct
+true
+[S, Struct, Enumerable]
+3
+#<struct Sub a=1, b=2>
+[:a, :b]
+#<struct S a=1, b=2>
+"#<struct S a=\"a\", b=2>"
+#<struct R r=#<struct R:...>>
+[2]
+[:a, :b]
+false
+[1, 2]

@@ -1,0 +1,26 @@
+true
+[false, nil, nil, nil, nil]
+"must open syslog before write"
+[1, 2, 8, 8, 152]
+[0, 3, 4, 7]
+[8, 15]
+true
+[true, "zr_golden", 3, 8, 255]
+"<#Syslog: opened=true, ident=\"zr_golden\", options=3, facility=8, mask=255>"
+"syslog already open"
+31
+true
+["zr_golden2", 8, 152]
+[false, nil]
+"<#Syslog: opened=false>"
+"syslog not opened"
+["zr_blk", true]
+[true, false]
+3
+1
+184
+3
+true
+15
+Syslog::Logger
+0

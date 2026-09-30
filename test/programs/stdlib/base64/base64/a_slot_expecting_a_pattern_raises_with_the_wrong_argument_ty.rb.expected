@@ -1,0 +1,5 @@
+[TypeError, "wrong argument type nil (expected Regexp)"]
+[TypeError, "wrong argument type nil (expected Regexp)"]
+[TypeError, "wrong argument type nil (expected Regexp)"]
+[TypeError, "wrong argument type false (expected Regexp)"]
+[TypeError, "wrong argument type true (expected Regexp)"]

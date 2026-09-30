@@ -4,18 +4,19 @@ This guide shows you how to add or fix a method of a core class, such
 as `String` or `Array`, in a checkout. To learn how the core library
 and the kernel work together, read [The runtime](../explanation/the-runtime.md).
 
-## 1. Write the example first
+## 1. Write the program test first
 
-Add an example to the class's area under `test/spec/`. Get the
-expected output from ruby; see [How to add a spec](add-a-spec.md).
-Then run the example, and check your literal against ruby:
+Add a program to the class's area under `test/programs/core/`, for
+example `test/programs/core/string/squeeze/squeeze_removes_runs.rb`.
+Let ruby write its expected output; see
+[How to add a program test](add-a-program-test.md). Then run the test:
 
 ```console
-$ bin/test test/spec/core/string -n /squeeze/
-$ ruby tool/zr-dev.rb oracle test/spec/core/string
+$ ruby tool/zr-dev.rb expect test/programs/core/string/squeeze
+$ bin/test test/programs/core/string/squeeze
 ```
 
-The example fails or skips now. It is the proof of your fix. Cover the
+The test fails or has an error now. It is the proof of your fix. Cover the
 edge cases that ruby has: empty input, a frozen receiver, the wrong
 argument types, and the error messages.
 
@@ -86,10 +87,10 @@ Add a new file in `runtime/core/` also to `Zr::RuntimeSources::CORE_NAMES` in
 `lib/zr/runtime_sources.rb`. The list is in the order that the files run, so
 put a module before the classes that include it.
 
-## 6. Run the example again
+## 6. Run the test again
 
 ```console
-$ bin/test test/spec/core/string -n /squeeze/
+$ bin/test test/programs/core/string/squeeze
 ```
 
 The first build after a change under `runtime/` compiles the runtime
@@ -97,7 +98,7 @@ again, so it takes longer. Then run the class's area, to see that
 nothing else changed:
 
 ```console
-$ bin/test test/spec/core/string
+$ bin/test test/programs/core/string
 $ ruby tool/zr-dev.rb affected
 ```
 

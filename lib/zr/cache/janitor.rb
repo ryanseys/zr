@@ -10,7 +10,7 @@ module Zr
     # `zr doctor` see it. Almost all of it is the store (lib/zr/cache/store.rb):
     # a runtime object, a prelinked image and eval support for each digest
     # that a zr builds, code packs, lowerings, parsed trees, and the
-    # binaries that `zr run` and the spec tier keep. The digest changes with
+    # binaries that `zr run` and the program tests keep. The digest changes with
     # every file under lib/ and runtime/, so old entries collect: 9.5 GB
     # after one week of work in a checkout, and some hundred MB for each
     # release that a user installs.

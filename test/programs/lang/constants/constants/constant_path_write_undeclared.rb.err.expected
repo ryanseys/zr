@@ -1,0 +1,4 @@
+lang/constants/constants/constant_path_write_undeclared.rb:12: warning: already initialized constant M::S
+lang/constants/constants/constant_path_write_undeclared.rb:11: warning: previous definition of S was here
+lang/constants/constants/constant_path_write_undeclared.rb:32: warning: already initialized constant M::C
+lang/constants/constants/constant_path_write_undeclared.rb:31: warning: previous definition of C was here

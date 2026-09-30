@@ -1,0 +1,7 @@
+counters: [11, 436929629, 1, 0, true, false]
+avail_out is a knob: 100
+flush_next_out drains: "hello"
+reset starts over: ["kept", 4]
+close then use: [true, "Zlib::Error"]
+deflate after finish: Zlib::StreamError: stream error
+finish twice: ""

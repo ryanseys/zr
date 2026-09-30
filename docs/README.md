@@ -9,9 +9,9 @@ Lessons that take you, step by step, to a result.
 - [Compile your first program](tutorials/compile-your-first-program.md):
   install zr, and build one Ruby file as a binary and as a WebAssembly
   module.
-- [Add your first spec](tutorials/add-your-first-spec.md): work in a
-  checkout, get the expected output from ruby, and see zr give the same
-  output.
+- [Add your first program test](tutorials/add-your-first-program-test.md):
+  work in a checkout, let ruby write the expected output, and see zr
+  give the same output.
 
 ## How-to guides: do a task
 
@@ -22,7 +22,7 @@ Steps for a goal that you already have.
 - [How to use a library or a gem](how-to/use-a-library-or-gem.md)
 - [How to build for another target](how-to/build-for-another-target.md)
 - [How to run the tests](how-to/run-the-tests.md)
-- [How to add a spec](how-to/add-a-spec.md)
+- [How to add a program test](how-to/add-a-program-test.md)
 - [How to debug a wrong answer](how-to/debug-a-wrong-answer.md)
 - [How to add a method to the core library](how-to/add-a-core-method.md)
 - [How to port a C extension](how-to/port-a-c-extension.md)
@@ -49,10 +49,10 @@ Facts about commands, formats and layouts.
 - [Dependencies](reference/dependencies.md)
 - [Gem compatibility](reference/gem-compat.md): how far each gem that
   `zr-dev gems` tried gets with zr
-- [The spec DSL](reference/spec-dsl.md): `zr`, `must_answer` and the
-  format rules of a spec file
-- [Whole programs](reference/test-format.md): the e2e programs and
-  their recordings
+- [Program tests](reference/program-tests.md): the files beside a
+  program, the run directory, the baselines and the runner's output
+- [Benchmark recordings](reference/test-format.md): the files beside a
+  benchmark
 - [Repository layout](reference/repository-layout.md)
 - [The machine dialect](reference/machine-dialect.md)
 - [Runtime layouts](reference/runtime-layouts.md)

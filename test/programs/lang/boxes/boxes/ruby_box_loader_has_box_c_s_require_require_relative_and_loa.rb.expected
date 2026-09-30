@@ -1,0 +1,5 @@
+[:load, :require, :require_relative]
+[:load, :require, :require_relative]
+false
+-1
+false

@@ -1,0 +1,7 @@
+42
+8
+:outer
+transfer-yield: attempt to yield on a not resumed fiber
+ensure ran
+true
+false

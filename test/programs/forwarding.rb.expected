@@ -1,0 +1,16 @@
+{x: 1, y: 2}
+[2, 4, 6]
+[2, 3]
+[3]
+1
+2
+3
+undefined method 'gone' for an instance of U
+TypeError
+:small
+#<RuntimeError: iv>
+[1, 2]
+[1, 2]
+{a: 1}
+:blk
+[[1], {z: 2}, 3]

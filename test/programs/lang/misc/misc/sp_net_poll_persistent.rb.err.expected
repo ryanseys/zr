@@ -1,0 +1,5 @@
+lang/misc/misc/sp_net_poll_persistent.rb:9:in '<module:Net>': undefined method 'ffi_func' for module Net (NoMethodError)
+
+  ffi_func :sp_net_poll_register,   [:int, :int], :int
+  ^^^^^^^^
+	from lang/misc/misc/sp_net_poll_persistent.rb:8:in '<main>'

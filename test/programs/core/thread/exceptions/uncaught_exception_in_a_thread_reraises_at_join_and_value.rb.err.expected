@@ -1,0 +1,4 @@
+#<Thread:0xADDR core/thread/exceptions/uncaught_exception_in_a_thread_reraises_at_join_and_value.rb:5 run> terminated with exception (report_on_exception is true):
+core/thread/exceptions/uncaught_exception_in_a_thread_reraises_at_join_and_value.rb:5:in 'block in <main>': thread boom (RuntimeError)
+#<Thread:0xADDR core/thread/exceptions/uncaught_exception_in_a_thread_reraises_at_join_and_value.rb:11 run> terminated with exception (report_on_exception is true):
+core/thread/exceptions/uncaught_exception_in_a_thread_reraises_at_join_and_value.rb:11:in 'block in <main>': thread boom2 (RuntimeError)

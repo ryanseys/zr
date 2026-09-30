@@ -1,0 +1,6 @@
+"a?b"
+["\xE9", #<Encoding:ISO-8859-1>]
+#<Encoding:BINARY (ASCII-8BIT)>
+#<Encoding:BINARY (ASCII-8BIT)>
+["y", true]
+[true, true, #<Encoding:BINARY (ASCII-8BIT)>]

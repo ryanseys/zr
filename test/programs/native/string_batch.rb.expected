@@ -1,0 +1,233 @@
+"x\n" "y\n" ["a\nb", "\n"]
+["a--", "b--", "c"]
+["a\n\n", "b\n\n", "c"]
+["ab", "c"]
+["a", "b"]
+["a", "b"]
+["a", "b"]
+["a\nb"]
+[]
+["a\n\n", "b"]
+["a", "b"]
+["abc"]
+"x\ny\n"
+
+ac["a", "c", "e"]
+Enumerator
+["a", "b", "c", "d", "e"]
+["aa", "ad"]
+#<Enumerator: "a".."e":step(0)>
+"a".."c"
+#<Enumerator: "a".."e":%(2)>
+
+"aXYc"
+"aQ"
+"YZllo"
+"abcd"
+"index 4 out of string"
+"offset 2 does not land on character boundary"
+"negative length -1"
+"hexo"
+"hexo"
+nil
+"hexo"
+"hexo"
+"bc"
+"bc"
+"bc"
+true
+97 98 [97, 98]
+[104, 233, 108, 108, 111]
+"ab"
+
+true
+true
+"bc"
+nil
+"ab"
+nil
+nil
+"a"
+nil
+{a: 1}
+[1]
+nil
+"/dev/null"
+[2, 3]
+1
+[2, 3]
+"s"
+"can't convert Badish to String (Badish#to_str gives Integer)"
+"a\nb"
+"é"
+[0, 255]
+"tab\there"
+"q\"q"
+"😀A"
+"invalid dumped string; not wrapped with '\"' nor '\"...\".force_encoding(\"...\")' form"
+[27, 7, 8, 12, 11, 13]
+"\\"
+"あ"
+[97, 0, 98]
+"\"h\\u00E9llo\""
+"héllo"
+"日本"
+"\"\\x00\\xFF\""
+[0, 255]
+#<Encoding:BINARY (ASCII-8BIT)>
+0
+true
+nil
+1
+false
+true
+"hi\n"
+""
+false
+true
+"x\n"
+[TypeError, "no implicit conversion of nil into String"]
+[TypeError, "no implicit conversion of nil into String"]
+"no implicit conversion of Integer into String"
+"no implicit conversion of nil into String"
+"no implicit conversion of nil into String"
+7
+8
+["1", "2", "3"]
+60
+TypeError
+["y", "z"]
+[]
+"bcdef"
+"本語です"
+""
+[2, 3]
+3
+[1, 2, 3]
+#<Enumerator::Chain: [[1, 2], [3]]>
+#<Enumerator::Chain: [[1, 2], [3]]>
+#<Enumerator::Chain: [#<Enumerator::Chain: [[1, 2], [3]]>, [4]]>
+Enumerator::Chain
+"#<Enumerator::Chain: [#<Enumerator: [1]:each>, [2]]>"
+[2, 4]
+[[1, 0], [2, 1], [3, 2]]
+[1, 2, 3]
+[[1, 2]]
+Infinity
+2
+[Enumerator::Chain, Enumerator, Enumerable]
+false
+false
+[1]
+"String can't be coerced into Integer"
+2
+3
+"nil can't be coerced into Integer"
+[2, 0.0]
+(1/2)
+2.0
+-1
+1
+plus: incompatible character encodings: BINARY (ASCII-8BIT) and UTF-8
+shovel: incompatible character encodings: BINARY (ASCII-8BIT) and UTF-8
+text first: incompatible character encodings: UTF-8 and BINARY (ASCII-8BIT)
+#<Encoding:UTF-8>
+#<Encoding:UTF-8>
+#<Encoding:BINARY (ASCII-8BIT)>
+EncodingError
+true
+255
+12
+10
+3
+15
+-16
+0
+0
+1000
+0
+0
+"zero width padding"
+[]
+["a", "b", "c", "d"]
+["9", "10", "11"]
+["az", "ba", "bb", "bc"]
+[]
+false
+true
+true
+false
+true
+true
+[:a, :b, :c, :d, :e]
+true
+[:a, :c, :e]
+"abFZSxKKdq5s6"
+1.0e-06
+1000
+"salt too short (need >=2 bytes)"
+""
+""
+"Hello"
+nil
+"---"
+"xxx"
+#<Encoding:BINARY (ASCII-8BIT)>
+200
+#<Encoding:BINARY (ASCII-8BIT)>
+200
+[120, 195, 169, 255]
+[120, 65]
+#<Encoding:UTF-8>
+"hlloo"
+nil
+[2.0, 1.5]
+"invalid value for Float(): \"x\""
+[0.5, 1.5]
+"can't convert nil into Float"
+[2.0, 1.5]
+2.0
+2.0
+[1, 2, 1, 2, 1, 2]
+[1, 1]
+[[1, 3], [1, 4], [2, 3], [2, 4]]
+[1, 2]
+[1, 2, 3]
+[1, 2, 3]
+"no implicit conversion of String into Integer"
+"no implicit conversion of Symbol into Integer"
+"invalid slice size"
+[0, 101, 102, 0, 0]
+[0, 7, 7, 0, 0]
+[0, 5, 5, 5, 5, 5]
+[0, 1, 2]
+"no implicit conversion of String into Integer"
+[0, 0, 1]
+[0, 0, 0]
+[1, 1, 1]
+Proc
+Proc
+true
+1
+true
+"#<struct S2 :verbose?=true, name=\"x\", Const=1>"
+":+@"
+":-@"
+":[]"
+":\"a b\""
+":a?"
+true
+true
+true
+true
+"a-"
+["a", "b"]
+false
+true
+nil
+"abc"
+"no implicit conversion of Integer into String"
+"can't convert BadSep to String (BadSep#to_str gives Integer)"
+#<Encoding:BINARY (ASCII-8BIT)>
+true
+false

@@ -1,0 +1,7 @@
+native/warnings_batch.rb:18: warning: key :k is duplicated and overwritten on line 18
+native/warnings_batch.rb:9: warning: block supersedes default value argument
+native/warnings_batch.rb:10: warning: block supersedes default value argument
+native/warnings_batch.rb:11: warning: block supersedes default value argument
+native/warnings_batch.rb:12: warning: block supersedes default value argument
+native/warnings_batch.rb:13: warning: block supersedes default value argument
+native/warnings_batch.rb:14: warning: block supersedes default value argument

@@ -68,16 +68,12 @@ module Zr
         def lowered = Needs.check!(:eval, "eval support").then { super }
       end
 
-      # The spec tier reads what each example needs from its program
-      # (`Built.evals?`), not from a comment, so the guard leaves it alone.
-      SPEC = File.join(File.expand_path("../spec", __dir__), "")
-
       # Included in Minitest::Test: sets the need from the file that
       # defines the test method.
       module Hook
         def before_setup
           file = method(name).source_location&.first
-          Needs.current = file && !file.start_with?(SPEC) ? Needs.of(file) : nil
+          Needs.current = file ? Needs.of(file) : :none
           super
         end
 

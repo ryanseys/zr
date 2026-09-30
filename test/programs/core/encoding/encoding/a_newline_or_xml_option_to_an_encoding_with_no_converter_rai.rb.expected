@@ -1,0 +1,5 @@
+["EUC-TW", Encoding::ConverterNotFoundError, "code converter not found (UTF-8 to EUC-TW with xml_text)"]
+["Emacs-Mule", Encoding::ConverterNotFoundError, "code converter not found (UTF-8 to Emacs-Mule with crlf_newline)"]
+["GB1988", Encoding::ConverterNotFoundError, "code converter not found (UTF-8 to GB1988 with xml_attr_content,xml_attr_quote)"]
+["macThai", Encoding::ConverterNotFoundError, "code converter not found (UTF-8 to macThai with xml_text)"]
+["EUC-TW", "a<b"]

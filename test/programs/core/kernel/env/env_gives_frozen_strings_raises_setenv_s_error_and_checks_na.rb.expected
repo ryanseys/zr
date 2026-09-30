@@ -1,0 +1,9 @@
+[true, true, true, [false, true]]
+#<Errno::EINVAL: Invalid argument - setenv(A=B)>
+#<Errno::EINVAL: Invalid argument - setenv()>
+nil
+#<ArgumentError: bad environment variable value: ASCII incompatible encoding: UTF-16LE>
+#<ArgumentError: bad environment variable name: ASCII incompatible encoding: UTF-16LE>
+#<TypeError: no implicit conversion of Integer into Hash>
+#<TypeError: wrong element type Integer (expected array)>
+#<ArgumentError: element has wrong array length (expected 2, was 1)>

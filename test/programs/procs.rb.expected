@@ -1,0 +1,64 @@
+0
+1
+2
+1
+-1
+-2
+2
+1
+0
+1
+-2
+-1
+2
+-2
+2
+-1
+[[:opt, :a], [:opt, :b], [:rest, :r], [:opt, :c], [:keyreq, :k], [:key, :o], [:keyrest, :kw], [:block, :blk]]
+[[:req, :a], [:opt, :b], [:rest, :r], [:req, :c], [:keyreq, :k], [:key, :o], [:keyrest, :kw], [:block, :blk]]
+[[:opt], [:opt, :c]]
+[[:opt, :x]]
+[]
+[[:req, :x]]
+-2
+[[:req], [:rest]]
+true
+false
+true
+1
+[[:opt, :a]]
+-2
+[[:req, :x], [:opt, :y]]
+3
+7
+11
+2
+#<ArgumentError: wrong number of arguments (given 1, expected 2)>
+3
+[1, nil]
+[1, 2]
+[4, 5]
+[1, 2]
+[1, 4, 9]
+[nil, [], nil]
+[7, [], nil]
+[7, [], 8]
+[7, [8, 9], 10]
+[[], nil]
+[1, 2, 3]
+[1, 5, nil]
+[1, 5, 2]
+[nil, 5, nil]
+[1, [], 2, nil]
+[1, [], 2, 3]
+[1, [2], 3]
+[1, [], nil]
+[:@exit_value, :@reason]
+:break
+1
+:return
+2
+"unexpected return"
+:noreason
+nil
+"no block given (yield)"

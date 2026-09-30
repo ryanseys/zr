@@ -1,0 +1,32 @@
+plain: "Base"
+redefined super: "Base2"
+shadowed: "Sub"
+super from sub: "Base2"
+removed: "Base2"
+undefd: NoMethodError: undefined method 'who' for an instance of Sub
+redefined after undef: "Sub again"
+before include: NoMethodError: undefined method 'only_m' for an instance of Late
+after include: "only_m"
+before prepend: "Pre"
+after prepend: "P(Pre)"
+extended: "only_e"
+not extended: NoMethodError: undefined method 'only_e' for an instance of Object
+singleton: "solo"
+singleton on other: NoMethodError: undefined method 'solo' for #<Object:0xXX>
+alias body: [11, 1]
+public: "h"
+private: NoMethodError: private method 'hidden' called for an instance of Vis
+public again: "h"
+respond_to: true
+ghost: "ghost"
+no ghost: NoMethodError: undefined method 'other' for an instance of MM
+anon: "anon"
+before nested: NoMethodError: undefined method 'deep' for an instance of Host
+after nested: "deep"
+dup split: ["orig", "copy"]
+define_method: "made"
+removed dynamic: NoMethodError: undefined method 'made' for an instance of Dyn
+no to_str: TypeError: no implicit conversion of Conv into String
+to_str now: "xconverted"
+ancestors: ["P", "Pre", "Object"]
+methods: [:one, :two]

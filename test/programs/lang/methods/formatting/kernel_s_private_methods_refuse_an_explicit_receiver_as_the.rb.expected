@@ -1,0 +1,9 @@
+1.puts !! NoMethodError: private method 'puts' called for an instance of Integer
+'ab'.puts !! NoMethodError: private method 'puts' called for an instance of String
+nil.puts !! NoMethodError: private method 'puts' called for nil
+[].raise !! NoMethodError: private method 'raise' called for an instance of Array
+'ab'.initialize !! NoMethodError: private method 'initialize' called for an instance of String
+[].initialize !! NoMethodError: private method 'initialize' called for an instance of Array
+Object.new.initialize !! NoMethodError: private method 'initialize' called for an instance of Object
+RuntimeError.new.initialize !! NoMethodError: private method 'initialize' called for an instance of RuntimeError
+3.7.require !! NoMethodError: private method 'require' called for an instance of Float

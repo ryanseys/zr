@@ -1,0 +1,4 @@
+Class
+"&lt;a &amp; &#39;b&#39;&gt;"
+[:html_escape]
+[:html_escape]

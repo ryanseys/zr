@@ -69,8 +69,7 @@ end
 # `bin/test <paths>` runs only some test files.
 TIERS = {
   "test:unit" => ["test/unit", "zr's own internals"],
-  "test:spec" => ["test/spec", "Ruby specs, each checked against ruby 4.0.7"],
-  "test:e2e" => ["test/e2e", "Whole programs, built and linked, checked against ruby 4.0.7"]
+  "test:programs" => ["test/programs", "Ruby programs that zr builds, each checked against ruby 4.0.7"]
 }.freeze
 
 TIERS.each do |name, (dir, what)|
@@ -78,7 +77,7 @@ TIERS.each do |name, (dir, what)|
   task(name) { ruby!(File.join(ROOT, "bin/test"), dir) }
 end
 
-desc "Every test: unit, spec, e2e"
+desc "Every test: unit, programs"
 task test: TIERS.keys
 
 desc "Write every generated file again (zr-dev gen all); CHECK=1 only compares"

@@ -1,0 +1,9 @@
+[]
+[]
+[Twice, Shout, Plain]
+[#<refinement:String@Twice>, #<refinement:String@Shout>, #<refinement:Integer@Twice>, #<refinement:Integer@Plain>]
+[String, String, Integer, Integer]
+[]
+"#<refinement:String@Twice>"
+[Twice, Shout, Plain]
+"HIHI"

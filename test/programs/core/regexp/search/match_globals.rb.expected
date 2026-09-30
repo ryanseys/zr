@@ -1,0 +1,44 @@
+"hello"
+"world"
+nil
+MatchData
+"hello world"
+"world"
+"hello world"
+""
+""
+"world"
+nil
+nil
+nil
+nil
+0
+"j"
+nil
+0
+"b"
+nil
+42
+"outer"
+nil
+"outer"
+["e", "o"]
+"outer"
+"c"
+"outer"
+"2026"
+"09"
+nil
+"x"
+"y"
+["x", "y"]
+{"a" => "x", "b" => "y"}
+""
+"global-variable"
+"global-variable"
+"global-variable"
+"global-variable"
+"global-variable"
+nil
+"global-variable"
+"z"

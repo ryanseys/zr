@@ -1,0 +1,11 @@
+each_slice: 1
+inject: 1
+zip hash: 1
+lazy map: 1
+lazy flat_map: 1
+range first: 2
+chain: 2
+enumerator +: 3
+hash map: 1
+set merge: 1
+sort_by!: 1

@@ -1,0 +1,15 @@
+nil
+nil
+nil
+nil
+8
+8
+3
+9
+9
+eval nil receiver
+nil
+eval real receiver
+eval taken
+5
+undefined method 'v' for false

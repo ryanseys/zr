@@ -1,0 +1,24 @@
+"cfg:host"
+3
+["#<Class:Config>", "Config"]
+false
+true
+[:LIMIT, :PREFIX]
+["cfg:", "!"]
+:name_error
+[:inner, :a_const, :from_singleton]
+["#<Class:A::B>", "A::B", "A"]
+:installed
+[:inner, :install]
+:inner
+"<red>"
+"hi!"
+true
+[]
+true
+"plain"
+:no_such_method
+"meta"
+["at 2", ":129:in 'singleton class'"]
+:mine
+[:only_mine]

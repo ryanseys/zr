@@ -1,0 +1,54 @@
+-- certificates --
+/C=CA/O=zr/CN=root
+CN=root,O=zr,C=CA
+1
+2
+2026-01-01 00:00:00 UTC
+2036-01-01 00:00:00 UTC
+ecdsa-with-SHA256
+  basicConstraints critical=true
+  keyUsage critical=true
+  subjectKeyIdentifier critical=false
+/C=CA/O=zr/CN=example.com
+CN=root,O=zr,C=CA
+2
+2
+2026-01-01 00:00:00 UTC
+2036-01-01 00:00:00 UTC
+ecdsa-with-SHA256
+  basicConstraints critical=true
+  subjectAltName critical=false
+  authorityKeyIdentifier critical=false
+true
+false
+true
+true
+true
+true
+true
+false
+[1, 2]
+-- request --
+["C", "O", "CN"]
+true
+false
+["challengePassword"]
+-- crl --
+[[3, 2026-01-15 00:00:00 UTC, ["Key Compromise"]]]
+true
+true
+-- store --
+true
+0
+"ok"
+true
+true
+["/C=CA/O=zr/CN=example.com", "/C=CA/O=zr/CN=root"]
+false
+true
+"certificate revoked"
+true
+true
+[[true, 1], [true, 0]]
+false
+true

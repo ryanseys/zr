@@ -1,0 +1,16 @@
+File::Stat
+12
+true
+false
+File::Stat
+"hello"
+"hel"
+"hello"
+1
+"h"
+101
+true
+false
+IO
+"ping"
+"hello"

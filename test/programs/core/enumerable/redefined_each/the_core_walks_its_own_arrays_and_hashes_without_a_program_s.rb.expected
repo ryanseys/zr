@@ -1,0 +1,18 @@
+puts: 0
+print: 0
+p: 0
+warn: 0
+pack: 0
+regexp: 0
+join: 0
+glob: 0
+sort_by!: 0
+hash []: 0
+values_at: 0
+union: 0
+literal min: 0
+marshal: 0
+match inspect: 0
+proc inspect: 0
+each_pair: 0
+eval: 0

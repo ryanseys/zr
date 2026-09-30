@@ -1,0 +1,20 @@
+[:b_call, nil, []]
+[:call, :foo, [[:req, :a], [:opt, :b], [:rest, :r], [:keyreq, :k], [:block, :blk]]]
+[:c_call, :each, []]
+[:b_call, :foo, [[:opt, :x], [:opt, :y]]]
+[:return, :foo, [[:req, :a], [:opt, :b], [:rest, :r], [:keyreq, :k], [:block, :blk]]]
+[:call, 11, :bar]
+[:b_call, 11, :bar]
+[:line, 11, :bar]
+[:return, 11, :bar]
+[:call, 11, :bar]
+[:b_call, 11, :bar]
+[:line, 11, :bar]
+[:return, 11, :bar]
+false
+[22]
+#<ArgumentError: only target_line is specified>
+#<ArgumentError: specified target is not supported>
+#<ArgumentError: specified target is not supported>
+#<ArgumentError: target_line is specified, but line event is not specified>
+false

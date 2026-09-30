@@ -1,0 +1,13 @@
+one: 789c2b4a2d4e2d51c84dd55128c2602924a62766e60100d2350bf8
+totals: 34 in, 27 out, finished true
+after reset: 0 in, 0 out, finished false
+two: 789c2b4a2d4e2d51c84dd55128c2602924a62766e60100d2350bf8
+same: true
+reset mid-stream: true
+adler: 3526691832 = 3526691832
+inflate: reset me, reset me, reset me again
+totals: 27 in, 34 out, finished true
+after reset: 0 in, 0 out, finished false
+inflate again: reset me, reset me, reset me again
+half then reset then whole: "reset" "reset me, reset me, reset me again"
+closed: Zlib::Error: stream is not ready

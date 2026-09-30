@@ -1,0 +1,2 @@
+[:HASH, [:LIST, nil, [:VCALL, :a], [:SYM, :b], [:INTEGER, 1], nil]]
+[:HASH, [:LIST, nil, [:VCALL, :a], nil]]

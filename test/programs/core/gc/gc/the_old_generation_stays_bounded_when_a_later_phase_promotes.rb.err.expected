@@ -1,0 +1,4 @@
+core/gc/gc/the_old_generation_stays_bounded_when_a_later_phase_promotes.rb:31:in '<main>': undefined method '>' for nil (NoMethodError)
+
+puts "full sweeps kept running: " + (g["full_runs"] > 6 ? "yes" : "no")
+                                                    ^

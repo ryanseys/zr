@@ -1,0 +1,10 @@
+Digest::SHA512
+Digest::SHA256
+Digest::SHA1
+Digest::MD5
+Digest::SHA384
+"fced6cde46444ab224b6617ea37948a7e82ed167413a8ca9ae9be698a633aa2ef37ed6553738cb12ae9f1c86f068be2557b8b4a7359365d2633cf78b13e89a34"
+library not found for class Digest::NOPE -- digest/nope
+true
+undefined method 'to_sym' for an instance of Integer
+private method 'Digest' called

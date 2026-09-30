@@ -1,0 +1,11 @@
+[RangeError, "integer 4294967296 too big to convert to 'int'"]
+[RangeError, "integer -4294967296 too small to convert to 'int'"]
+[RangeError, "bignum too big to convert into 'long'"]
+1.5
+0
+1.3
+[RangeError, "integer 1099511627776 too big to convert to 'int'"]
+[RangeError, "integer -1099511627776 too small to convert to 'int'"]
+Infinity
+0.0
+12.0

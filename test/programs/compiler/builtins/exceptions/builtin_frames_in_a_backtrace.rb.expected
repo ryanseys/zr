@@ -1,0 +1,7 @@
+compiler/builtins/exceptions/builtin_frames_in_a_backtrace.rb:N:in 'Object#inner'
+compiler/builtins/exceptions/builtin_frames_in_a_backtrace.rb:N:in 'block in <main>'
+compiler/builtins/exceptions/builtin_frames_in_a_backtrace.rb:N:in 'Kernel#then'
+compiler/builtins/exceptions/builtin_frames_in_a_backtrace.rb:N:in '<main>'
+"Object#direct"
+"block in <main>"
+"block in <main>"

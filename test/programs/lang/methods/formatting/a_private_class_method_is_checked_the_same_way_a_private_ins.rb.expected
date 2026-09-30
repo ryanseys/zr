@@ -1,0 +1,3 @@
+Factory.make_via_self => :built
+Factory.build !! NoMethodError: private method 'build' called for class Factory
+Factory.send(:build) => :built

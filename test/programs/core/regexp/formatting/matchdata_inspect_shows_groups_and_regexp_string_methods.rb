@@ -1,0 +1,6 @@
+p "hello".match(/l(l)o/)
+p "2024-01".match(/(?<y>\d+)-(?<m>\d+)/)
+p "hello".start_with?(/he/)
+p "hello".start_with?(/ell/)
+p "hello".byteindex(/l+/)
+p "hello".byterindex(/l+/)

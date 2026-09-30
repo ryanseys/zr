@@ -1,0 +1,29 @@
+wrong number of arguments (given 1, expected 0)
+core/struct/formatting/a_member_s_reader_and_writer_are_kernel_entries_so_they_have.rb:7:in '<main>'
+wrong number of arguments (given 2, expected 1)
+core/struct/formatting/a_member_s_reader_and_writer_are_kernel_entries_so_they_have.rb:8:in '<main>'
+wrong number of arguments (given 1, expected 0)
+FrozenError
+can't modify frozen S: #<struct S a=1, b=2>
+nil
+S
+"#<UnboundMethod: S#a()>"
+0
+[]
+"#<UnboundMethod: S#a=(_)>"
+[[:c_call, :a], [:c_return, :a], [:c_call, :a=], [:c_return, :a=]]
+106
+[6, 2]
+nil
+[nil, 9]
+1
+[]
+nil
+7
+bind argument must be an instance of S
+true
+[:a, :a=, :b, :b=]
+true
+1
+1
+"struct size differs"

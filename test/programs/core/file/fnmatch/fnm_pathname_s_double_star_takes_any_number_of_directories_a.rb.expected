@@ -1,0 +1,12 @@
+true
+true
+false
+true
+false
+true
+#<ArgumentError: string contains null byte>
+#<ArgumentError: path name contains null byte>
+#<TypeError: no implicit conversion of Symbol into String>
+false
+#<Encoding::CompatibilityError: path name must be ASCII-compatible (UTF-16LE): "a">
+true

@@ -1,0 +1,45 @@
+30819d0202ff7f020d100000000000000000000000000101ff0500040700ff62797465730c0668c3a96c6c6f13095072696e7461626c65160f696135406578616d706c652e636f6d06092a864886f70d01010b06042a030405170d3236303931373132333034355a180f32303531303130323033303430355a030205a00a01033106020102020101800107a10a0c086578706c69636974c20770726976617465
+Sequence tag=16 class=UNIVERSAL
+  Integer tag=2 class=UNIVERSAL -129
+  Integer tag=2 class=UNIVERSAL 1267650600228229401496703205376
+  Boolean tag=1 class=UNIVERSAL true
+  Null tag=5 class=UNIVERSAL nil
+  OctetString tag=4 class=UNIVERSAL "\x00\xFFbytes"
+  UTF8String tag=12 class=UNIVERSAL "h\xC3\xA9llo"
+  PrintableString tag=19 class=UNIVERSAL "Printable"
+  IA5String tag=22 class=UNIVERSAL "ia5@example.com"
+  ObjectId tag=6 class=UNIVERSAL "RSA-SHA256"
+  ObjectId tag=6 class=UNIVERSAL "1.2.3.4.5"
+  UTCTime tag=23 class=UNIVERSAL 2026-09-17 12:30:45 UTC
+  GeneralizedTime tag=24 class=UNIVERSAL 2051-01-02 03:04:05 UTC
+  BitString tag=3 class=UNIVERSAL "\xA0"
+  Enumerated tag=10 class=UNIVERSAL 3
+  Set tag=17 class=UNIVERSAL
+    Integer tag=2 class=UNIVERSAL 2
+    Integer tag=2 class=UNIVERSAL 1
+  ASN1Data tag=0 class=CONTEXT_SPECIFIC "\a"
+  ASN1Data tag=1 class=CONTEXT_SPECIFIC
+    UTF8String tag=12 class=UNIVERSAL "explicit"
+  ASN1Data tag=2 class=PRIVATE "private"
+true
+"RSA-SHA256"
+"sha256WithRSAEncryption"
+"1.2.840.113549.1.1.11"
+"1.2.3.4.5"
+true
+"3106020102020101"
+-- traverse --
+[0, 0, 2, 6, true, :UNIVERSAL, 16]
+[1, 2, 2, 1, false, :UNIVERSAL, 2]
+[1, 5, 2, 1, false, :UNIVERSAL, 4]
+[1, false]
+-- indefinite length --
+"30800201010000"
+true
+-- errors --
+ASN1Error too long
+ASN1Error EOC missing in indefinite length encoding
+ASN1Error d2i_ASN1_OBJECT: invalid object encoding
+ASN1Error too small
+ASN1Error invalid OBJECT ID not an oid: first num too large
+TypeError Cannot convert into OpenSSL::BN

@@ -3,7 +3,7 @@
 ## Why only ruby 4.0.7?
 
 zr promises the output that ruby 4.0.7 gives. Each test compares zr's
-output with a recording from that one ruby, and zr compiles that
+output with an expected output from that one ruby, and zr compiles that
 ruby's own library, which zr carries, into each program. The host ruby
 only runs the compiler, so zr also runs on a later 4.0 release, with a
 warning: the programs that it builds still give ruby 4.0.7's answers.

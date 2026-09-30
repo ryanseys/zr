@@ -1,0 +1,11 @@
+true
+false
+"handled dyn_foo"
+"method"
+nil
+"handled dyn_bar"
+undefined method 'nope_at_all' for an instance of R
+false
+true
+false
+done

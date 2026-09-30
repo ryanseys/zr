@@ -1,0 +1,21 @@
+[97, 0, 98, 0, 172, 32]
+3
+true
+"ab\u20AC"
+"ab€"
+[65, 0, 66, 0, 172, 32]
+[0, 0, 0, 97, 0, 0, 32, 172, 0, 1, 209, 30]
+3
+"a€𝄞"
+[65, 0]
+[172, 32]
+#<Encoding:UTF-16LE>
+incompatible character encodings: UTF-16LE and UTF-8
+#<Encoding:UTF-8>
+false
+false
+false
+incomplete "\xD84" on UTF-16BE
+"AB\u{1D11E}"
+false
+#<Encoding:UTF-16BE>

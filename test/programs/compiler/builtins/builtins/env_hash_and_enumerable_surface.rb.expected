@@ -1,0 +1,38 @@
+{"ZR_TEST_A" => "1", "ZR_TEST_B" => "2"}
+{"ZR_TEST_A" => "1", "ZR_TEST_B" => "2"}
+{"ZR_TEST_A" => "1", "ZR_TEST_B" => "2"}
+{}
+Enumerator
+Enumerator
+Enumerator
+Array
+true
+"ZR_TEST_A"
+["ZR_TEST_A", "1"]
+true
+true
+false
+{"ZR_TEST_A" => "1"}
+nil
+true
+true
+true
+true
+true
+true
+Object
+"ENV"
+false
+false
+true
+Array
+Array
+Array
+["ZR_TEST_A", "1"]
+Array
+Hash
+Array
+Enumerator::Lazy
+true
+true
+3

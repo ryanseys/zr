@@ -1,0 +1,11 @@
+Sys.getuid: true
+Sys.geteuid: true
+Sys.getgid: true
+Sys.getegid: true
+Sys.issetugid: false
+UID.rid: true
+UID.eid: true
+GID.rid: true
+GID.eid: true
+UID.sid_available?: true
+GID.sid_available?: true

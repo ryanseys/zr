@@ -1,0 +1,4 @@
+[false, [Encoding::CompatibilityError, "incompatible character encodings: UTF-32LE and UTF-8"]]
+"a\x00\x00\x00\xFD\xFF\x00\x00\xFD\xFF\x00\x00"
+2
+3

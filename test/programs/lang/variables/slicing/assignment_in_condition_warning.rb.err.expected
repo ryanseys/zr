@@ -1,0 +1,3 @@
+lang/variables/slicing/assignment_in_condition_warning.rb:13: warning: found '= literal' in conditional, should be ==
+lang/variables/slicing/assignment_in_condition_warning.rb:17: warning: found '= literal' in conditional, should be ==
+lang/variables/slicing/assignment_in_condition_warning.rb:21: warning: found '= literal' in conditional, should be ==

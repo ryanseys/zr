@@ -1,0 +1,4 @@
+["Hi"]
+"invalid POSIX bracket type: /[[:bogus:]]/"
+"premature end of char-class: /[invalid/"
+true

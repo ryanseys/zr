@@ -1,0 +1,2 @@
+a.rb:1:in `x': boom (RuntimeError)
+	from b.rb:2

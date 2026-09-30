@@ -1,0 +1,6 @@
+core/string/frozen/str_method_nil_arg_no_segv.rb:8:in 'String#count': wrong number of arguments (given 0, expected 1+) (ArgumentError)
+
+    caller: core/string/frozen/str_method_nil_arg_no_segv.rb:8
+    |   "foo".count
+             ^^^^^^
+	from core/string/frozen/str_method_nil_arg_no_segv.rb:8:in '<main>'

@@ -1,0 +1,5 @@
+Queue num_waiting: 0
+Queue clear: Thread::Queue
+Queue size after clear: 0
+Queue marshal_dump: can't dump Thread::Queue
+CV marshal_dump: can't dump Thread::ConditionVariable

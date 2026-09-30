@@ -1,0 +1,5 @@
+"\"a&apos;b&quot;&lt;&amp;&gt;\""
+"a'b\"&lt;&amp;&gt;"
+"\"a&apos;b\""
+"\"it&apos;s"
+"\""

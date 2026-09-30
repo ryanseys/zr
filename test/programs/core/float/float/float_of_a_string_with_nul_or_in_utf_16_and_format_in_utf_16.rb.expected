@@ -1,0 +1,4 @@
+ArgumentError: string for Float contains null byte
+nil
+Encoding::CompatibilityError: ASCII incompatible encoding: UTF-16LE
+Encoding::CompatibilityError: ASCII incompatible encoding: UTF-16LE

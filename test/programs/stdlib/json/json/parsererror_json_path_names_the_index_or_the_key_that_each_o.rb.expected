@@ -1,0 +1,17 @@
+"$.a.b[2].c"
+"$[0][1][2]"
+"$.y.z"
+"$.k[1]"
+"$[1].a"
+"$.a.a"
+"$.a[1]"
+"$.q"
+"$.a"
+"$"
+"$.a[0]"
+"$[1][1][1]"
+String
+[#<JSON::ParserError: duplicate key "b">, "$.a[1].b", 0]
+[#<JSON::ParserError: unexpected character: 'x'>, "$.a[1]"]
+[[[]]]
+nil

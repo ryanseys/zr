@@ -77,8 +77,7 @@ module Zr
 
         def clock(seconds) = format("%d:%02d", seconds / 60, seconds % 60)
 
-        # The helper file that the tier loaded identifies the tier.
-        def tier = $LOADED_FEATURES.any? { |f| f.end_with?("/spec_helper.rb") } ? "spec tier" : "unit/e2e tier"
+        def tier = "unit tier"
       end
     end
   end

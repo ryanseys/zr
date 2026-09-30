@@ -161,7 +161,7 @@ string.
   build takes about three minutes.
 - An engine compiles a module whole before it runs it. Thus the 90 MB
   module needs about 2.1 GB of the host's memory when wasmtime
-  instantiates it (measured on `e2e/lang/eval/eval_in_a_binary.rb`).
+  instantiates it (measured on `test/programs/cli/lang/eval/eval_in_a_binary.rb`).
   The program's own memory is a small part of this. `wasmtime compile`
   moves this cost out of the run.
 - A binary with eval support contains the absolute paths of the gem's

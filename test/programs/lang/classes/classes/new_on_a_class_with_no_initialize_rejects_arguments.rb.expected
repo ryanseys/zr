@@ -1,0 +1,3 @@
+ArgumentError: wrong number of arguments (given 2, expected 0)
+dyn: wrong number of arguments (given 1, expected 0)
+Bare

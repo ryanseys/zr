@@ -1,0 +1,17 @@
+[#<Encoding:US-ASCII>, false]
+nil
+[[255], 0]
+[ArgumentError, "regexp preprocess failed: invalid multibyte escape"]
+[ArgumentError, "regexp preprocess failed: invalid multibyte escape"]
+[#<Encoding:US-ASCII>, [40, 63, 35, 233, 41, 98]]
+[[98], 1]
+[[98], 1]
+[ArgumentError, "regexp preprocess failed: invalid multibyte character"]
+[ArgumentError, "regexp preprocess failed: invalid multibyte character"]
+[#<Encoding:BINARY (ASCII-8BIT)>, 48]
+[[227, 129, 130, 128], 0]
+[Encoding::CompatibilityError, "incompatible encoding regexp match (BINARY (ASCII-8BIT) regexp with UTF-8 string)"]
+[[227, 129, 130], 0]
+[Encoding::CompatibilityError, "incompatible encoding regexp match (UTF-8 regexp with ISO-8859-1 string)"]
+[Encoding::CompatibilityError, "incompatible encoding regexp match (UTF-8 regexp with UTF-16LE string)"]
+nil

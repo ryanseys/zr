@@ -1,0 +1,21 @@
+[:a, :b, :c]
+[1, 2, 3]
+3
+3
+[:name, :role]
+["Alice", "admin"]
+[:name, :age, :active]
+["Alice", 30, true]
+["name", "age", "active"]
+["Alice", 30, true]
+a
+b
+c
+Alice
+admin
+name
+age
+active
+Alice
+30
+true

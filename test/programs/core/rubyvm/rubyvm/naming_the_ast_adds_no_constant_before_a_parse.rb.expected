@@ -1,0 +1,7 @@
+false
+nil
+RubyVM::AbstractSyntaxTree::Node
+RubyVM::AbstractSyntaxTree::Location
+true
+:SCOPE
+:OPCALL

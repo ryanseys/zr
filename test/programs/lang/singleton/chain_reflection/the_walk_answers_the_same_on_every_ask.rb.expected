@@ -1,0 +1,3 @@
+== the walk is stable across repeated asks
+own(S2(S1)) own(S2(S1)) own(S2(S1)) 
+["#<Class:Chained>", "S2", "S1", "#<Class:Object>"]

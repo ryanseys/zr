@@ -1,0 +1,7 @@
+"Cannot dup ENV, use ENV.to_h to get a copy of ENV as a hash"
+"Cannot clone ENV, use ENV.to_h to get a copy of ENV as a hash"
+"cannot freeze ENV"
+"1"
+"3"
+"3"
+"ENV"

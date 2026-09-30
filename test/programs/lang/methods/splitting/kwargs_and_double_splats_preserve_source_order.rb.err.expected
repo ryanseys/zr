@@ -1,0 +1,1 @@
+lang/methods/splitting/kwargs_and_double_splats_preserve_source_order.rb:12: warning: key :x is duplicated and overwritten on line 12

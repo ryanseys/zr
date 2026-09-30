@@ -1,0 +1,3 @@
+["net-telnet", LoadError, "cannot load such file -- net-telnet", "net-telnet"]
+["sdbm", LoadError, "cannot load such file -- sdbm", "sdbm"]
+nil

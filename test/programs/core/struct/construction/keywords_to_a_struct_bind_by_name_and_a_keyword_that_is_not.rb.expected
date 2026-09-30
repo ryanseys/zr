@@ -1,0 +1,9 @@
+[1, 2, 3]
+[nil, nil, 3]
+[nil, nil, nil]
+[nil, 5, nil]
+"unknown keywords: z"
+[nil, 2]
+"unknown keywords: zz"
+[{a: 1, b: 2}, nil]
+[1, 7, nil]

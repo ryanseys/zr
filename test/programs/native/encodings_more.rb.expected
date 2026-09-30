@@ -1,0 +1,59 @@
+"caf\xE9"
+#<Encoding:ISO-8859-1>
+4
+[99, 97, 102, 233]
+true
+false
+"\x81ab"
+true
+3
+false
+true
+false
+nil
+1
+#<Encoding:ISO-8859-1>
+#<Encoding:ISO-8859-1>
+[99, 97, 102, 233, 99, 97, 102, 233]
+#<Encoding:ISO-8859-1>
+#<Encoding:ISO-8859-1>
+incompatible character encodings: ISO-8859-1 and UTF-8
+incompatible character encodings: UTF-8 and ISO-8859-1
+incompatible character encodings: ISO-8859-1 and BINARY (ASCII-8BIT)
+[67, 65, 70, 201]
+[99, 97, 102, 233]
+[67, 97, 102, 233]
+[67, 65, 70, 201]
+[83, 84, 82, 65, 83, 83, 69]
+[193, 90]
+[233, 102, 97, 99]
+[169, 195, 102, 97, 99]
+#<Encoding:ISO-8859-1>
+[97, 102, 233]
+[#<Encoding:ISO-8859-1>, #<Encoding:ISO-8859-1>]
+incompatible encoding regexp match (UTF-8 regexp with ISO-8859-1 string)
+[191, 243, 179]
+[233]
+[195, 169]
+[233]
+U+017C from UTF-8 to ISO-8859-1
+"\x81" to UTF-8 in conversion from Windows-1252 to UTF-8
+"\x81" to UTF-8 in conversion from Windows-1252 to UTF-8 to KOI8-R
+U+00E9 from UTF-8 to US-ASCII
+"?"
+"!"
+"a\rb\r\rc\rd"
+"a\r\nb"
+"a\nb"
+#<Encoding:ISO-8859-1>
+#<Encoding:BINARY (ASCII-8BIT)>
+[99, 97, 102, 99, 97, 102]
+#<Encoding:ISO-8859-1>
+incompatible character encodings: UTF-8 and ISO-8859-1
+#<Encoding:Windows-1250>
+true
+103
+#<Encoding:ISO-8859-1>
+nil
+[233]
+#<Encoding:ISO-8859-1>

@@ -1,0 +1,6 @@
+core/io/open_options/a_mode_string_and_set_encoding_read_their_encodings_as_parse.rb:7: warning: Unsupported encoding  ignored
+core/io/open_options/a_mode_string_and_set_encoding_read_their_encodings_as_parse.rb:8: warning: Unsupported encoding - ignored
+core/io/open_options/a_mode_string_and_set_encoding_read_their_encodings_as_parse.rb:9: warning: Unsupported encoding :utf-8 ignored
+core/io/open_options/a_mode_string_and_set_encoding_read_their_encodings_as_parse.rb:12: warning: Unsupported encoding bogus ignored
+core/io/open_options/a_mode_string_and_set_encoding_read_their_encodings_as_parse.rb:14: warning: Unsupported encoding bogus ignored
+core/io/open_options/a_mode_string_and_set_encoding_read_their_encodings_as_parse.rb:24: warning: Unsupported encoding bogus ignored

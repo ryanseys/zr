@@ -1,0 +1,3 @@
+[:arr, "x", "y"]
+[:keys, "x", [:a, :keys]]
+[:all, {a: "x", b: "y", keys: nil}]

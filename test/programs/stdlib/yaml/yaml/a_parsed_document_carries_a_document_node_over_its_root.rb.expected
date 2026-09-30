@@ -1,0 +1,16 @@
+document class	Psych::Nodes::Document
+document children	1
+implicit	false
+version	[]
+tag directives	[]
+root class	Psych::Nodes::Mapping
+root style block	true
+root children	4
+key class	Psych::Nodes::Scalar
+key value	"a"
+key plain	true
+key quoted	false
+key style plain	true
+seq class	Psych::Nodes::Sequence
+seq style flow	true
+seq children	["2", "3"]

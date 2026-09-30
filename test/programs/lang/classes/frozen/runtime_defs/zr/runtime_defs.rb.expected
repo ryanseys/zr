@@ -1,0 +1,29 @@
+"hi"
+6
+:small
+:big
+6
+[:boom, :counted, :each_twice, :early, :greet, :kw, :twice]
+[:hidden]
+[[:req, :a], [:rest, :rest], [:key, :b], [:block, :blk]]
+-2
+true
+[1, 2]
+[1, 2, [], true]
+[1, 9, [5], true]
+"wrong number of arguments (given 0, expected 1+)"
+"from a runtime def"
+"lang/classes/frozen/runtime_defs/zr/runtime_defs.rb:32:in 'M#boom'"
+41
+"NameError"
+7
+[:value]
+[:initialize]
+"gated"
+true
+"inner"
+false
+true
+false
+:ok
+"made"

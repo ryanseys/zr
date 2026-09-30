@@ -2,6 +2,7 @@
 
 require "test_helper"
 require_relative "../support/built"
+require_relative "../support/program_case"
 
 # Tests the runtime build that a tier uses: which targets a tier needs,
 # when a target is built, and that a tier builds only missing targets.
@@ -72,11 +73,16 @@ class BuiltTest < Minitest::Test
 
   def test_a_run_builds_only_what_its_files_declare
     unit = File.expand_path(".", __dir__)
-    spec = File.expand_path("../spec", __dir__)
-    assert_equal :none, Built.need([__FILE__])
-    assert_equal :runtime, Built.need([__FILE__, "#{unit}/runtime_test.rb"])
-    assert_equal :eval, Built.need(["#{unit}/runtime_test.rb", "#{unit}/programs_test.rb"])
-    assert_equal :runtime, Built.need(["#{spec}/core/comparable/comparison_test.rb"])
+    asked = []
+    stub_method(Built, :build, ->(_targets, evals:, **) { asked << evals }) do
+      stub_method(Built, :load, ->(*) {}) do
+        Built.ready!(files: ["#{unit}/runtime_test.rb"])
+        Built.ready!(files: ["#{unit}/runtime_test.rb", "#{unit}/eval_key_test.rb"])
+        Built.ready!
+      end
+    end
+
+    assert_equal [false, true, true], asked, "runtime only, then eval support, then an unknown run"
   end
 
   def test_ready_builds_nothing_for_files_that_declare_nothing
@@ -90,13 +96,15 @@ class BuiltTest < Minitest::Test
     assert_includes error.message, "declare `# zr-test: runtime`"
   end
 
-  def test_a_run_needs_eval_support_only_when_a_program_evals
-    spec = File.expand_path("../spec", __dir__)
-    assert Built.evals?(nil), "an unknown run"
-    refute Built.evals?([__FILE__]), "a unit test that declares nothing"
-    assert Built.evals?([File.expand_path("programs_test.rb", __dir__)]), "a unit test that declares eval"
-    refute Built.evals?(["#{spec}/core/comparable/comparison_test.rb"]), "a spec with no eval"
-    assert Built.evals?(["#{spec}/core/comparable/comparison_test.rb", "#{spec}/lang/eval/eval_test.rb"]), "a spec that evals"
+  def test_program_tests_need_eval_support_only_when_a_program_evals
+    Dir.mktmpdir("zr-built-") do |root|
+      File.write(File.join(root, "plain.rb"), "puts 1\n")
+      File.write(File.join(root, "evals.rb"), "eval(\"1\")\n")
+      plain, evals = %w[plain evals].map { |name| Zr::Test::Case.new(root, "#{name}.rb") }
+
+      refute Built.programs_eval?([plain])
+      assert Built.programs_eval?([plain, evals])
+    end
   end
 
   def test_a_build_with_eval_support_serves_a_run_without

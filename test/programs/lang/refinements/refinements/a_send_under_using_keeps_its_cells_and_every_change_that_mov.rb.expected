@@ -1,0 +1,15 @@
+[[:refined, :plain_bye, :extra, [:plain, :none]]]
+true
+:extra
+:refined2
+[:plain, :none]
+:refined2
+[:redefined, :none]
+[:refined2, :refined2]
+:refined2
+:new_bye
+4
+6
+8
+4
+4

@@ -1,0 +1,4 @@
+== instance and class channels answer the same shape independently
+["inst(dual(top))", "cls(dual(top))"]
+["BothChannels", "Dual", "Object"]
+["#<Class:BothChannels>", "Dual", "#<Class:Object>"]

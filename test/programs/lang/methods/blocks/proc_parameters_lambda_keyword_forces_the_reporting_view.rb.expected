@@ -1,0 +1,6 @@
+[[:req, :x], [:req, :y]]
+[[:opt, :x], [:opt, :y]]
+[[:req, :x], [:opt, :y]]
+[[:opt, :x]]
+[[:req, :_1]]
+[1, true]

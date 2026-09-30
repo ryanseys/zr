@@ -1,0 +1,13 @@
+1
+2000-05-01 00:00:00 UTC
+0
+[ArgumentError, "invalid argument - "]
+[TypeError, "nil can't be coerced into Float"]
+[TypeError, ":s can't be coerced into Float"]
+[TypeError, "Sep can't be coerced into Float"]
+[TypeError, "String can't be coerced into Integer"]
+"a"
+"b"
+"c"
+"a1b2c"
+[TypeError, "wrong argument type true (expected Regexp)"]

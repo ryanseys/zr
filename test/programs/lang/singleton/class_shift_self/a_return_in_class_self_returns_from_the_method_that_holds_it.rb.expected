@@ -1,0 +1,10 @@
+:inner
+[:small, :early]
+:from_block_sclass
+:nested_block
+ensure ran
+:ens
+:deep
+[:after, :h]
+#<LocalJumpError: unexpected return>
+["unexpected return", :return, 2]

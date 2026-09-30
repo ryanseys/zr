@@ -1,0 +1,10 @@
+Dir
+true
+[".", "..", "x", "y"]
+String
+["x", "y"]
+Errno::ENOENT
+ARGF.class
+"-"
+:tick
+[1, 2, 3]

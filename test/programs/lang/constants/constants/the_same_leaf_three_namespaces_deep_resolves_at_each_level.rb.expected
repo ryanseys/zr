@@ -1,0 +1,4 @@
+a1_value_where	"A1"
+b1_uses_where	"B1"
+b1_uses_superclass	"B1::Value"
+c1_value	3

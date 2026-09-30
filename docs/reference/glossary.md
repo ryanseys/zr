@@ -2,9 +2,8 @@
 
 The docs use one term for one concept. This page defines the terms.
 
-**Baseline.** The file `test/baselines/<triple>.txt`: the e2e
-programs and spec examples that a target is allowed to fail, each with
-a reason. See
+**Baseline.** The file `test/baselines/<triple>.txt`: the program
+tests that a target is allowed to fail, each with a reason. See
 [How to test on another target](../how-to/test-on-another-target.md).
 
 **Binary.** A native executable that zr builds, for
@@ -70,9 +69,6 @@ is the eval compiler on a native target and the tree-walking
 interpreter on wasm (`Zr::EvalSupport`). See
 [Eval in a compiled program](../explanation/eval-in-a-compiled-program.md).
 
-**Example.** One `it` block in a spec file: a Ruby program that zr
-compiles and runs, checked against ruby's output.
-
 **Extensions.** `runtime/ext/`: the native halves of extension gems,
 written in ordinary Ruby.
 
@@ -121,9 +117,6 @@ same as the global one.
 **Object file.** The output of `zr build --emit obj`: Mach-O, or ELF for
 `aarch64-linux-musl`. It contains only the program's own code.
 
-**Oracle.** ruby 4.0.7, the only source of expected outputs.
-`zr-dev oracle` checks spec literals against it.
-
 **OS layer.** The parts of the runtime that each operating system does
 in its own way, in `os/<os>/` directories.
 
@@ -145,15 +138,27 @@ link relocates only the program.
 **Primitive.** `Primitive.zr_name(...)` in the core library: a direct
 call of a kernel def, with no dispatch.
 
-**Program.** A whole `.rb` file in `test/e2e/` or `benchmark/`, with its
-recording beside it. See [Whole programs](test-format.md).
+**Program test.** A plain `.rb` file in `test/programs/`, with ruby's
+output in files beside it (`foo.rb.expected` and others). zr builds it
+and compares the binary's output with ruby's. `zr-dev expect` writes
+the expected files. See [Program tests](program-tests.md).
 
-**Recording.** The files beside a whole program that contain ruby's
+**Recording.** The files beside a benchmark that contain ruby's
 output: `.out` (stdout), `.err` (stderr), `.status` (an exit status
-that is not 0) and `.signal`. `zr-dev record` writes them.
+that is not 0) and `.signal`. `zr-dev record` writes them. See
+[Benchmark recordings](test-format.md).
+
+**Reference ruby.** ruby 4.0.7 with only the reference gems
+(`tmp/reference/gems`): the only source of expected outputs
+(`Harness::Reference`).
 
 **Refusal.** zr does not support a form, so it does not compile it. It
 prints the form and the line, and exits with status 3.
+
+**Run directory.** The new temporary directory that one run of a
+program test gets, with a copy of the program and its files. ruby and
+the binary run in it in the same way. See
+[Program tests](program-tests.md#the-run-directory).
 
 **Runtime.** The code that zr compiles into every program: the kernel,
 the core library and the extensions.
@@ -170,9 +175,6 @@ writes only the rest.
 with: the HIR dumps, the disassembly listing, the descriptions, the
 libSystem list. `ZR_BLESS=1` writes it again.
 
-**Spec.** A file of examples in `test/spec/`, and the tier that runs
-them.
-
 **Stage 1, stage 2.** The compiler that ruby builds, and the compiler
 that stage 1 builds. See [Bootstrapping](../explanation/bootstrapping.md).
 
@@ -182,8 +184,8 @@ that stage 1 builds. See [Bootstrapping](../explanation/bootstrapping.md).
 **Task.** A fiber, with its own machine stack. Threads and ractors run
 on tasks.
 
-**Tier.** One of the three groups of tests: unit (`test/unit`), spec
-(`test/spec`) and e2e (`test/e2e`). See
+**Tier.** One of the two groups of tests: unit (`test/unit`) and
+programs (`test/programs`). See
 [How the tests run](../explanation/how-the-tests-run.md).
 
 **Tree-walking interpreter.** The part of eval support on wasm. It

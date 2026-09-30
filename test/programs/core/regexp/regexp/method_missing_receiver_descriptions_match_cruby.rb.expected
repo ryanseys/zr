@@ -1,0 +1,5 @@
+undefined method 'nope' for an instance of Object
+undefined method 'nope' for nil
+undefined method 'nope' for module Helper
+undefined method 'nope' for class String
+undefined method 'nope' for an instance of Integer

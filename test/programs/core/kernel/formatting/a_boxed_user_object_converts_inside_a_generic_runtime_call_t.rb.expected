@@ -1,0 +1,5 @@
+[1]
+[7, 1]
+[TypeError, "no implicit conversion of Inert into Integer"]
+[TypeError, "no implicit conversion of nil into Integer"]
+"A"

@@ -1,0 +1,8 @@
+-- exception hierarchy --
+StandardError
+OpenSSL::OpenSSLError
+OpenSSL::OpenSSLError
+OpenSSL::OpenSSLError
+OpenSSL::Cipher::CipherError
+OpenSSL::OpenSSLError
+caught as OpenSSLError

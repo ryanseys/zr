@@ -1,0 +1,15 @@
+to_s: "a"
+to_s is a fresh String: true
+to_s is unfrozen: false
+mutating to_s leaves self: "a"
+inspect: "#<Pathname:/a/b>"
+== self: true
+== String: false
+===: true
+eql?: true
+hash agrees with ==: true
+<=>: -1
+<=> String: nil
+no Comparable: NoMethodError: undefined method '<' for an instance of Pathname
+freeze: true
+fresh is unfrozen: false

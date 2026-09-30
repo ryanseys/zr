@@ -1,0 +1,2 @@
+== a subclass sees the timeline of the parent's class method
+["p1", "p2"]

@@ -1,0 +1,3 @@
+scalar tag	"tag:yaml.org,2002:str"
+scalar value	"42"
+mapping tag	"!ruby/object:Widget"

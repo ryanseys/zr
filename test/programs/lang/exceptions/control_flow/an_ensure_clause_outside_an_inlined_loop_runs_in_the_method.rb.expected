@@ -1,0 +1,3 @@
+lang/exceptions/control_flow/an_ensure_clause_outside_an_inlined_loop_runs_in_the_method.rb:8:in 'Object#raises'
+in ensure 5
+lang/exceptions/control_flow/an_ensure_clause_outside_an_inlined_loop_runs_in_the_method.rb:9:in 'Object#raises'

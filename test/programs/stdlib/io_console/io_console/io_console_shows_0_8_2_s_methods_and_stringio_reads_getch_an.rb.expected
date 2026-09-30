@@ -1,0 +1,17 @@
+[false, false, false, false]
+[:echo=, :raw, :raw!]
+[:initialize_copy]
+#<NoMethodError: undefined method 'initialize' for an instance of IO::ConsoleMode>
+false
+[:inherited, :initialize]
+[StringIO, IO::generic_writable, IO::generic_readable]
+"zz"
+"P: zz\n"
+6
+"a"
+#<ArgumentError: wrong number of arguments (given 1, expected 0)>
+"x"
+nil
+#<TypeError: no implicit conversion of Integer into String>
+#<ArgumentError: string contains null byte>
+#<ArgumentError: wrong number of arguments (given 2, expected 0..1)>

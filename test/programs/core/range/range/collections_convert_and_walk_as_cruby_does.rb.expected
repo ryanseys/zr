@@ -1,0 +1,53 @@
+[1, 2, 3]
+[1, 2, 3]
+[TypeError, "can't iterate from Float"]
+[1, 2, 3]
+[1, 2]
+[:a, :b, :c]
+[:a, :b]
+[1, 2, 3]
+[1, 2]
+2
+1
+2
+"#<Enumerator: [1, 2]:collect>"
+[[1, 0], [2, 1]]
+[[5, 1], [6, 2]]
+{b: 2}
+2
+{a: 1}
+[TypeError, "wrong argument type Integer (expected Range)"]
+[TypeError, "wrong argument type nil (expected Range)"]
+3
+5
+[:fallback]
+[TypeError, "can't convert ToAryOne to Array (ToAryOne#to_ary gives Integer)"]
+[]
+[1, 2]
+[TypeError, "no implicit conversion of nil into Array"]
+[TypeError, "no implicit conversion of Integer into Array"]
+[TypeError, "no implicit conversion of nil into Array"]
+[TypeError, "no implicit conversion of nil into Array"]
+[1]
+[ArgumentError, "attempt to drop negative size"]
+[TypeError, "no implicit conversion from nil to integer"]
+3
+[TypeError, "can't convert Integer into Array"]
+1
+true
+false
+nil
+"ZR_P9_A"
+false
+nil
+nil
+nil
+true
+true
+nil
+true
+nil
+nil
+Enumerator
+Enumerator
+[TypeError, "no implicit conversion of Integer into String"]

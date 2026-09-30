@@ -1,0 +1,53 @@
+Infinity
+2
+1
+2
+0
+1
+0
+3
+3
+2
+0
+0
+nil
+[TypeError, "can't iterate from Float"]
+[TypeError, "can't iterate from NilClass"]
+[TypeError, "can't iterate from Float"]
+0.0
+nil
+7
+7
+7
+"negative size (-1)"
+[:blk, 9]
+[:blk, :z]
+"blk ZR_TEST_NO_SUCH_VAR"
+[:blk, :nope]
+[0, 1, 2]
+1
+:blk
+{k: 2}
+[1, 2]
+{a: 1, b: 2}
+{a: 1, b: 2, c: 3}
+"can't convert Bad to Hash (Bad#to_hash gives Integer)"
+"no implicit conversion of Object into Hash"
+"12"
+"9"
+"SP_B!"
+true
+false
+true
+1
+"ab"
+true
+1
+Enumerator
+[true, true]
+true
+0
+true
+Errno::ENOENT
+"No such file or directory @ chdir_path - /no/such/dir"
+"missing SP_NOPE_X"

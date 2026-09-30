@@ -1,0 +1,15 @@
+Wrapped
+"(a+)"
+0
+"aaa"
+Regexp
+[TypeError, "uninitialized Regexp"]
+"b+"
+1
+true
+[TypeError, "already initialized regexp"]
+Wrapped
+Wrapped
+"(a+)"
+"(a+)"
+"d+"

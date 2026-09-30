@@ -14,7 +14,7 @@ module Zr
     # `zr-dev bench`: the run time of the binary that zr builds, compared
     # with the run time of ruby, which made the recording.
     #
-    # `benchmark/` contains whole programs, as `test/e2e` does: a `.rb`
+    # `benchmark/` contains whole programs, as `test/programs` does: a `.rb`
     # file with ruby's output in `<name>.out` next to it. This class only
     # measures time and makes the comparison columns.
     #
@@ -137,7 +137,7 @@ module Zr
 
       # Returns the median run of `@runs` by wall clock, as a Tms. When
       # `want` is given, also returns the difference in the first run's
-      # output. Later runs are not checked. The spec tier finds a program
+      # output. Later runs are not checked. The program tests find a program
       # whose output changes from run to run.
       def medians(label, argv, cwd, stdin, env, rb, want)
         times = []

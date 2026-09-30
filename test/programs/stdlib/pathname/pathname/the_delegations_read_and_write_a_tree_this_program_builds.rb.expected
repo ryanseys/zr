@@ -1,0 +1,51 @@
+write returns count: 4
+read: "hello\nworld\n"
+read n: "hello"
+binread: "hello"
+readlines: ["hello\n", "world\n"]
+each_line: ["hello\n", "world\n"]
+open block: "hello"
+size: 12
+size?: [12, nil]
+zero?: true
+empty? file: true
+empty? dir: [false, false]
+exist?: [true, false]
+file?: [true, false]
+directory?: [false, true]
+ftype: ["file", "directory"]
+readable?: true
+writable?: true
+executable?: false
+symlink?: false
+stat class: File::Stat
+lstat class: File::Stat
+mtime class: Time
+atime class: Time
+ctime class: Time
+chmod: 1
+mode after chmod: "600"
+truncate: "abc"
+rename: [false, "x"]
+delete: false
+make_symlink: [true, true]
+make_link: [true, false]
+realpath class: Pathname
+realdirpath class: Pathname
+children classes: [Pathname]
+children sorted: ["deep"]
+children bare: ["deep"]
+each_child: ["deep"]
+entries sorted: [".", "..", "deep"]
+each_entry: [".", "..", "deep"]
+glob: ["hello.txt", "new.txt", "t.txt", "w.txt"]
+glob block: ["hello.txt", "new.txt", "t.txt", "w.txt"]
+find: [".", "empty", "hard", "hello.txt", "link", "new.txt", "sub", "sub/deep", "sub/deep/leaf.txt", "t.txt", "w.txt"]
+mkdir: true
+mkdir twice: "Errno::EEXIST: File exists"
+rmdir: false
+mkpath deep: true
+rmtree: false
+opendir: Dir
+mountpoint? tmp: false
+mountpoint? root: true

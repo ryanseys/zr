@@ -1,0 +1,17 @@
+[FrozenError, "can't modify frozen Object: #<Object:0x>"]
+[FrozenError, "can't modify frozen Object: #<Object:0x>"]
+true
+true
+[FrozenError, "can't modify frozen Object: #<Object:0x>"]
+[FrozenError, "can't modify frozen Class: Foo"]
+[FrozenError, "can't modify frozen Class: Foo"]
+[FrozenError, "can't modify frozen Class: Foo"]
+[FrozenError, "can't modify frozen Class: Foo"]
+true
+[FrozenError, "can't modify frozen Class: Fz"]
+[FrozenError, "can't modify frozen Class: Fz"]
+[FrozenError, "can't modify frozen Class: Fz"]
+[FrozenError, "can't modify frozen Class: Fz"]
+[FrozenError, "can't modify frozen Class: Fz"]
+[FrozenError, "can't modify frozen Class: Fr"]
+1

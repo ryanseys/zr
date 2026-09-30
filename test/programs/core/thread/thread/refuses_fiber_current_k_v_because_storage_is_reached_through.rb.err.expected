@@ -1,0 +1,4 @@
+core/thread/thread/refuses_fiber_current_k_v_because_storage_is_reached_through.rb:4:in '<main>': undefined method '[]=' for an instance of Fiber (NoMethodError)
+
+Fiber.current[:via_current] = 100
+             ^^^^^^^^^^^^^^^^

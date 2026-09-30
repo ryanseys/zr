@@ -1,0 +1,39 @@
+"inM"
+"top"
+M
+[M]
+1
+"foo"
+Object
+[#<Class:#<Object:0xADDR>>]
+"bar"
+false
+2
+4
+M
+true
+3
+"block"
+M
+true
+"wrong number of arguments (given 0, expected 1..3)"
+"no implicit conversion of Integer into String"
+"wrong number of arguments (given 1, expected 0)"
+"wrong number of arguments (given 0, expected 1..3)"
+:in_a_method
+nil
+"eval_under.rb:51):1:in 'Object#raising'"
+"somewhere.rb:12:in '<main>'"
+1
+1
+2
+nil
+6
+"local-variable"
+4
+"llo"
+"l"
+"y"
+"y"
+"b"
+"qqq"

@@ -1,0 +1,1 @@
+core/thread/thread/ractor_messages_are_received_in_fifo_order.rb:1: warning: Ractor API is experimental and may change in future versions of Ruby.

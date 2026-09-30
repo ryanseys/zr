@@ -1,0 +1,61 @@
+#<data Point x=1, y=2>
+#<data Point x=1, y=2>
+true
+true
+true
+false
+1
+3
+true
+{x: 1, y: 2}
+[:x, :y]
+[:x, :y]
+"#<data Point x=1, y=2>"
+"#<data Point x=1, y=2>"
+#<data Point x=1, y=5>
+#<data Point x=1, y=2>
+[:dist, :x, :y]
+[:[], :inspect, :members, :new]
+[:==, :deconstruct, :deconstruct_keys, :eql?, :hash, :inspect, :members, :to_h, :to_s, :with]
+Data
+[Point, Data]
+{x: 1}
+{x: 1, y: 2}
+true
+[]
+ArgumentError: missing keyword: :y
+ArgumentError: wrong number of arguments (given 3, expected 0..2)
+ArgumentError: missing keyword: :y
+ArgumentError: unknown keyword: :z
+ArgumentError: wrong number of arguments (given 2, expected 0)
+ArgumentError: wrong number of arguments (given 1, expected 0)
+ArgumentError: unknown keyword: :z
+FrozenError: can't modify frozen Point: #<data Point x=1, y=2>
+NoMethodError: undefined method 'new' for class Data
+ArgumentError: duplicate member: a
+ArgumentError: invalid data member: x=
+#<data Empty>
+{}
+[]
+true
+#<data Named v=0>
+#<data Named v=4>
+#<data Named v=6>
+#<data D3 a=1, b=9, c=3>
+#<data D3 a=1, b=2, c=3>
+"#<data D3 a=1, b=2, c=3>"
+#<data Sub x=1, y=2>
+3
+[:x, :y]
+"#<data x=1>"
+nil
+{"x" => 1, "y" => 2}
+false
+:v
+datas.rb:43:in 'Boom#initialize'
+datas.rb:47:in 'Boom.new'
+datas.rb:47:in '<main>'
+datas.rb:43:in 'Boom#initialize'
+datas.rb:48:in 'Boom.new'
+datas.rb:48:in '<main>'
+#<data Boom q=1>

@@ -1,0 +1,3 @@
+== the child adds its own extend, which sits ahead of the parent's
+"M2(M1(top))"
+["#<Class:ChildExtends>", "M2", "#<Class:Parent>", "M1", "#<Class:Object>"]

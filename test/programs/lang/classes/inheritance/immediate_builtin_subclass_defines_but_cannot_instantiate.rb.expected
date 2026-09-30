@@ -1,0 +1,5 @@
+Integer
+true
+true
+NoMethodError: undefined method 'new' for class MyInt
+NoMethodError

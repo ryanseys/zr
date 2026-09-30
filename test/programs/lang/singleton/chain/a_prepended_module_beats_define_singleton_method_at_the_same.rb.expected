@@ -1,0 +1,2 @@
+== define_singleton_method beats a prepended module's copy? no -- prepend wins
+"PA(dyn(noSuper))"

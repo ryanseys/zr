@@ -1,0 +1,15 @@
+[String, Comparable]
+[StringScanner, Object]
+[[:req, :fmt], [:key, :buffer]]
+[[:req, :fmt], [:key, :offset]]
+[[:req, :fmt], [:key, :offset]]
+97
+98
+"y"
+nil
+97
+1
+"a"
+98
+98
+nil

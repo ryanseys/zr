@@ -1,0 +1,28 @@
+in block
+:from_deep
+nil
+42
+[Object]
+1
+ensure ran
+3
+4
+5
+UncaughtThrowError
+"uncaught throw :nope"
+:nope
+7
+ArgumentError
+uncaught throw "s"
+:ok
+throws.rb:33:in 'block in <main>'
+throws.rb:33:in 'Kernel#catch'
+throws.rb:33:in '<main>'
+wrong number of arguments (given 0, expected 1..2)
+20
+:returned
+:broke
+true
+true
+true
+true

@@ -1,0 +1,43 @@
+[1, 2, 2, 3, nil, 4, 5]
+[1, 2, 2, 3, 4, 5]
+[nil]
+3
+true
+false
+[1, 2, 2, 3, 4, 5]
+{1 => "1", 2 => "2", 3 => "3", nil => "", 4 => "4", 5 => "5"}
+:none
+2
+nil
+543221[5, 4, nil, 3, 2, 2, 1]
+#<Bag:0xADDR @items=[1, 2, 2, 3, nil, 4, 5]>
+[1, 2, 2, 3, nil, 4, 5, 1, 2]
+Enumerator
+nil
+[5, 1]
+[1, 2, 2, 3, 4, 5]
+[2, 2, 3]
+[10, 20, 20, 30, 40, 50]
+[nil]
+[2, 4, 4, 6, 8, 10]
+["a", "c"]
+[[1, 2], [2, 3, 4, 5]]
+[[1], [2, 2], [3], [4], [5]]
+[[1, 2, 2], [3, 4, 5]]
+[[1, 2, 2, 3], [4, 5]]
+[[1, 2, 2], [3, 4, 5]]
+[[1], [2], [2], [3], [4], [5]]
+[[false, [1]], [true, [2, 2]], [false, [3]], [true, [4]], [false, [5]]]
+[[false, [1, 2, 2]], [:_alone, [3]], [true, [4, 5]]]
+[[true, [1, 2, 2, 3]], [true, [4, 5]]]
+[1, 2, 1, 1, 1]
+{1 => 2, 3 => 4}
+[[1, 2], [3, 4]]
+6
+Enumerator
+Enumerator
+Enumerator
+Enumerator
+ArgumentError: tried to create Proc object without a block
+ArgumentError: wrong number of arguments (given 0, expected 1)
+TypeError: wrong element type Integer (expected array)

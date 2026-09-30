@@ -1,0 +1,4 @@
+== extend on a plain OBJECT keeps its own chain
+"obj(top)"
+["#<Class:#<Object:0xADDR>>", "ObjMod"]
+"ObjMod"

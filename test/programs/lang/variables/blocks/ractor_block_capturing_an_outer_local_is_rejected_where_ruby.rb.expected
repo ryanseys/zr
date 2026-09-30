@@ -1,0 +1,2 @@
+raised: ArgumentError: can not isolate a Proc because it accesses outer variables (x).
+still running

@@ -1,0 +1,4 @@
+[:Base, :Class, :Instance, :REQUIRE_MUTEX, :VERSION]
+false
+"853982a0764eba5e"
+[:Base, :Class, :Instance, :REQUIRE_MUTEX, :SHA2, :SHA256, :SHA384, :SHA512, :VERSION]

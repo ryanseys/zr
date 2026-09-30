@@ -1,0 +1,5 @@
+#<data P x=1, y=2>
+#<data P x=1, y=2>
+[TypeError, "1 is not a symbol nor a string"]
+[ArgumentError, "unknown keyword: \"z\""]
+[ArgumentError, "missing keyword: :y"]

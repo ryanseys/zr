@@ -1,0 +1,4 @@
+stream class	Psych::Nodes::Stream
+stream documents	2
+stream roots	["1", "2"]
+yielded	["1", "2"]

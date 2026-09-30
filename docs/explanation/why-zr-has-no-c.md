@@ -44,7 +44,7 @@ function with its original, side by side.
 
 ## How the ports stay correct
 
-Each port has its own area in `test/spec/stdlib/<gem>/`, checked
+Each port has its own area in `test/programs/stdlib/<gem>/`, checked
 program by program against ruby.
 
 A port also runs on CRuby on the host. Thus two ports are also checked

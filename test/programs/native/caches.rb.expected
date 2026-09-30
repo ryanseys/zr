@@ -1,0 +1,41 @@
+polymorphic: ["A", "B", "A", "A", "B"]
+redefined: ["A2", "A2"]
+included: ["A2", "loud A2"]
+prepended: "pre loud A2"
+before singleton: "A2"
+singleton: ["single", "A2"]
+made private: NoMethodError: private method 'who' called for an instance of B
+made public: "B"
+made protected: NoMethodError: protected method 'who' called for an instance of B
+undefined: NoMethodError: undefined method 'who' for an instance of B
+missing: "missing who"
+aliased: "#<B>"
+specials: [NoMethodError, NoMethodError, NoMethodError, NoMethodError, NoMethodError]
+integer who: ["int", "int"]
+arity: [1, "wrong number of arguments (given 0, expected 1)", 3]
+keywords: [[1, 2], [1, 3], "missing keyword: :a"]
+accessors: [10, 30, 50]
+frozen writer: FrozenError: can't modify frozen Pt: #<Pt:0xXX @x=1, @y=2>
+new: [1, 2]
+new, initialize redefined: 300
+new, redefined new: "custom 4"
+new on Integer: NoMethodError: undefined method 'new' for class Integer
+ivar orders: [[1, 2], [10, 20], [1, 2]]
+ivar removed: [nil, 2, 5, 5, 2, [:@b, :@a]]
+ivar frozen: FrozenError: can't modify frozen Iv: #<Iv:0xXX @b=20, @a=10>
+class ivar: [1, 2, 3, 3]
+ivar on a string: TypeError
+ivar on main: 2
+constant: [1, 1]
+removed: NameError: uninitialized constant X
+set again: 2
+lexical: [:outer, :base]
+lexical gone: [NameError, :base]
+from a mixin: :mixin
+scoped: [Outer::Inner, Outer::Inner]
+made private: NameError: private constant Outer::Inner referenced
+deprecated: Outer::Inner
+const_missing: ["missing Nope", "missing Nope"]
+const_set: [:now, :now]
+one site, many classes: [0, 1, 2]
+evaluated classes: NameError: uninitialized constant V

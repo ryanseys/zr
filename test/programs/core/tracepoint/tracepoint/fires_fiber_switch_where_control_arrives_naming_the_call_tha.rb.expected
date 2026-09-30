@@ -1,0 +1,6 @@
+["Thread", 0, nil, nil, "nil", nil, nil]
+["Thread", 13, :resume, :resume, "Fiber", "Binding", nil]
+["Thread", 12, :yield, :yield, "#<Class:Fiber>", "Binding", nil]
+["Thread", 14, :resume, :resume, "Fiber", "Binding", nil]
+["Thread", 0, nil, nil, "nil", nil, nil]
+["Thread", 17, :transfer, :transfer, "Fiber", "Binding", nil]

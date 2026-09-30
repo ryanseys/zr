@@ -1,0 +1,31 @@
+["BA12", "CBA13", "DMCBA14"]
+["BA12", "CBA13", "DMCBA14"]
+["BA12", "CBA13", "DMCBA14"]
+["bA22", "CbA23", "DMCbA24"]
+["bA22", "CbA23", "DMCbA24"]
+["bA22", "CbA23", "DMCbA24"]
+["bA32", "CMbA33", "DMCMbA34"]
+["bA32", "CMbA33", "DMCMbA34"]
+["bA32", "CMbA33", "DMCMbA34"]
+"NDMCMbA40"
+[N, D, M, C, M]
+["dm:A51", "dm:hey6"]
+["dm:A51", "dm:hey6"]
+["dm:A51", "dm:hey6"]
+"A97"
+NoMethodError
+"A97"
+NoMethodError
+"A97"
+NoMethodError
+"RA109"
+"NDMCMbA110"
+"RA109"
+"NDMCMbA110"
+"RA109"
+"NDMCMbA110"
+"SRA1312"
+"SRA1312"
+"SRA1312"
+ArgumentError
+NoMethodError

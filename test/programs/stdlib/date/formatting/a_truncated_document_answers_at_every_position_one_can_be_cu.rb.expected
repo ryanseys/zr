@@ -1,0 +1,34 @@
+truncated ""	false
+truncated " "	false
+truncated "---"	nil
+truncated "--- "	nil
+truncated "-"	[nil]
+truncated "- "	[nil]
+truncated "a:"	{"a" => nil}
+truncated "a: "	{"a" => nil}
+truncated "{"	Psych::SyntaxError
+truncated "}"	Psych::SyntaxError
+truncated "["	Psych::SyntaxError
+truncated "]"	Psych::SyntaxError
+truncated "{a"	Psych::SyntaxError
+truncated "{a:"	Psych::SyntaxError
+truncated "[1"	Psych::SyntaxError
+truncated "'"	Psych::SyntaxError
+truncated "\""	Psych::SyntaxError
+truncated "\"a"	Psych::SyntaxError
+truncated "'a"	Psych::SyntaxError
+truncated "&"	Psych::SyntaxError
+truncated "&a"	nil
+truncated "*"	Psych::SyntaxError
+truncated "*a"	Psych::AnchorNotDefined
+truncated "!"	nil
+truncated "!!"	Psych::SyntaxError
+truncated "!!str"	""
+truncated "? "	{nil => nil}
+truncated "|"	""
+truncated ">"	""
+truncated "a: &"	Psych::SyntaxError
+truncated "a: *"	Psych::SyntaxError
+truncated "%YAML"	Psych::SyntaxError
+truncated "%YAML 1.1"	Psych::SyntaxError
+truncated "---\n..."	nil

@@ -1,0 +1,4 @@
+IndexError: index -999 too small for array; minimum: -3
+IndexError: index -1 too small for array; minimum: 0
+ArgumentError: attempt to drop negative size
+ArgumentError: attempt to take negative size

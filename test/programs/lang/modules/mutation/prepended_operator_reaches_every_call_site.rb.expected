@@ -1,0 +1,17 @@
+3
+4
+6
+7
+:plus
+:plus
+3
+:later
+:later
+4
+:redefined
+:redefined
+6
+:index
+:index
+7
+"private method '%' called for an instance of Integer"

@@ -1,0 +1,5 @@
+[-1, true, true, true]
+[0.15e1, 0.25e1, 0.15e1, 0.2e1]
+[0.1e1, 0.15e1]
+[false, nil, true]
+[nil, false]

@@ -1,0 +1,6 @@
+#<IOError: sysread for buffered IO>
+#<IOError: sysseek for buffered IO>
+"ab\n"
+[1, "b"]
+#<IOError: sysseek for buffered IO>
+"yx"

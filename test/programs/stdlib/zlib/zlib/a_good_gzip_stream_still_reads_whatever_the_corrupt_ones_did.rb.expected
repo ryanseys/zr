@@ -1,0 +1,11 @@
+good gzip: ok "gzip payload, gzip payload"
+gzip with auto detection: ok "gzip payload, gzip payload"
+gzip read as zlib: Zlib::DataError: incorrect header check
+gzip method 7: Zlib::DataError: unknown compression method
+gzip reserved flags: Zlib::DataError: unknown header flags set
+gzip length off: Zlib::DataError: incorrect length check
+gzip crc off: Zlib::DataError: incorrect data check
+gzip header crc wrong: Zlib::DataError: header crc mismatch
+gzip with a name: ok "gzip payload, gzip payload"
+gzip with an extra field: ok "gzip payload, gzip payload"
+two gzip members: ok "gzip payload, gzip payload"

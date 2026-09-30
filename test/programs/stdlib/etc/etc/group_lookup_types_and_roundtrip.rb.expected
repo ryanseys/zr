@@ -1,0 +1,8 @@
+Etc::Group
+true
+true
+true
+true
+true
+[:name, :passwd, :gid, :mem]
+true

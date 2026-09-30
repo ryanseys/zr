@@ -1,0 +1,39 @@
+"3.0.2"
+nil
+true
+#<JSON::ParserError: duplicate key "a" at line 1 column 1>
+#<JSON::ParserError: duplicate key "b" at line 1 column 11>
+"$.a[1].b"
+#<JSON::ParserError: unexpected token 'tru}]}' at line 1 column 17>
+"$.a[1].b"
+1
+17
+"$[2][1]"
+#<JSON::ParserError: unexpected end of input at line 1 column 15>
+"$.b"
+"$"
+#<JSON::ParserError: unexpected token '/*' at line 1 column 1>
+[1]
+#<ArgumentError: unknown keyword: bogus>
+#<ArgumentError: unknown keywords: bogus, other>
+#<ArgumentError: unknown keyword: bogus>
+#<ArgumentError: unknown keyword: escape_slash>
+false
+false
+#<JSON::ParserError: unpaired trailing surrogate at '\udc00"' at line 1 column 2>
+"😀"
+#<JSON::GeneratorError: detected duplicate key "a" in {a: 1, "a" => 2}>
+"{\"a\":1,\"a\":2}"
+"\"sym\""
+"[\"sym\"]"
+[1]
+{a: 1}
+18446744073709551615
+-9223372036854775808
+-9223372036854775809
+{"json_class" => "Range", "a" => [1, 2, false]}
+#<ArgumentError: unknown keyword: bogus>
+"{\"a\":1}"
+"{\n  \"a\": [\n    1\n  ]\n}"
+#<ArgumentError: unknown keyword: bogus>
+"constant"

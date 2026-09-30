@@ -1,0 +1,14 @@
+tag str on a number	"017"
+tag int on text	42
+tag int on garbage	"zz"
+tag float on int	3.0
+tag float on garbage	ArgumentError
+tag bool	true
+tag binary	"hi"
+tag binary garbage	""
+tag binary empty	""
+tag omap	{"a" => 1, "b" => 2}
+tag set	{"a" => nil, "b" => nil}
+tag unknown	42
+tag ruby symbol	:foo
+tag on a seq	[1]

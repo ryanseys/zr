@@ -1,0 +1,6 @@
+[["a", #<Encoding:UTF-8>], ["é", #<Encoding:UTF-8>], ["あ", #<Encoding:UTF-8>], [nil, nil]]
+["a", "\xC3", "\xA9", "\xE3", "\x81", "\x82"]
+["a", #<Encoding:BINARY (ASCII-8BIT)>]
+["a", "\xC3", "\xA9"]
+["a", "Ã", "©", "ã", "\u0081", "\u0082"]
+"a"

@@ -1,0 +1,6 @@
+"#<Enumerator: #<struct Trio a=1, b=2, c=3>:cycle>"
+"#<Enumerator: #<struct Trio a=1, b=2, c=3>:cycle(2)>"
+"#<Enumerator: #<struct Trio a=1, b=2, c=3>:min_by>"
+"#<Enumerator: #<struct Trio a=1, b=2, c=3>:min_by(2)>"
+"#<Enumerator: #<struct Trio a=1, b=2, c=3>:max_by>"
+"#<Enumerator: #<struct Trio a=1, b=2, c=3>:max_by(2)>"

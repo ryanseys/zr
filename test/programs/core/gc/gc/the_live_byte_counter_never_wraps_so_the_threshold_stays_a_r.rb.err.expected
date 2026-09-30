@@ -1,0 +1,4 @@
+core/gc/gc/the_live_byte_counter_never_wraps_so_the_threshold_stays_a_r.rb:26:in '<main>': undefined method '>' for nil (NoMethodError)
+
+puts "threshold positive: " + (g["threshold"] > 0 ? "yes" : "no")
+                                              ^

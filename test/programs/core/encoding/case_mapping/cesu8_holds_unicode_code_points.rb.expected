@@ -1,0 +1,29 @@
+"a\u00E9\u65E5\u{1F600}"
+4
+97
+128512
+[97, 233, 26085, 128512]
+12
+"A\xC3\x89\xE6\x97\xA5\xED\xA0\xBD\xED\xB8\x80"
+"A\xC3\x89\xE6\x97\xA5\xED\xA0\xBD\xED\xB8\x80"
+"A\xC3\xA9\xE6\x97\xA5\xED\xA0\xBD\xED\xB8\x80"
+"\xED\xA0\xBD\xED\xB8\x80\xE6\x97\xA5\xC3\xA9a"
+"\"a\\xC3\\xA9\\xE6\\x97\\xA5\\xED\\xA0\\xBD\\xED\\xB8\\x80\""
+"\xC3\xA9"
+"\xED\xA0\xBD\xED\xB8\x80"
+#<RangeError: invalid codepoint 0xD800 in CESU-8>
+#<RangeError: 1114112 out of char range>
+"x\xED\xA0\xBD\xED\xB8\x81"
+4
+"**a\xC3\xA9\xE6\x97\xA5\xED\xA0\xBD\xED\xB8\x80***"
+"\"a\\u00E9\\u65E5\\u{1F600}\""
+"\"\\u{1F600}\""
+false
+"\"\\xED\\xA0\\x80\""
+#<ArgumentError: invalid byte sequence in CESU-8>
+#<RangeError: invalid codepoint 0xD800 in UTF8-MAC>
+#<ArgumentError: invalid byte sequence in UTF8-MAC>
+#<RangeError: invalid codepoint 0xD800 in UTF8-MAC>
+"\"a\\xC3\\xA9\""
+"\"\\xC6\\xFC\""
+"\"\\u00E9\""

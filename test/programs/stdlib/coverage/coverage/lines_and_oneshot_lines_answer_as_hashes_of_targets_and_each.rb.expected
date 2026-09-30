@@ -1,0 +1,13 @@
+:suspended
+#<RuntimeError: coverage measurement is not running>
+#<RuntimeError: coverage measurement is already running>
+#<RuntimeError: coverage measurement is already setup>
+["lib_a.rb", {lines: [0, 1, nil, nil, 0, 1, 1, nil, 0, nil, nil]}]
+:running
+{"lib_a.rb" => {lines: [0, 1, nil, nil, 0, 0, 0, nil, 0, nil, nil]}}
+:idle
+["lib_b.rb", {oneshot_lines: [1, 2, 4, 5]}]
+#<RuntimeError: cannot enable lines and oneshot_lines simultaneously>
+:idle
+#<RuntimeError: coverage measurement is not set up yet>
+[true, false]

@@ -1,0 +1,5 @@
+Regexp.timeout default: nil
+Regexp.timeout set: 3.0
+Regexp.timeout cleared: nil
+Regexp#~: 6
+Regexp#~ miss: nil

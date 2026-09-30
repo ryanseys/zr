@@ -1,0 +1,3 @@
+getwd class: Pathname
+pwd agrees with Dir: true
+Pathname.glob class: Array

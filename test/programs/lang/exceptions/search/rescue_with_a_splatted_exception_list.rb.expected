@@ -1,0 +1,10 @@
+const TypeError
+local no-capture
+mixed1 TypeError
+mixed2 TypeError
+single RuntimeError
+empty catches nothing
+propagated TypeError
+module-match Alarmed
+ensure ran
+ok n=2

@@ -1,0 +1,10 @@
+true
+true
+[IOError, "closed directory"]
+[IOError, "closed directory"]
+true
+1
+1
+true
+[IOError, "closed stream"]
+0

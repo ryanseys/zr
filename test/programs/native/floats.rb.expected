@@ -1,0 +1,252 @@
+3.5
+3.5
+2.5
+-2.5
+3.0
+3.0
+3.5
+3.5
+2.0
+1.5
+0.5
+-0.5
+1024.0
+1.4142135623730951
+0.5
+Float
+true
+true
+false
+false
+true
+true
+false
+-1
+1
+0
+nil
+true
+true
+true
+true
+true
+false
+true
+true
+true
+true
+false
+:a
+true
+true
+3
+4
+-3
+2
+3
+2
+-3
+3
+-2
+2
+-2
+2
+-2
+1.23
+1.24
+2.68
+1.5
+1200
+1.23
+-1.24
+1.24
+-1.23
+1.0
+0.0
+123.456
+[1, 2.0]
+[-2, 1.0]
+[-3, -0.5]
+1
+2.5
+[3, 1.0]
+3.5
+3
+0.7000000000000002
+Infinity
+-Infinity
+true
+1
+-1
+nil
+true
+false
+false
+true
+nil
+1.7976931348623157e+308
+2.2250738585072014e-308
+2.220446049250313e-16
+15
+53
+Infinity
+-Infinity
+true
+5.5
+5.5
+5.5
+false
+true
+true
+true
+true
+false
+true
+#<ZeroDivisionError: divided by 0>
+#<ZeroDivisionError: divided by 0>
+#<ZeroDivisionError: divided by 0>
+#<FloatDomainError: NaN>
+#<FloatDomainError: Infinity>
+#<FloatDomainError: -Infinity>
+#<TypeError: String can't be coerced into Float>
+#<TypeError: nil can't be coerced into Float>
+#<ArgumentError: comparison of Float with String failed>
+#<ArgumentError: comparison of Float with nil failed>
+#<TypeError: String can't be coerced into Integer>
+10.0
+-3.0
+0.0
+9.007199254740992e+15
+9.007199254740992e+15
+1
+10000000000
+-10000000000
+1000000000000000000
+3.14
+-2500.0
+0.0
+1000.5
+0.5
+5.0
+1.0
+0.0
+0.0
+1.0
+0.0
+-0.5
+3.14
+2.5
+1000.5
+3.0
+2.5
+100000.0
+0.5
+-0.0015
+#<ArgumentError: invalid value for Float(): "1e">
+#<ArgumentError: invalid value for Float(): "abc">
+#<ArgumentError: invalid value for Float(): "">
+#<ArgumentError: invalid value for Float(): "1__0">
+#<ArgumentError: invalid value for Float(): "_1">
+#<ArgumentError: invalid value for Float(): "1_">
+#<ArgumentError: invalid value for Float(): "Infinity">
+#<ArgumentError: invalid value for Float(): "1.5x">
+nil
+nil
+#<TypeError: can't convert nil into Float>
+#<TypeError: can't convert Array into Float>
+4.0
+1.4142135623730951
+2.0
+3.141592653589793
+2.718281828459045
+0.0
+1.0
+2.718281828459045
+1.0
+3.0
+3.0
+3.0
+0.7853981633974483
+5.0
+3.0
+0.5463024898437905
+0.7853981633974483
+1.1752011936438014
+1.0
+0.46211715726000974
+1.5707963267948966
+0.0
+#<Math::DomainError: Numerical argument is out of domain - sqrt>
+[Math::DomainError, StandardError, Exception]
+#<Math::DomainError: Numerical argument is out of domain - log>
+#<TypeError: can't convert String into Float>
+#<TypeError: can't convert nil into Float>
+[1.25, 2.0, 3.5]
+3.5
+1.5
+4.0
+3.5
+true
+true
+2
+2.0
+[2.0, 1.5]
+[2.5, 1.0]
+[2.5, 1.5]
+0.7000000000000002
+"100.0"
+100.0
+0.01
+Infinity
+-Infinity
+1.0e-320
+0.0
+0.30000000000000004
+1.2100000000000002
+33.333333333333336
+true
+1.0e+20
+1.0e+20
+1.0e-07
+1234567.0
+12345678.9
+1
+2
+0
+0
+-1
+-2
+3
+4
+-4
+-3
+3
+3
+12.3
+12.4
+12.35
+0.62
+0.29
+1.01
+3
+1.0
+-4
+[3, 0.0]
+0.9999999999999999
+false
+true
+"2.5"
+"2.5"
+"2.5"
+"1.0e+100"
+"1.0e-100"
+"[1.5, [2.5]]"
+"{a: 1.5}"
+true
+true
+true
+false
+Float
+false
+1.5
+0.0

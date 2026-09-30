@@ -1,0 +1,176 @@
+"héllo wörld"
+11
+11
+13
+"é"
+"d"
+"éll"
+"éll"
+"éllo wörl"
+"örld"
+"hé"
+nil
+nil
+""
+nil
+"llo"
+"ö"
+nil
+"rl"
+["h", "é", "l", "l", "o", " ", "w", "ö", "r", "l", "d"]
+11
+["r", "l", "d"]
+13
+[104, 233, 108, 108, 111, 32, 119, 246, 114, 108, 100]
+"dlröw olléh"
+11
+2
+7
+6
+9
+7
+nil
+true
+true
+true
+"**héllo wörld**"
+"héllo wörldéé"
+"   héllo wörld"
+"héllo wörld"
+"aéab"
+"héllo wörl"
+10
+"h"
+""
+104
+233
+8364
+128512
+1
+4
+[240, 159, 152, 128]
+"😀"
+"😀"
+"b"
+"b😀a"
+"aXñZbY"
+6
+"aÑÑb"
+4
+"qÑb"
+"q😀"
+2
+"ñ"
+"a"
+"bñ"
+"a"
+"c"
+"a"
+nil
+"a"
+["a", "ñ", "b"]
+["a", "ñ", "b"]
+["a", "ñ", "b"]
+[97, 241, 98]
+["ñ"]
+["a", "ñ", "b"]
+["a", "ñ", "b"]
+"anb"
+"annb"
+"añb"
+"añb"
+"añb"
+"añbañb"
+"añbç"
+-1
+true
+true
+true
+:añb
+"añb"
+3
+true
+"añb"
+"a\xC3\xB1b"
+4
+"\"a\\xC3\\xB1b\""
+"\"añb\""
+"\"é\""
+"\"a b\""
+"\"\\u007F\""
+"\"a\\xFFb\""
+false
+true
+false
+true
+3
+["a", "\xFF", "b"]
+"\"\\u0001\\u0000\""
+"\"a\\xFFb\""
+#<ArgumentError: invalid byte sequence in UTF-8>
+#<Encoding:UTF-8>
+#<Encoding:BINARY (ASCII-8BIT)>
+#<Encoding:UTF-8>
+"UTF-8"
+"UTF-8"
+"#<Encoding:UTF-8>"
+true
+#<Encoding:BINARY (ASCII-8BIT)>
+true
+"UTF-8"
+#<Encoding:US-ASCII>
+#<Encoding:BINARY (ASCII-8BIT)>
+#<Encoding:UTF-8>
+4
+3
+"añb"
+#<Encoding:UTF-8>
+nil
+"\"a\\u00F1b\""
+"\"\\u{1F600}\""
+"\"a\\xFFb\""
+"ñ|    ñ|ñ    |"
+3
+567
+10
+0
+0
+1
+"ññ😀"
+3
+8
+[241, 241, 128512]
+"A"
+#<Encoding:BINARY (ASCII-8BIT)>
+[200]
+"ñ"
+"😀"
+[["a", 0], ["ñ", 1], ["b", 2]]
+["ñ"]
+["61", "c3", "b1", "62"]
+195
+"ñ"
+false
+"\"\\xC3\""
+1
+{"ñ" => 1, ñ: 2}
+1
+2
+[1, 1]
+6
+:ünïcode
+true
+"añb"
+"ñb"
+"a"
+true
+4
+1
+"añb!"
+0
+3
+nil
+[100]
+"ñññ"
+["a", "ñ"]
+55

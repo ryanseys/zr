@@ -1,0 +1,5 @@
+SE-tag: boom
+base hello
+late method
+mixed in
+exc: RuntimeError

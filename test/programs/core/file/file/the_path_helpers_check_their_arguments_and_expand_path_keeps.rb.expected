@@ -1,0 +1,15 @@
+#<TypeError: no implicit conversion of nil into String>
+#<TypeError: no implicit conversion of Integer into String>
+"a"
+"//a"
+"//b/a"
+"///a/b"
+"/"
+"//"
+"/b"
+#<ArgumentError: string contains null byte>
+#<ArgumentError: string contains null byte>
+#<TypeError: no implicit conversion of Integer into String>
+true
+#<Encoding::CompatibilityError: path name must be ASCII-compatible (UTF-16LE): "a">
+#<Encoding::CompatibilityError: path name must be ASCII-compatible (UTF-16LE): "b">

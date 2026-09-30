@@ -1,0 +1,10 @@
+[[:x, :y, :b], 1, Object]
+[:outer, :pr, :zz, :hb]
+[:i, :inner, :outer, :pr, :zz, :hb]
+9
+[[:hidden], :in_make]
+[12, 13, 14]
+Binding
+["<main>", 0]
+11
+[10, 1, 5]

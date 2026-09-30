@@ -1,0 +1,14 @@
+[:asked, :ghost, false]
+[:asked, :ghost, true]
+true
+true
+[RuntimeError, "boom"]
+false
+true
+true
+true
+true
+[TypeError, "class or module required"]
+[TypeError, "wrong argument type Integer (expected Module)"]
+nil
+nil

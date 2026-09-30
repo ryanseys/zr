@@ -4,39 +4,67 @@ This page explains how zr's tests are organized and how a test run
 uses processes, memory and the cache. For the steps, see
 [How to run the tests](../how-to/run-the-tests.md).
 
-## Three tiers
+## Two tiers
 
-The tests are in three tiers. Each tier is a directory below `test/`.
+The tests are in two tiers. Each tier is a directory below `test/`.
 
 | Tier | Directory | Tests |
 |---|---|---|
-| unit | `test/unit/` | zr's own internals: the parser port, the passes, the backends, the linkers, the harness |
-| spec | `test/spec/` | Ruby behavior. Each example is a small program that zr compiles and runs, checked against ruby 4.0.7's output |
-| e2e | `test/e2e/` | whole programs, built and linked as a user builds them, checked against their recordings |
+| unit | `test/unit/` | zr's own internals: the parser port, the passes, the backends, the linkers, the harness, the tools. Minitest, in plain `def test_...` methods |
+| programs | `test/programs/` | Ruby behavior and the product. Each test is a plain Ruby program that zr builds and runs, checked against ruby 4.0.7's output |
 
-ruby 4.0.7 is the reference for the spec and e2e tiers. Every expected
-output comes from ruby, never from a person. See
-[The contract](the-contract.md).
+ruby 4.0.7 is the reference for the program tests. Every expected
+output comes from ruby (`zr-dev expect`), never from a person. See
+[The contract](the-contract.md) and
+[Program tests](../reference/program-tests.md).
 
-`bin/test` runs each tier in its own process, because each tier loads
-its own helper: `test/test_helper.rb` for the unit and e2e tiers, and
-`test/spec_helper.rb` for the spec tier.
+`bin/test` runs each tier in its own process. The unit tier loads
+minitest and `test/test_helper.rb`. The program tests use no test
+framework: `test/support/programs.rb` runs them.
 
 ## The runtime is built first
 
 Every program that a test builds links the same runtime. Before a tier
 starts its workers, `bin/test` builds the runtime for this host if it
-is not built or is out of date (`Zr::Test::Built.ready!`). It then
-loads the runtime into the parent process, so all the workers share
-one copy. After a change under `lib/` or `runtime/`, this build takes a
-few minutes.
+is not built or is out of date (`Zr::Test::Built`). It then loads the
+runtime into the parent process, so all the workers share one copy.
+After a change under `lib/` or `runtime/`, this build takes a few
+minutes.
+
+A unit test file that builds a program says so in its first lines:
+
+```ruby
+# zr-test: runtime   # it builds a program, without eval support
+# zr-test: eval      # it builds a program that evals
+```
+
+A unit file without this comment builds nothing, so a run of such
+files does not build or load the runtime, and starts at once
+(`test/support/needs.rb`). In a test whose file does not declare
+`runtime`, the first use of the runtime raises. It raises also when the
+cache is warm, so a test passes or fails in the same way on every
+machine.
+
+A run of program tests always needs the runtime. It also builds eval
+support when one of its programs evals.
+
+At the end, `bin/test` prints the time of each step to stderr:
+
+```
+bin/test: 41.20 s (load 1.10 s, prebuild 0.40 s, require 0.90 s, tests 38.80 s)
+```
+
+A run of program tests has no `require` step.
 
 ## A tier forks its workers
 
-One process loads every test file of the tier. It then gives each
-example to a forked worker, several at a time (`Zr::Test::ForkPool`).
-The unit of work is one example, not one file, so no worker waits while
-another worker has many examples left.
+The parent process loads zr and, for the unit tier, every test file.
+It then gives the work to forked workers, several at a time. The unit
+tier gives each test method to a worker (`Zr::Test::ForkPool`), so no
+worker waits while another worker has many tests left. The program
+runner gives each program to a worker (`Zr::Test::Programs::Pool`).
+A worker builds the program in its own process, so it loads nothing
+again.
 
 Forks, not threads, give the parallel work. A zr compile is Ruby code,
 and the GVL lets only one thread run Ruby at a time.
@@ -47,54 +75,60 @@ back to the system. Thus a worker that grows past `ZR_TEST_RECYCLE_MB`
 does not grow, so the whole run stays near `workers × 600 MB` above
 the parent.
 
-`MT_CPU` sets the number of workers. The default is one for each core,
-or one for each 2 GB of memory if that is fewer. A compile and the
-program it builds need about 2 GB together. A machine that swaps does
-not fail: it becomes about ten times slower. The memory limit prevents
-this.
+`MT_CPU` sets the number of workers. The default is one for each 2 GB
+of memory, after a quarter of the memory (at least 4 GB) is kept free,
+and at most two fewer than the cores (`test/support/workers.rb`). A
+compile and the program it builds need about 2 GB together. A machine
+that swaps does not fail: it becomes about ten times slower. The
+memory limit prevents this.
 
 A worker that the system stops takes its pipe with it. The parent then
-reports the example that the worker ran as an error, and the run
+reports the test that the worker ran as an error, and the run
 continues.
 
-## Limits on each example
+## Limits on each test
 
-An example has a time limit (`ZR_TEST_TIMEOUT`, 180 seconds, or a
-higher limit that the suite sets). A worker that is silent for longer
-is stopped, and its example fails. Thus a compile that loops costs one
-example, not the tier.
+A test has a time limit (`ZR_TEST_TIMEOUT`, 180 seconds, or a higher
+limit that a unit suite sets). A worker that runs one test for longer
+is stopped, and its test fails. Thus a compile that loops costs one
+test, not the tier.
 
 A program that a test runs also has limits: 60 seconds
-(`ZR_TEST_SECONDS`, four times longer under `GC=stress`), and memory
-limits for the build and the run (`ZR_TEST_BUILD_MB`,
-`ZR_TEST_RUN_MB`). The harness reads the resident size of the whole
-process group while it runs, because macOS does not enforce
-`RLIMIT_AS`. When the group passes a limit, the harness stops the
-whole group.
+(`ZR_TEST_SECONDS`), and memory limits for the build and the run
+(`ZR_TEST_BUILD_MB`, `ZR_TEST_RUN_MB`). The harness reads the resident
+size of the whole process group while it runs, because macOS does not
+enforce `RLIMIT_AS`. When the group passes a limit, the harness stops
+the whole group.
 
-## Skip or fail
+## Pass, fail, error or skip
 
-A spec example that zr refuses skips. The skip message gives the form
-that zr does not support. At the end of the run, the refusal census
-counts the skips by form. This list shows what zr does not support
-yet. An example whose build makes no binary also skips and is counted.
+A program test passes only when its stdout, its stderr and its exit
+status are ruby's. A different output is a failure. A refusal, a build
+that fails, a crash of the backend, a trap or a limit is an error. A
+test skips only when this machine cannot run it (`.needs`, or no
+wasmtime for a WASI target), or when the baseline of the target allows
+its failure.
 
-Only a wrong output, a crash or a timeout is a failure. Thus a new
-failure always means that something changed.
+A refusal is an error because the baseline, not the run, lists what
+a target may fail. A test in the baseline that passes fails the run.
+Thus a new failure always means that something changed, and the
+baseline cannot become out of date.
 
 ## Kept binaries
 
-The spec tier keeps the binary of each example in the cache
-(`ZR_TEST_BINARIES`). The key is every input of the binary's bytes:
-the runtime's digest, the linker, the program and its files, and the
-variables that change a build. A later run of an unchanged example
-uses the kept binary and does not build. A directory of specs then
-runs in about a third of the time. `ZR_TEST_BINARIES_GB` limits the
-size of the kept binaries.
+The program tests keep the binary of each program in the cache
+(`ZR_TEST_BINARIES`, `test/support/binaries.rb`). The key is every
+input of the binary's bytes: the runtime's digest, the linker, the
+program and its files, and the variables that change a build. A later
+run of an unchanged program uses the kept binary and does not build.
+`ZR_TEST_BINARIES_GB` limits the size of the kept binaries. A test
+below `test/programs/cli/` builds with `zr build` each time, because
+the build is what it tests.
 
 ## Progress
 
-A tier writes its progress to `tmp/test-progress.txt` at most once a
-second: how many examples are done, which failed, the rate, and the
-time left. `zr-dev progress` prints the file, so you can look at a
-run in the background.
+The unit tier writes its progress to `tmp/test-progress.txt` at most
+once a second: how many tests are done, which failed, the rate, and the
+time left. `zr-dev progress` prints the file, so you can look at a run
+in the background. The program runner prints its marks as each test
+ends.

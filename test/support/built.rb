@@ -44,27 +44,50 @@ module Zr
       # into this process for the workers to share. `ZR_TEST_BUILT=0` skips
       # both.
       #
-      # `files` are the test files of the run. A file outside the spec tier
-      # declares what it needs (`Needs`); a run of files that build no program
-      # builds and loads nothing. Eval support takes minutes to build after
-      # an edit, so it is built only when one of them can need it (`evals?`).
-      # Nil means that the run is not known.
+      # `files` are the unit test files of the run. Each declares what it
+      # needs (`Needs`); a run of files that build no program builds and
+      # loads nothing. Eval support takes minutes to build after an edit, so
+      # it is built only when a file declares `eval`. Nil means that the run
+      # is not known.
       def ready!(wasm: false, files: nil)
         return unless Zr.flag?("ZR_TEST_BUILT", default: true)
-        return if files && need(files) == :none
 
-        build(targets(wasm: wasm), evals: evals?(files))
+        need = files ? Needs.most(files) : :eval
+        return if need == :none
+
+        build(targets(wasm: wasm), evals: need == :eval)
         targets(wasm: wasm).each { |target| load(target) }
       end
 
-      # The most that a run of `files` needs: a spec file needs the runtime,
-      # and eval support when one of its examples evals (`evals?`).
-      def need(files)
-        specs, others = files.partition { |file| spec?(file) }
-        [Needs.most(others), *(:runtime if specs.any?)].max_by { |need| Needs::LEVELS.fetch(need) }
+      # `ready!` for a run of program tests (`Case`s): they need the
+      # runtime, and eval support when one of their programs evals.
+      def ready_for_programs!(tests, wasm: false)
+        return unless Zr.flag?("ZR_TEST_BUILT", default: true)
+        return if tests.empty?
+
+        build(targets(wasm: wasm), evals: programs_eval?(tests))
+        targets(wasm: wasm).each { |target| load(target) }
       end
 
-      def spec?(file) = File.expand_path(file).start_with?(File.join(File.expand_path("../spec", __dir__), ""))
+      # The most programs that `programs_eval?` reads. Each costs a HIR
+      # build, so a larger run builds eval support without reading them.
+      PROGRAMS_READ = 400
+
+      # Whether one of `tests` evals (`Hir::Program#evals`, the flag that
+      # makes a build link eval support), where its files are, as the run
+      # writes them. An error in the check means yes. A worker that meets
+      # an eval program without eval support builds it, which is slow but
+      # correct.
+      def programs_eval?(tests)
+        return true if tests.size > PROGRAMS_READ
+
+        require_relative "program_run"
+        tests.any? do |test|
+          ProgramRun.within(test) { |run, _| Dir.chdir(run) { Zr::Hir.build(test.source, test.rel).evals } }
+        end
+      rescue StandardError, ScriptError
+        true
+      end
 
       # Whether the caches of `target` are complete. A build writes the
       # mark file last, after every cache file is written. A build with
@@ -75,51 +98,6 @@ module Zr
 
       def mark(target, evals: true)
         File.join(Zr::Paths.cache, "built-#{Zr.runtime(target).digest}#{"-plain" unless evals}.ok")
-      end
-
-      # The most spec examples that `evals?` reads. Each costs a HIR
-      # build, so a larger run builds eval support as before.
-      EXAMPLES_READ = 400
-
-      # Whether a run of `files` can need eval support: a file that declares
-      # `eval`, more than EXAMPLES_READ spec examples, or a spec example whose
-      # program evals (`Hir::Program#evals`, the flag that makes a build link
-      # eval support). An error in the check means yes. A worker that meets
-      # an eval program without eval support builds it, which is slow but
-      # correct.
-      def evals?(files)
-        return true if files.nil?
-
-        specs, others = files.partition { |file| spec?(file) }
-        return true if Needs.most(others) == :eval
-        return false if specs.empty?
-
-        require_relative "reader"
-        examples = specs.flat_map { |file| Zr::Reader.read(file) }
-        return true if examples.size > EXAMPLES_READ
-
-        examples.any? { |example| example_evals?(example) }
-      rescue StandardError, ScriptError
-        true
-      end
-
-      # Builds the HIR of one example's program where its fixtures are, as
-      # the spec runner writes them, and returns whether it evals.
-      def example_evals?(example)
-        kwargs = example.kwargs
-        Dir.mktmpdir("zr-evals-") do |work|
-          rb = File.join(work, kwargs.fetch(:path))
-          FileUtils.mkdir_p(File.dirname(rb))
-          File.write(rb, example.source)
-          kwargs.fetch(:files, {}).each do |name, bytes|
-            next if bytes.is_a?(Hash)
-
-            beside = File.expand_path(name, File.dirname(rb))
-            FileUtils.mkdir_p(File.dirname(beside))
-            File.binwrite(beside, bytes)
-          end
-          Dir.chdir(work) { Zr::Hir.build(example.source, kwargs.fetch(:path)).evals }
-        end
       end
 
       # Reads the caches of `target` into this process one time.

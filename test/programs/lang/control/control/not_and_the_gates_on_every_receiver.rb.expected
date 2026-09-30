@@ -1,0 +1,19 @@
+[:plain, [true, true, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false], [true, true, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false], [false, false, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true]]
+[:true_redefined, [true, true, :not_true, false, false, false, false, false, false, false, false, false, false, false, false, false, false], [true, true, :not_true, false, false, false, false, false, false, false, false, false, false, false, false, false, false], [:not_true, :not_true, false, true, true, true, true, true, true, true, true, true, true, true, true, true, true]]
+[:kernel, [:kernel_not, :kernel_not, :kernel_not, :kernel_not, :kernel_not, :kernel_not, :kernel_not, :kernel_not, :kernel_not, :kernel_not, :kernel_not, :kernel_not, :kernel_not, :kernel_not, :kernel_not, :kernel_not, :kernel_not], [:kernel_not, :kernel_not, :kernel_not, :kernel_not, :kernel_not, :kernel_not, :kernel_not, :kernel_not, :kernel_not, :kernel_not, :kernel_not, :kernel_not, :kernel_not, :kernel_not, :kernel_not, :kernel_not, :kernel_not], [:kernel_not, :kernel_not, :kernel_not, :kernel_not, :kernel_not, :kernel_not, :kernel_not, :kernel_not, :kernel_not, :kernel_not, :kernel_not, :kernel_not, :kernel_not, :kernel_not, :kernel_not, :kernel_not, :kernel_not]]
+[:integer, [true, true, false, :int_not, :int_not, :int_not, false, false, false, false, false, false, false, false, :int_not, false, false], [true, true, false, :int_not, :int_not, :int_not, false, false, false, false, false, false, false, false, :int_not, false, false], [false, false, true, false, false, false, true, true, true, true, true, true, true, true, false, true, true]]
+:plus
+3.5
+:int_not
+:int_not
+false
+3
+false
+true
+[:basic, [:basic, :basic, :basic, :basic, :basic, :basic, :basic, :basic, :basic, :basic, :basic, :basic, :basic, :basic, :basic, :basic, :basic], [:basic, :basic, :basic, :basic, :basic, :basic, :basic, :basic, :basic, :basic, :basic, :basic, :basic, :basic, :basic, :basic, :basic], [:basic, :basic, :basic, :basic, :basic, :basic, :basic, :basic, :basic, :basic, :basic, :basic, :basic, :basic, :basic, :basic, :basic]]
+[:restored, [true, true, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false], [true, true, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false], [false, false, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true]]
+true
+false
+1
+[true]
+false

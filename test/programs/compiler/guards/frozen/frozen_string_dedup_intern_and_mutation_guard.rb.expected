@@ -1,0 +1,9 @@
+true
+true
+true
+true
+false
+true
+3
+true
+can't modify frozen String: "immutable"

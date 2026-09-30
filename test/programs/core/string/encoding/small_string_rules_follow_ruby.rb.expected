@@ -1,0 +1,13 @@
+"abbb"
+[TypeError, "no implicit conversion of Integer into String"]
+[FrozenError, "can't modify frozen String: \"lit\""]
+[:asked, "x"]
+true
+#<Encoding:US-ASCII>
+#<Encoding:US-ASCII>
+"nil[97, 98, 99]"
+"a\t=\n"
+[TypeError, "no implicit conversion of Integer into String"]
+S
+String
+S

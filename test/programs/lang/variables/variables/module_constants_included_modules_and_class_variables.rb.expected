@@ -1,0 +1,5 @@
+[Walks, Kernel]
+[:X]
+[:MC, :X, :Y]
+[:Y]
+[:@@x, :@@y]

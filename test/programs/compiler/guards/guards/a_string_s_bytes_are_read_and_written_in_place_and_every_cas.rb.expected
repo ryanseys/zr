@@ -1,0 +1,38 @@
+"HELLO"
+true
+true
+false
+false
+[97, 255, 99]
+"abc"
+true
+"Xyz"
+-1
+65
+"Ab"
+"b"
+"a"
+"abc"
+"aBc"
+"can't modify frozen String: \"abc\""
+nil
+97
+nil
+122
+"zb"
+"index 2 out of string"
+18446744073709551681
+"Ab"
+195
+169
+3
+4
+false
+-18446744073709551550
+"AC"
+67
+"AC"
+#<IndexError: index 5 out of string>
+#<TypeError: no implicit conversion of nil into Integer>
+#<TypeError: no implicit conversion from nil to integer>
+#<TypeError: no implicit conversion of Object into Integer>

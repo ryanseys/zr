@@ -41,15 +41,19 @@ Gemfile.lock, and a gem with a C extension needs a port (see
 - `prism/ffi`, the FFI half of prism: this runtime's prism is a Ruby port of the C
 - `prism/lex_ripper`
 - `ractor`
-- `strscan/strscan`
 - 61 encoding libraries under `enc/`: ruby loads them itself, and zr's runtime has every encoding built in
 
 ## Tests that a target may fail
 
-Each target other than `aarch64-apple-darwin` has a baseline: the
-end-to-end programs and spec examples that it may fail, each with
-the reason. A test in a baseline that passes fails the run, so
-these lists are current.
+Each target can have a baseline: the program tests (below
+test/programs) that it may fail, each with the reason. A test in a
+baseline that passes fails the run, so these lists are current.
+
+### aarch64-apple-darwin
+
+| Test | Why |
+|---|---|
+| `stdlib/ffi/ffi/a_thread_runs_off_the_process_main_thread.rb` | a Thread is a green one and shares the main OS thread, so pthread_main_np answers 1 inside it |
 
 ### aarch64-linux-musl
 
@@ -59,27 +63,27 @@ None.
 
 | Test | Why |
 |---|---|
-| `e2e/core/process/process_spawn.rb` | spawn() is unimplemented on wasi |
-| `e2e/core/process/signal_trap.rb` | kill has no wasm form |
-| `e2e/core/fiber/fiber_resume.rb` | can't allocate fiber stack: Function not implemented |
-| `e2e/core/thread/threads_join.rb` | can't allocate fiber stack: Function not implemented |
-| `e2e/core/thread/thread_queue_handoff.rb` | can't allocate fiber stack: Function not implemented |
-| `e2e/stdlib/ffi/ffi_libc_call.rb` | dlopen has no wasm form |
-| `e2e/stdlib/rubygems/require_rubygems.rb` | rubygems reads a gem's own source by absolute path, and a WASI guest is given no such directory |
-| `e2e/stdlib/testing/a_test_unit_suite_runs.rb` | rubygems reads its own source by absolute path, and a WASI guest is given no such directory |
-| `e2e/stdlib/testing/a_minitest_suite_runs.rb` | rubygems reads its own source by absolute path, and a WASI guest is given no such directory |
-| `e2e/stdlib/bundler/bundler_resolves_a_gemfile.rb` | the build holds more than 2048 MB |
-| `e2e/stdlib/bundler/require_bundler.rb` | the build holds more than 3072 MB |
-| `e2e/stdlib/socket/socket_loopback.rb` | cannot load such file -- socket/constants |
-| `spec/core/array/array_test.rb: float round digits cruby` | pow has no wasm form |
-| `spec/core/array/array_test.rb: float round ndigits return type` | pow has no wasm form |
-| `spec/core/array/array_test.rb: float round truncate ndigits` | pow has no wasm form |
-| `spec/core/array/array_test.rb: ivar array filled from outside` | pow has no wasm form |
-| `spec/lang/methods/dispatch_test.rb: a user to_f beside the builtin one widens the call's return` | strtod has no wasm form |
-| `spec/core/hash/regressions_test.rb: any?, none?, one? and count take a pair argument, and a hash serves as a block` | fmod has no wasm form |
-| `spec/lang/methods/methods_test.rb: class method site stays correct when the class changes` | hypot has no wasm form |
-| `spec/core/hash/hash_test.rb: thread value hash tail` | can't allocate fiber stack: Function not implemented |
-| `spec/core/hash/enumeration_test.rb: a blockless each or each_pair is an Enumerator over the pairs in insertion order` | can't allocate fiber stack: Function not implemented |
-| `spec/core/hash/formatting_test.rb: eql? compares by value, and replace widens the receiver to hold what it is given` | can't allocate fiber stack: Function not implemented |
-| `spec/core/hash/hash_test.rb: dir chdir block form restores the previous directory` | chdir has no wasm form |
-| `spec/lang/methods/methods_test.rb: eval return belongs to the enclosing method` | return from an eval is not walked yet |
+| `cli/core/process/process_spawn.rb` | spawn() is unimplemented on wasi |
+| `cli/core/process/signal_trap.rb` | kill has no wasm form |
+| `cli/core/fiber/fiber_resume.rb` | can't allocate fiber stack: Function not implemented |
+| `cli/core/thread/threads_join.rb` | can't allocate fiber stack: Function not implemented |
+| `cli/core/thread/thread_queue_handoff.rb` | can't allocate fiber stack: Function not implemented |
+| `cli/stdlib/ffi/ffi_libc_call.rb` | dlopen has no wasm form |
+| `cli/stdlib/rubygems/require_rubygems.rb` | rubygems reads a gem's own source by absolute path, and a WASI guest is given no such directory |
+| `cli/stdlib/testing/a_test_unit_suite_runs.rb` | rubygems reads its own source by absolute path, and a WASI guest is given no such directory |
+| `cli/stdlib/testing/a_minitest_suite_runs.rb` | rubygems reads its own source by absolute path, and a WASI guest is given no such directory |
+| `cli/stdlib/bundler/bundler_resolves_a_gemfile.rb` | the build holds more than 2048 MB |
+| `cli/stdlib/bundler/require_bundler.rb` | the build holds more than 3072 MB |
+| `cli/stdlib/socket/socket_loopback.rb` | cannot load such file -- socket/constants |
+| `core/array/array/float_round_digits_cruby.rb` | pow has no wasm form |
+| `core/array/array/float_round_ndigits_return_type.rb` | pow has no wasm form |
+| `core/array/array/float_round_truncate_ndigits.rb` | pow has no wasm form |
+| `core/array/array/ivar_array_filled_from_outside.rb` | pow has no wasm form |
+| `lang/methods/dispatch/a_user_to_f_beside_the_builtin_one_widens_the_call_s_return.rb` | strtod has no wasm form |
+| `core/hash/regressions/any_none_one_and_count_take_a_pair_argument_and_a_hash_serve.rb` | fmod has no wasm form |
+| `lang/methods/methods/class_method_site_stays_correct_when_the_class_changes.rb` | hypot has no wasm form |
+| `core/hash/hash/thread_value_hash_tail.rb` | can't allocate fiber stack: Function not implemented |
+| `core/hash/enumeration/a_blockless_each_or_each_pair_is_an_enumerator_over_the_pair.rb` | can't allocate fiber stack: Function not implemented |
+| `core/hash/formatting/eql_compares_by_value_and_replace_widens_the_receiver_to_hol.rb` | can't allocate fiber stack: Function not implemented |
+| `core/hash/hash/dir_chdir_block_form_restores_the_previous_directory.rb` | chdir has no wasm form |
+| `lang/methods/methods/eval_return_belongs_to_the_enclosing_method.rb` | return from an eval is not walked yet |

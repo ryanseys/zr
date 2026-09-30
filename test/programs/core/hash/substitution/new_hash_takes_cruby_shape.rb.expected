@@ -1,0 +1,20 @@
+false
+HS
+HS
+false
+nil
+[true, true, true, true, true, true, true, true, true]
+[3, nil, nil, nil, nil, nil, 3]
+[Hash, Hash, Hash, Hash, HS, Hash, HS]
+{a: 1}
+5
+true
+false
+[FrozenError, "can't modify frozen Hash: {}"]
+[RuntimeError, "can't replace hash during iteration"]
+[RuntimeError, "compare_by_identity during iteration"]
+[FrozenError, "can't modify frozen Hash: {}"]
+1
+1
+1
+:r

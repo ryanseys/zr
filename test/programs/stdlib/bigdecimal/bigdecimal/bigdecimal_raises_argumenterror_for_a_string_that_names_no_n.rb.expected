@@ -1,0 +1,5 @@
+[ArgumentError, "invalid value for BigDecimal(): \"bogus\""]
+[TypeError, "can't convert nil into BigDecimal"]
+[ArgumentError, "precision too large."]
+[ArgumentError, "can't omit precision for a Rational."]
+[0.15e1, nil, nil]

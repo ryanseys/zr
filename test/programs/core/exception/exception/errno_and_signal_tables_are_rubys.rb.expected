@@ -1,0 +1,22 @@
+158
+true
+"Errno::NOERROR"
+0
+"Undefined error: 0"
+"Block device required"
+true
+true
+false
+false
+Errno::ENOENT
+SystemCallError
+34
+6
+20
+["EXIT", "HUP", "INT"]
+"SIGWINCH"
+"SIGABRT"
+20
+"SIGIOT"
+"SIGEXIT"
+"unsupported signal 'SIGEXIT'"

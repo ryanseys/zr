@@ -1,0 +1,7 @@
+"\x04\bC:\tHash{\x06I\"\x06a\x06:\x06ETi\x06"
+[{"a" => 1}, Hash, true, nil]
+"\x04\bC:\tHash}\x00i\b"
+[{}, Hash, true, 3]
+"\x04\bC:\bMyHC:\tHash{\x06:\x06ki\a"
+[{k: 2}, MyH, true, nil]
+#<ArgumentError: dump format error (user class)>

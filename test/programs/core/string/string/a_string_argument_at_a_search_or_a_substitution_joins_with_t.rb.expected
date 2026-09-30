@@ -1,0 +1,23 @@
+gsub: Encoding::CompatibilityError: incompatible character encodings: Shift_JIS and EUC-JP
+sub: Encoding::CompatibilityError: incompatible character encodings: Shift_JIS and EUC-JP
+index: Encoding::CompatibilityError: incompatible character encodings: Shift_JIS and EUC-JP
+rindex: Encoding::CompatibilityError: incompatible character encodings: Shift_JIS and EUC-JP
+byteindex: Encoding::CompatibilityError: incompatible character encodings: Shift_JIS and EUC-JP
+include?: Encoding::CompatibilityError: incompatible character encodings: Shift_JIS and EUC-JP
+start_with?: Encoding::CompatibilityError: incompatible character encodings: Shift_JIS and EUC-JP
+end_with?: Encoding::CompatibilityError: incompatible character encodings: Shift_JIS and EUC-JP
+split: Encoding::CompatibilityError: incompatible character encodings: Shift_JIS and EUC-JP
+partition: Encoding::CompatibilityError: incompatible character encodings: Shift_JIS and EUC-JP
+rpartition: Encoding::CompatibilityError: incompatible character encodings: Shift_JIS and EUC-JP
+slice: Encoding::CompatibilityError: incompatible character encodings: Shift_JIS and EUC-JP
+count: Encoding::CompatibilityError: incompatible character encodings: Shift_JIS and EUC-JP
+delete: Encoding::CompatibilityError: incompatible character encodings: Shift_JIS and EUC-JP
+squeeze: Encoding::CompatibilityError: incompatible character encodings: Shift_JIS and EUC-JP
+tr: Encoding::CompatibilityError: incompatible character encodings: Shift_JIS and EUC-JP
+plus: Encoding::CompatibilityError: incompatible character encodings: Shift_JIS and EUC-JP
+["eq", false]
+["eql", false]
+["cmp", -1]
+["ascii index", nil]
+["ascii include?", false]
+["ascii gsub", "\x{93FA}"]

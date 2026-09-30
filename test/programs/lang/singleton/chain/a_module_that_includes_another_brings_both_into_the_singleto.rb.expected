@@ -1,0 +1,4 @@
+== a module that includes another, extended
+"outer(inner(top))"
+["#<Class:Nested>", "Outer", "Inner", "#<Class:Object>"]
+"Outer"

@@ -1,0 +1,11 @@
+[:own, :pub]
+true
+true
+false
+[:priv]
+[:helper]
+[:factory]
+true
+false
+true
+true

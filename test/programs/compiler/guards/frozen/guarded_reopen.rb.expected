@@ -1,0 +1,11 @@
+[:base, :other]
+"other"
+NoMethodError: extra
+false
+"no"
+[:greet, :only_no]
+2
+:extra
+[:base, :extra]
+1
+[:a]

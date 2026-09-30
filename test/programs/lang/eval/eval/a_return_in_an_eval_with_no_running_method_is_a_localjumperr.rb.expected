@@ -1,0 +1,6 @@
+[:orphan, "unexpected return", :orphan]
+[:top_proc, "unexpected return"]
+[:top_block, "unexpected return"]
+[:class_body, "unexpected return"]
+:m
+at_exit

@@ -1,0 +1,8 @@
+false
+"constant"
+["length"]
+undefined local variable or method 'frist_name' for main (NameError)
+
+  frist_name
+  ^^^^^^^^^^
+Did you mean?  first_name

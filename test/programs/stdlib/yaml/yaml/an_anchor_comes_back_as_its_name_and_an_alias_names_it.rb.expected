@@ -1,0 +1,3 @@
+anchor name	"base"
+alias class	Psych::Nodes::Alias
+alias anchor	"base"

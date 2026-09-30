@@ -6,26 +6,27 @@ signal or its exit status is different from what ruby gave.
 
 ## See the whole difference
 
-Run the one example:
+Run the one program test:
 
 ```console
-$ bin/test test/spec/core/string/slicing_test.rb -n "/a case/"
+$ bin/test test/programs/core/string/slicing/foo.rb
 ```
 
-Minitest prints each part that is different: stdout, stderr, the
-signal and the exit status. `must_answer` checks all four, so the
-message tells which one changed.
+The runner compares stdout, stderr, the exit status and the signal
+with ruby's, and prints a diff of each part that is different, so
+the message tells which one changed. See
+[Program tests](../reference/program-tests.md#results).
 
-To run all the examples of an area and see only the failures:
+To run all the tests of an area and see only the failures:
 
 ```console
-$ bin/test test/spec/core/string
+$ bin/test test/programs/core/string
 ```
 
 ## Make the program smaller
 
-Copy the program from the example into a file. Remove lines until the
-difference stays with the fewest lines. Compare with ruby at each step:
+Copy the program into a file. Remove lines until the difference stays
+with the fewest lines. Compare with ruby at each step:
 
 ```console
 $ ruby small.rb
@@ -33,8 +34,8 @@ $ exe/zr run small.rb
 ```
 
 A small program makes the cause easy to see. When you fix it, keep the
-small program as a new example, as in
-[Add your first spec](../tutorials/add-your-first-spec.md).
+small program as a new program test, as in
+[Add your first program test](../tutorials/add-your-first-program-test.md).
 
 ## Find which part of zr is wrong
 
@@ -45,7 +46,7 @@ question.
   only this way, the collector does not find a value:
 
   ```console
-  $ GC=stress bin/test test/spec/core/string
+  $ GC=stress bin/test test/programs/core/string
   $ ZR_GC_STRESS=1 ./binary
   ```
 
@@ -99,6 +100,8 @@ find the line.
 
 ## When the fix is large
 
-Keep the example in its place, and add a `skip` that tells what it
-needs. See [The spec DSL](../reference/spec-dsl.md#a-gap). A run counts
-the skipped examples, so the gap stays visible.
+Keep the program test. If a target cannot do what the program needs,
+add the test to the target's baseline, `test/baselines/<triple>.txt`,
+with the reason. A run skips it and prints the reason, so the gap
+stays visible, and the run fails when the test passes. See
+[Program tests](../reference/program-tests.md#baselines).

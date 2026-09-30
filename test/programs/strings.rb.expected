@@ -1,0 +1,225 @@
+"h"
+"d"
+nil
+"ell"
+""
+""
+nil
+"ell"
+"el"
+"rld"
+"he"
+""
+nil
+"wor"
+nil
+["h", "e", "l"]
+[104, 101, 108]
+11
+104
+104
+""
+"h"
+true
+true
+true
+false
+"world"
+"hello"
+"hello world"
+"HELLO WORLD"
+"hELLO"
+"ABC"
+nil
+"Abc"
+nil
+"hi"
+"hi  "
+"  hi"
+"hi"
+nil
+"hi"
+"hi"
+"hi"
+"hi"
+"hi"
+"hi"
+"hi"
+nil
+"hi"
+"h"
+"hi"
+""
+"abc"
+["a\n", "b\n", "c"]
+["a\n", "b\n"]
+["a", "b"]
+[]
+["a\n", "b"]
+["a", "b", "c"]
+["a", "b"]
+["a", "b", "c"]
+["a", "b"]
+["a", "b", "", ""]
+["a", "b", "c"]
+["a", "b c"]
+["a", "b,c"]
+[]
+"heLlo"
+"heLLo"
+"hello"
+"heLLo"
+nil
+"heo"
+2
+3
+nil
+3
+2
+5
+3
+2
+"heo"
+"hippo"
+"hexxx"
+"  hi  "
+"**hi***"
+"hi---"
+"---hi"
+"hello"
+42
+42
+-7
+7
+0
+1000
+1
+0
+0
+0
+true
+-1
+nil
+true
+"heXXllo"
+"hello!"
+"hel_lo"
+"bca"
+"abc"
+"xyz"
+""
+65
+"Abc"
+-1
+true
+true
+"b"
+"a"
+3
+3
+:ABC
+:abc
+:Abc
+:AbC
+:abd
+true
+true
+:abc
+false
+true
+42
+-42
+31
+5
+15
+15
+19
+1000
+42
+42
+nil
+nil
+nil
+nil
+nil
+nil
+nil
+ArgumentError: invalid value for Integer(): "abc"
+TypeError: can't convert nil into Integer
+TypeError: can't convert Array into Integer
+ArgumentError: base specified for non string value
+255
+255
+2833
+3
+15
+15
+17
+23
+35
+18
+-255
+255
+2
+3353
+15
+nil
+nil
+ArgumentError: invalid radix 1
+ArgumentError: invalid radix 37
+ArgumentError: invalid value for Integer(): "0x_ff"
+"1"
+"a"
+""
+[]
+[1]
+[1, 2, 3]
+[1]
+[[:a, 1]]
+5
+6
+10
+Enumerator
+false
+false
+true
+FrozenError: can't modify frozen String: "abc"
+IndexError: index 5 out of string
+ArgumentError: empty string
+ArgumentError: zero width padding
+ArgumentError: wrong number of arguments (given 0, expected 1+)
+"zbcdef"
+"zXYdef"
+"zqdef"
+"Aqdef"
+#<IndexError: string not matched>
+"Aqde!"
+#<IndexError: index 9 out of string>
+"Aqinsde!"
+"A"
+#<TypeError: no implicit conversion of Integer into String>
+#<IndexError: index 9 out of string>
+#<IndexError: index -10 out of string>
+#<IndexError: negative length -1>
+#<IndexError: index 9 out of string>
+"abcdefx"
+"abcdefx"
+#<RangeError: 9.. out of range>
+#<RangeError: -9..1 out of range>
+"abxcdef"
+"axbcdef"
+#<FrozenError: can't modify frozen String: "abc">
+true
+#<ArgumentError: wrong number of arguments (given 4, expected 2..3)>
+"Q"
+can't modify frozen String: "abc"
+abc
+"9.."
+"..9"
+"nil..nil"
+"9.."
+"..9"
+".."
+"nil...nil"
+"a.."
+"\"a\".."

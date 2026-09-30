@@ -1,0 +1,16 @@
+"h2"
+true
+"/CN=localhost"
+1
+true
+true
+"HELLO\n"
+"WORLD\n"
+"BYE\n"
+SSLError hostname "example.com" does not match the server certificate
+true
+"AGAIN\n"
+SSLError true
+[:served, :served, "server"]
+["localhost"]
+true

@@ -1,0 +1,13 @@
+:m
+[:m, :m2]
+false
+private method 'm' called for an instance of C
+1
+"m"
+true
+1
+protected method 'p1' called for an instance of D
+undefined method 'nope' for class 'C'
+private method 'hidden2' called for an instance of Al
+4
+done

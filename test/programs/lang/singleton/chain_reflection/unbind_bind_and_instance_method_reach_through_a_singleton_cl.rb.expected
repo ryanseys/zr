@@ -1,0 +1,4 @@
+== unbind/bind and instance_method through a singleton class
+"#<Class:Chained>"
+"#<Class:Chained>"
+["#<Class:Chained>", "S2", "S1", "#<Class:Object>"]

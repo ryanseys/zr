@@ -1,0 +1,4 @@
+not compressed at all: Zlib::DataError: incorrect header check
+truncated stream: Zlib::BufError: buffer error
+trailing garbage: ["hi", true]
+sync_point?: false

@@ -1,0 +1,12 @@
+11
+10
+[10, 20]
+widget
+42
+false
+[1, 2, 5]
+missing keyword: :x
+wrong number of arguments (given 0, expected 1+)
+[2, 4, 6]
+[3, 7]
+:foo

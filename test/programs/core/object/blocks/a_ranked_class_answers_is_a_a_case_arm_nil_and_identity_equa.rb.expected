@@ -1,0 +1,9 @@
+[false, true, false, false, false, false, false, NoMethodError]
+[true, false, true, true, true, true, true, false, true, true, true, true, false]
+[TypeError, TypeError, true, false, true, NoMethodError]
+[:a, :b, :c, :m, :int, :cmp, :sym, :nil, :basic, :int]
+[true, false, true, false, true, true, true, false]
+[true, false, false, true, true, false, true, true, true, true, true, true, true, true, false]
+[true, false, false, :ne, false, :g, false, true, :h, true, :yes, :c]
+[true, true, false, TypeError, true, true, false]
+250000

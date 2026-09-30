@@ -1,0 +1,13 @@
+RubyVM::AbstractSyntaxTree::Node
+:SCOPE
+[1, 0, 2, 5]
+true
+:BLOCK
+["x = 1 + 2\n", "y = x"]
+"x = 1 + 2\ny = x"
+"x = 1 + 2\ny = x"
+"#<RubyVM::AbstractSyntaxTree::Node:SCOPE@1:0-2:5>"
+[RubyVM::AbstractSyntaxTree::Location]
+"#<RubyVM::AbstractSyntaxTree::Location:@1:0-2:5>"
+[1, 5]
+[nil, nil, nil, nil]

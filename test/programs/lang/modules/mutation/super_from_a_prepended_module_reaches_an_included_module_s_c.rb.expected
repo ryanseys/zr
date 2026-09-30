@@ -1,0 +1,2 @@
+hook(common)
+[Hook, Runner, Common, Object, Kernel, BasicObject]

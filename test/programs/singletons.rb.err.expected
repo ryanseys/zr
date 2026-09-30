@@ -1,0 +1,2 @@
+singletons.rb:35:in 'singleton class': in sclass (RuntimeError)
+	from singletons.rb:34:in '<main>'

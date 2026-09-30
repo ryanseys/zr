@@ -1,0 +1,4 @@
+["a\x00\r\x00\n\x00b\x00", #<Encoding:UTF-16LE>]
+["\x00a\x00\n\x00b", #<Encoding:UTF-16BE>]
+["a\x00\x00\x00\r\x00\x00\x00b\x00\x00\x00", #<Encoding:UTF-32LE>]
+["a\nb", #<Encoding:UTF-8>]

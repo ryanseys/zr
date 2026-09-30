@@ -1,0 +1,3 @@
+Sys.setresuid: NotImplementedError: setresuid() function is unimplemented on this machine
+Sys.setresgid: NotImplementedError: setresgid() function is unimplemented on this machine
+setresuid arity: 0

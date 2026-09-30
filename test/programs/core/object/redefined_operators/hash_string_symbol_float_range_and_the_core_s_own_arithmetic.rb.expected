@@ -1,0 +1,47 @@
+hash value? key: Integer#===3
+hash eql hash: 
+hash str keys: 
+hash compare_by_identity: 
+ary uniq str: 
+ary uniq block: 
+ary <=>: Integer#<=>=2 String#<=>=3
+ary max str: String#<=>=8
+ary sort floats: Float#<=>=4
+ary include str: String#===6
+ary include sym: Symbol#===4
+ary difference: Integer#===6 Integer#eql?=6
+ary flatten uniq: 
+ary sum floats: 
+ary product: 
+ary bsearch: Integer#>==2
+ary fill rotate: 
+enum include: Integer#<=>=2 Integer#===1
+enum min_by str: String#<=>=6
+enum sum: 
+enum each_cons: 
+enum zip chunk: Integer#===2
+str ==: String#===1 String#eql?=1
+str start end: 
+str sub gsub: 
+str cmp casecmp: String#<=>=1
+str succ upto: 
+str hash: String#hash=1
+sym cmp: Symbol#<=>=3 Symbol#===1
+float cmp: Float#<=1 Float#<=>=3 Float#===1
+float round: 
+int pow gcd: Integer#<=1
+int to_s: 
+rational: 
+comparable clamp: Integer#<=>=3 String#<=>=2
+struct eql hash: 
+data ==: 
+range step: Integer#<=1 Integer#===3 Integer#>==5
+range each str: String#<=>=1
+range minmax: Integer#<=>=2
+set ops: 
+case str: 
+hash each: Integer#<=>=2
+pack: 
+time: 
+format float: 
+inspect: 

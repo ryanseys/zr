@@ -1,0 +1,96 @@
+mm:nope
+mm:nope
+mm:nope
+[:g_x, [1, 2], {k: 3}, 4]
+true
+false
+undefined method 'other' for an instance of Ghost
+:other
+[]
+[:g_z, [9], {}, nil]
+[:g_w, [], {}, nil]
+private method 'method_missing' called for an instance of Object
+false
+true
+[:initialize, :method_missing, :singleton_method_added]
+Enumerator::Lazy
+[[1, 2], [4, 5], [7]]
+[[true, [1]], [false, [2]], [true, [3]]]
+[[1], [2, 3]]
+[[1]]
+[[1, 2], [3]]
+[[1, 2], [3, 4, 5]]
+[1, 2]
+[[10, 0], [20, 1], [30, 2]]
+[[true, [1]], [true, [3]]]
+[[true, [1]], [:_alone, [2]], [true, [3]]]
+[[true, [1]], [true, [3]]]
+#<RuntimeError: symbols beginning with an underscore are reserved>
+Enumerator
+[]
+[]
+[[1], [2], [4, 5]]
+[[1, 2], [4], [5]]
+[[1, 2, 4], [5]]
+[[0, [1, 2]], [1, [3, 4, 5]]]
+nil
+1
+{a: 1}
+1
+[nil, 2]
+nil
+42
+7
+7
+nil
+3
+5
+true
+#<TypeError: 1 is not a symbol nor a string>
+9
+#<struct S :verbose?=true, name="x">
+[[:verbose?, true], [:name, "x"]]
+#<struct >
+#<data >
+#<struct Struct::Tms2 a=1>
+K(keyword_init: true)
+"K(keyword_init: true)"
+"K"
+#<struct K a=1>
+[false, nil]
+FrozenError
+"can't modify frozen AfterSuper: #<data AfterSuper m=1>"
+true
+true
+"k"
+5
+"#<data C class=\"k\", hash=5>"
+[[:req, :_]]
+[]
+Process::Tms
+Float
+true
+"S#<Symbol:ADDR>"
+[1, 3]
+[1, 5]
+[nil, nil]
+-0.0
+0.0
+8
+8
+"ba"
+"wrong number of arguments (given 2, expected 0..1)"
+2
+1
+2
+"#<Enumerator:ADDR>"
+"#<Enumerator::Lazy:ADDR>"
+10
+10
+"comparison of Float with NaN failed"
+"comparison of String with 1 failed"
+{"a" => 1, "k" => 7}
+[1, 2]
+[1, 2]
+Enumerator
+String

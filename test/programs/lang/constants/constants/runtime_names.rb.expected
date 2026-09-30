@@ -1,0 +1,11 @@
+1
+2
+9
+:orig
+[:a, :a=, :b, :b=, :copy, :orig]
+:base
+:gone
+false
+"one"
+"two"
+true

@@ -1,0 +1,6 @@
+-- Class, not Module
+Class
+Class
+Class
+Comparable.superclass: NoMethodError
+Comparable.subclasses: NoMethodError

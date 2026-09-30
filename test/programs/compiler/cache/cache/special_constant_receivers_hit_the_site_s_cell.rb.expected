@@ -1,0 +1,6 @@
+["nil", "true", "false", "sym a", "str s", "nil", "sym b", "false"]
+["nil", "true", "false", "sym a", "str s", "nil", "sym b", "false"]
+["nil again", "true", "false", "sym again", "str s", "nil again", "sym again", "false"]
+10000
+[true, true, true, true]
+[true, true, true]

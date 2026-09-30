@@ -1,0 +1,8 @@
+lang/control/control/bare_regexp_condition_matches_the_last_read_line.rb:12: warning: regex literal in condition
+lang/control/control/bare_regexp_condition_matches_the_last_read_line.rb:14: warning: regex literal in condition
+lang/control/control/bare_regexp_condition_matches_the_last_read_line.rb:15: warning: regex literal in condition
+lang/control/control/bare_regexp_condition_matches_the_last_read_line.rb:17: warning: regex literal in condition
+lang/control/control/bare_regexp_condition_matches_the_last_read_line.rb:20: warning: regex literal in condition
+lang/control/control/bare_regexp_condition_matches_the_last_read_line.rb:31: warning: regex literal in condition
+lang/control/control/bare_regexp_condition_matches_the_last_read_line.rb:33: warning: regex literal in condition
+lang/control/control/bare_regexp_condition_matches_the_last_read_line.rb:36: warning: regex literal in condition

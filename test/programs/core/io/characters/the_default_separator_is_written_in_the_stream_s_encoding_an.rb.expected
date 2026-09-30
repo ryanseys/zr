@@ -1,0 +1,7 @@
+[["hi\n", #<Encoding:UTF-16LE>], ["x", #<Encoding:UTF-16LE>]]
+#<ArgumentError: encoding mismatch: UTF-16LE IO with UTF-8 RS>
+["h", "i", "\n", "x"]
+#<ArgumentError: encoding mismatch: UTF-8 IO with UTF-16LE RS>
+#<ArgumentError: encoding mismatch: UTF-8 IO with ISO-8859-1 RS>
+"aé"
+"\x{8240}@"

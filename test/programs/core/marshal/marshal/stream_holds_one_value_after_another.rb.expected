@@ -1,0 +1,15 @@
+1
+"two"
+[:three]
+[EOFError, "end of file reached"]
+{"a" => 1}
+"b"
+true
+[EOFError, "end of file reached"]
+[EOFError, "end of file reached"]
+[ArgumentError, "marshal data too short"]
+[ArgumentError, "marshal data too short"]
+[TypeError, "can't dump hash with default proc"]
+10
+[TypeError, "can't dump anonymous class #<Module:0xADDR>"]
+[TypeError, "can't dump anonymous class #<Class:0xADDR>"]

@@ -1,0 +1,6 @@
+core/encoding/packing/default_encodings_are_settable.rb:53: warning: setting Encoding.default_external
+core/encoding/packing/default_encodings_are_settable.rb:54: warning: setting Encoding.default_internal
+core/encoding/packing/default_encodings_are_settable.rb:55: warning: setting Encoding.default_external
+core/encoding/packing/default_encodings_are_settable.rb:56: warning: setting Encoding.default_internal
+core/encoding/packing/default_encodings_are_settable.rb:61: warning: setting Encoding.default_internal
+core/encoding/packing/default_encodings_are_settable.rb:64: warning: setting Encoding.default_internal

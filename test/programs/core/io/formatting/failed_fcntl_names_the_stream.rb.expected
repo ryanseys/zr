@@ -1,0 +1,6 @@
+Errno::ENOTTY: Inappropriate ioctl for device @ finish_narg - /etc/hosts
+Errno::EBADF: Bad file descriptor
+Errno::EBADF: Bad file descriptor @ finish_narg - <STDOUT>
+1
+true
+IOError: closed stream

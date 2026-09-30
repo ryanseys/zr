@@ -1,0 +1,15 @@
+"x"
+"yz"
+""
+[EOFError, "end of file reached"]
+"h"
+nil
+"Aello\n"
+"Bello\n"
+true
+false
+true
+[ArgumentError, "negative level: -1"]
+"a"
+"a/b/c"
+"/"

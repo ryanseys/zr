@@ -1,0 +1,4 @@
+document to_ruby	{"a" => 1, "b" => [2, 3]}
+root to_ruby	{"a" => 1}
+scalar to_ruby	42
+stream to_ruby	[7]

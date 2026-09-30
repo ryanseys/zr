@@ -1,0 +1,4 @@
+[:each, "no block given"]
+[:each_pair, "no block given"]
+[:each_key, "no block given"]
+[:each_value, "no block given"]

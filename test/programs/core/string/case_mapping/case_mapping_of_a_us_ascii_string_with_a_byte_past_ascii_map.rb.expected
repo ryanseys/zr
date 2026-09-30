@@ -1,0 +1,5 @@
+[:downcase, "a\xE9b", #<Encoding:US-ASCII>]
+[:upcase, "A\xE9B", #<Encoding:US-ASCII>]
+[:swapcase, "a\xE9B", #<Encoding:US-ASCII>]
+[:capitalize, "A\xE9b", #<Encoding:US-ASCII>]
+[:downcase!, "a\xE9b", #<Encoding:US-ASCII>]

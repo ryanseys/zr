@@ -1,0 +1,24 @@
+"\x810\x8A9\xA2\xE3\x949\xFC6"
+"ñ𠀀"
+"\uFFFF"
+"10000"
+[Encoding::UndefinedConversionError, "\"\\x841\\xA50\" from GB18030 to UTF-8"]
+[Encoding::UndefinedConversionError, "\"\\xE32\\x9A6\" from GB18030 to UTF-8"]
+[Encoding::InvalidByteSequenceError, "incomplete \"\\x810\" on GB18030"]
+[Encoding::InvalidByteSequenceError, "incomplete \"\\x810\\x81\" on GB18030"]
+[Encoding::InvalidByteSequenceError, "\"\\x810\" followed by \"x\" on GB18030"]
+"�"
+"\xED\xA0\xBD\xED\xB8\x80"
+"\xE6\x97\xA5"
+"😀"
+[Encoding::InvalidByteSequenceError, "incomplete \"\\xED\\xA0\\xBD\" on CESU-8"]
+[Encoding::InvalidByteSequenceError, "\"\\xED\" followed by \"\\xB8\" on CESU-8"]
+[Encoding::InvalidByteSequenceError, "incomplete \"\\xE6\\x97\" on CESU-8"]
+[Encoding::InvalidByteSequenceError, "\"\\xF0\" on CESU-8"]
+[Encoding::InvalidByteSequenceError, "\"\\xED\\xA0\\xBD\" followed by \"x\" on CESU-8"]
+"Q\x81\xE9"
+"U+65E5 to ISO-8859-1 in conversion from UTF-8 to ISO-8859-1 to IBM037"
+"Aa"
+384
+#<Encoding::ConverterNotFoundError: code converter not found (UTF-8 to UTF-7)>
+#<Encoding::ConverterNotFoundError: code converter not found (UTF-8 to ISO-2022-JP-2)>

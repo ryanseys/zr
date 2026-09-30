@@ -1,0 +1,12 @@
+added one
+added two
+added three
+a sees [:a]
+b sees [:a, :b]
+c sees [:a, :b, :c]
+singleton singleton_method_added
+singleton made
+included in User
+extended Object
+inherited by Child
+[:one, :three, :two]

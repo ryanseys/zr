@@ -1,0 +1,20 @@
+1
+[:@tag]
+"str"
+:x
+[:@n]
+[]
+7
+"code 7"
+[:@code]
+false
+true
+false
+2
+3
+#<FrozenError: can't modify frozen Integer: 1>
+#<FrozenError: can't modify frozen Symbol: :sym>
+#<FrozenError: can't modify frozen NilClass: nil>
+nil
+[]
+"s1999"

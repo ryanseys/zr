@@ -1,0 +1,9 @@
+-- not methods at all
+Regexp#linear_time?: NoMethodError
+Set#contain?: NoMethodError
+Set#merge_new: NoMethodError
+Pathname#to_str: NoMethodError
+Pathname#mkdir_p: NoMethodError
+Pathname#rm_rf: NoMethodError
+Proc#(): NoMethodError
+Struct[]: NoMethodError

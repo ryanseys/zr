@@ -1,0 +1,4 @@
+msg
+exits.rb:33:in 'block in <main>': in handler (RuntimeError)
+handler one
+exits.rb:35:in '<main>': boom (RuntimeError)

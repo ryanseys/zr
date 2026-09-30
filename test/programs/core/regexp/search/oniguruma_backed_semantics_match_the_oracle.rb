@@ -1,0 +1,16 @@
+# ^/$ do not match at the phantom position after a final newline
+p("a\n".scan(/^/).size)
+p("a\nb\n".scan(/^/).size)
+p(/^$/.match?("a\n"))
+p("x\n".match?(/x$/))
+# inline (?m:) is Ruby DOTALL (dot spans newline), scoped to the group
+p(/(?m:a.c)/ =~ "a\nc")
+p(/a.c/ =~ "a\nc")
+p(/(?i-m:a.b)/ =~ "A\nB")
+# absence operator: match only text NOT containing "foo"
+p(/\A(?~foo)\z/.match?("bar"))
+p(/\A(?~foo)\z/.match?("xfooy"))
+# alternation captures land in the right slots
+p(/(a)|(b)|(c)/.match("c").captures)
+# onig accepts a redundant nested repeat that stricter engines reject
+p(Regexp.new("a***").match?("aaa"))

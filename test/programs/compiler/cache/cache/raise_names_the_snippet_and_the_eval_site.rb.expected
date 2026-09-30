@@ -1,0 +1,2 @@
+(eval at compiler/cache/cache/raise_names_the_snippet_and_the_eval_site.rb:3):1:in '<main>'
+compiler/cache/cache/raise_names_the_snippet_and_the_eval_site.rb:3:in 'Kernel#eval'

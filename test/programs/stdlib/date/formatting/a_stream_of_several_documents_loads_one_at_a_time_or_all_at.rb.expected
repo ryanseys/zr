@@ -1,0 +1,6 @@
+two documents	1
+load_stream	[1, 2]
+empty document	nil
+only a comment	false
+directive	1
+explicit end	1

@@ -1,0 +1,100 @@
+["a", "x.rb", "y.txt"]
+["x.rb"]
+["a/b/w.rb", "a/z.rb", "x.rb"]
+["a/b/w.rb", "a/z.rb", "x.rb", "y.txt"]
+["a/b", "a/b/w.rb", "a/z.rb"]
+["a/", "a/b/"]
+["x.rb", "y.txt"]
+[".", ".dot.rb", ".hid", "a", "x.rb", "y.txt"]
+["a/b", "a/z.rb"]
+[]
+["b/w.rb", "z.rb"]
+["x.rb"]
+["x.rb", "y.txt"]
+["x.rb"]
+["x.rb"]
+true
+true
+false
+true
+true
+false
+true
+true
+false
+true
+true
+true
+false
+true
+false
+false
+true
+File::Stat
+true
+false
+"directory"
+"41777"
+Integer
+Time
+Integer
+Integer
+Errno::ENOENT
+"No such file or directory @ rb_file_s_stat - /nope"
+"/private/tmp"
+"No such file or directory @ rb_check_realpath_internal - /nope"
+"/private/tmp"
+true
+false
+false
+true
+0
+true
+"B"
+Object
+1
+2
+3
+4
+[B, M, Object]
+5
+5
+"C"
+nil
+6
+"N"
+false
+false
+false
+[[1], {k: 2}]
+[[1, {k: 2}], {}]
+[[1], {x: 1}]
+[[2], {y: 2}]
+[[3], {}]
+[[4, {z: 5}], {}]
+[[5], {q: 1}]
+{q: 1}
+"ê"
+"aê"
+"êa"
+"aa→"
+"Ā"
+"↓"
+"b→a"
+"9ê"
+"ê0"
+"z9ê"
+"漣"
+"1漣"
+"漣a"
+"ba"
+"aaa"
+"b0"
+"AAa"
+"2.0"
+"."
+""
+"b-a"
+"9-aa"
+"ba"
+"ê"

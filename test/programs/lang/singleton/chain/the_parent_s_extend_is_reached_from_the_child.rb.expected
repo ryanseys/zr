@@ -1,0 +1,4 @@
+== inheritance: the parent's extend is reached from the child
+["M1(top)", "M1(top)", "M1(top)"]
+["#<Class:Child>", "#<Class:Parent>", "M1", "#<Class:Object>"]
+["M1", "M1"]

@@ -1,0 +1,8 @@
+read: uninitialized constant Missing
+nil
+Missing
+"constant"
+in a body: uninitialized constant Holder::Later
+"Later"
+"Soon"
+["Missing", "Later", "Soon"]

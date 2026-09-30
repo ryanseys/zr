@@ -1,0 +1,8 @@
+nil
+true
+false
+"constant"
+true
+Prism::ProgramNode
+["constant", 4]
+nil

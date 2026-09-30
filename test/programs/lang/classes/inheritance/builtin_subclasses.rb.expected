@@ -1,0 +1,15 @@
+[1, 2]
+[2, 2, Stack]
+Stack
+[10, 20, 30]
+Array
+[true, true]
+18
+["HI!", Tag, true, true]
+42
+[1, 1, 0]
+{a: 1, b: 1}
+[Integer, true]
+undefined method 'new' for class MyInt
+[Numeric, true]
+[Refused, "refused this", true]

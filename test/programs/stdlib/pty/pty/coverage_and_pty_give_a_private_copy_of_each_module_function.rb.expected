@@ -1,0 +1,7 @@
+[:peek_result, :result, :resume, :running?, :setup, :start, :state, :suspend]
+-1
+[:idle, false]
+[:getpty, :spawn]
+#<Method: PTY.getpty(*)>
+#<Method: PTY.spawn(*)>
+#<UnboundMethod: PTY#getpty(*)>

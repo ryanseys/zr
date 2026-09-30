@@ -1,0 +1,14 @@
+[0.2e1, 0.1e1]
+[0.15e1, 0.1e1]
+[0.5e0, 0.1e1]
+#<TypeError: String can't be coerced into BigDecimal>
+#<TypeError: nil can't be coerced into BigDecimal>
+#<TypeError: true can't be coerced into BigDecimal>
+#<TypeError: :s can't be coerced into BigDecimal>
+#<TypeError: String can't be coerced into BigDecimal>
+#<ArgumentError: comparison of BigDecimal with String failed>
+false
+false
+true
+true
+#<NoMethodError: undefined method 'to_d' for an instance of BigDecimal>

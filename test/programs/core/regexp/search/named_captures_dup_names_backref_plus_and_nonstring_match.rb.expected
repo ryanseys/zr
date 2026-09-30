@@ -1,0 +1,9 @@
+{"a" => [1], "b" => [2]}
+{"a" => [1, 2]}
+["a"]
+"b"
+"a."
+"<a> <2>. <c>"
+"TE: no implicit conversion of Integer into String"
+2
+nil

@@ -1,0 +1,3 @@
+[NilClass, false, true]
+[3, true, 3, 0]
+"can't convert Object to IO (Object#to_io gives Integer)"

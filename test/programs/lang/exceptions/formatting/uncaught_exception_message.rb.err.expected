@@ -1,0 +1,5 @@
+lang/exceptions/formatting/uncaught_exception_message.rb:4:in 'Object#boom': undefined method 'length' for nil (NoMethodError)
+
+  v.length
+   ^^^^^^^
+	from lang/exceptions/formatting/uncaught_exception_message.rb:14:in '<main>'

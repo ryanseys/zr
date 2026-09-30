@@ -1,0 +1,79 @@
+[1, 2]
+Pair
+1
+"can't convert Bad to Array (Bad#to_ary gives Integer)"
+[N, nil]
+"can't convert BadProc to Proc (BadProc#to_proc gives Symbol)"
+true
+4
+true
+Integer
+-36028797018963966
+9007199254740994
+true
+TypeError: can't convert LiarInt to Integer (LiarInt#to_int gives String)
+TypeError: can't convert LiarInt to Integer (LiarInt#to_int gives String)
+TypeError: can't convert LiarInt to Integer (LiarInt#to_int gives String)
+[1, 2, 1, 2]
+"abab"
+30
+[10, 20]
+3
+[1, 2, 1, 2]
+ran
+ran
+ran
+ran
+ran
+ran
+[:bare, true]
+[:send_sym, true]
+[:forwarded, :raised, "the lambda method requires a literal block"]
+[:wrapper, :raised, "the lambda method requires a literal block"]
+[:method_object, :raised, "the lambda method requires a literal block"]
+[:public_send, :raised, "the lambda method requires a literal block"]
+Array
+[]
+1
+nil
+false
+true
+true
+false
+/ab+/i
+/lit/
+nil
+nil
+false
+true
+[:mine, 1]
+true
+false
+Errno::ENOENT
+"No such file or directory - /no/such/cmd"
+String
+String
+Array
+Hash
+5
+A
+H
+A
+S
+String
+Array
+false
+false
+false
+false
+false
+true
+true
+true
+["bbb", "aaa"]
+1
+A2
+1
+false
+false
+true

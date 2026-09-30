@@ -1,0 +1,22 @@
+"/a\\/b\t\\x01/"
+"/\\u65E5\\u672C\\//"
+"/\\//"
+"/\\xFF\\//"
+"/é/ix"
+"/a/n"
+"(?i-mx:ab)"
+"(?i-mx:ab)"
+"(?m-ix:a)"
+"(?-mix:(?i:a)b)"
+"end pattern with unmatched parenthesis: /(?x)(?i:a/"
+"(?-mix:a\\/\n)"
+#<Encoding:UTF-8>
+["end pattern with unmatched parenthesis: /(日/", #<Encoding:UTF-8>]
+["end pattern with unmatched parenthesis: /(\\u00E9\\/\\x01/", #<Encoding:UTF-8>]
+["empty range in char class: /[b-a]/", #<Encoding:UTF-8>]
+["undefined name <nope> reference: /\\k<nope>/", #<Encoding:UTF-8>]
+["invalid Unicode range: /\\u{110000}/", #<Encoding:UTF-8>]
+["too short escaped multibyte character: /\\xe3\\x81/", #<Encoding:UTF-8>]
+["end pattern with unmatched parenthesis: /(\\xFF/", #<Encoding:BINARY (ASCII-8BIT)>]
+["end pattern with unmatched parenthesis: /(\\xE9/", #<Encoding:ISO-8859-1>]
+["end pattern with unmatched parenthesis: /(/mix", #<Encoding:UTF-8>]

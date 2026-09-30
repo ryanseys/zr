@@ -1,0 +1,14 @@
+Process::Sys class: Module
+Process::Sys singleton: [:getegid, :geteuid, :getgid, :getuid, :issetugid, :setegid, :seteuid, :setgid, :setregid, :setresgid, :setresuid, :setreuid, :setrgid, :setruid, :setuid]
+Process::Sys private: [:getegid, :geteuid, :getgid, :getuid, :issetugid, :setegid, :seteuid, :setgid, :setregid, :setresgid, :setresuid, :setreuid, :setrgid, :setruid, :setuid]
+Process::Sys public instance: []
+Process::UID class: Module
+Process::UID singleton: [:change_privilege, :eid, :eid=, :from_name, :grant_privilege, :re_exchange, :re_exchangeable?, :rid, :sid_available?, :switch]
+Process::UID private: [:change_privilege, :eid, :from_name, :grant_privilege, :re_exchange, :re_exchangeable?, :rid, :sid_available?, :switch]
+Process::UID public instance: []
+Process::GID class: Module
+Process::GID singleton: [:change_privilege, :eid, :eid=, :from_name, :grant_privilege, :re_exchange, :re_exchangeable?, :rid, :sid_available?, :switch]
+Process::GID private: [:change_privilege, :eid, :from_name, :grant_privilege, :re_exchange, :re_exchangeable?, :rid, :sid_available?, :switch]
+Process::GID public instance: []
+Sys respond_to?: true
+Sys included: true

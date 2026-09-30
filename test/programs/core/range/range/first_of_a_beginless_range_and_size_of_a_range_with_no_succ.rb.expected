@@ -1,0 +1,7 @@
+RangeError: cannot get the first element of beginless range
+RangeError: cannot get the first element of beginless range
+TypeError: can't iterate from Rational
+TypeError: can't iterate from Float
+3
+nil
+TypeError: can't iterate from NilClass

@@ -1,0 +1,9 @@
+begin one
+begin two
+main
+done
+"local-variable"
+end saw counter=2
+at_exit
+end two
+end one

@@ -1,0 +1,2 @@
+lazy eager: Enumerator
+lazy eager values: [2, 4, 6]

@@ -1,0 +1,2 @@
+#<Thread:0xADDR core/thread/splitting/threads.rb:14 run> terminated with exception (report_on_exception is true):
+core/thread/splitting/threads.rb:14:in 'block in <main>': thread boom (RuntimeError)

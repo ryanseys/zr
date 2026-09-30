@@ -1,0 +1,7 @@
+thread: allocator undefined for Thread
+queue: undefined method 'initialize_copy' for an instance of Thread::Queue
+sq: undefined method 'initialize_copy' for an instance of Thread::SizedQueue
+fiber: uninitialized fiber
+orig: 7
+enum: can't copy execution context
+joins: done done

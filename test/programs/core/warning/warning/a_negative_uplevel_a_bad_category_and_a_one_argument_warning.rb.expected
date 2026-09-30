@@ -1,0 +1,8 @@
+[1, ArgumentError, "negative level (-1)"]
+[2, TypeError, "no implicit conversion of Integer into Symbol"]
+[3, TypeError, "wrong argument type String (expected Symbol)"]
+[4, :yes]
+[5, true]
+[6, Encoding::CompatibilityError, "ASCII incompatible encoding: UTF-16LE"]
+ONE arity one
+[7, nil]

@@ -1,0 +1,12 @@
+:yes
+0
+:yes
+:no
+modifier
+"world"
+"or"
+:interpolated
+:symbol
+:no
+"no implicit conversion of Integer into String"
+nil

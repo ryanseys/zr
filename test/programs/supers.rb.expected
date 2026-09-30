@@ -1,0 +1,14 @@
+"B:A#hi(2)"
+"B:A#hi(5)"
+[NoMethodError]
+"B:A.make"
+RuntimeError: implicit argument passing of super from method defined by define_method() is not supported. Specify all arguments explicitly.
+NoMethodError: super: no superclass method 'none' for an instance of B
+NoMethodError: super called outside of method
+NoMethodError: super called outside of method
+"A#hi(7)A#hi(7)"
+"A#hi(8)A#hi(8)"
+NoMethodError: super: no superclass method 'hi4' for an instance of C
+NoMethodError: super: no superclass method 'hi4' for an instance of D
+supers.rb:9:in 'block in <class:B>'
+supers.rb:28:in '<main>'

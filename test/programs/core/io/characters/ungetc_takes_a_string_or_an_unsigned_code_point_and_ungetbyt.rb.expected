@@ -1,0 +1,10 @@
+[#<RangeError: invalid codepoint 0xFFFFFFFF in UTF-8>, "a"]
+[#<RangeError: integer 4294967296 too big to convert to 'unsigned int'>, "a"]
+[#<RangeError: 2147483648 out of char range>, "a"]
+[#<RangeError: integer -2147483649 too small to convert to 'unsigned int'>, "a"]
+[#<TypeError: no implicit conversion of Symbol into String>, "a"]
+[#<TypeError: no implicit conversion of nil into String>, "a"]
+[nil, "é"]
+[nil, "é"]
+[nil, "A", nil, nil, "xyab"]
+#<IOError: not opened for reading>

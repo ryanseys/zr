@@ -1,0 +1,4 @@
+Exception 'IOError' at core/exception/exception/debug_reports_each_raise_on_stderr.rb:2 - io
+Exception 'RuntimeError' at core/exception/exception/debug_reports_each_raise_on_stderr.rb:4 - set
+Exception 'IndexError' at core/exception/exception/debug_reports_each_raise_on_stderr.rb:5 - index 3 outside of array bounds: 0...0
+Exception 'UncaughtThrowError' at core/exception/exception/debug_reports_each_raise_on_stderr.rb:6 - uncaught throw :zz

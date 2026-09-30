@@ -5,11 +5,11 @@ require "test_helper"
 require "tmpdir"
 require "support/binaries"
 
-# Tests the binary cache of the spec tier. A cached binary is stored
+# Tests the binary cache of the program tests. A cached binary is stored
 # sparse: it contains only the program's own bytes. It must come back
 # byte for byte. A damaged cache file is a miss, not a wrong binary.
 class BinaryCacheTest < Minitest::Test
-  Binaries = Zr::Spec::Binaries
+  Binaries = Zr::Test::Binaries
   SOURCE = "S = Struct.new(:a, :b)\nputs S.new(1, 2).inspect\n"
 
   def setup

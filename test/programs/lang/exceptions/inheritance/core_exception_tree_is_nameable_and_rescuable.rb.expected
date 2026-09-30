@@ -1,0 +1,7 @@
+Exception
+SignalException
+Exception
+NoMatchingPatternError
+RegexpError
+IOError
+SecurityError: denied

@@ -1,0 +1,130 @@
+Thread
+true
+true
+:done
+false
+false
+true
+Thread
+true
+true
+"run"
+false
+[:main, :a1, :b1, :a2, :b2]
+3
+"must be called with a block"
+[0, 1, 2]
+true
+true
+0
+nil
+[:x, :y]
+0
+"queue empty"
+#<ThreadError: queue empty>
+"queue closed"
+true
+1
+1
+2
+3
+:filled
+"queue full"
+false
+true
+true
+true
+false
+true
+true
+true
+"Attempt to unlock a mutex which is not locked"
+"deadlock; recursive locking"
+true
+false
+40
+true
+false
+:inside
+false
+true
+"sleep"
+true
+"Attempt to unlock a mutex which is locked by another thread/fiber"
+:released
+false
+:woke
+[:w, :w, :w]
+"inside"
+nil
+false
+"inside"
+true
+"quiet"
+"sleep"
+true
+true
+nil
+false
+false
+[:ensure]
+nil
+false
+false
+nil
+1
+1
+true
+false
+[:x]
+2
+1
+1
+nil
+5
+true
+[:tv]
+5
+nil
+nil
+"main"
+"main"
+"Target thread must not be current thread"
+"Target thread must not be main thread"
+1
+true
+nil
+"sleep"
+true
+:slept
+"sleep"
+0
+0
+false
+true
+Integer
+Integer
+"sleep"
+true
+:resumed
+[1, 2, false]
+:deep
+true
+"run"
+"01234"
+[2, 4]
+true
+true
+true
+false
+false
+"abort"
+7
+8
+RuntimeError
+nil
+"x"
+"Target thread must not be current thread"
+"from thread"
+false
+:at_exit

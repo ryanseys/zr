@@ -1,0 +1,11 @@
+Encoding::ConverterNotFoundError: code converter not found (UTF-8 to US-ASCII)
+Encoding::ConverterNotFoundError: code converter not found (UTF-8 to ISO-8859-1)
+"a"
+Encoding::ConverterNotFoundError: code converter not found (UTF-8 to US-ASCII)
+ArgumentError: replacement string is broken: "\xFF" as UTF-8
+ArgumentError: unknown value for invalid character option
+ArgumentError: unknown value for undefined character option
+Encoding::CompatibilityError: incompatible character encodings: US-ASCII and UTF-8
+ArgumentError: replacement must be valid byte sequence '"\xFF"'
+Encoding::CompatibilityError: incompatible character encodings: UTF-8 and UTF-16LE
+"a?b"

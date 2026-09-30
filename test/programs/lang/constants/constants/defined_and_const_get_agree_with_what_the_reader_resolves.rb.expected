@@ -1,0 +1,4 @@
+agree_defined_leaf	"constant"
+agree_defined_branch	"constant"
+agree_get_equals_read	true
+agree_branch_instance	true

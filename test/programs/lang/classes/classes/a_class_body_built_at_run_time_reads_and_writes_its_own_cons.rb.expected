@@ -1,0 +1,3 @@
+true
+:OUTER_UNTOUCHED
+[:abstract, AbstractAdapter]

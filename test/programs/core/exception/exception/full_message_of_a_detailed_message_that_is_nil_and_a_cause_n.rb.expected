@@ -1,0 +1,2 @@
+"core/exception/exception/full_message_of_a_detailed_message_that_is_nil_and_a_cause_n.rb:5:in '<main>': top (RuntimeError)\ncore/exception/exception/full_message_of_a_detailed_message_that_is_nil_and_a_cause_n.rb:5:in 'full_message': never raised (ArgumentError)\n"
+nil

@@ -56,10 +56,9 @@ module Zr
 
             ## Tests that a target may fail
 
-            Each target other than `aarch64-apple-darwin` has a baseline: the
-            end-to-end programs and spec examples that it may fail, each with
-            the reason. A test in a baseline that passes fails the run, so
-            these lists are current.
+            Each target can have a baseline: the program tests (below
+            test/programs) that it may fail, each with the reason. A test in a
+            baseline that passes fails the run, so these lists are current.
 
             #{baselines}
           MD

@@ -1,0 +1,2 @@
+[:roots, [Hash, true]]
+[:internal_super, ObjectSpace::InternalObjectWrapper]

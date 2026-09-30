@@ -1,0 +1,6 @@
+[true, true, true, false, true, "m"]
+[false, true, true]
+[false, true, false]
+"comparison of String with 1 failed"
+[true, 0]
+[false, true, "x"]

@@ -1,0 +1,28 @@
+["a", "b", "c"]
+["a", "b", "c"]
+["a", "b\tc\n"]
+["a", "b", "c", ""]
+[]
+[]
+["a"]
+["a", ""]
+["a", "b", ""]
+xyz"x y z"
+[" a", "b"]
+
+["a", "b"]
+["a\u0000b", "c"]
+["a", "b c"]
+["a", "b c"]
+["a,b", "c"]
+["a,b", "c"]
+[#<Encoding:UTF-8>]
+ArgumentError
+one two three 
+0
+"kept"
+"one\n"
+"one\n"
+0
+["a", "b"]
+["a\nb"]

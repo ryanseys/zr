@@ -1,0 +1,3 @@
+plus: incompatible character encodings: BINARY (ASCII-8BIT) and UTF-8
+shovel: incompatible character encodings: BINARY (ASCII-8BIT) and UTF-8
+range: 128512 out of char range

@@ -1,0 +1,8 @@
+Hello, top!
+Hello, instance!
+false
+true
+false
+"Hello, send!"
+"Hello, on-instance!"
+NoMethodError

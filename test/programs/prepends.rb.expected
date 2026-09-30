@@ -1,0 +1,29 @@
+"LOUD woof"
+[Loud, Dog, Animal]
+"dog"
+:loud
+[:name, :speak]
+Loud
+Loud
+"please, LOUD woof"
+[Polite, Loud, Dog, Animal]
+"please, LOUD WOOF"
+Animal
+Loud
+true
+true
+true
+true
+prepended to Dog
+[Tracked, Polite, Loud, Dog, Animal]
+"meow please, LOUD WOOF"
+[Cat, Tracked, Polite, Loud, Dog]
+"meow please, LOUD WOOFmeow please, LOUD WOOF"
+"solo"
+"Tracked"
+1
+prepends.rb:50:in 'Raiser#boom'
+prepends.rb:54:in '<main>'
+[:secret]
+"please, LOUD WOOF"
+false

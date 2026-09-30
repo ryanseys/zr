@@ -1,0 +1,11 @@
+[FloatDomainError, "Divide by zero"]
+[FloatDomainError, "Computation results in 'NaN' (Not a Number)"]
+0
+0.33333e0
+0.31111e1
+0.333e0
+0
+0.27e1
+3
+7
+0.2e0

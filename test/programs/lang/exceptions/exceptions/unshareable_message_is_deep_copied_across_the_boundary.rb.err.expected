@@ -1,0 +1,1 @@
+lang/exceptions/exceptions/unshareable_message_is_deep_copied_across_the_boundary.rb:7: warning: Ractor API is experimental and may change in future versions of Ruby.

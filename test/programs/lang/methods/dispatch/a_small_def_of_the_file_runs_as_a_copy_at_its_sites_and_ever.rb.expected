@@ -1,0 +1,18 @@
+[1, 0, 1, false, true]
+[3, 9223372036854775808, 3.5, "ab", [1, 2]]
+[true, false, true, ArgumentError, true]
+[true, false, true, true, true, true, true, false, true]
+[:node, :other, :other, true, false, false]
+[2, 3, 1, 8]
+[true, true, false, false, false]
+[nil, 8, 3]
+[NoMethodError, [":26:in 'Object#missing'", ":42:in '<main>'"]]
+200005
+[:other, 1, NoMethodError]
+:redefined
+:again
+[true, :again]
+:plus
+[:eq, false]
+:node
+:eqq

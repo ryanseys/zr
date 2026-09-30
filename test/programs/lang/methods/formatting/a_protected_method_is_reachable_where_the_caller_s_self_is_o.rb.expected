@@ -1,0 +1,7 @@
+Money.new > Money.new => false
+Money.new > Cash.new => false
+Cash.new > Money.new => false
+Outsider.new.peek(Money.new) !! NoMethodError: protected method 'amount' called for an instance of Money
+Money.new.amount !! NoMethodError: protected method 'amount' called for an instance of Money
+Money.new.send(:amount) => 7
+Money.new.public_send(:amount) !! NoMethodError: protected method 'amount' called for an instance of Money

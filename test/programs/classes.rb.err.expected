@@ -1,0 +1,4 @@
+classes.rb:38:in '<main>': uninitialized constant Nope (NameError)
+
+p Nope
+  ^^^^

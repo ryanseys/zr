@@ -1,0 +1,2 @@
+SizedQueue num_waiting: 0
+SizedQueue clear: Thread::SizedQueue

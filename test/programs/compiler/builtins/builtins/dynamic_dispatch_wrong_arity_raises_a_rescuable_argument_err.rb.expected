@@ -1,0 +1,6 @@
+fixed: wrong number of arguments (given 0, expected 1)
+fixed: wrong number of arguments (given 2, expected 1)
+rng: wrong number of arguments (given 0, expected 1..2)
+rng: wrong number of arguments (given 3, expected 1..2)
+restp: wrong number of arguments (given 0, expected 1+)
+survived

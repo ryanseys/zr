@@ -1,0 +1,10 @@
+R.new.on_self => :helped
+R.new.bare => :helped
+R.new.through_local !! NoMethodError: private method 'helper' called for an instance of R
+R.new.on_other(R.new) !! NoMethodError: private method 'helper' called for an instance of R
+R.new.helper !! NoMethodError: private method 'helper' called for an instance of R
+R.new.send(:helper) => :helped
+R.new.__send__(:helper) => :helped
+R.new.public_send(:helper) !! NoMethodError: private method 'helper' called for an instance of R
+R.new.respond_to?(:helper) => false
+R.new.respond_to?(:helper, true) => true

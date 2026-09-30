@@ -1,0 +1,69 @@
+str <<: FrozenError: can't modify frozen String: "abc"
+str concat: FrozenError: can't modify frozen String: "abc"
+str insert: FrozenError: can't modify frozen String: "abc"
+str prepend: FrozenError: can't modify frozen String: "abc"
+str replace: FrozenError: can't modify frozen String: "abc"
+str clear: FrozenError: can't modify frozen String: "abc"
+str chomp!: FrozenError: can't modify frozen String: "abc"
+str chop!: FrozenError: can't modify frozen String: "abc"
+str squeeze!: FrozenError: can't modify frozen String: "abc"
+str strip!: FrozenError: can't modify frozen String: "abc"
+str lstrip!: FrozenError: can't modify frozen String: "abc"
+str rstrip!: FrozenError: can't modify frozen String: "abc"
+str sub!: FrozenError: can't modify frozen String: "abc"
+str gsub!: FrozenError: can't modify frozen String: "abc"
+str tr!: FrozenError: can't modify frozen String: "abc"
+str tr_s!: FrozenError: can't modify frozen String: "abc"
+str delete!: FrozenError: can't modify frozen String: "abc"
+str upcase!: FrozenError: can't modify frozen String: "abc"
+str downcase!: FrozenError: can't modify frozen String: "abc"
+str capitalize!: FrozenError: can't modify frozen String: "abc"
+str swapcase!: FrozenError: can't modify frozen String: "abc"
+str succ!: FrozenError: can't modify frozen String: "abc"
+str reverse!: FrozenError: can't modify frozen String: "abc"
+str slice!: FrozenError: can't modify frozen String: "abc"
+str []=: FrozenError: can't modify frozen String: "abc"
+str setbyte: FrozenError: can't modify frozen String: "abc"
+str *=(noop) freeze-safe read: ok
+arr <<: FrozenError: can't modify frozen Array: [3, 1, 2]
+arr push: FrozenError: can't modify frozen Array: [3, 1, 2]
+arr pop: FrozenError: can't modify frozen Array: [3, 1, 2]
+arr shift: FrozenError: can't modify frozen Array: [3, 1, 2]
+arr unshift: FrozenError: can't modify frozen Array: [3, 1, 2]
+arr insert: FrozenError: can't modify frozen Array: [3, 1, 2]
+arr []=: FrozenError: can't modify frozen Array: [3, 1, 2]
+arr delete: FrozenError: can't modify frozen Array: [3, 1, 2]
+arr delete_at: FrozenError: can't modify frozen Array: [3, 1, 2]
+arr delete_if: FrozenError: can't modify frozen Array: [3, 1, 2]
+arr clear: FrozenError: can't modify frozen Array: [3, 1, 2]
+arr compact!: FrozenError: can't modify frozen Array: [3, 1, 2]
+arr flatten!: FrozenError: can't modify frozen Array: [3, 1, 2]
+arr uniq!: FrozenError: can't modify frozen Array: [3, 1, 2]
+arr sort!: FrozenError: can't modify frozen Array: [3, 1, 2]
+arr sort_by!: FrozenError: can't modify frozen Array: [3, 1, 2]
+arr reverse!: FrozenError: can't modify frozen Array: [3, 1, 2]
+arr rotate!: FrozenError: can't modify frozen Array: [3, 1, 2]
+arr shuffle!: FrozenError: can't modify frozen Array: [3, 1, 2]
+arr map!: FrozenError: can't modify frozen Array: [3, 1, 2]
+arr select!: FrozenError: can't modify frozen Array: [3, 1, 2]
+arr reject!: FrozenError: can't modify frozen Array: [3, 1, 2]
+arr keep_if: FrozenError: can't modify frozen Array: [3, 1, 2]
+arr fill: FrozenError: can't modify frozen Array: [3, 1, 2]
+arr replace: FrozenError: can't modify frozen Array: [3, 1, 2]
+arr concat: FrozenError: can't modify frozen Array: [3, 1, 2]
+hash []=: FrozenError: can't modify frozen Hash: {k: 1}
+hash store: FrozenError: can't modify frozen Hash: {k: 1}
+hash delete: FrozenError: can't modify frozen Hash: {k: 1}
+hash delete_if: FrozenError: can't modify frozen Hash: {k: 1}
+hash clear: FrozenError: can't modify frozen Hash: {k: 1}
+hash merge!: FrozenError: can't modify frozen Hash: {k: 1}
+hash update: FrozenError: can't modify frozen Hash: {k: 1}
+hash reject!: FrozenError: can't modify frozen Hash: {k: 1}
+hash select!: FrozenError: can't modify frozen Hash: {k: 1}
+hash keep_if: FrozenError: can't modify frozen Hash: {k: 1}
+hash compact!: FrozenError: can't modify frozen Hash: {k: 1}
+hash transform_keys!: FrozenError: can't modify frozen Hash: {k: 1}
+hash transform_values!: FrozenError: can't modify frozen Hash: {k: 1}
+hash replace: FrozenError: can't modify frozen Hash: {k: 1}
+hash default=: FrozenError: can't modify frozen Hash: {k: 1}
+hash shift: FrozenError: can't modify frozen Hash: {k: 1}

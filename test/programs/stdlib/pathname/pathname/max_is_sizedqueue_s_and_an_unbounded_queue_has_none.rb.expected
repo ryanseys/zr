@@ -1,0 +1,5 @@
+-- SizedQueue, not Queue
+Queue#max: NoMethodError
+Queue#max=: NoMethodError
+2
+5

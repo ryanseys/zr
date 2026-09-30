@@ -9,9 +9,9 @@ class AffectedTest < Minitest::Test
   def affected = Zr::Dev::Affected.new("affected")
 
   def test_a_changed_test_file_runs_itself
-    plan = affected.plan(%w[test/unit/fork_pool_test.rb test/spec/core/string/blocks_test.rb])
+    plan = affected.plan(%w[test/unit/fork_pool_test.rb test/programs/core/comparable/comparison/a_base_class_that_calls_a_name_only_its_descendants_write_ty.rb.expected])
 
-    assert_equal %w[test/spec/core/string/blocks_test.rb test/unit/fork_pool_test.rb], plan
+    assert_equal %w[test/programs/core/comparable/comparison/a_base_class_that_calls_a_name_only_its_descendants_write_ty.rb test/unit/fork_pool_test.rb], plan
   end
 
   def test_a_deleted_test_file_runs_nothing
@@ -28,7 +28,7 @@ class AffectedTest < Minitest::Test
 
     assert_includes plan, "test/unit/run_cache_test.rb"
     refute_includes plan, "test/unit/bytes_test.rb"
-    assert_includes plan, "test/e2e", "exe/zr loads it"
+    assert_includes plan, "test/programs/cli", "exe/zr loads it"
   end
 
   def test_the_load_graph_follows_literal_requires

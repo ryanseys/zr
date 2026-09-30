@@ -1,0 +1,7 @@
+[:raise, "ArgumentError", 11]
+[:rescue, "ArgumentError", 16]
+[:raise, "TypeError", 22]
+[:rescue, "TypeError", 24]
+[:raise, "KeyError", 27]
+[:rescue, "KeyError", 31]
+TracePoint

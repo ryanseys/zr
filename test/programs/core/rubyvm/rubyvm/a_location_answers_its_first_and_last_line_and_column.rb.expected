@@ -1,0 +1,2 @@
+[:first_column, :first_lineno, :inspect, :last_column, :last_lineno]
+[TypeError, "allocator undefined for RubyVM::AbstractSyntaxTree::Location"]

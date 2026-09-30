@@ -1,0 +1,51 @@
+[:@name, :@seen]
+"a"
+0
+nil
+3
+[:@name, :@seen, :@late]
+true
+false
+#<NameError: 'name' is not allowed as an instance variable name>
+#<TypeError: 3 is not a symbol nor a string>
+[:@@count, :@@names]
+[:@@count, :@@extra, :@@names]
+[:@@extra]
+1
+1
+true
+false
+true
+10
+[:@@extra, :@@fresh]
+false
+#<NameError: uninitialized class variable @@missing in Counter>
+#<NameError: 'count' is not allowed as a class variable name>
+[:count]
+[]
+[:solo]
+[:solo]
+[:extra, :solo]
+[:solo]
+true
+true
+false
+[:solo]
+[:bump, :extra, :solo]
+true
+[:peek]
+[]
+true
+[:bump, :peek]
+#<NoMethodError: undefined method 'bump' for class Counter>
+1
+2
+#<NoMethodError: private method 'secret' called for #<Counter:0xADDR>>
+:s
+inherited: Leaf < Base
+included in Leaf
+extended Object
+#<TypeError: wrong argument type Integer (expected Module)>
+#<ArgumentError: wrong number of arguments (given 0, expected 1+)>
+#<TypeError: superclass must be an instance of Class (given an instance of Integer)>
+[Leaf, Tracked, Base]

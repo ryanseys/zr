@@ -1,0 +1,4 @@
+lang/blocks/enumeration/yield_block_given_break_next_and_a_closure_over_a_local_all/zr/blocks_and_closures.rb:92:in 'block in Object#boom': inside (RuntimeError)
+	from lang/blocks/enumeration/yield_block_given_break_next_and_a_closure_over_a_local_all/zr/blocks_and_closures.rb:92:in 'Array#each'
+	from lang/blocks/enumeration/yield_block_given_break_next_and_a_closure_over_a_local_all/zr/blocks_and_closures.rb:92:in 'Object#boom'
+	from lang/blocks/enumeration/yield_block_given_break_next_and_a_closure_over_a_local_all/zr/blocks_and_closures.rb:94:in '<main>'

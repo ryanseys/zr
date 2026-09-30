@@ -1,0 +1,59 @@
+true
+false
+false
+false
+false
+false
+true
+true
+false
+false
+false
+true
+true
+false
+true
+"/var/folders/7r/0kdzlwm12_19f3qc1j8w5vjr0000gn/T//zr-files-more/a.txt"
+true
+"/var/folders/7r/0kdzlwm12_19f3qc1j8w5vjr0000gn/T//zr-files-more/a.txt"
+true
+false
+"link"
+true
+5
+"hel"
+3
+1000000
+2000000
+"640"
+true
+3
+2000000
+nil
+true
+true
+"el"
+0
+0
+0
+1
+"/var/folders/7r/0kdzlwm12_19f3qc1j8w5vjr0000gn/T//zr-files-more"
+"/var/folders/7r/0kdzlwm12_19f3qc1j8w5vjr0000gn/T//zr-files-more"
+0
+"#<Dir:/var/folders/7r/0kdzlwm12_19f3qc1j8w5vjr0000gn/T//zr-files-more>"
+[".", "..", "a.txt", "hard", "link"]
+["a.txt", "hard", "link"]
+true
+closed directory
+3
+true
+false
+true
+true
+1
+true
+true
+unknown command 'q'
+Invalid argument @ rb_readlink - <path>
+No such file or directory @ rb_file_s_truncate - <dir>/nope
+false

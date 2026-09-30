@@ -1,0 +1,7 @@
+["a.rb", "b.txt", "sub"]
+[".", "..", "a.rb", "b.txt", "sub"]
+true
+false
+false
+true
+true

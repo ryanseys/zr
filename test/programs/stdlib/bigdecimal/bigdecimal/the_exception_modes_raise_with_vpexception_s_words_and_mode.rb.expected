@@ -1,0 +1,18 @@
+#<FloatDomainError: Computation results in 'NaN' (Not a Number)>
+#<FloatDomainError: Computation results to 'NaN'>
+#<FloatDomainError: Computation results to 'NaN'>
+#<FloatDomainError: Computation results in 'NaN' (Not a Number)>
+#<FloatDomainError: Computation results in '-Infinity'>
+#<FloatDomainError: Computation results to 'Infinity'>
+#<FloatDomainError: Computation results in 'Infinity'>
+#<ArgumentError: second argument must be true or false>
+#<ArgumentError: invalid rounding mode (bogus)>
+#<TypeError: no implicit conversion of String into Integer>
+#<ArgumentError: invalid rounding mode (bogus)>
+#<TypeError: no implicit conversion from nil to integer>
+#<ArgumentError: invalid rounding mode (bogus)>
+0.1e1
+["18:0.15e1", "36:0.123456789012345678901e1", "36:0.33333333333333333333333333333333e0", "9:0.1e21"]
+25
+[:_load, :double_fig, :interpret_loosely, :limit, :mode, :save_exception_mode, :save_limit, :save_rounding_mode]
+[]

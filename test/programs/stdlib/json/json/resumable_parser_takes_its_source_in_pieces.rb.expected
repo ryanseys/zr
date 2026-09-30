@@ -1,0 +1,49 @@
+false
+false
+{"user" => "george", "role" => nil}
+"\"ad"
+true
+false
+30
+false
+true
+{"user" => "george", "role" => "admin"}
+true
+[1, 2, 3]
+false
+true
+true
+false
+"123"
+true
+123
+false
+[1, [2, 3]]
+#<ArgumentError: no ready value>
+false
+"tr"
+true
+true
+#<JSON::ParserError: unexpected character: 'x'>
+"x"
+#<JSON::ParserError: unexpected token '/*'>
+false
+true
+1
+true
+{a: 1}
+["[", false, nil, "["]
+[" {\"k\" : [1 , 2.5", false, [{"k" => [1]}], "2.5"]
+["e3 ] , \"s\": \"a\\u00", false, [{"k" => [1, 2500.0], "s" => nil}], "\"a\\u00"]
+["e9\" } ", false, [{"k" => [1, 2500.0], "s" => "aé"}], ""]
+["]", true, [{"k" => [1, 2500.0], "s" => "aé"}], ""]
+[" -", false, nil, "-"]
+false
+[[1], [2]]
+{"x" => nil}
+true
+8
+true
+{"x" => nil}
+true
+#<JSON::ParserError: unexpected character: ']'>

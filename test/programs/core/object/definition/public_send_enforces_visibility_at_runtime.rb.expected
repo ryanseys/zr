@@ -1,0 +1,7 @@
+100
+NoMethodError: private method 'secret' called for an instance of Acct
+NoMethodError: protected method 'guarded' called for an instance of Acct
+42
+"prot"
+NoMethodError: private method 'hidden' called for an instance of Inner
+NoMethodError: private method 'secret' called for an instance of Acct

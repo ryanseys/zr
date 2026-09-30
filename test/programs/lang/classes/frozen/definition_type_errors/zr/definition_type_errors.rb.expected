@@ -1,0 +1,11 @@
+[TypeError, "superclass mismatch for class Bare"]
+"Object"
+[1, 2, 3, "Parent"]
+"superclass mismatch for class Kid"
+"Inner is not a module\nlang/classes/frozen/definition_type_errors/zr/definition_type_errors.rb:43: previous definition of Inner was here"
+"Mixin is not a class\nlang/classes/frozen/definition_type_errors/zr/definition_type_errors.rb:50: previous definition of Mixin was here"
+true
+"HI!"
+"superclass mismatch for class String"
+["[ArgumentError]", "bad"]
+true

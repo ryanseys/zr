@@ -1,0 +1,23 @@
+3
+"Pair"
+true
+true
+:hi
+:kid
+"Kid"
+true
+:deep
+"Wrap::Deep"
+inherited: true
+true
+"Seen"
+:kid
+:second
+"held"
+:grand
+:kid
+true
+"Grand"
+["t1", 1]
+["t2", 2, "Retagged"]
+[:@tag]

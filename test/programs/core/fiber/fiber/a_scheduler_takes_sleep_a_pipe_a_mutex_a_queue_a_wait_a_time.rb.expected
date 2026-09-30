@@ -1,0 +1,3 @@
+[Scheduler, nil, 1]
+[[:current, Scheduler, nil], [:joined, :t], [:popped, :item], [:read, "hello"], [:resolved, "127.0.0.1"], [:status, 7], [:timeout, Timeout::Error], :a1, :a2, :b1, :b2, :locked_first, :locked_second]
+nil

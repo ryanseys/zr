@@ -1,0 +1,27 @@
+# Marshal round-trips the value tower (primitives, bignum, array, hash,
+# Rational, shared refs and cycles) and writes CRuby's exact wire bytes for
+# symbols (with ;-symlinks) and floats.
+#
+# The cycle it round-trips, and the copy that came back: both alive at exit.
+# At exit: cycle leak: 2 objects (Array x2)
+
+def rt(x) = Marshal.load(Marshal.dump(x))
+p rt(42)
+p rt(-987654321)
+p rt(3.14)
+p rt("hi")
+p rt(:sym)
+p rt([1, "x", :y, nil, true])
+p rt(2 ** 200)
+p rt(Rational(3, 4))
+p [rt(Rational(1, 3)), rt(Rational(2, 5))]
+shared = [1, 2]
+sg = rt([shared, shared])
+sg[0] << 99
+p sg[1]
+cyc = [10]
+cyc << cyc
+dc = rt(cyc)
+p dc[1][1][0]
+puts Marshal.dump([:ab, :cd, :ab]).bytes.join(",")
+puts Marshal.dump(100.0).bytes.join(",")

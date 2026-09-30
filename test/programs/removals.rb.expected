@@ -1,0 +1,43 @@
+"kid"
+removed greet
+"base"
+[]
+method 'greet' not defined in Kid
+:greet
+Kid
+removed greet
+"base"
+2
+1
+[:OPEN]
+true
+nil
+"constant"
+private constant Conf::SECRET referenced
+:SECRET
+constant Conf::NOPE not defined
+1
+[#<Class:0xADDR>, C, B]
+[D]
+[]
+[]
+A
+[nil, "C", "B"]
+1
+[:@b]
+2
+[]
+instance variable @zz not defined
+:@zz
+'zz' is not allowed as an instance variable name
+FrozenError
+["removals.rb:91:in 'Object#outer'", "removals.rb:92:in '<main>'"]
+["removals.rb:93:in 'Object#inner0'", "removals.rb:94:in '<main>'"]
+["removals.rb:96:in 'Object#limited_outer'"]
+[]
+1
+nil
+[]
+["removals.rb:99:in 'block in <main>'", "removals.rb:99:in 'Array#each'", "removals.rb:99:in '<main>'"]
+negative level (-1)
+negative size (-1)

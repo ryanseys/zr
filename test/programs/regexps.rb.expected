@@ -1,0 +1,489 @@
+"/a/"
+"/a/i"
+"/a\\/b/"
+"/a\\/b/"
+"(?mix:a)"
+"(?-mix:a)"
+"(?i-mx:a)"
+0
+7
+1
+1
+2
+"a"
+"a/b"
+"a\\.b\\*c\\?d\\[e\\]f\\{g\\}h\\(i\\)j\\|k\\^l\\$m\\\\n\\ \\t\\n\\-\\#/"
+/(?!)/
+/a\.b|(?i-mx:c)/
+/x|y/
+/a/
+true
+false
+true
+true
+false
+true
+1
+nil
+["x"]
+{"x" => [1]}
+[]
+NilClass
+MatchData
+true
+nil
+true
+false
+true
+true
+false
+["n"]
+"2"
+nil
+#<Encoding:US-ASCII>
+"/a/mi"
+"/a/x"
+"a\nb"
+false
+"é"
+"/é/"
+"é"
+#<Encoding:UTF-8>
+1
+"a"
+0
+0
+"b"
+"a\\+b"
+nil
+Regexp
+false
+false
+false
+false
+false
+#<MatchData "hello world" first:"hello" second:"world">
+"#<MatchData \"hello world\" first:\"hello\" second:\"world\">"
+"hello world"
+"hello world"
+"hello"
+"world"
+"world"
+"hello"
+"hello"
+"undefined group name reference: nope"
+["hello", "world"]
+["hello", "world"]
+""
+""
+["hello", "world"]
+{"first" => "hello", "second" => "world"}
+["first", "second"]
+["hello world", "hello", "world"]
+["hello world", "world"]
+3
+0
+11
+[0, 5]
+[6, 11]
+"hello world"
+true
+/(?<first>\w+) (?<second>\w+)/
+true
+["hello", "world"]
+{first: "hello"}
+"hello"
+5
+"index 5 out of matches"
+nil
+IndexError
+#<MatchData "hello world" 1:"hello" 2:"world">
+"#<MatchData \"hello world\" 1:\"hello\" 2:\"world\">"
+"world"
+["hello", "world"]
+{}
+[]
+["hello world", "hello", "world"]
+["hello world", "world", "world"]
+6
+11
+["ab", "a"]
+2
+#<MatchData "b" 1:nil 2:"b">
+nil
+nil
+[nil, "b"]
+[nil, nil]
+["b", nil, "b"]
+[nil, "b"]
+{}
+"a"
+""
+nil
+nil
+2
+[3, 5]
+2
+2
+{"x" => "é"}
+#<MatchData "">
+""
+nil
+#<MatchData "b">
+"b"
+"hé"
+"lo"
+3
+"él"
+12"a"
+"b"
+["1", "22", "333"]
+[["a", "1"], ["b", "22"]]
+[]
+["aaa", ""]
+[["a"], ["b"], ["c"]]
+"a1b2"
+[["t", nil], [nil, "e"], ["t", nil]]
+5
+"ab"
+
+"heLlo"
+"heLLo"
+"hello"
+"he[l][l]o"
+"heLLo"
+"hel!l!o"
+"h311o"
+"hello"
+"hellllo"
+"hellllo"
+"hehe|oo"
+"he\\\\o"
+"a-b"
+["l", "l"]
+"heLLo"
+nil
+"heLLo"
+"-h-e-l-l-o-"
+"-h-e--o-"
+"XaXXcX"
+"hlelo"
+"hell0 w0rld"
+"heo"
+"helllo"
+"héLLo"
+"he108108o"
+"a\\-b"
+"\\"
+"he\\1\\1o"
+["a", "b", "c"]
+["a", "b", "c"]
+["a", "1", "b", "2", "c"]
+["a", "b", "c"]
+["a", "b", "c"]
+["a", "b", "", "c"]
+["a", "b,c"]
+["", "a", "", "b"]
+["", "a", "", "b", "", ""]
+["a", "bc"]
+["a", "b", "c"]
+["a", "1", "b"]
+["hé", "", "o"]
+["a", "c"]
+[]
+[]
+["a", "b"]
+2
+#<MatchData "ll">
+"ll"
+"he"
+"o"
+"ll"
+nil
+2
+"l"
+"l"
+nil
+"l"
+"he"
+nil
+nil
+nil
+false
+true
+0
+nil
+"b"
+"b"
+#<MatchData "hello world" first:"hello" second:"world">
+#<MatchData "b" 1:nil 2:"b">
+0
+"q"
+"n"
+true
+"n"
+#<MatchData "c">
+"c"
+"c"
+"c"
+nil
+true
+"c"
+nil
+nil
+nil
+0
+nil
+"v"
+["v"]
+"w"
+"w"
+"b"
+"c"
+"b"
+"b"
+nil
+"bc"
+2
+4
+4
+1
+true
+false
+["a", "-", "b"]
+["a-b", "-", "c"]
+["abc", "", ""]
+["a", "X", "b"]
+true
+TypeError
+"heLo"
+"ll"
+"heo"
+"he_lo"
+"regexp not matched"
+1
+"y"
+false
+false
+false
+nil
+"a"
+"012"
+""
+"ab"
+"aab"
+["a", "b"]
+["apple", "cat"]
+["bob"]
+["a", :b]
+:yes
+["H", "W"]
+["a", "b", "c"]
+"a\nb"
+0
+true
+"_a_ _b_ _c_"
+nil
+[2024, 1, 2]
+{k: "key", v: "value"}
+nil
+2
+1
+1
+2
+"foo"
+1
+["555-1234", "555", "1234"]
+"bbb"
+true
+true
+"end pattern with unmatched parenthesis: /a(/"
+"unmatched close parenthesis: /a)/"
+"premature end of char-class: /[a/"
+"target of repeat operator is not specified: /*a/"
+"upper is smaller than lower in repeat range: /a{2,1}/"
+"undefined name <x> reference: /\\k<x>/"
+"invalid character property name {Nope}: /\\p{Nope}/"
+"undefined group option: /(?z)/"
+"empty range in char class: /[b-a]/"
+"invalid backref number/name: /\\1/"
+"invalid backref number/name: /(a)\\2/"
+[:ok, "(?<a>1)(?<a>2)\\k<a>"]
+"end pattern in group: /(?i/"
+"invalid POSIX bracket type: /[[:nope:]]/"
+[:ok, "x++"]
+"unknown regexp option: z"
+"é"
+"café"
+"a"
+["日本語"]
+1
+[3, 6]
+2
+2
+"日-語"
+["日", "語"]
+"本語"
+"本日語"
+"a"
+1
+["日", "本", "語"]
+"本語"
+"interp"
+"a2b"
+1
+"."
+"pret"
+"."
+true
+1000
+1000
+2000
+1999
+4950
+0
+1
+1
+0
+"aZ"
+["b"]
+["a", "b"]
+["a", "b", "c", ""]
+["a", "bc"]
+["a", "b", "", ""]
+["a", "1", "b2c3"]
+[]
+[]
+["", "1", "a", "2", "b"]
+["one", "two  three "]
+["one", "two", "three", ""]
+[""]
+["trail", ""]
+["a b"]
+["a", "b", "c", ""]
+["a", "bc"]
+[]
+"abc!"
+"x!\ny!"
+">a\n>b"
+"|hello| |world|"
+"abc!"
+"o"
+"l"
+nil
+["lo", "l"]
+["l", "o"]
+["lo", "l"]
+IndexError
+"index -1 out of matches"
+3
+5
+["l", "o"]
+["l", "o", nil, nil, nil, nil, nil, nil, nil]
+["lo", "o"]
+{}
+TypeError
+{}
+[]
+false
+1
+[/a/, /b/]
+1
+"unknown regexp option: z"
+"empty range in char class: /[z-a]/mi"
+"a[]"
+"a[b]"
+"b"
+"a."
+"(?-mix:a\\x00b)"
+"/a\\x00b/"
+"(?-mix:a\\/b)"
+"/a\tb/"
+true
+false
+nil
+false
+nil
+true
+"b"
+9
+"2026"
+nil
+nil
+nil
+nil
+0
+0
+0
+0
+1
+nil
+0
+nil
+0
+0
+0
+0
+0
+nil
+0
+"a"
+nil
+"/(?u)\\w/i"
+"(?-mix:\\w)|(?-mix:(?a)\\b)"
+0
+0
+[92, 67, 45, 97]
+"too short escaped multibyte character: /\\M-a/"
+"invalid multibyte escape: /\\M-\\C-a/"
+"too short meta escape: /\\M/"
+"duplicate control escape: /\\C-\\C-a/"
+"invalid hex escape: /\\C-\\xZZ/"
+0
+"ab"
+0
+"invalid Unicode list: /\\u{zz}/"
+true
+false
+false
+false
+true
+[ArgumentError, "invalid byte sequence in UTF-8"]
+ArgumentError
+ArgumentError
+nil
+"a-10"
+"Ba"
+"aaa"
+"b0"
+"-10"
+"1-aa"
+"2.0"
+"AAa"
+2
+3
+3
+"offset 2 does not land on character boundary"
+4
+4
+"ab\xFFc"
+"ab�c"
+"ab?c"
+"ab<ff>c"
+true
+:c
+[[1, 1], [1, 2], [2, 2]]
+6
+[[1, 1], [1, 2], [2, 1], [2, 2]]
+[[]]
+255
+31
+35
+1
+"invalid radix 1"
+[2, 3, nil, nil, nil, nil, nil, nil, nil]
+[2, 3]
+[1, nil, nil]
+"index -2 outside of array bounds: -1...1"
+"negative array size"
+"index -1 too small for array; minimum: 0"

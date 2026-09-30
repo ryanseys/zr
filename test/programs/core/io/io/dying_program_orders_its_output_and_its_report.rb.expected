@@ -1,0 +1,5 @@
+a plain write
+a line through puts
+a warning
+at_exit wrote this
+core/io/io/dying_program_orders_its_output_and_its_report.rb:16:in '<main>': the program gave up (RuntimeError)

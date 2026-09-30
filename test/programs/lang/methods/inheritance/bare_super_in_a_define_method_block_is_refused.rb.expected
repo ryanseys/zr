@@ -1,0 +1,9 @@
+RuntimeError
+"implicit argument passing of super from method defined by define_method() is not supported. Specify all arguments explicitly."
+RuntimeError
+"implicit argument passing of super from method defined by define_method() is not supported. Specify all arguments explicitly."
+RuntimeError
+"implicit argument passing of super from method defined by define_method() is not supported. Specify all arguments explicitly."
+[[7]]
+[9]
+[3, 2]

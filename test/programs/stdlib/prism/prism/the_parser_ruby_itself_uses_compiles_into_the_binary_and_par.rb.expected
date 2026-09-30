@@ -1,0 +1,11 @@
+1.9.0
+true
+Prism::ProgramNode
+["Prism::LocalVariableWriteNode", "Prism::CallNode"]
+:x
+[:x]
+false
+unexpected end-of-input; expected a method name
+true
+true
+[:IDENTIFIER, :IDENTIFIER, :EOF]

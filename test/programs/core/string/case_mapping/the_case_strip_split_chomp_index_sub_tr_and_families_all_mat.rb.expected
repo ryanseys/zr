@@ -1,0 +1,48 @@
+"Hello world"
+"hEllO"
+"HELLO"
+"hello"
+"hi"
+"hi"
+"hi"
+["h", "e", "l", "l", "o"]
+["a", "b", "", "c"]
+["a", "b", "c"]
+["he", "", "o"]
+"hel"
+"hell"
+"abcabcabc"
+"cba"
+2
+3
+nil
+"e"
+"ell"
+"ell"
+"heLlo"
+"heLLo"
+"heLLo"
+true
+true
+"hippo"
+"ifmmp"
+42
+0
+255
+42.5
+:hello
+"ba"
+"aaa"
+["a\n", "b\n", "c"]
+"Hello Bob, you are 42"
+"003.1|ff|10|101|1.234568e+04|1e-05|%"
+"**hi***"
+"hi..."
+"...hi"
+"heo"
+"abc"
+"abbcc"
+5
+"xyz"
+"xyz!"
+"abxyz!"

@@ -1,0 +1,6 @@
+duplicate keys	{"a" => 2}
+complex key	{[1, 2] => 3}
+nested flow	[{"a" => [1, {"b" => 2}]}]
+empty flow	[[], {}, [{}]]
+mixed indent	Psych::SyntaxError
+deep but legal	0

@@ -1,0 +1,8 @@
+["a", "b", "c"]
+["a", "b", "c", ""]
+f[oo]bar
+IndexError
+7
+["hello12", "3", "world"]
+false
+true

@@ -1,0 +1,22 @@
+["abcdef"]
+["==41"]
+"eHh4eHh4eHh4eA==\n"
+"\x00"
+"0"
+"\x80\x00\x00\x00\x00\x00\x00\x00\x00"
+[]
+[1]
+[""]
+["a", "c"]
+[55296]
+"\x01\x02"
+"invalid base64"
+"invalid base64"
+"invalid base64"
+[ArgumentError, "redundant UTF-8 sequence"]
+[ArgumentError, "malformed UTF-8 character (expected 2 bytes, given 1 bytes)"]
+[ArgumentError, "'_' allowed only after types sSiIlLqQjJ"]
+[ArgumentError, "% is not supported"]
+[TypeError, "can't convert String into Float"]
+[TypeError, "no implicit conversion of String into Integer"]
+"Can't use both '<' and '>'"

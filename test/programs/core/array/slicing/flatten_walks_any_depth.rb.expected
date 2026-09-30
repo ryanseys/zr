@@ -1,0 +1,22 @@
+100001
+[0, 1, 2]
+3
+4
+[1, :x, :y, 2, 3]
+[1, :x, [:y]]
+[1, 2, [3, [4]]]
+[1, [2]]
+[1, 2]
+[1, 2]
+[1, 2]
+[ArgumentError, "tried to flatten recursive array"]
+3
+2
+2
+nil
+[1, 2]
+nil
+[FrozenError, "can't modify frozen Array: [[1]]"]
+[FrozenError, "can't modify frozen Array: [1]"]
+false
+false

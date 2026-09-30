@@ -1,0 +1,27 @@
+"hEllo wörld"
+"日本lo wörld"
+#<Encoding:UTF-8>
+true
+"日本lo !"
+"日本lo ?!?"
+IndexError
+"日本lo ?!?"
+"aabcc"
+"xab0ab1ab2ab3ab4ab5ab6ab7ab8ab9ab10ab11ab12ab13ab14ab15ab16ab17ab18ab19"
+71
+[0, 0, 0, 0, 239, 190, 173, 222, 0, 0, 0, 0, 0, 0, 0, 0]
+Encoding::CompatibilityError
+"ülain"
+#<Encoding:UTF-8>
+FrozenError
+Encoding::CompatibilityError
+"incompatible character encodings: BINARY (ASCII-8BIT) and UTF-8"
+Encoding::CompatibilityError
+"incompatible character encodings: UTF-8 and BINARY (ASCII-8BIT)"
+"heXYllo!heXYllo!"
+"heXYllo!heXYllo!"
+"heXYllo!heXYllo!"
+"a"
+IndexError
+"index 5 out of string"
+[97, 0]

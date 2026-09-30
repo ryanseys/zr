@@ -1,0 +1,14 @@
+basename: "b.rb"
+basename suffix: "b"
+dirname: "/a"
+extname: ".rb"
+sub_ext: "a/b.txt"
+sub_ext none: "a/b.txt"
+sub_ext empty: "a/b"
+split: ["/a", "b"]
+split root: ["/", "/"]
+sub: "/z/b"
+sub block: "/A/b"
+expand_path: "/a/b"
+fnmatch: true
+fnmatch?: true

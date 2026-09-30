@@ -1,0 +1,2 @@
+[18446744073709551615, -9223372036854775808, 18446744073709551615]
+[#<FFI::Type::Builtin::ULONG size=8 alignment=8>, #<FFI::Type::Builtin::LONG size=8 alignment=8>, #<FFI::Type::Builtin::UINT64 size=8 alignment=8>]

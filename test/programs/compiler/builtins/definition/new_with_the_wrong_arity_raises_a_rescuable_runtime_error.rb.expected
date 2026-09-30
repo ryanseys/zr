@@ -1,0 +1,2 @@
+ArgumentError: wrong number of arguments (given 3, expected 1..2)
+compiled fine

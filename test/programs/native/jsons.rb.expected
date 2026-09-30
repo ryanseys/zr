@@ -1,0 +1,41 @@
+"{\"a\":1,\"b\":[1,2.5,null,true,false],\"c\":{\"d\":\"e\"}}"
+"[]"
+"{}"
+"{\n  \"a\": 1,\n  \"b\": [\n    1,\n    2\n  ]\n}"
+"\"a\\\"b\\\\c\\neé\""
+"\"\\u00e9\""
+"{\"a\":1}"
+"[1,null]"
+"1"
+"\"x\""
+"null"
+"true"
+"2.5"
+"{\"k\":\"v\"}"
+{"a" => [1, 2.5, nil, true, false, "xé😀"], "b" => {"c" => {}}}
+{a: 1}
+"é😀\t"
+[1000.0, -0.025, 0, 0]
+{"a" => 1}
+nil
+[1, 2]
+"" -> JSON::ParserError: unexpected end of input at line 1 column 1
+"{" -> JSON::ParserError: expected object key, got EOF at line 1 column 2
+"[1,]" -> JSON::ParserError: unexpected character: ']' at line 1 column 4
+"{\"a\":}" -> JSON::ParserError: unexpected character: '}' at line 1 column 6
+"nul" -> JSON::ParserError: unexpected token 'nul' at line 1 column 1
+"1 2" -> JSON::ParserError: unexpected token at end of stream '2' at line 1 column 3
+"\"a" -> JSON::ParserError: unexpected end of input, expected closing " at line 1 column 3
+"{1:2}" -> JSON::ParserError: expected object key, got '1:2}' at line 1 column 2
+"{\"a\" 1}" -> JSON::ParserError: expected ':' after object key at line 1 column 6
+"[" -> JSON::ParserError: unexpected end of input at line 1 column 2
+"{\"a\":1,}" -> JSON::ParserError: expected object key, got: '}' at line 1 column 8
+"[01]" -> JSON::ParserError: invalid number: '01]' at line 1 column 2
+"[1.]" -> JSON::ParserError: invalid number: '1.]' at line 1 column 2
+"[\"\\q\"]" -> JSON::ParserError: invalid escape character in string: '\q"]' at line 1 column 3
+"[é]" -> JSON::ParserError: unexpected character: 'é]' at line 1 column 2
+[JSON::GeneratorError, "NaN not allowed in JSON"]
+"NaN"
+["NaN", "Infinity", "-Infinity"]
+[JSON::NestingError, "nesting of 1 is too deep. Did you try to serialize objects with circular references?"]
+[JSON::NestingError, "nesting of 2 is too deep"]

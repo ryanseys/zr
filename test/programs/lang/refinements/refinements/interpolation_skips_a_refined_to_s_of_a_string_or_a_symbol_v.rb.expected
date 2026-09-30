@@ -1,0 +1,5 @@
+["x", "y", "refined-int", "refined-nil", "refined-ary", "axb", :x, "x", "x"]
+["refined-str", "refined-sym", "refined-int", "refined-nil"]
+"sub"
+["RN", "RN", "aRNb", "RT", "RM", :RN]
+["RN", "xRN", "dynrefined-intsym"]

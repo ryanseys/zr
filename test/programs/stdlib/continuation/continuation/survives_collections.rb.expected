@@ -1,0 +1,7 @@
+50
+423
+1000
+#<RuntimeError: continuation called across fiber>
+#<RuntimeError: continuation called across threads>
+false
+true

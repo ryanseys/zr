@@ -1,0 +1,21 @@
+#<Encoding:UTF-8>
+#<Encoding:UTF-8>
+3
+1
+true
+false
+"UTF-8"
+["ASCII-8BIT", "BINARY"]
+#<Encoding:BINARY (ASCII-8BIT)>
+#<Encoding:UTF-8>
+#<Encoding:BINARY (ASCII-8BIT)>
+3
+false
+#<Encoding:ISO-8859-1>
+[99, 97, 102, 233]
+true
+"caf?"
+"a&lt;b&gt;&amp;c"
+raised Encoding::UndefinedConversionError
+#<Encoding:US-ASCII>
+#<Encoding:UTF-8>

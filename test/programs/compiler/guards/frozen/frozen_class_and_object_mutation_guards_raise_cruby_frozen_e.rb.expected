@@ -1,0 +1,16 @@
+false
+true
+true
+FrozenError: can't modify frozen Class: Foo
+FrozenError: can't modify frozen Class: Foo
+FrozenError: can't modify frozen Class: Foo
+FrozenError: can't modify frozen Class: Foo
+FrozenError: can't modify frozen Class: Foo
+FrozenError: can't modify frozen Class: Foo
+FrozenError: can't modify frozen Class: Foo
+5
+FrozenError: can't modify frozen Object: #<Object:0xADDR>
+FrozenError: can't modify frozen Object: #<Object:0xADDR>
+FrozenError: can't modify frozen Object: #<Object:0xADDR>
+FrozenError: can't modify frozen String: "st"
+FrozenError: can't modify frozen Integer: 5

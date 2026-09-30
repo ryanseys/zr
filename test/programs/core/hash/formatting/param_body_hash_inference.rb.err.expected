@@ -1,0 +1,5 @@
+core/hash/formatting/param_body_hash_inference.rb:8:in 'Object#consume': undefined method '[]' for nil (NoMethodError)
+
+  puts "id=" + row["id"].to_s
+                  ^^^^^^
+	from core/hash/formatting/param_body_hash_inference.rb:16:in '<main>'

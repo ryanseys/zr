@@ -1,0 +1,12 @@
+"hi!"
+"hello from Shouter"
+:own
+["Shouter", "Loud", "Quiet"]
+true
+"HI!"
+["Loud", "Front"]
+:helped
+["#<Class:Tools>", "Tools"]
+"hi!"
+"hello from one"
+false

@@ -1,0 +1,1 @@
+lang/variables/blocks/ractor_block_capturing_an_outer_local_is_rejected_where_ruby.rb:8: warning: Ractor API is experimental and may change in future versions of Ruby.

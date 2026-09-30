@@ -1,0 +1,11 @@
+true
+false
+["core/exception/exception/set_backtrace_takes_locations.rb:4:in '<main>'"]
+["core/exception/exception/set_backtrace_takes_locations.rb:4:in '<main>'"]
+#<TypeError: backtrace must be an Array of String or an Array of Thread::Backtrace::Location>
+["a"]
+nil
+["x"]
+nil
+["core/exception/exception/set_backtrace_takes_locations.rb:4:in '<main>'"]
+["Kernel#eval", "<main>"]

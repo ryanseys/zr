@@ -1,0 +1,11 @@
+UID.from_name root: 0
+UID.from_name self: true
+GID.from_name self: true
+UID.from_name float: 1
+UID.from_name negative: 4294967295
+UID.from_name to_int: 7
+UID.from_name bignum: RangeError: bignum too big to convert into 'unsigned long'
+UID.from_name nil: TypeError: no implicit conversion of nil into Integer
+UID.from_name symbol: TypeError: no implicit conversion of Symbol into Integer
+UID.from_name missing: ArgumentError: can't find user for nosuchuser__
+GID.from_name missing: ArgumentError: can't find group for nosuchgroup__

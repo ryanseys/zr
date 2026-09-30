@@ -1,0 +1,15 @@
+false
+#<Encoding:BINARY (ASCII-8BIT)>
+#<Encoding:UTF-8>
+true
+#<Encoding:US-ASCII>
+#<Encoding:US-ASCII>
+[EncodingError, "invalid symbol in encoding UTF-8 :\"\\xFF\""]
+#<Encoding:BINARY (ASCII-8BIT)>
+":\"\\xC3\\xA9\""
+#<Encoding:BINARY (ASCII-8BIT)>
+2
+#<Encoding:BINARY (ASCII-8BIT)>
+true
+#<Encoding:UTF-8>
+true

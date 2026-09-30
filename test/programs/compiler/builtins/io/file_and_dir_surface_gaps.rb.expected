@@ -1,0 +1,6 @@
+["a1", "a2"]
+[".", ".hid", "a1", "a2"]
+0
+"fifo"
+File::Stat
+NoMethodError

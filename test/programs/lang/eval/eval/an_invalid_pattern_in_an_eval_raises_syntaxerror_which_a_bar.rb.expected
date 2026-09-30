@@ -1,0 +1,4 @@
+SyntaxError
+"empty range in char class: /[z-a]/"
+"upper is smaller than lower in repeat range: /a{2,1}/"
+script

@@ -1,0 +1,13 @@
+RubyVM::InstructionSequence
+42
+["<compiled>", "<compiled>", "<compiled>", "<compiled>", 1]
+"<RubyVM::InstructionSequence:<compiled>@<compiled>:1>"
+[nil, [[1, :line]]]
+Hash
+[RuntimeError, "broken binary format"]
+SyntaxError
+"myfile.rb"
+7
+6
+["<main>", "/tmp/zr_ast_fixture.rb"]
+42

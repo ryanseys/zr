@@ -1,0 +1,14 @@
+"\xE9\x00"
+nil
+4
+"\xE9\x00a\x00b\x00c\x00"
+"\xC6\xFC\xCB\xDC\n"
+"\xC3\xA9"
+#<Encoding::UndefinedConversionError: "\xFF" from ASCII-8BIT to UTF-8>
+#<Encoding::InvalidByteSequenceError: "\xFF" on UTF-8>
+"a\x00"
+"\xE9\x00"
+"\x8F\xAB\xB1"
+"\x8F\xAB\xB1"
+"\x00a\x00b"
+"\x8F\xAB\xB1"

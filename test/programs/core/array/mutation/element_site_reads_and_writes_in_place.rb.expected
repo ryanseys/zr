@@ -1,0 +1,13 @@
+TypeError
+[10, 30, nil, 30, nil, 20]
+[10, 21, 30, 41, nil, nil, 70]
+[FrozenError, "can't modify frozen Array: [1, 2]"]
+1
+[:one, nil]
+{1 => :one, 2 => :two}
+[3, -4, -4, 3, 0, 1, 1, -1, -1, 0, 0]
+[768614336404564650, 2, -768614336404564651, 5, 1, 2305843009213693951]
+ZeroDivisionError
+ZeroDivisionError
+["got 0", "got -1", 8, [5, 6]]
+[:mod, :div, :mod]

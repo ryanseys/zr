@@ -1,0 +1,4 @@
+Errno::ENOENT: No such file or directory @ rb_sysopen - /definitely/not/here
+SystemCallError
+true
+Errno::ENOENT

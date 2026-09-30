@@ -1,0 +1,44 @@
+[1, 2, [], 9, 0, {}, nil]
+[1, 2, [3, 4], 5, 6, {m: 7}, nil]
+"wrong number of arguments (given 0, expected 2+)"
+[1, 1]
+[1, 2]
+"wrong number of arguments (given 3, expected 1..2)"
+{a: 1}
+{a: 1}
+[{z: 1}, 1]
+[1, 2]
+"wrong number of arguments (given 2, expected 1)"
+{}
+{a: 1}
+{b: 2, c: 3}
+[1, 2, 3, 4]
+[1, 2, 3]
+[]
+[]
+"missing keyword: :a"
+"missing keyword: :a"
+"missing keywords: :a, :b"
+"unknown keywords: :x, :y"
+1
+5
+[1, [2, 3]]
+[1, 9, 2, 3]
+[1, 2]
+[1, 2]
+[[1, 2]]
+1
+true
+Proc
+[3, 6]
+["1", "2"]
+["A", "B"]
+3
+[1, 2]
+[2, 2]
+[1, 2, 3]
+[1, 5, 6]
+[1, 5, 9]
+{a: 1, b: 2, c: 3}
+"no implicit conversion of Integer into Proc"
+[3, 1]

@@ -1,0 +1,15 @@
+"kept: break from proc-closure (break, 1)"
+2
+20
+3
+4
+5
+6
+10
+11
+12
+a proc: break from proc-closure
+a shareable break: break from proc-closure
+a shareable return: unexpected return
+1
+3

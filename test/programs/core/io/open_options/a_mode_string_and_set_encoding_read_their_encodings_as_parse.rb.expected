@@ -1,0 +1,13 @@
+[#<Encoding:UTF-8>, nil]
+#<Encoding:UTF-8>
+[#<Encoding:UTF-8>, nil]
+nil
+#<Encoding:UTF-8>
+nil
+#<Encoding:UTF-8>
+nil
+#<ArgumentError: ASCII incompatible encoding needs binmode>
+#<ArgumentError: wrong number of arguments (given 0, expected 1..2)>
+#<TypeError: no implicit conversion of nil into String>
+#<ArgumentError: wrong number of arguments (given 3, expected 1..2)>
+#<File:/tmp/zr_spec_mode_enc.txt>

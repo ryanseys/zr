@@ -1,0 +1,12 @@
+[["a", "\xFF", "b́", "c"], [#<Encoding:UTF-8>], 4]
+[["\xFF", "\xFE"], [#<Encoding:UTF-8>], 2]
+[["é̂", "x", "\r\n", "👨‍👩‍👧", "🇯🇵"], [#<Encoding:UTF-8>], 5]
+[["a", "b", "c"], [#<Encoding:UTF-8>], 3]
+[[], [], 0]
+[["e\u0301"], [#<Encoding:UTF-16LE>], 1]
+[["a", "\u{1F44D}\u{1F3FD}", "b"], [#<Encoding:UTF-32BE>], 3]
+[["e", "\xCC", "\x81"], [#<Encoding:BINARY (ASCII-8BIT)>], 3]
+[["e", "\xCC", "\x81"], [#<Encoding:US-ASCII>], 3]
+[["\x{C6FC}", "\x{CBDC}"], [#<Encoding:EUC-JP>], 2]
+[["é", "x"], [#<Encoding:UTF-8>], 2]
+"[a][b́]"

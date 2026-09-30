@@ -1,0 +1,224 @@
+1.1752011936
+1.4436354752
+1.3169578969
+0.5493061443
+Infinity
+-Infinity
+#<Math::DomainError: Numerical argument is out of domain - atanh>
+#<Math::DomainError: Numerical argument is out of domain - acosh>
+120.0
+1.7724538509
+Infinity
+1
+-3.5449077018110318
+1.0
+7.257415615307999e+306
+2.363271801207355
+[0.5723649429, 1]
+[Infinity, 1]
+[1.2655121234846454, -1]
+[0.0, 1]
+#<Math::DomainError: Numerical argument is out of domain - gamma>
+[0.5, 4]
+[0.5, 0]
+[-0.75, 4]
+[0.5, 1]
+[0.0, 0]
+[Infinity, 0]
+[NaN, 0]
+6.0
+Infinity
+4.0
+0.5204998778
+0.4795001222
+#<TypeError: can't convert String into Float>
+#<TypeError: can't convert nil into Float>
+0.5
+4294967296.0
+0.0
+-Infinity
+#<Math::DomainError: Numerical argument is out of domain - log>
+3.0
+693.1471805599454
+#<Math::DomainError: Numerical argument is out of domain - log>
+2000.0
+400.0
+4.0
+5.0
+true
+#<ZeroDivisionError: divided by 0>
+#<ZeroDivisionError: divided by 0>
+#<ZeroDivisionError: divided by 0>
+#<ZeroDivisionError: divided by 0>
+#<ZeroDivisionError: divided by 0>
+1.0
+2.0
+-1.0
+#<ZeroDivisionError: divided by 0>
+1.0
+1.0
+-1
+1
+3.0
+3.5
+#<ArgumentError: comparison of Float with 2.0 failed>
+#<ArgumentError: comparison of Float with NaN failed>
+#<ArgumentError: min argument must be less than or equal to max argument>
+3
+5
+3
+7
+3
+#<ArgumentError: comparison of Integer with NaN failed>
+#<ArgumentError: comparison of Float with 2 failed>
+nil
+42
+nil
+1.5
+42
+1.5
+false
+#<TypeError: no implicit conversion of String into Integer>
+false
+true
+20
+50
+#<TypeError: 2.0 can't be coerced into Integer>
+#<TypeError: String can't be coerced into Integer>
+#<TypeError: 1.5 can't be coerced into Integer>
+#<TypeError: no implicit conversion of String into Integer>
+#<TypeError: no implicit conversion of nil into Integer>
+#<RangeError: shift width too big>
+#<TypeError: not an integer>
+#<TypeError: not an integer>
+#<TypeError: not an integer>
+5
+1
+19
+19
+19
+19
+19
+19
+3353
+#<ArgumentError: invalid value for Integer(): "0x1f">
+5
+15
+15
+#<ArgumentError: invalid value for Integer(): "019">
+31
+3
+15
+0
+2
+1230
+Integer
+Integer
+1.2
+10
+Integer
+2
+2
+2
+3
+#<ArgumentError: invalid rounding mode: x>
+1.2
+1.4
+3
+20
+40
+20
+2
+-2
+-2
+2.68
+1
+-1
+2
+Infinity
+1
+NaN
+1
+1
+4
+1
+true
+0
+false
+true
+false
+true
+1
+true
+(3/4)
+(1/10)
+(157/50)
+(3/10)
+(1/3)
+"INT"
+"KILL"
+#<TypeError: no implicit conversion of String into Integer>
+nil
+Deg(7)
+Deg(-7)
+Deg(-7)
+3
+Deg(1)
+8
+7.6
+-7
+7
+7
+true
+nil
+Deg(2)
+true
+[Plain, Plain]
+[3.0, 1.0]
+2
+#<ArgumentError: comparison of Plain with 0 failed>
+#<NoMethodError: undefined method 'to_i' for an instance of Plain>
+true
+false
+2
+2.0
+(3+4i)
+(8+9i)
+12
+#<TypeError: true can't be coerced into Integer>
+#<TypeError: :s can't be coerced into Float>
+#<TypeError: no implicit conversion of true into String>
+#<TypeError: no implicit conversion of true into Array>
+#<TypeError: can't convert true into Float>
+#<TypeError: can't convert Array into Float>
+#<ArgumentError: invalid value for Float(): "x">
+[2.5, 5.0]
+#<TypeError: can't convert true into Integer>
+[false, false]
+[false, false, true, true]
+[1, -1]
+[-1, 1, false, true, false]
+"abab"
+[1, 2, 1, 2]
+20
+[1, 2]
+"bc"
+2
+"    a     "
+#<RangeError: bignum too big to convert into 'long'>
+#<RangeError: bignum too big to convert into 'long'>
+[1, 9, 4]
+"aXc"
+[10, 8, 6, 4, 2]
+[10, 9, 8, 7, 6, 5, 4, 3, 2]
+[]
+5
+#<TypeError: String can't be coerced into Float>
+#<TypeError: no implicit conversion of Symbol into String>
+#<ArgumentError: #step iteration for beginless ranges is meaningless>
+[1, 4]
+[1, 2, 3]
+[3, 2]
+3
+[]
+#<RangeError: Integer#pow() 1st argument cannot be negative when 2nd argument specified>

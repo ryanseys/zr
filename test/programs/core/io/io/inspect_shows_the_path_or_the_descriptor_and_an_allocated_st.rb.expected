@@ -1,0 +1,4 @@
+"#<File:/tmp/zr_spec_inspect.txt (closed)>"
+"#<IO:(closed)>"
+"#<IO:X>"
+#<IOError: uninitialized stream>

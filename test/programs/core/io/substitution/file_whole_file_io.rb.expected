@@ -1,0 +1,5 @@
+17
+"alpha\nbeta\ngamma\n"
+["alpha\n", "beta\n", "gamma\n"]
+["alpha", "beta", "gamma"]
+["no trailing newline"]

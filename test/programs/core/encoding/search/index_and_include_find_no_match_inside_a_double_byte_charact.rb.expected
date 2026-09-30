@@ -1,0 +1,5 @@
+["GBK", true, 1, nil, false, nil]
+["CP949", true, 1, nil, false, nil]
+["GB18030", true, 1, nil, false, nil]
+["Shift_JIS", true, 1, nil, false, nil]
+["Big5", false, 2, 1, true, 1]

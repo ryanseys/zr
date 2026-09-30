@@ -1,0 +1,16 @@
+["ISO-2022-JP-KDDI", "\e$BF|K\\\e(Ba"]
+["ISO-2022-JP-KDDI", "a\e$BF|uA\e(Bb"]
+["ISO-2022-JP-KDDI", "?"]
+["ISO-2022-JP-KDDI", "?\e$BF|\e(B"]
+["UTF-8", "\xE3\x80\x80"]
+["UTF-8", "a\xE6\x97\xA5"]
+[Encoding::InvalidByteSequenceError, "\"F\" followed by \"\\e\" on ISO-2022-JP-KDDI"]
+[Encoding::InvalidByteSequenceError, "\"\\xC3\" on ISO-2022-JP-KDDI"]
+[Encoding::InvalidByteSequenceError, "\"\\x7F\" on ISO-2022-JP-KDDI"]
+[Encoding::InvalidByteSequenceError, "\"\\e(\" followed by \"I\" on ISO-2022-JP-KDDI"]
+["EUC-JP", "\xC6\xFCx"]
+["ISO-2022-JP-KDDI", "\e$BF|\e(B"]
+["ISO-2022-JP-KDDI", "\e$BF|\e(B"]
+"\e$BF|\e(Ba"
+""
+"日"

@@ -1,0 +1,4 @@
+chunk=[1, 2] attempt=1
+chunk=[3, 4] attempt=5
+chunk=[5] attempt=6
+total=6

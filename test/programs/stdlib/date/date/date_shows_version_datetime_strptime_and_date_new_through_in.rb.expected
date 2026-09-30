@@ -1,0 +1,15 @@
+"3.5.1"
+{year: 2001, mon: 2, mday: 3, hour: 4, min: 5, sec: 6, zone: "+07:00", offset: 25200}
+{year: 2001, yday: 3}
+nil
+[]
+[]
+[:hour, :initialize, :initialize_copy, :min, :minute, :sec, :second]
+[]
+false
+true
+Class
+Date
+#<Class:DateTime>
+[]
+[]

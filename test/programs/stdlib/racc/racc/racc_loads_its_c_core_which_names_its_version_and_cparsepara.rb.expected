@@ -1,0 +1,7 @@
+"c"
+:_racc_do_parse_c
+:_racc_yyparse_c
+true
+false
+[:Copyright, :CparseParams, :ParseError, :Parser, :Racc_No_Extensions, :VERSION, :Version]
+#<TypeError: allocator undefined for Racc::CparseParams>

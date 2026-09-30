@@ -1,0 +1,3 @@
+== a MODULE's own singleton chain
+"modown(M1(top))"
+["#<Class:HasSingleton>", "M1", "Module"]

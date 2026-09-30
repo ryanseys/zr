@@ -1,0 +1,12 @@
+3
+:none
+:walked
+"floor/1"
+:through
+3
+LocalJumpError
+[8, 5, :carried_on]
+nil
+"held"
+[:finished, [1, :skip, 3]]
+:big

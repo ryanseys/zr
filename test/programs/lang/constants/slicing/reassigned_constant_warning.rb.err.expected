@@ -1,0 +1,6 @@
+lang/constants/slicing/reassigned_constant_warning.rb:9: warning: already initialized constant D
+lang/constants/slicing/reassigned_constant_warning.rb:8: warning: previous definition of D was here
+lang/constants/slicing/reassigned_constant_warning.rb:14: warning: already initialized constant M::E
+lang/constants/slicing/reassigned_constant_warning.rb:13: warning: previous definition of E was here
+lang/constants/slicing/reassigned_constant_warning.rb:25: warning: already initialized constant G
+lang/constants/slicing/reassigned_constant_warning.rb:24: warning: previous definition of G was here

@@ -1,0 +1,65 @@
+"ABC"
+"abc"
+"Abc"
+"AbC"
+"ǲ"
+"Ǳ"
+"ǳ"
+"ǳ"
+"SS"
+"FI"
+"i̇"
+"FFL"
+"ǲǳ"
+"Strasse"
+"σσ"
+"ασ"
+"γειά"
+"ΓΕΙΆ"
+"жук"
+"ЖУК"
+"åäö"
+"ÅÄÖ"
+"åäö"
+"ÇĞIŞÜ"
+"i"
+"ı"
+"İ"
+"İ"
+"İSTANBUL"
+"ıstanbul"
+"ÀBC"
+"àBC"
+"Àbc"
+"àbc"
+"ss"
+"ss"
+"i̇"
+"ì"
+"X"
+"X"
+[:nope]: invalid option
+[:fold]: option :fold only allowed for downcasing
+[:turkic, :ascii]: invalid second option
+[:ascii, :turkic]: too many options
+[:turkic, :turkic]: invalid second option
+[:a, :b, :c]: too many options
+"aBc"
+"aBc"
+"aBc"
+"ǲ"
+"ǲ"
+nil
+:ABC
+:abc
+:Abc
+:AbC
+["a", "b", "c"]
+["á", "b"]
+["🇦🇧", "🇨"]
+["👨‍👩‍👦"]
+["a", "\r\n", "b"]
+["á", "b"]
+2
+true
+["á", "b"]

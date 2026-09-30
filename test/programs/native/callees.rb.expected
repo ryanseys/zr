@@ -1,0 +1,68 @@
+[:hello, :hello]
+[:hello, :hi]
+[:nested, :nested]
+[:nested, :nested2]
+[:make, :make]
+[:make, :build]
+nil
+nil
+:top
+:top2
+nil
+Array
+Thread::Backtrace::Location
+"native/callees.rb"
+19
+"Object#outer_where"
+"outer_where"
+"native/callees.rb:19:in 'Object#outer_where'"
+"\"native/callees.rb:19:in 'Object#outer_where'\""
+2
+"native/callees.rb"
+"Object#where0"
+22
+1
+nil
+"<main>"
+"block in <main>"
+false
+true
+false
+true
+false
+2
+"SIGINT"
+"SIGINT"
+15
+"Interrupt"
+2
+"custom"
+"x"
+"SIGINT"
+SignalException
+Exception
+ArgumentError: unsupported signal 'SIGNOPE'
+ArgumentError: wrong number of arguments (given 0, expected 1)
+ArgumentError: invalid signal number (99)
+"Interrupt"
+2
+"h"
+"e"
+"llo"
+"e"
+"wor"
+"e"
+nil
+"ld"
+"e"
+nil
+" "
+"e"
+2
+[5]
+[3, 4]
+[5]
+[1]
+[5]
+nil
+[5]

@@ -1,0 +1,5 @@
+== one module, one position, super reaches the tail
+"M1(top)"
+["#<Class:One>", "M1", "#<Class:Object>"]
+"M1"
+[true, []]

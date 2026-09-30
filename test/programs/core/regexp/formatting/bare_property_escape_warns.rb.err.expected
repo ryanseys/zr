@@ -1,0 +1,2 @@
+core/regexp/formatting/bare_property_escape_warns.rb:11: warning: invalid Unicode Property \p: /\p/
+core/regexp/formatting/bare_property_escape_warns.rb:12: warning: invalid Unicode Property \p: /\pL/

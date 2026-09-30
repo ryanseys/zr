@@ -1,0 +1,3 @@
+== respond_to? and method_defined? agree with the walk
+[true, true]
+[true, false]

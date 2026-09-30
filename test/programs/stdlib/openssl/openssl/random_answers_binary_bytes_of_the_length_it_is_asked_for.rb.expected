@@ -1,0 +1,7 @@
+-- random + compares --
+16
+#<Encoding:BINARY (ASCII-8BIT)>
+true
+false
+true
+[ArgumentError, "inputs must be of equal length"]

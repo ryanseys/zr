@@ -1,0 +1,5 @@
+#<TypeError: no implicit conversion of nil into String>
+#<RuntimeError: conflicting chdir during another chdir block>
+true
+#<ArgumentError: user nosuchuserzz doesn't exist>
+#<TypeError: no implicit conversion of Integer into String>

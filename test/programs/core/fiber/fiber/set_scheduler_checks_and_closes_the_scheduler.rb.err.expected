@@ -1,0 +1,1 @@
+core/fiber/fiber/set_scheduler_checks_and_closes_the_scheduler.rb:16: warning: Scheduler should implement #fiber_interrupt

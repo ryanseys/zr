@@ -1,0 +1,9 @@
+m = "2024-01-15".match(/(\d+)-(\d+)-(\d+)/)
+p m.values_at(1, 3)
+p m.values_at(0, 2)
+p "123".to_r
+p "3/4".to_r
+p "1.5".to_r
+p "abc".to_r
+p "  -12".to_r
+p "1_000".to_r

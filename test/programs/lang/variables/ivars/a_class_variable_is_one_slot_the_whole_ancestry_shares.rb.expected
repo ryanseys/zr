@@ -1,0 +1,17 @@
+2
+["a", "b", "c"]
+[:@@names, :@@total]
+3
+13
+13
+[:@@names, :@@total]
+:made
+:made
+:made
+"uninitialized class variable @@never in Missing"
+"uninitialized class variable @@nope in Missing"
+2
+[:@@hits]
+:body
+:method
+:method

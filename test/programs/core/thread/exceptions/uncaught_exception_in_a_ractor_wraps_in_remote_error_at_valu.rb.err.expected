@@ -1,0 +1,3 @@
+core/thread/exceptions/uncaught_exception_in_a_ractor_wraps_in_remote_error_at_valu.rb:4: warning: Ractor API is experimental and may change in future versions of Ruby.
+#<Thread:0xADDR run> terminated with exception (report_on_exception is true):
+core/thread/exceptions/uncaught_exception_in_a_ractor_wraps_in_remote_error_at_valu.rb:5:in 'block in <main>': ractor boom (RuntimeError)

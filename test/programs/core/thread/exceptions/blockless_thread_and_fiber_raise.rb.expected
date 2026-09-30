@@ -1,0 +1,3 @@
+ThreadError: must be called with a block
+ArgumentError: tried to create Proc object without a block
+7

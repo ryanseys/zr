@@ -1,0 +1,7 @@
+3
+"widget!"
+"a widget"
+nil
+"main value"
+"box value"
+rescued: no implicit conversion of Integer into String

@@ -1,0 +1,5 @@
+{wday: 1, zone: "+0900", hour: 10, min: 30, sec: 0, year: 2024, mon: 1, mday: 15, offset: 32400}
+{wday: 5, zone: "GMT", hour: 10, min: 30, sec: 0, year: 2024, mon: 1, mday: 15, offset: 0}
+{wday: 6, zone: "-0000", hour: 4, min: 5, sec: 6, year: 2024, mon: 2, mday: 3, offset: 0}
+{wday: 4, hour: 14, min: 33, sec: 20, year: 2001, mon: 11, mday: 29}
+{wday: 3, year: 2024, mon: 5, mday: 15}

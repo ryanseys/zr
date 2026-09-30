@@ -1,0 +1,115 @@
+true
+0
+"[1, [...]]"
+true
+true
+true
+"recursive array join"
+3
+"tried to flatten recursive array"
+-1
+1
+-1
+-1
+-1
+nil
+2
+3
+nil
+"no implicit conversion of String into Integer"
+[2, 3]
+[1, 2]
+[]
+"negative array size"
+[2]
+[1]
+"index -5 too small for array; minimum: -3"
+[3, 1]
+"no implicit conversion of String into Integer"
+"no implicit conversion from nil to integer"
+"no implicit conversion of String into Integer"
+"no implicit conversion from nil to integer"
+"no implicit conversion of String into Integer"
+[2, 1]
+"no implicit conversion of true into Integer"
+TypeError
+0.6000000000000001
+3.0
+0.8333333333333333
+true
+1.0
+(7/2)
+"Integer does not have #dig method"
+"Integer does not have #dig method"
+nil
+2
+2
+"String does not have #dig method"
+TypeError
+NoMethodError
+TypeError
+3
+[:a, 1, 2, :b, 3]
+[:a, 1, 2]
+"negative radix"
+"invalid radix 1"
+true
+false
+false
+true
+false
+"wrong number of arguments (given 2, expected 0..1)"
+[1, 3]
+[2, 3]
+[[1, 3], [2, 3]]
+Enumerator::Product
+2
+[[]]
+NilClass
+"#<Enumerator::Product: [[1], [2]]>"
+4
+[]
+[3, 4]
+Enumerator
+"undefined method 'each_entry' for an instance of Integer"
+Enumerator::Product
+"can't modify frozen Array: [1, 2, 3]"
+FrozenError
+FrozenError
+FrozenError
+FrozenError
+FrozenError
+FrozenError
+[1, 2]
+[1, 2]
+[0, 1, 2]
+[1, 2]
+"1-2-3"
+"no implicit conversion of Integer into Array"
+[1, [2, [3]]]
+[1, 2, 3]
+"no implicit conversion of String into Integer"
+[1, 2]
+0.3745401188473625
+1.950714311605188
+1.731993941811405
+1.4966462104925915
+2
+1.0
+0.101595808784815
+0.2219931713899551
+0.22199317108973948
+0.22199317108973948
+Float
+"invalid argument - -1.5"
+Float
+Float
+Float
+0
+"invalid argument - 0"
+Integer
+Integer
+[3, 4]
+nil
+nil
+nil

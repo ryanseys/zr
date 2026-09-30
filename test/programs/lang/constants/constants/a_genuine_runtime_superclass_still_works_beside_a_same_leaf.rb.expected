@@ -1,0 +1,4 @@
+real_derived_superclass	true
+real_derived_kind	"runtime-base"
+real_derived_extra	7
+real_derived_name	"Real::Derived"

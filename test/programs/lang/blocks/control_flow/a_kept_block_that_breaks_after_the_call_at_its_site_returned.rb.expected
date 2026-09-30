@@ -1,0 +1,4 @@
+call: break from proc-closure
+method: break from proc-closure
+yield: break from proc-closure
+exec: break from proc-closure

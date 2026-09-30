@@ -1,0 +1,16 @@
+new: type 2 adler 1 in 0 out 0 avail_in 0 avail_out 0 finished false
+text: type 2 adler 522456587 in 39 out 2 avail_in 0 avail_out 1022 finished false
+finished: type 1 adler 522456587 in 39 out 28 avail_in 0 avail_out 0 finished true
+binary: type 0 adler 3838443024 in 1024 out 286 avail_in 0 avail_out 0 finished true
+escape: type 1 adler 3927379043 in 36 out 44 avail_in 0 avail_out 0 finished true
+low bytes: type 0 adler 320537533 in 13 out 21 avail_in 0 avail_out 0 finished true
+level 0: type 2 adler 3846114514 in 35 out 46 avail_in 0 avail_out 0 finished true
+empty: type 0 adler 1 in 0 out 8 avail_in 0 avail_out 0 finished true
+gzip: type 1 adler 2544769400 in 20 out 40 avail_in 0 avail_out 0 finished true = crc 2544769400
+raw: type 1 adler 1 in 25 out 25 avail_in 0 avail_out 0 finished true
+new: type 0 adler 1 in 0 out 0 avail_in 0 avail_out 0 finished false
+partial: type 69 adler 21102808 in 5 out 2 avail_in 0 avail_out 0 finished false
+whole: type 64 adler 2764704475 in 37 out 29 avail_in 0 avail_out 0 finished true
+stream end: true closed false
+closed: true
+trailing: type 64 adler 2764704475 in 37 out 29 avail_in 0 avail_out 0 finished true rest ""

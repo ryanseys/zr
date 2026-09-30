@@ -44,7 +44,7 @@ module Zr
         Kind.new(:lowering, :marshal, ".marshal", nil),
         Kind.new(:code, :dir, "", nil),           # packs of machine code, one directory per backend
         Kind.new(:run, :dir, "", 2),              # `zr run` binaries
-        Kind.new(:binary, :raw, "", nil)          # spec binaries; quota from ZR_TEST_BINARIES_GB
+        Kind.new(:binary, :raw, "", nil)          # program test binaries; quota from ZR_TEST_BINARIES_GB
       ].to_h { |kind| [kind.name, kind] }.freeze
 
       # A root older than this protects nothing: the zr that wrote it is

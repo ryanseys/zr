@@ -1,0 +1,12 @@
+-- multiple assignment
+"x, y = 1, 2" => (SCOPE [1:0-1:11] [:x, :y] nil (MASGN [1:0-1:11] (LIST [1:7-1:11] (INTEGER [1:7-1:8] 1) (INTEGER [1:10-1:11] 2) nil) (LIST [1:0-1:4] (LASGN [1:0-1:1] :x nil) (LASGN [1:3-1:4] :y nil) nil) nil))
+"x, *y = 1, 2" => (SCOPE [1:0-1:12] [:x, :y] nil (MASGN [1:0-1:12] (LIST [1:8-1:12] (INTEGER [1:8-1:9] 1) (INTEGER [1:11-1:12] 2) nil) (LIST [1:0-1:1] (LASGN [1:0-1:1] :x nil) nil) (LASGN [1:4-1:5] :y nil)))
+"*x, y = 1" => (SCOPE [1:0-1:9] [:x, :y] nil (MASGN [1:0-1:9] (INTEGER [1:8-1:9] 1) nil (POSTARG [1:0-1:5] (LASGN [1:1-1:2] :x nil) (LIST [1:4-1:5] (LASGN [1:4-1:5] :y nil) nil))))
+"a, (b, c) = 1" => (SCOPE [1:0-1:13] [:a, :b, :c] nil (MASGN [1:0-1:13] (INTEGER [1:12-1:13] 1) (LIST [1:0-1:8] (LASGN [1:0-1:1] :a nil) (MASGN [1:4-1:8] nil (LIST [1:4-1:8] (LASGN [1:4-1:5] :b nil) (LASGN [1:7-1:8] :c nil) nil) nil) nil) nil))
+"a, = 1" => (SCOPE [1:0-1:6] [:a] nil (MASGN [1:0-1:6] (INTEGER [1:5-1:6] 1) (LIST [1:0-1:1] (LASGN [1:0-1:1] :a nil) nil) nil))
+"a, *, b = 1" => (SCOPE [1:0-1:11] [:a, :b] nil (MASGN [1:0-1:11] (INTEGER [1:10-1:11] 1) (LIST [1:0-1:1] (LASGN [1:0-1:1] :a nil) nil) (POSTARG [1:0-1:7] :NODE_SPECIAL_NO_NAME_REST (LIST [1:6-1:7] (LASGN [1:6-1:7] :b nil) nil))))
+"*, a = 1" => (SCOPE [1:0-1:8] [:a] nil (MASGN [1:0-1:8] (INTEGER [1:7-1:8] 1) nil (POSTARG [1:0-1:4] :NODE_SPECIAL_NO_NAME_REST (LIST [1:3-1:4] (LASGN [1:3-1:4] :a nil) nil))))
+"@a, @b = 1" => (SCOPE [1:0-1:10] [] nil (MASGN [1:0-1:10] (INTEGER [1:9-1:10] 1) (LIST [1:0-1:6] (IASGN [1:0-1:2] :@a nil) (IASGN [1:4-1:6] :@b nil) nil) nil))
+"a.b, c[0] = 1" => (SCOPE [1:0-1:13] [] nil (MASGN [1:0-1:13] (INTEGER [1:12-1:13] 1) (LIST [1:0-1:9] (ATTRASGN [1:0-1:3] (VCALL [1:0-1:1] :a) :b= nil) (ATTRASGN [1:5-1:9] (VCALL [1:5-1:6] :c) :[]= (LIST [1:7-1:8] (INTEGER [1:7-1:8] 0) nil)) nil) nil))
+"A, B = 1" => (SCOPE [1:0-1:8] [] nil (MASGN [1:0-1:8] (INTEGER [1:7-1:8] 1) (LIST [1:0-1:4] (CDECL [1:0-1:1] :A nil) (CDECL [1:3-1:4] :B nil) nil) nil))
+"x = y = 1" => (SCOPE [1:0-1:9] [:x, :y] nil (LASGN [1:0-1:9] :x (LASGN [1:4-1:9] :y (INTEGER [1:8-1:9] 1))))

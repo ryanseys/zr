@@ -1,0 +1,5 @@
+Encoding.aliases: ASCII-8BIT
+Encoding.locale_charmap: String
+Encoding._dump: UTF-8
+Encoding._load: UTF-8
+Encoding._load class: String

@@ -1,0 +1,4 @@
+x=a i=0 attempt=1
+x=b i=1 attempt=5
+x=c i=2 attempt=6
+total=6

@@ -9,14 +9,14 @@ require_relative "../../lib/zr/native/build"
 require_relative "../../lib/zr/obj/macho/skeleton"
 
 module Zr
-  module Spec
-    # Keeps the binaries that the examples build, for the next run.
+  module Test
+    # Keeps the binaries that the program tests build, for the next run.
     #
-    # On a warm cache, the build is more than half the time of an example.
+    # On a warm cache, the build is more than half the time of a test.
     # A build is a function of its inputs (`zr-dev stage 1` checks this). So
     # each binary is kept in the cache under a key made from all its
     # inputs. A later run with the same key uses the kept binary and does
-    # not build. This helps most after an edit to a spec, a fixture or a
+    # not build. This helps most after an edit to a test, its files or a
     # test file, which does not change the compiler.
     #
     # A binary is 24 MB. Almost all of it is the same in each binary linked
@@ -24,7 +24,7 @@ module Zr
     # `__DATA` segment, and the symbol and string tables of the image. The
     # kept form leaves out these parts ("holes"), records where they were,
     # and deflates the rest. `take` writes the holes back from the prelinked
-    # image in memory. A full spec tier is then 5 GB, not 200 GB. The
+    # image in memory. A full program tier is then 5 GB, not 200 GB. The
     # binaries are entries of the store (kind `binary`), and `trim` keeps
     # them under `ZR_TEST_BINARIES_GB`, the least recently used first. A WASI module has no prelinked image, so
     # it is kept whole, and only with `ZR_TEST_BINARIES=1`.
@@ -34,10 +34,10 @@ module Zr
     # (all code that lowers and emits the runtime), the link digest, the
     # library files that a program can require (`libraries`), the target, the environment variables that change the bytes of a build,
     # the path and source of the program, and each fixture written next to
-    # it (a symbolic link by its target). An example whose fixtures have no
+    # it (a symbolic link by its target). A test whose files have no
     # key builds as usual. A hole is cut only where the bytes of the binary
     # are equal to the bytes of the prelinked image. When `take` cannot
-    # restore the whole binary, it returns false and the example builds.
+    # restore the whole binary, it returns false and the test builds.
     module Binaries
       VERSION = 4
       # The environment variables that change the bytes of a build. Also
@@ -56,7 +56,7 @@ module Zr
         end
       end
 
-      # Returns the path of the kept binary for this example, or nil when
+      # Returns the path of the kept binary for this test, or nil when
       # no key can describe it.
       def path(target, source, rb, files)
         parts = files.sort.map { |name, bytes| [name, bytes.is_a?(Hash) ? "-> #{bytes.fetch(:symlink)}" : bytes] }

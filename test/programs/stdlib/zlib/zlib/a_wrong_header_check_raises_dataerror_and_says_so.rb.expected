@@ -1,0 +1,12 @@
+wrong header check: Zlib::DataError: incorrect header check
+compression method 9: Zlib::DataError: unknown compression method
+window 32K past the limit: Zlib::DataError: invalid window size
+window larger than asked: Zlib::DataError: invalid window size
+adler32 off by one: Zlib::DataError: incorrect data check
+adler32 cut short: Zlib::BufError: buffer error
+a flipped bit inside: Zlib::DataError: incorrect data check
+nothing: Zlib::BufError: buffer error
+good zlib stream: ok "hello, hello, hello"
+zlib stream read as raw: Zlib::DataError: invalid stored block lengths
+zlib stream read as gzip: Zlib::DataError: incorrect header check
+zlib stream with auto detection: ok "hello, hello, hello"

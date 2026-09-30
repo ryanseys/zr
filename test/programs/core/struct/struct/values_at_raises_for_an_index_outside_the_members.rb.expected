@@ -1,0 +1,5 @@
+[1, 2, nil, nil]
+[2, 1]
+[IndexError, "offset 5 too large for struct(size:2)"]
+[IndexError, "offset -3 too small for struct(size:2)"]
+[RangeError, "-3..-1 out of range"]

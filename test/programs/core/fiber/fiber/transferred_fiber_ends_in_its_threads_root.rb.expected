@@ -1,0 +1,5 @@
+[:a1, :back, :a2, :done]
+[:a1, :back, :a2, :done, :b1, :tback, :b2, :tdone]
+nil
+[:rescued, "boom"]
+:ended

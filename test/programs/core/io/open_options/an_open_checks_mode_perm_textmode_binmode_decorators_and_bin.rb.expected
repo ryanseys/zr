@@ -1,0 +1,15 @@
+#<ArgumentError: newline decorator with binary mode>
+#<ArgumentError: both textmode and binmode specified>
+#<ArgumentError: both textmode and binmode specified>
+#<ArgumentError: binmode specified twice>
+#<ArgumentError: textmode specified twice>
+#<ArgumentError: mode specified twice>
+#<ArgumentError: perm specified twice>
+1
+#<Errno::EEXIST: File exists @ rb_sysopen - /tmp/zr_spec_open_options.txt>
+#<ArgumentError: unexpected value for newline option: bogus>
+#<ArgumentError: unknown value for invalid character option>
+#<ArgumentError: unexpected value for xml option: bogus>
+#<ArgumentError: ASCII incompatible encoding needs binmode>
+#<ArgumentError: ASCII incompatible encoding needs binmode>
+"x"

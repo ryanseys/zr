@@ -1,0 +1,5 @@
+"undefined method 'module_function' for class K1"
+"undefined method 'refine' for class K2"
+"wrong argument type Class (expected Module)"
+true
+#<Class:String>

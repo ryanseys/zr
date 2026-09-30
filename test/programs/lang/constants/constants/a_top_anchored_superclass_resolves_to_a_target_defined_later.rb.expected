@@ -1,0 +1,3 @@
+[Pkg::Net::OpenTimeout, Pkg::Timeout::Error, RuntimeError]
+[Elsewhere::TimeoutError, Pkg::Timeout::Error, RuntimeError]
+[Elsewhere::TimeoutError, "timed out"]

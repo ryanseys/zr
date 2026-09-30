@@ -1,0 +1,10 @@
+<: <-><=>
+<=: <=-><=>
+>: >-><=>
+>=: >=-><=>
+between?: between?-><=>
+dup: dup->initialize_copy
+initialize_copy: raised NoMethodError
+unicode_normalize: unicode_normalize->encoding unicode_normalize->gsub
+unicode_normalize!: unicode_normalize!->encoding unicode_normalize!->gsub
+unicode_normalized?: unicode_normalized?->encoding unicode_normalized?->scan

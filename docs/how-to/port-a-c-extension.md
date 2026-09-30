@@ -80,15 +80,17 @@ are then visible.
 
 ## 5. Add examples
 
-Add examples under `test/spec/stdlib/<gem>/` that use the gem as its
-users do, and run them:
+Add program tests under `test/programs/stdlib/<gem>/` that use the gem
+as its users do. Let ruby write their expected outputs, and run them:
 
 ```console
-$ bin/test test/spec/stdlib/digest -n /sha256/
-$ ruby tool/zr-dev.rb oracle test/spec/stdlib/digest
+$ ruby tool/zr-dev.rb expect test/programs/stdlib/digest
+$ bin/test test/programs/stdlib/digest
+$ ruby tool/zr-dev.rb expect --check test/programs/stdlib/digest
 ```
 
-`zr-dev oracle` checks that the expected outputs are still ruby's.
+`zr-dev expect --check` checks that the expected outputs are still
+ruby's.
 
 ## Platform tables
 

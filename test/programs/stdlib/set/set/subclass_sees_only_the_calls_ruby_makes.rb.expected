@@ -1,0 +1,77 @@
+&: &->include? &->add &->include? &->add
++: +->initialize_copy +->merge merge->add merge->add
+-: -->initialize_copy -->subtract subtract->delete subtract->delete
+^: ^->merge merge->add merge->add ^->each each->delete? delete?->include? delete?->delete each->delete? delete?->include? delete?->delete each->delete? delete?->include? each->add
+add?: add?->include?
+all?: all?->each
+any?: any?->each
+classify: classify->each each->add each->add each->add
+collect: collect->each
+collect!: collect!->each each-><< each-><< each-><< collect!->replace
+collect_concat: collect_concat->each
+compact: compact->each
+count: count->each
+delete?: delete?->include? delete?->delete
+delete_if: delete_if->select select->each delete_if->delete delete_if->delete delete_if->delete
+detect: detect->each
+difference: difference->initialize_copy difference->subtract subtract->delete subtract->delete
+disjoint?: disjoint?->intersect? intersect?->===
+divide: divide->hash divide->hash divide->hash
+drop: drop->each
+drop_while: drop_while->each
+each_cons: each_cons->size each_cons->each
+each_entry: each_entry->each
+each_slice: each_slice->size each_slice->each
+each_with_index: each_with_index->each
+each_with_object: each_with_object->each
+entries: entries->each
+filter: filter->each
+filter!: filter!->size filter!->keep_if keep_if->reject reject->each filter!->size
+filter_map: filter_map->each
+find: find->each
+find_all: find_all->each
+find_index: find_index->each
+first: first->each
+flat_map: flat_map->each
+flatten: flatten->each each->add each->add each->add
+flatten!: flatten!->any? any?->each
+grep: grep->each
+grep_v: grep_v->each
+group_by: group_by->each
+inject: inject->each
+inspect: inspect->to_a
+intersect?: intersect?->===
+intersection: intersection->include? intersection->add intersection->include? intersection->add
+join: join->to_a
+keep_if: keep_if->reject reject->each
+map: map->each
+map!: map!->each each-><< each-><< each-><< map!->replace
+max: max->each
+max_by: max_by->each
+min: min->each
+min_by: min_by->each
+minmax: minmax->each
+minmax_by: minmax_by->each
+none?: none?->each
+one?: one?->each
+partition: partition->each
+reduce: reduce->each
+reject: reject->each
+reject!: reject!->size reject!->delete_if delete_if->select select->each delete_if->delete delete_if->delete delete_if->delete reject!->size
+replace: replace->clear replace->merge merge->add merge->add
+reverse_each: reverse_each->each
+select: select->each
+select!: select!->size select!->keep_if keep_if->reject reject->each select!->size
+sort: sort->each
+sort_by: sort_by->each
+subtract: subtract->delete subtract->delete
+sum: sum->each
+take: take->each
+take_while: take_while->each
+tally: tally->each
+to_s: to_s->to_a
+to_set: to_set->each_entry each_entry->each
+union: union->initialize_copy union->merge merge->add merge->add
+uniq: uniq->each
+zip: zip->each
+|: |->initialize_copy |->merge merge->add merge->add

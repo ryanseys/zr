@@ -1,0 +1,27 @@
+9
+16
+25
+true
+false
+3
+wrong number of arguments (given 1, expected 2)
+lambdas.rb:3:in 'block in <main>'
+lambdas.rb:6:in '<main>'
+wrong number of arguments (given 1, expected 2)
+[1, 2]
+[1, nil]
+[1, 2]
+[:from_lambda, :after]
+:from_proc
+[:broke, :after_break]
+8
+break from proc-closure
+tried to create Proc object without a block
+9
+2
+false
+[1, 1, [], 2]
+[1, 2, [3], 4]
+:zero
+[1, 4, 9]
+2

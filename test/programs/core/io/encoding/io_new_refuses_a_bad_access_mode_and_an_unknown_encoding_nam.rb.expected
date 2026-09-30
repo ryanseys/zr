@@ -1,0 +1,6 @@
+bad access mode	ArgumentError: invalid access mode zz
+mode the fd cannot serve	Errno::EINVAL: Invalid argument
+O_RDWR over a read-only fd	Errno::EINVAL: Invalid argument
+encoding named twice	ArgumentError: encoding specified twice
+mode is not a String	TypeError: no implicit conversion of Object into String
+fd is not an Integer	no implicit conversion of String into Integer

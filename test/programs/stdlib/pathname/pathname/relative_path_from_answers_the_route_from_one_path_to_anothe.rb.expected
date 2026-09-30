@@ -1,0 +1,6 @@
+relative_path_from: "../b/c"
+relative_path_from same: "."
+relative_path_from below: "b"
+relative_path_from above: "../.."
+relative_path_from mixed: ArgumentError: different prefix: "" and "/b"
+relative_path_from dotdot base: ArgumentError: base_directory has ..: "../b"

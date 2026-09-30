@@ -1,0 +1,33 @@
+1: 1
+2: false
+3: TypeError: wrong argument type String (expected Symbol)
+4: nil
+x
+5: nil
+perf
+6: nil
+a
+b
+7: nil
+core/warning/warning/warning_checks_types_and_categories_and_warn_follows_rb_warn.rb:2: warning: q
+8: nil
+core/warning/warning/warning_checks_types_and_categories_and_warn_follows_rb_warn.rb:11: warning: in w9
+9: nil
+10: TypeError: no implicit conversion of String into Integer
+x
+11: nil
+1
+sym
+2.5
+12: nil
+no newline
+13: nil
+14: TypeError: wrong argument type Symbol (expected String)
+15: ArgumentError: unknown category: bogus
+W(:experimental,{}) via hook
+16: nil
+W(:experimental,{}) exp2
+17: nil
+18: :after
+W(nil,{}) back
+19: nil

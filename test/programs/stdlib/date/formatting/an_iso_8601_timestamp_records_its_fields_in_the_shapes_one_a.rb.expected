@@ -1,0 +1,8 @@
+{year: 2024, mon: 1, mday: 15}
+{zone: "Z", hour: 10, min: 30, sec: 0, year: 2024, mon: 1, mday: 15, offset: 0}
+{zone: "+09:00", hour: 10, min: 30, sec: 0, year: 2024, mon: 1, mday: 15, offset: 32400}
+{zone: "+09:00", hour: 10, min: 30, sec: 0, sec_fraction: (1929/15625), year: 2024, mon: 1, mday: 15, offset: 32400}
+{zone: "UTC", hour: 10, min: 30, sec: 0, year: 2024, mon: 1, mday: 15, offset: 0}
+{hour: 10, min: 30, year: 2024, mon: 1, mday: 15}
+{hour: 4, min: 5, sec: 6, sec_fraction: (123456789/1000000000), year: 2001, mon: 2, mday: 3}
+{zone: "Z", hour: 10, min: 30, sec: 0, sec_fraction: (1/2), year: 2024, mon: 1, mday: 15, offset: 0}

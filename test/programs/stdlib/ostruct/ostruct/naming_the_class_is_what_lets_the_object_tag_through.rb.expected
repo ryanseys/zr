@@ -1,0 +1,3 @@
+permitted object	#<PlainIvars name="bolt" size=nil>
+permitted struct	Psych::DisallowedClass: Tried to load unspecified class: Symbol
+permitted set	Psych::Set

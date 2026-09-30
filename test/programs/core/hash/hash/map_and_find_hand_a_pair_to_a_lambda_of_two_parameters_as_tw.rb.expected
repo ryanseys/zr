@@ -1,0 +1,5 @@
+[[1, :a], [2, :b]]
+[:b, 2]
+[:each, "wrong number of arguments (given 1, expected 2)"]
+{b: 2}
+[:count, "wrong number of arguments (given 1, expected 2)"]

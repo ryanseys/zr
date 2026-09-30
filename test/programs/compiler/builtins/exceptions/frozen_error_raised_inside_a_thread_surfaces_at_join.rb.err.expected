@@ -1,0 +1,2 @@
+#<Thread:0xADDR compiler/builtins/exceptions/frozen_error_raised_inside_a_thread_surfaces_at_join.rb:3 run> terminated with exception (report_on_exception is true):
+compiler/builtins/exceptions/frozen_error_raised_inside_a_thread_surfaces_at_join.rb:3:in 'block in <main>': can't modify frozen Array: [1] (FrozenError)

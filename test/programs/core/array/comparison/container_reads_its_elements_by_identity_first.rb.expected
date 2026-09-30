@@ -1,0 +1,7 @@
+[false, true, true]
+[0, 1, NaN]
+[[NaN, 1], [1, NaN]]
+[true, :a, [:a, NaN], true]
+[true, 1, 0]
+[false, true, true, 0, 0, 1]
+true

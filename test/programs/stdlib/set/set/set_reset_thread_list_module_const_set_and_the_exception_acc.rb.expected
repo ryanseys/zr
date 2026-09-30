@@ -1,0 +1,9 @@
+[1, 2, 3]
+true
+99
+99
+[:k, {1 => 2}, "m"]
+[2, false, true, "bye"]
+"x"
+[:noreason, nil]
+:z

@@ -1,0 +1,7 @@
+native/dates.rb:17:in 'Date.parse': invalid date (Date::Error)
+
+  p [text, Date._parse(text), Date.parse(text).to_s]
+                                         ^^^^
+	from native/dates.rb:17:in 'block in <main>'
+	from native/dates.rb:16:in 'Array#each'
+	from native/dates.rb:16:in '<main>'

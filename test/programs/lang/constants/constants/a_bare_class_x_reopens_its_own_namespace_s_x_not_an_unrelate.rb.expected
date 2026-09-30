@@ -1,0 +1,4 @@
+mint_shape_kind	"minted"
+plain_shape_one	1
+plain_shape_two	2
+plain_shape_ancestors	"Plain::Shape"

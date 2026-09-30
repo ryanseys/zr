@@ -1,0 +1,2 @@
+core/regexp/search/oniguruma_backed_semantics_match_the_oracle.rb:16: warning: regular expression has redundant nested repeat operator '*': /a***/
+core/regexp/search/oniguruma_backed_semantics_match_the_oracle.rb:16: warning: regular expression has redundant nested repeat operator '*': /a***/

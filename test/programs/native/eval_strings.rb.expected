@@ -1,0 +1,15 @@
+3
+[1, 4, 9]
+"HELLO"
+nil
+42
+42
+8
+42
+"Made"
+1024
+[2, 4]
+{a: 2, b: 3}
+"from eval"
+ArgumentError
+10

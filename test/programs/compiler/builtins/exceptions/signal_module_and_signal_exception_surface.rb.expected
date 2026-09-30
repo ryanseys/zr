@@ -1,0 +1,20 @@
+2
+"Interrupt"
+"stop"
+[9, "custom", "custom"]
+"SIGKILL"
+2
+"SIGTERM"
+ArgumentError
+ArgumentError
+2
+2
+Hash
+"TERM"
+"INT"
+nil
+TypeError
+"DEFAULT"
+"IGNORE"
+Errno::EINVAL
+Module

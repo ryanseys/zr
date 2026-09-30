@@ -1,0 +1,18 @@
+:int
+:str
+:nil
+:pair
+:other
+:empty
+[:one, 7]
+[:bracketed, [2, 3]]
+:found
+[:nested, 1, 2, 3]
+[:person, "n"]
+[:only, 5]
+[:rest, {b: 2}]
+:empty_hash
+:small
+:round
+:small
+:none

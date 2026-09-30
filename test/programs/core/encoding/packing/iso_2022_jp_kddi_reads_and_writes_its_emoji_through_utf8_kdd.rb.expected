@@ -1,0 +1,4 @@
+[Encoding::UndefinedConversionError, "\"\\xC3\\xA9\" to stateless-ISO-2022-JP-KDDI in conversion from UTF-8 to UTF8-KDDI to stateless-ISO-2022-JP-KDDI to ISO-2022-JP-KDDI", "UTF8-KDDI", "stateless-ISO-2022-JP-KDDI"]
+["ISO-2022-JP-KDDI", "\e$BvP\e(B"]
+["UTF-8", "\xE2\x98\x80"]
+[Encoding::UndefinedConversionError, "\"\\xEE\\x91\\xA8\" to UTF-8 in conversion from ISO-2022-JP-KDDI to stateless-ISO-2022-JP-KDDI to UTF8-KDDI to UTF-8", "UTF8-KDDI", "UTF-8"]

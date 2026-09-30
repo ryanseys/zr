@@ -1,0 +1,8 @@
+[:@seen]
+1
+10
+9
+"boom"
+[:@seen]
+:nope
+KeyError

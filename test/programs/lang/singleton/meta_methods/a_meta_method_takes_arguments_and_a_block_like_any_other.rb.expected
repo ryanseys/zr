@@ -1,0 +1,4 @@
+== a meta method takes arguments and a block like any other
+"build(9,2)"
+"build(9,3)"
+[10, 20]

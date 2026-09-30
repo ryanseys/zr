@@ -1,0 +1,2 @@
+lang/exceptions/control_flow/raise_with_an_explicit_message_and_class.rb:5:in 'Risky#check': bad value: -1 (MyError)
+	from lang/exceptions/control_flow/raise_with_an_explicit_message_and_class.rb:11:in '<main>'

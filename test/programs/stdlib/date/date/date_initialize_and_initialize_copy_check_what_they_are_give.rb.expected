@@ -1,0 +1,19 @@
+#<TypeError: wrong argument type Integer (expected Date)>
+#<ArgumentError: cannot load complex into simple>
+#<FrozenError: can't modify frozen Date: #<Date: 2001-02-03 ((2451944j,0s,0n),+0s,2299161j)>>
+[2001, 2]
+[]
+"2001-02-01"
+"2001-03-01"
+true
+#<Date: 2001-02-03 ((2451944j,0s,0n),+0s,2299161j)>
+#<Date: 2000-01-01 ((2451545j,0s,0n),+0s,2299161j)>
+-1
+DateTime
+#<TypeError: Date expected>
+true
+false
+DateTime
+#<Date: -0001-12-31 ((1721057j,0s,0n),+0s,2299161j)>
+#<Date::Error: invalid date>
+#<TypeError: invalid year (not numeric)>

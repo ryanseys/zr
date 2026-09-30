@@ -1,0 +1,20 @@
+0077
+true
+true
+"100\n"
+"0\n"
+"-\n"
+"bar\n"
+#<ArgumentError: wrong exec option symbol: new_pgroup>
+#<ArgumentError: negative process group ID : -1>
+#<TypeError: no implicit conversion of String into Integer>
+#<ArgumentError: wrong exec option symbol: rlimit_bogus>
+#<ArgumentError: wrong exec rlimit option>
+#<Errno::ENOENT: No such file or directory - definitely_not_zz>
+#<Errno::ENOENT: No such file or directory - definitely_not_zz>
+#<Errno::ENOENT: No such file or directory - definitely_not_zz>
+nil
+127
+hi-/
+to-err
+Errno::ENOENT

@@ -1,0 +1,8 @@
+:hail
+"hi x"
+"hi y"
+10
+bind argument must be a subclass of A
+"pong z"
+36
+done

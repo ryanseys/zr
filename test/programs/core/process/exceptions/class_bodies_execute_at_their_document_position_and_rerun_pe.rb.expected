@@ -1,0 +1,10 @@
+top1
+body1
+top2
+body2
+outer start
+inner body
+outer end
+rescued: core/process/exceptions/class_bodies_execute_at_their_document_position_and_rerun_pe.rb:23:in '<module:M>'
+from: core/process/exceptions/class_bodies_execute_at_their_document_position_and_rerun_pe.rb:21:in '<main>'
+top3

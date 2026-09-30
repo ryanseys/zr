@@ -1,0 +1,9 @@
+["match", Regexp::TimeoutError, "regexp match timeout"]
+["match?", Regexp::TimeoutError, "regexp match timeout"]
+["===", Regexp::TimeoutError, "regexp match timeout"]
+["=~", Regexp::TimeoutError, "regexp match timeout"]
+["scan", Regexp::TimeoutError, "regexp match timeout"]
+["gsub", Regexp::TimeoutError, "regexp match timeout"]
+["split", Regexp::TimeoutError, "regexp match timeout"]
+["index", Regexp::TimeoutError, "regexp match timeout"]
+false

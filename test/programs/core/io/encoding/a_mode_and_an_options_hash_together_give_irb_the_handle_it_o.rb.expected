@@ -1,0 +1,3 @@
+mode + opts	["EUC-JP", nil]
+open + mode + opts	["EUC-JP", nil]
+for_fd + mode + opts	["EUC-JP", nil]

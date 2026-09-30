@@ -1,0 +1,2 @@
+core/encoding/formatting/newline_with_an_older_boolean_warns_under_verbose_that_it_wi.rb:3: warning: :newline option precedes other newline options
+core/encoding/formatting/newline_with_an_older_boolean_warns_under_verbose_that_it_wi.rb:4: warning: :newline option precedes other newline options

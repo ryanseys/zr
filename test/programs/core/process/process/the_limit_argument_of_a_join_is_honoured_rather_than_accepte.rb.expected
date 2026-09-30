@@ -1,0 +1,5 @@
+join(0.05) on a slow thread	nil
+join(0) on a slow thread	nil
+join(1) on a fast thread	Thread
+join(nil) on a fast thread	Thread
+join(bad)	TypeError: can't convert Symbol into Float

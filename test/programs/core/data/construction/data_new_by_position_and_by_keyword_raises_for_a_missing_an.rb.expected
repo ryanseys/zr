@@ -1,0 +1,14 @@
+#<data D x=1, y=2>
+#<data D x=1, y=2>
+#<data D x=3, y=4>
+true
+true
+"missing keyword: :y"
+"wrong number of arguments (given 3, expected 0..2)"
+"missing keyword: :y"
+"unknown keyword: :z"
+"wrong number of arguments (given 2, expected 0)"
+FrozenError
+#<data E>
+#<data D x=5, y=6>
+#<data D x=1, y=7>

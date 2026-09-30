@@ -1,0 +1,9 @@
+[42]
+{42 => 42}
+[]
+[#<Object:0xXX>]
+#<Object:0xXX @x=42>
+key not found: 42
+#<Object:0xXX>
+7
+#<Object:0xXX>

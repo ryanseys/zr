@@ -1,0 +1,2 @@
+--
+core/regexp/encoding/subject_of_another_encoding_compiles_the_pattern_again.rb:8: warning: historical binary regexp match /.../n against UTF-8 string

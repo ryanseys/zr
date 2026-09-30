@@ -1,0 +1,6 @@
+== a def self.x inside a singleton body is one level FURTHER up
+"plain"
+"MetaHost.meta -> NoMethodError"
+"meta"
+[:meta]
+[:plain]

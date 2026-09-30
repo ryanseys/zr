@@ -1,0 +1,33 @@
+6
+12
+[:double, :quadruple]
+[:double, :quadruple]
+10
+"private method 'double' called for an instance of Adder"
+:moved
+:also
+:kept
+[]
+:open
+:s3cret
+"private method 'combination' called for class Vault"
+[:combination]
+[]
+:s3cret
+"good morning"
+"good evening"
+[1, 2, []]
+[1, 5, [6]]
+[[:req, :a], [:opt, :b], [:rest, :rest]]
+[:good_evening, :good_morning, :shape]
+:kept
+7
+"undefined method 'gone' for an instance of Trimmed"
+:base
+"undefined method 'shadowed' for an instance of Blank"
+:added
+:already
+:mine
+[:mine]
+9
+3

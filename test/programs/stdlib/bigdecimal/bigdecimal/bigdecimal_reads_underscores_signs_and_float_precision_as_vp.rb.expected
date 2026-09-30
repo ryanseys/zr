@@ -1,0 +1,14 @@
+["1_000", 0.1e4]
+["1__2", #<ArgumentError: invalid value for BigDecimal(): "1__2">]
+["_1", #<ArgumentError: invalid value for BigDecimal(): "_1">]
+["1_", 0.1e1]
+["1.2_3", 0.123e1]
+["1_.5", #<ArgumentError: invalid value for BigDecimal(): "1_.5">]
+["1_e2", #<ArgumentError: invalid value for BigDecimal(): "1_e2">]
+["1e2_0", 0.1e21]
+["-NaN", #<ArgumentError: invalid value for BigDecimal(): "-NaN">]
+["+NaN", #<ArgumentError: invalid value for BigDecimal(): "+NaN">]
+["-Infinity", -Infinity]
+["+Infinity", Infinity]
+#<ArgumentError: precision too large.>
+0.3333333333333333e0

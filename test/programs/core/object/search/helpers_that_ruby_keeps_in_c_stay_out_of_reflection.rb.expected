@@ -1,0 +1,9 @@
+[]
+[:initialize]
+[]
+[]
+[]
+false
+false
+[File, IO, File::Constants, Enumerable]
+true

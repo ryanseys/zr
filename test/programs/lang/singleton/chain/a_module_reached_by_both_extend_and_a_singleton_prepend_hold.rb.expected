@@ -1,0 +1,5 @@
+== a module reached BOTH ways holds two positions
+"cm(own(cm(top)))"
+["CM", "#<Class:BothWays>", "CM", "#<Class:Object>"]
+"cm(cm(top))"
+["CM", "#<Class:BothNoOwn>", "CM", "#<Class:Object>"]

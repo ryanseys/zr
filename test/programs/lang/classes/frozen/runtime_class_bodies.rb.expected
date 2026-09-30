@@ -1,0 +1,16 @@
+7
+7
+"deep"
+"deep"
+2
+[Foo, Comparable, Object]
+[Base::Middle::Leaf, Base::Middle, Base]
+[:base, :middle, :leaf]
+"ran"
+:helper
+"timed ran"
+true
+3
+3
+1
+"constant"

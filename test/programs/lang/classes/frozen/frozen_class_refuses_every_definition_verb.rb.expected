@@ -1,0 +1,26 @@
+alias_method: FrozenError: can't modify frozen Class: Fz
+undef_method: FrozenError: can't modify frozen Class: Fz
+remove_method: FrozenError: can't modify frozen Class: Fz
+private: FrozenError: can't modify frozen Class: Fz
+public: FrozenError: can't modify frozen Class: Fz
+protected: FrozenError: can't modify frozen Class: Fz
+define_method: FrozenError: can't modify frozen Class: Fz
+attr_accessor: FrozenError: can't modify frozen Class: Fz
+include: FrozenError: can't modify frozen Class: Fz
+prepend: FrozenError: can't modify frozen Class: Fz
+extend: FrozenError: can't modify frozen Class: Fz
+const_set: FrozenError: can't modify frozen Class: Fz
+private_constant: FrozenError: can't modify frozen Class: Fz
+class_eval: FrozenError: can't modify frozen Class: Fz
+ivar_set: FrozenError: can't modify frozen Class: Fz
+1
+source: TypeError: uninitialized Regexp
+options: TypeError: uninitialized Regexp
+to_s: TypeError: uninitialized Regexp
+names: TypeError: uninitialized Regexp
+match: TypeError: uninitialized Regexp
+=~: TypeError: uninitialized Regexp
+==: TypeError: uninitialized Regexp
+[false, #<Encoding:BINARY (ASCII-8BIT)>, false]
+MatchData.allocate: NoMethodError: undefined method 'allocate' for class MatchData
+MatchData.new: NoMethodError: undefined method 'new' for class MatchData

@@ -1,0 +1,8 @@
+["CP51932", 1, true, 3]
+Encoding::InvalidByteSequenceError: "\x8F" on CP51932
+["\x8F", nil, false]
+["stateless-ISO-2022-JP", 1, true, 2]
+Encoding::InvalidByteSequenceError: "\x81" on stateless-ISO-2022-JP
+["\x81", nil, false]
+Encoding::UndefinedConversionError: "\x8F\xA1\xA1" from EUC-JP to UTF-8
+[[143, 161, 161], "EUC-JP", "UTF-8"]

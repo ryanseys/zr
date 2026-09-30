@@ -1,0 +1,12 @@
+"ABCDEFGHIJ"
+"ABCDE"
+"FGHIJ"
+nil
+"AB"
+2
+"ABCDEFGHIJ"
+true
+"ABC"
+false
+true
+IOError: closed stream

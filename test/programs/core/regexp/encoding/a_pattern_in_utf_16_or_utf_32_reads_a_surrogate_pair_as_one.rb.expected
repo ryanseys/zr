@@ -1,0 +1,82 @@
+"UTF-16LE"
+[8, 18]
+["e", "世界"]
+8
+7
+21
+["Grüße,", "δύο"]
+[[0, 10], "Grüße"]
+[[22, 28], "δύο"]
+[[30, 46], "😀 lines"]
+15
+21
+"Gr*ß*, 世界!\nδ*ο 😀 l*n*s\n"
+2
+[36, 46]
+0
+#<Encoding:UTF-16LE>
+6
+"UTF-16BE"
+[8, 18]
+["e", "世界"]
+8
+7
+21
+["Grüße,", "δύο"]
+[[0, 10], "Grüße"]
+[[22, 28], "δύο"]
+[[30, 46], "😀 lines"]
+15
+21
+"Gr*ß*, 世界!\nδ*ο 😀 l*n*s\n"
+2
+[36, 46]
+0
+#<Encoding:UTF-16BE>
+6
+"UTF-32LE"
+[16, 36]
+["e", "世界"]
+16
+7
+21
+["Grüße,", "δύο"]
+[[0, 20], "Grüße"]
+[[44, 56], "δύο"]
+[[60, 88], "😀 lines"]
+15
+21
+"Gr*ß*, 世界!\nδ*ο 😀 l*n*s\n"
+2
+[68, 88]
+0
+#<Encoding:UTF-32LE>
+12
+"UTF-32BE"
+[16, 36]
+["e", "世界"]
+16
+7
+21
+["Grüße,", "δύο"]
+[[0, 20], "Grüße"]
+[[44, 56], "δύο"]
+[[60, 88], "😀 lines"]
+15
+21
+"Gr*ß*, 世界!\nδ*ο 😀 l*n*s\n"
+2
+[68, 88]
+0
+#<Encoding:UTF-32BE>
+12
+8
+[1, 7]
+3
+[1, 7]
+#<Encoding:UTF-16LE>
+56
+#<Encoding:UTF-32BE>
+"invalid character property name {Nope}: "
+Encoding::CompatibilityError
+"incompatible encoding regexp match (UTF-16LE regexp with UTF-8 string)"

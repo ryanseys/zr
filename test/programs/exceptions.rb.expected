@@ -1,0 +1,96 @@
+"exceptions.rb:1:in '<main>': boom (RuntimeError)\n"
+"exceptions.rb:1:in '<main>': boom (RuntimeError)\n"
+"default E"
+"default E"
+"x"
+"z"
+true
+false
+false
+E
+true
+false
+:foo
+Object
+NameError
+:foo
+[]
+false
+:b
+{a: 1}
+"key not found: :b"
+"a"
+"can't modify frozen String: \"a\""
+"a"
+nil
+nil
+"exception object expected"
+RuntimeError
+""
+"exception class/object expected"
+["x:1", "y:2"]
+["one"]
+nil
+"StandardError"
+"StandardError"
+"3"
+"#<Exception: x>"
+"Exception"
+"#<Exception:\"a\\nb\">"
+ArgumentError
+:zz
+5
+0
+3
+1
+"bye"
+"SystemExit"
+true
+"unhandled exception"
+"a (RuntimeError)\nb"
+"RuntimeError (RuntimeError)"
+"3"
+"custom"
+"custom (Custom)"
+"#<Custom: custom>"
+exceptions.rb:59:in 'E2#initialize'
+exceptions.rb:61:in 'Exception.exception'
+exceptions.rb:61:in 'Kernel#raise'
+exceptions.rb:61:in '<main>'
+exceptions.rb:59:in 'E2#initialize'
+exceptions.rb:66:in '<main>'
+exceptions.rb:70:in 'F#exception'
+exceptions.rb:72:in 'Kernel#raise'
+exceptions.rb:72:in '<main>'
+[DidYouMean::Correctable, LoadError, ScriptError]
+IndexError
+RangeError
+"x"
+NotImplementedError
+"NotImplementedError"
+Interrupt
+"Interrupt"
+"orig"
+E
+false
+"abc"
+"abcd"
+false
+false
+true
+false
+true
+[1, [2, 4]]
+[1, [2, 4], 3]
+{k: [1]}
+{k: [1], z: 1}
+101
+101
+:solo
+NoMethodError
+[]
+[:solo]
+1
+:s
+nil
+#<ArgumentError: can't unfreeze Integer>

@@ -1,0 +1,3 @@
+true
+false
+[:add_user, :plain, :remove_user]

@@ -1,0 +1,22 @@
+:started
+[nil, Object, true]
+:scheduled
+"Blocking operation has already been executed!"
+"# A non-blocking fiber hands open(2), close(2) of a stream that writes,\n"
+[nil, Object, true]
+"Blocking operation has already been executed!"
+[nil, Object, true]
+"Blocking operation has already been executed!"
+[nil, Object, true]
+"Blocking operation has already been executed!"
+[nil, Object, true]
+"Blocking operation has already been executed!"
+true
+[nil, Object, true]
+"Blocking operation has already been executed!"
+1
+[nil, Object, true]
+"Blocking operation has already been executed!"
+:done
+[Errno::EBADF, Errno::EINVAL]
+"abcde"

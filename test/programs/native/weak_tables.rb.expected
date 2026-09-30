@@ -1,0 +1,20 @@
+:kept
+:two
+"#<ObjectSpace::WeakMap:0xADDR: #<Object:0xADDR> => :kept, 2 => :two>"
+:kept
+[:missing, :absent]
+"#<ObjectSpace::WeakMap:0xADDR>"
+1
+true
+"#<ObjectSpace::WeakKeyMap:0xADDR size=1>"
+1
+"#<ObjectSpace::WeakKeyMap:0xADDR size=0>"
+after
+cannot define finalizer for Symbol
+FrozenError
+0
+nil
+end
+finalized Integer
+second
+at exit

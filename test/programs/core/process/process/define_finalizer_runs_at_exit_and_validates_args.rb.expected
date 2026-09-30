@@ -1,0 +1,5 @@
+e1: tried to create Proc object without a block
+e2: wrong type argument Integer (should be callable)
+before exit
+finalized(Integer)
+block finalizer

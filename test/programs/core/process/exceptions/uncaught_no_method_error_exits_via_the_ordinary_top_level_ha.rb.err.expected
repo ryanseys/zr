@@ -1,0 +1,4 @@
+core/process/exceptions/uncaught_no_method_error_exits_via_the_ordinary_top_level_ha.rb:3:in '<main>': undefined method 'missing' for an instance of Plain (NoMethodError)
+
+Plain.new.send(:missing)
+         ^^^^^

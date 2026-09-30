@@ -1,0 +1,16 @@
+[:ok, 3]
+2
+[:caught, ArgumentError, "bad"]
+[:standard, "plain"]
+"held"
+"held"
+"global"
+3
+4
+4
+5
+nil
+11
+11
+12
+12

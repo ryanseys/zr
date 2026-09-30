@@ -1,0 +1,3 @@
+== a frozen class refuses both singleton verbs
+[FrozenError, "can't modify frozen Class: FrozenSingleton"]
+FrozenError

@@ -1,0 +1,3 @@
+[ArgumentError, "wrong number of arguments (given 2, expected 0..1)"]
+[ArgumentError, "wrong number of arguments (given 0, expected 1)"]
+[ArgumentError, "wrong number of arguments (given 3, expected 0..2)"]

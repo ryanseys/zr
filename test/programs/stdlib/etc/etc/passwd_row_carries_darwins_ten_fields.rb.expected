@@ -1,0 +1,3 @@
+[:name, :passwd, :uid, :gid, :gecos, :dir, :shell, :change, :uclass, :expire]
+["root", "*", 0, 0, "System Administrator", "/var/root", "/bin/sh", 0, "", 0]
+[Integer, String, Integer, 10]

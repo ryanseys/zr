@@ -1,0 +1,86 @@
+"cat says ..."
+"rex says woof"
+"bit says yip"
+4
+Dog
+[Puppy, Dog, Animal, Object]
+Dog
+true
+false
+<Dog: rex>
+1
+2
+4
+[:describe, :heard, :legs, :name, :speak, :to_s]
+a says ...
+b says woof
+c says yip
+3
+6
+3
+"counter"
+[:bump, :value]
+"hi"
+Module
+"hi"
+"woof"
+true
+[:hidden, :yes]
+["protected", "protected method 'guarded' called for an instance of Vault"]
+["private", "private method 'secret' called for an instance of Vault"]
+["from a class method", "protected method 'guarded' called for an instance of Vault"]
+[:balance, :balance=, :guarded, :note=, :open, :owner, :summary]
+[:initialize, :secret]
+[:guarded]
+[:initialize, :named]
+[]
+[[:req]]
+0
+1
+141
+"ada"
+10
+"ada: 10 "
+25
+"ada: 25 !"
+[:@owner, :@balance, :@note]
+"bob"
+5
+2
+"bob: 5 s"
+7
+[:@owner, :@balance, :@note, :@rate]
+:hidden
+:n
+StandardError
+Boom
+ArgumentError
+[Boom, StandardError, Exception, Object, Kernel]
+"hi"
+"Boom"
+true
+true
+true
+[]
+7
+"m"
+[:@code]
+"w ..."
+"r ...! @5"
+"s ...!...! @9"
+"...!...!"
+[10, 20]
+"..."
+"boom"
+"x"
+"y!"
+true
+["a!", "b!"]
+2
+2
+0
+[:TOTAL]
+[:initialize, :stamp]
+[:add, :count, :push, :rows, :size]
+NameError
+"private constant Ledger::SECRET referenced"

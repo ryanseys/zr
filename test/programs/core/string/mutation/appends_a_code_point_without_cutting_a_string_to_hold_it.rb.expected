@@ -1,0 +1,27 @@
+"A\xC8\x00"
+#<Encoding:BINARY (ASCII-8BIT)>
+[65, 200, 0]
+"abé"
+#<Encoding:UTF-8>
+true
+"ab😀"
+#<Encoding:UTF-8>
+6
+"ab\xC8"
+#<Encoding:BINARY (ASCII-8BIT)>
+"abA"
+#<Encoding:US-ASCII>
+[164, 162]
+#<Encoding:EUC-JP>
+256 out of char range
+728
+0
+149
+true
+true
+false
+#<Encoding:UTF-8>
+[120, 86, 52, 18]
+[18, 52, 86, 120]
+48
+[255, 255, 255, 255, 255, 255, 255, 255]

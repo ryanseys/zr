@@ -1,0 +1,5 @@
+SyntaxError
+:SCOPE
+[RuntimeError, "cannot get AST for ISEQ compiled by prism"]
+nil
+[:SCOPE, :LASGN]

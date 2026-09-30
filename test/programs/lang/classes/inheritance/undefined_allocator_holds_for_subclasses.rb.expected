@@ -1,0 +1,33 @@
+Proc: TypeError: allocator undefined for Proc
+Proc subclass: TypeError: allocator undefined for #<Class:X>
+Method: TypeError: allocator undefined for Method
+Method subclass: TypeError: allocator undefined for #<Class:X>
+UnboundMethod: TypeError: allocator undefined for UnboundMethod
+UnboundMethod subclass: TypeError: allocator undefined for #<Class:X>
+Binding: TypeError: allocator undefined for Binding
+Binding subclass: TypeError: allocator undefined for #<Class:X>
+Thread: TypeError: allocator undefined for Thread
+Thread subclass: TypeError: allocator undefined for #<Class:X>
+Encoding: TypeError: allocator undefined for Encoding
+Encoding subclass: TypeError: allocator undefined for #<Class:X>
+Float: TypeError: allocator undefined for Float
+Float subclass: TypeError: allocator undefined for #<Class:X>
+Struct: TypeError: allocator undefined for Struct
+Struct subclass: TypeError: allocator undefined for #<Class:X>
+Data: TypeError: allocator undefined for Data
+Data subclass: TypeError: allocator undefined for #<Class:X>
+Rational: NoMethodError: undefined method 'allocate' for class Rational
+Rational subclass: NoMethodError: undefined method 'allocate' for class #<Class:X>
+Complex: NoMethodError: undefined method 'allocate' for class Complex
+Struct.new: #<struct a=nil>
+Struct.new subclass: #<struct a=nil>
+Data.define: #<data a=nil>
+Data.define subclass: #<data a=nil>
+Proc subclass new: 1
+Thread subclass new: 2
+Struct subclass new: 3
+Data subclass new: 4
+Rational: (4/3)
+Complex: (2+2i)
+singleton: TypeError: can't create instance of singleton class
+singleton new: TypeError: can't create instance of singleton class

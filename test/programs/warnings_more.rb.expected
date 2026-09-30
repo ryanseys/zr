@@ -1,0 +1,7 @@
+[:deprecated, :experimental, :performance, :strict_unused_block]
+false
+true
+unknown category: nope
+2
+caught nil: through the override
+caught :experimental: a category

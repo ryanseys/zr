@@ -1,0 +1,5 @@
+ensure r0
+"early 1"
+ensure r012
+"r012"
+[11, 21, :inner, 12, :inner, :outer]

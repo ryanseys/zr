@@ -1,0 +1,15 @@
+""
+""
+0
+"ab\n"
+1
+#<ArgumentError: invalid limit: 0 for each_line>
+#<ArgumentError: invalid limit: 0 for readlines>
+["ab\n", "cd\n"]
+#<Enumerator: #<File:/tmp/zr_spec_limits.txt>:each_line(0)>
+#<Enumerator: #<File:/tmp/zr_spec_limits.txt>:each(1)>
+#<ArgumentError: invalid limit: 0 for foreach>
+#<ArgumentError: invalid limit: 0 for readlines>
+""
+"ab\n"
+""

@@ -100,28 +100,24 @@ beside `lib/`, not in it:
 | `tool/*.rb` | the body of each `zr-dev` command, one file for each command (`tool/bench.rb` for `zr-dev bench`) |
 | `tool/lib/zr/dev.rb`, `tool/lib/zr/dev/` | the code that the commands share: the command class, the paths, the host ruby and the C sources |
 | `tool/gen/` | the generators of `zr-dev gen`, one file for each generated file; `tool/gen/prism/templates/` has the templates of the pure-Ruby prism |
-| `tool/spec/` | the commands of `zr-dev spec` |
 | `vendor/src/` | upstream sources that only the tools read: prism's templates (`zr-dev gen prism`) |
 | `lib/zr/prism_shim/` | makes `require "prism/prism"` load the port on the host |
 | `docs/` | this documentation |
 | `.github/workflows/` | CI (`ci.yml`) and the release (`release.yml`) |
 | `.github/actions/runtime-cache/` | the CI step that keeps the built runtime between runs |
-| `test/test_helper.rb` | what every unit and e2e test file requires |
-| `test/spec_helper.rb` | what a spec file requires: the test helper, and the spec DSL |
-| `test/support/` | the test library: the spec DSL, the fork pool, the kept binaries, the progress file |
+| `test/test_helper.rb` | what every unit test file requires |
+| `test/support/` | the test library: the program tests' format (`program_case.rb`), run directory (`program_run.rb`), build (`program_build.rb`), runner (`programs.rb`) and baselines (`baseline.rb`); the fork pool, the workers, the kept binaries, the `# zr-test:` needs, the progress file |
 | `test/support/harness/` | ruby's reference runs, the child process limits, wasmtime, the benchmark runner, `Harness::KernelJIT`, and the harnesses that compare a port with ruby's C |
 | `test/unit/` | the unit tier: zr's own internals |
-| `test/spec/` | the spec tier: Ruby behavior, example by example |
-| `test/e2e/` | the e2e tier: whole programs through a real link, in areas as the specs are, each with its recording |
-| `test/baselines/` | the baselines of the targets other than macOS; see [How to test on another target](../how-to/test-on-another-target.md) |
-| `test/fixtures/` | the files that spec examples read with `fixture` |
+| `test/programs/` | the program tests: plain Ruby programs with ruby's output beside them, in areas (`lang/`, `core/`, `stdlib/`, `compiler/`, and `cli/`, which builds with `zr build`); those in `native/` run only on a native target. See [Program tests](program-tests.md) |
+| `test/baselines/` | the baseline of each target, the host too (`<triple>.txt`), and of another project's program tests (`corpus/<project>-<triple>.txt`); see [How to test on another target](../how-to/test-on-another-target.md) |
+| `test/fixtures/gems/` | the gems that `gem_compat_test` reads |
 
-The next five directories are not tiers. They hold the programs and
+The next four directories are not tiers. They hold the programs and
 the snapshots that tests in `test/unit/` read.
 
 | Path | Contains |
 |---|---|
-| `test/programs/` | Ruby programs that `programs_test` runs against ruby; those in `native/` do not run as WASI modules |
 | `test/machine/` | machine-dialect programs, with their outputs; `test/machine/refused/` has one program for each refusal |
 | `test/runtime/` | programs that test the kernel through hand-written top levels |
 | `test/native/` | hand-written IR, and the disassembly snapshot |

@@ -1,0 +1,47 @@
+[]: []->default
+all?: all?->each
+collect: collect->each
+collect_concat: collect_concat->each
+count: count->each
+detect: detect->each
+dig: dig->default
+drop: drop->each
+drop_while: drop_while->each
+each_cons: each_cons->size each_cons->each
+each_entry: each_entry->each
+each_slice: each_slice->size each_slice->each
+each_with_index: each_with_index->each
+each_with_object: each_with_object->each
+entries: entries->each
+filter_map: filter_map->each
+find: find->each
+find_all: find_all->each
+find_index: find_index->each
+first: first->each
+flat_map: flat_map->each
+grep: grep->each
+grep_v: grep_v->each
+group_by: group_by->each
+initialize_copy: raised NoMethodError
+inject: inject->each
+map: map->each
+max: max->each
+max_by: max_by->each
+min: min->each
+min_by: min_by->each
+minmax: minmax->each
+minmax_by: minmax_by->each
+none?: none?->each
+one?: one?->each
+partition: partition->each
+reduce: reduce->each
+reverse_each: reverse_each->each
+sort: sort->each
+sort_by: sort_by->each
+sum: sum->each
+take: take->each
+take_while: take_while->each
+tally: tally->each
+to_set: to_set->each_entry each_entry->each
+uniq: uniq->each
+zip: zip->each

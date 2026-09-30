@@ -1,0 +1,20 @@
+struct	#<struct Point x=1, y=2>
+struct member order	[1, 2]
+exception	#<ArgumentError: bad>
+exception message	"bad"
+class	String
+module	Comparable
+regexp	/ab+c/mi
+regexp matches	1
+regexp with slash	"a/b"
+string subclass	"hello"
+array subclass	[1, 2]
+hash subclass	{"a" => 1}
+complex	(1+2i)
+rational	(1/2)
+range	1..5
+ostruct	#<OpenStruct a=1>
+set	{"a" => nil, "b" => nil}
+set class	Psych::Set
+omap map	Psych::Omap
+omap seq	{"a" => 1, "b" => 2}

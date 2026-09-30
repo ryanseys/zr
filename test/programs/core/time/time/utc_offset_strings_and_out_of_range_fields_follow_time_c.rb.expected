@@ -1,0 +1,17 @@
+utc_offset out of range
+utc_offset out of range
+"+HH:MM", "-HH:MM", "UTC" or "A".."I","K".."Z" expected for utc_offset: +23:60
+utc_offset out of range
+34200
+-34215
+true
+true
+argument out of range
+mday out of range
+hour out of range
+argument out of range
+min out of range
+min out of range
+argument out of range
+sec out of range
+argument out of range

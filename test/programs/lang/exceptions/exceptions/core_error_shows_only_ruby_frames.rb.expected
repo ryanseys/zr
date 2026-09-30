@@ -1,0 +1,88 @@
+NoMethodError: undefined method 'foo' for an instance of String
+core_error_shows_only_ruby_frames.rb:12:block (2 levels) in <main>
+core_error_shows_only_ruby_frames.rb:12:Array#map
+core_error_shows_only_ruby_frames.rb:12:block in <main>
+core_error_shows_only_ruby_frames.rb:7:Object#show
+core_error_shows_only_ruby_frames.rb:12:<main>
+NoMethodError: undefined method 'zork' for an instance of Integer
+core_error_shows_only_ruby_frames.rb:13:block (2 levels) in <main>
+core_error_shows_only_ruby_frames.rb:13:Array#each
+core_error_shows_only_ruby_frames.rb:13:Enumerable#sort_by
+core_error_shows_only_ruby_frames.rb:13:block in <main>
+core_error_shows_only_ruby_frames.rb:7:Object#show
+core_error_shows_only_ruby_frames.rb:13:<main>
+ArgumentError: invalid value for Integer(): "x"
+core_error_shows_only_ruby_frames.rb:14:Kernel#Integer
+core_error_shows_only_ruby_frames.rb:14:block (2 levels) in <main>
+core_error_shows_only_ruby_frames.rb:14:Array#map
+core_error_shows_only_ruby_frames.rb:14:block in <main>
+core_error_shows_only_ruby_frames.rb:7:Object#show
+core_error_shows_only_ruby_frames.rb:14:<main>
+JSON::ParserError: expected object key, got EOF at line 1 column 2
+common.rb:302:JSON::Ext::Parser.parse
+common.rb:302:JSON.parse
+core_error_shows_only_ruby_frames.rb:15:block in <main>
+core_error_shows_only_ruby_frames.rb:7:Object#show
+core_error_shows_only_ruby_frames.rb:15:<main>
+KeyError: key not found: :b
+core_error_shows_only_ruby_frames.rb:16:Hash#fetch
+core_error_shows_only_ruby_frames.rb:16:block in <main>
+core_error_shows_only_ruby_frames.rb:7:Object#show
+core_error_shows_only_ruby_frames.rb:16:<main>
+IndexError: index 5 outside of array bounds: -1...1
+core_error_shows_only_ruby_frames.rb:17:Array#fetch
+core_error_shows_only_ruby_frames.rb:17:block in <main>
+core_error_shows_only_ruby_frames.rb:7:Object#show
+core_error_shows_only_ruby_frames.rb:17:<main>
+ArgumentError: comparison of Integer with String failed
+core_error_shows_only_ruby_frames.rb:18:Array#sort
+core_error_shows_only_ruby_frames.rb:18:block in <main>
+core_error_shows_only_ruby_frames.rb:7:Object#show
+core_error_shows_only_ruby_frames.rb:18:<main>
+ArgumentError: invalid slice size
+core_error_shows_only_ruby_frames.rb:19:Enumerable#each_slice
+core_error_shows_only_ruby_frames.rb:19:block in <main>
+core_error_shows_only_ruby_frames.rb:7:Object#show
+core_error_shows_only_ruby_frames.rb:19:<main>
+ArgumentError: @ outside of string
+core_error_shows_only_ruby_frames.rb:20:String#unpack
+core_error_shows_only_ruby_frames.rb:20:block in <main>
+core_error_shows_only_ruby_frames.rb:7:Object#show
+core_error_shows_only_ruby_frames.rb:20:<main>
+RuntimeError: in min_by
+core_error_shows_only_ruby_frames.rb:21:block (2 levels) in <main>
+core_error_shows_only_ruby_frames.rb:21:Array#each
+core_error_shows_only_ruby_frames.rb:21:Enumerable#min_by
+core_error_shows_only_ruby_frames.rb:21:block in <main>
+core_error_shows_only_ruby_frames.rb:7:Object#show
+core_error_shows_only_ruby_frames.rb:21:<main>
+RuntimeError: in each
+core_error_shows_only_ruby_frames.rb:22:block (2 levels) in <main>
+core_error_shows_only_ruby_frames.rb:22:Hash#each
+core_error_shows_only_ruby_frames.rb:22:block in <main>
+core_error_shows_only_ruby_frames.rb:7:Object#show
+core_error_shows_only_ruby_frames.rb:22:<main>
+SyntaxError: (eval at lang/exceptions/exceptions/core_error_shows_only_ruby_frames.rb:23):1: syntax errors found
+> 1 | 1 +
+    |    ^ unexpected end-of-input, assuming it is closing the parent top level context
+    |    ^ unexpected end-of-input; expected an expression after the operator
+core_error_shows_only_ruby_frames.rb:23:Kernel#eval
+core_error_shows_only_ruby_frames.rb:23:block in <main>
+core_error_shows_only_ruby_frames.rb:7:Object#show
+core_error_shows_only_ruby_frames.rb:23:<main>
+ArgumentError: struct size differs
+core_error_shows_only_ruby_frames.rb:24:Struct#initialize
+core_error_shows_only_ruby_frames.rb:24:block in <main>
+core_error_shows_only_ruby_frames.rb:7:Object#show
+core_error_shows_only_ruby_frames.rb:24:<main>
+Encoding::ConverterNotFoundError: code converter not found (UTF-8 to NOPE)
+core_error_shows_only_ruby_frames.rb:25:String#encode
+core_error_shows_only_ruby_frames.rb:25:block in <main>
+core_error_shows_only_ruby_frames.rb:7:Object#show
+core_error_shows_only_ruby_frames.rb:25:<main>
+ArgumentError: min argument must be less than or equal to max argument
+core_error_shows_only_ruby_frames.rb:26:Comparable#clamp
+core_error_shows_only_ruby_frames.rb:26:UnboundMethod#bind_call
+core_error_shows_only_ruby_frames.rb:26:block in <main>
+core_error_shows_only_ruby_frames.rb:7:Object#show
+core_error_shows_only_ruby_frames.rb:26:<main>

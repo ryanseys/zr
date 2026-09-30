@@ -1,0 +1,24 @@
+[[2], [1, 3]]
+0
+2
+4
+1
+1
+1
+Integer
+Integer
+[[1], [2]]
+3
+[0, 1, [0, 1], [0, 1], ["a"]]
+true
+[TypeError, "no implicit conversion of String into Integer"]
+[TypeError, "no implicit conversion of String into Integer"]
+[TypeError, "no implicit conversion of String into Integer"]
+[TypeError, "no implicit conversion of String into Integer"]
+[TypeError, "no implicit conversion of String into Integer"]
+[TypeError, "can't convert Array into an exact number"]
+[TypeError, "can't convert String into time"]
+[TypeError, "String can't be coerced into Float"]
+[TypeError, "can't convert String into Float"]
+[TypeError, "can't convert nil into Float"]
+[TypeError, "can't convert Sep into Float"]

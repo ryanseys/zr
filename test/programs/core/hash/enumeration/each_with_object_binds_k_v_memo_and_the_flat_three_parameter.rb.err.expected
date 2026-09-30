@@ -1,0 +1,7 @@
+core/hash/enumeration/each_with_object_binds_k_v_memo_and_the_flat_three_parameter.rb:11:in 'block in <main>': undefined method '<<' for nil (NoMethodError)
+
+result2 = h.each_with_object([]) { |k, v, memo| memo << v * 100 }
+                                                     ^^
+	from core/hash/enumeration/each_with_object_binds_k_v_memo_and_the_flat_three_parameter.rb:11:in 'Hash#each'
+	from core/hash/enumeration/each_with_object_binds_k_v_memo_and_the_flat_three_parameter.rb:11:in 'Enumerable#each_with_object'
+	from core/hash/enumeration/each_with_object_binds_k_v_memo_and_the_flat_three_parameter.rb:11:in '<main>'

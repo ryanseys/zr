@@ -1,0 +1,24 @@
+[true, true, true, true, false, false]
+[true, true, false, true, false]
+[true, true, false, true, false]
+[true, true, true, false, true, true]
+[true, true, true, true]
+[true, true, false, true, false]
+[true, true, true, true, true, true]
+TypeError: class or module required
+TypeError: class or module required
+TypeError: class or module required
+TypeError: class or module required
+TypeError: class or module required
+TypeError: class or module required
+[true, false, false, true, false, true]
+[true, false, false, false, false]
+[true, true, true, false, true, false, true, true]
+[3, 0, 2, 1, 5, 7, 8]
+[:liar, true, :no, -1]
+[true, 1, false, true]
+[:redefined, :redefined, :redefined, :redefined]
+false
+true
+[:big, :num, :shape, :odd, :int, :float_or_symbol, :float_or_symbol, :nil, :h, :string, :other, :teen, :other]
+[true, false, true, true, true, true, false]

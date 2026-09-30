@@ -171,6 +171,6 @@ Next steps:
 - To see which targets your machine can build, run `zr targets`, or
   read [How to build for another target](../how-to/build-for-another-target.md).
 - To help zr support more programs, follow
-  [Add your first spec](add-your-first-spec.md).
+  [Add your first program test](add-your-first-program-test.md).
 - To learn why zr checks itself against ruby's output, read
   [The contract: ruby's output or a refusal](../explanation/the-contract.md).

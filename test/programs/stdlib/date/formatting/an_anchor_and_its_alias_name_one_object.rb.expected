@@ -1,0 +1,11 @@
+simple alias	{"a" => 1, "b" => 1}
+container alias	{"a" => [1], "b" => [1]}
+alias shares identity	true
+self-referential seq	[1, true]
+self-referential map	true
+mutual	true
+anchor reused	{"a" => 1, "b" => 2, "c" => 2}
+undefined anchor	Psych::AnchorNotDefined
+anchor on nothing	{"a" => nil, "b" => nil}
+alias without option	Psych::AliasesNotEnabled
+many aliases	51

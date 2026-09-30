@@ -1,0 +1,39 @@
+Binding
+false
+true
+true
+true
+true
+3
+[:x, :b, :inner, :held, :e, :later, :pb]
+100
+true
+false
+5
+7
+42
+43
+84
+[:n, :m]
+6
+9
+true
+1
+2
+[NameError, "local variable 'nope' is not defined for #<Binding:0xADDR>"]
+[TypeError, "1 is not a symbol nor a string"]
+[NoMethodError, "undefined method 'new' for class Binding"]
+[TypeError, "wrong argument type Integer (expected binding)"]
+9
+7
+[:evaled, :added, :x, :b, :inner, :held, :e, :later, :pb]
+nil
+10
+Binding
+[:a]
+1
+Object
+[ArgumentError, "Can't create Binding from C level Proc"]
+Binding
+main
+["<main>", 0]

@@ -1,0 +1,7 @@
+new: "/a/b"
+new from Pathname: "a"
+new frozen arg: "a"
+new null byte: ArgumentError: path name contains null byte
+new Integer: TypeError: Pathname.new requires a String, #to_path or #to_str
+new no args: ArgumentError: wrong number of arguments (given 0, expected 1)
+Kernel#Pathname: Pathname

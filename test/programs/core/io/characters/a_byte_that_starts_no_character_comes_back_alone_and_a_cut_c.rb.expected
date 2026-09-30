@@ -1,0 +1,6 @@
+["\xE3", "\x81", "a"]
+["\xE3\x81"]
+[false, false]
+[97, 233]
+#<ArgumentError: invalid byte sequence in UTF-8>
+[["a", 0], ["b", 1], ["c", 2]]

@@ -1,0 +1,5 @@
+Process::Tms.members: [:utime, :stime, :cutime, :cstime]
+Process::Tms.keyword_init?: nil
+Process::Tms.[]: #<struct Process::Tms utime=1, stime=2, cutime=3, cstime=4>
+Process::Tms writer: 9.5
+Process::Tms to_a: [9.5, 2, 3, 4]

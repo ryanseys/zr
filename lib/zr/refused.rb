@@ -7,7 +7,7 @@ module Zr
   # marked stage does not support, as opposed to a bug in that stage. A
   # refusal keeps the superclass its stage already raises (`StandardError`,
   # `Backend::Refused`, `NotImplementedError`, ...), so exit codes
-  # (`CLI.lower`), the spec tier split (`Spec::REFUSALS`) and the cc
+  # (`CLI.lower`), the program tests' split (`ProgramBuild::REFUSALS`) and the cc
   # fallbacks (`Native::Build`) keep matching on that superclass. `include
   # Zr::Refusal` only lets code ask a class or instance whether it means
   # this, without naming every stage's own `Refused`.
@@ -15,8 +15,8 @@ module Zr
 
   # The program uses a form that zr does not support. The message gives
   # the file, the line (and the column, where the stage knows it) and the
-  # form. `zr` exits with status 3 (`CLI::REFUSED`), and the spec tier
-  # skips the example.
+  # form. `zr` exits with status 3 (`CLI::REFUSED`), and the program
+  # tests report an error, unless the target's baseline lists the test.
   class Refused < StandardError
     include Refusal
 

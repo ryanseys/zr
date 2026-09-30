@@ -1,0 +1,18 @@
+["*", "\n", true]
+["?", "\n", true]
+["a*", "a\nb", true]
+["\\", "\\", false]
+["a\\", "a\\", false]
+["[z-a]", "b", false]
+["[a\\-c]", "b", false]
+["[a\\-c]", "-", true]
+["[]a]", "]", false]
+["[!]", "!", true]
+["[a-]", "-", true]
+["\\*", "*", true]
+["a[", "a[", false]
+["[", "[", false]
+false
+true
+true
+false

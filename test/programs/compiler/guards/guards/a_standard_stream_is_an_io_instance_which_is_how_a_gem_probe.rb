@@ -1,0 +1,24 @@
+# A class or module defined inside a top-level `if`.
+#
+# zr has to decide such a guard at compile time -- it registers definitions in
+# one whole-program walk, so a definition it cannot prove reachable is a
+# rejection rather than a runtime branch. `guard_fold` does the deciding, and
+# two shapes it could not read cover most of the real gem guards.
+#
+#   !defined?(X)              a reload guard, and `static_bool` had no `!`
+#   "".respond_to?(:m)        a capability probe on a LITERAL receiver, and
+#                             `instance_class` mapped only `X.new` / bare `new`
+#
+# The gems: addressable writes the first; httpclient, em-websocket, highline and
+# test-prof write the second.
+
+# A standard stream is an IO instance, which is how highline probes.
+unless STDIN.respond_to?(:getbyte)
+  class IO
+    def getbyte
+      -1
+    end
+  end
+end
+
+p STDIN.respond_to?(:getbyte)

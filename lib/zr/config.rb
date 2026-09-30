@@ -42,7 +42,7 @@ module Zr
       # `ZR_CACHE_MAX_GB`: the most GB an installed zr keeps in its cache
       # (default 5; 0 turns the limit off).
       @cache_max_gb = number("ZR_CACHE_MAX_GB", 5.0, "10", kind: :Float, min: 0)
-      # `ZR_TEST_BINARIES_GB`: the most GB of binaries that the spec tier
+      # `ZR_TEST_BINARIES_GB`: the most GB of binaries that the program tests
       # keeps in the store (default 8).
       @test_binaries_gb = number("ZR_TEST_BINARIES_GB", 8.0, "8", kind: :Float, min: 0)
       # `ZR_HOST_RUBY`: the ruby that the compiled compiler starts to

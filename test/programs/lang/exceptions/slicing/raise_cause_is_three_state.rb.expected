@@ -1,0 +1,6 @@
+#<ArgumentError: root>
+top
+#<ArgumentError: inner>
+nil
+TypeError: exception object expected
+ArgumentError: circular causes

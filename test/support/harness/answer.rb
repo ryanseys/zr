@@ -16,7 +16,8 @@ module Zr
       # read from the files next to the program: always `<name>.out`, and
       # `<name>.err`, `<name>.status` and `<name>.signal` when they are
       # not empty. Each file contains only the raw bytes, so there is
-      # nothing to parse or unescape. `zr-dev record` writes these files.
+      # nothing to parse or unescape. `zr-dev record` writes these files for a
+      # benchmark.
       # Returns nil when there is no recording.
       def self.beside(path)
         base = path.delete_suffix(".rb")
@@ -47,7 +48,7 @@ module Zr
     end
 
     # The host requirement for each `needs:` name. A program gives a
-    # `needs:` name in `test/e2e/binaries_test.rb`.
+    # name in a program test's `foo.rb.needs` (test/support/program_case.rb).
     module Needs
       # True when libssl 3 is where `require "openssl"` looks for it
       # (runtime/ext/openssl/ossl/library.rb). That is only OPENSSL_DIR's

@@ -1,0 +1,19 @@
+start
+counted ran
+true
+false
+:counted
+1
+guarded ran
+:guarded
+1
+nested ran
+true
+:counted
+{"a" => [1, 2]}
+reloaded ran
+true
+reloaded ran
+true
+2
+end

@@ -1,0 +1,9 @@
+"ZeroDivisionError: divided by 0"
+"ZeroDivisionError: divided by 0"
+1.0
+0.5
+"ArgumentError: negative array size"
+"ArgumentError: negative array size"
+"ArgumentError: negative array size (or size too big)"
+"ArgumentError: attempt to take negative size"
+[1, 2]

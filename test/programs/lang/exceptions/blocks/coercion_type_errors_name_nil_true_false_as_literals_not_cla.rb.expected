@@ -1,0 +1,8 @@
+no implicit conversion of nil into String
+no implicit conversion of true into String
+no implicit conversion of false into String
+no implicit conversion of Integer into String
+no implicit conversion of Symbol into String
+can't convert nil into Float
+can't convert true into Integer
+can't convert NilClass into an exact number

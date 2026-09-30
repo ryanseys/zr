@@ -1,0 +1,4 @@
+-- BasicObject, not Kernel
+BasicObject
+Kernel
+true

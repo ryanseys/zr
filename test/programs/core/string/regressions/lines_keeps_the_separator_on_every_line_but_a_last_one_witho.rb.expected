@@ -1,0 +1,8 @@
+["hello\n", "world\n"]
+["hello\n", "world"]
+["single line"]
+[]
+["\n", "\n", "\n"]
+2
+hello
+world

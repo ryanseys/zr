@@ -1,0 +1,8 @@
+[:a, :a, "X", "X", 10, [20], {k: 30}, 1.5, nil, true, 11805916207174113034240]
+[:a, true, "x", "x", 1, 2, [20], :k, 3, {k: 30}, 1.5, nil, true, 1180591620717411303424, [:a, :a, "X", "X", 10, [20], {k: 30}, 1.5, nil, true, 11805916207174113034240]]
+["#<struct S a=40>", "\"\\u00C9\"", "/r/i", "10..20", "Object"]
+[Integer, S, String, String, FalseClass, Regexp, FalseClass, Integer, Integer, Range, Class, Array]
+"S"
+:gone
+nil
+true

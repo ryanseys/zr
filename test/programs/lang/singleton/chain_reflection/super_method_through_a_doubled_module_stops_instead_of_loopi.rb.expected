@@ -1,0 +1,2 @@
+== #super_method through a DOUBLED module stops instead of looping
+["CM", "CM"]

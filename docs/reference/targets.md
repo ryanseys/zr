@@ -51,10 +51,10 @@ was built for:
 | `eval` of a string | yes, with the eval compiler | yes, with the eval compiler | yes, with the tree-walking interpreter |
 | FFI (`ffi`, `fiddle`) | yes | no | no |
 | Preemption | a timer thread | a timer thread | a count at each safe point |
-| Expected output | ruby's recording | the same, or a spec's `linux:` | the same, or a spec's `wasi:` |
+| Expected output | `foo.rb.expected` | the same, or `foo.rb.linux.expected` | the same, or `foo.rb.wasi.expected` |
 
-The e2e programs and spec examples that a target is allowed to fail are
-in its baseline.
+The program tests that a target is allowed to fail are in its
+baseline, `test/baselines/<triple>.txt`.
 See [How to test on another target](../how-to/test-on-another-target.md).
 
 ### What wasm cannot do

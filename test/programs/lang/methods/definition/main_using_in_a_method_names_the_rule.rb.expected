@@ -1,0 +1,4 @@
+use_anonymous: RuntimeError: main.using is permitted only at toplevel
+use_named: RuntimeError: main.using is permitted only at toplevel
+use_from_a_class_method: RuntimeError: main.using is permitted only at toplevel
+still refined nowhere

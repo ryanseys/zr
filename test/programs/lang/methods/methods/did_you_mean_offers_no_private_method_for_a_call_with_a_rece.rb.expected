@@ -1,0 +1,13 @@
+private method 'puts' called for an instance of Object (NoMethodError)
+
+  Object.new.puts
+            ^^^^^
+undefined method 'prinf' for an instance of Object (NoMethodError)
+
+  Object.new.prinf
+            ^^^^^^
+undefined local variable or method 'helper' for main (NameError)
+
+  helper
+  ^^^^^^
+Did you mean?  helpr

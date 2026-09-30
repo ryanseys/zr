@@ -1,0 +1,27 @@
+-- signed --
+:signed
+false
+["/CN=signer", "/CN=ca"]
+[["/CN=ca", 2]]
+true
+"a message to sign\n"
+nil
+true
+false
+true
+"a message to sign\n"
+true
+false
+"MIME-Version: 1.0"
+true
+-- enveloped --
+:enveloped
+[2]
+"a message to sign\n"
+PKCS7Error
+-- pkcs12 --
+true
+true
+["/CN=ca"]
+PKCS12Error
+true

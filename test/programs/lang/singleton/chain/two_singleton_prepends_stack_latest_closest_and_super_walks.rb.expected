@@ -1,0 +1,3 @@
+== two prepends stack, latest closest, and super walks down
+"PB(PA(own(top)))"
+["PB", "PA", "#<Class:Stacked>", "#<Class:Object>"]

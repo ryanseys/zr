@@ -1,0 +1,5 @@
+lang/modules/inheritance/param_include_body_widen.rb:11:in 'Object#consume': undefined method 'include?' for nil (NoMethodError)
+
+  coll.include?(:x)
+      ^^^^^^^^^
+	from lang/modules/inheritance/param_include_body_widen.rb:19:in '<main>'

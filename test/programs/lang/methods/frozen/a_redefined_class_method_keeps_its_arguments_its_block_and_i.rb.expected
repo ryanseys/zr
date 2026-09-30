@@ -1,0 +1,3 @@
+== a redefined class method keeps its arguments, block and keywords
+"1:1,2,[],3,4,blk"
+"2:1,9,[8],3,7,blk"

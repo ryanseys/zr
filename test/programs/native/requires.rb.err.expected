@@ -1,0 +1,4 @@
+native/requires/lib/boom.rb:1:in 'Object#boom_helper': boom in required (RuntimeError)
+	from native/requires/lib/boom.rb:2:in '<top (required)>'
+	from native/requires.rb:26:in 'Kernel#require_relative'
+	from native/requires.rb:26:in '<main>'

@@ -1,0 +1,51 @@
+#<Encoding:UTF-8>
+nil
+"ISO-8859-1"
+#<Encoding:ISO-8859-1>
+#<Encoding:ISO-8859-1>
+#<Encoding:ISO-8859-1>
+#<Encoding:UTF-8>
+["UTF-8", "CP65001", "locale"]
+["ISO-8859-1", "ISO8859-1", "external", "filesystem"]
+["ISO-8859-1", "ISO-8859-1", "UTF-8", nil]
+#<Encoding:ISO-8859-1>
+6
+#<Encoding:ISO-8859-1>
+#<Encoding:ISO-8859-1>
+#<Encoding:ISO-8859-1>
+nil
+#<Encoding:ISO-8859-1>
+#<Encoding:UTF-8>
+#<Encoding:UTF-8>
+#<Encoding:UTF-8>
+["UTF-8", "CP65001", "locale", "internal"]
+#<Encoding:ISO-8859-1>
+#<Encoding:UTF-8>
+#<Encoding:UTF-8>
+[99, 97, 102, 195, 131, 194, 169, 10]
+#<Encoding:ISO-8859-1>
+#<Encoding:UTF-8>
+"\xE9"
+#<Encoding:BINARY (ASCII-8BIT)>
+nil
+#<Encoding:BINARY (ASCII-8BIT)>
+#<Encoding:ISO-8859-1>
+#<Encoding:UTF-8>
+nil
+nil
+nil
+1
+#<ArgumentError: default external can not be nil>
+#<ArgumentError: unknown encoding name - nope>
+#<TypeError: no implicit conversion of Integer into String>
+#<Encoding:UTF-8>
+#<Encoding:UTF-8>
+#<Encoding:ISO-8859-1>
+#<Encoding:UTF-8>
+1
+"\xE9"
+"\xE9"
+"\xFF"
+#<Encoding:EUC-JP>
+"a\xFF&lt;"
+"a\uFFFD"

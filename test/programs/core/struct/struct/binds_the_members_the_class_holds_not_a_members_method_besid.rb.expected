@@ -1,0 +1,19 @@
+[1, 2]
+2
+[1, 2]
+[:zzz, :yyy, :xxx]
+[:only_mine]
+[1, 2]
+{a: 1, b: 2}
+1
+"#<struct Row a=1, b=2>"
+[nil, nil]
+[1, 2]
+{a: 1, b: 2}
+[:a, :b]
+[:zzz, :yyy, :xxx]
+{a: 1, b: 2}
+{a: 1}
+"#<data Pair a=1, b=2>"
+{a: 1, b: 9}
+true

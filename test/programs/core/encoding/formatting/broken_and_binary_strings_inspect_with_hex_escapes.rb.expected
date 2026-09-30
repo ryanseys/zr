@@ -1,0 +1,5 @@
+true
+#<Encoding:BINARY (ASCII-8BIT)>
+true
+"\xFF\x80"
+"caf\xE9"

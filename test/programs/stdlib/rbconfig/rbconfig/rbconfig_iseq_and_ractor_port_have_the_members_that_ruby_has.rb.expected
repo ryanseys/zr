@@ -1,0 +1,10 @@
+""
+true
+-3
+3
+#<RuntimeError: broken binary format>
+[:initialize, :initialize_copy]
+#<TypeError: [bug] frozen object (Ractor::Port) allocated>
+["a", "b"]
+{"a" => "9", "b" => "$(a)2"}
+nil

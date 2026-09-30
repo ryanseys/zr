@@ -1,0 +1,33 @@
+"6162631b2442467c4b5c1b2842"
+#<Encoding:ISO-2022-JP (dummy)>
+"abc日本"
+"\e$BF|\e(B\n\e$BK\\\e(B"
+"\e$BF|K\\\e(B"
+"\e$BF|K\\\e(B"
+"\e(I12\e$BF|\e(B"
+"\e$B%\"%$F|\e(B"
+"ガギパ゜ウ゛゛カ゛"
+"\e$B-!\e(B"
+"\e$BF|K\\\e(B"
+"\xC6\xFC"
+"ab日"
+"ｱｲ"
+"\\~"
+"?"
+"*"
+[Encoding::UndefinedConversionError, "\"\\x8F\\xAB\\xB1\" to stateless-ISO-2022-JP in conversion from UTF-8 to EUC-JP to stateless-ISO-2022-JP to ISO-2022-JP", "\x{8FABB1}", "EUC-JP", "stateless-ISO-2022-JP"]
+[Encoding::UndefinedConversionError, "U+1F600 to EUC-JP in conversion from UTF-8 to EUC-JP to stateless-ISO-2022-JP to ISO-2022-JP", "😀", "UTF-8", "EUC-JP"]
+[Encoding::UndefinedConversionError, "\"\\x8E\\xB1\" to stateless-ISO-2022-JP in conversion from UTF-8 to EUC-JP to stateless-ISO-2022-JP to ISO-2022-JP", "\x{8EB1}", "EUC-JP", "stateless-ISO-2022-JP"]
+[Encoding::InvalidByteSequenceError, "\"\\x7F\" on ISO-2022-JP"]
+[Encoding::InvalidByteSequenceError, "\"\\e$\" followed by \"Z\" on ISO-2022-JP"]
+[Encoding::InvalidByteSequenceError, "\"\\n\" on ISO-2022-JP"]
+[Encoding::InvalidByteSequenceError, "\"\\e(\" followed by \"I\" on ISO-2022-JP"]
+[Encoding::InvalidByteSequenceError, "incomplete \"\\e\" on ISO-2022-JP"]
+[Encoding::UndefinedConversionError, "\"\\xAF\\xFE\" to UTF-8 in conversion from ISO-2022-JP to stateless-ISO-2022-JP to EUC-JP to UTF-8"]
+[Encoding::InvalidByteSequenceError, "\"F\" followed by \"\\x10\" on ISO-2022-JP"]
+[Encoding::InvalidByteSequenceError, "incomplete \"F\" on ISO-2022-JP"]
+[Encoding::InvalidByteSequenceError, "\"\\x80\" on ISO-2022-JP"]
+[Encoding::InvalidByteSequenceError, "incomplete \"\\e(\" on ISO-2022-JP"]
+[Encoding::InvalidByteSequenceError, "\"`\" on CP50221"]
+[Encoding::InvalidByteSequenceError, "\"\\x80\" on CP51932"]
+""

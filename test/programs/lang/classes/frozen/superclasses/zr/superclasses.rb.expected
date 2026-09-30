@@ -1,0 +1,24 @@
+"leaf/mid/base"
+"deep/mid/base"
+"Outer::Mid"
+"Outer::Mid"
+["Leaf", "Outer::Mid", "Outer::Base", "Object"]
+"Outer::Mid"
+"Outer::Deep"
+:trunk
+:branch
+:branch
+:from_trunk
+:from_trunk
+:from_trunk
+[:shared, :tag]
+[]
+true
+#<Class:Branch>
+[1]
+[2]
+[]
+"BasicObject"
+["Bare", "BasicObject"]
+2
+[:two]

@@ -1,0 +1,19 @@
+<RubyVM::InstructionSequence:<compiled>@<compiled>:1>
+"<compiled>"
+"<compiled>"
+"<compiled>"
+"<compiled>"
+1
+3
+<RubyVM::InstructionSequence:<compiled>@f.rb:3>
+"f.rb"
+"/abs/f.rb"
+3
+42
+42
+main
+SyntaxError
+"q"
+"<compiled>:1:in '<compiled>'"
+:defined
+"<RubyVM::InstructionSequence:block in <main>@FILE:21>"

@@ -1,0 +1,2 @@
+[[:symbol, :a], [:object, "s"]]
+[[:object, 1], :integer_seen_from_array]

@@ -1,0 +1,48 @@
+1
+5
+[1, 2]
+[4, 5]
+[]
+[1, 2, 3, 4, 5]
+[1, 2]
+5
+[3, 4]
+[]
+1
+[2]
+[]
+nil
+nil
+[]
+[]
+[:x, 2, 3, 4]
+[:x, 2, 3, 4]
+[:x, 2, 3, 4]
+[0, 1]
+[:x, 2, 3, 4]
+[:x, 2, 3, 4]
+ArgumentError
+"negative array size"
+TypeError
+"wrong number of arguments (given 2, expected 0..1)"
+FrozenError
+FrozenError
+FrozenError
+FrozenError
+[1]
+[]
+Array
+Array
+Array
+Array
+Stack
+-199945
+10
+[19990, 19991, 19992]
+[19997, 19998, 19999]
+-1
+[[:opt, :n]]
+Array
+nil
+[7]
+[1]

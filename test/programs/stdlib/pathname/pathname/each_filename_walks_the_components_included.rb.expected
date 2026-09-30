@@ -1,0 +1,7 @@
+each_filename: ["a", "b", "c"]
+each_filename dotdot: ["a", "b", "..", "c"]
+ascend: ["/a/b/c", "/a/b", "/a", "/"]
+ascend relative: ["a/b", "a"]
+ascend block: ["a/b", "a"]
+descend: ["/", "/a", "/a/b", "/a/b/c"]
+descend relative: ["a", "a/b"]

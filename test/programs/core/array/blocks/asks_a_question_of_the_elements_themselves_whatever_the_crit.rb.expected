@@ -1,0 +1,23 @@
+true
+true
+true
+true
+false
+true
+false
+true
+false
+true
+false
+true
+true
+true
+any?: wrong number of arguments (given 2, expected 0..1)
+all?: wrong number of arguments (given 2, expected 0..1)
+none?: wrong number of arguments (given 2, expected 0..1)
+one?: wrong number of arguments (given 2, expected 0..1)
+true
+warning: given block not used
+:out
+wrong number of arguments (given 1, expected 2)
+false

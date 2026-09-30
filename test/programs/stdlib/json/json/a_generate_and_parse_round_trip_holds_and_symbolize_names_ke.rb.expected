@@ -1,0 +1,9 @@
+{"name":"zr","tags":["ruby","aot"],"n":42,"ok":true,"nil":null}
+true
+{
+  "a": [
+    1,
+    2
+  ]
+}
+{deep: {list: [1, 2, 3]}}

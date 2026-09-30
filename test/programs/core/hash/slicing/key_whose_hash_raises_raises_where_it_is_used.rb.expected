@@ -1,0 +1,9 @@
+[:splat, "boom"]
+[:update, "boom"]
+[:literal, "boom"]
+[:aref, "boom"]
+[:fetch, "boom"]
+[:key?, "boom"]
+[:rehash, "late"]
+{a: 1}
+21

@@ -1,0 +1,9 @@
+system(''): [nil, 127, false]
+system(' '): [nil, 127]
+system('', exception: true): Errno::ENOENT: No such file or directory - 
+spawn(''): Errno::ENOENT: No such file or directory - 
+backtick(''): Errno::ENOENT: No such file or directory - 
+system(nil): TypeError: no implicit conversion of nil into String
+system('true', 1): TypeError: no implicit conversion of Integer into String
+system(): ArgumentError: wrong number of arguments (given 0, expected 1+)
+system(';'): [false, 2]

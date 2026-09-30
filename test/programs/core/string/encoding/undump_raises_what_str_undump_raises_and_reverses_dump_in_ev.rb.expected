@@ -1,0 +1,21 @@
+["\"\\u{110000}\"", #<RuntimeError: invalid Unicode codepoint (too large)>]
+["\"\\uD800\"", #<RuntimeError: invalid Unicode codepoint>]
+["\"\\u12\"", #<RuntimeError: invalid Unicode escape>]
+["\"\\u\"", #<RuntimeError: invalid Unicode escape>]
+["\"\\u{zz}\"", #<RuntimeError: invalid Unicode escape>]
+["\"\\u{1234567}\"", #<RuntimeError: invalid Unicode escape>]
+["\"\\c\"", "\\c"]
+["\"a", #<RuntimeError: unterminated dumped string>]
+["\"a\\", #<RuntimeError: invalid escape>]
+["\"\\u{41", #<RuntimeError: unterminated Unicode escape>]
+["\"x\".dup.force_encoding(\"EUC-JP\")", "x"]
+["\"x\".force_encoding(\"Nope\")", #<RuntimeError: dumped string has unknown encoding name>]
+["\"\\u3042\".force_encoding(\"EUC-JP\")", #<RuntimeError: dumped string contained Unicode escape but used force_encoding>]
+["\"\\xff\\u3042\"", #<RuntimeError: hex escape and Unicode escape are mixed>]
+["\"\\x7f\\u3042\"", "\u007Fあ"]
+["\"a\"", #<Encoding::CompatibilityError: ASCII incompatible encoding: UTF-16LE>]
+["\"a\u0000\"", #<RuntimeError: string contains null byte>]
+true
+true
+true
+true

@@ -1,0 +1,8 @@
+"?"
+"?"
+"&lt;a&gt;&amp;"
+"\"&#xE9;&quot;\""
+"*a"
+#<Encoding::UndefinedConversionError: U+3042 from UTF-8 to ISO-8859-1>
+"\xFE\xFF\x00a\x00b"
+"a\x00\x00\x00b\x00\x00\x00"

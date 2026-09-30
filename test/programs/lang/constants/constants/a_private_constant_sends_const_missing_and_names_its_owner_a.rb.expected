@@ -1,0 +1,9 @@
+["private constant PCA::X referenced", :X, PCA]
+[:missing, :X, PCC]
+[:mm, :Y]
+["private constant PC2::Inner referenced", PC2]
+:reopen_inside_ok
+["private constant PC3::Inner referenced", PC3]
+["private constant Object::Foo referenced", Object]
+[NameError, "private constant Object::Bar referenced"]
+1

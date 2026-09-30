@@ -1,0 +1,14 @@
+Etc::Passwd
+true
+true
+true
+true
+true
+true
+true
+true
+[:name, :passwd, :uid, :gid]
+true
+true
+true
+true

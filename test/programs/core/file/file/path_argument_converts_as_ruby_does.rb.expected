@@ -1,0 +1,22 @@
+exist? Pathname: false
+exist? nil: TypeError: no implicit conversion of nil into String
+exist? Integer: TypeError: no implicit conversion of Integer into String
+exist? NUL: ArgumentError: path name contains null byte
+file? Pathname: true
+directory? to_str: true
+readable? to_path: true
+size NUL: ArgumentError: path name contains null byte
+read NUL: ArgumentError: path name contains null byte
+new nil: TypeError: no implicit conversion of nil into String
+stat NUL: ArgumentError: path name contains null byte
+Dir.exist? Pathname: true
+Dir.entries NUL: ArgumentError: path name contains null byte
+basename Pathname: "y.rb"
+dirname Pathname: "x"
+extname Pathname: ".rb"
+expand_path Pathname: "/tmp/a"
+basename nil: TypeError: no implicit conversion of nil into String
+ENV NUL name: ArgumentError: bad environment variable name: contains null byte
+ENV NUL value: ArgumentError: bad environment variable value: contains null byte
+ENV NUL read: ArgumentError: bad environment variable name: contains null byte
+ENV kept: false

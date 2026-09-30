@@ -1,0 +1,2 @@
+Late#open_now before => :open
+Late#open_now after !! NoMethodError: private method 'open_now' called for an instance of Late

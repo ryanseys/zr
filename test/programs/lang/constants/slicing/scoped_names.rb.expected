@@ -1,0 +1,15 @@
+"Outer::Inner"
+Outer::Base
+[Outer::Inner, Outer::Mixin, Outer::Base, Object]
+[:base, :inner_y, :mixed]
+["constant", nil]
+:again
+:deep
+"Outer::Inner::Deep"
+:side_z
+"Outer::Side"
+NameError
+["constant", nil]
+"Outer::Nested"
+[:Base, :Inner, :Mixin, :Nested, :Side, :X]
+[:Deep, :Y]

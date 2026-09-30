@@ -1,0 +1,9 @@
+[:initialize, :method_missing, :respond_to_missing?]
+false
+false
+false
+false
+false
+true
+[:a, :a=]
+[:b]

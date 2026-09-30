@@ -1,0 +1,27 @@
+#<Point:0xADDR @x=1, @y=2>
+point
+3
+1
+10
+Point
+"Point"
+Object
+9
+4
+Point
+true
+true
+false
+true
+false
+:sym
+:"with space"
+"str\n\"q\""
+nil
+true
+0
+true
+false
+false
+true
+24

@@ -1,0 +1,36 @@
+"alpha\nbeta\n"
+["alpha\n", "beta\n"]
+["alpha", "beta"]
+11
+true
+false
+true
+false
+true
+false
+true
+false
+nil
+11
+["one.rb", "sub", "two.txt"]
+[".", "..", "one.rb", "sub", "two.txt"]
+["one.rb"]
+["one.rb", "sub/three.rb"]
+["one.rb", "two.txt"]
+["one.rb"]
+["one.rb"]
+true
+false
+false
+"ABCDE"
+"FGHIJ"
+nil
+"AB"
+2
+"ABCDEFGHIJ"
+true
+"ABC"
+true
+IOError: closed stream
+false
+true

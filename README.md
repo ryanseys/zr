@@ -145,16 +145,16 @@ on the `wasm32-wasi` target (`TARGET=wasm32-wasi bin/test ...`); see
 ```console
 $ git clone https://github.com/ryanseys/zr.git
 $ cd zr
-$ bin/setup                        # install the gems and build the runtime (a few minutes)
-$ bin/test test/spec/core/string   # the tests in one directory
-$ bin/test --changed               # the tests that your change can reach
-$ bin/test                         # all the tests: unit, spec, e2e
+$ bin/setup                            # install the gems and build the runtime (a few minutes)
+$ bin/test test/programs/core/string   # the tests in one directory
+$ bin/test --changed                   # the tests that your change can reach
+$ bin/test                             # all the tests: unit, programs
 ```
 
 `bin/test` builds the runtime again when a change under `lib/` or
 `runtime/` makes it out of date. Read [CONTRIBUTING.md](https://github.com/ryanseys/zr/blob/v0.1.0/CONTRIBUTING.md)
 before you open a pull request, and the tutorial
-[Add your first spec](https://github.com/ryanseys/zr/blob/v0.1.0/docs/tutorials/add-your-first-spec.md).
+[Add your first program test](https://github.com/ryanseys/zr/blob/v0.1.0/docs/tutorials/add-your-first-program-test.md).
 
 ## Development
 

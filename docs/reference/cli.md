@@ -229,7 +229,7 @@ SHA-256 digest of every input of the entry:
 | `gems` | the gems that `--gem` and a Gemfile.lock resolved |
 | `wasm` | the prelude of a WASI module |
 | `run` | the binaries of `zr run` (at most 2 GB) |
-| `binary` | the binaries that the spec tier keeps (at most `ZR_TEST_BINARIES_GB`) |
+| `binary` | the binaries that the program tests keep (at most `ZR_TEST_BINARIES_GB`) |
 
 Each build names the entries that the next build needs, such as the
 runtime object and the machine code of its backend, in a root

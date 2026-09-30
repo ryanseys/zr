@@ -1,0 +1,6 @@
+File
+"line one\n"
+"line two\nlast\n"
+true
+"# DATA is a File open on the main program, at the byte after the\n"
+"constant"

@@ -1,0 +1,19 @@
+#<Encoding:BINARY (ASCII-8BIT)>
+#<Encoding:UTF-8>
+#<Encoding:BINARY (ASCII-8BIT)>
+true
+false
+[true, #<Encoding:BINARY (ASCII-8BIT)>]
+#<Encoding:BINARY (ASCII-8BIT)>
+#<Encoding:BINARY (ASCII-8BIT)>
+#<Encoding:UTF-8>
+#<Encoding:BINARY (ASCII-8BIT)>
+#<Encoding:BINARY (ASCII-8BIT)>
+#<Encoding:BINARY (ASCII-8BIT)>
+"\xC8"
+#<Encoding:BINARY (ASCII-8BIT)>
+[RangeError, "invalid codepoint 0xD800 in UTF-8"]
+"😀"
+"\x80a"
+"éa"
+"a\x81\xE3"

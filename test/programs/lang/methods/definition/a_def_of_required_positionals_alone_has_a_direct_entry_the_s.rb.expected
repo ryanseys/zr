@@ -1,0 +1,32 @@
+1
+[1, 2]
+10
+10
+{k: 1}
+{k: 2}
+3
+[4, 5]
+7
+12
+4
+[:a, :b]
+1
+6
+wrong number of arguments (given 0, expected 1)
+lang/methods/definition/a_def_of_required_positionals_alone_has_a_direct_entry_the_s.rb:5:in 'Object#one'
+lang/methods/definition/a_def_of_required_positionals_alone_has_a_direct_entry_the_s.rb:31:in '<main>'
+wrong number of arguments (given 3, expected 2)
+lang/methods/definition/a_def_of_required_positionals_alone_has_a_direct_entry_the_s.rb:6:in 'Object#two'
+lang/methods/definition/a_def_of_required_positionals_alone_has_a_direct_entry_the_s.rb:37:in '<main>'
+wrong number of arguments (given 1, expected 4)
+lang/methods/definition/a_def_of_required_positionals_alone_has_a_direct_entry_the_s.rb:7:in 'Object#four'
+lang/methods/definition/a_def_of_required_positionals_alone_has_a_direct_entry_the_s.rb:43:in '<main>'
+{x: 1}
+wrong number of arguments (given 2, expected 1)
+8
+1
+4
+[[:req, :a], [:block, :b]]
+3
+102
+111

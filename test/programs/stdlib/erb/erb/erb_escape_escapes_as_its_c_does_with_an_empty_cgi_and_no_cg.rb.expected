@@ -1,0 +1,11 @@
+"constant"
+[]
+[:html_escape]
+true
+"&lt;a href=&quot;x&quot;&gt;&#39;&amp;&#39;&lt;/a&gt;"
+#<TypeError: can't convert Object to String (Object#to_s gives Integer)>
+String
+Sub
+"\xFF&lt;"
+#<Encoding:UTF-8>
+#<NoMethodError: undefined method 'escapeHTML' for class CGI>

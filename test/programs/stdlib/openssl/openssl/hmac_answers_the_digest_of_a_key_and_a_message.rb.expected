@@ -1,0 +1,13 @@
+-- hmac --
+"203d1e5cedd2d18f8c5a3beff0bd9c1ebcb97097dfcb288c46b00c9227fde2c0"
+"203d1e5cedd2d18f8c5a3beff0bd9c1ebcb97097dfcb288c46b00c9227fde2c0"
+20
+"UDH+PZicbRU3oBP6bnOdojRj/a7DtwE32Cjjas4iG9A="
+OpenSSL::HMAC
+"203d1e5cedd2d18f8c5a3beff0bd9c1ebcb97097dfcb288c46b00c9227fde2c0"
+32
+true
+true
+true
+true
+OpenSSL::Digest::DigestError

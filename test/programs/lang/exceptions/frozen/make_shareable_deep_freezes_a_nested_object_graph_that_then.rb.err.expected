@@ -1,0 +1,1 @@
+lang/exceptions/frozen/make_shareable_deep_freezes_a_nested_object_graph_that_then.rb:18: warning: Ractor API is experimental and may change in future versions of Ruby.

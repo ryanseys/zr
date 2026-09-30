@@ -1,0 +1,6 @@
+mutex synchronize	42
+uncontended lock	false
+contended lock hands over	[:first, :second]
+value	7
+stop and wake	:woke
+sized queue drains	[0, 1, 2]

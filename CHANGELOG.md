@@ -82,6 +82,34 @@ The first public release.
   `zr-dev gen` writes from the benchmark reports and from the compiler.
 - For contributors: `bin/setup`, `bin/test` (with `--changed`),
   `bin/console`, the `zr-dev` tools, and CI for all three targets.
+- Two test tiers: `test/unit` (minitest, plain `def test_...`
+  methods) and `test/programs`. `bin/test` runs both, `rake test:unit`
+  and `rake test:programs` run one, and `bin/test` prints the time of
+  each step at the end. The program tests replace the spec tier
+  (`test/spec`, its `zr(...)` and `must_answer` DSL), the e2e tier
+  (`test/e2e`) and `programs_test`.
+- A program test is a plain Ruby program under
+  `test/programs/<area>/`, with ruby's output in files beside it in
+  spinel's format (`foo.rb.expected`, `foo.rb.err.expected`,
+  `foo.rb.args`, `foo.rb.stdin`), and zr's own files (`.status`,
+  `.env`, `.files/`, `.needs`, `.ruby`, `.limits`, `.links`,
+  `.<platform>.expected`). The runner uses no test framework: forked
+  workers build each program, and a failure prints a unified diff.
+  Tests below `test/programs/cli/` build with `zr build`. See
+  `docs/reference/program-tests.md`.
+- `zr-dev expect [--all] [--check]` writes the expected files of the
+  program tests from ruby 4.0.7, in place of `zr-dev oracle` and the
+  `zr-dev spec` commands. `zr-dev record` now records only benchmarks.
+- `bin/test --corpus DIR` runs another project's program tests, such as
+  spinel's `test/`, with the baseline
+  `test/baselines/corpus/<project>-<triple>.txt`. The baseline of a
+  target is keyed by the program's path below `test/programs`, and the
+  host has a baseline too (`test/baselines/aarch64-apple-darwin.txt`).
+- A unit test file that builds a program declares
+  `# zr-test: runtime` or `# zr-test: eval` in its first lines. A run
+  of files without it does not build the runtime. `bin/test --changed`
+  and `zr-dev affected` map a change to unit tests and to program
+  tests.
 
 ### Planned for 0.2
 

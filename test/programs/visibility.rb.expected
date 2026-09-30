@@ -1,0 +1,22 @@
+private method 'f' called for an instance of A
+protected method 'g' called for an instance of A
+2
+1
+private method 'f' called for an instance of A
+:mf
+[:x]
+[:y]
+private method 'x' called for an instance of C
+1
+false
+true
+private method 'x' called for an instance of C
+1
+[:c]
+[:a, :b]
+private method 'initialize' called for an instance of E
+undefined method 'f' for class A
+undefined method 'nope' for module M
+false
+false
+true

@@ -1,0 +1,5 @@
+[false, false, false, true]
+[true, false, 0]
+#<Errno::EINVAL: Invalid argument>
+#<Errno::EINVAL: Invalid argument>
+0

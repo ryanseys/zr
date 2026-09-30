@@ -1,0 +1,13 @@
+with dictionary: 78bb7156101a43e114e7a4a60255956764e6a48265b09b92989702610100b9d216a5
+dictionary adler: 1901465626 = 1901465626
+Zlib::NeedDict: need dictionary
+then: the lazy dog sleeps while the quick brown fox jumps and jumps
+finished: true
+wrong dictionary: Zlib::DataError: data error
+raw with dictionary: 43e114e7a4a60255956764e6a48265b09b92989702610100
+raw inflated: the lazy dog sleeps while the quick brown fox jumps and jumps
+gzip refuses: Zlib::StreamError: stream error
+copy a: 78da4bce2fc84c4d51282e294a4dcc2d5628ce482c4a5528c948cd2c028a2596a42a14e72ba425165983c4f24044a54241625189958223007f7c14f5
+copy b: 78da15c8b10d80300c04c0557e0ee8d8c4221f6209ecc876c3f690e68a3b7d2a1bb282f22472481035a8f19f14918e2eb1afb3c58b29511b0e8835684113b7dbc5f80015d81ae9
+a reads: copied streams share their state so far; then they part: A
+b reads: copied streams share their state so far; then they part: B and it is longer

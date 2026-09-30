@@ -1,0 +1,27 @@
+"hi\n"
+"shell here\n"
+true
+"kept\n"
+true
+0
+["err", "out"]
+"only out\n"
+swallowed
+0
+""
+3
+"backtick\n"
+""
+7
+"redirected\n"
+"boom\n"
+true
+true
+true
+"yes\n"
+true
+"[]\n"
+true
+nil
+Errno::ENOENT
+"invalid access mode x"

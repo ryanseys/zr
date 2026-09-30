@@ -1,0 +1,6 @@
+[[:opt, :x], [:opt, :y]]
+[[:req, :x], [:req, :y]]
+[[:opt, :a], [:opt, :b], [:rest, :c], [:opt, :d], [:keyreq, :k], [:key, :m], [:keyrest, :n], [:block, :blk]]
+[[:req, :a], [:req, :b]]
+[[:rest, :*]]
+[[:keyrest, :**]]

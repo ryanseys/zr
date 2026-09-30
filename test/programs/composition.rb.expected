@@ -1,0 +1,38 @@
+false
+3
+3
+3
+3
+3
+6
+-1
+true
+ArgumentError: wrong number of arguments (given 1, expected 2..3)
+ArgumentError: wrong number of arguments (given 4, expected 2..3)
+1
+6
+Proc
+8
+7
+true
+false
+false
+12
+7
+true
+Proc
+7
+20
+11
+TypeError: callable object is expected
+TypeError: callable object is expected
+2
+3
+"odd"
+true
+-1
+[[:rest]]
+false
+-1
+[[:rest]]
+Proc

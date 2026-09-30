@@ -1,0 +1,14 @@
+2
+[[:req, :x], [:req, :y]]
+-2
+2
+[[:req, :x], [:keyreq, :y], [:key, :z]]
+-4
+0
+UnboundMethod
+a
+2
+5
+9
+UnboundMethod
+typeerror

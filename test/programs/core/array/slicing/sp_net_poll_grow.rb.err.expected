@@ -1,0 +1,5 @@
+core/array/slicing/sp_net_poll_grow.rb:10:in '<module:Net>': undefined method 'ffi_func' for module Net (NoMethodError)
+
+  ffi_func :sp_net_poll_reset, [],          :int
+  ^^^^^^^^
+	from core/array/slicing/sp_net_poll_grow.rb:9:in '<main>'

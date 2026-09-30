@@ -1,0 +1,21 @@
+[:sync, #<IOError: closed stream>]
+[:binmode, #<IOError: closed stream>]
+[:binmode?, #<IOError: closed stream>]
+[:lineno, #<IOError: closed stream>]
+[:pid, #<IOError: closed stream>]
+[:autoclose?, #<IOError: closed stream>]
+[:close_on_exec?, #<IOError: closed stream>]
+[:fsync, #<IOError: closed stream>]
+[:fdatasync, #<IOError: closed stream>]
+[:eof, #<IOError: closed stream>]
+[:pos, #<IOError: closed stream>]
+[:external_encoding, #<Encoding:UTF-8>]
+[:fileno, #<IOError: closed stream>]
+[:sync=, #<IOError: closed stream>]
+[:lineno=, #<IOError: closed stream>]
+[:autoclose=, #<IOError: closed stream>]
+[:close_on_exec=, #<IOError: closed stream>]
+[:set_encoding, #<IOError: closed stream>]
+"#<IO:(closed)>"
+#<IO:(closed)>
+#<Enumerator: #<IO:(closed)>:each_line>

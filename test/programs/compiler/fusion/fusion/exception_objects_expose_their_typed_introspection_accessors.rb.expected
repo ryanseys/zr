@@ -1,0 +1,20 @@
+:sym
+42
+[1, 2]
+:meth
+"msg"
+nil
+:sym
+nil
+"s"
+:no_such
+[]
+:foo
+NoMethodError
+:Nope
+Object
+:Nonexistent
+:y
+7
+"boom (RuntimeError)"
+"RuntimeError (RuntimeError)"

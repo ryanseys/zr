@@ -1,0 +1,13 @@
+1
+[:@@count]
+true
+"class variable access from toplevel"
+"class variable access from toplevel"
+"class variable access from toplevel"
+"class variable access from toplevel"
+nil
+["class variable", nil]
+"class variable access from toplevel"
+:ran
+[:one, :two]
+:hidden

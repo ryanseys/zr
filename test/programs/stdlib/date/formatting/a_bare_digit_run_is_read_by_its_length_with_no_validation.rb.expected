@@ -1,0 +1,10 @@
+{year: 2024, mon: 1, mday: 15}
+{year: 2024, mon: 1, mday: 15, hour: 10, min: 30, sec: 0, zone: "Z", offset: 0}
+{year: 2024, mon: 1, mday: 15, hour: 10, min: 30, sec: 0}
+{mon: 20, mday: 0}
+{mday: 24}
+{yday: 12}
+{year: 2012, yday: 345}
+{year: 1234, yday: 567}
+{mday: 3}
+{mday: 15}

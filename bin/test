@@ -3,10 +3,14 @@
 
 # Runs zr's tests.
 #
-#   bin/test                            test/unit, then test/spec, then test/e2e
+#   bin/test                            test/unit, then test/programs
 #   bin/test test/unit                  one directory
 #   bin/test test/unit/cli_test.rb      one file; a bare cli_test.rb also works
-#   bin/test test/spec -n /blocks/      minitest options follow the paths
+#   bin/test test/unit -n /blocks/      minitest options follow the paths
+#   bin/test test/programs/core         program tests (plain .rb files and
+#                                       ruby's output beside them)
+#   bin/test --corpus DIR               the program tests of another project,
+#                                       such as spinel's test/
 #   bin/test --changed [--base REV]     the tests that the change against REV
 #                                       (default: main) can reach
 #
@@ -35,6 +39,8 @@ end
 parent = Process.pid
 at_exit do
   next unless Process.pid == parent
+
+  $stdout.flush
 
   total = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
   steps << ["tests", total - steps.sum(&:last)] unless steps.empty?
@@ -69,13 +75,30 @@ if (at = ARGV.index("--changed"))
   ARGV.unshift(*plan.map { |path| path.delete_prefix("#{root}/") })
 end
 
+# `--corpus DIR` runs the program tests below DIR, which is also the
+# directory that their programs run in (test/support/programs.rb). ARGV
+# keeps it: `CLI.tune!` can start this script again with ARGV.
+args = ARGV.dup
+corpus = nil
+if (at = args.index("--corpus"))
+  corpus = args.delete_at(at + 1) or abort("bin/test: --corpus takes a directory")
+  args.delete_at(at)
+  corpus = File.expand_path(corpus)
+  abort "bin/test: no directory at #{corpus}" unless File.directory?(corpus)
+end
+
 # The words up to the first option are paths. The rest go to minitest.
-split = ARGV.index { |word| word.start_with?("-") } || ARGV.size
-words = ARGV.take(split)
-options = ARGV.drop(split).reject { |word| word == "--" }
+split = args.index { |word| word.start_with?("-") } || args.size
+words = args.take(split)
+options = args.drop(split).reject { |word| word == "--" }
 
 # A word is a path from here or from the root, or a file name under test/.
-# `test` itself, or no word, means every tier.
+# `test` itself, or no word, means every tier. With `--corpus`, a word is a
+# path below the corpus, and no word means all of it.
+corpus_paths = words.map { |word| File.expand_path(word) } if corpus
+outside = corpus_paths&.find { |path| !path.start_with?(corpus) }
+abort "bin/test: #{outside} is not below #{corpus}" if outside
+words = [] if corpus
 paths = words.flat_map do |word|
   path = [File.expand_path(word), File.expand_path(word, root)].find { |p| File.exist?(p) }
   path ||= Dir[File.join(test_dir, "**", word)].min
@@ -83,18 +106,20 @@ paths = words.flat_map do |word|
   abort "bin/test: no test at #{word}" unless path&.start_with?(File.join(test_dir, ""))
   [path]
 end
-paths = %w[unit spec e2e].map { |tier| File.join(test_dir, tier) } if paths.empty?
+paths = %w[unit programs].map { |tier| File.join(test_dir, tier) } if paths.empty? && !corpus
 
 ENV["ZR_TARGET"] = ENV["TARGET"] if ENV["TARGET"]
 ENV["ZR_GC_STRESS"] = "1" if ENV["GC"] == "stress"
 ENV["ZR_COMPILED"] ||= "0" # the tests run the compiler under ruby
 
-# The tier of a path is test/spec, test/e2e, or test/unit for the rest.
-# Each tier runs in its own process, because each loads its own helper.
+# The tier of a path is test/programs, or test/unit for the rest. Each
+# tier runs in its own process: the unit tier loads minitest, and the
+# program tests use no framework.
 tiers = paths.group_by do |path|
   below = path.delete_prefix(File.join(test_dir, "")).split("/").first
-  %w[spec e2e].include?(below) ? below : "unit"
+  below == "programs" ? below : "unit"
 end
+tiers = { "programs" => [corpus] } if corpus
 if tiers.size > 1
   tiers.each_value do |group|
     system(RbConfig.ruby, __FILE__, *group, *options) || exit($?.exitstatus || 1)
@@ -105,6 +130,20 @@ end
 $LOAD_PATH.unshift(File.join(root, "lib"), test_dir)
 require "zr/cli"
 Zr::CLI.tune!(__FILE__) # the tests use the GC limits and YJIT of a compile
+
+# The program tests run without a test framework: zr builds each program
+# and compares its output with ruby's.
+if tiers.key?("programs")
+  require "support/programs"
+  require "support/built"
+  programs_root = corpus || File.join(test_dir, "programs")
+  paths = corpus_paths.empty? ? [corpus] : corpus_paths if corpus
+  tests = paths.flat_map { |path| Zr::Test::Case.under(path, programs_root) }.uniq
+  step.call("load")
+  Zr::Test::Built.ready_for_programs!(tests)
+  step.call("prebuild")
+  exit Zr::Test::Programs.run(paths, root: programs_root)
+end
 
 # Load this before the helper forks its workers, so that all workers
 # share one loaded copy.
@@ -119,6 +158,6 @@ ARGV.push("-n", ENV["N"]) if ENV["N"]
 ARGV.push("-e", ENV["X"]) if ENV["X"]
 ARGV.concat(ENV["A"].split) if ENV["A"]
 
-require(tiers.keys.first == "spec" ? "spec_helper" : "test_helper")
+require "test_helper"
 files.each { |file| require file }
 step.call("require")

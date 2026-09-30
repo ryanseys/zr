@@ -1,0 +1,1 @@
+stdlib/ffi/formatting/c_half_converts_and_refuses_as_ruby_does.rb:35: warning: calling free on non allocated pointer #<FFI::Pointer address=0xADDR> from stdlib/ffi/formatting/c_half_converts_and_refuses_as_ruby_does.rb:35:in 'block in <main>'

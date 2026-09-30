@@ -1,0 +1,5 @@
+nil
+RefError: Invalid Reference - probably recycled
+getobj: WeakRef::RefError
+StandardError
+true

@@ -39,14 +39,15 @@ from one place: ruby 4.0.7, the version in `.ruby-version`. It never
 compares with a different implementation, and a person never writes an
 expected output by hand.
 
-Every literal that a spec asserts comes from ruby, and `zr-dev oracle`
-checks each one against ruby again. The whole programs in `test/e2e/`
-and `benchmark/` have ruby's output in their recordings, which
-`zr-dev record` writes. zr records a program one time. If the correct
-output changes, the program has changed, so it is a new program.
+Every expected file of a program test comes from ruby: `zr-dev expect`
+writes it, and `zr-dev expect --check` checks each one against ruby
+again. The benchmarks in `benchmark/` have ruby's output in their
+recordings, which `zr-dev record` writes. zr records a benchmark one
+time. If the correct output changes, the program has changed, so it is
+a new program.
 
 The ports obey the same rule. Each one has its own area in
-`test/spec/stdlib/`, checked program by program against ruby's C:
+`test/programs/stdlib/`, checked program by program against ruby's C:
 `zlib`, `prism`, `openssl` and the others. prism and Onigmo are checked
 two times: `test/unit/prism_test.rb` and `regexp_diff_test.rb` compare
 the port with ruby's C on the host, object by object, over a committed
@@ -66,27 +67,30 @@ The host ruby only runs the compiler. `zr build` and `zr run` run on
 ruby 4.0.7 or a later 4.0 release (a later release gives a warning),
 and refuse any other ruby with status 3. Each generator task stops on a
 ruby other than 4.0.7. A newer ruby is a new toolchain:
-`.ruby-version`, `vendor/`, the tables and the recordings all change
-to it together.
+`.ruby-version`, `vendor/`, the tables, the expected outputs and the
+recordings all change to it together.
 
-## How the specs keep the promise
+## How the program tests keep the promise
 
-`test/spec/` contains thousands of small programs, in areas: `lang/`
-for the language, `core/` for core classes, `stdlib/` for libraries,
-`compiler/` for what zr does with them. `rake test:spec` compiles each
-one, runs the result, and checks all four parts of the output (stdout,
-stderr, the signal and the exit status) against ruby's. A program that
-zr refuses, or cannot build, **skips** and is counted. Only a wrong
-output, a crash or a timeout fails.
+`test/programs/` contains thousands of small programs, in areas:
+`lang/` for the language, `core/` for core classes, `stdlib/` for
+libraries, `compiler/` for what zr does with them, and `cli/` for the
+product (`zr build`, the link, the process). `rake test:programs`
+builds each one, runs the result, and checks all parts of the output
+(stdout, stderr, the exit status and the signal) against ruby's. A
+wrong output fails. A program that zr refuses, or cannot build or run,
+is an error.
 
-An example that zr cannot pass yet has `skip "<what it needs>"` in its
-place. Every other example passes, so a new failure always means that
-something changed, and a fixed gap is one line to delete.
+A test that a target cannot pass yet is in the target's baseline,
+`test/baselines/<triple>.txt`, with the reason. Every other test
+passes, and a test in the baseline that passes fails the run. Thus a
+new failure always means that something changed, and a fixed gap is
+one line to delete. See [Program tests](../reference/program-tests.md).
 
 ## More than the outputs
 
-The specs test outputs. The unit tests test the parts that make the
-outputs:
+The program tests test outputs. The unit tests test the parts that
+make the outputs:
 
 - `IR::Interp` runs IR without the backend. When the binary and the
   interpreter give different results, the backend has the bug.

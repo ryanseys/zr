@@ -1,0 +1,3 @@
+[:brackets, 1, 2]
+[:parens, 3, 4]
+[:scoped, 5, 6]

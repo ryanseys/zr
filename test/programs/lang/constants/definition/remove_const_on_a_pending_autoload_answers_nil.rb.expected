@@ -1,0 +1,7 @@
+"/nonexistent/later_for_remove_const.rb"
+true
+nil
+nil
+false
+[]
+"constant Box::Later not defined"

@@ -1,0 +1,31 @@
+a parameter: [:x, true, true]
+bound once: :once
+bound twice: Ractor::IsolationError: cannot make a shareable Proc because the outer variable 'v' may be reassigned.
+bound again after: Ractor::IsolationError: cannot make a shareable Proc because the outer variable 'v' may be reassigned.
+a parameter bound again: Ractor::IsolationError: cannot make a shareable Proc because the outer variable 'v' may be reassigned.
+bound once in a loop: 5
+bound in two arms: Ractor::IsolationError: cannot make a shareable Proc because the outer variable 'v' may be reassigned.
+written by another block: Ractor::IsolationError: cannot make a shareable Proc because the outer variable 'v' may be reassigned.
+a named group: Ractor::IsolationError: cannot make a shareable Proc because it can refer unshareable object "a" from variable 'w'
+an unshareable value: Ractor::IsolationError: cannot make a shareable Proc because it can refer unshareable object [] from variable 'v'
+a frozen array: [1, 2]
+writes an outer local: ArgumentError: can not make a Proc shareable because it accesses outer variables (v).
+a nested block writes it: ArgumentError: can not make a Proc shareable because it accesses outer variables (a).
+writes two: ArgumentError: can not make a Proc shareable because it accesses outer variables (zeta, alpha).
+two bound twice: Ractor::IsolationError: cannot make a shareable Proc because the outer variable 'alpha' may be reassigned.
+one unshareable, one bound twice: Ractor::IsolationError: cannot make a shareable Proc because it can refer unshareable object [] from variable 'alpha'
+self by default: nil
+self: 5: 5
+self: []: Ractor::IsolationError: self should be shareable: []
+an unknown keyword: ArgumentError: unknown keyword: :foo
+no block: ArgumentError: tried to create Proc object without a block
+a lambda: [true, :q]
+a passed proc: [false, false, true, false]
+a passed proc to shareable_lambda: false
+as a method: 1
+read by a nested block: [3]
+two scopes out: 4
+one a block call: [1, 2]
+dup and clone: [false, true]
+binding: ArgumentError: Can't create Binding from isolated Proc
+dup's binding: Binding

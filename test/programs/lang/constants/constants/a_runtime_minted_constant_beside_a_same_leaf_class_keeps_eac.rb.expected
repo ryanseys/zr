@@ -1,0 +1,8 @@
+settings_path_kind	"struct"
+files_path_kind	"class"
+files_sub_superclass	"Files::Path"
+files_sub_kind	"class"
+files_sub_name	"Files::Sub"
+files_path_identity	true
+files_sub_identity	true
+files_constants	"[:Path, :Sub]"

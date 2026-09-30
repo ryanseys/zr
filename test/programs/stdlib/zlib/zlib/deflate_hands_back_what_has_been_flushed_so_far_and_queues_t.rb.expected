@@ -1,0 +1,6 @@
+streamed round-trip: "hello world"
+shovel queues: "hello world"
+sync flush mid-stream: [false, "hello"]
+one-shot class methods: true
+compressed encoding: "ASCII-8BIT"
+inflated encoding: "ASCII-8BIT"

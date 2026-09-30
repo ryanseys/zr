@@ -1,0 +1,5 @@
+["abcd", true, "abcd"]
+["ab", "ab", nil, nil, #<IndexError: undefined group name reference: x>]
+{"a" => nil}
+[{"a" => "a", "b" => "b"}, "a", "b", #<IndexError: undefined group name reference: zz>, "b", "ab"]
+{}

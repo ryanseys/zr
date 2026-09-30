@@ -1,0 +1,14 @@
+true
+false
+{"a" => "x", "b" => "xy"}
+true
+true
+[1, "s", {k: "v", j: [2, :z]}]
+true
+true
+true
+"a1b"
+true
+#<Ractor::IsolationError: cannot assign unshareable object to REFUSED>
+#<Ractor::IsolationError: cannot assign unshareable object to ALSO_REFUSED>
+false

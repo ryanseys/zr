@@ -1,0 +1,53 @@
+"hi from Anon"
+"Anon"
+Object
+"constant"
+true
+2
+Anon
+[Sub, Anon]
+nil
+Object
+#<TypeError: superclass must be an instance of Class (given an instance of Integer)>
+Module
+[:modmeth]
+"Mod"
+:added
+[:added, :prop, :prop=]
+5
+42
+43
+:me
+[:only_me]
+6
+[Object, 5]
+true
+:sym
+:plain
+[1, 2, [], 1]
+[1, 3, [4, 5], 9]
+:early
+:plain
+false
+:h
+#<ArgumentError: wrong number of arguments (given 0, expected 1+)>
+[[:req, :a], [:opt, :b], [:rest, :r], [:key, :k]]
+-2
+0
+Dyn
+[:args, :from_method, :plain, :returns, :sym]
+38
+#<ArgumentError: tried to create Proc object without a block>
+#<TypeError: wrong argument type Integer (expected Proc/Method/UnboundMethod)>
+evals.rb:67:in 'block in <class:Dyn>'
+evals.rb:70:in '<main>'
+evals.rb:75:in 'block in <main>'
+evals.rb:75:in 'Class#initialize'
+evals.rb:75:in 'Class#new'
+evals.rb:75:in '<main>'
+"anon error"
+StandardError
+Class
+1
+Holder
+true

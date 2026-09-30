@@ -1,0 +1,8 @@
+[2, :after]
+[:fell_through, :after]
+[:found, :none]
+1
+[LocalJumpError, "unexpected return"]
+ensure ran
+:body
+[10, :outer_went_on]

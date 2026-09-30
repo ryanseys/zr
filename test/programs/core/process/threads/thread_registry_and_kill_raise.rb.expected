@@ -1,0 +1,8 @@
+1
+true
+4
+1
+[:started, :ensure_ran]
+false
+"caught: boom"
+true

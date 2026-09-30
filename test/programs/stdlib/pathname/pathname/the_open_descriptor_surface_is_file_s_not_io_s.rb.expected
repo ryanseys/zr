@@ -1,0 +1,20 @@
+-- File, not IO
+File
+File
+IO#size: NoMethodError
+IO#chmod: NoMethodError
+IO#chown: NoMethodError
+IO#flock: NoMethodError
+IO#lstat: NoMethodError
+IO#mtime: NoMethodError
+IO#truncate: NoMethodError
+IO#pipe?: NoMethodError
+11
+0
+0
+0
+File::Stat
+Time
+0
+5
+"hello"

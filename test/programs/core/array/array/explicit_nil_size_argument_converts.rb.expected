@@ -1,0 +1,18 @@
+TypeError: no implicit conversion from nil to integer
+TypeError: no implicit conversion from nil to integer
+TypeError: no implicit conversion from nil to integer
+TypeError: no implicit conversion from nil to integer
+TypeError: no implicit conversion from nil to integer
+TypeError: no implicit conversion from nil to integer
+TypeError: no implicit conversion from nil to integer
+TypeError: no implicit conversion from nil to integer
+TypeError: no implicit conversion of Integer into String
+TypeError: no implicit conversion of Integer into String
+TypeError: no implicit conversion from nil to integer
+[1, 3, [1, 2], [2, 3]]
+[3, 1]
+TypeError: no implicit conversion of Integer into Hash
+TypeError: no implicit conversion of Integer into Hash
+TypeError: no implicit conversion of Integer into Hash
+TypeError: no implicit conversion of Integer into Hash
+[true, true, true]

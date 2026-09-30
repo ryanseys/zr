@@ -90,25 +90,24 @@ A program also reads the variables that ruby reads, for example
 | `TARGET` | a triple | this host | Builds and runs the programs for that target. It sets `ZR_TARGET`. See [How to test on another target](../how-to/test-on-another-target.md). |
 | `ZR_TARGET` | a triple | this host | The target that the tests build for. Set `TARGET` in its place. |
 | `GC` | `stress` | unset | Sets `ZR_GC_STRESS=1`. |
-| `ZR_GC_STRESS` | `1` | unset | The spec tier runs each program with `ZR_GC_STRESS=1` and gives it four times the time limit. `programs_test` adds a stress run of each program. |
-| `SLOW` | `1`, or a number | unset | Also reports the 25 slowest files and the 20 slowest examples. A number above 1 is the count of examples to report. |
-| `N` | a pattern | unset | Runs only the examples whose name matches (minitest `-n`). |
-| `X` | a pattern | unset | Leaves out the examples whose name matches (minitest `-e`). |
-| `A` | minitest options | unset | Other options for minitest. |
-| `MT_CPU` | a number | one for each 2 GB of memory after a quarter (at least 4 GB) is kept free, and at most two fewer than the cores; 4 for `test/e2e` | How many worker processes a tier forks. This is minitest's own name. |
+| `ZR_GC_STRESS` | `1` | unset | Each program that a test runs gets `ZR_GC_STRESS=1` in its environment, and collects at every allocation. |
+| `SLOW` | `1`, or a number | unset | Also reports the 25 slowest files and the 20 slowest tests of the unit tier. A number above 1 is the count of tests to report. |
+| `N` | a pattern | unset | Runs only the unit tests whose name matches (minitest `-n`). |
+| `X` | a pattern | unset | Leaves out the unit tests whose name matches (minitest `-e`). |
+| `A` | minitest options | unset | Other options for minitest, for the unit tier. |
+| `MT_CPU` | a number | one for each 2 GB of memory after a quarter (at least 4 GB) is kept free, and at most two fewer than the cores | How many worker processes a tier forks (`test/support/workers.rb`). This is minitest's own name. |
 | `ZR_COMPILED` | `0`, `1` | `0` | The tests run the compiler under ruby unless this is set. |
-| `ZR_TEST_TIMEOUT` | seconds | 180, or the suite's own limit | How long one example can take before the tier stops its worker and reports a failure. `0` waits forever, for a debugger session. A value that you set applies to every suite. |
+| `ZR_TEST_TIMEOUT` | seconds | 180, or the suite's own limit | How long one test can take before the tier stops its worker and reports a failure. `0` waits forever, for a debugger session. A value that you set applies to every suite. |
 | `ZR_TEST_RECYCLE_MB` | megabytes | 600 | How much a worker can grow after its fork before the tier stops it and forks a new one. |
-| `ZR_TEST_SECONDS` | seconds | 60 | The time limit for a program that a test runs. |
+| `ZR_TEST_SECONDS` | seconds | 60 | The time limit for a program that a test runs. A ruby run of a program test gets two times this limit, and a `zr build` of a test below `test/programs/cli/` five times. |
 | `ZR_TEST_RESIDENT_MB` | megabytes | 2048 | The memory limit, in resident megabytes, for a program that a test runs through `Checks` (`test/test_helper.rb`). |
-| `ZR_TEST_BUILD_MB` | megabytes | 2048 | The memory limit for a build, summed over its process group. A whole program can have a higher limit with `build_mb:` in `Zr::E2E::HOW`. |
-| `ZR_TEST_RUN_MB` | megabytes | 1024 | The memory limit for a run. A whole program can have a higher limit with `run_mb:`. |
-| `ZR_TEST_BUILT` | flag | on | `0`: the run does not build or load the runtime before it forks its workers. Use it for a unit file that builds no program. A file that does build then builds the runtime cold. |
-| `ZR_TEST_BINARIES` | `0`, `1` | on for a native target | The spec tier keeps each example's binary in the cache, keyed by every input of its bytes. A later run of an unchanged example uses the kept binary and does not build. `1` also keeps WASI modules. `0` keeps nothing. `zr-dev cache prune` deletes old ones. |
+| `ZR_TEST_BUILD_MB` | megabytes | 2048 | The memory limit for a build, summed over its process group. A program test below `test/programs/cli/` can have a higher limit with `build_mb=` in its `.rb.limits` file. |
+| `ZR_TEST_RUN_MB` | megabytes | 1024 | The memory limit for a run. A program test can have a higher limit with `run_mb=` in its `.rb.limits` file. |
+| `ZR_TEST_BUILT` | flag | on | `0`: the run does not build or load the runtime before it forks its workers. A file that builds then builds the runtime cold. A unit file without `# zr-test: runtime` or `# zr-test: eval` in its first lines builds nothing, so the run does not build the runtime for it (`test/support/needs.rb`). |
+| `ZR_TEST_BINARIES` | `0`, `1` | on for a native target | The program tests keep each program's binary in the cache, keyed by every input of its bytes. A later run of an unchanged program uses the kept binary and does not build. A test below `test/programs/cli/` always builds. `1` also keeps WASI modules. `0` keeps nothing. `zr-dev cache prune` deletes old ones. |
 | `ZR_TEST_BINARIES_GB` | gigabytes | 8 | The maximum size of the kept binaries (`<cache>/store/binary/`). Before a tier starts, it deletes the ones used least recently. |
 | `ZR_TEST_WASM_COMPILER` | `winch`, `cranelift` | `winch` | The wasmtime compiler for the tests. Winch is wasmtime's baseline compiler. It compiles fast, and a test needs the output, not the speed. `zr-dev bench` uses Cranelift. |
 | `ZR_TEST_WASM_MEMORY` | bytes | 1 GiB | wasmtime's `max-memory-size` in the tests. |
-| `ZR_TEST_WASM_DEFECTS` | `0` | unset | `0` runs the wasm tests of `programs_test` that are known to fail, in place of a skip. |
 | `WASMTIME` | a command | `wasmtime` | The wasmtime that the tests run. |
 | `ZR_BLESS` | `1` | unset | A snapshot test writes its expected file again, in place of a comparison: the HIR dumps, the disassembly listing, the descriptions and the libSystem list. |
 | `ZR_DIFFERENTIAL` | a number | 500 | How many random functions `regalloc_differential_test` generates. |
@@ -130,4 +129,3 @@ The `zr-dev` commands read these. See [Tools](tools.md#zr-dev).
 | `ZR_CACHE_DAYS` | `zr-dev cache prune` | 1 | Keeps cache files used in this many days. The `--days` option (`zr-dev cache prune --days 3`) has priority. |
 | `ZR_GEM_CORPUS` | `zr-dev gems` | unset | A directory of unpacked gems, `<dir>/<name>`, that `zr-dev gems` looks in first, by name. It never lists the directory. The `--corpus` option has priority. |
 | `ZR_GEMS_ZR` | `zr-dev gems` | this checkout | A copy of zr that `zr-dev gems snapshot` made, to build with, so that a sweep runs while this checkout changes. The `--zr` option has priority. |
-| `ZR_DISPATCH_TRACE` | `zr-dev spec dispatch` | off | A flag. Prints each call that the command tries. |

@@ -1,0 +1,71 @@
+true
+[:start, 1, 2]
+3
+[:got, :x]
+nil
+[:got2, 7, 8]
+:done
+false
+#<FiberError: attempt to resume a terminated fiber>
+#<FiberError: attempt to yield on a not resumed fiber>
+#<ArgumentError: inside>
+1
+false
+0
+10
+20
+nil
+1
+2
+3
+[:outer, :inner1]
+[:back, :inner_done, false]
+Fiber
+true
+true
+#<FiberError: attempt to resume the current fiber>
+"012345"
+1
+2
+:after
+false
+:deep
+:out
+[:a, 1]
+:from_a
+[:a_back, 2]
+:a_done
+false
+#<FiberError: dead fiber called>
+:b
+#<FiberError: attempt to yield on a not resumed fiber>
+:b_end
+#<FiberError: attempt to resume a terminated fiber>
+1
+#<FiberError: attempt to transfer to a yielding fiber>
+:d1
+#<FiberError: attempt to resume a transferring fiber>
+#<FiberError: attempt to yield on a not resumed fiber>
+:d3
+#<FiberError: attempt to transfer to a resuming fiber>
+:f_end
+:e_end
+:self
+:g_end
+9
+:k1
+:k_end
+true
+false
+#<RuntimeError: boom>
+:q1
+:inner
+:inner_end
+:q_end
+:r_end
+[1, 2]
+false
+nil
+true
+:x1
+:t2_end

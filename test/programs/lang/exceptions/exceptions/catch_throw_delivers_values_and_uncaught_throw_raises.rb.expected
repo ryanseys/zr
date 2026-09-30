@@ -1,0 +1,4 @@
+[1, 2]
+:to_outer
+uncaught throw :nope
+gone: uncaught throw :gone

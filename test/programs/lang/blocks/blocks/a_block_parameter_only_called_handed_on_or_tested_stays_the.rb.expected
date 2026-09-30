@@ -1,0 +1,31 @@
+20
+[2, 3]
+:some
+:none
+2
+nil
+4
+nil
+[3, 6]
+[[-1], [-2]]
+[1, 2]
+-1
+105
+:base
+:base
+8
+wrong number of arguments (given 2, expected 1)
+1
+:early
+undefined method 'call' for nil
+8
+16
+Proc
+9
+true
+:sub
+[:redefined, 6]
+6
+4
+:given
+:none

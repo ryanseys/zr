@@ -1,0 +1,13 @@
+Sys.setuid root: Errno::EPERM: Operation not permitted
+Sys.setgid wheel: Errno::EPERM: Operation not permitted
+Sys.seteuid root: Errno::EPERM: Operation not permitted
+Sys.setreuid root: Errno::EPERM: Operation not permitted
+UID.change_privilege root: Errno::EPERM: Operation not permitted
+UID.grant_privilege root: Errno::EPERM: Operation not permitted
+UID.eid= root: Errno::EPERM: Operation not permitted
+UID.switch: Errno::EPERM: Operation not permitted
+UID.switch block: Errno::EPERM: Operation not permitted
+GID.switch: Errno::EPERM: Operation not permitted
+Sys.setuid by name: Errno::EPERM: Operation not permitted
+Sys.setuid bad name: ArgumentError: can't find user for nosuchuser__
+Sys.setgid bad name: ArgumentError: can't find group for nosuchgroup__

@@ -1,0 +1,8 @@
+i=0 j=0 attempt=1
+i=0 j=1 attempt=4
+i=0 j=2 attempt=5
+i=1 j=0 attempt=6
+i=1 j=1 attempt=7
+i=1 j=2 attempt=8
+outer_done=2
+inner_attempts=8

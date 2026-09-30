@@ -1,0 +1,9 @@
+writer round-trip: "hello world"
+writer close answers the io: true
+writer wrap answers the block: [42, "wrapped"]
+writer header fields: ["f.txt", "a note", 1234567890, 3, "x"]
+writer header is sealed by the first write: Zlib::GzipFile::Error: header is already written
+writer print surface: "a\nbc007Z"
+writer pos and write: [5, 5, 5, 907060870, true, false, true]
+writer level in the header: 9
+writer accessors after close: Zlib::GzipFile::Error: closed gzip stream

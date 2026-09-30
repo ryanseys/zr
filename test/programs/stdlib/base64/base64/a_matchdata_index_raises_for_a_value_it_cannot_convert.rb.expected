@@ -1,0 +1,2 @@
+[TypeError, "no implicit conversion from nil to integer"]
+[TypeError, "no implicit conversion of false into Integer"]

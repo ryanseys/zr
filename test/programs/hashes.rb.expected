@@ -1,0 +1,111 @@
+{a: 1, "b" => 2, 3 => :three, nil => 0}
+1
+2
+:three
+0
+nil
+5
+5
+false
+true
+true
+false
+true
+true
+true
+[:a, "b", 3, nil, :c]
+[1, 20, :three, 0, 4]
+:a=1
+"b"=20
+3=:three
+nil=0
+:c=4
+[:a, 1]
+["b", 20]
+[3, :three]
+[nil, 0]
+[:c, 4]
+1
+nil
+["b", 3, nil, :c]
+20
+#<KeyError: key not found: :missing>
+"default"
+"block missing"
+true
+false
+false
+{"key" => 2}
+{}
+nil
+[]
+true
+false
+true
+[["b", 20], [3, :three], [nil, 0], [:c, 4]]
+"{1 => 2}"
+{"s" => [1, {x: nil}]}
+"array key"
+nil
+[["b", 20], [3, :three], [nil, 0], [:c, 4]]
+4
+true
+{}
+5
+"abab"
+{ab: "abab"}
+true
+false
+{"b" => 20}
+3
+{"b" => 20, 3 => :three, nil => 0, c: 4, z: 26}
+"b"
+{20 => "b", three: 3, 0 => nil, 4 => :c}
+["b", 20]
+4
+4
+{"b" => "20", 3 => "three", nil => "0", c: "4"}
+["b"]
+[:c, 4]
+true
+true
+true
+[["b", 20], 0]
+[[3, :three], 1]
+[[nil, 0], 2]
+[[:c, 4], 3]
+"b"
+3
+nil
+:c
+true
+false
+true
+false
+#<ArgumentError: wrong number of arguments (given 2, expected 0..1)>
+#<ArgumentError: wrong number of arguments (given 0, expected 1..2)>
+hashes.rb:53:in 'Hash#fetch'
+hashes.rb:53:in '<main>'
+hashes.rb:58:in 'block in <main>'
+hashes.rb:58:in 'Hash#each'
+hashes.rb:58:in 'Enumerable#map'
+hashes.rb:58:in '<main>'
+hashes.rb:59:in 'block in <main>'
+hashes.rb:59:in 'Hash#each'
+hashes.rb:59:in '<main>'
+[2, 4, 6]
+[2, 3]
+[1, 2, 3]
+1
+true
+3
+16
+true
+Object
+Foo
+:m
+:n
+true
+true
+Object
+#<TypeError: wrong argument type Class (expected Module)>

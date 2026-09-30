@@ -1,0 +1,17 @@
+head ends with the empty stored block: 0000ffff
+read: "the"
+sync point mid-block: false
+read: " part before the flush point, "
+sync point at the flush: false
+read: "and the part after it"
+finished: true
+damage: invalid distance too far back
+sync into the rest: true
+after sync: "o\xF0and the part after it"
+finished: true
+sync with no marker: false
+sync with a marker later: true
+sync before any input: true
+"sync" sync point false finished false
+"flush" sync point false finished false
+"" sync point false finished true

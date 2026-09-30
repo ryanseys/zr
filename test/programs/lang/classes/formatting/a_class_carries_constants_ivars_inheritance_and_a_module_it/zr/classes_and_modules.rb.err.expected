@@ -1,0 +1,2 @@
+lang/classes/formatting/a_class_carries_constants_ivars_inheritance_and_a_module_it/zr/classes_and_modules.rb:356:in 'Object#blow_up': went wrong (Louder)
+	from lang/classes/formatting/a_class_carries_constants_ivars_inheritance_and_a_module_it/zr/classes_and_modules.rb:358:in '<main>'

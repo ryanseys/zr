@@ -1,0 +1,6 @@
+["\x04\bS:\nPoint\a:\x06xi\x06:\x06y[\x06i\a", #<data Point x=1, y=[2]>, true, true]
+["\x04\bS:\tPair\a:\x06ai\b:\x06bI\"\tfour\x06:\x06ET", #<struct Pair a=3, b="four">, true, false]
+["\x04\bU:\rRational[\ai\bi\x06", (3/1), true, true]
+["\x04\bU:\fComplex[\ai\x06i\a", (1+2i), true, true]
+["\x04\bc\vThread", Thread, true, false]
+["\x04\bc\nPoint", Point, true, false]

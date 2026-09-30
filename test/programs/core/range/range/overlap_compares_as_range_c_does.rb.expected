@@ -1,0 +1,15 @@
+[0..2, 1..3, true, true]
+[0..2, 3..4, false, false]
+[0...3, 3..4, false, false]
+[0.., ..0, true, true]
+[..0, ..5, true, true]
+[..0, 1.., false, false]
+[5..1, 0..9, false, false]
+[1...1, 1..1, false, false]
+["a".."c", "b".."z", true, true]
+[1..2, "a".."b", false, false]
+[nil..nil, 1..2, true, true]
+[1.., 3.., true, true]
+[1.0..2.5, 2.5..3, true, true]
+"wrong argument type Integer (expected Range)"
+true

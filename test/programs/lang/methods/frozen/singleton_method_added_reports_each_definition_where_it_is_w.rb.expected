@@ -1,0 +1,3 @@
+== singleton_method_added reports each definition where it stands
+[:a]
+[[:a, :a], "a2"]

@@ -1,0 +1,10 @@
+["hi", #<Encoding:UTF-8>]
+"hi"
+["h", #<Encoding:UTF-16BE>]
+["hi", #<Encoding:UTF-8>]
+[#<Encoding:UTF-8>, "hi", #<Encoding:UTF-8>]
+[#<Encoding:UTF-32LE>, "h"]
+#<ArgumentError: ASCII incompatible encoding needs binmode>
+#<ArgumentError: encoding is set to UTF-8 already>
+#<ArgumentError: encoding is set to UTF-8 already>
+[#<Encoding:UTF-16LE>, "a"]

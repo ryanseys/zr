@@ -1,0 +1,2 @@
+stdlib/io_console/io/require_io_console_winsize.rb:7:in 'IO#winsize': Inappropriate ioctl for device - <STDOUT> (Errno::ENOTTY)
+	from stdlib/io_console/io/require_io_console_winsize.rb:7:in '<main>'

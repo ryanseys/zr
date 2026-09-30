@@ -1,0 +1,13 @@
+"ARGF.class"
+[ARGF.class, Enumerable, Object]
+"core/io/formatting/argf_walk/a.txt"
+["core/io/formatting/argf_walk/b.txt"]
+0
+false
+[["core/io/formatting/argf_walk/a.txt", 1, "one\n"], ["core/io/formatting/argf_walk/a.txt", 2, "two\n"], ["core/io/formatting/argf_walk/b.txt", 3, "three\n"]]
+3
+IOError: closed stream
+nil
+[]
+"ARGF"
+"ARGF"

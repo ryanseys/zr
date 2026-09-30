@@ -1,0 +1,10 @@
+["core/thread/thread/caller_caller_locations_and_thread_backtrace_take_a_range_an.rb:7:in 'Object#c'"]
+["core/thread/thread/caller_caller_locations_and_thread_backtrace_take_a_range_an.rb:5:in 'Object#b'"]
+1
+["core/thread/thread/caller_caller_locations_and_thread_backtrace_take_a_range_an.rb:4:in 'Object#a'", "core/thread/thread/caller_caller_locations_and_thread_backtrace_take_a_range_an.rb:12:in '<main>'"]
+nil
+["Object#c"]
+["Object#b", "Object#a", "<main>"]
+["core/thread/thread/caller_caller_locations_and_thread_backtrace_take_a_range_an.rb:9:in 'Thread#backtrace'"]
+["Thread#backtrace_locations", "Object#c"]
+["core/thread/thread/caller_caller_locations_and_thread_backtrace_take_a_range_an.rb:10:in 'Object#c'"]

@@ -1,0 +1,6 @@
+false
+Integer
+true
+#<Errno::EINVAL: Invalid argument - fpathconf>
+#<TypeError: no implicit conversion of String into Integer>
+IO

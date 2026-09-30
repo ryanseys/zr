@@ -1,0 +1,10 @@
+7
+2
+#<struct P x=7, y=2>
+nil
+#<struct P x=nil, y=5>
+nil
+#<struct Q x=16, y=8>
+:ivar
+1
+FrozenError

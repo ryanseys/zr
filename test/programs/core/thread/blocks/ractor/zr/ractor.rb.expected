@@ -1,0 +1,8 @@
+21
+"worker"
+7
+42
+8
+15
+can not isolate a Proc because it accesses outer variables (outer).
+must be called with a block

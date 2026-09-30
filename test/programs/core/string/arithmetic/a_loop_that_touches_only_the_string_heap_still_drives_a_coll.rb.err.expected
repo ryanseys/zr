@@ -1,0 +1,4 @@
+core/string/arithmetic/a_loop_that_touches_only_the_string_heap_still_drives_a_coll.rb:18:in '<main>': undefined method '>' for nil (NoMethodError)
+
+puts(after > before ? "collected" : "NO COLLECTION")
+           ^

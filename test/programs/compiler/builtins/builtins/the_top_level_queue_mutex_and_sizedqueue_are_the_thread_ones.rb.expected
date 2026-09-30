@@ -1,0 +1,6 @@
+top-level Queue: true
+top-level Mutex: true
+top-level SizedQueue: true
+top-level ConditionVariable: true
+RUBY_COPYRIGHT: true
+File::Separator: "/"

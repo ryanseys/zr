@@ -1,0 +1,12 @@
+#<Errno::ENOENT: No such file or directory @ rb_stat_init - /nonexistent>
+#<Errno::ENOENT: No such file or directory @ rb_file_s_ftype - /nonexistent>
+#<Errno::ENOENT: No such file or directory @ rb_file_s_mkfifo - /nonexistent/x>
+#<Errno::ENOENT: No such file or directory @ realpath_rec - /private/tmp/nonexist_zz>
+#<Errno::ENOENT: No such file or directory @ rb_check_realpath_internal - /tmp/nonexist_zz>
+#<Errno::ENOTDIR: Not a directory @ realpath_rec - /private/etc/hosts/x>
+#<Errno::ENOTDIR: Not a directory @ realpath_rec - /private/etc/hosts/x>
+"/private/tmp/zz_none"
+"/private/tmp/zz_none"
+"/"
+false
+Time

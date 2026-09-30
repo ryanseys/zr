@@ -1,0 +1,7 @@
+[1, 2]
+true
+true
+ArgumentError
+ArgumentError
+ArgumentError
+{x: 1, y: 5}

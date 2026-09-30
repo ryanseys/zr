@@ -1,0 +1,2 @@
+lang/methods/frozen/tail_forms_two/zr/tail_forms_two.rb:45: warning: already initialized constant A::B::LEVEL
+lang/methods/frozen/tail_forms_two/zr/tail_forms_two.rb:42: warning: previous definition of LEVEL was here

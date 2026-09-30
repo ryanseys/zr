@@ -1,0 +1,31 @@
+0
+[]
+true
+false
+1
+"hi from one.rb"
+"one.rb"
+true
+true
+nil
+late ran
+true
+false
+:late
+two ran
+true
+false
+"two.rb"
+false
+true
+true
+2
+LoadError
+"cannot load such file -- /native/requires/lib/nope"
+true
+2
+boom in required
+native/requires/lib/boom.rb:1:in 'Object#boom_helper'
+native/requires/lib/boom.rb:2:in '<top (required)>'
+native/requires.rb:22:in 'Kernel#require_relative'
+native/requires.rb:22:in '<main>'

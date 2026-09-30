@@ -1,0 +1,19 @@
+puts: RuntimeError: to_s boom
+print: RuntimeError: to_s boom
+interp: RuntimeError: to_s boom
+p: RuntimeError: inspect boom
+format s: RuntimeError: to_s boom
+format p: RuntimeError: inspect boom
+1
+puts arr: RuntimeError: to_s boom
+p arr: RuntimeError: inspect boom
+hash to_s: RuntimeError: inspect boom
+still running
+1
+p multi: RuntimeError: inspect boom
+xprint multi: RuntimeError: to_s boom
+
+warn multi: RuntimeError: to_s boom
+interp2: RuntimeError: to_s boom
+regexp interp: RuntimeError: to_s boom
+end

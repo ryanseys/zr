@@ -1,0 +1,51 @@
+core/string/frozen/warns_on_its_first_change.rb:15: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)
+core/string/frozen/warns_on_its_first_change.rb:15: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)
+core/string/frozen/warns_on_its_first_change.rb:15: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)
+core/string/frozen/warns_on_its_first_change.rb:15: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)
+core/string/frozen/warns_on_its_first_change.rb:15: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)
+core/string/frozen/warns_on_its_first_change.rb:15: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)
+core/string/frozen/warns_on_its_first_change.rb:15: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)
+core/string/frozen/warns_on_its_first_change.rb:15: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)
+core/string/frozen/warns_on_its_first_change.rb:15: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)
+core/string/frozen/warns_on_its_first_change.rb:15: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)
+core/string/frozen/warns_on_its_first_change.rb:15: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)
+core/string/frozen/warns_on_its_first_change.rb:15: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)
+0
+core/string/frozen/warns_on_its_first_change.rb:18: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)
+1
+core/string/frozen/warns_on_its_first_change.rb:19: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)
+2
+core/string/frozen/warns_on_its_first_change.rb:20: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)
+3
+core/string/frozen/warns_on_its_first_change.rb:21: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)
+4
+core/string/frozen/warns_on_its_first_change.rb:22: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)
+5
+core/string/frozen/warns_on_its_first_change.rb:23: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)
+6
+core/string/frozen/warns_on_its_first_change.rb:24: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)
+7
+core/string/frozen/warns_on_its_first_change.rb:25: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)
+8
+core/string/frozen/warns_on_its_first_change.rb:26: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)
+9
+core/string/frozen/warns_on_its_first_change.rb:27: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)
+10
+core/string/frozen/warns_on_its_first_change.rb:28: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)
+11
+core/string/frozen/warns_on_its_first_change.rb:29: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)
+12
+core/string/frozen/warns_on_its_first_change.rb:30: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)
+13
+14
+15
+16
+17
+core/string/frozen/warns_on_its_first_change.rb:35: warning: string returned by :sym.to_s will be frozen in the future
+18
+19
+core/string/frozen/warns_on_its_first_change.rb:37: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)
+20
+core/string/frozen/warns_on_its_first_change.rb:38: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)
+21
+core/string/frozen/warns_on_its_first_change.rb:39: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)

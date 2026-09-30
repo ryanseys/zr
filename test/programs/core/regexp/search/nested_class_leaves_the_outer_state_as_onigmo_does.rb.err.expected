@@ -1,0 +1,1 @@
+core/regexp/search/nested_class_leaves_the_outer_state_as_onigmo_does.rb:9: warning: character class has '-' without escape: /[a-b[x]-z]/

@@ -1,0 +1,3 @@
+[:eval, TypeError, "Not a toplevel InstructionSequence"]
+[:to_binary, RuntimeError, "should be top of iseq"]
+[:top_children, ["x", "block in <compiled>"]]

@@ -1,0 +1,14 @@
+true
+false
+true
+true
+[[:rest]]
+nil
+nil
+:rb
+true
+:rb
+:rb
+nil
+[TypeError, "no implicit conversion of Symbol into String"]
+[:resolve_feature_path]

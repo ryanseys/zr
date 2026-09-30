@@ -1,0 +1,8 @@
+wrong number of arguments (given 1, expected 2)
+arity_errors_attribute_to_the_callee_frame_like_cruby.rb:7:in 'Object#f'
+wrong number of arguments (given 3, expected 1)
+arity_errors_attribute_to_the_callee_frame_like_cruby.rb:17:in 'Bag#initialize'
+wrong number of arguments (given 1, expected 0)
+arity_errors_attribute_to_the_callee_frame_like_cruby.rb:29:in 'BasicObject#initialize'
+missing keyword: :x
+arity_errors_attribute_to_the_callee_frame_like_cruby.rb:34:in 'Object#kw'

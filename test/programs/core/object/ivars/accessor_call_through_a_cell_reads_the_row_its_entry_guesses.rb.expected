@@ -1,0 +1,14 @@
+[2, 3, 2, 3]
+[10, 20]
+[10, 20]
+nil
+5
+5
+[7, 7]
+can't modify frozen A: #<A:0xADDR @p=1, @x=2>
+2
+[nil, 20]
+[:ok, :ok, 2]
+[20, 20]
+"wrong number of arguments (given 1, expected 0)"
+["redefined", 20]

@@ -1,0 +1,3 @@
+early_tagged_superclass	"Early::Token"
+early_tagged_kind	"class"
+late_token_kind	"runtime"

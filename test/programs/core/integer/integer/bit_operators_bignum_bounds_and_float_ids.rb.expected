@@ -1,0 +1,18 @@
+[TypeError, "1.0e+300 can't be coerced into Integer"]
+[TypeError, "1.0e+300 can't be coerced into Integer"]
+[TypeError, "2.5 can't be coerced into Integer"]
+[TypeError, "1.5 can't be coerced into Integer"]
+[TypeError, "Rational can't be coerced into Integer"]
+[TypeError, "1.5 can't be coerced into Integer"]
+nil
+8
+:b
+[18446744073709551616, 18446744073709551615, 18446744073709551614]
+[]
+18446744073709551616
+[5, 4]
+Integer
+true
+Integer
+true
+Integer

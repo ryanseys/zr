@@ -1,0 +1,8 @@
+cleanpath: "b/c/d"
+cleanpath conservative: "a/../b/c/d"
+cleanpath dot: "."
+cleanpath empty: "."
+cleanpath dotdot: ".."
+cleanpath above root: "/a"
+cleanpath trailing: "a"
+cleanpath root: "/"

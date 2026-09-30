@@ -1,0 +1,2 @@
+requires/lib/boom.rb:1:in 'Object#boom_helper': boom in required (RuntimeError)
+	from requires/lib/boom.rb:2:in '<main>'

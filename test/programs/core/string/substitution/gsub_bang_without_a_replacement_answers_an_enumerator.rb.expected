@@ -1,0 +1,7 @@
+Enumerator
+Enumerator
+["hello"]
+"no implicit conversion of Integer into String"
+"no implicit conversion of nil into String"
+"conv"
+["b"]

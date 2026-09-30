@@ -1,0 +1,4 @@
+guard_ok
+cannot load such file -- /no/such/file.rb
+cannot load such file -- definitely_missing_lib_xyz
+done

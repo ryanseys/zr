@@ -1,0 +1,15 @@
+block type 3: Zlib::DataError: invalid block type
+stored lengths: Zlib::DataError: invalid stored block lengths
+stored block cut short: Zlib::BufError: buffer error
+too many symbols: Zlib::DataError: too many length or distance symbols
+code lengths over-subscribed: Zlib::DataError: invalid code lengths set
+repeat with no previous length: Zlib::DataError: invalid bit length repeat
+no end-of-block code: Zlib::DataError: invalid code -- missing end-of-block
+repeat runs past the end: Zlib::DataError: invalid bit length repeat
+literal lengths over-subscribed: Zlib::DataError: invalid literal/lengths set
+distance lengths over-subscribed: Zlib::DataError: invalid distances set
+distance before the start: Zlib::DataError: invalid distance too far back
+distance code 30: Zlib::DataError: invalid distance code
+literal code 286: Zlib::DataError: invalid literal/length code
+a good fixed block: ok "ab"
+cut before the end-of-block: Zlib::BufError: buffer error

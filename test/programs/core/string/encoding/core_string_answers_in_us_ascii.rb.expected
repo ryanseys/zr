@@ -1,0 +1,30 @@
+nil.to_s	US-ASCII
+true.to_s	US-ASCII
+false.inspect	US-ASCII
+1.to_s	US-ASCII
+(2**70).to_s	US-ASCII
+1.5.to_s	US-ASCII
+1.0.inspect	US-ASCII
+1r.to_s	US-ASCII
+1i.inspect	US-ASCII
+:a.to_s	US-ASCII
+:a.inspect	US-ASCII
+nil.inspect	US-ASCII
+[].inspect	US-ASCII
+[1].inspect	US-ASCII
+{}.to_s	US-ASCII
+(1..2).inspect	US-ASCII
+Object.new.to_s	ASCII-8BIT
+Time.at(0).utc.to_s	US-ASCII
+3.chr	US-ASCII
+65.chr	US-ASCII
+255.chr	ASCII-8BIT
+1.digits.inspect	US-ASCII
+12.to_s(2)	US-ASCII
+format('%d', 1)	UTF-8
+'%s' % 'a'	UTF-8
+[1].join	US-ASCII
+[].join	US-ASCII
+Integer.name	US-ASCII
+Comparable.to_s	US-ASCII
+joined	ASCII-8BIT ASCII-8BIT UTF-8 ASCII-8BIT

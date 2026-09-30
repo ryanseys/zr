@@ -1,0 +1,10 @@
+stdlib/set/set/module_const_set.rb:5: warning: already initialized constant Box::X
+stdlib/set/set/module_const_set.rb:4: warning: previous definition of X was here
+stdlib/set/set/module_const_set.rb:7: warning: already initialized constant Box::S
+stdlib/set/set/module_const_set.rb:4: warning: previous definition of S was here
+stdlib/set/set/module_const_set.rb:9: warning: already initialized constant Box::F
+stdlib/set/set/module_const_set.rb:4: warning: previous definition of F was here
+stdlib/set/set/module_const_set.rb:12: warning: already initialized constant Y
+stdlib/set/set/module_const_set.rb:11: warning: previous definition of Y was here
+stdlib/set/set/module_const_set.rb:15: warning: already initialized constant Box::X
+stdlib/set/set/module_const_set.rb:5: warning: previous definition of X was here

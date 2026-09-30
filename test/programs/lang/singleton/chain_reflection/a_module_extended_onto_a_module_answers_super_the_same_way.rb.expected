@@ -1,0 +1,4 @@
+== a module extended onto a MODULE, and its super
+"modself(M1(top))"
+"#<Class:Extendee>"
+"M1"

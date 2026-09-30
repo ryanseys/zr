@@ -1,0 +1,13 @@
+String.new content         ""
+String.new ivars           [:@s]
+a literal is unaffected    "y"
+Time.new                   ["T", [:@t]]
+Time.now unaffected        []
+Time.at unaffected         []
+through a variable         ["T", [:@t]]
+Class#new directly         "T"
+Hash.new content           [nil, [:@h]]
+Array.new content          []
+a bignum                   ["1180591620717411303424", 885443715538058477568]
+a padding                  ["b        |", "x           |"]
+a copy                     [1, 2, 3]

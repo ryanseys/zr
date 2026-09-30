@@ -1,0 +1,15 @@
+10.0
+-10.0
+Infinity
+2.0
+0.3333333333333333
+2.5
+Infinity
+1.0e+100
+3.5
+2.3196760719186784e+19
+[1, 0.5]
+[-4, 0.5]
+[0, 1.5]
+[TypeError, "String can't be coerced into Float"]
+1

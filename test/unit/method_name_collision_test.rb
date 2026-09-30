@@ -8,7 +8,6 @@ require_relative "../../lib/zr/obj/macho/executable"
 require_relative "../../lib/zr/obj/jit/fiddle"
 require_relative "../../lib/zr/ir/interp"
 require_relative "../../lib/zr/backend/aarch64/listing"
-require_relative "../support/e2e"
 
 # No method that zr defines can have the name of an `Object` or `Kernel`
 # method. For example, a private `Lower#send` overrode `Object#send` for
@@ -19,9 +18,8 @@ class MethodNameCollisionTest < Minitest::Test
   # A Struct or Data record is equal by value.
   DELIBERATE = %i[initialize to_s inspect == eql? hash].freeze
 
-  # Examine only the library. The tests also put modules in `Zr`, and
-  # `test/support/reader.rb` defines `describe` on purpose, like
-  # minitest. Thus the test must not examine everything that is loaded.
+  # Examine only the library. The tests also put modules in `Zr`, so the
+  # test must not examine everything that is loaded.
   LIB = File.join(ROOT, "lib")
 
   def under(mod, seen)

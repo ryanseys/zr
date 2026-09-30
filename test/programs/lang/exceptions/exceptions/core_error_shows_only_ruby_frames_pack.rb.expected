@@ -1,0 +1,26 @@
+ArgumentError: @ outside of string
+lang/exceptions/exceptions/core_error_shows_only_ruby_frames_pack.rb:12:in 'String#unpack'
+lang/exceptions/exceptions/core_error_shows_only_ruby_frames_pack.rb:12:in 'block in <main>'
+lang/exceptions/exceptions/core_error_shows_only_ruby_frames_pack.rb:6:in 'Object#show'
+lang/exceptions/exceptions/core_error_shows_only_ruby_frames_pack.rb:12:in '<main>'
+ArgumentError: x outside of string
+lang/exceptions/exceptions/core_error_shows_only_ruby_frames_pack.rb:13:in 'String#unpack1'
+lang/exceptions/exceptions/core_error_shows_only_ruby_frames_pack.rb:13:in 'block in <main>'
+lang/exceptions/exceptions/core_error_shows_only_ruby_frames_pack.rb:6:in 'Object#show'
+lang/exceptions/exceptions/core_error_shows_only_ruby_frames_pack.rb:13:in '<main>'
+TypeError: no implicit conversion of Integer into String
+lang/exceptions/exceptions/core_error_shows_only_ruby_frames_pack.rb:14:in 'Array#pack'
+lang/exceptions/exceptions/core_error_shows_only_ruby_frames_pack.rb:14:in 'block in <main>'
+lang/exceptions/exceptions/core_error_shows_only_ruby_frames_pack.rb:6:in 'Object#show'
+lang/exceptions/exceptions/core_error_shows_only_ruby_frames_pack.rb:14:in '<main>'
+ArgumentError: unknown pack directive 'y' in 'y'
+lang/exceptions/exceptions/core_error_shows_only_ruby_frames_pack.rb:15:in 'Array#pack'
+lang/exceptions/exceptions/core_error_shows_only_ruby_frames_pack.rb:15:in 'block in <main>'
+lang/exceptions/exceptions/core_error_shows_only_ruby_frames_pack.rb:6:in 'Object#show'
+lang/exceptions/exceptions/core_error_shows_only_ruby_frames_pack.rb:15:in '<main>'
+ArgumentError: invalid base64
+lang/exceptions/exceptions/core_error_shows_only_ruby_frames_pack.rb:16:in 'String#unpack'
+lang/exceptions/exceptions/core_error_shows_only_ruby_frames_pack.rb:16:in 'block in <main>'
+lang/exceptions/exceptions/core_error_shows_only_ruby_frames_pack.rb:6:in 'Object#show'
+lang/exceptions/exceptions/core_error_shows_only_ruby_frames_pack.rb:16:in '<main>'
+false

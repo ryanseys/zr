@@ -1,0 +1,4 @@
+== an own def self.x sits BEFORE the extended module
+"own(M1(top))"
+"#<Class:OwnFirst>"
+"M1"

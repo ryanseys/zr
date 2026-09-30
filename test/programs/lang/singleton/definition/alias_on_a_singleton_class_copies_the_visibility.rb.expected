@@ -1,0 +1,7 @@
+[:hidden, :secret]
+call: private method 'secret' called for class C
+:h
+:l
+[:hidden, :secret]
+[:speak, :whisper]
+[:h, :s]

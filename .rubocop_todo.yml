@@ -21,8 +21,6 @@ Layout/LineLength:
     - "lib/zr/obj/elf/object_file.rb"
     - "lib/zr/parse.rb"
     - "lib/zr/runtime.rb"
-    - "test/spec/core/exception/exception_test.rb"
-    - "test/spec/core/format/format_test.rb"
     - "test/support/harness/prism_diff.rb"
     - "test/support/harness/regexp_diff.rb"
     - "test/unit/escape_test.rb"

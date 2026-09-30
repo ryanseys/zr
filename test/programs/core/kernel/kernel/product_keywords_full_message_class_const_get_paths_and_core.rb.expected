@@ -1,0 +1,10 @@
+ArgumentError: unknown keyword: :k
+ArgumentError: unknown keywords: :k, :j
+"RuntimeError\n"
+"unhandled exception\n"
+NameError: wrong constant name Nope::
+NameError: wrong constant name String::Nope::
+NameError: uninitialized constant Nope
+["<internal:kernel>", 161]
+"#<Method: Integer#times() <internal:numeric>:255>"
+"#<Method: Kernel.Integer(arg, base=..., exception: ...) <internal:kernel>:287>"

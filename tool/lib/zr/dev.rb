@@ -4,7 +4,7 @@ require_relative "../../../lib/zr/paths"
 require_relative "../../../lib/zr/version"
 
 module Zr
-  # The tools that work on a checkout: the generators, the spec tools,
+  # The tools that work on a checkout: the generators, the test tools,
   # the benchmarks, the self-compile checks and the cache. `zr-dev help`
   # lists them. Each tool is a Command in `tool/`, loaded only when it
   # runs, so `zr-dev help` loads none of them.
@@ -26,5 +26,4 @@ require_relative "dev/command"
 require_relative "dev/files"
 require_relative "dev/host"
 require_relative "dev/sources"
-require_relative "dev/specs"
 require_relative "dev/self"

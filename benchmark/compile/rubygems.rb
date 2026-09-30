@@ -7,7 +7,7 @@
 # written against. Almost all of the cost this measures is the require graph,
 # not these lines.
 #
-# `test/e2e/stdlib/rubygems/require_rubygems.rb` is the regression test.
+# `test/programs/cli/stdlib/rubygems/require_rubygems.rb` is the regression test.
 require "rubygems"
 
 # --- Gem::Version: the ordering every gemspec and lockfile depends on -------

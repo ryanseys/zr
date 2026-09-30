@@ -1,0 +1,22 @@
+reader read: "hello\nworld\n"
+reader read encoding: "UTF-8"
+reader read(n) encoding: "ASCII-8BIT"
+reader read(n): ["hel", "lo\n", "world\n", nil, ""]
+reader gets: ["hello\n", 1, "world\n", nil]
+reader gets with a separator: ["hello", "\nworld\n"]
+reader readlines: ["hello\n", "world\n"]
+reader each_line: ["hello\n", "world\n"]
+reader each is Enumerable's: ["hello", "world"]
+reader chars and bytes: ["h", 101, "l", 108]
+reader each_byte: [97, 98]
+reader each_char: ["a", "b"]
+reader ungetc: "hello\n"
+reader readpartial: "hell"
+reader eof and pos: [false, 12, true, true]
+reader readline past the end: EOFError: end of file reached
+reader rewind: "hello\n"
+reader unused: "EXTRA"
+reader external_encoding: "UTF-8"
+reader wrap: "hello\nworld\n"
+reader zcat: "hello\nworld\nhello\nworld\n"
+reader crc after reading: true

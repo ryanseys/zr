@@ -1,0 +1,19 @@
+# Shell capture uses Kernel backticks, and getpid is a real FFI binding
+# through the ffi gem.
+#
+# Cross-platform-deterministic smoke: shell capture + getpid produce the
+# same output on every POSIX target, so the .expected holds for Linux +
+# macOS CI.
+require "ffi"
+
+module Net
+  extend FFI::Library
+  ffi_lib FFI::Library::LIBC
+  attach_function :getpid, [], :int
+end
+
+# Shell capture: stdout of `printf hello` is exactly "hello".
+puts `printf hello`
+
+# getpid is always a positive pid (print a stable token, not the pid).
+puts(Net.getpid > 0 ? "pid-ok" : "pid-bad")

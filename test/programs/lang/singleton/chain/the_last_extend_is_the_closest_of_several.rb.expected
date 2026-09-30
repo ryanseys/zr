@@ -1,0 +1,3 @@
+== extend order: the LAST extend is closest
+"M2(M1(top))"
+["#<Class:TwoMods>", "M2", "M1", "#<Class:Object>"]
