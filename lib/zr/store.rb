@@ -1,0 +1,247 @@
+# frozen_string_literal: true
+
+require "digest/sha2"
+require "json"
+require_relative "paths"
+require_relative "settled"
+
+module Zr
+  # The one content store of zr's caches, in `<cache>/store`. An entry is
+  # a file or a directory at `<kind>/<first two characters of its key>/<key>`,
+  # and it is made again on demand. This module owns the layout, the
+  # keys, the reads and writes, the locks and the eviction, so each
+  # cache is its kind, its key parts and its build code.
+  #
+  #   key = Store.key(Store.base(target), abi, file, source)
+  #   Store.get(:unit, key) { lower(file) }
+  #
+  # Eviction removes the entries used longest ago. A read touches an
+  # entry, at most once a day. A build names the entries that the next
+  # build needs (the runtime object, eval support, the code of its
+  # backend) in a root (`root`), and no eviction removes them while the
+  # root is fresh.
+  module Store
+    # How an entry's value is kept. `:raw` is bytes, `:json` and
+    # `:marshal` encode a value, and `:dir` is a directory that the
+    # block of `write` fills.
+    Kind = Data.define(:name, :codec, :ext, :quota_gb)
+
+    KINDS = [
+      Kind.new(:object, :raw, ".o", nil),       # runtime and eval support objects
+      Kind.new(:image, :raw, ".bin", nil),      # prelinked images and skeletons
+      Kind.new(:meta, :json, ".json", nil),     # symbol tables, gem prelude lists, ledgers, eval meta
+      Kind.new(:wasm, :marshal, ".marshal", nil),
+      Kind.new(:gems, :marshal, ".marshal", nil),
+      Kind.new(:parse, :raw, "", nil),          # Prism parse results (ParseCache encodes them)
+      Kind.new(:iseq, :raw, ".bin", nil),
+      Kind.new(:unit, :marshal, ".marshal", nil),
+      Kind.new(:lowering, :marshal, ".marshal", nil),
+      Kind.new(:code, :dir, "", nil),           # packs of machine code, one directory per backend
+      Kind.new(:run, :dir, "", 2),              # `zr run` binaries
+      Kind.new(:binary, :raw, "", nil)          # spec binaries; quota from ZR_TEST_BINARIES_GB
+    ].to_h { |kind| [kind.name, kind] }.freeze
+
+    # A root older than this protects nothing: the zr that wrote it is
+    # likely gone.
+    ROOT_DAYS = 30
+    # A read touches an entry only when its mtime is older than this.
+    TOUCH_EVERY = 86_400
+
+    KEY = /\A[0-9a-f]{2}[0-9A-Za-z_.-]*\z/
+
+    Entry = Data.define(:kind, :key, :path, :bytes, :mtime)
+
+    module_function
+
+    def dir = File.join(Paths.cache, "store")
+
+    # A key of `parts`: each part as a string, ended by a NUL, into one
+    # SHA-256.
+    def key(*parts)
+      digest = Digest::SHA256.new
+      parts.each { |part| digest << part.to_s << "\0" }
+      digest.hexdigest
+    end
+
+    def kind(name) = KINDS.fetch(name)
+
+    def path(name, key)
+      raise ArgumentError, "not a store key: #{key.inspect}" unless KEY.match?(key)
+
+      File.join(dir, name.to_s, key[0, 2], "#{key}#{kind(name).ext}")
+    end
+
+    # The value of the entry, or nil when there is none or it does not
+    # decode.
+    def read(name, key)
+      file = path(name, key)
+      value = decode(kind(name).codec, file)
+      touch(file)
+      value
+    rescue SystemCallError, TypeError, ArgumentError, EOFError, JSON::ParserError, EncodingError
+      nil
+    end
+
+    # Writes the entry and returns its path. A `:dir` kind takes a block
+    # that fills the directory it gets. Writes nothing when a source
+    # changed during the build (`Zr.settled!` raises SourceChanged).
+    def write(name, key, value = nil, &fill)
+      Zr.settled!
+      file = path(name, key)
+      codec = kind(name).codec
+      return write_dir(file, &fill) if codec == :dir
+
+      Paths.write_atomic(file, encode(codec, value))
+    end
+
+    # The value of the entry, else the block's value, which it writes.
+    def get(name, key)
+      found = read(name, key)
+      return found unless found.nil?
+
+      value = yield
+      write(name, key, value)
+      value
+    end
+
+    # Runs the block with the entry's path while this process holds the
+    # entry's lock, unless the entry exists (`Paths.once`), and returns
+    # the path. The block writes the file.
+    def once(name, key, waiting: nil)
+      file = path(name, key)
+      Paths.once(file, waiting: waiting) { yield file }
+      touch(file)
+      file
+    end
+
+    # Records that the entries `keys` (`[[kind, key], ...]`) are the ones
+    # that `root` needs. A root is replaced, not added to.
+    def root(name, keys)
+      raise ArgumentError, "not a root name: #{name.inspect}" unless name.match?(/\A[\w.-]+\z/)
+
+      lines = keys.map { |kind, key| "#{kind}/#{key}\n" }.uniq.sort.join
+      Zr.settled!
+      Paths.write_atomic(File.join(dir, "roots", name), lines)
+    end
+
+    # The `kind/key` of each entry that a fresh root names.
+    def rooted(now = Time.now)
+      roots = File.join(dir, "roots")
+      return [] unless File.directory?(roots)
+
+      Dir.children(roots).flat_map do |name|
+        file = File.join(roots, name)
+        File.mtime(file) < now - (ROOT_DAYS * 86_400) ? [] : File.readlines(file, chomp: true)
+      rescue SystemCallError
+        []
+      end.uniq
+    end
+
+    # Every entry, of each kind.
+    def entries
+      KINDS.each_value.flat_map do |kind|
+        top = File.join(dir, kind.name.to_s)
+        children(top).flat_map do |prefix|
+          children(File.join(top, prefix)).filter_map do |base|
+            file = File.join(top, prefix, base)
+            next if base.include?(".lock") || base.match?(/\.\d+(\.\d+)?\z/) # a lock or a write in progress
+
+            stat = File.stat(file)
+            bytes = stat.directory? ? tree_bytes(file) : stat.size
+            Entry.new(kind.name, base.delete_suffix(kind.ext), file, bytes, stat.mtime)
+          rescue SystemCallError
+            nil
+          end
+        end
+      end
+    end
+
+    # The most bytes of kind `name`, or nil for no quota.
+    def quota(name)
+      gb = name == :binary ? Float(ENV.fetch("ZR_TEST_BINARIES_GB", 8)) : kind(name).quota_gb
+      gb && (gb * (1 << 30))
+    end
+
+    # Removes the entries used longest ago that no fresh root names, until
+    # each kind is within its quota and all entries are within `limit`
+    # bytes (nil: no limit). Returns the entries it removed.
+    def evict(limit: nil, now: Time.now)
+      all = entries
+      kept = rooted(now).to_h { |line| [line, true] }
+      total = all.sum(&:bytes)
+      by_kind = all.group_by(&:kind).transform_values { |list| list.sum(&:bytes) }
+      removed = []
+      all.sort_by(&:mtime).each do |entry|
+        next if kept["#{entry.kind}/#{entry.key}"]
+
+        over = (limit && total > limit) || ((q = quota(entry.kind)) && by_kind[entry.kind] > q)
+        next unless over
+
+        Paths.remove(entry.path)
+        total -= entry.bytes
+        by_kind[entry.kind] -= entry.bytes
+        removed << entry
+      end
+      removed
+    end
+
+    # Removes every entry that no fresh root names. Returns them.
+    def clean(now: Time.now)
+      kept = rooted(now).to_h { |line| [line, true] }
+      entries.reject { |entry| kept["#{entry.kind}/#{entry.key}"] }.each { |entry| Paths.remove(entry.path) }
+    end
+
+    # Removes the whole store.
+    def clear = Paths.remove(dir)
+
+    def children(dir)
+      File.directory?(dir) ? Dir.children(dir) : []
+    end
+
+    def tree_bytes(dir)
+      Dir.glob("**/*", base: dir).sum { |name| File.size?(File.join(dir, name)).to_i }
+    end
+
+    def touch(file)
+      now = Time.now
+      File.utime(now, now, file) if File.mtime(file) < now - TOUCH_EVERY
+    rescue SystemCallError
+      nil
+    end
+
+    def decode(codec, file)
+      case codec
+      when :raw then File.binread(file)
+      when :json then JSON.parse(File.read(file))
+      when :marshal then Marshal.load(File.binread(file))
+      when :dir then File.directory?(file) ? file : raise(Errno::ENOENT, file)
+      end
+    end
+
+    def encode(codec, value)
+      case codec
+      when :raw then value
+      when :json then JSON.generate(value)
+      when :marshal then Marshal.dump(value)
+      end
+    end
+
+    # Fills a new directory with the block, then renames it to `file`. A
+    # second writer that renames first wins; this one's copy goes.
+    def write_dir(file)
+      Paths.mkdir_p(File.dirname(file))
+      fresh = "#{file}.#{Process.pid}.#{Thread.current.object_id}"
+      Paths.remove(fresh)
+      Dir.mkdir(fresh)
+      yield fresh
+      Zr.settled!
+      Paths.remove(file)
+      File.rename(fresh, file)
+      file
+    ensure
+      Paths.remove(fresh) if fresh && File.exist?(fresh)
+    end
+
+    private_class_method :children, :tree_bytes, :touch, :decode, :encode, :write_dir
+  end
+end
