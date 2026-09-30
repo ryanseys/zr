@@ -47,12 +47,23 @@ module Zr
       # and only the real call can tell.
       OPT_CALLS = { getbyte: 1, setbyte: 2, push: 1, pop: 0, shift: 0, empty?: 0 }.freeze
 
-      def self.runtime_file?(file) = File.expand_path(file).start_with?("#{RUNTIME}/")
+      def self.runtime_file?(file) = File.expand_path(file).start_with?("#{RUNTIME}/") || description?(file)
+
+      # The kernel's description that the build writes into the store
+      # (`Runtime#carried_description`). It is part of the runtime, as its
+      # kernel is, though it is not under runtime/. The test reads only
+      # the path: under wasi, a zr binary cannot ask for the cache.
+      def self.description?(file) = file.match?(%r{/store/description/\h{2}/\h+/zr_description\.rb\z})
+
+      # Gives the kernel's description of `target` when a file requires
+      # `zr_description`: only eval support and a program that compiles
+      # itself do. Nil where no runtime is loaded (an eval in a binary).
+      def self.description(target) = -> { Zr.runtime(target).carry_description! if Zr.respond_to?(:runtime) }
 
       # A file of the runtime's libraries (EXT, Layout::RUNTIME_LIB): it is
       # internal, as the core is, so a backtrace shows its methods as
       # builtins.
-      def self.internal_library?(file) = file.start_with?("#{EXT}/", "#{Layout::RUNTIME_LIB}/")
+      def self.internal_library?(file) = file.start_with?("#{EXT}/", "#{Layout::RUNTIME_LIB}/") || description?(file)
 
       # The gems whose C zr ports, at zr's versions, as vendor/ holds
       # them (lib/zr/ports.rb).
@@ -112,7 +123,7 @@ module Zr
         built = lambda do |external, trace, evals, covers|
           loader = Loader.new(roots + (gem_set&.roots || []) + stdlib(target), eval: !eval_support, external: external, trace: trace,
                               evals: evals, covers: covers, activations: activations, prebuilt_eval: prebuilt, gem_set: gem_set,
-                              gate: gate)
+                              gate: gate, description: description(target))
           loader.own!(file)
           [loader, loader.unit(file, source, line, scopes, method: method)]
         end

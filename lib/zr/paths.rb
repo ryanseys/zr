@@ -15,7 +15,7 @@ module Zr
   # checkout or the installed gem. `runtime/` and `vendor/` are beside
   # `lib/` in both, and neither is on the host's load path. The host
   # loads a few namespaced files from them by path (Regexp::Onig,
-  # Prism::Ruby, zr_description).
+  # Prism::Ruby).
   module Paths
     ROOT = File.expand_path("../..", __dir__)
 

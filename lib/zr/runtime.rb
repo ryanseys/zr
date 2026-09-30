@@ -19,8 +19,6 @@ require_relative "eval_cache"
 require_relative "manifest"
 
 module Zr
-  # An installed zr whose files do not agree with each other.
-  class Damaged < StandardError; end
 
   # The kernel and the core library, lowered once per process, and only
   # as much as a build needs. A program's lowering reads the kernel's
@@ -147,30 +145,28 @@ module Zr
       @released = true
     end
 
-    # The kernel's description as eval support carries it: a generated file
-    # of the target's OS layer (`zr-dev gen description`). The JIT of a
-    # binary lowers eval'd code against that file, not against the kernel,
-    # so a file that is out of date miscompiles evals with no error.
-    def carried_description = File.join(Layout.ext_os(target), "zr_description.rb")
-
-    # Checks the carried description against the kernel before eval
-    # support is built. In a checkout, zr writes the file again and says
-    # so. An install never has a stale file, so there it stops the build.
-    # Only the target that `zr-dev gen description` writes a layer from
-    # checks it, because the other targets of a layer can differ in a row.
-    def carry_description!
-      return unless Target.all.find { |t| t.os_layer == target.os_layer && t.os_layer == t.os.to_s }&.triple == target.triple
-
-      path = carried_description
-      want = Machine::Description.carried(cached.fetch(:description))
-      return if File.exist?(path) && File.binread(path) == want
-
-      shown = path.delete_prefix("#{Paths::ROOT}/")
-      raise Damaged, "zr's install is damaged: #{shown} does not match runtime/kernel. Reinstall zr with 'gem install zr -v #{VERSION}'" unless Paths.checkout?
-
-      Paths.write_atomic(path, want)
-      warn "zr: #{shown} was out of date with runtime/kernel; zr wrote it again"
+    # The kernel's description as eval support carries it: `zr_description.rb`,
+    # which `require "zr_description"` finds (lib/zr/eval.rb). The JIT of a
+    # binary lowers eval'd code against it, not against the kernel. zr
+    # writes it from this runtime's description into the store, keyed by
+    # its bytes, so it is never out of date and nobody commits it.
+    def carried_description
+      @carried_description ||= File.join(Store.path(:description, Store.key(carried_text)), DESCRIPTION_FILE)
     end
+
+    DESCRIPTION_FILE = "zr_description.rb"
+
+    # Writes the carried description unless the store has it. Returns its
+    # path.
+    def carry_description!
+      path = carried_description
+      return path if File.file?(path)
+
+      Store.write(:description, File.basename(File.dirname(path))) { |dir| File.binwrite(File.join(dir, DESCRIPTION_FILE), carried_text) }
+      path
+    end
+
+    def carried_text = @carried_text ||= Machine::Description.carried(cached.fetch(:description))
 
     # `Zr.abi_digest`: what a program's units take from this runtime. It reads the symbol table's cache, which it makes first.
     def abi_digest

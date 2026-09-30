@@ -82,8 +82,8 @@ that `ld` linked, whose table is not sorted.
 
 The evaluated code must agree with the code around it about the
 kernel's functions, layouts and symbol IDs. For this, the program
-includes the kernel's description
-(`runtime/ext/os/<os>/zr_description.rb`), and the symbol table of the
+includes the kernel's description (`zr_description.rb`, which the
+build writes into its cache from the kernel), and the symbol table of the
 string starts from the program's own.
 
 ## How the compiler stays out of the program's sight
@@ -178,8 +178,8 @@ that `ld` linked, whose table is not sorted.
 
 The evaluated code must agree with the code around it about the
 kernel's functions, layouts and symbol IDs. For this, the program
-includes the kernel's description
-(`runtime/ext/os/<os>/zr_description.rb`), and the symbol table of the
+includes the kernel's description (`zr_description.rb`, which the
+build writes into its cache from the kernel), and the symbol table of the
 string starts from the program's own.
 
 ) and `GC.stress`, and it

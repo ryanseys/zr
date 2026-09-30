@@ -18,9 +18,7 @@ module Zr
     # - A vendored library or an extension maps to its stdlib directory,
     #   and to each spec that requires it by name.
     # - A file of an OS layer of the core maps as its own name does
-    #   (runtime/core/os/darwin/errno.rb as errno). The kernel's description
-    #   of an OS layer (runtime/ext/os/) is in every program that evals, so
-    #   it maps to all specs.
+    #   (runtime/core/os/darwin/errno.rb as errno).
     # - A change to the compiler, the kernel or the
     #   test support maps to all specs. A change to a tool maps to the unit
     #   tests, which test the tools; no spec runs one.

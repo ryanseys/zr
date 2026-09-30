@@ -226,7 +226,7 @@ module Zr
     # The errors that say what the user must change, not a defect in zr.
     # They print their message only. Named as strings: not every command
     # loads the file that defines each one.
-    EXPECTED = %w[Zr::Config::Invalid Zr::SourceChanged Zr::GemSet::Unresolved Zr::Paths::Missing Zr::Damaged].freeze
+    EXPECTED = %w[Zr::Config::Invalid Zr::SourceChanged Zr::GemSet::Unresolved Zr::Paths::Missing].freeze
     # The errors of a directory that zr cannot write to or that is full.
     UNWRITABLE = %w[EACCES EROFS ENOSPC EPERM].freeze
 

@@ -36,6 +36,7 @@ module Zr
       Kind.new(:unit, :marshal, ".marshal", nil),
       Kind.new(:lowering, :marshal, ".marshal", nil),
       Kind.new(:code, :dir, "", nil),           # packs of machine code, one directory per backend
+      Kind.new(:description, :dir, "", nil),    # the kernel's description that eval support carries
       Kind.new(:run, :dir, "", 2),              # `zr run` binaries
       Kind.new(:binary, :raw, "", nil)          # spec binaries; quota from ZR_TEST_BINARIES_GB
     ].to_h { |kind| [kind.name, kind] }.freeze

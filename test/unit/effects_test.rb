@@ -2,6 +2,7 @@
 
 require "test_helper"
 require_relative "../../lib/zr/machine/lower"
+require "zr/runtime"
 
 # Tests what a kernel def can write (`IR::Effects`), as `Machine::Lower`
 # computes it for a small unit:
@@ -106,15 +107,15 @@ class EffectsTest < Minitest::Test
   end
 end
 
-# Tests the effects of kernel defs in the recorded darwin description.
+# Tests the effects of kernel defs in the darwin kernel's description.
 # Allocation can run the collector, which changes the method stamps when
 # it frees a class. Allocation never writes the gate word. A send can
 # write anything.
 class KernelEffectsTest < Minitest::Test
-  def kernel
-    text = File.read(File.join(ROOT, "runtime/ext/os/darwin/zr_description.rb"))[/<<~ROWS\n(.*?)^\s*ROWS$/m, 1].gsub(/^ +/, "")
-    Zr::Machine::Description.parse(text)
-  end
+  # Lowered once for the class: the kernel takes seconds to lower.
+  def self.kernel = @kernel ||= Zr::Machine::Description.of(Zr::Runtime.new(Zr::Target.fetch("aarch64-apple-darwin")).unit)
+
+  def kernel = self.class.kernel
 
   def test_allocation_writes_stamps_and_not_gates
     alloc = kernel.def_for("zr_alloc").effects

@@ -41,7 +41,8 @@ ordinary Ruby over the kernel.
 `def` goes, and where zr looks up constants.
 
 **Description.** The kernel's signatures, effects, constants and struct
-layouts, as text (`runtime/ext/os/<os>/zr_description.rb`). A program
+layouts, as text (`zr_description.rb`, which a build writes into the
+cache from the kernel, in `store/description/`). A program
 that evals includes the description in place of the kernel's sources.
 
 **Digest.** A SHA-256 hash of all the inputs of a built file. zr gives

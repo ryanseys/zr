@@ -26,10 +26,6 @@ class AffectedTest < Minitest::Test
     assert_equal [], affected.plan(%w[docs/README.md])
   end
 
-  def test_the_carried_description_reaches_everything
-    assert_equal :all, affected.plan(%w[runtime/ext/os/darwin/zr_description.rb])
-  end
-
   def test_a_tool_change_reaches_the_unit_tests
     assert_equal [File.join(Zr::Dev::ROOT, "test/unit")], affected.plan(%w[tool/edit.rb])
   end

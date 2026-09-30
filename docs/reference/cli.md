@@ -220,6 +220,7 @@ SHA-256 digest of every input of the entry:
 | `object` | the runtime object and the eval support object |
 | `image` | the prelinked images and their skeletons |
 | `meta` | symbol tables, gem prelude lists, ledgers and eval support metadata |
+| `description` | the kernel's description that eval support carries (`zr_description.rb`) |
 | `code` | the machine code of each function, one directory for each backend |
 | `lowering` | what the core and eval support need from each file that they did not lower again |
 | `unit` | the machine code of each file of a program |

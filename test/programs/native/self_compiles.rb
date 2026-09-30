@@ -1,11 +1,12 @@
-# The compiler reads its kernel description from runtime/ext.
+# The compiler reads the kernel description that the build writes into
+# its cache (`require "zr_description"`, as eval support does).
 # The compiler runs inside the program it compiled: prism parses a string
 # of ruby, the HIR builder lowers it, and the zr lowering turns it into IR
 # functions over the kernel description the program carries.
 
 require_relative "../../lib/zr/hir"
 require_relative "../../lib/zr/lower"
-require_relative "../../runtime/ext/os/darwin/zr_description"
+require "zr_description"
 
 desc = Zr::Machine::Description.parse(Zr::Machine::Description::KERNEL)
 # Counts change with every kernel change, so the program prints only that

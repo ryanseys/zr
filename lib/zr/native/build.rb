@@ -104,7 +104,8 @@ module Zr
         target = runtime.target
         Store.root("#{target.triple}-link-#{evals ? "eval-#{evals.kind}" : "plain"}",
                    [*objects, prelink_path(objects), skeleton_path(objects), Zr.symbols_path(runtime.digest),
-                    runtime.gem_prelude_path, Zr.ledger_path(target), (evals.meta_path if evals), CodeCache.dir])
+                    runtime.gem_prelude_path, Zr.ledger_path(target), (evals.meta_path if evals),
+                    (File.dirname(runtime.carried_description) if evals), CodeCache.dir])
       rescue SystemCallError, SourceChanged
         nil # a root that is not written protects less; the link goes on
       end

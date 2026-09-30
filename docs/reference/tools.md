@@ -181,7 +181,6 @@ committed files. Thus a file that is out of date makes a test fail.
 
 | Command | Writes | Tested by |
 |---|---|---|
-| `zr-dev gen description [--target TRIPLE]` | `runtime/ext/os/<os>/zr_description.rb`. With no `--target`, it writes every OS layer. With `--target`, it writes the layer of that target. | `test/unit/description_test.rb` |
 | `zr-dev gen libsystem` | `lib/zr/obj/macho/libsystem.rb` | `test/unit/libsystem_test.rb` |
 | `zr-dev gen prism` | `runtime/ext/prism/ruby/*.rb`, from the templates in `tool/gen/prism/templates` | `test/unit/prism_test.rb` |
 | `zr-dev gen prism_encoding_tables` | `runtime/ext/prism/ruby/encoding_tables.rb` | `test/unit/prism_test.rb` |

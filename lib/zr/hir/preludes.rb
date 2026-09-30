@@ -47,7 +47,7 @@ module Zr
       # program with eval can need any of them, and here they are lowered
       # once, not with each such program.
       def self.eval_support(target = Target.default)
-        Loader.new(stdlib(target)).tap do |loader|
+        Loader.new(stdlib(target), description: description(target)).tap do |loader|
           eval_require(loader, target)
           rubygems(loader)
           rbconfig(loader)

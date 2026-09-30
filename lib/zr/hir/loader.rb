@@ -35,8 +35,9 @@ module Zr
         # sets it; `--allow-runtime-require` does not.
         def initialize(roots, eval: false, external: nil, trace: false, evals: false, covers: false, activations: nil,
                        deferred: [], preloaded: PRELOADED, ahead: Build.ahead, booted: Build.booted, prebuilt_eval: nil, gem_set: nil,
-                       gate: false)
+                       gate: false, description: nil)
           @deferred = deferred
+          @description = description
           @gem_set = gem_set
           @gate = gate
           @own = {}
@@ -479,6 +480,10 @@ module Zr
             # can change. The requiring file's directory is the second
             # place to look.
             candidate(File.expand_path(feature)) || candidate(File.expand_path(feature, File.dirname(from)))
+          elsif feature == "zr_description" && @description
+            # The kernel's description, which the build writes
+            # (`Runtime#carry_description!`); no root holds it.
+            @description.call
           else
             @roots.each do |root|
               found = candidate(File.join(root, feature)) || native(root, feature)

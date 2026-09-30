@@ -69,7 +69,7 @@ Two kinds of code meet on a program's load path (`Zr::Layout`):
 | `runtime/core/os/<os>/` | each OS's numbers for the errno, IO, File and Process constants |
 | `runtime/ext/` | the native halves of extensions, in ordinary Ruby |
 | `runtime/ext/prism/` | the prism port: `prism.rb` and `ruby/` (`Prism::Ruby`) |
-| `runtime/ext/os/<os>/` | extension tables, and the description (`zr_description.rb`) |
+| `runtime/ext/os/<os>/` | extension tables |
 | `runtime/lib/zr/` | zr's own libraries: the run-time half of eval support, and the files that load a library at its first call (`pp`, `irb`, `unicode_normalize`), as CRuby's prelude does |
 | `vendor/ruby/lib/ruby/4.0.0/` | ruby 4.0.7's own library and default gems, from ruby's source, not edited |
 | `vendor/ruby/lib/ruby/gems/4.0.0/` | the bundled gems and the gems whose C zr ports, each from its `.gem`, not edited |
@@ -84,7 +84,7 @@ beside `lib/`, not in it:
 
 - `runtime/` is never on the host's load path. zr compiles it into
   programs. The host loads only namespaced, pure parts of it, by path:
-  `Regexp::Onig`, `Prism::Ruby` and `zr_description`.
+  `Regexp::Onig` and `Prism::Ruby`.
 - `vendor/` is never on the host's load path. A file such as
   `vendor/ruby/lib/ruby/4.0.0/pathname.rb` must never replace the
   host ruby's own.

@@ -39,7 +39,6 @@ module Zr
                                 -> { require_relative "gen/openssl_constants"; OpensslConstants }],
         "zlib_tables" => ["runtime/kernel/zlib_tables.rb: zlib's tables, computed as zlib's C computes them",
                           -> { require_relative "gen/zlib_tables"; ZlibTables }],
-        "description" => ["runtime/ext/os/<os>/zr_description.rb: the kernel tables", -> { require_relative "gen/description"; Description }],
         "prism" => ["runtime/ext/prism/ruby/*.rb: the pure-Ruby prism", -> { require_relative "gen/prism"; PrismRuby }],
         "prism_encoding_tables" => ["runtime/ext/prism/ruby/encoding_tables.rb: prism's encodings",
                                     -> { require_relative "gen/prism_encoding_tables"; PrismEncodingTables }],

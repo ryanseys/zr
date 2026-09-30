@@ -5,14 +5,12 @@ require "zr/runtime"
 require "zr/native/build"
 
 # Tests the kernel description that a program includes for eval support.
-# There is one description for each OS layer. A stale description causes
-# a miscompile, so the test writes each one again and requires the same
-# bytes. `ZR_BLESS=1` writes them again.
+# A build writes it into the store from the kernel it lowered
+# (`Runtime#carry_description!`), so it cannot be stale. The test checks
+# that the carried file gives back each row of the kernel.
 class DescriptionTest < Minitest::Test
   # One target per OS layer that is its own.
   TARGETS = Zr::Target.all.select { |target| target.os_layer == target.os.to_s }.uniq(&:os_layer)
-
-  def path(target) = File.join(ROOT, "runtime/ext/os", target.os_layer, "zr_description.rb")
 
   # Lowers the kernel for this file only. Do not use `Zr.runtime`: the
   # whole process shares it, and `Native::Build.lower` releases its IR
@@ -22,11 +20,18 @@ class DescriptionTest < Minitest::Test
   # test that reads the IR then gets nothing.
   def kernel(target) = Zr::Runtime.new(target).unit
 
+  # The description as eval support reads it: the carried Ruby file of
+  # the kernel's rows, parsed back.
+  def carried(unit)
+    file = Zr::Machine::Description.carried(Zr::Machine::Description.of(unit).to_text)
+    Zr::Machine::Description.parse(file[/<<~ROWS\n(.*?)^\s*ROWS$/m, 1].gsub(/^ +/, ""))
+  end
+
   # `immediate?` is `zr_special_p` (runtime/kernel/value.rb) at compile
   # time. A lowering uses it to remove a test when the result is already
   # known. The two must agree, and the kernel's own constants decide.
   def test_description_immediate_matches_kernel_special_check
-    carried = Zr::Machine::Description.parse(File.read(path(TARGETS.first))[/<<~ROWS\n(.*?)^\s*ROWS$/m, 1].gsub(/^ +/, ""))
+    carried = carried(kernel(TARGETS.first))
     special = ->(w) { (w & 7) != 0 || w == carried.const_for("QFALSE") || w == carried.const_for("QNIL") }
 
     words = %w[QFALSE QNIL QTRUE QUNDEF].map { |name| carried.const_for(name) }
@@ -44,14 +49,9 @@ class DescriptionTest < Minitest::Test
   end
 
   TARGETS.each do |target|
-    define_method("test_the_#{target.os_layer}_description_matches_its_kernel") do
-      out, ok = Checks.generate("description", "--target", target.triple)
-      assert ok, "#{out}#{path(target)} is stale (ZR_BLESS=1 writes it)"
-    end
-
     define_method("test_the_#{target.os_layer}_description_equals_the_lowered_kernel_unit") do
       unit = kernel(target)
-      carried = Zr::Machine::Description.parse(File.read(path(target))[/<<~ROWS\n(.*?)^\s*ROWS$/m, 1].gsub(/^ +/, ""))
+      carried = carried(unit)
       live = Zr::Machine::Description.of(unit)
 
       assert_equal live.defs.keys.sort, carried.defs.keys.sort
