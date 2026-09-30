@@ -33,7 +33,7 @@ diff-lcs	2.0.0	rubygems	loads			24776b6a8e96	2026-09-29	1236352793
 docile	1.4.1	rubygems	loads			24776b6a8e96	2026-09-29	503833251
 domain_name	0.6.20260921	rubygems	loads			24776b6a8e96	2026-09-29	677781600
 dotenv	3.2.0	rubygems	loads			24776b6a8e96	2026-09-29	552446495
-erubi	1.13.1	rubygems	compiles	output-diff	stdout line 2: ruby " ", zr " Escape EscapeExt"	24776b6a8e96	2026-09-29	634060686
+erubi	1.13.1	rubygems	compiles	output-diff	"stdout line 2: ruby "" "", zr "" Escape EscapeExt"""	24776b6a8e96	2026-09-29	634060686
 excon	1.7.2	rubygems	loads			24776b6a8e96	2026-09-29	710850773
 execjs	2.10.2	rubygems	loads			24776b6a8e96	2026-09-29	416314364
 faraday	2.14.4	rubygems	loads			24776b6a8e96	2026-09-29	1266007152
@@ -108,14 +108,14 @@ rspec-mocks	3.13.8	rubygems	loads			24776b6a8e96	2026-09-29	1198799797
 rspec-rails	8.0.4	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	24776b6a8e96	2026-09-29	410258753
 rspec-support	3.13.7	rubygems	loads			24776b6a8e96	2026-09-29	1191357549
 rubocop	1.91.0	rubygems	fails	memory	the build used more than 2048 MB	24776b6a8e96	2026-09-29	751927642
-rubocop-ast	1.50.0	rubygems	skipped	ruby-error	ruby: Error: Unable to load parser >= 3.3.7.2. Add `gem "parser"` to your Gemfile or run `bundle update parser`.	24776b6a8e96	2026-09-29	568432841
+rubocop-ast	1.50.0	rubygems	skipped	ruby-error	"ruby: Error: Unable to load parser >= 3.3.7.2. Add `gem ""parser""` to your Gemfile or run `bundle update parser`."	24776b6a8e96	2026-09-29	568432841
 ruby-progressbar	1.13.0	rubygems	loads			24776b6a8e96	2026-09-29	752162408
 ruby2_keywords	0.0.5	rubygems	loads			24776b6a8e96	2026-09-29	492880195
 rubygems-update	4.0.21	rubygems	fails	no-entry	no rubygems-update.rb or rubygems/update.rb in hide_lib_for_update; name the require in gems/rubygems-update.rb	24776b6a8e96	2026-09-29	623189322
 rubyzip	3.7.0	rubygems	loads			24776b6a8e96	2026-09-29	792569109
 sawyer	0.9.3	rubygems	compiles	memory	the binary used more than 1024 MB	24776b6a8e96	2026-09-29	402986464
 signet	0.22.0	rubygems	loads			24776b6a8e96	2026-09-29	502528981
-simplecov	1.3.1	rubygems	compiles	output-diff	stdout line 29: ruby "Psych Module", zr "Prism Module"	24776b6a8e96	2026-09-29	504457143
+simplecov	1.3.1	rubygems	compiles	output-diff	"stdout line 29: ruby ""Psych Module"", zr ""Prism Module"""	24776b6a8e96	2026-09-29	504457143
 simplecov-html	0.13.2	rubygems	skipped	ruby-error	ruby: tmp/gems/src/simplecov-html-0.13.2/lib/simplecov-html.rb:9:in '<top (required)>': uninitialized constant SimpleCov (NameError)	24776b6a8e96	2026-09-29	494892227
 sprockets	4.4.1	rubygems	loads			24776b6a8e96	2026-09-29	624124189
 sprockets-rails	3.5.2	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	24776b6a8e96	2026-09-29	564832853

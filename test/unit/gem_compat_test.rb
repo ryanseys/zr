@@ -340,6 +340,16 @@ class GemCompatTest < Minitest::Test
                   "rack\t1.0\trubygems\tcompiles\toutput-diff\t\tdef\t2026-09-30\t"], lines.drop(1)
   end
 
+  def test_a_detail_with_quotes_is_quoted_as_a_tsv_reader_reads_it
+    path = File.join(@dir, "compat.tsv")
+    table = Gems::Table.new(path)
+    table.add(result("erubi", :compiles, "output-diff", 'stdout line 2: ruby " ", zr "Escape"'), commit: "c", date: "2026-09-29")
+    table.write
+
+    assert_includes File.read(path), %("stdout line 2: ruby "" "", zr ""Escape""")
+    assert_equal 'stdout line 2: ruby " ", zr "Escape"', Gems::Table.new(path)["erubi"].detail
+  end
+
   def test_a_long_detail_is_cut
     assert_equal 200, Gems::Table.clean("x" * 500).size
   end

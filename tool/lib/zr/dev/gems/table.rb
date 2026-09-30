@@ -28,7 +28,7 @@ module Zr
           return unless File.file?(path)
 
           File.foreach(path, chomp: true).drop(1).reject(&:empty?).each do |line|
-            fields = line.split("\t", -1)
+            fields = line.split("\t", -1).map { |field| Table.unquote(field) }
             row = Row.new(**COLUMNS.zip(fields.fill("", fields.size...COLUMNS.size)).to_h)
             @rows[row.gem] = row
           end
@@ -48,10 +48,17 @@ module Zr
         end
 
         def write
-          lines = [COLUMNS.join("\t"), *map { |row| row.to_h.values.join("\t") }]
+          lines = [COLUMNS.join("\t"), *map { |row| row.to_h.values.map { |field| Table.quote(field) }.join("\t") }]
           FileUtils.mkdir_p(File.dirname(@path))
           Paths.write_atomic(@path, "#{lines.join("\n")}\n")
         end
+
+        # A field as a TSV reader (GitHub's, a spreadsheet's) reads it: in
+        # double quotes, each one doubled, when it has a double quote. A
+        # field never has a tab or a line break (Table.clean).
+        def self.quote(field) = field.include?('"') ? %("#{field.gsub('"', '""')}") : field
+
+        def self.unquote(field) = field.start_with?('"') && field.end_with?('"') && field.size > 1 ? field[1..-2].gsub('""', '"') : field
 
         # The detail on one line, without tabs, and at most DETAIL long.
         def self.clean(text)
