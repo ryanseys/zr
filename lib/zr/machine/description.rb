@@ -207,9 +207,43 @@ module Zr
         @structs = structs
       end
 
-      def def_for(name) = @defs[name]
-      def const_for(name) = @consts[name]
-      def struct_for(name) = @structs[name]
+      def def_for(name) = read(:d, name, @defs[name])
+      def const_for(name) = read(:c, name, @consts[name])
+      def struct_for(name) = read(:s, name, @structs[name])
+
+      # The rows that the lookups in the block read, as `rows` gives them.
+      # A cache of lowered code keys a piece on these, not on the whole
+      # description, so a new kernel function keeps each piece that does
+      # not call it (`EvalCache`).
+      def record
+        outer = @reads
+        @reads = {}
+        yield
+        @reads
+      ensure
+        outer&.merge!(@reads) if @reads
+        @reads = outer
+      end
+
+      # The text of each row that `reads` (from `record`) names, now: nil
+      # for a name that has none.
+      def rows(reads) = reads.keys.to_h { |kind, name| [[kind, name], row(kind, name)] }
+
+      private
+
+      def read(kind, name, found)
+        @reads[[kind, name]] ||= row(kind, name) if @reads
+        found
+      end
+
+      def row(kind, name)
+        case kind
+        when :d then (d = @defs[name]) && ["d", name, d.ret, *d.params.map { |n, t| "#{n}:#{t}" }, "e", d.effects].join(" ")
+        when :c then @consts.key?(name) ? "c #{name} #{@consts[name]}" : nil
+        when :s
+          (l = @structs[name]) && ["s", name, l.size, l.align, *l.fields.map { |n, (at, type)| "#{n}:#{at}:#{type}" }].join(" ")
+        end
+      end
 
     end
   end

@@ -75,4 +75,39 @@ class DescriptionTest < Minitest::Test
     Zr::Native::Build.lower("p 1\n", "description_test.rb", target: TARGETS.first)
     assert_predicate Zr::Machine::Description.of(kernel(TARGETS.first)).defs, :any?
   end
+
+  ROWS = <<~ROWS
+    d zr_a Value v:Value
+    e zr_a 3
+    c QNIL 8
+    s Pair 16 8 left:0:Value right:8:Value
+  ROWS
+
+  # A cache of lowered code keeps the rows that a piece read
+  # (`EvalCache`), so a kernel edit that the piece does not read keeps it.
+  def test_record_gives_each_row_that_the_lookups_read
+    description = Zr::Machine::Description.parse(ROWS)
+
+    reads = description.record do
+      description.def_for("zr_a")
+      description.const_for("QNIL")
+      description.struct_for("Pair")
+      description.def_for("zr_missing")
+    end
+
+    assert_equal({ [:d, "zr_a"] => "d zr_a Value v:Value e 3", [:c, "QNIL"] => "c QNIL 8",
+                   [:s, "Pair"] => "s Pair 16 8 left:0:Value right:8:Value", [:d, "zr_missing"] => nil }, reads)
+    assert_nil description.record { nil }.first
+  end
+
+  def test_rows_change_only_with_a_row_that_was_read
+    reads = Zr::Machine::Description.parse(ROWS).then { |d| d.record { d.def_for("zr_a") && d.def_for("zr_new") } }
+    added = Zr::Machine::Description.parse("#{ROWS}d zr_b Value\ne zr_b 0\n")
+    changed = Zr::Machine::Description.parse(ROWS.sub("e zr_a 3", "e zr_a 1"))
+    defined = Zr::Machine::Description.parse("#{ROWS}d zr_new Value\ne zr_new 0\n")
+
+    assert_equal reads, added.rows(reads)
+    refute_equal reads, changed.rows(reads)
+    refute_equal reads, defined.rows(reads)
+  end
 end

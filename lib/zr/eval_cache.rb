@@ -32,8 +32,8 @@ module Zr
       @lower = lower
       @symbols = symbols
       @program = lower.program
-      @base = Digest::SHA256.hexdigest([VERSION, @target.triple, Paths.root.to_s, Zr.compiler_digest(@target), description.to_text,
-                                        @program.file].join("\0"))
+      @description = description
+      @base = Digest::SHA256.hexdigest([VERSION, @target.triple, Paths.root.to_s, Zr.compiler_digest(@target), @program.file].join("\0"))
       @entry_functions, @entry_data = lower.lower_entry
       pieces = Zr.clock("eval cache: units") do
         @program.units.each_index.map do |i|

@@ -38,7 +38,7 @@ module Zr
   class LoweringCache
     VERSION = 2
 
-    Lowered = Struct.new(:path, :entry, :key, :functions, :data, :names, :sites, :wants, :small)
+    Lowered = Struct.new(:path, :entry, :key, :functions, :data, :names, :sites, :wants, :small, :reads)
     Kept = Struct.new(:path, :entry, :key, :record, :data)
 
     EMPTY = Set.new.freeze
@@ -63,7 +63,7 @@ module Zr
 
         leaves = piece.functions.select { |f| @inliner.settled_leaf?(f.name) }
         record = {
-          names: piece.names, sites: piece.sites, wants: piece.wants, data: Marshal.dump(piece.data),
+          names: piece.names, sites: piece.sites, wants: piece.wants, reads: piece.reads, data: Marshal.dump(piece.data),
           functions: piece.functions.map { |f| [f.name, fingerprints.fetch(f.name)] },
           calls: piece.functions.to_h { |f| [f.name, @inliner.calls(f.name).to_h { |sym| [sym, dependency(sym)] }] },
           bits: piece.functions.flat_map { |f| f.callees.map(&:symbol) }.uniq.to_h { |sym| [sym, defined.include?(sym)] },
@@ -86,12 +86,12 @@ module Zr
     # no key can describe; it is always lowered.
     def piece(path, entry, key, &lower)
       record = key && fetch(key)
-      if record && @symbols.fits?(record[:names]) && @symbols.sites == record[:sites].first
+      if record && @symbols.fits?(record[:names]) && @symbols.sites == record[:sites].first && reads_hold?(record)
         @symbols.replay(record[:names])
         @symbols.sites = record[:sites].last
         Kept.new(path, entry, key, record)
       else
-        why(path, key.nil? ? "no key" : record ? (@symbols.fits?(record[:names]) ? "sites" : "names") : "no entry")
+        why(path, key.nil? ? "no key" : record ? why_not(record) : "no entry")
         lowered(path, entry, key, &lower)
       end
     end
@@ -106,11 +106,37 @@ module Zr
       end
       before = @symbols.sites
       functions = data = nil
-      names = @symbols.record { functions, data = yield }
+      reads = nil
+      names = @symbols.record { reads = reading { functions, data = yield } }
       piece = Lowered.new(path, entry, key, functions, data, names, [before, @symbols.sites], wants_of(functions),
-                          functions.to_h { |f| [f.name, small?(f)] })
+                          functions.to_h { |f| [f.name, small?(f)] }, reads)
       @symbols.sites = after if sites
       piece
+    end
+
+    # The kernel description that the pieces read, or nil when the key
+    # holds all of it. With one, an entry keeps the rows that its piece
+    # read (`Machine::Description#record`), and holds while each is the
+    # same: a kernel edit that the piece does not read keeps it.
+    attr_reader :description
+
+    def reading(&)
+      return (yield; {}) unless description
+
+      description.record(&)
+    end
+
+    def reads_hold?(record)
+      return true unless description
+
+      reads = record[:reads]
+      reads.is_a?(Hash) && description.rows(reads) == reads
+    end
+
+    def why_not(record)
+      return "names" unless @symbols.fits?(record[:names])
+
+      @symbols.sites == record[:sites].first ? "kernel rows" : "sites"
     end
 
     # Whether `f` can become a leaf: a function with more instructions than
