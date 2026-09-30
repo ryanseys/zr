@@ -46,6 +46,8 @@ module Zr
         "prism_encoding_tables" => ["runtime/ext/prism/ruby/encoding_tables.rb: prism's encodings",
                                     -> { require_relative "gen/prism_encoding_tables"; PrismEncodingTables }],
         "support" => ["docs/reference/support.md: what zr refuses, from the compiler", -> { require_relative "gen/support"; Support }],
+        "gem-compat" => ["docs/reference/gem-compat.md: how far each gem gets, from gems/compat.tsv",
+                         -> { require_relative "gen/gem_compat"; GemCompat }],
         "perf" => ["docs/explanation/performance.md: the newest benchmark reports", -> { require_relative "gen/perf"; Perf }]
       })
 

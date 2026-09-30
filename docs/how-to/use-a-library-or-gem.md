@@ -171,6 +171,8 @@ It has these limits:
   cannot run a file that zr did not compile into the module.
 - zr does not test a Gemfile of third-party gems. A pure-Ruby gem that
   zr supports can work; a gem with a C extension does not.
+  [Gem compatibility](../reference/gem-compat.md) lists how far each
+  popular gem gets.
 
 See [Eval in a compiled program](../explanation/eval-in-a-compiled-program.md).
 

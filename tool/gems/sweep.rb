@@ -24,6 +24,7 @@ module Zr
         end
 
         def run(argv)
+          $stdout.sync = true
           words = argv.dup
           if @top
             top = Gems::Top.read

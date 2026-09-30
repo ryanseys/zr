@@ -106,6 +106,17 @@ gives more examples.
 | `zr-dev reference [--check]` | Installs the gems of the ruby that every expected output comes from, into `tmp/reference/gems`: ruby 4.0.7's bundled gems, and zr's versions of the gems whose C it ports (`lib/zr/ports.rb`). `bin/setup` runs it. The oracle, `record`, `probe` and the spec tier run ruby with only these gems (`test/support/harness/reference.rb`). `--check` installs nothing. |
 | `zr-dev progress` | Prints the progress of the tier that runs now, or of the last tier (`tmp/test-progress.txt`). |
 
+### Gems
+
+[How to check a gem](../how-to/check-a-gem.md) tells more. A gem is `NAME`, `NAME=VERSION` or the path of an unpacked gem. `--corpus DIR` (or `ZR_GEM_CORPUS`) finds each gem first in `DIR/<name>`; `--offline` fetches nothing.
+
+| Command | Does |
+|---|---|
+| `zr-dev gems try GEM [--keep] [--save]` | Fetches the gem and the gems that it needs (ruby platform only), builds a program that requires it, runs the program under ruby 4.0.7 and as a zr binary, and prints the tier, the diff and the path of the log (`tmp/gems/logs`). `--keep` keeps the work directory. `--save` writes the row into `gems/compat.tsv`. |
+| `zr-dev gems sweep [GEM...] [--top N] [--jobs N] [--save]` | Tries many gems, one line each, then counts the tiers. `--top N` adds the N most downloaded gems of `gems/top.tsv`. The rows go into `tmp/gems/sweep-<time>.tsv`, or with `--save` into `gems/compat.tsv`. |
+| `zr-dev gems triage [KIND] [--file TSV]` | Groups the gems that do not load by the kind of failure, the kind that stops the most gems first. With `KIND`, it gives each gem of that kind with its detail. |
+| `zr-dev gems top [--refresh] [--count N]` | Prints the most downloaded gems with their tiers. `--refresh` writes `gems/top.tsv` again from packages.ecosyste.ms. |
+
 ### Specs and recordings
 
 | Command | Does |
@@ -157,6 +168,7 @@ in `tool/gen/`.
 | `zr-dev gen emoji` | `runtime/core/emoji.rb` |
 | `zr-dev gen builtin_lines` | `runtime/core/builtin_lines.rb` |
 | `zr-dev gen tables` | This OS's errno, fcntl, etc and socket tables, into `runtime/core/os/<os>/` and `runtime/ext/os/<os>/`. The socket table reads `ext/socket/mkconstants.rb` from `RUBY_SRC`, or from the copy that `MKCONSTANTS` names. |
+| `zr-dev gen gem-compat` | `docs/reference/gem-compat.md`: how far each gem gets with zr, from `gems/compat.tsv`. It runs no gem; `zr-dev gems sweep --save` writes the table. |
 
 #### Generated files that the unit tier tests
 

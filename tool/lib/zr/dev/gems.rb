@@ -30,6 +30,8 @@ module Zr
       # detail.
       class Failure < StandardError
         attr_reader :kind, :tier
+        # The gem that the failure is of, when the tool found it.
+        attr_accessor :subject
 
         def initialize(kind, detail, tier: :fails)
           super(detail.to_s)

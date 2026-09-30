@@ -93,6 +93,37 @@ class GemCompatTest < Minitest::Test
     assert_includes error.message, "helper"
   end
 
+  def test_the_resolver_goes_past_zrs_version_when_another_gem_needs_an_older_one
+    corpus = gem_dir("corpus/minitest", "5.25.0")
+    gem_dir("corpus/old", "1.0.0", "minitest" => "< 6")
+    root = gem_dir("root", "1.0.0", "minitest" => ">= 0", "old" => ">= 1")
+    resolver = Gems::Resolver.new(store: Gems::Store.new(@dir), corpus: Gems::Corpus.new(File.dirname(corpus)), offline: true, remote: nil)
+    _, deps = resolver.resolve(Gems::Request.parse(root))
+
+    assert_equal ["minitest 5.25.0", "old 1.0.0"], deps.map(&:to_s).sort
+  end
+
+  def test_the_sets_keep_each_platform_of_a_version
+    specs = %w[arm64-darwin ruby].map do |platform|
+      Gem::Specification.new do |s|
+        s.name = "native"
+        s.version = "1.0.0"
+        s.platform = platform
+      end
+    end
+    set = Class.new(Gem::Resolver::Set) { define_method(:find_all) { |_| specs } }.new
+    request = Gem::Resolver::DependencyRequest.new(Gem::Dependency.new("native"), nil)
+
+    assert_equal %w[arm64-darwin ruby], Gems::Resolver::Preferred.new([set, set]).find_all(request).map { |s| s.platform.to_s }
+  end
+
+  def test_a_failure_to_resolve_keeps_the_gems_version
+    root = gem_dir("root", "1.0.0", "helper" => ">= 9")
+    trial_result = trial(Runner.new).call(Gems::Request.parse(root))
+
+    assert_equal ["root", "1.0.0", :fails, "resolve"], [trial_result.name, trial_result.version, trial_result.tier, trial_result.kind]
+  end
+
   def test_offline_a_gem_missing_from_the_corpus_and_the_store_is_not_found
     error = assert_raises(Gems::Failure) { resolver.resolve(Gems::Request.parse("absent")) }
     assert_equal "not-found", error.kind
@@ -160,6 +191,14 @@ class GemCompatTest < Minitest::Test
     assert_equal "only", trial.entry(CORPUS.find("loner"))
   end
 
+  def test_the_entry_can_be_the_name_with_underscores
+    dir = gem_dir("activerecord", "8.1.4")
+    File.write(File.join(dir, "lib/arel.rb"), "")
+    File.write(File.join(dir, "lib/active_record.rb"), "")
+
+    assert_equal "active_record", trial(Runner.new).entry(Gems::Corpus.read(dir, source: "path"))
+  end
+
   def test_a_gem_with_no_entry_fails
     dir = File.join(@dir, "empty-1.0.0")
     FileUtils.mkdir_p(File.join(dir, "lib"))
@@ -183,6 +222,23 @@ class GemCompatTest < Minitest::Test
     assert_equal %i[build ruby zr], runner.steps
     assert_includes runner.argvs.first, "helper=#{CORPUS.find("helper").root}"
     assert File.file?(result.log)
+  end
+
+  def test_ruby_loads_its_own_copy_of_a_gem_that_zr_ports
+    dir = json_at("3.0.9")
+    runner = Runner.new
+    result = trial(runner).call(Gems::Request.parse(dir))
+
+    assert_equal :loads, result.tier
+    assert_includes runner.argvs[0], "json=#{dir}", "zr builds the gem's Ruby half with its port"
+    refute_includes runner.argvs[1], File.join(dir, "lib"), "the unpacked gem has no compiled C for ruby"
+  end
+
+  def test_a_gem_at_the_version_that_zr_carries_is_no_override
+    runner = Runner.new
+    trial(runner).call(Gems::Request.parse(json_at(Zr::Ports::ALL["json"].version)))
+
+    refute_includes runner.argvs[0], "--gem"
   end
 
   def test_a_smoke_program_that_gives_rubys_output_verifies_the_gem
@@ -300,6 +356,34 @@ class GemCompatTest < Minitest::Test
   # The reference ruby, without tmp/reference.
   module Reference
     def self.env = {}
+  end
+
+  # A gem `name` at `version` below the test's directory, with a gemspec
+  # that lists `deps` (`{ name => requirement }`) and an empty lib/.
+  def gem_dir(rel, version, deps = {})
+    dir = File.join(@dir, rel)
+    name = File.basename(rel)
+    FileUtils.mkdir_p(File.join(dir, "lib"))
+    File.write(File.join(dir, "#{name}.gemspec"), <<~RUBY)
+      Gem::Specification.new do |s|
+        s.name = #{name.dump}
+        s.version = #{version.dump}
+        s.summary = "a fixture"
+        s.authors = ["zr"]
+        #{deps.map { |dep, requirement| "s.add_dependency #{dep.dump}, #{requirement.dump}" }.join("\n  ")}
+      end
+    RUBY
+    dir
+  end
+
+  # An unpacked json at `version`, with its C extension.
+  def json_at(version)
+    dir = File.join(@dir, "json-#{version}")
+    FileUtils.mkdir_p(File.join(dir, "lib"))
+    File.write(File.join(dir, "lib/json.rb"), "")
+    File.write(File.join(dir, ".zeo-probe-version"), version)
+    File.write(File.join(dir, ".zeo-probe-spec"), '{"extensions":["ext/json/extconf.rb"],"require_paths":["lib"]}')
+    dir
   end
 
   def answer(stdout, stderr = "", status = 0) = Zr::Diff::Answer.new(stdout, stderr, status, nil, false)

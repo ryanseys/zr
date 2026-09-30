@@ -26,6 +26,8 @@ Steps for a goal that you already have.
 - [How to debug a wrong answer](how-to/debug-a-wrong-answer.md)
 - [How to add a method to the core library](how-to/add-a-core-method.md)
 - [How to port a C extension](how-to/port-a-c-extension.md)
+- [How to check a gem](how-to/check-a-gem.md): which gems zr compiles,
+  and what stops the others
 - [How to update zr's standard library](how-to/update-the-stdlib.md)
 - [How to test on another target](how-to/test-on-another-target.md)
 - [How to measure performance](how-to/measure-performance.md)
@@ -45,6 +47,8 @@ Facts about commands, formats and layouts.
 - [Differences from ruby](reference/differences-from-ruby.md): what zr
   refuses on purpose, and the ruby bugs that zr does not copy
 - [Dependencies](reference/dependencies.md)
+- [Gem compatibility](reference/gem-compat.md): how far each gem that
+  `zr-dev gems` tried gets with zr
 - [The spec DSL](reference/spec-dsl.md): `zr`, `must_answer` and the
   format rules of a spec file
 - [Whole programs](reference/test-format.md): the e2e programs and

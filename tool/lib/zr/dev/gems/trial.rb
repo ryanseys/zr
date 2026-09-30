@@ -105,7 +105,7 @@ module Zr
           end
           finish(request, subject, tier, nil, nil, log)
         rescue Failure => e
-          finish(request, subject, e.tier, e.kind, e.message, log)
+          finish(request, subject || e.subject, e.tier, e.kind, e.message, log)
         rescue Gem::Exception, SystemCallError, SocketError => e
           # A download, an unpack or a gemspec that fails.
           log << e.full_message(highlight: false)
@@ -113,14 +113,18 @@ module Zr
         end
 
         # The feature that requires the gem: its name, its name with each
-        # `-` as `/` (net-http as net/http), or the only .rb file at the
-        # top of its require paths.
+        # `-` as `/` (net-http as net/http), the .rb file at the top of its
+        # require paths whose name is the gem's without `_` and `-`
+        # (activerecord as active_record), or the only such file.
         def entry(subject)
           names = [subject.name, subject.name.tr("-", "/")].uniq
           roots = subject.roots.select { |root| File.directory?(root) }
           names.each { |name| return name if roots.any? { |root| File.file?(File.join(root, "#{name}.rb")) } }
-          tops = roots.flat_map { |root| Dir.children(root).grep(/\.rb\z/) }
-          return tops.first.delete_suffix(".rb") if tops.one?
+          tops = roots.flat_map { |root| Dir.children(root).grep(/\.rb\z/) }.map { |file| file.delete_suffix(".rb") }.sort
+          bare = ->(name) { name.delete("_-").downcase }
+          alike = tops.find { |top| bare.(top) == bare.(subject.name) }
+          return alike if alike
+          return tops.first if tops.one?
 
           raise Failure.new("no-entry", "no #{names.map { |name| "#{name}.rb" }.join(" or ")} in #{subject.require_paths.join(", ")}; " \
                                         "name the require in gems/#{subject.name}.rb")
@@ -136,13 +140,19 @@ module Zr
           File.write(File.join(dir, name), text)
           exe = name.delete_suffix(".rb")
           say "building #{name}"
+          # A gem at the version that zr carries (its standard library and
+          # its ports) comes from zr, and from the reference ruby's copy.
+          gems = gems.reject { |gem| Resolver::Provided.versions[gem.name] == gem.version }
           flags = gems.flat_map { |gem| ["--gem", "#{gem.name}=#{gem.root}"] }
           built, limit = run(log, "zr build", [Dev.ruby, Dev.path("exe/zr"), "build", *flags, name, "-o", exe],
                              dir: dir, seconds: BUILD_SECONDS, megabytes: Harness::Child::BUILD_MB, env: { "BUNDLE_GEMFILE" => nil })
           raise build_failure(built, limit) unless built.status&.zero?
 
           say "running #{name} under ruby and as a zr binary"
-          ruby, = run(log, "ruby", [Dev.ruby, *gems.flat_map(&:roots).flat_map { |root| ["-I", root] }, name],
+          # A gem with a C extension here is one that zr ports. An unpacked
+          # copy has no compiled C, so ruby loads the reference's own copy.
+          roots = gems.reject(&:cext?).flat_map(&:roots)
+          ruby, = run(log, "ruby", [Dev.ruby, *roots.flat_map { |root| ["-I", root] }, name],
                       dir: dir, seconds: RUN_SECONDS, megabytes: Harness::Child::RUN_MB, env: @reference.env)
           unless ruby.status&.zero?
             raise Failure.new("ruby-error", "ruby: #{first_line(ruby.stderr) || ruby.status || "stopped"}", tier: :skipped)
@@ -179,6 +189,7 @@ module Zr
             Failure.new("missing-require:#{feature}", line)
           elsif built.status == REFUSED
             form = text[/does not support (.+?) yet/, 1]
+            form ||= "eval with an override" if text.include?("uses eval, so it carries")
             Failure.new(form ? "refused:#{form}" : "refused", line, tier: :refused)
           elsif built.signal || text.include?("internal error")
             Failure.new("zr-crash", line || "signal #{built.signal}")

@@ -41,6 +41,9 @@ module Zr
           LOCK.synchronize do
             subject = find(request)
             [subject, dependencies(subject)]
+          rescue Failure => e
+            e.subject ||= subject
+            raise
           end
         end
 
@@ -91,9 +94,21 @@ module Zr
           Gem.platforms = saved
         end
 
+# A set makes new specs for each lookup, and the resolver compares
+# the specs of two lookups: one name, version and source is one
+# spec, as Gem::Resolver::VendorSpecification has it.
+module Same
+  def ==(other) = other.instance_of?(self.class) && full_name == other.full_name && source == other.source
+  alias eql? ==
+
+  def hash = [self.class, full_name].hash
+end
+
         # The gems of zr's own library, at zr's versions.
         class Provided < Gem::Resolver::Set
           class Spec < Gem::Resolver::SpecSpecification
+            include Same
+
             def install(_options = {}) = yield(nil)
           end
 
@@ -112,6 +127,8 @@ module Zr
         # The subjects that a block gives for a name: nil, one, or a list.
         class Local < Gem::Resolver::Set
           class Spec < Gem::Resolver::SpecSpecification
+            include Same
+
             attr_reader :subject
 
             def initialize(set, subject)
@@ -132,20 +149,18 @@ module Zr
           end
         end
 
-        # The first set that has a match, not the newest match of all sets.
+        # The matches of every set, those of the first set first, and one of
+        # each version and platform. rubygems' resolver tries the source that it sees
+        # first before the others (Gem::Resolver#search_for), so an earlier
+        # set wins, and a later set still gives the versions that another
+        # gem's requirement needs (minitest 5 when zr carries minitest 6).
         class Preferred < Gem::Resolver::Set
           def initialize(sets)
             super()
             @sets = sets
           end
 
-          def find_all(request)
-            @sets.each do |set|
-              found = set.find_all(request)
-              return found unless found.empty?
-            end
-            []
-          end
+          def find_all(request) = @sets.flat_map { |set| set.find_all(request) }.uniq { |spec| [spec.name, spec.version.to_s, spec.platform.to_s] }
 
           def prefetch(requests) = @sets.each { |set| set.prefetch(requests) }
 
