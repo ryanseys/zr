@@ -585,44 +585,40 @@ module Zr
       lines.join("\n")
     end
 
-    # ruby's report for `input`, which does not parse, or nil when it
-    # parses (then a file that it requires did not). The report uses
-    # syntax_suggest, and always zr's own copy (vendor/ruby), as a stock ruby
-    # 4.0.7 has it. A ruby that booted with gems has loaded one already; if
-    # that one is another version, a ruby without gems writes the report.
-    # Only CRuby runs this, with a computed path, so the compiled compiler
-    # does not link syntax_suggest in and uses the parser's report.
-    def syntax_report(input)
-      unless Zr.compiled?
-        require_relative "libraries"
-        if defined?(SyntaxSuggest::VERSION) && SyntaxSuggest::VERSION != Stdlib::DEFAULT.fetch("syntax_suggest")
-          script = "require ARGV[0]; report = Zr::CLI.syntax_report(ARGV[1]); report ? print(report) : exit(2)"
-          out = IO.popen([RbConfig.ruby, "--disable-gems", "-e", script, File.expand_path("cli.rb", __dir__), input], err: File::NULL, &:read)
-          return $?.exitstatus == 2 ? nil : out
-        end
-        # Load `api` by its path first, so `core_ext` does not require it by
-        # name. A second core_ext would wrap the message twice.
-        unless defined?(SyntaxSuggest.module_for_detailed_message)
-          syntax_suggest = File.join(Libraries.root, "syntax_suggest")
-          require File.join(syntax_suggest, "api")
-          require File.join(syntax_suggest, "core_ext")
-        end
-      end
-      # ruby prints the parse's warnings before it reports the error, so the
-      # report includes them.
+    # The program that writes ruby's report of a syntax error. It loads
+    # zr's own syntax_suggest (vendor/ruby) by its path, as a stock ruby
+    # 4.0.7 has it: `api` first, so `core_ext` does not require it by name
+    # (a second core_ext would wrap the message twice). ruby prints the
+    # parse's warnings before the error, so the report has them too. It
+    # exits 2 when the file parses.
+    SYNTAX_REPORT = <<~'RUBY'
+      syntax_suggest, input = ARGV
+      require File.join(syntax_suggest, "api")
+      require File.join(syntax_suggest, "core_ext")
       warned = +""
       sink = Object.new
       sink.define_singleton_method(:write) { |*parts| warned << parts.join }
-      was = $stderr
       $stderr = sink
       begin
         RubyVM::InstructionSequence.compile_file(input)
+      rescue SyntaxError => e
+        error = e
       ensure
-        $stderr = was
+        # syntax_suggest writes to $stderr as it builds the message.
+        $stderr = STDERR
       end
-      nil
-    rescue SyntaxError => e
-      "#{warned}#{input}: #{e.detailed_message(highlight: false)}\n"
+      exit 2 unless error
+      print warned, input, ": ", error.detailed_message(highlight: false), "\n"
+    RUBY
+
+    # ruby's report for `input`, which does not parse, or nil when it
+    # parses (then a file that it requires did not). The host ruby writes
+    # it, without gems, so no other version of syntax_suggest is loaded.
+    def syntax_report(input)
+      require_relative "libraries"
+      argv = [Config.current.host_ruby, "--disable-gems", "-e", SYNTAX_REPORT, File.join(Libraries.root, "syntax_suggest"), input]
+      out = IO.popen(argv, err: File::NULL, &:read)
+      $?.success? ? out : nil
     end
 
     # A binary's functions are assembled as they are lowered, so the IR of

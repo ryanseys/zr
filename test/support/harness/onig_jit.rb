@@ -2,6 +2,7 @@
 
 require_relative "kernel_jit"
 require_relative "../../../lib/zr/runtime"
+require_relative "onig"
 
 module Zr
   module Harness
@@ -14,7 +15,7 @@ module Zr
       TIMEOUT = -23
 
       def initialize
-        Zr::RuntimeSources.require_onig
+        Zr::Harness::Onig.load!
         @kernel = KernelJIT.new("onig_*.rb", constants: { "CLOCK_MONOTONIC" => 6 })
       end
 

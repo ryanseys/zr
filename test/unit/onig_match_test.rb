@@ -3,12 +3,13 @@
 require "test_helper"
 require_relative "../support/harness/kernel_jit"
 require_relative "../../lib/zr/runtime"
+require_relative "../support/harness/onig"
 
 # Compares the kernel matcher (runtime/kernel/onig_*.rb) with ruby's own
 # engine. The core compiles each pattern under this ruby. The test
 # JIT-loads the kernel unit, which does the search. `Regexp` on the same
 # subject gives the expected position and byte offsets of each capture.
-Zr::RuntimeSources.require_onig
+Zr::Harness::Onig.load!
 
 class OnigMatchTest < Minitest::Test
   O = Regexp::Onig

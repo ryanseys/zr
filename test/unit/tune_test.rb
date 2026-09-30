@@ -30,14 +30,14 @@ class TuneTest < Minitest::Test
     with_env("RUBY_GC_MALLOC_LIMIT" => nil, "RUBY_GC_OLDMALLOC_LIMIT" => nil, Tune::ADDED => nil) do
       stub_method(Tune, :exec, ->(*args) { started = args }) do
         stub_method(Tune, :yjit, -> {}) do
-          Tune.later("exe/zr", %w[run a.rb], env: { "ZR_HANDED" => "1" })
+          Tune.later("exe/zr", %w[run a.rb], env: { "FOO" => "1" })
           assert_nil started, "a warm build does not start again"
           Tune.heavy!
         end
       end
     end
     env, ruby, script, *argv = started
-    assert_equal({ "ZR_HANDED" => "1", Tune::ADDED => "1" }, env)
+    assert_equal({ "FOO" => "1", Tune::ADDED => "1" }, env)
     assert_equal [RbConfig.ruby, "exe/zr", %w[run a.rb]], [ruby, script, argv]
   ensure
     Tune.instance_variable_set(:@pending, false)

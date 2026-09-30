@@ -4,8 +4,8 @@ module Zr
   module Dev
     module Gems
       # A copy of zr at one commit, in tmp/gems/zr/<commit>: a git
-      # worktree with its own cache (tmp/cache below it), its own runtime
-      # and its own compiled compiler. A long sweep builds with the copy,
+      # worktree with its own cache (tmp/cache below it) and its own
+      # runtime. A long sweep builds with the copy,
       # so a change to zr in the checkout does not stop its builds
       # (Zr::SourceChanged), and each row names the zr that made it.
       class Snapshot

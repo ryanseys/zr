@@ -36,16 +36,17 @@ class EvalDetectionTest < Minitest::Test
     refute carried?(%(autoload :URI, "uri"\np URI.name\n))
   end
 
-  # These cases still need eval support. `fileutils` and `json` define
-  # methods with an eval of a heredoc that interpolates computed names,
+  # These cases still need eval support. `fileutils` defines methods
+  # with an eval of a heredoc that interpolates computed names,
   # for example `names.each { |name| module_eval("def #{name}...") }`.
   # Thus the compiler cannot read the string at build time. Of the 36
   # heredoc evals in the vendored stdlib, 31 interpolate. Thus
-  # `require "fileutils"` adds 44 MB to a program.
+  # `require "fileutils"` adds 44 MB to a program. json evals nothing:
+  # its receiverless `load` is JSON's own method.
   def test_heredoc_eval_includes_eval_support
     assert carried?(%(class K; end\nK.class_eval <<~R\n  def a = 1\nR\n))
     assert carried?(%(require "fileutils"\np FileUtils.respond_to?(:mkdir_p)\n))
-    assert carried?(%(require "json"\np JSON.name\n))
+    refute carried?(%(require "json"\np JSON.name\n))
   end
 
   # Each `using` fills an entry in one refinement table for the whole

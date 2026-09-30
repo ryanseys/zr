@@ -37,6 +37,7 @@ module Zr
                        deferred: [], preloaded: PRELOADED, ahead: Build.ahead, booted: Build.booted, prebuilt_eval: nil, gem_set: nil,
                        gate: false, description: nil)
           @deferred = deferred
+          @modules = {}
           @description = description
           @gem_set = gem_set
           @gate = gate
@@ -275,6 +276,15 @@ module Zr
         # compiles ruby at run time: all code in a box, and every string
         # that an instruction sequence compiles, goes through the compiler.
         COMPILES = %i[Ruby InstructionSequence].freeze
+
+        # The classes and modules that the program's files define, by
+        # lexical name (`Prism::Ruby`). A bare `Ruby` inside `module Prism`
+        # is Prism's own module then, not Ruby::Box.
+        def module_defined!(path, name) = @modules[[*path, name].join("::")] = true
+
+        # Whether `name`, read in the lexical `path`, names a class or
+        # module that a file defines inside that path.
+        def module_defined?(path, name) = path.size.downto(1).any? { |n| @modules.key?([*path.first(n), name].join("::")) }
 
         def compiles!(name)
           @evals = true if COMPILES.include?(name)

@@ -580,6 +580,7 @@ module Zr
         when Prism::OrNode then Or.new(expr(node.left), expr(node.right, taken: taken), line)
         when Prism::ClassNode
           scope, name = constant_path(node.constant_path)
+          @loader&.module_defined!(@path, node.constant_path.slice)
           superclass = node.superclass && expr(node.superclass)
           in_definee(node.constant_path.slice, false) do
             in_scope do
@@ -589,6 +590,7 @@ module Zr
           end
         when Prism::ModuleNode
           scope, name = constant_path(node.constant_path)
+          @loader&.module_defined!(@path, node.constant_path.slice)
           in_definee(node.constant_path.slice, false) do
             in_scope do
               body = node.body ? expr(node.body) : Literal.new(nil, line)
@@ -606,11 +608,12 @@ module Zr
             end
           end
         when Prism::ConstantReadNode
-          @loader&.compiles!(node.name)
+          @loader&.compiles!(node.name) unless @loader&.module_defined?(@path, node.name)
           gems!(node.name)
           ConstRead.new(nil, node.name, line)
         when Prism::ConstantPathNode
-          @loader&.compiles!(node.name)
+          # `Prism::Ruby` is not Ruby::Box: only a top-level `Ruby` compiles.
+          @loader&.compiles!(node.name) unless node.name == :Ruby && node.parent
           gems!(node.name) if node.parent.nil?
           scope, name = constant_path(node)
           ConstRead.new(scope, name, line)
@@ -1152,7 +1155,10 @@ module Zr
       # links in the compiler.
       def plain_call(node, compiles: true)
         args, kwargs, forwarded = arguments(node.arguments)
-        kernel = compiles && (node.receiver.nil? || (node.receiver.is_a?(Prism::ConstantReadNode) && node.receiver.name == :Kernel))
+        # A receiverless call in a module that defines its own `load` or
+        # `require` goes to that method (json's `JSON.load`), not Kernel's.
+        kernel = compiles && ((node.receiver.nil? && !shadowed?(node.name)) ||
+                              (node.receiver.is_a?(Prism::ConstantReadNode) && node.receiver.name == :Kernel))
         @loader.evals!(node.name, args, kernel: kernel)
         gems!(:Gem) if node.name == :gem && node.receiver.nil?
         @loader.load_path_changed!(node, @file)

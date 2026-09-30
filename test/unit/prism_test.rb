@@ -3,6 +3,7 @@
 require "test_helper"
 require_relative "../support/harness/prism_diff"
 require_relative "../../tool/lib/zr/dev"
+require_relative "../../lib/zr/ports"
 require_relative "../../runtime/ext/prism/ruby"
 require "stringio"
 
@@ -13,6 +14,14 @@ require "stringio"
 # the same objects as the C.
 class PrismTest < Minitest::Test
   PrismDiff = Zr::Harness::PrismDiff
+
+  # lib/zr/prism.rb names prism's directory by a literal path, so zr sees
+  # it when it compiles zr. It must be the directory of the vendored gem.
+  def test_the_load_path_names_the_vendored_prism
+    rel = Zr::Ports.lib("prism").delete_prefix(File.join(ROOT, ""))
+
+    assert_includes File.read(File.join(ROOT, "lib/zr/prism.rb")), %(File.expand_path("../../#{rel}", __dir__))
+  end
 
   def test_the_generated_files_are_current
     out, ok = Checks.generate("prism")

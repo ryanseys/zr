@@ -3,10 +3,10 @@
 require "rbconfig"
 require_relative "program_run"
 require_relative "binaries"
-require_relative "harness/reference"
 require_relative "harness/runner"
 require_relative "../../lib/zr/native/build"
 require_relative "../../lib/zr/runtime"
+require_relative "../../lib/zr/cli"
 
 module Zr
   module Test
@@ -102,7 +102,7 @@ module Zr
         # For a program that does not parse, ruby prints a report and
         # exits 1. The binary does the same, with the ruby report.
         # `Zr::CLI.lower` does the same, and the two must stay the same.
-        report = syntax_report(rel)
+        report = CLI.syntax_report(rel)
         return [:refused, "a required file does not parse: #{e.message.lines.first.chomp}"] unless report
 
         compile("$stderr.write(#{report.inspect})\nexit 1\n", rel, target)
@@ -110,27 +110,6 @@ module Zr
 
       def compile(source, rel, target)
         target.link ? Native::Build.lower(source, rel, target: target) : Zr.program(source, rel, target: target)
-      end
-
-      # The program that a bare ruby runs to write the report. It prints
-      # the file path as given, because the binary contains that path.
-      REPORT = <<~'RUBY'
-        $stderr = $stdout
-        begin
-          RubyVM::InstructionSequence.compile_file(ARGV[0])
-        rescue SyntaxError => e
-          print ARGV[0], ": ", e.detailed_message(highlight: false), "\n"
-        end
-      RUBY
-
-      # The ruby report for a file that does not parse, or nil when ruby
-      # parses it and the error came from a required file. The reference
-      # ruby writes it: it made the expected outputs.
-      def syntax_report(rel)
-        out, = Harness::Child.run([RbConfig.ruby, "-e", REPORT, rel], cwd: Dir.pwd, seconds: ProgramRun::LIMIT,
-                                                                      megabytes: Harness::Child::RUN_MB,
-                                                                      env: Harness::Reference.env)
-        out.stdout.empty? ? nil : out.stdout
       end
 
       # The answer of the binary, or `[kind, why]` when it does not count.

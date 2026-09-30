@@ -14,10 +14,11 @@ end
 # (runtime/ext/prism/ruby). A zr binary links in the same tree. Both
 # directories go ahead of ruby's own prism. prism_shim contains only
 # prism/prism.rb. A process that loaded ruby's prism first keeps it,
-# because both return the same objects.
-if Zr::HOSTED
-  $LOAD_PATH.unshift(Zr::Ports.lib("prism"), File.expand_path("prism_shim", __dir__))
-end
+# because both return the same objects. The paths are literal, so zr
+# sees them when it compiles zr (`Ports.lib("prism")` names the first;
+# prism_test.rb checks that they agree).
+$LOAD_PATH.unshift(File.expand_path("../../vendor/ruby/lib/ruby/gems/4.0.0/gems/prism-1.9.0/lib", __dir__),
+                   File.expand_path("prism_shim", __dir__))
 require "prism"
 
 module Zr

@@ -83,12 +83,6 @@ module Zr
     # keeps the compiler's digest, which reads every compiler file.
     def self.for(target = Target.default) = (@all ||= {})[[target.triple, Paths.root]] ||= new(target)
 
-    # Loads Regexp::Onig under the host ruby, for the tools and tests that
-    # check it against ruby's engine.
-    def self.require_onig
-      ONIG_NAMES.each { |name| require File.join(Paths::RUNTIME, "core/#{name}.rb") }
-    end
-
     # The cache file of a runtime's symbol table, its wanted symbols and its
     # kernel's description (`Runtime#cached`).
     def self.symbols_path(runtime_digest) = Cache::Store.path(:meta, "#{runtime_digest}-symbols")

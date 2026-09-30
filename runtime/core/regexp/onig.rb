@@ -6,7 +6,7 @@
 # under the BSD-2-Clause license reproduced in runtime/core/regexp.rb. This
 # is an altered version: the same algorithms in Ruby.
 #
-# The files also load under CRuby (Zr.require_onig), so
+# The files also load under CRuby (test/support/harness/onig.rb), so
 # tools/regexp_diff.rb and the tests can check them against ruby's own
 # engine on the host.
 

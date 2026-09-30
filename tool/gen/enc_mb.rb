@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "../gen"
+require_relative "../../test/support/harness/onig"
 
 module Zr
   module Dev
@@ -59,7 +60,7 @@ module Zr
         def write(io)
           require_relative "../../lib/zr/runtime"
 
-          Zr::RuntimeSources.require_onig
+          Zr::Harness::Onig.load!
 
           # The encodings that need their own encoder to walk a String: they
           # are ASCII-compatible, a character can have more than one byte, and

@@ -5,14 +5,8 @@ require_relative "../../../../lib/zr/config"
 
 module Zr
   module Dev
-    # The ruby that runs a child: this ruby, or in a binary that zr built,
-    # the ruby that `ZR_HOST_RUBY` names or the one on PATH. In a zr binary
-    # `RbConfig.ruby` names zr itself.
-    def self.ruby
-      return RbConfig.ruby unless Zr.compiled?
-
-      Config.current.host_ruby
-    end
+    # The ruby that runs a child (`Config#host_ruby`).
+    def self.ruby = Config.current.host_ruby
 
     # Stops a tool that reads a table from the running ruby, unless that
     # ruby is CRuby at the version that `.ruby-version` pins. A table

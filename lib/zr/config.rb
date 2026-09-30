@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "rbconfig"
 require_relative "flags"
 
 module Zr
@@ -43,9 +44,10 @@ module Zr
       # `ZR_TEST_BINARIES_GB`: the most GB of binaries that the program tests
       # keeps in the store (default 8).
       @test_binaries_gb = number("ZR_TEST_BINARIES_GB", 8.0, "8", kind: :Float, min: 0)
-      # `ZR_HOST_RUBY`: the ruby that the compiled compiler starts to
-      # resolve gems (lib/zr/gem_set.rb).
-      @host_ruby = ENV["ZR_HOST_RUBY"].to_s.empty? ? "ruby" : ENV["ZR_HOST_RUBY"]
+      # `ZR_HOST_RUBY`: the ruby that zr starts when it needs ruby itself:
+      # to resolve gems (lib/zr/gem_set.rb), and for ruby's report of a
+      # syntax error (`CLI.syntax_report`).
+      @host_ruby = ENV["ZR_HOST_RUBY"].to_s.empty? ? running_ruby : ENV["ZR_HOST_RUBY"]
       # `ZR_LINK_ARGS`: words for the system linker, as `--link` gives
       # them, split as a shell splits them.
       @link = words(ENV.fetch("ZR_LINK_ARGS", "")).freeze
@@ -76,6 +78,11 @@ module Zr
       words
     end
     private :words
+
+    # The ruby that runs zr, or `ruby` on PATH in a binary that zr built,
+    # whose `RbConfig.ruby` names zr itself.
+    def running_ruby = RbConfig::CONFIG["ruby_install_name"] == "ruby" ? RbConfig.ruby : "ruby"
+    private :running_ruby
 
     # The value of `name` when it is one of `values`, or `default` when
     # it is unset or empty.
