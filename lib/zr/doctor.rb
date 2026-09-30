@@ -77,12 +77,12 @@ module Zr
     CACHE_FIX = "Set XDG_CACHE_HOME (or ZR_CACHE) to a directory that you can write to"
 
     def cache
-      require_relative "cache"
+      require_relative "cache/janitor"
       dir = Paths.cache
       Paths.mkdir_p(dir)
       return Check.new(:fail, "cache", "#{dir} is not writable. #{CACHE_FIX}") unless File.writable?(dir)
 
-      Check.new(:ok, "cache", format("%s, %d MB", dir, Cache.megabytes(Cache.all)))
+      Check.new(:ok, "cache", format("%s, %d MB", dir, Cache::Janitor.megabytes(Cache::Janitor.all)))
     rescue SystemCallError => e
       Check.new(:fail, "cache", "#{dir}: #{e.message}. #{CACHE_FIX}")
     end

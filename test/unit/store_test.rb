@@ -1,11 +1,11 @@
 # frozen_string_literal: true
 
 require "test_helper"
-require_relative "../../lib/zr/store"
+require_relative "../../lib/zr/cache/store"
 
-# The one content store of zr's caches (lib/zr/store.rb).
+# The one content store of zr's caches (lib/zr/cache/store.rb).
 class StoreTest < Minitest::Test
-  Store = Zr::Store
+  Store = Zr::Cache::Store
 
   def setup
     @dir = Dir.mktmpdir("zr-store-")

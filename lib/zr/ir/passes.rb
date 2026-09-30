@@ -711,7 +711,7 @@ module Zr
 
         # `sources` are functions that can be inlined but that this pass
         # does not change: the leaves of a file whose code the build already
-        # has (`CoreCache`).
+        # has (`Cache::Lowering::Core`).
         def initialize(functions, sources: [])
           @by_name = functions.to_h { |f| [f.name, f] }
           @outputs = @by_name.values
@@ -730,7 +730,7 @@ module Zr
         def settled_leaf?(name) = @state[name] == :leaf
 
         # The colocated symbols that the calls of the function `name` named,
-        # before this pass inlined any of them: a `CoreCache` entry depends on
+        # before this pass inlined any of them: a `Cache::Lowering::Core` entry depends on
         # what each of them is.
         def calls(name) = @calls[name].keys
 

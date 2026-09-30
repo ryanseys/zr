@@ -2,7 +2,7 @@
 
 require "test_helper"
 require "tmpdir"
-require "zr/run_cache"
+require "zr/cache/run"
 require "zr/gem_set"
 require "zr/native/build"
 
@@ -23,7 +23,7 @@ class RunCacheTest < Minitest::Test
     FileUtils.rm_rf(@work) if @work
   end
 
-  def cache = Zr::RunCache.new(@main, target: Zr::Target.default, digest: Zr.runtime.digest, link: [])
+  def cache = Zr::Cache::Run.new(@main, target: Zr::Target.default, digest: Zr.runtime.digest, link: [])
 
   def build_and_keep
     program = Zr::Native::Build.lower(File.read(@main), @main, sources: true)
@@ -71,7 +71,7 @@ class RunCacheTest < Minitest::Test
     build_and_keep
     gems = Zr::GemSet.new([Zr::GemSet::Entry.new(name: "dep", version: "2.0.0", source: "--gem", roots: [@work], refusal: nil)])
 
-    other = Zr::RunCache.new(@main, target: Zr::Target.default, digest: Zr.runtime.digest, link: [], gems: gems)
+    other = Zr::Cache::Run.new(@main, target: Zr::Target.default, digest: Zr.runtime.digest, link: [], gems: gems)
 
     assert_nil other.hit
   end

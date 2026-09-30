@@ -1,12 +1,12 @@
 # frozen_string_literal: true
 
 require_relative "lib/zr/dev"
-require_relative "../lib/zr/cache"
+require_relative "../lib/zr/cache/janitor"
 
 module Zr
   module Dev
-    # Commands that clean the runtime cache: the store of lib/zr/store.rb,
-    # and the files that a zr wrote before it (lib/zr/cache.rb).
+    # Commands that clean the runtime cache: the store of lib/zr/cache/store.rb,
+    # and the files that a zr wrote before it (lib/zr/cache/janitor.rb).
     #
     # The store gets a runtime object, a prelinked image, an eval support
     # object and a symbol table for each digest that this checkout builds.
@@ -37,14 +37,14 @@ module Zr
       })
 
       # What the commands share: the files, and which of them this
-      # checkout uses (lib/zr/cache.rb, which `zr cache` also uses).
+      # checkout uses (lib/zr/cache/janitor.rb, which `zr cache` also uses).
       module Files
         module_function
 
-        def all = Zr::Cache.all
-        def live = Zr::Cache.live
-        def megabytes(paths) = Zr::Cache.megabytes(paths)
-        def kind(path) = Zr::Cache.kind(path)
+        def all = Zr::Cache::Janitor.all
+        def live = Zr::Cache::Janitor.live
+        def megabytes(paths) = Zr::Cache::Janitor.megabytes(paths)
+        def kind(path) = Zr::Cache::Janitor.kind(path)
 
         # wasmtime's cache of compiled modules. `zr-dev bench` and `zr run`
         # under Cranelift fill it (the tiers run Winch with the cache off).
@@ -90,8 +90,8 @@ module Zr
 
         def run(_argv)
           days = @days || Float(ENV.fetch("ZR_CACHE_DAYS", 1))
-          sizes = Files.all.to_h { |path| [path, Zr::Cache.bytes([path])] }
-          stale = Zr::Cache.prune(days: days)
+          sizes = Files.all.to_h { |path| [path, Zr::Cache::Janitor.bytes([path])] }
+          stale = Zr::Cache::Janitor.prune(days: days)
           freed = stale.sum { |path| sizes.fetch(path, 0) } / (1 << 20)
           puts format("swept %d file(s), %d MB; %d MB left", stale.size, freed, Files.megabytes(Files.all))
         end
@@ -102,7 +102,7 @@ module Zr
 
         def run(_argv)
           freed = Files.megabytes(Files.all)
-          files = Zr::Cache.clear
+          files = Zr::Cache::Janitor.clear
           puts format("cleared %d file(s), %d MB", files.size, freed)
         end
       end

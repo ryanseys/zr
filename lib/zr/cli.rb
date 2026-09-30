@@ -316,26 +316,26 @@ module Zr
 
     # `zr cache path`, `size` or `clean [--all]`.
     def cache(args)
-      require_relative "cache"
+      require_relative "cache/janitor"
       verb = args.shift || "path"
       extra = args - (verb == "clean" ? ["--all"] : [])
       usage_error("unexpected argument '#{extra.first}'", "cache") unless extra.empty?
       case verb
       when "path" then puts Paths.cache
       when "size"
-        files = Cache.all
-        files.group_by { |path| Cache.kind(path) }.sort_by { |_, group| -Cache.bytes(group) }.each do |kind, group|
-          puts format("%6d MB  %5d  %s", Cache.megabytes(group), group.size, kind)
+        files = Cache::Janitor.all
+        files.group_by { |path| Cache::Janitor.kind(path) }.sort_by { |_, group| -Cache::Janitor.bytes(group) }.each do |kind, group|
+          puts format("%6d MB  %5d  %s", Cache::Janitor.megabytes(group), group.size, kind)
         end
-        others = Cache.other_compilers
-        puts format("%6d MB  %5d  compiled compilers of other zr versions", others.sum { |dir| Cache.tree_bytes(dir) } >> 20, others.size)
-        puts format("%6d MB  %5d  in all, in %s", Cache.megabytes(files), files.size, Paths.cache)
+        others = Cache::Janitor.other_compilers
+        puts format("%6d MB  %5d  compiled compilers of other zr versions", others.sum { |dir| Cache::Janitor.tree_bytes(dir) } >> 20, others.size)
+        puts format("%6d MB  %5d  in all, in %s", Cache::Janitor.megabytes(files), files.size, Paths.cache)
       when "clean"
         all = args.include?("--all")
-        sizes = Cache.all.to_h { |path| [path, Cache.bytes([path])] }
-        gone = all ? Cache.clear : Cache.prune
-        others = Cache.other_compilers
-        freed = gone.sum { |path| sizes.fetch(path, 0) } + others.sum { |dir| Cache.tree_bytes(dir) }
+        sizes = Cache::Janitor.all.to_h { |path| [path, Cache::Janitor.bytes([path])] }
+        gone = all ? Cache::Janitor.clear : Cache::Janitor.prune
+        others = Cache::Janitor.other_compilers
+        freed = gone.sum { |path| sizes.fetch(path, 0) } + others.sum { |dir| Cache::Janitor.tree_bytes(dir) }
         others.each { |dir| Paths.remove(dir) }
         puts format("deleted %d file(s) and %d compiled compiler(s), %d MB", gone.size, others.size, freed >> 20)
       else usage_error("unknown cache command '#{verb}'", "cache")
@@ -461,9 +461,9 @@ module Zr
       # Under ruby, lib/zr/prism.rb turns the parse cache on. A compiled
       # compiler turns it on here. A program that calls eval includes the
       # same files but never comes here, so it never writes to the cache.
-      require_relative "parse_cache" unless HOSTED
-      if command == "run" && emit.nil? && RunCache.wanted?
-        cache ||= RunCache.new(input, target: target, digest: Zr.runtime(target).digest, link: link, gems: gems)
+      require_relative "cache/parse" unless HOSTED
+      if command == "run" && emit.nil? && Cache::Run.wanted?
+        cache ||= Cache::Run.new(input, target: target, digest: Zr.runtime(target).digest, link: link, gems: gems)
       end
       program = lower(input, command, target, assemble: emit.nil?, gem_set: gems, gate: !opts[:runtime_require])
       status = Paths.tmpdir("zr-build-") do |work|
@@ -478,8 +478,8 @@ module Zr
         require_relative "gems_command"
         print GemsCommand.table(program.gems)
       end
-      require_relative "cache"
-      Cache.trim
+      require_relative "cache/janitor"
+      Cache::Janitor.trim
       exit_as(status) if status.is_a?(Process::Status)
     end
 
@@ -726,8 +726,8 @@ module Zr
     def kept!(argv)
       return unless argv.first == "run" && !ENV.key?(Tune::ADDED) && !Zr.compiled?
 
-      require_relative "run_cache"
-      return unless RunCache.wanted?
+      require_relative "cache/run"
+      return unless Cache::Run.wanted?
 
       opts = parse("run", argv.drop(1))
       return if opts[:emit] || opts[:triple] || host_refusal || !File.file?(opts[:input])
@@ -739,7 +739,7 @@ module Zr
       # A set that does not resolve goes on to the build, which says why.
       gems = kept_gems(opts) or return
       digest = Zr.runtime_digest(target) or return
-      cache = RunCache.new(opts[:input], target: target, digest: digest, link: Config.current.link + opts[:link], gems: gems)
+      cache = Cache::Run.new(opts[:input], target: target, digest: digest, link: Config.current.link + opts[:link], gems: gems)
       kept = cache.hit
       exec(Tune.program_env, [kept, kept], *opts[:args]) if kept
       # The build keeps its binary here, with no second digest.
@@ -760,11 +760,11 @@ module Zr
     # compiler. Returns the cache for the build otherwise, or nil when zr
     # needs a build to know the runtime's digest.
     def kept_run(input, target, link, args, gems)
-      require_relative "run_cache"
-      return nil unless RunCache.wanted?
+      require_relative "cache/run"
+      return nil unless Cache::Run.wanted?
 
       digest = Zr.runtime_digest(target) or return nil
-      cache = RunCache.new(input, target: target, digest: digest, link: link, gems: gems)
+      cache = Cache::Run.new(input, target: target, digest: digest, link: link, gems: gems)
       kept = cache.hit
       exit_as(run_binary(kept, args)) if kept
       cache

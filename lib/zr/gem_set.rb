@@ -4,7 +4,7 @@ require "digest/sha2"
 require "rbconfig"
 require_relative "paths"
 require_relative "ports"
-require_relative "store"
+require_relative "cache/store"
 require_relative "version"
 
 module Zr
@@ -100,9 +100,9 @@ module Zr
       return EMPTY if flags.empty? && gemfile.nil?
 
       key = key(flags, gemfile, env)
-      kept(Store.read(:gems, key)) || begin
+      kept(Cache::Store.read(:gems, key)) || begin
         set = child(flags, gemfile, env)
-        Store.write(:gems, key, set.gems.map(&:to_h))
+        Cache::Store.write(:gems, key, set.gems.map(&:to_h))
         set
       end
     end
@@ -116,7 +116,7 @@ module Zr
         parts << read(File.join(File.dirname(gemfile), ".bundle/config"))
       end
       flags.each { |_, value| parts << Paths.stamp(File.expand_path(value)).to_s }
-      Store.key(*parts)
+      Cache::Store.key(*parts)
     end
 
     # The lock of `gemfile`, as bundler names it: `gems.locked` for

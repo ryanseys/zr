@@ -2,8 +2,8 @@
 
 require "test_helper"
 require_relative "../../lib/zr/runtime"
-require_relative "../../lib/zr/unit_cache"
-require_relative "../../lib/zr/parse_cache"
+require_relative "../../lib/zr/cache/unit"
+require_relative "../../lib/zr/cache/parse"
 require_relative "../support/binaries"
 
 # A cache key contains the digest of the sources that a build read. If a
@@ -59,8 +59,8 @@ class SourceChangedTest < Minitest::Test
       error = assert_raises(Zr::SourceChanged) { Zr.settled! }
       assert_includes error.message, @file
       assert_raises(Zr::SourceChanged) { Zr.write_cache(File.join(Zr::Paths.cache, "moved-probe"), "x") }
-      assert_raises(Zr::SourceChanged) { Zr::ParseCache.write(File.join(Zr::Paths.cache, "moved-probe"), "x") }
-      cache = Zr::UnitCache.new(runtime: "r", table: "t", traced: 0, entries: [])
+      assert_raises(Zr::SourceChanged) { Zr::Cache::Parse.write(File.join(Zr::Paths.cache, "moved-probe"), "x") }
+      cache = Zr::Cache::Unit.new(runtime: "r", table: "t", traced: 0, entries: [])
       unit = Zr::Hir::Unit.new("probe.rb", [], nil, [], false, nil, false, "1", false)
       assert_raises(Zr::SourceChanged) { cache.keep(unit, "zr_toplevel", [], []) }
       assert_raises(Zr::SourceChanged) { Zr::Spec::Binaries.keep(File.join(Zr::Paths.cache, "moved-probe"), @file, nil, "/nowhere") }

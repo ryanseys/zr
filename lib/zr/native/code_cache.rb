@@ -67,13 +67,13 @@ module Zr
       # loads is in BACKEND, and an edit to the store must not make every
       # pack a miss.
       def self.dir
-        require_relative "../store"
-        Store.path(:code, backend_digest[0, 32])
+        require_relative "../cache/store"
+        Cache::Store.path(:code, backend_digest[0, 32])
       end
 
       attr_reader :hits, :misses
       # `[fingerprints by name, defined]` of the last unit that this cache
-      # built (`Build.cached`), for `CoreCache#keep`.
+      # built (`Build.cached`), for `Cache::Lowering::Core#keep`.
       attr_accessor :built
 
       def initialize(kind)

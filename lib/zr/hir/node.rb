@@ -70,7 +70,7 @@ module Zr
     # eval support files do.
     # `source` is the bytes that the unit was built from. `activates`
     # tells that the file took an activation entry for a `using`. The
-    # unit cache uses both (lib/zr/unit_cache.rb). It keeps the bytes,
+    # unit cache uses both (lib/zr/cache/unit.rb). It keeps the bytes,
     # not a digest, because the loader also runs in a program with eval,
     # and there it must not require a library that it would then have to
     # load. `node_ids` maps each HIR node of the unit, by identity, to its

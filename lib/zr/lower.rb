@@ -289,7 +289,7 @@ module Zr
 
     # The program's toplevel alone, as `run` lowers it first: its
     # `[functions, data]`. With `lower_unit`, a caller can lower the units
-    # one at a time, in any order (`EvalCache`): each unit uses its own
+    # one at a time, in any order (`Cache::Lowering::EvalSupport`): each unit uses its own
     # names and counters, so its code is the same as in `run`. The pool
     # closes at the end of each, where `run` puts it.
     def lower_entry
@@ -372,7 +372,7 @@ module Zr
 
     # Every unit's entry, in order. A require or an autoload refers to
     # its target by this entry, so the entries are an input of each
-    # unit's bytes (`UnitCache`).
+    # unit's bytes (`Cache::Unit`).
     def self.entries_of(entry, units) = (units || []).each_with_index.map { |u, i| entry_of(entry, i, u.file) }
 
     # Whether the code goes to the wasm backend, where the preemption

@@ -25,8 +25,8 @@ Two kinds of code meet on a program's load path (`Zr::Layout`):
 | `lib/zr/config.rb` | `Zr::Config`: the `ZR_*` variables that steer a build, read once |
 | `lib/zr/cli.rb` | the commands of `zr`, their options, and what they print |
 | `lib/zr/doctor.rb` | the checks of `zr doctor` |
-| `lib/zr/store.rb` | the one content store of every cache: layout, keys, reads, writes, roots and eviction |
-| `lib/zr/cache.rb` | the build cache as `zr cache` sees it: size, clean, and the daily trim |
+| `lib/zr/cache/store.rb` | the one content store of every cache: layout, keys, reads, writes, roots and eviction |
+| `lib/zr/cache/janitor.rb` | the build cache as `zr cache` sees it: size, clean, and the daily trim |
 | `lib/zr/refused.rb` | `Zr::Refused`: a program uses a form that zr does not support |
 | `lib/zr/bytes.rb` | byte helpers: alignment and padding |
 | `lib/zr/clock.rb` | `Zr.clock`: the phase times that `ZR_TIMING=1` prints |
@@ -41,7 +41,7 @@ Two kinds of code meet on a program's load path (`Zr::Layout`):
 | `lib/zr/ports.rb` | the gems with a C part that zr ports, with their versions and compat ranges |
 | `lib/zr/target.rb` | the targets, and what this host can build |
 | `lib/zr/prism.rb` | loads prism on the host; `Zr.parse` |
-| `lib/zr/parse_cache.rb` | the host's cache of parse results |
+| `lib/zr/cache/parse.rb` | the host's cache of parse results |
 | `lib/zr/hir.rb`, `lib/zr/hir/` | prism's tree to the HIR: desugaring, requires, refusals |
 | `lib/zr/lower.rb`, `lib/zr/lower/` | `Zr::Lower`: the HIR to the IR, for the zr runtime |
 | `lib/zr/runtime.rb` | `Zr::Runtime`, `Zr::Program` and `Zr::EvalSupport`: the runtime's files and built forms |
@@ -53,11 +53,11 @@ Two kinds of code meet on a program's load path (`Zr::Layout`):
 | `lib/zr/obj/` | the object model, relocations, and the JIT loader |
 | `lib/zr/obj/macho/`, `lib/zr/obj/elf/` | the Mach-O object and executable writers, the prelinked image and the skeleton; the ELF object writer |
 | `lib/zr/native/` | the build driver, parallel assembly, the linkers |
-| `lib/zr/unit_cache.rb` | the cache of each compilation unit's machine code |
-| `lib/zr/lowering_cache.rb`, `lib/zr/core_cache.rb`, `lib/zr/eval_cache.rb` | the core files and eval support's files that a build takes from an earlier build's machine code, and the checks that keep that code the same as a full build's |
-| `lib/zr/run_cache.rb` | the binaries that `zr run` keeps, and the files each was built from |
+| `lib/zr/cache/unit.rb` | the cache of each compilation unit's machine code |
+| `lib/zr/cache/lowering.rb`, `lib/zr/cache/lowering/core.rb`, `lib/zr/cache/lowering/eval_support.rb` | the core files and eval support's files that a build takes from an earlier build's machine code, and the checks that keep that code the same as a full build's |
+| `lib/zr/cache/run.rb` | the binaries that `zr run` keeps, and the files each was built from |
 | `lib/zr/tune.rb` | the collector limits and YJIT of a compile |
-| `lib/zr/iseq_cache.rb` | the compiled instructions of zr's own files, kept in the cache |
+| `lib/zr/cache/iseq.rb` | the compiled instructions of zr's own files, kept in the cache |
 | `lib/zr/server.rb` | the build server of `zr-dev serve`, and its client in `exe/zr` |
 | `lib/zr/bootstrap/handoff.rb` | the compiled compiler: when `exe/zr` gives it a build |
 | `lib/zr/eval.rb` | the eval compiler |

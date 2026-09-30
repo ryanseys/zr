@@ -135,8 +135,8 @@ module Zr
       @stamps = stamps
       listener = listen(path)
       # The binaries that the clients of an earlier server did not remove.
-      require_relative "cache"
-      Cache.remove(Cache.served)
+      require_relative "cache/janitor"
+      Cache::Janitor.remove(Cache::Janitor.served)
       say format("listening at %s, ready in %.1f s", path, Process.clock_gettime(Process::CLOCK_MONOTONIC) - began)
       loop do
         clients = @jobs.values.map { |job| job[:client] }.reject(&:closed?)
@@ -294,7 +294,7 @@ module Zr
 
       runtime.description
       runtime.symbols
-      live = Cache.live_for(target)
+      live = Cache::Janitor.live_for(target)
       images = live.select { |path| path.end_with?("-prelink.bin") && File.exist?(path) }
       prelinks = Native::Build.instance_variable_get(:@prelinks) || {}
       prelinks.select! { |path, _| images.include?(path) }
@@ -317,9 +317,9 @@ module Zr
       require_relative "cli"
       require_relative "runtime"
       require_relative "native/build"
-      require_relative "run_cache"
-      require_relative "cache"
-      require_relative "parse_cache"
+      require_relative "cache/run"
+      require_relative "cache/janitor"
+      require_relative "cache/parse"
       target = Target.default
       runtime = Runtime.new(target)
       unit = runtime.unit

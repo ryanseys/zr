@@ -216,7 +216,7 @@ module Zr
       # The rows that the lookups in the block read, as `rows` gives them.
       # A cache of lowered code keys a piece on these, not on the whole
       # description, so a new kernel function keeps each piece that does
-      # not call it (`EvalCache`).
+      # not call it (`Cache::Lowering::EvalSupport`).
       def record
         outer = @reads
         @reads = {}

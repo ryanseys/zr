@@ -8,14 +8,14 @@ require_relative "machine/lower"
 require_relative "obj/model"
 require_relative "hir"
 require_relative "lower"
-require_relative "unit_cache"
+require_relative "cache/unit"
 require_relative "clock"
 require_relative "tune"
 require_relative "settled"
-require_relative "store"
+require_relative "cache/store"
 require_relative "sources"
-require_relative "core_cache"
-require_relative "eval_cache"
+require_relative "cache/lowering/core"
+require_relative "cache/lowering/eval_support"
 require_relative "manifest"
 
 module Zr
@@ -60,7 +60,7 @@ module Zr
     def raw = @raw || unit.raw
 
     # The runtime object in the cache (`Native::Build.runtime_object`).
-    def object_path = Store.path(:object, digest)
+    def object_path = Cache::Store.path(:object, digest)
 
     def digest
       # The target is the first input, so two targets never share build
@@ -80,7 +80,7 @@ module Zr
     # But eval support, the prelude and the harness read files again from
     # disk. An edit during a build would put new content under the old
     # digest in every cache. So nothing is cached after a file changes
-    # (`Zr.write_cache`, `UnitCache#keep`, the parse cache, the harness's
+    # (`Zr.write_cache`, `Cache::Unit#keep`, the parse cache, the harness's
     # binaries), and the build stops with the file's name. The cost is one
     # stat per file, which is small compared to a cache write.
     def moved
@@ -125,7 +125,7 @@ module Zr
     end
 
     def functions = unit.functions + lowered.first
-    # The `CoreCache` of this build's lowering, or nil.
+    # The `Cache::Lowering::Core` of this build's lowering, or nil.
     def core_cache
       lowered
       @core_cache
@@ -151,7 +151,7 @@ module Zr
     # writes it from this runtime's description into the store, keyed by
     # its bytes, so it is never out of date and nobody commits it.
     def carried_description
-      @carried_description ||= File.join(Store.path(:description, Store.key(carried_text)), DESCRIPTION_FILE)
+      @carried_description ||= File.join(Cache::Store.path(:description, Cache::Store.key(carried_text)), DESCRIPTION_FILE)
     end
 
     DESCRIPTION_FILE = "zr_description.rb"
@@ -162,7 +162,7 @@ module Zr
       path = carried_description
       return path if File.file?(path)
 
-      Store.write(:description, File.basename(File.dirname(path))) { |dir| File.binwrite(File.join(dir, DESCRIPTION_FILE), carried_text) }
+      Cache::Store.write(:description, File.basename(File.dirname(path))) { |dir| File.binwrite(File.join(dir, DESCRIPTION_FILE), carried_text) }
       path
     end
 
@@ -263,12 +263,12 @@ module Zr
 
     # The core library's `[functions, data]`, lowered over the kernel.
     #
-    # For an aarch64 build, `CoreCache` takes each file it can from an
+    # For an aarch64 build, `Cache::Lowering::Core` takes each file it can from an
     # earlier build, and the list then has the machine code of those files
     # (`Obj::Code`) in place of their IR. It also inlines the unit.
     def lowered
       @lowered ||= Zr.clock("core lowered") do
-        @core_cache = Zr.clock("core cache: opened") { CoreCache.for(target) }
+        @core_cache = Zr.clock("core cache: opened") { Cache::Lowering::Core.for(target) }
         @core_cache ? @core_cache.lower(unit, kernel_symbols, sources) : Zr.core(unit, kernel_symbols, target, sources)
       end
     end
@@ -335,8 +335,8 @@ module Zr
 
     # The SHA-256 of each file in eval support (as lowered) and of each
     # file that the gem prelude loads, by path. A compiled compiler keys
-    # its parse cache on these (ParseCache.parser_digests,
-    # ParseCache.maker).
+    # its parse cache on these (`Cache::Parse.parser_digests`,
+    # `Cache::Parse.maker`).
     def digests = meta.fetch("digests")
 
     # The key of eval support's code (`Zr.eval_key`): the key of its files
@@ -355,9 +355,9 @@ module Zr
     # The cache files of eval support: the object, by the key in its
     # metadata, and the metadata, by the runtime's digest and the kind
     # of eval (`jit` or `walk`). `zr-dev cache prune` reads these too.
-    def self.object_path(key) = Store.path(:object, key)
+    def self.object_path(key) = Cache::Store.path(:object, key)
     def self.meta_path(runtime, kind) = meta_file(runtime.eval_digest, kind)
-    def self.meta_file(eval_digest, kind) = Store.path(:meta, "#{eval_digest}-eval-#{kind}")
+    def self.meta_file(eval_digest, kind) = Cache::Store.path(:meta, "#{eval_digest}-eval-#{kind}")
 
     def functions = lowered.fetch(:functions)
     def data = lowered.fetch(:data)
@@ -370,7 +370,7 @@ module Zr
       @lowered = @cache = nil
     end
 
-    # The `EvalCache` of this build's lowering, or nil.
+    # The `Cache::Lowering::EvalSupport` of this build's lowering, or nil.
     def cache
       lowered
       @cache
@@ -411,7 +411,7 @@ module Zr
         symbols = Machine::Symbols.new(@runtime.symbols.names, sites: @runtime.symbols.sites)
         lower = Lower.new(program, @runtime.description, symbols, entry: "zr_eval_support", target: target)
         functions = data = nil
-        @cache = EvalCache.for(target, kind)
+        @cache = Cache::Lowering::EvalSupport.for(target, kind)
         asked = symbols.record { functions, data = @cache ? @cache.lower(lower, symbols, @runtime.description) : lower.run }
         runtime_size = @runtime.symbols.names.size
         files = loader.units.filter_map { |u| u.file if u.file.start_with?("/") }.uniq.sort
@@ -469,7 +469,7 @@ module Zr
     # So an earlier build's code for a unit is correct for this build.
     # The cache key includes the table that fixes the ids: the runtime's,
     # or the larger eval support table for a program with eval.
-    units = finish && UnitCache.for(hir, runtime: rt.abi_digest, table: hir.evals ? support.key : "rt",
+    units = finish && Cache::Unit.for(hir, runtime: rt.abi_digest, table: hir.evals ? support.key : "rt",
                                          entries: Lower.entries_of("zr_toplevel", hir.units))
     lower = Lower.new(hir, rt.description, symbols, target: target, fixed: symbols.ids.dup.freeze, units: units || nil)
     functions, data = Zr.clock(finish ? "program lowered and assembled" : "program lowered") do

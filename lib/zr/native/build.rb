@@ -95,14 +95,14 @@ module Zr
         end
       end
 
-      # Names the store entries that a link of `objects` reads (lib/zr/store.rb),
+      # Names the store entries that a link of `objects` reads (lib/zr/cache/store.rb),
       # so no eviction removes them: the objects, their prelinked image and
       # skeleton, the runtime's symbol table, gem prelude list and ledger,
       # eval support's metadata, and the code packs of this backend. A
       # link with eval support and one without each have a root.
       def root(runtime, objects, evals)
         target = runtime.target
-        Store.root("#{target.triple}-link-#{evals ? "eval-#{evals.kind}" : "plain"}",
+        Cache::Store.root("#{target.triple}-link-#{evals ? "eval-#{evals.kind}" : "plain"}",
                    [*objects, prelink_path(objects), skeleton_path(objects), Zr.symbols_path(runtime.digest),
                     runtime.gem_prelude_path, Zr.ledger_path(target), (evals.meta_path if evals),
                     (File.dirname(runtime.carried_description) if evals), CodeCache.dir])
@@ -156,14 +156,14 @@ module Zr
       # the linker's own files, which the object digests do not include
       # on purpose.
       def prelink_path(objects)
-        top = File.dirname(Store.path(:object, "00"), 2)
+        top = File.dirname(Cache::Store.path(:object, "00"), 2)
         return nil if objects.empty? || objects.any? { |o| File.dirname(File.expand_path(o), 2) != top }
 
-        Store.path(:image, "#{image_key(objects)}-prelink")
+        Cache::Store.path(:image, "#{image_key(objects)}-prelink")
       end
 
       # The cache path of the skeleton of `objects`, next to their prelink.
-      def skeleton_path(objects) = prelink_path(objects) && Store.path(:image, "#{image_key(objects)}-skeleton")
+      def skeleton_path(objects) = prelink_path(objects) && Cache::Store.path(:image, "#{image_key(objects)}-skeleton")
 
       def image_key(objects) = Digest::SHA256.hexdigest([*objects.map { |o| File.basename(o) }, Zr.link_digest].join("\n"))
 
@@ -186,7 +186,7 @@ module Zr
       def eval_support_built(support, obj, jobs)
         Paths.tmpdir("zr-eval-") do |work|
           fresh = File.join(work, "eval.o")
-          # An EvalCache took some units from an earlier build, and inlined
+          # A Cache::Lowering::EvalSupport took some units from an earlier build, and inlined
           # the unit already; its code cache has their code. It writes its
           # entries once the code is made, before the IR goes.
           units = support.cache
@@ -222,7 +222,7 @@ module Zr
       def runtime_built(runtime, obj, jobs)
         Paths.tmpdir("zr-runtime-") do |work|
           fresh = File.join(work, "runtime.o")
-          # A CoreCache took some of the core's code from an earlier build,
+          # A Cache::Lowering::Core took some of the core's code from an earlier build,
           # and inlined the unit already; its code cache has that code.
           core = runtime.core_cache
           cache = core&.code || CodeCache.for("runtime", runtime.target)
@@ -266,7 +266,7 @@ module Zr
       # comes from the backend. `assembled` are functions that are already
       # machine code. With a `cache` (`CodeCache`), a function whose
       # fingerprint the cache has takes its code from there. `inlined` says
-      # that the functions are inlined already (`CoreCache`). `functions` can
+      # that the functions are inlined already (`Cache::Lowering::Core`). `functions` can
       # then have machine code in place of IR, whose fingerprint and bytes
       # `known` gives by name.
       def unit(functions, data, raw: [], assembled: [], export: false, target: Target.default, jobs: Build.jobs,
@@ -368,7 +368,7 @@ module Zr
       # shares the one copy. A build never writes to it.
       def wasm_prelude(runtime, pending, support = nil)
         key = Digest::SHA256.hexdigest("#{runtime.digest}\n#{support&.key}\n#{pending.inspect}")
-        path = Store.path(:wasm, key)
+        path = Cache::Store.path(:wasm, key)
         kept = (@wasm_preludes ||= {})[path] ||= File.exist?(path) && Marshal.load(File.binread(path))
         return kept if kept
 

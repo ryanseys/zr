@@ -30,14 +30,14 @@ module Zr
       module_function
 
       # The spots of a file's tree, cached next to its parse when the
-      # parse cache is on (ParseCache.derived). Finding them is a third of
+      # parse cache is on (`Cache::Parse.derived`). Finding them is a third of
       # a warm build's HIR time, and the spots are the same for the same
       # tree and the same Spotter.
       def for(result, source, options)
-        return of(result.value) unless defined?(ParseCache)
+        return of(result.value) unless defined?(Cache::Parse)
 
         spotter = ErrorHighlight.method(:spot).source_location&.first or return of(result.value)
-        ParseCache.derived("spots", source, options, [__FILE__, spotter]) { of(result.value) }
+        Cache::Parse.derived("spots", source, options, [__FILE__, spotter]) { of(result.value) }
       end
 
       # The node types that Spotter handles, each with its point types.

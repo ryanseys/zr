@@ -4,7 +4,7 @@ require "test_helper"
 
 # The compiler's layers are the first directory under `lib/zr` (hir, ir,
 # lower, machine, backend, obj, native, eval, libraries, prism_shim,
-# bootstrap),
+# bootstrap, cache),
 # or "top" for a file directly under `lib/zr`. `top` holds both the leaf
 # utilities (`Zr::Refused`, `Zr::Bytes`, `Zr::Target`,
 # `Zr::Paths`, ...) that every layer may use, and each subsystem's own
@@ -20,7 +20,7 @@ class LayeringTest < Minitest::Test
   LIB = Pathname.new(File.join(ROOT, "lib/zr")).freeze
 
   ALLOWED = {
-    "top" => %w[top hir ir lower machine backend obj native eval libraries prism_shim bootstrap],
+    "top" => %w[top hir ir lower machine backend obj native eval libraries prism_shim bootstrap cache],
     "hir" => %w[top],
     "ir" => %w[top],
     # `Lower` reads HIR and emits IR. `machine/description` is the one
@@ -30,13 +30,17 @@ class LayeringTest < Minitest::Test
     "machine" => %w[top obj],
     "backend" => %w[top ir obj],
     "obj" => %w[top],
-    "native" => %w[top ir obj backend machine],
+    "native" => %w[top ir obj backend machine cache],
     "eval" => %w[top],
     "libraries" => %w[top],
     "prism_shim" => %w[top],
     # The compiler that zr compiled (lib/zr/bootstrap/handoff.rb): a driver of the
     # CLI, which no layer of a build uses.
     "bootstrap" => %w[top],
+    # The caches between builds (lib/zr/cache/store.rb). A lowering entry
+    # holds IR and the code cache's machine code; the janitor also removes
+    # the compiled compilers of other versions.
+    "cache" => %w[top ir native bootstrap],
   }.freeze
 
   def test_every_cross_layer_edge_is_allowed

@@ -4,12 +4,12 @@ require "digest/sha2"
 require "json"
 require_relative "config"
 require_relative "paths"
-require_relative "store"
+require_relative "cache/store"
 require_relative "target"
 
 # The source files of the runtime and of the compiler that lowers it, and
 # the digests of them that name the cache's files. A build loads all of
-# zr; a check of a cache entry (`RunCache#hit`) loads only this file, so
+# zr; a check of a cache entry (`Cache::Run#hit`) loads only this file, so
 # it costs the digests and not the compiler.
 module Zr
   # The zr runtime: the kernel files, the core library written in Ruby on
@@ -84,7 +84,7 @@ module Zr
   # output can depend on it. `compiler_digest_test.rb` checks that a build
   # and a link load none of them.
   DRIVER_ONLY = %w[
-    bootstrap/binary.rb bootstrap/handoff.rb bootstrap/prebuilt.rb cache.rb doctor.rb iseq_cache.rb run_cache.rb server.rb
+    bootstrap/binary.rb bootstrap/handoff.rb bootstrap/prebuilt.rb cache/iseq.rb cache/janitor.rb cache/run.rb doctor.rb server.rb
   ].map { |name| File.join(__dir__, name) }.freeze
 
   # The compiler files that belong to one target: an instruction set's
@@ -137,7 +137,7 @@ module Zr
 
   # The cache file of a runtime's symbol table, its wanted symbols and its
   # kernel's description (`Runtime#cached`).
-  def symbols_path(runtime_digest) = Store.path(:meta, "#{runtime_digest}-symbols")
+  def symbols_path(runtime_digest) = Cache::Store.path(:meta, "#{runtime_digest}-symbols")
 
   # The digest of what code outside the runtime object takes from the
   # runtime: the compiler files that lower it, the kernel's description
@@ -211,11 +211,11 @@ module Zr
 
   # The cache file that lists the files the gem prelude loads, for the
   # digest `of` the runtime's other sources (`Runtime#gem_prelude_files`).
-  def gem_prelude_list(of) = Store.path(:meta, "#{of}-gem-prelude")
+  def gem_prelude_list(of) = Cache::Store.path(:meta, "#{of}-gem-prelude")
 
   # The ledger of `target`'s symbol ids (`Runtime#ledger`), and its bytes,
   # or nil when there is none or the ledger is off.
-  def ledger_path(target) = Store.path(:meta, "#{Store.key("ledger", target.triple)}-ledger")
+  def ledger_path(target) = Cache::Store.path(:meta, "#{Cache::Store.key("ledger", target.triple)}-ledger")
 
   # The ledger is on in a checkout, and anywhere with `ZR_LEDGER=1`.
   def ledger? = Config.current.ledger.nil? ? Paths.checkout? : Config.current.ledger

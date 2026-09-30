@@ -65,7 +65,7 @@ module Zr
         key = Digest::SHA256.new
         [VERSION, Zr.runtime(target).digest, Zr.link_digest, libraries, target.triple,
          *ENVIRONMENT.map { |name| ENV[name].to_s }, rb, source, *parts.flatten].each { |part| key << part.to_s << "\0" }
-        Zr::Store.path(:binary, "#{key.hexdigest}#{".wasm" unless target.link}")
+        Zr::Cache::Store.path(:binary, "#{key.hexdigest}#{".wasm" unless target.link}")
       end
 
       # The digest of the library files that a program can require and that
@@ -124,7 +124,7 @@ module Zr
 
       # Removes the least recently used binaries beyond their quota. Call
       # it once, before the workers start.
-      def trim = Zr::Store.evict(kinds: [:binary])
+      def trim = Zr::Cache::Store.evict(kinds: [:binary])
 
       # Returns the cached objects that `program` links with: the runtime,
       # and eval support when the program evals (`Native::Build.program`).
@@ -208,7 +208,7 @@ module Zr
         File.open(kept, "rb") do |file|
           head = Marshal.load(file.read(file.read(8).to_s.unpack1("Q<").to_i))
           src = StringIO.new(Zlib::Inflate.inflate(file.read))
-          objects = head.fetch(:objects).map { |key| Zr::Store.path(:object, key) }
+          objects = head.fetch(:objects).map { |key| Zr::Cache::Store.path(:object, key) }
           base = Native::Build.prelink(objects)
           holes = head.fetch(:holes)
           text = base.blobs.fetch(:text)

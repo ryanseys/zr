@@ -126,14 +126,14 @@ module Zr
     # `ZR_LEDGER`: true or false when set, else nil (`Zr.ledger?`).
     attr_reader :ledger
 
-    # `ZR_RUN_CACHE=0` makes `zr run` build each run (`RunCache`).
+    # `ZR_RUN_CACHE=0` makes `zr run` build each run (`Cache::Run`).
     def run_cache? = @run_cache
 
     # `ZR_CODE_CACHE`: "1", "0" or "verify" (`Native::CodeCache`).
     attr_reader :code_cache
 
     # `ZR_ISEQ_CACHE=0` makes ruby compile zr's own files at each start
-    # (`IseqCache`).
+    # (`Cache::Iseq`).
     def iseq_cache? = @iseq_cache
 
     # `ZR_SERVER`: nil (use the server if one listens at its default
