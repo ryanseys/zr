@@ -97,7 +97,7 @@ module Zr
         tmp = File.join(home, "tmp").tap { |dir| FileUtils.mkdir_p(dir) }
         env = { "HOME" => home, "TMPDIR" => tmp, "ZR_CACHE" => File.join(home, "cache"), "RUBYOPT" => nil, "RUBYLIB" => nil,
                 "TZ" => %w[UTC Asia/Tokyo][index], "LANG" => %w[C en_CA.UTF-8][index], "ZR_JOBS" => %w[2 3][index],
-                "BUNDLE_GEMFILE" => nil, **Dev::UNDER_RUBY }
+                "BUNDLE_GEMFILE" => nil }
         outs = { "binary" => "main", "object" => "main.o" }
         outs["wasm module"] = "main.wasm" if wasm
         outs.to_h do |what, out|

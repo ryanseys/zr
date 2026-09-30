@@ -8,7 +8,7 @@ require_relative "../settled"
 module Zr
   # zr's caches between builds. `Store` keeps every entry on disk. Each
   # other cache is a kind of entry with its own key and build code
-  # (`Iseq`, `Parse`, `Unit`, `Lowering`, `Run`), and `Janitor` sizes and
+  # (`Parse`, `Unit`, `Lowering`, `Run`), and `Janitor` sizes and
   # cleans them.
   module Cache
     # The one content store of zr's caches, in `<cache>/store`. An entry is
@@ -39,7 +39,6 @@ module Zr
         Kind.new(:wasm, :marshal, ".marshal", nil),
         Kind.new(:gems, :marshal, ".marshal", nil),
         Kind.new(:parse, :raw, "", nil),          # Prism parse results (Parse encodes them)
-        Kind.new(:iseq, :raw, ".bin", nil),
         Kind.new(:unit, :marshal, ".marshal", nil),
         Kind.new(:lowering, :marshal, ".marshal", nil),
         Kind.new(:code, :dir, "", nil),           # packs of machine code, one directory per backend
@@ -266,7 +265,7 @@ module Zr
         nil
       end
 
-      # JSON loads on first use: the iseq cache reads the store as zr starts.
+      # JSON loads on first use, so a store that holds no JSON costs nothing.
       def json
         require "json"
         JSON

@@ -110,7 +110,6 @@ paths = %w[unit programs].map { |tier| File.join(test_dir, tier) } if paths.empt
 
 ENV["ZR_TARGET"] = ENV["TARGET"] if ENV["TARGET"]
 ENV["ZR_GC_STRESS"] = "1" if ENV["GC"] == "stress"
-ENV["ZR_COMPILED"] ||= "0" # the tests run the compiler under ruby
 
 # The tier of a path is test/programs, or test/unit for the rest. Each
 # tier runs in its own process: the unit tier loads minitest, and the

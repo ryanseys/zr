@@ -14,13 +14,6 @@ module Zr
       Config.current.host_ruby
     end
 
-    # The environment of a child that must run the compiler under ruby.
-    # `exe/zr` gives a build to the compiled compiler in an install, or in
-    # a checkout with `ZR_COMPILED=1` (`Bootstrap::Handoff.wanted?`);
-    # `ZR_COMPILED=0` keeps the build in ruby. A check that compares ruby with the compiled compiler
-    # needs it, or it compares the compiled compiler with itself.
-    UNDER_RUBY = { "ZR_COMPILED" => "0" }.freeze
-
     # Stops a tool that reads a table from the running ruby, unless that
     # ruby is CRuby at the version that `.ruby-version` pins. A table
     # from another ruby, or from zr's copy of ruby's answers, is not

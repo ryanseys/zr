@@ -60,14 +60,6 @@ module Zr
       path
     end
 
-    # A directory of the user's cache for this zr version and this
-    # install, named `<prefix>-<version>-<digest of the root>`: two
-    # installed versions, or two installs, never share one.
-    def self.install_cache(prefix)
-      require "digest"
-      File.join(user_cache, "#{prefix}-#{VERSION}-#{Digest::SHA256.hexdigest(ROOT)[0, 12]}")
-    end
-
     # The user's cache directory for zr: `XDG_CACHE_HOME` when it is
     # set, else the platform's own.
     def self.user_cache

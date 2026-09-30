@@ -45,14 +45,10 @@ module Zr
         Dir[File.join(Paths.cache, "served", "*")].select { |path| File.file?(path) && File.mtime(path) < young }
       end
 
-      # The compiled compilers of other zr versions and installs, in the
-      # user's cache (lib/zr/bootstrap/handoff.rb). Each one is about
-      # 120 MB.
-      def other_compilers
-        require_relative "../bootstrap/handoff"
-        own = Bootstrap::Handoff.install_dir
-        Dir[File.join(Paths.user_cache, "self-*")].select { |dir| File.directory?(dir) && dir != own }
-      end
+      # The compiled compilers and prebuilt binaries that older zr
+      # versions kept in the user's cache (`self-*`, `shipped-*`). zr no
+      # longer uses them. Each one is about 120 MB.
+      def old_compilers = Dir[File.join(Paths.user_cache, "{self,shipped}-*")].select { |dir| File.directory?(dir) }
 
       # The entries that this zr uses: each entry that a fresh root of the
       # store names. A build writes its roots: the runtime and eval support
@@ -129,7 +125,7 @@ module Zr
         remove(old + served)
         limit = limit_gb * (1 << 30)
         Store.evict(limit: limit)
-        other_compilers.each { |dir| Paths.remove(dir) } if bytes(Store.entries.map(&:path)) > limit
+        old_compilers.each { |dir| Paths.remove(dir) } if bytes(Store.entries.map(&:path)) > limit
       rescue SystemCallError
         nil # a cache that cannot be measured or cleaned does not stop a build
       end

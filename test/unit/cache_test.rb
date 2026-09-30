@@ -22,7 +22,7 @@ class CacheTest < Minitest::Test
         swap(Zr::Paths, :cache, dir) do
           old = Zr::Cache::Store.write(:object, "0" * 64, "x" * (2 << 20))
           File.utime(Time.now - (3 * 86_400), Time.now - (3 * 86_400), old)
-          swap(Zr::Cache::Janitor, :other_compilers, []) { yield dir, old }
+          swap(Zr::Cache::Janitor, :old_compilers, []) { yield dir, old }
         end
       end
     end

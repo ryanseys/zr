@@ -112,7 +112,7 @@ module Zr
         # The copy has no .git, so ZR_LEDGER=1 gives it the ledger that a
         # checkout has (Runtime#ledger).
         env = { "ZR_TIMING" => "1", "ZR_CACHE" => CACHE, "ZR_LEDGER" => "1", "RUBY_GC_MALLOC_LIMIT" => nil,
-                "RUBY_GC_OLDMALLOC_LIMIT" => nil, **Dev::UNDER_RUBY }
+                "RUBY_GC_OLDMALLOC_LIMIT" => nil }
         began = Process.clock_gettime(Process::CLOCK_MONOTONIC)
         _, err, status = Open3.capture3(env, Dev.ruby, File.join(TREE, "exe/zr"), "run", main, chdir: TREE)
         took = Process.clock_gettime(Process::CLOCK_MONOTONIC) - began

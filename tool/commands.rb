@@ -25,7 +25,6 @@ module Zr
       "stage" => ["Check that zr compiles itself to the same bytes (1 or 2)", -> { require_relative "stage"; Stage }],
       "repro" => ["Build one program from two copies of the tree, and compare the bytes", -> { require_relative "repro"; Repro }],
       "cache" => ["Show, prune or clear the runtime cache", -> { require_relative "cache"; Cache }],
-      "gem" => ["Build the platform gem, with the compiled compiler in it", -> { require_relative "gem"; PlatformGem }],
       "gems" => ["Check which gems zr compiles, and group what stops the others", -> { require_relative "gems"; GemCompat }],
       "vendor" => ["Write vendor/ (ruby's library and gems, as upstream ships them) again, or check it",
                    -> { require_relative "vendor"; VendorCommand }],

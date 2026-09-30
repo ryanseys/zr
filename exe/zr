@@ -4,26 +4,19 @@
 # zr: a Ruby compiler, written in Ruby. `zr help` lists the commands.
 #
 # Use require_relative, not require: the collector tuning starts this file
-# again, and it must load this same copy of zr. zr's own files load from
-# the iseq cache (lib/zr/cache/iseq.rb). A `zr run` whose binary is in the
-# run cache execs it at once. When `zr-dev serve` runs, it builds the
-# program (lib/zr/server.rb). If a current compiled compiler exists, it
-# runs the build next (lib/zr/bootstrap/handoff.rb), before ruby loads the
-# rest of zr. A compile starts ruby again with the collector limits at its
-# first step of heavy work (lib/zr/tune.rb). `CLI.guard` turns an error
-# into one line and an exit status.
-require_relative "../lib/zr/cache/iseq"
-Zr::Cache::Iseq.install
+# again, and it must load this same copy of zr. A `zr run` whose binary
+# is in the run cache execs it at once. When `zr-dev serve` runs, it
+# builds the program (lib/zr/server.rb). A compile starts ruby again with
+# the collector limits at its first step of heavy work (lib/zr/tune.rb).
+# `CLI.guard` turns an error into one line and an exit status.
 require_relative "../lib/zr/cli"
 Zr::CLI.guard do
-  # A bad ZR_* value stops here, before a hand-over or a self-build.
+  # A bad ZR_* value stops here, before the server gets the command.
   Zr::Config.current
   Zr::CLI.kept!(ARGV)
   require_relative "../lib/zr/server"
   Zr::Server.hand_to(ARGV)
-  require_relative "../lib/zr/bootstrap/handoff"
-  Zr::Bootstrap::Handoff.hand_over(ARGV)
 
-  Zr::CLI.tune!(__FILE__, handed: true, later: true) if Zr::CLI::COMPILE.include?(ARGV.first)
+  Zr::CLI.tune!(__FILE__, later: true) if Zr::CLI::COMPILE.include?(ARGV.first)
   Zr::CLI.start(ARGV)
 end

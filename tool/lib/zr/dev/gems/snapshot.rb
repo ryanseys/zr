@@ -35,11 +35,11 @@ module Zr
 
         def commit = Snapshot.git(@root, "rev-parse", "--short=12", "HEAD").to_s
 
-        # Builds the copy's compiled compiler, and so its runtime, as
-        # `rake build:self` does. A build then takes seconds, not minutes.
-        # Returns true when it is current.
+        # Builds the copy's runtime, as `rake build` does. A build then
+        # takes seconds, not minutes. Returns true when it built.
         def warm!
-          script = "require #{File.join(@root, "lib/zr/bootstrap/handoff").dump}; Zr::Bootstrap::Handoff.build; exit Zr::Bootstrap::Handoff.current?"
+          script = "$LOAD_PATH.unshift(#{File.join(@root, "lib").dump}, #{File.join(@root, "test").dump}); " \
+                   "require \"support/built\"; Zr::Test::Built.build(Zr::Test::Built.targets)"
           system({ "BUNDLE_GEMFILE" => nil, "RUBYOPT" => nil }, Dev.ruby, "-e", script, chdir: @root)
         end
 

@@ -1,16 +1,16 @@
 # frozen_string_literal: true
 
-require_relative "../../../../lib/zr/bootstrap/binary"
+require_relative "binary"
 
 module Zr
   module Dev
-    # The tools as a Bootstrap::Binary: `tool/zr-dev.rb`, compiled by zr to
+    # The tools as a Binary: `tool/zr-dev.rb`, compiled by zr to
     # `bin/zr-dev` (`rake build:tools`). The binary holds a copy of lib/zr,
     # so it must not run once a source changed: a stale `cache prune`
     # would compute the old digests and remove the live runtime.
     def self.tools
       dirs = ["lib", "runtime", *Layout::UPSTREAM, "tool", "test/support"]
-      Bootstrap::Binary.new(entry: "tool/zr-dev.rb", binary: path("bin/zr-dev"), dirs: dirs) do
+      Binary.new(entry: "tool/zr-dev.rb", binary: path("bin/zr-dev"), dirs: dirs) do
         [path("Gemfile.lock"), path("zr.gemspec")]
       end
     end

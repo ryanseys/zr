@@ -15,7 +15,7 @@ module Zr
 
     module_function
 
-    def checks = [zr, ruby, host, wasmtime, openssl, gems, cache, fast_compiler]
+    def checks = [zr, ruby, host, wasmtime, openssl, gems, cache]
 
     # Prints each check. Returns true when none failed.
     def run(out = $stdout)
@@ -85,21 +85,6 @@ module Zr
       Check.new(:ok, "cache", format("%s, %d MB", dir, Cache::Janitor.megabytes(Cache::Janitor.all)))
     rescue SystemCallError => e
       Check.new(:fail, "cache", "#{dir}: #{e.message}. #{CACHE_FIX}")
-    end
-
-    def fast_compiler(env = ENV)
-      require_relative "bootstrap/handoff"
-      cc = Bootstrap::Handoff
-      program = cc.program
-      return Check.new(:ok, "fast compiler", "off (ZR_COMPILED=0)") if cc.off?(env)
-      return Check.new(:ok, "fast compiler", "off in a checkout; ZR_COMPILED=1 uses bin/zr") unless cc.wanted?(env)
-      return Check.new(:ok, "fast compiler", "not for this host; ruby runs zr") unless cc.runnable?
-      return Check.new(:ok, "fast compiler", "current") if cc.current?
-
-      if program.failed?
-        return Check.new(:warn, "fast compiler", "the last build failed (#{program.log}); #{program.retry_note}; ZR_COMPILED=1 tries now")
-      end
-      Check.new(:ok, "fast compiler", Paths.checkout? ? "not built (rake build:self)" : "not built yet; the first build makes it")
     end
 
     # The path of `command` on PATH, or nil.

@@ -23,10 +23,6 @@ task("gem:release") { abort("rake gem:release: #{RELEASE}") }
 
 ROOT = __dir__
 
-# Every task runs the compiler under ruby. `ZR_COMPILED=1` selects the
-# compiled compiler (lib/zr/bootstrap/handoff.rb).
-ENV["ZR_COMPILED"] ||= "0"
-
 # Runs `argv` with this ruby, and exits with its status when it fails.
 def ruby!(*argv)
   system(RbConfig.ruby, *argv) || exit($?.exitstatus || 1)
@@ -45,14 +41,6 @@ task("build:wasm") { build!("[Zr::Target::WASM32_WASI]") }
 
 desc "Build the zr runtime for this host and for wasm32-wasi"
 task("build:all") { build!("Zr::Test::Built.targets(wasm: true)") }
-
-desc "Build the compiler with itself (exe/zr uses it until a file under lib, runtime or vendor changes)"
-task("build:self") do
-  require_relative "lib/zr/bootstrap/handoff"
-  Zr::Bootstrap::Handoff.build
-  abort("rake build:self: the compiled compiler did not build") unless Zr::Bootstrap::Handoff.current?
-  puts "the compiled compiler: #{Zr::Bootstrap::Handoff.binary}"
-end
 
 desc "Build the zr-dev tools with zr, to bin/zr-dev (bin/zr-dev runs them under ruby when a source changes)"
 task("build:tools") do

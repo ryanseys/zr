@@ -159,7 +159,7 @@ module Zr
         path          print the cache directory (the default)
         size          what the cache holds, by kind
         clean         delete the files that this zr does not use, and the
-                      compiled compilers of other zr versions
+                      compiled compilers that older zr versions kept
         clean --all   delete every file in the cache, also this zr's own;
                       the next build makes them again
 
@@ -168,8 +168,7 @@ module Zr
       TEXT
     }.freeze
 
-    # The commands that compile. The compiled compiler runs these
-    # (Bootstrap::Handoff); ruby runs all others.
+    # The commands that compile.
     COMPILE = %w[run build machine].freeze
     EMITS = { "binary" => nil, "obj" => "obj", "wasm" => "wasm" }.freeze
 
@@ -181,12 +180,9 @@ module Zr
 
     # Sets the collector limits and YJIT for a compile (`Tune`). With
     # `later`, only the first step of heavy work tunes, so a warm build
-    # pays for neither. `handed` says that `Bootstrap::Handoff.hand_over`
-    # already kept the command in this process; a new start of zr then
-    # does not check again.
-    def tune!(script = nil, handed: false, later: false)
-      env = handed ? { Bootstrap::Handoff::HANDED => "1" } : {}
-      later ? Tune.later(script, ARGV, env: env) : Tune.now(script, ARGV, env: env)
+    # pays for neither.
+    def tune!(script = nil, later: false)
+      later ? Tune.later(script, ARGV) : Tune.now(script, ARGV)
     end
 
     # Why this compiler must not build on a ruby of `version`, or nil
@@ -327,14 +323,15 @@ module Zr
         files.group_by { |path| Cache::Janitor.kind(path) }.sort_by { |_, group| -Cache::Janitor.bytes(group) }.each do |kind, group|
           puts format("%6d MB  %5d  %s", Cache::Janitor.megabytes(group), group.size, kind)
         end
-        others = Cache::Janitor.other_compilers
-        puts format("%6d MB  %5d  compiled compilers of other zr versions", others.sum { |dir| Cache::Store.tree_bytes(dir) } >> 20, others.size)
+        others = Cache::Janitor.old_compilers
+        old_mb = others.sum { |dir| Cache::Store.tree_bytes(dir) } >> 20
+        puts format("%6d MB  %5d  compiled compilers that older zr versions kept", old_mb, others.size)
         puts format("%6d MB  %5d  in all, in %s", Cache::Janitor.megabytes(files), files.size, Paths.cache)
       when "clean"
         all = args.include?("--all")
         sizes = Cache::Janitor.all.to_h { |path| [path, Cache::Janitor.bytes([path])] }
         gone = all ? Cache::Janitor.clear : Cache::Janitor.prune
-        others = Cache::Janitor.other_compilers
+        others = Cache::Janitor.old_compilers
         freed = gone.sum { |path| sizes.fetch(path, 0) } + others.sum { |dir| Cache::Store.tree_bytes(dir) }
         others.each { |dir| Paths.remove(dir) }
         puts format("deleted %d file(s) and %d compiled compiler(s), %d MB", gone.size, others.size, freed >> 20)

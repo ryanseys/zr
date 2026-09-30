@@ -1,13 +1,12 @@
 # frozen_string_literal: true
 
 require "rbconfig"
-require_relative "../paths"
+require_relative "../../../../lib/zr/paths"
 
 module Zr
-  module Bootstrap
-    # A program of this checkout that zr compiles to a binary: the compiler
-    # itself (`exe/zr` to `bin/zr`, lib/zr/bootstrap/handoff.rb) or the
-    # tools (`tool/zr-dev.rb` to `bin/zr-dev`). The binary is current while
+  module Dev
+    # A program of this checkout that zr compiles to a binary: the tools
+    # (`tool/zr-dev.rb` to `bin/zr-dev`). The binary is current while
     # its sources are unchanged: the same list of files, and the same file
     # stamp for each. A stale binary must not run, because it holds the old
     # code. Its manifest (the stamps) and its lock are beside it.

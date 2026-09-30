@@ -9,9 +9,10 @@ class AffectedTest < Minitest::Test
   def affected = Zr::Dev::Affected.new("affected")
 
   def test_a_changed_test_file_runs_itself
-    plan = affected.plan(%w[test/unit/fork_pool_test.rb test/programs/core/comparable/comparison/a_base_class_that_calls_a_name_only_its_descendants_write_ty.rb.expected])
+    program = "test/programs/core/comparable/comparison/a_base_class_that_calls_a_name_only_its_descendants_write_ty.rb"
+    plan = affected.plan(["test/unit/fork_pool_test.rb", "#{program}.expected"])
 
-    assert_equal %w[test/programs/core/comparable/comparison/a_base_class_that_calls_a_name_only_its_descendants_write_ty.rb test/unit/fork_pool_test.rb], plan
+    assert_equal [program, "test/unit/fork_pool_test.rb"], plan
   end
 
   def test_a_deleted_test_file_runs_nothing

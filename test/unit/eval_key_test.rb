@@ -8,8 +8,8 @@ require_relative "../../lib/zr/runtime"
 # the files that it was lowered from.
 #
 # The code contains the id of each name that it uses, the runtime's
-# names too. A build with the ledger and a build without it (`rake
-# build:self`, `ZR_LEDGER=0`) give the runtime's names other ids, so they
+# names too. A build with the ledger and a build without it
+# (`ZR_LEDGER=0`) give the runtime's names other ids, so they
 # lower the same files to other code. When the key had only the files,
 # the second build wrote its own metadata but linked the first build's
 # object (`Native::Build.eval_support_object` keeps an object that has
