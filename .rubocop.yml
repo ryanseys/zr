@@ -76,3 +76,11 @@ Performance/CollectionLiteralInLoop:
   Exclude:
     - "test/**/*"
     - "tool/**/*"
+
+# One quote style. The code uses double quotes, also inside #{}.
+Style/StringLiterals:
+  Enabled: true
+  EnforcedStyle: double_quotes
+Style/StringLiteralsInInterpolation:
+  Enabled: true
+  EnforcedStyle: double_quotes

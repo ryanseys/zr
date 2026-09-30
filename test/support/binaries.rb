@@ -65,7 +65,7 @@ module Zr
         key = Digest::SHA256.new
         [VERSION, Zr.runtime(target).digest, Zr.link_digest, libraries, target.triple,
          *ENVIRONMENT.map { |name| ENV[name].to_s }, rb, source, *parts.flatten].each { |part| key << part.to_s << "\0" }
-        Zr::Store.path(:binary, "#{key.hexdigest}#{'.wasm' unless target.link}")
+        Zr::Store.path(:binary, "#{key.hexdigest}#{".wasm" unless target.link}")
       end
 
       # The digest of the library files that a program can require and that

@@ -211,7 +211,7 @@ module Zr
             rest = node.rest
             n = pre.size + post.size
             length = rest ? @b.send_to(size_of(d, line), :>=, [Literal.new(n, line)], line) : @b.send_to(size_of(d, line), :==, [Literal.new(n, line)], line)
-            steps << failing(length, Interp.new([inspect_of(d, line), Literal.new(" length mismatch (given ", line), size_of(d, line), Literal.new(", expected #{n}#{rest ? '+' : ''})", line)], line), line)
+            steps << failing(length, Interp.new([inspect_of(d, line), Literal.new(" length mismatch (given ", line), size_of(d, line), Literal.new(", expected #{n}#{rest ? "+" : ""})", line)], line), line)
             pre.each_with_index { |p, i| steps << nested(p, element(d, Literal.new(i, line), line), line) }
             post.each_with_index do |p, i|
               at = @b.send_to(size_of(d, line), :-, [Literal.new(post.size - i, line)], line)

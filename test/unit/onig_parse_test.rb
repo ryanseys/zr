@@ -74,7 +74,7 @@ class OnigParseTest < Minitest::Test
     [false, true].each do |verbose|
       want = compile_in_ruby(pattern, options, verbose)
       got = compile_in_core(pattern, options, verbose)
-      assert_equal want, got, "/#{pattern}/ options #{options}#{verbose ? ' verbose' : ''}"
+      assert_equal want, got, "/#{pattern}/ options #{options}#{verbose ? " verbose" : ""}"
     end
   end
 

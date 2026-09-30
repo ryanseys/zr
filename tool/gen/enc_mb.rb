@@ -54,7 +54,7 @@ module Zr
           "\"#{lines.join("\\\n")}\""
         end
 
-        def def_name(enc) = "zr_enc_mb_#{enc.name.downcase.tr('-', '_')}"
+        def def_name(enc) = "zr_enc_mb_#{enc.name.downcase.tr("-", "_")}"
 
         def write(io)
           require_relative "../../lib/zr/runtime"
@@ -79,7 +79,7 @@ module Zr
                 text = bytes.pack("C*")
                 ours = found?(enc, text.b)
                 theirs = text.dup.force_encoding(encoding).valid_encoding? && text.dup.force_encoding(encoding).length == 1
-                abort "#{encoding.name} #{text.unpack1('H*')}: ruby says #{theirs}, the descriptor #{ours}" unless ours == theirs
+                abort "#{encoding.name} #{text.unpack1("H*")}: ruby says #{theirs}, the descriptor #{ours}" unless ours == theirs
               end
             end
           end
@@ -97,13 +97,13 @@ module Zr
             # character.
             sig [Word] => Bool
             machine def zr_enc_mb_p(index)
-              #{test('index', mb.map { |e| index_of(e) })}
+              #{test("index", mb.map { |e| index_of(e) })}
             end
 
             # Whether the encoding writes its characters in the same way as UTF-8.
             sig [Word] => Bool
             machine def zr_enc_utf8_like_p(index)
-              #{test('index', utf8_like.map { |e| index_of(e) })}
+              #{test("index", utf8_like.map { |e| index_of(e) })}
             end
 
             # The descriptor to step through a multibyte encoding, or 0 for other
@@ -113,8 +113,8 @@ module Zr
           HEAD
           blobs = bases.group_by { |enc, _| enc.descriptor }.to_h { |_, pairs| [pairs.first.first, pairs.flat_map(&:last)] }
           blobs.each do |enc, encodings|
-            kernel << "  # #{encodings.map(&:name).join(', ')}\n"
-            kernel << "  if #{test('index', encodings.map { |e| index_of(e) })}\n"
+            kernel << "  # #{encodings.map(&:name).join(", ")}\n"
+            kernel << "  if #{test("index", encodings.map { |e| index_of(e) })}\n"
             kernel << "    return Machine.word(#{def_name(enc)})\n  end\n"
           end
           kernel << "  0\nend\n"

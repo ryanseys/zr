@@ -502,9 +502,9 @@ module Zr
           core << "end\n"
           io.print core
 
-          warn "tables: #{own.size}, partial: #{tables.select { |_, t| t.partial }.keys.map(&:name).join(',')}"
-          warn "as UTF-8: #{utf8_like.map(&:name).join(',')}"
-          warn "refused: #{irregular.keys.map(&:name).join(',')}"
+          warn "tables: #{own.size}, partial: #{tables.select { |_, t| t.partial }.keys.map(&:name).join(",")}"
+          warn "as UTF-8: #{utf8_like.map(&:name).join(",")}"
+          warn "refused: #{irregular.keys.map(&:name).join(",")}"
           warn "rows: #{pool.rows.size}, encode rows written out: #{written}, of more than one code point: #{multi_written}"
           warn "converter pairs: #{edges.size}"
           warn "core: #{core.bytesize} bytes"

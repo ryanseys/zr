@@ -118,10 +118,10 @@ class RegallocDifferentialTest < Minitest::Test
   def dump(f)
     f.blocks.map do |b|
       lines = b.insts.map do |i|
-        "    #{i.results.join(', ')}#{' = ' unless i.results.empty?}#{i.op}#{".#{i.type}" if i.type}#{".#{i.cond}" if i.cond} " \
-          "#{i.args.join(', ')}#{" -> #{i.targets.map { |t, args| "#{t}(#{args.join(', ')})" }.join(' | ')}" if i.targets}#{" #{i.callee}" if i.callee}"
+        "    #{i.results.join(", ")}#{" = " unless i.results.empty?}#{i.op}#{".#{i.type}" if i.type}#{".#{i.cond}" if i.cond} " \
+          "#{i.args.join(", ")}#{" -> #{i.targets.map { |t, args| "#{t}(#{args.join(", ")})" }.join(" | ")}" if i.targets}#{" #{i.callee}" if i.callee}"
       end
-      ["  #{b.name}(#{b.params.map { |v, t| "#{v}: #{t}" }.join(', ')}):", *lines].join("\n")
+      ["  #{b.name}(#{b.params.map { |v, t| "#{v}: #{t}" }.join(", ")}):", *lines].join("\n")
     end.join("\n")
   end
 end

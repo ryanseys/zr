@@ -52,7 +52,7 @@ module Zr
           (h["#{key}b"] ? [h["#{key}b"]].pack("H*") : h[key].dup).force_encoding(encoding)
         end
 
-        def flags = "#{(options & MULTILINE != 0 ? 'm' : '')}#{(options & IGNORECASE != 0 ? 'i' : '')}#{(options & EXTENDED != 0 ? 'x' : '')}"
+        def flags = "#{(options & MULTILINE != 0 ? "m" : "")}#{(options & IGNORECASE != 0 ? "i" : "")}#{(options & EXTENDED != 0 ? "x" : "")}"
 
         def label
           shown = ->(s) { s.encoding == Encoding::UTF_8 ? "" : " (#{s.encoding})" }

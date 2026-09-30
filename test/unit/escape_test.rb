@@ -55,11 +55,11 @@ class EscapeTest < Minitest::Test
   }.freeze
 
   RAW.each do |name, body|
-    define_method("test_#{name.tr(' ', '_')}_stays_raw") { assert raw?(body), body }
+    define_method("test_#{name.tr(" ", "_")}_stays_raw") { assert raw?(body), body }
   end
 
   KEPT.each do |name, body|
-    define_method("test_#{name.tr(' ', '_')}_keeps_the_proc") { refute raw?(body), body }
+    define_method("test_#{name.tr(" ", "_")}_keeps_the_proc") { refute raw?(body), body }
   end
 
   # A default cannot refer to the block parameter: it is declared after

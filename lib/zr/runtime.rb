@@ -712,18 +712,18 @@ module Zr
     names << [spots.map { |file, rows| "#{shown[file]}\n#{rows}" }.join("\f")]
     # The lines that Coverage counts, one record per file: its path, its
     # line count, and the lines, tab-separated.
-    names << coverable.map { |file, (count, lines)| "#{shown[file]}\t#{count}\t#{lines.uniq.join(',')}" }
+    names << coverable.map { |file, (count, lines)| "#{shown[file]}\t#{count}\t#{lines.uniq.join(",")}" }
     # The branches that Coverage reports, one record per file: its path,
     # then one `kind,id,root,start line,start column,end line,end column`
     # for each branch, in Coverage's order. `id` is the counter that this
     # branch increments. `root` is the index in the file of the branch's
     # root, or empty for a root.
-    names << branches.map { |file, rows| "#{shown[file]}\t#{rows.map { |row| row.join(',') }.join("\t")}" }
+    names << branches.map { |file, rows| "#{shown[file]}\t#{rows.map { |row| row.join(",") }.join("\t")}" }
     # The location of each def and block in a measured file, one record
     # per file: its path, then one `id,start line,start column,end
     # line,end column` for each scope. A definition finds its record by
     # its id, and so gets its span.
-    names << defs.map { |file, rows| "#{shown[file]}\t#{rows.map { |row| row.join(',') }.join("\t")}" }
+    names << defs.map { |file, rows| "#{shown[file]}\t#{rows.map { |row| row.join(",") }.join("\t")}" }
     names << sources.map { |path, digest| [shown[path], digest] }.sort.map { |path, digest| "#{path}\t#{digest}" }
     names << [manifest.to_s.chomp]
     out = []
