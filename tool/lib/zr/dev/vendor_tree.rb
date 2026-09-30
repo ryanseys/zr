@@ -79,7 +79,7 @@ module Zr
         @files = {}
         @entries = []
         locked = self.class.lock.first
-        @gems = Gems.new(locked.filter_map { |e| ["#{e.name}-#{e.version}.gem", e.sha256] if e.sha256 }.to_h, fail: fail)
+        @gems = GemSource.new(locked.filter_map { |e| ["#{e.name}-#{e.version}.gem", e.sha256] if e.sha256 }.to_h, fail: fail)
       end
 
       # Collects every file and source.
@@ -195,7 +195,7 @@ module Zr
 
           add(File.join(Layout::SPECIFICATIONS, "default", File.basename(spec_path)), File.binread(spec_path))
           package = @gems.fetch(spec.name, spec.version.to_s)
-          @entries << Entry.new("default", spec.name, spec.version.to_s, Gems.url(spec.name, spec.version), @gems.sha(spec.name, spec.version))
+          @entries << Entry.new("default", spec.name, spec.version.to_s, GemSource.url(spec.name, spec.version), @gems.sha(spec.name, spec.version))
           licenses(package) { |rel, bytes| add(File.join(Layout::LICENSES, spec.name, rel), bytes) }
           [spec.name, spec.version.to_s]
         end.to_h
@@ -203,7 +203,7 @@ module Zr
 
       def rubygems_license
         package = @gems.fetch("rubygems-update", Gem::VERSION)
-        @entries << Entry.new("license", "rubygems-update", Gem::VERSION, Gems.url("rubygems-update", Gem::VERSION),
+        @entries << Entry.new("license", "rubygems-update", Gem::VERSION, GemSource.url("rubygems-update", Gem::VERSION),
                               @gems.sha("rubygems-update", Gem::VERSION))
         licenses(package) { |rel, bytes| add(File.join(Layout::LICENSES, "rubygems", rel), bytes) }
       end
@@ -215,7 +215,7 @@ module Zr
         spec = package.spec
         @fail.call("#{name} #{version}: require_paths #{spec.raw_require_paths.inspect}, not [\"lib\"]") unless spec.raw_require_paths == ["lib"]
 
-        @entries << Entry.new(kind, name, version, Gems.url(name, version), @gems.sha(name, version))
+        @entries << Entry.new(kind, name, version, GemSource.url(name, version), @gems.sha(name, version))
         root = Layout.gem_root(name, version)
         excluded = Vendor::GEM_EXCLUDE.fetch(name, {})
         @gems.contents(package).each do |rel, bytes|
@@ -311,7 +311,7 @@ module Zr
       # The .gem files from rubygems.org, kept in tmp/vendor/cache. A gem
       # that the lock names must have its locked SHA-256; a new one must
       # have the SHA-256 that rubygems.org publishes.
-      class Gems
+      class GemSource
         def self.url(name, version) = "https://rubygems.org/downloads/#{name}-#{version}.gem"
 
         def initialize(locked, fail:)

@@ -38,7 +38,7 @@ module Zr
         def self.read(dir, source:, name: nil)
           raise Failure.new("not-found", "no directory #{dir}") unless File.directory?(dir)
 
-          stored = Store.new.read(dir)
+          stored = FetchedGems.new.read(dir)
           return stored.with(source: source) if stored
 
           base_name, base_version = File.basename(dir).match(/\A(.+?)-(\d[^-]*)\z/)&.captures

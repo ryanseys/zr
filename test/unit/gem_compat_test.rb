@@ -97,7 +97,7 @@ class GemCompatTest < Minitest::Test
     corpus = gem_dir("corpus/minitest", "5.25.0")
     gem_dir("corpus/old", "1.0.0", "minitest" => "< 6")
     root = gem_dir("root", "1.0.0", "minitest" => ">= 0", "old" => ">= 1")
-    resolver = Gems::Resolver.new(store: Gems::Store.new(@dir), corpus: Gems::Corpus.new(File.dirname(corpus)), offline: true, remote: nil)
+    resolver = Gems::Resolver.new(store: Gems::FetchedGems.new(@dir), corpus: Gems::Corpus.new(File.dirname(corpus)), offline: true, remote: nil)
     _, deps = resolver.resolve(Gems::Request.parse(root))
 
     assert_equal ["minitest 5.25.0", "old 1.0.0"], deps.map(&:to_s).sort
@@ -134,10 +134,10 @@ class GemCompatTest < Minitest::Test
     assert_equal "not-found", error.kind
   end
 
-  # Store
+  # FetchedGems
 
   def test_the_store_unpacks_a_gem_and_reads_it_back
-    store = Gems::Store.new(@dir)
+    store = Gems::FetchedGems.new(@dir)
     subject = store.unpack(package("packed", "0.4.0", "lib/packed.rb" => "module Packed; end\n"))
 
     assert_equal ["packed", "0.4.0", "rubygems", File.join(store.gems, "packed-0.4.0")], [subject.name, subject.version, subject.source, subject.root]
@@ -152,9 +152,9 @@ class GemCompatTest < Minitest::Test
     old = File.join(@dir, "src/packed-0.4.0")
     FileUtils.mkdir_p([old, File.join(@dir, "rubygems/cache")])
     marker = { name: "packed", version: "0.4.0", require_paths: ["lib"], extensions: [], dependencies: [] }
-    File.write(File.join(old, Gems::Store::MARKER), JSON.generate(marker))
+    File.write(File.join(old, Gems::FetchedGems::MARKER), JSON.generate(marker))
     File.write(File.join(old, "packed.gemspec"), "spec\n")
-    store = Gems::Store.new(@dir)
+    store = Gems::FetchedGems.new(@dir)
 
     store.migrate
 
@@ -164,7 +164,7 @@ class GemCompatTest < Minitest::Test
   end
 
   def test_offline_the_resolver_takes_the_newest_version_in_the_store
-    store = Gems::Store.new(@dir)
+    store = Gems::FetchedGems.new(@dir)
     store.unpack(package("packed", "0.4.0", "lib/packed.rb" => ""))
     store.unpack(package("packed", "0.10.0", "lib/packed.rb" => ""))
 
@@ -392,7 +392,7 @@ class GemCompatTest < Minitest::Test
 
   private
 
-  def resolver = Gems::Resolver.new(store: Gems::Store.new(@dir), corpus: CORPUS, offline: true, remote: nil)
+  def resolver = Gems::Resolver.new(store: Gems::FetchedGems.new(@dir), corpus: CORPUS, offline: true, remote: nil)
 
   def trial(runner)
     Gems::Trial.new(resolver: resolver, runner: runner, overrides: OVERRIDES, logs: File.join(@dir, "logs"),

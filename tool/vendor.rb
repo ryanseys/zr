@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "lib/zr/dev"
-require_relative "lib/zr/dev/vendor"
+require_relative "lib/zr/dev/vendor_tree"
 
 module Zr
   module Dev
@@ -75,7 +75,7 @@ module Zr
 
       def outdated
         entries, = VendorTree.lock
-        gems = VendorTree::Gems.new({}, fail: method(:fail!))
+        gems = VendorTree::GemSource.new({}, fail: method(:fail!))
         stale = entries.select { |e| %w[bundled port].include?(e.kind) }.filter_map do |e|
           latest = gems.latest(e.name)
           [e, latest] if Gem::Version.new(latest) > Gem::Version.new(e.version)
@@ -91,7 +91,7 @@ module Zr
         fail!("usage: zr-dev vendor diff GEM [VERSION]") unless gem
         entries, = VendorTree.lock
         locked = entries.find { |e| e.name == gem && %w[bundled port].include?(e.kind) } or fail!("#{gem} is not a gem of vendor/")
-        gems = VendorTree::Gems.new(entries.filter_map { |e| ["#{e.name}-#{e.version}.gem", e.sha256] if e.sha256 }.to_h, fail: method(:fail!))
+        gems = VendorTree::GemSource.new(entries.filter_map { |e| ["#{e.name}-#{e.version}.gem", e.sha256] if e.sha256 }.to_h, fail: method(:fail!))
         version ||= gems.latest(gem)
         old = lib_files(gems, gem, locked.version)
         new = lib_files(gems, gem, version)

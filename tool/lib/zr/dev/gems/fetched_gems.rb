@@ -20,7 +20,7 @@ module Zr
       # The unpack is Gem::Package's, in Ruby: no `gem install`, so no C
       # compiles and no code of the gem runs. Each gem directory also gets
       # `.zr-gems.json`, what the tool reads back (no gemspec to evaluate).
-      class Store
+      class FetchedGems
         MARKER = ".zr-gems.json"
 
         attr_reader :dir

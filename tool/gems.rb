@@ -55,7 +55,7 @@ module Zr
           Gems::Trial.new(resolver: resolver, **options)
         end
 
-        def resolver = Gems::Resolver.new(store: Gems::Store.new.tap(&:migrate), corpus: corpus, offline: @offline || false)
+        def resolver = Gems::Resolver.new(store: Gems::FetchedGems.new.tap(&:migrate), corpus: corpus, offline: @offline || false)
 
         def corpus
           dir = @corpus || ENV.fetch("ZR_GEM_CORPUS", "")

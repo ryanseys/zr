@@ -11,7 +11,7 @@ module Zr
     # keeps one row for each gem (Table).
     #
     # The tool never runs a gem's code in its own process, and never runs
-    # `gem install`: it unpacks each gem in Ruby (Store).
+    # `gem install`: it unpacks each gem in Ruby (FetchedGems).
     module Gems
       # The fetched gems, the logs, the sweeps and the work directories.
       TMP = Dev.path("tmp/gems")
@@ -45,7 +45,7 @@ end
 
 require_relative "gems/request"
 require_relative "gems/subject"
-require_relative "gems/store"
+require_relative "gems/fetched_gems"
 require_relative "gems/corpus"
 require_relative "gems/resolver"
 require_relative "gems/rules"
