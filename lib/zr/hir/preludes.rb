@@ -121,7 +121,7 @@ module Zr
       # its files uses `RbConfig` or requires it. So the constant exists
       # and `require "rbconfig"` returns false, as in ruby.
       def self.rbconfig(loader)
-        path = loader.resolve(:require, "rbconfig", EXT)
+        path = loader.resolve(:require, "rbconfig", Layout::EXT)
         Require.new(:require, "rbconfig", path, loader.add(path), 0)
       end
 

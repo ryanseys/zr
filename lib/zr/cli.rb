@@ -16,8 +16,6 @@ module Zr
   # `pp`, which calls eval, and a compiler that zr compiles would then
   # have to include eval support.
   module CLI
-    DOCS = DOCS_URL
-
     USAGE = <<~TEXT.freeze
       Usage: zr <command> [options]
 
@@ -37,7 +35,7 @@ module Zr
       Exit status: 0 success; 1 error; 2 usage error or a bad ZR_* value;
       3 zr does not support the program, the target or this ruby; 130 Ctrl-C.
       `zr run` exits with the program's status.
-      Environment variables: #{DOCS}/reference/environment-variables.md
+      Environment variables: #{DOCS_URL}/reference/environment-variables.md
     TEXT
 
     OUTPUT = "  -o, --output <path>    write the output to <path>\n"
@@ -181,9 +179,6 @@ module Zr
 
     module_function
 
-    # The collector limits of a compile (lib/zr/tune.rb).
-    GC_ENV = Tune::GC_ENV
-
     # Sets the collector limits and YJIT for a compile (`Tune`). With
     # `later`, only the first step of heavy work tunes, so a warm build
     # pays for neither. `handed` says that `Bootstrap::Handoff.hand_over`
@@ -200,7 +195,7 @@ module Zr
       return if Zr.supported_ruby?(version)
 
       "zr #{VERSION} runs on ruby #{RUBY} or a later 4.0 release. " \
-        "Install ruby #{RUBY}: #{DOCS}/how-to/install.md"
+        "Install ruby #{RUBY}: #{DOCS_URL}/how-to/install.md"
     end
 
     # A note for a ruby that zr runs on but is not tested with, or nil.
@@ -222,8 +217,6 @@ module Zr
       warn "zr: #{why}"
       exit REFUSED
     end
-
-    ISSUES = ISSUES_URL
 
     # The errors that say what the user must change, not a defect in zr.
     # They print their message only. Named as strings: not every command
@@ -253,7 +246,7 @@ module Zr
       return error.message if EXPECTED.include?(error.class.name)
       return "#{error.message}#{cache_hint(error)}" if error.is_a?(SystemCallError)
 
-      "internal error: #{error.class}: #{error.message}. This is a defect in zr. Report it at #{ISSUES} " \
+      "internal error: #{error.class}: #{error.message}. This is a defect in zr. Report it at #{ISSUES_URL} " \
         "with the output of 'zr doctor'. Set ZR_DEBUG=1 to see the backtrace."
     end
 
@@ -652,7 +645,7 @@ module Zr
       # A backend refuses code that the front end let through: a limit or
       # a defect in zr, not a form of Ruby that the program must avoid.
       abort "zr: zr cannot compile this program: #{e.message}. This is a limit or a defect in zr. " \
-            "Report it at #{ISSUES}."
+            "Report it at #{ISSUES_URL}."
     rescue SyntaxError => e
       # For a program that does not parse, ruby prints a report and exits
       # 1. The binary does the same, with ruby's own report. In ruby, a

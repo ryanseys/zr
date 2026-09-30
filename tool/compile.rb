@@ -156,7 +156,7 @@ module Zr
       # because the phases do not include the process start.
       def build(rb, out, compiled: false)
         # With the GC limits set here, `zr` does not restart itself.
-        env = { "ZR_TIMING" => "1", **CLI::GC_ENV, **Dev::UNDER_RUBY }
+        env = { "ZR_TIMING" => "1", **Tune::GC_ENV, **Dev::UNDER_RUBY }
         command = [Dev.ruby, Dev.path("exe/zr")]
         if compiled
           env["ZR_CACHE"] = COMPILED_CACHE
@@ -197,7 +197,7 @@ module Zr
         print "the compiled compiler ... "
         FileUtils.mkdir_p(File.dirname(COMPILED))
         took = Benchmark.realtime do
-          system({ **CLI::GC_ENV, **Dev::UNDER_RUBY }, Dev.ruby, Dev.path("exe/zr"), "build", Dev.path("exe/zr"),
+          system({ **Tune::GC_ENV, **Dev::UNDER_RUBY }, Dev.ruby, Dev.path("exe/zr"), "build", Dev.path("exe/zr"),
                  "-o", COMPILED, out: File::NULL, chdir: ROOT) or fail!("the compiler did not build")
         end
         puts format("%.1fs", took)

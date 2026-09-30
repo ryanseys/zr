@@ -34,12 +34,6 @@ module Zr
       # (lib/zr/libraries.rb).
       def self.pure = Libraries.root
 
-      # The extensions whose native part is zr's. A file here is part of
-      # the runtime, so it can call a kernel def through `Primitive`.
-      EXT = Layout::EXT
-      # The runtime's own Ruby, the core library and the extensions: code
-      # that a TracePoint never sees.
-      RUNTIME = Paths::RUNTIME
       # The named calls that a site lowers to a kernel entry with a core
       # fast path (Zr::Lower::Function::Sends::OPT_ENTRIES), with each
       # one's argument count. A call with a different count, or with a
@@ -47,7 +41,7 @@ module Zr
       # and only the real call can tell.
       OPT_CALLS = { getbyte: 1, setbyte: 2, push: 1, pop: 0, shift: 0, empty?: 0 }.freeze
 
-      def self.runtime_file?(file) = File.expand_path(file).start_with?("#{RUNTIME}/") || description?(file)
+      def self.runtime_file?(file) = File.expand_path(file).start_with?("#{Paths::RUNTIME}/") || description?(file)
 
       # The kernel's description that the build writes into the store
       # (`Runtime#carried_description`). It is part of the runtime, as its
@@ -60,10 +54,10 @@ module Zr
       # itself do. Nil where no runtime is loaded (an eval in a binary).
       def self.description(target) = -> { Zr.runtime(target).carry_description! if Zr.respond_to?(:runtime) }
 
-      # A file of the runtime's libraries (EXT, Layout::RUNTIME_LIB): it is
+      # A file of the runtime's libraries (Layout::EXT, Layout::RUNTIME_LIB): it is
       # internal, as the core is, so a backtrace shows its methods as
       # builtins.
-      def self.internal_library?(file) = file.start_with?("#{EXT}/", "#{Layout::RUNTIME_LIB}/") || description?(file)
+      def self.internal_library?(file) = file.start_with?("#{Layout::EXT}/", "#{Layout::RUNTIME_LIB}/") || description?(file)
 
       # The gems whose C zr ports, at zr's versions, as vendor/ holds
       # them (lib/zr/ports.rb).
@@ -79,7 +73,7 @@ module Zr
       # default gem (json 3.0.2, not 2.18.0), then ruby's own library,
       # then the bundled gems in their own directories.
       def self.stdlib(target = Target.default)
-        (@stdlib ||= {})[target.triple] ||= [Layout.ext_os(target), EXT, Layout::RUNTIME_LIB, *GEMS, pure, *bundled].freeze
+        (@stdlib ||= {})[target.triple] ||= [Layout.ext_os(target), Layout::EXT, Layout::RUNTIME_LIB, *GEMS, pure, *bundled].freeze
       end
 
       # The compiler that a program with eval links in, and the
@@ -1452,14 +1446,14 @@ module Zr
     # are built, and openssl's port (its C creates each visible instance
     # variable by name and keeps the rest in hidden slots).
     VISIBLE_IVARS = [
-      *%w[mutation ast].map { |name| File.join(Build::EXT, "prism/ruby/#{name}.rb") },
-      File.join(Build::EXT, "openssl.so.rb"), *Dir[File.join(Build::EXT, "openssl/ossl/*.rb")].sort
+      *%w[mutation ast].map { |name| File.join(Layout::EXT, "prism/ruby/#{name}.rb") },
+      File.join(Layout::EXT, "openssl.so.rb"), *Dir[File.join(Layout::EXT, "openssl/ossl/*.rb")].sort
     ].freeze
   end
 end
 
 # The rest of `Build`, by topic. They load after the class body, because
-# they read its constants (`EXT`, `Build.pure`) when they load.
+# they read `Build.pure` when they load.
 require_relative "preludes"
 require_relative "loader"
 require_relative "build/literals"

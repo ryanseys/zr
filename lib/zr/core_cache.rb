@@ -79,11 +79,11 @@ module Zr
 
     # The key text of the gem prelude: the path and the bytes of each file
     # that its program loads.
-    def gem_source = @gem_hir.units.map { |u| "#{u.file}\0#{u.source}" }.join("\0") + File.read(Zr::GEM_PRELUDE)
+    def gem_source = @gem_hir.units.map { |u| "#{u.file}\0#{u.source}" }.join("\0") + File.read(Layout::GEM_PRELUDE)
 
     def gem_piece
       entry = "zr_gem_prelude"
-      piece(Zr::GEM_PRELUDE, entry, key_of(Zr::GEM_PRELUDE, entry, gem_source)) { lower_gem(entry) }
+      piece(Layout::GEM_PRELUDE, entry, key_of(Layout::GEM_PRELUDE, entry, gem_source)) { lower_gem(entry) }
     end
 
     def lower_gem(entry) = Lower.new(@gem_hir, @unit, @symbols, entry: entry, kind: :top, target: @target).run
@@ -92,7 +92,7 @@ module Zr
     # site counter it had.
     def again(piece)
       sites = piece.record[:sites].first
-      if piece.path == Zr::GEM_PRELUDE
+      if piece.path == Layout::GEM_PRELUDE
         lowered(piece.path, piece.entry, piece.key, sites: sites) { lower_gem(piece.entry) }
       else
         source = @sources.fetch(piece.path) { File.read(piece.path) }

@@ -503,8 +503,8 @@ module Zr
           native_root?(root) && feature.match?(NATIVE) ? candidate(File.join(root, feature.sub(NATIVE, ""))) : nil
         end
 
-        # EXT, or an OS layer's directory under it.
-        def native_root?(root) = root == EXT || File.dirname(root) == File.join(EXT, "os")
+        # Layout::EXT, or an OS layer's directory under it.
+        def native_root?(root) = root == Layout::EXT || File.dirname(root) == File.join(Layout::EXT, "os")
 
         def candidate(path)
           return path if path.end_with?(".rb") && File.file?(path)
