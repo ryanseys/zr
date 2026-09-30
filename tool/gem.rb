@@ -17,15 +17,21 @@ module Zr
     #                                           build a program with it
     #
     # It packs `bin/zr` (`rake build:self`), so it builds for this host's
-    # platform only.
+    # platform only. That binary finds its runtime files through the
+    # checkout's path (`Paths::ROOT` comes from `__dir__`), so it holds
+    # this machine's path, and pack refuses it. `--local` packs it for a
+    # test on this machine; never publish such a gem. A gem to publish
+    # waits for a compiled compiler that finds its files from where it is
+    # installed (docs/how-to/release.md).
     class PlatformGem < Command
       summary "Build the platform gem, with the compiled compiler in it"
-      usage "native [--install DIR]"
+      usage "native [--install DIR] [--local]"
       # It builds the gem with rubygems, which a zr binary does not have.
       host_ruby!
 
       def options(o)
         o.on("--install DIR", "Install the gem into DIR, and build a program with it") { |v| @install = v }
+        o.on("--local", "Pack a binary that holds this checkout's path, for a test here only") { @local = true }
       end
 
       def run(argv)
@@ -34,6 +40,7 @@ module Zr
         require_relative "../lib/zr/compiled_compiler"
         cc = CompiledCompiler
         fail!("#{rel(cc.binary)} is not current; run `rake build:self` first") unless cc.current?
+        publishable!(cc.binary)
 
         platform = Gem::Platform.local
         platform = Gem::Platform.new([platform.cpu, platform.os])
@@ -50,7 +57,9 @@ module Zr
         spec = Gem::Specification.load(Dev.path("zr.gemspec"))
         # The binary keeps its name: its ad hoc signature includes it.
         FileUtils.cp(cc.binary, File.join(dir, "zr"))
-        File.write(File.join(dir, "zr.manifest"), Shipped.manifest(shipped_sources(cc, spec), platform))
+        manifest = Shipped.manifest(shipped_sources(cc, spec), platform)
+        fail!("the manifest names ruby #{manifest[/^ruby (.*)$/, 1]}, not #{RUBY}") unless manifest.include?("\nruby #{RUBY}\n")
+        File.write(File.join(dir, "zr.manifest"), manifest)
         spec.platform = Gem::Platform.new(platform)
         # `git ls-files` does not list them, because git ignores them.
         spec.files += ["exe/#{platform}/zr", "exe/#{platform}/zr.manifest"]
@@ -90,6 +99,15 @@ module Zr
           fail!("the installed zr did not use its shipped binary (no #{verified})") unless File.exist?(verified)
           puts format("installed in %s; the shipped binary built a program in %.1f s, and it ran", @install, took)
         end
+      end
+
+      # Stops unless `--local`, when the binary holds this checkout's path:
+      # a gem with it would carry the path of the machine that built it.
+      def publishable!(binary)
+        return if @local || !File.binread(binary).include?(ROOT.b)
+
+        fail!("#{rel(binary)} holds this checkout's path (#{ROOT}), so no gem to publish can carry it. " \
+              "--local packs it for a test on this machine")
       end
 
       def rel(path) = Dev.rel(path)

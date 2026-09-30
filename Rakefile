@@ -13,10 +13,13 @@ namespace :gem do
   require "bundler/gem_tasks"
 end
 
-# A release by hand. The release workflow builds and pushes the gem itself
-# (docs/how-to/release.md).
-desc "Build the gem, tag it and push it to rubygems.org"
-task release: "gem:release"
+# A release is a tag: the release workflow checks, builds and pushes the
+# gem (docs/how-to/release.md). Bundler's own release task would push a
+# gem that no CI run checked, so it stops too.
+RELEASE = "Push a vX.Y.Z tag; see docs/how-to/release.md"
+task(:release) { abort("rake release: #{RELEASE}") }
+Rake::Task["gem:release"].clear
+task("gem:release") { abort("rake gem:release: #{RELEASE}") }
 
 ROOT = __dir__
 

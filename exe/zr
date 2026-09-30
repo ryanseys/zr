@@ -16,6 +16,8 @@ require_relative "../lib/zr/iseq_cache"
 Zr::IseqCache.install
 require_relative "../lib/zr/cli"
 Zr::CLI.guard do
+  # A bad ZR_* value stops here, before a hand-over or a self-build.
+  Zr::Config.current
   Zr::CLI.kept!(ARGV)
   require_relative "../lib/zr/server"
   Zr::Server.hand_to(ARGV)

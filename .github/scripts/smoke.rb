@@ -8,17 +8,22 @@
 # self-build. CI and the release workflow run it on the .gem they
 # publish.
 #
-#   ruby .github/scripts/smoke.rb zr-0.1.0.gem [DIR]
+#   ruby .github/scripts/smoke.rb [--user-cache] zr-0.1.0.gem [DIR]
 #
 # DIR (default /opt/zr) holds the gems, the cache and the outputs. CI
 # uses the same path on every host, because the runtime carries its
 # source paths, and the outputs of two hosts must be the same bytes.
+# With --user-cache, zr gets no ZR_CACHE, and uses the cache that a
+# user gets (~/Library/Caches/zr or ~/.cache/zr): the stock-ruby job
+# tests that path. The install must fetch nothing: the gem has no
+# dependencies.
 
 require "fileutils"
 require "open3"
 require "rbconfig"
 
-gem_file = File.expand_path(ARGV.fetch(0) { abort "usage: ruby .github/scripts/smoke.rb ZR_GEM [DIR]" })
+user_cache = !ARGV.delete("--user-cache").nil?
+gem_file = File.expand_path(ARGV.fetch(0) { abort "usage: ruby .github/scripts/smoke.rb [--user-cache] ZR_GEM [DIR]" })
 root = ARGV.fetch(1, "/opt/zr")
 
 # A runner cannot write /opt without sudo.
@@ -27,7 +32,9 @@ unless File.directory?(root)
   system("sudo", "chown", ENV.fetch("USER"), root, exception: true)
 end
 
-env = { "GEM_HOME" => File.join(root, "gems"), "ZR_CACHE" => File.join(root, "cache"),
+# GEM_PATH is ruby's own default gems only: no gem that the runner has
+# installed can satisfy the install.
+env = { "GEM_HOME" => File.join(root, "gems"), "GEM_PATH" => Gem.default_dir, "ZR_CACHE" => (File.join(root, "cache") unless user_cache),
         "RUBYOPT" => nil, "BUNDLE_GEMFILE" => nil }
 zr = File.join(env["GEM_HOME"], "bin/zr")
 smoke = File.join(root, "smoke")
@@ -49,9 +56,19 @@ expect = lambda do |got, what|
   abort "smoke: #{what} printed #{got.inspect}, not \"6\\n\"" unless got == "6\n"
 end
 
-run.(RbConfig.ruby, "-S", "gem", "install", "--local", gem_file)
-run.(zr, "version")
+installed = run.(RbConfig.ruby, "-S", "gem", "install", "--local", gem_file)
+abort "smoke: the install fetched a gem; zr must have no dependencies" if installed.include?("Fetching")
+version = run.(zr, "version")
+abort "smoke: zr version printed #{version.inspect}" unless version.match?(/\Azr \S+ \(for ruby 4\.0\.\d+\)\n\z/)
 run.(zr, "doctor")
+run.(zr, "--help")
+run.(zr, "help", "targets")
+
+# A bad setting is one line and status 2, with no backtrace.
+out, status = Open3.capture2e(env.merge("ZR_JOBS" => "abc"), zr, "build", "sum.rb", "-o", "sum", chdir: smoke)
+unless status.exitstatus == 2 && out == %(zr: ZR_JOBS is "abc". Set it to a whole number of 1 or more, for example ZR_JOBS=4.\n)
+  abort "smoke: ZR_JOBS=abc gave status #{status.exitstatus} and #{out.inspect}"
+end
 
 # The first build: a host that cannot run a macOS binary must not start
 # the compiled compiler's self-build.
@@ -60,7 +77,7 @@ puts "$ #{zr} build sum.rb -o sum.wasm --emit wasm"
 _, err, status = Open3.capture3(env, zr, "build", "sum.rb", "-o", "sum.wasm", "--emit", "wasm", chdir: smoke)
 $stderr.print err
 abort "smoke: zr build --emit wasm exited #{status.exitstatus}" unless status.success?
-abort "smoke: this host started the self-build of a compiler it cannot run" if !native_host && err.include?("building the compiler")
+abort "smoke: this host started the self-build of a compiler it cannot run" if !native_host && err.include?("zr is compiling itself")
 
 run.(zr, "build", "sum.rb", "-o", "sum.o", "--emit", "obj")
 expect.(run.("wasmtime", "sum.wasm"), "wasmtime sum.wasm")
@@ -74,8 +91,9 @@ else
   run.(zr, "build", "sum.rb", "-o", "sum")
   magic, cpu = File.binread(File.join(smoke, "sum"), 8).unpack("L<L<")
   abort "smoke: sum is not a Mach-O arm64 executable" unless magic == 0xfeedfacf && cpu == 0x0100000c
-  _, status = Open3.capture2e(env, zr, "run", "sum.rb", chdir: smoke)
+  out, status = Open3.capture2e(env, zr, "run", "sum.rb", chdir: smoke)
   abort "smoke: zr run of a macOS binary here exited #{status.exitstatus}, not 3" unless status.exitstatus == 3
+  abort "smoke: zr run here said #{out.inspect}" unless out.include?("To run the program here, use 'zr run --emit wasm sum.rb'")
 end
 
 puts "smoke: ok"

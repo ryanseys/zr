@@ -220,7 +220,7 @@ See [Bootstrapping](../explanation/bootstrapping.md).
 
 | Command | Does |
 |---|---|
-| `zr-dev gem native [--install DIR]` | Builds `pkg/zr-<version>-<platform>.gem` for this host's platform, with `bin/zr` and its manifest in `exe/<platform>/`. Run `rake build:self` first. `--install DIR` installs the gem there and builds a program with the installed zr. |
+| `zr-dev gem native [--install DIR] [--local]` | Builds `pkg/zr-<version>-<platform>.gem` for this host's platform, with `bin/zr` and its manifest in `exe/<platform>/`. Run `rake build:self` first. It refuses a binary that holds this checkout's path, which `bin/zr` does; `--local` packs it for a test on this machine, never for a release. `--install DIR` installs the gem there and builds a program with the installed zr. |
 
 See [How to release zr](../how-to/release.md).
 

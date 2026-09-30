@@ -27,8 +27,9 @@ Gem::Specification.new do |spec|
   spec.metadata = {
     "homepage_uri" => spec.homepage,
     "source_code_uri" => spec.homepage,
-    "documentation_uri" => "#{spec.homepage}/tree/main/docs",
-    "changelog_uri" => "#{spec.homepage}/blob/main/CHANGELOG.md",
+    # The docs and the changelog of this version, at its tag.
+    "documentation_uri" => "#{spec.homepage}/tree/v#{Zr::VERSION}/docs",
+    "changelog_uri" => "#{spec.homepage}/blob/v#{Zr::VERSION}/CHANGELOG.md",
     "bug_tracker_uri" => "#{spec.homepage}/issues",
     "rubygems_mfa_required" => "true"
   }

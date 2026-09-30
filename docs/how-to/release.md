@@ -3,33 +3,61 @@
 A release publishes the platform-independent gem, `zr-<version>.gem`,
 to rubygems.org and to gem.coop, and makes a GitHub Release with the
 gem and the version's changelog. A tag starts it: the release workflow
-(`.github/workflows/release.yml`) does the rest.
+(`.github/workflows/release.yml`) does the rest. `rake release` does
+not release: it stops and points here, because a gem that no CI run
+checked must not go out.
 
-This page also records the design of the platform gems. They are a
-spike: `zr-dev gem native` builds one and tests it, but no release
-publishes one yet.
+This page also records the design of the platform gems. No release
+publishes one yet; see [Platform gems](#platform-gems-not-released).
 
 ## Set up once
 
 Do these by hand before the first release:
 
-1. On rubygems.org, add a trusted publisher for the gem `zr`: this
-   repository, the workflow `release.yml` and the environment `release`.
-   The workflow then needs no API key.
-2. On gem.coop, claim the namespace `@ryanseys`, and make a push-only
+1. Make the repository public. The homepage, the docs links in the
+   gem and in zr's messages, and the free macOS runners need it.
+2. On rubygems.org, add a **pending** trusted publisher (Profile, then
+   "Trusted publishers", then "Create pending publisher"), because the
+   gem `zr` does not exist yet: the gem name `zr`, this repository, the
+   workflow `release.yml` and the environment `release`. The first
+   push makes it a normal trusted publisher. The workflow then needs no
+   API key.
+3. On gem.coop, claim the namespace `@ryanseys`, and make a push-only
    API key for it.
-3. In the repository settings, make the environment `release`, and add
+4. In the repository settings, make the environment `release`, and add
    the gem.coop key to it as the secret `GEM_COOP_API_KEY`. Limit the
    environment to tags `v*`.
-4. Make sure that CI can run: the macOS runners need a public
-   repository or an Actions spending limit.
+
+## Check before a release
+
+- [ ] The last `ci.yml` run on `main` passed every job, also the
+  stock-ruby jobs (`stock ruby, user cache`). The release workflow
+  checks this again for the tagged commit (`.github/scripts/ci_passed.rb`).
+- [ ] `bin/test test/unit` passes locally.
+- [ ] `gem build zr.gemspec` makes a gem, and `gem spec zr-*.gem
+  dependencies` lists none.
+- [ ] `ruby .github/scripts/smoke.rb --user-cache zr-*.gem DIR` passes
+  in a fresh directory, on a ruby with no Gemfile.
+- [ ] The CHANGELOG section describes what a user sees.
 
 ## Release a version
 
-1. Change `VERSION` in `lib/zr/version.rb`.
+1. Change `VERSION` in `lib/zr/version.rb`. Run `bundle install`, and
+   commit `Gemfile.lock` with it: the lock records zr's own version.
+   For the first release, `VERSION` is already 0.1.0.
 2. In `CHANGELOG.md`, change `## [Unreleased]` to
-   `## [X.Y.Z] - YYYY-MM-DD`, and add a new empty `[Unreleased]`
-   section above it.
+   `## [X.Y.Z] - YYYY-MM-DD`, and add a new empty `## [Unreleased]`
+   section above it. Keep the "Planned" part under `[Unreleased]`:
+   the version's section becomes the release notes. At the end of the
+   file, make the link references:
+
+   ```
+   [Unreleased]: https://github.com/ryanseys/zr/compare/vX.Y.Z...HEAD
+   [X.Y.Z]: https://github.com/ryanseys/zr/releases/tag/vX.Y.Z
+   ```
+
+   `ruby tool/changelog.rb X.Y.Z` prints the notes; it fails when the
+   section is missing, has no date, or is empty.
 3. Commit, and push to `main`. Wait until every CI job passes.
 4. Tag the commit, and push the tag:
 
@@ -46,7 +74,8 @@ The workflow then:
 2. stops unless every job of `ci.yml` passed for the tagged commit
    (`.github/scripts/ci_passed.rb`);
 3. runs the unit tier, builds the gem, installs it in a clean
-   `GEM_HOME` and runs it as a user would (`.github/scripts/smoke.rb`);
+   `GEM_HOME` and runs it as a user would, with a fixed cache and
+   again with the user cache (`.github/scripts/smoke.rb`);
 4. attests the gem's provenance, pushes it to rubygems.org with trusted
    publishing (rubygems attests the push too), and to
    `https://gem.coop/@ryanseys`;
@@ -60,6 +89,48 @@ nothing. With `publish` on and `only: gem-coop`, it pushes an already
 published version to gem.coop again, for example after a gem.coop
 failure.
 
+## Release by hand
+
+Only when the workflow cannot run, for example when GitHub Actions is
+down. Build the gem from the tagged commit, as CI does, and push it
+with a one-time password:
+
+```console
+$ git checkout vX.Y.Z
+$ SOURCE_DATE_EPOCH="$(git log -1 --format=%ct)" gem build zr.gemspec
+$ ruby .github/scripts/smoke.rb --user-cache zr-X.Y.Z.gem "$(mktemp -d)"
+$ gem push zr-X.Y.Z.gem --otp 123456
+$ gh release create vX.Y.Z zr-X.Y.Z.gem --title "zr X.Y.Z" --notes "$(ruby tool/changelog.rb X.Y.Z)" --verify-tag
+```
+
+A gem pushed by hand has no provenance attestation.
+
+## After a release
+
+On a machine with a stock ruby 4.0.7 and no Gemfile:
+
+```console
+$ gem install zr -v X.Y.Z
+$ zr version
+zr X.Y.Z (for ruby 4.0.7)
+$ zr doctor
+$ echo 'puts "hello"' > hello.rb && zr run hello.rb
+```
+
+Then look at <https://rubygems.org/gems/zr>, at the gem.coop page
+of `@ryanseys/zr`, and at the GitHub Release: each shows the version,
+and the Release has the gem and the notes.
+
+## A bad release
+
+A published version cannot change. If a release is broken:
+
+1. `gem yank zr -v X.Y.Z` removes it from new installs. A lock that
+   names it still fails, so yank only a version that does harm (it does
+   not install, or it builds wrong programs).
+2. Fix the problem, and release X.Y.Z+1 as above. Its CHANGELOG
+   section says what was wrong with X.Y.Z.
+
 ## What the gem contains
 
 The gem contains the compiler, the runtime, the vendored sources and
@@ -67,7 +138,7 @@ the license texts. On the first build, an installed gem on an Apple
 Silicon Mac compiles the compiler with itself into the user's cache
 (`lib/zr/compiled_compiler.rb`), and tells the user.
 
-## Platform gems (spike)
+## Platform gems (not released)
 
 A platform gem is the ruby gem plus the compiled compiler for one
 platform, in `exe/<platform>/zr`, with a manifest beside it. RubyGems
@@ -77,13 +148,18 @@ platform. Then the first build needs no self-build.
 ### Build and test one
 
 ```sh
-bundle exec rake build:self                        # bin/zr, for this host
-ruby tool/zr-dev.rb gem native                      # pkg/zr-<version>-arm64-darwin.gem
-ruby tool/zr-dev.rb gem native --install /tmp/zr    # ... installed, and a program built with it
+bundle exec rake build:self                                # bin/zr, for this host
+ruby tool/zr-dev.rb gem native --local                      # pkg/zr-<version>-arm64-darwin.gem
+ruby tool/zr-dev.rb gem native --local --install /tmp/zr    # ... installed, and a program built with it
 ```
 
 `--install` fails if the installed zr did not build the program with its
-shipped binary.
+shipped binary. `zr-dev gem native` refuses a manifest whose ruby is not
+`Zr::RUBY`, and a binary that holds this checkout's path: `Paths::ROOT`
+comes from `__dir__`, so `bin/zr` holds the path of the machine that
+built it. `--local` packs it anyway, for a test on that machine only.
+Such a gem must never be published. A gem to publish needs a compiled
+compiler that finds its files from where it is installed.
 
 ### How the installed gem finds the binary
 
@@ -159,7 +235,7 @@ image and the skeletons are made again in the user's cache.
 | Gem | Contains | Status |
 |---|---|---|
 | `zr-<version>.gem` (platform-independent) | The sources. The first build compiles the compiler. | Released. |
-| `zr-<version>-arm64-darwin.gem` | The sources and the compiled compiler for macOS. | Spike: `zr-dev gem native` builds and tests it. |
+| `zr-<version>-arm64-darwin.gem` | The sources and the compiled compiler for macOS. | Not released: `zr-dev gem native --local` builds and tests one on this machine. |
 | `zr-<version>-aarch64-linux-gnu.gem`, `zr-<version>-aarch64-linux-musl.gem` | The sources and one static Linux binary. The same binary is in both gems. | Not started. It needs a compiled compiler for `aarch64-linux`, built on a Linux host. |
 
 Every gem keeps `required_ruby_version ">= 4.0.7", "< 4.1"`. A platform
