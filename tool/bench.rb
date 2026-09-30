@@ -42,7 +42,7 @@ module Zr
         require_relative "../lib/zr/cli"
         require_relative "../test/support/harness/bench"
         require_relative "../test/support/harness/runner"
-        @check ? check(argv) : measure(argv)
+        @check ? steady?(argv) : measure(argv)
       end
 
       def measure(filters)
@@ -63,7 +63,8 @@ module Zr
         bench.report(bench.run(cases))
       end
 
-      def check(argv)
+      # Whether no timed row of the newer report moved from the older one.
+      def steady?(argv)
         before, after = argv.empty? ? Harness::Bench.results(ROOT).last(2) : argv.map { |a| report(a) }
         fail!("give two reports, or none for the two newest under benchmark/results") unless after
         [before, after].each { |path| fail!("no report at #{path}") unless File.file?(path) }

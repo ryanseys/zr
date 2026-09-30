@@ -25,13 +25,13 @@ module Zr
 
           short = !message.include?(" in conversion from ")
           step = short ? encoding.name : message[/\AU\+\h+ to (.*?) in conversion from /, 1]
-          [short, step, from_shape(encoding)]
+          [short, step, short_from?(encoding)]
         end
 
         # The same test for the other direction. It uses a byte that the
         # encoding does not define. An encoding that defines all bytes never
         # raises here, so the result does not matter (it returns true).
-        def from_shape(encoding)
+        def short_from?(encoding)
           byte = (128..255).find { |b| converted { [b].pack("C").force_encoding(encoding).encode("UTF-8") }.nil? }
           return true if byte.nil?
 

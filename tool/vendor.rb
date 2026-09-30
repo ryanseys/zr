@@ -24,7 +24,7 @@ module Zr
 
       def run(argv)
         case argv.first
-        when nil then @check ? check : write
+        when nil then @check ? current? : write
         when "outdated" then outdated
         when "diff" then diff(*argv.drop(1))
         else fail!("no subcommand #{argv.first}; see --help")
@@ -54,12 +54,11 @@ module Zr
         Dev.write(VendorTree::LOCK) { |io| io.print(plan.lock_text) }
         Dev.write(VendorTree::STDLIB) { |io| io.print(plan.stdlib_text) }
         warn "vendor/: #{files.size} files, #{written} written, #{removed.size} removed"
-        true
       end
 
       # Offline: every owned file hashes to its line of the lock, no file
       # is missing or extra, and the inputs have not changed since.
-      def check
+      def current?
         _, locked, inputs = VendorTree.lock
         fail!("no #{VendorTree::LOCK}; run `zr-dev vendor`") if locked.empty?
 
@@ -83,7 +82,6 @@ module Zr
         end
         stale.each { |e, latest| puts format("%-8s %-16s %-10s -> %s", e.kind, e.name, e.version, latest) }
         puts "all #{entries.count { |e| %w[bundled port].include?(e.kind) }} gems are at their newest release" if stale.empty?
-        true
       end
 
       # The lib files that differ between the locked gem and `version`,
@@ -108,7 +106,6 @@ module Zr
         end
         overlays = changed.filter_map { |rel| overlay(rel.delete_prefix("lib/")) }
         puts "", "zr files that replace one of them; check each before the update:", *overlays.map { |path| "  #{Dev.rel(path)}" } if overlays.any?
-        true
       end
 
       def lib_files(gems, gem, version)

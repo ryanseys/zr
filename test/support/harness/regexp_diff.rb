@@ -122,7 +122,7 @@ module Zr
         # length matched from `start` (to the end, including any text
         # before `\K`) or nil. A search from `start` then finds the same
         # match first.
-        def at_start(re, subject, start)
+        def at_start(re, subject, start) # rubocop:disable Naming/PredicateMethod -- StringScanner#match? answers a length
           scanner = StringScanner.new(subject, fixed_anchor: true)
           scanner.pos = start
           scanner.match?(re)

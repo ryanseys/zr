@@ -96,7 +96,7 @@ module Zr
                  elsif record then why_not(record)
                  else "no entry"
                  end
-        why(path, reason)
+        note(path, reason)
         lowered(path, entry, key, &)
       end
     end
@@ -190,25 +190,28 @@ module Zr
     # Whether an entry still holds: each callee is what it was, each bit
     # of `defined` is the same, and the code cache has each function.
     def current?(piece, owner, defined)
-      record = piece.record
+      reason = stale(piece.record, owner, defined)
+      note(piece.path, reason) if reason
+      reason.nil?
+    end
+
+    # Why an entry no longer holds, or nil when it holds.
+    def stale(record, owner, defined)
       bit = record[:bits].find { |sym, was| defined.include?(sym) != was }
-      return why(piece.path, "#{bit.first} is #{bit.last ? "no longer" : "now"} defined") if bit
+      return "#{bit.first} is #{bit.last ? "no longer" : "now"} defined" if bit
 
       record[:calls].each_value do |calls|
         call = calls.find { |sym, was| now(sym, owner) != was }
-        return why(piece.path, "#{call.first} was #{call.last.inspect}, now #{now(call.first, owner).inspect}") if call
+        return "#{call.first} was #{call.last.inspect}, now #{now(call.first, owner).inspect}" if call
       end
       missing = record[:functions].find { |_, key| !code.take(key) }
-      return why(piece.path, "no code for #{missing.first}") if missing
-
-      true
+      "no code for #{missing.first}" if missing
     end
 
     # Notes the first reason that a piece is lowered, for ZR_TIMING.
-    def why(path, reason)
+    def note(path, reason)
       @why ||= "#{File.basename(path.to_s)}: #{reason}"
       (@whys ||= Hash.new(0))[reason.sub(/\A\S+ (is|was) /, "a callee \\1 ")[0, 60]] += 1
-      false
     end
 
     # What the symbol `sym` is in this build, as an entry records it.

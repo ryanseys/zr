@@ -311,12 +311,12 @@ module Zr
 
           short = !message.include?(" in conversion from ")
           step = short ? encoding.name : message[/\AU\+\h+ to (.*?) in conversion from /, 1]
-          [short, step, from_short(encoding)]
+          [short, step, short_from?(encoding)]
         end
 
         # The same test for the other direction. It uses a character that the
         # encoding has but that has no code point.
-        def from_short(encoding)
+        def short_from?(encoding)
           sequence = (0x80..0xFF).lazy.flat_map { |a| [[a]] + (0x00..0xFF).map { |b| [a, b] } }
                                  .find { |bytes| convert(encoding, bytes) == :undef }
           return true if sequence.nil?

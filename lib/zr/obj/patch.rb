@@ -25,7 +25,9 @@ module Zr
           target = yield(r) + r.addend.to_i
           if r.kind == :abs64
             bytes[r.offset, 8] = [target].pack("Q<")
-          elsif !relocs.patch(bytes, r, target, base + r.offset)
+          elsif relocs.handles?(r.kind)
+            relocs.patch(bytes, r, target, base + r.offset)
+          else
             raise ArgumentError, "no way to apply a #{r.kind} relocation"
           end
         end

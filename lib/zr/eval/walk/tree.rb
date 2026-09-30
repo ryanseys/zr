@@ -144,10 +144,10 @@ module Zr
         when Hir::Send then send_node(node, ctx)
         when Hir::Local then read_local(node, ctx)
         when Hir::Assign then write_local(node, walk(node.value, ctx), ctx)
-        when Hir::If then truthy(walk(node.cond, ctx)) ? walk(node.yes, ctx) : walk(node.no, ctx)
+        when Hir::If then truthy?(walk(node.cond, ctx)) ? walk(node.yes, ctx) : walk(node.no, ctx)
         when Hir::And then and_node(node, ctx)
         when Hir::Or then or_node(node, ctx)
-        when Hir::Not then !truthy(walk(node.value, ctx))
+        when Hir::Not then !truthy?(walk(node.value, ctx))
         when Hir::While then while_node(node, ctx)
         when Hir::ArrayLit then elements(node.elements, ctx)
         when Hir::HashLit then hash_lit(node.pairs, ctx)
@@ -212,7 +212,7 @@ module Zr
       end
 
       # Only `false` and `nil` are false.
-      def truthy(value) = !value.nil? && value != false
+      def truthy?(value) = !value.nil? && value != false
 
       def refuse(node, what)
         raise Refused, "#{@file}:#{node.line}: #{what} is not walked yet"
@@ -264,19 +264,19 @@ module Zr
       # A `while` or `until`. Its value is nil, or the value of a `break`.
       def and_node(node, ctx)
         left = walk(node.left, ctx)
-        truthy(left) ? walk(node.right, ctx) : left
+        truthy?(left) ? walk(node.right, ctx) : left
       end
 
       def or_node(node, ctx)
         left = walk(node.left, ctx)
-        truthy(left) ? left : walk(node.right, ctx)
+        truthy?(left) ? left : walk(node.right, ctx)
       end
 
       def while_node(node, ctx)
         tag = node.__id__
         inner = ctx.with(tag: tag)
         first = node.body_first
-        while first || truthy(walk(node.cond, ctx))
+        while first || truthy?(walk(node.cond, ctx))
           first = false
           begin
             walk(node.body, inner)
@@ -636,10 +636,10 @@ module Zr
       # when the `case` has no subject. A `*splat` tests each element.
       def matches?(value, subject, ctx)
         if value.is_a?(Hir::Splat)
-          return splat_array(walk(value.value, ctx)).any? { |v| subject ? truthy(v === subject.first) : truthy(v) }
+          return splat_array(walk(value.value, ctx)).any? { |v| subject ? truthy?(v === subject.first) : truthy?(v) }
         end
         v = walk(value, ctx)
-        subject ? truthy(v === subject.first) : truthy(v)
+        subject ? truthy?(v === subject.first) : truthy?(v)
       end
 
       # `a, (b, *c), *d, e = value`.
@@ -737,8 +737,8 @@ module Zr
         when :yield then ctx.block ? "yield" : nil
         when :local then ctx.chain.any? { |s| s.holds?(node.target) } ? "local-variable" : nil
         when :ivar then ctx.self_.instance_variable_defined?(node.target) ? "instance-variable" : nil
-        when :gvar then truthy(World.gvar_defined?(node.target)) ? "global-variable" : nil
-        when :cvar then truthy(World.cvar_defined?(ctx.cref, node.target)) ? "class variable" : nil
+        when :gvar then truthy?(World.gvar_defined?(node.target)) ? "global-variable" : nil
+        when :cvar then truthy?(World.cvar_defined?(ctx.cref, node.target)) ? "class variable" : nil
         when :const then defined_const(node, ctx)
         when :method then defined_method(node, ctx)
         when :expression then defined_expression(node, ctx)
@@ -747,7 +747,7 @@ module Zr
       end
 
       def defined_const(node, ctx)
-        truthy(const_defined?(node.target, ctx)) ? "constant" : nil
+        truthy?(const_defined?(node.target, ctx)) ? "constant" : nil
       rescue ::StandardError
         nil
       end
@@ -791,7 +791,7 @@ module Zr
         value
       end
 
-      def short_circuit?(op, current) = (op == :or && truthy(current)) || (op == :and && !truthy(current))
+      def short_circuit?(op, current) = (op == :or && truthy?(current)) || (op == :and && !truthy?(current))
 
       def combined(op, current, value_node, ctx)
         return walk(value_node, ctx) if op == :or || op == :and

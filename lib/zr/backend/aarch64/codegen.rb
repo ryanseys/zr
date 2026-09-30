@@ -787,7 +787,8 @@ module Zr
         # A binary operation. A constant operand is an immediate when the
         # instruction has an immediate form.
         def emit_binop(i)
-          return if emit_immediate_binop(i)
+          form = immediate_form(i)
+          return emit_immediate(i, *form) if form
 
           dest = result_in(i.results[0], X11)
           d, a, b = [dest, value_in(i.args[0], X9), value_in(i.args[1], X10)].map { |x| reg_for(i.args[0], x) }
@@ -834,21 +835,22 @@ module Zr
           store_value(i.results[0], d)
         end
 
-        # `add`/`sub` of 12 bits, a shift by less than the register width, and
-        # `and`/`orr`/`eor` of a bitmask immediate. Returns false, and emits
-        # nothing, when the constant fits no form.
+        # The immediate form of a binary operation, as [mnemonic, immediate,
+        # register operand], or nil when the constant fits no form: `add`/
+        # `sub` of 12 bits, a shift by less than the register width, and
+        # `and`/`orr`/`eor` of a bitmask immediate.
         #
         # The constant has the width of its type, the same as a load gives.
         # The instruction runs at the width of the register form, so the low
         # bits of the result are the same.
-        def emit_immediate_binop(i)
+        def immediate_form(i)
           a, b = i.args
           type = type_of(a)
-          return false if type == "f64"
+          return nil if type == "f64"
 
           a, b = b, a if COMMUTES.include?(i.op) && !constant(b, type) && constant(a, type)
           k = constant(b, type)
-          return false unless k
+          return nil unless k
 
           bits = wide?(a) ? 64 : 32
           full = (1 << bits) - 1
@@ -862,12 +864,13 @@ module Zr
             when :ishl, :ushr, :sshr then [SHIFTS.fetch(i.op), k] if k < bits
             when :band, :bor, :bxor then [LOGICAL.fetch(i.op), k] if Assembler.bitmask(k, bits)
             end
-          return false unless form
+          form && [*form, a]
+        end
 
+        def emit_immediate(i, mnemonic, immediate, a)
           dest = result_in(i.results[0], X11)
-          @asm.public_send(form[0], reg_for(a, dest), reg_for(a, value_in(a, X9)), form[1])
+          @asm.public_send(mnemonic, reg_for(a, dest), reg_for(a, value_in(a, X9)), immediate)
           store_value(i.results[0], dest)
-          true
         end
 
         # `a - (a / b) * b`, the arm64 form of a remainder.
