@@ -41,7 +41,7 @@ class ForkPoolTest < Minitest::Test
   end
 
   def test_the_deadline_is_three_minutes_unless_it_is_asked_for
-    assert_equal 180, Zr::Test::ForkPool::DEADLINE
+    assert_equal 180, Zr::Test::Workers::DEADLINE
   end
 
   # A suite that is slow, but not stuck, can set its own time limit.
@@ -51,7 +51,7 @@ class ForkPoolTest < Minitest::Test
 
   def test_a_suite_may_ask_for_a_bound_of_its_own
     assert_equal 600, Zr::Test::ForkPool.deadline_for(Patient)
-    assert_equal Zr::Test::ForkPool::DEADLINE, Zr::Test::ForkPool.deadline_for(ForkPoolTest)
+    assert_equal Zr::Test::Workers::DEADLINE, Zr::Test::ForkPool.deadline_for(ForkPoolTest)
   end
 
   # When the pool kills a worker, it also kills the processes that the
@@ -173,7 +173,7 @@ class ForkPoolTest < Minitest::Test
   # A 16 GB, 12-core laptop gets 6 workers, which keep 4 GB free. A large
   # machine is limited by its cores; a small one still gets one worker.
   def test_the_default_size_keeps_memory_and_cores_free
-    sizes = [[12, 16], [12, 64], [4, 8], [2, 4], [64, 256]].map { |cores, gb| Zr::Test::ForkPool.fit(cores, gb) }
+    sizes = [[12, 16], [12, 64], [4, 8], [2, 4], [64, 256]].map { |cores, gb| Zr::Test::Workers.fit(cores, gb) }
 
     assert_equal [6, 10, 2, 1, 62], sizes
   end
