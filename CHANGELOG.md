@@ -14,7 +14,7 @@ The first public release.
 - `gem install zr` installs the `zr` command on ruby 4.0.7: `run`,
   `build`, `machine`, `targets`, `doctor`, `cache`, `version` and
   `help`. The gem has no dependencies: it carries ruby 4.0.7's
-  standard library (`stdlib/`), so the install downloads only zr, and
+  standard library (`vendor/ruby`), so the install downloads only zr, and
   compiles nothing. zr runs on ruby 4.0.7 or a later 4.0 release.
 - A compiled program gives ruby 4.0.7's output byte for byte, or zr
   refuses it at build time with exit status 3. A refusal gives the

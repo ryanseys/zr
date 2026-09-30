@@ -103,6 +103,10 @@ gives more examples.
 | Command | Does |
 |---|---|
 | `zr-dev affected [--base REVISION] [--dry-run]` | Runs the tests that a change can reach, with `bin/test` (the same as `bin/test --changed`). It reads the diff against `main`, or against `--base`. If the change can reach everything (the compiler, the kernel, the test support), it runs nothing and says so. `--dry-run` prints the test paths and runs nothing. |
+| `zr-dev vendor` | Writes `vendor/` (ruby 4.0.7's own library from its source at `RUBY_REVISION`, the bundled gems and the port gems from their `.gem` files, prism's templates from its tag), `vendor/vendor.lock` and `lib/zr/stdlib.rb`, from `lib/zr/vendor.rb`, `lib/zr/ports.rb` and `lib/zr/version.rb`. It needs `RUBY_SRC` and `PRISM_SRC`. See [How to update the vendored code](../how-to/update-vendored-code.md). |
+| `zr-dev vendor --check` | Checks each file of `vendor/` against the lock, offline. |
+| `zr-dev vendor outdated` | Lists the gems of `vendor/` that have a newer release on rubygems.org. |
+| `zr-dev vendor diff GEM [VERSION]` | Lists the files that change from the locked GEM to VERSION (default: the newest), and zr's files under `runtime/` that replace one of them. |
 | `zr-dev reference [--check]` | Installs the gems of the ruby that every expected output comes from, into `tmp/reference/gems`: ruby 4.0.7's bundled gems, and zr's versions of the gems whose C it ports (`lib/zr/ports.rb`). `bin/setup` runs it. The oracle, `record`, `probe` and the spec tier run ruby with only these gems (`test/support/harness/reference.rb`). `--check` installs nothing. |
 | `zr-dev progress` | Prints the progress of the tier that runs now, or of the last tier (`tmp/test-progress.txt`). |
 
@@ -155,7 +159,6 @@ in `tool/gen/`.
 | Command | Writes |
 |---|---|
 | `zr-dev gen features` | `lib/zr/hir/features.rb`: the names that `require` accepts |
-| `zr-dev gen stdlib` | `stdlib/` and `lib/zr/stdlib.rb`: zr's standard library, ruby 4.0.7's pure-Ruby library as a stock install has it. The default gems and ruby's own files come from this ruby; the bundled gems from their `.gem` files on rubygems.org, at the versions of CRuby's `gems/bundled_gems`, checked against `stdlib/CHECKSUMS`. |
 | `zr-dev gen unicode` | `runtime/core/unicode.rb`: case mappings |
 | `zr-dev gen encodings` | `runtime/core/encodings.rb`: the encoding registry |
 | `zr-dev gen transcode` | `runtime/core/transcode.rb`: single-byte encoding tables |

@@ -28,7 +28,7 @@ Steps for a goal that you already have.
 - [How to port a C extension](how-to/port-a-c-extension.md)
 - [How to check a gem](how-to/check-a-gem.md): which gems zr compiles,
   and what stops the others
-- [How to update zr's standard library](how-to/update-the-stdlib.md)
+- [How to update the vendored code](how-to/update-vendored-code.md)
 - [How to test on another target](how-to/test-on-another-target.md)
 - [How to measure performance](how-to/measure-performance.md)
 - [How to release zr](how-to/release.md)

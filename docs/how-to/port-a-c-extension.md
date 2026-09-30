@@ -5,32 +5,38 @@ programs that zr compiles. zr never compiles C, so the C half of the
 extension becomes Ruby. To learn why, read
 [Why zr has no C](../explanation/why-zr-has-no-c.md).
 
-A gem without C needs no port: ruby 4.0.7's copy is in `stdlib/`, as
-[How to update zr's standard library](update-the-stdlib.md)
-shows.
+A gem without C needs no port: ruby 4.0.7's copy is in `vendor/ruby`,
+as [How to update the vendored code](update-vendored-code.md) shows.
 
-## 1. Add the gem's Ruby half
-
-Copy the gem's `lib/` directory, without edits, to
-`vendor/ext/<gem>/lib/`. Copy its license files next to it:
-
-```
-vendor/ext/digest/
-  BSDL
-  COPYING
-  lib/digest.rb
-  lib/digest/...
-```
-
-Never edit these files. If the gem does not work, fix zr.
+## 1. Vendor the gem's Ruby half
 
 Add the gem to `ALL` in `lib/zr/ports.rb`, with its version and the
 compat range of the Ruby halves that the port supports (`~> x.y.z` by
-default). Then a `require` finds it, and `zr-dev reference` installs
-that version for the tests. If `stdlib/` has the gem, remove it from
-`BUNDLED` or `DEFAULT` in `tool/gen/stdlib.rb` and run
-`zr-dev gen stdlib`. Add a row for it to `THIRD_PARTY_NOTICES.md`, and
-to [Library versions](../reference/differences-from-ruby.md#library-versions)
+default):
+
+```ruby
+"digest" => port("3.2.1", gem: false),
+"racc" => port("1.8.1"),
+```
+
+With `gem: true` (the default), `zr-dev vendor` puts the gem's `lib/`
+and license files, as its `.gem` has them, in
+`vendor/ruby/lib/ruby/gems/4.0.0/gems/<gem>-<version>/`, and a require
+finds it before ruby's own library. With `gem: false`, the Ruby half is
+ruby's own, in `vendor/ruby/lib/ruby/4.0.0`, and the version must be
+ruby 4.0.7's. Then write the tree:
+
+```console
+$ ruby tool/zr-dev.rb vendor
+```
+
+Never edit the vendored files. If the gem does not work, fix zr. To
+replace one of its files, write an overlay under `runtime/ext` (see
+[Replace an upstream file](update-vendored-code.md#replace-an-upstream-file)).
+
+`zr-dev reference` then installs that version for the tests. Add a
+row for the gem to `THIRD_PARTY_NOTICES.md`, and to
+[Library versions](../reference/differences-from-ruby.md#library-versions)
 when its version is not ruby 4.0.7's.
 
 ## 2. Write the C half in Ruby

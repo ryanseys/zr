@@ -15,7 +15,7 @@ is C or assembler source in the repository.
 | wasmtime | runs a module; `zr run --emit wasm` uses it | running WASI modules |
 
 The gem has no dependencies. It carries ruby 4.0.7's pure-Ruby
-standard library in `stdlib/`, as a stock ruby 4.0.7 installs it: the
+standard library in `vendor/ruby`, as a stock ruby 4.0.7 installs it: the
 default gems and the bundled gems, at the versions that ruby 4.0.7
 includes (`Zr::Stdlib`). A program's `require` reads those files, and
 never the host's gems. The gems with a C part are zr's own ports

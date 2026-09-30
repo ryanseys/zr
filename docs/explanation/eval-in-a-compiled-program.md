@@ -213,7 +213,7 @@ that must both agree with ruby.
 The interpreter evaluates the HIR node by node. It calls the program
 through the methods that any Ruby program uses: `__send__`,
 `define_method`, `instance_variable_get`. For what only the runtime
-knows, it uses `Zr::Eval::World` (`runtime/ext/zr/eval/walking.rb`):
+knows, it uses `Zr::Eval::World` (`runtime/lib/zr/eval/walking.rb`):
 the lexical scope of a cref, the scopes of a Binding, and the constant,
 class-variable and global tables. Each of these is in place of code
 that the compiler writes inline.
@@ -253,6 +253,6 @@ string.
   The program's own memory is a small part of this. `wasmtime compile`
   moves this cost out of the run.
 - A binary with eval support contains the absolute paths of the gem's
-  `runtime/ext`, `vendor/ext/*/lib` and `stdlib/`. A computed
+  `runtime/ext`, `runtime/lib` and `vendor/ruby`. A computed
   `require` in such a binary works only while that version of the gem
   stays installed.

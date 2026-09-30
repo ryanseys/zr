@@ -57,8 +57,8 @@ sample.
 ruby 4.0.7 is more than the reference. Its pure-Ruby standard library
 is what a program's `require` reads, and the generated tables
 (`zr-dev gen`) come from it. zr carries that library itself, in
-`stdlib/`, as JRuby and TruffleRuby carry theirs: a stock ruby 4.0.7's
-files, byte for byte (`zr-dev gen stdlib --check`). A build never reads
+`vendor/ruby`, as JRuby and TruffleRuby carry theirs: a stock ruby
+4.0.7's files, byte for byte (`zr-dev vendor --check`). A build never reads
 the host's gems, so a distributor's patched copy of a gem, or a newer
 gem that `gem update` installed, does not change a program.
 
@@ -66,7 +66,7 @@ The host ruby only runs the compiler. `zr build` and `zr run` run on
 ruby 4.0.7 or a later 4.0 release (a later release gives a warning),
 and refuse any other ruby with status 3. Each generator task stops on a
 ruby other than 4.0.7. A newer ruby is a new toolchain:
-`.ruby-version`, `stdlib/`, the tables and the recordings all change
+`.ruby-version`, `vendor/`, the tables and the recordings all change
 to it together.
 
 ## How the specs keep the promise

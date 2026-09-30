@@ -92,7 +92,7 @@ instance variables that they write, as with the fields of a C struct.
 ## Why extensions are Ruby too
 
 A gem such as `json` or `digest` has a Ruby half and a C half. zr
-includes the Ruby half without edits (`vendor/ext/<gem>/lib`) and
+includes the Ruby half without edits (in `vendor/ruby`) and
 writes the C half in Ruby (`runtime/ext/<name>.so.rb`). The gem's own
 Ruby code then runs as it does on CRuby, over a native half that gives
 the same results. See

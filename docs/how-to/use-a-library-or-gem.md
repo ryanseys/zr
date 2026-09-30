@@ -23,8 +23,8 @@ require "csv"        # a bundled gem
 ```
 
 zr reads these files from its own copy of ruby 4.0.7's standard
-library (`stdlib/` in the gem): the default and bundled gems, at the
-versions that ruby 4.0.7 ships. A gem that you install on the host
+library (`vendor/ruby` in the gem): the default and bundled gems, at
+the versions that ruby 4.0.7 ships. A gem that you install on the host
 (for example a newer `csv`) does not change what the program gets. A
 small number of names have no file in zr, for example `mkmf`. A
 `require` of one of them raises `LoadError` when it runs.

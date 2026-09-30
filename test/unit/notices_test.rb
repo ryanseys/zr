@@ -36,6 +36,16 @@ class NoticesTest < Minitest::Test
     assert_equal [], missing
   end
 
+  # A port's version changes in lib/zr/ports.rb and `zr-dev vendor`; its
+  # row must change with it.
+  def test_each_port_has_a_row_at_its_version
+    missing = Zr::Ports::ALL.filter_map do |name, port|
+      "#{name} #{port.version}" if port.gem && !NOTICES.include?("| #{name} | #{port.version} |")
+    end
+
+    assert_equal [], missing
+  end
+
   def test_the_gem_ships_the_license_texts
     spec = Gem::Specification.load(File.join(ROOT, "zr.gemspec"))
 

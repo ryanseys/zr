@@ -2,11 +2,18 @@
 
 ## The gem
 
-The gem contains `exe/`, `lib/`, `licenses/`, `runtime/`, `stdlib/`,
-`vendor/ext/` and `vendor/prelude/`, with `README.md`, `CHANGELOG.md`
-and the license files. It has no gem dependencies: the pure-Ruby
-library that a program requires is `stdlib/`
-(`lib/zr/libraries.rb`).
+The gem contains `exe/`, `lib/`, `licenses/`, `runtime/`,
+`vendor/ruby/`, `vendor/LICENSES/` and `vendor/vendor.lock`, with
+`README.md`, `CHANGELOG.md` and the license files. It has no gem
+dependencies: the library that a program requires is `vendor/ruby`
+(`lib/zr/libraries.rb`) and zr's own `runtime/ext`.
+
+Two kinds of code meet on a program's load path (`Zr::Layout`):
+
+- `vendor/`: code that other people wrote, byte for byte as they ship
+  it. Nobody edits it; `zr-dev vendor` writes it (`lib/zr/vendor.rb`).
+- `runtime/`: code that zr wrote. It comes first on the load path, so a
+  file there replaces an upstream file of the same path (an overlay).
 
 | Path | Contains |
 |---|---|
@@ -27,8 +34,9 @@ library that a program requires is `stdlib/`
 | `lib/zr/backend.rb` | `Zr::Backend`: what the backends share, and `Backend::Refused` |
 | `lib/zr/self_built.rb` | a binary that zr builds from this checkout's own files: the compiled compiler, or the tools |
 | `lib/zr/shipped.rb` | the compiled compiler that a platform gem ships |
-| `lib/zr/libraries.rb` | the directories of `stdlib/` that a program requires from |
-| `lib/zr/stdlib.rb` | the name and version of each gem in `stdlib/` (`zr-dev gen stdlib`) |
+| `lib/zr/libraries.rb` | the directories of `vendor/ruby` that a program requires from |
+| `lib/zr/vendor.rb` | what `vendor/` holds, and what it leaves out and why: the input of `zr-dev vendor` |
+| `lib/zr/stdlib.rb` | the name and version of each gem in `vendor/ruby` (`zr-dev vendor` writes it) |
 | `lib/zr/ports.rb` | the gems with a C part that zr ports, with their versions and compat ranges |
 | `lib/zr/target.rb` | the targets, and what this host can build |
 | `lib/zr/prism.rb` | loads prism on the host; `Zr.parse` |
@@ -61,10 +69,12 @@ library that a program requires is `stdlib/`
 | `runtime/ext/` | the native halves of extensions, in ordinary Ruby |
 | `runtime/ext/prism/` | the prism port: `prism.rb` and `ruby/` (`Prism::Ruby`) |
 | `runtime/ext/os/<os>/` | extension tables, and the description (`zr_description.rb`) |
-| `runtime/ext/zr/` | zr's own runtime files: the run-time half of eval support, and the files that load a library at its first call (`pp`, `irb`, `unicode_normalize`), as CRuby's prelude does |
-| `vendor/ext/<gem>/lib/` | the Ruby halves of extension gems, not edited |
-| `stdlib/` | ruby 4.0.7's pure-Ruby standard library, as a stock ruby installs it, not edited (`zr-dev gen stdlib`); see [How to update zr's standard library](../how-to/update-the-stdlib.md) |
-| `vendor/prelude/` | ruby's `gem_prelude.rb` |
+| `runtime/lib/zr/` | zr's own libraries: the run-time half of eval support, and the files that load a library at its first call (`pp`, `irb`, `unicode_normalize`), as CRuby's prelude does |
+| `vendor/ruby/lib/ruby/4.0.0/` | ruby 4.0.7's own library and default gems, from ruby's source, not edited |
+| `vendor/ruby/lib/ruby/gems/4.0.0/` | the bundled gems and the gems whose C zr ports, each from its `.gem`, not edited |
+| `vendor/ruby/gem_prelude.rb` | ruby's `gem_prelude.rb` |
+| `vendor/LICENSES/` | the license texts that no gem directory holds |
+| `vendor/vendor.lock` | each source of `vendor/`, and the SHA-256 of each file; see [How to update the vendored code](../how-to/update-vendored-code.md) |
 
 ### What the host loads
 
@@ -74,8 +84,8 @@ beside `lib/`, not in it:
 - `runtime/` is never on the host's load path. zr compiles it into
   programs. The host loads only namespaced, pure parts of it, by path:
   `Regexp::Onig`, `Prism::Ruby` and `zr_description`.
-- `stdlib/` and `vendor/` are never on the host's load path. A file
-  such as `stdlib/lib/ruby/4.0.0/pathname.rb` must never replace the
+- `vendor/` is never on the host's load path. A file such as
+  `vendor/ruby/lib/ruby/4.0.0/pathname.rb` must never replace the
   host ruby's own.
 
 ## The repository only
@@ -89,6 +99,7 @@ beside `lib/`, not in it:
 | `tool/lib/zr/dev.rb`, `tool/lib/zr/dev/` | the code that the commands share: the command class, the paths, the host ruby and the C sources |
 | `tool/gen/` | the generators of `zr-dev gen`, one file for each generated file; `tool/gen/prism/templates/` has the templates of the pure-Ruby prism |
 | `tool/spec/` | the commands of `zr-dev spec` |
+| `vendor/src/` | upstream sources that only the tools read: prism's templates (`zr-dev gen prism`) |
 | `lib/zr/prism_shim/` | makes `require "prism/prism"` load the port on the host |
 | `docs/` | this documentation |
 | `.github/workflows/` | CI (`ci.yml`) and the release (`release.yml`) |
@@ -118,4 +129,4 @@ the snapshots that tests in `test/unit/` read.
 |---|---|
 | `licenses/` | the license texts of the parts that have no other copy in the gem; see `THIRD_PARTY_NOTICES.md` |
 | `benchmark/` | the benchmarks: whole programs with their recordings, and the rungs that `zr-dev compile` builds (`benchmark/compile/`); see `benchmark/README.md` |
-| `tmp/` | not committed: the cache (`tmp/cache/`), the test reference (`tmp/reference/`), the stdlib download cache (`tmp/stdlib/`), the test progress file, the bootstrap stages |
+| `tmp/` | not committed: the cache (`tmp/cache/`), the test reference (`tmp/reference/`), the `.gem` download cache (`tmp/vendor/`), the test progress file, the bootstrap stages |
