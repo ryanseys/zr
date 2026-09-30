@@ -42,7 +42,8 @@ module Zr
     def os_layer = OS_LAYERS.fetch(os)
     def arch_layer = ARCH_LAYERS.fetch(arch)
 
-    REGISTRY = {}
+    # Every target, by triple (`Target.register`).
+    @registry = {}
 
     # The oldest macOS that a darwin binary loads on.
     MIN_MACOS = "14.0"
@@ -57,7 +58,7 @@ module Zr
     def min_os_parts = [*min_os.split(".").map(&:to_i), 0, 0].first(3)
 
     def self.register(target)
-      REGISTRY[target.triple] = target
+      @registry[target.triple] = target
     end
 
     AARCH64_DARWIN = register(new(triple: "aarch64-apple-darwin", arch: :aarch64, os: :darwin, object_format: :macho,
@@ -71,9 +72,9 @@ module Zr
                                link: nil, outputs: %i[wasm]))
 
     # The target with this `triple`, or nil.
-    def self.fetch(triple) = REGISTRY[triple]
+    def self.fetch(triple) = @registry[triple]
 
-    def self.all = REGISTRY.values
+    def self.all = @registry.values
 
     # This host as a triple: `aarch64-apple-darwin`, `aarch64-linux-musl`,
     # or what ruby says.

@@ -123,7 +123,7 @@ module Zr
           names.each { |name| return name if roots.any? { |root| File.file?(File.join(root, "#{name}.rb")) } }
           tops = roots.flat_map { |root| Dir.children(root).grep(/\.rb\z/) }.map { |file| file.delete_suffix(".rb") }.sort
           bare = ->(name) { name.delete("_-").downcase }
-          alike = tops.find { |top| bare.(top) == bare.(subject.name) }
+          alike = tops.find { |top| bare.call(top) == bare.call(subject.name) }
           return alike if alike
           return tops.first if tops.one?
 

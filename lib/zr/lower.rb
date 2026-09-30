@@ -199,7 +199,7 @@ module Zr
       return if @pool.nil? || @pool.empty?
 
       relocs = @pool.each_with_index.map { |(kind, name), i| Obj::Reloc.new(i * 8, kind, name) }
-      @data << Obj::Data.new("#{@prefix}_pool", :data_const, "\0".b * (@pool.size * 8), relocs: relocs, align: 8)
+      @data << Obj::Datum.new("#{@prefix}_pool", :data_const, "\0".b * (@pool.size * 8), relocs: relocs, align: 8)
       @pool = []
       @pool_at = {}
     end
@@ -229,7 +229,7 @@ module Zr
         relocs << Obj::Reloc.new(i * 8, tagged ? :symval : :symid, word.to_s)
         0
       end
-      @data << Obj::Data.new(name, section, filled.pack("q<*"), relocs: relocs, align: 8)
+      @data << Obj::Datum.new(name, section, filled.pack("q<*"), relocs: relocs, align: 8)
       name
     end
 
@@ -289,7 +289,7 @@ module Zr
 
     # The program's toplevel alone, as `run` lowers it first: its
     # `[functions, data]`. With `lower_unit`, a caller can lower the units
-    # one at a time, in any order (`EvalCache`): each unit uses its own
+    # one at a time, in any order (`Cache::Lowering::EvalSupport`): each unit uses its own
     # names and counters, so its code is the same as in `run`. The pool
     # closes at the end of each, where `run` puts it.
     def lower_entry
@@ -372,7 +372,7 @@ module Zr
 
     # Every unit's entry, in order. A require or an autoload refers to
     # its target by this entry, so the entries are an input of each
-    # unit's bytes (`UnitCache`).
+    # unit's bytes (`Cache::Unit`).
     def self.entries_of(entry, units) = (units || []).each_with_index.map { |u, i| entry_of(entry, i, u.file) }
 
     # Whether the code goes to the wasm backend, where the preemption
@@ -416,7 +416,7 @@ module Zr
     def literal(bytes)
       name = "#{@prefix}_lit_#{@lits}"
       @lits += 1
-      @data << Obj::Data.new(name, :text_const, bytes.b, align: 1)
+      @data << Obj::Datum.new(name, :text_const, bytes.b, align: 1)
       name
     end
 
@@ -441,7 +441,7 @@ module Zr
     # symbol table never make the same cell name.
     def cache_cell(prefix, bytes)
       name = "#{@prefix}_cell_#{prefix}_#{number}"
-      @data << Obj::Data.new(name, :bss, bytes, align: 8)
+      @data << Obj::Datum.new(name, :bss, bytes, align: 8)
       name
     end
 
@@ -484,7 +484,7 @@ module Zr
       relocs << Obj::Reloc.new(layout.fields.fetch("captures").first, :abs64, "zr_captures_#{fn}") if captures
       relocs << Obj::Reloc.new(layout.fields.fetch("fn").first, :abs64, fn) if kind == "KIND_BLOCK" || kind == "KIND_HIDDEN"
       name = "zr_meta_#{fn}"
-      @data << Obj::Data.new(name, :data, bytes, relocs: relocs, align: 8)
+      @data << Obj::Datum.new(name, :data, bytes, relocs: relocs, align: 8)
       name
     end
 
@@ -564,8 +564,8 @@ module Zr
 
     # Sends the functions lowered since the last call to `finish`. The
     # lowering keeps none of them.
-    def finished_functions(&finish)
-      done = @functions.map(&finish)
+    def finished_functions(&)
+      done = @functions.map(&)
       @functions = []
       done
     end

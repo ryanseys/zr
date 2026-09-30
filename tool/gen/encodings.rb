@@ -20,7 +20,7 @@ module Zr
           # encoding makes a single character.
           pairs = (0..255).flat_map { |a| (0..255).map { |b| [a, b].pack("CC") } }
           bytewise = Encoding.list.to_h do |encoding|
-            [encoding.name, pairs.none? { |text| (text.force_encoding(encoding).length == 1 rescue false) }]
+            [encoding.name, pairs.none? { |text| converted { text.force_encoding(encoding).length == 1 } }]
           end
 
           rows = Encoding.list.map do |encoding|

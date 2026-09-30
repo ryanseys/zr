@@ -17,7 +17,7 @@ module Zr
   # WASI gives a guest no way to make a second module. Thus the eval
   # compiler (`lib/zr/eval.rb`) has no place for its output. The front
   # end is the same for both (prism port, `Hir.build`, the same
-  # desugaring). Only the back end is different: here `Eval::Tree` walks
+  # desugaring). Only the back end is different: here `Eval::Walk::Tree` walks
   # the tree and does not lower it.
   #
   # `ZR_EVAL=walk` builds a native program with the tree-walking
@@ -34,12 +34,12 @@ module Zr
     def run(source, file, line, scope, self_, cref, block, add = false)
       file = string(file)
       hir = built(string(source), file, line.to_int, scope)
-      own = Tree::Scope.new(hir.locals)
-      ctx = Tree::Ctx.new(self_: self_, cref: cref, chain: [own, *held(scope)], block: block,
+      own = Walk::Tree::Scope.new(hir.locals)
+      ctx = Walk::Tree::Ctx.new(self_: self_, cref: cref, chain: [own, *held(scope)], block: block,
                           name: nil, owner: nil, args: nil, kwargs: nil, tag: nil, home: nil)
       World.walk_enter
       begin
-        value = Tree.new(file).run(hir, ctx)
+        value = Walk::Tree.new(file).run(hir, ctx)
       ensure
         World.walk_leave
       end
@@ -57,13 +57,13 @@ module Zr
     # interpreter has no address, so it refuses, with a message that
     # gives the file.
     def compile_file(path)
-      raise Tree::Refused, "#{path}:1: a require of a file the program was not compiled with is not walked yet"
+      raise Walk::Tree::Refused, "#{path}:1: a require of a file the program was not compiled with is not walked yet"
     end
 
     # `RubyVM::InstructionSequence.compile` and the loader of a Ractor
     # need code to run later. The interpreter cannot make such code.
     def compile(_source, file, line = 1, _scopes = [], _method = nil)
-      raise Tree::Refused, "#{file}:#{line}: compiling a string to code that runs later is not walked yet"
+      raise Walk::Tree::Refused, "#{file}:#{line}: compiling a string to code that runs later is not walked yet"
     end
 
     private
@@ -79,7 +79,7 @@ module Zr
 
     # The scopes of the frame, innermost first, in the order of lookup.
     def held(scope)
-      World.binding_scopes(scope).each_with_index.map { |names, depth| Tree::Held.new(scope, depth, names) }
+      World.binding_scopes(scope).each_with_index.map { |names, depth| Walk::Tree::Held.new(scope, depth, names) }
     end
 
     # `Binding#eval`: the new locals of the string become locals of the

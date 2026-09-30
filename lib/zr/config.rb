@@ -8,7 +8,7 @@ module Zr
   # in the same process gets that same frozen instance, so one build sees
   # one consistent set of settings even if something changes `ENV`
   # afterward. Code reads a `ZR_*` variable only through this class.
-  # (`ZR_BINARY` and `ZR_COMPILED` are the exception: `CompiledCompiler`
+  # (`ZR_BINARY` and `ZR_COMPILED` are the exception: `Bootstrap::Handoff`
   # reads them before it loads anything else.)
   class Config
     # `ZR_LINKER`: `auto` (zr's own linker, and cc for what it cannot
@@ -123,22 +123,22 @@ module Zr
     # `ZR_TUNE=0` keeps ruby's limits and leaves YJIT off.
     def tune? = @tune
 
-    # `ZR_LEDGER`: true or false when set, else nil (`Zr.ledger?`).
-    def ledger = @ledger
+    # `ZR_LEDGER`: true or false when set, else nil (`RuntimeSources.ledger?`).
+    attr_reader :ledger
 
-    # `ZR_RUN_CACHE=0` makes `zr run` build each run (`RunCache`).
+    # `ZR_RUN_CACHE=0` makes `zr run` build each run (`Cache::Run`).
     def run_cache? = @run_cache
 
     # `ZR_CODE_CACHE`: "1", "0" or "verify" (`Native::CodeCache`).
-    def code_cache = @code_cache
+    attr_reader :code_cache
 
     # `ZR_ISEQ_CACHE=0` makes ruby compile zr's own files at each start
-    # (`IseqCache`).
+    # (`Cache::Iseq`).
     def iseq_cache? = @iseq_cache
 
     # `ZR_SERVER`: nil (use the server if one listens at its default
     # socket), "0" (never), or the path of a socket (lib/zr/server.rb).
-    def server = @server
+    attr_reader :server
 
     # Whether `ZR_JOBS` sets the worker count. Then it also overrides the
     # memory limit (`Native::Parallel.afforded`).

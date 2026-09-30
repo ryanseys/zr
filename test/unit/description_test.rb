@@ -84,7 +84,7 @@ class DescriptionTest < Minitest::Test
   ROWS
 
   # A cache of lowered code keeps the rows that a piece read
-  # (`EvalCache`), so a kernel edit that the piece does not read keeps it.
+  # (`Cache::Lowering::EvalSupport`), so a kernel edit that the piece does not read keeps it.
   def test_record_gives_each_row_that_the_lookups_read
     description = Zr::Machine::Description.parse(ROWS)
 

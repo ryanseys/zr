@@ -47,7 +47,10 @@ module Zr
             # The IR gives the type of every value (`IR::Types`), so this
             # backend and the other backends read each value as the same type.
             @type = @types.all
-            @f.blocks.first.params.each { |v, _| @local[v] = n; n += 1 }
+            @f.blocks.first.params.each do |v, _|
+              @local[v] = n
+              n += 1
+            end
             values = []
             @f.blocks.each_with_index do |b, bi|
               b.params.each { |v, t| values << [v, Codegen::TYPE.fetch(t)] unless bi.zero? }
@@ -68,7 +71,12 @@ module Zr
             @fp = n + @locals.size
             @locals << 0x7F
             off = 0
-            @slot_at = @f.slots.map { |s| off = Bytes.align(off, [s.align, 8].max); at = off; off += s.bytes; at }
+            @slot_at = @f.slots.map do |s|
+              off = Bytes.align(off, [s.align, 8].max)
+              at = off
+              off += s.bytes
+              at
+            end
             @frame = Bytes.align(off, 16)
           end
 

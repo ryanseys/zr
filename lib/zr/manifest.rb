@@ -97,9 +97,9 @@ module Zr
       Stdlib::BUNDLED.each do |name, version|
         return Row.new(name, version, "stdlib") if file.start_with?("#{Layout.gem_root(name, version)}/")
       end
-      return nil unless file.start_with?("#{Libraries::LIB}/")
+      return nil unless file.start_with?("#{Layout::RUBYLIBDIR}/")
 
-      feature = file.delete_prefix("#{Libraries::LIB}/")
+      feature = file.delete_prefix("#{Layout::RUBYLIBDIR}/")
       # A port whose Ruby half is ruby's own (psych, openssl): its files
       # are named for it, as psych.rb and psych/.
       Ports::ALL.each do |name, port|

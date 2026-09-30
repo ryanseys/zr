@@ -93,9 +93,9 @@ module Zr
           text.split(/^(?=bm_)/).filter_map do |block|
             name, build = block[/\Abm_\S+/], block[/built in ([\d.]+) s/, 1]
             real = ->(who) { block[/^#{who}\s.*\(\s*([\d.]+)\)/, 1]&.to_f }
-            next unless name && real.("zr") && real.("ruby") && real.("yjit")
+            next unless name && real.call("zr") && real.call("ruby") && real.call("yjit")
 
-            Row.new(name, build.to_f, real.("zr"), real.("ruby"), real.("yjit"))
+            Row.new(name, build.to_f, real.call("zr"), real.call("ruby"), real.call("yjit"))
           end
         end
 

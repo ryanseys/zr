@@ -17,13 +17,35 @@ class PathsTest < Minitest::Test
       File.write(File.join(dir, "a/b/c/file"), "x")
       File.symlink("/", File.join(dir, "a/root"))
     end
-    refute File.exist?(kept)
+    refute_path_exists kept
   end
 
   def test_a_scratch_directory_is_removed_when_the_block_raises
     kept = nil
-    assert_raises(RuntimeError) { Zr::Paths.tmpdir("zr-paths-") { |dir| kept = dir; raise "no" } }
-    refute File.exist?(kept)
+    assert_raises(RuntimeError) do
+      Zr::Paths.tmpdir("zr-paths-") do |dir|
+        kept = dir
+        raise "no"
+      end
+    end
+    refute_path_exists kept
+  end
+
+  def test_copy_keeps_the_bytes_the_mode_and_the_times
+    Zr::Paths.tmpdir("zr-paths-") do |dir|
+      from = File.join(dir, "from")
+      to = File.join(dir, "to")
+      File.binwrite(from, "\x00zr".b)
+      File.chmod(0o751, from)
+      File.utime(Time.at(1_000_000_000), Time.at(1_000_000_000), from)
+      File.write(to, "an older and longer file")
+
+      Zr::Paths.copy(from, to)
+
+      assert_equal "\x00zr".b, File.binread(to)
+      assert_equal 0o751, File.stat(to).mode & 0o7777
+      assert_equal File.stat(from).mtime, File.stat(to).mtime
+    end
   end
 
   def test_mkdir_p_leaves_a_directory_that_is_there
@@ -112,7 +134,11 @@ class PathsTest < Minitest::Test
     Dir.mktmpdir do |dir|
       path = File.join(dir, "sub/runtime.o")
       built = 0
-      assert_equal path, Zr::Paths.once(path) { built += 1; File.write(path, "x") }
+      once = Zr::Paths.once(path) do
+        built += 1
+        File.write(path, "x")
+      end
+      assert_equal path, once
       Zr::Paths.once(path) { built += 1 }
       assert_equal 1, built
 

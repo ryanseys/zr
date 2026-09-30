@@ -8,7 +8,7 @@ require_relative "lib/zr/dev"
 module Zr
   module Dev
     # Builds a platform gem: the `ruby` gem's files, and the compiled
-    # compiler for one platform with its manifest (lib/zr/shipped.rb). The
+    # compiler for one platform with its manifest (lib/zr/bootstrap/prebuilt.rb). The
     # user's first build then needs no self-build. This is a spike; see
     # docs/how-to/release.md for the plan and the numbers.
     #
@@ -37,8 +37,8 @@ module Zr
       def run(argv)
         fail!("give the kind of gem: native") unless argv == ["native"]
         require "rubygems/package"
-        require_relative "../lib/zr/compiled_compiler"
-        cc = CompiledCompiler
+        require_relative "../lib/zr/bootstrap/handoff"
+        cc = Bootstrap::Handoff
         fail!("#{rel(cc.binary)} is not current; run `rake build:self` first") unless cc.current?
         publishable!(cc.binary)
 
@@ -57,7 +57,7 @@ module Zr
         spec = Gem::Specification.load(Dev.path("zr.gemspec"))
         # The binary keeps its name: its ad hoc signature includes it.
         FileUtils.cp(cc.binary, File.join(dir, "zr"))
-        manifest = Shipped.manifest(shipped_sources(cc, spec), platform)
+        manifest = Bootstrap::Prebuilt.manifest(shipped_sources(cc, spec), platform)
         fail!("the manifest names ruby #{manifest[/^ruby (.*)$/, 1]}, not #{RUBY}") unless manifest.include?("\nruby #{RUBY}\n")
         File.write(File.join(dir, "zr.manifest"), manifest)
         spec.platform = Gem::Platform.new(platform)

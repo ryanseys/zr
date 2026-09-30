@@ -79,7 +79,7 @@ module Zr
         @files = {}
         @entries = []
         locked = self.class.lock.first
-        @gems = Gems.new(locked.filter_map { |e| ["#{e.name}-#{e.version}.gem", e.sha256] if e.sha256 }.to_h, fail: fail)
+        @gems = GemSource.new(locked.filter_map { |e| ["#{e.name}-#{e.version}.gem", e.sha256] if e.sha256 }.to_h, fail: fail)
       end
 
       # Collects every file and source.
@@ -91,7 +91,7 @@ module Zr
         %w[COPYING BSDL LEGAL].each { |name| add(File.join(Layout::LICENSES, "ruby", name), ruby.read(name)) }
         @defaults = default_gems
         rubygems_license
-        @bundled = Vendor::BUNDLED.to_h { |name| [name, stock_bundled(ruby).fetch(name) { @fail.("#{name} is not in ruby's gems/bundled_gems") }] }
+        @bundled = Vendor::BUNDLED.to_h { |name| [name, stock_bundled(ruby).fetch(name) { @fail.call("#{name} is not in ruby's gems/bundled_gems") }] }
         @bundled.each { |name, version| gem("bundled", name, version) }
         Ports::ALL.each { |name, port| gem("port", name, port.version) if port.vendored }
         stock_ports!
@@ -132,12 +132,12 @@ module Zr
             module Stdlib
               # The default gems: their files are in vendor/ruby/lib/ruby/#{Layout::API}.
               DEFAULT = {
-          #{rows.(@defaults)}
+          #{rows.call(@defaults)}
               }.freeze
 
               # The bundled gems: each one is in vendor/ruby/lib/ruby/gems/#{Layout::API}/gems.
               BUNDLED = {
-          #{rows.(@bundled)}
+          #{rows.call(@bundled)}
               }.freeze
 
               # The other bundled gems of ruby #{RUBY}. vendor/ does not hold
@@ -145,7 +145,7 @@ module Zr
               # refuses them. The test reference ruby has them
               # (test/support/harness/reference.rb).
               OTHER_BUNDLED = {
-          #{rows.(@others)}
+          #{rows.call(@others)}
               }.freeze
 
               # rubygems, in vendor/ruby/lib/ruby/#{Layout::API}.
@@ -161,7 +161,7 @@ module Zr
       private
 
       def add(path, bytes)
-        @fail.("#{Dev.rel(path)} comes from two sources") if @files.key?(path)
+        @fail.call("#{Dev.rel(path)} comes from two sources") if @files.key?(path)
 
         @files[path] = bytes.b
       end
@@ -190,12 +190,12 @@ module Zr
       # has it, and each gem's license files from its .gem.
       def default_gems
         Dir[File.join(Gem.default_specifications_dir, "*.gemspec")].sort.filter_map do |spec_path|
-          spec = Gem::Specification.load(spec_path) or @fail.("#{spec_path} does not load")
+          spec = Gem::Specification.load(spec_path) or @fail.call("#{spec_path} does not load")
           next if Vendor::LEFT_OUT_GEMS.include?(spec.name)
 
           add(File.join(Layout::SPECIFICATIONS, "default", File.basename(spec_path)), File.binread(spec_path))
           package = @gems.fetch(spec.name, spec.version.to_s)
-          @entries << Entry.new("default", spec.name, spec.version.to_s, Gems.url(spec.name, spec.version), @gems.sha(spec.name, spec.version))
+          @entries << Entry.new("default", spec.name, spec.version.to_s, GemSource.url(spec.name, spec.version), @gems.sha(spec.name, spec.version))
           licenses(package) { |rel, bytes| add(File.join(Layout::LICENSES, spec.name, rel), bytes) }
           [spec.name, spec.version.to_s]
         end.to_h
@@ -203,7 +203,7 @@ module Zr
 
       def rubygems_license
         package = @gems.fetch("rubygems-update", Gem::VERSION)
-        @entries << Entry.new("license", "rubygems-update", Gem::VERSION, Gems.url("rubygems-update", Gem::VERSION),
+        @entries << Entry.new("license", "rubygems-update", Gem::VERSION, GemSource.url("rubygems-update", Gem::VERSION),
                               @gems.sha("rubygems-update", Gem::VERSION))
         licenses(package) { |rel, bytes| add(File.join(Layout::LICENSES, "rubygems", rel), bytes) }
       end
@@ -213,9 +213,9 @@ module Zr
       def gem(kind, name, version)
         package = @gems.fetch(name, version)
         spec = package.spec
-        @fail.("#{name} #{version}: require_paths #{spec.raw_require_paths.inspect}, not [\"lib\"]") unless spec.raw_require_paths == ["lib"]
+        @fail.call("#{name} #{version}: require_paths #{spec.raw_require_paths.inspect}, not [\"lib\"]") unless spec.raw_require_paths == ["lib"]
 
-        @entries << Entry.new(kind, name, version, Gems.url(name, version), @gems.sha(name, version))
+        @entries << Entry.new(kind, name, version, GemSource.url(name, version), @gems.sha(name, version))
         root = Layout.gem_root(name, version)
         excluded = Vendor::GEM_EXCLUDE.fetch(name, {})
         @gems.contents(package).each do |rel, bytes|
@@ -233,7 +233,7 @@ module Zr
           next if port.vendored
 
           stock = @defaults[name]
-          @fail.("port #{name} #{port.version}: ruby's own is #{stock}. " \
+          @fail.call("port #{name} #{port.version}: ruby's own is #{stock}. " \
                   "Make it a gem (vendored: true), or use #{stock}") if stock && stock != port.version
         end
       end
@@ -244,7 +244,7 @@ module Zr
         return if @files.keys.any? { |p| p.start_with?("#{Layout.gem_root("minitest", version)}/") && File.basename(p).match?(LICENSE) }
 
         readme = @gems.contents(@gems.fetch("minitest", version)).fetch("README.rdoc").dup.force_encoding("UTF-8")
-        text = readme[/^== LICENSE:\n(.*)\z/m, 1] or @fail.("minitest's README has no LICENSE section")
+        text = readme[/^== LICENSE:\n(.*)\z/m, 1] or @fail.call("minitest's README has no LICENSE section")
         add(File.join(Layout::LICENSES, "minitest", "LICENSE"), "The license of minitest, from its README.rdoc.\n\n#{text.strip}\n")
       end
 
@@ -253,7 +253,7 @@ module Zr
       def prism_source
         version = Ports::ALL.fetch("prism").version
         tag = "v#{version}"
-        @fail.("prism #{version}: PRISM_SRC is at #{PRISM}") unless tag == PRISM
+        @fail.call("prism #{version}: PRISM_SRC is at #{PRISM}") unless tag == PRISM
         tree = GitTree.new(Dev.prism_src, tag, "PRISM_SRC")
         @entries << Entry.new("source", "prism", version, "https://github.com/ruby/prism@#{tag}", nil)
         root = Layout.source("prism", version)
@@ -311,7 +311,7 @@ module Zr
       # The .gem files from rubygems.org, kept in tmp/vendor/cache. A gem
       # that the lock names must have its locked SHA-256; a new one must
       # have the SHA-256 that rubygems.org publishes.
-      class Gems
+      class GemSource
         def self.url(name, version) = "https://rubygems.org/downloads/#{name}-#{version}.gem"
 
         def initialize(locked, fail:)
@@ -333,14 +333,14 @@ module Zr
           end
           sha = Digest::SHA256.file(path).hexdigest
           if (want = @locked[file])
-            @fail.("#{file}: SHA-256 #{sha}, not #{want} (vendor/vendor.lock)") unless sha == want
+            @fail.call("#{file}: SHA-256 #{sha}, not #{want} (vendor/vendor.lock)") unless sha == want
           else
             # The v2 lookup of one version can answer for another platform
             # (erb has a java build), so find the ruby one in the list.
             row = JSON.parse(download("https://rubygems.org/api/v1/versions/#{name}.json"))
                       .find { |v| v["number"] == version && v["platform"] == "ruby" }
-            published = row&.fetch("sha") or @fail.("rubygems.org has no #{file}")
-            @fail.("#{file}: SHA-256 #{sha}, but rubygems.org publishes #{published}") unless sha == published
+            published = row&.fetch("sha") or @fail.call("rubygems.org has no #{file}")
+            @fail.call("#{file}: SHA-256 #{sha}, but rubygems.org publishes #{published}") unless sha == published
           end
           @sums[file] = sha
           @packages[path] ||= Gem::Package.new(path)
@@ -365,13 +365,13 @@ module Zr
         def latest(name) = JSON.parse(download("https://rubygems.org/api/v1/versions/#{name}/latest.json")).fetch("version")
 
         def download(url, limit = 5)
-          @fail.("too many redirects for #{url}") if limit.zero?
+          @fail.call("too many redirects for #{url}") if limit.zero?
 
           response = Net::HTTP.get_response(URI(url))
           case response
           when Net::HTTPSuccess then response.body.b
           when Net::HTTPRedirection then download(response["location"], limit - 1)
-          else @fail.("#{url}: #{response.code} #{response.message}")
+          else @fail.call("#{url}: #{response.code} #{response.message}")
           end
         end
       end

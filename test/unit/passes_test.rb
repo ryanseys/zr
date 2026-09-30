@@ -329,7 +329,7 @@ class PassesTest < Minitest::Test
 
   # `Statics`: a word that the kernel keeps in a static (`bss` here), and
   # a program that returns the words it read.
-  def static(name, bytes = "\0".b * 8) = Zr::Obj::Data.new("zr_static_#{name}", :data, bytes, align: 16)
+  def static(name, bytes = "\0".b * 8) = Zr::Obj::Datum.new("zr_static_#{name}", :data, bytes, align: 16)
 
   def answer_with(functions, data, args)
     Zr::IR::Interp.new(functions, data: data).answer(functions[0].name, args)
@@ -397,7 +397,7 @@ class PassesTest < Minitest::Test
       e = f.fetch("i64", at)
       f.ret(f.iadd(f.iadd(a, b), f.iadd(f.iadd(c, d), e)))
     end
-    allocate = function("allocate", [], nil) { |g| g.ret }
+    allocate = function("allocate", [], nil, &:ret)
     Zr::IR::Passes.prepare(f, strict: true)
     assert_equal [0, 8, 8], loads(f).map(&:offset).sort
     assert_equal 27, answer_with([f, allocate], [static("current_task", [7, 3].pack("q<q<"))], [])

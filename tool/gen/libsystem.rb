@@ -21,7 +21,7 @@ module Zr
           require_relative "../../lib/zr/runtime"
           require_relative "../../test/native/fixtures"
 
-          kernel = Zr.kernel_files(Target::AARCH64_DARWIN)
+          kernel = Zr::RuntimeSources.for(Target::AARCH64_DARWIN).kernel_files
           names = (kernel + Dir[Dev.path("test/machine/**/*.rb")].sort).flat_map do |file|
             File.read(file).scan(/Machine\.import\s+"([^"]+)"|Machine\.extern\(:(\w+)\)/).flatten.compact
           end

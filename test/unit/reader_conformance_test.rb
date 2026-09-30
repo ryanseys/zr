@@ -85,7 +85,7 @@ class ReaderConformanceTest < Minitest::Test
   private
 
   def keywords(mod, name)
-    mod.instance_method(name).parameters.select { |kind, _| kind == :key }.map(&:last).sort
+    mod.instance_method(name).parameters.filter_map { |kind, name| name if kind == :key }.sort
   end
 
   # The value of each optional keyword when a caller omits it, read from

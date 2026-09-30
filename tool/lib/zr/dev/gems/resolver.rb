@@ -31,7 +31,7 @@ module Zr
 
         attr_reader :store
 
-        def initialize(store: Store.new, corpus: nil, offline: false, remote: Remote.new)
+        def initialize(store: FetchedGems.new, corpus: nil, offline: false, remote: Remote.new)
           @store = store
           @corpus = corpus
           @offline = offline
@@ -96,20 +96,20 @@ module Zr
           Gem.platforms = saved
         end
 
-# A set makes new specs for each lookup, and the resolver compares
-# the specs of two lookups: one name, version and source is one
-# spec, as Gem::Resolver::VendorSpecification has it.
-module Same
-  def ==(other) = other.instance_of?(self.class) && full_name == other.full_name && source == other.source
-  alias eql? ==
+        # A set makes new specs for each lookup, and the resolver compares
+        # the specs of two lookups: one name, version and source is one
+        # spec, as Gem::Resolver::VendorSpecification has it.
+        module SameSpec
+          def ==(other) = other.instance_of?(self.class) && full_name == other.full_name && source == other.source
+          alias eql? ==
 
-  def hash = [self.class, full_name].hash
-end
+          def hash = [self.class, full_name].hash
+        end
 
         # The gems of zr's own library, at zr's versions.
         class Provided < Gem::Resolver::Set
           class Spec < Gem::Resolver::SpecSpecification
-            include Same
+            include SameSpec
 
             def install(_options = {}) = yield(nil)
           end
@@ -129,7 +129,7 @@ end
         # The subjects that a block gives for a name: nil, one, or a list.
         class Local < Gem::Resolver::Set
           class Spec < Gem::Resolver::SpecSpecification
-            include Same
+            include SameSpec
 
             attr_reader :subject
 

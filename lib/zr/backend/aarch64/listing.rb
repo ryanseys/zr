@@ -39,7 +39,7 @@ module Zr
         end
 
         def make_label(name) = @asm.make_label(name)
-        def patch_location(&block) = @asm.patch_location(&block)
+        def patch_location(&) = @asm.patch_location(&)
         def to_binary = @asm.to_binary
 
         def put_label(label)
@@ -133,7 +133,9 @@ module Zr
 
         def immediate(value)
           n = Integer(value)
-          n.abs >= HEX ? format("#%s0x%x", n.negative? ? "-" : "", n.abs) : "##{n}"
+          return "##{n}" if n.abs < HEX
+
+          format("#%s0x%x", n.negative? ? "-" : "", n.abs)
         end
       end
     end

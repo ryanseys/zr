@@ -62,8 +62,8 @@ class MachOTest < Minitest::Test
     random = Random.new(11)
     word = -> { Array.new(random.rand(1..6)) { ("a".."f").to_a.sample(random: random) }.join }
     [0, 1, 7, 300].product([0, 1, 5, 200]).each do |base_size, program_size|
-      sorted = Array.new(base_size) { word.() }.uniq.sort
-      names = (Array.new(program_size) { word.() }.uniq - sorted).sort
+      sorted = Array.new(base_size) { word.call }.uniq.sort
+      names = (Array.new(program_size) { word.call }.uniq - sorted).sort
 
       points = Zr::Obj::MachO::Executable.insertion_points(sorted, names)
 

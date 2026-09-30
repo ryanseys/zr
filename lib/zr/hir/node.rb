@@ -70,7 +70,7 @@ module Zr
     # eval support files do.
     # `source` is the bytes that the unit was built from. `activates`
     # tells that the file took an activation entry for a `using`. The
-    # unit cache uses both (lib/zr/unit_cache.rb). It keeps the bytes,
+    # unit cache uses both (lib/zr/cache/unit.rb). It keeps the bytes,
     # not a digest, because the loader also runs in a program with eval,
     # and there it must not require a library that it would then have to
     # load. `node_ids` maps each HIR node of the unit, by identity, to its
@@ -207,9 +207,16 @@ module Zr
           *(rest && rest != :implicit ? [[:rest, rest]] : []),
           *post.map(&positional),
           *keywords.map { |name, default| [default.nil? ? :keyreq : :key, name] },
-          *(kwrest == :nokey ? [[:nokey]] : kwrest ? [[:keyrest, kwrest]] : []),
+          *kwrest_rows,
           *(block ? [[:block, block]] : [])
         ]
+      end
+
+      def kwrest_rows
+        if kwrest == :nokey then [[:nokey]]
+        elsif kwrest then [[:keyrest, kwrest]]
+        else []
+        end
       end
     end
     Yield = Node.new(:args, :line, :kwargs)

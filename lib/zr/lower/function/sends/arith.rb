@@ -13,7 +13,7 @@ module Zr
         # are fixnums and the gate is clear, else the call. Equality also
         # uses the call for other operands: `1 == 1.0` is true, and
         # `1 == obj` sends `obj == 1`.
-        def operator(node, recv, argv, arg = @f.fetch("i64", argv), &sends)
+        def operator(node, recv, argv, arg = @f.fetch("i64", argv))
           ok = @f.band(fixnums?(recv, arg), gate_clear(OPS.fetch(node.name)))
           fast = @f.label
           slow = @f.label
@@ -29,7 +29,7 @@ module Zr
           end
           switch(slow)
           native_equality(node, recv, arg) { |equal| @f.jump(merge, [ruby_bool(equal)]) }
-          @f.jump(merge, [sends ? sends.call : dispatch(node, recv, argv, imm(1))])
+          @f.jump(merge, [block_given? ? yield : dispatch(node, recv, argv, imm(1))])
           switch(merge)
           result
         end
@@ -80,7 +80,7 @@ module Zr
         # +0.0, whose negation is not a flonum, and the one whose negation
         # is the double that the flonum zero's bit pattern replaces
         # (`float_value`). The two differ only in that bit.
-        def unary(node, recv, argv, &sends)
+        def unary(node, recv, argv)
           fix = @f.icmp("ne", @f.band(recv, imm(1)), imm(0))
           ok = @f.band(fix, gate_clear(UNARY.fetch(node.name)))
           fast = @f.label
@@ -100,7 +100,7 @@ module Zr
             @f.jump(merge, [@f.bxor(recv, imm(4))])
           end
           switch(slow)
-          @f.jump(merge, [sends ? sends.call : dispatch(node, recv, argv, imm(0))])
+          @f.jump(merge, [block_given? ? yield : dispatch(node, recv, argv, imm(0))])
           switch(merge)
           result
         end

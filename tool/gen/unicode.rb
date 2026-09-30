@@ -12,10 +12,10 @@ module Zr
         writes "runtime/core/unicode.rb"
 
         KINDS = {
-          "UP" => ->(c) { c.upcase },
-          "DOWN" => ->(c) { c.downcase },
-          "TITLE" => ->(c) { c.capitalize },
-          "SWAP" => ->(c) { c.swapcase },
+          "UP" => :upcase.to_proc,
+          "DOWN" => :downcase.to_proc,
+          "TITLE" => :capitalize.to_proc,
+          "SWAP" => :swapcase.to_proc,
           "FOLD" => ->(c) { c.downcase(:fold) }
         }.freeze
 

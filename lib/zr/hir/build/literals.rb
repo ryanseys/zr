@@ -37,12 +37,12 @@ module Zr
         whole = ->(built) { top ? Send.new(ractor, :make_shareable, [built], line, false) : built }
         if node.is_a?(Prism::ArrayNode) && node.elements.none? { |e| e.is_a?(Prism::SplatNode) || e.is_a?(Prism::KeywordHashNode) }
           value.elements = node.elements.zip(value.elements).map { |e, v| literally_shareable(e, v, name, line, top: false) }
-          whole.(value)
+          whole.call(value)
         elsif node.is_a?(Prism::HashNode) && node.elements.all?(Prism::AssocNode)
           value.pairs = value.pairs.each_slice(2).zip(node.elements).flat_map do |(key, v), e|
             [key, literally_shareable(e.value.is_a?(Prism::ImplicitNode) ? e.value.value : e.value, v, name, line, top: false)]
           end
-          whole.(value)
+          whole.call(value)
         else
           value = Send.new(value, :-@, [], line, false) if node.is_a?(Prism::InterpolatedStringNode)
           Send.new(ractor, :ensure_shareable, [value, Literal.new(name, line)], line, false)

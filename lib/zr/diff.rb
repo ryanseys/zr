@@ -65,6 +65,8 @@ module Zr
 
     # Lines of context around each change in a hunk, as `diff -u` gives.
     CONTEXT = 3
+    # The mark at the start of each line of a hunk.
+    MARKS = { same: " ", del: "-", ins: "+" }.freeze
 
     # A unified diff of two texts, as `diff -u` writes it without its two
     # header lines: hunks of `-` lines (only in `a`), `+` lines (only in
@@ -150,7 +152,7 @@ module Zr
       out = +"@@ -#{range(a_count.zero? ? a : a + 1, a_count)} +#{range(b_count.zero? ? b : b + 1, b_count)} @@\n".b
       hunk.each do |op, i, j|
         line = op == :ins ? new[j] : old[i]
-        out << { same: " ", del: "-", ins: "+" }.fetch(op) << line
+        out << MARKS.fetch(op) << line
         out << "\n\\ No newline at end of file\n" unless line.end_with?("\n")
       end
       out

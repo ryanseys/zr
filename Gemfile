@@ -35,6 +35,12 @@ group :development do
   gem "irb"
   # The sampling profiler for the compiler's hot paths.
   gem "vernier", "~> 1.0"
-  # `rake lint`: RuboCop's Lint cops only (.rubocop.yml).
+  # `rake lint`: RuboCop's Lint cops and the cops that .rubocop.yml adds.
   gem "rubocop", "~> 1.89", require: false
+  # The Performance cops find allocations and calls that the compiler's
+  # hot paths do not need.
+  gem "rubocop-performance", "~> 1.27", require: false
+  # The Minitest cops keep the assertions in one form, with the better
+  # failure message.
+  gem "rubocop-minitest", "~> 0.40", require: false
 end

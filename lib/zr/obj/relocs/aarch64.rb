@@ -12,16 +12,15 @@ module Zr
 
         module_function
 
-        # Patches `bytes` for `r` at `place`, with its symbol at `target`.
-        # Returns false for a kind that is not an arm64 kind.
-        def patch(bytes, r, target, place)
-          return false unless KINDS.include?(r.kind)
+        # Whether `kind` is an arm64 relocation that `patch` applies.
+        def handles?(kind) = KINDS.include?(kind)
 
+        # Patches `bytes` for `r` at `place`, with its symbol at `target`.
+        def patch(bytes, r, target, place)
           word = encode(r.kind, bytes[r.offset, 4].unpack1("L<"), target, place)
           raise RangeError, "#{r.kind} to #{r.symbol} is out of reach" unless word
 
           bytes[r.offset, 4] = [word].pack("L<")
-          true
         end
 
         # Returns the instruction `word` at `place` with its field for `kind`

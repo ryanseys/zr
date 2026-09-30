@@ -55,7 +55,7 @@ class OpenSSLTest < Minitest::Test
     bin = File.join(dir, "require_openssl")
     out = IO.popen([RbConfig.ruby, "--disable-gems", File.join(ROOT, "exe/zr"), "build", rb, "-o", bin],
                    err: %i[child out], &:read)
-    assert $?.success?, "the build failed: #{out}"
+    assert_predicate $?, :success?, "the build failed: #{out}"
     bin
   end
 end

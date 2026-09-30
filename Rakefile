@@ -24,7 +24,7 @@ task("gem:release") { abort("rake gem:release: #{RELEASE}") }
 ROOT = __dir__
 
 # Every task runs the compiler under ruby. `ZR_COMPILED=1` selects the
-# compiled compiler (lib/zr/compiled_compiler.rb).
+# compiled compiler (lib/zr/bootstrap/handoff.rb).
 ENV["ZR_COMPILED"] ||= "0"
 
 # Runs `argv` with this ruby, and exits with its status when it fails.
@@ -48,10 +48,10 @@ task("build:all") { build!("Zr::Test::Built.targets(wasm: true)") }
 
 desc "Build the compiler with itself (exe/zr uses it until a file under lib, runtime or vendor changes)"
 task("build:self") do
-  require_relative "lib/zr/compiled_compiler"
-  Zr::CompiledCompiler.build
-  abort("rake build:self: the compiled compiler did not build") unless Zr::CompiledCompiler.current?
-  puts "the compiled compiler: #{Zr::CompiledCompiler.binary}"
+  require_relative "lib/zr/bootstrap/handoff"
+  Zr::Bootstrap::Handoff.build
+  abort("rake build:self: the compiled compiler did not build") unless Zr::Bootstrap::Handoff.current?
+  puts "the compiled compiler: #{Zr::Bootstrap::Handoff.binary}"
 end
 
 desc "Build the zr-dev tools with zr, to bin/zr-dev (bin/zr-dev runs them under ruby when a source changes)"
@@ -59,7 +59,7 @@ task("build:tools") do
   require_relative "tool/lib/zr/dev"
   # A zr binary reads RUBYOPT as ruby does, so it runs outside the bundle.
   help = ->(*command) { IO.popen(Zr::Dev::BUNDLE.to_h { |name| [name, nil] }, [*command, "help"], &:read) }
-  built = Zr::Dev.tools.build { |out| help.(out) == help.(RbConfig.ruby, Zr::Dev.path("tool/zr-dev.rb")) }
+  built = Zr::Dev.tools.build { |out| help.call(out) == help.call(RbConfig.ruby, Zr::Dev.path("tool/zr-dev.rb")) }
   abort("rake build:tools: bin/zr-dev did not build") unless built
   puts "the tools: #{Zr::Dev.tools.binary}"
 end

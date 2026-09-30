@@ -59,7 +59,7 @@ class LibrariesTest < Minitest::Test
 
     json = roots.find { |root| File.file?(File.join(root, "json.rb")) }
 
-    assert_equal 1, roots.index(Zr::Hir::Build::EXT)
+    assert_equal 1, roots.index(Zr::Layout::EXT)
     assert_equal Zr::Ports.lib("json"), json
     assert_operator roots.index(json), :<, roots.index(Zr::Hir::Build.pure)
   end

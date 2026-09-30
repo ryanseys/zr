@@ -40,7 +40,6 @@ module Zr
         def list
           dirs = File.directory?(Gems::Snapshot::DIR) ? Dir.children(Gems::Snapshot::DIR).sort : []
           dirs.each { |dir| puts File.join(Gems::Snapshot::DIR, dir) }
-          true
         end
 
         # `git worktree remove`: git forgets the copy, and its directory
@@ -50,7 +49,6 @@ module Zr
           fail!("#{dir} is not a copy in #{Dev.rel(Gems::Snapshot::DIR)}") unless File.dirname(root) == Gems::Snapshot::DIR
           Gems::Snapshot.git(Dev::ROOT, "worktree", "remove", "--force", root) or fail!("git worktree remove #{root} failed")
           puts "removed #{Dev.rel(root)}"
-          true
         end
       end
     end

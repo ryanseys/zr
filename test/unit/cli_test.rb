@@ -252,7 +252,7 @@ class CliParseTest < Minitest::Test
 
     _, err = assert_exit(1) { CLI.guard { raise NoMethodError, "undefined method 'x'" } }
     assert_equal "zr: internal error: NoMethodError: undefined method 'x'. This is a defect in zr. Report it at " \
-                 "#{CLI::ISSUES} with the output of 'zr doctor'. Set ZR_DEBUG=1 to see the backtrace.\n", err
+                 "#{Zr::ISSUES_URL} with the output of 'zr doctor'. Set ZR_DEBUG=1 to see the backtrace.\n", err
 
     assert_exit(130) { CLI.guard { raise Interrupt } }
   end

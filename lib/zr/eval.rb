@@ -83,7 +83,7 @@ module Zr
 
     # The toplevel address of the file at `path`, compiled as a required
     # file: its own scope, under main and Object. A file in the extensions
-    # (`Hir::Build::EXT`) is part of the runtime, where `Primitive`
+    # (`Layout::EXT`) is part of the runtime, where `Primitive`
     # resolves.
     def compile_file(path)
       Eval.plainly do

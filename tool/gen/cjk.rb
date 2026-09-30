@@ -30,11 +30,10 @@ module Zr
         # The walk also uses them for an encoding that has no ruby converter.
         SAMPLE = [0x30, 0x39, 0x40, 0x41, 0x7E, 0x80, 0x81, 0xA1, 0xB0, 0xC1, 0xFE].freeze
 
-        CONVERTS = {}
-
         def converts?(encoding)
-          CONVERTS.fetch(encoding) do
-            CONVERTS[encoding] = begin
+          @converts ||= {}
+          @converts.fetch(encoding) do
+            @converts[encoding] = begin
               Encoding::Converter.new(encoding, pivot(encoding))
               true
             rescue StandardError
@@ -262,10 +261,10 @@ module Zr
           end
 
           def id(packed)
-            @ids[packed] ||= (@rows << packed; @rows.size - 1)
+            @ids[packed] ||= @rows.push(packed).size - 1
           end
 
-          def rows = @rows
+          attr_reader :rows
         end
 
         # Compares the bytes that ruby writes for each code point with the lowest
@@ -288,7 +287,7 @@ module Zr
           (0x80..0x2FFFF).each do |point|
             next if point.between?(0xD800, 0xDFFF)
 
-            written = (point.chr(Encoding::UTF_8).force_encoding(HUBS.fetch(encoding.name, "UTF-8")).encode(encoding).b rescue nil)
+            written = converted { point.chr(Encoding::UTF_8).force_encoding(HUBS.fetch(encoding.name, "UTF-8")).encode(encoding).b }
             next if written.nil? || written == lowest[point]
             # The runtime refuses the longer characters of a partial encoding,
             # so the table does not include them here either.
@@ -307,22 +306,22 @@ module Zr
         UNMAPPED = "\u{1F600}"
 
         def shape_of(encoding)
-          message = (UNMAPPED.encode(encoding) rescue $!.message)
+          message = conversion_message { UNMAPPED.encode(encoding) }
           return nil if message.start_with?("code converter not found")
 
           short = !message.include?(" in conversion from ")
           step = short ? encoding.name : message[/\AU\+\h+ to (.*?) in conversion from /, 1]
-          [short, step, from_short(encoding)]
+          [short, step, short_from?(encoding)]
         end
 
         # The same test for the other direction. It uses a character that the
         # encoding has but that has no code point.
-        def from_short(encoding)
+        def short_from?(encoding)
           sequence = (0x80..0xFF).lazy.flat_map { |a| [[a]] + (0x00..0xFF).map { |b| [a, b] } }
                                  .find { |bytes| convert(encoding, bytes) == :undef }
           return true if sequence.nil?
 
-          message = (sequence.pack("C*").dup.force_encoding(encoding).encode("UTF-8") rescue $!.message)
+          message = conversion_message { sequence.pack("C*").dup.force_encoding(encoding).encode("UTF-8") }
           !message.include?(" in conversion from ")
         end
         def write(io)
@@ -365,7 +364,7 @@ module Zr
                 out[second] = length
               end
             end
-            table.lengths.each_value { |seconds| seconds.merge!(rule) if seconds.values.include?(2) } unless rule.empty?
+            table.lengths.each_value { |seconds| seconds.merge!(rule) if seconds.value?(2) } unless rule.empty?
           end
           irregular = own.select { |_, table| table.irregular }
           own = own.reject { |encoding, _| irregular.key?(encoding) }
@@ -476,12 +475,12 @@ module Zr
             Encoding.list.each do |b|
               next if a == b
 
-              path = (Encoding::Converter.search_convpath(a, b) rescue nil)
+              path = converted { Encoding::Converter.search_convpath(a, b) }
               edges << [a.name, b.name] if path.is_a?(Array) && path.size == 1 && path.first.is_a?(Array)
             end
           end
-          compat = Encoding.list.to_h { |encoding| [encoding.name, (Encoding::Converter.asciicompat_encoding(encoding)&.name rescue nil)] }
-                                .reject { |_, value| value.nil? }
+          compat = Encoding.list.to_h { |encoding| [encoding.name, converted { Encoding::Converter.asciicompat_encoding(encoding)&.name }] }
+                                .compact
           core << "  # The pairs ruby converts in one step, which a conversion path is\n  # searched over.\n"
           core << "  CONVERTERS = [\n"
           edges.each { |a, b| core << "    [#{a.inspect}, #{b.inspect}],\n" }
@@ -502,9 +501,9 @@ module Zr
           core << "end\n"
           io.print core
 
-          warn "tables: #{own.size}, partial: #{tables.select { |_, t| t.partial }.keys.map(&:name).join(',')}"
-          warn "as UTF-8: #{utf8_like.map(&:name).join(',')}"
-          warn "refused: #{irregular.keys.map(&:name).join(',')}"
+          warn "tables: #{own.size}, partial: #{tables.select { |_, t| t.partial }.keys.map(&:name).join(",")}"
+          warn "as UTF-8: #{utf8_like.map(&:name).join(",")}"
+          warn "refused: #{irregular.keys.map(&:name).join(",")}"
           warn "rows: #{pool.rows.size}, encode rows written out: #{written}, of more than one code point: #{multi_written}"
           warn "converter pairs: #{edges.size}"
           warn "core: #{core.bytesize} bytes"

@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "lib/zr/dev"
-require_relative "lib/zr/dev/vendor"
+require_relative "lib/zr/dev/vendor_tree"
 
 module Zr
   module Dev
@@ -24,7 +24,7 @@ module Zr
 
       def run(argv)
         case argv.first
-        when nil then @check ? check : write
+        when nil then @check ? current? : write
         when "outdated" then outdated
         when "diff" then diff(*argv.drop(1))
         else fail!("no subcommand #{argv.first}; see --help")
@@ -54,12 +54,11 @@ module Zr
         Dev.write(VendorTree::LOCK) { |io| io.print(plan.lock_text) }
         Dev.write(VendorTree::STDLIB) { |io| io.print(plan.stdlib_text) }
         warn "vendor/: #{files.size} files, #{written} written, #{removed.size} removed"
-        true
       end
 
       # Offline: every owned file hashes to its line of the lock, no file
       # is missing or extra, and the inputs have not changed since.
-      def check
+      def current?
         _, locked, inputs = VendorTree.lock
         fail!("no #{VendorTree::LOCK}; run `zr-dev vendor`") if locked.empty?
 
@@ -76,14 +75,13 @@ module Zr
 
       def outdated
         entries, = VendorTree.lock
-        gems = VendorTree::Gems.new({}, fail: method(:fail!))
+        gems = VendorTree::GemSource.new({}, fail: method(:fail!))
         stale = entries.select { |e| %w[bundled port].include?(e.kind) }.filter_map do |e|
           latest = gems.latest(e.name)
           [e, latest] if Gem::Version.new(latest) > Gem::Version.new(e.version)
         end
         stale.each { |e, latest| puts format("%-8s %-16s %-10s -> %s", e.kind, e.name, e.version, latest) }
         puts "all #{entries.count { |e| %w[bundled port].include?(e.kind) }} gems are at their newest release" if stale.empty?
-        true
       end
 
       # The lib files that differ between the locked gem and `version`,
@@ -93,16 +91,21 @@ module Zr
         fail!("usage: zr-dev vendor diff GEM [VERSION]") unless gem
         entries, = VendorTree.lock
         locked = entries.find { |e| e.name == gem && %w[bundled port].include?(e.kind) } or fail!("#{gem} is not a gem of vendor/")
-        gems = VendorTree::Gems.new(entries.filter_map { |e| ["#{e.name}-#{e.version}.gem", e.sha256] if e.sha256 }.to_h, fail: method(:fail!))
+        gems = VendorTree::GemSource.new(entries.filter_map { |e| ["#{e.name}-#{e.version}.gem", e.sha256] if e.sha256 }.to_h, fail: method(:fail!))
         version ||= gems.latest(gem)
         old = lib_files(gems, gem, locked.version)
         new = lib_files(gems, gem, version)
         changed = (old.keys | new.keys).sort.reject { |rel| old[rel] == new[rel] }
         puts "#{gem} #{locked.version} -> #{version}: #{changed.size} files differ"
-        changed.each { |rel| puts "  #{old.key?(rel) ? (new.key?(rel) ? "changed" : "removed") : "added  "}  #{rel}" }
+        changed.each do |rel|
+          state = if !old.key?(rel) then "added  "
+                  elsif new.key?(rel) then "changed"
+                  else "removed"
+                  end
+          puts "  #{state}  #{rel}"
+        end
         overlays = changed.filter_map { |rel| overlay(rel.delete_prefix("lib/")) }
         puts "", "zr files that replace one of them; check each before the update:", *overlays.map { |path| "  #{Dev.rel(path)}" } if overlays.any?
-        true
       end
 
       def lib_files(gems, gem, version)

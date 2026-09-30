@@ -37,13 +37,13 @@ module Zr
             mod.constants(false).each do |name|
               value = mod.const_get(name)
               if value.is_a?(Module)
-                walk.(value, seen) if value.name == "#{mod.name}::#{name}"
+                walk.call(value, seen) if value.name == "#{mod.name}::#{name}"
               elsif value.is_a?(Integer) && mod.const_source_location(name)&.first.to_s.end_with?(".bundle", ".so")
                 rows << [mod.name, name, value] unless mod == OpenSSL && name == :OPENSSL_VERSION_NUMBER
               end
             end
           end
-          walk.(OpenSSL, {})
+          walk.call(OpenSSL, {})
 
           io.puts "# frozen_string_literal: true"
           io.puts

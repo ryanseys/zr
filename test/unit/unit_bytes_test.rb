@@ -9,7 +9,7 @@ require_relative "../../lib/zr/native/build"
 #
 # Two programs that require the same file must write the same symbol
 # names for it, then the same code, then the same data. The unit cache
-# (lib/zr/unit_cache.rb) depends on this. Otherwise a cached unit
+# (lib/zr/cache/unit.rb) depends on this. Otherwise a cached unit
 # contains names, symbol ids and literal slots that are correct only for
 # the program that first compiled it.
 class UnitBytesTest < Minitest::Test

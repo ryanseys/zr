@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require "digest/sha2"
-require "fileutils"
 require_relative "../config"
 require_relative "../flags"
 require_relative "../paths"
@@ -68,13 +67,13 @@ module Zr
       # loads is in BACKEND, and an edit to the store must not make every
       # pack a miss.
       def self.dir
-        require_relative "../store"
-        Store.path(:code, backend_digest[0, 32])
+        require_relative "../cache/store"
+        Cache::Store.path(:code, backend_digest[0, 32])
       end
 
       attr_reader :hits, :misses
       # `[fingerprints by name, defined]` of the last unit that this cache
-      # built (`Build.cached`), for `CoreCache#keep`.
+      # built (`Build.cached`), for `Cache::Lowering::Core#keep`.
       attr_accessor :built
 
       def initialize(kind)
@@ -126,13 +125,13 @@ module Zr
 
       # Writes one pack with the code of every function of this build:
       # `entries` are `[key, blob]` pairs, a blob being Marshal of an
-      # `Obj::Function`. Then removes the packs of this kind beyond KEPT.
+      # `Obj::Code`. Then removes the packs of this kind beyond KEPT.
       # Writes nothing if a source changed during the build.
       def keep(entries)
         close
         return if Zr.moved
 
-        FileUtils.mkdir_p(@dir)
+        Paths.mkdir_p(@dir)
         stem = File.join(@dir, "#{@kind}-#{Time.now.strftime("%Y%m%d%H%M%S%N")}-#{Process.pid}")
         index = {}
         File.open("#{stem}.pack.tmp", "wb") do |io|

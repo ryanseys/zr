@@ -8,14 +8,14 @@ require_relative "machine/lower"
 require_relative "obj/model"
 require_relative "hir"
 require_relative "lower"
-require_relative "unit_cache"
+require_relative "cache/unit"
 require_relative "clock"
 require_relative "tune"
 require_relative "settled"
-require_relative "store"
-require_relative "sources"
-require_relative "core_cache"
-require_relative "eval_cache"
+require_relative "cache/store"
+require_relative "runtime_sources"
+require_relative "cache/lowering/core"
+require_relative "cache/lowering/eval_support"
 require_relative "manifest"
 
 module Zr
@@ -36,7 +36,7 @@ module Zr
     # that runs while a file changes cannot cache old output under the
     # new digest.
     def sources
-      @sources ||= Zr.sources(target).to_h { |path| [path, File.read(path)] }
+      @sources ||= RuntimeSources.for(target).sources.to_h { |path| [path, File.read(path)] }
     end
 
     # The lowered kernel. The core's lowering and the runtime object need
@@ -46,7 +46,7 @@ module Zr
 
       @unit ||= Zr.clock("kernel lowered") do
         Tune.heavy!
-        Machine::Lower.new(Zr.kernel_files(target).map { |path| [sources.fetch(path), path] }, kernel_symbols).tap(&:run)
+        Machine::Lower.new(RuntimeSources.for(target).kernel_files.map { |path| [sources.fetch(path), path] }, kernel_symbols).tap(&:run)
       end
     end
 
@@ -60,7 +60,7 @@ module Zr
     def raw = @raw || unit.raw
 
     # The runtime object in the cache (`Native::Build.runtime_object`).
-    def object_path = Store.path(:object, digest)
+    def object_path = Cache::Store.path(:object, digest)
 
     def digest
       # The target is the first input, so two targets never share build
@@ -71,7 +71,7 @@ module Zr
       @digest ||= Zr.clock("runtime digest") do
         files = sources.keys + gem_prelude_files
         @stamps = files.to_h { |path| [path, Paths.stamp(path)] }
-        Zr.with_ledger(digest_of(files), ledger_text)
+        Digests.with_ledger(digest_of(files), ledger_text)
       end
     end
 
@@ -80,7 +80,7 @@ module Zr
     # But eval support, the prelude and the harness read files again from
     # disk. An edit during a build would put new content under the old
     # digest in every cache. So nothing is cached after a file changes
-    # (`Zr.write_cache`, `UnitCache#keep`, the parse cache, the harness's
+    # (`Cache::Store.write_file`, `Cache::Unit#keep`, the parse cache, the harness's
     # binaries), and the build stops with the file's name. The cost is one
     # stat per file, which is small compared to a cache write.
     def moved
@@ -96,21 +96,21 @@ module Zr
     # them adds or removes a file, the digest changes and the list is
     # computed again.
     # The cache file that lists them.
-    def gem_prelude_path = Zr.gem_prelude_list(digest_of(sources.keys))
+    def gem_prelude_path = RuntimeSources.gem_prelude_list(digest_of(sources.keys))
 
     def gem_prelude_files
       @gem_prelude_files ||= begin
         path = gem_prelude_path
         files = JSON.parse(File.read(path)) if File.exist?(path)
         unless files&.all? { |file| File.file?(file) }
-          files = [GEM_PRELUDE, *Zr.gem_prelude(target).units.map(&:file).select { |file| File.file?(file) }].uniq.sort
-          Zr.write_cache(path, JSON.generate(files))
+          files = [Layout::GEM_PRELUDE, *Zr.gem_prelude(target).units.map(&:file).select { |file| File.file?(file) }].uniq.sort
+          Cache::Store.write_file(path, JSON.generate(files))
         end
         files
       end
     end
 
-    def digest_of(files) = Zr.source_digest(target, files, sources)
+    def digest_of(files) = Digests.sources(target, files, sources)
 
     # The symbol table after the core library. It comes from the cache if
     # an earlier build lowered the core with this digest.
@@ -125,7 +125,7 @@ module Zr
     end
 
     def functions = unit.functions + lowered.first
-    # The `CoreCache` of this build's lowering, or nil.
+    # The `Cache::Lowering::Core` of this build's lowering, or nil.
     def core_cache
       lowered
       @core_cache
@@ -151,7 +151,7 @@ module Zr
     # writes it from this runtime's description into the store, keyed by
     # its bytes, so it is never out of date and nobody commits it.
     def carried_description
-      @carried_description ||= File.join(Store.path(:description, Store.key(carried_text)), DESCRIPTION_FILE)
+      @carried_description ||= File.join(Cache::Store.path(:description, Cache::Store.key(carried_text)), DESCRIPTION_FILE)
     end
 
     DESCRIPTION_FILE = "zr_description.rb"
@@ -162,21 +162,21 @@ module Zr
       path = carried_description
       return path if File.file?(path)
 
-      Store.write(:description, File.basename(File.dirname(path))) { |dir| File.binwrite(File.join(dir, DESCRIPTION_FILE), carried_text) }
+      Cache::Store.write(:description, File.basename(File.dirname(path))) { |dir| File.binwrite(File.join(dir, DESCRIPTION_FILE), carried_text) }
       path
     end
 
     def carried_text = @carried_text ||= Machine::Description.carried(cached.fetch(:description))
 
-    # `Zr.abi_digest`: what a program's units take from this runtime. It reads the symbol table's cache, which it makes first.
+    # `RuntimeSources#abi_digest`: what a program's units take from this runtime. It reads the symbol table's cache, which it makes first.
     def abi_digest
-      @abi_digest ||= (cached && Zr.abi_digest(target, digest)) || raise("no symbol table for runtime #{digest}")
+      @abi_digest ||= (cached && RuntimeSources.for(target).abi_digest(digest)) || raise("no symbol table for runtime #{digest}")
     end
 
-    # `Zr.eval_digest`: what eval support takes from this runtime, besides
+    # `RuntimeSources#eval_digest`: what eval support takes from this runtime, besides
     # the ids of the names it uses.
     def eval_digest
-      @eval_digest ||= (cached && Zr.eval_digest(target, digest)) || raise("no symbol table for runtime #{digest}")
+      @eval_digest ||= (cached && RuntimeSources.for(target).eval_digest(digest)) || raise("no symbol table for runtime #{digest}")
     end
 
     private
@@ -206,15 +206,15 @@ module Zr
     def ledger_text
       return @ledger_text if defined?(@ledger_text)
 
-      @ledger_text = Zr.ledger_text(target)
+      @ledger_text = RuntimeSources.for(target).ledger_text
     end
 
     # Writes the ledger for the next build: this table's names, with nil
     # for each name that this build did not ask for.
     def keep_ledger(symbols)
-      return unless Zr.ledger?
+      return unless RuntimeSources.ledger?
 
-      Zr.write_cache(Zr.ledger_path(target), JSON.generate(symbols.names.each_with_index.map { |name, i| name if symbols.used?(i) }))
+      Cache::Store.write_file(RuntimeSources.for(target).ledger_path, JSON.generate(symbols.names.each_with_index.map { |name, i| name if symbols.used?(i) }))
     end
 
     # The symbol table, the wanted symbols and the kernel's description.
@@ -224,7 +224,7 @@ module Zr
       @cached ||= read_cached || write_cached
     end
 
-    def cache_path = Zr.symbols_path(digest)
+    def cache_path = RuntimeSources.symbols_path(digest)
 
     def read_cached
       return unless File.exist?(cache_path)
@@ -255,7 +255,7 @@ module Zr
       wanted_functions = (calls.uniq - defined).sort
       wanted_data = (reads.uniq - data.map(&:name)).sort
       description = Machine::Description.of(unit).to_text
-      Zr.write_cache(cache_path,
+      Cache::Store.write_file(cache_path,
                      JSON.generate({ "names" => kernel_symbols.names, "sites" => kernel_symbols.sites,
                                      "functions" => wanted_functions, "data" => wanted_data, "description" => description }))
       { symbols: kernel_symbols, wants: { functions: wanted_functions, data: wanted_data }, description: description }
@@ -263,12 +263,12 @@ module Zr
 
     # The core library's `[functions, data]`, lowered over the kernel.
     #
-    # For an aarch64 build, `CoreCache` takes each file it can from an
+    # For an aarch64 build, `Cache::Lowering::Core` takes each file it can from an
     # earlier build, and the list then has the machine code of those files
-    # (`Obj::Function`) in place of their IR. It also inlines the unit.
+    # (`Obj::Code`) in place of their IR. It also inlines the unit.
     def lowered
       @lowered ||= Zr.clock("core lowered") do
-        @core_cache = Zr.clock("core cache: opened") { CoreCache.for(target) }
+        @core_cache = Zr.clock("core cache: opened") { Cache::Lowering::Core.for(target) }
         @core_cache ? @core_cache.lower(unit, kernel_symbols, sources) : Zr.core(unit, kernel_symbols, target, sources)
       end
     end
@@ -299,7 +299,7 @@ module Zr
   # own object, so a program with eval lowers and assembles only itself.
   # Next to the object, the cache keeps the metadata that a program
   # needs: the entry of each file, its dependencies, and the symbol table
-  # after it. The key is the eval digest (`Zr.eval_digest`) and the bytes
+  # after it. The key is the eval digest (`RuntimeSources#eval_digest`) and the bytes
   # of each file in eval support, and the metadata lists the runtime names
   # it used. An edit to a file of eval support, to the compiler or to the
   # kernel's description builds it again, as does a runtime name it used
@@ -335,11 +335,11 @@ module Zr
 
     # The SHA-256 of each file in eval support (as lowered) and of each
     # file that the gem prelude loads, by path. A compiled compiler keys
-    # its parse cache on these (ParseCache.parser_digests,
-    # ParseCache.maker).
+    # its parse cache on these (`Cache::Parse.parser_digests`,
+    # `Cache::Parse.maker`).
     def digests = meta.fetch("digests")
 
-    # The key of eval support's code (`Zr.eval_key`): the key of its files
+    # The key of eval support's code (`Digests.eval_key`): the key of its files
     # (the eval digest and the bytes of each file), and the symbol table
     # that its code uses. The object has this name, and the unit cache
     # uses it for a program that uses this symbol table. The same files
@@ -355,9 +355,9 @@ module Zr
     # The cache files of eval support: the object, by the key in its
     # metadata, and the metadata, by the runtime's digest and the kind
     # of eval (`jit` or `walk`). `zr-dev cache prune` reads these too.
-    def self.object_path(key) = Store.path(:object, key)
+    def self.object_path(key) = Cache::Store.path(:object, key)
     def self.meta_path(runtime, kind) = meta_file(runtime.eval_digest, kind)
-    def self.meta_file(eval_digest, kind) = Store.path(:meta, "#{eval_digest}-eval-#{kind}")
+    def self.meta_file(eval_digest, kind) = Cache::Store.path(:meta, "#{eval_digest}-eval-#{kind}")
 
     def functions = lowered.fetch(:functions)
     def data = lowered.fetch(:data)
@@ -370,7 +370,7 @@ module Zr
       @lowered = @cache = nil
     end
 
-    # The `EvalCache` of this build's lowering, or nil.
+    # The `Cache::Lowering::EvalSupport` of this build's lowering, or nil.
     def cache
       lowered
       @cache
@@ -399,7 +399,7 @@ module Zr
     # each file. A build gives the bytes that it lowered (`sources`), so an edit
     # during the build cannot put old output under the new bytes' key. A
     # check of the cache reads the files as they are now.
-    def files_key(files, sources = {}, absent = []) = Zr.eval_files_key(@runtime.eval_digest, files, sources, absent)
+    def files_key(files, sources = {}, absent = []) = Digests.eval_files_key(@runtime.eval_digest, files, sources, absent)
 
     def lowered
       @lowered ||= Zr.clock("eval support lowered") do
@@ -411,7 +411,7 @@ module Zr
         symbols = Machine::Symbols.new(@runtime.symbols.names, sites: @runtime.symbols.sites)
         lower = Lower.new(program, @runtime.description, symbols, entry: "zr_eval_support", target: target)
         functions = data = nil
-        @cache = EvalCache.for(target, kind)
+        @cache = Cache::Lowering::EvalSupport.for(target, kind)
         asked = symbols.record { functions, data = @cache ? @cache.lower(lower, symbols, @runtime.description) : lower.run }
         runtime_size = @runtime.symbols.names.size
         files = loader.units.filter_map { |u| u.file if u.file.start_with?("/") }.uniq.sort
@@ -423,13 +423,13 @@ module Zr
         # lowering stale, though no file that it read changed.
         absent = loader.stopped.uniq.sort.flat_map { |feature| Hir::Build.stdlib(target).map { |root| File.join(root, "#{feature}.rb") } }
         read = files_key(files, sources, absent)
-        meta = { "key" => Zr.eval_key(read, symbols.names, symbols.sites), "files_key" => read, "files" => files, "absent" => absent, "digests" => digests,
+        meta = { "key" => Digests.eval_key(read, symbols.names, symbols.sites), "files_key" => read, "files" => files, "absent" => absent, "digests" => digests,
                  "units" => loader.entries.to_h { |path, i| [path, lower.unit_entry(i)] },
                  "configures" => loader.configures?, "normalizes" => loader.normalizes?, "pretty_prints" => loader.pretty_prints?,
                  "irbs" => loader.irbs?, "gems" => loader.gems?,
                  "names" => symbols.names, "sites" => symbols.sites, "activations" => loader.activations,
                  "used" => asked.select { |_, at| at < runtime_size } }
-        Zr.write_cache(meta_path, JSON.generate(meta))
+        Cache::Store.write_file(meta_path, JSON.generate(meta))
         { functions: functions, data: data, meta: meta }
       end
     end
@@ -469,11 +469,11 @@ module Zr
     # So an earlier build's code for a unit is correct for this build.
     # The cache key includes the table that fixes the ids: the runtime's,
     # or the larger eval support table for a program with eval.
-    units = finish && UnitCache.for(hir, runtime: rt.abi_digest, table: hir.evals ? support.key : "rt",
+    units = finish && Cache::Unit.for(hir, runtime: rt.abi_digest, table: hir.evals ? support.key : "rt",
                                          entries: Lower.entries_of("zr_toplevel", hir.units))
     lower = Lower.new(hir, rt.description, symbols, target: target, fixed: symbols.ids.dup.freeze, units: units || nil)
     functions, data = Zr.clock(finish ? "program lowered and assembled" : "program lowered") do
-      finish ? lower.run { |f| finish.call(f, lower.entry) } : lower.run
+      finish ? lower.run { |f| yield(f, lower.entry) } : lower.run
     end
     units = hir.entries.map { |path, i| [path, lower.unit_entry(i)] }
     number_symbols(data, symbols, rt.description.const_for("SYMBOL_TAG"))
@@ -593,14 +593,6 @@ module Zr
     warn "zr: building #{what} for #{target.triple}. This occurs one time and takes some minutes."
   end
 
-  # Writes `content` to `path` in the cache atomically, so a parallel
-  # build never reads a half-written file. Writes nothing if a source
-  # changed (`settled!`).
-  def write_cache(path, content)
-    settled!
-    Paths.write_atomic(path, content)
-  end
-
   # The core library on top of the kernel `unit`: `[functions, data]`,
   # with `zr_prelude` as the last function. The program decides if it
   # links in the compiler, so the core never requires eval support. A
@@ -608,24 +600,36 @@ module Zr
   def core(unit, symbols, target = Target.default, sources = {})
     functions = []
     data = []
-    entries = core_files(target).map do |path|
-      entry = "zr_core_#{File.basename(path, ".rb")}"
-      source = sources.fetch(path) { File.read(path) }
-      f, d = Lower.new(Hir.build(source, path, eval_support: false, target: target), unit, symbols, entry: entry, internal: true,
-                       target: target).run
+    entries = RuntimeSources.for(target).core_files.map do |path|
+      f, d = lower_core_file(path, sources.fetch(path) { File.read(path) }, unit, symbols, target)
       functions.concat(f)
       data.concat(d)
-      entry
+      core_entry(path)
     end
-    f, d = Lower.new(gem_prelude(target), unit, symbols, entry: "zr_gem_prelude", kind: :top, target: target).run
+    f, d = lower_gem_prelude(gem_prelude(target), unit, symbols, target)
     [functions.concat(f) << prelude(entries, unit), data.concat(d)]
   end
+
+  # The entry of a core file's toplevel.
+  def core_entry(path) = "zr_core_#{File.basename(path, ".rb")}"
+
+  # `[functions, data]` of one core file over the kernel `unit`.
+  def lower_core_file(path, source, unit, symbols, target)
+    Lower.new(Hir.build(source, path, eval_support: false, target: target), unit, symbols, entry: core_entry(path), internal: true,
+                                                                                    target: target).run
+  end
+
+  # `[functions, data]` of the gem prelude's program `hir`.
+  def lower_gem_prelude(hir, unit, symbols, target)
+    Lower.new(hir, unit, symbols, entry: GEM_PRELUDE_ENTRY, kind: :top, target: target).run
+  end
+
+  GEM_PRELUDE_ENTRY = "zr_gem_prelude"
 
   # CRuby's gem_prelude.rb, which loads ruby's default libraries before
   # a program's first line. After it comes error_highlight's lookup for
   # a program compiled ahead of time. Boot runs it after the core
   # library loads, before the program.
-  GEM_PRELUDE = Layout::GEM_PRELUDE
   SPOTTED = File.join(Layout::RUNTIME_LIB, "zr/error_highlight.rb")
 
   # The parsers that the prelude's libraries require for work that this
@@ -638,7 +642,7 @@ module Zr
   def gem_prelude(target = Target.default)
     loader = Hir::Build::Loader.new(Hir::Build.stdlib(target), deferred: DEFERRED,
                                                                preloaded: Hir::Build::PRELOADED - Hir::Build::GEM_PRELOADED)
-    main = loader.unit("<internal:gem_prelude>", File.read(GEM_PRELUDE))
+    main = loader.unit("<internal:gem_prelude>", File.read(Layout::GEM_PRELUDE))
     spotted = Hir::Require.new(:hidden, "zr/error_highlight", SPOTTED, loader.add(SPOTTED), 0)
     # did_you_mean reads RbConfig, which ruby has loaded by then.
     rbconfig = loader.configures? ? [Hir::Build.rbconfig(loader)] : []
@@ -703,7 +707,7 @@ module Zr
     names = if evals
               pure = Hir::Build.pure
               roots = Hir::Build.stdlib(target) - [pure]
-              [[pure, *gem_roots, *roots].map(&shown), uncarried, Hir::Build::PRELOADED, [shown[Hir::Build::EXT]]]
+              [[pure, *gem_roots, *roots].map(&shown), uncarried, Hir::Build::PRELOADED, [shown[Layout::EXT]]]
             else
               [[]] * 4
             end
@@ -712,22 +716,22 @@ module Zr
     names << [spots.map { |file, rows| "#{shown[file]}\n#{rows}" }.join("\f")]
     # The lines that Coverage counts, one record per file: its path, its
     # line count, and the lines, tab-separated.
-    names << coverable.map { |file, (count, lines)| "#{shown[file]}\t#{count}\t#{lines.uniq.join(',')}" }
+    names << coverable.map { |file, (count, lines)| "#{shown[file]}\t#{count}\t#{lines.uniq.join(",")}" }
     # The branches that Coverage reports, one record per file: its path,
     # then one `kind,id,root,start line,start column,end line,end column`
     # for each branch, in Coverage's order. `id` is the counter that this
     # branch increments. `root` is the index in the file of the branch's
     # root, or empty for a root.
-    names << branches.map { |file, rows| "#{shown[file]}\t#{rows.map { |row| row.join(',') }.join("\t")}" }
+    names << branches.map { |file, rows| "#{shown[file]}\t#{rows.map { |row| row.join(",") }.join("\t")}" }
     # The location of each def and block in a measured file, one record
     # per file: its path, then one `id,start line,start column,end
     # line,end column` for each scope. A definition finds its record by
     # its id, and so gets its span.
-    names << defs.map { |file, rows| "#{shown[file]}\t#{rows.map { |row| row.join(',') }.join("\t")}" }
+    names << defs.map { |file, rows| "#{shown[file]}\t#{rows.map { |row| row.join(",") }.join("\t")}" }
     names << sources.map { |path, digest| [shown[path], digest] }.sort.map { |path, digest| "#{path}\t#{digest}" }
     names << [manifest.to_s.chomp]
     out = []
-    text = ->(name, bytes) { out << Obj::Data.new(name, :text_const, "#{bytes}\0".b, align: 1) }
+    text = ->(name, bytes) { out << Obj::Datum.new(name, :text_const, "#{bytes}\0".b, align: 1) }
     rows = +"".b
     row_relocs = []
     units.each_with_index do |(path, entry), i|
@@ -735,7 +739,7 @@ module Zr
       row_relocs << Obj::Reloc.new(i * 24, :abs64, "zr_unit_path_#{i}") << Obj::Reloc.new((i * 24) + 16, :abs64, entry)
       rows << [0, path.bytesize, 0].pack("Q<3")
     end
-    out << Obj::Data.new("zr_unit_rows", :data_const, rows.empty? ? "\0".b * 8 : rows, relocs: row_relocs, align: 8)
+    out << Obj::Datum.new("zr_unit_rows", :data_const, rows.empty? ? "\0".b * 8 : rows, relocs: row_relocs, align: 8)
     words = [units.size, 0]
     relocs = [Obj::Reloc.new(8, :abs64, "zr_unit_rows")]
     names.each_with_index do |lines, i|
@@ -744,8 +748,8 @@ module Zr
       relocs << Obj::Reloc.new(words.size * 8, :abs64, "zr_load_names_#{i}")
       words << 0 << joined.bytesize
     end
-    out << Obj::Data.new("zr_load_table_words", :data_const, words.pack("Q<*"), relocs: relocs, align: 8)
-    out << Obj::Data.new("zr_load_tables", :data_const, "\0".b * 8, relocs: [Obj::Reloc.new(0, :abs64, "zr_load_table_words")], align: 8, linkage: :export)
+    out << Obj::Datum.new("zr_load_table_words", :data_const, words.pack("Q<*"), relocs: relocs, align: 8)
+    out << Obj::Datum.new("zr_load_tables", :data_const, "\0".b * 8, relocs: [Obj::Reloc.new(0, :abs64, "zr_load_table_words")], align: 8, linkage: :export)
   end
 
   # `zr_symbol_names`: one (bytes, length) record per symbol id. The bytes
@@ -768,9 +772,9 @@ module Zr
       table << [0, name.bytesize].pack("Q<Q<")
       all << name.b
     end
-    [Obj::Data.new("zr_symname_bytes", :text_const, all.empty? ? "\0".b : all, align: 1),
-     Obj::Data.new("zr_symbol_names", :data_const, table, relocs: relocs, align: 8, linkage: :export),
-     Obj::Data.new("zr_symbol_count", :data_const, [names.size].pack("Q<"), align: 8, linkage: :export),
-     Obj::Data.new("zr_site_count", :data_const, [symbols.sites].pack("Q<"), align: 8, linkage: :export)]
+    [Obj::Datum.new("zr_symname_bytes", :text_const, all.empty? ? "\0".b : all, align: 1),
+     Obj::Datum.new("zr_symbol_names", :data_const, table, relocs: relocs, align: 8, linkage: :export),
+     Obj::Datum.new("zr_symbol_count", :data_const, [names.size].pack("Q<"), align: 8, linkage: :export),
+     Obj::Datum.new("zr_site_count", :data_const, [symbols.sites].pack("Q<"), align: 8, linkage: :export)]
   end
 end

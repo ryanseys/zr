@@ -375,7 +375,7 @@ module Zr
             when :stack_addr then @roots[i.results[0]] = [i.results[0], 0]
             when :iadd then note_sum(i)
             when :store then remember(known, i)
-            when :load then next true if forwarded(known, i)
+            when :load then next true if forwarded?(known, i)
             when :call, :call_indirect then known.clear
             end
             false
@@ -419,7 +419,7 @@ module Zr
 
         # Whether the load reads all of a known store's value, with the same
         # type.
-        def forwarded(known, i)
+        def forwarded?(known, i)
           at = slot(i.args[0], i.offset)
           return false unless at && (held = known[at])
 
@@ -556,7 +556,7 @@ module Zr
         end
 
         def run
-          loop { break unless unreachable | bypass | merge }
+          loop { break unless pruned? | bypassed? | merged? }
           rename_uses unless @rename.empty?
           @f.changed!(:cfg)
         end
@@ -573,8 +573,11 @@ module Zr
           into
         end
 
-        # The blocks in reverse postorder are the reachable blocks.
-        def unreachable
+        # Each step below changes the function and answers whether it did.
+
+        # Drops the unreachable blocks. The blocks in reverse postorder are
+        # the reachable blocks.
+        def pruned?
           reached = @f.analysis.rpo
           return false if reached.size == @f.blocks.size
 
@@ -583,7 +586,7 @@ module Zr
           true
         end
 
-        def bypass
+        def bypassed?
           changed = false
           into = edges
           @f.blocks.each do |b|
@@ -610,7 +613,7 @@ module Zr
         # that took it. A predecessor after its successor in the layout moves up
         # to the successor's position. Thus each definition stays before the
         # blocks that it dominates, which `Types` needs.
-        def merge
+        def merged?
           into = edges
           joined = {}.compare_by_identity
           laid = {}
@@ -708,7 +711,7 @@ module Zr
 
         # `sources` are functions that can be inlined but that this pass
         # does not change: the leaves of a file whose code the build already
-        # has (`CoreCache`).
+        # has (`Cache::Lowering::Core`).
         def initialize(functions, sources: [])
           @by_name = functions.to_h { |f| [f.name, f] }
           @outputs = @by_name.values
@@ -718,7 +721,7 @@ module Zr
         end
 
         def run
-          @by_name.each_key { |name| settle(name) }
+          @by_name.each_key { |name| inlinable?(name) }
           @outputs
         end
 
@@ -727,15 +730,15 @@ module Zr
         def settled_leaf?(name) = @state[name] == :leaf
 
         # The colocated symbols that the calls of the function `name` named,
-        # before this pass inlined any of them: a `CoreCache` entry depends on
+        # before this pass inlined any of them: a `Cache::Lowering::Core` entry depends on
         # what each of them is.
         def calls(name) = @calls[name].keys
 
         private
 
         # Whether the function is a leaf that is small enough to inline, after
-        # its own calls are inlined.
-        def settle(name)
+        # its own calls are inlined. The first question inlines them.
+        def inlinable?(name)
           case @state[name]
           when :leaf then return true
           when :no, :busy then return false
@@ -787,7 +790,7 @@ module Zr
               @calls[f.name][c.symbol] = true
 
               target = @by_name[c.symbol]
-              next if target.nil? || target.equal?(f) || !settle(target.name)
+              next if target.nil? || target.equal?(f) || !inlinable?(target.name)
 
               return [b, k, i, target]
             end

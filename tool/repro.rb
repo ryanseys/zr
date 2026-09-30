@@ -68,7 +68,7 @@ module Zr
           fail!("the two #{what} differ: #{a[what].bytesize} and #{b[what].bytesize} bytes, first at #{at}; " \
                 "both copies are kept in #{work}")
         end
-        puts "the same bytes from both copies: #{a.map { |what, bytes| "#{what} #{bytes.bytesize}" }.join(', ')}"
+        puts "the same bytes from both copies: #{a.map { |what, bytes| "#{what} #{bytes.bytesize}" }.join(", ")}"
         FileUtils.rm_rf(work)
       end
 

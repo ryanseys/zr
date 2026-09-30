@@ -67,7 +67,7 @@ class BinaryCacheTest < Minitest::Test
     back = File.join(@work, "back")
 
     refute Binaries.take(kept, back)
-    refute File.exist?(back)
+    refute_path_exists back
   end
 
   def test_a_binary_that_spells_where_it_was_built_is_not_kept
@@ -84,6 +84,6 @@ class BinaryCacheTest < Minitest::Test
     Binaries.keep(kept, bin, program, @work)
 
     assert_includes File.binread(bin), @work, "the required file's path is the directory's, today"
-    refute File.exist?(kept)
+    refute_path_exists kept
   end
 end

@@ -41,7 +41,7 @@ module Zr
           a.mov SP, X9
           doubles.each_with_index { |(p, q), i| a.ldp p, q, [X1, CONTEXT[:d8] + (16 * i)] }
           a.ret
-          Obj::Function.new("zr_switch", a.to_binary, align: 4)
+          Obj::Code.new("zr_switch", a.to_binary, align: 4)
         end
 
         # The machine code of the raw function `name` (`Machine::RAW`).

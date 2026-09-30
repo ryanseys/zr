@@ -98,7 +98,7 @@ module Zr
         table(rows)
         write!(rows, runs, RESULTS) if @write
         write!(rows, runs, baseline_path) if @commit
-        @check ? check(read(File.read(newest_baseline)), rows) : true
+        @check ? no_regression?(read(File.read(newest_baseline)), rows) : true
       end
 
       # Lowers the runtime or eval support object, then runs the passes and
@@ -142,7 +142,6 @@ module Zr
         slowest.each { |r| puts format("  %-60s %6d %7d %7.2f %7.2f", r[0][0, 60], *r[1..]) }
         puts format("the 20 slowest take %.0f%% of the time; all rows in %s",
                     100 * slowest.sum { |r| r[3] + r[4] } / (prepared + assembled), Dev.rel(path))
-        true
       end
 
       def timed(label)
@@ -157,7 +156,7 @@ module Zr
       # because the phases do not include the process start.
       def build(rb, out, compiled: false)
         # With the GC limits set here, `zr` does not restart itself.
-        env = { "ZR_TIMING" => "1", **CLI::GC_ENV, **Dev::UNDER_RUBY }
+        env = { "ZR_TIMING" => "1", **Tune::GC_ENV, **Dev::UNDER_RUBY }
         command = [Dev.ruby, Dev.path("exe/zr")]
         if compiled
           env["ZR_CACHE"] = COMPILED_CACHE
@@ -198,7 +197,7 @@ module Zr
         print "the compiled compiler ... "
         FileUtils.mkdir_p(File.dirname(COMPILED))
         took = Benchmark.realtime do
-          system({ **CLI::GC_ENV, **Dev::UNDER_RUBY }, Dev.ruby, Dev.path("exe/zr"), "build", Dev.path("exe/zr"),
+          system({ **Tune::GC_ENV, **Dev::UNDER_RUBY }, Dev.ruby, Dev.path("exe/zr"), "build", Dev.path("exe/zr"),
                  "-o", COMPILED, out: File::NULL, chdir: ROOT) or fail!("the compiler did not build")
         end
         puts format("%.1fs", took)
@@ -281,7 +280,7 @@ module Zr
       # Compares a run with a baseline. Only a slower build fails. On another
       # host only the ratio row is compared, because it does not depend on the
       # speed of the machine.
-      def check(was, now)
+      def no_regression?(was, now)
         same_host = was[:host] == host
         failed = []
         now.each do |name, phases|

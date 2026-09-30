@@ -180,7 +180,7 @@ module Zr
           node(n.high, depth + 1, lines)
           lines[-1] += ")"
         when HashLit
-          lines << "#{pad}(hash#{' frozen' if n.frozen}"
+          lines << "#{pad}(hash#{" frozen" if n.frozen}"
           n.pairs.each { |e| node(e, depth + 1, lines) }
           lines[-1] += ")"
         when KwSplatElement
@@ -192,13 +192,13 @@ module Zr
           lines << "#{pad}(regexp-once"
           node(n.value, depth + 1, lines)
           lines[-1] += ")"
-        when FrozenString then lines << "#{pad}(frozen#{' shared' if n.shared} #{n.value.inspect})"
+        when FrozenString then lines << "#{pad}(frozen#{" shared" if n.shared} #{n.value.inspect})"
         when Interp
           lines << "#{pad}(interp"
           n.parts.each { |e| node(e, depth + 1, lines) }
           lines[-1] += ")"
         when ArrayLit
-          lines << "#{pad}(array#{' frozen' if n.frozen}"
+          lines << "#{pad}(array#{" frozen" if n.frozen}"
           n.elements.each { |e| node(e, depth + 1, lines) }
           lines[-1] += ")"
         when IvarRead
@@ -298,7 +298,11 @@ module Zr
         return r.name if r.is_a?(Assign)
         return r unless r.is_a?(MultiTarget)
 
-        inner = (r.lefts + (r.rest ? [r.rest == :implicit ? "*" : "*#{param_name(r.rest)}"] : []) + r.rights).map { |t| t.is_a?(String) ? t : param_name(t) }
+        rest = if r.rest == :implicit then ["*"]
+               elsif r.rest then ["*#{param_name(r.rest)}"]
+               else []
+               end
+        inner = (r.lefts + rest + r.rights).map { |t| t.is_a?(String) ? t : param_name(t) }
         "(#{inner.join(" ")})"
       end
 

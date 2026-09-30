@@ -3,7 +3,7 @@
 require "test_helper"
 require "json"
 require "tmpdir"
-require "zr/sources"
+require "zr/runtime_sources"
 
 # Eval support and a program's units are keyed on the runtime's ABI
 # digest, not on its whole digest: a core or kernel body edit that keeps
@@ -25,8 +25,8 @@ class AbiKeyTest < Minitest::Test
 
   def abi(**rows)
     digest = rows.hash.to_s(16)
-    Zr::Paths.write_atomic(Zr.symbols_path(digest), JSON.generate(TABLE.merge(rows.transform_keys(&:to_s))))
-    Zr.abi_digest(@target, digest)
+    Zr::Paths.write_atomic(Zr::RuntimeSources.symbols_path(digest), JSON.generate(TABLE.merge(rows.transform_keys(&:to_s))))
+    Zr::RuntimeSources.for(@target).abi_digest(digest)
   end
 
   def test_the_same_table_and_description_give_the_same_key
@@ -50,6 +50,6 @@ class AbiKeyTest < Minitest::Test
   end
 
   def test_no_table_gives_no_key
-    assert_nil Zr.abi_digest(@target, "missing")
+    assert_nil Zr::RuntimeSources.for(@target).abi_digest("missing")
   end
 end

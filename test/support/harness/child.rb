@@ -24,7 +24,7 @@ module Zr
 
       # The process group of each child that runs now. Each child has its
       # own group, so a kill of the caller's group does not stop it.
-      LIVE = {}
+      @live = {}
 
       module_function
 
@@ -52,7 +52,7 @@ module Zr
         ensure
           in_w.close
         end
-        reader = [out_r, err_r].map { |io| Thread.new { io.binmode; io.read } }
+        reader = [out_r, err_r].map { |io| Thread.new { io.binmode.read } }
         status, over = watch(pid, started + seconds, megabytes)
         writer.join
         stdout, stderr = reader.map(&:value)
@@ -66,11 +66,14 @@ module Zr
       # worker calls this before it stops, so that no build continues
       # after the worker.
       def stop_all
-        LIVE.each_key do |pid|
-          Process.kill("KILL", -pid)
-        rescue Errno::ESRCH, Errno::EPERM
-          nil
-        end
+        @live.each_key { |pid| kill_group(pid) }
+      end
+
+      # Kills the process group of `pid`, if it still runs.
+      def kill_group(pid)
+        Process.kill("KILL", -pid)
+      rescue Errno::ESRCH, Errno::EPERM
+        nil
       end
 
       # How often the limits are checked while the child runs, in seconds.
@@ -81,7 +84,7 @@ module Zr
       # soon as the child ends. Polling would add up to one poll interval
       # to each run of a tier. This thread checks the limits between joins.
       def watch(pid, deadline, megabytes)
-        LIVE[pid] = true
+        @live[pid] = true
         Watch.add(pid) if megabytes
         waiter = Thread.new { Process.wait2(pid).last }
         loop do
@@ -92,12 +95,12 @@ module Zr
                  end
           next unless over
 
-          Process.kill("KILL", -pid) rescue nil
+          kill_group(pid)
           waiter.join
           return [nil, over]
         end
       ensure
-        LIVE.delete(pid)
+        @live.delete(pid)
         Watch.drop(pid) if megabytes
       end
 

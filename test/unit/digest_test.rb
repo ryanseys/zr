@@ -10,9 +10,9 @@ require_relative "../../lib/zr/runtime"
 # The digest identifies the cached runtime object, the prelinked image
 # and eval support. A change to a file that it leaves out is not seen,
 # and a stale runtime object gives a wrong binary with no error. Thus all
-# of `lib` counts, except the files in `Zr::LINK_ONLY`, which go into the
-# link digest, and the files in `Zr::DRIVER_ONLY`, which no build or link
-# loads (`compiler_digest_test.rb`). `Zr::PER_TARGET` keeps a backend and an object writer only
+# of `lib` counts, except the files in `Zr::RuntimeSources::LINK_ONLY`, which go into the
+# link digest, and the files in `Zr::RuntimeSources::DRIVER_ONLY`, which no build or link
+# loads (`compiler_digest_test.rb`). `Zr::RuntimeSources::PER_TARGET` keeps a backend and an object writer only
 # in the digest of the target that uses them.
 class DigestTest < Minitest::Test
   LIB = File.join(ROOT, "lib/zr")
@@ -20,14 +20,14 @@ class DigestTest < Minitest::Test
   def compiler = Dir[File.join(LIB, "**/*.rb")].sort
 
   def test_every_compiler_file_is_in_a_digest
-    covered = Zr::Target.all.flat_map { |target| Zr.compiler_files(target) } + Zr::LINK_ONLY + Zr::DRIVER_ONLY
+    covered = Zr::Target.all.flat_map { |target| Zr::RuntimeSources.for(target).compiler_files } + Zr::RuntimeSources::LINK_ONLY + Zr::RuntimeSources::DRIVER_ONLY
 
     assert_equal compiler, covered.uniq.sort
   end
 
   def test_the_files_left_out_are_left_out_by_name
-    (Zr::LINK_ONLY + Zr::DRIVER_ONLY).each { |path| assert_path_exists path }
-    assert_empty (Zr::LINK_ONLY + Zr::DRIVER_ONLY) & Zr.sources
+    (Zr::RuntimeSources::LINK_ONLY + Zr::RuntimeSources::DRIVER_ONLY).each { |path| assert_path_exists path }
+    assert_empty (Zr::RuntimeSources::LINK_ONLY + Zr::RuntimeSources::DRIVER_ONLY) & Zr::RuntimeSources.for.sources
   end
 
   # By default a file counts. A file that no prefix matches is in the
@@ -35,16 +35,16 @@ class DigestTest < Minitest::Test
   # someone removes it explicitly.
   def test_file_without_target_prefix_is_in_every_target_digest
     named = compiler.select do |path|
-      Zr::PER_TARGET.keys.any? { |prefix| path.delete_prefix("#{LIB}/").start_with?(prefix) }
+      Zr::RuntimeSources::PER_TARGET.keys.any? { |prefix| path.delete_prefix("#{LIB}/").start_with?(prefix) }
     end
-    shared = Zr::Target.all.map { |target| Zr.compiler_files(target) }.reduce(:&)
+    shared = Zr::Target.all.map { |target| Zr::RuntimeSources.for(target).compiler_files }.reduce(:&)
 
-    assert_equal (compiler - named - Zr::LINK_ONLY - Zr::DRIVER_ONLY).sort, shared.sort
+    assert_equal (compiler - named - Zr::RuntimeSources::LINK_ONLY - Zr::RuntimeSources::DRIVER_ONLY).sort, shared.sort
   end
 
   def test_backend_files_are_only_in_their_target_digest
-    darwin = Zr.compiler_files(Zr::Target::AARCH64_DARWIN)
-    wasm = Zr.compiler_files(Zr::Target::WASM32_WASI)
+    darwin = Zr::RuntimeSources.for(Zr::Target::AARCH64_DARWIN).compiler_files
+    wasm = Zr::RuntimeSources.for(Zr::Target::WASM32_WASI).compiler_files
 
     assert_includes darwin, File.join(LIB, "backend/aarch64/codegen.rb")
     assert_includes darwin, File.join(LIB, "obj/macho/object_file.rb")
@@ -97,7 +97,7 @@ class DigestTest < Minitest::Test
     said = IO.popen(env, [RbConfig.ruby, "-I#{root}/lib", "-e", <<~RUBY],
       require "zr/runtime"
       puts Zr::Runtime.new(Zr::Target.default).digest
-      puts Zr.link_digest
+      puts Zr::Digests.link
     RUBY
                     unsetenv_others: true, &:read)
     assert_predicate $?, :success?, "the child did not answer: #{said}"

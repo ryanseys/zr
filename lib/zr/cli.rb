@@ -16,9 +16,7 @@ module Zr
   # `pp`, which calls eval, and a compiler that zr compiles would then
   # have to include eval support.
   module CLI
-    DOCS = DOCS_URL
-
-    USAGE = <<~TEXT
+    USAGE = <<~TEXT.freeze
       Usage: zr <command> [options]
 
       Commands:
@@ -37,7 +35,7 @@ module Zr
       Exit status: 0 success; 1 error; 2 usage error or a bad ZR_* value;
       3 zr does not support the program, the target or this ruby; 130 Ctrl-C.
       `zr run` exits with the program's status.
-      Environment variables: #{DOCS}/reference/environment-variables.md
+      Environment variables: #{DOCS_URL}/reference/environment-variables.md
     TEXT
 
     OUTPUT = "  -o, --output <path>    write the output to <path>\n"
@@ -170,6 +168,8 @@ module Zr
       TEXT
     }.freeze
 
+    # The commands that compile. The compiled compiler runs these
+    # (Bootstrap::Handoff); ruby runs all others.
     COMPILE = %w[run build machine].freeze
     EMITS = { "binary" => nil, "obj" => "obj", "wasm" => "wasm" }.freeze
 
@@ -179,16 +179,13 @@ module Zr
 
     module_function
 
-    # The collector limits of a compile (lib/zr/tune.rb).
-    GC_ENV = Tune::GC_ENV
-
     # Sets the collector limits and YJIT for a compile (`Tune`). With
     # `later`, only the first step of heavy work tunes, so a warm build
-    # pays for neither. `handed` says that `CompiledCompiler.hand_over`
+    # pays for neither. `handed` says that `Bootstrap::Handoff.hand_over`
     # already kept the command in this process; a new start of zr then
     # does not check again.
     def tune!(script = nil, handed: false, later: false)
-      env = handed ? { CompiledCompiler::HANDED => "1" } : {}
+      env = handed ? { Bootstrap::Handoff::HANDED => "1" } : {}
       later ? Tune.later(script, ARGV, env: env) : Tune.now(script, ARGV, env: env)
     end
 
@@ -198,7 +195,7 @@ module Zr
       return if Zr.supported_ruby?(version)
 
       "zr #{VERSION} runs on ruby #{RUBY} or a later 4.0 release. " \
-        "Install ruby #{RUBY}: #{DOCS}/how-to/install.md"
+        "Install ruby #{RUBY}: #{DOCS_URL}/how-to/install.md"
     end
 
     # A note for a ruby that zr runs on but is not tested with, or nil.
@@ -220,8 +217,6 @@ module Zr
       warn "zr: #{why}"
       exit REFUSED
     end
-
-    ISSUES = ISSUES_URL
 
     # The errors that say what the user must change, not a defect in zr.
     # They print their message only. Named as strings: not every command
@@ -251,7 +246,7 @@ module Zr
       return error.message if EXPECTED.include?(error.class.name)
       return "#{error.message}#{cache_hint(error)}" if error.is_a?(SystemCallError)
 
-      "internal error: #{error.class}: #{error.message}. This is a defect in zr. Report it at #{ISSUES} " \
+      "internal error: #{error.class}: #{error.message}. This is a defect in zr. Report it at #{ISSUES_URL} " \
         "with the output of 'zr doctor'. Set ZR_DEBUG=1 to see the backtrace."
     end
 
@@ -321,26 +316,26 @@ module Zr
 
     # `zr cache path`, `size` or `clean [--all]`.
     def cache(args)
-      require_relative "cache"
+      require_relative "cache/janitor"
       verb = args.shift || "path"
       extra = args - (verb == "clean" ? ["--all"] : [])
       usage_error("unexpected argument '#{extra.first}'", "cache") unless extra.empty?
       case verb
       when "path" then puts Paths.cache
       when "size"
-        files = Cache.all
-        files.group_by { |path| Cache.kind(path) }.sort_by { |_, group| -Cache.bytes(group) }.each do |kind, group|
-          puts format("%6d MB  %5d  %s", Cache.megabytes(group), group.size, kind)
+        files = Cache::Janitor.all
+        files.group_by { |path| Cache::Janitor.kind(path) }.sort_by { |_, group| -Cache::Janitor.bytes(group) }.each do |kind, group|
+          puts format("%6d MB  %5d  %s", Cache::Janitor.megabytes(group), group.size, kind)
         end
-        others = Cache.other_compilers
-        puts format("%6d MB  %5d  compiled compilers of other zr versions", others.sum { |dir| Cache.tree_bytes(dir) } >> 20, others.size)
-        puts format("%6d MB  %5d  in all, in %s", Cache.megabytes(files), files.size, Paths.cache)
+        others = Cache::Janitor.other_compilers
+        puts format("%6d MB  %5d  compiled compilers of other zr versions", others.sum { |dir| Cache::Store.tree_bytes(dir) } >> 20, others.size)
+        puts format("%6d MB  %5d  in all, in %s", Cache::Janitor.megabytes(files), files.size, Paths.cache)
       when "clean"
         all = args.include?("--all")
-        sizes = Cache.all.to_h { |path| [path, Cache.bytes([path])] }
-        gone = all ? Cache.clear : Cache.prune
-        others = Cache.other_compilers
-        freed = gone.sum { |path| sizes.fetch(path, 0) } + others.sum { |dir| Cache.tree_bytes(dir) }
+        sizes = Cache::Janitor.all.to_h { |path| [path, Cache::Janitor.bytes([path])] }
+        gone = all ? Cache::Janitor.clear : Cache::Janitor.prune
+        others = Cache::Janitor.other_compilers
+        freed = gone.sum { |path| sizes.fetch(path, 0) } + others.sum { |dir| Cache::Store.tree_bytes(dir) }
         others.each { |dir| Paths.remove(dir) }
         puts format("deleted %d file(s) and %d compiled compiler(s), %d MB", gone.size, others.size, freed >> 20)
       else usage_error("unknown cache command '#{verb}'", "cache")
@@ -466,9 +461,9 @@ module Zr
       # Under ruby, lib/zr/prism.rb turns the parse cache on. A compiled
       # compiler turns it on here. A program that calls eval includes the
       # same files but never comes here, so it never writes to the cache.
-      require_relative "parse_cache" unless HOSTED
-      if command == "run" && emit.nil? && RunCache.wanted?
-        cache ||= RunCache.new(input, target: target, digest: Zr.runtime(target).digest, link: link, gems: gems)
+      require_relative "cache/parse" unless HOSTED
+      if command == "run" && emit.nil? && Cache::Run.wanted?
+        cache ||= Cache::Run.new(input, target: target, digest: Zr.runtime(target).digest, link: link, gems: gems)
       end
       program = lower(input, command, target, assemble: emit.nil?, gem_set: gems, gate: !opts[:runtime_require])
       status = Paths.tmpdir("zr-build-") do |work|
@@ -483,8 +478,8 @@ module Zr
         require_relative "gems_command"
         print GemsCommand.table(program.gems)
       end
-      require_relative "cache"
-      Cache.trim
+      require_relative "cache/janitor"
+      Cache::Janitor.trim
       exit_as(status) if status.is_a?(Process::Status)
     end
 
@@ -650,7 +645,7 @@ module Zr
       # A backend refuses code that the front end let through: a limit or
       # a defect in zr, not a form of Ruby that the program must avoid.
       abort "zr: zr cannot compile this program: #{e.message}. This is a limit or a defect in zr. " \
-            "Report it at #{ISSUES}."
+            "Report it at #{ISSUES_URL}."
     rescue SyntaxError => e
       # For a program that does not parse, ruby prints a report and exits
       # 1. The binary does the same, with ruby's own report. In ruby, a
@@ -731,8 +726,8 @@ module Zr
     def kept!(argv)
       return unless argv.first == "run" && !ENV.key?(Tune::ADDED) && !Zr.compiled?
 
-      require_relative "run_cache"
-      return unless RunCache.wanted?
+      require_relative "cache/run"
+      return unless Cache::Run.wanted?
 
       opts = parse("run", argv.drop(1))
       return if opts[:emit] || opts[:triple] || host_refusal || !File.file?(opts[:input])
@@ -743,8 +738,8 @@ module Zr
       Paths.root = opts[:root]
       # A set that does not resolve goes on to the build, which says why.
       gems = kept_gems(opts) or return
-      digest = Zr.runtime_digest(target) or return
-      cache = RunCache.new(opts[:input], target: target, digest: digest, link: Config.current.link + opts[:link], gems: gems)
+      digest = RuntimeSources.for(target).runtime_digest or return
+      cache = Cache::Run.new(opts[:input], target: target, digest: digest, link: Config.current.link + opts[:link], gems: gems)
       kept = cache.hit
       exec(Tune.program_env, [kept, kept], *opts[:args]) if kept
       # The build keeps its binary here, with no second digest.
@@ -765,11 +760,11 @@ module Zr
     # compiler. Returns the cache for the build otherwise, or nil when zr
     # needs a build to know the runtime's digest.
     def kept_run(input, target, link, args, gems)
-      require_relative "run_cache"
-      return nil unless RunCache.wanted?
+      require_relative "cache/run"
+      return nil unless Cache::Run.wanted?
 
-      digest = Zr.runtime_digest(target) or return nil
-      cache = RunCache.new(input, target: target, digest: digest, link: link, gems: gems)
+      digest = RuntimeSources.for(target).runtime_digest or return nil
+      cache = Cache::Run.new(input, target: target, digest: digest, link: link, gems: gems)
       kept = cache.hit
       exit_as(run_binary(kept, args)) if kept
       cache

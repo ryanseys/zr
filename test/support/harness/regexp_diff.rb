@@ -4,7 +4,7 @@ require "json"
 require "strscan"
 require_relative "onig_jit"
 
-Zr.require_onig
+Zr::RuntimeSources.require_onig
 require File.join(Zr::Paths::RUNTIME, "core/regexp_pattern.rb")
 
 module Zr
@@ -52,12 +52,12 @@ module Zr
           (h["#{key}b"] ? [h["#{key}b"]].pack("H*") : h[key].dup).force_encoding(encoding)
         end
 
-        def flags = "#{(options & MULTILINE != 0 ? 'm' : '')}#{(options & IGNORECASE != 0 ? 'i' : '')}#{(options & EXTENDED != 0 ? 'x' : '')}"
+        def flags = "#{(options & MULTILINE != 0 ? "m" : "")}#{(options & IGNORECASE != 0 ? "i" : "")}#{(options & EXTENDED != 0 ? "x" : "")}"
 
         def label
           shown = ->(s) { s.encoding == Encoding::UTF_8 ? "" : " (#{s.encoding})" }
-          "/#{pattern.b.inspect[1..-2]}/#{flags}#{shown.(pattern)}#{options & (FIXEDENCODING | NOENCODING) != 0 ? " o=#{options}" : ""} " \
-            "#{mode}@#{start} on #{subject.inspect}#{shown.(subject)}"
+          "/#{pattern.b.inspect[1..-2]}/#{flags}#{shown.call(pattern)}#{options & (FIXEDENCODING | NOENCODING) != 0 ? " o=#{options}" : ""} " \
+            "#{mode}@#{start} on #{subject.inspect}#{shown.call(subject)}"
         end
       end
 
@@ -122,7 +122,7 @@ module Zr
         # length matched from `start` (to the end, including any text
         # before `\K`) or nil. A search from `start` then finds the same
         # match first.
-        def at_start(re, subject, start)
+        def at_start(re, subject, start) # rubocop:disable Naming/PredicateMethod -- StringScanner#match? answers a length
           scanner = StringScanner.new(subject, fixed_anchor: true)
           scanner.pos = start
           scanner.match?(re)
@@ -384,7 +384,7 @@ module Zr
         end
 
         def pattern(depth = 0)
-          parts = (1 + @rng.rand(4)).times.map { term(depth) }
+          parts = Array.new(1 + @rng.rand(4)) { term(depth) }
           out = parts.join
           out = "#{out}|#{pattern(depth + 1)}" if depth < 2 && @rng.rand < 0.2
           out
@@ -415,7 +415,7 @@ module Zr
 
         def subject
           alphabet = ["a", "b", "c", "x", " ", "\n", "1", "A", "é", "日", "ß", "K", "-", "_", "\t", "\u{1F600}", "あ", "ア", "Ａ", "ｱ", "Ω", "я", "Я", "ς", "Σ", "\u00FF", "\u0130", "ı", "中", "한"]
-          (@rng.rand(12)).times.map { alphabet.sample(random: @rng) }.join
+          Array.new(@rng.rand(12)) { alphabet.sample(random: @rng) }.join
         end
 
         # Usually the String in UTF-8, else the String in another encoding

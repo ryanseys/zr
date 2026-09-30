@@ -54,7 +54,7 @@ module Zr
           ["__bss", "__DATA", S_ZEROFILL, [:bss]]
         ].freeze
 
-        Placed = ::Data.define(:item, :section, :addr)
+        Placed = Data.define(:item, :section, :addr)
 
         # An object as `read` returns it. `symbols` contains two words for
         # each symbol, packed as in `nlist_64`: the string offset, type,
@@ -167,7 +167,7 @@ module Zr
           addr = 0
           sections.each_with_index do |s, si|
             kinds = SECTIONS[si][3]
-            mine = items.select { |kind, _| kinds.include?(kind) }
+            mine = items.select { |item| kinds.include?(item.first) }
             s[:align] = mine.map { |_, i| Math.log2(i.align).ceil }.max || 0
             addr = Bytes.align(addr, 1 << s[:align])
             s[:addr] = addr

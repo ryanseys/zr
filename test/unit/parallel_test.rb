@@ -30,12 +30,12 @@ class ParallelTest < Minitest::Test
 
   def test_kernel_object_bytes_are_the_same_for_any_worker_count
     one, three = [1, 3].map do |jobs|
-      unit = Zr::Machine.unit(Zr.kernel_files)
+      unit = Zr::Machine.unit(Zr::RuntimeSources.for.kernel_files)
       image = Zr::Native::Build.unit(unit.functions, unit.data, raw: unit.raw, export: true, jobs: jobs, floor: 0)
       Zr::Native::Build.writer(Zr::Target.default).write(image)
     end
     assert_equal one.bytesize, three.bytesize
-    assert one == three, "the kernel object differs between one worker and three"
+    assert_equal one, three, "the kernel object differs between one worker and three"
   end
 
   # A worker copies only the pages it writes: about a third of the parent
@@ -104,5 +104,5 @@ class ParallelTest < Minitest::Test
     end
   end
 
-  def holding(gigabytes, &block) = stub_method(Parallel, :held_bytes, -> { gigabytes << 30 }, &block)
+  def holding(gigabytes, &) = stub_method(Parallel, :held_bytes, -> { gigabytes << 30 }, &)
 end

@@ -13,7 +13,7 @@ class ManifestTest < Minitest::Test
   def rows(*files, gem_set: nil) = Manifest.of(files, gem_set).map(&:to_a)
 
   def test_a_default_gems_file_is_that_gem
-    assert_equal [["net-http", Zr::Stdlib::DEFAULT.fetch("net-http"), "stdlib"]], rows(File.join(Zr::Libraries::LIB, "net/http.rb"))
+    assert_equal [["net-http", Zr::Stdlib::DEFAULT.fetch("net-http"), "stdlib"]], rows(File.join(Zr::Layout::RUBYLIBDIR, "net/http.rb"))
   end
 
   def test_a_bundled_gems_file_is_that_gem
@@ -29,8 +29,8 @@ class ManifestTest < Minitest::Test
   end
 
   def test_rubys_own_files_and_rubygems
-    assert_equal [["ruby", Zr::RUBY, "stdlib"]], rows(File.join(Zr::Libraries::LIB, "pathname.rb"))
-    assert_equal [["rubygems", Zr::Stdlib::RUBYGEMS, "stdlib"]], rows(File.join(Zr::Libraries::LIB, "rubygems/version.rb"))
+    assert_equal [["ruby", Zr::RUBY, "stdlib"]], rows(File.join(Zr::Layout::RUBYLIBDIR, "pathname.rb"))
+    assert_equal [["rubygems", Zr::Stdlib::RUBYGEMS, "stdlib"]], rows(File.join(Zr::Layout::RUBYLIBDIR, "rubygems/version.rb"))
   end
 
   def test_the_programs_own_files_have_no_row
@@ -77,7 +77,7 @@ class ManifestTest < Minitest::Test
   end
 
   def test_the_manifest_is_found_in_the_bytes_of_a_binary
-    bytes = Manifest.bytes(rows(File.join(Zr::Libraries::LIB, "net/http.rb")).map { |r| Manifest::Row.new(*r) }, Zr::Target.default)
+    bytes = Manifest.bytes(rows(File.join(Zr::Layout::RUBYLIBDIR, "net/http.rb")).map { |r| Manifest::Row.new(*r) }, Zr::Target.default)
     # zr's own binary also has MAGIC as a string of lib/zr/manifest.rb.
     binary = "\x7fELF#{Manifest::MAGIC}not json\0junk#{bytes.chomp}\0more"
 

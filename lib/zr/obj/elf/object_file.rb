@@ -152,7 +152,7 @@ module Zr
           defined = item_sections.each_with_index.map do |s, i|
             item = s.item
             { name: item.name, bind: item.linkage == :export ? STB_GLOBAL : STB_LOCAL,
-              type: item.is_a?(Obj::Function) ? STT_FUNC : STT_OBJECT,
+              type: item.is_a?(Obj::Code) ? STT_FUNC : STT_OBJECT,
               shndx: i + 1, value: 0, size: item.size }
           end
           imports = unit.imports.map { |name| { name: name, bind: STB_GLOBAL, type: STT_NOTYPE, shndx: SHN_UNDEF, value: 0, size: 0 } }

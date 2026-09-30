@@ -3,15 +3,15 @@
 require "test_helper"
 require "rbconfig"
 require_relative "../../lib/zr/prism"
-require_relative "../../lib/zr/parse_cache"
+require_relative "../../lib/zr/cache/parse"
 require_relative "../../lib/zr/runtime"
 require_relative "../support/harness/prism_diff"
 
 # The host parses with the Ruby port and keeps each parse in the cache
-# (lib/zr/parse_cache.rb). The cache fails closed: the key contains every
+# (lib/zr/cache/parse.rb). The cache fails closed: the key contains every
 # input of a parse, and a file that does not read back is a miss.
 class ParseCacheTest < Minitest::Test
-  ParseCache = Zr::ParseCache
+  ParseCache = Zr::Cache::Parse
 
   # The facts come from a child process, not from this process. A process
   # that loaded ruby's own C prism first keeps it (see `lib/zr/prism.rb`).
@@ -44,7 +44,7 @@ class ParseCacheTest < Minitest::Test
     files = ParseCache.parser_files
     [
       "runtime/ext/prism/ruby/parser/core.rb", "runtime/ext/prism/ruby/lexer.rb", "runtime/ext/prism/ruby/ast.rb", "runtime/ext/prism/prism.rb",
-      "lib/zr/prism_shim/prism/prism.rb", "lib/zr/prism.rb", "lib/zr/parse_cache.rb"
+      "lib/zr/prism_shim/prism/prism.rb", "lib/zr/prism.rb", "lib/zr/cache/parse.rb"
     ].each { |path| assert_includes files, File.join(ROOT, path) }
     gem = $LOAD_PATH.resolve_feature_path("prism").last
     assert_includes files, gem
@@ -82,7 +82,7 @@ class ParseCacheTest < Minitest::Test
     Dir.mktmpdir("zr-parse-") do |dir|
       error = assert_raises(Zr::SourceChanged) { ParseCache.write(File.join(dir, "x.marshal"), "x") }
       assert_includes error.message, file
-      refute File.exist?(File.join(dir, "x.marshal"))
+      refute_path_exists File.join(dir, "x.marshal")
     end
   ensure
     ParseCache.instance_variable_set(:@stamps, stamps)
@@ -96,8 +96,14 @@ class ParseCacheTest < Minitest::Test
     options = { filepath: "derived.rb", line: 1 }
     spotter = [File.join(ROOT, "lib/zr/hir/spots.rb")]
     made = 0
-    first = ParseCache.derived("spots", source, options, spotter) { made += 1; "1 n - 1 0 1 5\n" }
-    again = ParseCache.derived("spots", source, options, spotter) { made += 1; "other" }
+    first = ParseCache.derived("spots", source, options, spotter) do
+      made += 1
+      "1 n - 1 0 1 5\n"
+    end
+    again = ParseCache.derived("spots", source, options, spotter) do
+      made += 1
+      "other"
+    end
 
     assert_equal 1, made
     assert_equal first, again
@@ -120,7 +126,7 @@ class ParseCacheTest < Minitest::Test
   def test_parse_returns_memoized_tree_without_reading_the_cache
     source = "def memoized(a) = a + 1\n"
     first = ParseCache.parse(source, filepath: "memo.rb")
-    File.delete(Zr::Store.path(:parse, "#{ParseCache.key(source, { filepath: "memo.rb" })}.marshal"))
+    File.delete(Zr::Cache::Store.path(:parse, "#{ParseCache.key(source, { filepath: "memo.rb" })}.marshal"))
     assert_same first, ParseCache.parse(source, filepath: "memo.rb")
   ensure
     ParseCache.memo.clear
@@ -139,7 +145,7 @@ class ParseCacheTest < Minitest::Test
   # The memo has a size limit. A build parses each file once, and without
   # a limit the memo keeps every tree until the build ends.
   def test_memo_drops_least_recently_used_entry_when_full
-    memo = Zr::ParseCache::Memo.new(10)
+    memo = Zr::Cache::Parse::Memo.new(10)
     memo.keep("a", :first, 4)
     memo.keep("b", :second, 4)
     memo["a"]
@@ -152,7 +158,7 @@ class ParseCacheTest < Minitest::Test
   end
 
   def test_memo_does_not_keep_an_entry_larger_than_its_limit
-    memo = Zr::ParseCache::Memo.new(10)
+    memo = Zr::Cache::Parse::Memo.new(10)
     memo.keep("small", :kept, 4)
 
     assert_equal :huge, memo.keep("huge", :huge, 11)
@@ -167,7 +173,7 @@ class ParseCacheTest < Minitest::Test
       parsed = Prism.parse(source, filepath: "build.rb")
       ParseCache.write(path, Marshal.dump(parsed))
       read = ParseCache.read(path)
-      assert parsed.value.inspect == read.value.inspect, "the tree read back differs"
+      assert_equal parsed.value.inspect, read.value.inspect, "the tree read back differs"
       assert_equal parsed.value.location.start_line, read.value.location.start_line
       assert_equal parsed.comments.map(&:slice), read.comments.map(&:slice)
       assert_equal parsed.errors.map(&:message), read.errors.map(&:message)

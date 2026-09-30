@@ -168,7 +168,8 @@ module Zr
             extra = imported.map(&:name) - @imports.map(&:name)
             raise Refused, "the prelude does not import #{extra.join(", ")}" unless extra.empty?
           end
-          @shims = pre ? pre.shims : LIBC_SHIMS.keys - @functions.map(&:name) - (@pending ? @pending[:functions] : [])
+          pending = @pending ? @pending[:functions] : []
+          @shims = pre ? pre.shims : LIBC_SHIMS.keys - @functions.map(&:name) - pending
           @index = {}
           @imports.each_with_index { |import, i| @index[import.name] = i }
           @shims.each { |name| @index[name] = @index.size }

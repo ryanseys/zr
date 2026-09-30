@@ -60,6 +60,14 @@ module Zr
       path
     end
 
+    # A directory of the user's cache for this zr version and this
+    # install, named `<prefix>-<version>-<digest of the root>`: two
+    # installed versions, or two installs, never share one.
+    def self.install_cache(prefix)
+      require "digest"
+      File.join(user_cache, "#{prefix}-#{VERSION}-#{Digest::SHA256.hexdigest(ROOT)[0, 12]}")
+    end
+
     # The user's cache directory for zr: `XDG_CACHE_HOME` when it is
     # set, else the platform's own.
     def self.user_cache
@@ -91,7 +99,7 @@ module Zr
     # would stop the module before its first line.
     def self.cache = @cache ||= Config.current.cache || (checkout? ? File.join(ROOT, "tmp/cache") : user_cache)
 
-    # The two functions that the compiler needs from fileutils and tmpdir,
+    # The functions that the compiler needs from fileutils and tmpdir,
     # without those libraries. A compiled compiler loads a library when it
     # runs its first lines. fileutils defines its NoWrite, DryRun and
     # Verbose methods with a `module_eval` of a string each: about a
@@ -120,6 +128,15 @@ module Zr
         File.unlink(fresh) if File.exist?(fresh)
       end
       path
+    end
+
+    # Copies `from` to `to` with its mode and times, as `FileUtils.cp`
+    # with `preserve: true` does.
+    def self.copy(from, to)
+      IO.copy_stream(from, to)
+      stat = File.stat(from)
+      File.chmod(stat.mode & 0o7777, to)
+      File.utime(stat.atime, stat.mtime, to)
     end
 
     # Runs the block while this process holds the lock of `path`, unless

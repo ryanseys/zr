@@ -42,6 +42,6 @@ class CoreCacheTest < Minitest::Test
     full = object(File.join(@work, "full"), edited, code_cache: false)
 
     assert_equal full.bytesize, cached.bytesize
-    assert full == cached, "the object from the core cache differs from a full build"
+    assert_equal full, cached, "the object from the core cache differs from a full build"
   end
 end

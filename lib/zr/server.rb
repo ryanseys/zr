@@ -135,8 +135,8 @@ module Zr
       @stamps = stamps
       listener = listen(path)
       # The binaries that the clients of an earlier server did not remove.
-      require_relative "cache"
-      Cache.remove(Cache.served)
+      require_relative "cache/janitor"
+      Cache::Janitor.remove(Cache::Janitor.served)
       say format("listening at %s, ready in %.1f s", path, Process.clock_gettime(Process::CLOCK_MONOTONIC) - began)
       loop do
         clients = @jobs.values.map { |job| job[:client] }.reject(&:closed?)
@@ -268,7 +268,7 @@ module Zr
       Paths.instance_variable_set(:@cache, nil)
       Libraries.instance_variable_set(:@roots, nil) if defined?(Libraries)
       return if message && @digest && settings(message[:env]) == settings(ENV) && message[:argv].none? { |word| word.start_with?("--path-root") } &&
-                Zr.runtime_digest(Target.default) == @digest
+                RuntimeSources.for(Target.default).runtime_digest == @digest
 
       Zr.instance_variable_set(:@runtimes, nil)
       Zr.instance_variable_set(:@eval_supports, nil)
@@ -285,7 +285,7 @@ module Zr
     # build after an edit to the runtime starts warm too.
     def refresh
       target = Target.default
-      digest = Zr.runtime_digest(target)
+      digest = RuntimeSources.for(target).runtime_digest
       return if digest.nil? || digest == @digest
 
       fresh!
@@ -294,7 +294,7 @@ module Zr
 
       runtime.description
       runtime.symbols
-      live = Cache.live_for(target)
+      live = Cache::Janitor.live_for(target)
       images = live.select { |path| path.end_with?("-prelink.bin") && File.exist?(path) }
       prelinks = Native::Build.instance_variable_get(:@prelinks) || {}
       prelinks.select! { |path, _| images.include?(path) }
@@ -317,9 +317,9 @@ module Zr
       require_relative "cli"
       require_relative "runtime"
       require_relative "native/build"
-      require_relative "run_cache"
-      require_relative "cache"
-      require_relative "parse_cache"
+      require_relative "cache/run"
+      require_relative "cache/janitor"
+      require_relative "cache/parse"
       target = Target.default
       runtime = Runtime.new(target)
       unit = runtime.unit

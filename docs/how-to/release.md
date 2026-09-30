@@ -136,7 +136,7 @@ A published version cannot change. If a release is broken:
 The gem contains the compiler, the runtime, the vendored sources and
 the license texts. On the first build, an installed gem on an Apple
 Silicon Mac compiles the compiler with itself into the user's cache
-(`lib/zr/compiled_compiler.rb`), and tells the user.
+(`lib/zr/bootstrap/handoff.rb`), and tells the user.
 
 ## Platform gems (not released)
 
@@ -163,12 +163,12 @@ compiler that finds its files from where it is installed.
 
 ### How the installed gem finds the binary
 
-`CompiledCompiler.binary` looks in this order: `ZR_BINARY`, then `bin/zr`
-in a checkout, then the shipped binary (`Zr::Shipped`), then the user's
+`Bootstrap::Handoff.binary` looks in this order: `ZR_BINARY`, then `bin/zr`
+in a checkout, then the shipped binary (`Zr::Bootstrap::Prebuilt`), then the user's
 cache.
 
 The file stamps of an installed gem say nothing about the build, so the
-manifest gives a content digest (`lib/zr/shipped.rb`):
+manifest gives a content digest (`lib/zr/bootstrap/prebuilt.rb`):
 
 ```
 version 0.1.0

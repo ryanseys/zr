@@ -185,7 +185,10 @@ module Zr
           when "e" then defs.fetch(name).effects = Integer(rest.first)
           when "c" then consts[name] = Integer(rest.first)
           when "s"
-            fields = rest.drop(2).to_h { |f| n, at, type = f.split(":"); [n, [Integer(at), type]] }
+            fields = rest.drop(2).to_h do |f|
+              n, at, type = f.split(":")
+              [n, [Integer(at), type]]
+            end
             structs[name] = Layout.new(name, fields, Integer(rest[0]), Integer(rest[1]))
           end
         end
@@ -213,7 +216,7 @@ module Zr
       # The rows that the lookups in the block read, as `rows` gives them.
       # A cache of lowered code keys a piece on these, not on the whole
       # description, so a new kernel function keeps each piece that does
-      # not call it (`EvalCache`).
+      # not call it (`Cache::Lowering::EvalSupport`).
       def record
         outer = @reads
         @reads = {}

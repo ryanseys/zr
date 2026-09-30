@@ -31,7 +31,7 @@ keeps its machine code. In the machine dialect, a compilation unit is
 a group of files whose declarations see each other.
 
 **Compiled compiler.** zr, compiled by zr (`rake build:self`,
-`lib/zr/compiled_compiler.rb`). `exe/zr` gives a build to it when it is
+`lib/zr/bootstrap/handoff.rb`). `exe/zr` gives a build to it when it is
 current.
 
 **Core library.** `runtime/core/`: Ruby's core classes, written in

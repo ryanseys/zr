@@ -13,7 +13,7 @@ require_relative "codegen/moves"
 module Zr
   module Backend
     module Aarch64
-      # Compiles an `IR::Function` to an `Obj::Function` of Apple arm64
+      # Compiles an `IR::Function` to `Obj::Code` of Apple arm64
       # machine code, with a relocation for each symbol that it refers to.
       #
       # A value is in the register that `Regalloc` gives it, or else in an
@@ -137,7 +137,7 @@ module Zr
             @asm.put_label(@epilogue)
             epilogue
           end
-          Obj::Function.new(@f.name, @asm.to_binary, relocs: @relocs, linkage: :export)
+          Obj::Code.new(@f.name, @asm.to_binary, relocs: @relocs, linkage: :export)
         rescue Assembler::OutOfReach
           # A conditional branch cannot reach its block. Compile the
           # function again, with every such branch in the far form.
@@ -787,7 +787,8 @@ module Zr
         # A binary operation. A constant operand is an immediate when the
         # instruction has an immediate form.
         def emit_binop(i)
-          return if emit_immediate_binop(i)
+          form = immediate_form(i)
+          return emit_immediate(i, *form) if form
 
           dest = result_in(i.results[0], X11)
           d, a, b = [dest, value_in(i.args[0], X9), value_in(i.args[1], X10)].map { |x| reg_for(i.args[0], x) }
@@ -834,21 +835,22 @@ module Zr
           store_value(i.results[0], d)
         end
 
-        # `add`/`sub` of 12 bits, a shift by less than the register width, and
-        # `and`/`orr`/`eor` of a bitmask immediate. Returns false, and emits
-        # nothing, when the constant fits no form.
+        # The immediate form of a binary operation, as [mnemonic, immediate,
+        # register operand], or nil when the constant fits no form: `add`/
+        # `sub` of 12 bits, a shift by less than the register width, and
+        # `and`/`orr`/`eor` of a bitmask immediate.
         #
         # The constant has the width of its type, the same as a load gives.
         # The instruction runs at the width of the register form, so the low
         # bits of the result are the same.
-        def emit_immediate_binop(i)
+        def immediate_form(i)
           a, b = i.args
           type = type_of(a)
-          return false if type == "f64"
+          return nil if type == "f64"
 
           a, b = b, a if COMMUTES.include?(i.op) && !constant(b, type) && constant(a, type)
           k = constant(b, type)
-          return false unless k
+          return nil unless k
 
           bits = wide?(a) ? 64 : 32
           full = (1 << bits) - 1
@@ -862,12 +864,13 @@ module Zr
             when :ishl, :ushr, :sshr then [SHIFTS.fetch(i.op), k] if k < bits
             when :band, :bor, :bxor then [LOGICAL.fetch(i.op), k] if Assembler.bitmask(k, bits)
             end
-          return false unless form
+          form && [*form, a]
+        end
 
+        def emit_immediate(i, mnemonic, immediate, a)
           dest = result_in(i.results[0], X11)
-          @asm.public_send(form[0], reg_for(a, dest), reg_for(a, value_in(a, X9)), form[1])
+          @asm.public_send(mnemonic, reg_for(a, dest), reg_for(a, value_in(a, X9)), immediate)
           store_value(i.results[0], dest)
-          true
         end
 
         # `a - (a / b) * b`, the arm64 form of a remainder.
@@ -924,7 +927,7 @@ module Zr
         # The number of instructions that `materialize` uses for `n`.
         def materialized(n)
           n &= 0xFFFF_FFFF_FFFF_FFFF
-          chunks = 4.times.map { |k| (n >> (16 * k)) & 0xFFFF }
+          chunks = Array.new(4) { |k| (n >> (16 * k)) & 0xFFFF }
           filler = chunks.count(0xFFFF) > chunks.count(0) ? 0xFFFF : 0
           [chunks.count { |c| c != filler }, 1].max
         end
@@ -933,7 +936,7 @@ module Zr
         # complement, so the high halves need no instruction.
         def materialize(reg, n)
           n &= 0xFFFF_FFFF_FFFF_FFFF
-          chunks = 4.times.map { |k| (n >> (16 * k)) & 0xFFFF }
+          chunks = Array.new(4) { |k| (n >> (16 * k)) & 0xFFFF }
           if chunks.count(0xFFFF) > chunks.count(0)
             first = chunks.index { |c| c != 0xFFFF } || 0
             @asm.movn reg, chunks[first] ^ 0xFFFF, lsl: 16 * first

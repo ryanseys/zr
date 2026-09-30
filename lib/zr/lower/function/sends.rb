@@ -275,7 +275,11 @@ module Zr
           switch(plain)
           @f.jump(merge, [v])
           switch(go)
-          sent = call(node.dup.tap { |n| n.recv = Hir::Slot.new(slot, node.line); n.interp = false })
+          plain_send = node.dup.tap do |n|
+            n.recv = Hir::Slot.new(slot, node.line)
+            n.interp = false
+          end
+          sent = call(plain_send)
           @f.jump(merge, [sent]) unless @f.terminated?
           switch(merge)
           @sp = base
@@ -398,7 +402,10 @@ module Zr
         # 1 for a bare identifier, 2 for an explicit receiver (visibility
         # applies).
         def send_mode(node)
-          mode = node.vcall ? 1 : (explicit?(node) && !@funcalls&.key?(node) ? 2 : 0)
+          mode = if node.vcall then 1
+                 elsif explicit?(node) && !@funcalls&.key?(node) then 2
+                 else 0
+                 end
           mode |= SEND_CORE if core_send?(node.name)
           node.using ? mode | SEND_USING : mode
         end
@@ -483,7 +490,7 @@ module Zr
         def array_element?(node)
           return false unless %i[[] []=].include?(node.name)
 
-          plain = node.kwargs.nil? && node.block.nil? && node.args.none? { |a| a.is_a?(Hir::Splat) }
+          plain = node.kwargs.nil? && node.block.nil? && node.args.none?(Hir::Splat)
           plain && node.args.size == (node.name == :[] ? 1 : 2)
         end
 
@@ -710,7 +717,7 @@ module Zr
           @f.brif(@f.icmp("ne", direct, imm(0)), fast, generic)
           switch(fast)
           n = node.args.size
-          given = n.times.map { |i| @f.fetch("i64", argv, 8 * i) }
+          given = Array.new(n) { |i| @f.fetch("i64", argv, 8 * i) }
           # The unit's def with this name, if the direct entry is its body:
           # an inline copy of the body, which bails to the call (`Inline`).
           if (d = inline_candidate(node))

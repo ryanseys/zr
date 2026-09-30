@@ -15,7 +15,7 @@ module Zr
 
     module_function
 
-    def checks = [zr, ruby, host, wasmtime, openssl, gems, cache, compiled_compiler]
+    def checks = [zr, ruby, host, wasmtime, openssl, gems, cache, fast_compiler]
 
     # Prints each check. Returns true when none failed.
     def run(out = $stdout)
@@ -77,28 +77,27 @@ module Zr
     CACHE_FIX = "Set XDG_CACHE_HOME (or ZR_CACHE) to a directory that you can write to"
 
     def cache
-      require_relative "cache"
+      require_relative "cache/janitor"
       dir = Paths.cache
       Paths.mkdir_p(dir)
       return Check.new(:fail, "cache", "#{dir} is not writable. #{CACHE_FIX}") unless File.writable?(dir)
 
-      Check.new(:ok, "cache", format("%s, %d MB", dir, Cache.megabytes(Cache.all)))
+      Check.new(:ok, "cache", format("%s, %d MB", dir, Cache::Janitor.megabytes(Cache::Janitor.all)))
     rescue SystemCallError => e
       Check.new(:fail, "cache", "#{dir}: #{e.message}. #{CACHE_FIX}")
     end
 
-    def compiled_compiler(env = ENV)
-      require_relative "compiled_compiler"
-      cc = CompiledCompiler
+    def fast_compiler(env = ENV)
+      require_relative "bootstrap/handoff"
+      cc = Bootstrap::Handoff
       program = cc.program
-      return Check.new(:ok, "fast compiler", "off (ZR_COMPILED=0)") if env["ZR_COMPILED"] == "0"
+      return Check.new(:ok, "fast compiler", "off (ZR_COMPILED=0)") if cc.off?(env)
       return Check.new(:ok, "fast compiler", "off in a checkout; ZR_COMPILED=1 uses bin/zr") unless cc.wanted?(env)
       return Check.new(:ok, "fast compiler", "not for this host; ruby runs zr") unless cc.runnable?
       return Check.new(:ok, "fast compiler", "current") if cc.current?
 
       if program.failed?
-        again = program.retry_at ? "zr tries again after #{program.retry_at.strftime("%Y-%m-%d %H:%M")}" : "zr does not try again"
-        return Check.new(:warn, "fast compiler", "the last build failed (#{program.log}); #{again}; ZR_COMPILED=1 tries now")
+        return Check.new(:warn, "fast compiler", "the last build failed (#{program.log}); #{program.retry_note}; ZR_COMPILED=1 tries now")
       end
       Check.new(:ok, "fast compiler", Paths.checkout? ? "not built (rake build:self)" : "not built yet; the first build makes it")
     end

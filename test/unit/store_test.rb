@@ -1,11 +1,11 @@
 # frozen_string_literal: true
 
 require "test_helper"
-require_relative "../../lib/zr/store"
+require_relative "../../lib/zr/cache/store"
 
-# The one content store of zr's caches (lib/zr/store.rb).
+# The one content store of zr's caches (lib/zr/cache/store.rb).
 class StoreTest < Minitest::Test
-  Store = Zr::Store
+  Store = Zr::Cache::Store
 
   def setup
     @dir = Dir.mktmpdir("zr-store-")
@@ -50,14 +50,6 @@ class StoreTest < Minitest::Test
     assert_nil Store.read(:unit, key)
   end
 
-  def test_get_builds_once_then_reads
-    key = Store.key("fetch")
-    built = 0
-
-    2.times { assert_equal [1, 2], Store.get(:unit, key) { built += 1 and [1, 2] } }
-    assert_equal 1, built
-  end
-
   def test_a_directory_entry_is_filled_then_renamed
     key = Store.key("run")
     path = Store.write(:run, key) { |dir| File.write(File.join(dir, "program"), "bin") }
@@ -77,10 +69,9 @@ class StoreTest < Minitest::Test
   end
 
   def test_a_write_after_a_source_moved_keeps_nothing
-    was = Zr.method(:moved)
-    Zr.define_singleton_method(:moved) { "lib/zr/lower.rb" }
-    assert_raises(Zr::SourceChanged) { Store.write(:unit, Store.key("moved"), [1]) }
-    Zr.define_singleton_method(:moved, was)
+    stub_method(Zr, :moved, "lib/zr/lower.rb") do
+      assert_raises(Zr::SourceChanged) { Store.write(:unit, Store.key("moved"), [1]) }
+    end
     assert_nil Store.read(:unit, Store.key("moved"))
   end
 
@@ -134,7 +125,7 @@ class StoreTest < Minitest::Test
 
     assert_equal [gone], Store.clean.map(&:key)
     Store.clear
-    refute File.exist?(Store.dir)
+    refute_path_exists Store.dir
   end
 
   def test_clean_removes_a_lock_whose_entry_is_gone
@@ -145,7 +136,7 @@ class StoreTest < Minitest::Test
 
     Store.clean
 
-    assert File.exist?("#{Store.path(:object, kept)}.lock")
-    refute File.exist?("#{Store.path(:object, gone)}.lock")
+    assert_path_exists "#{Store.path(:object, kept)}.lock"
+    refute_path_exists "#{Store.path(:object, gone)}.lock"
   end
 end

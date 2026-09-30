@@ -55,7 +55,7 @@ module Zr
       # (runtime/kernel/class.rb).
       DIRECT_ARGS = 4
       ABI = { main: [], top: [], def: %w[i64 i64 i64 i64 i64 i64], class: %w[i64 i64], module: %w[i64 i64], sclass: %w[i64 i64], block: %w[i64 i64 i64 i64], eval: %w[i64 i64 i64 i64],
-              **(0..DIRECT_ARGS).to_h { |n| [:"direct#{n}", %w[i64] * (4 + n)] } }.freeze
+              **(0..DIRECT_ARGS).to_h { |n| [:"direct#{n}", Array.new(4 + n, "i64")] } }.freeze
       def self.direct_abi(n) = :"direct#{n}"
 
       # The `&b` parameter bound to the block as given (a Proc that can
@@ -425,7 +425,7 @@ module Zr
         return [] unless %i[def block].include?(@kind)
 
         p = @def.params
-        p.optional.map(&:last) + p.keywords.map(&:last).compact
+        p.optional.map(&:last) + p.keywords.filter_map(&:last)
       end
 
       # The record slots for the prologue: one for a method's keyword

@@ -26,7 +26,7 @@ module Zr
 
       def compiler
         ENV.fetch("ZR_TEST_WASM_COMPILER", "winch").tap do |name|
-          raise ArgumentError, "ZR_TEST_WASM_COMPILER is #{name}; wasmtime has #{COMPILERS.join(' and ')}" unless COMPILERS.include?(name)
+          raise ArgumentError, "ZR_TEST_WASM_COMPILER is #{name}; wasmtime has #{COMPILERS.join(" and ")}" unless COMPILERS.include?(name)
         end
       end
 

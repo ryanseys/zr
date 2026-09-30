@@ -95,16 +95,16 @@ module Zr
         end
       end
 
-      # Names the store entries that a link of `objects` reads (lib/zr/store.rb),
+      # Names the store entries that a link of `objects` reads (lib/zr/cache/store.rb),
       # so no eviction removes them: the objects, their prelinked image and
       # skeleton, the runtime's symbol table, gem prelude list and ledger,
       # eval support's metadata, and the code packs of this backend. A
       # link with eval support and one without each have a root.
       def root(runtime, objects, evals)
         target = runtime.target
-        Store.root("#{target.triple}-link-#{evals ? "eval-#{evals.kind}" : "plain"}",
-                   [*objects, prelink_path(objects), skeleton_path(objects), Zr.symbols_path(runtime.digest),
-                    runtime.gem_prelude_path, Zr.ledger_path(target), (evals.meta_path if evals),
+        Cache::Store.root("#{target.triple}-link-#{evals ? "eval-#{evals.kind}" : "plain"}",
+                   [*objects, prelink_path(objects), skeleton_path(objects), RuntimeSources.symbols_path(runtime.digest),
+                    runtime.gem_prelude_path, RuntimeSources.for(target).ledger_path, (evals.meta_path if evals),
                     (File.dirname(runtime.carried_description) if evals), CodeCache.dir])
       rescue SystemCallError, SourceChanged
         nil # a root that is not written protects less; the link goes on
@@ -146,26 +146,26 @@ module Zr
         return kept if kept
 
         Zr.clock("objects prelinked") do
-          Obj::MachO::Prelink.build(objects.map { |o| File.binread(o) }).tap { |base| Zr.write_cache(path, base.dump) }
+          Obj::MachO::Prelink.build(objects.map { |o| File.binread(o) }).tap { |base| Cache::Store.write_file(path, base.dump) }
         end
       end
 
       # Returns the cache path of the prelink of `objects`, or nil when the
       # objects are not in the cache. The object names are the digests of
-      # their inputs. `Zr.link_digest` adds the other input of the image:
+      # their inputs. `Digests.link` adds the other input of the image:
       # the linker's own files, which the object digests do not include
       # on purpose.
       def prelink_path(objects)
-        top = File.dirname(Store.path(:object, "00"), 2)
+        top = File.dirname(Cache::Store.path(:object, "00"), 2)
         return nil if objects.empty? || objects.any? { |o| File.dirname(File.expand_path(o), 2) != top }
 
-        Store.path(:image, "#{image_key(objects)}-prelink")
+        Cache::Store.path(:image, "#{image_key(objects)}-prelink")
       end
 
       # The cache path of the skeleton of `objects`, next to their prelink.
-      def skeleton_path(objects) = prelink_path(objects) && Store.path(:image, "#{image_key(objects)}-skeleton")
+      def skeleton_path(objects) = prelink_path(objects) && Cache::Store.path(:image, "#{image_key(objects)}-skeleton")
 
-      def image_key(objects) = Digest::SHA256.hexdigest([*objects.map { |o| File.basename(o) }, Zr.link_digest].join("\n"))
+      def image_key(objects) = Digest::SHA256.hexdigest([*objects.map { |o| File.basename(o) }, Digests.link].join("\n"))
 
       # Returns the path of the skeleton file for `objects`: the bytes that
       # every binary linked against them starts with (`Obj::MachO::Skeleton`).
@@ -173,7 +173,7 @@ module Zr
       # prelink. Returns nil when the prelink is not in the cache.
       def skeleton(objects)
         path = skeleton_path(objects) or return nil
-        (@skeletons ||= {})[path] ||= File.exist?(path) ? path : Zr.clock("skeleton written") { Zr.write_cache(path, Obj::MachO::Skeleton.bytes(prelink(objects))) }
+        (@skeletons ||= {})[path] ||= File.exist?(path) ? path : Zr.clock("skeleton written") { Cache::Store.write_file(path, Obj::MachO::Skeleton.bytes(prelink(objects))) }
       end
 
       # The eval support object, built once for each key.
@@ -186,7 +186,7 @@ module Zr
       def eval_support_built(support, obj, jobs)
         Paths.tmpdir("zr-eval-") do |work|
           fresh = File.join(work, "eval.o")
-          # An EvalCache took some units from an earlier build, and inlined
+          # A Cache::Lowering::EvalSupport took some units from an earlier build, and inlined
           # the unit already; its code cache has their code. It writes its
           # entries once the code is made, before the IR goes.
           units = support.cache
@@ -202,7 +202,7 @@ module Zr
           end
           raise Failed, "the eval support for #{support.target} did not build: #{why}" if why
 
-          Zr.write_cache(obj, File.binread(fresh))
+          Cache::Store.write_file(obj, File.binread(fresh))
         end
       end
 
@@ -222,7 +222,7 @@ module Zr
       def runtime_built(runtime, obj, jobs)
         Paths.tmpdir("zr-runtime-") do |work|
           fresh = File.join(work, "runtime.o")
-          # A CoreCache took some of the core's code from an earlier build,
+          # A Cache::Lowering::Core took some of the core's code from an earlier build,
           # and inlined the unit already; its code cache has that code.
           core = runtime.core_cache
           cache = core&.code || CodeCache.for("runtime", runtime.target)
@@ -233,7 +233,7 @@ module Zr
           core&.keep(*cache.built) unless why
           raise Failed, "the zr runtime for #{runtime.target} did not build: #{why}" if why
 
-          Zr.write_cache(obj, File.binread(fresh))
+          Cache::Store.write_file(obj, File.binread(fresh))
         end
         obj
       end
@@ -266,7 +266,7 @@ module Zr
       # comes from the backend. `assembled` are functions that are already
       # machine code. With a `cache` (`CodeCache`), a function whose
       # fingerprint the cache has takes its code from there. `inlined` says
-      # that the functions are inlined already (`CoreCache`). `functions` can
+      # that the functions are inlined already (`Cache::Lowering::Core`). `functions` can
       # then have machine code in place of IR, whose fingerprint and bytes
       # `known` gives by name.
       def unit(functions, data, raw: [], assembled: [], export: false, target: Target.default, jobs: Build.jobs,
@@ -368,7 +368,7 @@ module Zr
       # shares the one copy. A build never writes to it.
       def wasm_prelude(runtime, pending, support = nil)
         key = Digest::SHA256.hexdigest("#{runtime.digest}\n#{support&.key}\n#{pending.inspect}")
-        path = Store.path(:wasm, key)
+        path = Cache::Store.path(:wasm, key)
         kept = (@wasm_preludes ||= {})[path] ||= File.exist?(path) && Marshal.load(File.binread(path))
         return kept if kept
 
@@ -378,7 +378,7 @@ module Zr
         functions += stops(functions, runtime.raw, data, pending[:functions])
         IR::Passes.inline(functions).each { |f| IR::Passes.prepare(f) }
         pre = Backend::Wasm.prelude(functions, data, pending: pending)
-        Zr.write_cache(path, Marshal.dump(pre))
+        Cache::Store.write_file(path, Marshal.dump(pre))
         @wasm_preludes[path] = pre
       end
 
@@ -391,7 +391,7 @@ module Zr
       # A zero word into `data` for each foreign data symbol not in `known`.
       def zero_words(functions, data, known)
         (foreign(functions, data) - known).each do |symbol|
-          data << Obj::Data.new(symbol, :data_const, "\0".b * 8, align: 8)
+          data << Obj::Datum.new(symbol, :data_const, "\0".b * 8, align: 8)
         end
       end
 
@@ -419,11 +419,16 @@ module Zr
       def stop(name, params, ret, data)
         message = "zr: #{name} has no wasm form\n"
         bytes = "zr_stop_#{name}"
-        data << Obj::Data.new(bytes, :text_const, message.b, align: 1)
+        data << Obj::Datum.new(bytes, :text_const, message.b, align: 1)
         f = IR::Function.new(name, params, ret)
         f.call(f.callee("write", %w[i32 i64 i64], "i64", colocated: false), [f.iconst("i32", 2), f.symbol_value(f.symbol(bytes)), f.iconst("i64", message.bytesize)])
         f.call(f.callee("abort", [], nil, colocated: false), [])
-        f.ret(ret.nil? ? nil : (ret == "f64" ? f.bitcast("f64", f.iconst("i64", 0)) : f.iconst(ret, 0)))
+        zero = case ret
+               when nil then nil
+               when "f64" then f.bitcast("f64", f.iconst("i64", 0))
+               else f.iconst(ret, 0)
+               end
+        f.ret(zero)
         f
       end
     end

@@ -35,7 +35,7 @@ class RegallocDifferentialTest < Minitest::Test
   def test_allocated_and_spilled_code_match_the_interpreter
     seed = Integer(ENV.fetch("ZR_SEED") { Random.new_seed % (1 << 31) })
     rng = Random.new(seed)
-    functions = [callee] + COUNT.times.map { |n| generate(rng, "probe_#{n}") }
+    functions = [callee] + Array.new(COUNT) { |n| generate(rng, "probe_#{n}") }
     functions.each { |f| Zr::IR::Passes.prepare(f, strict: true) }
     interp = Zr::IR::Interp.new(functions)
     allocated = loaded(functions, allocate: true)
@@ -118,10 +118,10 @@ class RegallocDifferentialTest < Minitest::Test
   def dump(f)
     f.blocks.map do |b|
       lines = b.insts.map do |i|
-        "    #{i.results.join(', ')}#{' = ' unless i.results.empty?}#{i.op}#{".#{i.type}" if i.type}#{".#{i.cond}" if i.cond} " \
-          "#{i.args.join(', ')}#{" -> #{i.targets.map { |t, args| "#{t}(#{args.join(', ')})" }.join(' | ')}" if i.targets}#{" #{i.callee}" if i.callee}"
+        "    #{i.results.join(", ")}#{" = " unless i.results.empty?}#{i.op}#{".#{i.type}" if i.type}#{".#{i.cond}" if i.cond} " \
+          "#{i.args.join(", ")}#{" -> #{i.targets.map { |t, args| "#{t}(#{args.join(", ")})" }.join(" | ")}" if i.targets}#{" #{i.callee}" if i.callee}"
       end
-      ["  #{b.name}(#{b.params.map { |v, t| "#{v}: #{t}" }.join(', ')}):", *lines].join("\n")
+      ["  #{b.name}(#{b.params.map { |v, t| "#{v}: #{t}" }.join(", ")}):", *lines].join("\n")
     end.join("\n")
   end
 end

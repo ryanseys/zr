@@ -102,7 +102,7 @@ module Zr
         Segment = Struct.new(:name, :vm, :vmsize, :fileoff, :filesize, :prot, :flags, :sections, :pieces, :starts,
                              keyword_init: true)
         # A section: its name, address, size, alignment and flags.
-        Section = ::Data.define(:name, :vm, :size, :align, :flags)
+        Section = Data.define(:name, :vm, :size, :align, :flags)
 
         Refused = MachO::Refused
 

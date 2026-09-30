@@ -54,13 +54,13 @@ class TargetTest < Minitest::Test
       musl = Zr::Target::AARCH64_LINUX_MUSL
       assert_same musl, Zr::Target.host
       assert_same musl, Zr::Target.default
-      assert musl.runs_here?
-      refute musl.native?
-      refute Zr::Target::AARCH64_DARWIN.runs_here?
+      assert_predicate musl, :runs_here?
+      refute_predicate musl, :native?
+      refute_predicate Zr::Target::AARCH64_DARWIN, :runs_here?
     end
     Checks.with_host("x86_64-linux-gnu") do
       assert_nil Zr::Target.host
-      refute Zr::Target::AARCH64_LINUX_MUSL.runs_here?
+      refute_predicate Zr::Target::AARCH64_LINUX_MUSL, :runs_here?
     end
   end
 

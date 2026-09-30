@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "rbconfig"
+require_relative "../../../../lib/zr/config"
 
 module Zr
   module Dev
@@ -10,12 +11,12 @@ module Zr
     def self.ruby
       return RbConfig.ruby unless Zr.compiled?
 
-      ENV.fetch("ZR_HOST_RUBY", "ruby")
+      Config.current.host_ruby
     end
 
     # The environment of a child that must run the compiler under ruby.
     # `exe/zr` gives a build to the compiled compiler in an install, or in
-    # a checkout with `ZR_COMPILED=1` (`CompiledCompiler.wanted?`);
+    # a checkout with `ZR_COMPILED=1` (`Bootstrap::Handoff.wanted?`);
     # `ZR_COMPILED=0` keeps the build in ruby. A check that compares ruby with the compiled compiler
     # needs it, or it compares the compiled compiler with itself.
     UNDER_RUBY = { "ZR_COMPILED" => "0" }.freeze

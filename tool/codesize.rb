@@ -33,7 +33,7 @@ module Zr
         require_relative "../lib/zr/ir/passes"
 
         functions = IR::Passes.inline(Zr.runtime.functions).each { |f| IR::Passes.prepare(f) }
-        defined = functions.map(&:name).to_set
+        defined = functions.to_set(&:name)
 
         began = Process.clock_gettime(Process::CLOCK_MONOTONIC)
         sizes = functions.to_h do |f|

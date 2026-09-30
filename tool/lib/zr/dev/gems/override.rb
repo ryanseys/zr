@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require "prism"
+require_relative "../../../../../lib/zr/prism"
 
 module Zr
   module Dev

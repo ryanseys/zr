@@ -74,7 +74,11 @@ class GemSetTest < Minitest::Test
     dir = File.join(@dir, "home/gems/rainbow-3.1.1")
     FileUtils.mkdir_p([File.join(dir, "src"), File.join(@dir, "home/specifications")])
     File.write(File.join(dir, "rainbow.gemspec"), "raise 'git ls-files'\n")
-    spec = Gem::Specification.new { |s| s.name = "rainbow"; s.version = "3.1.1"; s.require_paths = ["src"] }
+    spec = Gem::Specification.new do |s|
+      s.name = "rainbow"
+      s.version = "3.1.1"
+      s.require_paths = ["src"]
+    end
     File.write(File.join(@dir, "home/specifications/rainbow-3.1.1.gemspec"), spec.to_ruby)
 
     gem = resolve([["rainbow", dir]], "BUNDLE_GEMFILE" => nil).gems.first

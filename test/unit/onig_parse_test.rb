@@ -9,7 +9,7 @@ require_relative "../../lib/zr/runtime"
 # preprocess (the text and the pattern after it), each warning (quiet
 # and verbose), the group names, and the limits. onig_match_test and
 # regexp_diff_test check matching.
-Zr.require_onig
+Zr::RuntimeSources.require_onig
 require File.join(ROOT, "runtime/core/regexp_pattern.rb")
 
 class OnigParseTest < Minitest::Test
@@ -65,7 +65,7 @@ class OnigParseTest < Minitest::Test
   def compile_in_core(pattern, options, verbose)
     _, _, compiled, warnings = Pattern.compile(pattern.dup.freeze, options)
     names = compiled.name_table ? compiled.name_table.keys.map { |name| name.dup.force_encoding(pattern.encoding) } : []
-    [:ok, names, pattern, warnings.rows.reject { |row| row.verbose && !verbose }.map { |row| row.text }]
+    [:ok, names, pattern, warnings.rows.reject { |row| row.verbose && !verbose }.map(&:text)]
   rescue RegexpError, ArgumentError => e
     [:error, e.class, e.message.b]
   end
@@ -74,7 +74,7 @@ class OnigParseTest < Minitest::Test
     [false, true].each do |verbose|
       want = compile_in_ruby(pattern, options, verbose)
       got = compile_in_core(pattern, options, verbose)
-      assert_equal want, got, "/#{pattern}/ options #{options}#{verbose ? ' verbose' : ''}"
+      assert_equal want, got, "/#{pattern}/ options #{options}#{verbose ? " verbose" : ""}"
     end
   end
 
@@ -111,7 +111,7 @@ class OnigParseTest < Minitest::Test
     assert_like_ruby("a{100001}")
     script = <<~'RUBY'
       require "./lib/zr/runtime"
-      Zr.require_onig
+      Zr::RuntimeSources.require_onig
       require "./runtime/core/regexp_pattern.rb"
       pattern = Regexp.const_get(:Pattern)
       [4095, 4096, 4097].each do |depth|

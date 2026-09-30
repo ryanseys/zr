@@ -1,7 +1,11 @@
 inherit_from: .rubocop_todo.yml
 
-# Only the Lint cops: they find bugs (unused values, shadowed names,
-# unreachable code) and do not change the style of the code.
+plugins:
+  - rubocop-minitest
+  - rubocop-performance
+
+# The Lint cops find bugs (unused values, shadowed names, unreachable
+# code). Each other cop below is on for a reason that it gives.
 AllCops:
   TargetRubyVersion: 4.0
   NewCops: enable
@@ -17,6 +21,7 @@ AllCops:
     - "test/runtime/**/*"
     - "test/machine/**/*"
     - "test/hir/**/*"     # input programs for the HIR snapshots
+    - "gems/**/*"         # the gem probes that zr compiles
     - "tmp/**/*"
     - "lib/zr/hir/features.rb"      # generated
     - "lib/zr/stdlib.rb"            # generated
@@ -51,3 +56,77 @@ Layout/LineLength:
 Layout/TrailingWhitespace: { Enabled: true, AllowInHeredoc: true } # heredocs are programs and outputs
 Layout/EmptyLines: { Enabled: true }
 Style/FrozenStringLiteralComment: { Enabled: true }
+
+# The Minitest cops keep one form for each assertion. The form gives the
+# better failure message: assert_predicate names the receiver, and
+# assert_path_exists names the path.
+Minitest:
+  Enabled: true
+Minitest/MultipleAssertions: { Enabled: false }              # a test checks one behavior, with its parts
+Minitest/EmptyLineBeforeAssertionMethods: { Enabled: false } # layout
+Minitest/AssertWithExpectedArgument: { Enabled: false }      # assert(x, message) is the form it flags
+
+# The Performance cops find an allocation or a call that the code does
+# not need. The compiler's own speed is a feature.
+Performance:
+  Enabled: true
+# A literal list in a loop of a test or a generator runs a few times;
+# in lib/ a loop can be hot.
+Performance/CollectionLiteralInLoop:
+  Exclude:
+    - "test/**/*"
+    - "tool/**/*"
+
+# One quote style. The code uses double quotes, also inside #{}.
+Style/StringLiterals:
+  Enabled: true
+  EnforcedStyle: double_quotes
+Style/StringLiteralsInInterpolation:
+  Enabled: true
+  EnforcedStyle: double_quotes
+
+# A ternary inside a ternary is hard to read; an if or a case says it.
+Style/NestedTernaryOperator: { Enabled: true }
+
+# attr_reader for a reader that only returns its variable.
+Style/TrivialAccessors: { Enabled: true }
+
+# The method of the core library that says what the block does.
+Style/ArrayIntersect: { Enabled: true }      # a.intersect?(b)
+Style/CollectionCompact: { Enabled: true }   # compact
+Style/HashExcept: { Enabled: true }          # except
+Style/HashSlice: { Enabled: true }           # slice
+Style/InverseMethods: { Enabled: true }      # reject, not select { !... }
+Style/MapToSet: { Enabled: true }            # to_set { }
+Style/SelectByRange: { Enabled: true }       # grep and grep_v
+Style/SymbolProc: { Enabled: true }          # &:name
+
+# One statement to a line; a semicolon hides the second one.
+Style/Semicolon:
+  Enabled: true
+  # The zr-dev command tables: `-> { require_relative "gen"; Gen }`
+  # loads a command when it runs. The require stays literal, so that zr
+  # finds the file when it compiles the tools.
+  Exclude:
+    - "tool/commands.rb"
+    - "tool/gen.rb"
+    - "tool/gems.rb"
+    - "tool/spec.rb"
+# lambda.call(x), not lambda.(x).
+Style/LambdaCall: { Enabled: true }
+
+# A block that a method only passes on needs no name: `def f(&) = g(&)`.
+Naming/BlockForwarding: { Enabled: true }
+
+# A constant that code changes is state; an object or a variable owns it.
+Style/MutableConstant: { Enabled: true }
+
+# `x rescue nil` rescues every StandardError, also a bug's NoMethodError.
+# Name the error that you expect (docs/explanation/ruby-style.md).
+Style/RescueModifier: { Enabled: true }
+
+# A method that answers true or false ends in ?. `run` is the zr-dev
+# Command protocol: its false is the exit status 1 (Command#start).
+Naming/PredicateMethod:
+  Enabled: true
+  AllowedMethods: [call, run]

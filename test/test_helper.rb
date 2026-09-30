@@ -3,7 +3,7 @@
 require "minitest/autorun"
 
 # The tests run the compiler on the host ruby. A test that needs the
-# compiled compiler turns it on itself (lib/zr/compiled_compiler.rb).
+# compiled compiler turns it on itself (lib/zr/bootstrap/handoff.rb).
 ENV["ZR_COMPILED"] ||= "0"
 
 require_relative "../lib/zr/target"

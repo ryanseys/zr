@@ -16,7 +16,7 @@ class CarriedDescriptionTest < Minitest::Test
     path = @runtime.carry_description!
 
     assert_equal Zr::Machine::Description.carried(@runtime.send(:cached).fetch(:description)), File.binread(path)
-    assert path.start_with?(File.join(Zr::Store.dir, "description", "")), path
+    assert path.start_with?(File.join(Zr::Cache::Store.dir, "description", "")), path
     assert Zr::Hir::Build.runtime_file?(path), "the loader treats it as the runtime's own"
   end
 
