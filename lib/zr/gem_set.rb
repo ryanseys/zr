@@ -139,7 +139,7 @@ module Zr
     # The ruby that runs the resolver: this one, or in the compiled
     # compiler (whose `RbConfig.ruby` names zr itself) the ruby that
     # `ZR_HOST_RUBY` names or the one on PATH.
-    def self.ruby = Zr.compiled? ? ENV.fetch("ZR_HOST_RUBY", "ruby") : RbConfig.ruby
+    def self.ruby = Zr.compiled? ? Config.current.host_ruby : RbConfig.ruby
 
     def self.child(flags, gemfile, env)
       require "json"

@@ -45,8 +45,8 @@ class LibrariesTest < Minitest::Test
   # name is. A port with no gem here has its Ruby half in ruby's own
   # library, so that copy must be the port's version.
   def test_each_port_is_one_version
-    bundled = Zr::Ports::ALL.select { |_, port| port.gem }.keys & Zr::Stdlib::BUNDLED.keys
-    stock = Zr::Ports::ALL.reject { |name, port| port.gem || [nil, port.version].include?(Zr::Stdlib::DEFAULT[name]) }
+    bundled = Zr::Ports::ALL.select { |_, port| port.vendored }.keys & Zr::Stdlib::BUNDLED.keys
+    stock = Zr::Ports::ALL.reject { |name, port| port.vendored || [nil, port.version].include?(Zr::Stdlib::DEFAULT[name]) }
 
     assert_equal [], bundled
     assert_equal({}, stock)

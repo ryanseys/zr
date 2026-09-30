@@ -40,7 +40,7 @@ class NoticesTest < Minitest::Test
   # row must change with it.
   def test_each_port_has_a_row_at_its_version
     missing = Zr::Ports::ALL.filter_map do |name, port|
-      "#{name} #{port.version}" if port.gem && !NOTICES.include?("| #{name} | #{port.version} |")
+      "#{name} #{port.version}" if port.vendored && !NOTICES.include?("| #{name} | #{port.version} |")
     end
 
     assert_equal [], missing

@@ -93,7 +93,7 @@ module Zr
         rubygems_license
         @bundled = Vendor::BUNDLED.to_h { |name| [name, stock_bundled(ruby).fetch(name) { @fail.("#{name} is not in ruby's gems/bundled_gems") }] }
         @bundled.each { |name, version| gem("bundled", name, version) }
-        Ports::ALL.each { |name, port| gem("port", name, port.version) if port.gem }
+        Ports::ALL.each { |name, port| gem("port", name, port.version) if port.vendored }
         stock_ports!
         minitest_license
         prism_source
@@ -230,10 +230,11 @@ module Zr
       # copy, since that copy is its Ruby half.
       def stock_ports!
         Ports::ALL.each do |name, port|
-          next if port.gem
+          next if port.vendored
 
           stock = @defaults[name]
-          @fail.("port #{name} #{port.version}: ruby's own is #{stock}. Make it a gem (gem: true), or use #{stock}") if stock && stock != port.version
+          @fail.("port #{name} #{port.version}: ruby's own is #{stock}. " \
+                  "Make it a gem (vendored: true), or use #{stock}") if stock && stock != port.version
         end
       end
 

@@ -25,7 +25,7 @@ class AbiKeyTest < Minitest::Test
 
   def abi(**rows)
     digest = rows.hash.to_s(16)
-    File.write(Zr.symbols_path(digest), JSON.generate(TABLE.merge(rows.transform_keys(&:to_s))))
+    Zr::Paths.write_atomic(Zr.symbols_path(digest), JSON.generate(TABLE.merge(rows.transform_keys(&:to_s))))
     Zr.abi_digest(@target, digest)
   end
 

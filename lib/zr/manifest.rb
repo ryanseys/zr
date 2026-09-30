@@ -83,7 +83,7 @@ module Zr
       return Row.new(gem.name, gem.version, source_of(gem)) if gem
 
       Ports::ALL.each do |name, port|
-        return Row.new(name, port.version, "port") if port.gem && file.start_with?("#{Ports.lib(name)}/")
+        return Row.new(name, port.version, "port") if port.vendored && file.start_with?("#{Ports.lib(name)}/")
       end
       Stdlib::BUNDLED.each do |name, version|
         return Row.new(name, version, "stdlib") if file.start_with?("#{Layout.gem_root(name, version)}/")
@@ -95,7 +95,7 @@ module Zr
       # are named for it, as psych.rb and psych/.
       Ports::ALL.each do |name, port|
         base = name.tr("-", "/")
-        return Row.new(name, port.version, "port") if !port.gem && (feature == "#{base}.rb" || feature.start_with?("#{base}/"))
+        return Row.new(name, port.version, "port") if !port.vendored && (feature == "#{base}.rb" || feature.start_with?("#{base}/"))
       end
       name = default_gems[feature] || (feature.split("/").first.delete_suffix(".rb") == "rubygems" ? "rubygems" : "ruby")
       version = { "ruby" => RUBY, "rubygems" => Stdlib::RUBYGEMS }.fetch(name) { Stdlib::DEFAULT.fetch(name) }

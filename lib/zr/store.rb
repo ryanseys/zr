@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "digest/sha2"
+require_relative "config"
 require_relative "paths"
 require_relative "settled"
 
@@ -47,7 +48,9 @@ module Zr
     # A read touches an entry only when its mtime is older than this.
     TOUCH_EVERY = 86_400
 
-    KEY = /\A[0-9a-f]{2}[0-9A-Za-z_.-]*\z/
+    # A key is a digest, and sometimes a suffix (`<digest>-symbols`). No
+    # key names a path outside its kind.
+    KEY = /\A[0-9A-Za-z_-][0-9A-Za-z_.-]+\z/
 
     Entry = Data.define(:kind, :key, :path, :bytes, :mtime)
 
@@ -172,7 +175,7 @@ module Zr
 
     # The most bytes of kind `name`, or nil for no quota.
     def quota(name)
-      gb = name == :binary ? Float(ENV.fetch("ZR_TEST_BINARIES_GB", 8)) : kind(name).quota_gb
+      gb = name == :binary ? Config.current.test_binaries_gb : kind(name).quota_gb
       gb && (gb * (1 << 30))
     end
 

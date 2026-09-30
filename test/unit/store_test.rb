@@ -117,7 +117,7 @@ class StoreTest < Minitest::Test
   end
 
   def test_a_kind_over_its_quota_loses_its_oldest_entries
-    with_env("ZR_TEST_BINARIES_GB" => (1500.0 / (1 << 30)).to_s) do
+    Zr::Config.with(ZR_TEST_BINARIES_GB: (1500.0 / (1 << 30)).to_s) do
       first, second = %w[first second].map { |name| Store.key(name) }
       age(Store.write(:binary, first, "x" * 1000), 2)
       Store.write(:binary, second, "x" * 1000)
@@ -147,13 +147,5 @@ class StoreTest < Minitest::Test
 
     assert File.exist?("#{Store.path(:object, kept)}.lock")
     refute File.exist?("#{Store.path(:object, gone)}.lock")
-  end
-
-  def with_env(values)
-    was = values.to_h { |name, _| [name, ENV.fetch(name, nil)] }
-    values.each { |name, value| ENV[name] = value }
-    yield
-  ensure
-    was.each { |name, value| ENV[name] = value }
   end
 end

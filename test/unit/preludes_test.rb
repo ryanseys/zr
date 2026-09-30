@@ -60,7 +60,7 @@ class PreludesTest < Minitest::Test
   def test_preludes_follow_table_order_not_flag_order
     asked = preludes(Loader.new(asts?: true, gems?: true, configures?: true))
 
-    assert_equal %w[rbconfig rubygems bundled_gems zr/syntax_tree], asked
+    assert_equal %w[rbconfig rubygems bundled_gems zr/gem_manifest zr/syntax_tree], asked
   end
 
   # The only eval of a program can come from the files of a prelude, so

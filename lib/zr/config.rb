@@ -22,7 +22,7 @@ module Zr
     # its value, and a value that works. The CLI prints it and exits 2.
     class Invalid < ArgumentError; end
 
-    attr_reader :linker, :wasm_width, :cache, :cache_max_gb, :link
+    attr_reader :linker, :wasm_width, :cache, :cache_max_gb, :link, :test_binaries_gb, :host_ruby
 
     def initialize
       @linker = choice("ZR_LINKER", LINKERS, "auto")
@@ -42,6 +42,12 @@ module Zr
       # `ZR_CACHE_MAX_GB`: the most GB an installed zr keeps in its cache
       # (default 5; 0 turns the limit off).
       @cache_max_gb = number("ZR_CACHE_MAX_GB", 5.0, "10", kind: :Float, min: 0)
+      # `ZR_TEST_BINARIES_GB`: the most GB of binaries that the spec tier
+      # keeps in the store (default 8).
+      @test_binaries_gb = number("ZR_TEST_BINARIES_GB", 8.0, "8", kind: :Float, min: 0)
+      # `ZR_HOST_RUBY`: the ruby that the compiled compiler starts to
+      # resolve gems (lib/zr/gem_set.rb).
+      @host_ruby = ENV["ZR_HOST_RUBY"].to_s.empty? ? "ruby" : ENV["ZR_HOST_RUBY"]
       # `ZR_LINK_ARGS`: words for the system linker, as `--link` gives
       # them, split as a shell splits them.
       @link = words(ENV.fetch("ZR_LINK_ARGS", "")).freeze
