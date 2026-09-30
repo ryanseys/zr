@@ -695,6 +695,26 @@ module Kernel
   # warns of no redefinition.
   alias pp pp
 
+  # rubygems' Kernel#gem, before rubygems loads. Ruby loads rubygems for
+  # every program, so `gem` is always there. zr loads it at boot only for
+  # a program whose files name Gem or call `gem`. A file that eval
+  # support carries (prism/translation/parser calls `gem "parser"`) is
+  # not one of the program's, so its call comes here. The first call
+  # loads rubygems, whose own `gem` then replaces this one. The name is
+  # computed, so the core does not put rubygems in every program: a
+  # program that reaches here carries it in eval support.
+  GEM_LOAD = [true]
+  private_constant :GEM_LOAD
+
+  def gem(gem_name, *requirements)
+    raise LoadError, "cannot load such file -- rubygems" unless GEM_LOAD.pop
+
+    feature = "rubygems"
+    require feature
+    gem(gem_name, *requirements)
+  end
+  private :gem
+
   def Hash(value)
     return {} if value.nil? || (value.is_a?(Array) && value.empty?)
     return value if value.is_a?(Hash)
