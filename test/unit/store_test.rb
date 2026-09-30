@@ -50,14 +50,6 @@ class StoreTest < Minitest::Test
     assert_nil Store.read(:unit, key)
   end
 
-  def test_get_builds_once_then_reads
-    key = Store.key("fetch")
-    built = 0
-
-    2.times { assert_equal [1, 2], Store.get(:unit, key) { built += 1 and [1, 2] } }
-    assert_equal 1, built
-  end
-
   def test_a_directory_entry_is_filled_then_renamed
     key = Store.key("run")
     path = Store.write(:run, key) { |dir| File.write(File.join(dir, "program"), "bin") }

@@ -169,7 +169,7 @@ module Zr
           why = Native::Build.program(program, File.join(work, "built"), work: work)
           raise "the build did not finish: #{why}" if why
         end
-        Zr.write_cache(mark(target, evals: evals), "")
+        Zr::Cache::Store.write_file(mark(target, evals: evals), "")
       end
 
       # A WASI module has no linker. Build a plain program and a program
@@ -183,7 +183,7 @@ module Zr
             raise "the build did not finish: #{why}" if why
           end
         end
-        Zr.write_cache(mark(target), "")
+        Zr::Cache::Store.write_file(mark(target), "")
       end
     end
   end

@@ -17,8 +17,9 @@ module Zr
     # keys, the reads and writes, the locks and the eviction, so each
     # cache is its kind, its key parts and its build code.
     #
-    #   key = Store.key(Store.base(target), abi, file, source)
-    #   Store.get(:unit, key) { lower(file) }
+    #   key = Store.key(stamp, file, source)
+    #   Store.write(:unit, key, code)
+    #   Store.read(:unit, key)      # => code, or nil on a miss
     #
     # Eviction removes the entries used longest ago. A read touches an
     # entry, at most once a day. A build names the entries that the next
@@ -94,22 +95,23 @@ module Zr
       # that fills the directory it gets. Writes nothing when a source
       # changed during the build (`Zr.settled!` raises SourceChanged).
       def write(name, key, value = nil, &)
-        Zr.settled!
         file = path(name, key)
         codec = kind(name).codec
-        return write_dir(file, &) if codec == :dir
+        if codec == :dir
+          Zr.settled!
+          return write_dir(file, &)
+        end
 
-        Paths.write_atomic(file, encode(codec, value))
+        write_file(file, encode(codec, value))
       end
 
-      # The value of the entry, else the block's value, which it writes.
-      def get(name, key)
-        found = read(name, key)
-        return found unless found.nil?
-
-        value = yield
-        write(name, key, value)
-        value
+      # Writes `bytes` to the cache file at `path` atomically, so a parallel
+      # build never reads half of it, and returns `path`. Every write of
+      # the cache comes here, also of a file whose path a cache makes
+      # itself. Writes nothing when a source changed during the build.
+      def write_file(path, bytes)
+        Zr.settled!
+        Paths.write_atomic(path, bytes)
       end
 
       # Runs the block with the entry's path while this process holds the
@@ -150,6 +152,10 @@ module Zr
 
         path.delete_prefix(top)
       end
+
+      # The path of each entry that a fresh root names (all roots, or those
+      # whose name starts with `prefix`).
+      def rooted_paths(prefix: nil) = rooted(prefix: prefix).map { |line| File.join(dir, line) }
 
       # The relative path of each entry that a fresh root names.
       def rooted(now = Time.now, prefix: nil)
@@ -251,9 +257,8 @@ module Zr
         File.directory?(dir) ? Dir.children(dir) : []
       end
 
-      def tree_bytes(dir)
-        Dir.glob("**/*", base: dir).sum { |name| File.size?(File.join(dir, name)).to_i }
-      end
+      # The bytes of every file below `dir`.
+      def tree_bytes(dir) = Dir[File.join(dir, "**/*")].sum { |path| File.file?(path) ? File.size(path) : 0 }
 
       def touch(file, every = TOUCH_EVERY)
         now = Time.now
@@ -301,7 +306,7 @@ module Zr
         Paths.remove(fresh) if fresh && File.exist?(fresh)
       end
 
-      private_class_method :children, :tree_bytes, :touch, :json, :decode, :encode, :write_dir, :roots_of
+      private_class_method :children, :touch, :json, :decode, :encode, :write_dir, :roots_of
     end
   end
 end

@@ -146,7 +146,7 @@ module Zr
         return kept if kept
 
         Zr.clock("objects prelinked") do
-          Obj::MachO::Prelink.build(objects.map { |o| File.binread(o) }).tap { |base| Zr.write_cache(path, base.dump) }
+          Obj::MachO::Prelink.build(objects.map { |o| File.binread(o) }).tap { |base| Cache::Store.write_file(path, base.dump) }
         end
       end
 
@@ -173,7 +173,7 @@ module Zr
       # prelink. Returns nil when the prelink is not in the cache.
       def skeleton(objects)
         path = skeleton_path(objects) or return nil
-        (@skeletons ||= {})[path] ||= File.exist?(path) ? path : Zr.clock("skeleton written") { Zr.write_cache(path, Obj::MachO::Skeleton.bytes(prelink(objects))) }
+        (@skeletons ||= {})[path] ||= File.exist?(path) ? path : Zr.clock("skeleton written") { Cache::Store.write_file(path, Obj::MachO::Skeleton.bytes(prelink(objects))) }
       end
 
       # The eval support object, built once for each key.
@@ -202,7 +202,7 @@ module Zr
           end
           raise Failed, "the eval support for #{support.target} did not build: #{why}" if why
 
-          Zr.write_cache(obj, File.binread(fresh))
+          Cache::Store.write_file(obj, File.binread(fresh))
         end
       end
 
@@ -233,7 +233,7 @@ module Zr
           core&.keep(*cache.built) unless why
           raise Failed, "the zr runtime for #{runtime.target} did not build: #{why}" if why
 
-          Zr.write_cache(obj, File.binread(fresh))
+          Cache::Store.write_file(obj, File.binread(fresh))
         end
         obj
       end
@@ -378,7 +378,7 @@ module Zr
         functions += stops(functions, runtime.raw, data, pending[:functions])
         IR::Passes.inline(functions).each { |f| IR::Passes.prepare(f) }
         pre = Backend::Wasm.prelude(functions, data, pending: pending)
-        Zr.write_cache(path, Marshal.dump(pre))
+        Cache::Store.write_file(path, Marshal.dump(pre))
         @wasm_preludes[path] = pre
       end
 

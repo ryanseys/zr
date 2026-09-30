@@ -80,7 +80,7 @@ module Zr
     # But eval support, the prelude and the harness read files again from
     # disk. An edit during a build would put new content under the old
     # digest in every cache. So nothing is cached after a file changes
-    # (`Zr.write_cache`, `Cache::Unit#keep`, the parse cache, the harness's
+    # (`Cache::Store.write_file`, `Cache::Unit#keep`, the parse cache, the harness's
     # binaries), and the build stops with the file's name. The cost is one
     # stat per file, which is small compared to a cache write.
     def moved
@@ -104,7 +104,7 @@ module Zr
         files = JSON.parse(File.read(path)) if File.exist?(path)
         unless files&.all? { |file| File.file?(file) }
           files = [Layout::GEM_PRELUDE, *Zr.gem_prelude(target).units.map(&:file).select { |file| File.file?(file) }].uniq.sort
-          Zr.write_cache(path, JSON.generate(files))
+          Cache::Store.write_file(path, JSON.generate(files))
         end
         files
       end
@@ -214,7 +214,7 @@ module Zr
     def keep_ledger(symbols)
       return unless Zr.ledger?
 
-      Zr.write_cache(Zr.ledger_path(target), JSON.generate(symbols.names.each_with_index.map { |name, i| name if symbols.used?(i) }))
+      Cache::Store.write_file(Zr.ledger_path(target), JSON.generate(symbols.names.each_with_index.map { |name, i| name if symbols.used?(i) }))
     end
 
     # The symbol table, the wanted symbols and the kernel's description.
@@ -255,7 +255,7 @@ module Zr
       wanted_functions = (calls.uniq - defined).sort
       wanted_data = (reads.uniq - data.map(&:name)).sort
       description = Machine::Description.of(unit).to_text
-      Zr.write_cache(cache_path,
+      Cache::Store.write_file(cache_path,
                      JSON.generate({ "names" => kernel_symbols.names, "sites" => kernel_symbols.sites,
                                      "functions" => wanted_functions, "data" => wanted_data, "description" => description }))
       { symbols: kernel_symbols, wants: { functions: wanted_functions, data: wanted_data }, description: description }
@@ -429,7 +429,7 @@ module Zr
                  "irbs" => loader.irbs?, "gems" => loader.gems?,
                  "names" => symbols.names, "sites" => symbols.sites, "activations" => loader.activations,
                  "used" => asked.select { |_, at| at < runtime_size } }
-        Zr.write_cache(meta_path, JSON.generate(meta))
+        Cache::Store.write_file(meta_path, JSON.generate(meta))
         { functions: functions, data: data, meta: meta }
       end
     end
@@ -591,14 +591,6 @@ module Zr
 
     @announced[[what, target.triple]] = true
     warn "zr: building #{what} for #{target.triple}. This occurs one time and takes some minutes."
-  end
-
-  # Writes `content` to `path` in the cache atomically, so a parallel
-  # build never reads a half-written file. Writes nothing if a source
-  # changed (`settled!`).
-  def write_cache(path, content)
-    settled!
-    Paths.write_atomic(path, content)
   end
 
   # The core library on top of the kernel `unit`: `[functions, data]`,

@@ -207,11 +207,10 @@ module Zr
       # process parses with the code that it loaded, but the key identifies
       # the files on disk.
       def write(path, bytes)
-        Zr.settled!
         moved = (@stamps || {}).find { |file, was| Paths.stamp(file) != was }
         raise SourceChanged, "#{moved.first} changed while this build ran; nothing it parsed is kept" if moved
 
-        Paths.write_atomic(path, bytes)
+        Store.write_file(path, bytes)
       end
     end
   end

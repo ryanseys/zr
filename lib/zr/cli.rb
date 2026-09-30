@@ -328,14 +328,14 @@ module Zr
           puts format("%6d MB  %5d  %s", Cache::Janitor.megabytes(group), group.size, kind)
         end
         others = Cache::Janitor.other_compilers
-        puts format("%6d MB  %5d  compiled compilers of other zr versions", others.sum { |dir| Cache::Janitor.tree_bytes(dir) } >> 20, others.size)
+        puts format("%6d MB  %5d  compiled compilers of other zr versions", others.sum { |dir| Cache::Store.tree_bytes(dir) } >> 20, others.size)
         puts format("%6d MB  %5d  in all, in %s", Cache::Janitor.megabytes(files), files.size, Paths.cache)
       when "clean"
         all = args.include?("--all")
         sizes = Cache::Janitor.all.to_h { |path| [path, Cache::Janitor.bytes([path])] }
         gone = all ? Cache::Janitor.clear : Cache::Janitor.prune
         others = Cache::Janitor.other_compilers
-        freed = gone.sum { |path| sizes.fetch(path, 0) } + others.sum { |dir| Cache::Janitor.tree_bytes(dir) }
+        freed = gone.sum { |path| sizes.fetch(path, 0) } + others.sum { |dir| Cache::Store.tree_bytes(dir) }
         others.each { |dir| Paths.remove(dir) }
         puts format("deleted %d file(s) and %d compiled compiler(s), %d MB", gone.size, others.size, freed >> 20)
       else usage_error("unknown cache command '#{verb}'", "cache")

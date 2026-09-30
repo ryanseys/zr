@@ -58,16 +58,13 @@ module Zr
       # store names. A build writes its roots: the runtime and eval support
       # objects, their images and metadata, and the code and lowering
       # entries of the backend.
-      def live = Store.rooted.map { |line| File.join(Store.dir, line) }
+      def live = Store.rooted_paths
 
       # The entries that the roots of `target` name.
-      def live_for(target) = Store.rooted(prefix: "#{target.triple}-").map { |line| File.join(Store.dir, line) }
+      def live_for(target) = Store.rooted_paths(prefix: "#{target.triple}-")
 
-      def bytes(paths) = paths.sum { |path| File.directory?(path) ? tree_bytes(path) : File.size?(path).to_i }
+      def bytes(paths) = paths.sum { |path| File.directory?(path) ? Store.tree_bytes(path) : File.size?(path).to_i }
       def megabytes(paths) = bytes(paths) / (1 << 20)
-
-      # The bytes of every file below `dir`.
-      def tree_bytes(dir) = Dir[File.join(dir, "**/*")].sum { |path| File.file?(path) ? File.size(path) : 0 }
 
       # The store's kind of the entry at `path` (lib/zr/cache/store.rb), or
       # "old layout" or "served".
