@@ -99,7 +99,13 @@ module Zr
         new = lib_files(gems, gem, version)
         changed = (old.keys | new.keys).sort.reject { |rel| old[rel] == new[rel] }
         puts "#{gem} #{locked.version} -> #{version}: #{changed.size} files differ"
-        changed.each { |rel| puts "  #{old.key?(rel) ? (new.key?(rel) ? "changed" : "removed") : "added  "}  #{rel}" }
+        changed.each do |rel|
+          state = if !old.key?(rel) then "added  "
+                  elsif new.key?(rel) then "changed"
+                  else "removed"
+                  end
+          puts "  #{state}  #{rel}"
+        end
         overlays = changed.filter_map { |rel| overlay(rel.delete_prefix("lib/")) }
         puts "", "zr files that replace one of them; check each before the update:", *overlays.map { |path| "  #{Dev.rel(path)}" } if overlays.any?
         true

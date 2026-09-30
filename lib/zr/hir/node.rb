@@ -207,9 +207,16 @@ module Zr
           *(rest && rest != :implicit ? [[:rest, rest]] : []),
           *post.map(&positional),
           *keywords.map { |name, default| [default.nil? ? :keyreq : :key, name] },
-          *(kwrest == :nokey ? [[:nokey]] : kwrest ? [[:keyrest, kwrest]] : []),
+          *kwrest_rows,
           *(block ? [[:block, block]] : [])
         ]
+      end
+
+      def kwrest_rows
+        if kwrest == :nokey then [[:nokey]]
+        elsif kwrest then [[:keyrest, kwrest]]
+        else []
+        end
       end
     end
     Yield = Node.new(:args, :line, :kwargs)

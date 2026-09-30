@@ -398,7 +398,10 @@ module Zr
         # 1 for a bare identifier, 2 for an explicit receiver (visibility
         # applies).
         def send_mode(node)
-          mode = node.vcall ? 1 : (explicit?(node) && !@funcalls&.key?(node) ? 2 : 0)
+          mode = if node.vcall then 1
+                 elsif explicit?(node) && !@funcalls&.key?(node) then 2
+                 else 0
+                 end
           mode |= SEND_CORE if core_send?(node.name)
           node.using ? mode | SEND_USING : mode
         end

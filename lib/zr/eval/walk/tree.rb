@@ -559,7 +559,10 @@ module Zr
       end
 
       def module_def(node, ctx)
-        base = node.scope == :top ? ::Object : node.scope ? walk(node.scope, ctx) : World.cref_klass(World.cref_lexical(ctx.cref))
+        base = if node.scope == :top then ::Object
+               elsif node.scope then walk(node.scope, ctx)
+               else World.cref_klass(World.cref_lexical(ctx.cref))
+               end
         mod = World.const_defined_at?(base, node.name) ? World.const_get_at(base, node.name) : nil
         mod ||= World.const_set(base, node.name, new_module(node, ctx))
         run_body(node, mod, ctx)

@@ -423,7 +423,12 @@ module Zr
         f = IR::Function.new(name, params, ret)
         f.call(f.callee("write", %w[i32 i64 i64], "i64", colocated: false), [f.iconst("i32", 2), f.symbol_value(f.symbol(bytes)), f.iconst("i64", message.bytesize)])
         f.call(f.callee("abort", [], nil, colocated: false), [])
-        f.ret(ret.nil? ? nil : (ret == "f64" ? f.bitcast("f64", f.iconst("i64", 0)) : f.iconst(ret, 0)))
+        zero = case ret
+               when nil then nil
+               when "f64" then f.bitcast("f64", f.iconst("i64", 0))
+               else f.iconst(ret, 0)
+               end
+        f.ret(zero)
         f
       end
     end

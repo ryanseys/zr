@@ -242,8 +242,10 @@ module Zr
 
         # --- memory -------------------------------------------------------
 
-        def ldr(rt, address) = rt.float? ? float_load_store(1, rt, address) : load_store(rt.wide? ? 0b11 : 0b10, 1, rt, address)
-        def str(rt, address) = rt.float? ? float_load_store(0, rt, address) : load_store(rt.wide? ? 0b11 : 0b10, 0, rt, address)
+        def ldr(rt, address) = rt.float? ? float_load_store(1, rt, address) : load_store(gp_size(rt), 1, rt, address)
+        def str(rt, address) = rt.float? ? float_load_store(0, rt, address) : load_store(gp_size(rt), 0, rt, address)
+        # The size field of a load or a store of a general register.
+        def gp_size(rt) = rt.wide? ? 0b11 : 0b10
         def ldrb(rt, address) = load_store(0b00, 1, rt, address)
         def strb(rt, address) = load_store(0b00, 0, rt, address)
         def ldp(rt1, rt2, address, imm = nil) = pair(1, rt1, rt2, address, imm)

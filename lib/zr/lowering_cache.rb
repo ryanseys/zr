@@ -92,7 +92,11 @@ module Zr
         @symbols.sites = record[:sites].last
         Kept.new(path, entry, key, record)
       else
-        why(path, key.nil? ? "no key" : record ? why_not(record) : "no entry")
+        reason = if key.nil? then "no key"
+                 elsif record then why_not(record)
+                 else "no entry"
+                 end
+        why(path, reason)
         lowered(path, entry, key, &lower)
       end
     end

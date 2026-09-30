@@ -65,7 +65,9 @@ class Aarch64Test < Minitest::Test
       when :fmov
         return 0x1E604000 | n.to_i << 5 | d.to_i if d.float? && n.float?
 
-        (d.float? ? (n.wide? ? 0x9E670000 : 0x1E270000) : 0x9E660000) | n.to_i << 5 | d.to_i
+        return 0x9E660000 | n.to_i << 5 | d.to_i unless d.float?
+
+        (n.wide? ? 0x9E670000 : 0x1E270000) | n.to_i << 5 | d.to_i
       when :fcmp then 0x1E602000 | n.to_i << 16 | d.to_i << 5
       when :scvtf then (n.wide? ? 0x9E620000 : 0x1E620000) | n.to_i << 5 | d.to_i
       when :fcvtzs then 0x9E780000 | n.to_i << 5 | d.to_i

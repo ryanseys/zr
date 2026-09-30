@@ -74,7 +74,15 @@ module Zr
         # A constant made at its reads has no place and is never a
         # destination. Its name is in place of a location, and no Register or
         # Integer is equal to it.
-        def place(v) = @reg[v] || @home.fetch(v) { @remade.include?(v) ? v : @pinned.include?(v) ? Regalloc::GATES : raise(KeyError, v) }
+        def place(v) = @reg[v] || @home.fetch(v) { unhomed(v) }
+
+        # The place of a value that has no register and no home.
+        def unhomed(v)
+          return v if @remade.include?(v)
+          return Regalloc::GATES if @pinned.include?(v)
+
+          raise KeyError, v
+        end
 
         # The copies of an edge, in an order where no destination is written
         # while a source must still be read from it.

@@ -84,3 +84,6 @@ Style/StringLiterals:
 Style/StringLiteralsInInterpolation:
   Enabled: true
   EnforcedStyle: double_quotes
+
+# A ternary inside a ternary is hard to read; an if or a case says it.
+Style/NestedTernaryOperator: { Enabled: true }

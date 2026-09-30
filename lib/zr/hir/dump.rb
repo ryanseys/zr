@@ -298,7 +298,11 @@ module Zr
         return r.name if r.is_a?(Assign)
         return r unless r.is_a?(MultiTarget)
 
-        inner = (r.lefts + (r.rest ? [r.rest == :implicit ? "*" : "*#{param_name(r.rest)}"] : []) + r.rights).map { |t| t.is_a?(String) ? t : param_name(t) }
+        rest = if r.rest == :implicit then ["*"]
+               elsif r.rest then ["*#{param_name(r.rest)}"]
+               else []
+               end
+        inner = (r.lefts + rest + r.rights).map { |t| t.is_a?(String) ? t : param_name(t) }
         "(#{inner.join(" ")})"
       end
 

@@ -87,7 +87,13 @@ class EscapeTest < Minitest::Test
     find = lambda do |node|
       return node if node.is_a?(Zr::Hir::Def)
 
-      node.is_a?(Zr::Hir::Node) ? node.to_a.each { |v| (d = find.call(v)) and return d } && nil : node.is_a?(Array) ? node.each { |v| (d = find.call(v)) and return d } && nil : nil
+      children = case node
+                 when Zr::Hir::Node then node.to_a
+                 when Array then node
+                 else []
+                 end
+      children.each { |v| (d = find.call(v)) and return d }
+      nil
     end
     find.call(program.body) or raise "no def in #{source}"
   end

@@ -133,7 +133,9 @@ module Zr
 
         def immediate(value)
           n = Integer(value)
-          n.abs >= HEX ? format("#%s0x%x", n.negative? ? "-" : "", n.abs) : "##{n}"
+          return "##{n}" if n.abs < HEX
+
+          format("#%s0x%x", n.negative? ? "-" : "", n.abs)
         end
       end
     end
