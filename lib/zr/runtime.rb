@@ -241,6 +241,8 @@ module Zr
     end
 
     def write_cached
+      Tune.heavy!
+      Zr.announce("the zr runtime", target)
       lowered
       kernel_symbols.pad!
       keep_ledger(kernel_symbols)
@@ -404,6 +406,7 @@ module Zr
     def lowered
       @lowered ||= Zr.clock("eval support lowered") do
         Tune.heavy!
+        Zr.announce("eval support (the compiler in a program that calls eval)", target)
         @runtime.carry_description!
         loader = Hir::Build.eval_support(target)
         program = Hir::Program.new(Hir::Build.eval_file(target), [], Hir::Seq.new([], 0), loader.units, [], true, loader.entries)
@@ -574,6 +577,19 @@ module Zr
 
   def eval_support(target = Target.default)
     (@eval_supports ||= {})[target.triple] ||= EvalSupport.new(runtime(target))
+  end
+
+  # Says on stderr, once in a process, that a build of `what` for
+  # `target` starts, which fills the cache for later builds. The first
+  # build of an installed zr would otherwise run for minutes with no
+  # output. A checkout says it only on a terminal: a test or a tool
+  # that reads stderr gets nothing more. ZR_TIMING prints its own lines.
+  def announce(what, target)
+    return if Config.current.timing? || (Paths.checkout? && !$stderr.tty?)
+    return if (@announced ||= {}).key?([what, target.triple])
+
+    @announced[[what, target.triple]] = true
+    warn "zr: building #{what} for #{target.triple}. This occurs one time and takes some minutes."
   end
 
   # Writes `content` to `path` in the cache atomically, so a parallel

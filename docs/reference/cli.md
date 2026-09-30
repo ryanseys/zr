@@ -172,17 +172,24 @@ reason; `zr gems` shows zr's.
 Checks what zr needs on this host, and prints one line for each check:
 
 ```
+ok    zr                 0.1.0  /Users/you/.gem/ruby/4.0.0/gems/zr-0.1.0
 ok    ruby               4.0.7
 ok    host               aarch64-apple-darwin
 ok    wasmtime           /opt/homebrew/bin/wasmtime
 ok    openssl            /opt/homebrew/opt/openssl@3/lib/libssl.3.dylib
 ok    libraries          stdlib of ruby 4.0.7 (59 gems), 17 ports
 ok    cache              ~/Library/Caches/zr, 2703 MB
-ok    compiled compiler  current
+ok    fast compiler      current
 ```
 
 `warn` means that zr can do less on this host: for example, with no
-wasmtime, `zr run --emit wasm` does not work. `fail` means that zr
+wasmtime, `zr run --emit wasm` does not work. Each `warn` and `fail`
+line says what to do.
+
+The fast compiler is zr compiled by itself. An installed zr builds it at
+its first build (some minutes), and uses it for each later build. If
+that build fails, ruby runs zr, and zr tries again one day later, at
+most three times. `ZR_COMPILED=1` tries at once. `fail` means that zr
 cannot build, and `zr doctor` then exits with status 1. Put the
 output of `zr doctor` in a bug report.
 

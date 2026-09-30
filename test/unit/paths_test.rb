@@ -105,4 +105,45 @@ class PathsTest < Minitest::Test
     ENV.update(saved)
     ENV.delete("XDG_CACHE_HOME") unless saved.key?("XDG_CACHE_HOME")
   end
+
+  # Two zr processes that build one cache file: the second waits, then
+  # uses the first one's file.
+  def test_once_builds_a_file_one_time
+    Dir.mktmpdir do |dir|
+      path = File.join(dir, "sub/runtime.o")
+      built = 0
+      assert_equal path, Zr::Paths.once(path) { built += 1; File.write(path, "x") }
+      Zr::Paths.once(path) { built += 1 }
+      assert_equal 1, built
+
+      other = File.join(dir, "eval.o")
+      ready, go = IO.pipe
+      holder = fork do
+        File.open("#{other}.lock", File::RDWR | File::CREAT) do |lock|
+          lock.flock(File::LOCK_EX)
+          ready.close
+          go.write("locked")
+          go.close
+          sleep 0.3
+          File.write(other, "theirs")
+        end
+      end
+      go.close
+      ready.read
+      waited = false
+      Zr::Paths.once(other, waiting: -> { waited = true }) { flunk "built a file that another process built" }
+      Process.wait(holder)
+      assert waited
+      assert_equal "theirs", File.read(other)
+    end
+  end
+
+  def test_write_atomic_leaves_no_part_file_when_the_write_fails
+    Dir.mktmpdir do |dir|
+      path = File.join(dir, "file")
+      Dir.mkdir(path) # rename onto a directory fails
+      assert_raises(SystemCallError) { Zr::Paths.write_atomic(path, "x") }
+      assert_equal ["file"], Dir.children(dir)
+    end
+  end
 end

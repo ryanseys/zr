@@ -161,9 +161,12 @@ module Zr
 
       # The eval support object, built once for each key.
       def eval_support_object(support, jobs: Build.jobs)
-        obj = support.object_path
-        return obj if File.exist?(obj)
+        Paths.once(support.object_path, waiting: -> { waiting("eval support", support.target) }) do
+          eval_support_built(support, support.object_path, jobs)
+        end
+      end
 
+      def eval_support_built(support, obj, jobs)
         Paths.tmpdir("zr-eval-") do |work|
           fresh = File.join(work, "eval.o")
           # An EvalCache took some units from an earlier build, and inlined
@@ -184,15 +187,22 @@ module Zr
 
           Zr.write_cache(obj, File.binread(fresh))
         end
-        obj
       end
 
       # The runtime's object, built once per digest (the digest includes
-      # the target).
+      # the target). Two zr processes do not build the same object.
       def runtime_object(runtime, jobs: Build.jobs)
-        obj = runtime.object_path
-        return obj if File.exist?(obj)
+        Paths.once(runtime.object_path, waiting: -> { waiting("the zr runtime", runtime.target) }) do
+          Zr.announce("the zr runtime", runtime.target)
+          runtime_built(runtime, runtime.object_path, jobs)
+        end
+      end
 
+      def waiting(what, target)
+        warn "zr: waiting for another zr to build #{what} for #{target.triple}" unless Paths.checkout? && !$stderr.tty?
+      end
+
+      def runtime_built(runtime, obj, jobs)
         Paths.tmpdir("zr-runtime-") do |work|
           fresh = File.join(work, "runtime.o")
           # A CoreCache took some of the core's code from an earlier build,

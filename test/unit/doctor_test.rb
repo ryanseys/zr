@@ -14,7 +14,7 @@ class DoctorTest < Minitest::Test
     check = Zr::Doctor.ruby("4.1.0")
 
     assert_equal :fail, check.status
-    assert_equal "4.1.0; zr needs #{Zr::RUBY} or a later 4.0 release", check.detail
+    assert_equal "4.1.0; zr needs #{Zr::RUBY} or a later 4.0 release. See #{Zr::DOCS_URL}/how-to/install.md", check.detail
   end
 
   def test_a_later_patch_release_warns
@@ -35,8 +35,22 @@ class DoctorTest < Minitest::Test
     assert_includes check.detail, "--emit wasm"
   end
 
+  def test_a_glibc_aarch64_host_runs_the_musl_target
+    Checks.with_host("aarch64-linux-gnu") do
+      check = Zr::Doctor.host
+      assert_includes check.detail, "runs aarch64-linux-musl" if check.status == :ok
+      assert_includes check.detail, "no cc to link a binary" if check.status == :warn
+    end
+  end
+
+  def test_the_first_line_names_this_zr
+    assert_equal "#{Zr::VERSION}  #{Zr::Paths::ROOT}", Zr::Doctor.zr.detail
+  end
+
   def test_no_wasmtime_warns
-    assert_equal :warn, Zr::Doctor.wasmtime(nil).status
+    check = Zr::Doctor.wasmtime(nil)
+    assert_equal :warn, check.status
+    assert_includes check.detail, "https://wasmtime.dev"
   end
 
   def test_a_failed_check_makes_the_run_fail

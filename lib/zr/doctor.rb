@@ -15,7 +15,7 @@ module Zr
 
     module_function
 
-    def checks = [ruby, host, wasmtime, openssl, gems, cache, compiled_compiler]
+    def checks = [zr, ruby, host, wasmtime, openssl, gems, cache, compiled_compiler]
 
     # Prints each check. Returns true when none failed.
     def run(out = $stdout)
@@ -24,25 +24,31 @@ module Zr
       results.none? { |c| c.status == :fail }
     end
 
+    # This zr: its version and the directory it runs from.
+    def zr = Check.new(:ok, "zr", "#{VERSION}  #{Paths::ROOT}")
+
     def ruby(version = RUBY_VERSION)
       return Check.new(:ok, "ruby", version) if version == RUBY
       return Check.new(:warn, "ruby", "#{version}; zr is tested with #{RUBY}") if Zr.supported_ruby?(version)
 
-      Check.new(:fail, "ruby", "#{version}; zr needs #{RUBY} or a later 4.0 release")
+      Check.new(:fail, "ruby", "#{version}; zr needs #{RUBY} or a later 4.0 release. See #{DOCS_URL}/how-to/install.md")
     end
 
+    # Whether this host runs and links the binaries of a target.
     def host(triple = Target.host_triple)
-      target = Target.fetch(triple)
-      native = target&.outputs&.include?(:native) && target.linkable?
-      return Check.new(:ok, "host", triple) if native
+      target = Target.fetch(triple) || (Target.host if triple == Target.host_triple)
+      unless target&.outputs&.include?(:native)
+        return Check.new(:warn, "host", "#{triple}; this computer runs no binary that zr builds. Use 'zr run --emit wasm'")
+      end
+      return Check.new(:ok, "host", target == Target.fetch(triple) ? triple : "#{triple}, runs #{target.triple}") if target.linkable?
 
-      Check.new(:warn, "host", "#{triple}; no native binaries, use --emit wasm")
+      Check.new(:warn, "host", "#{triple}; no cc to link a binary (#{Target.cc_hint}). --emit wasm works")
     end
 
     def wasmtime(path = which("wasmtime"))
       return Check.new(:ok, "wasmtime", path) if path
 
-      Check.new(:warn, "wasmtime", "not on PATH")
+      Check.new(:warn, "wasmtime", "not on PATH; needed only for 'zr run --emit wasm'. See https://wasmtime.dev")
     end
 
     # The places a macOS binary looks for OpenSSL 3 when a program
@@ -55,7 +61,8 @@ module Zr
       found = dirs.map { |dir| File.join(dir, "libssl.3.dylib") }.find { |path| File.exist?(path) }
       return Check.new(:ok, "openssl", found) if found
 
-      Check.new(:warn, "openssl", "not found")
+      Check.new(:warn, "openssl", "not found; needed only by programs that require openssl. " \
+                                  "Run 'brew install openssl@3', or set OPENSSL_DIR")
     end
 
     def gems
@@ -67,28 +74,32 @@ module Zr
       Check.new(:ok, "libraries", "stdlib of ruby #{RUBY} (#{Stdlib::DEFAULT.size + Stdlib::BUNDLED.size} gems), #{Ports::ALL.size} ports")
     end
 
+    CACHE_FIX = "Set XDG_CACHE_HOME (or ZR_CACHE) to a directory that you can write to"
+
     def cache
       require_relative "cache"
       dir = Paths.cache
       Paths.mkdir_p(dir)
-      return Check.new(:fail, "cache", "#{dir} is not writable") unless File.writable?(dir)
+      return Check.new(:fail, "cache", "#{dir} is not writable. #{CACHE_FIX}") unless File.writable?(dir)
 
       Check.new(:ok, "cache", format("%s, %d MB", dir, Cache.megabytes(Cache.all)))
     rescue SystemCallError => e
-      Check.new(:fail, "cache", "#{dir}: #{e.message}")
+      Check.new(:fail, "cache", "#{dir}: #{e.message}. #{CACHE_FIX}")
     end
 
     def compiled_compiler(env = ENV)
       require_relative "compiled_compiler"
       cc = CompiledCompiler
-      state = if env["ZR_COMPILED"] == "0" then "off"
-              elsif !cc.runnable? then "not for this host"
-              elsif cc.current? then "current"
-              elsif cc.program.failed? then "last build failed"
-              elsif Paths.checkout? then "not built"
-              else "not built"
-              end
-      Check.new(:ok, "compiled compiler", state)
+      program = cc.program
+      return Check.new(:ok, "fast compiler", "off (ZR_COMPILED=0)") if env["ZR_COMPILED"] == "0"
+      return Check.new(:ok, "fast compiler", "not for this host; ruby runs zr") unless cc.runnable?
+      return Check.new(:ok, "fast compiler", "current") if cc.current?
+
+      if program.failed?
+        again = program.retry_at ? "zr tries again after #{program.retry_at.strftime("%Y-%m-%d %H:%M")}" : "zr does not try again"
+        return Check.new(:warn, "fast compiler", "the last build failed (#{program.log}); #{again}; ZR_COMPILED=1 tries now")
+      end
+      Check.new(:ok, "fast compiler", Paths.checkout? ? "not built (rake build:self)" : "not built yet; the first build makes it")
     end
 
     # The path of `command` on PATH, or nil.

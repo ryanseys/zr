@@ -26,19 +26,44 @@ module Zr
     def manifest = "#{binary}.manifest"
     def lock_path = "#{binary}.lock"
 
-    # The stamps of the sources of a build that failed. While the sources
-    # keep these stamps, the build fails again, so no build starts.
+    # The record of the builds of these sources that failed: the stamps of
+    # the sources, the number of failures and the time of the last one.
     def failure = "#{binary}.failed"
+    # The output of the last build, for a build that failed.
+    def log = "#{binary}.log"
 
-    def failed?
-      File.file?(failure) && Marshal.load(File.binread(failure)) == stamps
-    rescue IOError, SystemCallError, TypeError, ArgumentError
-      false
+    # A failed build is tried again one day later (a failure can come from
+    # the host, such as a full disk), and no more after TRIES failures.
+    TRIES = 3
+    WAIT = 24 * 60 * 60
+
+    # Whether the last build of these same sources failed, and the next
+    # try must wait.
+    def failed?(now = Time.now)
+      count, at = failures
+      !count.nil? && (count >= TRIES || now - at < WAIT)
     end
 
-    def fail!
+    # When the next build can try again, or nil when none will.
+    def retry_at
+      count, at = failures
+      count && count < TRIES ? at + WAIT : nil
+    end
+
+    def fail!(now = Time.now)
+      count, = failures
       Paths.mkdir_p(File.dirname(failure))
-      Paths.write_atomic(failure, Marshal.dump(stamps))
+      Paths.write_atomic(failure, Marshal.dump({ stamps: stamps, count: count.to_i + 1, at: now }))
+    end
+
+    # [count, time] of the failures of these same sources, or nil.
+    def failures
+      record = File.file?(failure) && Marshal.load(File.binread(failure))
+      return unless record.is_a?(Hash) && record[:stamps] == stamps
+
+      [record.fetch(:count), record.fetch(:at)]
+    rescue IOError, SystemCallError, TypeError, ArgumentError, KeyError
+      nil
     end
 
     # Every source file, sorted.
@@ -95,12 +120,12 @@ module Zr
         before = stamps
         out = "#{binary}.#{Process.pid}"
         begin
-          ok = system(env, RbConfig.ruby, File.join(Paths::ROOT, "exe/zr"), "build", entry, "-o", out, out: File::NULL)
+          ok = system(env, RbConfig.ruby, File.join(Paths::ROOT, "exe/zr"), "build", entry, "-o", out, out: log, err: %i[child out])
           if ok && stamps == before
             File.rename(out, binary)
             Paths.write_atomic(manifest, Marshal.dump(before))
             [binary, manifest].each { |f| File.unlink(f) } if block_given? && !answers? { yield binary }
-            File.unlink(failure) if current? && File.exist?(failure)
+            [failure, log].each { |f| File.unlink(f) if current? && File.exist?(f) }
           end
         ensure
           File.unlink(out) if File.exist?(out)

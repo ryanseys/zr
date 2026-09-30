@@ -111,8 +111,31 @@ module Zr
     def self.write_atomic(path, bytes)
       mkdir_p(File.dirname(path))
       fresh = "#{path}.#{Process.pid}.#{Thread.current.object_id}"
-      File.binwrite(fresh, bytes)
-      File.rename(fresh, path)
+      begin
+        File.binwrite(fresh, bytes)
+        File.rename(fresh, path)
+      ensure
+        # A write that stopped (Ctrl-C, a full disk) leaves no part file.
+        File.unlink(fresh) if File.exist?(fresh)
+      end
+      path
+    end
+
+    # Runs the block while this process holds the lock of `path`, unless
+    # `path` exists, and returns `path`. A second zr that builds the same
+    # cache file waits for the first, then uses its file. `waiting` runs
+    # before a wait.
+    def self.once(path, waiting: nil)
+      return path if File.exist?(path)
+
+      mkdir_p(File.dirname(path))
+      File.open("#{path}.lock", File::RDWR | File::CREAT, 0o644) do |lock|
+        unless lock.flock(File::LOCK_EX | File::LOCK_NB)
+          waiting&.call
+          lock.flock(File::LOCK_EX)
+        end
+        yield unless File.exist?(path)
+      end
       path
     end
 

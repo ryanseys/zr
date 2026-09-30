@@ -100,11 +100,12 @@ class CompiledCompilerTest < Minitest::Test
     owner.define_singleton_method(name, was)
   end
 
+  # A glibc aarch64 Linux runs the static musl binary, when it can link one.
   def test_only_a_host_that_runs_its_own_binaries_runs_the_compiled_compiler
-    { "aarch64-apple-darwin" => true, "x86_64-apple-darwin" => false, "x86_64-linux" => false,
-      "aarch64-linux" => false }.each do |triple, runnable|
+    { "aarch64-apple-darwin" => -> { true }, "x86_64-apple-darwin" => -> { false }, "x86_64-linux" => -> { false },
+      "aarch64-linux" => -> { Zr::Target::AARCH64_LINUX_MUSL.linkable? } }.each do |triple, runnable|
       swap(Zr::Target, :host_triple, triple) do
-        assert_equal runnable, Zr::CompiledCompiler.runnable?, triple
+        assert_equal runnable.call, Zr::CompiledCompiler.runnable?, triple
       end
     end
   end
@@ -155,6 +156,28 @@ class CompiledCompilerTest < Minitest::Test
 
       File.write(source, "p 22\n")
       refute program.failed?
+    end
+  end
+
+  # A failure can come from the host (a full disk), so a build tries
+  # again a day later, and stops after three failures.
+  def test_a_failed_build_tries_again_a_day_later_up_to_three_times
+    Dir.mktmpdir("zr-self-host-") do |dir|
+      source = File.join(dir, "source.rb")
+      File.write(source, "p 1\n")
+      program = Zr::SelfBuilt.new(entry: "exe/zr", binary: File.join(dir, "zr"), dirs: []) { [source] }
+      day = Zr::SelfBuilt::WAIT
+      start = Time.at(1_000_000)
+
+      program.fail!(start)
+      assert program.failed?(start + day - 1)
+      refute program.failed?(start + day)
+      assert_equal start + day, program.retry_at
+
+      program.fail!(start + day)
+      program.fail!(start + (2 * day))
+      assert program.failed?(start + (100 * day))
+      assert_nil program.retry_at
     end
   end
 

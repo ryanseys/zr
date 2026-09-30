@@ -143,7 +143,8 @@ module Zr
       # from its sources only, as a release's must.
       quiet = { "ZR_COMPILED" => "0", "ZR_LEDGER" => "0", **UNBUNDLED }
       announce = lambda do
-        warn "zr: building the compiler with itself, once for this zr"
+        warn "zr: zr is compiling itself to make later builds faster. This occurs one time for each zr version " \
+             "and takes some minutes. You can stop it with Ctrl-C. ZR_COMPILED=0 turns it off."
         began = Process.clock_gettime(Process::CLOCK_MONOTONIC)
       end
       # `targets` also reads the Target objects, which a miscompile of
@@ -158,10 +159,12 @@ module Zr
       if built
         warn format("zr: built the compiled compiler in %.0f s", Process.clock_gettime(Process::CLOCK_MONOTONIC) - began)
       else
-        # Ruby runs zr from now on. The next build tries again only when
-        # a source changes, or under `ZR_COMPILED=1`.
+        # Ruby runs zr until the next try (`SelfBuilt#failed?`), a source
+        # changes, or `ZR_COMPILED=1` asks for a build now.
         program.fail!
-        warn "zr: the compiled compiler did not build; ruby runs zr"
+        again = program.retry_at ? "zr tries again after #{program.retry_at.strftime("%Y-%m-%d %H:%M")}" : "zr does not try again"
+        warn "zr: zr did not compile itself, so ruby runs zr, which is slower. The output is in #{program.log}. " \
+             "#{again}; ZR_COMPILED=1 tries now."
       end
     end
   end
