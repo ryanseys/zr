@@ -12,6 +12,9 @@ Commands:
   build <file.rb> -o <out>    compile a program to a binary, a WASI module or an object
   machine <file.rb> -o <out>  compile one machine-dialect file (for runtime work)
   targets                     list the targets, and what this host can build
+  gems [<file.rb>]            list the gems that a build reads, and their sources
+  inspect <binary>            print the gems that a binary was built with
+  diff <file.rb> [args...]    run a program under ruby and as a zr binary, and compare
   doctor                      check this host: ruby, wasmtime, OpenSSL, gems, cache
   cache [path|size|clean]     show or clean the build cache
   version                     print the version
@@ -29,9 +32,9 @@ come before or after `<file.rb>`. For `run`, options come before
 `<file.rb>`, because every word after it goes to the program. Put `--`
 before `<file.rb>` when the file name starts with `-`.
 
-zr builds only on ruby 4.0.7, the version that `.ruby-version` gives.
-On a different ruby, `run`, `build` and `machine` stop with exit
-status 3.
+zr runs on ruby 4.0.7, and on a later 4.0 release with a warning. On
+another ruby, `run`, `build` and `machine` stop with exit status 3,
+and the message links [How to install zr](../how-to/install.md).
 
 ## Options
 
@@ -44,7 +47,7 @@ status 3.
 | `--link <arg>` | yes | yes | yes | Gives `<arg>` to the system linker (`cc`) for a native binary, once for each argument: an object, an archive, `-framework <name>`, `-Wl,<flags>` such as `-Wl,-sectcreate,<segment>,<section>,<file>` or `-Wl,-exported_symbols_list,<file>`. With a link argument, zr links with `cc`, not with its own linker, so the host needs a C toolchain. With `--emit obj` or `--emit wasm` it is a usage error. `ZR_LINK_ARGS` gives the same arguments. |
 | `--gem <name>=<version\|dir>` | yes | yes | no | Uses this gem in place of the one in the Gemfile.lock or in zr's standard library, once for each gem: an installed version (`--gem csv=3.3.6`), or a directory with a gemspec or a `lib/` (`--gem rainbow=vendor/rainbow`). See [How to use a library or a gem](../how-to/use-a-library-or-gem.md#another-version-of-a-gem). |
 | `--gemfile <path>` | yes | yes | no | Reads the gems of `<path>`'s lock (`Gemfile.lock`, or `gems.locked` for `gems.rb`) before zr's standard library, as `bundle exec ruby` does. `BUNDLE_GEMFILE` does the same. zr reads the lock with its own bundler, not the host's. |
-| `--allow-runtime-require` | yes | yes | no | Lets a literal `require` in the program's own files that zr cannot find wait for the run time. The binary then carries the compiler (about 90 MB) to compile what it finds then. Without it, such a require stops the build; see [the require gate](#the-require-gate). |
+| `--allow-runtime-require` | yes | yes | no | Lets a literal `require` in the program's own files that zr cannot find wait for the run time. The binary then carries the compiler (such a binary is about 110 MB) to compile what it finds then. Without it, such a require stops the build; see [the require gate](#the-require-gate). |
 | `--print-gems` | no | yes | no | After the build, prints the gems that the output was built with, as `zr inspect` does. |
 | `-h`, `--help` | yes | yes | yes | Prints the help for the command. |
 
@@ -221,18 +224,32 @@ Run 'zr help build' for usage.
 ```
 
 Other errors print one line that starts with `zr:`, for example
-`zr: no such file: app.rb`.
+`zr: no such file: app.rb`, and no backtrace. A bad value of a `ZR_*`
+variable names the variable and a value that works, and exits with
+status 2:
+
+```
+zr: ZR_JOBS is "abc". Set it to a whole number of 1 or more, for example ZR_JOBS=4.
+```
+
+An error that zr did not expect is a defect in zr. Its line says so:
+
+```
+zr: internal error: NoMethodError: undefined method 'x' for nil. This is a defect in zr. Report it at https://github.com/ryanseys/zr/issues with the output of 'zr doctor'. Set ZR_DEBUG=1 to see the backtrace.
+```
 
 A refusal of a form of Ruby gives the file, the line and the column,
 the form, the source line with a caret under the column, and the page
-that lists what zr supports:
+that lists what zr supports. It has this format:
 
 ```
-zr: app.rb:2:1: zr does not support `BEGIN { }` here yet
-    BEGIN { p 2 }
+zr: app.rb:2:1: zr does not support <the form> yet
+    <the source line>
     ^
-zr: https://github.com/ryanseys/zr/blob/main/docs/reference/support.md lists what zr supports
+zr: https://github.com/ryanseys/zr/blob/v0.1.0/docs/reference/support.md lists what zr supports
 ```
+
+The link names the docs of this zr version.
 
 ### The require gate
 
@@ -245,17 +262,17 @@ zr: app.rb:2: cannot load such file -- rainbow. Give --gem rainbow=<dir> or a --
 ```
 
 Without the gate, the require would wait for the run time, and the
-binary would carry the compiler (about 90 MB) to compile what it finds
-then. A require inside `begin ... rescue LoadError` (or `ScriptError`,
+binary would carry the compiler (such a binary is about 110 MB) to
+compile what it finds then. A require inside `begin ... rescue LoadError` (or `ScriptError`,
 or `Exception`) does not stop the build: the program handles the
 LoadError, as in ruby. A bare `rescue` does not catch LoadError, so it
 does not count. A require in a library's file, and a require of a
 computed name, do not stop the build either.
 
 When a backend cannot compile code that the front end accepted, the
-message starts with `zr: the backend cannot compile this program`. This
-is a limit or a defect in zr, not a problem in the program. Please
-report it.
+message starts with `zr: zr cannot compile this program`, and says
+that this is a limit or a defect in zr, not a problem in the program.
+Please report it.
 
 ## Exit status
 
@@ -263,11 +280,13 @@ report it.
 |---|---|
 | 0 | Success. For `zr run`, the program's own status. |
 | 1 | An error. A build step failed, or a require in the program's own files has no file; the message tells which. For `zr diff`, the two runs differ. |
-| 2 | A usage error: the command line is wrong. |
-| 3 | A refusal: zr does not support the program, or this host cannot build the target, or the ruby is not 4.0.7. The message gives the form and its line, or the missing tool. |
+| 2 | A usage error: the command line is wrong, or a `ZR_*` variable has a value that zr cannot use. |
+| 3 | A refusal: zr does not support the program, or this host cannot build or run the target, or the ruby is not 4.0.7 or a later 4.0 release. The message gives the form and its line, or the missing tool. |
+| 130 | Ctrl-C stopped zr. zr removes its temporary files first. |
 
-A program that does not parse still builds. Its binary prints ruby's
-syntax error report and exits with status 1, as ruby does.
+A program that does not parse still builds, and `zr build` gives a
+warning. Its binary prints ruby's syntax error report and exits with
+status 1, as ruby does.
 
 The environment variables that change `zr` are in
 [Environment variables](environment-variables.md).

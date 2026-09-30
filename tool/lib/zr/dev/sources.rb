@@ -8,7 +8,13 @@ module Zr
     # vendored: a table is written from them once and then committed.
     PRISM = "v1.9.0"
 
-    def self.ruby_src = File.expand_path(ENV.fetch("RUBY_SRC", "~/dev/github.com/ruby/ruby"))
+    # `RUBY_SRC`, else ~/dev/github.com/ruby/ruby, else tmp/ruby.
+    def self.ruby_src
+      return File.expand_path(ENV["RUBY_SRC"]) unless ENV["RUBY_SRC"].to_s.empty?
+
+      checkout = File.expand_path("~/dev/github.com/ruby/ruby")
+      File.directory?(checkout) ? checkout : path("tmp/ruby")
+    end
 
     # `PRISM_SRC`, else ~/dev/prism, else the release tree in tmp/.
     def self.prism_src
@@ -43,6 +49,10 @@ module Zr
     def self.prism? = File.directory?(prism_src)
 
     def self.git_show(checkout, revision, path, variable)
+      unless File.directory?(checkout)
+        url = variable == "RUBY_SRC" ? "https://github.com/ruby/ruby" : "https://github.com/ruby/prism"
+        abort("zr-dev: no checkout at #{checkout}. Run 'git clone #{url} #{checkout}', or set #{variable} to a checkout")
+      end
       text = IO.popen(["git", "-C", checkout, "show", "#{revision}:#{path}"], err: File::NULL, &:read)
       return text if $?.success?
 

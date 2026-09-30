@@ -37,14 +37,16 @@ world", on the machine that measured it:
 |---|---|
 | `aarch64-apple-darwin` binary | 27 MB |
 | `wasm32-wasi` module | 46 MB |
-| a binary of a program that calls `eval` | 109 MB (it contains the compiler) |
+| a binary of a program that calls `eval` | about 110 MB (it contains the compiler) |
 
 ## How fast is it?
 
-Over 54 benchmark programs, a binary takes 0.41 times ruby's time and
-0.59 times YJIT's, and an empty program starts in about 11 ms. Some
-programs are slower than ruby, for example arithmetic on large
-bignums. See [Performance](performance.md).
+Over the benchmark programs that run long enough to measure, a binary
+takes less time than ruby and than ruby with YJIT (the geometric mean),
+and an empty program starts faster than ruby. Some programs are slower
+than ruby, for example arithmetic on large bignums.
+[Performance](performance.md) has the numbers for each program; a
+tool writes that page from the last benchmark run.
 
 ## How long does a build take?
 

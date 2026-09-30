@@ -5,8 +5,9 @@ zr. We run it, we build a native binary from it, and we build a
 WebAssembly module from the same file. At the end, you have one program
 that runs three ways and prints the same thing each time.
 
-You need an Apple Silicon Mac with ruby 4.0.7. The last step also needs
-[wasmtime](https://wasmtime.dev).
+You need an Apple Silicon Mac (macOS 14 or later) with ruby 4.0.7. The
+last step also needs [wasmtime](https://wasmtime.dev).
+[How to install zr](../how-to/install.md) shows how to get them.
 
 ## Install zr
 
@@ -20,8 +21,18 @@ Check that the command is there:
 
 ```console
 $ zr version
-zr 0.1.0
+zr 0.1.0 (for ruby 4.0.7)
 ```
+
+Check what zr can do on this Mac:
+
+```console
+$ zr doctor
+```
+
+Each line starts with `ok`, `warn` or `fail`. A `warn` line says what
+zr cannot do here, and how to fix it. With no `fail` line, you can
+continue.
 
 ## Write a program
 
@@ -57,6 +68,21 @@ Now run the same file with zr:
 
 ```console
 $ zr run greet.rb
+zr: building the zr runtime for aarch64-apple-darwin. This occurs one time and takes some minutes.
+zr: zr is compiling itself to make later builds faster. This occurs one time for each zr version and takes some minutes. You can stop it with Ctrl-C. ZR_COMPILED=0 turns it off.
+Matz writes Ruby
+Ada writes Analytical Engine
+2 people, 7 letters of names
+```
+
+The two `zr:` lines come only from the first build on this Mac. zr
+compiles its runtime one time and keeps it in a cache. Then it compiles
+itself, so that later builds are faster. Wait for them to finish.
+
+Run it again. Now only the program's output shows:
+
+```console
+$ zr run greet.rb
 Matz writes Ruby
 Ada writes Analytical Engine
 2 people, 7 letters of names
@@ -66,9 +92,8 @@ The output is the same as ruby's. That is the promise of zr: a
 program gives the same output as ruby.
 
 `zr run` did more than ruby did. It compiled `greet.rb` to machine
-code, linked a binary, ran it, and then deleted it. The first build
-takes some minutes, because zr compiles its runtime one time and keeps
-it in a cache. Every build after that takes less than a second.
+code, linked a binary, ran it, and then deleted it. Every build after
+the first takes about a second.
 
 ## Build a binary
 

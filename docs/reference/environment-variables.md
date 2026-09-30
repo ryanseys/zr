@@ -11,6 +11,13 @@ three groups:
 A *flag* is a variable that is on or off. Unset or empty gives the
 default. `0` is off. Any other value is on (`Zr.flag?`).
 
+A `ZR_*` value that zr cannot use stops the command with one line and
+exit status 2. The line names the variable and a value that works:
+
+```
+zr: ZR_JOBS is "abc". Set it to a whole number of 1 or more, for example ZR_JOBS=4.
+```
+
 ## For users
 
 ### The compiler
@@ -19,13 +26,14 @@ default. `0` is off. Any other value is on (`Zr.flag?`).
 
 | Variable | Values | Default | Effect |
 |---|---|---|---|
-| `ZR_CACHE` | a directory | `tmp/cache` in a checkout; `$XDG_CACHE_HOME/zr` if `XDG_CACHE_HOME` is set; else `~/Library/Caches/zr` on macOS and `~/.cache/zr` on other hosts | Where zr keeps the built runtime, eval support, the prelinked images and the other cache files. |
+| `ZR_CACHE` | a directory | `tmp/cache` in a checkout; `$XDG_CACHE_HOME/zr` if `XDG_CACHE_HOME` is set; else `~/Library/Caches/zr` on macOS and `~/.cache/zr` on other hosts | Where zr keeps the built runtime, eval support, the prelinked images and the other cache files. It does not move the compiled compiler of an installed gem (`self-<version>-<id>/`) and the check of a shipped binary: they stay in the user cache, which `XDG_CACHE_HOME` and `HOME` give. |
 | `XDG_CACHE_HOME` | a directory | unset | The base of the user cache for an installed gem (see `ZR_CACHE`). |
-| `ZR_CACHE_MAX_GB` | a number of GB | 5 | After a build, an installed zr deletes the cache files that it does not use, and the compiled compilers of other versions, when the cache is larger than this. It measures at most once a day. `0` turns this off. A checkout never does it; use `zr-dev cache prune`. |
+| `HOME` | a directory | the user's | The user cache is below it when `XDG_CACHE_HOME` is not set. With no `HOME` (some containers and CI jobs), zr stops and says to set `HOME` or `ZR_CACHE`. |
+| `ZR_CACHE_MAX_GB` | a number of GB, 0 or more | 5 | After a build, an installed zr deletes the cache files that it does not use, and the compiled compilers of other versions, when the cache is larger than this. It measures at most once a day. `0` turns this off. A checkout never does it; use `zr-dev cache prune`. |
 | `ZR_LINK_ARGS` | words | none | Arguments for the system linker, split as a shell splits them, before the `--link` arguments of the command. They make zr link a native binary with `cc` (see `--link` in [The `zr` command](cli.md)). A WASI module or an object ignores them. |
 | `ZR_LINKER` | `auto`, `ruby`, `cc` | `auto` | The macOS linker. `auto`: zr's own Mach-O linker, and `cc` for a link that zr's linker refuses. `ruby`: zr's linker only; a link it cannot do stops with a message. `cc`: the system linker always. Another value is an error. |
 | `ZR_DEBUG` | `0`, `1` | `0` | `1`: an error that stops zr shows its backtrace. Otherwise zr prints one line: the message, or for a defect in zr, `zr: internal error: ...` and where to report it. |
-| `ZR_JOBS` | a number | one for each core, at most 6 | How many worker processes assemble a large compilation unit. When it is not set, zr also uses fewer workers if the machine does not have the memory for them. |
+| `ZR_JOBS` | a whole number, 1 or more | one for each core, at most 6 | How many worker processes assemble a large compilation unit. When it is not set, zr also uses fewer workers if the machine does not have the memory for them. |
 | `ZR_TIMING` | flag | off | Prints to stderr the seconds that each phase of a build takes. |
 | `ZR_CODE_CACHE` | `0`, `1`, `verify` | `1` | A build keeps the machine code of each function of the runtime object and of eval support in `<cache>/code/`, by a fingerprint of the function's IR, and assembles only the functions whose IR changed. `0` assembles every function. `verify` assembles every function, and stops when the kept code differs. |
 | `ZR_LEDGER` | `0`, `1` | `1` in a checkout, else `0` | With the ledger, the runtime's symbol table starts from the table of the last build (`<cache>/ledger-<target>.json`): each name keeps its id, and a new name takes a free id, so most functions keep their code (`ZR_CODE_CACHE`) and eval support keeps its ids. A name that a build no longer uses frees its id at the next build, and until then `Symbol.all_symbols` still lists it. `0` numbers the names from the sources only, as an install, a release and the compiled compiler's build do. |
@@ -44,7 +52,11 @@ default. `0` is off. Any other value is on (`Zr.flag?`).
 | `ZR_WASM_WIDTH` | a number | 256 | In a WASI module, a function with more blocks than this dispatches to its blocks in two steps, in groups of this size. |
 | `GEM_HOME`, `GEM_PATH` | directories | ruby's | Where rubygems finds the zr gem itself, and the gems that `--gem NAME=VERSION` and a Gemfile.lock name. A build reads no other gem from here: a program's library is zr's `stdlib/`. |
 | `BUNDLE_GEMFILE` | a Gemfile | unset | `bundle exec` sets it. A build then reads the gems of its lock before zr's standard library, as `bundle exec ruby` does; `--gemfile` wins over it. zr never needs `bundle exec`, and never starts bundler inside itself. See [How to use a library or a gem](../how-to/use-a-library-or-gem.md#another-version-of-a-gem). zr's own development Gemfile never applies. |
-| `TMPDIR` | a directory | `/tmp` | Where a build writes its temporary files. |
+| `TMPDIR` | a directory | `/tmp` | Where a build writes its temporary files. When neither `TMPDIR` nor `/tmp` is a directory that zr can write to, zr stops and says to set `TMPDIR`. |
+| `CC` | a command | unset | On a glibc aarch64 Linux, the C compiler that links an `aarch64-linux-musl` binary, before `aarch64-linux-musl-gcc` and `musl-gcc`. It must link against musl. |
+| `OPENSSL_DIR` | a prefix | unset | `zr doctor` looks for OpenSSL 3 in `$OPENSSL_DIR/lib`, as a compiled program does (see [Compiled programs](#compiled-programs)). |
+| `RUBY_GC_MALLOC_LIMIT`, `RUBY_GC_OLDMALLOC_LIMIT` | numbers | set by zr | ruby's collector limits. zr sets them for its own heavy work (`ZR_TUNE`), and removes them from the environment of a program that `zr run` runs. A value that you set wins. |
+| `RUBYOPT`, `RUBYLIB`, `BUNDLER_SETUP`, `BUNDLE_BIN_PATH`, `BUNDLER_VERSION` | | | zr clears these for the child that reads a Gemfile.lock, so that the host's bundle does not load into it. The compiled compiler runs without `BUNDLER_SETUP`. A `-rbundler/setup` in `RUBYOPT` still loads into the `zr` command itself; zr needs no bundle. |
 | `PATH` | directories | | zr looks here for the tools of a target (for example `aarch64-linux-musl-gcc`), and `zr run --emit wasm` looks here for `wasmtime`. |
 | `DEVELOPER_DIR`, `SDKROOT` | directories | set by zr | When zr runs `cc` on macOS, it sets these to the install that the SDK comes from. zr keeps values that you set. |
 
@@ -110,7 +122,7 @@ The `zr-dev` commands read these. See [Tools](tools.md#zr-dev).
 
 | Variable | Command | Default | Effect |
 |---|---|---|---|
-| `RUBY_SRC` | `zr-dev gen`, `zr-dev rubyspec` | `~/dev/github.com/ruby/ruby` | A CRuby checkout that has the commit `Zr::RUBY_REVISION` (`lib/zr/version.rb`). The generators read the C sources at that commit. `zr-dev rubyspec` runs its `spec/` directory, and needs the checkout at that commit. |
+| `RUBY_SRC` | `zr-dev gen`, `zr-dev rubyspec` | `~/dev/github.com/ruby/ruby` when it exists, else `tmp/ruby` | A CRuby checkout that has the commit `Zr::RUBY_REVISION` (`lib/zr/version.rb`). The generators read the C sources at that commit. `zr-dev rubyspec` runs its `spec/` directory, and needs the checkout at that commit. |
 | `PRISM_SRC` | `zr-dev gen prism`, `zr-dev gen prism_encoding_tables` | `~/dev/prism`, else `tmp/prism-1.9.0` | A prism checkout that has the tag `v1.9.0`, or a release tree of prism 1.9.0. |
 | `NKF_SRC` | `zr-dev gen nkf` | the installed nkf gem's `ext/nkf/nkf-utf8/utf8tbl.c` | The path of nkf's `utf8tbl.c`. The `--source` option has priority. |
 | `CHECK` | `rake gen` | unset | Any value: compare each generated file, and write nothing (`zr-dev gen all --check`). |

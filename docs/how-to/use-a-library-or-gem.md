@@ -160,8 +160,8 @@ such require when you build with `--allow-runtime-require`. See
 A `require` of a name that zr cannot read or find at build time runs
 when the program runs. For example, `require name` with a variable,
 or a directory that the program adds to `$LOAD_PATH` with a computed
-path. The binary then includes eval support (the compiler, about
-90 MB), and compiles the file that it finds at run time. This is how
+path. The binary then includes eval support (the compiler: such a binary
+is about 110 MB), and compiles the file that it finds at run time. This is how
 `require "bundler/setup"` with a Gemfile can reach installed gems.
 It has these limits:
 

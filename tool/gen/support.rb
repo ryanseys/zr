@@ -48,8 +48,9 @@ module Zr
             `LoadError` with the reason when it runs, so a guarded
             require that never runs costs nothing. Every other library of
             ruby 4.0.7 is there: the default and bundled gems, and ruby's
-            own `lib/`. A program cannot require a gem that ruby does not
-            ship (see [Use a library or gem](../how-to/use-a-library-or-gem.md)).
+            own `lib/`. A gem that ruby does not ship comes from `--gem` or a
+            Gemfile.lock, and a gem with a C extension needs a port (see
+            [How to use a library or a gem](../how-to/use-a-library-or-gem.md)).
 
             #{libraries}
 

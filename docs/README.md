@@ -17,6 +17,8 @@ Lessons that take you, step by step, to a result.
 
 Steps for a goal that you already have.
 
+- [How to install zr](how-to/install.md): get ruby 4.0.7, install
+  zr, and fix the problems that an install can have
 - [How to use a library or a gem](how-to/use-a-library-or-gem.md)
 - [How to build for another target](how-to/build-for-another-target.md)
 - [How to run the tests](how-to/run-the-tests.md)

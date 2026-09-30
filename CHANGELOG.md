@@ -56,7 +56,22 @@ The first public release.
   stops the build with the fix, unless `rescue LoadError` guards it
   or the build has `--allow-runtime-require`.
 - `zr doctor` checks the ruby, the host's targets, wasmtime, OpenSSL,
-  the standard library, the cache and the compiled compiler.
+  the standard library, the cache and the compiled compiler, and says
+  what to do for each problem. [How to install zr](docs/how-to/install.md)
+  shows how to get ruby 4.0.7, and lists each problem and its fix.
+- An error prints one line and no backtrace (`ZR_DEBUG=1` shows it).
+  A bad `ZR_*` value exits with status 2 and names a value that works.
+  Ctrl-C exits with status 130. Every command takes `--help`, and a
+  mistyped command gets a suggestion.
+- The first build says that it builds the runtime and the compiled
+  compiler, which take some minutes one time. Two builds at once build
+  the runtime one time. A compiled compiler that did not build is tried
+  again a day later, at most three times.
+- A binary loads on macOS 14 or later, and its `RUBY_PLATFORM` is
+  `arm64-darwin23`, the platform of macOS 14. A glibc aarch64 Linux
+  runs the static `aarch64-linux-musl` binary, and links it with
+  `musl-gcc` or `$CC`. On a host that runs no native target, `zr run`
+  says to use `--emit wasm`.
 - MIT License. `THIRD_PARTY_NOTICES.md` names every part from other
   work, and `licenses/` holds the license texts that have no other copy
   in the gem.
@@ -65,5 +80,11 @@ The first public release.
   `zr-dev gen` writes from the benchmark reports and from the compiler.
 - For contributors: `bin/setup`, `bin/test` (with `--changed`),
   `bin/console`, the `zr-dev` tools, and CI for all three targets.
+
+### Planned for 0.2
+
+- `--gems host`: build with the gems that the host's rubygems has
+  installed.
+- `zr gem install`: a gem home of zr's own, for gems that a build reads.
 
 [Unreleased]: https://github.com/ryanseys/zr/commits/main

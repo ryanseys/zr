@@ -24,7 +24,7 @@ Check that the command works:
 
 ```console
 $ exe/zr version
-zr 0.1.0
+zr 0.1.0 (for ruby 4.0.7)
 ```
 
 ## Get the output from ruby first

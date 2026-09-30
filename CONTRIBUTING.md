@@ -13,7 +13,7 @@ tests near your change. [wasmtime](https://wasmtime.dev) is optional;
 without it, the tests that run WebAssembly modules skip.
 
 On Linux, you can work on the `wasm32-wasi` target:
-`rake build:all`, then `TARGET=wasm32-wasi bin/test <paths>`. See
+`rake build:wasm`, then `TARGET=wasm32-wasi bin/test <paths>`. See
 [How to test on another target](docs/how-to/test-on-another-target.md).
 
 ```console

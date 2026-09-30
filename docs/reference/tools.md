@@ -133,9 +133,11 @@ it fails if the file is out of date. `zr-dev gen all` runs every
 generator in order (`rake gen` runs it too).
 
 The generators read the CRuby source from the checkout that `RUBY_SRC`
-names (default `~/dev/github.com/ruby/ruby`), at `Zr::RUBY_REVISION`
-(`lib/zr/version.rb`). They read prism from `PRISM_SRC` (default
-`~/dev/prism`, else `tmp/prism-1.9.0`). The code of each generator is
+names (default `~/dev/github.com/ruby/ruby` when it exists, else
+`tmp/ruby`), at `Zr::RUBY_REVISION` (`lib/zr/version.rb`). They read
+prism from `PRISM_SRC` (default `~/dev/prism` when it exists, else
+`tmp/prism-1.9.0`). With no checkout there, a generator stops and says
+which `git clone` to run. The code of each generator is
 in `tool/gen/`.
 
 | Command | Writes |
