@@ -205,7 +205,27 @@ module Zr
     def clean(days: 0, now: Time.now)
       kept = rooted(now).to_h { |line| [line, true] }
       young = now - (days * 86_400)
-      entries.reject { |entry| kept[relative(entry.path)] || entry.mtime > young }.each { |entry| Paths.remove(entry.path) }
+      gone = entries.reject { |entry| kept[relative(entry.path)] || entry.mtime > young }.each { |entry| Paths.remove(entry.path) }
+      orphan_locks.each { |lock| Paths.remove(lock) }
+      gone
+    end
+
+    # The lock files (`once`) whose entry is not there: a build that
+    # stopped, or an entry that a clean removed. The lock of an entry
+    # that a build makes now goes too; a second build then waits on a new
+    # lock, and at worst builds the entry again, which the atomic write
+    # allows.
+    def orphan_locks
+      KINDS.each_key.flat_map do |name|
+        top = File.join(dir, name.to_s)
+        children(top).flat_map do |prefix|
+          folder = File.join(top, prefix)
+          children(folder).filter_map do |base|
+            lock = File.join(folder, base)
+            lock if base.end_with?(".lock") && !File.exist?(lock.delete_suffix(".lock"))
+          end
+        end
+      end
     end
 
     # Removes the whole store.

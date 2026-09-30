@@ -134,6 +134,9 @@ module Zr
       primed if prime
       @stamps = stamps
       listener = listen(path)
+      # The binaries that the clients of an earlier server did not remove.
+      require_relative "cache"
+      Cache.remove(Cache.served)
       say format("listening at %s, ready in %.1f s", path, Process.clock_gettime(Process::CLOCK_MONOTONIC) - began)
       loop do
         clients = @jobs.values.map { |job| job[:client] }.reject(&:closed?)

@@ -137,6 +137,18 @@ class StoreTest < Minitest::Test
     refute File.exist?(Store.dir)
   end
 
+  def test_clean_removes_a_lock_whose_entry_is_gone
+    kept, gone = %w[kept gone].map { |name| Store.key(name) }
+    Store.once(:object, kept) { |path| File.write(path, "o") }
+    Store.once(:object, gone) { |path| File.write(path, "o") }
+    Store.root("build", [Store.path(:object, kept)])
+
+    Store.clean
+
+    assert File.exist?("#{Store.path(:object, kept)}.lock")
+    refute File.exist?("#{Store.path(:object, gone)}.lock")
+  end
+
   def with_env(values)
     was = values.to_h { |name, _| [name, ENV.fetch(name, nil)] }
     values.each { |name, value| ENV[name] = value }
