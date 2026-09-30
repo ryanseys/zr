@@ -70,7 +70,7 @@ module Zr
         outs = started.map do |n, pid_or_status|
           status = pid_or_status.is_a?(Integer) ? Process.wait2(pid_or_status).last : pid_or_status
           fail!("self-compile #{n} failed; its work is in #{work}") unless status.success?
-          digest = Zr.runtime(Target.default).digest
+          digest = runtime_digest(File.join(work, "#{n}-cache"))
           runtime = File.join(work, "#{n}-cache", "store", "object", digest[0, 2], "#{digest}.o")
           fail!("the runtime object was not cached; the work is in #{work}") unless File.file?(runtime)
 
@@ -88,6 +88,17 @@ module Zr
         puts "stage 1 passes: #{a[0].bytesize} bytes of compiler and #{a[1].bytesize} of runtime, the same twice"
         FileUtils.rm_rf(work)
         puts "nothing is kept: #{work} is gone"
+      end
+
+      # The runtime digest of the self-compile whose cache is `cache`: the
+      # name of the one runtime symbol table there. This process cannot
+      # compute it: the digest contains the ledger of symbol ids, which the
+      # self-compile wrote into its own cache.
+      def runtime_digest(cache)
+        tables = Dir[File.join(cache, "store", "meta", "*", "*-symbols.json")]
+        fail!("#{cache} has #{tables.size} runtime symbol tables, not one") unless tables.size == 1
+
+        File.basename(tables.first, "-symbols.json")
       end
 
       # Stage 1 is the compiler compiled by zr under ruby. Stage 2 is the same
