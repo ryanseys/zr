@@ -83,8 +83,8 @@ module ZrGemSet
     dir = File.expand_path(value)
     raise Error, "#{source}: no such directory: #{dir}" unless File.directory?(dir)
 
-    spec = Dir.children(dir).grep(/\.gemspec\z/).sort.filter_map do |file|
-      Dir.chdir(dir) { Gem::Specification.load(File.join(dir, file)) }
+    spec = gemspecs(dir).lazy.filter_map do |file|
+      Dir.chdir(dir) { Gem::Specification.load(file) }
     end.find { |candidate| candidate.name == name }
     if spec
       roots = spec.require_paths.map { |path| File.expand_path(path, dir) }
@@ -94,6 +94,17 @@ module ZrGemSet
       lib = File.join(dir, "lib")
       gem(name, version, source, [File.directory?(lib) ? lib : dir], false, ports)
     end
+  end
+
+  # The gemspecs that can describe the gem in `dir`: first the one that
+  # rubygems wrote when it installed the gem (`<home>/gems/rake-13.3.1`
+  # has `<home>/specifications/rake-13.3.1.gemspec`), then the gem's own.
+  # A gem's own gemspec can read `git ls-files`, which an installed copy
+  # cannot answer.
+  def gemspecs(dir)
+    installed = File.join(File.dirname(dir, 2), "specifications", "#{File.basename(dir)}.gemspec")
+    own = Dir.children(dir).grep(/\.gemspec\z/).sort.map { |file| File.join(dir, file) }
+    [installed].select { |file| File.basename(File.dirname(dir)) == "gems" && File.file?(file) } + own
   end
 
   # The gem's own require paths, without the directory that rubygems

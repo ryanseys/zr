@@ -47,7 +47,8 @@ needs, as `bundle install` would pick them. It takes only releases for
 the `ruby` platform: a precompiled platform gem holds native code. A gem
 that zr has already (its standard library, and the gems whose C zr
 ports, such as json 3.0.2) is not fetched. The fetched gems are in
-`tmp/gems/src`.
+`tmp/gems`, a gem home as `gem install` leaves one (`gems/`,
+`specifications/`, `cache/`), so `GEM_PATH=tmp/gems ruby` reads them too.
 
 You can name a gem in three ways, as with `zr build --gem`:
 
@@ -211,4 +212,4 @@ so a corpus can hold every gem. It reads the version from
 `.zeo-probe-spec`, and the dependencies from `<name>.gemspec`.
 
 `--offline` fetches nothing. A gem that is not in the corpus then comes
-from `tmp/gems/src`, the gems that an earlier run fetched.
+from `tmp/gems`, the gems that an earlier run fetched.

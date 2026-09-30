@@ -68,6 +68,20 @@ class GemSetTest < Minitest::Test
     assert_equal ["rainbow", "3.1.1", [File.join(dir, "lib")], nil], [gem.name, gem.version, gem.roots, gem.refusal]
   end
 
+  # A gem in a gem home: rubygems' specification, not the gem's own
+  # gemspec, gives the version and the require paths.
+  def test_a_path_flag_into_a_gem_home_reads_its_specification
+    dir = File.join(@dir, "home/gems/rainbow-3.1.1")
+    FileUtils.mkdir_p([File.join(dir, "src"), File.join(@dir, "home/specifications")])
+    File.write(File.join(dir, "rainbow.gemspec"), "raise 'git ls-files'\n")
+    spec = Gem::Specification.new { |s| s.name = "rainbow"; s.version = "3.1.1"; s.require_paths = ["src"] }
+    File.write(File.join(@dir, "home/specifications/rainbow-3.1.1.gemspec"), spec.to_ruby)
+
+    gem = resolve([["rainbow", dir]], "BUNDLE_GEMFILE" => nil).gems.first
+
+    assert_equal ["3.1.1", [File.join(dir, "src")]], [gem.version, gem.roots]
+  end
+
   # The compiled compiler's `RbConfig.ruby` names zr itself, so it starts
   # the ruby that ZR_HOST_RUBY names for the resolver.
   def test_the_compiled_compiler_resolves_with_the_host_ruby

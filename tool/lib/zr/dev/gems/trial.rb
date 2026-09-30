@@ -174,11 +174,15 @@ module Zr
           raise Failure.new(kind == "crash" ? "zr-crash" : kind, difference(ruby, zr), tier: :compiles)
         end
 
-        # A gem directory in `dir` that holds `gems` as rubygems installs
-        # them: a specification and a link to each gem's files. ruby reads
-        # it from GEM_PATH, so a gem that activates another one (`gem
-        # "parser", ">= 3.3"`, as rubocop-ast does) finds it.
+        # A gem home that holds `gems`, for ruby's GEM_PATH, so a gem that
+        # activates another one (`gem "parser", ">= 3.3"`, as rubocop-ast
+        # does) finds it. The store is one when it holds them all. A gem
+        # from a path or a corpus gets a home in `dir`: a specification
+        # and a link to each gem's files.
         def gem_home(dir, gems)
+          store = @resolver.store
+          return store.dir if gems.all? { |gem| store.holds?(gem) }
+
           home = File.join(dir, "gem-home")
           FileUtils.rm_rf(home)
           FileUtils.mkdir_p([File.join(home, "gems"), File.join(home, "specifications")])

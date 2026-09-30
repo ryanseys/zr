@@ -29,6 +29,8 @@ module Zr
         # thread at a time.
         LOCK = Mutex.new
 
+        attr_reader :store
+
         def initialize(store: Store.new, corpus: nil, offline: false, remote: Remote.new)
           @store = store
           @corpus = corpus

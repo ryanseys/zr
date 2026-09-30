@@ -140,12 +140,27 @@ class GemCompatTest < Minitest::Test
     store = Gems::Store.new(@dir)
     subject = store.unpack(package("packed", "0.4.0", "lib/packed.rb" => "module Packed; end\n"))
 
-    assert_equal ["packed", "0.4.0", "rubygems", File.join(store.src, "packed-0.4.0")], [subject.name, subject.version, subject.source, subject.root]
+    assert_equal ["packed", "0.4.0", "rubygems", File.join(store.gems, "packed-0.4.0")], [subject.name, subject.version, subject.source, subject.root]
     assert File.file?(File.join(subject.root, "lib/packed.rb"))
-    assert_equal "packed", Gem::Specification.load(File.join(subject.root, "packed.gemspec")).name, "zr build --gem reads this gemspec"
+    assert_equal "packed", Gem::Specification.load(File.join(store.specifications, "packed-0.4.0.gemspec")).name, "zr build --gem reads this gemspec"
     assert_equal [subject], store.versions("packed")
     assert_equal subject, store.find("packed", "0.4.0")
     assert_equal subject, store.unpack(package("packed", "0.4.0", "lib/packed.rb" => "module Packed; end\n"))
+  end
+
+  def test_the_store_of_an_older_zr_dev_moves_to_the_gem_home_layout
+    old = File.join(@dir, "src/packed-0.4.0")
+    FileUtils.mkdir_p([old, File.join(@dir, "rubygems/cache")])
+    marker = { name: "packed", version: "0.4.0", require_paths: ["lib"], extensions: [], dependencies: [] }
+    File.write(File.join(old, Gems::Store::MARKER), JSON.generate(marker))
+    File.write(File.join(old, "packed.gemspec"), "spec\n")
+    store = Gems::Store.new(@dir)
+
+    store.migrate
+
+    assert_equal ["packed-0.4.0"], Dir.children(store.gems)
+    assert_equal "spec\n", File.read(File.join(store.specifications, "packed-0.4.0.gemspec"))
+    assert File.directory?(File.join(@dir, "cache"))
   end
 
   def test_offline_the_resolver_takes_the_newest_version_in_the_store
