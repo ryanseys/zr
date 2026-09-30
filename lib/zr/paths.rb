@@ -2,6 +2,7 @@
 
 require "rbconfig"
 require_relative "config"
+require_relative "version"
 
 module Zr
   # Whether this process is a program that zr compiled (the compiled
@@ -200,43 +201,51 @@ module Zr
   #
   # Two kinds of code meet on the load path (Hir::Build.stdlib):
   #
-  # - upstream code, as its authors ship it: ruby's own library, the
-  #   default and bundled gems, and the Ruby halves of the gems whose C
-  #   zr ports;
-  # - zr's own code under runtime/: the C halves in Ruby (EXT), which
-  #   come first.
+  # - upstream code, as its authors ship it, in vendor/
+  #   (lib/zr/vendor.rb): ruby's own library, the default and bundled
+  #   gems, and the gems whose C zr ports;
+  # - zr's own code under runtime/: the C halves in Ruby (EXT). It comes
+  #   first, so a file there replaces an upstream file of its name.
   module Layout
     # The directory name of ruby's library version (RbConfig's
     # `ruby_version`): 4.0.0 for every ruby 4.0.x.
-    API = "4.0.0"
+    API = RUBY.sub(/\.\d+\z/, ".0")
 
-    # The install prefix that holds ruby's library and gems.
-    PREFIX = File.join(Paths::ROOT, "stdlib")
+    # The install prefix that holds ruby's library and gems, as
+    # `zr-dev vendor` writes it.
+    PREFIX = File.join(Paths::VENDOR, "ruby")
     # ruby's own library and the default gems.
     RUBYLIBDIR = File.join(PREFIX, "lib/ruby", API)
     # The gem home: gems/<name>-<version>/ and specifications/.
     GEM_DIR = File.join(PREFIX, "lib/ruby/gems", API)
     GEMS = File.join(GEM_DIR, "gems")
     SPECIFICATIONS = File.join(GEM_DIR, "specifications")
+    # ruby's gem_prelude.rb, which every ruby runs at boot.
+    GEM_PRELUDE = File.join(PREFIX, "gem_prelude.rb")
+
+    # The license texts that no gem directory holds, and the record of
+    # each source and each file of vendor/.
+    LICENSES = File.join(Paths::VENDOR, "LICENSES")
+    LOCK = File.join(Paths::VENDOR, "vendor.lock")
+    # Upstream source files that no install has, which only the tools
+    # read (prism's templates).
+    SOURCES = File.join(Paths::VENDOR, "src")
+
+    # The directories below ROOT that hold upstream code a build reads.
+    # Not all of vendor/: a checkout can keep a bundle in vendor/bundle.
+    UPSTREAM = %w[vendor/ruby].freeze
 
     # The C halves of extensions, in Ruby. A file here is part of the
     # runtime, so it can call a kernel def through `Primitive`.
     EXT = File.join(Paths::RUNTIME, "ext")
-
-    # ruby's gem_prelude.rb, which every ruby runs at boot.
-    GEM_PRELUDE = File.join(Paths::VENDOR, "prelude/gem_prelude.rb")
-
-    # The directories below ROOT that hold upstream code a build reads.
-    # Not all of vendor/: a checkout can keep a bundle in vendor/bundle.
-    UPSTREAM = %w[stdlib vendor/ext vendor/prelude].freeze
 
     module_function
 
     # The directory of gem `name` at `version` in the gem home.
     def gem_root(name, version) = File.join(GEMS, "#{name}-#{version}")
 
-    # The Ruby half of port `name` (lib/zr/ports.rb).
-    def port_lib(name) = File.join(Paths::VENDOR, "ext", name, "lib")
+    # The upstream source tree of `name` at `version` in SOURCES.
+    def source(name, version) = File.join(SOURCES, "#{name}-#{version}")
 
     # The OS layer of EXT for `target`.
     def ext_os(target) = File.join(EXT, "os", target.os_layer)

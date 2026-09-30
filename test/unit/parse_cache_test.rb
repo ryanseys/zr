@@ -22,7 +22,7 @@ class ParseCacheTest < Minitest::Test
     parse, gem, node, native = compiler_process.lines(chomp: true)
 
     assert_equal File.join(ROOT, "runtime/ext/prism/prism.rb"), parse
-    assert_equal File.join(ROOT, "vendor/ext/prism/lib/prism.rb"), gem
+    assert_equal File.join(Zr::Ports.lib("prism"), "prism.rb"), gem
     assert_equal "true", node
     assert_equal "[]", native
   end

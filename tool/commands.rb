@@ -28,6 +28,8 @@ module Zr
       "cache" => ["Show, prune or clear the runtime cache", -> { require_relative "cache"; Cache }],
       "gem" => ["Build the platform gem, with the compiled compiler in it", -> { require_relative "gem"; PlatformGem }],
       "gems" => ["Check which gems zr compiles, and group what stops the others", -> { require_relative "gems"; GemCompat }],
+      "vendor" => ["Write vendor/ (ruby's library and gems, as upstream ships them) again, or check it",
+                   -> { require_relative "vendor"; VendorCommand }],
       "reference" => ["Install the gems of the ruby that the tests compare with", -> { require_relative "reference"; Reference }],
       "serve" => ["Keep a warm compiler that zr run and zr build of this checkout use", -> { require_relative "serve"; Serve }]
     }.freeze

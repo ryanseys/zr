@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require_relative "paths"
+require_relative "ports"
 
 module Zr
   # Whether ruby itself runs the compiler. Ruby finds prism on its load
@@ -10,13 +10,13 @@ module Zr
 end
 
 # The host's prism: the vendored Ruby part of prism 1.9.0
-# (vendor/ext/prism/lib) on top of zr's Ruby port of prism's C
+# (vendor/ruby, Zr::Ports.lib) on top of zr's Ruby port of prism's C
 # (runtime/ext/prism/ruby). A zr binary links in the same tree. Both
 # directories go ahead of ruby's own prism. prism_shim contains only
 # prism/prism.rb. A process that loaded ruby's prism first keeps it,
 # because both return the same objects.
 if Zr::HOSTED
-  $LOAD_PATH.unshift(Zr::Layout.port_lib("prism"), File.expand_path("prism_shim", __dir__))
+  $LOAD_PATH.unshift(Zr::Ports.lib("prism"), File.expand_path("prism_shim", __dir__))
 end
 require "prism"
 

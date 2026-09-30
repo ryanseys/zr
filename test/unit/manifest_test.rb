@@ -23,7 +23,7 @@ class ManifestTest < Minitest::Test
   end
 
   def test_a_ports_ruby_half_is_the_port
-    json = File.join(Zr::Paths::VENDOR, "ext/json/lib/json.rb")
+    json = File.join(Zr::Ports.lib("json"), "json.rb")
 
     assert_equal [["json", Zr::Ports::ALL.fetch("json").version, "port"]], rows(json)
   end

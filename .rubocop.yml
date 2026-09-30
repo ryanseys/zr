@@ -20,7 +20,6 @@ AllCops:
     - "tmp/**/*"
     - "lib/zr/hir/features.rb"      # generated
     - "lib/zr/stdlib.rb"            # generated
-    - "stdlib/**/*"                 # ruby's own library, unedited
 
 Lint:
   Enabled: true

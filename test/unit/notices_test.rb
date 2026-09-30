@@ -14,14 +14,14 @@ class NoticesTest < Minitest::Test
 
   def tracked(dir) = IO.popen(["git", "-C", ROOT, "ls-files", dir], &:read).split("\n")
 
-  def paths = NOTICES.scan(/`([^`]+)`/).flatten.grep(%r{\A(runtime|stdlib|vendor|licenses)/}).uniq
+  def paths = NOTICES.scan(/`([^`]+)`/).flatten.grep(%r{\A(runtime|vendor|licenses)/}).uniq
 
   def covered?(file)
     paths.any? { |path| File.fnmatch(path, file, File::FNM_PATHNAME) || file.start_with?("#{path.chomp("/")}/") }
   end
 
   def test_every_path_names_a_file
-    files = tracked("runtime") + tracked("stdlib") + tracked("vendor") + tracked("licenses")
+    files = tracked("runtime") + tracked("vendor") + tracked("licenses")
 
     stale = paths.reject { |path| files.any? { |file| File.fnmatch(path, file, File::FNM_PATHNAME) || file.start_with?("#{path.chomp("/")}/") } }
 

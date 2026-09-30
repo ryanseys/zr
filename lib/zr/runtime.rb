@@ -704,7 +704,8 @@ module Zr
     # builds its tables here too, and must not read them: they are the
     # build machine's directories.
     names = if evals
-              pure, *roots = Hir::Build.stdlib(target)
+              pure = Hir::Build.pure
+              roots = Hir::Build.stdlib(target) - [pure]
               [[pure, *gem_roots, *roots].map(&shown), uncarried, Hir::Build::PRELOADED, [shown[Hir::Build::EXT]]]
             else
               [[]] * 4

@@ -57,7 +57,7 @@ class EvalKeyTest < Minitest::Test
 
   # Eval support stopped on a feature that no root had. A file that later
   # appears there makes it stale, though no file that it read changed
-  # (prism/translation/parser was once missing from vendor/ext/prism).
+  # (prism/translation/parser was once missing from the vendored prism).
   def test_a_file_where_a_stopped_feature_would_be_changes_the_files_key
     Dir.mktmpdir("zr-eval-key-") do |dir|
       absent = File.join(dir, "prism/translation/parser.rb")

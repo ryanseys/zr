@@ -19,8 +19,6 @@ module Zr
       commands({
         "all" => ["Every generator below, in order", -> { All }],
         "features" => ["lib/zr/hir/features.rb: the names require accepts", -> { require_relative "gen/features"; Features }],
-        "stdlib" => ["stdlib/ and lib/zr/stdlib.rb: ruby's pure-Ruby library, as ruby 4.0.7 ships it",
-                     -> { require_relative "gen/stdlib"; Stdlib }],
         "libsystem" => ["lib/zr/obj/macho/libsystem.rb: the names libSystem defines", -> { require_relative "gen/libsystem"; Libsystem }],
         "encodings" => ["runtime/core/encodings.rb: the encodings ruby knows", -> { require_relative "gen/encodings"; Encodings }],
         "transcode" => ["runtime/core/transcode.rb: the single-byte tables", -> { require_relative "gen/transcode"; Transcode }],

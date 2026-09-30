@@ -4,6 +4,7 @@ require "erb"
 require "fileutils"
 require "tmpdir"
 require_relative "../gen"
+require_relative "../../lib/zr/ports"
 
 module Zr
   module Dev
@@ -11,17 +12,19 @@ module Zr
       # Writes the generated files of the pure-Ruby prism, and checks the
       # generated files of the vendored gem. Both render from prism 1.9.0's
       # config.yml with the locals of its template driver
-      # (vendor/ext/prism/templates/template.rb):
+      # (vendor/src/prism-1.9.0/templates/template.rb, from prism's git
+      # tag, because the gem has no templates):
       #
       # * zr's templates (tool/gen/prism/templates/*.rb.erb) render into
       #   runtime/ext/prism/ruby/*.rb.
-      # * upstream's templates (vendor/ext/prism/templates/lib) must render
-      #   the vendored vendor/ext/prism/lib files byte for byte. This never
-      #   writes vendored files; a difference is a failure.
+      # * upstream's templates (templates/lib) must render the vendored
+      #   gem's lib files byte for byte. This never writes vendored files;
+      #   a difference is a failure.
       #
       # `test/unit/prism_test.rb` fails when a file is out of date.
       class PrismRuby < Generator
-        UPSTREAM = File.dirname(Layout.port_lib("prism"))
+        UPSTREAM = Layout.source("prism", Ports::ALL.fetch("prism").version)
+        GEM = File.dirname(Ports.lib("prism"))
         TEMPLATES = Dev.path("tool/gen/prism/templates")
         OUT = Dev.path("runtime/ext/prism/ruby")
 
@@ -46,7 +49,7 @@ module Zr
               name = erb.delete_suffix(".erb")
               rendered = File.join(dir, name)
               driver.render(name, write_to: rendered)
-              name unless FileUtils.identical?(rendered, File.join(UPSTREAM, name))
+              name unless FileUtils.identical?(rendered, File.join(GEM, name))
             end
           end
         end

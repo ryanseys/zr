@@ -4,14 +4,14 @@ require_relative "paths"
 require_relative "stdlib"
 
 module Zr
-  # The pure-Ruby library that a program's `require` reads: zr's standard
-  # library (stdlib/), which is ruby 4.0.7's own library as a stock ruby
-  # installs it (`zr-dev gen stdlib` writes it). zr compiles its files
-  # into the program, and never loads them itself. A build reads no gem of
-  # the host, so it needs no gem but zr, and two machines build the same
-  # bytes.
+  # The pure-Ruby library that a program's `require` reads: ruby 4.0.7's
+  # own library and bundled gems as a stock ruby installs them, in
+  # vendor/ruby (`zr-dev vendor` writes it, lib/zr/vendor.rb). zr compiles
+  # its files into the program, and never loads them itself. A build reads
+  # no gem of the host, so it needs no gem but zr, and two machines build
+  # the same bytes.
   #
-  # The gems with a C part are not here: zr owns them (lib/zr/ports.rb).
+  # The gems with a C part are zr's own (lib/zr/ports.rb).
   module Libraries
     # ruby's own library and the default gems, as `rubylibdir` holds them.
     LIB = Layout::RUBYLIBDIR

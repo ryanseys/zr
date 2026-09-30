@@ -30,8 +30,8 @@ module Zr
     # with a message that gives the form and the line. The rule: the same
     # as CRuby, or refused. Never a guess.
     class Build
-      # Ruby's own library and the default gems, from zr's standard
-      # library (stdlib/, lib/zr/libraries.rb).
+      # Ruby's own library and the default gems, from vendor/
+      # (lib/zr/libraries.rb).
       def self.pure = Libraries.root
 
       # The extensions whose native part is zr's. A file here is part of
@@ -49,19 +49,21 @@ module Zr
 
       def self.runtime_file?(file) = File.expand_path(file).start_with?("#{RUNTIME}/")
 
-      # The Ruby part of an extension, as its gem ships it. A gem is on
-      # the path only after zr ports its native part, so a require of an
-      # unsupported one stops with a message, and does not fail halfway.
+      # The gems whose C zr ports, at zr's versions, as vendor/ holds
+      # them (lib/zr/ports.rb).
       GEMS = Ports.roots.freeze
       # The bundled gems, each in its own directory, as ruby installs them.
       def self.bundled = Libraries.apart
 
-      # The library roots for `target`, in search order: ruby's own, then
-      # the OS layer's native parts and tables, then the portable ones,
-      # then the gems' Ruby parts, then the bundled gems in their own
-      # directories.
+      # The library roots for `target`, in search order. zr's own code
+      # comes first: the OS layer's native parts and tables, then the
+      # portable ones. A file there replaces an upstream file of the same
+      # name (runtime/ext/date.rb, not ruby's date.rb). Then the port gems,
+      # which win over ruby's own copies as an installed gem wins over a
+      # default gem (json 3.0.2, not 2.18.0), then ruby's own library,
+      # then the bundled gems in their own directories.
       def self.stdlib(target = Target.default)
-        (@stdlib ||= {})[target.triple] ||= [pure, Layout.ext_os(target), EXT, *GEMS, *bundled].freeze
+        (@stdlib ||= {})[target.triple] ||= [Layout.ext_os(target), EXT, *GEMS, pure, *bundled].freeze
       end
 
       # The compiler that a program with eval links in, and the

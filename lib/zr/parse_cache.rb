@@ -27,7 +27,7 @@ module Zr
     def self.directory = File.join(Paths.cache, "parse")
 
     # The files of the parser: these, and every Ruby file under the trees.
-    GEM = Layout.port_lib("prism")
+    GEM = Ports.lib("prism")
     FILES = [File.join(Layout::EXT, "prism/prism.rb"), File.join(__dir__, "prism.rb"), __FILE__, File.join(GEM, "prism.rb")].freeze
     TREES = [File.join(Layout::EXT, "prism/ruby"), File.join(__dir__, "prism_shim"), File.join(GEM, "prism")].freeze
 

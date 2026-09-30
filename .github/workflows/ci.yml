@@ -197,14 +197,18 @@ jobs:
           docker exec alpine bundle config set --global without development
           docker exec alpine bundle install
           docker exec alpine ruby tool/zr-dev.rb reference
-      # A stock ruby 4.0.7 image: zr's standard library (stdlib/) must be
-      # this ruby's own library, byte for byte, and the bundled gems must be
-      # the .gem files of CRuby's gems/bundled_gems at RUBY_REVISION.
-      - name: Check that stdlib/ is stock ruby 4.0.7
+      # A stock ruby 4.0.7 image: vendor/ must be upstream code, byte for
+      # byte: ruby's own library at RUBY_REVISION, the .gem files that
+      # vendor/vendor.lock names, and prism's templates at its tag. The
+      # check writes vendor/ again from the sources, and fails on a diff.
+      - name: Check that vendor/ is upstream code
         run: |
-          docker exec alpine sh -c 'rev="$(ruby -Ilib -rzr/version -e "print Zr::RUBY_REVISION")" &&
+          docker exec alpine sh -c 'ruby tool/zr-dev.rb vendor --check &&
+            rev="$(ruby -Ilib -rzr/version -e "print Zr::RUBY_REVISION")" &&
             git init -q /tmp/ruby && git -C /tmp/ruby fetch -q --depth 1 https://github.com/ruby/ruby.git "$rev" &&
-            RUBY_SRC=/tmp/ruby ruby tool/zr-dev.rb gen stdlib --check'
+            git clone -q --depth 1 --branch v1.9.0 https://github.com/ruby/prism.git /tmp/prism &&
+            RUBY_SRC=/tmp/ruby PRISM_SRC=/tmp/prism ruby tool/zr-dev.rb vendor &&
+            git diff --exit-code vendor lib/zr/stdlib.rb'
       - name: Build the runtime for the checks
         run: docker exec alpine bundle exec rake build
       - name: Run the units this target answers

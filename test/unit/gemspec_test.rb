@@ -7,7 +7,7 @@ require "test_helper"
 # depends on no other gem.
 class GemspecTest < Minitest::Test
   # The directories whose tracked files the command reads at run time.
-  SHIPPED = %r{\A(exe|lib|runtime|stdlib|vendor/(ext|prelude))/}
+  SHIPPED = %r{\A(exe|lib|runtime|vendor/(ruby|LICENSES))/}
 
   def spec = (@@spec ||= Dir.chdir(ROOT) { Gem::Specification.load("zr.gemspec") })
 

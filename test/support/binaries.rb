@@ -74,17 +74,18 @@ module Zr
 
       # The digest of the library files that a program can require and that
       # the runtime's digest does not cover: zr's ports under runtime/ext
-      # and the vendored gems under vendor/ext. A program compiles in the
-      # ones it requires, so an edit to one must miss.
+      # and the vendored library, whose lock has the digest of each of its
+      # files. A program compiles in the ones it requires, so an edit to
+      # one must miss.
       def libraries = @libraries ||= library_digest(Zr::Paths::ROOT)
 
       def library_digest(root)
         key = Digest::SHA256.new
-        %w[runtime/ext vendor/ext].each do |dir|
-          Dir[File.join(root, dir, "**/*")].sort.each do |path|
-            key << path << "\0" << File.binread(path) << "\0" if File.file?(path)
-          end
+        Dir[File.join(root, "runtime/ext/**/*")].sort.each do |path|
+          key << path << "\0" << File.binread(path) << "\0" if File.file?(path)
         end
+        lock = File.join(root, "vendor/vendor.lock")
+        key << File.binread(lock) if File.file?(lock)
         key.hexdigest
       end
 
