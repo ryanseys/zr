@@ -39,6 +39,15 @@ module Zr
       rows.values.sort_by(&:name)
     end
 
+    # The rows of the gems that the program `hir` carries: its own files,
+    # and for a program with eval, every file of eval support (`support`),
+    # which holds the libraries that the program and its evals load.
+    def of_program(hir, support, gem_set = nil)
+      files = hir.units.filter_map { |unit| unit.file if unit.file&.start_with?("/") }
+      files += support.units.keys.select { |file| file.start_with?("/") } if hir.evals
+      of(files, gem_set, evals: hir.evals)
+    end
+
     # The rows of the gems that `files` (a build's files) come from. A
     # program with eval (`evals`) can also require each gem of `gem_set`
     # at run time, from the gem's roots, so each of those has a row too.

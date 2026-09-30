@@ -462,7 +462,7 @@ module Zr
     Tune.heavy!(restart: false) if source.bytesize + hir.units.sum { |u| u.source.to_s.bytesize } > HEAVY_SOURCE
     # Before the lowering, which lets go of each unit's source.
     sources = sources ? built_from(source, file, hir) : {}
-    gems = Manifest.of(hir.units.filter_map { |unit| unit.file if unit.file&.start_with?("/") }, gem_set, evals: hir.evals)
+    gems = Manifest.of_program(hir, support, gem_set)
     symbols = hir.evals ? support.symbols : Machine::Symbols.new(rt.symbols.names, sites: rt.symbols.sites)
     # Each name already in the table has a fixed id. The link numbers all
     # other names, so a unit's code does not depend on the compile order.

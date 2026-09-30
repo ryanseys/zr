@@ -57,6 +57,17 @@ class ManifestTest < Minitest::Test
     assert_equal [["parser", "3.3.12.0", "--gem"]], Manifest.of([], set, evals: true).map(&:to_a)
   end
 
+  # A program with eval carries its libraries in eval support, not in its
+  # own units: `require "json"` there compiles no unit of json.
+  def test_a_program_with_eval_has_the_rows_of_eval_supports_files
+    hir = Struct.new(:units, :evals)
+    support = Struct.new(:units).new({ File.join(Zr::Ports.lib("json"), "json.rb") => "zr_eval_unit_1" })
+    json = [["json", Zr::Ports::ALL.fetch("json").version, "port"]]
+
+    assert_equal json, Manifest.of_program(hir.new([], true), support).map(&:to_a)
+    assert_equal [], Manifest.of_program(hir.new([], false), support).map(&:to_a)
+  end
+
   def test_all_lists_each_stdlib_gem_and_port_once
     names = Manifest.all.map(&:name)
 
