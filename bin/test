@@ -22,7 +22,27 @@
 
 require "rbconfig"
 
-root = File.expand_path("..", __dir__)
+# The time of each step of this run, printed to stderr when it ends. It
+# is the whole command, as the shell sees it, and not only minitest's
+# "Finished in" line. A run of several tiers prints the line of each
+# tier and then the total. This `at_exit` is the first one registered,
+# so it runs after minitest's, which runs the tests.
+started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+steps = []
+step = lambda do |name|
+  steps << [name, Process.clock_gettime(Process::CLOCK_MONOTONIC) - started - steps.sum(&:last)]
+end
+parent = Process.pid
+at_exit do
+  next unless Process.pid == parent
+
+  total = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
+  steps << ["tests", total - steps.sum(&:last)] unless steps.empty?
+  parts = steps.map { |name, seconds| format("%s %.2f s", name, seconds) }
+  $stderr.puts(format("bin/test: %.2f s", total) + (parts.empty? ? "" : " (#{parts.join(", ")})"))
+end
+
+root =File.expand_path("..", __dir__)
 test_dir = File.join(root, "test")
 
 # `--changed` asks tool/affected.rb for the paths. A change that reaches
@@ -90,7 +110,9 @@ Zr::CLI.tune!(__FILE__) # the tests use the GC limits and YJIT of a compile
 # share one loaded copy.
 files = paths.flat_map { |path| File.directory?(path) ? Dir[File.join(path, "**/*_test.rb")].sort : [path] }
 require "support/built"
+step.call("load")
 Zr::Test::Built.ready!(files: files)
+step.call("prebuild")
 
 ARGV.replace(options)
 ARGV.push("-n", ENV["N"]) if ENV["N"]
@@ -99,3 +121,4 @@ ARGV.concat(ENV["A"].split) if ENV["A"]
 
 require(tiers.keys.first == "spec" ? "spec_helper" : "test_helper")
 files.each { |file| require file }
+step.call("require")
