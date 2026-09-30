@@ -46,6 +46,17 @@ class ManifestTest < Minitest::Test
     assert_equal ["csv", "3.3.6", "--gem"], Manifest.all(set).find { |row| row.name == "csv" }.to_a
   end
 
+  # A program with eval can require any gem of its set at run time, so
+  # each has a row, and one that the build refused has none.
+  def test_a_program_with_eval_has_a_row_for_each_gem_of_its_set
+    set = Zr::GemSet.new([Zr::GemSet::Entry.new(name: "parser", version: "3.3.12.0", source: "--gem", roots: ["/src/parser/lib"], refusal: nil),
+                          Zr::GemSet::Entry.new(name: "native", version: "1.0.0", source: "--gem", roots: ["/src/native/lib"],
+                                                refusal: "native has a C extension")])
+
+    assert_equal [], Manifest.of([], set).map(&:to_a)
+    assert_equal [["parser", "3.3.12.0", "--gem"]], Manifest.of([], set, evals: true).map(&:to_a)
+  end
+
   def test_all_lists_each_stdlib_gem_and_port_once
     names = Manifest.all.map(&:name)
 

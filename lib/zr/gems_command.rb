@@ -32,7 +32,7 @@ module Zr
     def of_file(input, gem_set, target)
       require_relative "runtime"
       hir = Hir.build(File.read(input), input, prebuilt: Zr.eval_support(target), target: target, gem_set: gem_set)
-      Manifest.of(hir.units.filter_map { |unit| unit.file if unit.file&.start_with?("/") }, gem_set)
+      Manifest.of(hir.units.filter_map { |unit| unit.file if unit.file&.start_with?("/") }, gem_set, evals: hir.evals)
     rescue Refused => e
       warn CLI.refusal_report(e)
       exit CLI::REFUSED

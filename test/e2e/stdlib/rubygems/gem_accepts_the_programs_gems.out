@@ -1,0 +1,5 @@
+false
+true
+["json", ">= 99"]: true json
+["zr-no-such-gem"]: true zr-no-such-gem
+["zr-no-such-gem", "~> 1.0"]: true zr-no-such-gem

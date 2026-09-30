@@ -697,11 +697,11 @@ end
 
 # The table that the compiler writes for a require with a computed name
 # (lib/zr/runtime.rb, `load_tables`): the count of compiled-in files,
-# their entries, and nine (bytes, length) texts.
+# their entries, and ten (bytes, length) texts.
 Machine.struct :LoadTable, units: Word, rows: Ptr, roots: Ptr, roots_len: Word, missing: Ptr, missing_len: Word,
                            preloaded: Ptr, preloaded_len: Word, ext: Ptr, ext_len: Word, spots: Ptr, spots_len: Word,
                            coverable: Ptr, coverable_len: Word, branches: Ptr, branches_len: Word, defs: Ptr, defs_len: Word,
-                           sources: Ptr, sources_len: Word
+                           sources: Ptr, sources_len: Word, manifest: Ptr, manifest_len: Word
 
 sig [] => Ptr
 machine def zr_load_table
@@ -733,7 +733,7 @@ end
 # 5: the lines that Coverage counts. 6: the branches that it reports.
 # 7: the def and block spans that identify a method entry. 8: the digest
 # of each source file of the compiler that the program links in, each
-# after a path and a tab.
+# after a path and a tab. 9: the gem manifest (lib/zr/manifest.rb).
 sig [Value] => Value
 machine def zr_load_names(which)
   t = zr_load_table()
@@ -754,6 +754,8 @@ machine def zr_load_names(which)
     return zr_str_new(LoadTable.defs(t), LoadTable.defs_len(t))
   elsif w == 8
     return zr_str_new(LoadTable.sources(t), LoadTable.sources_len(t))
+  elsif w == 9
+    return zr_str_new(LoadTable.manifest(t), LoadTable.manifest_len(t))
   end
   zr_str_new(LoadTable.ext(t), LoadTable.ext_len(t))
 end

@@ -54,6 +54,7 @@ module Zr
       "lang/eval/eval_in_a_binary" => { build_mb: 3584, run_mb: 3072 },
       "lang/require/require_a_bundled_library" => { build_mb: 4096, run_mb: 3072 },
       "stdlib/ffi/ffi_libc_call" => { build_mb: 4096, run_mb: 3072 },
+      "stdlib/rubygems/gem_accepts_the_programs_gems" => { build_mb: 4096, run_mb: 3072 },
       "stdlib/rubygems/require_rubygems" => { build_mb: 4096, run_mb: 3072 },
       "stdlib/openssl/openssl_digest" => { needs: ["libssl"] },
       "stdlib/testing/a_minitest_suite_runs" => { argv: %w[--seed 42] }

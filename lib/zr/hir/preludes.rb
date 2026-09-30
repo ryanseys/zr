@@ -67,8 +67,13 @@ module Zr
       # The files of rubygems' autoloads that its boot reads.
       def self.booted = %w[dependency path_support requirement util version].map { |name| File.join(pure, "rubygems/#{name}.rb") }
 
+      # After them, the file that gives rubygems the program's gems, as
+      # bundler's setup does.
+      GEM_MANIFEST = File.join(Layout::RUNTIME_LIB, "zr/gem_manifest.rb")
+
       def self.rubygems(loader)
-        rubygems_files.map { |path| Require.new(:require, File.basename(path, ".rb"), path, loader.add(path), 0) }
+        rubygems_files.map { |path| Require.new(:require, File.basename(path, ".rb"), path, loader.add(path), 0) } <<
+          Require.new(:hidden, "zr/gem_manifest", GEM_MANIFEST, loader.add(GEM_MANIFEST), 0)
       end
 
       # The file that arms String#unicode_normalize's load of ruby's own

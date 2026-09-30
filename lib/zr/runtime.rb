@@ -465,7 +465,7 @@ module Zr
     Tune.heavy!(restart: false) if source.bytesize + hir.units.sum { |u| u.source.to_s.bytesize } > HEAVY_SOURCE
     # Before the lowering, which lets go of each unit's source.
     sources = sources ? built_from(source, file, hir) : {}
-    gems = Manifest.of(hir.units.filter_map { |unit| unit.file if unit.file&.start_with?("/") }, gem_set)
+    gems = Manifest.of(hir.units.filter_map { |unit| unit.file if unit.file&.start_with?("/") }, gem_set, evals: hir.evals)
     symbols = hir.evals ? support.symbols : Machine::Symbols.new(rt.symbols.names, sites: rt.symbols.sites)
     # Each name already in the table has a fixed id. The link numbers all
     # other names, so a unit's code does not depend on the compile order.
@@ -679,7 +679,8 @@ module Zr
   # - error_highlight's spots for each file (every program has them), and
   #   Coverage's tables;
   # - for a program with eval, the digest of each eval support file
-  #   (`sources`, path to SHA-256). It keys its parse cache on these.
+  #   (`sources`, path to SHA-256). It keys its parse cache on these;
+  # - the gem manifest.
   # Nothing here comes from the build machine: a binary contains no path
   # or flag of the ruby that compiled it. `units` are `[path, entry]`
   # pairs. A unit that only stops has no path.
@@ -689,9 +690,8 @@ module Zr
   # computed require finds the same gem.
   #
   # `manifest` is the gem manifest (lib/zr/manifest.rb), or nil. It is the
-  # last text: the kernel reads only the texts before it, and the manifest
-  # is there so that `zr inspect` finds it, and a linker that removes
-  # data that nothing refers to keeps it.
+  # last text. `zr inspect` finds it in the binary, and rubygems in the
+  # program reads its gems (runtime/lib/zr/gem_manifest.rb).
   def load_tables(units = [], evals: false, spots: {}, coverable: {}, branches: {}, defs: {}, sources: {},
                   target: Target.default, gem_roots: [], manifest: nil)
     shown = ->(path) { Paths.shown(path) }
@@ -728,7 +728,7 @@ module Zr
     # its id, and so gets its span.
     names << defs.map { |file, rows| "#{shown[file]}\t#{rows.map { |row| row.join(',') }.join("\t")}" }
     names << sources.map { |path, digest| [shown[path], digest] }.sort.map { |path, digest| "#{path}\t#{digest}" }
-    names << [manifest.chomp] if manifest
+    names << [manifest.to_s.chomp]
     out = []
     text = ->(name, bytes) { out << Obj::Data.new(name, :text_const, "#{bytes}\0".b, align: 1) }
     rows = +"".b

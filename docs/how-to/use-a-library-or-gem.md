@@ -106,6 +106,14 @@ The binary contains the gems' files, so it does not need them when it
 runs. A build with other gems is another build: `zr run` does not use
 a binary that it kept for other gems.
 
+Inside the binary, rubygems knows these gems and no others, as under
+`bundle exec`. The binary carries each gem's name and version (its
+gem manifest, which `zr inspect` prints), and `Gem::Specification` and
+`Gem.loaded_specs` list them. `gem "rainbow", "~> 3.1"` succeeds when
+the build had rainbow at a version that matches, and raises
+`Gem::LoadError` otherwise. A `--gem` directory with no gemspec has no
+version, so `gem` accepts it only with no requirement.
+
 zr compiles no C, so these rules apply to a gem with a C extension:
 
 - A gem that zr ports (json, psych, bigdecimal and the others in

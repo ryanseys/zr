@@ -39,9 +39,13 @@ module Zr
       rows.values.sort_by(&:name)
     end
 
-    # The rows of the gems that `files` (a build's files) come from.
-    def of(files, gem_set = nil)
-      files.filter_map { |file| row_for(File.expand_path(file), gem_set) }.uniq.sort_by(&:name)
+    # The rows of the gems that `files` (a build's files) come from. A
+    # program with eval (`evals`) can also require each gem of `gem_set`
+    # at run time, from the gem's roots, so each of those has a row too.
+    def of(files, gem_set = nil, evals: false)
+      rows = files.filter_map { |file| row_for(File.expand_path(file), gem_set) }
+      rows += gem_set.gems.reject(&:refusal).map { |gem| Row.new(gem.name, gem.version, source_of(gem)) } if evals && gem_set
+      rows.uniq.sort_by(&:name)
     end
 
     # The bytes that a binary carries: MAGIC, then one line of JSON.

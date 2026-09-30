@@ -700,18 +700,21 @@ module Kernel
   # a program whose files name Gem or call `gem`. A file that eval
   # support carries (prism/translation/parser calls `gem "parser"`) is
   # not one of the program's, so its call comes here. The first call
-  # loads rubygems, whose own `gem` then replaces this one. The name is
-  # computed, so the core does not put rubygems in every program: a
-  # program that reaches here carries it in eval support.
+  # loads rubygems and gives it the program's gems, as the prelude does
+  # (runtime/lib/zr/gem_manifest.rb). That file's `gem` then replaces
+  # this one. The names are computed, so the core does not put rubygems
+  # in every program: a program that reaches here carries it in eval
+  # support.
   GEM_LOAD = [true]
   private_constant :GEM_LOAD
 
   def gem(gem_name, *requirements)
     raise LoadError, "cannot load such file -- rubygems" unless GEM_LOAD.pop
 
-    feature = "rubygems"
-    require feature
-    gem(gem_name, *requirements)
+    %w[rubygems zr/gem_manifest].each { |feature| require feature }
+    # A `gem` or `__send__(:gem)` call here reaches this method again,
+    # not the new one, so the call names the new method.
+    Kernel.instance_method(:gem).bind_call(self, gem_name, *requirements)
   end
   private :gem
 
