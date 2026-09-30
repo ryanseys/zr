@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "lib/zr/dev"
+require_relative "../lib/zr/runtime_sources"
 
 module Zr
   module Dev
@@ -19,9 +20,12 @@ module Zr
     #   and to each spec that requires it by name.
     # - A file of an OS layer of the core maps as its own name does
     #   (runtime/core/os/darwin/errno.rb as errno).
-    # - A change to the compiler, the kernel or the
-    #   test support maps to all specs. A change to a tool maps to the unit
-    #   tests, which test the tools; no spec runs one.
+    # - A change to a compiler file that a program's code can depend on
+    #   (`RuntimeSources#compiler_files`), the kernel or the test support
+    #   maps to all specs. A change to another file under lib/zr (the CLI,
+    #   the caches, the linkers) maps to the unit tests that load it
+    #   (`LoadGraph`), and to test/e2e when exe/zr loads it. A change to a
+    #   tool maps to the unit tests, which test the tools; no spec runs one.
     class Affected < Command
       summary "Run the specs that a change can reach"
       usage "[--base REVISION] [--dry-run]"
@@ -73,7 +77,8 @@ module Zr
         case file
         when %r{\Atest/(spec|unit)/.*_test\.rb\z} then File.exist?(File.join(ROOT, file)) ? [file] : []
         when %r{\Atest/spec/} then [File.dirname(file)]
-        when %r{\Alib/zr/}, %r{\Aruntime/kernel/}, %r{\Aruntime/(ext/os|lib)/}, %r{\Atest/(support|test_helper|spec_helper)}, "Rakefile" then :all
+        when %r{\Alib/zr/.*\.rb\z} then lib(file)
+        when %r{\Aruntime/kernel/}, %r{\Aruntime/(ext/os|lib)/}, %r{\Atest/(support|test_helper|spec_helper)}, "Rakefile" then :all
         when %r{\Atool/} then [File.join(ROOT, "test/unit")]
         when %r{\Aruntime/core/os/[^/]+/([^/]+)\.rb\z} then core($1)
         when %r{\Aruntime/core/([^/]+?)(?:/.*)?\.rb\z} then core($1)
@@ -81,6 +86,74 @@ module Zr
         when %r{\Avendor/ruby/lib/ruby/gems/[\d.]+/gems/(.+)-[\d.]+/} then library($1.tr("-", "/"))
         when "Gemfile.lock", "zr.gemspec" then :all
         else []
+        end
+      end
+
+      # The test paths that a change to `file` under lib/zr reaches.
+      def lib(file)
+        path = File.join(ROOT, file)
+        return :all if !File.exist?(path) || builds?(path)
+
+        graph = LoadGraph.new
+        units = Dir[File.join(ROOT, "test/unit/**/*_test.rb")].select { |test| graph.reaches?(test, path) }
+        exe = graph.closure(File.join(ROOT, "exe/zr")).include?(path)
+        units |= Dir[File.join(ROOT, "test/unit/**/*_test.rb")].select { |test| File.read(test).include?("exe/zr") } if exe
+        (units.map { |test| Dev.rel(test) } + (exe ? ["test/e2e"] : [])).sort
+      end
+
+      # Whether `path` can change what a build writes: a compiler file that
+      # a program's code depends on, or a linker. The command line only
+      # reads options, so a change to it reaches the tests that run it.
+      def builds?(path)
+        RuntimeSources.for(Target.default).compiler_files.include?(path) ||
+          (RuntimeSources::LINK_ONLY - [File.join(ROOT, "lib/zr/cli.rb")]).include?(path)
+      end
+
+      # The files that each file loads, read from its literal `require`
+      # and `require_relative` calls, wherever they are (a require in a
+      # method body counts). A require that names a computed path is not
+      # seen, so the graph can miss an edge, never add one.
+      class LoadGraph
+        REQUIRE = /^\s*(require_relative|require)\(?\s*["']([^"'#]+)["']/
+        ROOTS = %w[lib test tool].map { |dir| Dev.path(dir) }.freeze
+
+        def initialize
+          @edges = {}
+          @closures = {}
+        end
+
+        def reaches?(from, path) = closure(from).include?(path)
+
+        def closure(from)
+          @closures[from] ||= begin
+            seen = { from => true }
+            todo = [from]
+            until todo.empty?
+              edges(todo.pop).each do |to|
+                next if seen[to]
+
+                seen[to] = true
+                todo << to
+              end
+            end
+            seen.keys
+          end
+        end
+
+        def edges(file)
+          @edges[file] ||= File.read(file).scan(REQUIRE).filter_map do |kind, feature|
+            kind == "require_relative" ? existing(File.expand_path(feature, File.dirname(file))) : found(feature)
+          end
+        rescue SystemCallError
+          @edges[file] = []
+        end
+
+        private
+
+        def found(feature) = ROOTS.lazy.filter_map { |root| existing(File.join(root, feature)) }.first
+
+        def existing(path)
+          [path, "#{path}.rb"].find { |candidate| File.file?(candidate) }
         end
       end
 

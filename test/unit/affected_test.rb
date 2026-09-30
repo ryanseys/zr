@@ -19,7 +19,25 @@ class AffectedTest < Minitest::Test
   end
 
   def test_a_compiler_change_reaches_everything
-    assert_equal :all, affected.plan(%w[lib/zr/cli.rb])
+    assert_equal :all, affected.plan(%w[lib/zr/lower/function.rb])
+    assert_equal :all, affected.plan(%w[lib/zr/obj/macho/prelink.rb]), "a linker"
+  end
+
+  def test_a_driver_change_reaches_the_tests_that_load_it
+    plan = affected.plan(%w[lib/zr/cache/run.rb])
+
+    assert_includes plan, "test/unit/run_cache_test.rb"
+    refute_includes plan, "test/unit/bytes_test.rb"
+    assert_includes plan, "test/e2e", "exe/zr loads it"
+  end
+
+  def test_the_load_graph_follows_literal_requires
+    graph = Zr::Dev::Affected::LoadGraph.new
+    test = File.join(Zr::Dev::ROOT, "test/unit/run_cache_test.rb")
+
+    assert graph.reaches?(test, File.join(Zr::Dev::ROOT, "lib/zr/cache/run.rb"))
+    assert graph.reaches?(test, File.join(Zr::Dev::ROOT, "test/test_helper.rb"))
+    refute graph.reaches?(test, File.join(Zr::Dev::ROOT, "lib/zr/doctor.rb"))
   end
 
   def test_a_doc_change_reaches_nothing
