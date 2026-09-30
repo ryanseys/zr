@@ -4,7 +4,7 @@ require "digest/sha2"
 require_relative "paths"
 require_relative "prism"
 require_relative "settled"
-require "zr/eval/runtime" unless Zr::HOSTED
+require_relative "../../runtime/lib/zr/eval/runtime" unless Zr::HOSTED
 
 module Zr
   # A cache of Prism.parse results. A build reads back the parse of a

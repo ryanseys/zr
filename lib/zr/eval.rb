@@ -1,10 +1,9 @@
 # frozen_string_literal: true
 
-# These plain requires resolve only inside a zr binary, where the
-# runtime's own libraries are on the load path (runtime/lib/zr). Under ruby,
-# nothing loads this file.
-require "zr/eval/runtime"
-require "zr/eval/forms"
+# The runtime's own libraries (runtime/lib/zr) call `Primitive`, so they
+# run only inside a zr binary. Under ruby, nothing loads this file.
+require_relative "../../runtime/lib/zr/eval/runtime"
+require_relative "../../runtime/lib/zr/eval/forms"
 require_relative "ir/passes"
 
 module Zr

@@ -4,6 +4,7 @@ require_relative "model"
 require_relative "patch"
 require_relative "../bytes"
 require_relative "relocs/aarch64"
+require_relative "../paths"
 
 module Zr
   module Obj
@@ -35,11 +36,13 @@ module Zr
       # The host for system calls: the runtime's host in a zr program, or
       # Fiddle under CRuby (where no runtime is linked).
       def self.host
-        require "zr/obj/jit/runtime"
-        Runtime.new
-      rescue LoadError
-        require_relative "jit/fiddle"
-        Fiddle.new
+        if Zr.compiled?
+          require_relative "../../../runtime/lib/zr/obj/jit/runtime"
+          Runtime.new
+        else
+          require_relative "jit/fiddle"
+          Fiddle.new
+        end
       end
 
       def initialize(host)
