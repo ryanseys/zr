@@ -171,4 +171,25 @@ describe "Racc programs" do
       Racc::ParseError
     OUT
   end
+
+  it "racc loads its C core, which names its version and CparseParams" do
+    result = zr(<<~'RUBY')
+      require "racc/parser"
+      # racc loads its C core: the parser runs it, and names what it defines.
+      p Racc::Parser::Racc_Runtime_Type, Racc::Parser::Racc_Main_Parsing_Routine, Racc::Parser::Racc_YY_Parse_Method
+      p Racc::Parser::Racc_Runtime_Core_Version_C == Racc::VERSION, Racc::Parser::Racc_Runtime_Core_Version_C.frozen?
+      p Racc.constants(false).sort
+      p (Racc::CparseParams.new rescue $!)
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "c"
+      :_racc_do_parse_c
+      :_racc_yyparse_c
+      true
+      false
+      [:Copyright, :CparseParams, :ParseError, :Parser, :Racc_No_Extensions, :VERSION, :Version]
+      #<TypeError: allocator undefined for Racc::CparseParams>
+    OUT
+  end
 end

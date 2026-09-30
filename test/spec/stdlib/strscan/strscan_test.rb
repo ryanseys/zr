@@ -1364,4 +1364,19 @@ describe "StringScanner programs" do
       [:initialize, :initialize_copy, :scan_base10_integer, :scan_base16_integer]
     OUT
   end
+
+  it "strscan names its error class ScanError on Object too" do
+    result = zr(<<~'RUBY')
+      require "strscan"
+      # strscan also names its error class on Object.
+      p ScanError, ScanError.equal?(StringScanner::Error)
+      p (StringScanner.new("a").unscan rescue $!).class
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      StringScanner::Error
+      true
+      StringScanner::Error
+    OUT
+  end
 end

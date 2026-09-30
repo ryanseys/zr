@@ -499,6 +499,33 @@ machine def zr_hidden_defined_method(klass, mid)
   zr_ary_push(defined, pair)
 end
 
+# Records that the hidden file that is loading now set the constant `id`
+# of `klass`, a module other than Object. A later require of the file
+# makes the constant visible. The record has three items; a method's
+# record (zr_hidden_defined_method) has two.
+sig [Value, Word] => Void
+machine def zr_hidden_defined_const(klass, id)
+  path = zr_hidden_loading_path()
+  if path == QNIL
+    return
+  end
+  i = zr_hidden_row(path)
+  if i < 0
+    return
+  end
+  rows = zr_hidden_features()
+  defined = zr_ary_at(rows, i + 2)
+  if defined == QNIL
+    defined = zr_ary_new(4)
+    zr_ary_store(rows, i + 2, defined)
+  end
+  entry = zr_ary_new(3)
+  zr_ary_push(entry, klass)
+  zr_ary_push(entry, zr_fix(id))
+  zr_ary_push(entry, Machine.value(QNIL))
+  zr_ary_push(defined, entry)
+end
+
 # The program required `path`, which the runtime loaded hidden. The file
 # and its constants become visible and go into $LOADED_FEATURES. The
 # same occurs for each file that it loaded, because one ruby require
@@ -515,6 +542,8 @@ machine def zr_feature_reveal(path)
     item = zr_ary_at(ids, i)
     if zr_fixnum_p(item)
       zr_const_reveal(zr_fix2long(item))
+    elsif RArray.len(item) == 3
+      zr_const_reveal_in(zr_ary_at(item, 0), zr_fix2long(zr_ary_at(item, 1)))
     else
       zr_method_reveal(zr_ary_at(item, 0), zr_fix2long(zr_ary_at(item, 1)))
     end

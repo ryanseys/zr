@@ -321,6 +321,7 @@ module Zr
         d zr_const_sees_concealed Bool
         d zr_const_sees_reflectively Bool
         d zr_const_reveal Void id:Word
+        d zr_const_reveal_in Void klass:Value id:Word
         d zr_const_row_opened Ptr scope:Value id:Word
         d zr_const_row_kept Ptr klass:Value id:Word
         d zr_const_set Value klass:Value id:Word v:Value
@@ -509,6 +510,7 @@ module Zr
         d zr_hidden_forget Void path:Value
         d zr_hidden_defined Void id:Word
         d zr_hidden_defined_method Void klass:Value mid:Word
+        d zr_hidden_defined_const Void klass:Value id:Word
         d zr_feature_reveal Void path:Value
         d zr_feature_real_path Value path:Value
         d zr_require Value path:Value fn:Ptr kind:Word
@@ -2628,6 +2630,7 @@ module Zr
         e zr_const_sees_concealed 0
         e zr_const_sees_reflectively 32
         e zr_const_reveal 122
+        e zr_const_reveal_in 122
         e zr_const_row_opened 127
         e zr_const_row_kept 120
         e zr_const_set 127
@@ -2816,6 +2819,7 @@ module Zr
         e zr_hidden_forget 127
         e zr_hidden_defined 127
         e zr_hidden_defined_method 127
+        e zr_hidden_defined_const 127
         e zr_feature_reveal 127
         e zr_feature_real_path 126
         e zr_require 127

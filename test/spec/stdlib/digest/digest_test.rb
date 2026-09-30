@@ -646,4 +646,23 @@ describe "Digest programs" do
         e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
       OUT
     end
+
+  it "a program with eval sees only the digests that it loaded, not those of zr's compiler" do
+    result = zr(<<~'RUBY')
+      # A program with eval carries zr's compiler, which loads digest/sha2 for
+      # itself. The program's Digest has only what the program loaded.
+      eval("1")
+      require "digest"
+      p Digest.constants(false).sort, Digest.const_defined?(:SHA256, false)
+      p Digest::SHA256.hexdigest("zr")[0, 16]
+      p Digest.constants(false).sort
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [:Base, :Class, :Instance, :REQUIRE_MUTEX, :VERSION]
+      false
+      "853982a0764eba5e"
+      [:Base, :Class, :Instance, :REQUIRE_MUTEX, :SHA2, :SHA256, :SHA384, :SHA512, :VERSION]
+    OUT
+  end
 end

@@ -4,6 +4,9 @@ require "rbconfig"
 require "etc_names"
 
 module Etc
+  # The version of the etc gem whose C this file ports.
+  VERSION = "1.4.6"
+
   # The rows' members are the OS's own (etc_names). The two database
   # cursors are spelled on the row class as ruby spells them:
   # `Etc::Passwd.each` walks the same table `Etc.passwd` walks.

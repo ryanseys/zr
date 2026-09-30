@@ -229,6 +229,18 @@ machine def zr_const_reveal(id)
   end
 end
 
+# Makes the constant `id` of `klass` visible. A hidden file set it in a
+# module that the program can reach, as eval support's digest/sha2 sets
+# Digest::SHA256, and now the program required that file itself.
+sig [Value, Word] => Void
+machine def zr_const_reveal_in(klass, id)
+  e = zr_const_row_kept(klass, id)
+  if e != 0 && CEntry.concealed(e) != 0
+    CEntry.set_concealed(e, 0)
+    zr_consts_changed()
+  end
+end
+
 # Returns the constant entry that a `class` or `module` body opens. A
 # hidden entry becomes visible, so a program that reopens a module of the
 # runtime adds to the same module that the runtime uses. When a hidden
@@ -344,9 +356,13 @@ machine def zr_const_write(klass, id, v)
     CEntry.set_deprecated(e, 0)
     CEntry.set_owner(e, klass)
     CEntry.set_concealed(e, 0)
-    if klass == zr_global(G_OBJECT) && zr_hidden_now()
+    if zr_hidden_now()
       CEntry.set_concealed(e, 1)
-      zr_hidden_defined(id)
+      if klass == zr_global(G_OBJECT)
+        zr_hidden_defined(id)
+      else
+        zr_hidden_defined_const(klass, id)
+      end
     end
     ClassExt.set_clen(ext, n + 1)
     zr_const_index_add(ext, n)

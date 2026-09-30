@@ -24,6 +24,10 @@ class StringScanner
   Version = "3.1.6"
   Id = "$Id$"
 
+  # strscan.c also names its error class ScanError on Object, unless the
+  # program has a ScanError already.
+  Object.const_set(:ScanError, Error) unless Object.const_defined?(:ScanError)
+
   def initialize(string, fixed_anchor: false)
     Primitive.zr_hidden_set(self, :__string__, string.to_str)
     Primitive.zr_hidden_set(self, :__anchor__, fixed_anchor)

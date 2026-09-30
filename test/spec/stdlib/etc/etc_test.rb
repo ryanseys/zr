@@ -605,4 +605,16 @@ describe "Etc programs" do
       IO
     OUT
   end
+
+  it "etc names the version of its gem, as its C does" do
+    result = zr(<<~'RUBY')
+      require "etc"
+      p Etc::VERSION, Etc.const_defined?(:VERSION, false)
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "1.4.6"
+      true
+    OUT
+  end
 end
