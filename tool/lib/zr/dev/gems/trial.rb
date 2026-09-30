@@ -151,9 +151,11 @@ module Zr
           say "running #{name} under ruby and as a zr binary"
           # A gem with a C extension here is one that zr ports. An unpacked
           # copy has no compiled C, so ruby loads the reference's own copy.
-          roots = gems.reject(&:cext?).flat_map(&:roots)
-          ruby, = run(log, "ruby", [Dev.ruby, *roots.flat_map { |root| ["-I", root] }, name],
-                      dir: dir, seconds: RUN_SECONDS, megabytes: Harness::Child::RUN_MB, env: @reference.env)
+          plain = gems.reject(&:cext?)
+          env = @reference.env
+          env = env.merge("GEM_PATH" => [env["GEM_PATH"], gem_home(dir, plain)].compact.join(File::PATH_SEPARATOR))
+          ruby, = run(log, "ruby", [Dev.ruby, *plain.flat_map(&:roots).flat_map { |root| ["-I", root] }, name],
+                      dir: dir, seconds: RUN_SECONDS, megabytes: Harness::Child::RUN_MB, env: env)
           unless ruby.status&.zero?
             raise Failure.new("ruby-error", "ruby: #{first_line(ruby.stderr) || ruby.status || "stopped"}", tier: :skipped)
           end
@@ -169,6 +171,23 @@ module Zr
             log << "--- #{part} (ruby, then zr)\n#{Diff.unified(ruby[part].to_s, zr[part].to_s)}" unless ruby[part] == zr[part]
           end
           raise Failure.new(kind == "crash" ? "zr-crash" : kind, difference(ruby, zr), tier: :compiles)
+        end
+
+        # A gem directory in `dir` that holds `gems` as rubygems installs
+        # them: a specification and a link to each gem's files. ruby reads
+        # it from GEM_PATH, so a gem that activates another one (`gem
+        # "parser", ">= 3.3"`, as rubocop-ast does) finds it.
+        def gem_home(dir, gems)
+          home = File.join(dir, "gem-home")
+          FileUtils.rm_rf(home)
+          FileUtils.mkdir_p([File.join(home, "gems"), File.join(home, "specifications")])
+          gems.each do |gem|
+            File.symlink(gem.root, File.join(home, "gems", gem.full_name))
+            spec = gem.to_spec
+            spec.require_paths = gem.require_paths
+            File.write(File.join(home, "specifications", "#{gem.full_name}.gemspec"), spec.to_ruby)
+          end
+          home
         end
 
         def run(log, title, argv, **options)

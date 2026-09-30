@@ -241,6 +241,13 @@ class GemCompatTest < Minitest::Test
     refute_includes runner.argvs[0], "--gem"
   end
 
+  def test_ruby_finds_each_gem_on_its_gem_path_too
+    runner = Runner.new
+    trial(runner).call(Gems::Request.parse("tiny"))
+
+    assert_equal ["helper-1.2.0.gemspec", "tiny-1.0.0.gemspec", CORPUS.find("helper").root, CORPUS.find("tiny").root], runner.homes.first
+  end
+
   def test_a_smoke_program_that_gives_rubys_output_verifies_the_gem
     runner = Runner.new
     result = trial(runner).call(Gems::Request.parse("tiny"))
@@ -395,21 +402,29 @@ class GemCompatTest < Minitest::Test
   # Answers for each step of a trial: `build`, `ruby` and `zr` (the
   # binary). By default each one succeeds, and ruby and zr agree.
   class Runner
-    attr_reader :steps, :argvs
+    attr_reader :steps, :argvs, :homes
 
     def initialize(**answers)
       same = Zr::Diff::Answer.new("Only Module\n  \n", "", 0, nil, false)
       @answers = { build: Zr::Diff::Answer.new("", "", 0, nil, false), ruby: same, zr: same }.merge(answers)
       @steps = []
       @argvs = []
+      @homes = []
     end
 
-    def run(argv, **)
+    # For ruby, what its GEM_PATH holds: each specification, and where
+    # each gem's link leads.
+    def run(argv, env: {}, **)
       step = if argv.include?("build") then :build
              elsif argv.first.start_with?("./") then :zr
              else :ruby
              end
       @steps << step
+      if step == :ruby
+        home = env.fetch("GEM_PATH", "").split(File::PATH_SEPARATOR).last.to_s
+        @homes << Dir.glob("#{home}/specifications/*.gemspec").map { |spec| File.basename(spec) }.sort +
+                  Dir.glob("#{home}/gems/*").map { |link| File.readlink(link) }.sort
+      end
       @argvs << argv
       [@answers.fetch(step), nil]
     end
