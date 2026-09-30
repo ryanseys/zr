@@ -54,7 +54,7 @@ module Zr
         # Tries each request on `@jobs` threads, and yields each result on
         # this thread.
         def sweep(requests)
-          trial = Gems::Trial.new(resolver: resolver)
+          trial = trial()
           queue = Queue.new
           requests.each { |request| queue << request }
           queue.close

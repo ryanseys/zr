@@ -23,7 +23,7 @@ module Zr
           fail!("give one gem: NAME, NAME=VERSION or a path with a /") unless argv.size == 1
           wanted = request(argv.first)
           reference!
-          trial = Gems::Trial.new(resolver: resolver, keep: @keep || false, say: ->(text) { puts text })
+          trial = trial(keep: @keep || false, say: ->(text) { puts text })
           result = trial.call(wanted)
           diff = File.read(result.log)[/^--- (probe|smoke)\.rb: .*?(?=^result: )/m]
           puts diff if diff

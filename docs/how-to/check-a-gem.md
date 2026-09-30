@@ -124,6 +124,21 @@ rows of the gems that it tried. Its columns are `gem`, `version`,
 `source`, `tier`, `kind`, `detail` (at most 200 characters),
 `zr_commit`, `date` and `downloads`.
 
+### Change zr while a sweep runs
+
+A build fails when zr changes under it. To change zr while a long
+sweep runs, sweep with a copy of zr:
+
+```
+$ dir=$(zr-dev gems snapshot)            # a copy of HEAD, with its compiled compiler
+$ zr-dev gems sweep --zr "$dir" --top 200 --save
+```
+
+The copy is a git worktree in `tmp/gems/zr/<commit>` with its own
+cache, so only committed work is in it. Each row names the copy's
+commit. `zr-dev gems snapshot --list` prints the copies, and
+`--remove DIR` removes one.
+
 ## Find what to fix next
 
 ```

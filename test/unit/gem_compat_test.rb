@@ -257,6 +257,20 @@ class GemCompatTest < Minitest::Test
     assert_includes runner.argvs.first, "helper=#{CORPUS.find("helper").root}", "each dependency is a --gem"
   end
 
+  def test_a_trial_builds_with_the_zr_that_it_is_given
+    runner = Runner.new
+    Gems::Trial.new(resolver: resolver, runner: runner, overrides: OVERRIDES, logs: File.join(@dir, "logs"),
+                    work: File.join(@dir, "work"), reference: Reference, zr: "/copy/exe/zr").call(Gems::Request.parse("helper"))
+
+    assert_equal "/copy/exe/zr", runner.argvs.first[1]
+  end
+
+  def test_a_snapshot_is_a_directory_with_a_zr
+    error = assert_raises(ArgumentError) { Gems::Snapshot.new(@dir) }
+    assert_includes error.message, "no exe/zr"
+    assert_equal File.join(Zr::Dev::ROOT, "exe/zr"), Gems::Snapshot.new(Zr::Dev::ROOT).zr
+  end
+
   def test_an_override_skips_a_gem_before_it_is_found
     runner = Runner.new
     result = trial(runner).call(Gems::Request.parse("skipped"))

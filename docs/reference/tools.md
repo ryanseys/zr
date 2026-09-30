@@ -116,6 +116,7 @@ gives more examples.
 | `zr-dev gems sweep [GEM...] [--top N] [--jobs N] [--save]` | Tries many gems, one line each, then counts the tiers. `--top N` adds the N most downloaded gems of `gems/top.tsv`. The rows go into `tmp/gems/sweep-<time>.tsv`, or with `--save` into `gems/compat.tsv`. |
 | `zr-dev gems triage [KIND] [--file TSV]` | Groups the gems that do not load by the kind of failure, the kind that stops the most gems first. With `KIND`, it gives each gem of that kind with its detail. |
 | `zr-dev gems top [--refresh] [--count N]` | Prints the most downloaded gems with their tiers. `--refresh` writes `gems/top.tsv` again from packages.ecosyste.ms. |
+| `zr-dev gems snapshot [REVISION] [--list] [--remove DIR]` | Makes a copy of zr at a commit (HEAD by default) in `tmp/gems/zr/<commit>`, a git worktree with its own cache, and builds its compiled compiler. `try` and `sweep` take `--zr DIR` (or `ZR_GEMS_ZR`) to build with the copy, so zr can change in the checkout while a sweep runs. |
 
 ### Specs and recordings
 

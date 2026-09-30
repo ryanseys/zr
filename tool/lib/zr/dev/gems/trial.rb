@@ -63,7 +63,7 @@ module Zr
         attr_reader :work
 
         def initialize(resolver:, runner: Runner.new, overrides: HOME, logs: File.join(TMP, "logs"),
-                       work: File.join(TMP, "work"), keep: false, say: nil, reference: Harness::Reference)
+                       work: File.join(TMP, "work"), keep: false, say: nil, reference: Harness::Reference, zr: Dev.path("exe/zr"))
           @resolver = resolver
           @runner = runner
           @overrides = overrides
@@ -72,6 +72,7 @@ module Zr
           @keep = keep
           @say = say
           @reference = reference
+          @zr = zr
         end
 
         # The Result for `request`.
@@ -144,7 +145,7 @@ module Zr
           # its ports) comes from zr, and from the reference ruby's copy.
           gems = gems.reject { |gem| Resolver::Provided.versions[gem.name] == gem.version }
           flags = gems.flat_map { |gem| ["--gem", "#{gem.name}=#{gem.root}"] }
-          built, limit = run(log, "zr build", [Dev.ruby, Dev.path("exe/zr"), "build", *flags, name, "-o", exe],
+          built, limit = run(log, "zr build", [Dev.ruby, @zr, "build", *flags, name, "-o", exe],
                              dir: dir, seconds: BUILD_SECONDS, megabytes: Harness::Child::BUILD_MB, env: { "BUNDLE_GEMFILE" => nil })
           raise build_failure(built, limit) unless built.status&.zero?
 
