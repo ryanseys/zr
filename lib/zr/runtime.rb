@@ -71,7 +71,7 @@ module Zr
       @digest ||= Zr.clock("runtime digest") do
         files = sources.keys + gem_prelude_files
         @stamps = files.to_h { |path| [path, Paths.stamp(path)] }
-        Digests.with_ledger(digest_of(files), ledger_text)
+        digest_of(files)
       end
     end
 
@@ -153,53 +153,32 @@ module Zr
     # nobody commits it.
     def carried_text = @carried_text ||= Machine::Description.carried(cached.fetch(:description))
 
-    # `RuntimeSources#abi_digest`: what a program's units take from this runtime. It reads the symbol table's cache, which it makes first.
+    # `RuntimeSources#abi_digest`: what a program's units and eval support's
+    # code take from this runtime. It reads the symbol table's cache, which
+    # it makes first.
     def abi_digest
       @abi_digest ||= (cached && RuntimeSources.for(target).abi_digest(digest)) || raise("no symbol table for runtime #{digest}")
     end
 
-    # `RuntimeSources#eval_digest`: what eval support takes from this runtime, besides
-    # the ids of the names it uses.
+    # `RuntimeSources#eval_digest`: what eval support's object takes from
+    # this runtime: its ABI and the table that numbers eval support's names.
     def eval_digest
       @eval_digest ||= (cached && RuntimeSources.for(target).eval_digest(digest)) || raise("no symbol table for runtime #{digest}")
     end
 
+    # The ids that code outside the kernel has as immediates: the kernel's
+    # names, name to id. Each other name is a pool word that the link
+    # numbers (`Lower#fixed_id`).
+    def fixed_ids
+      @fixed_ids ||= symbols.names.first(cached.fetch(:kernel)).each_with_index.to_h { |name, i| [name, i] }.freeze
+    end
+
     private
 
-    # The runtime's symbol table, which the kernel and the core fill. In a
-    # checkout it starts from the ledger, so each name keeps its id.
+    # The kernel's own symbol table: the names of its `Machine.id`s, in the
+    # order of its files. Only these ids are in code outside the kernel.
     def kernel_symbols
-      @kernel_symbols ||= Machine::Symbols.new(ledger, fill: true)
-    end
-
-    # The ledger: the runtime's names by id at this checkout's last build,
-    # nil for an id free to take (a pad, or a name that build did not use).
-    # Each name then keeps its id, and a new name takes a free id. Without
-    # it, a new name in an early core file moved the id of every name after
-    # it, and with that the code of most functions (`Native::CodeCache`)
-    # and all of eval support. A table from a ledger depends on the builds
-    # before it, so an install, `zr-dev repro` (a new cache) and a release
-    # (`ZR_LEDGER=0`) never read one; their ids come from the sources only.
-    def ledger
-      ledger_text ? JSON.parse(ledger_text) : []
-    rescue JSON::ParserError
-      []
-    end
-
-    # The ledger's bytes, read once: the digest covers the same bytes that
-    # number the symbols.
-    def ledger_text
-      return @ledger_text if defined?(@ledger_text)
-
-      @ledger_text = RuntimeSources.for(target).ledger_text
-    end
-
-    # Writes the ledger for the next build: this table's names, with nil
-    # for each name that this build did not ask for.
-    def keep_ledger(symbols)
-      return unless RuntimeSources.ledger?
-
-      Cache::Store.write_file(RuntimeSources.for(target).ledger_path, JSON.generate(symbols.names.each_with_index.map { |name, i| name if symbols.used?(i) }))
+      @kernel_symbols ||= Machine::Symbols.new
     end
 
     # The symbol table, the wanted symbols and the kernel's description.
@@ -215,9 +194,9 @@ module Zr
       return unless File.exist?(cache_path)
 
       rows = JSON.parse(File.read(cache_path))
-      return unless %w[names sites functions data description].all? { |key| rows.key?(key) }
+      return unless %w[names sites kernel functions data description].all? { |key| rows.key?(key) }
 
-      { symbols: Machine::Symbols.new(rows.fetch("names"), sites: rows.fetch("sites")),
+      { symbols: Machine::Symbols.new(rows.fetch("names"), sites: rows.fetch("sites")), kernel: rows.fetch("kernel"),
         wants: { functions: rows.fetch("functions"), data: rows.fetch("data") },
         description: rows.fetch("description") }
     end
@@ -226,8 +205,6 @@ module Zr
       Tune.heavy!
       Zr.announce("the zr runtime", target)
       lowered
-      kernel_symbols.pad!
-      keep_ledger(kernel_symbols)
       defined = functions.map(&:name)
       ir = functions.grep(IR::Function)
       calls = ir.flat_map { |f| f.callees.map(&:symbol) }
@@ -241,9 +218,10 @@ module Zr
       wanted_data = (reads.uniq - data.map(&:name)).sort
       description = Machine::Description.of(unit).to_text
       Cache::Store.write_file(cache_path,
-                     JSON.generate({ "names" => kernel_symbols.names, "sites" => kernel_symbols.sites,
+                     JSON.generate({ "names" => @table.names, "sites" => @table.sites, "kernel" => kernel_symbols.names.size,
                                      "functions" => wanted_functions, "data" => wanted_data, "description" => description }))
-      { symbols: kernel_symbols, wants: { functions: wanted_functions, data: wanted_data }, description: description }
+      { symbols: @table, kernel: kernel_symbols.names.size, wants: { functions: wanted_functions, data: wanted_data },
+        description: description }
     end
 
     # The core library's `[functions, data]`, lowered over the kernel.
@@ -251,13 +229,21 @@ module Zr
     # For an aarch64 build, `Cache::Lowering::Core` takes each file it can from an
     # earlier build, and the list then has the machine code of those files
     # (`Obj::Code`) in place of their IR. It also inlines the unit.
+    #
+    # The core has only the kernel's ids in its code. Its other names are
+    # pool words, which this numbers in the order of the core's data, after
+    # the kernel's names (`@table`). The data is a numbered copy: the pieces
+    # that the core cache keeps stay unnumbered, so an edit that adds a name
+    # moves the ids after it and no code.
     def lowered
       @lowered ||= Zr.clock("core lowered") do
         @core_cache = Zr.clock("core cache: opened") { Cache::Lowering::Core.for(target) }
-        @core_cache ? @core_cache.lower(unit, kernel_symbols, sources) : Zr.core(unit, kernel_symbols, target, sources)
+        fixed = unit.symbols.ids.dup.freeze
+        functions, data = @core_cache ? @core_cache.lower(unit, fixed, sources) : Zr.core(unit, fixed, target, sources)
+        @table = Machine::Symbols.new(kernel_symbols.names, sites: kernel_symbols.sites)
+        [functions, Zr.numbered_data(data, @table, unit.const_for("SYMBOL_TAG"))]
       end
     end
-
   end
 
   # A program's own functions and data, and its runtime. It destructures
@@ -280,16 +266,18 @@ module Zr
   end
 
   # Eval support: the compiler that a program with eval links in. zr
-  # lowers it once with the runtime's symbols and assembles it into its
-  # own object, so a program with eval lowers and assembles only itself.
-  # Next to the object, the cache keeps the metadata that a program
-  # needs: the entry of each file, its dependencies, and the symbol table
-  # after it. The key is the eval digest (`RuntimeSources#eval_digest`) and the bytes
-  # of each file in eval support, and the metadata lists the runtime names
-  # it used. An edit to a file of eval support, to the compiler or to the
-  # kernel's description builds it again, as does a runtime name it used
-  # that moved; an edit to a core or kernel body does not, nor a new name,
-  # because eval support calls the core only by name.
+  # lowers it once and assembles it into its own object, so a program with
+  # eval lowers and assembles only itself. Next to the object, the cache
+  # keeps the metadata that a program needs: the entry of each file, its
+  # dependencies, and the symbol table after it. The key is the eval
+  # digest (`RuntimeSources#eval_digest`) and the bytes of each file in
+  # eval support.
+  #
+  # Its code has only the kernel's ids, so the code of each file depends on
+  # the compiler, the kernel's description and the file
+  # (`Cache::Lowering::EvalSupport` keeps it). Only its data, whose pool
+  # words the runtime's table numbers, depends on the core: a core edit
+  # writes the object again from the kept code.
   class EvalSupport
     def initialize(runtime)
       @runtime = runtime
@@ -324,12 +312,9 @@ module Zr
     # `Cache::Parse.maker`).
     def digests = meta.fetch("digests")
 
-    # The key of eval support's code (`Digests.eval_key`): the key of its files
-    # (the eval digest and the bytes of each file), and the symbol table
-    # that its code uses. The object has this name, and the unit cache
-    # uses it for a program that uses this symbol table. The same files
-    # lowered with other runtime ids get another key, so a build never
-    # links code that uses one table with a program that uses another.
+    # The key of eval support's object (`Digests.eval_key`): the key of its
+    # files (the eval digest and the bytes of each file), and the symbol
+    # table that numbers its data. The object has this name.
     def key = meta.fetch("key")
 
     def object_path = self.class.object_path(key)
@@ -368,19 +353,18 @@ module Zr
 
     private
 
-    # The cached metadata, while its files have the same bytes and the
-    # runtime's table has each runtime name it used at the same id; else
-    # the metadata of a new lowering.
+    # The cached metadata, while its files have the same bytes; else the
+    # metadata of a new lowering. Its path has the runtime's eval digest,
+    # so another runtime table has other metadata.
     def meta
       @meta ||= begin
         meta = JSON.parse(File.read(meta_path)) if File.exist?(meta_path)
-        current = meta && meta["files_key"] == files_key(meta.fetch("files"), {}, meta.fetch("absent", [])) &&
-                  @runtime.symbols.holds?(meta.fetch("used"))
+        current = meta && meta["files_key"] == files_key(meta.fetch("files"), {}, meta.fetch("absent", []))
         current ? meta : lowered.fetch(:meta)
       end
     end
 
-    # The key of eval support: the runtime's ABI digest and the bytes of
+    # The key of eval support: the runtime's eval digest and the bytes of
     # each file. A build gives the bytes that it lowered (`sources`), so an edit
     # during the build cannot put old output under the new bytes' key. A
     # check of the cache reads the files as they are now.
@@ -392,12 +376,12 @@ module Zr
         Zr.announce("eval support (the compiler in a program that calls eval)", target)
         loader = Hir::Build.eval_support(target)
         program = Hir::Program.new(Hir::Build.eval_file(target), [], Hir::Seq.new([], 0), loader.units, [], true, loader.entries)
-        symbols = Machine::Symbols.new(@runtime.symbols.names, sites: @runtime.symbols.sites)
-        lower = Lower.new(program, @runtime.description, symbols, entry: "zr_eval_support", target: target)
-        functions = data = nil
+        lower = Lower.new(program, @runtime.description, nil, entry: "zr_eval_support", target: target, fixed: @runtime.fixed_ids)
         @cache = Cache::Lowering::EvalSupport.for(target, kind)
-        asked = symbols.record { functions, data = @cache ? @cache.lower(lower, symbols, @runtime.description) : lower.run }
-        runtime_size = @runtime.symbols.names.size
+        functions, data = @cache ? @cache.lower(lower, @runtime.description) : lower.run
+        # Eval support's names come after the runtime's.
+        symbols = Machine::Symbols.new(@runtime.symbols.names, sites: @runtime.symbols.sites)
+        data = Zr.numbered_data(data, symbols, @runtime.description.const_for("SYMBOL_TAG"))
         files = loader.units.filter_map { |u| u.file if u.file.start_with?("/") }.uniq.sort
         sources = loader.units.each_with_object({}) { |u, h| h[u.file] ||= u.source if u.source }
         digests = (files + @runtime.gem_prelude_files).uniq.sort.to_h do |path|
@@ -411,8 +395,7 @@ module Zr
                  "units" => loader.entries.to_h { |path, i| [path, lower.unit_entry(i)] },
                  "configures" => loader.configures?, "normalizes" => loader.normalizes?, "pretty_prints" => loader.pretty_prints?,
                  "irbs" => loader.irbs?, "gems" => loader.gems?,
-                 "names" => symbols.names, "sites" => symbols.sites, "activations" => loader.activations,
-                 "used" => asked.select { |_, at| at < runtime_size } }
+                 "names" => symbols.names, "sites" => symbols.sites, "activations" => loader.activations }
         Cache::Store.write_file(meta_path, JSON.generate(meta))
         { functions: functions, data: data, meta: meta }
       end
@@ -448,14 +431,12 @@ module Zr
     sources = sources ? built_from(source, file, hir) : {}
     gems = Manifest.of_program(hir, support, gem_set)
     symbols = hir.evals ? support.symbols : Machine::Symbols.new(rt.symbols.names, sites: rt.symbols.sites)
-    # Each name already in the table has a fixed id. The link numbers all
-    # other names, so a unit's code does not depend on the compile order.
-    # So an earlier build's code for a unit is correct for this build.
-    # The cache key includes the table that fixes the ids: the runtime's,
-    # or the larger eval support table for a program with eval.
-    units = finish && Cache::Unit.for(hir, runtime: rt.abi_digest, table: hir.evals ? support.key : "rt",
-                                         entries: Lower.entries_of("zr_toplevel", hir.units))
-    lower = Lower.new(hir, rt.description, symbols, target: target, fixed: symbols.ids.dup.freeze, units: units || nil)
+    # Only the kernel's names have fixed ids. The link numbers all other
+    # names from `symbols`, so a unit's code does not depend on the compile
+    # order or on the core. So an earlier build's code for a unit is
+    # correct for this build while the kernel's ABI is the same.
+    units = finish && Cache::Unit.for(hir, runtime: rt.abi_digest, entries: Lower.entries_of("zr_toplevel", hir.units))
+    lower = Lower.new(hir, rt.description, symbols, target: target, fixed: rt.fixed_ids, units: units || nil)
     functions, data = Zr.clock(finish ? "program lowered and assembled" : "program lowered") do
       finish ? lower.run { |f| yield(f, lower.entry) } : lower.run
     end
@@ -555,6 +536,13 @@ module Zr
     end
   end
 
+  # `number_symbols` on copies: the data with each number written, where
+  # `data` keeps its relocations. A cache keeps a piece's data unnumbered,
+  # so that another table can number it again.
+  def numbered_data(data, symbols, tag)
+    data.map { |d| d.relocs.any? { |r| NUMBERED.include?(r.kind) } ? d.dup : d }.tap { |copies| number_symbols(copies, symbols, tag) }
+  end
+
   # The runtime for `target`, lowered once per process.
   def runtime(target = Target.default)
     (@runtimes ||= {})[target.triple] ||= Runtime.new(target)
@@ -580,32 +568,34 @@ module Zr
   # The core library on top of the kernel `unit`: `[functions, data]`,
   # with `zr_prelude` as the last function. The program decides if it
   # links in the compiler, so the core never requires eval support. A
-  # box or an eval in the program adds it.
-  def core(unit, symbols, target = Target.default, sources = {})
+  # box or an eval in the program adds it. `fixed` are the kernel's ids;
+  # the data leaves every other name to the link (`numbered_data`).
+  def core(unit, fixed, target = Target.default, sources = {})
     functions = []
     data = []
     entries = RuntimeSources.for(target).core_files.map do |path|
-      f, d = lower_core_file(path, sources.fetch(path) { File.read(path) }, unit, symbols, target)
+      f, d = lower_core_file(path, sources.fetch(path) { File.read(path) }, unit, fixed, target)
       functions.concat(f)
       data.concat(d)
       core_entry(path)
     end
-    f, d = lower_gem_prelude(gem_prelude(target), unit, symbols, target)
+    f, d = lower_gem_prelude(gem_prelude(target), unit, fixed, target)
     [functions.concat(f) << prelude(entries, unit), data.concat(d)]
   end
 
   # The entry of a core file's toplevel.
   def core_entry(path) = "zr_core_#{File.basename(path, ".rb")}"
 
-  # `[functions, data]` of one core file over the kernel `unit`.
-  def lower_core_file(path, source, unit, symbols, target)
-    Lower.new(Hir.build(source, path, eval_support: false, target: target), unit, symbols, entry: core_entry(path), internal: true,
-                                                                                    target: target).run
+  # `[functions, data]` of one core file over the kernel `unit`, with the
+  # kernel's ids `fixed`.
+  def lower_core_file(path, source, unit, fixed, target)
+    Lower.new(Hir.build(source, path, eval_support: false, target: target), unit, nil, entry: core_entry(path), internal: true,
+                                                                                 target: target, fixed: fixed).run
   end
 
   # `[functions, data]` of the gem prelude's program `hir`.
-  def lower_gem_prelude(hir, unit, symbols, target)
-    Lower.new(hir, unit, symbols, entry: GEM_PRELUDE_ENTRY, kind: :top, target: target).run
+  def lower_gem_prelude(hir, unit, fixed, target)
+    Lower.new(hir, unit, nil, entry: GEM_PRELUDE_ENTRY, kind: :top, target: target, fixed: fixed).run
   end
 
   GEM_PRELUDE_ENTRY = "zr_gem_prelude"

@@ -52,7 +52,9 @@ module Zr
       bit < 1 << 63 ? bit : bit - (1 << 64)
     end
 
-    attr_reader :program, :unit, :symbols, :data, :functions, :file, :warnings
+    # `fixed`: the ids that this lowering's code has as immediates (the
+    # kernel's), or nil when the lowering owns the table.
+    attr_reader :program, :unit, :symbols, :data, :functions, :file, :warnings, :fixed
 
     # The id of the prism node that `node` came from, or 0. The ids are
     # those of the file that is lowering now (`@ids`): the program's main
@@ -174,10 +176,10 @@ module Zr
       @site_cells[node] ||= cache_cell(prefix, bytes)
     end
 
-    # The fixed id of `name`, or nil. An id is fixed for a name that the
-    # runtime already uses, or for any name in a lowering that owns the
-    # table (the runtime, eval support, an eval). For nil, the link
-    # numbers the name, and the caller emits a word and a relocation.
+    # The fixed id of `name`, or nil. An id is fixed for a name of the
+    # kernel, or for any name in a lowering that owns the table (an eval in
+    # a running program). For nil, the link numbers the name, and the
+    # caller emits a word and a relocation.
     def fixed_id(name)
       return @symbols.id(name) unless @fixed
 

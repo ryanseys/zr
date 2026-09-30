@@ -449,11 +449,12 @@ module Zr
         builtins!
         registered = @record.builtins.keys.to_set { |fn| [nil, fn] }
         kernel = Piece.new(:kernel, @kernel.functions, @kernel.data, registered)
+        fixed = @kernel_fixed = @symbols.ids.dup.freeze
         began = clock
         core_functions = []
         core_data = []
         entries = sources.core_files.map do |path|
-          f, d = Zr.lower_core_file(path, File.read(path), @kernel, @symbols, @target)
+          f, d = Zr.lower_core_file(path, File.read(path), @kernel, fixed, @target)
           core_functions.concat(f)
           core_data.concat(d)
           Zr.core_entry(path)
@@ -461,7 +462,7 @@ module Zr
         @core_seconds = clock - began
         core_functions << Zr.prelude(entries, @kernel)
         began = clock
-        f, d = Zr.lower_gem_prelude(Zr.gem_prelude(@target), @kernel, @symbols, @target)
+        f, d = Zr.lower_gem_prelude(Zr.gem_prelude(@target), @kernel, fixed, @target)
         @prelude_seconds = clock - began
         @core_ir = core_functions
         @prelude_ir = f
@@ -500,7 +501,7 @@ module Zr
 
         point = @record.checkpoint
         symbols = Machine::Symbols.new(@symbols.names.dup, sites: @symbols.sites)
-        functions, data = Lower.new(hir, @kernel, symbols, target: @target).run
+        functions, data = Lower.new(hir, @kernel, symbols, target: @target, fixed: @kernel_fixed).run
         registered = @record.defs.drop(point[:defs]).to_set { |holder, fn, _| [holder, fn] }
         program = Piece.new(:program, functions, data, registered)
         modes = MODES.to_h do |mode|
@@ -646,20 +647,20 @@ module Zr
         ids
       end
 
-      # The cost of relocatable symbol ids: the core lowered with only the
-      # kernel's ids fixed, so that each other name is a pool word.
+      # The cost of relocatable symbol ids: the core as a build lowers it
+      # (only the kernel's ids fixed, each other name a pool word), and
+      # lowered again with a table that fixes every id.
       def ids
-        fixed = @kernel_names.each_with_index.to_h { |name, i| [name, i] if name }.compact.freeze
-        symbols = Machine::Symbols.new(@symbols.names.dup, sites: @symbols.sites)
+        symbols = Machine::Symbols.new(@kernel_names, sites: @symbols.sites)
         Reach.record = nil
-        pooled = RuntimeSources.for(@target).core_files.sum do |path|
+        fixed = RuntimeSources.for(@target).core_files.sum do |path|
           hir = Hir.build(File.read(path), path, eval_support: false, target: @target)
-          functions, = Lower.new(hir, @kernel, symbols, entry: Zr.core_entry(path), internal: true, target: @target, fixed: fixed).run
+          functions, = Lower.new(hir, @kernel, symbols, entry: Zr.core_entry(path), internal: true, target: @target).run
           functions.sum { |f| f.blocks.sum { |b| b.insts.size } }
         end
-        now = @pieces[1].total_insts
+        pooled = @pieces[1].total_insts
         puts format("relocatable ids: the core has %d IR instructions with fixed ids and %d with pooled ids (%+.2f%%)",
-                    now, pooled, 100.0 * (pooled - now) / now)
+                    fixed, pooled, 100.0 * (pooled - fixed) / fixed)
       end
 
       def write_tsv(rows)

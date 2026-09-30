@@ -33,24 +33,22 @@ module Zr
     class Unit
       # The format of the cache entries. Increase it to make every entry
       # from an older zr a miss.
-      VERSION = 3
+      VERSION = 4
 
       # The cache for `program`, or nil if no key can describe this
       # program. `entries` are the program's unit entries, in order.
-      def self.for(program, runtime:, table:, entries:)
+      def self.for(program, runtime:, entries:)
         return nil if program.coverable&.any?
 
-        new(runtime: runtime, table: table, traced: program.traced ? 1 : 0, entries: entries)
+        new(runtime: runtime, traced: program.traced ? 1 : 0, entries: entries)
       end
 
-      def initialize(runtime:, table:, traced:, entries:)
-        # `runtime` is the runtime's ABI digest (`RuntimeSources#abi_digest`): the
-        # compiler, the kernel's description and the symbol table. A unit's
-        # code calls the core only by name, so a core body edit keeps it.
-        # `table` identifies the symbol table that
-        # fixes a unit's ids: the runtime's, or the eval support table when
-        # the program links in eval support (it contains more names).
-        @stamp = "#{VERSION}\0#{runtime}\0#{table}\0#{traced}"
+      def initialize(runtime:, traced:, entries:)
+        # `runtime` is the runtime's ABI digest (`RuntimeSources#abi_digest`):
+        # the compiler, the kernel's description and the kernel's names. A
+        # unit's code has only the kernel's ids and calls the core only by
+        # name, so no core edit changes it.
+        @stamp = "#{VERSION}\0#{runtime}\0#{traced}"
         @entries = entries
       end
 

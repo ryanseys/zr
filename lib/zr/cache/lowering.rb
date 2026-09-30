@@ -19,9 +19,10 @@ module Zr
     # from a cache took longer (15 s of Marshal), so a piece is either
     # lowered or not needed at all. An entry keeps what the rest of the build
     # reads from a piece's lowering: the fingerprint of each function, its
-    # data, the names it asked the symbol table for with their ids, its sites,
-    # the symbols it wants, and the IR of each of its leaves, which other
-    # functions inline.
+    # data (unnumbered: its pool words name their symbols), the symbols it
+    # wants, and the IR of each of its leaves, which other functions inline.
+    # A piece has only the kernel's ids in its code, so no other piece's
+    # names change it.
     #
     # A function's code also depends on the rest of the unit: on the leaves
     # that it inlines, and on which of its callees the unit defines. An entry
@@ -31,16 +32,16 @@ module Zr
     # the same; or no function. A build checks each entry before it inlines.
     # A callee in a piece that this build lowers can have changed, unless it
     # was no leaf and is still too large to become one (inlining only adds
-    # instructions). Then the build lowers each piece that fails, with the
-    # site counter that the piece had, and inlines once over the whole unit.
+    # instructions). Then the build lowers each piece that fails, and
+    # inlines once over the whole unit.
     # So the code is the same as a build that lowers every piece, which
     # `core_cache_test.rb` checks byte for byte.
     class Lowering
-      VERSION = 2
+      VERSION = 3
 
       # A piece that this build lowered: its IR and data, and what its
-      # entry keeps (`names` are the symbol names it asked for).
-      Lowered = Struct.new(:path, :entry, :key, :functions, :data, :names, :sites, :wants, :small, :reads) do
+      # entry keeps.
+      Lowered = Struct.new(:path, :entry, :key, :functions, :data, :wants, :small, :reads) do
         def kept? = false
         def function_names = functions.map(&:name)
         # The IR that the inlining pass works on.
@@ -81,7 +82,7 @@ module Zr
 
           leaves = piece.functions.select { |f| @inliner.settled_leaf?(f.name) }
           record = {
-            names: piece.names, sites: piece.sites, wants: piece.wants, reads: piece.reads, data: Marshal.dump(piece.data),
+            wants: piece.wants, reads: piece.reads, data: Marshal.dump(piece.data),
             functions: piece.functions.map { |f| [f.name, fingerprints.fetch(f.name)] },
             calls: piece.functions.to_h { |f| [f.name, @inliner.calls(f.name).to_h { |sym| [sym, dependency(sym)] }] },
             bits: piece.functions.flat_map { |f| f.callees.map(&:symbol) }.uniq.to_h { |sym| [sym, defined.include?(sym)] },
@@ -107,36 +108,20 @@ module Zr
       # no key can describe; it is always lowered.
       def piece(path, entry, key, &)
         record = key && fetch(key)
-        if record && @symbols.fits?(record[:names]) && @symbols.sites == record[:sites].first && reads_hold?(record)
-          @symbols.replay(record[:names])
-          @symbols.sites = record[:sites].last
-          Kept.new(path, entry, key, record)
-        else
-          reason = if key.nil? then "no key"
-                   elsif record then why_not(record)
+        return Kept.new(path, entry, key, record) if record && reads_hold?(record)
+
+        note(path, if key.nil? then "no key"
+                   elsif record then "kernel rows"
                    else "no entry"
-                   end
-          note(path, reason)
-          lowered(path, entry, key, &)
-        end
+                   end)
+        lowered(path, entry, key, &)
       end
 
-      # Lowers a piece with the block, which returns `[functions, data]`. With
-      # `sites`, it lowers with that site counter and then restores the one
-      # the build had.
-      def lowered(path, entry, key, sites: nil)
-        if sites
-          after = @symbols.sites
-          @symbols.sites = sites
-        end
-        before = @symbols.sites
+      # Lowers a piece with the block, which returns `[functions, data]`.
+      def lowered(path, entry, key)
         functions = data = nil
-        reads = nil
-        names = @symbols.record { reads = reading { functions, data = yield } }
-        piece = Lowered.new(path, entry, key, functions, data, names, [before, @symbols.sites], wants_of(functions),
-                            functions.to_h { |f| [f.name, small?(f)] }, reads)
-        @symbols.sites = after if sites
-        piece
+        reads = reading { functions, data = yield }
+        Lowered.new(path, entry, key, functions, data, wants_of(functions), functions.to_h { |f| [f.name, small?(f)] }, reads)
       end
 
       # The kernel description that the pieces read, or nil when the key
@@ -159,12 +144,6 @@ module Zr
         reads.is_a?(Hash) && description.rows(reads) == reads
       end
 
-      def why_not(record)
-        return "names" unless @symbols.fits?(record[:names])
-
-        @symbols.sites == record[:sites].first ? "kernel rows" : "sites"
-      end
-
       # Whether `f` can become a leaf: a function with more instructions than
       # Inline::LIMIT before inlining never becomes one.
       def small?(f) = f.blocks.sum { |b| b.insts.size } <= IR::Passes::Inline::LIMIT
@@ -182,7 +161,7 @@ module Zr
       def fetch(key) = Store.read(:lowering, key)
 
       # The pieces this build takes from an entry, after the checks; the
-      # others it lowers now (`again`), each with the site counter it had.
+      # others it lowers now (`again`).
       def settle(pieces)
         loop do
           owner = {}

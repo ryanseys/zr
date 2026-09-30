@@ -97,14 +97,14 @@ module Zr
 
       # Names the store entries that a link of `objects` reads (lib/zr/cache/store.rb),
       # so no eviction removes them: the objects, their prelinked image and
-      # skeleton, the runtime's symbol table, gem prelude list and ledger,
-      # eval support's metadata, and the code packs of this backend. A
-      # link with eval support and one without each have a root.
+      # skeleton, the runtime's symbol table and gem prelude list, eval
+      # support's metadata, and the code packs of this backend. A link with
+      # eval support and one without each have a root.
       def root(runtime, objects, evals)
         target = runtime.target
         Cache::Store.root("#{target.triple}-link-#{evals ? "eval-#{evals.kind}" : "plain"}",
                    [*objects, prelink_path(objects), skeleton_path(objects), RuntimeSources.symbols_path(runtime.digest),
-                    runtime.gem_prelude_path, RuntimeSources.for(target).ledger_path, (evals.meta_path if evals), CodeCache.dir])
+                    runtime.gem_prelude_path, (evals.meta_path if evals), CodeCache.dir])
       rescue SystemCallError, SourceChanged
         nil # a root that is not written protects less; the link goes on
       end

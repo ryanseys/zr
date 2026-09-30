@@ -51,8 +51,6 @@ module Zr
       # `ZR_LINK_ARGS`: words for the system linker, as `--link` gives
       # them, split as a shell splits them.
       @link = words(ENV.fetch("ZR_LINK_ARGS", "")).freeze
-      # `ZR_LEDGER`: nil when unset, so the default can be a checkout's.
-      @ledger = ENV["ZR_LEDGER"].to_s.empty? ? nil : ENV["ZR_LEDGER"] != "0"
       @run_cache = Zr.flag?("ZR_RUN_CACHE", default: true)
       @code_cache = choice("ZR_CODE_CACHE", CODE_CACHES, "1")
       @server = ENV["ZR_SERVER"].to_s.empty? ? nil : ENV["ZR_SERVER"]
@@ -126,9 +124,6 @@ module Zr
 
     # `ZR_TUNE=0` keeps ruby's limits and leaves YJIT off.
     def tune? = @tune
-
-    # `ZR_LEDGER`: true or false when set, else nil (`RuntimeSources.ledger?`).
-    attr_reader :ledger
 
     # `ZR_RUN_CACHE=0` makes `zr run` build each run (`Cache::Run`).
     def run_cache? = @run_cache

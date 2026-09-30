@@ -43,92 +43,42 @@ module Zr
     # compiler owns the table. A unit compiled alone numbers the names in
     # the order it finds them.
     #
-    # A table can have pads: ids that no name has (nil in `names`). The
-    # runtime's table ends in pads up to a multiple of `BLOCK`, so the ids
-    # after it (eval support's own names, and a program's) start at the
-    # same id while the runtime gains names. With `fill`, a new name takes
-    # the first pad; the runtime's table fills, and every table made from
-    # it appends. A binary's table marks a pad, so no symbol has its id.
+    # Only the kernel's ids are fixed in code. Every other lowering (the
+    # core, the gem prelude, eval support, a program) loads the id of any
+    # other name from its unit's pool, and the link numbers the pools in
+    # the order of the pieces (`Zr.numbered`). So a table is the kernel's
+    # names, then the core's, then eval support's or the program's.
+    #
+    # A table can have pads: ids that no name has (nil in `names`). A
+    # binary's table marks a pad, so no symbol has its id.
     class Symbols
-      BLOCK = 1024
-
       attr_reader :ids, :names
       attr_accessor :sites
 
       # `intern` lets a running program get an id for a new symbol. Only
       # eval support has one, and it applies only to names after `names`.
       # `names` gives a name, or nil for a pad, for each id from 0.
-      def initialize(names = [], sites: 0, intern: nil, fill: false)
+      def initialize(names = [], sites: 0, intern: nil)
         @ids = {}
         @names = []
-        @free = []
         @sites = sites
-        @used = {}
         names.each do |name|
-          @free << @names.size if name.nil? && fill
           @ids[name] = @names.size unless name.nil?
           @names << name
         end
         @intern = intern
       end
 
-      # Whether a lowering asked for the name of `id` (not only the table
-      # that this one started from).
-      def used?(id) = @used.key?(id)
-
       # With an `intern`, a new name goes to the program immediately, and
       # gets the id that the program's own table returns. Thus the two
       # tables always agree, whatever other names the program interned.
       def id(name)
         name = name.to_s
-        at = @ids.fetch(name) do
-          fresh = @intern ? @intern.call(name) : (@free.shift || @names.size)
+        @ids.fetch(name) do
+          fresh = @intern ? @intern.call(name) : @names.size
           @names[fresh] = name
           @ids[name] = fresh
         end
-        @used[at] = true
-        @record[name] = at if @record
-        at
-      end
-
-      # The names that the block asks for, with their ids.
-      def record
-        outer = @record
-        @record = {}
-        yield
-        @record
-      ensure
-        outer&.merge!(@record) if @record
-        @record = outer
-      end
-
-      # Whether each of `names` (name to id) has its id in this table. It
-      # adds no name.
-      def holds?(names) = names.all? { |name, at| @ids[name] == at }
-
-      # Whether asking for `names` in their order (as `record` gives them)
-      # would give each its id: a name in the table has it, and a new name
-      # would take it next. It adds no name.
-      def fits?(names)
-        free = @free.dup
-        size = @names.size
-        names.all? do |name, at|
-          next @ids[name] == at if @ids.key?(name)
-
-          (free.shift || (size += 1) - 1) == at
-        end
-      end
-
-      # Asks for `names` in their order, as the lowering that recorded them
-      # did (`fits?` said each gets its id).
-      def replay(names)
-        names.each_key { |name| id(name) }
-      end
-
-      # Ends the table in pads up to a multiple of BLOCK.
-      def pad!
-        @names << nil until (@names.size % BLOCK).zero?
-        self
       end
 
       # A new index for a site that owns a run-time slot (the cached

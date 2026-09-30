@@ -91,9 +91,6 @@ module Zr
     # digest `of` the runtime's other sources (`Runtime#gem_prelude_files`).
     def self.gem_prelude_list(of) = Cache::Store.path(:meta, "#{of}-gem-prelude")
 
-    # The ledger is on in a checkout, and anywhere with `ZR_LEDGER=1`.
-    def self.ledger? = Config.current.ledger.nil? ? Paths.checkout? : Config.current.ledger
-
     attr_reader :target
 
     def initialize(target)
@@ -132,49 +129,36 @@ module Zr
     # The digest of the compiler files (part of the runtime's).
     def compiler_digest = @compiler_digest ||= Digests.sources(target, compiler_files)
 
-    # The digest of what code outside the runtime object takes from the
-    # runtime: the compiler files that lower it, the kernel's description
-    # (the constants, layouts, signatures and effects that it bakes in), and
-    # the symbol table (each name's id, and the count of sites). Eval support
-    # and a program's units call the core only by name and by send, so an
-    # edit to a core or kernel body that changes none of these keeps them.
-    # Nil when the runtime's symbol table is not cached.
+    # The digest of what code outside the kernel takes from the runtime:
+    # the compiler files that lower it, the kernel's description (the
+    # constants, layouts, signatures and effects that it bakes in), and the
+    # kernel's names (the only ids in such code). Eval support and a
+    # program's units call the core only by name, and the link numbers every
+    # other name, so no core edit changes their code. Nil when the
+    # runtime's symbol table is not cached.
     def abi_digest(runtime_digest)
       rows = JSON.parse(File.read(RuntimeSources.symbols_path(runtime_digest)))
       Digest::SHA256.new.tap do |d|
-        d << "abi 1\0" << compiler_digest << "\0" << rows.fetch("description") << "\0"
-        rows.fetch("names").each { |name| d << (name ? "+#{name}" : "-") << "\0" }
-        d << rows.fetch("sites").to_s
+        d << "abi 2\0" << compiler_digest << "\0" << rows.fetch("description") << "\0"
+        rows.fetch("names").first(rows.fetch("kernel")).each { |name| d << (name ? "+#{name}" : "-") << "\0" }
       end.hexdigest
     rescue JSON::ParserError, KeyError, SystemCallError
       nil
     end
 
-    # The digest of what eval support takes from the runtime besides the ids
-    # of the names it uses: the compiler, the kernel's description, where its
-    # own ids start (the size of the runtime's table, with its pads) and the
-    # count of the runtime's sites. The metadata of eval support lists the
-    # runtime names it used, and a build keeps it while the runtime's table
-    # still has each of them at its id (`EvalSupport#meta`). A new runtime
-    # name that eval support does not use keeps it. Nil when the runtime's
-    # symbol table is not cached.
+    # The digest of what eval support's object takes from the runtime: its
+    # ABI (`abi_digest`), and the runtime's table (each name's id, and the
+    # count of sites), which numbers eval support's data. Nil when the
+    # runtime's symbol table is not cached.
     def eval_digest(runtime_digest)
+      abi = abi_digest(runtime_digest) or return nil
       rows = JSON.parse(File.read(RuntimeSources.symbols_path(runtime_digest)))
-      Digest::SHA256.hexdigest(["eval 1", compiler_digest, rows.fetch("description"), rows.fetch("names").size,
-                                rows.fetch("sites")].join("\0"))
+      Digest::SHA256.new.tap do |d|
+        d << "eval 2\0" << abi << "\0" << rows.fetch("sites").to_s
+        rows.fetch("names").each { |name| d << (name ? "\0+#{name}" : "\0-") }
+      end.hexdigest
     rescue JSON::ParserError, KeyError, SystemCallError
       nil
-    end
-
-    # The ledger of the runtime's symbol ids (`Runtime#ledger`), and its
-    # bytes, or nil when there is none or the ledger is off.
-    def ledger_path = Cache::Store.path(:meta, "#{Cache::Store.key("ledger", target.triple)}-ledger")
-
-    def ledger_text
-      return nil unless RuntimeSources.ledger?
-
-      path = ledger_path
-      File.exist?(path) ? File.binread(path) : nil
     end
 
     # `Runtime#digest` without the compiler: from the sources and the cached
@@ -188,7 +172,7 @@ module Zr
       prelude = JSON.parse(File.read(list))
       return nil unless prelude.all? { |file| File.file?(file) }
 
-      Digests.with_ledger(Digests.sources(target, files + prelude), ledger_text)
+      Digests.sources(target, files + prelude)
     rescue JSON::ParserError, SystemCallError
       nil
     end

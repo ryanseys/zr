@@ -91,9 +91,8 @@ module Zr
       end
 
       # The runtime digest of the self-compile whose cache is `cache`: the
-      # name of the one runtime symbol table there. This process cannot
-      # compute it: the digest contains the ledger of symbol ids, which the
-      # self-compile wrote into its own cache.
+      # name of the one runtime symbol table there. The digest contains the
+      # gem prelude's files, which only the self-compile's cache lists.
       def runtime_digest(cache)
         tables = Dir[File.join(cache, "store", "meta", "*", "*-symbols.json")]
         fail!("#{cache} has #{tables.size} runtime symbol tables, not one") unless tables.size == 1

@@ -24,7 +24,7 @@ class CoreCacheTest < Minitest::Test
   # Builds the runtime object in the cache `dir`, with the file EDITED
   # given `extra` at its end, and returns the object's bytes.
   def object(dir, extra, code_cache:)
-    Zr::Config.with(ZR_CODE_CACHE: code_cache ? "1" : "0", ZR_LEDGER: "0") do
+    Zr::Config.with(ZR_CODE_CACHE: code_cache ? "1" : "0") do
       Zr::Paths.instance_variable_set(:@cache, dir)
       runtime = Zr::Runtime.new(Zr::Target.default)
       path = File.join(Zr::Paths::ROOT, EDITED)

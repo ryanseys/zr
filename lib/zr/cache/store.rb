@@ -35,7 +35,7 @@ module Zr
       KINDS = [
         Kind.new(:object, :raw, ".o", nil),       # runtime and eval support objects
         Kind.new(:image, :raw, ".bin", nil),      # prelinked images and skeletons
-        Kind.new(:meta, :json, ".json", nil),     # symbol tables, gem prelude lists, ledgers, eval meta
+        Kind.new(:meta, :json, ".json", nil),     # symbol tables, gem prelude lists, eval meta
         Kind.new(:wasm, :marshal, ".marshal", nil),
         Kind.new(:gems, :marshal, ".marshal", nil),
         Kind.new(:parse, :raw, "", nil),          # Prism parse results (Parse encodes them)

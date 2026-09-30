@@ -31,12 +31,12 @@ module Zr
         # can from an entry. Returns `[functions, data]`, with `Obj::Code`
         # for each unit that it took, and inlined, so the object build must not
         # inline again.
-        def lower(lower, symbols, description)
+        def lower(lower, description)
           @lower = lower
-          @symbols = symbols
           @program = lower.program
           @description = description
-          @base = base_key(@program.file)
+          # The code has the kernel's ids.
+          @base = base_key(@program.file, *lower.fixed.keys)
           @entry_functions, @entry_data = lower.lower_entry
           pieces = Zr.clock("eval cache: units") do
             @program.units.each_index.map do |i|
@@ -72,7 +72,7 @@ module Zr
 
         def again(piece)
           i = @index.fetch(piece.entry)
-          lowered(piece.path, piece.entry, piece.key, sites: piece.record[:sites].first) { @lower.lower_unit(i) }
+          lowered(piece.path, piece.entry, piece.key) { @lower.lower_unit(i) }
         end
 
         def fixed_names = @fixed_names ||= @entry_functions.map(&:name) + @entry_data.map(&:name)

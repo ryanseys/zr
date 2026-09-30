@@ -4,17 +4,16 @@
 require "test_helper"
 require_relative "../../lib/zr/runtime"
 
-# The eval support object's key names its code (`Zr::Digests.eval_key`), not only
-# the files that it was lowered from.
+# The eval support object's key names its bytes (`Zr::Digests.eval_key`),
+# not only the files that it was lowered from.
 #
-# The code contains the id of each name that it uses, the runtime's
-# names too. A build with the ledger and a build without it
-# (`ZR_LEDGER=0`) give the runtime's names other ids, so they
-# lower the same files to other code. When the key had only the files,
-# the second build wrote its own metadata but linked the first build's
-# object (`Native::Build.eval_support_object` keeps an object that has
-# its key). Each eval then read a name by the wrong id: `Target#os` was
-# nil, and the compiled compiler had no `Target#triple`.
+# The object's data has the id of each name that it uses, which the
+# runtime's table numbers. Two tables number the same files to other
+# words. When the key had only the files, a second build wrote its own
+# metadata but linked the first build's object
+# (`Native::Build.eval_support_object` keeps an object that has its key).
+# Each eval then read a name by the wrong id: `Target#os` was nil, and the
+# compiled compiler had no `Target#triple`.
 class EvalKeyTest < Minitest::Test
   FILES = "files"
   NAMES = ["zr_intern", "os", "triple", nil, "@os"].freeze
@@ -25,8 +24,8 @@ class EvalKeyTest < Minitest::Test
     assert_equal key(NAMES), key(NAMES.dup)
   end
 
-  # A runtime whose table has the same names at other ids, as the ledger
-  # gives them.
+  # A runtime whose table has the same names at other ids, as a core edit
+  # that adds a name gives them.
   def test_a_name_at_another_id_is_another_key
     moved = NAMES.values_at(0, 2, 1, 3, 4)
 

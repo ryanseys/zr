@@ -24,11 +24,13 @@ module Zr
         # file it can from an entry. Returns `[functions, data]`: IR for a file
         # that it lowered, `Obj::Code` for one that it took. It inlines the
         # whole unit (the kernel's functions too), so the object build must not.
-        def lower(unit, symbols, sources)
+        def lower(unit, fixed, sources)
           @unit = unit
-          @symbols = symbols
+          @fixed = fixed
           @sources = sources
-          @base = Zr.clock("core cache: key") { base_key(Machine::Description.of(unit).to_text, Lower.boot_classes.inspect) }
+          @base = Zr.clock("core cache: key") do
+            base_key(Machine::Description.of(unit).to_text, Lower.boot_classes.inspect, *fixed.keys)
+          end
           @kernel = unit.functions
           @kernel_names = @kernel.to_h { |f| [f.name, true] }
           kernel = IR::Passes::Inline.new(@kernel)
@@ -67,7 +69,7 @@ module Zr
           piece(path, entry, key_of(path, entry, source)) { lower_core(path, source) }
         end
 
-        def lower_core(path, source) = Zr.lower_core_file(path, source, @unit, @symbols, @target)
+        def lower_core(path, source) = Zr.lower_core_file(path, source, @unit, @fixed, @target)
 
         # The key text of the gem prelude: the path and the bytes of each file
         # that its program loads.
@@ -78,17 +80,15 @@ module Zr
           piece(Layout::GEM_PRELUDE, entry, key_of(Layout::GEM_PRELUDE, entry, gem_source)) { lower_gem }
         end
 
-        def lower_gem = Zr.lower_gem_prelude(@gem_hir, @unit, @symbols, @target)
+        def lower_gem = Zr.lower_gem_prelude(@gem_hir, @unit, @fixed, @target)
 
-        # A piece from an entry that failed its check, lowered now with the
-        # site counter it had.
+        # A piece from an entry that failed its check, lowered now.
         def again(piece)
-          sites = piece.record[:sites].first
           if piece.path == Layout::GEM_PRELUDE
-            lowered(piece.path, piece.entry, piece.key, sites: sites) { lower_gem }
+            lowered(piece.path, piece.entry, piece.key) { lower_gem }
           else
             source = @sources.fetch(piece.path) { File.read(piece.path) }
-            lowered(piece.path, piece.entry, piece.key, sites: sites) { lower_core(piece.path, source) }
+            lowered(piece.path, piece.entry, piece.key) { lower_core(piece.path, source) }
           end
         end
 

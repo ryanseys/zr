@@ -325,8 +325,7 @@ module Zr
       unit = runtime.unit
       %w[array string hash].each do |name|
         path = File.join(Paths::ROOT, "runtime/core/#{name}.rb")
-        Lower.new(Hir.build(File.read(path), path, eval_support: false, target: target), unit, runtime.send(:kernel_symbols),
-                  entry: "zr_core_#{name}", internal: true, target: target).run
+        Zr.lower_core_file(path, File.read(path), unit, unit.symbols.ids.dup.freeze, target)
       end
       Paths.tmpdir("zr-serve-") do |work|
         file = File.join(work, "primer.rb")

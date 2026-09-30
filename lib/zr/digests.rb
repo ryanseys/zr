@@ -47,10 +47,9 @@ module Zr
     end
 
     # The key of an eval support object and of its symbol table: the key of
-    # its files, and the names and site count that its code was lowered
-    # with. The code contains the id of each name, also of the runtime's
-    # names. Other runtime ids (a build with the ledger, and one without)
-    # lower the same files to other code, so they must never share a key.
+    # its files, and the names and site count that numbered its data. Two
+    # tables number the same data to other words, so they must never share
+    # a key.
     def eval_key(files_key, names, sites)
       Digest::SHA256.new.tap do |d|
         d << files_key << "\0" << sites.to_s
@@ -58,12 +57,6 @@ module Zr
         # (nil) has no length.
         names.each { |name| d << (name.nil? ? "\0-" : "\0#{name.bytesize}:#{name}") }
       end.hexdigest
-    end
-
-    # A runtime's digest: its sources' digest, and the ledger that numbered
-    # its symbols, when one did. A table from a ledger is another runtime.
-    def with_ledger(digest, ledger)
-      ledger ? Digest::SHA256.hexdigest("#{digest}\0ledger\0#{ledger}") : digest
     end
   end
 end
