@@ -601,17 +601,30 @@ module Zr
     functions = []
     data = []
     entries = core_files(target).map do |path|
-      entry = "zr_core_#{File.basename(path, ".rb")}"
-      source = sources.fetch(path) { File.read(path) }
-      f, d = Lower.new(Hir.build(source, path, eval_support: false, target: target), unit, symbols, entry: entry, internal: true,
-                       target: target).run
+      f, d = lower_core_file(path, sources.fetch(path) { File.read(path) }, unit, symbols, target)
       functions.concat(f)
       data.concat(d)
-      entry
+      core_entry(path)
     end
-    f, d = Lower.new(gem_prelude(target), unit, symbols, entry: "zr_gem_prelude", kind: :top, target: target).run
+    f, d = lower_gem_prelude(gem_prelude(target), unit, symbols, target)
     [functions.concat(f) << prelude(entries, unit), data.concat(d)]
   end
+
+  # The entry of a core file's toplevel.
+  def core_entry(path) = "zr_core_#{File.basename(path, ".rb")}"
+
+  # `[functions, data]` of one core file over the kernel `unit`.
+  def lower_core_file(path, source, unit, symbols, target)
+    Lower.new(Hir.build(source, path, eval_support: false, target: target), unit, symbols, entry: core_entry(path), internal: true,
+                                                                                    target: target).run
+  end
+
+  # `[functions, data]` of the gem prelude's program `hir`.
+  def lower_gem_prelude(hir, unit, symbols, target)
+    Lower.new(hir, unit, symbols, entry: GEM_PRELUDE_ENTRY, kind: :top, target: target).run
+  end
+
+  GEM_PRELUDE_ENTRY = "zr_gem_prelude"
 
   # CRuby's gem_prelude.rb, which loads ruby's default libraries before
   # a program's first line. After it comes error_highlight's lookup for

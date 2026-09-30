@@ -62,36 +62,33 @@ module Zr
         private
 
         def core_file(path)
-          entry = "zr_core_#{File.basename(path, ".rb")}"
+          entry = Zr.core_entry(path)
           source = @sources.fetch(path) { File.read(path) }
-          piece(path, entry, key_of(path, entry, source)) { lower_core(path, entry, source) }
+          piece(path, entry, key_of(path, entry, source)) { lower_core(path, source) }
         end
 
-        def lower_core(path, entry, source)
-          Lower.new(Hir.build(source, path, eval_support: false, target: @target), @unit, @symbols, entry: entry, internal: true,
-                                                                                      target: @target).run
-        end
+        def lower_core(path, source) = Zr.lower_core_file(path, source, @unit, @symbols, @target)
 
         # The key text of the gem prelude: the path and the bytes of each file
         # that its program loads.
         def gem_source = @gem_hir.units.map { |u| "#{u.file}\0#{u.source}" }.join("\0") + File.read(Layout::GEM_PRELUDE)
 
         def gem_piece
-          entry = "zr_gem_prelude"
-          piece(Layout::GEM_PRELUDE, entry, key_of(Layout::GEM_PRELUDE, entry, gem_source)) { lower_gem(entry) }
+          entry = Zr::GEM_PRELUDE_ENTRY
+          piece(Layout::GEM_PRELUDE, entry, key_of(Layout::GEM_PRELUDE, entry, gem_source)) { lower_gem }
         end
 
-        def lower_gem(entry) = Lower.new(@gem_hir, @unit, @symbols, entry: entry, kind: :top, target: @target).run
+        def lower_gem = Zr.lower_gem_prelude(@gem_hir, @unit, @symbols, @target)
 
         # A piece from an entry that failed its check, lowered now with the
         # site counter it had.
         def again(piece)
           sites = piece.record[:sites].first
           if piece.path == Layout::GEM_PRELUDE
-            lowered(piece.path, piece.entry, piece.key, sites: sites) { lower_gem(piece.entry) }
+            lowered(piece.path, piece.entry, piece.key, sites: sites) { lower_gem }
           else
             source = @sources.fetch(piece.path) { File.read(piece.path) }
-            lowered(piece.path, piece.entry, piece.key, sites: sites) { lower_core(piece.path, piece.entry, source) }
+            lowered(piece.path, piece.entry, piece.key, sites: sites) { lower_core(piece.path, source) }
           end
         end
 
