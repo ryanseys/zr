@@ -8,6 +8,7 @@ require_relative "libsystem"
 require_relative "skeleton"
 require_relative "../../bytes"
 require_relative "../../clock"
+require_relative "../../target"
 
 module Zr
   module Obj
@@ -45,8 +46,8 @@ module Zr
         # same value, so the stack size is the same with both linkers.
         STACK = 0x400_0000
         # The oldest macOS that a binary loads on. The SDK version is the
-        # same value, because this linker reads no SDK.
-        MIN_MACOS = (14 << 16) | (0 << 8)
+        # same value, because this linker reads no SDK. The target holds it.
+        MIN_MACOS = Target::AARCH64_DARWIN.min_os_parts.then { |x, y, z| (x << 16) | (y << 8) | z }
         SDK = MIN_MACOS
 
         MH_MAGIC_64 = 0xFEEDFACF

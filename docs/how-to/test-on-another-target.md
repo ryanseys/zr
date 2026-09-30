@@ -62,7 +62,7 @@ CI runs, and give the baseline the examples in them that fail.
 A spec example gives the stdout of each platform that is different:
 
 ```ruby
-_(result).must_answer "arm64-darwin24\n", linux: "aarch64-linux-musl\n", wasi: "wasm32-wasi\n"
+_(result).must_answer "arm64-darwin23\n", linux: "aarch64-linux-musl\n", wasi: "wasm32-wasi\n"
 ```
 
 See [The spec DSL](../reference/spec-dsl.md).

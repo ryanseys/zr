@@ -201,6 +201,52 @@ module Zr
       exit REFUSED
     end
 
+    ISSUES = "https://github.com/ryanseys/zr/issues"
+
+    # The errors that say what the user must change, not a defect in zr.
+    # They print their message only. Named as strings: not every command
+    # loads the file that defines each one.
+    EXPECTED = %w[Zr::Config::Invalid Zr::SourceChanged Zr::GemSet::Unresolved Zr::Paths::Missing].freeze
+    # The errors of a directory that zr cannot write to or that is full.
+    UNWRITABLE = %w[EACCES EROFS ENOSPC EPERM].freeze
+
+    # Runs the command, and turns an error that escapes it into one line
+    # and an exit status: 130 for Ctrl-C, 2 for a bad setting, 1 for any
+    # other error. An error that zr did not expect is a defect: the line
+    # says so and where to report it. ZR_DEBUG=1 shows the backtrace.
+    def guard
+      yield
+    rescue Interrupt
+      # The `ensure` clauses of the build have removed its temp files.
+      exit 130
+    rescue StandardError => e
+      raise if Config.debug?
+
+      warn "zr: #{error_line(e)}"
+      exit(e.is_a?(Config::Invalid) ? 2 : 1)
+    end
+
+    # The line that `guard` prints for `error`.
+    def error_line(error)
+      return error.message if EXPECTED.include?(error.class.name)
+      return "#{error.message}#{cache_hint(error)}" if error.is_a?(SystemCallError)
+
+      "internal error: #{error.class}: #{error.message}. This is a defect in zr. Report it at #{ISSUES} " \
+        "with the output of 'zr doctor'. Set ZR_DEBUG=1 to see the backtrace."
+    end
+
+    # For an error that writing into zr's cache gave, how to fix it.
+    def cache_hint(error)
+      return "" unless UNWRITABLE.any? { |name| Errno.const_get(name) === error }
+
+      dirs = [Config.current.cache, Paths.user_cache, File.join(Paths::ROOT, "tmp/cache")].compact
+      return "" unless dirs.any? { |dir| error.message.include?(dir) }
+
+      ". Set XDG_CACHE_HOME (or ZR_CACHE) to a directory that you can write to, or run 'zr cache clean'"
+    rescue StandardError
+      ""
+    end
+
     def start(argv)
       args = argv.dup
       command = args.shift
@@ -361,7 +407,7 @@ module Zr
       target = target_for(opts[:triple], opts[:emit], command)
       emit = opts[:emit] || ("wasm" if target.outputs == [:wasm])
       usage_error("--link applies only to a native binary", command) if emit && !opts[:link].empty?
-      refuse(input, command, emit, target)
+      refuse(input, command, emit, target, chosen: !opts[:triple].nil?)
       wasmtime! if command == "run" && emit == "wasm"
 
       Paths.root = opts[:root]
@@ -461,16 +507,30 @@ module Zr
     # aarch64-apple-darwin binary on any host, but only that host can run
     # it. A cross toolchain builds a binary that only its target host
     # runs.
-    def refuse(input, verb, emit, target)
+    def refuse(input, verb, emit, target, chosen: true)
       why = target.refusal(emit)
-      if why.nil? && verb == "run" && emit.nil? && !target.native?
-        why = "a #{target.triple} binary runs only on a #{target.triple} host; `zr build` writes one here"
+      if why.nil? && verb == "run" && emit.nil? && !target.runs_here?
+        why = "#{foreign(target, chosen)} To run the program here, use 'zr run --emit wasm #{input}'."
+      end
+      if why.nil? && verb == "build" && emit.nil? && !chosen && !target.runs_here?
+        warn "zr: #{foreign(target, chosen)} Give --emit wasm for a module that runs here with wasmtime."
       end
       return unless why
 
       warn "zr: #{input}: #{why}"
       exit REFUSED
     end
+
+    # The words for a native target that this host cannot run. `chosen`
+    # is false when the build took the default target, not a --target.
+    def foreign(target, chosen)
+      what = "this computer cannot run #{target.triple} binaries."
+      return what if chosen
+
+      "#{what} zr builds one for #{TARGET_NAMES.fetch(target.triple, target.triple)}."
+    end
+
+    TARGET_NAMES = { "aarch64-apple-darwin" => "macOS on Apple Silicon" }.freeze
 
     # What `zr` prints when it refuses a program: the message, then for a
     # form of Ruby, the source line with a caret and the page that lists
@@ -628,7 +688,7 @@ module Zr
       return if opts[:emit] || opts[:triple] || host_refusal || !File.file?(opts[:input])
 
       target = Target.default
-      return unless target.native? && target.refusal(nil).nil?
+      return unless target.runs_here? && target.refusal(nil).nil?
 
       Paths.root = opts[:root]
       # A set that does not resolve goes on to the build, which says why.

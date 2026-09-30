@@ -98,7 +98,7 @@ A platform that the call does not give expects the macOS stdout.
 it "names the platform" do
   result = zr(%(puts RUBY_PLATFORM))
 
-  _(result).must_answer "arm64-darwin24\n", linux: "aarch64-linux-musl\n", wasi: "wasm32-wasi\n"
+  _(result).must_answer "arm64-darwin23\n", linux: "aarch64-linux-musl\n", wasi: "wasm32-wasi\n"
 end
 ```
 

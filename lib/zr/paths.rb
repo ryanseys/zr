@@ -26,8 +26,12 @@ module Zr
     # standard library.
     VENDOR = File.join(ROOT, "vendor")
 
-    # A git checkout, or a worktree of one, where `.git` is a file.
-    def self.checkout? = File.exist?(File.join(ROOT, ".git"))
+    # A git checkout, or a worktree of one, where `.git` is a file. A
+    # bundler git source (`gem "zr", git: ...`) is a clone too, but it is
+    # an install: bundler puts it in `.../bundler/gems/zr-<revision>`.
+    def self.checkout?(root = ROOT)
+      File.exist?(File.join(root, ".git")) && File.dirname(root).split(File::SEPARATOR).last(2) != %w[bundler gems]
+    end
 
     # The root for the paths that a build writes (`zr build --path-root
     # DIR`), or nil to write each path as it is on this machine. A path
@@ -60,10 +64,18 @@ module Zr
     def self.user_cache
       base = ENV["XDG_CACHE_HOME"]
       if base.nil? || base.empty?
-        base = File.join(Dir.home, RUBY_PLATFORM.include?("darwin") ? "Library/Caches" : ".cache")
+        home = begin
+          Dir.home
+        rescue ArgumentError
+          raise Missing, "HOME is not set, so zr has no cache directory. Set HOME, or set ZR_CACHE to a directory that you can write to."
+        end
+        base = File.join(home, RUBY_PLATFORM.include?("darwin") ? "Library/Caches" : ".cache")
       end
       File.join(base, "zr")
     end
+
+    # A directory that zr needs and that this environment does not give.
+    class Missing < StandardError; end
 
     # The cache directory for the runtime's build output (`ZR_CACHE`). A
     # checkout uses its own tmp/. An installed gem writes nothing under
@@ -117,7 +129,8 @@ module Zr
     # (`<prefix><date>-<pid>-<random>`; the test harness's sweep reads
     # the pid from the name). The block's end removes it and its contents.
     def self.tmpdir(prefix, root = nil)
-      root ||= [ENV.fetch("TMPDIR", ""), "/tmp"].find { |dir| File.directory?(dir) && File.writable?(dir) }
+      root ||= [ENV.fetch("TMPDIR", ""), "/tmp"].find { |dir| File.directory?(dir) && File.writable?(dir) } or
+        raise Missing, "zr found no temp directory that it can write to. Set TMPDIR to one."
       dir = nil
       until dir
         name = File.join(root, "#{prefix}#{Time.now.strftime("%Y%m%d")}-#{Process.pid}-#{rand(0x100000000).to_s(36)}")

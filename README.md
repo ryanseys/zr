@@ -76,8 +76,8 @@ and read [Questions and answers](docs/explanation/faq.md).
 
 | Target | Output | Built on |
 |---|---|---|
-| `aarch64-apple-darwin` | native binary | any host |
-| `aarch64-linux-musl` | static binary | aarch64 Linux, or a host with a musl cross toolchain |
+| `aarch64-apple-darwin` | native binary for macOS 14 or later | any host |
+| `aarch64-linux-musl` | static binary for any aarch64 Linux | aarch64 Linux with musl's `cc` (Alpine's, or `musl-gcc`), or a host with a musl cross toolchain |
 | `wasm32-wasi` | WASI module | any host |
 
 Some features depend on the target. For example, a WASI module has no

@@ -20,14 +20,23 @@ module Zr
 
     def install
       return if Zr.compiled? || !defined?(RubyVM::InstructionSequence.load_from_binary)
-      return if !Config.current.iseq_cache? || (defined?(Coverage) && Coverage.running?)
+      return if defined?(Coverage) && Coverage.running?
 
+      dir = cache_dir or return
       root = "#{Paths::ROOT}/"
-      dir = File.join(Paths.cache, "iseq")
       salt = [RUBY_VERSION, RUBY_PLATFORM, RubyVM::InstructionSequence.compile_option.sort.inspect].join("\0")
       RubyVM::InstructionSequence.singleton_class.define_method(:load_iseq) do |path|
         IseqCache.load(path, dir, salt) if path.start_with?(root)
       end
+    end
+
+    # The cache's directory, or nil when the cache is off. With a bad
+    # ZR_* value, or no cache directory (HOME is not set), ruby compiles
+    # zr's files as usual, and the command reports the problem.
+    def cache_dir
+      File.join(Paths.cache, "iseq") if Config.current.iseq_cache?
+    rescue StandardError
+      nil
     end
 
     # The instructions of the file at `path`, from the cache or compiled

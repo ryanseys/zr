@@ -2,6 +2,7 @@
 
 require "test_helper"
 require "zr/runtime"
+require "zr/native/link/darwin"
 
 # The contract of the OS layer: runtime/kernel/os.rb lists every `zr_os_*`
 # call and its signature. Each OS layer under runtime/kernel/os/ defines
@@ -39,6 +40,17 @@ class OsApiTest < Minitest::Test
       text = File.read(File.join(ROOT, "runtime/kernel/os/#{target.os}/env.rb"))
       assert_includes text, %(zr_str_new(Machine.bytes("#{target.ruby_platform}"), #{target.ruby_platform.bytesize})), target.triple
     end
+  end
+
+  # A darwin binary gives the platform of the oldest macOS that it loads
+  # on, and both Mach-O writers record that macOS.
+  def test_darwin_platform_follows_min_os
+    target = Zr::Target::AARCH64_DARWIN
+    assert_equal "arm64-darwin23", target.ruby_platform
+    assert_equal Zr::Target.darwin_platform(target.min_os), target.ruby_platform
+    assert_equal [14, 0, 0], target.min_os_parts
+    assert_equal 14 << 16, Zr::Obj::MachO::Executable::MIN_MACOS
+    assert_includes Zr::Native::Link::Darwin::MIN_OS_FLAGS, "-mmacosx-version-min=14.0"
   end
 
   def test_every_core_layer_file_exists

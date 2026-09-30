@@ -6,8 +6,8 @@ ruby 4.0.7. `Zr::Target` (`lib/zr/target.rb`) defines each target.
 
 | Target | Outputs | Object format | Runtime layers |
 |---|---|---|---|
-| `aarch64-apple-darwin` (the default on a Mac) | binary, object file | Mach-O | `os/darwin`, `arch/aarch64` |
-| `aarch64-linux-musl` | binary, object file | ELF | `os/linux`, `arch/aarch64` |
+| `aarch64-apple-darwin` (the default on a Mac, and on a host that runs no target) | binary, object file | Mach-O | `os/darwin`, `arch/aarch64` |
+| `aarch64-linux-musl` (the default on aarch64 Linux) | binary, object file | ELF | `os/linux`, `arch/aarch64` |
 | `wasm32-wasi` | WASI module | wasm | `os/wasi`, `arch/wasm32` |
 
 ## What each host can build
@@ -15,13 +15,32 @@ ruby 4.0.7. `Zr::Target` (`lib/zr/target.rb`) defines each target.
 | Output | Host requirement |
 |---|---|
 | `aarch64-apple-darwin` binary | any host: zr links it |
-| `aarch64-linux-musl` binary | an aarch64 Linux host with musl's `cc`, or a host with `aarch64-linux-musl-gcc` on the `PATH` |
+| `aarch64-linux-musl` binary | an aarch64 Linux host with musl's `cc`: Alpine's own, or on a glibc Linux the compiler that `CC` names, `aarch64-linux-musl-gcc` or `musl-gcc` (`apt install musl-tools`). Any other host needs `aarch64-linux-musl-gcc` on the `PATH`. |
 | WASI module | any host |
 | Mach-O or ELF object file | any host |
 
-`zr run` runs a binary only on a host of the same target. On a host
-that cannot link a binary, `zr build` without `--emit` exits with
-status 3.
+`zr run` runs a binary only on a host that can run it: an Apple Silicon
+Mac for `aarch64-apple-darwin`, and any aarch64 Linux (musl or glibc)
+for the static `aarch64-linux-musl` binary. On another host (x86_64
+Linux, an Intel Mac), `zr run` stops, and says to use `zr run --emit
+wasm`. `zr build` without `--target` then builds an
+`aarch64-apple-darwin` binary, and says so. On a host that cannot link
+a binary, `zr build` without `--emit` exits with status 3.
+
+## Platform and minimum OS
+
+A binary records the oldest OS that it loads on, and its
+`RUBY_PLATFORM` names that OS, as ruby's names the platform that ruby
+was built for:
+
+| Target | Oldest OS | `RUBY_PLATFORM` |
+|---|---|---|
+| `aarch64-apple-darwin` | macOS 14 | `arm64-darwin23` (Darwin 23 is macOS 14) |
+| `aarch64-linux-musl` | any aarch64 Linux kernel that musl supports | `aarch64-linux-musl` |
+| `wasm32-wasi` | any WASI preview 1 engine | `wasm32-wasi` |
+
+`Zr::Target::MIN_MACOS` holds the macOS version. zr's Mach-O linker and
+`cc` (`-mmacosx-version-min`) write it.
 
 ## Differences between targets
 

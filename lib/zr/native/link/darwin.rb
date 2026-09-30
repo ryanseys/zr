@@ -20,6 +20,10 @@ module Zr
         # the stack size is the same with both linkers.
         STACK_FLAGS = ["-Wl,-stack_size,0x#{STACK.to_s(16)}"].freeze
 
+        # `cc` records the host's macOS as the oldest one unless it gets
+        # the target's, which `Obj::MachO::Executable` writes.
+        MIN_OS_FLAGS = ["-mmacosx-version-min=#{Target::AARCH64_DARWIN.min_os}"].freeze
+
         # A program without eval calls the runtime only through calls that
         # the linker can see, so the linker removes code that nothing
         # calls. An executable from `ld` exports every global, and ld keeps
@@ -58,7 +62,7 @@ module Zr
           end
           obj = File.join(work, "unit.o")
           File.binwrite(obj, Obj::MachO::ObjectFile.write(image))
-          flags = STACK_FLAGS + (strip ? strip_flags(link) : []) + link
+          flags = STACK_FLAGS + MIN_OS_FLAGS + (strip ? strip_flags(link) : []) + link
           flags += EVAL_EXPORTS if !strip && exports?(link)
           Link.run(objects + [obj], out, flags: flags, target: target)
         end

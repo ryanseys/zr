@@ -46,7 +46,7 @@ module Zr
 
           return "#{@target.triple} modules run under wasmtime, which is not on the PATH"
         end
-        return nil if @target.native?
+        return nil if @target.runs_here?
 
         "#{@target.triple} binaries run only on their own host, and this host is #{Target.host_triple}"
       end

@@ -10,15 +10,18 @@
 # program (lib/zr/server.rb). If a current compiled compiler exists, it
 # runs the build next (lib/zr/compiled_compiler.rb), before ruby loads the
 # rest of zr. A compile starts ruby again with the collector limits at its
-# first step of heavy work (lib/zr/tune.rb).
+# first step of heavy work (lib/zr/tune.rb). `CLI.guard` turns an error
+# into one line and an exit status.
 require_relative "../lib/zr/iseq_cache"
 Zr::IseqCache.install
 require_relative "../lib/zr/cli"
-Zr::CLI.kept!(ARGV)
-require_relative "../lib/zr/server"
-Zr::Server.hand_to(ARGV)
-require_relative "../lib/zr/compiled_compiler"
-Zr::CompiledCompiler.hand_over(ARGV)
+Zr::CLI.guard do
+  Zr::CLI.kept!(ARGV)
+  require_relative "../lib/zr/server"
+  Zr::Server.hand_to(ARGV)
+  require_relative "../lib/zr/compiled_compiler"
+  Zr::CompiledCompiler.hand_over(ARGV)
 
-Zr::CLI.tune!(__FILE__, handed: true, later: true) if Zr::CLI::COMPILE.include?(ARGV.first)
-Zr::CLI.start(ARGV)
+  Zr::CLI.tune!(__FILE__, handed: true, later: true) if Zr::CLI::COMPILE.include?(ARGV.first)
+  Zr::CLI.start(ARGV)
+end

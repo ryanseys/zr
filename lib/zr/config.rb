@@ -15,14 +15,19 @@ module Zr
     # link), `ruby` (zr's linker only) or `cc`. Empty or unset is `auto`.
     LINKERS = %w[auto ruby cc].freeze
 
+    # `ZR_CODE_CACHE`: on, off, or on with a check of each hit.
+    CODE_CACHES = %w[1 0 verify].freeze
+
+    # A `ZR_*` value that zr cannot use. The message names the variable,
+    # its value, and a value that works. The CLI prints it and exits 2.
+    class Invalid < ArgumentError; end
+
     attr_reader :linker, :wasm_width, :cache, :cache_max_gb, :link
 
     def initialize
-      @linker = ENV["ZR_LINKER"].to_s.empty? ? "auto" : ENV["ZR_LINKER"]
-      raise ArgumentError, "ZR_LINKER=#{@linker}: use #{LINKERS.join(", ")}" unless LINKERS.include?(@linker)
-
-      @jobs_given = ENV.key?("ZR_JOBS")
-      @jobs = Integer(ENV["ZR_JOBS"]) if @jobs_given
+      @linker = choice("ZR_LINKER", LINKERS, "auto")
+      @jobs_given = !ENV["ZR_JOBS"].to_s.empty?
+      @jobs = number("ZR_JOBS", nil, "4", min: 1) if @jobs_given
       # Not exposed as a plain reader: `eval` is a Kernel method, and
       # `eval_walk?` is the only thing anything reads this for.
       @eval_mode = ENV["ZR_EVAL"]
@@ -31,19 +36,19 @@ module Zr
       @wasm_names = Zr.flag?("ZR_WASM_NAMES")
       # `ZR_WASM_WIDTH`: the group size of a large wasm function's dispatch
       # (`Backend::Wasm::Codegen::Body::LADDER` explains the default).
-      @wasm_width = Integer(ENV.fetch("ZR_WASM_WIDTH", 256))
+      @wasm_width = number("ZR_WASM_WIDTH", 256, "256", min: 1)
       @tune = Zr.flag?("ZR_TUNE", default: true)
       @cache = ENV["ZR_CACHE"]
       # `ZR_CACHE_MAX_GB`: the most GB an installed zr keeps in its cache
       # (default 5; 0 turns the limit off).
-      @cache_max_gb = Float(ENV.fetch("ZR_CACHE_MAX_GB", 5))
+      @cache_max_gb = number("ZR_CACHE_MAX_GB", 5.0, "10", kind: :Float, min: 0)
       # `ZR_LINK_ARGS`: words for the system linker, as `--link` gives
       # them, split as a shell splits them.
       @link = words(ENV.fetch("ZR_LINK_ARGS", "")).freeze
       # `ZR_LEDGER`: nil when unset, so the default can be a checkout's.
       @ledger = ENV["ZR_LEDGER"].to_s.empty? ? nil : ENV["ZR_LEDGER"] != "0"
       @run_cache = Zr.flag?("ZR_RUN_CACHE", default: true)
-      @code_cache = ENV.fetch("ZR_CODE_CACHE", "1")
+      @code_cache = choice("ZR_CODE_CACHE", CODE_CACHES, "1")
       @iseq_cache = Zr.flag?("ZR_ISEQ_CACHE", default: true)
       @server = ENV["ZR_SERVER"].to_s.empty? ? nil : ENV["ZR_SERVER"]
       freeze
@@ -57,7 +62,7 @@ module Zr
       words = []
       field = +""
       line.scan(/\G\s*(?>([^\0\s\\'"]+)|'([^\0']*)'|"((?:[^\0"\\]|\\[^\0])*)"|(\\[^\0]?)|(\S))(\s|\z)?/m) do |word, sq, dq, esc, garbage, sep|
-        raise ArgumentError, "ZR_LINK_ARGS: a quote has no end: #{line.inspect}" if garbage
+        raise Invalid, "ZR_LINK_ARGS has a quote with no end: #{line.inspect}. Close the quote, or put a \ before it." if garbage
 
         field << (word || sq || dq&.gsub(/\\([$`"\\\n])/, '\\1') || esc.gsub(/\\(.)/, '\\1'))
         next unless sep
@@ -68,6 +73,32 @@ module Zr
       words
     end
     private :words
+
+    # The value of `name` when it is one of `values`, or `default` when
+    # it is unset or empty.
+    def choice(name, values, default)
+      value = ENV[name].to_s
+      return default if value.empty?
+      return value if values.include?(value)
+
+      raise Invalid, "#{name} is #{value.inspect}. Set it to #{values[0..-2].join(", ")} or #{values[-1]}, for example #{name}=#{default}."
+    end
+
+    # The number in `name` (an Integer, or with `kind: :Float` any
+    # number) that is at least `min`, or `default` when it is unset or
+    # empty. `example` is a good value for the message.
+    def number(name, default, example, kind: :Integer, min: nil)
+      value = ENV[name].to_s
+      return default if value.empty?
+
+      number = Kernel.send(kind, value, exception: false)
+      return number if number && (min.nil? || number >= min)
+
+      what = kind == :Integer ? "a whole number" : "a number"
+      what += " of #{min} or more" if min
+      raise Invalid, "#{name} is #{value.inspect}. Set it to #{what}, for example #{name}=#{example}."
+    end
+    private :choice, :number
 
     # `ZR_EVAL=walk` builds a native program with the tree-walking
     # interpreter as its eval support, instead of the compiler.
@@ -116,6 +147,11 @@ module Zr
       require "etc"
       [Etc.nprocessors, 6].min
     end
+
+    # `ZR_DEBUG=1` shows the backtrace of an error that stops zr
+    # (`CLI.guard`). It is read on its own, not with the rest: it must
+    # work when another ZR_* value is bad.
+    def self.debug? = Zr.flag?("ZR_DEBUG")
 
     # The one instance for this process. A later call returns the same
     # instance; `reset!` and `with` are the only way to get a new one.

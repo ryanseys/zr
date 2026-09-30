@@ -97,6 +97,17 @@ module Checks
     [out, $?.success?]
   end
 
+  # Runs the block as if this host were `triple` (`Zr::Target.host_triple`).
+  def with_host(triple)
+    target = Zr::Target.singleton_class
+    target.alias_method(:real_host_triple, :host_triple)
+    target.define_method(:host_triple) { triple }
+    yield
+  ensure
+    target.alias_method(:host_triple, :real_host_triple)
+    target.remove_method(:real_host_triple)
+  end
+
   # Returns the limit that stopped `answer`, or nil when it ended normally.
   def killed(answer)
     case answer.code

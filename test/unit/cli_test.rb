@@ -194,6 +194,54 @@ class CliParseTest < Minitest::Test
     assert_equal Zr::Target.all.map(&:triple), lines.drop(1).map { |line| line.split.first }
   end
 
+  # A host that runs no native target (x86_64 Linux) builds a darwin
+  # binary by default. `zr build` says so, and `zr run` refuses with a
+  # way to run the program there.
+  def test_a_host_that_cannot_run_the_default_target_says_what_to_do
+    Checks.with_host("x86_64-linux-gnu") do
+      target = Zr::Target.default
+      _, err = assert_exit(Zr::CLI::REFUSED) { CLI.refuse("app.rb", "run", nil, target, chosen: false) }
+      assert_equal "zr: app.rb: this computer cannot run aarch64-apple-darwin binaries. zr builds one for macOS on " \
+                   "Apple Silicon. To run the program here, use 'zr run --emit wasm app.rb'.\n", err
+
+      _, err = capture_io { CLI.refuse("app.rb", "build", nil, target, chosen: false) }
+      assert_match(/\Azr: this computer cannot run aarch64-apple-darwin binaries\. .* --emit wasm/, err)
+      assert_equal ["", ""], capture_io { CLI.refuse("app.rb", "build", nil, target, chosen: true) }
+    end
+  end
+
+  # An error that escapes a command prints one line, with no backtrace.
+  def test_guard_turns_an_error_into_one_line_and_a_status
+    _, err = assert_exit(2) { CLI.guard { raise Zr::Config::Invalid, "ZR_JOBS is \"x\"." } }
+    assert_equal "zr: ZR_JOBS is \"x\".\n", err
+
+    _, err = assert_exit(1) { CLI.guard { raise Zr::Paths::Missing, "HOME is not set." } }
+    assert_equal "zr: HOME is not set.\n", err
+
+    _, err = assert_exit(1) { CLI.guard { raise NoMethodError, "undefined method 'x'" } }
+    assert_equal "zr: internal error: NoMethodError: undefined method 'x'. This is a defect in zr. Report it at " \
+                 "#{CLI::ISSUES} with the output of 'zr doctor'. Set ZR_DEBUG=1 to see the backtrace.\n", err
+
+    assert_exit(130) { CLI.guard { raise Interrupt } }
+  end
+
+  def test_guard_shows_the_backtrace_under_zr_debug
+    ENV["ZR_DEBUG"] = "1"
+    assert_raises(NoMethodError) { CLI.guard { raise NoMethodError, "x" } }
+  ensure
+    ENV.delete("ZR_DEBUG")
+  end
+
+  # A cache that zr cannot write to gives the way to move it.
+  def test_an_unwritable_cache_says_how_to_move_it
+    error = Errno::EACCES.new(File.join(Zr::Paths.cache, "runtime/x.o"))
+    _, err = assert_exit(1) { CLI.guard { raise error } }
+    assert_match(/\Azr: Permission denied .* Set XDG_CACHE_HOME \(or ZR_CACHE\) to a directory that you can write to/, err)
+
+    _, err = assert_exit(1) { CLI.guard { raise Errno::EACCES, "/etc/hosts" } }
+    assert_equal "zr: Permission denied - /etc/hosts\n", err
+  end
+
   private
 
   # Returns the stdout and stderr of the block. The block must exit with

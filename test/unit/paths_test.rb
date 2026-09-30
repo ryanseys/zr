@@ -76,4 +76,33 @@ class PathsTest < Minitest::Test
   ensure
     Zr::Paths.root = nil
   end
+
+  # A clone is a checkout, except the one that bundler makes for a git
+  # source: that is an install.
+  def test_a_bundler_git_clone_is_not_a_checkout
+    Dir.mktmpdir do |dir|
+      clone = File.join(dir, "zr")
+      bundled = File.join(dir, "bundle/ruby/4.0.0/bundler/gems/zr-0123abcd")
+      [clone, bundled].each { |root| FileUtils.mkdir_p(File.join(root, ".git")) }
+      assert Zr::Paths.checkout?(clone)
+      refute Zr::Paths.checkout?(bundled)
+      refute Zr::Paths.checkout?(dir)
+    end
+  end
+  def test_the_user_cache_needs_home_or_xdg_cache_home
+    saved = ENV.to_h.slice("XDG_CACHE_HOME")
+    ENV["XDG_CACHE_HOME"] = "/cache"
+    assert_equal "/cache/zr", Zr::Paths.user_cache
+    ENV.delete("XDG_CACHE_HOME")
+    # Dir.home raises when HOME is unset and the user has no passwd entry.
+    Dir.singleton_class.alias_method(:real_home, :home)
+    Dir.singleton_class.define_method(:home) { |*| raise ArgumentError, "couldn't find login name" }
+    error = assert_raises(Zr::Paths::Missing) { Zr::Paths.user_cache }
+    assert_match(/\AHOME is not set, .* set ZR_CACHE/, error.message)
+  ensure
+    Dir.singleton_class.alias_method(:home, :real_home)
+    Dir.singleton_class.remove_method(:real_home)
+    ENV.update(saved)
+    ENV.delete("XDG_CACHE_HOME") unless saved.key?("XDG_CACHE_HOME")
+  end
 end

@@ -47,9 +47,27 @@ class ConfigTest < Minitest::Test
   end
 
   def test_linker_raises_on_an_unknown_name
-    error = assert_raises(ArgumentError) { Zr::Config.with(ZR_LINKER: "gold") { |_| } }
+    error = assert_raises(Zr::Config::Invalid) { Zr::Config.with(ZR_LINKER: "gold") { |_| } }
 
-    assert_match(/ZR_LINKER=gold/, error.message)
+    assert_equal 'ZR_LINKER is "gold". Set it to auto, ruby or cc, for example ZR_LINKER=auto.', error.message
+  end
+
+  # A value that zr cannot use names the variable and a value that works.
+  def test_a_bad_value_names_the_variable_and_a_good_value
+    {
+      { ZR_JOBS: "abc" } => 'ZR_JOBS is "abc". Set it to a whole number of 1 or more, for example ZR_JOBS=4.',
+      { ZR_JOBS: "0" } => 'ZR_JOBS is "0". Set it to a whole number of 1 or more, for example ZR_JOBS=4.',
+      { ZR_CACHE_MAX_GB: "lots" } => 'ZR_CACHE_MAX_GB is "lots". Set it to a number of 0 or more, for example ZR_CACHE_MAX_GB=10.',
+      { ZR_WASM_WIDTH: "1.5" } => 'ZR_WASM_WIDTH is "1.5". Set it to a whole number of 1 or more, for example ZR_WASM_WIDTH=256.',
+      { ZR_CODE_CACHE: "yes" } => 'ZR_CODE_CACHE is "yes". Set it to 1, 0 or verify, for example ZR_CODE_CACHE=1.'
+    }.each do |env, message|
+      error = assert_raises(Zr::Config::Invalid, env.inspect) { Zr::Config.with(**env) { |_| } }
+      assert_equal message, error.message
+    end
+    Zr::Config.with(ZR_CACHE_MAX_GB: "0.5", ZR_JOBS: "") do |config|
+      assert_in_delta 0.5, config.cache_max_gb
+      refute config.jobs_given?
+    end
   end
 
   def test_jobs_defaults_to_at_most_six

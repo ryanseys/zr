@@ -3,6 +3,7 @@
 require_relative "../model"
 require_relative "../../bytes"
 require_relative "../string_table"
+require_relative "../../target"
 
 module Zr
   module Obj
@@ -147,7 +148,7 @@ module Zr
         def nlist(sym) = nlist_words(sym).pack("Q<2")
 
         # Returns the bytes of the object file.
-        def write(unit, minos: [14, 0, 0]) = bytes(laid_out(unit), minos)
+        def write(unit, minos: Target::AARCH64_DARWIN.min_os_parts) = bytes(laid_out(unit), minos)
 
         # The layout before any bytes are written: the sections and their
         # bytes, the symbol table, the relocations and the string table.
