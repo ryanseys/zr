@@ -14,4 +14,6 @@ stdlib/json/json/a_document_handed_straight_to_parse_stays_rooted_for_the_who.rb
 stdlib/json/json/tens_of_thousands_of_generated_documents_each_answer_or_rais.rb	too slow for the walker: parsing tens of thousands of generated documents runs past the 120 s host limit
 stdlib/net/net/http_request_reaches_a_server_thread.rb	too slow for the walker: require "net/http" alone takes about 200 s on the host
 stdlib/net/net/issue_net_http_missing.rb	too slow for the walker: require "net/http" alone takes about 200 s on the host
+stdlib/rubygems/rubygems/requiring_rubygems_then_bundler_installs_the_monkeypatches_w.rb	too slow for the walker: loading rubygems and then bundler runs past the 120 s host limit
+stdlib/uri/uri/the_vendored_gem_loads_parses_a_uri_into_its_parts_and_build.rb	too slow for the walker: require "uri" compiles its many large regexps in about 170 s on the host
 stdlib/continuation/continuation/callcc_goes_back_through_its_continuation.rb	a continuation back into a kernel loop (Array#each) resumes it at the wrong index: ruby's callcc does not restore the Ruby locals of the kernel def

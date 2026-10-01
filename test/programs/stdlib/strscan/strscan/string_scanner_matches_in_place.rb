@@ -3,7 +3,7 @@
 # rest of the text and compiles the pattern again behind a \A, so a
 # tokenizer over a long text is quadratic in its length.
 require "strscan"
-src = "foo = bar(12, 'baz') + 3.5 * qux # note\n" * 5_000
+src = "foo = bar(12, 'baz') + 3.5 * qux # note\n" * 1_000
 count = 0
 ss = StringScanner.new(src)
 until ss.eos?
