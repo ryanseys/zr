@@ -57,6 +57,9 @@ module Zr
       # free. Growth is also the correct measure, because the pool replaces
       # a worker for the heap it allocated and that Ruby does not release.
       RECYCLE_MB = Integer(ENV.fetch("ZR_TEST_RECYCLE_MB", 600))
+
+      # Whether a run stops at its first failure (`bin/test --fail-fast`).
+      def self.fail_fast? = ENV["ZR_TEST_FAIL_FAST"] == "1"
     end
   end
 end

@@ -13,6 +13,7 @@
 #                                       such as spinel's test/
 #   bin/test --changed [--base REV]     the tests that the change against REV
 #                                       (default: main) can reach
+#   bin/test --fail-fast ...            stop at the first failure
 #
 # The tests need the runtime for this host. If it is not built, this
 # script builds it first (see `rake build`).
@@ -80,6 +81,10 @@ end
 # keeps it: `CLI.tune!` can start this script again with ARGV.
 args = ARGV.dup
 corpus = nil
+# `--fail-fast` stops a run at its first failure: the workers take no
+# more tests (test/support/fork_pool.rb, test/support/programs.rb), and a
+# run of several tiers stops at the tier that failed.
+ENV["ZR_TEST_FAIL_FAST"] = "1" if args.delete("--fail-fast")
 # `--host` runs the program tests on CRuby over zr's kernel, with no build
 # (lib/zr/machine/host/walk.rb). The walker nests Ruby frames, so ruby
 # starts again with the stacks that `zr-dev host` uses.

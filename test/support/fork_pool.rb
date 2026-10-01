@@ -42,12 +42,16 @@ module Zr
 
       attr_reader :size
 
-      def initialize(size: Workers.size, recycle_mb: Workers::RECYCLE_MB)
+      # With `fail_fast` (`bin/test --fail-fast`), the pool runs no more
+      # examples after one fails.
+      def initialize(size: Workers.size, recycle_mb: Workers::RECYCLE_MB, fail_fast: Workers.fail_fast?)
         @size = size
         @recycle_mb = recycle_mb
+        @fail_fast = fail_fast
         @queue = Thread::Queue.new
         @threads = []
         @interrupted = false
+        @failed = false
       end
 
       # Starts one thread for each worker. Only that thread writes to the
@@ -84,7 +88,7 @@ module Zr
       def serve
         worker = nil
         while (job = @queue.pop)
-          break if @interrupted
+          break if @interrupted || @failed
 
           klass, name, reporter = job
           worker ||= Worker.open
@@ -98,6 +102,7 @@ module Zr
             worker = worker.close
           end
           reporter.synchronize { reporter.record result }
+          @failed ||= @fail_fast && !result.passed? && !result.skipped?
         end
       ensure
         worker&.close

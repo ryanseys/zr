@@ -59,7 +59,8 @@ module Zr
         results = Pool.new(Workers.size) { |test| check(test) }.map(@tests) do |result|
           @out.print MARK.fetch(result.kind)
           @out.flush
-        end
+          Workers.fail_fast? && %i[fail error].include?(result.kind)
+        end.compact
         report(results)
         results.none? { |result| %i[fail error].include?(result.kind) }
       end
@@ -174,7 +175,8 @@ module Zr
 
       # Forked workers that each take one test at a time. `work` runs in
       # the worker; `map` yields each result as it arrives and returns all
-      # of them in the order of the tests.
+      # of them in the order of the tests. A block that answers true stops
+      # the run: the workers stop, and the tests that did not run are nil.
       class Pool
         def initialize(size, &work)
           @size = size
@@ -185,9 +187,10 @@ module Zr
           results = Array.new(items.size)
           pending = (0...items.size).to_a
           workers = []
+          stopped = false
           $stdout.flush
           Process.warmup
-          until pending.empty? && workers.all?(&:idle?)
+          until stopped || (pending.empty? && workers.all?(&:idle?))
             workers.reject!(&:dead?)
             (@size - workers.size).times { workers << Worker.new(items, @work) } unless pending.empty?
             workers.each { |worker| worker.give(pending.shift) if worker.idle? && !pending.empty? }
@@ -202,7 +205,7 @@ module Zr
               next unless result
 
               results[worker.last] = result
-              yield result
+              stopped ||= yield result
             end
           end
           workers.each(&:close)
