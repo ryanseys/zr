@@ -26,6 +26,8 @@ jobs:
       - uses: ./.github/actions/reference
       - name: Lint
         run: bundle exec rake lint
+      - name: Type check
+        run: ruby tool/zr-dev.rb typecheck
       # Under ZR_VERIFY=1 every IR function is checked for dominance and
       # operand types before it is assembled, and a pass that changed a
       # function without saying so is refused: the runtime's forty

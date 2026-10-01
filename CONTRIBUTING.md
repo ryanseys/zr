@@ -53,6 +53,12 @@ form by name. See [The contract](docs/explanation/the-contract.md).
   issue number.
 - `bundle exec rake lint` runs RuboCop: the Lint cops and the cops that
   `.rubocop.yml` adds, each with its reason.
+- `ruby tool/zr-dev.rb typecheck` runs Steep on the files that the
+  `Steepfile` names. To add a file, annotate its methods with inline RBS
+  (`#: (Integer) -> String`) and add it to the `Steepfile`. A `Struct`
+  or `Data` record has its types in `sig/pilot`.
+- `COVERAGE=1 bin/test <paths>` measures the line and branch coverage of
+  `lib/` and writes `tmp/coverage/index.html`. It gates nothing.
 
 ## Report a security problem
 

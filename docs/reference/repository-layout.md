@@ -34,7 +34,8 @@ Two kinds of code meet on a program's load path (`Zr::Library::Layout`):
 | `lib/zr/cache/store.rb` | the one content store of every cache: layout, keys, reads, writes, roots and eviction |
 | `lib/zr/cache/janitor.rb` | the build cache as `zr cache` sees it: size, clean, and the daily trim |
 | `lib/zr/refused.rb` | `Zr::Refused`: a program uses a form that zr does not support |
-| `lib/zr/bytes.rb` | byte helpers: alignment and padding |
+| `lib/zr/session.rb` | `Zr::Session`: the memos of one process (the settings, the library roots, the runtimes, the parse memo, the digests), and `reset!`, which the warm server calls before each build |
+| `lib/zr/bytes.rb` | byte helpers: alignment, padding, LEB128 and zigzag |
 | `lib/zr/timing.rb` | `Zr::Timing.phase`: the phase times that `ZR_TIMING=1` prints |
 | `lib/zr/source_guard.rb` | `Zr::SourceGuard.check!`: a cache write stops if a source changed during the build |
 | `lib/zr/parse.rb` | `Zr.parse`: prism, through the parse cache where there is one |
@@ -46,10 +47,12 @@ Two kinds of code meet on a program's load path (`Zr::Library::Layout`):
 | `lib/zr/library/stdlib.rb` | the name and version of each gem in `vendor/ruby` (`zr-dev vendor` writes it) |
 | `lib/zr/library/ports.rb` | the gems with a C part that zr ports, with their versions and compat ranges |
 | `lib/zr/target.rb` | the targets, and what this host can build |
-| `lib/zr/prism.rb` | loads prism on the host; `Zr.parse` |
+| `lib/zr/prism.rb` | loads prism on the host, and `Zr::HOSTED`: whether ruby runs the compiler |
 | `lib/zr/cache/parse.rb` | the host's cache of parse results |
 | `lib/zr/hir.rb`, `lib/zr/hir/` | prism's tree to the HIR: desugaring, requires, refusals |
+| `lib/zr/hir/build.rb`, `lib/zr/hir/build/` | `Hir::Build`, the builder of the HIR, and its parts: `loader.rb` (`Hir::Build::Loader`: the files that a program reaches through `require` and `load`), `patterns.rb` (pattern matching), `literals.rb`, `requires.rb` and `coverage.rb` |
 | `lib/zr/lower.rb`, `lib/zr/lower/` | `Zr::Lower`: the HIR to the IR, for the zr runtime |
+| `lib/zr/lower/function/loop.rb`, `lib/zr/lower/function/call_site.rb` | the records `Lower::Function::Loop` (the labels of one loop) and `Lower::Function::CallSite` (the values of one send site) |
 | `lib/zr/runtime.rb` | `Zr::Runtime`: the runtime's files and built forms, `Runtime.for(target)`, and how its core and gem prelude are lowered |
 | `lib/zr/eval_support.rb` | `Zr::EvalSupport`: the compiler a program with eval links in, `EvalSupport.for(target)` |
 | `lib/zr/program.rb` | `Zr::Program`: a program's functions and data, and `Program.build` |
@@ -60,10 +63,11 @@ Two kinds of code meet on a program's load path (`Zr::Library::Layout`):
 | `lib/zr/machine/` | the kernel's typed Ruby to the IR, and the kernel's description |
 | `lib/zr/ir.rb`, `lib/zr/ir/` | the IR, its passes, its verifier, and `IR::Interp` |
 | `lib/zr/backend/aarch64/` | the aarch64 backend: assembler, register allocator, code generator |
-| `lib/zr/backend/wasm/` | the wasm emitter |
+| `lib/zr/backend/wasm/` | the wasm emitter: `codegen.rb`, and `codegen/body.rb` (`Codegen::Body`, the code of one function) |
 | `lib/zr/obj/` | the object model, relocations, and the JIT loader |
 | `lib/zr/obj/macho/`, `lib/zr/obj/elf/` | the Mach-O object and executable writers, the prelinked image and the skeleton; the ELF object writer |
 | `lib/zr/native/` | the build driver, parallel assembly, the linkers |
+| `lib/zr/native/unit_program.rb` | `Native::UnitProgram`: a kernel file that `zr machine` compiled; it answers the messages of a `Zr::Program`, so `zr machine` and `zr build` write their output on one path |
 | `lib/zr/cache/unit.rb` | the cache of each compilation unit's machine code |
 | `lib/zr/cache/lowering.rb`, `lib/zr/cache/lowering/core.rb`, `lib/zr/cache/lowering/eval_support.rb` | the core files and eval support's files that a build takes from an earlier build's machine code, and the checks that keep that code the same as a full build's |
 | `lib/zr/cache/run.rb` | the binaries that `zr run` keeps, and the files each was built from |
@@ -110,6 +114,12 @@ The gem's only require path is `lib/`. `lib/zr/runtime/` is below
 | `tool/*.rb` | the body of each `zr-dev` command, one file for each command (`tool/bench.rb` for `zr-dev bench`) |
 | `tool/lib/zr/dev.rb`, `tool/lib/zr/dev/` | the code that the commands share: the command class, the paths, the host ruby and the C sources |
 | `tool/lib/zr/dev/binary.rb` | `Zr::Dev::Binary`: a binary that zr builds from this checkout's own files (`bin/zr-dev`), and whether it is current |
+| `tool/lib/zr/dev/parallel.rb` | `Dev.parallel_map`: the one worker pool of the tools, with the results in the order of the items |
+| `tool/typecheck.rb` | `zr-dev typecheck`: Steep checks the files that the `Steepfile` names |
+| `Steepfile` | the files of the type check pilot |
+| `sig/pilot/` | the types of the pilot's `Struct` and `Data` records, and of the classes that the checked files use |
+| `sig/zr_kern.rbs` | the type of each kernel def, from its sig (`zr-dev gen kern_rbs` writes it); not part of the type check |
+| `.rubocop.yml`, `.rubocop_todo.yml` | the cops of `rake lint`, each with its reason; the files that a cop found when it came in, to fix |
 | `tool/gen/` | the generators of `zr-dev gen`, one file for each generated file; `tool/gen/prism/templates/` has the templates of the pure-Ruby prism |
 | `vendor/src/` | upstream sources that only the tools read: prism's templates (`zr-dev gen prism`) |
 | `lib/zr/prism_shim/` | makes `require "prism/prism"` load the port on the host |
@@ -118,7 +128,9 @@ The gem's only require path is `lib/`. `lib/zr/runtime/` is below
 | `.github/actions/runtime-cache/` | the CI step that keeps the built runtime between runs |
 | `test/test_helper.rb` | what every unit test file requires |
 | `test/support/` | the test library: the program tests' format (`program_case.rb`), run directory (`program_run.rb`), build (`program_build.rb`), runner (`programs.rb`) and baselines (`baseline.rb`); the fork pool, the workers, the kept binaries, the `# zr-test:` needs, the progress file |
+| `test/support/coverage_run.rb` | `COVERAGE=1`: starts SimpleCov, and merges the results of the forked workers |
 | `test/support/harness/` | ruby's reference runs, the child process limits, wasmtime, the benchmark runner, `Harness::KernelJIT`, and the harnesses that compare a port with ruby's C |
+| `test/support/harness/selected_target.rb` | `Harness.selected_target`: the target of this run (`ZR_TARGET`, or the host's), with no load of the command line |
 | `test/unit/` | the unit tier: zr's own internals |
 | `test/programs/` | the program tests: plain Ruby programs with ruby's output beside them, in areas (`lang/`, `core/`, `stdlib/`, `compiler/`, and `cli/`, which builds with `zr build`); those in `native/` run only on a native target. See [Program tests](program-tests.md) |
 | `test/baselines/` | the baseline of each target, the host too (`<triple>.txt`), and of another project's program tests (`corpus/<project>-<triple>.txt`); see [How to test on another target](../how-to/test-on-another-target.md) |

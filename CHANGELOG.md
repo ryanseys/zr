@@ -105,6 +105,37 @@ The first public release.
   of files without it does not build the runtime. `bin/test --changed`
   and `zr-dev affected` map a change to unit tests and to program
   tests.
+- `zr-dev typecheck` runs Steep on the files that the `Steepfile`
+  names: a pilot of inline RBS annotations, with the types of records in
+  `sig/pilot/`. CI runs it after the lint step.
+- `COVERAGE=1 bin/test <paths>` measures the line and branch coverage of
+  `lib/` with SimpleCov, and writes `tmp/coverage/index.html`. It gates
+  nothing.
+- `rake lint` has more cops, each with its reason in `.rubocop.yml`:
+  the rubocop-performance, rubocop-minitest and rubocop-thread_safety
+  plugins, Style cops for one form of quotes, ternaries, semicolons,
+  `lambda.call`, rescue modifiers, mutable constants and the core
+  collection methods, anonymous block and argument forwarding,
+  `Naming/PredicateMethod`, `Style/OptionalBooleanParameter` and
+  `Metrics/ParameterLists`. `.rubocop_todo.yml` lists the files that
+  are not fixed yet.
+- `test/unit/constant_layout_test.rb`: each file of `lib/zr` holds the
+  constant that its path names, as in `Zr::Cache::Store` in
+  `lib/zr/cache/store.rb`.
+
+### Changed
+
+- A `case` whose `when` values are all symbol literals compares the
+  subject with each symbol, with no send of `===`, while no program
+  redefines or prepends `Symbol#===`. `bm_case_symbol` takes 0.10 s,
+  not 0.68 s.
+- The compiler's code has new namespaces, with no change of behavior
+  or of output: `Zr::Session` keeps the memos of the process;
+  `Zr::Library::*` and `Zr::Cache::*` group the library roots and the
+  caches; each `zr` command is a class in `lib/zr/cli/commands/`; the
+  build server is the class `Zr::Server`, with `Zr::Server::Client`;
+  `Zr::GcTuning` replaces `Tune`; `Runtime.for`, `EvalSupport.for`,
+  `Program.build` and `Host.compiled?` replace functions on `module Zr`.
 
 ### Removed
 
@@ -121,6 +152,20 @@ The first public release.
 - The iseq cache (the `iseq` kind of the store). `exe/zr` loads zr's
   files with plain ruby.
 - The variables `ZR_COMPILED`, `ZR_BINARY` and `ZR_ISEQ_CACHE`.
+
+### Fixed
+
+- A `return` in a block inside `class << self` leaves the method that
+  holds it, also when a method call runs the block.
+- A `yield` with keyword arguments passes them as keywords also when
+  another thread runs at the yield.
+- A child process that a program starts (`posix_spawn` or `exec`) gets
+  its standard streams (fds 0 to 2) with `O_NONBLOCK` clear, as ruby
+  gives them: a `cat` that reads a pipe from `IO.pipe` waits for the
+  bytes, and does not fail with `EAGAIN`.
+- `String#*` and `Array.new(n, value)` copy the first part, then the
+  copied part again, as ruby does. The number of copies is the log of
+  `n`, not `n`.
 
 ### Planned for 0.2
 

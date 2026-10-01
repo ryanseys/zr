@@ -88,6 +88,7 @@ A program also reads the variables that ruby reads, for example
 | `GC` | `stress` | unset | Sets `ZR_GC_STRESS=1`. |
 | `ZR_GC_STRESS` | `1` | unset | Each program that a test runs gets `ZR_GC_STRESS=1` in its environment, and collects at every allocation. |
 | `SLOW` | `1`, or a number | unset | Also reports the 25 slowest files and the 20 slowest tests of the unit tier. A number above 1 is the count of tests to report. |
+| `COVERAGE` | flag | off | Measures the line and branch coverage of `lib/` (not `lib/zr/runtime`) with SimpleCov, in the unit tier, and writes `tmp/coverage/index.html`. The workers of the run merge their results. It is a switch of the test harness (`test/support/coverage_run.rb`), not a `ZR_*` setting, so `Zr::Config` does not read it. |
 | `N` | a pattern | unset | Runs only the unit tests whose name matches (minitest `-n`). |
 | `X` | a pattern | unset | Leaves out the unit tests whose name matches (minitest `-e`). |
 | `A` | minitest options | unset | Other options for minitest, for the unit tier. |

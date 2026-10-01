@@ -3,7 +3,7 @@
 
 require "test_helper"
 require "zr/runtime"
-require "zr/hir/loader"
+require "zr/hir/build/loader"
 
 # Eval support carries the kernel's description as a Ruby file. No file
 # on disk has it: `require "zr_description"` finds a fixed name, and the

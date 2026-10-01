@@ -70,7 +70,11 @@ To run some test files, give their paths to `bin/test`:
 `bin/test test/unit/cli_test.rb`, `bin/test test/unit -n /blocks/`, or
 `bin/test test/programs/core/string`. For the report of the slowest
 unit files and tests, set `SLOW=1`: `SLOW=1 rake test:unit`, or
-`SLOW=1 bin/test test/unit/cli_test.rb`.
+`SLOW=1 bin/test test/unit/cli_test.rb`. `COVERAGE=1` measures the
+line and branch coverage of `lib/` (not `lib/zr/runtime`, which zr
+compiles and ruby does not run) with SimpleCov, and writes the report
+to `tmp/coverage/index.html`. Give it paths: `COVERAGE=1 bin/test
+test/unit/bytes_test.rb`. It gates nothing.
 
 ### Gem and release
 
@@ -220,6 +224,12 @@ that the IR stays the same.
 
 A generator that writes a file below `lib/zr/runtime/kernel/` puts its
 output through the same rewrite (`tool/lib/zr/dev/files.rb`).
+
+### Types
+
+| Command | Does |
+|---|---|
+| `zr-dev typecheck [FILE...]` | Checks the types of the files that the `Steepfile` names, with the Steep of this checkout's bundle. Most of them carry inline RBS annotations (`#:`, `# @rbs`). A file that assigns a `Struct` or a `Data` record to a constant has its types in `sig/pilot`. The rest of `lib/` is not checked yet. With files, it checks only those. It stops with status 1 when Steep reports an error. CI runs it after the lint step. |
 
 ### Self-compile checks
 

@@ -1,10 +1,16 @@
 # frozen_string_literal: true
 
+# `COVERAGE=1` measures lib/. bin/test starts it before it loads zr; a
+# run that does not start from bin/test starts it here.
+require_relative "support/coverage_run"
+Zr::Test::CoverageRun.start(root: File.expand_path("..", __dir__)) if Zr::Test::CoverageRun.requested?
+
 require "minitest/autorun"
 
 require_relative "../lib/zr/target"
 require_relative "../lib/zr/config"
 require_relative "support/fork_pool"
+Zr::Test::CoverageRun.install(Zr::Test::ForkPool::Worker) if Zr::Test::CoverageRun.requested?
 require_relative "support/harness/clean_env"
 require "tmpdir"
 require "fileutils"

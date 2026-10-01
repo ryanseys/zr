@@ -30,7 +30,12 @@ module Zr
   # `manifest` is the gem manifest (lib/zr/manifest.rb), or nil. It is the
   # last text. `zr inspect` finds it in the binary, and rubygems in the
   # program reads its gems (lib/zr/runtime/lib/zr/gem_manifest.rb).
-  LoadTables = Data.define(:evals, :spots, :coverable, :branches, :defs, :sources, :target, :gem_roots, :manifest) do
+  LoadTables = Data.define(:evals, :spots, :coverable, :branches, :defs, :sources, :target, :gem_roots, :manifest)
+
+  # The methods are in a reopened class, not in the block of
+  # `Data.define`, so that the type check (sig/pilot/records.rbs) sees
+  # them in the class that they belong to.
+  class LoadTables
     def initialize(evals: false, spots: {}, coverable: {}, branches: {}, defs: {}, sources: {}, target: Target.default, gem_roots: [],
                    manifest: nil)
       super
@@ -39,11 +44,13 @@ module Zr
     # The data objects of the tables, with the files `units`: `[path,
     # entry]` pairs. A unit that only stops has no path.
     def data(units = [])
-      units = units.select { |path, _| path.start_with?("/") }.map { |path, entry| [Paths.shown(path), entry] }.sort
-      out = []
+      units = units.select { |path, _| path.start_with?("/") }.map do |path, entry|
+        [Paths.shown(path), entry] #: [String, String]
+      end.sort
+      out = [] #: Array[Obj::Datum]
       text = ->(name, bytes) { out << Obj::Datum.new(name, :text_const, "#{bytes}\0".b, align: 1) }
       rows = +"".b
-      row_relocs = []
+      row_relocs = [] #: Array[Obj::Reloc]
       units.each_with_index do |(path, entry), i|
         text.call("zr_unit_path_#{i}", path)
         row_relocs << Obj::Reloc.new(i * 24, :abs64, "zr_unit_path_#{i}") << Obj::Reloc.new((i * 24) + 16, :abs64, entry)
@@ -80,7 +87,8 @@ module Zr
                 roots = Library::Roots.stdlib(target) - [pure]
                 [[pure, *gem_roots, *roots].map(&shown), uncarried, Hir::Build::PRELOADED, [shown[Library::Layout::EXT]]]
               else
-                [[]] * 4
+                none = [] #: Array[String]
+                [none] * 4
               end
       # error_highlight's spots, one file at a time: its name, a newline,
       # then its records, and a form feed before the next file.

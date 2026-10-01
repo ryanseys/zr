@@ -37,10 +37,10 @@ class CaseListsTest < Minitest::Test
     list = Zr::Backend::Wasm::Codegen::Body::CONSTANTS
 
     # Act
-    found = arm_with?("backend/wasm/body.rb", list)
+    found = arm_with?("backend/wasm/codegen/body.rb", list)
 
     # Assert
-    assert found, "no arm of wasm/body.rb lists #{list}"
+    assert found, "no arm of wasm/codegen/body.rb lists #{list}"
   end
 
   def test_wasm_body_writes_out_fbinops
@@ -48,10 +48,10 @@ class CaseListsTest < Minitest::Test
     list = Inst::FBINOPS
 
     # Act
-    found = arm_with?("backend/wasm/body.rb", list)
+    found = arm_with?("backend/wasm/codegen/body.rb", list)
 
     # Assert
-    assert found, "no arm of wasm/body.rb lists #{list}"
+    assert found, "no arm of wasm/codegen/body.rb lists #{list}"
   end
 
   def test_wasm_body_writes_out_funops
@@ -59,10 +59,10 @@ class CaseListsTest < Minitest::Test
     list = Inst::FUNOPS
 
     # Act
-    found = arm_with?("backend/wasm/body.rb", list)
+    found = arm_with?("backend/wasm/codegen/body.rb", list)
 
     # Assert
-    assert found, "no arm of wasm/body.rb lists #{list}"
+    assert found, "no arm of wasm/codegen/body.rb lists #{list}"
   end
 
   def test_aarch64_codegen_writes_out_fbinops
@@ -166,7 +166,7 @@ class CaseListsTest < Minitest::Test
 
   def test_the_files_have_no_splat_arm_of_these_lists
     # Arrange
-    paths = %w[backend/wasm/body.rb backend/aarch64/codegen.rb ir/interp.rb ir/verify.rb]
+    paths = %w[backend/wasm/codegen/body.rb backend/aarch64/codegen.rb ir/interp.rb ir/verify.rb]
 
     # Act
     splats = paths.select { |path| File.read(File.join(LIB, path)).match?(/^\s*when .*\*(IR::)?(Inst::)?[A-Z]/) }

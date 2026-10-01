@@ -137,6 +137,10 @@ if tiers.size > 1
 end
 
 $LOAD_PATH.unshift(File.join(root, "lib"), test_dir)
+# `COVERAGE=1` measures lib/ (test/support/coverage_run.rb). It starts
+# before zr loads, because a file that loads earlier has no coverage.
+require "support/coverage_run"
+Zr::Test::CoverageRun.start(root: root) if Zr::Test::CoverageRun.requested?
 require "zr/cli"
 Zr::CLI.tune!(__FILE__) # the tests use the GC limits and YJIT of a compile
 

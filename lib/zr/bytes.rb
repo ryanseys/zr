@@ -10,10 +10,12 @@ module Zr
     module_function
 
     # The first multiple of `a` at or after `n`. `a` is a power of two.
+    #: (Integer n, Integer a) -> Integer
     def align(n, a) = (n + a - 1) & ~(a - 1)
 
     # Appends zero bytes to `bytes` until it is `to` bytes long. Returns
     # `bytes`. Does nothing if `bytes` is already that long or longer.
+    #: (String bytes, Integer to) -> String
     def pad(bytes, to)
       bytes << ("\0".b * (to - bytes.bytesize)) if to > bytes.bytesize
       bytes
@@ -21,6 +23,7 @@ module Zr
 
     # `n` as ULEB128: 7 bits per byte, low bits first, the high bit of a
     # byte set on every byte but the last.
+    #: (Integer n) -> String
     def uleb(n)
       out = +"".b
       loop do
@@ -36,17 +39,21 @@ module Zr
 
     # WASM's own name for `uleb`, at the many call sites in
     # `Backend::Wasm::Codegen` that already read as "leb".
+    #: (Integer n) -> String
     def leb(n) = uleb(n)
 
     # The number of bytes that `uleb(n)` returns, without building them.
+    #: (Integer n) -> Integer
     def uleb_size(n) = n.zero? ? 1 : (n.bit_length + 6) / 7
 
     # `n` mapped to a non-negative integer so that a number near zero stays
     # small: 0, -1, 1, -2 become 0, 1, 2, 3. `uleb` then writes it.
+    #: (Integer n) -> Integer
     def zigzag(n) = n >= 0 ? n * 2 : (-n * 2) - 1
 
     # `n` as SLEB128: like `uleb`, but the last byte carries the sign, so a
     # negative number also terminates.
+    #: (Integer n) -> String
     def sleb(n)
       out = +"".b
       loop do

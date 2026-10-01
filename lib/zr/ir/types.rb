@@ -13,13 +13,20 @@ module Zr
     # cannot differ about the type of a value. Such a difference is the
     # miscompile that the interpreter must find.
     class Types
+      # @rbs @f: Function
+      # @rbs @type: Hash[String, String?]
+      # @rbs @sig_named: Hash[String, Sig]?
+      # @rbs @callee_named: Hash[String, Callee]?
+      # @rbs @global_named: Hash[String, Global]?
+      # @rbs @block_named: Hash[String, Block]?
+
       class Refused < StandardError
         include Zr::Refusal
       end
 
       # The bytes that a value of each type uses in memory: what a load of
       # the type reads and a store of the type writes.
-      WIDTH = { "i8" => 1, "i32" => 4, "i64" => 8, "f64" => 8 }.freeze
+      WIDTH = { "i8" => 1, "i32" => 4, "i64" => 8, "f64" => 8 }.freeze #: Hash[String, Integer]
 
       # The rule for the result type of each opcode. This is a table and not
       # a `case`, because a `case` compares the opcode with about twenty
@@ -32,18 +39,21 @@ module Zr
         stack_addr: :address, symbol_value: :address, func_addr: :address,
         select: :second,
         sadd_overflow: :first, ssub_overflow: :first, smul_overflow: :first
-      }.merge((Inst::FBINOPS + Inst::FUNOPS).to_h { |op| [op, :float] }).freeze
+      }.merge((Inst::FBINOPS + Inst::FUNOPS).to_h { |op| [op, :float] }).freeze #: Hash[Symbol, Symbol]
 
       # `{ "v3" => "i64", ... }`, in block layout order. A value gets its type
       # before any block that can use it, because its definition dominates
       # each use.
+      #: (Function function) -> Hash[String, String?]
       def self.of(function) = new(function).all
 
+      #: (Function function) -> void
       def initialize(function)
         @f = function
-        @type = {}
+        @type = {} #: Hash[String, String?]
       end
 
+      #: () -> Hash[String, String?]
       def all
         @f.blocks.each { |b| b.params.each { |v, t| @type[v] = t } }
         @f.blocks.each do |b|
@@ -59,38 +69,41 @@ module Zr
       end
 
       # The type of `v`, which must already be typed.
+      #: (String v) -> String?
       def of(v)
         @type.fetch(v) { raise Refused, "#{@f.name}: no type for #{v}" }
       end
 
       # The signature of a callee entity name (`"fn0"`).
+      #: (String fn) -> Sig
       def sig_of(fn)
         callee = callee_named(fn) or raise Refused, "#{@f.name}: no callee #{fn}"
         sig_named(callee.sig)
       end
 
+      #: (String sig) -> Sig
       def sig_named(sig)
-        @sig_named ||= first_by(@f.sigs, &:sig)
-        @sig_named[sig] or raise Refused, "#{@f.name}: no signature #{sig}"
+        (@sig_named ||= first_by(@f.sigs, &:sig))[sig] or raise Refused, "#{@f.name}: no signature #{sig}"
       end
 
+      #: (String fn) -> Callee?
       def callee_named(fn)
-        @callee_named ||= first_by(@f.callees, &:fn)
-        @callee_named[fn]
+        (@callee_named ||= first_by(@f.callees, &:fn))[fn]
       end
 
+      #: (String gv) -> Global?
       def global_named(gv)
-        @global_named ||= first_by(@f.globals, &:gv)
-        @global_named[gv]
+        (@global_named ||= first_by(@f.globals, &:gv))[gv]
       end
 
+      #: (String name) -> Block
       def block_named(name)
-        @block_named ||= first_by(@f.blocks, &:name)
-        @block_named.fetch(name)
+        (@block_named ||= first_by(@f.blocks, &:name)).fetch(name)
       end
 
       private
 
+      #: (Inst i) -> String?
       def result_of(i)
         rule = RULE[i.op]
         # Most opcodes have no entry in the table, and `iadd` is the most
@@ -102,16 +115,26 @@ module Zr
         when :flag then "i8"
         when :address then "i64"
         when :float then "f64"
-        when :call then sig_of(i.callee).ret
-        when :call_indirect then sig_named(i.callee).ret
+        when :call then sig_of(callee_of(i)).ret
+        when :call_indirect then sig_named(callee_of(i)).ret
         when :second then of(i.args[1])
         else of(i.args[0])
         end
       end
 
-      # Each entry by its key. The first entry wins, as with `find`.
+      # The callee (or signature) name of a call, which must have one.
+      #: (Inst i) -> String
+      def callee_of(i)
+        i.callee or raise Refused, "#{@f.name}: #{i.op} has no callee"
+      end
+
+      # Each entry by its key. The first entry wins, as with `find`. The
+      # types are `untyped` because the key type of a Hash is bounded
+      # and Steep does not take that bound from a generic method.
+      #: (Array[untyped] rows) { (untyped row) -> untyped } -> Hash[untyped, untyped]
       def first_by(rows)
-        rows.each_with_object({}) { |row, index| index[yield(row)] ||= row }
+        index = {} #: Hash[untyped, untyped]
+        rows.each_with_object(index) { |row, entries| entries[yield(row)] ||= row }
       end
     end
   end

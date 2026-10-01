@@ -8,13 +8,31 @@ module Zr
   # runs on any host. A target tells what it builds, and `refusal` tells
   # whether this host can build it.
   class Target
-    attr_reader :triple, :arch, :os, :libc, :object_format, :word, :page, :symbol_prefix, :ruby_platform, :link, :outputs,
-                :min_os
+    attr_reader :triple, :symbol_prefix, :ruby_platform #: String
+    attr_reader :arch, :os, :object_format #: Symbol
+    attr_reader :libc, :link #: Symbol?
+    attr_reader :word, :page #: Integer
+    attr_reader :outputs #: Array[Symbol]
+    attr_reader :min_os #: String?
 
     # `outputs` are the outputs zr can build for the target: `:native`
     # (a binary), `:obj` (an object) and `:wasm` (a module). `min_os` is
     # the oldest OS version that a binary loads on ("14.0"), or nil when
     # the target records none.
+    #
+    # @rbs triple: String
+    # @rbs arch: Symbol
+    # @rbs os: Symbol
+    # @rbs object_format: Symbol
+    # @rbs page: Integer
+    # @rbs symbol_prefix: String
+    # @rbs ruby_platform: String
+    # @rbs link: Symbol?
+    # @rbs outputs: Array[Symbol]
+    # @rbs libc: Symbol?
+    # @rbs word: Integer
+    # @rbs min_os: String?
+    # @rbs return: void
     def initialize(triple:, arch:, os:, object_format:, page:, symbol_prefix:, ruby_platform:, link:, outputs:, libc: nil, word: 8,
                    min_os: nil)
       @triple = triple
@@ -31,19 +49,23 @@ module Zr
       @min_os = min_os
     end
 
+    #: () -> String
     def to_s = triple
 
     # The runtime layer that zr lowers with for each OS. lib/zr/runtime/kernel/os/,
     # lib/zr/runtime/core/os/ and lib/zr/runtime/ext/os/ each contain one directory per layer.
-    OS_LAYERS = { darwin: "darwin", linux: "linux", wasi: "wasi" }.freeze
+    OS_LAYERS = { darwin: "darwin", linux: "linux", wasi: "wasi" }.freeze #: Hash[Symbol, String]
     # The machine layer, under lib/zr/runtime/kernel/arch/.
-    ARCH_LAYERS = { aarch64: "aarch64", wasm32: "wasm32" }.freeze
+    ARCH_LAYERS = { aarch64: "aarch64", wasm32: "wasm32" }.freeze #: Hash[Symbol, String]
 
+    #: () -> String
     def os_layer = OS_LAYERS.fetch(os)
+
+    #: () -> String
     def arch_layer = ARCH_LAYERS.fetch(arch)
 
     # Every target, by triple (`Target.register`).
-    @registry = {}
+    @registry = {} #: Hash[String, Target]
 
     # The oldest macOS that a darwin binary loads on.
     MIN_MACOS = "14.0"
@@ -52,36 +74,42 @@ module Zr
     # the macOS that it was built for, and Darwin N is macOS N - 9. A
     # binary gives the platform of the oldest macOS that it loads on, as
     # ruby gives the platform that it was built for.
+    #: (String min_os) -> String
     def self.darwin_platform(min_os) = "arm64-darwin#{min_os.to_i + 9}"
 
     # `min_os` as the three numbers of a Mach-O LC_BUILD_VERSION.
-    def min_os_parts = [*min_os.split(".").map(&:to_i), 0, 0].first(3)
+    #: () -> Array[Integer]
+    def min_os_parts = [*(min_os or raise("#{triple} has no min_os")).split(".").map(&:to_i), 0, 0].first(3)
 
+    #: (Target target) -> Target
     def self.register(target)
       @registry[target.triple] = target
     end
 
     AARCH64_DARWIN = register(new(triple: "aarch64-apple-darwin", arch: :aarch64, os: :darwin, object_format: :macho,
                                   page: 16_384, symbol_prefix: "_", ruby_platform: darwin_platform(MIN_MACOS),
-                                  link: :darwin, outputs: %i[native obj], min_os: MIN_MACOS))
+                                  link: :darwin, outputs: %i[native obj], min_os: MIN_MACOS)) #: Target
     AARCH64_LINUX_MUSL = register(new(triple: "aarch64-linux-musl", arch: :aarch64, os: :linux, libc: :musl,
                                       object_format: :elf, page: 4096, symbol_prefix: "", ruby_platform: "aarch64-linux-musl",
-                                      link: :static, outputs: %i[native obj]))
+                                      link: :static, outputs: %i[native obj])) #: Target
     WASM32_WASI = register(new(triple: "wasm32-wasi", arch: :wasm32, os: :wasi, object_format: :wasm,
                                page: 65_536, symbol_prefix: "", ruby_platform: "wasm32-wasi",
-                               link: nil, outputs: %i[wasm]))
+                               link: nil, outputs: %i[wasm])) #: Target
 
     # The target with this `triple`, or nil.
+    #: (String triple) -> Target?
     def self.fetch(triple) = @registry[triple]
 
+    #: () -> Array[Target]
     def self.all = @registry.values
 
     # This host as a triple: `aarch64-apple-darwin`, `aarch64-linux-musl`,
     # or what ruby says.
+    #: () -> String
     def self.host_triple
       require "rbconfig"
-      cpu = RbConfig::CONFIG["host_cpu"]
-      os = RbConfig::CONFIG["host_os"]
+      cpu = RbConfig::CONFIG.fetch("host_cpu")
+      os = RbConfig::CONFIG.fetch("host_os")
       cpu = "aarch64" if cpu == "arm64"
       return "#{cpu}-apple-darwin" if os.start_with?("darwin")
       return "#{cpu}-linux-musl" if os.start_with?("linux-musl")
@@ -90,16 +118,20 @@ module Zr
     end
 
     # The target whose binaries this host runs, or nil.
+    #: () -> Target?
     def self.host = fetch(host_triple) || all.find(&:runs_here?)
 
     # The target of a build that gives no target: the host's own, else
     # aarch64-apple-darwin.
+    #: () -> Target
     def self.default = host || AARCH64_DARWIN
 
+    #: () -> bool
     def native? = Target.host_triple == triple
 
     # Whether this host can run the target's native binary: its own target,
     # or a static musl binary on another Linux of the same machine.
+    #: () -> bool
     def runs_here? = native? || musl_on_linux?
 
     # Whether a program for this target can write machine code into
@@ -107,15 +139,18 @@ module Zr
     # is fixed when the engine instantiates it, and WASI gives a guest no
     # way to make a second module. So there, eval uses the tree-walking
     # interpreter (lib/zr/eval/walk.rb).
+    #: () -> bool
     def jits? = arch != :wasm32
 
     # The output for `emit`: `:native` for nil, else the symbol.
+    #: (String | Symbol | nil emit) -> Symbol
     def self.output(emit) = emit ? emit.to_sym : :native
 
     # Whether this host can link a binary for this target. zr's own
     # Mach-O linker needs no tool on any host, unless `ZR_LINKER=cc`
     # selects the system linker. All other links run the target's C
     # compiler driver: the host's own or a cross toolchain's.
+    #: () -> bool
     def linkable?
       return true if link == :darwin && Config.current.linker != "cc"
 
@@ -130,6 +165,7 @@ module Zr
     # A glibc Linux host of the same machine can link a musl binary with
     # musl's own wrapper (`musl-gcc`), or with the compiler that `$CC`
     # names.
+    #: (String name) -> String?
     def tool(name)
       names = native? ? [name] : [name, *CROSS_NAMES[name]].map { |base| "#{triple}-#{base}" }
       names = [ENV["CC"], *names, *MUSL_NAMES[name]].compact.reject(&:empty?) if musl_on_linux?
@@ -137,12 +173,13 @@ module Zr
     end
 
     # Other names that a cross toolchain can use for a tool.
-    CROSS_NAMES = { "cc" => %w[gcc] }.freeze
+    CROSS_NAMES = { "cc" => %w[gcc] }.freeze #: Hash[String, Array[String]]
     # The names of musl's wrapper for a tool, on a host with another libc.
-    MUSL_NAMES = { "cc" => %w[musl-gcc] }.freeze
+    MUSL_NAMES = { "cc" => %w[musl-gcc] }.freeze #: Hash[String, Array[String]]
 
     # Whether this is a musl target, and the host is another Linux of the
     # same machine.
+    #: () -> bool
     def musl_on_linux?
       return false unless libc == :musl && !native?
 
@@ -150,10 +187,12 @@ module Zr
     end
 
     # Whether `name` is a tool that this host can run.
+    #: (String name) -> bool
     def self.tool?(name) = !which(name).nil?
 
     # The path of the executable `name`, or nil. A name with a `/` is a
     # path; any other name is looked for on PATH.
+    #: (String name) -> String?
     def self.which(name)
       return (name if File.file?(name) && File.executable?(name)) if name.include?("/")
 
@@ -162,6 +201,7 @@ module Zr
     end
 
     # How to get a C compiler on this host.
+    #: (?os_release: String) -> String
     def self.cc_hint(os_release: "/etc/os-release")
       return "xcode-select --install" if host_triple.end_with?("-darwin")
 
@@ -174,6 +214,7 @@ module Zr
 
     # nil when this host can build `emit` (nil for a native binary, "obj"
     # or "wasm") for this target, else the message a refusal prints.
+    #: (String | Symbol | nil emit) -> String?
     def refusal(emit)
       output = Target.output(emit)
       return "zr does not build #{output == :native ? "a native binary" : "--emit #{emit}"} for #{triple}" unless outputs.include?(output)

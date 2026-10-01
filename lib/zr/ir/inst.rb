@@ -14,6 +14,7 @@ module Zr
     # method takes `*prefixes` and makes an Array at each call. The
     # compiler calls this method more than any other: 19 million times in
     # one cold runtime build.
+    #: (untyped name) -> bool
     def self.value?(name) = name.is_a?(String) && name.getbyte(0) == VALUE_SIGIL
 
     # One instruction, with only the opcodes that zr emits: an opcode, its
@@ -70,8 +71,28 @@ module Zr
 
       # `region`: for a load or a store, the `IR::Effects` region of the
       # word, or nil when the lowering does not know it.
-      attr_accessor :op, :type, :args, :results, :cond, :offset, :targets, :callee, :flags, :region
+      attr_accessor :op #: Symbol
+      attr_accessor :type #: String?
+      attr_accessor :args #: Array[untyped]
+      attr_accessor :results #: Array[String]
+      attr_accessor :cond #: String?
+      attr_accessor :offset #: Integer
+      attr_accessor :targets #: Array[untyped]?
+      attr_accessor :callee #: String?
+      attr_accessor :flags #: untyped
+      attr_accessor :region #: untyped
 
+      # @rbs op: Symbol
+      # @rbs type: String?
+      # @rbs args: Array[untyped]
+      # @rbs results: Array[String]
+      # @rbs cond: String?
+      # @rbs offset: Integer
+      # @rbs targets: Array[untyped]?
+      # @rbs callee: String?
+      # @rbs flags: untyped
+      # @rbs region: untyped
+      # @rbs return: void
       def initialize(op, type: nil, args: [], results: [], cond: nil, offset: 0, targets: nil, callee: nil, flags: nil,
                      region: nil)
         @op = op
@@ -86,6 +107,7 @@ module Zr
         @region = region
       end
 
+      #: () -> bool
       def terminator?
         TERMINATORS.include?(@op)
       end

@@ -19,13 +19,20 @@ module Zr
     # A unit gives a name or requests a slot, and the link sets the number.
     # Thus a unit's code does not depend on what compiled before it. No
     # object writer sees these kinds.
-    Reloc = Struct.new(:offset, :kind, :symbol, :addend) do
+    Reloc = Struct.new(:offset, :kind, :symbol, :addend)
+
+    # The methods of a record are in a reopened class, not in the block of
+    # `Struct.new`, so that the type check (sig/pilot/obj_model.rbs) sees
+    # them in the class that they belong to.
+    class Reloc
       def initialize(offset, kind, symbol, addend = 0) = super
     end
 
     # The machine code of one function, as a backend assembled it.
     # `linkage`: :export (visible to the link), :local (this object only).
-    Code = Struct.new(:name, :bytes, :relocs, :align, :linkage) do
+    Code = Struct.new(:name, :bytes, :relocs, :align, :linkage)
+
+    class Code
       def initialize(name, bytes, relocs: [], align: 4, linkage: :export) = super(name, bytes.b, relocs, align, linkage)
 
       def size
@@ -37,7 +44,9 @@ module Zr
     # `section`: :text_const (pure bytes), :data_const (contains pointers,
     # read-only after the link), :data (writable), :bss (zeros; `bytes` is
     # then the size).
-    Datum = Struct.new(:name, :section, :bytes, :relocs, :align, :linkage) do
+    Datum = Struct.new(:name, :section, :bytes, :relocs, :align, :linkage)
+
+    class Datum
       def initialize(name, section, bytes, relocs: [], align: 8, linkage: :local)
         super(name, section, section == :bss ? bytes : bytes.b, relocs, align, linkage)
       end
@@ -60,15 +69,19 @@ module Zr
 
       # `function` and `datum` add one item and return the unit, so a test
       # builds a unit in one expression (test/support/obj_unit.rb).
-      def function(name, bytes, **)
-        @functions << Code.new(name, bytes, **)
+      # These two name their keywords: Steep stops on an anonymous `**` in
+      # a call.
+      # rubocop:disable Style/ArgumentsForwarding
+      def function(name, bytes, **options)
+        @functions << Code.new(name, bytes, **options)
         self
       end
 
-      def datum(name, section, bytes, **)
-        @data << Datum.new(name, section, bytes, **)
+      def datum(name, section, bytes, **options)
+        @data << Datum.new(name, section, bytes, **options)
         self
       end
+      # rubocop:enable Style/ArgumentsForwarding
 
       def defined_names
         (@functions + @data).map(&:name)

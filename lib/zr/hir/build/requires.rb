@@ -138,14 +138,6 @@ module Zr
         Stop.new(UNSUPPORTED_LIBRARIES[name] || "#{node.name} of #{feature.inspect}", line)
       end
 
-      # An autoload that registers nothing and returns nil, as ruby's does
-      # for a feature that is already loaded. The receiver still runs:
-      # `whatever.autoload :X, "set"` calls `whatever` first.
-      def nothing(node, line)
-        recv = node.receiver && expr(node.receiver)
-        recv ? Seq.new([recv, Literal.new(nil, line)], line) : Literal.new(nil, line)
-      end
-
       def literal_autoload?(node)
         args = node.arguments&.arguments
         args&.size == 2 && args[0].is_a?(Prism::SymbolNode) && (args[1].is_a?(Prism::StringNode) || @loader.literal_path(args[1], @file))

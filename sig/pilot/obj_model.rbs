@@ -1,0 +1,53 @@
+# The types of lib/zr/obj/model.rb. This file is not inline: the Struct
+# records of that file are assigned to constants, and the inline form
+# has no way to give their fields a type.
+module Zr
+  module Obj
+    class Reloc < Struct[untyped]
+      attr_accessor offset: Integer
+      attr_accessor kind: Symbol
+      attr_accessor symbol: String
+      attr_accessor addend: Integer
+
+      def self.new: (Integer offset, Symbol kind, String symbol, ?Integer addend) -> instance
+      def initialize: (Integer offset, Symbol kind, String symbol, ?Integer addend) -> void
+    end
+
+    class Code < Struct[untyped]
+      attr_accessor name: String
+      attr_accessor bytes: String
+      attr_accessor relocs: Array[Reloc]
+      attr_accessor align: Integer
+      attr_accessor linkage: Symbol
+
+      def self.new: (String name, String bytes, ?relocs: Array[Reloc], ?align: Integer, ?linkage: Symbol) -> instance
+      def initialize: (String name, String bytes, ?relocs: Array[Reloc], ?align: Integer, ?linkage: Symbol) -> void
+      def size: () -> Integer
+    end
+
+    # `bytes` is a String, or the size (an Integer) in a :bss section.
+    class Datum < Struct[untyped]
+      attr_accessor name: String
+      attr_accessor section: Symbol
+      attr_accessor bytes: untyped
+      attr_accessor relocs: Array[Reloc]
+      attr_accessor align: Integer
+      attr_accessor linkage: Symbol
+
+      def self.new: (String name, Symbol section, untyped bytes, ?relocs: Array[Reloc], ?align: Integer, ?linkage: Symbol) -> instance
+      def initialize: (String name, Symbol section, untyped bytes, ?relocs: Array[Reloc], ?align: Integer, ?linkage: Symbol) -> void
+      def size: () -> Integer
+    end
+
+    class Unit
+      attr_reader functions: Array[Code]
+      attr_reader data: Array[Datum]
+
+      def initialize: () -> void
+      def function: (String name, String bytes, ?relocs: Array[Reloc], ?align: Integer, ?linkage: Symbol) -> self
+      def datum: (String name, Symbol section, untyped bytes, ?relocs: Array[Reloc], ?align: Integer, ?linkage: Symbol) -> self
+      def defined_names: () -> Array[String]
+      def imports: () -> Array[String]
+    end
+  end
+end

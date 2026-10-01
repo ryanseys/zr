@@ -8,7 +8,12 @@ module Zr
       # cell's `entry`, the staged arguments `argv`, and the `merge` block
       # that takes the result. A path that has no cell (`opt_send`) or no
       # entry (an inline copy) leaves `cc` or `entry` nil.
-      CallSite = Data.define(:node, :cc, :recv, :entry, :argv, :merge) do
+      CallSite = Data.define(:node, :cc, :recv, :entry, :argv, :merge)
+
+      # The default of `cc` and `entry` is in a reopened class, not in the
+      # block of `Data.define`, so that the type check
+      # (sig/pilot/records.rbs) sees it in the class that it belongs to.
+      class CallSite
         def initialize(node:, recv:, argv:, merge:, cc: nil, entry: nil) = super
       end
     end

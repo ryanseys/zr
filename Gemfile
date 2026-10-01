@@ -26,6 +26,7 @@ group :development, :test do
   # gives a child's user and system time beside the wall clock. A bundled
   # gem too, so it is named here to be required under bundler.
   gem "benchmark", "~> 0.5"
+  gem "simplecov", "~> 1.3", require: false
 end
 
 # Not part of a build or a test run.
@@ -47,4 +48,6 @@ group :development do
   # between threads: the server, the test workers and the host machine
   # run threads.
   gem "rubocop-thread_safety", "~> 0.8", require: false
+  gem "rbs", "~> 4.2", require: false
+  gem "steep", "~> 2.1", require: false
 end

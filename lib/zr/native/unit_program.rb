@@ -11,7 +11,9 @@ module Zr
     # an output, so `zr machine` and `zr build` share one path. Each writes
     # the output to `out` and returns nil, or the message of the step that
     # refused (`Native::Build`, which the caller loads).
-    UnitProgram = Data.define(:functions, :data, :raw, :target) do
+    UnitProgram = Data.define(:functions, :data, :raw, :target)
+
+    class UnitProgram
       def write_object(out)
         Build.object(functions, data, out, raw: raw, export: true, target: target)
       end

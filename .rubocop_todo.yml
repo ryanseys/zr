@@ -86,15 +86,15 @@ Metrics/ParameterLists:
 # Shorten the lines of a file, then delete it from this list.
 Layout/LineLength:
   Exclude:
-    - "lib/zr/backend/wasm/body.rb"
     - "lib/zr/backend/wasm/codegen.rb"
+    - "lib/zr/backend/wasm/codegen/body.rb"
     - "lib/zr/eval/walk/tree.rb"
     - "lib/zr/hir.rb"
     - "lib/zr/hir/build.rb"
+    - "lib/zr/hir/build/loader.rb"
+    - "lib/zr/hir/build/patterns.rb"
     - "lib/zr/hir/build/requires.rb"
     - "lib/zr/hir/dump.rb"
-    - "lib/zr/hir/loader.rb"
-    - "lib/zr/hir/patterns.rb"
     - "lib/zr/hir/preludes.rb"
     - "lib/zr/lower/function.rb"
     - "lib/zr/lower/function/control.rb"

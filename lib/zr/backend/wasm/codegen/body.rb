@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 
-require_relative "../../bytes"
-require_relative "../../config"
-require_relative "../../ir/types"
-require_relative "locals"
+require_relative "../../../bytes"
+require_relative "../../../config"
+require_relative "../../../ir/types"
+require_relative "../locals"
 
 module Zr
   module Backend
