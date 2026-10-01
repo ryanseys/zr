@@ -22,19 +22,19 @@ class WasmLocalsTest < Minitest::Test
     module Zr::Kern
       sig [Ptr, Word] => Bool
       def in_ranges(ranges, code)
-        n = Machine.word(Machine.load32(ranges, 0))
+        n = Machine.u32(Machine.load32(ranges, 0))
         data = ranges + 4
         low = 0
         high = n
         while low < high
           x = (low + high) >> 1
-          if code > Machine.word(Machine.load32(data + (x * 8), 4))
+          if code > Machine.u32(Machine.load32(data + (x * 8), 4))
             low = x + 1
           else
             high = x
           end
         end
-        low < n && code >= Machine.word(Machine.load32(data + (low * 8), 0))
+        low < n && code >= Machine.u32(Machine.load32(data + (low * 8), 0))
       end
 
       # One bit of the status for each code, set when it is in a range.

@@ -13,7 +13,7 @@ module Zr::Kern
   # AF_INET6 2 and AF_UNIX 3.
   sig [Ptr] => Word
   def zr_os_sockaddr_len(addr)
-    family = Machine.word(Machine.load8(addr, 0)) | (Machine.word(Machine.load8(addr, 1)) << 8)
+    family = Machine.u8(Machine.load8(addr, 0)) | (Machine.u8(Machine.load8(addr, 1)) << 8)
     if family == 1
       return 16
     end

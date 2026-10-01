@@ -56,7 +56,7 @@ module Zr::Kern
     if errno == Machine.i32(0)
       return Machine.i32(0)
     end
-    zr_os_set_errno(Machine.word(errno))
+    zr_os_set_errno(Machine.u32(errno))
     Machine.i32(0 - 1)
   end
 
@@ -96,7 +96,7 @@ module Zr::Kern
     fd = 3
     while n < PREOPENS && Libc.fd_prestat_get(Machine.i32(fd), zr_wasi_addr(stat)) == Machine.i32(0)
       if Machine.load8(stat, 0) == Machine.i8(0)
-        len = Machine.word(Machine.load32(stat, 4))
+        len = Machine.u32(Machine.load32(stat, 4))
         name = zr_xmalloc(len + 1)
         Libc.fd_prestat_dir_name(Machine.i32(fd), zr_wasi_addr(name), Machine.i32(len))
         Machine.store8(name + len, 0, Machine.i8(0))
@@ -120,10 +120,10 @@ module Zr::Kern
     at = 0
     going = true
     while going
-      c = Machine.word(Machine.load8(path + at, 0))
+      c = Machine.u8(Machine.load8(path + at, 0))
       if c == 47
         at += 1
-      elsif c == 46 && (Machine.word(Machine.load8(path + at + 1, 0)) == 47 || Machine.word(Machine.load8(path + at + 1, 0)) == 0)
+      elsif c == 46 && (Machine.u8(Machine.load8(path + at + 1, 0)) == 47 || Machine.u8(Machine.load8(path + at + 1, 0)) == 0)
         at += 1
       else
         going = false
@@ -148,7 +148,7 @@ module Zr::Kern
       at = rows + (i * 24)
       name = Machine.ptr(Machine.load64(at, 8))
       len = Machine.load64(at, 16)
-      after = Machine.word(Machine.load8(p + len, 0))
+      after = Machine.u8(Machine.load8(p + len, 0))
       fits = len == 0 || (zr_bytes_eq(p, len, name, len) && (after == 0 || after == 47))
       if fits && (best < 0 || len > best_len)
         best = Machine.load64(at, 0)

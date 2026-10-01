@@ -660,6 +660,11 @@ module Zr
           return literal(args.first, args.first.value, "Word") if node.name == :word && args.first.is_a?(Prism::IntegerNode)
 
           value, type = expr(args.first)
+          # Ruby keeps the sign of an I8 or I32, so a widening says which
+          # bits it means.
+          if %i[word ptr value].include?(node.name) && %w[I8 I32].include?(type)
+            refuse(node, "Machine.#{node.name} of an #{type} is Machine.#{type == "I8" ? "u8" : "u32"} (zero-extend) or Machine.sword (sign-extend)")
+          end
           convert(node, node.name, value, type)
         when :u8, :u32
           value, type = expr(args.first)
@@ -726,8 +731,8 @@ module Zr
         @f.symbol_value(@f.symbol(@unit.static(node, "gates", 8)))
       end
 
-      # A change of width or of type: `Machine.i32(x)` narrows, `word`
-      # zero-extends, `sword` sign-extends. `ptr`, `value` and `word`
+      # A change of width or of type: `Machine.i32(x)` narrows, `u8` and
+      # `u32` zero-extend, `sword` sign-extends. `ptr`, `value` and `word`
       # between 64-bit types change only the type, not the bits.
       def convert(node, to, value, type)
         target = { i32: "I32", i8: "I8", word: "Word", sword: "Word", ptr: "Ptr", value: "Value" }[to]

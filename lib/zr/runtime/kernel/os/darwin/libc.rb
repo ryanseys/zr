@@ -45,7 +45,7 @@ module Zr::Kern
     end
     i = 0
     while i < 8
-      Machine.store64(h + (i * 8), 0, Machine.word(Machine.load32(ctx + 8 + (i * 4), 0)))
+      Machine.store64(h + (i * 8), 0, Machine.u32(Machine.load32(ctx + 8 + (i * 4), 0)))
       i += 1
     end
     true

@@ -35,7 +35,7 @@ module Zr::Kern
   def zr_linux_main_start
     cell = zr_linux_main_cell()
     r = zr_main(Machine.i32(Machine.load64(cell, 8)), Machine.ptr(Machine.load64(cell, 16)))
-    Machine.store64(cell, 8, Machine.word(r))
+    Machine.store64(cell, 8, Machine.u32(r))
     zr_switch(zr_linux_program_context(), zr_linux_process_context())
   end
 
@@ -49,7 +49,7 @@ module Zr::Kern
     end
     cell = zr_linux_main_cell()
     Machine.store64(cell, 0, Machine.word(stack))
-    Machine.store64(cell, 8, Machine.word(argc))
+    Machine.store64(cell, 8, Machine.u32(argc))
     Machine.store64(cell, 16, Machine.word(argv))
     zr_arch_context_start(zr_linux_program_context(), Machine.addr(:zr_linux_main_start), Machine.word(stack) + MAIN_STACK_BYTES)
     zr_switch(zr_linux_process_context(), zr_linux_program_context())

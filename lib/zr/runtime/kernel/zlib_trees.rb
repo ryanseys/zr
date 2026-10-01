@@ -30,7 +30,7 @@ module Zr::Kern
 
   sig [Ptr, Word] => Word
   def zr_tr_freq(tree, n)
-    Machine.word(Machine.load32(tree + (n * 8), 0))
+    Machine.u32(Machine.load32(tree + (n * 8), 0))
   end
 
   sig [Ptr, Word, Word] => Void
@@ -40,7 +40,7 @@ module Zr::Kern
 
   sig [Ptr, Word] => Word
   def zr_tr_code(tree, n)
-    Machine.word(Machine.load32(tree + (n * 8), 0))
+    Machine.u32(Machine.load32(tree + (n * 8), 0))
   end
 
   sig [Ptr, Word, Word] => Void
@@ -50,7 +50,7 @@ module Zr::Kern
 
   sig [Ptr, Word] => Word
   def zr_tr_len(tree, n)
-    Machine.word(Machine.load32(tree + (n * 8), 4))
+    Machine.u32(Machine.load32(tree + (n * 8), 4))
   end
 
   sig [Ptr, Word, Word] => Void
@@ -60,7 +60,7 @@ module Zr::Kern
 
   sig [Ptr, Word] => Word
   def zr_tr_dad(tree, n)
-    Machine.word(Machine.load32(tree + (n * 8), 4))
+    Machine.u32(Machine.load32(tree + (n * 8), 4))
   end
 
   sig [Ptr, Word, Word] => Void

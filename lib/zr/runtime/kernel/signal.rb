@@ -23,7 +23,7 @@ module Zr::Kern
   sig [I32] => Void
   def zr_trap_caught(signo)
     Machine.gates_enter
-    count = Machine.static(:signal_counts, NSIG * 8) + (Machine.word(signo) * 8)
+    count = Machine.static(:signal_counts, NSIG * 8) + (Machine.u32(signo) * 8)
     Machine.store64(count, 0, Machine.load64(count, 0) + 1)
     Machine.store64(Machine.static(:signal_pending, 8), 0, 1)
     Machine.store64(Machine.static(:preempt_count, 8), 0, 1)
@@ -45,7 +45,7 @@ module Zr::Kern
   sig [I32] => Void
   def zr_chld_note(signo)
     cell = Machine.static(:chld_pipe, 24)
-    if Machine.load64(cell, 0) == 0 || Machine.word(signo) != Machine.load64(cell, 16)
+    if Machine.load64(cell, 0) == 0 || Machine.u32(signo) != Machine.load64(cell, 16)
       return
     end
     counter = Machine.static(:chld_count, 8)
@@ -69,8 +69,8 @@ module Zr::Kern
     if Libc.pipe(fds) < Machine.i32(0)
       return zr_fix(0 - zr_errno())
     end
-    read_end = zr_fix(Machine.word(Machine.load32(fds, 0)))
-    write_end = zr_fix(Machine.word(Machine.load32(fds, 4)))
+    read_end = zr_fix(Machine.u32(Machine.load32(fds, 0)))
+    write_end = zr_fix(Machine.u32(Machine.load32(fds, 4)))
     zr_io_cloexec(read_end)
     zr_io_cloexec(write_end)
     zr_io_set_nonblock(read_end, zr_fix(1))

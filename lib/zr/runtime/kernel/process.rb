@@ -81,9 +81,9 @@ module Zr::Kern
       zr_xfree(envp)
     end
     if r != Machine.i32(0)
-      return zr_fix(0 - Machine.word(r))
+      return zr_fix(0 - Machine.u32(r))
     end
-    zr_fix(Machine.word(Machine.load32(pid, 0)))
+    zr_fix(Machine.u32(Machine.load32(pid, 0)))
   end
 
   Libc.import :execve, [Ptr, Ptr, Ptr] => I32
@@ -167,7 +167,7 @@ module Zr::Kern
     if Machine.sword(slave) > 2
       Libc.close(slave)
     end
-    zr_os_setid(zr_sym(Machine.id(:seteuid)), zr_fix(Machine.word(Libc.getuid())))
+    zr_os_setid(zr_sym(Machine.id(:seteuid)), zr_fix(Machine.u32(Libc.getuid())))
   end
 
   # A spawn through fork and execve, for the options that posix_spawn
@@ -182,8 +182,8 @@ module Zr::Kern
     end
     reader = Machine.load32(ends, 0)
     writer = Machine.load32(ends, 4)
-    zr_io_cloexec(zr_fix(Machine.word(reader)))
-    zr_io_cloexec(zr_fix(Machine.word(writer)))
+    zr_io_cloexec(zr_fix(Machine.u32(reader)))
+    zr_io_cloexec(zr_fix(Machine.u32(writer)))
     argv = zr_spawn_vector(words)
     envp = zr_os_environ()
     if env != QNIL
@@ -258,8 +258,8 @@ module Zr::Kern
       r = Libc.waitpid(Machine.i32(zr_fix2long(pid)), status, Machine.i32(zr_fix2long(flags)))
     end
     out = zr_ary_new(2)
-    zr_ary_push(out, zr_fix(Machine.word(r)))
-    zr_ary_push(out, zr_fix(Machine.word(Machine.load32(status, 0))))
+    zr_ary_push(out, zr_fix(Machine.u32(r)))
+    zr_ary_push(out, zr_fix(Machine.u32(Machine.load32(status, 0))))
     out
   end
 
@@ -273,8 +273,8 @@ module Zr::Kern
     # Both ends are close-on-exec, as with rb_cloexec_pipe. If a write end
     # leaks into an unrelated child, the reader gets no end of file while
     # that child runs.
-    read_end = zr_fix(Machine.word(Machine.load32(fds, 0)))
-    write_end = zr_fix(Machine.word(Machine.load32(fds, 4)))
+    read_end = zr_fix(Machine.u32(Machine.load32(fds, 0)))
+    write_end = zr_fix(Machine.u32(Machine.load32(fds, 4)))
     zr_io_cloexec(read_end)
     zr_io_cloexec(write_end)
     out = zr_ary_new(2)
@@ -291,14 +291,14 @@ module Zr::Kern
     ru = Machine.slot(144)
     Libc.getrusage(Machine.i32(zr_fix2long(who)), ru)
     out = zr_ary_new(2)
-    zr_ary_push(out, zr_float_new(Machine.to_f64(Machine.load64(ru, 0)) + (Machine.to_f64(Machine.word(Machine.load32(ru, 8))) / Machine.to_f64(1000000))))
-    zr_ary_push(out, zr_float_new(Machine.to_f64(Machine.load64(ru, 16)) + (Machine.to_f64(Machine.word(Machine.load32(ru, 24))) / Machine.to_f64(1000000))))
+    zr_ary_push(out, zr_float_new(Machine.to_f64(Machine.load64(ru, 0)) + (Machine.to_f64(Machine.u32(Machine.load32(ru, 8))) / Machine.to_f64(1000000))))
+    zr_ary_push(out, zr_float_new(Machine.to_f64(Machine.load64(ru, 16)) + (Machine.to_f64(Machine.u32(Machine.load32(ru, 24))) / Machine.to_f64(1000000))))
     out
   end
 
   sig [] => Value
   def zr_proc_ppid
-    zr_fix(Machine.word(Libc.getppid()))
+    zr_fix(Machine.u32(Libc.getppid()))
   end
 
   Libc.import :getpgrp, [] => I32
@@ -366,7 +366,7 @@ module Zr::Kern
     out = zr_ary_new(n)
     i = 0
     while i < n
-      zr_ary_push(out, zr_fix(Machine.word(Machine.load32(list + (i * 4), 0))))
+      zr_ary_push(out, zr_fix(Machine.u32(Machine.load32(list + (i * 4), 0))))
       i += 1
     end
     out

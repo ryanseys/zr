@@ -61,7 +61,7 @@ module Zr::Kern
     pend = OnigMatch.code(m) + OnigProg.code_len(OnigMatch.prog(m))
     n = Machine.load64(np, 0)
     while p < pend
-      op = Machine.word(Machine.load8(p, 0))
+      op = Machine.u8(Machine.load8(p, 0))
       p = p + 1
       q = zr_onig_cache_skip(m, op, p, pend)
       if q != 0
@@ -237,7 +237,7 @@ module Zr::Kern
     cache_point = Machine.load64(npoints, 0)
     while p < pend
       pbegin = p
-      op = Machine.word(Machine.load8(p, 0))
+      op = Machine.u8(Machine.load8(p, 0))
       p = p + 1
       q = zr_onig_cache_skip(m, op, p, pend)
       if q != 0
@@ -374,7 +374,7 @@ module Zr::Kern
   def zr_onig_find_cache_point(m, p, cop)
     rows = OnigMatch.cache_opcodes(m)
     n = OnigMatch.num_cache_opcodes(m)
-    op = Machine.word(Machine.load8(p, 0))
+    op = Machine.u8(Machine.load8(p, 0))
     is_inc = op == OP_REPEAT_INC || op == OP_REPEAT_INC_NG
     mid = zr_onig_bsearch_cache_opcodes(rows, n, p)
     row = rows + (mid * OnigCacheOp.size)
@@ -404,19 +404,19 @@ module Zr::Kern
   sig [Ptr, Word, Word] => Bool
   def zr_onig_check_extended_cache_point(buf, index, mask)
     if (mask & 128) != 0
-      return (Machine.word(Machine.load8(buf + index, 1)) & 1) != 0
+      return (Machine.u8(Machine.load8(buf + index, 1)) & 1) != 0
     end
-    (Machine.word(Machine.load8(buf + index, 0)) & (mask << 1)) != 0
+    (Machine.u8(Machine.load8(buf + index, 0)) & (mask << 1)) != 0
   end
 
   # memoize_extended_match_cache_point.
   sig [Ptr, Word, Word] => Void
   def zr_onig_memoize_extended_cache_point(buf, index, mask)
-    Machine.store8(buf + index, 0, Machine.i8(Machine.word(Machine.load8(buf + index, 0)) | mask))
+    Machine.store8(buf + index, 0, Machine.i8(Machine.u8(Machine.load8(buf + index, 0)) | mask))
     if (mask & 128) != 0
-      Machine.store8(buf + index, 1, Machine.i8(Machine.word(Machine.load8(buf + index, 1)) | 1))
+      Machine.store8(buf + index, 1, Machine.i8(Machine.u8(Machine.load8(buf + index, 1)) | 1))
     else
-      Machine.store8(buf + index, 0, Machine.i8(Machine.word(Machine.load8(buf + index, 0)) | (mask << 1)))
+      Machine.store8(buf + index, 0, Machine.i8(Machine.u8(Machine.load8(buf + index, 0)) | (mask << 1)))
     end
   end
 
@@ -428,7 +428,7 @@ module Zr::Kern
     if type == STK_MATCH_CACHE_POINT
       buf = OnigMatch.match_cache_buf(m)
       index = OnigStk.a(stk)
-      Machine.store8(buf + index, 0, Machine.i8(Machine.word(Machine.load8(buf + index, 0)) | OnigStk.b(stk)))
+      Machine.store8(buf + index, 0, Machine.i8(Machine.u8(Machine.load8(buf + index, 0)) | OnigStk.b(stk)))
     elsif type == STK_ATOMIC_MATCH_CACHE_POINT
       zr_onig_memoize_extended_cache_point(OnigMatch.match_cache_buf(m), OnigStk.a(stk), OnigStk.b(stk))
     end
@@ -490,7 +490,7 @@ module Zr::Kern
     index = point >> 3
     mask = 1 << (point & 7)
     buf = OnigMatch.match_cache_buf(m)
-    if (Machine.word(Machine.load8(buf + index, 0)) & mask) != 0
+    if (Machine.u8(Machine.load8(buf + index, 0)) & mask) != 0
       row = Machine.ptr(Machine.load64(cop, 0))
       nesting = OnigCacheOp.lookaround_nesting(row)
       return 1 if nesting == 0

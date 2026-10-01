@@ -305,7 +305,7 @@ module Zr::Kern
   sig [Value, Word] => Word
   def zr_str_mb_len(s, off)
     p = RString.ptr(s) + off
-    if Machine.word(Machine.load8(p, 0)) < 128
+    if Machine.u8(Machine.load8(p, 0)) < 128
       return 1
     end
     n = zr_onig_precise_len(zr_enc_mb_descriptor(zr_str_encoding_index(s)), p, RString.ptr(s) + RString.len(s))
@@ -393,7 +393,7 @@ module Zr::Kern
     k = 0
     while k < unit
       at = big ? k : unit - 1 - k
-      v = (v << 8) | Machine.word(Machine.load8(RString.ptr(s) + off + at, 0))
+      v = (v << 8) | Machine.u8(Machine.load8(RString.ptr(s) + off + at, 0))
       k += 1
     end
     v
@@ -592,7 +592,7 @@ module Zr::Kern
     while i + 8 <= n && (Machine.load64(p + i, 0) & Machine.word(0x8080808080808080)) == 0
       i += 8
     end
-    while i < n && Machine.word(Machine.load8(p + i, 0)) < 128
+    while i < n && Machine.u8(Machine.load8(p + i, 0)) < 128
       i += 1
     end
     if i < n
@@ -806,9 +806,9 @@ module Zr::Kern
         while k < width
           # The bytes of a word: the eighth byte fills the sign bit.
           if big == QTRUE
-            v = Machine.shl_wrap(v, 8) | Machine.word(Machine.load8(p + k, 0))
+            v = Machine.shl_wrap(v, 8) | Machine.u8(Machine.load8(p + k, 0))
           else
-            v = Machine.shl_wrap(v, 8) | Machine.word(Machine.load8(p + (width - 1 - k), 0))
+            v = Machine.shl_wrap(v, 8) | Machine.u8(Machine.load8(p + (width - 1 - k), 0))
           end
           k += 1
         end
@@ -906,8 +906,8 @@ module Zr::Kern
       i += 8
     end
     while i < n
-      x = Machine.word(Machine.load8(a + i, 0))
-      y = Machine.word(Machine.load8(b + i, 0))
+      x = Machine.u8(Machine.load8(a + i, 0))
+      y = Machine.u8(Machine.load8(b + i, 0))
       if x != y
         return x < y ? 0 - 1 : 1
       end
@@ -1048,7 +1048,7 @@ module Zr::Kern
     n = RString.len(s)
     i = 0
     while i < n
-      if Machine.word(Machine.load8(RString.ptr(s) + i, 0)) >= 128
+      if Machine.u8(Machine.load8(RString.ptr(s) + i, 0)) >= 128
         return false
       end
       i += 1
@@ -1119,7 +1119,7 @@ module Zr::Kern
       i += 8
     end
     while i < n
-      if (Machine.word(Machine.load8(p + i, 0)) & 0xC0) == 0x80
+      if (Machine.u8(Machine.load8(p + i, 0)) & 0xC0) == 0x80
         count -= 1
       end
       i += 1
@@ -1213,13 +1213,13 @@ module Zr::Kern
   sig [Ptr, Word] => Word
   def zr_cesu8_point(p, width)
     if width == 2
-      return ((Machine.word(Machine.load8(p, 0)) & 31) << 6) | (Machine.word(Machine.load8(p + 1, 0)) & 63)
+      return ((Machine.u8(Machine.load8(p, 0)) & 31) << 6) | (Machine.u8(Machine.load8(p + 1, 0)) & 63)
     end
-    high = ((Machine.word(Machine.load8(p, 0)) & 15) << 12) | ((Machine.word(Machine.load8(p + 1, 0)) & 63) << 6) | (Machine.word(Machine.load8(p + 2, 0)) & 63)
+    high = ((Machine.u8(Machine.load8(p, 0)) & 15) << 12) | ((Machine.u8(Machine.load8(p + 1, 0)) & 63) << 6) | (Machine.u8(Machine.load8(p + 2, 0)) & 63)
     if width < 6
       return high
     end
-    low = ((Machine.word(Machine.load8(p + 4, 0)) & 63) << 6) | (Machine.word(Machine.load8(p + 5, 0)) & 63)
+    low = ((Machine.u8(Machine.load8(p + 4, 0)) & 63) << 6) | (Machine.u8(Machine.load8(p + 5, 0)) & 63)
     65536 + ((high - 55296) << 10) + (low & 1023)
   end
 
@@ -1255,7 +1255,7 @@ module Zr::Kern
       return zr_fix(zr_unit_point(s, off, width, unit))
     end
     p = RString.ptr(s) + off
-    c = Machine.word(Machine.load8(p, 0))
+    c = Machine.u8(Machine.load8(p, 0))
     # In a multibyte encoding, the number of a character is the number that
     # its bytes give, as rb_enc_codepoint does: EUC-JP's A4 A2 is 42146.
     if c >= 128 && zr_str_mb_p(s)
@@ -1269,7 +1269,7 @@ module Zr::Kern
       v = 0
       k = 0
       while k < width
-        v = (v << 8) | Machine.word(Machine.load8(p + k, 0))
+        v = (v << 8) | Machine.u8(Machine.load8(p + k, 0))
         k += 1
       end
       return zr_fix(v)
@@ -1284,7 +1284,7 @@ module Zr::Kern
     cp = c & ((1 << (7 - len)) - 1)
     i = 1
     while i < len
-      cp = (cp << 6) | (Machine.word(Machine.load8(p + i, 0)) & 63)
+      cp = (cp << 6) | (Machine.u8(Machine.load8(p + i, 0)) & 63)
       i += 1
     end
     zr_fix(cp)
@@ -1344,7 +1344,7 @@ module Zr::Kern
         i += 8
       end
       if i < n
-        if Machine.word(Machine.load8(RString.ptr(s) + i, 0)) >= 128 && zr_utf8_char_len(RString.ptr(s) + i, n - i) == 0
+        if Machine.u8(Machine.load8(RString.ptr(s) + i, 0)) >= 128 && zr_utf8_char_len(RString.ptr(s) + i, n - i) == 0
           return Machine.value(QFALSE)
         end
         i += zr_str_char_len_at(s, i)
@@ -1379,7 +1379,7 @@ module Zr::Kern
     zr_buf_init(b)
     i = 0
     while i < n
-      c = Machine.word(Machine.load8(RString.ptr(s) + i, 0))
+      c = Machine.u8(Machine.load8(RString.ptr(s) + i, 0))
       up = how == 1 || (how == 3 && i == 0)
       if up && c >= 97 && c <= 122
         c -= 32
@@ -1505,7 +1505,7 @@ module Zr::Kern
     n = RString.len(s)
     out = zr_ary_new(8)
     beg = 0
-    while beg < n && zr_blank_byte_p(Machine.word(Machine.load8(RString.ptr(s) + beg, 0)))
+    while beg < n && zr_blank_byte_p(Machine.u8(Machine.load8(RString.ptr(s) + beg, 0)))
       beg += 1
     end
     while beg < n
@@ -1516,7 +1516,7 @@ module Zr::Kern
       while stop + 8 <= n && !zr_blank_word_p(Machine.load64(RString.ptr(s) + stop, 0))
         stop += 8
       end
-      while stop < n && !zr_blank_byte_p(Machine.word(Machine.load8(RString.ptr(s) + stop, 0)))
+      while stop < n && !zr_blank_byte_p(Machine.u8(Machine.load8(RString.ptr(s) + stop, 0)))
         stop += 1
       end
       if stop == n
@@ -1524,7 +1524,7 @@ module Zr::Kern
       end
       zr_ary_push(out, zr_str_copy_encoding(zr_str_new(RString.ptr(s) + beg, stop - beg), s))
       beg = stop
-      while beg < n && zr_blank_byte_p(Machine.word(Machine.load8(RString.ptr(s) + beg, 0)))
+      while beg < n && zr_blank_byte_p(Machine.u8(Machine.load8(RString.ptr(s) + beg, 0)))
         beg += 1
       end
     end
@@ -1540,7 +1540,7 @@ module Zr::Kern
     if zr_special_p(sep) || zr_type(sep) != T_STRING
       return Machine.value(QFALSE)
     end
-    zr_bool(RString.len(sep) == 1 && Machine.word(Machine.load8(RString.ptr(sep), 0)) == 32)
+    zr_bool(RString.len(sep) == 1 && Machine.u8(Machine.load8(RString.ptr(sep), 0)) == 32)
   end
 
   # Whether `sep` is a String that splits by its bytes: not empty (which
@@ -1551,7 +1551,7 @@ module Zr::Kern
       return Machine.value(QFALSE)
     end
     n = RString.len(sep)
-    zr_bool(n > 1 || (n == 1 && Machine.word(Machine.load8(RString.ptr(sep), 0)) != 32))
+    zr_bool(n > 1 || (n == 1 && Machine.u8(Machine.load8(RString.ptr(sep), 0)) != 32))
   end
 
   # `s.to_i` in base 10 when the result is a fixnum. It reads leading
@@ -1564,12 +1564,12 @@ module Zr::Kern
     p = RString.ptr(s)
     n = RString.len(s)
     i = 0
-    while i < n && zr_blank_byte_p(Machine.word(Machine.load8(p + i, 0)))
+    while i < n && zr_blank_byte_p(Machine.u8(Machine.load8(p + i, 0)))
       i += 1
     end
     negative = false
     if i < n
-      b = Machine.word(Machine.load8(p + i, 0))
+      b = Machine.u8(Machine.load8(p + i, 0))
       if b == 45 || b == 43
         negative = b == 45
         i += 1
@@ -1579,7 +1579,7 @@ module Zr::Kern
     digits = 0
     start = i
     while i < n
-      b = Machine.word(Machine.load8(p + i, 0))
+      b = Machine.u8(Machine.load8(p + i, 0))
       if zr_digit_byte_p(b)
         # A 19th digit can overflow the word, so stop before it.
         if digits == 18
@@ -1588,7 +1588,7 @@ module Zr::Kern
         v = (v * 10) + (b - 48)
         digits += 1
         i += 1
-      elsif b == 95 && digits > 0 && i + 1 < n && zr_digit_byte_p(Machine.word(Machine.load8(p + i + 1, 0)))
+      elsif b == 95 && digits > 0 && i + 1 < n && zr_digit_byte_p(Machine.u8(Machine.load8(p + i + 1, 0)))
         i += 1
       else
         break
@@ -1596,7 +1596,7 @@ module Zr::Kern
     end
     # `0d12`: a prefix that the core reads, not a zero.
     if digits == 1 && i == start + 1 && v == 0 && i < n
-      b = Machine.word(Machine.load8(p + i, 0))
+      b = Machine.u8(Machine.load8(p + i, 0))
       if b == 100 || b == 68
         return Machine.value(QNIL)
       end
@@ -1741,7 +1741,7 @@ module Zr::Kern
     i = n - 1
     alnum = false
     while i >= 0
-      c = Machine.word(Machine.load8(p + i, 0))
+      c = Machine.u8(Machine.load8(p + i, 0))
       if zr_alnum_p(c)
         alnum = true
         break_here = false
@@ -1762,10 +1762,10 @@ module Zr::Kern
         # carry that would cross a gap into the other kind (a letter after a
         # digit, or a digit after a letter).
         j = i - 1
-        while j >= 0 && !zr_alnum_p(Machine.word(Machine.load8(p + j, 0)))
+        while j >= 0 && !zr_alnum_p(Machine.u8(Machine.load8(p + j, 0)))
           j -= 1
         end
-        if j >= 0 && j < i - 1 && (c <= 57) != (Machine.word(Machine.load8(p + j, 0)) <= 57)
+        if j >= 0 && j < i - 1 && (c <= 57) != (Machine.u8(Machine.load8(p + j, 0)) <= 57)
           j = 0 - 1
         end
         if j < 0
@@ -1790,7 +1790,7 @@ module Zr::Kern
       end
     end
     unless alnum
-      Machine.store8(p + n - 1, 0, Machine.i8(Machine.word(Machine.load8(p + n - 1, 0)) + 1))
+      Machine.store8(p + n - 1, 0, Machine.i8(Machine.u8(Machine.load8(p + n - 1, 0)) + 1))
     end
     zr_buf_take(b)
   end
@@ -2121,7 +2121,7 @@ module Zr::Kern
     if n < 0 || n >= RString.len(s)
       return Machine.value(QNIL)
     end
-    zr_fix(Machine.word(Machine.load8(RString.ptr(s) + n, 0)))
+    zr_fix(Machine.u8(Machine.load8(RString.ptr(s) + n, 0)))
   end
 
   # Whether the bytes of `other` are the bytes of the receiver from byte
@@ -2242,7 +2242,7 @@ module Zr::Kern
   def zr_str_space_end(s, from, nul)
     n = RString.len(s)
     i = zr_fix2long(from)
-    while i < n && zr_space_byte_p(Machine.word(Machine.load8(RString.ptr(s) + i, 0)), nul)
+    while i < n && zr_space_byte_p(Machine.u8(Machine.load8(RString.ptr(s) + i, 0)), nul)
       i += 1
     end
     zr_fix(i)
@@ -2259,7 +2259,7 @@ module Zr::Kern
     while i + 8 <= n && !zr_blank_word_p(Machine.load64(p + i, 0))
       i += 8
     end
-    while i < n && !zr_space_byte_p(Machine.word(Machine.load8(p + i, 0)), Machine.value(QFALSE))
+    while i < n && !zr_space_byte_p(Machine.u8(Machine.load8(p + i, 0)), Machine.value(QFALSE))
       i += 1
     end
     zr_fix(i)
@@ -2277,7 +2277,7 @@ module Zr::Kern
   sig [Value, Value, Value] => Value
   def zr_str_space_start(s, to, nul)
     i = zr_fix2long(to)
-    while i > 0 && zr_space_byte_p(Machine.word(Machine.load8(RString.ptr(s) + i - 1, 0)), nul)
+    while i > 0 && zr_space_byte_p(Machine.u8(Machine.load8(RString.ptr(s) + i - 1, 0)), nul)
       i -= 1
     end
     zr_fix(i)

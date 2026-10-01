@@ -980,13 +980,13 @@ module Zr::Kern
     if n == 0
       return false
     end
-    c = Machine.word(Machine.load8(p, 0))
+    c = Machine.u8(Machine.load8(p, 0))
     if c < 65 || c > 90
       return false
     end
     i = 1
     while i < n
-      c = Machine.word(Machine.load8(p + i, 0))
+      c = Machine.u8(Machine.load8(p + i, 0))
       alpha = (c >= 65 && c <= 90) || (c >= 97 && c <= 122)
       unless alpha || (c >= 48 && c <= 57) || c == 95 || c >= 128
         return false

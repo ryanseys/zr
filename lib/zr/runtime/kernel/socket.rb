@@ -84,11 +84,11 @@ module Zr::Kern
     if Libc.socketpair(zr_sock_fd(domain), zr_sock_fd(type), zr_sock_fd(protocol), fds) < Machine.i32(0)
       return zr_fix(0 - zr_errno())
     end
-    zr_sock_prepare(Machine.word(Machine.load32(fds, 0)))
-    zr_sock_prepare(Machine.word(Machine.load32(fds, 4)))
+    zr_sock_prepare(Machine.u32(Machine.load32(fds, 0)))
+    zr_sock_prepare(Machine.u32(Machine.load32(fds, 4)))
     out = zr_ary_new(2)
-    zr_ary_push(out, zr_fix(Machine.word(Machine.load32(fds, 0))))
-    zr_ary_push(out, zr_fix(Machine.word(Machine.load32(fds, 4))))
+    zr_ary_push(out, zr_fix(Machine.u32(Machine.load32(fds, 0))))
+    zr_ary_push(out, zr_fix(Machine.u32(Machine.load32(fds, 4))))
     out
   end
 
@@ -117,7 +117,7 @@ module Zr::Kern
   # truncated (cloexec_accept).
   sig [Ptr, Ptr] => Value
   def zr_sock_addr_str(addr, size)
-    n = Machine.word(Machine.load32(size, 0))
+    n = Machine.u32(Machine.load32(size, 0))
     zr_sock_bytes(addr, n > SOCKADDR_MAX ? SOCKADDR_MAX : n)
   end
 
@@ -137,9 +137,9 @@ module Zr::Kern
       Machine.store32(size, 0, Machine.i32(SOCKADDR_MAX))
       r = Libc.accept(zr_sock_fd(fd), addr, size)
     end
-    zr_sock_prepare(Machine.word(r))
+    zr_sock_prepare(Machine.u32(r))
     out = zr_ary_new(2)
-    zr_ary_push(out, zr_fix(Machine.word(r)))
+    zr_ary_push(out, zr_fix(Machine.u32(r)))
     zr_ary_push(out, zr_sock_addr_str(addr, size))
     out
   end
@@ -181,7 +181,7 @@ module Zr::Kern
       Machine.store32(size, 0, Machine.i32(SOCKADDR_MAX))
       r = Libc.recvfrom(zr_sock_fd(fd), buffer, n, zr_sock_fd(flags), addr, size)
     end
-    if Machine.word(Machine.load32(size, 0)) == SOCKADDR_MAX
+    if Machine.u32(Machine.load32(size, 0)) == SOCKADDR_MAX
       Machine.store32(size, 0, Machine.i32(0))
     end
     out = zr_ary_new(2)
@@ -223,7 +223,7 @@ module Zr::Kern
     if Libc.getsockopt(zr_sock_fd(fd), zr_sock_fd(level), zr_sock_fd(name), buffer, size) < Machine.i32(0)
       return zr_fix(0 - zr_errno())
     end
-    zr_sock_bytes(buffer, Machine.word(Machine.load32(size, 0)))
+    zr_sock_bytes(buffer, Machine.u32(Machine.load32(size, 0)))
   end
 
   sig [Value, Value, Value, Value] => Value
@@ -342,8 +342,8 @@ module Zr::Kern
     out = zr_ary_new(4)
     zr_ary_push(out, zr_sock_cstr(Machine.ptr(Machine.load64(h, 0))))
     zr_ary_push(out, zr_sock_cstr_list(Machine.ptr(Machine.load64(h, 8))))
-    zr_ary_push(out, zr_fix(Machine.word(Machine.load32(h, 16))))
-    length = Machine.word(Machine.load32(h, 20))
+    zr_ary_push(out, zr_fix(Machine.u32(Machine.load32(h, 16))))
+    length = Machine.u32(Machine.load32(h, 20))
     list = Machine.ptr(Machine.load64(h, 24))
     while Machine.load64(list, 0) != 0
       zr_ary_push(out, zr_sock_bytes(Machine.ptr(Machine.load64(list, 0)), length))
@@ -359,7 +359,7 @@ module Zr::Kern
     if Machine.word(s) == 0
       return Machine.value(QNIL)
     end
-    port = Machine.word(Machine.load32(s, 16))
+    port = Machine.u32(Machine.load32(s, 16))
     zr_fix(((port & 255) << 8) | ((port >> 8) & 255))
   end
 
@@ -395,7 +395,7 @@ module Zr::Kern
     while Machine.word(node) != 0
       row = zr_ary_new(5)
       zr_ary_push(row, zr_sock_cstr(Machine.ptr(Machine.load64(node, 8))))
-      zr_ary_push(row, zr_fix(Machine.word(Machine.load32(node, 16))))
+      zr_ary_push(row, zr_fix(Machine.u32(Machine.load32(node, 16))))
       zr_ary_push(row, zr_sock_addr_or_nil(Machine.ptr(Machine.load64(node, 24))))
       zr_ary_push(row, zr_sock_addr_or_nil(Machine.ptr(Machine.load64(node, 32))))
       zr_ary_push(row, zr_sock_addr_or_nil(Machine.ptr(Machine.load64(node, 40))))
@@ -408,7 +408,7 @@ module Zr::Kern
 
   sig [Value] => Value
   def zr_sock_if_index(name)
-    zr_fix(Machine.word(Libc.if_nametoindex(RString.ptr(name))))
+    zr_fix(Machine.u32(Libc.if_nametoindex(RString.ptr(name))))
   end
 
   # The interface name for an index, or nil.
@@ -469,12 +469,12 @@ module Zr::Kern
       zr_xfree(control)
       return zr_fix(0 - zr_errno())
     end
-    namelen = Machine.word(Machine.load32(header, 8))
+    namelen = Machine.u32(Machine.load32(header, 8))
     out = zr_ary_new(4)
     zr_ary_push(out, zr_sock_bytes(data, r))
     zr_ary_push(out, zr_sock_bytes(name, namelen > SOCKADDR_MAX ? SOCKADDR_MAX : namelen))
-    zr_ary_push(out, zr_fix(Machine.word(Machine.load32(header, MSGHDR_FLAGS))))
-    zr_ary_push(out, zr_sock_bytes(control, Machine.word(Machine.load32(header, 40))))
+    zr_ary_push(out, zr_fix(Machine.u32(Machine.load32(header, MSGHDR_FLAGS))))
+    zr_ary_push(out, zr_sock_bytes(control, Machine.u32(Machine.load32(header, 40))))
     zr_xfree(data)
     zr_xfree(control)
     out

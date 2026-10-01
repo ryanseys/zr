@@ -46,7 +46,7 @@ module Zr::Kern
     MReader.set_len(r, RString.len(src))
     MReader.set_pos(r, 2)
     MReader.set_bail(r, 0)
-    if RString.len(src) < 2 || Machine.word(Machine.load8(RString.ptr(src), 0)) != 4 || Machine.word(Machine.load8(RString.ptr(src), 1)) > 8
+    if RString.len(src) < 2 || Machine.u8(Machine.load8(RString.ptr(src), 0)) != 4 || Machine.u8(Machine.load8(RString.ptr(src), 1)) > 8
       zr_mr_bail(r)
       return Machine.value(QNIL)
     end
@@ -94,7 +94,7 @@ module Zr::Kern
       return 0 - 1
     end
     MReader.set_pos(r, pos + 1)
-    Machine.word(Machine.load8(MReader.bytes(r) + pos, 0))
+    Machine.u8(Machine.load8(MReader.bytes(r) + pos, 0))
   end
 
   # Reads a packed integer: one byte for a small number, or a count byte
@@ -150,7 +150,7 @@ module Zr::Kern
   def zr_mr_ascii_p(p, n)
     i = 0
     while i < n
-      if Machine.word(Machine.load8(p + i, 0)) > 127
+      if Machine.u8(Machine.load8(p + i, 0)) > 127
         return false
       end
       i += 1
@@ -192,7 +192,7 @@ module Zr::Kern
     at = 0
     while at < n
       stop = at
-      while stop < n && Machine.word(Machine.load8(p + stop, 0)) != 58
+      while stop < n && Machine.u8(Machine.load8(p + stop, 0)) != 58
         stop += 1
       end
       if stop == at
@@ -205,7 +205,7 @@ module Zr::Kern
       scope = found
       at = stop
       if at < n
-        if at + 2 > n || Machine.word(Machine.load8(p + at + 1, 0)) != 58
+        if at + 2 > n || Machine.u8(Machine.load8(p + at + 1, 0)) != 58
           return Machine.value(QUNDEF)
         end
         at += 2
@@ -299,7 +299,7 @@ module Zr::Kern
     i = words * 2
     while i > 0
       i -= 1
-      value = (value << 8) | Machine.word(Machine.load8(p + i, 0))
+      value = (value << 8) | Machine.u8(Machine.load8(p + i, 0))
     end
     if value < 0 || value > 4611686018427387903
       return zr_mr_bail(r)
@@ -427,7 +427,7 @@ module Zr::Kern
     if pos >= MReader.len(r)
       return zr_mr_bail(r)
     end
-    inner = Machine.word(Machine.load8(MReader.bytes(r) + pos, 0))
+    inner = Machine.u8(Machine.load8(MReader.bytes(r) + pos, 0))
     if inner != MR_STRING && inner != MR_ARRAY && inner != MR_HASH && inner != MR_OBJECT && inner != MR_STRUCT && inner != MR_FLOAT
       return zr_mr_bail(r)
     end

@@ -69,7 +69,7 @@ module Zr::Kern
     if r < Machine.i32(0)
       return zr_fix(0 - zr_errno())
     end
-    flags = Machine.word(r)
+    flags = Machine.u32(r)
     if zr_fix2long(on) != 0
       return zr_io_status(zr_os_fcntl(n, Machine.i32(F_SETFL), flags | O_NONBLOCK))
     end
@@ -267,7 +267,7 @@ module Zr::Kern
 
   sig [Value] => Value
   def zr_io_tty_p(fd)
-    zr_bool(Machine.word(Libc.isatty(Machine.i32(zr_fix2long(fd)))) != 0)
+    zr_bool(Machine.u32(Libc.isatty(Machine.i32(zr_fix2long(fd)))) != 0)
   end
 
   # The terminal calls that io/console makes. An ioctl goes through
@@ -580,9 +580,9 @@ module Zr::Kern
     if mask == QNIL
       was = Libc.umask(Machine.i32(0))
       Libc.umask(was)
-      return zr_fix(Machine.word(was))
+      return zr_fix(Machine.u32(was))
     end
-    zr_fix(Machine.word(Libc.umask(Machine.i32(zr_fix2long(mask)))))
+    zr_fix(Machine.u32(Libc.umask(Machine.i32(zr_fix2long(mask)))))
   end
 
   # readlink(2): the target of the symlink, or a negative errno.
@@ -648,7 +648,7 @@ module Zr::Kern
   # read, 2 write, 1 execute).
   sig [Value, Value] => Value
   def zr_path_access(path, mode)
-    zr_bool(Machine.word(Libc.access(RString.ptr(path), Machine.i32(zr_fix2long(mode)))) == 0)
+    zr_bool(Machine.u32(Libc.access(RString.ptr(path), Machine.i32(zr_fix2long(mode)))) == 0)
   end
 
   # The bits in `events`: IO::READABLE, IO::PRIORITY, IO::WRITABLE.

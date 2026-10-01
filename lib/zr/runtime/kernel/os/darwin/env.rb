@@ -26,7 +26,7 @@ module Zr::Kern
   # 32 random bits from the system.
   sig [] => Word
   def zr_os_random
-    Machine.word(Libc.arc4random()) & 4294967295
+    Machine.u32(Libc.arc4random()) & 4294967295
   end
 
   # The ten fields of darwin's passwd that an Etc::Passwd contains, in the
@@ -42,8 +42,8 @@ module Zr::Kern
     out = zr_ary_new(10)
     zr_ary_push(out, zr_cstr_str(Machine.ptr(Machine.load64(pw, 0))))
     zr_ary_push(out, zr_cstr_str(Machine.ptr(Machine.load64(pw, 8))))
-    zr_ary_push(out, zr_fix(Machine.word(Machine.load32(pw, 16))))
-    zr_ary_push(out, zr_fix(Machine.word(Machine.load32(pw, 20))))
+    zr_ary_push(out, zr_fix(Machine.u32(Machine.load32(pw, 16))))
+    zr_ary_push(out, zr_fix(Machine.u32(Machine.load32(pw, 20))))
     zr_ary_push(out, zr_cstr_str(Machine.ptr(Machine.load64(pw, 40))))
     zr_ary_push(out, zr_cstr_str(Machine.ptr(Machine.load64(pw, 48))))
     zr_ary_push(out, zr_cstr_str(Machine.ptr(Machine.load64(pw, 56))))

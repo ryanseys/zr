@@ -277,7 +277,7 @@ module Zr::Kern
       w = 0
       shift = 0
       while i < n
-        w = w | Machine.shl_wrap(Machine.word(Machine.load8(p + i, 0)), shift)
+        w = w | Machine.shl_wrap(Machine.u8(Machine.load8(p + i, 0)), shift)
         shift += 8
         i += 1
       end
@@ -799,13 +799,13 @@ module Zr::Kern
     if n == 0 || zr_symbol_tag(id) != 0
       return false
     end
-    c = Machine.word(Machine.load8(p, 0))
+    c = Machine.u8(Machine.load8(p, 0))
     unless (c >= 97 && c <= 122) || (c >= 65 && c <= 90) || c == 95 || c >= 128
       return false
     end
     i = 1
     while i < n
-      c = Machine.word(Machine.load8(p + i, 0))
+      c = Machine.u8(Machine.load8(p + i, 0))
       unless zr_alnum_p(c) || c == 95 || c >= 128
         if i == n - 1 && (c == 63 || c == 33)
           return true

@@ -29,7 +29,7 @@ class KernelFormsTest < Minitest::Test
 
       sig [I32, I8] => Word
       def widen(a, b)
-        Machine.word(a) + Machine.word(b) + 0x7fff_ffff_ffff_fff0
+        Machine.u32(a) + Machine.u8(b) + 0x7fff_ffff_ffff_fff0
       end
 
       sig [Word, Word] => Word
@@ -192,6 +192,12 @@ class KernelFormsTest < Minitest::Test
     message = refusal("sig [] => Word\ndef big\n  0x8000000000000000\nend")
 
     assert_match(/a literal at or above 2\*\*63 is a word only as Machine.word\(literal\)/, message)
+  end
+
+  def test_a_narrow_integer_widens_only_by_name
+    message = refusal("sig [I32] => Word\ndef wide(a)\n  Machine.word(a)\nend")
+
+    assert_match(/Machine.word of an I32 is Machine.u32 \(zero-extend\) or Machine.sword \(sign-extend\)/, message)
   end
 
   def test_there_is_no_machine_def

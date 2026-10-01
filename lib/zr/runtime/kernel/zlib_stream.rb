@@ -75,7 +75,7 @@ module Zr::Kern
   # The `i`th element of an array of 32-bit words.
   sig [Ptr, Word] => Word
   def zr_zlib_u32(p, i)
-    Machine.word(Machine.load32(p + (i * 4), 0))
+    Machine.u32(Machine.load32(p + (i * 4), 0))
   end
 
   sig [Ptr, Word, Word] => Void
@@ -86,7 +86,7 @@ module Zr::Kern
   # The byte at `p`, as a word.
   sig [Ptr] => Word
   def zr_zlib_byte(p)
-    Machine.word(Machine.load8(p, 0))
+    Machine.u8(Machine.load8(p, 0))
   end
 
   # Copies `n` bytes from `from` to `out`, one byte at a time. Thus a copy

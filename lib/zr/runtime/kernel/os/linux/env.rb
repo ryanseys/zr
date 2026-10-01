@@ -28,7 +28,7 @@ module Zr::Kern
     bits = Machine.slot(8)
     Machine.store64(bits, 0, 0)
     Libc.getrandom(bits, 4, Machine.i32(0))
-    Machine.word(Machine.load32(bits, 0))
+    Machine.u32(Machine.load32(bits, 0))
   end
 
   # The seven fields of Linux's passwd that an Etc::Passwd contains, in the
@@ -42,8 +42,8 @@ module Zr::Kern
     out = zr_ary_new(7)
     zr_ary_push(out, zr_cstr_str(Machine.ptr(Machine.load64(pw, 0))))
     zr_ary_push(out, zr_cstr_str(Machine.ptr(Machine.load64(pw, 8))))
-    zr_ary_push(out, zr_fix(Machine.word(Machine.load32(pw, 16))))
-    zr_ary_push(out, zr_fix(Machine.word(Machine.load32(pw, 20))))
+    zr_ary_push(out, zr_fix(Machine.u32(Machine.load32(pw, 16))))
+    zr_ary_push(out, zr_fix(Machine.u32(Machine.load32(pw, 20))))
     zr_ary_push(out, zr_cstr_str(Machine.ptr(Machine.load64(pw, 24))))
     zr_ary_push(out, zr_cstr_str(Machine.ptr(Machine.load64(pw, 32))))
     zr_ary_push(out, zr_cstr_str(Machine.ptr(Machine.load64(pw, 40))))

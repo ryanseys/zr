@@ -47,7 +47,7 @@ module Zr::Kern
   def zr_onig_enc_byte(enc, field, i)
     base = Machine.ptr(enc)
     off = Machine.word(Machine.load64(base + field, 0))
-    Machine.word(Machine.load8(base + off + i, 0))
+    Machine.u8(Machine.load8(base + off + i, 0))
   end
 
   # trans[state][byte] of the state table of the encoding: -1 accepts,
@@ -99,25 +99,25 @@ module Zr::Kern
   sig [Ptr, Ptr] => Word
   def zr_onig_utf8_precise_len(p, e)
     return 0 - 1 if p >= e
-    first = Machine.word(Machine.load8(p, 0))
+    first = Machine.u8(Machine.load8(p, 0))
     return 1 if first < 128
     s = zr_onig_utf8_trans(0, first)
     if s < 0
       return s == 0 - 1 ? 1 : 0 - 1
     end
-    need = Machine.word(Machine.load8(zr_onig_utf8_len() + first, 0))
+    need = Machine.u8(Machine.load8(zr_onig_utf8_len() + first, 0))
     return 0 - 1 - (need - 1) if p + 1 == e
-    s = zr_onig_utf8_trans(s, Machine.word(Machine.load8(p, 1)))
+    s = zr_onig_utf8_trans(s, Machine.u8(Machine.load8(p, 1)))
     if s < 0
       return s == 0 - 1 ? 2 : 0 - 1
     end
     return 0 - 1 - (need - 2) if p + 2 == e
-    s = zr_onig_utf8_trans(s, Machine.word(Machine.load8(p, 2)))
+    s = zr_onig_utf8_trans(s, Machine.u8(Machine.load8(p, 2)))
     if s < 0
       return s == 0 - 1 ? 3 : 0 - 1
     end
     return 0 - 1 - (need - 3) if p + 3 == e
-    s = zr_onig_utf8_trans(s, Machine.word(Machine.load8(p, 3)))
+    s = zr_onig_utf8_trans(s, Machine.u8(Machine.load8(p, 3)))
     s == 0 - 1 ? 4 : 0 - 1
   end
 
@@ -152,7 +152,7 @@ module Zr::Kern
   def zr_onig_mb_precise_len(enc, p, e)
     return 0 - 1 if p >= e
     max = OnigEnc.max_len(Machine.ptr(enc))
-    first = Machine.word(Machine.load8(p, 0))
+    first = Machine.u8(Machine.load8(p, 0))
     state = zr_onig_enc_trans(enc, 0, first)
     k = 1
     while true
@@ -161,7 +161,7 @@ module Zr::Kern
       end
       return 0 - 1 if k == max
       return 0 - 1 - zr_onig_mb_need(enc, k, first, state) if p + k == e
-      state = zr_onig_enc_trans(enc, state, Machine.word(Machine.load8(p + k, 0)))
+      state = zr_onig_enc_trans(enc, state, Machine.u8(Machine.load8(p + k, 0)))
       k += 1
     end
     0 - 1
@@ -181,17 +181,17 @@ module Zr::Kern
     len = Machine.word(e - p)
     if kind == ONIG_ENC_KIND_UTF16LE
       return 0 - 2 if len < 2
-      byte = Machine.word(Machine.load8(p, 1))
+      byte = Machine.u8(Machine.load8(p, 1))
       return 2 if (byte & 248) != 216
       if (byte & 252) == 216
         return 0 - 1 - (4 - len) if len < 4
-        return 4 if (Machine.word(Machine.load8(p, 3)) & 252) == 220
+        return 4 if (Machine.u8(Machine.load8(p, 3)) & 252) == 220
       end
       return 0 - 1
     end
     if kind == ONIG_ENC_KIND_UTF16BE
       return 0 - 1 if len <= 0
-      byte = Machine.word(Machine.load8(p, 0))
+      byte = Machine.u8(Machine.load8(p, 0))
       if (byte & 248) != 216
         return len >= 2 ? 2 : 0 - 2
       end
@@ -199,10 +199,10 @@ module Zr::Kern
         return 0 - 4 if len == 1
         return 0 - 3 if len == 2
         if len == 3
-          return 0 - 2 if (Machine.word(Machine.load8(p, 2)) & 252) == 220
+          return 0 - 2 if (Machine.u8(Machine.load8(p, 2)) & 252) == 220
           return 0 - 1
         end
-        return 4 if (Machine.word(Machine.load8(p, 2)) & 252) == 220
+        return 4 if (Machine.u8(Machine.load8(p, 2)) & 252) == 220
       end
       return 0 - 1
     end
@@ -225,7 +225,7 @@ module Zr::Kern
   # onigenc_mbclen (regenc.c): the length, limited to the end of the text.
   sig [Word, Ptr, Ptr] => Word
   def zr_onig_mbclen(enc, p, e)
-    if p < e && Machine.word(Machine.load8(p, 0)) < 128 && OnigEnc.kind(Machine.ptr(enc)) == ONIG_ENC_KIND_UTF8
+    if p < e && Machine.u8(Machine.load8(p, 0)) < 128 && OnigEnc.kind(Machine.ptr(enc)) == ONIG_ENC_KIND_UTF8
       return 1
     end
     r = zr_onig_precise_len(enc, p, e)
@@ -244,7 +244,7 @@ module Zr::Kern
   sig [Word, Ptr, Ptr] => Word
   def zr_onig_enclen(enc, p, e)
     base = Machine.ptr(enc)
-    if p < e && Machine.word(Machine.load8(p, 0)) < 128 && OnigEnc.kind(base) == ONIG_ENC_KIND_UTF8
+    if p < e && Machine.u8(Machine.load8(p, 0)) < 128 && OnigEnc.kind(base) == ONIG_ENC_KIND_UTF8
       return 1
     end
     min = OnigEnc.min_len(base)
@@ -278,12 +278,12 @@ module Zr::Kern
   # onigenc_mbn_mbc_to_code over `len` bytes.
   sig [Ptr, Ptr, Word] => Word
   def zr_onig_mbn_to_code(p, e, len)
-    n = Machine.word(Machine.load8(p, 0))
+    n = Machine.u8(Machine.load8(p, 0))
     return n if len == 1
     i = 1
     while i < len
       break if p + i >= e
-      n = (n << 8) + Machine.word(Machine.load8(p + i, 0))
+      n = (n << 8) + Machine.u8(Machine.load8(p + i, 0))
       i += 1
     end
     n
@@ -293,7 +293,7 @@ module Zr::Kern
   # is not a full character.
   sig [Ptr, Ptr] => Word
   def zr_onig_utf8_to_code(p, e)
-    c = Machine.word(Machine.load8(p, 0))
+    c = Machine.u8(Machine.load8(p, 0))
     return c if c < 128
     len = zr_onig_utf8_precise_len(p, e)
     if len <= 1
@@ -304,7 +304,7 @@ module Zr::Kern
     n = c & ((1 << (6 - len)) - 1)
     i = 1
     while len > 0
-      n = (n << 6) | (Machine.word(Machine.load8(p + i, 0)) & 63)
+      n = (n << 6) | (Machine.u8(Machine.load8(p + i, 0)) & 63)
       i += 1
       len -= 1
     end
@@ -315,10 +315,10 @@ module Zr::Kern
   sig [Word, Ptr, Ptr] => Word
   def zr_onig_cesu8_to_code(enc, p, e)
     len = zr_onig_mb_precise_len(enc, p, e)
-    c = Machine.word(Machine.load8(p, 0))
+    c = Machine.u8(Machine.load8(p, 0))
     return c if len == 1
     if len == 2
-      return ((c & 31) << 6) | (Machine.word(Machine.load8(p, 1)) & 63)
+      return ((c & 31) << 6) | (Machine.u8(Machine.load8(p, 1)) & 63)
     end
     if len == 3
       return zr_onig_decode3(p)
@@ -333,39 +333,39 @@ module Zr::Kern
   # utf8_decode_3byte_sequence (cesu_8.c)
   sig [Ptr] => Word
   def zr_onig_decode3(p)
-    ((Machine.word(Machine.load8(p, 0)) & 15) << 12) | ((Machine.word(Machine.load8(p, 1)) & 63) << 6) | (Machine.word(Machine.load8(p, 2)) & 63)
+    ((Machine.u8(Machine.load8(p, 0)) & 15) << 12) | ((Machine.u8(Machine.load8(p, 1)) & 63) << 6) | (Machine.u8(Machine.load8(p, 2)) & 63)
   end
 
   # ONIGENC_MBC_TO_CODE
   sig [Word, Ptr, Ptr] => Word
   def zr_onig_mbc_to_code(enc, p, e)
     kind = zr_onig_enc_kind(enc)
-    return Machine.word(Machine.load8(p, 0)) if kind == ONIG_ENC_KIND_SINGLE_BYTE
+    return Machine.u8(Machine.load8(p, 0)) if kind == ONIG_ENC_KIND_SINGLE_BYTE
     return zr_onig_utf8_to_code(p, e) if kind == ONIG_ENC_KIND_UTF8
     if kind == ONIG_ENC_KIND_EUC_JP || kind == ONIG_ENC_KIND_SHIFT_JIS
       return zr_onig_mbn_to_code(p, e, zr_onig_mb_precise_len(enc, p, e))
     end
     return zr_onig_cesu8_to_code(enc, p, e) if kind == ONIG_ENC_KIND_CESU8
-    b0 = Machine.word(Machine.load8(p, 0))
+    b0 = Machine.u8(Machine.load8(p, 0))
     if kind == ONIG_ENC_KIND_UTF16LE
-      b1 = Machine.word(Machine.load8(p, 1))
+      b1 = Machine.u8(Machine.load8(p, 1))
       if (b1 & 252) == 216
-        return (((b1 << 8) + b0) & 1023) * 1024 + (((Machine.word(Machine.load8(p, 3)) << 8) + Machine.word(Machine.load8(p, 2))) & 1023) + 65536
+        return (((b1 << 8) + b0) & 1023) * 1024 + (((Machine.u8(Machine.load8(p, 3)) << 8) + Machine.u8(Machine.load8(p, 2))) & 1023) + 65536
       end
       return (b1 * 256) + b0
     end
     if kind == ONIG_ENC_KIND_UTF16BE
-      b1 = Machine.word(Machine.load8(p, 1))
+      b1 = Machine.u8(Machine.load8(p, 1))
       if (b0 & 252) == 216
-        return (((b0 << 8) + b1) & 1023) * 1024 + (((Machine.word(Machine.load8(p, 2)) << 8) + Machine.word(Machine.load8(p, 3))) & 1023) + 65536
+        return (((b0 << 8) + b1) & 1023) * 1024 + (((Machine.u8(Machine.load8(p, 2)) << 8) + Machine.u8(Machine.load8(p, 3))) & 1023) + 65536
       end
       return (b0 * 256) + b1
     end
     if kind == ONIG_ENC_KIND_UTF32LE
-      return Machine.word(Machine.load32(p, 0))
+      return Machine.u32(Machine.load32(p, 0))
     end
     if kind == ONIG_ENC_KIND_UTF32BE
-      return (b0 << 24) | (Machine.word(Machine.load8(p, 1)) << 16) | (Machine.word(Machine.load8(p, 2)) << 8) | Machine.word(Machine.load8(p, 3))
+      return (b0 << 24) | (Machine.u8(Machine.load8(p, 1)) << 16) | (Machine.u8(Machine.load8(p, 2)) << 8) | Machine.u8(Machine.load8(p, 3))
     end
     zr_onig_mbn_to_code(p, e, zr_onig_enclen(enc, p, e))
   end
@@ -456,7 +456,7 @@ module Zr::Kern
   sig [Word, Ptr, Ptr, Ptr] => Ptr
   def zr_onig_euc_left_adjust(enc, start, s, e)
     p = s
-    while ((Machine.word(Machine.load8(p, 0)) - 161) & 255) <= 93 && p > start
+    while ((Machine.u8(Machine.load8(p, 0)) - 161) & 255) <= 93 && p > start
       p = p - 1
     end
     if zr_onig_enc_kind(enc) == ONIG_ENC_KIND_EUC_JP
@@ -470,10 +470,10 @@ module Zr::Kern
   sig [Word, Ptr, Ptr, Ptr] => Ptr
   def zr_onig_trail_left_adjust(enc, start, s, e)
     p = s
-    if zr_onig_enc_byte(enc, 40, Machine.word(Machine.load8(p, 0))) != 0
+    if zr_onig_enc_byte(enc, 40, Machine.u8(Machine.load8(p, 0))) != 0
       while p > start
         p = p - 1
-        if zr_onig_enc_byte(enc, 32, Machine.word(Machine.load8(p, 0))) <= 1
+        if zr_onig_enc_byte(enc, 32, Machine.u8(Machine.load8(p, 0))) <= 1
           p = p + 1
           break
         end
@@ -495,14 +495,14 @@ module Zr::Kern
     state = 0
     p = s
     while p >= start
-      cls = zr_onig_enc_byte(enc, 72, Machine.word(Machine.load8(p, 0)))
-      move = Machine.word(Machine.load8(moves + (state * 4) + cls, 0))
+      cls = zr_onig_enc_byte(enc, 72, Machine.u8(Machine.load8(p, 0)))
+      move = Machine.u8(Machine.load8(moves + (state * 4) + cls, 0))
       return s - (move - 100) if move >= 100
       state = move
       break if p == start
       p = p - 1
     end
-    s - Machine.word(Machine.load8(moves + 92 + state, 0))
+    s - Machine.u8(Machine.load8(moves + 92 + state, 0))
   end
 
   # The moves of gb18030_left_adjust_char_head, then the result of each
@@ -526,12 +526,12 @@ module Zr::Kern
     return s if s <= start
     if kind == ONIG_ENC_KIND_UTF8 || kind == ONIG_ENC_KIND_CESU8
       p = s
-      while (Machine.word(Machine.load8(p, 0)) & 192) == 128 && p > start
+      while (Machine.u8(Machine.load8(p, 0)) & 192) == 128 && p > start
         p = p - 1
       end
       if kind == ONIG_ENC_KIND_CESU8 && p > start && Machine.word(s - p) == 2 && (zr_onig_decode3(p) >> 10) == 55
         pair = p - 1
-        while (Machine.word(Machine.load8(pair, 0)) & 192) == 128 && pair > start
+        while (Machine.u8(Machine.load8(pair, 0)) & 192) == 128 && pair > start
           pair = pair - 1
         end
         return pair if Machine.word(p - pair) == 3 && (zr_onig_decode3(pair) >> 10) == 54
@@ -546,7 +546,7 @@ module Zr::Kern
     end
     if kind == ONIG_ENC_KIND_EMACS_MULE
       p = s
-      while Machine.word(Machine.load8(p, 0)) >= 158 && p > start
+      while Machine.u8(Machine.load8(p, 0)) >= 158 && p > start
         p = p - 1
       end
       return p
@@ -555,7 +555,7 @@ module Zr::Kern
       p = s
       p = p - 1 if (Machine.word(p - start) & 1) == 1
       at = kind == ONIG_ENC_KIND_UTF16LE ? 1 : 0
-      if (Machine.word(Machine.load8(p + at, 0)) & 252) == 220 && p > start + 1
+      if (Machine.u8(Machine.load8(p + at, 0)) & 252) == 220 && p > start + 1
         p = p - 2
       end
       return p
@@ -603,7 +603,7 @@ module Zr::Kern
     if kind == ONIG_ENC_KIND_UTF16LE || kind == ONIG_ENC_KIND_UTF16BE
       return false if p + 1 >= e
       at = kind == ONIG_ENC_KIND_UTF16LE ? 0 : 1
-      return Machine.word(Machine.load8(p + at, 0)) == 10 && Machine.word(Machine.load8(p + (1 - at), 0)) == 0
+      return Machine.u8(Machine.load8(p + at, 0)) == 10 && Machine.u8(Machine.load8(p + (1 - at), 0)) == 0
     end
     return false if p + 3 >= e
     zr_onig_mbc_to_code(enc, p, e) == 10
@@ -613,26 +613,26 @@ module Zr::Kern
   # u32 pairs. The CCLASS_MB operand and the CR_Word table use this layout.
   sig [Ptr, Word] => Bool
   def zr_onig_in_code_range_p(ranges, code)
-    n = Machine.word(Machine.load32(ranges, 0))
+    n = Machine.u32(Machine.load32(ranges, 0))
     data = ranges + 4
     low = 0
     high = n
     while low < high
       x = (low + high) >> 1
-      if code > Machine.word(Machine.load32(data + (x * 8), 4))
+      if code > Machine.u32(Machine.load32(data + (x * 8), 4))
         low = x + 1
       else
         high = x
       end
     end
-    low < n && code >= Machine.word(Machine.load32(data + (low * 8), 0))
+    low < n && code >= Machine.u32(Machine.load32(data + (low * 8), 0))
   end
 
   # ONIGENC_IS_ASCII_CODE_CTYPE(code, WORD)
   sig [Word] => Bool
   def zr_onig_ascii_word_p(code)
     return false if code >= 128
-    (Machine.word(Machine.load32(zr_onig_ctype_bits() + (code * 4), 0)) & ONIG_CTYPE_WORD_BIT) != 0
+    (Machine.u32(Machine.load32(zr_onig_ctype_bits() + (code * 4), 0)) & ONIG_CTYPE_WORD_BIT) != 0
   end
 
   # code_to_mbclen of each multibyte encoding other than Unicode, only as
@@ -661,7 +661,7 @@ module Zr::Kern
     end
     if kind == ONIG_ENC_KIND_UTF8 || kind == ONIG_ENC_KIND_CESU8 || kind >= ONIG_ENC_KIND_UTF16LE
       if code < 256
-        return (Machine.word(Machine.load32(zr_onig_ctype_bits() + (code * 4), 0)) & ONIG_CTYPE_WORD_BIT) != 0
+        return (Machine.u32(Machine.load32(zr_onig_ctype_bits() + (code * 4), 0)) & ONIG_CTYPE_WORD_BIT) != 0
       end
       return zr_onig_in_code_range_p(zr_onig_word_ranges(), code)
     end
@@ -672,9 +672,9 @@ module Zr::Kern
   # ONIGENC_IS_MBC_WORD.
   sig [Word, Ptr, Ptr] => Bool
   def zr_onig_mbc_word_p(enc, s, e)
-    c = Machine.word(Machine.load8(s, 0))
+    c = Machine.u8(Machine.load8(s, 0))
     if c < 128 && zr_onig_enc_kind(enc) == ONIG_ENC_KIND_UTF8
-      return (Machine.word(Machine.load32(zr_onig_ctype_bits() + (c * 4), 0)) & ONIG_CTYPE_WORD_BIT) != 0
+      return (Machine.u32(Machine.load32(zr_onig_ctype_bits() + (c * 4), 0)) & ONIG_CTYPE_WORD_BIT) != 0
     end
     zr_onig_code_word_p(enc, zr_onig_mbc_to_code(enc, s, e))
   end
@@ -697,14 +697,14 @@ module Zr::Kern
   sig [Word] => Ptr
   def zr_onig_fold_lookup(code)
     table = zr_onig_fold_rows()
-    n = Machine.word(Machine.load32(table, 0))
+    n = Machine.u32(Machine.load32(table, 0))
     rows = table + 4
     low = 0
     high = n
     while low < high
       x = (low + high) >> 1
       row = rows + (x * 20)
-      from = Machine.word(Machine.load32(row, 0))
+      from = Machine.u32(Machine.load32(row, 0))
       if from == code
         return row
       end
@@ -726,11 +726,11 @@ module Zr::Kern
     len = zr_onig_enclen(enc, p, e)
     row = zr_onig_fold_lookup(code)
     if row != 0
-      n = Machine.word(Machine.load32(row, 4))
+      n = Machine.u32(Machine.load32(row, 4))
       rlen = 0
       i = 0
       while i < n
-        rlen += zr_onig_code_to_mbc(enc, Machine.word(Machine.load32(row + (i * 4), 8)), fold + rlen)
+        rlen += zr_onig_code_to_mbc(enc, Machine.u32(Machine.load32(row + (i * 4), 8)), fold + rlen)
         i += 1
       end
       return rlen
@@ -793,7 +793,7 @@ module Zr::Kern
   def zr_onig_mbc_case_fold(enc, flag, pp, e, fold)
     p = Machine.ptr(Machine.load64(pp, 0))
     kind = zr_onig_enc_kind(enc)
-    c = Machine.word(Machine.load8(p, 0))
+    c = Machine.u8(Machine.load8(p, 0))
     if kind == ONIG_ENC_KIND_SINGLE_BYTE
       Machine.store64(pp, 0, Machine.word(p + 1))
       if c == 223 && (OnigEnc.flags(Machine.ptr(enc)) & ONIG_ENC_FLAG_SHARP_S) != 0 && (flag & ONIG_CASE_FOLD_MULTI_CHAR) != 0

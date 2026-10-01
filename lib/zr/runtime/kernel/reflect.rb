@@ -50,7 +50,7 @@ module Zr::Kern
     end
     i = 0
     while i < n
-      c = Machine.word(Machine.load8(p + i, 0))
+      c = Machine.u8(Machine.load8(p + i, 0))
       alpha = (c >= 65 && c <= 90) || (c >= 97 && c <= 122) || c == 95 || c >= 128
       unless alpha || (i > 0 && c >= 48 && c <= 57)
         return false
@@ -79,7 +79,7 @@ module Zr::Kern
     while i < IvTab.len(t)
       id = IvEntry.id(IvTab.rows(t) + (i * IvEntry.size))
       name = zr_sym(id)
-      if Machine.word(Machine.load8(zr_symbol_name_ptr(id), 0)) == lead && zr_ary_index_of(out, name) < 0
+      if Machine.u8(Machine.load8(zr_symbol_name_ptr(id), 0)) == lead && zr_ary_index_of(out, name) < 0
         zr_ary_push(out, name)
       end
       i += 1

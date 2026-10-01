@@ -688,7 +688,7 @@ module Zr::Kern
     opts = zr_hash_new()
     out = zr_gvar_get(Machine.id(:$stderr))
     original = zr_special_p(out) || out == zr_core_class(Machine.id(:STDERR))
-    zr_hash_store(opts, zr_sym(Machine.id(:highlight)), zr_bool(original && Machine.word(Libc.isatty(Machine.i32(2))) != 0))
+    zr_hash_store(opts, zr_sym(Machine.id(:highlight)), zr_bool(original && Machine.u32(Libc.isatty(Machine.i32(2))) != 0))
     slot = Machine.slot(8)
     Machine.store64(slot, 0, Machine.word(opts))
     zr_kw_pass()

@@ -302,7 +302,7 @@ module Zr::Kern
   # Whether an instance variable's name is visible: it starts with `@`.
   sig [Word] => Bool
   def zr_ivar_id_visible_p(id)
-    Machine.word(Machine.load8(zr_symbol_name_ptr(id), 0)) == 64
+    Machine.u8(Machine.load8(zr_symbol_name_ptr(id), 0)) == 64
   end
 
   sig [Value, Word, Value] => Value
@@ -1079,7 +1079,7 @@ module Zr::Kern
     if n == 0
       return false
     end
-    c = Machine.word(Machine.load8(p, 0))
+    c = Machine.u8(Machine.load8(p, 0))
     if zr_gvar_punct_p(c)
       return n == 1
     end
@@ -1087,7 +1087,7 @@ module Zr::Kern
       if n == 1
         return false
       end
-      d = Machine.word(Machine.load8(p, 1))
+      d = Machine.u8(Machine.load8(p, 1))
       len = 1
       if d >= 128
         len = zr_utf8_char_len(p + 1, n - 1)
@@ -1101,7 +1101,7 @@ module Zr::Kern
     end
     i = 0
     while i < n
-      d = Machine.word(Machine.load8(p + i, 0))
+      d = Machine.u8(Machine.load8(p + i, 0))
       if d < 48 || d > 57
         return false
       end
@@ -1118,11 +1118,11 @@ module Zr::Kern
     if n == 0
       return false
     end
-    c = Machine.word(Machine.load8(p, 0))
+    c = Machine.u8(Machine.load8(p, 0))
     i = 0
     if c == 64
       i = 1
-      if n > 1 && Machine.word(Machine.load8(p, 1)) == 64
+      if n > 1 && Machine.u8(Machine.load8(p, 1)) == 64
         i = 2
       end
     elsif c == 36
@@ -1135,12 +1135,12 @@ module Zr::Kern
       if i >= n
         return false
       end
-      first = Machine.word(Machine.load8(p + i, 0))
+      first = Machine.u8(Machine.load8(p + i, 0))
       if first >= 48 && first <= 57
         return false
       end
       while i < n
-        if !zr_ident_byte_p(Machine.word(Machine.load8(p + i, 0)))
+        if !zr_ident_byte_p(Machine.u8(Machine.load8(p + i, 0)))
           return false
         end
         i += 1
@@ -1154,7 +1154,7 @@ module Zr::Kern
       return zr_operator_name_p(p, n)
     end
     while i < n
-      c = Machine.word(Machine.load8(p + i, 0))
+      c = Machine.u8(Machine.load8(p + i, 0))
       if !zr_ident_byte_p(c)
         return i == n - 1 && (c == 63 || c == 33 || c == 61)
       end
@@ -1184,7 +1184,7 @@ module Zr::Kern
   def zr_bytes_ascii_only_p(p, n)
     i = 0
     while i < n
-      if Machine.word(Machine.load8(p + i, 0)) >= 128
+      if Machine.u8(Machine.load8(p + i, 0)) >= 128
         return false
       end
       i += 1
@@ -1215,16 +1215,16 @@ module Zr::Kern
   sig [Ptr, Word] => Bool
   def zr_operator_name_p(p, n)
     if n == 1
-      c = Machine.word(Machine.load8(p, 0))
+      c = Machine.u8(Machine.load8(p, 0))
       c == 43 || c == 45 || c == 42 || c == 47 || c == 37 || c == 60 || c == 62 || c == 33 || c == 38 || c == 124 || c == 94 || c == 126 || c == 96
     elsif n == 2
-      c = Machine.word(Machine.load8(p, 0))
-      d = Machine.word(Machine.load8(p, 1))
+      c = Machine.u8(Machine.load8(p, 0))
+      d = Machine.u8(Machine.load8(p, 1))
       (c == 60 && (d == 60 || d == 61)) || (c == 62 && (d == 62 || d == 61)) || (c == 61 && (d == 61 || d == 126)) || (c == 33 && (d == 61 || d == 126)) || (c == 42 && d == 42) || (c == 91 && d == 93) || ((c == 43 || c == 45) && d == 64)
     elsif n == 3
-      c = Machine.word(Machine.load8(p, 0))
-      d = Machine.word(Machine.load8(p, 1))
-      e = Machine.word(Machine.load8(p, 2))
+      c = Machine.u8(Machine.load8(p, 0))
+      d = Machine.u8(Machine.load8(p, 1))
+      e = Machine.u8(Machine.load8(p, 2))
       (c == 60 && d == 61 && e == 62) || (c == 61 && d == 61 && e == 61) || (c == 91 && d == 93 && e == 61)
     else
       false
@@ -1235,7 +1235,7 @@ module Zr::Kern
   # byte does not start one.
   sig [Ptr, Word] => Word
   def zr_utf8_char_len(p, n)
-    c = Machine.word(Machine.load8(p, 0))
+    c = Machine.u8(Machine.load8(p, 0))
     if c < 128
       return 1
     end
@@ -1263,13 +1263,13 @@ module Zr::Kern
     elsif c == 244
       high = 143
     end
-    d = Machine.word(Machine.load8(p + 1, 0))
+    d = Machine.u8(Machine.load8(p + 1, 0))
     if d < low || d > high
       return 0
     end
     i = 2
     while i < len
-      d = Machine.word(Machine.load8(p + i, 0))
+      d = Machine.u8(Machine.load8(p + i, 0))
       if d < 128 || d > 191
         return 0
       end
@@ -1286,7 +1286,7 @@ module Zr::Kern
     zr_buf_byte(b, 34)
     i = 0
     while i < n
-      c = Machine.word(Machine.load8(p + i, 0))
+      c = Machine.u8(Machine.load8(p + i, 0))
       if c >= 128
         len = binary ? 0 : zr_utf8_char_len(p + i, n - i)
         if len == 0
@@ -1317,7 +1317,7 @@ module Zr::Kern
         zr_buf_push(b, Machine.bytes("\\f"), 2)
       elsif c == 11
         zr_buf_push(b, Machine.bytes("\\v"), 2)
-      elsif c == 35 && i + 1 < n && (Machine.word(Machine.load8(p + i, 1)) == 123 || Machine.word(Machine.load8(p + i, 1)) == 36 || Machine.word(Machine.load8(p + i, 1)) == 64)
+      elsif c == 35 && i + 1 < n && (Machine.u8(Machine.load8(p + i, 1)) == 123 || Machine.u8(Machine.load8(p + i, 1)) == 36 || Machine.u8(Machine.load8(p + i, 1)) == 64)
         zr_buf_push(b, Machine.bytes("\\#"), 2)
       elsif c < 32 || c == 127
         zr_buf_push(b, binary ? Machine.bytes("\\x") : Machine.bytes("\\u00"), binary ? 2 : 4)
@@ -1519,7 +1519,7 @@ module Zr::Kern
   def zr_bytes_index(p, n, c)
     i = 0
     while i < n
-      if Machine.word(Machine.load8(p + i, 0)) == c
+      if Machine.u8(Machine.load8(p + i, 0)) == c
         return i
       end
       i += 1

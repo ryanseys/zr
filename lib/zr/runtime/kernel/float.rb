@@ -802,7 +802,7 @@ module Zr::Kern
       end
       zr_buf_push(b, digits, n)
     else
-      zr_buf_byte(b, Machine.word(Machine.load8(digits, 0)))
+      zr_buf_byte(b, Machine.u8(Machine.load8(digits, 0)))
       zr_buf_byte(b, 46)
       if n > 1
         zr_buf_push(b, digits + 1, n - 1)
@@ -901,7 +901,7 @@ module Zr::Kern
 
   sig [Ptr, Word] => Bool
   def zr_digit_at(p, i)
-    c = Machine.word(Machine.load8(p + i, 0))
+    c = Machine.u8(Machine.load8(p + i, 0))
     c >= 48 && c <= 57
   end
 
@@ -915,33 +915,33 @@ module Zr::Kern
     p = RString.ptr(s)
     n = RString.len(s)
     i = 0
-    while i < n && (Machine.word(Machine.load8(p + i, 0)) == 32 || (Machine.word(Machine.load8(p + i, 0)) >= 9 && Machine.word(Machine.load8(p + i, 0)) <= 13))
+    while i < n && (Machine.u8(Machine.load8(p + i, 0)) == 32 || (Machine.u8(Machine.load8(p + i, 0)) >= 9 && Machine.u8(Machine.load8(p + i, 0)) <= 13))
       i += 1
     end
-    if i < n && (Machine.word(Machine.load8(p + i, 0)) == 45 || Machine.word(Machine.load8(p + i, 0)) == 43)
-      zr_buf_byte(b, Machine.word(Machine.load8(p + i, 0)))
+    if i < n && (Machine.u8(Machine.load8(p + i, 0)) == 45 || Machine.u8(Machine.load8(p + i, 0)) == 43)
+      zr_buf_byte(b, Machine.u8(Machine.load8(p + i, 0)))
       i += 1
     end
     digits = 0
     while i < n && zr_digit_at(p, i)
-      zr_buf_byte(b, Machine.word(Machine.load8(p + i, 0)))
+      zr_buf_byte(b, Machine.u8(Machine.load8(p + i, 0)))
       digits += 1
       i += 1
-      if i + 1 < n && Machine.word(Machine.load8(p + i, 0)) == 95 && zr_digit_at(p, i + 1)
+      if i + 1 < n && Machine.u8(Machine.load8(p + i, 0)) == 95 && zr_digit_at(p, i + 1)
         i += 1
       end
     end
     fraction = 0
-    if digits > 0 && i < n && Machine.word(Machine.load8(p + i, 0)) == 46 && !(i + 1 < n && zr_digit_at(p, i + 1))
+    if digits > 0 && i < n && Machine.u8(Machine.load8(p + i, 0)) == 46 && !(i + 1 < n && zr_digit_at(p, i + 1))
       i += 1
-    elsif i + 1 < n && Machine.word(Machine.load8(p + i, 0)) == 46 && zr_digit_at(p, i + 1)
+    elsif i + 1 < n && Machine.u8(Machine.load8(p + i, 0)) == 46 && zr_digit_at(p, i + 1)
       zr_buf_byte(b, 46)
       i += 1
       while i < n && zr_digit_at(p, i)
-        zr_buf_byte(b, Machine.word(Machine.load8(p + i, 0)))
+        zr_buf_byte(b, Machine.u8(Machine.load8(p + i, 0)))
         fraction += 1
         i += 1
-        if i + 1 < n && Machine.word(Machine.load8(p + i, 0)) == 95 && zr_digit_at(p, i + 1)
+        if i + 1 < n && Machine.u8(Machine.load8(p + i, 0)) == 95 && zr_digit_at(p, i + 1)
           i += 1
         end
       end
@@ -949,23 +949,23 @@ module Zr::Kern
     if digits == 0 && fraction == 0
       return 0 - 1
     end
-    if i < n && (Machine.word(Machine.load8(p + i, 0)) == 101 || Machine.word(Machine.load8(p + i, 0)) == 69)
+    if i < n && (Machine.u8(Machine.load8(p + i, 0)) == 101 || Machine.u8(Machine.load8(p + i, 0)) == 69)
       j = i + 1
-      if j < n && (Machine.word(Machine.load8(p + j, 0)) == 45 || Machine.word(Machine.load8(p + j, 0)) == 43)
+      if j < n && (Machine.u8(Machine.load8(p + j, 0)) == 45 || Machine.u8(Machine.load8(p + j, 0)) == 43)
         j += 1
       end
       if j < n && zr_digit_at(p, j)
         zr_buf_byte(b, 101)
         k = i + 1
         while k < j
-          zr_buf_byte(b, Machine.word(Machine.load8(p + k, 0)))
+          zr_buf_byte(b, Machine.u8(Machine.load8(p + k, 0)))
           k += 1
         end
         i = j
         while i < n && zr_digit_at(p, i)
-          zr_buf_byte(b, Machine.word(Machine.load8(p + i, 0)))
+          zr_buf_byte(b, Machine.u8(Machine.load8(p + i, 0)))
           i += 1
-          if i + 1 < n && Machine.word(Machine.load8(p + i, 0)) == 95 && zr_digit_at(p, i + 1)
+          if i + 1 < n && Machine.u8(Machine.load8(p + i, 0)) == 95 && zr_digit_at(p, i + 1)
             i += 1
           end
         end
@@ -1008,11 +1008,11 @@ module Zr::Kern
     end
     p = RString.ptr(s)
     len = RString.len(s)
-    if n + 1 < len && (Machine.word(Machine.load8(p + n, 0)) == 120 || Machine.word(Machine.load8(p + n, 0)) == 88) && zr_buf_last_is_zero(b)
+    if n + 1 < len && (Machine.u8(Machine.load8(p + n, 0)) == 120 || Machine.u8(Machine.load8(p + n, 0)) == 88) && zr_buf_last_is_zero(b)
       zr_buf_free(b)
       return zr_hex_to_f(s)
     end
-    while n < len && (Machine.word(Machine.load8(p + n, 0)) == 32 || (Machine.word(Machine.load8(p + n, 0)) >= 9 && Machine.word(Machine.load8(p + n, 0)) <= 13))
+    while n < len && (Machine.u8(Machine.load8(p + n, 0)) == 32 || (Machine.u8(Machine.load8(p + n, 0)) >= 9 && Machine.u8(Machine.load8(p + n, 0)) <= 13))
       n += 1
     end
     if n != len
@@ -1032,7 +1032,7 @@ module Zr::Kern
     zr_buf_init(b)
     i = 0
     while i < len
-      c = Machine.word(Machine.load8(p + i, 0))
+      c = Machine.u8(Machine.load8(p + i, 0))
       if c != 95
         zr_buf_byte(b, c)
       end
@@ -1044,7 +1044,7 @@ module Zr::Kern
     d = Libc.strtod(Buf.ptr(b), last)
     stop = Machine.ptr(Machine.load64(last, 0))
     read = stop == 0 ? 0 : stop - Buf.ptr(b)
-    while read > 0 && read < Buf.len(b) - 1 && (Machine.word(Machine.load8(Buf.ptr(b) + read, 0)) == 32 || (Machine.word(Machine.load8(Buf.ptr(b) + read, 0)) >= 9 && Machine.word(Machine.load8(Buf.ptr(b) + read, 0)) <= 13))
+    while read > 0 && read < Buf.len(b) - 1 && (Machine.u8(Machine.load8(Buf.ptr(b) + read, 0)) == 32 || (Machine.u8(Machine.load8(Buf.ptr(b) + read, 0)) >= 9 && Machine.u8(Machine.load8(Buf.ptr(b) + read, 0)) <= 13))
       read += 1
     end
     ok = read > 0 && read == Buf.len(b) - 1
@@ -1054,7 +1054,7 @@ module Zr::Kern
 
   sig [Ptr] => Bool
   def zr_buf_last_is_zero(b)
-    Buf.len(b) > 0 && Machine.word(Machine.load8(Buf.ptr(b) + Buf.len(b) - 1, 0)) == 48
+    Buf.len(b) > 0 && Machine.u8(Machine.load8(Buf.ptr(b) + Buf.len(b) - 1, 0)) == 48
   end
 
   sig [Value, Value] => Value

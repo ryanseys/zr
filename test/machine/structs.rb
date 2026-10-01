@@ -52,8 +52,8 @@ module Zr::Kern
     put_word(RString.capa(s))
     Libc.write(1, RString.ptr(s), RString.len(s))
     Libc.write(1, Machine.bytes("\n"), 1)
-    put_word(Machine.word(RString.enc(s)))
-    put_word(Machine.word(RString.cr(s)))
+    put_word(Machine.u32(RString.enc(s)))
+    put_word(Machine.u8(RString.cr(s)))
     put_word(Machine.word(RString.frozen(s)))
     # the neighbours are untouched
     put_word(RString.len(arena()))

@@ -110,7 +110,7 @@ module Zr::Kern
   def zr_symtab_find(cname)
     header = Libc._dyld_get_image_header(Machine.i32(0))
     slide = Libc._dyld_get_image_vmaddr_slide(Machine.i32(0))
-    ncmds = Machine.word(Machine.load32(header, 16))
+    ncmds = Machine.u32(Machine.load32(header, 16))
     cmd = header + 32
     link_vm = 0
     link_off = 0
@@ -119,16 +119,16 @@ module Zr::Kern
     stroff = 0
     i = 0
     while i < ncmds
-      kind = Machine.word(Machine.load32(cmd, 0))
+      kind = Machine.u32(Machine.load32(cmd, 0))
       if kind == LC_SEGMENT_64 && Machine.load64(cmd, 8) == LINKEDIT_LOW && Machine.load64(cmd, 16) == LINKEDIT_HIGH
         link_vm = Machine.load64(cmd, 24)
         link_off = Machine.load64(cmd, 40)
       elsif kind == LC_SYMTAB
-        symoff = Machine.word(Machine.load32(cmd, 8))
-        nsyms = Machine.word(Machine.load32(cmd, 12))
-        stroff = Machine.word(Machine.load32(cmd, 16))
+        symoff = Machine.u32(Machine.load32(cmd, 8))
+        nsyms = Machine.u32(Machine.load32(cmd, 12))
+        stroff = Machine.u32(Machine.load32(cmd, 16))
       end
-      cmd += Machine.word(Machine.load32(cmd, 4))
+      cmd += Machine.u32(Machine.load32(cmd, 4))
       i += 1
     end
     if nsyms == 0 || link_vm == 0
@@ -144,7 +144,7 @@ module Zr::Kern
     while lo < hi
       mid = (lo + hi) / 2
       entry = nlist + (mid * 16)
-      c = Libc.strcmp(strings + Machine.word(Machine.load32(entry, 0)), cname)
+      c = Libc.strcmp(strings + Machine.u32(Machine.load32(entry, 0)), cname)
       if c == 0
         return Machine.load64(entry, 8) + slide
       elsif c < 0

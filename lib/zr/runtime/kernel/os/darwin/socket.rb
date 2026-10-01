@@ -18,11 +18,11 @@ module Zr::Kern
   # byte, or else the structure size for its family.
   sig [Ptr] => Word
   def zr_os_sockaddr_len(addr)
-    n = Machine.word(Machine.load8(addr, 0))
+    n = Machine.u8(Machine.load8(addr, 0))
     if n != 0
       return n
     end
-    family = Machine.word(Machine.load8(addr, 1))
+    family = Machine.u8(Machine.load8(addr, 1))
     if family == 2
       return 16
     end
@@ -38,10 +38,10 @@ module Zr::Kern
   sig [Ptr] => Value
   def zr_os_addrinfo_row(node)
     row = zr_ary_new(5)
-    zr_ary_push(row, zr_fix(Machine.word(Machine.load32(node, 4))))
-    zr_ary_push(row, zr_fix(Machine.word(Machine.load32(node, 8))))
-    zr_ary_push(row, zr_fix(Machine.word(Machine.load32(node, 12))))
-    zr_ary_push(row, zr_sock_bytes(Machine.ptr(Machine.load64(node, 32)), Machine.word(Machine.load32(node, 16))))
+    zr_ary_push(row, zr_fix(Machine.u32(Machine.load32(node, 4))))
+    zr_ary_push(row, zr_fix(Machine.u32(Machine.load32(node, 8))))
+    zr_ary_push(row, zr_fix(Machine.u32(Machine.load32(node, 12))))
+    zr_ary_push(row, zr_sock_bytes(Machine.ptr(Machine.load64(node, 32)), Machine.u32(Machine.load32(node, 16))))
     zr_ary_push(row, zr_sock_cstr(Machine.ptr(Machine.load64(node, 24))))
     row
   end
@@ -54,7 +54,7 @@ module Zr::Kern
   # The last resolver error, which gethostbyaddr sets in h_errno.
   sig [] => Word
   def zr_os_h_errno
-    Machine.word(Machine.load32(Machine.extern(:h_errno), 0))
+    Machine.u32(Machine.load32(Machine.extern(:h_errno), 0))
   end
 
   # The peer's effective user and group.
@@ -65,8 +65,8 @@ module Zr::Kern
       return zr_fix(0 - zr_errno())
     end
     out = zr_ary_new(2)
-    zr_ary_push(out, zr_fix(Machine.word(Machine.load32(ids, 0))))
-    zr_ary_push(out, zr_fix(Machine.word(Machine.load32(ids, 4))))
+    zr_ary_push(out, zr_fix(Machine.u32(Machine.load32(ids, 0))))
+    zr_ary_push(out, zr_fix(Machine.u32(Machine.load32(ids, 4))))
     out
   end
 end

@@ -17,7 +17,7 @@ module Zr::Kern
     sum2 = (adler >> 16) & 65535
     adler = adler & 65535
     if len == 1
-      adler += Machine.word(Machine.load8(buf, 0))
+      adler += Machine.u8(Machine.load8(buf, 0))
       if adler >= ADLER_BASE
         adler -= ADLER_BASE
       end
@@ -33,7 +33,7 @@ module Zr::Kern
     if len < 16
       while len > 0
         len -= 1
-        adler += Machine.word(Machine.load8(buf, 0))
+        adler += Machine.u8(Machine.load8(buf, 0))
         buf += 1
         sum2 += adler
       end
@@ -48,7 +48,7 @@ module Zr::Kern
       n = ADLER_NMAX
       while n > 0
         n -= 1
-        adler += Machine.word(Machine.load8(buf, 0))
+        adler += Machine.u8(Machine.load8(buf, 0))
         buf += 1
         sum2 += adler
       end
@@ -58,7 +58,7 @@ module Zr::Kern
     if len > 0
       while len > 0
         len -= 1
-        adler += Machine.word(Machine.load8(buf, 0))
+        adler += Machine.u8(Machine.load8(buf, 0))
         buf += 1
         sum2 += adler
       end
@@ -108,7 +108,7 @@ module Zr::Kern
     crc = (crc ^ ZLIB_MASK32) & ZLIB_MASK32
     while len > 0
       len -= 1
-      crc = (crc >> 8) ^ Machine.word(Machine.load32(table + (((crc ^ Machine.word(Machine.load8(buf, 0))) & 255) * 4), 0))
+      crc = (crc >> 8) ^ Machine.u32(Machine.load32(table + (((crc ^ Machine.u8(Machine.load8(buf, 0))) & 255) * 4), 0))
       buf += 1
     end
     crc ^ ZLIB_MASK32
@@ -145,7 +145,7 @@ module Zr::Kern
     p = 2147483648
     while n != 0
       if (n & 1) != 0
-        p = zr_crc_multmodp(Machine.word(Machine.load32(table + ((k & 31) * 4), 0)), p)
+        p = zr_crc_multmodp(Machine.u32(Machine.load32(table + ((k & 31) * 4), 0)), p)
       end
       n = n >> 1
       k += 1

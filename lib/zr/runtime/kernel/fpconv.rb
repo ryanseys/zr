@@ -81,7 +81,7 @@ module Zr::Kern
   def zr_fpconv_round(digits, n, delta, rem, kappa, frac)
     while rem < frac && delta - rem >= kappa && (rem + kappa < frac || frac - rem > rem + kappa - frac)
       at = digits + (n - 1)
-      Machine.store8(at, 0, Machine.i8(Machine.word(Machine.load8(at, 0)) - 1))
+      Machine.store8(at, 0, Machine.i8(Machine.u8(Machine.load8(at, 0)) - 1))
       rem = rem + kappa
     end
   end

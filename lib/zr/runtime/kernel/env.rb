@@ -26,7 +26,7 @@ module Zr::Kern
   sig [Ptr] => Word
   def zr_cstr_len(p)
     n = 0
-    while Machine.word(Machine.load8(p + n, 0)) != 0
+    while Machine.u8(Machine.load8(p + n, 0)) != 0
       n += 1
     end
     n
@@ -232,7 +232,7 @@ module Zr::Kern
 
   sig [] => Value
   def zr_process_id
-    zr_fix(Machine.word(Libc.getpid()))
+    zr_fix(Machine.u32(Libc.getpid()))
   end
 
   Libc.import :getuid, [] => I32
@@ -245,13 +245,13 @@ module Zr::Kern
   def zr_process_ids(which)
     w = zr_fix2long(which)
     if w == 0
-      return zr_fix(Machine.word(Libc.getuid()))
+      return zr_fix(Machine.u32(Libc.getuid()))
     elsif w == 1
-      return zr_fix(Machine.word(Libc.geteuid()))
+      return zr_fix(Machine.u32(Libc.geteuid()))
     elsif w == 2
-      return zr_fix(Machine.word(Libc.getgid()))
+      return zr_fix(Machine.u32(Libc.getgid()))
     end
-    zr_fix(Machine.word(Libc.getegid()))
+    zr_fix(Machine.u32(Libc.getegid()))
   end
 
   # Returns 62 random bits from the system, for a default seed.
@@ -853,7 +853,7 @@ module Zr::Kern
   sig [Value] => Value
   def zr_path_kind(path)
     buf = zr_xmalloc(STAT_LEN)
-    r = Machine.word(Libc.stat(RString.ptr(path), buf))
+    r = Machine.u32(Libc.stat(RString.ptr(path), buf))
     mode = zr_os_stat_mode(buf) & S_IFMT
     zr_xfree(buf)
     if r != 0
@@ -939,7 +939,7 @@ module Zr::Kern
     Libc.localtime_r(t, tm)
     out = zr_ary_new(3)
     zr_ary_push(out, zr_fix(Machine.load64(tm, 40)))
-    zr_ary_push(out, zr_bool(Machine.word(Machine.load32(tm, 32)) > 0))
+    zr_ary_push(out, zr_bool(Machine.u32(Machine.load32(tm, 32)) > 0))
     zone = Machine.ptr(Machine.load64(tm, 48))
     zr_ary_push(out, zr_str_new(zone, zr_cstr_len(zone)))
     out
@@ -1033,7 +1033,7 @@ module Zr::Kern
     out = zr_ary_new(4)
     zr_ary_push(out, zr_cstr_str(Machine.ptr(Machine.load64(gr, 0))))
     zr_ary_push(out, zr_cstr_str(Machine.ptr(Machine.load64(gr, 8))))
-    zr_ary_push(out, zr_fix(Machine.word(Machine.load32(gr, 16))))
+    zr_ary_push(out, zr_fix(Machine.u32(Machine.load32(gr, 16))))
     members = zr_ary_new(4)
     names = Machine.ptr(Machine.load64(gr, 24))
     if names != 0

@@ -12,7 +12,7 @@ module Zr::Kern
 
   sig [] => Word
   def zr_os_errno
-    Machine.word(Machine.load32(Libc.__errno_location(), 0))
+    Machine.u32(Machine.load32(Libc.__errno_location(), 0))
   end
 
   sig [Word] => Void
@@ -74,7 +74,7 @@ module Zr::Kern
   # DT_LNK 10, DT_UNKNOWN 0.
   sig [Ptr] => Word
   def zr_os_dirent_kind(entry)
-    t = Machine.word(Machine.load8(entry, 18))
+    t = Machine.u8(Machine.load8(entry, 18))
     if t == 0
       return 0
     end
@@ -99,9 +99,9 @@ module Zr::Kern
     zr_ary_push(out, zr_fix(Machine.load64(buf, 0)))
     zr_ary_push(out, zr_fix(Machine.load64(buf, 8)))
     zr_ary_push(out, zr_fix(zr_os_stat_mode(buf)))
-    zr_ary_push(out, zr_fix(Machine.word(Machine.load32(buf, 20))))
-    zr_ary_push(out, zr_fix(Machine.word(Machine.load32(buf, 24))))
-    zr_ary_push(out, zr_fix(Machine.word(Machine.load32(buf, 28))))
+    zr_ary_push(out, zr_fix(Machine.u32(Machine.load32(buf, 20))))
+    zr_ary_push(out, zr_fix(Machine.u32(Machine.load32(buf, 24))))
+    zr_ary_push(out, zr_fix(Machine.u32(Machine.load32(buf, 28))))
     zr_ary_push(out, zr_fix(Machine.load64(buf, 32)))
     zr_ary_push(out, zr_fix(Machine.load64(buf, 48)))
     zr_ary_push(out, zr_fix(Machine.sword(Machine.load32(buf, 56))))
@@ -123,7 +123,7 @@ module Zr::Kern
   # st_mode, 32 bits at offset 16.
   sig [Ptr] => Word
   def zr_os_stat_mode(buf)
-    Machine.word(Machine.load32(buf, 16))
+    Machine.u32(Machine.load32(buf, 16))
   end
 
   # The poll(2) result bits as thread.c reads them: the read set (POLLIN,
@@ -165,7 +165,7 @@ module Zr::Kern
     out = zr_ary_new(count)
     i = 0
     while i < count
-      got = Machine.word(Machine.load32(entries + (i * 8), 4)) >> 16
+      got = Machine.u32(Machine.load32(entries + (i * 8), 4)) >> 16
       ready = 0
       if (got & (POLLIN_SET | POLLNVAL)) != 0
         ready = ready | WAIT_READABLE
@@ -206,7 +206,7 @@ module Zr::Kern
     if r == Machine.i32(0)
       return zr_fix(0)
     end
-    got = Machine.word(Machine.load32(entry, 4)) >> 16
+    got = Machine.u32(Machine.load32(entry, 4)) >> 16
     if (got & POLLNVAL) != 0
       return zr_fix(0 - EBADF)
     end

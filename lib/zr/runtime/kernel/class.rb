@@ -2210,7 +2210,7 @@ module Zr::Kern
   def zr_mcache_init
     v = Libc.getenv(Machine.bytes("ZR_MCACHE\0"))
     if v != 0
-      first = Machine.word(Machine.load8(v, 0))
+      first = Machine.u8(Machine.load8(v, 0))
       if first == 48
         Machine.store64(Machine.static(:mcache_mode, 8), 0, MCACHE_OFF)
       elsif first == 118

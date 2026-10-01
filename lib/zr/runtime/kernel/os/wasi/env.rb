@@ -17,7 +17,7 @@ module Zr::Kern
     table = zr_xmalloc((count + extra + 1) * 8)
     i = 0
     while i < count
-      Machine.store64(table + (i * 8), 0, Machine.word(Machine.load32(raw + (i * 4), 0)))
+      Machine.store64(table + (i * 8), 0, Machine.u32(Machine.load32(raw + (i * 4), 0)))
       i += 1
     end
     Machine.store64(table + (count * 8), 0, 0)
@@ -32,9 +32,9 @@ module Zr::Kern
     if Libc.args_sizes_get(zr_wasi_addr(sizes), zr_wasi_addr(sizes + 4)) != Machine.i32(0)
       return Machine.ptr(0)
     end
-    count = Machine.word(Machine.load32(sizes, 0))
+    count = Machine.u32(Machine.load32(sizes, 0))
     raw = zr_xmalloc((count + 1) * 4)
-    bytes = zr_xmalloc(Machine.word(Machine.load32(sizes, 4)) + 1)
+    bytes = zr_xmalloc(Machine.u32(Machine.load32(sizes, 4)) + 1)
     Libc.args_get(zr_wasi_addr(raw), zr_wasi_addr(bytes))
     zr_wasi_table(raw, count, 0)
   end
@@ -52,8 +52,8 @@ module Zr::Kern
     count = 0
     bytes = 0
     if Libc.environ_sizes_get(zr_wasi_addr(sizes), zr_wasi_addr(sizes + 4)) == Machine.i32(0)
-      count = Machine.word(Machine.load32(sizes, 0))
-      bytes = Machine.word(Machine.load32(sizes, 4))
+      count = Machine.u32(Machine.load32(sizes, 0))
+      bytes = Machine.u32(Machine.load32(sizes, 4))
     end
     raw = zr_xmalloc((count + 1) * 4)
     text = zr_xmalloc(bytes + 1)
@@ -143,7 +143,7 @@ module Zr::Kern
   def zr_os_random
     bits = Machine.slot(8)
     Libc.random_get(zr_wasi_addr(bits), Machine.i32(4))
-    Machine.word(Machine.load32(bits, 0))
+    Machine.u32(Machine.load32(bits, 0))
   end
 
   # There is no user database: getpwnam and similar calls find no user.

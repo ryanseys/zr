@@ -95,13 +95,13 @@ module Zr::Kern
       return cell
     end
     headers = image + Machine.load64(image, ELF_SHOFF)
-    width = Machine.word(Machine.load32(image, ELF_SHENTSIZE)) & 65535
-    count = Machine.word(Machine.load32(image, ELF_SHNUM)) & 65535
+    width = Machine.u32(Machine.load32(image, ELF_SHENTSIZE)) & 65535
+    count = Machine.u32(Machine.load32(image, ELF_SHNUM)) & 65535
     i = 0
     while i < count
       header = headers + (i * width)
-      if Machine.word(Machine.load32(header, 4)) == SHT_SYMTAB
-        strings = headers + (Machine.word(Machine.load32(header, 40)) * width)
+      if Machine.u32(Machine.load32(header, 4)) == SHT_SYMTAB
+        strings = headers + (Machine.u32(Machine.load32(header, 40)) * width)
         Machine.store64(cell, 0, Machine.word(image) + Machine.load64(header, 24))
         Machine.store64(cell, 16, Machine.word(image) + Machine.load64(strings, 24))
         Machine.store64(cell, 8, Machine.load64(header, 32) / SYM_LEN)
@@ -130,9 +130,9 @@ module Zr::Kern
       # st_info has the binding in its high nibble. Then come st_other and
       # the section index, which is 0 for a name defined in a different
       # object.
-      info = Machine.word(Machine.load32(row, 4))
+      info = Machine.u32(Machine.load32(row, 4))
       bind = (info & 255) >> 4
-      shown = strings + Machine.word(Machine.load32(row, 0))
+      shown = strings + Machine.u32(Machine.load32(row, 0))
       if (bind == 1 || bind == 2) && (info >> 16) != 0 && zr_bytes_eq(shown, len, want, len) && Machine.load8(shown + len, 0) == Machine.i8(0)
         return zr_fix(Machine.load64(row, 8))
       end

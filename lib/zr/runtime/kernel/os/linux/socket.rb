@@ -19,7 +19,7 @@ module Zr::Kern
   # address length.
   sig [Ptr] => Word
   def zr_os_sockaddr_len(addr)
-    family = Machine.word(Machine.load32(addr, 0)) & 65535
+    family = Machine.u32(Machine.load32(addr, 0)) & 65535
     if family == 2
       return 16
     end
@@ -30,7 +30,7 @@ module Zr::Kern
       return 110
     end
     if family == 17
-      return 12 + Machine.word(Machine.load8(addr, 11))
+      return 12 + Machine.u8(Machine.load8(addr, 11))
     end
     2
   end
@@ -41,10 +41,10 @@ module Zr::Kern
   sig [Ptr] => Value
   def zr_os_addrinfo_row(node)
     row = zr_ary_new(5)
-    zr_ary_push(row, zr_fix(Machine.word(Machine.load32(node, 4))))
-    zr_ary_push(row, zr_fix(Machine.word(Machine.load32(node, 8))))
-    zr_ary_push(row, zr_fix(Machine.word(Machine.load32(node, 12))))
-    zr_ary_push(row, zr_sock_bytes(Machine.ptr(Machine.load64(node, 24)), Machine.word(Machine.load32(node, 16))))
+    zr_ary_push(row, zr_fix(Machine.u32(Machine.load32(node, 4))))
+    zr_ary_push(row, zr_fix(Machine.u32(Machine.load32(node, 8))))
+    zr_ary_push(row, zr_fix(Machine.u32(Machine.load32(node, 12))))
+    zr_ary_push(row, zr_sock_bytes(Machine.ptr(Machine.load64(node, 24)), Machine.u32(Machine.load32(node, 16))))
     zr_ary_push(row, zr_sock_cstr(Machine.ptr(Machine.load64(node, 32))))
     row
   end
@@ -57,7 +57,7 @@ module Zr::Kern
   # The last resolver error, which gethostbyaddr sets in h_errno.
   sig [] => Word
   def zr_os_h_errno
-    Machine.word(Machine.load32(Libc.__h_errno_location(), 0))
+    Machine.u32(Machine.load32(Libc.__h_errno_location(), 0))
   end
 
   # SO_PEERCRED at SOL_SOCKET: a struct ucred with the peer's pid, uid and
@@ -75,8 +75,8 @@ module Zr::Kern
       return zr_fix(0 - zr_errno())
     end
     out = zr_ary_new(2)
-    zr_ary_push(out, zr_fix(Machine.word(Machine.load32(cred, 4))))
-    zr_ary_push(out, zr_fix(Machine.word(Machine.load32(cred, 8))))
+    zr_ary_push(out, zr_fix(Machine.u32(Machine.load32(cred, 4))))
+    zr_ary_push(out, zr_fix(Machine.u32(Machine.load32(cred, 8))))
     out
   end
 end

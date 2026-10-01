@@ -12,7 +12,7 @@ module Zr::Kern
 
   sig [] => Word
   def zr_os_errno
-    Machine.word(Machine.load32(Libc.__error(), 0))
+    Machine.u32(Machine.load32(Libc.__error(), 0))
   end
 
   sig [Word] => Void
@@ -89,7 +89,7 @@ module Zr::Kern
   # DT_LNK 10, DT_UNKNOWN 0.
   sig [Ptr] => Word
   def zr_os_dirent_kind(entry)
-    t = Machine.word(Machine.load8(entry, 20))
+    t = Machine.u8(Machine.load8(entry, 20))
     if t == 0
       return 0
     end
@@ -113,10 +113,10 @@ module Zr::Kern
     out = zr_ary_new(18)
     zr_ary_push(out, zr_fix(Machine.sword(Machine.load32(buf, 0))))
     zr_ary_push(out, zr_fix(Machine.load64(buf, 8)))
-    zr_ary_push(out, zr_fix(Machine.word(Machine.load32(buf, 4)) & 65535))
-    zr_ary_push(out, zr_fix(Machine.word(Machine.load32(buf, 4)) >> 16))
-    zr_ary_push(out, zr_fix(Machine.word(Machine.load32(buf, 16))))
-    zr_ary_push(out, zr_fix(Machine.word(Machine.load32(buf, 20))))
+    zr_ary_push(out, zr_fix(Machine.u32(Machine.load32(buf, 4)) & 65535))
+    zr_ary_push(out, zr_fix(Machine.u32(Machine.load32(buf, 4)) >> 16))
+    zr_ary_push(out, zr_fix(Machine.u32(Machine.load32(buf, 16))))
+    zr_ary_push(out, zr_fix(Machine.u32(Machine.load32(buf, 20))))
     zr_ary_push(out, zr_fix(Machine.sword(Machine.load32(buf, 24))))
     zr_ary_push(out, zr_fix(Machine.load64(buf, 96)))
     zr_ary_push(out, zr_fix(Machine.sword(Machine.load32(buf, 112))))
@@ -141,7 +141,7 @@ module Zr::Kern
   # st_mode, 16 bits at offset 4.
   sig [Ptr] => Word
   def zr_os_stat_mode(buf)
-    Machine.word(Machine.load32(buf, 4)) & 65535
+    Machine.u32(Machine.load32(buf, 4)) & 65535
   end
 
   # Darwin's select(2) with no FD_SETSIZE limit, which CRuby calls (it
@@ -189,13 +189,13 @@ module Zr::Kern
       word = (n / 32) * 4
       bit = 1 << (n % 32)
       if (want & WAIT_READABLE) != 0
-        Machine.store32(sets + word, 0, Machine.i32(Machine.word(Machine.load32(sets + word, 0)) | bit))
+        Machine.store32(sets + word, 0, Machine.i32(Machine.u32(Machine.load32(sets + word, 0)) | bit))
       end
       if (want & WAIT_WRITABLE) != 0
-        Machine.store32(sets + span + word, 0, Machine.i32(Machine.word(Machine.load32(sets + span + word, 0)) | bit))
+        Machine.store32(sets + span + word, 0, Machine.i32(Machine.u32(Machine.load32(sets + span + word, 0)) | bit))
       end
       if (want & WAIT_PRIORITY) != 0
-        Machine.store32(sets + (span * 2) + word, 0, Machine.i32(Machine.word(Machine.load32(sets + (span * 2) + word, 0)) | bit))
+        Machine.store32(sets + (span * 2) + word, 0, Machine.i32(Machine.u32(Machine.load32(sets + (span * 2) + word, 0)) | bit))
       end
       i += 1
     end
@@ -221,13 +221,13 @@ module Zr::Kern
       word = (n / 32) * 4
       bit = 1 << (n % 32)
       ready = 0
-      if (Machine.word(Machine.load32(sets + word, 0)) & bit) != 0
+      if (Machine.u32(Machine.load32(sets + word, 0)) & bit) != 0
         ready = ready | WAIT_READABLE
       end
-      if (Machine.word(Machine.load32(sets + span + word, 0)) & bit) != 0
+      if (Machine.u32(Machine.load32(sets + span + word, 0)) & bit) != 0
         ready = ready | WAIT_WRITABLE
       end
-      if (Machine.word(Machine.load32(sets + (span * 2) + word, 0)) & bit) != 0
+      if (Machine.u32(Machine.load32(sets + (span * 2) + word, 0)) & bit) != 0
         ready = ready | WAIT_PRIORITY
       end
       zr_ary_push(out, zr_fix(ready & want))
@@ -277,13 +277,13 @@ module Zr::Kern
       return zr_fix(0 - errno)
     end
     ready = 0
-    if (Machine.word(Machine.load32(sets + word, 0)) & bit) != 0
+    if (Machine.u32(Machine.load32(sets + word, 0)) & bit) != 0
       ready = ready | WAIT_READABLE
     end
-    if (Machine.word(Machine.load32(sets + span + word, 0)) & bit) != 0
+    if (Machine.u32(Machine.load32(sets + span + word, 0)) & bit) != 0
       ready = ready | WAIT_WRITABLE
     end
-    if (Machine.word(Machine.load32(sets + (span * 2) + word, 0)) & bit) != 0
+    if (Machine.u32(Machine.load32(sets + (span * 2) + word, 0)) & bit) != 0
       ready = ready | WAIT_PRIORITY
     end
     zr_xfree(sets)

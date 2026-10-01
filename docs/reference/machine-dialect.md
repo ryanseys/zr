@@ -109,7 +109,7 @@ For `RString = layout basic: RBasic, len: Word, capa: Word, ptr: Ptr`:
 |---|---|
 | `Machine.load64(p, off)`, `load32`, `load8` | a `Word`, `I32` or `I8` read at `p + off` |
 | `Machine.store64(p, off, v)`, `store32`, `store8` | stores `v` at `p + off` |
-| `Machine.word(x)` | `x` as a `Word`, zero-extended |
+| `Machine.word(x)` | a `Ptr` or a `Value` as a `Word`, or the bits of a literal at or above 2**63; zr refuses an `I8` or an `I32` |
 | `Machine.u8(x)`, `Machine.u32(x)` | an `I8` or an `I32` as a `Word`, zero-extended; zr refuses another type |
 | `Machine.sword(x)` | `x` as a `Word`, sign-extended |
 | `Machine.i32(x)`, `Machine.i8(x)` | `x`, narrowed |

@@ -92,15 +92,15 @@ module Zr::Kern
 
   sig [Ptr] => Ptr
   def zr_digest_le32(p)
-    Machine.ptr(Machine.word(Machine.load32(p, 0)))
+    Machine.ptr(Machine.u32(Machine.load32(p, 0)))
   end
 
   sig [Ptr] => Ptr
   def zr_digest_be32(p)
-    b0 = Machine.ptr(Machine.word(Machine.load8(p, 0)))
-    b1 = Machine.ptr(Machine.word(Machine.load8(p, 1)))
-    b2 = Machine.ptr(Machine.word(Machine.load8(p, 2)))
-    b3 = Machine.ptr(Machine.word(Machine.load8(p, 3)))
+    b0 = Machine.ptr(Machine.u8(Machine.load8(p, 0)))
+    b1 = Machine.ptr(Machine.u8(Machine.load8(p, 1)))
+    b2 = Machine.ptr(Machine.u8(Machine.load8(p, 2)))
+    b3 = Machine.ptr(Machine.u8(Machine.load8(p, 3)))
     (b0 << 24) | (b1 << 16) | (b2 << 8) | b3
   end
 
@@ -147,8 +147,8 @@ module Zr::Kern
       elsif i >= 48
         f = c ^ (b | (d ^ DIGEST_MASK32))
       end
-      g = Machine.word(Machine.load8(steps + 64 + i, 0))
-      s = Machine.word(Machine.load8(steps + i, 0))
+      g = Machine.u8(Machine.load8(steps + 64 + i, 0))
+      s = Machine.u8(Machine.load8(steps + i, 0))
       f = (f + a + zr_digest_word(k, i) + zr_digest_le32(p + (g * 4))) & DIGEST_MASK32
       a = d
       d = c
@@ -370,15 +370,15 @@ module Zr::Kern
     er = el
     j = 0
     while j < 80
-      xl = zr_digest_le32(p + (Machine.word(Machine.load8(steps + j, 0)) * 4))
-      t = (zr_digest_rotl32((al + zr_rmd160_f(j, bl, cl, dl) + xl + zr_rmd160_k(j / 16, false)) & DIGEST_MASK32, Machine.word(Machine.load8(steps + 160 + j, 0))) + el) & DIGEST_MASK32
+      xl = zr_digest_le32(p + (Machine.u8(Machine.load8(steps + j, 0)) * 4))
+      t = (zr_digest_rotl32((al + zr_rmd160_f(j, bl, cl, dl) + xl + zr_rmd160_k(j / 16, false)) & DIGEST_MASK32, Machine.u8(Machine.load8(steps + 160 + j, 0))) + el) & DIGEST_MASK32
       al = el
       el = dl
       dl = zr_digest_rotl32(cl, 10)
       cl = bl
       bl = t
-      xr = zr_digest_le32(p + (Machine.word(Machine.load8(steps + 80 + j, 0)) * 4))
-      t = (zr_digest_rotl32((ar + zr_rmd160_f(79 - j, br, cr, dr) + xr + zr_rmd160_k(j / 16, true)) & DIGEST_MASK32, Machine.word(Machine.load8(steps + 240 + j, 0))) + er) & DIGEST_MASK32
+      xr = zr_digest_le32(p + (Machine.u8(Machine.load8(steps + 80 + j, 0)) * 4))
+      t = (zr_digest_rotl32((ar + zr_rmd160_f(79 - j, br, cr, dr) + xr + zr_rmd160_k(j / 16, true)) & DIGEST_MASK32, Machine.u8(Machine.load8(steps + 240 + j, 0))) + er) & DIGEST_MASK32
       ar = er
       er = dr
       dr = zr_digest_rotl32(cr, 10)

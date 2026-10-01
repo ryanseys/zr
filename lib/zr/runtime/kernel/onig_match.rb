@@ -138,7 +138,7 @@ module Zr::Kern
   # BITSET_AT: bit `c` of the 256-bit set at p.
   sig [Ptr, Word] => Bool
   def zr_onig_bitset_at(p, c)
-    (Machine.word(Machine.load8(p + (c >> 3), 0)) & (1 << (c & 7))) != 0
+    (Machine.u8(Machine.load8(p + (c >> 3), 0)) & (1 << (c & 7))) != 0
   end
 
   # Returns the range of repeat `id`: the lower limit, or the upper limit
@@ -429,7 +429,7 @@ module Zr::Kern
     enc = OnigMatch.enc(m)
     sbegin = s
     return ONIG_OP_FAIL if s + 1 > e
-    c = Machine.word(Machine.load8(s, 0))
+    c = Machine.u8(Machine.load8(s, 0))
     if op == OP_CCLASS
       return ONIG_OP_FAIL if !zr_onig_bitset_at(p, c)
       OnigMatch.set_p(m, p + ONIG_SIZE_BITSET)
@@ -763,7 +763,7 @@ module Zr::Kern
       return ONIG_OP_FAIL
     end
     if op == OP_BACKREF_WITH_LEVEL
-      ic = Machine.word(Machine.load32(p, 0))
+      ic = Machine.u32(Machine.load32(p, 0))
       level = zr_onig_get_i32(p + 4)
       tlen = zr_onig_get_i32(p + 8)
       p = p + 12
@@ -986,7 +986,7 @@ module Zr::Kern
   # instruction.
   sig [Ptr, Ptr] => Word
   def zr_onig_null_check_found(m, p)
-    op = Machine.word(Machine.load8(p, 0))
+    op = Machine.u8(Machine.load8(p, 0))
     p = p + 1
     if op == OP_JUMP || op == OP_PUSH
       OnigMatch.set_p(m, p + ONIG_SIZE_RELADDR)
@@ -1265,7 +1265,7 @@ module Zr::Kern
     result = ONIG_MISMATCH
     while true
       p = OnigMatch.p(m)
-      op = Machine.word(Machine.load8(p, 0))
+      op = Machine.u8(Machine.load8(p, 0))
       OnigMatch.set_p(m, p + 1)
       r = zr_onig_step(m, op)
       if r == ONIG_OP_FAIL

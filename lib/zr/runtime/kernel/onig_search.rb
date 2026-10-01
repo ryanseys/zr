@@ -148,7 +148,7 @@ module Zr::Kern
 
   sig [Ptr, Word] => Word
   def zr_onig_map_at(prog, c)
-    Machine.word(Machine.load8(prog + OnigProg.map_off(prog) + c, 0))
+    Machine.u8(Machine.load8(prog + OnigProg.map_off(prog) + c, 0))
   end
 
   # slow_search.
@@ -258,7 +258,7 @@ module Zr::Kern
         t = t - 1
       end
       break if s + 1 >= e
-      skip = zr_onig_map_at(prog, Machine.word(Machine.load8(se, 1)))
+      skip = zr_onig_map_at(prog, Machine.u8(Machine.load8(se, 1)))
       t = s
       while true
         s = s + zr_onig_enclen(enc, s, e)
@@ -287,7 +287,7 @@ module Zr::Kern
         t = t - 1
       end
       break if s + 1 >= e
-      s = s + zr_onig_map_at(prog, Machine.word(Machine.load8(s, 1)))
+      s = s + zr_onig_map_at(prog, Machine.u8(Machine.load8(s, 1)))
     end
     Machine.ptr(0)
   end
@@ -307,7 +307,7 @@ module Zr::Kern
       se = s + tlen1
       return s if zr_onig_str_lower_case_match(enc, OnigProg.case_fold_flag(prog), target, target_end, s, se + 1)
       break if s + 1 >= e
-      skip = zr_onig_map_at(prog, Machine.word(Machine.load8(se, 1)))
+      skip = zr_onig_map_at(prog, Machine.u8(Machine.load8(se, 1)))
       t = s
       while true
         s = s + zr_onig_enclen(enc, s, e)
@@ -332,7 +332,7 @@ module Zr::Kern
       p = s - tlen1
       return p if zr_onig_str_lower_case_match(enc, OnigProg.case_fold_flag(prog), target, target_end, p, s + 1)
       break if s + 1 >= e
-      s = s + zr_onig_map_at(prog, Machine.word(Machine.load8(s, 1)))
+      s = s + zr_onig_map_at(prog, Machine.u8(Machine.load8(s, 1)))
     end
     Machine.ptr(0)
   end
@@ -343,7 +343,7 @@ module Zr::Kern
     enc = zr_onig_prog_enc(prog)
     s = text
     while s < text_range
-      return s if zr_onig_map_at(prog, Machine.word(Machine.load8(s, 0))) != 0
+      return s if zr_onig_map_at(prog, Machine.u8(Machine.load8(s, 0))) != 0
       s = s + zr_onig_enclen(enc, s, text_end)
     end
     Machine.ptr(0)
@@ -355,7 +355,7 @@ module Zr::Kern
     enc = zr_onig_prog_enc(prog)
     s = text_start
     while s >= text
-      return s if zr_onig_map_at(prog, Machine.word(Machine.load8(s, 0))) != 0
+      return s if zr_onig_map_at(prog, Machine.u8(Machine.load8(s, 0))) != 0
       s = zr_onig_prev_char_head(enc, adjust_text, s, text_end)
       break if s == 0
     end

@@ -564,7 +564,7 @@ module Zr::Kern
   # Reads a MemNum operand: two little-endian bytes.
   sig [Ptr] => Word
   def zr_onig_get_memnum(p)
-    Machine.word(Machine.load8(p, 0)) | (Machine.word(Machine.load8(p, 1)) << 8)
+    Machine.u8(Machine.load8(p, 0)) | (Machine.u8(Machine.load8(p, 1)) << 8)
   end
 
   # backref_match_at_nested_level: matches the text at the pointer in the

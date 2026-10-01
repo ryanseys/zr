@@ -6,7 +6,7 @@
 module Zr::Kern
   sig [] => Word
   def zr_os_errno
-    Machine.word(Machine.load32(Machine.static(:errno, 8), 0))
+    Machine.u32(Machine.load32(Machine.static(:errno, 8), 0))
   end
 
   sig [Word] => Void
@@ -64,7 +64,7 @@ module Zr::Kern
     if dir < Machine.i32(0)
       return dir
     end
-    f = Machine.word(flags)
+    f = Machine.u32(flags)
     rights = RIGHTS_OTHER
     if (f & O_RDONLY) != 0
       rights = rights | RIGHTS_READ
@@ -103,7 +103,7 @@ module Zr::Kern
       return Machine.i32(0 - 1)
     end
     rights = Machine.load64(stat, 8)
-    flags = Machine.word(Machine.load32(stat, 0)) >> 16
+    flags = Machine.u32(Machine.load32(stat, 0)) >> 16
     if (rights & RIGHTS_READ) != 0
       flags = flags | O_RDONLY
     end
@@ -140,7 +140,7 @@ module Zr::Kern
     if zr_wasi_status(Libc.fd_write(fd, zr_wasi_iovec(iov, buf, len), Machine.i32(1), zr_wasi_addr(iov + 8))) < Machine.i32(0)
       return 0 - 1
     end
-    Machine.word(Machine.load32(iov, 8))
+    Machine.u32(Machine.load32(iov, 8))
   end
 
   sig [I32, Ptr, Word] => Word
@@ -149,7 +149,7 @@ module Zr::Kern
     if zr_wasi_status(Libc.fd_read(fd, zr_wasi_iovec(iov, buf, len), Machine.i32(1), zr_wasi_addr(iov + 8))) < Machine.i32(0)
       return 0 - 1
     end
-    Machine.word(Machine.load32(iov, 8))
+    Machine.u32(Machine.load32(iov, 8))
   end
 
   sig [I32, Ptr, Word, Word] => Word
@@ -158,7 +158,7 @@ module Zr::Kern
     if zr_wasi_status(Libc.fd_pread(fd, zr_wasi_iovec(iov, buf, len), Machine.i32(1), offset, zr_wasi_addr(iov + 8))) < Machine.i32(0)
       return 0 - 1
     end
-    Machine.word(Machine.load32(iov, 8))
+    Machine.u32(Machine.load32(iov, 8))
   end
 
   sig [I32, Ptr, Word, Word] => Word
@@ -167,7 +167,7 @@ module Zr::Kern
     if zr_wasi_status(Libc.fd_pwrite(fd, zr_wasi_iovec(iov, buf, len), Machine.i32(1), offset, zr_wasi_addr(iov + 8))) < Machine.i32(0)
       return 0 - 1
     end
-    Machine.word(Machine.load32(iov, 8))
+    Machine.u32(Machine.load32(iov, 8))
   end
 
   sig [I32] => I32
@@ -252,7 +252,7 @@ module Zr::Kern
   # bits of a new file of that type, because WASI has none.
   sig [Ptr] => Word
   def zr_os_stat_mode(buf)
-    type = Machine.word(Machine.load8(buf, 16))
+    type = Machine.u8(Machine.load8(buf, 16))
     if type == 3
       return 16877
     end
@@ -345,7 +345,7 @@ module Zr::Kern
     if zr_wasi_status(r) < Machine.i32(0)
       return 0 - 1
     end
-    Machine.word(Machine.load32(used, 0))
+    Machine.u32(Machine.load32(used, 0))
   end
 
   # The calls with two paths.
@@ -391,7 +391,7 @@ module Zr::Kern
   sig [I32] => Ptr
   def fdopendir(fd)
     d = zr_xmalloc(16 + DIR_BUFFER + 1)
-    Machine.store64(d, 0, Machine.word(fd))
+    Machine.store64(d, 0, Machine.u32(fd))
     Machine.store64(d, 8, 0)
     d
   end
@@ -412,10 +412,10 @@ module Zr::Kern
     buf = d + 16
     used = Machine.slot(8)
     r = Libc.fd_readdir(Machine.load32(d, 0), zr_wasi_addr(buf), Machine.i32(DIR_BUFFER), Machine.load64(d, 8), zr_wasi_addr(used))
-    if zr_wasi_status(r) < Machine.i32(0) || Machine.word(Machine.load32(used, 0)) < 24
+    if zr_wasi_status(r) < Machine.i32(0) || Machine.u32(Machine.load32(used, 0)) < 24
       return Machine.ptr(0)
     end
-    len = Machine.word(Machine.load32(buf, 16))
+    len = Machine.u32(Machine.load32(buf, 16))
     Machine.store64(d, 8, Machine.load64(buf, 0))
     Machine.store8(buf + 24 + len, 0, Machine.i8(0))
     buf
@@ -431,7 +431,7 @@ module Zr::Kern
   # 3, a symbolic link 7, unknown 0.
   sig [Ptr] => Word
   def zr_os_dirent_kind(entry)
-    t = Machine.word(Machine.load8(entry, 20))
+    t = Machine.u8(Machine.load8(entry, 20))
     if t == 0
       return 0
     end
@@ -506,10 +506,10 @@ module Zr::Kern
       i += 1
     end
     i = 0
-    while i < Machine.word(Machine.load32(nevents, 0))
+    while i < Machine.u32(Machine.load32(nevents, 0))
       e = got + (i * 32)
       row = Machine.load64(e, 0)
-      kind = Machine.word(Machine.load8(e, 10))
+      kind = Machine.u8(Machine.load8(e, 10))
       if row < count && kind != 0
         want = zr_fix2long(zr_ary_at(events, row))
         ready = zr_fix2long(zr_ary_at(out, row))
@@ -559,11 +559,11 @@ module Zr::Kern
     end
     ready = 0
     i = 0
-    while i < Machine.word(Machine.load32(nevents, 0))
+    while i < Machine.u32(Machine.load32(nevents, 0))
       e = got + (i * 32)
-      kind = Machine.word(Machine.load8(e, 10))
-      if (Machine.word(Machine.load32(e, 8)) & 65535) != 0 && kind != 0
-        return zr_fix(0 - (Machine.word(Machine.load32(e, 8)) & 65535))
+      kind = Machine.u8(Machine.load8(e, 10))
+      if (Machine.u32(Machine.load32(e, 8)) & 65535) != 0 && kind != 0
+        return zr_fix(0 - (Machine.u32(Machine.load32(e, 8)) & 65535))
       end
       if kind == 1
         ready = ready | (want & (WAIT_READABLE | WAIT_PRIORITY))
@@ -658,7 +658,7 @@ Text file busy
 Cross-device link
 Capabilities insufficient
   MESSAGES
-  line = Machine.word(n)
+  line = Machine.u32(n)
     if line > 76
       line = 0
     end
