@@ -477,6 +477,7 @@ module Zr
                     scopes: parent_scopes, unit: unit, method: node, params: node.params) do |c|
                 run_body(c) do
                   bind_method(node.params, argc, argv, c)
+                  preempt(c)
                   node.body ? ev(node.body, c) : @qnil
                 end
               end
@@ -563,7 +564,7 @@ module Zr
           check_arity(p, args.size)
           bind_positional(p, args, c)
           bind_keywords(p, kwhash, c) if keywords?(p)
-          set_local(p.block, k.zr_block_proc(c.blk), c) if p.block
+          set_local(p.block, k.zr_block_proc(c.blk), c) if p.block && owns?(p, p.block, [:block, 0])
         end
 
         def keywords?(p) = p.keywords.any? || !p.kwrest.nil?
@@ -583,19 +584,39 @@ module Zr
           n = args.size
           front = p.required.size
           back = p.post.size
-          p.required.each_with_index { |target, i| bind_target(target, i < n ? args[i] : @qnil, c) }
+          p.required.each_with_index { |target, i| bind_target(target, i < n ? args[i] : @qnil, c) if first?(p, target, i) }
           post_at = [n - back, front].max
           optional = p.optional.size
           given_opt = [[n - front - back, 0].max, optional].min
           p.optional.each_with_index do |(name, default), i|
-            set_local(name, i < given_opt ? args[front + i] : ev(default, c), c)
+            v = i < given_opt ? args[front + i] : ev(default, c)
+            set_local(name, v, c) if owns?(p, name, [:opt, i])
           end
           if p.rest && p.rest != :implicit
             start = front + given_opt
             rest = args[start...[post_at, start].max] || []
-            set_local(p.rest, k.zr_ary_of(rest.size, argv(rest)), c)
+            set_local(p.rest, k.zr_ary_of(rest.size, argv(rest)), c) if owns?(p, p.rest, [:rest, 0])
           end
-          p.post.each_with_index { |target, i| bind_target(target, post_at + i < n ? args[post_at + i] : @qnil, c) }
+          p.post.each_with_index { |target, i| bind_target(target, post_at + i < n ? args[post_at + i] : @qnil, c) if first?(p, target, front + i) }
+        end
+
+        # Whether the parameter `target` at position `i` of the required
+        # and post parameters is the first of its name: a repeated `_`
+        # binds its first argument, as in ruby.
+        def first?(p, target, i) = owns?(p, target, i < p.required.size ? [:req, i] : [:post, i - p.required.size])
+
+        # Whether the parameter at `slot` (`[kind, index]`) owns the name
+        # `name`: it is the first parameter of that name, in ruby's order.
+        def owns?(p, name, slot)
+          return true unless name.is_a?(Symbol)
+
+          owners = (@owners ||= {}.compare_by_identity)[p] ||= begin
+            slots = [*p.required.each_index.map { |i| [[:req, i], p.required[i]] }, *p.optional.each_index.map { |i| [[:opt, i], p.optional[i][0]] },
+                     [[:rest, 0], p.rest], *p.post.each_index.map { |i| [[:post, i], p.post[i]] },
+                     *p.keywords.each_index.map { |i| [[:key, i], p.keywords[i][0]] }, [[:kwrest, 0], p.kwrest], [[:block, 0], p.block]]
+            slots.reverse.to_h { |at, owner| [owner, at] }
+          end
+          owners[name] == slot
         end
 
         def bind_target(target, v, c)
@@ -608,10 +629,10 @@ module Zr
           required = p.keywords.select { |_, d| d.nil? }.map(&:first)
           check(k.zr_kw_missing(hash == @qnil ? k.zr_hash_new : hash, id_table(required) + 8, required.size)) unless required.empty?
           check(k.zr_kw_unknown(hash, id_table(ids) + 8, ids.size)) if p.kwrest.nil? && hash != @qnil
-          p.keywords.each do |name, default|
+          p.keywords.each_with_index do |(name, default), i|
             v = hash == @qnil ? @qundef : k.zr_kw_get(hash, id(name))
             v = default ? ev(default, c) : @qnil if v == @qundef
-            set_local(name, v, c)
+            set_local(name, v, c) if owns?(p, name, [:key, i])
           end
           return if p.kwrest.nil?
 
@@ -619,7 +640,7 @@ module Zr
             check(k.zr_kw_none(hash))
           else
             rest = hash == @qnil ? k.zr_hash_new : check(k.zr_kw_rest(hash, id_table(ids) + 8, ids.size))
-            set_local(p.kwrest, rest, c)
+            set_local(p.kwrest, rest, c) if owns?(p, p.kwrest, [:kwrest, 0])
           end
         end
 
@@ -787,6 +808,11 @@ module Zr
           when Hir::Stop then check(k.zr_unloadable(string(node.what.to_s)))
           when Hir::Trace, Hir::Cover, Hir::Activations, Hir::UsingDefaults then @qnil
           when Hir::Retry then raise RetryJump
+          when Hir::Redo
+            throw c.loops.last[2] unless c.loops.empty?
+            raise Unsupported, "a redo outside a loop or block" unless c.kind == :block
+
+            throw c.meta
           when Hir::Require then require_unit(node, c)
           when Hir::Autoload then autoload_unit(node, c)
           else raise Unsupported, "#{c.unit.file}:#{line_of(node)}: the walker does not run a #{node.class.name.split("::").last}"
@@ -957,15 +983,43 @@ module Zr
         # `next` (`run_body` catches it). A throw runs no handler, so it
         # costs no backtrace.
         def while_loop(node, c)
-          tags = [Object.new, Object.new]
+          tags = [Object.new, Object.new, Object.new]
           c.loops.push(tags)
           catch(tags[0]) do
             ev(node.body, c) if node.body_first
-            catch(tags[1]) { ev(node.body, c) } while truthy?(ev(node.cond, c))
+            while truthy?(ev(node.cond, c))
+              redoable(tags[2]) { catch(tags[1]) { ev(node.body, c) } }
+              preempt(c)
+            end
             @qnil
           end
         ensure
           c.loops.pop
+        end
+
+        # Runs the block again for each `redo` thrown to `tag`, and returns
+        # its value.
+        def redoable(tag)
+          loop do
+            again = true
+            value = catch(tag) do
+              v = yield
+              again = false
+              v
+            end
+            return value unless again
+          end
+        end
+
+        # A safe point of program code, at a def's entry and a loop's back
+        # edge (Lower::Function::Control#preempt): when the timer or a
+        # signal set the poll word, the kernel runs the scheduler and the
+        # traps. The core has none.
+        def preempt(c)
+          return if c.unit.internal
+
+          @poll ||= @host.static("current_task", 16) + 8
+          check(k.zr_preempt_expired) if Memory.fetch(TYPES["Word"], @poll) != 0
         end
 
         def do_return(node, c)
@@ -1193,7 +1247,8 @@ module Zr
                     kind: :block, proc: pr, params: node.params) do |inner|
                 run_body(inner) do
                   bind_block(node.params, argc, argv, blk, inner)
-                  node.body ? ev(node.body, inner) : @qnil
+                  # A `redo` in the block throws its meta (`Hir::Redo`).
+                  redoable(inner.meta) { node.body ? ev(node.body, inner) : @qnil }
                 end
               end
             end)
@@ -1233,7 +1288,7 @@ module Zr
             loose(p, args, c)
           end
           bind_keywords(p, kwhash, c) if keywords?(p)
-          set_local(p.block, k.zr_block_proc(blk), c) if p.block
+          set_local(p.block, k.zr_block_proc(blk), c) if p.block && owns?(p, p.block, [:block, 0])
         end
 
         # A proc's parameters: missing ones are nil, extra ones are dropped.
@@ -1243,17 +1298,18 @@ module Zr
           optional = p.optional.size
           has_rest = p.rest && p.rest != :implicit
           given_opt = [[args.size - front - back, 0].max, optional].min
-          p.required.each_with_index { |t, i| bind_target(t, args.fetch(i, @qnil), c) }
+          p.required.each_with_index { |t, i| bind_target(t, args.fetch(i, @qnil), c) if first?(p, t, i) }
           p.optional.each_with_index do |(name, default), i|
-            set_local(name, i < given_opt ? args[front + i] : ev(default, c), c)
+            v = i < given_opt ? args[front + i] : ev(default, c)
+            set_local(name, v, c) if owns?(p, name, [:opt, i])
           end
           start = front + given_opt
           post_at = has_rest ? [args.size - back, start].max : start
           if has_rest
             rest = args[start...post_at] || []
-            set_local(p.rest, k.zr_ary_of(rest.size, argv(rest)), c)
+            set_local(p.rest, k.zr_ary_of(rest.size, argv(rest)), c) if owns?(p, p.rest, [:rest, 0])
           end
-          p.post.each_with_index { |t, i| bind_target(t, args.fetch(post_at + i, @qnil), c) }
+          p.post.each_with_index { |t, i| bind_target(t, args.fetch(post_at + i, @qnil), c) if first?(p, t, front + i) }
         end
 
         def lambda_node(node, c)
@@ -1270,7 +1326,13 @@ module Zr
             argc = values.size
             argc = k.zr_kw_argc(argc, av) if kwargs
             at(node, c)
-            check(k.zr_yield(c.blk, argc, av))
+            # The core yields through the kernel, which polls the scheduler;
+            # a program calls the block's function (`Control#block_call`).
+            if c.unit.internal || c.blk == @qnil
+              check(k.zr_yield(c.blk, argc, av))
+            else
+              check(k::Block.call(k::RProc.fn(c.blk), c.blk, argc, av, @qnil))
+            end
           end
         end
 

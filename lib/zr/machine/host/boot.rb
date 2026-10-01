@@ -49,6 +49,10 @@ module Zr
         # handler defers its work to the next poll.
         module Signals
           def zr_os_sigaction(signo, fn, old) = self::BOOT.sigaction(signo, fn, old)
+
+          # The preemption timer (os/<os>/stack.rb) is a Ruby thread, not a
+          # C thread: it sets the poll word every 100 ms.
+          def zr_os_poll_start = self::BOOT.poll_start
         end
 
         attr_reader :host
@@ -91,6 +95,17 @@ module Zr
             Memory.write(to, [target].pack("Q<"))
           end
           @fibers.fetch(target).transfer
+          nil
+        end
+
+        def poll_start
+          kern = @host.kern
+          @poll ||= Thread.new do
+            loop do
+              sleep 0.1
+              kern.zr_poll_set
+            end
+          end
           nil
         end
 

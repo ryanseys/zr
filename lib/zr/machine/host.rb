@@ -316,6 +316,7 @@ module Zr
         @main_top = @slot_base + SLOT_BYTES
         @slot_key = :"zr_host_slots_#{object_id}"
         @pin_key = :"zr_host_pins_#{object_id}"
+        @fiber_key = :"zr_host_fiber_#{object_id}"
         @all_pins = []
         @collecting = false
         @collectors = []
@@ -401,7 +402,7 @@ module Zr
 
       def slot(size)
         top = slot_top - (size + ((-size) % 16))
-        raise "the slot area is full" if top < @slot_base && Fiber.current == main_fiber
+        raise "the slot area is full" if top < @slot_base && !Thread.current[@fiber_key]
 
         self.slot_top = top
       end
@@ -414,8 +415,10 @@ module Zr
         Thread.current[@slot_key] = top
       end
 
-      # Gives this fiber the slot area that ends at `top`.
+      # Gives this fiber the slot area that ends at `top`: a stack that the
+      # kernel mapped for it, whose own guard page ends it.
       def fiber_slots(top)
+        Thread.current[@fiber_key] = true
         self.slot_top = top
       end
 
@@ -456,8 +459,6 @@ module Zr
       end
 
       private
-
-      def main_fiber = @main_fiber ||= Fiber.current
 
       # Whether `v` is a cell the heap has allocated, so the collector
       # may mark it. A pin can hold a word that is no longer one.
