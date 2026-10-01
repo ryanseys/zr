@@ -9,3 +9,4 @@
 
 stdlib/ffi/ffi/toplevel_runs_on_the_process_main_thread.rb	the program runs on a ruby thread with a big stack, not on the process main thread, whose stack the OS sizes
 cli/stdlib/bundler/bundler_resolves_a_gemfile.rb	too slow for the walker: loading bundler and rubygems runs past the 120 s host limit
+stdlib/continuation/continuation/callcc_goes_back_through_its_continuation.rb	a continuation back into a kernel loop (Array#each) resumes it at the wrong index: ruby's callcc does not restore the Ruby locals of the kernel def
