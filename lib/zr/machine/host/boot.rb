@@ -107,29 +107,45 @@ module Zr
         # its fiber's Stack (`Host::Stack`). When a restore on the side context
         # switches back to a context that a capture left, the switch goes
         # through that capture, and the capture's switch returns again.
+        #
+        # Ruby's `callcc` does not restore the locals of Ruby frames, so a
+        # kernel loop (Array#each) would go on from the index it had last.
+        # Each kernel def that loops and can yield is rooted, and its
+        # binding is in `stack.roots`: the capture keeps the locals of each
+        # one, and the jump writes them back.
         def switch(from, to)
           if to == kern.zr_cont_side_ctx
             k = callcc { |c| c }
             return unless k
 
             stack = @host.stack
-            capture = [k, stack.top, stack.pins.dup, stack.roots.dup, stack.rooted, stack.depth]
+            capture = [k, stack.top, stack.pins.dup, stack.roots.dup, locals(stack.roots), stack.rooted, stack.depth]
           end
           @jump = @captures[to] if @captures.key?(to)
           leave(from, to)
           if (jump = @jump)
             @jump = nil
-            k, top, pins, roots, rooted, depth = jump
+            k, top, pins, roots, locals, rooted, depth = jump
             stack = @host.stack
             stack.top = top
             stack.pins.replace(pins)
             stack.roots.replace(roots)
+            roots.each_with_index do |(binding, _), i|
+              locals[i]&.each { |name, v| binding.local_variable_set(name, v) }
+            end
             stack.rooted = rooted
             stack.depth = depth
             k.call(nil)
           end
           @captures[from] = capture if capture
           nil
+        end
+
+        # The locals of each rooted kernel frame, by name (`switch`).
+        def locals(roots)
+          roots.map do |binding, _|
+            binding&.local_variables&.to_h { |name| [name, binding.local_variable_get(name)] }
+          end
         end
 
         # A switch writes the whole `from` context, as a binary's saves
