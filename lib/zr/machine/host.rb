@@ -94,10 +94,15 @@ module Zr
       # A field may be named `size`: `Name.size` with no pointer is still
       # the layout's size, as in the lowering. So the layout's own readers
       # have names no field has.
+      #
+      # A Value read from a field is pinned (`Host#pin`), and a Value
+      # written to a field of a cell gets the collector's write barrier, as
+      # the lowering emits it (`Function#barrier`).
       class Layout
         attr_reader :layout_fields, :layout_size, :layout_align
 
-        def initialize(fields)
+        def initialize(fields, host = nil)
+          @host = host
           off = 0
           @layout_align = 1
           @layout_fields = fields.to_h do |name, type|
@@ -118,14 +123,33 @@ module Zr
           pointer.empty? ? @layout_size : raise(NoMethodError, "no field size")
         end
 
+        # Marks this layout as a cell's: a store of a Value into one of its
+        # fields runs the write barrier of the cell at `p`.
+        def cell!
+          host = @host
+          @layout_fields.each do |name, (at, type)|
+            next unless type.is_a?(Type) && type.name == "Value"
+
+            define_singleton_method(:"set_#{name}") do |p, value|
+              Memory.put(type, p + at, value)
+              host.barrier(p, value)
+            end
+          end
+        end
+
         private
 
         def accessors(name, at, type)
+          host = @host
           reader = if type.is_a?(Layout)
                      ->(p) { p + at }
                    else
                      define_singleton_method(:"set_#{name}") { |p, value| Memory.put(type, p + at, value) }
-                     ->(p) { Memory.fetch(type, p + at) }
+                     if type.name == "Value" && host
+                       ->(p) { host.pin(Memory.fetch(type, p + at)) }
+                     else
+                       ->(p) { Memory.fetch(type, p + at) }
+                     end
                    end
           if name == "size"
             define_singleton_method(:size) { |*pointer| pointer.empty? ? @layout_size : reader.call(pointer.first) }
@@ -195,7 +219,7 @@ module Zr
 
         def word(x) = Host.signed(Host.bits(x))
         def sword(x) = Host.signed(Host.bits(x))
-        def value(x) = Host.signed(Host.bits(x))
+        def value(x) = @host.pin(Host.signed(Host.bits(x)))
         def ptr(x) = Host.bits(x) & MASK
         def u8(x) = x & 0xFF
         def u32(x) = x & 0xFFFF_FFFF
@@ -267,10 +291,12 @@ module Zr
 
       # The slots of the defs that run: an area that grows down, like a
       # stack. A def that takes a slot gets back the slots it took when it
-      # returns.
+      # returns. Each fiber has its own area (`fiber_slots`).
       SLOT_BYTES = 64 << 20
 
-      attr_reader :kern, :symbols, :sigs
+      attr_reader :kern, :symbols, :sigs, :slot_base, :collectors
+
+      # The gate word (`Machine.gates`).
       attr_accessor :gates
 
       # `files` are kernel files; `constants` sets constants that the files
@@ -288,12 +314,18 @@ module Zr
         @gates = 0
         @errno = Memory.zeroed(8)
         @slot_base = Memory.zeroed(SLOT_BYTES)
-        @slot_top = @slot_base + SLOT_BYTES
+        @main_top = @slot_base + SLOT_BYTES
+        @slot_key = :"zr_host_slots_#{object_id}"
+        @pin_key = :"zr_host_pins_#{object_id}"
+        @all_pins = []
+        @collecting = false
+        @collectors = []
         @kern = kernel_module
         constants.each { |name, value| @kern.const_set(name, value) }
         trees = files.to_h { |file| [file, Prism.parse_file(file).value] }
         load_order(trees).each { |file| load(file) }
-        trees.each_value { |tree| frame_slots(tree) }
+        cells!
+        frames(trees.values)
       end
 
       # Calls the kernel def `name`.
@@ -351,16 +383,88 @@ module Zr
       end
 
       def slot(size)
-        @slot_top -= size + ((-size) % 16)
-        raise "the slot area is full" if @slot_top < @slot_base
+        top = slot_top - (size + ((-size) % 16))
+        raise "the slot area is full" if top < @slot_base && Fiber.current == main_fiber
 
-        @slot_top
+        self.slot_top = top
       end
 
-      # Where the next slot ends; a def that takes slots puts it back.
-      attr_accessor :slot_top
+      # Where this fiber's next slot ends; a def that takes slots puts it
+      # back.
+      def slot_top = Thread.current[@slot_key] || @main_top
+
+      def slot_top=(top)
+        Thread.current[@slot_key] = top
+      end
+
+      # Gives this fiber the slot area that ends at `top`.
+      def fiber_slots(top)
+        self.slot_top = top
+      end
+
+      # Keeps the Value `v` alive while the def that can collect around
+      # this call runs. A collection in the kernel sees only the Values in
+      # memory; a host def keeps its Values in Ruby locals, so each Value
+      # it reads or makes is pinned until the def returns (`frames`). This
+      # keeps more than the lowering's root frames do, never less.
+      def pin(v)
+        pins << v unless @collecting
+        v
+      end
+
+      # The pins of this fiber.
+      def pins
+        Thread.current[@pin_key] ||= [].tap { |list| @all_pins << list }
+      end
+
+      # The collector's write barrier after a store of `value` into the
+      # cell at `p`.
+      def barrier(p, value)
+        @kern.zr_write_barrier(p, value)
+      end
+
+      # Marks each pinned cell, and runs the collection with no pinning.
+      def mark_pins
+        @all_pins.each do |list|
+          list.each { |v| @kern.zr_mark(v) if live?(v) }
+        end
+      end
+
+      def collecting
+        was = @collecting
+        @collecting = true
+        yield
+      ensure
+        @collecting = was
+      end
 
       private
+
+      def main_fiber = @main_fiber ||= Fiber.current
+
+      # Whether `v` is a cell the heap has allocated, so the collector
+      # may mark it. A pin can hold a word that is no longer one.
+      def live?(v)
+        return false if @kern.zr_special_p(v)
+
+        flags = Memory.fetch(TYPES["Word"], v)
+        (flags & @kern::FL_STACK) != 0 || (flags & @kern::FL_ALLOCATED) != 0
+      end
+
+      # Gives each layout of a cell (RBasic, and each layout that starts
+      # with it) the write barrier, as the lowering's `cell?` does.
+      def cells!
+        return unless @kern.const_defined?(:RBasic, false)
+
+        basic = @kern::RBasic
+        @kern.constants(false).each do |name|
+          layout = @kern.const_get(name)
+          next unless layout.is_a?(Layout)
+
+          first = layout.layout_fields.first&.last&.last
+          layout.cell! if layout.equal?(basic) || first.equal?(basic)
+        end
+      end
 
       # A fresh `Zr::Kern` with the forms a kernel file declares with.
       def kernel_module
@@ -371,11 +475,11 @@ module Zr
         kern.const_set(:Machine, Intrinsics.new(self))
         kern.const_set(:Libc, Libc.new(self))
         pending = nil
-        kern.define_singleton_method(:layout) { |**fields| Layout.new(fields) }
+        kern.define_singleton_method(:layout) { |**fields| Layout.new(fields, host) }
         kern.define_singleton_method(:fn) { |signature| Fn.new(host, *signature.first) }
         kern.define_singleton_method(:sig) { |signature| pending = signature.first }
         kern.define_singleton_method(:inline) { |_name| nil }
-        kern.define_singleton_method(:collects) { |_name| nil }
+        kern.define_singleton_method(:collects) { |name| host.collectors << name.to_s }
         kern.define_singleton_method(:raw) { |_name, _signature| nil }
         kern.define_singleton_method(:method_added) do |name|
           host.sigs[name.to_s] = pending if pending
@@ -426,25 +530,74 @@ module Zr
         found
       end
 
-      # Each def of the file that takes a slot gives its slots back when it
-      # returns.
-      def frame_slots(tree)
-        names = statements(tree).grep(Prism::DefNode).select { |node| node.slice.include?("Machine.slot(") }.map(&:name)
-        return if names.empty?
-
+      # Wraps the defs that need a frame: a def that takes a slot gives its
+      # slots back when it returns, and a def that can run the collector
+      # drops the pins of its body when it returns (and pins its Value
+      # result for its caller). The collector runs with no pinning, and
+      # marks the pins as kernel roots.
+      def frames(trees)
+        defs = trees.flat_map { |tree| statements(tree).grep(Prism::DefNode) }.to_h { |node| [node.name.to_s, node] }
+        slots = defs.select { |_, node| node.slice.include?("Machine.slot(") }.keys.to_set
+        collects = collecting_defs(defs)
         host = self
         frames = Module.new
-        names.uniq.each do |name|
+        (slots | collects).each do |name|
+          restores = slots.include?(name)
+          drops = collects.include?(name)
+          value = @sigs[name]&.last&.name == "Value"
           frames.define_method(name) do |*args|
-            top = host.slot_top
-            begin
+            top = host.slot_top if restores
+            list = host.pins
+            mark = list.size
+            result = begin
               super(*args)
             ensure
-              host.slot_top = top
+              host.slot_top = top if restores
+              list.slice!(mark..) if drops
             end
+            drops && value ? host.pin(result) : result
           end
         end
         @kern.prepend(frames)
+        collector = Module.new
+        collector.define_method(:zr_collect_kind) { |*args| host.collecting { super(*args) } } if defs.key?("zr_collect_kind")
+        if defs.key?("zr_mark_kernel_roots")
+          collector.define_method(:zr_mark_kernel_roots) do
+            super()
+            host.mark_pins
+          end
+        end
+        @kern.prepend(collector)
+      end
+
+      # The defs that can run the collector, as the lowering finds them
+      # (`Lower#collecting_defs`): those that `collects` names, a call
+      # through a pointer, and each def that calls one of those.
+      def collecting_defs(defs)
+        signatures = @kern.constants(false).select { |name| @kern.const_get(name).is_a?(Fn) }.to_set
+        calls = defs.transform_values { |node| calls_in(node.body, defs, signatures) }
+        set = @collectors.to_set << :indirect
+        loop do
+          grown = defs.each_key.select { |name| !set.include?(name) && calls.fetch(name).any? { |c| set.include?(c) } }
+          break if grown.empty?
+
+          set.merge(grown)
+        end
+        set.delete(:indirect)
+        set
+      end
+
+      def calls_in(node, defs, signatures)
+        found = []
+        queue = [node].compact
+        while (n = queue.shift)
+          if n.is_a?(Prism::CallNode)
+            found << n.name.to_s if n.receiver.nil? && defs.key?(n.name.to_s)
+            found << :indirect if n.name == :call && n.receiver.is_a?(Prism::ConstantReadNode) && signatures.include?(n.receiver.name)
+          end
+          queue.concat(n.compact_child_nodes)
+        end
+        found
       end
 
       def foreign(function, params, ret, args)
@@ -475,6 +628,7 @@ module Zr
       def from_c(value, type)
         case type.name
         when "Ptr" then value.to_i & MASK
+        when "Value" then pin(value)
         when "Bool" then value != 0
         when "Void" then nil
         else value
