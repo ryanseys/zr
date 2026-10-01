@@ -15,7 +15,15 @@ module Zr
     # environment and input. Its answer goes through the same
     # normalization and verdict as a binary's.
     module HostProgram
+      # The walker runs the core's Ruby (Onig's regexp compiler, for one)
+      # much slower than a binary: `require "date"` takes about 50 s. So a
+      # test gets this many times a binary's time limit, which stays under
+      # the worker's deadline (`Workers::DEADLINE`).
+      SLOWER = 2
+
       module_function
+
+      def limit = ProgramRun::LIMIT * SLOWER
 
       def walk
         @walk ||= Machine::Host::Walk.new.tap(&:prepare)
@@ -26,7 +34,7 @@ module Zr
         ProgramRun.within(test) do |run, rb|
           megabytes = [test.limits[:run_mb] || 0, Harness::Child::RUN_MB].max
           out = forked(test, run, w, megabytes)
-          ProgramBuild.verdict(Harness::Normalize.answer(out, rb, run), megabytes, runner)
+          ProgramBuild.verdict(Harness::Normalize.answer(out, rb, run), megabytes, runner, seconds: limit)
         end
       end
 
@@ -64,7 +72,7 @@ module Zr
           in_w.close
         end
         reader = [out_r, err_r].map { |io| Thread.new { io.binmode.read } }
-        status, over = Harness::Child.watch(pid, started + ProgramRun::LIMIT, megabytes)
+        status, over = Harness::Child.watch(pid, started + limit, megabytes)
         writer.join
         stdout, stderr = reader.map(&:value)
         return Harness::Answer.new(stdout, stderr, over, nil) if over

@@ -113,8 +113,8 @@ module Zr
       end
 
       # The answer of the binary, or `[kind, why]` when it does not count.
-      def verdict(answer, megabytes, runner)
-        return [:timeout, "ran past #{ProgramRun::LIMIT}s"] if answer.code == :timeout
+      def verdict(answer, megabytes, runner, seconds: ProgramRun::LIMIT)
+        return [:timeout, "ran past #{seconds}s"] if answer.code == :timeout
         return [:backend, "held more than #{megabytes} MB"] if answer.code == :memory
         return [:backend, "the module trapped:\n#{answer.stderr}"] if runner.trapped?(answer) && !answer.signal
         if (stop = answer.stderr.dup.force_encoding(Encoding::UTF_8).scrub[STOP, 1])
