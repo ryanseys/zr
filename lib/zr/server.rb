@@ -47,7 +47,7 @@ module Zr
     # The entry points of `exe/zr` and `zr-dev serve`.
     def self.hand_to(argv) = Client.new.hand_to(argv)
 
-    def self.serve(**options) = new(**options).serve
+    def self.serve(**) = new(**).serve
 
     # `path` is the socket to listen at, `idle` the seconds with no request
     # after which the server stops, and `log` gets one line for each

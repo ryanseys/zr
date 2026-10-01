@@ -20,7 +20,7 @@ module Zr
 
       # Calls the kernel def `name` with `args`, and returns what it
       # returns.
-      def call(name, *args) = @host.call(name, *args)
+      def call(name, *) = @host.call(name, *)
     end
   end
 end

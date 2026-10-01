@@ -42,12 +42,12 @@ class Aarch64Test < Minitest::Test
       words.pack("L<*")
     end
 
-    def method_missing(name, *args, **options, &)
+    def method_missing(name, *args, **, &)
       if args.flatten.any? { |a| a.is_a?(Aarch64::Registers::Register) && a.float? }
         @floats << [@count, float_word(name, args)]
         @asm.nop
       else
-        @asm.public_send(name, *args.map { |a| translate(a) }, **options, &)
+        @asm.public_send(name, *args.map { |a| translate(a) }, **, &)
       end
       @count += 1
       self

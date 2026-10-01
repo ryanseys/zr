@@ -15,10 +15,10 @@ require "support/runtime_programs"
 # nothing else. The same programs go through the aarch64 backend in
 # `native_test.rb`, `machine_test.rb` and `runtime_test.rb`.
 class WasmTest < Minitest::Test
-  def run_module(wasm, expected, *args, status: 0)
+  def run_module(wasm, expected, *, status: 0)
     skip "wasmtime is not installed" unless Checks.wasmtime?
 
-    answer = Checks.run(Zr::Harness::Wasmtime.run(wasm, *args), merge: true)
+    answer = Checks.run(Zr::Harness::Wasmtime.run(wasm, *), merge: true)
     refute Checks.killed(answer), "wasmtime was killed at #{Checks.killed(answer)}: #{answer.stdout}"
     assert_equal status, answer.code, "wasmtime exited #{answer.code}: #{answer.stdout}"
     assert_equal expected, answer.stdout

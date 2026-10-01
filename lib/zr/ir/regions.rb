@@ -25,14 +25,8 @@ module Zr
         symbol_of = @f.globals.to_h { |g| [g.gv, g.symbol] }
         const = {}
         placed = {}
-        blocks = @f.blocks
-        bi = 0
-        while bi < blocks.size
-          insts = blocks[bi].insts
-          n = 0
-          while n < insts.size
-            i = insts[n]
-            n += 1
+        @f.blocks.each do |b|
+          b.insts.each do |i|
             case i.op
             when :iconst then const[i.results[0]] = i.args[0]
             when :stack_addr then placed[i.results[0]] = [:slot, 0]
@@ -43,7 +37,6 @@ module Zr
               placed[i.results[0]] = [placed[a][0], placed[a][1] + const.fetch(k)] if placed.key?(a) && const.key?(k)
             end
           end
-          bi += 1
         end
         placed
       end
@@ -69,11 +62,7 @@ module Zr
       # The region bits that the instructions of `b` can write.
       def writes_of(b)
         bits = 0
-        insts = b.insts
-        n = 0
-        while n < insts.size
-          i = insts[n]
-          n += 1
+        b.insts.each do |i|
           case i.op
           when :store then bits |= write_bits(i)
           when :call then bits |= @effects.fetch(i.callee)

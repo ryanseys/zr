@@ -137,6 +137,9 @@ Style/LambdaCall: { Enabled: true }
 
 # A block that a method only passes on needs no name: `def f(&) = g(&)`.
 Naming/BlockForwarding: { Enabled: true }
+# The same for arguments: `def f(*, **) = g(*, **)`. zr compiles these
+# (test/programs/lang/methods/definition/anonymous_*).
+Style/ArgumentsForwarding: { Enabled: true }
 
 # A constant that code changes is state; an object or a variable owns it.
 Style/MutableConstant: { Enabled: true }

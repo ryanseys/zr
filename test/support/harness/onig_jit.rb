@@ -19,7 +19,7 @@ module Zr
         @kernel = KernelJIT.new("onig_*.rb", constants: { "CLOCK_MONOTONIC" => 6 })
       end
 
-      def call(name, *args) = @kernel.call(name, *args)
+      def call(name, *) = @kernel.call(name, *)
 
       # A compiled pattern (Regexp::Onig::Reg) as the program String the
       # kernel reads.

@@ -178,8 +178,7 @@ module Zr
         doms[0] = 0
         loop do
           changed = false
-          n = 1
-          while n < order.size
+          (1...order.size).each do |n|
             new = nil
             from[n].each do |p|
               next unless doms[p]
@@ -190,7 +189,6 @@ module Zr
               doms[n] = new
               changed = true
             end
-            n += 1
           end
           break unless changed
         end

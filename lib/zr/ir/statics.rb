@@ -68,14 +68,8 @@ module Zr
         loaded = Set.new
         refused = Set.new
         @loads = {}.compare_by_identity
-        blocks = @f.blocks
-        bi = 0
-        while bi < blocks.size
-          insts = blocks[bi].insts
-          n = 0
-          while n < insts.size
-            i = insts[n]
-            n += 1
+        @f.blocks.each do |b|
+          b.insts.each do |i|
             case i.op
             when :load
               symbol, at = word(i.args[0], i.offset)
@@ -97,16 +91,8 @@ module Zr
             else
               escapes(i.args, refused)
             end
-            targets = i.targets
-            next unless targets
-
-            k = 0
-            while k < targets.size
-              escapes(targets[k][1], refused)
-              k += 1
-            end
+            i.targets&.each { |_, args| escapes(args, refused) }
           end
-          bi += 1
         end
         (loaded - refused).to_h { |symbol| [symbol, TYPE] }
       end
@@ -114,12 +100,7 @@ module Zr
       # If the address of a promoted symbol is in `args`, the pass does
       # not promote that symbol.
       def escapes(args, refused)
-        k = 0
-        while k < args.size
-          a = args[k]
-          refused << @addr[a][0] if @addr.key?(a)
-          k += 1
-        end
+        args.each { |a| refused << @addr[a][0] if @addr.key?(a) }
       end
 
       # `@addr`: each value that is the address of a promoted symbol, or
@@ -131,14 +112,8 @@ module Zr
         @addr = {}
         @known = Set.new
         const = {}
-        blocks = @f.blocks
-        bi = 0
-        while bi < blocks.size
-          insts = blocks[bi].insts
-          n = 0
-          while n < insts.size
-            i = insts[n]
-            n += 1
+        @f.blocks.each do |b|
+          b.insts.each do |i|
             case i.op
             when :iconst then const[i.results[0]] = i.args[0]
             when :stack_addr then @known << i.results[0]
@@ -147,18 +122,11 @@ module Zr
               PROMOTED.key?(symbol) ? @addr[i.results[0]] = [symbol, 0] : @known << i.results[0]
             end
           end
-          bi += 1
         end
         return if @addr.empty?
 
-        blocks = @f.blocks
-        bi = 0
-        while bi < blocks.size
-          insts = blocks[bi].insts
-          n = 0
-          while n < insts.size
-            i = insts[n]
-            n += 1
+        @f.blocks.each do |b|
+          b.insts.each do |i|
             next unless i.op == :iadd
 
             a, k = i.args
@@ -172,7 +140,6 @@ module Zr
               @known << i.results[0]
             end
           end
-          bi += 1
         end
       end
 
@@ -207,6 +174,7 @@ module Zr
       def walk(b, keys, last, reads)
         insts = b.insts
         n = 0
+        # `while`: `leaving` can add a load to the head of the entry block's `insts`.
         while n < insts.size
           i = insts[n]
           n += 1
@@ -279,13 +247,10 @@ module Zr
       # memory. Uses of the function's own address of the word change to
       # the address that the pass added.
       def rewrite(keys)
-        blocks = @f.blocks
-        bi = 0
-        while bi < blocks.size
-          insts = blocks[bi].insts
+        @f.blocks.each do |b|
+          insts = b.insts
           insts.reject! { |i| keys.key?(@loads[i]) }
           insts.replace(insts.flat_map { |i| [i, *@inserted[i]] }) if insts.any? { |i| @inserted.key?(i) }
-          bi += 1
         end
         @addr.each { |v, (symbol, at)| @rename[v] = @address[symbol] if at.zero? && @address.key?(symbol) }
       end

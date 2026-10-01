@@ -65,10 +65,10 @@ class DoctorTest < Minitest::Test
     Zr::Doctor.define_singleton_method(:checks, was)
   end
 
-  def zr(*args, env: {})
+  def zr(*, env: {})
     # rubygems requires BUNDLER_SETUP at boot, so a bundle leaks through it too.
     unbundled = { "RUBYOPT" => nil, "BUNDLE_GEMFILE" => nil, "BUNDLER_SETUP" => nil, "BUNDLE_BIN_PATH" => nil, "BUNDLER_VERSION" => nil }
-    Open3.capture3(unbundled.merge(env), RbConfig.ruby, EXE, *args, chdir: ROOT)
+    Open3.capture3(unbundled.merge(env), RbConfig.ruby, EXE, *, chdir: ROOT)
   end
 
   def test_version_names_the_pinned_ruby

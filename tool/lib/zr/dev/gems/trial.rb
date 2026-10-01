@@ -195,8 +195,8 @@ module Zr
           home
         end
 
-        def run(log, title, argv, **options)
-          answer, limit = @runner.run(argv, **options)
+        def run(log, title, argv, **)
+          answer, limit = @runner.run(argv, **)
           log << "$ #{argv.join(" ")}\n#{title}: #{limit || (answer.signal ? "signal #{answer.signal}" : "exit #{answer.status}")}"
           log << "stdout:\n#{answer.stdout}" unless answer.stdout.to_s.empty?
           log << "stderr:\n#{answer.stderr}" unless answer.stderr.to_s.empty?

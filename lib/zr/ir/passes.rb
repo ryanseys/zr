@@ -616,12 +616,7 @@ module Zr
         def merged?
           into = edges
           joined = {}.compare_by_identity
-          laid = {}
-          at = 0
-          while at < @f.blocks.size
-            laid[@f.blocks[at].name] = at
-            at += 1
-          end
+          laid = @f.blocks.each_with_index.to_h { |b, at| [b.name, at] }
           @f.blocks.each do |b|
             next if b.nil? || b.equal?(@f.entry_block) || into[b.name].size != 1
 

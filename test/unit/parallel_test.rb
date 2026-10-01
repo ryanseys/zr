@@ -96,10 +96,10 @@ class ParallelTest < Minitest::Test
 
   # With no `ZR_JOBS`, which overrides the memory bound. `available` is
   # the memory the system can give now, nil when it does not say.
-  def on_a_machine_of(gigabytes, available: nil, &block)
+  def on_a_machine_of(gigabytes, available: nil, &)
     Zr::Config.with(ZR_JOBS: nil) do |_|
       stub_method(Parallel, :available_bytes, -> { available && available << 30 }) do
-        stub_method(Parallel, :machine_bytes, -> { gigabytes << 30 }, &block)
+        stub_method(Parallel, :machine_bytes, -> { gigabytes << 30 }, &)
       end
     end
   end

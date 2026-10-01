@@ -30,33 +30,20 @@ module Zr
       # no load reads has type nil: its stores are dead.
       def candidates
         @slot_of = {}
-        blocks = @f.blocks
-        bi = 0
-        while bi < blocks.size
-          insts = blocks[bi].insts
-          n = 0
-          while n < insts.size
-            i = insts[n]
-            n += 1
+        @f.blocks.each do |b|
+          b.insts.each do |i|
             next unless i.op == :stack_addr
 
             slot = i.args[0].delete_prefix("ss").to_i
             @slot_of[i.results[0]] = slot if @f.slots[slot].bytes == 8
           end
-          bi += 1
         end
         return {} if @slot_of.empty?
 
         type = @slot_of.transform_values { nil }
         refused = Set.new
-        blocks = @f.blocks
-        bi = 0
-        while bi < blocks.size
-          insts = blocks[bi].insts
-          n = 0
-          while n < insts.size
-            i = insts[n]
-            n += 1
+        @f.blocks.each do |b|
+          b.insts.each do |i|
             case i.op
             when :load
               addr = i.args[0]
@@ -71,38 +58,21 @@ module Zr
             else
               escapes(i.args, type, refused)
             end
-            targets = i.targets
-            next unless targets
-
-            k = 0
-            while k < targets.size
-              escapes(targets[k][1], type, refused)
-              k += 1
-            end
+            i.targets&.each { |_, args| escapes(args, type, refused) }
           end
-          bi += 1
         end
         type.except(*refused)
       end
 
       # If the address of a slot is in `args`, the slot does not qualify.
       def escapes(args, type, refused)
-        k = 0
-        while k < args.size
-          a = args[k]
-          refused << a if type.key?(a)
-          k += 1
-        end
+        args.each { |a| refused << a if type.key?(a) }
       end
 
       # A store is a write. A load gets the value of the last store in the
       # block, or the value at block entry.
       def walk(b, slots, last, reads)
-        insts = b.insts
-        n = 0
-        while n < insts.size
-          i = insts[n]
-          n += 1
+        b.insts.each do |i|
           if i.op == :store && slots.key?(i.args[1])
             last[i.args[1]] = i.args[0]
           elsif i.op == :load && slots.key?(i.args[0])
@@ -119,17 +89,14 @@ module Zr
       def initial(_addr, type) = @f.iconst(type, 0)
 
       def rewrite(slots)
-        blocks = @f.blocks
-        bi = 0
-        while bi < blocks.size
-          blocks[bi].insts.reject! do |i|
+        @f.blocks.each do |b|
+          b.insts.reject! do |i|
             case i.op
             when :stack_addr then slots.key?(i.results[0])
             when :load then slots.key?(i.args[0])
             when :store then slots.key?(i.args[1])
             end
           end
-          bi += 1
         end
         slots.each_key { |addr| @f.slots[@slot_of.fetch(addr)].bytes = 0 }
       end

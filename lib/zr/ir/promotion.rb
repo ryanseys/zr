@@ -25,10 +25,6 @@ module Zr
     # A `brif` has no arguments. So when a join takes a parameter, the pass
     # splits each `brif` edge into it: a new block before the join that
     # jumps to it.
-    #
-    # The walks use `while` loops, because this runs on each instruction of
-    # each function, and each block call costs a frame in the compiled
-    # compiler.
     class Promotion
       def self.run(f) = new(f).run
 
@@ -56,19 +52,8 @@ module Zr
       # A block that a `brif` reaches two times lists it two times.
       def predecessors
         preds = Hash.new { |h, k| h[k] = [] }
-        blocks = @f.blocks
-        bi = 0
-        while bi < blocks.size
-          b = blocks[bi]
-          targets = b.insts.last&.targets
-          if targets
-            k = 0
-            while k < targets.size
-              preds[targets[k][0]] << b
-              k += 1
-            end
-          end
-          bi += 1
+        @f.blocks.each do |b|
+          b.insts.last&.targets&.each { |name, _| preds[name] << b }
         end
         preds
       end
@@ -84,19 +69,8 @@ module Zr
         @incoming = {}
         @work = []
         reads = []
-        blocks = @f.blocks
-        bi = 0
-        while bi < blocks.size
-          b = blocks[bi]
-          walk(b, keys, @last[b.name], reads)
-          bi += 1
-        end
-        r = 0
-        while r < reads.size
-          result, b, key = reads[r]
-          @rename[result] = entering(b, key, keys)
-          r += 1
-        end
+        @f.blocks.each { |b| walk(b, keys, @last[b.name], reads) }
+        reads.each { |result, b, key| @rename[result] = entering(b, key, keys) }
         until @work.empty?
           param, b, key = @work.pop
           @incoming[param] = @preds[b.name].map { |p| leaving(p, key, keys) }
@@ -137,10 +111,7 @@ module Zr
       def drop_trivial(keys)
         loop do
           dropped = false
-          j = 0
-          while j < @joins.size
-            param, _, key = @joins[j]
-            j += 1
+          @joins.each do |param, _, key|
             next if @rename.key?(param)
 
             others = @incoming[param].map { |v| resolve(v) }.uniq
@@ -163,22 +134,16 @@ module Zr
       # Adds the parameters of each join, and the value that each edge into
       # it passes. The pass first splits each `brif` edge.
       def apply(keys)
-        j = 0
-        while j < @joins.size
-          param, b, key = @joins[j]
+        @joins.each do |param, b, key|
           b.params << [param, keys.fetch(key)]
           into = @preds[b.name]
           values = @incoming[param]
-          k = 0
-          while k < into.size
-            p = into[k]
+          into.each_with_index do |p, k|
             p = into[k] = split(p, b) if p.insts.last.op == :brif
             # Make a new Array; do not use `<<`, because two jumps can share it.
             edge = p.insts.last.targets[0]
             edge[1] = edge[1] + [values[k]]
-            k += 1
           end
-          j += 1
         end
       end
 
@@ -194,25 +159,11 @@ module Zr
       end
 
       def rename_uses
-        blocks = @f.blocks
-        bi = 0
-        while bi < blocks.size
-          insts = blocks[bi].insts
-          n = 0
-          while n < insts.size
-            i = insts[n]
+        @f.blocks.each do |b|
+          b.insts.each do |i|
             i.args.map! { |a| resolve(a) }
-            targets = i.targets
-            if targets
-              k = 0
-              while k < targets.size
-                targets[k][1].map! { |a| resolve(a) }
-                k += 1
-              end
-            end
-            n += 1
+            i.targets&.each { |_, args| args.map! { |a| resolve(a) } }
           end
-          bi += 1
         end
       end
     end

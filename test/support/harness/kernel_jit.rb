@@ -37,12 +37,12 @@ module Zr
 
       # Calls the kernel function `name` with `args` (Integers, or
       # addresses as Integers), and returns what it returns.
-      def call(name, *args)
+      def call(name, *)
         function = @functions[name] ||= begin
           signature = @defs.fetch(name)
           Fiddle::Function.new(@symbols.fetch(name), signature.params.map { |_, type| TYPES.fetch(type) }, TYPES.fetch(signature.ret))
         end
-        function.call(*args)
+        function.call(*)
       end
     end
   end

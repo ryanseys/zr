@@ -26,8 +26,8 @@ module Zr
     end
 
     # Runs `argv` and stops the tool when it fails.
-    def self.run!(*argv, **options)
-      system(*argv, **options) or abort("zr-dev: #{argv.join(" ")} failed")
+    def self.run!(*argv, **)
+      system(*argv, **) or abort("zr-dev: #{argv.join(" ")} failed")
     end
   end
 end

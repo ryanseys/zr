@@ -330,7 +330,7 @@ module Zr
       end
 
       # Calls the kernel def `name`.
-      def call(name, *args) = @kern.public_send(name, *args)
+      def call(name, *) = @kern.public_send(name, *)
 
       # A call of a C function or of the def that answers it.
       def libc(name, params, ret, args)

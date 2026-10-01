@@ -60,13 +60,13 @@ module Zr
 
       # `function` and `datum` add one item and return the unit, so a test
       # builds a unit in one expression (test/support/obj_unit.rb).
-      def function(name, bytes, **opts)
-        @functions << Code.new(name, bytes, **opts)
+      def function(name, bytes, **)
+        @functions << Code.new(name, bytes, **)
         self
       end
 
-      def datum(name, section, bytes, **opts)
-        @data << Datum.new(name, section, bytes, **opts)
+      def datum(name, section, bytes, **)
+        @data << Datum.new(name, section, bytes, **)
         self
       end
 

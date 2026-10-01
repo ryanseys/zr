@@ -61,26 +61,12 @@ module Zr
         walk(@f.entry_block.name, children)
         return @f if @dead.empty?
 
-        blocks = @f.blocks
-        bi = 0
-        while bi < blocks.size
-          insts = blocks[bi].insts
-          insts.reject! { |i| @dead.key?(i) }
-          n = 0
-          while n < insts.size
-            i = insts[n]
+        @f.blocks.each do |b|
+          b.insts.reject! { |i| @dead.key?(i) }
+          b.insts.each do |i|
             i.args.map! { |a| resolve(a) }
-            targets = i.targets
-            if targets
-              k = 0
-              while k < targets.size
-                targets[k][1].map! { |a| resolve(a) }
-                k += 1
-              end
-            end
-            n += 1
+            i.targets&.each { |_, args| args.map! { |a| resolve(a) } }
           end
-          bi += 1
         end
         @f.changed!(:insts)
       end
@@ -139,11 +125,7 @@ module Zr
       # and deletes it. If not, the pass adds it. A write removes the
       # loads of the regions that it can write.
       def number(b)
-        insts = b.insts
-        n = 0
-        while n < insts.size
-          i = insts[n]
-          n += 1
+        b.insts.each do |i|
           i.args.map! { |a| resolve(a) }
           case i.op
           when :load

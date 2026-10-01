@@ -54,11 +54,7 @@ module Zr
         @order = @analysis.rpo.map(&:name)
         @body = loops.to_h { |l| [l, l.body.to_h { |b| [b, true] }] }
         entry = @f.entry_block.name
-        k = loops.size
-        while k.positive?
-          k -= 1
-          hoist(loops[k], loops) unless loops[k].header == entry
-        end
+        loops.reverse_each { |l| hoist(l, loops) unless l.header == entry }
         @moved ? @f.changed!(:cfg) : @f
       end
 
@@ -72,6 +68,8 @@ module Zr
         pre = nil
         order = @order
         k = 0
+        # `while`: `preheader` inserts into `@order`, and a moved instruction
+        # leaves `insts`.
         while k < order.size
           name = order[k]
           k += 1
@@ -108,29 +106,16 @@ module Zr
           b = @block.fetch(name)
           @written |= writes_of(b)
           b.params.each { |(v, _)| @variant[v] = true }
-          insts = b.insts
-          n = 0
-          while n < insts.size
-            insts[n].results.each { |v| @variant[v] = true }
-            n += 1
-          end
-          @exits << name if leaves?(insts.last.targets)
+          b.insts.each { |i| i.results.each { |v| @variant[v] = true } }
+          @exits << name if leaves?(b.insts.last.targets)
         end
         @exits = @loop.latches if @exits.empty?
         @read = {}
         header = @loop.header
-        order = @order
-        k = 0
-        while k < order.size
-          name = order[k]
-          k += 1
+        @order.each do |name|
           next if @in.key?(name) || !dominates?(name, header)
 
-          insts = @block.fetch(name).insts
-          n = 0
-          while n < insts.size
-            i = insts[n]
-            n += 1
+          @block.fetch(name).insts.each do |i|
             case i.op
             when :load then @read[[i.args[0], i.offset]] = true
             when :store then @read[[i.args[1], i.offset]] = true
@@ -143,13 +128,7 @@ module Zr
       def leaves?(targets)
         return false unless targets
 
-        k = 0
-        while k < targets.size
-          return true unless @in.key?(targets[k][0])
-
-          k += 1
-        end
-        false
+        targets.any? { |name, _| !@in.key?(name) }
       end
 
       # Whether `i`, in the loop block `at`, gives the same value in each
@@ -159,18 +138,10 @@ module Zr
 
         return false if i.results.size != 1 || !GVN::PURE.include?(i.op) || @tested.key?(i.results[0])
 
-        args = i.args
-        reads = false
-        k = 0
-        while k < args.size
-          a = args[k]
-          k += 1
-          next unless IR.value?(a)
-          return false if @variant.key?(a)
+        values = i.args.select { |a| IR.value?(a) }
+        return false if values.any? { |a| @variant.key?(a) }
 
-          reads = true
-        end
-        reads
+        values.any?
       end
 
       def load_invariant?(i, at)
@@ -193,22 +164,15 @@ module Zr
         uses = @analysis.uses
         reads = Hash.new(0)
         blocks = @f.blocks
-        bi = 0
-        while bi < blocks.size
-          br = blocks[bi].insts.last
+        blocks.each do |b|
+          br = b.insts.last
           reads[br.args[0]] += 1 if br.op == :brif
-          bi += 1
         end
         tested = {}
         loop do
           moved = false
-          bi = 0
-          while bi < blocks.size
-            insts = blocks[bi].insts
-            n = 0
-            while n < insts.size
-              i = insts[n]
-              n += 1
+          blocks.each do |b|
+            b.insts.each do |i|
               v = i.results[0]
               next if tested.key?(v) || reads[v].zero? || reads[v] != uses.fetch(v, 0)
 
@@ -216,14 +180,8 @@ module Zr
               moved = true
               next unless i.op == :band || i.op == :bor
 
-              args = i.args
-              k = 0
-              while k < args.size
-                reads[args[k]] += 1 if IR.value?(args[k])
-                k += 1
-              end
+              i.args.each { |a| reads[a] += 1 if IR.value?(a) }
             end
-            bi += 1
           end
           break unless moved
         end
@@ -231,14 +189,7 @@ module Zr
       end
 
       def dominates_exits?(at)
-        exits = @exits
-        k = 0
-        while k < exits.size
-          return false unless dominates?(at, exits[k])
-
-          k += 1
-        end
-        true
+        @exits.all? { |x| dominates?(at, x) }
       end
 
       # A preheader that this pass made dominates all that its header
@@ -264,12 +215,7 @@ module Zr
 
           # Make a new pair; do not change the old pair, because two
           # jumps can share it.
-          targets = @block.fetch(p).insts.last.targets
-          k = 0
-          while k < targets.size
-            targets[k] = [pre.name, targets[k][1]] if targets[k][0] == header.name
-            k += 1
-          end
+          @block.fetch(p).insts.last.targets.map! { |t| t[0] == header.name ? [pre.name, t[1]] : t }
         end
         @block[pre.name] = pre
         @header_of[pre.name] = header.name
