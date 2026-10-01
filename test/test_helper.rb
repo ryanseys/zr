@@ -59,6 +59,8 @@ module Checks
   LIMIT = Integer(ENV.fetch("ZR_TEST_SECONDS", 60))
   RESIDENT = Integer(ENV.fetch("ZR_TEST_RESIDENT_MB", 2048))
 
+  extend Zr::Test::Stubs
+
   module_function
 
   def wasmtime? = Zr::Harness::Wasmtime.installed?
@@ -98,13 +100,7 @@ module Checks
 
   # Runs the block as if this host were `triple` (`Zr::Target.host_triple`).
   def with_host(triple)
-    target = Zr::Target.singleton_class
-    target.alias_method(:real_host_triple, :host_triple)
-    target.define_method(:host_triple) { triple }
-    yield
-  ensure
-    target.alias_method(:host_triple, :real_host_triple)
-    target.remove_method(:real_host_triple)
+    stub_method(Zr::Target, :host_triple, triple) { yield }
   end
 
   # Returns the limit that stopped `answer`, or nil when it ended normally.

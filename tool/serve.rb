@@ -21,6 +21,11 @@ module Zr
       usage "[--idle MINUTES] [--socket PATH]"
       host_ruby!
 
+      def defaults
+        @idle = nil
+        @socket = nil
+      end
+
       def options(o)
         o.on("--idle MINUTES", Integer, "stop after this many minutes with no request (default 30)") { |v| @idle = v }
         o.on("--socket PATH", "listen at PATH, not at the cache's server.sock") { |v| @socket = v }

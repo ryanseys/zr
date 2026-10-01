@@ -22,6 +22,11 @@ module Zr
 
       OUT = Dev.path("tmp/codesize.tsv")
 
+      def defaults
+        @all = false
+        @was = nil
+      end
+
       def options(o)
         o.on("--all", "every function, not only the largest") { @all = true }
         o.on("--against FILE", "compare with the file an earlier run wrote") { |v| @was = v }

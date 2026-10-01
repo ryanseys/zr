@@ -36,6 +36,11 @@ module Zr
       # makes objects, calls methods and raises exceptions.
       LANGUAGE = %w[kernel module proc binding exception comparable].freeze
 
+      def defaults
+        @base = nil
+        @dry = false
+      end
+
       def options(o)
         o.on("--base REVISION", "the revision to diff against (default: main)") { |v| @base = v }
         o.on("--dry-run", "print the test paths; run nothing") { @dry = true }
@@ -67,10 +72,9 @@ module Zr
 
       # The changed files, relative to the root, against `base`.
       def changed(base)
-        tracked = IO.popen(["git", "-C", ROOT, "diff", "--name-only", base], &:read).lines(chomp: true)
-        fail!("git diff against #{base} failed") unless $?.success?
-        untracked = IO.popen(["git", "-C", ROOT, "ls-files", "--others", "--exclude-standard"], &:read).lines(chomp: true)
-        (tracked + untracked).uniq
+        tracked = Dev.git("diff", "--name-only", base, err: $stderr) or fail!("git diff against #{base} failed")
+        untracked = Dev.git("ls-files", "--others", "--exclude-standard", err: $stderr).to_s
+        (tracked.lines(chomp: true) + untracked.lines(chomp: true)).uniq
       end
 
       # Returns the test paths that `file` affects, or :all.

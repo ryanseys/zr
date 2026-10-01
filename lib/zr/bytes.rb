@@ -41,6 +41,10 @@ module Zr
     # The number of bytes that `uleb(n)` returns, without building them.
     def uleb_size(n) = n.zero? ? 1 : (n.bit_length + 6) / 7
 
+    # `n` mapped to a non-negative integer so that a number near zero stays
+    # small: 0, -1, 1, -2 become 0, 1, 2, 3. `uleb` then writes it.
+    def zigzag(n) = n >= 0 ? n * 2 : (-n * 2) - 1
+
     # `n` as SLEB128: like `uleb`, but the last byte carries the sign, so a
     # negative number also terminates.
     def sleb(n)

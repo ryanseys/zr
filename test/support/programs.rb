@@ -2,6 +2,7 @@
 
 require "io/wait"
 require_relative "baseline"
+require_relative "harness/selected_target"
 require_relative "program_build"
 require_relative "workers"
 require_relative "../../lib/zr/native/resident"
@@ -34,7 +35,7 @@ module Zr
 
       # Runs the tests below `paths` (directories or programs) whose
       # programs run in `root`, and returns true when none failed.
-      def self.run(paths, root: ROOT, target: Harness::Runner.named(ENV["ZR_TARGET"]), out: $stdout, host: false)
+      def self.run(paths, root: ROOT, target: Harness.selected_target, out: $stdout, host: false)
         tests = paths.flat_map { |path| Case.under(path, root) }.uniq
         allowed = if host then Baseline.host
                   elsif root == ROOT then Baseline.for(target)

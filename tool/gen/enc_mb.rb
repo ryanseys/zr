@@ -80,7 +80,7 @@ module Zr
                 text = bytes.pack("C*")
                 ours = found?(enc, text.b)
                 theirs = text.dup.force_encoding(encoding).valid_encoding? && text.dup.force_encoding(encoding).length == 1
-                abort "#{encoding.name} #{text.unpack1("H*")}: ruby says #{theirs}, the descriptor #{ours}" unless ours == theirs
+                fail! "#{encoding.name} #{text.unpack1("H*")}: ruby says #{theirs}, the descriptor #{ours}" unless ours == theirs
               end
             end
           end

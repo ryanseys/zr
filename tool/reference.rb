@@ -23,6 +23,8 @@ module Zr
 
       Ref = Harness::Reference
 
+      def defaults = @check = false
+
       def options(o) = o.on("--check", "install nothing; fail when tmp/reference is not current") { @check = true }
 
       def run(_argv)

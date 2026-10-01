@@ -22,6 +22,8 @@ module Zr
       summary "Build one program from two copies of the tree at two paths, and compare the bytes"
       usage "[--wasm]"
 
+      def defaults = @wasm = false
+
       def options(o) = o.on("--wasm", "also build and compare the wasm module") { @wasm = true }
 
       PATH_ROOT = "/zr"
@@ -75,15 +77,11 @@ module Zr
       # Copies the current tree: tracked and untracked files, but not files
       # that git ignores. Thus uncommitted edits go in, and caches do not.
       def copy_tree(copy)
-        files, status = Open3.capture2("git", "ls-files", "-z", "--cached", "--others", "--exclude-standard", chdir: ROOT)
-        fail!("git ls-files failed") unless status.success?
-        files.split("\0").each do |file|
-          from = File.join(ROOT, file)
-          next unless File.file?(from)
-
+        files = Dev.tree_files(dir: ROOT) or fail!("git ls-files failed")
+        files.each do |file|
           to = File.join(copy, file)
           FileUtils.mkdir_p(File.dirname(to))
-          FileUtils.cp(from, to, preserve: true)
+          FileUtils.cp(File.join(ROOT, file), to, preserve: true)
         end
         FileUtils.mkdir_p(File.join(copy, "repro/lib"))
         File.write(File.join(copy, "repro/main.rb"), MAIN)

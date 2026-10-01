@@ -67,6 +67,15 @@ module Zr
       # The line `Zr::Timing.phase` writes: a label padded to 40, then the seconds.
       LINE = /\Azr: (.+?)\s+([\d.]+)s(?:\s|\z)/
 
+      def defaults
+        @runs = nil
+        @write = false
+        @compiled = false
+        @commit = false
+        @check = false
+        @profile = nil
+      end
+
       def options(o)
         o.on("--runs N", Integer, "builds of each program, after one warmup (default: #{RUNS})") { |v| @runs = v }
         o.on("--write", "write the table to tmp/bench/compile.txt") { @write = true }
@@ -145,8 +154,7 @@ module Zr
       end
 
       def timed(label)
-        result = nil
-        took = Benchmark.realtime { result = yield }
+        result, took = Dev.timed { yield }
         puts format("%-40s %8.2fs", label, took)
         result
       end
@@ -237,21 +245,19 @@ module Zr
       def write!(rows, runs, path)
         FileUtils.mkdir_p(File.dirname(path))
         File.open(path, "w") do |f|
-          f.puts "# zr compile cost, the median of #{runs} run(s) at #{revision}, runtime warm, #{Time.now.utc.strftime("%Y-%m-%d %H:%M UTC")}"
+          f.puts "# zr compile cost, the median of #{runs} run(s) at #{Dev.revision}, runtime warm, #{Time.now.utc.strftime("%Y-%m-%d %H:%M UTC")}"
           f.puts "# host: #{host}"
           table(rows, f)
         end
         warn "wrote #{Dev.rel(path)}"
       end
 
-      def revision = IO.popen(["git", "-C", ROOT, "rev-parse", "--short", "HEAD"], &:read).strip
-
       def host
         require "etc"
         "#{RbConfig::CONFIG["host_cpu"]}-#{RbConfig::CONFIG["host_os"]} cpus=#{Etc.nprocessors} jobs=#{ENV.fetch("ZR_JOBS", "-")}"
       end
 
-      def baseline_path = File.join(BASELINES, "#{Time.now.utc.strftime("%Y%m%d-%H%M")}-#{revision}.txt")
+      def baseline_path = File.join(BASELINES, "#{Time.now.utc.strftime("%Y%m%d-%H%M")}-#{Dev.revision}.txt")
 
       def newest_baseline
         Dir[File.join(BASELINES, "*.txt")].max || fail!("no baseline under #{Dev.rel(BASELINES)}; run zr-dev compile --zr --commit")

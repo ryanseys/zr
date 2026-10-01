@@ -16,6 +16,11 @@ module Zr
         COUNT = 1000
         SHOWN = 25
 
+        def defaults
+          @refresh = false
+          @count = nil
+        end
+
         def options(o)
           o.on("--refresh", "write gems/top.tsv again from packages.ecosyste.ms") { @refresh = true }
           o.on("--count N", Integer, "gems to write (default #{COUNT}) or to show (default #{SHOWN})") { |v| @count = v }

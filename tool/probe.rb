@@ -43,7 +43,7 @@ module Zr
         warm!(files)
 
         differ = 0
-        results = in_parallel(files, @jobs || JOBS) { |file| [file, ruby(file), zr(file)] }
+        results = Dev.parallel_map(files, jobs: @jobs || JOBS) { |file| [file, ruby(file), zr(file)] }
         results.each do |file, want_answer, got_answer|
           want = want_answer.parts
           got = got_answer.parts
@@ -131,30 +131,6 @@ module Zr
 
       # Runs `command` in `dir` with an empty stdin (`Diff.run`).
       def answer(command, dir, env = {}) = Zr::Diff.run(command, dir: dir, env: env)
-
-      # Maps `items` with `jobs` threads. Each item runs its own processes,
-      # so threads are enough.
-      def in_parallel(items, jobs)
-        queue = Queue.new
-        items.each_with_index { |item, i| queue << [item, i] }
-        out = Array.new(items.size)
-        Array.new([jobs, items.size].min) do
-          Thread.new do
-            while (job = next_job(queue))
-              item, i = job
-              out[i] = yield(item)
-            end
-          end
-        end.each(&:join)
-        out
-      end
-
-      # The next job, or nil when the queue is empty.
-      def next_job(queue)
-        queue.pop(true)
-      rescue ThreadError
-        nil
-      end
     end
   end
 end

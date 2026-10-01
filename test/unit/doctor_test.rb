@@ -56,13 +56,11 @@ class DoctorTest < Minitest::Test
   def test_a_failed_check_makes_the_run_fail
     failing = Zr::Doctor::Check.new(:fail, "ruby", "4.0.8")
     out = StringIO.new
-    was = Zr::Doctor.method(:checks)
-    Zr::Doctor.define_singleton_method(:checks) { [failing] }
 
-    refute Zr::Doctor.run(out)
+    ran = stub_method(Zr::Doctor, :checks, [failing]) { Zr::Doctor.run(out) }
+
+    refute ran
     assert_equal "fail  ruby               4.0.8\n", out.string
-  ensure
-    Zr::Doctor.define_singleton_method(:checks, was)
   end
 
   def zr(*, env: {})

@@ -32,6 +32,12 @@ module Zr
       class Base < Command
         host_ruby!
 
+        def defaults
+          @corpus = nil
+          @offline = false
+          @zr = nil
+        end
+
         def options(o)
           o.on("--corpus DIR", "find each gem first in DIR/<name> (default: $ZR_GEM_CORPUS)") { |v| @corpus = v }
           o.on("--offline", "fetch nothing: use the corpus and the gems in tmp/gems") { @offline = true }

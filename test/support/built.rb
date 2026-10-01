@@ -5,6 +5,7 @@ require "tmpdir"
 require_relative "../../lib/zr/runtime"
 require_relative "../../lib/zr/native/build"
 require_relative "../../lib/zr/native/parallel"
+require_relative "harness/selected_target"
 require_relative "harness/wasmtime"
 require_relative "needs"
 
@@ -36,7 +37,7 @@ module Zr
       # process does not build other native targets. `E2E.build` builds
       # them with a separate `zr`, which can need a different toolchain.
       def targets(wasm: false)
-        wasm ||= ENV["ZR_TARGET"] == Target::WASM32_WASI.triple
+        wasm ||= Harness.selected_target == Target::WASM32_WASI
         [Target.default, *(Target::WASM32_WASI if wasm && Harness::Wasmtime.installed?)].uniq
       end
 

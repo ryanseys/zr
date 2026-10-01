@@ -13,6 +13,12 @@ module Zr
         summary "One gem: build a program that requires it, and compare it with ruby"
         usage "GEM [--keep] [--save] [--corpus DIR] [--offline]"
 
+        def defaults
+          super
+          @keep = false
+          @save = false
+        end
+
         def options(o)
           super
           o.on("--keep", "keep the work directory (tmp/gems/work)") { @keep = true }

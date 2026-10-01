@@ -34,12 +34,6 @@ class AnnounceTest < Minitest::Test
   private
 
   def installed
-    paths = Zr::Paths.singleton_class
-    paths.alias_method(:real_checkout?, :checkout?)
-    paths.define_method(:checkout?) { |*| false }
-    yield
-  ensure
-    paths.alias_method(:checkout?, :real_checkout?)
-    paths.remove_method(:real_checkout?)
+    stub_method(Zr::Paths, :checkout?, false) { yield }
   end
 end

@@ -60,6 +60,13 @@ module Zr
       WHOLE = "the whole run"
       OTHER = "not in a phase"
 
+      def defaults
+        @kinds = nil
+        @programs = nil
+        @runs = nil
+        @commit = false
+      end
+
       def options(o)
         o.on("--kind KINDS", Array, "kinds of edit (#{EDITS.keys.join(", ")})") { |v| @kinds = v }
         o.on("--program NAMES", Array, "programs (#{PROGRAMS.keys.join(", ")})") { |v| @programs = v }
@@ -111,9 +118,7 @@ module Zr
       def timed(main)
         env = { "ZR_TIMING" => "1", "ZR_CACHE" => CACHE, "RUBY_GC_MALLOC_LIMIT" => nil,
                 "RUBY_GC_OLDMALLOC_LIMIT" => nil }
-        began = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-        _, err, status = Open3.capture3(env, Dev.ruby, File.join(TREE, "exe/zr"), "run", main, chdir: TREE)
-        took = Process.clock_gettime(Process::CLOCK_MONOTONIC) - began
+        (_, err, status), took = Dev.timed { Open3.capture3(env, Dev.ruby, File.join(TREE, "exe/zr"), "run", main, chdir: TREE) }
         fail!("#{main} did not run\n#{err}") unless status.success?
 
         phases = err.lines.filter_map { |line| LINE.match(line.strip)&.captures }
@@ -132,9 +137,7 @@ module Zr
       # files that git does not ignore. It copies only the files whose size
       # or time changed, and deletes the files that the checkout no longer has.
       def sync!
-        files, status = Open3.capture2("git", "ls-files", "-z", "--cached", "--others", "--exclude-standard", chdir: ROOT)
-        fail!("git ls-files failed") unless status.success?
-        wanted = files.split("\0").select { |f| File.file?(File.join(ROOT, f)) }
+        wanted = Dev.tree_files(dir: ROOT) or fail!("git ls-files failed")
         wanted.each do |file|
           from = File.join(ROOT, file)
           to = File.join(TREE, file)
@@ -167,10 +170,10 @@ module Zr
 
       def write!(table, runs)
         FileUtils.mkdir_p(RESULTS)
-        rev, = Open3.capture2("git", "rev-parse", "--short=8", "HEAD", chdir: ROOT)
+        rev = Dev.revision(dir: ROOT, length: 8)
         stamp = Time.now.utc.strftime("%Y%m%d-%H%M")
-        path = File.join(RESULTS, "#{stamp}-#{rev.strip}.txt")
-        File.write(path, "zr edit loop, the median of #{runs} run(s) at #{rev.strip}, #{Time.now.utc.strftime("%Y-%m-%d %H:%M")} UTC\n" \
+        path = File.join(RESULTS, "#{stamp}-#{rev}.txt")
+        File.write(path, "zr edit loop, the median of #{runs} run(s) at #{rev},#{Time.now.utc.strftime("%Y-%m-%d %H:%M")} UTC\n" \
                          "(seconds; each column is an edit kind and a program)\n\n#{table}\n")
         puts "wrote #{Dev.rel(path)}"
       end

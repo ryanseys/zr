@@ -88,9 +88,6 @@ module Zr
     end
 
     # The path of `command` on PATH, or nil.
-    def which(command)
-      ENV.fetch("PATH", "").split(File::PATH_SEPARATOR).map { |dir| File.join(dir, command) }
-         .find { |path| File.file?(path) && File.executable?(path) }
-    end
+    def which(command) = Target.which(command)
   end
 end

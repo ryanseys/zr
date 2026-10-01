@@ -117,13 +117,10 @@ class PathsTest < Minitest::Test
     assert_equal "/cache/zr", Zr::Paths.user_cache
     ENV.delete("XDG_CACHE_HOME")
     # Dir.home raises when HOME is unset and the user has no passwd entry.
-    Dir.singleton_class.alias_method(:real_home, :home)
-    Dir.singleton_class.define_method(:home) { |*| raise ArgumentError, "couldn't find login name" }
-    error = assert_raises(Zr::Paths::Missing) { Zr::Paths.user_cache }
+    no_home = ->(*) { raise ArgumentError, "couldn't find login name" }
+    error = stub_method(Dir, :home, no_home) { assert_raises(Zr::Paths::Missing) { Zr::Paths.user_cache } }
     assert_match(/\AHOME is not set, .* set ZR_CACHE/, error.message)
   ensure
-    Dir.singleton_class.alias_method(:home, :real_home)
-    Dir.singleton_class.remove_method(:real_home)
     ENV.update(saved)
     ENV.delete("XDG_CACHE_HOME") unless saved.key?("XDG_CACHE_HOME")
   end

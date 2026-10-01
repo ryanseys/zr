@@ -286,7 +286,7 @@ module Zr
         # The files below `dirs`, as paths from the tree's root.
         def files(dirs)
           if @git
-            IO.popen(["git", "-C", @dir, "ls-tree", "-r", "--name-only", @revision, *dirs], &:read).split("\n").sort
+            Dev.git("ls-tree", "-r", "--name-only", @revision, *dirs, dir: @dir, err: $stderr).to_s.split("\n").sort
           else
             dirs.flat_map { |d| Dir.glob("#{d}/**/*", File::FNM_DOTMATCH, base: @dir) }.select { |r| File.file?(File.join(@dir, r)) }.sort
           end

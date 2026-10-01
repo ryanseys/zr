@@ -21,6 +21,8 @@ module Zr
         host_ruby!
         usage "[--check]"
 
+        def defaults = @check = false
+
         def options(o) = o.on("--check", "write nothing; fail when a table is out of date") { @check = true }
 
         def os = RUBY_PLATFORM[/darwin|linux|wasi/] || fail!("no OS layer for #{RUBY_PLATFORM}")

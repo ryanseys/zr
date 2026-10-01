@@ -44,7 +44,17 @@ module Zr
 
       def initialize(name)
         @name = name
+        defaults
       end
+
+      # Gives each variable that an option sets its starting value (nil,
+      # or false for a flag), so that every command has all its variables
+      # from the start. A subclass with options defines it, and calls
+      # `super` when its parent has options too.
+      def defaults = nil
+
+      # How this command's name reads in a message.
+      def label = name.empty? ? "zr-dev" : "zr-dev #{name}"
 
       # Parses `argv` and runs the tool. Returns the exit status. In a zr
       # binary, a `host_ruby!` tool runs under ruby instead.
@@ -67,39 +77,48 @@ module Zr
       def run(_argv) = raise(NotImplementedError, "#{self.class} has no run")
 
       # Stops the tool with a message and status 1.
-      def fail!(message)
-        warn "zr-dev #{name}: #{message}"
-        exit 1
-      end
+      def fail!(message) = Dev.fail!("#{label}: #{message}")
     end
 
     # A command whose first word names one of its own commands, as
     # `zr-dev gen unicode` and `zr-dev cache prune` do. `commands` maps
     # each word to its summary and a lambda that loads its class.
+    #
+    # A group can also have a `fallback`: a lambda that loads the command
+    # for every other first word, and for none. Then the group has no help
+    # of its own: `--help` shows the help of the fallback.
     class Group < Command
       class << self
         def commands(table = nil)
           table ? @commands = table : @commands
         end
+
+        def fallback(loader = nil)
+          loader ? @fallback = loader : @fallback
+        end
       end
 
       def start(argv)
         word = argv.first
-        return help if word.nil? || %w[help -h --help].include?(word)
+        fallback = self.class.fallback
+        return help if fallback.nil? && (word.nil? || %w[help -h --help].include?(word))
 
-        entry = self.class.commands[word] or return unknown(word)
-        entry.last.call.new("#{name} #{word}").start(argv.drop(1))
+        entry = self.class.commands[word]
+        return entry.last.call.new([name, word].reject(&:empty?).join(" ")).start(argv.drop(1)) if entry
+        return fallback.call.new(name).start(argv) if fallback
+
+        unknown(word)
       end
 
       def help
-        puts "usage: zr-dev #{name} <command> [options]", self.class.summary, ""
+        puts "usage: #{label} <command> [options]", *self.class.summary, ""
         width = self.class.commands.keys.map(&:size).max
         self.class.commands.each { |word, (summary, _)| puts format("  %-#{width}s  %s", word, summary) }
         0
       end
 
       def unknown(word)
-        warn "zr-dev #{name}: no command #{word}; `zr-dev #{name} help` lists them"
+        warn "#{label}: no command #{word}; `#{label} help` lists them"
         2
       end
     end

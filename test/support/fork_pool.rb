@@ -242,7 +242,7 @@ module Zr
         def self.resident = resident_of(Process.pid)
 
         def self.resident_of(pid)
-          ::Zr::Native::Resident.of(pid) || `ps -o rss= -p #{pid}`.to_i / 1024
+          ::Zr::Native::Resident.of(pid) || IO.popen(["ps", "-o", "rss=", "-p", pid.to_s], &:read).to_i / 1024
         end
 
         def initialize(pid, jobs, back)

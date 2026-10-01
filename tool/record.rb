@@ -28,6 +28,8 @@ module Zr
       usage "[--again] <benchmark>..."
       host_ruby!
 
+      def defaults = @again = false
+
       def options(o) = o.on("--again", "replace an existing recording") { @again = true }
 
       def run(argv)

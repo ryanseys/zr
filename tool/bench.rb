@@ -32,6 +32,12 @@ module Zr
       MOVED = 0.10
       SHORT = 0.1
 
+      def defaults
+        @runs = nil
+        @triple = nil
+        @check = false
+      end
+
       def options(o)
         o.on("--runs N", Integer, "runs of each program") { |v| @runs = v }
         o.on("--target TRIPLE", "the target to build for") { |v| @triple = v }

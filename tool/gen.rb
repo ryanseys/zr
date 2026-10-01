@@ -61,6 +61,8 @@ module Zr
         summary "Every generator, in order"
         usage "[--check]"
 
+        def defaults = @check = false
+
         def options(o) = o.on("--check", "write nothing; fail when a file is out of date") { @check = true }
 
         def run(_argv)
@@ -83,9 +85,11 @@ module Zr
 
       usage "[--check]"
 
+      def defaults = @check = false
+
       def options(o) = o.on("--check", "write nothing; fail when the file is out of date") { @check = true }
 
-      def check? = @check || false
+      def check? = @check
 
       def run(_argv)
         Dev.pinned!(name) if self.class.host_ruby?

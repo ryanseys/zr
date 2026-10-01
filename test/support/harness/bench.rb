@@ -8,6 +8,7 @@ require "tmpdir"
 require_relative "answer"
 require_relative "child"
 require_relative "runner"
+require_relative "../../../tool/lib/zr/dev/host"
 
 module Zr
   module Harness
@@ -227,10 +228,9 @@ module Zr
       # The short hash of HEAD, with `-dirty` when the tree has changes
       # under `lib`, `runtime` or `benchmark`. `unknown` outside git.
       def revision
-        rev = `git -C #{@root} rev-parse --short HEAD 2>/dev/null`.strip
-        return "unknown" if rev.empty?
+        rev = Dev.revision(dir: @root) or return "unknown"
 
-        changed = `git -C #{@root} status --porcelain -- lib runtime benchmark 2>/dev/null`.lines.reject { |l| l.include?(RESULTS) }
+        changed = Dev.git("status", "--porcelain", "--", "lib", "runtime", "benchmark", dir: @root).to_s.lines.reject { |l| l.include?(RESULTS) }
         changed.empty? ? rev : "#{rev}-dirty"
       end
 

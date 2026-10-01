@@ -84,6 +84,8 @@ module Zr
         summary "Remove the files this checkout does not use"
         usage "[--days N]"
 
+        def defaults = @days = nil
+
         def options(o)
           o.on("--days N", Float, "also keep files touched in the last N days (default: ZR_CACHE_DAYS or 1)") { |v| @days = v }
         end

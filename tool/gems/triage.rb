@@ -20,6 +20,8 @@ module Zr
         # The gems that a line of the summary names.
         SHOWN = 4
 
+        def defaults = @file = nil
+
         def options(o) = o.on("--file TSV", "read TSV, not gems/compat.tsv") { |v| @file = v }
 
         def run(argv)

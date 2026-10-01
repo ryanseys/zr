@@ -46,6 +46,12 @@ module Zr
 
       OUT = Dev.path("tmp/rubyspec")
 
+      def defaults
+        @filter = nil
+        @jobs = nil
+        @keep = false
+      end
+
       def options(o)
         o.on("-f PATTERN", "only the spec files whose path matches") { |v| @filter = Regexp.new(v) }
         o.on("-j JOBS", Integer, "files to run at once (default 4)") { |v| @jobs = v }
@@ -71,8 +77,8 @@ module Zr
       # The spec directory of the CRuby checkout at RUBY_REVISION.
       def checkout!
         src = Dev.ruby_src
-        head, = Open3.capture2("git", "-C", src, "rev-parse", "HEAD")
-        fail!("#{src} is at #{head.strip[0, 10]}, not ruby #{RUBY} (#{RUBY_REVISION[0, 10]})") unless head.strip == RUBY_REVISION
+        head = Dev.git("rev-parse", "HEAD", dir: src, err: $stderr).to_s.strip
+        fail!("#{src} is at #{head[0, 10]}, not ruby #{RUBY} (#{RUBY_REVISION[0, 10]})") unless head == RUBY_REVISION
         File.join(src, "spec")
       end
 
@@ -168,21 +174,8 @@ module Zr
 
         # Runs each file under ruby and in the binary, `@jobs` at once.
         def compare(program, binary)
-          queue = Queue.new
-          @files.each { |f| queue << f }
-          @jobs.times { queue << nil }
-          results = {}
-          lock = Mutex.new
-          workers = Array.new(@jobs) do
-            Thread.new do
-              while (file = queue.pop)
-                pair = [run_one([Dev.ruby, program, file]), run_one([binary, file])]
-                lock.synchronize { results[file] = pair }
-              end
-            end
-          end
-          workers.each(&:join)
-          results
+          pairs = Dev.parallel_map(@files, jobs: @jobs) { |file| [run_one([Dev.ruby, program, file]), run_one([binary, file])] }
+          @files.zip(pairs).to_h
         end
 
         # Runs one spec file in a temporary directory, and reads the

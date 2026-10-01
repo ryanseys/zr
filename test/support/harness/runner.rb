@@ -18,15 +18,6 @@ module Zr
 
       attr_reader :target
 
-      # The target to build for: the host's target, or the target that
-      # `ZR_TARGET` gives, as in the cross-target CI jobs. An unknown
-      # triple raises an error here, not later.
-      def self.named(triple)
-        return Target.default if triple.nil? || triple.empty?
-
-        Target.fetch(triple) or raise ArgumentError, "no target #{triple}; `zr targets` names them"
-      end
-
       # `compiler` is the wasmtime compiler for a module: the tests'
       # default, or Cranelift when run speed is the result (`zr-dev bench`).
       def initialize(root, target = Target.default, compiler: Wasmtime.compiler)

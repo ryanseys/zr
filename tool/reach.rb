@@ -49,6 +49,12 @@ module Zr
       summary "How much of the runtime each program reaches (the A4 spike)"
       usage "[--why NAME] [--rates] [program.rb...]"
 
+      def defaults
+        @why = nil
+        @rates = false
+        @tsv = nil
+      end
+
       def options(o)
         o.on("--why NAME", "the path from a root to a def (Owner#name) or function") { |v| @why = v }
         o.on("--rates", "measure lowering, assembly and the cost of relocatable ids") { @rates = true }

@@ -35,25 +35,24 @@ module Zr
       "serve" => ["Keep a warm compiler that zr run and zr build of this checkout use", -> { require_relative "serve"; Serve }]
     }.freeze
 
-    def self.start(argv)
-      hand_to_ruby!(argv) if Zr::Host.compiled? && !tools.current?
-      word = argv.first
-      return help if word.nil? || %w[help -h --help].include?(word)
+    # `zr-dev` itself: the group of all the commands, with no name of its
+    # own. A zr binary of the tools that is out of date hands the work to
+    # ruby first.
+    class Main < Group
+      commands COMMANDS
 
-      entry = COMMANDS[word]
-      unless entry
-        warn "zr-dev: no command #{word}; `zr-dev help` lists them"
-        return 2
+      def start(argv)
+        Dev.hand_to_ruby!(argv) if Zr::Host.compiled? && !Dev.tools.current?
+        super
       end
-      entry.last.call.new(word).start(argv.drop(1))
+
+      def help
+        super
+        puts "", "`zr-dev <command> --help` gives the options of a command."
+        0
+      end
     end
 
-    def self.help
-      puts "usage: zr-dev <command> [options]", ""
-      width = COMMANDS.keys.map(&:size).max
-      COMMANDS.each { |word, (summary, _)| puts format("  %-#{width}s  %s", word, summary) }
-      puts "", "`zr-dev <command> --help` gives the options of a command."
-      0
-    end
+    def self.start(argv) = Main.new("").start(argv)
   end
 end

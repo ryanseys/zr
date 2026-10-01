@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "../gen"
+require_relative "../../lib/zr/bytes"
 
 module Zr
   module Dev
@@ -226,30 +227,17 @@ module Zr
           packed = +"".b
           (first..last).each do |byte|
             case (what = found[byte])
-            when :none then packed << varint(0)
-            when :undef then packed << varint(1)
-            when :more then packed << varint(2)
+            when :none then packed << Bytes.uleb(0)
+            when :undef then packed << Bytes.uleb(1)
+            when :more then packed << Bytes.uleb(2)
             when Integer
-              packed << varint(4 + zigzag(what - point))
+              packed << Bytes.uleb(4 + Bytes.zigzag(what - point))
               point = what
-            else packed << varint(3)
+            else packed << Bytes.uleb(3)
             end
           end
           [first, last - first + 1, packed]
         end
-
-        def varint(value)
-          out = +"".b
-          loop do
-            byte = value & 0x7F
-            value >>= 7
-            out << (value.zero? ? byte : byte | 0x80)
-            break if value.zero?
-          end
-          out
-        end
-
-        def zigzag(value) = value >= 0 ? value * 2 : (-value * 2) - 1
 
         # Many rows are the same in different encodings: EUC-JP and eucJP-ms
         # differ in only a few rows, and Big5 and CP950 in fewer. Thus the pool
@@ -442,7 +430,7 @@ module Zr
             blob = +"".b
             point = 0
             extra.sort.each do |code, bytes|
-              blob << varint(code - point) << varint(bytes.bytesize) << bytes
+              blob << Bytes.uleb(code - point) << Bytes.uleb(bytes.bytesize) << bytes
               point = code
             end
             core << "    #{encoding.name.inspect} => #{[blob].pack("m0").inspect},\n"

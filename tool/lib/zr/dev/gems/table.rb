@@ -68,7 +68,7 @@ module Zr
 
         # The commit that the tree is at, for a row.
         def self.commit
-          IO.popen(["git", "-C", Dev::ROOT, "rev-parse", "--short=12", "HEAD"], err: File::NULL, &:read).strip
+          Dev.revision(length: 12).to_s
         end
       end
     end

@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "../gen"
+require_relative "../../lib/zr/bytes"
 require "base64"
 require "strscan"
 
@@ -62,6 +63,11 @@ module Zr
           (?<dims>(?:\[[^\]]*\]\s*)+)
           =\s*(?=\{)
         /x
+
+        def defaults
+          super
+          @source = nil
+        end
 
         def options(o)
           super
@@ -188,18 +194,6 @@ module Zr
           map
         end
 
-        def varint(value)
-          out = +"".b
-          loop do
-            byte = value & 0x7F
-            value >>= 7
-            out << (value.zero? ? byte : byte | 0x80)
-            return out if value.zero?
-          end
-        end
-
-        def zigzag(value) = value >= 0 ? value * 2 : (-value * 2) - 1
-
         def pack(values)
           out = +"".b
           previous = 0
@@ -207,10 +201,10 @@ module Zr
           while index < values.size
             if values[index].zero?
               run = values[index..].take_while(&:zero?).size
-              out << varint(0) << varint(run)
+              out << Bytes.uleb(0) << Bytes.uleb(run)
               index += run
             else
-              out << varint(zigzag(values[index] - previous) + 1)
+              out << Bytes.uleb(Bytes.zigzag(values[index] - previous) + 1)
               previous = values[index]
               index += 1
             end

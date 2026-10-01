@@ -3,6 +3,7 @@
 require "fileutils"
 require "prism"
 require_relative "child"
+require_relative "../../../tool/lib/zr/dev/parallel"
 
 module Zr
   module Harness
@@ -43,8 +44,19 @@ module Zr
         return unless File.directory?(CHECKOUT)
 
         FileUtils.mkdir_p(File.dirname(UPSTREAM))
-        system("git -C #{CHECKOUT} archive --prefix=prism-1.9.0/ v1.9.0 #{missing.join(" ")} | tar -x -C #{File.dirname(UPSTREAM)}", exception: true)
+        extract(missing)
         tests
+      end
+
+      # Pipes `git archive` of the tag, for `parts`, into `tar`.
+      def extract(parts)
+        reader, writer = IO.pipe
+        archive = Process.spawn("git", "-C", CHECKOUT, "archive", "--prefix=prism-1.9.0/", "v1.9.0", *parts, out: writer)
+        unpack = Process.spawn("tar", "-x", "-C", File.dirname(UPSTREAM), in: reader)
+        reader.close
+        writer.close
+        failed = [archive, unpack].map { |pid| Process.wait2(pid).last }.reject(&:success?)
+        raise "extracting prism's v1.9.0 tests from #{CHECKOUT} failed" unless failed.empty?
       end
 
       # The directory whose prism/prism.rb is used in place of the C extension.
@@ -66,19 +78,7 @@ module Zr
         raise "the Ruby backend does not load from #{RUBY_BACKEND}" if backend == :ruby && !system(RbConfig.ruby, "-I", RUBY_BACKEND, "-rprism", "-e", check)
         files = Dir.glob("prism/**/*_test.rb", base: base).sort
         files = files.select { |file| File.fnmatch?(only, file, File::FNM_PATHNAME | File::FNM_EXTGLOB) } if only
-        queue = Queue.new
-        files.each { |file| queue << file }
-        queue.close
-        runs = Array.new(jobs) do
-          Thread.new do
-            done = []
-            while (file = queue.pop)
-              done << upstream_test(base, file, backend, seconds, megabytes)
-            end
-            done
-          end
-        end.flat_map(&:value)
-        runs.sort_by(&:file)
+        Dev.parallel_map(files, jobs: jobs) { |file| upstream_test(base, file, backend, seconds, megabytes) }
       end
 
       def upstream_test(base, file, backend, seconds, megabytes)

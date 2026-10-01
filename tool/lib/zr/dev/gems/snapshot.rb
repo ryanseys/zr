@@ -16,11 +16,11 @@ module Zr
         # The copy of `revision` (a commit, a branch or HEAD), made when
         # it is not there yet. Only committed work is in the copy.
         def self.make(revision = "HEAD")
-          commit = git(Dev::ROOT, "rev-parse", "--short=12", "#{revision}^{commit}") or raise Failure.new("snapshot", "no commit #{revision}")
+          commit = Dev.git("rev-parse", "--short=12", "#{revision}^{commit}")&.strip or raise Failure.new("snapshot", "no commit #{revision}")
           root = File.join(DIR, commit)
           unless File.exist?(File.join(root, "exe/zr"))
             FileUtils.mkdir_p(DIR)
-            git(Dev::ROOT, "worktree", "add", "--detach", root, commit) or raise Failure.new("snapshot", "git worktree add #{root} failed")
+            Dev.git("worktree", "add", "--detach", root, commit) or raise Failure.new("snapshot", "git worktree add #{root} failed")
           end
           new(root)
         end
@@ -33,7 +33,7 @@ module Zr
 
         def zr = File.join(@root, "exe/zr")
 
-        def commit = Snapshot.git(@root, "rev-parse", "--short=12", "HEAD").to_s
+        def commit = Dev.revision(dir: @root, length: 12).to_s
 
         # Builds the copy's runtime, as `rake build` does. A build then
         # takes seconds, not minutes. Returns true when it built.
@@ -41,12 +41,6 @@ module Zr
           script = "$LOAD_PATH.unshift(#{File.join(@root, "lib").dump}, #{File.join(@root, "test").dump}); " \
                    "require \"support/built\"; Zr::Test::Built.build(Zr::Test::Built.targets)"
           system({ "BUNDLE_GEMFILE" => nil, "RUBYOPT" => nil }, Dev.ruby, "-e", script, chdir: @root)
-        end
-
-        # The output of a git command in `dir`, or nil when it fails.
-        def self.git(dir, *args)
-          out = IO.popen(["git", "-C", dir, *args], err: File::NULL, &:read).strip
-          $?.success? ? out : nil
         end
       end
     end

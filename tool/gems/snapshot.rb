@@ -18,6 +18,12 @@ module Zr
         summary "A copy of zr at a commit, for a sweep that runs while zr changes"
         usage "[REVISION] [--list] [--remove DIR]"
 
+        def defaults
+          super
+          @list = false
+          @remove = nil
+        end
+
         def options(o)
           o.on("--list", "print the copies") { @list = true }
           o.on("--remove DIR", "remove the copy at DIR") { |v| @remove = v }
@@ -47,7 +53,7 @@ module Zr
         def remove(dir)
           root = File.expand_path(dir)
           fail!("#{dir} is not a copy in #{Dev.rel(Gems::Snapshot::DIR)}") unless File.dirname(root) == Gems::Snapshot::DIR
-          Gems::Snapshot.git(Dev::ROOT, "worktree", "remove", "--force", root) or fail!("git worktree remove #{root} failed")
+          Dev.git("worktree", "remove", "--force", root) or fail!("git worktree remove #{root} failed")
           puts "removed #{Dev.rel(root)}"
         end
       end

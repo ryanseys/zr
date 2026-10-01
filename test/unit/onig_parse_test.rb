@@ -44,22 +44,18 @@ class OnigParseTest < Minitest::Test
   def compile_in_ruby(pattern, options, verbose)
     out = []
     was = $VERBOSE
+    collect = ->(message, **) { out << message.sub(/\A[^:]*:\d+: warning: /, "").chomp }
     $VERBOSE = nil
-    Warning.singleton_class.class_eval do
-      alias_method :warn_before_parse_test, :warn
-      define_method(:warn) { |message, **| out << message.sub(/\A[^:]*:\d+: warning: /, "").chomp }
+    stub_method(Warning, :warn, collect) do
+      $VERBOSE = verbose
+      re = Regexp.new(pattern, options)
+      [:ok, re.names, re.source, out]
+    ensure
+      $VERBOSE = nil
     end
-    $VERBOSE = verbose
-    re = Regexp.new(pattern, options)
-    [:ok, re.names, re.source, out]
   rescue RegexpError, ArgumentError => e
     [:error, e.class, e.message.b]
   ensure
-    $VERBOSE = nil
-    Warning.singleton_class.class_eval do
-      alias_method :warn, :warn_before_parse_test
-      remove_method :warn_before_parse_test
-    end
     $VERBOSE = was
   end
 

@@ -149,13 +149,16 @@ module Zr
       Target.host_triple.start_with?("#{arch}-") && Target.host_triple.include?("-linux")
     end
 
-    def self.tool?(name)
-      return File.file?(name) && File.executable?(name) if name.include?("/")
+    # Whether `name` is a tool that this host can run.
+    def self.tool?(name) = !which(name).nil?
 
-      ENV.fetch("PATH", "").split(File::PATH_SEPARATOR).any? do |dir|
-        path = File.join(dir, name)
-        File.file?(path) && File.executable?(path)
-      end
+    # The path of the executable `name`, or nil. A name with a `/` is a
+    # path; any other name is looked for on PATH.
+    def self.which(name)
+      return (name if File.file?(name) && File.executable?(name)) if name.include?("/")
+
+      ENV.fetch("PATH", "").split(File::PATH_SEPARATOR).map { |dir| File.join(dir, name) }
+         .find { |path| File.file?(path) && File.executable?(path) }
     end
 
     # How to get a C compiler on this host.

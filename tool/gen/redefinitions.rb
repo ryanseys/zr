@@ -79,20 +79,7 @@ module Zr
 
         # Each child runs by itself; six at a time keep the run short
         # without crowding the machine.
-        def rows_of(list)
-          queue = Queue.new
-          list.each { |item| queue << item }
-          queue.close
-          Array.new(6) do
-            Thread.new do
-              found = []
-              while (item = queue.pop)
-                found << row(*item)
-              end
-              found
-            end
-          end.flat_map(&:value)
-        end
+        def rows_of(list) = Dev.parallel_map(list, jobs: 6) { |item| row(*item) }
 
         # The warning that redefining one method writes, in a child that
         # keeps the damage to itself.

@@ -23,6 +23,11 @@ module Zr
       usage "[--all] [--check] [path...]"
       host_ruby!
 
+      def defaults
+        @all = false
+        @check = false
+      end
+
       def options(o)
         o.on("--all", "write every test, also one whose files are newer than its program") { @all = true }
         o.on("--check", "write nothing; list each test whose files differ from ruby") { @check = true }

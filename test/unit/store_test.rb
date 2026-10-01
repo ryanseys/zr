@@ -9,13 +9,11 @@ class StoreTest < Minitest::Test
 
   def setup
     @dir = Dir.mktmpdir("zr-store-")
-    @was = Zr::Paths.method(:cache)
-    dir = @dir
-    Zr::Paths.define_singleton_method(:cache) { dir }
+    Zr::Session.current.set(:cache, @dir)
   end
 
   def teardown
-    Zr::Paths.define_singleton_method(:cache, @was)
+    Zr::Session.current.forget(:cache)
     FileUtils.rm_rf(@dir)
   end
 

@@ -8,13 +8,20 @@ module Zr
     # The ruby that runs a child (`Config#host_ruby`).
     def self.ruby = Config.current.host_ruby
 
+    # Stops the tool with `message` and status 1. A command calls
+    # `Command#fail!`, which adds its name and comes here.
+    def self.fail!(message)
+      warn message
+      exit 1
+    end
+
     # Stops a tool that reads a table from the running ruby, unless that
     # ruby is CRuby at the version that `.ruby-version` pins. A table
     # from another ruby, or from zr's copy of ruby's answers, is not
     # correct for zr.
     def self.pinned!(tool)
-      abort("zr-dev #{tool}: runs under ruby #{RUBY}, not in a zr binary") if Host.compiled?
-      abort("zr-dev #{tool}: ruby #{RUBY} writes this table; this is ruby #{RUBY_VERSION}") unless RUBY_VERSION == RUBY
+      fail!("zr-dev #{tool}: runs under ruby #{RUBY}, not in a zr binary") if Host.compiled?
+      fail!("zr-dev #{tool}: ruby #{RUBY} writes this table; this is ruby #{RUBY_VERSION}") unless RUBY_VERSION == RUBY
     end
 
     # Sets the collector limits and YJIT for a compile (`Zr::CLI.tune!`).
@@ -27,7 +34,35 @@ module Zr
 
     # Runs `argv` and stops the tool when it fails.
     def self.run!(*argv, **)
-      system(*argv, **) or abort("zr-dev: #{argv.join(" ")} failed")
+      system(*argv, **) or fail!("zr-dev: #{argv.join(" ")} failed")
+    end
+
+    # The output of `git` with `args` in `dir`, or nil when it fails.
+    # `args` are an argument list, never a shell string.
+    def self.git(*args, dir: ROOT, err: File::NULL)
+      out = IO.popen(["git", "-C", dir, *args], err: err, &:read)
+      out if $?.success?
+    end
+
+    # The short hash of HEAD in `dir` (`length` digits, or git's own
+    # length), or nil outside a checkout.
+    def self.revision(dir: ROOT, length: nil)
+      git("rev-parse", length ? "--short=#{length}" : "--short", "HEAD", dir: dir)&.strip
+    end
+
+    # The files of the checkout in `dir`, as paths below it: the tracked
+    # and the untracked files that git does not ignore. Nil when git
+    # fails.
+    def self.tree_files(dir: ROOT)
+      listed = git("ls-files", "-z", "--cached", "--others", "--exclude-standard", dir: dir) or return nil
+      listed.split("\0").select { |file| File.file?(File.join(dir, file)) }
+    end
+
+    # Runs the block. Returns its value and the seconds it took.
+    def self.timed
+      began = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+      result = yield
+      [result, Process.clock_gettime(Process::CLOCK_MONOTONIC) - began]
     end
   end
 end

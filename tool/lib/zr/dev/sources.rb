@@ -30,7 +30,7 @@ module Zr
 
     # The files below `dir` of CRuby at RUBY_REVISION.
     def self.cruby_files(dir)
-      IO.popen(["git", "-C", ruby_src, "ls-tree", "--name-only", "#{RUBY_REVISION}:#{dir}"], &:read).split("\n")
+      git("ls-tree", "--name-only", "#{RUBY_REVISION}:#{dir}", dir: ruby_src, err: $stderr).to_s.split("\n")
     end
 
     # One prism source file at PRISM: from a git checkout, or from a
@@ -42,7 +42,7 @@ module Zr
       tree = File.join(prism_src, path)
       return File.read(tree) if File.file?(tree)
 
-      abort("zr-dev: no #{path} in #{prism_src}; PRISM_SRC names a prism checkout or a #{PRISM} tree")
+      fail!("zr-dev: no #{path} in #{prism_src}; PRISM_SRC names a prism checkout or a #{PRISM} tree")
     end
 
     # Whether a prism source is at hand.
@@ -51,12 +51,12 @@ module Zr
     def self.git_show(checkout, revision, path, variable)
       unless File.directory?(checkout)
         url = variable == "RUBY_SRC" ? "https://github.com/ruby/ruby" : "https://github.com/ruby/prism"
-        abort("zr-dev: no checkout at #{checkout}. Run 'git clone #{url} #{checkout}', or set #{variable} to a checkout")
+        fail!("zr-dev: no checkout at #{checkout}. Run 'git clone #{url} #{checkout}', or set #{variable} to a checkout")
       end
-      text = IO.popen(["git", "-C", checkout, "show", "#{revision}:#{path}"], err: File::NULL, &:read)
-      return text if $?.success?
+      text = git("show", "#{revision}:#{path}", dir: checkout)
+      return text if text
 
-      abort("zr-dev: no #{path} at #{revision[0, 12]} in #{checkout}; #{variable} names a checkout that has it")
+      fail!("zr-dev: no #{path} at #{revision[0, 12]} in #{checkout}; #{variable} names a checkout that has it")
     end
   end
 end

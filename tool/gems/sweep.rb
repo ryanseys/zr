@@ -16,6 +16,13 @@ module Zr
         summary "Many gems, one line each, into a table"
         usage "[GEM...] [--top N] [--jobs N] [--save] [--corpus DIR] [--offline]"
 
+        def defaults
+          super
+          @top = nil
+          @jobs = nil
+          @save = false
+        end
+
         def options(o)
           super
           o.on("--top N", Integer, "also the N most downloaded gems of gems/top.tsv") { |v| @top = v }
@@ -55,27 +62,7 @@ module Zr
         # this thread.
         def sweep(requests)
           trial = trial()
-          queue = Queue.new
-          requests.each { |request| queue << request }
-          queue.close
-          done = Queue.new
-          workers = Array.new([@jobs || 1, requests.size].min) do
-            Thread.new do
-              while (request = queue.pop)
-                done << trial.call(request)
-              end
-            rescue StandardError => e
-              done << e
-            end
-          end
-          requests.size.times do
-            result = done.pop
-            raise result if result.is_a?(Exception)
-
-            yield result
-          end
-        ensure
-          workers&.each(&:kill)
+          Dev.parallel_map(requests, jobs: @jobs || 1, each: ->(result) { yield result }) { |request| trial.call(request) }
         end
 
         def summary(results)
