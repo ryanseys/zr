@@ -80,6 +80,16 @@ end
 # keeps it: `CLI.tune!` can start this script again with ARGV.
 args = ARGV.dup
 corpus = nil
+# `--host` runs the program tests on CRuby over zr's kernel, with no build
+# (lib/zr/machine/host/walk.rb). The walker nests Ruby frames, so ruby
+# starts again with the stacks that `zr-dev host` uses.
+if args.delete("--host")
+  require File.join(root, "tool/lib/zr/dev")
+  require File.join(root, "tool/hosted")
+  stacks = Zr::Dev::Hosted::STACK
+  exec(stacks.merge("ZR_TEST_HOST" => "1"), RbConfig.ruby, __FILE__, *args) unless stacks.all? { |name, value| ENV[name] == value }
+end
+host = ENV["ZR_TEST_HOST"] == "1"
 if (at = args.index("--corpus"))
   corpus = args.delete_at(at + 1) or abort("bin/test: --corpus takes a directory")
   args.delete_at(at)
@@ -139,9 +149,15 @@ if tiers.key?("programs")
   paths = corpus_paths.empty? ? [corpus] : corpus_paths if corpus
   tests = paths.flat_map { |path| Zr::Test::Case.under(path, programs_root) }.uniq
   step.call("load")
-  Zr::Test::Built.ready_for_programs!(tests)
-  step.call("prebuild")
-  exit Zr::Test::Programs.run(paths, root: programs_root)
+  if host
+    require "support/host_program"
+    Zr::Test::HostProgram.walk
+    step.call("host boot")
+  else
+    Zr::Test::Built.ready_for_programs!(tests)
+    step.call("prebuild")
+  end
+  exit Zr::Test::Programs.run(paths, root: programs_root, host: host)
 end
 
 # Load this before the helper forks its workers, so that all workers

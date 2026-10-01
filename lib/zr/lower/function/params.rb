@@ -89,7 +89,7 @@ module Zr
         # the scope's locals (a Binding or an eval reads the Proc), and no
         # hook can get a Binding of the frame.
         def raw_block?(p)
-          p.block && !@l.traced? && !Scope.opens_locals?(@body) && Hir::Escape.raw_block?([@body, *default_expressions], p.block)
+          p.block && !@l.traced? && !Hir::Locals.opens_locals?(@body) && Hir::Escape.raw_block?([@body, *default_expressions], p.block)
         end
 
         # A block with no parameters accepts any arguments. A lambda

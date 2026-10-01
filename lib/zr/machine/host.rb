@@ -25,16 +25,33 @@ module Zr
       MASK = WORD - 1
       SIGN = 1 << 63
 
-      # A type of the kernel: its name, its size in memory and its type for
-      # Fiddle.
-      Type = Data.define(:name, :size, :fiddle) do
+      # Reads and writes of each type, as procs, so a load or a store does
+      # no dispatch on the type. A store packs a value of the signed or the
+      # unsigned range alike: `pack` takes either for an unsigned format.
+      P = Fiddle::Pointer
+      READ = {
+        "Word" => ->(a) { P.read(a, 8).unpack1("q<") }, "Value" => ->(a) { P.read(a, 8).unpack1("q<") },
+        "Ptr" => ->(a) { P.read(a, 8).unpack1("Q<") }, "I32" => ->(a) { P.read(a, 4).unpack1("l<") },
+        "I8" => ->(a) { P.read(a, 1).unpack1("c") }, "Bool" => ->(a) { P.read(a, 1).getbyte(0) != 0 },
+        "F64" => ->(a) { P.read(a, 8).unpack1("E") }, "Void" => ->(_) { raise ArgumentError, "no load of a Void" }
+      }.freeze
+      WRITE = {
+        "Word" => ->(a, v) { P.write(a, [v].pack("Q<")) }, "Value" => ->(a, v) { P.write(a, [v].pack("Q<")) },
+        "Ptr" => ->(a, v) { P.write(a, [v].pack("Q<")) }, "I32" => ->(a, v) { P.write(a, [v].pack("L<")) },
+        "I8" => ->(a, v) { P.write(a, [Host.bits(v)].pack("C")) }, "Bool" => ->(a, v) { P.write(a, [Host.bits(v)].pack("C")) },
+        "F64" => ->(a, v) { P.write(a, [v].pack("E")) }, "Void" => ->(_, _) { raise ArgumentError, "no store of a Void" }
+      }.freeze
+
+      # A type of the kernel: its name, its size in memory, its type for
+      # Fiddle, and its load and store.
+      Type = Data.define(:name, :size, :fiddle, :reader, :writer) do
         def inspect = name
       end
       TYPES = [
-        Type.new("Word", 8, Fiddle::TYPE_LONG_LONG), Type.new("Value", 8, Fiddle::TYPE_LONG_LONG),
-        Type.new("Ptr", 8, Fiddle::TYPE_VOIDP), Type.new("I32", 4, Fiddle::TYPE_INT), Type.new("I8", 1, Fiddle::TYPE_CHAR),
-        Type.new("Bool", 1, Fiddle::TYPE_CHAR), Type.new("F64", 8, Fiddle::TYPE_DOUBLE), Type.new("Void", 0, Fiddle::TYPE_VOID)
-      ].to_h { |t| [t.name, t] }.freeze
+        ["Word", 8, Fiddle::TYPE_LONG_LONG], ["Value", 8, Fiddle::TYPE_LONG_LONG], ["Ptr", 8, Fiddle::TYPE_VOIDP],
+        ["I32", 4, Fiddle::TYPE_INT], ["I8", 1, Fiddle::TYPE_CHAR], ["Bool", 1, Fiddle::TYPE_CHAR],
+        ["F64", 8, Fiddle::TYPE_DOUBLE], ["Void", 0, Fiddle::TYPE_VOID]
+      ].to_h { |name, size, fiddle| [name, Type.new(name, size, fiddle, READ.fetch(name), WRITE.fetch(name))] }.freeze
 
       # The bits of `n` as a signed 64-bit Integer.
       def self.signed(n) = (n & SIGN).zero? ? n & MASK : (n & MASK) - WORD
@@ -45,28 +62,8 @@ module Zr
 
         def read(addr, len) = Fiddle::Pointer.read(addr, len)
         def write(addr, bytes) = Fiddle::Pointer.write(addr, bytes)
-
-        def fetch(type, addr)
-          case type.name
-          when "Word", "Value" then read(addr, 8).unpack1("q<")
-          when "Ptr" then read(addr, 8).unpack1("Q<")
-          when "I32" then read(addr, 4).unpack1("l<")
-          when "I8" then read(addr, 1).unpack1("c")
-          when "Bool" then read(addr, 1).getbyte(0) != 0
-          when "F64" then read(addr, 8).unpack1("E")
-          else raise ArgumentError, "no load of a #{type.name}"
-          end
-        end
-
-        def put(type, addr, value)
-          case type.name
-          when "Word", "Value", "Ptr" then write(addr, [Host.bits(value) & MASK].pack("Q<"))
-          when "I32" then write(addr, [Host.bits(value) & 0xFFFF_FFFF].pack("L<"))
-          when "I8", "Bool" then write(addr, [Host.bits(value) & 0xFF].pack("C"))
-          when "F64" then write(addr, [value].pack("E"))
-          else raise ArgumentError, "no store of a #{type.name}"
-          end
-        end
+        def fetch(type, addr) = type.reader.call(addr)
+        def put(type, addr, value) = type.writer.call(addr, value)
 
         # `size` zeroed bytes that stay until the process ends.
         def zeroed(size, align = 16)
@@ -144,11 +141,13 @@ module Zr
           reader = if type.is_a?(Layout)
                      ->(p) { p + at }
                    else
-                     define_singleton_method(:"set_#{name}") { |p, value| Memory.put(type, p + at, value) }
+                     rd = type.reader
+                     wr = type.writer
+                     define_singleton_method(:"set_#{name}") { |p, value| wr.call(p + at, value) }
                      if type.name == "Value" && host
-                       ->(p) { host.pin(Memory.fetch(type, p + at)) }
+                       ->(p) { host.pin(rd.call(p + at)) }
                      else
-                       ->(p) { Memory.fetch(type, p + at) }
+                       ->(p) { rd.call(p + at) }
                      end
                    end
           if name == "size"
@@ -206,12 +205,12 @@ module Zr
         def slot(size) = @host.slot(size)
         def addr(name) = @host.addr(name.to_s)
 
-        def load64(p, off) = Memory.fetch(TYPES["Word"], p + off)
-        def load32(p, off) = Memory.fetch(TYPES["I32"], p + off)
-        def load8(p, off) = Memory.fetch(TYPES["I8"], p + off)
-        def store64(p, off, value) = Memory.put(TYPES["Word"], p + off, value)
-        def store32(p, off, value) = Memory.put(TYPES["I32"], p + off, value)
-        def store8(p, off, value) = Memory.put(TYPES["I8"], p + off, value)
+        def load64(p, off) = P.read(p + off, 8).unpack1("q<")
+        def load32(p, off) = P.read(p + off, 4).unpack1("l<")
+        def load8(p, off) = P.read(p + off, 1).unpack1("c")
+        def store64(p, off, value) = P.write(p + off, [value].pack("Q<"))
+        def store32(p, off, value) = P.write(p + off, [value].pack("L<"))
+        def store8(p, off, value) = P.write(p + off, [Host.bits(value)].pack("C"))
 
         def gates = @host.gates
         def gates_set(word) = @host.gates = word
@@ -343,8 +342,11 @@ module Zr
       # A call through the pointer `at`: a def that `Machine.addr` gave, or
       # C code.
       def call_at(at, params, ret, args)
-        if (name = @callables[at])
-          return @kern.public_send(name, *args)
+        case (target = @callables[at])
+        when String then return @kern.public_send(target, *args)
+        when Proc
+          result = target.call(*args)
+          return ret.name == "Value" ? pin(result) : result
         end
 
         function = @functions[[at, params, ret]] ||= Fiddle::Function.new(at, params.map(&:fiddle), ret.fiddle)
@@ -364,6 +366,21 @@ module Zr
           @callables[closure.to_i] = name
           @closures[name] = closure
         end.to_i
+      end
+
+      # The name of the def whose address (`addr`) is `at`, or nil.
+      def def_at(at)
+        target = @callables[at]
+        target if target.is_a?(String)
+      end
+
+      # An address that the kernel calls through (`Name.call`) to run
+      # `body`, a Ruby proc: a function of the walker. Only the kernel
+      # calls it; C cannot.
+      def callable(body)
+        at = Memory.zeroed(16)
+        @callables[at] = body
+        at
       end
 
       def static(name, size)

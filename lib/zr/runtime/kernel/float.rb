@@ -9,7 +9,8 @@ module Zr::Kern
   RFloat = layout basic: RBasic, bits: Word
   T_FLOAT = 4
   G_FLOAT = 40
-  FLONUM_ZERO = 9223372036854775810
+  # The flonum +0.0, 0x8000000000000002, as a signed Word.
+  FLONUM_ZERO = -9223372036854775806
   INF_BITS = 9218868437227405312
   # The gates of the Float operators that compiled code inlines for
   # flonums (`float_path` in the lowering). The Integer gates are in

@@ -82,7 +82,7 @@ module Zr::Kern
 
   # The Env of a frame's locals, as a cell, or nil if the frame keeps them
   # only in its frame record. A scope that calls eval or binding always
-  # has an Env; `Scope.opens_locals?` makes sure of this.
+  # has an Env; `Hir::Locals.opens_locals?` makes sure of this.
   sig [Ptr] => Value
   def zr_frame_env(rec)
     if FrameMeta.env(Frame.meta(rec)) == 0

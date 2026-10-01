@@ -4,26 +4,10 @@ require_relative "../hir"
 
 module Zr
   class Lower
-    # What a scope's body needs in its frame record: an Env for the locals
-    # that its blocks can capture, and staging slots for sends.
+    # What a scope's body needs in its frame record: staging slots for
+    # sends. Whether it needs an Env is `Hir::Locals`.
     module Scope
       module_function
-
-      # Whether `node` contains a block literal of this scope (not one in
-      # a nested def or body, which is a different scope).
-      def holds_block?(node)
-        case node
-        when Hir::Send, Hir::Super
-          node.block.is_a?(Hir::Block) || holds_block?(node.kwargs) || holds_block?(node.block) || node.args.any? { |a| holds_block?(a) } ||
-            (node.is_a?(Hir::Send) && holds_block?(node.recv))
-        when Hir::Lambda then true
-        when Hir::Def then holds_block?(node.receiver)
-        when Hir::ClassDef, Hir::ModuleDef, nil then false
-        when Hir::SingletonClassDef then holds_block?(node.target)
-        when Hir::Node, Array then Hir.each_child(node).any? { |v| holds_block?(v) }
-        else false
-        end
-      end
 
       # The count of assignments that the body `node` makes to each local
       # of its scope, as a Hash with default zero. A block sees the scope's
@@ -45,42 +29,6 @@ module Zr
         counts
       end
 
-      # The sends that make a scope keep its locals in an Env: an eval
-      # reads and writes them there, a Binding keeps them after the frame
-      # is gone, and `local_variables` lists them.
-      OPEN_FORMS = %i[eval binding local_variables].freeze
-
-      # The sends that take a method name as their first argument, so
-      # `send(:binding)` opens the scope as `binding` does.
-      BY_NAME = %i[send __send__ public_send method public_method].freeze
-
-      # Whether this scope's own body `node` calls one of those. The
-      # receiver is ignored: `Kernel.binding` and `self.binding` open this
-      # scope as the bare form does. A scope that contains a block already
-      # has an Env, so this does not walk a block body; the block is
-      # checked separately.
-      def opens_locals?(node)
-        case node
-        when Hir::Send
-          OPEN_FORMS.include?(node.name) || (Hir::STRING_EVALS.include?(node.name) && !node.args.empty?) || named_open_form?(node) ||
-            node.to_a.any? { |v| opens_locals?(v) }
-        when Hir::Block, Hir::Lambda, Hir::ClassDef, Hir::ModuleDef, nil then false
-        when Hir::Def then opens_locals?(node.receiver)
-        when Hir::SingletonClassDef then opens_locals?(node.target)
-        when Hir::Node, Array then Hir.each_child(node).any? { |v| opens_locals?(v) }
-        else false
-        end
-      end
-
-      # `send(:binding)` and the rest of BY_NAME, when the name is a
-      # literal symbol.
-      def named_open_form?(node)
-        return false unless BY_NAME.include?(node.name)
-
-        first = node.args.first
-        first.is_a?(Hir::Literal) && OPEN_FORMS.include?(first.value)
-      end
-
       # The iterators that a site with a block literal runs inline
       # (Function::Iterators), each with the maximum parameter count of
       # its block.
@@ -99,7 +47,7 @@ module Zr
         return false unless p.plain? && p.block.nil? && p.required.size <= ITERATORS.fetch(node.name) && p.required.all?(Symbol)
 
         body = node.block.body
-        !holds_block?(body) && !opens_locals?(body) && loop_body?(body)
+        !Hir::Locals.holds_block?(body) && !Hir::Locals.opens_locals?(body) && loop_body?(body)
       end
 
       # Whether a block body can run in the frame of its enclosing scope.

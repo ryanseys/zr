@@ -43,6 +43,14 @@ module Zr
           def zr_os_stack_high = self::BOOT.host.slot_base + SLOT_BYTES
         end
 
+        # Signals go through ruby: a C handler would run a Ruby closure in
+        # the signal's context, which CRuby cannot do. A trap runs the
+        # kernel's handler at ruby's next safe point, as the kernel's own
+        # handler defers its work to the next poll.
+        module Signals
+          def zr_os_sigaction(signo, fn, old) = self::BOOT.sigaction(signo, fn, old)
+        end
+
         attr_reader :host
 
         def initialize(target = Target.default)
@@ -53,7 +61,8 @@ module Zr
           @fibers = [nil]
           kern = @host.kern
           kern.const_set(:BOOT, self)
-          kern.prepend(Arch, Stack)
+          @handlers = {}
+          kern.prepend(Arch, Stack, Signals)
           kern.zr_boot
         end
 
@@ -83,6 +92,29 @@ module Zr
           end
           @fibers.fetch(target).transfer
           nil
+        end
+
+        # sigaction(2) for the kernel: `fn` 0 is the default, 1 is ignore,
+        # else the address of a kernel def (`Machine.addr`). Stores the
+        # previous `fn` at `old`. Returns 0, or -1 with errno EINVAL for a
+        # signal that ruby does not let a program trap.
+        def sigaction(signo, fn, old)
+          kern = @host.kern
+          name = Signal.signame(signo)
+          handler = case fn
+                    when 0 then "SYSTEM_DEFAULT"
+                    when 1 then "IGNORE"
+                    else
+                      target = @host.def_at(fn) or raise ArgumentError, "a signal handler at #{fn} that is no kernel def"
+                      proc { kern.public_send(target, signo) }
+                    end
+          Signal.trap(name, handler)
+          Memory.write(old, [@handlers.fetch(signo, 0)].pack("Q<"))
+          @handlers[signo] = fn
+          0
+        rescue ArgumentError
+          kern.zr_os_set_errno(22)
+          -1
         end
 
         private

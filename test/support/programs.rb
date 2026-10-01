@@ -34,20 +34,23 @@ module Zr
 
       # Runs the tests below `paths` (directories or programs) whose
       # programs run in `root`, and returns true when none failed.
-      def self.run(paths, root: ROOT, target: Harness::Runner.named(ENV["ZR_TARGET"]), out: $stdout)
+      def self.run(paths, root: ROOT, target: Harness::Runner.named(ENV["ZR_TARGET"]), out: $stdout, host: false)
         tests = paths.flat_map { |path| Case.under(path, root) }.uniq
-        new(tests, target, root == ROOT ? Baseline.for(target) : Baseline.corpus(root, target), out).run
+        new(tests, target, root == ROOT ? Baseline.for(target) : Baseline.corpus(root, target), out, host: host).run
       end
 
-      def initialize(tests, target, allowed, out)
+      # With `host`, each program runs on CRuby over the kernel
+      # (`HostProgram`), and not as a binary.
+      def initialize(tests, target, allowed, out, host: false)
         @tests = tests
         @runner = Harness::Runner.new(ProgramBuild::ROOT, target)
         @allowed = allowed
         @out = out
+        @host = host
       end
 
       def run
-        @out.puts "#{@tests.size} program test(s), #{Workers.size} worker(s) for #{@runner.target.triple}"
+        @out.puts "#{@tests.size} program test(s), #{Workers.size} worker(s) for #{@host ? "the host (CRuby)" : @runner.target.triple}"
         results = Pool.new(Workers.size) { |test| check(test) }.map(@tests) do |result|
           @out.print MARK.fetch(result.kind)
           @out.flush
@@ -78,7 +81,7 @@ module Zr
       end
 
       def outcome(test)
-        got = ProgramBuild.answer(test, @runner)
+        got = @host ? HostProgram.answer(test, @runner) : ProgramBuild.answer(test, @runner)
         return [:error, got.join(": ")] if got.is_a?(Array)
 
         want = ProgramRun.expected(test, @runner.platform)

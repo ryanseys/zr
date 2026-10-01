@@ -6,6 +6,7 @@ require_relative "hir/spots"
 require_relative "hir/build"
 require_relative "hir/patterns"
 require_relative "hir/escape"
+require_relative "hir/locals"
 require_relative "hir/dump"
 
 module Zr

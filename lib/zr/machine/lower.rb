@@ -610,7 +610,13 @@ module Zr
       # A constant's value. It is folded on first use, so a declaration
       # can refer to a constant from a later file.
       def const_for(name)
-        resolve(@consts, @const_values, name) { |node| fold(node) }
+        resolve(@consts, @const_values, name) do |node|
+          value = fold(node)
+          # CRuby keeps the constant as written, so one at or above 2**63
+          # is not the Word it is here.
+          refuse(node, "#{name} is outside a signed Word; write its bits as a negative number") unless value.between?(-(1 << 63), (1 << 63) - 1)
+          value
+        end
       end
 
       def struct_for(name)
