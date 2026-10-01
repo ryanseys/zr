@@ -476,15 +476,15 @@ module Zr
         @kern.zr_write_barrier(p, value)
       end
 
-      # Marks each pinned cell and each cell in a local of a rooted def,
-      # and runs the collection with no pinning.
+      # Marks each pinned cell and each Value local of a rooted def, and
+      # runs the collection with no pinning.
       def mark_pins
         arenas = heap_arenas
         @stacks.each do |s|
           s.pins.each { |v| @kern.zr_mark(v) if live?(v, arenas) }
-          s.roots.each do |b|
-            b&.local_variables&.each do |name|
-              v = b.local_variable_get(name)
+          s.roots.each do |binding, names|
+            names&.each do |name|
+              v = binding.local_variable_get(name)
               @kern.zr_mark(v) if v.is_a?(Integer) && object?(v, arenas)
             end
           end
@@ -679,10 +679,15 @@ module Zr
         frames = Module.new
         (slots | collects).each do |name|
           rooted = collects.include?(name) && loops?(defs.fetch(name))
-          frame = Framing.new(slots.include?(name), collects.include?(name), @sigs[name]&.last&.name == "Value", rooted)
+          sig = @sigs[name]
+          params = collects.include?(name) && !rooted && sig ? sig.first.each_index.select { |i| sig.first[i].name == "Value" } : []
+          frame = Framing.new(slots.include?(name), collects.include?(name), sig&.last&.name == "Value", rooted, params)
           body = @kern.instance_method(name)
           frames.define_method(name, &framed_def(body.arity, frame))
-          TracePoint.new(:call) { |tp| host.stack.roots[-1] = tp.binding }.enable(target: body) if rooted
+          next unless rooted
+
+          names = value_locals(defs.fetch(name)).freeze
+          TracePoint.new(:call) { |tp| host.stack.roots[-1] = [tp.binding, names] }.enable(target: body)
         end
         @kern.prepend(frames)
         collector = Module.new
@@ -703,8 +708,91 @@ module Zr
       # A def that can collect and loops is `rooted`: a pin of each pass
       # would stay until it returns, so its locals are its roots instead,
       # as the lowering's root frame holds a def's Value locals. The
-      # collector marks the Integers of its Binding.
-      Framing = Data.define(:restores, :drops, :value, :roots)
+      # collector marks those locals (`value_locals`) through its Binding.
+      #
+      # A rooted caller pins nothing, so a def that can collect and is not
+      # rooted pins its Value arguments (`params`, their indices), as the
+      # lowering's root frame holds a def's parameters.
+      Framing = Data.define(:restores, :drops, :value, :roots, :params)
+
+      # The locals of the def `node` that hold Values, as the typed lowering
+      # gives them root slots: each Value parameter, and each local that an
+      # assignment gives a Value. A local is a Value when one of its
+      # assignments is one, or is of a type this cannot tell, so no Value
+      # goes unmarked. A Ptr or a Word is never marked: it can point into a
+      # payload, or at a cell that is not yet an object.
+      def value_locals(node)
+        sig = @sigs[node.name.to_s]
+        types = {}
+        (node.parameters&.requireds || []).each_with_index { |param, i| types[param.name] = sig ? sig.first[i].name : "Value" }
+        assigns = Hash.new { |h, name| h[name] = [] }
+        queue = [node.body].compact
+        while (n = queue.shift)
+          assigns[n.name] << n.value if n.is_a?(Prism::LocalVariableWriteNode)
+          queue.concat(n.compact_child_nodes)
+        end
+        assigns.each_key { |name| types[name] ||= "Word" }
+        loop do
+          grown = assigns.select do |name, values|
+            types[name] != "Value" && values.any? { |value| type_of(value, types).then { |type| type.nil? || type == "Value" } }
+          end
+          break if grown.empty?
+
+          grown.each_key { |name| types[name] = "Value" }
+        end
+        types.filter_map { |name, type| name if type == "Value" }
+      end
+
+      # The type name of the kernel expression `node`, or nil when this
+      # cannot tell (`value_locals`).
+      def type_of(node, types)
+        case node
+        when Prism::LocalVariableReadNode then types[node.name]
+        when Prism::IntegerNode, Prism::TrueNode, Prism::FalseNode, Prism::NilNode, Prism::ConstantReadNode then "Word"
+        when Prism::ParenthesesNode, Prism::StatementsNode then type_of(last_of(node), types)
+        when Prism::IfNode, Prism::UnlessNode, Prism::AndNode, Prism::OrNode
+          kinds = branches(node).map { |branch| branch ? type_of(branch, types) : "Word" }
+          if kinds.include?("Value") then "Value"
+          elsif kinds.include?(nil) then nil
+          else "Word"
+          end
+        when Prism::CallNode then call_type(node)
+        end
+      end
+
+      def last_of(node)
+        node = node.body while node.is_a?(Prism::ParenthesesNode)
+        node.is_a?(Prism::StatementsNode) ? node.body.last : node
+      end
+
+      # The values that a conditional answers; nil for a missing branch.
+      def branches(node)
+        case node
+        when Prism::AndNode, Prism::OrNode then [node.left, node.right]
+        when Prism::IfNode
+          other = node.subsequent
+          [node.statements, other.is_a?(Prism::ElseNode) ? other.statements : other]
+        else [node.statements, node.else_clause&.statements]
+        end
+      end
+
+      # The type of a call: a def's sig, `Machine.value`, a layout field,
+      # or a signature's `call`. An operator on words is a word.
+      def call_type(node)
+        recv = node.receiver
+        return @sigs[node.name.to_s]&.last&.name if recv.nil?
+        return "Word" unless recv.is_a?(Prism::ConstantReadNode)
+        return node.name == :value ? "Value" : "Word" if recv.name == :Machine
+        return "Word" if recv.name == :Libc
+
+        thing = @kern.const_defined?(recv.name, false) ? @kern.const_get(recv.name, false) : nil
+        case thing
+        when Layout
+          type = thing.layout_fields[node.name]&.last
+          type.respond_to?(:name) ? type.name : "Word"
+        when Fn then thing.ret.name
+        end
+      end
 
       # Whether the def `node` has a loop.
       def loops?(node)
@@ -723,6 +811,16 @@ module Zr
       # each call.
       def framed_def(arity, frame)
         host = self
+        unless frame.params.empty?
+          params = frame.params
+          return proc do |*args|
+            host.framed(frame) do
+              params.each { |i| host.pin(args[i]) }
+              super(*args)
+            end
+          end
+        end
+
         case arity
         when 0 then proc { host.framed(frame) { super() } }
         when 1 then proc { |a| host.framed(frame) { super(a) } }
