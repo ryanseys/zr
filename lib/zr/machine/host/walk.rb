@@ -263,7 +263,7 @@ module Zr
         TEXTS = %w[roots missing preloaded ext spots coverable branches defs sources manifest].freeze
 
         def spotted(hir, target)
-          words = Memory.fetch(TYPES["Ptr"], @host.extern("zr_load_tables"))
+          words = Memory.word(@host.extern("zr_load_tables"))
           table = k::LoadTable
           texts = LoadTables.new(evals: hir.evals, spots: hir.spots || {}, coverable: hir.coverable || {}, branches: hir.branches || {},
                                  defs: hir.defs || {}, target: target, manifest: Manifest.bytes(Manifest.of_program(hir, @eval_files), target)).texts
@@ -473,7 +473,7 @@ module Zr
         # Whether an enabled TracePoint listens for `event`.
         def armed?(event)
           @trace_events ||= @host.static("trace_events", 8)
-          Memory.fetch(TYPES["Word"], @trace_events).anybits?(EVENTS.fetch(event))
+          Memory.word(@trace_events).anybits?(EVENTS.fetch(event))
         end
 
         def fire(event)
@@ -779,7 +779,7 @@ module Zr
             end
             if kw == 1
               argc -= 1
-              kwhash = Memory.fetch(TYPES["Value"], argv + (argc * 8))
+              kwhash = Memory.word(argv + (argc * 8))
             end
           elsif kw != 0
             argc = k.zr_kw_undeclared(kw, argc, argv, p.rest && p.rest != :implicit ? fn : 0)
@@ -902,12 +902,12 @@ module Zr
 
         def get_local(name, depth, c)
           _, at = local_at(c, name, depth)
-          Memory.fetch(TYPES["Value"], at)
+          Memory.word(at)
         end
 
         def set_local(name, v, c, depth = 0)
           env, at = local_at(c, name, depth)
-          Memory.put(TYPES["Value"], at, v)
+          Memory.set_word(at, v)
           k.zr_env_barrier(env, v) if env
           v
         end
@@ -1299,7 +1299,7 @@ module Zr
           return if c.unit.internal
 
           @poll ||= @host.static("current_task", 16) + 8
-          check(k.zr_preempt_expired) if Memory.fetch(TYPES["Word"], @poll) != 0
+          check(k.zr_preempt_expired) if Memory.word(@poll) != 0
         end
 
         def do_return(node, c)
@@ -1602,7 +1602,7 @@ module Zr
                   elsif recv & 7 == 0 && recv > @qnil then k::RBasic.klass(recv)
                   else k.zr_class_of(recv)
                   end
-          if cell.klass(cc) == klass && cell.stamp(cc) == Memory.fetch(TYPES["Word"], @site_stamp ||= @host.static("site_stamp", 8))
+          if cell.klass(cc) == klass && cell.stamp(cc) == Memory.word(@site_stamp ||= @host.static("site_stamp", 8))
             return k::Method.call(cell.fn(cc), recv, argc, av, cell.entry(cc), blk, cell.found(cc))
           end
 
@@ -1717,7 +1717,7 @@ module Zr
             argc = k.zr_kw_tab_in(kw, argc, argv) if kw > 1
             if kw != 0
               argc -= 1
-              kwhash = Memory.fetch(TYPES["Value"], argv + (argc * 8))
+              kwhash = Memory.word(argv + (argc * 8))
             end
           elsif kw != 0
             argc = k.zr_kw_undeclared(kw, argc, argv, p.rest && p.rest != :implicit ? fn : 0)
@@ -1729,7 +1729,7 @@ module Zr
             out = @host.slot(16)
             n = check(k.zr_block_args(argc, argv, p.optional.empty? ? 1 : 2, out, out + 8))
             argc = n >> 1
-            argv = Memory.fetch(TYPES["Ptr"], out)
+            argv = Memory.word(out)
           end
           args = argc.zero? ? [] : Memory.read(argv, argc * 8).unpack("q<*")
           if lambda

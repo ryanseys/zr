@@ -41,9 +41,15 @@ module Zr
 
         # The OS layer's stack bounds are the main fiber's slot area: a
         # stack check compares a slot's address with them.
+        #
+        # A fiber's stack is in the host's region, so its slots are as fast
+        # to read as the main fiber's. It has no guard page: the walker's
+        # depth limit stops a deep recursion first. `munmap` gives it back
+        # (`Memory.function`).
         module Stack
           def zr_os_stack_low = self::BOOT.host.slot_base
           def zr_os_stack_high = self::BOOT.host.slot_base + SLOT_BYTES
+          def zr_os_stack_map(bytes) = Memory::REGION.memalign(16, bytes) || super
         end
 
         # Signals go through ruby: a C handler would run a Ruby closure in
