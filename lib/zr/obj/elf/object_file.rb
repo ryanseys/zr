@@ -64,6 +64,10 @@ module Zr
         Section = Struct.new(:name, :type, :flags, :bytes, :size, :align, :link, :info, :entsize, :offset, :item,
                              keyword_init: true)
 
+        # One `Elf64_Sym`. `strx` is the name's offset in the string table;
+        # `write` sets it after it builds that table.
+        Sym = Struct.new(:name, :bind, :type, :shndx, :value, :size, :strx, keyword_init: true)
+
         module_function
 
         # Returns the bytes of the object file.
@@ -79,9 +83,9 @@ module Zr
           item_sections = sections.drop(1)
 
           symbols = symbol_table(unit, item_sections)
-          index = symbols.each_with_index.to_h { |sym, i| [sym[:name], i] }
+          index = symbols.each_with_index.to_h { |sym, i| [sym.name, i] }
           symtab_index = sections.size + item_sections.count { |s| !s.item.relocs.empty? } + 1
-          extended = symbols.any? { |sym| sym[:shndx] >= SHN_LORESERVE }
+          extended = symbols.any? { |sym| sym.shndx >= SHN_LORESERVE }
           item_sections.each_with_index do |s, i|
             next if s.item.relocs.empty?
 
@@ -95,12 +99,12 @@ module Zr
           sections << Section.new(name: ".note.GNU-stack", type: SHT_PROGBITS, flags: 0, bytes: "".b, size: 0, align: 1, link: 0, info: 0, entsize: 0)
 
           table = StringTable.new(blank: 0)
-          symbols.each { |sym| sym[:strx] = table.add(sym[:name]) }
+          symbols.each { |sym| sym.strx = table.add(sym.name) }
           strtab = table.bytes
-          locals = symbols.count { |sym| sym[:bind] == STB_LOCAL }
+          locals = symbols.count { |sym| sym.bind == STB_LOCAL }
           symtab = symbols.map do |sym|
-            shndx = sym[:shndx] >= SHN_LORESERVE ? SHN_XINDEX : sym[:shndx]
-            [sym[:strx], (sym[:bind] << 4) | sym[:type], 0, shndx, sym[:value], sym[:size]].pack("L<CCS<Q<Q<")
+            shndx = sym.shndx >= SHN_LORESERVE ? SHN_XINDEX : sym.shndx
+            [sym.strx, (sym.bind << 4) | sym.type, 0, shndx, sym.value, sym.size].pack("L<CCS<Q<Q<")
           end.join
           strtab_index = sections.size + (extended ? 2 : 1)
           sections << Section.new(name: ".symtab", type: SHT_SYMTAB, flags: 0, bytes: symtab, size: symtab.bytesize,
@@ -108,7 +112,7 @@ module Zr
           raise ArgumentError, "the symbol table is not where the relocations say" unless sections.size - 1 == symtab_index
 
           if extended
-            shndx = symbols.map { |sym| sym[:shndx] >= SHN_LORESERVE ? sym[:shndx] : 0 }.pack("L<*")
+            shndx = symbols.map { |sym| sym.shndx >= SHN_LORESERVE ? sym.shndx : 0 }.pack("L<*")
             sections << Section.new(name: ".symtab_shndx", type: SHT_SYMTAB_SHNDX, flags: 0, bytes: shndx, size: shndx.bytesize,
                                     align: 4, link: symtab_index, info: 0, entsize: 4)
           end
@@ -151,14 +155,16 @@ module Zr
         def symbol_table(unit, item_sections)
           defined = item_sections.each_with_index.map do |s, i|
             item = s.item
-            { name: item.name, bind: item.linkage == :export ? STB_GLOBAL : STB_LOCAL,
-              type: item.is_a?(Obj::Code) ? STT_FUNC : STT_OBJECT,
-              shndx: i + 1, value: 0, size: item.size }
+            Sym.new(name: item.name, bind: item.linkage == :export ? STB_GLOBAL : STB_LOCAL,
+                    type: item.is_a?(Obj::Code) ? STT_FUNC : STT_OBJECT,
+                    shndx: i + 1, value: 0, size: item.size)
           end
-          imports = unit.imports.map { |name| { name: name, bind: STB_GLOBAL, type: STT_NOTYPE, shndx: SHN_UNDEF, value: 0, size: 0 } }
-          null = { name: "", bind: STB_LOCAL, type: STT_NOTYPE, shndx: SHN_UNDEF, value: 0, size: 0 }
-          locals = defined.select { |sym| sym[:bind] == STB_LOCAL }.sort_by { |sym| sym[:name] }
-          globals = (defined.select { |sym| sym[:bind] == STB_GLOBAL } + imports).sort_by { |sym| sym[:name] }
+          imports = unit.imports.map do |name|
+            Sym.new(name: name, bind: STB_GLOBAL, type: STT_NOTYPE, shndx: SHN_UNDEF, value: 0, size: 0)
+          end
+          null = Sym.new(name: "", bind: STB_LOCAL, type: STT_NOTYPE, shndx: SHN_UNDEF, value: 0, size: 0)
+          locals = defined.select { |sym| sym.bind == STB_LOCAL }.sort_by(&:name)
+          globals = (defined.select { |sym| sym.bind == STB_GLOBAL } + imports).sort_by(&:name)
           [null] + locals + globals
         end
 

@@ -18,7 +18,7 @@ module Zr
           elsif node.experimental_copy?
             Send.of(ractor, :make_shareable, [write.value], line, kwargs: HashLit.new([Literal.new(:copy, line), Literal.new(true, line)], line))
           else
-            Send.new(ractor, :make_shareable, [write.value], line, false)
+            Send.of(ractor, :make_shareable, [write.value], line)
           end
         write
       end
@@ -34,7 +34,7 @@ module Zr
         return frozen_literal(node, value, line) if shareable_literal?(node)
 
         ractor = ConstRead.new(nil, :Ractor, line)
-        whole = ->(built) { top ? Send.new(ractor, :make_shareable, [built], line, false) : built }
+        whole = ->(built) { top ? Send.of(ractor, :make_shareable, [built], line) : built }
         if node.is_a?(Prism::ArrayNode) && node.elements.none? { |e| e.is_a?(Prism::SplatNode) || e.is_a?(Prism::KeywordHashNode) }
           value.elements = node.elements.zip(value.elements).map { |e, v| literally_shareable(e, v, name, line, top: false) }
           whole.call(value)
@@ -44,8 +44,8 @@ module Zr
           end
           whole.call(value)
         else
-          value = Send.new(value, :-@, [], line, false) if node.is_a?(Prism::InterpolatedStringNode)
-          Send.new(ractor, :ensure_shareable, [value, Literal.new(name, line)], line, false)
+          value = Send.of(value, :-@, [], line) if node.is_a?(Prism::InterpolatedStringNode)
+          Send.of(ractor, :ensure_shareable, [value, Literal.new(name, line)], line)
         end
       end
 
@@ -181,7 +181,7 @@ module Zr
         # own encoding before it joins them.
         fragments = ArrayLit.new(interpolation(node, line).parts.map { |part| Interp.new([part], line) }, line)
         args = [fragments, Literal.new(regexp_options(node), line), Literal.new(pinned && ::Encoding.list.index(pinned), line)]
-        made = Send.new(ConstRead.new(nil, :Regexp, line), :interpolated, args, line, false)
+        made = Send.of(ConstRead.new(nil, :Regexp, line), :interpolated, args, line)
         node.once? ? RegexpOnce.new(made, line) : made
       end
 
@@ -233,7 +233,7 @@ module Zr
         end
       end
 
-      def regexp_literal(node, line, taken = true)
+      def regexp_literal(node, line, taken: true)
         # This literal's value is not used, so ruby never reads the
         # pattern, and zr does not either. An invalid one here is a
         # program that runs. An interpolated regexp is a Send, not this,

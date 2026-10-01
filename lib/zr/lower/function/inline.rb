@@ -371,7 +371,8 @@ module Zr
           held = @f.fetch("i64", cc, off(cell, "shape"))
           @f.brif(@f.bor(@f.icmp("eq", held, imm(@l.const("SHAPE_READER"))), struct_member?(:reader, held)), shaped, @inline.bail)
           switch(shaped)
-          accessor_in_place(:reader, recv, @f.fetch("i64", cc, off(cell, "entry")), nil, merge, @inline.bail, held)
+          site = CallSite.new(node: node, cc: cc, recv: recv, entry: @f.fetch("i64", cc, off(cell, "entry")), argv: nil, merge: merge)
+          accessor_in_place(:reader, site, @inline.bail, held)
         end
 
         # An operator on two fixnums under its gate. `==` and `!=` by

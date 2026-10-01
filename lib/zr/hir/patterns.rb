@@ -30,7 +30,7 @@ module Zr
         def falsy(value, line) = If.new(value, Literal.new(false, line), Literal.new(true, line), line)
 
         # `case value; in pattern [if guard] then body; ...; else other; end`
-        def case_match(node, taken = true)
+        def case_match(node, taken: true)
           line = node.location.start_line
           # Number the branches before the chain is built, because the chain
           # is built from the last clause and ruby numbers from the first.

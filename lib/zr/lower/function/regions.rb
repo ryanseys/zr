@@ -14,7 +14,9 @@ module Zr
         # and for an ensure, the `$!` at its start. `outer` marks an inline
         # loop (Iterators): it holds the site's own inline scope and line
         # record, which the regions under it lower with.
-        Region = Struct.new(:landing, :ensure_body, :slot, :outer)
+        Region = Data.define(:landing, :ensure_body, :slot, :outer) do
+          def initialize(landing:, ensure_body:, slot:, outer: nil) = super
+        end
 
         private
 

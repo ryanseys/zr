@@ -15,7 +15,7 @@ module Kernel
       raise TypeError, "wrong argument type #{conversion_name(binding)} (expected binding)" unless binding.is_a?(Binding)
 
       return Zr::Eval.current.run(source, file || Primitive.zr_eval_source_name, line, binding,
-                                   Primitive.zr_binding_receiver(binding), Primitive.zr_binding_cref(binding), nil, true)
+                                   Primitive.zr_binding_receiver(binding), Primitive.zr_binding_cref(binding), nil, add: true)
     end
     Zr::Eval.current.run(source, file || Primitive.zr_eval_source_name, line, Primitive.zr_binding,
                           self, Primitive.zr_eval_cref, Primitive.zr_eval_block)
@@ -26,7 +26,7 @@ class Binding
   # Ruby run in this binding's scope, as Kernel#eval given it runs.
   def eval(source, file = nil, line = 1)
     Zr::Eval.current.run(source, file || Primitive.zr_eval_source_name, line, self,
-                          Primitive.zr_binding_receiver(self), Primitive.zr_binding_cref(self), nil, true)
+                          Primitive.zr_binding_receiver(self), Primitive.zr_binding_cref(self), nil, add: true)
   end
 end
 

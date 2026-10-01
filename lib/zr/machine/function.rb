@@ -14,6 +14,17 @@ module Zr
     # each Value of the def (a parameter, a local, or the result of a call
     # that goes to another call). Thus a collection in any call sees them all.
     class Function
+      # The root frame of a def: its stack `slot` and the `addr` of it, the
+      # number `n` of Value slots made so far, a zero constant `zero`, the
+      # constant instruction `count` that holds the slot count, and the
+      # index `fill_at` in the entry block where the zero fill goes.
+      Roots = Struct.new(:slot, :addr, :n, :zero, :count, :fill_at, keyword_init: true)
+
+      # The exit of an inlined body: the `type` of its def, the `block`
+      # after the body (nil until the first `return`), and the `value`, the
+      # parameter of that block.
+      Exit = Struct.new(:type, :block, :value, keyword_init: true)
+
       def initialize(unit, d)
         @unit = unit
         @d = d
@@ -47,27 +58,27 @@ module Zr
       # slot count and the zero fill after the body has made all slots.
       def enter_roots
         slot = @f.slot(16)
-        @roots = { slot: slot, addr: @f.stack_addr(slot), n: 0, zero: @f.iconst("i64", 0) }
+        @roots = Roots.new(slot: slot, addr: @f.stack_addr(slot), n: 0, zero: @f.iconst("i64", 0))
         @head = @f.symbol_value(@f.symbol("zr_static_#{Lower::ROOTS}"))
-        @f.store(@f.fetch("i64", @head), @roots[:addr], 0)
-        count, @roots[:count] = @f.iconst_later("i64")
-        @f.store(count, @roots[:addr], 8)
-        @f.store(@roots[:addr], @head, 0)
-        @roots[:fill_at] = @f.entry_block.insts.size
+        @f.store(@f.fetch("i64", @head), @roots.addr, 0)
+        count, @roots.count = @f.iconst_later("i64")
+        @f.store(count, @roots.addr, 8)
+        @f.store(@roots.addr, @head, 0)
+        @roots.fill_at = @f.entry_block.insts.size
       end
 
       def leave_roots
-        n = @roots[:n]
-        @roots[:count].args[0] = n
-        @f.slots[@roots[:slot].delete_prefix("ss").to_i].bytes = 16 + (8 * n)
-        fill = (0...n).map { |i| IR::Inst.new(:store, args: [@roots[:zero], @roots[:addr]], offset: 16 + (8 * i), flags: "notrap aligned") }
-        @f.entry_block.insts.insert(@roots[:fill_at], *fill)
+        n = @roots.n
+        @roots.count.args[0] = n
+        @f.slots[@roots.slot.delete_prefix("ss").to_i].bytes = 16 + (8 * n)
+        fill = (0...n).map { |i| IR::Inst.new(:store, args: [@roots.zero, @roots.addr], offset: 16 + (8 * i), flags: "notrap aligned") }
+        @f.entry_block.insts.insert(@roots.fill_at, *fill)
       end
 
       # The offset of a new root slot.
       def root_slot
-        at = 16 + (8 * @roots[:n])
-        @roots[:n] += 1
+        at = 16 + (8 * @roots.n)
+        @roots.n += 1
         at
       end
 
@@ -77,16 +88,16 @@ module Zr
       def ret(value)
         return @f.jump(inline_exit, [value].compact) if @exit
 
-        @f.store(@f.fetch("i64", @roots[:addr]), @head, 0) if @roots
+        @f.store(@f.fetch("i64", @roots.addr), @head, 0) if @roots
         @f.ret(value)
       end
 
       # The block that all returns of an inlined body jump to. Its
       # parameter is the returned value.
       def inline_exit
-        @exit[:block] ||= begin
-          block, params = @exit[:type] == "Void" ? @f.block : @f.block([ir_type(@exit[:type])])
-          @exit[:value] = params.first
+        @exit.block ||= begin
+          block, params = @exit.type == "Void" ? @f.block : @f.block([ir_type(@exit.type)])
+          @exit.value = params.first
           block
         end
       end
@@ -109,7 +120,7 @@ module Zr
 
         at = root_slot
         off = @f.iconst("i64", at)
-        @f.hoisted(:root_slot, at) { IR::Inst.new(:iadd, type: "i64", args: [@roots[:addr], off]) }
+        @f.hoisted(:root_slot, at) { IR::Inst.new(:iadd, type: "i64", args: [@roots.addr, off]) }
       end
 
       def ir_type(type)
@@ -575,7 +586,7 @@ module Zr
         @locals = {}
         @d = d
         @roots = nil
-        @exit = { type: d.ret }
+        @exit = Exit.new(type: d.ret)
         @inlining << d.name
         d.params.each_with_index do |(name, type), i|
           @f.store(values[i], declare_local(d.node, name, type)[:addr])
@@ -583,11 +594,11 @@ module Zr
         value, type = d.node.body ? statements(d.node.body, d.ret) : [nil, "Void"]
         unless @f.terminated?
           refuse(d.node, "the body ends in #{type}, and the sig says #{d.ret}") unless d.ret == "Void" || fits?(d.ret, type)
-          ret(d.ret == "Void" ? nil : value) if @exit[:block]
+          ret(d.ret == "Void" ? nil : value) if @exit.block
         end
-        if @exit[:block]
-          @f.switch(@exit[:block], open: true)
-          value = @exit[:value]
+        if @exit.block
+          @f.switch(@exit.block, open: true)
+          value = @exit.value
         end
         d.ret == "Void" ? [nil, "Void"] : [value, d.ret]
       ensure
@@ -602,7 +613,7 @@ module Zr
       def rooted(node, value, type)
         return value unless @roots && type == "Value" && node.is_a?(Prism::CallNode)
 
-        @f.store(value, @roots[:addr], root_slot)
+        @f.store(value, @roots.addr, root_slot)
         value
       end
 

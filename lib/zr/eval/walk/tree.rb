@@ -124,9 +124,7 @@ module Zr
         # again. `tag` marks the innermost block or loop, which `break`,
         # `next` and `redo` leave. `home` marks the method that a `return`
         # leaves; it is nil when there is no such method.
-        Ctx = Struct.new(:self_, :cref, :chain, :block, :name, :owner, :args, :kwargs, :tag, :home, keyword_init: true) do
-          def with(**over) = Ctx.new(**to_h, **over)
-        end
+        Ctx = Data.define(:self_, :cref, :chain, :block, :name, :owner, :args, :kwargs, :tag, :home)
 
         def initialize(file)
           @file = file

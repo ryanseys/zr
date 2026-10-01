@@ -66,6 +66,7 @@ Lint/BinaryOperatorWithIdenticalOperands: { Exclude: ["lib/zr/runtime/kernel/**/
 Layout: { Exclude: ["lib/zr/runtime/kernel/**/*"] }
 Style: { Exclude: ["lib/zr/runtime/kernel/**/*"] }
 Naming: { Exclude: ["lib/zr/runtime/kernel/**/*"] }
+Metrics: { Exclude: ["lib/zr/runtime/kernel/**/*"] }
 
 # Layout: only what keeps a diff readable. No formatter, so blame stays.
 Layout/LineLength:
@@ -148,3 +149,15 @@ Style/RescueModifier: { Enabled: true }
 Naming/PredicateMethod:
   Enabled: true
   AllowedMethods: [call, run]
+
+# `f(x, true)` does not say what `true` means; `f(x, wide: true)` does.
+Style/OptionalBooleanParameter: { Enabled: true }
+
+# A long positional list hides which argument is which. Pass a record
+# (a Data) or keywords. A kernel def's parameters are its machine
+# signature, so the kernel is out (Metrics, above).
+Metrics/ParameterLists:
+  Enabled: true
+  Max: 5
+  CountKeywordArgs: false
+  MaxOptionalParameters: 3

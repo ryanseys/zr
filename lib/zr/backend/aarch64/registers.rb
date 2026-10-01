@@ -11,7 +11,7 @@ module Zr
         class Register
           attr_reader :to_i
 
-          def initialize(number, wide, sp, float: false)
+          def initialize(number, wide:, sp: false, float: false)
             @to_i = number
             @wide = wide
             @sp = sp
@@ -37,10 +37,10 @@ module Zr
         end
 
         31.times do |i|
-          const_set(:"X#{i}", Register.new(i, true, false))
-          const_set(:"W#{i}", Register.new(i, false, false))
+          const_set(:"X#{i}", Register.new(i, wide: true))
+          const_set(:"W#{i}", Register.new(i, wide: false))
         end
-        32.times { |i| const_set(:"D#{i}", Register.new(i, true, false, float: true)) }
+        32.times { |i| const_set(:"D#{i}", Register.new(i, wide: true, float: true)) }
 
         module_function
 
@@ -49,10 +49,10 @@ module Zr
         def w(i) = const_get(:"W#{i}")
         def d(i) = const_get(:"D#{i}")
 
-        SP = Register.new(31, true, true)
-        WSP = Register.new(31, false, true)
-        XZR = Register.new(31, true, false)
-        WZR = Register.new(31, false, false)
+        SP = Register.new(31, wide: true, sp: true)
+        WSP = Register.new(31, wide: false, sp: true)
+        XZR = Register.new(31, wide: true)
+        WZR = Register.new(31, wide: false)
       end
     end
   end

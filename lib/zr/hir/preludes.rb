@@ -10,7 +10,7 @@ module Zr
       # `DATA`, which ruby defines before the first line of a main file
       # that has an `__END__` line: a File at the byte after that line.
       def self.data(main, at)
-        made = Send.new(Core.new(:File, 0), :data, [Literal.new(main.source, 0), Literal.new(at, 0), Literal.new(Paths.shown(main.file), 0)], 0, false)
+        made = Send.of(Core.new(:File, 0), :data, [Literal.new(main.source, 0), Literal.new(at, 0), Literal.new(Paths.shown(main.file), 0)], 0)
         ConstWrite.new(nil, :DATA, made, 0)
       end
 

@@ -55,17 +55,19 @@ module Zr
         # guard goes to `miss`, the kernel's send (which sets the guess). A
         # check that the fast path cannot decide goes to `call`, the cell's
         # own function, which the cell already found to be valid.
-        def in_place(shape, recv, klass, entry, argv, merge, call, miss, held)
+        def in_place(shape, site, klass, call, miss, held)
+          recv = site.recv
+          merge = site.merge
           case shape
-          when :reader, :writer then accessor_in_place(shape, recv, entry, argv, merge, miss, held)
+          when :reader, :writer then accessor_in_place(shape, site, miss, held)
           when :nil_p then @f.jump(merge, [ruby_bool(@f.icmp("eq", recv, @qnil))])
           when :frozen_p then frozen_in_place(recv, merge)
           when :ary_length then @f.jump(merge, [@f.bor(@f.ishl(array_len(recv), imm(1)), imm(1))])
-          when :is_a then answered(kernel("zr_is_a_fast", klass, @f.fetch("i64", argv, 0)), merge, call)
-          when :instance_of then answered(kernel("zr_instance_of_fast", klass, @f.fetch("i64", argv, 0)), merge, call)
-          when :mod_eqq then mod_eqq_in_place(recv, @f.fetch("i64", argv, 0), merge, call)
-          when :eq, :eqq then @f.jump(merge, [ruby_bool(@f.icmp("eq", recv, @f.fetch("i64", argv, 0)))])
-          when :ne then @f.jump(merge, [ruby_bool(@f.icmp("ne", recv, @f.fetch("i64", argv, 0)))])
+          when :is_a then answered(kernel("zr_is_a_fast", klass, @f.fetch("i64", site.argv, 0)), merge, call)
+          when :instance_of then answered(kernel("zr_instance_of_fast", klass, @f.fetch("i64", site.argv, 0)), merge, call)
+          when :mod_eqq then mod_eqq_in_place(recv, @f.fetch("i64", site.argv, 0), merge, call)
+          when :eq, :eqq then @f.jump(merge, [ruby_bool(@f.icmp("eq", recv, @f.fetch("i64", site.argv, 0)))])
+          when :ne then @f.jump(merge, [ruby_bool(@f.icmp("ne", recv, @f.fetch("i64", site.argv, 0)))])
           end
         end
 
@@ -170,7 +172,11 @@ module Zr
         # (`struct_member_in_place`).
         #
         # Clear the keyword word as the accessor call would.
-        def accessor_in_place(shape, recv, entry, argv, merge, slow, held = nil)
+        def accessor_in_place(shape, site, slow, held = nil)
+          recv = site.recv
+          entry = site.entry
+          argv = site.argv
+          merge = site.merge
           table = @l.layout("IvTab")
           row = @l.layout("IvEntry")
           meta = @l.layout("MEntry")

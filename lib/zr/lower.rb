@@ -457,7 +457,7 @@ module Zr
     # the class's, set here. A def or block contains its arity and its
     # parameter entries, and a block contains its function, so a Proc
     # finds both.
-    def meta(fn, kind, line, name = 0, parent = nil, params = nil, locals = [], env = false, ruby = false,
+    def meta(fn, kind, line, name: 0, parent: nil, params: nil, locals: [], env: false, ruby: false,
              captures: false, node: 0, cover: nil)
       layout = layout("FrameMeta")
       file = file_bytes

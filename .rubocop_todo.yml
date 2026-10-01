@@ -1,3 +1,28 @@
+# Files that had a method with more than 5 positional parameters when
+# Metrics/ParameterLists came in. Pass a record or keywords, then delete
+# the file from this list.
+Metrics/ParameterLists:
+  Exclude:
+    - "lib/zr/backend/aarch64/assembler.rb"
+    - "lib/zr/backend/aarch64/regalloc.rb"
+    - "lib/zr/cli.rb"
+    - "lib/zr/config.rb"
+    - "lib/zr/eval/walk.rb"
+    - "lib/zr/eval/walk/tree.rb"
+    - "lib/zr/gem_set/resolve.rb"
+    - "lib/zr/ir/interp.rb"
+    - "lib/zr/lower/function.rb"
+    - "lib/zr/lower/function/sends.rb"
+    - "lib/zr/lower/function/sends/in_place.rb"
+    - "lib/zr/machine/function.rb"
+    - "lib/zr/machine/host/walk.rb"
+    - "lib/zr/native/build.rb"
+    - "lib/zr/obj/macho/executable.rb"
+    - "test/support/harness/bench.rb"
+    - "tool/gen/onig_unicode.rb"
+    - "tool/lib/zr/dev/gems/trial.rb"
+    - "tool/reach.rb"
+
 # Files that had lines over 150 characters when Layout/LineLength came in.
 # Shorten the lines of a file, then delete it from this list.
 Layout/LineLength:

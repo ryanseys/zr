@@ -459,7 +459,8 @@ module Zr
             rest = @f.label
             @f.brif(@f.icmp("eq", klass, global(owner)), here, rest)
             switch(here)
-            owner == "G_ARRAY" ? array_element(node, recv, argv, merge, core) : string_byte(node, recv, argv, merge, core)
+            site = CallSite.new(node: node, recv: recv, argv: argv, merge: merge)
+            owner == "G_ARRAY" ? array_element(site, core) : string_byte(node, recv, argv, merge, core)
             switch(rest)
             classes -= [owner]
           end
@@ -499,27 +500,27 @@ module Zr
         # write, the Array is not frozen. The value goes to `merge`. A
         # negative index, one past the end, and all other cases go to
         # `slow`, the kernel's entry.
-        def array_element(node, recv, argv, merge, slow)
+        def array_element(site, slow)
           fast = @f.label
-          index = @f.fetch("i64", argv)
+          index = @f.fetch("i64", site.argv)
           i = @f.sshr(index, imm(1))
-          len = @f.fetch("i64", recv, off(@l.layout("RArray"), "len"))
+          len = @f.fetch("i64", site.recv, off(@l.layout("RArray"), "len"))
           ok = @f.band(@f.icmp("ne", @f.band(index, imm(1)), imm(0)), @f.icmp("ult", i, len))
-          ok = @f.band(ok, gate_clear(node.name == :[] ? "GATE_AREF" : "GATE_ASET"))
-          if node.name == :[]=
-            flags = @f.fetch("i64", recv, off(@l.layout("RBasic"), "flags"))
+          ok = @f.band(ok, gate_clear(site.node.name == :[] ? "GATE_AREF" : "GATE_ASET"))
+          if site.node.name == :[]=
+            flags = @f.fetch("i64", site.recv, off(@l.layout("RBasic"), "flags"))
             ok = @f.band(ok, @f.icmp("eq", @f.band(flags, imm(@l.const("FL_FREEZE"))), imm(0)))
           end
           @f.brif(ok, fast, slow)
           switch(fast)
-          at = @f.iadd(@f.fetch("i64", recv, off(@l.layout("RArray"), "ptr")), @f.ishl(i, imm(3)))
-          if node.name == :[]
-            @f.jump(merge, [@f.fetch("i64", at)])
+          at = @f.iadd(@f.fetch("i64", site.recv, off(@l.layout("RArray"), "ptr")), @f.ishl(i, imm(3)))
+          if site.node.name == :[]
+            @f.jump(site.merge, [@f.fetch("i64", at)])
           else
-            value = @f.fetch("i64", argv, 8)
+            value = @f.fetch("i64", site.argv, 8)
             @f.store(value, at, region: :malloc)
-            cell_barrier(recv, value)
-            @f.jump(merge, [value])
+            cell_barrier(site.recv, value)
+            @f.jump(site.merge, [value])
           end
         end
 
@@ -602,9 +603,10 @@ module Zr
           @f.brif(same, direct, miss)
           switch(direct)
           entry = @f.fetch("i64", cc, off(cell, "entry"))
-          shape_hits(shapes, cc, recv, klass, cellular, entry, argv, merge, miss) unless shapes.empty?
+          site = CallSite.new(node: node, cc: cc, recv: recv, entry: entry, argv: argv, merge: merge)
+          shape_hits(shapes, site, klass, cellular, miss) unless shapes.empty?
           found = @f.fetch("i64", cc, off(cell, "found"))
-          direct_entry(node, cc, recv, entry, blk, found, argv, merge) if direct_site?(node)
+          direct_entry(site, blk, found) if direct_site?(node)
           fn = @f.fetch("i64", cc, off(cell, "fn"))
           args = [recv, argc, argv, entry, blk, found]
           @f.jump(merge, [@f.call_indirect_val(@f.sig(ABI.fetch(:def), "i64"), fn, args)])
@@ -692,9 +694,9 @@ module Zr
 
         # A hit whose cell holds one of the site's shapes (an accessor, a
         # struct member, ...) runs the shape in place.
-        def shape_hits(shapes, cc, recv, klass, cellular, entry, argv, merge, miss)
+        def shape_hits(shapes, site, klass, cellular, miss)
           call = @f.label
-          held = @f.fetch("i64", cc, off(@l.layout("CallCache"), "shape"))
+          held = @f.fetch("i64", site.cc, off(@l.layout("CallCache"), "shape"))
           shapes.each_with_index do |shape, i|
             here = @f.label
             onward = i == shapes.size - 1 ? call : @f.label
@@ -702,7 +704,7 @@ module Zr
             wanted = @f.bor(wanted, struct_member?(shape, held)) if ACCESSOR_SHAPES.include?(shape)
             @f.brif(ACCESSOR_SHAPES.include?(shape) ? @f.band(cellular, wanted) : wanted, here, onward)
             switch(here)
-            in_place(shape, recv, klass, entry, argv, merge, call, miss, held)
+            in_place(shape, site, klass, call, miss, held)
             switch(onward)
           end
         end
@@ -710,25 +712,26 @@ module Zr
         # The def's direct entry, if the cell has one for this site's
         # count. The staged arguments go in registers, with no count and
         # no keyword word for the def to check.
-        def direct_entry(node, cc, recv, entry, blk, found, argv, merge)
+        def direct_entry(site, blk, found)
           fast = @f.label
           generic = @f.label
-          direct = @f.fetch("i64", cc, off(@l.layout("CallCache"), "direct"))
+          direct = @f.fetch("i64", site.cc, off(@l.layout("CallCache"), "direct"))
           @f.brif(@f.icmp("ne", direct, imm(0)), fast, generic)
           switch(fast)
-          n = node.args.size
-          given = Array.new(n) { |i| @f.fetch("i64", argv, 8 * i) }
+          n = site.node.args.size
+          given = Array.new(n) { |i| @f.fetch("i64", site.argv, 8 * i) }
           # The unit's def with this name, if the direct entry is its body:
           # an inline copy of the body, which bails to the call (`Inline`).
-          if (d = inline_candidate(node))
+          if (d = inline_candidate(site.node))
             copy = @f.label
             plain = @f.label
             @f.brif(@f.icmp("eq", direct, @f.func_addr(@f.callee(@l.def_name(d), ABI.fetch(Function.direct_abi(n)), "i64"))), copy, plain)
             switch(copy)
-            @f.jump(merge, [inline_body(d, recv, given, plain)])
+            @f.jump(site.merge, [inline_body(d, site.recv, given, plain)])
             switch(plain)
           end
-          @f.jump(merge, [@f.call_indirect_val(@f.sig(ABI.fetch(Function.direct_abi(n)), "i64"), direct, [recv, entry, blk, found, *given])])
+          sig = @f.sig(ABI.fetch(Function.direct_abi(n)), "i64")
+          @f.jump(site.merge, [@f.call_indirect_val(sig, direct, [site.recv, site.entry, blk, found, *given])])
           switch(generic)
         end
 

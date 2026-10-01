@@ -58,7 +58,7 @@ module Zr
           body = @f.label
           out = @f.label
           done, (result,) = @f.block(["i64"])
-          @loops << { head: head, body: body, done: done, depth: @regions.size }
+          @loops << Loop.new(head: head, body: body, done: done, depth: @regions.size)
           @f.jump(node.body_first ? body : head)
           switch(head)
           jump_if(node.cond, body, out)
@@ -417,9 +417,9 @@ module Zr
         # block's body again with the parameters as they are.
         def redo_body(node)
           if (loop = @loops.last)
-            through_ensures(@qnil, loop[:depth])
+            through_ensures(@qnil, loop.depth)
             preempt
-            @f.jump(loop[:body])
+            @f.jump(loop.body)
           else
             @l.unsupported(node, "redo outside a block or loop") unless @kind == :block
             through_ensures(@qnil)
@@ -435,13 +435,13 @@ module Zr
         def jump_out(node, kind)
           v = expr(node.value)
           if (loop = @loops.last)
-            v = through_ensures(v, loop[:depth])
+            v = through_ensures(v, loop.depth)
             if kind == :break
-              @f.jump(loop[:done], [v])
+              @f.jump(loop.done, [v])
             else
               # A back edge like the one at the body's end.
               preempt
-              @f.jump(loop[:head])
+              @f.jump(loop.head)
             end
             switch(@f.label, open: true)
             return @qnil

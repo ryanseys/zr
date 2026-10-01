@@ -5,6 +5,8 @@ require_relative "../machine/description"
 require_relative "scope"
 require_relative "function/expressions"
 require_relative "function/definitions"
+require_relative "function/call_site"
+require_relative "function/loop"
 require_relative "function/sends"
 require_relative "function/sends/refinements"
 require_relative "function/sends/in_place"
@@ -296,8 +298,9 @@ module Zr
         params = @def.params if %i[def block].include?(@kind)
         kind = hidden_def? ? "KIND_HIDDEN" : @l.frame_kind(@kind)
         node_id = @def ? @l.node_id(@def) : 0
-        @meta = @l.meta(@name, kind, line, name, @outer&.meta, params, @locals, @has_env, attributes.include?(:ruby),
-                        captures: true, node: node_id, cover: method_cover)
+        @meta = @l.meta(@name, kind, line, name: name, parent: @outer&.meta, params: params, locals: @locals,
+                                           env: @has_env, ruby: attributes.include?(:ruby),
+                                           captures: true, node: node_id, cover: method_cover)
         @f.store(@f.symbol_value(@f.symbol(@meta)), @rec, off(@frame, "meta"))
         @line = line | (node_id << 32)
         @f.store(imm(@line), @rec, off(@frame, "line"))

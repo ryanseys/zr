@@ -31,7 +31,7 @@ module Zr
     # `self_` and `cref`. `block` is the block that a `yield` in the
     # string calls. `add` marks a `Binding#eval`: a new local of the
     # string becomes a local of the Binding, as in ruby.
-    def run(source, file, line, scope, self_, cref, block, add = false)
+    def run(source, file, line, scope, self_, cref, block, add: false)
       file = string(file)
       hir = built(string(source), file, line.to_int, scope)
       own = Walk::Tree::Scope.new(hir.locals)

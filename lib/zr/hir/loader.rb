@@ -410,16 +410,16 @@ module Zr
         # The definees for which this file defines its own `require`,
         # `require_relative` or `load`. A call in one of them dispatches to
         # that method, so it must not compile the file in.
-        def shadowed(node, path = [Object.name], singleton = false, found = {})
+        def shadowed(node, path = [Object.name], found = {}, singleton: false)
           case node
           when Prism::ClassNode, Prism::ModuleNode
-            shadowed(node.body, path + [node.constant_path.slice], false, found) if node.body
+            shadowed(node.body, path + [node.constant_path.slice], found) if node.body
           when Prism::SingletonClassNode
-            shadowed(node.body, path, true, found) if node.body
+            shadowed(node.body, path, found, singleton: true) if node.body
           when Prism::DefNode
             found[[path.join("::"), !node.receiver.nil? || singleton, node.name]] = true if REQUIRES.include?(node.name)
           else
-            node&.child_nodes&.each { |child| shadowed(child, path, singleton, found) }
+            node&.child_nodes&.each { |child| shadowed(child, path, found, singleton: singleton) }
           end
           found
         end

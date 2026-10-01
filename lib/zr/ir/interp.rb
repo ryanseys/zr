@@ -140,7 +140,7 @@ module Zr
 
       # The state of one call: the values it defined, and the addresses of
       # its stack slots.
-      Frame = Struct.new(:values, :slot_at, :types)
+      Frame = Data.define(:values, :slot_at, :types)
 
       attr_reader :memory
 
