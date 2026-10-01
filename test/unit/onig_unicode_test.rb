@@ -43,19 +43,14 @@ class OnigUnicodeTest < Minitest::Test
 
   # The bytes a kernel file's `machine def function_name` passes to
   # Machine.bytes, read with prism the way zr's own lowering reads them
-  # (lib/zr/machine/lower.rb): `machine def name ... end` is a call to
-  # `machine` with the def as its argument, since `def` is itself an
-  # expression.
+  # (lib/zr/machine/lower.rb): the file is one `module Zr::Kern` of defs.
   def machine_bytes(path, function_name)
     program = Prism.parse_file(path).value
-    call = program.statements.body.find do |node|
-      node.is_a?(Prism::CallNode) && node.name == :machine &&
-        node.arguments.arguments.first.is_a?(Prism::DefNode) &&
-        node.arguments.arguments.first.name == function_name
+    defn = program.statements.body.first.body.body.find do |node|
+      node.is_a?(Prism::DefNode) && node.name == function_name
     end
-    call or raise "no machine def #{function_name} in #{path}"
+    defn or raise "no def #{function_name} in #{path}"
 
-    defn = call.arguments.arguments.first
     bytes_call = defn.body.body.find { |node| node.is_a?(Prism::CallNode) && node.receiver && node.name == :bytes }
     bytes_call.arguments.arguments.first.unescaped
   end

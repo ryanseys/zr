@@ -79,3 +79,6 @@
 # same for the machine. It gives the `zr_switch` raw function,
 # CONTEXT_BYTES, and
 #   zr_arch_context_start [Ptr, Word, Word] => Void
+#   zr_arch_context_sp    [Ptr] => Word
+module Zr::Kern
+end

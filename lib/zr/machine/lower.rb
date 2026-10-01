@@ -310,8 +310,12 @@ module Zr
       # A `return` is permitted: when inlined, it is a jump to the end of
       # the body (`Function#ret`). A `while` or a `break` is not, because
       # the roots of a loop and the target of a break belong to the def.
+      #
+      # The count is the same in both forms: the `Libc` of an import call
+      # is not a node, and `Name.call(p)` counts as `Machine.call(:name, p)`.
       def small?(node, budget)
-        budget[0] -= 1
+        budget[0] -= 1 unless libc?(node)
+        budget[0] -= 1 if node.is_a?(Prism::CallNode) && node.name == :call && sig_read?(node.receiver)
         return false if budget[0].negative?
         return false if node.is_a?(Prism::WhileNode) || node.is_a?(Prism::BreakNode)
 

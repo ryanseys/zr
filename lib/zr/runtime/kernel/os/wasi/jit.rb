@@ -1,34 +1,36 @@
-# The WASI part of code loading. A module cannot map code or look up a
-# symbol, so the eval compiler (JIT) has no memory to write into.
-RTLD_DEFAULT = 0
+module Zr::Kern
+  # The WASI part of code loading. A module cannot map code or look up a
+  # symbol, so the eval compiler (JIT) has no memory to write into.
+  RTLD_DEFAULT = 0
 
-sig [Value] => Value
-machine def zr_os_jit_reserve(size)
-  Machine.value(QNIL)
-end
+  sig [Value] => Value
+  def zr_os_jit_reserve(size)
+    Machine.value(QNIL)
+  end
 
-sig [Value, Value] => Value
-machine def zr_os_jit_release(at, size)
-  Machine.value(QNIL)
-end
+  sig [Value, Value] => Value
+  def zr_os_jit_release(at, size)
+    Machine.value(QNIL)
+  end
 
-sig [Value, Value, Value] => Value
-machine def zr_os_jit_map(size, exec, hint)
-  Machine.value(QNIL)
-end
+  sig [Value, Value, Value] => Value
+  def zr_os_jit_map(size, exec, hint)
+    Machine.value(QNIL)
+  end
 
-sig [Value] => Value
-machine def zr_os_symbol(name)
-  Machine.value(QNIL)
-end
+  sig [Value] => Value
+  def zr_os_symbol(name)
+    Machine.value(QNIL)
+  end
 
-sig [Value, Value] => Value
-machine def zr_os_jit_write(at, bytes)
-  zr_notimplement(Machine.bytes("mmap"), 4)
-end
+  sig [Value, Value] => Value
+  def zr_os_jit_write(at, bytes)
+    zr_notimplement(Machine.bytes("mmap"), 4)
+  end
 
-# A module cannot load a library.
-sig [] => Ptr
-machine def zr_os_libffi_path
-  Machine.bytes("\0")
+  # A module cannot load a library.
+  sig [] => Ptr
+  def zr_os_libffi_path
+    Machine.bytes("\0")
+  end
 end

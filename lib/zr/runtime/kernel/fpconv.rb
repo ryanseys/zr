@@ -1,22 +1,23 @@
-# fpconv.c's fpconv_dtoa, as the json gem vendors it. It writes the
-# Grisu2 digits of a double in the gem's format, with ".0" after a whole
-# number. JSON's generator writes each finite Float with it.
-#
-# Derived from fpconv (Copyright (c) 2013 Andreas Samoljuk, MIT License),
-# as vendored by the json gem. See THIRD_PARTY_NOTICES.md.
-FPCONV_EXPMASK = 9218868437227405312
-FPCONV_FRACMASK = 4503599627370495
-FPCONV_HIDDENBIT = 4503599627370496
-# log10(2) as fpconv.c writes it, 0.30102999566398114, given by its bits.
-FPCONV_LOG10_2 = 4599094494223104510
+module Zr::Kern
+  # fpconv.c's fpconv_dtoa, as the json gem vendors it. It writes the
+  # Grisu2 digits of a double in the gem's format, with ".0" after a whole
+  # number. JSON's generator writes each finite Float with it.
+  #
+  # Derived from fpconv (Copyright (c) 2013 Andreas Samoljuk, MIT License),
+  # as vendored by the json gem. See THIRD_PARTY_NOTICES.md.
+  FPCONV_EXPMASK = 9218868437227405312
+  FPCONV_FRACMASK = 4503599627370495
+  FPCONV_HIDDENBIT = 4503599627370496
+  # log10(2) as fpconv.c writes it, 0.30102999566398114, given by its bits.
+  FPCONV_LOG10_2 = 4599094494223104510
 
-# The cached powers of ten: 87 entries of a 64-bit fraction and its
-# binary exponent, each a little-endian word. They start at 10^-348 and
-# go up in steps of 10^8.
-sig [] => Ptr
-machine def zr_fpconv_powers
-  Machine.bytes(
-  "\x88\x02\x1C\x08\xA0\xD5\x8F\xFA\x3C\xFB\xFF\xFF\xFF\xFF\xFF\xFF\x76\xBF\x3E\xA2\x7F\xE1\xAE\xBA\x57\xFB\xFF\xFF\xFF\xFF\xFF\xFF\
+  # The cached powers of ten: 87 entries of a 64-bit fraction and its
+  # binary exponent, each a little-endian word. They start at 10^-348 and
+  # go up in steps of 10^8.
+  sig [] => Ptr
+  def zr_fpconv_powers
+    Machine.bytes(
+    "\x88\x02\x1C\x08\xA0\xD5\x8F\xFA\x3C\xFB\xFF\xFF\xFF\xFF\xFF\xFF\x76\xBF\x3E\xA2\x7F\xE1\xAE\xBA\x57\xFB\xFF\xFF\xFF\xFF\xFF\xFF\
 \x76\xAC\x55\x30\x20\xFB\x16\x8B\x72\xFB\xFF\xFF\xFF\xFF\xFF\xFF\xEA\x35\xCE\x5D\x4A\x89\x42\xCF\x8C\xFB\xFF\xFF\xFF\xFF\xFF\xFF\
 \x2D\x3B\x65\x55\xAA\xB0\x6B\x9A\xA7\xFB\xFF\xFF\xFF\xFF\xFF\xFF\xDF\x45\x1A\x3D\x03\xCF\x1A\xE6\xC1\xFB\xFF\xFF\xFF\xFF\xFF\xFF\
 \xCA\xC6\x9A\xC7\x17\xFE\x70\xAB\xDC\xFB\xFF\xFF\xFF\xFF\xFF\xFF\x4F\xDC\xBC\xBE\xFC\xB1\x77\xFF\xF6\xFB\xFF\xFF\xFF\xFF\xFF\xFF\
@@ -60,208 +61,209 @@ machine def zr_fpconv_powers
 \x8F\xFF\x44\x5E\x2F\x9C\x67\x8E\xC0\x03\x00\x00\x00\x00\x00\x00\x41\xB8\x8C\x9C\x9D\x17\x33\xD4\xDA\x03\x00\x00\x00\x00\x00\x00\
 \xA9\x1B\xE3\xB4\x92\xDB\x19\x9E\xF5\x03\x00\x00\x00\x00\x00\x00\xD9\x77\xDF\xBA\x6E\xBF\x96\xEB\x0F\x04\x00\x00\x00\x00\x00\x00\
 \x6B\xEE\xF0\x9B\x3B\x02\x87\xAF\x2A\x04\x00\x00\x00\x00\x00\x00")
-end
+  end
 
-# The high 64 bits of a * b, rounded as fpconv.c's multiply rounds them.
-sig [Ptr, Ptr] => Ptr
-machine def zr_fpconv_mul(a, b)
-  lomask = 4294967295
-  ah_bl = (a >> 32) * (b & lomask)
-  al_bh = (a & lomask) * (b >> 32)
-  al_bl = (a & lomask) * (b & lomask)
-  ah_bh = (a >> 32) * (b >> 32)
-  tmp = (ah_bl & lomask) + (al_bh & lomask) + (al_bl >> 32)
-  tmp = tmp + 2147483648
-  ah_bh + (ah_bl >> 32) + (al_bh >> 32) + (tmp >> 32)
-end
+  # The high 64 bits of a * b, rounded as fpconv.c's multiply rounds them.
+  sig [Ptr, Ptr] => Ptr
+  def zr_fpconv_mul(a, b)
+    lomask = 4294967295
+    ah_bl = (a >> 32) * (b & lomask)
+    al_bh = (a & lomask) * (b >> 32)
+    al_bl = (a & lomask) * (b & lomask)
+    ah_bh = (a >> 32) * (b >> 32)
+    tmp = (ah_bl & lomask) + (al_bh & lomask) + (al_bl >> 32)
+    tmp = tmp + 2147483648
+    ah_bh + (ah_bl >> 32) + (al_bh >> 32) + (tmp >> 32)
+  end
 
-# round_digit: decreases the last digit while that makes it nearer.
-sig [Ptr, Word, Ptr, Ptr, Ptr, Ptr] => Void
-machine def zr_fpconv_round(digits, n, delta, rem, kappa, frac)
-  while rem < frac && delta - rem >= kappa && (rem + kappa < frac || frac - rem > rem + kappa - frac)
-    at = digits + (n - 1)
-    Machine.store8(at, 0, Machine.i8(Machine.word(Machine.load8(at, 0)) - 1))
-    rem = rem + kappa
+  # round_digit: decreases the last digit while that makes it nearer.
+  sig [Ptr, Word, Ptr, Ptr, Ptr, Ptr] => Void
+  def zr_fpconv_round(digits, n, delta, rem, kappa, frac)
+    while rem < frac && delta - rem >= kappa && (rem + kappa < frac || frac - rem > rem + kappa - frac)
+      at = digits + (n - 1)
+      Machine.store8(at, 0, Machine.i8(Machine.word(Machine.load8(at, 0)) - 1))
+      rem = rem + kappa
+    end
   end
-end
 
-# grisu2 and generate_digits for the finite, nonzero double of `bits`.
-# Writes the digits into `digits`, stores the decimal exponent at `k`,
-# and returns the digit count.
-sig [Ptr, Ptr, Ptr] => Word
-machine def zr_fpconv_grisu2(bits, digits, k)
-  frac = bits & FPCONV_FRACMASK
-  exp = Machine.word((bits & FPCONV_EXPMASK) >> 52)
-  if exp != 0
-    frac = frac + FPCONV_HIDDENBIT
-    exp = exp - 1075
-  else
-    exp = 0 - 1074
-  end
-  ufrac = (frac << 1) + 1
-  uexp = exp - 1
-  while (ufrac & (FPCONV_HIDDENBIT << 1)) == 0
-    ufrac = ufrac << 1
-    uexp = uexp - 1
-  end
-  ufrac = ufrac << 10
-  uexp = uexp - 10
-  lshift = 1
-  if frac == FPCONV_HIDDENBIT
-    lshift = 2
-  end
-  lfrac = (frac << lshift) - 1
-  lfrac = lfrac << ((exp - lshift) - uexp)
-  wfrac = frac
-  while (wfrac & FPCONV_HIDDENBIT) == 0
-    wfrac = wfrac << 1
-  end
-  wfrac = wfrac << 11
-  powers = zr_fpconv_powers()
-  approx = Machine.to_int(Machine.to_f64(0 - (uexp + 87)) * Machine.f64(FPCONV_LOG10_2))
-  idx = (approx + 348) / 8
-  while true
-    current = uexp + Machine.load64(powers + (idx * 16), 8) + 64
-    if current < 0 - 60
-      idx = idx + 1
-    elsif current > 0 - 32
-      idx = idx - 1
+  # grisu2 and generate_digits for the finite, nonzero double of `bits`.
+  # Writes the digits into `digits`, stores the decimal exponent at `k`,
+  # and returns the digit count.
+  sig [Ptr, Ptr, Ptr] => Word
+  def zr_fpconv_grisu2(bits, digits, k)
+    frac = bits & FPCONV_FRACMASK
+    exp = Machine.word((bits & FPCONV_EXPMASK) >> 52)
+    if exp != 0
+      frac = frac + FPCONV_HIDDENBIT
+      exp = exp - 1075
     else
-      break
+      exp = 0 - 1074
     end
+    ufrac = (frac << 1) + 1
+    uexp = exp - 1
+    while (ufrac & (FPCONV_HIDDENBIT << 1)) == 0
+      ufrac = ufrac << 1
+      uexp = uexp - 1
+    end
+    ufrac = ufrac << 10
+    uexp = uexp - 10
+    lshift = 1
+    if frac == FPCONV_HIDDENBIT
+      lshift = 2
+    end
+    lfrac = (frac << lshift) - 1
+    lfrac = lfrac << ((exp - lshift) - uexp)
+    wfrac = frac
+    while (wfrac & FPCONV_HIDDENBIT) == 0
+      wfrac = wfrac << 1
+    end
+    wfrac = wfrac << 11
+    powers = zr_fpconv_powers()
+    approx = Machine.to_int(Machine.to_f64(0 - (uexp + 87)) * Machine.f64(FPCONV_LOG10_2))
+    idx = (approx + 348) / 8
+    while true
+      current = uexp + Machine.load64(powers + (idx * 16), 8) + 64
+      if current < 0 - 60
+        idx = idx + 1
+      elsif current > 0 - 32
+        idx = idx - 1
+      else
+        break
+      end
+    end
+    cfrac = Machine.ptr(Machine.load64(powers + (idx * 16), 0))
+    uexp = uexp + Machine.load64(powers + (idx * 16), 8) + 64
+    kk = 348 - (idx * 8)
+    wfrac = zr_fpconv_mul(wfrac, cfrac)
+    ufrac = zr_fpconv_mul(ufrac, cfrac) - 1
+    lfrac = zr_fpconv_mul(lfrac, cfrac) + 1
+    distance = ufrac - wfrac
+    delta = ufrac - lfrac
+    shift = 0 - uexp
+    one = Machine.ptr(1) << shift
+    part1 = ufrac >> shift
+    part2 = ufrac & (one - 1)
+    n = 0
+    kappa = 10
+    div = Machine.ptr(1000000000)
+    while kappa > 0
+      digit = part1 / div
+      if digit != 0 || n != 0
+        Machine.store8(digits + n, 0, Machine.i8(Machine.word(digit) + 48))
+        n = n + 1
+      end
+      part1 = part1 - (digit * div)
+      kappa = kappa - 1
+      tmp = (part1 << shift) + part2
+      if tmp <= delta
+        Machine.store64(k, 0, kk + kappa)
+        zr_fpconv_round(digits, n, delta, tmp, div << shift, distance)
+        return n
+      end
+      div = div / 10
+    end
+    unit = Machine.ptr(10)
+    while true
+      part2 = part2 * 10
+      delta = delta * 10
+      kappa = kappa - 1
+      digit = part2 >> shift
+      if digit != 0 || n != 0
+        Machine.store8(digits + n, 0, Machine.i8(Machine.word(digit) + 48))
+        n = n + 1
+      end
+      part2 = part2 & (one - 1)
+      if part2 < delta
+        Machine.store64(k, 0, kk + kappa)
+        zr_fpconv_round(digits, n, delta, part2, one, distance * unit)
+        return n
+      end
+      unit = unit * 10
+    end
+    0
   end
-  cfrac = Machine.ptr(Machine.load64(powers + (idx * 16), 0))
-  uexp = uexp + Machine.load64(powers + (idx * 16), 8) + 64
-  kk = 348 - (idx * 8)
-  wfrac = zr_fpconv_mul(wfrac, cfrac)
-  ufrac = zr_fpconv_mul(ufrac, cfrac) - 1
-  lfrac = zr_fpconv_mul(lfrac, cfrac) + 1
-  distance = ufrac - wfrac
-  delta = ufrac - lfrac
-  shift = 0 - uexp
-  one = Machine.ptr(1) << shift
-  part1 = ufrac >> shift
-  part2 = ufrac & (one - 1)
-  n = 0
-  kappa = 10
-  div = Machine.ptr(1000000000)
-  while kappa > 0
-    digit = part1 / div
-    if digit != 0 || n != 0
-      Machine.store8(digits + n, 0, Machine.i8(Machine.word(digit) + 48))
-      n = n + 1
-    end
-    part1 = part1 - (digit * div)
-    kappa = kappa - 1
-    tmp = (part1 << shift) + part2
-    if tmp <= delta
-      Machine.store64(k, 0, kk + kappa)
-      zr_fpconv_round(digits, n, delta, tmp, div << shift, distance)
-      return n
-    end
-    div = div / 10
-  end
-  unit = Machine.ptr(10)
-  while true
-    part2 = part2 * 10
-    delta = delta * 10
-    kappa = kappa - 1
-    digit = part2 >> shift
-    if digit != 0 || n != 0
-      Machine.store8(digits + n, 0, Machine.i8(Machine.word(digit) + 48))
-      n = n + 1
-    end
-    part2 = part2 & (one - 1)
-    if part2 < delta
-      Machine.store64(k, 0, kk + kappa)
-      zr_fpconv_round(digits, n, delta, part2, one, distance * unit)
-      return n
-    end
-    unit = unit * 10
-  end
-  0
-end
 
-# emit_digits: plain notation up to fifteen places, a leading "0." down
-# to six places below, and scientific notation past these limits.
-sig [Ptr, Ptr, Word, Word, Bool] => Void
-machine def zr_fpconv_emit(b, digits, n, k, neg)
-  e = k + n - 1
-  exp = e
-  if e < 0
-    exp = 0 - e
-  end
-  if k >= 0 && exp < 15
-    zr_buf_push(b, digits, n)
-    i = 0
-    while i < k
-      zr_buf_byte(b, 48)
-      i = i + 1
+  # emit_digits: plain notation up to fifteen places, a leading "0." down
+  # to six places below, and scientific notation past these limits.
+  sig [Ptr, Ptr, Word, Word, Bool] => Void
+  def zr_fpconv_emit(b, digits, n, k, neg)
+    e = k + n - 1
+    exp = e
+    if e < 0
+      exp = 0 - e
     end
-    zr_buf_push(b, Machine.bytes(".0"), 2)
-    return
-  end
-  if k < 0 && (k > 0 - 7 || exp < 10)
-    offset = n + k
-    if offset <= 0
-      zr_buf_push(b, Machine.bytes("0."), 2)
+    if k >= 0 && exp < 15
+      zr_buf_push(b, digits, n)
       i = 0
-      while i < 0 - offset
+      while i < k
         zr_buf_byte(b, 48)
         i = i + 1
       end
-      zr_buf_push(b, digits, n)
-    else
-      zr_buf_push(b, digits, offset)
+      zr_buf_push(b, Machine.bytes(".0"), 2)
+      return
+    end
+    if k < 0 && (k > 0 - 7 || exp < 10)
+      offset = n + k
+      if offset <= 0
+        zr_buf_push(b, Machine.bytes("0."), 2)
+        i = 0
+        while i < 0 - offset
+          zr_buf_byte(b, 48)
+          i = i + 1
+        end
+        zr_buf_push(b, digits, n)
+      else
+        zr_buf_push(b, digits, offset)
+        zr_buf_byte(b, 46)
+        zr_buf_push(b, digits + offset, n - offset)
+      end
+      return
+    end
+    limit = 18
+    if neg
+      limit = 17
+    end
+    if n > limit
+      n = limit
+    end
+    zr_buf_push(b, digits, 1)
+    if n > 1
       zr_buf_byte(b, 46)
-      zr_buf_push(b, digits + offset, n - offset)
+      zr_buf_push(b, digits + 1, n - 1)
     end
-    return
-  end
-  limit = 18
-  if neg
-    limit = 17
-  end
-  if n > limit
-    n = limit
-  end
-  zr_buf_push(b, digits, 1)
-  if n > 1
-    zr_buf_byte(b, 46)
-    zr_buf_push(b, digits + 1, n - 1)
-  end
-  zr_buf_byte(b, 101)
-  if k + n - 1 < 0
-    zr_buf_byte(b, 45)
-  else
-    zr_buf_byte(b, 43)
-  end
-  zr_buf_long(b, exp)
-end
-
-# Runs fpconv_dtoa for the Float `v`.
-sig [Value] => Value
-machine def zr_fpconv_dtoa(v)
-  bits = Machine.ptr(Machine.bits(zr_float_value(v)))
-  b = Machine.slot(Buf.size)
-  zr_buf_init(b)
-  neg = (bits >> 63) != 0
-  if neg
-    zr_buf_byte(b, 45)
-  end
-  if (bits << 1) == 0
-    zr_buf_push(b, Machine.bytes("0.0"), 3)
-  elsif (bits & FPCONV_EXPMASK) == FPCONV_EXPMASK
-    if (bits & FPCONV_FRACMASK) != 0
-      zr_buf_push(b, Machine.bytes("nan"), 3)
+    zr_buf_byte(b, 101)
+    if k + n - 1 < 0
+      zr_buf_byte(b, 45)
     else
-      zr_buf_push(b, Machine.bytes("inf"), 3)
+      zr_buf_byte(b, 43)
     end
-  else
-    digits = Machine.slot(24)
-    k = Machine.slot(8)
-    n = zr_fpconv_grisu2(bits, digits, k)
-    zr_fpconv_emit(b, digits, n, Machine.load64(k, 0), neg)
+    zr_buf_long(b, exp)
   end
-  zr_buf_take(b)
+
+  # Runs fpconv_dtoa for the Float `v`.
+  sig [Value] => Value
+  def zr_fpconv_dtoa(v)
+    bits = Machine.ptr(Machine.bits(zr_float_value(v)))
+    b = Machine.slot(Buf.size)
+    zr_buf_init(b)
+    neg = (bits >> 63) != 0
+    if neg
+      zr_buf_byte(b, 45)
+    end
+    if (bits << 1) == 0
+      zr_buf_push(b, Machine.bytes("0.0"), 3)
+    elsif (bits & FPCONV_EXPMASK) == FPCONV_EXPMASK
+      if (bits & FPCONV_FRACMASK) != 0
+        zr_buf_push(b, Machine.bytes("nan"), 3)
+      else
+        zr_buf_push(b, Machine.bytes("inf"), 3)
+      end
+    else
+      digits = Machine.slot(24)
+      k = Machine.slot(8)
+      n = zr_fpconv_grisu2(bits, digits, k)
+      zr_fpconv_emit(b, digits, n, Machine.load64(k, 0), neg)
+    end
+    zr_buf_take(b)
+  end
 end

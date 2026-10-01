@@ -3,582 +3,583 @@
 # the libc descriptor and path calls that the portable kernel imports.
 # Each call returns what wasi-libc returns.
 
-sig [] => Word
-machine def zr_os_errno
-  Machine.word(Machine.load32(Machine.static(:errno, 8), 0))
-end
-
-sig [Word] => Void
-machine def zr_os_set_errno(n)
-  Machine.store32(Machine.static(:errno, 8), 0, Machine.i32(n))
-end
-
-EINTR = 27
-EBADF = 8
-
-# wasi-libc's open flags. The file status flags are WASI's fdflags. The
-# creation flags are WASI's oflags, shifted up 12 bits. The access modes
-# have their own high bits.
-O_APPEND = 1
-O_NONBLOCK = 4
-O_NONBLOCK_OFF = 4294967291
-O_FDFLAGS = 31
-O_NOFOLLOW = 16777216
-O_RDONLY = 67108864
-O_WRONLY = 268435456
-# wasi-libc has no exec, so close-on-exec does nothing.
-O_CLOEXEC = 0
-PTY_OPEN_FLAGS = 335544320
-
-# musl's ioctl numbers. wasi-libc keeps them, but no call supports them.
-TIOCGWINSZ = 21523
-# TIOCSCTTY: makes the descriptor the session's controlling terminal.
-TIOCSCTTY = 21518
-TIOCSWINSZ = 21524
-TERMIOS_LEN = 60
-
-F_GETFD = 1
-
-# The rights that path_open grants for each access mode, as wasi-libc
-# requests them: all rights except read and write, plus the read rights
-# for O_RDONLY and the write rights for O_WRONLY.
-RIGHTS_READ = 16386
-RIGHTS_WRITE = 4194625
-RIGHTS_OTHER = 1073741823 - RIGHTS_READ - RIGHTS_WRITE
-FDSTAT_LEN = 24
-
-# WASI cannot resolve the links in a path, so this returns 0 for every
-# path, and the caller uses the path as written.
-sig [Ptr] => Ptr
-machine def zr_os_realpath(path)
-  Machine.ptr(0)
-end
-
-# open(2) on top of path_open, in the preopened directory that contains
-# the path. A WASI file has no permission bits, so the mode is ignored.
-sig [Ptr, I32, I32] => I32
-machine def zr_os_open(path, flags, _mode)
-  where = Machine.slot(16)
-  dir = zr_wasi_resolve(path, where)
-  if dir < Machine.i32(0)
-    return dir
+module Zr::Kern
+  sig [] => Word
+  def zr_os_errno
+    Machine.word(Machine.load32(Machine.static(:errno, 8), 0))
   end
-  f = Machine.word(flags)
-  rights = RIGHTS_OTHER
-  if (f & O_RDONLY) != 0
-    rights = rights | RIGHTS_READ
+
+  sig [Word] => Void
+  def zr_os_set_errno(n)
+    Machine.store32(Machine.static(:errno, 8), 0, Machine.i32(n))
   end
-  if (f & O_WRONLY) != 0
-    rights = rights | RIGHTS_WRITE
+
+  EINTR = 27
+  EBADF = 8
+
+  # wasi-libc's open flags. The file status flags are WASI's fdflags. The
+  # creation flags are WASI's oflags, shifted up 12 bits. The access modes
+  # have their own high bits.
+  O_APPEND = 1
+  O_NONBLOCK = 4
+  O_NONBLOCK_OFF = 4294967291
+  O_FDFLAGS = 31
+  O_NOFOLLOW = 16777216
+  O_RDONLY = 67108864
+  O_WRONLY = 268435456
+  # wasi-libc has no exec, so close-on-exec does nothing.
+  O_CLOEXEC = 0
+  PTY_OPEN_FLAGS = 335544320
+
+  # musl's ioctl numbers. wasi-libc keeps them, but no call supports them.
+  TIOCGWINSZ = 21523
+  # TIOCSCTTY: makes the descriptor the session's controlling terminal.
+  TIOCSCTTY = 21518
+  TIOCSWINSZ = 21524
+  TERMIOS_LEN = 60
+
+  F_GETFD = 1
+
+  # The rights that path_open grants for each access mode, as wasi-libc
+  # requests them: all rights except read and write, plus the read rights
+  # for O_RDONLY and the write rights for O_WRONLY.
+  RIGHTS_READ = 16386
+  RIGHTS_WRITE = 4194625
+  RIGHTS_OTHER = 1073741823 - RIGHTS_READ - RIGHTS_WRITE
+  FDSTAT_LEN = 24
+
+  # WASI cannot resolve the links in a path, so this returns 0 for every
+  # path, and the caller uses the path as written.
+  sig [Ptr] => Ptr
+  def zr_os_realpath(path)
+    Machine.ptr(0)
   end
-  follow = (f & O_NOFOLLOW) != 0 ? 0 : 1
-  stat = Machine.slot(FDSTAT_LEN)
-  fd_fdstat_get(dir, zr_wasi_addr(stat))
-  out = Machine.slot(8)
-  r = path_open(dir, Machine.i32(follow), zr_wasi_rest(where), zr_wasi_rest_len(where), Machine.i32((f >> 12) & 15),
-                rights & Machine.load64(stat, 16), Machine.load64(stat, 16), Machine.i32(f & O_FDFLAGS), zr_wasi_addr(out))
-  if zr_wasi_status(r) < Machine.i32(0)
-    return Machine.i32(0 - 1)
+
+  # open(2) on top of path_open, in the preopened directory that contains
+  # the path. A WASI file has no permission bits, so the mode is ignored.
+  sig [Ptr, I32, I32] => I32
+  def zr_os_open(path, flags, _mode)
+    where = Machine.slot(16)
+    dir = zr_wasi_resolve(path, where)
+    if dir < Machine.i32(0)
+      return dir
+    end
+    f = Machine.word(flags)
+    rights = RIGHTS_OTHER
+    if (f & O_RDONLY) != 0
+      rights = rights | RIGHTS_READ
+    end
+    if (f & O_WRONLY) != 0
+      rights = rights | RIGHTS_WRITE
+    end
+    follow = (f & O_NOFOLLOW) != 0 ? 0 : 1
+    stat = Machine.slot(FDSTAT_LEN)
+    Libc.fd_fdstat_get(dir, zr_wasi_addr(stat))
+    out = Machine.slot(8)
+    r = Libc.path_open(dir, Machine.i32(follow), zr_wasi_rest(where), zr_wasi_rest_len(where), Machine.i32((f >> 12) & 15),
+                  rights & Machine.load64(stat, 16), Machine.load64(stat, 16), Machine.i32(f & O_FDFLAGS), zr_wasi_addr(out))
+    if zr_wasi_status(r) < Machine.i32(0)
+      return Machine.i32(0 - 1)
+    end
+    Machine.load32(out, 0)
   end
-  Machine.load32(out, 0)
-end
 
-# F_SETFL sets the fdflags. F_GETFL reads them, with the access mode
-# from the rights. F_SETFD and F_GETFD do nothing, because there is no
-# close-on-exec. WASI has no other commands.
-sig [I32, I32, Word] => I32
-machine def zr_os_fcntl(fd, command, argument)
-  if command == Machine.i32(F_SETFL)
-    return zr_wasi_status(fd_fdstat_set_flags(fd, Machine.i32(argument & O_FDFLAGS)))
+  # F_SETFL sets the fdflags. F_GETFL reads them, with the access mode
+  # from the rights. F_SETFD and F_GETFD do nothing, because there is no
+  # close-on-exec. WASI has no other commands.
+  sig [I32, I32, Word] => I32
+  def zr_os_fcntl(fd, command, argument)
+    if command == Machine.i32(F_SETFL)
+      return zr_wasi_status(Libc.fd_fdstat_set_flags(fd, Machine.i32(argument & O_FDFLAGS)))
+    end
+    if command == Machine.i32(F_SETFD) || command == Machine.i32(F_GETFD)
+      return Machine.i32(0)
+    end
+    if command != Machine.i32(F_GETFL)
+      return zr_wasi_fail(WASI_EINVAL)
+    end
+    stat = Machine.slot(FDSTAT_LEN)
+    if zr_wasi_status(Libc.fd_fdstat_get(fd, zr_wasi_addr(stat))) < Machine.i32(0)
+      return Machine.i32(0 - 1)
+    end
+    rights = Machine.load64(stat, 8)
+    flags = Machine.word(Machine.load32(stat, 0)) >> 16
+    if (rights & RIGHTS_READ) != 0
+      flags = flags | O_RDONLY
+    end
+    if (rights & 64) != 0
+      flags = flags | O_WRONLY
+    end
+    Machine.i32(flags)
   end
-  if command == Machine.i32(F_SETFD) || command == Machine.i32(F_GETFD)
-    return Machine.i32(0)
+
+  # No descriptor here is a terminal or a device that an ioctl request
+  # can reach.
+  sig [I32, Word, Ptr] => I32
+  def zr_os_ioctl(fd, request, argument)
+    zr_wasi_fail(WASI_ENOTTY)
   end
-  if command != Machine.i32(F_GETFL)
-    return zr_wasi_fail(WASI_EINVAL)
+
+  # A terminal is a character device, which is filetype 2.
+  sig [I32] => I32
+  def isatty(fd)
+    stat = Machine.slot(FDSTAT_LEN)
+    if zr_wasi_status(Libc.fd_fdstat_get(fd, zr_wasi_addr(stat))) < Machine.i32(0)
+      return Machine.i32(0)
+    end
+    if Machine.load8(stat, 0) != Machine.i8(2)
+      zr_os_set_errno(WASI_ENOTTY)
+      return Machine.i32(0)
+    end
+    Machine.i32(1)
   end
-  stat = Machine.slot(FDSTAT_LEN)
-  if zr_wasi_status(fd_fdstat_get(fd, zr_wasi_addr(stat))) < Machine.i32(0)
-    return Machine.i32(0 - 1)
+
+  sig [I32, Ptr, Word] => Word
+  def write(fd, buf, len)
+    iov = Machine.slot(16)
+    if zr_wasi_status(Libc.fd_write(fd, zr_wasi_iovec(iov, buf, len), Machine.i32(1), zr_wasi_addr(iov + 8))) < Machine.i32(0)
+      return 0 - 1
+    end
+    Machine.word(Machine.load32(iov, 8))
   end
-  rights = Machine.load64(stat, 8)
-  flags = Machine.word(Machine.load32(stat, 0)) >> 16
-  if (rights & RIGHTS_READ) != 0
-    flags = flags | O_RDONLY
+
+  sig [I32, Ptr, Word] => Word
+  def read(fd, buf, len)
+    iov = Machine.slot(16)
+    if zr_wasi_status(Libc.fd_read(fd, zr_wasi_iovec(iov, buf, len), Machine.i32(1), zr_wasi_addr(iov + 8))) < Machine.i32(0)
+      return 0 - 1
+    end
+    Machine.word(Machine.load32(iov, 8))
   end
-  if (rights & 64) != 0
-    flags = flags | O_WRONLY
+
+  sig [I32, Ptr, Word, Word] => Word
+  def pread(fd, buf, len, offset)
+    iov = Machine.slot(16)
+    if zr_wasi_status(Libc.fd_pread(fd, zr_wasi_iovec(iov, buf, len), Machine.i32(1), offset, zr_wasi_addr(iov + 8))) < Machine.i32(0)
+      return 0 - 1
+    end
+    Machine.word(Machine.load32(iov, 8))
   end
-  Machine.i32(flags)
-end
 
-# No descriptor here is a terminal or a device that an ioctl request
-# can reach.
-sig [I32, Word, Ptr] => I32
-machine def zr_os_ioctl(fd, request, argument)
-  zr_wasi_fail(WASI_ENOTTY)
-end
-
-# A terminal is a character device, which is filetype 2.
-sig [I32] => I32
-machine def isatty(fd)
-  stat = Machine.slot(FDSTAT_LEN)
-  if zr_wasi_status(fd_fdstat_get(fd, zr_wasi_addr(stat))) < Machine.i32(0)
-    return Machine.i32(0)
+  sig [I32, Ptr, Word, Word] => Word
+  def pwrite(fd, buf, len, offset)
+    iov = Machine.slot(16)
+    if zr_wasi_status(Libc.fd_pwrite(fd, zr_wasi_iovec(iov, buf, len), Machine.i32(1), offset, zr_wasi_addr(iov + 8))) < Machine.i32(0)
+      return 0 - 1
+    end
+    Machine.word(Machine.load32(iov, 8))
   end
-  if Machine.load8(stat, 0) != Machine.i8(2)
-    zr_os_set_errno(WASI_ENOTTY)
-    return Machine.i32(0)
+
+  sig [I32] => I32
+  def close(fd)
+    zr_wasi_status(Libc.fd_close(fd))
   end
-  Machine.i32(1)
-end
 
-sig [I32, Ptr, Word] => Word
-machine def write(fd, buf, len)
-  iov = Machine.slot(16)
-  if zr_wasi_status(fd_write(fd, zr_wasi_iovec(iov, buf, len), Machine.i32(1), zr_wasi_addr(iov + 8))) < Machine.i32(0)
-    return 0 - 1
+  sig [I32] => I32
+  def fsync(fd)
+    zr_wasi_status(Libc.fd_sync(fd))
   end
-  Machine.word(Machine.load32(iov, 8))
-end
 
-sig [I32, Ptr, Word] => Word
-machine def read(fd, buf, len)
-  iov = Machine.slot(16)
-  if zr_wasi_status(fd_read(fd, zr_wasi_iovec(iov, buf, len), Machine.i32(1), zr_wasi_addr(iov + 8))) < Machine.i32(0)
-    return 0 - 1
+  # SEEK_SET, SEEK_CUR and SEEK_END are also WASI's whence numbers.
+  sig [I32, Word, I32] => Word
+  def lseek(fd, offset, whence)
+    out = Machine.slot(8)
+    if zr_wasi_status(Libc.fd_seek(fd, offset, whence, zr_wasi_addr(out))) < Machine.i32(0)
+      return 0 - 1
+    end
+    Machine.load64(out, 0)
   end
-  Machine.word(Machine.load32(iov, 8))
-end
 
-sig [I32, Ptr, Word, Word] => Word
-machine def pread(fd, buf, len, offset)
-  iov = Machine.slot(16)
-  if zr_wasi_status(fd_pread(fd, zr_wasi_iovec(iov, buf, len), Machine.i32(1), offset, zr_wasi_addr(iov + 8))) < Machine.i32(0)
-    return 0 - 1
+  sig [I32, Word] => I32
+  def ftruncate(fd, size)
+    zr_wasi_status(Libc.fd_filestat_set_size(fd, size))
   end
-  Machine.word(Machine.load32(iov, 8))
-end
 
-sig [I32, Ptr, Word, Word] => Word
-machine def pwrite(fd, buf, len, offset)
-  iov = Machine.slot(16)
-  if zr_wasi_status(fd_pwrite(fd, zr_wasi_iovec(iov, buf, len), Machine.i32(1), offset, zr_wasi_addr(iov + 8))) < Machine.i32(0)
-    return 0 - 1
+  # WASI has no permission bits, so there is nothing to change.
+  sig [I32, I32] => I32
+  def fchmod(fd, mode)
+    Machine.i32(0)
   end
-  Machine.word(Machine.load32(iov, 8))
-end
 
-sig [I32] => I32
-machine def close(fd)
-  zr_wasi_status(fd_close(fd))
-end
-
-sig [I32] => I32
-machine def fsync(fd)
-  zr_wasi_status(fd_sync(fd))
-end
-
-# SEEK_SET, SEEK_CUR and SEEK_END are also WASI's whence numbers.
-sig [I32, Word, I32] => Word
-machine def lseek(fd, offset, whence)
-  out = Machine.slot(8)
-  if zr_wasi_status(fd_seek(fd, offset, whence, zr_wasi_addr(out))) < Machine.i32(0)
-    return 0 - 1
+  # A module does not use the umask. Returns 022, the usual value in a
+  # new shell.
+  sig [I32] => I32
+  def umask(mask)
+    Machine.i32(18)
   end
-  Machine.load64(out, 0)
-end
 
-sig [I32, Word] => I32
-machine def ftruncate(fd, size)
-  zr_wasi_status(fd_filestat_set_size(fd, size))
-end
+  # A stat buffer is WASI's filestat: the device at 0, the inode at 8, the
+  # file type byte at 16, the link count at 24, the size at 32, and the
+  # access, modification and change times at 40, 48 and 56, in
+  # nanoseconds.
+  STAT_LEN = 64
 
-# WASI has no permission bits, so there is nothing to change.
-sig [I32, I32] => I32
-machine def fchmod(fd, mode)
-  Machine.i32(0)
-end
-
-# A module does not use the umask. Returns 022, the usual value in a
-# new shell.
-sig [I32] => I32
-machine def umask(mask)
-  Machine.i32(18)
-end
-
-# A stat buffer is WASI's filestat: the device at 0, the inode at 8, the
-# file type byte at 16, the link count at 24, the size at 32, and the
-# access, modification and change times at 40, 48 and 56, in
-# nanoseconds.
-STAT_LEN = 64
-
-# Gets a path's filestat. It follows a symlink at the end of the path,
-# or not.
-sig [Ptr, Ptr, I32] => I32
-machine def zr_wasi_path_stat(path, buf, follow)
-  where = Machine.slot(16)
-  dir = zr_wasi_resolve(path, where)
-  if dir < Machine.i32(0)
-    return dir
+  # Gets a path's filestat. It follows a symlink at the end of the path,
+  # or not.
+  sig [Ptr, Ptr, I32] => I32
+  def zr_wasi_path_stat(path, buf, follow)
+    where = Machine.slot(16)
+    dir = zr_wasi_resolve(path, where)
+    if dir < Machine.i32(0)
+      return dir
+    end
+    zr_wasi_status(Libc.path_filestat_get(dir, follow, zr_wasi_rest(where), zr_wasi_rest_len(where), zr_wasi_addr(buf)))
   end
-  zr_wasi_status(path_filestat_get(dir, follow, zr_wasi_rest(where), zr_wasi_rest_len(where), zr_wasi_addr(buf)))
-end
 
-sig [Ptr, Ptr] => I32
-machine def stat(path, buf)
-  zr_wasi_path_stat(path, buf, Machine.i32(1))
-end
-
-sig [Ptr, Ptr] => I32
-machine def lstat(path, buf)
-  zr_wasi_path_stat(path, buf, Machine.i32(0))
-end
-
-sig [I32, Ptr] => I32
-machine def fstat(fd, buf)
-  zr_wasi_status(fd_filestat_get(fd, zr_wasi_addr(buf)))
-end
-
-# Whether the path exists. WASI has no permission checks.
-sig [Ptr, I32] => I32
-machine def access(path, mode)
-  buf = Machine.slot(STAT_LEN)
-  stat(path, buf)
-end
-
-# The st_mode type bits for WASI's file type, with the usual permission
-# bits of a new file of that type, because WASI has none.
-sig [Ptr] => Word
-machine def zr_os_stat_mode(buf)
-  type = Machine.word(Machine.load8(buf, 16))
-  if type == 3
-    return 16877
+  sig [Ptr, Ptr] => I32
+  def stat(path, buf)
+    zr_wasi_path_stat(path, buf, Machine.i32(1))
   end
-  if type == 1
-    return 24996
-  end
-  if type == 2
-    return 8630
-  end
-  if type == 5 || type == 6
-    return 49572
-  end
-  if type == 7
-    return 41471
-  end
-  33188
-end
 
-sig [Ptr] => Word
-machine def zr_os_stat_size(buf)
-  Machine.load64(buf, 32)
-end
-
-# The fields that zr_stat_m returns. The owner is root and the device
-# number is zero, because a module gets neither. A block is 512 bytes.
-sig [Ptr] => Value
-machine def zr_os_stat_rows(buf)
-  size = Machine.load64(buf, 32)
-  out = zr_ary_new(16)
-  zr_ary_push(out, zr_fix(Machine.load64(buf, 0)))
-  zr_ary_push(out, zr_fix(Machine.load64(buf, 8)))
-  zr_ary_push(out, zr_fix(zr_os_stat_mode(buf)))
-  zr_ary_push(out, zr_fix(Machine.load64(buf, 24)))
-  zr_ary_push(out, zr_fix(0))
-  zr_ary_push(out, zr_fix(0))
-  zr_ary_push(out, zr_fix(0))
-  zr_ary_push(out, zr_fix(size))
-  zr_ary_push(out, zr_fix(4096))
-  zr_ary_push(out, zr_fix((size + 511) / 512))
-  at = 40
-  while at < 64
-    zr_ary_push(out, zr_fix(Machine.load64(buf + at, 0) / 1000000000))
-    zr_ary_push(out, zr_fix(Machine.load64(buf + at, 0) % 1000000000))
-    at += 8
+  sig [Ptr, Ptr] => I32
+  def lstat(path, buf)
+    zr_wasi_path_stat(path, buf, Machine.i32(0))
   end
-  out
-end
 
-# The calls with one path. The call gives the host the descriptor of the
-# path's directory and the remaining part of the path.
-sig [Ptr] => I32
-machine def unlink(path)
-  where = Machine.slot(16)
-  dir = zr_wasi_resolve(path, where)
-  if dir < Machine.i32(0)
-    return dir
+  sig [I32, Ptr] => I32
+  def fstat(fd, buf)
+    zr_wasi_status(Libc.fd_filestat_get(fd, zr_wasi_addr(buf)))
   end
-  zr_wasi_status(path_unlink_file(dir, zr_wasi_rest(where), zr_wasi_rest_len(where)))
-end
 
-sig [Ptr] => I32
-machine def rmdir(path)
-  where = Machine.slot(16)
-  dir = zr_wasi_resolve(path, where)
-  if dir < Machine.i32(0)
-    return dir
+  # Whether the path exists. WASI has no permission checks.
+  sig [Ptr, I32] => I32
+  def access(path, mode)
+    buf = Machine.slot(STAT_LEN)
+    Libc.stat(path, buf)
   end
-  zr_wasi_status(path_remove_directory(dir, zr_wasi_rest(where), zr_wasi_rest_len(where)))
-end
 
-sig [Ptr, I32] => I32
-machine def mkdir(path, mode)
-  where = Machine.slot(16)
-  dir = zr_wasi_resolve(path, where)
-  if dir < Machine.i32(0)
-    return dir
+  # The st_mode type bits for WASI's file type, with the usual permission
+  # bits of a new file of that type, because WASI has none.
+  sig [Ptr] => Word
+  def zr_os_stat_mode(buf)
+    type = Machine.word(Machine.load8(buf, 16))
+    if type == 3
+      return 16877
+    end
+    if type == 1
+      return 24996
+    end
+    if type == 2
+      return 8630
+    end
+    if type == 5 || type == 6
+      return 49572
+    end
+    if type == 7
+      return 41471
+    end
+    33188
   end
-  zr_wasi_status(path_create_directory(dir, zr_wasi_rest(where), zr_wasi_rest_len(where)))
-end
 
-sig [Ptr, Ptr, Word] => Word
-machine def readlink(path, buf, len)
-  where = Machine.slot(16)
-  dir = zr_wasi_resolve(path, where)
-  if dir < Machine.i32(0)
-    return 0 - 1
+  sig [Ptr] => Word
+  def zr_os_stat_size(buf)
+    Machine.load64(buf, 32)
   end
-  used = Machine.slot(8)
-  r = path_readlink(dir, zr_wasi_rest(where), zr_wasi_rest_len(where), zr_wasi_addr(buf), Machine.i32(len), zr_wasi_addr(used))
-  if zr_wasi_status(r) < Machine.i32(0)
-    return 0 - 1
+
+  # The fields that zr_stat_m returns. The owner is root and the device
+  # number is zero, because a module gets neither. A block is 512 bytes.
+  sig [Ptr] => Value
+  def zr_os_stat_rows(buf)
+    size = Machine.load64(buf, 32)
+    out = zr_ary_new(16)
+    zr_ary_push(out, zr_fix(Machine.load64(buf, 0)))
+    zr_ary_push(out, zr_fix(Machine.load64(buf, 8)))
+    zr_ary_push(out, zr_fix(zr_os_stat_mode(buf)))
+    zr_ary_push(out, zr_fix(Machine.load64(buf, 24)))
+    zr_ary_push(out, zr_fix(0))
+    zr_ary_push(out, zr_fix(0))
+    zr_ary_push(out, zr_fix(0))
+    zr_ary_push(out, zr_fix(size))
+    zr_ary_push(out, zr_fix(4096))
+    zr_ary_push(out, zr_fix((size + 511) / 512))
+    at = 40
+    while at < 64
+      zr_ary_push(out, zr_fix(Machine.load64(buf + at, 0) / 1000000000))
+      zr_ary_push(out, zr_fix(Machine.load64(buf + at, 0) % 1000000000))
+      at += 8
+    end
+    out
   end
-  Machine.word(Machine.load32(used, 0))
-end
 
-# The calls with two paths.
-sig [Ptr, Ptr] => I32
-machine def rename(from, to)
-  a = Machine.slot(16)
-  b = Machine.slot(16)
-  da = zr_wasi_resolve(from, a)
-  db = zr_wasi_resolve(to, b)
-  if da < Machine.i32(0) || db < Machine.i32(0)
-    return Machine.i32(0 - 1)
+  # The calls with one path. The call gives the host the descriptor of the
+  # path's directory and the remaining part of the path.
+  sig [Ptr] => I32
+  def unlink(path)
+    where = Machine.slot(16)
+    dir = zr_wasi_resolve(path, where)
+    if dir < Machine.i32(0)
+      return dir
+    end
+    zr_wasi_status(Libc.path_unlink_file(dir, zr_wasi_rest(where), zr_wasi_rest_len(where)))
   end
-  zr_wasi_status(path_rename(da, zr_wasi_rest(a), zr_wasi_rest_len(a), db, zr_wasi_rest(b), zr_wasi_rest_len(b)))
-end
 
-sig [Ptr, Ptr] => I32
-machine def link(from, to)
-  a = Machine.slot(16)
-  b = Machine.slot(16)
-  da = zr_wasi_resolve(from, a)
-  db = zr_wasi_resolve(to, b)
-  if da < Machine.i32(0) || db < Machine.i32(0)
-    return Machine.i32(0 - 1)
+  sig [Ptr] => I32
+  def rmdir(path)
+    where = Machine.slot(16)
+    dir = zr_wasi_resolve(path, where)
+    if dir < Machine.i32(0)
+      return dir
+    end
+    zr_wasi_status(Libc.path_remove_directory(dir, zr_wasi_rest(where), zr_wasi_rest_len(where)))
   end
-  zr_wasi_status(path_link(da, Machine.i32(0), zr_wasi_rest(a), zr_wasi_rest_len(a), db, zr_wasi_rest(b), zr_wasi_rest_len(b)))
-end
 
-# The host stores a symlink's target text as it is given.
-sig [Ptr, Ptr] => I32
-machine def symlink(target, path)
-  where = Machine.slot(16)
-  dir = zr_wasi_resolve(path, where)
-  if dir < Machine.i32(0)
-    return dir
+  sig [Ptr, I32] => I32
+  def mkdir(path, mode)
+    where = Machine.slot(16)
+    dir = zr_wasi_resolve(path, where)
+    if dir < Machine.i32(0)
+      return dir
+    end
+    zr_wasi_status(Libc.path_create_directory(dir, zr_wasi_rest(where), zr_wasi_rest_len(where)))
   end
-  zr_wasi_status(path_symlink(zr_wasi_addr(target), Machine.i32(zr_cstr_len(target)), dir, zr_wasi_rest(where), zr_wasi_rest_len(where)))
-end
 
-# A directory stream: its descriptor, the cookie of the next entry, and
-# the last entry that fd_readdir returned, with a NUL after its name.
-DIR_BUFFER = 4096
-
-sig [I32] => Ptr
-machine def fdopendir(fd)
-  d = zr_xmalloc(16 + DIR_BUFFER + 1)
-  Machine.store64(d, 0, Machine.word(fd))
-  Machine.store64(d, 8, 0)
-  d
-end
-
-sig [Ptr] => Ptr
-machine def opendir(path)
-  fd = zr_os_open(path, Machine.i32(O_RDONLY | (2 << 12)), Machine.i32(0))
-  if fd < Machine.i32(0)
-    return Machine.ptr(0)
+  sig [Ptr, Ptr, Word] => Word
+  def readlink(path, buf, len)
+    where = Machine.slot(16)
+    dir = zr_wasi_resolve(path, where)
+    if dir < Machine.i32(0)
+      return 0 - 1
+    end
+    used = Machine.slot(8)
+    r = Libc.path_readlink(dir, zr_wasi_rest(where), zr_wasi_rest_len(where), zr_wasi_addr(buf), Machine.i32(len), zr_wasi_addr(used))
+    if zr_wasi_status(r) < Machine.i32(0)
+      return 0 - 1
+    end
+    Machine.word(Machine.load32(used, 0))
   end
-  fdopendir(fd)
-end
 
-# Returns the next entry, which it reads one at a time from the cookie,
-# or 0 at the end. A dirent is 24 bytes, followed by the name.
-sig [Ptr] => Ptr
-machine def readdir(d)
-  buf = d + 16
-  used = Machine.slot(8)
-  r = fd_readdir(Machine.load32(d, 0), zr_wasi_addr(buf), Machine.i32(DIR_BUFFER), Machine.load64(d, 8), zr_wasi_addr(used))
-  if zr_wasi_status(r) < Machine.i32(0) || Machine.word(Machine.load32(used, 0)) < 24
-    return Machine.ptr(0)
+  # The calls with two paths.
+  sig [Ptr, Ptr] => I32
+  def rename(from, to)
+    a = Machine.slot(16)
+    b = Machine.slot(16)
+    da = zr_wasi_resolve(from, a)
+    db = zr_wasi_resolve(to, b)
+    if da < Machine.i32(0) || db < Machine.i32(0)
+      return Machine.i32(0 - 1)
+    end
+    zr_wasi_status(Libc.path_rename(da, zr_wasi_rest(a), zr_wasi_rest_len(a), db, zr_wasi_rest(b), zr_wasi_rest_len(b)))
   end
-  len = Machine.word(Machine.load32(buf, 16))
-  Machine.store64(d, 8, Machine.load64(buf, 0))
-  Machine.store8(buf + 24 + len, 0, Machine.i8(0))
-  buf
-end
 
-sig [Ptr] => Ptr
-machine def zr_os_dirent_name(entry)
-  entry + 24
-end
-
-# The entry's kind for glob: 0 unknown, 1 a directory, 2 a symbolic
-# link, 3 anything else. The filetype is the byte at 20: a directory is
-# 3, a symbolic link 7, unknown 0.
-sig [Ptr] => Word
-machine def zr_os_dirent_kind(entry)
-  t = Machine.word(Machine.load8(entry, 20))
-  if t == 0
-    return 0
+  sig [Ptr, Ptr] => I32
+  def link(from, to)
+    a = Machine.slot(16)
+    b = Machine.slot(16)
+    da = zr_wasi_resolve(from, a)
+    db = zr_wasi_resolve(to, b)
+    if da < Machine.i32(0) || db < Machine.i32(0)
+      return Machine.i32(0 - 1)
+    end
+    zr_wasi_status(Libc.path_link(da, Machine.i32(0), zr_wasi_rest(a), zr_wasi_rest_len(a), db, zr_wasi_rest(b), zr_wasi_rest_len(b)))
   end
-  if t == 3
-    return 1
-  end
-  if t == 7
-    return 2
-  end
-  3
-end
 
-sig [Ptr] => I32
-machine def closedir(d)
-  r = close(Machine.load32(d, 0))
-  zr_xfree(d)
-  r
-end
+  # The host stores a symlink's target text as it is given.
+  sig [Ptr, Ptr] => I32
+  def symlink(target, path)
+    where = Machine.slot(16)
+    dir = zr_wasi_resolve(path, where)
+    if dir < Machine.i32(0)
+      return dir
+    end
+    zr_wasi_status(Libc.path_symlink(zr_wasi_addr(target), Machine.i32(zr_cstr_len(target)), dir, zr_wasi_rest(where), zr_wasi_rest_len(where)))
+  end
 
-# Calls poll_oneoff on all descriptors of `fds` at the same time. Each
-# waits for the events in its element of `events`. It also waits on the
-# clock when the wait has a timeout. Returns an Array of the ready events
-# for each element, or the negated errno. The userdata of each
-# subscription is its element index.
-sig [Value, Value, Value] => Value
-machine def zr_os_wait_fds(fds, events, milliseconds)
-  count = RArray.len(fds)
-  ms = zr_fix2long(milliseconds)
-  subs = zr_xmalloc(((count * 2) + 1) * 48)
-  memset(subs, Machine.i32(0), ((count * 2) + 1) * 48)
-  used = 0
-  i = 0
-  while i < count
-    n = zr_fix2long(zr_ary_at(fds, i))
-    want = zr_fix2long(zr_ary_at(events, i))
-    if n < 0
+  # A directory stream: its descriptor, the cookie of the next entry, and
+  # the last entry that fd_readdir returned, with a NUL after its name.
+  DIR_BUFFER = 4096
+
+  sig [I32] => Ptr
+  def fdopendir(fd)
+    d = zr_xmalloc(16 + DIR_BUFFER + 1)
+    Machine.store64(d, 0, Machine.word(fd))
+    Machine.store64(d, 8, 0)
+    d
+  end
+
+  sig [Ptr] => Ptr
+  def opendir(path)
+    fd = zr_os_open(path, Machine.i32(O_RDONLY | (2 << 12)), Machine.i32(0))
+    if fd < Machine.i32(0)
+      return Machine.ptr(0)
+    end
+    Libc.fdopendir(fd)
+  end
+
+  # Returns the next entry, which it reads one at a time from the cookie,
+  # or 0 at the end. A dirent is 24 bytes, followed by the name.
+  sig [Ptr] => Ptr
+  def readdir(d)
+    buf = d + 16
+    used = Machine.slot(8)
+    r = Libc.fd_readdir(Machine.load32(d, 0), zr_wasi_addr(buf), Machine.i32(DIR_BUFFER), Machine.load64(d, 8), zr_wasi_addr(used))
+    if zr_wasi_status(r) < Machine.i32(0) || Machine.word(Machine.load32(used, 0)) < 24
+      return Machine.ptr(0)
+    end
+    len = Machine.word(Machine.load32(buf, 16))
+    Machine.store64(d, 8, Machine.load64(buf, 0))
+    Machine.store8(buf + 24 + len, 0, Machine.i8(0))
+    buf
+  end
+
+  sig [Ptr] => Ptr
+  def zr_os_dirent_name(entry)
+    entry + 24
+  end
+
+  # The entry's kind for glob: 0 unknown, 1 a directory, 2 a symbolic
+  # link, 3 anything else. The filetype is the byte at 20: a directory is
+  # 3, a symbolic link 7, unknown 0.
+  sig [Ptr] => Word
+  def zr_os_dirent_kind(entry)
+    t = Machine.word(Machine.load8(entry, 20))
+    if t == 0
+      return 0
+    end
+    if t == 3
+      return 1
+    end
+    if t == 7
+      return 2
+    end
+    3
+  end
+
+  sig [Ptr] => I32
+  def closedir(d)
+    r = Libc.close(Machine.load32(d, 0))
+    zr_xfree(d)
+    r
+  end
+
+  # Calls poll_oneoff on all descriptors of `fds` at the same time. Each
+  # waits for the events in its element of `events`. It also waits on the
+  # clock when the wait has a timeout. Returns an Array of the ready events
+  # for each element, or the negated errno. The userdata of each
+  # subscription is its element index.
+  sig [Value, Value, Value] => Value
+  def zr_os_wait_fds(fds, events, milliseconds)
+    count = RArray.len(fds)
+    ms = zr_fix2long(milliseconds)
+    subs = zr_xmalloc(((count * 2) + 1) * 48)
+    Libc.memset(subs, Machine.i32(0), ((count * 2) + 1) * 48)
+    used = 0
+    i = 0
+    while i < count
+      n = zr_fix2long(zr_ary_at(fds, i))
+      want = zr_fix2long(zr_ary_at(events, i))
+      if n < 0
+        zr_xfree(subs)
+        return zr_fix(0 - EBADF)
+      end
+      if (want & (WAIT_READABLE | WAIT_PRIORITY)) != 0
+        Machine.store64(subs + (used * 48), 0, i)
+        Machine.store8(subs + (used * 48), 8, Machine.i8(1))
+        Machine.store32(subs + (used * 48), 16, Machine.i32(n))
+        used += 1
+      end
+      if (want & WAIT_WRITABLE) != 0
+        Machine.store64(subs + (used * 48), 0, i)
+        Machine.store8(subs + (used * 48), 8, Machine.i8(2))
+        Machine.store32(subs + (used * 48), 16, Machine.i32(n))
+        used += 1
+      end
+      i += 1
+    end
+    if ms >= 0
+      Machine.store64(subs + (used * 48), 0, count)
+      Machine.store32(subs + (used * 48), 16, Machine.i32(1))
+      Machine.store64(subs + (used * 48), 24, ms * 1000000)
+      used += 1
+    end
+    got = zr_xmalloc(used * 32)
+    nevents = Machine.slot(8)
+    if zr_wasi_status(Libc.poll_oneoff(zr_wasi_addr(subs), zr_wasi_addr(got), Machine.i32(used), zr_wasi_addr(nevents))) < Machine.i32(0)
+      errno = zr_errno()
       zr_xfree(subs)
-      return zr_fix(0 - EBADF)
+      zr_xfree(got)
+      return zr_fix(0 - errno)
     end
-    if (want & (WAIT_READABLE | WAIT_PRIORITY)) != 0
-      Machine.store64(subs + (used * 48), 0, i)
-      Machine.store8(subs + (used * 48), 8, Machine.i8(1))
-      Machine.store32(subs + (used * 48), 16, Machine.i32(n))
-      used += 1
+    out = zr_ary_new(count)
+    i = 0
+    while i < count
+      zr_ary_push(out, zr_fix(0))
+      i += 1
     end
-    if (want & WAIT_WRITABLE) != 0
-      Machine.store64(subs + (used * 48), 0, i)
-      Machine.store8(subs + (used * 48), 8, Machine.i8(2))
-      Machine.store32(subs + (used * 48), 16, Machine.i32(n))
-      used += 1
+    i = 0
+    while i < Machine.word(Machine.load32(nevents, 0))
+      e = got + (i * 32)
+      row = Machine.load64(e, 0)
+      kind = Machine.word(Machine.load8(e, 10))
+      if row < count && kind != 0
+        want = zr_fix2long(zr_ary_at(events, row))
+        ready = zr_fix2long(zr_ary_at(out, row))
+        ready = ready | (kind == 1 ? want & (WAIT_READABLE | WAIT_PRIORITY) : want & WAIT_WRITABLE)
+        zr_ary_store(out, row, zr_fix(ready))
+      end
+      i += 1
     end
-    i += 1
-  end
-  if ms >= 0
-    Machine.store64(subs + (used * 48), 0, count)
-    Machine.store32(subs + (used * 48), 16, Machine.i32(1))
-    Machine.store64(subs + (used * 48), 24, ms * 1000000)
-    used += 1
-  end
-  got = zr_xmalloc(used * 32)
-  nevents = Machine.slot(8)
-  if zr_wasi_status(poll_oneoff(zr_wasi_addr(subs), zr_wasi_addr(got), Machine.i32(used), zr_wasi_addr(nevents))) < Machine.i32(0)
-    errno = zr_errno()
     zr_xfree(subs)
     zr_xfree(got)
-    return zr_fix(0 - errno)
+    out
   end
-  out = zr_ary_new(count)
-  i = 0
-  while i < count
-    zr_ary_push(out, zr_fix(0))
-    i += 1
-  end
-  i = 0
-  while i < Machine.word(Machine.load32(nevents, 0))
-    e = got + (i * 32)
-    row = Machine.load64(e, 0)
-    kind = Machine.word(Machine.load8(e, 10))
-    if row < count && kind != 0
-      want = zr_fix2long(zr_ary_at(events, row))
-      ready = zr_fix2long(zr_ary_at(out, row))
-      ready = ready | (kind == 1 ? want & (WAIT_READABLE | WAIT_PRIORITY) : want & WAIT_WRITABLE)
-      zr_ary_store(out, row, zr_fix(ready))
-    end
-    i += 1
-  end
-  zr_xfree(subs)
-  zr_xfree(got)
-  out
-end
 
-# Calls poll_oneoff on one descriptor, and on the clock when the wait
-# has a timeout. Returns the ready events, 0 on a timeout, or the negated
-# errno. A subscription is 48 bytes and an event is 32 bytes.
-sig [Value, Value, Value] => Value
-machine def zr_os_wait_fd(fd, events, milliseconds)
-  n = zr_fix2long(fd)
-  if n < 0
-    return zr_fix(0 - EBADF)
-  end
-  want = zr_fix2long(events)
-  ms = zr_fix2long(milliseconds)
-  subs = Machine.slot(144)
-  memset(subs, Machine.i32(0), 144)
-  count = 0
-  if (want & (WAIT_READABLE | WAIT_PRIORITY)) != 0
-    Machine.store8(subs + (count * 48), 8, Machine.i8(1))
-    Machine.store32(subs + (count * 48), 16, Machine.i32(n))
-    count += 1
-  end
-  if (want & WAIT_WRITABLE) != 0
-    Machine.store8(subs + (count * 48), 8, Machine.i8(2))
-    Machine.store32(subs + (count * 48), 16, Machine.i32(n))
-    count += 1
-  end
-  if ms >= 0
-    Machine.store32(subs + (count * 48), 16, Machine.i32(1))
-    Machine.store64(subs + (count * 48), 24, ms * 1000000)
-    count += 1
-  end
-  got = Machine.slot(96)
-  nevents = Machine.slot(8)
-  if zr_wasi_status(poll_oneoff(zr_wasi_addr(subs), zr_wasi_addr(got), Machine.i32(count), zr_wasi_addr(nevents))) < Machine.i32(0)
-    return zr_fix(0 - zr_errno())
-  end
-  ready = 0
-  i = 0
-  while i < Machine.word(Machine.load32(nevents, 0))
-    e = got + (i * 32)
-    kind = Machine.word(Machine.load8(e, 10))
-    if (Machine.word(Machine.load32(e, 8)) & 65535) != 0 && kind != 0
-      return zr_fix(0 - (Machine.word(Machine.load32(e, 8)) & 65535))
+  # Calls poll_oneoff on one descriptor, and on the clock when the wait
+  # has a timeout. Returns the ready events, 0 on a timeout, or the negated
+  # errno. A subscription is 48 bytes and an event is 32 bytes.
+  sig [Value, Value, Value] => Value
+  def zr_os_wait_fd(fd, events, milliseconds)
+    n = zr_fix2long(fd)
+    if n < 0
+      return zr_fix(0 - EBADF)
     end
-    if kind == 1
-      ready = ready | (want & (WAIT_READABLE | WAIT_PRIORITY))
-    elsif kind == 2
-      ready = ready | WAIT_WRITABLE
+    want = zr_fix2long(events)
+    ms = zr_fix2long(milliseconds)
+    subs = Machine.slot(144)
+    Libc.memset(subs, Machine.i32(0), 144)
+    count = 0
+    if (want & (WAIT_READABLE | WAIT_PRIORITY)) != 0
+      Machine.store8(subs + (count * 48), 8, Machine.i8(1))
+      Machine.store32(subs + (count * 48), 16, Machine.i32(n))
+      count += 1
     end
-    i += 1
+    if (want & WAIT_WRITABLE) != 0
+      Machine.store8(subs + (count * 48), 8, Machine.i8(2))
+      Machine.store32(subs + (count * 48), 16, Machine.i32(n))
+      count += 1
+    end
+    if ms >= 0
+      Machine.store32(subs + (count * 48), 16, Machine.i32(1))
+      Machine.store64(subs + (count * 48), 24, ms * 1000000)
+      count += 1
+    end
+    got = Machine.slot(96)
+    nevents = Machine.slot(8)
+    if zr_wasi_status(Libc.poll_oneoff(zr_wasi_addr(subs), zr_wasi_addr(got), Machine.i32(count), zr_wasi_addr(nevents))) < Machine.i32(0)
+      return zr_fix(0 - zr_errno())
+    end
+    ready = 0
+    i = 0
+    while i < Machine.word(Machine.load32(nevents, 0))
+      e = got + (i * 32)
+      kind = Machine.word(Machine.load8(e, 10))
+      if (Machine.word(Machine.load32(e, 8)) & 65535) != 0 && kind != 0
+        return zr_fix(0 - (Machine.word(Machine.load32(e, 8)) & 65535))
+      end
+      if kind == 1
+        ready = ready | (want & (WAIT_READABLE | WAIT_PRIORITY))
+      elsif kind == 2
+        ready = ready | WAIT_WRITABLE
+      end
+      i += 1
+    end
+    zr_fix(ready)
   end
-  zr_fix(ready)
-end
 
-# The messages of wasi-libc's strerror, one on each line, in WASI's
-# errno order.
-sig [I32] => Ptr
-machine def strerror(n)
-  text = Machine.bytes(<<-MESSAGES)
+  # The messages of wasi-libc's strerror, one on each line, in WASI's
+  # errno order.
+  sig [I32] => Ptr
+  def strerror(n)
+    text = Machine.bytes(<<-MESSAGES)
 No error information
 Argument list too long
 Permission denied
@@ -658,36 +659,37 @@ Cross-device link
 Capabilities insufficient
   MESSAGES
   line = Machine.word(n)
-  if line > 76
-    line = 0
-  end
-  at = text
-  while line > 0
-    if Machine.load8(at, 0) == Machine.i8(10)
-      line -= 1
+    if line > 76
+      line = 0
     end
-    at += 1
+    at = text
+    while line > 0
+      if Machine.load8(at, 0) == Machine.i8(10)
+        line -= 1
+      end
+      at += 1
+    end
+    # Copy the line into the C string, with a NUL at the end of the line.
+    len = 0
+    while Machine.load8(at + len, 0) != Machine.i8(10)
+      len += 1
+    end
+    out = Machine.static(:strerror, 64)
+    zr_memcpy(out, at, len)
+    Machine.store8(out + len, 0, Machine.i8(0))
+    out
   end
-  # Copy the line into the C string, with a NUL at the end of the line.
-  len = 0
-  while Machine.load8(at + len, 0) != Machine.i8(10)
-    len += 1
-  end
-  out = Machine.static(:strerror, 64)
-  zr_memcpy(out, at, len)
-  Machine.store8(out + len, 0, Machine.i8(0))
-  out
-end
 
-# A module gets no working directory. It returns the root, which
-# contains every preopened directory.
-sig [Ptr, Word] => Ptr
-machine def getcwd(buf, size)
-  if size < 2
-    zr_os_set_errno(68)
-    return Machine.ptr(0)
+  # A module gets no working directory. It returns the root, which
+  # contains every preopened directory.
+  sig [Ptr, Word] => Ptr
+  def getcwd(buf, size)
+    if size < 2
+      zr_os_set_errno(68)
+      return Machine.ptr(0)
+    end
+    Machine.store8(buf, 0, Machine.i8(47))
+    Machine.store8(buf, 1, Machine.i8(0))
+    buf
   end
-  Machine.store8(buf, 0, Machine.i8(47))
-  Machine.store8(buf, 1, Machine.i8(0))
-  buf
 end
