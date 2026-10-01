@@ -91,7 +91,7 @@ module Zr
     # The eval kind of the target is part of the cache name. The eval
     # compiler (JIT) and the tree-walking interpreter contain different
     # files, so the metadata of one must never be used for the other.
-    def kind = Hir::Build.eval_file(target) == Hir::Build::EVAL_COMPILER ? "jit" : "walk"
+    def kind = Library::Roots.eval_file(target) == Library::Roots::EVAL_COMPILER ? "jit" : "walk"
 
     private
 
@@ -117,7 +117,7 @@ module Zr
         Tune.heavy!
         Runtime.announce("eval support (the compiler in a program that calls eval)", target)
         loader = Hir::Build.eval_support(target)
-        program = Hir::Program.new(Hir::Build.eval_file(target), [], Hir::Seq.new([], 0), loader.units, [], true, loader.entries)
+        program = Hir::Program.new(Library::Roots.eval_file(target), [], Hir::Seq.new([], 0), loader.units, [], true, loader.entries)
         lower = Lower.new(program, @runtime.description, nil, entry: "zr_eval_support", target: target, fixed: @runtime.fixed_ids)
         @cache = Cache::Lowering::EvalSupport.for(target, kind)
         functions, data = @cache ? @cache.lower(lower, @runtime.description) : lower.run
@@ -131,7 +131,7 @@ module Zr
         end
         # A file that appears where a stopped feature would be makes this
         # lowering stale, though no file that it read changed.
-        absent = loader.stopped.uniq.sort.flat_map { |feature| Hir::Build.stdlib(target).map { |root| File.join(root, "#{feature}.rb") } }
+        absent = loader.stopped.uniq.sort.flat_map { |feature| Library::Roots.stdlib(target).map { |root| File.join(root, "#{feature}.rb") } }
         read = files_key(files, sources, absent)
         meta = { "key" => Digests.eval_key(read, symbols.names, symbols.sites), "files_key" => read, "files" => files, "absent" => absent,
                  "digests" => digests,

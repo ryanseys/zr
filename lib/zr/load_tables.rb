@@ -2,6 +2,7 @@
 
 require_relative "obj/model"
 require_relative "paths"
+require_relative "library/roots"
 require_relative "target"
 
 module Zr
@@ -75,9 +76,9 @@ module Zr
       # builds its tables here too, and must not read them: they are the
       # build machine's directories.
       names = if evals
-                pure = Hir::Build.pure
-                roots = Hir::Build.stdlib(target) - [pure]
-                [[pure, *gem_roots, *roots].map(&shown), uncarried, Hir::Build::PRELOADED, [shown[Layout::EXT]]]
+                pure = Library::Roots.pure
+                roots = Library::Roots.stdlib(target) - [pure]
+                [[pure, *gem_roots, *roots].map(&shown), uncarried, Hir::Build::PRELOADED, [shown[Library::Layout::EXT]]]
               else
                 [[]] * 4
               end

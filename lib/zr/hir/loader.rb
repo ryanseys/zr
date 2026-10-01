@@ -377,9 +377,9 @@ module Zr
             front ? @roots.unshift(*paths) : @roots.concat(paths)
           end
           configures! if !configures? && names_rbconfig?(result.value)
-          @traces ||= !Build.runtime_file?(file) && TRACE_NAMES.match?(source.b) && names_tracing?(result.value)
-          @covers ||= !Build.runtime_file?(file) && COVERAGE_NAMES.match?(source.b) && names_coverage?(result.value)
-          @coverable[file] = [source.lines.size, []] if @trace && !Build.runtime_file?(file)
+          @traces ||= !Library::Roots.runtime_file?(file) && TRACE_NAMES.match?(source.b) && names_tracing?(result.value)
+          @covers ||= !Library::Roots.runtime_file?(file) && COVERAGE_NAMES.match?(source.b) && names_coverage?(result.value)
+          @coverable[file] = [source.lines.size, []] if @trace && !Library::Roots.runtime_file?(file)
           build = Build.new(file, self, source_encoding(result, source), shadowed: shadowed(result.value), root: result.value,
                                                                          eval: !scopes.nil?)
           build.within_method(method, scopes) if scopes && method
@@ -387,10 +387,10 @@ module Zr
           # the unit cache cannot keep a file that takes one.
           rows = @activations
           body = build.seq(result.value.statements, hoist: true)
-          unless @eval || @hiding || file.start_with?("<") || Build.runtime_file?(file)
+          unless @eval || @hiding || file.start_with?("<") || Library::Roots.runtime_file?(file)
             spots = Spots.for(result, source, { filepath: file, line: line })
           end
-          Unit.new(file, result.value.locals + build.temps, body, warnings(result, file) + build.warnings, Build.internal_library?(file), spots, @hiding,
+          Unit.new(file, result.value.locals + build.temps, body, warnings(result, file) + build.warnings, Library::Roots.internal_library?(file), spots, @hiding,
                    source, @activations != rows, build.node_ids)
         end
 
@@ -455,7 +455,7 @@ module Zr
           i = @units.size
           @index[path] = i
           @units << nil
-          @units[i] = Build.description?(path) ? unit(path, @description.call) : unit(path)
+          @units[i] = Library::Roots.description?(path) ? unit(path, @description.call) : unit(path)
           i
         end
 
@@ -493,7 +493,7 @@ module Zr
           elsif feature == "zr_description" && @description
             # The kernel's description, which the runtime gives
             # (`Runtime#carried_text`); no root holds it.
-            Build::DESCRIPTION
+            Library::Roots::DESCRIPTION
           else
             @roots.each do |root|
               found = candidate(File.join(root, feature)) || native(root, feature)
@@ -513,8 +513,8 @@ module Zr
           native_root?(root) && feature.match?(NATIVE) ? candidate(File.join(root, feature.sub(NATIVE, ""))) : nil
         end
 
-        # Layout::EXT, or an OS layer's directory under it.
-        def native_root?(root) = root == Layout::EXT || File.dirname(root) == File.join(Layout::EXT, "os")
+        # Library::Layout::EXT, or an OS layer's directory under it.
+        def native_root?(root) = root == Library::Layout::EXT || File.dirname(root) == File.join(Library::Layout::EXT, "os")
 
         def candidate(path)
           return path if path.end_with?(".rb") && File.file?(path)

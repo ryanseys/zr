@@ -3,8 +3,8 @@
 require_relative "../parse"
 require_relative "../paths"
 require_relative "../refused"
-require_relative "../libraries"
-require_relative "../ports"
+require_relative "../library/layout"
+require_relative "../library/roots"
 require_relative "../target"
 require_relative "../config"
 require_relative "node"
@@ -30,69 +30,12 @@ module Zr
     # with a message that gives the form and the line. The rule: the same
     # as CRuby, or refused. Never a guess.
     class Build
-      # Ruby's own library and the default gems, from vendor/
-      # (lib/zr/libraries.rb).
-      def self.pure = Libraries.root
-
       # The named calls that a site lowers to a kernel entry with a core
       # fast path (Zr::Lower::Function::Sends::OPT_ENTRIES), with each
       # one's argument count. A call with a different count, or with a
       # block, keywords or a splat, raises or does something different,
       # and only the real call can tell.
       OPT_CALLS = { getbyte: 1, setbyte: 2, push: 1, pop: 0, shift: 0, empty?: 0 }.freeze
-
-      def self.runtime_file?(file) = File.expand_path(file).start_with?("#{Paths::RUNTIME}/") || description?(file)
-
-      # The name of the kernel's description (`Runtime#carried_text`), which
-      # `require "zr_description"` finds. No file has it: the loader takes
-      # its source from the runtime. So the name is the same in every
-      # checkout and cache, and a compiler that zr builds does not carry
-      # where its cache was. It is part of the runtime, as its kernel is.
-      DESCRIPTION = "<zr>/zr_description.rb"
-
-      def self.description?(file) = file == DESCRIPTION
-
-      # Gives the source of the kernel's description of `target` when a
-      # file requires `zr_description`: only eval support and a program
-      # that compiles itself do. Nil where no runtime is loaded (an eval
-      # in a binary).
-      def self.description(target) = -> { Zr::Runtime.for(target).carried_text if Zr.const_defined?(:Runtime, false) }
-
-      # A file of the runtime's libraries (Layout::EXT, Layout::RUNTIME_LIB): it is
-      # internal, as the core is, so a backtrace shows its methods as
-      # builtins.
-      def self.internal_library?(file) = file.start_with?("#{Layout::EXT}/", "#{Layout::RUNTIME_LIB}/") || description?(file)
-
-      # The gems whose C zr ports, at zr's versions, as vendor/ holds
-      # them (lib/zr/ports.rb).
-      GEMS = Ports.roots.freeze
-      # The bundled gems, each in its own directory, as ruby installs them.
-      def self.bundled = Libraries.apart
-
-      # The library roots for `target`, in search order. zr's own code
-      # comes first: the OS layer's native parts and tables, then the
-      # portable ones, then zr's own libraries. A file there replaces an upstream file of the same
-      # name (lib/zr/runtime/ext/date.rb, not ruby's date.rb). Then the port gems,
-      # which win over ruby's own copies as an installed gem wins over a
-      # default gem (json 3.0.2, not 2.18.0), then ruby's own library,
-      # then the bundled gems in their own directories.
-      def self.stdlib(target = Target.default)
-        Session.current.memo([:stdlib, target.triple]) { [Layout.ext_os(target), Layout::EXT, Layout::RUNTIME_LIB, *GEMS, pure, *bundled].freeze }
-      end
-
-      # The compiler that a program with eval links in, and the
-      # tree-walking interpreter for a program that cannot write machine
-      # code into itself. Both contain the same front end. `Zr::Eval`
-      # gives the back end that each one runs.
-      EVAL_COMPILER = File.expand_path("../eval.rb", __dir__)
-      EVAL_INTERPRETER = File.expand_path("../eval/walk.rb", __dir__)
-
-      # The eval support file for `target`. `ZR_EVAL=walk` selects the
-      # tree-walking interpreter where the eval compiler (JIT) could run.
-      # The tests use this to check the interpreter against the JIT.
-      def self.eval_file(target = Target.default)
-        target.jits? && !Config.current.eval_walk? ? EVAL_COMPILER : EVAL_INTERPRETER
-      end
 
       # `eval_support` is false for an eval: the program already contains
       # the compiler, so the eval must not compile it again. It is true to
@@ -119,9 +62,9 @@ module Zr
         # build machine.
         file = file.dup.force_encoding(::Encoding::UTF_8) if eval_support && file.encoding != ::Encoding::UTF_8
         built = lambda do |external, trace, evals, covers|
-          loader = Loader.new(roots + (gem_set&.roots || []) + stdlib(target), eval: !eval_support, external: external, trace: trace,
+          loader = Loader.new(roots + (gem_set&.roots || []) + Library::Roots.stdlib(target), eval: !eval_support, external: external, trace: trace,
                               evals: evals, covers: covers, activations: activations, prebuilt_eval: prebuilt, gem_set: gem_set,
-                              gate: gate, description: description(target))
+                              gate: gate, description: Library::Roots.description(target))
           loader.own!(file)
           [loader, loader.unit(file, source, line, scopes, method: method)]
         end
@@ -515,22 +458,10 @@ module Zr
           Assign.new(node.name, node.depth, And.new(Local.new(node.name, node.depth, line), expr(node.value), line), line)
         when Prism::LocalVariableOrWriteNode
           Assign.new(node.name, node.depth, Or.new(Local.new(node.name, node.depth, line), expr(node.value), line), line)
-        when Prism::LambdaNode
-          in_block do
-            params, extra = block_params(node.parameters)
-            body = node.body ? expr(node.body) : Literal.new(nil, line)
-            Lambda.new(noted(Block.new(params, with_temps(node.locals + extra + (params.names - node.locals - extra)), body, line,
-                                       node.location.end_line, method_cover(node)), node), line)
-          end
+        when Prism::LambdaNode then lambda_literal(node, line)
         when Prism::ItLocalVariableReadNode then Local.new(IT, 0, line)
-        when Prism::UndefNode
-          return UndefValue.new(node.names.map { |n| expr(n) }, line) unless node.names.all?(Prism::SymbolNode)
-
-          names = node.names.map { |n| n.unescaped.to_sym }
-          Undef.new(names, line)
-        when Prism::SuperNode
-          args, kwargs, forwarded = arguments(node.arguments)
-          Super.new(args, kwargs, node.block ? block(node.block) : forwarded, line)
+        when Prism::UndefNode then undef_names(node, line)
+        when Prism::SuperNode then super_call(node, line)
         when Prism::ForwardingSuperNode then zsuper(node, line)
         when Prism::YieldNode
           args, kwargs, = arguments(node.arguments)
@@ -538,39 +469,15 @@ module Zr
         when Prism::BreakNode, Prism::NextNode
           value = jump_value(node.arguments, line)
           node.is_a?(Prism::BreakNode) ? Break.new(value, line) : Next.new(value, line)
-        when Prism::IfNode
-          chosen = chooses?(node.predicate)
-          # The predicate gets its number first, because ruby's compiler
-          # writes it first. If ruby decides the predicate at compile time,
-          # it drops the whole branch, and Coverage records nothing.
-          predicate = expr(node.predicate)
-          then_cover, else_cover = chosen.nil? ? branch_covers(:if, span(node.location), if_sides(node)) : [nil, nil]
-          If.new(predicate,
-                 covered(then_cover, node.statements && dead(chosen == false) { seq(node.statements, taken: taken && chosen != false) }, line),
-                 covered(else_cover, node.subsequent && dead(chosen == true) { expr(node.subsequent, taken: taken && chosen != true) }, line), line)
+        when Prism::IfNode then if_branch(node, line, taken: taken)
         when Prism::CaseMatchNode then case_match(node, taken: taken)
         when Prism::MatchRequiredNode then match_required(node)
         when Prism::MatchPredicateNode then match_predicate(node)
         when Prism::MatchWriteNode then match_write(node)
-        when Prism::UnlessNode
-          chosen = chooses?(node.predicate)
-          # Ruby lists an `unless`'s else before its then, and numbers them
-          # in that order. The branch test is the same.
-          predicate = expr(node.predicate)
-          else_cover, then_cover = chosen.nil? ? branch_covers(:unless, span(node.location), unless_sides(node)) : [nil, nil]
-          If.new(predicate,
-                 covered(else_cover, node.else_clause && dead(chosen == false) { seq(node.else_clause.statements, taken: taken && chosen != false) }, line),
-                 covered(then_cover, node.statements && dead(chosen == true) { seq(node.statements, taken: taken && chosen != true) }, line), line)
+        when Prism::UnlessNode then unless_branch(node, line, taken: taken)
         when Prism::ElseNode then node.statements ? seq(node.statements, taken: taken) : Literal.new(nil, line)
-        # A loop returns nil, so its body's value is not used.
-        when Prism::WhileNode
-          body, = branch_covers(:while, span(node.location), loop_sides(node))
-          While.new(expr(node.predicate), covered(body, node.statements && seq(node.statements, taken: false), line), line,
-                    node.begin_modifier?)
-        when Prism::UntilNode
-          body, = branch_covers(:until, span(node.location), loop_sides(node))
-          While.new(falsy(expr(node.predicate), line), covered(body, node.statements && seq(node.statements, taken: false), line), line,
-                    node.begin_modifier?)
+        when Prism::WhileNode then while_loop(node, line)
+        when Prism::UntilNode then until_loop(node, line)
         when Prism::ReturnNode
           top_return_warning if node.arguments
           Return.new(jump_value(node.arguments, line), line)
@@ -578,55 +485,16 @@ module Zr
         # side is the result, so it has the pair's `taken`.
         when Prism::AndNode then And.new(expr(node.left), expr(node.right, taken: taken), line)
         when Prism::OrNode then Or.new(expr(node.left), expr(node.right, taken: taken), line)
-        when Prism::ClassNode
-          scope, name = constant_path(node.constant_path)
-          @loader&.module_defined!(@path, node.constant_path.slice)
-          superclass = node.superclass && expr(node.superclass)
-          in_definee(node.constant_path.slice, false) do
-            in_scope do
-              body = node.body ? expr(node.body) : Literal.new(nil, line)
-              ClassDef.new(scope, name, superclass, with_temps(node.locals), body, line, node.location.end_line)
-            end
-          end
-        when Prism::ModuleNode
-          scope, name = constant_path(node.constant_path)
-          @loader&.module_defined!(@path, node.constant_path.slice)
-          in_definee(node.constant_path.slice, false) do
-            in_scope do
-              body = node.body ? expr(node.body) : Literal.new(nil, line)
-              ModuleDef.new(scope, name, with_temps(node.locals), body, line, node.location.end_line)
-            end
-          end
-        when Prism::SingletonClassNode
-          target = expr(node.expression)
-          in_definee(nil, true) do
-            in_scope do
-              was, @in_sclass = @in_sclass, true
-              body = node.body ? expr(node.body) : Literal.new(nil, line)
-              @in_sclass = was
-              SingletonClassDef.new(target, with_temps(node.locals), body, line, node.location.end_line)
-            end
-          end
-        when Prism::ConstantReadNode
-          @loader&.compiles!(node.name) unless @loader&.module_defined?(@path, node.name)
-          gems!(node.name)
-          ConstRead.new(nil, node.name, line)
-        when Prism::ConstantPathNode
-          # `Prism::Ruby` is not Ruby::Box: only a top-level `Ruby` compiles.
-          @loader&.compiles!(node.name) unless node.name == :Ruby && node.parent
-          gems!(node.name) if node.parent.nil?
-          scope, name = constant_path(node)
-          ConstRead.new(scope, name, line)
+        when Prism::ClassNode then class_body(node, line)
+        when Prism::ModuleNode then module_body(node, line)
+        when Prism::SingletonClassNode then singleton_class_body(node, line)
+        when Prism::ConstantReadNode then const_read(node, line)
+        when Prism::ConstantPathNode then const_path_read(node, line)
         when Prism::ConstantWriteNode then ConstWrite.new(nil, node.name, expr(node.value), line)
         when Prism::ConstantPathWriteNode
           scope, name = constant_path(node.target)
           ConstWrite.new(scope, name, expr(node.value), line)
-        when Prism::InterpolatedStringNode
-          if node.frozen? then frozen_literal_string(static_text(node), line)
-          # Adjacent literals with nothing interpolated are one literal.
-          elsif static_string?(node) then Literal.new(static_text(node), line, !node.mutable?)
-          else interpolation(node, line)
-          end
+        when Prism::InterpolatedStringNode then interpolated_string(node, line)
         when Prism::SourceFileNode then literal_string(node, Paths.shown(@file), line)
         when Prism::SourceLineNode then Literal.new(line, line)
         when Prism::SourceEncodingNode
@@ -647,22 +515,7 @@ module Zr
         when Prism::HashNode then HashLit.new(hash_pairs(node.elements), line)
         when Prism::FlipFlopNode then flip_flop(node, line)
         when Prism::ShareableConstantNode then shareable_constant(node, line)
-        when Prism::RangeNode
-          # Fixnum and nil ends make one frozen Range for the site, as
-          # CRuby's optimizable_range_item_p decides.
-          static = [node.left, node.right].all? do |e|
-            e.nil? || e.is_a?(Prism::NilNode) || (e.is_a?(Prism::IntegerNode) && e.value.bit_length <= 62)
-          end
-          low = node.left ? expr(node.left) : Literal.new(nil, line)
-          high = node.right ? expr(node.right) : Literal.new(nil, line)
-          # Two String literals make one frozen Range with frozen ends for
-          # the site, where CRuby's peephole optimizer folds them.
-          if node.left.is_a?(Prism::StringNode) && node.right.is_a?(Prism::StringNode) && !after_label?(node)
-            static = true
-            low = frozen_literal(node.left, low, line)
-            high = frozen_literal(node.right, high, line)
-          end
-          RangeLit.new(low, high, node.exclude_end?, line, static)
+        when Prism::RangeNode then range_literal(node, line)
         when Prism::InstanceVariableReadNode then IvarRead.new(node.name, line)
         when Prism::GlobalVariableReadNode then gvar_read(node.name, line)
         when Prism::GlobalVariableWriteNode then gvar_write(node.name, expr(node.value), line)
@@ -695,58 +548,13 @@ module Zr
         when Prism::ConstantPathOperatorWriteNode
           scope, name, prelude = constant_scope(node.target, line)
           with_scope(prelude, ConstWrite.new(scope, name, Send.of(ConstRead.new(scope, name, line), node.binary_operator, [expr(node.value)], line), line), line)
-        when Prism::AliasMethodNode
-          if node.new_name.is_a?(Prism::SymbolNode) && node.old_name.is_a?(Prism::SymbolNode)
-            Alias.new(node.new_name.unescaped.to_sym, node.old_name.unescaped.to_sym, line)
-          else
-            AliasValue.new(expr(node.new_name), expr(node.old_name), line)
-          end
-        when Prism::AliasGlobalVariableNode
-          if node.old_name.is_a?(Prism::GlobalVariableReadNode) && !FRAME_GVARS.include?(node.old_name.name)
-            GvarAlias.new(node.new_name.name, node.old_name.name, line)
-          else
-            # `$&` is a register of the frame that last matched, not a
-            # global, so the runtime cannot keep an alias entry for it. The
-            # lowering resolves the new name. Ruby does not make an alias
-            # that does not run (`if false; alias $x $&; end` leaves `$x`
-            # nil). So a conditional alias sets its own flag when it runs,
-            # and each use of the name reads the flag.
-            flag = certain_alias?(node) ? nil : :"$%alias#{node.new_name.name}"
-            @loader&.back_ref!(node.new_name.name, node.old_name, flag)
-            flag ? Seq.new([GvarWrite.new(flag, Literal.new(true, line), line, nil), Literal.new(nil, line)], line) : Literal.new(nil, line)
-          end
-        when Prism::CaseNode
-          covers = branch_covers(:case, span(node.location), case_sides(node, :when))
-          clauses = node.conditions.map.with_index do |w, i|
-            values = w.conditions.map { |c| c.is_a?(Prism::SplatNode) ? splat(c, line) : expr(c) }
-            [values, covered(covers[i], w.statements ? seq(w.statements, taken: taken) : Literal.new(nil, line), line)]
-          end
-          other = node.else_clause && expr(node.else_clause, taken: taken)
-          Case.new(node.predicate && expr(node.predicate), clauses, covered(covers.last, other, line), line)
-        when Prism::IndexOperatorWriteNode, Prism::IndexOrWriteNode, Prism::IndexAndWriteNode
-          unsupported(node, "a block in an index target") if node.block
-          args = index_args(node, line)
-          op = case node
-               when Prism::IndexOperatorWriteNode then node.binary_operator
-               when Prism::IndexOrWriteNode then :or
-               else :and
-               end
-          IndexOpAssign.new(expr(node.receiver), args, op, expr(node.value), line)
-        when Prism::CallOperatorWriteNode, Prism::CallOrWriteNode, Prism::CallAndWriteNode
-          op = case node
-               when Prism::CallOperatorWriteNode then node.binary_operator
-               when Prism::CallOrWriteNode then :or
-               else :and
-               end
-          AttrOpAssign.new(expr(node.receiver), node.read_name, op, expr(node.value), line, node.call_operator == "&.")
+        when Prism::AliasMethodNode then alias_method_names(node, line)
+        when Prism::AliasGlobalVariableNode then alias_global(node, line)
+        when Prism::CaseNode then case_when(node, line, taken: taken)
+        when Prism::IndexOperatorWriteNode, Prism::IndexOrWriteNode, Prism::IndexAndWriteNode then index_op_assign(node, line)
+        when Prism::CallOperatorWriteNode, Prism::CallOrWriteNode, Prism::CallAndWriteNode then attr_op_assign(node, line)
         when Prism::ForNode then for_loop(node)
-        when Prism::PostExecutionNode
-          # `END { }` shares the enclosing scope, so its body is one block
-          # deeper, as an at_exit block.
-          body = deepen(node.statements ? seq(node.statements) : Literal.new(nil, line), 0)
-          block = Block.new(Params.new([], [], nil, [], [], nil, nil), [], body, line)
-          # It registers once for its site, however many times the site runs.
-          Once.new(Send.of(Core.new(:Kernel, line), :at_exit, [], line, block: block), line)
+        when Prism::PostExecutionNode then post_execution(node, line)
         when Prism::PreExecutionNode
           unsupported(node, "BEGIN { } outside the toplevel") unless @block_depth.zero?
           node.statements ? seq(node.statements) : Literal.new(nil, line)
@@ -1003,7 +811,9 @@ module Zr
       def target(node)
         line = node.location.start_line
         case node
-        when Prism::LocalVariableTargetNode, Prism::RequiredParameterNode then Assign.new(node.name, node.respond_to?(:depth) ? node.depth : 0, nil, line)
+        when Prism::LocalVariableTargetNode then Assign.new(node.name, node.depth, nil, line)
+        # A parameter is always in its own scope.
+        when Prism::RequiredParameterNode then Assign.new(node.name, 0, nil, line)
         when Prism::InstanceVariableTargetNode then IvarWrite.new(node.name, nil, line)
         when Prism::GlobalVariableTargetNode then gvar_write(node.name, nil, line)
         when Prism::ClassVariableTargetNode then CvarWrite.new(node.name, nil, line)
@@ -1084,7 +894,7 @@ module Zr
         return FrozenString.new(unescaped(node.receiver), node.location.start_line) if node.name == :freeze && node.receiver.is_a?(Prism::StringNode) && node.arguments.nil? && node.block.nil?
         # The core's `+"text"` under its frozen_string_literal comment: a
         # new String, as its C makes, with no send of +@.
-        return Literal.new(unescaped(node.receiver), node.location.start_line, false) if node.name == :+@ && node.receiver.is_a?(Prism::StringNode) && node.block.nil? && Build.runtime_file?(@file)
+        return Literal.new(unescaped(node.receiver), node.location.start_line, false) if node.name == :+@ && node.receiver.is_a?(Prism::StringNode) && node.block.nil? && Library::Roots.runtime_file?(@file)
         return require_node(node) if REQUIRES.include?(node.name) && node.receiver.nil? && node.block.nil? && !shadowed?(node.name) && !@loader&.eval? && literal_feature(node)
         return autoload_node(node) if node.name == :autoload && node.block.nil? && literal_autoload?(node)
         return newarray_send(node) if newarray_send?(node)
@@ -1099,7 +909,7 @@ module Zr
       def newarray_send?(node)
         %i[min max].include?(node.name) && node.receiver.is_a?(Prism::ArrayNode) && !node.receiver.static_literal? &&
           node.receiver.elements.none? { |e| e.is_a?(Prism::SplatNode) || e.is_a?(Prism::KeywordHashNode) } &&
-          node.arguments.nil? && node.block.nil? && node.call_operator != "&." && !Build.runtime_file?(@file)
+          node.arguments.nil? && node.block.nil? && node.call_operator != "&." && !Library::Roots.runtime_file?(@file)
       end
 
       # The program itself sends the method when it is redefined, so the
@@ -1115,7 +925,7 @@ module Zr
       # A file of the program uses rubygems' API. rubygems' own files and
       # the runtime's files do not count.
       def gems!(name)
-        @loader.gems!(name) if @loader && !@loader.ahead?(@file) && !Build.runtime_file?(@file)
+        @loader.gems!(name) if @loader && !@loader.ahead?(@file) && !Library::Roots.runtime_file?(@file)
       end
 
       # `Primitive.attr! :ruby`, `:hidden`, `:ivars` or `:sends_each` in a
@@ -1345,65 +1155,10 @@ module Zr
         [args, kwargs, block]
       end
 
-      # A string literal as prism flags it: frozen if the file's magic
-      # comment says so (as CRuby reads the comment), and then the one
-      # frozen String of its text, as CRuby interns it.
-      def literal_string(node, text, line) = node.frozen? ? frozen_literal_string(text, line) : Literal.new(text, line, !node.mutable?)
-
-      # A literal that a frozen_string_literal comment freezes: the one
-      # frozen String of its text, with no send of `freeze` (ruby never
-      # sends it for this case).
-      def frozen_literal_string(text, line) = FrozenString.new(text, line, text.encoding == ::Encoding::UTF_8)
-
-      # Whether prism found a string static (`"a" "b"`, a heredoc with no
-      # interpolation). `static_text` joins its parts.
-      def static_string?(node)
-        node.parts.all? { |part| part.is_a?(Prism::StringNode) || (part.is_a?(Prism::InterpolatedStringNode) && static_string?(part)) }
-      end
-
-      def static_text(node) = node.parts.map { |part| part.is_a?(Prism::StringNode) ? unescaped(part) : static_text(part) }.join
-
-      # A string part's text with ruby's encoding: a \u escape makes it
-      # UTF-8, and a non-ASCII \x escape in a US-ASCII file makes it
-      # binary, whatever the file's encoding. Prism flags both, but gives
-      # the text in the file's encoding.
-      def unescaped(node)
-        text = node.unescaped
-        if node.forced_utf8_encoding? then text.dup.force_encoding(Encoding::UTF_8)
-        elsif node.forced_binary_encoding? then text.dup.force_encoding(Encoding::BINARY)
-        else text
-        end
-      end
-
-      # An element of an array literal. `[1, a: 2]` contains a Hash.
-      # Keywords that are only `**` splats add it only if it is not empty.
-      def array_element(node, line)
-        case node
-        when Prism::SplatNode then splat(node, line)
-        when Prism::KeywordHashNode
-          hash = HashLit.new(hash_pairs(node.elements), line)
-          node.elements.all?(Prism::AssocSplatNode) ? Splat.new(KwSplatElement.new(hash, line), line) : hash
-        else expr(node)
-        end
-      end
-
       # `*value`, or a bare `*`: the anonymous rest parameter that the
       # method forwards, anywhere a splat can be.
       def splat(node, line)
         Splat.new(node.expression ? expr(node.expression) : Local.new(ANONYMOUS[:rest], @block_depth, line), line)
-      end
-
-      # A hash's elements as a flat pair list; a `**value` is a HashSplat
-      # key with a nil value.
-      def hash_pairs(elements)
-        elements.flat_map do |e|
-          case e
-          when Prism::AssocNode
-            [expr(e.key), expr(e.value.is_a?(Prism::ImplicitNode) ? e.value.value : e.value)]
-          when Prism::AssocSplatNode
-            [HashSplat.new(e.value ? expr(e.value) : Local.new(ANONYMOUS[:kwrest], @block_depth, e.location.start_line), e.location.start_line), nil]
-          end
-        end
       end
 
       # The bodies that a file always runs when it loads: its own
@@ -1449,6 +1204,205 @@ module Zr
       def invalid(node, message)
         raise Invalid, "#{@file}:#{node.location.start_line}: #{message}"
       end
+
+      # The arms of `built` that need more than one line. `line` is the
+      # node's first line, and `taken` is the flag of `built`.
+      private
+
+      def lambda_literal(node, line)
+        in_block do
+          params, extra = block_params(node.parameters)
+          body = node.body ? expr(node.body) : Literal.new(nil, line)
+          Lambda.new(noted(Block.new(params, with_temps(node.locals + extra + (params.names - node.locals - extra)), body, line,
+                                     node.location.end_line, method_cover(node)), node), line)
+        end
+      end
+
+      def undef_names(node, line)
+        return UndefValue.new(node.names.map { |n| expr(n) }, line) unless node.names.all?(Prism::SymbolNode)
+
+        names = node.names.map { |n| n.unescaped.to_sym }
+        Undef.new(names, line)
+      end
+
+      def super_call(node, line)
+        args, kwargs, forwarded = arguments(node.arguments)
+        Super.new(args, kwargs, node.block ? block(node.block) : forwarded, line)
+      end
+
+      def if_branch(node, line, taken:)
+        chosen = chooses?(node.predicate)
+        # The predicate gets its number first, because ruby's compiler
+        # writes it first. If ruby decides the predicate at compile time,
+        # it drops the whole branch, and Coverage records nothing.
+        predicate = expr(node.predicate)
+        then_cover, else_cover = chosen.nil? ? branch_covers(:if, span(node.location), if_sides(node)) : [nil, nil]
+        If.new(predicate,
+               covered(then_cover, node.statements && dead(chosen == false) { seq(node.statements, taken: taken && chosen != false) }, line),
+               covered(else_cover, node.subsequent && dead(chosen == true) { expr(node.subsequent, taken: taken && chosen != true) }, line), line)
+      end
+
+      def unless_branch(node, line, taken:)
+        chosen = chooses?(node.predicate)
+        # Ruby lists an `unless`'s else before its then, and numbers them
+        # in that order. The branch test is the same.
+        predicate = expr(node.predicate)
+        else_cover, then_cover = chosen.nil? ? branch_covers(:unless, span(node.location), unless_sides(node)) : [nil, nil]
+        If.new(predicate,
+               covered(else_cover, node.else_clause && dead(chosen == false) { seq(node.else_clause.statements, taken: taken && chosen != false) }, line),
+               covered(then_cover, node.statements && dead(chosen == true) { seq(node.statements, taken: taken && chosen != true) }, line), line)
+      end
+
+      # A loop returns nil, so its body's value is not used.
+      def while_loop(node, line)
+        body, = branch_covers(:while, span(node.location), loop_sides(node))
+        While.new(expr(node.predicate), covered(body, node.statements && seq(node.statements, taken: false), line), line,
+                  node.begin_modifier?)
+      end
+
+      def until_loop(node, line)
+        body, = branch_covers(:until, span(node.location), loop_sides(node))
+        While.new(falsy(expr(node.predicate), line), covered(body, node.statements && seq(node.statements, taken: false), line), line,
+                  node.begin_modifier?)
+      end
+
+      def class_body(node, line)
+        scope, name = constant_path(node.constant_path)
+        @loader&.module_defined!(@path, node.constant_path.slice)
+        superclass = node.superclass && expr(node.superclass)
+        in_definee(node.constant_path.slice, false) do
+          in_scope do
+            body = node.body ? expr(node.body) : Literal.new(nil, line)
+            ClassDef.new(scope, name, superclass, with_temps(node.locals), body, line, node.location.end_line)
+          end
+        end
+      end
+
+      def module_body(node, line)
+        scope, name = constant_path(node.constant_path)
+        @loader&.module_defined!(@path, node.constant_path.slice)
+        in_definee(node.constant_path.slice, false) do
+          in_scope do
+            body = node.body ? expr(node.body) : Literal.new(nil, line)
+            ModuleDef.new(scope, name, with_temps(node.locals), body, line, node.location.end_line)
+          end
+        end
+      end
+
+      def singleton_class_body(node, line)
+        target = expr(node.expression)
+        in_definee(nil, true) do
+          in_scope do
+            was, @in_sclass = @in_sclass, true
+            body = node.body ? expr(node.body) : Literal.new(nil, line)
+            @in_sclass = was
+            SingletonClassDef.new(target, with_temps(node.locals), body, line, node.location.end_line)
+          end
+        end
+      end
+
+      def const_read(node, line)
+        @loader&.compiles!(node.name) unless @loader&.module_defined?(@path, node.name)
+        gems!(node.name)
+        ConstRead.new(nil, node.name, line)
+      end
+
+      def const_path_read(node, line)
+        # `Prism::Ruby` is not Ruby::Box: only a top-level `Ruby` compiles.
+        @loader&.compiles!(node.name) unless node.name == :Ruby && node.parent
+        gems!(node.name) if node.parent.nil?
+        scope, name = constant_path(node)
+        ConstRead.new(scope, name, line)
+      end
+
+      def interpolated_string(node, line)
+        if node.frozen? then frozen_literal_string(static_text(node), line)
+        # Adjacent literals with nothing interpolated are one literal.
+        elsif static_string?(node) then Literal.new(static_text(node), line, !node.mutable?)
+        else interpolation(node, line)
+        end
+      end
+
+      def range_literal(node, line)
+        # Fixnum and nil ends make one frozen Range for the site, as
+        # CRuby's optimizable_range_item_p decides.
+        static = [node.left, node.right].all? do |e|
+          e.nil? || e.is_a?(Prism::NilNode) || (e.is_a?(Prism::IntegerNode) && e.value.bit_length <= 62)
+        end
+        low = node.left ? expr(node.left) : Literal.new(nil, line)
+        high = node.right ? expr(node.right) : Literal.new(nil, line)
+        # Two String literals make one frozen Range with frozen ends for
+        # the site, where CRuby's peephole optimizer folds them.
+        if node.left.is_a?(Prism::StringNode) && node.right.is_a?(Prism::StringNode) && !after_label?(node)
+          static = true
+          low = frozen_literal(node.left, low, line)
+          high = frozen_literal(node.right, high, line)
+        end
+        RangeLit.new(low, high, node.exclude_end?, line, static)
+      end
+
+      def alias_method_names(node, line)
+        if node.new_name.is_a?(Prism::SymbolNode) && node.old_name.is_a?(Prism::SymbolNode)
+          Alias.new(node.new_name.unescaped.to_sym, node.old_name.unescaped.to_sym, line)
+        else
+          AliasValue.new(expr(node.new_name), expr(node.old_name), line)
+        end
+      end
+
+      def alias_global(node, line)
+        if node.old_name.is_a?(Prism::GlobalVariableReadNode) && !FRAME_GVARS.include?(node.old_name.name)
+          GvarAlias.new(node.new_name.name, node.old_name.name, line)
+        else
+          # `$&` is a register of the frame that last matched, not a
+          # global, so the runtime cannot keep an alias entry for it. The
+          # lowering resolves the new name. Ruby does not make an alias
+          # that does not run (`if false; alias $x $&; end` leaves `$x`
+          # nil). So a conditional alias sets its own flag when it runs,
+          # and each use of the name reads the flag.
+          flag = certain_alias?(node) ? nil : :"$%alias#{node.new_name.name}"
+          @loader&.back_ref!(node.new_name.name, node.old_name, flag)
+          flag ? Seq.new([GvarWrite.new(flag, Literal.new(true, line), line, nil), Literal.new(nil, line)], line) : Literal.new(nil, line)
+        end
+      end
+
+      def case_when(node, line, taken:)
+        covers = branch_covers(:case, span(node.location), case_sides(node, :when))
+        clauses = node.conditions.map.with_index do |w, i|
+          values = w.conditions.map { |c| c.is_a?(Prism::SplatNode) ? splat(c, line) : expr(c) }
+          [values, covered(covers[i], w.statements ? seq(w.statements, taken: taken) : Literal.new(nil, line), line)]
+        end
+        other = node.else_clause && expr(node.else_clause, taken: taken)
+        Case.new(node.predicate && expr(node.predicate), clauses, covered(covers.last, other, line), line)
+      end
+
+      def index_op_assign(node, line)
+        unsupported(node, "a block in an index target") if node.block
+        args = index_args(node, line)
+        op = case node
+             when Prism::IndexOperatorWriteNode then node.binary_operator
+             when Prism::IndexOrWriteNode then :or
+             else :and
+             end
+        IndexOpAssign.new(expr(node.receiver), args, op, expr(node.value), line)
+      end
+
+      def attr_op_assign(node, line)
+        op = case node
+             when Prism::CallOperatorWriteNode then node.binary_operator
+             when Prism::CallOrWriteNode then :or
+             else :and
+             end
+        AttrOpAssign.new(expr(node.receiver), node.read_name, op, expr(node.value), line, node.call_operator == "&.")
+      end
+
+      def post_execution(node, line)
+        # `END { }` shares the enclosing scope, so its body is one block
+        # deeper, as an at_exit block.
+        body = deepen(node.statements ? seq(node.statements) : Literal.new(nil, line), 0)
+        block = Block.new(Params.new([], [], nil, [], [], nil, nil), [], body, line)
+        # It registers once for its site, however many times the site runs.
+        Once.new(Send.of(Core.new(:Kernel, line), :at_exit, [], line, block: block), line)
+      end
     end
 
     # The runtime files whose instance variables a program sees as in
@@ -1456,14 +1410,14 @@ module Zr
     # are built, and openssl's port (its C creates each visible instance
     # variable by name and keeps the rest in hidden slots).
     VISIBLE_IVARS = [
-      *%w[mutation ast].map { |name| File.join(Layout::EXT, "prism/ruby/#{name}.rb") },
-      File.join(Layout::EXT, "openssl.so.rb"), *Dir[File.join(Layout::EXT, "openssl/ossl/*.rb")].sort
+      *%w[mutation ast].map { |name| File.join(Library::Layout::EXT, "prism/ruby/#{name}.rb") },
+      File.join(Library::Layout::EXT, "openssl.so.rb"), *Dir[File.join(Library::Layout::EXT, "openssl/ossl/*.rb")].sort
     ].freeze
   end
 end
 
 # The rest of `Build`, by topic. They load after the class body, because
-# they read `Build.pure` when they load.
+# they read `Library::Roots.pure` when they load.
 require_relative "preludes"
 require_relative "loader"
 require_relative "build/literals"

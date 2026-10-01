@@ -541,7 +541,7 @@ module Zr
 
           def initialize(target)
             b = Hir::Build
-            @loader = b::Loader.new(b.stdlib(target), description: b.description(target))
+            @loader = b::Loader.new(Library::Roots.stdlib(target), description: Library::Roots.description(target))
             # A binary's eval support adds the compiler first, hidden, and
             # with it prism. Here the translator adds prism first, so prism
             # stays hidden from the program, as there, when irb requires it.
@@ -551,7 +551,7 @@ module Zr
             b.normalizer(@loader)
             b.pretty_printer(@loader)
             b.irb_session(@loader)
-            @compiler = b.eval_file(target)
+            @compiler = Library::Roots.eval_file(target)
           end
 
           # Each file by path, and its entry: `[:eval, index]` into the
@@ -645,7 +645,7 @@ module Zr
         def eval_file(path)
           name = text(path)
           hir = Hir.build(File.read(name), name, eval_support: false)
-          unit = Unit.new(Paths.shown(name), Hir::Build.internal_library?(name), hir.units, hir.node_ids)
+          unit = Unit.new(Paths.shown(name), Library::Roots.internal_library?(name), hir.units, hir.node_ids)
           fn = @host.callable(-> { toplevel(hir, unit, k::KIND_TOP) })
           (fn << 1) | 1
         end

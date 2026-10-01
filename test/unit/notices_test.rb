@@ -36,10 +36,10 @@ class NoticesTest < Minitest::Test
     assert_equal [], missing
   end
 
-  # A port's version changes in lib/zr/ports.rb and `zr-dev vendor`; its
+  # A port's version changes in lib/zr/library/ports.rb and `zr-dev vendor`; its
   # row must change with it.
   def test_each_port_has_a_row_at_its_version
-    missing = Zr::Ports::ALL.filter_map do |name, port|
+    missing = Zr::Library::Ports::ALL.filter_map do |name, port|
       "#{name} #{port.version}" if port.vendored && !NOTICES.include?("| #{name} | #{port.version} |")
     end
 

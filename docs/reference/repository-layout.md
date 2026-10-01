@@ -6,16 +6,16 @@ The gem contains `exe/`, `lib/`, `licenses/`, `vendor/ruby/`,
 `vendor/LICENSES/` and `vendor/vendor.lock`, with `README.md`,
 `CHANGELOG.md` and the license files. It has no gem dependencies: the
 library that a program requires is `vendor/ruby`
-(`lib/zr/libraries.rb`) and zr's own `lib/zr/runtime/ext`.
+(`lib/zr/library/roots.rb`) and zr's own `lib/zr/runtime/ext`.
 
 The runtime is in `lib/zr/runtime/`. It is the source that zr compiles
 into each program. It is not code of the compiler, although it is
 under `lib/zr/` (`Zr::Paths::RUNTIME`).
 
-Two kinds of code meet on a program's load path (`Zr::Layout`):
+Two kinds of code meet on a program's load path (`Zr::Library::Layout`):
 
 - `vendor/`: code that other people wrote, byte for byte as they ship
-  it. Nobody edits it; `zr-dev vendor` writes it (`lib/zr/vendor.rb`).
+  it. Nobody edits it; `zr-dev vendor` writes it (`lib/zr/library/vendor.rb`).
 - `lib/zr/runtime/`: code that zr wrote. It comes first on the load
   path, so a file there replaces an upstream file of the same path (an
   overlay).
@@ -38,10 +38,12 @@ Two kinds of code meet on a program's load path (`Zr::Layout`):
 | `lib/zr/source_guard.rb` | `Zr::SourceGuard.check!`: a cache write stops if a source changed during the build |
 | `lib/zr/parse.rb` | `Zr.parse`: prism, through the parse cache where there is one |
 | `lib/zr/backend.rb` | `Zr::Backend`: what the backends share, and `Backend::Refused` |
-| `lib/zr/libraries.rb` | the directories of `vendor/ruby` that a program requires from |
-| `lib/zr/vendor.rb` | what `vendor/` holds, and what it leaves out and why: the input of `zr-dev vendor` |
-| `lib/zr/stdlib.rb` | the name and version of each gem in `vendor/ruby` (`zr-dev vendor` writes it) |
-| `lib/zr/ports.rb` | the gems with a C part that zr ports, with their versions and compat ranges |
+| `lib/zr/library.rb`, `lib/zr/library/` | `Zr::Library`: the library that a program requires, and where each part of it is |
+| `lib/zr/library/layout.rb` | `Library::Layout`: where `vendor/ruby`, the gem home and zr's own `runtime/ext` and `runtime/lib` are |
+| `lib/zr/library/roots.rb` | `Library::Roots`: the directories that a program's `require` searches, in order, and the names that the loader treats as the runtime's own (the kernel's description, the eval support file) |
+| `lib/zr/library/vendor.rb` | what `vendor/` holds, and what it leaves out and why: the input of `zr-dev vendor` |
+| `lib/zr/library/stdlib.rb` | the name and version of each gem in `vendor/ruby` (`zr-dev vendor` writes it) |
+| `lib/zr/library/ports.rb` | the gems with a C part that zr ports, with their versions and compat ranges |
 | `lib/zr/target.rb` | the targets, and what this host can build |
 | `lib/zr/prism.rb` | loads prism on the host; `Zr.parse` |
 | `lib/zr/cache/parse.rb` | the host's cache of parse results |

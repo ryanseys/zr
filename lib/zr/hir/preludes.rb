@@ -47,7 +47,7 @@ module Zr
       # program with eval can need any of them, and here they are lowered
       # once, not with each such program.
       def self.eval_support(target = Target.default)
-        Loader.new(stdlib(target), description: description(target)).tap do |loader|
+        Loader.new(Library::Roots.stdlib(target), description: Library::Roots.description(target)).tap do |loader|
           eval_require(loader, target)
           rubygems(loader)
           rbconfig(loader)
@@ -62,14 +62,14 @@ module Zr
       # first line. A zr program loads them at boot if one of its files
       # uses Gem or Bundler, calls `gem` or requires rubygems. Its
       # compiler then already contains them.
-      def self.rubygems_files = %w[rubygems bundled_gems].map { |name| File.join(pure, "#{name}.rb") }
-      def self.ahead = [File.join(pure, "rubygems"), *rubygems_files]
+      def self.rubygems_files = %w[rubygems bundled_gems].map { |name| File.join(Library::Roots.pure, "#{name}.rb") }
+      def self.ahead = [File.join(Library::Roots.pure, "rubygems"), *rubygems_files]
       # The files of rubygems' autoloads that its boot reads.
-      def self.booted = %w[dependency path_support requirement util version].map { |name| File.join(pure, "rubygems/#{name}.rb") }
+      def self.booted = %w[dependency path_support requirement util version].map { |name| File.join(Library::Roots.pure, "rubygems/#{name}.rb") }
 
       # After them, the file that gives rubygems the program's gems, as
       # bundler's setup does.
-      GEM_MANIFEST = File.join(Layout::RUNTIME_LIB, "zr/gem_manifest.rb")
+      GEM_MANIFEST = File.join(Library::Layout::RUNTIME_LIB, "zr/gem_manifest.rb")
 
       def self.rubygems(loader)
         rubygems_files.map { |path| Require.new(:require, File.basename(path, ".rb"), path, loader.add(path), 0) } <<
@@ -79,7 +79,7 @@ module Zr
       # The file that arms String#unicode_normalize's load of ruby's own
       # normalize.rb. It is a runtime file, so it is not in
       # $LOADED_FEATURES. The load that it arms (at the first call) is.
-      NORMALIZER = File.join(Layout::RUNTIME_LIB, "zr/normalizer.rb")
+      NORMALIZER = File.join(Library::Layout::RUNTIME_LIB, "zr/normalizer.rb")
 
       def self.normalizer(loader)
         Require.new(:hidden, "zr/normalizer", NORMALIZER, loader.add(NORMALIZER), 0)
@@ -87,9 +87,9 @@ module Zr
 
       # The file that arms Kernel#pp's load of ruby's own pp.rb, as
       # CRuby's prelude requires it on the first call.
-      PRETTY_PRINTER = File.join(Layout::RUNTIME_LIB, "zr/pretty_printer.rb")
-      IRB_SESSION = File.join(Layout::RUNTIME_LIB, "zr/irb_session.rb")
-      SYNTAX_TREE = File.join(Layout::RUNTIME_LIB, "zr/syntax_tree.rb")
+      PRETTY_PRINTER = File.join(Library::Layout::RUNTIME_LIB, "zr/pretty_printer.rb")
+      IRB_SESSION = File.join(Library::Layout::RUNTIME_LIB, "zr/irb_session.rb")
+      SYNTAX_TREE = File.join(Library::Layout::RUNTIME_LIB, "zr/syntax_tree.rb")
 
       # The file that loads RubyVM::AbstractSyntaxTree's translator. A
       # program that uses the module loads it before its body. Both are
@@ -107,7 +107,7 @@ module Zr
       # contains its files and has no directory to search. So the program
       # includes it: added and not required, because irb loads it and a
       # load does not change $LOADED_FEATURES.
-      def self.irb_messages = File.join(Libraries.lib_of("irb"), "irb/lc/error.rb")
+      def self.irb_messages = File.join(Library::Roots.lib_of("irb"), "irb/lc/error.rb")
 
       # The file that arms Binding#irb's load of irb, as CRuby's prelude
       # requires it on the first call.
@@ -121,7 +121,7 @@ module Zr
       # its files uses `RbConfig` or requires it. So the constant exists
       # and `require "rbconfig"` returns false, as in ruby.
       def self.rbconfig(loader)
-        path = loader.resolve(:require, "rbconfig", Layout::EXT)
+        path = loader.resolve(:require, "rbconfig", Library::Layout::EXT)
         Require.new(:require, "rbconfig", path, loader.add(path), 0)
       end
 
@@ -130,7 +130,7 @@ module Zr
       # without eval links nothing more. The program did not require it,
       # so what it loads is not in $LOADED_FEATURES.
       def self.eval_require(loader, target = Target.default)
-        path = eval_file(target)
+        path = Library::Roots.eval_file(target)
         Require.new(:hidden, "zr/eval", path, loader.hidden(path), 0)
       end
 

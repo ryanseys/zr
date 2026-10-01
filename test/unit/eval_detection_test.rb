@@ -59,7 +59,7 @@ class EvalDetectionTest < Minitest::Test
     support = Zr::EvalSupport.for(Zr::Target.default)
     assert_operator support.activations, :>, 0, "eval support activates refinements of its own"
 
-    loader = Zr::Hir::Build::Loader.new(Zr::Hir::Build.stdlib(Zr::Target.default), external: support)
+    loader = Zr::Hir::Build::Loader.new(Zr::Library::Roots.stdlib(Zr::Target.default), external: support)
     assert_equal support.activations, loader.activations
 
     Dir.mktmpdir("zr-eval-") do |work|
@@ -78,7 +78,7 @@ class EvalDetectionTest < Minitest::Test
     Dir.mktmpdir("zr-eval-") do |work|
       rb = File.join(work, "eval_probe.rb")
       File.write(rb, source)
-      loader = Zr::Hir::Build::Loader.new(Zr::Hir::Build.stdlib(Zr::Target.default))
+      loader = Zr::Hir::Build::Loader.new(Zr::Library::Roots.stdlib(Zr::Target.default))
       loader.unit(rb, source)
       loader.evals?
     end

@@ -1,14 +1,14 @@
 # frozen_string_literal: true
 
-require_relative "../../../lib/zr/stdlib"
-require_relative "../../../lib/zr/ports"
+require_relative "../../../lib/zr/library/stdlib"
+require_relative "../../../lib/zr/library/ports"
 
 module Zr
   module Harness
     # The ruby that every expected output comes from: ruby 4.0.7 with the
     # gems that a stock install has, except that a gem whose C zr ports
     # comes at zr's version (json 3.0.2, not 2.18.0). Those are the same
-    # libraries that a zr build compiles in (vendor/ruby and lib/zr/ports.rb).
+    # libraries that a zr build compiles in (vendor/ruby and lib/zr/library/ports.rb).
     #
     # The gems live in their own GEM_HOME, tmp/reference/gems, which
     # `zr-dev reference` fills. GEM_PATH names only that directory, so
@@ -24,10 +24,10 @@ module Zr
 
       # `{ name => version }`: each gem that GEMS must hold.
       def gems
-        want = Stdlib::BUNDLED.merge(Stdlib::OTHER_BUNDLED)
+        want = Library::Stdlib::BUNDLED.merge(Library::Stdlib::OTHER_BUNDLED)
         # win32ole builds only on Windows, which zr does not target.
         want.delete("win32ole") unless Gem.win_platform?
-        Ports::ALL.each do |name, port|
+        Library::Ports::ALL.each do |name, port|
           want[name] = port.version if want.key?(name) || stock_defaults[name] != port.version
         end
         want.sort.to_h

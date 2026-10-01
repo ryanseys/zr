@@ -60,7 +60,7 @@ module Zr
 
       width = [rows.map { |row| row.name.size }.max, 4].max
       lines = rows.map do |row|
-        port = Ports::ALL[row.name]
+        port = Library::Ports::ALL[row.name]
         note = port && row.source != "stdlib" ? "  C: zr's port, #{port.compat}" : ""
         format("%-#{width}s  %-10s %s%s", row.name, row.version, row.source, note).rstrip
       end

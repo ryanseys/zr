@@ -3,7 +3,7 @@
 require "test_helper"
 
 # The compiler's layers are the first directory under `lib/zr` (hir, ir,
-# lower, machine, backend, obj, native, eval, libraries, prism_shim,
+# lower, machine, backend, obj, native, eval, library, prism_shim,
 # cache),
 # or "top" for a file directly under `lib/zr`. `top` holds both the leaf
 # utilities (`Zr::Refused`, `Zr::Bytes`, `Zr::Target`,
@@ -20,8 +20,12 @@ class LayeringTest < Minitest::Test
   LIB = Pathname.new(File.join(ROOT, "lib/zr")).freeze
 
   ALLOWED = {
-    "top" => %w[top hir ir lower machine backend obj native eval libraries prism_shim cache],
-    "hir" => %w[top],
+    "top" => %w[top hir ir lower machine backend obj native eval library prism_shim cache],
+    # `library` is a leaf layer: where the library that a program
+    # requires is (`Library::Layout`, `Library::Roots`). The front end
+    # (`Hir::Build`) and the lowering cache read it, and it reads only
+    # the leaf utilities of `top`.
+    "hir" => %w[top library],
     "ir" => %w[top],
     # `Lower` reads HIR and emits IR. `machine/description` is the one
     # machine-dialect file it uses, and it is data only (a struct
@@ -32,12 +36,12 @@ class LayeringTest < Minitest::Test
     "obj" => %w[top],
     "native" => %w[top ir obj backend machine cache],
     "eval" => %w[top],
-    "libraries" => %w[top],
+    "library" => %w[top],
     "prism_shim" => %w[top],
     # The caches between builds (lib/zr/cache/store.rb). A lowering entry
     # holds IR and the code cache's machine code, which its workers
     # assemble with the back end.
-    "cache" => %w[top ir native backend],
+    "cache" => %w[top ir native backend library],
   }.freeze
 
   def test_every_cross_layer_edge_is_allowed

@@ -10,7 +10,7 @@ as [How to update the vendored code](update-vendored-code.md) shows.
 
 ## 1. Vendor the gem's Ruby half
 
-Add the gem to `ALL` in `lib/zr/ports.rb`, with its version and the
+Add the gem to `ALL` in `lib/zr/library/ports.rb`, with its version and the
 compat range of the Ruby halves that the port supports (`~> x.y.z` by
 default):
 

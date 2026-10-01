@@ -66,12 +66,12 @@ module Zr
     end
 
     def gems
-      require_relative "libraries"
-      require_relative "ports"
-      missing = Libraries.roots.flatten.reject { |dir| File.directory?(dir) }
+      require_relative "library/roots"
+      missing = Library::Roots.upstream.flatten.reject { |dir| File.directory?(dir) }
       return Check.new(:fail, "libraries", "#{missing.first} is missing; reinstall zr (gem install zr)") unless missing.empty?
 
-      Check.new(:ok, "libraries", "stdlib of ruby #{RUBY} (#{Stdlib::DEFAULT.size + Stdlib::BUNDLED.size} gems), #{Ports::ALL.size} ports")
+      count = Library::Stdlib::DEFAULT.size + Library::Stdlib::BUNDLED.size
+      Check.new(:ok, "libraries", "stdlib of ruby #{RUBY} (#{count} gems), #{Library::Ports::ALL.size} ports")
     end
 
     CACHE_FIX = "Set XDG_CACHE_HOME (or ZR_CACHE) to a directory that you can write to"

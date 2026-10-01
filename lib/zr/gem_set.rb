@@ -3,7 +3,7 @@
 require "digest/sha2"
 require "rbconfig"
 require_relative "paths"
-require_relative "ports"
+require_relative "library/ports"
 require_relative "cache/store"
 require_relative "version"
 
@@ -15,7 +15,7 @@ module Zr
   # 2. every gem in the Gemfile.lock of `--gemfile PATH`, or of
   #    `BUNDLE_GEMFILE` (which `bundle exec` sets), as `bundle exec ruby`
   #    reads it;
-  # 3. zr's standard library (lib/zr/libraries.rb), which is always last.
+  # 3. zr's standard library (lib/zr/library/roots.rb), which is always last.
   #
   # zr never reads another installed gem. The rubygems and bundler that
   # resolve the set are zr's own copies (vendor/ruby), as JRuby and
@@ -141,12 +141,12 @@ module Zr
 
     def self.child(flags, gemfile, env)
       require "json"
-      require_relative "libraries"
-      request = JSON.generate(gemfile: gemfile, flags: flags, ports: Ports::ALL.transform_values(&:compat))
+      require_relative "library/roots"
+      request = JSON.generate(gemfile: gemfile, flags: flags, ports: Library::Ports::ALL.transform_values(&:compat))
       child_env = CHILD_ENV.merge("BUNDLE_GEMFILE" => gemfile)
       READS.each { |name| child_env[name] = env[name] }
       # The child's warnings go to this stderr, where the user sees them.
-      command = [ruby, "--disable-gems", "-I", Libraries.root, RESOLVE]
+      command = [ruby, "--disable-gems", "-I", Library::Roots.pure, RESOLVE]
       out = IO.popen(child_env, command, "r+", chdir: gemfile ? File.dirname(gemfile) : Dir.pwd) do |io|
         io.write(request)
         io.close_write
@@ -158,8 +158,8 @@ module Zr
         raise Unresolved, "the gem resolver (#{ruby} #{RESOLVE}) failed with status #{$?.exitstatus}"
       end
       raise Unresolved, answer["error"] if answer["error"]
-      if answer["rubygems"] != Libraries.root
-        raise Unresolved, "the gem resolver loaded rubygems from #{answer["rubygems"]}, not from zr's own #{Libraries.root}"
+      if answer["rubygems"] != Library::Roots.pure
+        raise Unresolved, "the gem resolver loaded rubygems from #{answer["rubygems"]}, not from zr's own #{Library::Roots.pure}"
       end
 
       new(answer.fetch("gems").map { |fields| Entry.new(**fields.transform_keys(&:to_sym)).freeze })

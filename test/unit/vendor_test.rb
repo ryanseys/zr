@@ -2,9 +2,9 @@
 
 require "test_helper"
 require "digest"
-require "zr/hir/build"
+require "zr/library/roots"
 
-# vendor/ is upstream code, byte for byte (lib/zr/vendor.rb). These
+# vendor/ is upstream code, byte for byte (lib/zr/library/vendor.rb). These
 # checks need no network: vendor/vendor.lock has the SHA-256 of each
 # file that `zr-dev vendor` wrote.
 #
@@ -14,7 +14,7 @@ require "zr/hir/build"
 # update of the vendored file stops here until someone reads the new
 # upstream file and checks the overlay against it.
 class VendorTest < Minitest::Test
-  LOCK = Zr::Layout::LOCK
+  LOCK = Zr::Library::Layout::LOCK
   OVERLAY = /^# zr overlay: replaces (\S+) of (\S+) (\S+) \(sha256 (\h{12})\)$/
 
   def locked
@@ -52,12 +52,12 @@ class VendorTest < Minitest::Test
   # Each file under a lib/zr/runtime/ root with the path of a file under a
   # vendor/ root, as `[ours, theirs]`.
   def overlays
-    roots = Zr::Hir::Build.stdlib(Zr::Target.default)
-    ours = roots.select { |root| root.start_with?("#{Zr::Paths::RUNTIME}/") } + Dir[File.join(Zr::Layout::EXT, "os", "*")]
+    roots = Zr::Library::Roots.stdlib(Zr::Target.default)
+    ours = roots.select { |root| root.start_with?("#{Zr::Paths::RUNTIME}/") } + Dir[File.join(Zr::Library::Layout::EXT, "os", "*")]
     theirs = roots - ours
     ours.uniq.flat_map do |root|
       Dir.glob("**/*.rb", base: root).filter_map do |path|
-        next if root == Zr::Layout::EXT && path.start_with?("os/")
+        next if root == Zr::Library::Layout::EXT && path.start_with?("os/")
 
         found = theirs.find { |dir| File.file?(File.join(dir, path)) }
         [File.join(root, path), File.join(found, path)] if found

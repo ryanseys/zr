@@ -13,26 +13,26 @@ require_relative "../../lib/zr/runtime"
 # the front end and the tree-walking interpreter (lib/zr/eval/walk.rb).
 # The two kinds must never share a cache.
 class EvalInterpreterTest < Minitest::Test
-  Build = Zr::Hir::Build
+  Roots = Zr::Library::Roots
   Target = Zr::Target
 
   def test_jit_target_uses_eval_compiler
     assert_predicate Target::AARCH64_DARWIN, :jits?
     assert_predicate Target::AARCH64_LINUX_MUSL, :jits?
-    assert_equal Build::EVAL_COMPILER, Build.eval_file(Target::AARCH64_DARWIN)
-    assert_equal Build::EVAL_COMPILER, Build.eval_file(Target::AARCH64_LINUX_MUSL)
+    assert_equal Roots::EVAL_COMPILER, Roots.eval_file(Target::AARCH64_DARWIN)
+    assert_equal Roots::EVAL_COMPILER, Roots.eval_file(Target::AARCH64_LINUX_MUSL)
   end
 
   def test_wasm_target_uses_tree_walking_interpreter
     refute_predicate Target::WASM32_WASI, :jits?
-    assert_equal Build::EVAL_INTERPRETER, Build.eval_file(Target::WASM32_WASI)
+    assert_equal Roots::EVAL_INTERPRETER, Roots.eval_file(Target::WASM32_WASI)
   end
 
   # The tests can run the tree-walking interpreter on a JIT target. Thus
   # its output can be compared with the output of the eval compiler.
   def test_zr_eval_walk_selects_interpreter_on_jit_target
     Zr::Config.with(ZR_EVAL: "walk") do
-      assert_equal Build::EVAL_INTERPRETER, Build.eval_file(Target::AARCH64_DARWIN)
+      assert_equal Roots::EVAL_INTERPRETER, Roots.eval_file(Target::AARCH64_DARWIN)
     end
   end
 
@@ -51,10 +51,10 @@ class EvalInterpreterTest < Minitest::Test
   # The interpreter contains the front end and no backend. The compiler
   # contains both. They are different files, and each defines `Zr::Eval`.
   def test_compiler_and_interpreter_files_define_eval_class
-    [Build::EVAL_COMPILER, Build::EVAL_INTERPRETER].each do |path|
+    [Roots::EVAL_COMPILER, Roots::EVAL_INTERPRETER].each do |path|
       assert_path_exists path
       assert_match(/^\s*class Eval\b/, File.read(path), path)
     end
-    refute_equal Build::EVAL_COMPILER, Build::EVAL_INTERPRETER
+    refute_equal Roots::EVAL_COMPILER, Roots::EVAL_INTERPRETER
   end
 end

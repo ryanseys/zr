@@ -105,7 +105,7 @@ module Zr
         path = gem_prelude_path
         files = JSON.parse(File.read(path)) if File.exist?(path)
         unless files&.all? { |file| File.file?(file) }
-          files = [Layout::GEM_PRELUDE, *Runtime.gem_prelude(target).units.map(&:file).select { |file| File.file?(file) }].uniq.sort
+          files = [Library::Layout::GEM_PRELUDE, *Runtime.gem_prelude(target).units.map(&:file).select { |file| File.file?(file) }].uniq.sort
           Cache::Store.write_file(path, JSON.generate(files))
         end
         files
@@ -149,7 +149,7 @@ module Zr
 
     # The kernel's description as eval support carries it: the source of
     # `zr_description.rb`, which `require "zr_description"` finds
-    # (lib/zr/eval.rb, `Hir::Build::DESCRIPTION`). The JIT of a binary
+    # (lib/zr/eval.rb, `Library::Roots::DESCRIPTION`). The JIT of a binary
     # lowers eval'd code against it, not against the kernel. zr makes it
     # from this runtime's description, so it is never out of date and
     # nobody commits it.
@@ -310,7 +310,7 @@ module Zr
     # a program's first line. After it comes error_highlight's lookup for
     # a program compiled ahead of time. Boot runs it after the core
     # library loads, before the program.
-    SPOTTED = File.join(Layout::RUNTIME_LIB, "zr/error_highlight.rb")
+    SPOTTED = File.join(Library::Layout::RUNTIME_LIB, "zr/error_highlight.rb")
 
     # The parsers that the prelude's libraries require for work that this
     # runtime does differently. error_highlight's prism_find: the compiled
@@ -320,9 +320,9 @@ module Zr
 
     # The gem prelude as one program for `target`.
     def self.gem_prelude(target = Target.default)
-      loader = Hir::Build::Loader.new(Hir::Build.stdlib(target), deferred: DEFERRED,
+      loader = Hir::Build::Loader.new(Library::Roots.stdlib(target), deferred: DEFERRED,
                                                                  preloaded: Hir::Build::PRELOADED - Hir::Build::GEM_PRELOADED)
-      main = loader.unit("<internal:gem_prelude>", File.read(Layout::GEM_PRELUDE))
+      main = loader.unit("<internal:gem_prelude>", File.read(Library::Layout::GEM_PRELUDE))
       spotted = Hir::Require.new(:hidden, "zr/error_highlight", SPOTTED, loader.add(SPOTTED), 0)
       # did_you_mean reads RbConfig, which ruby has loaded by then.
       rbconfig = loader.configures? ? [Hir::Build.rbconfig(loader)] : []

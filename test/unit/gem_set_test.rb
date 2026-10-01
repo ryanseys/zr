@@ -3,7 +3,7 @@
 require "test_helper"
 require "zr/gem_set"
 require "zr/hir"
-require "zr/stdlib"
+require "zr/library/stdlib"
 
 # The gems that a build reads before zr's standard library
 # (lib/zr/gem_set.rb): `--gem` flags, then a Gemfile.lock under
@@ -119,11 +119,11 @@ class GemSetTest < Minitest::Test
 
     refusal = resolve([["json", old]], "BUNDLE_GEMFILE" => nil).gems.first.refusal
 
-    assert_includes refusal, "zr implements the C part of json #{Zr::Ports::ALL.fetch("json").compat} only"
+    assert_includes refusal, "zr implements the C part of json #{Zr::Library::Ports::ALL.fetch("json").compat} only"
   end
 
   def test_a_port_inside_its_compat_range_uses_zrs_c
-    now = gem_dir("json", Zr::Ports::ALL.fetch("json").version, extensions: ["ext/json/extconf.rb"])
+    now = gem_dir("json", Zr::Library::Ports::ALL.fetch("json").version, extensions: ["ext/json/extconf.rb"])
 
     assert_nil resolve([["json", now]], "BUNDLE_GEMFILE" => nil).gems.first.refusal
   end
@@ -149,7 +149,7 @@ class GemSetTest < Minitest::Test
         rainbow!
 
       BUNDLED WITH
-        #{Zr::Stdlib::DEFAULT.fetch("bundler")}
+        #{Zr::Library::Stdlib::DEFAULT.fetch("bundler")}
     LOCK
     File.join(app, "Gemfile")
   end

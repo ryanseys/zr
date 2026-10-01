@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "binary"
+require_relative "../../../../lib/zr/library/layout"
 
 module Zr
   module Dev
@@ -9,7 +10,7 @@ module Zr
     # so it must not run once a source changed: a stale `cache prune`
     # would compute the old digests and remove the live runtime.
     def self.tools
-      dirs = ["lib", *Layout::UPSTREAM, "tool", "test/support"]
+      dirs = ["lib", *Library::Layout::UPSTREAM, "tool", "test/support"]
       Binary.new(entry: "tool/zr-dev.rb", binary: path("bin/zr-dev"), dirs: dirs) do
         [path("Gemfile.lock"), path("zr.gemspec")]
       end

@@ -290,21 +290,174 @@ module Zr
             set(v)
           end
 
+          def emit_load(i)
+            get(i.args[0])
+            @code << "\xA7".b
+            @code << { "i64" => "\x29\x03".b, "i32" => "\x28\x02".b, "i8" => "\x2D\x00".b, "f64" => "\x2B\x03".b }.fetch(i.type) << Bytes.leb(i.offset)
+            set(i.results[0])
+          end
+
+          def emit_store(i)
+            get(i.args[1])
+            @code << "\xA7".b
+            get(i.args[0])
+            @code << { "i64" => "\x37\x03".b, "i32" => "\x36\x02".b, "i8" => "\x3A\x00".b, "f64" => "\x39\x03".b }.fetch(@type[i.args[0]]) << Bytes.leb(i.offset)
+          end
+
+          def emit_call_indirect(i)
+            ptr, *args = i.args
+            args.each { |a| get(a) }
+            get(ptr)
+            @code << "\xA7".b
+            params, results = @m.sig_type(sig_named(i.callee))
+            @code << "\x11".b << Bytes.leb(@m.type_index([params, results])) << "\x00".b
+            if i.results.empty?
+              # Drop a return value that the instruction does not use.
+              @code << "\x1A".b unless results.empty?
+            else
+              set(i.results[0])
+            end
+          end
+
+          def emit_call(i)
+            # A libc call's text signature can give i64 where the shim
+            # takes i32. The callee sets the width.
+            name = callee(i.callee).symbol
+            params, results = @m.function_type(name) || @m.sig_type(sig_named(callee(i.callee).sig))
+            i.args.zip(params).each do |a, want|
+              get(a)
+              @code << "\xA7".b if wide?(a) && want == 0x7F
+              @code << "\xAD".b if !wide?(a) && want == 0x7E && @type[a] != "f64"
+            end
+            @code << "\x10".b << Bytes.leb(@m.function_index(name))
+            if i.results.empty?
+              # Drop a return value that the text signature does not give.
+              @code << "\x1A".b unless results.empty?
+            else
+              @code << "\xA7".b if results.first == 0x7E && !wide?(i.results[0])
+              @code << "\xAD".b if results.first == 0x7F && wide?(i.results[0])
+              set(i.results[0])
+            end
+          end
+
+          def emit_icmp(i)
+            get(i.args[0])
+            get(i.args[1])
+            @code << ops(i.args[0]).fetch(Codegen::COND.fetch(i.cond)).chr
+            set(i.results[0])
+          end
+
+          def emit_fcmp(i)
+            get(i.args[0])
+            get(i.args[1])
+            @code << { "eq" => 0x61, "ne" => 0x62, "lt" => 0x63, "gt" => 0x64, "le" => 0x65, "ge" => 0x66 }.fetch(i.cond).chr
+            set(i.results[0])
+          end
+
+          def emit_fbinop(i)
+            get(i.args[0])
+            get(i.args[1])
+            @code << { fadd: 0xA0, fsub: 0xA1, fmul: 0xA2, fdiv: 0xA3 }.fetch(i.op).chr
+            set(i.results[0])
+          end
+
+          def emit_binop(i)
+            get(i.args[0])
+            get(i.args[1])
+            @code << ops(i.args[0]).fetch({ iadd: :add, isub: :sub, imul: :mul,
+                                            band: :and, bor: :or, bxor: :xor, ishl: :shl, ushr: :shr_u, sshr: :shr_s }[i.op]).chr
+            set(i.results[0])
+          end
+
+          def emit_select(i)
+            get(i.args[1])
+            get(i.args[2])
+            get(i.args[0])
+            # A wide condition is tested, not wrapped: any nonzero
+            # value selects the first operand.
+            @code << "\x50".b << "\x45".b if wide?(i.args[0])
+            @code << "\x1B".b
+            set(i.results[0])
+          end
+
+          def emit_overflow(i)
+            # r = a op b; overflow when the sign of r differs from a and (for
+            # add) b, or from a and not b (for sub).
+            get(i.args[0])
+            get(i.args[1])
+            @code << ops(i.args[0]).fetch(i.op == :sadd_overflow ? :add : :sub).chr
+            set(i.results[0])
+            get(i.args[0])
+            get(i.results[0])
+            @code << ops(i.args[0]).fetch(:xor).chr
+            get(i.args[1])
+            get(i.results[0])
+            @code << ops(i.args[0]).fetch(:xor).chr
+            if i.op == :ssub_overflow
+              @code << (wide?(i.args[0]) ? "\x42\x7F".b : "\x41\x7F".b) << ops(i.args[0]).fetch(:xor).chr
+            end
+            @code << ops(i.args[0]).fetch(:and).chr
+            @code << (wide?(i.args[0]) ? "\x42\x00".b : "\x41\x00".b) << ops(i.args[0]).fetch(:lt_s).chr
+            set(i.results[1])
+          end
+
+          def emit_smul_overflow(i)
+            raise Refused, "smul_overflow on i32" unless wide?(i.args[0])
+
+            get(i.args[0])
+            get(i.args[1])
+            @code << "\x7E".b
+            set(i.results[0])
+            # overflow when a != 0 and r / a != b, or a == -1 and b == MIN
+            get(i.args[0])
+            @code << "\x50".b
+            @code << "\x04\x7F".b
+            @code << "\x41\x00".b
+            @code << "\x05".b
+            get(i.args[0])
+            @code << "\x42\x7F".b << "\x51".b
+            @code << "\x04\x7F".b
+            get(i.args[1])
+            @code << "\x42".b << Bytes.sleb(-(2**63)) << "\x51".b
+            @code << "\x05".b
+            get(i.results[0])
+            get(i.args[0])
+            @code << "\x7F".b
+            get(i.args[1])
+            @code << "\x52".b
+            @code << "\x0B\x0B".b
+            set(i.results[1])
+          end
+
+          def emit_brif(i)
+            get(i.args[0])
+            @code << (wide?(i.args[0]) ? "\x50".b : "\x45".b)
+            # The value on the stack is 1 when the condition is false, and
+            # the `if` adds one label between here and the loop.
+            @code << "\x04\x40".b
+            @bias += 1
+            go(i.targets[1][0])
+            @code << "\x05".b
+            go(i.targets[0][0])
+            @bias -= 1
+            @code << "\x0B".b
+          end
+
+          def emit_jump(i)
+            name, args = i.targets[0]
+            params = block_named(name).params
+            args.each { |a| get(a) }
+            args.each_index.reverse_each { |k| set(params[k][0]) }
+            go(name)
+          end
+
           def emit_inst(i)
             case i.op
             when *CONSTANTS
               # Written where it is read.
               nil
-            when :load
-              get(i.args[0])
-              @code << "\xA7".b
-              @code << { "i64" => "\x29\x03".b, "i32" => "\x28\x02".b, "i8" => "\x2D\x00".b, "f64" => "\x2B\x03".b }.fetch(i.type) << Bytes.leb(i.offset)
-              set(i.results[0])
-            when :store
-              get(i.args[1])
-              @code << "\xA7".b
-              get(i.args[0])
-              @code << { "i64" => "\x37\x03".b, "i32" => "\x36\x02".b, "i8" => "\x3A\x00".b, "f64" => "\x39\x03".b }.fetch(@type[i.args[0]]) << Bytes.leb(i.offset)
+            when :load then emit_load(i)
+            when :store then emit_store(i)
             when :ctz, :clz, :popcnt
               get(i.args[0])
               @code << (wide?(i.args[0]) ? WIDE_BITOPS : NARROW_BITOPS).fetch(i.op)
@@ -318,53 +471,11 @@ module Zr
             when :gates_set, :gates_enter
               get(i.args[0])
               @code << "\x24\x02".b
-            when :call_indirect
-              ptr, *args = i.args
-              args.each { |a| get(a) }
-              get(ptr)
-              @code << "\xA7".b
-              params, results = @m.sig_type(sig_named(i.callee))
-              @code << "\x11".b << Bytes.leb(@m.type_index([params, results])) << "\x00".b
-              if i.results.empty?
-                # Drop a return value that the instruction does not use.
-                @code << "\x1A".b unless results.empty?
-              else
-                set(i.results[0])
-              end
-            when :call
-              # A libc call's text signature can give i64 where the shim
-              # takes i32. The callee sets the width.
-              name = callee(i.callee).symbol
-              params, results = @m.function_type(name) || @m.sig_type(sig_named(callee(i.callee).sig))
-              i.args.zip(params).each do |a, want|
-                get(a)
-                @code << "\xA7".b if wide?(a) && want == 0x7F
-                @code << "\xAD".b if !wide?(a) && want == 0x7E && @type[a] != "f64"
-              end
-              @code << "\x10".b << Bytes.leb(@m.function_index(name))
-              if i.results.empty?
-                # Drop a return value that the text signature does not give.
-                @code << "\x1A".b unless results.empty?
-              else
-                @code << "\xA7".b if results.first == 0x7E && !wide?(i.results[0])
-                @code << "\xAD".b if results.first == 0x7F && wide?(i.results[0])
-                set(i.results[0])
-              end
-            when :icmp
-              get(i.args[0])
-              get(i.args[1])
-              @code << ops(i.args[0]).fetch(Codegen::COND.fetch(i.cond)).chr
-              set(i.results[0])
-            when :fcmp
-              get(i.args[0])
-              get(i.args[1])
-              @code << { "eq" => 0x61, "ne" => 0x62, "lt" => 0x63, "gt" => 0x64, "le" => 0x65, "ge" => 0x66 }.fetch(i.cond).chr
-              set(i.results[0])
-            when *IR::Inst::FBINOPS
-              get(i.args[0])
-              get(i.args[1])
-              @code << { fadd: 0xA0, fsub: 0xA1, fmul: 0xA2, fdiv: 0xA3 }.fetch(i.op).chr
-              set(i.results[0])
+            when :call_indirect then emit_call_indirect(i)
+            when :call then emit_call(i)
+            when :icmp then emit_icmp(i)
+            when :fcmp then emit_fcmp(i)
+            when *IR::Inst::FBINOPS then emit_fbinop(i)
             when *IR::Inst::FUNOPS
               get(i.args[0])
               @code << { fabs: 0x99, fneg: 0x9A, ceil: 0x9B, floor: 0x9C, trunc: 0x9D, nearest: 0x9E, sqrt: 0x9F }.fetch(i.op).chr
@@ -383,21 +494,8 @@ module Zr
               set(i.results[0])
             when :udiv, :sdiv, :urem, :srem
               divide(i)
-            when :iadd, :isub, :imul, :band, :bor, :bxor, :ishl, :ushr, :sshr
-              get(i.args[0])
-              get(i.args[1])
-              @code << ops(i.args[0]).fetch({ iadd: :add, isub: :sub, imul: :mul,
-                                              band: :and, bor: :or, bxor: :xor, ishl: :shl, ushr: :shr_u, sshr: :shr_s }[i.op]).chr
-              set(i.results[0])
-            when :select
-              get(i.args[1])
-              get(i.args[2])
-              get(i.args[0])
-              # A wide condition is tested, not wrapped: any nonzero
-              # value selects the first operand.
-              @code << "\x50".b << "\x45".b if wide?(i.args[0])
-              @code << "\x1B".b
-              set(i.results[0])
+            when :iadd, :isub, :imul, :band, :bor, :bxor, :ishl, :ushr, :sshr then emit_binop(i)
+            when :select then emit_select(i)
             when :ireduce
               get(i.args[0])
               @code << "\xA7".b if wide?(i.args[0])
@@ -410,69 +508,10 @@ module Zr
               get(i.args[0])
               @code << "\xAC".b if i.type == "i64"
               set(i.results[0])
-            when :sadd_overflow, :ssub_overflow
-              # r = a op b; overflow when the sign of r differs from a and (for
-              # add) b, or from a and not b (for sub).
-              get(i.args[0])
-              get(i.args[1])
-              @code << ops(i.args[0]).fetch(i.op == :sadd_overflow ? :add : :sub).chr
-              set(i.results[0])
-              get(i.args[0])
-              get(i.results[0])
-              @code << ops(i.args[0]).fetch(:xor).chr
-              get(i.args[1])
-              get(i.results[0])
-              @code << ops(i.args[0]).fetch(:xor).chr
-              if i.op == :ssub_overflow
-                @code << (wide?(i.args[0]) ? "\x42\x7F".b : "\x41\x7F".b) << ops(i.args[0]).fetch(:xor).chr
-              end
-              @code << ops(i.args[0]).fetch(:and).chr
-              @code << (wide?(i.args[0]) ? "\x42\x00".b : "\x41\x00".b) << ops(i.args[0]).fetch(:lt_s).chr
-              set(i.results[1])
-            when :smul_overflow
-              raise Refused, "smul_overflow on i32" unless wide?(i.args[0])
-
-              get(i.args[0])
-              get(i.args[1])
-              @code << "\x7E".b
-              set(i.results[0])
-              # overflow when a != 0 and r / a != b, or a == -1 and b == MIN
-              get(i.args[0])
-              @code << "\x50".b
-              @code << "\x04\x7F".b
-              @code << "\x41\x00".b
-              @code << "\x05".b
-              get(i.args[0])
-              @code << "\x42\x7F".b << "\x51".b
-              @code << "\x04\x7F".b
-              get(i.args[1])
-              @code << "\x42".b << Bytes.sleb(-(2**63)) << "\x51".b
-              @code << "\x05".b
-              get(i.results[0])
-              get(i.args[0])
-              @code << "\x7F".b
-              get(i.args[1])
-              @code << "\x52".b
-              @code << "\x0B\x0B".b
-              set(i.results[1])
-            when :brif
-              get(i.args[0])
-              @code << (wide?(i.args[0]) ? "\x50".b : "\x45".b)
-              # The value on the stack is 1 when the condition is false, and
-              # the `if` adds one label between here and the loop.
-              @code << "\x04\x40".b
-              @bias += 1
-              go(i.targets[1][0])
-              @code << "\x05".b
-              go(i.targets[0][0])
-              @bias -= 1
-              @code << "\x0B".b
-            when :jump
-              name, args = i.targets[0]
-              params = block_named(name).params
-              args.each { |a| get(a) }
-              args.each_index.reverse_each { |k| set(params[k][0]) }
-              go(name)
+            when :sadd_overflow, :ssub_overflow then emit_overflow(i)
+            when :smul_overflow then emit_smul_overflow(i)
+            when :brif then emit_brif(i)
+            when :jump then emit_jump(i)
             when :return
               epilogue
               get(i.args[0]) unless i.args.empty?

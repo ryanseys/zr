@@ -104,6 +104,11 @@ parameters. Every lowering writes it, and every backend reads it.
 **Kernel.** `lib/zr/runtime/kernel/`: the lowest layer of the runtime, in
 typed Ruby. Each file is one `module Zr::Kern`.
 
+**Library roots.** The directories that a program's `require` searches,
+in order: zr's own code first, then the port gems, then ruby's own
+library and the bundled gems (`Library::Roots.stdlib`,
+`lib/zr/library/roots.rb`).
+
 **Lowering.** The change of the program from one form to a lower one:
 HIR to IR, or the kernel's typed Ruby to IR.
 

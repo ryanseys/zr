@@ -85,7 +85,7 @@ A gem that stops below `loads` also gets a kind, the cause in one word:
 | Kind | Cause |
 |---|---|
 | `cext:<gem>` | The gem, or a gem that it needs, has a C extension, and zr has no port of it. The tool knows this from the gemspec, before it builds. |
-| `port-range:<gem>` | zr ports the gem's C, but not for this version (`lib/zr/ports.rb`). |
+| `port-range:<gem>` | zr ports the gem's C, but not for this version (`lib/zr/library/ports.rb`). |
 | `refused:<form>` | zr refuses a form of Ruby in the gem ([What zr supports](../reference/support.md)). |
 | `missing-require:<feature>` | A `require` of the gem resolves to no file. |
 | `build-error` | The build fails for another cause. |

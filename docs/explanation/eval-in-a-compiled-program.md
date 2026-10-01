@@ -33,7 +33,7 @@ refuses a form that the tree-walking interpreter does not support, with
 a message that gives the form and the line.
 
 `lib/zr/eval.rb` is the eval compiler, and `lib/zr/eval/walk.rb` is the
-tree-walking interpreter. `Hir::Build.eval_file` selects one of them for
+tree-walking interpreter. `Library::Roots.eval_file` selects one of them for
 the target.
 
 ## Which programs include eval support

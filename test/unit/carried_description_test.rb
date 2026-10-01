@@ -19,8 +19,8 @@ class CarriedDescriptionTest < Minitest::Test
   def test_the_loader_resolves_zr_description_to_its_fixed_name
     loader = Zr::Hir::Build::Loader.new([], description: -> { "Zr = 1\n" })
 
-    assert_equal Zr::Hir::Build::DESCRIPTION, loader.resolve(:require, "zr_description", "/app/a.rb")
+    assert_equal Zr::Library::Roots::DESCRIPTION, loader.resolve(:require, "zr_description", "/app/a.rb")
     assert_nil Zr::Hir::Build::Loader.new([]).resolve(:require, "zr_description", "/app/a.rb")
-    assert Zr::Hir::Build.runtime_file?(Zr::Hir::Build::DESCRIPTION), "the loader treats it as the runtime's own"
+    assert Zr::Library::Roots.runtime_file?(Zr::Library::Roots::DESCRIPTION), "the loader treats it as the runtime's own"
   end
 end

@@ -87,14 +87,14 @@ module Zr
 
     # The toplevel address of the file at `path`, compiled as a required
     # file: its own scope, under main and Object. A file in the extensions
-    # (`Layout::EXT`) is part of the runtime, where `Primitive`
+    # (`Library::Layout::EXT`) is part of the runtime, where `Primitive`
     # resolves.
     def compile_file(path)
       Eval.plainly do
         @count += 1
         name = "zr_load_#{@count}"
         hir = Hir.build(File.read(path), path, eval_support: false)
-        ext = Hir::Build.internal_library?(path)
+        ext = Library::Roots.internal_library?(path)
         functions, data = Zr::Lower.new(hir, @description, @symbols, entry: name, kind: :top, ext: ext).run
         Obj::JIT.load(unit(functions, data), host: @host).fetch(name)
       end

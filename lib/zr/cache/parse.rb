@@ -28,9 +28,10 @@ module Zr
     # loads), so ruby and a binary never share a parse.
     module Parse
       # The files of the parser: these, and every Ruby file under the trees.
-      GEM = Ports.lib("prism")
-      FILES = [File.join(Layout::EXT, "prism/prism.rb"), File.expand_path("../prism.rb", __dir__), __FILE__, File.join(GEM, "prism.rb")].freeze
-      TREES = [File.join(Layout::EXT, "prism/ruby"), File.expand_path("../prism_shim", __dir__), File.join(GEM, "prism")].freeze
+      GEM = Library::Ports.lib("prism")
+      FILES = [File.join(Library::Layout::EXT, "prism/prism.rb"), File.expand_path("../prism.rb", __dir__), __FILE__,
+               File.join(GEM, "prism.rb")].freeze
+      TREES = [File.join(Library::Layout::EXT, "prism/ruby"), File.expand_path("../prism_shim", __dir__), File.join(GEM, "prism")].freeze
 
       # The maximum source bytes whose parses a process keeps. A tree in
       # memory is tens of times the size of its source, so this is only a

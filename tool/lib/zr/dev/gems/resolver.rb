@@ -2,8 +2,8 @@
 
 require "rubygems/remote_fetcher"
 require "rubygems/resolver"
-require_relative "../../../../../lib/zr/ports"
-require_relative "../../../../../lib/zr/stdlib"
+require_relative "../../../../../lib/zr/library/ports"
+require_relative "../../../../../lib/zr/library/stdlib"
 
 module Zr
   module Dev
@@ -114,7 +114,10 @@ module Zr
             def install(_options = {}) = yield(nil)
           end
 
-          def self.versions = Stdlib::DEFAULT.merge(Stdlib::BUNDLED, Stdlib::OTHER_BUNDLED, Ports::ALL.transform_values(&:version))
+          def self.versions
+            Library::Stdlib::DEFAULT.merge(Library::Stdlib::BUNDLED, Library::Stdlib::OTHER_BUNDLED,
+                                           Library::Ports::ALL.transform_values(&:version))
+          end
 
           def find_all(request)
             version = Provided.versions[request.name] or return []

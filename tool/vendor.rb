@@ -5,11 +5,12 @@ require_relative "lib/zr/dev/vendor_tree"
 
 module Zr
   module Dev
-    # `zr-dev vendor`: writes vendor/ from lib/zr/vendor.rb, lib/zr/ports.rb
-    # and lib/zr/version.rb. vendor/ is upstream code, byte for byte; see
-    # lib/zr/vendor.rb and docs/how-to/update-vendored-code.md.
+    # `zr-dev vendor`: writes vendor/ from lib/zr/library/vendor.rb,
+    # lib/zr/library/ports.rb and lib/zr/version.rb. vendor/ is upstream
+    # code, byte for byte; see lib/zr/library/vendor.rb and
+    # docs/how-to/update-vendored-code.md.
     #
-    #   zr-dev vendor                 fetch, check and write vendor/, its lock and lib/zr/stdlib.rb
+    #   zr-dev vendor                 fetch, check and write vendor/, its lock and lib/zr/library/stdlib.rb
     #   zr-dev vendor --check         offline: each file of vendor/ matches the lock, and the
     #                                 lock matches the inputs
     #   zr-dev vendor outdated        the gems that have a newer release on rubygems.org
@@ -64,7 +65,7 @@ module Zr
 
         have = owned_files.to_h { |rel| [rel.delete_prefix("vendor/"), Digest::SHA256.file(Dev.path(rel)).hexdigest] }
         problems = []
-        problems << "lib/zr/vendor.rb, lib/zr/ports.rb or lib/zr/version.rb changed since the lock" if inputs != VendorTree.inputs
+        problems << "lib/zr/library/vendor.rb, lib/zr/library/ports.rb or lib/zr/version.rb changed since the lock" if inputs != VendorTree.inputs
         (locked.keys - have.keys).each { |rel| problems << "vendor/#{rel}: missing" }
         (have.keys - locked.keys).each { |rel| problems << "vendor/#{rel}: not in the lock" }
         (have.keys & locked.keys).each { |rel| problems << "vendor/#{rel}: differs from upstream" if have[rel] != locked[rel] }
@@ -115,7 +116,7 @@ module Zr
       # zr's file that a require of `feature` finds before vendor/.
       def overlay(feature)
         base = feature.delete_suffix(".rb")
-        [Layout::EXT, *Dir[File.join(Layout::EXT, "os", "*")], Layout::RUNTIME_LIB].each do |dir|
+        [Library::Layout::EXT, *Dir[File.join(Library::Layout::EXT, "os", "*")], Library::Layout::RUNTIME_LIB].each do |dir|
           ["#{base}.rb", "#{base}.so.rb"].each do |name|
             path = File.join(dir, name)
             return path if File.file?(path)

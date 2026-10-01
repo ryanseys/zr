@@ -1,9 +1,9 @@
-# vendor/vendor.lock: written by `zr-dev vendor` from lib/zr/vendor.rb,
-# lib/zr/ports.rb and lib/zr/version.rb. Do not edit.
+# vendor/vendor.lock: written by `zr-dev vendor` from lib/zr/library/vendor.rb,
+# lib/zr/library/ports.rb and lib/zr/version.rb. Do not edit.
 # `zr-dev vendor --check` checks vendor/ against it.
 #
 # A source: kind name version sha256-of-its-.gem url
-inputs a1f1737b26682e5764870f0f284dbbe80e18f92c9416e83ee9342f5504d80e81
+inputs 4e3e8ce2dbf8a4aa43fce3edb41b3f3071ca76a71005c16a5361df797118be1e
 
 ruby ruby 4.0.7 - https://github.com/ruby/ruby@229531a6cfbf07e3caef30dbac24a2a3f3fed482
 source prism 1.9.0 - https://github.com/ruby/prism@v1.9.0

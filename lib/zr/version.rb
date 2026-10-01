@@ -11,7 +11,7 @@ module Zr
 
   # The ruby version that zr runs on and matches, as pinned in
   # `.ruby-version`. This ruby runs the compiler. A program's standard
-  # library is zr's copy of this ruby's own (vendor/ruby, lib/zr/libraries.rb).
+  # library is zr's copy of this ruby's own (vendor/ruby, lib/zr/library/roots.rb).
   # The generated tables come from it, and the tests check zr against its
   # output.
   RUBY = "4.0.7"

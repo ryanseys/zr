@@ -2,9 +2,10 @@
 
 require "json"
 require_relative "paths"
-require_relative "ports"
-require_relative "stdlib"
-require_relative "libraries"
+require_relative "library/layout"
+require_relative "library/ports"
+require_relative "library/stdlib"
+require_relative "library/roots"
 require_relative "version"
 
 module Zr
@@ -14,7 +15,7 @@ module Zr
   #
   # A row names the gem, its version and its source: `stdlib` (ruby's
   # own library in zr, a default or bundled gem), `port` (a gem with a C
-  # part that zr ports, lib/zr/ports.rb), `Gemfile.lock` or `--gem`
+  # part that zr ports, lib/zr/library/ports.rb), `Gemfile.lock` or `--gem`
   # (lib/zr/gem_set.rb). A file of ruby itself that no gem ships
   # (`pathname.rb`) is the row `ruby`. The program's own files have no row.
   module Manifest
@@ -32,9 +33,9 @@ module Zr
     # and ports, with the gems of `gem_set` in place of theirs.
     def all(gem_set = nil)
       rows = {}
-      Stdlib::DEFAULT.each { |name, version| rows[name] = Row.new(name, version, "stdlib") }
-      Stdlib::BUNDLED.each { |name, version| rows[name] = Row.new(name, version, "stdlib") }
-      Ports::ALL.each { |name, port| rows[name] = Row.new(name, port.version, "port") }
+      Library::Stdlib::DEFAULT.each { |name, version| rows[name] = Row.new(name, version, "stdlib") }
+      Library::Stdlib::BUNDLED.each { |name, version| rows[name] = Row.new(name, version, "stdlib") }
+      Library::Ports::ALL.each { |name, port| rows[name] = Row.new(name, port.version, "port") }
       gem_set&.gems&.each { |gem| rows[gem.name] = Row.new(gem.name, gem.version, source_of(gem)) }
       rows.values.sort_by(&:name)
     end
@@ -91,23 +92,23 @@ module Zr
       gem = gem_set&.gems&.find { |g| g.roots.any? { |root| file.start_with?("#{root}/") } }
       return Row.new(gem.name, gem.version, source_of(gem)) if gem
 
-      Ports::ALL.each do |name, port|
-        return Row.new(name, port.version, "port") if port.vendored && file.start_with?("#{Ports.lib(name)}/")
+      Library::Ports::ALL.each do |name, port|
+        return Row.new(name, port.version, "port") if port.vendored && file.start_with?("#{Library::Ports.lib(name)}/")
       end
-      Stdlib::BUNDLED.each do |name, version|
-        return Row.new(name, version, "stdlib") if file.start_with?("#{Layout.gem_root(name, version)}/")
+      Library::Stdlib::BUNDLED.each do |name, version|
+        return Row.new(name, version, "stdlib") if file.start_with?("#{Library::Layout.gem_root(name, version)}/")
       end
-      return nil unless file.start_with?("#{Layout::RUBYLIBDIR}/")
+      return nil unless file.start_with?("#{Library::Layout::RUBYLIBDIR}/")
 
-      feature = file.delete_prefix("#{Layout::RUBYLIBDIR}/")
+      feature = file.delete_prefix("#{Library::Layout::RUBYLIBDIR}/")
       # A port whose Ruby half is ruby's own (psych, openssl): its files
       # are named for it, as psych.rb and psych/.
-      Ports::ALL.each do |name, port|
+      Library::Ports::ALL.each do |name, port|
         base = name.tr("-", "/")
         return Row.new(name, port.version, "port") if !port.vendored && (feature == "#{base}.rb" || feature.start_with?("#{base}/"))
       end
       name = default_gems[feature] || (feature.split("/").first.delete_suffix(".rb") == "rubygems" ? "rubygems" : "ruby")
-      version = { "ruby" => RUBY, "rubygems" => Stdlib::RUBYGEMS }.fetch(name) { Stdlib::DEFAULT.fetch(name) }
+      version = { "ruby" => RUBY, "rubygems" => Library::Stdlib::RUBYGEMS }.fetch(name) { Library::Stdlib::DEFAULT.fetch(name) }
       Row.new(name, version, "stdlib")
     end
 
@@ -115,8 +116,8 @@ module Zr
     # from the gem's specification (`s.files`).
     def default_gems
       Session.current.memo(:default_gems) do
-        Stdlib::DEFAULT.each_with_object({}) do |(name, version), out|
-          spec = File.join(Layout::SPECIFICATIONS, "default", "#{name}-#{version}.gemspec")
+        Library::Stdlib::DEFAULT.each_with_object({}) do |(name, version), out|
+          spec = File.join(Library::Layout::SPECIFICATIONS, "default", "#{name}-#{version}.gemspec")
           next unless File.file?(spec)
 
           File.read(spec)[/^\s*s\.files = \[(.*)\]/, 1].to_s.scan(/"([^"]+)"/).flatten.each do |path|

@@ -4,7 +4,7 @@ require "erb"
 require "fileutils"
 require "tmpdir"
 require_relative "../gen"
-require_relative "../../lib/zr/ports"
+require_relative "../../lib/zr/library/ports"
 
 module Zr
   module Dev
@@ -23,8 +23,8 @@ module Zr
       #
       # `test/unit/prism_test.rb` fails when a file is out of date.
       class PrismRuby < Generator
-        UPSTREAM = Layout.source("prism", Ports::ALL.fetch("prism").version)
-        GEM = File.dirname(Ports.lib("prism"))
+        UPSTREAM = Library::Layout.source("prism", Library::Ports::ALL.fetch("prism").version)
+        GEM = File.dirname(Library::Ports.lib("prism"))
         TEMPLATES = Dev.path("tool/gen/prism/templates")
         OUT = Dev.path("lib/zr/runtime/ext/prism/ruby")
 

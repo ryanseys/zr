@@ -183,7 +183,7 @@ class GemCompatTest < Minitest::Test
     json = CORPUS.find("json")
 
     assert_equal "port-range:json", Gems::Rules.refusal([json]).kind
-    assert_nil Gems::Rules.refusal([json.with(version: Zr::Ports::ALL["json"].version)])
+    assert_nil Gems::Rules.refusal([json.with(version: Zr::Library::Ports::ALL["json"].version)])
   end
 
   # Override
@@ -251,7 +251,7 @@ class GemCompatTest < Minitest::Test
 
   def test_a_gem_at_the_version_that_zr_carries_is_no_override
     runner = Runner.new
-    trial(runner).call(Gems::Request.parse(json_at(Zr::Ports::ALL["json"].version)))
+    trial(runner).call(Gems::Request.parse(json_at(Zr::Library::Ports::ALL["json"].version)))
 
     refute_includes runner.argvs[0], "--gem"
   end

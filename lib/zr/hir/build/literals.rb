@@ -1,11 +1,66 @@
 # frozen_string_literal: true
 
-# `Hir::Build`'s literals: shareable constants, frozen strings and
-# regexps.
+# `Hir::Build`'s literals: strings, arrays, hashes, shareable constants,
+# frozen strings and regexps.
 
 module Zr
   module Hir
     class Build
+      # A string literal as prism flags it: frozen if the file's magic
+      # comment says so (as CRuby reads the comment), and then the one
+      # frozen String of its text, as CRuby interns it.
+      def literal_string(node, text, line) = node.frozen? ? frozen_literal_string(text, line) : Literal.new(text, line, !node.mutable?)
+
+      # A literal that a frozen_string_literal comment freezes: the one
+      # frozen String of its text, with no send of `freeze` (ruby never
+      # sends it for this case).
+      def frozen_literal_string(text, line) = FrozenString.new(text, line, text.encoding == ::Encoding::UTF_8)
+
+      # Whether prism found a string static (`"a" "b"`, a heredoc with no
+      # interpolation). `static_text` joins its parts.
+      def static_string?(node)
+        node.parts.all? { |part| part.is_a?(Prism::StringNode) || (part.is_a?(Prism::InterpolatedStringNode) && static_string?(part)) }
+      end
+
+      def static_text(node) = node.parts.map { |part| part.is_a?(Prism::StringNode) ? unescaped(part) : static_text(part) }.join
+
+      # A string part's text with ruby's encoding: a \u escape makes it
+      # UTF-8, and a non-ASCII \x escape in a US-ASCII file makes it
+      # binary, whatever the file's encoding. Prism flags both, but gives
+      # the text in the file's encoding.
+      def unescaped(node)
+        text = node.unescaped
+        if node.forced_utf8_encoding? then text.dup.force_encoding(Encoding::UTF_8)
+        elsif node.forced_binary_encoding? then text.dup.force_encoding(Encoding::BINARY)
+        else text
+        end
+      end
+
+      # An element of an array literal. `[1, a: 2]` contains a Hash.
+      # Keywords that are only `**` splats add it only if it is not empty.
+      def array_element(node, line)
+        case node
+        when Prism::SplatNode then splat(node, line)
+        when Prism::KeywordHashNode
+          hash = HashLit.new(hash_pairs(node.elements), line)
+          node.elements.all?(Prism::AssocSplatNode) ? Splat.new(KwSplatElement.new(hash, line), line) : hash
+        else expr(node)
+        end
+      end
+
+      # A hash's elements as a flat pair list; a `**value` is a HashSplat
+      # key with a nil value.
+      def hash_pairs(elements)
+        elements.flat_map do |e|
+          case e
+          when Prism::AssocNode
+            [expr(e.key), expr(e.value.is_a?(Prism::ImplicitNode) ? e.value.value : e.value)]
+          when Prism::AssocSplatNode
+            [HashSplat.new(e.value ? expr(e.value) : Local.new(ANONYMOUS[:kwrest], @block_depth, e.location.start_line), e.location.start_line), nil]
+          end
+        end
+      end
+
       # `# shareable_constant_value:` on a constant write. A value that the
       # compiler knows is a literal is deep-frozen. Any other value must
       # already be shareable, as in ruby.
@@ -133,7 +188,13 @@ module Zr
 
       # The constant name of a shareable constant write, for the error.
       def constant_written(write)
-        write.respond_to?(:name) ? write.name.to_s : write.target.name.to_s
+        case write
+        when Prism::ConstantWriteNode, Prism::ConstantAndWriteNode, Prism::ConstantOrWriteNode, Prism::ConstantOperatorWriteNode
+          write.name.to_s
+        when Prism::ConstantPathWriteNode, Prism::ConstantPathAndWriteNode, Prism::ConstantPathOrWriteNode,
+             Prism::ConstantPathOperatorWriteNode
+          write.target.name.to_s
+        end
       end
 
       # Whether a value is built only of literals, so a freeze cannot

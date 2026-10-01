@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require_relative "../../../../../lib/zr/ports"
+require_relative "../../../../../lib/zr/library/ports"
 
 module Zr
   module Dev
@@ -17,7 +17,7 @@ module Zr
         # The Failure for the first gem of `subjects` that zr refuses, or nil.
         def refusal(subjects)
           subjects.each do |subject|
-            port = Ports::ALL[subject.name]
+            port = Library::Ports::ALL[subject.name]
             if port
               next if Gem::Requirement.new(port.compat).satisfied_by?(Gem::Version.new(subject.version))
 

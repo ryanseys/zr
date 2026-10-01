@@ -29,7 +29,7 @@ AllCops:
     - "gems/**/*"         # the gem probes that zr compiles
     - "tmp/**/*"
     - "lib/zr/hir/features.rb"      # generated
-    - "lib/zr/stdlib.rb"            # generated
+    - "lib/zr/library/stdlib.rb"    # generated
 
 Lint:
   Enabled: true

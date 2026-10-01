@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "../lowering"
+require_relative "../../library/layout"
 
 module Zr
   module Cache
@@ -62,12 +63,12 @@ module Zr
 
         # The key text of the gem prelude: the path and the bytes of each file
         # that its program loads.
-        def gem_source = @gem_hir.units.map { |u| "#{u.file}\0#{u.source}" }.join("\0") + File.read(Layout::GEM_PRELUDE)
+        def gem_source = @gem_hir.units.map { |u| "#{u.file}\0#{u.source}" }.join("\0") + File.read(Library::Layout::GEM_PRELUDE)
 
         def gem_piece
           entry = Runtime::GEM_PRELUDE_ENTRY
           source = gem_source
-          Piece.new(Layout::GEM_PRELUDE, entry, key_of(Layout::GEM_PRELUDE, entry, source), source.bytesize,
+          Piece.new(Library::Layout::GEM_PRELUDE, entry, key_of(Library::Layout::GEM_PRELUDE, entry, source), source.bytesize,
                     -> { Runtime.lower_gem_prelude(@gem_hir, @unit, @ids, @target) })
         end
       end

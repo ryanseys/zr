@@ -10,7 +10,7 @@ module Zr
       # which reads prism's newline flag. A `begin` with no statements
       # before its rescue is on the rescue's line.
       def line_event(node)
-        return nil unless @loader&.tracing? && node.newline? && !Build.runtime_file?(@file)
+        return nil unless @loader&.tracing? && node.newline? && !Library::Roots.runtime_file?(@file)
         # A `begin` or parentheses start with the statement inside. Ruby
         # merges their event into that statement's event.
         return nil if node.is_a?(Prism::BeginNode) && node.statements
@@ -28,7 +28,7 @@ module Zr
       # The id of the def-site entry that a `def` or a block uses when it
       # makes a method, or nil if coverage is not measured.
       def method_cover(node)
-        return nil unless @loader&.covers? && !Build.runtime_file?(@file)
+        return nil unless @loader&.covers? && !Library::Roots.runtime_file?(@file)
 
         @loader.def_site!(@file, method_span(node))
       end
@@ -49,7 +49,7 @@ module Zr
       # else first. The root gets its number before its branches, as in
       # CRuby.
       def branch_covers(kind, span, sides)
-        return [nil] * sides.size unless @loader&.covers? && !Build.runtime_file?(@file)
+        return [nil] * sides.size unless @loader&.covers? && !Library::Roots.runtime_file?(@file)
 
         _, root = @loader.branch!(@file, kind, span)
         sides.map do |side, where|

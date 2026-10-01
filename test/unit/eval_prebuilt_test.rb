@@ -26,7 +26,7 @@ class EvalPrebuiltTest < Minitest::Test
     def activations = 0
   end
 
-  VENDOR = Zr::Hir::Build.pure
+  VENDOR = Zr::Library::Roots.pure
   HELD = (Dir[File.join(VENDOR, "rubygems/**/*.rb")] + Zr::Hir::Build.rubygems_files +
           Dir[File.join(ROOT, "lib/zr/**/*.rb")].reject { |path| path.match?(%r{/lib/zr/runtime/(kernel|core)/}) }).sort.freeze
 

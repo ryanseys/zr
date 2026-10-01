@@ -36,7 +36,7 @@ module Zr
       # a message.
       def self.missing_features(target = Target.default)
         (@missing_features ||= {})[target.triple] ||= FEATURES.reject do |feature|
-          PRELOADED.include?(feature) || stdlib(target).any? { |root| File.file?(File.join(root, "#{feature}.rb")) }
+          PRELOADED.include?(feature) || Library::Roots.stdlib(target).any? { |root| File.file?(File.join(root, "#{feature}.rb")) }
         end.sort.freeze
       end
 
@@ -53,7 +53,7 @@ module Zr
       def require_node(node)
         line = node.location.start_line
         feature = literal_feature(node)
-        if node.name == :require && %w[rubygems bundled_gems].include?(feature.to_s.delete_suffix(".rb")) && !@loader.ahead?(@file) && !Build.runtime_file?(@file)
+        if node.name == :require && %w[rubygems bundled_gems].include?(feature.to_s.delete_suffix(".rb")) && !@loader.ahead?(@file) && !Library::Roots.runtime_file?(@file)
           # The prelude loaded rubygems as the program booted.
           gems!(:Gem)
           return Literal.new(false, line)

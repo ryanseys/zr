@@ -55,8 +55,8 @@ eval, to_binary and each_child as ruby does" tests the parts of
 ## Library versions
 
 zr carries the pure-Ruby files of ruby 4.0.7's default and bundled gems
-at the versions that ruby 4.0.7 ships (`Zr::Stdlib`). The gems with a
-C part are zr's own ports (`Zr::Ports`). Five of them are at a later
+at the versions that ruby 4.0.7 ships (`Zr::Library::Stdlib`). The gems with a
+C part are zr's own ports (`Zr::Library::Ports`). Five of them are at a later
 version than ruby 4.0.7 ships, so their Ruby files and their behavior
 are those of the later version:
 

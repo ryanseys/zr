@@ -12,8 +12,8 @@ One file says what it holds, and one command writes it:
 
 | Path | What |
 |---|---|
-| `lib/zr/vendor.rb` | the input: the bundled gems that `vendor/` holds, and the files that it leaves out, each with its reason |
-| `lib/zr/ports.rb` | the input: each gem whose C part zr ports, at zr's version |
+| `lib/zr/library/vendor.rb` | the input: the bundled gems that `vendor/` holds, and the files that it leaves out, each with its reason |
+| `lib/zr/library/ports.rb` | the input: each gem whose C part zr ports, at zr's version |
 | `lib/zr/version.rb` | the input: the ruby release (`RUBY`, `RUBY_REVISION`) |
 | `vendor/ruby/lib/ruby/4.0.0/` | ruby's own library, the default gems, rubygems and bundler, from ruby's source |
 | `vendor/ruby/lib/ruby/gems/4.0.0/gems/<name>-<version>/` | each bundled gem and each port gem: its `lib` and its license files, from its `.gem` |
@@ -22,7 +22,7 @@ One file says what it holds, and one command writes it:
 | `vendor/src/prism-1.9.0/` | prism's `config.yml` and templates, from its git tag, for `zr-dev gen prism` |
 | `vendor/LICENSES/` | the license texts that no gem directory holds |
 | `vendor/vendor.lock` | the output: each source, and the SHA-256 of each `.gem` and each file |
-| `lib/zr/stdlib.rb` | the output: the name and version of each gem (`Zr::Stdlib`) |
+| `lib/zr/library/stdlib.rb` | the output: the name and version of each gem (`Zr::Library::Stdlib`) |
 
 `vendor/ruby` is a ruby install prefix, as a stock ruby 4.0.7 leaves
 it after a `gem install` of the port gems. `GEM_PATH=vendor/ruby/lib/ruby/gems/4.0.0 gem list`
@@ -48,7 +48,7 @@ run the tests that the tool names.
    $ ruby tool/zr-dev.rb vendor diff bigdecimal 4.1.3
    ```
 
-3. Change the version: a port's in `lib/zr/ports.rb`. A bundled gem
+3. Change the version: a port's in `lib/zr/library/ports.rb`. A bundled gem
    takes ruby's version: see [A new ruby](#a-new-ruby). For a port,
    also check `compat:`, the versions whose C interface the port
    implements.
@@ -56,14 +56,14 @@ run the tests that the tool names.
 
 ### Add a port
 
-Add one line to `Zr::Ports::ALL` (`lib/zr/ports.rb`), and the C half in
+Add one line to `Zr::Library::Ports::ALL` (`lib/zr/library/ports.rb`), and the C half in
 Ruby under `lib/zr/runtime/ext`. `gem: true` vendors the gem at its version.
 See [How to port a C extension](port-a-c-extension.md).
 
 ### Leave a file out
 
 Add it to `LEFT_OUT` (ruby's library) or `GEM_EXCLUDE` (a gem) in
-`lib/zr/vendor.rb`, with the reason. A file that zr refuses (`mkmf`,
+`lib/zr/library/vendor.rb`, with the reason. A file that zr refuses (`mkmf`,
 `prism/ffi`) must not be in the tree, so that its `require` stops with
 zr's reason.
 
@@ -140,7 +140,7 @@ it, and put the new digest in the line.
 A new ruby release (for example a patch release with a security fix in
 a default gem) is a new toolchain. Change `.ruby-version`, `Zr::RUBY`
 and `RUBY_REVISION`, install that ruby, then write the tree. The
-library's directory name follows the release (`Zr::Layout::API`: 4.0.0
+library's directory name follows the release (`Zr::Library::Layout::API`: 4.0.0
 for every 4.0.x), and the lock shows each file that changes. The
 bundled gems take the versions in ruby's `gems/bundled_gems`. zr's
 library follows ruby's releases: to get a fixed gem, release zr for

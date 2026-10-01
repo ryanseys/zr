@@ -103,7 +103,7 @@ module Zr
       # `unit` is a lowered kernel. This resolves each constant and
       # layout, so the tables contain only plain data.
       # The Ruby file that carries `text` into eval support
-      # (`Runtime#carried_text`, which the loader finds as `Hir::Build::DESCRIPTION`).
+      # (`Runtime#carried_text`, which the loader finds as `Library::Roots::DESCRIPTION`).
       def self.carried(text)
         rows = text.each_line.map { |line| "        #{line}" }.join
         rows << "\n" unless rows.empty? || rows.end_with?("\n")

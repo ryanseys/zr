@@ -17,9 +17,9 @@ is C or assembler source in the repository.
 The gem has no dependencies. It carries ruby 4.0.7's pure-Ruby
 standard library in `vendor/ruby`, as a stock ruby 4.0.7 installs it: the
 default gems and the bundled gems, at the versions that ruby 4.0.7
-includes (`Zr::Stdlib`). A program's `require` reads those files, and
+includes (`Zr::Library::Stdlib`). A program's `require` reads those files, and
 never the host's gems. The gems with a C part are zr's own ports
-(`Zr::Ports`); [Differences from ruby](differences-from-ruby.md#library-versions)
+(`Zr::Library::Ports`); [Differences from ruby](differences-from-ruby.md#library-versions)
 lists the versions. The install compiles nothing.
 
 zr links a macOS binary itself (`Obj::MachO::Executable`). When it

@@ -615,8 +615,8 @@ module Zr
     # parses (then a file that it requires did not). The host ruby writes
     # it, without gems, so no other version of syntax_suggest is loaded.
     def syntax_report(input)
-      require_relative "libraries"
-      argv = [Config.current.host_ruby, "--disable-gems", "-e", SYNTAX_REPORT, File.join(Libraries.root, "syntax_suggest"), input]
+      require_relative "library/roots"
+      argv = [Config.current.host_ruby, "--disable-gems", "-e", SYNTAX_REPORT, File.join(Library::Roots.pure, "syntax_suggest"), input]
       out = IO.popen(argv, err: File::NULL, &:read)
       $?.success? ? out : nil
     end

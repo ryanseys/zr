@@ -73,7 +73,7 @@ module Zr
     # file of a gem in the GemSet with the same feature name would load a
     # second copy beside it, where ruby loads one. So such a build stops.
     def self.gem_conflicts!(hir, support, gem_set, target)
-      stdlib = Hir::Build.stdlib(target)
+      stdlib = Library::Roots.stdlib(target)
       carried = support.units.keys.filter_map do |path|
         root = stdlib.find { |dir| path.start_with?("#{dir}/") }
         path.delete_prefix("#{root}/") if root
