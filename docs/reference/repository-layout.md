@@ -50,7 +50,7 @@ Two kinds of code meet on a program's load path (`Zr::Layout`):
 | `lib/zr/runtime.rb` | `Zr::Runtime`, `Zr::Program` and `Zr::EvalSupport`: the runtime's files and built forms |
 | `lib/zr/runtime_sources.rb` | the source files of one target's runtime and of the compiler, and their digests |
 | `lib/zr/digests.rb` | the digests of the cache's names that belong to no one target: the link, eval support's keys |
-| `lib/zr/machine/` | the machine dialect to the IR, and the kernel's description |
+| `lib/zr/machine/` | the kernel's typed Ruby to the IR, and the kernel's description |
 | `lib/zr/ir.rb`, `lib/zr/ir/` | the IR, its passes, its verifier, and `IR::Interp` |
 | `lib/zr/backend/aarch64/` | the aarch64 backend: assembler, register allocator, code generator |
 | `lib/zr/backend/wasm/` | the wasm emitter |
@@ -65,7 +65,7 @@ Two kinds of code meet on a program's load path (`Zr::Layout`):
 | `lib/zr/eval.rb` | the eval compiler |
 | `lib/zr/eval/walk.rb`, `lib/zr/eval/walk/` | the tree-walking interpreter |
 | `lib/zr/runtime/` | the runtime: the source that zr compiles into each program, not code of the compiler |
-| `lib/zr/runtime/kernel/` | the kernel, in the machine dialect |
+| `lib/zr/runtime/kernel/` | the kernel, in typed Ruby: each file is one `module Zr::Kern` |
 | `lib/zr/runtime/kernel/os/<os>/`, `lib/zr/runtime/kernel/arch/<arch>/` | the OS and machine layers of the kernel |
 | `lib/zr/runtime/core/` | the core library, in ordinary Ruby, one file for each class |
 | `lib/zr/runtime/core/regexp/onig/` | the pattern compiler of the Onigmo port (`Regexp::Onig`) |
@@ -122,7 +122,7 @@ the snapshots that tests in `test/unit/` read.
 
 | Path | Contains |
 |---|---|
-| `test/machine/` | machine-dialect programs, with their outputs; `test/machine/refused/` has one program for each refusal |
+| `test/machine/` | typed-Ruby programs (`module Zr::Kern`), with their outputs; `test/machine/refused/` has one program for each refusal |
 | `test/runtime/` | programs that test the kernel through hand-written top levels |
 | `test/native/` | hand-written IR, and the disassembly snapshot |
 | `test/hir/` | programs and their HIR dumps |

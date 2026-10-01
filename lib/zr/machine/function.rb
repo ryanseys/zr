@@ -192,13 +192,15 @@ module Zr
       def call(node, want)
         args = node.arguments&.arguments || []
         if node.receiver.nil?
-          target(node, node.name.to_s, args, imports: !@unit.plain?(@d.file))
+          target(node, node.name.to_s, args, imports: false)
         elsif @unit.libc?(node.receiver)
           import = @unit.import_for(node.name.to_s)
           refuse(node, "#{node.name} is not a Libc.import here") unless import.is_a?(Import)
           target(node, node.name.to_s, args)
         elsif @unit.machine?(node.receiver)
           intrinsic(node, args, want)
+        elsif node.name == :call && node.receiver.is_a?(Prism::ConstantReadNode) && !@unit.sig_read?(node.receiver)
+          refuse(node, "#{node.receiver.name} is not a `fn` signature here")
         elsif @unit.sig_read?(node.receiver)
           refuse(node, "a signature takes `call`") unless node.name == :call
           indirect(node, @unit.sig_for(node.receiver.name.to_s), args[0], args[1..])
@@ -399,8 +401,8 @@ module Zr
         want == got || (PLAIN.include?(want) && PLAIN.include?(got))
       end
 
-      # A call to an import or to a def of this unit. A bare call in a
-      # file of the plain form goes only to a def (or a raw function).
+      # A call to an import (`Libc.name`) or to a def of this unit. A bare
+      # call goes only to a def or a raw function.
       def target(node, name, args, imports: true)
         callee = @unit.def_for(name) || @unit.import_for(name)
         callee = nil if !imports && callee.is_a?(Import)
@@ -486,11 +488,6 @@ module Zr
           name = args.first
           refuse(node, "Machine.extern takes the symbol of a data object another unit defines") unless name.is_a?(Prism::SymbolNode)
           [@f.symbol_value(@f.symbol(name.unescaped, colocated: false)), "Ptr"]
-        when :call
-          name = args.first
-          refuse(node, "Machine.call takes the name of a Machine.sig, a pointer and the arguments") unless name.is_a?(Prism::SymbolNode)
-          s = @unit.sig_for(name.unescaped) or refuse(node, "#{name.unescaped} is not a Machine.sig here")
-          indirect(node, s, args[1], args[2..])
         when :bytes
           s = args.first
           refuse(node, "Machine.bytes takes a string literal") unless s.is_a?(Prism::StringNode)
@@ -572,7 +569,7 @@ module Zr
       end
 
       # A call through the pointer `at` with the signature `s`:
-      # `Machine.call(:name, at, ...)` or `Name.call(at, ...)`.
+      # `Name.call(at, ...)`.
       def indirect(node, s, at, rest)
         ptr, pt = expr(at || refuse(node, "#{s.name}.call takes a pointer first"), "Ptr")
         refuse(at, "#{s.name}.call through a #{pt}") unless fits?("Ptr", pt)

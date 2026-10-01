@@ -19,35 +19,37 @@ require_relative "../../test/native/fixtures"
 # returned true for every code point, and `\p{Han}` matched katakana.
 class WasmLocalsTest < Minitest::Test
   SEARCH = <<~RUBY
-    sig [Ptr, Word] => Bool
-    machine def in_ranges(ranges, code)
-      n = Machine.word(Machine.load32(ranges, 0))
-      data = ranges + 4
-      low = 0
-      high = n
-      while low < high
-        x = (low + high) >> 1
-        if code > Machine.word(Machine.load32(data + (x * 8), 4))
-          low = x + 1
-        else
-          high = x
+    module Zr::Kern
+      sig [Ptr, Word] => Bool
+      def in_ranges(ranges, code)
+        n = Machine.word(Machine.load32(ranges, 0))
+        data = ranges + 4
+        low = 0
+        high = n
+        while low < high
+          x = (low + high) >> 1
+          if code > Machine.word(Machine.load32(data + (x * 8), 4))
+            low = x + 1
+          else
+            high = x
+          end
         end
+        low < n && code >= Machine.word(Machine.load32(data + (low * 8), 0))
       end
-      low < n && code >= Machine.word(Machine.load32(data + (low * 8), 0))
-    end
 
-    # One bit of the status for each code, set when it is in a range.
-    sig [I32, Ptr] => I32
-    machine def main(argc, argv)
-      ranges = Machine.bytes("\\x03\\x00\\x00\\x00\\x0A\\x00\\x00\\x00\\x14\\x00\\x00\\x00\\x1E\\x00\\x00\\x00\\x28\\x00\\x00\\x00\\x32\\x00\\x00\\x00\\x3C\\x00\\x00\\x00")
-      bits = 0
-      bits |= 1 if in_ranges(ranges, 5)
-      bits |= 2 if in_ranges(ranges, 15)
-      bits |= 4 if in_ranges(ranges, 25)
-      bits |= 8 if in_ranges(ranges, 35)
-      bits |= 16 if in_ranges(ranges, 55)
-      bits |= 32 if in_ranges(ranges, 70)
-      Machine.i32(bits)
+      # One bit of the status for each code, set when it is in a range.
+      sig [I32, Ptr] => I32
+      def main(argc, argv)
+        ranges = Machine.bytes("\\x03\\x00\\x00\\x00\\x0A\\x00\\x00\\x00\\x14\\x00\\x00\\x00\\x1E\\x00\\x00\\x00\\x28\\x00\\x00\\x00\\x32\\x00\\x00\\x00\\x3C\\x00\\x00\\x00")
+        bits = 0
+        bits |= 1 if in_ranges(ranges, 5)
+        bits |= 2 if in_ranges(ranges, 15)
+        bits |= 4 if in_ranges(ranges, 25)
+        bits |= 8 if in_ranges(ranges, 35)
+        bits |= 16 if in_ranges(ranges, 55)
+        bits |= 32 if in_ranges(ranges, 70)
+        Machine.i32(bits)
+      end
     end
   RUBY
 

@@ -9,16 +9,17 @@ require_relative "description"
 require_relative "function"
 
 module Zr
-  # The machine dialect: Ruby syntax, machine semantics. A unit of one or
-  # more files contains `Machine.import`, `Machine.struct`, `Machine.sig`
-  # and constant declarations, and `sig`-typed `machine def`s. Each def
-  # lowers directly to one IR function. The types are `I8 I32 Word Ptr
-  # Value F64 Bool Void`. A local gets its type from its first assignment
-  # and is in a frame slot; `IR::Mem2Reg` changes the slot to values when
-  # no other code takes its address. A call goes to an import, to a def
-  # of the same unit, or through a pointer with `Machine.call`. zr
-  # refuses a form outside the dialect, with a message that gives the
-  # form and the line.
+  # The typed lowering of the kernel. A unit of one or more files, each
+  # one `module Zr::Kern` of plain Ruby, contains `Libc.import`,
+  # `Name = layout`, `Name = fn` and constant declarations, and
+  # `sig`-typed defs. Each def lowers directly to one IR function. The
+  # types are `I8 I32 Word Ptr Value F64 Bool Void`. A local gets its type
+  # from its first assignment and is in a frame slot; `IR::Mem2Reg`
+  # changes the slot to values when no other code takes its address. A
+  # call goes to an import (`Libc.name`), to a def of the same unit, or
+  # through a pointer (`Name.call`). zr refuses a form that the typed
+  # lowering does not have, with a message that gives the form and the
+  # line.
   module Machine
     class Refused < Zr::Refused
       attr_reader :line
@@ -82,7 +83,6 @@ module Zr
         @collects = nil
         @inline = {}
         @inlined = []
-        @plain = Set.new
       end
 
       def run
@@ -94,13 +94,7 @@ module Zr
           end
 
           @file = file
-          statements = result.value.statements.body
-          if (body = kern_body(statements))
-            @plain << file
-            declare_plain(body)
-          else
-            declare(statements)
-          end
+          declare(kern_body(result.value.statements.body, result.value))
         end
         @consts.each_key { |name| const_for(name) }
         @structs.each_key { |name| struct_for(name) }
@@ -311,8 +305,10 @@ module Zr
       # the body (`Function#ret`). A `while` or a `break` is not, because
       # the roots of a loop and the target of a break belong to the def.
       #
-      # The count is the same in both forms: the `Libc` of an import call
-      # is not a node, and `Name.call(p)` counts as `Machine.call(:name, p)`.
+      # The `Libc` of an import call is not a node, and `Name.call(p)`
+      # counts one more. Thus the count is the same as in the dialect that
+      # the kernel was written in before (`Machine.call(:name, p)`), and
+      # the same defs are inlined.
       def small?(node, budget)
         budget[0] -= 1 unless libc?(node)
         budget[0] -= 1 if node.is_a?(Prism::CallNode) && node.name == :call && sig_read?(node.receiver)
@@ -345,7 +341,7 @@ module Zr
         if node.is_a?(Prism::CallNode)
           if node.receiver.nil? && @defs.key?(node.name.to_s)
             into << node.name.to_s
-          elsif node.name == :call && (machine?(node.receiver) || sig_read?(node.receiver))
+          elsif node.name == :call && sig_read?(node.receiver)
             into << :indirect
           end
         end
@@ -353,74 +349,20 @@ module Zr
         into
       end
 
-      # The file's declarations: imports, structs, signatures, constants,
-      # and each `sig` with its def.
-      def declare(statements)
-        pending_sig = nil
-        statements.each do |node|
-          if node.is_a?(Prism::ConstantWriteNode)
-            add_const(node, node.name.to_s)
-            next
-          end
-          refuse(node, "a statement that is not a declaration or a machine def") unless node.is_a?(Prism::CallNode)
-          case node.name
-          when :struct
-            refuse(node, "a struct is `Machine.struct :Name, field: Type, ...`") unless machine?(node.receiver)
-            declare_struct(node)
-          when :sig
-            if machine?(node.receiver)
-              name, sig = node.arguments&.arguments
-              refuse(node, "a named signature is `Machine.sig :name, [types] => type`") unless name.is_a?(Prism::SymbolNode) && sig
-              add_sig(name.unescaped, *signature(sig))
-            else
-              refuse(node, "a sig is `sig [types] => type`") unless node.receiver.nil?
-              pending_sig = signature(node.arguments.arguments.first)
-            end
-          when :import
-            refuse(node, "an import is `Machine.import \"name\", [types] => type`") unless machine?(node.receiver)
-            name, sig = node.arguments.arguments
-            add_import(name.unescaped, sig)
-          when :collects
-            refuse(node, "`Machine.collects` takes the symbol of a machine def") unless machine?(node.receiver) && node.arguments&.arguments&.first.is_a?(Prism::SymbolNode)
-            @collectors << node.arguments.arguments.first.unescaped
-          when :inline
-            refuse(node, "`Machine.inline` takes the symbol of a machine def") unless machine?(node.receiver) && node.arguments&.arguments&.first.is_a?(Prism::SymbolNode)
-            @inlined << node.arguments.arguments.first.unescaped
-          when :raw
-            refuse(node, "a raw function is `Machine.raw \"name\"`") unless machine?(node.receiver)
-            add_raw(node, node.arguments.arguments.first.unescaped)
-          when :machine
-            d = node.arguments&.arguments&.first
-            refuse(node, "`machine` takes a def") unless d.is_a?(Prism::DefNode)
-            refuse(d, "a machine def has no sig ahead of it") if pending_sig.nil?
-            add_def(d, pending_sig)
-            pending_sig = nil
-          else
-            refuse(node, "`#{node.name}` is not in the kernel dialect at the top level")
-          end
-        end
-      end
-
-      # The module of the kernel in plain Ruby. A file that is one
-      # `module Zr::Kern ... end` is in the plain form; any other file is
-      # in the dialect form. Both forms lower to the same IR, so the
-      # files can move one group at a time (A6).
+      # The module of the kernel. Each kernel file is one
+      # `module Zr::Kern ... end` of plain Ruby.
       KERN = "Zr::Kern"
 
-      # The statements in the module of a file in the plain form, or nil
-      # for a file in the dialect form.
-      def kern_body(statements)
-        return unless statements.one? && (mod = statements.first).is_a?(Prism::ModuleNode)
-
+      # The statements in the module of a file.
+      def kern_body(statements, node)
+        mod = statements.first if statements.one?
+        refuse(statements.first || node, "a kernel file is one `module #{KERN}`") unless mod.is_a?(Prism::ModuleNode)
         refuse(mod, "the kernel's module is #{KERN}") unless mod.constant_path.slice == KERN
         mod.body&.body || []
       end
 
-      # Whether `file` is in the plain form. In that form, a call to an
-      # import is `Libc.name(...)`, and a bare call goes to a def.
-      def plain?(file) = @plain.include?(file)
-
-      # The declarations of a file in the plain form:
+      # The declarations of a file. A call to an import is
+      # `Libc.name(...)`, and a bare call goes to a def:
       #
       #   Libc.import :name, [types] => type   a C function, called as `Libc.name(...)`
       #   Name = layout field: Type, ...       a struct
@@ -429,11 +371,11 @@ module Zr
       #   inline :name, collects :name         as `Machine.inline` and `Machine.collects`
       #   raw :name, [types] => type           a function that the backend delivers
       #   sig [types] => type, then a def      a def
-      def declare_plain(statements)
+      def declare(statements)
         pending_sig = nil
         statements.each do |node|
           case node
-          when Prism::ConstantWriteNode then declare_plain_const(node)
+          when Prism::ConstantWriteNode then declare_const(node)
           when Prism::DefNode
             refuse(node, "a def has no sig ahead of it") if pending_sig.nil?
             add_def(node, pending_sig)
@@ -462,7 +404,7 @@ module Zr
       end
 
       # `Name = layout ...`, `Name = fn ...`, or a constant.
-      def declare_plain_const(node)
+      def declare_const(node)
         name = node.name.to_s
         value = node.value
         kind = value.name if value.is_a?(Prism::CallNode) && value.receiver.nil?
@@ -496,11 +438,10 @@ module Zr
         @imports[name] = Import.new(name, params, ret, from)
       end
 
-      # A raw function. The plain form repeats its signature, which must
-      # be the one the backend delivers.
-      def add_raw(node, name, sig = nil)
+      # A raw function. Its signature must be the one the backend delivers.
+      def add_raw(node, name, sig)
         raw = RAW.fetch(name) { refuse(node, "no raw function named #{name}") }
-        refuse(node, "#{name} is [#{raw.params.join(", ")}] => #{raw.ret}") if sig && sig != [raw.params, raw.ret]
+        refuse(node, "#{name} is [#{raw.params.join(", ")}] => #{raw.ret}") if sig != [raw.params, raw.ret]
         @imports[name] = raw
         @raw << name
       end
@@ -587,12 +528,6 @@ module Zr
         fold(node)
       ensure
         @file = outer
-      end
-
-      def declare_struct(node)
-        name, fields = node.arguments&.arguments
-        refuse(node, "a struct is `Machine.struct :Name, field: Type, ...`") unless name.is_a?(Prism::SymbolNode) && fields.is_a?(Prism::KeywordHashNode)
-        add_struct(node, name.unescaped)
       end
 
       # `node` is the call whose last argument has the fields.

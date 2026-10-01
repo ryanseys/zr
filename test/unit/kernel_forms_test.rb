@@ -3,42 +3,44 @@
 require "test_helper"
 require_relative "../../lib/zr/machine/lower"
 
-# The kernel's two forms (A6): the dialect form (`machine def`,
-# `Machine.import`, `Machine.struct`, ...) and the plain form, one
-# `module Zr::Kern` of plain Ruby. Each declaration in one form has a
-# twin in the other, and the twins lower to the same IR.
+# The kernel's form (A6): one `module Zr::Kern` of plain Ruby. A named
+# operation (`Machine.add_wrap`, `Machine.sdiv`, `Machine.u32`, ...)
+# lowers to the same IR as the plain operator or cast; it only says
+# what the code means where Ruby's operator means something else.
 class KernelFormsTest < Minitest::Test
-  DIALECT = <<~RUBY
-    Machine.import "memset", [Ptr, I32, Word] => Ptr
-    Machine.struct :Pair, head: Word, tail: I32
-    Machine.sig :thunk, [Word] => Word
-    LIMIT = 1 << 4
+  OPERATORS = <<~RUBY
+    module Zr::Kern
+      Libc.import :memset, [Ptr, I32, Word] => Ptr
+      Pair = layout head: Word, tail: I32
+      Thunk = fn [Word] => Word
+      LIMIT = 1 << 4
 
-    sig [Ptr, Word] => Word
-    machine def first(p, n)
-      memset(p, Machine.i32(0), Pair.size)
-      Pair.set_head(p, n * LIMIT)
-      Machine.call(:thunk, Machine.addr(:twice), Pair.head(p))
-    end
+      sig [Ptr, Word] => Word
+      def first(p, n)
+        Libc.memset(p, Machine.i32(0), Pair.size)
+        Pair.set_head(p, n * LIMIT)
+        Thunk.call(Machine.addr(:twice), Pair.head(p))
+      end
 
-    sig [Word] => Word
-    machine def twice(n)
-      n + n
-    end
+      sig [Word] => Word
+      def twice(n)
+        n + n
+      end
 
-    sig [I32, I8] => Word
-    machine def widen(a, b)
-      Machine.word(a) + Machine.word(b) + 0xffff_ffff_ffff_fff0
-    end
+      sig [I32, I8] => Word
+      def widen(a, b)
+        Machine.word(a) + Machine.word(b) + 0xffff_ffff_ffff_fff0
+      end
 
-    sig [Word, Word] => Word
-    machine def mix(a, b)
-      (a * b) + (a << 3) - (a / b) + (a % b) + (b - a)
+      sig [Word, Word] => Word
+      def mix(a, b)
+        (a * b) + (a << 3) - (a / b) + (a % b) + (b - a)
+      end
+      inline :twice
     end
-    Machine.inline :twice
   RUBY
 
-  PLAIN = <<~RUBY
+  NAMED = <<~RUBY
     module Zr::Kern
       Libc.import :memset, [Ptr, I32, Word] => Ptr
       Pair = layout head: Word, tail: I32
@@ -77,12 +79,12 @@ class KernelFormsTest < Minitest::Test
     unit.functions.to_h { |f| [f.name, Zr::IR::Fingerprint.of(f, defined)] }
   end
 
-  def test_the_two_forms_lower_to_the_same_ir
-    dialect = lowered(DIALECT)
-    plain = lowered(PLAIN)
+  def test_a_named_operation_lowers_as_the_operator
+    operators = lowered(OPERATORS)
+    named = lowered(NAMED)
 
-    assert_equal %w[first mix twice widen], plain.keys.sort
-    dialect.each_key { |name| assert_equal dialect[name], plain[name], name }
+    assert_equal %w[first mix twice widen], named.keys.sort
+    operators.each_key { |name| assert_equal operators[name], named[name], name }
   end
 
   def refusal(body)
@@ -121,9 +123,12 @@ class KernelFormsTest < Minitest::Test
     error = assert_raises(Zr::Machine::Refused) { lowered("module Other\nend\n") }
 
     assert_match(/the kernel's module is Zr::Kern/, error.message)
+    error = assert_raises(Zr::Machine::Refused) { lowered("X = 1\n") }
+
+    assert_match(/a kernel file is one `module Zr::Kern`/, error.message)
   end
 
-  def test_the_plain_form_has_no_machine_def
+  def test_there_is_no_machine_def
     assert_match(/not a declaration or a def/, refusal("sig [] => Void\nmachine def x\nend"))
   end
 end

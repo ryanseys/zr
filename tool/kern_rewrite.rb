@@ -98,12 +98,11 @@ module Zr
     end
 
     # Puts the statements in `module Zr::Kern`, with the file's opening
-    # comment (up to its first blank line) left above it.
+    # comment left above it.
     def wrap(text, inner)
       lines = text.lines
       head = 0
       head += 1 while head < lines.size && lines[head].start_with?("#")
-      head = 0 if head < lines.size && !lines[head].strip.empty? # the comment belongs to the first statement
       head += 1 while head < lines.size && lines[head].strip.empty?
       body = lines[head..].each_with_index.map do |line, i|
         if inner.include?(head + i) then line # a Prism line is from 1: line head+i+1 starts inside a string
@@ -123,6 +122,7 @@ if $PROGRAM_NAME == __FILE__
     source = File.read(file)
     next if source.match?(/^module Zr::Kern$/)
 
-    File.write(file, Zr::KernRewrite.rewrite(source, imports))
+    own = source.scan(/^Machine\.import\s+"([^"]+)"/).flatten
+    File.write(file, Zr::KernRewrite.rewrite(source, imports | own))
   end
 end

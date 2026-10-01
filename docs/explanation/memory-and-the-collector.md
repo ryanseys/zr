@@ -32,7 +32,7 @@ function stores the value in its record first. The IR passes keep that
 store, because the collector reads it.
 
 The kernel obeys the same rule. A kernel def that can reach the
-collector (`Machine.collects`, followed through the call graph) gets a
+collector (`collects :name`, followed through the call graph) gets a
 root frame, and every `Value` that it keeps is in a slot of that frame.
 
 ## Blocks and captured locals

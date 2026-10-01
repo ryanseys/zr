@@ -55,25 +55,31 @@ signature, with a message that gives the def.
 Find an existing def first:
 
 ```console
-$ grep -n "machine def zr_str_" lib/zr/runtime/kernel/string.rb
+$ grep -n "def zr_str_" lib/zr/runtime/kernel/string.rb
 ```
 
 ## 4. Add a kernel def, if you need one
 
-Kernel defs are in `lib/zr/runtime/kernel/`, in the machine dialect. Add one
-near the defs like it:
+Kernel defs are in `lib/zr/runtime/kernel/`, in typed Ruby. Each file
+is one `module Zr::Kern`. Add a def in that module, near the defs like
+it:
 
 ```ruby
 # lib/zr/runtime/kernel/string.rb
-sig [Value] => Value
-machine def zr_str_bytesize(s)
-  zr_fix(RString.len(s))
+module Zr::Kern
+  # ...
+  sig [Value] => Value
+  def zr_str_bytesize(s)
+    zr_fix(RString.len(s))
+  end
 end
 ```
 
-Every `machine def` comes after a `sig`.
-[The machine dialect](../reference/machine-dialect.md) lists the types
-and the `Machine.*` operations.
+Every `def` comes after a `sig`. A bare call goes only to a def. To
+call a libc function, declare it with `Libc.import :name, [types] => type`
+and call it as `Libc.name(...)`.
+[The kernel's typed Ruby](../reference/machine-dialect.md) lists the
+types and the `Machine.*` operations.
 
 Then write the descriptions again, because they list every kernel def:
 

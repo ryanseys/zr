@@ -1,0 +1,5 @@
+# Commits that change spelling only. `git config blame.ignoreRevsFile
+# .git-blame-ignore-revs` makes `git blame` look through them.
+
+# The kernel moves from the machine dialect to plain Ruby (A6).
+b94fd1b530ba54faaab068315f400b46bd2ad933

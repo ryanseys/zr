@@ -55,15 +55,17 @@ class WasmTest < Minitest::Test
   # A dialect import that gives its wasm module reaches the host's own
   # call, and a native build refuses it with a message that gives the name.
   IMPORTED = <<~RUBY
-    Machine.import "fd_write", [I32, I32, I32, I32] => I32, from: "wasi_snapshot_preview1"
+    module Zr::Kern
+      Libc.import :fd_write, [I32, I32, I32, I32] => I32, from: "wasi_snapshot_preview1"
 
-    sig [I32, Ptr] => I32
-    machine def main(argc, argv)
-      iov = Machine.slot(16)
-      Machine.store32(iov, 0, Machine.i32(Machine.bytes("hi\n")))
-      Machine.store32(iov, 4, Machine.i32(3))
-      fd_write(Machine.i32(1), Machine.i32(iov), Machine.i32(1), Machine.i32(iov + 8))
-      0
+      sig [I32, Ptr] => I32
+      def main(argc, argv)
+        iov = Machine.slot(16)
+        Machine.store32(iov, 0, Machine.i32(Machine.bytes("hi\n")))
+        Machine.store32(iov, 4, Machine.i32(3))
+        Libc.fd_write(Machine.i32(1), Machine.i32(iov), Machine.i32(1), Machine.i32(iov + 8))
+        0
+      end
     end
   RUBY
 

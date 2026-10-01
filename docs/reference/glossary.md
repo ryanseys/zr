@@ -26,7 +26,7 @@ method stamp, and the method that a send found for them.
 
 **Compilation unit.** Code that zr lowers and assembles as one part.
 For a program, each source file is a compilation unit, and the cache
-keeps its machine code. In the machine dialect, a compilation unit is
+keeps its machine code. In the kernel, a compilation unit is
 a group of files whose declarations see each other.
 
 **Compiled compiler.** zr, compiled by zr: stage 1 of
@@ -101,14 +101,15 @@ by its address and serial number.
 **IR.** The compiler's control-flow graph in SSA form, with block
 parameters. Every lowering writes it, and every backend reads it.
 
-**Kernel.** `lib/zr/runtime/kernel/`: the lowest layer of the runtime, in the
-machine dialect.
+**Kernel.** `lib/zr/runtime/kernel/`: the lowest layer of the runtime, in
+typed Ruby. Each file is one `module Zr::Kern`.
 
 **Lowering.** The change of the program from one form to a lower one:
-HIR to IR, or the machine dialect to IR.
+HIR to IR, or the kernel's typed Ruby to IR.
 
-**Machine dialect.** Ruby syntax with machine semantics, the language
-of the kernel. See [The machine dialect](machine-dialect.md).
+**Machine dialect.** The old form of the kernel: top-level statements,
+`machine def` and `Machine.import`. `tool/kern_rewrite.rb` changed it
+to typed Ruby. See **Typed Ruby**.
 
 **Method stamp.** A global word that every change to a method table or
 an ancestor chain changes. The collector also changes it when it frees
@@ -193,6 +194,10 @@ programs (`test/programs`). See
 runs the HIR of a string node by node (`lib/zr/eval/walk.rb`).
 `ZR_EVAL=walk` uses it on a native target too.
 
+**Typed Ruby.** The language of the kernel: plain Ruby syntax in one
+`module Zr::Kern` for each file, with a `sig` of machine types before
+each `def`. See [The kernel's typed Ruby](machine-dialect.md).
+
 **Undef.** The Value `0x34`. A function returns it when an unwind is
 pending.
 
@@ -201,7 +206,7 @@ pending.
 **WASI module.** The output of `zr build --emit wasm`: a WebAssembly
 module for `wasm32-wasi`.
 
-**Word.** 8 bytes, or 64 bits. The `Word` type of the machine dialect.
+**Word.** 8 bytes, or 64 bits. The `Word` type of the kernel's typed Ruby.
 
 **zr.** The project, the gem and the command. The runtime's symbols
 are `zr_*`, and the environment variables are `ZR_*`.

@@ -22,7 +22,7 @@ module Zr
       Commands:
         run <file.rb> [args...]     compile a program, run it, then delete the build
         build <file.rb> -o <out>    compile a program to a binary, a WASI module or an object
-        machine <file.rb> -o <out>  compile one machine-dialect file (for runtime work)
+        machine <file.rb> -o <out>  compile one typed-Ruby kernel file (for runtime work)
         targets                     list the targets, and what this host can build
         gems [<file.rb>]            list the gems that a build reads, and their sources
         inspect <binary>            print the gems that a binary was built with
@@ -88,8 +88,8 @@ module Zr
       "machine" => <<~TEXT,
         Usage: zr machine [options] <file.rb> -o <out>
 
-        Compiles one file of the machine dialect (the typed Ruby that
-        lib/zr/runtime/kernel is written in), without the zr runtime.
+        Compiles one file of typed Ruby (one `module Zr::Kern`, as in
+        lib/zr/runtime/kernel), without the zr runtime.
 
         #{OPTIONS.sub(GEMS, "").sub("Options:\n", "Options:\n#{OUTPUT}")}
       TEXT

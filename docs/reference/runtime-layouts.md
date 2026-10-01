@@ -27,7 +27,7 @@ A `Value` is a 64-bit word with CRuby's tagging (`lib/zr/runtime/kernel/value.rb
 ## The object header
 
 ```ruby
-Machine.struct :RBasic, flags: Word, klass: Value
+RBasic = layout flags: Word, klass: Value
 ```
 
 | Bits of `flags` | Meaning |
@@ -54,13 +54,13 @@ Machine.struct :RBasic, flags: Word, klass: Value
 ## Objects
 
 ```ruby
-Machine.struct :RString, basic: RBasic, len: Word, capa: Word, ptr: Ptr
-Machine.struct :RArray, basic: RBasic, len: Word, capa: Word, ptr: Ptr, base: Ptr
-Machine.struct :RObject, basic: RBasic, iv: IvTab
-Machine.struct :RProc, basic: RBasic, fn: Ptr, meta: Ptr, env: Value, self: Value, cref: Value,
+RString = layout basic: RBasic, len: Word, capa: Word, ptr: Ptr
+RArray = layout basic: RBasic, len: Word, capa: Word, ptr: Ptr, base: Ptr
+RObject = layout basic: RBasic, iv: IvTab
+RProc = layout basic: RBasic, fn: Ptr, meta: Ptr, env: Value, self: Value, cref: Value,
                blk: Value, home: Ptr, serial: Word, site: Word, ret_home: Ptr, ret_serial: Word,
                spread: Word, lambda: Word, passed: Word
-Machine.struct :REnv, basic: RBasic, parent: Value, slots: Ptr, nslots: Word, names: Ptr, cell: Value, home: Ptr
+REnv = layout basic: RBasic, parent: Value, slots: Ptr, nslots: Word, names: Ptr, cell: Value, home: Ptr
 ```
 
 - A String's bytes and an Array's elements stay in the object's cell
@@ -88,7 +88,7 @@ smallest size that contains the object and its contents.
 Every compiled Ruby function keeps one record in its machine frame:
 
 ```ruby
-Machine.struct :Frame, prev: Ptr, meta: Ptr, line: Word, self: Value, cref: Value, blk: Value,
+Frame = layout prev: Ptr, meta: Ptr, line: Word, self: Value, cref: Value, blk: Value,
                entry: Ptr, defined: Value, serial: Word, nvalues: Word, svars: Value
 ```
 
@@ -108,9 +108,10 @@ newest record, and `prev` links each record to its caller's.
 ## Method entries and inline caches
 
 ```ruby
-Machine.struct :MEntry, mid: Word, fn: Ptr, arity: Word, kind: Word, meta: Ptr, cref: Value,
-               vis: Word, orig: Word, from: Value, core: Word, ivar: IvarCache
-Machine.struct :CallCache, klass: Value, stamp: Word, entry: Ptr, found: Value, fn: Ptr
+MEntry = layout mid: Word, fn: Ptr, arity: Word, kind: Word, meta: Ptr, cref: Value,
+                vis: Word, orig: Word, from: Value, core: Word, ivar: IvarCache, cover: Word,
+                direct: Ptr, concealed: Word
+CallCache = layout klass: Value, stamp: Word, entry: Ptr, found: Value, fn: Ptr, shape: Word, direct: Ptr
 ```
 
 A compiled method takes `(recv, argc, argv, entry, blk, found)`. A

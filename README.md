@@ -126,7 +126,7 @@ app.rb ─► prism ─► HIR ─► IR ─┬─► aarch64 machine code ─�
   resolved. zr refuses a form that it does not support here.
 - **The IR** is one SSA form that every backend reads.
 - **The runtime** is compiled into every program: a kernel in the
-  machine dialect (Ruby syntax, machine semantics), and the core
+  typed Ruby (plain Ruby syntax, machine types), and the core
   library in ordinary Ruby.
 
 ruby 4.0.7 is the only source of expected outputs. zr must match

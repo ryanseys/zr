@@ -97,13 +97,13 @@ test, and a forked child that changes the environment calls
 ## Layers depend downward
 
 The front end (`hir`), the lowering (`lower`), the IR (`ir`), the
-machine dialect (`machine`), the backends (`backend`) and the object
+kernel's typed lowering (`machine`), the backends (`backend`) and the object
 writers (`obj`) are layers. A layer uses the layers below it and the
 leaf utilities in `lib/zr/*.rb`, and nothing above it.
 `test/unit/layering_test.rb` reads every `require_relative` under
 `lib/zr` and fails on an edge that goes up. It has no exceptions. For
 example, the arm64 relocations are in `obj/relocs/aarch64.rb`, because
-the object writers apply them, and the machine dialect knows only the
+the object writers apply them, and the typed lowering knows only the
 signatures of its raw functions (`Machine::RAW`); the native build gets
 their code from the backend.
 

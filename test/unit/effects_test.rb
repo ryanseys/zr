@@ -14,55 +14,57 @@ require "zr/runtime"
 #   it) does not make a store through a pointer a write to that word.
 class EffectsTest < Minitest::Test
   SOURCE = <<~'RB'
-    Machine.import "write", [I32, Ptr, Word] => Word
-    Machine.struct :Cell, basic: RBasic, next: Value
-    Machine.struct :RBasic, flags: Word, klass: Value
-    Machine.struct :Row, id: Word, value: Value
-    Machine.sig :thunk, [] => Void
+    module Zr::Kern
+      Libc.import :write, [I32, Ptr, Word] => Word
+      Cell = layout basic: RBasic, next: Value
+      RBasic = layout flags: Word, klass: Value
+      Row = layout id: Word, value: Value
+      Thunk = fn [] => Void
 
-    sig [] => Ptr
-    machine def gates
-      Machine.static(:gates, 8)
-    end
+      sig [] => Ptr
+      def gates
+        Machine.static(:gates, 8)
+      end
 
-    sig [Word] => Void
-    machine def set_gates(v)
-      Machine.store64(gates(), 0, v)
-    end
+      sig [Word] => Void
+      def set_gates(v)
+        Machine.store64(gates(), 0, v)
+      end
 
-    sig [Word] => Void
-    machine def set_slowly(v)
-      set_gates(v)
-    end
+      sig [Word] => Void
+      def set_slowly(v)
+        set_gates(v)
+      end
 
-    sig [Ptr, Value] => Void
-    machine def link(cell, v)
-      Cell.set_next(cell, v)
-    end
+      sig [Ptr, Value] => Void
+      def link(cell, v)
+        Cell.set_next(cell, v)
+      end
 
-    sig [Ptr, Word] => Void
-    machine def fill(row, v)
-      Row.set_id(row, v)
-    end
+      sig [Ptr, Word] => Void
+      def fill(row, v)
+        Row.set_id(row, v)
+      end
 
-    sig [Ptr] => Void
-    machine def poke(p)
-      Machine.store64(p, 0, 1)
-    end
+      sig [Ptr] => Void
+      def poke(p)
+        Machine.store64(p, 0, 1)
+      end
 
-    sig [Ptr] => Void
-    machine def tell(p)
-      write(1, p, 1)
-    end
+      sig [Ptr] => Void
+      def tell(p)
+        Libc.write(1, p, 1)
+      end
 
-    sig [Ptr] => Void
-    machine def jump(fn)
-      Machine.call(:thunk, fn)
-    end
+      sig [Ptr] => Void
+      def jump(fn)
+        Thunk.call(fn)
+      end
 
-    sig [] => Word
-    machine def pure
-      3
+      sig [] => Word
+      def pure
+        3
+      end
     end
   RB
 

@@ -45,8 +45,8 @@ class MachineTest < Minitest::Test
   # root from its record must abort.
   def test_gc_under_stress
     source = File.read(File.join(ROOT, "test/machine/gc.rb"))
-    bad = source.sub("    Machine.store64(rec, 24, leaf)\n    leaf = 0\n", "    Machine.store64(rec, 24, 0)\n")
-                .sub("    Machine.store64(pair, 8, Machine.load64(rec, 24))", "    Machine.store64(pair, 8, leaf)")
+    bad = source.sub("      Machine.store64(rec, 24, leaf)\n      leaf = 0\n", "      Machine.store64(rec, 24, 0)\n")
+                .sub("      Machine.store64(pair, 8, Machine.load64(rec, 24))", "      Machine.store64(pair, 8, leaf)")
     refute_equal source, bad
     Dir.mktmpdir("zr-machine-") do |dir|
       { "good" => source, "bad" => bad }.each do |name, text|

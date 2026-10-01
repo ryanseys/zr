@@ -27,7 +27,7 @@ module Zr
 
         Dir.mktmpdir("zr-kernel-jit-") do |dir|
           defined = File.join(dir, "constants.rb")
-          File.write(defined, constants.map { |name, value| "#{name} = #{value}\n" }.join)
+          File.write(defined, "module Zr::Kern\n#{constants.map { |name, value| "  #{name} = #{value}\n" }.join}end\n")
           lower = Machine.unit(files + [defined])
           unit = Native::Build.unit(lower.functions, lower.data, raw: lower.raw)
           @symbols = Obj::JIT.load(unit, host: Obj::JIT::Fiddle.new)
