@@ -34,7 +34,7 @@ module Zr
     # `Hir::Build.stdlib`, ruby's library first and the bundled gems
     # last. Other compiled compilers find vendor/ruby beside themselves.
     def carried
-      return nil unless Zr.compiled? && defined?(::Zr::Eval::Runtime)
+      return nil unless Host.compiled? && defined?(::Zr::Eval::Runtime)
 
       names = ::Zr::Eval::Runtime.library_roots
       names.size > Stdlib::BUNDLED.size ? [names.first, names.last(Stdlib::BUNDLED.size)] : nil

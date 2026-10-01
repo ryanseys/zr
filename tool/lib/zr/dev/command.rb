@@ -49,7 +49,7 @@ module Zr
       # Parses `argv` and runs the tool. Returns the exit status. In a zr
       # binary, a `host_ruby!` tool runs under ruby instead.
       def start(argv)
-        Dev.hand_to_ruby!(name.split + argv) if self.class.host_ruby? && Zr.compiled?
+        Dev.hand_to_ruby!(name.split + argv) if self.class.host_ruby? && Host.compiled?
         parser = OptionParser.new do |o|
           o.banner = "usage: zr-dev #{name} #{self.class.usage}".rstrip
           o.separator(self.class.summary.to_s)

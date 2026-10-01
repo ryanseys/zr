@@ -74,7 +74,7 @@ module Zr
         held = held_bytes
         return jobs if held.zero?
 
-        cost = Zr.compiled? ? held : held / WORKER_SHARE
+        cost = Host.compiled? ? held : held / WORKER_SHARE
         available = available_bytes
         free = available ? available * 3 / 4 : machine_bytes - held
         [[free / cost, jobs].min, 1].max

@@ -717,7 +717,7 @@ module Zr
     # other command, for a `zr run` that needs a build, and in the second
     # start (whose first start already looked).
     def kept!(argv)
-      return unless argv.first == "run" && !ENV.key?(Tune::ADDED) && !Zr.compiled?
+      return unless argv.first == "run" && !ENV.key?(Tune::ADDED) && !Host.compiled?
 
       require_relative "cache/run"
       return unless Cache::Run.wanted?

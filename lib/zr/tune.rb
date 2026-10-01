@@ -63,7 +63,7 @@ module Zr
       yjit if @pending
     end
 
-    def limited? = ENV.key?("RUBY_GC_MALLOC_LIMIT") || Zr.compiled?
+    def limited? = ENV.key?("RUBY_GC_MALLOC_LIMIT") || Host.compiled?
 
     def limits(script, argv, env)
       @added ||= !ENV.delete(ADDED).nil?

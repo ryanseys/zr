@@ -37,7 +37,7 @@ module Zr
       BACKEND = %w[
         backend.rb backend/aarch64.rb backend/aarch64/assembler.rb backend/aarch64/codegen.rb
         backend/aarch64/codegen/layout.rb backend/aarch64/codegen/moves.rb backend/aarch64/regalloc.rb
-        backend/aarch64/registers.rb backend/aarch64/stub.rb bytes.rb config.rb ir/analysis.rb
+        backend/aarch64/registers.rb backend/aarch64/stub.rb bytes.rb config.rb host.rb ir/analysis.rb
         ir/effects.rb ir/fingerprint.rb ir/function.rb ir/gvn.rb ir/inst.rb ir/licm.rb ir/passes.rb
         ir/promotion.rb ir/regions.rb ir/statics.rb ir/types.rb ir/verify.rb obj/model.rb refused.rb
         native/code_cache.rb paths.rb version.rb

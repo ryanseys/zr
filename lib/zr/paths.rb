@@ -1,16 +1,10 @@
 # frozen_string_literal: true
 
-require "rbconfig"
 require_relative "config"
+require_relative "host"
 require_relative "version"
 
 module Zr
-  # Whether this process is a program that zr compiled (the compiled
-  # compiler, or a program with eval support) and not CRuby. A zr binary
-  # gives the same RUBY_ENGINE and RubyVM as ruby 4.0.7, but its RbConfig
-  # gives zr as the interpreter (lib/zr/runtime/ext/rbconfig.rb).
-  def self.compiled? = RbConfig::CONFIG["ruby_install_name"] == "zr"
-
   # Where zr reads its sources and writes what it builds. ROOT is the
   # checkout or the installed gem. `lib/zr/runtime/` is under `lib/` and
   # `vendor/` is beside it in both; neither is on the host's load path. The host

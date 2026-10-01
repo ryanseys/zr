@@ -26,6 +26,7 @@ Two kinds of code meet on a program's load path (`Zr::Layout`):
 | `lib/zr.rb` | the entry point: the version, the paths and the targets |
 | `lib/zr/version.rb` | `Zr::VERSION`, and `Zr::RUBY`, the ruby that zr needs |
 | `lib/zr/paths.rb` | where zr reads its sources and writes its cache |
+| `lib/zr/host.rb` | `Zr::Host.compiled?`: whether zr runs in a binary that zr compiled, not in CRuby |
 | `lib/zr/config.rb` | `Zr::Config`: the `ZR_*` variables that steer a build, read once, and `Config.flag?` for an on-or-off variable |
 | `lib/zr/cli.rb` | the commands of `zr`, their options, and what they print |
 | `lib/zr/doctor.rb` | the checks of `zr doctor` |

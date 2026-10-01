@@ -13,7 +13,7 @@ module Zr
     # from another ruby, or from zr's copy of ruby's answers, is not
     # correct for zr.
     def self.pinned!(tool)
-      abort("zr-dev #{tool}: runs under ruby #{RUBY}, not in a zr binary") if Zr.compiled?
+      abort("zr-dev #{tool}: runs under ruby #{RUBY}, not in a zr binary") if Host.compiled?
       abort("zr-dev #{tool}: ruby #{RUBY} writes this table; this is ruby #{RUBY_VERSION}") unless RUBY_VERSION == RUBY
     end
 

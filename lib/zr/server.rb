@@ -76,7 +76,7 @@ module Zr
     # for another target (the server builds only; the client runs), inside
     # a compiled program, or in the second start of zr.
     def client_socket(argv)
-      return nil if Zr.compiled? || ENV.key?(Tune::ADDED) || !%w[run build].include?(argv.first)
+      return nil if Host.compiled? || ENV.key?(Tune::ADDED) || !%w[run build].include?(argv.first)
       return nil if argv.first == "run" && argv.any? { |word| word.start_with?("--emit", "--target") }
 
       path = socket

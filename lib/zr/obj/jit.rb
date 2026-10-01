@@ -36,7 +36,7 @@ module Zr
       # The host for system calls: the runtime's host in a zr program, or
       # Fiddle under CRuby (where no runtime is linked).
       def self.host
-        if Zr.compiled?
+        if Host.compiled?
           require_relative "../runtime/lib/zr/obj/jit/runtime"
           Runtime.new
         else
