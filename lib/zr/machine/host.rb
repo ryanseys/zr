@@ -318,7 +318,7 @@ module Zr
         @errno = Memory.zeroed(8)
         @slot_base = Memory.zeroed(SLOT_BYTES)
         @stack_key = :"zr_host_stack_#{object_id}"
-        @all_pins = []
+        @stacks = []
         @collecting = false
         @collectors = []
         @kern = kernel_module
@@ -355,10 +355,8 @@ module Zr
       # A call through the pointer `at`: a function of the walker
       # (`callable`), a def that `Machine.addr` gave, or C code.
       def call_at(at, params, ret, args)
-        if (body = @callables[at])
-          result = body.call(*args)
-          return ret.name == "Value" ? pin(result) : result
-        end
+        body = @callables[at]
+        return walker_call(body, ret, args) if body
         if (name = @def_names[at])
           return @kern.public_send(name, *args)
         end
@@ -417,7 +415,9 @@ module Zr
       # The machine stack of one fiber: `top` is where its next slot ends,
       # and a slot below `low` overflows. `pins` are the Values that its
       # defs hold (`pin`), and `depth` counts the walker's frames on it.
-      Stack = Struct.new(:top, :low, :pins, :depth) do
+      # `roots` are the Bindings of its rooted defs (`Framing`), and
+      # `rooted` tells whether the innermost def that can collect is one.
+      Stack = Struct.new(:top, :low, :pins, :depth, :roots, :rooted) do
         # `size` bytes of slots, rounded up to 16, below the top.
         def take(size)
           slot = top - ((size + 15) & -16)
@@ -458,9 +458,12 @@ module Zr
       # this call runs. A collection in the kernel sees only the Values in
       # memory; a host def keeps its Values in Ruby locals, so each Value
       # it reads or makes is pinned until the def returns (`frames`). This
-      # keeps more than the lowering's root frames do, never less.
+      # keeps more than the lowering's root frames do, never less. A rooted
+      # def keeps its Values in its locals, as the lowering's root frame
+      # does, so nothing is pinned while it is the innermost.
       def pin(v)
-        stack.pins << v unless @collecting
+        s = stack
+        s.pins << v unless @collecting || s.rooted
         v
       end
 
@@ -473,11 +476,18 @@ module Zr
         @kern.zr_write_barrier(p, value)
       end
 
-      # Marks each pinned cell, and runs the collection with no pinning.
+      # Marks each pinned cell and each cell in a local of a rooted def,
+      # and runs the collection with no pinning.
       def mark_pins
         arenas = heap_arenas
-        @all_pins.each do |list|
-          list.each { |v| @kern.zr_mark(v) if live?(v, arenas) }
+        @stacks.each do |s|
+          s.pins.each { |v| @kern.zr_mark(v) if live?(v, arenas) }
+          s.roots.each do |b|
+            b&.local_variables&.each do |name|
+              v = b.local_variable_get(name)
+              @kern.zr_mark(v) if v.is_a?(Integer) && live?(v, arenas)
+            end
+          end
         end
       end
 
@@ -490,18 +500,46 @@ module Zr
       end
 
       # Runs the block, a def's body, in its `frame` (`Framing`).
+      # A rooted def's Binding takes its place in `roots` when the def
+      # starts (`frames`).
       def framed(frame)
         stack = self.stack
         top = stack.top
         pins = stack.pins
         mark = pins.size
+        rooted = stack.rooted
+        stack.roots << nil if frame.roots
+        stack.rooted = frame.roots if frame.drops
         result = begin
           yield
         ensure
           stack.top = top if frame.restores
           pins.slice!(mark, pins.size - mark) if frame.drops
+          stack.roots.pop if frame.roots
+          stack.rooted = rooted
         end
         frame.drops && frame.value ? pin(result) : result
+      end
+
+      # A call of the walker's function `body` (`call_at`). The walker pins
+      # what its code holds. A rooted caller keeps the result in a local,
+      # so the call leaves no pins behind for it.
+      def walker_call(body, ret, args)
+        stack = self.stack
+        unless stack.rooted
+          result = body.call(*args)
+          return ret.name == "Value" ? pin(result) : result
+        end
+
+        pins = stack.pins
+        mark = pins.size
+        stack.rooted = false
+        begin
+          body.call(*args)
+        ensure
+          pins.slice!(mark, pins.size - mark)
+          stack.rooted = true
+        end
       end
 
       # A call of the C function `function` (`answer`, `call_at`). C sees
@@ -516,7 +554,7 @@ module Zr
 
       private
 
-      def new_stack(top, low) = Stack.new(top, low, [], 0).tap { |s| @all_pins << s.pins }
+      def new_stack(top, low) = Stack.new(top, low, [], 0, [], false).tap { |s| @stacks << s }
 
       # Whether `v` is a cell the heap has allocated, so the collector
       # may mark it. A pin can hold a word that is no longer one: a cell
@@ -633,8 +671,11 @@ module Zr
         host = self
         frames = Module.new
         (slots | collects).each do |name|
-          frame = Framing.new(slots.include?(name), collects.include?(name), @sigs[name]&.last&.name == "Value")
-          frames.define_method(name, &framed_def(@kern.instance_method(name).arity, frame))
+          rooted = collects.include?(name) && loops?(defs.fetch(name))
+          frame = Framing.new(slots.include?(name), collects.include?(name), @sigs[name]&.last&.name == "Value", rooted)
+          body = @kern.instance_method(name)
+          frames.define_method(name, &framed_def(body.arity, frame))
+          TracePoint.new(:call) { |tp| host.stack.roots[-1] = tp.binding }.enable(target: body) if rooted
         end
         @kern.prepend(frames)
         collector = Module.new
@@ -651,7 +692,23 @@ module Zr
       # What a def's frame does (`frames`): it gives back the slots of its
       # body (`restores`), and drops the pins of its body (`drops`), then
       # pins a Value result (`value`) for its caller.
-      Framing = Data.define(:restores, :drops, :value)
+      #
+      # A def that can collect and loops is `rooted`: a pin of each pass
+      # would stay until it returns, so its locals are its roots instead,
+      # as the lowering's root frame holds a def's Value locals. The
+      # collector marks the Integers of its Binding.
+      Framing = Data.define(:restores, :drops, :value, :roots)
+
+      # Whether the def `node` has a loop.
+      def loops?(node)
+        queue = [node.body].compact
+        while (n = queue.shift)
+          return true if n.is_a?(Prism::WhileNode) || n.is_a?(Prism::UntilNode)
+
+          queue.concat(n.compact_child_nodes)
+        end
+        false
+      end
 
       # The method body that wraps a def of `arity` in its `frame`. Each
       # arity has its own block, which passes the def's arguments on to

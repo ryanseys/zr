@@ -127,12 +127,22 @@ module Zr
             check(@kern.zr_preempt_expired) if Memory.word(@poll) != 0
           end
 
+          # `redo`: a back edge, so a safe point, as the lowering's
+          # `redo_body` has.
           def redo_node(s)
-            return ->(_) { throw s.loops.first[2] } unless s.loops.empty?
-            return ->(_) { raise Unsupported, "a redo outside a loop or block" } unless s.kind == :block
+            if s.loops.empty?
+              return ->(_) { raise Unsupported, "a redo outside a loop or block" } unless s.kind == :block
 
-            tag = s.meta
-            ->(_) { throw tag }
+              tag = s.meta
+            else
+              tag = s.loops.first[2]
+            end
+            return ->(_) { throw tag } if s.internal?
+
+            lambda do |_|
+              preempt
+              throw tag
+            end
           end
 
           def do_return(node, s)

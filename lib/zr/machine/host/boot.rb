@@ -103,7 +103,7 @@ module Zr
         # A continuation (continuation.rb) copies the slot area on a side
         # context, but the walker's frames are Ruby frames. So a switch to
         # the side context also captures them with ruby's `callcc`, with
-        # the slot top, the pins and the walker's depth. When a restore on the side context
+        # its fiber's Stack (`Host::Stack`). When a restore on the side context
         # switches back to a context that a capture left, the switch goes
         # through that capture, and the capture's switch returns again.
         def switch(from, to)
@@ -111,16 +111,20 @@ module Zr
             k = callcc { |c| c }
             return unless k
 
-            capture = [k, @host.slot_top, @host.pins.dup, @host.depth]
+            stack = @host.stack
+            capture = [k, stack.top, stack.pins.dup, stack.roots.dup, stack.rooted, stack.depth]
           end
           @jump = @captures[to] if @captures.key?(to)
           leave(from, to)
           if (jump = @jump)
             @jump = nil
-            k, top, pins, depth = jump
-            @host.slot_top = top
-            @host.pins.replace(pins)
-            @host.depth = depth
+            k, top, pins, roots, rooted, depth = jump
+            stack = @host.stack
+            stack.top = top
+            stack.pins.replace(pins)
+            stack.roots.replace(roots)
+            stack.rooted = rooted
+            stack.depth = depth
             k.call(nil)
           end
           @captures[from] = capture if capture
