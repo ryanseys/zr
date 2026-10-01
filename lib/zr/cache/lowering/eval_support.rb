@@ -14,9 +14,10 @@ module Zr
       #
       # Each unit of a lowering uses its own names and counters
       # (`Lower#open_unit`), so `Lower#lower_unit` lowers it alone with the code
-      # it has in the whole lowering. The fixed part is the program's own
-      # toplevel. A unit's key has its file, its bytes, its flags, and the path
-      # and entry of each unit that it requires. A unit that activates a
+      # it has in the whole lowering. A unit calls another only at its entry,
+      # when it requires it. The fixed part is the program's own toplevel.
+      # A unit's key has its file, its bytes, its flags, and the path and
+      # entry of each unit that it requires. A unit that activates a
       # refinement has the number of its activation in its HIR, which depends
       # on the units before it; its key also has each such number.
       class EvalSupport < Lowering
@@ -28,26 +29,24 @@ module Zr
         end
 
         # Lowers `program` (eval support's) with `lower`, taking each unit it
-        # can from an entry. Returns `[functions, data]`, with `Obj::Code`
-        # for each unit that it took, and inlined, so the object build must not
-        # inline again.
+        # can from an entry. Returns `[functions, data]`: the toplevel's IR,
+        # inlined, then the machine code of each unit; so the object build
+        # must not inline again.
         def lower(lower, description)
           @lower = lower
           @program = lower.program
           @description = description
           # The code has the kernel's ids.
           @base = base_key(@program.file, *lower.fixed.keys)
-          @entry_functions, @entry_data = lower.lower_entry
-          pieces = Zr.clock("eval cache: units") do
-            @program.units.each_index.map do |i|
-              u = @program.units[i]
-              entry = lower.unit_entry(i)
-              piece(u.file, entry, unit_key(u, entry)) { lower.lower_unit(i) }
-            end
+          entry_functions, entry_data = lower.lower_entry
+          pieces = @program.units.each_index.map do |i|
+            u = @program.units[i]
+            entry = lower.unit_entry(i)
+            Piece.new(u.file, entry, unit_key(u, entry), u.source.to_s.bytesize + 1, -> { lower.lower_unit(i) })
           end
-          @index = pieces.each_with_index.to_h { |piece, i| [piece.entry, i] }
-          functions = finish(pieces, @entry_functions, "eval cache")
-          [@entry_functions + functions, @entry_data + @pieces.flat_map(&:data)]
+          names = entry_functions.map(&:name) + entry_data.map(&:name) + pieces.map(&:entry)
+          functions, data = build(pieces, entry_functions, names.to_set, "eval cache")
+          [entry_functions + functions, entry_data + data]
         end
 
         private
@@ -68,18 +67,6 @@ module Zr
           end
           body.each { |child| usings(child, out) if child.is_a?(Hir::Node) || child.is_a?(Array) } if body.is_a?(Hir::Node) || body.is_a?(Array)
           out
-        end
-
-        def again(piece)
-          i = @index.fetch(piece.entry)
-          lowered(piece.path, piece.entry, piece.key) { @lower.lower_unit(i) }
-        end
-
-        def fixed_names = @fixed_names ||= @entry_functions.map(&:name) + @entry_data.map(&:name)
-
-        def fixed_state(sym)
-          @fixed_set ||= @entry_functions.to_h { |f| [f.name, true] }
-          [:fixed, nil] if @fixed_set[sym]
         end
       end
     end

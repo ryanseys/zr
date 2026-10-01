@@ -7,61 +7,38 @@ require_relative "store"
 require_relative "../ir/fingerprint"
 require_relative "../ir/passes"
 require_relative "../native/code_cache"
+require_relative "../native/parallel"
+require_relative "../backend/aarch64"
 
 module Zr
   module Cache
-    # The pieces of a large unit that a build does not lower again: a piece
-    # (a core file, a file of eval support) whose inputs are the same as at
-    # an earlier build gets that build's machine code (`Native::CodeCache`)
-    # and data in place of its IR.
+    # The pieces of a large unit (the core files and the gem prelude, the
+    # files of eval support), each lowered and assembled on its own, in
+    # forked workers, and kept between builds.
     #
-    # Lowering the core took 7 s of each runtime build, and loading its IR
-    # from a cache took longer (15 s of Marshal), so a piece is either
-    # lowered or not needed at all. An entry keeps what the rest of the build
-    # reads from a piece's lowering: the fingerprint of each function, its
-    # data (unnumbered: its pool words name their symbols), the symbols it
-    # wants, and the IR of each of its leaves, which other functions inline.
-    # A piece has only the kernel's ids in its code, so no other piece's
-    # names change it.
+    # A piece has only the kernel's ids in its code, and it calls no other
+    # piece except through a piece's entry (a core file's toplevel, a
+    # unit that a `require` runs). So a piece inlines only its own
+    # functions and the fixed part's (the kernel), and its code depends on
+    # nothing else of the unit. A worker lowers a piece, inlines it,
+    # fingerprints each function and assembles each one that the code cache
+    # (`Native::CodeCache`) does not have. It returns machine code and
+    # data, never IR: loading the core's IR took longer than lowering it.
     #
-    # A function's code also depends on the rest of the unit: on the leaves
-    # that it inlines, and on which of its callees the unit defines. An entry
-    # records, for each colocated symbol that a function calls, what that
-    # symbol was: a function of the fixed part (the kernel), with the
-    # fingerprint of its IR when it is a leaf; a function of a piece, with
-    # the same; or no function. A build checks each entry before it inlines.
-    # A callee in a piece that this build lowers can have changed, unless it
-    # was no leaf and is still too large to become one (inlining only adds
-    # instructions). Then the build lowers each piece that fails, and
-    # inlines once over the whole unit.
-    # So the code is the same as a build that lowers every piece, which
-    # `core_cache_test.rb` checks byte for byte.
+    # An entry keeps what the rest of the build reads from a piece: the
+    # fingerprint of each function, its data (unnumbered: its pool words
+    # name their symbols), the symbols it wants, the kernel rows it read,
+    # what each fixed symbol that it called was (a leaf with the fingerprint
+    # of its IR, or not), and which of the symbols it names the unit
+    # defines. A build takes an entry while all of these hold and the code
+    # cache has its code; else a worker makes the piece again.
     class Lowering
-      VERSION = 3
+      VERSION = 4
 
-      # A piece that this build lowered: its IR and data, and what its
-      # entry keeps.
-      Lowered = Struct.new(:path, :entry, :key, :functions, :data, :wants, :small, :reads) do
-        def kept? = false
-        def function_names = functions.map(&:name)
-        # The IR that the inlining pass works on.
-        def ir = functions
-        # The IR of the leaves that other pieces inline: in `ir`.
-        def leaves = []
-      end
-
-      # A piece that this build takes from its entry, `record`. Its data
-      # loads on first use.
-      Kept = Struct.new(:path, :entry, :key, :record, :data) do
-        def kept? = true
-        def function_names = record[:functions].map(&:first)
-        def data = self[:data] ||= Marshal.load(record[:data])
-        def wants = record[:wants]
-        def ir = []
-        def leaves = record[:leaves].values.map { |blob| Marshal.load(blob) }
-      end
-
-      EMPTY = Set.new.freeze
+      # A piece to build: its path, its entry function, its key (nil when no
+      # key can describe it; then it is always made), its weight for the
+      # workers, and `make`, which returns `[functions, data]` of IR.
+      Piece = Struct.new(:path, :entry, :key, :weight, :make)
 
       attr_reader :code
 
@@ -72,56 +49,135 @@ module Zr
         @backend = Native::CodeCache.backend_digest
       end
 
-      # Writes an entry for each piece this build lowered. `fingerprints` gives
-      # each function's fingerprint, and `defined` what the unit defines.
-      def keep(fingerprints, defined)
+      # The fingerprint and the code of each function of the pieces, by
+      # name, for `Native::Build.cached`.
+      def known = @known ||= {}
+
+      # The symbols that the pieces call, and the symbols of the data that
+      # they read and that are not colocated (`Runtime#wants`).
+      def calls_and_reads = [@wants.flat_map(&:first).uniq, @wants.flat_map(&:last).uniq]
+
+      private
+
+      # Builds `pieces` over the fixed part: `fixed_ir` (already inlined),
+      # whose leaves a piece inlines, and `fixed_names`, every name outside
+      # the pieces that the unit defines (the fixed part's functions and
+      # data, and the pieces' entries). Returns `[functions, data]`: the
+      # machine code (`Obj::Code`) and the data of every piece, in order.
+      # `label` names the steps for ZR_TIMING.
+      def build(pieces, fixed_ir, fixed_names, label)
+        @fixed = fixed_ir.to_h { |f| [f.name, f] }
+        @fixed_names = fixed_names
+        inliner = IR::Passes::Inline.new(fixed_ir)
+        inliner.run
+        @leaf = fixed_ir.to_h { |f| [f.name, inliner.settled_leaf?(f.name) ? IR::Fingerprint.of(f, Set.new) : nil] }
+        records = Zr.clock("#{label}: checked") { pieces.map { |piece| current(piece) } }
+        missing = pieces.each_index.reject { |i| records[i] }
+        report(label, pieces.size - missing.size, pieces.size)
+        made = Zr.clock("#{label}: made") do
+          Native::Parallel.map(missing.map { |i| pieces[i] }, jobs: Config.current.jobs, weight: :weight.to_proc) do |piece|
+            made(piece)
+          end
+        end
+        missing.zip(made) { |i, (record, blobs)| records[i] = [record, blobs] }
+        Zr.clock("#{label}: kept") { keep(pieces, records) }
+        Zr.clock("#{label}: code read") { results(records) }
+      end
+
+      # `[record, nil]` for a piece whose entry holds, else nil. The code
+      # comes from the code cache.
+      def current(piece)
+        record = piece.key && Store.read(:lowering, piece.key)
+        reason = if piece.key.nil? then "no key"
+                 elsif record.nil? then "no entry"
+                 else stale(record)
+                 end
+        return [record, nil] unless reason
+
+        note(piece.path, reason)
+        nil
+      end
+
+      # Why an entry no longer holds, or nil when it holds.
+      def stale(record)
+        return "kernel rows" unless reads_hold?(record)
+
+        call = record[:calls].find { |sym, was| state(sym) != was }
+        return "#{call.first} was #{call.last.inspect}, now #{state(call.first).inspect}" if call
+
+        own = record[:functions].to_h { |name, _| [name, true] }
+        record[:data_names].each { |name| own[name] = true }
+        bit = record[:bits].find { |sym, was| (own.key?(sym) || @fixed_names.include?(sym)) != was }
+        return "#{bit.first} is #{bit.last ? "no longer" : "now"} defined" if bit
+
+        missing = record[:functions].find { |_, key| !code.blob(key) }
+        "no code for #{missing.first}" if missing
+      end
+
+      # What a fixed symbol is now: the fingerprint of a leaf, :call for a
+      # function that is no leaf, or :absent.
+      def state(sym)
+        return :absent unless @fixed.key?(sym)
+
+        @leaf[sym] || :call
+      end
+
+      # In a worker: lowers `piece`, inlines it over the fixed part, and
+      # returns its entry and the Marshal of each function's code.
+      def made(piece)
+        functions = data = nil
+        reads = reading { functions, data = piece.make.call }
+        own = (functions.map(&:name) + data.map(&:name)).to_set
+        inliner = IR::Passes::Inline.new(functions, sources: @fixed.values)
+        inliner.run
+        called = functions.flat_map { |f| inliner.calls(f.name) }.uniq.select { |sym| @fixed.key?(sym) }
+        named = (functions.flat_map { |f| f.callees.map(&:symbol) + f.globals.map(&:symbol) }).uniq
+        defined = own | @fixed_names
+        # A code cache is only for this backend (`Native::CodeCache.for`).
+        emitter = Backend::Aarch64
+        blobs = {}
+        prints = functions.map do |f|
+          key = IR::Fingerprint.of(f, defined)
+          blobs[key] = code.blob(key) || begin
+            IR::Passes.prepare(f)
+            Marshal.dump(emitter.assemble(f, defined))
+          end
+          [f.name, key]
+        end
+        record = { functions: prints, data: Marshal.dump(data), data_names: data.map(&:name), reads: reads,
+                   wants: wants_of(functions), calls: called.to_h { |sym| [sym, state(sym)] },
+                   bits: named.to_h { |sym| [sym, defined.include?(sym)] } }
+        [record, blobs]
+      end
+
+      # Writes an entry for each piece that a worker made, and the root that
+      # keeps this build's entries.
+      def keep(pieces, records)
         return if Zr.moved
 
-        @pieces.each do |piece|
-          next if piece.kept? || piece.key.nil?
-
-          leaves = piece.functions.select { |f| @inliner.settled_leaf?(f.name) }
-          record = {
-            wants: piece.wants, reads: piece.reads, data: Marshal.dump(piece.data),
-            functions: piece.functions.map { |f| [f.name, fingerprints.fetch(f.name)] },
-            calls: piece.functions.to_h { |f| [f.name, @inliner.calls(f.name).to_h { |sym| [sym, dependency(sym)] }] },
-            bits: piece.functions.flat_map { |f| f.callees.map(&:symbol) }.uniq.to_h { |sym| [sym, defined.include?(sym)] },
-            leaves: leaves.to_h { |f| [f.name, Marshal.dump(f)] },
-            leaf_prints: leaves.to_h { |f| [f.name, IR::Fingerprint.of(f, EMPTY)] }
-          }
-          Store.write(:lowering, piece.key, record)
+        pieces.zip(records) do |piece, (record, blobs)|
+          Store.write(:lowering, piece.key, record) if blobs && piece.key
         end
-        # The entries of this build, kept or new, are the ones that the next
-        # build after an edit reads.
-        Store.root("#{@target.triple}-#{@kind}", @pieces.filter_map { |piece| piece.key && Store.path(:lowering, piece.key) })
+        Store.root("#{@target.triple}-#{@kind}", pieces.filter_map { |piece| piece.key && Store.path(:lowering, piece.key) })
       rescue SystemCallError
         nil
       end
 
-      # The fingerprint and the code of each function that the build took
-      # from an entry, for `Native::Build.cached`.
-      def known = @known ||= {}
-
-      private
-
-      # A piece from its entry, or lowered now. A nil `key` is a piece that
-      # no key can describe; it is always lowered.
-      def piece(path, entry, key, &)
-        record = key && fetch(key)
-        return Kept.new(path, entry, key, record) if record && reads_hold?(record)
-
-        note(path, if key.nil? then "no key"
-                   elsif record then "kernel rows"
-                   else "no entry"
-                   end)
-        lowered(path, entry, key, &)
-      end
-
-      # Lowers a piece with the block, which returns `[functions, data]`.
-      def lowered(path, entry, key)
-        functions = data = nil
-        reads = reading { functions, data = yield }
-        Lowered.new(path, entry, key, functions, data, wants_of(functions), functions.to_h { |f| [f.name, small?(f)] }, reads)
+      # The code and the data of each piece, in order. The code of a piece
+      # that a worker made came with it; the rest comes from the code cache.
+      def results(records)
+        @wants = records.map { |record, _| record[:wants] }
+        functions = []
+        data = []
+        records.each do |record, blobs|
+          record[:functions].each do |name, key|
+            blob = blobs ? blobs.fetch(key) : code.blob(key)
+            known[name] = [key, blob]
+            functions << Marshal.load(blob)
+          end
+          data.concat(Marshal.load(record[:data]))
+        end
+        [functions, data]
       end
 
       # The kernel description that the pieces read, or nil when the key
@@ -144,10 +200,6 @@ module Zr
         reads.is_a?(Hash) && description.rows(reads) == reads
       end
 
-      # Whether `f` can become a leaf: a function with more instructions than
-      # Inline::LIMIT before inlining never becomes one.
-      def small?(f) = f.blocks.sum { |b| b.insts.size } <= IR::Passes::Inline::LIMIT
-
       # The symbols that `functions` call, and those of the data that they
       # read and that are not colocated, as `Runtime#write_cached` counts them.
       def wants_of(functions)
@@ -158,118 +210,21 @@ module Zr
       # backend, the base of the unit and the piece's own parts.
       def key_of(*parts) = Store.key(@kind, @backend, @base, *parts)
 
-      def fetch(key) = Store.read(:lowering, key)
+      # The base of every key of this lowering: the format, the target, the
+      # path root and the compiler, then `parts` of the unit.
+      def base_key(*parts) = Store.key(VERSION, @target.triple, Paths.root.to_s, RuntimeSources.for(@target).compiler_digest, *parts)
 
-      # The pieces this build takes from an entry, after the checks; the
-      # others it lowers now (`again`).
-      def settle(pieces)
-        loop do
-          owner = {}
-          pieces.each { |piece| piece.function_names.each { |name| owner[name] = piece } }
-          defined = defined_names(pieces)
-          failed = pieces.select { |piece| piece.kept? && !current?(piece, owner, defined) }
-          return pieces if failed.empty?
-
-          failed.each { |piece| pieces[pieces.index(piece)] = again(piece) }
-        end
-      end
-
-      # What `Aarch64.unit` counts as defined: the fixed part's names
-      # (`fixed_names`) and every function and data of the pieces.
-      def defined_names(pieces)
-        names = fixed_names.dup
-        pieces.each { |piece| names.concat(piece.function_names, piece.data.map(&:name)) }
-        names.to_set
-      end
-
-      # Whether an entry still holds: each callee is what it was, each bit
-      # of `defined` is the same, and the code cache has each function.
-      def current?(piece, owner, defined)
-        reason = stale(piece.record, owner, defined)
-        note(piece.path, reason) if reason
-        reason.nil?
-      end
-
-      # Why an entry no longer holds, or nil when it holds.
-      def stale(record, owner, defined)
-        bit = record[:bits].find { |sym, was| defined.include?(sym) != was }
-        return "#{bit.first} is #{bit.last ? "no longer" : "now"} defined" if bit
-
-        record[:calls].each_value do |calls|
-          call = calls.find { |sym, was| now(sym, owner) != was }
-          return "#{call.first} was #{call.last.inspect}, now #{now(call.first, owner).inspect}" if call
-        end
-        missing = record[:functions].find { |_, key| !code.take(key) }
-        "no code for #{missing.first}" if missing
-      end
-
-      # Notes the first reason that a piece is lowered, for ZR_TIMING.
+      # Notes the first reason that a piece is made, for ZR_TIMING.
       def note(path, reason)
         @why ||= "#{File.basename(path.to_s)}: #{reason}"
         (@whys ||= Hash.new(0))[reason.sub(/\A\S+ (is|was) /, "a callee \\1 ")[0, 60]] += 1
       end
 
-      # What the symbol `sym` is in this build, as an entry records it.
-      def now(sym, owner)
-        fixed = fixed_state(sym)
-        return fixed if fixed
-
-        piece = owner[sym]
-        return :absent if piece.nil?
-        return [:piece, piece.record[:leaf_prints][sym]] if piece.kept?
-
-        # Lowered now: it can have changed, unless it is too large to inline.
-        piece.small.fetch(sym, true) ? :changed : [:piece, nil]
-      end
-
-      # What the symbol `sym` was, for an entry this build writes.
-      def dependency(sym)
-        fixed = fixed_state(sym)
-        return fixed if fixed
-        return :absent unless @piece_names.key?(sym)
-
-        [:piece, @inliner.settled_leaf?(sym) ? IR::Fingerprint.of(@inliner_functions.fetch(sym), EMPTY) : nil]
-      end
-
-      # One pass of inlining over the fixed part and the IR this build
-      # lowered, with the leaves of each piece taken from an entry as sources.
-      def inline(pieces, fixed_ir)
-        ir = fixed_ir + pieces.flat_map(&:ir)
-        sources = pieces.flat_map(&:leaves)
-        @piece_names = pieces.flat_map(&:function_names).to_h { |name| [name, true] }
-        @inliner_functions = (ir + sources).to_h { |f| [f.name, f] }
-        @inliner = IR::Passes::Inline.new(ir, sources: sources)
-        @inliner.run
-      end
-
-      # The base of every key of this lowering: the format, the target, the
-      # path root and the compiler, then `parts` of the unit.
-      def base_key(*parts) = Store.key(VERSION, @target.triple, Paths.root.to_s, RuntimeSources.for(@target).compiler_digest, *parts)
-
-      # Checks the pieces, inlines over the unit, and returns the code of
-      # each function: IR from a piece lowered now, `Obj::Code` from a
-      # kept one. `label` names the steps for ZR_TIMING.
-      def finish(pieces, fixed_ir, label)
-        @pieces = Zr.clock("#{label}: checked") { settle(pieces) }
-        report(label, @pieces)
-        Zr.clock("#{label}: inlined") { inline(@pieces, fixed_ir) }
-        Zr.clock("#{label}: code read") { @pieces.flat_map { |piece| piece.kept? ? kept_code(piece) : piece.functions } }
-      end
-
-      def kept_code(piece)
-        piece.record[:functions].map do |name, key|
-          function, blob = code.take(key)
-          known[name] = [key, blob]
-          function
-        end
-      end
-
-      def report(label, pieces)
+      def report(label, kept, all)
         return unless Config.current.timing?
 
-        warn format("zr: %s: %d of %d pieces from entries%s", label, pieces.count(&:kept?), pieces.size,
-                    @why ? " (first lowered: #{@why})" : "")
-        @whys&.sort_by { |_, n| -n }&.first(5)&.each { |reason, n| warn format("zr: %s:   %4d lowered: %s", label, n, reason) }
+        warn format("zr: %s: %d of %d pieces from entries%s", label, kept, all, @why ? " (first made: #{@why})" : "")
+        @whys&.sort_by { |_, n| -n }&.first(5)&.each { |reason, n| warn format("zr: %s:   %4d made: %s", label, n, reason) }
       end
     end
   end

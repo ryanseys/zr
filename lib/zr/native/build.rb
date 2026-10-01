@@ -185,13 +185,11 @@ module Zr
       def eval_support_built(support, obj, jobs)
         Paths.tmpdir("zr-eval-") do |work|
           fresh = File.join(work, "eval.o")
-          # A Cache::Lowering::EvalSupport took some units from an earlier build, and inlined
-          # the unit already; its code cache has their code. It writes its
-          # entries once the code is made, before the IR goes.
+          # A Cache::Lowering::EvalSupport made the code of each unit, and
+          # inlined the unit already; its code cache has that code.
           units = support.cache
           code = units&.code || CodeCache.for("eval", support.target)
           done = lambda do
-            units&.keep(*code.built)
             units = nil # the lambda would keep the IR alive
             support.release
           end
@@ -221,15 +219,14 @@ module Zr
       def runtime_built(runtime, obj, jobs)
         Paths.tmpdir("zr-runtime-") do |work|
           fresh = File.join(work, "runtime.o")
-          # A Cache::Lowering::Core took some of the core's code from an earlier build,
-          # and inlined the unit already; its code cache has that code.
+          # A Cache::Lowering::Core made the core's code, and inlined the
+          # unit already; its code cache has that code.
           core = runtime.core_cache
           cache = core&.code || CodeCache.for("runtime", runtime.target)
           why = Zr.clock("runtime object assembled and written") do
             object(runtime.functions, runtime.data, fresh, raw: runtime.raw, export: true, target: runtime.target, jobs: jobs,
                                                                          cache: cache, inlined: !core.nil?, known: core&.known || {})
           end
-          core&.keep(*cache.built) unless why
           raise Failed, "the zr runtime for #{runtime.target} did not build: #{why}" if why
 
           Cache::Store.write_file(obj, File.binread(fresh))
@@ -306,7 +303,6 @@ module Zr
           [key, Marshal.dump(made), true]
         end
         Zr.clock("code cache kept") { cache.keep(answers.map { |key, blob, _| [key, blob] }) }
-        cache.built = [all.map(&:name).zip(answers.map(&:first)).to_h, defined]
         warn format("zr: code cache: %d of %d functions assembled", answers.count(&:last), all.size) if Config.current.timing?
         Zr.clock("code cache loaded") { answers.map { |_, blob, _| Marshal.load(blob) } }
       end

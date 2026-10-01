@@ -72,9 +72,6 @@ module Zr
       end
 
       attr_reader :hits, :misses
-      # `[fingerprints by name, defined]` of the last unit that this cache
-      # built (`Build.cached`), for `Cache::Lowering::Core#keep`.
-      attr_accessor :built
 
       def initialize(kind)
         @kind = kind
