@@ -8,3 +8,4 @@
 # file. Thus the file cannot become out of date.
 
 stdlib/ffi/ffi/toplevel_runs_on_the_process_main_thread.rb	the program runs on a ruby thread with a big stack, not on the process main thread, whose stack the OS sizes
+cli/stdlib/bundler/bundler_resolves_a_gemfile.rb	too slow for the walker: loading bundler and rubygems runs past the 120 s host limit

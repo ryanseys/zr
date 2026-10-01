@@ -485,7 +485,7 @@ module Zr
           s.roots.each do |b|
             b&.local_variables&.each do |name|
               v = b.local_variable_get(name)
-              @kern.zr_mark(v) if v.is_a?(Integer) && live?(v, arenas)
+              @kern.zr_mark(v) if v.is_a?(Integer) && object?(v, arenas)
             end
           end
         end
@@ -571,6 +571,13 @@ module Zr
         i = @kern.zr_cell_index(v)
         word = Memory.word(@kern.zr_arena_allocated(a) + ((i >> 6) * 8))
         word.anybits?(@kern.zr_marks_bit(i))
+      end
+
+      # Whether the local `v` of a rooted def holds an object. A local is
+      # a word of any type: a Ptr or a Word can point at a cell that is
+      # allocated but not yet an object, which the lowering never roots.
+      def object?(v, arenas)
+        live?(v, arenas) && @kern::RBasic.flags(v).anybits?(@kern::FL_ALLOCATED)
       end
 
       # The heap's arenas, by address.
