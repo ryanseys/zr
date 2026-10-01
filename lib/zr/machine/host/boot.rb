@@ -58,6 +58,12 @@ module Zr
           def zr_os_poll_start = self::BOOT.poll_start
         end
 
+        # fork(2) as ruby forks, so ruby's own state in the child is right.
+        # The child runs the program (`restart`).
+        module Fork
+          def fork = self::BOOT.fork
+        end
+
         attr_reader :host
 
         def initialize(target = Target.default)
@@ -71,7 +77,8 @@ module Zr
           kern = @host.kern
           kern.const_set(:BOOT, self)
           @handlers = {}
-          kern.prepend(Arch, Stack, Signals)
+          @owner = Process.pid
+          kern.prepend(Arch, Stack, Signals, Fork)
           kern.zr_boot
         end
 
@@ -131,11 +138,8 @@ module Zr
           nil
         end
 
-        # A thread's time slice. A binary's is 100 ms, but the walker does
-        # in 100 ms a small part of what a binary does. So a thread here
-        # gets a longer slice, which ends near the points where a binary's
-        # ends, not on the way to a thread's first line.
-        SLICE = 1.0
+        # A thread's time slice, as a binary's.
+        SLICE = 0.1
 
         # A forked child has no thread but the one that forked: the timer
         # starts again in it (`restart`).
@@ -151,9 +155,25 @@ module Zr
           nil
         end
 
-        # After a fork: the timer that the kernel started runs again.
+        # After a fork: this process runs the program now. The timer that
+        # the kernel started runs again, and the kernel's signal handlers
+        # run here (`sigaction`).
         def restart
+          @owner = Process.pid
           poll_start if @poll
+        end
+
+        # The process whose kernel takes the signals: the one that booted,
+        # or a fork that runs a program (`restart`).
+        attr_reader :owner
+
+        # The kernel's fork (`Fork`): the child's pid, or 0 in the child.
+        def fork
+          pid = Process.fork
+          return pid if pid
+
+          restart
+          0
         end
 
         # sigaction(2) for the kernel: `fn` 0 is the default, 1 is ignore,
@@ -168,7 +188,11 @@ module Zr
                     when 1 then "IGNORE"
                     else
                       target = @host.def_at(fn) or raise ArgumentError, "a signal handler at #{fn} that is no kernel def"
-                      proc { kern.public_send(target, signo) }
+                      # A fork inherits the trap; one that does not run the
+                      # program (a test worker) keeps its kernel unchanged
+                      # for the forks it makes after.
+                      boot = self
+                      proc { kern.public_send(target, signo) if boot.owner == Process.pid }
                     end
           Signal.trap(name, handler)
           Memory.write(old, [@handlers.fetch(signo, 0)].pack("Q<"))

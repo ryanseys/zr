@@ -36,7 +36,11 @@ module Zr
       # programs run in `root`, and returns true when none failed.
       def self.run(paths, root: ROOT, target: Harness::Runner.named(ENV["ZR_TARGET"]), out: $stdout, host: false)
         tests = paths.flat_map { |path| Case.under(path, root) }.uniq
-        new(tests, target, root == ROOT ? Baseline.for(target) : Baseline.corpus(root, target), out, host: host).run
+        allowed = if host then Baseline.host
+                  elsif root == ROOT then Baseline.for(target)
+                  else Baseline.corpus(root, target)
+                  end
+        new(tests, target, allowed, out, host: host).run
       end
 
       # With `host`, each program runs on CRuby over the kernel
@@ -92,7 +96,7 @@ module Zr
       # The target's baseline allows `test` to fail: a failure is a skip
       # with the reason, and a pass fails, so the baseline stays current.
       def baselined(test, kind, detail)
-        triple = @runner.target.triple
+        triple = @host ? "host" : @runner.target.triple
         case kind
         when :pass then [:fail, "this now passes: take it off test/baselines/#{triple}.txt"]
         when :skip then [kind, detail]

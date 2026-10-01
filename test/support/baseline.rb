@@ -26,6 +26,10 @@ module Zr
 
       def for(target) = read(path(target))
 
+      # What the host (`bin/test --host`, CRuby over the kernel) can fail:
+      # `host.txt`. A binary's own baseline does not apply there.
+      def host = read(File.join(DIR, "host.txt"))
+
       def read(file)
         return {} unless File.file?(file)
 

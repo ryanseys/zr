@@ -1,0 +1,10 @@
+# The program tests that can fail on the host (`bin/test --host`: CRuby
+# runs the kernel, the core and the program, lib/zr/machine/host/walk.rb),
+# and why. Each line is a program's path below test/programs and a reason,
+# separated by a tab. A `#` line is a comment (test/support/baseline.rb).
+#
+# The run skips a listed test that fails, and prints its reason. A listed
+# test that passes fails the run, with a message to remove it from this
+# file. Thus the file cannot become out of date.
+
+stdlib/ffi/ffi/toplevel_runs_on_the_process_main_thread.rb	the program runs on a ruby thread with a big stack, not on the process main thread, whose stack the OS sizes

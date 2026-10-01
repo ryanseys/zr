@@ -669,8 +669,37 @@ module Zr
   # program reads its gems (lib/zr/runtime/lib/zr/gem_manifest.rb).
   def load_tables(units = [], evals: false, spots: {}, coverable: {}, branches: {}, defs: {}, sources: {},
                   target: Target.default, gem_roots: [], manifest: nil)
+    units = units.select { |path, _| path.start_with?("/") }.map { |path, entry| [Paths.shown(path), entry] }.sort
+    names = load_texts(evals: evals, spots: spots, coverable: coverable, branches: branches, defs: defs, sources: sources,
+                       target: target, gem_roots: gem_roots, manifest: manifest)
+    out = []
+    text = ->(name, bytes) { out << Obj::Datum.new(name, :text_const, "#{bytes}\0".b, align: 1) }
+    rows = +"".b
+    row_relocs = []
+    units.each_with_index do |(path, entry), i|
+      text.call("zr_unit_path_#{i}", path)
+      row_relocs << Obj::Reloc.new(i * 24, :abs64, "zr_unit_path_#{i}") << Obj::Reloc.new((i * 24) + 16, :abs64, entry)
+      rows << [0, path.bytesize, 0].pack("Q<3")
+    end
+    out << Obj::Datum.new("zr_unit_rows", :data_const, rows.empty? ? "\0".b * 8 : rows, relocs: row_relocs, align: 8)
+    words = [units.size, 0]
+    relocs = [Obj::Reloc.new(8, :abs64, "zr_unit_rows")]
+    names.each_with_index do |lines, i|
+      joined = lines.join("\n")
+      text.call("zr_load_names_#{i}", joined)
+      relocs << Obj::Reloc.new(words.size * 8, :abs64, "zr_load_names_#{i}")
+      words << 0 << joined.bytesize
+    end
+    out << Obj::Datum.new("zr_load_table_words", :data_const, words.pack("Q<*"), relocs: relocs, align: 8)
+    out << Obj::Datum.new("zr_load_tables", :data_const, "\0".b * 8, relocs: [Obj::Reloc.new(0, :abs64, "zr_load_table_words")], align: 8, linkage: :export)
+  end
+
+  # The texts of `load_tables` after the files, in the order of the
+  # kernel's LoadTable: each a list of lines. The host gives them to the
+  # kernel as a link does (`Machine::Host::Walk`).
+  def load_texts(evals: false, spots: {}, coverable: {}, branches: {}, defs: {}, sources: {}, target: Target.default, gem_roots: [],
+                 manifest: nil)
     shown = ->(path) { Paths.shown(path) }
-    units = units.select { |path, _| path.start_with?("/") }.map { |path, entry| [shown[path], entry] }.sort
     # A ruby feature that no root here contains, then a tab and the reason
     # if there is one. So a computed require stops for the same reason as
     # a literal one.
@@ -704,26 +733,6 @@ module Zr
     names << defs.map { |file, rows| "#{shown[file]}\t#{rows.map { |row| row.join(",") }.join("\t")}" }
     names << sources.map { |path, digest| [shown[path], digest] }.sort.map { |path, digest| "#{path}\t#{digest}" }
     names << [manifest.to_s.chomp]
-    out = []
-    text = ->(name, bytes) { out << Obj::Datum.new(name, :text_const, "#{bytes}\0".b, align: 1) }
-    rows = +"".b
-    row_relocs = []
-    units.each_with_index do |(path, entry), i|
-      text.call("zr_unit_path_#{i}", path)
-      row_relocs << Obj::Reloc.new(i * 24, :abs64, "zr_unit_path_#{i}") << Obj::Reloc.new((i * 24) + 16, :abs64, entry)
-      rows << [0, path.bytesize, 0].pack("Q<3")
-    end
-    out << Obj::Datum.new("zr_unit_rows", :data_const, rows.empty? ? "\0".b * 8 : rows, relocs: row_relocs, align: 8)
-    words = [units.size, 0]
-    relocs = [Obj::Reloc.new(8, :abs64, "zr_unit_rows")]
-    names.each_with_index do |lines, i|
-      joined = lines.join("\n")
-      text.call("zr_load_names_#{i}", joined)
-      relocs << Obj::Reloc.new(words.size * 8, :abs64, "zr_load_names_#{i}")
-      words << 0 << joined.bytesize
-    end
-    out << Obj::Datum.new("zr_load_table_words", :data_const, words.pack("Q<*"), relocs: relocs, align: 8)
-    out << Obj::Datum.new("zr_load_tables", :data_const, "\0".b * 8, relocs: [Obj::Reloc.new(0, :abs64, "zr_load_table_words")], align: 8, linkage: :export)
   end
 
   # `zr_symbol_names`: one (bytes, length) record per symbol id. The bytes

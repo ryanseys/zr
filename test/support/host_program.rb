@@ -21,6 +21,8 @@ module Zr
       # the worker's deadline (`Workers::DEADLINE`).
       SLOWER = 2
 
+      FFLUSH = Fiddle::Function.new(Fiddle::Handle::DEFAULT["fflush"], [Fiddle::TYPE_VOIDP], Fiddle::TYPE_INT)
+
       module_function
 
       def limit = ProgramRun::LIMIT * SLOWER
@@ -71,6 +73,9 @@ module Zr
           end.join
           $stdout.flush
           $stderr.flush
+          # A binary ends with exit(3), which flushes C's stdio: a program's
+          # printf through ffi shows. exit! does not, so this flushes.
+          FFLUSH.call(nil)
           exit!(status)
         end
         [out_w, err_w, in_r].each(&:close)

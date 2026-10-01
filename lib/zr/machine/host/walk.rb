@@ -239,17 +239,23 @@ module Zr
           k::Frame.set_line(c.rec, (node.line || 0) | (id << 32))
         end
 
-        # Gives the load tables the program's error_highlight spots, which
-        # a link writes into a binary (`Runtime#load_tables`).
-        #
-        # And the files the program was built with, by path, each with its
-        # toplevel: a require of a computed name finds its file there
-        # (`zr_unit_for`).
+        # Gives the load tables what a link writes into a binary
+        # (`Zr.load_tables`): the texts (`Zr.load_texts`: for a program with
+        # eval, what a require of a computed name searches; error_highlight's
+        # spots; Coverage's tables), and the files the program was built
+        # with, by path, each with its toplevel, where a require of a
+        # computed name finds its file (`zr_unit_for`).
+        TEXTS = %w[roots missing preloaded ext spots coverable branches defs sources manifest].freeze
+
         def spotted(hir, target)
-          text = Hash(hir.spots).map { |file, rows| "#{Paths.shown(file)}\n#{rows}" }.join("\f").b
           words = Memory.fetch(TYPES["Ptr"], @host.extern("zr_load_tables"))
           table = k::LoadTable
-          Memory.write(words + table.layout_fields.fetch("spots").first, [@host.bytes(text), text.bytesize].pack("Q<Q<"))
+          texts = Zr.load_texts(evals: hir.evals, spots: hir.spots || {}, coverable: hir.coverable || {}, branches: hir.branches || {},
+                                defs: hir.defs || {}, target: target)
+          TEXTS.zip(texts) do |field, lines|
+            text = lines.join("\n").b
+            Memory.write(words + table.layout_fields.fetch(field).first, [@host.bytes(text), text.bytesize].pack("Q<Q<"))
+          end
           units = Hash(hir.entries).select { |path, _| path.start_with?("/") }.map { |path, unit| [Paths.shown(path), unit] }.sort_by(&:first)
           rows = units.flat_map do |path, unit|
             bytes = path.b
@@ -259,23 +265,6 @@ module Zr
           Memory.write(at, rows.pack("Q<*")) unless rows.empty?
           table.set_units(words, units.size)
           table.set_rows(words, at)
-          searched(words, target) if hir.evals
-        end
-
-        # The texts that a require of a computed name searches, which a
-        # build writes for a program with eval (`Runtime#load_tables`): the
-        # library directories after $LOAD_PATH, the features this runtime
-        # has no file for, those ruby loads first, and the extensions.
-        def searched(words, target)
-          b = Hir::Build
-          pure = b.pure
-          uncarried = b.missing_features(target).map { |name| [name, *b::UNSUPPORTED_LIBRARIES[name]].join("\t") }
-          texts = { "roots" => [pure, *(b.stdlib(target) - [pure])].map { |p| Paths.shown(p) }, "missing" => uncarried,
-                    "preloaded" => b::PRELOADED, "ext" => [Paths.shown(Zr::Layout::EXT)] }
-          texts.each do |field, lines|
-            text = lines.join("\n").b
-            Memory.write(words + k::LoadTable.layout_fields.fetch(field).first, [@host.bytes(text), text.bytesize].pack("Q<Q<"))
-          end
         end
 
         def truthy?(v) = (v & ~8) != 0
@@ -1065,9 +1054,12 @@ module Zr
           last = @qnil
           list = @host.pins
           stmts = node.stmts
-          stmts.each_with_index do |s, i|
+          # A continuation (`callcc`) restores the machine stack, not the
+          # locals of Ruby frames, so this loop keeps its place in a C
+          # iterator: under YJIT, Array#each is Ruby.
+          stmts.each_index do |i|
             mark = list.size
-            last = ev(s, c)
+            last = ev(stmts[i], c)
             list.slice!(mark..) if i < stmts.size - 1
           end
           last
@@ -1372,7 +1364,11 @@ module Zr
           return send_node(funcall(node), c) if kernel_send?(node, c)
 
           recv = node.recv ? ev(node.recv, c) : c.self_
-          return @qnil if node.safe && recv == @qnil
+          if node.safe
+            # Coverage counts the call's branch or the nil branch (`Sends#safe_call`).
+            k.zr_coverage_branch((recv == @qnil ? node.covers.last : node.covers.first).id) if node.covers
+            return @qnil if recv == @qnil
+          end
           return recv if node.interp && k.zr_interp_plain_p(recv)
 
           args, splat = arguments(node.args, c)
@@ -1656,8 +1652,6 @@ module Zr
                 run_body(inner, node) do
                   bind_block(node.params, argc, argv, blk, inner, @fns[node].first)
                   opened(inner, :block)
-                  # A `define_method` block's fourth argument is its entry.
-                  k.zr_coverage_method(blk) if node.cover
                   # A `redo` in the block throws its meta (`Hir::Redo`).
                   redoable(inner.meta) { node.body ? ev(node.body, inner) : @qnil }
                 end

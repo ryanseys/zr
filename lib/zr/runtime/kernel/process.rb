@@ -56,6 +56,13 @@ module Zr::Kern
     i = 0
     while i < n
       Libc.posix_spawn_file_actions_adddup2(actions, Machine.i32(zr_fix2long(zr_ary_at(dups, i + 1))), Machine.i32(zr_fix2long(zr_ary_at(dups, i))))
+      # A child's standard stream blocks, as ruby makes it: a pipe from
+      # IO.pipe is non-blocking, and a child that reads it before the
+      # parent writes would get EAGAIN. The flag is on the open file, so
+      # this clears it for the parent too, as in ruby.
+      if zr_fix2long(zr_ary_at(dups, i)) <= 2
+        zr_io_set_nonblock(zr_ary_at(dups, i + 1), zr_fix(0))
+      end
       i += 2
     end
     n = RArray.len(closes)
@@ -137,6 +144,10 @@ module Zr::Kern
         zr_os_fcntl(child, Machine.i32(F_SETFD), 0)
       elsif Libc.dup2(source, child) < Machine.i32(0)
         return zr_errno()
+      end
+      # A standard stream blocks, as in zr_posix_spawn.
+      if child <= Machine.i32(2)
+        zr_io_set_nonblock(zr_ary_at(dups, i), zr_fix(0))
       end
       i += 2
     end
