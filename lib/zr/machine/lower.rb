@@ -82,6 +82,7 @@ module Zr
         @collects = nil
         @inline = {}
         @inlined = []
+        @plain = Set.new
       end
 
       def run
@@ -93,7 +94,13 @@ module Zr
           end
 
           @file = file
-          declare(result.value.statements.body)
+          statements = result.value.statements.body
+          if (body = kern_body(statements))
+            @plain << file
+            declare_plain(body)
+          else
+            declare(statements)
+          end
         end
         @consts.each_key { |name| const_for(name) }
         @structs.each_key { |name| struct_for(name) }
@@ -334,7 +341,7 @@ module Zr
         if node.is_a?(Prism::CallNode)
           if node.receiver.nil? && @defs.key?(node.name.to_s)
             into << node.name.to_s
-          elsif node.name == :call && machine?(node.receiver)
+          elsif node.name == :call && (machine?(node.receiver) || sig_read?(node.receiver))
             into << :indirect
           end
         end
@@ -348,10 +355,7 @@ module Zr
         pending_sig = nil
         statements.each do |node|
           if node.is_a?(Prism::ConstantWriteNode)
-            name = node.name.to_s
-            refuse(node, "#{name} is already a constant") if @consts.key?(name)
-            refuse(node, "#{name} is already a struct") if @structs.key?(name)
-            @consts[name] = [node.value, @file]
+            add_const(node, node.name.to_s)
             next
           end
           refuse(node, "a statement that is not a declaration or a machine def") unless node.is_a?(Prism::CallNode)
@@ -363,8 +367,7 @@ module Zr
             if machine?(node.receiver)
               name, sig = node.arguments&.arguments
               refuse(node, "a named signature is `Machine.sig :name, [types] => type`") unless name.is_a?(Prism::SymbolNode) && sig
-              params, ret = signature(sig)
-              @sigs[name.unescaped] = Signature.new(name.unescaped, params, ret)
+              add_sig(name.unescaped, *signature(sig))
             else
               refuse(node, "a sig is `sig [types] => type`") unless node.receiver.nil?
               pending_sig = signature(node.arguments.arguments.first)
@@ -372,8 +375,7 @@ module Zr
           when :import
             refuse(node, "an import is `Machine.import \"name\", [types] => type`") unless machine?(node.receiver)
             name, sig = node.arguments.arguments
-            params, ret, from = import_signature(sig)
-            @imports[name.unescaped] = Import.new(name.unescaped, params, ret, from)
+            add_import(name.unescaped, sig)
           when :collects
             refuse(node, "`Machine.collects` takes the symbol of a machine def") unless machine?(node.receiver) && node.arguments&.arguments&.first.is_a?(Prism::SymbolNode)
             @collectors << node.arguments.arguments.first.unescaped
@@ -382,25 +384,132 @@ module Zr
             @inlined << node.arguments.arguments.first.unescaped
           when :raw
             refuse(node, "a raw function is `Machine.raw \"name\"`") unless machine?(node.receiver)
-            name = node.arguments.arguments.first.unescaped
-            @imports[name] = RAW.fetch(name) { refuse(node, "no raw function named #{name}") }
-            @raw << name
+            add_raw(node, node.arguments.arguments.first.unescaped)
           when :machine
             d = node.arguments&.arguments&.first
             refuse(node, "`machine` takes a def") unless d.is_a?(Prism::DefNode)
             refuse(d, "a machine def has no sig ahead of it") if pending_sig.nil?
-            params, ret = pending_sig
+            add_def(d, pending_sig)
             pending_sig = nil
-            refuse(d, "a machine def's name is letters, digits and underscores") unless d.name.to_s.match?(/\A[A-Za-z_][A-Za-z0-9_]*\z/)
-            names = (d.parameters&.requireds || []).map { |p| p.name.to_s }
-            refuse(d, "the sig has #{params.size} types for #{names.size} parameters") if names.size != params.size
-            refuse(d, "a machine def takes required parameters only") if d.parameters && d.parameters.child_nodes.compact.size != names.size
-            refuse(d, "#{d.name} is defined twice; the first is in #{@defs[d.name.to_s].file}") if @defs.key?(d.name.to_s)
-            @defs[d.name.to_s] = Def.new(d.name.to_s, names.zip(params), ret, d, @file)
           else
             refuse(node, "`#{node.name}` is not in the kernel dialect at the top level")
           end
         end
+      end
+
+      # The module of the kernel in plain Ruby. A file that is one
+      # `module Zr::Kern ... end` is in the plain form; any other file is
+      # in the dialect form. Both forms lower to the same IR, so the
+      # files can move one group at a time (A6).
+      KERN = "Zr::Kern"
+
+      # The statements in the module of a file in the plain form, or nil
+      # for a file in the dialect form.
+      def kern_body(statements)
+        return unless statements.one? && (mod = statements.first).is_a?(Prism::ModuleNode)
+
+        refuse(mod, "the kernel's module is #{KERN}") unless mod.constant_path.slice == KERN
+        mod.body&.body || []
+      end
+
+      # Whether `file` is in the plain form. In that form, a call to an
+      # import is `Libc.name(...)`, and a bare call goes to a def.
+      def plain?(file) = @plain.include?(file)
+
+      # The declarations of a file in the plain form:
+      #
+      #   Libc.import :name, [types] => type   a C function, called as `Libc.name(...)`
+      #   Name = layout field: Type, ...       a struct
+      #   Name = fn [types] => type            a signature, called as `Name.call(pointer, ...)`
+      #   NAME = 1 << 4                        a constant
+      #   inline :name, collects :name         as `Machine.inline` and `Machine.collects`
+      #   raw :name, [types] => type           a function that the backend delivers
+      #   sig [types] => type, then a def      a def
+      def declare_plain(statements)
+        pending_sig = nil
+        statements.each do |node|
+          case node
+          when Prism::ConstantWriteNode then declare_plain_const(node)
+          when Prism::DefNode
+            refuse(node, "a def has no sig ahead of it") if pending_sig.nil?
+            add_def(node, pending_sig)
+            pending_sig = nil
+          when Prism::CallNode
+            args = node.arguments&.arguments || []
+            if libc?(node.receiver) && node.name == :import
+              refuse(node, "an import is `Libc.import :name, [types] => type`") unless args.size == 2 && args.first.is_a?(Prism::SymbolNode)
+              add_import(args.first.unescaped, args.last)
+            elsif node.receiver.nil? && node.name == :sig
+              refuse(node, "a sig is `sig [types] => type`") unless args.one?
+              pending_sig = signature(args.first)
+            elsif node.receiver.nil? && %i[inline collects].include?(node.name)
+              refuse(node, "`#{node.name}` takes the symbol of a def") unless args.one? && args.first.is_a?(Prism::SymbolNode)
+              (node.name == :inline ? @inlined : @collectors) << args.first.unescaped
+            elsif node.receiver.nil? && node.name == :raw
+              refuse(node, "a raw function is `raw :name, [types] => type`") unless args.size == 2 && args.first.is_a?(Prism::SymbolNode)
+              add_raw(node, args.first.unescaped, signature(args.last))
+            else
+              refuse(node, "a statement that is not a declaration or a def")
+            end
+          else
+            refuse(node, "a statement that is not a declaration or a def")
+          end
+        end
+      end
+
+      # `Name = layout ...`, `Name = fn ...`, or a constant.
+      def declare_plain_const(node)
+        name = node.name.to_s
+        value = node.value
+        kind = value.name if value.is_a?(Prism::CallNode) && value.receiver.nil?
+        args = value.arguments&.arguments if kind
+        case kind
+        when :layout
+          refuse(node, "a struct is `Name = layout field: Type, ...`") unless args&.one? && args.first.is_a?(Prism::KeywordHashNode)
+          add_struct(value, name)
+        when :fn
+          refuse(node, "a signature is `Name = fn [types] => type`") unless args&.one?
+          refuse(node, "#{name} is already a constant") if @consts.key?(name) || @structs.key?(name)
+          add_sig(name, *signature(args.first))
+        else
+          add_const(node, name)
+        end
+      end
+
+      def add_const(node, name)
+        refuse(node, "#{name} is already a constant") if @consts.key?(name)
+        refuse(node, "#{name} is already a struct") if @structs.key?(name)
+        refuse(node, "#{name} is already a signature") if @sigs.key?(name)
+        @consts[name] = [node.value, @file]
+      end
+
+      def add_sig(name, params, ret)
+        @sigs[name] = Signature.new(name, params, ret)
+      end
+
+      def add_import(name, sig)
+        params, ret, from = import_signature(sig)
+        @imports[name] = Import.new(name, params, ret, from)
+      end
+
+      # A raw function. The plain form repeats its signature, which must
+      # be the one the backend delivers.
+      def add_raw(node, name, sig = nil)
+        raw = RAW.fetch(name) { refuse(node, "no raw function named #{name}") }
+        refuse(node, "#{name} is [#{raw.params.join(", ")}] => #{raw.ret}") if sig && sig != [raw.params, raw.ret]
+        @imports[name] = raw
+        @raw << name
+      end
+
+      def add_def(d, sig)
+        params, ret = sig
+        refuse(d, "a machine def's name is letters, digits and underscores") unless d.name.to_s.match?(/\A[A-Za-z_][A-Za-z0-9_]*\z/)
+        names = (d.parameters&.requireds || []).map { |p| p.name.to_s }
+        refuse(d, "the sig has #{params.size} types for #{names.size} parameters") if names.size != params.size
+        refuse(d, "a machine def takes required parameters only") if d.parameters && d.parameters.child_nodes.compact.size != names.size
+        refuse(d, "a def has a receiver; the kernel's defs are plain `def name`") if d.receiver
+        refuse(d, "#{d.name} is defined twice; the first is in #{@defs[d.name.to_s].file}") if @defs.key?(d.name.to_s)
+        @defs[d.name.to_s] = Def.new(d.name.to_s, names.zip(params), ret, d, @file)
       end
 
       # Returns an import's `[[type names], type name, module]`. `from:`
@@ -479,9 +588,14 @@ module Zr
       def declare_struct(node)
         name, fields = node.arguments&.arguments
         refuse(node, "a struct is `Machine.struct :Name, field: Type, ...`") unless name.is_a?(Prism::SymbolNode) && fields.is_a?(Prism::KeywordHashNode)
-        refuse(node, "#{name.unescaped} is already a struct") if @structs.key?(name.unescaped)
-        refuse(node, "#{name.unescaped} is already a constant") if @consts.key?(name.unescaped)
-        @structs[name.unescaped] = [node, @file]
+        add_struct(node, name.unescaped)
+      end
+
+      # `node` is the call whose last argument has the fields.
+      def add_struct(node, name)
+        refuse(node, "#{name} is already a struct") if @structs.key?(name)
+        refuse(node, "#{name} is already a constant") if @consts.key?(name) || @sigs.key?(name)
+        @structs[name] = [node, @file]
       end
 
       # Each field at its natural alignment; a field of a struct type is
@@ -520,6 +634,15 @@ module Zr
 
       def machine?(node)
         node.is_a?(Prism::ConstantReadNode) && node.name == :Machine
+      end
+
+      def libc?(node)
+        node.is_a?(Prism::ConstantReadNode) && node.name == :Libc
+      end
+
+      # Whether `node` names a `Name = fn ...` signature.
+      def sig_read?(node)
+        node.is_a?(Prism::ConstantReadNode) && @sigs.key?(node.name.to_s)
       end
 
       def import_for(name)

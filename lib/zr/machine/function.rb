@@ -192,9 +192,16 @@ module Zr
       def call(node, want)
         args = node.arguments&.arguments || []
         if node.receiver.nil?
+          target(node, node.name.to_s, args, imports: !@unit.plain?(@d.file))
+        elsif @unit.libc?(node.receiver)
+          import = @unit.import_for(node.name.to_s)
+          refuse(node, "#{node.name} is not a Libc.import here") unless import.is_a?(Import)
           target(node, node.name.to_s, args)
         elsif @unit.machine?(node.receiver)
           intrinsic(node, args, want)
+        elsif @unit.sig_read?(node.receiver)
+          refuse(node, "a signature takes `call`") unless node.name == :call
+          indirect(node, @unit.sig_for(node.receiver.name.to_s), args[0], args[1..])
         elsif node.name == :! && args.empty?
           value, type = condition_value(node.receiver)
           [@f.icmp("eq", value, @f.iconst(ir_type(type), 0)), "Bool"]
@@ -310,7 +317,12 @@ module Zr
       # Operators that lower to one instruction with no effect, and that
       # cannot fault for any operands. Division is not in this list.
       PLAIN_OPERATORS = %i[+ - * & | ^ << >> < <= > >= == != !].freeze
-      PLAIN_CASTS = %i[i32 i8 word sword ptr value].freeze
+      PLAIN_CASTS = %i[i32 i8 word sword ptr value u8 u32].freeze
+
+      # The operators whose result wraps at the width of the type, by
+      # name. A plain `+ - * <<` must not overflow, so that it means the
+      # same on CRuby (A6); a sum that must wrap names it.
+      WRAPS = { add_wrap: :+, sub_wrap: :-, mul_wrap: :*, shl_wrap: :<< }.freeze
 
       # Whether `node` reads only literals, constants and locals, through
       # plain operators and casts. Such an expression makes only its value.
@@ -325,7 +337,10 @@ module Zr
         when Prism::CallNode
           args = node.arguments&.arguments || []
           return false if node.block || node.receiver.nil?
-          return PLAIN_CASTS.include?(node.name) && args.one? && plain?(args[0]) if @unit.machine?(node.receiver)
+          if @unit.machine?(node.receiver)
+            return (PLAIN_CASTS.include?(node.name) && args.one? && plain?(args[0])) ||
+                   (WRAPS.key?(node.name) && args.size == 2 && args.all? { |a| plain?(a) })
+          end
 
           PLAIN_OPERATORS.include?(node.name) && args.size <= 1 && plain?(node.receiver) && args.all? { |a| plain?(a) }
         else false
@@ -384,9 +399,12 @@ module Zr
         want == got || (PLAIN.include?(want) && PLAIN.include?(got))
       end
 
-      # A call to an import or to a def of this unit.
-      def target(node, name, args)
-        callee = @unit.def_for(name) || @unit.import_for(name) or refuse(node, "#{name} is not an import or a machine def here")
+      # A call to an import or to a def of this unit. A bare call in a
+      # file of the plain form goes only to a def (or a raw function).
+      def target(node, name, args, imports: true)
+        callee = @unit.def_for(name) || @unit.import_for(name)
+        callee = nil if !imports && callee.is_a?(Import)
+        callee or refuse(node, imports ? "#{name} is not an import or a machine def here" : "#{name} is not a def here; an import is `Libc.#{name}`")
         refuse(node, "#{name} takes #{callee.params.size} arguments, not #{args.size}") if args.size != callee.params.size
         types = callee.is_a?(Def) ? callee.params.map(&:last) : callee.params
         values = args.zip(types).map do |arg, type|
@@ -472,19 +490,7 @@ module Zr
           name = args.first
           refuse(node, "Machine.call takes the name of a Machine.sig, a pointer and the arguments") unless name.is_a?(Prism::SymbolNode)
           s = @unit.sig_for(name.unescaped) or refuse(node, "#{name.unescaped} is not a Machine.sig here")
-          ptr, pt = expr(args[1] || refuse(node, "Machine.call takes a pointer after the signature"), "Ptr")
-          refuse(args[1], "Machine.call through a #{pt}") unless fits?("Ptr", pt)
-          rest = args[2..]
-          refuse(node, "#{name.unescaped} takes #{s.params.size} arguments, not #{rest.size}") if rest.size != s.params.size
-          values = rest.zip(s.params).map do |arg, type|
-            value, got = expr(arg, type)
-            refuse(arg, "#{name.unescaped} wants a #{type} here, not a #{got}") unless fits?(type, got)
-            rooted(arg, value, got)
-          end
-          sig = @f.sig(s.params.map { |t| ir_type(t) }, ir_type(s.ret))
-          return [@f.call_indirect(sig, ptr, values), "Void"] if s.ret == "Void"
-
-          [@f.call_indirect_val(sig, ptr, values), s.ret]
+          indirect(node, s, args[1], args[2..])
         when :bytes
           s = args.first
           refuse(node, "Machine.bytes takes a string literal") unless s.is_a?(Prism::StringNode)
@@ -526,6 +532,23 @@ module Zr
         when :i32, :i8, :word, :sword, :ptr, :value
           value, type = expr(args.first)
           convert(node, node.name, value, type)
+        when :u8, :u32
+          value, type = expr(args.first)
+          narrow = node.name == :u8 ? "i8" : "i32"
+          refuse(node, "Machine.#{node.name} of a #{type}") unless args.one? && ir_type(type) == narrow
+          convert(node, :word, value, type)
+        when *WRAPS.keys
+          refuse(node, "Machine.#{node.name} takes two operands") unless args.size == 2
+          lhs, lt = expr(args[0], want)
+          rhs, rt = expr(args[1], lt)
+          refuse(node, "Machine.#{node.name} of an F64") if lt == "F64" || rt == "F64"
+          binary(node, WRAPS.fetch(node.name), lhs, lt, rhs, rt)
+        when :sdiv, :srem
+          refuse(node, "Machine.#{node.name} takes two operands") unless args.size == 2
+          lhs, lt = expr(args[0], want)
+          rhs, rt = expr(args[1], lt)
+          refuse(node, "Machine.#{node.name} of a #{lt} and a #{rt}") unless %w[I8 I32 Word].include?(lt) && lt == rt
+          binary(node, node.name == :sdiv ? :/ : :%, lhs, lt, rhs, rt)
         when :f64, :bits, :to_f64, :to_int
           value, type = expr(args.first)
           float_convert(node, node.name, value, type)
@@ -546,6 +569,23 @@ module Zr
         else
           refuse(node, "Machine.#{node.name} is not an intrinsic")
         end
+      end
+
+      # A call through the pointer `at` with the signature `s`:
+      # `Machine.call(:name, at, ...)` or `Name.call(at, ...)`.
+      def indirect(node, s, at, rest)
+        ptr, pt = expr(at || refuse(node, "#{s.name}.call takes a pointer first"), "Ptr")
+        refuse(at, "#{s.name}.call through a #{pt}") unless fits?("Ptr", pt)
+        refuse(node, "#{s.name} takes #{s.params.size} arguments, not #{rest.size}") if rest.size != s.params.size
+        values = rest.zip(s.params).map do |arg, type|
+          value, got = expr(arg, type)
+          refuse(arg, "#{s.name} wants a #{type} here, not a #{got}") unless fits?(type, got)
+          rooted(arg, value, got)
+        end
+        sig = @f.sig(s.params.map { |t| ir_type(t) }, ir_type(s.ret))
+        return [@f.call_indirect(sig, ptr, values), "Void"] if s.ret == "Void"
+
+        [@f.call_indirect_val(sig, ptr, values), s.ret]
       end
 
       # The static of the gate word. `Machine.gates` reads the word from
