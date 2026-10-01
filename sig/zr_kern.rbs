@@ -1866,6 +1866,7 @@ module Zr
     def zr_respond_to_missing_p: (Integer recv, Integer mid) -> bool
     def zr_return: (Integer p, Integer v) -> Integer
     def zr_return_here: (Integer v) -> Integer
+    def zr_return_out: (Integer rec, Integer v) -> Integer
     def zr_rmd160_block: (Integer h, Integer p) -> void
     def zr_rmd160_f: (Integer j, Integer x, Integer y, Integer z) -> Integer
     def zr_rmd160_k: (Integer round, bool right) -> Integer

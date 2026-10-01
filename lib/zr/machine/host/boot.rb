@@ -67,7 +67,7 @@ module Zr
         # fork(2) as ruby forks, so ruby's own state in the child is right.
         # The child runs the program (`restart`).
         module Fork
-          def fork = self::BOOT.fork
+          def zr_proc_fork = zr_fix(self::BOOT.fork_process)
         end
 
         attr_reader :host
@@ -195,8 +195,9 @@ module Zr
           -1
         end
 
-        # The kernel's fork (`Fork`): the child's pid, or 0 in the child.
-        def fork
+        # `Process.fork` for the kernel (`Fork`): the child's pid, or 0 in
+        # the child.
+        def fork_process
           pid = Process.fork
           return pid if pid
 
