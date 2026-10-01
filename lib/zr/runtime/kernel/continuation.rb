@@ -29,7 +29,7 @@ machine def zr_cont_side
   while true
     s = Machine.ptr(Machine.load64(Machine.static(:cont_op, 8), 0))
     if Machine.load64(Machine.static(:cont_mode, 8), 0) == CONT_CAPTURE
-      low = Machine.load64(ContState.ctx(s), 96)
+      low = zr_arch_context_sp(ContState.ctx(s))
       size = ContState.high(s) - low
       bytes = zr_xmalloc(size)
       zr_memcpy(bytes, Machine.ptr(low), size)

@@ -14,3 +14,9 @@ machine def zr_arch_context_start(ctx, entry, top)
   Machine.store64(ctx, 88, entry)
   Machine.store64(ctx, 96, top)
 end
+
+# The stack pointer that zr_switch saved in a context.
+sig [Ptr] => Word
+machine def zr_arch_context_sp(ctx)
+  Machine.load64(ctx, 96)
+end
