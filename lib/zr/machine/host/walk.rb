@@ -28,6 +28,12 @@ module Zr
         # The task has a pending unwind.
         class Unwind < StandardError; end
 
+        # The one Unwind that the walker raises. Its backtrace is set, so a
+        # raise records none: an unwind out of 30,000 frames raises again in
+        # each, and a backtrace of the ruby stack at each would cost the
+        # square of the depth. With no cause, it never refers to itself.
+        UNWIND = Unwind.new.tap { |e| e.set_backtrace([]) }
+
         # `retry`: the begin body again, from its rescue clause.
         class RetryJump < StandardError; end
 
@@ -40,7 +46,10 @@ module Zr
         # `outer` is the Env of the scope around a block.
         # `homes` is the HIR node of each scope in `scopes`, innermost first:
         # a block reads from them how often each outer local is bound.
-        Ctx = Struct.new(:rec, :env, :self_, :cref, :blk, :meta, :proc, :scopes, :unit, :method, :loops, :kind, :params, :outer, :homes)
+        # `opened` is the scope's kind once it fired its opening TracePoint
+        # event, and `ret_line` the line of the `return` that leaves it.
+        Ctx = Struct.new(:rec, :env, :self_, :cref, :blk, :meta, :proc, :scopes, :unit, :method, :loops, :kind, :params, :outer, :homes,
+                         :opened, :ret_line)
 
         # What a unit's code runs with: its file, as a backtrace shows it,
         # whether it is the core library, and the units of its program,
@@ -52,8 +61,40 @@ module Zr
         # code reads the constants that such units set (`zr_const_sees_concealed`).
         # `root` is the FrameMeta of an eval's toplevel: the walker makes the
         # metas of its scopes when it first runs them, so each takes the box
-        # that `zr_box_stamp` gave the root.
-        Unit = Struct.new(:file, :internal, :units, :node_ids, :core, :hidden, :root)
+        # that `zr_box_stamp` gave the root. `traced` is a unit of a program
+        # that uses TracePoint, whose code fires events (`Lower#traced?`).
+        # `spelling` is the order of its program's local names (`Spelling`).
+        Unit = Struct.new(:file, :internal, :units, :node_ids, :core, :hidden, :root, :traced, :spelling)
+
+        # The order in which a lowering first meets each local name of its
+        # program (`Lower#spell`): the toplevels in order, each scope's
+        # locals before the scopes in it. A captures table is in this order.
+        class Spelling
+          def initialize(roots)
+            @roots = roots
+            @order = nil
+          end
+
+          def index(name) = order.fetch(name, order.size)
+
+          private
+
+          def order
+            @order ||= {}.tap do |seen|
+              spell = ->(names) { names.each { |n| seen[n] ||= seen.size } }
+              visit = lambda do |n|
+                case n
+                when Hir::Def, Hir::Block, Hir::ClassDef, Hir::ModuleDef, Hir::SingletonClassDef then spell.call(n.locals)
+                end
+                Hir.each_child(n) { |child| visit.call(child) } if n.is_a?(Hir::Node) || n.is_a?(Array)
+              end
+              @roots.each do |root|
+                spell.call(root.locals)
+                visit.call(root.body)
+              end
+            end
+          end
+        end
 
         # zr_require's kinds (Lower::Function::Control::REQUIRE_KINDS).
         REQUIRE_KINDS = { require: 0, require_relative: 1, load: 2, hidden: 3, computed: 4, declared: 5 }.freeze
@@ -113,7 +154,8 @@ module Zr
         # Runs the program `hir` (a Hir::Program) as `zr_toplevel`.
         def program(hir, file, target = Target.default)
           spotted(hir, target)
-          toplevel(hir, Unit.new(Paths.shown(file), false, hir.units, hir.node_ids), @kern::KIND_MAIN)
+          @traced = hir.traced ? true : false
+          toplevel(hir, Unit.new(Paths.shown(file), false, hir.units, hir.node_ids, false, false, nil, @traced), @kern::KIND_MAIN)
         end
 
         # CRuby's gem prelude, as `zr_gem_prelude`.
@@ -149,6 +191,10 @@ module Zr
         # Returns the exit status. `source` is the program's text in place
         # of the file's.
         def run(path, args = [], target: Target.default, source: File.read(path))
+          # A test worker forks after `prepare`: this process has its own
+          # pid, and only the thread that forked.
+          @boot.restart
+          k.zr_gvar_assign(id(:$$), k.zr_process_id)
           list = k.zr_global(k::G_ARGV)
           k::RArray.set_len(list, 0)
           args.each { |a| k.zr_ary_push(list, string(a)) }
@@ -180,7 +226,7 @@ module Zr
         def k = @kern
 
         def check(v)
-          raise Unwind if v == @qundef
+          raise UNWIND, cause: nil if v == @qundef
 
           v
         end
@@ -283,7 +329,11 @@ module Zr
         # --- frames ---
 
         # The FrameMeta of the scope `node`.
-        def meta(node, unit, kind, name: 0, parent: 0, params: nil, locals: [], fn: 0, open: true)
+        #
+        # `ruby` is a core method that CRuby writes in Ruby: its signature
+        # shows as ruby's. `cover` is the def-site entry of a method that
+        # Coverage measures.
+        def meta(node, unit, kind, name: 0, parent: 0, params: nil, locals: [], fn: 0, open: true, ruby: false, cover: nil)
           @metas[node] ||= begin
             m = k::FrameMeta
             addr = Memory.zeroed(m.layout_size, 8)
@@ -301,6 +351,8 @@ module Zr
             m.set_env(addr, open ? 1 : 0)
             m.set_node(addr, unit.node_ids&.[](node) || 0)
             m.set_hidden(addr, unit.hidden ? 1 : 0)
+            m.set_ruby(addr, ruby ? 1 : 0)
+            m.set_cover(addr, cover ? cover + 1 : 0)
             m.set_box(addr, m.box(unit.root)) if unit.root
             addr
           end
@@ -323,6 +375,12 @@ module Zr
         # A scope's first line: its node's, or 1 for a file.
         def line_of(node) = node.respond_to?(:line) ? node.line || 1 : 1
 
+        # The most frames that a ruby stack holds here: about 39,000 fit in
+        # `zr-dev host`'s, a thread's or a fiber's. Past this a call
+        # overflows as past the slots, and the margin keeps room for the
+        # error's report, as STACK_MARGIN does.
+        DEPTH = 20_000
+
         # Runs `body` in a new frame: a record in the slot area linked
         # from the task, and a heap Env for `locals`. Returns the body's
         # Value, or QUNDEF for a pending unwind that no handler took.
@@ -333,10 +391,12 @@ module Zr
           t = task
           open = env || k::FrameMeta.env(meta) == 1
           n = open ? 1 : locals.size
+          depth = @host.depth
           slots do
             rec = @host.slot(f.layout_size + (8 * [n, 1].max))
-            return k.zr_stack_overflow if rec < k::Task.stack_limit(t)
+            return k.zr_stack_overflow if rec < k::Task.stack_limit(t) || depth >= DEPTH
 
+            @host.depth = depth + 1
             prev = k::Task.top(t)
             line = k::FrameMeta.line(meta) | (k::FrameMeta.node(meta) << 32)
             Memory.write(rec, [prev, meta, line, self_ & MASK, cref & MASK, blk & MASK, entry, defined & MASK, 0, n, @qnil].pack("Q<*"))
@@ -352,14 +412,19 @@ module Zr
               pinned { yield ctx }
             ensure
               k::Task.set_top(t, prev)
+              @host.depth = depth
             end
           end
         end
 
         # A core file's or a program's toplevel.
         def toplevel(hir, unit, kind)
+          # One lowering takes a program and its units, or the units of eval
+          # support, so they share one spelling.
+          unit.spelling ||= (@spellings ||= {}.compare_by_identity)[unit.units || hir] ||=
+            Spelling.new(hir.is_a?(Hir::Program) ? [hir, *unit.units] : Array(unit.units))
           shown = unit.internal ? k::KIND_HIDDEN : kind
-          m = meta(hir, unit, shown, locals: hir.locals, open: open?(hir, kind == k::KIND_MAIN ? :main : :top))
+          m = meta(hir, unit, shown, locals: hir.locals, open: open?(hir, kind == k::KIND_MAIN ? :main : :top, unit))
           frame(meta: m, self_: k.zr_global(k::G_MAIN), cref: k.zr_global(k::G_TOP_CREF), blk: @qnil, locals: hir.locals,
                 unit: unit, kind: :main, homes: [hir]) do |c|
             unless unit.internal
@@ -379,14 +444,56 @@ module Zr
 
         # The body of a scope; a pending unwind that leaves it makes the
         # frame return QUNDEF, after a `return` from a block is caught.
-        def run_body(c, &)
-          catch(c, &)
-        rescue Unwind
-          r = k.zr_catch_return(c.rec)
-          # A `return` in an eval string goes to the main scope or to the
-          # def that runs the eval (`zr_return_here`).
-          here = c.kind == :main || (c.kind == :def && c.method&.evals)
-          r == @qundef && here ? k.zr_catch_return_here : r
+        #
+        # A scope that fired its opening event fires its closing event as
+        # it leaves, with its value, or QUNDEF while it unwinds.
+        def run_body(c, node = nil, &)
+          r = begin
+            catch(c, &)
+          rescue Unwind
+            caught = k.zr_catch_return(c.rec)
+            # A `return` in an eval string goes to the main scope or to the
+            # def that runs the eval (`zr_return_here`).
+            here = c.kind == :main || (c.kind == :def && c.method&.evals)
+            caught == @qundef && here ? k.zr_catch_return_here : caught
+          end
+          c.opened ? closed(c, node, r) : r
+        end
+
+        # --- TracePoint (Lower::Function::Tracing) ---
+
+        EVENTS = { line: 0x1, class: 0x2, end: 0x4, call: 0x8, return: 0x10, b_call: 0x100, b_return: 0x200 }.freeze
+        OPENING = { def: :call, block: :b_call, class: :class }.freeze
+        CLOSING = { def: :return, block: :b_return, class: :end }.freeze
+
+        # Whether an enabled TracePoint listens for `event`.
+        def armed?(event)
+          @trace_events ||= @host.static("trace_events", 8)
+          Memory.fetch(TYPES["Word"], @trace_events).anybits?(EVENTS.fetch(event))
+        end
+
+        def fire(event)
+          check(k.zr_trace_fire(EVENTS.fetch(event), @qnil)) if armed?(event)
+        end
+
+        # The scope's opening event, once its parameters are bound.
+        def opened(c, kind)
+          return unless c.unit.traced
+
+          c.opened = kind
+          fire(OPENING.fetch(kind))
+        end
+
+        # The closing event of a scope that leaves with `v`: at the line of
+        # its `return`, else at its `end`; an unwind keeps the line where
+        # it raised. Returns `v`, or QUNDEF if a hook raised.
+        def closed(c, node, v)
+          event = CLOSING.fetch(c.opened)
+          return v unless armed?(event)
+
+          line = c.ret_line || node.end_line
+          k::Frame.set_line(c.rec, line) unless v == @qundef || line.nil?
+          k.zr_trace_fire(EVENTS.fetch(event), v)
         end
 
         # --- eval ---
@@ -408,6 +515,13 @@ module Zr
               def compile_file(path)
                 Primitive.attr! :hidden
                 Primitive.zr_host_eval_file(path)
+              end
+
+              # prism loads at the first parse: walking it takes seconds here.
+              def parse(source, line)
+                Primitive.attr! :hidden
+                Primitive.zr_host_prism
+                ::Prism.parse(source, line: line).value
               end
             end
           end
@@ -458,6 +572,7 @@ module Zr
           walk = self
           k.singleton_class.define_method(:zr_host_eval_compile) { |*args| walk.send(:eval_compile, *args) }
           k.singleton_class.define_method(:zr_host_eval_file) { |path| walk.send(:eval_file, path) }
+          k.singleton_class.define_method(:zr_host_prism) { walk.send(:prism!) }
           unit = Unit.new("<internal:zr_eval>", true, [], nil)
           check(toplevel(Hir.build(EVAL_SUPPORT, "<internal:zr_eval>", eval_support: false), unit, k::KIND_MAIN))
           forms = File.join(Paths::RUNTIME, "lib/zr/eval/forms.rb")
@@ -472,6 +587,9 @@ module Zr
           hir = Hir.build(text(source), text(file), eval_support: false, line: k.zr_fix2long(line), scopes: [*outer.reverse, []],
                                                     method: method == @qnil ? nil : ruby(method))
           unit = Unit.new(text(file), false, hir.units, hir.node_ids)
+          unit.spelling = Spelling.new([hir])
+          # A traced program's eval'd code fires its events too.
+          unit.traced = @traced
           m = meta(hir, unit, k::KIND_EVAL, locals: hir.locals)
           unit.root = m
           fn = @host.callable(lambda do |self_, cref, env, blk|
@@ -489,6 +607,18 @@ module Zr
         rescue Hir::Invalid, SyntaxError => e
           message = e.message.b
           k.zr_raise_msg(k.zr_core_class(id(:SyntaxError)), @host.bytes(message), message.bytesize)
+        end
+
+        # prism's files of eval support, required hidden as a binary's
+        # compiler requires them, the first time the host's `Zr::Eval#parse`
+        # runs.
+        def prism!
+          unless @prism
+            @prism = true
+            path, unit = @eval_files.units.find { |p, _| p.end_with?("/prism.rb") }
+            check(k.zr_require(string(Paths.shown(path)), entry_in(nil, unit), REQUIRE_KINDS.fetch(:hidden)))
+          end
+          @qnil
         end
 
         # `Zr::Eval#compile_file`: the toplevel of a file that the program
@@ -532,14 +662,17 @@ module Zr
             kind = if unit.internal then hidden ? k::KIND_HIDDEN : k::KIND_BUILTIN
                    else k::KIND_DEF
                    end
-            m = meta(node, unit, kind, name: node.name, params: node.params, locals: node.locals, open: open?(node, :def, node.params))
+            m = meta(node, unit, kind, name: node.name, params: node.params, locals: node.locals, open: open?(node, :def, unit, node.params),
+                                       ruby: unit.internal && attributes(node).include?(:ruby), cover: node.cover)
             @host.callable(lambda do |recv, argc, argv, entry, blk, found|
               cref = entry.zero? ? @qnil : k::MEntry.cref(entry)
               frame(meta: m, self_: recv, cref: cref, blk: blk, entry: entry, defined: found, locals: node.locals,
                     scopes: parent_scopes, unit: unit, method: node, params: node.params, homes: [node]) do |c|
-                run_body(c) do
+                run_body(c, node) do
                   bind_method(node.params, argc, argv, c, @fns[node])
                   preempt(c)
+                  opened(c, :def)
+                  k.zr_coverage_method(entry) if node.cover
                   node.body ? ev(node.body, c) : @qnil
                 end
               end
@@ -549,10 +682,12 @@ module Zr
 
         # The leading `Primitive.attr!(:name)` statements of a def.
         def attributes(node)
-          body = node.body.is_a?(Hir::Begin) ? node.body.body : node.body
-          stmts = body.is_a?(Hir::Seq) ? body.stmts : [body]
-          stmts.take_while { |s| s.is_a?(Hir::Send) && s.name == :attr! && s.recv.is_a?(Hir::ConstRead) && s.recv.name == :Primitive }
-               .flat_map { |s| s.args.map(&:value) }
+          (@attributes ||= {}.compare_by_identity)[node] ||= begin
+            body = node.body.is_a?(Hir::Begin) ? node.body.body : node.body
+            stmts = body.is_a?(Hir::Seq) ? body.stmts : [body]
+            stmts.take_while { |s| s.is_a?(Hir::Send) && s.name == :attr! && s.recv.is_a?(Hir::ConstRead) && s.recv.name == :Primitive }
+                 .flat_map { |s| s.args.map(&:value) }
+          end
         end
 
         def define(node, c)
@@ -592,9 +727,12 @@ module Zr
           # A `class << self` body is inside its scope (`Lower#body`): a
           # `return` there leaves the method around it.
           parent = kind == k::KIND_SCLASS ? c.meta : 0
-          m = meta(node, c.unit, kind, name: name, parent: parent, locals: node.locals, open: open?(node, :class))
+          m = meta(node, c.unit, kind, name: name, parent: parent, locals: node.locals, open: open?(node, :class, c.unit))
           check(frame(meta: m, self_: klass, cref: cref, blk: @qnil, locals: node.locals, unit: c.unit, kind: :class) do |inner|
-            run_body(inner) { node.body ? ev(node.body, inner) : @qnil }
+            run_body(inner, node) do
+              opened(inner, :class)
+              node.body ? ev(node.body, inner) : @qnil
+            end
           end)
         end
 
@@ -758,9 +896,11 @@ module Zr
         # Whether the scope `node` keeps its locals in an Env, as the
         # lowering decides (`Lower::Function`, `@has_env`): a main or eval
         # scope, or one that holds a block or opens its locals (`binding`,
-        # `eval`, `local_variables`).
-        def open?(node, kind, params = nil)
+        # `eval`, `local_variables`). In a traced program, a hook can read a
+        # Binding of any def, block or file, and only an Env gives one.
+        def open?(node, kind, unit, params = nil)
           return true if %i[main eval].include?(kind)
+          return true if unit.traced && %i[def block top].include?(kind)
 
           defaults = params ? params.optional.map(&:last) + params.keywords.filter_map(&:last) : []
           [node.body, *defaults].any? { |b| Hir::Locals.holds_block?(b) || Hir::Locals.opens_locals?(b) }
@@ -824,6 +964,7 @@ module Zr
           when Hir::IvarRead then check(k.zr_ivar_get_cached(c.self_, id(ivar(node.name, c)), cell(node, :ic, k::IvarCache.layout_size)))
           when Hir::IvarWrite
             v = ev(node.value, c)
+            at(node, c)
             check(k.zr_ivar_set_cached(c.self_, id(ivar(node.name, c)), v, cell(node, :ic, k::IvarCache.layout_size)))
             v
           when Hir::GvarRead then gvar_read(node, c)
@@ -890,7 +1031,14 @@ module Zr
 
             @once[node] = ev(node.body, c)
           when Hir::Stop then check(k.zr_unloadable(string(node.what.to_s)))
-          when Hir::Trace, Hir::Cover then @qnil
+          when Hir::Trace
+            at(node, c)
+            fire(:line) if c.unit.traced
+            @qnil
+          when Hir::Cover
+            at(node, c)
+            k.zr_coverage_branch(node.id)
+            @qnil
           when Hir::Using
             at(node, c)
             check(k.zr_using_activate(node.id, ev(node.value, c), node.from))
@@ -934,10 +1082,7 @@ module Zr
             text = v.to_s
             check(k.zr_big_literal(@sites[node], @host.bytes(text), text.bytesize))
           when Float then k.zr_float_from_bits([v].pack("E").unpack1("q<"))
-          when String
-            bytes = v.b
-            ptr = @host.bytes(bytes)
-            node.chilled && !c.unit.internal ? k.zr_str_new_chilled(ptr, bytes.bytesize) : k.zr_str_new(ptr, bytes.bytesize)
+          when String then string_literal(v, node.chilled && !c.unit.internal ? :zr_str_new_chilled : :zr_str_new)
           when Symbol then sym(v)
           when nil then @qnil
           when true then @qtrue
@@ -951,13 +1096,25 @@ module Zr
           k.zr_str_new(@host.bytes(bytes), bytes.bytesize)
         end
 
+        # A String literal, made by the kernel's `fn` with the file's script
+        # encoding (`Expressions#string_literal`).
+        def string_literal(text, fn)
+          bytes = text.b
+          ptr = @host.bytes(bytes)
+          return k.public_send(fn, ptr, bytes.bytesize) if text.encoding == ::Encoding::UTF_8
+
+          k.public_send(:"#{fn}_at", ptr, bytes.bytesize, ENCODING_INDEX.fetch(text.encoding))
+        end
+
+        # ruby's own index for an encoding, which a String holds.
+        ENCODING_INDEX = ::Encoding.list.each_with_index.to_h.freeze
+
         def frozen_string(node, _c)
           bytes = node.value.b
-          ptr = @host.bytes(bytes)
           case node.shared
-          when true then k.zr_str_literal_cell(cell(node, :str, 8), ptr, bytes.bytesize)
-          when false then k.zr_str_frozen(ptr, bytes.bytesize)
-          else check(k.zr_str_literal_freeze(ptr, bytes.bytesize))
+          when true then k.zr_str_literal_cell(cell(node, :str, 8), @host.bytes(bytes), bytes.bytesize)
+          when false then string_literal(node.value, :zr_str_frozen)
+          else check(string_literal(node.value, :zr_str_literal_freeze))
           end
         end
 
@@ -1062,7 +1219,8 @@ module Zr
 
         def interp(node, c)
           values = node.parts.map do |part|
-            if part.is_a?(Hir::Literal) && part.value.is_a?(String)
+            # A part in another script encoding is a plain literal.
+            if part.is_a?(Hir::Literal) && part.value.is_a?(String) && part.value.encoding == ::Encoding::UTF_8
               bytes = part.value.b
               k.zr_str_literal_shared(@host.bytes(bytes), bytes.bytesize)
             else
@@ -1126,7 +1284,9 @@ module Zr
           v = ev(node.value, c)
           at(node, c)
           case c.kind
-          when :def then throw c, v
+          when :def
+            c.ret_line = node.line
+            throw c, v
           when :block
             throw c, v if lambda_proc?(c.proc)
 
@@ -1157,7 +1317,9 @@ module Zr
         def unit_fn(units, index)
           unit = units.fetch(index)
           @fns[unit] ||= @host.callable(lambda do
-            toplevel(unit, Unit.new(Paths.shown(unit.file), unit.internal ? true : false, units, unit.node_ids, false, unit.hidden ? true : false),
+            internal = unit.internal ? true : false
+            traced = @traced && !internal && !units.equal?(@eval_files.loader.units)
+            toplevel(unit, Unit.new(Paths.shown(unit.file), internal, units, unit.node_ids, false, unit.hidden ? true : false, nil, traced),
                      k::KIND_TOP)
           end)
         end
@@ -1207,22 +1369,30 @@ module Zr
 
         def send_node(node, c)
           return primitive(node, c) if c.unit.internal && node.recv.is_a?(Hir::ConstRead) && node.recv.name == :Primitive && node.recv.scope.nil?
+          return send_node(funcall(node), c) if kernel_send?(node, c)
 
           recv = node.recv ? ev(node.recv, c) : c.self_
           return @qnil if node.safe && recv == @qnil
           return recv if node.interp && k.zr_interp_plain_p(recv)
 
           args, splat = arguments(node.args, c)
-          if c.unit.internal && !splat && args.size == 1 && node.block.nil? && node.kwargs.nil? && FIXNUM_OPS.key?(node.name)
-            v = fixnum_op(node.name, recv, args.first)
+          if !splat && node.block.nil? && node.kwargs.nil? && !node.vcall && node.using != :owner && !c.unit.traced
+            v = case args.size
+                when 1 then operator(node.name, recv, args.first, c, [node.recv, node.args.first])
+                when 2
+                  # The core's range checks of its own integers.
+                  if node.name == :between? && node.recv && !node.recv.is_a?(Hir::SelfRef) && native_operators?(c)
+                    slots { check(k.zr_native_between(recv, argv(args))) }
+                  end
+                end
             return v if v
           end
           kwargs = node.kwargs && hash(node.kwargs, c)
           mode = if node.vcall then 1
-                 elsif node.recv && !node.recv.is_a?(Hir::SelfRef) then 2
+                 elsif node.recv && !node.recv.is_a?(Hir::SelfRef) && !@funcalls&.key?(node) then 2
                  else 0
                  end
-          mode |= SEND_CORE if c.unit.internal && !PROTOCOL.include?(node.name)
+          mode |= SEND_CORE if core_send?(node.name, c)
           mode |= SEND_USING if node.using
           written = nil
           result = slots do
@@ -1243,12 +1413,55 @@ module Zr
                 k.zr_new_cached(cell(node, :new, 8 * k::CallCache.layout_size), recv, argc, av, blk, mode)
               elsif node.using == :owner
                 k.zr_send_cached(cell(node, :cc, 4 * k::CallCache.layout_size), recv, id(node.name), argc, av, blk, mode)
+              elsif (entry = opt_entry(node, c, recv))
+                k.public_send(entry, recv, id(node.name), argc, av, mode)
               else
                 cached_send(cell(node, :cc, 4 * k::CallCache.layout_size), recv, id(node.name), argc, av, blk, mode)
               end.tap { k::Task.set_refine(task, @qnil) if node.using }
             end
           end
           node.write ? written : result
+        end
+
+        # In the core, `recv.send(:name, ...)` is rb_funcall in CRuby's C: a
+        # direct call of `name`, private permitted, and never a class's own
+        # `send` (`Sends#kernel_send?`).
+        def kernel_send?(node, c)
+          return false unless c.unit.internal && %i[send __send__].include?(node.name)
+
+          first = node.args.first
+          first.is_a?(Hir::Literal) && first.value.is_a?(Symbol) && !%i[send __send__ public_send].include?(first.value)
+        end
+
+        # The call that a kernel send makes, one per site (`Sends#funcall`).
+        def funcall(node)
+          (@funcall_of ||= {}.compare_by_identity)[node] ||= node.dup.tap do |n|
+            n.name = node.args.first.value
+            n.args = node.args.drop(1)
+            (@funcalls ||= {}.compare_by_identity)[n] = true
+          end
+        end
+
+        # The kernel entry of each send with a core fast path, and the
+        # classes it takes (Lower::Function::Sends::OPT_ENTRIES). The
+        # entry calls the core's method with no frame of its own, as
+        # CRuby's specialized instructions do.
+        OPT_ENTRIES = {
+          :[] => [:zr_opt_aref, %i[G_ARRAY G_HASH]], :[]= => [:zr_opt_aset, %i[G_ARRAY G_HASH]], :<< => [:zr_opt_ltlt, %i[G_ARRAY G_STRING]],
+          getbyte: [:zr_opt_getbyte, %i[G_STRING]], setbyte: [:zr_opt_setbyte, %i[G_STRING]],
+          push: [:zr_opt_push, %i[G_ARRAY]], pop: [:zr_opt_pop, %i[G_ARRAY]], shift: [:zr_opt_shift, %i[G_ARRAY]],
+          empty?: [:zr_opt_empty_p, %i[G_ARRAY]]
+        }.freeze
+
+        # The kernel entry for the send `node` (`Sends#opt_send`), when the
+        # site has a fast path and `recv` is of one of its classes. A
+        # traced program sends each, so its events fire.
+        def opt_entry(node, c, recv)
+          return unless node.opt && node.using != :owner && !c.unit.traced && recv & 7 == 0 && recv > @qnil
+
+          entry, classes = OPT_ENTRIES.fetch(node.name)
+          klass = k::RBasic.klass(recv)
+          entry if classes.any? { |g| klass == k.zr_global(k.const_get(g)) }
         end
 
         # Gives the task the refinements that are active at the send
@@ -1262,29 +1475,95 @@ module Zr
           end
         end
 
-        # The Integer operators that the core computes inline on two
-        # fixnums, whatever a program redefines (Lower::Function::Arith):
-        # each gives its result, or nil when the result is no fixnum (a
+        # The Integer operators with an inline path on two fixnums while
+        # the operator's gate is clear (Lower::Function::Sends::OPS), each
+        # with its gate and its result: nil when the result is no fixnum (a
         # bignum, a division by zero), and the send runs instead.
         FIXNUM = (-(1 << 62))...(1 << 62)
         FIXNUM_OPS = {
-          :+ => ->(a, b) { a + b }, :- => ->(a, b) { a - b }, :* => ->(a, b) { a * b },
-          :/ => ->(a, b) { b.zero? ? nil : a / b }, :% => ->(a, b) { b.zero? ? nil : a % b },
-          :& => ->(a, b) { a & b }, :| => ->(a, b) { a | b }, :^ => ->(a, b) { a ^ b },
-          :<< => ->(a, b) { b.between?(0, 62) ? a << b : nil }, :>> => ->(a, b) { b.between?(0, 62) ? a >> b : nil },
-          :< => ->(a, b) { a < b }, :<= => ->(a, b) { a <= b }, :> => ->(a, b) { a > b }, :>= => ->(a, b) { a >= b },
-          :== => ->(a, b) { a == b }, :!= => ->(a, b) { a != b }, :<=> => ->(a, b) { a <=> b }
+          :+ => [:GATE_PLUS, ->(a, b) { a + b }], :- => [:GATE_MINUS, ->(a, b) { a - b }], :* => [:GATE_MUL, ->(a, b) { a * b }],
+          :/ => [:GATE_DIV, ->(a, b) { b.zero? ? nil : a / b }], :% => [:GATE_MOD, ->(a, b) { b.zero? ? nil : a % b }],
+          :< => [:GATE_LT, ->(a, b) { a < b }], :<= => [:GATE_LE, ->(a, b) { a <= b }], :> => [:GATE_GT, ->(a, b) { a > b }],
+          :>= => [:GATE_GE, ->(a, b) { a >= b }], :== => [:GATE_EQ, ->(a, b) { a == b }], :!= => [:GATE_NE, ->(a, b) { a != b }],
+          :& => [:GATE_AND, ->(a, b) { a & b }], :| => [:GATE_OR, ->(a, b) { a | b }], :^ => [:GATE_XOR, ->(a, b) { a ^ b }],
+          :>> => [:GATE_SHR, ->(a, b) { b.between?(0, 62) ? a >> b : nil }]
         }.freeze
 
-        def fixnum_op(name, recv, arg)
-          return nil unless (recv & arg & 1) == 1
-
-          r = FIXNUM_OPS.fetch(name).call(recv >> 1, arg >> 1)
-          case r
-          when true then @qtrue
-          when false then @qfalse
-          when FIXNUM then (r << 1) | 1
+        # `recv name arg` without a send, as a binary's site answers it
+        # (`Arith#operator`): two fixnums under a clear gate (the core
+        # ignores the gates, as ruby's C does); in the core, `==` and `!=`
+        # of the values that CRuby's C compares natively, and `<=>` of two
+        # fixnums while Integer#<=> is ruby's own. Else nil, and the send
+        # runs.
+        def operator(name, recv, arg, c, operands = [])
+          native = native_operators?(c)
+          if (op = FIXNUM_OPS[name]) && (recv & arg & 1) == 1 && (native || (@host.gates & k.const_get(op.first)).zero?)
+            case (r = op.last.call(recv >> 1, arg >> 1))
+            when true then return @qtrue
+            when false then return @qfalse
+            when FIXNUM then return (r << 1) | 1
+            end
           end
+          v = float_op(name, recv, arg, native, operands)
+          return v if v
+          return unless native
+
+          case name
+          when :==, :!=
+            kind = k.zr_native_eq_kind(recv, arg)
+            bool(name == :== ? kind == 1 : kind != 1) unless kind.zero?
+          when :<=>
+            ((((recv >> 1) <=> (arg >> 1)) << 1) | 1) if (recv & arg & 1) == 1 && (@host.gates & k::GATE_CMP).zero?
+          end
+        end
+
+        # The operators with a flonum path, and Float's gate of each
+        # (Lower::Function::Sends::FLOAT_OPS).
+        FLOAT_OPS = {
+          :+ => :GATE_FLO_PLUS, :- => :GATE_FLO_MINUS, :* => :GATE_FLO_MUL, :/ => :GATE_FLO_DIV,
+          :< => :GATE_FLO_LT, :<= => :GATE_FLO_LE, :> => :GATE_FLO_GT, :>= => :GATE_FLO_GE, :== => :GATE_FLO_EQ
+        }.freeze
+        FLOAT_COMPARES = %i[< <= > >= ==].freeze
+
+        # `recv name arg` on doubles (`Arith#float_path`): both operands
+        # are flonums, or one is a flonum and the other a fixnum (within
+        # 2**53 for a comparison), and the gates are clear. A site whose
+        # `operands` has an Integer literal in a sum, a difference or a
+        # comparison has no flonum path (`Arith#float_path?`). Else nil.
+        def float_op(name, recv, arg, native, operands)
+          return unless (gate = FLOAT_OPS[name])
+          return if %i[* /].none?(name) && operands.any? { |n| n.is_a?(Hir::Literal) && n.value.is_a?(Integer) }
+
+          compare = FLOAT_COMPARES.include?(name)
+          return unless [recv, arg].any? { |v| v & 3 == 2 } && [recv, arg].all? { |v| float_number?(v, compare) }
+          return unless native || (@host.gates & (k.const_get(FIXNUM_OPS.fetch(name).first) | k.const_get(gate))).zero?
+
+          x, y = [recv, arg].map { |v| v & 3 == 2 ? k.zr_float_value(v) : (v >> 1).to_f }
+          r = x.public_send(name, y)
+          compare ? bool(r) : k.zr_float_new(r)
+        end
+
+        def float_number?(v, exact)
+          return true if v & 3 == 2
+          return false unless v & 1 == 1
+
+          !exact || ((v >> 1) + (1 << 53)).between?(0, (1 << 54) - 1)
+        end
+
+        # Whether a core send of `name` finds the core's own method
+        # (`Sends#core_send?`): any name but PROTOCOL, and `each` except in
+        # a method marked `:sends_each`, where ruby's C sends it by name.
+        def core_send?(name, c)
+          return false unless c.unit.internal
+
+          name == :each ? !(c.method && attributes(c.method).include?(:sends_each)) : !PROTOCOL.include?(name)
+        end
+
+        # Whether the scope answers the core's operators natively
+        # (`Arith#native_operators?`): core code outside a method that
+        # CRuby writes in Ruby (`Primitive.attr! :ruby`).
+        def native_operators?(c)
+          c.unit.internal && !(c.method && attributes(c.method).include?(:ruby))
         end
 
         # A send through the site's cell, tested here first as a binary's
@@ -1316,7 +1595,7 @@ module Zr
         def sent(block, c)
           r = yield
           return r if r != @qundef
-          raise Unwind unless block
+          raise UNWIND, cause: nil unless block
 
           check(k.zr_catch_break(c.rec, @sites[block]))
         end
@@ -1367,14 +1646,18 @@ module Zr
           homes = [node, *c.homes]
           @fns[node] ||= begin
             kind = unit.internal ? k::KIND_HIDDEN : k::KIND_BLOCK
-            m = meta(node, unit, kind, parent: parent, params: node.params, locals: node.locals, open: open?(node, :block, node.params))
-            k::FrameMeta.set_captures(m, captures_table(node, homes, scopes))
+            m = meta(node, unit, kind, parent: parent, params: node.params, locals: node.locals, open: open?(node, :block, unit, node.params),
+                                       cover: node.cover)
+            k::FrameMeta.set_captures(m, captures_table(node, homes, unit.spelling))
             fn = @host.callable(lambda do |pr, argc, argv, blk|
               frame(meta: m, self_: k::RProc.self(pr), cref: k::RProc.cref(pr), blk: k::RProc.blk(pr), defined: blk,
                     locals: node.locals, parent_env: k::RProc.env(pr), scopes: scopes, unit: unit, method: method,
                     kind: :block, proc: pr, params: node.params, homes: homes) do |inner|
-                run_body(inner) do
+                run_body(inner, node) do
                   bind_block(node.params, argc, argv, blk, inner, @fns[node].first)
+                  opened(inner, :block)
+                  # A `define_method` block's fourth argument is its entry.
+                  k.zr_coverage_method(blk) if node.cover
                   # A `redo` in the block throws its meta (`Hir::Redo`).
                   redoable(inner.meta) { node.body ? ev(node.body, inner) : @qnil }
                 end
@@ -1387,11 +1670,10 @@ module Zr
 
         # The captures table of the block `node` (`Lower#captures_table`):
         # each outer local with its flags (1: the block writes it, 2: its
-        # scope binds it more than once), in the order that the scopes
-        # declare them, outermost first. A Ractor reads it.
-        def captures_table(node, homes, scopes)
-          spelled = scopes.reverse.flatten.uniq
-          rows = Hir::Locals.captures(node).sort_by { |name, _, _| spelled.index(name) || spelled.size }
+        # scope binds it more than once), in the order of the program's
+        # `spelling`. A Ractor reads it.
+        def captures_table(node, homes, spelling)
+          rows = Hir::Locals.captures(node).sort_by { |name, _, _| spelling.index(name) }
           words = rows.flat_map do |name, depth, written|
             home = homes[depth]
             counts = home.respond_to?(:body) ? Hir::Locals.assignments(home.body) : Hash.new(0)
@@ -1531,6 +1813,7 @@ module Zr
         # `using` entry.
         def call(recv, name, values, node, kind = :op, mode: 0, c: nil)
           using = c && node.using
+          mode |= SEND_CORE if c && core_send?(name, c)
           slots do
             activate(node, c) if using
             r = k.zr_send_cached(cell(node, kind, 4 * k::CallCache.layout_size), recv, id(name), values.size, argv(values), @qnil,
@@ -1585,7 +1868,12 @@ module Zr
           case node.op
           when :or then truthy?(old) ? yield : ev(node.value, c)
           when :and then truthy?(old) ? ev(node.value, c) : yield
-          else call(old, node.op, [ev(node.value, c)], node, :op, c: c)
+          else
+            # The operator is a send of its own (`Targets#op_assign`), with
+            # an operator's paths.
+            arg = ev(node.value, c)
+            fast = operator(node.op, old, arg, c, [node.value]) unless node.using == :owner || c.unit.traced
+            fast || call(old, node.op, [arg], node, :op, c: c)
           end
         end
 
@@ -1642,7 +1930,9 @@ module Zr
         def assign_target(t, v, c, prepared = {})
           case t
           when Hir::Assign then set_local(t.name, v, c, t.depth)
-          when Hir::IvarWrite then check(k.zr_ivar_set_cached(c.self_, id(ivar(t.name, c)), v, cell(t, :ic, k::IvarCache.layout_size)))
+          when Hir::IvarWrite
+            at(t, c)
+            check(k.zr_ivar_set_cached(c.self_, id(ivar(t.name, c)), v, cell(t, :ic, k::IvarCache.layout_size)))
           when Hir::GvarWrite then gvar_write(t.name, v, c, t.shown)
           when Hir::CvarWrite then check(k.zr_cvar_set(c.cref, id(t.name), v))
           when Hir::ConstWrite
@@ -1659,10 +1949,15 @@ module Zr
             return @qnil if t.safe && recv == @qnil
 
             mode = t.recv && !t.recv.is_a?(Hir::SelfRef) ? 2 : 0
+            mode |= SEND_CORE if core_send?(t.name, c)
             at(t, c)
             slots do
               values = args + [v]
-              check(k.zr_send_cached(cell(t, :cc, 4 * k::CallCache.layout_size), recv, id(t.name), values.size, argv(values), @qnil, mode))
+              check(if (entry = opt_entry(t, c, recv))
+                      k.public_send(entry, recv, id(t.name), values.size, argv(values), mode)
+                    else
+                      k.zr_send_cached(cell(t, :cc, 4 * k::CallCache.layout_size), recv, id(t.name), values.size, argv(values), @qnil, mode)
+                    end)
             end
           else raise Unsupported, "an assignment to a #{t.class}"
           end
@@ -1722,7 +2017,9 @@ module Zr
 
             clause = node.rescues.find { |r| matches?(r, exc, c) } or raise
             k.zr_rescue_enter
+            # `:rescue` fires at the clause's first statement (`Regions`).
             begin
+              check(k.zr_trace_rescue((clause.body || clause).line))
               assign_target(clause.target, exc, c) if clause.target
               return ev(clause.body, c)
             rescue RetryJump

@@ -785,8 +785,12 @@ module Zr::Kern
     if blk == QNIL
       return zr_local_jump_error(Machine.bytes("no block given (yield)"), 22, Machine.id(:noreason), Machine.value(QNIL))
     end
+    # The caller flagged its keywords in the task. A switch at the poll
+    # runs other code, whose calls take the flag, so it is kept aside.
+    kw = zr_kw_take()
     tick = zr_preempt()
     return tick if tick == QUNDEF
+    Task.set_kw(zr_task(), kw)
     Block.call(RProc.fn(blk), blk, argc, argv, Machine.value(QNIL))
   end
 

@@ -15,9 +15,11 @@ module Zr
 
       # The walker and the kernel nest one Ruby frame in another for each
       # call of the program, so the VM stack must be as large as a zr
-      # fiber's. ruby reads the size at its start.
+      # fiber's. A zr thread is a ruby fiber, and recurses as deep as the
+      # main thread. ruby reads the sizes at its start, and maps a stack's
+      # pages as they are used.
       STACK = { "RUBY_THREAD_VM_STACK_SIZE" => (256 << 20).to_s, "RUBY_THREAD_MACHINE_STACK_SIZE" => (256 << 20).to_s,
-                "RUBY_FIBER_VM_STACK_SIZE" => (64 << 20).to_s, "RUBY_FIBER_MACHINE_STACK_SIZE" => (64 << 20).to_s }.freeze
+                "RUBY_FIBER_VM_STACK_SIZE" => (256 << 20).to_s, "RUBY_FIBER_MACHINE_STACK_SIZE" => (256 << 20).to_s }.freeze
 
       def options(o)
         o.stop_on_unknown if o.respond_to?(:stop_on_unknown)

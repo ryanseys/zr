@@ -81,6 +81,10 @@ module Zr
       raise e
     end
 
+    # prism's tree of `source`, whose first line is `line`
+    # (RubyVM::InstructionSequence reads it).
+    def parse(source, line) = Prism.parse(source, line: line).value
+
     # The toplevel address of the file at `path`, compiled as a required
     # file: its own scope, under main and Object. A file in the extensions
     # (`Layout::EXT`) is part of the runtime, where `Primitive`

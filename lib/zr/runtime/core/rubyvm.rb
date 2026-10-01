@@ -218,7 +218,8 @@ class RubyVM
     def syntax
       Primitive.attr! :hidden
       Primitive.zr_hidden_get(self, :__syntax__) || Primitive.zr_hidden_get(self, :__source__)&.then do |code|
-        Primitive.zr_hidden_set(self, :__syntax__, ::Prism.parse(code, line: first_lineno).value)
+        # The compiler that made this code parses it.
+        Primitive.zr_hidden_set(self, :__syntax__, ::Zr::Eval.current.parse(code, first_lineno))
       end
     end
 

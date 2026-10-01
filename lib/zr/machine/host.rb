@@ -317,6 +317,7 @@ module Zr
         @slot_key = :"zr_host_slots_#{object_id}"
         @pin_key = :"zr_host_pins_#{object_id}"
         @fiber_key = :"zr_host_fiber_#{object_id}"
+        @depth_key = :"zr_host_depth_#{object_id}"
         @all_pins = []
         @collecting = false
         @collectors = []
@@ -422,6 +423,14 @@ module Zr
         self.slot_top = top
       end
 
+      # The walker's frames in this fiber (`Walk#frame`). Each takes ruby
+      # stack too, which runs out long before the slots do.
+      def depth = Thread.current[@depth_key] || 0
+
+      def depth=(n)
+        Thread.current[@depth_key] = n
+      end
+
       # Keeps the Value `v` alive while the def that can collect around
       # this call runs. A collection in the kernel sees only the Values in
       # memory; a host def keeps its Values in Ruby locals, so each Value
@@ -445,8 +454,9 @@ module Zr
 
       # Marks each pinned cell, and runs the collection with no pinning.
       def mark_pins
+        arenas = heap_arenas
         @all_pins.each do |list|
-          list.each { |v| @kern.zr_mark(v) if live?(v) }
+          list.each { |v| @kern.zr_mark(v) if live?(v, arenas) }
         end
       end
 
@@ -461,12 +471,27 @@ module Zr
       private
 
       # Whether `v` is a cell the heap has allocated, so the collector
-      # may mark it. A pin can hold a word that is no longer one.
-      def live?(v)
+      # may mark it. A pin can hold a word that is no longer one: a cell
+      # that a sweep freed, or a stack image (a block's Proc) in slots
+      # that other frames use now. So the flags at `v` prove nothing; the
+      # cell must be in one of the heap's `arenas`, with its allocated bit
+      # set. A stack image is in none, and the collector never marks one.
+      def live?(v, arenas)
         return false if @kern.zr_special_p(v)
 
-        flags = Memory.fetch(TYPES["Word"], v)
-        (flags & @kern::FL_STACK) != 0 || (flags & @kern::FL_ALLOCATED) != 0
+        a = @kern.zr_arena_of(v)
+        return false unless arenas.include?(a)
+
+        i = @kern.zr_cell_index(v)
+        word = Memory.fetch(TYPES["Word"], @kern.zr_arena_allocated(a) + ((i >> 6) * 8))
+        word.anybits?(@kern.zr_marks_bit(i))
+      end
+
+      # The heap's arenas, by address.
+      def heap_arenas
+        h = @kern.zr_heap
+        n = @kern::Heap.arenas(h)
+        n.zero? ? Set.new : Memory.read(@kern::Heap.table(h), n * 8).unpack("Q<*").to_set
       end
 
       # Gives each layout of a cell (RBasic, and each layout that starts

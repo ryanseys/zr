@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+verbose, $VERBOSE = $VERBOSE, nil
+require "continuation" # ruby warns that callcc is obsolete
+$VERBOSE = verbose
 require_relative "../host"
 require_relative "../../runtime_sources"
 require_relative "../../target"
@@ -63,6 +66,8 @@ module Zr
           files.each { |path| File.read(path).scan(/Machine\.id\(:"?([^)"]+)"?\)/) { @symbols.id(Regexp.last_match(1)) } }
           @host = Host.new(files, symbols: @symbols, constants: { "CONTEXT_BYTES" => CONTEXT_BYTES }, externs: externs)
           @fibers = [nil]
+          @captures = {}
+          @jump = nil
           kern = @host.kern
           kern.const_set(:BOOT, self)
           @handlers = {}
@@ -74,7 +79,35 @@ module Zr
 
         # Switches from the context `from` to `to`, starting `to`'s Fiber at
         # its entry the first time.
+        #
+        # A continuation (continuation.rb) copies the slot area on a side
+        # context, but the walker's frames are Ruby frames. So a switch to
+        # the side context also captures them with ruby's `callcc`, with
+        # the slot top, the pins and the walker's depth. When a restore on the side context
+        # switches back to a context that a capture left, the switch goes
+        # through that capture, and the capture's switch returns again.
         def switch(from, to)
+          if to == kern.zr_cont_side_ctx
+            k = callcc { |c| c }
+            return unless k
+
+            capture = [k, @host.slot_top, @host.pins.dup, @host.depth]
+          end
+          @jump = @captures[to] if @captures.key?(to)
+          leave(from, to)
+          if (jump = @jump)
+            @jump = nil
+            k, top, pins, depth = jump
+            @host.slot_top = top
+            @host.pins.replace(pins)
+            @host.depth = depth
+            k.call(nil)
+          end
+          @captures[from] = capture if capture
+          nil
+        end
+
+        def leave(from, to)
           index, = Memory.read(from, 8).unpack("Q<")
           if index.zero?
             index = @fibers.size
@@ -98,15 +131,29 @@ module Zr
           nil
         end
 
+        # A thread's time slice. A binary's is 100 ms, but the walker does
+        # in 100 ms a small part of what a binary does. So a thread here
+        # gets a longer slice, which ends near the points where a binary's
+        # ends, not on the way to a thread's first line.
+        SLICE = 1.0
+
+        # A forked child has no thread but the one that forked: the timer
+        # starts again in it (`restart`).
         def poll_start
           kern = @host.kern
+          @poll = nil unless @poll&.alive?
           @poll ||= Thread.new do
             loop do
-              sleep 0.1
+              sleep SLICE
               kern.zr_poll_set
             end
           end
           nil
+        end
+
+        # After a fork: the timer that the kernel started runs again.
+        def restart
+          poll_start if @poll
         end
 
         # sigaction(2) for the kernel: `fn` 0 is the default, 1 is ignore,
