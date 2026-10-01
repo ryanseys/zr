@@ -84,6 +84,7 @@ module Zr
           files.each { |path| File.read(path).scan(/Machine\.id\(:"?([^)"]+)"?\)/) { @symbols.id(Regexp.last_match(1)) } }
           @host = Host.new(files, symbols: @symbols, constants: { "CONTEXT_BYTES" => CONTEXT_BYTES }, externs: externs)
           @fibers = [nil]
+          @indices = {}
           @captures = {}
           @jump = nil
           kern = @host.kern
@@ -131,13 +132,13 @@ module Zr
           nil
         end
 
+        # A switch writes the whole `from` context, as a binary's saves
+        # every register there: a context that the kernel allocates (a
+        # continuation's, in memory that malloc gave again) holds old bytes
+        # until then.
         def leave(from, to)
-          index, = Memory.read(from, 8).unpack("Q<")
-          if index.zero?
-            index = @fibers.size
-            @fibers << Fiber.current
-            Memory.write(from, [index].pack("Q<"))
-          end
+          index = @indices[Fiber.current] ||= @fibers.push(Fiber.current).size - 1
+          Memory.write(from, [index].pack("Q<"))
           Memory.write(from + 24, [@host.slot_top].pack("Q<"))
           target, entry, top = Memory.read(to, 24).unpack("Q<3")
           if target.zero?
@@ -147,8 +148,7 @@ module Zr
               host.call_at(entry, [], TYPES["Void"], [])
               raise "a fiber's entry returned; it must switch away"
             end
-            target = @fibers.size
-            @fibers << fiber
+            target = @indices[fiber] = @fibers.push(fiber).size - 1
             Memory.write(to, [target].pack("Q<"))
           end
           @fibers.fetch(target).transfer
