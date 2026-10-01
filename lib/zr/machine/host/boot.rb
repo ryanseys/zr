@@ -58,6 +58,12 @@ module Zr
           def zr_os_poll_start = self::BOOT.poll_start
         end
 
+        # nanosleep(2) that a signal cuts short, as in a binary: ruby runs a
+        # trap on its main thread, and the program runs on another one.
+        module Sleep
+          def nanosleep(request, remaining) = self::BOOT.nanosleep(request, remaining)
+        end
+
         # fork(2) as ruby forks, so ruby's own state in the child is right.
         # The child runs the program (`restart`).
         module Fork
@@ -78,7 +84,8 @@ module Zr
           kern.const_set(:BOOT, self)
           @handlers = {}
           @owner = Process.pid
-          kern.prepend(Arch, Stack, Signals, Fork)
+          @wake = Thread::Queue.new
+          kern.prepend(Arch, Stack, Signals, Sleep, Fork)
           kern.zr_boot
         end
 
@@ -167,6 +174,27 @@ module Zr
         # or a fork that runs a program (`restart`).
         attr_reader :owner
 
+        # A signal's handler ran: a sleep ends now (`nanosleep`).
+        def wake = @wake << true
+
+        # The kernel's nanosleep (`Sleep`): 0 after the whole time, or -1
+        # with EINTR and the time left when a signal arrives. A signal that
+        # came before the sleep does not cut it short.
+        def nanosleep(request, remaining)
+          seconds, nanoseconds = Memory.read(request, 16).unpack("q<q<")
+          length = seconds + (nanoseconds / 1e9)
+          @wake.clear
+          started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+          return 0 unless @wake.pop(timeout: length)
+
+          if remaining != 0
+            left = [length - (Process.clock_gettime(Process::CLOCK_MONOTONIC) - started), 0].max
+            Memory.write(remaining, [left.floor, ((left % 1) * 1e9).floor].pack("q<q<"))
+          end
+          kern.zr_os_set_errno(4) # EINTR
+          -1
+        end
+
         # The kernel's fork (`Fork`): the child's pid, or 0 in the child.
         def fork
           pid = Process.fork
@@ -192,13 +220,20 @@ module Zr
                       # program (a test worker) keeps its kernel unchanged
                       # for the forks it makes after.
                       boot = self
-                      proc { kern.public_send(target, signo) if boot.owner == Process.pid }
+                      proc do
+                        if boot.owner == Process.pid
+                          kern.public_send(target, signo)
+                          boot.wake
+                        end
+                      end
                     end
           Signal.trap(name, handler)
           Memory.write(old, [@handlers.fetch(signo, 0)].pack("Q<"))
           @handlers[signo] = fn
           0
-        rescue ArgumentError
+        rescue ArgumentError, Errno::EINVAL
+          # ruby refuses a signal it keeps (ArgumentError) and one that the
+          # OS refuses, as SIGKILL (EINVAL).
           kern.zr_os_set_errno(22)
           -1
         end

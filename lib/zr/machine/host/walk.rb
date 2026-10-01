@@ -154,6 +154,7 @@ module Zr
         # Runs the program `hir` (a Hir::Program) as `zr_toplevel`.
         def program(hir, file, target = Target.default)
           spotted(hir, target)
+          interned([hir])
           @traced = hir.traced ? true : false
           toplevel(hir, Unit.new(Paths.shown(file), false, hir.units, hir.node_ids, false, false, nil, @traced), @kern::KIND_MAIN)
         end
@@ -221,6 +222,20 @@ module Zr
 
         def sym(name) = (id(name) << 8) | 12
 
+        # Interns each Symbol in the trees `roots`, as a binary's symbol
+        # table has every name its program uses before the first line:
+        # Symbol.all_symbols lists one that has not run yet.
+        def interned(roots)
+          stack = roots.dup
+          until stack.empty?
+            node = stack.pop
+            case node
+            when Symbol then id(node)
+            when Hir::Node, Array then stack.concat(Hir.each_child(node))
+            end
+          end
+        end
+
         private
 
         def k = @kern
@@ -251,7 +266,7 @@ module Zr
           words = Memory.fetch(TYPES["Ptr"], @host.extern("zr_load_tables"))
           table = k::LoadTable
           texts = Zr.load_texts(evals: hir.evals, spots: hir.spots || {}, coverable: hir.coverable || {}, branches: hir.branches || {},
-                                defs: hir.defs || {}, target: target)
+                                defs: hir.defs || {}, target: target, manifest: Manifest.bytes(Manifest.of_program(hir, @eval_files), target))
           TEXTS.zip(texts) do |field, lines|
             text = lines.join("\n").b
             Memory.write(words + table.layout_fields.fetch(field).first, [@host.bytes(text), text.bytesize].pack("Q<Q<"))
@@ -573,8 +588,13 @@ module Zr
         # and the slot count and names of the Env for its own locals.
         def eval_compile(source, file, line, scopes, method)
           outer = ruby(scopes).map { |names| names.map(&:to_sym) }
+          # Its `using` entries take the next free slots of the program's
+          # table, now (`Zr::Eval#compiled`); a traced program's eval is
+          # traced too.
           hir = Hir.build(text(source), text(file), eval_support: false, line: k.zr_fix2long(line), scopes: [*outer.reverse, []],
-                                                    method: method == @qnil ? nil : ruby(method))
+                                                    method: method == @qnil ? nil : ruby(method),
+                                                    activations: k.zr_fix2long(k.zr_activations_count), trace: @traced)
+          k.zr_activations_reserve(hir.activations)
           unit = Unit.new(text(file), false, hir.units, hir.node_ids)
           unit.spelling = Spelling.new([hir])
           # A traced program's eval'd code fires its events too.
@@ -595,7 +615,17 @@ module Zr
           end
         rescue Hir::Invalid, SyntaxError => e
           message = e.message.b
-          k.zr_raise_msg(k.zr_core_class(id(:SyntaxError)), @host.bytes(message), message.bytesize)
+          klass = k.zr_core_class(id(:SyntaxError))
+          return k.zr_raise_msg(klass, @host.bytes(message), message.bytesize) unless e.is_a?(SyntaxError) && e.backtrace == [e.path]
+
+          # An error in the string alone (a stray `yield`) keeps the
+          # string's path as its backtrace (`Zr::Eval#compile`).
+          slots do
+            exc = @host.pin(check(k.zr_send(klass, id(:new), 1, argv([string(e.message)]))))
+            path = @host.pin(k.zr_ary_of(1, argv([string(e.path)])))
+            check(k.zr_send(exc, id(:set_backtrace), 1, argv([path])))
+            k.zr_raise(exc)
+          end
         end
 
         # prism's files of eval support, required hidden as a binary's
