@@ -344,15 +344,27 @@ module Zr::Kern
     if blk != QNIL && argc == 2
       zr_warn_here(Machine.bytes("block supersedes default value argument"), 39)
     end
+    if blk == QNIL
+      # As rb_ary_initialize's fill: one store, then the stored words
+      # again until the size, so the copies number the log of `n`. The
+      # one store's write barrier covers each copy of the same value.
+      if n > 0
+        zr_ary_reserve(recv, n)
+        zr_ary_push(recv, fill)
+        while RArray.len(recv) < n
+          len = RArray.len(recv)
+          chunk = len <= n - len ? len : n - len
+          zr_memcpy(RArray.ptr(recv) + (len * 8), RArray.ptr(recv), chunk * 8)
+          RArray.set_len(recv, len + chunk)
+        end
+      end
+      return recv
+    end
     i = 0
     while i < n
-      if blk != QNIL
-        v = zr_yield1(blk, zr_fix(i))
-        return v if v == QUNDEF
-        zr_ary_push(recv, v)
-      else
-        zr_ary_push(recv, fill)
-      end
+      v = zr_yield1(blk, zr_fix(i))
+      return v if v == QUNDEF
+      zr_ary_push(recv, v)
       i += 1
     end
     recv

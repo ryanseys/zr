@@ -633,10 +633,17 @@ module Zr::Kern
     end
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
-    i = 0
-    while i < n
+    total = n * RString.len(recv)
+    if total > 0
+      # As rb_str_times: one copy, then the copied bytes again until the
+      # whole length, so the copies number the log of `n`, not `n`.
       zr_buf_str(b, recv)
-      i += 1
+      zr_buf_reserve(b, total - Buf.len(b))
+      while Buf.len(b) < total
+        chunk = Buf.len(b) <= total - Buf.len(b) ? Buf.len(b) : total - Buf.len(b)
+        zr_memcpy(Buf.ptr(b) + Buf.len(b), Buf.ptr(b), chunk)
+        Buf.set_len(b, Buf.len(b) + chunk)
+      end
     end
     zr_str_copy_encoding(zr_buf_take(b), recv)
   end
