@@ -6,5 +6,5 @@
 require_relative "zr/version"
 require_relative "zr/paths"
 require_relative "zr/target"
-require_relative "zr/clock"
+require_relative "zr/timing"
 

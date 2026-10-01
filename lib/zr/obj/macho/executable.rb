@@ -7,7 +7,7 @@ require_relative "prelink"
 require_relative "libsystem"
 require_relative "skeleton"
 require_relative "../../bytes"
-require_relative "../../clock"
+require_relative "../../timing"
 require_relative "../../target"
 
 module Zr
@@ -113,7 +113,7 @@ module Zr
         # system allows, this clones it and writes into the clone.
         def self.write(unit, out, objects: [], prelink: nil, stack: STACK, entry: "main", skeleton: nil)
           prelink ||= Prelink.build(objects)
-          Zr.clock("link: program read") { new(unit, prelink, out, stack: stack, entry: entry, skeleton: skeleton) }.write
+          Timing.phase("link: program read") { new(unit, prelink, out, stack: stack, entry: entry, skeleton: skeleton) }.write
         rescue Refused => e
           e.message
         end
@@ -142,20 +142,20 @@ module Zr
           raise Refused, "#{outside.first} is not libSystem's" unless outside.empty?
 
           @ordinal = @imports.each_with_index.to_h
-          Zr.clock("link: laid out") { @base.empty? ? plain : beside_base }
+          Timing.phase("link: laid out") { @base.empty? ? plain : beside_base }
           entry = @top.entry(@entry) || @base.global("_#{@entry}") or raise Refused, "nothing named #{@entry} to enter at"
           @entry_at = entry - BASE
-          Zr.clock("link: filled") { fill }
-          Zr.clock("link: linkedit") { linkedit }
+          Timing.phase("link: filled") { fill }
+          Timing.phase("link: linkedit") { linkedit }
           header
-          signed = Zr.clock("link: signed") { signature }
+          signed = Timing.phase("link: signed") { signature }
           if @base.empty?
             File.open(@out, "wb") { |file| write_after(file, 0, signed) }
             File.chmod(0o755, @out)
           else
             # The first segment is the header page and the base's text.
             # The file at `out`, or the skeleton, already contains it.
-            Zr.clock("link: written") { Skeleton.write_over(@out, @skeleton, @base.blobs.fetch(:text)) do |file, kept|
+            Timing.phase("link: written") { Skeleton.write_over(@out, @skeleton, @base.blobs.fetch(:text)) do |file, kept|
               file.write(@header)
               kept ? file.seek(@segments.first.filesize) : file.write(@base.blobs.fetch(:text))
               write_after(file, 1, signed)

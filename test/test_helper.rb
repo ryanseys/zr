@@ -3,7 +3,7 @@
 require "minitest/autorun"
 
 require_relative "../lib/zr/target"
-require_relative "../lib/zr/flags"
+require_relative "../lib/zr/config"
 require_relative "support/fork_pool"
 require_relative "support/harness/clean_env"
 require "tmpdir"
@@ -31,10 +31,10 @@ Minitest::Test.parallelize_me!
 
 # Use the Minitest report by default. `SLOW` adds the time of each test.
 # On CI, write a JUnit file, which the web view uses to show failures.
-if Zr.flag?("SLOW") || ENV["CI"]
+if Zr::Config.flag?("SLOW") || ENV["CI"]
   require "minitest/reporters"
   Minitest::Reporters.use!(
-    [*(Minitest::Reporters::MeanTimeReporter.new(show_count: 25, show_all_runs: false) if Zr.flag?("SLOW")),
+    [*(Minitest::Reporters::MeanTimeReporter.new(show_count: 25, show_all_runs: false) if Zr::Config.flag?("SLOW")),
      *(Minitest::Reporters::JUnitReporter.new(File.expand_path("../tmp/junit", __dir__)) if ENV["CI"])]
   )
 end

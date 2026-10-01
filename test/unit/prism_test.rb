@@ -201,7 +201,7 @@ end
   # with this call, and ruby's report for a file that does not parse goes
   # through syntax_suggest.
   def test_lex_compat_returns_same_tokens_as_gem_prism
-    source = File.read(File.join(ROOT, "lib/zr/clock.rb"))
+    source = File.read(File.join(ROOT, "lib/zr/timing.rb"))
     tokens = lexed(source, "zr/prism")
 
     assert_operator tokens.lines.size, :>, 50

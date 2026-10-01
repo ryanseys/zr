@@ -15,7 +15,7 @@ require_relative "../obj/elf/object_file"
 require_relative "../obj/macho/prelink"
 require_relative "../machine/lower"
 require_relative "../runtime"
-require_relative "../clock"
+require_relative "../timing"
 require_relative "../config"
 require_relative "parallel"
 require_relative "code_cache"
@@ -89,7 +89,7 @@ module Zr
         objects << eval_support_object(program.evals, jobs: jobs) if program.evals
         root(program.runtime, objects, program.evals)
         functions, assembled = program.functions.partition { |f| f.is_a?(IR::Function) }
-        Zr.clock("program object written and linked") do
+        Timing.phase("program object written and linked") do
           binary(functions, program.data, out, work: work, assembled: assembled, objects: objects, strip: !program.evals,
                                                            target: program.runtime.target, jobs: jobs, link: link)
         end
@@ -141,10 +141,10 @@ module Zr
         # Kept in memory for the life of the process, and on disk. Reading
         # and parsing the 25 MB image took 21% of a link, and a test tier
         # links thousands of times. A link never writes to it.
-        kept = (@prelinks ||= {})[path] ||= File.exist?(path) && Zr.clock("prelink loaded") { Obj::MachO::Prelink.load(File.binread(path)) }
+        kept = (@prelinks ||= {})[path] ||= File.exist?(path) && Timing.phase("prelink loaded") { Obj::MachO::Prelink.load(File.binread(path)) }
         return kept if kept
 
-        Zr.clock("objects prelinked") do
+        Timing.phase("objects prelinked") do
           Obj::MachO::Prelink.build(objects.map { |o| File.binread(o) }).tap { |base| Cache::Store.write_file(path, base.dump) }
         end
       end
@@ -172,7 +172,7 @@ module Zr
       # prelink. Returns nil when the prelink is not in the cache.
       def skeleton(objects)
         path = skeleton_path(objects) or return nil
-        (@skeletons ||= {})[path] ||= File.exist?(path) ? path : Zr.clock("skeleton written") { Cache::Store.write_file(path, Obj::MachO::Skeleton.bytes(prelink(objects))) }
+        (@skeletons ||= {})[path] ||= File.exist?(path) ? path : Timing.phase("skeleton written") { Cache::Store.write_file(path, Obj::MachO::Skeleton.bytes(prelink(objects))) }
       end
 
       # The eval support object, built once for each key.
@@ -193,7 +193,7 @@ module Zr
             units = nil # the lambda would keep the IR alive
             support.release
           end
-          why = Zr.clock("eval support object assembled and written") do
+          why = Timing.phase("eval support object assembled and written") do
             object(support.functions, support.data, fresh, export: true, target: support.target, jobs: jobs, cache: code,
                                                            inlined: !units.nil?, known: units&.known || {}, release: done)
           end
@@ -223,7 +223,7 @@ module Zr
           # unit already; its code cache has that code.
           core = runtime.core_cache
           cache = core&.code || CodeCache.for("runtime", runtime.target)
-          why = Zr.clock("runtime object assembled and written") do
+          why = Timing.phase("runtime object assembled and written") do
             object(runtime.functions, runtime.data, fresh, raw: runtime.raw, export: true, target: runtime.target, jobs: jobs,
                                                                          cache: cache, inlined: !core.nil?, known: core&.known || {})
           end
@@ -248,7 +248,7 @@ module Zr
           functions = nil # rubocop:disable Lint/UselessAssignment -- the frame would keep the IR alive
           release.call
         end
-        File.binwrite(obj, Zr.clock("object file written") { writer(target).write(built) })
+        File.binwrite(obj, Timing.phase("object file written") { writer(target).write(built) })
         nil
       rescue Backend::Refused => e
         e.message
@@ -267,7 +267,7 @@ module Zr
       # `known` gives by name.
       def unit(functions, data, raw: [], assembled: [], export: false, target: Target.default, jobs: Build.jobs,
                floor: PARALLEL_THRESHOLD, cache: nil, inlined: false, known: {})
-        Zr.clock("unit inlined") { IR::Passes.inline(functions) } unless inlined
+        Timing.phase("unit inlined") { IR::Passes.inline(functions) } unless inlined
         emitter = backend(target)
         code = assembled + raw.map { |name| emitter::Stub.function(name) }
         emitter.unit(functions, data, raw: code, export: export) do |all, defined|
@@ -302,9 +302,9 @@ module Zr
 
           [key, Marshal.dump(made), true]
         end
-        Zr.clock("code cache kept") { cache.keep(answers.map { |key, blob, _| [key, blob] }) }
+        Timing.phase("code cache kept") { cache.keep(answers.map { |key, blob, _| [key, blob] }) }
         warn format("zr: code cache: %d of %d functions assembled", answers.count(&:last), all.size) if Config.current.timing?
-        Zr.clock("code cache loaded") { answers.map { |_, blob, _| Marshal.load(blob) } }
+        Timing.phase("code cache loaded") { answers.map { |_, blob, _| Marshal.load(blob) } }
       end
 
       # Writes the same functions and data as one WASI module. A raw

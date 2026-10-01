@@ -3,7 +3,7 @@
 require "digest/sha2"
 require_relative "../paths"
 require_relative "../prism"
-require_relative "../settled"
+require_relative "../source_guard"
 require_relative "store"
 require_relative "../runtime/lib/zr/eval/runtime" unless Zr::HOSTED
 
@@ -203,7 +203,7 @@ module Zr
 
       # Writes the file atomically, so a parallel build never reads half of
       # it. Writes nothing if a source changed during the build
-      # (`Zr.settled!`), or if a parser file changed after its digest. This
+      # (`SourceGuard.check!`), or if a parser file changed after its digest. This
       # process parses with the code that it loaded, but the key identifies
       # the files on disk.
       def write(path, bytes)

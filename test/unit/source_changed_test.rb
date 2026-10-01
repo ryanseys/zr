@@ -34,14 +34,14 @@ class SourceChangedTest < Minitest::Test
   end
 
   def test_source_change_is_nil_when_files_are_unchanged
-    assert_nil Zr.moved
-    watching { assert_nil Zr.moved }
+    assert_nil Zr::SourceGuard.changed_file
+    watching { assert_nil Zr::SourceGuard.changed_file }
   end
 
   def test_source_change_returns_a_rewritten_file
     watching do
       File.write(@file, "12\n")
-      assert_equal @file, Zr.moved
+      assert_equal @file, Zr::SourceGuard.changed_file
       assert_equal @file, @runtime.moved
     end
   end
@@ -49,14 +49,14 @@ class SourceChangedTest < Minitest::Test
   def test_source_change_returns_a_deleted_file
     watching do
       File.delete(@file)
-      assert_equal @file, Zr.moved
+      assert_equal @file, Zr::SourceGuard.changed_file
     end
   end
 
   def test_cache_writes_raise_when_a_source_changed
     watching do
       File.write(@file, "12\n")
-      error = assert_raises(Zr::SourceChanged) { Zr.settled! }
+      error = assert_raises(Zr::SourceChanged) { Zr::SourceGuard.check! }
       assert_includes error.message, @file
       assert_raises(Zr::SourceChanged) { Zr::Cache::Store.write_file(File.join(Zr::Paths.cache, "moved-probe"), "x") }
       assert_raises(Zr::SourceChanged) { Zr::Cache::Parse.write(File.join(Zr::Paths.cache, "moved-probe"), "x") }

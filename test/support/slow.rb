@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require "minitest"
-require_relative "../../lib/zr/flags"
+require_relative "../../lib/zr/config"
 
 module Zr
   module Test
@@ -25,7 +25,7 @@ module Zr
       DEFAULT = 20
 
       # `SLOW=1` reports the slowest examples; `SLOW=<n>` reports <n>.
-      def self.asked? = Zr.flag?("SLOW")
+      def self.asked? = Config.flag?("SLOW")
 
       def self.count = ENV["SLOW"].to_i.then { |n| n > 1 ? n : DEFAULT }
 

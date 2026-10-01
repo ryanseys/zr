@@ -3,6 +3,7 @@
 require_relative "../config"
 require_relative "../paths"
 require_relative "../runtime_sources"
+require_relative "../timing"
 require_relative "store"
 require_relative "../ir/fingerprint"
 require_relative "../ir/passes"
@@ -71,17 +72,17 @@ module Zr
         inliner = IR::Passes::Inline.new(fixed_ir)
         inliner.run
         @leaf = fixed_ir.to_h { |f| [f.name, inliner.settled_leaf?(f.name) ? IR::Fingerprint.of(f, Set.new) : nil] }
-        records = Zr.clock("#{label}: checked") { pieces.map { |piece| current(piece) } }
+        records = Timing.phase("#{label}: checked") { pieces.map { |piece| current(piece) } }
         missing = pieces.each_index.reject { |i| records[i] }
         report(label, pieces.size - missing.size, pieces.size)
-        made = Zr.clock("#{label}: made") do
+        made = Timing.phase("#{label}: made") do
           Native::Parallel.map(missing.map { |i| pieces[i] }, jobs: Config.current.jobs, weight: :weight.to_proc) do |piece|
             made(piece)
           end
         end
         missing.zip(made) { |i, (record, blobs)| records[i] = [record, blobs] }
-        Zr.clock("#{label}: kept") { keep(pieces, records) }
-        Zr.clock("#{label}: code read") { results(records) }
+        Timing.phase("#{label}: kept") { keep(pieces, records) }
+        Timing.phase("#{label}: code read") { results(records) }
       end
 
       # `[record, nil]` for a piece whose entry holds, else nil. The code
@@ -153,7 +154,7 @@ module Zr
       # Writes an entry for each piece that a worker made, and the root that
       # keeps this build's entries.
       def keep(pieces, records)
-        return if Zr.moved
+        return if SourceGuard.changed_file
 
         pieces.zip(records) do |piece, (record, blobs)|
           Store.write(:lowering, piece.key, record) if blobs && piece.key

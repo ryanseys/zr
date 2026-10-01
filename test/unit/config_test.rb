@@ -134,7 +134,7 @@ class ConfigTest < Minitest::Test
 
   def test_only_config_reads_a_zr_variable
     readers = (Dir[File.join(ROOT, "lib/**/*.rb")] - Dir[File.join(ROOT, "lib/zr/runtime/**/*.rb")]).select do |path|
-      File.read(path).match?(/ENV(\[|\.fetch\(|\.key\?\()"ZR_|Zr\.flag\?\("ZR_/)
+      File.read(path).match?(/ENV(\[|\.fetch\(|\.key\?\()"ZR_|flag\?\("ZR_/)
     end
 
     assert_equal READERS, readers.map { |path| path.delete_prefix("#{ROOT}/") }.sort

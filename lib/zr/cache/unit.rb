@@ -60,7 +60,7 @@ module Zr
       end
 
       # Stores the code that this build made for `unit`, for the next build.
-      # Stores nothing if a source changed during the build (`Zr.settled!`).
+      # Stores nothing if a source changed during the build (`SourceGuard.check!`).
       def keep(unit, prefix, functions, data)
         key = key(unit, prefix) or return nil
 

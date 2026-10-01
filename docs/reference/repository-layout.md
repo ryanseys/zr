@@ -26,16 +26,15 @@ Two kinds of code meet on a program's load path (`Zr::Layout`):
 | `lib/zr.rb` | the entry point: the version, the paths and the targets |
 | `lib/zr/version.rb` | `Zr::VERSION`, and `Zr::RUBY`, the ruby that zr needs |
 | `lib/zr/paths.rb` | where zr reads its sources and writes its cache |
-| `lib/zr/flags.rb` | `Zr.flag?`, which reads an on-or-off environment variable |
-| `lib/zr/config.rb` | `Zr::Config`: the `ZR_*` variables that steer a build, read once |
+| `lib/zr/config.rb` | `Zr::Config`: the `ZR_*` variables that steer a build, read once, and `Config.flag?` for an on-or-off variable |
 | `lib/zr/cli.rb` | the commands of `zr`, their options, and what they print |
 | `lib/zr/doctor.rb` | the checks of `zr doctor` |
 | `lib/zr/cache/store.rb` | the one content store of every cache: layout, keys, reads, writes, roots and eviction |
 | `lib/zr/cache/janitor.rb` | the build cache as `zr cache` sees it: size, clean, and the daily trim |
 | `lib/zr/refused.rb` | `Zr::Refused`: a program uses a form that zr does not support |
 | `lib/zr/bytes.rb` | byte helpers: alignment and padding |
-| `lib/zr/clock.rb` | `Zr.clock`: the phase times that `ZR_TIMING=1` prints |
-| `lib/zr/settled.rb` | `Zr.settled!`: a cache write stops if a source changed during the build |
+| `lib/zr/timing.rb` | `Zr::Timing.phase`: the phase times that `ZR_TIMING=1` prints |
+| `lib/zr/source_guard.rb` | `Zr::SourceGuard.check!`: a cache write stops if a source changed during the build |
 | `lib/zr/parse.rb` | `Zr.parse`: prism, through the parse cache where there is one |
 | `lib/zr/backend.rb` | `Zr::Backend`: what the backends share, and `Backend::Refused` |
 | `lib/zr/libraries.rb` | the directories of `vendor/ruby` that a program requires from |

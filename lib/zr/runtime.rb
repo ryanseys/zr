@@ -9,9 +9,9 @@ require_relative "obj/model"
 require_relative "hir"
 require_relative "lower"
 require_relative "cache/unit"
-require_relative "clock"
+require_relative "timing"
 require_relative "tune"
-require_relative "settled"
+require_relative "source_guard"
 require_relative "cache/store"
 require_relative "runtime_sources"
 require_relative "cache/lowering/core"
@@ -44,7 +44,7 @@ module Zr
     def unit
       raise "the runtime's IR was released" if @released
 
-      @unit ||= Zr.clock("kernel lowered") do
+      @unit ||= Timing.phase("kernel lowered") do
         Tune.heavy!
         Machine::Lower.new(RuntimeSources.for(target).kernel_files.map { |path| [sources.fetch(path), path] }, kernel_symbols).tap(&:run)
       end
@@ -68,7 +68,7 @@ module Zr
       # object contains the core's file names; so two checkouts never
       # share one. A build with a path root (`Paths.root`) writes
       # different names, so the root is also an input.
-      @digest ||= Zr.clock("runtime digest") do
+      @digest ||= Timing.phase("runtime digest") do
         files = sources.keys + gem_prelude_files
         @stamps = files.to_h { |path| [path, Paths.stamp(path)] }
         digest_of(files)
@@ -236,8 +236,8 @@ module Zr
     # that the core cache keeps stay unnumbered, so an edit that adds a name
     # moves the ids after it and no code.
     def lowered
-      @lowered ||= Zr.clock("core lowered") do
-        @core_cache = Zr.clock("core cache: opened") { Cache::Lowering::Core.for(target) }
+      @lowered ||= Timing.phase("core lowered") do
+        @core_cache = Timing.phase("core cache: opened") { Cache::Lowering::Core.for(target) }
         fixed = unit.symbols.ids.dup.freeze
         functions, data = @core_cache ? @core_cache.lower(unit, fixed, sources) : Zr.core(unit, fixed, target, sources)
         @table = Machine::Symbols.new(kernel_symbols.names, sites: kernel_symbols.sites)
@@ -371,7 +371,7 @@ module Zr
     def files_key(files, sources = {}, absent = []) = Digests.eval_files_key(@runtime.eval_digest, files, sources, absent)
 
     def lowered
-      @lowered ||= Zr.clock("eval support lowered") do
+      @lowered ||= Timing.phase("eval support lowered") do
         Tune.heavy!
         Zr.announce("eval support (the compiler in a program that calls eval)", target)
         loader = Hir::Build.eval_support(target)
@@ -422,7 +422,7 @@ module Zr
   def program(source, file, target: Target.default, sources: false, gem_set: nil, gate: false, &finish)
     rt = runtime(target)
     support = eval_support(target)
-    hir = Zr.clock("hir built") { Hir.build(source, file, prebuilt: support, target: target, gem_set: gem_set, gate: gate) }
+    hir = Timing.phase("hir built") { Hir.build(source, file, prebuilt: support, target: target, gem_set: gem_set, gate: gate) }
     gem_conflicts!(hir, support, gem_set, target) if hir.evals && gem_set && !gem_set.empty?
     # A large program is heavy work too (`Tune`): bundler's 1.2 MB of source
     # takes seconds to lower.
@@ -437,7 +437,7 @@ module Zr
     # correct for this build while the kernel's ABI is the same.
     units = finish && Cache::Unit.for(hir, runtime: rt.abi_digest, entries: Lower.entries_of("zr_toplevel", hir.units))
     lower = Lower.new(hir, rt.description, symbols, target: target, fixed: rt.fixed_ids, units: units || nil)
-    functions, data = Zr.clock(finish ? "program lowered and assembled" : "program lowered") do
+    functions, data = Timing.phase(finish ? "program lowered and assembled" : "program lowered") do
       finish ? lower.run { |f| yield(f, lower.entry) } : lower.run
     end
     units = hir.entries.map { |path, i| [path, lower.unit_entry(i)] }
@@ -543,9 +543,12 @@ module Zr
     data.map { |d| d.relocs.any? { |r| NUMBERED.include?(r.kind) } ? d.dup : d }.tap { |copies| number_symbols(copies, symbols, tag) }
   end
 
+  # The runtimes of this process, by target triple.
+  def runtimes = @runtimes ||= {}
+
   # The runtime for `target`, lowered once per process.
   def runtime(target = Target.default)
-    (@runtimes ||= {})[target.triple] ||= Runtime.new(target)
+    runtimes[target.triple] ||= Runtime.new(target)
   end
 
   def eval_support(target = Target.default)

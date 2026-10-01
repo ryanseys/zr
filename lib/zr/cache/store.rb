@@ -3,7 +3,7 @@
 require "digest/sha2"
 require_relative "../config"
 require_relative "../paths"
-require_relative "../settled"
+require_relative "../source_guard"
 
 module Zr
   # zr's caches between builds. `Store` keeps every entry on disk. Each
@@ -91,12 +91,12 @@ module Zr
 
       # Writes the entry and returns its path. A `:dir` kind takes a block
       # that fills the directory it gets. Writes nothing when a source
-      # changed during the build (`Zr.settled!` raises SourceChanged).
+      # changed during the build (`SourceGuard.check!` raises SourceChanged).
       def write(name, key, value = nil, &)
         file = path(name, key)
         codec = kind(name).codec
         if codec == :dir
-          Zr.settled!
+          SourceGuard.check!
           return write_dir(file, &)
         end
 
@@ -108,7 +108,7 @@ module Zr
       # the cache comes here, also of a file whose path a cache makes
       # itself. Writes nothing when a source changed during the build.
       def write_file(path, bytes)
-        Zr.settled!
+        SourceGuard.check!
         Paths.write_atomic(path, bytes)
       end
 
@@ -132,7 +132,7 @@ module Zr
         file = File.join(dir, "roots", name)
         return touch(file, 0) if roots_of(file) == lines
 
-        Zr.settled!
+        SourceGuard.check!
         Paths.write_atomic(file, lines)
       end
 
@@ -296,7 +296,7 @@ module Zr
         Paths.remove(fresh)
         Dir.mkdir(fresh)
         yield fresh
-        Zr.settled!
+        SourceGuard.check!
         Paths.remove(file)
         File.rename(fresh, file)
         file

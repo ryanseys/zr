@@ -3,7 +3,7 @@
 require "digest/sha2"
 require_relative "../config"
 require_relative "../paths"
-require_relative "../settled"
+require_relative "../source_guard"
 require_relative "../runtime_sources"
 require_relative "store"
 require_relative "../version"
@@ -59,11 +59,11 @@ module Zr
 
       # Keeps the binary at `out`, built from `program`, and returns the path
       # of the kept binary. It keeps nothing, and returns nil, when a source
-      # changed during the build (`Zr.moved`), when the build does not know
+      # changed during the build (`SourceGuard.changed_file`), when the build does not know
       # its sources, or when the binary spells the build directory `work`,
       # which a later run would not have.
       def keep(out, program, work)
-        return if program.sources.empty? || Zr.moved
+        return if program.sources.empty? || SourceGuard.changed_file
         return if File.binread(out).include?(work)
 
         sources = program.sources.dup

@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require "rbconfig"
-require_relative "flags"
 
 module Zr
   # The `ZR_*` environment variables that steer a build, read once.
@@ -30,14 +29,14 @@ module Zr
       # Not exposed as a plain reader: `eval` is a Kernel method, and
       # `eval_walk?` is the only thing anything reads this for.
       @eval_mode = ENV["ZR_EVAL"]
-      @timing = Zr.flag?("ZR_TIMING")
-      @verify = Zr.flag?("ZR_VERIFY")
-      @kernel_checked = Zr.flag?("ZR_KERNEL_CHECKED")
-      @wasm_names = Zr.flag?("ZR_WASM_NAMES")
+      @timing = Config.flag?("ZR_TIMING")
+      @verify = Config.flag?("ZR_VERIFY")
+      @kernel_checked = Config.flag?("ZR_KERNEL_CHECKED")
+      @wasm_names = Config.flag?("ZR_WASM_NAMES")
       # `ZR_WASM_WIDTH`: the group size of a large wasm function's dispatch
       # (`Backend::Wasm::Codegen::Body::LADDER` explains the default).
       @wasm_width = number("ZR_WASM_WIDTH", 256, "256", min: 1)
-      @tune = Zr.flag?("ZR_TUNE", default: true)
+      @tune = Config.flag?("ZR_TUNE", default: true)
       @cache = ENV["ZR_CACHE"]
       # `ZR_CACHE_MAX_GB`: the most GB an installed zr keeps in its cache
       # (default 5; 0 turns the limit off).
@@ -52,7 +51,7 @@ module Zr
       # `ZR_LINK_ARGS`: words for the system linker, as `--link` gives
       # them, split as a shell splits them.
       @link = words(ENV.fetch("ZR_LINK_ARGS", "")).freeze
-      @run_cache = Zr.flag?("ZR_RUN_CACHE", default: true)
+      @run_cache = Config.flag?("ZR_RUN_CACHE", default: true)
       @code_cache = choice("ZR_CODE_CACHE", CODE_CACHES, "1")
       @server = ENV["ZR_SERVER"].to_s.empty? ? nil : ENV["ZR_SERVER"]
       freeze
@@ -158,7 +157,14 @@ module Zr
     # `ZR_DEBUG=1` shows the backtrace of an error that stops zr
     # (`CLI.guard`). It is read on its own, not with the rest: it must
     # work when another ZR_* value is bad.
-    def self.debug? = Zr.flag?("ZR_DEBUG")
+    def self.debug? = flag?("ZR_DEBUG")
+
+    # Whether the environment variable `name` is on. Unset or empty gives
+    # `default`, "0" is off, and any other value is on.
+    def self.flag?(name, default: false)
+      value = ENV[name]
+      value.nil? || value.empty? ? default : value != "0"
+    end
 
     # The one instance for this process. A later call returns the same
     # instance; `reset!` and `with` are the only way to get a new one.

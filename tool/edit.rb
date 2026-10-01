@@ -55,7 +55,7 @@ module Zr
         "ext-comment" => ["lib/zr/runtime/ext/stringio.rb", COMMENT]
       }.freeze
 
-      # The line `Zr.clock` writes: a label padded to 40, then the seconds.
+      # The line `Zr::Timing.phase` writes: a label padded to 40, then the seconds.
       LINE = /\Azr: (.+?)\s+([\d.]+)s(?:\s|\z)/
       WHOLE = "the whole run"
       OTHER = "not in a phase"

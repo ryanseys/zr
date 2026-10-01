@@ -115,8 +115,8 @@ module Zr
 
         # If a source file changed during the tier, the binary comes from
         # two versions of the tree, but the key identifies only one. So
-        # do not keep it: `settled!` stops the tier and gives the file name.
-        Zr.settled!
+        # do not keep it: `check!` stops the tier and gives the file name.
+        SourceGuard.check!
         objects = objects_of(program)
         sparse = !kept.end_with?(".wasm") && Native::Build.prelink_path(objects)
         Zr::Paths.write_atomic(kept, sparse ? sparse(bytes, objects) : bytes)

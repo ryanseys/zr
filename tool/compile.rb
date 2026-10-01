@@ -21,7 +21,7 @@ module Zr
     # `zr-dev bench` times what a binary does; this tool times how long it
     # takes to make one. The programs in `benchmark/compile` have require
     # graphs of increasing size, from no require to all of bundler. Each
-    # row is one phase of `Zr.clock`, so you can see which phase a change
+    # row is one phase of `Zr::Timing.phase`, so you can see which phase a change
     # affects.
     #
     # The runtime is already built. The first run of each program is a
@@ -64,7 +64,7 @@ module Zr
       COMPILED = Dev.path("tmp/compile/zr")
       COMPILED_CACHE = Dev.path("tmp/compile/cache")
 
-      # The line `Zr.clock` writes: a label padded to 40, then the seconds.
+      # The line `Zr::Timing.phase` writes: a label padded to 40, then the seconds.
       LINE = /\Azr: (.+?)\s+([\d.]+)s(?:\s|\z)/
 
       def options(o)
