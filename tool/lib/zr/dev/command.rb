@@ -33,9 +33,8 @@ module Zr
           @usage || (superclass.respond_to?(:usage) ? superclass.usage : "")
         end
 
-        # Marks a tool that must run under CRuby, not in a binary that zr
-        # built: it reads the running ruby's own tables, or it runs ruby as
-        # the reference. `bin/zr-dev` gives such a tool to ruby.
+        # Marks a tool that reads the running ruby's own tables, or runs
+        # ruby as the reference, so it needs the pinned ruby (`Dev.pinned!`).
         def host_ruby! = @host_ruby = true
         def host_ruby? = @host_ruby || false
       end
@@ -56,10 +55,8 @@ module Zr
       # How this command's name reads in a message.
       def label = name.empty? ? "zr-dev" : "zr-dev #{name}"
 
-      # Parses `argv` and runs the tool. Returns the exit status. In a zr
-      # binary, a `host_ruby!` tool runs under ruby instead.
+      # Parses `argv` and runs the tool. Returns the exit status.
       def start(argv)
-        Dev.hand_to_ruby!(name.split + argv) if self.class.host_ruby? && Host.compiled?
         parser = OptionParser.new do |o|
           o.banner = "usage: zr-dev #{name} #{self.class.usage}".rstrip
           o.separator(self.class.summary.to_s)

@@ -17,10 +17,8 @@ module Zr
 
     # Stops a tool that reads a table from the running ruby, unless that
     # ruby is CRuby at the version that `.ruby-version` pins. A table
-    # from another ruby, or from zr's copy of ruby's answers, is not
-    # correct for zr.
+    # from another ruby is not correct for zr.
     def self.pinned!(tool)
-      fail!("zr-dev #{tool}: runs under ruby #{RUBY}, not in a zr binary") if Host.compiled?
       fail!("zr-dev #{tool}: ruby #{RUBY} writes this table; this is ruby #{RUBY_VERSION}") unless RUBY_VERSION == RUBY
     end
 

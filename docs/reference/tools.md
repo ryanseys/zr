@@ -53,7 +53,6 @@ no arguments. Give paths and minitest options to `bin/test`.
 | `rake build` | Builds the runtime for this host: the runtime object, the prelinked image and eval support. `bin/test` also does this when the runtime is not built. |
 | `rake build:wasm` | Builds the runtime for `wasm32-wasi`. |
 | `rake build:all` | Builds the runtime for this host and for `wasm32-wasi`. |
-| `rake build:tools` | Compiles the `zr-dev` tools with zr, to `bin/zr-dev`. See [The compiled tools](#the-compiled-tools). |
 
 ### Test, lint and generate
 
@@ -256,19 +255,8 @@ See [Bootstrapping](../explanation/bootstrapping.md).
 |---|---|
 | `zr-dev serve [--idle MINUTES] [--socket PATH]` | Keeps one warm compiler for the edit loop: the compiler loaded, YJIT warm, and the runtime's description, symbols and prelinked images in memory. While it runs, each `zr run` and `zr build` of this checkout sends it the build. The server forks one child for each build. The client then runs the program itself, so the program keeps the terminal, the signals and the exit status. A Ctrl-C in the client stops the build. The server starts again when a file of zr that it loaded changes, and stops after `--idle` minutes with no request (default 30). It listens at `<cache>/server.sock`. `ZR_SERVER=0` makes a command build alone, and `ZR_SERVER=PATH` uses the server at `PATH`. After an edit to a core file, `zr run` of hello took 4.2 s with the server and 4.9 s without it. After an edit to a program, it took 0.23 s against 0.25 s (hello) and 0.40 s against 0.46 s (a program with eval). The server holds about 700 MB. |
 
-## The compiled tools
+## The binstubs
 
-`rake build:tools` compiles `tool/zr-dev.rb` with zr, to `bin/zr-dev`.
-The binary runs the same commands as `ruby tool/zr-dev.rb`, and gives
-the same output. It is a test of zr: the tools are ordinary Ruby, and zr
-must compile them. git ignores `bin/zr`, `bin/zr-dev` and their
-manifests.
-
-- **A stale binary runs nothing.** The binary holds a copy of `lib/zr`.
-  When a file under `lib`, `runtime`, `vendor`, `tool` or
-  `test/support` changes, the binary gives the command to
-  `ruby tool/zr-dev.rb`. Run `rake build:tools` again to use the binary.
-- **Some commands run under ruby.** A generator that reads the running
-  ruby's own tables, `expect` and `record` are `host_ruby!` commands. The binary gives them to ruby.
-- **Run it outside `bundle exec`.** A zr binary reads `RUBYOPT` as ruby
-  does, and bundler's setup does not run in a zr binary.
+`bin/zr` and `bin/zr-dev` are binstubs, as the gems' binstubs in `bin/`
+are: each one loads its Ruby entry point (`exe/zr`, `tool/zr-dev.rb`)
+under the ruby that runs it. Nothing is compiled first.

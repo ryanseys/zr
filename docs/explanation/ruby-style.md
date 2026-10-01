@@ -169,8 +169,8 @@ the variables that its modules use.
 
 A maintainer tool is a `zr-dev` command in `tool/`, not a rake task. The
 `Rakefile` keeps only the standard entry points. A tool takes options
-with OptionParser, loads what it needs when it runs, and is compiled by
-zr into `bin/zr-dev` (see [Tools](../reference/tools.md)).
+with OptionParser, and loads what it needs when it runs; `bin/zr-dev`
+runs it (see [Tools](../reference/tools.md)).
 
 - A command sets the starting value of each option in its `defaults`
   method, which `Command#initialize` calls

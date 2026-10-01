@@ -1,0 +1,5 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# The zr-dev tools of this checkout, run by ruby (tool/zr-dev.rb).
+load File.expand_path("../tool/zr-dev.rb", __dir__)

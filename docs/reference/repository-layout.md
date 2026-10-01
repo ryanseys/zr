@@ -113,7 +113,6 @@ The gem's only require path is `lib/`. `lib/zr/runtime/` is below
 | `tool/zr-dev.rb` | the `zr-dev` command, which lists and starts the maintainer tools; see [Tools](tools.md#zr-dev) |
 | `tool/*.rb` | the body of each `zr-dev` command, one file for each command (`tool/bench.rb` for `zr-dev bench`) |
 | `tool/lib/zr/dev.rb`, `tool/lib/zr/dev/` | the code that the commands share: the command class, the paths, the host ruby and the C sources |
-| `tool/lib/zr/dev/binary.rb` | `Zr::Dev::Binary`: a binary that zr builds from this checkout's own files (`bin/zr-dev`), and whether it is current |
 | `tool/lib/zr/dev/parallel.rb` | `Dev.parallel_map`: the one worker pool of the tools, with the results in the order of the items |
 | `tool/typecheck.rb` | `zr-dev typecheck`: Steep checks the files that the `Steepfile` names |
 | `Steepfile` | the files of the type check pilot |

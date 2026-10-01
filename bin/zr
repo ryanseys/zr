@@ -1,0 +1,5 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# zr from this checkout, run by ruby (exe/zr).
+load File.expand_path("../exe/zr", __dir__)

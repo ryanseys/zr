@@ -37,15 +37,9 @@ module Zr
     }.freeze
 
     # `zr-dev` itself: the group of all the commands, with no name of its
-    # own. A zr binary of the tools that is out of date hands the work to
-    # ruby first.
+    # own.
     class Main < Group
       commands COMMANDS
-
-      def start(argv)
-        Dev.hand_to_ruby!(argv) if Zr::Host.compiled? && !Dev.tools.current?
-        super
-      end
 
       def help
         super

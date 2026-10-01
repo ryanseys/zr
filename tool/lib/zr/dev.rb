@@ -9,8 +9,8 @@ module Zr
   # lists them. Each tool is a Command in `tool/`, loaded only when it
   # runs, so `zr-dev help` loads none of them.
   #
-  # `ruby tool/zr-dev.rb <command>` runs a tool under ruby. `rake
-  # build:tools` compiles the same file with zr to `bin/zr-dev`.
+  # `bin/zr-dev <command>` (or `ruby tool/zr-dev.rb <command>`) runs a
+  # tool.
   module Dev
     ROOT = Paths::ROOT
 
@@ -27,4 +27,3 @@ require_relative "dev/files"
 require_relative "dev/host"
 require_relative "dev/parallel"
 require_relative "dev/sources"
-require_relative "dev/self"

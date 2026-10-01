@@ -21,12 +21,10 @@ module Zr
 
       STEEPFILE = Dev.path("Steepfile")
 
-      # Steep runs in a child ruby under the bundle. This file requires no
-      # gem of the bundle: `rake build:tools` compiles it, and zr has no
-      # Steep (a computed require would link eval support into the tools).
+      # Steep runs in a child ruby through its binstub, which sets up the
+      # bundle.
       def run(argv)
-        env = { "BUNDLE_GEMFILE" => Dev.path("Gemfile") }
-        ok = system(env, Dev.ruby, "-S", "bundle", "exec", "steep", "check", "--steepfile=#{STEEPFILE}", *argv, chdir: ROOT)
+        ok = system(Dev.ruby, Dev.path("bin/steep"), "check", "--steepfile=#{STEEPFILE}", *argv, chdir: ROOT)
         fail!("Steep is not available; run `bundle install`") if ok.nil?
         fail!("Steep found type errors (exit status #{$?.exitstatus})") unless ok
       end
