@@ -18,14 +18,15 @@ module Zr
       # The walker runs the core's Ruby (Onig's regexp compiler, for one)
       # much slower than a binary: `require "date"` takes about 50 s. So a
       # test gets this many times a binary's time limit, which stays under
-      # the worker's deadline (`Workers::DEADLINE`).
+      # the worker's deadline (`Workers::DEADLINE`). A limit that the run
+      # sets (`bin/test --timeout`, `ZR_TEST_SECONDS`) applies as it is.
       SLOWER = 2
 
       FFLUSH = Fiddle::Function.new(Fiddle::Handle::DEFAULT["fflush"], [Fiddle::TYPE_VOIDP], Fiddle::TYPE_INT)
 
       module_function
 
-      def limit = ProgramRun::LIMIT * SLOWER
+      def limit = ENV.key?("ZR_TEST_SECONDS") ? ProgramRun::LIMIT : ProgramRun::LIMIT * SLOWER
 
       def walk
         @walk ||= Machine::Host::Walk.new.tap(&:prepare)
