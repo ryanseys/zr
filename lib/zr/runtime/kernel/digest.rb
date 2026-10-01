@@ -116,7 +116,7 @@ module Zr::Kern
 
   sig [Ptr, Word] => Ptr
   def zr_digest_rotr64(x, n)
-    (x >> n) | Machine.shl_wrap(x, 64 - n)
+    (x >> n) | Machine.ushl_wrap(x, 64 - n)
   end
 
   sig [Ptr, Word] => Ptr
@@ -275,7 +275,7 @@ module Zr::Kern
       s0 = zr_digest_rotr64(x, 1) ^ zr_digest_rotr64(x, 8) ^ (x >> 7)
       s1 = zr_digest_rotr64(y, 19) ^ zr_digest_rotr64(y, 61) ^ (y >> 6)
       # SHA-512 adds modulo 2**64.
-      zr_digest_set(w, i, Machine.add_wrap(Machine.add_wrap(Machine.add_wrap(zr_digest_word(w, i - 16), s0), zr_digest_word(w, i - 7)), s1))
+      zr_digest_set(w, i, Machine.uadd_wrap(Machine.uadd_wrap(Machine.uadd_wrap(zr_digest_word(w, i - 16), s0), zr_digest_word(w, i - 7)), s1))
       i = i + 1
     end
     a = zr_digest_word(h, 0)
@@ -290,27 +290,27 @@ module Zr::Kern
     while i < 80
       s1 = zr_digest_rotr64(e, 14) ^ zr_digest_rotr64(e, 18) ^ zr_digest_rotr64(e, 41)
       ch = (e & f) ^ ((e ^ ones) & g)
-      t1 = Machine.add_wrap(Machine.add_wrap(Machine.add_wrap(Machine.add_wrap(hh, s1), ch), zr_digest_word(k, i)), zr_digest_word(w, i))
+      t1 = Machine.uadd_wrap(Machine.uadd_wrap(Machine.uadd_wrap(Machine.uadd_wrap(hh, s1), ch), zr_digest_word(k, i)), zr_digest_word(w, i))
       s0 = zr_digest_rotr64(a, 28) ^ zr_digest_rotr64(a, 34) ^ zr_digest_rotr64(a, 39)
-      t2 = Machine.add_wrap(s0, (a & b) ^ (a & c) ^ (b & c))
+      t2 = Machine.uadd_wrap(s0, (a & b) ^ (a & c) ^ (b & c))
       hh = g
       g = f
       f = e
-      e = Machine.add_wrap(d, t1)
+      e = Machine.uadd_wrap(d, t1)
       d = c
       c = b
       b = a
-      a = Machine.add_wrap(t1, t2)
+      a = Machine.uadd_wrap(t1, t2)
       i = i + 1
     end
-    zr_digest_set(h, 0, Machine.add_wrap(zr_digest_word(h, 0), a))
-    zr_digest_set(h, 1, Machine.add_wrap(zr_digest_word(h, 1), b))
-    zr_digest_set(h, 2, Machine.add_wrap(zr_digest_word(h, 2), c))
-    zr_digest_set(h, 3, Machine.add_wrap(zr_digest_word(h, 3), d))
-    zr_digest_set(h, 4, Machine.add_wrap(zr_digest_word(h, 4), e))
-    zr_digest_set(h, 5, Machine.add_wrap(zr_digest_word(h, 5), f))
-    zr_digest_set(h, 6, Machine.add_wrap(zr_digest_word(h, 6), g))
-    zr_digest_set(h, 7, Machine.add_wrap(zr_digest_word(h, 7), hh))
+    zr_digest_set(h, 0, Machine.uadd_wrap(zr_digest_word(h, 0), a))
+    zr_digest_set(h, 1, Machine.uadd_wrap(zr_digest_word(h, 1), b))
+    zr_digest_set(h, 2, Machine.uadd_wrap(zr_digest_word(h, 2), c))
+    zr_digest_set(h, 3, Machine.uadd_wrap(zr_digest_word(h, 3), d))
+    zr_digest_set(h, 4, Machine.uadd_wrap(zr_digest_word(h, 4), e))
+    zr_digest_set(h, 5, Machine.uadd_wrap(zr_digest_word(h, 5), f))
+    zr_digest_set(h, 6, Machine.uadd_wrap(zr_digest_word(h, 6), g))
+    zr_digest_set(h, 7, Machine.uadd_wrap(zr_digest_word(h, 7), hh))
   end
 
   # RIPEMD-160's five boolean functions, selected by step.

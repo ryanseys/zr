@@ -2,6 +2,7 @@
 
 require "test_helper"
 require_relative "../support/harness/kernel_jit"
+require_relative "../support/harness/kernel_host"
 require_relative "../../lib/zr/runtime"
 require_relative "../support/harness/onig"
 
@@ -167,5 +168,12 @@ class OnigMatchTest < Minitest::Test
     check("(x+x+)+y", "x" * 40)
     check("(?:.*a){20}b", "a" * 30)
     check("(?:a+)+(?!b)c", "a" * 40 + "b")
+  end
+end
+
+# The same checks, with the kernel's Ruby run on CRuby (A7).
+class OnigMatchHostTest < OnigMatchTest
+  def self.port
+    @port ||= Zr::Harness::KernelHost.new("onig_*.rb", constants: { "CLOCK_MONOTONIC" => 6 })
   end
 end

@@ -107,7 +107,7 @@ module Zr::Kern
     end
     # Grisu works on 64-bit unsigned fractions: these shifts fill the
     # top bit on purpose.
-    ufrac = Machine.shl_wrap(ufrac, 10)
+    ufrac = Machine.ushl_wrap(ufrac, 10)
     uexp = uexp - 10
     lshift = 1
     if frac == FPCONV_HIDDENBIT
@@ -116,12 +116,12 @@ module Zr::Kern
     # A Ptr minus a Ptr is a Word (a distance), so the 1 is a Word: lfrac
     # is unsigned, as the C's uint64_t.
     lfrac = (frac << lshift) - Machine.word(1)
-    lfrac = Machine.shl_wrap(lfrac, (exp - lshift) - uexp)
+    lfrac = Machine.ushl_wrap(lfrac, (exp - lshift) - uexp)
     wfrac = frac
     while (wfrac & FPCONV_HIDDENBIT) == 0
       wfrac = wfrac << 1
     end
-    wfrac = Machine.shl_wrap(wfrac, 11)
+    wfrac = Machine.ushl_wrap(wfrac, 11)
     powers = zr_fpconv_powers()
     approx = Machine.to_int(Machine.to_f64(0 - (uexp + 87)) * Machine.f64(FPCONV_LOG10_2))
     idx = (approx + 348) / 8

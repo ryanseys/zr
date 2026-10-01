@@ -521,7 +521,7 @@ module Zr::Kern
     SizeClass.set_cursor(sc, at)
     # The origin is a virtual address, and it can be below 0: only the
     # sum in zr_cell_take is a real address.
-    SizeClass.set_origin(sc, Machine.sub_wrap(zr_arena_first(a), Machine.word(zr_arena_allocated(a)) << (3 + ArenaHead.shift(a))))
+    SizeClass.set_origin(sc, Machine.usub_wrap(zr_arena_first(a), Machine.word(zr_arena_allocated(a)) << (3 + ArenaHead.shift(a))))
   end
 
   # Moves the cursor of `sc` to the next allocated word with a clear bit:
@@ -1716,7 +1716,7 @@ module Zr::Kern
     i = Machine.ctz(0 - 1 - bits)
     Machine.store64(at, 0, bits | Machine.shl_wrap(1, i))
     SizeClass.set_allocated(sc, SizeClass.allocated(sc) + 1)
-    cell = Machine.add_wrap(SizeClass.origin(sc), ((Machine.word(at) << 3) + i) << SizeClass.shift(sc))
+    cell = Machine.uadd_wrap(SizeClass.origin(sc), ((Machine.word(at) << 3) + i) << SizeClass.shift(sc))
     Machine.store64(cell, 0, type | FL_ALLOCATED)
     Machine.store64(cell, 8, Machine.word(klass))
     Machine.value(cell)

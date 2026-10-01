@@ -2,6 +2,7 @@
 
 require "test_helper"
 require_relative "../support/harness/kernel_jit"
+require_relative "../support/harness/kernel_host"
 
 # WASI has no libm in a zr module, so the WASI layer defines frexp and
 # ldexp itself (lib/zr/runtime/kernel/os/wasi/libm.rb). Compiled for this host,
@@ -40,4 +41,9 @@ class WasiLibmTest < Minitest::Test
     m = self.class.kernel.call("frexp", x, e.to_i)
     [m, e[0, 4].unpack1("l")]
   end
+end
+
+# The same checks, with the kernel's Ruby run on CRuby (A7).
+class WasiLibmHostTest < WasiLibmTest
+  def self.kernel = @kernel ||= Zr::Harness::KernelHost.new("os/wasi/libm.rb")
 end

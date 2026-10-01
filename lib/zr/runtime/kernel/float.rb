@@ -52,7 +52,7 @@ module Zr::Kern
     b = Machine.ptr(Machine.bits(d))
     top = (b >> 60) & 7
     if b != 3458764513820540928 && (top == 3 || top == 4)
-      rotated = Machine.shl_wrap(b, 3) | (b >> 61)
+      rotated = Machine.ushl_wrap(b, 3) | (b >> 61)
       return Machine.value((rotated & 18446744073709551614) | 2)
     end
     if b == 0
@@ -73,7 +73,7 @@ module Zr::Kern
       w = Machine.ptr(v)
       b63 = w >> 63
       x = (2 - b63) | (w & 18446744073709551612)
-      return Machine.f64((x >> 3) | Machine.shl_wrap(x, 61))
+      return Machine.f64((x >> 3) | Machine.ushl_wrap(x, 61))
     end
     Machine.f64(RFloat.bits(v))
   end
@@ -609,14 +609,14 @@ module Zr::Kern
     b0_hi = zr_umulh(m, mul0)
     # The low 64 bits of the product, the sum with its carry, and the
     # bits of a 128-bit value: each wraps at 2**64 on purpose.
-    b2_lo = Machine.mul_wrap(m, mul1)
+    b2_lo = Machine.umul_wrap(m, mul1)
     b2_hi = zr_umulh(m, mul1)
-    sum = Machine.add_wrap(b0_hi, b2_lo)
+    sum = Machine.uadd_wrap(b0_hi, b2_lo)
     if sum < b0_hi
       b2_hi = b2_hi + 1
     end
     dist = j - 64
-    (sum >> dist) | Machine.shl_wrap(b2_hi, 64 - dist)
+    (sum >> dist) | Machine.ushl_wrap(b2_hi, 64 - dist)
   end
 
   sig [Word] => Word

@@ -11,9 +11,8 @@ module Zr
   module Harness
     # Kernel files, compiled into one unit and loaded into this ruby, so
     # that a test can call their functions through Fiddle and compare the
-    # results with CRuby's. The machine dialect gives Ruby syntax other
-    # meanings (0 is false, `/` truncates, words wrap at 2**64), so kernel
-    # code runs on the host only after zr compiles it.
+    # results with CRuby's. `KernelHost` runs the same files as Ruby; a
+    # test that uses both checks the compiled code against its source.
     class KernelJIT
       TYPES = { "Word" => Fiddle::TYPE_LONG, "Ptr" => Fiddle::TYPE_VOIDP, "I32" => Fiddle::TYPE_INT, "I8" => Fiddle::TYPE_CHAR,
                 "Bool" => Fiddle::TYPE_CHAR, "F64" => Fiddle::TYPE_DOUBLE, "Void" => Fiddle::TYPE_VOID }.freeze

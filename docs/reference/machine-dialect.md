@@ -114,7 +114,8 @@ For `RString = layout basic: RBasic, len: Word, capa: Word, ptr: Ptr`:
 | `Machine.sword(x)` | `x` as a `Word`, sign-extended |
 | `Machine.i32(x)`, `Machine.i8(x)` | `x`, narrowed |
 | `Machine.ptr(x)`, `Machine.value(x)` | `x` as a `Ptr` or a `Value` |
-| `Machine.add_wrap(a, b)`, `sub_wrap`, `mul_wrap`, `shl_wrap` | `a + b`, `a - b`, `a * b` or `a << b`, for an operation that must wrap at the width of the type |
+| `Machine.add_wrap(a, b)`, `sub_wrap`, `mul_wrap`, `shl_wrap` | `a + b`, `a - b`, `a * b` or `a << b`, for a `Word` operation that must wrap into the signed range |
+| `Machine.uadd_wrap(a, b)`, `usub_wrap`, `umul_wrap`, `ushl_wrap` | the same for a `Ptr`, which wraps into [0, 2**64) |
 | `Machine.sdiv(a, b)`, `Machine.srem(a, b)` | `a / b` or `a % b` (truncated), for an operand that can be negative; `a` and `b` are the same integer type |
 | `Machine.f64(w)`, `Machine.bits(f)` | the same 64 bits as the other type |
 | `Machine.to_f64(w)` | the value of a `Word` as a double |

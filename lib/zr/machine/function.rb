@@ -330,8 +330,12 @@ module Zr
 
       # The operators whose result wraps at the width of the type, by
       # name. A plain `+ - * <<` must not overflow, so that it means the
-      # same on CRuby (A6); a sum that must wrap names it.
-      WRAPS = { add_wrap: :+, sub_wrap: :-, mul_wrap: :*, shl_wrap: :<< }.freeze
+      # same on CRuby (A6); a sum that must wrap names it. CRuby cannot
+      # tell a Word from a Ptr by its value, so the name also says which:
+      # `add_wrap` wraps a Word into its signed range, `uadd_wrap` a Ptr
+      # into [0, 2**64).
+      WRAPS = { add_wrap: :+, sub_wrap: :-, mul_wrap: :*, shl_wrap: :<<,
+                uadd_wrap: :+, usub_wrap: :-, umul_wrap: :*, ushl_wrap: :<< }.freeze
 
       # Whether `node` reads only literals, constants and locals, through
       # plain operators and casts. Such an expression makes only its value.
@@ -676,6 +680,10 @@ module Zr
           lhs, lt = expr(args[0], want)
           rhs, rt = expr(args[1], lt)
           refuse(node, "Machine.#{node.name} of an F64") if lt == "F64" || rt == "F64"
+          unsigned = node.name.start_with?("u")
+          unless lt == (unsigned ? "Ptr" : "Word")
+            refuse(node, "Machine.#{node.name} of a #{lt}; #{unsigned ? "it wraps a Ptr" : "a Ptr wraps by Machine.u#{node.name}"}")
+          end
           binary(node, WRAPS.fetch(node.name), lhs, lt, rhs, rt, named: true)
         when :sdiv, :srem
           refuse(node, "Machine.#{node.name} takes two operands") unless args.size == 2

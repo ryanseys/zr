@@ -3,6 +3,7 @@
 require "test_helper"
 require "zlib"
 require_relative "../support/harness/kernel_jit"
+require_relative "../support/harness/kernel_host"
 
 # The kernel's checksums (lib/zr/runtime/kernel/zlib_check.rb), compiled and
 # loaded into this ruby, give the same values as CRuby's zlib.
@@ -41,5 +42,12 @@ class ZlibCheckTest < Minitest::Test
     buffer = Fiddle::Pointer.malloc([bytes.bytesize, 1].max, Fiddle::RUBY_FREE)
     buffer[0, bytes.bytesize] = bytes unless bytes.empty?
     self.class.kernel.call(name, initial, buffer.to_i, bytes.bytesize)
+  end
+end
+
+# The same checks, with the kernel's Ruby run on CRuby (A7).
+class ZlibCheckHostTest < ZlibCheckTest
+  def self.kernel
+    @kernel ||= Zr::Harness::KernelHost.new("zlib_check.rb", "zlib_tables.rb")
   end
 end
