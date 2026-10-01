@@ -18,7 +18,7 @@ module Zr
       TYPES = { "Word" => Fiddle::TYPE_LONG, "Ptr" => Fiddle::TYPE_VOIDP, "I32" => Fiddle::TYPE_INT, "I8" => Fiddle::TYPE_CHAR,
                 "Bool" => Fiddle::TYPE_CHAR, "F64" => Fiddle::TYPE_DOUBLE, "Void" => Fiddle::TYPE_VOID }.freeze
 
-      # `patterns` are globs under runtime/kernel. `constants` sets the
+      # `patterns` are globs under lib/zr/runtime/kernel. `constants` sets the
       # constants that the files read from a kernel file outside the unit
       # (the OS layer, for example).
       def initialize(*patterns, constants: {})

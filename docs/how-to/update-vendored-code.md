@@ -57,7 +57,7 @@ run the tests that the tool names.
 ### Add a port
 
 Add one line to `Zr::Ports::ALL` (`lib/zr/ports.rb`), and the C half in
-Ruby under `runtime/ext`. `gem: true` vendors the gem at its version.
+Ruby under `lib/zr/runtime/ext`. `gem: true` vendors the gem at its version.
 See [How to port a C extension](port-a-c-extension.md).
 
 ### Leave a file out
@@ -102,7 +102,7 @@ again from the sources and fails on a difference.
 ## Replace an upstream file
 
 Do not edit a file in `vendor/`. zr's own code comes first on the load
-path (`runtime/ext`, then `runtime/lib`), so a file there with the same
+path (`lib/zr/runtime/ext`, then `lib/zr/runtime/lib`), so a file there with the same
 path replaces the upstream file: an overlay. The first lines of an
 overlay name the file that it replaces and that file's digest:
 

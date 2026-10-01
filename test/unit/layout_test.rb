@@ -28,7 +28,7 @@ class LayoutTest < Minitest::Test
   end
 
   def test_env_rb_agrees_with_version_rb
-    env = read("runtime/core/env.rb")
+    env = read("lib/zr/runtime/core/env.rb")
 
     assert_includes env, %(RUBY_VERSION = "#{Zr::RUBY}")
     assert_includes env, %(RUBY_RELEASE_DATE = "#{Zr::RUBY_RELEASE_DATE}")

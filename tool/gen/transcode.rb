@@ -11,7 +11,7 @@ module Zr
       # `----` when the encoding does not define the byte.
       class Transcode < Generator
         host_ruby!
-        writes "runtime/core/transcode.rb"
+        writes "lib/zr/runtime/core/transcode.rb"
 
         UNMAPPED = "\u{1F600}"
 

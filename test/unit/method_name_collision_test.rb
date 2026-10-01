@@ -56,7 +56,7 @@ class MethodNameCollisionTest < Minitest::Test
   # load. The harness that checks the port against the C extension loads
   # the C extension on purpose.
   def test_the_compiler_requires_prism_only_through_zr_prism
-    direct = Dir[File.join(ROOT, "{lib,tool,exe}/**/*.rb")].select do |file|
+    direct = (Dir[File.join(ROOT, "{lib,tool,exe}/**/*.rb")] - Dir[File.join(ROOT, "lib/zr/runtime/**/*.rb")]).select do |file|
       File.read(file).match?(/^\s*require ["']prism["']/) && !file.end_with?("/lib/zr/prism.rb")
     end
     assert_empty direct.map { |file| file.delete_prefix("#{ROOT}/") }

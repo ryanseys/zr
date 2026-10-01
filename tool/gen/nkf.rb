@@ -8,7 +8,7 @@ module Zr
   module Dev
     class Gen
       # The nkf gem's conversion tables, read out of its C source and
-      # written as the data runtime/ext/nkf.so.rb converts with. nkf keeps
+      # written as the data lib/zr/runtime/ext/nkf.so.rb converts with. nkf keeps
       # its own tables in utf8tbl.c -- JIS X 0208 and 0212 to Unicode and
       # back, the CP932, eucJP-ms, Mac and JIS X 0213 variants, and the
       # Shift_JIS rows it swaps -- and they part from ruby's transcoders
@@ -42,7 +42,7 @@ module Zr
       # every table against the C source.
       class Nkf < Generator
         host_ruby!
-        writes "runtime/ext/nkf/tables.rb"
+        writes "lib/zr/runtime/ext/nkf/tables.rb"
         usage "[--source PATH] [--check]"
 
         # The field widths of `struct normalization_pair`: NFC in 3 bytes,
@@ -174,7 +174,7 @@ module Zr
 
         # JIS X 0208 and JIS X 0212 read backwards: the code of the first
         # JIS character each Unicode code point stands for, with 0x8000
-        # set for JIS X 0212. runtime/ext/nkf/tables.rb builds the same
+        # set for JIS X 0212. lib/zr/runtime/ext/nkf/tables.rb builds the same
         # map the same way.
         def inverse_map(tables)
           map = {}

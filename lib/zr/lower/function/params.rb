@@ -6,7 +6,7 @@ module Zr
       # Binds the arguments to the parameters. A method binds from `argc`
       # and `argv` with CRuby's arity errors. A block binds leniently with
       # the block-argument rules. The task's keyword word tells how the
-      # keywords arrive (runtime/kernel/send.rb, `zr_kw_pass`): a flagged
+      # keywords arrive (lib/zr/runtime/kernel/send.rb, `zr_kw_pass`): a flagged
       # trailing Hash, or trailing values with a table of their keys. The
       # word is read and cleared here.
       module Params

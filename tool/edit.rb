@@ -48,11 +48,11 @@ module Zr
       # A kind: the file that the edit appends to, and its text.
       EDITS = {
         "none" => nil,
-        "kernel-comment" => ["runtime/kernel/proc.rb", COMMENT],
-        "core-comment" => ["runtime/core/array.rb", COMMENT],
-        "core-method" => ["runtime/core/array.rb", ->(n) { "\nclass Array\n  def __zr_edit_#{n} = #{n}\nend\n" }],
+        "kernel-comment" => ["lib/zr/runtime/kernel/proc.rb", COMMENT],
+        "core-comment" => ["lib/zr/runtime/core/array.rb", COMMENT],
+        "core-method" => ["lib/zr/runtime/core/array.rb", ->(n) { "\nclass Array\n  def __zr_edit_#{n} = #{n}\nend\n" }],
         "lower-comment" => ["lib/zr/lower/function.rb", COMMENT],
-        "ext-comment" => ["runtime/ext/stringio.rb", COMMENT]
+        "ext-comment" => ["lib/zr/runtime/ext/stringio.rb", COMMENT]
       }.freeze
 
       # The line `Zr.clock` writes: a label padded to 40, then the seconds.

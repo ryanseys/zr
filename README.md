@@ -150,7 +150,7 @@ $ bin/test                             # all the tests: unit, programs
 ```
 
 `bin/test` builds the runtime again when a change under `lib/` or
-`runtime/` makes it out of date. Read [CONTRIBUTING.md](https://github.com/ryanseys/zr/blob/v0.1.0/CONTRIBUTING.md)
+`lib/zr/runtime/` makes it out of date. Read [CONTRIBUTING.md](https://github.com/ryanseys/zr/blob/v0.1.0/CONTRIBUTING.md)
 before you open a pull request, and the tutorial
 [Add your first program test](https://github.com/ryanseys/zr/blob/v0.1.0/docs/tutorials/add-your-first-program-test.md).
 

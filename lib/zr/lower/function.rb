@@ -52,7 +52,7 @@ module Zr
       KINDS = { main: "KIND_MAIN", top: "KIND_TOP", def: "KIND_DEF", class: "KIND_CLASS", module: "KIND_MODULE", sclass: "KIND_SCLASS", block: "KIND_BLOCK", eval: "KIND_EVAL" }.freeze
       # The maximum arguments that a direct entry takes in registers.
       # `direct0` to `direct4` are its ABIs, one for each count
-      # (runtime/kernel/class.rb).
+      # (lib/zr/runtime/kernel/class.rb).
       DIRECT_ARGS = 4
       ABI = { main: [], top: [], def: %w[i64 i64 i64 i64 i64 i64], class: %w[i64 i64], module: %w[i64 i64], sclass: %w[i64 i64], block: %w[i64 i64 i64 i64], eval: %w[i64 i64 i64 i64],
               **(0..DIRECT_ARGS).to_h { |n| [:"direct#{n}", Array.new(4 + n, "i64")] } }.freeze
@@ -71,7 +71,7 @@ module Zr
       # positionals, four at most, and no pattern. A site that passes that
       # many arguments proves the count, so the def reads them from
       # registers with no keyword word and no count check
-      # (runtime/kernel/class.rb, MEntry.direct). A traced program's defs
+      # (lib/zr/runtime/kernel/class.rb, MEntry.direct). A traced program's defs
       # use the generic ABI, because its hooks read every frame the same way.
       def self.direct_def?(node, lower)
         p = node.params
@@ -112,7 +112,7 @@ module Zr
         # Set for real in `lower` and `enter`, once this scope's IR
         # function exists. Nil here fixes this object's ivar order
         # before then, so every instance has the same shape
-        # (runtime/kernel/cache.rb, guessed_ivar_row).
+        # (lib/zr/runtime/kernel/cache.rb, guessed_ivar_row).
         @f = nil
         @base = nil
         @nvalues = nil
@@ -363,7 +363,7 @@ module Zr
       # whose slots are the record's local slots (1 up to the count). It
       # has the stack flag and is already marked, so the collector reads
       # nothing through it. The first object that keeps the scope moves it
-      # to a cell (`zr_env_escape`, runtime/kernel/proc.rb) and points the
+      # to a cell (`zr_env_escape`, lib/zr/runtime/kernel/proc.rb) and points the
       # image's `slots` to the cell's slots. Every read and write loads
       # `slots` first.
       def stack_env? = @has_env && %i[def block].include?(@kind)
@@ -490,7 +490,7 @@ module Zr
       end
 
       # The address of a new cell for one site's cache: `count` of the
-      # kernel's `layout` (runtime/kernel/cache.rb).
+      # kernel's `layout` (lib/zr/runtime/kernel/cache.rb).
       def cache(prefix, layout, count = 1)
         @f.symbol_value(@f.symbol(@l.cache_cell(prefix, @l.layout(layout).size * count)))
       end
@@ -506,7 +506,7 @@ module Zr
       # guesses the entry in self's ivar table. If the guess contains `id`,
       # this returns the entry in a new block. Else it branches to `slow`,
       # the kernel's read or write, which sets the guess
-      # (runtime/kernel/cache.rb). The inline path accepts a plain object,
+      # (lib/zr/runtime/kernel/cache.rb). The inline path accepts a plain object,
       # class or module outside a ractor (the kernel applies the ractor
       # isolation rule), and not frozen when `writing`.
       def guessed_ivar_row(ic, ivar, slow, writing:)
@@ -634,7 +634,7 @@ module Zr
 
       # Slot `i` of the Env `depth` scopes up: a load of the slots and a
       # load or store at the slot, inline. Every local of a scope that
-      # contains a block is there (runtime/kernel/proc.rb).
+      # contains a block is there (lib/zr/runtime/kernel/proc.rb).
       def env_slot(i, depth)
         [@f.fetch("i64", env_at(depth), off(@env_layout, "slots")), 8 * i]
       end
@@ -782,7 +782,7 @@ module Zr
       def sym_value(name) = pooled(:symval, name) { |id| imm(Lower.symbol_value(id, @l.const("SYMBOL_TAG"))) }
 
       # The bit in an ivar table's `names` for `name`
-      # (runtime/kernel/object.rb, zr_ivtab_name_bit).
+      # (lib/zr/runtime/kernel/object.rb, zr_ivtab_name_bit).
       def sym_bit(name) = pooled(:symbit, name) { |id| imm(Lower.ivar_name_bit(id)) }
 
       # This literal site's slot in the run-time table of literal objects.

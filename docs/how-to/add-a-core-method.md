@@ -23,10 +23,10 @@ argument types, and the error messages.
 ## 2. Write the method in Ruby
 
 The core library is ordinary Ruby, one file for each class, in
-`runtime/core/`. Open the class's file and add the method:
+`lib/zr/runtime/core/`. Open the class's file and add the method:
 
 ```ruby
-# runtime/core/string.rb
+# lib/zr/runtime/core/string.rb
 class String
   def each_byte
     return to_enum(:each_byte) { Primitive.zr_str_bytesize(self) } unless block_given?
@@ -55,16 +55,16 @@ signature, with a message that gives the def.
 Find an existing def first:
 
 ```console
-$ grep -n "machine def zr_str_" runtime/kernel/string.rb
+$ grep -n "machine def zr_str_" lib/zr/runtime/kernel/string.rb
 ```
 
 ## 4. Add a kernel def, if you need one
 
-Kernel defs are in `runtime/kernel/`, in the machine dialect. Add one
+Kernel defs are in `lib/zr/runtime/kernel/`, in the machine dialect. Add one
 near the defs like it:
 
 ```ruby
-# runtime/kernel/string.rb
+# lib/zr/runtime/kernel/string.rb
 sig [Value] => Value
 machine def zr_str_bytesize(s)
   zr_fix(RString.len(s))
@@ -83,7 +83,7 @@ $ ZR_BLESS=1 bin/test test/unit/description_test.rb
 
 ## 5. Add a new file, if the class has none
 
-Add a new file in `runtime/core/` also to `Zr::RuntimeSources::CORE_NAMES` in
+Add a new file in `lib/zr/runtime/core/` also to `Zr::RuntimeSources::CORE_NAMES` in
 `lib/zr/runtime_sources.rb`. The list is in the order that the files run, so
 put a module before the classes that include it.
 
@@ -93,7 +93,7 @@ put a module before the classes that include it.
 $ bin/test test/programs/core/string/squeeze
 ```
 
-The first build after a change under `runtime/` compiles the runtime
+The first build after a change under `lib/zr/runtime/` compiles the runtime
 again, so it takes longer. Then run the class's area, to see that
 nothing else changed:
 

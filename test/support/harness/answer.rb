@@ -51,7 +51,7 @@ module Zr
     # name in a program test's `foo.rb.needs` (test/support/program_case.rb).
     module Needs
       # True when libssl 3 is where `require "openssl"` looks for it
-      # (runtime/ext/openssl/ossl/library.rb). That is only OPENSSL_DIR's
+      # (lib/zr/runtime/ext/openssl/ossl/library.rb). That is only OPENSSL_DIR's
       # lib when OPENSSL_DIR is set, else the Homebrew and MacPorts
       # prefixes. Only a macOS binary opens a library. The linux and wasi
       # targets cannot.

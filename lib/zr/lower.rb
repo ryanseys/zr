@@ -42,11 +42,11 @@ module Zr
     class Refused < Zr::Refused; end
 
     # The Symbol Value for `id`: the id shifted above the tag that the
-    # kernel reads (runtime/kernel/object.rb).
+    # kernel reads (lib/zr/runtime/kernel/object.rb).
     def self.symbol_value(id, tag) = (id << 8) | tag
 
     # The bit in an ivar table's `names` for the name `id`
-    # (runtime/kernel/object.rb, zr_ivtab_name_bit), as a signed word.
+    # (lib/zr/runtime/kernel/object.rb, zr_ivtab_name_bit), as a signed word.
     def self.ivar_name_bit(id)
       bit = 1 << (id & 63)
       bit < 1 << 63 ? bit : bit - (1 << 64)
@@ -378,7 +378,7 @@ module Zr
     def self.entries_of(entry, units) = (units || []).each_with_index.map { |u, i| entry_of(entry, i, u.file) }
 
     # Whether the code goes to the wasm backend, where the preemption
-    # count is the clock (runtime/kernel/send.rb).
+    # count is the clock (lib/zr/runtime/kernel/send.rb).
     def wasm? = @target.arch == :wasm32
 
     # The FrameMeta kind of a function of `kind` in this lowering.
@@ -397,7 +397,7 @@ module Zr
     end
 
     # Whether `word` is an immediate and not a cell, as the kernel
-    # defines it (runtime/kernel/value.rb).
+    # defines it (lib/zr/runtime/kernel/value.rb).
     def immediate?(word) = @kernel.immediate?(word)
 
     # The kernel def named `name`, with the signature a call needs.
@@ -438,7 +438,7 @@ module Zr
       ["#{@prefix}_pool", at * 8]
     end
 
-    # A zeroed cell of `bytes` for one site's cache (runtime/kernel/cache.rb).
+    # A zeroed cell of `bytes` for one site's cache (lib/zr/runtime/kernel/cache.rb).
     # Its name includes the site count, so two lowerings that share a
     # symbol table never make the same cell name.
     def cache_cell(prefix, bytes)

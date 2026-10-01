@@ -4,7 +4,7 @@ require "test_helper"
 require_relative "../support/harness/kernel_jit"
 
 # WASI has no libm in a zr module, so the WASI layer defines frexp and
-# ldexp itself (runtime/kernel/os/wasi/libm.rb). Compiled for this host,
+# ldexp itself (lib/zr/runtime/kernel/os/wasi/libm.rb). Compiled for this host,
 # they give the same values as CRuby's Math.frexp and Math.ldexp.
 class WasiLibmTest < Minitest::Test
   VALUES = [1.0, -1.0, 0.5, 3.0, 44.7815, -2.675, 1.0e20, 1.0e-300, 5.0e-324, -2.2250738585072014e-308,

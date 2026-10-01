@@ -6,9 +6,9 @@ require_relative "../../test/support/harness/onig"
 module Zr
   module Dev
     class Gen
-      # Writes runtime/kernel/enc_mb.rb, which the runtime uses to walk a
+      # Writes lib/zr/runtime/kernel/enc_mb.rb, which the runtime uses to walk a
       # String in a multibyte encoding. It comes from the Onigmo encoders that
-      # Regexp uses (runtime/core/regexp/onig/encoding_multibyte.rb). Thus a
+      # Regexp uses (lib/zr/runtime/core/regexp/onig/encoding_multibyte.rb). Thus a
       # String and a Regexp agree on every character: both read the lead-byte
       # lengths and state tables of CRuby's enc/*.c, through the descriptor
       # that the matcher uses.
@@ -20,7 +20,7 @@ module Zr
       # where String#valid_encoding? returns true.
       class EncMb < Generator
         host_ruby!
-        writes "runtime/kernel/enc_mb.rb"
+        writes "lib/zr/runtime/kernel/enc_mb.rb"
 
         # Onigmo's encoders. They exist only after the port is loaded.
         def encoders = Regexp::Onig::Enc

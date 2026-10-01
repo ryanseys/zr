@@ -90,13 +90,13 @@ for the forms that the interpreter refuses.
 ## Runtime layers
 
 The portable runtime calls a fixed set of OS functions, which
-`runtime/kernel/os.rb` lists. Each OS layer implements all of them:
+`lib/zr/runtime/kernel/os.rb` lists. Each OS layer implements all of them:
 
 | Directory | Contains |
 |---|---|
-| `runtime/kernel/os/<os>/` | the kernel's OS calls: errno, descriptors, stacks, POSIX signals, JIT mapping |
-| `runtime/kernel/arch/<arch>/` | the machine context that a task switch saves |
-| `runtime/core/os/<os>/` | the numbers that the OS gives the errno, IO, File and Process constants |
-| `runtime/ext/os/<os>/` | extension tables (fcntl, etc, socket) and the description |
+| `lib/zr/runtime/kernel/os/<os>/` | the kernel's OS calls: errno, descriptors, stacks, POSIX signals, JIT mapping |
+| `lib/zr/runtime/kernel/arch/<arch>/` | the machine context that a task switch saves |
+| `lib/zr/runtime/core/os/<os>/` | the numbers that the OS gives the errno, IO, File and Process constants |
+| `lib/zr/runtime/ext/os/<os>/` | extension tables (fcntl, etc, socket) and the description |
 
 The table files come from the ruby of that OS (`zr-dev gen tables`).

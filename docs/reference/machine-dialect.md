@@ -1,6 +1,6 @@
 # The machine dialect
 
-The machine dialect is the language of `runtime/kernel/`. It has Ruby's
+The machine dialect is the language of `lib/zr/runtime/kernel/`. It has Ruby's
 syntax and a machine's semantics. `Zr::Machine`
 (`lib/zr/machine/lower.rb`) lowers it directly to the IR, one function
 for each `machine def`. zr refuses a form that is not in the dialect,

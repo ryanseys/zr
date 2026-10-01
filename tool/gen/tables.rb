@@ -35,10 +35,10 @@ module Zr
           @current
         end
 
-        # Writes `text` to `runtime/<part>/os/<os>/<name>`, or with --check
-        # compares it.
+        # Writes `text` to `lib/zr/runtime/<part>/os/<os>/<name>`, or with
+        # --check compares it.
         def write(part, name, text)
-          rel = File.join("runtime", part, "os", os, name)
+          rel = File.join("lib/zr/runtime", part, "os", os, name)
           @current &= Dev.write(rel, check: @check) { |io| io.print text }
         end
 

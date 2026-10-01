@@ -4,12 +4,12 @@ This page follows a program from its source to a binary, and explains
 why the compiler has its layers.
 
 ```
-app.rb ─────┐
-runtime/**  ├─ prism ─► HIR ─► IR ─► passes ─┬─► aarch64 backend ─► Obj ─┬─► Mach-O executable writer ─► binary
-            │                                │                          ├─► ELF object ─► cc ─► Linux binary
-            │                                │                          └─► JIT loader (eval, in process)
-            │                                ├─► wasm emitter ─► WASI module
-            │                                └─► IR interpreter (a second opinion for the tests)
+app.rb ───────────┐
+lib/zr/runtime/** ├─ prism ─► HIR ─► IR ─► passes ─┬─► aarch64 backend ─► Obj ─┬─► Mach-O executable writer ─► binary
+                  │                                │                          ├─► ELF object ─► cc ─► Linux binary
+                  │                                │                          └─► JIT loader (eval, in process)
+                  │                                ├─► wasm emitter ─► WASI module
+                  │                                └─► IR interpreter (a second opinion for the tests)
 ```
 
 Every box is Ruby. The only tools outside zr are `cc`, to link a Linux
@@ -19,7 +19,7 @@ binary, and wasmtime, to run modules.
 
 zr parses with prism, the parser that ruby uses. Only ruby's own parser
 accepts exactly the programs that ruby accepts, with the same syntax
-errors. zr has a Ruby port of prism's C (`runtime/ext/prism/ruby`), so
+errors. zr has a Ruby port of prism's C (`lib/zr/runtime/ext/prism/ruby`), so
 the compiler parses with the same code on the host and inside a
 compiled program. See [Why zr has no C](why-zr-has-no-c.md).
 

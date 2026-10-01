@@ -666,7 +666,7 @@ module Zr
   #
   # `manifest` is the gem manifest (lib/zr/manifest.rb), or nil. It is the
   # last text. `zr inspect` finds it in the binary, and rubygems in the
-  # program reads its gems (runtime/lib/zr/gem_manifest.rb).
+  # program reads its gems (lib/zr/runtime/lib/zr/gem_manifest.rb).
   def load_tables(units = [], evals: false, spots: {}, coverable: {}, branches: {}, defs: {}, sources: {},
                   target: Target.default, gem_roots: [], manifest: nil)
     shown = ->(path) { Paths.shown(path) }
@@ -737,7 +737,7 @@ module Zr
     table = +"".b
     relocs = []
     names.each_with_index do |name, i|
-      # A pad has no bytes, and the tag SYM_PAD (runtime/kernel/symbol.rb).
+      # A pad has no bytes, and the tag SYM_PAD (lib/zr/runtime/kernel/symbol.rb).
       if name.nil?
         table << [0, 255 << 56].pack("Q<Q<")
         next

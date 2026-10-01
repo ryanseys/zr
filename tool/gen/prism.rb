@@ -16,7 +16,7 @@ module Zr
       # tag, because the gem has no templates):
       #
       # * zr's templates (tool/gen/prism/templates/*.rb.erb) render into
-      #   runtime/ext/prism/ruby/*.rb.
+      #   lib/zr/runtime/ext/prism/ruby/*.rb.
       # * upstream's templates (templates/lib) must render the vendored
       #   gem's lib files byte for byte. This never writes vendored files;
       #   a difference is a failure.
@@ -26,7 +26,7 @@ module Zr
         UPSTREAM = Layout.source("prism", Ports::ALL.fetch("prism").version)
         GEM = File.dirname(Ports.lib("prism"))
         TEMPLATES = Dev.path("tool/gen/prism/templates")
-        OUT = Dev.path("runtime/ext/prism/ruby")
+        OUT = Dev.path("lib/zr/runtime/ext/prism/ruby")
 
         def run(_argv)
           failures = upstream_differences.map { |name| "vendored #{name} differs from its template" }

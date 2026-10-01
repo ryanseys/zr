@@ -17,7 +17,7 @@ module Zr
   # The runtime is the kernel files, the core library written in Ruby on
   # top of them, and the data that the compiler lays out next to them.
   class RuntimeSources
-    # Regexp::Onig, the regular expression compiler (runtime/core/regexp/onig).
+    # Regexp::Onig, the regular expression compiler (lib/zr/runtime/core/regexp/onig).
     # Each file defines what the next file reads.
     ONIG_NAMES = %w[
       regexp/unicode_tables regexp/onig/syntax regexp/onig/errors regexp/onig/encoding_tables
@@ -27,7 +27,7 @@ module Zr
     ].freeze
     # The core library files, in the order their toplevels run: a module
     # before the classes that include it. An `os/` name is a file of the OS
-    # layer, under runtime/core/os/<os>/. It gives each OS's values for the
+    # layer, under lib/zr/runtime/core/os/<os>/. It gives each OS's values for the
     # constants that the next portable file uses, in ruby's order.
     CORE_NAMES = (%w[
       module warning redefinitions encodings transcode cjk exception enumerable enumerator comparable integer bignum
@@ -118,11 +118,13 @@ module Zr
     # them.
     def sources = kernel_files + core_files + compiler_files
 
-    # The compiler's files that can reach the runtime object.
+    # The compiler's files that can reach the runtime object. The runtime
+    # (`Paths::RUNTIME`) is under lib/zr too, but it is what the compiler
+    # compiles: `kernel_files` and `core_files` list it.
     def compiler_files
       (Dir[File.join(__dir__, "**/*.rb")].sort - LINK_ONLY - DRIVER_ONLY).reject do |path|
         name = path.delete_prefix("#{__dir__}/")
-        PER_TARGET.any? { |prefix, wants| name.start_with?(prefix) && !wants.call(target) }
+        path.start_with?("#{Paths::RUNTIME}/") || PER_TARGET.any? { |prefix, wants| name.start_with?(prefix) && !wants.call(target) }
       end
     end
 

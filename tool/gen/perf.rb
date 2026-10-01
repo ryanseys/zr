@@ -63,7 +63,7 @@ module Zr
 
             - **Bignum arithmetic on large numbers** (`bm_pidigits`): a
               bignum is an Array of 30-bit limbs in the runtime's Ruby
-              (runtime/core/bignum.rb), multiplied and divided with the
+              (lib/zr/runtime/core/bignum.rb), multiplied and divided with the
               schoolbook methods. ruby uses GMP or Karatsuba-class methods
               in C for large operands.
             - **Regexp** (`bm_regexp_scan`): the engine is a port of Onigmo

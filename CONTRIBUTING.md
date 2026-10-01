@@ -27,7 +27,7 @@ $ bin/test      # runs every tier: unit, programs
 
 1. Write a program test that shows the change: see
    [Add your first program test](docs/tutorials/add-your-first-program-test.md).
-2. Change the compiler (`lib/`) or the runtime (`runtime/`).
+2. Change the compiler (`lib/`) or the runtime (`lib/zr/runtime/`).
 3. Run the tests that cover the change: `bin/test --changed`, or a
    path such as `bin/test test/programs/core/string`. Then run `bin/test`
    before you open a pull request. A full run takes a long time and

@@ -1,7 +1,7 @@
 # Runtime layouts
 
 This page lists the runtime's main values and objects, as
-`runtime/kernel/` declares them. If this page and the declarations are
+`lib/zr/runtime/kernel/` declares them. If this page and the declarations are
 different, the declarations are correct. To learn how the collector and
 dispatch use them, read
 [Memory and the collector](../explanation/memory-and-the-collector.md)
@@ -9,7 +9,7 @@ and [Method dispatch and unwinding](../explanation/method-dispatch-and-unwinding
 
 ## Values
 
-A `Value` is a 64-bit word with CRuby's tagging (`runtime/kernel/value.rb`).
+A `Value` is a 64-bit word with CRuby's tagging (`lib/zr/runtime/kernel/value.rb`).
 
 | Value | Encoding |
 |---|---|

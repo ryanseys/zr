@@ -31,7 +31,7 @@ module Zr
 
         # The shapes that a site can have, in test order. The site's form
         # permits them. At run time, the cell tells whether its entry has
-        # the shape (runtime/kernel/cache.rb, `zr_entry_shape`). Each shape
+        # the shape (lib/zr/runtime/kernel/cache.rb, `zr_entry_shape`). Each shape
         # needs a call with no block, no keywords and no splat, and the
         # exact argument count of the body (none for a reader or a check,
         # one for a writer, `is_a?` or `instance_of?`), because only the

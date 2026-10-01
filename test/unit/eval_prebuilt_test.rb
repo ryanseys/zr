@@ -28,7 +28,7 @@ class EvalPrebuiltTest < Minitest::Test
 
   VENDOR = Zr::Hir::Build.pure
   HELD = (Dir[File.join(VENDOR, "rubygems/**/*.rb")] + Zr::Hir::Build.rubygems_files +
-          Dir[File.join(ROOT, "lib/zr/**/*.rb")] + Dir[File.join(ROOT, "runtime/{ext,lib}/**/*.rb")]).sort.freeze
+          Dir[File.join(ROOT, "lib/zr/**/*.rb")].reject { |path| path.match?(%r{/lib/zr/runtime/(kernel|core)/}) }).sort.freeze
 
   # The number of times the loader parses each file, by path.
   module Counting

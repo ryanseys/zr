@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 
-# The runtime's own libraries (runtime/lib/zr) call `Primitive`, so they
+# The runtime's own libraries (lib/zr/runtime/lib/zr) call `Primitive`, so they
 # run only inside a zr binary. Under ruby, nothing loads this file.
-require_relative "../../runtime/lib/zr/eval/runtime"
-require_relative "../../runtime/lib/zr/eval/forms"
+require_relative "runtime/lib/zr/eval/runtime"
+require_relative "runtime/lib/zr/eval/forms"
 require_relative "ir/passes"
 
 module Zr

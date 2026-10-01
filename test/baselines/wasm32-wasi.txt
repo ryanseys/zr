@@ -34,7 +34,7 @@ cli/stdlib/socket/socket_loopback.rb	cannot load such file -- socket/constants
 # (lang/methods, core/array, core/hash).
 
 # A WASI module has no libm. The WASI layer defines frexp and ldexp only
-# (runtime/kernel/os/wasi/libm.rb).
+# (lib/zr/runtime/kernel/os/wasi/libm.rb).
 core/array/array/float_round_digits_cruby.rb	pow has no wasm form
 core/array/array/float_round_ndigits_return_type.rb	pow has no wasm form
 core/array/array/float_round_truncate_ndigits.rb	pow has no wasm form

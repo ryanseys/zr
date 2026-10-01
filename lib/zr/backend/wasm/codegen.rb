@@ -28,7 +28,7 @@ module Zr
       # defines them. `malloc` increments a heap pointer above the shadow
       # stack and grows the memory, `free` does nothing, and `write` and
       # `exit` become `fd_write` and `proc_exit` for a unit with no OS layer.
-      # The OS layer, runtime/kernel/os/wasi, implements every other call with
+      # The OS layer, lib/zr/runtime/kernel/os/wasi, implements every other call with
       # its own imports. A function's address is its index in the one table,
       # starting at 1 so that a pointer is never zero. `call_indirect` uses that table.
       class Codegen

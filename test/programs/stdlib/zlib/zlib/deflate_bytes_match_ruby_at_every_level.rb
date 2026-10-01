@@ -1,5 +1,5 @@
 # Deflate writes the bytes ruby's zlib 1.3.1 writes, at every level.
-# The port in runtime/kernel/zlib_*.rb is held to them byte for byte: a
+# The port in lib/zr/runtime/kernel/zlib_*.rb is held to them byte for byte: a
 # short stream is shown whole, a long one by its size and crc.
 require "zlib"
 

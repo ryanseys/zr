@@ -7,7 +7,7 @@ require "stringio"
 # it. The machine dialect runs only when zr compiles it, but its syntax
 # is ordinary Ruby syntax, so ruby's own parser checks it.
 class RuntimeSyntaxTest < Minitest::Test
-  FILES = Dir[File.join(ROOT, "runtime/**/*.rb")].sort.freeze
+  FILES = Dir[File.join(ROOT, "lib/zr/runtime/**/*.rb")].sort.freeze
 
   def test_every_runtime_file_is_found
     assert_operator FILES.size, :>, 300

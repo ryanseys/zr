@@ -8,20 +8,21 @@ module Zr
   # Whether this process is a program that zr compiled (the compiled
   # compiler, or a program with eval support) and not CRuby. A zr binary
   # gives the same RUBY_ENGINE and RubyVM as ruby 4.0.7, but its RbConfig
-  # gives zr as the interpreter (runtime/ext/rbconfig.rb).
+  # gives zr as the interpreter (lib/zr/runtime/ext/rbconfig.rb).
   def self.compiled? = RbConfig::CONFIG["ruby_install_name"] == "zr"
 
   # Where zr reads its sources and writes what it builds. ROOT is the
-  # checkout or the installed gem. `runtime/` and `vendor/` are beside
-  # `lib/` in both, and neither is on the host's load path. The host
+  # checkout or the installed gem. `lib/zr/runtime/` is under `lib/` and
+  # `vendor/` is beside it in both; neither is on the host's load path. The host
   # loads a few namespaced files from them by path (Regexp::Onig,
   # Prism::Ruby).
   module Paths
     ROOT = File.expand_path("../..", __dir__)
 
     # The runtime that zr compiles into every program, in the machine
-    # dialect and in ordinary Ruby.
-    RUNTIME = File.join(ROOT, "runtime")
+    # dialect and in ordinary Ruby. It is source that zr compiles, not code
+    # of the compiler, although it is under lib/zr.
+    RUNTIME = File.join(ROOT, "lib/zr/runtime")
 
     # The Ruby parts of extension gems, and ruby's own pure-Ruby
     # standard library.
@@ -213,7 +214,7 @@ module Zr
   # - upstream code, as its authors ship it, in vendor/
   #   (lib/zr/vendor.rb): ruby's own library, the default and bundled
   #   gems, and the gems whose C zr ports;
-  # - zr's own code under runtime/: the C halves in Ruby (EXT) and zr's
+  # - zr's own code under lib/zr/runtime/: the C halves in Ruby (EXT) and zr's
   #   own libraries (RUNTIME_LIB). It comes first, so a file there
   #   replaces an upstream file of its name.
   module Layout

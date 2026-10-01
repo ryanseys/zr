@@ -52,7 +52,7 @@ module Zr
     end
 
     # The places a macOS binary looks for OpenSSL 3 when a program
-    # requires openssl (runtime/ext/openssl/ossl/library.rb).
+    # requires openssl (lib/zr/runtime/ext/openssl/ossl/library.rb).
     def openssl(env = ENV)
       return Check.new(:ok, "openssl", "not needed") unless Target.host_triple.end_with?("darwin")
 

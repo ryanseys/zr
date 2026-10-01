@@ -28,7 +28,7 @@ Every program that a test builds links the same runtime. Before a tier
 starts its workers, `bin/test` builds the runtime for this host if it
 is not built or is out of date (`Zr::Test::Built`). It then loads the
 runtime into the parent process, so all the workers share one copy.
-After a change under `lib/` or `runtime/`, this build takes a few
+After a change under `lib/` or `lib/zr/runtime/`, this build takes a few
 minutes.
 
 A unit test file that builds a program says so in its first lines:

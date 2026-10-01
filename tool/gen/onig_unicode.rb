@@ -9,8 +9,8 @@ module Zr
       # Onigmo's Unicode 17.0 tables, checked against the ruby the
       # .ruby-version pins and written as the tables the runtime's Regexp
       # engine reads: the property tables and case folds the plain-Ruby
-      # parser reads (runtime/core/regexp/unicode_tables.rb) and the byte
-      # tables the kernel matcher reads (runtime/kernel/onig_tables.rb).
+      # parser reads (lib/zr/runtime/core/regexp/unicode_tables.rb) and the byte
+      # tables the kernel matcher reads (lib/zr/runtime/kernel/onig_tables.rb).
       #
       #   zr-dev gen onig_unicode
       #
@@ -53,10 +53,10 @@ module Zr
           hold_folds_to_ruby(case_fold, unfold1, unfold2, unfold3)
 
           @current = true
-          @current &= Dev.write("runtime/core/regexp/unicode_tables.rb", check: @check) do |io|
+          @current &= Dev.write("lib/zr/runtime/core/regexp/unicode_tables.rb", check: @check) do |io|
             write_core(io, properties, order, tables, ctype_bits, case_fold, unfold1, unfold2, unfold3)
           end
-          @current &= Dev.write("runtime/kernel/onig_tables.rb", check: @check) do |io|
+          @current &= Dev.write("lib/zr/runtime/kernel/onig_tables.rb", check: @check) do |io|
             write_kernel(io, tables, order, ctype_bits, case_fold)
           end
           @current
@@ -448,7 +448,7 @@ module Zr
             # enc/unicode/#{UNICODE} headers. Do not edit.
             #
             # The byte tables the kernel's Onigmo matcher reads; the license is in
-            # runtime/kernel/regexp.rb.
+            # lib/zr/runtime/kernel/regexp.rb.
 
           RUBY
           emit_bytes(io, "zr_onig_utf8_len", utf8_len, "EncLen_UTF8: the length a UTF-8 lead byte announces, 256 bytes (utf_8.c).")

@@ -20,7 +20,7 @@ module Zr
   #   vendor/LICENSES/                   license texts that no gem
   #                                      directory holds
   #
-  # zr's own code (runtime/) comes before this tree on the load path, so
+  # zr's own code (lib/zr/runtime/) comes before this tree on the load path, so
   # a file there replaces an upstream file of the same name.
   # docs/how-to/update-vendored-code.md has the steps to add or update a
   # gem.

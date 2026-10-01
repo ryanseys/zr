@@ -11,7 +11,7 @@ end
 
 # The host's prism: the vendored Ruby part of prism 1.9.0
 # (vendor/ruby, Zr::Ports.lib) on top of zr's Ruby port of prism's C
-# (runtime/ext/prism/ruby). A zr binary links in the same tree. Both
+# (lib/zr/runtime/ext/prism/ruby). A zr binary links in the same tree. Both
 # directories go ahead of ruby's own prism. prism_shim contains only
 # prism/prism.rb. A process that loaded ruby's prism first keeps it,
 # because both return the same objects. The paths are literal, so zr

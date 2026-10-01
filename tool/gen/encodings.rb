@@ -9,7 +9,7 @@ module Zr
       # runtime makes its Encoding objects from this table.
       class Encodings < Generator
         host_ruby!
-        writes "runtime/core/encodings.rb"
+        writes "lib/zr/runtime/core/encodings.rb"
 
         def write(io)
           # Before any code uses an encoding, `inspect` shows if its table is

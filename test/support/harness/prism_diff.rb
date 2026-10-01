@@ -6,7 +6,7 @@ require_relative "child"
 
 module Zr
   module Harness
-    # Compares the pure-Ruby prism (runtime/ext/prism/ruby) with ruby's
+    # Compares the pure-Ruby prism (lib/zr/runtime/ext/prism/ruby) with ruby's
     # own C prism, file by file. The C prism is the reference.
     #
     # `writer` tests Prism::Ruby::Dump without the Ruby parser. A loader
@@ -23,7 +23,7 @@ module Zr
       # test_helper.rb's SYNTAX_VERSIONS.
       SYNTAX_VERSIONS = %w[3.3 3.4 4.0 4.1].freeze
       # zr's own Ruby, parsed under the latest syntax.
-      OWN = %w[runtime lib test vendor].freeze
+      OWN = %w[lib test vendor].freeze
 
       Case = Struct.new(:name, :source, :options)
 
@@ -240,7 +240,7 @@ module Zr
       # Writes the C dump of each case again with the Ruby writer. Returns
       # the cases that differ, as `[name, why]`.
       def writer(cases)
-        require File.join(ROOT, "runtime/ext/prism/ruby/dump")
+        require File.join(ROOT, "lib/zr/runtime/ext/prism/ruby/dump")
         cases.filter_map do |c|
           dump = Prism.dump(c.source, **c.options)
           again = begin
@@ -257,7 +257,7 @@ module Zr
       # write the same bytes as Prism.dump for each case. Returns the cases
       # that differ, as `[name, why]`.
       def dump(cases)
-        require File.join(ROOT, "runtime/ext/prism/ruby")
+        require File.join(ROOT, "lib/zr/runtime/ext/prism/ruby")
         cases.filter_map do |c|
           expected = Prism.dump(c.source, **c.options)
           actual = begin
@@ -322,7 +322,7 @@ module Zr
       # (Graph). Each case goes through `Prism.<method>` and
       # `Prism::Ruby.<method>` with its options.
       def api(cases, method, **extra)
-        require File.join(ROOT, "runtime/ext/prism/ruby")
+        require File.join(ROOT, "lib/zr/runtime/ext/prism/ruby")
         cases.filter_map do |c|
           why = call_difference(Prism, Prism::Ruby) { |receiver| receiver.public_send(method, c.source, **c.options, **extra) }
           [c.name, why] if why
@@ -380,7 +380,7 @@ module Zr
       # that needs an unimplemented lex mode counts as `unsupported`.
       # Returns `[failures, unsupported]`, each failure as `[name, why]`.
       def lex(cases, states: false)
-        require File.join(ROOT, "runtime/ext/prism/ruby")
+        require File.join(ROOT, "lib/zr/runtime/ext/prism/ruby")
         unsupported = 0
         failures = cases.filter_map do |c|
           expected = Prism.lex(c.source, **c.options).value.map do |token, state|

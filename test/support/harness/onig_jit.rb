@@ -6,7 +6,7 @@ require_relative "onig"
 
 module Zr
   module Harness
-    # The kernel regexp matcher (runtime/kernel/onig_*.rb), loaded into
+    # The kernel regexp matcher (lib/zr/runtime/kernel/onig_*.rb), loaded into
     # this ruby with the JIT. It searches with patterns that the core
     # library compiled under this ruby. The tests check its results
     # against ruby's own regexp engine.

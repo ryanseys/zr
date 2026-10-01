@@ -5,7 +5,7 @@ require_relative "../paths"
 require_relative "../prism"
 require_relative "../settled"
 require_relative "store"
-require_relative "../../../runtime/lib/zr/eval/runtime" unless Zr::HOSTED
+require_relative "../runtime/lib/zr/eval/runtime" unless Zr::HOSTED
 
 module Zr
   module Cache
@@ -42,7 +42,7 @@ module Zr
       #
       # All callers share one result. This is safe because a ParseResult is
       # written once and then only read: the port's setters
-      # (runtime/ext/prism/ruby/mutation.rb) run while it builds the tree,
+      # (lib/zr/runtime/ext/prism/ruby/mutation.rb) run while it builds the tree,
       # and no later code writes to a node.
       #
       # The limit is necessary for both users. A test tier worker runs

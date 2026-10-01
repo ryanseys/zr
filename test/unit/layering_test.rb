@@ -35,8 +35,9 @@ class LayeringTest < Minitest::Test
     "libraries" => %w[top],
     "prism_shim" => %w[top],
     # The caches between builds (lib/zr/cache/store.rb). A lowering entry
-    # holds IR and the code cache's machine code.
-    "cache" => %w[top ir native],
+    # holds IR and the code cache's machine code, which its workers
+    # assemble with the back end.
+    "cache" => %w[top ir native backend],
   }.freeze
 
   def test_every_cross_layer_edge_is_allowed
@@ -51,15 +52,16 @@ class LayeringTest < Minitest::Test
 
   # `[from layer, to layer, file]`, relative to `LIB`, for every
   # `require_relative` that reaches into another layer. A require that
-  # leaves `lib/zr` entirely (the vendored prism extension) is not part
-  # of this layering, and is left out.
+  # leaves the compiler (the vendored prism extension, or the runtime in
+  # `RUNTIME`, which zr compiles into programs) is not part of this
+  # layering, and is left out.
   def edges
     files.flat_map do |file|
       from = layer_of(file)
       dir = file.dirname
       requires(file).filter_map do |name|
         target = Pathname.new("#{(dir + name).cleanpath}.rb")
-        next unless target.exist? && target.to_s.start_with?("#{LIB}/")
+        next unless target.exist? && compiler?(target)
 
         to = layer_of(target)
         [from, to, file.relative_path_from(LIB).to_s] if to != from
@@ -74,5 +76,9 @@ class LayeringTest < Minitest::Test
     parts.one? ? "top" : parts.first
   end
 
-  def files = LIB.glob("**/*.rb").sort
+  RUNTIME = (LIB + "runtime").freeze
+
+  def compiler?(path) = path.to_s.start_with?("#{LIB}/") && !path.to_s.start_with?("#{RUNTIME}/")
+
+  def files = LIB.glob("**/*.rb").select { |path| compiler?(path) }.sort
 end

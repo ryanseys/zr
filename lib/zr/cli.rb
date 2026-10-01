@@ -89,7 +89,7 @@ module Zr
         Usage: zr machine [options] <file.rb> -o <out>
 
         Compiles one file of the machine dialect (the typed Ruby that
-        runtime/kernel is written in), without the zr runtime.
+        lib/zr/runtime/kernel is written in), without the zr runtime.
 
         #{OPTIONS.sub(GEMS, "").sub("Options:\n", "Options:\n#{OUTPUT}")}
       TEXT

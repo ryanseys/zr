@@ -19,7 +19,7 @@ $ bin/setup
 
 `bin/setup` installs the gems and builds the runtime for this host.
 The first build takes a few minutes. `bin/test` builds the runtime
-again when a change under `lib/` or `runtime/` makes it out of date.
+again when a change under `lib/` or `lib/zr/runtime/` makes it out of date.
 To build the runtime without a test run:
 
 ```console
@@ -119,7 +119,7 @@ $ ruby tool/zr-dev.rb affected --dry-run
 `bin/test --changed` reads the diff against `main`, or against
 `--base`, and runs the tests that the changed files can reach. A
 changed unit test file runs itself, and a changed program, or a file
-beside it, runs the program. For a file under `runtime/core`, these
+beside it, runs the program. For a file under `lib/zr/runtime/core`, these
 are the directory of its class and every program test that uses the
 class name. For a file under `lib/zr` that does not change what a
 build writes, these are the unit tests that load it, and
@@ -162,11 +162,11 @@ your change must change one of these files, write it again with
 
 ```console
 $ ZR_BLESS=1 bin/test test/unit/description_test.rb
-$ git diff runtime/ext/os/
+$ git diff lib/zr/runtime/ext/os/
 ```
 
 A change to the signature of a kernel def, or to a struct or a constant
-under `runtime/kernel/`, always changes the description.
+under `lib/zr/runtime/kernel/`, always changes the description.
 
 ## Check that an expected output is still ruby's
 

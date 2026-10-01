@@ -28,7 +28,7 @@ class DescriptionTest < Minitest::Test
     Zr::Machine::Description.parse(file[/<<~ROWS\n(.*?)^\s*ROWS$/m, 1].gsub(/^ +/, ""))
   end
 
-  # `immediate?` is `zr_special_p` (runtime/kernel/value.rb) at compile
+  # `immediate?` is `zr_special_p` (lib/zr/runtime/kernel/value.rb) at compile
   # time. A lowering uses it to remove a test when the result is already
   # known. The two must agree, and the kernel's own constants decide.
   def test_description_immediate_matches_kernel_special_check

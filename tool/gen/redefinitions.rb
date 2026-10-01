@@ -18,7 +18,7 @@ module Zr
       # the `<internal:file>:line` of the previous definition, or nil.
       class Redefinitions < Generator
         host_ruby!
-        writes "runtime/core/redefinitions.rb"
+        writes "lib/zr/runtime/core/redefinitions.rb"
 
         # rb_method_entry_make's own warnings about Object, which the
         # kernel writes whatever the table says.

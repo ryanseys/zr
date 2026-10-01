@@ -5,7 +5,7 @@ require_relative "paths"
 module Zr
   # The gems with a C part that zr implements in Ruby. zr owns each one, as
   # JRuby owns its json: the gem's Ruby half, as the gem ships it, and zr's
-  # port of the C half (runtime/ext) come together, at one version.
+  # port of the C half (lib/zr/runtime/ext) come together, at one version.
   #
   # A port with `vendored: true` is vendored as a gem at zr's version
   # (vendor/ruby/lib/ruby/gems/4.0.0/gems/<name>-<version>, which
@@ -25,7 +25,7 @@ module Zr
     def self.port(version, compat: "~> #{version}", vendored: true) = Port.new(version: version, compat: compat, vendored: vendored).freeze
 
     ALL = {
-      # A gem in vendor/, over a port in runtime/ext.
+      # A gem in vendor/, over a port in lib/zr/runtime/ext.
       "prism" => port("1.9.0"),
       "json" => port("3.0.2"),
       "psych" => port("5.3.1", vendored: false),
@@ -37,7 +37,7 @@ module Zr
       "nkf" => port("0.3.0"),
       "fiddle" => port("1.1.8"),
       "racc" => port("1.8.1"),
-      # The C of ruby 4.0.7's default gem, in runtime/ext. Its Ruby half,
+      # The C of ruby 4.0.7's default gem, in lib/zr/runtime/ext. Its Ruby half,
       # if any, is ruby's own at the same version.
       "date" => port("3.5.1", vendored: false),
       "stringio" => port("3.2.0", vendored: false),

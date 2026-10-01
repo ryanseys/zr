@@ -38,7 +38,7 @@ Gem::Specification.new do |spec|
   # upstream ships it; vendor/src holds only what the tools read). The
   # tests and the tasks stay in the repository.
   spec.files = IO.popen(%w[git ls-files -z], chdir: __dir__, err: IO::NULL, &:read).split("\x0").select do |file|
-    file.match?(%r{\A(exe|lib|licenses|runtime|vendor/(ruby|LICENSES))/}) || file == "vendor/vendor.lock" ||
+    file.match?(%r{\A(exe|lib|licenses|vendor/(ruby|LICENSES))/}) || file == "vendor/vendor.lock" ||
       %w[LICENSE.txt THIRD_PARTY_NOTICES.md README.md CHANGELOG.md].include?(file)
   end
   # Outside a git checkout, the list is empty, and so would the gem be.
@@ -46,10 +46,11 @@ Gem::Specification.new do |spec|
 
   spec.bindir = "exe"
   spec.executables = ["zr"]
-  # Only lib/: runtime/ and vendor/ hold files named like ruby's
-  # own libraries (rbconfig, set, json), and must never shadow them.
+  # Only lib/: lib/zr/runtime/ and vendor/ hold files named like ruby's
+  # own libraries (rbconfig, set, json), below lib/zr, so they never
+  # shadow them.
   spec.require_paths = ["lib"]
 
   # No runtime dependencies: a program's library is vendor/ruby and
-  # runtime/ext, which zr compiles into the program.
+  # lib/zr/runtime/ext, which zr compiles into the program.
 end

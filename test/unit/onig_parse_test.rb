@@ -4,14 +4,14 @@ require "test_helper"
 require_relative "../../lib/zr/runtime"
 require_relative "../support/harness/onig"
 
-# Compares the core's side of Regexp (runtime/core/regexp_pattern.rb and
-# runtime/core/regexp/onig/*) under this ruby with Regexp.new, pattern
+# Compares the core's side of Regexp (lib/zr/runtime/core/regexp_pattern.rb and
+# lib/zr/runtime/core/regexp/onig/*) under this ruby with Regexp.new, pattern
 # by pattern. It checks each error from Onigmo and from ruby's
 # preprocess (the text and the pattern after it), each warning (quiet
 # and verbose), the group names, and the limits. onig_match_test and
 # regexp_diff_test check matching.
 Zr::Harness::Onig.load!
-require File.join(ROOT, "runtime/core/regexp_pattern.rb")
+require File.join(ROOT, "lib/zr/runtime/core/regexp_pattern.rb")
 
 class OnigParseTest < Minitest::Test
   Pattern = Regexp.const_get(:Pattern)
@@ -113,7 +113,7 @@ class OnigParseTest < Minitest::Test
     script = <<~'RUBY'
       require "./test/support/harness/onig"
       Zr::Harness::Onig.load!
-      require "./runtime/core/regexp_pattern.rb"
+      require "./lib/zr/runtime/core/regexp_pattern.rb"
       pattern = Regexp.const_get(:Pattern)
       [4095, 4096, 4097].each do |depth|
         [["(", ")"], ["(?:", ")"], ["[", "]"]].each do |open, close|

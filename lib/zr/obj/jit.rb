@@ -37,7 +37,7 @@ module Zr
       # Fiddle under CRuby (where no runtime is linked).
       def self.host
         if Zr.compiled?
-          require_relative "../../../runtime/lib/zr/obj/jit/runtime"
+          require_relative "../runtime/lib/zr/obj/jit/runtime"
           Runtime.new
         else
           require_relative "jit/fiddle"

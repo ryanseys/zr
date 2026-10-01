@@ -17,7 +17,7 @@ require_relative "../../lib/zr/runtime"
 class DigestTest < Minitest::Test
   LIB = File.join(ROOT, "lib/zr")
 
-  def compiler = Dir[File.join(LIB, "**/*.rb")].sort
+  def compiler = (Dir[File.join(LIB, "**/*.rb")] - Dir[File.join(Zr::Paths::RUNTIME, "**/*.rb")]).sort
 
   def test_every_compiler_file_is_in_a_digest
     covered = Zr::Target.all.flat_map { |target| Zr::RuntimeSources.for(target).compiler_files } + Zr::RuntimeSources::LINK_ONLY + Zr::RuntimeSources::DRIVER_ONLY
@@ -84,8 +84,12 @@ class DigestTest < Minitest::Test
   def copied
     Dir.mktmpdir("zr-digest-") do |dir|
       root = File.realpath(dir)
-      FileUtils.cp_r(File.join(ROOT, "lib"), File.join(root, "lib"))
-      %w[runtime vendor].each { |name| File.symlink(File.join(ROOT, name), File.join(root, name)) }
+      FileUtils.mkdir_p(File.join(root, "lib/zr"))
+      (Dir.children(File.join(ROOT, "lib")) - ["zr"]).each { |name| FileUtils.cp_r(File.join(ROOT, "lib", name), File.join(root, "lib")) }
+      (Dir.children(File.join(ROOT, "lib/zr")) - ["runtime"]).each do |name|
+        FileUtils.cp_r(File.join(ROOT, "lib/zr", name), File.join(root, "lib/zr"))
+      end
+      %w[lib/zr/runtime vendor].each { |name| File.symlink(File.join(ROOT, name), File.join(root, name)) }
       yield root
     end
   end

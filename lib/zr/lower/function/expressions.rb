@@ -269,7 +269,7 @@ module Zr
         end
 
         # `"a#{b}c"`. The program never gets the literal parts between the
-        # embedded expressions: `zr_str_interp` (runtime/kernel/string.rb)
+        # embedded expressions: `zr_str_interp` (lib/zr/runtime/kernel/string.rb)
         # reads their bytes and returns a new String. So each part is the
         # shared frozen String of its bytes, not a new String on each run.
         # This saves an allocation, a malloc and a copy per part.

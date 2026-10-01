@@ -2,10 +2,10 @@
 
 require "test_helper"
 require "prism"
-require_relative "../../runtime/core/regexp/unicode_tables"
+require_relative "../../lib/zr/runtime/core/regexp/unicode_tables"
 
-# runtime/core/regexp/unicode_tables.rb (the plain-Ruby parser's tables)
-# and runtime/kernel/onig_tables.rb (the kernel matcher's byte tables)
+# lib/zr/runtime/core/regexp/unicode_tables.rb (the plain-Ruby parser's tables)
+# and lib/zr/runtime/kernel/onig_tables.rb (the kernel matcher's byte tables)
 # each carry the Latin-1 ctype bits and the full case folds a second
 # time, in a different encoding: 16-bit words in a String constant
 # against 32-bit words in a "machine def" byte table, and BER-packed
@@ -15,7 +15,7 @@ require_relative "../../runtime/core/regexp/unicode_tables"
 # This test decodes both encodings straight from the committed files
 # and checks that they hold the same data.
 class OnigUnicodeTest < Minitest::Test
-  KERNEL_PATH = File.join(ROOT, "runtime/kernel/onig_tables.rb")
+  KERNEL_PATH = File.join(ROOT, "lib/zr/runtime/kernel/onig_tables.rb")
 
   def test_the_generated_files_are_current
     out, ok = Checks.generate("onig_unicode")

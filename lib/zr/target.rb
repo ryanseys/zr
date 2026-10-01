@@ -33,10 +33,10 @@ module Zr
 
     def to_s = triple
 
-    # The runtime layer that zr lowers with for each OS. runtime/kernel/os/,
-    # runtime/core/os/ and runtime/ext/os/ each contain one directory per layer.
+    # The runtime layer that zr lowers with for each OS. lib/zr/runtime/kernel/os/,
+    # lib/zr/runtime/core/os/ and lib/zr/runtime/ext/os/ each contain one directory per layer.
     OS_LAYERS = { darwin: "darwin", linux: "linux", wasi: "wasi" }.freeze
-    # The machine layer, under runtime/kernel/arch/.
+    # The machine layer, under lib/zr/runtime/kernel/arch/.
     ARCH_LAYERS = { aarch64: "aarch64", wasm32: "wasm32" }.freeze
 
     def os_layer = OS_LAYERS.fetch(os)

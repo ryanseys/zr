@@ -66,7 +66,7 @@ class PathsTest < Minitest::Test
       Dir.chdir(dir) do
         Zr::Paths.root = "/src/"
         here = Dir.pwd
-        assert_equal "/src/runtime/core/string.rb", Zr::Paths.shown(File.join(Zr::Paths::ROOT, "runtime/core/string.rb"))
+        assert_equal "/src/lib/zr/runtime/core/string.rb", Zr::Paths.shown(File.join(Zr::Paths::ROOT, "lib/zr/runtime/core/string.rb"))
         assert_equal "/src/lib/a.rb", Zr::Paths.shown(File.join(here, "lib/a.rb"))
         assert_equal "/src", Zr::Paths.shown(here)
         assert_equal "/elsewhere/a.rb", Zr::Paths.shown("/elsewhere/a.rb")
@@ -84,7 +84,7 @@ class PathsTest < Minitest::Test
 
   def test_no_path_root_writes_each_path_as_it_is
     Zr::Paths.root = nil
-    path = File.join(Zr::Paths::ROOT, "runtime/core/string.rb")
+    path = File.join(Zr::Paths::ROOT, "lib/zr/runtime/core/string.rb")
     assert_same path, Zr::Paths.shown(path)
   end
 
@@ -93,7 +93,7 @@ class PathsTest < Minitest::Test
   def test_the_longer_directory_is_the_one_a_path_is_written_below
     Dir.chdir(File.dirname(Zr::Paths::ROOT)) do
       Zr::Paths.root = "/src"
-      assert_equal "/src/runtime/core/string.rb", Zr::Paths.shown(File.join(Zr::Paths::ROOT, "runtime/core/string.rb"))
+      assert_equal "/src/lib/zr/runtime/core/string.rb", Zr::Paths.shown(File.join(Zr::Paths::ROOT, "lib/zr/runtime/core/string.rb"))
     end
   ensure
     Zr::Paths.root = nil

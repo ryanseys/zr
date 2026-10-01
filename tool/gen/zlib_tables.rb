@@ -12,7 +12,7 @@ module Zr
       #
       #   zr-dev gen zlib_tables
       class ZlibTables < Generator
-        writes "runtime/kernel/zlib_tables.rb"
+        writes "lib/zr/runtime/kernel/zlib_tables.rb"
 
         POLY = 0xedb88320
 
@@ -37,7 +37,7 @@ module Zr
           io.puts "# make them. Do not edit."
           io.puts "#"
           io.puts "# zlib's tables, made as crc32.c and trees.c make them; the license is"
-          io.puts "# in runtime/kernel/zlib.rb."
+          io.puts "# in lib/zr/runtime/kernel/zlib.rb."
           io.puts
 
           emit_u32(io, "zr_crc_table", crc_table,

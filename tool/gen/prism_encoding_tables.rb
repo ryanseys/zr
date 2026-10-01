@@ -5,13 +5,13 @@ require_relative "../gen"
 module Zr
   module Dev
     class Gen
-      # Writes runtime/ext/prism/ruby/encoding_tables.rb from prism 1.9.0's
+      # Writes lib/zr/runtime/ext/prism/ruby/encoding_tables.rb from prism 1.9.0's
       # src/encoding.c and include/prism/encoding.h (`Dev.prism`). The file
       # contains the Unicode code point ranges, the byte tables, the UTF-8
       # decoder's state table, each encoding's name and functions in
       # pm_encoding_t order, and the names that pm_encoding_find accepts.
       class PrismEncodingTables < Generator
-        writes "runtime/ext/prism/ruby/encoding_tables.rb"
+        writes "lib/zr/runtime/ext/prism/ruby/encoding_tables.rb"
 
         def c_source(path) = Dev.prism(path)
 

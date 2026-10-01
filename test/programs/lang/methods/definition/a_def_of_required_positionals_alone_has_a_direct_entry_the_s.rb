@@ -1,5 +1,5 @@
 # The def reads its arguments out of registers when the site hands
-# it exactly its count (runtime/kernel/class.rb, MEntry.direct); every
+# it exactly its count (lib/zr/runtime/kernel/class.rb, MEntry.direct); every
 # other road -- send, Method#call, an alias, a hook, a wrong count,
 # keywords, super -- reads as before.
 def one(a) = a

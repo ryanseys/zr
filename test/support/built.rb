@@ -133,7 +133,7 @@ module Zr
       # returns its pid. `ZR_JOBS` gives the child its number of workers.
       def start(target, jobs:, say:, evals: true)
         say&.puts("building the zr runtime#{" and eval support" if evals} for #{target.triple} " \
-                  "(#{evals ? "a few minutes" : "about half a minute"} after a change under lib/ or runtime/)")
+                  "(#{evals ? "a few minutes" : "about half a minute"} after a change under lib/)")
         Process.fork do
           ENV["ZR_JOBS"] = jobs.to_s
           Config.reset!

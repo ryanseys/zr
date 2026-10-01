@@ -8,7 +8,7 @@ require "zr/hir/build"
 # checks need no network: vendor/vendor.lock has the SHA-256 of each
 # file that `zr-dev vendor` wrote.
 #
-# zr's own code under runtime/ comes first on the load path, so a file
+# zr's own code under lib/zr/runtime/ comes first on the load path, so a file
 # there with the name of a vendored file replaces it: an overlay. Each
 # overlay names the file that it replaces and that file's digest, so an
 # update of the vendored file stops here until someone reads the new
@@ -30,7 +30,7 @@ class VendorTest < Minitest::Test
 
     differ = (have & locked.keys).reject { |rel| Digest::SHA256.file(File.join(Zr::Paths::VENDOR, rel)).hexdigest == locked[rel] }
 
-    assert_equal [], differ, "vendor/ is upstream code: never edit it; replace a file with an overlay under runtime/"
+    assert_equal [], differ, "vendor/ is upstream code: never edit it; replace a file with an overlay under lib/zr/runtime/"
     assert_equal [], have - locked.keys
     assert_equal [], locked.keys - have
   end
@@ -49,7 +49,7 @@ class VendorTest < Minitest::Test
     assert_equal [], stale
   end
 
-  # Each file under a runtime/ root with the path of a file under a
+  # Each file under a lib/zr/runtime/ root with the path of a file under a
   # vendor/ root, as `[ours, theirs]`.
   def overlays
     roots = Zr::Hir::Build.stdlib(Zr::Target.default)

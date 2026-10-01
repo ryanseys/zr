@@ -4,11 +4,11 @@ require "test_helper"
 require "zr/runtime"
 require "zr/native/link/darwin"
 
-# The contract of the OS layer: runtime/kernel/os.rb lists every `zr_os_*`
-# call and its signature. Each OS layer under runtime/kernel/os/ defines
+# The contract of the OS layer: lib/zr/runtime/kernel/os.rb lists every `zr_os_*`
+# call and its signature. Each OS layer under lib/zr/runtime/kernel/os/ defines
 # exactly those calls, and no other part of the kernel defines them.
 class OsApiTest < Minitest::Test
-  SPEC = File.join(ROOT, "runtime/kernel/os.rb")
+  SPEC = File.join(ROOT, "lib/zr/runtime/kernel/os.rb")
   ROW = /\A#\s+(zr_(?:os|arch)_\w+)\s+\[([^\]]*)\]\s*=>\s*(\w+)\s*\z/
 
   # `{ name => [[param types], return type] }` from the comment lines.
@@ -20,7 +20,7 @@ class OsApiTest < Minitest::Test
   end
 
   def layers
-    Dir[File.join(ROOT, "runtime/kernel/os/*")].select { |dir| File.directory?(dir) }.map { |dir| File.basename(dir) }.sort
+    Dir[File.join(ROOT, "lib/zr/runtime/kernel/os/*")].select { |dir| File.directory?(dir) }.map { |dir| File.basename(dir) }.sort
   end
 
   # The constants the spec says each OS defines.
@@ -37,7 +37,7 @@ class OsApiTest < Minitest::Test
   # The OS layer sets RUBY_PLATFORM to the platform string of the target.
   def test_os_layer_sets_target_ruby_platform
     Zr::Target.all.select { |target| target.os_layer == target.os.to_s }.each do |target|
-      text = File.read(File.join(ROOT, "runtime/kernel/os/#{target.os}/env.rb"))
+      text = File.read(File.join(ROOT, "lib/zr/runtime/kernel/os/#{target.os}/env.rb"))
       assert_includes text, %(zr_str_new(Machine.bytes("#{target.ruby_platform}"), #{target.ruby_platform.bytesize})), target.triple
     end
   end
@@ -62,7 +62,7 @@ class OsApiTest < Minitest::Test
   def test_every_target_takes_a_layer_that_exists
     Zr::Target.all.each do |target|
       assert_includes layers, target.os_layer, target.triple
-      assert File.directory?(File.join(ROOT, "runtime/kernel/arch", target.arch_layer)), target.triple
+      assert File.directory?(File.join(ROOT, "lib/zr/runtime/kernel/arch", target.arch_layer)), target.triple
     end
   end
 
@@ -75,12 +75,13 @@ class OsApiTest < Minitest::Test
       assert_equal expected.keys.sort, got.keys.sort, "#{layer}: the zr_os_ and zr_arch_ defs"
       expected.each { |name, sig| assert_equal sig, got[name], "#{layer}: #{name}" }
       calls.each do |name, d|
-        dir = name.start_with?("zr_os_") ? "runtime/kernel/os/#{layer}/" : "runtime/kernel/arch/#{target.arch_layer}/"
+        dir = name.start_with?("zr_os_") ? "lib/zr/runtime/kernel/os/#{layer}/" : "lib/zr/runtime/kernel/arch/#{target.arch_layer}/"
         assert d.file.start_with?(File.join(ROOT, dir)), "#{name} is in #{d.file}, not #{dir}"
       end
       constants.each do |name|
         assert_includes unit.declared_consts, name, "#{layer}: #{name}"
-        assert unit.const_file(name).start_with?(File.join(ROOT, "runtime/kernel/os/#{layer}/")), "#{layer}: #{name} is in #{unit.const_file(name)}"
+        file = unit.const_file(name)
+        assert file.start_with?(File.join(ROOT, "lib/zr/runtime/kernel/os/#{layer}/")), "#{layer}: #{name} is in #{file}"
       end
     end
   end

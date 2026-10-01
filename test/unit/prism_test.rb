@@ -4,7 +4,7 @@ require "test_helper"
 require_relative "../support/harness/prism_diff"
 require_relative "../../tool/lib/zr/dev"
 require_relative "../../lib/zr/ports"
-require_relative "../../runtime/ext/prism/ruby"
+require_relative "../../lib/zr/runtime/ext/prism/ruby"
 require "stringio"
 
 # Checks the pure-Ruby prism against ruby's C prism: the generated files
@@ -57,7 +57,7 @@ class PrismTest < Minitest::Test
 
   def self.upstream_cases(...) = PrismDiff.upstream && PrismDiff.cases(...)
 
-  compare("the_writer_writes_zrs_own_ruby_as_the_c_does", PrismDiff.cases(%w[runtime lib]), at_least: 300) do |cases|
+  compare("the_writer_writes_zrs_own_ruby_as_the_c_does", PrismDiff.cases(%w[lib]), at_least: 300) do |cases|
     assert_empty PrismDiff.writer(cases).first(5)
   end
 
@@ -78,7 +78,7 @@ class PrismTest < Minitest::Test
   # The Ruby parser: Prism::Ruby.dump is equal to Prism.dump byte for byte,
   # on zr's own Ruby and on every fixture and error file under each syntax
   # version.
-  compare("the_parser_dumps_zrs_own_ruby_as_the_c_does", PrismDiff.cases(%w[runtime lib]), at_least: 300) do |cases|
+  compare("the_parser_dumps_zrs_own_ruby_as_the_c_does", PrismDiff.cases(%w[lib]), at_least: 300) do |cases|
     assert_empty PrismDiff.dump(cases).first(5)
   end
 

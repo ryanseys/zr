@@ -118,7 +118,7 @@ module Zr
           end
         end
 
-        # A constant read through the site's own cell (runtime/kernel/cache.rb).
+        # A constant read through the site's own cell (lib/zr/runtime/kernel/cache.rb).
         # The cell keeps the kernel's value for `key` (the cref or the
         # scope) at a constant stamp. If both still match, read the value
         # here. Else call the kernel's lookup, which fills the cell. With

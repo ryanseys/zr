@@ -324,7 +324,7 @@ module Zr
       runtime = Runtime.new(target)
       unit = runtime.unit
       %w[array string hash].each do |name|
-        path = File.join(Paths::ROOT, "runtime/core/#{name}.rb")
+        path = File.join(Paths::RUNTIME, "core/#{name}.rb")
         Zr.lower_core_file(path, File.read(path), unit, unit.symbols.ids.dup.freeze, target)
       end
       Paths.tmpdir("zr-serve-") do |work|

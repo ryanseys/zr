@@ -107,7 +107,7 @@ gives more examples.
 | `zr-dev vendor` | Writes `vendor/` (ruby 4.0.7's own library from its source at `RUBY_REVISION`, the bundled gems and the port gems from their `.gem` files, prism's templates from its tag), `vendor/vendor.lock` and `lib/zr/stdlib.rb`, from `lib/zr/vendor.rb`, `lib/zr/ports.rb` and `lib/zr/version.rb`. It needs `RUBY_SRC` and `PRISM_SRC`. See [How to update the vendored code](../how-to/update-vendored-code.md). |
 | `zr-dev vendor --check` | Checks each file of `vendor/` against the lock, offline. |
 | `zr-dev vendor outdated` | Lists the gems of `vendor/` that have a newer release on rubygems.org. |
-| `zr-dev vendor diff GEM [VERSION]` | Lists the files that change from the locked GEM to VERSION (default: the newest), and zr's files under `runtime/` that replace one of them. |
+| `zr-dev vendor diff GEM [VERSION]` | Lists the files that change from the locked GEM to VERSION (default: the newest), and zr's files under `lib/zr/runtime/` that replace one of them. |
 | `zr-dev reference [--check]` | Installs the gems of the ruby that every expected output comes from, into `tmp/reference/gems`: ruby 4.0.7's bundled gems, and zr's versions of the gems whose C it ports (`lib/zr/ports.rb`). `bin/setup` runs it. `expect`, `record`, `probe` and the program tests run ruby with only these gems (`test/support/harness/reference.rb`). `--check` installs nothing. |
 | `zr-dev progress` | Prints the progress of the unit tier that runs now, or of the last one (`tmp/test-progress.txt`). |
 
@@ -153,19 +153,19 @@ in `tool/gen/`.
 | Command | Writes |
 |---|---|
 | `zr-dev gen features` | `lib/zr/hir/features.rb`: the names that `require` accepts |
-| `zr-dev gen unicode` | `runtime/core/unicode.rb`: case mappings |
-| `zr-dev gen encodings` | `runtime/core/encodings.rb`: the encoding registry |
-| `zr-dev gen transcode` | `runtime/core/transcode.rb`: single-byte encoding tables |
-| `zr-dev gen cjk` | `runtime/core/cjk.rb`: multibyte encoding tables |
-| `zr-dev gen enc_mb` | `runtime/kernel/enc_mb.rb`: multibyte encoding descriptors |
-| `zr-dev gen onig_unicode` | `runtime/core/regexp/unicode_tables.rb` and `runtime/kernel/onig_tables.rb`: Onigmo's Unicode tables, from CRuby's `enc/unicode` at `RUBY_SRC`. Both files come from one computed value; `test/unit/onig_unicode_test.rb` checks that they agree. |
-| `zr-dev gen onig_encodings` | `runtime/core/regexp/onig/encoding_tables.rb`: Onigmo's encodings past UTF-8, from CRuby's `enc/*.c` |
-| `zr-dev gen nkf [--source PATH]` | `runtime/ext/nkf/tables.rb`: nkf's conversion tables, from the installed nkf gem's `utf8tbl.c` (or `NKF_SRC`) |
-| `zr-dev gen zlib_tables` | `runtime/kernel/zlib_tables.rb`: the tables that zlib 1.3.1 computes |
-| `zr-dev gen openssl_constants` | `runtime/ext/openssl/ossl/constants.rb`: openssl's Integer constants. Not in `gen all`: the order comes from the host's OpenSSL build, so read the diff. |
-| `zr-dev gen emoji` | `runtime/core/emoji.rb` |
-| `zr-dev gen builtin_lines` | `runtime/core/builtin_lines.rb` |
-| `zr-dev gen tables` | This OS's errno, fcntl, etc and socket tables, into `runtime/core/os/<os>/` and `runtime/ext/os/<os>/`. The socket table reads `ext/socket/mkconstants.rb` from `RUBY_SRC`, or from the copy that `MKCONSTANTS` names. |
+| `zr-dev gen unicode` | `lib/zr/runtime/core/unicode.rb`: case mappings |
+| `zr-dev gen encodings` | `lib/zr/runtime/core/encodings.rb`: the encoding registry |
+| `zr-dev gen transcode` | `lib/zr/runtime/core/transcode.rb`: single-byte encoding tables |
+| `zr-dev gen cjk` | `lib/zr/runtime/core/cjk.rb`: multibyte encoding tables |
+| `zr-dev gen enc_mb` | `lib/zr/runtime/kernel/enc_mb.rb`: multibyte encoding descriptors |
+| `zr-dev gen onig_unicode` | `lib/zr/runtime/core/regexp/unicode_tables.rb` and `lib/zr/runtime/kernel/onig_tables.rb`: Onigmo's Unicode tables, from CRuby's `enc/unicode` at `RUBY_SRC`. Both files come from one computed value; `test/unit/onig_unicode_test.rb` checks that they agree. |
+| `zr-dev gen onig_encodings` | `lib/zr/runtime/core/regexp/onig/encoding_tables.rb`: Onigmo's encodings past UTF-8, from CRuby's `enc/*.c` |
+| `zr-dev gen nkf [--source PATH]` | `lib/zr/runtime/ext/nkf/tables.rb`: nkf's conversion tables, from the installed nkf gem's `utf8tbl.c` (or `NKF_SRC`) |
+| `zr-dev gen zlib_tables` | `lib/zr/runtime/kernel/zlib_tables.rb`: the tables that zlib 1.3.1 computes |
+| `zr-dev gen openssl_constants` | `lib/zr/runtime/ext/openssl/ossl/constants.rb`: openssl's Integer constants. Not in `gen all`: the order comes from the host's OpenSSL build, so read the diff. |
+| `zr-dev gen emoji` | `lib/zr/runtime/core/emoji.rb` |
+| `zr-dev gen builtin_lines` | `lib/zr/runtime/core/builtin_lines.rb` |
+| `zr-dev gen tables` | This OS's errno, fcntl, etc and socket tables, into `lib/zr/runtime/core/os/<os>/` and `lib/zr/runtime/ext/os/<os>/`. The socket table reads `ext/socket/mkconstants.rb` from `RUBY_SRC`, or from the copy that `MKCONSTANTS` names. |
 | `zr-dev gen gem-compat` | `docs/reference/gem-compat.md`: how far each gem gets with zr, from `gems/compat.tsv`. It runs no gem; `zr-dev gems sweep --save` writes the table. |
 
 #### Generated files that the unit tier tests
@@ -176,8 +176,8 @@ committed files. Thus a file that is out of date makes a test fail.
 | Command | Writes | Tested by |
 |---|---|---|
 | `zr-dev gen libsystem` | `lib/zr/obj/macho/libsystem.rb` | `test/unit/libsystem_test.rb` |
-| `zr-dev gen prism` | `runtime/ext/prism/ruby/*.rb`, from the templates in `tool/gen/prism/templates` | `test/unit/prism_test.rb` |
-| `zr-dev gen prism_encoding_tables` | `runtime/ext/prism/ruby/encoding_tables.rb` | `test/unit/prism_test.rb` |
+| `zr-dev gen prism` | `lib/zr/runtime/ext/prism/ruby/*.rb`, from the templates in `tool/gen/prism/templates` | `test/unit/prism_test.rb` |
+| `zr-dev gen prism_encoding_tables` | `lib/zr/runtime/ext/prism/ruby/encoding_tables.rb` | `test/unit/prism_test.rb` |
 
 `ZR_BLESS=1 bin/test test/unit/description_test.rb` also writes the
 descriptions again. `ZR_BLESS=1` on `test/unit/libsystem_test.rb`
@@ -196,6 +196,7 @@ writes the libSystem list again. See
 | `zr-dev compile --zr --check` | Fails if the compiled compiler is slower than the newest baseline in `benchmark/results/compile/`. |
 | `zr-dev probe [-j JOBS] <file.rb\|dir>...` | Runs each Ruby file under ruby 4.0.7 and as a zr binary, and prints a unified diff of each part that differs: stdout, stderr, the exit status and the signal. It compiles each file in a fork of one process that has the compiler and the runtime loaded. A directory means its `.rb` files. `-j` sets the probes at a time (default 4). |
 | `zr-dev edit [--kind KIND,...] [--program NAME,...] [--runs N] [--commit]` | Times `zr run` right after an edit to zr, phase by phase. It works in a copy of the tree with its own cache (`tmp/edit/`), appends a new comment or method to one file for each kind, and puts the file back. The kinds are `none`, `kernel-comment`, `core-comment`, `core-method`, `lower-comment` and `ext-comment`; the programs are `hello` and `eval`. `--commit` writes the table to `benchmark/results/edit/`. |
+| `zr-dev golden save\|check [LABEL]` | Lowers the kernel on `aarch64-apple-darwin`, `aarch64-linux-musl` and `wasm32-wasi`, and writes (`save`) or compares (`check`) one line for each fact a build sees: each function's IR fingerprint, each datum, the raw functions, the kernel's description and the symbol names, in `tmp/golden/LABEL/` (default `base`). A change to the kernel's spelling must keep it the same. |
 | `zr-dev reach [--why NAME] [--rates] [--tsv FILE] [program.rb...]` | Lowers the kernel, the core, the gem prelude and each program (default: `benchmark/bm_*.rb` and `test/programs/*.rb`), and prints the share of the runtime's IR that each program can reach: by selector name, by name and a live owner class, and by name and a live instance. It prints when each rule (R0, R0p, R1) makes a program fall back to a full build. `--why Owner#name` prints the path from a root to a def. `--rates` also measures lowering and assembly per IR instruction, and the cost of pooled symbol ids. It changes no file. |
 | `zr-dev codesize [--all] [--against FILE]` | Counts the instructions the backend writes for the runtime: the total and the 20 largest functions. `--all` lists every function. `--against` compares with the file of an earlier run. |
 

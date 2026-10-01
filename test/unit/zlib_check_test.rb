@@ -4,7 +4,7 @@ require "test_helper"
 require "zlib"
 require_relative "../support/harness/kernel_jit"
 
-# The kernel's checksums (runtime/kernel/zlib_check.rb), compiled and
+# The kernel's checksums (lib/zr/runtime/kernel/zlib_check.rb), compiled and
 # loaded into this ruby, give the same values as CRuby's zlib.
 class ZlibCheckTest < Minitest::Test
   INPUTS = ["", "a", "hello, world", "\x00\xFF".b * 3000, (0..255).map(&:chr).join.b * 40].freeze

@@ -2,18 +2,23 @@
 
 ## The gem
 
-The gem contains `exe/`, `lib/`, `licenses/`, `runtime/`,
-`vendor/ruby/`, `vendor/LICENSES/` and `vendor/vendor.lock`, with
-`README.md`, `CHANGELOG.md` and the license files. It has no gem
-dependencies: the library that a program requires is `vendor/ruby`
-(`lib/zr/libraries.rb`) and zr's own `runtime/ext`.
+The gem contains `exe/`, `lib/`, `licenses/`, `vendor/ruby/`,
+`vendor/LICENSES/` and `vendor/vendor.lock`, with `README.md`,
+`CHANGELOG.md` and the license files. It has no gem dependencies: the
+library that a program requires is `vendor/ruby`
+(`lib/zr/libraries.rb`) and zr's own `lib/zr/runtime/ext`.
+
+The runtime is in `lib/zr/runtime/`. It is the source that zr compiles
+into each program. It is not code of the compiler, although it is
+under `lib/zr/` (`Zr::Paths::RUNTIME`).
 
 Two kinds of code meet on a program's load path (`Zr::Layout`):
 
 - `vendor/`: code that other people wrote, byte for byte as they ship
   it. Nobody edits it; `zr-dev vendor` writes it (`lib/zr/vendor.rb`).
-- `runtime/`: code that zr wrote. It comes first on the load path, so a
-  file there replaces an upstream file of the same path (an overlay).
+- `lib/zr/runtime/`: code that zr wrote. It comes first on the load
+  path, so a file there replaces an upstream file of the same path (an
+  overlay).
 
 | Path | Contains |
 |---|---|
@@ -59,15 +64,16 @@ Two kinds of code meet on a program's load path (`Zr::Layout`):
 | `lib/zr/server.rb` | the build server of `zr-dev serve`, and its client in `exe/zr` |
 | `lib/zr/eval.rb` | the eval compiler |
 | `lib/zr/eval/walk.rb`, `lib/zr/eval/walk/` | the tree-walking interpreter |
-| `runtime/kernel/` | the kernel, in the machine dialect |
-| `runtime/kernel/os/<os>/`, `runtime/kernel/arch/<arch>/` | the OS and machine layers of the kernel |
-| `runtime/core/` | the core library, in ordinary Ruby, one file for each class |
-| `runtime/core/regexp/onig/` | the pattern compiler of the Onigmo port (`Regexp::Onig`) |
-| `runtime/core/os/<os>/` | each OS's numbers for the errno, IO, File and Process constants |
-| `runtime/ext/` | the native halves of extensions, in ordinary Ruby |
-| `runtime/ext/prism/` | the prism port: `prism.rb` and `ruby/` (`Prism::Ruby`) |
-| `runtime/ext/os/<os>/` | extension tables |
-| `runtime/lib/zr/` | zr's own libraries: the run-time half of eval support, and the files that load a library at its first call (`pp`, `irb`, `unicode_normalize`), as CRuby's prelude does |
+| `lib/zr/runtime/` | the runtime: the source that zr compiles into each program, not code of the compiler |
+| `lib/zr/runtime/kernel/` | the kernel, in the machine dialect |
+| `lib/zr/runtime/kernel/os/<os>/`, `lib/zr/runtime/kernel/arch/<arch>/` | the OS and machine layers of the kernel |
+| `lib/zr/runtime/core/` | the core library, in ordinary Ruby, one file for each class |
+| `lib/zr/runtime/core/regexp/onig/` | the pattern compiler of the Onigmo port (`Regexp::Onig`) |
+| `lib/zr/runtime/core/os/<os>/` | each OS's numbers for the errno, IO, File and Process constants |
+| `lib/zr/runtime/ext/` | the native halves of extensions, in ordinary Ruby |
+| `lib/zr/runtime/ext/prism/` | the prism port: `prism.rb` and `ruby/` (`Prism::Ruby`) |
+| `lib/zr/runtime/ext/os/<os>/` | extension tables |
+| `lib/zr/runtime/lib/zr/` | zr's own libraries: the run-time half of eval support, and the files that load a library at its first call (`pp`, `irb`, `unicode_normalize`), as CRuby's prelude does |
 | `vendor/ruby/lib/ruby/4.0.0/` | ruby 4.0.7's own library and default gems, from ruby's source, not edited |
 | `vendor/ruby/lib/ruby/gems/4.0.0/` | the bundled gems and the gems whose C zr ports, each from its `.gem`, not edited |
 | `vendor/ruby/gem_prelude.rb` | ruby's `gem_prelude.rb` |
@@ -76,11 +82,12 @@ Two kinds of code meet on a program's load path (`Zr::Layout`):
 
 ### What the host loads
 
-The gem's only require path is `lib/`. `runtime/` and `vendor/` are
-beside `lib/`, not in it:
+The gem's only require path is `lib/`. `lib/zr/runtime/` is below
+`lib/zr/`, and `vendor/` is beside `lib/`:
 
-- `runtime/` is never on the host's load path. zr compiles it into
-  programs. The host loads only namespaced, pure parts of it, by path:
+- `lib/zr/runtime/` is never on the host's load path. Its files are
+  below `lib/zr/`, so they never replace the host ruby's own libraries
+  of the same name. zr compiles it into programs. The host loads only namespaced, pure parts of it, by path:
   `Regexp::Onig` and `Prism::Ruby`.
 - `vendor/` is never on the host's load path. A file such as
   `vendor/ruby/lib/ruby/4.0.0/pathname.rb` must never replace the

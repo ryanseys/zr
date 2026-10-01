@@ -9,7 +9,7 @@ module Zr
       # that the runtime uses to map characters.
       class Unicode < Generator
         host_ruby!
-        writes "runtime/core/unicode.rb"
+        writes "lib/zr/runtime/core/unicode.rb"
 
         KINDS = {
           "UP" => :upcase.to_proc,

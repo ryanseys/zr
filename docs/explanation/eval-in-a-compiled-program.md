@@ -76,7 +76,7 @@ For each string, the eval compiler:
 The string's calls into the runtime and the program are resolved by
 name. zr's linker sorts the symbol table of the image by name
 (`Obj::MachO::Executable`), so the kernel finds each name with a
-binary search (`zr_os_symbol`, `runtime/kernel/os/darwin/jit.rb`). It
+binary search (`zr_os_symbol`, `lib/zr/runtime/kernel/os/darwin/jit.rb`). It
 calls `dlsym` only for a libSystem name, or for all names in an image
 that `ld` linked, whose table is not sorted.
 
@@ -125,7 +125,7 @@ that must both agree with ruby.
 The interpreter evaluates the HIR node by node. It calls the program
 through the methods that any Ruby program uses: `__send__`,
 `define_method`, `instance_variable_get`. For what only the runtime
-knows, it uses `Zr::Eval::World` (`runtime/lib/zr/eval/walking.rb`):
+knows, it uses `Zr::Eval::World` (`lib/zr/runtime/lib/zr/eval/walking.rb`):
 the lexical scope of a cref, the scopes of a Binding, and the constant,
 class-variable and global tables. Each of these is in place of code
 that the compiler writes inline.
@@ -165,6 +165,6 @@ string.
   The program's own memory is a small part of this. `wasmtime compile`
   moves this cost out of the run.
 - A binary with eval support contains the absolute paths of the gem's
-  `runtime/ext`, `runtime/lib` and `vendor/ruby`. A computed
+  `lib/zr/runtime/ext`, `lib/zr/runtime/lib` and `vendor/ruby`. A computed
   `require` in such a binary works only while that version of the gem
   stays installed.

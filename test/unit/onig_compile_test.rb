@@ -4,7 +4,7 @@ require "test_helper"
 require_relative "../support/harness/regexp_diff"
 
 # Compiles every regexp in the test corpus with the core's compiler
-# (runtime/core/regexp/onig/*) under this ruby. Each pattern that ruby
+# (lib/zr/runtime/core/regexp/onig/*) under this ruby. Each pattern that ruby
 # compiles also compiles here, into a program String that the kernel
 # reads. The program has the same number of groups as ruby's MatchData,
 # and the names that ruby's Regexp#names returns. Each pattern that ruby

@@ -11,7 +11,7 @@ module Zr
       # code points. A code point alone has no emoji in the target.
       class Emoji < Generator
         host_ruby!
-        writes "runtime/core/emoji.rb"
+        writes "lib/zr/runtime/core/emoji.rb"
 
         def points(hex) = [hex].pack("H*").force_encoding(Encoding::UTF_8).codepoints.map { |point| format("%X", point) }
 

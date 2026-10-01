@@ -247,7 +247,7 @@ module Zr
 
       # Whether a call's keywords are `k: v` pairs with distinct Symbol
       # keys and no `**`. These go as trailing values with a static table
-      # of the keys (runtime/kernel/send.rb, `zr_kw_pass`). All other
+      # of the keys (lib/zr/runtime/kernel/send.rb, `zr_kw_pass`). All other
       # keywords go as one Hash.
       def literal_keywords?(kwargs)
         keys = kwargs.pairs.each_slice(2).map(&:first)

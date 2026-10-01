@@ -433,7 +433,7 @@ module Zr
         # Merges the program's symbol table entries into the base's. Both
         # are sorted by name (`Block#symbols`), so the merged table is also
         # sorted. The runtime finds a global in it with a binary search
-        # (runtime/kernel/os/darwin/jit.rb, `zr_os_symbol`). The base's
+        # (lib/zr/runtime/kernel/os/darwin/jit.rb, `zr_os_symbol`). The base's
         # names give the order. A program name never equals a base name,
         # because `write` refuses that first.
         def merged_symbols(words, names)

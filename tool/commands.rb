@@ -21,6 +21,7 @@ module Zr
       "bench" => ["How long the programs that zr builds take to run", -> { require_relative "bench"; Bench }],
       "compile" => ["How long zr takes to compile, and where", -> { require_relative "compile"; Compile }],
       "edit" => ["How long `zr run` takes right after an edit to zr", -> { require_relative "edit"; Edit }],
+      "golden" => ["Save or check the kernel's lowering on each target", -> { require_relative "golden"; Golden }],
       "reach" => ["How much of the runtime each program reaches (the A4 spike)", -> { require_relative "reach"; Reach }],
       "codesize" => ["Count the instructions the backend writes for the runtime", -> { require_relative "codesize"; Codesize }],
       "stage" => ["Check that zr compiles itself to the same bytes (1 or 2)", -> { require_relative "stage"; Stage }],

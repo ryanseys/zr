@@ -12,12 +12,12 @@ module Zr
       #   zr-dev gen cjk
       #   zr-dev gen enc_mb
       #
-      # `runtime/core/cjk.rb` contains the code points. `zr-dev gen enc_mb` finds
+      # `lib/zr/runtime/core/cjk.rb` contains the code points. `zr-dev gen enc_mb` finds
       # where a character ends, from Onigmo's tables. In all these encodings,
       # a byte below 128 represents itself.
       class Cjk < Generator
         host_ruby!
-        writes "runtime/core/cjk.rb"
+        writes "lib/zr/runtime/core/cjk.rb"
 
         # The maximum bytes in a character, and the maximum rows this tool
         # reads before it marks an encoding as partial. GB18030's four-byte
@@ -300,7 +300,7 @@ module Zr
 
         # Reads how ruby writes a conversion error for an encoding, from an
         # error that this method causes. The result has the form that
-        # runtime/core/transcode.rb uses: whether a conversion into the encoding
+        # lib/zr/runtime/core/transcode.rb uses: whether a conversion into the encoding
         # shows as one step, the encoding name in the message, and whether a
         # conversion from the encoding shows as one step.
         UNMAPPED = "\u{1F600}"
@@ -398,7 +398,7 @@ module Zr
             # lies from the one before it in the row, folded onto the positive
             # numbers. Rows repeat between encodings, so each one is written once
             # in MB_ROWS. Where a character ends is another question, which
-            # runtime/kernel/enc_mb.rb answers from Onigmo's own tables: ruby's
+            # lib/zr/runtime/kernel/enc_mb.rb answers from Onigmo's own tables: ruby's
             # converters are narrower than its own character counts.
             class Encoding
           HEAD

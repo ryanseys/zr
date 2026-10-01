@@ -11,7 +11,7 @@ class EnvironmentVariablesTest < Minitest::Test
   NOT_SETTINGS = %w[ZR_TEST_AOT_SMOKE ZR_TEST_AOT_SMOKE_MISSING ZR_POOL_PID ZR_POOL_PIDS].freeze
 
   def read_by_code
-    dirs = %w[lib bin tool exe runtime test/support test/unit test/test_helper.rb Rakefile]
+    dirs = %w[lib bin tool exe test/support test/unit test/test_helper.rb Rakefile]
     text = IO.popen(["git", "-C", ROOT, "grep", "-ohE", "ZR_[A-Z0-9_]+", "--", *dirs], &:read)
     text.split("\n").uniq.sort - NOT_SETTINGS
   end

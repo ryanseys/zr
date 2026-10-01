@@ -77,7 +77,7 @@ module Zr
           result
         end
 
-        # A safe point (runtime/kernel/send.rb): read the poll word, and
+        # A safe point (lib/zr/runtime/kernel/send.rb): read the poll word, and
         # call the kernel only if it is set. Under wasm, the count is the
         # clock, and this subtracts one tick.
         #
@@ -190,7 +190,7 @@ module Zr
 
         # A `case` on class arms, in constant time for a subject class that
         # the site saw before. The site's cache entry (CaseCache,
-        # runtime/kernel/cache.rb) has a table from a class to an arm. If
+        # lib/zr/runtime/kernel/cache.rb) has a table from a class to an arm. If
         # the entry is valid for this cref and the two stamps, and the
         # subject's class has a row, a tree of branches on the row's arm
         # index goes to the arm's body. The chain does not run: its reads

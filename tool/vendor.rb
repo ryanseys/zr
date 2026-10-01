@@ -85,7 +85,7 @@ module Zr
       end
 
       # The lib files that differ between the locked gem and `version`,
-      # and each file of zr's runtime/ that has the same feature name as
+      # and each file of zr's lib/zr/runtime/ that has the same feature name as
       # one of them: a file to check before the update.
       def diff(gem = nil, version = nil)
         fail!("usage: zr-dev vendor diff GEM [VERSION]") unless gem

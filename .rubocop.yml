@@ -12,7 +12,7 @@ AllCops:
   DisabledByDefault: true
   SuggestExtensions: false
   Exclude:
-    - "runtime/**/*"      # compiled by zr, not run by ruby
+    - "lib/zr/runtime/**/*"   # compiled by zr, not run by ruby
     - "vendor/**/*"       # third-party code
     - "benchmark/**/*"    # programs that zr compiles
     - "test/programs/**/*"

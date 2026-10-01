@@ -24,7 +24,7 @@ is the direct mapping, and it is fast: zr does not copy stacks.
 
 A `Thread` is green: each one runs on a fiber of its own, and one
 thread runs at a time. A scheduler in the core library
-(`runtime/core/thread.rb`) keeps the run queue, the sleeping threads,
+(`lib/zr/runtime/core/thread.rb`) keeps the run queue, the sleeping threads,
 and the threads that wait on a descriptor. A thread yields to the
 scheduler when it blocks: on `join`, `sleep`, a `Queue`, a `Mutex`, or
 a read that must wait.

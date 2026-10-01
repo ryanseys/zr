@@ -9,7 +9,7 @@ require "zr/native/build"
 # an earlier build, and lowers the others. The runtime object must be the
 # same, byte for byte, as a build that lowers every file.
 class CoreCacheTest < Minitest::Test
-  EDITED = "runtime/core/comparable.rb"
+  EDITED = "lib/zr/runtime/core/comparable.rb"
 
   def setup
     skip "a native link on this host only" unless Zr::Target.default.link

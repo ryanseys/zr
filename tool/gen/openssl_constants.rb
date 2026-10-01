@@ -18,14 +18,14 @@ module Zr
       # the same way every time), but not guaranteed across builds: a
       # different OpenSSL the gem links against can order its own
       # `rb_define_const` calls differently. On this checkout, the
-      # generator's 264 names and values match runtime/ext/openssl/
+      # generator's 264 names and values match lib/zr/runtime/ext/openssl/
       # ossl/constants.rb exactly, in a different order. `--check` may
       # report the file out of date for that reason alone; read the
       # diff before blessing it, since a real change reorders lines
       # anyway.
       class OpensslConstants < Generator
         host_ruby!
-        writes "runtime/ext/openssl/ossl/constants.rb"
+        writes "lib/zr/runtime/ext/openssl/ossl/constants.rb"
 
         def write(io)
           require "openssl"

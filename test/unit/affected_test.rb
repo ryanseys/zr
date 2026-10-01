@@ -50,6 +50,6 @@ class AffectedTest < Minitest::Test
   end
 
   def test_a_file_of_an_os_layer_maps_as_its_name
-    assert_equal affected.core("errno"), affected.plan(%w[runtime/core/os/darwin/errno.rb])
+    assert_equal affected.core("errno"), affected.plan(%w[lib/zr/runtime/core/os/darwin/errno.rb])
   end
 end

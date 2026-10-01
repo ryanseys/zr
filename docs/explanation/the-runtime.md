@@ -7,9 +7,9 @@ Ruby, in three layers.
 
 | Layer | Directory | Language |
 |---|---|---|
-| kernel | `runtime/kernel/` | the machine dialect: Ruby syntax, machine semantics |
-| core library | `runtime/core/` | ordinary Ruby, with `Primitive` calls into the kernel |
-| extensions | `runtime/ext/` | ordinary Ruby: the native halves of extension gems |
+| kernel | `lib/zr/runtime/kernel/` | the machine dialect: Ruby syntax, machine semantics |
+| core library | `lib/zr/runtime/core/` | ordinary Ruby, with `Primitive` calls into the kernel |
+| extensions | `lib/zr/runtime/ext/` | ordinary Ruby: the native halves of extension gems |
 
 ## Why the kernel is a dialect
 
@@ -64,7 +64,7 @@ tries, and which error each method raises. Ruby shows this code most
 clearly. CRuby also does this: `array.rb`, `kernel.rb` and `numeric.rb`
 are Ruby with `Primitive` calls.
 
-zr uses the same idiom. `runtime/core/string.rb` is plain Ruby, and it
+zr uses the same idiom. `lib/zr/runtime/core/string.rb` is plain Ruby, and it
 calls the kernel through `Primitive`:
 
 ```ruby
@@ -93,7 +93,7 @@ instance variables that they write, as with the fields of a C struct.
 
 A gem such as `json` or `digest` has a Ruby half and a C half. zr
 includes the Ruby half without edits (in `vendor/ruby`) and
-writes the C half in Ruby (`runtime/ext/<name>.so.rb`). The gem's own
+writes the C half in Ruby (`lib/zr/runtime/ext/<name>.so.rb`). The gem's own
 Ruby code then runs as it does on CRuby, over a native half that gives
 the same results. See
 [How to port a C extension](../how-to/port-a-c-extension.md).
@@ -102,8 +102,8 @@ the same results. See
 
 The portable kernel calls a fixed list of functions for everything
 that an operating system does in its own way: errno, descriptors,
-stacks, POSIX signals, loading code. `runtime/kernel/os.rb` gives the
-list, and each OS implements it in `runtime/kernel/os/<os>/`. On WASI,
+stacks, POSIX signals, loading code. `lib/zr/runtime/kernel/os.rb` gives the
+list, and each OS implements it in `lib/zr/runtime/kernel/os/<os>/`. On WASI,
 that layer also implements the libc calls, over WASI preview 1.
 
 The numbers that each OS gives its constants (errno values, `fcntl`

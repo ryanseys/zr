@@ -14,13 +14,13 @@ module Zr
     # How a changed file maps to tests:
     # - A unit test file maps to itself, and a program test's program or
     #   one of the files beside it maps to the program.
-    # - A file under `runtime/core` maps to the program tests of its
+    # - A file under `lib/zr/runtime/core` maps to the program tests of its
     #   class, and to each program test that contains the class name. (A
     #   change to String can affect a Hash test that uses String keys.)
     # - A vendored library or an extension maps to its stdlib directory,
     #   and to each program test that requires it by name.
     # - A file of an OS layer of the core maps as its own name does
-    #   (runtime/core/os/darwin/errno.rb as errno).
+    #   (lib/zr/runtime/core/os/darwin/errno.rb as errno).
     # - A change to a compiler file that a program's code can depend on
     #   (`RuntimeSources#compiler_files`), the kernel or the test support
     #   maps to all tests. A change to another file under lib/zr (the CLI,
@@ -78,12 +78,12 @@ module Zr
         case file
         when %r{\Atest/unit/.*_test\.rb\z} then File.exist?(File.join(ROOT, file)) ? [file] : []
         when %r{\A(test/programs/.+?\.rb)(?:\.|\z)} then File.exist?(File.join(ROOT, $1)) ? [$1] : []
+        when %r{\Alib/zr/runtime/kernel/}, %r{\Alib/zr/runtime/(ext/os|lib)/}, %r{\Atest/(support|test_helper)}, "Rakefile" then :all
+        when %r{\Alib/zr/runtime/core/os/[^/]+/([^/]+)\.rb\z} then core($1)
+        when %r{\Alib/zr/runtime/core/([^/]+?)(?:/.*)?\.rb\z} then core($1)
+        when %r{\Alib/zr/runtime/ext/([^/.]+)}, %r{\Avendor/ruby/lib/ruby/[\d.]+/([^/.]+)} then library($1)
         when %r{\Alib/zr/.*\.rb\z} then lib(file)
-        when %r{\Aruntime/kernel/}, %r{\Aruntime/(ext/os|lib)/}, %r{\Atest/(support|test_helper)}, "Rakefile" then :all
         when %r{\Atool/} then [File.join(ROOT, "test/unit")]
-        when %r{\Aruntime/core/os/[^/]+/([^/]+)\.rb\z} then core($1)
-        when %r{\Aruntime/core/([^/]+?)(?:/.*)?\.rb\z} then core($1)
-        when %r{\Aruntime/ext/([^/.]+)}, %r{\Avendor/ruby/lib/ruby/[\d.]+/([^/.]+)} then library($1)
         when %r{\Avendor/ruby/lib/ruby/gems/[\d.]+/gems/(.+)-[\d.]+/} then library($1.tr("-", "/"))
         when "Gemfile.lock", "zr.gemspec" then :all
         else []

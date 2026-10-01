@@ -31,7 +31,7 @@ $ ruby tool/zr-dev.rb vendor
 ```
 
 Never edit the vendored files. If the gem does not work, fix zr. To
-replace one of its files, write an overlay under `runtime/ext` (see
+replace one of its files, write an overlay under `lib/zr/runtime/ext` (see
 [Replace an upstream file](update-vendored-code.md#replace-an-upstream-file)).
 
 `zr-dev reference` then installs that version for the tests. Add a
@@ -42,11 +42,11 @@ when its version is not ruby 4.0.7's.
 ## 2. Write the C half in Ruby
 
 The C half is the file that the gem requires as a shared library, for
-example `require "digest.so"`. Write it as `runtime/ext/<name>.so.rb`,
+example `require "digest.so"`. Write it as `lib/zr/runtime/ext/<name>.so.rb`,
 in ordinary Ruby:
 
 ```ruby
-# runtime/ext/digest.so.rb
+# lib/zr/runtime/ext/digest.so.rb
 # digest.c, in ruby: Digest.hexencode, the Digest::Instance protocol,
 # Digest::Class, and Digest::Base, ...
 module Digest
@@ -56,7 +56,7 @@ end
 
 Follow the C file closely: one Ruby method for each C function that the
 gem defines, with the same checks and the same error messages. Code
-under `runtime/ext/` can call kernel defs through `Primitive`, as the
+under `lib/zr/runtime/ext/` can call kernel defs through `Primitive`, as the
 [core library](add-a-core-method.md) does.
 
 Write everything that the C half defines, not only what the Ruby half
@@ -73,7 +73,7 @@ for prism and Onigmo, each over a committed sample.
 ## 4. Make instance variables visible
 
 The program cannot see the instance variables that runtime code
-(`runtime/`) writes, as with the fields of a C struct. If the gem's
+(`lib/zr/runtime/`) writes, as with the fields of a C struct. If the gem's
 Ruby half reads an instance variable that the C half sets, put
 `Primitive.attr! :ivars` in the class body. Those instance variables
 are then visible.
@@ -97,4 +97,4 @@ ruby's.
 If the extension needs numbers that each OS defines (errno values,
 socket constants, `fcntl` flags), do not write them by hand.
 `zr-dev gen tables` writes them from the ruby of each OS, into
-`runtime/core/os/<os>/` and `runtime/ext/os/<os>/`.
+`lib/zr/runtime/core/os/<os>/` and `lib/zr/runtime/ext/os/<os>/`.

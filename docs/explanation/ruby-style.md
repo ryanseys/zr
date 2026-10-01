@@ -27,7 +27,7 @@ it.
 Two examples. A `case` with many `when` arms on classes, as in
 `case node when Hir::Send ...`, once tested each arm in turn. zr now
 keeps a table from the subject's class to its arm at each such site
-(`CaseCache`, `runtime/kernel/cache.rb`), so the long `case` in the HIR
+(`CaseCache`, `lib/zr/runtime/kernel/cache.rb`), so the long `case` in the HIR
 builder and in the lowering is fast. And zr once ran `Struct` through the
 core's generic code, so the compiler used its own record class. Struct
 and Data construction and member access are now kernel entries, and the
@@ -64,7 +64,7 @@ state is one `Inline::Site` value, not four instance variables.
   children that the escape, scope and builder passes share.
 - `lib/zr/version.rb` is the one source of the ruby version and
   revision. `test/unit/layout_test.rb` fails when `.ruby-version`,
-  `runtime/core/env.rb` or CI disagrees with it.
+  `lib/zr/runtime/core/env.rb` or CI disagrees with it.
 - A generated file has a generator in `tool/gen/`, and its header names
   the command that writes it (`zr-dev gen <name>`). Do not edit it by
   hand; change the generator.

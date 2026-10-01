@@ -34,7 +34,7 @@ a group of files whose declarations see each other.
 `zr-dev compile --zr` build it to check and time the compiler. The `zr`
 command does not use it; ruby runs zr.
 
-**Core library.** `runtime/core/`: Ruby's core classes, written in
+**Core library.** `lib/zr/runtime/core/`: Ruby's core classes, written in
 ordinary Ruby over the kernel.
 
 **Cref.** The lexical scope that a method or a block runs in: where a
@@ -70,7 +70,7 @@ is the eval compiler on a native target and the tree-walking
 interpreter on wasm (`Zr::EvalSupport`). See
 [Eval in a compiled program](../explanation/eval-in-a-compiled-program.md).
 
-**Extensions.** `runtime/ext/`: the native halves of extension gems,
+**Extensions.** `lib/zr/runtime/ext/`: the native halves of extension gems,
 written in ordinary Ruby.
 
 **Frame record.** The part of a function's machine frame that contains
@@ -101,7 +101,7 @@ by its address and serial number.
 **IR.** The compiler's control-flow graph in SSA form, with block
 parameters. Every lowering writes it, and every backend reads it.
 
-**Kernel.** `runtime/kernel/`: the lowest layer of the runtime, in the
+**Kernel.** `lib/zr/runtime/kernel/`: the lowest layer of the runtime, in the
 machine dialect.
 
 **Lowering.** The change of the program from one form to a lower one:

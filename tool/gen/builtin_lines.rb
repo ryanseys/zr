@@ -12,7 +12,7 @@ module Zr
       # `<internal:file>` path, the line of the :call, the last line of the
       # body (where ruby reports the return), and the line of the def.
       class BuiltinLines < Generator
-        writes "runtime/core/builtin_lines.rb"
+        writes "lib/zr/runtime/core/builtin_lines.rb"
 
         SOURCES = %w[ast dir gc numeric io marshal pack trace_point warning array hash kernel pathname_builtin ractor
                      symbol timev thread_sync nilclass prelude].freeze

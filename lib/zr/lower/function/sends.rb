@@ -17,7 +17,7 @@ module Zr
         RELATIONS = { :< => "slt", :<= => "sle", :> => "sgt", :>= => "sge", :== => "eq", :!= => "ne" }.freeze
 
         # What a site can do in place of a call, by the kernel's name for the
-        # cell's shape (runtime/kernel/cache.rb): an accessor's body, or one of
+        # cell's shape (lib/zr/runtime/kernel/cache.rb): an accessor's body, or one of
         # the core's type checks. The two accessors read and write a cell's
         # table, so their receiver must be a cell. The type checks accept any
         # receiver.
@@ -39,7 +39,7 @@ module Zr
           "==": [:eq], equal?: [:eq], "!=": [:ne]
         }.freeze
         # The type checks that a site handles before its cell, while no
-        # class has defined the name (runtime/kernel/integer.rb).
+        # class has defined the name (lib/zr/runtime/kernel/integer.rb).
         QUESTION_GATES = { is_a?: "GATE_IS_A", kind_of?: "GATE_IS_A", instance_of?: "GATE_INSTANCE_OF" }.freeze
 
         # The kernel entry of each operator and named call with a core
@@ -64,7 +64,7 @@ module Zr
           :== => ["eq", "GATE_FLO_EQ"]
         }.freeze
         # The bits of +0.0 as a flonum, and of the double that the rotation
-        # cannot represent (runtime/kernel/float.rb).
+        # cannot represent (lib/zr/runtime/kernel/float.rb).
         FLONUM_ZERO = 9223372036854775810 - (1 << 64)
         FLONUM_HOLE = 3458764513820540928
 
@@ -74,7 +74,7 @@ module Zr
         # protocol and its hooks, and error reporting. Any other send by the
         # core library to an instance of a runtime class goes to the core
         # library's own method, as a C call goes to a C function
-        # (runtime/kernel/send.rb, SEND_CORE).
+        # (lib/zr/runtime/kernel/send.rb, SEND_CORE).
         PROTOCOL = %i[
           initialize initialize_copy initialize_dup initialize_clone
           to_s inspect to_str to_sym to_proc to_ary to_a to_hash to_h to_int to_i to_f to_r to_c to_path to_io to_regexp
@@ -91,7 +91,7 @@ module Zr
         # The flag bit of a send under `using` (SEND_USING). Its cells
         # contain the result of the lookup with the site's refinements.
         SEND_USING = 16
-        # The number of cells of a send site (runtime/kernel/cache.rb, CALL_WAYS).
+        # The number of cells of a send site (lib/zr/runtime/kernel/cache.rb, CALL_WAYS).
         CALL_WAYS = 4
         # The names that numeric code sends to a Float. Their sites find a
         # flonum's class inline. All other sites let the kernel read a
@@ -375,7 +375,7 @@ module Zr
         # A call's keywords as arguments. `k: v` pairs with plain Symbol
         # keys go as trailing values, with a static table of the keys that
         # the task gets just before the send. All other keywords go as one
-        # Hash that the task flags (runtime/kernel/send.rb).
+        # Hash that the task flags (lib/zr/runtime/kernel/send.rb).
         def keyword_args(node)
           return [] unless node.kwargs
           return [node.kwargs] unless Scope.literal_keywords?(node.kwargs)
@@ -558,7 +558,7 @@ module Zr
           end
         end
 
-        # A send through the site's own cell (runtime/kernel/cache.rb). The
+        # A send through the site's own cell (lib/zr/runtime/kernel/cache.rb). The
         # cell keeps the method of the last receiver class at this site.
         # The site tests the cell inline: a fixnum's class is Integer, a
         # flonum's is Float, and a heap object's class is in its header.
@@ -816,7 +816,7 @@ module Zr
         # The block literal's descriptor and its site number. The
         # descriptor is a Proc image in a slot of this record, written
         # only by stores. It is not a cell unless a kernel def keeps the
-        # block (`zr_block_proc`, runtime/kernel/proc.rb). Its flags mark
+        # block (`zr_block_proc`, lib/zr/runtime/kernel/proc.rb). Its flags mark
         # it as on the stack and already marked, so the collector reads
         # nothing through it. This frame roots all that it refers to.
         def make_block(block)
