@@ -52,6 +52,52 @@ module Zr
         end
       end
 
+      # The count of assignments that the body `node` makes to each local
+      # of its scope, as a Hash with default zero. A block sees the scope's
+      # locals one level further out. A def, class or module body is a
+      # different scope, so only its expressions in this scope (a singleton
+      # def's receiver, a superclass) are read.
+      def assignments(node, level = 0, counts = Hash.new(0))
+        case node
+        when Assign
+          counts[node.name] += 1 if node.depth == level
+          assignments(node.value, level, counts)
+        when Block then assignments([node.params, node.body], level + 1, counts)
+        when Def then assignments(node.receiver, level, counts)
+        when ClassDef then assignments([node.scope, node.superclass], level, counts)
+        when ModuleDef then assignments(node.scope, level, counts)
+        when SingletonClassDef then assignments(node.target, level, counts)
+        when Node, Array then Hir.each_child(node) { |child| assignments(child, level, counts) }
+        end
+        counts
+      end
+
+      # Each outer local that the block `node`, or a block in it, reads or
+      # writes: its name, its depth from the block, and whether it is
+      # written, in the order of first use (`Lower::Function#capture`).
+      def captures(node)
+        found = {}
+        scan = lambda do |n, nest|
+          case n
+          when Local, Assign
+            depth = n.depth - nest
+            if depth.positive?
+              row = (found[n.name] ||= [n.name, depth, false])
+              row[2] ||= n.is_a?(Assign)
+            end
+            scan.call(n.value, nest) if n.is_a?(Assign)
+          when Block then scan.call([n.params, n.body], nest + 1)
+          when Def then scan.call(n.receiver, nest)
+          when ClassDef then scan.call([n.scope, n.superclass], nest)
+          when ModuleDef then scan.call(n.scope, nest)
+          when SingletonClassDef then scan.call(n.target, nest)
+          when Node, Array then Hir.each_child(n) { |child| scan.call(child, nest) }
+          end
+        end
+        scan.call([node.params, node.body], 0)
+        found.values
+      end
+
       # `send(:binding)` and the rest of BY_NAME, when the name is a
       # literal symbol.
       def named_open_form?(node)

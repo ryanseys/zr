@@ -51,10 +51,21 @@ module Zr
           $stdout.reopen(out_w)
           $stderr.reopen(err_w)
           ENV.replace(Harness::CleanEnv.env(test.env))
+          # The kernel and the core read some variables as they boot
+          # (`RUBY_BOX`, `ZR_GC_STRESS`), so a test that sets any boots
+          # again here, as a binary boots with its environment.
+          w = Machine::Host::Walk.new.tap(&:prepare) unless test.env.empty?
           Dir.chdir(run)
           status = 1
           Thread.new do
-            status = w.run(test.rel, test.args)
+            status = begin
+              w.run(test.rel, test.args)
+            rescue SyntaxError
+              # As a binary does (`ProgramBuild.lower`): ruby's report, and
+              # exit 1.
+              report = CLI.syntax_report(test.rel) or raise
+              w.run(test.rel, test.args, source: "$stderr.write(#{report.inspect})\nexit 1\n")
+            end
           rescue Machine::Host::Walk::Unsupported => e
             $stderr.write("zr: #{e.message} is not implemented yet\n")
           end.join

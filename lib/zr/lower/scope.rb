@@ -9,26 +9,6 @@ module Zr
     module Scope
       module_function
 
-      # The count of assignments that the body `node` makes to each local
-      # of its scope, as a Hash with default zero. A block sees the scope's
-      # locals one level further out. A def, class or module body is a
-      # different scope, so only its expressions in this scope (a singleton
-      # def's receiver, a superclass) are read.
-      def assignments(node, level = 0, counts = Hash.new(0))
-        case node
-        when Hir::Assign
-          counts[node.name] += 1 if node.depth == level
-          assignments(node.value, level, counts)
-        when Hir::Block then assignments([node.params, node.body], level + 1, counts)
-        when Hir::Def then assignments(node.receiver, level, counts)
-        when Hir::ClassDef then assignments([node.scope, node.superclass], level, counts)
-        when Hir::ModuleDef then assignments(node.scope, level, counts)
-        when Hir::SingletonClassDef then assignments(node.target, level, counts)
-        when Hir::Node, Array then Hir.each_child(node) { |child| assignments(child, level, counts) }
-        end
-        counts
-      end
-
       # The iterators that a site with a block literal runs inline
       # (Function::Iterators), each with the maximum parameter count of
       # its block.

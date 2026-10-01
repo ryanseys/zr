@@ -38,7 +38,9 @@ module Zr
         # scope, then of each lexical scope out to the def or toplevel.
         # `env` is nil for a scope whose locals are in its record's slots;
         # `outer` is the Env of the scope around a block.
-        Ctx = Struct.new(:rec, :env, :self_, :cref, :blk, :meta, :proc, :scopes, :unit, :method, :loops, :kind, :params, :outer)
+        # `homes` is the HIR node of each scope in `scopes`, innermost first:
+        # a block reads from them how often each outer local is bound.
+        Ctx = Struct.new(:rec, :env, :self_, :cref, :blk, :meta, :proc, :scopes, :unit, :method, :loops, :kind, :params, :outer, :homes)
 
         # What a unit's code runs with: its file, as a backtrace shows it,
         # whether it is the core library, and the units of its program,
@@ -48,7 +50,10 @@ module Zr
         # extension's Ruby part is internal but not core (`Lower#boot_class_slot`).
         # `hidden` is a unit that loads only for the runtime's own use: its
         # code reads the constants that such units set (`zr_const_sees_concealed`).
-        Unit = Struct.new(:file, :internal, :units, :node_ids, :core, :hidden)
+        # `root` is the FrameMeta of an eval's toplevel: the walker makes the
+        # metas of its scopes when it first runs them, so each takes the box
+        # that `zr_box_stamp` gave the root.
+        Unit = Struct.new(:file, :internal, :units, :node_ids, :core, :hidden, :root)
 
         # zr_require's kinds (Lower::Function::Control::REQUIRE_KINDS).
         REQUIRE_KINDS = { require: 0, require_relative: 1, load: 2, hidden: 3, computed: 4, declared: 5 }.freeze
@@ -141,14 +146,15 @@ module Zr
         end
 
         # Runs the program at `path` with `args` in ARGV, after `prepare`.
-        # Returns the exit status.
-        def run(path, args = [], target: Target.default)
+        # Returns the exit status. `source` is the program's text in place
+        # of the file's.
+        def run(path, args = [], target: Target.default, source: File.read(path))
           list = k.zr_global(k::G_ARGV)
           k::RArray.set_len(list, 0)
           args.each { |a| k.zr_ary_push(list, string(a)) }
           # As a build reads it: with error_highlight's spots, which a
           # build without eval support leaves out.
-          hir = Hir.build(File.read(path), path, target: target, prebuilt: @eval_files)
+          hir = Hir.build(source, path, target: target, prebuilt: @eval_files)
           r = program(hir, path, target)
           exc = @qundef
           if r == @qundef
@@ -295,6 +301,7 @@ module Zr
             m.set_env(addr, open ? 1 : 0)
             m.set_node(addr, unit.node_ids&.[](node) || 0)
             m.set_hidden(addr, unit.hidden ? 1 : 0)
+            m.set_box(addr, m.box(unit.root)) if unit.root
             addr
           end
         end
@@ -321,7 +328,7 @@ module Zr
         # Value, or QUNDEF for a pending unwind that no handler took.
         # An eval's frame gets its Env (`env`) from the kernel.
         def frame(meta:, self_:, cref:, blk:, entry: 0, defined: @qnil, locals: [], parent_env: @qnil, scopes: [], unit:, method: nil, kind: :def,
-                  proc: nil, params: nil, env: nil)
+                  proc: nil, params: nil, env: nil, homes: [])
           f = k::Frame
           t = task
           open = env || k::FrameMeta.env(meta) == 1
@@ -341,7 +348,7 @@ module Zr
                 env ||= k.zr_env_new(parent_env, locals.size, id_table(locals))
                 Memory.write(rec + f.layout_size, [env].pack("Q<"))
               end
-              ctx = Ctx.new(rec, env, self_, cref, blk, meta, proc, [locals, *scopes], unit, method, [], kind, params, parent_env)
+              ctx = Ctx.new(rec, env, self_, cref, blk, meta, proc, [locals, *scopes], unit, method, [], kind, params, parent_env, homes)
               pinned { yield ctx }
             ensure
               k::Task.set_top(t, prev)
@@ -354,7 +361,7 @@ module Zr
           shown = unit.internal ? k::KIND_HIDDEN : kind
           m = meta(hir, unit, shown, locals: hir.locals, open: open?(hir, kind == k::KIND_MAIN ? :main : :top))
           frame(meta: m, self_: k.zr_global(k::G_MAIN), cref: k.zr_global(k::G_TOP_CREF), blk: @qnil, locals: hir.locals,
-                unit: unit, kind: :main) do |c|
+                unit: unit, kind: :main, homes: [hir]) do |c|
             unless unit.internal
               if kind == k::KIND_MAIN
                 file = unit.file.to_s.b
@@ -394,7 +401,8 @@ module Zr
 
               def compile(source, file, line = 1, scopes = [], method = nil)
                 Primitive.attr! :hidden
-                Primitive.zr_host_eval_compile(source, file, line, scopes, method)
+                # String#+ converts as prism does: `eval(123)` is a TypeError.
+                Primitive.zr_host_eval_compile(+"" + source, file, line, scopes, method)
               end
 
               def compile_file(path)
@@ -465,6 +473,7 @@ module Zr
                                                     method: method == @qnil ? nil : ruby(method))
           unit = Unit.new(text(file), false, hir.units, hir.node_ids)
           m = meta(hir, unit, k::KIND_EVAL, locals: hir.locals)
+          unit.root = m
           fn = @host.callable(lambda do |self_, cref, env, blk|
             frame(meta: m, self_: self_, cref: cref, blk: blk, locals: hir.locals, scopes: outer, unit: unit, kind: :eval, env: env,
                   parent_env: k::REnv.parent(env)) do |c|
@@ -472,7 +481,11 @@ module Zr
             end
           end)
           words = [fn, m, hir.locals.size, id_table(hir.locals)].map { |w| (w << 1) | 1 }
-          slots { k.zr_ary_of(words.size, argv(words)) }
+          # The fifth word: the metas that a box stamps (`Ruby::Box#run`).
+          slots do
+            metas = @host.pin(k.zr_ary_of(1, argv([(m << 1) | 1])))
+            k.zr_ary_of(words.size + 1, argv(words + [metas]))
+          end
         rescue Hir::Invalid, SyntaxError => e
           message = e.message.b
           k.zr_raise_msg(k.zr_core_class(id(:SyntaxError)), @host.bytes(message), message.bytesize)
@@ -523,7 +536,7 @@ module Zr
             @host.callable(lambda do |recv, argc, argv, entry, blk, found|
               cref = entry.zero? ? @qnil : k::MEntry.cref(entry)
               frame(meta: m, self_: recv, cref: cref, blk: blk, entry: entry, defined: found, locals: node.locals,
-                    scopes: parent_scopes, unit: unit, method: node, params: node.params) do |c|
+                    scopes: parent_scopes, unit: unit, method: node, params: node.params, homes: [node]) do |c|
                 run_body(c) do
                   bind_method(node.params, argc, argv, c, @fns[node])
                   preempt(c)
@@ -576,7 +589,10 @@ module Zr
         def body_in(node, klass, c, kind, name)
           cref = k.zr_cref_push(klass, c.cref)
           kind = k::KIND_HIDDEN if c.unit.internal
-          m = meta(node, c.unit, kind, name: name, locals: node.locals, open: open?(node, :class))
+          # A `class << self` body is inside its scope (`Lower#body`): a
+          # `return` there leaves the method around it.
+          parent = kind == k::KIND_SCLASS ? c.meta : 0
+          m = meta(node, c.unit, kind, name: name, parent: parent, locals: node.locals, open: open?(node, :class))
           check(frame(meta: m, self_: klass, cref: cref, blk: @qnil, locals: node.locals, unit: c.unit, kind: :class) do |inner|
             run_body(inner) { node.body ? ev(node.body, inner) : @qnil }
           end)
@@ -799,7 +815,11 @@ module Zr
           when Hir::Next then do_next(node, c)
           when Hir::ArrayLit then array(node, c)
           when Hir::HashLit then hash(node, c)
-          when Hir::RangeLit then check(k.zr_range_new(ev(node.low, c), ev(node.high, c), node.exclusive ? 1 : 0))
+          when Hir::RangeLit
+            low = ev(node.low, c)
+            high = ev(node.high, c)
+            excl = node.exclusive ? 1 : 0
+            check(node.static ? k.zr_range_literal(@sites[node], low, high, excl) : k.zr_range_new(low, high, excl))
           when Hir::Interp then interp(node, c)
           when Hir::IvarRead then check(k.zr_ivar_get_cached(c.self_, id(ivar(node.name, c)), cell(node, :ic, k::IvarCache.layout_size)))
           when Hir::IvarWrite
@@ -819,8 +839,11 @@ module Zr
           when Hir::Yield then yield_node(node, c)
           when Hir::Begin then begin_node(node, c)
           when Hir::MultiAssign
+            prepared = stage_targets(node.target, c)
+            return spread_assign(node, c, prepared) if spread_assign?(node)
+
             v = ev(node.value, c)
-            multi(node.target, v, c)
+            multi(node.target, v, c, prepared)
             v
           when Hir::Case then case_node(node, c)
           when Hir::Alias
@@ -1058,8 +1081,14 @@ module Zr
           c.loops.push(tags)
           catch(tags[0]) do
             redoable(tags[2]) { catch(tags[1]) { ev(node.body, c) } } if node.body_first
-            while truthy?(ev(node.cond, c))
-              redoable(tags[2]) { catch(tags[1]) { ev(node.body, c) } }
+            # A `next` in the condition starts the next pass, as one in the
+            # body does.
+            loop do
+              cond = nil
+              catch(tags[1]) { cond = truthy?(ev(node.cond, c)) }
+              break if cond == false
+
+              redoable(tags[2]) { catch(tags[1]) { ev(node.body, c) } } if cond
               preempt(c)
             end
             @qnil
@@ -1335,13 +1364,15 @@ module Zr
           unit = c.unit
           method = c.method
           parent = c.meta
+          homes = [node, *c.homes]
           @fns[node] ||= begin
             kind = unit.internal ? k::KIND_HIDDEN : k::KIND_BLOCK
             m = meta(node, unit, kind, parent: parent, params: node.params, locals: node.locals, open: open?(node, :block, node.params))
+            k::FrameMeta.set_captures(m, captures_table(node, homes, scopes))
             fn = @host.callable(lambda do |pr, argc, argv, blk|
               frame(meta: m, self_: k::RProc.self(pr), cref: k::RProc.cref(pr), blk: k::RProc.blk(pr), defined: blk,
                     locals: node.locals, parent_env: k::RProc.env(pr), scopes: scopes, unit: unit, method: method,
-                    kind: :block, proc: pr, params: node.params) do |inner|
+                    kind: :block, proc: pr, params: node.params, homes: homes) do |inner|
                 run_body(inner) do
                   bind_block(node.params, argc, argv, blk, inner, @fns[node].first)
                   # A `redo` in the block throws its meta (`Hir::Redo`).
@@ -1352,6 +1383,22 @@ module Zr
             k::FrameMeta.set_fn(m, fn)
             [fn, m]
           end
+        end
+
+        # The captures table of the block `node` (`Lower#captures_table`):
+        # each outer local with its flags (1: the block writes it, 2: its
+        # scope binds it more than once), in the order that the scopes
+        # declare them, outermost first. A Ractor reads it.
+        def captures_table(node, homes, scopes)
+          spelled = scopes.reverse.flatten.uniq
+          rows = Hir::Locals.captures(node).sort_by { |name, _, _| spelled.index(name) || spelled.size }
+          words = rows.flat_map do |name, depth, written|
+            home = homes[depth]
+            counts = home.respond_to?(:body) ? Hir::Locals.assignments(home.body) : Hash.new(0)
+            home.params.names.each { |n| counts[n] += 1 } if home.respond_to?(:params) && home.params
+            [id(name), (written ? 1 : 0) | (counts[name] > 1 ? 2 : 0)]
+          end
+          table([rows.size, *words])
         end
 
         def bind_block(p, argc, argv, blk, c, fn)
@@ -1544,31 +1591,73 @@ module Zr
 
         # --- assignment ---
 
-        def multi(target, v, c)
+        # A multiple assignment's send targets' receivers and arguments, and
+        # its constant targets' scopes, evaluated before the right-hand
+        # side, in ruby's order (`Targets#prepare`).
+        def stage_targets(target, c, prepared = {}.compare_by_identity)
+          (target.lefts + [target.rest] + target.rights).each do |t|
+            case t
+            when Hir::Send
+              recv = @host.pin(t.recv ? ev(t.recv, c) : c.self_)
+              args, splat = arguments(t.args, c)
+              prepared[t] = [recv, (splat ? elements(splat) : args).each { |a| @host.pin(a) }]
+            when Hir::ConstWrite
+              prepared[t] = @host.pin(ev(t.scope, c)) unless t.scope.nil? || t.scope == :top
+            when Hir::MultiTarget then stage_targets(t, c, prepared)
+            end
+          end
+          prepared
+        end
+
+        # `a, b = b, a` as a statement makes no Array (`Targets#spread_assign`).
+        def spread_assign?(node)
+          value = node.value
+          !node.taken && value.is_a?(Hir::ArrayLit) && value.elements.none?(Hir::Splat) && node.target.rights.empty?
+        end
+
+        def spread_assign(node, c, prepared)
+          target = node.target
+          values = node.value.elements.map { |e| @host.pin(ev(e, c)) }
+          target.lefts.each_with_index { |t, i| assign_target(t, values.fetch(i, @qnil), c, prepared) }
+          rest = target.rest
+          unless rest.nil? || rest == :implicit
+            tail = values.drop(target.lefts.size)
+            slots { assign_target(rest, k.zr_ary_of(tail.size, argv(tail)), c, prepared) }
+          end
+          @qnil
+        end
+
+        def multi(target, v, c, prepared = {})
           ary = @host.pin(check(k.zr_masgn_ary(v)))
           nl = target.lefts.size
           nr = target.rights.size
-          target.lefts.each_with_index { |t, i| assign_target(t, k.zr_ary_at(ary, i), c) }
+          target.lefts.each_with_index { |t, i| assign_target(t, k.zr_ary_at(ary, i), c, prepared) }
           if target.rest && target.rest != :implicit
-            assign_target(target.rest, check(k.zr_masgn_rest(ary, nl, nr)), c)
+            assign_target(target.rest, check(k.zr_masgn_rest(ary, nl, nr)), c, prepared)
           end
-          target.rights.each_with_index { |t, i| assign_target(t, k.zr_masgn_right(ary, nl, nr, i), c) }
+          target.rights.each_with_index { |t, i| assign_target(t, k.zr_masgn_right(ary, nl, nr, i), c, prepared) }
           v
         end
 
-        def assign_target(t, v, c)
+        def assign_target(t, v, c, prepared = {})
           case t
           when Hir::Assign then set_local(t.name, v, c, t.depth)
           when Hir::IvarWrite then check(k.zr_ivar_set_cached(c.self_, id(ivar(t.name, c)), v, cell(t, :ic, k::IvarCache.layout_size)))
           when Hir::GvarWrite then gvar_write(t.name, v, c, t.shown)
           when Hir::CvarWrite then check(k.zr_cvar_set(c.cref, id(t.name), v))
-          when Hir::ConstWrite then check(k.zr_const_set(scope_class(t.scope, c), id(t.name), v))
-          when Hir::MultiTarget then multi(t, v, c)
-          when Hir::Splat then assign_target(t.value, v, c)
+          when Hir::ConstWrite
+            scope = prepared.fetch(t) { scope_class(t.scope, c) }
+            check(k.zr_const_set(scope, id(t.name), v))
+          when Hir::MultiTarget then multi(t, v, c, prepared)
+          when Hir::Splat then assign_target(t.value, v, c, prepared)
           when Hir::Send
-            recv = t.recv ? ev(t.recv, c) : c.self_
-            args, splat = arguments(t.args, c)
-            args = elements(splat) if splat
+            recv, args = prepared.fetch(t) do
+              r = t.recv ? ev(t.recv, c) : c.self_
+              a, splat = arguments(t.args, c)
+              [r, splat ? elements(splat) : a]
+            end
+            return @qnil if t.safe && recv == @qnil
+
             mode = t.recv && !t.recv.is_a?(Hir::SelfRef) ? 2 : 0
             at(t, c)
             slots do

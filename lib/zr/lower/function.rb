@@ -724,7 +724,7 @@ module Zr
       # way: `x = 1` in a loop is one binding, `x = 1; x = 2` is two.
       def bindings
         @bindings ||= begin
-          counts = Scope.assignments(@body)
+          counts = Hir::Locals.assignments(@body)
           params = %i[def block].include?(@kind) ? @def.params : nil
           params&.names&.each { |name| counts[name] += 1 }
           counts

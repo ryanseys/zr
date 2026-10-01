@@ -1014,7 +1014,13 @@ module Zr::Kern
     unless (RBasic.flags(p) & FL_ISOLATED) == 0 && zr_frame_live(RProc.ret_home(p), RProc.ret_serial(p))
       return zr_local_jump_error(Machine.bytes("unexpected return"), 17, Machine.id(:return), v)
     end
-    zr_signal(PENDING_RETURN, v, RProc.ret_home(p), 0)
+    # A block in a `class << self` body leaves the method around the body,
+    # as a `return` in the body itself does. The body catches no return.
+    home = RProc.ret_home(p)
+    if FrameMeta.kind(Frame.meta(home)) == KIND_SCLASS
+      return zr_return_out(home, v)
+    end
+    zr_signal(PENDING_RETURN, v, home, 0)
   end
 
   # At a call site with a block: returns the value of the pending break
@@ -1039,7 +1045,12 @@ module Zr::Kern
   # scope is not known leaves the unwind to the nearest method.
   sig [Value] => Value
   def zr_return_here(v)
-    rec = Task.top(zr_task())
+    zr_return_out(Task.top(zr_task()), v)
+  end
+
+  # The same, for a `return` in the scope of the frame `rec`.
+  sig [Ptr, Value] => Value
+  def zr_return_out(rec, v)
     meta = FrameMeta.parent(Frame.meta(rec))
     in_block = false
     while meta != 0 && FrameMeta.kind(meta) != KIND_DEF
