@@ -161,7 +161,7 @@ module Zr
 
         # CRuby's gem prelude, as `zr_gem_prelude`.
         def gem_prelude(target = Target.default)
-          hir = Zr.gem_prelude(target)
+          hir = Runtime.gem_prelude(target)
           toplevel(hir, Unit.new(Paths.shown(hir.file), false, hir.units, hir.node_ids), @kern::KIND_TOP)
         end
 

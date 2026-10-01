@@ -109,7 +109,7 @@ module Zr
       end
 
       def compile(source, rel, target)
-        target.link ? Native::Build.lower(source, rel, target: target) : Zr.program(source, rel, target: target)
+        target.link ? Native::Build.lower(source, rel, target: target) : Zr::Program.build(source, rel, target: target)
       end
 
       # The answer of the binary, or `[kind, why]` when it does not count.

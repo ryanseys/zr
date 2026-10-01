@@ -47,7 +47,7 @@ class EvalKeyTest < Minitest::Test
   # key of its files and its table, so a build with another table cannot
   # take the object.
   def test_eval_support_is_keyed_by_its_symbol_table
-    support = Zr.eval_support(Zr::Target.default)
+    support = Zr::EvalSupport.for(Zr::Target.default)
     meta = support.send(:meta)
 
     assert_equal Zr::Digests.eval_key(meta.fetch("files_key"), meta.fetch("names"), meta.fetch("sites")), support.key

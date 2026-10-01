@@ -13,7 +13,7 @@ class DescriptionTest < Minitest::Test
   # One target per OS layer that is its own.
   TARGETS = Zr::Target.all.select { |target| target.os_layer == target.os.to_s }.uniq(&:os_layer)
 
-  # Lowers the kernel for this file only. Do not use `Zr.runtime`: the
+  # Lowers the kernel for this file only. Do not use `Zr::Runtime.for`: the
   # whole process shares it, and `Native::Build.lower` releases its IR
   # when the runtime object is known (lib/zr/native/build.rb:105). It
   # does this also on a warm cache. After that, a read of the IR is

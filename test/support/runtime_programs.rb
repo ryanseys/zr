@@ -22,7 +22,7 @@ module Zr
       # constants and layouts. It uses the symbol table of the runtime,
       # so its symbol ids agree with the runtime.
       def compile(rb, target = Zr::Target.default)
-        runtime = Zr.runtime(target)
+        runtime = Zr::Runtime.for(target)
         unit = Zr::Machine.unit(Zr::RuntimeSources.for(target).kernel_files + [rb], symbols: runtime_symbols(runtime))
         own = unit.declared_defs.filter_map { |name, d| name if d.file == rb }
         kernel = kernel_data(runtime)

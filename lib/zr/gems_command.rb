@@ -31,7 +31,7 @@ module Zr
     # build does.
     def of_file(input, gem_set, target)
       require_relative "runtime"
-      support = Zr.eval_support(target)
+      support = EvalSupport.for(target)
       hir = Hir.build(File.read(input), input, prebuilt: support, target: target, gem_set: gem_set)
       Manifest.of_program(hir, support, gem_set)
     rescue Refused => e

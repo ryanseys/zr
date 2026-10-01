@@ -105,7 +105,7 @@ module Zr
         path = gem_prelude_path
         files = JSON.parse(File.read(path)) if File.exist?(path)
         unless files&.all? { |file| File.file?(file) }
-          files = [Layout::GEM_PRELUDE, *Zr.gem_prelude(target).units.map(&:file).select { |file| File.file?(file) }].uniq.sort
+          files = [Layout::GEM_PRELUDE, *Runtime.gem_prelude(target).units.map(&:file).select { |file| File.file?(file) }].uniq.sort
           Cache::Store.write_file(path, JSON.generate(files))
         end
         files
@@ -205,7 +205,7 @@ module Zr
 
     def write_cached
       Tune.heavy!
-      Zr.announce("the zr runtime", target)
+      Runtime.announce("the zr runtime", target)
       lowered
       defined = functions.map(&:name)
       ir = functions.grep(IR::Function)
@@ -241,369 +241,114 @@ module Zr
       @lowered ||= Timing.phase("core lowered") do
         @core_cache = Timing.phase("core cache: opened") { Cache::Lowering::Core.for(target) }
         fixed = unit.symbols.ids.dup.freeze
-        functions, data = @core_cache ? @core_cache.lower(unit, fixed, sources) : Zr.core(unit, fixed, target, sources)
+        functions, data = @core_cache ? @core_cache.lower(unit, fixed, sources) : Runtime.core(unit, fixed, target, sources)
         @table = Machine::Symbols.new(kernel_symbols.names, sites: kernel_symbols.sites)
         [functions, SymbolNumbering.numbered_copies(data, @table, unit.const_for("SYMBOL_TAG"))]
       end
     end
   end
 
-  # A program's own functions and data, and its runtime. It destructures
-  # as `[functions, data, raw]` with the runtime included, for a build
-  # that uses one unit for everything. `evals` is the EvalSupport that
-  # the program links next to the runtime, or nil. Its JIT finds kernel
-  # functions by name. `sources` maps the path of each file the program was
-  # built from to the digest of the bytes that were compiled (the run
-  # cache checks them); it is empty when the build does not know them.
-  # `gems` are the manifest's rows (lib/zr/manifest.rb): the gems that the
-  # program's files come from.
-  Program = Data.define(:runtime, :functions, :data, :evals, :sources, :gems) do
-    def initialize(runtime:, functions:, data:, evals:, sources: {}, gems: [])
-      super
+  # The runtimes of a process, and how a runtime's core and gem prelude
+  # are built.
+  class Runtime
+    # The runtimes of this process, by target triple.
+    def self.loaded = @loaded ||= {}
+
+    # The runtime for `target`, lowered once per process.
+    def self.for(target = Target.default) = loaded[target.triple] ||= new(target)
+
+    # Says on stderr, once in a process, that a build of `what` for
+    # `target` starts, which fills the cache for later builds. The first
+    # build of an installed zr would otherwise run for minutes with no
+    # output. A checkout says it only on a terminal: a test or a tool
+    # that reads stderr gets nothing more. ZR_TIMING prints its own lines.
+    def self.announce(what, target)
+      return if Config.current.timing? || (Paths.checkout? && !$stderr.tty?)
+      return if (@announced ||= {}).key?([what, target.triple])
+
+      @announced[[what, target.triple]] = true
+      warn "zr: building #{what} for #{target.triple}. This occurs one time and takes some minutes."
     end
 
-    def raw = runtime.raw
-
-    def to_ary = [runtime.functions + functions, runtime.data + data, raw]
-  end
-
-  # Eval support: the compiler that a program with eval links in. zr
-  # lowers it once and assembles it into its own object, so a program with
-  # eval lowers and assembles only itself. Next to the object, the cache
-  # keeps the metadata that a program needs: the entry of each file, its
-  # dependencies, and the symbol table after it. The key is the eval
-  # digest (`RuntimeSources#eval_digest`) and the bytes of each file in
-  # eval support.
-  #
-  # Its code has only the kernel's ids, so the code of each file depends on
-  # the compiler, the kernel's description and the file
-  # (`Cache::Lowering::EvalSupport` keeps it). Only its data, whose pool
-  # words the runtime's table numbers, depends on the core: a core edit
-  # writes the object again from the kept code.
-  class EvalSupport
-    def initialize(runtime)
-      @runtime = runtime
-    end
-
-    def target = @runtime.target
-
-    def units = meta.fetch("units")
-    def configures? = meta.fetch("configures")
-    def normalizes? = meta.fetch("normalizes")
-    def pretty_prints? = meta.fetch("pretty_prints")
-    def irbs? = meta.fetch("irbs")
-    def gems? = meta.fetch("gems")
-
-    # A new symbol table for a program's lowering. It continues from the
-    # eval support table: the runtime's names now, then eval support's own,
-    # which start after the runtime's table.
-    def symbols
-      runtime = @runtime.symbols.names
-      Machine::Symbols.new(runtime + meta.fetch("names").drop(runtime.size), sites: meta.fetch("sites"))
-    end
-
-    # The number of `using` entries that eval support itself uses. Its
-    # files activate refinements when they load (the prism port gets its
-    # node setters through one), and they load at the first eval. So a
-    # program's entries must start after these.
-    def activations = meta.fetch("activations")
-
-    # The SHA-256 of each file in eval support (as lowered) and of each
-    # file that the gem prelude loads, by path. A compiled compiler keys
-    # its parse cache on these (`Cache::Parse.parser_digests`,
-    # `Cache::Parse.maker`).
-    def digests = meta.fetch("digests")
-
-    # The key of eval support's object (`Digests.eval_key`): the key of its
-    # files (the eval digest and the bytes of each file), and the symbol
-    # table that numbers its data. The object has this name.
-    def key = meta.fetch("key")
-
-    def object_path = self.class.object_path(key)
-
-    # The metadata file of this eval support. The run cache checks it.
-    def meta_path = self.class.meta_path(@runtime, kind)
-
-    # The cache files of eval support: the object, by the key in its
-    # metadata, and the metadata, by the runtime's digest and the kind
-    # of eval (`jit` or `walk`). `zr-dev cache prune` reads these too.
-    def self.object_path(key) = Cache::Store.path(:object, key)
-    def self.meta_path(runtime, kind) = meta_file(runtime.eval_digest, kind)
-    def self.meta_file(eval_digest, kind) = Cache::Store.path(:meta, "#{eval_digest}-eval-#{kind}")
-
-    def functions = lowered.fetch(:functions)
-    def data = lowered.fetch(:data)
-
-    # Lets go of the IR once the object is written. Only the metadata stays.
-    # The IR of 18,000 functions made each collection of the link that
-    # follows mark it again: 11 s of a link after eval support was built.
-    def release
-      meta
-      @lowered = @cache = nil
-    end
-
-    # The `Cache::Lowering::EvalSupport` of this build's lowering, or nil.
-    def cache
-      lowered
-      @cache
-    end
-
-    # The eval kind of the target is part of the cache name. The eval
-    # compiler (JIT) and the tree-walking interpreter contain different
-    # files, so the metadata of one must never be used for the other.
-    def kind = Hir::Build.eval_file(target) == Hir::Build::EVAL_COMPILER ? "jit" : "walk"
-
-    private
-
-    # The cached metadata, while its files have the same bytes; else the
-    # metadata of a new lowering. Its path has the runtime's eval digest,
-    # so another runtime table has other metadata.
-    def meta
-      @meta ||= begin
-        meta = JSON.parse(File.read(meta_path)) if File.exist?(meta_path)
-        current = meta && meta["files_key"] == files_key(meta.fetch("files"), {}, meta.fetch("absent", []))
-        current ? meta : lowered.fetch(:meta)
+    # The core library on top of the kernel `unit`: `[functions, data]`,
+    # with `zr_prelude` as the last function. The program decides if it
+    # links in the compiler, so the core never requires eval support. A
+    # box or an eval in the program adds it. `fixed` are the kernel's ids;
+    # the data leaves every other name to the link
+    # (`SymbolNumbering.numbered_copies`).
+    def self.core(unit, fixed, target = Target.default, sources = {})
+      functions = []
+      data = []
+      entries = RuntimeSources.for(target).core_files.map do |path|
+        f, d = lower_core_file(path, sources.fetch(path) { File.read(path) }, unit, fixed, target)
+        functions.concat(f)
+        data.concat(d)
+        core_entry(path)
       end
+      f, d = lower_gem_prelude(gem_prelude(target), unit, fixed, target)
+      [functions.concat(f) << prelude(entries, unit), data.concat(d)]
     end
 
-    # The key of eval support: the runtime's eval digest and the bytes of
-    # each file. A build gives the bytes that it lowered (`sources`), so an edit
-    # during the build cannot put old output under the new bytes' key. A
-    # check of the cache reads the files as they are now.
-    def files_key(files, sources = {}, absent = []) = Digests.eval_files_key(@runtime.eval_digest, files, sources, absent)
+    # The entry of a core file's toplevel.
+    def self.core_entry(path) = "zr_core_#{File.basename(path, ".rb")}"
 
-    def lowered
-      @lowered ||= Timing.phase("eval support lowered") do
-        Tune.heavy!
-        Zr.announce("eval support (the compiler in a program that calls eval)", target)
-        loader = Hir::Build.eval_support(target)
-        program = Hir::Program.new(Hir::Build.eval_file(target), [], Hir::Seq.new([], 0), loader.units, [], true, loader.entries)
-        lower = Lower.new(program, @runtime.description, nil, entry: "zr_eval_support", target: target, fixed: @runtime.fixed_ids)
-        @cache = Cache::Lowering::EvalSupport.for(target, kind)
-        functions, data = @cache ? @cache.lower(lower, @runtime.description) : lower.run
-        # Eval support's names come after the runtime's.
-        symbols = Machine::Symbols.new(@runtime.symbols.names, sites: @runtime.symbols.sites)
-        data = SymbolNumbering.numbered_copies(data, symbols, @runtime.description.const_for("SYMBOL_TAG"))
-        files = loader.units.filter_map { |u| u.file if u.file.start_with?("/") }.uniq.sort
-        sources = loader.units.each_with_object({}) { |u, h| h[u.file] ||= u.source if u.source }
-        digests = (files + @runtime.gem_prelude_files).uniq.sort.to_h do |path|
-          [path, Digest::SHA256.hexdigest(sources[path] || File.binread(path))]
-        end
-        # A file that appears where a stopped feature would be makes this
-        # lowering stale, though no file that it read changed.
-        absent = loader.stopped.uniq.sort.flat_map { |feature| Hir::Build.stdlib(target).map { |root| File.join(root, "#{feature}.rb") } }
-        read = files_key(files, sources, absent)
-        meta = { "key" => Digests.eval_key(read, symbols.names, symbols.sites), "files_key" => read, "files" => files, "absent" => absent, "digests" => digests,
-                 "units" => loader.entries.to_h { |path, i| [path, lower.unit_entry(i)] },
-                 "configures" => loader.configures?, "normalizes" => loader.normalizes?, "pretty_prints" => loader.pretty_prints?,
-                 "irbs" => loader.irbs?, "gems" => loader.gems?,
-                 "names" => symbols.names, "sites" => symbols.sites, "activations" => loader.activations }
-        Cache::Store.write_file(meta_path, JSON.generate(meta))
-        { functions: functions, data: data, meta: meta }
+    # `[functions, data]` of one core file over the kernel `unit`, with the
+    # kernel's ids `fixed`.
+    def self.lower_core_file(path, source, unit, fixed, target)
+      Lower.new(Hir.build(source, path, eval_support: false, target: target), unit, nil, entry: core_entry(path), internal: true,
+                                                                                   target: target, fixed: fixed).run
+    end
+
+    # `[functions, data]` of the gem prelude's program `hir`.
+    def self.lower_gem_prelude(hir, unit, fixed, target)
+      Lower.new(hir, unit, nil, entry: GEM_PRELUDE_ENTRY, kind: :top, target: target, fixed: fixed).run
+    end
+
+    GEM_PRELUDE_ENTRY = "zr_gem_prelude"
+
+    # CRuby's gem_prelude.rb, which loads ruby's default libraries before
+    # a program's first line. After it comes error_highlight's lookup for
+    # a program compiled ahead of time. Boot runs it after the core
+    # library loads, before the program.
+    SPOTTED = File.join(Layout::RUNTIME_LIB, "zr/error_highlight.rb")
+
+    # The parsers that the prelude's libraries require for work that this
+    # runtime does differently. error_highlight's prism_find: the compiled
+    # spots replace it. syntax_suggest's search: only a program that links
+    # in the compiler can get a SyntaxError.
+    DEFERRED = %w[prism syntax_suggest/api].freeze
+
+    # The gem prelude as one program for `target`.
+    def self.gem_prelude(target = Target.default)
+      loader = Hir::Build::Loader.new(Hir::Build.stdlib(target), deferred: DEFERRED,
+                                                                 preloaded: Hir::Build::PRELOADED - Hir::Build::GEM_PRELOADED)
+      main = loader.unit("<internal:gem_prelude>", File.read(Layout::GEM_PRELUDE))
+      spotted = Hir::Require.new(:hidden, "zr/error_highlight", SPOTTED, loader.add(SPOTTED), 0)
+      # did_you_mean reads RbConfig, which ruby has loaded by then.
+      rbconfig = loader.configures? ? [Hir::Build.rbconfig(loader)] : []
+      body = Hir::Seq.new([*rbconfig, main.body, spotted], 0)
+      Hir::Program.new(main.file, main.locals, body, loader.units, main.warnings, false, loader.entries, false, main.node_ids, {})
+    end
+
+    # `zr_prelude`: boot runs each core file's toplevel in turn, and
+    # stops at the first one that leaves a pending unwind.
+    def self.prelude(entries, unit)
+      f = IR::Function.new("zr_prelude", [], "i64")
+      undef_value = f.iconst("i64", unit.const_for("QUNDEF"))
+      entries.each do |entry|
+        r = f.call_val(f.callee(entry, [], "i64"), [])
+        stop = f.label
+        go = f.label
+        f.brif(f.icmp("eq", r, undef_value), stop, go)
+        f.switch(stop)
+        f.ret(r)
+        f.switch(go)
       end
+      f.ret(f.iconst("i64", unit.const_for("QNIL")))
+      f
     end
-  end
-
-  module_function
-
-  # The bytes of source above which a program's build tunes (`Tune.heavy!`).
-  # hello and a probe are far below it; the stdlib rung of the compile
-  # benchmark is above.
-  HEAVY_SOURCE = 256 * 1024
-
-  # With a block, each function goes to the block when its file is
-  # lowered (`Lower#run`), with the lowering's entry name. The program
-  # contains the block's results.
-  #
-  # With `sources`, the program lists the files it was built from
-  # (`Program#sources`), for the run cache.
-  #
-  # `gem_set` is the GemSet whose gems come before zr's standard library
-  # (lib/zr/gem_set.rb), or nil. `gate` stops the build at a require that
-  # nothing has in the program's own files (`Hir::Build#gate!`).
-  def program(source, file, target: Target.default, sources: false, gem_set: nil, gate: false, &finish)
-    rt = runtime(target)
-    support = eval_support(target)
-    hir = Timing.phase("hir built") { Hir.build(source, file, prebuilt: support, target: target, gem_set: gem_set, gate: gate) }
-    gem_conflicts!(hir, support, gem_set, target) if hir.evals && gem_set && !gem_set.empty?
-    # A large program is heavy work too (`Tune`): bundler's 1.2 MB of source
-    # takes seconds to lower.
-    Tune.heavy!(restart: false) if source.bytesize + hir.units.sum { |u| u.source.to_s.bytesize } > HEAVY_SOURCE
-    # Before the lowering, which lets go of each unit's source.
-    sources = sources ? built_from(source, file, hir) : {}
-    gems = Manifest.of_program(hir, support, gem_set)
-    symbols = hir.evals ? support.symbols : Machine::Symbols.new(rt.symbols.names, sites: rt.symbols.sites)
-    # Only the kernel's names have fixed ids. The link numbers all other
-    # names from `symbols`, so a unit's code does not depend on the compile
-    # order or on the core. So an earlier build's code for a unit is
-    # correct for this build while the kernel's ABI is the same.
-    units = finish && Cache::Unit.for(hir, runtime: rt.abi_digest, entries: Lower.entries_of("zr_toplevel", hir.units))
-    lower = Lower.new(hir, rt.description, symbols, target: target, fixed: rt.fixed_ids, units: units || nil)
-    functions, data = Timing.phase(finish ? "program lowered and assembled" : "program lowered") do
-      finish ? lower.run { |f| yield(f, lower.entry) } : lower.run
-    end
-    units = hir.entries.map { |path, i| [path, lower.unit_entry(i)] }
-    SymbolNumbering.number(data, symbols, rt.description.const_for("SYMBOL_TAG"))
-    tables = LoadTables.new(evals: hir.evals, spots: hir.spots || {}, coverable: hir.coverable || {},
-                            branches: hir.branches || {}, defs: hir.defs || {}, sources: hir.evals ? support.digests : {},
-                            target: target, gem_roots: gem_set ? gem_set.gems.reject(&:refusal).flat_map(&:roots) : [],
-                            manifest: Manifest.bytes(gems, target))
-    Program.new(rt, functions, data + SymbolNumbering.names_table(symbols) + tables.data(units), hir.evals && support, sources, gems)
-  end
-
-  # A program with eval carries eval support, which has zr's own copy of
-  # some libraries (fileutils, pp, irb, reline, rubygems and others). A
-  # file of a gem in the GemSet with the same feature name would load a
-  # second copy beside it, where ruby loads one. So such a build stops.
-  def gem_conflicts!(hir, support, gem_set, target)
-    stdlib = Hir::Build.stdlib(target)
-    carried = support.units.keys.filter_map do |path|
-      root = stdlib.find { |dir| path.start_with?("#{dir}/") }
-      path.delete_prefix("#{root}/") if root
-    end.to_h { |feature| [feature, true] }
-    hir.units.each do |unit|
-      next unless unit.file
-
-      gem_set.gems.each do |gem|
-        root = gem.roots.find { |dir| unit.file.start_with?("#{dir}/") } or next
-        feature = unit.file.delete_prefix("#{root}/")
-        next unless carried[feature]
-
-        raise Refused, "#{feature} of #{gem.name} #{gem.version} (#{gem.source}): this program uses eval, so it carries " \
-                       "zr's own #{feature}, and ruby loads only one copy. Use ruby #{RUBY}'s #{gem.name} " \
-                       "(remove the override), or remove the eval"
-      end
-    end
-  end
-
-  # The path and digest of each file that `hir` was built from: `file`,
-  # with `source`, and each unit that has its own file. Empty when a
-  # require stays for the run time (a file that did not exist, or a name
-  # built at run time): a file that appears later would change the build,
-  # and no list of paths can say which.
-  def built_from(source, file, hir)
-    return {} if run_time_require?([hir.body, *hir.units.map(&:body)])
-
-    [[file, source], *hir.units.filter_map { |u| [u.file, u.source] if u.source && File.file?(u.file) }]
-      .to_h { |path, bytes| [File.expand_path(path), Digest::SHA256.hexdigest(bytes)] }
-  end
-
-  REQUIRES = %i[require require_relative load].freeze
-
-  # A require, require_relative or load of Kernel, or any autoload, that
-  # the HIR left as a call.
-  def run_time_require?(node)
-    case node
-    when Hir::Send
-      kernel = node.recv.nil? || (node.recv.is_a?(Hir::ConstRead) && node.recv.name == :Kernel && node.recv.scope.nil?)
-      return true if node.name == :autoload || (kernel && REQUIRES.include?(node.name))
-    when Array then return node.any? { |child| run_time_require?(child) }
-    when Hir::Node then nil
-    else return false
-    end
-    Hir.each_child(node) { |child| return true if run_time_require?(child) }
-    false
-  end
-
-  # The runtimes of this process, by target triple.
-  def runtimes = @runtimes ||= {}
-
-  # The runtime for `target`, lowered once per process.
-  def runtime(target = Target.default)
-    runtimes[target.triple] ||= Runtime.new(target)
-  end
-
-  def eval_support(target = Target.default)
-    (@eval_supports ||= {})[target.triple] ||= EvalSupport.new(runtime(target))
-  end
-
-  # Says on stderr, once in a process, that a build of `what` for
-  # `target` starts, which fills the cache for later builds. The first
-  # build of an installed zr would otherwise run for minutes with no
-  # output. A checkout says it only on a terminal: a test or a tool
-  # that reads stderr gets nothing more. ZR_TIMING prints its own lines.
-  def announce(what, target)
-    return if Config.current.timing? || (Paths.checkout? && !$stderr.tty?)
-    return if (@announced ||= {}).key?([what, target.triple])
-
-    @announced[[what, target.triple]] = true
-    warn "zr: building #{what} for #{target.triple}. This occurs one time and takes some minutes."
-  end
-
-  # The core library on top of the kernel `unit`: `[functions, data]`,
-  # with `zr_prelude` as the last function. The program decides if it
-  # links in the compiler, so the core never requires eval support. A
-  # box or an eval in the program adds it. `fixed` are the kernel's ids;
-  # the data leaves every other name to the link (`SymbolNumbering.numbered_copies`).
-  def core(unit, fixed, target = Target.default, sources = {})
-    functions = []
-    data = []
-    entries = RuntimeSources.for(target).core_files.map do |path|
-      f, d = lower_core_file(path, sources.fetch(path) { File.read(path) }, unit, fixed, target)
-      functions.concat(f)
-      data.concat(d)
-      core_entry(path)
-    end
-    f, d = lower_gem_prelude(gem_prelude(target), unit, fixed, target)
-    [functions.concat(f) << prelude(entries, unit), data.concat(d)]
-  end
-
-  # The entry of a core file's toplevel.
-  def core_entry(path) = "zr_core_#{File.basename(path, ".rb")}"
-
-  # `[functions, data]` of one core file over the kernel `unit`, with the
-  # kernel's ids `fixed`.
-  def lower_core_file(path, source, unit, fixed, target)
-    Lower.new(Hir.build(source, path, eval_support: false, target: target), unit, nil, entry: core_entry(path), internal: true,
-                                                                                 target: target, fixed: fixed).run
-  end
-
-  # `[functions, data]` of the gem prelude's program `hir`.
-  def lower_gem_prelude(hir, unit, fixed, target)
-    Lower.new(hir, unit, nil, entry: GEM_PRELUDE_ENTRY, kind: :top, target: target, fixed: fixed).run
-  end
-
-  GEM_PRELUDE_ENTRY = "zr_gem_prelude"
-
-  # CRuby's gem_prelude.rb, which loads ruby's default libraries before
-  # a program's first line. After it comes error_highlight's lookup for
-  # a program compiled ahead of time. Boot runs it after the core
-  # library loads, before the program.
-  SPOTTED = File.join(Layout::RUNTIME_LIB, "zr/error_highlight.rb")
-
-  # The parsers that the prelude's libraries require for work that this
-  # runtime does differently. error_highlight's prism_find: the compiled
-  # spots replace it. syntax_suggest's search: only a program that links
-  # in the compiler can get a SyntaxError.
-  DEFERRED = %w[prism syntax_suggest/api].freeze
-
-  # The gem prelude as one program for `target`.
-  def gem_prelude(target = Target.default)
-    loader = Hir::Build::Loader.new(Hir::Build.stdlib(target), deferred: DEFERRED,
-                                                               preloaded: Hir::Build::PRELOADED - Hir::Build::GEM_PRELOADED)
-    main = loader.unit("<internal:gem_prelude>", File.read(Layout::GEM_PRELUDE))
-    spotted = Hir::Require.new(:hidden, "zr/error_highlight", SPOTTED, loader.add(SPOTTED), 0)
-    # did_you_mean reads RbConfig, which ruby has loaded by then.
-    rbconfig = loader.configures? ? [Hir::Build.rbconfig(loader)] : []
-    body = Hir::Seq.new([*rbconfig, main.body, spotted], 0)
-    Hir::Program.new(main.file, main.locals, body, loader.units, main.warnings, false, loader.entries, false, main.node_ids, {})
-  end
-
-  # `zr_prelude`: boot runs each core file's toplevel in turn, and
-  # stops at the first one that leaves a pending unwind.
-  def prelude(entries, unit)
-    f = IR::Function.new("zr_prelude", [], "i64")
-    undef_value = f.iconst("i64", unit.const_for("QUNDEF"))
-    entries.each do |entry|
-      r = f.call_val(f.callee(entry, [], "i64"), [])
-      stop = f.label
-      go = f.label
-      f.brif(f.icmp("eq", r, undef_value), stop, go)
-      f.switch(stop)
-      f.ret(r)
-      f.switch(go)
-    end
-    f.ret(f.iconst("i64", unit.const_for("QNIL")))
-    f
   end
 end
+
+require_relative "eval_support"
+require_relative "program"

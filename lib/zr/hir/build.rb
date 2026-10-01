@@ -56,7 +56,7 @@ module Zr
       # file requires `zr_description`: only eval support and a program
       # that compiles itself do. Nil where no runtime is loaded (an eval
       # in a binary).
-      def self.description(target) = -> { Zr.runtime(target).carried_text if Zr.respond_to?(:runtime) }
+      def self.description(target) = -> { Zr::Runtime.for(target).carried_text if Zr.const_defined?(:Runtime, false) }
 
       # A file of the runtime's libraries (Layout::EXT, Layout::RUNTIME_LIB): it is
       # internal, as the core is, so a backtrace shows its methods as

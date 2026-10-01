@@ -74,10 +74,10 @@ module Zr
         require_relative "../lib/zr/cli"
         require_relative "../lib/zr/runtime"
         require_relative "../lib/zr/native/build"
-        runtime = Zr.runtime
+        runtime = Runtime.for
         runtime.description
         objects = [Native::Build.runtime_object(runtime)]
-        objects << Native::Build.eval_support_object(Zr.eval_support) if files.any? { |file| evals?(file) }
+        objects << Native::Build.eval_support_object(EvalSupport.for) if files.any? { |file| evals?(file) }
         Native::Build.prelink([objects.first])
         Native::Build.prelink(objects)
       end

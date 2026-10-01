@@ -40,8 +40,8 @@ class EvalInterpreterTest < Minitest::Test
   # does not make them different. If the meta file of one is used for the
   # other, it refers to units that the program does not contain.
   def test_compiler_and_interpreter_use_different_caches
-    jit = Zr.eval_support(Target::AARCH64_DARWIN).send(:meta_path)
-    walk = Zr::Config.with(ZR_EVAL: "walk") { Zr::EvalSupport.new(Zr.runtime(Target::AARCH64_DARWIN)).send(:meta_path) }
+    jit = Zr::EvalSupport.for(Target::AARCH64_DARWIN).send(:meta_path)
+    walk = Zr::Config.with(ZR_EVAL: "walk") { Zr::EvalSupport.new(Zr::Runtime.for(Target::AARCH64_DARWIN)).send(:meta_path) }
 
     refute_equal jit, walk
     assert_includes jit, "-jit.json"

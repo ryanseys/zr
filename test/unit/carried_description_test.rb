@@ -11,7 +11,7 @@ require "zr/hir/loader"
 # compiler that zr builds does not carry where its cache was.
 class CarriedDescriptionTest < Minitest::Test
   def test_the_carried_text_is_the_runtimes_description
-    runtime = Zr.runtime(Zr::Target.default)
+    runtime = Zr::Runtime.for(Zr::Target.default)
 
     assert_equal Zr::Machine::Description.carried(runtime.send(:cached).fetch(:description)), runtime.carried_text
   end

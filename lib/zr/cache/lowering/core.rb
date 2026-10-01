@@ -20,7 +20,7 @@ module Zr
           code && new("core", target, code)
         end
 
-        # Lowers the core over the kernel `unit`, as `Zr.core` does, with the
+        # Lowers the core over the kernel `unit`, as `Runtime.core` does, with the
         # kernel's ids `ids`, taking each file it can from an entry. Returns
         # `[functions, data]`: machine code (`Obj::Code`) for each core
         # function, then the prelude's IR, and the data of each piece. It
@@ -33,10 +33,10 @@ module Zr
             base_key(Machine::Description.of(unit).to_text, Lower.boot_classes.inspect, *ids.keys)
           end
           paths = RuntimeSources.for(@target).core_files
-          @prelude = Zr.prelude(paths.map { |path| Zr.core_entry(path) }, unit)
+          @prelude = Runtime.prelude(paths.map { |path| Runtime.core_entry(path) }, unit)
           pieces = paths.map { |path| core_file(path) }
           # The gem prelude is one more piece: its key has each file it loads.
-          @gem_hir = Timing.phase("core cache: gem prelude built") { Zr.gem_prelude(@target) }
+          @gem_hir = Timing.phase("core cache: gem prelude built") { Runtime.gem_prelude(@target) }
           pieces << gem_piece
           kernel = unit.functions
           names = kernel.map(&:name) + unit.data.map(&:name) + unit.raw + [@prelude.name] + pieces.map(&:entry)
@@ -54,10 +54,10 @@ module Zr
         private
 
         def core_file(path)
-          entry = Zr.core_entry(path)
+          entry = Runtime.core_entry(path)
           source = @sources.fetch(path) { File.read(path) }
           Piece.new(path, entry, key_of(path, entry, source), source.bytesize,
-                    -> { Zr.lower_core_file(path, source, @unit, @ids, @target) })
+                    -> { Runtime.lower_core_file(path, source, @unit, @ids, @target) })
         end
 
         # The key text of the gem prelude: the path and the bytes of each file
@@ -65,10 +65,10 @@ module Zr
         def gem_source = @gem_hir.units.map { |u| "#{u.file}\0#{u.source}" }.join("\0") + File.read(Layout::GEM_PRELUDE)
 
         def gem_piece
-          entry = Zr::GEM_PRELUDE_ENTRY
+          entry = Runtime::GEM_PRELUDE_ENTRY
           source = gem_source
           Piece.new(Layout::GEM_PRELUDE, entry, key_of(Layout::GEM_PRELUDE, entry, source), source.bytesize,
-                    -> { Zr.lower_gem_prelude(@gem_hir, @unit, @ids, @target) })
+                    -> { Runtime.lower_gem_prelude(@gem_hir, @unit, @ids, @target) })
         end
       end
     end

@@ -112,10 +112,10 @@ module Zr
         target = Target.default
         functions, data, raw =
           if object == "runtime"
-            rt = Zr.runtime(target)
+            rt = Runtime.for(target)
             timed("runtime lowered") { [rt.functions, rt.data, rt.raw] }
           else
-            support = Zr.eval_support(target)
+            support = EvalSupport.for(target)
             timed("eval support lowered") { [support.functions, support.data, []] }
           end
         puts "#{functions.size} functions, #{data.size} data"

@@ -115,14 +115,14 @@ module Zr
       # the runtime's IR, so on a cold cache the two are not in memory
       # together.
       def lower(source, file, target: Target.default, jobs: Build.jobs, sources: false, gem_set: nil, gate: false)
-        runtime = Zr.runtime(target)
+        runtime = Runtime.for(target)
         runtime.description
         runtime_object(runtime, jobs: jobs)
         runtime.release
-        Zr.program(source, file, target: target, sources: sources, gem_set: gem_set, gate: gate) { |f, entry| assemble(f, entry, target: target) }
+        Program.build(source, file, target: target, sources: sources, gem_set: gem_set, gate: gate) { |f, entry| assemble(f, entry, target: target) }
       end
 
-      # Prepares and assembles one function immediately after `Zr.program`
+      # Prepares and assembles one function immediately after `Program.build`
       # lowers it. `entry` gives the spelling of its symbols.
       def assemble(function, entry, target: Target.default)
         IR::Passes.prepare(function)
@@ -207,7 +207,7 @@ module Zr
       # the target). Two zr processes do not build the same object.
       def runtime_object(runtime, jobs: Build.jobs)
         Paths.once(runtime.object_path, waiting: -> { waiting("the zr runtime", runtime.target) }) do
-          Zr.announce("the zr runtime", runtime.target)
+          Runtime.announce("the zr runtime", runtime.target)
           runtime_built(runtime, runtime.object_path, jobs)
         end
       end

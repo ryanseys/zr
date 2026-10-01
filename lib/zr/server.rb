@@ -270,8 +270,8 @@ module Zr
       return if message && @digest && settings(message[:env]) == settings(ENV) && message[:argv].none? { |word| word.start_with?("--path-root") } &&
                 RuntimeSources.for(Target.default).runtime_digest == @digest
 
-      Zr.instance_variable_set(:@runtimes, nil)
-      Zr.instance_variable_set(:@eval_supports, nil)
+      Runtime.loaded.clear
+      EvalSupport.loaded.clear
     end
 
     # The variables that steer a build.
@@ -289,7 +289,7 @@ module Zr
       return if digest.nil? || digest == @digest
 
       fresh!
-      runtime = Zr.runtime(target)
+      runtime = Runtime.for(target)
       return @digest = nil unless File.exist?(runtime.object_path)
 
       runtime.description
@@ -325,7 +325,7 @@ module Zr
       unit = runtime.unit
       %w[array string hash].each do |name|
         path = File.join(Paths::RUNTIME, "core/#{name}.rb")
-        Zr.lower_core_file(path, File.read(path), unit, unit.symbols.ids.dup.freeze, target)
+        Runtime.lower_core_file(path, File.read(path), unit, unit.symbols.ids.dup.freeze, target)
       end
       Paths.tmpdir("zr-serve-") do |work|
         file = File.join(work, "primer.rb")

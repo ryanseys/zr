@@ -92,7 +92,7 @@ class BuiltTest < Minitest::Test
   end
 
   def test_the_guard_stops_a_test_that_uses_the_runtime_without_declaring_it
-    error = assert_raises(RuntimeError) { Zr.runtime(Zr::Target.default).unit }
+    error = assert_raises(RuntimeError) { Zr::Runtime.for(Zr::Target.default).unit }
     assert_includes error.message, "declare `# zr-test: runtime`"
   end
 

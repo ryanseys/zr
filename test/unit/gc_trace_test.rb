@@ -27,7 +27,7 @@ class GcTraceTest < Minitest::Test
       rb = File.join(dir, "trace.rb")
       File.write(rb, PROGRAM)
       bin = File.join(dir, "trace")
-      assert_nil Zr::Native::Build.program(Zr.program(PROGRAM, rb), bin, work: dir)
+      assert_nil Zr::Native::Build.program(Zr::Program.build(PROGRAM, rb), bin, work: dir)
 
       out, err = capture({}, bin)
       assert_equal "", err, "the collector printed with no ZR_GC_TRACE"

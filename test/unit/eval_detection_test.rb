@@ -56,7 +56,7 @@ class EvalDetectionTest < Minitest::Test
   # support would overwrite them. Thus program ids start after the ids
   # of eval support, as symbol ids and site indices do.
   def test_refinement_ids_start_after_eval_support_ids
-    support = Zr.eval_support(Zr::Target.default)
+    support = Zr::EvalSupport.for(Zr::Target.default)
     assert_operator support.activations, :>, 0, "eval support activates refinements of its own"
 
     loader = Zr::Hir::Build::Loader.new(Zr::Hir::Build.stdlib(Zr::Target.default), external: support)

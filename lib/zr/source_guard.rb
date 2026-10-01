@@ -8,16 +8,16 @@ module Zr
   class SourceChanged < StandardError; end
 
   # The check each cache write makes first: that no source of this
-  # process's runtimes (`Zr.runtimes`) changed since its digest.
+  # process's runtimes (`Runtime.loaded`) changed since its digest.
   module SourceGuard
     module_function
 
     # A source file that changed after a runtime's digest was computed
-    # (`Runtime#moved`), or nil. A process that made no runtime has none.
+    # (`Runtime#moved`), or nil. A process that loaded no runtime has none.
     def changed_file
-      return nil unless Zr.respond_to?(:runtimes)
+      return nil unless Zr.const_defined?(:Runtime, false)
 
-      Zr.runtimes.each_value.filter_map(&:moved).first
+      Runtime.loaded.each_value.filter_map(&:moved).first
     end
 
     # Raises SourceChanged if a source moved.

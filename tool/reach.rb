@@ -454,15 +454,15 @@ module Zr
         core_functions = []
         core_data = []
         entries = sources.core_files.map do |path|
-          f, d = Zr.lower_core_file(path, File.read(path), @kernel, fixed, @target)
+          f, d = Runtime.lower_core_file(path, File.read(path), @kernel, fixed, @target)
           core_functions.concat(f)
           core_data.concat(d)
-          Zr.core_entry(path)
+          Runtime.core_entry(path)
         end
         @core_seconds = clock - began
-        core_functions << Zr.prelude(entries, @kernel)
+        core_functions << Runtime.prelude(entries, @kernel)
         began = clock
-        f, d = Zr.lower_gem_prelude(Zr.gem_prelude(@target), @kernel, fixed, @target)
+        f, d = Runtime.lower_gem_prelude(Runtime.gem_prelude(@target), @kernel, fixed, @target)
         @prelude_seconds = clock - began
         @core_ir = core_functions
         @prelude_ir = f
@@ -655,7 +655,7 @@ module Zr
         Reach.record = nil
         fixed = RuntimeSources.for(@target).core_files.sum do |path|
           hir = Hir.build(File.read(path), path, eval_support: false, target: @target)
-          functions, = Lower.new(hir, @kernel, symbols, entry: Zr.core_entry(path), internal: true, target: @target).run
+          functions, = Lower.new(hir, @kernel, symbols, entry: Runtime.core_entry(path), internal: true, target: @target).run
           functions.sum { |f| f.blocks.sum { |b| b.insts.size } }
         end
         pooled = @pieces[1].total_insts

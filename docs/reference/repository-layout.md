@@ -46,7 +46,9 @@ Two kinds of code meet on a program's load path (`Zr::Layout`):
 | `lib/zr/cache/parse.rb` | the host's cache of parse results |
 | `lib/zr/hir.rb`, `lib/zr/hir/` | prism's tree to the HIR: desugaring, requires, refusals |
 | `lib/zr/lower.rb`, `lib/zr/lower/` | `Zr::Lower`: the HIR to the IR, for the zr runtime |
-| `lib/zr/runtime.rb` | `Zr::Runtime`, `Zr::Program` and `Zr::EvalSupport`: the runtime's files and built forms |
+| `lib/zr/runtime.rb` | `Zr::Runtime`: the runtime's files and built forms, `Runtime.for(target)`, and how its core and gem prelude are lowered |
+| `lib/zr/eval_support.rb` | `Zr::EvalSupport`: the compiler a program with eval links in, `EvalSupport.for(target)` |
+| `lib/zr/program.rb` | `Zr::Program`: a program's functions and data, and `Program.build` |
 | `lib/zr/runtime_sources.rb` | the source files of one target's runtime and of the compiler, and their digests |
 | `lib/zr/load_tables.rb` | `Zr::LoadTables`: the tables a binary carries for its files, its computed requires, error_highlight, Coverage and its gems |
 | `lib/zr/symbol_numbering.rb` | `Zr::SymbolNumbering`: the link's numbers for a program's symbols, and their names table |

@@ -15,7 +15,7 @@ require_relative "../support/binaries"
 # whether one of them has changed.
 class SourceChangedTest < Minitest::Test
   def setup
-    @runtime = Zr.runtime
+    @runtime = Zr::Runtime.for
     @runtime.digest
     @file = File.join(Dir.mktmpdir("zr-moved-"), "source.rb")
     File.write(@file, "1\n")

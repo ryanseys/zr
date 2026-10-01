@@ -460,7 +460,7 @@ module Zr
       # same files but never comes here, so it never writes to the cache.
       require_relative "cache/parse" unless HOSTED
       if command == "run" && emit.nil? && Cache::Run.wanted?
-        cache ||= Cache::Run.new(input, target: target, digest: Zr.runtime(target).digest, link: link, gems: gems)
+        cache ||= Cache::Run.new(input, target: target, digest: Runtime.for(target).digest, link: link, gems: gems)
       end
       program = lower(input, command, target, assemble: emit.nil?, gem_set: gems, gate: !opts[:runtime_require])
       status = Paths.tmpdir("zr-build-") do |work|
@@ -626,7 +626,7 @@ module Zr
     def lower(input, verb, target, assemble: false, gem_set: nil, gate: false)
       source = File.read(input)
       return Machine.compile(source, input) if verb == "machine"
-      return Zr.program(source, input, target: target, gem_set: gem_set, gate: gate) unless assemble
+      return Program.build(source, input, target: target, gem_set: gem_set, gate: gate) unless assemble
 
       Native::Build.lower(source, input, target: target, sources: verb == "run", gem_set: gem_set, gate: gate)
     rescue Hir::Missing => e
@@ -650,7 +650,7 @@ module Zr
         exit REFUSED
       end
       warn "zr: warning: #{input} does not parse. The output prints ruby's syntax error and exits with status 1" if verb == "build"
-      Zr.program("$stderr.write(#{report.inspect})\nexit 1\n", input, target: target)
+      Program.build("$stderr.write(#{report.inspect})\nexit 1\n", input, target: target)
     end
 
     def object(program, out, target)

@@ -97,16 +97,16 @@ module Zr
       end
 
       def mark(target, evals: true)
-        File.join(Zr::Paths.cache, "built-#{Zr.runtime(target).digest}#{"-plain" unless evals}.ok")
+        File.join(Zr::Paths.cache, "built-#{Runtime.for(target).digest}#{"-plain" unless evals}.ok")
       end
 
       # Reads the caches of `target` into this process one time.
       def load(target)
-        runtime = Zr.runtime(target)
+        runtime = Runtime.for(target)
         runtime.description
         return Native::Build.prelink([Native::Build.runtime_object(runtime)]) if target.link
 
-        Native::Build.wasm_prelude(runtime, Native::Build.pending_for(Zr.program(PLAIN, "built.rb", target: target)))
+        Native::Build.wasm_prelude(runtime, Native::Build.pending_for(Program.build(PLAIN, "built.rb", target: target)))
       end
 
       # Builds the caches of each target in `targets` that is not current,
@@ -170,7 +170,7 @@ module Zr
       def build_module(target)
         Dir.mktmpdir("zr-build-") do |work|
           [PLAIN, EVALS].each_with_index do |source, i|
-            program = Zr.program(source, "built.rb", target: target)
+            program = Program.build(source, "built.rb", target: target)
             why = Native::Build.wasm_program(program, File.join(work, "built#{i}.wasm"))
             raise "the build did not finish: #{why}" if why
           end

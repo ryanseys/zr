@@ -63,7 +63,7 @@ class CodeCacheTest < Minitest::Test
     skip "a native link on this host only" unless Zr::Target.default.link
 
     # Its own runtime: `Native::Build.lower` releases the IR of the
-    # process's `Zr.runtime`, so an earlier build would leave none here.
+    # process's `Zr::Runtime.for`, so an earlier build would leave none here.
     runtime = Zr::Runtime.new(Zr::Target.default)
     functions = Marshal.dump(runtime.functions.first(600))
     Dir.mktmpdir("zr-code-cache-") do |dir|

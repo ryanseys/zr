@@ -66,7 +66,7 @@ class WasmLibcShimsTest < Minitest::Test
     found.uniq.sort
   end
 
-  # A runtime that only this test uses. `Zr.runtime` belongs to the
+  # A runtime that only this test uses. `Zr::Runtime.for` belongs to the
   # process, and `Native::Build.lower` releases its IR as soon as it gets
   # the runtime object. Thus an earlier build in the process would leave
   # this test no call graph to walk.
