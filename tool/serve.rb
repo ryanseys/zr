@@ -2,7 +2,7 @@
 
 require_relative "lib/zr/dev"
 require_relative "../lib/zr/server"
-require_relative "../lib/zr/tune"
+require_relative "../lib/zr/gc_tuning"
 
 module Zr
   module Dev
@@ -29,7 +29,7 @@ module Zr
       def run(_argv)
         # The builds are forks of this process, so it needs the collector
         # limits itself: it starts again with them, then turns YJIT on.
-        Zr::Tune.now($PROGRAM_NAME, ARGV)
+        Zr::GcTuning.now($PROGRAM_NAME, ARGV)
         Zr::Server.serve(path: @socket || Zr::Server.socket, idle: (@idle || 30) * 60)
         true
       end

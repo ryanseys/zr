@@ -43,4 +43,8 @@ group :development do
   # The Minitest cops keep the assertions in one form, with the better
   # failure message.
   gem "rubocop-minitest", "~> 0.40", require: false
+  # The thread-safety cops find state that a class or a module shares
+  # between threads: the server, the test workers and the host machine
+  # run threads.
+  gem "rubocop-thread_safety", "~> 0.8", require: false
 end

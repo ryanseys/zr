@@ -25,14 +25,35 @@ module Zr
   # lowering only turns YJIT on (`restart: false`): its HIR (bundler:
   # 1.7 s) would be built twice. A test tier and the tools tune fully at
   # once (`now`). `ZR_TUNE=0` keeps ruby's limits and leaves YJIT off.
-  module Tune
+  #
+  # One process has one tuning (`current`). The class methods are the
+  # entry points of the callers.
+  class GcTuning
     GC_ENV = { "RUBY_GC_MALLOC_LIMIT" => "64000000", "RUBY_GC_OLDMALLOC_LIMIT" => "128000000" }.freeze
 
     # Set with the limits when zr starts itself again, so that the new
     # process knows that the limits are zr's, not the user's.
     ADDED = "ZR_GC_ADDED"
 
-    module_function
+    # The tuning of this process.
+    def self.current = @current ||= new
+
+    def self.now(script = nil, argv = ARGV, env: {}) = current.now(script, argv, env: env)
+
+    def self.later(script, argv = ARGV, env: {}) = current.later(script, argv, env: env)
+
+    def self.heavy!(restart: true) = current.heavy!(restart: restart)
+
+    def self.program_env = current.program_env
+
+    def initialize
+      # Whether the limits are zr's own: this process started again with them.
+      @added = false
+      # Whether the first `heavy!` turns YJIT on.
+      @pending = false
+      # The script, arguments and environment for a start again, or nil.
+      @restart = nil
+    end
 
     # Tunes this process now. With a `script`, a process without the limits
     # starts `script` again with them and with `env`; without one (a rake
@@ -63,7 +84,10 @@ module Zr
       yjit if @pending
     end
 
-    def limited? = ENV.key?("RUBY_GC_MALLOC_LIMIT") || Host.compiled?
+    # The environment changes for a program that zr runs: without the
+    # limits that zr set for itself, so the program sees the environment
+    # that the user gave zr.
+    def program_env = @added ? GC_ENV.transform_values { nil } : {}
 
     def limits(script, argv, env)
       @added ||= !ENV.delete(ADDED).nil?
@@ -74,14 +98,13 @@ module Zr
       exec(env.merge(ADDED => "1"), RbConfig.ruby, script, *argv) if script
     end
 
-    # The environment changes for a program that zr runs: without the
-    # limits that zr set for itself, so the program sees the environment
-    # that the user gave zr.
-    def program_env = @added ? GC_ENV.transform_values { nil } : {}
-
     def yjit
       @pending = false
       RubyVM::YJIT.enable if Config.current.tune? && defined?(RubyVM::YJIT.enable)
     end
+
+    private
+
+    def limited? = ENV.key?("RUBY_GC_MALLOC_LIMIT") || Host.compiled?
   end
 end

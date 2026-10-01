@@ -5,7 +5,8 @@ require "test_helper"
 # The compiler's layers are the first directory under `lib/zr` (hir, ir,
 # lower, machine, backend, obj, native, eval, library, prism_shim,
 # cache),
-# or "top" for a file directly under `lib/zr`. `top` holds both the leaf
+# or "top" for a file directly under `lib/zr` or under `lib/zr/cli`
+# (the command line). `top` holds both the leaf
 # utilities (`Zr::Refused`, `Zr::Bytes`, `Zr::Target`,
 # `Zr::Paths`, ...) that every layer may use, and each subsystem's own
 # aggregator file (`hir.rb`, `ir.rb`, `lower.rb`, `eval.rb`, ...), which
@@ -75,9 +76,14 @@ class LayeringTest < Minitest::Test
 
   def requires(file) = file.readlines.filter_map { |line| line[/require_relative\s+["']([^"']+)["']/, 1] }
 
+  # The files of `cli/` and `server/` are the command line
+  # (lib/zr/cli.rb) and the build server (lib/zr/server.rb) in parts, so
+  # they have the layer of those files: "top".
+  TOP_PARTS = %w[cli server].freeze
+
   def layer_of(path)
     parts = path.relative_path_from(LIB).to_s.split("/")
-    parts.one? ? "top" : parts.first
+    parts.one? || TOP_PARTS.include?(parts.first) ? "top" : parts.first
   end
 
   RUNTIME = (LIB + "runtime").freeze

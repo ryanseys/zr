@@ -17,12 +17,29 @@ module Zr
 
     def raw = runtime.raw
 
+    def target = runtime.target
+
     def to_ary = [runtime.functions + functions, runtime.data + data, raw]
+
+    # The outputs of a build (`Native::Build`, which the caller loads),
+    # also the messages of a `Native::UnitProgram`. Each writes the output to
+    # `out` and returns nil, or the message of the step that refused.
+    #
+    # The runtime's object comes from the cache, so the object file at
+    # `out` is the only file that zr writes.
+    def write_object(out)
+      Native::Build.runtime_object(runtime)
+      Native::Build.object(functions, data, out, export: true, target: target)
+    end
+
+    def write_wasm(out) = Native::Build.wasm_program(self, out)
+
+    def write_binary(out, work:, link:) = Native::Build.program(self, out, work: work, link: link)
   end
 
   class Program
     # The bytes of source above which a program's build tunes
-    # (`Tune.heavy!`). hello and a probe are far below it; the stdlib rung
+    # (`GcTuning.heavy!`). hello and a probe are far below it; the stdlib rung
     # of the compile benchmark is above.
     HEAVY_SOURCE = 256 * 1024
 
@@ -43,9 +60,9 @@ module Zr
       support = EvalSupport.for(target)
       hir = Timing.phase("hir built") { Hir.build(source, file, prebuilt: support, target: target, gem_set: gem_set, gate: gate) }
       gem_conflicts!(hir, support, gem_set, target) if hir.evals && gem_set && !gem_set.empty?
-      # A large program is heavy work too (`Tune`): bundler's 1.2 MB of
+      # A large program is heavy work too (`GcTuning`): bundler's 1.2 MB of
       # source takes seconds to lower.
-      Tune.heavy!(restart: false) if source.bytesize + hir.units.sum { |u| u.source.to_s.bytesize } > HEAVY_SOURCE
+      GcTuning.heavy!(restart: false) if source.bytesize + hir.units.sum { |u| u.source.to_s.bytesize } > HEAVY_SOURCE
       # Before the lowering, which lets go of each unit's source.
       sources = sources ? built_from(source, file, hir) : {}
       gems = Manifest.of_program(hir, support, gem_set)

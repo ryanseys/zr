@@ -3,6 +3,7 @@ inherit_from: .rubocop_todo.yml
 plugins:
   - rubocop-minitest
   - rubocop-performance
+  - rubocop-thread_safety
 
 # The Lint cops find bugs (unused values, shadowed names, unreachable
 # code). Each other cop below is on for a reason that it gives.
@@ -149,6 +150,16 @@ Style/RescueModifier: { Enabled: true }
 Naming/PredicateMethod:
   Enabled: true
   AllowedMethods: [call, run]
+
+# State on a class or a module is shared by every thread: the server,
+# the test workers and the host machine run threads. An object owns its
+# state; a process-wide memo goes in Zr::Session. Dir.chdir changes the
+# directory of every thread. NewThread stays off: zr starts threads on
+# purpose (the host's timer, the test pools).
+ThreadSafety:
+  Enabled: true
+ThreadSafety/NewThread: { Enabled: false }
+ThreadSafety/RackMiddlewareInstanceVariable: { Enabled: false } # no Rack
 
 # `f(x, true)` does not say what `true` means; `f(x, wide: true)` does.
 Style/OptionalBooleanParameter: { Enabled: true }

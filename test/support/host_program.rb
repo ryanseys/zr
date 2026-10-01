@@ -65,7 +65,7 @@ module Zr
             rescue SyntaxError
               # As a binary does (`ProgramBuild.lower`): ruby's report, and
               # exit 1.
-              report = CLI.syntax_report(test.rel) or raise
+              report = CLI::Refusals.syntax_report(test.rel) or raise
               w.run(test.rel, test.args, source: "$stderr.write(#{report.inspect})\nexit 1\n")
             end
           rescue Machine::Host::Walk::Unsupported => e

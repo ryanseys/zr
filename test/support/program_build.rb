@@ -101,8 +101,9 @@ module Zr
       rescue SyntaxError => e
         # For a program that does not parse, ruby prints a report and
         # exits 1. The binary does the same, with the ruby report.
-        # `Zr::CLI.lower` does the same, and the two must stay the same.
-        report = CLI.syntax_report(rel)
+        # `CLI::Commands::Compile#lower` does the same, and the two must
+        # stay the same.
+        report = CLI::Refusals.syntax_report(rel)
         return [:refused, "a required file does not parse: #{e.message.lines.first.chomp}"] unless report
 
         compile("$stderr.write(#{report.inspect})\nexit 1\n", rel, target)

@@ -47,7 +47,7 @@ module Zr
       @test_binaries_gb = number("ZR_TEST_BINARIES_GB", 8.0, "8", kind: :Float, min: 0)
       # `ZR_HOST_RUBY`: the ruby that zr starts when it needs ruby itself:
       # to resolve gems (lib/zr/gem_set.rb), and for ruby's report of a
-      # syntax error (`CLI.syntax_report`).
+      # syntax error (`CLI::Refusals.syntax_report`).
       @host_ruby = ENV["ZR_HOST_RUBY"].to_s.empty? ? running_ruby : ENV["ZR_HOST_RUBY"]
       # `ZR_LINK_ARGS`: words for the system linker, as `--link` gives
       # them, split as a shell splits them.

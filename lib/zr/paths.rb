@@ -181,7 +181,7 @@ module Zr
     def self.open_tmpdirs = @open || 0
 
     # Whether a `tmpdir` block runs now. A process that execs then would
-    # leave the directory behind (`Tune.heavy!`).
+    # leave the directory behind (`GcTuning.heavy!`).
     def self.tmpdir_open? = open_tmpdirs.positive?
 
     # Removes `path` and, for a directory, all of its contents. It removes

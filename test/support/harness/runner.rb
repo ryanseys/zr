@@ -60,7 +60,7 @@ module Zr
          "--target", @target.triple]
       end
 
-      def build_env = Tune::GC_ENV
+      def build_env = GcTuning::GC_ENV
 
       # The command that runs `out` with `args` under `env`, and the
       # environment for the process itself.

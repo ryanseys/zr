@@ -13,30 +13,30 @@ class CliTest < Minitest::Test
   end
 
   def test_the_pinned_ruby_builds
-    assert_nil Zr::CLI.host_refusal(Zr::RUBY)
-    assert_nil Zr::CLI.host_note(Zr::RUBY)
+    assert_nil Zr::CLI::Refusals.host_refusal(Zr::RUBY)
+    assert_nil Zr::CLI::Refusals.host_note(Zr::RUBY)
   end
 
   def test_a_later_patch_release_builds_with_a_note
-    assert_nil Zr::CLI.host_refusal("4.0.9")
-    assert_equal "zr #{Zr::VERSION} is tested with ruby #{Zr::RUBY}; this is ruby 4.0.9", Zr::CLI.host_note("4.0.9")
-    assert_output(nil, "zr: warning: #{Zr::CLI.host_note("4.0.9")}\n") { Zr::CLI.pinned!("4.0.9") }
+    assert_nil Zr::CLI::Refusals.host_refusal("4.0.9")
+    assert_equal "zr #{Zr::VERSION} is tested with ruby #{Zr::RUBY}; this is ruby 4.0.9", Zr::CLI::Refusals.host_note("4.0.9")
+    assert_output(nil, "zr: warning: #{Zr::CLI::Refusals.host_note("4.0.9")}\n") { Zr::CLI::Refusals.pinned!("4.0.9") }
   end
 
   def test_other_ruby_is_refused_with_message
     assert_equal "zr #{Zr::VERSION} runs on ruby #{Zr::RUBY} or a later 4.0 release. " \
                  "Install ruby #{Zr::RUBY}: #{Zr::DOCS_URL}/how-to/install.md",
-                 Zr::CLI.host_refusal("4.0.6")
-    refute_nil Zr::CLI.host_refusal("4.1.0")
-    refute_nil Zr::CLI.host_refusal("3.4.7")
+                 Zr::CLI::Refusals.host_refusal("4.0.6")
+    refute_nil Zr::CLI::Refusals.host_refusal("4.1.0")
+    refute_nil Zr::CLI::Refusals.host_refusal("3.4.7")
   end
 
   def test_a_build_on_another_ruby_stops_with_the_refusal_status
     error = assert_raises(SystemExit) do
-      assert_output(nil, "zr: #{Zr::CLI.host_refusal("4.1.0")}\n") { Zr::CLI.pinned!("4.1.0") }
+      assert_output(nil, "zr: #{Zr::CLI::Refusals.host_refusal("4.1.0")}\n") { Zr::CLI::Refusals.pinned!("4.1.0") }
     end
     assert_equal Zr::CLI::REFUSED, error.status
-    assert_nil Zr::CLI.pinned!(Zr::RUBY)
+    assert_nil Zr::CLI::Refusals.pinned!(Zr::RUBY)
   end
 end
 
@@ -48,7 +48,7 @@ class CliRefusalTest < Minitest::Test
       File.write(file, "p 1\nBEGIN { p 2 }\n")
       error = Zr::Refused.unsupported("`BEGIN { }` here", file: file, line: 2, column: 1)
 
-      report = Zr::CLI.refusal_report(error)
+      report = Zr::CLI::Refusals.refusal_report(error)
 
       assert_equal ["zr: #{file}:2:1: zr does not support `BEGIN { }` here yet", "    BEGIN { p 2 }", "    ^",
                     "zr: #{Zr::Refused::DOCS} lists what zr supports"], report.lines(chomp: true)
@@ -56,7 +56,7 @@ class CliRefusalTest < Minitest::Test
   end
 
   def test_a_message_only_refusal_prints_only_the_message
-    assert_equal "zr: a.rb:3: Primitive.x takes keywords", Zr::CLI.refusal_report(Zr::Refused.new("a.rb:3: Primitive.x takes keywords"))
+    assert_equal "zr: a.rb:3: Primitive.x takes keywords", Zr::CLI::Refusals.refusal_report(Zr::Refused.new("a.rb:3: Primitive.x takes keywords"))
   end
 end
 
@@ -66,7 +66,7 @@ class CliExitTest < Minitest::Test
   def status_of(code: 0, signal: nil)
     pid = fork do
       if signal
-        Zr::CLI.default_action!(Signal.list.fetch(signal))
+        Zr::CLI::Runner.default_action!(Signal.list.fetch(signal))
         Process.kill(signal, Process.pid)
         sleep 1
       end
@@ -77,14 +77,14 @@ class CliExitTest < Minitest::Test
   end
 
   def test_run_exits_with_the_program_status
-    error = assert_raises(SystemExit) { Zr::CLI.exit_as(status_of(code: 3)) }
+    error = assert_raises(SystemExit) { Zr::CLI::Runner.exit_as(status_of(code: 3)) }
     assert_equal 3, error.status
   end
 
   def test_a_signal_that_stops_the_program_stops_zr_too
     %w[TERM SEGV].each do |signal|
       status = status_of(signal: signal)
-      pid = fork { Zr::CLI.exit_as(status) }
+      pid = fork { Zr::CLI::Runner.exit_as(status) }
       Process.wait(pid)
 
       assert_predicate $?, :signaled?, signal
@@ -96,16 +96,17 @@ end
 # How `zr` reads its command line, and what it says when it cannot.
 class CliParseTest < Minitest::Test
   CLI = Zr::CLI
+  Options = Zr::CLI::Options
 
   def test_run_gives_every_word_after_the_file_to_the_program
-    opts = CLI.parse("run", %w[app.rb -n 5 --x])
+    opts = Options.parse("run", %w[app.rb -n 5 --x])
 
     assert_equal "app.rb", opts[:input]
     assert_equal %w[-n 5 --x], opts[:args]
   end
 
   def test_run_reads_options_before_the_file
-    opts = CLI.parse("run", %w[--emit wasm --target=wasm32-wasi app.rb a])
+    opts = Options.parse("run", %w[--emit wasm --target=wasm32-wasi app.rb a])
 
     assert_equal "wasm", opts[:emit]
     assert_equal "wasm32-wasi", opts[:triple]
@@ -113,33 +114,33 @@ class CliParseTest < Minitest::Test
   end
 
   def test_a_double_dash_before_the_file_ends_the_options
-    assert_equal ["-app.rb", ["a"]], CLI.parse("run", %w[-- -app.rb a]).values_at(:input, :args)
+    assert_equal ["-app.rb", ["a"]], Options.parse("run", %w[-- -app.rb a]).values_at(:input, :args)
   end
 
   def test_build_reads_options_after_the_file
-    opts = CLI.parse("build", %w[app.rb -o app --emit obj])
+    opts = Options.parse("build", %w[app.rb -o app --emit obj])
 
     assert_equal ["app.rb", "app", "obj"], opts.values_at(:input, :output, :emit)
   end
 
   def test_link_collects_each_argument_in_order
-    opts = CLI.parse("build", %w[app.rb -o app --link a.o --link=-Wl,-x --link -framework --link AppKit])
+    opts = Options.parse("build", %w[app.rb -o app --link a.o --link=-Wl,-x --link -framework --link AppKit])
 
     assert_equal ["a.o", "-Wl,-x", "-framework", "AppKit"], opts[:link]
   end
 
   def test_gem_collects_each_name_and_value_in_order
-    opts = CLI.parse("build", %w[app.rb -o app --gem csv=3.3.6 --gem=rainbow=vendor/rainbow])
+    opts = Options.parse("build", %w[app.rb -o app --gem csv=3.3.6 --gem=rainbow=vendor/rainbow])
 
     assert_equal [%w[csv 3.3.6], %w[rainbow vendor/rainbow]], opts[:gems]
   end
 
   def test_gemfile_names_the_lock_to_read
-    assert_equal "app/Gemfile", CLI.parse("run", %w[--gemfile app/Gemfile app.rb])[:gemfile]
+    assert_equal "app/Gemfile", Options.parse("run", %w[--gemfile app/Gemfile app.rb])[:gemfile]
   end
 
   def test_emit_binary_is_the_default_kind
-    assert_nil CLI.parse("build", %w[app.rb -o app --emit binary])[:emit]
+    assert_nil Options.parse("build", %w[app.rb -o app --emit binary])[:emit]
   end
 
   def test_usage_errors_print_one_line_and_exit_2
@@ -157,7 +158,7 @@ class CliParseTest < Minitest::Test
       %w[build app.rb -o no/such/dir/app] => "zr build: -o no/such/dir/app: the directory no/such/dir does not exist",
       %w[build app.rb -o app --gem csv] => "zr build: --gem needs <name>=<version> or <name>=<dir>, for example --gem csv=3.3.6"
     }.each do |(command, *args), line|
-      _, err = assert_exit(2) { CLI.parse(command, args) }
+      _, err = assert_exit(2) { Options.parse(command, args) }
       assert_equal "#{line}\nRun 'zr help #{command}' for usage.\n", err, args.inspect
     end
   end
@@ -189,7 +190,7 @@ class CliParseTest < Minitest::Test
   end
 
   def test_an_unknown_target_lists_the_targets
-    _, err = assert_exit(2) { CLI.target_for("sparc", nil, "build") }
+    _, err = assert_exit(2) { Options.target_for("sparc", nil, "build") }
     assert_equal "zr build: unknown target 'sparc'. The targets are aarch64-apple-darwin, aarch64-linux-musl, " \
                  "wasm32-wasi\nRun 'zr help build' for usage.\n", err
   end
@@ -209,7 +210,7 @@ class CliParseTest < Minitest::Test
 
     assert_match(/\AUsage: zr build/, out)
     assert_match(/-o, --output/, out)
-    assert_equal CLI::HELP.fetch("run"), capture_io { CLI.start(%w[help run]) }.first
+    assert_equal CLI::Help::PAGES.fetch("run"), capture_io { CLI.start(%w[help run]) }.first
   end
 
   def test_a_missing_file_prints_one_line_and_exits_1
@@ -232,13 +233,13 @@ class CliParseTest < Minitest::Test
   def test_a_host_that_cannot_run_the_default_target_says_what_to_do
     Checks.with_host("x86_64-linux-gnu") do
       target = Zr::Target.default
-      _, err = assert_exit(Zr::CLI::REFUSED) { CLI.refuse("app.rb", "run", nil, target, chosen: false) }
+      _, err = assert_exit(Zr::CLI::REFUSED) { CLI::Refusals.refuse("app.rb", "run", nil, target, chosen: false) }
       assert_equal "zr: app.rb: this computer cannot run aarch64-apple-darwin binaries. zr builds one for macOS on " \
                    "Apple Silicon. To run the program here, use 'zr run --emit wasm app.rb'.\n", err
 
-      _, err = capture_io { CLI.refuse("app.rb", "build", nil, target, chosen: false) }
+      _, err = capture_io { CLI::Refusals.refuse("app.rb", "build", nil, target, chosen: false) }
       assert_match(/\Azr: this computer cannot run aarch64-apple-darwin binaries\. .* --emit wasm/, err)
-      assert_equal ["", ""], capture_io { CLI.refuse("app.rb", "build", nil, target, chosen: true) }
+      assert_equal ["", ""], capture_io { CLI::Refusals.refuse("app.rb", "build", nil, target, chosen: true) }
     end
   end
 

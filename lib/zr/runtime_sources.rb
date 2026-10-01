@@ -48,7 +48,9 @@ module Zr
     # These files do change the link, so `Digests.link` is part of the name
     # of the prelinked image.
     LINK_ONLY = %w[
-      cli.rb
+      cli.rb cli/command.rb cli/errors.rb cli/help.rb cli/options.rb cli/refusals.rb cli/runner.rb
+      cli/commands/cache.rb cli/commands/compile.rb cli/commands/diff.rb cli/commands/doctor.rb cli/commands/gems.rb cli/commands/help.rb
+      cli/commands/inspect.rb cli/commands/targets.rb cli/commands/version.rb
       native/link.rb native/link/darwin.rb native/link/static.rb native/toolchain.rb
       obj/jit.rb obj/jit/fiddle.rb
       obj/macho/block.rb obj/macho/executable.rb obj/macho/libsystem.rb obj/macho/prelink.rb obj/macho/skeleton.rb
@@ -62,7 +64,7 @@ module Zr
     # output can depend on it. `compiler_digest_test.rb` checks that a build
     # and a link load none of them.
     DRIVER_ONLY = %w[
-      cache/janitor.rb cache/run.rb doctor.rb machine/host.rb machine/host/boot.rb machine/host/walk.rb server.rb
+      cache/janitor.rb cache/run.rb doctor.rb machine/host.rb machine/host/boot.rb machine/host/walk.rb server.rb server/client.rb
     ].map { |name| File.join(__dir__, name) }.freeze
 
     # The compiler files that belong to one target: an instruction set's

@@ -1,3 +1,62 @@
+# Files that kept state on a class or a module, or called Dir.chdir,
+# when the ThreadSafety cops came in. Move the state into an object or
+# Zr::Session, then delete the file from this list.
+ThreadSafety/ClassInstanceVariable:
+  Exclude:
+    - "lib/zr/cache/parse.rb"
+    - "lib/zr/cli.rb"
+    - "lib/zr/eval.rb"
+    - "lib/zr/eval/walk.rb"
+    - "lib/zr/gc_tuning.rb"
+    - "lib/zr/hir/build/requires.rb"
+    - "lib/zr/machine/host.rb"
+    - "lib/zr/native/code_cache.rb"
+    - "lib/zr/native/resident.rb"
+    - "lib/zr/native/toolchain.rb"
+    - "lib/zr/obj/macho/skeleton.rb"
+    - "lib/zr/paths.rb"
+    - "lib/zr/runtime.rb"
+    - "lib/zr/session.rb"
+    - "lib/zr/target.rb"
+    - "test/support/binaries.rb"
+    - "test/support/fork_pool.rb"
+    - "test/support/harness/child.rb"
+    - "test/support/harness/reference.rb"
+    - "test/support/host_program.rb"
+    - "test/support/needs.rb"
+    - "test/support/runtime_programs.rb"
+    - "test/unit/aarch64_test.rb"
+    - "test/unit/effects_test.rb"
+    - "test/unit/host_boot_test.rb"
+    - "test/unit/onig_match_test.rb"
+    - "test/unit/wasi_libm_test.rb"
+    - "test/unit/zlib_check_test.rb"
+    - "tool/gen.rb"
+    - "tool/lib/zr/dev/command.rb"
+ThreadSafety/MutableClassInstanceVariable:
+  Exclude:
+    - "lib/zr/target.rb"
+    - "test/support/harness/child.rb"
+ThreadSafety/ClassAndModuleAttributes:
+  Exclude:
+    - "tool/reach.rb"
+ThreadSafety/DirChdir:
+  Exclude:
+    - "bin/setup"
+    - "lib/zr/gem_set/resolve.rb"
+    - "lib/zr/server.rb"
+    - "test/support/built.rb"
+    - "test/support/host_program.rb"
+    - "test/support/program_build.rb"
+    - "test/unit/binary_cache_test.rb"
+    - "test/unit/gem_compat_test.rb"
+    - "test/unit/gemspec_test.rb"
+    - "test/unit/paths_test.rb"
+    - "test/unit/unit_cache_test.rb"
+    - "tool/lib/zr/dev/gems/corpus.rb"
+    - "tool/probe.rb"
+    - "tool/record.rb"
+
 # Files that had a method with more than 5 positional parameters when
 # Metrics/ParameterLists came in. Pass a record or keywords, then delete
 # the file from this list.

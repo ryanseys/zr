@@ -114,7 +114,7 @@ module Zr
 
     def lowered
       @lowered ||= Timing.phase("eval support lowered") do
-        Tune.heavy!
+        GcTuning.heavy!
         Runtime.announce("eval support (the compiler in a program that calls eval)", target)
         loader = Hir::Build.eval_support(target)
         program = Hir::Program.new(Library::Roots.eval_file(target), [], Hir::Seq.new([], 0), loader.units, [], true, loader.entries)

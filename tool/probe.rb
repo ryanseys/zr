@@ -98,8 +98,8 @@ module Zr
       end
 
       # Compiles `file` in a fork and runs the binary. The fork compiles as
-      # `zr run` does (`CLI.lower`), so a refusal or a syntax error gives
-      # the report and the status that `zr run` gives.
+      # `zr run` does (`CLI::Commands::Compile#lower`), so a refusal or a
+      # syntax error gives the report and the status that `zr run` gives.
       def zr(file)
         work = Dir.mktmpdir("zr-probe-zr-")
         dir = stage(file, work)
@@ -108,7 +108,7 @@ module Zr
         pid = fork do
           $stderr.reopen(err, "w")
           Dir.chdir(dir)
-          program = CLI.lower(File.basename(file), "run", Target.default, assemble: true)
+          program = CLI.command("run").lower(File.basename(file), Target.default, assemble: true)
           why = Native::Build.program(program, bin, work: work)
           abort "zr: #{why}" if why
           exit!(0)

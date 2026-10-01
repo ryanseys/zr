@@ -19,36 +19,36 @@ class ServerTest < Minitest::Test
 
   def test_a_message_goes_through_a_pipe
     reader, writer = IO.pipe
-    Server.put(writer, { argv: %w[run a.rb], env: { "A" => "1" } })
-    assert_equal({ argv: %w[run a.rb], env: { "A" => "1" } }, Server.take(reader))
+    Server::Client.put(writer, { argv: %w[run a.rb], env: { "A" => "1" } })
+    assert_equal({ argv: %w[run a.rb], env: { "A" => "1" } }, Server::Client.take(reader))
   end
 
   def test_the_server_builds_only_what_the_client_would
-    Server.instance_variable_set(:@stamps, Server.stamps)
-    assert_nil Server.refusal(request)
-    assert_equal "another protocol", Server.refusal(request.merge(version: 0))
-    assert_equal "another ruby", Server.refusal(request.merge(ruby_version: "3.0.0"))
-    assert_equal "another RUBYOPT", Server.refusal(request(env: ENV.to_h.merge("RUBYOPT" => "-rsomething")))
-    Server.instance_variable_set(:@stamps, {})
-    assert_equal "zr changed", Server.refusal(request)
-  ensure
-    Server.instance_variable_set(:@stamps, nil)
+    server = Server.new(path: nil, log: nil)
+    server.instance_variable_set(:@stamps, server.stamps)
+    assert_nil server.refusal(request)
+    assert_equal "another protocol", server.refusal(request.merge(version: 0))
+    assert_equal "another ruby", server.refusal(request.merge(ruby_version: "3.0.0"))
+    assert_equal "another RUBYOPT", server.refusal(request(env: ENV.to_h.merge("RUBYOPT" => "-rsomething")))
+    server.instance_variable_set(:@stamps, {})
+    assert_equal "zr changed", server.refusal(request)
   end
 
   def test_only_a_run_or_a_build_goes_to_the_server
+    client = Server::Client.new
     Dir.mktmpdir("zr-sock-") do |dir|
       path = File.join(dir, "s.sock")
       UNIXServer.open(path) do
         Zr::Config.with(ZR_SERVER: path) do
-          assert_equal path, Server.client_socket(%w[run a.rb])
-          assert_equal path, Server.client_socket(%w[build a.rb -o a])
-          assert_nil Server.client_socket(%w[run --emit wasm a.rb]), "wasmtime runs a module; the client does not"
-          assert_nil Server.client_socket(%w[version])
+          assert_equal path, client.client_socket(%w[run a.rb])
+          assert_equal path, client.client_socket(%w[build a.rb -o a])
+          assert_nil client.client_socket(%w[run --emit wasm a.rb]), "wasmtime runs a module; the client does not"
+          assert_nil client.client_socket(%w[version])
         end
-        Zr::Config.with(ZR_SERVER: "0") { assert_nil Server.client_socket(%w[run a.rb]) }
+        Zr::Config.with(ZR_SERVER: "0") { assert_nil client.client_socket(%w[run a.rb]) }
       end
       File.delete(path)
-      Zr::Config.with(ZR_SERVER: path) { assert_nil Server.client_socket(%w[run a.rb]), "no socket, no server" }
+      Zr::Config.with(ZR_SERVER: path) { assert_nil client.client_socket(%w[run a.rb]), "no socket, no server" }
     end
   end
 

@@ -107,8 +107,12 @@ module Zr
       # reads options, so a change to it reaches the tests that run it.
       def builds?(path)
         RuntimeSources.for(Target.default).compiler_files.include?(path) ||
-          (RuntimeSources::LINK_ONLY - [File.join(ROOT, "lib/zr/cli.rb")]).include?(path)
+          (RuntimeSources::LINK_ONLY.include?(path) && !command_line?(path))
       end
+
+      # Whether `path` is a file of the command line: lib/zr/cli.rb, or a
+      # file under lib/zr/cli/.
+      def command_line?(path) = path == File.join(ROOT, "lib/zr/cli.rb") || path.start_with?(File.join(ROOT, "lib/zr/cli/"))
 
       # The files that each file loads, read from its literal `require`
       # and `require_relative` calls, wherever they are (a require in a

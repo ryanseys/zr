@@ -7,7 +7,8 @@ module Zr
   # marked stage does not support, as opposed to a bug in that stage. A
   # refusal keeps the superclass its stage already raises (`StandardError`,
   # `Backend::Refused`, `NotImplementedError`, ...), so exit codes
-  # (`CLI.lower`), the program tests' split (`ProgramBuild::REFUSALS`) and the cc
+  # (`CLI::Commands::Compile#lower`), the program tests' split
+  # (`ProgramBuild::REFUSALS`) and the cc
   # fallbacks (`Native::Build`) keep matching on that superclass. `include
   # Zr::Refusal` only lets code ask a class or instance whether it means
   # this, without naming every stage's own `Refused`.

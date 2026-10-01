@@ -12,7 +12,7 @@ require_relative "cache/unit"
 require_relative "timing"
 require_relative "load_tables"
 require_relative "symbol_numbering"
-require_relative "tune"
+require_relative "gc_tuning"
 require_relative "source_guard"
 require_relative "cache/store"
 require_relative "runtime_sources"
@@ -47,7 +47,7 @@ module Zr
       raise "the runtime's IR was released" if @released
 
       @unit ||= Timing.phase("kernel lowered") do
-        Tune.heavy!
+        GcTuning.heavy!
         Machine::Lower.new(RuntimeSources.for(target).kernel_files.map { |path| [sources.fetch(path), path] }, kernel_symbols).tap(&:run)
       end
     end
@@ -204,7 +204,7 @@ module Zr
     end
 
     def write_cached
-      Tune.heavy!
+      GcTuning.heavy!
       Runtime.announce("the zr runtime", target)
       lowered
       defined = functions.map(&:name)

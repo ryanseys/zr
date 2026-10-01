@@ -22,13 +22,14 @@ Two kinds of code meet on a program's load path (`Zr::Library::Layout`):
 
 | Path | Contains |
 |---|---|
-| `exe/zr` | the `zr` command; `lib/zr/cli.rb` has its commands |
+| `exe/zr` | the `zr` command; `lib/zr/cli/commands/` has its commands |
 | `lib/zr.rb` | the entry point: the version, the paths and the targets |
 | `lib/zr/version.rb` | `Zr::VERSION`, and `Zr::RUBY`, the ruby that zr needs |
 | `lib/zr/paths.rb` | where zr reads its sources and writes its cache |
 | `lib/zr/host.rb` | `Zr::Host.compiled?`: whether zr runs in a binary that zr compiled, not in CRuby |
 | `lib/zr/config.rb` | `Zr::Config`: the `ZR_*` variables that steer a build, read once, and `Config.flag?` for an on-or-off variable |
-| `lib/zr/cli.rb` | the commands of `zr`, their options, and what they print |
+| `lib/zr/cli.rb` | the command line of `zr`: `CLI.start` runs the command that the first word names (`CLI::COMMANDS`) |
+| `lib/zr/cli/` | the parts of the command line: `command.rb` (the base class), `options.rb` (the option table), `help.rb` (the help text), `errors.rb`, `refusals.rb` (status 3), `runner.rb` (runs the built binary), and `commands/`, one file for each command |
 | `lib/zr/doctor.rb` | the checks of `zr doctor` |
 | `lib/zr/cache/store.rb` | the one content store of every cache: layout, keys, reads, writes, roots and eviction |
 | `lib/zr/cache/janitor.rb` | the build cache as `zr cache` sees it: size, clean, and the daily trim |
@@ -66,8 +67,8 @@ Two kinds of code meet on a program's load path (`Zr::Library::Layout`):
 | `lib/zr/cache/unit.rb` | the cache of each compilation unit's machine code |
 | `lib/zr/cache/lowering.rb`, `lib/zr/cache/lowering/core.rb`, `lib/zr/cache/lowering/eval_support.rb` | the core files and eval support's files that a build takes from an earlier build's machine code, and the checks that keep that code the same as a full build's |
 | `lib/zr/cache/run.rb` | the binaries that `zr run` keeps, and the files each was built from |
-| `lib/zr/tune.rb` | the collector limits and YJIT of a compile |
-| `lib/zr/server.rb` | the build server of `zr-dev serve`, and its client in `exe/zr` |
+| `lib/zr/gc_tuning.rb` | the collector limits and YJIT of a compile |
+| `lib/zr/server.rb`, `lib/zr/server/client.rb` | the build server of `zr-dev serve`, and its client that `exe/zr` uses |
 | `lib/zr/eval.rb` | the eval compiler |
 | `lib/zr/eval/walk.rb`, `lib/zr/eval/walk/` | the tree-walking interpreter |
 | `lib/zr/runtime/` | the runtime: the source that zr compiles into each program, not code of the compiler |
