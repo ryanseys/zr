@@ -59,7 +59,11 @@ module Zr
             at ? list.delete_at(at) : fresh(size_class, align)
           end
 
-          def free(addr) = @free[usable(addr)] << addr
+          def free(addr)
+            size = usable(addr)
+            release(addr, size) if size >= RELEASE
+            @free[size] << addr
+          end
 
           # The bytes that the block at `addr` holds.
           def usable(addr) = @buffer.get_value(:u64, addr - HEADER - @base)
@@ -77,6 +81,28 @@ module Zr
           end
 
           private
+
+          # A freed block this large gives its pages back to the system, as
+          # malloc unmaps a large block: a program that makes and drops
+          # large buffers stays as small as it is in a binary.
+          RELEASE = 1 << 20
+
+          # mmap(2) of fresh zero pages over the whole pages of a block, in
+          # place: the system takes the old pages back.
+          MMAP = Fiddle::Function.new(Fiddle::Handle::DEFAULT["mmap"], [Fiddle::TYPE_VOIDP, Fiddle::TYPE_SIZE_T, Fiddle::TYPE_INT,
+                                                                       Fiddle::TYPE_INT, Fiddle::TYPE_INT, Fiddle::TYPE_LONG_LONG],
+                                      Fiddle::TYPE_VOIDP)
+          READ_WRITE = 3
+          MAP_PRIVATE = 0x2
+          MAP_FIXED = 0x10
+          MAP_ANON = RUBY_PLATFORM.include?("linux") ? 0x20 : 0x1000
+          PAGE = IO::Buffer::PAGE_SIZE
+
+          def release(addr, size)
+            from = (addr + PAGE - 1) & -PAGE
+            to = (addr + size) & -PAGE
+            MMAP.call(from, to - from, READ_WRITE, MAP_PRIVATE | MAP_FIXED | MAP_ANON, -1, 0) if to > from
+          end
 
           # The size class of a request: a multiple of 16 up to 1 KiB,
           # then four classes in each doubling, so a block wastes at most a
@@ -129,11 +155,26 @@ module Zr
           off >= 0 && off < LIMIT ? BUFFER.set_value(:u64, off, value) : P.write(addr, [value].pack("q<"))
         end
 
+        # The IO::Buffer types of `n` words, for each `n` up to WORDS: one
+        # call reads or writes them all.
+        WORDS = 64
+        LOAD_WORDS = Array.new(WORDS + 1) { |n| Array.new(n, :s64).freeze }.freeze
+        STORE_WORDS = Array.new(WORDS + 1) { |n| Array.new(n, :u64).freeze }.freeze
+
         # `n` words from `addr`, as an Array.
-        def words(addr, n) = n.zero? ? [] : read(addr, n * 8).unpack("q<*")
+        def words(addr, n)
+          return [] if n.zero?
+
+          off = addr - BASE
+          off >= 0 && off < LIMIT && n <= WORDS ? BUFFER.get_values(LOAD_WORDS[n], off) : read(addr, n * 8).unpack("q<*")
+        end
 
         # `values` as words at `addr`.
-        def set_words(addr, values) = write(addr, values.pack("q<*"))
+        def set_words(addr, values)
+          n = values.size
+          off = addr - BASE
+          off >= 0 && off < LIMIT && n <= WORDS ? BUFFER.set_values(STORE_WORDS[n], off, values) : write(addr, values.pack("q<*"))
+        end
 
         # The load of a `type` (`Host::Type`) at `offset` from a pointer,
         # as a lambda that reads the memory itself, so a field's reader is
@@ -144,9 +185,9 @@ module Zr
           buffer = BUFFER
           limit = LIMIT
           delta = offset - BASE
-          kind = type.load
+          kind = type.loads
           size = type.size
-          format = type.format
+          format = type.packing
           if type.name == "Bool"
             ->(p) { (off = p + delta) >= 0 && off < limit ? buffer.get_value(:U8, off) != 0 : P.read(p + offset, 1).getbyte(0) != 0 }
           else
@@ -162,8 +203,8 @@ module Zr
           buffer = BUFFER
           limit = LIMIT
           delta = offset - BASE
-          kind = type.store
-          format = type.format
+          kind = type.stores
+          format = type.packing
           case type.name
           when "Bool", "I8"
             lambda do |p, value|

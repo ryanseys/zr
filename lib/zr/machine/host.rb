@@ -27,10 +27,10 @@ module Zr
       SIGN = 1 << 63
 
       # A type of the kernel: its name, its size in memory, its type for
-      # Fiddle, its `pack` format, and its IO::Buffer types for a load and
-      # a store. A store takes a value of the signed or the unsigned range
+      # Fiddle, its `pack` format (`packing`), and its IO::Buffer types for
+      # a load (`loads`) and a store (`stores`). A store takes a value of the signed or the unsigned range
       # alike: `pack` and an unsigned IO::Buffer type take either.
-      Type = Data.define(:name, :size, :fiddle, :format, :load, :store) do
+      Type = Data.define(:name, :size, :fiddle, :packing, :loads, :stores) do
         def inspect = name
       end
       TYPES = [
@@ -394,6 +394,10 @@ module Zr
         at
       end
 
+      # The proc at `at` that `callable` gave, or nil: the walker calls it
+      # with no call through the kernel's signature.
+      def body_at(at) = @callables[at]
+
       def static(name, size)
         @statics.fetch(name) { @statics[name] = Memory.zeroed(size) }
       end
@@ -413,18 +417,20 @@ module Zr
       # The machine stack of one fiber: `top` is where its next slot ends,
       # and a slot below `low` overflows. `pins` are the Values that its
       # defs hold (`pin`), and `depth` counts the walker's frames on it.
-      Stack = Struct.new(:top, :low, :pins, :depth)
+      Stack = Struct.new(:top, :low, :pins, :depth) do
+        # `size` bytes of slots, rounded up to 16, below the top.
+        def take(size)
+          slot = top - ((size + 15) & -16)
+          raise "the slot area is full" if slot < low
+
+          self.top = slot
+        end
+      end
 
       # This fiber's Stack. A thread starts on the main slot area.
       def stack = Thread.current[@stack_key] ||= new_stack(@slot_base + SLOT_BYTES, @slot_base)
 
-      def slot(size)
-        s = stack
-        top = s.top - ((size + 15) & -16)
-        raise "the slot area is full" if top < s.low
-
-        s.top = top
-      end
+      def slot(size) = stack.take(size)
 
       # Where this fiber's next slot ends; a def that takes slots puts it
       # back.
@@ -481,6 +487,21 @@ module Zr
         yield
       ensure
         @collecting = was
+      end
+
+      # Runs the block, a def's body, in its `frame` (`Framing`).
+      def framed(frame)
+        stack = self.stack
+        top = stack.top
+        pins = stack.pins
+        mark = pins.size
+        result = begin
+          yield
+        ensure
+          stack.top = top if frame.restores
+          pins.slice!(mark, pins.size - mark) if frame.drops
+        end
+        frame.drops && frame.value ? pin(result) : result
       end
 
       # A call of the C function `function` (`answer`, `call_at`). C sees
@@ -612,21 +633,8 @@ module Zr
         host = self
         frames = Module.new
         (slots | collects).each do |name|
-          restores = slots.include?(name)
-          drops = collects.include?(name)
-          value = @sigs[name]&.last&.name == "Value"
-          frames.define_method(name) do |*args|
-            stack = host.stack
-            top = stack.top
-            mark = stack.pins.size
-            result = begin
-              super(*args)
-            ensure
-              stack.top = top if restores
-              stack.pins.slice!(mark..) if drops
-            end
-            drops && value ? host.pin(result) : result
-          end
+          frame = Framing.new(slots.include?(name), collects.include?(name), @sigs[name]&.last&.name == "Value")
+          frames.define_method(name, &framed_def(@kern.instance_method(name).arity, frame))
         end
         @kern.prepend(frames)
         collector = Module.new
@@ -638,6 +646,29 @@ module Zr
           end
         end
         @kern.prepend(collector)
+      end
+
+      # What a def's frame does (`frames`): it gives back the slots of its
+      # body (`restores`), and drops the pins of its body (`drops`), then
+      # pins a Value result (`value`) for its caller.
+      Framing = Data.define(:restores, :drops, :value)
+
+      # The method body that wraps a def of `arity` in its `frame`. Each
+      # arity has its own block, which passes the def's arguments on to
+      # `super` as they are: a block that takes `*args` makes an Array at
+      # each call.
+      def framed_def(arity, frame)
+        host = self
+        case arity
+        when 0 then proc { host.framed(frame) { super() } }
+        when 1 then proc { |a| host.framed(frame) { super(a) } }
+        when 2 then proc { |a, b| host.framed(frame) { super(a, b) } }
+        when 3 then proc { |a, b, c| host.framed(frame) { super(a, b, c) } }
+        when 4 then proc { |a, b, c, d| host.framed(frame) { super(a, b, c, d) } }
+        when 5 then proc { |a, b, c, d, e| host.framed(frame) { super(a, b, c, d, e) } }
+        when 6 then proc { |a, b, c, d, e, g| host.framed(frame) { super(a, b, c, d, e, g) } }
+        else proc { |*args| host.framed(frame) { super(*args) } }
+        end
       end
 
       # The defs that can run the collector, as the lowering finds them

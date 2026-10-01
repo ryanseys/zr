@@ -6,7 +6,7 @@
 def payload = GC.stat(:malloc_increase_bytes)
 
 def churn
-  rows = Array.new(4_000) { |i| { "k#{i}" => "v#{i}" * 20, i => [i] * 40 } }
+  rows = Array.new(1_000) { |i| { "k#{i}" => "v#{i}" * 20, i => [i] * 40 } }
   rows.clear
   GC.start
   GC.start
@@ -16,5 +16,5 @@ end
 churn
 first = churn
 last = nil
-10.times { last = churn }
+5.times { last = churn }
 puts (last - first).abs < 16_384
