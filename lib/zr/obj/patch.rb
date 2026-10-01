@@ -20,7 +20,7 @@ module Zr
       # its symbol. It gets the full relocation, not only the name, so that
       # a caller can tell a GOT slot from the symbol in that slot.
       def apply(item, base, relocs)
-        bytes = item.bytes.b.dup
+        bytes = item.bytes.b
         item.relocs.each do |r|
           target = yield(r) + r.addend.to_i
           if r.kind == :abs64

@@ -348,6 +348,16 @@ module Zr
       WRAPS = { add_wrap: :+, sub_wrap: :-, mul_wrap: :*, shl_wrap: :<<,
                 uadd_wrap: :+, usub_wrap: :-, umul_wrap: :*, ushl_wrap: :<< }.freeze
 
+      # The instruction name of a `/`, `%` and `>>`, the width in bits of an
+      # integer IR type, the IR width and the Machine type that each load
+      # and store gives or takes, and the Machine type of each conversion.
+      DIVISION_MNEMONICS = { :/ => "div", :% => "rem", :>> => "shr" }.freeze
+      IR_BITS = { "i8" => 8, "i32" => 32, "i64" => 64 }.freeze
+      LOAD_WIDTHS = { load64: "i64", load32: "i32", load8: "i8" }.freeze
+      LOAD_TYPES = { load64: "Word", load32: "I32", load8: "I8" }.freeze
+      STORE_TYPES = { store64: "Word", store32: "I32", store8: "I8" }.freeze
+      CONVERT_TARGETS = { i32: "I32", i8: "I8", word: "Word", sword: "Word", ptr: "Ptr", value: "Value" }.freeze
+
       # Whether `node` reads only literals, constants and locals, through
       # plain operators and casts. Such an expression makes only its value.
       # A local is in the frame, so a read of it is safe on any path. A
@@ -409,7 +419,7 @@ module Zr
           [value, result]
         when :/, :%, :>>
           check_operands(node, op, lhs, rhs, lt, ptr, named) if @unit.checked?
-          mnemonic = { :/ => "div", :% => "rem", :>> => "shr" }[op]
+          mnemonic = DIVISION_MNEMONICS[op]
           [@f.binop(:"#{ptr ? "u" : "s"}#{mnemonic}", lhs, rhs), result]
         when :==, :!=
           [@f.icmp(OPERATORS[op], lhs, rhs), "Bool"]
@@ -509,7 +519,7 @@ module Zr
         trap_if(node, bad, "#{op} of a negative number or by zero")
       end
 
-      def bits(w) = { "i8" => 8, "i32" => 32, "i64" => 64 }.fetch(w)
+      def bits(w) = IR_BITS.fetch(w)
 
       # Calls `zr_bug` with "file:line: what" when `bad` is true. A unit
       # without zr_bug (a test of the lowering) gets no check.
@@ -636,15 +646,15 @@ module Zr
           refuse(node, "Machine.bytes takes a string literal") unless s.is_a?(Prism::StringNode)
           [@f.symbol_value(@f.symbol(@unit.bytes(s.unescaped))), "Ptr"]
         when :load64, :load32, :load8
-          width = { load64: "i64", load32: "i32", load8: "i8" }[node.name]
+          width = LOAD_WIDTHS[node.name]
           ptr, pt = expr(args[0], "Ptr")
           refuse(node, "#{node.name} takes a Ptr and an offset") unless fits?("Ptr", pt) && args.size == 2
-          type = { load64: "Word", load32: "I32", load8: "I8" }[node.name]
+          type = LOAD_TYPES[node.name]
           [@f.fetch(width, ptr, immediate(args[1])), type]
         when :store64, :store32, :store8
           ptr, pt = expr(args[0], "Ptr")
           refuse(node, "#{node.name} takes a Ptr, an offset and a value") unless fits?("Ptr", pt) && args.size == 3
-          type = { store64: "Word", store32: "I32", store8: "I8" }[node.name]
+          type = STORE_TYPES[node.name]
           value, vt = expr(args[2], type)
           refuse(node, "#{node.name} stores a #{type}, not a #{vt}") unless ir_type(vt) == ir_type(type)
           @f.store(value, ptr, immediate(args[1]))
@@ -754,7 +764,7 @@ module Zr
       # `u32` zero-extend, `sword` sign-extends. `ptr`, `value` and `word`
       # between 64-bit types change only the type, not the bits.
       def convert(node, to, value, type)
-        target = { i32: "I32", i8: "I8", word: "Word", sword: "Word", ptr: "Ptr", value: "Value" }[to]
+        target = CONVERT_TARGETS[to]
         from, into = ir_type(type), ir_type(target)
         refuse(node, "Machine.#{to} of a #{type}") if from.nil? || from == "f64"
         return [value, target] if from == into

@@ -119,17 +119,22 @@ module Zr
         # signature, and a return has the return type of the function.
         def operands(i, b)
           case i.op
-          when *Inst::BINOPS, *Inst::PAIRS
+          # Inst::BINOPS and Inst::PAIRS, written out.
+          when :iadd, :isub, :imul, :udiv, :sdiv, :urem, :srem, :band, :bor, :bxor, :ishl, :ushr, :sshr,
+               :sadd_overflow, :ssub_overflow, :smul_overflow
             want = @typer.of(i.results[0])
             typed(i, b, i.args[0], want)
             Inst::SHIFTS.include?(i.op) ? integer(i, b, i.args[1]) : typed(i, b, i.args[1], want)
           when :icmp
             integer(i, b, i.args[0])
             typed(i, b, i.args[1], type_of(i.args[0]) || type_of(i.args[1]))
-          when :fcmp, *Inst::FBINOPS then i.args.each { |a| typed(i, b, a, "f64") }
-          when *Inst::FUNOPS, :fcvt_to_sint_sat then typed(i, b, i.args[0], "f64")
+          # Inst::FBINOPS, written out.
+          when :fcmp, :fadd, :fsub, :fmul, :fdiv then i.args.each { |a| typed(i, b, a, "f64") }
+          # Inst::FUNOPS, written out.
+          when :fneg, :fabs, :sqrt, :floor, :ceil, :trunc, :nearest, :fcvt_to_sint_sat then typed(i, b, i.args[0], "f64")
           when :fcvt_from_sint, :brif then integer(i, b, i.args[0])
-          when *Inst::BITOPS
+          # Inst::BITOPS, written out.
+          when :ctz, :clz, :popcnt, :bswap
             raise Error, "#{@f.name}: #{b.name} #{i.op} of an i8" if type_of(i.args[0]) == "i8"
           when :select
             integer(i, b, i.args[0])

@@ -69,7 +69,8 @@ module Zr
 
           blobs = { text: [%i[text stubs const], BASE + PAGE, text_size - PAGE], got: [%i[got], got_vm, got_size],
                     data: [%i[dconst data], data_vm, data_filesize] }.transform_values do |parts, start, size|
-            parts.inject(+"".b) { |out, part| Bytes.pad(out, block.at(part) - start) << block.bytes(part) }.then { |out| Bytes.pad(out, size) }
+            image = parts.each_with_object(+"".b) { |part, out| Bytes.pad(out, block.at(part) - start) << block.bytes(part) }
+            Bytes.pad(image, size)
           end
           # A slot must be in the file bytes. The zero-fill tail has no slots.
           bounds = { got: [got_vm, got_size], data: [data_vm, data_filesize] }
@@ -193,7 +194,7 @@ module Zr
           fields = [layout.pack("q<*"), Prelink.joined(@externals), late.pack("q<*"),
                     @starts.fetch(:got).pack("S<*"), @starts.fetch(:data).pack("S<*"), @symbols, @strings,
                     *Names.dumped(@names), @addresses.pack("Q<*"),
-                    *SEGMENTS.dup.unshift(:text).flat_map { |b| [@blobs.fetch(b), @hashes.fetch(b)] }]
+                    *[:text, *SEGMENTS].flat_map { |b| [@blobs.fetch(b), @hashes.fetch(b)] }]
           fields.inject(MAGIC.dup) { |out, field| out << [field.bytesize].pack("Q<") << field }
         end
 

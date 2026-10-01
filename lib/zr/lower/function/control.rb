@@ -127,6 +127,7 @@ module Zr
         # tested). The body of the first truthy one gives the result.
         def case_when(node)
           return class_case(node) if class_case?(node)
+          return symbol_case(node) if symbol_case?(node)
 
           base = @sp
           subject_at = value_offset(reserve(1))
@@ -143,11 +144,7 @@ module Zr
                        at_node(value)
                        truthy(checked(kernel("zr_any_truthy", expr(value.value))))
                      elsif node.subject
-                       staged([value, Hir::Slot.new(base, value.line)]) do |slots|
-                         at_node(value)
-                         match = Hir::Send.of(value, :===, [node.subject], value.line)
-                         truthy(checked(cached_send(match, @f.fetch("i64", slots), imm(1), @f.iadd(slots, imm(8)), @qnil, mode: 0)))
-                       end
+                       when_eqq(node, value, base)
                      else
                        truthy(expr(value))
                      end
@@ -161,6 +158,84 @@ module Zr
             @f.jump(merge, [v]) unless @f.terminated?
             switch(after)
           end
+          v = node.else_body ? expr(node.else_body) : @qnil
+          @f.jump(merge, [v]) unless @f.terminated?
+          switch(merge)
+          @sp = base
+          result
+        end
+
+        # Sends `value === subject` through the site's own cell, with no
+        # visibility check, and gives the truth of the result. The subject
+        # is in the record slot at `base`.
+        def when_eqq(node, value, base)
+          staged([value, Hir::Slot.new(base, value.line)]) do |slots|
+            at_node(value)
+            match = Hir::Send.of(value, :===, [node.subject], value.line)
+            truthy(checked(cached_send(match, @f.fetch("i64", slots), imm(1), @f.iadd(slots, imm(8)), @qnil, mode: 0)))
+          end
+        end
+
+        # Whether a `case` compares its subject with symbols only
+        # (`symbol_case`): it has a subject, and each `when` value is a
+        # symbol literal (not a splat, and not a symbol with
+        # interpolation).
+        def symbol_case?(node)
+          return false if node.subject.nil?
+
+          node.clauses.all? { |values, _| values.all? { |v| v.is_a?(Hir::Literal) && v.value.is_a?(Symbol) } }
+        end
+
+        # A `case` on symbol arms. While Symbol#=== is the runtime's own
+        # (GATE_SYM_EQQ), `:sym === subject` is identity, as symbol.c's
+        # sym_equal is. Thus the site compares the subject word with each
+        # symbol word in the order of the arms, and the first equal one
+        # selects its arm. A symbol is an immediate, so each test is one
+        # compare and one branch, with no send. An id that the link
+        # numbers comes from the unit's pool, which the function reads one
+        # time. A subject that is not a symbol (a String with the same
+        # name, for example) is equal to no symbol word, as `===` is false
+        # for it. CRuby's opt_case_dispatch does the same while `===` on
+        # Symbol is not redefined.
+        #
+        # When the gate is closed (a def of `===` on Symbol, a prepend, a
+        # `refine Symbol`), the site sends `===` for each value, as
+        # `case_when` does.
+        def symbol_case(node)
+          base = @sp
+          subject_at = value_offset(reserve(1))
+          subject = expr(node.subject)
+          @f.store(subject, @rec, subject_at)
+          fast = @f.label
+          chain = @f.label
+          bodies = node.clauses.map { @f.label }
+          other = @f.label
+          merge, (result,) = @f.block(["i64"])
+          @f.brif(gate_clear("GATE_SYM_EQQ"), fast, chain)
+          switch(fast)
+          node.clauses.each_with_index do |(values, _), arm|
+            values.each do |value|
+              miss = @f.label
+              @f.brif(@f.icmp("eq", subject, symbol(value.value)), bodies[arm], miss)
+              switch(miss)
+            end
+          end
+          @f.jump(other)
+          switch(chain)
+          node.clauses.each_with_index do |(values, _), arm|
+            values.each do |value|
+              miss = @f.label
+              @f.brif(when_eqq(node, value, base), bodies[arm], miss)
+              switch(miss)
+            end
+          end
+          @f.jump(other)
+          node.clauses.each_with_index do |(_, body), arm|
+            switch(bodies[arm])
+            v = expr(body)
+            @f.jump(merge, [v]) unless @f.terminated?
+          end
+          switch(other)
           v = node.else_body ? expr(node.else_body) : @qnil
           @f.jump(merge, [v]) unless @f.terminated?
           switch(merge)

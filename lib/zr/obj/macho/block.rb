@@ -340,7 +340,7 @@ module Zr
 
         # One stub for each external. The stub jumps through its GOT slot.
         def stub_bytes
-          @externals.each_with_index.inject(+"".b) do |out, (name, n)|
+          @externals.each_with_index.with_object(+"".b) do |(name, n), out|
             here = at(:stubs) + (n * STUB)
             got = @got_at.fetch(name)
             page = ((got & ~0xFFF) - (here & ~0xFFF)) >> 12

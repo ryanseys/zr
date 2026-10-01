@@ -22,6 +22,8 @@ module Zr
     class Interp
       MASK = { 8 => 0xFF, 32 => 0xFFFF_FFFF, 64 => (1 << 64) - 1 }.freeze
       BITS = { "i8" => 8, "i32" => 32, "i64" => 64, "f64" => 64 }.freeze
+      # The Ruby operator of each float binary opcode.
+      FLOAT_BINOPS = { fadd: :+, fsub: :-, fmul: :*, fdiv: :/ }.freeze
       # The stack for each program, and the deepest call chain that the Ruby
       # stack can hold.
       STACK = 1 << 22
@@ -359,10 +361,15 @@ module Zr
         when :sextend
           bits = BITS.fetch(frame.types.of(i.args[0]))
           assign(frame, i.results[0], signed(read(frame, i.args[0]), bits == 8 ? 8 : 32))
-        when *Inst::BINOPS then assign(frame, i.results[0], binop(frame, i))
-        when *Inst::BITOPS then assign(frame, i.results[0], bitop(frame, i))
+        # Inst::BINOPS, written out.
+        when :iadd, :isub, :imul, :udiv, :sdiv, :urem, :srem, :band, :bor, :bxor, :ishl, :ushr, :sshr
+          assign(frame, i.results[0], binop(frame, i))
+        # Inst::BITOPS, written out.
+        when :ctz, :clz, :popcnt, :bswap then assign(frame, i.results[0], bitop(frame, i))
         when :sadd_overflow, :ssub_overflow, :smul_overflow then step_overflow(frame, i)
-        when *Inst::FBINOPS, *Inst::FUNOPS, :fcvt_from_sint, :fcvt_to_sint_sat
+        # Inst::FBINOPS and Inst::FUNOPS, written out.
+        when :fadd, :fsub, :fmul, :fdiv, :fneg, :fabs, :sqrt, :floor, :ceil, :trunc, :nearest,
+             :fcvt_from_sint, :fcvt_to_sint_sat
           assign(frame, i.results[0], float_op(frame, i))
         when :fcmp then assign(frame, i.results[0], float_compare(frame, i) ? 1 : 0)
         # Here, the gate word register is the gate word in memory. Each writer
@@ -474,7 +481,7 @@ module Zr
         case i.op
         when :fadd, :fsub, :fmul, :fdiv
           b = to_f64(read(frame, i.args[1]))
-          to_bits(a.public_send({ fadd: :+, fsub: :-, fmul: :*, fdiv: :/ }.fetch(i.op), b))
+          to_bits(a.public_send(FLOAT_BINOPS.fetch(i.op), b))
         when :fneg then to_bits(-a)
         when :fabs then to_bits(a.abs)
         when :sqrt then to_bits(a.negative? ? Float::NAN : Math.sqrt(a))

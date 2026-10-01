@@ -459,11 +459,13 @@ module Zr
           when :select then emit_select(i)
           when :sadd_overflow, :ssub_overflow then emit_overflow(i)
           when :smul_overflow then emit_mul_overflow(i)
-          when *IR::Inst::FBINOPS
+          # IR::Inst::FBINOPS, written out.
+          when :fadd, :fsub, :fmul, :fdiv
             a = double_in(i.args[0])
             b = double_in(i.args[1])
             @asm.public_send(i.op, double_out(i.results[0]), a, b)
-          when *IR::Inst::FUNOPS
+          # IR::Inst::FUNOPS, written out.
+          when :fneg, :fabs, :sqrt, :floor, :ceil, :trunc, :nearest
             a = double_in(i.args[0])
             @asm.public_send(FUNOPS.fetch(i.op), double_out(i.results[0]), a)
           when :fcvt_from_sint

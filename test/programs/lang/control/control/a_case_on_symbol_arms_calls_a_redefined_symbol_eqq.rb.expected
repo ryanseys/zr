@@ -1,0 +1,11 @@
+[1, 23, 23, 0, 0]
+:one === "three"
+:two === "three"
+:three === "three"
+23
+:one === :one
+1
+:one === :four
+:two === :four
+:three === :four
+0

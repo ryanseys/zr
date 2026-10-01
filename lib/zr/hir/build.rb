@@ -407,7 +407,9 @@ module Zr
         return unless node.is_a?(Node)
 
         seen[node.object_id] = true
-        node.using = @using if [Send, Super, AttrOpAssign, IndexOpAssign].any? { |type| node.is_a?(type) } && node.using.nil?
+        case node
+        when Send, Super, AttrOpAssign, IndexOpAssign then node.using ||= @using
+        end
         node.each_pair { |_, child| mark_using(child, seen) }
       end
 

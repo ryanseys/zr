@@ -116,7 +116,7 @@ module Zr
             end
             get(a)
             get(b)
-            @code << table.fetch({ udiv: :div_u, sdiv: :div_s, urem: :rem_u, srem: :rem_s }[i.op]).chr
+            @code << table.fetch(DIVIDE_OPS[i.op]).chr
             @code << "\x0B".b if i.op == :sdiv
             @code << "\x0B".b
             set(i.results[0])
@@ -139,6 +139,26 @@ module Zr
           # not live across all later blocks. That liveness is most of the
           # cost of shared locals.
           CONSTANTS = %i[iconst symbol_value func_addr stack_addr].freeze
+
+          # The `Codegen::OP` key of each division and remainder opcode, of
+          # each integer binary opcode, and the wasm opcode byte of each
+          # float comparison, float binary and float unary opcode.
+          DIVIDE_OPS = { udiv: :div_u, sdiv: :div_s, urem: :rem_u, srem: :rem_s }.freeze
+          BINOP_KEYS = { iadd: :add, isub: :sub, imul: :mul, band: :and, bor: :or, bxor: :xor,
+                         ishl: :shl, ushr: :shr_u, sshr: :shr_s }.freeze
+          FCMP_OPCODES = { "eq" => 0x61, "ne" => 0x62, "lt" => 0x63, "gt" => 0x64, "le" => 0x65, "ge" => 0x66 }.freeze
+          FBINOP_OPCODES = { fadd: 0xA0, fsub: 0xA1, fmul: 0xA2, fdiv: 0xA3 }.freeze
+          FUNOP_OPCODES = { fabs: 0x99, fneg: 0x9A, ceil: 0x9B, floor: 0x9C, trunc: 0x9D, nearest: 0x9E, sqrt: 0x9F }.freeze
+
+          # The load opcode and its alignment of each type.
+          LOAD_OPCODES = { "i64" => "\x29\x03".b, "i32" => "\x28\x02".b, "i8" => "\x2D\x00".b, "f64" => "\x2B\x03".b }.freeze
+
+          # The opcodes of `emit_bswap` (const, and, or, shl, shr, rotl) and
+          # its mask and shift steps, for a wide and for a narrow type.
+          BSWAP_WIDE = ["\x42", "\x83", "\x84", "\x86", "\x88", "\x89"].freeze
+          BSWAP_NARROW = ["\x41", "\x71", "\x72", "\x74", "\x76", "\x77"].freeze
+          BSWAP_WIDE_STEPS = [[0x00FF00FF00FF00FF, 8], [0x0000FFFF0000FFFF, 16]].freeze
+          BSWAP_NARROW_STEPS = [[0x00FF00FF, 8]].freeze
 
           def constant(i)
             case i.op
@@ -274,8 +294,8 @@ module Zr
           def emit_bswap(i)
             v = i.results[0]
             wide = wide?(i.args[0])
-            const, and_, or_, shl, shr, rotl = wide ? ["\x42", "\x83", "\x84", "\x86", "\x88", "\x89"] : ["\x41", "\x71", "\x72", "\x74", "\x76", "\x77"]
-            steps = wide ? [[0x00FF00FF00FF00FF, 8], [0x0000FFFF0000FFFF, 16]] : [[0x00FF00FF, 8]]
+            const, and_, or_, shl, shr, rotl = wide ? BSWAP_WIDE : BSWAP_NARROW
+            steps = wide ? BSWAP_WIDE_STEPS : BSWAP_NARROW_STEPS
             from = i.args[0]
             steps.each do |mask, k|
               get(from)
@@ -293,7 +313,7 @@ module Zr
           def emit_load(i)
             get(i.args[0])
             @code << "\xA7".b
-            @code << { "i64" => "\x29\x03".b, "i32" => "\x28\x02".b, "i8" => "\x2D\x00".b, "f64" => "\x2B\x03".b }.fetch(i.type) << Bytes.leb(i.offset)
+            @code << LOAD_OPCODES.fetch(i.type) << Bytes.leb(i.offset)
             set(i.results[0])
           end
 
@@ -350,22 +370,21 @@ module Zr
           def emit_fcmp(i)
             get(i.args[0])
             get(i.args[1])
-            @code << { "eq" => 0x61, "ne" => 0x62, "lt" => 0x63, "gt" => 0x64, "le" => 0x65, "ge" => 0x66 }.fetch(i.cond).chr
+            @code << FCMP_OPCODES.fetch(i.cond).chr
             set(i.results[0])
           end
 
           def emit_fbinop(i)
             get(i.args[0])
             get(i.args[1])
-            @code << { fadd: 0xA0, fsub: 0xA1, fmul: 0xA2, fdiv: 0xA3 }.fetch(i.op).chr
+            @code << FBINOP_OPCODES.fetch(i.op).chr
             set(i.results[0])
           end
 
           def emit_binop(i)
             get(i.args[0])
             get(i.args[1])
-            @code << ops(i.args[0]).fetch({ iadd: :add, isub: :sub, imul: :mul,
-                                            band: :and, bor: :or, bxor: :xor, ishl: :shl, ushr: :shr_u, sshr: :shr_s }[i.op]).chr
+            @code << ops(i.args[0]).fetch(BINOP_KEYS[i.op]).chr
             set(i.results[0])
           end
 
@@ -453,7 +472,8 @@ module Zr
 
           def emit_inst(i)
             case i.op
-            when *CONSTANTS
+            # CONSTANTS, written out. test/unit/case_lists_test.rb checks it.
+            when :iconst, :symbol_value, :func_addr, :stack_addr
               # Written where it is read.
               nil
             when :load then emit_load(i)
@@ -475,10 +495,12 @@ module Zr
             when :call then emit_call(i)
             when :icmp then emit_icmp(i)
             when :fcmp then emit_fcmp(i)
-            when *IR::Inst::FBINOPS then emit_fbinop(i)
-            when *IR::Inst::FUNOPS
+            # IR::Inst::FBINOPS, written out.
+            when :fadd, :fsub, :fmul, :fdiv then emit_fbinop(i)
+            # IR::Inst::FUNOPS, written out.
+            when :fneg, :fabs, :sqrt, :floor, :ceil, :trunc, :nearest
               get(i.args[0])
-              @code << { fabs: 0x99, fneg: 0x9A, ceil: 0x9B, floor: 0x9C, trunc: 0x9D, nearest: 0x9E, sqrt: 0x9F }.fetch(i.op).chr
+              @code << FUNOP_OPCODES.fetch(i.op).chr
               set(i.results[0])
             when :fcvt_from_sint
               get(i.args[0])

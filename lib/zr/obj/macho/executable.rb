@@ -83,8 +83,11 @@ module Zr
         PTR_64_OFFSET = 6
         IMPORT_FORMAT = 1
 
+        # The bytes of the load commands that are the same in every image.
+        OTHER_COMMANDS = [16, 16, 24, 80, 32, 24, 24, 24, 56, 16].sum
+
         # The section name and flags for each part.
-        SECTIONS = { text: ["__text", CODE], stubs: ["__stubs", CODE], const: ["__const", S_REGULAR],
+        SECTIONS ={ text: ["__text", CODE], stubs: ["__stubs", CODE], const: ["__const", S_REGULAR],
                      got: ["__got", S_REGULAR], dconst: ["__const", S_REGULAR], data: ["__data", S_REGULAR],
                      bss: ["__bss", S_ZEROFILL] }.freeze
         # The image sections of a program's parts when there is a base: the
@@ -318,7 +321,7 @@ module Zr
         # Returns the program's `parts`, relocated, in `size` bytes from
         # `start`. The parts are in address order, so this appends each one.
         def top_bytes(parts, start, size)
-          out = parts.inject(+"".b) do |bytes, part|
+          out = parts.each_with_object(+"".b) do |part, bytes|
             Bytes.pad(bytes, @top.at(part) - start)
             bytes << @top.bytes(part)
           end
@@ -532,8 +535,7 @@ module Zr
         # `sections` sections, in addition to `__PAGEZERO` and
         # `__LINKEDIT`. All other commands have the same size in every image.
         def command_size(segments, sections)
-          others = [16, 16, 24, 80, 32, 24, 24, 24, 56, 16].sum
-          (72 * (segments + 2)) + (80 * sections) + others
+          (72 * (segments + 2)) + (80 * sections) + OTHER_COMMANDS
         end
 
         # The header and the load commands, at the start of the first page.
@@ -574,11 +576,11 @@ module Zr
 
         def segment_command(name, vmaddr, vmsize, fileoff, filesize, prot, flags, sections)
           body = [name].pack("a16") + [vmaddr, vmsize, fileoff, filesize].pack("Q<4")
-          body += [prot, prot, sections.size, flags].pack("L<4")
+          body << [prot, prot, sections.size, flags].pack("L<4")
           sections.each do |section|
             offset = section.flags == S_ZEROFILL ? 0 : fileoff + (section.vm - vmaddr)
-            body += [section.name, name].pack("a16a16") + [section.vm, section.size].pack("Q<2") +
-                    [offset, section.align, 0, 0, section.flags, 0, 0, 0].pack("L<8")
+            body << [section.name, name].pack("a16a16") << [section.vm, section.size].pack("Q<2") <<
+              [offset, section.align, 0, 0, section.flags, 0, 0, 0].pack("L<8")
           end
           command(LC_SEGMENT_64, body)
         end

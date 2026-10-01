@@ -1,0 +1,7 @@
+Matcher === :hidden
+Matcher === :zzz
+["sym a", "string", "small", "b", "string", "matched", "other"]
+["w", "listed", "listed", "no"]
+"pre"
+"dynamic"
+"no"

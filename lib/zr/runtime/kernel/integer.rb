@@ -43,10 +43,13 @@ module Zr::Kern
   # because a site gets the result from the receiver's class only.
   GATE_IS_A = 1 << 39
   GATE_INSTANCE_OF = 1 << 40
-  # Bit 41 is not used. A `case` arm on a class does not use a gate for
-  # Module#===. Its cache entry records whether `===` is Module's. A gate
-  # cannot see SystemCallError's own `===`, because the core defines it
-  # before the program starts.
+  # Symbol#===: a `case` whose `when` values are all symbol literals
+  # compares the subject with each symbol by identity
+  # (Function::Control#symbol_case). A `case` arm on a class does not use
+  # a gate for Module#===. Its cache entry records whether `===` is
+  # Module's. A gate cannot see SystemCallError's own `===`, because the
+  # core defines it before the program starts.
+  GATE_SYM_EQQ = 1 << 41
   # `nil?` from Kernel and NilClass. The gate closes when any class
   # defines a method of that name, because a site gets the result from
   # the receiver only.

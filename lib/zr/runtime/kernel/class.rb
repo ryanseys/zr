@@ -977,6 +977,8 @@ module Zr::Kern
       GATE_EACH
     elsif klass == zr_global(G_RANGE) && mid == Machine.id(:each)
       GATE_RANGE_EACH
+    elsif klass == zr_global(G_SYMBOL) && mid == Machine.id(:===)
+      GATE_SYM_EQQ
     elsif mid == Machine.id(:!) && zr_not_gated_p(klass)
       GATE_NOT
     else
@@ -996,7 +998,7 @@ module Zr::Kern
   # start: the class the gate guards (a global's index), the name, the
   # gate bit, and the body and visibility that the class found then.
   GateRow = layout klass: Word, mid: Word, bit: Word, fn: Ptr, vis: Word
-  GATE_ROWS = 45
+  GATE_ROWS = 46
 
   sig [Word, Word, Word, Word] => Word
   def zr_gate_row(i, klass, mid, bit)
@@ -1060,6 +1062,7 @@ module Zr::Kern
     i = zr_gate_row(i, G_INTEGER, Machine.id(:-@), GATE_UMINUS)
     i = zr_gate_row(i, G_FLOAT, Machine.id(:-@), GATE_FLO_UMINUS)
     i = zr_gate_row(i, G_INTEGER, Machine.id(:<=>), GATE_CMP)
+    i = zr_gate_row(i, G_SYMBOL, Machine.id(:===), GATE_SYM_EQQ)
     zr_gate_row(i, G_RANGE, Machine.id(:each), GATE_RANGE_EACH)
     Machine.store64(Machine.static(:gates_taken, 8), 0, 1)
   end
