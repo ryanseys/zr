@@ -32,7 +32,7 @@ class UnsupportedLibrariesTest < Minitest::Test
   # The table in a program: the name, then a tab and the reason when
   # there is one. `Kernel.missing` reads the table.
   def test_load_names_table_has_the_reason_after_the_name
-    rows = Zr.load_tables([], evals: true).find { |data| data.name == "zr_load_names_1" }.bytes.chomp("\0").split("\n")
+    rows = Zr::LoadTables.new(evals: true).data.find { |data| data.name == "zr_load_names_1" }.bytes.chomp("\0").split("\n")
 
     assert_includes rows, "mkmf\t#{Build::UNSUPPORTED_LIBRARIES.fetch("mkmf")}"
     assert_includes rows, "ractor"

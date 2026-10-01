@@ -22,7 +22,7 @@ module Zr
       def take_activations(count) = Primitive.zr_activations_reserve_m(count)
 
       # The SHA-256 of each source file of the compiler that this program
-      # links in, by path (lib/zr/runtime.rb, `load_tables`).
+      # links in, by path (lib/zr/load_tables.rb).
       def self.sources = Primitive.zr_load_names(8).lines(chomp: true).to_h { |row| row.split("\t", 2) }
 
       # The library directories the program was built against, as its

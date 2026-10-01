@@ -10,7 +10,7 @@ module Zr
     # :abs64. `offset` is from the start of the owning function or data.
     #
     # Four more kinds occur only in data, and only until the link numbers
-    # the program's symbols (`Zr.number_symbols`):
+    # the program's symbols (`Zr::SymbolNumbering.number`):
     # - :symid writes the id that the program gives `symbol`.
     # - :symval writes that id as a tagged Symbol.
     # - :symbit writes the bit for the symbol in an ivar table's `names`.

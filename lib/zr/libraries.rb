@@ -30,7 +30,7 @@ module Zr
 
     # A program that includes the compiler uses the directories from its
     # build, because it can run on a machine with no zr. Only a build
-    # with eval support writes them (Zr.load_tables): the roots of
+    # with eval support writes them (`LoadTables`): the roots of
     # `Hir::Build.stdlib`, ruby's library first and the bundled gems
     # last. Other compiled compilers find vendor/ruby beside themselves.
     def carried

@@ -10,6 +10,8 @@ require_relative "hir"
 require_relative "lower"
 require_relative "cache/unit"
 require_relative "timing"
+require_relative "load_tables"
+require_relative "symbol_numbering"
 require_relative "tune"
 require_relative "source_guard"
 require_relative "cache/store"
@@ -241,7 +243,7 @@ module Zr
         fixed = unit.symbols.ids.dup.freeze
         functions, data = @core_cache ? @core_cache.lower(unit, fixed, sources) : Zr.core(unit, fixed, target, sources)
         @table = Machine::Symbols.new(kernel_symbols.names, sites: kernel_symbols.sites)
-        [functions, Zr.numbered_data(data, @table, unit.const_for("SYMBOL_TAG"))]
+        [functions, SymbolNumbering.numbered_copies(data, @table, unit.const_for("SYMBOL_TAG"))]
       end
     end
   end
@@ -381,7 +383,7 @@ module Zr
         functions, data = @cache ? @cache.lower(lower, @runtime.description) : lower.run
         # Eval support's names come after the runtime's.
         symbols = Machine::Symbols.new(@runtime.symbols.names, sites: @runtime.symbols.sites)
-        data = Zr.numbered_data(data, symbols, @runtime.description.const_for("SYMBOL_TAG"))
+        data = SymbolNumbering.numbered_copies(data, symbols, @runtime.description.const_for("SYMBOL_TAG"))
         files = loader.units.filter_map { |u| u.file if u.file.start_with?("/") }.uniq.sort
         sources = loader.units.each_with_object({}) { |u, h| h[u.file] ||= u.source if u.source }
         digests = (files + @runtime.gem_prelude_files).uniq.sort.to_h do |path|
@@ -441,12 +443,12 @@ module Zr
       finish ? lower.run { |f| yield(f, lower.entry) } : lower.run
     end
     units = hir.entries.map { |path, i| [path, lower.unit_entry(i)] }
-    number_symbols(data, symbols, rt.description.const_for("SYMBOL_TAG"))
-    tables = load_tables(units, evals: hir.evals, spots: hir.spots || {}, coverable: hir.coverable || {},
-                         branches: hir.branches || {}, defs: hir.defs || {}, sources: hir.evals ? support.digests : {},
-                         target: target, gem_roots: gem_set ? gem_set.gems.reject(&:refusal).flat_map(&:roots) : [],
-                         manifest: Manifest.bytes(gems, target))
-    Program.new(rt, functions, data + symbol_names(symbols) + tables, hir.evals && support, sources, gems)
+    SymbolNumbering.number(data, symbols, rt.description.const_for("SYMBOL_TAG"))
+    tables = LoadTables.new(evals: hir.evals, spots: hir.spots || {}, coverable: hir.coverable || {},
+                            branches: hir.branches || {}, defs: hir.defs || {}, sources: hir.evals ? support.digests : {},
+                            target: target, gem_roots: gem_set ? gem_set.gems.reject(&:refusal).flat_map(&:roots) : [],
+                            manifest: Manifest.bytes(gems, target))
+    Program.new(rt, functions, data + SymbolNumbering.names_table(symbols) + tables.data(units), hir.evals && support, sources, gems)
   end
 
   # A program with eval carries eval support, which has zr's own copy of
@@ -503,46 +505,6 @@ module Zr
     false
   end
 
-  # The relocation kinds that the link numbers.
-  NUMBERED = %i[symid symval symbit site].freeze
-
-  # The value that the link writes into one of those words. A site is a
-  # location, not a name, so it gets the next free slot.
-  def numbered(reloc, symbols, tag)
-    return symbols.site if reloc.kind == :site
-
-    id = symbols.id(reloc.symbol)
-    case reloc.kind
-    when :symid then id
-    when :symval then Lower.symbol_value(id, tag)
-    when :symbit then Lower.ivar_name_bit(id)
-    end
-  end
-
-  # A unit gives a name and the link gives its number. This method sets
-  # the numbers, in the order of the program's data, so a program always
-  # gets the same numbers, and writes them into their words. After this,
-  # no relocation of these kinds is left. Every object writer and the
-  # wasm module rely on this.
-  def number_symbols(data, symbols, tag)
-    data.each do |d|
-      waiting, keep = d.relocs.partition { |r| NUMBERED.include?(r.kind) }
-      next if waiting.empty?
-
-      bytes = d.bytes.dup
-      waiting.each { |r| bytes[r.offset, 8] = [numbered(r, symbols, tag)].pack("q<") }
-      d.bytes = bytes
-      d.relocs = keep
-    end
-  end
-
-  # `number_symbols` on copies: the data with each number written, where
-  # `data` keeps its relocations. A cache keeps a piece's data unnumbered,
-  # so that another table can number it again.
-  def numbered_data(data, symbols, tag)
-    data.map { |d| d.relocs.any? { |r| NUMBERED.include?(r.kind) } ? d.dup : d }.tap { |copies| number_symbols(copies, symbols, tag) }
-  end
-
   # The runtimes of this process, by target triple.
   def runtimes = @runtimes ||= {}
 
@@ -572,7 +534,7 @@ module Zr
   # with `zr_prelude` as the last function. The program decides if it
   # links in the compiler, so the core never requires eval support. A
   # box or an eval in the program adds it. `fixed` are the kernel's ids;
-  # the data leaves every other name to the link (`numbered_data`).
+  # the data leaves every other name to the link (`SymbolNumbering.numbered_copies`).
   def core(unit, fixed, target = Target.default, sources = {})
     functions = []
     data = []
@@ -643,124 +605,5 @@ module Zr
     end
     f.ret(f.iconst("i64", unit.const_for("QNIL")))
     f
-  end
-
-  # The tables that `zr_load_tables` points to. A require with a computed
-  # name reads them at run time. They are, in order:
-  # - the count of compiled-in files, and one record (path bytes, length,
-  #   toplevel) for each;
-  # - as (bytes, length), one name per line: the library directories to
-  #   search after $LOAD_PATH, the ruby features that this runtime has no
-  #   file for, the features ruby loads before the program, and the
-  #   extensions directory. Only a program with eval can require a
-  #   computed name, so only such a program gets these lines;
-  # - error_highlight's spots for each file (every program has them), and
-  #   Coverage's tables;
-  # - for a program with eval, the digest of each eval support file
-  #   (`sources`, path to SHA-256). It keys its parse cache on these;
-  # - the gem manifest.
-  # Nothing here comes from the build machine: a binary contains no path
-  # or flag of the ruby that compiled it. `units` are `[path, entry]`
-  # pairs. A unit that only stops has no path.
-  #
-  # `gem_roots` are the roots of the build's GemSet. A program with eval
-  # searches them right after ruby's own library, as its build did, so a
-  # computed require finds the same gem.
-  #
-  # `manifest` is the gem manifest (lib/zr/manifest.rb), or nil. It is the
-  # last text. `zr inspect` finds it in the binary, and rubygems in the
-  # program reads its gems (lib/zr/runtime/lib/zr/gem_manifest.rb).
-  def load_tables(units = [], evals: false, spots: {}, coverable: {}, branches: {}, defs: {}, sources: {},
-                  target: Target.default, gem_roots: [], manifest: nil)
-    units = units.select { |path, _| path.start_with?("/") }.map { |path, entry| [Paths.shown(path), entry] }.sort
-    names = load_texts(evals: evals, spots: spots, coverable: coverable, branches: branches, defs: defs, sources: sources,
-                       target: target, gem_roots: gem_roots, manifest: manifest)
-    out = []
-    text = ->(name, bytes) { out << Obj::Datum.new(name, :text_const, "#{bytes}\0".b, align: 1) }
-    rows = +"".b
-    row_relocs = []
-    units.each_with_index do |(path, entry), i|
-      text.call("zr_unit_path_#{i}", path)
-      row_relocs << Obj::Reloc.new(i * 24, :abs64, "zr_unit_path_#{i}") << Obj::Reloc.new((i * 24) + 16, :abs64, entry)
-      rows << [0, path.bytesize, 0].pack("Q<3")
-    end
-    out << Obj::Datum.new("zr_unit_rows", :data_const, rows.empty? ? "\0".b * 8 : rows, relocs: row_relocs, align: 8)
-    words = [units.size, 0]
-    relocs = [Obj::Reloc.new(8, :abs64, "zr_unit_rows")]
-    names.each_with_index do |lines, i|
-      joined = lines.join("\n")
-      text.call("zr_load_names_#{i}", joined)
-      relocs << Obj::Reloc.new(words.size * 8, :abs64, "zr_load_names_#{i}")
-      words << 0 << joined.bytesize
-    end
-    out << Obj::Datum.new("zr_load_table_words", :data_const, words.pack("Q<*"), relocs: relocs, align: 8)
-    out << Obj::Datum.new("zr_load_tables", :data_const, "\0".b * 8, relocs: [Obj::Reloc.new(0, :abs64, "zr_load_table_words")], align: 8, linkage: :export)
-  end
-
-  # The texts of `load_tables` after the files, in the order of the
-  # kernel's LoadTable: each a list of lines. The host gives them to the
-  # kernel as a link does (`Machine::Host::Walk`).
-  def load_texts(evals: false, spots: {}, coverable: {}, branches: {}, defs: {}, sources: {}, target: Target.default, gem_roots: [],
-                 manifest: nil)
-    shown = ->(path) { Paths.shown(path) }
-    # A ruby feature that no root here contains, then a tab and the reason
-    # if there is one. So a computed require stops for the same reason as
-    # a literal one.
-    uncarried = Hir::Build.missing_features(target).map { |name| [name, *Hir::Build::UNSUPPORTED_LIBRARIES[name]].join("\t") }
-    # Only a build reads the roots. An eval in a program (evals false)
-    # builds its tables here too, and must not read them: they are the
-    # build machine's directories.
-    names = if evals
-              pure = Hir::Build.pure
-              roots = Hir::Build.stdlib(target) - [pure]
-              [[pure, *gem_roots, *roots].map(&shown), uncarried, Hir::Build::PRELOADED, [shown[Layout::EXT]]]
-            else
-              [[]] * 4
-            end
-    # error_highlight's spots, one file at a time: its name, a newline,
-    # then its records, and a form feed before the next file.
-    names << [spots.map { |file, rows| "#{shown[file]}\n#{rows}" }.join("\f")]
-    # The lines that Coverage counts, one record per file: its path, its
-    # line count, and the lines, tab-separated.
-    names << coverable.map { |file, (count, lines)| "#{shown[file]}\t#{count}\t#{lines.uniq.join(",")}" }
-    # The branches that Coverage reports, one record per file: its path,
-    # then one `kind,id,root,start line,start column,end line,end column`
-    # for each branch, in Coverage's order. `id` is the counter that this
-    # branch increments. `root` is the index in the file of the branch's
-    # root, or empty for a root.
-    names << branches.map { |file, rows| "#{shown[file]}\t#{rows.map { |row| row.join(",") }.join("\t")}" }
-    # The location of each def and block in a measured file, one record
-    # per file: its path, then one `id,start line,start column,end
-    # line,end column` for each scope. A definition finds its record by
-    # its id, and so gets its span.
-    names << defs.map { |file, rows| "#{shown[file]}\t#{rows.map { |row| row.join(",") }.join("\t")}" }
-    names << sources.map { |path, digest| [shown[path], digest] }.sort.map { |path, digest| "#{path}\t#{digest}" }
-    names << [manifest.to_s.chomp]
-  end
-
-  # `zr_symbol_names`: one (bytes, length) record per symbol id. The bytes
-  # of all names are one read-only object, and each record points into it
-  # (an addend). An object for each name made a program that evals carry
-  # 18,000 more data items and symbols, which each link read, laid out
-  # and wrote again.
-  def symbol_names(symbols)
-    names = symbols.names
-    all = +"".b
-    table = +"".b
-    relocs = []
-    names.each_with_index do |name, i|
-      # A pad has no bytes, and the tag SYM_PAD (lib/zr/runtime/kernel/symbol.rb).
-      if name.nil?
-        table << [0, 255 << 56].pack("Q<Q<")
-        next
-      end
-      relocs << Obj::Reloc.new(i * 16, :abs64, "zr_symname_bytes", all.bytesize)
-      table << [0, name.bytesize].pack("Q<Q<")
-      all << name.b
-    end
-    [Obj::Datum.new("zr_symname_bytes", :text_const, all.empty? ? "\0".b : all, align: 1),
-     Obj::Datum.new("zr_symbol_names", :data_const, table, relocs: relocs, align: 8, linkage: :export),
-     Obj::Datum.new("zr_symbol_count", :data_const, [names.size].pack("Q<"), align: 8, linkage: :export),
-     Obj::Datum.new("zr_site_count", :data_const, [symbols.sites].pack("Q<"), align: 8, linkage: :export)]
   end
 end

@@ -48,6 +48,8 @@ Two kinds of code meet on a program's load path (`Zr::Layout`):
 | `lib/zr/lower.rb`, `lib/zr/lower/` | `Zr::Lower`: the HIR to the IR, for the zr runtime |
 | `lib/zr/runtime.rb` | `Zr::Runtime`, `Zr::Program` and `Zr::EvalSupport`: the runtime's files and built forms |
 | `lib/zr/runtime_sources.rb` | the source files of one target's runtime and of the compiler, and their digests |
+| `lib/zr/load_tables.rb` | `Zr::LoadTables`: the tables a binary carries for its files, its computed requires, error_highlight, Coverage and its gems |
+| `lib/zr/symbol_numbering.rb` | `Zr::SymbolNumbering`: the link's numbers for a program's symbols, and their names table |
 | `lib/zr/digests.rb` | the digests of the cache's names that belong to no one target: the link, eval support's keys |
 | `lib/zr/machine/` | the kernel's typed Ruby to the IR, and the kernel's description |
 | `lib/zr/ir.rb`, `lib/zr/ir/` | the IR, its passes, its verifier, and `IR::Interp` |

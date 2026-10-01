@@ -255,7 +255,7 @@ module Zr
         end
 
         # Gives the load tables what a link writes into a binary
-        # (`Zr.load_tables`): the texts (`Zr.load_texts`: for a program with
+        # (`LoadTables#data`): the texts (`LoadTables#texts`: for a program with
         # eval, what a require of a computed name searches; error_highlight's
         # spots; Coverage's tables), and the files the program was built
         # with, by path, each with its toplevel, where a require of a
@@ -265,8 +265,8 @@ module Zr
         def spotted(hir, target)
           words = Memory.fetch(TYPES["Ptr"], @host.extern("zr_load_tables"))
           table = k::LoadTable
-          texts = Zr.load_texts(evals: hir.evals, spots: hir.spots || {}, coverable: hir.coverable || {}, branches: hir.branches || {},
-                                defs: hir.defs || {}, target: target, manifest: Manifest.bytes(Manifest.of_program(hir, @eval_files), target))
+          texts = LoadTables.new(evals: hir.evals, spots: hir.spots || {}, coverable: hir.coverable || {}, branches: hir.branches || {},
+                                 defs: hir.defs || {}, target: target, manifest: Manifest.bytes(Manifest.of_program(hir, @eval_files), target)).texts
           TEXTS.zip(texts) do |field, lines|
             text = lines.join("\n").b
             Memory.write(words + table.layout_fields.fetch(field).first, [@host.bytes(text), text.bytesize].pack("Q<Q<"))

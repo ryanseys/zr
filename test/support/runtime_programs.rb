@@ -28,7 +28,7 @@ module Zr
         kernel = kernel_data(runtime)
         functions = unit.functions.select { |f| own.include?(f.name) }
         data = unit.data.reject { |d| kernel.include?(d.name) }
-        Zr::Program.new(runtime, functions, data + Zr.symbol_names(unit.symbols) + Zr.load_tables(target: target), nil)
+        Zr::Program.new(runtime, functions, data + Zr::SymbolNumbering.names_table(unit.symbols) + Zr::LoadTables.new(target: target).data, nil)
       end
 
       def runtime_symbols(runtime) = Zr::Machine::Symbols.new(runtime.symbols.names, sites: runtime.symbols.sites)

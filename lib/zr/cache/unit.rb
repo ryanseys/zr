@@ -10,7 +10,7 @@ module Zr
     #
     # A unit's code does not depend on the compile order. Its names come
     # from its source file, and its symbol ids and literal slots are words
-    # that the link fills (`Zr.number_symbols`). So the same file gives the
+    # that the link fills (`SymbolNumbering.number`). So the same file gives the
     # same bytes in any program, and a build can read them back instead of
     # making them again. This saves most of a large build's time (about
     # four fifths).

@@ -13,9 +13,9 @@ module Zr
       # The whole kernel on CRuby, booted (`zr_boot`): the portable files
       # and the OS layer of this machine, with the host's arch layer in
       # place of the one in lib/zr/runtime/kernel/arch. It gives the
-      # kernel the tables that a link gives a binary (`Runtime#load_tables`,
-      # `Runtime#symbol_names`): the kernel's symbol names and empty load
-      # tables.
+      # kernel the tables that a link gives a binary (`LoadTables`,
+      # `SymbolNumbering.names_table`): the kernel's symbol names and empty
+      # load tables.
       class Boot
         # The host's machine state: a context is the index of its Ruby
         # Fiber (0 before the first switch into it), the entry, the top of
