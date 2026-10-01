@@ -1432,7 +1432,7 @@ module Zr
             argc = k.zr_kw_ruby2_out(argc, av) if splat && !kwargs
             at(node, c)
             sent(node.block.is_a?(Hir::Block) ? node.block : nil, c) do
-              activate(node, c)
+              activate(node.using, c)
               if node.name == :new && node.block.nil?
                 # `new` with no block runs with no frame of its own, as in
                 # a binary.
@@ -1493,11 +1493,11 @@ module Zr
         # Gives the task the refinements that are active at the send
         # (`Sends#activate`): those of the `using` entry, or in a `refine`
         # block those of the owner.
-        def activate(node, c)
-          case node.using
+        def activate(using, c)
+          case using
           when nil then nil
           when :owner then k.zr_activate_owner(c.rec)
-          else k.zr_activate(node.using)
+          else k.zr_activate(using)
           end
         end
 
@@ -1633,7 +1633,7 @@ module Zr
           when nil then @qnil
           when Hir::BlockPass
             v = ev(block.value, c)
-            activate(site, c) if site
+            activate(site.using, c) if site
             check(k.zr_block_pass(v))
           when Hir::Block then block_image(block, c)
           end
@@ -1817,7 +1817,7 @@ module Zr
             argc = k.zr_kw_ruby2_out(argc, av) if splat && !kwargs
             at(node, c)
             sent(node.block.is_a?(Hir::Block) ? node.block : nil, c) do
-              activate(node, c)
+              activate(node.using, c)
               k.zr_super(cell(node, :sc, k::SuperCache.layout_size), c.rec, argc, av, blk).tap do
                 k::Task.set_refine(task, @qnil) if node.using
               end
@@ -1834,12 +1834,11 @@ module Zr
 
         # A send that the walker makes: `recv.name(*values)`.
         # An op-assign's sends (`c` given) see the refinements of its
-        # `using` entry.
-        def call(recv, name, values, node, kind = :op, mode: 0, c: nil)
-          using = c && node.using
+        # `using` entry, and a `when`'s `===` those of its `case`.
+        def call(recv, name, values, node, kind = :op, mode: 0, c: nil, using: c && node.using)
           mode |= SEND_CORE if c && core_send?(name, c)
           slots do
-            activate(node, c) if using
+            activate(using, c) if using
             r = k.zr_send_cached(cell(node, kind, 4 * k::CallCache.layout_size), recv, id(name), values.size, argv(values), @qnil,
                                  using ? mode | SEND_USING : mode)
             k::Task.set_refine(task, @qnil) if using
@@ -1998,7 +1997,7 @@ module Zr
                 truthy?(subject ? check(k.zr_case_any(subject, list)) : check(k.zr_any_truthy(list)))
               else
                 v = ev(value, c)
-                truthy?(subject ? call(v, :===, [subject], value, :eqq) : v)
+                truthy?(subject ? call(v, :===, [subject], value, :eqq, c: c, using: node.using) : v)
               end
             end
             return ev(body, c) if hit

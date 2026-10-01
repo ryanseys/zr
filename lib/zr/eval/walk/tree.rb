@@ -625,6 +625,7 @@ module Zr
         end
 
         def case_node(node, ctx)
+          refuse(node, "a case under a refinement") if node.subject && node.using
           subject = node.subject ? [walk(node.subject, ctx)] : nil
           node.clauses.each do |values, body|
             return walk(body, ctx) if values.any? { |v| matches?(v, subject, ctx) }

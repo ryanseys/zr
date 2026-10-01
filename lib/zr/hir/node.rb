@@ -326,7 +326,9 @@ module Zr
     Defined = Node.new(:kind, :target, :line)
     # `case subject; when a, b then body; ... else else_body end`. Each
     # clause is `[values, body]`; a nil subject tests each value itself.
-    Case = Node.new(:subject, :clauses, :else_body, :line)
+    # `using` is the refinement entry of each `value === subject`, as a
+    # Send's: a refined `===` applies in a `when`.
+    Case = Node.new(:subject, :clauses, :else_body, :line, :using)
     IvarWrite = Node.new(:name, :value, :line)
     # `[a, b]`. `frozen` if it is the value of a
     # `# shareable_constant_value: literal` constant: built frozen with

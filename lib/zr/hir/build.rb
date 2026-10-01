@@ -408,7 +408,7 @@ module Zr
 
         seen[node.object_id] = true
         case node
-        when Send, Super, AttrOpAssign, IndexOpAssign then node.using ||= @using
+        when Send, Super, AttrOpAssign, IndexOpAssign, Case then node.using ||= @using
         end
         node.each_pair { |_, child| mark_using(child, seen) }
       end

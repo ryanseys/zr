@@ -171,8 +171,10 @@ module Zr
         def when_eqq(node, value, base)
           staged([value, Hir::Slot.new(base, value.line)]) do |slots|
             at_node(value)
-            match = Hir::Send.of(value, :===, [node.subject], value.line)
-            truthy(checked(cached_send(match, @f.fetch("i64", slots), imm(1), @f.iadd(slots, imm(8)), @qnil, mode: 0)))
+            match = Hir::Send.of(value, :===, [node.subject], value.line, using: node.using)
+            activate(match)
+            mode = match.using ? Sends::SEND_USING : 0
+            truthy(checked(cached_send(match, @f.fetch("i64", slots), imm(1), @f.iadd(slots, imm(8)), @qnil, mode: mode)).tap { deactivate(match) })
           end
         end
 
