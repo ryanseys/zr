@@ -93,9 +93,9 @@ module Zr
     # CRuby's C reads rb_cInteger. So a constant that a program defines
     # never replaces one, and no read walks the constant tables.
     def self.boot_classes
-      @boot_classes ||= File.read(File.join(Paths::RUNTIME, "kernel/main.rb"))
-                            .scan(/zr_boot_name\((G_\w+), Machine\.id\(:(\w+)\)\)/)
-                            .to_h { |slot, name| [name.to_sym, slot] }
+      Session.current.memo(:boot_classes) do
+        File.read(File.join(Paths::RUNTIME, "kernel/main.rb")).scan(/zr_boot_name\((G_\w+), Machine\.id\(:(\w+)\)\)/).to_h { |slot, name| [name.to_sym, slot] }
+      end
     end
 
     # The slot for a bare constant `name` in the core library, or nil.

@@ -82,7 +82,7 @@ module Zr
 
     # The sources of `target` under this process's path root. The object
     # keeps the compiler's digest, which reads every compiler file.
-    def self.for(target = Target.default) = (@all ||= {})[[target.triple, Paths.root]] ||= new(target)
+    def self.for(target = Target.default) = Session.current.memo([:runtime_sources, target.triple, Paths.root]) { new(target) }
 
     # The cache file of a runtime's symbol table, its wanted symbols and its
     # kernel's description (`Runtime#cached`).

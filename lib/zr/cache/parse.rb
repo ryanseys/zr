@@ -121,7 +121,7 @@ module Zr
 
       # The parses that this process keeps.
       def memo
-        @memo ||= Memo.new(MEMO_BYTES)
+        Session.current.memo(:parse_memo) { Memo.new(MEMO_BYTES) }
       end
 
       def key(source, options)

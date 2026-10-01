@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require_relative "../../lib/zr/session"
+
 module Zr
   module Test
     # Stub helpers for tests, because minitest 6 does not include
@@ -17,13 +19,17 @@ module Zr
       end
 
       # Sets the environment variables in `pairs` while the block runs,
-      # and puts the old values back after. A nil value unsets one.
+      # and puts the old values back after. A nil value unsets one. The
+      # session reads the settings again in the block and after it
+      # (`Session#reset!`), as a new zr would.
       def with_env(pairs)
         was = pairs.to_h { |name, _| [name, ENV.fetch(name, nil)] }
         pairs.each { |name, value| value.nil? ? ENV.delete(name) : ENV[name] = value }
+        Session.current.reset!(keep_runtimes: true)
         yield
       ensure
         was.each { |name, value| value.nil? ? ENV.delete(name) : ENV[name] = value }
+        Session.current.reset!(keep_runtimes: true)
       end
     end
   end

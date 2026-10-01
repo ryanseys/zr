@@ -16,7 +16,7 @@ module Zr
   # writes the object again from the kept code.
   class EvalSupport
     # The eval support of this process for each target, by triple.
-    def self.loaded = @loaded ||= {}
+    def self.loaded = Session.current.memo(:eval_supports) { {} }
 
     # The eval support for `target`, made once per process.
     def self.for(target = Target.default) = loaded[target.triple] ||= new(Runtime.for(target))

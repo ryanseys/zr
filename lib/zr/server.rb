@@ -264,14 +264,11 @@ module Zr
     # loaded (`refresh`) stay when they are this build's: the same
     # settings, no path root, and the same runtime digest now.
     def fresh!(message = nil)
-      Config.instance_variable_set(:@current, nil)
-      Paths.instance_variable_set(:@cache, nil)
-      Libraries.instance_variable_set(:@roots, nil) if defined?(Libraries)
+      Session.current.reset!(keep_runtimes: true)
       return if message && @digest && settings(message[:env]) == settings(ENV) && message[:argv].none? { |word| word.start_with?("--path-root") } &&
                 RuntimeSources.for(Target.default).runtime_digest == @digest
 
-      Runtime.loaded.clear
-      EvalSupport.loaded.clear
+      Session.current.reset!
     end
 
     # The variables that steer a build.
@@ -296,8 +293,7 @@ module Zr
       runtime.symbols
       live = Cache::Janitor.live_for(target)
       images = live.select { |path| path.end_with?("-prelink.bin") && File.exist?(path) }
-      prelinks = Native::Build.instance_variable_get(:@prelinks) || {}
-      prelinks.select! { |path, _| images.include?(path) }
+      Native::Build.prelinks.select! { |path, _| images.include?(path) }
       evals = live.select { |path| path.end_with?(".o") && path != runtime.object_path }
       [[runtime.object_path], *evals.map { |eval| [runtime.object_path, eval] }].each do |set|
         Native::Build.prelink(set) if images.include?(Native::Build.prelink_path(set))

@@ -17,12 +17,12 @@ class AbiKeyTest < Minitest::Test
 
   def setup
     @dir = Dir.mktmpdir("zr-abi-")
-    Zr::Paths.instance_variable_set(:@cache, @dir)
+    Zr::Session.current.set(:cache, @dir)
     @target = Zr::Target.default
   end
 
   def teardown
-    Zr::Paths.instance_variable_set(:@cache, nil)
+    Zr::Session.current.forget(:cache)
     FileUtils.rm_rf(@dir)
   end
 

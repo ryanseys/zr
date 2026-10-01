@@ -69,7 +69,7 @@ class StoreTest < Minitest::Test
   end
 
   def test_a_write_after_a_source_moved_keeps_nothing
-    stub_method(Zr, :moved, "lib/zr/lower.rb") do
+    stub_method(Zr::SourceGuard, :changed_file, "lib/zr/lower.rb") do
       assert_raises(Zr::SourceChanged) { Store.write(:unit, Store.key("moved"), [1]) }
     end
     assert_nil Store.read(:unit, Store.key("moved"))

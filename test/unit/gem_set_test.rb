@@ -41,18 +41,6 @@ class GemSetTest < Minitest::Test
     with_env(@env.merge(env)) { Zr::GemSet.resolve(flags, env: ENV) }
   end
 
-  def with_env(env)
-    was = env.to_h { |name, _| [name, ENV[name]] }
-    env.each { |name, value| ENV[name] = value }
-    Zr::Paths.instance_variable_set(:@cache, nil)
-    Zr::Config.instance_variable_set(:@current, nil) if Zr::Config.instance_variable_defined?(:@current)
-    yield
-  ensure
-    was.each { |name, value| ENV[name] = value }
-    Zr::Paths.instance_variable_set(:@cache, nil)
-    Zr::Config.instance_variable_set(:@current, nil) if Zr::Config.instance_variable_defined?(:@current)
-  end
-
   def test_no_flags_and_no_gemfile_is_the_empty_set
     set = resolve([], "BUNDLE_GEMFILE" => nil)
 

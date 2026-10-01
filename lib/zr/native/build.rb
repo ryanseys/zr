@@ -129,6 +129,9 @@ module Zr
         backend(target).assemble(function, backend(target)::Spelled.new(entry))
       end
 
+      # The prelinked bases that this process loaded, by path.
+      def prelinks = Session.current.memo(:prelinks) { {} }
+
       # Links `objects` once, at the fixed addresses that every program
       # links against (`Obj::MachO::Prelink`). The name of a cached object
       # is the digest of its inputs, so the cache keeps its prelinked base
@@ -141,7 +144,7 @@ module Zr
         # Kept in memory for the life of the process, and on disk. Reading
         # and parsing the 25 MB image took 21% of a link, and a test tier
         # links thousands of times. A link never writes to it.
-        kept = (@prelinks ||= {})[path] ||= File.exist?(path) && Timing.phase("prelink loaded") { Obj::MachO::Prelink.load(File.binread(path)) }
+        kept = prelinks[path] ||= File.exist?(path) && Timing.phase("prelink loaded") { Obj::MachO::Prelink.load(File.binread(path)) }
         return kept if kept
 
         Timing.phase("objects prelinked") do
@@ -172,7 +175,7 @@ module Zr
       # prelink. Returns nil when the prelink is not in the cache.
       def skeleton(objects)
         path = skeleton_path(objects) or return nil
-        (@skeletons ||= {})[path] ||= File.exist?(path) ? path : Timing.phase("skeleton written") { Cache::Store.write_file(path, Obj::MachO::Skeleton.bytes(prelink(objects))) }
+        Session.current.memo(:skeletons) { {} }[path] ||= File.exist?(path) ? path : Timing.phase("skeleton written") { Cache::Store.write_file(path, Obj::MachO::Skeleton.bytes(prelink(objects))) }
       end
 
       # The eval support object, built once for each key.
@@ -364,7 +367,8 @@ module Zr
       def wasm_prelude(runtime, pending, support = nil)
         key = Digest::SHA256.hexdigest("#{runtime.digest}\n#{support&.key}\n#{pending.inspect}")
         path = Cache::Store.path(:wasm, key)
-        kept = (@wasm_preludes ||= {})[path] ||= File.exist?(path) && Marshal.load(File.binread(path))
+        preludes = Session.current.memo(:wasm_preludes) { {} }
+        kept = preludes[path] ||= File.exist?(path) && Marshal.load(File.binread(path))
         return kept if kept
 
         functions = support ? runtime.functions + support.functions : runtime.functions
@@ -374,7 +378,7 @@ module Zr
         IR::Passes.inline(functions).each { |f| IR::Passes.prepare(f) }
         pre = Backend::Wasm.prelude(functions, data, pending: pending)
         Cache::Store.write_file(path, Marshal.dump(pre))
-        @wasm_preludes[path] = pre
+        preludes[path] = pre
       end
 
       # The data symbols that `functions` refer to and `data` does not define.

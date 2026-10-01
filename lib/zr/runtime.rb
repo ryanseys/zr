@@ -252,7 +252,7 @@ module Zr
   # are built.
   class Runtime
     # The runtimes of this process, by target triple.
-    def self.loaded = @loaded ||= {}
+    def self.loaded = Session.current.memo(:runtimes) { {} }
 
     # The runtime for `target`, lowered once per process.
     def self.for(target = Target.default) = loaded[target.triple] ||= new(target)

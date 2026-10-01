@@ -77,7 +77,7 @@ module Zr
       # default gem (json 3.0.2, not 2.18.0), then ruby's own library,
       # then the bundled gems in their own directories.
       def self.stdlib(target = Target.default)
-        (@stdlib ||= {})[target.triple] ||= [Layout.ext_os(target), Layout::EXT, Layout::RUNTIME_LIB, *GEMS, pure, *bundled].freeze
+        Session.current.memo([:stdlib, target.triple]) { [Layout.ext_os(target), Layout::EXT, Layout::RUNTIME_LIB, *GEMS, pure, *bundled].freeze }
       end
 
       # The compiler that a program with eval links in, and the

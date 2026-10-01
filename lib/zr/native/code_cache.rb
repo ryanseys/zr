@@ -40,7 +40,7 @@ module Zr
         backend/aarch64/registers.rb backend/aarch64/stub.rb bytes.rb config.rb host.rb ir/analysis.rb
         ir/effects.rb ir/fingerprint.rb ir/function.rb ir/gvn.rb ir/inst.rb ir/licm.rb ir/passes.rb
         ir/promotion.rb ir/regions.rb ir/statics.rb ir/types.rb ir/verify.rb obj/model.rb refused.rb
-        native/code_cache.rb paths.rb version.rb
+        native/code_cache.rb paths.rb session.rb version.rb
       ].freeze
 
       LIB = File.expand_path("..", __dir__)

@@ -84,7 +84,7 @@ module Zr
     # with eval support links in this file but never builds. On wasi,
     # `getpwuid` has no wasm form, so reading the home directory at load
     # would stop the module before its first line.
-    def self.cache = @cache ||= Config.current.cache || (checkout? ? File.join(ROOT, "tmp/cache") : user_cache)
+    def self.cache = Session.current.memo(:cache) { Config.current.cache || (checkout? ? File.join(ROOT, "tmp/cache") : user_cache) }
 
     # The functions that the compiler needs from fileutils and tmpdir,
     # without those libraries. A compiled compiler loads a library when it

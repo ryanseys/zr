@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "rbconfig"
+require_relative "session"
 
 module Zr
   # The `ZR_*` environment variables that steer a build, read once.
@@ -168,11 +169,11 @@ module Zr
 
     # The one instance for this process. A later call returns the same
     # instance; `reset!` and `with` are the only way to get a new one.
-    def self.current = @current ||= new
+    def self.current = Session.current.memo(:config) { new }
 
     # Drops the current instance, so the next `current` reads `ENV` again.
     def self.reset!
-      @current = nil
+      Session.current.forget(:config)
     end
 
     # Sets each of `ENV` (by keyword, e.g. `ZR_TUNE: "0"`) for the block,

@@ -114,12 +114,14 @@ module Zr
     # Each file of a default gem in ruby's library, by its path there,
     # from the gem's specification (`s.files`).
     def default_gems
-      @default_gems ||= Stdlib::DEFAULT.each_with_object({}) do |(name, version), out|
-        spec = File.join(Layout::SPECIFICATIONS, "default", "#{name}-#{version}.gemspec")
-        next unless File.file?(spec)
+      Session.current.memo(:default_gems) do
+        Stdlib::DEFAULT.each_with_object({}) do |(name, version), out|
+          spec = File.join(Layout::SPECIFICATIONS, "default", "#{name}-#{version}.gemspec")
+          next unless File.file?(spec)
 
-        File.read(spec)[/^\s*s\.files = \[(.*)\]/, 1].to_s.scan(/"([^"]+)"/).flatten.each do |path|
-          out[path.delete_prefix("lib/")] = name if path.start_with?("lib/")
+          File.read(spec)[/^\s*s\.files = \[(.*)\]/, 1].to_s.scan(/"([^"]+)"/).flatten.each do |path|
+            out[path.delete_prefix("lib/")] = name if path.start_with?("lib/")
+          end
         end
       end
     end

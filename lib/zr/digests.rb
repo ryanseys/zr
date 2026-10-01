@@ -14,9 +14,9 @@ module Zr
     # includes this digest in its name, with its other inputs.
     def link
       require_relative "runtime_sources"
-      @link ||= Digest::SHA256.new.tap do |d|
-        RuntimeSources::LINK_ONLY.each { |path| d << path << "\0" << File.binread(path) }
-      end.hexdigest
+      Session.current.memo(:link_digest) do
+        Digest::SHA256.new.tap { |d| RuntimeSources::LINK_ONLY.each { |path| d << path << "\0" << File.binread(path) } }.hexdigest
+      end
     end
 
     # The digest that names a runtime's cache files: the target, the path

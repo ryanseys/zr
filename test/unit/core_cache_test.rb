@@ -17,7 +17,7 @@ class CoreCacheTest < Minitest::Test
   end
 
   def teardown
-    Zr::Paths.instance_variable_set(:@cache, nil)
+    Zr::Session.current.forget(:cache)
     FileUtils.rm_rf(@work) if @work
   end
 
@@ -25,13 +25,13 @@ class CoreCacheTest < Minitest::Test
   # given `extra` at its end, and returns the object's bytes.
   def object(dir, extra, code_cache:)
     Zr::Config.with(ZR_CODE_CACHE: code_cache ? "1" : "0") do
-      Zr::Paths.instance_variable_set(:@cache, dir)
+      Zr::Session.current.set(:cache, dir)
       runtime = Zr::Runtime.new(Zr::Target.default)
       path = File.join(Zr::Paths::ROOT, EDITED)
       runtime.sources[path] = File.read(path) + extra
       File.binread(Zr::Native::Build.runtime_object(runtime))
     ensure
-      Zr::Paths.instance_variable_set(:@cache, nil)
+      Zr::Session.current.forget(:cache)
     end
   end
 
