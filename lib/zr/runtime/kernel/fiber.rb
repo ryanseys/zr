@@ -523,7 +523,7 @@ module Zr::Kern
     end
     more = true
     while more
-      more = false
+      more = false # rubocop:disable Lint/UselessAssignment -- the outer `while` reads it
       i = 0
       while i < FiberList.len(l)
         at = FiberList.ptr(l) + (i * 8)

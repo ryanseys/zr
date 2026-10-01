@@ -12,7 +12,13 @@ AllCops:
   DisabledByDefault: true
   SuggestExtensions: false
   Exclude:
-    - "lib/zr/runtime/**/*"   # compiled by zr, not run by ruby
+    # The runtime's Ruby (core, ext, lib) is not linted yet: much of it
+    # follows upstream code (onigmo, prism, psych, openssl ports). The
+    # kernel gets the Lint cops only (see below). Plan A7 makes ruby run
+    # all of lib/zr/runtime; that is separate from what RuboCop checks.
+    - "lib/zr/runtime/core/**/*"
+    - "lib/zr/runtime/ext/**/*"
+    - "lib/zr/runtime/lib/**/*"
     - "vendor/**/*"       # third-party code
     - "benchmark/**/*"    # programs that zr compiles
     - "test/programs/**/*"
@@ -44,9 +50,22 @@ Lint/InterpolationCheck: { Enabled: false }          # tests write Ruby source i
 Lint/InheritException: { Enabled: false }            # the eval interpreter's control flow is not a StandardError
 Lint/StructNewOverride: { Enabled: false }           # test fixtures
 
-# A method that takes a keyword for its interface need not read it.
+# A method that takes a keyword for its interface need not read it. A
+# kernel def takes each parameter that its sig names, also one that an
+# OS layer does not need.
 Lint/UnusedMethodArgument:
   AllowUnusedKeywordArguments: true
+  Exclude: ["lib/zr/runtime/kernel/**/*"]
+# In the kernel, `RProc.lambda(p)` reads a struct field, and `d != d` is
+# the NaN test.
+Lint/LambdaWithoutLiteralBlock: { Exclude: ["lib/zr/runtime/kernel/**/*"] }
+Lint/BinaryOperatorWithIdenticalOperands: { Exclude: ["lib/zr/runtime/kernel/**/*"] }
+
+# The kernel (lib/zr/runtime/kernel) is typed Ruby: zr lowers it, and
+# plan A7 runs it on ruby too. Only the Lint cops above apply to it.
+Layout: { Exclude: ["lib/zr/runtime/kernel/**/*"] }
+Style: { Exclude: ["lib/zr/runtime/kernel/**/*"] }
+Naming: { Exclude: ["lib/zr/runtime/kernel/**/*"] }
 
 # Layout: only what keeps a diff readable. No formatter, so blame stays.
 Layout/LineLength:

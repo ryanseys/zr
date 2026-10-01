@@ -2,6 +2,7 @@
 
 require "digest/sha2"
 require_relative "paths"
+require_relative "config"
 
 module Zr
   # The digests that name the cache's entries and that do not belong to
@@ -25,6 +26,7 @@ module Zr
       Digest::SHA256.new.tap do |d|
         d << target.triple << "\0"
         d << "root\0" << Paths.root << "\0" if Paths.root
+        d << "checked\0" if Config.current.kernel_checked?
         files.each { |path| d << path << "\0" << (bytes[path] || File.binread(path)) }
       end.hexdigest
     end

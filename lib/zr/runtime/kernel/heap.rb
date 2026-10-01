@@ -309,7 +309,7 @@ module Zr::Kern
 
   sig [Word] => Word
   def zr_marks_bit(i)
-    1 << (i & 63)
+    Machine.shl_wrap(1, i & 63)
   end
 
   # The index of cell `v` in arena `a`.
@@ -519,7 +519,9 @@ module Zr::Kern
   sig [Ptr, Ptr, Ptr] => Void
   def zr_cursor_set(sc, a, at)
     SizeClass.set_cursor(sc, at)
-    SizeClass.set_origin(sc, zr_arena_first(a) - (Machine.word(zr_arena_allocated(a)) << (3 + ArenaHead.shift(a))))
+    # The origin is a virtual address, and it can be below 0: only the
+    # sum in zr_cell_take is a real address.
+    SizeClass.set_origin(sc, Machine.sub_wrap(zr_arena_first(a), Machine.word(zr_arena_allocated(a)) << (3 + ArenaHead.shift(a))))
   end
 
   # Moves the cursor of `sc` to the next allocated word with a clear bit:
@@ -1088,7 +1090,7 @@ module Zr::Kern
       dead = Machine.load64(allocated + w, 0) & (0 - 1 - mark)
       while dead != 0
         i = Machine.ctz(dead)
-        dead &= dead - 1
+        dead &= Machine.sub_wrap(dead, 1)
         zr_free_cell(first + (((w << 3) + i) * bytes), bytes)
       end
       Machine.store64(allocated + w, 0, mark)
@@ -1712,9 +1714,9 @@ module Zr::Kern
   def zr_cell_take(sc, bits, type, klass)
     at = SizeClass.cursor(sc)
     i = Machine.ctz(0 - 1 - bits)
-    Machine.store64(at, 0, bits | (1 << i))
+    Machine.store64(at, 0, bits | Machine.shl_wrap(1, i))
     SizeClass.set_allocated(sc, SizeClass.allocated(sc) + 1)
-    cell = SizeClass.origin(sc) + (((Machine.word(at) << 3) + i) << SizeClass.shift(sc))
+    cell = Machine.add_wrap(SizeClass.origin(sc), ((Machine.word(at) << 3) + i) << SizeClass.shift(sc))
     Machine.store64(cell, 0, type | FL_ALLOCATED)
     Machine.store64(cell, 8, Machine.word(klass))
     Machine.value(cell)

@@ -589,7 +589,7 @@ module Zr::Kern
     p = RString.ptr(s)
     i = 0
     # Eight bytes at a time: one of them has its high bit set, or none has.
-    while i + 8 <= n && (Machine.load64(p + i, 0) & 0x8080808080808080) == 0
+    while i + 8 <= n && (Machine.load64(p + i, 0) & Machine.word(0x8080808080808080)) == 0
       i += 8
     end
     while i < n && Machine.word(Machine.load8(p + i, 0)) < 128
@@ -804,10 +804,11 @@ module Zr::Kern
         v = 0
         k = 0
         while k < width
+          # The bytes of a word: the eighth byte fills the sign bit.
           if big == QTRUE
-            v = (v << 8) | Machine.word(Machine.load8(p + k, 0))
+            v = Machine.shl_wrap(v, 8) | Machine.word(Machine.load8(p + k, 0))
           else
-            v = (v << 8) | Machine.word(Machine.load8(p + (width - 1 - k), 0))
+            v = Machine.shl_wrap(v, 8) | Machine.word(Machine.load8(p + (width - 1 - k), 0))
           end
           k += 1
         end
@@ -1339,7 +1340,7 @@ module Zr::Kern
     i = 0
     while i < n
       # A run of ASCII, eight bytes at a time, is valid as it is.
-      while i + 8 <= n && (Machine.load64(RString.ptr(s) + i, 0) & 0x8080808080808080) == 0
+      while i + 8 <= n && (Machine.load64(RString.ptr(s) + i, 0) & Machine.word(0x8080808080808080)) == 0
         i += 8
       end
       if i < n
@@ -1580,11 +1581,12 @@ module Zr::Kern
     while i < n
       b = Machine.word(Machine.load8(p + i, 0))
       if zr_digit_byte_p(b)
-        v = (v * 10) + (b - 48)
-        digits += 1
-        if digits > 18
+        # A 19th digit can overflow the word, so stop before it.
+        if digits == 18
           return Machine.value(QNIL)
         end
+        v = (v * 10) + (b - 48)
+        digits += 1
         i += 1
       elsif b == 95 && digits > 0 && i + 1 < n && zr_digit_byte_p(Machine.word(Machine.load8(p + i + 1, 0)))
         i += 1
@@ -2268,7 +2270,7 @@ module Zr::Kern
   # 0x80, so the caller then checks the bytes.
   sig [Word] => Bool
   def zr_blank_word_p(w)
-    ((w - 0x2121212121212121) & (w ^ (0 - 1)) & 0x8080808080808080) != 0
+    (Machine.sub_wrap(w, 0x2121212121212121) & (w ^ (0 - 1)) & Machine.word(0x8080808080808080)) != 0
   end
 
   # Returns the start of the whitespace that ends at offset `to`.

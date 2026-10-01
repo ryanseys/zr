@@ -32,6 +32,7 @@ module Zr
       @eval_mode = ENV["ZR_EVAL"]
       @timing = Zr.flag?("ZR_TIMING")
       @verify = Zr.flag?("ZR_VERIFY")
+      @kernel_checked = Zr.flag?("ZR_KERNEL_CHECKED")
       @wasm_names = Zr.flag?("ZR_WASM_NAMES")
       # `ZR_WASM_WIDTH`: the group size of a large wasm function's dispatch
       # (`Backend::Wasm::Codegen::Body::LADDER` explains the default).
@@ -117,6 +118,11 @@ module Zr
 
     # `ZR_VERIFY=1` runs the IR against the interpreter as it lowers.
     def verify? = @verify
+
+    # `ZR_KERNEL_CHECKED=1` lowers the kernel with a check at each
+    # operator whose meaning differs from Ruby's (`Machine::Function#check_wrap`).
+    # It is part of the runtime digest.
+    def kernel_checked? = @kernel_checked
 
     # `ZR_WASM_NAMES=1` adds the wasm name section, for a stack trace or
     # a profiler that reads function names.

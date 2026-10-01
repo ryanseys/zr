@@ -37,7 +37,7 @@ module Zr::Kern
     # 4 + 64 + 63 + 64 = 195
     put_word(Machine.ctz(same(80)) + Machine.ctz(same(0)) + Machine.clz(same(1)) + Machine.clz(same(0)))
     # 9 + 32 + 32 + 0 = 73
-    put_word(Machine.popcnt(same(0xF0F0000000000001)) + Machine.word(Machine.popcnt(Machine.i32(same(-1)))) +
+    put_word(Machine.popcnt(same(Machine.word(0xF0F0000000000001))) +Machine.word(Machine.popcnt(Machine.i32(same(-1)))) +
              Machine.word(Machine.clz(Machine.i32(same(0)))) + Machine.word(Machine.ctz(Machine.i32(same(1)))))
     # 0x0102030405060708 turned round is 0x0807060504030201
     put_word(Machine.bswap(same(0x0102030405060708)))

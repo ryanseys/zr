@@ -52,7 +52,7 @@ module Zr::Kern
     b = Machine.ptr(Machine.bits(d))
     top = (b >> 60) & 7
     if b != 3458764513820540928 && (top == 3 || top == 4)
-      rotated = (b << 3) | (b >> 61)
+      rotated = Machine.shl_wrap(b, 3) | (b >> 61)
       return Machine.value((rotated & 18446744073709551614) | 2)
     end
     if b == 0
@@ -73,7 +73,7 @@ module Zr::Kern
       w = Machine.ptr(v)
       b63 = w >> 63
       x = (2 - b63) | (w & 18446744073709551612)
-      return Machine.f64((x >> 3) | (x << 61))
+      return Machine.f64((x >> 3) | Machine.shl_wrap(x, 61))
     end
     Machine.f64(RFloat.bits(v))
   end
@@ -488,7 +488,7 @@ module Zr::Kern
   sig [F64, Word] => Bool
   def zr_float_round_overflow(d, digits)
     e = zr_float_binexp(d)
-    digits >= 17 - (e > 0 ? e / 4 : (e / 3) - 1)
+    digits >= 17 - (e > 0 ? e / 4 : Machine.sdiv(e, 3) - 1)
   end
 
   # CRuby's float_round_underflow: all the digits requested are above
@@ -496,7 +496,7 @@ module Zr::Kern
   sig [F64, Word] => Bool
   def zr_float_round_underflow(d, digits)
     e = zr_float_binexp(d)
-    digits < 0 - (e > 0 ? (e / 3) + 1 : e / 4)
+    digits < 0 - (e > 0 ? (e / 3) + 1 : Machine.sdiv(e, 4))
   end
 
   sig [Value, Word, Ptr, Value, Value] => Value
@@ -607,14 +607,16 @@ module Zr::Kern
     mul0 = Machine.ptr(Machine.load64(row, 0))
     mul1 = Machine.ptr(Machine.load64(row, 8))
     b0_hi = zr_umulh(m, mul0)
-    b2_lo = m * mul1
+    # The low 64 bits of the product, the sum with its carry, and the
+    # bits of a 128-bit value: each wraps at 2**64 on purpose.
+    b2_lo = Machine.mul_wrap(m, mul1)
     b2_hi = zr_umulh(m, mul1)
-    sum = b0_hi + b2_lo
+    sum = Machine.add_wrap(b0_hi, b2_lo)
     if sum < b0_hi
       b2_hi = b2_hi + 1
     end
     dist = j - 64
-    (sum >> dist) | (b2_hi << (64 - dist))
+    (sum >> dist) | Machine.shl_wrap(b2_hi, 64 - dist)
   end
 
   sig [Word] => Word
@@ -1266,7 +1268,7 @@ module Zr::Kern
 
   sig [Value, Value] => Value
   def zr_float_of_halves(low, high)
-    zr_float_from_bits((zr_fix2long(high) << 32) | zr_fix2long(low))
+    zr_float_from_bits(Machine.shl_wrap(zr_fix2long(high), 32) | zr_fix2long(low))
   end
 
   # CRuby's float_decode_internal: [mantissa, exponent], where the double

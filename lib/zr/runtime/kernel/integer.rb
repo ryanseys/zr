@@ -76,12 +76,12 @@ module Zr::Kern
     end
     while n != 0
       at -= 1
-      d = n % 10
+      d = Machine.srem(n, 10)
       if d < 0
         d = 0 - d
       end
       Machine.store8(buf + at, 0, Machine.i8(48 + d))
-      n = n / 10
+      n = Machine.sdiv(n, 10)
     end
     if neg
       at -= 1
@@ -363,8 +363,8 @@ module Zr::Kern
     return r if r != QNIL
     b = Machine.load64(out, 0)
     a = zr_fix2long(recv)
-    p = a * b
-    if a != 0 && p / a != b
+    p = Machine.mul_wrap(a, b)
+    if a != 0 && Machine.sdiv(p, a) != b
       return zr_big_route(recv, Machine.id(:*), 1, argv)
     end
     zr_int_result(p)
@@ -374,8 +374,8 @@ module Zr::Kern
   # make sure that the divisor is not zero.
   sig [Word, Word] => Word
   def zr_floor_div(a, b)
-    q = a / b
-    if (a % b != 0) && ((a < 0) != (b < 0))
+    q = Machine.sdiv(a, b)
+    if (Machine.srem(a, b) != 0) && ((a < 0) != (b < 0))
       q -= 1
     end
     q
@@ -483,7 +483,10 @@ module Zr::Kern
       end
       return zr_fix(a >> (0 - n))
     end
-    if n >= 62 || (a != 0 && ((a << n) >> n) != a)
+    # `a << n` fits in a word when the bits that it shifts out, and the
+    # new sign bit, are all copies of the sign: all 0 or all 1.
+    top = a >> (63 - n) if n < 62
+    if n >= 62 || (top != 0 && top != 0 - 1)
       return zr_big_route(recv, Machine.id(:<<), 1, argv)
     end
     zr_int_result(a << n)
@@ -515,7 +518,10 @@ module Zr::Kern
     n = Machine.load64(out, 0)
     a = zr_fix2long(recv)
     if n < 0
-      if (0 - n) >= 62 || (a != 0 && ((a << (0 - n)) >> (0 - n)) != a)
+      # As in zr_int_lshift: the bits shifted out and the new sign bit
+      # must all be copies of the sign.
+      top = a >> (63 + n) if n > 0 - 62
+      if (0 - n) >= 62 || (top != 0 && top != 0 - 1)
         return zr_big_route(recv, Machine.id(:>>), 1, argv)
       end
       return zr_int_result(a << (0 - n))

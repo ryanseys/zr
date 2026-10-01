@@ -5,6 +5,7 @@ require_relative "../ir"
 require_relative "../obj/model"
 require_relative "../refused"
 require_relative "../bytes"
+require_relative "../config"
 require_relative "description"
 require_relative "function"
 
@@ -63,9 +64,10 @@ module Zr
 
       attr_reader :functions, :data, :raw, :symbols, :defs
 
-      def initialize(sources, symbols = Symbols.new)
+      def initialize(sources, symbols = Symbols.new, checked: Config.current.kernel_checked?)
         @sources = sources
         @symbols = symbols
+        @checked = checked
         @imports = {}
         @defs = {}
         @consts = {}
@@ -574,6 +576,10 @@ module Zr
       def machine?(node)
         node.is_a?(Prism::ConstantReadNode) && node.name == :Machine
       end
+
+      # Whether the defs check their operators (`ZR_KERNEL_CHECKED`,
+      # `Function#check_wrap`).
+      def checked? = @checked
 
       def libc?(node)
         node.is_a?(Prism::ConstantReadNode) && node.name == :Libc

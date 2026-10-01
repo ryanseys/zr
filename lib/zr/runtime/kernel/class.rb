@@ -1775,7 +1775,7 @@ module Zr::Kern
       return zr_search_core_method(klass, mid)
     end
     key = mid | CORE_KEY
-    h = ((Machine.word(klass) / CELL_MIN) ^ (key * 31)) & (MCACHE_ROWS - 1)
+    h = ((Machine.word(klass) / CELL_MIN) ^ Machine.mul_wrap(key, 31)) & (MCACHE_ROWS - 1)
     row = Machine.static(:mcache, MCACHE_ROWS * MCache.size) + (h * MCache.size)
     stamp = Machine.load64(Machine.static(:mcache_stamp, 8), 0)
     if MCache.stamp(row) == stamp && MCache.klass(row) == klass && MCache.mid(row) == key
@@ -2113,7 +2113,7 @@ module Zr::Kern
   sig [Ptr, Word] => Void
   def zr_method_index_put(ext, row)
     mask = ClassExt.mbins(ext) - 1
-    h = (MEntry.mid(ClassExt.mtab(ext) + (row * MEntry.size)) * 2654435761) & mask
+    h = Machine.mul_wrap(MEntry.mid(ClassExt.mtab(ext) + (row * MEntry.size)), 2654435761) & mask
     while Machine.load64(ClassExt.midx(ext) + (h * 8), 0) != 0
       h = (h + 1) & mask
     end
@@ -2160,7 +2160,7 @@ module Zr::Kern
       zr_method_index_build(ext)
     end
     mask = ClassExt.mbins(ext) - 1
-    h = (mid * 2654435761) & mask
+    h = Machine.mul_wrap(mid, 2654435761) & mask
     slot = Machine.load64(ClassExt.midx(ext) + (h * 8), 0)
     while slot != 0
       if MEntry.mid(ClassExt.mtab(ext) + ((slot - 1) * MEntry.size)) == mid
@@ -2275,7 +2275,7 @@ module Zr::Kern
       return refine == QNIL ? zr_search_method(klass, mid) : zr_refined_search(klass, mid)
     end
     # A cell is CELL_MIN-aligned, so its low bits are always zero.
-    h = ((Machine.word(klass) / CELL_MIN) ^ (mid * 31) ^ (Machine.word(refine) / CELL_MIN)) & (MCACHE_ROWS - 1)
+    h = ((Machine.word(klass) / CELL_MIN) ^ Machine.mul_wrap(mid, 31) ^ (Machine.word(refine) / CELL_MIN)) & (MCACHE_ROWS - 1)
     row = Machine.static(:mcache, MCACHE_ROWS * MCache.size) + (h * MCache.size)
     stamp = Machine.load64(Machine.static(:mcache_stamp, 8), 0)
     if MCache.stamp(row) == stamp && MCache.klass(row) == klass && MCache.mid(row) == mid && MCache.refine(row) == refine

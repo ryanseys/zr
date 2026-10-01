@@ -201,9 +201,12 @@ module Zr::Kern
     end
     tv = Machine.slot(16)
     ms = zr_fix2long(milliseconds)
-    Machine.store64(tv, 0, ms / 1000)
-    Machine.store32(tv, 8, Machine.i32((ms % 1000) * 1000))
-    Machine.store32(tv, 12, Machine.i32(0))
+    # A negative timeout waits with no limit, and passes no timeval.
+    if ms >= 0
+      Machine.store64(tv, 0, ms / 1000)
+      Machine.store32(tv, 8, Machine.i32((ms % 1000) * 1000))
+      Machine.store32(tv, 12, Machine.i32(0))
+    end
     r = SelectCall.call(zr_select_fn(), Machine.i32(top + 1), sets, sets + span, sets + (span * 2), ms < 0 ? 0 : tv)
     if r < Machine.i32(0)
       errno = zr_errno()
@@ -261,9 +264,12 @@ module Zr::Kern
     end
     tv = Machine.slot(16)
     ms = zr_fix2long(milliseconds)
-    Machine.store64(tv, 0, ms / 1000)
-    Machine.store32(tv, 8, Machine.i32((ms % 1000) * 1000))
-    Machine.store32(tv, 12, Machine.i32(0))
+    # A negative timeout waits with no limit, and passes no timeval.
+    if ms >= 0
+      Machine.store64(tv, 0, ms / 1000)
+      Machine.store32(tv, 8, Machine.i32((ms % 1000) * 1000))
+      Machine.store32(tv, 12, Machine.i32(0))
+    end
     r = SelectCall.call(zr_select_fn(), Machine.i32(n + 1), sets, sets + span, sets + (span * 2), ms < 0 ? 0 : tv)
     if r < Machine.i32(0)
       errno = zr_errno()

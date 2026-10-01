@@ -29,7 +29,7 @@ class KernelFormsTest < Minitest::Test
 
       sig [I32, I8] => Word
       def widen(a, b)
-        Machine.word(a) + Machine.word(b) + 0xffff_ffff_ffff_fff0
+        Machine.word(a) + Machine.word(b) + 0x7fff_ffff_ffff_fff0
       end
 
       sig [Word, Word] => Word
@@ -61,7 +61,7 @@ class KernelFormsTest < Minitest::Test
 
       sig [I32, I8] => Word
       def widen(a, b)
-        Machine.u32(a) + Machine.u8(b) + Machine.word(0xffff_ffff_ffff_fff0)
+        Machine.u32(a) + Machine.u8(b) + Machine.word(0x7fff_ffff_ffff_fff0)
       end
 
       sig [Word, Word] => Word
@@ -85,6 +85,66 @@ class KernelFormsTest < Minitest::Test
 
     assert_equal %w[first mix twice widen], named.keys.sort
     operators.each_key { |name| assert_equal operators[name], named[name], name }
+  end
+
+  CHECKED = <<~RUBY
+    module Zr::Kern
+      Libc.import :write, [I32, Ptr, Word] => Word
+      Libc.import :abort, [] => Void
+
+      sig [Ptr, Word] => Void
+      def zr_bug(bytes, len)
+        Libc.write(2, bytes, len)
+        Libc.abort()
+      end
+
+      sig [Word, Word] => Word
+      def plain(a, b)
+        (a + b) - (a * b) + (a << b) + (a / b) + (a >> b)
+      end
+
+      sig [Word, Word] => Word
+      def named(a, b)
+        Machine.sub_wrap(Machine.add_wrap(a, b), Machine.mul_wrap(a, b)) + Machine.shl_wrap(a, b)
+      end
+
+      sig [Ptr, Word] => Ptr
+      def address(p, n)
+        p + (n * 8)
+      end
+    end
+  RUBY
+
+  # The calls to zr_bug in each def, and the messages they print.
+  def checks(source)
+    unit = Zr::Machine::Lower.new([[source, "k.rb"]], checked: true)
+    unit.run
+    unit.functions.to_h do |f|
+      calls = f.blocks.sum { |b| b.insts.count { |i| i.op == :call && f.callees.find { |c| c.fn == i.callee }&.symbol == "zr_bug" } }
+      [f.name, calls]
+    end.merge(texts: unit.data.map(&:bytes).grep(String).grep(/ZR_KERNEL_CHECKED/))
+  end
+
+  def test_the_checked_build_checks_each_plain_operator
+    found = checks(CHECKED)
+
+    assert_equal 9, found.fetch("plain") # four +, one each of - * <<, / by a negative or zero, >> by 64
+    assert_includes found.fetch(:texts), "k.rb:13: + wraps (ZR_KERNEL_CHECKED)\n"
+  end
+
+  def test_a_named_operation_is_not_checked_and_a_ptr_is_checked_unsigned
+    found = checks(CHECKED)
+
+    assert_equal 1, found.fetch("named") # the plain + that joins them
+    assert_equal 2, found.fetch("address") # n * 8 as a Word, p + as a Ptr
+    assert_includes found.fetch(:texts), "k.rb:23: + leaves the range of a Ptr (ZR_KERNEL_CHECKED)\n"
+  end
+
+  def test_the_build_without_checks_has_none
+    unit = Zr::Machine::Lower.new([[CHECKED, "k.rb"]], checked: false)
+    unit.run
+
+    assert_empty unit.data.map(&:bytes).grep(String).grep(/ZR_KERNEL_CHECKED/)
   end
 
   def refusal(body)
@@ -126,6 +186,12 @@ class KernelFormsTest < Minitest::Test
     error = assert_raises(Zr::Machine::Refused) { lowered("X = 1\n") }
 
     assert_match(/a kernel file is one `module Zr::Kern`/, error.message)
+  end
+
+  def test_a_literal_past_a_signed_word_is_machine_word
+    message = refusal("sig [] => Word\ndef big\n  0x8000000000000000\nend")
+
+    assert_match(/a literal at or above 2\*\*63 is a word only as Machine.word\(literal\)/, message)
   end
 
   def test_there_is_no_machine_def

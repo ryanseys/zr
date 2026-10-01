@@ -134,7 +134,7 @@ module Zr::Kern
   # Mixes a word into a hash code.
   sig [Word] => Word
   def zr_hash_mix(x)
-    x = (x ^ (x >> 31)) * 7046029254386353131
+    x = Machine.mul_wrap(x ^ (x >> 31), 7046029254386353131)
     x ^ (x >> 29)
   end
 
@@ -257,7 +257,7 @@ module Zr::Kern
 
   sig [] => Void
   def zr_hash_seed_init
-    Machine.store64(zr_hash_seed(), 0, (zr_os_random() << 32) | zr_os_random())
+    Machine.store64(zr_hash_seed(), 0, Machine.shl_wrap(zr_os_random(), 32) | zr_os_random())
   end
 
   # Hashes the bytes, one word at a time. Each word is folded into the
@@ -277,7 +277,7 @@ module Zr::Kern
       w = 0
       shift = 0
       while i < n
-        w = w | (Machine.word(Machine.load8(p + i, 0)) << shift)
+        w = w | Machine.shl_wrap(Machine.word(Machine.load8(p + i, 0)), shift)
         shift += 8
         i += 1
       end
@@ -319,7 +319,7 @@ module Zr::Kern
         return 0
       end
       e = RHash.entries(h) + ((slot - 1) * HEntry.size)
-      i += 1
+      i += 1 # rubocop:disable Lint/UselessAssignment -- the next probe reads it
       if HEntry.live(e) != 0 && HEntry.hash(e) == code
         if identity
           if HEntry.key(e) == key

@@ -116,7 +116,7 @@ module Zr::Kern
   sig [Ptr, Word] => Void
   def zr_const_index_put(ext, row)
     mask = ClassExt.cbins(ext) - 1
-    h = (CEntry.id(ClassExt.ctab(ext) + (row * CEntry.size)) * 2654435761) & mask
+    h = Machine.mul_wrap(CEntry.id(ClassExt.ctab(ext) + (row * CEntry.size)), 2654435761) & mask
     while Machine.load64(ClassExt.cidx(ext) + (h * 8), 0) != 0
       h = (h + 1) & mask
     end
@@ -164,7 +164,7 @@ module Zr::Kern
       zr_const_index_build(ext)
     end
     mask = ClassExt.cbins(ext) - 1
-    h = (id * 2654435761) & mask
+    h = Machine.mul_wrap(id, 2654435761) & mask
     slot = Machine.load64(ClassExt.cidx(ext) + (h * 8), 0)
     while slot != 0
       if CEntry.id(ClassExt.ctab(ext) + ((slot - 1) * CEntry.size)) == id

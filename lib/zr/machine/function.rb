@@ -3,6 +3,7 @@
 require_relative "../prism"
 require_relative "../ir"
 require_relative "../refused"
+require_relative "../paths"
 require_relative "description"
 
 module Zr
@@ -131,7 +132,13 @@ module Zr
         case node
         when Prism::StatementsNode then statements(node, want)
         when Prism::ParenthesesNode then node.body ? statements(node.body, want) : [nil, "Void"]
-        when Prism::IntegerNode then literal(node, node.value, want)
+        when Prism::IntegerNode
+          # A Word is signed (A6), so on CRuby a bare literal at or above
+          # 2**63 is not the word it is here.
+          if node.value >= 1 << 63 && want != "Ptr"
+            refuse(node, "a literal at or above 2**63 is a word only as Machine.word(literal)")
+          end
+          literal(node, node.value, want)
         when Prism::ConstantReadNode
           value = @unit.const_for(node.name.to_s) or refuse(node, "#{node.name} is not a constant here")
           literal(node, value, want)
@@ -331,6 +338,9 @@ module Zr
       # A local is in the frame, so a read of it is safe on any path. A
       # load through a pointer is not safe.
       def plain?(node)
+        # A checked operator branches to its check, so it is not plain.
+        return false if @unit.checked?
+
         case node
         when Prism::IntegerNode, Prism::TrueNode, Prism::FalseNode, Prism::ConstantReadNode then true
         when Prism::LocalVariableReadNode then @locals.key?(node.name.to_s)
@@ -358,7 +368,11 @@ module Zr
       # Word and Ptr can mix: a Ptr plus or minus a Word is a Ptr, a Ptr
       # minus a Ptr is a Word, and a comparison with a Ptr on one side is
       # unsigned. Value does not mix with other types.
-      def binary(node, op, lhs, lt, rhs, rt)
+      #
+      # `named` is true for `Machine.add_wrap`, `Machine.sdiv` and the
+      # others, which the checked build does not check for a wrap or a
+      # negative operand.
+      def binary(node, op, lhs, lt, rhs, rt, named: false)
         refuse(node, "#{op} on #{lt} and #{rt}") unless ir_type(lt) && (lt == rt || (PLAIN.include?(lt) && PLAIN.include?(rt)))
         return float_binary(node, op, lhs, rhs) if lt == "F64"
 
@@ -369,8 +383,17 @@ module Zr
                  end
         case op
         when :+, :-, :*, :&, :|, :^, :<<
-          [@f.binop(OPERATORS[op].to_sym, lhs, rhs), result]
+          value = @f.binop(OPERATORS[op].to_sym, lhs, rhs)
+          if @unit.checked? && !named
+            if result == "Ptr"
+              check_unsigned(node, op, lhs, lt, rhs, rt, value)
+            elsif !ptr
+              check_wrap(node, op, lhs, rhs, value, result)
+            end
+          end
+          [value, result]
         when :/, :%, :>>
+          check_operands(node, op, lhs, rhs, lt, ptr, named) if @unit.checked?
           mnemonic = { :/ => "div", :% => "rem", :>> => "shr" }[op]
           [@f.binop(:"#{ptr ? "u" : "s"}#{mnemonic}", lhs, rhs), result]
         when :==, :!=
@@ -381,6 +404,111 @@ module Zr
         else
           refuse(node, "#{op} is not in the kernel dialect")
         end
+      end
+
+      # The checked build (`ZR_KERNEL_CHECKED`) finds each operator whose
+      # meaning in the lowering differs from its meaning in Ruby. A plain
+      # `+ - * <<` on a signed type (Word, I32, I8, Value) must not wrap,
+      # `/ %` must not see a negative operand or a zero divisor, and `>>`
+      # must shift by less than the width. A failed check prints the
+      # kernel file and line and aborts (`zr_bug`). A Ptr is unsigned, so
+      # only a shift of one is checked.
+      CHECKED = %w[Word I32 I8 Value].freeze
+
+      def check_wrap(node, op, lhs, rhs, value, type)
+        return unless CHECKED.include?(type)
+
+        w = ir_type(type)
+        zero = @f.iconst(w, 0)
+        case op
+        when :+
+          trap_if(node, @f.icmp("slt", @f.band(@f.binop(:bxor, lhs, value), @f.binop(:bxor, rhs, value)), zero), "+ wraps")
+        when :-
+          trap_if(node, @f.icmp("slt", @f.band(@f.binop(:bxor, lhs, rhs), @f.binop(:bxor, lhs, value)), zero), "- wraps")
+        when :*
+          # A product wraps when a nonzero factor does not divide it back,
+          # or when it is the lowest value times -1.
+          divide = @f.label
+          done = @f.label
+          @f.brif(@f.icmp("ne", lhs, zero), divide, done)
+          @f.switch(divide)
+          lowest = @f.iconst(w, -(1 << (bits(w) - 1)))
+          back = @f.icmp("ne", @f.binop(:sdiv, value, lhs), rhs)
+          negated = @f.band(@f.icmp("eq", lhs, @f.iconst(w, -1)), @f.icmp("eq", rhs, lowest))
+          trap_if(node, @f.bor(back, negated), "* wraps")
+          @f.jump(done)
+          @f.switch(done)
+        when :<<
+          width = @f.iconst(w, bits(w))
+          out = @f.icmp("uge", rhs, width)
+          lost = @f.icmp("ne", @f.binop(:sshr, value, @f.band(rhs, @f.iconst(w, bits(w) - 1))), lhs)
+          trap_if(node, @f.bor(out, lost), "<< wraps")
+        end
+      end
+
+      # A Ptr is in [0, 2**64) (A6). A sum, a difference, a product or a
+      # shift whose result is a Ptr must stay in that range. A Word added
+      # to a Ptr is signed, so its sign says which way the Ptr may move.
+      def check_unsigned(node, op, lhs, lt, rhs, rt, value)
+        zero = @f.iconst("i64", 0)
+        case op
+        when :+, :-
+          return if op == :- && lt != "Ptr" # a Word minus a Ptr is not an address
+
+          ptr, word = lt == "Ptr" ? [lhs, rhs] : [rhs, lhs]
+          up = @f.icmp("ult", value, ptr)
+          down = @f.icmp("ugt", value, ptr)
+          up, down = down, up if op == :-
+          if lt == rt
+            bad = up
+          else
+            forward = @f.icmp("sge", word, zero)
+            bad = @f.bor(@f.band(forward, up), @f.band(@f.binop(:bxor, forward, @f.iconst("i8", 1)), down))
+          end
+          trap_if(node, bad, "#{op} leaves the range of a Ptr")
+        when :*
+          divide = @f.label
+          done = @f.label
+          @f.brif(@f.icmp("ne", lhs, zero), divide, done)
+          @f.switch(divide)
+          trap_if(node, @f.icmp("ne", @f.binop(:udiv, value, lhs), rhs), "* leaves the range of a Ptr")
+          @f.jump(done)
+          @f.switch(done)
+        when :<<
+          out = @f.icmp("uge", rhs, @f.iconst("i64", 64))
+          lost = @f.icmp("ne", @f.binop(:ushr, value, @f.band(rhs, @f.iconst("i64", 63))), lhs)
+          trap_if(node, @f.bor(out, lost), "<< leaves the range of a Ptr")
+        end
+      end
+
+      def check_operands(node, op, lhs, rhs, type, ptr, named)
+        w = ir_type(type)
+        zero = @f.iconst(w, 0)
+        if op == :>>
+          trap_if(node, @f.icmp("uge", rhs, @f.iconst(w, bits(w))), ">> by the width or more")
+          return
+        end
+
+        bad = @f.icmp("eq", rhs, zero)
+        bad = @f.bor(bad, @f.bor(@f.icmp("slt", lhs, zero), @f.icmp("slt", rhs, zero))) unless ptr || named
+        trap_if(node, bad, "#{op} of a negative number or by zero")
+      end
+
+      def bits(w) = { "i8" => 8, "i32" => 32, "i64" => 64 }.fetch(w)
+
+      # Calls `zr_bug` with "file:line: what" when `bad` is true. A unit
+      # without zr_bug (a test of the lowering) gets no check.
+      def trap_if(node, bad, what)
+        bug = @unit.def_for("zr_bug") or return
+        fail = @f.label
+        ok = @f.label
+        @f.brif(bad, fail, ok)
+        @f.switch(fail)
+        text = "#{Paths.shown(@d.file)}:#{node.location.start_line}: #{what} (ZR_KERNEL_CHECKED)\n"
+        fn = @f.callee(bug.name, %w[i64 i64], nil, colocated: true)
+        @f.call(fn, [@f.symbol_value(@f.symbol(@unit.bytes(text))), @f.iconst("i64", text.bytesize)])
+        @f.jump(ok)
+        @f.switch(ok)
       end
 
       FLOAT_OPS = { :+ => :fadd, :- => :fsub, :* => :fmul, :/ => :fdiv }.freeze
@@ -527,6 +655,10 @@ module Zr
           @f.gates_enter(@f.fetch("i64", gates_addr(node), region: :gates))
           [nil, "Void"]
         when :i32, :i8, :word, :sword, :ptr, :value
+          # `Machine.word(0x8080808080808080)`: the bits of a literal
+          # that does not fit a signed Word.
+          return literal(args.first, args.first.value, "Word") if node.name == :word && args.first.is_a?(Prism::IntegerNode)
+
           value, type = expr(args.first)
           convert(node, node.name, value, type)
         when :u8, :u32
@@ -539,13 +671,13 @@ module Zr
           lhs, lt = expr(args[0], want)
           rhs, rt = expr(args[1], lt)
           refuse(node, "Machine.#{node.name} of an F64") if lt == "F64" || rt == "F64"
-          binary(node, WRAPS.fetch(node.name), lhs, lt, rhs, rt)
+          binary(node, WRAPS.fetch(node.name), lhs, lt, rhs, rt, named: true)
         when :sdiv, :srem
           refuse(node, "Machine.#{node.name} takes two operands") unless args.size == 2
           lhs, lt = expr(args[0], want)
           rhs, rt = expr(args[1], lt)
           refuse(node, "Machine.#{node.name} of a #{lt} and a #{rt}") unless %w[I8 I32 Word].include?(lt) && lt == rt
-          binary(node, node.name == :sdiv ? :/ : :%, lhs, lt, rhs, rt)
+          binary(node, node.name == :sdiv ? :/ : :%, lhs, lt, rhs, rt, named: true)
         when :f64, :bits, :to_f64, :to_int
           value, type = expr(args.first)
           float_convert(node, node.name, value, type)

@@ -25,7 +25,7 @@ module Zr::Kern
       return x
     end
     Machine.store32(e, 0, Machine.i32(biased - 1022 - shift))
-    Machine.f64(Machine.word((bits & 0x800FFFFFFFFFFFFF) | 0x3FE0000000000000))
+    Machine.f64(Machine.word((bits & Machine.word(0x800FFFFFFFFFFFFF)) | 0x3FE0000000000000))
   end
 
   # `x` times 2**`n`, rounded once, as musl's scalbn computes it: a scale

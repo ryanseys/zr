@@ -217,7 +217,6 @@ module Zr::Kern
     end
     if DeflateState.high_water(s) < DeflateState.window_size(s)
       curr = DeflateState.strstart(s) + DeflateState.lookahead(s)
-      init = 0
       if DeflateState.high_water(s) < curr
         init = DeflateState.window_size(s) - curr
         if init > DEF_WIN_INIT

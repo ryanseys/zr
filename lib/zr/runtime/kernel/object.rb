@@ -24,7 +24,7 @@ module Zr::Kern
   # The bit of `IvTab.names` that represents `id`.
   sig [Word] => Word
   def zr_ivtab_name_bit(id)
-    Machine.word(1) << (id & 63)
+    Machine.shl_wrap(Machine.word(1), id & 63)
   end
 
   # Returns the ivar table of `v`, or 0 when it has none. This is the
@@ -757,7 +757,7 @@ module Zr::Kern
   def zr_str_hash(recv, argc, argv, cref, blk)
     h = zr_str_bytes_hash(recv)
     if !zr_str_ascii_only(recv)
-      h = (h ^ zr_str_encoding_index(recv)) * 1099511628211
+      h = Machine.mul_wrap(h ^ zr_str_encoding_index(recv), 1099511628211)
     end
     zr_fix(h & 4611686018427387903)
   end

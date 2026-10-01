@@ -172,9 +172,10 @@ module Zr::Kern
     (w & 7) != 0 || w == 0 || w == 8
   end
 
+  # CRuby's INT2FIX: a word outside the Fixnum range loses its top bit.
   sig [Word] => Value
   def zr_fix(n)
-    Machine.value((n << 1) | 1)
+    Machine.value(Machine.shl_wrap(n, 1) | 1)
   end
 
   sig [Value] => Word

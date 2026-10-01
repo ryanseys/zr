@@ -118,7 +118,7 @@ module Zr::Kern
   # immediate's.
   sig [Value, Value] => Value
   def zr_objspace_word_value(high, low)
-    Machine.value((Machine.word(zr_fix2long(high)) << 32) | Machine.word(zr_fix2long(low)))
+    Machine.value(Machine.shl_wrap(Machine.word(zr_fix2long(high)), 32) | Machine.word(zr_fix2long(low)))
   end
 
   # The id that the next object to ask for one gets.
@@ -294,7 +294,7 @@ module Zr::Kern
   sig [Ptr, Word] => Ptr
   def zr_alloc_trace_probe(t, cell)
     mask = AllocTrace.capa(t) - 1
-    i = ((cell / CELL_MIN) * 2654435761) & mask
+    i = Machine.mul_wrap(cell / CELL_MIN, 2654435761) & mask
     row = AllocTrace.rows(t) + (i * AllocRow.size)
     free_row = 0
     while AllocRow.cell(row) != cell && AllocRow.cell(row) != 0

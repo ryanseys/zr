@@ -187,7 +187,9 @@ module Zr::Kern
     mid = Machine.load64(slot, 0)
     body = zr_block_proc(blk)
     caller = Frame.prev(Task.top(zr_task()))
-    cref = zr_cref_in_context(caller, recv)
+    # The visibility comes from the caller's frame, not from the cref
+    # that the call passes.
+    home = zr_cref_in_context(caller, recv)
     if argc > 1
       body = Machine.value(Machine.load64(argv, 8))
       if !zr_special_p(body) && zr_type(body) == T_METHOD
@@ -205,11 +207,11 @@ module Zr::Kern
         end
         # A bare `module_function` is a mode. The copy goes to both the
         # module and its singleton class, as a `def` does in that mode.
-        modfn = cref != QNIL && RCref.modfn(cref) != 0
+        modfn = home != QNIL && RCref.modfn(home) != 0
         if modfn
           zr_method_copy(zr_singleton_class(recv), mid, e, zr_meta_owned_by(MEntry.meta(e), recv), VIS_PUBLIC, false)
         end
-        zr_method_copy(recv, mid, e, zr_meta_owned_by(MEntry.meta(e), recv), zr_definition_vis(mid, cref), false)
+        zr_method_copy(recv, mid, e, zr_meta_owned_by(MEntry.meta(e), recv), zr_definition_vis(mid, home), false)
         r = zr_method_added(recv, mid)
         return r if r == QUNDEF
         if modfn
@@ -229,7 +231,7 @@ module Zr::Kern
     elsif blk == QNIL
       return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("tried to create Proc object without a block"), 43)
     end
-    r = zr_define_bmethod(recv, mid, zr_meta_at(caller), body, cref)
+    r = zr_define_bmethod(recv, mid, zr_meta_at(caller), body, home)
     return r if r == QUNDEF
     zr_sym(mid)
   end
