@@ -264,7 +264,7 @@ module Zr::Kern
     t = RBasic.flags(v) & T_MASK
     n = zr_cell_bytes(v)
     if t == T_STRING
-      n += zr_str_embedded_p(v) ? 0 : RString.capa(v) + 1
+      n += zr_str_embedded_p(v) ? 0 : zr_str_gap(v) + RString.capa(v) + 1
     elsif t == T_ARRAY
       n += zr_ary_embedded_p(v) ? 0 : RArray.capa(v) * 8
     elsif t == T_HASH

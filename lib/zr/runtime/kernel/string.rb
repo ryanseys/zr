@@ -38,12 +38,25 @@ module Zr::Kern
     if n <= zr_str_embed_capa(s)
       RString.set_ptr(s, Machine.ptr(s) + RString.size)
       RString.set_capa(s, zr_str_embed_capa(s))
-      RBasic.set_flags(s, RBasic.flags(s) | FL_EMBED)
+      RBasic.set_flags(s, (RBasic.flags(s) | FL_EMBED) & FL_GAP_CLEAR)
     else
       RString.set_ptr(s, zr_xmalloc(n + 1))
       RString.set_capa(s, n)
-      RBasic.set_flags(s, RBasic.flags(s) & FL_EMBED_CLEAR)
+      RBasic.set_flags(s, RBasic.flags(s) & FL_EMBED_CLEAR & FL_GAP_CLEAR)
     end
+  end
+
+  # A malloc'd buffer can start after the start of its block: a shift off
+  # the front (zr_str_shift_front) moves `ptr` forward and leaves the other
+  # bytes where they are. These flag bits keep the size of that gap, so
+  # the free gets the whole block back. `capa` counts from `ptr`.
+  FL_GAP_SHIFT = 40
+  FL_GAP_MAX = (1 << 22) - 1
+  FL_GAP_CLEAR = 0 - (FL_GAP_MAX << FL_GAP_SHIFT) - 1
+
+  sig [Value] => Word
+  def zr_str_gap(s)
+    (RBasic.flags(s) >> FL_GAP_SHIFT) & FL_GAP_MAX
   end
 
   # Frees the buffer when it is malloc'd. The tail of the cell is freed
@@ -51,7 +64,8 @@ module Zr::Kern
   sig [Value] => Void
   def zr_str_buf_free(s)
     if !zr_str_embedded_p(s)
-      zr_sized_xfree(RString.ptr(s), RString.capa(s) + 1)
+      gap = zr_str_gap(s)
+      zr_sized_xfree(RString.ptr(s) - gap, RString.capa(s) + gap + 1)
     end
   end
 
@@ -77,7 +91,7 @@ module Zr::Kern
     zr_str_buf_free(s)
     RString.set_ptr(s, p)
     RString.set_capa(s, capa)
-    RBasic.set_flags(s, RBasic.flags(s) & FL_EMBED_CLEAR)
+    RBasic.set_flags(s, RBasic.flags(s) & FL_EMBED_CLEAR & FL_GAP_CLEAR)
   end
 
 
@@ -1366,7 +1380,10 @@ module Zr::Kern
   # encoding of this runtime accepts any byte.
   sig [Value] => Value
   def zr_str_valid_p(s)
-    if (RBasic.flags(s) & FL_VALID) != 0
+    # Plain ASCII is valid in each encoding that can hold it, and the
+    # ASCII scan's result also carries over to slices (zr_str_piece).
+    if (RBasic.flags(s) & FL_VALID) != 0 || zr_str_ascii_bytes_p(s)
+      RBasic.set_flags(s, RBasic.flags(s) | FL_VALID)
       return Machine.value(QTRUE)
     end
     valid = zr_str_valid_scan(s)
@@ -1594,14 +1611,14 @@ module Zr::Kern
       if stop == n
         break
       end
-      zr_ary_push(out, zr_str_copy_encoding(zr_str_new(RString.ptr(s) + beg, stop - beg), s))
+      zr_ary_push(out, zr_str_piece(s, RString.ptr(s) + beg, stop - beg))
       beg = stop
       while beg < n && zr_blank_byte_p(Machine.u8(Machine.load8(RString.ptr(s) + beg, 0)))
         beg += 1
       end
     end
     if n > 0 && (limit != 0 || n > beg)
-      zr_ary_push(out, zr_str_copy_encoding(zr_str_new(RString.ptr(s) + beg, n - beg), s))
+      zr_ary_push(out, zr_str_piece(s, RString.ptr(s) + beg, n - beg))
     end
     out
   end
@@ -2234,7 +2251,19 @@ module Zr::Kern
   # Returns a new String of `len` bytes from `off`. Both are already in range.
   sig [Value, Value, Value] => Value
   def zr_str_byteslice(s, off, len)
-    zr_str_copy_encoding(zr_str_new(RString.ptr(s) + zr_fix2long(off), zr_fix2long(len)), s)
+    zr_str_piece(s, RString.ptr(s) + zr_fix2long(off), zr_fix2long(len))
+  end
+
+  # A new String of the `len` bytes at `bytes`, which are in `src`, with
+  # the encoding of `src`. Bytes from a plain ASCII String are plain ASCII
+  # too, so the piece gets that scan's results with no scan of its own.
+  sig [Value, Ptr, Word] => Value
+  def zr_str_piece(src, bytes, len)
+    out = zr_str_copy_encoding(zr_str_new(bytes, len), src)
+    if (RBasic.flags(src) & FL_ASCII) != 0
+      RBasic.set_flags(out, RBasic.flags(out) | FL_ASCII | FL_SCANNED | FL_VALID)
+    end
+    out
   end
 
   # Replaces the bytes of the receiver with the bytes of `other`.
@@ -2310,8 +2339,19 @@ module Zr::Kern
     if k < 0
       k = 0
     end
-    out = zr_str_copy_encoding(zr_str_new(RString.ptr(s), k), s)
-    RBasic.set_flags(s, RBasic.flags(s) & FL_SNAPSHOT_CLEAR)
+    out = zr_str_piece(s, RString.ptr(s), k)
+    flags = RBasic.flags(s) & FL_SNAPSHOT_CLEAR
+    gap = zr_str_gap(s) + k
+    # A malloc'd buffer moves its start past the bytes, so each line of a
+    # read buffer costs no copy of the bytes after it.
+    if (flags & FL_EMBED) == 0 && gap <= FL_GAP_MAX
+      RString.set_ptr(s, RString.ptr(s) + k)
+      RString.set_capa(s, RString.capa(s) - k)
+      RString.set_len(s, len - k)
+      RBasic.set_flags(s, (flags & FL_GAP_CLEAR) | (gap << FL_GAP_SHIFT))
+      return out
+    end
+    RBasic.set_flags(s, flags)
     zr_memmove(RString.ptr(s), RString.ptr(s) + k, len - k)
     RString.set_len(s, len - k)
     Machine.store8(RString.ptr(s) + len - k, 0, Machine.i8(0))

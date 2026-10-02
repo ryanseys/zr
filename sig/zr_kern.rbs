@@ -2060,6 +2060,7 @@ module Zr
     def zr_str_from_byte: (Integer byte) -> Integer
     def zr_str_frozen: (Integer bytes, Integer len) -> Integer
     def zr_str_frozen_at: (Integer bytes, Integer len, Integer index) -> Integer
+    def zr_str_gap: (Integer s) -> Integer
     def zr_str_grow: (Integer s, Integer n) -> void
     def zr_str_hash: (Integer recv, Integer argc, Integer argv, Integer cref, Integer blk) -> Integer
     def zr_str_include_p: (Integer recv, Integer argc, Integer argv, Integer cref, Integer blk) -> Integer
@@ -2098,6 +2099,7 @@ module Zr
     def zr_str_ord: (Integer s) -> Integer
     def zr_str_ord_at: (Integer s, Integer off) -> Integer
     def zr_str_ord_at_m: (Integer s, Integer off) -> Integer
+    def zr_str_piece: (Integer src, Integer bytes, Integer len) -> Integer
     def zr_str_plain_sep_p: (Integer sep) -> Integer
     def zr_str_plus: (Integer recv, Integer argc, Integer argv, Integer cref, Integer blk) -> Integer
     def zr_str_push_byte: (Integer recv, Integer byte) -> Integer
