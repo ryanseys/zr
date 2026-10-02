@@ -127,10 +127,18 @@ module Zr::Kern
   end
 
   # Compares the elements at `i` and `j` with the block, or with `<=>`.
+  # Two fixnums compare here, with no call, while `zr_sort_cmp_values`
+  # would compare them the same way.
   sig [Ptr, Word, Word] => Word
   def zr_sort_cmp(st, i, j)
-    zr_sort_cmp_values(st, zr_sort_at(st, i), zr_sort_at(st, j))
+    x = zr_sort_at(st, i)
+    y = zr_sort_at(st, j)
+    if zr_fixnum_p(x) && zr_fixnum_p(y) && Sort.plain(st) != 0 && Sort.blk(st) == QNIL && Sort.failed(st) == 0
+      return x < y ? 0 - 1 : (x > y ? 1 : 0)
+    end
+    zr_sort_cmp_values(st, x, y)
   end
+  inline :zr_sort_cmp
 
   # Compares two Values as zr_sort_cmp does: after a failure, 0 and no
   # Ruby.
@@ -590,6 +598,14 @@ module Zr::Kern
     if zr_fixnum_p(a) && zr_fixnum_p(b)
       return Machine.sword(a) < Machine.sword(b)
     end
+    zr_uniform_float_less(a, b)
+  end
+  # In each loop of the sort, so two fixnums compare with no call.
+  inline :zr_uniform_key_less
+
+  # rb_uniform_is_less when a key is a Float.
+  sig [Value, Value] => Bool
+  def zr_uniform_float_less(a, b)
     if zr_fixnum_p(a)
       return zr_uniform_float_cmp(b, a) > 0
     end
@@ -613,6 +629,7 @@ module Zr::Kern
   def zr_uniform_less(base, i, j)
     zr_uniform_key_less(Pair.key(base + (i * Pair.size)), Pair.key(base + (j * Pair.size)))
   end
+  inline :zr_uniform_less
 
   sig [Ptr, Word, Word] => Void
   def zr_uniform_swap(base, i, j)

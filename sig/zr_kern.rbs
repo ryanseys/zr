@@ -2293,6 +2293,7 @@ module Zr
     def zr_undefined_method: (Integer klass, Integer mid, Integer vis) -> Integer
     def zr_uniform_failed: () -> Integer
     def zr_uniform_float_cmp: (Integer x, Integer y) -> Integer
+    def zr_uniform_float_less: (Integer a, Integer b) -> bool
     def zr_uniform_heap_down: (Integer base, Integer a, Integer offset, Integer len) -> void
     def zr_uniform_heapsort: (Integer base, Integer a, Integer stop) -> void
     def zr_uniform_insertion: (Integer base, Integer a, Integer stop) -> void
