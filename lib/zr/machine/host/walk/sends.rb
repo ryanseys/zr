@@ -580,11 +580,18 @@ module Zr
             mode |= SEND_USING if using
             at = cell(node, kind, 4 * k::CallCache.layout_size)
             mid = id(name)
+            # The site's cell first, as `cached_send` tests it: a hit makes
+            # no call into the kernel. Refinements go through the kernel.
+            send = cached_send(at, mid, mode)
             lambda do |f, recv, values|
               slots(f) do
-                activate(using, f) if using
-                r = @kern.zr_send_cached(at, recv, mid, values.size, argv(f, values), @qnil, mode)
-                @task_refine.call(task, @qnil) if using
+                if using
+                  activate(using, f)
+                  r = @kern.zr_send_cached(at, recv, mid, values.size, argv(f, values), @qnil, mode)
+                  @task_refine.call(task, @qnil)
+                else
+                  r = send.call(recv, values.size, argv(f, values), @qnil)
+                end
                 check(r)
               end
             end

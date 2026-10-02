@@ -470,6 +470,9 @@ module Zr
       # def keeps its Values in its locals, as the lowering's root frame
       # does, so nothing is pinned while it is the innermost.
       def pin(v)
+        # An immediate (`zr_special_p`) is no cell, so nothing keeps it.
+        return v if (v & 7) != 0 || v <= 8
+
         s = stack
         s.pins << v unless @collecting || s.rooted
         v
@@ -542,7 +545,7 @@ module Zr
           yield
         ensure
           stack.top = top if frame.restores
-          pins.slice!(mark, pins.size - mark) if frame.drops
+          pins.slice!(mark, pins.size - mark) if frame.drops && pins.size > mark
           stack.roots -= 1 if frame.roots
           stack.rooted = rooted
         end
@@ -565,7 +568,7 @@ module Zr
         begin
           body.call(*args)
         ensure
-          pins.slice!(mark, pins.size - mark)
+          pins.slice!(mark, pins.size - mark) if pins.size > mark
           stack.rooted = true
         end
       end
@@ -833,28 +836,77 @@ module Zr
       # The method body that wraps a def of `arity` in its `frame`. Each
       # arity has its own block, which passes the def's arguments on to
       # `super` as they are: a block that takes `*args` makes an Array at
-      # each call.
+      # each call. In the frame, it pins the arguments that `frame.params`
+      # names (`p0`..`p5`, each true or false).
       def framed_def(arity, frame)
         host = self
-        unless frame.params.empty?
-          params = frame.params
-          return proc do |*args|
+        p0, p1, p2, p3, p4, p5 = Array.new(6) { |i| frame.params.include?(i) }
+        case arity
+        when 0 then proc { host.framed(frame) { super() } }
+        when 1
+          proc do |a|
             host.framed(frame) do
-              params.each { |i| host.pin(args[i]) }
+              host.pin(a) if p0
+              super(a)
+            end
+          end
+        when 2
+          proc do |a, b|
+            host.framed(frame) do
+              host.pin(a) if p0
+              host.pin(b) if p1
+              super(a, b)
+            end
+          end
+        when 3
+          proc do |a, b, c|
+            host.framed(frame) do
+              host.pin(a) if p0
+              host.pin(b) if p1
+              host.pin(c) if p2
+              super(a, b, c)
+            end
+          end
+        when 4
+          proc do |a, b, c, d|
+            host.framed(frame) do
+              host.pin(a) if p0
+              host.pin(b) if p1
+              host.pin(c) if p2
+              host.pin(d) if p3
+              super(a, b, c, d)
+            end
+          end
+        when 5
+          proc do |a, b, c, d, e|
+            host.framed(frame) do
+              host.pin(a) if p0
+              host.pin(b) if p1
+              host.pin(c) if p2
+              host.pin(d) if p3
+              host.pin(e) if p4
+              super(a, b, c, d, e)
+            end
+          end
+        when 6
+          proc do |a, b, c, d, e, g|
+            host.framed(frame) do
+              host.pin(a) if p0
+              host.pin(b) if p1
+              host.pin(c) if p2
+              host.pin(d) if p3
+              host.pin(e) if p4
+              host.pin(g) if p5
+              super(a, b, c, d, e, g)
+            end
+          end
+        else
+          proc do |*args|
+            host.framed(frame) do
+              frame.params.each { |i| host.pin(args[i]) }
               super(*args)
             end
           end
-        end
-
-        case arity
-        when 0 then proc { host.framed(frame) { super() } }
-        when 1 then proc { |a| host.framed(frame) { super(a) } }
-        when 2 then proc { |a, b| host.framed(frame) { super(a, b) } }
-        when 3 then proc { |a, b, c| host.framed(frame) { super(a, b, c) } }
-        when 4 then proc { |a, b, c, d| host.framed(frame) { super(a, b, c, d) } }
-        when 5 then proc { |a, b, c, d, e| host.framed(frame) { super(a, b, c, d, e) } }
-        when 6 then proc { |a, b, c, d, e, g| host.framed(frame) { super(a, b, c, d, e, g) } }
-        else proc { |*args| host.framed(frame) { super(*args) } }
         end
       end
 

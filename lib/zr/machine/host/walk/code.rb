@@ -108,7 +108,9 @@ module Zr
           def bool(b) = b ? @qtrue : @qfalse
 
           # The pins after `mark` go: the Values that a statement held.
-          def drop_pins(pins, mark) = pins.slice!(mark, pins.size - mark)
+          def drop_pins(pins, mark)
+            pins.slice!(mark, pins.size - mark) if pins.size > mark
+          end
 
           def seq(node, s)
             codes = node.stmts.map { |stmt| code(stmt, s) }

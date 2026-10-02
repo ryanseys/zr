@@ -228,7 +228,23 @@ module Zr
             return ->(f, _) { truthy?(pattern.call(f)) } unless subject
 
             eqq = sender(value, s, :===, :eqq, using: node.using)
+            return symbol_when(value, s, eqq) if value.is_a?(Hir::Literal) && value.value.is_a?(Symbol)
+
             ->(f, v) { truthy?(eqq.call(f, pattern.call(f), [v])) }
+          end
+
+          # A Symbol `when` value: while Symbol#=== is the runtime's own
+          # (GATE_SYM_EQQ, which the core ignores), `:sym === subject` is
+          # identity, as `Control#symbol_case` compiles it. Else it sends.
+          def symbol_when(value, s, eqq)
+            symbol = sym(value.value)
+            internal = s.internal?
+            gate = @kern::GATE_SYM_EQQ
+            lambda do |f, v|
+              next v == symbol if internal || (@host.gates & gate).zero?
+
+              truthy?(eqq.call(f, symbol, [v]))
+            end
           end
 
           # `begin`/`rescue`/`else`/`ensure`, as Lower::Function::Regions.
