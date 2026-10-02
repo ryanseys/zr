@@ -18,7 +18,9 @@ class Aarch64Test < Minitest::Test
   # drives both assemblers, so a difference can only be in the encoding.
   # The gem has no SIMD&FP registers. For an instruction on a double, the
   # gem assembles a `nop` to keep the positions, and `to_binary` puts the
-  # word from the ARM specification in its place.
+  # word from the ARM specification in its place. A jump table's word is
+  # data, which the gem cannot emit: it is a `nop` too, and `to_binary`
+  # puts the distance between its two labels in its place.
   class Gem
     NAMES = { [true, true] => :SP, [false, true] => :WSP, [true, false] => :XZR, [false, false] => :WZR }.freeze
     FLOAT3 = { fadd: 0x1E602800, fsub: 0x1E603800, fmul: 0x1E600800, fdiv: 0x1E601800 }.freeze
@@ -30,6 +32,7 @@ class Aarch64Test < Minitest::Test
       @asm = AArch64::Assembler.new
       @count = 0
       @floats = []
+      @tables = []
     end
 
     def make_label(name) = @asm.make_label(name)
@@ -39,8 +42,18 @@ class Aarch64Test < Minitest::Test
     def to_binary
       words = @asm.to_binary.unpack("L<*")
       @floats.each { |index, word| words[index] = word }
+      @tables.each { |index, label, base| words[index] = ((label.to_i - base.to_i) * 4) & 0xFFFF_FFFF }
       words.pack("L<*")
     end
+
+    def table_word(label, base)
+      @tables << [@count, label, base]
+      @asm.nop
+      @count += 1
+      self
+    end
+
+    def ldrsw_index(rt, n, m) = method_missing(:ldrsw, rt, [n, m, AArch64::Shifts::Shift.new(2, 0, :lsl)])
 
     def method_missing(name, *args, **, &)
       if args.flatten.any? { |a| a.is_a?(Aarch64::Registers::Register) && a.float? }

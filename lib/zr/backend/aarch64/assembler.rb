@@ -56,6 +56,21 @@ module Zr
           end
         end
 
+        # `ADR`: a register gets the address of a label, which is within
+        # 1 MB of the instruction.
+        Adr = Data.define(:d, :label) do
+          def encode(at)
+            bytes = Assembler.signed((label.to_i - at) * 4, 21)
+            0x1000_0000 | (bytes & 0b11) << 29 | (bytes >> 2) << 5 | d.to_i
+          end
+        end
+
+        # One word of a jump table: the distance in bytes from the table's
+        # start (`base`) to `label`, signed.
+        TableWord = Data.define(:label, :base) do
+          def encode(_at) = Assembler.signed((label.to_i - base.to_i) * 4, 32)
+        end
+
         # Returns `[N, immr, imms]` for a logical immediate, or nil for a
         # value that arm64 cannot encode in one instruction.
         #
@@ -248,6 +263,8 @@ module Zr
         def gp_size(rt) = rt.wide? ? 0b11 : 0b10
         def ldrb(rt, address) = load_store(0b00, 1, rt, address)
         def strb(rt, address) = load_store(0b00, 0, rt, address)
+        # `ldrsw xt, [xn, xm, lsl #2]`: a signed word of a table, at index `xm`.
+        def ldrsw_index(rt, n, m) = emit(0xB8A0_7800 | m.to_i << 16 | n.to_i << 5 | rt.to_i)
         def ldp(rt1, rt2, address, imm = nil) = pair(1, rt1, rt2, address, imm)
         def stp(rt1, rt2, address, imm = nil) = pair(0, rt1, rt2, address, imm)
 
@@ -263,6 +280,9 @@ module Zr
         end
         def bl(label) = branch(0x9400_0000, label, 0, 26)
         def blr(n) = emit(0xD63F_0000 | n.to_i << 5)
+        def br(n) = emit(0xD61F_0000 | n.to_i << 5)
+        def adr(d, label) = emit(Adr.new(d, label))
+        def table_word(label, base) = emit(TableWord.new(label, base))
         def ret(n = X30) = emit(0xD65F_0000 | n.to_i << 5)
         def cbz(rt, label) = branch(0x3400_0000 | rt.sf << 31 | rt.to_i, label, 5, 19)
         def cbnz(rt, label) = branch(0x3500_0000 | rt.sf << 31 | rt.to_i, label, 5, 19)

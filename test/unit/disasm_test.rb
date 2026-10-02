@@ -39,7 +39,7 @@ class DisasmTest < Minitest::Test
     missing = (Zr::IR::Inst::BINOPS + Zr::IR::Inst::BITOPS + Zr::IR::Inst::FBINOPS + Zr::IR::Inst::FUNOPS +
       Zr::IR::Inst::CONVERSIONS + Zr::IR::Inst::PAIRS +
       %i[iconst load store stack_addr symbol_value func_addr call call_indirect
-         icmp fcmp select ireduce uextend sextend jump brif return]) - lowered
+         icmp fcmp select ireduce uextend sextend jump brif switch return]) - lowered
     assert_empty missing, "opcodes no fixture reaches"
   end
 end

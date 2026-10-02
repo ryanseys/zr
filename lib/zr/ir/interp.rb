@@ -296,6 +296,11 @@ module Zr
 
             yes, no = i.targets
             return [jump(frame, t, read(frame, i.args[0]).zero? ? no : yes), nil, false]
+          when :switch
+            # The key at operand n has the target at n; target 0 is the default.
+            x = read(frame, i.args[0])
+            at = (1...i.args.size).find { |n| i.args[n] == x }
+            return [jump(frame, t, i.targets[at || 0]), nil, false]
           else step(frame, t, i)
           end
         end

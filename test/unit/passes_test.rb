@@ -342,6 +342,62 @@ class PassesTest < Minitest::Test
     assert(f.blocks.any? { |b| b.insts.any? { |i| i.op == :icmp } }, "the join's compare stays")
   end
 
+  # `Switches`: a chain of `==` on one value, as a `case` of opcodes, is
+  # one jump table.
+  def test_a_chain_of_equal_tests_becomes_a_jump_table
+    f = equal_chain([1, 2, 3, 5, 6])
+    inputs = [-1, 0, 1, 2, 3, 4, 5, 6, 7, 1 << 40].zip
+    was = inputs.map { |args| answer(f, args) }
+    Zr::IR::Passes.prepare(f, strict: true)
+    assert_equal [0, 0, 1, 2, 3, 0, 4, 5, 0, 0], was
+    assert_equal was, inputs.map { |args| answer(f, args) }
+    assert_equal 1, ops(f).count(:switch)
+    refute_includes ops(f), :icmp
+  end
+
+  # A byte's tree, with a range test in it, as the regexp VM's dispatch:
+  # the table covers each byte that a range test sends to its own leaf.
+  def test_a_tree_of_tests_on_a_byte_becomes_one_table
+    f = function("byte_tree", %w[i8], "i64") do |f, b|
+      x = f.uextend("i64", b)
+      low, high = f.label, f.label
+      f.brif(f.icmp("ult", x, f.iconst("i64", 4)), low, high)
+      f.switch(low)
+      f.ret(f.iconst("i64", 40))
+      f.switch(high)
+      chain(f, x, [7, 9, 10, 12])
+    end
+    inputs = (0..255).to_a.zip
+    was = inputs.map { |args| answer(f, args) }
+    Zr::IR::Passes.prepare(f, strict: true)
+    assert_equal was, inputs.map { |args| answer(f, args) }
+    assert_equal 1, ops(f).count(:switch)
+  end
+
+  # Three tests or fewer stay as compares.
+  def test_a_short_chain_stays_a_chain
+    f = equal_chain([1, 2, 3])
+    Zr::IR::Passes.prepare(f, strict: true)
+    refute_includes ops(f), :switch
+    assert_equal [1, 2, 3, 0], [1, 2, 3, 4].map { |x| answer(f, [x]) }
+  end
+
+  def equal_chain(keys)
+    function("chain", %w[i64], "i64") { |f, x| chain(f, x, keys) }
+  end
+
+  # `if x == keys[0] then 1 elsif x == keys[1] then 2 … else 0`.
+  def chain(f, x, keys)
+    keys.each_with_index do |k, n|
+      yes, no = f.label, f.label
+      f.brif(f.icmp("eq", x, f.iconst("i64", k)), yes, no)
+      f.switch(yes)
+      f.ret(f.iconst("i64", n + 1))
+      f.switch(no)
+    end
+    f.ret(f.iconst("i64", 0))
+  end
+
   def threaded_join(next_reads_join:)
     function("threaded", %w[i64 i8], "i64") do |f, x, c|
       join, (r,) = f.block(%w[i64])

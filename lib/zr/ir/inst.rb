@@ -41,8 +41,12 @@ module Zr
     #   A call to a wasm import passes all the arguments of the import,
     #   because no native backend makes such a call.
     class Inst
-      # Opcodes that end a block.
-      TERMINATORS = %i[jump brif return].freeze
+      # Opcodes that end a block. A `switch` is a jump table: its first
+      # operand is an integer value, the others are its keys (Integers,
+      # masked to the value's type, in rising order), and its targets are
+      # the default and then one target for each key. Like a `brif`, it
+      # passes no block arguments.
+      TERMINATORS = %i[jump brif switch return].freeze
       # Opcodes with two results.
       PAIRS = %i[sadd_overflow ssub_overflow smul_overflow].freeze
       # The two-operand integer opcodes with one result.

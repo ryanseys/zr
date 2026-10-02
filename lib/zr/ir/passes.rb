@@ -5,6 +5,7 @@ require_relative "../config"
 require_relative "gvn"
 require_relative "licm"
 require_relative "statics"
+require_relative "switches"
 require_relative "threads"
 require_relative "types"
 require_relative "verify"
@@ -57,7 +58,8 @@ module Zr
       # before `Chains`, so its gate test splits into the branch chain. `GVN`
       # runs after `Statics` to number its new values. `LICM` runs last, so a
       # loop has one copy of each value. `Threads` runs after `Chains`, whose
-      # split tests it can skip, and `Blocks` drops the blocks it leaves.
+      # split tests it can skip. `Switches` runs after both, on the tests
+      # that are left, and `Blocks` drops the blocks they leave.
       def run(f)
         Fold.run(f)
         Forward.run(f)
@@ -67,6 +69,7 @@ module Zr
         Fold.run(f)
         Chains.run(f)
         Threads.run(f)
+        Switches.run(f)
         Blocks.run(f)
         DCE.run(f)
         f
@@ -186,6 +189,7 @@ module Zr
           when :select then fold_select(i)
           when :uextend, :ireduce, :sextend then fold_width(i)
           when :brif then fold_branch(i)
+          when :switch then fold_switch(i)
           end
         end
 
@@ -335,6 +339,17 @@ module Zr
           i.op = :jump
           i.args = []
           i.targets = [k.nil? || k != 0 ? yes : no]
+          @jumped = true
+        end
+
+        def fold_switch(i)
+          k = constant(i.args[0])
+          return unless k
+
+          at = (1...i.args.size).find { |n| i.args[n] == k }
+          i.op = :jump
+          i.targets = [i.targets[at || 0]]
+          i.args = []
           @jumped = true
         end
       end

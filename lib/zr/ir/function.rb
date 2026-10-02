@@ -166,6 +166,15 @@ module Zr
         nil
       end
 
+      # A jump table on `value`: to the block of its key in `cases`
+      # (`{ key => block }`, each key masked to the value's type), else to
+      # `default`.
+      def table(value, cases, default)
+        keys = cases.keys.sort
+        emit(Inst.new(:switch, args: [value, *keys], targets: [[default, []], *keys.map { |k| [cases.fetch(k), []] }]))
+        nil
+      end
+
       # A return, with or without a value.
       def ret(value = nil)
         emit(Inst.new(:return, args: value.nil? ? [] : [value]))

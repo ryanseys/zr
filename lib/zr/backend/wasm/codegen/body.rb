@@ -462,6 +462,26 @@ module Zr
             @code << "\x0B".b
           end
 
+          # A jump table as a compare for each key: wasm's own `br_table`
+          # indexes the dispatch's labels, not the blocks of the IR.
+          def emit_switch(i)
+            v, *keys = i.args
+            default, *blocks = i.targets.map(&:first)
+            wide = wide?(v)
+            keys.zip(blocks).each do |k, to|
+              get(v)
+              k -= 1 << 64 if wide && k >= 1 << 63
+              k -= 1 << 32 if !wide && k >= 1 << 31
+              @code << (wide ? "\x42".b : "\x41".b) << Bytes.sleb(k) << ops(v).fetch(:eq).chr
+              @code << "\x04\x40".b
+              @bias += 1
+              go(to)
+              @bias -= 1
+              @code << "\x0B".b
+            end
+            go(default)
+          end
+
           def emit_jump(i)
             name, args = i.targets[0]
             params = block_named(name).params
@@ -533,6 +553,7 @@ module Zr
             when :sadd_overflow, :ssub_overflow then emit_overflow(i)
             when :smul_overflow then emit_smul_overflow(i)
             when :brif then emit_brif(i)
+            when :switch then emit_switch(i)
             when :jump then emit_jump(i)
             when :return
               epilogue

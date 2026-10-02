@@ -40,7 +40,7 @@ module Zr
               if args.size != target.params.size
                 raise Error, "#{f.name}: #{b.name} passes #{args.size} argument(s) to #{name}, which takes #{target.params.size}"
               end
-              raise Error, "#{f.name}: #{b.name} branches to #{name} with arguments" if i.op == :brif && !args.empty?
+              raise Error, "#{f.name}: #{b.name} branches to #{name} with arguments" if (i.op == :brif || i.op == :switch) && !args.empty?
             end
           end
         end
@@ -133,6 +133,12 @@ module Zr
           # Inst::FUNOPS, written out.
           when :fneg, :fabs, :sqrt, :floor, :ceil, :trunc, :nearest, :fcvt_to_sint_sat then typed(i, b, i.args[0], "f64")
           when :fcvt_from_sint, :brif then integer(i, b, i.args[0])
+          when :switch
+            integer(i, b, i.args[0])
+            keys = i.args.drop(1)
+            rising = keys.all?(Integer) && keys.each_cons(2).all? { |x, y| x < y }
+            raise Error, "#{@f.name}: #{b.name} switch keys are not rising Integers" unless rising
+            raise Error, "#{@f.name}: #{b.name} switch has #{i.targets.size} targets for #{keys.size} keys" unless i.targets.size == keys.size + 1
           # Inst::BITOPS, written out.
           when :ctz, :clz, :popcnt, :bswap
             raise Error, "#{@f.name}: #{b.name} #{i.op} of an i8" if type_of(i.args[0]) == "i8"

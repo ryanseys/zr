@@ -1429,6 +1429,69 @@ epilogue:
   ldp x29, x30, [sp], #16
   ret
 
+# switch
+  stp x29, x30, [sp, #-16]!
+  mov x29, sp
+block0:
+  sub w9, w0, #1
+  cmp w9, #3
+  b.hi block1
+  adr x10, switch_table
+  ldrsw_index x9, x10, x9
+  add x10, x10, x9
+  br x10
+switch_table:
+  table_word block2, switch_table
+  table_word block3, switch_table
+  table_word block1, switch_table
+  table_word block4, switch_table
+block2:
+  movz x0, #1
+  b epilogue
+block3:
+  movz x0, #2
+  b epilogue
+block4:
+  movz x0, #3
+  b epilogue
+block1:
+  movz x0, #0
+epilogue:
+  ldp x29, x30, [sp], #16
+  ret
+
+# switch.wide
+  stp x29, x30, [sp, #-16]!
+  mov x29, sp
+block0:
+  movz x10, #0x1388
+  sub x9, x0, x10
+  cmp x9, #3
+  b.hi block1
+  adr x10, switch_wide_table
+  ldrsw_index x9, x10, x9
+  add x10, x10, x9
+  br x10
+switch_wide_table:
+  table_word block2, switch_wide_table
+  table_word block3, switch_wide_table
+  table_word block1, switch_wide_table
+  table_word block4, switch_wide_table
+block2:
+  movz x0, #1
+  b epilogue
+block3:
+  movz x0, #2
+  b epilogue
+block4:
+  movz x0, #3
+  b epilogue
+block1:
+  movz x0, #0
+epilogue:
+  ldp x29, x30, [sp], #16
+  ret
+
 # return.void
   stp x29, x30, [sp, #-16]!
   mov x29, sp

@@ -166,7 +166,7 @@ module Zr
         blocks = @f.blocks
         blocks.each do |b|
           br = b.insts.last
-          reads[br.args[0]] += 1 if br.op == :brif
+          reads[br.args[0]] += 1 if br.op == :brif || br.op == :switch
         end
         tested = {}
         loop do

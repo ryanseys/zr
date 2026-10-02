@@ -334,8 +334,31 @@ module Zr
           f.switch(no)
           b
         end
+        # A jump table: the keys 1, 2 and 4, so index 2 (the value 3) is a
+        # hole that goes to the default.
+        ops["switch"] = build("switch", %w[i32], "i64") do |f, v|
+          table(f, v, [1, 2, 4])
+        end
+        # A wide value whose lowest key is too large for an immediate.
+        ops["switch.wide"] = build("switch_wide", %w[i64], "i64") do |f, v|
+          table(f, v, [5000, 5001, 5003])
+        end
         ops["return.void"] = build("return_void", [], nil) { nil }
         ops["return.f64"] = build("return_f64", %w[f64], "f64") { |_f, a| a }
+      end
+
+      # A `switch` on `v` to one block for each key, each returning its
+      # place, and a default that returns 0.
+      def table(f, v, keys)
+        default = f.label
+        blocks = keys.map { f.label }
+        f.table(v, keys.zip(blocks).to_h, default)
+        blocks.each_with_index do |b, n|
+          f.switch(b)
+          f.ret(f.iconst("i64", n + 1))
+        end
+        f.switch(default)
+        f.iconst("i64", 0)
       end
     end
   end

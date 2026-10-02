@@ -488,6 +488,7 @@ module Zr
             store_value(i.results[0], d)
             remember_double(i.results[0], @doubles[i.args[0]]) if @doubles.key?(i.args[0])
           when :brif then emit_brif(i)
+          when :switch then emit_switch(i)
           when :jump then emit_jump(i)
           when :return then emit_return(i)
           else raise Refused, "#{@f.name}: no lowering for #{i.op}"
@@ -510,6 +511,54 @@ module Zr
             yes == @next ? branch_if(:cbz, no, reg) : branch_if(:cbnz, yes, reg)
           end
           @asm.b @labels.fetch(no) unless yes == @next || no == @next
+        end
+
+        # A jump table. The value less the lowest key is the index; an index
+        # past the table (also a value below the lowest key, which wraps)
+        # goes to the default. The table follows the `br`: one word for
+        # each index, the distance from the table to its block.
+        #
+        #   sub  w9, wv, #lo           ; a narrow value: zeros above
+        #   cmp  x9, #(hi - lo)
+        #   b.hi default
+        #   adr  x10, table
+        #   ldrsw x9, [x10, x9, lsl #2]
+        #   add  x10, x10, x9
+        #   br   x10
+        def emit_switch(i)
+          v, *keys = i.args
+          default, *blocks = i.targets.map(&:first)
+          to = keys.zip(blocks).to_h
+          lo, hi = keys.minmax
+          index = reg_for(v, X9)
+          from = reg_for(v, value_in(v, X9))
+          offset(index, from, lo, X10)
+          span = hi - lo
+          if span <= 4095
+            @asm.cmp index, span
+          else
+            materialize(X10, span)
+            @asm.cmp index, reg_for(v, X10)
+          end
+          branch_on(:hi, default)
+          table = @asm.make_label("#{@f.name}_table")
+          @asm.adr X10, table
+          @asm.ldrsw_index X9, X10, X9
+          @asm.add X10, X10, X9
+          @asm.br X10
+          @asm.put_label(table)
+          (lo..hi).each { |k| @asm.table_word(@labels.fetch(to.fetch(k, default)), table) }
+        end
+
+        # `index = from - lo`. A narrow value's index is zero above its
+        # width, as a 32-bit operation leaves it.
+        def offset(index, from, lo, scratch)
+          if lo <= 4095
+            @asm.sub index, from, lo
+          else
+            materialize(scratch, lo)
+            @asm.sub index, from, index.wide? ? scratch : w(scratch)
+          end
         end
 
         # `cbz`, `cbnz`, `tbz` or `tbnz` of `operands` to a block. A far
