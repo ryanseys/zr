@@ -670,6 +670,18 @@ module Zr::Kern
     o
   end
 
+  # ruby's rb_class_new_instance for the core library: allocate, then the
+  # program's `initialize` with the elements of `args`, with no frame for
+  # `new`.
+  sig [Value, Value] => Value
+  def zr_class_new_program(klass, args)
+    o = zr_class_new_object(klass)
+    return o if o == QUNDEF
+    r = zr_send_blk(o, Machine.id(:initialize), RArray.len(args), RArray.ptr(args), Machine.value(QNIL))
+    return r if r == QUNDEF
+    o
+  end
+
   # `Array.new` and `String.new`: `Class#new` as a method entry of each
   # class, as CRuby defines them, so a backtrace from `initialize` includes
   # it.
