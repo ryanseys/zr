@@ -1687,11 +1687,24 @@ module Zr::Kern
       zr_buf_sym(b, mid)
       zr_buf_push(b, Machine.bytes(" may cause infinite loop"), 24)
       zr_warn_here(Buf.ptr(b), Buf.len(b))
-    elsif (mid == Machine.id(:object_id) || mid == Machine.id(:__send__)) && kind == KIND_DEF && zr_find_method(owner, mid) != 0
-      zr_buf_push(b, Machine.bytes("redefining '"), 12)
-      zr_buf_sym(b, mid)
-      zr_buf_push(b, Machine.bytes("' may cause serious problems"), 28)
-      zr_warn_here(Buf.ptr(b), Buf.len(b))
+    else
+      if kind == KIND_UNDEF && (mid == Machine.id(:object_id) || mid == Machine.id(:__send__) || mid == Machine.id(:initialize))
+        # rb_undef warns for the names that ruby itself depends on, then
+        # adds its undef entry as any new entry is added.
+        zr_buf_push(b, Machine.bytes("undefining '"), 12)
+        zr_buf_sym(b, mid)
+        zr_buf_push(b, Machine.bytes("' may cause serious problems"), 28)
+        zr_warn_here(Buf.ptr(b), Buf.len(b))
+        Buf.set_len(b, 0)
+      end
+      if (mid == Machine.id(:object_id) || mid == Machine.id(:__send__)) && zr_find_method(owner, mid) != 0
+        # Any new entry over one of them warns: a def, a reader, a
+        # define_method, a Struct member, an alias or an undef.
+        zr_buf_push(b, Machine.bytes("redefining '"), 12)
+        zr_buf_sym(b, mid)
+        zr_buf_push(b, Machine.bytes("' may cause serious problems"), 28)
+        zr_warn_here(Buf.ptr(b), Buf.len(b))
+      end
     end
     zr_buf_free(b)
   end

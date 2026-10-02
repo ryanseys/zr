@@ -16,6 +16,10 @@ module Zr::Kern
   def zr_struct_readers(klass, members)
     i = 0
     while i < RArray.len(members)
+      # A member named object_id warns as any new method over it does.
+      if zr_program_started_p()
+        zr_warn_dangerous(klass, zr_sym2id(zr_ary_at(members, i)), KIND_STRUCT_AREF)
+      end
       r = zr_define_method_as(klass, zr_sym2id(zr_ary_at(members, i)), Machine.ptr(i), 0, KIND_STRUCT_AREF, 0, Machine.value(QNIL), VIS_PUBLIC)
       return r if r == QUNDEF
       i += 1

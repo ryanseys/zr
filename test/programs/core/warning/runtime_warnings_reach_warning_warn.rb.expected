@@ -1,0 +1,9 @@
+caught(nil): core/warning/runtime_warnings_reach_warning_warn.rb:11: warning: method redefined; discarding old m
+core/warning/runtime_warnings_reach_warning_warn.rb:10: warning: previous definition of m was here
+caught(nil): core/warning/runtime_warnings_reach_warning_warn.rb:14: warning: redefining 'object_id' may cause serious problems
+caught(nil): core/warning/runtime_warnings_reach_warning_warn.rb:18: warning: redefining '__send__' may cause serious problems
+caught(nil): core/warning/runtime_warnings_reach_warning_warn.rb:21: warning: redefining 'object_id' may cause serious problems
+caught(nil): core/warning/runtime_warnings_reach_warning_warn.rb:24: warning: undefining 'object_id' may cause serious problems
+caught(nil): core/warning/runtime_warnings_reach_warning_warn.rb:24: warning: redefining 'object_id' may cause serious problems
+caught(nil): explicit
+:done

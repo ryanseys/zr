@@ -150,7 +150,24 @@ module Zr::Kern
     zr_buf_push(b, Machine.bytes("warning: "), 9)
     zr_buf_push(b, bytes, n)
     zr_buf_byte(b, 10)
-    zr_write_stderr(zr_buf_take(b))
+    zr_warning_write(zr_buf_take(b))
+  end
+
+  # rb_write_warning_str: a warning goes to `Warning.warn`, which a program
+  # may override to catch it. Before the program starts, and while
+  # `Warning.warn` runs, it goes straight to stderr.
+  sig [Value] => Void
+  def zr_warning_write(s)
+    depth = Machine.static(:warning_depth, 8)
+    if !zr_program_started_p() || Machine.load64(depth, 0) != 0
+      zr_write_stderr(s)
+      return
+    end
+    Machine.store64(depth, 0, 1)
+    slot = Machine.slot(8)
+    Machine.store64(slot, 0, Machine.word(s))
+    zr_send(zr_const_get_at(zr_global(G_OBJECT), Machine.id(:Warning)), Machine.id(:warn), 1, slot)
+    Machine.store64(depth, 0, 0)
   end
 
   # The core library's `rb_warn`.
