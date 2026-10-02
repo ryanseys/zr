@@ -151,12 +151,14 @@ class Thread
     def rouse(waiters, count = waiters.size)
       Primitive.attr! :hidden
       woken = 0
-      waiters.each do |thread|
-        break if woken >= count
-        next unless thread.status == +"sleep"
+      atomically do
+        waiters.each do |thread|
+          break if woken >= count
+          next unless thread.status == +"sleep"
 
-        thread.wakeup
-        woken += 1
+          thread.wakeup
+          woken += 1
+        end
       end
       nil
     end
@@ -199,7 +201,7 @@ class Thread
     # thread sleeps already, and queued it would run with its deadline
     # still standing.
     def preempt
-      return nil if @switching || Primitive.zr_hidden_get(@current, :status) != :run
+      return nil if @switching || @atomic || Primitive.zr_hidden_get(@current, :status) != :run
 
       wake_due
       return nil if @queue.empty?
@@ -294,7 +296,23 @@ class Thread
 
     def unwatch(thread)
       Primitive.attr! :hidden
-      @io_waiters.reject! { |_, _, waiter| waiter.equal?(thread) }
+      atomically { @io_waiters.reject! { |_, _, waiter| waiter.equal?(thread) } }
+    end
+
+    # A change to a list that the scheduler or a waiter list keeps runs
+    # whole, as ruby's C runs under its lock. The core's own Array methods
+    # are compiled Ruby, and a preemption in the middle of one would let
+    # another thread change the same list.
+    def atomically
+      Primitive.attr! :hidden
+      return yield if @atomic
+
+      @atomic = true
+      begin
+        yield
+      ensure
+        @atomic = false
+      end
     end
 
     # rb_notify_fd_close: each other thread that waits on `fd` gets an
@@ -315,11 +333,11 @@ class Thread
     end
 
     def enqueue(thread)
-      @queue << thread unless @queue.include?(thread)
+      atomically { @queue << thread unless @queue.include?(thread) }
     end
 
     def dequeue(thread)
-      @queue.delete(thread)
+      atomically { @queue.delete(thread) }
     end
 
     def sleep_until(thread, deadline)
@@ -327,12 +345,12 @@ class Thread
     end
 
     def awake(thread)
-      @sleepers.reject! { |_, sleeper| sleeper.equal?(thread) }
+      atomically { @sleepers.reject! { |_, sleeper| sleeper.equal?(thread) } }
     end
 
     # A thread that ends leaves every list that could wake it.
     def forget(thread)
-      @threads.delete(thread)
+      atomically { @threads.delete(thread) }
       awake(thread)
       unwatch(thread)
     end
@@ -812,7 +830,7 @@ class Thread
     begin
       wait(deadline, deadly)
     ensure
-      list.delete(self)
+      Thread.send(:atomically) { list.delete(self) }
     end
   end
 
@@ -1059,7 +1077,7 @@ class Fiber
         timeout = deadline && [(deadline - Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond)) / 1e9, 0.0].max
         scheduler.block(blocker, timeout)
       ensure
-        list.delete(waiter)
+        Thread.send(:atomically) { list.delete(waiter) }
       end
       waiter.woken?
     end
