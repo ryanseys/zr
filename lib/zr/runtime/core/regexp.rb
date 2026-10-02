@@ -508,7 +508,7 @@ class Regexp
   # The character the search matched at (before a `\K`), or nil. Ruby
   # runs `=~` as an instruction (opt_regexpmatch2), with no frame.
   def =~(text)
-    Primitive.attr! :hidden
+    Primitive.attr! :frameless
     result = matched(text)
     result && Primitive.zr_str_byte_to_char(result.send(:text), result.send(:position))
   end

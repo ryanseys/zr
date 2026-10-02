@@ -1682,7 +1682,7 @@ class String
 
   # Ruby runs `=~` as an instruction (opt_regexpmatch2), with no frame.
   def =~(other)
-    Primitive.attr! :hidden
+    Primitive.attr! :frameless
     raise TypeError, +"wrong argument type String (expected Regexp)" if other.is_a?(String)
     return other.send(:=~, self) if other.is_a?(Regexp)
 

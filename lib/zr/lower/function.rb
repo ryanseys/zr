@@ -250,7 +250,9 @@ module Zr
       # A core def starts with its `Primitive.attr!` attributes. `:hidden`
       # marks a helper that has no CRuby method; it has no backtrace
       # entry. `:ruby` marks a method that CRuby writes in Ruby; it returns
-      # its own parameters as CRuby's does.
+      # its own parameters as CRuby's does. `:frameless` marks a method
+      # that ruby runs as an instruction: it is listed as any method is,
+      # and has no backtrace entry.
       def attributes
         return [] unless @l.internal? && @kind == :def
 
@@ -363,7 +365,7 @@ module Zr
                   @l.meta(@name, kind, line, name: name, parent: @outer&.meta, params: params, locals: @locals,
                                              env: @has_env, ruby: attributes.include?(:ruby),
                                              captures: true, node: node_id, cover: method_cover, twin: @twin,
-                                             owns_backref: owns_backref?)
+                                             owns_backref: owns_backref?, frameless: attributes.include?(:frameless))
                 end
         @f.store(@f.symbol_value(@f.symbol(@meta)), @rec, off(@frame, "meta"))
         @line = line | (node_id << 32)
