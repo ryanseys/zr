@@ -20,14 +20,15 @@ class Enumerator
       self
     end
 
-    # Keywords go on to the block, as yielder_yield passes them.
+    # Keywords go on to the block, as yielder_yield passes them. Only
+    # keywords given go on: an empty `**` would keep a lone Array whole.
     def yield(*values, **keywords)
-      @block.call(*values, **keywords)
+      keywords.empty? ? @block.call(*values) : @block.call(*values, **keywords)
     end
 
     def to_proc
       block = @block
-      proc { |*values, **keywords| block.call(*values, **keywords) }
+      proc { |*values, **keywords| keywords.empty? ? block.call(*values) : block.call(*values, **keywords) }
     end
   end
 

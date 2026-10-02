@@ -933,7 +933,9 @@ class Fiber
 
     tag = Object.new
     # The first resume's keywords reach the block as keywords.
-    __make__ { |*args, **kw| Primitive.zr_catch(tag, proc { block.call(*args, **kw) }) }
+    # Only keywords given go on: an empty `**` would keep a lone Array
+    # whole.
+    __make__ { |*args, **kw| Primitive.zr_catch(tag, proc { kw.empty? ? block.call(*args) : block.call(*args, **kw) }) }
     Primitive.zr_hidden_set(self, :__kill__, tag)
     Primitive.zr_hidden_set(self, :__block__, block)
     Primitive.zr_hidden_set(self, :__storage__, table)
