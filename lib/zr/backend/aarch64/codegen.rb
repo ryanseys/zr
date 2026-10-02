@@ -400,8 +400,9 @@ module Zr
           when :stack_addr
             return if @remade.include?(i.results[0])
 
-            frame_address(X9, @slot_at[Integer(i.args[0].delete_prefix("ss"))])
-            store_value(i.results[0], X9)
+            d = result_in(i.results[0], X9)
+            frame_address(d, @slot_at[Integer(i.args[0].delete_prefix("ss"))])
+            store_value(i.results[0], d)
           when :symbol_value
             return if @remade.include?(i.results[0])
 
@@ -451,12 +452,14 @@ module Zr
           when :ireduce, :uextend
             # A narrower value reads the low bits of its slot. A wider value
             # needs zeros in the high bits, which the narrow load gives.
-            load_value(i.args[0], X9)
-            store_value(i.results[0], X9)
+            d = result_in(i.results[0], X9)
+            load_value(i.args[0], d)
+            store_value(i.results[0], d)
           when :sextend
             a = value_in(i.args[0], X9)
-            type_of(i.args[0]) == "i8" ? @asm.sxtb(X9, w(a)) : @asm.sxtw(X9, w(a))
-            store_value(i.results[0], X9)
+            d = result_in(i.results[0], X9)
+            type_of(i.args[0]) == "i8" ? @asm.sxtb(d, w(a)) : @asm.sxtw(d, w(a))
+            store_value(i.results[0], d)
           when :select then emit_select(i)
           when :sadd_overflow, :ssub_overflow then emit_overflow(i)
           when :smul_overflow then emit_mul_overflow(i)
@@ -478,8 +481,9 @@ module Zr
           when :bitcast
             # The same bits as another type: the d register that contains
             # them also contains the result.
-            load_value(i.args[0], X9)
-            store_value(i.results[0], X9)
+            d = result_in(i.results[0], X9)
+            load_value(i.args[0], d)
+            store_value(i.results[0], d)
             remember_double(i.results[0], @doubles[i.args[0]]) if @doubles.key?(i.args[0])
           when :brif then emit_brif(i)
           when :jump then emit_jump(i)

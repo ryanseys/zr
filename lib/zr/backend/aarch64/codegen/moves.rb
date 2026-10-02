@@ -152,8 +152,14 @@ module Zr
         end
 
         # Copies one value to the place of another. A source with a register
-        # home is stored directly from it. Only a slot source needs a load.
-        def copy(dest, source) = store_value(dest, value_in(source, SCRATCH[0]))
+        # home is stored directly from it. Only a slot source needs a load,
+        # which goes directly into the destination's register, if it has one.
+        def copy(dest, source)
+          home = @reg[dest]
+          return load_value(source, home) if home
+
+          store_value(dest, value_in(source, SCRATCH[0]))
+        end
       end
     end
   end
