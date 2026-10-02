@@ -1145,7 +1145,7 @@ module Zr
           case a
           when Prism::SplatNode then splat(a, line)
           when Prism::KeywordHashNode
-            kwargs = HashLit.new(hash_pairs(a.elements), line)
+            kwargs = HashLit.new(call_keyword_pairs(hash_pairs(a.elements), line), line)
             nil
           when Prism::ForwardingArgumentsNode
             kwargs = HashLit.new([HashSplat.new(Local.new(ANONYMOUS[:kwrest], @block_depth, line), line), nil], line)
@@ -1155,6 +1155,28 @@ module Zr
           end
         end
         [args, kwargs, block]
+      end
+
+      # The pairs of a call's keywords. A literal key given twice keeps its
+      # last place, as ruby's keyword arguments do (`r(b: 1, a: 2, b: 3)`
+      # is `{a: 2, b: 3}`), where a Hash literal keeps the first. Each
+      # earlier value still runs in its place, as `**(value; {})`. Only
+      # keywords that are all Symbol literals compile so; with a `**` or
+      # any other key among them, ruby builds a Hash, which keeps the
+      # first place.
+      def call_keyword_pairs(pairs, line)
+        return pairs unless pairs.each_slice(2).all? { |k, _| k.is_a?(Literal) && k.value.is_a?(Symbol) }
+
+        keys = pairs.each_slice(2).map { |k, _| k.value }
+        out = []
+        pairs.each_slice(2).with_index do |(k, v), i|
+          if keys[i] && keys.drop(i + 1).include?(keys[i])
+            out.push(HashSplat.new(Seq.new([v, HashLit.new([], line)], line), line), nil)
+          else
+            out.push(k, v)
+          end
+        end
+        out
       end
 
       # `*value`, or a bare `*`: the anonymous rest parameter that the

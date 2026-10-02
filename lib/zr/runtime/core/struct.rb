@@ -96,12 +96,17 @@ class Struct
       given += 1
     end
     if keyword_init || (given == 0 && Primitive.zr_hash_len_m(keywords) > 0)
-      raise ArgumentError, "wrong number of arguments (given #{given}, expected 0)" unless given == 0
+      raise ArgumentError, "wrong number of arguments (given #{given + (keywords.empty? ? 0 : 1)}, expected 0)" unless given == 0
 
-      unknown = keywords.keys - members
-      raise ArgumentError, "unknown keywords: #{unknown.join(', ')}" if Primitive.zr_ary_len_m(unknown) > 0
-
-      keywords.each { |k, v| values[members.index(k)] = v }
+      # Each key names its member as rb_struct_pos reads it, in the
+      # order of the Hash.
+      unknown = []
+      keywords.each do |k, v|
+        i = struct_pos(k)
+        # An index key is named as the Integer it converts to.
+        i ? values[i] = v : unknown << (k.is_a?(Symbol) || k.is_a?(String) ? k : Primitive.zr_index_operand_m(k))
+      end
+      raise ArgumentError, "unknown keywords: #{unknown.join(', ')}" unless unknown.empty?
     else
       raise ArgumentError, +"struct size differs" if given > count
 
@@ -114,6 +119,35 @@ class Struct
   end
 
   private :initialize_members
+
+  # rb_struct_pos: a Symbol or a String names a member; any other key is
+  # an index by to_int, from the end when negative. nil when it names
+  # no member.
+  def struct_pos(key)
+    Primitive.attr! :hidden
+    members = member_names
+    return members.index(key.to_sym) if key.is_a?(Symbol) || key.is_a?(String)
+
+    i = Primitive.zr_index_operand_m(key)
+    i += Primitive.zr_ary_len_m(members) if i < 0
+    i if i >= 0 && i < Primitive.zr_ary_len_m(members)
+  end
+  private :struct_pos
+
+  # rb_hash_set_pair: each pair that a to_h block makes.
+  def to_h_pairs(pairs)
+    Primitive.attr! :hidden
+    out = {}
+    pairs.each do |k, v|
+      pair = yield(k, v)
+      a = Array.try_convert(pair) or raise TypeError, "wrong element type #{conversion_name(pair)} (expected array)"
+      raise ArgumentError, "element has wrong array length (expected 2, was #{a.size})" unless a.size == 2
+
+      out[a[0]] = a[1]
+    end
+    out
+  end
+  private :to_h_pairs
 
   # `initialize_copy` is an entry of the kernel's too
   # (zr_struct_initialize_copy), which sends all but a copy from a struct
@@ -170,7 +204,7 @@ class Struct
 
   def to_h(&block)
     pairs = member_names.zip(Primitive.zr_struct_values(self))
-    block ? pairs.to_h(&block) : pairs.to_h
+    block ? to_h_pairs(pairs, &block) : pairs.to_h
   end
 
   def deconstruct_keys(keys)
@@ -182,7 +216,7 @@ class Struct
     values = Primitive.zr_struct_values(self)
     out = {}
     keys.each do |k|
-      i = k.is_a?(Symbol) ? names.index(k) : nil
+      i = struct_pos(k)
       break unless i
 
       out[k] = values[i]
@@ -213,8 +247,7 @@ class Struct
   def dig(key, *rest)
     # A member this struct does not hold is a miss, not an error, which
     # is what makes `dig` safe to chain.
-    v = if key.is_a?(Integer) then at_or_nil(key)
-        elsif (i = member_names.index(key.to_sym)) then Primitive.zr_struct_values(self)[i]
+    v = if (i = struct_pos(key)) then Primitive.zr_struct_values(self)[i]
         end
     return v if rest.empty? || v.nil?
 
@@ -310,7 +343,7 @@ class Struct
 
       i
     else
-      i = Integer(key)
+      i = Primitive.zr_index_operand_m(key)
       raise IndexError, "offset #{i} too small for struct(size:#{members.size})" if i < -members.size
       raise IndexError, "offset #{i} too large for struct(size:#{members.size})" if i >= members.size
 

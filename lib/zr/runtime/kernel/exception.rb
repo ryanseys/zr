@@ -386,9 +386,6 @@ module Zr::Kern
       # `exception` as one Hash argument.
       opts = Machine.value(Machine.load64(argv + ((argc - 1) * 8), 0))
       cause = zr_hash_lookup(opts, zr_sym(Machine.id(:cause)))
-      if cause != QUNDEF && cause != QNIL && (zr_special_p(cause) || zr_type(cause) != T_EXCEPTION)
-        return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("exception object expected"), 25)
-      end
       if cause != QUNDEF
         rest = zr_hash_new()
         zr_hash_update(rest, opts)
@@ -429,6 +426,11 @@ module Zr::Kern
         r = zr_exc_set_backtrace_value(e, Machine.value(Machine.load64(argv, 16)))
         return r if r == QUNDEF
       end
+    end
+    # The cause is checked once the exception is made, as rb_f_raise
+    # reads the first argument first.
+    if cause != QUNDEF && cause != QNIL && (zr_special_p(cause) || zr_type(cause) != T_EXCEPTION)
+      return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("exception object expected"), 25)
     end
     if cause != QUNDEF
       r = zr_exc_check_cause(e, cause)

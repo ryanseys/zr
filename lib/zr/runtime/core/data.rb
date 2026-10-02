@@ -109,7 +109,18 @@ class Data
 
   def to_h(&block)
     pairs = member_names.zip(values_store)
-    block ? pairs.to_h(&block) : pairs.to_h
+    return pairs.to_h unless block
+
+    # rb_hash_set_pair names a bad pair without its index.
+    out = {}
+    pairs.each do |k, v|
+      pair = yield(k, v)
+      a = Array.try_convert(pair) or raise TypeError, "wrong element type #{conversion_name(pair)} (expected array)"
+      raise ArgumentError, "element has wrong array length (expected 2, was #{a.size})" unless a.size == 2
+
+      out[a[0]] = a[1]
+    end
+    out
   end
 
   def deconstruct_keys(keys)
@@ -121,7 +132,9 @@ class Data
     values = values_store
     out = {}
     keys.each do |k|
-      i = k.is_a?(Symbol) ? names.index(k) : nil
+      raise TypeError, "#{k.inspect} is not a symbol nor a string" unless k.is_a?(Symbol) || k.is_a?(String)
+
+      i = names.index(k.to_sym)
       break unless i
 
       out[k] = values[i]

@@ -32,9 +32,12 @@ module Zr
           else
             argc = drop_keywords(argc, argv, p.rest && p.rest != :implicit ? :def : nil)
           end
+          # `**nil` refuses keywords before the count is checked, as
+          # CRuby's setup_parameters_complex does.
+          bind_keywords(p, kwargs_at, tab, argc, argv) if p.kwrest == :nokey
           check_arity(p, argc)
           bind_positional(p, argc, argv, strict: true)
-          bind_keywords(p, kwargs_at, tab, argc, argv) if keywords?(p)
+          bind_keywords(p, kwargs_at, tab, argc, argv) if keywords?(p) && p.kwrest != :nokey
           bind(p.block, block_param(@blk)) if p.block
         end
 
@@ -45,8 +48,13 @@ module Zr
 
           argc = @f.args[1]
           argv = @f.args[2]
+          keyworded = nil
           if keywords?(p)
             argc, kwargs_at, tab = take_keywords(argc, argv)
+            # Keywords given to a block that takes them stop a lone Array
+            # from spreading, as setup_parameters_complex allows no
+            # autosplat with keywords.
+            keyworded = @f.bor(@f.icmp("ne", tab, imm(0)), @f.icmp("ne", @f.fetch("i64", @rec, kwargs_at), @qnil))
           else
             argc = drop_keywords(argc, argv, p.rest && p.rest != :implicit ? :block : nil)
           end
@@ -54,6 +62,7 @@ module Zr
           # before any spread.
           count = argc
           given = argv
+          bind_keywords(p, kwargs_at, tab, count, given) if p.kwrest == :nokey
           go = @f.label
           strict = @f.label
           @f.brif(lambda?, strict, go)
@@ -68,11 +77,12 @@ module Zr
           if keep
             out = @f.stack_addr(@f.slot(8))
             spread = @f.csel(lambda?, imm(0), imm(p.optional.empty? ? 1 : 2))
+            spread = @f.csel(keyworded, imm(0), spread) if keyworded
             argc = @f.sshr(checked(kernel("zr_block_args", argc, argv, spread, out, @f.iadd(@rec, imm(keep)))), imm(1))
             argv = @f.fetch("i64", out)
           end
           bind_positional(p, argc, argv, strict: false, keep: keep)
-          bind_keywords(p, kwargs_at, tab, count, given) if keywords?(p)
+          bind_keywords(p, kwargs_at, tab, count, given) if keywords?(p) && p.kwrest != :nokey
           bind(p.block, block_param(call_block)) if p.block
         end
 

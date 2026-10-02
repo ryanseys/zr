@@ -1294,7 +1294,14 @@ module Zr::Kern
       b = Machine.slot(Buf.size)
       zr_buf_init(b)
       zr_buf_push(b, Machine.bytes("no implicit conversion of "), 26)
-      zr_buf_class_of(b, other)
+      # rb_convert_type names true and false as themselves.
+      if other == QTRUE || other == QFALSE
+        s = zr_inspect(other)
+        return s if s == QUNDEF
+        zr_buf_str(b, s)
+      else
+        zr_buf_class_of(b, other)
+      end
       zr_buf_push(b, Machine.bytes(" into Hash"), 10)
       return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
     end

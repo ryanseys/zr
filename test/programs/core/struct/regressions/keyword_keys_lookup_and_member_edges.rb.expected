@@ -1,0 +1,22 @@
+#<struct Named a=1, b=2>
+#<struct Named a=nil, b=2>
+#<struct Named a=1, b=2>
+#<struct Named a=nil, b=3>
+[ArgumentError, "unknown keywords: 5"]
+[ArgumentError, "unknown keywords: w, z"]
+[ArgumentError, "wrong number of arguments (given 2, expected 0)"]
+[TypeError, "no implicit conversion from nil to integer"]
+#<struct Plain a=1, b=2>
+#<struct Plain a=9, b=nil>
+[20, 10, nil, 10]
+{}
+[TypeError, "no implicit conversion from nil to integer"]
+{"x" => 1}
+[TypeError, "0 is not a symbol nor a string"]
+[ArgumentError, "unknown keyword: :z"]
+[ArgumentError, "unknown keyword: :z"]
+#<data Empty>
+[TypeError, "wrong element type Integer (expected array)"]
+[TypeError, "wrong element type Integer (expected array)"]
+#<data Sized x=1, y=9>
+#<data Sized x=1, y=0>

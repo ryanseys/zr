@@ -433,9 +433,16 @@ module Zr::Kern
 
   # Marks the adapter `p` as a block that takes a pair when `blk` takes two
   # or more values, as the `each` of a Hash requires of its block.
+  # A Method as the block (`&method(:m)`) asks by the Method's required
+  # count, as CRuby's method proc takes the yielded values.
   sig [Value, Value] => Void
   def zr_block_asks_pair(p, blk)
-    if zr_block_min_params(blk) > 1
+    need = zr_block_min_params(blk)
+    if RProc.meta(blk) == 0 && RProc.fn(blk) == Machine.addr(:zr_method_block)
+      a = zr_method_arity_of(RProc.self(blk))
+      need = a >= 0 ? a : 0 - a - 1
+    end
+    if need > 1
       RProc.set_spread(p, 1)
       RProc.set_lambda(p, 0)
     end

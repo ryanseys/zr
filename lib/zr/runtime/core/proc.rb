@@ -49,12 +49,26 @@ class Proc
     arity = implicit_integer(arity) unless arity.nil?
     required = self.arity >= 0 ? self.arity : -self.arity - 1
     if lambda? && arity
-      most = parameters.any? { |kind, _| kind == :rest } ? nil : parameters.count { |kind, _| kind == :req || kind == :opt }
-      if arity < required || (most && arity > most)
+      least, most = Proc.min_max_arity(self)
+      if arity < least || (most && arity > most)
         raise ArgumentError, "wrong number of arguments (given #{arity}, expected #{Proc.arity_range(self)})"
       end
     end
     curried(arity || required, [])
+  end
+
+  # rb_proc_min_max_arity: the required count (and one for required
+  # keywords), and the most (and one for any keywords), nil when a rest
+  # takes any number.
+  def self.min_max_arity(pr)
+    Primitive.attr! :hidden
+    params = pr.parameters
+    required = params.count { |kind, _| kind == :req }
+    least = required + (params.any? { |kind, _| kind == :keyreq } ? 1 : 0)
+    return [least, nil] if params.any? { |kind, _| kind == :rest }
+
+    keywords = params.any? { |kind, _| kind == :key || kind == :keyreq || kind == :keyrest } ? 1 : 0
+    [least, required + params.count { |kind, _| kind == :opt } + keywords]
   end
 
   def self.callable(other)
@@ -67,12 +81,10 @@ class Proc
   # `2..3`, `2+` or `2` as a lambda's arity reads in an error.
   def self.arity_range(pr)
     Primitive.attr! :hidden
-    params = pr.parameters
-    required = params.count { |kind, _| kind == :req }
-    return "#{required}+" if params.any? { |kind, _| kind == :rest }
+    least, most = min_max_arity(pr)
+    return "#{least}+" if most.nil?
 
-    optional = params.count { |kind, _| kind == :opt }
-    optional.zero? ? required.to_s : "#{required}..#{required + optional}"
+    least == most ? least.to_s : "#{least}..#{most}"
   end
 
   private

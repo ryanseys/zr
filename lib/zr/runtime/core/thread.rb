@@ -432,37 +432,58 @@ class Thread
   # Fiber-local storage, keyed by the fiber this thread runs, which is
   # the caller's fiber only where the caller is the thread itself.
   def [](key)
-    @locals[local_fiber]&.[](key.to_sym)
+    key = local_key(key)
+    @locals[local_fiber]&.[](key)
   end
 
+  # A nil value removes the key, as rb_thread_local_aset does.
   def []=(key, value)
-    (@locals[local_fiber] ||= {})[key.to_sym] = value
+    key = local_key(key)
+    return @locals[local_fiber]&.delete(key) && nil if value.nil?
+
+    (@locals[local_fiber] ||= {})[key] = value
   end
 
   def key?(key)
+    key = local_key(key)
     locals = @locals[local_fiber]
-    locals ? locals.key?(key.to_sym) : false
+    locals ? locals.key?(key) : false
   end
 
   def keys
     @locals[local_fiber]&.keys || []
   end
 
-  def fetch(key, *default)
+  def fetch(*args)
+    raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 1..2)" unless args.size.between?(1, 2)
+
+    key = local_key(args.first)
+    default = args.drop(1)
     locals = @locals[local_fiber] || {}
-    return locals.fetch(key.to_sym, *default) unless block_given?
+    return locals.fetch(key, *default) unless block_given?
 
     Primitive.zr_warn_here_m("block supersedes default value argument") unless default.empty?
-    locals.fetch(key.to_sym) { |k| yield k }
+    locals.fetch(key) { |k| yield k }
   end
 
-  def thread_variable_get(key) = @variables[key.to_sym]
+  def thread_variable_get(key) = @variables[local_key(key)]
 
   def thread_variable_set(key, value)
-    @variables[key.to_sym] = value
+    @variables[local_key(key)] = value
   end
 
-  def thread_variable?(key) = @variables.key?(key.to_sym)
+  # True for a key whose value is not nil.
+  def thread_variable?(key) = !@variables[local_key(key)].nil?
+
+  # A Symbol, or a String as its Symbol; any other key is a TypeError.
+  def local_key(key)
+    Primitive.attr! :hidden
+    return key if key.is_a?(Symbol)
+    return key.to_sym if key.is_a?(String)
+
+    raise TypeError, "#{key.inspect} is not a symbol nor a string"
+  end
+  private :local_key
 
   def thread_variables = @variables.keys
 

@@ -20,13 +20,14 @@ class Enumerator
       self
     end
 
-    def yield(*values)
-      @block.call(*values)
+    # Keywords go on to the block, as yielder_yield passes them.
+    def yield(*values, **keywords)
+      @block.call(*values, **keywords)
     end
 
     def to_proc
       block = @block
-      proc { |*values| block.call(*values) }
+      proc { |*values, **keywords| block.call(*values, **keywords) }
     end
   end
 

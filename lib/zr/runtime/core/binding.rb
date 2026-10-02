@@ -19,18 +19,18 @@ class Binding
     scopes.flatten.compact.uniq
   end
 
-  def local_variable_defined?(name) = !place(symbol_name(name)).nil?
+  def local_variable_defined?(name) = !place(local_name(name)).nil?
 
   def local_variable_get(name)
-    name = symbol_name(name)
-    at = place(name) or raise NameError, "local variable '#{name}' is not defined for #{inspect}"
+    name = local_name(name)
+    at = place(name) or raise NameError.new("local variable '#{name}' is not defined for #{inspect}", name, receiver: self)
     Primitive.zr_binding_get(self, at[0], at[1])
   end
 
   # A name that is in no scope becomes the Binding's own, in a scope
   # inside the one it represents, as in ruby.
   def local_variable_set(name, value)
-    name = symbol_name(name)
+    name = local_name(name)
     Primitive.zr_binding_add(self, name.to_s) unless place(name)
     at = place(name)
     Primitive.zr_binding_set(self, at[0], at[1], value)
@@ -122,6 +122,17 @@ class Binding
   def numbered?(name)
     Primitive.attr! :hidden
     /\A_[1-9]\z/.match?(name)
+  end
+
+  # The name of a local as check_local_id takes it: a numbered parameter
+  # is no local variable, and a name that is no identifier is a wrong one.
+  def local_name(name)
+    Primitive.attr! :hidden
+    name = symbol_name(name)
+    raise NameError.new("numbered parameter '#{name}' is not a local variable", name, receiver: self) if numbered?(name)
+    raise NameError.new("wrong local variable name '#{name}' for #{inspect}", name, receiver: self) unless /\A[a-z_\u0080-\u{10ffff}][[:word:]\u0080-\u{10ffff}]*\z/.match?(name)
+
+    name
   end
 
   # The name of a local, as ruby takes one: a Symbol or a String.

@@ -28,7 +28,8 @@ module Zr::Kern
       end
     end
     core = zr_data_core_init_p(recv)
-    if core && argc == RArray.len(members)
+    # A Data with no members still checks the keywords it is given.
+    if core && argc == RArray.len(members) && kwargs == QNIL
       return zr_data_made(recv, zr_struct_values_of(argc, argc, argv))
     end
     if core && argc == 0 && kwargs != QNIL
@@ -57,7 +58,7 @@ module Zr::Kern
     slot = Machine.slot(8)
     Machine.store64(slot, 0, Machine.word(kwargs))
     Task.set_kw(zr_task(), 1)
-    r = zr_send(o, Machine.id(:initialize), 1, slot)
+    r = zr_send_blk(o, Machine.id(:initialize), 1, slot, blk)
     return r if r == QUNDEF
     o
   end

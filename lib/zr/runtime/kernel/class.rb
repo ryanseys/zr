@@ -1957,12 +1957,17 @@ module Zr::Kern
 
   sig [Value, Word, Ptr, Value, Value] => Value
   def zr_mod_private_class_method(recv, argc, argv, cref, blk)
-    zr_set_visibility(zr_singleton_class(recv), argc, argv, blk, VIS_PRIVATE, 0)
+    r = zr_set_visibility(zr_singleton_class(recv), argc, argv, blk, VIS_PRIVATE, 0)
+    return r if r == QUNDEF
+    # rb_mod_private_method returns the receiver, whatever it was given.
+    recv
   end
 
   sig [Value, Word, Ptr, Value, Value] => Value
   def zr_mod_public_class_method(recv, argc, argv, cref, blk)
-    zr_set_visibility(zr_singleton_class(recv), argc, argv, blk, VIS_PUBLIC, 0)
+    r = zr_set_visibility(zr_singleton_class(recv), argc, argv, blk, VIS_PUBLIC, 0)
+    return r if r == QUNDEF
+    recv
   end
 
   # Whether `e` is a helper that the core library keeps for itself (a def

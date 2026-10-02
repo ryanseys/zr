@@ -242,8 +242,8 @@ class << ENV
 
   # The names that the Hash gives are set, each checked as it is. Every
   # other name is removed, as env_replace leaves the environment.
-  def replace(hash)
-    hash = Hash.try_convert(hash) or raise TypeError, "no implicit conversion of #{conversion_name(hash)} into Hash"
+  def replace(given)
+    hash = Hash.try_convert(given) or raise TypeError, "no implicit conversion of #{conversion_name(given)} into Hash"
     names = keys
     hash.each do |name, value|
       self[name] = value
