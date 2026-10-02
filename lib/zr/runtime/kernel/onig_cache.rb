@@ -433,6 +433,8 @@ module Zr::Kern
       zr_onig_memoize_extended_cache_point(OnigMatch.match_cache_buf(m), OnigStk.a(stk), OnigStk.b(stk))
     end
   end
+  # Each pop of the match loop runs it, almost always for no cache point.
+  inline :zr_onig_memoize_cache_point
 
   # MEMOIZE_LOOKAROUND_MATCH_CACHE_POINT: voids a cache point that a
   # look-around leaves, and records it in the extended form.
@@ -479,9 +481,17 @@ module Zr::Kern
   # OnigMatch.s. Returns 0 to continue (after it pushes a cache point, if
   # there is one), 1 to fail, or 2 to continue at the look-around's match
   # address, which is in OnigMatch.p.
+  # Each push of the match loop runs it, and the cache is almost always
+  # off, so that test is inline.
   sig [Ptr, Ptr] => Word
   def zr_onig_check_match_cache(m, pbegin)
     return 0 if OnigMatch.match_cache_status(m) != ONIG_MATCH_CACHE_STATUS_ENABLED
+    zr_onig_check_match_cache_on(m, pbegin)
+  end
+  inline :zr_onig_check_match_cache
+
+  sig [Ptr, Ptr] => Word
+  def zr_onig_check_match_cache_on(m, pbegin)
     cop = Machine.slot(8)
     Machine.store64(cop, 0, 0)
     cache_point = zr_onig_find_cache_point(m, pbegin, cop)
