@@ -253,6 +253,9 @@ module Zr::Kern
     end
     zr_onig_mbclen(enc, p, e)
   end
+  # The match loop steps over each character here: an ASCII one needs no
+  # call.
+  inline :zr_onig_enclen
 
   # enclen_approx (regexec.c): onigenc_mbclen_approximate, the byte count
   # that a truncated character would have.
@@ -678,6 +681,9 @@ module Zr::Kern
     end
     zr_onig_code_word_p(enc, zr_onig_mbc_to_code(enc, s, e))
   end
+  # The match loop tests each character of `\w` here: an ASCII one needs
+  # no call.
+  inline :zr_onig_mbc_word_p
 
   # ONIGENC_IS_MBC_ASCII_WORD: onigenc_ascii_is_code_ctype(code, WORD).
   sig [Word, Ptr, Ptr] => Bool

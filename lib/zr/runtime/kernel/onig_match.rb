@@ -1224,6 +1224,8 @@ module Zr::Kern
     return zr_onig_op_absent(m, op) if op < OP_CALL
     zr_onig_op_call(m, op)
   end
+  # In the match loop, so each opcode costs one call, not two.
+  inline :zr_onig_step
 
   # match_at: matches the program at sstart. sprev is the character
   # before it (0 at the start). Returns the match length, ONIG_MISMATCH, or
