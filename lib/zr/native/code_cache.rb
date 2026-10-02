@@ -94,6 +94,9 @@ module Zr
 
       def verify? = self.class.mode == "verify"
 
+      # Whether a pack has the code for `key`. Reads no pack.
+      def has?(key) = @index.key?(key)
+
       # The code for `key`, or nil. The raw bytes come with it, for the new
       # pack.
       def take(key)

@@ -111,7 +111,7 @@ module Zr
         bit = record[:bits].find { |sym, was| (own.key?(sym) || @fixed_names.include?(sym)) != was }
         return "#{bit.first} is #{bit.last ? "no longer" : "now"} defined" if bit
 
-        missing = record[:functions].find { |_, key| !code.blob(key) }
+        missing = record[:functions].find { |_, key| !code.has?(key) }
         "no code for #{missing.first}" if missing
       end
 

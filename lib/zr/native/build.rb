@@ -288,13 +288,13 @@ module Zr
       # the cache does not have. (A first map that only took fingerprints,
       # without the warmup of the heap, spent its time in the workers'
       # collections instead.) Returns the code in the order of `all`, and
-      # keeps all of it as the cache's newest pack.
+      # keeps all of it as the cache's newest pack. A function that is
+      # machine code already stays as it is; `known` has its key and bytes
+      # for the pack.
       def cached(all, defined, emitter, cache, jobs, floor, known = {})
         verify = cache.verify?
-        weight = ->(f) { f.is_a?(IR::Function) ? f.blocks.sum { |b| b.insts.size } : 0 }
-        answers = Parallel.map(all, jobs: jobs, weight: weight, floor: floor) do |f|
-          next [*known.fetch(f.name), false] unless f.is_a?(IR::Function)
-
+        ir = all.each_index.select { |i| all[i].is_a?(IR::Function) }
+        answers = Parallel.map(all.values_at(*ir), jobs: jobs, weight: ->(f) { f.blocks.sum { |b| b.insts.size } }, floor: floor) do |f|
           key = IR::Fingerprint.of(f, defined)
           found = verify ? cache.take(key) : cache.blob(key)
           next [key, found, false] if found && !verify
@@ -305,9 +305,10 @@ module Zr
 
           [key, Marshal.dump(made), true]
         end
-        Timing.phase("code cache kept") { cache.keep(answers.map { |key, blob, _| [key, blob] }) }
+        made = ir.zip(answers).to_h
+        Timing.phase("code cache kept") { cache.keep(all.each_with_index.map { |f, i| made[i]&.first(2) || known.fetch(f.name) }) }
         warn format("zr: code cache: %d of %d functions assembled", answers.count(&:last), all.size) if Config.current.timing?
-        Timing.phase("code cache loaded") { answers.map { |_, blob, _| Marshal.load(blob) } }
+        Timing.phase("code cache loaded") { all.each_with_index.map { |f, i| made[i] ? Marshal.load(made[i][1]) : f } }
       end
 
       # Writes the same functions and data as one WASI module. A raw
