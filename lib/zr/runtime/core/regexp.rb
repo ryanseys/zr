@@ -680,7 +680,7 @@ class MatchData
     self
   end
 
-  def regexp = Primitive.zr_hidden_get(self, :regexp)
+  def regexp = @regexp
 
   # The text as it was, a frozen String of this match's own, as CRuby
   # gives each MatchData. It is made on first use from the copy that
@@ -812,17 +812,20 @@ class MatchData
   # the search matched at, then every group's byte span. It is kept as
   # the search made it, so a match allocates nothing but its cell; a
   # group's span is read by `begin_at` and `end_at`.
+  # The fields are hidden ivars (no `@` in the runtime's own code), which
+  # an ivar write sets through its site's cache. A match makes one per
+  # match of scan and gsub.
   def matched(regexp, text, offsets)
     Primitive.attr! :hidden
-    Primitive.zr_hidden_set(self, :regexp, regexp)
-    Primitive.zr_hidden_set(self, :string, MatchData.send(:snapshot, text))
-    Primitive.zr_hidden_set(self, :shown, text) if text.frozen?
-    Primitive.zr_hidden_set(self, :offsets, offsets)
+    @regexp = regexp
+    @string = MatchData.send(:snapshot, text)
+    @shown = text if text.frozen?
+    @offsets = offsets
   end
 
   def offsets
     Primitive.attr! :hidden
-    Primitive.zr_hidden_get(self, :offsets)
+    @offsets
   end
 
   # Group `index`'s byte span, -1 where it did not take part.
@@ -839,7 +842,7 @@ class MatchData
   # The frozen text the match was made in, shared by every match of it.
   def text
     Primitive.attr! :hidden
-    Primitive.zr_hidden_get(self, :string)
+    @string
   end
 
   # The byte the search matched at, which a `\K` may leave before the
