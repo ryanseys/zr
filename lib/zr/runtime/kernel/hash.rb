@@ -225,6 +225,27 @@ module Zr::Kern
   # CRuby's rb_hash: a Symbol, a fixnum, true, false, nil, a String, a
   # Bignum or a Float hashes without a send, even when its class redefines
   # `hash`. Anything else answers its own `hash`, folded to a fixnum.
+  # The hash of the elements of the Array `a` from the fixnum `seed`, as
+  # Array#hash joins them (lib/zr/runtime/core/array.rb), when each one
+  # hashes with no call: an immediate, a Float or a String. Such an Array
+  # cannot reach itself, so it needs no recursion guard. Returns nil when
+  # an element needs its own `hash`.
+  sig [Value, Value] => Value
+  def zr_ary_leaf_hash(a, seed)
+    mask = 72057594037927935
+    h = zr_fix2long(seed) & mask
+    i = 0
+    while i < RArray.len(a)
+      v = zr_ary_at(a, i)
+      if !zr_special_p(v) && !zr_float_p(v) && zr_type(v) != T_STRING
+        return Machine.value(QNIL)
+      end
+      h = ((h * 31) + (zr_value_code(v) & mask)) & mask
+      i += 1
+    end
+    zr_fix(h)
+  end
+
   sig [Value] => Value
   def zr_rb_hash(v)
     if zr_big_p(v)

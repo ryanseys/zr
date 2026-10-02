@@ -137,6 +137,7 @@ module Zr
     def zr_ary_inspect: (Integer recv, Integer argc, Integer argv, Integer cref, Integer blk) -> Integer
     def zr_ary_kw_element: (Integer h) -> Integer
     def zr_ary_last: (Integer recv, Integer argc, Integer argv, Integer cref, Integer blk) -> Integer
+    def zr_ary_leaf_hash: (Integer a, Integer seed) -> Integer
     def zr_ary_len_m: (Integer a) -> Integer
     def zr_ary_length: (Integer recv, Integer argc, Integer argv, Integer cref, Integer blk) -> Integer
     def zr_ary_map: (Integer recv, Integer argc, Integer argv, Integer cref, Integer blk) -> Integer

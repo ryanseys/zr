@@ -581,8 +581,12 @@ class Array
     end
   end
 
+  # Elements that hash with no call need no recursion guard
+  # (`zr_ary_leaf_hash`, which joins them as this does).
   def hash
     mask = 72057594037927935
+    leaf = Primitive.zr_ary_leaf_hash(self, 7)
+    return leaf if leaf
     return 7 if Primitive.zr_recursive_enter(self, :hash)
 
     begin

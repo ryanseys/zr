@@ -243,7 +243,29 @@ class Struct
     Primitive.zr_struct_values(self).eql?(Primitive.zr_struct_values(other))
   end
 
-  def hash = [Primitive.zr_real_class(self), Primitive.zr_struct_values(self)].hash
+  # The class's hash, then each value's, as Array#hash joins them, with
+  # no Array of the two (rb_struct_hash). Values that hash with no call
+  # need no recursion guard (`zr_ary_leaf_hash`).
+  def hash
+    mask = 72057594037927935
+    values = Primitive.zr_struct_values(self)
+    seed = Primitive.zr_rb_hash(Primitive.zr_real_class(self)) & mask
+    leaf = Primitive.zr_ary_leaf_hash(values, seed)
+    return leaf if leaf
+    return 7 if Primitive.zr_recursive_enter(self, :hash)
+
+    begin
+      h = seed
+      i = 0
+      while i < Primitive.zr_ary_len_m(values)
+        h = (h * 31 + (Primitive.zr_rb_hash(Primitive.zr_ary_aref1_m(values, i)) & mask)) & mask
+        i += 1
+      end
+      h
+    ensure
+      Primitive.zr_recursive_leave(self, :hash)
+    end
+  end
 
   # The class shows by its path, as rb_struct_inspect writes it: always
   # in the marker of a struct reached again inside its own inspect, and
