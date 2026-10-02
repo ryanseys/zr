@@ -1412,6 +1412,30 @@ module Zr::Kern
     unless zr_hash_recode(h)
       return Machine.value(QUNDEF)
     end
+    # Keys that came to be eql? fold into the first one, which takes the
+    # last value, as rb_hash_rehash builds the table again. The bins are in
+    # entry order, so a key's probe meets its first equal entry first.
+    if (RBasic.flags(h) & FL_IDENTITY) != 0
+      return h
+    end
+    i = 0
+    while i < RHash.len(h)
+      e = RHash.entries(h) + (i * HEntry.size)
+      if HEntry.live(e) != 0
+        found = zr_hash_find(h, HEntry.key(e), HEntry.hash(e))
+        if found == HASH_RAISED
+          return Machine.value(QUNDEF)
+        end
+        if found != 0 && found != e && found < e
+          HEntry.set_value(found, HEntry.value(e))
+          HEntry.set_live(e, 0)
+          HEntry.set_key(e, Machine.value(QNIL))
+          HEntry.set_value(e, Machine.value(QNIL))
+          RHash.set_live(h, RHash.live(h) - 1)
+        end
+      end
+      i += 1
+    end
     h
   end
 
