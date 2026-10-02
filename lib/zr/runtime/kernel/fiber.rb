@@ -222,7 +222,9 @@ module Zr::Kern
     if RFiber.resuming(recv) != QNIL
       return zr_fiber_error(Machine.bytes("attempt to resume a resuming fiber"), 34)
     end
-    if RFiber.transferred(recv) != 0
+    # As ruby's fiber_resume_kw: a fiber that has started and is not in
+    # Fiber.yield, a root fiber among them, is transferring.
+    if RFiber.transferred(recv) != 0 || (RFiber.yielding(recv) == 0 && RFiber.status(recv) != FIBER_CREATED)
       return zr_fiber_error(Machine.bytes("attempt to resume a transferring fiber"), 38)
     end
     if RFiber.home(recv) != RFiber.home(cur)
