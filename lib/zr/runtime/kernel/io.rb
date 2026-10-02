@@ -516,8 +516,7 @@ module Zr::Kern
   Libc.import :truncate, [Ptr, Word] => I32
   Libc.import :ftruncate, [I32, Word] => I32
   Libc.import :umask, [I32] => I32
-  Libc.import :utimes, [Ptr, Ptr] => I32
-  Libc.import :lutimes, [Ptr, Ptr] => I32
+  Libc.import :utimensat, [I32, Ptr, Ptr, I32] => I32
   Libc.import :flock, [I32, I32] => I32
 
   # Calls that take one path and one small number: the owner for chown,
@@ -551,26 +550,25 @@ module Zr::Kern
     zr_io_status(r)
   end
 
-  # The two microsecond timevals that utimes(2) takes.
+  # utimensat(2) from the working directory. `times` is the access and
+  # the modification time as [seconds, nanoseconds, seconds, nanoseconds],
+  # or nil for now. `link` true sets the times of a link itself and not
+  # of its target.
   sig [Value, Value, Value] => Value
-  def zr_utimes_m(path, atime_us, mtime_us)
-    times = Machine.slot(32)
-    Machine.store64(times, 0, zr_fix2long(atime_us) / 1000000)
-    Machine.store64(times, 8, zr_fix2long(atime_us) % 1000000)
-    Machine.store64(times, 16, zr_fix2long(mtime_us) / 1000000)
-    Machine.store64(times, 24, zr_fix2long(mtime_us) % 1000000)
-    zr_io_status(Libc.utimes(RString.ptr(path), times))
-  end
-
-  # The same two timevals, for the link itself and not for its target.
-  sig [Value, Value, Value] => Value
-  def zr_lutimes_m(path, atime_us, mtime_us)
-    times = Machine.slot(32)
-    Machine.store64(times, 0, zr_fix2long(atime_us) / 1000000)
-    Machine.store64(times, 8, zr_fix2long(atime_us) % 1000000)
-    Machine.store64(times, 16, zr_fix2long(mtime_us) / 1000000)
-    Machine.store64(times, 24, zr_fix2long(mtime_us) % 1000000)
-    zr_io_status(Libc.lutimes(RString.ptr(path), times))
+  def zr_utimens_m(path, times, link)
+    spec = Machine.ptr(0)
+    if times != QNIL
+      spec = Machine.slot(32)
+      Machine.store64(spec, 0, zr_fix2long(zr_ary_at(times, 0)))
+      Machine.store64(spec, 8, zr_fix2long(zr_ary_at(times, 1)))
+      Machine.store64(spec, 16, zr_fix2long(zr_ary_at(times, 2)))
+      Machine.store64(spec, 24, zr_fix2long(zr_ary_at(times, 3)))
+    end
+    flags = 0
+    if link == QTRUE
+      flags = AT_SYMLINK_NOFOLLOW
+    end
+    zr_io_status(Libc.utimensat(Machine.i32(AT_FDCWD), RString.ptr(path), spec, Machine.i32(flags)))
   end
 
   # umask(2): returns the old mask, and sets the new one when `mask` is

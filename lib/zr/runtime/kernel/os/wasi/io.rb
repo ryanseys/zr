@@ -17,6 +17,11 @@ module Zr::Kern
   EINTR = 27
   EBADF = 8
 
+  # The *at calls' directory for the working directory, and their flag
+  # for a link itself, as wasi-libc defines them.
+  AT_FDCWD = 0 - 2
+  AT_SYMLINK_NOFOLLOW = 0x1
+
   # wasi-libc's open flags. The file status flags are WASI's fdflags. The
   # creation flags are WASI's oflags, shifted up 12 bits. The access modes
   # have their own high bits.

@@ -133,7 +133,6 @@ module Zr
           log2
           lseek
           lstat
-          lutimes
           malloc
           malloc_size
           memchr
@@ -229,7 +228,7 @@ module Zr
           unlink
           unlockpt
           unsetenv
-          utimes
+          utimensat
           waitpid
           write
         ].freeze

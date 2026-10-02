@@ -23,6 +23,11 @@ module Zr::Kern
   EINTR = 4
   EBADF = 9
 
+  # The *at calls' directory for the working directory, and their flag
+  # for a link itself.
+  AT_FDCWD = 0 - 2
+  AT_SYMLINK_NOFOLLOW = 0x20
+
   # `fcntl` takes the argument of F_SETFL and F_SETFD as a variadic
   # argument. This platform passes a variadic argument on the stack, and
   # this runtime cannot make such a call. `__fcntl` is the fixed-arity

@@ -756,33 +756,44 @@ class File < IO
 
   def self.lchown(owner, group, *paths) = each_path(paths) { |path| Primitive.zr_fs_call(1, path, owner || -1, group || -1) }
 
-  # utime takes its times in seconds, as Integers, Floats or Times.
-  # Both times nil are now, as utimes(2) takes no times.
+  # utime takes its times in seconds, as Integers, Floats or Times, to
+  # the nanosecond. Both times nil are now, as utimensat(2) takes no
+  # times.
   def self.utime(atime, mtime, *paths)
-    atime = mtime = Time.now if atime.nil? && mtime.nil?
-    a = microseconds(atime)
-    m = microseconds(mtime)
-    each_path(paths) { |path| Primitive.zr_utimes_m(path, a, m) }
+    times = timespecs(atime, mtime)
+    each_path(paths) { |path| Primitive.zr_utimens_m(path, times, false) }
   end
 
   # A link takes its own times, rather than passing them on to what it
   # points at.
   def self.lutime(atime, mtime, *paths)
-    a = microseconds(atime)
-    m = microseconds(mtime)
-    each_path(paths) { |path| Primitive.zr_lutimes_m(path, a, m) }
+    times = timespecs(atime, mtime)
+    each_path(paths) { |path| Primitive.zr_utimens_m(path, times, true) }
   end
 
-  # time_timespec: a Time, a number, or an object that responds to `divmod(1)`.
-  def self.microseconds(time)
+  def self.timespecs(atime, mtime)
     Primitive.attr! :hidden
-    return (time.to_r * 1_000_000).round if time.is_a?(Time) || time.is_a?(Integer) || time.is_a?(Float)
+    timespec(atime) + timespec(mtime) unless atime.nil? && mtime.nil?
+  end
+
+  # time_timespec: a Time, a number, or an object that responds to
+  # `divmod(1)`, as [seconds, nanoseconds].
+  def self.timespec(time)
+    Primitive.attr! :hidden
+    return [time.tv_sec, time.tv_nsec] if time.is_a?(Time)
+    return [time, 0] if time.is_a?(Integer)
+
+    if time.is_a?(Float)
+      seconds = time.floor
+      nanoseconds = ((time - seconds) * 1e9 + 0.5).to_i
+      return nanoseconds >= 1_000_000_000 ? [seconds + 1, nanoseconds - 1_000_000_000] : [seconds, nanoseconds]
+    end
     raise TypeError, "can't convert #{time.class} into time" unless time.respond_to?(:divmod)
 
     whole, part = time.divmod(1)
-    (whole * 1_000_000) + (part * 1_000_000_000).to_i / 1000
+    [Integer.send(:int_operand, whole), Integer.send(:int_operand, part * 1_000_000_000)]
   end
-  private_class_method :microseconds
+  private_class_method :timespecs, :timespec
 
   # apply2files: runs the block over each path in one call that can
   # block, and returns how many paths it changed. The first failure

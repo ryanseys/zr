@@ -23,6 +23,11 @@ module Zr::Kern
   EINTR = 4
   EBADF = 9
 
+  # The *at calls' directory for the working directory, and their flag
+  # for a link itself.
+  AT_FDCWD = 0 - 100
+  AT_SYMLINK_NOFOLLOW = 0x100
+
   sig [I32, I32, Word] => I32
   def zr_os_fcntl(fd, command, argument)
     Libc.fcntl(fd, command, argument)
