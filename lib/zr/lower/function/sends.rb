@@ -51,6 +51,9 @@ module Zr
           push: ["zr_opt_push", %w[G_ARRAY]], pop: ["zr_opt_pop", %w[G_ARRAY]], shift: ["zr_opt_shift", %w[G_ARRAY]],
           empty?: ["zr_opt_empty_p", %w[G_ARRAY]]
         }.freeze
+        # `Math.f(x)` that a site calls directly while GATE_MATH is clear:
+        # the number of each function in zr_math_call (sqrt has its own).
+        MATH_CALLS = { sqrt: 0, cbrt: 1, sin: 2, cos: 3, tan: 4, atan: 5, exp: 6 }.freeze
         # The unary Integer calls with an inline fixnum fast path, and
         # their gates.
         UNARY = { succ: "GATE_SUCC", :-@ => "GATE_UMINUS" }.freeze
@@ -427,11 +430,49 @@ module Zr
             checked(opt_send(node, recv, argc, argv))
           elsif node.name == :call && node.block.nil? && !owner_using?(node) && raw_block_recv?(node.recv)
             checked(kernel("zr_opt_block_call", recv, sym_word(:call), argc, argv, imm(send_mode(node))))
+          elsif math_call?(node)
+            checked(math_send(node, recv, argc, argv))
           elsif node.name == :new
             checked(new_send(node, recv, argc, argv, @qnil))
           else
             checked(cached_send(node, recv, argc, argv, @qnil))
           end
+        end
+
+        # Whether `node` is `Math.f(x)` (MATH_CALLS) with one plain argument.
+        def math_call?(node)
+          recv = node.recv
+          MATH_CALLS.key?(node.name) && recv.is_a?(Hir::ConstRead) && recv.name == :Math && [nil, :top].include?(recv.scope) &&
+            node.args.size == 1 && !Scope.spread?(node.args) && node.block.nil? && node.kwargs.nil? && !owner_using?(node) && !traced?
+        end
+
+        # `Math.f(x)`: when the constant is Math (its class is Math's
+        # singleton class) and its functions are the core's, the kernel's
+        # fast path for a Float or an Integer, which Math's own method calls
+        # first. Any other value, a value out of the domain, and any other
+        # receiver make the send, which converts or raises.
+        def math_send(node, recv, argc, argv)
+          fast = @f.label
+          heap = @f.label
+          slow = @f.cold(@f.label)
+          merge, (result,) = @f.block(["i64"])
+          pointer = @f.band(@f.icmp("eq", @f.band(recv, imm(7)), imm(0)), @f.icmp("ugt", recv, @qnil))
+          @f.brif(pointer, heap, slow)
+          switch(heap)
+          klass = @f.fetch("i64", recv, off(@l.layout("RBasic"), "klass"))
+          @f.brif(@f.band(@f.icmp("eq", klass, global("G_MATH_META")), gates_clear("GATE_MATH")), fast, slow)
+          switch(fast)
+          x = @f.fetch("i64", argv)
+          which = MATH_CALLS.fetch(node.name)
+          r = which.zero? ? kernel("zr_math_sqrt_fast", x) : kernel("zr_math_call_fast", imm((which * 2) + 1), x)
+          done = @f.label
+          @f.brif(@f.icmp("eq", r, @qnil), slow, done)
+          switch(done)
+          @f.jump(merge, [r])
+          switch(slow)
+          @f.jump(merge, [cached_send(node, recv, argc, argv, @qnil)])
+          switch(merge)
+          result
         end
 
         # Whether `recv` reads a `&b` parameter bound to the block as given

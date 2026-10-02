@@ -73,6 +73,10 @@ module Zr::Kern
   # Integer#upto from one fixnum to another: Ruby's C counts in a loop
   # with no send, so the site does too.
   GATE_UPTO = 1 << 51
+  # Math.sqrt, cbrt, sin, cos, tan, atan and exp: a site `Math.f(x)` calls
+  # the kernel's fast path for a Float or an Integer directly, with no
+  # send, while Math's singleton methods are the core's (G_MATH_META).
+  GATE_MATH = 1 << 52
 
   # Writes the decimal digits of `n` into `buf` and returns the number of
   # bytes. `buf` must have 24 bytes.

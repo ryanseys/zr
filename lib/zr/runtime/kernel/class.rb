@@ -977,6 +977,8 @@ module Zr::Kern
       GATE_PROC_CALL
     elsif klass == zr_global(G_ARRAY) && mid == Machine.id(:each)
       GATE_EACH
+    elsif klass == zr_global(G_MATH_META) && zr_math_inline_p(mid)
+      GATE_MATH
     elsif klass == zr_global(G_ARRAY) && mid == Machine.id(:map)
       GATE_MAP
     elsif klass == zr_global(G_ARRAY) && mid == Machine.id(:select)
@@ -1004,7 +1006,7 @@ module Zr::Kern
   # start: the class the gate guards (a global's index), the name, the
   # gate bit, and the body and visibility that the class found then.
   GateRow = layout klass: Word, mid: Word, bit: Word, fn: Ptr, vis: Word
-  GATE_ROWS = 49
+  GATE_ROWS = 56
 
   sig [Word, Word, Word, Word] => Word
   def zr_gate_row(i, klass, mid, bit)
@@ -1024,6 +1026,7 @@ module Zr::Kern
   # on, a change to what an entry's class finds closes that entry's gate.
   sig [] => Void
   def zr_gates_snapshot
+    zr_set_global(G_MATH_META, zr_singleton_class(zr_core_class(Machine.id(:Math))))
     i = zr_gate_row(0, G_INTEGER, Machine.id(:+), GATE_PLUS)
     i = zr_gate_row(i, G_INTEGER, Machine.id(:-), GATE_MINUS)
     i = zr_gate_row(i, G_INTEGER, Machine.id(:*), GATE_MUL)
@@ -1068,6 +1071,13 @@ module Zr::Kern
     i = zr_gate_row(i, G_ARRAY, Machine.id(:select), GATE_SELECT)
     i = zr_gate_row(i, G_INTEGER, Machine.id(:times), GATE_TIMES)
     i = zr_gate_row(i, G_INTEGER, Machine.id(:upto), GATE_UPTO)
+    i = zr_gate_row(i, G_MATH_META, Machine.id(:sqrt), GATE_MATH)
+    i = zr_gate_row(i, G_MATH_META, Machine.id(:cbrt), GATE_MATH)
+    i = zr_gate_row(i, G_MATH_META, Machine.id(:sin), GATE_MATH)
+    i = zr_gate_row(i, G_MATH_META, Machine.id(:cos), GATE_MATH)
+    i = zr_gate_row(i, G_MATH_META, Machine.id(:tan), GATE_MATH)
+    i = zr_gate_row(i, G_MATH_META, Machine.id(:atan), GATE_MATH)
+    i = zr_gate_row(i, G_MATH_META, Machine.id(:exp), GATE_MATH)
     i = zr_gate_row(i, G_INTEGER, Machine.id(:-@), GATE_UMINUS)
     i = zr_gate_row(i, G_FLOAT, Machine.id(:-@), GATE_FLO_UMINUS)
     i = zr_gate_row(i, G_INTEGER, Machine.id(:<=>), GATE_CMP)

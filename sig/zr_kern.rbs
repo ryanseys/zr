@@ -1266,6 +1266,7 @@ module Zr
     def zr_math_call_fast: (Integer which, Integer x) -> Integer
     def zr_math_fma: (Integer x, Integer y, Integer z) -> Integer
     def zr_math_frexp: (Integer x) -> Integer
+    def zr_math_inline_p: (Integer mid) -> bool
     def zr_math_lgamma: (Integer x) -> Integer
     def zr_math_sqrt: (Integer x) -> Integer
     def zr_math_sqrt_fast: (Integer x) -> Integer

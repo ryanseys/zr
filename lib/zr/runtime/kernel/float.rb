@@ -1068,6 +1068,17 @@ module Zr::Kern
     zr_float_new(Machine.sqrt(zr_float_value(x)))
   end
 
+  # Math's singleton class, which holds `Math.sqrt` and the others that a
+  # site calls directly while GATE_MATH is clear (zr_gates_snapshot).
+  G_MATH_META = 63
+
+  # The Math functions that a site `Math.f(x)` calls directly.
+  sig [Word] => Bool
+  def zr_math_inline_p(mid)
+    mid == Machine.id(:sqrt) || mid == Machine.id(:cbrt) || mid == Machine.id(:sin) || mid == Machine.id(:cos) ||
+      mid == Machine.id(:tan) || mid == Machine.id(:atan) || mid == Machine.id(:exp)
+  end
+
   # `Math.sqrt(x)` for a Float or fixnum `x` in the domain, else nil. It
   # does the send of `check`, the two comparisons and the call of the
   # general path in one function. A zero gives +0.0, as CRuby's math_sqrt
