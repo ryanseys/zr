@@ -97,10 +97,13 @@ module Zr
         # words, and a regexp is much faster than a tree walk. If a file
         # contains one, the tree is walked, so a word in a comment does
         # not arm the events for every statement and cause a second build.
-        TRACE_NAMES = /\b(?:TracePoint|set_trace_func|add_trace_func|Coverage)\b/
+        # An allocation trace also needs the line of each statement, and
+        # the frame of each core method, which an inline iterator has not.
+        TRACE_NAMES = /\b(?:TracePoint|set_trace_func|add_trace_func|Coverage|trace_object_allocations\w*)\b/
         TRACE_CONSTANTS = %i[TracePoint Coverage].freeze
-        TRACE_CALLS = %i[set_trace_func add_trace_func].freeze
-        TRACE_WORDS = %w[TracePoint Coverage set_trace_func add_trace_func].freeze
+        TRACE_CALLS = %i[set_trace_func add_trace_func trace_object_allocations trace_object_allocations_start].freeze
+        TRACE_WORDS = %w[TracePoint Coverage set_trace_func add_trace_func trace_object_allocations
+                         trace_object_allocations_start].freeze
         COVERAGE_CONSTANTS = %i[Coverage].freeze
         COVERAGE_WORDS = %w[Coverage].freeze
 
