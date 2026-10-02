@@ -80,6 +80,9 @@ class Pathname
   SEPARATOR_PAT = /\//
   ABSOLUTE_PATH = /\A\//
   private_constant :SEPARATOR_LIST, :ABSOLUTE_PATH
+  # pathname.rb has both, as private constants.
+  Primitive.zr_const_reveal_m(self, :SEPARATOR_LIST)
+  Primitive.zr_const_reveal_m(self, :ABSOLUTE_PATH)
 
   def mkpath(mode: nil)
     path = @path == "/" ? @path : @path.chomp("/")

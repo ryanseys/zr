@@ -193,7 +193,8 @@ module Zr::Kern
   # file itself. Three kinds of code can read them: code of a unit that
   # loads hidden, the runtime's own code, and any code that runs while a
   # hidden file loads. A reflective read, such as const_get, reads as the
-  # frame that called the core library.
+  # frame that called the core library, unless the core library itself
+  # asked (File.fnmatch reads its Dir::Glob with const_get).
   sig [] => Bool
   def zr_const_sees_concealed
     if zr_loading_hidden()
@@ -204,8 +205,31 @@ module Zr::Kern
     if !reflective && rec != 0 && (FrameMeta.kind(Frame.meta(rec)) == KIND_BUILTIN || FrameMeta.kind(Frame.meta(rec)) == KIND_HIDDEN)
       return true
     end
-    rec = zr_asking_frame()
-    rec == 0 || FrameMeta.hidden(Frame.meta(rec)) != 0
+    asking = zr_asking_frame()
+    if reflective && asking != 0 && zr_core_asks_reflectively(rec, asking)
+      return true
+    end
+    asking == 0 || FrameMeta.hidden(Frame.meta(asking)) != 0
+  end
+
+  # Whether the core method that frame `asking` called, the frame just
+  # above it from `top`, is another method than the reflective one: then
+  # that core method asks, as the runtime's own code.
+  sig [Ptr, Ptr] => Bool
+  def zr_core_asks_reflectively(top, asking)
+    above = 0
+    rec = top
+    while rec != 0 && rec != asking
+      above = rec
+      rec = Frame.prev(rec)
+    end
+    if above == 0
+      return false
+    end
+    name = FrameMeta.name(Frame.meta(above))
+    name != Machine.id(:const_get) && name != Machine.id(:constants) && name != Machine.id(:const_defined?) &&
+      name != Machine.id(:const_source_location) && name != Machine.id(:send) && name != Machine.id(:__send__) &&
+      name != Machine.id(:public_send) && name != Machine.id(:call)
   end
 
   # Whether a reflective read, such as Module#constants, sees a hidden
@@ -240,6 +264,15 @@ module Zr::Kern
       CEntry.set_concealed(e, 0)
       zr_consts_changed()
     end
+  end
+
+  # Makes the private constant `name` of `klass` visible to the program.
+  # The runtime's own `private_constant` hides it, but ruby has it too
+  # (Pathname::SEPARATOR_LIST), so the program can read it as ruby does.
+  sig [Value, Value] => Value
+  def zr_const_reveal_m(klass, name)
+    zr_const_reveal_in(klass, zr_sym2id(name))
+    Machine.value(QNIL)
   end
 
   # Returns the constant entry that a `class` or `module` body opens. A
@@ -331,8 +364,11 @@ module Zr::Kern
     e = zr_const_row_kept(klass, id)
     if e != 0 && CEntry.concealed(e) != 0 && !zr_const_sees_concealed()
       # When the program sets a constant with a name that the runtime hides,
-      # the program's constant takes the entry as a new one.
+      # the program's constant takes the entry as a new one: public, and
+      # not deprecated.
       CEntry.set_concealed(e, 0)
+      CEntry.set_private(e, 0)
+      CEntry.set_deprecated(e, 0)
       CEntry.set_value(e, Machine.value(QUNDEF))
     end
     if e == 0
@@ -689,8 +725,12 @@ module Zr::Kern
 
   # `private_constant(*names)`, `public_constant(*names)` and
   # `deprecate_constant(*names)` set a flag on the module's own entries.
+  # A constant that the runtime's own code makes private is a helper of
+  # the runtime that ruby does not have, so the program cannot see it.
   sig [Value, Word, Ptr, Word] => Value
   def zr_mod_constant_visibility(recv, argc, argv, private)
+    asking = zr_asking_frame()
+    core = asking == 0 || FrameMeta.hidden(Frame.meta(asking)) != 0
     i = 0
     while i < argc
       slot = Machine.slot(8)
@@ -715,6 +755,9 @@ module Zr::Kern
         CEntry.set_deprecated(e, 1)
       else
         CEntry.set_private(e, private)
+        if private == 1 && core
+          CEntry.set_concealed(e, 1)
+        end
       end
       zr_consts_changed()
       i += 1
@@ -848,12 +891,14 @@ module Zr::Kern
   # when the program gave no superclass. `scoped` is 1 for a path with a
   # scope (`class A::Name`, `class ::Name`), which cannot reopen a private
   # constant.
+  # A toplevel `class Name` looks at Object's own entries alone, as
+  # rb_const_defined_at does: a Kernel::Name is not reopened.
   sig [Value, Word, Value, Word] => Value
   def zr_class_define(scope, id, sup, scoped)
     checked = zr_namespace_check(scope)
     return checked if checked == QUNDEF
     e = zr_const_row_opened(scope, id)
-    if e == 0 && (scope == zr_global(G_OBJECT) || zr_box_current() != QNIL)
+    if e == 0 && zr_box_current() != QNIL
       e = zr_const_row_in(zr_global(G_OBJECT), id, false)
     end
     if e != 0 && CEntry.value(e) == QUNDEF && zr_autoload_pending(scope, id) < 0
@@ -911,7 +956,7 @@ module Zr::Kern
     checked = zr_namespace_check(scope)
     return checked if checked == QUNDEF
     e = zr_const_row_opened(scope, id)
-    if e == 0 && (scope == zr_global(G_OBJECT) || zr_box_current() != QNIL)
+    if e == 0 && zr_box_current() != QNIL
       e = zr_const_row_in(zr_global(G_OBJECT), id, false)
     end
     if e != 0 && CEntry.value(e) == QUNDEF && zr_autoload_pending(scope, id) < 0

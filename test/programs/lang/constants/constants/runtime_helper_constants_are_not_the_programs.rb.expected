@@ -1,0 +1,14 @@
+nil
+false
+uninitialized constant Kernel::Formatter
+true
+INFO: ready
+"003.1|x"
+false
+[:b]
+:mine
+nil
+99
+[1, 2, 3]
+private constant Pathname::SEPARATOR_LIST referenced
+"/"
