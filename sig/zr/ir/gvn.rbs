@@ -1,0 +1,122 @@
+module Zr
+  module IR
+    # Global value numbering over the dominator tree. An instruction may
+    # compute the same value as an earlier instruction in a dominating
+    # block. The pass then uses the earlier value and deletes the
+    # instruction.
+    #
+    # Two pure, single-result instructions are the same when the opcode,
+    # type, condition, offset and operands are equal. The two operands of
+    # a commutative opcode can be in either order. Two loads are the same
+    # when the address, offset and type are equal and no path between
+    # them can write the region. A region is written by a store to it, a
+    # store with no known region, a call whose `IR::Effects` include it,
+    # or an indirect call. `Regions` gives the region of a load or store.
+    # A load of the volatile region is never the same as another load.
+    # A store is a load of the value it stores, so a later load of the
+    # same address, offset and type is that value: the match loop stores
+    # its position and the handler then reads it.
+    #
+    # The walk uses a scoped table, so a value from one arm of a branch
+    # is not used in the other arm. For each block, `between` gives the
+    # regions that the paths from its dominator can write (for a loop
+    # header, this includes the writes of the loop). The table removes
+    # those loads when the walk enters the block. In a block, the pass
+    # applies writes in order.
+    class GVN
+      @f: untyped
+
+      @analysis: untyped
+
+      @rename: untyped
+
+      @dead: untyped
+
+      @effects: untyped
+
+      @block: untyped
+
+      @placed: untyped
+
+      @between: untyped
+
+      # `@by_key`: expression to `[value, region bit]`. The bit is nil
+      # for all instructions other than a load.
+      # `@loaded`: region bit to the keys of the loads of that region,
+      # so that a write can remove them by region.
+      # `@undo`: the changes of the current block, as `[key, old entry]`.
+      # The walk puts them back when it leaves the block.
+      @by_key: untyped
+
+      @loaded: untyped
+
+      @undo: untyped
+
+      @types: untyped
+
+      include Regions
+
+      # The opcodes with one result and no effect. The same operands
+      # give the same result.
+      PURE: untyped
+
+      def self.run: (untyped f) -> untyped
+
+      def initialize: (untyped f) -> void
+
+      def run: () -> untyped
+
+      private
+
+      def resolve: (untyped v) -> untyped
+
+      # A depth-first walk of the dominator tree. When the walk leaves a
+      # block, it undoes the changes of that block to the table. Thus a
+      # sibling sees the table as their dominator left it. The walk uses
+      # a work list, not recursion, because a chain of blocks can be as
+      # long as the function.
+      def walk: (untyped root, untyped children) -> untyped
+
+      def keep: (untyped key, untyped held) -> untyped
+
+      # Removes from the table every load whose region `bits` can write.
+      def forget: (untyped bits) -> (nil | untyped)
+
+      # Numbers each instruction of `b` in order. If the table contains
+      # the instruction, the pass renames its result to the table value
+      # and deletes it. If not, the pass adds it. A write removes the
+      # loads of the regions that it can write.
+      def number: (untyped b) -> untyped
+
+      # The store `i` puts its value in the table as the load of its
+      # address. The store's width is its value's type, so only a load of
+      # that type reads all of it, and the key has that type. The store
+      # removed the loads of its region before, so no older entry can
+      # overlap it.
+      def stored: (untyped i) -> (nil | untyped)
+
+      # If the table has a value for `key`, `i` becomes that value.
+      # If not, the table adds `i` (under `bit` when `i` is a load).
+      def take: (untyped i, untyped key, untyped bit) -> untyped
+
+      # Returns `{ block => bits }`: the regions that the blocks on a path
+      # from the immediate dominator of a block to that block can write.
+      # The instructions of the dominator are not included, because they
+      # run before the walk enters the block. The block's dominator
+      # dominates each predecessor, so the path goes up the dominator
+      # chain of the predecessor. For a loop header, the chain from the
+      # latch includes the header, so the writes of the loop (and of the
+      # header) are included. The loop calculates a fixpoint over the
+      # reverse postorder, because the values of a loop depend on each other.
+      # It works on the positions of the blocks in `blocks`, not their
+      # names: a step up the dominator chain is then an array read (0.16 s
+      # to 0.04 s for a function of 23,000 blocks). A predecessor that the
+      # entry does not reach has no dominator: its writes count, and the
+      # walk stops there. The walks from the predecessors of one block stop
+      # at a block that an earlier walk passed, whose bits and those above
+      # it are in already: a join of the UnicodeNormalize body walked
+      # 13.5 million steps a round.
+      def between_dominators: () -> untyped
+    end
+  end
+end

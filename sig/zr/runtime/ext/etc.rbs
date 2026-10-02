@@ -1,0 +1,67 @@
+module Etc
+  # The version of the etc gem whose C this file ports.
+  VERSION: "1.4.6"
+
+  # The rows' members are the OS's own (etc_names). The two database
+  # cursors are spelled on the row class as ruby spells them:
+  # `Etc::Passwd.each` walks the same table `Etc.passwd` walks.
+  Passwd: untyped
+
+  def self.each: () ?{ (?) -> untyped } -> untyped
+
+  Group: untyped
+
+  def self?.getpwnam: (untyped name) -> untyped
+
+  def self?.getpwuid: (?untyped? uid) -> untyped
+
+  def self?.getgrnam: (untyped name) -> untyped
+
+  def self?.getgrgid: (?untyped? gid) -> untyped
+
+  def self?.setpwent: () -> untyped
+
+  def self?.endpwent: () -> untyped
+
+  def self?.setgrent: () -> untyped
+
+  def self?.endgrent: () -> untyped
+
+  def self?.getpwent: () -> untyped
+
+  def self?.getgrent: () -> untyped
+
+  # Without a block the whole table comes back as an array, which is what
+  # ruby does too.
+  def self?.passwd: () ?{ (untyped) -> untyped } -> untyped
+
+  def self?.group: () ?{ (untyped) -> untyped } -> untyped
+
+  def self?.each_passwd: () ?{ (?) -> untyped } -> untyped
+
+  def self?.each_group: () ?{ (?) -> untyped } -> untyped
+
+  def self?.nprocessors: () -> untyped
+
+  def self?.getlogin: () -> untyped
+
+  def self?.sysconfdir: () -> untyped
+
+  def self?.systmpdir: () -> untyped
+
+  def self?.uname: () -> untyped
+
+  def self?.confstr: (untyped name) -> untyped
+
+  def self?.sysconf: (untyped name) -> untyped
+
+  private
+
+  def self?.each_row: (untyped reader) { (untyped) -> untyped } -> untyped
+end
+
+class IO
+  # etc's io_pathconf: fpathconf(3) on the stream's descriptor, and nil
+  # for a limit that the system does not have.
+  def pathconf: (untyped name) -> untyped
+end

@@ -1,0 +1,100 @@
+class Date
+  EPOCH_JD: 2440588
+
+  # The Japanese eras a JIS X 0301 date names, newest first.
+  ERAS: ::Array[::Array[2019 | 5 | 1 | "R" | 2018] | ::Array[1989 | 1 | 8 | "H" | 1988] | ::Array[1926 | 12 | 25 | "S" | 1925] | ::Array[1912 | 7 | 30 | "T" | 1911] | ::Array[1873 | 1 | "M" | 1867]]
+
+  # The directives that represent a format of other directives.
+  COMPOUNDS: { "c" => "%a %b %e %H:%M:%S %Y", "D" => "%m/%d/%y", "x" => "%m/%d/%y", "F" => "%Y-%m-%d", "T" => "%H:%M:%S", "X" => "%H:%M:%S", "R" => "%H:%M", "r" => "%I:%M:%S %p", "v" => "%e-%^b-%Y", "+" => "%a %b %e %H:%M:%S %Z %Y" }
+
+  INT_MAX: 2147483647
+
+  # date_strftime_internal: the format's directives rendered in its
+  # encoding. A NUL byte ends what the C renderer reads, so each run
+  # between NUL bytes renders separately.
+  def strftime: (?::String format) -> untyped
+
+  # date_core.c writes these with US-ASCII formats, so they are US-ASCII.
+  def to_s: () -> untyped
+
+  def inspect: () -> untyped
+
+  def ctime: () -> untyped
+
+  alias asctime ctime
+
+  def iso8601: () -> untyped
+
+  alias xmlschema iso8601
+
+  def rfc3339: () -> untyped
+
+  def rfc2822: () -> untyped
+
+  alias rfc822 rfc2822
+
+  def httpdate: () -> untyped
+
+  def jisx0301: () -> untyped
+
+  private
+
+  def start_text: () -> untyped
+
+  def jisx0301_date: () -> untyped
+
+  def seconds: () -> untyped
+
+  # date_strftime_with_tmx: the bytes of `format` with each directive
+  # rendered.
+  def rendered: (untyped format) -> untyped
+
+  # One directive, from the `%` at `from`: flags, a width, a locale
+  # modifier and colons, each only where date_strftime.c accepts it,
+  # then the conversion. Returns the position where the format continues.
+  # Text that is not a directive, including a directive cut short by the
+  # end, is copied as it is written.
+  def directive: (untyped format, untyped from, untyped out) -> untyped
+
+  # Text that is not a directive, from its `%` through `to`, as it is
+  # written.
+  def verbatim: (untyped format, untyped from, untyped to, untyped out) -> untyped
+
+  # A width, from its first digit at `at`, and where its digits end. A
+  # width the C renderer has no room for is a range error.
+  def width_at: (untyped format, untyped at) -> ::Array[untyped]
+
+  # FILL_PADDING and the case change: a word right-aligned in `width`,
+  # unless `-` leaves it bare.
+  def put_word: (untyped out, untyped word, untyped width, untyped padding, untyped left, ?untyped? casing) -> (nil | untyped)
+
+  # FMT and FMTV: a number right-aligned in `width`, or in the
+  # directive's own `least`, with its own `pad` unless a flag names
+  # another, as sprintf pads it; `-` leaves it bare.
+  def put_number: (untyped out, untyped value, untyped pad, untyped least, untyped width, untyped padding, untyped left) -> untyped
+
+  # STRFTIME: a directive that represents a format of other directives,
+  # upcased by `^` and right-aligned in `width` unless `-` leaves it bare.
+  def put_compound: (untyped out, untyped format, untyped width, untyped padding, untyped left, untyped upper) -> untyped
+
+  # `%z`: the offset as hours and minutes, `:` between them and then the
+  # seconds for each colon, or as few parts as lose nothing for three.
+  # The width counts past the sign and the minutes; `-` lets an hour
+  # under ten show as one digit, and `_` pads before the sign.
+  def put_offset: (untyped out, untyped colons, untyped width, untyped padding, untyped left) -> (nil | untyped)
+end
+
+class DateTime < Date
+  def strftime: (?::String format) -> untyped
+
+  def to_s: () -> untyped
+
+  # ISO 8601, with `digits` of a second when the caller requests them.
+  def iso8601: (?::Integer digits) -> untyped
+
+  alias xmlschema iso8601
+
+  alias rfc3339 iso8601
+
+  def jisx0301: (?::Integer digits) -> untyped
+end

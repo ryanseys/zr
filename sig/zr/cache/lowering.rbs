@@ -1,0 +1,128 @@
+module Zr
+  module Cache
+    # The pieces of a large unit (the core files and the gem prelude, the
+    # files of eval support), each lowered and assembled on its own, in
+    # forked workers, and kept between builds.
+    #
+    # A piece has only the kernel's ids in its code, and it calls no other
+    # piece except through a piece's entry (a core file's toplevel, a
+    # unit that a `require` runs). So a piece inlines only its own
+    # functions and the fixed part's (the kernel), and its code depends on
+    # nothing else of the unit. A worker lowers a piece, inlines it,
+    # fingerprints each function and assembles each one that the code cache
+    # (`Native::CodeCache`) does not have. It returns machine code and
+    # data, never IR: loading the core's IR took longer than lowering it.
+    #
+    # An entry keeps what the rest of the build reads from a piece: the
+    # fingerprint of each function, its data (unnumbered: its pool words
+    # name their symbols), the symbols it wants, the kernel rows it read,
+    # what each fixed symbol that it called was (a leaf with the fingerprint
+    # of its IR, or not), and which of the symbols it names the unit
+    # defines. A build takes an entry while all of these hold and the code
+    # cache has its code; else a worker makes the piece again.
+    class Lowering
+      @kind: untyped
+
+      @target: untyped
+
+      @code: untyped
+
+      @backend: untyped
+
+      # The fingerprint and the code of each function of the pieces, by
+      # name, for `Native::Build.cached`.
+      @known: untyped
+
+      @fixed: untyped
+
+      @fixed_names: untyped
+
+      @leaf: untyped
+
+      @wants: untyped
+
+      @why: untyped
+
+      @whys: untyped
+
+      VERSION: 4
+
+      # A piece to build: its path, its entry function, its key (nil when no
+      # key can describe it; then it is always made), its weight for the
+      # workers, and `make`, which returns `[functions, data]` of IR.
+      Piece: untyped
+
+      attr_reader code: untyped
+
+      def initialize: (untyped kind, untyped target, untyped code) -> void
+
+      # The fingerprint and the code of each function of the pieces, by
+      # name, for `Native::Build.cached`.
+      def known: () -> untyped
+
+      # The symbols that the pieces call, and the symbols of the data that
+      # they read and that are not colocated (`Runtime#wants`).
+      def calls_and_reads: () -> ::Array[untyped]
+
+      private
+
+      # Builds `pieces` over the fixed part: `fixed_ir` (already inlined),
+      # whose leaves a piece inlines, and `fixed_names`, every name outside
+      # the pieces that the unit defines (the fixed part's functions and
+      # data, and the pieces' entries). Returns `[functions, data]`: the
+      # machine code (`Obj::Code`) and the data of every piece, in order.
+      # `label` names the steps for ZR_TIMING.
+      def build: (untyped pieces, untyped fixed_ir, untyped fixed_names, untyped label) -> untyped
+
+      # `[record, nil]` for a piece whose entry holds, else nil. The code
+      # comes from the code cache.
+      def current: (untyped piece) -> (::Array[untyped | nil] | nil)
+
+      # Why an entry no longer holds, or nil when it holds.
+      def stale: (untyped record) -> ("kernel rows" | ::String | untyped)
+
+      # What a fixed symbol is now: the fingerprint of a leaf, :call for a
+      # function that is no leaf, or :absent.
+      def state: (untyped sym) -> (:absent | untyped)
+
+      # In a worker: lowers `piece`, inlines it over the fixed part, and
+      # returns its entry and the Marshal of each function's code.
+      def made: (untyped piece) -> ::Array[untyped]
+
+      # Writes an entry for each piece that a worker made, and the root that
+      # keeps this build's entries.
+      def keep: (untyped pieces, untyped records) -> untyped
+
+      # The code and the data of each piece, in order. The code of a piece
+      # that a worker made came with it; the rest comes from the code cache.
+      def results: (untyped records) -> ::Array[untyped]
+
+      # The kernel description that the pieces read, or nil when the key
+      # holds all of it. With one, an entry keeps the rows that its piece
+      # read (`Machine::Description#record`), and holds while each is the
+      # same: a kernel edit that the piece does not read keeps it.
+      attr_reader description: untyped
+
+      def reading: () { () -> untyped } -> (untyped | ::Hash[untyped, untyped])
+
+      def reads_hold?: (untyped record) -> (true | untyped)
+
+      # The symbols that `functions` call, and those of the data that they
+      # read and that are not colocated, as `Runtime#write_cached` counts them.
+      def wants_of: (untyped functions) -> ::Array[untyped]
+
+      # An entry's key: the cache's kind (core, eval-jit, eval-walk), the
+      # backend, the base of the unit and the piece's own parts.
+      def key_of: (*untyped parts) -> untyped
+
+      # The base of every key of this lowering: the format, the target, the
+      # path root and the compiler, then `parts` of the unit.
+      def base_key: (*untyped parts) -> untyped
+
+      # Notes the first reason that a piece is made, for ZR_TIMING.
+      def note: (untyped path, untyped reason) -> untyped
+
+      def report: (untyped label, untyped kept, untyped all) -> (nil | untyped)
+    end
+  end
+end

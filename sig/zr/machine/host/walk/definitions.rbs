@@ -1,0 +1,57 @@
+module Zr
+  module Machine
+    class Host
+      class Walk
+        # The code of definitions, as `Lower` emits them: a def is a
+        # function of the kernel (`(recv, argc, argv, entry, blk, found) =>
+        # Value`) at an address that `Host#callable` gives, a class body
+        # runs in a frame of its own, and a require runs a unit's toplevel.
+        module Definitions
+          @attributes: untyped
+
+          @eval_entry: untyped
+
+          # zr_require's kinds (Lower::Function::Control::REQUIRE_KINDS).
+          REQUIRE_KINDS: { require: 0, require_relative: 1, load: 2, hidden: 3, computed: 4, declared: 5 }
+
+          private
+
+          def define: (untyped node, untyped s) -> untyped
+
+          # The function of the def `node`. Its body compiles when it first
+          # runs.
+          def def_fn: (untyped node, untyped unit) -> untyped
+
+          # The code of a def's run: its arguments bound, a safe point, its
+          # events, then its body.
+          def def_body: (untyped node, untyped s) -> untyped
+
+          # The leading `Primitive.attr!(:name)` statements of a def.
+          def attributes: (untyped node) -> untyped
+
+          def class_body: (untyped node, untyped s) -> untyped
+
+          def singleton_class_body: (untyped node, untyped s) -> untyped
+
+          # The code that runs a class body in `klass` (its second argument),
+          # in a frame of its own. Its body compiles when it first runs.
+          def body_in: (untyped node, untyped s, untyped kind, untyped name) -> untyped
+
+          def class_code: (untyped node, untyped s) -> untyped
+
+          # The toplevel function of unit `index` of the program `units`.
+          def unit_fn: (untyped units, untyped index) -> untyped
+
+          # The toplevel of a required file: a unit of the program (an index),
+          # a unit of eval support (`EvalSupport#units`), or the compiler,
+          # which is the host's eval support.
+          def entry_in: (untyped units, untyped unit) -> untyped
+
+          def require_unit: (untyped node, untyped s) -> untyped
+
+          def autoload_unit: (untyped node, untyped s) -> untyped
+        end
+      end
+    end
+  end
+end

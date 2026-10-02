@@ -1,0 +1,222 @@
+module Zr
+  module Obj
+    module MachO
+      # zr's linker cannot link these objects. The message gives the reason.
+      class Refused < StandardError
+        include Zr::Refusal
+      end
+
+      # Objects linked together: the runtime and eval support objects in a
+      # `Prelink`, or a program's own objects. Each input section goes into
+      # the part of its kind, in input order. An undefined symbol resolves
+      # to another input's global, to an address that `outside` returns, or
+      # to an external. The block reaches an external through a stub and a
+      # GOT slot, which the image binds or rebases.
+      #
+      # The caller places each part at an address, then reads its bytes.
+      # The bytes have all relocations applied. The slots that dyld must
+      # write are in `fixups`, as `[address, :rebase, target]` or
+      # `[address, :external, name, addend]`.
+      class Block
+        @inputs: untyped
+
+        @outside: untyped
+
+        @at: untyped
+
+        @fixups: untyped
+
+        @placed: untyped
+
+        @addr: untyped
+
+        @stub_at: untyped
+
+        @got_at: untyped
+
+        @globals: untyped
+
+        @links: untyped
+
+        @externals: untyped
+
+        @got: untyped
+
+        @chunks: untyped
+
+        @sizes: untyped
+
+        @aligns: untyped
+
+        @part_of: untyped
+
+        # <mach-o/nlist.h>: a symbol's type byte.
+        N_STAB: 224
+
+        N_TYPE: 14
+
+        N_EXT: 1
+
+        N_UNDF: 0
+
+        N_SECT: 14
+
+        # `adrp x16, got@PAGE; ldr x16, [x16, got@PAGEOFF]; br x16`
+        STUB: 12
+
+        # The relocation kind for each arm64 relocation type in an object.
+        KINDS: untyped
+
+        ABS64: untyped
+
+        BRANCH26: untyped
+
+        GOT: untyped
+
+        GOT_PAGE21: untyped
+
+        GOT_PAGEOFF12: untyped
+
+        ARM64_RELOC_ADDEND: untyped
+
+        # `r_extern` of a relocation: it names a symbol, not a section.
+        EXTERN: untyped
+
+        # The parts, in image order, and the input sections that each part
+        # contains. The block makes `stubs` and `got` itself.
+        PARTS: ::Array[:text | :stubs | :const | :got | :dconst | :data | :bss]
+
+        FROM: ::Hash[::Array["__TEXT" | "__text"] | ::Array["__TEXT" | "__const"] | ::Array["__DATA" | "__const"] | ::Array["__DATA" | "__data"] | ::Array["__DATA" | "__bss"], :text | :const | :dconst | :data | :bss]
+
+        # The parts that can contain an absolute relocation. dyld writes
+        # the relocation, and dyld writes only into data.
+        WRITABLE: ::Array[:got | :dconst | :data]
+
+        attr_reader externals: untyped
+
+        attr_reader fixups: untyped
+
+        # `objects` are object file bytes, or the result of
+        # `ObjectFile.read` for them. `ObjectFile.of` builds that result from
+        # a unit without writing an object. `outside` returns the address of
+        # a name that no input defines, or nil.
+        def initialize: (untyped objects, ?outside: untyped?) -> void
+
+        def empty?: () -> untyped
+
+        def size: (untyped part) -> untyped
+
+        # The part's alignment, as a power of two.
+        def align: (untyped part) -> untyped
+
+        def place: (untyped part, untyped address) -> untyped
+
+        def at: (untyped part) -> untyped
+
+        # Whether an input defines `name` ("_main") as a global.
+        def defines?: (untyped name) -> untyped
+
+        # The names of every global the inputs define.
+        def names: () -> untyped
+
+        # The address of the global `name`, once placed.
+        def global: (untyped name) -> untyped
+
+        # Every global and its address, once placed.
+        def exports: () -> untyped
+
+        # The address of the symbol `name` ("main"): a global, else a local.
+        def entry: (untyped name) -> (untyped | nil)
+
+        # Every symbol's address, once every part is placed.
+        def addresses!: () -> untyped
+
+        # A part's bytes, relocated; nil for `bss`, which has none.
+        def bytes: (untyped part) -> untyped
+
+        # Returns three values:
+        # - Every defined symbol as a local `nlist_64` (two words each), at
+        #   its address, in the image section that `ordinals` gives for its
+        #   part, **sorted by name**.
+        # - The names: the string tables of the inputs, one after another,
+        #   with offsets from `strings_at`.
+        # - The names, in the order of the words.
+        # The runtime searches the sorted table in place (`zr_os_symbol`),
+        # so an image does not need an exports trie.
+        def symbols: (untyped ordinals, untyped strings_at) -> ::Array[untyped]
+
+        private
+
+        # Collects the globals that each input defines, then resolves each
+        # undefined symbol to `[input, symbol]` (another input's global), an
+        # address from `outside`, or an external's name. `@links[input]`
+        # contains the result for each undefined symbol. A defined symbol
+        # resolves to itself.
+        def resolve: () -> untyped
+
+        # The resolved value of symbol `s` of input `i`: `[input, symbol]`,
+        # an address, or an external's name.
+        def meaning: (untyped i, untyped s) -> untyped
+
+        # One GOT slot for each external, then one for each other symbol
+        # whose address some code loads through the GOT.
+        def got_slots: () -> untyped
+
+        # Finds the part of each input section and its offset in the part.
+        # Each section starts at its own alignment. A part uses the largest
+        # alignment of its sections.
+        def chunks: () -> untyped
+
+        # Applies the relocations of one input section to its bytes at `off`
+        # in `out`. A call to an external goes through its stub, and a GOT
+        # load goes through its GOT slot. All other relocations use the
+        # symbol's own address. An `abs64` slot becomes a fixup; its addend
+        # is the value that the slot contained.
+        def relocate: (untyped part, untyped out, untyped off, untyped i, untyped words) -> untyped
+
+        # The little-endian word at `at`. A link reads about a million of
+        # these. `getbyte` does not allocate, but `unpack` does. In the
+        # compiled compiler, each allocation makes the next collection of a
+        # large heap occur sooner.
+        def word: (untyped bytes, untyped at) -> untyped
+
+        # One stub for each external. The stub jumps through its GOT slot.
+        def stub_bytes: () -> untyped
+
+        # One GOT slot for each external, which the image binds or rebases.
+        # Then one rebase slot for each other symbol that code loads through
+        # the GOT.
+        def got_bytes: () -> untyped
+      end
+
+      # Chained fixups. Each slot that dyld writes contains an entry. The
+      # entry gives the next slot on the page and the value for this slot.
+      module Chains
+        PAGE: 16384
+
+        STRIDE: 4
+
+        START_NONE: 65535
+
+        # For the slot addresses `slots` in a segment at `start` with `size`
+        # file bytes, returns the start of the chain on each page and the
+        # distance (in strides) from each slot to the next. The starts cover
+        # only the file bytes, not the zero-fill tail. dyld maps
+        # `page_count` pages of the file for the kernel to fix up. A count
+        # past the file maps the next segment's bytes over the tail, and the
+        # kernel's pager then caches those bytes without fixups.
+        def self?.thread: (untyped slots, untyped start, untyped size) -> ::Array[untyped]
+
+        # The slot's target as an offset from the image base. The loader
+        # adds the slide to it.
+        def self?.rebase: (untyped offset, untyped nxt) -> untyped
+
+        def self?.bind: (untyped ordinal, untyped nxt) -> untyped
+
+        # Writes the eight-byte little-endian `word` at `at`, one byte at a
+        # time. In the compiled runtime, `bytesplice` copies the full string.
+        def self?.put: (untyped bytes, untyped at, untyped word) -> untyped
+      end
+    end
+  end
+end

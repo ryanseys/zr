@@ -1,0 +1,261 @@
+module Zr::Kern
+  # Blocks. A block literal is a function that takes its Proc, the
+  # arguments and a block of its own. The Proc contains what the body needs
+  # from the place where it was written: the captured locals (an Env),
+  # self, the cref, the block of the method, and two homes with their
+  # serials. One home is the frame that a `break` returns to (with the
+  # number of the call site). The other is the method that a `return`
+  # leaves. A `break` or `return` is a pending unwind, as `raise` is: the
+  # pending kind of the task tells which.
+  #
+  # A block literal is not a Proc cell until some code keeps it. The send
+  # that passes it writes a Proc image into a slot of its own frame record
+  # (`make_block` in the lowering). The image has FL_STACK set and is
+  # already marked, so the collector reads nothing through it: the frame
+  # roots what it refers to. A kernel function that keeps a block after the
+  # call (as a `&b` parameter, in a Binding, a Fiber, a Hash default, an
+  # at_exit hook, a define_method body) calls `zr_block_proc` on it first,
+  # so no cell points into a stack. A frame gives its serial when it makes
+  # a block. Thus a descriptor's frame is different from a later frame at
+  # the same address, as for a Proc.
+  #
+  # The Env of a method or a block starts in its frame record the same way:
+  # an REnv image with FL_STACK set, whose `slots` are the local slots of
+  # the record, which the frame roots. The first keeper of the frame's scope
+  # (`zr_env_escape`: a Proc made from one of its blocks, a Binding, an
+  # eval) copies the Env to a cell, parents first. It points the `slots` of
+  # the image at the slots of the copy, and keeps the cell in `cell` and in
+  # the env slot of the frame. After that, the frame and all its blocks
+  # read and write the slots of the cell, and a second keeper gets the same
+  # cell.
+  REnv: untyped
+
+  RProc: untyped
+
+  Block: untyped
+
+  T_ENV: 26
+
+  T_PROC: 27
+
+  # The descriptor of a block literal in the frame record of the send that
+  # passes it.
+  FL_STACK: untyped
+
+  # A Proc from `Ractor.shareable_proc`: frozen, calls only what it copied,
+  # and has no Binding that reaches its scope. A copy of it is an ordinary
+  # Proc, so the copy does not get the bit.
+  FL_ISOLATED: untyped
+
+  G_PROC: 28
+
+  G_LOCAL_JUMP_ERROR: 29
+
+  PENDING_RAISE: 0
+
+  PENDING_BREAK: 1
+
+  PENDING_RETURN: 2
+
+  PENDING_THROW: 3
+
+  def zr_env_new: (untyped parent, untyped n, untyped names) -> untyped
+
+  def zr_env_escape: (untyped env) -> untyped
+
+  def zr_env_up: (untyped env, untyped depth) -> untyped
+
+  def zr_env_get: (untyped env, untyped i) -> untyped
+
+  def zr_env_barrier: (untyped env, untyped v) -> untyped
+
+  def zr_env_set: (untyped env, untyped i, untyped v) -> untyped
+
+  def zr_mark_env: (untyped e) -> untyped
+
+  def zr_mark_proc: (untyped p) -> untyped
+
+  def zr_proc_self_m: (untyped p) -> untyped
+
+  def zr_proc_rebind_m: (untyped p, untyped self_) -> untyped
+
+  def zr_proc_captures_m: (untyped p) -> untyped
+
+  def zr_proc_capture_rows_m: (untyped p) -> untyped
+
+  def zr_proc_isolated_m: (untyped p, untyped self_, untyped lambda) -> untyped
+
+  def zr_proc_captures_table: (untyped p) -> (0 | untyped)
+
+  def zr_block_proc: (untyped b) -> untyped
+
+  def zr_symbol_block: (untyped p, untyped argc, untyped argv, untyped blk) -> untyped
+
+  def zr_sym_to_proc_here: (untyped sym) -> untyped
+
+  def zr_sym_to_proc: (untyped sym) -> untyped
+
+  G_SYM_PROCS: 61
+
+  def zr_eval_compiling_m: (untyped on) -> untyped
+
+  def zr_enum_each: (untyped recv, untyped args, untyped blk) -> untyped
+
+  def zr_enum_send_each: (untyped recv, untyped argc, untyped argv, untyped p) -> untyped
+
+  def zr_enum_each_values: (untyped recv, untyped args, untyped user, untyped inner) -> untyped
+
+  def zr_enum_values_block: (untyped p, untyped argc, untyped argv, untyped blk) -> untyped
+
+  def zr_enum_each_block: (untyped p, untyped argc, untyped argv, untyped blk) -> untyped
+
+  def zr_enum_collect: (untyped recv, untyped args, untyped blk) -> untyped
+
+  def zr_block_asks_pair: (untyped p, untyped blk) -> untyped
+
+  def zr_block_min_params: (untyped blk) -> (0 | untyped)
+
+  def zr_enum_each_asked: (untyped recv, untyped args, untyped blk, untyped ask) -> untyped
+
+  def zr_enum_asked_block: (untyped p, untyped argc, untyped argv, untyped blk) -> untyped
+
+  def zr_enum_collect_block: (untyped p, untyped argc, untyped argv, untyped blk) -> untyped
+
+  # The lazy stages that keep no state of their own. Each reads one
+  # element, calls its block on it, and sends zero or one value on.
+  LAZY_MAP: 0
+
+  LAZY_SELECT: 1
+
+  LAZY_REJECT: 2
+
+  LAZY_FILTER_MAP: 3
+
+  def zr_lazy_stage: (untyped recv, untyped kind, untyped blk, untyped out) -> untyped
+
+  def zr_lazy_stage_block: (untyped p, untyped argc, untyped argv, untyped blk) -> untyped
+
+  def zr_lazy_map: (untyped recv, untyped blk, untyped out) -> untyped
+
+  def zr_lazy_select: (untyped recv, untyped blk, untyped out) -> untyped
+
+  def zr_lazy_reject: (untyped recv, untyped blk, untyped out) -> untyped
+
+  def zr_lazy_filter_map: (untyped recv, untyped blk, untyped out) -> untyped
+
+  def zr_native_proc: (untyped fn, untyped self_) -> untyped
+
+  def zr_proc_lambda: (untyped p) -> untyped
+
+  def zr_proc_call: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_opt_block_call: (untyped recv, untyped mid, untyped argc, untyped argv, untyped mode) -> untyped
+
+  def zr_buf_block_where: (untyped b, untyped blk) -> (false | true)
+
+  def zr_proc_inspect: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_proc_lambda_p: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_kernel_proc: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_proc_s_new: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_kernel_lambda: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_block_pass: (untyped v) -> untyped
+
+  def zr_yield: (untyped blk, untyped argc, untyped argv) -> untyped
+
+  def zr_yield1: (untyped blk, untyped v) -> untyped
+
+  def zr_yield2: (untyped blk, untyped a, untyped b) -> untyped
+
+  def zr_block_args: (untyped argc, untyped argv, untyped spread, untyped argv_out, untyped keep) -> untyped
+
+  def zr_block_spread: (untyped a, untyped spread, untyped argv_out, untyped keep) -> untyped
+
+  def zr_block_argv: (untyped kept, untyped argv) -> untyped
+
+  def zr_block_argc: (untyped kept, untyped argc) -> untyped
+
+  def zr_frame_serial: (untyped rec) -> (0 | untyped)
+
+  def zr_frame_mid: (untyped rec) -> untyped
+
+  def zr_frame_live: (untyped home, untyped serial) -> (untyped | false)
+
+  def zr_signal: (untyped kind, untyped value, untyped home, untyped site) -> untyped
+
+  def zr_local_jump_error: (untyped bytes, untyped len, untyped reason, untyped v) -> untyped
+
+  def zr_break: (untyped p, untyped v) -> untyped
+
+  def zr_block_call_live: (untyped p) -> (true | false | untyped)
+
+  def zr_same_block: (untyped given, untyped p) -> (true | false | untyped)
+
+  def zr_return: (untyped p, untyped v) -> untyped
+
+  def zr_catch_break: (untyped rec, untyped site) -> untyped
+
+  def zr_return_here: (untyped v) -> untyped
+
+  def zr_return_out: (untyped rec, untyped v) -> untyped
+
+  def zr_meta_running: (untyped rec, untyped meta) -> (true | false)
+
+  def zr_catch_return_here: () -> untyped
+
+  def zr_catch_return: (untyped rec) -> untyped
+
+  def zr_block_given_p: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_int_times: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_int_lt_basic_p: () -> untyped
+
+  def zr_int_times_sent: (untyped recv, untyped blk) -> untyped
+
+  def zr_int_bound: (untyped recv, untyped argv, untyped out, untyped dir) -> untyped
+
+  def zr_int_step_size: (untyped recv, untyped argc, untyped argv, untyped dir) -> untyped
+
+  def zr_int_upto: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_int_downto: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_enum_for: (untyped recv, untyped mid, untyped argc, untyped argv, untyped size) -> untyped
+
+  def zr_ary_each: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_iter_enter: (untyped recs, untyped recv, untyped mid, untyped meta) -> untyped
+
+  def zr_ary_plain_each_p: (untyped v) -> untyped
+
+  def zr_ary_each_with_index_m: (untyped recv, untyped blk) -> untyped
+
+  def zr_ary_each_with_index: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_ary_each_index: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_ary_map: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_ary_collect: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_ary_filter: (untyped recv, untyped blk, untyped keep) -> untyped
+
+  def zr_ary_select: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_ary_reject: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_enum_value: (untyped values) -> untyped
+
+  def zr_anonymous_meta: () -> untyped
+
+  def zr_proc_anonymous: (untyped p) -> untyped
+
+  def zr_proc_eq: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_proc_hash: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+end

@@ -1,0 +1,209 @@
+module Zr
+  module Backend
+    module Wasm
+      class Codegen
+        # One function's body.
+        class Body
+          @m: untyped
+
+          @f: untyped
+
+          @local: untyped
+
+          @types: untyped
+
+          @type: untyped
+
+          @code: untyped
+
+          @const: untyped
+
+          @locals: untyped
+
+          @bb: untyped
+
+          @fp: untyped
+
+          @slot_at: untyped
+
+          @frame: untyped
+
+          @width: untyped
+
+          @groups: untyped
+
+          @group: untyped
+
+          @outer: untyped
+
+          @span: untyped
+
+          @bias: untyped
+
+          # A function with more blocks than this dispatches in two steps,
+          # in groups of this size. For the code that zr emits, a group of
+          # 256 compiles fastest at every size tested: 8,000 blocks take
+          # 20.0 s in groups of 128, 9.9 s in 256, and 11.3 s in 512. The
+          # square root of the block count is much slower.
+          LADDER: 256
+
+          def initialize: (untyped mod, untyped f) -> void
+
+          def emit: () -> untyped
+
+          private
+
+          # Parameters first, then the shared locals for all other values,
+          # then the block index and the frame base. A constant has no local:
+          # it is written where it is read (`CONSTANTS`).
+          def assign: () -> untyped
+
+          def callee: (untyped fn) -> untyped
+
+          def sig_named: (untyped sig) -> untyped
+
+          def global: (untyped gv) -> untyped
+
+          def block_named: (untyped name) -> untyped
+
+          def wide?: (untyped v) -> untyped
+
+          # A division, with the IR result (lib/zr/ir/inst.rb). For a zero
+          # divisor, `udiv`/`sdiv` return 0 and `urem`/`srem` return the
+          # dividend. The most negative number divided by -1 wraps. wasm's
+          # `div` traps on both, so each has a guard. wasm's `rem_s` of that
+          # pair returns 0, as the IR does, so it needs no guard.
+          def divide: (untyped i) -> untyped
+
+          def ops: (untyped v) -> untyped
+
+          def get: (untyped v) -> untyped
+
+          # The instructions whose value is a constant or comes from the frame
+          # base only. They are written where they are used, so they need no
+          # local. Thus the constants and slot addresses in the entry block are
+          # not live across all later blocks. That liveness is most of the
+          # cost of shared locals.
+          CONSTANTS: ::Array[:iconst | :symbol_value | :func_addr | :stack_addr]
+
+          # The `Codegen::OP` key of each division and remainder opcode, of
+          # each integer binary opcode, and the wasm opcode byte of each
+          # float comparison, float binary and float unary opcode.
+          DIVIDE_OPS: { udiv: :div_u, sdiv: :div_s, urem: :rem_u, srem: :rem_s }
+
+          BINOP_KEYS: { iadd: :add, isub: :sub, imul: :mul, band: :and, bor: :or, bxor: :xor, ishl: :shl, ushr: :shr_u, sshr: :shr_s }
+
+          FCMP_OPCODES: { "eq" => 97, "ne" => 98, "lt" => 99, "gt" => 100, "le" => 101, "ge" => 102 }
+
+          FBINOP_OPCODES: { fadd: 160, fsub: 161, fmul: 162, fdiv: 163 }
+
+          FUNOP_OPCODES: { fabs: 153, fneg: 154, ceil: 155, floor: 156, trunc: 157, nearest: 158, sqrt: 159 }
+
+          # The load opcode and its alignment of each type.
+          LOAD_OPCODES: { "i64" => untyped, "i32" => untyped, "i8" => untyped, "f64" => untyped }
+
+          # The opcodes of `emit_bswap` (const, and, or, shl, shr, rotl) and
+          # its mask and shift steps, for a wide and for a narrow type.
+          BSWAP_WIDE: ::Array["B" | ::String]
+
+          BSWAP_NARROW: ::Array["A" | "q" | "r" | "t" | "v" | "w"]
+
+          BSWAP_WIDE_STEPS: ::Array[::Array[71777214294589695 | 8] | ::Array[281470681808895 | 16]]
+
+          BSWAP_NARROW_STEPS: ::Array[::Array[16711935 | 8]]
+
+          def constant: (untyped i) -> untyped
+
+          def set: (untyped v) -> untyped
+
+          # The frame: global 0 is the stack pointer. It is saved in the
+          # frame base local and incremented past the slots.
+          def prologue: () -> untyped
+
+          def epilogue: () -> untyped
+
+          # loop { block ... block { br_table } body0 end body1 end ... }
+          # Each block starts where a wasm `block` ends, and a branch out of
+          # that `block` reaches it. N blocks nest N deep, and the wasm compile
+          # time grows with the square of that depth: 1,000 blocks take 0.2 s
+          # and 14,000 take 78 s. The core library has one function with 14,793
+          # blocks (the table that UnicodeNormalize builds). Thus a function with
+          # more than `LADDER` blocks dispatches in two steps: the index selects
+          # a group, and the group selects the block. The deepest nesting is then
+          # about two times the square root of the block count.
+          def dispatch: () -> untyped
+
+          # One group of blocks with its own `br_table`. `first` is the index
+          # of its first block. `outer` is the number of constructs between
+          # the group's loop and the function's loop. It is 0 when the group
+          # is the whole function.
+          def ladder: (untyped blocks, untyped first, untyped outer) -> untyped
+
+          # `br_table` over `count` labels, with the first as the default.
+          # An index past the end cannot occur, because every branch goes to
+          # a block of this function.
+          def table: (untyped count) -> untyped
+
+          # A branch to `name`: set the block index, then branch to the
+          # `br_table` that reads it. That is the group's loop when the block
+          # is in this group, and the function's loop when it is not.
+          #
+          # A branch out of the `block` that ends where a later block starts
+          # reaches that block directly with no index. But it is 8 to 20 times
+          # slower to compile: 2,000 blocks take 0.24 s with the `br_table` and
+          # 4.93 s without it. Thus every branch goes through a `br_table`.
+          def go: (untyped name) -> untyped
+
+          # The number of constructs past this group's loop that a branch to the
+          # block at `at` must leave. It is 0 when the block is in this group.
+          # A later group is a `block` that contains this group, so a branch out
+          # of it reaches that group's `br_table`. Thus the function's loop does
+          # not get a predecessor for each branch that leaves a group. Only a
+          # branch to an earlier group goes to the function's loop.
+          def reach: (untyped at) -> (0 | untyped)
+
+          WIDE_BITOPS: { clz: untyped, ctz: untyped, popcnt: untyped }
+
+          NARROW_BITOPS: { clz: untyped, ctz: untyped, popcnt: untyped }
+
+          # wasm has no byte swap. Swap the bytes in pairs, then the pairs,
+          # then the halves: `(x & m) << k | (x >> k) & m` for each mask, and a
+          # rotate for the halves. Each step reads the result's local.
+          def emit_bswap: (untyped i) -> untyped
+
+          def emit_load: (untyped i) -> untyped
+
+          def emit_store: (untyped i) -> untyped
+
+          def emit_call_indirect: (untyped i) -> untyped
+
+          def emit_call: (untyped i) -> untyped
+
+          def emit_icmp: (untyped i) -> untyped
+
+          def emit_fcmp: (untyped i) -> untyped
+
+          def emit_fbinop: (untyped i) -> untyped
+
+          def emit_binop: (untyped i) -> untyped
+
+          def emit_select: (untyped i) -> untyped
+
+          def emit_overflow: (untyped i) -> untyped
+
+          def emit_smul_overflow: (untyped i) -> untyped
+
+          def emit_brif: (untyped i) -> untyped
+
+          # A jump table as a compare for each key: wasm's own `br_table`
+          # indexes the dispatch's labels, not the blocks of the IR.
+          def emit_switch: (untyped i) -> untyped
+
+          def emit_jump: (untyped i) -> untyped
+
+          def emit_inst: (untyped i) -> untyped
+        end
+      end
+    end
+  end
+end

@@ -1,0 +1,3 @@
+module Zr::Kern
+  def zr_inflate_fast: (untyped strm, untyped start) -> untyped
+end

@@ -1,0 +1,164 @@
+# raddrinfo.c's Addrinfo: an address's bytes with its protocol family,
+# socket kind and protocol, the canonical name that the resolver gave,
+# and the requested name as an inspect shows it.
+class Addrinfo
+  @sockaddr: untyped
+
+  @pfamily: untyped
+
+  @socktype: untyped
+
+  @protocol: untyped
+
+  @canonname: untyped
+
+  @inspectname: untyped
+
+  # union_sockaddr's size.
+  SOCKADDR_MAX: 2048
+
+  def initialize: (untyped sockaddr, ?untyped? family, ?untyped? socktype, ?untyped? protocol) -> void
+
+  def afamily: () -> untyped
+
+  def pfamily: () -> untyped
+
+  def socktype: () -> untyped
+
+  def protocol: () -> untyped
+
+  def canonname: () -> untyped
+
+  def to_sockaddr: () -> untyped
+
+  alias to_s to_sockaddr
+
+  def ip?: () -> untyped
+
+  def ipv4?: () -> untyped
+
+  def ipv6?: () -> untyped
+
+  def unix?: () -> untyped
+
+  def getnameinfo: (?untyped? flags) -> untyped
+
+  def ip_unpack: () -> ::Array[untyped]
+
+  def ip_address: () -> untyped
+
+  def ip_port: () -> untyped
+
+  def ipv4_private?: () -> (false | untyped)
+
+  def ipv4_loopback?: () -> untyped
+
+  def ipv4_multicast?: () -> untyped
+
+  def ipv6_unspecified?: () -> untyped
+
+  def ipv6_loopback?: () -> untyped
+
+  def ipv6_multicast?: () -> untyped
+
+  def ipv6_linklocal?: () -> untyped
+
+  def ipv6_sitelocal?: () -> untyped
+
+  def ipv6_unique_local?: () -> untyped
+
+  def ipv6_v4mapped?: () -> untyped
+
+  def ipv6_v4compat?: () -> untyped
+
+  def ipv6_mc_nodelocal?: () -> untyped
+
+  def ipv6_mc_linklocal?: () -> untyped
+
+  def ipv6_mc_sitelocal?: () -> untyped
+
+  def ipv6_mc_orglocal?: () -> untyped
+
+  def ipv6_mc_global?: () -> untyped
+
+  def ipv6_to_ipv4: () -> (nil | untyped)
+
+  def unix_path: () -> untyped
+
+  def inspect: () -> untyped
+
+  def inspect_sockaddr: () -> untyped
+
+  def marshal_dump: () -> ::Array[untyped]
+
+  def marshal_load: (untyped ary) -> untyped
+
+  def self.getaddrinfo: (untyped nodename, untyped service, ?untyped? family, ?untyped? socktype, ?untyped? protocol, ?untyped? flags, ?timeout: untyped?) -> untyped
+
+  # An address for a host alone, of no socket kind or protocol.
+  def self.ip: (untyped host) -> untyped
+
+  def self.tcp: (untyped host, untyped port) -> untyped
+
+  def self.udp: (untyped host, untyped port) -> untyped
+
+  def self.unix: (untyped path, ?untyped? socktype) -> untyped
+
+  # rsock_addrinfo_new.
+  def self.build: (untyped sockaddr, untyped pfamily, untyped socktype, untyped protocol, ?untyped? canonname, ?untyped? inspectname) -> untyped
+
+  # call_getaddrinfo: the resolver's entries for these hints, each hint
+  # nil or in a socket's form.
+  def self.call_getaddrinfo: (untyped node, untyped service, untyped family, untyped socktype, untyped protocol, untyped flags, ?socktype_hack: bool) -> untyped
+
+  # addrinfo_firstonly_new.
+  def self.firstonly: (untyped node, untyped service, untyped family, untyped socktype, untyped protocol, untyped flags) -> untyped
+
+  # make_inspectname: the host and the service as they were given,
+  # each left out when it reads the same as the result.
+  def self.inspectname: (untyped node, untyped service, untyped sockaddr) -> untyped
+
+  # rsock_inspect_sockaddr: an address as an inspect shows it, even one
+  # too short or too long for its family.
+  def self.inspect_sockaddr: (untyped bytes) -> ("empty-sockaddr" | "too-short-sockaddr" | untyped)
+
+  def self.inspect_in: (untyped bytes) -> untyped
+
+  def self.inspect_in6: (untyped bytes) -> (::String | untyped)
+
+  def self.inspect_un: (untyped bytes) -> ("too-short-AF_UNIX-sockaddr" | "empty-path-AF_UNIX-sockaddr" | untyped)
+
+  # A sockaddr_dl: the interface's name and its link address.
+  def self.inspect_dl: (untyped bytes) -> ::String
+
+  # unixsocket_len: the path's bytes, trailing NULs left out.
+  def self.unix_path_length: (untyped bytes) -> untyped
+
+  private
+
+  def assign: (untyped sockaddr, untyped pfamily, untyped socktype, untyped protocol, untyped canonname, untyped inspectname) -> self
+
+  def without_kind: () -> self
+
+  # init_unix_addrinfo.
+  def assign_unix: (untyped path, untyped socktype) -> untyped
+
+  # get_addrinfo: the address's bytes, which an allocated Addrinfo has
+  # none of yet.
+  def sockaddr_bytes: () -> untyped
+
+  def checked: () -> untyped
+
+  # get_afamily: the family, when the address is long enough to have one.
+  def family_of: (untyped bytes) -> untyped
+
+  def numeric_nameinfo: () -> untyped
+
+  # The IPv4 address, in host order.
+  def in_addr: () -> untyped
+
+  # The IPv6 address's sixteen bytes.
+  def in6_addr: () -> untyped
+
+  def multicast_scope?: (untyped scope) -> untyped
+end

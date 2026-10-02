@@ -1,0 +1,294 @@
+module Zr
+  module Machine
+    # Lowers one machine def to one IR function. A def that can run the
+    # collector keeps a root frame in its frame: `prev, n, values...`.
+    # The root frame links from the static head of the unit and contains
+    # each Value of the def (a parameter, a local, or the result of a call
+    # that goes to another call). Thus a collection in any call sees them all.
+    class Function
+      @unit: untyped
+
+      @d: untyped
+
+      @f: untyped
+
+      @locals: untyped
+
+      @loops: untyped
+
+      @roots: untyped
+
+      @inlining: untyped
+
+      # The target of a `return` in an inlined body: the block after
+      # the body, made by the first `return`. Nil in the def's own body.
+      @exit: untyped
+
+      @head: untyped
+
+      @stack_images: untyped
+
+      # The root frame of a def: its stack `slot` and the `addr` of it, the
+      # number `n` of Value slots made so far, a zero constant `zero`, the
+      # constant instruction `count` that holds the slot count, and the
+      # index `fill_at` in the entry block where the zero fill goes.
+      Roots: untyped
+
+      # The exit of an inlined body: the `type` of its def, the `block`
+      # after the body (nil until the first `return`), and the `value`, the
+      # parameter of that block.
+      Exit: untyped
+
+      def initialize: (untyped unit, untyped d) -> void
+
+      def lower: () -> untyped
+
+      # Links in the root frame before the body. `leave_roots` sets the
+      # slot count and the zero fill after the body has made all slots.
+      def enter_roots: () -> untyped
+
+      def leave_roots: () -> untyped
+
+      # The offset of a new root slot.
+      def root_slot: () -> untyped
+
+      # `return`: first unlinks the root frame. In an inlined body, a
+      # return is a jump with the value to the block after the body,
+      # because a `ret` there would return from the caller.
+      def ret: (untyped value) -> untyped
+
+      # The block that all returns of an inlined body jump to. Its
+      # parameter is the returned value.
+      def inline_exit: () -> untyped
+
+      private
+
+      def refuse: (untyped node, untyped message) -> untyped
+
+      # A local is in a slot of its own. A Value in a rooted function is
+      # in the root frame.
+      def declare_local: (untyped node, untyped name, untyped type) -> untyped
+
+      def local_addr: (untyped type) -> untyped
+
+      def ir_type: (untyped type) -> untyped
+
+      # The value and type of a statement list: those of the last
+      # statement. `want` applies only to the last statement.
+      def statements: (untyped node, ?untyped? want) -> untyped
+
+      # Returns `[value, type]`. `want` gives the type of a literal here.
+      def expr: (untyped node, ?untyped? want) -> untyped
+
+      # A size or an offset: an integer, a constant, or an operator over
+      # those, folded at compile time.
+      def immediate: (untyped node) -> untyped
+
+      # An integer literal or a constant gets the type in `want`.
+      def literal: (untyped node, untyped n, untyped want) -> ::Array[untyped]
+
+      def call: (untyped node, untyped want) -> (::Array[untyped] | untyped)
+
+      # `Name.size`, `Name.field(p)` and `Name.set_field(p, v)`. For a
+      # field of a struct type, `Name.field(p)` returns its address.
+      def field: (untyped node, untyped layout, untyped args, untyped want) -> untyped
+
+      # Whether `node` reads a local that only ever holds the address of a
+      # slot of this frame (`stack_images`). A cell image there, such as
+      # the Proc that a define_method call builds, has FL_STACK, so it is
+      # never old and the write barrier would do nothing.
+      def stack_image?: (untyped node) -> untyped
+
+      # The locals of `d` whose every assignment is `Machine.slot(n)`, or
+      # `Machine.value(x)` or `Machine.ptr(x)` of another such local. A
+      # parameter, or a local with any other kind of write, is not one.
+      def stack_images: (untyped d) -> untyped
+
+      def slot_address?: (untyped node, untyped names) -> (false | true | untyped)
+
+      # Whether a store into a field of `layout` is a store into a cell.
+      # Only a cell starts with an RBasic header, so the type of the
+      # first field tells. RBasic is the header itself, and a write to its
+      # `klass` is a write to the cell that contains it.
+      def cell?: (untyped layout) -> untyped
+
+      # Emits the collector's write barrier after the kernel stores a
+      # Value into a cell (Part 2.1 of the collector plan). CRuby writes
+      # `RB_OBJ_WRITE` by hand at each such store in C, and has a second
+      # collector to find the missing ones. Here the compiler emits the
+      # store, so it also emits the barrier. `zr_write_barrier` is
+      # `Machine.inline`, so the barrier is the four instructions of its
+      # fast path and not a call.
+      def barrier: (untyped owner, untyped value) -> (nil | untyped)
+
+      # Whether the compiler knows that `value` is an immediate, so the
+      # test in the barrier fails. The kernel stores QNIL into a Value
+      # field more frequently than any other value.
+      def immediate?: (untyped value) -> untyped
+
+      # `a && b` and `a || b` as a Bool value. The right side runs only
+      # when the left side does not decide the result. As the test of an
+      # `if` or a `while`, `jump_if` lowers it, and it makes no value.
+      #
+      # A right side that is `plain?` always runs, and the two bits join
+      # with no branch. It cannot change memory or fault, so an extra read
+      # is not visible. This is for `zr_special_p`: it is three such tests,
+      # and the collector calls it for each reference. As a diamond of
+      # blocks, each test cost a compare, two sets, three widenings and
+      # a branch.
+      def logical: (untyped node, untyped op) -> ::Array[untyped | "Bool"]
+
+      # `value` as a Bool. A Bool is already 0 or 1. Any other integer is
+      # true when it is not zero.
+      def truth: (untyped value, untyped type) -> untyped
+
+      # Operators that lower to one instruction with no effect, and that
+      # cannot fault for any operands. Division is not in this list.
+      PLAIN_OPERATORS: ::Array[:+ | :- | :* | :& | :| | :^ | :<< | :>> | :< | :<= | :> | :>= | :== | :!= | :!]
+
+      PLAIN_CASTS: ::Array[:i32 | :i8 | :word | :sword | :ptr | :value | :u8 | :u32]
+
+      # The operators whose result wraps at the width of the type, by
+      # name. A plain `+ - * <<` must not overflow, so that it means the
+      # same on CRuby (A6); a sum that must wrap names it. CRuby cannot
+      # tell a Word from a Ptr by its value, so the name also says which:
+      # `add_wrap` wraps a Word into its signed range, `uadd_wrap` a Ptr
+      # into [0, 2**64).
+      WRAPS: { add_wrap: :+, sub_wrap: :-, mul_wrap: :*, shl_wrap: :<<, uadd_wrap: :+, usub_wrap: :-, umul_wrap: :*, ushl_wrap: :<< }
+
+      # The instruction name of a `/`, `%` and `>>`, the width in bits of an
+      # integer IR type, the IR width and the Machine type that each load
+      # and store gives or takes, and the Machine type of each conversion.
+      DIVISION_MNEMONICS: { :/ => "div", :% => "rem", :>> => "shr" }
+
+      IR_BITS: { "i8" => 8, "i32" => 32, "i64" => 64 }
+
+      LOAD_WIDTHS: { load64: "i64", load32: "i32", load8: "i8" }
+
+      LOAD_TYPES: { load64: "Word", load32: "I32", load8: "I8" }
+
+      STORE_TYPES: { store64: "Word", store32: "I32", store8: "I8" }
+
+      CONVERT_TARGETS: { i32: "I32", i8: "I8", word: "Word", sword: "Word", ptr: "Ptr", value: "Value" }
+
+      # Whether `node` reads only literals, constants and locals, through
+      # plain operators and casts. Such an expression makes only its value.
+      # A local is in the frame, so a read of it is safe on any path. A
+      # load through a pointer is not safe.
+      def plain?: (untyped node) -> (false | untyped)
+
+      OPERATORS: { :+ => "iadd", :- => "isub", :* => "imul", :& => "band", :| => "bor", :^ => "bxor", :<< => "ishl", :< => "lt", :<= => "le", :> => "gt", :>= => "ge", :== => "eq", :!= => "ne", :/ => nil, :% => nil, :>> => nil }
+
+      # Word and Ptr can mix: a Ptr plus or minus a Word is a Ptr, a Ptr
+      # minus a Ptr is a Word, and a comparison with a Ptr on one side is
+      # unsigned. Value does not mix with other types.
+      #
+      # `named` is true for `Machine.add_wrap`, `Machine.sdiv` and the
+      # others, which the checked build does not check for a wrap or a
+      # negative operand.
+      def binary: (untyped node, untyped op, untyped lhs, untyped lt, untyped rhs, untyped rt, ?named: bool) -> untyped
+
+      # The checked build (`ZR_KERNEL_CHECKED`) finds each operator whose
+      # meaning in the lowering differs from its meaning in Ruby. A plain
+      # `+ - * <<` on a signed type (Word, I32, I8, Value) must not wrap,
+      # `/ %` must not see a negative operand or a zero divisor, and `>>`
+      # must shift by less than the width. A failed check prints the
+      # kernel file and line and aborts (`zr_bug`). A Ptr is unsigned, so
+      # only a shift of one is checked.
+      CHECKED: ::Array["Word" | "I32" | "I8" | "Value"]
+
+      def check_wrap: (untyped node, untyped op, untyped lhs, untyped rhs, untyped value, untyped type) -> (nil | untyped)
+
+      # A Ptr is in [0, 2**64) (A6). A sum, a difference, a product or a
+      # shift whose result is a Ptr must stay in that range. A Word added
+      # to a Ptr is signed, so its sign says which way the Ptr may move.
+      def check_unsigned: (untyped node, untyped op, untyped lhs, untyped lt, untyped rhs, untyped rt, untyped value) -> (nil | untyped)
+
+      def check_operands: (untyped node, untyped op, untyped lhs, untyped rhs, untyped type, untyped ptr, untyped named) -> (nil | untyped)
+
+      def bits: (untyped w) -> untyped
+
+      # Calls `zr_bug` with "file:line: what" when `bad` is true. A unit
+      # without zr_bug (a test of the lowering) gets no check.
+      def trap_if: (untyped node, untyped bad, untyped what) -> (nil | untyped)
+
+      FLOAT_OPS: { :+ => :fadd, :- => :fsub, :* => :fmul, :/ => :fdiv }
+
+      FLOAT_CONDS: { :== => "eq", :!= => "ne", :< => "lt", :<= => "le", :> => "gt", :>= => "ge" }
+
+      # F64 arithmetic and comparison. A comparison with NaN on one side
+      # is false, except `!=`.
+      def float_binary: (untyped node, untyped op, untyped lhs, untyped rhs) -> (::Array[untyped | "F64"] | ::Array[untyped | "Bool"] | untyped)
+
+      PLAIN: ::Array["Word" | "Ptr"]
+
+      def fits?: (untyped want, untyped got) -> untyped
+
+      # A call to an import (`Libc.name`) or to a def of this unit. A bare
+      # call goes only to a def or a raw function.
+      def target: (untyped node, untyped name, untyped args, ?imports: bool) -> untyped
+
+      # Lowers the body of `d` in place of the call, with the argument
+      # `values`. Its parameters and locals are in a scope of their own,
+      # as in a call. A refusal in the body gives the file of the callee.
+      #
+      # The body cannot collect, so nothing in it goes in the root frame.
+      # A Value is in a slot of its own, and `IR::Mem2Reg` can make it a
+      # register.
+      #
+      # A `return` in the body (frequently a guard clause at the start of
+      # a small def) jumps with its value to a block after the body. The
+      # last value of the body also jumps there. The parameter of that
+      # block is the result of the call.
+      def inline: (untyped d, untyped values) -> untyped
+
+      # A Value that a call returns must stay alive across the next calls
+      # in the same argument list, so it gets a root slot of its own. A
+      # struct field read or a `Machine.value` is also a call here: Ruby
+      # code in a later argument can free the object it refers to.
+      def rooted: (untyped node, untyped value, untyped type) -> untyped
+
+      def intrinsic: (untyped node, untyped args, untyped want) -> untyped
+
+      # A call through the pointer `at` with the signature `s`:
+      # `Name.call(at, ...)`.
+      def indirect: (untyped node, untyped s, untyped at, untyped rest) -> (::Array[untyped | "Void"] | ::Array[untyped])
+
+      # The static of the gate word. `Machine.gates` reads the word from
+      # its register. `Machine.gates_set(word)` stores the word and sets
+      # the register. `Machine.gates_enter` is first in a def that foreign
+      # code calls; it loads the register from the static, and the def
+      # restores the register before it returns.
+      def gates_addr: (untyped node) -> untyped
+
+      # A change of width or of type: `Machine.i32(x)` narrows, `u8` and
+      # `u32` zero-extend, `sword` sign-extends. `ptr`, `value` and `word`
+      # between 64-bit types change only the type, not the bits.
+      def convert: (untyped node, untyped to, untyped value, untyped type) -> ::Array[untyped]
+
+      # `Machine.f64(word)` and `Machine.bits(f)` read the same 64 bits
+      # as the other type. `to_f64` and `to_int` convert the value;
+      # `to_int` saturates.
+      def float_convert: (untyped node, untyped to, untyped value, untyped type) -> untyped
+
+      # Lowers the test `node` as a branch: to `yes` when it is true, to
+      # `no` when it is false. An `&&` or `||` branches on its left side
+      # and tests its right side only when the left side does not decide.
+      # A `!` swaps the targets. Other nodes are tested as values. Thus a
+      # test makes no bit to test (no set, no widening, no join of a byte),
+      # and each compare feeds its branch directly.
+      def jump_if: (untyped node, untyped yes, untyped no) -> untyped
+
+      # `[value, type]` of an expression that a branch can test: any integer.
+      def condition_value: (untyped node) -> ::Array[untyped]
+
+      # `if` as a value when both arms have the same type, else Void. The
+      # arms lower before the shape of the merge block is known, so their
+      # jumps are written last. `then_stmts` is the then arm. `else_part`
+      # is the statements of the else arm, an elsif, or nil.
+      def branch: (untyped node, untyped want, untyped then_stmts, untyped else_part) -> (::Array[nil | "Void"] | ::Array[untyped])
+
+      def loop_while: (untyped node) -> ::Array[nil | "Void"]
+    end
+  end
+end

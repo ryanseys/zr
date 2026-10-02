@@ -1,0 +1,325 @@
+# ossl_asn1.c: OpenSSL::ASN1, DER in and out through the library's
+# ASN1_get_object and i2d/d2i functions, and the conversions between
+# ASN1_* values and Ruby objects every other file uses.
+module OpenSSL
+  module Lib
+    V_ASN1_UNIVERSAL: 0
+
+    V_ASN1_APPLICATION: 64
+
+    V_ASN1_CONTEXT_SPECIFIC: 128
+
+    V_ASN1_PRIVATE: 192
+
+    V_ASN1_CONSTRUCTED: 32
+
+    V_ASN1_EOC: 0
+
+    V_ASN1_BOOLEAN: 1
+
+    V_ASN1_INTEGER: 2
+
+    V_ASN1_BIT_STRING: 3
+
+    V_ASN1_OCTET_STRING: 4
+
+    V_ASN1_NULL: 5
+
+    V_ASN1_OBJECT: 6
+
+    V_ASN1_ENUMERATED: 10
+
+    V_ASN1_UTF8STRING: 12
+
+    V_ASN1_SEQUENCE: 16
+
+    V_ASN1_SET: 17
+
+    V_ASN1_NUMERICSTRING: 18
+
+    V_ASN1_PRINTABLESTRING: 19
+
+    V_ASN1_T61STRING: 20
+
+    V_ASN1_VIDEOTEXSTRING: 21
+
+    V_ASN1_IA5STRING: 22
+
+    V_ASN1_UTCTIME: 23
+
+    V_ASN1_GENERALIZEDTIME: 24
+
+    V_ASN1_GRAPHICSTRING: 25
+
+    V_ASN1_ISO64STRING: 26
+
+    V_ASN1_GENERALSTRING: 27
+
+    V_ASN1_UNIVERSALSTRING: 28
+
+    V_ASN1_BMPSTRING: 30
+
+    ASN1_STRING_FLAG_BITS_LEFT: 8
+
+    NID_undef: 0
+
+    # struct asn1_string_st: int length, int type, unsigned char *data,
+    # long flags.
+    ASN1_STRING_FLAGS_OFFSET: 16
+
+    # openssl_missing.h: the bits left over, from before OpenSSL 4.0
+    # offered a function for them.
+    def self.ASN1_BIT_STRING_set1: (untyped bitstr, untyped data, untyped length, untyped unused_bits) -> (0 | 1)
+
+    def self.ASN1_BIT_STRING_get_length: (untyped bitstr, untyped length, untyped unused_bits) -> 1
+  end
+
+  module ASN1
+    class ASN1Error < OpenSSLError
+    end
+
+    # The UNIVERSAL tags by number, where the C extension gives a name.
+    UNIVERSAL_TAG_NAME: untyped
+
+    class ASN1Data
+      @value: untyped
+
+      @tag: untyped
+
+      @tag_class: untyped
+
+      @indefinite_length: untyped
+
+      def value: () -> untyped
+
+      def value=: (untyped value) -> untyped
+
+      def tag: () -> untyped
+
+      def tag=: (untyped tag) -> untyped
+
+      def tag_class: () -> untyped
+
+      def tag_class=: (untyped tag_class) -> untyped
+
+      def indefinite_length: () -> untyped
+
+      def indefinite_length=: (untyped indefinite_length) -> untyped
+
+      alias infinite_length indefinite_length
+
+      alias infinite_length= indefinite_length=
+
+      def initialize: (untyped value, untyped tag, untyped tag_class) -> void
+
+      def to_der: () -> untyped
+    end
+
+    class Primitive < ASN1Data
+      @tagging: untyped
+
+      def tagging: () -> untyped
+
+      def tagging=: (untyped tagging) -> untyped
+
+      def initialize: (untyped value, *untyped rest) -> void
+
+      def to_der: () -> untyped
+    end
+
+    class Constructive < ASN1Data
+      @tagging: untyped
+
+      include Enumerable
+
+      def tagging: () -> untyped
+
+      def tagging=: (untyped tagging) -> untyped
+
+      def initialize: (untyped value, *untyped rest) -> void
+
+      def to_der: () -> untyped
+
+      def each: () { (?) -> untyped } -> self
+    end
+
+    class ObjectId
+      def self.register: (untyped oid, untyped sn, untyped ln) -> true
+
+      def sn: () -> untyped
+
+      alias short_name sn
+
+      def ln: () -> untyped
+
+      alias long_name ln
+
+      def oid: () -> untyped
+
+      def ==: (untyped other) -> (false | untyped)
+    end
+
+    class BitString
+      @unused_bits: untyped
+
+      def unused_bits: () -> untyped
+
+      def unused_bits=: (untyped unused_bits) -> untyped
+    end
+
+    class EndOfContent
+      @tag: untyped
+
+      @value: untyped
+
+      @tagging: untyped
+
+      @tag_class: untyped
+
+      @indefinite_length: untyped
+
+      def initialize: () -> void
+
+      def to_der: () -> untyped
+    end
+
+    def self?.traverse: (untyped obj) { (untyped) -> untyped } -> nil
+
+    def self?.decode: (untyped obj) -> untyped
+
+    def self?.decode_all: (untyped obj) -> untyped
+  end
+
+  module Ossl
+    # The class each UNIVERSAL tag decodes to, and the tag each class
+    # encodes with.
+    ASN1_CLASS_TAGS: ::Hash[untyped, untyped]
+
+    ASN1_TAG_CLASSES: untyped
+
+    # asn1time_to_time.
+    def self.asn1time_to_time: (untyped time) -> untyped
+
+    # ossl_time_split: `time` as the seconds into its day and the days
+    # since the epoch, as ASN1_TIME_adj takes them.
+    def self.time_split: (untyped time) -> untyped
+
+    # asn1str_to_str.
+    def self.asn1str_to_str: (untyped str) -> untyped
+
+    # asn1integer_to_num: an ASN1_INTEGER or ASN1_ENUMERATED as a BN.
+    def self.asn1integer_to_num: (untyped ai) -> untyped
+
+    # num_to_asn1integer: a BN or an Integer into `ai`, or a new
+    # ASN1_INTEGER for nil.
+    def self.num_to_asn1integer: (untyped object, ?untyped? ai) -> untyped
+
+    # ossl_asn1obj_to_string_oid: the dotted form of an ASN1_OBJECT.
+    def self.asn1obj_to_string_oid: (untyped object) -> untyped
+
+    # ossl_asn1obj_to_string: the short name, or the dotted form.
+    def self.asn1obj_to_string: (untyped object) -> untyped
+
+    # ossl_asn1obj_to_string_long_name.
+    def self.asn1obj_to_string_long_name: (untyped object) -> untyped
+
+    # ossl_to_asn1obj: an ASN1_OBJECT from a name or dotted form, which
+    # the caller frees.
+    def self.to_asn1obj: (untyped object) -> untyped
+
+    # ossl_asn1_default_tag: the UNIVERSAL tag `object`'s class encodes
+    # with, or -1.
+    def self.asn1_default_tag: (untyped object) -> (untyped | -1)
+
+    # ossl_asn1data_initialize.
+    def self.asn1data_initialize: (untyped object, untyped value, untyped tag, untyped tag_class) -> untyped
+
+    # ossl_asn1_initialize.
+    def self.asn1_initialize: (untyped object, untyped value, untyped tag, untyped tagging, untyped tag_class, untyped argc) -> untyped
+
+    # ossl_asn1_tag.
+    def self.asn1_tag: (untyped object) -> untyped
+
+    # ossl_asn1_tag_class.
+    def self.asn1_tag_class: (untyped object) -> untyped
+
+    # ossl_asn1_class2sym.
+    def self.asn1_class_symbol: (untyped tag_class) -> (:PRIVATE | :CONTEXT_SPECIFIC | :APPLICATION | :UNIVERSAL)
+
+    # to_der_internal: `body` wrapped in the identifier and length
+    # octets `object`'s tag, class and tagging give it.
+    def self.asn1_to_der_internal: (untyped object, untyped constructed, untyped indefinite, untyped body) -> untyped
+
+    # memcpy(p, body, n); p += n.
+    def self.write_at_cursor: (untyped cursor, untyped bytes) -> untyped
+
+    # ossl_asn1prim_to_der.
+    def self.asn1_primitive_to_der: (untyped object) -> untyped
+
+    # ossl_asn1cons_to_der.
+    def self.asn1_constructive_to_der: (untyped object) -> untyped
+
+    # rb_convert_type(value, T_ARRAY, "Array", "to_a").
+    def self.convert_to_array: (untyped value) -> untyped
+
+    # ossl_asn1_get_asn1type: an ASN1_TYPE holding `object`'s value,
+    # which the caller frees.
+    def self.asn1_type: (untyped object) -> untyped
+
+    # obj_to_asn1str and obj_to_asn1derstr.
+    def self.asn1_string: (untyped bytes) -> untyped
+
+    # obj_to_asn1bstr.
+    def self.asn1_bit_string: (untyped value, untyped unused_bits) -> untyped
+
+    # obj_to_asn1utime and obj_to_asn1gtime.
+    def self.asn1_time: (untyped value) { (untyped, untyped) -> untyped } -> untyped
+
+    # ossl_asn1_decode0 and its kin, over one DER String: `row`, when
+    # given, receives each header as traverse yields it.
+    class ASN1Decoder
+      @der: untyped
+
+      @base: untyped
+
+      @position: untyped
+
+      @row: untyped
+
+      def initialize: (untyped object, untyped row) -> void
+
+      def decode_one: () -> untyped
+
+      def decode_all: () -> untyped
+
+      private
+
+      # int_ossl_decode_sanity_check.
+      def check: (untyped length, untyped read, untyped offset) -> (nil | untyped)
+
+      # ossl_asn1_decode0: the value at the position, the bytes it took,
+      # and the offset after it.
+      def decode: (untyped length, untyped offset, untyped depth) -> ::Array[untyped]
+
+      # int_ossl_asn1_decode0_prim.
+      def decode_primitive: (untyped length, untyped header, untyped tag, untyped tag_class) -> ::Array[untyped]
+
+      # int_ossl_asn1_decode0_cons.
+      def decode_constructive: (untyped max_length, untyped length, untyped offset, untyped depth, untyped j, untyped tag, untyped tag_class) -> ::Array[untyped]
+
+      # decode_eoc.
+      def decode_eoc: (untyped length) -> untyped
+
+      # decode_bool.
+      def decode_boolean: (untyped length) -> untyped
+
+      # decode_int, decode_enum, decode_null, decode_obj and decode_time: a
+      # d2i function's value handed to the block, then freed.
+      def decode_d2i: (untyped d2i, untyped free, untyped start, untyped length, ?untyped? message) { (untyped) -> untyped } -> untyped
+
+      # decode_bstr: the bits and the count of bits unused in the last
+      # byte.
+      def decode_bit_string: (untyped start, untyped length) -> untyped
+    end
+  end
+end

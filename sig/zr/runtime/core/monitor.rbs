@@ -1,0 +1,100 @@
+# Monitor: a reentrant lock over a Mutex, which ruby loads before the
+# program's first line. The owner may enter again; the lock releases at
+# the outermost exit. MonitorMixin layers the same over any object.
+class Monitor
+  @mutex: untyped
+
+  @owner: untyped
+
+  @count: untyped
+
+  def initialize: () -> void
+
+  def try_enter: () -> (true | false)
+
+  alias try_mon_enter try_enter
+
+  alias mon_try_enter try_enter
+
+  def enter: () -> nil
+
+  alias mon_enter enter
+
+  def exit: () -> nil
+
+  alias mon_exit exit
+
+  def synchronize: () { () -> untyped } -> untyped
+
+  alias mon_synchronize synchronize
+
+  def mon_locked?: () -> untyped
+
+  def mon_owned?: () -> untyped
+
+  def mon_check_owner: () -> nil
+
+  def new_cond: () -> untyped
+
+  # Releases the whole monitor for the wait and restores the nesting
+  # count after: true when signalled, false on the timeout.
+  def wait_for_cond: (untyped cond, untyped timeout) -> untyped
+end
+
+# monitor.rb, the half CRuby writes in Ruby, whose instance variables a
+# program sees as ruby's own shows them.
+module MonitorMixin
+  @mon_initialized_by_new_cond: untyped
+
+  @mon_data: untyped
+
+  @mon_data_owner_object_id: untyped
+
+  class ConditionVariable
+    @monitor: untyped
+
+    @cond: untyped
+
+    def wait: (?untyped? timeout) -> untyped
+
+    def wait_while: () { () -> untyped } -> untyped
+
+    def wait_until: () { () -> untyped } -> untyped
+
+    def signal: () -> untyped
+
+    def broadcast: () -> untyped
+
+    private
+
+    def initialize: (untyped monitor) -> void
+  end
+
+  def self.extend_object: (untyped obj) -> untyped
+
+  def mon_try_enter: () -> untyped
+
+  alias try_mon_enter mon_try_enter
+
+  def mon_enter: () -> untyped
+
+  def mon_exit: () -> untyped
+
+  def mon_locked?: () -> untyped
+
+  def mon_owned?: () -> untyped
+
+  def mon_synchronize: () { (?) -> untyped } -> untyped
+
+  alias synchronize mon_synchronize
+
+  def new_cond: () -> untyped
+
+  private
+
+  def initialize: (*untyped, **untyped) ?{ (?) -> untyped } -> void
+
+  def mon_initialize: () -> (nil | untyped)
+
+  def mon_check_owner: () -> untyped
+end

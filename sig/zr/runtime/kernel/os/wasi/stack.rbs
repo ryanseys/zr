@@ -1,0 +1,11 @@
+module Zr::Kern
+  def zr_os_main: (untyped argc, untyped argv) -> untyped
+
+  def zr_os_stack_low: () -> 0
+
+  def zr_os_stack_high: () -> 0
+
+  def zr_os_stack_map: (untyped bytes) -> untyped
+
+  def zr_os_poll_start: () -> nil
+end

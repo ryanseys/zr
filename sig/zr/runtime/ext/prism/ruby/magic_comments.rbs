@@ -1,0 +1,63 @@
+module Prism
+  module Ruby
+    # prism.c's magic comments: `# encoding: x`, `# frozen_string_literal:`,
+    # `# warn_indent:`, `# shareable_constant_value:`, in the plain and the
+    # emacs (`-*- key: value -*-`) forms.
+    class Parser
+      @encoding: untyped
+
+      @encoding_changed: untyped
+
+      @warn_mismatched_indentation: untyped
+
+      @frozen_string_literal: untyped
+
+      private
+
+      # pm_strncasecmp's equality over `length` bytes of the source at `at`,
+      # which stops early, equal, at a NUL byte in the source.
+      def strncasecmp?: (untyped at, untyped text, untyped length) -> (true | false)
+
+      def ascii_downcase: (untyped byte) -> untyped
+
+      # parser_lex_magic_comment_encoding_value: whether the name is an
+      # encoding prism knows, which then becomes the source's.
+      def magic_comment_encoding_value: (untyped bytes) -> (false | true)
+
+      def magic_comment_encoding_value_at: (untyped start, untyped finish) -> untyped
+
+      # parser_lex_magic_comment_encoding: `coding` followed by `:` or `=` and
+      # a name, anywhere in a first-line comment the key/value pass missed.
+      def magic_comment_encoding: () -> (nil | untyped)
+
+      # parser_lex_magic_comment_boolean_value: :true, :false or :invalid.
+      def magic_comment_boolean: (untyped start, untyped length) -> (:true | :false | :invalid)
+
+      # pm_char_is_magic_comment_key_delimiter
+      def magic_comment_key_delimiter?: (untyped byte) -> untyped
+
+      # parser_lex_magic_comment_emacs_marker: the offset of `-*-` in
+      # [cursor, finish), or nil.
+      def magic_comment_emacs_marker: (untyped cursor, untyped finish) -> (untyped | nil)
+
+      # parser_lex_magic_comment: reads the comment as `key: value` pairs,
+      # acts on the keys it knows, and records every pair. It returns false
+      # when the comment is not a magic comment as a whole.
+      def magic_comment: (untyped semantic_token_seen) -> (false | untyped)
+
+      # pm_strncasecmp over a key made from the source, which may hold NUL.
+      def key_matches?: (untyped key, untyped text) -> (true | false)
+
+      def invalid_magic_comment_value: (untyped key, untyped value_start, untyped value_length) -> untyped
+
+      def magic_comment_warn_indent: (untyped key, untyped value_start, untyped value_length) -> untyped
+
+      def magic_comment_frozen_string_literal: (untyped key, untyped value_start, untyped value_length, untyped semantic_token_seen) -> untyped
+
+      # pm_parser_scope_shareable_constant_set, over every open scope.
+      SHAREABLE_CONSTANT_VALUES: { "none" => 0, "literal" => untyped, "experimental_everything" => untyped, "experimental_copy" => untyped }
+
+      def magic_comment_shareable_constant_value: (untyped key, untyped value_start, untyped value_length) -> untyped
+    end
+  end
+end

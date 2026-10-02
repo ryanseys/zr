@@ -1,0 +1,165 @@
+module Zr::Kern
+  # inflate.c: the decompressor. It is a state machine over the modes
+  # below. It goes as far as the input and the output space allow, then
+  # returns. The C keeps its registers in locals across one large switch.
+  # Here each group of modes is a def that uses a cursor that the driver
+  # owns. A def returns whether the machine continues, leaves, or has its
+  # own return value. No caller asks for a gzip header (inflateGetHeader
+  # is not used), so the header fields are read and discarded.
+  # Derived from zlib. The license is in lib/zr/runtime/kernel/zlib.rb.
+  InflateState: untyped
+
+  # The registers of one inflate call: next, have, put, left, hold and
+  # bits from the C, the input and output space at the start, the flush
+  # mode, and the return value so far.
+  InfCursor: untyped
+
+  # The modes, with the order and numbers of the C. The order is
+  # important, because inf_leave compares against BAD and CHECK.
+  INF_HEAD: 16180
+
+  INF_FLAGS: 16181
+
+  INF_TIME: 16182
+
+  INF_OS: 16183
+
+  INF_EXLEN: 16184
+
+  INF_EXTRA: 16185
+
+  INF_NAME: 16186
+
+  INF_COMMENT: 16187
+
+  INF_HCRC: 16188
+
+  INF_DICTID: 16189
+
+  INF_DICT: 16190
+
+  INF_TYPE: 16191
+
+  INF_TYPEDO: 16192
+
+  INF_STORED: 16193
+
+  INF_COPY_: 16194
+
+  INF_COPY: 16195
+
+  INF_TABLE: 16196
+
+  INF_LENLENS: 16197
+
+  INF_CODELENS: 16198
+
+  INF_LEN_: 16199
+
+  INF_LEN: 16200
+
+  INF_LENEXT: 16201
+
+  INF_DIST: 16202
+
+  INF_DISTEXT: 16203
+
+  INF_MATCH: 16204
+
+  INF_LIT: 16205
+
+  INF_CHECK: 16206
+
+  INF_LENGTH: 16207
+
+  INF_DONE: 16208
+
+  INF_BAD: 16209
+
+  INF_MEM: 16210
+
+  INF_SYNC: 16211
+
+  # The values that a mode def returns to the driver.
+  INF_NEXT: 0
+
+  INF_LEAVE: 1
+
+  INF_RETURN: 2
+
+  # The state block: the struct, then lens (320 words), work (288 words)
+  # and codes (ENOUGH words).
+  INF_LENS_WORDS: 320
+
+  INF_WORK_WORDS: 288
+
+  def zr_inflate_state_check: (untyped strm) -> (1 | 0)
+
+  def zr_inflate_reset_keep: (untyped strm) -> untyped
+
+  def zr_inflate_reset: (untyped strm) -> untyped
+
+  def zr_inflate_reset2: (untyped strm, untyped window_bits) -> untyped
+
+  def zr_inflate_init2: (untyped strm, untyped window_bits) -> untyped
+
+  def zr_inflate_end: (untyped strm) -> untyped
+
+  def zr_inflate_fixed_tables: (untyped st) -> untyped
+
+  def zr_inflate_update_window: (untyped strm, untyped st, untyped end_, untyped copy) -> (1 | 0)
+
+  def zr_inflate_update_check: (untyped st, untyped check, untyped buf, untyped len) -> untyped
+
+  def zr_inflate_crc_header: (untyped st, untyped word, untyped n) -> untyped
+
+  def zr_inf_restore: (untyped strm, untyped st, untyped cur) -> untyped
+
+  def zr_inf_load: (untyped strm, untyped st, untyped cur) -> untyped
+
+  def zr_inf_pull: (untyped cur) -> (false | true)
+
+  def zr_inf_need: (untyped cur, untyped n) -> (false | true)
+
+  def zr_inf_bits: (untyped cur, untyped n) -> untyped
+
+  def zr_inf_drop: (untyped cur, untyped n) -> untyped
+
+  def zr_inf_init_bits: (untyped cur) -> untyped
+
+  def zr_inf_byte_bits: (untyped cur) -> untyped
+
+  def zr_inf_bad: (untyped strm, untyped st, untyped msg) -> untyped
+
+  def zr_inflate_head: (untyped strm, untyped st, untyped cur) -> untyped
+
+  def zr_inflate_gzip_header: (untyped strm, untyped st, untyped cur) -> untyped
+
+  def zr_inflate_skip_string: (untyped st, untyped cur) -> (false | untyped)
+
+  def zr_inflate_dict: (untyped strm, untyped st, untyped cur) -> untyped
+
+  def zr_inflate_type: (untyped strm, untyped st, untyped cur) -> untyped
+
+  def zr_inflate_build: (untyped st, untyped type, untyped codes, untyped root) -> untyped
+
+  def zr_inflate_decode: (untyped cur, untyped table, untyped table_bits) -> (untyped | 0)
+
+  def zr_inflate_decode_under: (untyped cur, untyped table, untyped last) -> (untyped | 0)
+
+  def zr_inflate_table_lens: (untyped strm, untyped st, untyped cur) -> untyped
+
+  def zr_inflate_codes: (untyped strm, untyped st, untyped cur) -> untyped
+
+  def zr_inflate_check: (untyped strm, untyped st, untyped cur) -> untyped
+
+  def zr_inflate: (untyped strm, untyped flush) -> untyped
+
+  def zr_inflate_set_dictionary: (untyped strm, untyped dictionary, untyped length) -> untyped
+
+  def zr_inflate_sync_search: (untyped have, untyped buf, untyped len) -> untyped
+
+  def zr_inflate_sync: (untyped strm) -> untyped
+
+  def zr_inflate_sync_point: (untyped strm) -> (untyped | 1 | 0)
+end

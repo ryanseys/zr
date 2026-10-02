@@ -1,0 +1,228 @@
+module Zr
+  # The kernel and the core library, lowered once per process, and only
+  # as much as a build needs. A program's lowering reads the kernel's
+  # description and the symbol table from the cache. Only a build with
+  # no cached runtime object lowers the kernel and the core.
+  class Runtime
+    @target: untyped
+
+    @sources: untyped
+
+    @unit: untyped
+
+    @description: untyped
+
+    # The target is the first input, so two targets never share build
+    # output. Each path is an input with its bytes, because the runtime
+    # object contains the core's file names; so two checkouts never
+    # share one. A build with a path root (`Paths.root`) writes
+    # different names, so the root is also an input.
+    @digest: untyped
+
+    @gem_prelude_files: untyped
+
+    @raw: untyped
+
+    @released: untyped
+
+    # The kernel's description as eval support carries it: the source of
+    # `zr_description.rb`, which `require "zr_description"` finds
+    # (lib/zr/eval.rb, `Library::Roots::DESCRIPTION`). The JIT of a binary
+    # lowers eval'd code against it, not against the kernel. zr makes it
+    # from this runtime's description, so it is never out of date and
+    # nobody commits it.
+    @carried_text: untyped
+
+    @abi_digest: untyped
+
+    @eval_digest: untyped
+
+    @fixed_ids: untyped
+
+    @cached: untyped
+
+    @lowered: untyped
+
+    attr_reader target: untyped
+
+    def initialize: (?untyped target) -> void
+
+    # Every source, read once. The digest covers the bytes that the
+    # kernel and the core were lowered from, not a later edit. So a build
+    # that runs while a file changes cannot cache old output under the
+    # new digest.
+    def sources: () -> untyped
+
+    # The lowered kernel, from the cache when an earlier build lowered the
+    # same kernel (`Cache::Kernel`). The core's lowering and the runtime
+    # object need it. A program's own lowering does not.
+    def unit: () -> untyped
+
+    # The kernel's defs, constants and layouts: all that a program's
+    # lowering needs from the kernel. It comes from the cache, or from
+    # the unit.
+    def description: () -> untyped
+
+    def raw: () -> untyped
+
+    # The runtime object in the cache (`Native::Build.runtime_object`).
+    def object_path: () -> untyped
+
+    def digest: () -> untyped
+
+    # A file in the digest that changed on disk after the digest was
+    # computed, or nil. The build keeps the bytes that the digest covers.
+    # But eval support, the prelude and the harness read files again from
+    # disk. An edit during a build would put new content under the old
+    # digest in every cache. So nothing is cached after a file changes
+    # (`Cache::Store.write_file`, `Cache::Unit#keep`, the parse cache, the harness's
+    # binaries), and the build stops with the file's name. The cost is one
+    # stat per file, which is small compared to a cache write.
+    def moved: () -> (nil | untyped)
+
+    # The files that the gem prelude loads. Only its loader knows them.
+    # The list comes from the cache (keyed on the digest of all other
+    # inputs), or from building the prelude's HIR. If a change to one of
+    # them adds or removes a file, the digest changes and the list is
+    # computed again.
+    # The cache file that lists them.
+    def gem_prelude_path: () -> untyped
+
+    def gem_prelude_files: () -> untyped
+
+    def digest_of: (untyped files) -> untyped
+
+    # The symbol table after the core library. It comes from the cache if
+    # an earlier build lowered the core with this digest.
+    def symbols: () -> untyped
+
+    # The function and data symbols that the runtime refers to but does
+    # not define. A program defines them. `{ functions:, data: }`.
+    def wants: () -> untyped
+
+    def functions: () -> untyped
+
+    # The `Cache::Lowering::Core` of this build's lowering, or nil.
+    def core_cache: () -> untyped
+
+    def data: () -> untyped
+
+    # Releases the kernel's and the core's IR, after the runtime object
+    # and the cache contain all that a build reads from them. So a program
+    # lowered after this is not in memory at the same time. After this, a
+    # call that needs the IR raises; it does not lower again. A warm build
+    # never lowers the kernel, not even for the raw functions (only the
+    # runtime object contains them).
+    def release: () -> untyped
+
+    # The kernel's description as eval support carries it: the source of
+    # `zr_description.rb`, which `require "zr_description"` finds
+    # (lib/zr/eval.rb, `Library::Roots::DESCRIPTION`). The JIT of a binary
+    # lowers eval'd code against it, not against the kernel. zr makes it
+    # from this runtime's description, so it is never out of date and
+    # nobody commits it.
+    def carried_text: () -> untyped
+
+    # `RuntimeSources#abi_digest`: what a program's units and eval support's
+    # code take from this runtime. It reads the symbol table's cache, which
+    # it makes first.
+    def abi_digest: () -> untyped
+
+    # `RuntimeSources#eval_digest`: what eval support's object takes from
+    # this runtime: its ABI and the table that numbers eval support's names.
+    def eval_digest: () -> untyped
+
+    # The ids that code outside the kernel has as immediates: the kernel's
+    # names, name to id. Each other name is a pool word that the link
+    # numbers (`Lower#fixed_id`).
+    def fixed_ids: () -> untyped
+
+    private
+
+    # The kernel's own symbol table: the names of its `Machine.id`s, in the
+    # order of its files. Only these ids are in code outside the kernel.
+    def kernel_symbols: () -> untyped
+
+    # The symbol table, the wanted symbols and the kernel's description.
+    # They come from the cache, or from lowering the kernel and the core
+    # (then cached). A cache file with a missing field is a miss.
+    def cached: () -> untyped
+
+    def cache_path: () -> untyped
+
+    def read_cached: () -> (nil | { symbols: untyped, kernel: untyped, wants: { functions: untyped, data: untyped }, description: untyped })
+
+    def write_cached: () -> { symbols: untyped, kernel: untyped, wants: { functions: untyped, data: untyped }, description: untyped }
+
+    # The core library's `[functions, data]`, lowered over the kernel.
+    #
+    # For an aarch64 build, `Cache::Lowering::Core` takes each file it can from an
+    # earlier build, and the list then has the machine code of those files
+    # (`Obj::Code`) in place of their IR. It also inlines the unit.
+    #
+    # The core has only the kernel's ids in its code. Its other names are
+    # pool words, which this numbers in the order of the core's data, after
+    # the kernel's names (`@table`). The data is a numbered copy: the pieces
+    # that the core cache keeps stay unnumbered, so an edit that adds a name
+    # moves the ids after it and no code.
+    def lowered: () -> untyped
+  end
+
+  # The runtimes of a process, and how a runtime's core and gem prelude
+  # are built.
+  class Runtime
+    self.@announced: untyped
+
+    # The runtimes of this process, by target triple.
+    def self.loaded: () -> untyped
+
+    # The runtime for `target`, lowered once per process.
+    def self.for: (?untyped target) -> untyped
+
+    # Says on stderr, once in a process, that a build of `what` for
+    # `target` starts, which fills the cache for later builds. The first
+    # build of an installed zr would otherwise run for minutes with no
+    # output. A checkout says it only on a terminal: a test or a tool
+    # that reads stderr gets nothing more. ZR_TIMING prints its own lines.
+    def self.announce: (untyped what, untyped target) -> (nil | untyped)
+
+    # The core library on top of the kernel `unit`: `[functions, data]`,
+    # with `zr_prelude` as the last function. The program decides if it
+    # links in the compiler, so the core never requires eval support. A
+    # box or an eval in the program adds it. `fixed` are the kernel's ids;
+    # the data leaves every other name to the link
+    # (`SymbolNumbering.numbered_copies`).
+    def self.core: (untyped unit, untyped fixed, ?untyped target, ?::Hash[untyped, untyped] sources) -> ::Array[untyped]
+
+    # The entry of a core file's toplevel.
+    def self.core_entry: (untyped path) -> ::String
+
+    # `[functions, data]` of one core file over the kernel `unit`, with the
+    # kernel's ids `fixed`.
+    def self.lower_core_file: (untyped path, untyped source, untyped unit, untyped fixed, untyped target) -> untyped
+
+    # `[functions, data]` of the gem prelude's program `hir`.
+    def self.lower_gem_prelude: (untyped hir, untyped unit, untyped fixed, untyped target) -> untyped
+
+    GEM_PRELUDE_ENTRY: "zr_gem_prelude"
+
+    # CRuby's gem_prelude.rb, which loads ruby's default libraries before
+    # a program's first line. After it comes error_highlight's lookup for
+    # a program compiled ahead of time. Boot runs it after the core
+    # library loads, before the program.
+    SPOTTED: untyped
+
+    # The parsers that the prelude's libraries require for work that this
+    # runtime does differently. error_highlight's prism_find: the compiled
+    # spots replace it. syntax_suggest's search: only a program that links
+    # in the compiler can get a SyntaxError.
+    DEFERRED: ::Array["prism" | "syntax_suggest/api"]
+
+    # The gem prelude as one program for `target`.
+    def self.gem_prelude: (?untyped target) -> untyped
+
+    # `zr_prelude`: boot runs each core file's toplevel in turn, and
+    # stops at the first one that leaves a pending unwind.
+    def self.prelude: (untyped entries, untyped unit) -> untyped
+  end
+end

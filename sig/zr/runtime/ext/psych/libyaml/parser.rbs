@@ -1,0 +1,285 @@
+# The parser of libyaml 0.2.5 (src/parser.c): it reads the scanner's
+# tokens and produces events. It implements this grammar:
+#
+#   stream               ::= STREAM-START implicit_document? explicit_document* STREAM-END
+#   implicit_document    ::= block_node DOCUMENT-END*
+#   explicit_document    ::= DIRECTIVE* DOCUMENT-START block_node? DOCUMENT-END*
+#   block_node_or_indentless_sequence    ::=
+#                            ALIAS
+#                            | properties (block_content | indentless_block_sequence)?
+#                            | block_content
+#                            | indentless_block_sequence
+#   block_node           ::= ALIAS
+#                            | properties block_content?
+#                            | block_content
+#   flow_node            ::= ALIAS
+#                            | properties flow_content?
+#                            | flow_content
+#   properties           ::= TAG ANCHOR? | ANCHOR TAG?
+#   block_content        ::= block_collection | flow_collection | SCALAR
+#   flow_content         ::= flow_collection | SCALAR
+#   block_collection     ::= block_sequence | block_mapping
+#   flow_collection      ::= flow_sequence | flow_mapping
+#   block_sequence       ::= BLOCK-SEQUENCE-START (BLOCK-ENTRY block_node?)* BLOCK-END
+#   indentless_sequence  ::= (BLOCK-ENTRY block_node?)+
+#   block_mapping        ::= BLOCK-MAPPING_START
+#                            ((KEY block_node_or_indentless_sequence?)?
+#                            (VALUE block_node_or_indentless_sequence?)?)*
+#                            BLOCK-END
+#   flow_sequence        ::= FLOW-SEQUENCE-START
+#                            (flow_sequence_entry FLOW-ENTRY)*
+#                            flow_sequence_entry?
+#                            FLOW-SEQUENCE-END
+#   flow_sequence_entry  ::= flow_node | KEY flow_node? (VALUE flow_node?)?
+#   flow_mapping         ::= FLOW-MAPPING-START
+#                            (flow_mapping_entry FLOW-ENTRY)*
+#                            flow_mapping_entry?
+#                            FLOW-MAPPING-END
+#   flow_mapping_entry   ::= flow_node | KEY flow_node? (VALUE flow_node?)?
+#
+# One object contains the state of the reader, the scanner and the parser,
+# as yaml_parser_t does. api.rb gives it its constructor and its input.
+module Psych
+  module LibYAML
+    class Parser
+      @token_available: untyped
+
+      @tokens_parsed: untyped
+
+      @stream_end_produced: untyped
+
+      @error: untyped
+
+      @problem: untyped
+
+      @problem_mark: untyped
+
+      @context: untyped
+
+      @context_mark: untyped
+
+      @state: untyped
+
+      include Chars
+
+      include Reader
+
+      include Scanner
+
+      # yaml_parser_state_t
+      PARSE_STREAM_START_STATE: 0
+
+      PARSE_IMPLICIT_DOCUMENT_START_STATE: 1
+
+      PARSE_DOCUMENT_START_STATE: 2
+
+      PARSE_DOCUMENT_CONTENT_STATE: 3
+
+      PARSE_DOCUMENT_END_STATE: 4
+
+      PARSE_BLOCK_NODE_STATE: 5
+
+      PARSE_BLOCK_NODE_OR_INDENTLESS_SEQUENCE_STATE: 6
+
+      PARSE_FLOW_NODE_STATE: 7
+
+      PARSE_BLOCK_SEQUENCE_FIRST_ENTRY_STATE: 8
+
+      PARSE_BLOCK_SEQUENCE_ENTRY_STATE: 9
+
+      PARSE_INDENTLESS_SEQUENCE_ENTRY_STATE: 10
+
+      PARSE_BLOCK_MAPPING_FIRST_KEY_STATE: 11
+
+      PARSE_BLOCK_MAPPING_KEY_STATE: 12
+
+      PARSE_BLOCK_MAPPING_VALUE_STATE: 13
+
+      PARSE_FLOW_SEQUENCE_FIRST_ENTRY_STATE: 14
+
+      PARSE_FLOW_SEQUENCE_ENTRY_STATE: 15
+
+      PARSE_FLOW_SEQUENCE_ENTRY_MAPPING_KEY_STATE: 16
+
+      PARSE_FLOW_SEQUENCE_ENTRY_MAPPING_VALUE_STATE: 17
+
+      PARSE_FLOW_SEQUENCE_ENTRY_MAPPING_END_STATE: 18
+
+      PARSE_FLOW_MAPPING_FIRST_KEY_STATE: 19
+
+      PARSE_FLOW_MAPPING_KEY_STATE: 20
+
+      PARSE_FLOW_MAPPING_VALUE_STATE: 21
+
+      PARSE_FLOW_MAPPING_EMPTY_VALUE_STATE: 22
+
+      PARSE_END_STATE: 23
+
+      DEFAULT_TAG_DIRECTIVES: ::Array[untyped]
+
+      attr_reader error: untyped
+
+      attr_reader problem: untyped
+
+      attr_reader problem_offset: untyped
+
+      attr_reader problem_value: untyped
+
+      attr_reader problem_mark: untyped
+
+      attr_reader context: untyped
+
+      attr_reader context_mark: untyped
+
+      attr_reader encoding: untyped
+
+      # yaml_parser_parse: the next event, or an event of type NO_EVENT
+      # after the stream ends. Returns nil when an error stops the parser;
+      # `error`, `problem` and the marks then describe it.
+      def parse: () -> untyped
+
+      private
+
+      # PEEK_TOKEN
+      def peek_token: () -> untyped
+
+      # SKIP_TOKEN
+      def skip_token: () -> untyped
+
+      # yaml_parser_set_parser_error
+      def parser_error: (untyped problem, untyped problem_mark) -> untyped
+
+      # yaml_parser_set_parser_error_context
+      def parser_error_context: (untyped context, untyped context_mark, untyped problem, untyped problem_mark) -> untyped
+
+      # yaml_parser_state_machine
+      def state_machine: () -> untyped
+
+      # stream ::= STREAM-START implicit_document? explicit_document* STREAM-END
+      #            ************
+      def parse_stream_start: () -> untyped
+
+      # implicit_document ::= block_node DOCUMENT-END*
+      #                       *
+      # explicit_document ::= DIRECTIVE* DOCUMENT-START block_node? DOCUMENT-END*
+      #                       *************************
+      def parse_document_start: (untyped implicit) -> untyped
+
+      # explicit_document ::= DIRECTIVE* DOCUMENT-START block_node? DOCUMENT-END*
+      #                                                 ***********
+      def parse_document_content: () -> untyped
+
+      # implicit_document ::= block_node DOCUMENT-END*
+      #                                  *************
+      # explicit_document ::= DIRECTIVE* DOCUMENT-START block_node? DOCUMENT-END*
+      #                                                             *************
+      def parse_document_end: () -> untyped
+
+      # block_node_or_indentless_sequence ::= ALIAS
+      #                                       *****
+      #                                       | properties (block_content | indentless_block_sequence)?
+      #                                         **********  *
+      #                                       | block_content | indentless_block_sequence
+      #                                         *
+      # block_node ::= ALIAS
+      #                *****
+      #                | properties block_content?
+      #                  ********** *
+      #                | block_content
+      #                  *
+      # flow_node  ::= ALIAS
+      #                *****
+      #                | properties flow_content?
+      #                  ********** *
+      #                | flow_content
+      #                  *
+      # properties ::= TAG ANCHOR? | ANCHOR TAG?
+      #                *************************
+      # block_content ::= block_collection | flow_collection | SCALAR
+      #                                                        ******
+      # flow_content  ::= flow_collection | SCALAR
+      #                                     ******
+      def parse_node: (untyped block, untyped indentless_sequence) -> untyped
+
+      def collection_start_event: (untyped type, untyped anchor, untyped tag, untyped implicit, untyped style, untyped start_mark, untyped end_mark) -> untyped
+
+      # block_sequence ::= BLOCK-SEQUENCE-START (BLOCK-ENTRY block_node?)* BLOCK-END
+      #                    ********************  *********** *             *********
+      def parse_block_sequence_entry: (untyped first) -> untyped
+
+      # indentless_sequence ::= (BLOCK-ENTRY block_node?)+
+      #                          *********** *
+      def parse_indentless_sequence_entry: () -> untyped
+
+      # block_mapping ::= BLOCK-MAPPING_START
+      #                   *******************
+      #                   ((KEY block_node_or_indentless_sequence?)?
+      #                     *** *
+      #                   (VALUE block_node_or_indentless_sequence?)?)*
+      #
+      #                   BLOCK-END
+      #                   *********
+      def parse_block_mapping_key: (untyped first) -> untyped
+
+      # block_mapping ::= BLOCK-MAPPING_START
+      #
+      #                   ((KEY block_node_or_indentless_sequence?)?
+      #
+      #                   (VALUE block_node_or_indentless_sequence?)?)*
+      #                    ***** *
+      #                   BLOCK-END
+      def parse_block_mapping_value: () -> untyped
+
+      # flow_sequence ::= FLOW-SEQUENCE-START
+      #                   *******************
+      #                   (flow_sequence_entry FLOW-ENTRY)*
+      #                    *                   **********
+      #                   flow_sequence_entry?
+      #                   *
+      #                   FLOW-SEQUENCE-END
+      #                   *****************
+      # flow_sequence_entry ::= flow_node | KEY flow_node? (VALUE flow_node?)?
+      #                         *
+      def parse_flow_sequence_entry: (untyped first) -> untyped
+
+      # flow_sequence_entry ::= flow_node | KEY flow_node? (VALUE flow_node?)?
+      #                                     *** *
+      def parse_flow_sequence_entry_mapping_key: () -> untyped
+
+      # flow_sequence_entry ::= flow_node | KEY flow_node? (VALUE flow_node?)?
+      #                                                     ***** *
+      def parse_flow_sequence_entry_mapping_value: () -> untyped
+
+      # flow_sequence_entry ::= flow_node | KEY flow_node? (VALUE flow_node?)?
+      #                                                                     *
+      def parse_flow_sequence_entry_mapping_end: () -> untyped
+
+      # flow_mapping ::= FLOW-MAPPING-START
+      #                  ******************
+      #                  (flow_mapping_entry FLOW-ENTRY)*
+      #                   *                  **********
+      #                  flow_mapping_entry?
+      #                  ******************
+      #                  FLOW-MAPPING-END
+      #                  ****************
+      # flow_mapping_entry ::= flow_node | KEY flow_node? (VALUE flow_node?)?
+      #                        *           *** *
+      def parse_flow_mapping_key: (untyped first) -> untyped
+
+      # flow_mapping_entry ::= flow_node | KEY flow_node? (VALUE flow_node?)?
+      #                                  *                  ***** *
+      def parse_flow_mapping_value: (untyped empty) -> untyped
+
+      # yaml_parser_process_empty_scalar
+      def process_empty_scalar: (untyped mark) -> untyped
+
+      # yaml_parser_process_directives: read the %YAML and %TAG directives
+      # before a document, and add the default tag handles. Returns the
+      # version directive and the document's own tag directives.
+      def process_directives: () -> ::Array[untyped]
+
+      # yaml_parser_append_tag_directive
+      def append_tag_directive: (untyped value, untyped allow_duplicates, untyped mark) -> (nil | untyped)
+    end
+  end
+end

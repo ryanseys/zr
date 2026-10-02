@@ -1,0 +1,38 @@
+module Zr::Kern
+  # WASI's errno numbers, with wasi-libc's E names.
+  WASI_EBADF: 8
+
+  WASI_EINVAL: 28
+
+  WASI_ENOENT: 44
+
+  WASI_ENOSYS: 52
+
+  WASI_ENOTTY: 59
+
+  def zr_wasi_addr: (untyped p) -> untyped
+
+  def zr_wasi_status: (untyped errno) -> untyped
+
+  def zr_wasi_fail: (untyped n) -> untyped
+
+  def zr_wasi_iovec: (untyped iov, untyped buf, untyped len) -> untyped
+
+  # The preopened directories, found one time. Each directory has an
+  # entry of three words (descriptor, name address, name length). A zero
+  # descriptor ends the entries. A name is kept as the host gives it,
+  # without a leading `/` or `./`, so `.` and `/` both match all paths.
+  PREOPENS: 32
+
+  def zr_wasi_preopens: () -> untyped
+
+  def zr_wasi_path_start: (untyped path) -> untyped
+
+  def zr_wasi_dir: (untyped path, untyped rest) -> untyped
+
+  def zr_wasi_resolve: (untyped path, untyped where) -> untyped
+
+  def zr_wasi_rest: (untyped where) -> untyped
+
+  def zr_wasi_rest_len: (untyped where) -> untyped
+end

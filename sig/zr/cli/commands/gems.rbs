@@ -1,0 +1,23 @@
+module Zr
+  module CLI
+    module Commands
+      # `zr gems [--gem ...] [--gemfile PATH] [--target TRIPLE] [--json] [FILE]`:
+      # every gem that a build can read, or with FILE, the gems that FILE's
+      # build reads.
+      class Gems < Command
+        # A table: one row for each gem, and the version range of a port's C.
+        def self.table: (untyped rows) -> ("no gems\n" | ::String)
+
+        def reads_help?: () -> true
+
+        def run: (untyped argv) -> untyped
+
+        private
+
+        # The gems that the build of `input` reads. A refused form stops as a
+        # build does.
+        def of_file: (untyped input, untyped gem_set, untyped target) -> untyped
+      end
+    end
+  end
+end

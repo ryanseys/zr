@@ -1,0 +1,62 @@
+module Zr
+  module Hir
+    class Build
+      # The `:line` event that ruby's compiler puts before a statement that
+      # starts a line of its scope, or nil. This is pm_compile_node's rule,
+      # which reads prism's newline flag. A `begin` with no statements
+      # before its rescue is on the rescue's line.
+      def line_event: (untyped node) -> (nil | untyped)
+
+      # The id of the def-site entry that a `def` or a block uses when it
+      # makes a method, or nil if coverage is not measured.
+      def method_cover: (untyped node) -> (nil | untyped)
+
+      # The location that ruby gives a method made from this scope. A
+      # lambda's span starts after its `->`, where CRuby's iseq for it
+      # starts: `define_method(:a, ->(x) { x })` is located at `(x) { x }`.
+      # All other scopes use their own location.
+      def method_span: (untyped node) -> (untyped | ::Array[untyped])
+
+      # A `Cover` for each branch of a construct that Coverage measures, or
+      # nils if it measures nothing. `sides` are `[kind, span]` in ruby's
+      # order, which is the source order, except that an `unless` puts its
+      # else first. The root gets its number before its branches, as in
+      # CRuby.
+      def branch_covers: (untyped kind, untyped span, untyped sides) -> untyped
+
+      # The four numbers that Coverage uses for a branch: its start and
+      # end, with 0-based columns as in ruby.
+      def span: (untyped location) -> ::Array[untyped]
+
+      # The branches of an `if`, a ternary or an `elsif`. A then with no
+      # statements is at the empty width after the predicate. A missing
+      # else covers the whole `if`. CRuby records the same.
+      def if_sides: (untyped node) -> ::Array[::Array[:then | untyped] | ::Array[:else | untyped]]
+
+      # An `unless` has its then first in the source, but ruby numbers its
+      # else first, so the two are in reverse order.
+      def unless_sides: (untyped node) -> ::Array[::Array[:else | untyped] | ::Array[:then | untyped]]
+
+      # Each `when` or `in` clause, then the else. A `case` always has an
+      # else: if the source has none, it covers the whole `case`, so a
+      # subject that matched nothing is also counted.
+      def case_sides: (untyped node, untyped kind) -> untyped
+
+      # A loop has one branch: its body, or the whole loop if it has no
+      # body.
+      def loop_sides: (untyped node) -> ::Array[::Array[:body | untyped]]
+
+      # An `else` has the location of its statements, or of the whole
+      # clause if it has none. An `elsif` is its own branch, with its own
+      # location.
+      def else_location: (untyped node) -> untyped
+
+      # The empty width just past `location`.
+      def after: (untyped location) -> ::Array[untyped]
+
+      # `body` with its branch counted first, or only `body`. A nil body
+      # counts and returns nil, as an empty branch does in ruby.
+      def covered: (untyped cover, untyped body, untyped line) -> untyped
+    end
+  end
+end

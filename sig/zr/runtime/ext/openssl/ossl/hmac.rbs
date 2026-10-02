@@ -1,0 +1,41 @@
+# ossl_hmac.c: OpenSSL::HMAC over an EVP_MD_CTX signing with an HMAC key.
+module OpenSSL
+  module Lib
+    EVP_PKEY_HMAC: 855
+
+    EVP_MAX_MD_SIZE: 64
+  end
+
+  class HMACError < OpenSSLError
+  end
+
+  class HMAC
+  end
+
+  module Ossl
+    HMAC_CTX: untyped
+
+    # GetHMAC.
+    def self.hmac_ctx: (untyped hmac) -> untyped
+  end
+
+  class HMAC
+    def initialize: (untyped key, untyped digest) -> void
+
+    def initialize_copy: (untyped other) -> self
+
+    def reset: () -> self
+
+    def update: (untyped data) -> self
+
+    alias << update
+
+    def digest: () -> untyped
+
+    def hexdigest: () -> untyped
+
+    alias inspect hexdigest
+
+    alias to_s hexdigest
+  end
+end

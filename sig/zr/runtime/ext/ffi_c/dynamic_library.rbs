@@ -1,0 +1,37 @@
+module FFI
+  class DynamicLibrary
+    @handle: untyped
+
+    class Symbol < Pointer
+      @parent: untyped
+
+      @name: untyped
+
+      def inspect: () -> untyped
+
+      def initialize_copy: (untyped _other) -> untyped
+
+      private
+
+      def assign: (untyped library, untyped address, untyped name) -> untyped
+    end
+
+    def self.open: (untyped name, untyped flags) -> untyped
+
+    def self.last_error: () -> untyped
+
+    def initialize: (untyped name, untyped flags) -> void
+
+    def find_symbol: (untyped name) -> untyped
+
+    alias find_function find_symbol
+
+    alias find_variable find_symbol
+
+    def last_error: () -> untyped
+
+    def name: () -> untyped
+  end
+
+  NativeLibrary: untyped
+end

@@ -1,0 +1,999 @@
+module Fiddle
+  # The libc calls, the type table, and CRuby's conversions of arguments.
+  # It is private: the C extension defines nothing of the kind.
+  module Native
+    self.@functions: untyped
+
+    self.@variadics: untyped
+
+    self.@addresses: untyped
+
+    self.@objects: untyped
+
+    self.@next_address: untyped
+
+    @next_address: untyped
+
+    extend FFI::Library
+
+    ADDRESS_BITS: untyped
+
+    ADDRESS_MASK: untyped
+
+    LINUX: untyped
+
+    WINDOWS: untyped
+
+    # C's plain char is unsigned on ARM and POWER Linux, and signed elsewhere.
+    CHAR_SIGNED: untyped
+
+    # FFI_DEFAULT_ABI, and the ABIs ffi_prep_cif accepts on this machine.
+    DEFAULT_ABI: untyped
+
+    # FFI_DEFAULT_ABI, and the ABIs ffi_prep_cif accepts on this machine.
+    VALID_ABIS: untyped
+
+    # RTLD_DEFAULT and RTLD_NEXT, the pseudo-handles of <dlfcn.h>.
+    RTLD_DEFAULT: untyped
+
+    RTLD_NEXT: -1
+
+    # The VALUEs of CRuby's special constants, on a 64-bit build.
+    QFALSE: 0
+
+    QNIL: 4
+
+    QTRUE: 20
+
+    QUNDEF: 36
+
+    # libffi's status codes, which fiddle's error messages include.
+    FFI_BAD_ABI: 2
+
+    FFI_BAD_ARGTYPE: 3
+
+    # An address as C's unsigned pointer.
+    def self?.unsigned: (untyped address) -> untyped
+
+    # An address as PTR2NUM returns it: a signed long.
+    def self?.signed: (untyped address) -> untyped
+
+    # Truncates an Integer to a C integer of `bits` bits.
+    def self?.wrap: (untyped value, untyped bits, untyped signed) -> untyped
+
+    def self?.memory: (untyped address) -> untyped
+
+    def self?.read_bytes: (untyped address, untyped length) -> untyped
+
+    def self?.write_bytes: (untyped address, untyped bytes) -> (untyped | nil)
+
+    # rb_str_new_cstr: the bytes up to the first NUL.
+    def self?.read_cstring: (untyped address) -> untyped
+
+    # Zeroed memory, or NoMemoryError. ruby_xmalloc (`checked`) refuses a
+    # size with the sign bit set before it tries; ruby_xcalloc just fails.
+    def self?.allocate: (untyped size, checked: untyped) -> untyped
+
+    def self?.reallocate: (untyped address, untyped size) -> untyped
+
+    # Calls the C function at `function`, a free function, with `address`.
+    def self?.call_free_function: (untyped function, untyped address) -> untyped
+
+    # The FFI::Function that calls the C function at `address` with the
+    # given ffi types. One exists for each address and signature.
+    def self?.function: (untyped address, untyped params, untyped result, untyped blocking) -> untyped
+
+    # The FFI::VariadicInvoker that calls the variadic C function at
+    # `address`, whose fixed arguments have the given ffi types.
+    def self?.variadic: (untyped address, untyped fixed, untyped result, untyped blocking) -> untyped
+
+    # The C struct behind a fiddle object, in a slot no program sees. An
+    # object that skipped initialize gets a zeroed struct, as allocate
+    # gives in C.
+    def self?.state: (untyped object, untyped type) -> untyped
+
+    def self?.reset_state: (untyped object, untyped type) -> untyped
+
+    TYPE_NAMES: { void: 0, voidp: 1, char: 2, short: 3, int: 4, long: 5, long_long: 6, int8_t: 2, int16_t: nil, int32_t: nil, int64_t: nil, float: 7, double: 8, variadic: 9, const_string: 10, size_t: nil, ssize_t: nil, ptrdiff_t: nil, intptr_t: nil, uintptr_t: nil, bool: 11 }
+
+    # rb_fiddle_type_ensure: a type as its Integer, from a Symbol or String
+    # that is its name or from any object with to_int.
+    def self?.type_ensure: (untyped type) -> untyped
+
+    SIGNED_FFI_TYPES: { 2 => :int8, 3 => :int16, 4 => :int32, 5 => :long, 6 => :int64 }
+
+    UNSIGNED_FFI_TYPES: { 2 => :uint8, 3 => :uint16, 4 => :uint32, 5 => :ulong, 6 => :uint64 }
+
+    OTHER_FFI_TYPES: { 0 => :void, 1 => :pointer, 7 => :float, 8 => :double, 10 => :pointer, 11 => :bool }
+
+    # rb_fiddle_int_to_ffi_type: the ffi type of a fiddle type. A negative
+    # type is the unsigned form of its absolute value.
+    def self?.ffi_type: (untyped type) -> untyped
+
+    # rb_fiddle_value_to_generic: an argument in the form ffi passes for
+    # `type`. `keep` contains native memory that must outlive the call.
+    def self?.to_native: (untyped type, untyped value, untyped keep) -> untyped
+
+    # rb_fiddle_generic_to_value: a C result, which ffi read as `type`, as
+    # the Ruby value that fiddle returns.
+    def self?.from_native: (untyped type, untyped value) -> untyped
+
+    # The ffi type a variadic argument of this ffi type passes as. libffi
+    # refuses float and any integer narrower than int.
+    def self?.variadic_ffi_type: (untyped type) -> untyped
+
+    def self?.check_abi: (untyped abi, untyped message) -> (untyped | nil)
+
+    LONG_MIN: untyped
+
+    LONG_MAX: untyped
+
+    ULONG_LIMIT: untyped
+
+    INT_MIN: untyped
+
+    INT_MAX: untyped
+
+    UINT_MAX: untyped
+
+    def self?.special_name: (untyped value) -> untyped
+
+    # rb_to_int
+    def self?.to_int: (untyped value) -> untyped
+
+    # rb_check_string_type
+    def self?.check_string_type: (untyped value) -> (untyped | nil)
+
+    # StringValue
+    def self?.string_value: (untyped value) -> untyped
+
+    # StringValueCStr
+    def self?.string_value_cstr: (untyped value) -> untyped
+
+    # Check_Type(value, T_ARRAY)
+    def self?.check_array: (untyped value) -> untyped
+
+    def self?.float_out_of_range: (untyped value, untyped type) -> untyped
+
+    # NUM2LONG
+    def self?.num2long: (untyped value) -> untyped
+
+    # NUM2INT
+    def self?.num2int: (untyped value) -> untyped
+
+    # rb_num2ulong_internal: the unsigned long, and whether it wrapped from
+    # a negative number.
+    def self?.num2ulong_internal: (untyped value) -> untyped
+
+    # NUM2ULONG
+    def self?.num2ulong: (untyped value) -> untyped
+
+    # NUM2UINT
+    def self?.num2uint: (untyped value) -> untyped
+
+    # NUM2LL
+    def self?.num2ll: (untyped value) -> untyped
+
+    # NUM2ULL
+    def self?.num2ull: (untyped value) -> untyped
+
+    # NUM2DBL
+    def self?.num2dbl: (untyped value) -> untyped
+
+    # rb_error_arity
+    def self?.check_arity: (untyped given, untyped min, untyped max) -> (nil | untyped)
+
+    FIXNUM_MIN: untyped
+
+    FIXNUM_MAX: untyped
+
+    # The VALUE of a Ruby object: CRuby's encoding for the immediates, and
+    # an address from a table for all other objects. The table keeps the
+    # object, so its address stays valid for the life of the process.
+    def self?.value_to_address: (untyped object) -> untyped
+
+    # The Ruby object at a VALUE that value_to_address returned.
+    def self?.address_to_value: (untyped address) -> untyped
+
+    # rb_float_new_inline: a flonum's VALUE, or nil when the Float would
+    # live on the heap.
+    def self?.flonum_address: (untyped float) -> (untyped | nil)
+
+    def self?.flonum_value: (untyped value) -> (::Float | untyped)
+  end
+
+  class Error < StandardError
+  end
+
+  class DLError < Error
+  end
+
+  # The C types, whose values Init_fiddle defines. They are listed in the
+  # order that CRuby's Fiddle::Types.constants returns.
+  module Types
+    FLOAT: 7
+
+    DOUBLE: 8
+
+    VARIADIC: 9
+
+    CONST_STRING: 10
+
+    SIZE_T: untyped
+
+    SSIZE_T: untyped
+
+    PTRDIFF_T: untyped
+
+    INTPTR_T: untyped
+
+    UINTPTR_T: untyped
+
+    BOOL: 11
+
+    VOID: 0
+
+    VOIDP: 1
+
+    CHAR: 2
+
+    UCHAR: -2
+
+    SHORT: 3
+
+    USHORT: -3
+
+    INT: 4
+
+    UINT: -4
+
+    LONG: 5
+
+    ULONG: -5
+
+    LONG_LONG: 6
+
+    ULONG_LONG: -6
+
+    INT8_T: untyped
+
+    UINT8_T: untyped
+
+    INT16_T: untyped
+
+    UINT16_T: untyped
+
+    INT32_T: untyped
+
+    UINT32_T: untyped
+
+    INT64_T: untyped
+
+    UINT64_T: untyped
+  end
+
+  ALIGN_VOIDP: untyped
+
+  ALIGN_CHAR: untyped
+
+  ALIGN_SHORT: untyped
+
+  ALIGN_INT: untyped
+
+  ALIGN_LONG: untyped
+
+  ALIGN_LONG_LONG: untyped
+
+  ALIGN_INT8_T: untyped
+
+  ALIGN_INT16_T: untyped
+
+  ALIGN_INT32_T: untyped
+
+  ALIGN_INT64_T: untyped
+
+  ALIGN_FLOAT: untyped
+
+  ALIGN_DOUBLE: untyped
+
+  ALIGN_SIZE_T: untyped
+
+  ALIGN_SSIZE_T: untyped
+
+  ALIGN_PTRDIFF_T: untyped
+
+  ALIGN_INTPTR_T: untyped
+
+  ALIGN_UINTPTR_T: untyped
+
+  ALIGN_BOOL: untyped
+
+  WINDOWS: untyped
+
+  SIZEOF_VOIDP: untyped
+
+  SIZEOF_CHAR: untyped
+
+  SIZEOF_UCHAR: untyped
+
+  SIZEOF_SHORT: untyped
+
+  SIZEOF_USHORT: untyped
+
+  SIZEOF_INT: untyped
+
+  SIZEOF_UINT: untyped
+
+  SIZEOF_LONG: untyped
+
+  SIZEOF_ULONG: untyped
+
+  SIZEOF_LONG_LONG: untyped
+
+  SIZEOF_ULONG_LONG: untyped
+
+  SIZEOF_INT8_T: untyped
+
+  SIZEOF_UINT8_T: untyped
+
+  SIZEOF_INT16_T: untyped
+
+  SIZEOF_UINT16_T: untyped
+
+  SIZEOF_INT32_T: untyped
+
+  SIZEOF_UINT32_T: untyped
+
+  SIZEOF_INT64_T: untyped
+
+  SIZEOF_UINT64_T: untyped
+
+  SIZEOF_FLOAT: untyped
+
+  SIZEOF_DOUBLE: untyped
+
+  SIZEOF_SIZE_T: untyped
+
+  SIZEOF_SSIZE_T: untyped
+
+  SIZEOF_PTRDIFF_T: untyped
+
+  SIZEOF_INTPTR_T: untyped
+
+  SIZEOF_UINTPTR_T: untyped
+
+  SIZEOF_CONST_STRING: untyped
+
+  SIZEOF_BOOL: untyped
+
+  # The address of the function that frees what Pointer.malloc allocates.
+  # The C extension returns ruby_xfree. This runtime allocates with libc,
+  # so it returns libc's free.
+  Native::RUBY_FREE_ADDRESS: untyped
+
+  RUBY_FREE: untyped
+
+  BUILD_RUBY_PLATFORM: untyped
+
+  # call-seq: Fiddle.dlwrap(val)
+  #
+  # The address of the Ruby object +val+.
+  def self?.dlwrap: (untyped val) -> untyped
+
+  # call-seq: Fiddle.dlunwrap(addr)
+  #
+  # The Ruby object at the address +addr+.
+  def self?.dlunwrap: (untyped addr) -> untyped
+
+  # call-seq: Fiddle.malloc(size)
+  #
+  # Allocates +size+ zeroed bytes and returns their address.
+  def self?.malloc: (untyped size) -> untyped
+
+  # call-seq: Fiddle.realloc(addr, size)
+  #
+  # Resizes the memory at +addr+ to +size+ bytes and returns its address,
+  # which can be different from +addr+.
+  def self?.realloc: (untyped addr, untyped size) -> untyped
+
+  # call-seq: Fiddle.free(addr)
+  #
+  # Frees the memory at +addr+.
+  def self?.free: (untyped addr) -> nil
+
+  Qtrue: untyped
+
+  Qfalse: untyped
+
+  Qnil: untyped
+
+  Qundef: untyped
+
+  class Function
+    @closure: untyped
+
+    @name: untyped
+
+    @need_gvl: untyped
+
+    @ptr: untyped
+
+    @argument_types: untyped
+
+    @return_type: untyped
+
+    @abi: untyped
+
+    @is_variadic: untyped
+
+    DEFAULT: untyped
+
+    # call-seq:
+    #    new(ptr, args, ret_type, abi = DEFAULT, name: nil, need_gvl: false)
+    #
+    # A C function at the address +ptr+, which takes arguments of the types
+    # +args+ and returns +ret_type+.
+    def initialize: (*untyped argv, ?name: untyped?, ?need_gvl: bool) -> void
+
+    # call-seq: call(*args)
+    #
+    # Calls the C function with +args+. A variadic function takes its fixed
+    # arguments, then a type and a value for each further argument.
+    def call: (*untyped args) -> untyped
+  end
+
+  class Closure
+    @ctype: untyped
+
+    @args: untyped
+
+    # call-seq: new(ret, args, abi = Fiddle::DEFAULT)
+    #
+    # A C function that calls this object's #call, which returns +ret+ and
+    # takes arguments of the types +args+.
+    def initialize: (*untyped argv) -> void
+
+    # call-seq: to_i
+    #
+    # The address of this closure.
+    def to_i: () -> untyped
+
+    # call-seq: free
+    #
+    # Frees this closure. Doing so twice does nothing.
+    def free: () -> nil
+
+    # call-seq: freed?
+    #
+    # Whether this closure was freed.
+    def freed?: () -> untyped
+  end
+
+  module Native
+    # The C struct behind a Closure: its ffi function.
+    class ClosureState
+      @freed: untyped
+
+      attr_accessor function: untyped
+
+      attr_accessor freed: untyped
+
+      attr_accessor result: untyped
+
+      def initialize: () -> void
+
+      # with_gvl_callback: converts what C passed, calls the closure, and
+      # converts what it returned.
+      def self.invoke: (untyped closure, untyped state, untyped raw) -> untyped
+
+      def self.argument: (untyped type, untyped value) -> untyped
+
+      def self.convert_result: (untyped type, untyped value, untyped state) -> untyped
+    end
+  end
+
+  class Handle
+    RTLD_GLOBAL: untyped
+
+    RTLD_LAZY: untyped
+
+    RTLD_NOW: untyped
+
+    # call-seq:
+    #    new(library = nil, flags = Fiddle::RTLD_LAZY | Fiddle::RTLD_GLOBAL)
+    #
+    # Opens +library+ with +flags+; nil opens the program and the libraries
+    # it has loaded. With a block, yields the handle and closes it after.
+    def initialize: (*untyped args) ?{ (untyped) -> untyped } -> void
+
+    # call-seq: close
+    #
+    # Closes this handle. Closing it twice raises Fiddle::DLError.
+    def close: () -> untyped
+
+    # call-seq: enable_close
+    #
+    # Makes garbage collection of this handle call dlclose().
+    def enable_close: () -> nil
+
+    # call-seq: disable_close
+    #
+    # Keeps garbage collection of this handle from calling dlclose().
+    def disable_close: () -> nil
+
+    # call-seq: close_enabled?
+    #
+    # Whether garbage collection of this handle calls dlclose().
+    def close_enabled?: () -> untyped
+
+    # call-seq: to_i
+    #
+    # The address of this handle.
+    def to_i: () -> untyped
+
+    # call-seq: to_ptr
+    #
+    # This handle as a Fiddle::Pointer.
+    def to_ptr: () -> untyped
+
+    # call-seq: sym(name)
+    #
+    # The address of the symbol +name+.
+    def sym: (untyped name) -> untyped
+
+    alias [] sym
+
+    # call-seq: sym_defined?(name)
+    #
+    # The address of the symbol +name+, or nil when there is none.
+    def sym_defined?: (untyped name) -> untyped
+
+    # call-seq: file_name
+    #
+    # The file this handle opened, where the system can tell.
+    def file_name: () -> (nil | untyped)
+
+    # call-seq: sym(name)
+    #
+    # The address of the symbol +name+, searched for with RTLD_NEXT.
+    def self.sym: (untyped name) -> untyped
+
+    alias self.[] self.sym
+
+    # call-seq: sym_defined?(name)
+    #
+    # The address of the symbol +name+ with RTLD_NEXT, or nil.
+    def self.sym_defined?: (untyped name) -> untyped
+  end
+
+  module Native
+    # The C struct behind a Handle: the value that dlopen returned, whether
+    # the handle is open, and whether garbage collection closes it.
+    class HandleState
+      self.@dlinfo: untyped
+
+      @address: untyped
+
+      @open: untyped
+
+      @enable_close: untyped
+
+      attr_accessor address: untyped
+
+      attr_accessor open: untyped
+
+      attr_accessor enable_close: untyped
+
+      attr_accessor finalizer_defined: untyped
+
+      def initialize: () -> void
+
+      def self.predefined: (untyped address) -> untyped
+
+      def self.close: (untyped state) -> untyped
+
+      # fiddle_handle_find_func: the symbol's address, or 0.
+      def self.find: (untyped address, untyped name) -> untyped
+
+      def self.sym: (untyped address, untyped name) -> untyped
+
+      # dlinfo(RTLD_DI_LINKMAP) and the link map's l_name.
+      def self.linux_file_name: (untyped address) -> untyped
+
+      # dlclose() at garbage collection, when the handle requests it.
+      def finalizer: () -> untyped
+    end
+  end
+
+  class Handle
+    NEXT: untyped
+
+    DEFAULT: untyped
+  end
+
+  class Pointer
+    # call-seq:
+    #    Fiddle::Pointer.malloc(size, freefunc = nil)  => fiddle pointer instance
+    #    Fiddle::Pointer.malloc(size, freefunc) { |pointer| ... } => ...
+    #
+    # Allocates +size+ zeroed bytes. +freefunc+ frees them once: at garbage
+    # collection, at call_free, or when the block ends.
+    def self.malloc: (*untyped args) ?{ (untyped) -> untyped } -> untyped
+
+    # call-seq:
+    #    Fiddle::Pointer[val]  => cptr
+    #    to_ptr(val)           => cptr
+    #
+    # The pointer behind +val+: a FILE* for an IO, the bytes of a String,
+    # the value of +val+.to_ptr, or the address that +val+ converts to.
+    def self.to_ptr: (untyped val) -> untyped
+
+    alias self.[] self.to_ptr
+
+    # call-seq:
+    #    Fiddle::Pointer.read(address, len)  => string
+    #
+    # The +len+ bytes at +address+.
+    def self.read: (untyped address, untyped len) -> untyped
+
+    # call-seq:
+    #    Fiddle::Pointer.write(address, str)
+    #
+    # Writes the bytes of +str+ at +address+.
+    def self.write: (untyped addr, untyped str) -> untyped
+
+    # call-seq:
+    #    Fiddle::Pointer.new(address)       => fiddle_cptr
+    #    new(address, size)                 => fiddle_cptr
+    #    new(address, size, freefunc)       => fiddle_cptr
+    #
+    # A pointer to +address+, with an optional +size+ and a +freefunc+ that
+    # garbage collection calls.
+    def initialize: (*untyped args) -> void
+
+    # call-seq: free=(function)
+    #
+    # Sets the function that frees this pointer's memory.
+    def free=: (untyped val) -> nil
+
+    # call-seq: free => Fiddle::Function
+    #
+    # The function that frees this pointer's memory, or nil.
+    def free: () -> untyped
+
+    # call-seq: call_free => nil
+    #
+    # Calls the free function, once. Does nothing without one.
+    def call_free: () -> nil
+
+    # call-seq: freed? => bool
+    #
+    # Whether the free function was called.
+    def freed?: () -> untyped
+
+    # call-seq: to_i
+    #
+    # The address that this pointer contains.
+    def to_i: () -> untyped
+
+    alias to_int to_i
+
+    # call-seq: to_value
+    #
+    # The Ruby object at this pointer's address.
+    def to_value: () -> untyped
+
+    # call-seq: ptr
+    #
+    # The pointer this pointer points to, like C's * operator.
+    def ptr: () -> untyped
+
+    alias +@ ptr
+
+    # call-seq: ref
+    #
+    # A pointer to this pointer, like C's & operator. Writes through it
+    # change the address that this pointer contains.
+    def ref: () -> untyped
+
+    alias -@ ref
+
+    # call-seq: null?
+    #
+    # Whether this pointer is NULL.
+    def null?: () -> untyped
+
+    # call-seq:
+    #    ptr.to_s        => string
+    #    ptr.to_s(len)   => string
+    #
+    # The bytes up to the first NUL, or +len+ bytes.
+    def to_s: (*untyped args) -> untyped
+
+    # call-seq:
+    #    ptr.to_str        => string
+    #    ptr.to_str(len)   => string
+    #
+    # This pointer's +size+ bytes, or +len+ bytes.
+    def to_str: (*untyped args) -> untyped
+
+    # call-seq: inspect
+    #
+    # This pointer's class, address, size and free function.
+    def inspect: () -> untyped
+
+    # call-seq:
+    #    ptr == other    => true or false
+    #    ptr.eql?(other) => true or false
+    #
+    # Whether +other+ is a pointer to the same address.
+    def ==: (untyped other) -> (false | untyped)
+
+    alias eql? ==
+
+    # call-seq:
+    #    ptr <=> other   => -1, 0, 1, or nil
+    #
+    # Compares the addresses, or returns nil when +other+ is not a pointer.
+    def <=>: (untyped other) -> (nil | untyped)
+
+    # call-seq:
+    #    ptr + n   => new cptr
+    #
+    # A pointer +n+ bytes further on.
+    def +: (untyped other) -> untyped
+
+    # call-seq:
+    #    ptr - n   => new cptr
+    #
+    # A pointer +n+ bytes back.
+    def -: (untyped other) -> untyped
+
+    # call-seq:
+    #    ptr[index]                -> an_integer
+    #    ptr[start, length]        -> a_string
+    #
+    # The byte at +index+, or +length+ bytes from +start+.
+    def []: (*untyped args) -> untyped
+
+    # call-seq:
+    #    ptr[index]         = int                    ->  int
+    #    ptr[start, length] = string or cptr or addr ->  string or dl_cptr or addr
+    #
+    # Sets the byte at +index+, or copies +length+ bytes to +start+ from a
+    # string, a pointer, or an address.
+    def []=: (*untyped args) -> untyped
+
+    # call-seq: size=(size)
+    #
+    # Sets the size of this pointer.
+    def size=: (untyped size) -> untyped
+
+    # call-seq: size
+    #
+    # The size of this pointer.
+    def size: () -> untyped
+  end
+
+  module Native
+    # The C struct behind a Pointer: its address, size and free function,
+    # whether that function ran, and the two objects the pointer keeps
+    # alive (wrap0 for the memory, wrap1 for the free function).
+    class PointerState
+      self.@stdio: untyped
+
+      @address: untyped
+
+      @size: untyped
+
+      @free: untyped
+
+      @freed: untyped
+
+      @cell: untyped
+
+      @watched: untyped
+
+      attr_accessor size: untyped
+
+      attr_accessor free: untyped
+
+      attr_accessor freed: untyped
+
+      attr_accessor wrap0: untyped
+
+      attr_accessor wrap1: untyped
+
+      def initialize: () -> void
+
+      # A new Fiddle::Pointer, which skips initialize, as rb_fiddle_ptr_new2 does.
+      def self.pointer: (untyped address, ?size: ::Integer, ?free: untyped?, ?wrap0: untyped?, ?wrap1: untyped?, ?klass: untyped) -> untyped
+
+      # get_freefunc: the address of a free function, and the object that
+      # gave it when that was no Integer.
+      def self.freefunc: (untyped func) -> (::Array[nil] | ::Array[untyped])
+
+      # rb_str_new(ptr, len)
+      def self.read_string: (untyped address, untyped length) -> untyped
+
+      # rb_io_stdio_file: the FILE* of an IO.
+      def self.stdio_file: (untyped io) -> untyped
+
+      # The address, which lives in native memory once #ref has handed out
+      # a pointer to it.
+      def address: () -> untyped
+
+      def address=: (untyped value) -> untyped
+
+      # The native cell that contains the address, for a pointer to it.
+      def cell_address: () -> untyped
+
+      # fiddle_ptr_free_ptr: calls the free function once.
+      def release: () -> (nil | untyped)
+
+      # Frees the memory at garbage collection, as the C struct's dfree does.
+      def watch: (untyped pointer) -> (nil | untyped)
+
+      # A proc made here keeps this state and not the pointer, because a
+      # finalizer must not reach the pointer.
+      def finalizer: () -> untyped
+
+      # The copy of a String that this pointer contains. It is updated
+      # before a read, and copied back after a write.
+      def refresh: () -> untyped
+
+      def flush: () -> untyped
+    end
+
+    # The native copy of a String that Fiddle::Pointer[string] points to.
+    # C points into the String itself; ruby cannot, so the copy follows
+    # the String: changes to the String reach the copy before fiddle reads
+    # it or passes it to C, and changes to the copy reach the String after
+    # fiddle writes to it or C returns.
+    class Mirror
+      self.@mirrors: untyped
+
+      @string: untyped
+
+      @capacity: untyped
+
+      @memory: untyped
+
+      @address: untyped
+
+      @snapshot: untyped
+
+      # The mirror of `string`, so that one String has one address.
+      def self.for: (untyped string) -> untyped
+
+      # The mirror of a pointer, directly or through the pointer it was
+      # made from.
+      def self.of: (untyped pointer) -> untyped
+
+      def self.of_state: (untyped state) -> untyped
+
+      attr_reader address: untyped
+
+      def initialize: (untyped string) -> void
+
+      # Copies the String into native memory when the String has changed.
+      def refresh: () -> (nil | untyped)
+
+      # Copies native memory into the String when C has changed it.
+      def flush: () -> (nil | untyped)
+    end
+  end
+
+  NULL: untyped
+
+  class Pinned
+    # call-seq:
+    #    Fiddle::Pinned.new(object)      => pinned_object
+    #
+    # A reference that keeps +object+ from moving.
+    def initialize: (untyped ref) -> void
+
+    # call-seq: ref
+    #
+    # The object this instance pins.
+    def ref: () -> untyped
+
+    # call-seq: clear
+    #
+    # Drops the reference.
+    def clear: () -> self
+
+    # call-seq: cleared?
+    #
+    # Whether the reference was dropped.
+    def cleared?: () -> untyped
+  end
+
+  module Native
+    # The C struct behind a Pinned: the VALUE it contains. A cleared one
+    # contains 0, which is the VALUE of false, so pinning false reads as cleared.
+    class PinnedState
+      @ref: untyped
+
+      attr_accessor ref: untyped
+
+      def initialize: () -> void
+
+      def cleared?: () -> untyped
+    end
+  end
+
+  class ClearedReferenceError < Error
+  end
+
+  # A byte view of a Fiddle::Pointer, the one class here that exports
+  # memory: other objects have no memory view to give.
+  class MemoryView
+    # call-seq: export(target) { |memory_view| ... }
+    #
+    # Yields a view of +target+ and releases it after.
+    def self.export: (untyped target) ?{ (untyped) -> untyped } -> untyped
+
+    # call-seq: new(target)
+    #
+    # A view of the memory of +target+.
+    def initialize: (untyped target) -> void
+
+    # call-seq: release
+    #
+    # Releases the view.
+    def release: () -> nil
+
+    def obj: () -> untyped
+
+    def byte_size: () -> untyped
+
+    def readonly?: () -> untyped
+
+    def format: () -> untyped
+
+    def item_size: () -> untyped
+
+    def ndim: () -> untyped
+
+    def shape: () -> untyped
+
+    def strides: () -> untyped
+
+    def sub_offsets: () -> untyped
+
+    # call-seq: [](index)
+    #
+    # The byte at +index+.
+    def []: (*untyped indices) -> untyped
+
+    # call-seq: to_s
+    #
+    # The viewed bytes, as a frozen binary String. C's String shares the
+    # memory; this one contains a copy.
+    def to_s: () -> untyped
+
+    private
+
+    def viewed: () { (untyped) -> untyped } -> untyped
+  end
+
+  module Native
+    # The C struct behind a MemoryView: the viewed object and its bytes.
+    class MemoryViewState
+      @obj: untyped
+
+      @byte_size: untyped
+
+      attr_accessor obj: untyped
+
+      attr_accessor address: untyped
+
+      attr_accessor byte_size: untyped
+
+      def pointer_state: () -> untyped
+
+      def release: () -> (nil | untyped)
+    end
+  end
+end

@@ -1,0 +1,144 @@
+module Zr
+  module IR
+    # The first byte of a value name. Each entity name is a sigil and a
+    # number, and only a value name starts with `v`.
+    VALUE_SIGIL: untyped
+
+    # Whether `name` is a value name. Only values have names that start
+    # with `v`: a block is `block0`, a global `gv0`, a slot `ss0`, a callee
+    # `fn0` and a signature `sig0`.
+    #
+    # This compares one byte and does not use `start_with?`, because that
+    # method takes `*prefixes` and makes an Array at each call. The
+    # compiler calls this method more than any other: 19 million times in
+    # one cold runtime build.
+    #  (untyped name) -> bool
+    def self.value?: (untyped name) -> untyped
+
+    # One instruction, with only the opcodes that zr emits: an opcode, its
+    # type (`iadd.i64`, or none), its operands, its results, and the fields
+    # of the control and memory forms.
+    #
+    # Operands are value names (`"v3"`), block names (`"block2"`), entity
+    # names (`"fn0"`, `"gv1"`, `"ss2"`) or an Integer immediate.
+    #
+    # The IR defines the result of each opcode. Each backend and the
+    # interpreter must give the same result (test/native/fixtures.rb
+    # `divide` tests this):
+    #
+    # - i8 and i32 arithmetic is 32 bits wide, and i64 is 64 bits wide.
+    # - `udiv` and `sdiv` by zero give 0; `urem` and `srem` by zero give
+    #   the dividend.
+    # - The most negative number `sdiv` -1 wraps to itself, and `srem` -1
+    #   gives 0.
+    # - A shift uses its amount modulo the width.
+    # - `ctz` and `clz` of zero give the width; `popcnt` counts the set
+    #   bits; `bswap` reverses the bytes. All four are as wide as their
+    #   operand, which is i32 or i64.
+    # - A function takes, and a call passes, at most `REGISTER_ARGS` values.
+    #   A call to a wasm import passes all the arguments of the import,
+    #   because no native backend makes such a call.
+    class Inst
+      @op: untyped
+
+      @type: untyped
+
+      @args: untyped
+
+      @results: untyped
+
+      @cond: untyped
+
+      @offset: untyped
+
+      @targets: untyped
+
+      @callee: untyped
+
+      @flags: untyped
+
+      @region: untyped
+
+      # Opcodes that end a block. A `switch` is a jump table: its first
+      # operand is an integer value, the others are its keys (Integers,
+      # masked to the value's type, in rising order), and its targets are
+      # the default and then one target for each key. Like a `brif`, it
+      # passes no block arguments.
+      TERMINATORS: ::Array[:jump | :brif | :switch | :return]
+
+      # Opcodes with two results.
+      PAIRS: ::Array[:sadd_overflow | :ssub_overflow | :smul_overflow]
+
+      # The two-operand integer opcodes with one result.
+      BINOPS: ::Array[:iadd | :isub | :imul | :udiv | :sdiv | :urem | :srem | :band | :bor | :bxor | :ishl | :ushr | :sshr]
+
+      # The shifts. Their amount can be any integer width.
+      SHIFTS: ::Array[:ishl | :ushr | :sshr]
+
+      # The opcodes whose operands can change places.
+      COMMUTATIVE: ::Array[:iadd | :imul | :band | :bor | :bxor]
+
+      # The one-operand integer opcodes: the bit operations.
+      BITOPS: ::Array[:ctz | :clz | :popcnt | :bswap]
+
+      # The comparison conditions.
+      CONDS: ::Array["eq" | "ne" | "slt" | "sle" | "sgt" | "sge" | "ult" | "ule" | "ugt" | "uge"]
+
+      # The two-operand and one-operand f64 opcodes.
+      FBINOPS: ::Array[:fadd | :fsub | :fmul | :fdiv]
+
+      FUNOPS: ::Array[:fneg | :fabs | :sqrt | :floor | :ceil | :trunc | :nearest]
+
+      # Float comparisons: false when either side is NaN, except `ne`.
+      FCONDS: ::Array["eq" | "ne" | "lt" | "le" | "gt" | "ge"]
+
+      # The conversions between i64 and f64: by value, and by bits.
+      CONVERSIONS: ::Array[:fcvt_from_sint | :fcvt_to_sint_sat | :bitcast]
+
+      # The gate word. The kernel keeps it in its own register (`x28`; a
+      # global on wasm). `gates` reads it. `gates_set` writes it after a
+      # store of the word. `gates_enter` loads it where foreign code enters
+      # compiled code; at return, the register gets back the value of the
+      # foreign code.
+      GATES: ::Array[:gates | :gates_set | :gates_enter]
+
+      # `region`: for a load or a store, the `IR::Effects` region of the
+      # word, or nil when the lowering does not know it.
+      attr_accessor op: untyped
+
+      attr_accessor type: untyped
+
+      attr_accessor args: untyped
+
+      attr_accessor results: untyped
+
+      attr_accessor cond: untyped
+
+      attr_accessor offset: untyped
+
+      attr_accessor targets: untyped
+
+      attr_accessor callee: untyped
+
+      attr_accessor flags: untyped
+
+      attr_accessor region: untyped
+
+      # @rbs op: Symbol
+      # @rbs type: String?
+      # @rbs args: Array[untyped]
+      # @rbs results: Array[String]
+      # @rbs cond: String?
+      # @rbs offset: Integer
+      # @rbs targets: Array[untyped]?
+      # @rbs callee: String?
+      # @rbs flags: untyped
+      # @rbs region: untyped
+      # @rbs return: void
+      def initialize: (untyped op, ?type: untyped?, ?args: untyped, ?results: untyped, ?cond: untyped?, ?offset: ::Integer, ?targets: untyped?, ?callee: untyped?, ?flags: untyped?, ?region: untyped?) -> void
+
+      #  () -> bool
+      def terminator?: () -> untyped
+    end
+  end
+end

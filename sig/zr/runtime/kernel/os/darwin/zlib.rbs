@@ -1,0 +1,3 @@
+module Zr::Kern
+  def zr_zlib_os_code: () -> 19
+end

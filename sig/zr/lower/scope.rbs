@@ -1,0 +1,75 @@
+module Zr
+  class Lower
+    # What a scope's body needs in its frame record: staging slots for
+    # sends. Whether it needs an Env is `Hir::Locals`.
+    module Scope
+      # The iterators that a site with a block literal runs inline
+      # (Function::Iterators), each with the maximum parameter count of
+      # its block.
+      ITERATORS: { each: 1, times: 1, map: 1, select: 1, upto: 1 }
+
+      # The iterators that take arguments, with their count: `upto` takes
+      # its limit.
+      ITERATOR_ARGS: { upto: 1 }
+
+      # The record slots that an inline iterator keeps above its receiver:
+      # its block's locals and its index. `map` and `select` also keep the
+      # Array that they make.
+      def self?.loop_slots: (untyped node) -> untyped
+
+      # Whether `node` is a send of one of ITERATORS that a site can run
+      # inline. It needs its plain arguments (ITERATOR_ARGS, else none), an
+      # explicit receiver, and a block literal with at most one plain
+      # parameter. The block must contain no block, open no binding, and
+      # pass `loop_body?`. The block keeps its locals in the site's
+      # record, so `staging` counts them.
+      def self?.iterator_template?: (untyped node) -> (false | untyped)
+
+      # Whether a block body can run in the frame of its enclosing scope.
+      # Nothing in it can need the block's own frame or define under it:
+      # no super, no def or class body, and no trace or coverage entry (a
+      # traced program keeps every frame).
+      def self?.loop_body?: (untyped node) -> untyped
+
+      # The maximum record slots above `base` that the sends under `node`
+      # need at one time. A send keeps its receiver and arguments while an
+      # argument's own sends run above them. An ensure body can run from a
+      # jump anywhere in its region, above the jump's value. An operator
+      # assignment keeps its receiver, arguments and current value during
+      # the read and the write.
+      def self?.staging: (untyped node, ?::Integer base) -> untyped
+
+      # The slots that a MultiTarget's targets stage before the value: a
+      # receiver and arguments for each send, and the scope of each
+      # constant written through an expression (`a::B, c = ...`).
+      def self?.prepared: (untyped target) -> untyped
+
+      def self?.staged_in: (untyped target) -> untyped
+
+      # The slots for destructuring into `target`: one Array per level.
+      def self?.targets: (untyped target) -> untyped
+
+      # `parts` evaluated one after another into consecutive slots.
+      def self?.row: (untyped parts, untyped base) -> untyped
+
+      # `parts` pushed one after another into one collection in a slot,
+      # as for a splat.
+      def self?.gathered: (untyped parts, untyped base) -> untyped
+
+      # A hash literal with a `**`: the hash in one slot, each plain pair
+      # staged in two slots above it, and each spread evaluated there.
+      def self?.spread_pairs: (untyped pairs, untyped base) -> untyped
+
+      def self?.spread?: (untyped parts) -> untyped
+
+      # Whether a call's keywords are `k: v` pairs with distinct Symbol
+      # keys and no `**`. These go as trailing values with a static table
+      # of the keys (lib/zr/runtime/kernel/send.rb, `zr_kw_pass`). All other
+      # keywords go as one Hash.
+      def self?.literal_keywords?: (untyped kwargs) -> untyped
+
+      # The record slots for a call's keywords, in addition to its arguments.
+      def self?.keyword_slots: (untyped kwargs) -> (0 | untyped)
+    end
+  end
+end

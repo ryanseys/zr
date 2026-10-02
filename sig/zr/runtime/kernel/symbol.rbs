@@ -1,0 +1,60 @@
+module Zr::Kern
+  # Symbols. The tagged word contains the id, and a table contains the
+  # name. The compiler puts each static name in `zr_symbol_names`, a table
+  # of `zr_symbol_count` entries of (bytes, length). Names interned at run
+  # time go in a table of the same shape outside the arena.
+  Symtab: untyped
+
+  def zr_symtab: () -> untyped
+
+  # The tag of a pad: a row of the static table that no symbol has. The
+  # runtime's table ends in pads, so the ids after it stay the same while
+  # the runtime gains names (Machine::Symbols). No encoding has this index.
+  SYM_PAD: 255
+
+  def zr_symbol_pad_p: (untyped id) -> untyped
+
+  def zr_static_symbol_count: () -> untyped
+
+  def zr_symbol_row: (untyped id) -> untyped
+
+  def zr_symbol_name_ptr: (untyped id) -> untyped
+
+  def zr_symbol_name_len: (untyped id) -> untyped
+
+  def zr_symbol_tag: (untyped id) -> untyped
+
+  def zr_symbol_encoding_index: (untyped id) -> untyped
+
+  def zr_bytes_eq: (untyped a, untyped alen, untyped b, untyped blen) -> (false | true)
+
+  def zr_intern: (untyped p, untyped n) -> untyped
+
+  def zr_symbol_hash: (untyped p, untyped n, untyped tag) -> untyped
+
+  def zr_symbol_index_drop: () -> untyped
+
+  def zr_symbol_index_put: (untyped id) -> untyped
+
+  def zr_symbol_index_build: () -> untyped
+
+  def zr_symbol_index_add: (untyped id) -> (nil | untyped)
+
+  def zr_symbol_index_find: (untyped p, untyped n, untyped tag) -> untyped
+
+  def zr_intern_tagged: (untyped p, untyped n, untyped tag) -> untyped
+
+  def zr_sym_to_s: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_sym_cmp: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_sym_to_proc_m: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_all_symbols: () -> untyped
+
+  def zr_symbol_table: () -> untyped
+
+  def zr_intern_id: (untyped name) -> untyped
+
+  def zr_static_sites: () -> untyped
+end

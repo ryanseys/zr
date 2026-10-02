@@ -1,0 +1,125 @@
+module Zr
+  module Obj
+    module MachO
+      # Writes a relocatable Mach-O 64 object for arm64 (`MH_OBJECT`) from
+      # an `Obj::Unit`. One unnamed segment contains `__TEXT,__text`, `__TEXT,__const`,
+      # `__DATA,__const`, `__DATA,__data` and `__DATA,__bss`; then `LC_BUILD_VERSION`,
+      # `LC_SYMTAB` and `LC_DYSYMTAB`. The symbol order is local, exported,
+      # imported, each group sorted by name, because `ld` reads that order. The
+      # layout follows <mach-o/loader.h>, <mach-o/nlist.h> and
+      # <mach-o/arm64/reloc.h>.
+      module ObjectFile
+        MH_MAGIC_64: 4277009103
+
+        CPU_TYPE_ARM64: 16777228
+
+        MH_OBJECT: 1
+
+        MH_SUBSECTIONS_VIA_SYMBOLS: 8192
+
+        LC_SEGMENT_64: 25
+
+        LC_SYMTAB: 2
+
+        LC_DYSYMTAB: 11
+
+        LC_BUILD_VERSION: 50
+
+        PLATFORM_MACOS: 1
+
+        S_REGULAR: 0
+
+        S_ZEROFILL: 1
+
+        S_ATTR_PURE_INSTRUCTIONS: 2147483648
+
+        S_ATTR_SOME_INSTRUCTIONS: 1024
+
+        N_UNDF: 0
+
+        N_EXT: 1
+
+        N_SECT: 14
+
+        NO_SECT: 0
+
+        # arm64 relocation types, and for each: pc-relative?, log2 length.
+        RELOC: { abs64: ::Array[0 | 3], branch26: ::Array[2 | 1], page21: ::Array[3 | 1 | 2], pageoff12: ::Array[4 | 0 | 2], got_page21: ::Array[5 | 1 | 2], got_pageoff12: ::Array[6 | 0 | 2] }
+
+        ARM64_RELOC_ADDEND: 10
+
+        # The sections, in file order, with the `Obj` sections that go in each.
+        SECTIONS: ::Array[::Array["__text" | "__TEXT" | untyped | ::Array[:function]] | ::Array["__const" | "__TEXT" | untyped | ::Array[:text_const]] | ::Array["__const" | "__DATA" | untyped | ::Array[:data_const]] | ::Array["__data" | "__DATA" | untyped | ::Array[:data]] | ::Array["__bss" | "__DATA" | untyped | ::Array[:bss]]]
+
+        Placed: untyped
+
+        # An object as `read` returns it. `symbols` contains two words for
+        # each symbol, packed as in `nlist_64`: the string offset, type,
+        # section and description in the first word, the value in the
+        # second. `strings` is the string table.
+        Read: untyped
+
+        # A section as `read` returns it. `relocs` contains two words for
+        # each `relocation_info`: the address and the packed other fields.
+        Section: untyped
+
+        # Reads back an object that this module wrote, and returns what a
+        # link needs. It reads only the layout that `write` makes, and
+        # refuses all others. It slices each field before it unpacks it,
+        # because `unpack` in the compiled runtime copies the full string.
+        def self?.read: (untyped bytes) -> untyped
+
+        # Returns a unit in the form that `read` returns, without writing an
+        # object. The linker takes this form as input; writing and reading
+        # the object instead costs 18% of a link. `read(write(unit))` must
+        # equal `of(unit)`; `test/unit/macho_test.rb` checks this.
+        def self?.of: (untyped unit) -> untyped
+
+        # One symbol as the two words of its `nlist_64`: n_strx, n_type,
+        # n_sect and a zero n_desc in the first, n_value in the second.
+        def self?.nlist_words: (untyped sym) -> ::Array[untyped]
+
+        # One symbol, packed as `nlist_64`.
+        def self?.nlist: (untyped sym) -> untyped
+
+        # Returns the bytes of the object file.
+        def self?.write: (untyped unit, ?minos: untyped) -> untyped
+
+        # The layout before any bytes are written: the sections and their
+        # bytes, the symbol table, the relocations and the string table.
+        # Both `write` and `of` start from this layout.
+        Laid: untyped
+
+        # A section while `laid_out` builds it. `addr`, `offset` and `reloff`
+        # stay zero until the layout reaches them; `items` holds each item
+        # with its offset in the section.
+        SectionBuild: untyped
+
+        # A symbol while `laid_out` builds it. `bare` is the name without the
+        # leading `_`. `strx` stays nil until the string table exists.
+        Sym: untyped
+
+        def self?.laid_out: (untyped unit) -> untyped
+
+        # A laid-out unit as a Mach-O object file.
+        def self?.bytes: (untyped laid, untyped minos) -> untyped
+
+        # Every defined symbol, then every import, in the order that `ld` needs.
+        def self?.symbol_table: (untyped unit, untyped placed) -> untyped
+
+        # Returns an item's bytes. An `abs64` relocation puts its addend in
+        # the slot that it patches, because `ld` reads it there.
+        def self?.with_addends: (untyped item) -> untyped
+
+        # Returns `[address, words]`: the relocation_info entries for one
+        # relocation, two 32-bit words each. An ADDEND entry comes first
+        # when the addend is not zero.
+        def self?.relocation: (untyped address, untyped r, untyped symbol) -> ::Array[untyped]
+
+        def self?.pad16: (untyped s) -> untyped
+
+        def self?.version: (untyped) -> untyped
+      end
+    end
+  end
+end

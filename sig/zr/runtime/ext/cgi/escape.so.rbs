@@ -1,0 +1,56 @@
+# The escapes cgi/escape.so writes in C, in ruby. The library's own ruby
+# half (vendor/ruby/lib/ruby/4.0.0/cgi/escape.rb) requires this file where it requires
+# the extension, so everything around it is the library as written. An
+# escape reads the bytes of a string in an ASCII-compatible encoding and
+# leaves any other string to that ruby half, as the extension calls
+# `super` for one.
+class CGI
+  module EscapeExt
+    HTML: { "'" => "&#39;", "&" => "&amp;", "\"" => "&quot;", "<" => "&lt;", ">" => "&gt;" }
+
+    UNHTML: { "apos" => "'", "amp" => "&", "quot" => "\"", "gt" => ">", "lt" => "<" }
+
+    # What a URL leaves as it is: RFC 3986's unreserved characters.
+    RESERVED: ::Regexp
+
+    def escapeHTML: (untyped str) -> untyped
+
+    # optimized_unescape_html: the five names, and a character reference
+    # below the encoding's limit, which a UTF-8 string takes as its
+    # character's bytes and any other as one byte.
+    def unescapeHTML: (untyped str) -> untyped
+
+    def escape: (untyped str) -> untyped
+
+    def unescape: (*untyped args) -> untyped
+
+    def escapeURIComponent: (untyped str) -> untyped
+
+    alias escape_uri_component escapeURIComponent
+
+    def unescapeURIComponent: (*untyped args) -> untyped
+
+    alias unescape_uri_component unescapeURIComponent
+
+    private
+
+    # optimized_escape: each reserved byte as `%XX`, and a space as `+`
+    # when the form encoding requests one.
+    def escaped: (untyped str, plus: untyped) -> untyped
+
+    # optimized_unescape: each `%XX` as its byte, and a `+` as a space
+    # where the form encoding wrote one. A `%` with no room for two hex
+    # digits after it ends the scan. The bytes take `encoding` when they
+    # are valid in it, and keep the string's own when they are not.
+    def unescaped: (untyped str, untyped encoding, plus: untyped) -> untyped
+
+    # The charset CGI::Escape keeps, read as CLASS_OF(self) reads it.
+    def accept_charset: () -> untyped
+  end
+
+  module Escape
+    prepend EscapeExt
+  end
+
+  extend EscapeExt
+end

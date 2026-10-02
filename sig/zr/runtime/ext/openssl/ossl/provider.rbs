@@ -1,0 +1,25 @@
+# ossl_provider.c: OpenSSL::Provider, the OpenSSL 3 providers a program
+# loads.
+module OpenSSL
+  class Provider
+    class ProviderError < OpenSSLError
+    end
+  end
+
+  module Ossl
+    # The provider is OpenSSL's until unloaded; nothing frees it.
+    PROVIDER: untyped
+  end
+
+  class Provider
+    def self.load: (untyped name) -> untyped
+
+    def self.provider_names: () -> untyped
+
+    def unload: () -> true
+
+    def name: () -> untyped
+
+    def inspect: () -> ::String
+  end
+end

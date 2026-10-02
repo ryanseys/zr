@@ -1,0 +1,205 @@
+module Zr
+  # A target that zr emits code for: its instruction set, its OS, its
+  # object format, and the facts that a build reads from them. The gem
+  # runs on any host. A target tells what it builds, and `refusal` tells
+  # whether this host can build it.
+  class Target
+    # Every target, by triple (`Target.register`).
+    self.@registry: untyped
+
+    @triple: untyped
+
+    @arch: untyped
+
+    @os: untyped
+
+    @libc: untyped
+
+    @object_format: untyped
+
+    @word: untyped
+
+    @page: untyped
+
+    @symbol_prefix: untyped
+
+    @ruby_platform: untyped
+
+    @link: untyped
+
+    @outputs: untyped
+
+    @min_os: untyped
+
+    attr_reader triple: untyped
+
+    attr_reader symbol_prefix: untyped
+
+    attr_reader ruby_platform: untyped
+
+    attr_reader arch: untyped
+
+    attr_reader os: untyped
+
+    attr_reader object_format: untyped
+
+    attr_reader libc: untyped
+
+    attr_reader link: untyped
+
+    attr_reader word: untyped
+
+    attr_reader page: untyped
+
+    attr_reader outputs: untyped
+
+    attr_reader min_os: untyped
+
+    # `outputs` are the outputs zr can build for the target: `:native`
+    # (a binary), `:obj` (an object) and `:wasm` (a module). `min_os` is
+    # the oldest OS version that a binary loads on ("14.0"), or nil when
+    # the target records none.
+    #
+    # @rbs triple: String
+    # @rbs arch: Symbol
+    # @rbs os: Symbol
+    # @rbs object_format: Symbol
+    # @rbs page: Integer
+    # @rbs symbol_prefix: String
+    # @rbs ruby_platform: String
+    # @rbs link: Symbol?
+    # @rbs outputs: Array[Symbol]
+    # @rbs libc: Symbol?
+    # @rbs word: Integer
+    # @rbs min_os: String?
+    # @rbs return: void
+    def initialize: (triple: untyped, arch: untyped, os: untyped, object_format: untyped, page: untyped, symbol_prefix: untyped, ruby_platform: untyped, link: untyped, outputs: untyped, ?libc: untyped?, ?word: ::Integer, ?min_os: untyped?) -> void
+
+    #  () -> String
+    def to_s: () -> untyped
+
+    # The runtime layer that zr lowers with for each OS. lib/zr/runtime/kernel/os/,
+    # lib/zr/runtime/core/os/ and lib/zr/runtime/ext/os/ each contain one directory per layer.
+    OS_LAYERS: { darwin: "darwin", linux: "linux", wasi: "wasi" }
+
+    # The machine layer, under lib/zr/runtime/kernel/arch/.
+    ARCH_LAYERS: { aarch64: "aarch64", wasm32: "wasm32" }
+
+    #  () -> String
+    def os_layer: () -> untyped
+
+    #  () -> String
+    def arch_layer: () -> untyped
+
+    # The oldest macOS that a darwin binary loads on.
+    MIN_MACOS: "14.0"
+
+    # RUBY_PLATFORM of a darwin target. Ruby names the Darwin version of
+    # the macOS that it was built for, and Darwin N is macOS N - 9. A
+    # binary gives the platform of the oldest macOS that it loads on, as
+    # ruby gives the platform that it was built for.
+    #  (String min_os) -> String
+    def self.darwin_platform: (untyped min_os) -> ::String
+
+    # `min_os` as the three numbers of a Mach-O LC_BUILD_VERSION.
+    #  () -> Array[Integer]
+    def min_os_parts: () -> untyped
+
+    #  (Target target) -> Target
+    def self.register: (untyped target) -> untyped
+
+    AARCH64_DARWIN: untyped
+
+    AARCH64_LINUX_MUSL: untyped
+
+    WASM32_WASI: untyped
+
+    # The target with this `triple`, or nil.
+    #  (String triple) -> Target?
+    def self.fetch: (untyped triple) -> untyped
+
+    #  () -> Array[Target]
+    def self.all: () -> untyped
+
+    # This host as a triple: `aarch64-apple-darwin`, `aarch64-linux-musl`,
+    # or what ruby says.
+    #  () -> String
+    def self.host_triple: () -> ::String
+
+    # The target whose binaries this host runs, or nil.
+    #  () -> Target?
+    def self.host: () -> untyped
+
+    # The target of a build that gives no target: the host's own, else
+    # aarch64-apple-darwin.
+    #  () -> Target
+    def self.default: () -> untyped
+
+    #  () -> bool
+    def native?: () -> untyped
+
+    # Whether this host can run the target's native binary: its own target,
+    # or a static musl binary on another Linux of the same machine.
+    #  () -> bool
+    def runs_here?: () -> untyped
+
+    # Whether a program for this target can write machine code into
+    # itself while it runs. Eval support does this. A wasm module's code
+    # is fixed when the engine instantiates it, and WASI gives a guest no
+    # way to make a second module. So there, eval uses the tree-walking
+    # interpreter (lib/zr/eval/walk.rb).
+    #  () -> bool
+    def jits?: () -> untyped
+
+    # The output for `emit`: `:native` for nil, else the symbol.
+    #  (String | Symbol | nil emit) -> Symbol
+    def self.output: (untyped emit) -> (untyped | :native)
+
+    # Whether this host can link a binary for this target. zr's own
+    # Mach-O linker needs no tool on any host, unless `ZR_LINKER=cc`
+    # selects the system linker. All other links run the target's C
+    # compiler driver: the host's own or a cross toolchain's.
+    #  () -> bool
+    def linkable?: () -> (true | untyped)
+
+    # The command that this host runs for the target's tool `name`
+    # ("cc"), or nil. On the target's own host, it is the plain tool.
+    # On other hosts, it is a cross toolchain's tool, prefixed with the
+    # triple as musl-cross and crosstool do (`aarch64-linux-musl-gcc`).
+    #
+    # A glibc Linux host of the same machine can link a musl binary with
+    # musl's own wrapper (`musl-gcc`), or with the compiler that `$CC`
+    # names.
+    #  (String name) -> String?
+    def tool: (untyped name) -> untyped
+
+    # Other names that a cross toolchain can use for a tool.
+    CROSS_NAMES: { "cc" => ::Array["gcc"] }
+
+    # The names of musl's wrapper for a tool, on a host with another libc.
+    MUSL_NAMES: { "cc" => ::Array["musl-gcc"] }
+
+    # Whether this is a musl target, and the host is another Linux of the
+    # same machine.
+    #  () -> bool
+    def musl_on_linux?: () -> (false | untyped)
+
+    # Whether `name` is a tool that this host can run.
+    #  (String name) -> bool
+    def self.tool?: (untyped name) -> untyped
+
+    # The path of the executable `name`, or nil. A name with a `/` is a
+    # path; any other name is looked for on PATH.
+    #  (String name) -> String?
+    def self.which: (untyped name) -> untyped
+
+    # How to get a C compiler on this host.
+    #  (?os_release: String) -> String
+    def self.cc_hint: (?os_release: ::String) -> ("xcode-select --install" | "apk add build-base" | "apt install musl-tools" | "install musl-gcc, or set CC to a C compiler for musl")
+
+    # nil when this host can build `emit` (nil for a native binary, "obj"
+    # or "wasm") for this target, else the message a refusal prints.
+    #  (String | Symbol | nil emit) -> String?
+    def refusal: (untyped emit) -> (::String | nil | untyped)
+  end
+end

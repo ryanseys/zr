@@ -1,0 +1,798 @@
+# File and Dir: the path functions, which are pure, and the file
+# system calls of a program.
+class File < IO
+  @nonblock: untyped
+
+  Separator: "/"
+
+  SEPARATOR: untyped
+
+  ALT_SEPARATOR: nil
+
+  PATH_SEPARATOR: ":"
+
+  def self.basename: (untyped path, ?untyped suffix) -> untyped
+
+  def self.dirname: (untyped path, ?::Integer level) -> untyped
+
+  def self.extname: (untyped path) -> untyped
+
+  def self.split: (untyped path) -> ::Array[untyped]
+
+  # `DATA`: the main program's text after its `__END__` line, as a File
+  # at that byte. ruby reads it from the script that it keeps open. A
+  # binary has no script next to it, so its source text goes into a file
+  # that is unlinked immediately, and the File returns the script's path
+  # as ruby's does.
+  def self.data: (untyped source, untyped at, untyped path) -> untyped
+
+  # ruby's rb_file_join: one separator at each join, taken from
+  # the side that already has one, so "a//" and "//b" join as
+  # "a//b" and not "a////b".
+  def self.join: (*untyped parts) -> untyped
+
+  # rb_file_join: an Array in the parts is joined first, and an Array
+  # that contains itself is refused.
+  def self.joined: (untyped parts, untyped joining) -> untyped
+
+  def self.absolute_path?: (untyped path) -> untyped
+
+  def self.expand_path: (untyped path, ?untyped? dir) -> untyped
+
+  # An absolute path with its `.` and `..` names and repeated slashes
+  # gone. The slashes that start it stay as they are, as
+  # rb_file_expand_path_internal copies them.
+  def self.normalized: (untyped full) -> untyped
+
+  # `~` and `~user` at the front name a home directory.
+  def self.expand_home: (untyped path) -> untyped
+
+  # A leading `~` is a name here rather than a home directory, which is
+  # where this and expand_path part company.
+  def self.absolute_path: (untyped path, ?untyped? dir) -> untyped
+
+  def self.exist?: (untyped path) -> untyped
+
+  def self.file?: (untyped path) -> untyped
+
+  def self.directory?: (untyped path) -> untyped
+
+  # IO_WITHOUT_GVL: a file system call that can block, which the
+  # scheduler of a non-blocking fiber can run as it decides. The block
+  # makes the call and returns its result. An exception from the call
+  # raises after, here.
+  def self.without_gvl: () { (?) -> untyped } -> untyped
+
+  # What a path names, as rb_stat reads it: 0 nothing, 1 a directory,
+  # 2 a file, and more for the other kinds.
+  def self.kind_of_path: (untyped path) -> untyped
+
+  # rb_stat: an IO, or an object whose `to_io` gives one, is asked with
+  # fstat(2) on its descriptor, not by a path. Else nil.
+  def self.stat_io: (untyped file) -> (untyped | nil)
+
+  MODES: ::Array["r" | "r+" | "w" | "w+" | "a" | "a+"]
+
+  # A path, with a mode string ("r", "w+", "ab", ...) or open(2) flags;
+  # or, as rb_file_initialize reads one or two arguments, a descriptor.
+  def initialize: (untyped path, ?untyped mode, ?untyped perm, **untyped options) -> void
+
+  private
+
+  # The descriptor for a FIFO, which waits one scheduler step at a time. A
+  # write end gives ENXIO until a reader opens; a read end opens immediately.
+  def fifo_fd: (untyped path, untyped text) -> untyped
+
+  public
+
+  def self.size: (untyped path) -> untyped
+
+  def self.size?: (untyped path) -> untyped
+
+  def self.zero?: (untyped path) -> untyped
+
+  def self.empty?: (untyped path) -> untyped
+
+  def self.readable?: (untyped path) -> untyped
+
+  def self.writable?: (untyped path) -> untyped
+
+  def self.executable?: (untyped path) -> untyped
+
+  # rb_eaccess.
+  def self.accessible?: (untyped path, untyped mode) -> untyped
+
+  def self.delete: (*untyped paths) -> untyped
+
+  def self.unlink: (*untyped paths) -> untyped
+
+  def self.rename: (untyped from, untyped to) -> 0
+
+  # The fields of stat(2) at one moment, read once.
+  class Stat
+    @dev: untyped
+
+    @ino: untyped
+
+    @mode: untyped
+
+    @nlink: untyped
+
+    @uid: untyped
+
+    @gid: untyped
+
+    @rdev: untyped
+
+    @size: untyped
+
+    @blksize: untyped
+
+    @blocks: untyped
+
+    @atime_s: untyped
+
+    @atime_ns: untyped
+
+    @mtime_s: untyped
+
+    @mtime_ns: untyped
+
+    @ctime_s: untyped
+
+    @ctime_ns: untyped
+
+    @birth_s: untyped
+
+    @birth_ns: untyped
+
+    include Comparable
+
+    FIELDS: ::Array[:dev | :ino | :mode | :nlink | :uid | :gid | :rdev | :size | :blksize | :blocks]
+
+    def initialize: (untyped path) -> void
+
+    private
+
+    # A Stat's rows are plain values, and a copy takes them all.
+    def initialize_copy: (untyped other) -> self
+
+    public
+
+    # The rows of `path`, and the C function a failure names.
+    # rb_stat, the call that may block.
+    def self.of: (untyped path, untyped site) -> untyped
+
+    # A stream opened from a descriptor has no path, so fstat(2) is the
+    # only way to its rows.
+    def self.for_fd: (untyped fd) -> untyped
+
+    def atime: () -> untyped
+
+    def mtime: () -> untyped
+
+    def ctime: () -> untyped
+
+    # darwin keeps a birth time; another system gives the change time.
+    def birthtime: () -> untyped
+
+    # A device is one number whose halves name the driver and the unit,
+    # which is where darwin's major() and minor() cut it.
+    def dev_major: () -> untyped
+
+    def dev_minor: () -> untyped
+
+    def rdev_major: () -> untyped
+
+    def rdev_minor: () -> untyped
+
+    def ftype: () -> untyped
+
+    def directory?: () -> untyped
+
+    def file?: () -> untyped
+
+    def symlink?: () -> untyped
+
+    def pipe?: () -> untyped
+
+    def socket?: () -> untyped
+
+    def chardev?: () -> untyped
+
+    def blockdev?: () -> untyped
+
+    def size?: () -> (nil | untyped)
+
+    def zero?: () -> untyped
+
+    def readable?: () -> untyped
+
+    def writable?: () -> untyped
+
+    def executable?: () -> untyped
+
+    def setuid?: () -> untyped
+
+    def setgid?: () -> untyped
+
+    def sticky?: () -> untyped
+
+    def owned?: () -> untyped
+
+    def grpowned?: () -> untyped
+
+    def world_readable?: () -> (untyped | nil)
+
+    def world_writable?: () -> (untyped | nil)
+
+    def readable_real?: () -> untyped
+
+    def writable_real?: () -> untyped
+
+    def executable_real?: () -> untyped
+
+    def <=>: (untyped other) -> (nil | untyped)
+
+    def inspect: () -> untyped
+
+    private
+
+    def stat: (untyped path, untyped site) -> untyped
+
+    def take: (untyped fields) -> self
+
+    # Made from lstat(2), which does not follow a symbolic link.
+    def self.link: (untyped path, ?untyped site) -> untyped
+  end
+
+  # A shell pattern against a path: `*`, `?` and `[...]` never cross a
+  # `/` under FNM_PATHNAME, where `**/` also matches any run of
+  # directories; a leading dot needs FNM_DOTMATCH; `\` escapes unless
+  # FNM_NOESCAPE; braces alternate under FNM_EXTGLOB.
+  # file_fnmatch: the pattern as a C string, and with FNM_EXTGLOB each
+  # pattern its braces give, until one matches.
+  def self.fnmatch: (untyped pattern, untyped path, ?::Integer flags) -> untyped
+
+  def self.fnmatch?: (untyped pattern, untyped path, ?::Integer flags) -> untyped
+
+  # StringValueCStr's check: a NUL character, which in a wide encoding
+  # is a whole code unit of zeros.
+  def self.nul_char?: (untyped text) -> untyped
+
+  # dir.c's fnmatch over bytes already in `enc`, as glob calls it.
+  def self.fnmatch_bytes: (untyped pattern, untyped name, untyped flags, untyped enc) -> untyped
+
+  # dir.c's fnmatch, fnmatch_helper and bracket over the bytes of a
+  # pattern and a path, a character at a time in their encoding. The end
+  # of either reads as the NUL that ends a C string.
+  class FnMatch
+    @pat: untyped
+
+    @str: untyped
+
+    @onig: untyped
+
+    @period: untyped
+
+    @pathname: untyped
+
+    @escape: untyped
+
+    @nocase: untyped
+
+    SLASH: 47
+
+    STAR: 42
+
+    QUESTION: 63
+
+    OPEN: 91
+
+    CLOSE: 93
+
+    BACKSLASH: 92
+
+    DOT: 46
+
+    BANG: 33
+
+    CARET: 94
+
+    DASH: 45
+
+    def initialize: (untyped pattern, untyped path, untyped flags, untyped enc) -> void
+
+    # fnmatch: with FNM_PATHNAME, each "**/" matches any directories,
+    # one at a time; a name that starts with "." needs FNM_DOTMATCH.
+    def match?: () -> (untyped | true | false)
+
+    private
+
+    # The byte at `i`, or 0 past the end.
+    def at: (untyped bytes, untyped i) -> untyped
+
+    def inc: (untyped bytes, untyped i) -> untyped
+
+    def unescape: (untyped p) -> untyped
+
+    def ends?: (untyped bytes, untyped i) -> untyped
+
+    def code: (untyped bytes, untyped i) -> untyped
+
+    # rb_enc_toupper: ASCII letters alone have another case here.
+    def upper: (untyped c) -> untyped
+
+    def same?: (untyped p, untyped len, untyped s) -> untyped
+
+    # fnmatch_helper: one path component (or the whole path) against the
+    # pattern from p. Answers [matched, p, s] where it stopped.
+    def helper: (untyped p, untyped s) -> (::Array[false | untyped] | ::Array[true | untyped] | ::Array[untyped] | untyped)
+
+    # bracket: a `[...]` set from p, against the character at s. Answers
+    # the index after the closing bracket, or nil where the set does not
+    # match or never closes.
+    def bracket: (untyped p, untyped s) -> (nil | untyped)
+  end
+
+  def self.stat: (untyped path) -> untyped
+
+  def self.lstat: (untyped path) -> untyped
+
+  def self.mtime: (untyped path) -> untyped
+
+  def self.atime: (untyped path) -> untyped
+
+  def self.ctime: (untyped path) -> untyped
+
+  def self.ftype: (untyped path) -> untyped
+
+  def self.symlink?: (untyped path) -> untyped
+
+  # stat(2), or lstat(2) where `follow` is false, as the call that may
+  # block: the fields, or the negative errno.
+  def self.stat_fields: (untyped path, ?bool follow) -> untyped
+
+  # rb_check_realpath_internal: realpath(3), and where it stops at a
+  # file in the middle or at a name that exists after all, the walk of
+  # rb_check_realpath_emulate.
+  def self.realpath: (untyped path, ?untyped? dir) -> untyped
+
+  # rb_check_realpath_emulate and realpath_rec: each name in turn from
+  # the working directory or the root, a link followed where it points.
+  # A name that is missing is an error, which names the path resolved so
+  # far, except the last name for realdirpath.
+  def self.realpath_walk: (untyped path, untyped last_may_miss) -> untyped
+
+  # The names resolved onto `resolved`, where "" is the root.
+  def self.realpath_names: (untyped resolved, untyped names, untyped last_may_miss, untyped seen) -> untyped
+
+  def self.chmod: (untyped mode, *untyped paths) -> untyped
+
+  def self.lchmod: (untyped mode, *untyped paths) -> untyped
+
+  def self.chown: (untyped owner, untyped group, *untyped paths) -> untyped
+
+  def self.lchown: (untyped owner, untyped group, *untyped paths) -> untyped
+
+  # utime takes its times in seconds, as Integers, Floats or Times, to
+  # the nanosecond. Both times nil are now, as utimensat(2) takes no
+  # times.
+  def self.utime: (untyped atime, untyped mtime, *untyped paths) -> untyped
+
+  # A link takes its own times, rather than passing them on to what it
+  # points at.
+  def self.lutime: (untyped atime, untyped mtime, *untyped paths) -> untyped
+
+  def self.timespecs: (untyped atime, untyped mtime) -> untyped
+
+  # time_timespec: a Time, a number, or an object that responds to
+  # `divmod(1)`, as [seconds, nanoseconds].
+  def self.timespec: (untyped time) -> (::Array[untyped] | ::Array[untyped | 0] | untyped)
+
+  # apply2files: runs the block over each path in one call that can
+  # block, and returns how many paths it changed. The first failure
+  # raises with CRuby's own label.
+  def self.each_path: (untyped paths) { (untyped) -> untyped } -> untyped
+
+  def self.link: (untyped from, untyped to) -> 0
+
+  def self.symlink: (untyped from, untyped to) -> 0
+
+  # Ruby gives both paths, except when the entry already exists: then
+  # the message gives only the second path, under the helper that
+  # decides.
+  def self.fail2: (untyped code, untyped site, untyped from, untyped to) -> untyped
+
+  def self.readlink: (untyped path) -> untyped
+
+  def self.mkfifo: (untyped path, ?::Integer mode) -> 0
+
+  def self.truncate: (untyped path, untyped length) -> 0
+
+  def self.umask: (?untyped? mask) -> untyped
+
+  def self.birthtime: (untyped path) -> untyped
+
+  def self.blockdev?: (untyped path) -> untyped
+
+  def self.chardev?: (untyped path) -> untyped
+
+  def self.pipe?: (untyped path) -> untyped
+
+  def self.socket?: (untyped path) -> untyped
+
+  def self.mode_kind?: (untyped path, untyped kind) -> untyped
+
+  # The same check with no scheduler to run it, where ruby makes the call
+  # itself.
+  def self.mode_kind_now?: (untyped path, untyped kind) -> untyped
+
+  # The permission bits when everyone may read (or write) the file,
+  # else nil.
+  def self.world_readable?: (untyped path) -> untyped
+
+  def self.world_writable?: (untyped path) -> untyped
+
+  def self.mode_when: (untyped path, untyped bit) -> (nil | untyped)
+
+  def self.setuid?: (untyped path) -> untyped
+
+  def self.setgid?: (untyped path) -> untyped
+
+  def self.sticky?: (untyped path) -> untyped
+
+  def self.mode_set?: (untyped path, untyped bit) -> untyped
+
+  def self.owned?: (untyped path) -> untyped
+
+  def self.grpowned?: (untyped path) -> untyped
+
+  def self.stat_field: (untyped path, untyped index) -> untyped
+
+  # The same file: one device and one inode.
+  def self.identical?: (untyped a, untyped b) -> untyped
+
+  # `access(2)` checks the real user. The plain forms also check that user.
+  def self.readable_real?: (untyped path) -> untyped
+
+  def self.writable_real?: (untyped path) -> untyped
+
+  def self.executable_real?: (untyped path) -> untyped
+
+  def self.path: (untyped object) -> untyped
+
+  # `realpath` where the last name need not exist.
+  def self.realdirpath: (untyped path, ?untyped? dir) -> untyped
+
+  # A path argument, as CRuby's rb_get_path takes it: a String, or the
+  # value of `to_path` or `to_str`, with no NUL byte in it.
+  def self.path_of: (untyped path) -> untyped
+
+  # rb_file_size: fstat(2) on the stream's own descriptor.
+  def size: () -> untyped
+
+  def lstat: () -> untyped
+
+  def atime: () -> untyped
+
+  def mtime: () -> untyped
+
+  def ctime: () -> untyped
+
+  def birthtime: () -> untyped
+
+  def chmod: (untyped mode) -> 0
+
+  def chown: (untyped owner, untyped group) -> 0
+
+  def truncate: (untyped length) -> 0
+
+  # rb_file_flock: a blocking lock is tried without blocking, and between
+  # tries the thread sleeps, so the other threads run while it waits.
+  def flock: (untyped operation) -> (false | 0)
+
+  private
+
+  # The fopen mode for a Ruby mode string or open(2) flags.
+  def self.open_mode: (untyped mode) -> untyped
+
+  # The open(2) flags a fopen mode names.
+  def self.open_flags: (untyped text) -> untyped
+end
+
+# `FileTest` has the same predicates as File, as a module that a program
+# can mix in. Ruby gives the same results for both.
+module FileTest
+end
+
+class Dir
+  self.@chdir_depth: untyped
+
+  self.@chdir_thread: untyped
+
+  self.@chdir_where: untyped
+
+  @path: untyped
+
+  @names: untyped
+
+  @pos: untyped
+
+  @fd: untyped
+
+  include Enumerable
+
+  # A directory reached through a descriptor: the path it was opened
+  # under is not knowable, so the names come from the descriptor.
+  def self.for_fd: (untyped fd) -> untyped
+
+  # With a block, the directory changes back afterwards, as it does
+  # for Dir.chdir.
+  def self.fchdir: (untyped fd) ?{ () -> untyped } -> (0 | untyped)
+
+  def self.move_to_fd: (untyped fd) -> untyped
+
+  def self.chroot: (untyped path) -> 0
+
+  # The process moves into this directory, and with a block back again.
+  def chdir: () { (?) -> untyped } -> untyped
+
+  # A Dir is the directory's names and a cursor over them, read once
+  # when it opens.
+  # CRuby writes Dir's opening and globbing in Ruby (its dir.rb), so
+  # they return their own parameters, under CRuby's names.
+  def initialize: (untyped name, ?encoding: untyped?) -> void
+
+  # A directory contains its names, a cursor over them, and the descriptor
+  # it was opened with, which #fileno returns.
+  def take_names: (untyped path, untyped names, untyped fd) -> self
+
+  def self.open: (untyped name, ?encoding: untyped?) ?{ (untyped) -> untyped } -> untyped
+
+  attr_reader path: untyped
+
+  alias to_path path
+
+  def inspect: () -> untyped
+
+  def close: () -> nil
+
+  def read: () -> untyped
+
+  # The cursor is the index of the next name. CRuby returns the value of
+  # `telldir`, which is a cookie for `seek` only.
+  # Each refuses a closed Dir, as dir_check does.
+  def pos: () -> untyped
+
+  def tell: () -> untyped
+
+  def pos=: (untyped where) -> untyped
+
+  def seek: (untyped where) -> self
+
+  def rewind: () -> self
+
+  def each: () ?{ (untyped) -> untyped } -> (untyped | self)
+
+  def children: () -> untyped
+
+  def each_child: () ?{ (?) -> untyped } -> (untyped | self)
+
+  # The descriptor the directory reads under. A closed directory has
+  # none, and says so in the same words as every other call on it.
+  def fileno: () -> untyped
+
+  private
+
+  # The names, or the error that a closed directory raises.
+  def open_names: () -> untyped
+
+  public
+
+  def self.pwd: () -> untyped
+
+  def self.getwd: () -> untyped
+
+  def self.exist?: (untyped path) -> untyped
+
+  def self.mkdir: (untyped path, ?::Integer mode) -> 0
+
+  def self.rmdir: (untyped path) -> 0
+
+  def self.unlink: (untyped path) -> untyped
+
+  def self.delete: (untyped path) -> untyped
+
+  # Every name in the directory, including `.` and `..`. `encoding:`
+  # gives the encoding of the names. The runtime reads the file system
+  # in one encoding, so the names are tagged with it.
+  def self.entries: (untyped path, ?encoding: untyped?) -> untyped
+
+  def self.children: (untyped path, ?encoding: untyped?) -> untyped
+
+  def self.each_child: (untyped path, ?encoding: untyped?) ?{ (?) -> untyped } -> (untyped | nil)
+
+  def self.foreach: (untyped path, ?encoding: untyped?) ?{ (?) -> untyped } -> (untyped | nil)
+
+  # A path to a file is not an empty directory; a path to nothing
+  # raises.
+  def self.empty?: (untyped path) -> (false | untyped)
+
+  # dir_s_glob: one pattern or an Array of them, the matches in the order
+  # the walk finds them, each directory's names sorted unless `sort:` is
+  # false. FNM_CASEFOLD has no effect here.
+  def self.glob: (untyped pattern, ?::Integer _flags, ?flags: untyped, ?base: untyped?, ?sort: bool) ?{ (untyped) -> untyped } -> (untyped | nil)
+
+  def self.[]: (*untyped args, ?base: untyped?, ?sort: bool) -> untyped
+
+  # dir.c's glob: glob_make_pattern splits a pattern into parts, and
+  # glob_helper walks them through the directories they reach, depth
+  # first, reading each directory once. A brace at the head expands
+  # first; a later one expands where the walk reaches it.
+  class Glob
+    @pattern: untyped
+
+    @base: untyped
+
+    @flags: untyped
+
+    @escape: untyped
+
+    # A darwin volume matches names without their case, and a plain
+    # name reads its real case back (USE_NAME_ON_FS_REAL_BASENAME).
+    @real_basename: untyped
+
+    @enc: untyped
+
+    @onig: untyped
+
+    @found: untyped
+
+    PLAIN: 0
+
+    ALPHA: 1
+
+    BRACE: 2
+
+    MAGICAL: 3
+
+    RECURSIVE: 4
+
+    MATCH_ALL: 5
+
+    MATCH_DIR: 6
+
+    # rb_pathtype_t: path_exist is a name that exists as some kind.
+    UNKNOWN: -2
+
+    NOENT: -1
+
+    EXIST: 0
+
+    DIRECTORY: 1
+
+    SYMLINK: 2
+
+    OTHER: 3
+
+    # Flags that only the walk uses.
+    NOSORT: untyped
+
+    SKIPDOT: untyped
+
+    # One part of a pattern: a name to match, `**/`, or the end, which
+    # matches the path itself (with a slash for MATCH_DIR).
+    class Part
+      @type: untyped
+
+      @str: untyped
+
+      attr_reader type: untyped
+
+      attr_reader str: untyped
+
+      attr_accessor next: untyped
+
+      def initialize: (untyped type, untyped str) -> void
+    end
+
+    def self.sort_option: (untyped sort) -> (untyped | 0)
+
+    def self.base_option: (untyped base) -> (nil | untyped)
+
+    # dir_globs: each pattern of a list, which must name a path.
+    def self.each_of: (untyped list, untyped base, untyped flags) -> untyped
+
+    # rb_push_glob: a String may not hold a NUL, which once separated
+    # patterns; anything else must name a path.
+    def self.push: (untyped pattern, untyped base, untyped flags) -> untyped
+
+    def initialize: (untyped pattern, untyped base, untyped flags) -> void
+
+    def run: () -> untyped
+
+    # ruby_brace_expand: the patterns that the first outermost `{...}`
+    # gives, one for each of its alternatives, with their own braces
+    # expanded in turn. A `{` that never closes gives no pattern at all,
+    # and a backslash hides the brace or comma after it.
+    def self.expand_braces: (untyped pattern, ?bool escape) -> untyped
+
+    private
+
+    # ruby_glob0: a brace at the head expands first; an absolute pattern
+    # starts at "/", a relative one at the base or here.
+    def glob0: (untyped pattern) -> (nil | untyped)
+
+    def at: (untyped bytes, untyped i) -> untyped
+
+    def step: (untyped bytes, untyped i) -> untyped
+
+    # find_dirsep: the slash that ends a part, outside a `[...]`.
+    def find_dirsep: (untyped bytes, untyped p) -> untyped
+
+    # has_magic: BRACE for a `{`, MAGICAL for a wildcard, ALPHA for a
+    # letter, else PLAIN.
+    def magic: (untyped bytes, untyped p, untyped stop) -> untyped
+
+    # glob_make_pattern: the parts, then the end, which wants a directory
+    # where the pattern ends in a slash. Plain parts in a row join, where
+    # a name can be looked up as it is.
+    def make_pattern: (untyped bytes) -> untyped
+
+    # join_path.
+    def join: (untyped path, untyped dirsep, untyped name) -> untyped
+
+    # The pattern of the parts from `part` on, as a string again.
+    def joined: (untyped part) -> untyped
+
+    def match?: (untyped pattern, untyped name, untyped flags) -> untyped
+
+    def kind_of: (untyped path, untyped follow) -> untyped
+
+    def emit: (untyped path) -> untyped
+
+    # glob_helper: the parts in `parts` at `path`, whose kind is `type`.
+    def helper: (untyped path, untyped baselen, untyped namelen, untyped dirsep, untyped type, untyped parts, untyped flags) -> (nil | untyped)
+
+    # The entries of a directory, each against every part.
+    def walk: (untyped path, untyped baselen, untyped namelen, untyped dirsep, untyped parts, untyped flags, untyped _recursive) -> (nil | untyped)
+
+    # The plain parts, each looked up by its name, with the parts that
+    # match the same name walked together.
+    def plainly: (untyped path, untyped baselen, untyped namelen, untyped dirsep, untyped parts, untyped flags) -> untyped
+
+    # remove_backslashes.
+    def unescaped: (untyped bytes) -> untyped
+
+    # replace_real_basename: the last name of the path as the directory
+    # spells it, where the volume matches names without their case.
+    def real_basename: (untyped path, untyped base) -> ::Array[untyped]
+  end
+
+  # With a block, the directory changes back afterwards; without one
+  # it stays. No argument means the home directory.
+  def self.chdir: (?untyped path) ?{ (untyped) -> untyped } -> untyped
+
+  # dir.c's chdir lock: a chdir inside another thread's chdir block is
+  # an error, and one without a block inside a block of this thread
+  # warns, with where that block began.
+  def self.check_chdir: (untyped block) -> (nil | untyped)
+
+  def self.chdir_block: (untyped where) { () -> untyped } -> untyped
+
+  def self.move_to: (untyped path, ?untyped site) -> 0
+
+  # This process's home from the environment, a named user's from the
+  # password file.
+  # dir_s_home: a user named by an empty String is no user at all.
+  def self.home: (?untyped? user) -> untyped
+end
+
+module Kernel
+  private
+
+  # `test(command, file, other = nil)`: one letter that selects the
+  # check on a file, as the shell's own test does.
+  def self?.test: (untyped command, untyped file, ?untyped? other) -> untyped
+end

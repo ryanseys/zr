@@ -1,0 +1,191 @@
+# Enumerable over `each`, in the shape of CRuby's C implementation: a
+# block passed on to `each`, whose yields are the element, packed into
+# an Array when there are several values. Each such block returns nil,
+# so an `each` that stops on a truthy return value (as `find_index`
+# does) sees every element.
+module Enumerable
+  def map: () ?{ (?) -> untyped } -> untyped
+
+  def select: () ?{ (untyped) -> untyped } -> untyped
+
+  def reject: () ?{ (untyped) -> untyped } -> untyped
+
+  # filter_map and the other iterators that yield with rb_yield_values2
+  # give the block each step's values as `each` gave them.
+  def filter_map: () ?{ (?) -> untyped } -> untyped
+
+  def find: (?untyped ifnone) ?{ (?) -> untyped } -> untyped
+
+  def any?: (*untyped pattern) ?{ (?) -> untyped } -> (true | false)
+
+  def all?: (*untyped pattern) ?{ (?) -> untyped } -> (false | true)
+
+  def none?: (*untyped pattern) ?{ (?) -> untyped } -> (false | true)
+
+  def count: (?untyped item) ?{ (?) -> untyped } -> untyped
+
+  def sort: () { (?) -> untyped } -> untyped
+
+  def sort_by: () ?{ (untyped) -> untyped } -> untyped
+
+  def take_while: () ?{ (?) -> untyped } -> untyped
+
+  def drop_while: () ?{ (untyped) -> untyped } -> untyped
+
+  def each_with_object: (untyped memo) ?{ (untyped, untyped) -> untyped } -> untyped
+
+  def flat_map: () ?{ (?) -> untyped } -> untyped
+
+  # Its own body, as CRuby binds both names to one function: a subclass's
+  # flat_map is not called, and an Enumerator made from it names
+  # `collect_concat`.
+  def collect_concat: () ?{ (?) -> untyped } -> untyped
+
+  def group_by: () ?{ (untyped) -> untyped } -> untyped
+
+  def partition: () ?{ (untyped) -> untyped } -> (untyped | ::Array[untyped])
+
+  # The count that an enumerator reports: the receiver's own, so an
+  # endless source returns it without being walked. A receiver with no
+  # size, or one whose size is unknown, leaves the enumerator's unknown
+  # too. `enum_size` calls rb_check_funcall, which calls a method that the
+  # receiver keeps private, and takes its return value as it is.
+  def enumerable_size: () -> untyped
+
+  # What a cycle counts: nothing when the receiver counts nothing or
+  # has no count to give; infinity when no round count was given;
+  # otherwise the given rounds (a round count of zero or less is none).
+  def cycle_size: (untyped rounds, untyped endless) -> untyped
+
+  def each_cons: (untyped n) ?{ (untyped) -> untyped } -> (untyped | self)
+
+  def each_slice: (untyped n) ?{ (untyped) -> untyped } -> (untyped | self)
+
+  def each_entry: (*untyped args) ?{ (untyped) -> untyped } -> (untyped | self)
+
+  def min_by: (?untyped n) ?{ (untyped) -> untyped } -> untyped
+
+  def max_by: (?untyped n) ?{ (untyped) -> untyped } -> untyped
+
+  # CRuby's rb_nmin_run, behind min(n), max(n), min_by(n) and
+  # max_by(n): a buffer of 4n rows that quickselect cuts back to n each
+  # time it fills, the last pivot kept as a limit an element must beat
+  # to be buffered at all, and the survivors sorted at the end. Among
+  # equal keys it is quickselect that picks which rows survive, so this
+  # keeps CRuby's choice, not merely its order. A row is the element,
+  # or in `by` mode its key and the element.
+  def nmin_run: (untyped num, untyped by, untyped rev, untyped block, untyped ary) -> (::Array[untyped] | untyped)
+
+  def min: (?untyped? n) { (?) -> untyped } -> untyped
+
+  def max: (?untyped? n) { (?) -> untyped } -> untyped
+
+  # What `each` yields, gathered as enum_to_a gathers it: a subclass's
+  # own `to_a` is not called.
+  def elements: (*untyped args) -> untyped
+
+  # One pass, as CRuby makes it: the elements in pairs, each pair
+  # ordered once, then its low against the low so far and its high
+  # against the high.
+  def minmax: () { (?) -> untyped } -> ::Array[untyped]
+
+  # `a <=> b` through `block` when given, refused as CRuby refuses a
+  # result of nil.
+  def compared: (untyped a, untyped b, ?untyped? block) -> untyped
+
+  def one?: (*untyped pattern) ?{ (?) -> untyped } -> (false | untyped)
+
+  def tally: (?untyped? counts) -> untyped
+
+  def zip: (*untyped others) { (?) -> untyped } -> untyped
+
+  def take: (untyped n) -> untyped
+
+  def drop: (untyped n) -> untyped
+
+  def find_index: (?untyped v) { (?) -> untyped } -> (untyped | nil)
+
+  # With a block, the block's value of each step's values is the key, and
+  # the first step with each key stays, as uniq_iter does.
+  def uniq: () ?{ (?) -> untyped } -> untyped
+
+  # `to_a` again, under its own name: a class's own `to_a` does not
+  # change it, as CRuby defines both from one function.
+  def entries: (*untyped args) -> untyped
+
+  def first: (?untyped n) -> (untyped | nil)
+
+  def to_a: (*untyped args) -> untyped
+
+  def include?: (untyped target) -> (true | false)
+
+  def each_with_index: (*untyped args) ?{ (untyped, untyped) -> untyped } -> (untyped | self)
+
+  def inject: (*untyped args) { (?) -> untyped } -> untyped
+
+  # inject and reduce, which CRuby defines from one function.
+  def injected: (untyped args, untyped block) -> untyped
+
+  def reduce: (*untyped args) { (?) -> untyped } -> untyped
+
+  # Exact while it can be; from the first Float met while the sum is
+  # still an Integer or a Rational, Kahan-Babuska compensated, as CRuby's
+  # enum_sum adds. A value that is no number ends the compensation: the
+  # sum goes on without it, with that value's own `+`.
+  def sum: (?::Integer init) ?{ (untyped) -> untyped } -> untyped
+end
+
+module Enumerable
+  # Its own body, so an Enumerator made from it names `collect`, and a
+  # subclass's `map` is not called.
+  def collect: () ?{ (?) -> untyped } -> untyped
+
+  alias filter select
+
+  alias find_all select
+
+  alias detect find
+
+  alias member? include?
+
+  def to_h: (*untyped args) ?{ (?) -> untyped } -> untyped
+
+  def compact: () -> untyped
+
+  def reverse_each: (*untyped args) ?{ (?) -> untyped } -> (untyped | self)
+
+  def cycle: (?untyped n) ?{ (untyped) -> untyped } -> (untyped | nil)
+
+  # One pass, as enum_minmax_by makes it: the elements in pairs, the
+  # pair's keys compared once, then the low against the low so far and
+  # the high against the high.
+  def minmax_by: () ?{ (untyped) -> untyped } -> (untyped | ::Array[untyped])
+
+  def grep: (untyped pattern) ?{ (untyped) -> untyped } -> untyped
+
+  def grep_v: (untyped pattern) ?{ (untyped) -> untyped } -> untyped
+
+  # The slicing methods stream: each returns an enumerator that reads
+  # its source as it runs, so an endless source still gives its first
+  # slices.
+  def chunk_while: () ?{ (?) -> untyped } -> untyped
+
+  def slice_when: () ?{ (?) -> untyped } -> untyped
+
+  def slice_before: (?untyped? pattern) { (?) -> untyped } -> untyped
+
+  def slice_after: (?untyped? pattern) { (?) -> untyped } -> untyped
+
+  def chunk: () ?{ (untyped) -> untyped } -> untyped
+
+  # An enumerator of runs, a new run starting where the block says
+  # the previous element and this one part.
+  def sliced: () { (?) -> untyped } -> untyped
+
+  def chain: (*untyped others) -> untyped
+
+  def lazy: () -> untyped
+
+  # CRuby writes this one in Ruby, so it returns its own parameters.
+  def to_set: (*untyped args) { (?) -> untyped } -> untyped
+end

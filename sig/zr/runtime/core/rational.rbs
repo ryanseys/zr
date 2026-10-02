@@ -1,0 +1,153 @@
+# Rational: an exact fraction of two Integers, the denominator positive
+# and the pair reduced. CRuby keeps them in hidden fields; here they are
+# hidden ivars, so a Rational shows no instance variables.
+class Rational < Numeric
+  private
+
+  # A reduced fraction; `d` must not be zero.
+  def self.build: (untyped n, untyped d) -> untyped
+
+  # A value of any numeric kind as a Rational, as Kernel#Rational reads
+  # it; nil when `exception` is false and it cannot be.
+  def self.convert: (untyped value, untyped exception) -> (nil | untyped)
+
+  # parse_rat: a sign, a number with a fraction and an exponent, and an
+  # optional `/` and a second such number. `strict` (Rational()) wants
+  # nothing else but white space; String#to_r (`exception` is :loose)
+  # takes the longest start that reads, and 0 when none does.
+  def self.parse: (untyped text, untyped exception) -> (nil | untyped)
+
+  # read_num: [the digits as one Integer, the power of ten that divides
+  # it, the byte after], or nil when no digit starts it.
+  def self.read_num: (untyped text, untyped s) -> (nil | ::Array[untyped])
+
+  # rb_int_parse_cstr with RB_INT_PARSE_UNDERSCORE: digits, each `_`
+  # between two of them; [value, count of digits, byte after].
+  def self.read_int: (untyped text, untyped s) -> (nil | ::Array[untyped])
+
+  def self.skip_space: (untyped text, untyped s) -> untyped
+
+  public
+
+  def numerator: () -> untyped
+
+  def denominator: () -> untyped
+
+  def to_r: () -> self
+
+  def to_i: () -> untyped
+
+  # nurat_to_double: the quotient rb_int_fdiv_double rounds once.
+  def to_f: () -> untyped
+
+  def to_s: () -> untyped
+
+  def inspect: () -> untyped
+
+  def hash: () -> untyped
+
+  def positive?: () -> untyped
+
+  def negative?: () -> untyped
+
+  def abs: () -> (untyped | self)
+
+  alias magnitude abs
+
+  def -@: () -> untyped
+
+  def +: (untyped other) -> untyped
+
+  def -: (untyped other) -> untyped
+
+  def *: (untyped other) -> untyped
+
+  def /: (untyped other) -> untyped
+
+  alias quo /
+
+  def fdiv: (untyped other) -> untyped
+
+  def **: (untyped other) -> untyped
+
+  def <=>: (untyped other) -> untyped
+
+  def ==: (untyped other) -> untyped
+
+  def coerce: (untyped other) -> untyped
+
+  def floor: (?::Integer digits) -> untyped
+
+  def ceil: (?::Integer digits) -> untyped
+
+  def truncate: (?::Integer digits) -> untyped
+
+  def round: (?::Integer digits, ?half: untyped?) -> untyped
+
+  # The simplest fraction within `eps` of this one.
+  def rationalize: (?untyped? eps) -> (self | untyped)
+
+  # The fraction with the smallest denominator in [a, b].
+  def self.simplest: (untyped a, untyped b) -> untyped
+
+  private
+
+  # `digits` decimal places kept (a Rational), or an Integer for zero or
+  # fewer, the block deciding how `n / d` rounds.
+  def rounded: (untyped digits) { (untyped, untyped) -> untyped } -> untyped
+
+  def coerced: (untyped other, untyped op) -> untyped
+end
+
+module Kernel
+  private
+
+  def self?.Rational: (untyped a, *untyped rest, ?exception: bool) -> (nil | untyped)
+end
+
+class Integer
+  def to_r: () -> untyped
+
+  def rationalize: (?untyped? eps) -> untyped
+
+  def numerator: () -> self
+
+  def denominator: () -> 1
+end
+
+class Float
+  # The exact binary fraction that this double contains.
+  def to_r: () -> untyped
+
+  # The simplest fraction that reads back as this double, or one within
+  # `eps` of it.
+  def rationalize: (?untyped? eps) -> untyped
+
+  # An infinity or NaN is its own numerator over one.
+  def numerator: () -> (untyped | self)
+
+  def denominator: () -> (untyped | 1)
+end
+
+class String
+  def to_r: () -> untyped
+end
+
+class NilClass
+  def to_r: () -> untyped
+
+  # CRuby writes this one in Ruby (its nilclass.rb).
+  def rationalize: (?untyped? eps) -> untyped
+end
+
+class Rational
+  private
+
+  # What Marshal writes: the two parts, already in lowest terms.
+  def marshal_dump: () -> ::Array[untyped]
+
+  def marshal_load: (untyped pair) -> untyped
+
+  # f_format: the numerator and the denominator, each as `form` writes it.
+  def formatted: (untyped form) -> untyped
+end

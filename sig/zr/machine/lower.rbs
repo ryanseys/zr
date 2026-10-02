@@ -1,0 +1,304 @@
+module Zr
+  # The typed lowering of the kernel. A unit of one or more files, each
+  # one `module Zr::Kern` of plain Ruby, contains `Libc.import`,
+  # `Name = layout`, `Name = fn` and constant declarations, and
+  # `sig`-typed defs. Each def lowers directly to one IR function. The
+  # types are `I8 I32 Word Ptr Value F64 Bool Void`. A local gets its type
+  # from its first assignment and is in a frame slot; `IR::Mem2Reg`
+  # changes the slot to values when no other code takes its address. A
+  # call goes to an import (`Libc.name`), to a def of the same unit, or
+  # through a pointer (`Name.call`). zr refuses a form that the typed
+  # lowering does not have, with a message that gives the form and the
+  # line.
+  module Machine
+    class Refused < Zr::Refused
+      @line: untyped
+
+      attr_reader line: untyped
+
+      # Minitest copies an exception that it cannot marshal with only its
+      # message, so a message alone is also accepted.
+      def initialize: (untyped node, ?untyped? message, ?untyped? file) -> void
+    end
+
+    # Compiles `source` to `[functions, data, raw]`: IR functions, the
+    # data objects they refer to, and the names of the raw functions they
+    # call.
+    def self.compile: (untyped source, untyped file, ?symbols: untyped) -> untyped
+
+    # Several files as one unit: every declaration is visible to every
+    # file, in any order, and a def may call a def of any file. Only the
+    # tests use it; a build uses `Machine.unit`.
+    def self.compile_unit: (untyped paths, ?symbols: untyped) -> untyped
+
+    # Returns the compiled unit. Another lowering can read its layouts
+    # and constants.
+    def self.unit: (untyped paths, ?symbols: untyped) -> untyped
+
+    class Lower
+      @sources: untyped
+
+      @symbols: untyped
+
+      @checked: untyped
+
+      @imports: untyped
+
+      @defs: untyped
+
+      @consts: untyped
+
+      @structs: untyped
+
+      @const_values: untyped
+
+      @layouts: untyped
+
+      @resolving: untyped
+
+      @sigs: untyped
+
+      @functions: untyped
+
+      @data: untyped
+
+      @raw: untyped
+
+      @next_bytes: untyped
+
+      @statics: untyped
+
+      @collectors: untyped
+
+      @collects: untyped
+
+      @inline: untyped
+
+      @inlined: untyped
+
+      @file: untyped
+
+      include Immediates
+
+      attr_reader functions: untyped
+
+      attr_reader data: untyped
+
+      attr_reader raw: untyped
+
+      attr_reader symbols: untyped
+
+      attr_reader defs: untyped
+
+      def initialize: (untyped sources, ?untyped symbols, ?checked: untyped) -> void
+
+      def run: () -> ::Array[untyped]
+
+      # Sets the effects (`IR::Effects`) of each def: the regions that its
+      # stores write, plus the effects of the defs it calls (a fixpoint).
+      # A store's region comes from the lowering or from the origin of its
+      # address. An import writes what `Effects.import` returns. A raw
+      # function and a call through a pointer write everything.
+      # A store through an address of unknown origin writes `UNKNOWN`. It
+      # also writes each guard word whose address escapes as a value
+      # anywhere in the unit (passed, stored, compared), because a pointer
+      # to that word can then be anywhere. The result goes to each
+      # function's callees, and the description gives it to the program
+      # lowering and to eval support.
+      def assign_effects: () -> untyped
+
+      # Returns `{ value => [root, offset] }` for each value of `f` that is
+      # the address of a slot (root `:slot`) or of a symbol, or that
+      # address plus a constant.
+      def placements: (untyped f) -> untyped
+
+      # Returns the region bits of each guard word (a gate, a stamp, the
+      # task) whose address `f` uses as something other than the base of
+      # a load or a store, or the addend of a constant. The `return` of an
+      # inlined def (`zr_gates`, `zr_current_task_slot`) is not an escape.
+      # No caller in this unit gets the address from a call. A caller in
+      # a different unit stores through the address in its own function,
+      # and the passes of that function do not know where such a store goes.
+      def escaping_statics: (untyped f, untyped placed) -> untyped
+
+      # What `f`'s own instructions write.
+      def local_effects: (untyped f, untyped placed, untyped escaped) -> untyped
+
+      # What one store writes: the region from the lowering, if there is
+      # one; else the region of the static or slot of its address; else
+      # all memory that a pointer can reach.
+      def store_effects: (untyped i, untyped placed, untyped escaped) -> (untyped | 0)
+
+      # The static word that heads the chain of kernel root frames.
+      ROOTS: "kroots"
+
+      # Whether a call to `name` may run the collector: it is declared
+      # with `Machine.collects`, or it reaches one that is, or it calls
+      # through a pointer.
+      def collects?: (untyped name) -> untyped
+
+      # Whether a call to `callee` lowers the callee's body in place of a
+      # call. The kernel has many defs of one expression (a tag test, the
+      # address of a static, a load from it). A call costs a frame, saved
+      # registers and two branches, which is more than the body. The
+      # collector makes such calls for each reference it reads.
+      #
+      # Only a small body that cannot run the collector, and that has no
+      # `while` or `break`, is inlined. The def also lowers as a function,
+      # so its symbol is available to callers that the kernel does not
+      # see: eval support and `Machine.addr`.
+      def inline?: (untyped callee) -> (false | untyped)
+
+      # A body declared `Machine.inline` (of any size) must run the
+      # collector only in the last call of an arm of its last `if`, and
+      # the arguments of that call must not collect. That call gives the
+      # value of the body, so the body uses no Value after a collection.
+      # The call roots its own arguments. The caller roots its values as
+      # it does around a call.
+      def tail_collecting?: (untyped node) -> untyped
+
+      def collecting?: (untyped node) -> untyped
+
+      # No `while` or `break`, because they have a different meaning in
+      # the caller.
+      def jumpless?: (untyped node) -> (false | untyped)
+
+      # The maximum number of Prism nodes in an inlined body.
+      INLINE_NODES: 32
+
+      # A `return` is permitted: when inlined, it is a jump to the end of
+      # the body (`Function#ret`). A `while` or a `break` is not, because
+      # the roots of a loop and the target of a break belong to the def.
+      #
+      # The `Libc` of an import call is not a node, and `Name.call(p)`
+      # counts one more. Thus the count is the same as in the dialect that
+      # the kernel was written in before (`Machine.call(:name, p)`), and
+      # the same defs are inlined.
+      def small?: (untyped node, untyped budget) -> (false | untyped)
+
+      # The defs that can run the collector. A fixpoint over the calls of
+      # each body finds them.
+      def collecting_defs: () -> untyped
+
+      # The names a body calls: defs by name, and `:indirect` for a
+      # `Machine.call`.
+      def calls_in: (untyped node, ?untyped into) -> untyped
+
+      # The module of the kernel. Each kernel file is one
+      # `module Zr::Kern ... end` of plain Ruby.
+      KERN: "Zr::Kern"
+
+      # The statements in the module of a file.
+      def kern_body: (untyped statements, untyped node) -> untyped
+
+      # The declarations of a file. A call to an import is
+      # `Libc.name(...)`, and a bare call goes to a def:
+      #
+      #   Libc.import :name, [types] => type   a C function, called as `Libc.name(...)`
+      #   Name = layout field: Type, ...       a struct
+      #   Name = fn [types] => type            a signature, called as `Name.call(pointer, ...)`
+      #   NAME = 1 << 4                        a constant
+      #   inline :name, collects :name         as `Machine.inline` and `Machine.collects`
+      #   raw :name, [types] => type           a function that the backend delivers
+      #   sig [types] => type, then a def      a def
+      def declare: (untyped statements) -> untyped
+
+      # `Name = layout ...`, `Name = fn ...`, or a constant.
+      def declare_const: (untyped node) -> untyped
+
+      def add_const: (untyped node, untyped name) -> untyped
+
+      def add_sig: (untyped name, untyped params, untyped ret) -> untyped
+
+      def add_import: (untyped name, untyped sig) -> untyped
+
+      # A raw function. Its signature must be the one the backend delivers.
+      def add_raw: (untyped node, untyped name, untyped sig) -> untyped
+
+      def add_def: (untyped d, untyped sig) -> untyped
+
+      # Returns an import's `[[type names], type name, module]`. `from:`
+      # gives the wasm module of the import, as one more pair in the same
+      # hash.
+      def import_signature: (untyped node) -> untyped
+
+      # A def with the name of an import replaces that import for its
+      # calls. An OS layer uses this to define a libc call that its OS
+      # does not have. The def must have the signature of the import, or
+      # a call written for one would pass the wrong arguments to the other.
+      def answers_import: (untyped d) -> (nil | untyped)
+
+      # `[types] => type` as `[[type names], type name]`.
+      def signature: (untyped node) -> untyped
+
+      def pair_signature: (untyped pair) -> ::Array[untyped]
+
+      def type_name: (untyped node) -> untyped
+
+      # A constant's value: an integer, a constant, a struct's size, or an
+      # operator over those, folded here.
+      def fold: (untyped node) -> untyped
+
+      # `fold` for a def in `file`, so that a refusal gives that file and
+      # not the last file declared.
+      def fold_in: (untyped file, untyped node) -> untyped
+
+      # `node` is the call whose last argument has the fields.
+      def add_struct: (untyped node, untyped name) -> untyped
+
+      # Each field at its natural alignment; a field of a struct type is
+      # embedded in place.
+      def layout: (untyped name, untyped node) -> untyped
+
+      # `[size, align]` of a field of `type`.
+      def field_shape: (untyped node, untyped type) -> (::Array[untyped] | untyped)
+
+      def machine?: (untyped node) -> untyped
+
+      # Whether the defs check their operators (`ZR_KERNEL_CHECKED`,
+      # `Function#check_wrap`).
+      def checked?: () -> untyped
+
+      def libc?: (untyped node) -> untyped
+
+      # Whether `node` names a `Name = fn ...` signature.
+      def sig_read?: (untyped node) -> untyped
+
+      def import_for: (untyped name) -> untyped
+
+      def def_for: (untyped name) -> untyped
+
+      # The names this unit declares, for a `Description` to read.
+      def declared_defs: () -> untyped
+
+      def declared_consts: () -> untyped
+
+      def declared_structs: () -> untyped
+
+      # The file that declares the constant `name`. Only the tests use it
+      # (test/unit/os_api_test.rb).
+      def const_file: (untyped name) -> untyped
+
+      # A constant's value. It is folded on first use, so a declaration
+      # can refer to a constant from a later file.
+      def const_for: (untyped name) -> untyped
+
+      def struct_for: (untyped name) -> untyped
+
+      def resolve: (untyped declared, untyped resolved, untyped name) { (untyped) -> untyped } -> untyped
+
+      # Whether this is a unit of several files. Its refusals give the file.
+      def unit?: () -> untyped
+
+      def sig_for: (untyped name) -> untyped
+
+      # A read-only byte string, as a data object of this unit.
+      def bytes: (untyped string) -> untyped
+
+      # A zeroed, writable area of this unit, one for each name.
+      def static: (untyped node, untyped name, untyped size) -> ::String
+
+      def refuse: (untyped node, untyped message) -> untyped
+    end
+  end
+end

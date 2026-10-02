@@ -1,0 +1,39 @@
+module Zr::Kern
+  # How a POSIX signal is handled, as Signal.trap gives it: the system
+  # default, ignored, counted for a Ruby handler, or caught and discarded.
+  # ruby discards SIGPIPE and SIGSYS, so a write to a closed pipe fails
+  # with EPIPE and does not end the process.
+  SIGNAL_DEFAULT: 0
+
+  SIGNAL_IGNORE: 1
+
+  SIGNAL_RUBY: 2
+
+  SIGNAL_NOTHING: 3
+
+  SIGNAL_OTHER: 4
+
+  def zr_trap_caught: (untyped signo) -> untyped
+
+  def zr_chld_caught: (untyped signo) -> untyped
+
+  def zr_chld_note: (untyped signo) -> (nil | untyped)
+
+  def zr_chld_fd: (untyped signo) -> untyped
+
+  def zr_chld_count: () -> untyped
+
+  def zr_chld_drain: () -> untyped
+
+  def zr_trap_dropped: (untyped signo) -> nil
+
+  def zr_trap_handle: (untyped signo, untyped how) -> untyped
+
+  def zr_trap_kind: (untyped fn) -> untyped
+
+  def zr_trap_next: () -> untyped
+
+  def zr_trap_check: () -> untyped
+
+  def zr_io_retry: () -> untyped
+end

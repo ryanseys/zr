@@ -1,0 +1,177 @@
+module Zr
+  module Machine
+    class Host
+      class Walk
+        # The code of sends, as `Lower::Function::Sends` emits them: a
+        # send through its site's cell, an operator's inline path, a block
+        # literal as an image in the slot area, `yield`, `super`, and the
+        # core's `Primitive` calls.
+        module Sends
+          @funcall_of: untyped
+
+          SEND_CORE: 8
+
+          SEND_USING: 16
+
+          # The names that the core's sends dispatch normally
+          # (Lower::Function::Sends::PROTOCOL); any other core send finds the
+          # core's own method (SEND_CORE).
+          PROTOCOL: untyped
+
+          # The kernel entry of each send with a core fast path, and the
+          # classes it takes (Lower::Function::Sends::OPT_ENTRIES). The
+          # entry calls the core's method with no frame of its own, as
+          # CRuby's specialized instructions do.
+          OPT_ENTRIES: { :[] => ::Array[:zr_opt_aref | ::Array[:G_ARRAY | :G_HASH]], :[]= => ::Array[:zr_opt_aset | ::Array[:G_ARRAY | :G_HASH]], :<< => ::Array[:zr_opt_ltlt | ::Array[:G_ARRAY | :G_STRING]], getbyte: ::Array[:zr_opt_getbyte | ::Array[:G_STRING]], setbyte: ::Array[:zr_opt_setbyte | ::Array[:G_STRING]], push: ::Array[:zr_opt_push | ::Array[:G_ARRAY]], pop: ::Array[:zr_opt_pop | ::Array[:G_ARRAY]], shift: ::Array[:zr_opt_shift | ::Array[:G_ARRAY]], :empty? => ::Array[:zr_opt_empty_p | ::Array[:G_ARRAY]] }
+
+          # The Integer operators with an inline path on two fixnums while
+          # the operator's gate is clear (Lower::Function::Sends::OPS), each
+          # with its gate and its result: nil when the result is no fixnum (a
+          # bignum, a division by zero), and the send runs instead.
+          FIXNUM: ::Range[untyped]
+
+          FIXNUM_OPS: { :+ => ::Array[:GATE_PLUS | untyped], :- => ::Array[:GATE_MINUS | untyped], :* => ::Array[:GATE_MUL | untyped], :/ => ::Array[:GATE_DIV | untyped], :% => ::Array[:GATE_MOD | untyped], :< => ::Array[:GATE_LT | untyped], :<= => ::Array[:GATE_LE | untyped], :> => ::Array[:GATE_GT | untyped], :>= => ::Array[:GATE_GE | untyped], :== => ::Array[:GATE_EQ | untyped], :!= => ::Array[:GATE_NE | untyped], :& => ::Array[:GATE_AND | untyped], :| => ::Array[:GATE_OR | untyped], :^ => ::Array[:GATE_XOR | untyped], :>> => ::Array[:GATE_SHR | untyped] }
+
+          # The operators with a flonum path, and Float's gate of each
+          # (Lower::Function::Sends::FLOAT_OPS).
+          FLOAT_OPS: { :+ => :GATE_FLO_PLUS, :- => :GATE_FLO_MINUS, :* => :GATE_FLO_MUL, :/ => :GATE_FLO_DIV, :< => :GATE_FLO_LT, :<= => :GATE_FLO_LE, :> => :GATE_FLO_GT, :>= => :GATE_FLO_GE, :== => :GATE_FLO_EQ }
+
+          FLOAT_COMPARES: ::Array[:< | :<= | :> | :>= | :==]
+
+          private
+
+          def send_node: (untyped node, untyped s) -> untyped
+
+          def primitive?: (untyped node) -> untyped
+
+          # The send's mode for the kernel: 1 for a vcall, 2 for an explicit
+          # receiver, with SEND_CORE and SEND_USING.
+          def send_mode: (untyped node, untyped s) -> untyped
+
+          # A send's paths with no send: an operator with one argument
+          # (`operator`), and the core's range check of its own integers.
+          def fast_paths: (untyped node, untyped s, untyped splat) -> (::Array[nil | false] | untyped)
+
+          # The code that calls the method a send finds, with the receiver,
+          # the argument count and vector, and the block.
+          def dispatcher: (untyped node, untyped s, untyped mode) -> untyped
+
+          # A send through the site's cell `at`, tested here first as a
+          # binary's site tests it (`Sends#cached_send`): if the receiver's
+          # class and the site stamp are the cell's, call the cell's
+          # function (a function of the walker runs with no call through the
+          # host); else the kernel's send, which fills a cell.
+          def cached_send: (untyped at, untyped mid, untyped mode) -> untyped
+
+          # In the core, `recv.send(:name, ...)` is rb_funcall in CRuby's C: a
+          # direct call of `name`, private permitted, and never a class's own
+          # `send` (`Sends#kernel_send?`).
+          def kernel_send?: (untyped node, untyped s) -> (false | untyped)
+
+          # The call that a kernel send makes, one per site (`Sends#funcall`).
+          def funcall: (untyped node) -> untyped
+
+          # Gives the task the refinements that are active at the send
+          # (`Sends#activate`): those of the `using` entry, or in a `refine`
+          # block those of the owner.
+          def activate: (untyped using, untyped f) -> untyped
+
+          # The code of `recv name arg` without a send, as a binary's site
+          # answers it (`Arith#operator`): two fixnums under a clear gate
+          # (the core ignores the gates, as ruby's C does); in the core, `==`
+          # and `!=` of the values that CRuby's C compares natively, and
+          # `<=>` of two fixnums while Integer#<=> is ruby's own. The code
+          # answers nil when the send must run; it is nil when no path
+          # applies to `name`.
+          def operator: (untyped name, untyped s, ?untyped operands) -> (nil | untyped)
+
+          # `recv name arg` on doubles (`Arith#float_path`): both operands
+          # are flonums, or one is a flonum and the other a fixnum (within
+          # 2**53 for a comparison), and the gates are clear. A site whose
+          # `operands` has an Integer literal in a sum, a difference or a
+          # comparison has no flonum path (`Arith#float_path?`).
+          def float_op: (untyped name, untyped native, untyped operands) -> (nil | untyped)
+
+          def float_number?: (untyped v, untyped exact) -> (true | false | untyped)
+
+          # Whether a core send of `name` finds the core's own method
+          # (`Sends#core_send?`): any name but PROTOCOL, and `each` except in
+          # a method marked `:sends_each`, where ruby's C sends it by name.
+          def core_send?: (untyped name, untyped s) -> (false | untyped)
+
+          # Whether the scope answers the core's operators natively
+          # (`Arith#native_operators?`): core code outside a method that
+          # CRuby writes in Ruby (`Primitive.attr! :ruby`).
+          def native_operators?: (untyped s) -> untyped
+
+          # A call of a block's function (`Block.call`).
+          def call_block: (untyped pr, untyped argc, untyped av, untyped blk) -> untyped
+
+          # The code of positional arguments: their codes, or, with a Splat,
+          # the code of one Array.
+          def arguments: (untyped nodes, untyped s) -> (::Array[untyped | nil] | ::Array[::Array[untyped] | untyped])
+
+          # The result of a send that a literal block goes with (`site` is the
+          # block's): a `break` out of the block ends here.
+          def sent: (untyped f, untyped site, untyped r) -> untyped
+
+          # The code of a send's block. The site's refinements are active
+          # when `&value` becomes a Proc, so `&:name` and a refined `to_proc`
+          # use them.
+          def block_arg: (untyped block, untyped s, ?untyped? site) -> untyped
+
+          # The code of a block literal: an RProc image in the slot area, as
+          # the lowering makes in the caller's record (FL_STACK). A callee
+          # that keeps it copies it to the heap (`zr_block_proc`).
+          def block_image: (untyped node, untyped s) -> untyped
+
+          # Whether the Proc `pr` is a lambda: its `lambda` field, which the
+          # kernel's layout names as Kernel#lambda is named.
+          def lambda_proc?: (untyped pr) -> untyped
+
+          # The function of the block `node`: `(proc, argc, argv, blk) =>
+          # Value`, and its FrameMeta. Its body compiles when it first runs.
+          def block_fn: (untyped node, untyped s) -> untyped
+
+          # The code of a block's run: its parameters bound, then its body.
+          # A `redo` in the block throws its meta (`Hir::Redo`).
+          def block_body: (untyped node, untyped s) -> untyped
+
+          # The captures table of the block `node` (`Lower#captures_table`):
+          # each outer local with its flags (1: the block writes it, 2: its
+          # scope binds it more than once), in the order of the program's
+          # `spelling`. A Ractor reads it.
+          def captures_table: (untyped node, untyped homes, untyped spelling) -> untyped
+
+          def lambda_node: (untyped node, untyped s) -> untyped
+
+          def yield_node: (untyped node, untyped s) -> untyped
+
+          def primitive: (untyped node, untyped s) -> untyped
+
+          # `super(args)`. A bare `super` in a block, which the builder
+          # expanded, first asks whether `define_method` made the block a
+          # method: ruby refuses that.
+          def super_node: (untyped node, untyped s) -> untyped
+
+          # A bare `super` that the builder could not expand into a Super with
+          # the method's parameters: no def encloses it. The kernel raises.
+          def zsuper: (untyped node, untyped s) -> untyped
+
+          # The code of a send that the walker makes, `recv.name(*values)`,
+          # as a lambda of the Frame, the receiver and the values. `kind`
+          # names its cell at `node`. An op-assign's sends (`using`) see the
+          # refinements of its `using` entry, and a `when`'s `===` those of
+          # its `case`; both are sends of the scope (`core`), which a core
+          # scope makes to its own methods.
+          def sender: (untyped node, untyped s, untyped name, untyped kind, ?mode: ::Integer, ?using: untyped?, ?core: bool) -> untyped
+
+          # `!x`: nil, false and true answer here while no class redefines
+          # `!` (the gate GATE_NOT; the core ignores the gates); any other
+          # value gets the send (Lower::Function::Arith#negate).
+          def negate: (untyped node, untyped s) -> untyped
+        end
+      end
+    end
+  end
+end

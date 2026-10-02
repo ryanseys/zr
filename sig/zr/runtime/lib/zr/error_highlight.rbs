@@ -1,0 +1,37 @@
+# error_highlight's node lookup, for a program compiled ahead of time.
+# CRuby parses the file again with prism when it reports an error, and
+# finds the node for a backtrace entry by its id. A program here includes
+# no parser. While the compiler had the tree, it called error_highlight's
+# own Spotter for each node that an entry can refer to
+# (lib/zr/hir/spots.rb), and the program keeps those results. The rest of
+# the library runs as ruby ships it.
+module ErrorHighlight
+  # A node the compiler spotted: its rows, and the file it is in.
+  class CompiledNode
+    self.@table: untyped
+
+    @path: untyped
+
+    @rows: untyped
+
+    # The node `location` names, or nil where the compiler spotted none.
+    def self.find: (untyped location) -> (nil | untyped)
+
+    # `{ file => { node id => [[point, name, line, column, last line,
+    # last column], ...] } }`, read from the program once.
+    def self.table: () -> untyped
+
+    def initialize: (untyped path, untyped rows) -> void
+
+    # What Spotter#spot returns for the node: the entry for the constant
+    # `name`, else the entry that applies to any name.
+    def spot: (untyped point_type, untyped name) -> (nil | { first_lineno: untyped, first_column: untyped, last_lineno: untyped, last_column: untyped, snippet: untyped, script_lines: untyped })
+  end
+
+  def self.prism_find: (untyped location) -> untyped
+
+  # Spotter reads the spot that a compiled node already contains.
+  module CompiledSpot
+    def spot: () -> untyped
+  end
+end

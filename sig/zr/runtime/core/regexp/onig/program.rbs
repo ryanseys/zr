@@ -1,0 +1,30 @@
+# The compiled pattern as the kernel's matcher reads it: one binary
+# String holding a header of 64-bit little-endian words, the byte code
+# (Onigmo's own layout, ending in OP_END and then OP_FINISH as the
+# bottom-of-stack code), the repeat ranges, the exact bytes of the
+# optimizer, its byte map and the encoding's descriptor
+# (Enc::Base#descriptor). The header's field order is the kernel's
+# `Machine.struct :OnigProg` (lib/zr/runtime/kernel/onig_match.rb) and nothing else
+# reads it.
+class Regexp
+  module Onig
+    module Program
+      FIELDS: ::Array[:magic | :enc_off | :options | :num_mem | :num_repeat | :num_null_check | :num_call | :bt_mem_start | :bt_mem_end | :pop_level | :code_off | :code_len | :repeat_off | :optimize | :threshold_len | :anchor | :sub_anchor | :anchor_dmin | :anchor_dmax | :dmin | :dmax | :exact_off | :exact_len | :map_off | :case_fold_flag]
+
+      HEADER_SIZE: untyped
+
+      MAGIC: 207893392975
+
+      # ONIG_INFINITE_DISTANCE as the kernel stores it: a signed word that
+      # no real distance reaches, so signed comparisons stay valid.
+      INFINITE: untyped
+
+      # The program of a compiled `reg`.
+      def self.pack: (untyped reg) -> untyped
+
+      def self.distance: (untyped d) -> untyped
+
+      def self.align: (untyped n) -> untyped
+    end
+  end
+end

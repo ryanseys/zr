@@ -1,0 +1,309 @@
+# The emitter of libyaml 0.2.5 (src/emitter.c): it turns events back into
+# YAML text. The functions keep their C names without the
+# `yaml_emitter_` prefix.
+#
+# The writers walk a string with a byte offset where the C code moves
+# `string.pointer`. libyaml's event strings end with NUL, and the
+# character tests in Chars read past the end as NUL too.
+module Psych
+  module LibYAML
+    class Emitter
+      @column: untyped
+
+      @line: untyped
+
+      @error: untyped
+
+      @problem: untyped
+
+      @indent: untyped
+
+      @open_ended: untyped
+
+      @encoding: untyped
+
+      @best_indent: untyped
+
+      @best_width: untyped
+
+      @line_break: untyped
+
+      @whitespace: untyped
+
+      @indention: untyped
+
+      @state: untyped
+
+      @flow_level: untyped
+
+      @root_context: untyped
+
+      @sequence_context: untyped
+
+      @mapping_context: untyped
+
+      @simple_key_context: untyped
+
+      @tag_data_handle: untyped
+
+      @scalar_data_style: untyped
+
+      @anchor_data_anchor: untyped
+
+      @anchor_data_alias: untyped
+
+      @tag_data_suffix: untyped
+
+      @scalar_data_value: untyped
+
+      @scalar_data_multiline: untyped
+
+      @scalar_data_flow_plain_allowed: untyped
+
+      @scalar_data_block_plain_allowed: untyped
+
+      @scalar_data_single_quoted_allowed: untyped
+
+      @scalar_data_block_allowed: untyped
+
+      include Chars
+
+      include Writer
+
+      # yaml_emitter_state_t
+      EMIT_STREAM_START_STATE: 0
+
+      EMIT_FIRST_DOCUMENT_START_STATE: 1
+
+      EMIT_DOCUMENT_START_STATE: 2
+
+      EMIT_DOCUMENT_CONTENT_STATE: 3
+
+      EMIT_DOCUMENT_END_STATE: 4
+
+      EMIT_FLOW_SEQUENCE_FIRST_ITEM_STATE: 5
+
+      EMIT_FLOW_SEQUENCE_ITEM_STATE: 6
+
+      EMIT_FLOW_MAPPING_FIRST_KEY_STATE: 7
+
+      EMIT_FLOW_MAPPING_KEY_STATE: 8
+
+      EMIT_FLOW_MAPPING_SIMPLE_VALUE_STATE: 9
+
+      EMIT_FLOW_MAPPING_VALUE_STATE: 10
+
+      EMIT_BLOCK_SEQUENCE_FIRST_ITEM_STATE: 11
+
+      EMIT_BLOCK_SEQUENCE_ITEM_STATE: 12
+
+      EMIT_BLOCK_MAPPING_FIRST_KEY_STATE: 13
+
+      EMIT_BLOCK_MAPPING_KEY_STATE: 14
+
+      EMIT_BLOCK_MAPPING_SIMPLE_VALUE_STATE: 15
+
+      EMIT_BLOCK_MAPPING_VALUE_STATE: 16
+
+      EMIT_END_STATE: 17
+
+      INT_MAX: 2147483647
+
+      DEFAULT_TAG_DIRECTIVES: ::Array[untyped]
+
+      # The characters of a tag that go out as they are; the rest go out
+      # as %XX escapes.
+      TAG_CHARACTERS: untyped
+
+      # The first characters that stop a scalar from being plain in either
+      # context.
+      LEADING_INDICATORS: untyped
+
+      # The characters that stop a scalar from being plain in the flow
+      # context wherever they are.
+      FLOW_INDICATORS: untyped
+
+      # yaml_emitter_emit: queue the event, and write out every event that
+      # does not need the events after it. Returns false on an error;
+      # `problem` describes it.
+      def emit: (untyped event) -> untyped
+
+      private
+
+      # FLUSH: flush the buffer when fewer than six bytes are free.
+      def flush_if_full: () -> (untyped | nil)
+
+      # PUT: write one ASCII octet.
+      def put: (untyped octet) -> untyped
+
+      # PUT_BREAK: write the line break.
+      def put_break: () -> untyped
+
+      # WRITE: copy the character at `pointer` in `string`. Returns the
+      # offset after it.
+      def write: (untyped string, untyped pointer) -> untyped
+
+      # WRITE_BREAK: copy the line break at `pointer` in `string`; LF goes
+      # out as the emitter's line break. Returns the offset after it.
+      def write_break: (untyped string, untyped pointer) -> untyped
+
+      # yaml_emitter_set_emitter_error
+      def emitter_error: (untyped problem) -> untyped
+
+      # yaml_emitter_need_more_events: a DOCUMENT-START waits for one more
+      # event, a SEQUENCE-START for two and a MAPPING-START for three, so
+      # the emitter can tell an empty collection or a simple key.
+      def need_more_events?: () -> (true | false)
+
+      # yaml_emitter_append_tag_directive
+      def append_tag_directive: (untyped value, untyped allow_duplicates) -> (nil | untyped)
+
+      # yaml_emitter_increase_indent
+      def increase_indent: (untyped flow, untyped indentless) -> untyped
+
+      # yaml_emitter_state_machine
+      def state_machine: (untyped event) -> untyped
+
+      # Expect STREAM-START.
+      def emit_stream_start: (untyped event) -> untyped
+
+      # Expect DOCUMENT-START or STREAM-END.
+      def emit_document_start: (untyped event, untyped first) -> untyped
+
+      # Expect the root node.
+      def emit_document_content: (untyped event) -> untyped
+
+      # Expect DOCUMENT-END.
+      def emit_document_end: (untyped event) -> untyped
+
+      # Expect a flow item node.
+      def emit_flow_sequence_item: (untyped event, untyped first) -> (nil | untyped)
+
+      # Expect a flow key node.
+      def emit_flow_mapping_key: (untyped event, untyped first) -> (nil | untyped)
+
+      # Expect a flow value node.
+      def emit_flow_mapping_value: (untyped event, untyped simple) -> untyped
+
+      # Expect a block item node.
+      def emit_block_sequence_item: (untyped event, untyped first) -> (nil | untyped)
+
+      # Expect a block key node.
+      def emit_block_mapping_key: (untyped event, untyped first) -> (nil | untyped)
+
+      # Expect a block value node.
+      def emit_block_mapping_value: (untyped event, untyped simple) -> untyped
+
+      # Expect a node.
+      def emit_node: (untyped event, untyped root, untyped sequence, untyped mapping, untyped simple_key) -> untyped
+
+      # Expect ALIAS.
+      def emit_alias: (untyped _event) -> untyped
+
+      # Expect SCALAR.
+      def emit_scalar: (untyped event) -> untyped
+
+      # Expect SEQUENCE-START.
+      def emit_sequence_start: (untyped event) -> untyped
+
+      # Expect MAPPING-START.
+      def emit_mapping_start: (untyped event) -> untyped
+
+      # yaml_emitter_check_empty_document: libyaml never finds one.
+      def check_empty_document?: () -> false
+
+      # yaml_emitter_check_empty_sequence
+      def check_empty_sequence?: () -> (false | untyped)
+
+      # yaml_emitter_check_empty_mapping
+      def check_empty_mapping?: () -> (false | untyped)
+
+      # yaml_emitter_check_simple_key: whether the next node fits on one
+      # line, in no more than 128 bytes, as a simple key.
+      def check_simple_key?: () -> (false | untyped)
+
+      def anchor_length: () -> (untyped | 0)
+
+      def tag_handle_length: () -> (untyped | 0)
+
+      def tag_suffix_length: () -> (untyped | 0)
+
+      # yaml_emitter_select_scalar_style: the style that the scalar can
+      # take, starting from the one that the event requests.
+      def select_scalar_style: (untyped event) -> untyped
+
+      # yaml_emitter_process_anchor
+      def process_anchor: () -> (nil | untyped)
+
+      # yaml_emitter_process_tag
+      def process_tag: () -> (nil | untyped)
+
+      # yaml_emitter_process_scalar
+      def process_scalar: () -> untyped
+
+      # yaml_emitter_analyze_version_directive
+      def analyze_version_directive: (untyped version_directive) -> (nil | untyped)
+
+      # yaml_emitter_analyze_tag_directive
+      def analyze_tag_directive: (untyped tag_directive) -> untyped
+
+      # yaml_emitter_analyze_anchor
+      def analyze_anchor: (untyped anchor, untyped alias_) -> untyped
+
+      # yaml_emitter_analyze_tag: split the tag into a handle and a suffix
+      # when a tag directive's prefix starts it.
+      def analyze_tag: (untyped tag) -> (nil | untyped)
+
+      # yaml_emitter_analyze_scalar: which styles can show the scalar.
+      def analyze_scalar: (untyped value) -> (nil | untyped)
+
+      # yaml_emitter_analyze_event
+      def analyze_event: (untyped event) -> untyped
+
+      # yaml_emitter_write_bom: the UTF-8 BOM, which the writer recodes.
+      def write_bom: () -> untyped
+
+      # yaml_emitter_write_indent: start a new line at the indentation,
+      # unless the output is already there.
+      def write_indent: () -> untyped
+
+      # yaml_emitter_write_indicator
+      def write_indicator: (untyped indicator, untyped need_whitespace, untyped is_whitespace, untyped is_indention) -> untyped
+
+      # yaml_emitter_write_anchor
+      def write_anchor: (untyped value) -> untyped
+
+      # yaml_emitter_write_tag_handle
+      def write_tag_handle: (untyped value) -> untyped
+
+      # yaml_emitter_write_tag_content: the tag's URI characters, with
+      # every other byte as a %XX escape.
+      def write_tag_content: (untyped value, untyped need_whitespace) -> untyped
+
+      def hex_digit: (untyped nibble) -> untyped
+
+      # yaml_emitter_write_plain_scalar
+      def write_plain_scalar: (untyped value, untyped allow_breaks) -> untyped
+
+      # yaml_emitter_write_single_quoted_scalar
+      def write_single_quoted_scalar: (untyped value, untyped allow_breaks) -> untyped
+
+      # The short escapes of a double-quoted scalar.
+      DOUBLE_QUOTED_ESCAPES: untyped
+
+      # yaml_emitter_write_double_quoted_scalar
+      def write_double_quoted_scalar: (untyped value, untyped allow_breaks) -> untyped
+
+      # yaml_emitter_write_block_scalar_hints: the indentation indicator
+      # when the text starts with a space or a break, and the chomping
+      # indicator its end calls for.
+      def write_block_scalar_hints: (untyped value) -> untyped
+
+      # yaml_emitter_write_literal_scalar
+      def write_literal_scalar: (untyped value) -> untyped
+
+      # yaml_emitter_write_folded_scalar
+      def write_folded_scalar: (untyped value) -> untyped
+    end
+  end
+end

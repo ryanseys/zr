@@ -1,0 +1,33 @@
+# `debug/debug.so`: the C half of the debug gem, over the frames the
+# kernel lets a debugger read (zr_debug_frames). The Ruby half is the
+# gem's own.
+module DEBUGGER__
+  SO_VERSION: "1.11.1"
+
+  # Every frame outward from the caller, as a FrameInfo, but for the ones
+  # whose file starts with `skip_path_prefix`: the debugger's own.
+  def self.capture_frames: (untyped skip_path_prefix) -> untyped
+
+  def self.frame_depth: () -> untyped
+end
+
+class RubyVM
+  class InstructionSequence
+    def type: () -> untyped
+
+    # The names of the parameters, but for the anonymous `*`, `**` and `&`.
+    def parameters_symbols: () -> (::Array[untyped] | untyped)
+
+    def first_line: () -> untyped
+
+    def last_line: () -> untyped
+  end
+end
+
+module ObjectSpace
+  # The instruction sequences alive in the process: the code this
+  # runtime compiled is not objects, so there are none to walk.
+  def self.each_iseq: () -> (untyped | 0)
+
+  def self.count_iseq: () -> 0
+end

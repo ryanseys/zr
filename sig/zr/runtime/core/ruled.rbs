@@ -1,0 +1,53 @@
+# The encodings whose longest characters follow a rule rather than a
+# table: GB18030's four-byte characters, which count through Unicode in
+# order, CESU-8's six-byte pairs of surrogates, and IBM037, which contains
+# the bytes of ISO-8859-1 in EBCDIC order.
+class Encoding
+  RULED: ::Array["GB18030" | "CESU-8"]
+
+  # The runs of BMP characters GB18030 writes in four bytes: each run's
+  # first code point, the four-byte count it starts at, and its length.
+  # Generated from ruby's own GB18030 converter.
+  GB18030_RUNS: untyped
+
+  # The four-byte count of U+10000, where the supplementary planes start.
+  GB18030_PLANES: 189000
+
+  # The ISO-8859-1 byte that each IBM037 byte represents, by position, in hex: the core
+  # library reads this file before Array#pack is defined.
+  EBCDIC_HEX: untyped
+
+  EBCDIC: ::Array[untyped]
+
+  def self.ruled?: (untyped encoding) -> untyped
+
+  # The character at `at` that the rule reads, as [UTF-8 text, width],
+  # or nil where the rows read those bytes.
+  def self.ruled_char: (untyped bytes, untyped at, untyped from, untyped path, untyped options) -> untyped
+
+  def self.gb18030_char: (untyped bytes, untyped at, untyped from, untyped path, untyped options) -> (nil | ::Array[untyped | 4] | untyped)
+
+  # A CESU-8 character of three bytes: a BMP character as UTF-8 writes
+  # it, or a high surrogate that a low one of three more bytes follows.
+  def self.cesu8_char: (untyped bytes, untyped at, untyped from) -> (nil | ::Array[untyped | 3] | ::Array[untyped | 6])
+
+  # The `width` bytes at `at`, each of which the block takes, or ruby's
+  # stop where one is missing or wrong.
+  def self.ruled_bytes_or_stop: (untyped bytes, untyped at, untyped width, untyped from) { (untyped, untyped) -> untyped } -> untyped
+
+  # The bytes the rule writes for `point`, or nil where it writes none.
+  def self.ruled_bytes: (untyped point, untyped target) -> (untyped | nil | ::Array[untyped])
+
+  # A BMP character as UTF-8 writes it; any other as its two surrogates,
+  # three bytes each.
+  def self.cesu8_bytes: (untyped point) -> untyped
+
+  # IBM037 as ISO-8859-1 in EBCDIC order: UTF-8 `text` into IBM037
+  # through ISO-8859-1, and IBM037 `text` back into ISO-8859-1.
+  def self.ebcdic_write: (untyped text, untyped target, untyped options) -> untyped
+
+  def self.ebcdic_read: (untyped text) -> untyped
+
+  # The two tables: ISO-8859-1's byte by IBM037's, and back.
+  def self.ebcdic: () -> untyped
+end

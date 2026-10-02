@@ -1,0 +1,45 @@
+module Zr
+  module Obj
+    class JIT
+      # The system calls of the loader, under CRuby.
+      class Fiddle
+        @lib: untyped
+
+        @mmap: untyped
+
+        @munmap: untyped
+
+        @protect: untyped
+
+        @invalidate: untyped
+
+        def initialize: () -> void
+
+        # Reserves `size` bytes with no access, where `map` places its two
+        # parts.
+        def reserve: (untyped size) -> untyped
+
+        # Unmaps `size` bytes at `at`, so that a mapping can use them by hint.
+        def release: (untyped at, untyped size) -> untyped
+
+        # Maps `size` bytes: exactly at `at` when the caller reserved it,
+        # else near `near` if the kernel accepts the hint.
+        def map: (untyped size, exec: untyped, ?at: untyped?, ?near: ::Integer) -> untyped
+
+        def symbol: (untyped name) -> untyped
+
+        def write_data: (untyped at, untyped bytes) -> untyped
+
+        def call: (untyped at) -> untyped
+
+        def write_code: (untyped at, untyped bytes) -> untyped
+
+        private
+
+        def mapped: (untyped pointer) -> untyped
+
+        def fn: (untyped name, untyped params, untyped ret) -> untyped
+      end
+    end
+  end
+end

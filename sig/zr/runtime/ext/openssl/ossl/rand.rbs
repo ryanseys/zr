@@ -1,0 +1,19 @@
+# ossl_rand.c: OpenSSL::Random, OpenSSL's CSPRNG.
+module OpenSSL
+  module Random
+    class RandomError < OpenSSLError
+    end
+
+    def self?.seed: (untyped str) -> untyped
+
+    def self?.random_add: (untyped str, untyped entropy) -> self
+
+    def self?.load_random_file: (untyped filename) -> true
+
+    def self?.write_random_file: (untyped filename) -> true
+
+    def self?.random_bytes: (untyped len) -> untyped
+
+    def self?.status?: () -> untyped
+  end
+end

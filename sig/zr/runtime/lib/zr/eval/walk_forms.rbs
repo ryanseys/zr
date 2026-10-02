@@ -1,0 +1,24 @@
+module Kernel
+  # Ruby run at the position of this call: over the locals and under the
+  # cref of the calling frame, with the receiver as self.
+  def eval: (untyped source, ?untyped? binding, ?untyped? file, ?::Integer line) -> untyped
+end
+
+class Binding
+  # Ruby run in this binding's scope, as Kernel#eval given it runs.
+  def eval: (untyped source, ?untyped? file, ?::Integer line) -> untyped
+end
+
+class Module
+  # The module is the self and the definee, and a lexical scope on top
+  # of the scope of the call.
+  def class_eval: (*untyped args) ?{ (?) -> untyped } -> untyped
+
+  alias module_eval class_eval
+end
+
+class BasicObject
+  # The object is the self, and its singleton class is the definee, so a
+  # `def` in the string is a method of that object alone.
+  def instance_eval: (*untyped args) ?{ (?) -> untyped } -> untyped
+end

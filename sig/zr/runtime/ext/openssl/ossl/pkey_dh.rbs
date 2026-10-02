@@ -1,0 +1,45 @@
+# ossl_pkey_dh.c: OpenSSL::PKey::DH.
+module OpenSSL
+  module Lib
+    # d2i_DHparams_bio (dh.h).
+    def self.d2i_DHparams_bio: (untyped bio, untyped out) -> untyped
+  end
+
+  module Ossl
+    def self.dh: (untyped object) -> untyped
+  end
+
+  module PKey
+    class DH < PKey
+      def initialize: (*untyped args) -> void
+
+      def public?: () -> untyped
+
+      def private?: () -> untyped
+
+      def export: () -> untyped
+
+      alias to_pem export
+
+      alias to_s export
+
+      def to_der: () -> untyped
+
+      def params_ok?: () -> (true | false)
+
+      def p: () -> untyped
+
+      def q: () -> untyped
+
+      def g: () -> untyped
+
+      def pub_key: () -> untyped
+
+      def priv_key: () -> untyped
+
+      def set_pqg: (untyped _p, untyped _q, untyped _g) -> untyped
+
+      def set_key: (untyped _pub_key, untyped _priv_key) -> untyped
+    end
+  end
+end

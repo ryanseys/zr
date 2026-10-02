@@ -1,0 +1,56 @@
+# The ISO-2022-JP family: stateful encodings, whose two-byte characters
+# are between escapes. Ruby converts one through a multibyte encoding
+# that has the same characters without a state: ISO-2022-JP through
+# stateless-ISO-2022-JP and EUC-JP, CP50220 and CP50221 through CP51932,
+# and ISO-2022-JP-KDDI through stateless-ISO-2022-JP-KDDI.
+class Encoding
+  # Each stateful encoding: the multibyte encoding it converts through,
+  # the stateless one between the two, and what happens to a halfwidth
+  # katakana (ISO-2022-JP cannot contain one, CP50221 has a set of its
+  # own for it, and CP50220 writes the fullwidth one). Also whether the
+  # multibyte encoding writes a lead byte that identifies the set before
+  # each two-byte character, as stateless-ISO-2022-JP-KDDI does.
+  STATEFUL: { "ISO-2022-JP" => ::Array["EUC-JP" | "stateless-ISO-2022-JP" | nil | false], "CP50220" => ::Array["CP51932" | nil | :fullwidth | false], "CP50221" => ::Array["CP51932" | nil | :set | false], "ISO-2022-JP-KDDI" => ::Array["stateless-ISO-2022-JP-KDDI" | nil | true] }
+
+  ESCAPES: { "\e(B" => :ascii, "\e(J" => :ascii, "\e$B" => :kanji, "\e$@" => :old_kanji, "\e(I" => :kana }
+
+  # The lead byte of each two-byte set, where the multibyte encoding
+  # writes one: JIS X 0208, and JIS C 6226, the older one.
+  LEADS: { kanji: 146, old_kanji: 144 }
+
+  SHIFTS: { ascii: "\e(B", kanji: "\e$B", kana: "\e(I" }
+
+  # The halfwidth katakana from U+FF61 up, and the fullwidth ones CP50220
+  # writes for them; a voiced or semi-voiced mark joins the one before it
+  # where that one takes it.
+  HALFWIDTH: ::String
+
+  FULLWIDTH: ::String
+
+  VOICED: ::String
+
+  SEMI_VOICED: ::String
+
+  def self.stateful?: (untyped encoding) -> untyped
+
+  # UTF-8 `text` in `target`: its characters in the multibyte encoding,
+  # then each run of them after the escape that selects its set, and the
+  # text back in ASCII at its end.
+  def self.stateful_write: (untyped text, untyped target, untyped options) -> untyped
+
+  # A character that the multibyte step wrote and the stateful encoding
+  # has no set for: the requested replacement, else ruby's error.
+  def self.stateful_undefined: (untyped piece, untyped base, untyped step, untyped path, untyped options) -> untyped
+
+  # `text` in a stateful encoding read into UTF-8: each escape sets how
+  # the bytes after it read, and they read as the multibyte encoding's.
+  def self.stateful_read: (untyped text, untyped options) -> untyped
+
+  # The set the escape at `at` names, and where the bytes after it start.
+  def self.escape_at: (untyped bytes, untyped at, untyped from, untyped step, untyped kana) -> (::Array[untyped] | untyped)
+
+  def self.stateful_invalid: (untyped error, untyped again, untyped ended, untyped from, untyped step) -> untyped
+
+  # CP50220's halfwidth katakana, each as its fullwidth one.
+  def self.fullwidth: (untyped text) -> untyped
+end

@@ -1,0 +1,42 @@
+module Zr
+  # `zr doctor`: what zr needs on this host, checked one by one. Each
+  # check gives a status (`:ok`, `:warn` or `:fail`), a name and one line
+  # of detail. Only a `:fail` stops a build; a `:warn` limits what zr can
+  # do here.
+  module Doctor
+    Check: untyped
+
+    def self?.checks: () -> untyped
+
+    # Prints each check. Returns true when none failed.
+    def self?.run: (?untyped out) -> untyped
+
+    # This zr: its version and the directory it runs from.
+    def self?.zr: () -> untyped
+
+    def self?.ruby: (?untyped version) -> untyped
+
+    # Whether this host runs and links the binaries of a target.
+    def self?.host: (?untyped triple) -> untyped
+
+    # One line for each target: the outputs that zr makes for it, and the
+    # outputs that this host can make now. A `:warn` means that this host
+    # cannot make some of them.
+    def self?.targets: (?untyped all) -> untyped
+
+    def self?.wasmtime: (?untyped path) -> untyped
+
+    # The places a macOS binary looks for OpenSSL 3 when a program
+    # requires openssl (lib/zr/runtime/ext/openssl/ossl/library.rb).
+    def self?.openssl: (?untyped env) -> untyped
+
+    def self?.gems: () -> untyped
+
+    CACHE_FIX: "Set XDG_CACHE_HOME (or ZR_CACHE) to a directory that you can write to"
+
+    def self?.cache: () -> untyped
+
+    # The path of `command` on PATH, or nil.
+    def self?.which: (untyped command) -> untyped
+  end
+end

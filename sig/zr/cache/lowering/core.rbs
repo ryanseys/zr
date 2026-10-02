@@ -1,0 +1,48 @@
+module Zr
+  module Cache
+    class Lowering
+      # The core library's files, and the gem prelude, as the pieces of a
+      # `Lowering`. The fixed part is the kernel, which the build lowers
+      # each time, and the prelude that runs each core file.
+      #
+      # The kernel calls nothing of the core, so it inlines alone first: the
+      # state of each kernel function (a leaf, and the fingerprint of its IR)
+      # is then known before any check of an entry.
+      class Core < Lowering
+        @unit: untyped
+
+        @ids: untyped
+
+        @sources: untyped
+
+        @base: untyped
+
+        @prelude: untyped
+
+        # The gem prelude is one more piece: its key has each file it loads.
+        @gem_hir: untyped
+
+        # The core cache for `target`, or nil: only the aarch64 runtime object
+        # has a code cache to take the code from.
+        def self.for: (untyped target) -> untyped
+
+        # Lowers the core over the kernel `unit`, as `Runtime.core` does, with the
+        # kernel's ids `ids`, taking each file it can from an entry. Returns
+        # `[functions, data]`: machine code (`Obj::Code`) for each core
+        # function, then the prelude's IR, and the data of each piece. It
+        # inlines the kernel, so the object build must not inline again.
+        def lower: (untyped unit, untyped ids, untyped sources) -> ::Array[untyped]
+
+        private
+
+        def core_file: (untyped path) -> untyped
+
+        # The key text of the gem prelude: the path and the bytes of each file
+        # that its program loads.
+        def gem_source: () -> untyped
+
+        def gem_piece: () -> untyped
+      end
+    end
+  end
+end

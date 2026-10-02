@@ -1,0 +1,59 @@
+module Zr::Kern
+  def zr_objspace_visible_p: (untyped v) -> (false | untyped | true)
+
+  def zr_objspace_objects: (untyped mod) -> untyped
+
+  def zr_objspace_census: () -> untyped
+
+  def zr_objspace_id2ref: (untyped id) -> untyped
+
+  def zr_objspace_word_value: (untyped high, untyped low) -> untyped
+
+  def zr_objspace_next_id: () -> untyped
+
+  def zr_objspace_symbol_word_p: (untyped high, untyped low) -> untyped
+
+  def zr_objspace_reachable: (untyped v) -> untyped
+
+  def zr_objspace_roots: () -> untyped
+
+  def zr_objspace_take: (untyped s, untyped from, untyped into, untyped out) -> untyped
+
+  def zr_objspace_row_p: (untyped out, untyped v) -> (true | false)
+
+  def zr_objspace_super: (untyped klass) -> untyped
+
+  def zr_objspace_memsize: (untyped v) -> untyped
+
+  # ObjectSpace.trace_object_allocations: the source location of each cell
+  # allocated while tracing is on. The records are outside the heap, with
+  # the cell's address as the key, so a record allocates no cell. The
+  # record of a cell goes away when the cell is freed.
+  AllocTrace: untyped
+
+  # `meta` is the C method that made the cell, or 0 if Ruby code made it.
+  AllocRow: untyped
+
+  # Marks a record whose cell was freed. A probe skips it.
+  ALLOC_GONE: 1
+
+  def zr_alloc_trace: () -> untyped
+
+  def zr_alloc_trace_probe: (untyped t, untyped cell) -> untyped
+
+  def zr_alloc_trace_room: (untyped t) -> (nil | untyped)
+
+  def zr_alloc_trace_record: (untyped cell) -> (nil | untyped)
+
+  def zr_alloc_trace_forget: (untyped cell) -> untyped
+
+  def zr_alloc_trace_row: (untyped v) -> (0 | untyped)
+
+  def zr_alloc_trace_set: (untyped on) -> untyped
+
+  def zr_alloc_trace_clear: () -> untyped
+
+  def zr_alloc_trace_info: (untyped v) -> untyped
+
+  def zr_class_conceal_m: (untyped klass) -> untyped
+end

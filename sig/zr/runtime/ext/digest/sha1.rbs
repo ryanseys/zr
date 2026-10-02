@@ -1,0 +1,4 @@
+module Digest
+  class SHA1 < Base
+  end
+end

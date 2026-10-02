@@ -1,0 +1,15 @@
+module Digest
+  VOWELS: "aeiouy"
+
+  CONSONANTS: "bcdfghklmnprstvzx"
+
+  def self.bubblebabble: (untyped str) -> untyped
+
+  module Instance
+    def bubblebabble: () -> untyped
+  end
+
+  class Class
+    def self.bubblebabble: (*untyped args) -> untyped
+  end
+end

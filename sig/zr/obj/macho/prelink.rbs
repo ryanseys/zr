@@ -1,0 +1,194 @@
+module Zr
+  module Obj
+    module MachO
+      # The base: the objects that every program of one runtime links
+      # against (the runtime and eval support objects). They are linked
+      # once, at fixed addresses, and kept in the cache.
+      #
+      # An image puts the base first: its code and constants in `__TEXT`
+      # after the header page, its GOT in `__DATA_CONST`, and its data in
+      # `__DATA`. The program's own parts go in `__PROGRAM` (code, after
+      # `__TEXT`) and `__DATA_PROGRAM` (data, after `__DATA`).
+      # `__DATA_CONST` always starts `RESERVE` bytes after the end of
+      # `__TEXT`. Thus all base addresses and relocations are the same in
+      # every image, and the program's code is within branch reach of the
+      # base's code.
+      #
+      # Only the slots of the base's externals (`late`) change for each
+      # program: a program can define them, or libSystem binds them. A slot
+      # contains a chain entry. The chain on each page is the same in every
+      # image, so only the entry's target changes.
+      class Prelink
+        @parts: untyped
+
+        @text_size: untyped
+
+        @got_vm: untyped
+
+        @got_size: untyped
+
+        @data_vm: untyped
+
+        @data_filesize: untyped
+
+        @data_vmsize: untyped
+
+        @externals: untyped
+
+        @late: untyped
+
+        @starts: untyped
+
+        @symbols: untyped
+
+        @strings: untyped
+
+        @names: untyped
+
+        @addresses: untyped
+
+        @blobs: untyped
+
+        @hashes: untyped
+
+        @addressed: untyped
+
+        @searched: untyped
+
+        @indexed: untyped
+
+        PAGE: 16384
+
+        # A code signature hashes pages of this size.
+        HASH_PAGE: 4096
+
+        # The image address, above the 4 GB unmapped zero page that makes a
+        # null dereference a fault.
+        BASE: 4294967296
+
+        # The address space for `__PROGRAM` between `__TEXT` and
+        # `__DATA_CONST`. A branch reaches 128 MB, so a program that links
+        # cannot have more code than this.
+        RESERVE: 1073741824
+
+        # The image section number (from one) of each part of the base:
+        # three in `__TEXT`, three in `__PROGRAM`, the GOT in
+        # `__DATA_CONST`, then three in `__DATA`.
+        ORDINALS: { text: 1, stubs: 2, const: 3, got: 7, dconst: 8, data: 9, bss: 10 }
+
+        MAGIC: untyped
+
+        SEGMENTS: ::Array[:got | :data]
+
+        # A slot that contains an external's address: its segment, its
+        # offset in the segment's bytes, the distance to the next slot's
+        # entry, the name, and the addend.
+        Late: untyped
+
+        attr_reader parts: untyped
+
+        attr_reader text_size: untyped
+
+        attr_reader got_vm: untyped
+
+        attr_reader got_size: untyped
+
+        attr_reader data_vm: untyped
+
+        attr_reader data_filesize: untyped
+
+        attr_reader data_vmsize: untyped
+
+        attr_reader externals: untyped
+
+        attr_reader late: untyped
+
+        attr_reader starts: untyped
+
+        attr_reader symbols: untyped
+
+        attr_reader strings: untyped
+
+        attr_reader names: untyped
+
+        attr_reader addresses: untyped
+
+        attr_reader blobs: untyped
+
+        attr_reader hashes: untyped
+
+        # Links the objects' bytes. Returns an empty base for no objects.
+        def self.build: (untyped objects) -> untyped
+
+        # Places `part` at the first aligned address at or after `at`.
+        # Returns the end address.
+        def self.place: (untyped block, untyped part, untyped at) -> untyped
+
+        # The SHA-256 of each 4 KB page of `bytes`, one after another.
+        def self.page_hashes: (untyped bytes) -> untyped
+
+        # Joins `strings`, each followed by a zero byte. Every part is
+        # binary: in the compiled runtime, appending text of another
+        # encoding to a long binary string scans the full string again.
+        def self.joined: (untyped strings) -> untyped
+
+        def initialize: (?parts: ::Hash[untyped, untyped], ?text_size: ::Integer, ?got_vm: ::Integer, ?got_size: ::Integer, ?data_vm: ::Integer, ?data_filesize: ::Integer, ?data_vmsize: ::Integer, ?externals: untyped, ?late: untyped, ?starts: ::Hash[untyped, untyped], ?symbols: untyped, ?strings: untyped, ?names: untyped, ?addresses: untyped, ?blobs: ::Hash[untyped, untyped], ?hashes: ::Hash[untyped, untyped]) -> void
+
+        def empty?: () -> untyped
+
+        # The address of the global `name` ("_zr_send"), or nil.
+        #
+        # This caches each result, not a full table. A link calls this once
+        # for each name that it defines or needs, and the runtime has about
+        # 250,000 symbols. The search took 12% of a link, and the image stays
+        # in memory for the next link, which looks up the same names. A full
+        # table would add 33 ms to a single `zr build`, so only a link that
+        # has searched `INDEXED_AFTER` names makes one (`search`).
+        def global: (untyped name) -> untyped
+
+        # After this many searches, a Hash of every name is cheaper than
+        # the binary searches still to come: a large program (bundler)
+        # searches about a hundred thousand names.
+        INDEXED_AFTER: 10000
+
+        def search: (untyped name) -> untyped
+
+        def data_end: () -> untyped
+
+        # Returns the base as bytes: a magic line, then each field as its
+        # size and its bytes.
+        def dump: () -> untyped
+
+        # Reads a base that `dump` wrote. Returns nil for other bytes: a
+        # truncated cache file or a file of another format is a cache miss.
+        def self.load: (untyped bytes) -> untyped
+
+        # The sorted names of a loaded base, in one string. A link reads a
+        # few thousand of them, and a split into 387,000 strings took half
+        # of a load of eval support's base. A name is made when it is read.
+        class Names
+          @joined: untyped
+
+          @starts: untyped
+
+          # The joined names and the offset where each one starts.
+          def self.dumped: (untyped names) -> ::Array[untyped]
+
+          attr_reader joined: untyped
+
+          attr_reader starts: untyped
+
+          def initialize: (untyped joined, untyped starts) -> void
+
+          def size: () -> untyped
+
+          def []: (untyped n) -> (nil | untyped)
+
+          def bsearch_index: () { (untyped) -> untyped } -> untyped
+
+          def to_a: () -> untyped
+        end
+      end
+    end
+  end
+end

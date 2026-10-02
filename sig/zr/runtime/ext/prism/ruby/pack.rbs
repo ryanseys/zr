@@ -1,0 +1,43 @@
+module Prism
+  module Ruby
+    # Prism::Pack.parse's native half: api_pack.c over pack.c, which reads a
+    # template of Array#pack or String#unpack into its directives.
+    module Pack
+      # What each directive letter reads as: its type, signedness,
+      # endianness and size.
+      DIRECTIVES: { "C" => ::Array[:INTEGER | :UNSIGNED | :AGNOSTIC_ENDIAN | :SIZE_8], "S" => ::Array[:INTEGER | :UNSIGNED | :NATIVE_ENDIAN | :SIZE_16], "L" => ::Array[:INTEGER | :UNSIGNED | :NATIVE_ENDIAN | :SIZE_32], "Q" => ::Array[:INTEGER | :UNSIGNED | :NATIVE_ENDIAN | :SIZE_64], "J" => ::Array[:INTEGER | :UNSIGNED | :NATIVE_ENDIAN | :SIZE_P], "c" => ::Array[:INTEGER | :SIGNED | :AGNOSTIC_ENDIAN | :SIZE_8], "s" => ::Array[:INTEGER | :SIGNED | :NATIVE_ENDIAN | :SIZE_16], "l" => ::Array[:INTEGER | :SIGNED | :NATIVE_ENDIAN | :SIZE_32], "q" => ::Array[:INTEGER | :SIGNED | :NATIVE_ENDIAN | :SIZE_64], "j" => ::Array[:INTEGER | :SIGNED | :NATIVE_ENDIAN | :SIZE_P], "I" => ::Array[:INTEGER | :UNSIGNED | :NATIVE_ENDIAN | :SIZE_INT], "i" => ::Array[:INTEGER | :SIGNED | :NATIVE_ENDIAN | :SIZE_INT], "n" => ::Array[:INTEGER | :UNSIGNED | :BIG_ENDIAN | :SIZE_16], "N" => ::Array[:INTEGER | :UNSIGNED | :BIG_ENDIAN | :SIZE_32], "v" => ::Array[:INTEGER | :UNSIGNED | :LITTLE_ENDIAN | :SIZE_16], "V" => ::Array[:INTEGER | :UNSIGNED | :LITTLE_ENDIAN | :SIZE_32], "U" => ::Array[:UTF8 | :SIGNED_NA | :ENDIAN_NA | :SIZE_NA], "w" => ::Array[:BER | :SIGNED_NA | :ENDIAN_NA | :SIZE_NA], "D" => ::Array[:FLOAT | :SIGNED_NA | :NATIVE_ENDIAN | :SIZE_64], "d" => ::Array[:FLOAT | :SIGNED_NA | :NATIVE_ENDIAN | :SIZE_64], "F" => ::Array[:FLOAT | :SIGNED_NA | :NATIVE_ENDIAN | :SIZE_32], "f" => ::Array[:FLOAT | :SIGNED_NA | :NATIVE_ENDIAN | :SIZE_32], "E" => ::Array[:FLOAT | :SIGNED_NA | :LITTLE_ENDIAN | :SIZE_64], "e" => ::Array[:FLOAT | :SIGNED_NA | :LITTLE_ENDIAN | :SIZE_32], "G" => ::Array[:FLOAT | :SIGNED_NA | :BIG_ENDIAN | :SIZE_64], "g" => ::Array[:FLOAT | :SIGNED_NA | :BIG_ENDIAN | :SIZE_32], "A" => ::Array[:STRING_SPACE_PADDED | :SIGNED_NA | :ENDIAN_NA | :SIZE_NA], "a" => ::Array[:STRING_NULL_PADDED | :SIGNED_NA | :ENDIAN_NA | :SIZE_NA], "Z" => ::Array[:STRING_NULL_TERMINATED | :SIGNED_NA | :ENDIAN_NA | :SIZE_NA], "B" => ::Array[:STRING_MSB | :SIGNED_NA | :ENDIAN_NA | :SIZE_NA], "b" => ::Array[:STRING_LSB | :SIGNED_NA | :ENDIAN_NA | :SIZE_NA], "H" => ::Array[:STRING_HEX_HIGH | :SIGNED_NA | :ENDIAN_NA | :SIZE_NA], "h" => ::Array[:STRING_HEX_LOW | :SIGNED_NA | :ENDIAN_NA | :SIZE_NA], "u" => ::Array[:STRING_UU | :SIGNED_NA | :ENDIAN_NA | :SIZE_NA], "M" => ::Array[:STRING_MIME | :SIGNED_NA | :ENDIAN_NA | :SIZE_NA], "m" => ::Array[:STRING_BASE64 | :SIGNED_NA | :ENDIAN_NA | :SIZE_NA], "P" => ::Array[:STRING_FIXED | :SIGNED_NA | :ENDIAN_NA | :SIZE_NA], "p" => ::Array[:STRING_POINTER | :SIGNED_NA | :ENDIAN_NA | :SIZE_NA], "@" => ::Array[:MOVE | :SIGNED_NA | :ENDIAN_NA | :SIZE_NA], "X" => ::Array[:BACK | :SIGNED_NA | :ENDIAN_NA | :SIZE_NA], "x" => ::Array[:NULL | :SIGNED_NA | :ENDIAN_NA | :SIZE_NA] }
+
+      # The integer directives whose size a ! or _ cannot change.
+      FIXED_SIZE: ::Array["n" | "N" | "v" | "V"]
+
+      # The native size a ! or _ gives each fixed size.
+      NATIVE_SIZES: { SIZE_16: :SIZE_SHORT, SIZE_32: :SIZE_LONG, SIZE_64: :SIZE_LONG_LONG }
+
+      # A directive as pm_pack_parse reads it.
+      Directive: untyped
+
+      UINT64_MAX: untyped
+
+      # pack_parse: the template's directives and the encoding of what
+      # packing it makes (nil for an empty template).
+      def self?.parse: (untyped version, untyped variant, untyped format) -> untyped
+
+      # StringValue
+      def self?.string_value: (untyped value) -> untyped
+
+      # pm_pack_parse: the directive at `cursor`, the cursor past it, and
+      # the encoding after it.
+      def self?.directive: (untyped variant, untyped bytes, untyped cursor, untyped encoding) -> ::Array[untyped]
+
+      # The modifiers after a directive: `!` or `_` for a native size, `<`
+      # or `>` for an endianness.
+      def self?.modifiers: (untyped directive, untyped bytes, untyped cursor, untyped size_changes) -> untyped
+
+      # The count after a directive: `*` or decimal digits.
+      def self?.count: (untyped directive, untyped variant, untyped bytes, untyped cursor) -> untyped
+
+      # The length type and length a `*` gives each type.
+      def self?.star: (untyped type, untyped variant) -> untyped
+    end
+  end
+end

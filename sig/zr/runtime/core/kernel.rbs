@@ -1,0 +1,355 @@
+# Kernel's conversion and convenience methods.
+module Kernel
+  def <=>: (untyped other) -> (0 | nil)
+
+  def loop: () ?{ () -> untyped } -> untyped
+
+  def exit: (?bool status) -> untyped
+
+  private
+
+  # How a conversion message shows a value: nil, true and false as
+  # themselves, and any other value by its class. An anonymous class
+  # shows its path in place of a name, as rb_builtin_class_name returns.
+  # A user's own `==` never decides this, so the two singletons are
+  # compared by identity.
+  def conversion_name: (untyped value) -> untyped
+
+  public
+
+  # The message goes to stderr immediately; the SystemExit contains it.
+  def abort: (*untyped args) -> untyped
+
+  # A literal name is resolved when the program is compiled. A computed
+  # one is found when the call runs, as ruby finds it.
+  def require: (untyped name) -> untyped
+
+  # A require's search and load, which Kernel#require and Kernel.require
+  # share.
+  def self.required: (untyped name) -> (false | untyped)
+
+  # syntax_suggest's detailed_message loads its search, which needs
+  # prism, for each SyntaxError. The search reads only an error with a
+  # path, which a program without the compiler cannot get, so there the
+  # method returns the message as it is.
+  def self.parserless?: (untyped feature) -> untyped
+
+  # The name is taken from the directory of the file that calls.
+  def require_relative: (untyped name) -> untyped
+
+  # A load runs the file each time, and finds it exactly: a path that
+  # says where it starts, else a file under a $LOAD_PATH directory, else
+  # one under the working directory.
+  #
+  # A `wrap` runs the file under a module: the one given, or a new one
+  # for any other true value. Its constants and methods go there, and
+  # its self is a clone of main that the module extends.
+  def load: (untyped name, ?bool wrap) -> (untyped | true)
+
+  # The file that a require of `feature` runs, or nil, as the compiler
+  # resolves a literal name. A name with no `.rb` refers to a file that
+  # ends in it. A native extension's name also refers to the Ruby file
+  # that replaces it in this runtime's native parts.
+  def self.feature_path: (untyped feature) -> untyped
+
+  # `name` looked for as ruby looks: a path that says where it starts is
+  # taken from there; any other name under each $LOAD_PATH directory and
+  # the library the program was compiled against.
+  def self.search: (untyped name) -> (untyped | nil)
+
+  # `path`, when the program was compiled with that file or it is there.
+  def self.found: (untyped path) -> untyped
+
+  # Whether ruby loaded `feature` before the program, by any of its names.
+  def self.preloaded?: (untyped feature) -> untyped
+
+  # Whether a require of `feature` would read no file, because the
+  # runtime contains it already or an earlier require read it.
+  # `autoload` calls this: ruby keeps no entry for such a feature and
+  # declares only the name. A name that matches no file is not loaded,
+  # so it keeps its entry and raises where the constant is read.
+  def self.loaded_feature?: (untyped feature) -> (true | untyped)
+
+  # The path that a require of `feature` would read, or nil when no file
+  # of that name is on any load path. An autoload keeps this next to the
+  # feature as it was written, so that a require of the same file is
+  # recognised by any name. Ruby finds the file again each time; here it
+  # is found once.
+  def self.feature_file: (untyped feature) -> untyped
+
+  # A require (kind 0), require_relative (1) or load (2) of the file at
+  # `path`, which `feature` gave: its compiled toplevel when the program
+  # was compiled with the file, or the file compiled now. A feature that
+  # ruby includes but this runtime has no file for is a refusal.
+  def self.load_file: (untyped path, untyped feature, untyped kind) -> (false | untyped)
+
+  # A name that matches no file: ruby's LoadError, or a refusal for a
+  # feature that ruby includes but this runtime has no file for. An
+  # entry of the table contains the reason after a tab when there is
+  # one, and that reason is the full refusal message.
+  def self.missing: (untyped feature, untyped kind) -> untyped
+
+  # A file that the program was not compiled with, compiled by the
+  # compiler that a program with a computed require links in.
+  def self.compile: (untyped path) -> untyped
+
+  def at_exit: () ?{ (?) -> untyped } -> untyped
+
+  def tap: () { (untyped) -> untyped } -> self
+
+  def then: () ?{ (untyped) -> untyped } -> untyped
+
+  alias yield_self then
+
+  private
+
+  # The `exception:` keyword of Integer(), Float(), Rational() and
+  # Complex() is true or false (rb_bool_expected).
+  def exception_flag: (untyped value) -> untyped
+
+  public
+
+  def Integer: (untyped arg, ?::Integer base, ?exception: bool) -> (nil | untyped)
+
+  private
+
+  # rb_str_convert_to_inum for Integer(): the whole text in `base`.
+  def string_integer: (untyped text, untyped base, untyped exception) -> (untyped | nil)
+
+  public
+
+  # rb_String: to_str, else to_s, each as rb_check_funcall calls it.
+  def String: (untyped value) -> untyped
+
+  # rb_Array: to_ary, else to_a, else the value alone. If either returns
+  # nil, the next is tried; if either returns a non-Array, it is refused.
+  def Array: (untyped value) -> (untyped | ::Array[untyped])
+
+  # The current thread sleeps `duration` seconds, or until `wakeup`
+  # with no duration. It returns the seconds slept, rounded.
+  def sleep: (?untyped duration) -> untyped
+
+  def itself: () -> self
+
+  def clone: (?freeze: untyped?) -> untyped
+
+  # warning.rb's Kernel#warn and rb_warn_m: the messages as `puts` writes
+  # them, after the position `uplevel` frames above this call. A category
+  # that the program turned off writes nothing.
+  def warn: (*untyped msgs, ?uplevel: untyped?, ?category: untyped?) -> nil
+
+  private
+
+  # An Integer argument as CRuby's NUM2LONG reads one: an Integer, a
+  # truncated Float, or the value that `to_int` returns.
+  def implicit_integer: (untyped value) -> untyped
+
+  # rb_to_int: an Integer, or what `to_int` makes one, where nil is a
+  # value like any other.
+  def to_integer: (untyped value) -> untyped
+
+  def exit_status: (untyped status) -> (0 | 1 | untyped)
+
+  # The strict form: whitespace around, a sign, a `0x`, `0b`, `0o` or
+  # `0d` prefix, digits with single underscores between them; nil on
+  # anything else.
+  def parse_integer: (untyped text, untyped base) -> (nil | untyped)
+end
+
+class NilClass
+  def to_i: () -> 0
+
+  def to_f: () -> ::Float
+
+  def to_a: () -> ::Array[untyped]
+
+  def to_h: () -> ::Hash[untyped, untyped]
+
+  def &: (untyped other) -> false
+
+  def |: (untyped other) -> (true | false)
+
+  def ^: (untyped other) -> (true | false)
+
+  def nil?: () -> true
+end
+
+class TrueClass
+  def &: (untyped other) -> (true | false)
+
+  def |: (untyped other) -> true
+
+  def ^: (untyped other) -> (false | true)
+end
+
+class NilClass
+  def =~: (untyped other) -> nil
+end
+
+class FalseClass
+  def &: (untyped other) -> false
+
+  def |: (untyped other) -> (true | false)
+
+  def ^: (untyped other) -> (true | false)
+end
+
+module Kernel
+  # A program that calls eval by name links in the compiler, and eval
+  # support defines this method again over that compiler. A program that
+  # reaches eval any other way stops here, with a refusal.
+  def eval: (untyped source, ?untyped? binding, ?::String file, ?::Integer line) -> untyped
+
+  def catch: (?untyped tag) ?{ (?) -> untyped } -> untyped
+
+  def throw: (untyped tag, ?untyped? value) -> untyped
+end
+
+# Commands on global variables: each assignment to a traced global runs
+# its commands with the new value, the newest first, as rb_gvar_set_entry
+# runs them. A command that assigns the global it watches runs no
+# command again.
+module Kernel
+  def self?.trace_var: (*untyped args) { (?) -> untyped } -> (untyped | nil)
+
+  def self?.untrace_var: (*untyped args) -> untyped
+
+  # A hook every thread's events reach, which replaces the one before.
+  def self?.set_trace_func: (untyped hook) -> untyped
+
+  # Ruby's own globals, in the order ruby lists them, then the ones the
+  # program assigned or aliased.
+  def global_variables: () -> untyped
+
+  private
+
+  # rb_to_id: a Symbol, or a String that is its name.
+  def self.global_name: (untyped name) -> untyped
+
+  def self.gvar_commands: () -> untyped
+
+  def self.builtin_globals: () -> ::Array[:$? | :$-w | :$DEBUG | :$-d | :$@ | :$; | :$-F | :$: | :$-I | :$LOAD_PATH | :$" | :$LOADED_FEATURES | :$0 | :$PROGRAM_NAME | :$-p | :$-l | :$-a | :$& | :$` | :$' | :$+ | :$= | :$stdin | :$stdout | :$> | :$stderr | :$VERBOSE | :$-v | :$, | :$/ | :$-0 | :$\ | :$-W | :$_ | :$~ | :$< | :$! | :$. | :$FILENAME | :$-i | :$* | :$$]
+
+  # The globals ruby refuses to assign.
+  READ_ONLY_GLOBALS: ::Array[:$! | :$& | :$` | :$' | :$+ | :$$ | :$? | :$* | :$< | :$FILENAME | :$LOAD_PATH | :$LOADED_FEATURES | :$-a | :$-l | :$-p | :$-W]
+
+  # A program assigns `value` to the global `name`, which it wrote as
+  # `shown`. The setter that ruby hooks on that global checks the value
+  # and returns the global's contents.
+  def self.hooked_global: (untyped shown, untyped name, untyped value) -> untyped
+
+  # rb_deprecated_str_setter: a String or nil, and a warning for a
+  # String.
+  def self.separator: (untyped shown, untyped value) -> untyped
+
+  # The global `name` was assigned `value`: its commands run, unless
+  # they run already.
+  def self.traced_assign: (untyped name, untyped value) -> (nil | untyped)
+end
+
+module Kernel
+end
+
+class Module
+  private
+
+  def ruby2_keywords: (*untyped names) -> nil
+end
+
+module Kernel
+  private
+
+  # rb_f_putc: $stdout's own putc, which adds no `$\`.
+  def self?.putc: (untyped char) -> untyped
+
+  public
+
+  PRETTY_PRINTER: ::Array[untyped]
+
+  def self.pretty_printer=: (untyped load) -> untyped
+
+  # The load that pp arms, done once: pp.rb's own pp handles every call
+  # after the first.
+  def self.pretty_printer: () -> untyped
+
+  private
+
+  # CRuby's prelude: the first pp requires ruby's own pp.rb, whose
+  # Kernel#pp replaces this one. A program that calls pp by name includes
+  # pp.rb and arms that require. A program that reaches pp only through
+  # a computed name prints inspect on one line each, as `p` does.
+  def pp: (*untyped objs) -> untyped
+
+  public
+
+  # CRuby's prelude aliases pp to itself, so pp.rb's definition over it
+  # warns of no redefinition.
+  alias pp pp
+
+  # rubygems' Kernel#gem, before rubygems loads. Ruby loads rubygems for
+  # every program, so `gem` is always there. zr loads it at boot only for
+  # a program whose files name Gem or call `gem`. A file that eval
+  # support carries (prism/translation/parser calls `gem "parser"`) is
+  # not one of the program's, so its call comes here. The first call
+  # loads rubygems and gives it the program's gems, as the prelude does
+  # (lib/zr/runtime/lib/zr/gem_manifest.rb). That file's `gem` then replaces
+  # this one. The names are computed, so the core does not put rubygems
+  # in every program: a program that reaches here carries it in eval
+  # support.
+  GEM_LOAD: ::Array[true]
+
+  private
+
+  def gem: (untyped gem_name, *untyped requirements) -> untyped
+
+  def self?.Hash: (untyped value) -> (::Hash[untyped, untyped] | untyped)
+
+  public
+
+  def display: (?untyped port) -> nil
+
+  def singleton_method: (untyped name) -> untyped
+
+  private
+
+  def self?.exit!: (?bool status) -> untyped
+
+  public
+
+  def !~: (untyped other) -> untyped
+
+  private
+
+  # The same call as IO.select, which Kernel also has.
+  def self?.select: (*untyped) -> untyped
+end
+
+class Module
+  alias attr attr_reader
+
+  def set_temporary_name: (untyped name) -> self
+end
+
+class Module
+  private
+
+  def constant_name?: (untyped part) -> untyped
+end
+
+class Class
+  def attached_object: () -> untyped
+end
+
+class Object
+  private
+
+  def self.ruby2_keywords: (*untyped names) -> nil
+
+  public
+
+  private
+
+  public
+
+  public
+end

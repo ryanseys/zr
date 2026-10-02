@@ -1,0 +1,20 @@
+module Zr
+  module Backend
+    module Wasm
+      class Codegen
+        # The libc calls that the module defines itself when no function has
+        # the name: memory calls, because only the module can own memory, and
+        # the write, exit and abort calls of a unit with no OS layer.
+        LIBC_SHIMS: { "write" => ::Array[::Array[127 | 126] | ::Array[126]], "exit" => ::Array[::Array[127] | ::Array[untyped]], "_exit" => ::Array[::Array[127] | ::Array[untyped]], "abort" => ::Array[::Array[untyped]], "malloc" => ::Array[::Array[126]], "free" => ::Array[::Array[126] | ::Array[untyped]], "posix_memalign" => ::Array[::Array[126] | ::Array[127]], "memmove" => ::Array[::Array[126]], "memset" => ::Array[::Array[126 | 127] | ::Array[126]] }
+
+        # How many i32 locals a shim body declares.
+        LOCALS: { "malloc" => 1 }
+
+        private
+
+        # `write(fd, ptr, len)`: an iovec in the scratch area, then fd_write.
+        def shim: (untyped name) -> untyped
+      end
+    end
+  end
+end

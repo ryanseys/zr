@@ -1,0 +1,31 @@
+module Zr
+  module CLI
+    # What `zr` prints, and the status that it exits with, for an error: a
+    # wrong command line (`usage_error`) and an error that escapes a command
+    # (`guard`).
+    module Errors
+      # The errors that say what the user must change, not a defect in zr.
+      # They print their message only. Named as strings: not every command
+      # loads the file that defines each one.
+      EXPECTED: ::Array["Zr::Config::Invalid" | "Zr::SourceChanged" | "Zr::GemSet::Unresolved" | "Zr::Paths::Missing"]
+
+      # The errors of a directory that zr cannot write to or that is full.
+      UNWRITABLE: ::Array["EACCES" | "EROFS" | "ENOSPC" | "EPERM"]
+
+      # Runs the command, and turns an error that escapes it into one line
+      # and an exit status: 130 for Ctrl-C, 2 for a bad setting, 1 for any
+      # other error. An error that zr did not expect is a defect: the line
+      # says so and where to report it. ZR_DEBUG=1 shows the backtrace.
+      def self?.guard: () { () -> untyped } -> untyped
+
+      # The line that `guard` prints for `error`.
+      def self?.error_line: (untyped error) -> (untyped | ::String)
+
+      # For an error that writing into zr's cache gave, how to fix it.
+      def self?.cache_hint: (untyped error) -> untyped
+
+      # One line that says what is wrong, and where to find help.
+      def self?.usage_error: (untyped message, ?untyped? command) -> untyped
+    end
+  end
+end

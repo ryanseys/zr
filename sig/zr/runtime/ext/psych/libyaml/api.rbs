@@ -1,0 +1,243 @@
+# The object setup and the event constructors of libyaml 0.2.5
+# (src/api.c).
+module Psych
+  module LibYAML
+    class Parser
+      @error: untyped
+
+      @problem: untyped
+
+      @problem_offset: untyped
+
+      @problem_value: untyped
+
+      @problem_mark: untyped
+
+      @context: untyped
+
+      @context_mark: untyped
+
+      @read_handler: untyped
+
+      @encoding: untyped
+
+      @eof: untyped
+
+      @raw_buffer: untyped
+
+      @raw_pointer: untyped
+
+      @buffer: untyped
+
+      @pointer: untyped
+
+      @unread: untyped
+
+      @offset: untyped
+
+      @mark_index: untyped
+
+      @mark_line: untyped
+
+      @mark_column: untyped
+
+      @stream_start_produced: untyped
+
+      @stream_end_produced: untyped
+
+      @flow_level: untyped
+
+      @tokens: untyped
+
+      @tokens_parsed: untyped
+
+      @token_available: untyped
+
+      @indents: untyped
+
+      @indent: untyped
+
+      @simple_key_allowed: untyped
+
+      @simple_keys: untyped
+
+      @states: untyped
+
+      @state: untyped
+
+      @marks: untyped
+
+      @tag_directives: untyped
+
+      # yaml_parser_initialize
+      def initialize: () -> void
+
+      def inspect: () -> ::String
+
+      # yaml_parser_set_input_string: read the bytes of `input`.
+      def set_input_string: (untyped input) -> untyped
+
+      # yaml_parser_set_input: read from a handler that takes the maximum
+      # number of bytes it can return and returns a binary string (empty at
+      # the end of the input), or nil for an input error.
+      def set_input: () { (?) -> untyped } -> untyped
+
+      # yaml_parser_set_encoding
+      def set_encoding: (untyped encoding) -> untyped
+    end
+
+    class Emitter
+      @error: untyped
+
+      @problem: untyped
+
+      @write_handler: untyped
+
+      @buffer: untyped
+
+      @encoding: untyped
+
+      @canonical: untyped
+
+      @best_indent: untyped
+
+      @best_width: untyped
+
+      @unicode: untyped
+
+      @line_break: untyped
+
+      @states: untyped
+
+      @state: untyped
+
+      @events: untyped
+
+      @indents: untyped
+
+      @tag_directives: untyped
+
+      @indent: untyped
+
+      @flow_level: untyped
+
+      @root_context: untyped
+
+      @sequence_context: untyped
+
+      @mapping_context: untyped
+
+      @simple_key_context: untyped
+
+      @line: untyped
+
+      @column: untyped
+
+      @whitespace: untyped
+
+      @indention: untyped
+
+      @open_ended: untyped
+
+      @anchor_data_anchor: untyped
+
+      @anchor_data_alias: untyped
+
+      @tag_data_handle: untyped
+
+      @tag_data_suffix: untyped
+
+      @scalar_data_value: untyped
+
+      @scalar_data_multiline: untyped
+
+      @scalar_data_flow_plain_allowed: untyped
+
+      @scalar_data_block_plain_allowed: untyped
+
+      @scalar_data_single_quoted_allowed: untyped
+
+      @scalar_data_block_allowed: untyped
+
+      @scalar_data_style: untyped
+
+      OUTPUT_BUFFER_SIZE: 16384
+
+      attr_reader error: untyped
+
+      attr_reader problem: untyped
+
+      attr_reader canonical: untyped
+
+      attr_reader best_indent: untyped
+
+      attr_reader best_width: untyped
+
+      # yaml_emitter_initialize
+      def initialize: () -> void
+
+      def inspect: () -> ::String
+
+      # yaml_emitter_set_output: write through a handler that takes a
+      # binary string and returns whether it wrote it.
+      def set_output: () { (?) -> untyped } -> untyped
+
+      # yaml_emitter_set_encoding
+      def set_encoding: (untyped encoding) -> untyped
+
+      # yaml_emitter_set_canonical
+      def set_canonical: (untyped canonical) -> untyped
+
+      # yaml_emitter_set_indent
+      def set_indent: (untyped indent) -> untyped
+
+      # yaml_emitter_set_width
+      def set_width: (untyped width) -> untyped
+
+      # yaml_emitter_set_unicode
+      def set_unicode: (untyped unicode) -> untyped
+
+      # yaml_emitter_set_break
+      def set_break: (untyped line_break) -> untyped
+    end
+
+    # The event constructors. libyaml checks that every string is valid
+    # UTF-8 and returns 0 when one is not; these return nil then.
+    module Events
+      # yaml_check_utf8
+      def self?.check_utf8: (untyped string) -> (false | true)
+
+      # yaml_stream_start_event_initialize
+      def self?.stream_start: (untyped encoding) -> untyped
+
+      # yaml_stream_end_event_initialize
+      def self?.stream_end: () -> untyped
+
+      # yaml_document_start_event_initialize
+      def self?.document_start: (untyped version_directive, untyped tag_directives, untyped implicit) -> (nil | untyped)
+
+      # yaml_document_end_event_initialize
+      def self?.document_end: (untyped implicit) -> untyped
+
+      # yaml_alias_event_initialize
+      def self?.alias: (untyped anchor) -> (nil | untyped)
+
+      # yaml_scalar_event_initialize
+      def self?.scalar: (untyped anchor, untyped tag, untyped value, untyped plain_implicit, untyped quoted_implicit, untyped style) -> (nil | untyped)
+
+      # yaml_sequence_start_event_initialize
+      def self?.sequence_start: (untyped anchor, untyped tag, untyped implicit, untyped style) -> untyped
+
+      # yaml_sequence_end_event_initialize
+      def self?.sequence_end: () -> untyped
+
+      # yaml_mapping_start_event_initialize
+      def self?.mapping_start: (untyped anchor, untyped tag, untyped implicit, untyped style) -> untyped
+
+      # yaml_mapping_end_event_initialize
+      def self?.mapping_end: () -> untyped
+
+      def self?.collection_start: (untyped type, untyped anchor, untyped tag, untyped implicit, untyped style) -> (nil | untyped)
+    end
+  end
+end

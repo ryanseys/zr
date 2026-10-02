@@ -1,0 +1,37 @@
+module Zr
+  module CLI
+    module Commands
+      # `zr cache path`, `size` or `clean [--days N | --all]`.
+      #
+      # In `Commands`, `Cache` names this class: zr's cache is `Zr::Cache`.
+      class Cache < Command
+        # wasmtime's cache of compiled modules. `zr run` of a WebAssembly
+        # module fills it. zr does not clean it, but `zr cache size`
+        # reports it, because it can become large (67 GB on one machine).
+        WASMTIME: untyped
+
+        def run: (untyped argv) -> untyped
+
+        private
+
+        # A usage error when `argv` holds a word that no option took.
+        def no_more!: (untyped argv) -> (untyped | nil)
+
+        # `{ all:, days: }` from the words after `clean`. It takes the
+        # options out of `argv`.
+        def clean_options: (untyped argv) -> { all: untyped, days: untyped }
+
+        # What the cache holds, by kind, and its total.
+        def size: () -> untyped
+
+        # The size of wasmtime's own cache, when there is one.
+        def wasmtime: () -> (nil | untyped)
+
+        # Deletes the files that this zr does not use and that were not
+        # used in the last `days`, and the compiled compilers of older zr
+        # versions. With `all`, it deletes every file.
+        def clean: (all: untyped, days: untyped) -> untyped
+      end
+    end
+  end
+end

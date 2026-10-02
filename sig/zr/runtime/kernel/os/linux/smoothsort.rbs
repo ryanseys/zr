@@ -1,0 +1,19 @@
+module Zr::Kern
+  def zr_smooth_ntz: (untyped x) -> (64 | untyped)
+
+  def zr_smooth_pntz: (untyped p) -> untyped
+
+  def zr_smooth_shl: (untyped p, untyped n) -> untyped
+
+  def zr_smooth_shr: (untyped p, untyped n) -> untyped
+
+  def zr_smooth_cycle: (untyped st, untyped ar, untyped n) -> (nil | untyped)
+
+  def zr_smooth_lp: (untyped lp, untyped i) -> untyped
+
+  def zr_smooth_sift: (untyped st, untyped head, untyped pshift, untyped lp) -> untyped
+
+  def zr_smooth_trinkle: (untyped st, untyped head, untyped pp, untyped pshift, untyped trusty, untyped lp) -> untyped
+
+  def zr_smoothsort: (untyped st, untyped n) -> (nil | untyped)
+end

@@ -1,0 +1,98 @@
+module Zr::Kern
+  # A fast Marshal reader for the kinds that most dumps contain: nil, the
+  # booleans, fixnums, floats, symbols and symbol links, strings with
+  # their encoding, arrays, hashes, plain objects and structs, a `_load`
+  # payload (usually an Encoding), a bignum that fits a fixnum, and links
+  # to any of these. For all other kinds (`marshal_load`, a class or
+  # module, a regexp, a larger bignum, an extended or subclassed value, a
+  # hash with a default, an object of a class with its own allocator), the
+  # read falls back to the Ruby reader (lib/zr/runtime/core/marshal.rb). The Ruby
+  # reader then reads the document from the start. Both readers give the
+  # same values. This one reads at about the speed of a copy, which is
+  # necessary for a cache of parses or of compiled units.
+  #
+  # The reader state is on the stack: the bytes, the length, the position,
+  # and a bail flag. The object table and the symbol table are in two
+  # Arrays that the caller keeps, because a stack slot is not a GC root.
+  MReader: untyped
+
+  MR_NIL: 48
+
+  MR_TRUE: 84
+
+  MR_FALSE: 70
+
+  MR_FIXNUM: 105
+
+  MR_SYMBOL: 58
+
+  MR_SYMLINK: 59
+
+  MR_LINK: 64
+
+  MR_IVARS: 73
+
+  MR_FLOAT: 102
+
+  MR_STRING: 34
+
+  MR_ARRAY: 91
+
+  MR_HASH: 123
+
+  MR_OBJECT: 111
+
+  MR_STRUCT: 83
+
+  MR_USRDEF: 117
+
+  MR_BIGNUM: 108
+
+  def zr_marshal_load_fast: (untyped src) -> untyped
+
+  def zr_marshal_bailed_p: () -> untyped
+
+  def zr_mr_bail: (untyped r) -> untyped
+
+  def zr_mr_byte: (untyped r) -> untyped
+
+  def zr_mr_long: (untyped r) -> (untyped | 0)
+
+  def zr_mr_text: (untyped r, untyped n) -> (0 | untyped)
+
+  def zr_mr_ascii_p: (untyped p, untyped n) -> (false | true)
+
+  def zr_mr_symbol: (untyped r, untyped symbols) -> untyped
+
+  def zr_mr_class: (untyped p, untyped n) -> untyped
+
+  def zr_mr_value: (untyped r, untyped objects, untyped symbols) -> untyped
+
+  def zr_mr_bignum: (untyped r, untyped objects) -> untyped
+
+  def zr_mr_user_dump: (untyped r, untyped objects, untyped symbols) -> untyped
+
+  def zr_mr_string: (untyped r) -> untyped
+
+  def zr_mr_float: (untyped r, untyped objects) -> untyped
+
+  def zr_mr_array: (untyped r, untyped objects, untyped symbols) -> untyped
+
+  def zr_mr_hash: (untyped r, untyped objects, untyped symbols) -> untyped
+
+  def zr_mr_ivars: (untyped r, untyped objects, untyped symbols) -> untyped
+
+  def zr_mr_object: (untyped r, untyped objects, untyped symbols) -> untyped
+
+  def zr_mr_set_p: (untyped klass) -> (false | untyped)
+
+  def zr_mr_named_class: (untyped r, untyped symbols) -> untyped
+
+  def zr_mr_struct: (untyped r, untyped objects, untyped symbols) -> untyped
+
+  def zr_mr_members: (untyped klass) -> untyped
+
+  def zr_mr_member_index: (untyped members, untyped id) -> untyped
+
+  def zr_mr_data_p: (untyped klass) -> (false | untyped)
+end

@@ -1,0 +1,60 @@
+module Zr::Kern
+  ZStream: untyped
+
+  # The flush modes.
+  Z_NO_FLUSH: 0
+
+  Z_PARTIAL_FLUSH: 1
+
+  Z_SYNC_FLUSH: 2
+
+  Z_FULL_FLUSH: 3
+
+  Z_FINISH: 4
+
+  Z_BLOCK: 5
+
+  Z_TREES: 6
+
+  # The return codes of a call.
+  Z_OK: 0
+
+  Z_STREAM_END: 1
+
+  Z_NEED_DICT: 2
+
+  Z_ERRNO: untyped
+
+  Z_STREAM_ERROR: untyped
+
+  Z_DATA_ERROR: untyped
+
+  Z_MEM_ERROR: untyped
+
+  Z_BUF_ERROR: untyped
+
+  Z_VERSION_ERROR: untyped
+
+  # The only compression method, and the values of data_type.
+  Z_DEFLATED: 8
+
+  Z_BINARY: 0
+
+  Z_TEXT: 1
+
+  Z_UNKNOWN: 2
+
+  def zr_zlib_version_text: () -> untyped
+
+  def zr_zlib_error_text: (untyped err) -> untyped
+
+  def zr_zlib_swap32: (untyped q) -> untyped
+
+  def zr_zlib_u32: (untyped p, untyped i) -> untyped
+
+  def zr_zlib_set_u32: (untyped p, untyped i, untyped v) -> untyped
+
+  def zr_zlib_byte: (untyped p) -> untyped
+
+  def zr_zlib_copy_bytes: (untyped out, untyped from, untyped n) -> untyped
+end

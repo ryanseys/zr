@@ -1,0 +1,342 @@
+# Ractor: a separate task with a boundary around it. Every value that
+# crosses the boundary is shareable or a copy of its whole graph, so two
+# ractors never share a mutable object. The tasks are green, as every
+# task in this runtime is. A program that measures results, not
+# parallelism, gets the same results as ruby.
+class Ractor
+  self.@main: untyped
+
+  class Error < RuntimeError
+  end
+
+  class IsolationError < Error
+  end
+
+  class ClosedError < StopIteration
+  end
+
+  class MovedError < Error
+  end
+
+  class RemoteError < Error
+    # The ractor whose failure this represents.
+    def ractor: () -> untyped
+  end
+
+  class UnsafeError < Error
+  end
+
+  # What a moved object becomes. CRuby swaps the class of the graph it
+  # gave away, so the sender still has the cell and every message to it
+  # is refused. These are all the methods of a husk.
+  class MovedObject < BasicObject
+    def !: () -> untyped
+
+    def !=: (untyped _other) -> untyped
+
+    def ==: (untyped _other) -> untyped
+
+    def __id__: () -> untyped
+
+    def __send__: (*untyped) -> untyped
+
+    def equal?: (untyped _other) -> untyped
+
+    def instance_eval: (*untyped) -> untyped
+
+    def instance_exec: (*untyped) -> untyped
+
+    def method_missing: (*untyped) -> untyped
+  end
+
+  # A port: one end of a message queue, which belongs to the ractor that
+  # made it. Any ractor can send to a port; only its owner receives. A
+  # port is shareable, so it is frozen. Its queue is state kept next to
+  # the object, not an instance variable of it.
+  class Port
+    def initialize: () -> void
+
+    # A port is frozen from its allocation, so ractor.c's copy never
+    # starts: init_copy refuses the frozen copy first.
+    def initialize_copy: (untyped _orig) -> untyped
+
+    # A message for the owner, copied over the boundary, or handed over
+    # when the sender gives the graph up.
+    def send: (untyped obj, ?move: bool) -> self
+
+    alias << send
+
+    # The next message, waited for. A port with nothing left to give and
+    # no sender that can reach it any more is closed, and says so.
+    def receive: () -> untyped
+
+    def close: () -> nil
+
+    def closed?: () -> untyped
+
+    def inspect: () -> ::String
+
+    private
+
+    def queue: () -> untyped
+
+    def waiters: () -> untyped
+
+    # The ractor that made the port. A port made before the main ractor
+    # is named belongs to it.
+    def owner: () -> untyped
+
+    def mine!: () -> (self | untyped)
+
+    # Whether a message waits, and the message: `Ractor.select` checks
+    # its own ports this way, so it never parks on a full one.
+    def waiting?: () -> untyped
+
+    def take_now: () -> untyped
+  end
+
+  # The classes that hold a task or a lock, which no ractor can share.
+  UNSHAREABLE: ::Array[untyped]
+
+  # What CRuby refuses to move: a handle on a task, a lock, or code with
+  # a scope of its own.
+  UNMOVABLE: untyped
+
+  # Every ractor of this process, and the notice ruby prints once.
+  RACTORS: ::Array[untyped]
+
+  NOTICE: ::Array[untyped]
+
+  def self.new: (*untyped args, ?name: untyped?) ?{ (?) -> untyped } -> untyped
+
+  # The experimental notice, once per process for any number of ractors,
+  # with the line that requested the first one.
+  def self.notice: () -> (nil | untyped)
+
+  # A block a ractor can run reaches nothing outside itself. Ruby decides
+  # this when the ractor is made, not when the block is written, and names
+  # what the block reaches.
+  def self.isolate: (untyped block) -> untyped
+
+  # A copy of the block that any ractor can call: frozen, with `self:`
+  # as its self (nil unless given), and no Binding to reach its scope.
+  def self.shareable_proc: (**untyped options) ?{ (?) -> untyped } -> untyped
+
+  # The same, and a literal block becomes a lambda.
+  def self.shareable_lambda: (**untyped options) ?{ (?) -> untyped } -> untyped
+
+  # Ruby's rules for a shareable block, in ruby's order. Its self must
+  # be shareable. It cannot write a local outside itself. Every local
+  # that it reads there must be bound once in its own scope, so the
+  # value that the block copies is the only value of the local. That
+  # value must be shareable.
+  #
+  # Written locals are reported in ruby's order, by symbol; read locals
+  # are checked in the reverse order, as ruby checks them.
+  def self.shareable: (untyped block, untyped options, lambda: untyped) -> untyped
+
+  # The main ractor, which is the one the program starts in.
+  def self.main: () -> untyped
+
+  # The ractor this task belongs to: the main one until a task of a
+  # ractor's own says otherwise.
+  def self.current: () -> untyped
+
+  def self.count: () -> untyped
+
+  # rb_multi_ractor_p: once a second ractor has been made, the process
+  # stays multi-ractor.
+  def self.multi?: () -> untyped
+
+  def self.main?: () -> untyped
+
+  # A message from this ractor's own port.
+  def self.receive: () -> untyped
+
+  alias self.recv self.receive
+
+  # The first message in any of the ports, or the value of the first
+  # ractor to end. A Ractor is in place of a port of its own here: it is
+  # watched, and the token that its end sends is the return value.
+  def self.select: (*untyped ports) -> untyped
+
+  # The first message of `ports`, with the port it came from. A closed
+  # port with nothing left ends the wait, as CRuby's does.
+  def self.first_message: (untyped ports) -> (::Array[untyped] | untyped)
+
+  # Sleeps until a send to any of the ports wakes this task. Nothing else
+  # runs between the test above and the park, so no message is missed.
+  def self.parked: (untyped ports) -> untyped
+
+  def self.[]: (untyped key) -> untyped
+
+  def self.[]=: (untyped key, untyped value) -> untyped
+
+  def self.store_if_absent: (untyped key) { () -> untyped } -> untyped
+
+  def self.make_shareable: (untyped obj, ?copy: bool) -> untyped
+
+  # Whether every object reachable from `obj` is frozen. A number, a
+  # symbol, a class and the three singletons are shareable as they are.
+  # So is a Ractor, because its contents belong to the runtime. A husk
+  # left by a move accepts no message, so it is shareable.
+  def self.shareable?: (untyped obj) -> (true | false | untyped)
+
+  # The value a shareable constant takes, when the compiler cannot see
+  # that the value is a literal. Ruby demands a value that is already
+  # shareable there.
+  def self.ensure_shareable: (untyped value, untyped name) -> untyped
+
+  # The refusal for an instance variable of a shareable object outside
+  # the main ractor. The runtime calls this because the words are here.
+  def self.isolation!: () -> untyped
+
+  # What a program outside the main ractor cannot reach, in CRuby's
+  # words. The runtime calls this for each because the words are here.
+  def self.const_read: (untyped owner, untyped name, untyped value) -> untyped
+
+  def self.const_write: (untyped value) -> untyped
+
+  def self.gvar_isolation!: (untyped name) -> untyped
+
+  def self.cvar_isolation!: (untyped name, untyped owner) -> untyped
+
+  # The refusal a husk gives every message it still gets.
+  def self.moved!: () -> untyped
+
+  # Whether `obj` is a husk a move left behind.
+  def self.moved?: (untyped obj) -> untyped
+
+  def self.immutable?: (untyped obj) -> untyped
+
+  def self.deep_freeze: (untyped obj, untyped seen) -> (nil | untyped)
+
+  def self.unshareable?: (untyped obj) -> untyped
+
+  # Gives each object that one object refers to, to the block: its parts,
+  # then its instance variables. A walk over a graph of Strings and
+  # numbers makes no Array a node. The return value is true, so a caller
+  # can `return` its own value out of the block. The parts are read as
+  # the C reads them, with no `each` of a subclass.
+  def self.each_reachable: (untyped obj) { (untyped) -> untyped } -> true
+
+  # A value crossing the boundary: a shareable one by reference, any
+  # other as a copy of its whole graph. An object that appears twice in
+  # the graph is copied once, so a cycle comes out a cycle, as CRuby's
+  # own copy does. `deeply` also copies a shareable value, as
+  # `make_shareable(copy: true)` requires. `given` collects the nodes
+  # that a move then takes away from the sender.
+  def self.cross: (untyped value, ?untyped seen, ?bool deeply, ?untyped? given) -> untyped
+
+  # The parts of a copy that are not instance variables: the contents
+  # that the class itself stores.
+  def self.fill: (untyped value, untyped copy, untyped seen, untyped deeply, ?untyped? given) -> nil
+
+  # A value that the sender gives up: the receiver gets the graph, and
+  # every node of it that the sender still points at becomes a husk. A
+  # graph with an unmovable object in it is refused before anything
+  # moves, so the sender keeps what it had.
+  def self.hand_over: (untyped value) -> untyped
+
+  def self.unmovable!: (untyped value, untyped seen) -> (nil | untyped)
+
+  def name: () -> untyped
+
+  def []: (untyped key) -> untyped
+
+  def []=: (untyped key, untyped value) -> untyped
+
+  # The port every message to the ractor goes through, which the ractor
+  # itself receives from.
+  def default_port: () -> untyped
+
+  # A message for the ractor: its default port keeps it until the ractor
+  # takes it, in the order it arrived.
+  def send: (*untyped, **untyped) ?{ (?) -> untyped } -> self
+
+  alias << send
+
+  # The return value of the ractor's block, after it ends. A failure in
+  # the block arrives here wrapped, with the original as its cause. A
+  # second call on the same ractor returns the same object.
+  def value: () -> untyped
+
+  def join: () -> self
+
+  # Sends a token on `port` when the ractor ends: `:exited` when its
+  # block returned, `:aborted` when something was raised out of it. A
+  # ractor that has already ended sends the token immediately and returns false.
+  def monitor: (untyped port) -> (false | true)
+
+  def unmonitor: (untyped port) -> self
+
+  # Closes the default port, which only the ractor that owns it may do.
+  def close: () -> untyped
+
+  # What `require` becomes inside a ractor. This runtime loads every
+  # file on the one task that runs the program, so it is Kernel's own.
+  def self._require: (untyped feature) -> untyped
+
+  private
+
+  def receive: () -> untyped
+
+  public
+
+  alias recv receive
+
+  def inspect: () -> ::String
+
+  alias to_s inspect
+
+  private
+
+  def name!: (untyped text) -> untyped
+
+  # The ractor's own state. CRuby keeps it in C fields, so a program sees
+  # no instance variable on a Ractor. These names have no `@`, which
+  # keeps them out of every list and out of Marshal. An `@name` that a
+  # program writes inside a ractor is the program's own, and the runtime
+  # refuses it where CRuby does.
+  def locals: () -> untyped
+
+  def monitors: () -> untyped
+
+  def number: () -> untyped
+
+  def site: () -> untyped
+
+  def thread: () -> untyped
+
+  def token: () -> untyped
+
+  # The main ractor: the task where the program starts. It has a port of
+  # its own, so that a ractor can send it a reply.
+  def setup_main: () -> self
+
+  def setup: (untyped args, untyped block, untyped where) -> self
+
+  # The port the ractor receives on, which belongs to the ractor however
+  # made it.
+  def own_port: () -> untyped
+
+  # The end of the ractor's task: nothing reaches it any more, so its
+  # port closes, and everything watching it gets its token.
+  def ended: () -> untyped
+
+  def live?: () -> untyped
+
+  # Waits for the ractor to end and keeps its return value, copied over
+  # the boundary once, so every call returns the same object. A failure
+  # inside it is ruby's RemoteError here, with the failure as its cause.
+  def finished: () -> untyped
+
+  # A ractor's own storage, which only the ractor itself may read.
+  def local_get: (untyped key) -> untyped
+
+  def local_set: (untyped key, untyped value) -> untyped
+
+  def local_absent: (untyped key) { () -> untyped } -> untyped
+
+  def mine!: () -> (self | untyped)
+end

@@ -1,0 +1,29 @@
+module Zr::Kern
+  # inftrees.c: the decoding tables of a canonical Huffman code. A table
+  # entry is one 32-bit word, `op | bits << 8 | val << 16`, which is the
+  # C code struct, packed. Inflate reads an array of these words.
+  # Derived from zlib; the license is in lib/zr/runtime/kernel/zlib.rb.
+  INF_CODES: 0
+
+  INF_LENS: 1
+
+  INF_DISTS: 2
+
+  INF_MAXBITS: 15
+
+  INF_ENOUGH_LENS: 852
+
+  INF_ENOUGH_DISTS: 592
+
+  INF_ENOUGH: 1444
+
+  def zr_inf_code: (untyped op, untyped bits, untyped val) -> untyped
+
+  def zr_inf_code_op: (untyped c) -> untyped
+
+  def zr_inf_code_bits: (untyped c) -> untyped
+
+  def zr_inf_code_val: (untyped c) -> untyped
+
+  def zr_inflate_table: (untyped type, untyped lens, untyped codes, untyped table, untyped bits, untyped work) -> (0 | untyped | 1)
+end

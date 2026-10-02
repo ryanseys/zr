@@ -1,0 +1,62 @@
+module Zr
+  class Lower
+    class Function
+      # Multiple assignment and destructuring. The value becomes an Array
+      # (through `to_ary` if it has one) in a record slot, and each target
+      # gets its element. A nested target destructures its element again.
+      # A send target (`h[k]`, `o.attr`) stages its receiver and arguments
+      # before the value is evaluated, in CRuby's order.
+      #
+      # If the value of `a, b = x, y` is not used, no Array is made: the
+      # elements go into slots and each target gets its own, as CRuby's
+      # compiler does for a popped `masgn`. A rest target still gets an
+      # Array of the remaining elements.
+      module Targets
+        @sp: untyped
+
+        private
+
+        def multi_assign: (untyped node) -> untyped
+
+        def spread_assign?: (untyped node) -> untyped
+
+        def spread_assign: (untyped node) -> untyped
+
+        # Stages the send targets' receivers and arguments into slots. Each
+        # send gets a receiver slot, its argument slots, and a value slot.
+        def prepare: (untyped target, ?::Hash[untyped, untyped] prepared) -> untyped
+
+        def destructure: (untyped target, untyped value, untyped prepared) -> untyped
+
+        # `recv[args] op= value`: the receiver and arguments are evaluated
+        # once into slots, then `[]`, the operation, and `[]=` are sent.
+        def index_op_assign: (untyped node) -> untyped
+
+        # `recv.name op= value` likewise.
+        def attr_op_assign: (untyped node) -> untyped
+
+        # The block's value, or nil without running it when `v` is nil.
+        def unless_nil: (untyped v) { () -> untyped } -> untyped
+
+        # The current value read, the operation (`||=` and `&&=` short
+        # circuit), and the write the block builds around the new value,
+        # itself kept in a slot.
+        def op_assign: (untyped node, untyped read) { (untyped) -> untyped } -> untyped
+
+        # `@name = v`: an inline store into the guessed ivar entry, else
+        # the kernel's write, which raises for a frozen receiver at this
+        # line.
+        def ivar_write: (untyped node, untyped v) -> untyped
+
+        # Appends an entry for `ivar` with `v` after the last entry of table
+        # `t` (length `len`), and sets the name's bit in the table's names.
+        def append_ivar_row: (untyped t, untyped len, untyped ivar, untyped v) -> untyped
+
+        def assign_target: (untyped target, untyped v, untyped prepared) -> untyped
+
+        # The write a send target makes: its staged arguments, then `v`.
+        def send_target: (untyped target, untyped slot, untyped recv, untyped v) -> untyped
+      end
+    end
+  end
+end

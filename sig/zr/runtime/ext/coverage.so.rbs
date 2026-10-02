@@ -1,0 +1,80 @@
+# `coverage.so`: the C half of ext/coverage, over the line counts the
+# kernel keeps (lib/zr/runtime/kernel/coverage.rb). The compiler writes down which
+# lines of each file run a :line event; those are the lines a result
+# counts, and every other line is nil. The Ruby half, coverage.rb, is
+# ruby's own.
+module Coverage
+  MODES: ::Array[:lines | :oneshot_lines | :branches | :methods | :eval]
+
+  STATES: { idle: 0, suspended: 1, running: 2 }
+
+  def self.supported?: (untyped mode) -> untyped
+
+  def self.setup: (*untyped args) -> nil
+
+  def self.resume: () -> nil
+
+  def self.start: (*untyped args) -> untyped
+
+  def self.suspend: () -> nil
+
+  def self.peek_result: () -> untyped
+
+  def self.result: (?untyped? options) -> untyped
+
+  # A string that eval compiles is not a file that the build read, so no
+  # line of it is measurable. An eval while `eval: true` measures is a
+  # refusal, not a result that leaves the eval out. A program that asks
+  # for eval coverage and never calls eval gets the same result as ruby.
+  def self.eval_compiled!: () -> untyped
+
+  def self.state: () -> untyped
+
+  def self.running?: () -> untyped
+
+  private
+
+  # The targets that `setup` takes: none for the compatible mode, which
+  # returns only each file's lines.
+  def self.mode_of: (untyped args) -> (::Hash[untyped, untyped] | { lines: true, branches: true, methods: true, eval: true } | untyped)
+
+  def self.shift: (untyped to) -> untyped
+
+  # The lines each measured file ran, as the mode shapes them. A file
+  # coverage did not measure is left out whatever the mode, so its
+  # branches go with its lines.
+  def self.measured: (untyped clear) -> untyped
+
+  # A file's branches: each root, and under it each of its sides with
+  # the times that side ran. The key is `[kind, id, start line, start
+  # column, end line, end column]` with the id counted from 0 a file,
+  # which is what the rows are already in the order of.
+  def self.branches_of: (untyped path, untyped runs) -> (::Hash[untyped, untyped] | untyped)
+
+  # Each method that a definition claimed while coverage was set up, as
+  # `{path => {[owner, name, start line, start column, end line, end
+  # column] => count}}`. The claim contains the owner and the name, and
+  # its def-site entry contains the span. A file that coverage did not
+  # measure drops out with its lines. Two claims of one key add, as the
+  # C extension does with a method defined twice.
+  def self.claimed: (untyped rows) -> untyped
+
+  # Every def site that the compiler recorded, by its id: the file where
+  # it was written and the span by which ruby identifies a method made from it.
+  def self.def_table: () -> untyped
+
+  def self.compiled_defs: () -> untyped
+
+  # The branch rows the compiler wrote down, by file.
+  def self.branch_table: () -> untyped
+
+  def self.compiled_branches: () -> untyped
+
+  # The file's line array: a count for each line that runs a :line
+  # event, nil for every other line.
+  def self.lines_of: (untyped path, untyped counts) -> untyped
+
+  def self.coverable: () -> untyped
+
+  def self.compiled_lines: () -> untyped
+end

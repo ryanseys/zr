@@ -1,0 +1,126 @@
+module Zr
+  module IR
+    # Promotes the kernel's guard words to SSA values in a finished
+    # function. `PROMOTED` gives each word by symbol and offset.
+    #
+    # `PROMOTED` is empty. The gate word is in its own register
+    # (`Inst::GATES`, `x28`). A promoted word becomes a block parameter
+    # at each fast/slow join, and the allocator usually keeps it in the
+    # frame: a store and a load for each edge, to save one load. In a
+    # count of the runtime's instructions, promotion of the gate word,
+    # the site stamp, the constant stamp and the task pointer made code
+    # 12% larger (the gate word alone, 1.4%). The pass is kept for the stamps, for when a
+    # larger caller-saved register pool is available. Never promote the
+    # poll word: the timer thread can write it at any time, and a load
+    # hoisted out of a loop makes a loop that nothing can interrupt.
+    #
+    # These write a word: a store to it; a call whose `IR::Effects`
+    # include its region (most calls do, because a send can define a
+    # method and the collector changes a stamp when it frees a class);
+    # an indirect call; a store to a region that can contain the word; a
+    # store with no region through an unknown address (a pointer from a
+    # call or a field). The pass knows slot and symbol addresses, plus a
+    # constant. A load gets the value of the last store, or a reload
+    # after the last write, or a load at entry. The pass adds a reload
+    # only when something reads it. A fast path has no call and stores
+    # only to its record slots, so a fixnum loop keeps the gate word in
+    # a register. A slow path reloads and gives the new value to the join.
+    # A restored continuation resumes after its call, so it also reloads.
+    #
+    # The address of a symbol can go only to a load, a store, or an add
+    # of a constant (for a word next to it, such as the poll word). If
+    # the address goes to a call, a block, a store, or a compare, the
+    # pass does not promote the word. A store to part of the word, or a
+    # load of it as a different type, also stops the promotion.
+    class Statics < Promotion
+      @effects: untyped
+
+      @address: untyped
+
+      @initial: untyped
+
+      @reload: untyped
+
+      @inserted: untyped
+
+      @loads: untyped
+
+      @addr: untyped
+
+      @known: untyped
+
+      # Only the kernel stores to a static, so the pass calculates the
+      # types only when it finds such a store.
+      @types: untyped
+
+      # `symbol => offset` of the word promoted.
+      PROMOTED: ::Hash[untyped, untyped]
+
+      TYPE: "i64"
+
+      WIDTH: 8
+
+      def initialize: (untyped f) -> void
+
+      def run: () -> untyped
+
+      private
+
+      # `symbol => "i64"` of every promoted word this function loads.
+      def candidates: () -> (::Hash[untyped, untyped] | untyped)
+
+      # If the address of a promoted symbol is in `args`, the pass does
+      # not promote that symbol.
+      def escapes: (untyped args, untyped refused) -> untyped
+
+      # `@addr`: each value that is the address of a promoted symbol, or
+      # that address plus a constant, as `[symbol, offset]`.
+      # `@known`: each value that is known to be a different address (a
+      # slot, another symbol, or one of these plus a constant).
+      def addresses: () -> (nil | untyped)
+
+      # Returns `[symbol, offset]` of the byte at `addr` plus `off` in a
+      # promoted symbol, or nil.
+      def word: (untyped addr, untyped off) -> untyped
+
+      # Whether a store of `value` at `at` of `symbol` covers any byte of
+      # the promoted word.
+      def touches?: (untyped symbol, untyped at, untyped value) -> untyped
+
+      # Whether the store writes the whole word, with the type of the load.
+      def defines?: (untyped symbol, untyped at, untyped value) -> untyped
+
+      # Only the kernel stores to a static, so the pass calculates the
+      # types only when it finds such a store.
+      def type_of: (untyped v) -> untyped
+
+      # A store to the word is a write. A call, or a store through an
+      # unknown address, is also a write, and each word is loaded again
+      # after it. A load gets the value from the last write, or the value
+      # at block entry.
+      def walk: (untyped b, untyped keys, untyped last, untyped reads) -> untyped
+
+      # After `inst`, the pass loads again each word that `bits` can write.
+      def kill: (untyped keys, untyped last, untyped inst, untyped bits) -> untyped
+
+      # The value of the word after the write `inst`. This is a reload
+      # after `inst`, added one time, at the first read.
+      def after: (untyped inst, untyped symbol) -> untyped
+
+      # The value of the word when nothing wrote it: a load at the entry.
+      def initial: (untyped symbol, untyped _type) -> untyped
+
+      # A load of the word. The address comes from the top of the entry
+      # block, which dominates all blocks.
+      def fetch: (untyped symbol) -> untyped
+
+      def address: (untyped symbol) -> untyped
+
+      # Deletes the promoted loads and adds each reload after its write.
+      # The stores stay, because other functions read the word from
+      # memory. Uses of the function's own address of the word change to
+      # the address that the pass added.
+      def rewrite: (untyped keys) -> untyped
+    end
+  end
+end

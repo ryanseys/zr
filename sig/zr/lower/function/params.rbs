@@ -1,0 +1,128 @@
+module Zr
+  class Lower
+    class Function
+      # Binds the arguments to the parameters. A method binds from `argc`
+      # and `argv` with CRuby's arity errors. A block binds leniently with
+      # the block-argument rules. The task's keyword word tells how the
+      # keywords arrive (lib/zr/runtime/kernel/send.rb, `zr_kw_pass`): a flagged
+      # trailing Hash, or trailing values with a table of their keys. The
+      # word is read and cleared here.
+      module Params
+        @bound: untyped
+
+        private
+
+        def bind_params: () -> untyped
+
+        # The direct ABI: the arguments are in registers, as many as the
+        # def declares. The site or zr_direct_fn has proved the count.
+        def bind_direct: (untyped p) -> untyped
+
+        def bind_method: (untyped p, untyped argc, untyped argv) -> untyped
+
+        # A lambda checks its arity and never spreads. One function serves
+        # both cases, so the Proc's flag decides at run time.
+        def bind_block: (untyped p) -> untyped
+
+        # rb_simple_iseq_p: only leading required parameters, and `|a,|`.
+        def simple_block?: (untyped p) -> untyped
+
+        # The value of a `&b` parameter. If the scope only calls, passes
+        # or tests it (`Hir::Escape`), it is the block as given (a Proc
+        # that can still be on the caller's stack). Else it is a heap cell,
+        # because the scope keeps it.
+        def block_param: (untyped blk) -> untyped
+
+        # A `&b` parameter stays a stack block if every use in the body and
+        # the parameter defaults permits it (`Hir::Escape`), nothing opens
+        # the scope's locals (a Binding or an eval reads the Proc), and no
+        # hook can get a Binding of the frame.
+        def raw_block?: (untyped p) -> untyped
+
+        # A block with no parameters accepts any arguments. A lambda
+        # (including a `define_method` body) accepts none.
+        def strict_empty: (untyped p) -> untyped
+
+        def keywords?: (untyped p) -> untyped
+
+        def slot_of: (untyped name) -> untyped
+
+        # Removes the call's keywords from the positional arguments. A
+        # flagged Hash goes into a record slot (nil if none). A table's
+        # values stay in place, and the table is the third return value
+        # (0 for a Hash), so `bind_keywords` reads them by column. The
+        # task's keyword word is cleared, so it cannot leak to a later send.
+        def take_keywords: (untyped argc, untyped argv) -> ::Array[untyped]
+
+        # A def or block that declares no keywords clears the task's word.
+        # First, a table's values become one Hash argument, and a
+        # ruby2_keywords rest (a def's or a block's function, `abi`) flags
+        # that Hash. Returns the new argument count.
+        def drop_keywords: (untyped argc, untyped argv, untyped abi) -> untyped
+
+        def take_keyword_word: () -> untyped
+
+        # CRuby's messages: an exact count, `min+` with a rest, `min..max`
+        # with optionals, then the names of missing required keywords.
+        def check_arity: (untyped p, untyped argc) -> untyped
+
+        # The parameters whose slots get their arguments with no nil first:
+        # a method's plain required parameters, when nothing between the
+        # record's link and their stores can start a collection. Keywords
+        # go into a Hash before the arity check, and a ruby2_keywords rest
+        # is flagged, so those methods set every slot to nil first.
+        def direct_params: () -> (::Array[untyped] | untyped)
+
+        # If `cond` is false, the block raises, and its return value leaves
+        # the function.
+        def fail_unless: (untyped cond) { () -> untyped } -> untyped
+
+        # Required, optional, rest and post parameters in order. A block
+        # (`strict` false) gets nil for missing arguments and discards
+        # extras. If there are too few arguments, its post parameters get
+        # what remains after the required ones. A block's spread Array stays
+        # in the record slot at `keep`. A destructured parameter runs Ruby
+        # that can change it, so the arguments are read again after each.
+        def bind_positional: (untyped p, untyped argc, untyped argv, strict: untyped, ?keep: untyped?) -> untyped
+
+        def spread_again: (untyped keep, untyped argc, untyped argv) -> ::Array[untyped]
+
+        # Whether `name` is already bound in this parameter list. Only `_`
+        # can repeat. Ruby refuses all other duplicate names.
+        def repeated?: (untyped name) -> untyped
+
+        # Ruby compiles an optional parameter's default as an assignment to
+        # the NAME, so a repeated `_`'s default writes the first `_`'s
+        # local. A given argument writes only a slot that nothing reads.
+        def default_only: (untyped present) { () -> untyped } -> untyped
+
+        # Binds `v` to the parameter `name`, or destructures it into a
+        # `(a, b)` target. A repeated name (`_`, `_x`) keeps its first binding.
+        def bind: (untyped name, untyped v) -> untyped
+
+        def arg_at: (untyped argv, untyped index) -> untyped
+
+        def arg_or_nil: (untyped argc, untyped argv, untyped index) -> untyped
+
+        # `argv[index]` when `present`, else the block's value.
+        def arg_or_default: (untyped argv, untyped index, untyped present) { () -> untyped } -> untyped
+
+        # Checks required keywords first, then unknown keywords unless a
+        # `**rest` takes them. For a Hash, the kernel probes it. For a
+        # table, the check runs once per table and fills the def's shape
+        # cell with each declared keyword's column. Then each keyword
+        # binds, with defaults in order: from a Hash by a probe, from a
+        # table by its column in the values after the `count` positional
+        # arguments of `argv`.
+        def bind_keywords: (untyped p, untyped kwargs_at, untyped tab, untyped count, untyped argv) -> (nil | untyped)
+
+        # The block's value for a table (`tab` not 0) or for a Hash, as the
+        # call passed them, merged into one value.
+        def by_table: (untyped tab) { (untyped) -> untyped } -> untyped
+
+        # The ids of `names` as a read-only table, and its length.
+        def keyword_ids: (untyped names) -> ::Array[untyped]
+      end
+    end
+  end
+end

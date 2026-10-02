@@ -1,0 +1,153 @@
+module Zr::Kern
+  def zr_xmalloc: (untyped n) -> untyped
+
+  def zr_xfree: (untyped p) -> (untyped | nil)
+
+  def zr_sized_xfree: (untyped p, untyped n) -> (untyped | nil)
+
+  def zr_memory_for_p: (untyped n) -> untyped
+
+  def zr_memory_exhausted: () -> untyped
+
+  QFALSE: 0
+
+  QNIL: 8
+
+  QTRUE: 20
+
+  QUNDEF: 52
+
+  SYMBOL_TAG: 12
+
+  # Type tags, with CRuby's numbers, in the low five bits of the flags.
+  T_NONE: 0
+
+  T_OBJECT: 1
+
+  T_CLASS: 2
+
+  T_MODULE: 3
+
+  T_STRING: 5
+
+  T_ARRAY: 7
+
+  T_NIL: 17
+
+  T_TRUE: 18
+
+  T_FALSE: 19
+
+  T_SYMBOL: 20
+
+  T_FIXNUM: 21
+
+  T_MASK: 31
+
+  # Flag bits above the type.
+  FL_ALLOCATED: untyped
+
+  FL_FREEZE: untyped
+
+  # An object of a kind with no ivar table field keeps its ivar table in a
+  # side table next to the arena, indexed by its cell.
+  FL_EXIVAR: untyped
+
+  # A singleton class: it belongs to one object (`attached`), and it is
+  # before that object's class in the ancestor list.
+  FL_SINGLETON: untyped
+
+  # A module with a temporary name (`set_temporary_name`). A constant
+  # assignment can still give it a permanent name.
+  FL_TEMP_NAME: untyped
+
+  # A String's encoding, as ruby's index into `Encoding.list`: 0 is
+  # ASCII-8BIT, 1 is UTF-8, 2 is US-ASCII, then one number for each of the
+  # other hundred. It is in eight bits of the flags, with 0 and 1 swapped,
+  # so a String with no encoding set reads as UTF-8.
+  FL_ENC_SHIFT: 24
+
+  FL_ENC_KEEP: untyped
+
+  ENC_BINARY: 0
+
+  ENC_UTF8: 1
+
+  ENC_USASCII: 2
+
+  ENC_CESU8: 15
+
+  # No encoding: the result for two Strings that are not compatible.
+  ENC_NONE: 255
+
+  # UTF-16 and UTF-32 in each byte order, then their two dummy names.
+  # These are the encodings in which ASCII bytes are not ASCII characters.
+  ENC_UTF16BE: 3
+
+  ENC_UTF16LE: 4
+
+  ENC_UTF32BE: 5
+
+  ENC_UTF32LE: 6
+
+  ENC_UTF32: 8
+
+  # A symbol entry keeps the same tag in its length word, at this shift.
+  SYM_TAG_SHIFT: 56
+
+  # A Hash that compares keys by identity (`compare_by_identity`).
+  FL_IDENTITY: untyped
+
+  # A Hash that a `ruby2_keywords` method made from keywords for its rest
+  # parameter.
+  FL_RUBY2: untyped
+
+  # A class under Object with a rank table (zr_class_rank), which is not
+  # boxed and is not a box's shadow. At the site, the type checks
+  # (`is_a?`, `===`, `nil?`) use only its table and its flags, and do not
+  # walk the ancestor list.
+  FL_RANKED: untyped
+
+  FL_RANKED_CLEAR: untyped
+
+  # A class or module that eval support made while the program ran. ruby's
+  # compiler is C and makes none, so ObjectSpace and `subclasses` show
+  # neither it nor its instances.
+  FL_CONCEALED: untyped
+
+  RBasic: untyped
+
+  def zr_fixnum_p: (untyped v) -> untyped
+
+  def zr_special_p: (untyped v) -> untyped
+
+  def zr_fix: (untyped n) -> untyped
+
+  def zr_fix2long: (untyped v) -> untyped
+
+  def zr_sym: (untyped id) -> untyped
+
+  def zr_sym2id: (untyped v) -> untyped
+
+  def zr_symbol_p: (untyped v) -> untyped
+
+  def zr_module_p: (untyped v) -> (false | untyped)
+
+  def zr_type: (untyped v) -> untyped
+
+  def zr_write_out: (untyped bytes, untyped len) -> untyped
+
+  def zr_write_err: (untyped bytes, untyped len) -> untyped
+
+  def zr_bug: (untyped bytes, untyped len) -> untyped
+
+  def zr_memcpy: (untyped to, untyped from, untyped n) -> untyped
+
+  def zr_unimplemented: (untyped what) -> untyped
+
+  def zr_notimplement: (untyped name, untyped len) -> untyped
+
+  def zr_unloadable: (untyped what) -> untyped
+
+  def zr_raise_stop: (untyped klass, untyped what) -> untyped
+end

@@ -1,0 +1,79 @@
+module Zr
+  # The backend-neutral object model. Every native backend produces it,
+  # and every object writer and loader reads it. A function is machine
+  # code plus the relocations that the code needs. A data object is bytes
+  # in a section. A relocation gives a symbol and how to patch for it.
+  module Obj
+    # `kind`: :branch26, :page21, :pageoff12, :got_page21, :got_pageoff12,
+    # :abs64. `offset` is from the start of the owning function or data.
+    #
+    # Four more kinds occur only in data, and only until the link numbers
+    # the program's symbols (`Zr::SymbolNumbering.number`):
+    # - :symid writes the id that the program gives `symbol`.
+    # - :symval writes that id as a tagged Symbol.
+    # - :symbit writes the bit for the symbol in an ivar table's `names`.
+    # - :site writes the slot of one literal site in the run-time table of
+    #   literal objects.
+    # A unit gives a name or requests a slot, and the link sets the number.
+    # Thus a unit's code does not depend on what compiled before it. No
+    # object writer sees these kinds.
+    Reloc: untyped
+
+    # The methods of a record are in a reopened class, not in the block of
+    # `Struct.new`, so that the type check (sig/pilot/obj_model.rbs) sees
+    # them in the class that they belong to.
+    class Reloc
+      def initialize: (untyped offset, untyped kind, untyped symbol, ?::Integer addend) -> void
+    end
+
+    # The machine code of one function, as a backend assembled it.
+    # `linkage`: :export (visible to the link), :local (this object only).
+    Code: untyped
+
+    class Code
+      def initialize: (untyped name, untyped bytes, ?relocs: untyped, ?align: ::Integer, ?linkage: ::Symbol) -> void
+
+      def size: () -> untyped
+    end
+
+    # One item of data: a string, a table, or a static slot.
+    # `section`: :text_const (pure bytes), :data_const (contains pointers,
+    # read-only after the link), :data (writable), :bss (zeros; `bytes` is
+    # then the size).
+    Datum: untyped
+
+    class Datum
+      def initialize: (untyped name, untyped section, untyped bytes, ?relocs: untyped, ?align: ::Integer, ?linkage: ::Symbol) -> void
+
+      def size: () -> untyped
+    end
+
+    # One object: its functions and data, in definition order. A symbol
+    # that a relocation refers to and that this unit does not define is
+    # an import.
+    class Unit
+      @functions: untyped
+
+      @data: untyped
+
+      attr_reader functions: untyped
+
+      attr_reader data: untyped
+
+      def initialize: () -> void
+
+      # `function` and `datum` add one item and return the unit, so a test
+      # builds a unit in one expression (test/support/obj_unit.rb).
+      # These two name their keywords: Steep stops on an anonymous `**` in
+      # a call.
+      # rubocop:disable Style/ArgumentsForwarding
+      def function: (untyped name, untyped bytes, **untyped options) -> self
+
+      def datum: (untyped name, untyped section, untyped bytes, **untyped options) -> self
+
+      def defined_names: () -> untyped
+
+      def imports: () -> untyped
+    end
+  end
+end

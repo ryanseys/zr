@@ -1,0 +1,537 @@
+module Zr
+  module Machine
+    # The kernel on CRuby (A7). The kernel's files are plain Ruby in
+    # `module Zr::Kern` (A6), and a host loads them into this ruby: each
+    # `def` is a method of the module, and the forms that a build lowers
+    # (`Machine.*`, `Libc.*`, `layout`, `fn`) are objects here that act on
+    # the process's real memory through Fiddle.
+    #
+    # The values are the type model of A6: an I8, I32, Word or Value is an
+    # Integer in the signed range of its width, a Ptr an Integer in
+    # [0, 2**64), a Bool true or false, and an F64 a Float. The lowering
+    # refuses each form whose meaning on this model differs from the
+    # native one, so a def runs here as it runs in a binary.
+    #
+    # Only one kernel is `Zr::Kern` at a time; a new Host replaces it. A
+    # build never loads this file.
+    class Host
+      @symbols: untyped
+
+      @externs: untyped
+
+      @statics: untyped
+
+      @bytes: untyped
+
+      @callables: untyped
+
+      @def_names: untyped
+
+      @closures: untyped
+
+      @functions: untyped
+
+      @sigs: untyped
+
+      @gates: untyped
+
+      @errno: untyped
+
+      @slot_base: untyped
+
+      @stack_key: untyped
+
+      @stacks: untyped
+
+      # The rooted defs, by name, with the names of their Value locals.
+      @rooted: untyped
+
+      @collecting: untyped
+
+      @collectors: untyped
+
+      @kern: untyped
+
+      @errno_location: untyped
+
+      WORD: untyped
+
+      MASK: untyped
+
+      SIGN: untyped
+
+      # A type of the kernel: its name, its size in memory, its type for
+      # Fiddle, its `pack` format (`packing`), and its IO::Buffer types for
+      # a load (`loads`) and a store (`stores`). A store takes a value of the signed or the unsigned range
+      # alike: `pack` and an unsigned IO::Buffer type take either.
+      Type: untyped
+
+      TYPES: untyped
+
+      # The bits of `n` as a signed 64-bit Integer. Most words are in the
+      # range already, and the test for that makes no Bignum.
+      def self.signed: (untyped n) -> untyped
+
+      # The bits of `n` as an unsigned 64-bit Integer.
+      def self.unsigned: (untyped n) -> untyped
+
+      # An Integer, or a Bool as 1 or 0.
+      def self.bits: (untyped value) -> untyped
+
+      # `Name = layout field: Type, ...`: each field at its natural
+      # alignment, a struct field embedded in place. It answers
+      # `Name.size`, `Name.field(p)` and `Name.set_field(p, value)`; the
+      # reader of an embedded struct answers its address.
+      #
+      # A field may be named `size`: `Name.size` with no pointer is still
+      # the layout's size, as in the lowering. So the layout's own readers
+      # have names no field has.
+      #
+      # A Value read from a field is pinned (`Host#pin`), and a Value
+      # written to a field of a cell gets the collector's write barrier, as
+      # the lowering emits it (`Function#barrier`).
+      class Layout
+        @host: untyped
+
+        @layout_align: untyped
+
+        @layout_fields: untyped
+
+        @layout_size: untyped
+
+        attr_reader layout_fields: untyped
+
+        attr_reader layout_size: untyped
+
+        attr_reader layout_align: untyped
+
+        def initialize: (untyped fields, ?untyped? host) -> void
+
+        def size: (*untyped pointer) -> untyped
+
+        # Marks this layout as a cell's: a store of a Value into one of its
+        # fields runs the write barrier of the cell at `p`.
+        def cell!: () -> untyped
+
+        private
+
+        def accessors: (untyped name, untyped at, untyped type) -> untyped
+      end
+
+      # `Name = fn [types] => type`: a call through a pointer,
+      # `Name.call(p, ...)`.
+      class Fn
+        @host: untyped
+
+        @params: untyped
+
+        @ret: untyped
+
+        attr_reader params: untyped
+
+        attr_reader ret: untyped
+
+        def initialize: (untyped host, untyped params, untyped ret) -> void
+
+        def call: (untyped at, *untyped args) -> untyped
+      end
+
+      # `Libc`: `Libc.import :name, [types] => type` declares a C function,
+      # and `Libc.name(...)` calls it. A def of the same name answers the
+      # import, as the lowering's `answers_import` says.
+      #
+      # The first call of an import finds what answers it (`Host#answer`),
+      # and the import's method becomes that: later calls go straight to
+      # it. The kernel's own defs are all loaded by then, and the host's
+      # layers prepended.
+      class Libc
+        @host: untyped
+
+        @imports: untyped
+
+        def initialize: (untyped host) -> void
+
+        def import: (untyped name, untyped signature) -> untyped
+
+        attr_reader imports: untyped
+
+        private
+
+        def answer: (untyped name, untyped params, untyped ret) -> untyped
+      end
+
+      # The intrinsics, `Machine.*`, as the lowering defines them
+      # (`Function#intrinsic`). A name's id, static and address do not
+      # change, so each is found once.
+      class Intrinsics
+        @host: untyped
+
+        @ids: untyped
+
+        @statics: untyped
+
+        @addrs: untyped
+
+        @bytes: untyped
+
+        def initialize: (untyped host) -> void
+
+        def id: (untyped name) -> untyped
+
+        def bytesize: (untyped string) -> untyped
+
+        def bytes: (untyped string) -> untyped
+
+        def extern: (untyped name) -> untyped
+
+        def static: (untyped name, untyped size) -> untyped
+
+        def slot: (untyped size) -> untyped
+
+        def addr: (untyped name) -> untyped
+
+        LOAD64: untyped
+
+        LOAD32: untyped
+
+        LOAD8: untyped
+
+        STORE64: untyped
+
+        STORE32: untyped
+
+        STORE8: untyped
+
+        def load64: (untyped p, untyped off) -> untyped
+
+        def load32: (untyped p, untyped off) -> untyped
+
+        def load8: (untyped p, untyped off) -> untyped
+
+        def store64: (untyped p, untyped off, untyped value) -> untyped
+
+        def store32: (untyped p, untyped off, untyped value) -> untyped
+
+        def store8: (untyped p, untyped off, untyped value) -> untyped
+
+        def gates: () -> untyped
+
+        def gates_set: (untyped word) -> untyped
+
+        def gates_enter: () -> nil
+
+        # A Word of `x`: an Integer in the signed range is one already.
+        def word: (untyped x) -> untyped
+
+        def sword: (untyped x) -> untyped
+
+        def value: (untyped x) -> untyped
+
+        def ptr: (untyped x) -> untyped
+
+        def u8: (untyped x) -> untyped
+
+        def u32: (untyped x) -> untyped
+
+        def i8: (untyped x) -> untyped
+
+        def i32: (untyped x) -> untyped
+
+        def add_wrap: (untyped a, untyped b) -> untyped
+
+        def sub_wrap: (untyped a, untyped b) -> untyped
+
+        def mul_wrap: (untyped a, untyped b) -> untyped
+
+        def shl_wrap: (untyped a, untyped b) -> untyped
+
+        def uadd_wrap: (untyped a, untyped b) -> untyped
+
+        def usub_wrap: (untyped a, untyped b) -> untyped
+
+        def umul_wrap: (untyped a, untyped b) -> untyped
+
+        def ushl_wrap: (untyped a, untyped b) -> untyped
+
+        # Division that truncates toward zero, as C's.
+        def sdiv: (untyped a, untyped b) -> untyped
+
+        def srem: (untyped a, untyped b) -> untyped
+
+        def f64: (untyped w) -> untyped
+
+        def bits: (untyped f) -> untyped
+
+        def to_f64: (untyped w) -> untyped
+
+        # A double as a Word, saturated at the ends of the range; NaN is 0.
+        def to_int: (untyped f) -> (0 | untyped)
+
+        def ctz: (untyped x) -> untyped
+
+        def clz: (untyped x) -> untyped
+
+        def popcnt: (untyped x) -> untyped
+
+        def bswap: (untyped x) -> untyped
+
+        def sqrt: (untyped f) -> untyped
+
+        def floor: (untyped f) -> untyped
+
+        def ceil: (untyped f) -> untyped
+
+        def trunc: (untyped f) -> untyped
+
+        def nearest: (untyped f) -> untyped
+
+        def fabs: (untyped f) -> untyped
+
+        private
+
+        def narrow: (untyped n, untyped width) -> untyped
+
+        # An IEEE rounding: NaN and infinities stay, and a zero keeps the
+        # sign of `f`.
+        def integral: (untyped f) { () -> untyped } -> untyped
+      end
+
+      # The slots of the defs that run: an area that grows down, like a
+      # stack. A def that takes a slot gets back the slots it took when it
+      # returns. Each fiber has its own area (`fiber_slots`).
+      SLOT_BYTES: untyped
+
+      attr_reader kern: untyped
+
+      attr_reader symbols: untyped
+
+      attr_reader sigs: untyped
+
+      attr_reader slot_base: untyped
+
+      attr_reader collectors: untyped
+
+      # The gate word (`Machine.gates`).
+      attr_accessor gates: untyped
+
+      # `files` are kernel files; `constants` sets constants that the files
+      # read from a kernel file outside them; `externs` gives the address
+      # of each data object of another unit (`Machine.extern`).
+      def initialize: (untyped files, ?symbols: untyped, ?constants: ::Hash[untyped, untyped], ?externs: ::Hash[untyped, untyped]) -> void
+
+      # Calls the kernel def `name`.
+      def call: (untyped name, *untyped) -> untyped
+
+      # What answers the import `name` (`Libc#answer`), as a lambda that
+      # becomes the import's method: the host's errno word, the def of that
+      # name, a memory function in Ruby (`Memory.function`), or the C
+      # function. Each lambda reads only its own locals, as a method of
+      # `Libc` runs it.
+      def answer: (untyped name, untyped params, untyped ret) -> untyped
+
+      ERRNO_FUNCTIONS: ::Array["__error" | "__errno_location"]
+
+      # A call through the pointer `at`: a function of the walker
+      # (`callable`), a def that `Machine.addr` gave, or C code.
+      def call_at: (untyped at, untyped params, untyped ret, untyped args) -> untyped
+
+      # The address of the def `name`: a C function pointer that calls it,
+      # so that C code can call it too.
+      def addr: (untyped name) -> untyped
+
+      # The name of the def whose address (`addr`) is `at`, or nil.
+      def def_at: (untyped at) -> untyped
+
+      # An address that the kernel calls through (`Name.call`) to run
+      # `body`, a Ruby proc: a function of the walker. Only the kernel
+      # calls it; C cannot.
+      def callable: (untyped body) -> untyped
+
+      # The proc at `at` that `callable` gave, or nil: the walker calls it
+      # with no call through the kernel's signature.
+      def body_at: (untyped at) -> untyped
+
+      def static: (untyped name, untyped size) -> untyped
+
+      def bytes: (untyped string) -> untyped
+
+      def extern: (untyped name) -> untyped
+
+      # The machine stack of one fiber: `top` is where its next slot ends,
+      # and a slot below `low` overflows. `pins` are the Values that its
+      # defs hold (`pin`), and `depth` counts the walker's frames on it.
+      # `roots` counts its rooted defs that run now (`Framing`), and
+      # `rooted` tells whether the innermost def that can collect is one.
+      # `frames` are the rooted frames of a fiber that switched away
+      # (`live_roots`): only the running fiber's frames can be read.
+      Stack: untyped
+
+      # This fiber's Stack. A thread starts on the main slot area.
+      def stack: () -> untyped
+
+      def slot: (untyped size) -> untyped
+
+      # Where this fiber's next slot ends; a def that takes slots puts it
+      # back.
+      def slot_top: () -> untyped
+
+      def slot_top=: (untyped top) -> untyped
+
+      # Gives this fiber the slot area that ends at `top`: a stack that the
+      # kernel mapped for it, whose own guard page ends it.
+      def fiber_slots: (untyped top) -> untyped
+
+      # The walker's frames in this fiber (`Walk#frame`). Each takes ruby
+      # stack too, which runs out long before the slots do.
+      def depth: () -> untyped
+
+      def depth=: (untyped n) -> untyped
+
+      # Keeps the Value `v` alive while the def that can collect around
+      # this call runs. A collection in the kernel sees only the Values in
+      # memory; a host def keeps its Values in Ruby locals, so each Value
+      # it reads or makes is pinned until the def returns (`frames`). This
+      # keeps more than the lowering's root frames do, never less. A rooted
+      # def keeps its Values in its locals, as the lowering's root frame
+      # does, so nothing is pinned while it is the innermost.
+      def pin: (untyped v) -> untyped
+
+      # The pins of this fiber.
+      def pins: () -> untyped
+
+      # The collector's write barrier after a store of `value` into the
+      # cell at `p`.
+      def barrier: (untyped p, untyped value) -> untyped
+
+      # Marks each pinned cell and each Value local of a rooted def, and
+      # runs the collection with no pinning. The running fiber's rooted
+      # frames are read now; another fiber's are those it left with.
+      def mark_pins: () -> untyped
+
+      # The rooted defs (`Framing`) that run on this fiber's Ruby stack:
+      # the Binding of each, with the names of its Value locals. Ruby gives
+      # the frames of the running fiber only, so a fiber keeps its own as
+      # it switches away (`Boot#leave`).
+      def live_roots: () -> (::Array[untyped] | untyped)
+
+      def collecting: () { () -> untyped } -> untyped
+
+      # Runs the block, a def's body, in its `frame` (`Framing`).
+      def framed: (untyped frame) { () -> untyped } -> untyped
+
+      # A call of the walker's function `body` (`call_at`). The walker pins
+      # what its code holds. A rooted caller keeps the result in a local,
+      # so the call leaves no pins behind for it.
+      def walker_call: (untyped body, untyped ret, untyped args) -> untyped
+
+      # A call of the C function `function` (`answer`, `call_at`). C sees
+      # the kernel's errno, and the kernel sees the errno that C left.
+      def foreign: (untyped function, untyped params, untyped ret, untyped args) -> untyped
+
+      private
+
+      def new_stack: (untyped top, untyped low) -> untyped
+
+      # Whether `v` is a cell the heap has allocated, so the collector
+      # may mark it. A pin can hold a word that is no longer one: a cell
+      # that a sweep freed, or a stack image (a block's Proc) in slots
+      # that other frames use now. So the flags at `v` prove nothing; the
+      # cell must be in one of the heap's `arenas`, with its allocated bit
+      # set. A stack image is in none, and the collector never marks one.
+      def live?: (untyped v, untyped arenas) -> (false | untyped)
+
+      # Whether the local `v` of a rooted def holds an object. A local is
+      # a word of any type: a Ptr or a Word can point at a cell that is
+      # allocated but not yet an object, which the lowering never roots.
+      def object?: (untyped v, untyped arenas) -> untyped
+
+      # The heap's arenas, by address.
+      def heap_arenas: () -> untyped
+
+      # Gives each layout of a cell (RBasic, and each layout that starts
+      # with it) the write barrier, as the lowering's `cell?` does.
+      def cells!: () -> (nil | untyped)
+
+      # A fresh `Zr::Kern` with the forms a kernel file declares with.
+      def kernel_module: () -> untyped
+
+      # The statements of a kernel file's `module Zr::Kern`.
+      def statements: (untyped tree) -> untyped
+
+      # The files in an order that runs each constant after the constants
+      # it reads. The lowering folds a constant on first use, so a file
+      # may read a constant of a later file (`RBasic` of value.rb, in
+      # array.rb's layouts); ruby reads it when the file runs.
+      def load_order: (untyped trees) -> untyped
+
+      def constant_reads: (untyped node) -> untyped
+
+      # Wraps the defs that need a frame: a def that takes a slot gives its
+      # slots back when it returns, and a def that can run the collector
+      # drops the pins of its body when it returns (and pins its Value
+      # result for its caller). The collector runs with no pinning, and
+      # marks the pins as kernel roots.
+      def frames: (untyped trees) -> untyped
+
+      # What a def's frame does (`frames`): it gives back the slots of its
+      # body (`restores`), and drops the pins of its body (`drops`), then
+      # pins a Value result (`value`) for its caller.
+      #
+      # A def that can collect and loops is `rooted`: a pin of each pass
+      # would stay until it returns, so its locals are its roots instead,
+      # as the lowering's root frame holds a def's Value locals. The
+      # collector reads those locals (`value_locals`) from the def's frame
+      # on the Ruby stack (`live_roots`).
+      #
+      # A rooted caller pins nothing, so a def that can collect and is not
+      # rooted pins its Value arguments (`params`, their indices), as the
+      # lowering's root frame holds a def's parameters.
+      Framing: untyped
+
+      # The locals of the def `node` that hold Values, as the typed lowering
+      # gives them root slots: each Value parameter, and each local that an
+      # assignment gives a Value. A local is a Value when one of its
+      # assignments is one, or is of a type this cannot tell, so no Value
+      # goes unmarked. A Ptr or a Word is never marked: it can point into a
+      # payload, or at a cell that is not yet an object.
+      def value_locals: (untyped node) -> untyped
+
+      # The type name of the kernel expression `node`, or nil when this
+      # cannot tell (`value_locals`).
+      def type_of: (untyped node, untyped types) -> untyped
+
+      def last_of: (untyped node) -> untyped
+
+      # The values that a conditional answers; nil for a missing branch.
+      def branches: (untyped node) -> untyped
+
+      # The type of a call: a def's sig, `Machine.value`, a layout field,
+      # or a signature's `call`. An operator on words is a word.
+      def call_type: (untyped node) -> (untyped | "Word")
+
+      # Whether the def `node` has a loop.
+      def loops?: (untyped node) -> (true | false)
+
+      # The method body that wraps a def of `arity` in its `frame`. Each
+      # arity has its own block, which passes the def's arguments on to
+      # `super` as they are: a block that takes `*args` makes an Array at
+      # each call. In the frame, it pins the arguments that `frame.params`
+      # names (`p0`..`p5`, each true or false).
+      def framed_def: (untyped arity, untyped frame) -> untyped
+
+      # The defs that can run the collector, as the lowering finds them
+      # (`Lower#collecting_defs`): those that `collects` names, a call
+      # through a pointer, and each def that calls one of those.
+      def collecting_defs: (untyped defs) -> untyped
+
+      def calls_in: (untyped node, untyped defs, untyped signatures) -> untyped
+
+      # This thread's errno, which a C function reads and sets.
+      def errno_location: () -> untyped
+
+      def to_c: (untyped value, untyped type) -> untyped
+
+      def from_c: (untyped value, untyped type) -> untyped
+    end
+  end
+end

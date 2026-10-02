@@ -1,0 +1,274 @@
+# Onigmo's search optimizer: what a pattern's tree says about where a
+# match can start (regcomp.c:4220-5400), written onto the regex as its
+# optimize kind, anchors, exact string or map, and distances. A port
+# under the BSD-2-Clause license reproduced in regexp.rb.
+class Regexp
+  module Onig
+    module Optimize
+      OPTIMIZE_NONE: 0
+
+      OPTIMIZE_EXACT: 1
+
+      OPTIMIZE_EXACT_BM: 2
+
+      OPTIMIZE_EXACT_BM_NOT_REV: 3
+
+      OPTIMIZE_EXACT_IC: 4
+
+      OPTIMIZE_MAP: 5
+
+      OPTIMIZE_EXACT_BM_IC: 6
+
+      OPTIMIZE_EXACT_BM_NOT_REV_IC: 7
+
+      MAX_NODE_OPT_INFO_REF_COUNT: 5
+
+      COMP_EM_BASE: 20
+
+      BYTE_VAL_TABLE: ::Array[5 | 1 | 10 | 12 | 4 | 7 | 6]
+
+      DIST_VALS: ::Array[1000 | 500 | 333 | 250 | 200 | 167 | 143 | 125 | 111 | 100 | 91 | 83 | 77 | 71 | 67 | 63 | 59 | 56 | 53 | 50 | 48 | 45 | 43 | 42 | 40 | 38 | 37 | 36 | 34 | 33 | 32 | 31 | 30 | 29 | 28 | 27 | 26 | 25 | 24 | 23 | 22 | 21 | 20 | 19 | 18 | 17 | 16 | 15 | 14 | 13 | 12 | 11 | 10]
+
+      # MinMaxLen
+      class MinMax
+        @min: untyped
+
+        @max: untyped
+
+        attr_accessor min: untyped
+
+        attr_accessor max: untyped
+
+        def initialize: (?::Integer min, ?::Integer max) -> void
+
+        def copy: () -> untyped
+
+        def set: (untyped min, untyped max) -> untyped
+
+        def clear: () -> untyped
+
+        def copy_from: (untyped other) -> untyped
+
+        def ==: (untyped other) -> untyped
+
+        def add: (untyped other) -> untyped
+
+        def alt_merge: (untyped other) -> untyped
+      end
+
+      # OptAncInfo
+      class AncInfo
+        @left: untyped
+
+        @right: untyped
+
+        attr_accessor left: untyped
+
+        attr_accessor right: untyped
+
+        def initialize: (?::Integer left, ?::Integer right) -> void
+
+        def copy: () -> untyped
+
+        def clear: () -> untyped
+
+        def copy_from: (untyped other) -> untyped
+
+        # concat_opt_anc_info
+        def self.concat: (untyped left, untyped right, untyped left_len, untyped right_len) -> untyped
+
+        def self.left_anchor?: (untyped anc) -> untyped
+
+        def set?: (untyped anc) -> untyped
+
+        def add: (untyped anc) -> untyped
+
+        def remove: (untyped anc) -> untyped
+
+        def alt_merge: (untyped other) -> untyped
+      end
+
+      # OptExactInfo
+      class ExactInfo
+        @mmd: untyped
+
+        @anc: untyped
+
+        @reach_end: untyped
+
+        @ignore_case: untyped
+
+        @s: untyped
+
+        attr_accessor mmd: untyped
+
+        attr_accessor anc: untyped
+
+        attr_accessor reach_end: untyped
+
+        attr_accessor ignore_case: untyped
+
+        attr_accessor s: untyped
+
+        def initialize: () -> void
+
+        def len: () -> untyped
+
+        def full?: () -> untyped
+
+        def clear: () -> untyped
+
+        def copy: () -> untyped
+
+        def copy_from: (untyped other) -> untyped
+
+        # concat_opt_exact_info
+        def concat: (untyped add, untyped enc) -> (nil | untyped)
+
+        # concat_opt_exact_info_str
+        def concat_str: (untyped s, untyped enc) -> untyped
+
+        # alt_merge_opt_exact_info
+        def alt_merge: (untyped add, untyped enc) -> (nil | untyped)
+
+        # select_opt_exact_info: `alt` taken over `self` when it is the better one.
+        def select: (untyped alt, untyped enc) -> (nil | untyped)
+      end
+
+      # OptMapInfo
+      class MapInfo
+        @mmd: untyped
+
+        @anc: untyped
+
+        @value: untyped
+
+        @map: untyped
+
+        attr_accessor mmd: untyped
+
+        attr_accessor anc: untyped
+
+        attr_accessor value: untyped
+
+        attr_accessor map: untyped
+
+        def initialize: () -> void
+
+        def clear: () -> untyped
+
+        def copy: () -> untyped
+
+        def copy_from: (untyped other) -> untyped
+
+        # add_char_opt_map_info
+        def add_char: (untyped c, untyped enc) -> (nil | untyped)
+
+        # add_char_amb_opt_map_info
+        def add_char_amb: (untyped s, untyped enc, untyped case_fold_flag) -> untyped
+
+        # select_opt_map_info
+        def select: (untyped alt) -> (nil | untyped)
+
+        # alt_merge_opt_map_info
+        def alt_merge: (untyped enc, untyped add) -> (nil | untyped)
+      end
+
+      # NodeOptInfo
+      class NodeInfo
+        @len: untyped
+
+        @anc: untyped
+
+        @exb: untyped
+
+        @exm: untyped
+
+        @expr: untyped
+
+        @map: untyped
+
+        attr_accessor len: untyped
+
+        attr_accessor anc: untyped
+
+        attr_accessor exb: untyped
+
+        attr_accessor exm: untyped
+
+        attr_accessor expr: untyped
+
+        attr_accessor map: untyped
+
+        def initialize: () -> void
+
+        def copy_from: (untyped other) -> untyped
+
+        # set_bound_node_opt_info
+        def set_bound: (untyped mmd) -> untyped
+
+        # concat_left_node_opt_info
+        def concat_left: (untyped enc, untyped add) -> untyped
+
+        # alt_merge_node_opt_info
+        def alt_merge: (untyped add, untyped enc) -> untyped
+      end
+
+      # OptEnv
+      class Env
+        @mmd: untyped
+
+        @enc: untyped
+
+        @options: untyped
+
+        @case_fold_flag: untyped
+
+        @scan_env: untyped
+
+        attr_accessor mmd: untyped
+
+        attr_accessor enc: untyped
+
+        attr_accessor options: untyped
+
+        attr_accessor case_fold_flag: untyped
+
+        attr_accessor scan_env: untyped
+
+        def initialize: (untyped enc, untyped options, untyped case_fold_flag, untyped scan_env) -> void
+
+        def copy: () -> untyped
+      end
+
+      def self?.map_position_value: (untyped enc, untyped i) -> (20 | untyped | 4)
+
+      def self?.distance_value: (untyped mm) -> (0 | untyped)
+
+      def self?.comp_distance_value: (untyped d1, untyped d2, untyped v1, untyped v2) -> (-1 | 1 | 0)
+
+      # comp_opt_exact_or_map_info
+      def self?.comp_exact_or_map: (untyped e, untyped m) -> (-1 | untyped)
+
+      # set_bm_skip: the skip table of Sunday's quick search; [len, skip].
+      def self?.set_bm_skip: (untyped s, untyped reg, untyped ignore_case) -> ::Array[untyped]
+
+      # optimize_node_left: the optimize info of `node`.
+      def self?.node_left: (untyped node, untyped env) -> untyped
+
+      # set_optimize_exact_info
+      def self?.set_exact_info: (untyped reg, untyped e) -> (nil | untyped)
+
+      # set_optimize_map_info
+      def self?.set_map_info: (untyped reg, untyped m) -> untyped
+
+      def self?.set_sub_anchor: (untyped reg, untyped anc) -> untyped
+
+      # clear_optimize_info
+      def self?.clear_info: (untyped reg) -> untyped
+
+      # set_optimize_info_from_tree
+      def self?.set_info_from_tree: (untyped node, untyped reg, untyped scan_env) -> untyped
+    end
+  end
+end

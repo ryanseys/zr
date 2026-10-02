@@ -1,0 +1,43 @@
+module Zr
+  module Native
+    # The resident memory size of a process. Ruby has no portable way to
+    # read it, and macOS has no `/proc`. Thus this calls the system through
+    # Fiddle: `proc_pidinfo(pid, PROC_PIDTASKINFO, 0, &info, size)`
+    # returns the number of bytes of `info` that it filled (a
+    # proc_taskinfo is 96). The resident size is the second word. The call
+    # takes a microsecond; a `ps` child takes 2 ms. On other systems, or in
+    # a zr binary (which has no Fiddle), this returns nil and the caller
+    # uses a different value.
+    module Resident
+      self.@host_stats: untyped
+
+      self.@asker: untyped
+
+      TASKINFO: 4
+
+      SIZE: 96
+
+      # The resident bytes of `pid`, or nil.
+      def self.bytes_of: (untyped pid) -> (nil | untyped)
+
+      # The same in megabytes, for a report.
+      def self.of: (untyped pid) -> untyped
+
+      # `host_statistics64(mach_host_self(), HOST_VM_INFO64, &stats, &count)`
+      # fills a vm_statistics64 (152 bytes, `count` in 4-byte words), the
+      # numbers that `vm_stat` prints.
+      HOST_VM_INFO64: 4
+
+      VM_STATS: 152
+
+      # The pages that macOS processes hold: the anonymous pages that are
+      # not purgeable, the wired pages, and the compressor's pages (the
+      # file cache can be dropped). Nil where the call is missing.
+      def self.used_pages: () -> (nil | untyped)
+
+      def self.host_stats: () -> untyped
+
+      def self.asker: () -> untyped
+    end
+  end
+end

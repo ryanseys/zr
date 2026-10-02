@@ -1,0 +1,374 @@
+module Zr
+  module Backend
+    module Aarch64
+      # Compiles an `IR::Function` to `Obj::Code` of Apple arm64
+      # machine code, with a relocation for each symbol that it refers to.
+      #
+      # A value is in the register that `Regalloc` gives it, or else in an
+      # 8-byte frame slot. These are made at each read and have no home: a
+      # constant that one instruction makes or that is read once, a slot's
+      # address, and a base plus a constant. An instruction loads frame
+      # operands into x9..x12, computes in a register, and stores a frame
+      # result from a register. A compare that one branch or select reads
+      # leaves its result in the flags.
+      #
+      # The frame is `[x29, x30) [slots) [values) [saved callee registers)`,
+      # addressed from sp with unsigned scaled offsets (x17 contains a page
+      # base when an offset does not fit). A frame of 496 bytes or less uses
+      # one pre-indexed `stp` and one post-indexed `ldp`. A larger frame keeps
+      # the x29 pair at its top and uses `sub sp` below it. x29 keeps the
+      # frame chain, x18 is never used, and sp stays 16-byte aligned.
+      #
+      # Encodings come from `Backend::Aarch64`. This class records each
+      # relocation at the instruction's offset. `codegen/layout.rb` plans
+      # the layout, and `codegen/moves.rb` makes the parallel moves.
+      class Codegen
+        @f: untyped
+
+        @defined: untyped
+
+        @far: untyped
+
+        @allocate: untyped
+
+        @asm: untyped
+
+        @relocs: untyped
+
+        @reg: untyped
+
+        @home: untyped
+
+        @labels: untyped
+
+        @epilogue: untyped
+
+        @pending_double: untyped
+
+        @double_turn: untyped
+
+        @doubles: untyped
+
+        include Registers
+
+        # The two registers that `parallel_copy` moves values through. An
+        # instruction that needs more uses x11 and x12. x13 to x15 belong to
+        # the allocator, in `Regalloc::CALLER`.
+        SCRATCH: ::Array[untyped]
+
+        # Maps IR condition codes to arm64 condition codes.
+        CONDS: { "eq" => :eq, "ne" => :ne, "slt" => :lt, "sle" => :le, "sgt" => :gt, "sge" => :ge, "ult" => :lo, "ule" => :ls, "ugt" => :hi, "uge" => :hs }
+
+        # Float comparisons after fcmp: NaN on either side sets C and V and
+        # clears N and Z. Every condition except `ne` then reads as false.
+        FCONDS: { "eq" => :eq, "ne" => :ne, "lt" => :mi, "le" => :ls, "gt" => :gt, "ge" => :ge }
+
+        # The condition that is true for `b op a` when the IR gives `a op b`.
+        SWAPPED: { "eq" => "eq", "ne" => "ne", "slt" => "sgt", "sle" => "sge", "sgt" => "slt", "sge" => "sle", "ult" => "ugt", "ule" => "uge", "ugt" => "ult", "uge" => "ule" }
+
+        # The bits that an operand of each type gives to an instruction:
+        # the width that its load gives it.
+        WIDTH_MASK: { "i8" => 255, "i32" => 4294967295, "i64" => 18446744073709551615 }
+
+        # The condition that is true only when the other is false. arm64
+        # numbers them in pairs, so this is the code with its low bit
+        # inverted, written out so that it is easy to read.
+        INVERSE: { eq: :ne, ne: :eq, lt: :ge, ge: :lt, le: :gt, gt: :le, lo: :hs, hs: :lo, ls: :hi, hi: :ls, mi: :pl, pl: :mi, vs: :vc, vc: :vs }
+
+        # The branch that is taken when the other is not taken.
+        OPPOSITE: { cbz: :cbnz, cbnz: :cbz, tbz: :tbnz, tbnz: :tbz }
+
+        # The opcodes whose lowering does not change NZCV. A compare's flags
+        # stay valid across them until the branch or select that reads the
+        # flags. A compare, a select with its own `cmp`, an overflow check and
+        # a call all write the flags. A terminator ends the block.
+        FLAG_NEUTRAL: untyped
+
+        # The mnemonics of the one-operand float instructions.
+        FUNOPS: { fneg: :fneg, fabs: :fabs, sqrt: :fsqrt, floor: :frintm, ceil: :frintp, trunc: :frintz, nearest: :frintn }
+
+        # The d registers that keep an f64 value from the instruction that
+        # makes or loads it to its reads in the same block. They are
+        # caller-saved, so a call clears them, and they are never saved.
+        DOUBLES: ::Array[untyped]
+
+        # The register that `popcnt` counts in. It is not in `DOUBLES`, so
+        # it does not replace a value there.
+        COUNTER: untyped
+
+        class Refused < Backend::Refused
+        end
+
+        # The assembler that the compile used. A caller that gave its own
+        # assembler reads the listing from it.
+        attr_reader asm: untyped
+
+        # `defined`: every symbol that this unit defines. It sets whether a
+        # symbol is reached directly or through the GOT. It is a Set, because
+        # a unit has thousands of symbols and each function checks it once per
+        # symbol. `to_set` on a Set returns the same Set, so it costs nothing.
+        # `far`: every conditional branch can reach past the 1 MB range of a
+        # conditional branch. Only a function that large pays for it.
+        # `allocate: false` keeps every value in its frame home. This is the
+        # reference for the allocator: both modes must give the same result,
+        # and the tests check it.
+        def initialize: (untyped function, ?defined: untyped, ?assembler: untyped, ?far: bool, ?allocate: bool) -> void
+
+        def compile: () -> untyped
+
+        private
+
+        # Returns `[base, offset]` for `off` from sp, with an offset that fits
+        # a scaled immediate of `width` bytes. When it does not fit, x17
+        # contains a page base.
+        #
+        # x17, not a scratch register: an instruction can call this while its
+        # scratch registers contain its operands (`parallel_copy` keeps a
+        # broken cycle's value in x10 across several stores). A page base in
+        # a scratch register would overwrite the value to store. x16 and x17
+        # are the linker's veneer registers. They are dead across every call
+        # and the backend uses them nowhere else.
+        def address: (untyped off, untyped width) -> ::Array[untyped]
+
+        # `reg = sp + off`: one `add` for an offset of 12 bits, two for a larger one.
+        def frame_address: (untyped reg, untyped off) -> untyped
+
+        # An f64 value is in its slot as bits and moves through the
+        # integer registers.
+        def load_value: (untyped v, untyped reg) -> untyped
+
+        # The register to read an operand from: its register home, or else
+        # `scratch` after a load.
+        #
+        # Only operands use this. A result always goes to a scratch register
+        # and is stored from there. Otherwise, an instruction that writes its
+        # destination before it reads all sources can overwrite an operand
+        # in the same register.
+        #
+        # An `i8` is read directly only when it is `@clean`. Its home contains
+        # the whole word, and a w-register read gives the bits above the
+        # byte to a 32-bit operation.
+        def value_in: (untyped v, untyped scratch) -> untyped
+
+        # The register for a result: its register home, or else a scratch
+        # register to store from.
+        #
+        # Use this only in an instruction that reads every operand before it
+        # writes its destination. An instruction that reads an operand after
+        # that (`emit_rem`, `emit_mul_overflow`) finds the operand overwritten.
+        def result_in: (untyped v, untyped scratch) -> untyped
+
+        # A register home contains the whole word, so a narrower value uses
+        # its low bits, the same bits that the narrow load gives.
+        def narrow: (untyped reg, untyped home, untyped type) -> untyped
+
+        # Store the whole 64-bit register: a 32-bit result has zero above.
+        def store_value: (untyped v, untyped reg) -> (nil | untyped)
+
+        def store_param: (untyped v, untyped reg) -> untyped
+
+        def w: (untyped x) -> untyped
+
+        def wide?: (untyped v) -> untyped
+
+        def float?: (untyped v) -> untyped
+
+        def reg_for: (untyped v, untyped x) -> untyped
+
+        # One `stp` makes a small frame and also moves sp. A large frame
+        # keeps the pair where `stp` puts it, above the whole frame, and
+        # moves sp down by the frame size. The `PAIR` bytes at the bottom
+        # are then not used.
+        def prologue: () -> untyped
+
+        # Two immediates reach 16 MiB less one page. A larger frame is a
+        # refusal, with a message that gives the function, not a truncated frame.
+        def sub_sp: (untyped n) -> untyped
+
+        # Moves the saved registers to or from their places, two at a time
+        # where the pair form reaches (its offset is seven signed bits in
+        # units of 8), and one at a time after that.
+        def saved_registers: (untyped pair, untyped single) -> untyped
+
+        # A function with one return has its epilogue at that return. A
+        # function with more returns shares one epilogue. Each return branches
+        # to it, except the last, which ends the last block and falls into it.
+        def emit_return: (untyped i) -> untyped
+
+        def epilogue: () -> untyped
+
+        # A float instruction's result stays in its d register until the
+        # instruction is emitted. Then it is also stored to its home.
+        def emit: (untyped i) -> (nil | untyped)
+
+        def lower: (untyped i) -> untyped
+
+        # A branch to one of two blocks. A fused compare puts the result in
+        # the flags. A bit test reads the word. Otherwise the branch tests
+        # the boolean. The next block needs no branch: control falls into it.
+        def emit_brif: (untyped i) -> untyped
+
+        # A jump table. The value less the lowest key is the index (a word
+        # whose lowest key is 0 is its own index); an index past the table
+        # (also a value below the lowest key, which wraps) goes to the
+        # default. The table follows the `br`: one word for
+        # each index, the distance from the table to its block.
+        #
+        #   sub  w9, wv, #lo           ; a narrow value: zeros above
+        #   cmp  x9, #(hi - lo)
+        #   b.hi default
+        #   adr  x10, table
+        #   ldrsw x9, [x10, x9, lsl #2]
+        #   add  x10, x10, x9
+        #   br   x10
+        def emit_switch: (untyped i) -> untyped
+
+        # `index = from - lo`. A narrow value's index is zero above its
+        # width, as a 32-bit operation leaves it.
+        def offset: (untyped index, untyped from, untyped lo, untyped scratch) -> untyped
+
+        # `cbz`, `cbnz`, `tbz` or `tbnz` of `operands` to a block. A far
+        # branch uses the opposite condition to skip over a `b`. A `b`
+        # reaches 128 MB, and a conditional branch reaches 1 MB.
+        def branch_if: (untyped op, untyped target, *untyped operands) -> untyped
+
+        # `csel` on the flags of a fused compare, or else on its own `cmp`
+        # of the boolean. A constant zero operand is the zero register.
+        def emit_select: (untyped i) -> untyped
+
+        # An operand's register, or the zero register when it is the
+        # constant zero.
+        def value_or_zero: (untyped v, untyped scratch) -> untyped
+
+        # `b.cond` to a block, on the flags of a fused compare. A far branch
+        # uses the opposite condition to skip over a `b`, as in `branch_if`.
+        def branch_on: (untyped cond, untyped target) -> untyped
+
+        def emit_load: (untyped i) -> untyped
+
+        # The largest offset that a pair reaches: seven signed bits in units of 8.
+        PAIR_REACH: 504
+
+        def emit_store: (untyped i) -> untyped
+
+        # Two stores as one `stp` where the pair form reaches, or else as
+        # two `str` through one address.
+        def emit_store_pair: (untyped first, untyped second) -> untyped
+
+        # The memory operand for `off` past the address in `base`. This is sp
+        # when `base` is a slot's address and the sum fits. Otherwise it is
+        # the address in a register, loaded into `scratch` when it has no
+        # register. A folded base (`@derived`) is its root plus a constant. A
+        # value made from sp (`@from_sp`) is also read from sp: the direct
+        # call loads its arguments this way from a send's argument vector.
+        def through: (untyped base, untyped scratch, untyped off, untyped width) -> (::Array[untyped] | untyped)
+
+        # A base and an offset that one load or store can encode: the offset
+        # scaled into 12 bits, or else the whole address made in X11 first.
+        # The two methods above do not use X11.
+        def reach: (untyped base, untyped off, untyped width) -> (::Array[untyped] | ::Array[untyped | 0])
+
+        # A symbol's address: page plus offset for a symbol that this link
+        # defines, or through the GOT for an import.
+        def emit_symbol: (untyped result, untyped symbol, untyped local) -> untyped
+
+        # `reg = &symbol`: the page and the offset for a symbol of this link,
+        # or the GOT word for a symbol of another link.
+        def symbol_address: (untyped reg, untyped symbol, untyped local) -> untyped
+
+        def emit_call: (untyped i) -> (nil | untyped)
+
+        # Integer arguments go in x0.. and float arguments in d0.., each in
+        # its own order, as the ABI specifies. The floats go first, read from
+        # their current registers. The integers move as one parallel copy,
+        # because an argument can be in the register of another argument.
+        def load_args: (untyped args) -> untyped
+
+        # A 32-bit or narrower result has undefined bits above: clear them.
+        # A float result comes back in d0.
+        def store_result: (untyped v, untyped ret) -> untyped
+
+        # The pointer goes to x16 before the arguments move. It can be in
+        # an argument register, and no argument load uses x16.
+        def emit_call_indirect: (untyped i) -> (nil | untyped)
+
+        # `fcmp`, and the condition that reads its flags.
+        def emit_fcompare: (untyped i) -> untyped
+
+        # The d register that contains `v`. It loads `v` from its home when
+        # `v` is in no d register.
+        def double_in: (untyped v) -> untyped
+
+        # The d register where a float instruction writes `v`. `emit` stores
+        # it to the home of `v` after the instruction.
+        def double_out: (untyped v) -> untyped
+
+        def next_double: () -> untyped
+
+        def remember_double: (untyped v, untyped d) -> untyped
+
+        def forget_doubles: () -> untyped
+
+        # `cmp`, and the arm64 condition that reads its flags. A 12-bit
+        # constant uses the immediate form and no register. The check that
+        # `Zr::Lower::Function#checked` makes after every call is `cmp x, #52`.
+        # A constant on the left moves to the right, and the condition swaps.
+        def emit_compare: (untyped i) -> untyped
+
+        COMMUTES: ::Array[:iadd | :band | :bor | :bxor]
+
+        SHIFTS: { ishl: :lsl, ushr: :lsr, sshr: :asr }
+
+        LOGICAL: { band: :and, bor: :orr, bxor: :eor }
+
+        # A binary operation. A constant operand is an immediate when the
+        # instruction has an immediate form.
+        def emit_binop: (untyped i) -> untyped
+
+        # `clz` is one instruction. `ctz` is `rbit` then `clz`. `bswap` is `rev`.
+        def emit_bitop: (untyped i) -> untyped
+
+        # Counts the set bits one byte at a time in a d register: move the
+        # word in (`fmov s, w` for an i32, which clears the rest), count each
+        # byte (`cnt`), add them into the low byte (`addv`), and read the
+        # whole register back.
+        def emit_popcnt: (untyped i) -> untyped
+
+        # The immediate form of a binary operation, as [mnemonic, immediate,
+        # register operand], or nil when the constant fits no form: `add`/
+        # `sub` of 12 bits, a shift by less than the register width, and
+        # `and`/`orr`/`eor` of a bitmask immediate.
+        #
+        # The constant has the width of its type, the same as a load gives.
+        # The instruction runs at the width of the register form, so the low
+        # bits of the result are the same.
+        def immediate_form: (untyped i) -> (nil | untyped)
+
+        def emit_immediate: (untyped i, untyped mnemonic, untyped immediate, untyped a) -> untyped
+
+        # `a - (a / b) * b`, the arm64 form of a remainder.
+        def emit_rem: (untyped i) -> untyped
+
+        def emit_overflow: (untyped i) -> (nil | untyped)
+
+        # 64-bit only: the high half of the product must be the sign of the low.
+        def emit_mul_overflow: (untyped i) -> (nil | untyped)
+
+        # Block arguments as a parallel copy: every destination gets the
+        # value that its source had before the jump, in any copy order.
+        # There is no limit on the number of arguments on an edge, because
+        # the resolver keeps only one value in a `SCRATCH` register at a time.
+        def emit_jump: (untyped i) -> untyped
+
+        # The number of instructions that `materialize` uses for `n`.
+        def materialized: (untyped n) -> untyped
+
+        # `reg = n`, 16 bits at a time. A negative value starts from its
+        # complement, so the high halves need no instruction.
+        def materialize: (untyped reg, untyped n) -> untyped
+
+        def reloc: (untyped kind, untyped symbol) -> untyped
+      end
+    end
+  end
+end

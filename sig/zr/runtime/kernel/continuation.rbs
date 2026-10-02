@@ -1,0 +1,28 @@
+module Zr::Kern
+  # `low` and `high` are the limits of the saved stack, and `bytes`
+  # contains its bytes. `ctx` is the context that the capture switched
+  # away from. `task` is a copy of the task at that time, and `kroots` is
+  # the kernel's root list at that time. `resumed` is 1 after a call
+  # comes back through the capture.
+  ContState: untyped
+
+  CONT_SIDE_BYTES: 1048576
+
+  CONT_CAPTURE: 1
+
+  CONT_RESTORE: 2
+
+  def zr_cont_side_ctx: () -> untyped
+
+  def zr_cont_side: () -> untyped
+
+  def zr_cont_stack_high: () -> untyped
+
+  def zr_cont_root: (untyped roots, untyped v) -> untyped
+
+  def zr_cont_roots: (untyped roots) -> untyped
+
+  def zr_cont_capture: (untyped cont) -> untyped
+
+  def zr_cont_resume: (untyped cont) -> untyped
+end

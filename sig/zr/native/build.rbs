@@ -1,0 +1,191 @@
+module Zr
+  module Native
+    # Turns IR functions and data into the output that a target runs. The
+    # target selects the parts: its backend writes the machine code, its
+    # object writer writes the object, and its linker writes the binary
+    # (`Link::Darwin`, `Link::Static`). A wasm32 target has one module and
+    # no link step.
+    module Build
+      # The runtime or the eval support did not assemble: a defect in zr.
+      class Failed < StandardError
+      end
+
+      # A unit with fewer IR instructions than this assembles in this
+      # process. For a program's own functions, a worker costs more than
+      # it saves.
+      PARALLEL_THRESHOLD: 200000
+
+      # The number of workers for a large unit: `ZR_JOBS`, else one per
+      # core, at most six. More than six workers compete for memory. Time
+      # to build the runtime object on a twelve-core M2 Pro with 16 GB:
+      #
+      #     jobs      2      4      6      8     12
+      #     seconds  17.4   11.4    9.5   11.8   26.9
+      #
+      # This is the maximum. At fork time, `Parallel.afforded` lowers it
+      # from the parent's memory, which is about 100 times larger for the
+      # compiled compiler than for the compiler under ruby. `ZR_JOBS`
+      # overrides both limits; the table above was measured with it.
+      def self?.jobs: () -> untyped
+
+      # The native backend for `target`.
+      def self?.backend: (untyped target) -> untyped
+
+      # The object writer for `target`.
+      def self?.writer: (untyped target) -> untyped
+
+      # The linker for `target`.
+      def self?.linker: (untyped target) -> untyped
+
+      # Returns nil, or the message of the step that refused. `objects` are
+      # prebuilt objects to link with this one. `strip` removes code that
+      # nothing calls. `linker` (`ZR_LINKER`) selects the linker when the
+      # target has more than one. `link` goes to the system linker as it
+      # is (`--link`, `ZR_LINK_ARGS`), so it needs `cc`.
+      def self?.binary: (untyped functions, untyped data, untyped out, work: untyped, ?raw: untyped, ?assembled: untyped, ?objects: untyped, ?strip: bool, ?linker: untyped, ?target: untyped, ?jobs: untyped, ?link: untyped) -> untyped
+
+      # Links a `Zr::Program` into a binary. The runtime object comes from
+      # the cache; this emits only the program's own functions and data.
+      # A program that uses eval keeps all symbols, because its JIT finds
+      # kernel functions by name. Functions that `assemble` already
+      # assembled go in unchanged.
+      def self?.program: (untyped program, untyped out, work: untyped, ?jobs: untyped, ?link: untyped) -> untyped
+
+      # Names the store entries that a link of `objects` reads (lib/zr/cache/store.rb),
+      # so no eviction removes them: the objects, their prelinked image and
+      # skeleton, the runtime's symbol table and gem prelude list, eval
+      # support's metadata, and the code packs of this backend. A link with
+      # eval support and one without each have a root.
+      def self?.root: (untyped runtime, untyped objects, untyped evals) -> untyped
+
+      # Lowers a program for a binary. It assembles the functions of each
+      # file after it lowers that file, so the full IR is never in memory
+      # at one time. It builds the runtime object first and then releases
+      # the runtime's IR, so on a cold cache the two are not in memory
+      # together.
+      def self?.lower: (untyped source, untyped file, ?target: untyped, ?jobs: untyped, ?sources: bool, ?gem_set: untyped?, ?gate: bool) -> untyped
+
+      # Prepares and assembles one function immediately after `Program.build`
+      # lowers it. `entry` gives the spelling of its symbols.
+      def self?.assemble: (untyped function, untyped entry, ?target: untyped) -> untyped
+
+      # The prelinked bases that this process loaded, by path.
+      def self?.prelinks: () -> untyped
+
+      # Links `objects` once, at the fixed addresses that every program
+      # links against (`Obj::MachO::Prelink`). The name of a cached object
+      # is the digest of its inputs, so the cache keeps its prelinked base
+      # under those names. Objects that are not in the cache are linked
+      # each time.
+      def self?.prelink: (untyped objects) -> untyped
+
+      # Returns the cache path of the prelink of `objects`, or nil when the
+      # objects are not in the cache. The object names are the digests of
+      # their inputs. `Digests.link` adds the other input of the image:
+      # the linker's own files, which the object digests do not include
+      # on purpose.
+      def self?.prelink_path: (untyped objects) -> (nil | untyped)
+
+      # The cache path of the skeleton of `objects`, next to their prelink.
+      def self?.skeleton_path: (untyped objects) -> untyped
+
+      def self?.image_key: (untyped objects) -> untyped
+
+      # Returns the path of the skeleton file for `objects`: the bytes that
+      # every binary linked against them starts with (`Obj::MachO::Skeleton`).
+      # It is in the cache, next to its prelink, and is written once per
+      # prelink. Returns nil when the prelink is not in the cache.
+      def self?.skeleton: (untyped objects) -> (nil | untyped)
+
+      # The eval support object, built once for each key.
+      def self?.eval_support_object: (untyped support, ?jobs: untyped) -> untyped
+
+      def self?.eval_support_built: (untyped support, untyped obj, untyped jobs) -> untyped
+
+      # The runtime's object, built once per digest (the digest includes
+      # the target). Two zr processes do not build the same object.
+      def self?.runtime_object: (untyped runtime, ?jobs: untyped) -> untyped
+
+      def self?.waiting: (untyped what, untyped target) -> (untyped | nil)
+
+      def self?.runtime_built: (untyped runtime, untyped obj, untyped jobs) -> untyped
+
+      # Writes functions and data to one object file. `export` makes all
+      # data visible to the linker, for an object that other objects refer to.
+      # `cache` is the code cache of the object's kind, or nil. `inlined`
+      # and `known` are `unit`'s. `release` lets the caller drop the IR once
+      # it is machine code, before the writer allocates: then a collection
+      # does not mark the IR again (4 s of eval support's write).
+      def self?.object: (untyped functions, untyped data, untyped obj, ?raw: untyped, ?export: bool, ?target: untyped, ?jobs: untyped, ?cache: untyped?, ?inlined: bool, ?known: ::Hash[untyped, untyped], ?release: untyped?) -> untyped
+
+      # Returns the same as an `Obj::Unit`, the input of an object writer
+      # and of the JIT loader. Inlining needs the whole unit, so it runs
+      # here. The passes and assembly of a function need only the function
+      # and the unit's symbol names, so a large unit runs them in `jobs`
+      # workers. `raw` names the raw functions (`Machine::RAW`), whose code
+      # comes from the backend. `assembled` are functions that are already
+      # machine code. With a `cache` (`CodeCache`), a function whose
+      # fingerprint the cache has takes its code from there. `inlined` says
+      # that the functions are inlined already (`Cache::Lowering::Core`). `functions` can
+      # then have machine code in place of IR, whose fingerprint and bytes
+      # `known` gives by name.
+      def self?.unit: (untyped functions, untyped data, ?raw: untyped, ?assembled: untyped, ?export: bool, ?target: untyped, ?jobs: untyped, ?floor: untyped, ?cache: untyped?, ?inlined: bool, ?known: ::Hash[untyped, untyped]) -> untyped
+
+      # The code of `all` through the code cache. Each worker takes the
+      # fingerprints of its functions and assembles only those whose code
+      # the cache does not have. (A first map that only took fingerprints,
+      # without the warmup of the heap, spent its time in the workers'
+      # collections instead.) Returns the code in the order of `all`, and
+      # keeps all of it as the cache's newest pack. A function that is
+      # machine code already stays as it is; `known` has its key and bytes
+      # for the pack.
+      def self?.cached: (untyped all, untyped defined, untyped emitter, untyped cache, untyped jobs, untyped floor, ?::Hash[untyped, untyped] known) -> untyped
+
+      # Writes the same functions and data as one WASI module. A raw
+      # function, or a libc call that neither the OS layer nor
+      # `Backend::Wasm.libc_shims` supplies, has no wasm form. A stop
+      # function is put in its place; it stops with the function's name
+      # when called. Data from another library also has no wasm form: a
+      # zero word is put in its place, because every call that reads it
+      # is a stop.
+      def self?.wasm: (untyped functions, untyped data, untyped out, ?raw: untyped) -> untyped
+
+      # Writes a `Zr::Program` as one WASI module. The runtime comes from
+      # the cached prelude; this emits only the program's own functions.
+      #
+      # On wasm, eval support is the tree-walking interpreter
+      # (lib/zr/eval/walk.rb): the front end and no backend. Wasm has no
+      # second object to link, so a program that uses eval gets a prelude
+      # that also contains eval support. Its 16,000 functions then compile
+      # once for each cache, not once for each program (about 280 s).
+      def self?.wasm_program: (untyped program, untyped out) -> untyped
+
+      # The runtime symbols that `program` defines. The runtime's prelude
+      # leaves these symbols pending.
+      def self?.pending_for: (untyped program) -> { functions: untyped, data: untyped }
+
+      # The runtime's wasm prelude, with eval support when `support` is
+      # given. It is emitted once for each digest and set of pending
+      # symbols, and kept in the cache.
+      #
+      # It is also kept in memory for the life of the process, as the
+      # prelink is. The prelude is 41 MB of Marshal, and a test tier builds
+      # one module for each example. A worker forked after the first build
+      # shares the one copy. A build never writes to it.
+      def self?.wasm_prelude: (untyped runtime, untyped pending, ?untyped? support) -> untyped
+
+      # The data symbols that `functions` refer to and `data` does not define.
+      def self?.foreign: (untyped functions, untyped data) -> untyped
+
+      # A zero word into `data` for each foreign data symbol not in `known`.
+      def self?.zero_words: (untyped functions, untyped data, untyped known) -> untyped
+
+      # Stop functions for the raw functions and for each undefined callee
+      # that is not a wasm import, not in `Backend::Wasm.libc_shims` and
+      # not in `known`.
+      def self?.stops: (untyped functions, untyped raw, untyped data, untyped known) -> untyped
+
+      def self?.stop: (untyped name, untyped params, untyped ret, untyped data) -> untyped
+    end
+  end
+end

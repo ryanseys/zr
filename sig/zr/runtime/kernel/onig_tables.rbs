@@ -1,0 +1,9 @@
+module Zr::Kern
+  def zr_onig_utf8_len: () -> untyped
+
+  def zr_onig_ctype_bits: () -> untyped
+
+  def zr_onig_word_ranges: () -> untyped
+
+  def zr_onig_fold_rows: () -> untyped
+end

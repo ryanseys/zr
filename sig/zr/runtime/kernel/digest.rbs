@@ -1,0 +1,63 @@
+module Zr::Kern
+  # The compression functions of the digests that ruby implements in C:
+  # MD5, SHA-1, SHA-256, SHA-512 (also used for SHA-384) and RIPEMD-160.
+  # Each one reads whole blocks and updates the chaining words in place.
+  # The Ruby part of the extension pads the message and keeps the bytes
+  # that do not fill a block. A state is a binary String of 64-bit
+  # little-endian slots, one slot for each word.
+  DIGEST_MD5: 0
+
+  DIGEST_SHA1: 1
+
+  DIGEST_SHA256: 2
+
+  DIGEST_SHA512: 3
+
+  DIGEST_RMD160: 4
+
+  DIGEST_MASK32: 4294967295
+
+  def zr_md5_k: () -> untyped
+
+  def zr_md5_shifts: () -> untyped
+
+  def zr_sha256_k: () -> untyped
+
+  def zr_sha512_k: () -> untyped
+
+  def zr_rmd160_steps: () -> untyped
+
+  def zr_digest_iv: () -> untyped
+
+  def zr_digest_state: (untyped row) -> untyped
+
+  def zr_digest_le32: (untyped p) -> untyped
+
+  def zr_digest_be32: (untyped p) -> untyped
+
+  def zr_digest_be64: (untyped p) -> untyped
+
+  def zr_digest_rotl32: (untyped x, untyped n) -> untyped
+
+  def zr_digest_rotr64: (untyped x, untyped n) -> untyped
+
+  def zr_digest_word: (untyped h, untyped i) -> untyped
+
+  def zr_digest_set: (untyped h, untyped i, untyped v) -> untyped
+
+  def zr_md5_block: (untyped h, untyped p) -> untyped
+
+  def zr_sha1_block: (untyped h, untyped p) -> untyped
+
+  def zr_sha256_block: (untyped h, untyped p) -> untyped
+
+  def zr_sha512_block: (untyped h, untyped p) -> untyped
+
+  def zr_rmd160_f: (untyped j, untyped x, untyped y, untyped z) -> untyped
+
+  def zr_rmd160_k: (untyped round, untyped right) -> untyped
+
+  def zr_rmd160_block: (untyped h, untyped p) -> untyped
+
+  def zr_digest_blocks: (untyped algo, untyped state, untyped data) -> untyped
+end

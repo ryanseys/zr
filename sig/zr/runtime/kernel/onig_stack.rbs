@@ -1,0 +1,146 @@
+module Zr::Kern
+  STK_ALT: 1
+
+  STK_LOOK_BEHIND_NOT: 2
+
+  STK_POS_NOT: 3
+
+  STK_MEM_START: 256
+
+  STK_MEM_END: 33280
+
+  STK_REPEAT_INC: 768
+
+  STK_NULL_CHECK_START: 12288
+
+  STK_NULL_CHECK_END: 20480
+
+  STK_MEM_END_MARK: 33792
+
+  STK_POS: 1280
+
+  STK_STOP_BT: 1536
+
+  STK_REPEAT: 1792
+
+  STK_CALL_FRAME: 2048
+
+  STK_RETURN: 2304
+
+  STK_VOID: 2560
+
+  STK_ABSENT_POS: 2816
+
+  STK_ABSENT: 3072
+
+  STK_MASK_POP_USED: 255
+
+  STK_MASK_TO_VOID_TARGET: 4351
+
+  STK_MASK_MEM_END_OR_MARK: 32768
+
+  ONIG_INVALID_STACK_INDEX: untyped
+
+  ONIG_INIT_MATCH_STACK_SIZE: 160
+
+  ONIG_STACK_POP_LEVEL_FREE: 0
+
+  ONIG_STACK_POP_LEVEL_MEM_START: 1
+
+  ONIG_STACK_POP_LEVEL_ALL: 2
+
+  # One stack entry (OnigStackType). The fields a-d have a different
+  # meaning for each role of the C union:
+  #   state:      a pcode, b pstr, c pstr_prev, d pkeep
+  #   repeat:     a count, b pcode, c num
+  #   repeat_inc: a si
+  #   mem:        a num, b pstr, c start, d end
+  #   null_check: a num, b pstr
+  #   call_frame: a ret_addr
+  #   absent_pos: a abs_pstr, b end_pstr
+  OnigStk: untyped
+
+  # The match in progress: OnigMatchArg, plus the match_at locals that
+  # the opcode defs share. `mem_start_stk` and `mem_end_stk` each contain
+  # num_mem + 1 words, with group 0 (ADD_NUMMEM under USE_SUBEXP_CALL).
+  # `aend` is match_at's `end`, which the absent operators change.
+  OnigMatch: untyped
+
+  def zr_onig_stk_at: (untyped m, untyped index) -> untyped
+
+  def zr_onig_stk_index: (untyped m, untyped stk) -> untyped
+
+  def zr_onig_mem_start: (untyped m, untyped n) -> untyped
+
+  def zr_onig_set_mem_start: (untyped m, untyped n, untyped v) -> untyped
+
+  def zr_onig_mem_end: (untyped m, untyped n) -> untyped
+
+  def zr_onig_set_mem_end: (untyped m, untyped n, untyped v) -> untyped
+
+  def zr_onig_bit_status_at: (untyped stats, untyped n) -> untyped
+
+  def zr_onig_mem_start_ptr: (untyped m, untyped mem) -> untyped
+
+  def zr_onig_mem_end_ptr: (untyped m, untyped mem) -> untyped
+
+  def zr_onig_stack_double: (untyped m) -> untyped
+
+  def zr_onig_stack_ensure: (untyped m) -> (untyped | nil)
+
+  def zr_onig_stack_save: (untyped m) -> (untyped | nil)
+
+  def zr_onig_inherit_null_check: (untyped m, untyped stk) -> (0 | untyped)
+
+  def zr_onig_push: (untyped m, untyped type, untyped pat, untyped s, untyped sprev, untyped keep) -> untyped
+
+  def zr_onig_push_type: (untyped m, untyped type) -> untyped
+
+  def zr_onig_push_repeat: (untyped m, untyped id, untyped pat) -> untyped
+
+  def zr_onig_push_repeat_inc: (untyped m, untyped sindex) -> untyped
+
+  def zr_onig_push_mem_start: (untyped m, untyped mnum, untyped s) -> untyped
+
+  def zr_onig_push_mem_end: (untyped m, untyped mnum, untyped s) -> untyped
+
+  def zr_onig_push_mem_end_mark: (untyped m, untyped mnum) -> untyped
+
+  def zr_onig_push_null_check_start: (untyped m, untyped cnum, untyped s) -> untyped
+
+  def zr_onig_push_null_check_end: (untyped m, untyped cnum) -> untyped
+
+  def zr_onig_push_call_frame: (untyped m, untyped pat) -> untyped
+
+  def zr_onig_push_absent_pos: (untyped m, untyped start, untyped e) -> untyped
+
+  def zr_onig_restore_mem: (untyped m, untyped stk) -> untyped
+
+  def zr_onig_undo_repeat_inc: (untyped m, untyped stk) -> untyped
+
+  def zr_onig_stack_pop: (untyped m) -> untyped
+
+  def zr_onig_stack_pop_til: (untyped m, untyped stop) -> untyped
+
+  def zr_onig_stack_void_til: (untyped m, untyped mark) -> untyped
+
+  def zr_onig_null_check: (untyped m, untyped id, untyped s) -> (untyped | false)
+
+  def zr_onig_null_check_memst_scan: (untyped m, untyped k, untyped s) -> (0 | untyped)
+
+  def zr_onig_null_check_memst: (untyped m, untyped id, untyped s) -> (0 | untyped)
+
+  def zr_onig_null_check_memst_rec: (untyped m, untyped id, untyped s) -> (0 | untyped)
+
+  def zr_onig_get_repeat: (untyped m, untyped id) -> untyped
+
+  def zr_onig_stack_return: (untyped m) -> untyped
+
+  def zr_onig_get_mem_start: (untyped m, untyped mnum) -> untyped
+
+  def zr_onig_mem_in_memp: (untyped mem, untyped num, untyped memp) -> (true | false)
+
+  def zr_onig_get_memnum: (untyped p) -> untyped
+
+  def zr_onig_backref_at_nested_level: (untyped m, untyped ignore_case, untyped nest, untyped mem_num, untyped memp, untyped ps, untyped send) -> (false | true)
+end

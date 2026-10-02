@@ -1,0 +1,377 @@
+module Zr
+  module IR
+    # The maximum number of function parameters and call arguments: eight.
+    # Each native target has eight argument registers. Each lowering keeps
+    # a signature to eight, so no backend needs stack arguments.
+    REGISTER_ARGS: 8
+
+    Slot: untyped
+
+    Global: untyped
+
+    Sig: untyped
+
+    # `from`: the wasm module an imported callee comes from, or nil.
+    # `effects`: the `IR::Effects` bits that a call can write.
+    Callee: untyped
+
+    # A basic block: its parameters as `[value, type]` pairs, and its
+    # instructions in order.
+    class Block
+      @name: untyped
+
+      @params: untyped
+
+      @insts: untyped
+
+      attr_reader name: untyped
+
+      attr_reader params: untyped
+
+      attr_reader insts: untyped
+
+      # A block that runs rarely (a slow path: a miss, an overflow, a
+      # poll that fired). The backend puts it after the other blocks, so
+      # the common path falls through and fetches no taken branch.
+      attr_accessor cold: untyped
+
+      def initialize: (untyped name, untyped params) -> void
+
+      def terminated?: () -> untyped
+    end
+
+    # A function under construction: its stack slots, the symbols and
+    # callees that it uses, and its blocks in layout order. The function
+    # numbers its values and blocks, so it is in SSA form by construction.
+    class Function
+      @args: untyped
+
+      @entry: untyped
+
+      @current: untyped
+
+      @next_value: untyped
+
+      @analysis: untyped
+
+      @name: untyped
+
+      @params: untyped
+
+      @ret_type: untyped
+
+      @slots: untyped
+
+      @globals: untyped
+
+      @global_of: untyped
+
+      @sigs: untyped
+
+      @sig_of: untyped
+
+      @callees: untyped
+
+      @callee_of: untyped
+
+      @blocks: untyped
+
+      @block_of: untyped
+
+      @next_block: untyped
+
+      @hoisted: untyped
+
+      @iconst_of: untyped
+
+      @entry_block: untyped
+
+      # `current` is the block that gets new instructions. A caller that
+      # fills a block out of order needs it to resume.
+      attr_reader name: untyped
+
+      # `current` is the block that gets new instructions. A caller that
+      # fills a block out of order needs it to resume.
+      attr_reader params: untyped
+
+      # `current` is the block that gets new instructions. A caller that
+      # fills a block out of order needs it to resume.
+      attr_reader ret_type: untyped
+
+      # `current` is the block that gets new instructions. A caller that
+      # fills a block out of order needs it to resume.
+      attr_reader args: untyped
+
+      # `current` is the block that gets new instructions. A caller that
+      # fills a block out of order needs it to resume.
+      attr_reader current: untyped
+
+      # `current` is the block that gets new instructions. A caller that
+      # fills a block out of order needs it to resume.
+      attr_reader slots: untyped
+
+      # `current` is the block that gets new instructions. A caller that
+      # fills a block out of order needs it to resume.
+      attr_reader globals: untyped
+
+      # `current` is the block that gets new instructions. A caller that
+      # fills a block out of order needs it to resume.
+      attr_reader sigs: untyped
+
+      # `current` is the block that gets new instructions. A caller that
+      # fills a block out of order needs it to resume.
+      attr_reader callees: untyped
+
+      # `current` is the block that gets new instructions. A caller that
+      # fills a block out of order needs it to resume.
+      attr_reader blocks: untyped
+
+      # `current` is the block that gets new instructions. A caller that
+      # fills a block out of order needs it to resume.
+      attr_reader entry_block: untyped
+
+      # `params`/`ret`: IR types. The entry block takes the parameters
+      # as v0..vN-1.
+      def initialize: (untyped name, untyped params, untyped ret) -> void
+
+      # A new stack slot of `bytes`.
+      def slot: (untyped bytes) -> ::String
+
+      # The global value that refers to `symbol`.
+      def symbol: (untyped symbol, ?colocated: bool) -> untyped
+
+      # A function that this program defines, or that it imports `from` a
+      # wasm module. `effects` is what a call can write: all regions, unless
+      # the kernel description gives less.
+      def callee: (untyped symbol, untyped params, untyped ret, ?colocated: bool, ?from: untyped?, ?effects: untyped) -> untyped
+
+      # A new block. `params` are IR types. Returns the block name and its
+      # parameter values.
+      def block: (?untyped params) -> ::Array[untyped]
+
+      # A block with no parameters, by name only.
+      def label: () -> untyped
+
+      # Marks the block `label` as a slow path (`Block#cold`).
+      def cold: (untyped label) -> untyped
+
+      # Continues to emit into `block`. The current block must end in a jump,
+      # a branch or a return, unless the caller will `finish` it later.
+      def switch: (untyped block, ?open: bool) -> untyped
+
+      # The terminator of a block left open by `switch(open: true)`.
+      def finish: (untyped block, untyped inst) -> nil
+
+      # Whether the current block has already ended.
+      def terminated?: () -> untyped
+
+      # A call with no result.
+      def call: (untyped fn, ?untyped args) -> nil
+
+      # A call with one result, which this returns.
+      def call_val: (untyped fn, ?untyped args) -> untyped
+
+      # A call through `ptr` with the signature `sig`, with no result.
+      def call_indirect: (untyped sig, untyped ptr, ?untyped args) -> nil
+
+      # A call through `ptr` with one result, which this returns.
+      def call_indirect_val: (untyped sig, untyped ptr, ?untyped args) -> untyped
+
+      # The signature `params -> ret`, made one time for each function.
+      def sig: (untyped params, untyped ret) -> untyped
+
+      # An unconditional jump that passes `args` to the target block params.
+      def jump: (untyped block, ?untyped args) -> nil
+
+      # A branch on `cond`: to `a` when it is true, to `b` if not.
+      def brif: (untyped cond, untyped a, untyped b) -> nil
+
+      # A jump table on `value`: to the block of its key in `cases`
+      # (`{ key => block }`, each key masked to the value's type), else to
+      # `default`.
+      def table: (untyped value, untyped cases, untyped default) -> nil
+
+      # A return, with or without a value.
+      def ret: (?untyped? value) -> nil
+
+      # A store of `value` to `addr` (+`offset`), with no trap and aligned.
+      # The lowering never writes other flags. `region` is the
+      # `IR::Effects` region of the word, when the lowering knows it.
+      def store: (untyped value, untyped addr, ?::Integer offset, ?region: untyped?) -> nil
+
+      # A load of `type` from `addr` (+`offset`); returns the value. The name
+      # is `fetch`, not `load`, because `Kernel#load` exists.
+      def fetch: (untyped type, untyped addr, ?::Integer offset, ?region: untyped?) -> untyped
+
+      # An integer comparison; `cond` is the IR's spelling (`"ne"`, `"eq"`, ...).
+      def icmp: (untyped cond, untyped a, untyped b) -> untyped
+
+      def iadd: (untyped a, untyped b, ?type: untyped?) -> untyped
+
+      def isub: (untyped a, untyped b, ?type: untyped?) -> untyped
+
+      def band: (untyped a, untyped b, ?type: untyped?) -> untyped
+
+      def bor: (untyped a, untyped b, ?type: untyped?) -> untyped
+
+      # The other two-operand integer instructions, by opcode.
+      def binop: (untyped op, untyped a, untyped b, ?type: untyped?) -> untyped
+
+      # The one-operand integer instructions, by opcode: `ctz`, `clz`,
+      # `popcnt`, `bswap`, as wide as `a`.
+      def bitop: (untyped op, untyped a) -> untyped
+
+      # The f64 instructions: arithmetic, one-operand math, comparison
+      # (an i8), and the conversions to and from i64.
+      def fbinop: (untyped op, untyped a, untyped b) -> untyped
+
+      def funop: (untyped op, untyped a) -> untyped
+
+      def fcmp: (untyped cond, untyped a, untyped b) -> untyped
+
+      def fcvt_from_sint: (untyped a) -> untyped
+
+      def fcvt_to_sint_sat: (untyped a) -> untyped
+
+      # A narrowing, and the two widenings. `type` is the result type.
+      def ireduce: (untyped type, untyped a) -> untyped
+
+      def sextend: (untyped type, untyped a) -> untyped
+
+      def uextend: (untyped type, untyped a) -> untyped
+
+      def width: (untyped op, untyped type, untyped a) -> untyped
+
+      # The same bits as the other type: `type` is "f64" or "i64".
+      def bitcast: (untyped type, untyped a) -> untyped
+
+      def imul: (untyped a, untyped b) -> untyped
+
+      def bxor: (untyped a, untyped b) -> untyped
+
+      def ishl: (untyped a, untyped b) -> untyped
+
+      def ushr: (untyped a, untyped b) -> untyped
+
+      def sshr: (untyped a, untyped b) -> untyped
+
+      def sdiv: (untyped a, untyped b) -> untyped
+
+      def udiv: (untyped a, untyped b) -> untyped
+
+      def srem: (untyped a, untyped b) -> untyped
+
+      def urem: (untyped a, untyped b) -> untyped
+
+      # The IR `select`. The name is `csel` because `Kernel#select` exists.
+      def csel: (untyped cond, untyped a, untyped b) -> untyped
+
+      def sadd_overflow: (untyped a, untyped b) -> untyped
+
+      def ssub_overflow: (untyped a, untyped b) -> untyped
+
+      def smul_overflow: (untyped a, untyped b) -> untyped
+
+      def symbol_value: (untyped gv) -> untyped
+
+      # The address of a data symbol, made one time for each function, for a
+      # word that the function reads many times.
+      def symbol_addr: (untyped gv) -> untyped
+
+      # A load made one time for each function, for a word that does not
+      # change while the function runs (for example a pooled symbol id of a
+      # unit). The load goes in the entry block, which dominates all other
+      # blocks, so the value is available at each use.
+      def hoisted_fetch: (untyped type, untyped addr, ?::Integer offset, ?region: untyped?) -> untyped
+
+      def func_addr: (untyped fn) -> untyped
+
+      # Reads the gate word from its register.
+      def gates: () -> untyped
+
+      # Puts `word` in the gate word register. A writer calls this after it
+      # stores the word. `enter` calls it at entry from foreign code; at
+      # return, the register gets back the value of the foreign code.
+      def gates_set: (untyped word) -> nil
+
+      def gates_enter: (untyped word) -> nil
+
+      # A constant whose immediate a producer sets later. Returns the value,
+      # and the instruction whose first argument to set.
+      def iconst_later: (untyped type) -> ::Array[untyped]
+
+      # A constant, made one time for each function.
+      def iconst: (untyped type, untyped n) -> untyped
+
+      # The immediate in `v` when `v` came from `iconst`, or nil. The function
+      # knows its own constants because it made them. `Passes::Fold` finds
+      # the same data from the instructions; a lowering does not need to.
+      def iconst_of: (untyped v) -> untyped
+
+      # A value that is the same at all uses, defined one time in the entry
+      # block.
+      #
+      # The entry block dominates all other blocks, so one definition there
+      # is valid for uses in any block. It goes before the terminator of the
+      # entry block; no use can come before it, because this is the first
+      # request for the key. The block yields an `Inst` with no result; this
+      # method sets the result and inserts the instruction.
+      def hoisted: (untyped kind, untyped key) { () -> untyped } -> untyped
+
+      # One hash for each kind, so a lookup uses the constant number and not
+      # a new Array for each use. The four types are listed here so `iconst`
+      # also needs no Array.
+      ICONST: { "i8" => :iconst_i8, "i32" => :iconst_i32, "i64" => :iconst_i64, "f64" => :iconst_f64 }
+
+      # The address of a stack slot, made one time for each function.
+      def stack_addr: (untyped slot) -> untyped
+
+      # A new block with no parameters, placed just after `after`. A pass
+      # uses this to split a block, so the first half falls through into it.
+      def block_after: (untyped after) -> untyped
+
+      # A new block placed just before `before`. A pass uses this to split an
+      # edge, so the new block falls through into its target.
+      def block_before: (untyped before) -> untyped
+
+      def block_beside: (untyped at) -> untyped
+
+      # A new block with no parameters that is not in `blocks` yet. The pass
+      # puts it there.
+      def unplaced_block: () -> untyped
+
+      # A value name that no instruction uses. A pass on a finished function
+      # uses it for a new block parameter.
+      def value: () -> untyped
+
+      # The shape of the function for the passes (predecessors, order,
+      # dominators, uses, loops). It is calculated one time and kept until a
+      # pass reports a change. See `IR::Analysis`.
+      def analysis: () -> untyped
+
+      # Whether an analysis is kept. The strict check reads this before it
+      # checks the analysis against the function.
+      def analysis?: () -> untyped
+
+      # A pass that changes the function calls this: `:cfg` when it adds,
+      # removes or retargets a block or an edge, `:insts` when it changes
+      # only instructions. The strict check rejects a kept analysis when a
+      # change was not reported.
+      def changed!: (untyped what) -> self
+
+      private
+
+      def reset: (untyped name, untyped params, untyped ret) -> untyped
+
+      # An instruction after the terminator of the current block is a bug in
+      # the lowering. This is the only method that appends an instruction.
+      def emit: (untyped inst) -> untyped
+
+      def pair_overflow: (untyped op, untyped a, untyped b) -> ::Array[untyped]
+
+      def block_named: (untyped params) -> untyped
+
+      def signature: (untyped params, untyped ret) -> untyped
+    end
+  end
+end

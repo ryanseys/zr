@@ -1,0 +1,107 @@
+# Struct: `Struct.new` makes a class whose instances hold one value
+# per member. The members sit in a hidden instance variable of the
+# class and the values in one of the instance, as CRuby keeps them, so
+# neither shows in `instance_variables`.
+class Struct
+  include Enumerable
+
+  def self.new: (*untyped members, ?keyword_init: untyped?) ?{ (?) -> untyped } -> untyped
+
+  private
+
+  # A member that inspects as a bare name: letters, digits and
+  # underscores, not starting with a digit.
+  def self.plain_member?: (untyped name) -> (false | untyped)
+
+  # The first argument when it is not a member: nil, or a String
+  # that is the name of a constant under Struct.
+  def self.class_name: (untyped arg) -> (nil | untyped)
+
+  def self.member_name: (untyped m) -> untyped
+
+  # Sizes come from the kernel: a program that patches Array#size or
+  # Hash#empty? cannot reach inside the constructor, as it cannot in
+  # CRuby's C. `members`, and not the class's, which returns a copy:
+  # nothing here changes the entry, and rb_struct_initialize also reads
+  # the class's own. The values bind by index rather than by each_with_index, which
+  # would cost an Array and a Proc per call.
+  def initialize_members: (*untyped args, **untyped keywords) -> untyped
+
+  # rb_struct_pos: a Symbol or a String names a member; any other key is
+  # an index by to_int, from the end when negative. nil when it names
+  # no member.
+  def struct_pos: (untyped key) -> untyped
+
+  # rb_hash_set_pair: each pair that a to_h block makes.
+  def to_h_pairs: (untyped pairs) { (untyped, untyped) -> untyped } -> untyped
+
+  # `initialize_copy` is an entry of the kernel's too
+  # (zr_struct_initialize_copy), which sends all but a copy from a struct
+  # of the same class here.
+  def initialize_copy_members: (untyped other) -> self
+
+  public
+
+  # A member may be named `class`, so the class comes from the kernel.
+  def members: () -> untyped
+
+  private
+
+  # The names as the class stores them, which rb_struct_members reads: a
+  # subclass's own `members`, instance or class, is not called.
+  def member_names: () -> untyped
+
+  public
+
+  def size: () -> untyped
+
+  alias length size
+
+  def []: (untyped key) -> untyped
+
+  def []=: (untyped key, untyped value) -> untyped
+
+  def each: () ?{ (?) -> untyped } -> (untyped | self)
+
+  def each_pair: () ?{ (untyped) -> untyped } -> (untyped | self)
+
+  def to_h: () ?{ (?) -> untyped } -> untyped
+
+  def deconstruct_keys: (untyped keys) -> (untyped | ::Hash[untyped, untyped])
+
+  # rb_get_values_at with struct_entry: a Range reads as Array's does, and
+  # an index outside the members raises.
+  def values_at: (*untyped indexes) -> untyped
+
+  def dig: (untyped key, *untyped rest) -> untyped
+
+  def select: (*untyped args) ?{ (?) -> untyped } -> untyped
+
+  alias filter select
+
+  def ==: (untyped other) -> (true | false | untyped)
+
+  def eql?: (untyped other) -> (true | false | untyped)
+
+  # The class's hash, then each value's, as Array#hash joins them, with
+  # no Array of the two (rb_struct_hash). Values that hash with no call
+  # need no recursion guard (`zr_ary_leaf_hash`).
+  def hash: () -> (untyped | 7)
+
+  # The class shows by its path, as rb_struct_inspect writes it: always
+  # in the marker of a struct reached again inside its own inspect, and
+  # otherwise only when it is a name, not a #<Class:0x...>.
+  def inspect: () -> untyped
+
+  alias to_s inspect
+
+  private
+
+  # The index a member name or position names, or the error CRuby
+  # raises for one that is out of range.
+  # The value at `index`, counted from the end when negative, or nil
+  # where the struct is shorter.
+  def at_or_nil: (untyped index) -> untyped
+
+  def member_index: (untyped key) -> untyped
+end

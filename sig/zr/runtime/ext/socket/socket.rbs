@@ -1,0 +1,93 @@
+# socket.c: Socket itself, a descriptor of any family and kind, and the
+# resolver's and the address packer's class methods.
+class Socket < BasicSocket
+  # union_sockaddr's size, the most bytes an address may hold.
+  SOCKADDR_MAX: 2048
+
+  def initialize: (untyped domain, untyped type, ?untyped? protocol) -> void
+
+  def connect: (untyped addr) -> 0
+
+  def bind: (untyped addr) -> 0
+
+  def listen: (untyped backlog) -> untyped
+
+  def accept: () -> ::Array[untyped]
+
+  def sysaccept: () -> ::Array[untyped]
+
+  def recvfrom: (untyped len, ?untyped? flags, ?untyped? str) -> untyped
+
+  private
+
+  def __connect_nonblock: (untyped addr, untyped exception) -> (0 | :wait_writable | untyped)
+
+  def __accept_nonblock: (untyped exception) -> (untyped | ::Array[untyped])
+
+  def __recvfrom_nonblock: (untyped len, untyped flags, untyped str, untyped exception) -> untyped
+
+  def self.tcp_fast_fallback: () -> untyped
+
+  def self.tcp_fast_fallback=: (untyped value) -> untyped
+
+  def self.socketpair: (untyped domain, untyped type, ?untyped? protocol) { (?) -> untyped } -> untyped
+
+  alias self.pair self.socketpair
+
+  def self.gethostname: () -> untyped
+
+  def self.gethostbyname: (untyped host) -> untyped
+
+  def self.gethostbyaddr: (untyped addr, ?untyped? family) -> untyped
+
+  def self.getservbyname: (untyped service, ?untyped? proto) -> untyped
+
+  def self.getservbyport: (untyped port, ?untyped? proto) -> untyped
+
+  def self.getaddrinfo: (untyped host, untyped port, ?untyped? family, ?untyped? socktype, ?untyped? protocol, ?untyped? flags, ?untyped? reverse_lookup) -> untyped
+
+  def self.getnameinfo: (untyped sockaddr, ?untyped? flags) -> untyped
+
+  def self.pack_sockaddr_in: (untyped port, untyped host) -> untyped
+
+  alias self.sockaddr_in self.pack_sockaddr_in
+
+  def self.unpack_sockaddr_in: (untyped addr) -> ::Array[untyped]
+
+  def self.pack_sockaddr_un: (untyped path) -> untyped
+
+  alias self.sockaddr_un self.pack_sockaddr_un
+
+  def self.unpack_sockaddr_un: (untyped addr) -> untyped
+
+  def self.ip_address_list: () -> untyped
+
+  # rsock_sock_listen, which Socket, TCPServer and UNIXServer share.
+  def self.listen_on: (untyped socket, untyped backlog) -> 0
+
+  # rsock_sock_s_socketpair: two connected sockets of `klass`, which a
+  # block has and both close after.
+  def self.make_pair: (untyped klass, untyped domain, untyped type, untyped protocol) ?{ (untyped) -> untyped } -> untyped
+
+  # io_close: a close whose failure is no one's concern.
+  def self.close_quietly: (untyped io) -> untyped
+
+  # rb_warn.
+  def self.warning: (untyped message) -> untyped
+
+  # strtoul(3) in base 0, as a service written as a number is read:
+  # nil unless it reads to the end.
+  def self.strtoul: (untyped text) -> (untyped | nil)
+
+  # rsock_make_hostent: [name, aliases, family, address...], each
+  # address as the block writes it.
+  def self.make_hostent: (untyped host, untyped rows) { (untyped) -> untyped } -> untyped
+
+  # getifaddrs(3)'s rows, or its error.
+  def self.ifaddr_rows: () -> untyped
+
+  # sockaddr_obj: an interface's address as an Addrinfo. Under KAME a
+  # link-local IPv6 address contains its scope in its second word, and
+  # this moves it to the scope field.
+  def self.sockaddr_obj: (untyped sockaddr) -> untyped
+end

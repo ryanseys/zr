@@ -1,0 +1,236 @@
+# Onigmo's tokenizer: fetch_token and fetch_token_in_cc with the
+# scanners they use (regparse.c:1837-4195). A port under the
+# BSD-2-Clause license reproduced in regexp.rb.
+#
+# Every scanner takes its start position and returns its stop position,
+# as the C's `UChar** src` does. When the C leaves `*src` unchanged on
+# some outcome, the scanner returns the position it was given.
+class Regexp
+  module Onig
+    # OnigToken: what fetch_token found. `c` and `code` are one field,
+    # as the C's union makes them.
+    class Token
+      @type: untyped
+
+      @escaped: untyped
+
+      @base: untyped
+
+      @c: untyped
+
+      EOT: 0
+
+      RAW_BYTE: 1
+
+      CHAR: 2
+
+      STRING: 3
+
+      CODE_POINT: 4
+
+      ANYCHAR: 5
+
+      CHAR_TYPE: 6
+
+      BACKREF: 7
+
+      CALL: 8
+
+      ANCHOR: 9
+
+      OP_REPEAT: 10
+
+      INTERVAL: 11
+
+      ANYCHAR_ANYTIME: 12
+
+      ALT: 13
+
+      SUBEXP_OPEN: 14
+
+      SUBEXP_CLOSE: 15
+
+      CC_OPEN: 16
+
+      QUOTE_OPEN: 17
+
+      CHAR_PROPERTY: 18
+
+      LINEBREAK: 19
+
+      EXTENDED_GRAPHEME_CLUSTER: 20
+
+      KEEP: 21
+
+      CC_CLOSE: 22
+
+      CC_RANGE: 23
+
+      POSIX_BRACKET_OPEN: 24
+
+      CC_AND: 25
+
+      CC_CC_OPEN: 26
+
+      attr_accessor type: untyped
+
+      attr_accessor escaped: untyped
+
+      attr_accessor base: untyped
+
+      attr_accessor backp: untyped
+
+      attr_accessor c: untyped
+
+      attr_accessor anchor_subtype: untyped
+
+      attr_accessor anchor_ascii_range: untyped
+
+      attr_accessor repeat_lower: untyped
+
+      attr_accessor repeat_upper: untyped
+
+      attr_accessor repeat_greedy: untyped
+
+      attr_accessor repeat_possessive: untyped
+
+      attr_accessor backref_num: untyped
+
+      attr_accessor backref_ref1: untyped
+
+      attr_accessor backref_refs: untyped
+
+      attr_accessor backref_by_name: untyped
+
+      attr_accessor backref_exist_level: untyped
+
+      attr_accessor backref_level: untyped
+
+      attr_accessor call_name: untyped
+
+      attr_accessor call_gnum: untyped
+
+      attr_accessor call_rel: untyped
+
+      attr_accessor prop_ctype: untyped
+
+      attr_accessor prop_not: untyped
+
+      def initialize: () -> void
+
+      alias code c
+
+      alias code= c=
+    end
+
+    module Lexer
+      @end: untyped
+
+      PEND_VALUE: 0
+
+      # PEND, PPEEK, PFETCH: reading the pattern's characters.
+      def pend?: (untyped p) -> untyped
+
+      def ppeek: (untyped p) -> untyped
+
+      def code_at: (untyped p) -> untyped
+
+      def pinc: (untyped p) -> untyped
+
+      def digit?: (untyped c) -> untyped
+
+      def xdigit?: (untyped c) -> untyped
+
+      # XDIGITVAL
+      def xdigit_val: (untyped c) -> untyped
+
+      # onig_scan_unsigned_number: [the number (-1 on overflow), the position after it]
+      def scan_unsigned_number: (untyped p) -> (::Array[-1 | untyped] | ::Array[untyped])
+
+      # scan_unsigned_hexadecimal_number: -1 on overflow, -2 for too few digits
+      def scan_unsigned_hexadecimal_number: (untyped p, untyped minlen, untyped maxlen) -> (::Array[-1 | untyped] | ::Array[-2 | untyped] | ::Array[untyped])
+
+      def scan_unsigned_octal_number: (untyped p, untyped maxlen) -> (::Array[-1 | untyped] | ::Array[untyped])
+
+      # conv_backslash_value
+      def conv_backslash_value: (untyped c) -> (10 | 9 | 13 | 12 | 7 | 8 | 27 | 11 | untyped)
+
+      # fetch_range_quantifier: [r, p]; r is 0 for {n,m}, 2 for {n},
+      # 1 for "not an interval after all" (p unchanged then).
+      def fetch_range_quantifier: (untyped p, untyped tok) -> (::Array[1 | untyped] | untyped | ::Array[untyped])
+
+      def invalid_interval: (untyped syn_allow, untyped start) -> (::Array[1 | untyped] | untyped)
+
+      # PUNFETCH: the position before the character `c` was read at `p`.
+      def prev_of: (untyped p, untyped _c) -> untyped
+
+      # fetch_escaped_value: \M-, \C-, \c, or \...; [the code, the position after]
+      def fetch_escaped_value: (untyped p) -> ::Array[untyped]
+
+      # the `control:` label of fetch_escaped_value
+      def fetch_control: (untyped p) -> ::Array[untyped]
+
+      def name_end_code_point: (untyped start) -> untyped
+
+      # ONIGENC_IS_CODE_NAME is TRUE under RUBY: any character can be in a group name.
+      def code_name?: (untyped _c) -> true
+
+      # fetch_name_with_level: \k<name+n>, \k<name-n>, \k<num+n>, \k<-num+n>;
+      # [exist_level (1 or 0), name (bytes), back_num, level, position after]
+      def fetch_name_with_level: (untyped start_code, untyped p) -> (::Array[untyped] | untyped)
+
+      # onig_scan_unsigned_number bounded by `name_end` (the C passes
+      # name_end as the end).
+      def scan_unsigned_number_to: (untyped p, untyped name_end) -> untyped
+
+      # fetch_name: [name (bytes), back_num, position after]. `ref` is
+      # true when a number can be used in place of the name.
+      def fetch_name: (untyped start_code, untyped p, untyped ref) -> (::Array[untyped] | untyped)
+
+      # find_str_position: where the codes `s` occur in from...to, and
+      # the position after them; nil when nowhere.
+      def find_str_position: (untyped s, untyped from, untyped to) -> (::Array[untyped] | nil)
+
+      # str_exist_check_with_esc
+      def str_exist_check_with_esc: (untyped s, untyped from, untyped to, untyped bad) -> (true | false)
+
+      def set_char_type: (untyped tok, untyped ctype, untyped not_) -> untyped
+
+      # fetch_token_in_cc: the next token inside [...]; the position after.
+      def fetch_token_in_cc: (untyped tok, untyped p) -> untyped
+
+      # the `cc_in_cc:` label of fetch_token_in_cc
+      def cc_in_cc: (untyped tok, untyped p) -> untyped
+
+      # fetch_named_backref_token: \k<...> after the opener `c`.
+      def fetch_named_backref_token: (untyped c, untyped tok, untyped p) -> untyped
+
+      # BACKREF_REL_TO_ABS
+      def backref_rel_to_abs: (untyped rel_no) -> untyped
+
+      # fetch_token: the next token outside a class; the position after.
+      def fetch_token: (untyped tok, untyped p) -> untyped
+
+      # the `greedy_check:` label: a lazy `?`, a possessive `+`, or greedy.
+      def greedy_check: (untyped tok, untyped p) -> untyped
+
+      def possessive_check: (untyped tok, untyped p) -> untyped
+
+      def repeat_token: (untyped tok, untyped lower, untyped upper, untyped p) -> untyped
+
+      # `{`: an interval, or a plain brace.
+      def interval_token: (untyped tok, untyped p) -> untyped
+
+      def anchor_token: (untyped tok, untyped subtype, ?bool ascii_range) -> untyped
+
+      # fetch_token's escaped branch: `c` follows the backslash, `p` follows `c`.
+      def fetch_escaped_token: (untyped tok, untyped c, untyped p, untyped prev_p) -> untyped
+
+      # The `case '0':` arm shared with a failed backref: \0oo or \ooo.
+      def octal_token: (untyped tok, untyped c, untyped p) -> untyped
+
+      # fetch_token's plain branch: [start over?, position].
+      def fetch_plain_token: (untyped tok, untyped c, untyped p) -> (::Array[false | untyped] | ::Array[true | untyped])
+    end
+  end
+end

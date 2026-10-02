@@ -1,0 +1,891 @@
+# IO: a file descriptor with a read buffer and a write buffer.
+# `Kernel#puts` and friends write to whatever `$stdout` is, as CRuby's
+# do.
+class IO
+  @fd: untyped
+
+  @mode: untyped
+
+  # What the mode allows, decided once: every read and write checks it.
+  @readable: untyped
+
+  @writable: untyped
+
+  # A duplex popen writes to a second descriptor, the twin of this
+  # one: the child's standard input, where this one is its output.
+  @twin: untyped
+
+  @external: untyped
+
+  @internal: untyped
+
+  @binmode: untyped
+
+  @autoclose: untyped
+
+  @path: untyped
+
+  @name: untyped
+
+  @pid: untyped
+
+  @closed: untyped
+
+  @sync: untyped
+
+  # O_NONBLOCK as this stream set it. A query to the descriptor here
+  # would cost an fcntl for every stream that a program opens, including
+  # the three that the runtime opens before a program starts.
+  # `nonblock?` queries the descriptor itself when a program needs the true value.
+  @nonblock: untyped
+
+  # FMODE_TTY: a terminal writes at once, as a synchronous stream does.
+  @tty: untyped
+
+  @lineno: untyped
+
+  @wbuf: untyped
+
+  @eof: untyped
+
+  @universal: untyped
+
+  # Bytes at the head of the buffer that the universal decorator has
+  # already read, so each byte is cooked once.
+  @cooked: untyped
+
+  @read_options: untyped
+
+  @write_options: untyped
+
+  # A UTF-16 or UTF-32 stream writes its byte order mark once, before
+  # its first character.
+  @bom_written: untyped
+
+  @timeout: untyped
+
+  @buffer: untyped
+
+  @cut: untyped
+
+  include Enumerable
+
+  # IO_WBUF_CAPA_MIN: how many bytes a stream buffers before it writes.
+  # A write that would fill the buffer writes the waiting bytes and the
+  # new text together, as CRuby's io_binwrite does.
+  WBUF_CAPA: 8192
+
+  NEWLINE: "\n"
+
+  # The streams that contain bytes not yet written. The end of the
+  # program writes them. `exit!` never does, because _exit(2) discards
+  # all that stdio buffers.
+  PENDING: ::Array[untyped]
+
+  # The wait flags stay IO's own; the seek flags are the OS's.
+  READABLE: 1
+
+  PRIORITY: 2
+
+  WRITABLE: 4
+
+  POLL_IN: untyped
+
+  POLL_PRI: untyped
+
+  POLL_OUT: untyped
+
+  # PIPE_BUF: the amount a ready pipe takes without waiting.
+  ATOMIC: 512
+
+  # A pipe's read and write ends, closed after the block when one is
+  # given. The encodings are the read end's, and `binmode:` is both ends'.
+  # Both ends are instances of the class it is called on, as rb_io_s_pipe
+  # makes them.
+  def self.pipe: (?untyped? external, ?untyped? internal, **untyped options) ?{ (untyped, untyped) -> untyped } -> (::Array[untyped] | untyped)
+
+  # rb_io_s_binread opens the file binary, so no default encoding
+  # converts what it reads.
+  def self.binread: (untyped path, ?untyped? length, ?untyped? offset) -> untyped
+
+  def self.binwrite: (untyped path, untyped content, ?untyped? offset, **untyped options) -> untyped
+
+  # CRuby's rb_io_s_read takes a fourth argument, which the read it
+  # passes on then refuses.
+  def self.read: (untyped path, ?untyped? length, ?untyped? offset, ?untyped extra, **untyped options) -> untyped
+
+  def self.write: (untyped path, untyped content, ?untyped? offset, **untyped options) -> untyped
+
+  # io_s_write: with no mode given, the file is made where it is missing
+  # and cut short only where no offset says where the write goes.
+  def self.written: (untyped path, untyped content, untyped offset, untyped binary, untyped options) -> untyped
+
+  # The options of an open belong to the open, as rb_io_extract_modeenc
+  # takes them; only `chomp:` belongs to the lines.
+  def self.readlines: (untyped path, *untyped args, **untyped options) -> untyped
+
+  def self.foreach: (untyped path, *untyped args, **untyped options) ?{ (?) -> untyped } -> (untyped | nil)
+
+  # rb_io_s_new: a block here is a mistake, which ruby names.
+  def self.new: (*untyped args, **untyped options) ?{ (?) -> untyped } -> untyped
+
+  # rb_class_new_instance: an instance and its initialize, with no frame
+  # of `new` between, as rb_io_s_open makes one.
+  def self.built: (untyped args, untyped options) -> untyped
+
+  # rb_io_s_for_fd: IO's own initialize, whatever the receiver, so a File
+  # takes a descriptor here where its initialize takes a path.
+  def self.for_fd: (untyped fd, ?untyped? mode, **untyped options) -> untyped
+
+  # io_strip_bom's marks, longest first where two share a head.
+  BOMS: ::Array[::Array[untyped | "UTF-8"] | ::Array[untyped | "UTF-16BE"] | ::Array[untyped | "UTF-32LE"] | ::Array[untyped | "UTF-16LE"] | ::Array[untyped | "UTF-32BE"]]
+
+  MODES: ::Array["r" | "r+" | "w" | "w+" | "a" | "a+"]
+
+  # The mode and the options an open takes, as rb_io_extract_modeenc
+  # reads them: the access mode, whether the stream is binary, the given
+  # encodings, and how the stream converts what it reads and writes. A
+  # mode string gives the encodings after a colon, and an option that
+  # also gives one is an error.
+  def self.open_options: (untyped mode, untyped options) -> ::Array[untyped]
+
+  # parse_mode_enc: "ext", "ext:int" or "ext:-", split at the last colon.
+  # A name that matches no encoding warns and leaves its slot at the
+  # default, and `bom|` before a UTF encoding lets the bytes give it.
+  def self.mode_encodings: (untyped spec) -> (::Array[untyped | nil] | ::Array[untyped])
+
+  # NUM2INT: a Float truncates, and the value must fit a C int.
+  def self.c_int: (untyped value) -> untyped
+
+  # io.c's find_encoding: an Encoding, or the one a String names; a name
+  # that matches nothing warns and gives none.
+  def self.found_encoding: (untyped value) -> untyped
+
+  # extract_binmode: `textmode:` and `binmode:` each once, and never both.
+  def self.binmode_options: (untyped options, untyped binary, untyped textual) -> ::Array[untyped]
+
+  # rb_econv_prepare_options for a stream: what a read turns line ends
+  # into (only universal applies there), what a write turns them into,
+  # and the options each write's conversion takes. A text mode that
+  # reads is universal until an option names another line end.
+  def self.conversion_options: (untyped options, untyped universal) -> { lines: untyped, encode: untyped }
+
+  # validate_enc_binmode.
+  def self.check_binmode: (untyped readable, untyped binary, untyped external, untyped internal, untyped conversion) -> untyped
+
+  # An encoding name from an `encoding:` string, as parse_mode_enc reads
+  # it. A name that matches no encoding warns and leaves the slot at its
+  # default. A `-` means no transcoding.
+  def self.spec: (untyped name) -> (untyped | nil)
+
+  # What a pair of names means. A `-` in the internal position means no
+  # transcoding and no encoding to look up. An internal encoding that
+  # repeats the external one also gives no internal encoding.
+  def self.encodings: (untyped external, untyped internal) -> ::Array[untyped]
+
+  # rb_io_modestr_fmode: `r`, `w` or `a`, then any of `b`, `t` and `+`,
+  # and `x` after a `w`, up to the encodings after a colon. It returns
+  # the mode without its letters for binary, text and exclusive.
+  def self.access_mode: (untyped string) -> untyped
+
+  # `IO.open` is `new` with a block that closes the stream after it; the
+  # receiver's initialize decides what the arguments mean.
+  def self.open: (*untyped args, **untyped options) ?{ (untyped) -> untyped } -> untyped
+
+  # The raw descriptor for a path, which a program that wants to wrap it
+  # in its own IO requests: rb_sysopen, with the permissions that a
+  # creation takes, minus the umask.
+  def self.sysopen: (untyped path, ?untyped mode, ?untyped? perm) -> untyped
+
+  # A length that any allocator can supply, below which a read need not
+  # check. The bounds are written out, because Integer#** reaches
+  # Rational, which the core does not have yet while this file loads.
+  ROOM_FREELY: 2147483648
+
+  ROOM_AT_MOST: 9223372036854775807
+
+  # CRuby fills a read's whole buffer before it reads, so a length that
+  # no allocator can supply raises NoMemoryError and reads nothing. The
+  # machine sets the limit, not a constant in this file.
+  def self.room_for!: (untyped length) -> (nil | untyped)
+
+  # rb_time_interval: a wait is a number of seconds, and anything else
+  # refuses under its own name. A nil waits for good.
+  def self.time_interval: (untyped value) -> (nil | untyped)
+
+  # select(2) over three lists of streams: the ones that came ready, or
+  # nil when the time ran out. A nil timeout waits for good.
+  def self.select: (untyped readers, ?untyped? writers, ?untyped? priority, ?untyped? timeout) -> (untyped | nil)
+
+  # What a `select` list entry represents: a stream, or the value that
+  # its `to_io` returns. An object with no `to_io` is not a stream, and
+  # ruby gives its name in the error.
+  # Each list is an Array or nil, as rb_f_select's Check_Type wants: a
+  # bare IO is an error, not a list of its own lines.
+  def self.select_list: (untyped list) -> (::Array[untyped] | untyped)
+
+  def self.select_stream: (untyped entry) -> untyped
+
+  # Runs the command with a pipe on its standard input or output. With
+  # a block, the stream closes and the child is waited for after the
+  # block, and the block's value is the return value.
+  def self.popen: (*untyped args, **untyped options) ?{ (untyped) -> untyped } -> untyped
+
+  # `popen("-")`: a fork whose standard output ("r"), input ("w") or both
+  # ("r+") are pipes to the parent, which gets the stream; the child gets
+  # nil. With a block both run it, and the child ends after it, as
+  # popen_finish ends it.
+  def self.popen_fork: (untyped mode) ?{ (untyped) -> untyped } -> (nil | untyped)
+
+  # A pipe's two descriptors, or a SystemCallError.
+  def self.pipe_ends: () -> untyped
+
+  # A child with a pipe on its standard output ("r"), one on its
+  # standard input ("w"), or one on each ("r+"): the handle of a
+  # read-write mode reads the first pipe and writes the second.
+  # The options that a popen stream opens with; the rest go to spawn,
+  # as rb_execarg_extract_options leaves them.
+  STREAM_OPTIONS: ::Array[:mode | :flags | :external_encoding | :internal_encoding | :encoding | :textmode | :binmode | :autoclose | :invalid | :undef | :replace | :xml | :newline | :universal_newline | :crlf_newline | :cr_newline | :lf_newline]
+
+  def self.popen_stream: (untyped command, untyped mode, untyped options, ?untyped? env) -> untyped
+
+  def self.try_convert: (untyped object) -> (untyped | nil)
+
+  COPY_CHUNK: untyped
+
+  # rb_io_s_copy_stream: bytes from `src` to `dst`, and how many. Each
+  # end is an IO, a path opened for the copy and closed after it, or any
+  # object that reads with `readpartial` or `read`, or writes with
+  # `write`. A length copies at most that many bytes and an offset reads
+  # from there without moving the source; a negative one is none given.
+  def self.copy_stream: (untyped src, untyped dst, ?untyped? copy_length, ?untyped? src_offset) -> untyped
+
+  # NUM2OFFT.
+  def self.offset_of: (untyped value) -> untyped
+
+  # An end of a copy as the IO it reads or writes, opening a path with
+  # `flags`; nil for an object that is not a stream and not a file name.
+  def self.copy_end: (untyped target, untyped flags, untyped opened) -> (nil | untyped)
+
+  # copy_stream_fallback_body: a chunk at a time through the objects'
+  # own methods, until the length or the end of the source.
+  def self.copy_fallback: (untyped src, untyped dst, untyped foreign, untyped length, untyped offset) -> untyped
+
+  # nogvl_copy_stream_read_write: read(2) or pread(2) of the source into
+  # write(2) of the destination.
+  def self.copy_descriptors: (untyped from, untyped to, untyped length, untyped offset, untyped opened) -> untyped
+
+  def initialize: (untyped fd, ?untyped? mode, **untyped options) -> void
+
+  # The newline decorators and the options that a stream's conversions
+  # take. A read turns line ends into "\n" only with the universal
+  # decorator; a write takes crlf, cr or lf, never universal.
+  def converting: (untyped conversion) -> untyped
+
+  def lineno: () -> untyped
+
+  def path: () -> untyped
+
+  def sync: () -> untyped
+
+  # A stream that becomes synchronous writes its buffered bytes immediately.
+  def sync=: (untyped flag) -> untyped
+
+  def lineno=: (untyped n) -> untyped
+
+  def fileno: () -> untyped
+
+  alias to_i fileno
+
+  def tty?: () -> untyped
+
+  alias isatty tty?
+
+  def closed?: () -> untyped
+
+  def close: () -> nil
+
+  # `dup` and `clone` open a fresh descriptor onto the same file, so a
+  # close or a reopen of one leaves the other where it was.
+  def initialize_copy: (untyped other) -> self
+
+  # `reopen`: this stream's descriptor number comes to refer to the other
+  # stream's open file, so every existing reference follows along.
+  # Saving and restoring $stdout uses this.
+  def reopen: (untyped other, ?untyped? mode) -> self
+
+  def flush: () -> self
+
+  # rb_io_flush, which Kernel#p calls as a function, not as a send.
+  def flushed: () -> untyped
+
+  def fsync: () -> 0
+
+  # Writes out every stream that contains buffered bytes. The end of the
+  # program calls this. If a stream cannot take the bytes any more, the
+  # program does not see the error.
+  def self.flush_pending: () -> nil
+
+  # CRuby flushes the two standard streams before it starts a child, so
+  # that the parent's buffered bytes cannot arrive after the child's output.
+  def self.flush_std: () -> nil
+
+  # Binary mode: all that is read after this is binary, and so are the
+  # bytes already in the buffer.
+  def binmode: () -> self
+
+  def binmode?: () -> untyped
+
+  def fdatasync: () -> untyped
+
+  def to_path: () -> untyped
+
+  # A stream opened from a descriptor has no path behind it, so its
+  # rows come from fstat(2).
+  # rb_io_stat: fstat(2) on the descriptor, never the path, which can
+  # name another file by now, or none (`<STDIN>`).
+  def stat: () -> untyped
+
+  # fcntl(2) on the stream's own descriptor: F_GETFD reads the
+  # close-on-exec flag, F_GETFL the flags it was opened with, and a
+  # command that takes a number takes it here too. rb_fcntl reads nil and
+  # false as 0 and true as 1, and a String as the struct a command such
+  # as a file lock reads and fills.
+  def fcntl: (untyped command, ?::Integer argument) -> untyped
+
+  # posix_fadvise is a hint, and darwin has none: ruby returns nil
+  # where the call is absent.
+  def advise: (untyped kind, ?::Integer offset, ?::Integer length) -> nil
+
+  # Half-closing an end the stream does not have is an error; on one it
+  # does have, and which is not duplex, it closes the whole stream.
+  def close_read: () -> (nil | untyped)
+
+  # A duplex handle really half-closes: the twin closes and the child
+  # reads its end of input, while its output stays readable here.
+  def close_write: () -> (nil | untyped)
+
+  # The child a popen started, waited for when this stream closes.
+  def pid: () -> untyped
+
+  def autoclose?: () -> untyped
+
+  def autoclose=: (untyped flag) -> untyped
+
+  # FD_CLOEXEC on the descriptor, and on the twin that a duplex popen
+  # writes to, as rb_io_close_on_exec_p reads both.
+  F_GETFD: 1
+
+  F_SETFD: 2
+
+  FD_CLOEXEC: 1
+
+  def close_on_exec?: () -> untyped
+
+  def close_on_exec=: (untyped flag) -> untyped
+
+  # One character at a time, as rb_io_each_codepoint reads them: a byte
+  # that starts no character is an error, not a code point.
+  def each_codepoint: () ?{ (untyped) -> untyped } -> (untyped | self)
+
+  # `pread` and `pwrite` leave the descriptor's own offset alone.
+  # pread(2) and pwrite(2) name a file position and leave the stream's
+  # own where it was, buffer included.
+  def pread: (untyped length, untyped offset, ?untyped? buffer) -> untyped
+
+  def pwrite: (untyped text, untyped offset) -> untyped
+
+  # The offset where the seek lands, as lseek returns it.
+  def sysseek: (untyped offset, ?untyped whence) -> untyped
+
+  # The encoding given for this stream, else the default for its kind:
+  # binary where it is binary, the default where it can be read,
+  # and none at all for a handle that only writes.
+  def external_encoding: () -> (untyped | nil)
+
+  def internal_encoding: () -> untyped
+
+  # io_encoding_set: two encodings, one encoding or spec string, or nil
+  # for the defaults. A spec string warns where a name matches nothing;
+  # an encoding given alone must exist.
+  def set_encoding: (untyped external, ?untyped internal, **untyped options) -> self
+
+  # rb_io_inspect: the path, or the descriptor, which a closed stream no
+  # longer has; a stream with no descriptor at all is any object.
+  def inspect: () -> (::String | untyped)
+
+  # The arguments are walked without Array's own methods: a program
+  # that redefines one of those must not break the stream it writes
+  # the redefinition's report to.
+  def write: (*untyped objects) -> untyped
+
+  # do_writeconv: what is written goes out in the external encoding the
+  # stream names, unless that is binary. An encoding that is not
+  # ASCII-compatible is reached through UTF-8, as the converter
+  # make_writeconv sets up reaches it.
+  def converted: (untyped text) -> untyped
+
+  # A dummy UTF-16 or UTF-32 target writes a byte order mark before each
+  # String; the stream keeps only the first one.
+  def once_marked: (untyped text) -> untyped
+
+  # rb_io_syswrite: writes the bytes directly to the descriptor, past
+  # the buffer. Ruby warns if the buffer still contains bytes.
+  def syswrite: (untyped text) -> untyped
+
+  def <<: (untyped object) -> self
+
+  # `$,` goes between the objects and `$\` after the last one, which is
+  # what makes `print` and `puts` differ.
+  def print: (*untyped objects) -> untyped
+
+  # One String, the usual call, is its own line: CRuby takes a String
+  # as it is and never calls `to_s` on it.
+  # One String is the common call: its bytes, then a newline unless it
+  # ends in one, with no line walk between.
+  def puts: (*untyped objects) -> nil
+
+  # What `puts` writes for `objects`, one `write` a line, as it goes: a
+  # line that raises in its `to_s` stops the rest, with what came before
+  # already written, as ruby's does. Each one's to_s, then a newline as a
+  # second argument unless it ends in one; nil is an empty line; an Array
+  # is its items, an empty one nothing; no objects is one empty line.
+  def self.each_line_of: (untyped objects) { (untyped, untyped) -> untyped } -> untyped
+
+  # What `print` writes `objects` as: their `to_s` joined by `$,`, then
+  # `$\`, and `$_` where there are no objects.
+  #
+  # One `write` per object, with the object as it is: `write` calls its
+  # `to_s`, so an object whose `to_s` raises stops the rest after what came before.
+  def self.print_to: (untyped out, untyped objects) -> nil
+
+  def printf: (*untyped args) -> nil
+
+  # `read(length)`: that many bytes, fewer at the end, nil past it, and
+  # always binary; without a length, everything that is left.
+  # The length is checked before the stream, as io_read does.
+  def read: (?untyped? length, ?untyped? buffer) -> untyped
+
+  # These three all read what is there and fill a buffer when one is
+  # given; the end of the stream is an error, not a nil.
+  # rb_io_sysread: one read(2) of the descriptor, past the buffer, which
+  # must be empty.
+  def sysread: (untyped length, ?untyped? buffer) -> untyped
+
+  def readpartial: (untyped length, ?untyped? buffer) -> untyped
+
+  # CRuby writes these three in Ruby (its io.rb), so they return their
+  # own parameters, under CRuby's names.
+  def read_nonblock: (untyped len, ?untyped? buf, ?exception: bool) -> (:wait_readable | untyped)
+
+  def write_nonblock: (untyped buf, ?exception: bool) -> (:wait_writable | untyped)
+
+  # rb_io_putc: a String's first character, or the byte NUM2CHR makes of
+  # anything else.
+  def putc: (untyped c) -> untyped
+
+  # The byte that setup_narg writes after a buffer, which the result must
+  # not change, and the mask that reads a command's own length.
+  IOCTL_SENTINEL: 17
+
+  IOCPARM_MASK: 8191
+
+  # ioctl(2). rb_io_ctl reads the argument as setup_narg does: nil and
+  # false are 0, true is 1, an Integer represents itself, and a String is
+  # the buffer that the command fills. The buffer grows to the length in
+  # the command, with one byte after it that the result must not reach.
+  def ioctl: (untyped command, ?::Integer argument) -> untyped
+
+  # The number a command reads when it fills no buffer.
+  def ioctl_narg: (untyped argument) -> (0 | 1 | untyped)
+
+  # The String a command fills, as long as the command names plus the
+  # sentinel. Anything that is not a String fills no buffer.
+  def ioctl_buffer: (untyped command, untyped argument) -> (nil | untyped)
+
+  def timeout: () -> untyped
+
+  def timeout=: (untyped seconds) -> untyped
+
+  # A byte order mark at the head of the stream gives the encoding.
+  # rb_io_set_encoding_by_bom: a binary stream with no encoding of its
+  # own takes the one its byte order mark gives.
+  def set_encoding_by_bom: () -> untyped
+
+  # io_strip_bom and io_set_encoding_by_bom: the byte order mark at the
+  # head of the stream goes, and names the external encoding.
+  def strip_bom: () -> (nil | untyped)
+
+  # One character in the read encoding, in the internal one when the
+  # stream has one.
+  def getc: () -> untyped
+
+  def readchar: () -> untyped
+
+  def getbyte: () -> untyped
+
+  def readbyte: () -> untyped
+
+  # rb_io_ungetc: an Integer is a code point in the read encoding, as an
+  # unsigned int; anything else must convert to a String. Either way its
+  # bytes go back in front of the buffer.
+  def ungetc: (untyped text) -> untyped
+
+  # rb_io_ungetbyte: nil puts back nothing, and an Integer is one byte,
+  # modulo 256.
+  def ungetbyte: (untyped byte) -> (nil | untyped)
+
+  # A line up to and with `separator`; "" separates paragraphs; nil
+  # reads to the end. `limit` caps the bytes.
+  def gets: (*untyped args, ?chomp: bool) -> (untyped | nil)
+
+  def readline: (?untyped sep, ?untyped limit, ?chomp: bool) -> untyped
+
+  # Each line as `gets` reads it, counted in `$.`; `$_` is `gets`'s
+  # alone, as rb_io_each_line leaves it.
+  def each_line: (*untyped args, ?chomp: untyped) ?{ (?) -> untyped } -> untyped
+
+  alias each each_line
+
+  def readlines: (*untyped args, ?chomp: bool) -> untyped
+
+  # Each line as `gets` reads it, for the method `name`, which a zero
+  # limit's error names.
+  def each_line_for: (untyped name, untyped args, untyped chomp) { (untyped) -> untyped } -> self
+
+  def each_char: () ?{ (untyped) -> untyped } -> (untyped | self)
+
+  def each_byte: () ?{ (untyped) -> untyped } -> (untyped | self)
+
+  def eof?: () -> untyped
+
+  alias eof eof?
+
+  def pos: () -> untyped
+
+  alias tell pos
+
+  def seek: (untyped offset, ?untyped whence) -> 0
+
+  def pos=: (untyped offset) -> untyped
+
+  def rewind: () -> 0
+
+  def to_io: () -> self
+
+  private
+
+  def label: () -> untyped
+
+  def mark_closed: () -> untyped
+
+  # rb_io_check_closed: an allocated stream has no descriptor to check.
+  def check_open: () -> untyped
+
+  # A system call on a descriptor that is not ready would stop every
+  # green thread. So a task that shares the process with others yields
+  # to the scheduler until the descriptor is ready. A single task waits
+  # in the system call itself, or in poll(2) when the descriptor cannot wait.
+  def park_until: (untyped event, ?untyped fd) -> (nil | untyped)
+
+  # Whether a call on this descriptor would wait. A non-blocking call
+  # checks this first and then makes the ordinary call, which returns
+  # immediately on a ready descriptor.
+  def would_block?: (untyped event) -> untyped
+
+  # O_NONBLOCK on the descriptor itself. Every call on it then waits in
+  # select(2) before the call rather than inside it, which is what lets a
+  # green sibling run while this task waits.
+  def set_nonblock: (untyped on) -> untyped
+
+  # The flag as the descriptor itself has it. Another process or an
+  # accepted socket can have set it.
+  def nonblock_flag?: () -> untyped
+
+  # The bytes out, in pieces a ready descriptor takes without waiting:
+  # one write(2) of a whole 200KB string blocks until the reader drains
+  # the pipe, and a green sibling is the only one who can drain it.
+  # CRuby's io_binwrite: a synchronous stream and a terminal write at
+  # once. Anything else fills the buffer, and a write that would fill it
+  # writes what waits and the text together.
+  def write_bytes: (untyped text) -> untyped
+
+  # The fiber scheduler's memory hooks, as scheduler.c lends them the
+  # bytes: the scheduler of a non-blocking fiber, where it takes `hook`.
+  def self.scheduler_taking: (untyped hook) -> untyped
+
+  # rb_fiber_scheduler_io_result_apply: a count, or the negative errno.
+  def self.io_result: (untyped result) -> untyped
+
+  # rb_io_read_memory: at most `size` bytes, which a scheduler's io_read
+  # reads into a buffer lent it; a String, nil at the end, or the
+  # negative errno.
+  def read_memory: (untyped size) -> untyped
+
+  # io_binwrite_string over a scheduler's io_write: the rest of the
+  # bytes lent it again until it has taken them all, waiting where it
+  # says the descriptor is not ready.
+  def scheduled_write: (untyped text) -> untyped
+
+  # fptr_wait_readable and its writable twin: a call that said "not yet"
+  # waits for the descriptor, in the scheduler where the fiber has one,
+  # before it comes round again.
+  def wait_again: (untyped event) -> untyped
+
+  # io_bufread: `length` bytes, or fewer at the end. With nothing buffered
+  # they come directly from the descriptor, with as many reads as necessary.
+  # Otherwise the buffer gives out its bytes and fills again.
+  def bufread: (untyped length) -> untyped
+
+  # read_all: what remains of a regular file, or BUFSIZ more at a time
+  # of anything else, until a read comes up short.
+  def read_all: () -> untyped
+
+  BUFSIZ: 1024
+
+  # remain_size: the bytes buffered, and past them the rest of a regular
+  # file, or BUFSIZ where the stream has no end to measure.
+  def remain_size: () -> untyped
+
+  # The descriptor a write goes to: the twin of a duplex stream.
+  def write_descriptor: () -> untyped
+
+  # Writes out the bytes in the buffer.
+  def write_pending: () -> untyped
+
+  def write_now: (untyped text) -> untyped
+
+  def checked_write: (untyped result) -> untyped
+
+  # The result of a read, into `buffer` when one was given. The end of
+  # the stream is an error here, not a nil.
+  # What one read(2) gives: the bytes already in the buffer, else one
+  # fill of it. A partial read never waits for the whole length, so a
+  # reader of a pipe returns as soon as any bytes arrive.
+  def read_some: (untyped length) -> (untyped | nil)
+
+  # The bytes a read took, in the caller's buffer where there is one,
+  # which keeps its own encoding.
+  def filled: (untyped text, untyped buffer) -> untyped
+
+  def check_readable: () -> untyped
+
+  def check_writable: () -> untyped
+
+  # More bytes into the buffer; none marks the end.
+  def fill: () -> untyped
+
+  # An empty read buffer in the stream's encoding: binary in binary mode.
+  # The access that a mode needs must be one that the descriptor has, as
+  # rb_io_initialize checks it with fcntl.
+  # Bytes that a read took from the descriptor and did not give out.
+  # A stream that contains them is ready to read, whatever the
+  # descriptor itself says.
+  def buffered?: () -> untyped
+
+  def check_access: () -> (nil | untyped)
+
+  # An internal encoding converts the bytes as they are read. A stream
+  # with both ends given requests this.
+  def transcoded: (untyped text) -> untyped
+
+  def clear_buffer: () -> untyped
+
+  # What is read arrives in the stream's own encoding: binary where the
+  # stream is binary, else the external encoding it was opened with.
+  def fresh_buffer: () -> untyped
+
+  # io_read_encoding: the encoding that the stream's bytes are in.
+  def read_encoding: () -> untyped
+
+  # The universal newline decorator over the bytes read so far: CRLF and
+  # a lone CR become LF. A CR at the end waits for the next byte, unless
+  # the stream has ended. Only reads of characters and lines, and a read
+  # of the whole stream, see the decorated bytes; read(length) does not.
+  def cook: () -> (nil | untyped)
+
+  # A fill that the universal decorator reads.
+  def fill_cooked: () -> untyped
+
+  # One character off the buffer, as io_getc takes it: a whole character
+  # in the read encoding, or one byte where no character starts. Where
+  # the buffer ends inside a character, the next bytes join it one at a
+  # time until it is whole or broken, or the stream ends.
+  def read_char: () -> (nil | untyped)
+
+  # Bytes in front of the buffer, for ungetc and ungetbyte to hand back.
+  def push_back: (untyped text) -> nil
+
+  # rb_io_ungetc's code point: NUM2UINT's range, where a negative Integer
+  # wraps.
+  def ungot_code: (untyped code) -> untyped
+
+  # check_getline_args: a separator in another encoding than the
+  # stream's is an error, except ruby's own default, which is written in
+  # the stream's encoding.
+  def stream_separator: (untyped separator) -> untyped
+
+  # Whether `at` starts a character. A separator counts only there. In
+  # UTF-8 and the single-byte encodings, every ASCII byte does.
+  def char_boundary?: (untyped at) -> (true | untyped)
+
+  # gets' arguments as ruby reads them: one argument is the separator
+  # when it is nil or converts to a String, else the limit; of two, the
+  # first must convert to a String.
+  def getline_args: (untyped args) -> ::Array[untyped]
+
+  # rb_io_getline_0 with a limit, step by step. appendline reads to the
+  # separator's last byte or to the limit; a line ends where the whole
+  # separator ends on a character's start. A limit that runs out on that
+  # last byte with no whole separator leaves 0, which appendline takes as
+  # no limit, so the line reads on to the next separator: ruby's own
+  # quirk. A limit inside a character reads on, a byte at a time, to its
+  # end, at most 16 bytes.
+  def limited_line: (untyped separator, untyped limit, untyped paragraph) -> untyped
+
+  # Paragraph mode's newlines before a paragraph, read as they arrive: a
+  # fresh stream's buffer is empty until it is filled.
+  def skip_newlines: () -> untyped
+
+  # A line the limit cut short counts no line: `@cut` says so, as
+  # rb_io_getline_0 leaves fptr->lineno alone then.
+  def read_line: (untyped separator, untyped limit) -> (nil | untyped)
+
+  # A limit that ends inside a character reads on, one byte at a time
+  # and at most 16 bytes more, until the character is whole, as
+  # rb_io_getline_0 relaxes it. A single-byte encoding counts bytes.
+  def whole_char: (untyped n) -> untyped
+
+  # The first `n` bytes out of the buffer, which keeps the rest.
+  def take: (untyped n) -> untyped
+
+  # The bytes in the buffer: at most `length` bytes, unless it is negative.
+  def buffered_bytes: (untyped length) -> untyped
+
+  # One read(2) past the buffer, or a pread(2) at `offset`; nil at the end.
+  def copy_read: (untyped size, untyped offset) -> untyped
+
+  # The line without its separator, as rb_io_getline_0 cuts it: a "\n"
+  # takes one "\r" before it too, a paragraph loses its "\n\n", and a
+  # line that the limit or the end stopped keeps all its bytes.
+  def chomp_line: (untyped line, untyped separator) -> untyped
+end
+
+STDIN: untyped
+
+STDOUT: untyped
+
+STDERR: untyped
+
+# Kernel's output goes to `$stdout`: through its own methods when it
+# is an IO, else through its `write`, as CRuby does with any object
+# put there.
+module Kernel
+  private
+
+  def self?.puts: (*untyped objects) -> (untyped | nil)
+
+  # `$,` goes between the objects and `$\` after the last one. This is
+  # the difference between `print` and `puts`. Only `write` is called on
+  # `$stdout`, so an object in its place needs only that one method.
+  # CRuby needs no more than that.
+  def self?.print: (*untyped objects) -> untyped
+
+  # Alone among the writers, `p` flushes: CRuby's rb_f_p ends with
+  # `rb_io_flush` when `$stdout` is an IO, so what `p` wrote survives
+  # an `exit!` while what `puts` or `print` wrote does not.
+  def self?.p: (*untyped objects) -> untyped
+
+  # rb_f_printf: to $stdout when the first argument is a String, else to
+  # the first argument, whatever it is, with its `write`.
+  def self?.printf: (*untyped args) -> nil
+
+  # A bare read reads ARGF: the files ARGV names, and standard input
+  # where it names none.
+  def self?.gets: (*untyped args, **untyped options) -> untyped
+
+  def self?.readline: (*untyped args, **untyped options) -> untyped
+
+  def self?.readlines: (*untyped args, **untyped options) -> untyped
+
+  # rb_f_open: an object that responds to `to_open` opens itself, and
+  # the block's stream closes after the block. Any other object is a
+  # file name, a leading `|` included.
+  def self?.open: (untyped path, *untyped rest, **untyped options) ?{ (untyped) -> untyped } -> untyped
+end
+
+# The errors that libSystem returns, each a class under Errno with the
+# errno that it represents.
+class SystemCallError
+  # The errno hides from reflection, as ruby's does.
+  def errno: () -> untyped
+
+  # SystemCallError itself takes an errno, and becomes the Errno class
+  # that represents it; an Errno class has its own. `func` is the name of
+  # the call that failed, and shows only next to a message.
+  def initialize: (*untyped args) -> void
+
+  # A rescue of an Errno class catches the errors with its errno, as
+  # CRuby's syserr_eqq decides; SystemCallError itself catches them all.
+  def self.===: (untyped other) -> (true | false | untyped)
+end
+
+# One class for each row of lib/zr/runtime/core/errno.rb, and its other names.
+module Errno
+  def self.for: (untyped code) -> untyped
+
+  def self.text: (untyped code) -> untyped
+end
+
+# How a non-blocking call reports "would block": the error class that
+# the caller rescues includes the direction as a module.
+class IO
+  module WaitReadable
+  end
+
+  module WaitWritable
+  end
+
+  class TimeoutError < IOError
+  end
+
+  class EAGAINWaitReadable < Errno::EAGAIN
+    include WaitReadable
+  end
+
+  class EAGAINWaitWritable < Errno::EAGAIN
+    include WaitWritable
+  end
+
+  class EINPROGRESSWaitReadable < Errno::EINPROGRESS
+    include WaitReadable
+  end
+
+  class EINPROGRESSWaitWritable < Errno::EINPROGRESS
+    include WaitWritable
+  end
+
+  # EWOULDBLOCK is EAGAIN on this platform, so the names are one class.
+  EWOULDBLOCKWaitReadable: untyped
+
+  EWOULDBLOCKWaitWritable: untyped
+end
+
+# Waiting on one descriptor, over poll(2). Named events return the
+# stream itself; a plain events mask returns the events that became ready.
+class IO
+  EVENT_NAMES: { read: untyped, readable: untyped, r: untyped, write: untyped, writable: untyped, w: untyped, priority: untyped, rw: untyped }
+
+  def wait: (*untyped args) -> untyped
+
+  def wait_readable: (?untyped? timeout) -> (nil | self)
+
+  def wait_writable: (?untyped? timeout) -> (nil | self)
+
+  def wait_priority: (?untyped? timeout) -> (nil | self)
+
+  private
+
+  # The events that came ready, or zero when the time ran out.
+  def poll_once: (untyped events, untyped timeout) -> untyped
+end

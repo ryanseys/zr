@@ -1,0 +1,100 @@
+module Zr
+  # Where zr reads its sources and writes what it builds. ROOT is the
+  # checkout or the installed gem. `lib/zr/runtime/` is under `lib/` and
+  # `vendor/` is beside it in both; neither is on the host's load path. The host
+  # loads a few namespaced files from them by path (Regexp::Onig,
+  # Prism::Ruby).
+  module Paths
+    self.@root: untyped
+
+    self.@prefixes: untyped
+
+    self.@open: untyped
+
+    ROOT: untyped
+
+    # The runtime that zr compiles into every program, in the machine
+    # dialect and in ordinary Ruby. It is source that zr compiles, not code
+    # of the compiler, although it is under lib/zr.
+    RUNTIME: untyped
+
+    # The Ruby parts of extension gems, and ruby's own pure-Ruby
+    # standard library.
+    VENDOR: untyped
+
+    # A git checkout, or a worktree of one, where `.git` is a file. A
+    # bundler git source (`gem "zr", git: ...`) is a clone too, but it is
+    # an install: bundler puts it in `.../bundler/gems/zr-<revision>`.
+    def self.checkout?: (?untyped root) -> untyped
+
+    # The root for the paths that a build writes (`zr build --path-root
+    # DIR`), or nil to write each path as it is on this machine. A path
+    # under zr's root or under the build's working directory becomes the
+    # root plus its path below that directory. The longer prefix is tried
+    # first. So two checkouts built with one root write the same bytes.
+    # A relative path (often the main file) stays as given, as in ruby.
+    def self.root: () -> untyped
+
+    def self.root=: (untyped root) -> untyped
+
+    # `path` as a build writes it into its output.
+    def self.shown: (untyped path) -> untyped
+
+    # The user's cache directory for zr: `XDG_CACHE_HOME` when it is
+    # set, else the platform's own.
+    def self.user_cache: () -> untyped
+
+    # A directory that zr needs and that this environment does not give.
+    class Missing < StandardError
+    end
+
+    # The cache directory for the runtime's build output (`ZR_CACHE`). A
+    # checkout uses its own tmp/. An installed gem writes nothing under
+    # itself. Its files are keyed on the digest of all their inputs: the
+    # runtime sources and the compiler. Each bootstrap stage uses its own
+    # cache, so it emits the runtime itself and does not read another
+    # stage's output.
+    #
+    # Computed when a build calls it, not when this file loads. A program
+    # with eval support links in this file but never builds. On wasi,
+    # `getpwuid` has no wasm form, so reading the home directory at load
+    # would stop the module before its first line.
+    def self.cache: () -> untyped
+
+    # Makes `dir` and each missing directory above it.
+    def self.mkdir_p: (untyped dir) -> untyped
+
+    # Writes `bytes` to `path` through a temporary file and a rename, so
+    # that another process never reads half a file. Returns `path`.
+    def self.write_atomic: (untyped path, untyped bytes) -> untyped
+
+    # Copies `from` to `to` with its mode and times, as `FileUtils.cp`
+    # with `preserve: true` does.
+    def self.copy: (untyped from, untyped to) -> untyped
+
+    # Runs the block while this process holds the lock of `path`, unless
+    # `path` exists, and returns `path`. A second zr that builds the same
+    # cache file waits for the first, then uses its file. `waiting` runs
+    # before a wait.
+    def self.once: (untyped path, ?waiting: untyped?) { () -> untyped } -> untyped
+
+    # The mtime (to the nanosecond) and size of the file at `path`, or
+    # nil when there is no file. A change to either shows the file changed.
+    def self.stamp: (untyped path) -> untyped
+
+    # A new directory for the block, named as Dir.mktmpdir does
+    # (`<prefix><date>-<pid>-<random>`; the test harness's sweep reads
+    # the pid from the name). The block's end removes it and its contents.
+    def self.tmpdir: (untyped prefix, ?untyped? root) { (untyped) -> untyped } -> untyped
+
+    def self.open_tmpdirs: () -> untyped
+
+    # Whether a `tmpdir` block runs now. A process that execs then would
+    # leave the directory behind (`GcTuning.heavy!`).
+    def self.tmpdir_open?: () -> untyped
+
+    # Removes `path` and, for a directory, all of its contents. It removes
+    # a link and does not follow it.
+    def self.remove: (untyped path) -> untyped
+  end
+end

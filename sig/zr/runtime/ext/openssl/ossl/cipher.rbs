@@ -1,0 +1,113 @@
+# ossl_cipher.c: OpenSSL::Cipher over EVP_CIPHER_CTX.
+module OpenSSL
+  module Lib
+    OBJ_NAME_TYPE_CIPHER_METH: 2
+
+    EVP_MAX_KEY_LENGTH: 64
+
+    EVP_MAX_IV_LENGTH: 16
+
+    EVP_MAX_BLOCK_LENGTH: 32
+
+    PKCS5_SALT_LEN: 8
+
+    EVP_CIPH_FLAG_AEAD_CIPHER: 2097152
+
+    EVP_CTRL_AEAD_SET_IVLEN: 9
+
+    EVP_CTRL_AEAD_GET_TAG: 16
+
+    EVP_CTRL_AEAD_SET_TAG: 17
+  end
+
+  class Cipher
+    class CipherError < OpenSSLError
+    end
+
+    class AuthTagError < CipherError
+    end
+  end
+
+  module Ossl
+    CIPHER: untyped
+
+    # ossl_evp_cipher_fetch: the EVP_CIPHER `object` names (a Cipher, or
+    # an algorithm's name), and the handle that keeps a fetched one alive
+    # while the caller uses it.
+    def self.fetch_cipher: (untyped object) -> ::Array[untyped]
+
+    # AllocCipher.
+    def self.alloc_cipher: (untyped object) -> untyped
+
+    # EVP_CIPHER_flags(EVP_CIPHER_CTX_cipher(ctx)) & EVP_CIPH_FLAG_AEAD_CIPHER.
+    def self.aead?: (untyped ctx) -> untyped
+
+    # ossl_cipher_init.
+    def self.cipher_init: (untyped cipher, untyped enc) -> untyped
+
+    # The IV length iv_len= set for an AEAD cipher, else the cipher's own.
+    def self.cipher_iv_length: (untyped ctx) -> untyped
+
+    # ossl_cipher_update_long: `length` bytes at `input` through
+    # EVP_CipherUpdate in parts an int can count, into `output` (an
+    # address, or nil for additional authenticated data); the bytes
+    # written, or nil when the library fails.
+    def self.cipher_update: (untyped ctx, untyped output, untyped input, untyped length) -> (nil | untyped)
+  end
+
+  class Cipher
+    def initialize: (untyped str) -> void
+
+    def initialize_copy: (untyped other) -> self
+
+    def self.ciphers: () -> untyped
+
+    private
+
+    def ciphers: () -> untyped
+
+    public
+
+    def reset: () -> self
+
+    def encrypt: () -> untyped
+
+    def decrypt: () -> untyped
+
+    def pkcs5_keyivgen: (untyped pass, ?untyped? salt, ?untyped? iterations, ?untyped? digest) -> nil
+
+    def update: (untyped data, ?untyped? buffer) -> untyped
+
+    def final: () -> untyped
+
+    def name: () -> untyped
+
+    def key=: (untyped key) -> untyped
+
+    def iv=: (untyped iv) -> untyped
+
+    def authenticated?: () -> untyped
+
+    def auth_data=: (untyped data) -> untyped
+
+    def auth_tag: (?untyped? tag_len) -> untyped
+
+    def auth_tag=: (untyped tag) -> untyped
+
+    def auth_tag_len=: (untyped length) -> untyped
+
+    def key_len=: (untyped key_length) -> untyped
+
+    def key_len: () -> untyped
+
+    def iv_len=: (untyped iv_length) -> untyped
+
+    def iv_len: () -> untyped
+
+    def block_size: () -> untyped
+
+    def padding=: (untyped padding) -> untyped
+
+    def ccm_data_len=: (untyped data_len) -> untyped
+  end
+end

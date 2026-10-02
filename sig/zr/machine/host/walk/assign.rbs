@@ -1,0 +1,58 @@
+module Zr
+  module Machine
+    class Host
+      class Walk
+        # The code of assignments to more than a local, as
+        # `Lower::Function::Targets` emits it: a multiple assignment, whose
+        # targets' receivers and arguments are staged first, and the
+        # op-assigns of an index and an attribute.
+        module Assign
+          # The staged parts of a multiple assignment with none.
+          UNSTAGED: untyped
+
+          private
+
+          def multi_assign: (untyped node, untyped s) -> untyped
+
+          # The code that stages a multiple assignment's send targets'
+          # receivers and arguments, and its constant targets' scopes, before
+          # the right-hand side, in ruby's order (`Targets#prepare`). It
+          # returns them by target, or it is nil when no target has any.
+          def stager: (untyped target, untyped s) -> (nil | untyped)
+
+          def staging: (untyped target, untyped s) -> untyped
+
+          # `a, b = b, a` as a statement makes no Array (`Targets#spread_assign`).
+          def spread_assign?: (untyped node) -> untyped
+
+          def spread_assign: (untyped node, untyped s, untyped stage) -> untyped
+
+          # The code that spreads a Value (an Array, or one made of it) over
+          # the targets, and returns the Value.
+          def multi: (untyped target, untyped s) -> untyped
+
+          # The code that assigns a Value to the target `t`, with the staged
+          # parts of its assignment (`stager`).
+          def target_store: (untyped t, untyped s) -> untyped
+
+          # The code that assigns a Value through the send `t` (`a.b = v`,
+          # `a[i] = v`): with its staged receiver and arguments, or ones it
+          # evaluates now.
+          def send_store: (untyped t, untyped s) -> untyped
+
+          # An op-assign's read and write are sends as written: through
+          # `self` they may call a private method, else they are explicit.
+          def op_mode: (untyped node) -> (0 | 2)
+
+          def index_op_assign: (untyped node, untyped s) -> untyped
+
+          def attr_op_assign: (untyped node, untyped s) -> untyped
+
+          # The code of an op-assign's new value from the old one, or nil for
+          # `||=` and `&&=` that keep the old one.
+          def op_value: (untyped node, untyped s) -> untyped
+        end
+      end
+    end
+  end
+end

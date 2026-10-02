@@ -1,0 +1,70 @@
+module Zr
+  module Hir
+    # A SyntaxError about the file at `path`, whose `path` gives that file
+    # as the one from ruby's compiler does.
+    def self.syntax_error: (untyped message, untyped path) -> untyped
+
+    # The error for a source that does not parse, built as CRuby builds it
+    # from prism's diagnostics (`pm_parse_process_error` in
+    # prism_compile.c). It is a SyntaxError whose message gives the first
+    # error's line, then shows each line with an error, the lines around
+    # it, and one caret line per diagnostic. A diagnostic about an
+    # argument (an unknown encoding comment) is an ArgumentError, and one
+    # about a load is a LoadError.
+    class SyntaxReport
+      @result: untyped
+
+      @file: untyped
+
+      @bytes: untyped
+
+      @offsets: untyped
+
+      @start_line: untyped
+
+      # A line is cut this many bytes after its last caret, or before the
+      # first caret if it is this far in.
+      TRUNCATE: 30
+
+      Row: untyped
+
+      def self.error: (untyped result, untyped file) -> untyped
+
+      def initialize: (untyped result, untyped file) -> void
+
+      def error: () -> untyped
+
+      private
+
+      # Its message is bytes, as CRuby's `rb_exc_new` makes it.
+      def argument_error: (untyped e) -> untyped
+
+      # Whether every line the location touches is valid UTF-8.
+      def utf8?: (untyped location) -> untyped
+
+      # The errors in source order, each with its line and byte columns.
+      # An error at the same position as an earlier one goes before it.
+      def sorted: (untyped errors) -> untyped
+
+      def line_length: (untyped line) -> untyped
+
+      def annotated: (untyped errors, inline: untyped) -> untyped
+
+      def last_source_line: () -> untyped
+
+      # A space for each character before the error, a caret for its
+      # first, a tilde for each after.
+      def carets: (untyped row, untyped start, untyped last_column_start) -> untyped
+
+      # Line `line` of the source with its number, cut after `column_end`
+      # and before `column_start` if either is far into the line.
+      def source_line: (untyped number, untyped line, ?::Integer column_start, ?::Integer column_end) -> untyped
+
+      def step: (untyped at) -> untyped
+
+      # The byte count of the character at `at` in the source's encoding,
+      # or 0 if there is none or it is not valid.
+      def char_width: (untyped at) -> (0 | untyped)
+    end
+  end
+end

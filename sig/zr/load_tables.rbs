@@ -1,0 +1,43 @@
+module Zr
+  # The tables that `zr_load_tables` points to. A require with a computed
+  # name reads them at run time. They are, in order:
+  # - the count of compiled-in files, and one record (path bytes, length,
+  #   toplevel) for each;
+  # - as (bytes, length), one name per line: the library directories to
+  #   search after $LOAD_PATH, the ruby features that this runtime has no
+  #   file for, the features ruby loads before the program, and the
+  #   extensions directory. Only a program with eval can require a
+  #   computed name, so only such a program gets these lines;
+  # - error_highlight's spots for each file (every program has them), and
+  #   Coverage's tables;
+  # - for a program with eval, the digest of each eval support file
+  #   (`sources`, path to SHA-256). It keys its parse cache on these;
+  # - the gem manifest.
+  # Nothing here comes from the build machine: a binary contains no path
+  # or flag of the ruby that compiled it.
+  #
+  # `gem_roots` are the roots of the build's GemSet. A program with eval
+  # searches them right after ruby's own library, as its build did, so a
+  # computed require finds the same gem.
+  #
+  # `manifest` is the gem manifest (lib/zr/manifest.rb), or nil. It is the
+  # last text. `zr inspect` finds it in the binary, and rubygems in the
+  # program reads its gems (lib/zr/runtime/lib/zr/gem_manifest.rb).
+  LoadTables: untyped
+
+  # The methods are in a reopened class, not in the block of
+  # `Data.define`, so that the type check (sig/pilot/records.rbs) sees
+  # them in the class that they belong to.
+  class LoadTables
+    def initialize: (?evals: bool, ?spots: ::Hash[untyped, untyped], ?coverable: ::Hash[untyped, untyped], ?branches: ::Hash[untyped, untyped], ?defs: ::Hash[untyped, untyped], ?sources: ::Hash[untyped, untyped], ?target: untyped, ?gem_roots: untyped, ?manifest: untyped?) -> void
+
+    # The data objects of the tables, with the files `units`: `[path,
+    # entry]` pairs. A unit that only stops has no path.
+    def data: (?untyped units) -> untyped
+
+    # The texts after the files, in the order of the kernel's LoadTable:
+    # each a list of lines. The host gives them to the kernel as a link
+    # does (`Machine::Host::Walk`).
+    def texts: () -> untyped
+  end
+end

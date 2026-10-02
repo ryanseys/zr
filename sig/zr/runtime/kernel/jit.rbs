@@ -1,0 +1,17 @@
+module Zr::Kern
+  def zr_jit_write_data: (untyped at, untyped bytes) -> untyped
+
+  def zr_jit_call: (untyped at) -> untyped
+
+  # The arguments of an eval's toplevel: its self and cref, the Env for its
+  # locals, and the block of the scope that it runs in.
+  Eval: untyped
+
+  def zr_code_word: (untyped code, untyped i) -> untyped
+
+  def zr_code_env: (untyped code, untyped parent) -> untyped
+
+  def zr_eval_at: (untyped code, untyped self_, untyped cref, untyped env, untyped blk) -> untyped
+
+  def zr_eval_run: (untyped code, untyped self_, untyped cref, untyped parent, untyped blk) -> untyped
+end

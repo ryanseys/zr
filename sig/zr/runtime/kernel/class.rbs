@@ -1,0 +1,438 @@
+module Zr::Kern
+  # Classes and modules: a name, a superclass, and an extension outside
+  # the arena. The extension contains the method table (id, code, arity,
+  # kind, meta and cref entries, searched in order) and the constant table
+  # (id and value entries). An included module is in the ancestor list as
+  # a proxy (T_ICLASS) that shares the module's extension and refers to it
+  # as `attached`. Method code takes `(recv, argc, argv, cref)` and returns
+  # a Value; the cref is the lexical scope list where the method was
+  # defined. `origin` is the proxy that contains a prepended class's own
+  # methods, below the prepended modules, or nil.
+  RClass: untyped
+
+  # `serial` counts classes in creation order, which `subclasses` reads.
+  # `refined` is the class that a refinement holder refines, and `active`
+  # is the one-item activation list that only that holder makes. Both are
+  # nil on a usual class or module.
+  # `boxed` is the shadow class that each box sees in place of this one,
+  # indexed by box slot, and `shadow` is the shared class that a shadow is
+  # in place of. Both are nil outside a box.
+  # `alloc` is the kind of object the class allocates (ALLOC_*), found
+  # from its builtin ancestor on first use; 0 until then.
+  # `saved` contains `slen` method entries: the core library's entries that
+  # a program overwrote or removed. The core library's own sends still find
+  # them (see zr_find_core_method).
+  ClassExt: untyped
+
+  # `orig` is the name of the first definition of the method, which an
+  # alias keeps. `from` is the ancestor list node where an alias or a
+  # visibility change found the entry that it copied. `super` in the body
+  # continues from there, as with CRuby's alias and zsuper entries. It is
+  # nil for a definition. `core` is 1 for an entry that the core library
+  # wrote before the program started.
+  # `ivar` is the word that a kind keeps next to its function: the inline
+  # cache hint for an accessor (cache.rb), or the cref of a `define_method`
+  # body, made at the first call (eval.rb, `zr_bmethod_cref`). An entry is
+  # 88 bytes: a Method's cell embeds one after three Values, and a 128-byte
+  # cell has no more room.
+  # `direct` is the second entry point of a compiled def with only
+  # required positional parameters (Zr::Lower::Function). It is the same
+  # body, but takes its arguments in registers with no count to check. A
+  # call site that gives exactly that many arguments calls it through its
+  # cache entry (CallCache.direct). The `fn` of such a def is
+  # `zr_direct_fn`, which takes the generic arguments and checks what the
+  # site proved.
+  MEntry: untyped
+
+  CEntry: untyped
+
+  # A compiled method takes `(recv, argc, argv, entry, blk, found)`: its
+  # own entry, whose name and cref its frame records, and the ancestor list
+  # node where the lookup found it. A builtin takes
+  # `(recv, argc, argv, cref, blk)`. A direct entry takes
+  # `(recv, entry, blk, found, ...)` plus up to four arguments in
+  # registers, with one signature for each count.
+  Method: untyped
+
+  Builtin: untyped
+
+  Direct0: untyped
+
+  Direct1: untyped
+
+  Direct2: untyped
+
+  Direct3: untyped
+
+  Direct4: untyped
+
+  # Method kinds other than a compiled def and a builtin. Accessors keep
+  # the ivar's id in `fn`.
+  KIND_ATTR_READER: 3
+
+  KIND_ATTR_WRITER: 4
+
+  # A builtin that makes no frame of its own: `Proc#call` and `send`,
+  # which CRuby does not show in a backtrace.
+  KIND_FRAMELESS: 5
+
+  # An `undef`: the name has no method from here down the ancestor list.
+  KIND_UNDEF: 6
+
+  # A Method for a name that `respond_to_missing?` claimed: a call goes to
+  # `method_missing`.
+  KIND_MISSING: 9
+
+  def zr_class_alloc: (untyped type, untyped sup, untyped klass) -> untyped
+
+  def zr_check_inheritable: (untyped sup) -> untyped
+
+  def zr_class_boot: (untyped sup) -> untyped
+
+  def zr_class_new: (untyped sup) -> untyped
+
+  T_ICLASS: 28
+
+  def zr_chain_includes: (untyped klass, untyped mod) -> (true | false)
+
+  def zr_iclass_new: (untyped node, untyped sup) -> untyped
+
+  def zr_origin: (untyped klass) -> untyped
+
+  def zr_splice_modules: (untyped klass, untyped at, untyped mod, untyped whole) -> untyped
+
+  def zr_proxies_of: (untyped mod) -> untyped
+
+  def zr_include_module: (untyped klass, untyped mod) -> (nil | untyped)
+
+  def zr_ensure_origin: (untyped klass) -> (false | true)
+
+  def zr_prepend_module: (untyped klass, untyped mod) -> (nil | untyped)
+
+  def zr_mod_prepend_features: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_hook: (untyped recv, untyped mid, untyped arg) -> untyped
+
+  def zr_program_hook_p: (untyped recv, untyped mid) -> (false | untyped)
+
+  def zr_check_module: (untyped m) -> untyped
+
+  def zr_mod_append_features: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_obj_extend: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_mod_extend_object: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_alias_value: (untyped klass, untyped new_name, untyped old_name) -> untyped
+
+  def zr_alias: (untyped klass, untyped new_id, untyped old_id) -> untyped
+
+  def zr_mod_alias_method: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_undef_value: (untyped klass, untyped name) -> untyped
+
+  def zr_undef: (untyped klass, untyped id) -> untyped
+
+  def zr_mod_undef_method: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_mod_eqq: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_cvar_base: (untyped cref) -> untyped
+
+  def zr_cvar_owner: (untyped klass, untyped id) -> untyped
+
+  def zr_mod_import_ok_p: (untyped mod, untyped name) -> untyped
+
+  def zr_cvar_target: (untyped klass, untyped id) -> untyped
+
+  def zr_cvar_get: (untyped cref, untyped id) -> untyped
+
+  def zr_ractor_cvar_check: (untyped owner, untyped id) -> untyped
+
+  def zr_cvar_defined: (untyped cref, untyped id) -> untyped
+
+  def zr_cvar_set: (untyped cref, untyped id, untyped v) -> untyped
+
+  def zr_cvar_get_m: (untyped cref, untyped name) -> untyped
+
+  def zr_cvar_defined_m: (untyped cref, untyped name) -> untyped
+
+  def zr_cvar_set_m: (untyped cref, untyped name, untyped v) -> untyped
+
+  def zr_mod_ancestors: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_mod_include_p: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_singleton_p: (untyped klass) -> untyped
+
+  def zr_make_metaclass: (untyped klass) -> untyped
+
+  def zr_singleton_refused_p: (untyped v) -> untyped
+
+  def zr_singleton_class: (untyped v) -> untyped
+
+  def zr_class_modify_check: (untyped klass) -> untyped
+
+  def zr_real_class: (untyped v) -> untyped
+
+  def zr_class_of_is: (untyped v, untyped klass) -> untyped
+
+  def zr_class_name_of: (untyped v) -> untyped
+
+  def zr_module_new: () -> untyped
+
+  def zr_gate_bit: (untyped klass, untyped mid) -> (untyped | untyped | untyped | untyped | untyped | untyped | untyped | untyped | untyped | untyped | untyped | untyped | untyped | untyped | untyped | untyped | untyped | untyped | untyped | untyped | 0 | untyped | untyped | untyped | untyped | untyped | untyped | untyped | untyped | untyped | untyped | 0 | untyped | untyped | untyped | untyped | untyped | untyped | untyped | untyped | untyped | untyped | untyped | untyped | untyped | untyped | untyped | untyped | untyped | untyped | untyped | untyped | 0)
+
+  def zr_not_gated_p: (untyped klass) -> untyped
+
+  # The operators that compiled code inlines, as they were at program
+  # start: the class the gate guards (a global's index), the name, the
+  # gate bit, and the body and visibility that the class found then.
+  GateRow: untyped
+
+  GATE_ROWS: 56
+
+  def zr_gate_row: (untyped i, untyped klass, untyped mid, untyped bit) -> untyped
+
+  def zr_gates_snapshot: () -> untyped
+
+  def zr_gates_recheck: (untyped mid) -> (nil | untyped)
+
+  def zr_define_method: (untyped klass, untyped mid, untyped fn, untyped arity, untyped kind, untyped meta, untyped cref) -> untyped
+
+  def zr_define_method_direct: (untyped klass, untyped mid, untyped fn, untyped direct, untyped arity, untyped kind, untyped meta, untyped cref) -> untyped
+
+  def zr_define_method_public_direct: (untyped klass, untyped mid, untyped fn, untyped direct, untyped arity, untyped kind, untyped meta, untyped cref) -> untyped
+
+  def zr_direct_pending: () -> untyped
+
+  def zr_entry_body: (untyped e) -> untyped
+
+  def zr_define_method_public: (untyped klass, untyped mid, untyped fn, untyped arity, untyped kind, untyped meta, untyped cref) -> untyped
+
+  def zr_define_method_as: (untyped klass, untyped mid, untyped fn, untyped arity, untyped kind, untyped meta, untyped cref, untyped vis) -> untyped
+
+  def zr_meta_owned: (untyped meta, untyped owner) -> untyped
+
+  def zr_definition_vis: (untyped mid, untyped cref) -> untyped
+
+  def zr_definition_vis_m: (untyped name, untyped cref) -> untyped
+
+  def zr_cref_modfn_p: (untyped cref) -> untyped
+
+  def zr_define_bmethod: (untyped klass, untyped mid, untyped meta, untyped body, untyped cref) -> untyped
+
+  def zr_method_added: (untyped klass, untyped mid) -> untyped
+
+  def zr_method_add: (untyped klass, untyped mid, untyped fn, untyped arity, untyped kind, untyped meta, untyped cref) -> untyped
+
+  def zr_method_add_vis: (untyped klass, untyped mid, untyped fn, untyped arity, untyped kind, untyped meta, untyped cref, untyped vis) -> untyped
+
+  def zr_internal_meta_p: (untyped meta) -> untyped
+
+  # The same, with ROW_CORE in `vis` when the core library defines the
+  # entry. The core library's sends find that entry even after a program
+  # overwrites it.
+  ROW_CORE: 256
+
+  def zr_method_add_row: (untyped klass, untyped mid, untyped fn, untyped arity, untyped kind, untyped meta, untyped cref, untyped vis) -> untyped
+
+  def zr_basic_operator_p: (untyped klass, untyped mid) -> (untyped | false)
+
+  def zr_warn_operator: (untyped klass, untyped mid, untyped e) -> (nil | untyped)
+
+  def zr_warn_prepended_operator: (untyped klass, untyped mid) -> untyped
+
+  def zr_warn_prepended_operators: (untyped klass) -> untyped
+
+  def zr_warn_redefined: (untyped owner, untyped ext, untyped mid, untyped e, untyped fn, untyped kind, untyped meta, untyped cref) -> (nil | untyped)
+
+  def zr_program_aliased_p: (untyped ext, untyped e, untyped mid) -> (true | false)
+
+  def zr_warn_core_redefined: (untyped owner, untyped mid) -> (false | true)
+
+  def zr_warn_dangerous: (untyped owner, untyped mid, untyped kind) -> (nil | untyped)
+
+  def zr_program_started_p: () -> untyped
+
+  def zr_runtime_written: () -> untyped
+
+  def zr_save_core_row: (untyped ext, untyped e) -> (nil | untyped)
+
+  def zr_saved_row: (untyped ext, untyped mid) -> (untyped | 0)
+
+  def zr_core_class_p: (untyped klass) -> (false | untyped)
+
+  def zr_search_core_method: (untyped klass, untyped mid) -> (0 | untyped)
+
+  def zr_find_core_method: (untyped klass, untyped mid) -> untyped
+
+  # A method cache entry for a core library send uses the name with this
+  # bit as its key. No symbol id has this bit.
+  CORE_KEY: untyped
+
+  def zr_method_copy: (untyped klass, untyped mid, untyped e, untyped meta, untyped vis, untyped found) -> untyped
+
+  def zr_set_visibility: (untyped klass, untyped argc, untyped argv, untyped blk, untyped vis, untyped modfn) -> untyped
+
+  def zr_set_method_visibility: (untyped klass, untyped mid, untyped vis, untyped modfn) -> untyped
+
+  def zr_mod_private: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_mod_public: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_mod_protected: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_mod_module_function: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_mod_private_class_method: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_mod_public_class_method: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_entry_hidden_p: (untyped e) -> (true | untyped)
+
+  def zr_level_method_names: (untyped level, untyped out, untyped seen, untyped vis) -> untyped
+
+  def zr_mod_undefined_instance_methods: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_method_names: (untyped klass, untyped all, untyped vis, untyped object) -> untyped
+
+  def zr_mod_instance_methods: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_mod_public_instance_methods: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_mod_private_instance_methods: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_mod_protected_instance_methods: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_builtin: (untyped klass, untyped mid, untyped fn, untyped arity) -> untyped
+
+  def zr_f_notimplement: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_define_notimplement: (untyped klass, untyped name) -> untyped
+
+  def zr_builtin_private: (untyped klass, untyped mid, untyped fn, untyped arity) -> untyped
+
+  def zr_builtin_hidden: (untyped klass, untyped mid, untyped fn, untyped arity) -> untyped
+
+  def zr_method_reveal: (untyped klass, untyped mid) -> untyped
+
+  # The entry for `mid` on `klass` only, or 0; the last definition wins.
+  # A method table of this length or more has a hash index of its names.
+  # The index is built at the first lookup that needs it and dropped when
+  # an entry is removed (const.rb does the same for constants). Kernel's
+  # and Object's tables have hundreds of entries, and each ancestor walk
+  # passes them. A shorter table is scanned. A name has one entry (a
+  # redefinition uses its existing entry), so a bin contains that entry's
+  # number plus one, or zero when empty.
+  METHOD_INDEX_MIN: 16
+
+  def zr_method_index_drop: (untyped ext) -> (untyped | nil)
+
+  def zr_method_index_put: (untyped ext, untyped row) -> untyped
+
+  def zr_method_index_build: (untyped ext) -> untyped
+
+  def zr_method_index_add: (untyped ext, untyped row) -> (nil | untyped)
+
+  def zr_method_index_find: (untyped ext, untyped mid) -> (untyped | 0)
+
+  def zr_find_method_at: (untyped klass, untyped mid) -> (untyped | 0)
+
+  # The result of an ancestor walk for one (class, name): the entry, the
+  # ancestor list node that contained it, and the method stamp at that
+  # time. `refine` is the activation list of the lookup (Task.refine), or
+  # nil. A refined lookup has a separate entry, and never serves a plain
+  # lookup. A `using` and a refinement's definition change the stamp.
+  MCache: untyped
+
+  MCACHE_ROWS: 2048
+
+  # `ZR_MCACHE=0` does a walk for each send. `ZR_MCACHE=verify` gets both
+  # results and stops if they differ, which finds a change to a method
+  # table or an ancestor list that changes the stamp too late. Both also
+  # apply to the call-site cache entries (cache.rb).
+  MCACHE_OFF: 1
+
+  MCACHE_VERIFY: 2
+
+  def zr_mcache_init: () -> untyped
+
+  def zr_methods_changed: () -> untyped
+
+  def zr_search_method: (untyped klass, untyped mid) -> (0 | untyped)
+
+  def zr_find_method: (untyped klass, untyped mid) -> untyped
+
+  def zr_basic_method_p: (untyped recv, untyped mid) -> untyped
+
+  def zr_basic_method_m: (untyped recv, untyped name) -> untyped
+
+  def zr_class_of: (untyped v) -> untyped
+
+  def zr_class_rank: (untyped klass) -> (untyped | 0)
+
+  def zr_class_ranked: (untyped klass) -> (nil | untyped)
+
+  def zr_class_inherits: (untyped klass, untyped target) -> untyped
+
+  def zr_is_a: (untyped v, untyped klass) -> (true | untyped)
+
+  def zr_mark_mtab: (untyped ext) -> untyped
+
+  def zr_mark_entries: (untyped tab, untyped n) -> untyped
+
+  def zr_mark_entry: (untyped e) -> untyped
+
+  def zr_mark_children: (untyped v) -> (nil | untyped)
+
+  def zr_release: (untyped v) -> untyped
+
+  def zr_release_other: (untyped v, untyped t) -> untyped
+
+  def zr_mod_set_temporary_name: (untyped mod, untyped name) -> untyped
+
+  G_REFINEMENT: 46
+
+  # One activation entry for each `using` in the program. A call site
+  # refers to the entry that applies to it.
+  G_ACTIVATIONS: 47
+
+  def zr_refinement_new: (untyped klass, untyped active) -> untyped
+
+  def zr_refined_class: (untyped h) -> untyped
+
+  def zr_activation_row: (untyped rows, untyped id) -> untyped
+
+  def zr_activate: (untyped id) -> untyped
+
+  def zr_activate_owner: (untyped rec) -> untyped
+
+  def zr_activation_rows: (untyped id) -> untyped
+
+  def zr_activations_reserve: (untyped count) -> untyped
+
+  def zr_activations_reserve_m: (untyped count) -> untyped
+
+  def zr_activations_count: () -> untyped
+
+  def zr_using_default: (untyped id, untyped from) -> untyped
+
+  def zr_using_activate: (untyped id, untyped mod, untyped from) -> untyped
+
+  def zr_using_holders: (untyped list, untyped mod) -> untyped
+
+  def zr_refined_target: (untyped h) -> untyped
+
+  def zr_refined_target_seen_p: (untyped list, untyped target, untyped stop) -> (true | false)
+
+  def zr_mod_used_refinements: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_mod_used_modules: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_refined_search: (untyped klass, untyped mid) -> (untyped | 0)
+
+  def zr_refined_entry_at: (untyped target, untyped mid) -> (0 | untyped)
+
+  def zr_found_refinement: () -> untyped
+end

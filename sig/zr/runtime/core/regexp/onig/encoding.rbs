@@ -1,0 +1,239 @@
+# The encodings ruby hands Onigmo (OnigEncodingType): what the shared
+# helpers of regenc.c do over each encoding's primitives, the
+# single-byte encodings (enc/ascii.c, us_ascii.c, iso_8859_*.c,
+# koi8_*.c, windows_125*.c), and which one reads each of ruby's
+# encodings. The Unicode encodings are in encoding_unicode.rb, the
+# other multibyte ones in encoding_multibyte.rb. A pattern or subject
+# is a binary String and a position is a byte offset into it. A port
+# under the BSD-2-Clause license reproduced in regexp.rb.
+class Regexp
+  module Onig
+    module Enc
+      self.@descriptors: untyped
+
+      self.@encodings: untyped
+
+      # ONIGENC_CONSTRUCT_MBCLEN_INVALID
+      INVALID: -1
+
+      # The shared helpers of regenc.c, over the per-encoding primitives.
+      class Base
+        # onigenc_mbclen: the length of the character at `p`, cut at
+        # `e`; an invalid byte counts one.
+        def len: (untyped s, untyped p, untyped e) -> untyped
+
+        # rb_enc_precise_mbclen over the rest of `bytes`: a positive length,
+        # or the negative ONIGENC_CONSTRUCT_MBCLEN_* of an invalid or cut
+        # character.
+        def precise_mbclen: (untyped bytes, untyped i) -> (-2 | untyped)
+
+        # rb_enc_mbclen: the character's length, or the encoding's shortest
+        # where no whole character starts.
+        def mbclen: (untyped bytes, untyped i) -> untyped
+
+        # rb_enc_ascget: [the ASCII character at `i`, its byte length], or
+        # nil when the character there is past ASCII or no character.
+        # `compat` says the encoding is ASCII-compatible.
+        def ascget: (untyped bytes, untyped i, untyped compat) -> (nil | untyped)
+
+        # onigenc_mbclen_approximate: the length the lead byte announces
+        # even past `e`.
+        def len_approx: (untyped s, untyped p, untyped e) -> untyped
+
+        # enclen (regenc.h:94)
+        def enclen: (untyped s, untyped p, untyped e) -> untyped
+
+        def right_adjust_char_head: (untyped s, untyped start, untyped p, untyped e) -> untyped
+
+        def prev_char_head: (untyped s, untyped start, untyped p, untyped e) -> (nil | untyped)
+
+        def step_back: (untyped s, untyped start, untyped p, untyped e, untyped n) -> (nil | untyped)
+
+        def step: (untyped s, untyped p, untyped e, untyped n) -> untyped
+
+        def strlen: (untyped s, untyped p, untyped e) -> untyped
+
+        # onigenc_with_ascii_strncmp: `sascii` (ASCII bytes) against the
+        # next `n` characters at `p`; 0 when they agree.
+        def with_ascii_strncmp: (untyped s, untyped p, untyped e, untyped sascii, untyped n) -> (untyped | 0)
+
+        def with_ascii_strnicmp: (untyped s, untyped p, untyped e, untyped sascii, untyped n) -> (untyped | 0)
+
+        # ONIGENC_ASCII_CODE_TO_LOWER_CASE, for a code under 256.
+        def ascii_lower: (untyped c) -> untyped
+
+        # ONIGENC_IS_ASCII_CODE_CTYPE over OnigEncAsciiCtypeTable.
+        def ascii_code_ctype?: (untyped code, untyped ctype) -> untyped
+
+        # CTYPE_IS_WORD_GRAPH_PRINT
+        def word_graph_print?: (untyped ctype) -> untyped
+
+        def mbc_word?: (untyped s, untyped p, untyped e) -> untyped
+
+        def mbc_ascii_word?: (untyped s, untyped p, untyped e) -> untyped
+
+        def mbc_newline?: (untyped s, untyped p, untyped e) -> untyped
+
+        def allowed_reverse_match?: (untyped _s, untyped _p, untyped _e) -> true
+
+        def singlebyte?: () -> untyped
+
+        def unicode?: () -> false
+
+        def ctype_code_range: (untyped _ctype) -> nil
+
+        # onigenc_ascii_apply_all_case_fold
+        def ascii_apply_all_case_fold: () { (untyped, untyped) -> untyped } -> untyped
+
+        # onigenc_ascii_get_case_fold_codes_by_str: [[byte length, codes]]
+        def ascii_case_fold_codes_by_str: (untyped s, untyped p) -> untyped
+
+        # onigenc_apply_all_case_fold_with_map
+        def apply_all_case_fold_with_map: (untyped map, untyped ess_tsett) { (untyped, untyped) -> untyped } -> untyped
+
+        # onigenc_get_case_fold_codes_by_str_with_map, for a byte map.
+        def case_fold_codes_by_str_with_map: (untyped map, untyped ess_tsett, untyped s, untyped p, untyped e) -> (::Array[::Array[1 | ::Array[untyped]]] | untyped)
+
+        # onigenc_minimum_property_name_to_ctype
+        MINIMUM_PROPERTIES: { "Alnum" => untyped, "Alpha" => untyped, "Blank" => untyped, "Cntrl" => untyped, "Digit" => untyped, "Graph" => untyped, "Lower" => untyped, "Print" => untyped, "Punct" => untyped, "Space" => untyped, "Upper" => untyped, "XDigit" => untyped, "ASCII" => untyped, "Word" => untyped }
+
+        # The name at `p` is read under `reader`: the encoding itself, or
+        # ASCII for the names the parser writes (propname2ctype).
+        def minimum_property_name_to_ctype: (untyped s, untyped p, untyped e, ?untyped reader) -> untyped
+
+        def property_name_to_ctype: (untyped s, untyped p, untyped e, ?untyped reader) -> untyped
+
+        # What the kernel's matcher reads of this encoding (lib/zr/runtime/kernel/
+        # onig_enc.rb): the kind of its primitives, then the tables they
+        # read, as lib/zr/runtime/core/regexp/onig/program.rb lays them out.
+        def descriptor: () -> untyped
+
+        def kernel_tables: () -> ::Hash[untyped, untyped]
+      end
+
+      # The kinds of encoding that the kernel's matcher distinguishes, in
+      # lib/zr/runtime/kernel/onig_enc.rb's numbering.
+      KIND_SINGLE_BYTE: 0
+
+      KIND_UTF8: 1
+
+      KIND_EUC_JP: 2
+
+      KIND_SHIFT_JIS: 3
+
+      KIND_TRAIL: 4
+
+      KIND_EUC_KR: 5
+
+      KIND_EUC_TW: 6
+
+      KIND_GB18030: 7
+
+      KIND_EMACS_MULE: 8
+
+      KIND_CESU8: 9
+
+      KIND_UTF16LE: 10
+
+      KIND_UTF16BE: 11
+
+      KIND_UTF32LE: 12
+
+      KIND_UTF32BE: 13
+
+      # The descriptor's header: eight 64-bit words (kind, min_len,
+      # max_len, flags, then the offsets of the len, trail, lower and
+      # word tables), two more (trans, map) and the tables after it. An
+      # offset of 0 is a table the encoding has none of.
+      DESCRIPTOR_TABLES: ::Array[:len | :trail | :lower | :word | :trans | :map]
+
+      def self.descriptors: () -> untyped
+
+      FLAG_SHARP_S: 1
+
+      def self.descriptor: (untyped kind, untyped min_len, untyped max_len, untyped tables) -> untyped
+
+      # OnigEncAsciiCtypeTable
+      def self.ascii_ctype?: (untyped code, untyped ctype) -> untyped
+
+      # A single-byte encoding: ASCII-8BIT and US-ASCII with the ASCII
+      # tables, the others with their own ctype bits, lower-case table
+      # and fold pairs (EncTables::SINGLE_BYTE).
+      class SingleByte < Base
+        @name: untyped
+
+        @ctype: untyped
+
+        @lower: untyped
+
+        @fold: untyped
+
+        @sharp_s: untyped
+
+        @map: untyped
+
+        @ess_tsett: untyped
+
+        @us_ascii: untyped
+
+        attr_reader name: untyped
+
+        # `ctype` nil reads the ASCII table (onigenc_ascii_is_code_ctype);
+        # `fold` is :ascii (onigenc_ascii_*), :map (the *_with_map pair)
+        # or :iso_8859_1 (its own get_case_fold_codes_by_str).
+        def initialize: (untyped name, untyped ctype, untyped lower, untyped fold, untyped sharp_s, untyped map, untyped ess_tsett, ?us_ascii: bool) -> void
+
+        def max_len: () -> 1
+
+        def min_len: () -> 1
+
+        # onigenc_single_byte_mbc_enc_len; us_ascii_mbc_enc_len refuses
+        # a byte past ASCII.
+        def precise_len: (untyped s, untyped p, untyped _e) -> (untyped | 1)
+
+        def mbc_to_code: (untyped s, untyped p, untyped _e) -> untyped
+
+        # onigenc_single_byte_code_to_mbclen and _code_to_mbc as ruby
+        # builds them: one byte for any code, and a code past a byte
+        # refused as ruby refuses it.
+        def code_to_mbclen: (untyped _code) -> 1
+
+        def code_to_mbc: (untyped code) -> untyped
+
+        def left_adjust_char_head: (untyped _s, untyped _start, untyped p, untyped _e) -> untyped
+
+        def code_ctype?: (untyped code, untyped ctype) -> (untyped | false)
+
+        # [the folded bytes, the bytes read]
+        def mbc_case_fold: (untyped flag, untyped s, untyped p, untyped _e) -> ::Array[untyped | 1]
+
+        def apply_all_case_fold: (untyped _flag) { (?) -> untyped } -> untyped
+
+        def case_fold_codes_by_str: (untyped _flag, untyped s, untyped p, untyped e) -> untyped
+
+        # iso_8859_1.c get_case_fold_codes_by_str
+        def iso_8859_1_case_fold_codes_by_str: (untyped s, untyped p, untyped e) -> untyped
+
+        def kernel_kind: () -> untyped
+
+        # The lower-case byte of each byte (the ASCII one for an :ascii
+        # fold) and whether each byte is a word character.
+        def kernel_tables: () -> { lower: untyped, word: untyped, sharp_s: untyped }
+      end
+
+      ASCII_ENC: untyped
+
+      US_ASCII_ENC: untyped
+
+      # The Onigmo encoding a String in `encoding` is read with: a dummy
+      # encoding reads as ASCII-8BIT, which ruby replicates it from.
+      def self.reader: (untyped encoding) -> untyped
+
+      # The Onigmo encoding that reads ruby's `encoding` (a replica reads
+      # with its base's), made once.
+      def self.for: (untyped encoding) -> untyped
+
+      def self.build: (untyped name) -> untyped
+    end
+  end
+end

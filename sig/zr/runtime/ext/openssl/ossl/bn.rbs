@@ -1,0 +1,182 @@
+# ossl_bn.c: OpenSSL::BN over OpenSSL's BIGNUM.
+module OpenSSL
+  module Lib
+    # BN_num_bytes (bn.h).
+    def self.BN_num_bytes: (untyped bn) -> untyped
+
+    # BN_mod (bn.h).
+    def self.BN_mod: (untyped rem, untyped m, untyped d, untyped ctx) -> untyped
+  end
+
+  class BNError < OpenSSLError
+  end
+
+  class BN
+  end
+
+  module Ossl
+    self.@bn_ctx: untyped
+
+    BIGNUM: untyped
+
+    # ossl_bn_ctx_get: the BN_CTX every operation borrows, made once.
+    def self.bn_ctx: () -> untyped
+
+    # GetBN.
+    def self.bn_of: (untyped object) -> untyped
+
+    def self.new_bignum: () -> untyped
+
+    # ossl_bn_new: a BN holding a copy of `bn`.
+    def self.bn_new: (untyped bn) -> untyped
+
+    # try_convert_to_bn: `object` as a BN, or nil.
+    def self.try_bn: (untyped object) -> (untyped | nil)
+
+    # GetBNPtr: `object` as a BN, whose BIGNUM the caller reads while it
+    # keeps a reference to the object.
+    def self.to_bn: (untyped object) -> untyped
+
+    # integer_to_bnptr: `integer`'s magnitude and sign into `orig`, or
+    # into a new BIGNUM for nil.
+    def self.integer_to_bignum: (untyped integer, untyped orig) -> untyped
+
+    # A BN of `klass` that owns `result`, made by `yield` into a new
+    # BIGNUM, which is freed when `yield` fails.
+    def self.bn_result: (untyped klass) { (untyped) -> untyped } -> untyped
+
+    # The text OpenSSL allocated at `address`, freed once read.
+    def self.take_text: (untyped address) -> untyped
+  end
+
+  class BN
+    def initialize: (untyped str, ?untyped base) -> void
+
+    def initialize_copy: (untyped other) -> self
+
+    alias copy initialize_copy
+
+    def to_s: (?::Integer base) -> untyped
+
+    def to_i: () -> untyped
+
+    alias to_int to_i
+
+    def to_bn: () -> self
+
+    def coerce: (untyped other) -> untyped
+
+    def zero?: () -> untyped
+
+    def one?: () -> untyped
+
+    def odd?: () -> untyped
+
+    def negative?: () -> untyped
+
+    def sqr: () -> untyped
+
+    def +: (untyped other) -> untyped
+
+    def -: (untyped other) -> untyped
+
+    def *: (untyped other) -> untyped
+
+    def %: (untyped other) -> untyped
+
+    def **: (untyped other) -> untyped
+
+    def gcd: (untyped other) -> untyped
+
+    def mod_sqr: (untyped other) -> untyped
+
+    def mod_sqrt: (untyped other) -> untyped
+
+    def mod_inverse: (untyped other) -> untyped
+
+    def /: (untyped other) -> ::Array[untyped]
+
+    def mod_add: (untyped other1, untyped other2) -> untyped
+
+    def mod_sub: (untyped other1, untyped other2) -> untyped
+
+    def mod_mul: (untyped other1, untyped other2) -> untyped
+
+    def mod_exp: (untyped other1, untyped other2) -> untyped
+
+    def set_bit!: (untyped bit) -> untyped
+
+    def clear_bit!: (untyped bit) -> untyped
+
+    def mask_bits!: (untyped bit) -> untyped
+
+    def bit_set?: (untyped bit) -> untyped
+
+    def <<: (untyped bits) -> untyped
+
+    def >>: (untyped bits) -> untyped
+
+    def lshift!: (untyped bits) -> untyped
+
+    def rshift!: (untyped bits) -> untyped
+
+    def self.rand: (untyped bits, *untyped rest) -> untyped
+
+    def self.rand_range: (untyped range) -> untyped
+
+    def self.generate_prime: (untyped num, ?bool safe, ?untyped? add, ?untyped? rem) -> untyped
+
+    def num_bytes: () -> untyped
+
+    def num_bits: () -> untyped
+
+    def +@: () -> untyped
+
+    def -@: () -> untyped
+
+    def abs: () -> untyped
+
+    def cmp: (untyped other) -> untyped
+
+    alias <=> cmp
+
+    def ucmp: (untyped other) -> untyped
+
+    def eql?: (untyped other) -> (false | untyped)
+
+    def hash: () -> untyped
+
+    def ==: (untyped other) -> (false | untyped)
+
+    alias === ==
+
+    def prime?: (*untyped checks) -> untyped
+
+    def prime_fasttest?: (*untyped args) -> untyped
+
+    def get_flags: (untyped flags) -> untyped
+
+    def set_flags: (untyped flags) -> nil
+
+    private
+
+    # BIGNUM_2 and BIGNUM_2c: an operation of this BN and another into a
+    # new BN of this one's class.
+    def binary: (untyped other) { (untyped, untyped, untyped) -> untyped } -> untyped
+
+    # BIGNUM_2cr: an operation that returns a new BIGNUM itself.
+    def returning: (untyped other) { (untyped, untyped) -> untyped } -> untyped
+
+    # BIGNUM_3c.
+    def ternary: (untyped other1, untyped other2) { (untyped, untyped, untyped, untyped) -> untyped } -> untyped
+
+    # BIGNUM_BIT.
+    def bit_operation: (untyped bit) { (untyped, untyped) -> untyped } -> self
+
+    # BIGNUM_SHIFT.
+    def shift: (untyped bits) { (untyped, untyped, untyped) -> untyped } -> untyped
+
+    # BIGNUM_SELF_SHIFT.
+    def self_shift: (untyped bits) { (untyped, untyped) -> untyped } -> self
+  end
+end

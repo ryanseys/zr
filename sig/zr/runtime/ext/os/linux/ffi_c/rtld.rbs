@@ -1,0 +1,29 @@
+# musl's dlopen(3) flags, with FFI::DynamicLibrary's names for them: the
+# ones that musl does not have are 0, and ffi_c builds the masks from the rest.
+module FFI
+  class DynamicLibrary
+    RTLD_LAZY: 1
+
+    RTLD_NOW: 2
+
+    RTLD_GLOBAL: 256
+
+    RTLD_LOCAL: 0
+
+    RTLD_NOLOAD: 4
+
+    RTLD_NODELETE: 4096
+
+    RTLD_FIRST: 0
+
+    RTLD_DEEPBIND: 0
+
+    RTLD_MEMBER: 0
+
+    RTLD_BINDING_MASK: 3
+
+    RTLD_LOCATION_MASK: 256
+
+    RTLD_ALL_MASK: 4359
+  end
+end

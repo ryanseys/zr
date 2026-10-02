@@ -1,0 +1,36 @@
+module Zr
+  module Backend
+    # The aarch64 backend. `Codegen` writes each function's machine code
+    # with our own `Assembler`. `Obj::Relocs::Aarch64` patches the
+    # relocations that it records. `Stub` contains the functions that the machine dialect cannot express.
+    module Aarch64
+      # Returns one `Obj::Unit` from the compiled `functions`, the `raw`
+      # functions without change, and `data`. `export` makes every data object
+      # visible to the linker, for an object that another object refers to.
+      # A given block assembles the functions, in order, from the functions and
+      # the unit's defined names (`Native::Build.unit` assembles in workers).
+      def self?.unit: (untyped functions, untyped data, ?raw: untyped, ?export: bool, ?allocate: bool) ?{ (untyped, untyped) -> untyped } -> untyped
+
+      # Returns one function's machine code. `defined` returns true when a
+      # symbol is defined in this unit.
+      def self?.assemble: (untyped function, untyped defined, ?allocate: bool) -> untyped
+
+      # The names that a lowering gives to its output: its entry, and every
+      # name that it makes from the entry. A unit that is assembled during
+      # lowering uses these to know its own symbols before all of them exist.
+      class Spelled
+        @entry: untyped
+
+        attr_reader entry: untyped
+
+        def initialize: (untyped entry) -> void
+
+        def include?: (untyped name) -> untyped
+
+        def to_set: () -> self
+      end
+
+      def self?.exported: (untyped d) -> untyped
+    end
+  end
+end

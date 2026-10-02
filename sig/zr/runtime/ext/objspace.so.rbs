@@ -1,0 +1,94 @@
+# `objspace.so`: the C half of ext/objspace, over the kernel's walk of the
+# heap (lib/zr/runtime/kernel/objspace.rb). The Ruby half, objspace.rb, is ruby's own.
+# Sizes are this runtime's: a cell is 128 bytes, and what a String, an
+# Array or a Hash keeps outside its cell counts with it.
+module ObjectSpace
+  # What reachable_objects_from returns for a cell that no program can
+  # reach: the cell seen from outside, as its address and its type.
+  class InternalObjectWrapper
+    def self.of: (untyped address, untyped type) -> untyped
+
+    def type: () -> untyped
+
+    def internal_object_id: () -> untyped
+
+    def inspect: () -> ::String
+  end
+
+  # count_objects_size and dump name a type as CRuby's heap tags it.
+  HEAP_TYPES: ::Array[::Array[untyped | "STRING"] | ::Array[untyped | "ARRAY"] | ::Array[untyped | "HASH"] | ::Array[untyped | "CLASS"] | ::Array[untyped | "MODULE"] | ::Array[untyped | "FLOAT"] | ::Array[untyped | "REGEXP"] | ::Array[untyped | "SYMBOL"] | ::Array[untyped | "STRUCT"] | ::Array[untyped | "BIGNUM"] | ::Array[untyped | "FILE"] | ::Array[untyped | "MATCH"] | ::Array[untyped | "COMPLEX"] | ::Array[untyped | "RATIONAL"] | ::Array[untyped | "DATA"]]
+
+  # The types in the order of CRuby's tags.
+  TYPE_ORDER: ::Array["OBJECT" | "CLASS" | "MODULE" | "FLOAT" | "STRING" | "REGEXP" | "ARRAY" | "HASH" | "STRUCT" | "BIGNUM" | "FILE" | "DATA" | "MATCH" | "COMPLEX" | "RATIONAL" | "SYMBOL"]
+
+  def self?.memsize_of: (untyped obj) -> untyped
+
+  def self?.memsize_of_all: (?untyped? klass) -> untyped
+
+  def self?.count_objects_size: (?::Hash[untyped, untyped] result) -> untyped
+
+  # Every symbol lives as long as the program: none is mortal.
+  def self?.count_symbols: (?::Hash[untyped, untyped] result) -> untyped
+
+  # A program here keeps no parse nodes once it is compiled.
+  def self?.count_nodes: (?::Hash[untyped, untyped] result) -> untyped
+
+  def self?.count_tdata_objects: (?::Hash[untyped, untyped] result) -> untyped
+
+  def self?.count_imemo_objects: (?::Hash[untyped, untyped] result) -> untyped
+
+  # A Bignum's class is no reference the collector follows.
+  def self?.reachable_objects_from: (untyped obj) -> (nil | ::Array[untyped] | untyped)
+
+  def self?.reachable_objects_from_root: () -> untyped
+
+  def self?.internal_class_of: (untyped obj) -> untyped
+
+  def self?.internal_super_of: (untyped klass) -> untyped
+
+  def self?.trace_object_allocations: () ?{ () -> untyped } -> untyped
+
+  def self?.trace_object_allocations_start: () -> untyped
+
+  def self?.trace_object_allocations_stop: () -> untyped
+
+  def self?.trace_object_allocations_clear: () -> untyped
+
+  def self?.trace_object_allocations_debug_start: () -> untyped
+
+  def self?.allocation_sourcefile: (untyped obj) -> untyped
+
+  def self?.allocation_sourceline: (untyped obj) -> untyped
+
+  def self?.allocation_class_path: (untyped obj) -> untyped
+
+  def self?.allocation_method_id: (untyped obj) -> untyped
+
+  def self?.allocation_generation: (untyped obj) -> untyped
+
+  def self?._dump: (untyped obj, untyped out) -> untyped
+
+  def self?._dump_all: (untyped out, untyped full, untyped since, untyped shapes) -> untyped
+
+  # Shapes are CRuby's layout of instance variables; this runtime has none.
+  def self?._dump_shapes: (untyped out, untyped since) -> untyped
+
+  private
+
+  def self.heap_type: (untyped obj) -> untyped
+
+  # One object as dump writes it (dump_append_special_const): a special
+  # constant as its JSON value, a static Symbol as its name, a flonum in
+  # "%#g", and anything else as an object with its address, type and
+  # class, on a line of its own.
+  def self.dumped: (untyped obj) -> ("null" | untyped | ::String)
+
+  def self.dumped_cell: (untyped obj) -> ::String
+
+  # "%p": the address in hex, without the zeros in front.
+  def self.address: (untyped obj) -> untyped
+
+  def self.json: (untyped value) -> untyped
+
+  def self.written: (untyped out, untyped text) -> untyped
+end

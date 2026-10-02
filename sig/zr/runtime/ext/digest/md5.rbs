@@ -1,0 +1,4 @@
+module Digest
+  class MD5 < Base
+  end
+end

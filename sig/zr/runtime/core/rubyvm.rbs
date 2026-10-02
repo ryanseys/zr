@@ -1,0 +1,188 @@
+# RubyVM: what CRuby tells a program about its virtual machine. This
+# runtime compiles every file with prism ahead of time, so it behaves as
+# a CRuby whose instruction sequences prism compiled, with YJIT off.
+class RubyVM
+  OPTS: ::Array["direct threaded code" | "operands unification" | "inline method cache"]
+
+  DEFAULT_PARAMS: { thread_vm_stack_size: 1048576, thread_machine_stack_size: 1048576, fiber_vm_stack_size: 131072, fiber_machine_stack_size: 524288 }
+
+  INSTRUCTION_NAMES: ::Array[untyped]
+
+  KEEP_SCRIPT_LINES: ::Array[false]
+
+  def self.keep_script_lines: () -> untyped
+
+  def self.keep_script_lines=: (untyped flag) -> untyped
+
+  def self.stat: (?untyped? key) -> untyped
+
+  # A handle on compiled code: a block or a method written in Ruby, or a
+  # string compiled by the compiler that a program links in when it
+  # refers to this class. There is no bytecode to show, so the forms
+  # that read bytecode are refusals.
+  class InstructionSequence
+    def self.of: (untyped body) -> (nil | untyped)
+
+    def self.compile: (untyped source, ?untyped file, ?untyped path, ?::Integer line, ?untyped? options) -> untyped
+
+    alias self.compile_prism self.compile
+
+    alias self.compile_parsey self.compile
+
+    alias self.new self.compile
+
+    def self.compile_file: (untyped file, ?untyped? options) -> untyped
+
+    alias self.compile_file_prism self.compile_file
+
+    # The options CRuby's compiler starts with. Nothing here reads
+    # them: a string compiles to machine code.
+    COMPILE_OPTION: { inline_const_cache: true, peephole_optimization: true, tailcall_optimization: false, specialized_instruction: true, operands_unification: true, instructions_unification: false, debug_frozen_string_literal: false, coverage_enabled: true, debug_level: 0, frozen_string_literal: nil }
+
+    def self.compile_option: () -> untyped
+
+    def self.compile_option=: (untyped options) -> nil
+
+    def self.disasm: (untyped body) -> untyped
+
+    alias self.disassemble self.disasm
+
+    # There is no bytecode to load: every binary is one this runtime
+    # cannot read.
+    def self.load_from_binary: (untyped binary) -> untyped
+
+    def self.load_from_binary_extra_data: (untyped binary) -> untyped
+
+    private
+
+    # The code a frame runs, by the address of its FrameMeta, as a
+    # debugger reads a frame's.
+    def self.of_frame: (untyped meta_word) -> untyped
+
+    def self.made: (untyped body, untyped code, untyped label, untyped base_label, untyped path, untyped line) -> untyped
+
+    public
+
+    def label: () -> untyped
+
+    def base_label: () -> untyped
+
+    def path: () -> untyped
+
+    def first_lineno: () -> untyped
+
+    # The path where the file was found, or nil for code that is not from a file.
+    def absolute_path: () -> untyped
+
+    # A compiled string runs at the top level, under main and Object. A
+    # block's or a method's code is no whole program, as ruby says.
+    def eval: () -> untyped
+
+    def inspect: () -> ::String
+
+    def disasm: () -> untyped
+
+    alias disassemble disasm
+
+    def to_a: () -> untyped
+
+    # The :line events of this code: each statement that starts a line,
+    # as prism flags it, outside the methods, blocks and class bodies in
+    # it, which are code of their own.
+    def trace_points: () -> untyped
+
+    # The code that this code contains directly: each method, block and
+    # class body it writes, in the order the compiler finds them.
+    def each_child: () { (?) -> untyped } -> (untyped | self)
+
+    # Only a whole program's code has a binary form.
+    def to_binary: (?untyped? extra_data) -> untyped
+
+    def script_lines: () -> nil
+
+    private
+
+    # The child code under `node`, as iseqs made of their labels: a def
+    # is its name, a block is "block in" the code around it, a class
+    # body "<class:Name>". Their own children are theirs, not these.
+    def nested: (untyped node, untyped handlers, untyped out) -> untyped
+
+    # The tree of this code: the parsed string, or the node of a child.
+    # The code of a running frame has neither.
+    def syntax: () -> untyped
+
+    # A :line event for each statement under `node` that starts a line
+    # other than the last event's, as the compiler emits them, outside the
+    # code of its own that a def, block, class body or rescue clause is.
+    # An ensure clause is both: the compiler puts a copy of it inline.
+    def line_events: (untyped node, untyped lines) -> untyped
+
+    # The branch that an if or unless with a literal condition takes (false
+    # when there is none), or nil for any other node.
+    def live_branch: (untyped node) -> (nil | untyped)
+
+    # Whether `node` is code of its own: a def, a block or a class body.
+    def scope?: (untyped node) -> untyped
+  end
+
+  module AbstractSyntaxTree
+    class Node
+    end
+
+    class Location
+    end
+
+    # The translator (lib/zr/runtime/lib/zr/ast.rb) that a program links in when
+    # it refers to this module. lib/zr/runtime/lib/zr/syntax_tree.rb loads it
+    # before the program's first line. It defines the two classes above,
+    # so a program that refers to only one of them finds it complete.
+    def self.translator: () -> untyped
+
+    # The tree parse.y would build, which the translator rebuilds from
+    # prism's.
+    def self.parse: (untyped string, ?keep_script_lines: untyped, ?error_tolerant: bool, ?keep_tokens: bool) -> untyped
+
+    def self.parse_file: (untyped pathname, ?keep_script_lines: untyped, ?error_tolerant: bool, ?keep_tokens: bool) -> untyped
+
+    # The AST of the code that `body` runs. Every ISEQ here is prism's, so
+    # a body written in Ruby refuses as ast_s_of refuses one. A method or a
+    # Proc that the runtime includes has no ISEQ and returns nil.
+    def self.of: (untyped body, ?keep_script_lines: untyped, ?error_tolerant: bool, ?keep_tokens: bool) -> nil
+
+    # The id of the prism node that the location's line ran, or nil
+    # where no Ruby code ran there.
+    def self.node_id_for_backtrace_location: (untyped backtrace_location) -> untyped
+  end
+
+  module YJIT
+    def self.enabled?: () -> false
+
+    def self.enable: (**untyped) -> false
+
+    def self.stats_enabled?: () -> false
+
+    def self.log_enabled?: () -> false
+
+    def self.trace_exit_locations_enabled?: () -> false
+
+    def self.runtime_stats: (?untyped? key) -> nil
+
+    def self.stats_string: () -> untyped
+
+    def self.insns_compiled: (untyped iseq) -> nil
+
+    def self.exit_locations: () -> nil
+
+    def self.log: () -> nil
+
+    def self.reset_stats!: () -> nil
+
+    def self.code_gc: () -> nil
+
+    def self.disasm: (untyped iseq) -> nil
+
+    def self.dump_exit_locations: (untyped filename) -> untyped
+
+    def self.simulate_oom!: () -> nil
+  end
+end

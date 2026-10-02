@@ -1,0 +1,12 @@
+# `require "io/nonblock"`: O_NONBLOCK on the descriptor. ruby adds these
+# methods at the require, so a program that never requires the feature
+# does not have them.
+class IO
+  def nonblock?: () -> untyped
+
+  def nonblock=: (untyped on) -> untyped
+
+  # The flag for the length of a block, and then back as it was. CRuby's
+  # reader form takes that block, so a call with none raises.
+  def nonblock: (*untyped args) ?{ () -> untyped } -> untyped
+end

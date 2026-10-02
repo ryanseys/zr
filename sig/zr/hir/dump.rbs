@@ -1,0 +1,67 @@
+module Zr
+  module Hir
+    # One S-expression per node, one node per line, indented by depth. The
+    # files in `test/hir/` contain this exact form.
+    module Dump
+      def self?.program: (untyped p) -> untyped
+
+      def self?.node: (untyped n, untyped depth, untyped lines) -> untyped
+
+      def self?.dump_send: (untyped n, untyped depth, untyped lines) -> untyped
+
+      def self?.dump_block: (untyped n, untyped depth, untyped lines) -> untyped
+
+      def self?.dump_super: (untyped n, untyped depth, untyped lines) -> untyped
+
+      def self?.dump_yield: (untyped n, untyped depth, untyped lines) -> untyped
+
+      def self?.dump_def: (untyped n, untyped depth, untyped lines) -> untyped
+
+      def self?.dump_multi_assign: (untyped n, untyped depth, untyped lines) -> untyped
+
+      def self?.dump_multi_target: (untyped n, untyped depth, untyped lines) -> untyped
+
+      def self?.dump_if: (untyped n, untyped depth, untyped lines) -> untyped
+
+      def self?.dump_while: (untyped n, untyped depth, untyped lines) -> untyped
+
+      def self?.dump_begin: (untyped n, untyped depth, untyped lines) -> untyped
+
+      def self?.dump_rescue: (untyped n, untyped depth, untyped lines) -> untyped
+
+      def self?.dump_class_def: (untyped n, untyped depth, untyped lines) -> untyped
+
+      def self?.dump_singleton_class_def: (untyped n, untyped depth, untyped lines) -> untyped
+
+      def self?.dump_const_write: (untyped n, untyped depth, untyped lines) -> untyped
+
+      def self?.dump_range: (untyped n, untyped depth, untyped lines) -> untyped
+
+      def self?.dump_const_or_write: (untyped n, untyped depth, untyped lines) -> untyped
+
+      def self?.dump_alias_value: (untyped n, untyped depth, untyped lines) -> untyped
+
+      def self?.dump_defined: (untyped n, untyped depth, untyped lines) -> untyped
+
+      def self?.dump_case: (untyped n, untyped depth, untyped lines) -> untyped
+
+      def self?.dump_index_op_assign: (untyped n, untyped depth, untyped lines) -> untyped
+
+      def self?.dump_attr_op_assign: (untyped n, untyped depth, untyped lines) -> untyped
+
+      def self?.dump_autoload: (untyped n, untyped depth, untyped lines) -> untyped
+
+      # `a b= *r c k: k2:= **kw &blk`: each parameter as its syntax.
+      def self?.params: (untyped p) -> untyped
+
+      def self?.param_name: (untyped r) -> (untyped | ::String)
+
+      # The default expressions, optional then keyword, as child nodes.
+      def self?.defaults: (untyped p, untyped depth, untyped lines) -> untyped
+
+      def self?.scope: (untyped s) -> untyped
+
+      def self?.kind: (untyped value) -> untyped
+    end
+  end
+end

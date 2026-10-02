@@ -1,0 +1,73 @@
+module Prism
+  module Ruby
+    # util/pm_constant_pool.c: every name the parser interns, numbered from 1
+    # in the order first seen. A constant is a slice of the source (shared),
+    # bytes the parser made (owned), or a name from outside the source such
+    # as an eval scope's local (constant); a shared insert upgrades an owned
+    # entry, and a constant insert upgrades an owned one too.
+    #
+    # Lookups go through a Hash. The C table's buckets matter only to a dump,
+    # which writes owned bytes in bucket order, so `each_bucket` replays the
+    # inserts through pm_constant_pool's own hash, sizing and probing.
+    class ConstantPool
+      @source: untyped
+
+      @initial_capacity: untyped
+
+      # The sizes at which an insert grew the C table, which it checks
+      # before looking for the bytes, so a repeated name can grow it too.
+      @resizes: untyped
+
+      @ids: untyped
+
+      # [bytes, type, source offset]
+      @constants: untyped
+
+      @capacity: untyped
+
+      SHARED: 0
+
+      OWNED: 1
+
+      CONSTANT: 2
+
+      def initialize: (untyped source, untyped capacity) -> void
+
+      def size: () -> untyped
+
+      # pm_constant_pool_insert_shared
+      def insert_shared: (untyped start, untyped length) -> untyped
+
+      # pm_constant_pool_insert_owned
+      def insert_owned: (untyped bytes) -> untyped
+
+      # pm_constant_pool_insert_constant
+      def insert_constant: (untyped bytes) -> untyped
+
+      # pm_constant_pool_find: the id, or 0.
+      def find: (untyped bytes) -> untyped
+
+      # The bytes of the constant numbered `id`.
+      def bytes: (untyped id) -> untyped
+
+      # Each constant as `[id, bytes, source offset or nil]`, in the order of
+      # the C table's buckets.
+      def each_bucket: () { (untyped, untyped, untyped) -> untyped } -> untyped
+
+      private
+
+      def insert: (untyped bytes, untyped type, untyped start) -> untyped
+
+      # pm_constant_pool_hash: djb2 over the bytes, in 32 bits.
+      def hash_of: (untyped bytes) -> untyped
+
+      def next_power_of_two: (untyped value) -> (1 | untyped)
+
+      # The bucket array the C inserts leave, grown where they grew it; a
+      # resize walks the old buckets in index order.
+      def replay: () -> untyped
+
+      def place: (untyped buckets, untyped hash, untyped id) -> untyped
+    end
+  end
+end

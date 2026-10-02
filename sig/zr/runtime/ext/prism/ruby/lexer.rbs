@@ -1,0 +1,162 @@
+module Prism
+  module Ruby
+    # parser_lex: the next token, moved into @current_* with the one before
+    # it in @previous_*. The default mode (also the embedded expression and
+    # variable modes) is here; the string, list, regexp and heredoc modes
+    # are in lex_modes.rb.
+    class Parser
+      @previous_type: untyped
+
+      @previous_start: untyped
+
+      @previous_end: untyped
+
+      @command_start: untyped
+
+      @semantic_token_seen: untyped
+
+      @current_type: untyped
+
+      @current_end: untyped
+
+      @heredoc_end: untyped
+
+      @next_start: untyped
+
+      @lex_state: untyped
+
+      @current_start: untyped
+
+      @enclosure_nesting: untyped
+
+      @brace_nesting: untyped
+
+      @explicit_encoding: untyped
+
+      @data_loc: untyped
+
+      private
+
+      # parser_lex
+      def lex: () -> untyped
+
+      # LEX: the token is done.
+      def lex_token: (untyped type) -> nil
+
+      # The default mode. Each turn of the loop is C's `lex_next_token`, the
+      # label a comment, an ignored newline or an invalid token jumps back to.
+      def lex_default: (untyped previous_command_start, untyped semantic_token_seen) -> (untyped | nil)
+
+      # The whitespace before a token, and escaped newlines: whether any was
+      # seen (CRuby's space_seen).
+      def skip_space: () -> untyped
+
+      # A # comment to the end of its line, which may be a magic comment.
+      def lex_comment: (untyped semantic_token_seen) -> (nil | untyped)
+
+      # parser_lex_ignored_newline
+      def lex_ignored_newline: () -> untyped
+
+      # parser_flush_heredoc_end
+      def flush_heredoc_end: () -> untyped
+
+      # parser_end_of_line_p: only inline whitespace before a newline or a
+      # comment.
+      def end_of_line?: () -> (false | true)
+
+      # The newline after a comment or on its own. It returns :again to lex
+      # the next token instead (an ignored newline), :done when the token is
+      # set and reported, or nil for a NEWLINE token whose report depends
+      # on whether a comment came before.
+      def lex_newline: (untyped lexed_comment, untyped semantic_token_seen) -> (:done | :again | untyped | nil)
+
+      # `&&`, `||`, `and` or `or` at `at`, as a line may start with them.
+      def logical_operator_at?: (untyped at) -> untyped
+
+      # The ignored newline, then the operator that starts the next line.
+      def newline_operator: (untyped lexed_comment, untyped state, untyped at, untyped length, untyped type) -> :done
+
+      # ( as a call's parentheses or a grouping's
+      def lex_parenthesis_left: (untyped space_seen) -> untyped
+
+      # [ [] []=
+      def lex_bracket_left: (untyped space_seen) -> (untyped | :BRACKET_LEFT)
+
+      # { as a lambda's body, a hash, or a block
+      def lex_brace_left: () -> untyped
+
+      # } which may end an embedded expression
+      def lex_brace_right: () -> (:EMBEXPR_END | :BRACE_RIGHT)
+
+      # The state after an operator: an operator method name takes
+      # arguments.
+      def operator_state: () -> untyped
+
+      # * ** **= *=
+      def lex_star: (untyped space_seen) -> (:STAR_STAR_EQUAL | untyped | :STAR_EQUAL)
+
+      # ambiguous_operator_p, CRuby's warn_balanced
+      def ambiguous_operator?: (untyped space_seen) -> untyped
+
+      # ! != !~ !@
+      def lex_bang: () -> (:BANG | :BANG_EQUAL | :BANG_TILDE)
+
+      # = => =~ == === and =begin at the start of a line
+      def lex_equal: () -> (untyped | :EQUAL_GREATER | :EQUAL_TILDE | :EQUAL)
+
+      # < << <<= <= <=> and a heredoc's start
+      def lex_less: (untyped space_seen) -> (untyped | :LESS_LESS_EQUAL | :LESS_LESS | :LESS_EQUAL_GREATER | :LESS_EQUAL | :LESS)
+
+      # A heredoc's start after <<: :HEREDOC_START with the heredoc mode
+      # pushed, or nil to lex << as an operator.
+      def lex_heredoc_start: () -> (nil | :HEREDOC_START)
+
+      # > >> >>= >=
+      def lex_greater: () -> untyped
+
+      # ` as a method name or an xstring's start
+      def lex_backtick: (untyped previous_command_start) -> :BACKTICK
+
+      # & && &&= &= &.
+      def lex_ampersand: (untyped space_seen) -> (untyped | :AMPERSAND_EQUAL | :AMPERSAND_DOT)
+
+      # | || ||= |=
+      def lex_pipe: () -> (:PIPE_PIPE_EQUAL | :PIPE | :PIPE_PIPE | :PIPE_EQUAL)
+
+      # + += +@ and a signed number
+      def lex_plus: (untyped space_seen) -> (untyped | :PLUS_EQUAL | :UPLUS | :PLUS)
+
+      # - -= -@ -> and a negative number's sign
+      def lex_minus: (untyped space_seen) -> (untyped | :MINUS_EQUAL | :MINUS_GREATER | :MINUS)
+
+      # . .. ...
+      def lex_dot: () -> (:UDOT_DOT_DOT | untyped | :DOT)
+
+      # : :: and a symbol's start
+      def lex_colon: (untyped space_seen) -> (:UCOLON_COLON | :COLON_COLON | :COLON | :SYMBOL_BEGIN)
+
+      # / /= and a regexp's start
+      def lex_slash: (untyped space_seen) -> (:REGEXP_BEGIN | :SLASH_EQUAL | :SLASH)
+
+      # pm_lex_percent_delimiter: the delimiter after %, a newline counting
+      # as \n.
+      def lex_percent_delimiter: () -> untyped
+
+      # % %= and the %-literals
+      def lex_percent: (untyped space_seen) -> (:PERCENT | :PERCENT_EQUAL | :STRING_BEGIN | nil | untyped)
+
+      # %i %I %r %q %Q %s %w %W %x: the literal's start, or nil for an
+      # unknown letter (with an error, and the % dropped).
+      def lex_percent_literal: () -> untyped
+
+      # An identifier, a keyword, __END__, or an invalid character: the type,
+      # or nil (with an error) to lex the next token instead.
+      def lex_word: (untyped previous_command_start) -> (nil | :EOF | untyped)
+
+      # The error for a byte no token starts with.
+      def invalid_character: (untyped first) -> untyped
+
+      def escaped_ignore: (untyped what) -> untyped
+    end
+  end
+end

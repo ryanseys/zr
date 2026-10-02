@@ -1,0 +1,410 @@
+# ossl_ssl.c: OpenSSL::SSL, SSLContext over SSL_CTX and SSLSocket over
+# SSL on the socket's descriptor, with the library's callbacks calling the
+# context's procs.
+module OpenSSL
+  module Lib
+    CRYPTO_EX_INDEX_SSL: 0
+
+    CRYPTO_EX_INDEX_SSL_CTX: 1
+
+    SSL_CTRL_EXTRA_CHAIN_CERT: 14
+
+    SSL_CTRL_SESS_NUMBER: 20
+
+    SSL_CTRL_SESS_CONNECT: 21
+
+    SSL_CTRL_SESS_CONNECT_GOOD: 22
+
+    SSL_CTRL_SESS_CONNECT_RENEGOTIATE: 23
+
+    SSL_CTRL_SESS_ACCEPT: 24
+
+    SSL_CTRL_SESS_ACCEPT_GOOD: 25
+
+    SSL_CTRL_SESS_ACCEPT_RENEGOTIATE: 26
+
+    SSL_CTRL_SESS_HIT: 27
+
+    SSL_CTRL_SESS_CB_HIT: 28
+
+    SSL_CTRL_SESS_MISSES: 29
+
+    SSL_CTRL_SESS_TIMEOUTS: 30
+
+    SSL_CTRL_SESS_CACHE_FULL: 31
+
+    SSL_CTRL_MODE: 33
+
+    SSL_CTRL_SET_SESS_CACHE_SIZE: 42
+
+    SSL_CTRL_GET_SESS_CACHE_SIZE: 43
+
+    SSL_CTRL_SET_SESS_CACHE_MODE: 44
+
+    SSL_CTRL_GET_SESS_CACHE_MODE: 45
+
+    SSL_CTRL_SET_TLSEXT_SERVERNAME_CB: 53
+
+    SSL_CTRL_SET_TLSEXT_HOSTNAME: 55
+
+    SSL_CTRL_CHAIN: 88
+
+    SSL_CTRL_SET_GROUPS_LIST: 92
+
+    SSL_CTRL_SET_SIGALGS_LIST: 98
+
+    SSL_CTRL_SET_CLIENT_SIGALGS_LIST: 102
+
+    SSL_CTRL_GET_PEER_TMP_KEY: 109
+
+    SSL_CTRL_SET_DH_AUTO: 118
+
+    SSL_CTRL_SET_MIN_PROTO_VERSION: 123
+
+    SSL_CTRL_SET_MAX_PROTO_VERSION: 124
+
+    SSL_CTRL_GET_SIGNATURE_NAME: 140
+
+    SSL_CTRL_GET_PEER_SIGNATURE_NAME: 141
+
+    SSL_MODE_ENABLE_PARTIAL_WRITE: 1
+
+    SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER: 2
+
+    SSL_MODE_RELEASE_BUFFERS: 16
+
+    SSL_MODE_SEND_FALLBACK_SCSV: 128
+
+    SSL_ERROR_NONE: 0
+
+    SSL_ERROR_WANT_READ: 2
+
+    SSL_ERROR_WANT_WRITE: 3
+
+    SSL_ERROR_SYSCALL: 5
+
+    SSL_ERROR_ZERO_RETURN: 6
+
+    SSL_R_CERTIFICATE_VERIFY_FAILED: 134
+
+    ERR_LIB_SSL: 20
+
+    SSL_TLSEXT_ERR_OK: 0
+
+    SSL_TLSEXT_ERR_ALERT_FATAL: 2
+
+    TLSEXT_NAMETYPE_host_name: 0
+
+    SSL_CB_HANDSHAKE_START: 16
+
+    X509_V_ERR_HOSTNAME_MISMATCH: 62
+
+    # ERR_GET_LIB (err.h).
+    def self.ERR_GET_LIB: (untyped code) -> (untyped | 2)
+
+    # SSL_CTX_set_min_proto_version and SSL_CTX_set_max_proto_version
+    # (ssl.h).
+    def self.SSL_CTX_set_min_proto_version: (untyped ctx, untyped version) -> untyped
+
+    def self.SSL_CTX_set_max_proto_version: (untyped ctx, untyped version) -> untyped
+
+    # SSL_CTX_set_tlsext_servername_callback (tls1.h).
+    def self.SSL_CTX_set_tlsext_servername_callback: (untyped ctx, untyped cb) -> untyped
+
+    # SSL_set_tlsext_host_name (tls1.h).
+    def self.SSL_set_tlsext_host_name: (untyped ssl, untyped name) -> untyped
+  end
+
+  module SSL
+    class SSLErrorWaitReadable < SSLError
+      include IO::WaitReadable
+    end
+
+    class SSLErrorWaitWritable < SSLError
+      include IO::WaitWritable
+    end
+
+    class SSLContext
+    end
+  end
+
+  module Ossl
+    SSL_EX_PTR_INDEX: untyped
+
+    SSLCTX_EX_PTR_INDEX: untyped
+
+    SSL_CTX: untyped
+
+    SSL_CONNECTION: untyped
+
+    # parse_proto_version's table.
+    PROTOCOL_VERSIONS: ::Array[::Array["SSL2" | 512] | ::Array["SSL3" | 768] | ::Array["TLS1" | 769] | ::Array["TLS1_1" | 770] | ::Array["TLS1_2" | 771] | ::Array["TLS1_3" | 772]]
+
+    # GetSSL.
+    def self.ssl: (untyped object) -> untyped
+
+    # The SSLSocket an SSL belongs to.
+    def self.ssl_socket: (untyped ssl) -> untyped
+
+    def self.context_of: (untyped socket) -> untyped
+
+    # What a callback raised, which the SSL call it ran under raises once
+    # the library returns.
+    def self.callback_failed: (untyped socket, untyped exception) -> untyped
+
+    # ossl_ssl_verify_callback.
+    def self.ssl_verify: (untyped ok, untyped ctx) -> (0 | untyped)
+
+    # call_verify_certificate_identity.
+    def self.verify_certificate_identity: (untyped socket, untyped ctx) -> (true | untyped)
+
+    # ossl_client_cert_cb: the certificate and key the context's
+    # client_cert_cb gives, each with a reference of its own.
+    def self.client_cert: (untyped ssl, untyped x509_out, untyped pkey_out) -> (0 | 1)
+
+    # ossl_tmp_dh_callback: the DH the context's tmp_dh_callback gives.
+    def self.tmp_dh: (untyped ssl, untyped is_export, untyped keylength) -> untyped
+
+    # ossl_sslctx_session_get_cb.
+    def self.session_get: (untyped ssl, untyped buffer, untyped length, untyped copy) -> (0 | untyped)
+
+    # ossl_sslctx_session_new_cb.
+    def self.session_new: (untyped ssl, untyped session) -> 0
+
+    # ossl_sslctx_keylog_cb.
+    def self.keylog: (untyped ssl, untyped line) -> untyped
+
+    # ossl_sslctx_session_remove_cb: nothing once the context itself is
+    # gone, as while the collector frees it.
+    def self.session_remove: (untyped ctx, untyped session) -> 0
+
+    # ssl_servername_cb.
+    def self.servername: (untyped ssl, untyped _alert, untyped _arg) -> untyped
+
+    # ssl_info_cb: a server's renegotiation_cb at the start of each
+    # handshake. What it raises leaves through the SSL call, as the C
+    # extension lets it.
+    def self.ssl_info: (untyped ssl, untyped where, untyped _value) -> 0
+
+    # ssl_encode_npn_protocols: each protocol, its length byte first.
+    def self.encode_npn_protocols: (untyped protocols) -> untyped
+
+    # ssl_npn_advertise_cb.
+    def self.npn_advertise: (untyped _ssl, untyped out, untyped outlen, untyped arg) -> untyped
+
+    # ssl_npn_select_cb_common: the protocol the callback picks from
+    # those the peer offers, which stays alive on the socket while the
+    # library reads it.
+    def self.select_protocol: (untyped ssl, untyped ivar, untyped out, untyped outlen, untyped input, untyped input_length, untyped arg) -> untyped
+
+    # ossl_sslctx_setup: the context's attributes applied to its SSL_CTX,
+    # once; the context is frozen from here.
+    def self.sslctx_setup: (untyped context) -> (nil | true)
+
+    # parse_proto_version.
+    def self.proto_version: (untyped value) -> (0 | untyped)
+
+    # ossl_ssl_cipher_to_ary.
+    def self.cipher_to_ary: (untyped cipher) -> ::Array[untyped]
+
+    # build_cipher_string.
+    def self.cipher_string: (untyped value) -> untyped
+
+    # ssl_started.
+    def self.ssl_started?: (untyped ssl) -> untyped
+
+    # ossl_ssl_setup.
+    def self.ssl_setup: (untyped socket) -> true
+
+    # no_exception_p.
+    def self.no_exception?: (untyped options) -> untyped
+
+    # io_wait_readable and io_wait_writable, under the IO's timeout.
+    def self.io_wait: (untyped io, untyped events, untyped what) -> (nil | untyped)
+
+    # A callback's exception, raised once the SSL call returns.
+    def self.raise_callback_state: (untyped socket, ?keep: bool) -> (nil | untyped)
+
+    # peeraddr_ip_str.
+    def self.peer_ip: (untyped io) -> untyped
+
+    # ossl_start_ssl: SSL_connect or SSL_accept until it completes, waits,
+    # or fails.
+    def self.start_ssl: (untyped socket, untyped function, untyped name, untyped options) -> (:wait_writable | :wait_readable | untyped)
+
+    # ossl_ssl_read_internal.
+    def self.ssl_read: (untyped socket, untyped length, untyped buffer, untyped nonblock, untyped options) -> (untyped | nil | :wait_writable | :wait_readable)
+
+    # ossl_ssl_write_internal.
+    def self.ssl_write: (untyped socket, untyped data, untyped options) -> (0 | untyped | :wait_writable | :wait_readable)
+
+    # A finished message: its length first, then its bytes.
+    def self.finished_message: (untyped ssl, untyped function) -> (nil | untyped)
+
+    # SSL_get0_next_proto_negotiated and SSL_get0_alpn_selected.
+    def self.negotiated_protocol: (untyped ssl, untyped function) -> untyped
+
+    # A signature algorithm's name through SSL_ctrl, or nil.
+    def self.ssl_ctrl_name: (untyped ssl, untyped ctrl) -> (nil | untyped)
+
+    OBJECT_FREEZE: untyped
+
+    SSL_VERIFY_CB: untyped
+
+    CLIENT_CERT_CB: untyped
+
+    TMP_DH_CB: untyped
+
+    SESSION_GET_CB: untyped
+
+    SESSION_NEW_CB: untyped
+
+    SESSION_REMOVE_CB: untyped
+
+    KEYLOG_CB: untyped
+
+    SERVERNAME_CB: untyped
+
+    INFO_CB: untyped
+
+    NPN_ADVERTISE_CB: untyped
+
+    NPN_SELECT_CB: untyped
+
+    ALPN_SELECT_CB: untyped
+  end
+
+  module SSL
+    class SSLContext
+      alias ssl_timeout timeout
+
+      alias ssl_timeout= timeout=
+
+      def min_version=: (untyped version) -> untyped
+
+      def max_version=: (untyped version) -> untyped
+
+      def ciphers: () -> untyped
+
+      def ciphers=: (untyped value) -> untyped
+
+      def ciphersuites=: (untyped value) -> untyped
+
+      def sigalgs=: (untyped value) -> untyped
+
+      def client_sigalgs=: (untyped value) -> untyped
+
+      def tmp_dh=: (untyped dh) -> untyped
+
+      def groups=: (untyped groups) -> untyped
+
+      alias ecdh_curves= groups=
+
+      def security_level: () -> untyped
+
+      def security_level=: (untyped level) -> untyped
+
+      def enable_fallback_scsv: () -> nil
+
+      def add_certificate: (untyped cert, untyped key, *untyped rest) -> self
+
+      def setup: () -> untyped
+
+      alias freeze setup
+
+      def session_add: (untyped session) -> untyped
+
+      def session_remove: (untyped session) -> untyped
+
+      def session_cache_mode: () -> untyped
+
+      def session_cache_mode=: (untyped mode) -> untyped
+
+      def session_cache_size: () -> untyped
+
+      def session_cache_size=: (untyped size) -> untyped
+
+      def session_cache_stats: () -> untyped
+
+      def flush_sessions: (?untyped? time) -> self
+
+      def options: () -> untyped
+
+      def options=: (untyped options) -> untyped
+    end
+
+    class SSLSocket
+      @sync_close: untyped
+
+      @context: untyped
+
+      @io: untyped
+
+      @hostname: untyped
+
+      def initialize: (untyped io, *untyped rest, **untyped options) -> void
+
+      def connect: () -> untyped
+
+      def connect_nonblock: (**untyped options) -> untyped
+
+      def accept: () -> untyped
+
+      def accept_nonblock: (**untyped options) -> untyped
+
+      def sysread: (untyped length, ?untyped? buffer) -> untyped
+
+      def syswrite: (untyped data) -> untyped
+
+      def cert: () -> untyped
+
+      def peer_cert: () -> (nil | untyped)
+
+      def peer_cert_chain: () -> untyped
+
+      def ssl_version: () -> untyped
+
+      def cipher: () -> untyped
+
+      def state: () -> untyped
+
+      def pending: () -> untyped
+
+      def session_reused?: () -> untyped
+
+      def session=: (untyped session) -> untyped
+
+      def verify_result: () -> untyped
+
+      def client_ca: () -> untyped
+
+      def hostname=: (untyped hostname) -> untyped
+
+      def finished_message: () -> untyped
+
+      def peer_finished_message: () -> untyped
+
+      def tmp_key: () -> (nil | untyped)
+
+      def alpn_protocol: () -> untyped
+
+      def export_keying_material: (untyped label, untyped length, ?untyped? context) -> untyped
+
+      def npn_protocol: () -> untyped
+
+      def sigalg: () -> untyped
+
+      def peer_sigalg: () -> untyped
+
+      def group: () -> untyped
+
+      private
+
+      def sysread_nonblock: (untyped length, ?untyped? buffer, **untyped options) -> untyped
+
+      def syswrite_nonblock: (untyped data, **untyped options) -> untyped
+
+      def stop: () -> nil
+    end
+  end
+end

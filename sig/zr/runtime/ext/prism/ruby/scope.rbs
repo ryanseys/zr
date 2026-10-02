@@ -1,0 +1,103 @@
+module Prism
+  module Ruby
+    # pm_scope_t: the locals one scope declares, what its parameters forward,
+    # and whether it is closed to the scope around it.
+    class Scope
+      @previous: untyped
+
+      @closed: untyped
+
+      @locals: untyped
+
+      @implicit_parameters: untyped
+
+      @parameters: untyped
+
+      @shareable_constant: untyped
+
+      # pm_scope_parameters_t
+      FORWARDING_POSITIONALS: 1
+
+      FORWARDING_KEYWORDS: 2
+
+      FORWARDING_BLOCK: 4
+
+      FORWARDING_ALL: 8
+
+      IMPLICIT_DISALLOWED: 16
+
+      NUMBERED_INNER: 32
+
+      NUMBERED_FOUND: 64
+
+      attr_reader previous: untyped
+
+      attr_reader locals: untyped
+
+      attr_reader implicit_parameters: untyped
+
+      attr_accessor parameters: untyped
+
+      attr_accessor shareable_constant: untyped
+
+      def initialize: (untyped previous, untyped closed) -> void
+
+      def closed?: () -> untyped
+    end
+
+    # pm_locals_t: a scope's locals, a list up to eight slots and an open
+    # addressed table after that. The table's layout decides the order
+    # pm_locals_order warns about unused locals in, so it is kept as C
+    # keeps it.
+    class Locals
+      @size: untyped
+
+      @capacity: untyped
+
+      @slots: untyped
+
+      # PM_LOCALS_HASH_THRESHOLD
+      HASH_THRESHOLD: 9
+
+      NOT_FOUND: 4294967295
+
+      # pm_local_t
+      Local: untyped
+
+      attr_reader size: untyped
+
+      attr_reader capacity: untyped
+
+      def initialize: () -> void
+
+      # pm_locals_hash
+      def self.hash_of: (untyped name) -> untyped
+
+      # pm_locals_write: true when the name is new to the scope.
+      def write: (untyped name, untyped start, untyped finish, untyped reads) -> (true | false | untyped)
+
+      # pm_locals_find: the slot of the name, or NOT_FOUND.
+      def find: (untyped name) -> untyped
+
+      def include?: (untyped name) -> untyped
+
+      # pm_locals_read
+      def read: (untyped name) -> untyped
+
+      # pm_locals_unread
+      def unread: (untyped name) -> untyped
+
+      # pm_locals_reads
+      def reads: (untyped name) -> untyped
+
+      # The occupied slots in slot order, which is the order pm_locals_order
+      # visits them in.
+      def each_slot: () { (untyped) -> untyped } -> untyped
+
+      private
+
+      # pm_locals_resize
+      def resize: () -> untyped
+    end
+  end
+end

@@ -1,0 +1,153 @@
+# FunctionInfo.c, Function.c and Call.c: a C function's signature, a
+# function to call through it, a Proc C can call through a closure, and
+# how a call turns ruby values into C arguments and a C result back.
+module FFI
+  class FunctionType < Type
+    @enums: untyped
+
+    @blocking: untyped
+
+    @params: untyped
+
+    @callbacks: untyped
+
+    @return: untyped
+
+    @cif: untyped
+
+    def initialize: (untyped return_type, untyped param_types, ?untyped? options) -> void
+
+    def return_type: () -> untyped
+
+    def param_types: () -> untyped
+
+    def ffi_native: () -> untyped
+
+    def ffi_type: () -> untyped
+
+    # What a call through this signature reads: the prepared cif, and the
+    # types, callback signatures and enums it converts arguments with.
+    def ffi_cif: () -> untyped
+
+    def ffi_params: () -> untyped
+
+    def ffi_callbacks: () -> untyped
+
+    def ffi_enums: () -> untyped
+  end
+
+  class FFIType
+    # sizeof(ffi_cif), and FFI_DEFAULT_ABI.
+    CIF_SIZE: 40
+
+    DEFAULT_ABI: 1
+
+    # ffi_prep_cif, or ffi_prep_cif_var when `fixed` of the parameters are
+    # fixed: the cif's bytes, with the type list they name and the types
+    # that list's elements are, which live as long as the cif.
+    def self.cif: (untyped return_type, untyped params, untyped fixed) -> untyped
+  end
+
+  CallbackInfo: untyped
+
+  FunctionInfo: untyped
+
+  Type::Function: untyped
+
+  class Function < Pointer
+    self.@closure_id: untyped
+
+    self.@closures: untyped
+
+    @closure: untyped
+
+    @autorelease: untyped
+
+    @info: untyped
+
+    @flags: untyped
+
+    @parent: untyped
+
+    @proc: untyped
+
+    # sizeof(Closure), the size that a function over a Proc returns.
+    CLOSURE_SIZE: 48
+
+    MEM_RD: 1
+
+    # rbffi_Function_NewInstance.
+    def self.new_instance: (untyped info, untyped proc) -> untyped
+
+    # rbffi_Function_ForProc: the one function that a Proc has for a
+    # signature, which the Proc keeps.
+    def self.for_proc: (untyped info, untyped proc) -> untyped
+
+    # The functions whose closures C can call, by the id in each
+    # closure. C calls this with the id and the addresses of the result
+    # and the arguments.
+    def self.closure_id: () -> untyped
+
+    def self.closures: () -> untyped
+
+    def initialize: (untyped return_type, untyped param_types, *untyped rest) ?{ (?) -> untyped } -> void
+
+    def initialize_copy: (untyped _other) -> untyped
+
+    def call: (*untyped args) { (?) -> untyped } -> untyped
+
+    def attach: (untyped mod, untyped name) -> self
+
+    def free: () -> self
+
+    def autorelease=: (untyped autorelease) -> self
+
+    def autorelease: () -> untyped
+
+    alias autorelease? autorelease
+
+    private
+
+    def type: () -> untyped
+
+    # function_init: a function at a pointer's address, or over a Proc
+    # through a closure of its own.
+    def ffi_init: (untyped info, untyped proc) -> self
+
+    # invoke_callback: C called the closure. Each argument reads as its
+    # type, the Proc runs, and its return value goes where C reads the
+    # result. An error clears the result and raises again after C returns.
+    def ffi_invoke: (untyped result, untyped params) -> untyped
+  end
+
+  # How each number reads from the bytes C left it in.
+  NATIVE_DIRECTIVES: { INT8: "c", INT16: "s", INT32: "l", INT64: "q", LONG: "q", UINT8: "C", UINT16: "S", UINT32: "L", UINT64: "Q", ULONG: "Q", FLOAT32: "f", FLOAT64: "d", LONGDOUBLE: "d" }
+
+  # rbffi_CallFunction: a call of the function at `address` with the
+  # arguments converted by `info`. Returns its result as a Ruby value.
+  def self.call_function: (untyped args, untyped block, untyped address, untyped info) -> untyped
+
+  def self.call_prepared: (untyped cif, untyped address, untyped return_type, untyped params, untyped values, untyped keep) -> untyped
+
+  # rbffi_SetupCallParams: every argument in its C form, eight bytes
+  # each, and the address of each; a struct passes the address of its
+  # own bytes. `keep` contains the objects that those addresses point into.
+  def self.call_params: (untyped args, untyped block, untyped param_count, untyped types, untyped callbacks, untyped enums) -> ::Array[untyped]
+
+  def self.enum_value: (untyped arg, untyped enums) -> untyped
+
+  # getPointer: the address a pointer argument passes.
+  def self.pointer_address: (untyped value, untyped keep) -> untyped
+
+  # callback_param: the address C calls a callback argument at.
+  def self.callback_address: (untyped value, untyped info, untyped keep) -> (0 | untyped)
+
+  # rbffi_NativeValue_ToRuby: what a C result reads as.
+  def self.native_to_ruby: (untyped type, untyped address) -> untyped
+
+  # An argument C passed a callback, at `address`.
+  def self.callback_arg: (untyped type, untyped address) -> untyped
+
+  # A callback's return value, written where C reads it.
+  def self.callback_result: (untyped type, untyped address, untyped value) -> untyped
+end

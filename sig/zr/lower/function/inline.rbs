@@ -1,0 +1,163 @@
+module Zr
+  class Lower
+    class Function
+      # A small def of the unit, inlined at a site that calls it.
+      #
+      # The site keeps its cell and its class-and-stamp test. On a hit
+      # whose direct entry is the def's own body, the body runs here with
+      # no frame. Every guard that fails (a cell miss, a different
+      # receiver kind, an operator result outside the fixnums, a closed
+      # gate) jumps to `bail`: the normal call, which runs the def from
+      # its start. So the copy can contain only code with no side
+      # effects: reads of parameters, of self's ivars through their
+      # guessed entries, of readers and type checks through the def's
+      # own site cells, fixnum arithmetic, branches and a return. No
+      # call, no store, no allocation. The copy shares the def's cells
+      # (`site_cell`), so a bail that runs the def fills the cells for
+      # the copy's next run.
+      #
+      # A def whose body is not fully pure can still start with a
+      # decision that the copy can make: a pure test with a pure branch
+      # (fib's `n < 2 ? n : ...`, ack's `m == 0`), or a guard clause
+      # (`return x if test`). The copy returns that branch at the site.
+      # All other paths bail to the def's own call, which does the test
+      # again. So the leaves of a recursion (half its calls) make no call.
+      #
+      # Visible effects: the inlined def has no frame, so it raises no
+      # SystemStackError and polls one time less at entry. No backtrace
+      # is taken inside the copy, because nothing in it raises.
+      module Inline
+        @self: untyped
+
+        @inline: untyped
+
+        # The maximum HIR node count of a candidate's body.
+        LIMIT: 24
+
+        # The one-argument sends that a copy handles: an Integer operator
+        # on fixnums, identity for BasicObject's `==`/`!=`, a type check,
+        # and a `case` branch on a class.
+        ARGUED: ::Array[:is_a? | :kind_of? | :===]
+
+        # The pattern of a reader method's name.
+        READER: ::Regexp
+
+        # A copy that runs at a site: the value of each parameter by name,
+        # the block that its `return` goes to (`done`; not `exit`, which is
+        # Kernel's), and the block that each failed guard goes to.
+        Site: untyped
+
+        # The defs in the unit tree `body` that a site can inline, by name.
+        # Each is the only def of its name in the unit, has only required
+        # positionals (four at most, the direct entry's shape) and no other
+        # local, and has a body that passes `pure?` or `leads?`. A def with
+        # a receiver (`def self.x`) is never a candidate, and it also
+        # disqualifies its name.
+        def self.candidates: (untyped body) -> untyped
+
+        # Whether `body` starts with a decision that the copy can make: an
+        # `if` with a pure test and a pure branch. It is the whole body, or
+        # a guard clause (one branch is a `return`) before the rest.
+        def self.leads?: (untyped body, untyped count) -> (false | untyped)
+
+        # Whether `node` ends in a `return`.
+        def self.returns?: (untyped node) -> untyped
+
+        # Every Def under `node`, at any depth. The walk goes into class
+        # bodies, blocks and defs.
+        def self.each_def: (untyped node) { (untyped) -> untyped } -> untyped
+
+        # Whether a copy can lower `node`. Adds its node count to `count`
+        # (a one-element Array with the running total).
+        def self.pure?: (untyped node, untyped count) -> (false | untyped)
+
+        def self.immediate_literal?: (untyped v) -> untyped
+
+        # Whether the double `v` is a flonum (`Expressions#flonum_word`).
+        def self.flonum?: (untyped v) -> untyped
+
+        # A send with an explicit receiver and no block, keywords, splat or
+        # refinement: a reader or `nil?` with no argument, or one of the
+        # ARGUED forms.
+        def self.pure_send?: (untyped node, untyped count) -> (false | untyped)
+
+        private
+
+        # The def that the call `node` can inline, if the site permits it:
+        # the def's argument count, no block, no keywords, no splat, no
+        # `using`, not traced (a trace sees every frame), and not in the
+        # core (its sends have their own modes).
+        def inline_candidate: (untyped node) -> (nil | untyped)
+
+        # The copy of `d`'s body at the site, with `recv` as its self and
+        # `given` as its parameters. Every guard that fails jumps to
+        # `bail`. Returns the body's value.
+        def inline_body: (untyped d, untyped recv, untyped given, untyped bail) -> untyped
+
+        # The copy of a candidate's body: a pure body in full, or the
+        # leading test (`leads?`). Its branches and later statements are
+        # copied if pure, else they bail.
+        def spec_leading: (untyped body) -> untyped
+
+        # The value of `node` in the copy: `expr` for the nodes that pass
+        # `pure?`, with each miss a jump to the bail block. Code that the
+        # copy cannot run (a branch of a leading test that calls, or the
+        # rest after a guard clause) is only a bail.
+        def spec: (untyped node) -> untyped
+
+        def spec_seq: (untyped node) -> untyped
+
+        # A comparison of two fixnums branches on the comparison, as
+        # `Sends#relation_jump` does. `==` and `!=` of other values are
+        # identity tests (if the def's cell permits), tested as a value.
+        def spec_jump_if: (untyped node, untyped yes, untyped no) -> untyped
+
+        def spec_relation?: (untyped node) -> untyped
+
+        def spec_relation_jump: (untyped node, untyped yes, untyped no) -> untyped
+
+        def spec_branch: (untyped node) -> untyped
+
+        def spec_logical: (untyped node) -> untyped
+
+        # `!v` for nil, true and false under GATE_NOT (`Sends#negate`).
+        # All other receivers bail.
+        def spec_negate: (untyped node) -> untyped
+
+        def spec_return: (untyped node) -> untyped
+
+        # `@name` of the copy's self, through the def's own guessed entry.
+        def spec_ivar_read: (untyped node) -> untyped
+
+        def spec_send: (untyped node) -> untyped
+
+        # `recv.nil?` under GATE_NIL_P: nil, or a ranked class (a class
+        # under Object, where Kernel's `nil?` applies).
+        def spec_nil_p: (untyped recv, untyped merge) -> untyped
+
+        # A reader through the def's own cell. If the receiver is a cell
+        # whose class the cell has at the site stamp, with the shape of a
+        # reader or of a struct member's reader, read the ivar or the member
+        # inline. All other cases bail.
+        def spec_reader: (untyped node, untyped recv, untyped merge) -> untyped
+
+        # An operator on two fixnums under its gate. `==` and `!=` by
+        # identity if the def's own cell has BasicObject's methods. A type
+        # check by the classes. All other cases bail.
+        def spec_argued: (untyped node, untyped recv, untyped arg, untyped merge) -> untyped
+
+        # `Mod === x` through the def's own cell, if the cell has
+        # Module#=== and the receiver is a ranked class.
+        def spec_mod_eqq: (untyped node, untyped recv, untyped arg, untyped merge) -> untyped
+
+        def spec_identity: (untyped node, untyped recv, untyped arg, untyped merge) -> untyped
+
+        # Whether `cc`'s first way has `klass` at the site stamp.
+        def cell_hit: (untyped cc, untyped klass) -> untyped
+
+        # Whether `v` is a cell: a pointer past the special constants.
+        def cellp: (untyped v) -> untyped
+      end
+    end
+  end
+end

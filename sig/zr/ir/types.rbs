@@ -1,0 +1,85 @@
+module Zr
+  module IR
+    # The type of each value that a function defines. A block parameter
+    # has its declared type, and the result of an instruction has the type
+    # that its opcode gives.
+    #
+    # The rule is defined only here, so the backend and the interpreter
+    # cannot differ about the type of a value. Such a difference is the
+    # miscompile that the interpreter must find.
+    class Types
+      @f: untyped
+
+      @type: untyped
+
+      @sig_named: untyped
+
+      @callee_named: untyped
+
+      @global_named: untyped
+
+      @block_named: untyped
+
+      class Refused < StandardError
+        include Zr::Refusal
+      end
+
+      # The bytes that a value of each type uses in memory: what a load of
+      # the type reads and a store of the type writes.
+      WIDTH: { "i8" => 1, "i32" => 4, "i64" => 8, "f64" => 8 }
+
+      # The rule for the result type of each opcode. This is a table and not
+      # a `case`, because a `case` compares the opcode with about twenty
+      # entries one at a time, and each instruction of the program goes
+      # through it.
+      RULE: untyped
+
+      # `{ "v3" => "i64", ... }`, in block layout order. A value gets its type
+      # before any block that can use it, because its definition dominates
+      # each use.
+      #  (Function function) -> Hash[String, String?]
+      def self.of: (untyped function) -> untyped
+
+      #  (Function function) -> void
+      def initialize: (untyped function) -> void
+
+      #  () -> Hash[String, String?]
+      def all: () -> untyped
+
+      # The type of `v`, which must already be typed.
+      #  (String v) -> String?
+      def of: (untyped v) -> untyped
+
+      # The signature of a callee entity name (`"fn0"`).
+      #  (String fn) -> Sig
+      def sig_of: (untyped fn) -> untyped
+
+      #  (String sig) -> Sig
+      def sig_named: (untyped sig) -> untyped
+
+      #  (String fn) -> Callee?
+      def callee_named: (untyped fn) -> untyped
+
+      #  (String gv) -> Global?
+      def global_named: (untyped gv) -> untyped
+
+      #  (String name) -> Block
+      def block_named: (untyped name) -> untyped
+
+      private
+
+      #  (Inst i) -> String?
+      def result_of: (untyped i) -> untyped
+
+      # The callee (or signature) name of a call, which must have one.
+      #  (Inst i) -> String
+      def callee_of: (untyped i) -> untyped
+
+      # Each entry by its key. The first entry wins, as with `find`. The
+      # types are `untyped` because the key type of a Hash is bounded
+      # and Steep does not take that bound from a generic method.
+      #  (Array[untyped] rows) { (untyped row) -> untyped } -> Hash[untyped, untyped]
+      def first_by: (untyped rows) { (untyped) -> untyped } -> untyped
+    end
+  end
+end

@@ -1,0 +1,55 @@
+module Zr
+  module Obj
+    # Loads an `Obj::Unit` into this process. It writes code into a
+    # `MAP_JIT` mapping under `pthread_jit_write_protect_np`, and data into
+    # a writable mapping within reach of the code. It applies relocations
+    # and resolves imports with `dlsym`. Returns the address of every symbol.
+    #
+    # A `bl` reaches 128 MB, and libSystem is farther away. Thus each
+    # imported function gets a stub in the code region that jumps through
+    # an absolute address.
+    #
+    # A `host` makes the system calls: `JIT::Fiddle` under CRuby, or the
+    # runtime's own host, which calls the same libSystem functions.
+    class JIT
+      @host: untyped
+
+      @symbols: untyped
+
+      MAP_ANON_PRIVATE: 4098
+
+      MAP_FIXED: 16
+
+      MAP_JIT: 2048
+
+      PAGE: 16384
+
+      # `ldr x16, [pc, #8]; br x16; .quad address`
+      STUB: untyped
+
+      attr_reader symbols: untyped
+
+      def self.load: (untyped unit, ?host: untyped) -> untyped
+
+      # The host for system calls: the runtime's host in a zr program, or
+      # Fiddle under CRuby (where no runtime is linked).
+      def self.host: () -> untyped
+
+      def initialize: (untyped host) -> void
+
+      def place: (untyped unit) -> untyped
+
+      private
+
+      def layout: (untyped items, untyped item_align) -> untyped
+
+      def map: (untyped size, exec: untyped, ?at: untyped?, ?near: ::Integer) -> untyped
+
+      # Returns the bytes of `item` at `base`, with all relocations applied.
+      # A symbol that this unit defines uses its own address, unless it is
+      # also an import. An import uses its GOT slot for a GOT relocation,
+      # its stub for a call, and its address for all other relocations.
+      def patched: (untyped item, untyped base, untyped addresses, untyped data_base, untyped got) -> untyped
+    end
+  end
+end

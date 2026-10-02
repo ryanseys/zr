@@ -1,0 +1,22 @@
+module Zr::Kern
+  # A guard that stops a method from entering itself again on the same
+  # object, as `inspect` does on an Array that contains itself. This is
+  # CRuby's rb_exec_recursive. A paired guard (rb_exec_recursive_paired)
+  # is for a comparison: it finds a recursion only when the same two
+  # objects come together again. The task keeps the active guards in one
+  # flat Array. Each guard record is GUARD_ROW words: the object, the
+  # method, and the paired object (undef for an unpaired guard).
+  GUARD_ROW: 3
+
+  def zr_guard_enter: (untyped obj, untyped mid) -> untyped
+
+  def zr_guard_enter_paired: (untyped obj, untyped other, untyped mid) -> (true | false)
+
+  def zr_guard_leave: (untyped obj, untyped mid) -> untyped
+
+  def zr_recursive_enter: (untyped obj, untyped name) -> untyped
+
+  def zr_recursive_enter_paired: (untyped obj, untyped other, untyped name) -> untyped
+
+  def zr_recursive_leave: (untyped obj, untyped name) -> untyped
+end

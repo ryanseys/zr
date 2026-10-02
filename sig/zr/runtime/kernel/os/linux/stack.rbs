@@ -1,0 +1,33 @@
+module Zr::Kern
+  # `Native::Link::STACK`, the size that the darwin linker gives the main
+  # thread.
+  MAIN_STACK_BYTES: 67108864
+
+  def zr_linux_main_cell: () -> untyped
+
+  def zr_linux_process_context: () -> untyped
+
+  def zr_linux_program_context: () -> untyped
+
+  def zr_linux_main_start: () -> untyped
+
+  def zr_os_main: (untyped argc, untyped argv) -> untyped
+
+  def zr_os_stack_low: () -> untyped
+
+  def zr_os_stack_high: () -> untyped
+
+  # PROT_READ | PROT_WRITE, and MAP_PRIVATE | MAP_ANONYMOUS | MAP_STACK.
+  STACK_PROT: 3
+
+  STACK_MAP_FLAGS: 131106
+
+  # The guard page at the bottom of each stack, which faults on access.
+  STACK_GUARD_BYTES: 4096
+
+  def zr_os_stack_map: (untyped bytes) -> untyped
+
+  def zr_poll_timer: (untyped arg) -> untyped
+
+  def zr_os_poll_start: () -> (nil | untyped)
+end

@@ -1,0 +1,98 @@
+# basicsocket.c, and the receives, sends, accepts and connects that
+# init.c makes for every socket class. A socket's descriptor returns
+# EAGAIN rather than waiting, so each call that would wait waits here
+# first, which lets another green thread run in the meantime.
+class BasicSocket < IO
+  @readable: untyped
+
+  @writable: untyped
+
+  @norevlookup: untyped
+
+  @family: untyped
+
+  # rsock_do_not_reverse_lookup, one flag for every socket class.
+  def self.do_not_reverse_lookup: () -> untyped
+
+  def self.do_not_reverse_lookup=: (untyped flag) -> untyped
+
+  # bsock_s_for_fd: a socket over a descriptor that must be one.
+  def self.for_fd: (untyped descriptor) -> untyped
+
+  def shutdown: (?untyped? how) -> 0
+
+  # A socket is one descriptor both ways: closing one way shuts that way
+  # down, and closing the last way closes the socket.
+  def close_read: () -> (untyped | nil)
+
+  def close_write: () -> (untyped | nil)
+
+  def setsockopt: (*untyped args) -> 0
+
+  def getsockopt: (untyped level, untyped optname) -> untyped
+
+  def getsockname: () -> untyped
+
+  def getpeername: () -> untyped
+
+  def getpeereid: () -> untyped
+
+  def local_address: () -> untyped
+
+  def remote_address: () -> untyped
+
+  # rsock_bsock_send: the whole message, to an address when one is given.
+  def send: (untyped mesg, untyped flags, ?untyped? to) -> untyped
+
+  def do_not_reverse_lookup: () -> untyped
+
+  def do_not_reverse_lookup=: (untyped flag) -> untyped
+
+  def recv: (untyped len, ?untyped? flags, ?untyped? str) -> untyped
+
+  private
+
+  def __recv_nonblock: (untyped len, untyped flags, untyped str, untyped exception) -> untyped
+
+  # rsock_getfamily: the family the socket's own address has, kept once
+  # it is one of the three common ones.
+  def socket_family: () -> untyped
+
+  def own_address: (untyped peer, untyped call) -> untyped
+
+  # rsock_is_dgram.
+  def dgram?: () -> untyped
+
+  # rsock_strbuf: the buffer a receive fills, a new one when none is
+  # given.
+  def receive_buffer: (untyped str) -> (nil | untyped)
+
+  # What a receive returns: the data, in the given buffer if any, and
+  # for `recvfrom` the sender, as the socket's class represents one.
+  def received: (untyped from, untyped data, untyped sockaddr, untyped buffer) -> untyped
+
+  # rsock_s_recvfrom.
+  def receive: (untyped from, untyped len, untyped flags, untyped str) -> (nil | untyped)
+
+  # rsock_s_recvfrom_nonblock.
+  def receive_nonblock: (untyped from, untyped len, untyped flags, untyped str, untyped exception) -> (:wait_readable | nil | untyped)
+
+  # rsock_s_accept: the connection waiting on this server, as a socket
+  # of `klass` or, with none, its descriptor; and the peer's address.
+  def accept_as: (untyped klass) -> (::Array[untyped] | untyped)
+
+  # rsock_s_accept_nonblock.
+  def accept_nonblock_as: (untyped klass, untyped exception) -> (::Array[untyped] | :wait_readable | untyped)
+
+  # rsock_connect: nil once connected, else the errno the connection
+  # failed with. A connection still under way is waited for, as long as
+  # `timeout` allows.
+  def connect_to: (untyped sockaddr, ?untyped? timeout) -> (nil | untyped)
+
+  # wait_connectable.
+  def wait_connectable: (untyped sockaddr, untyped timeout) -> untyped
+
+  # SO_ERROR: what a connection under way failed with, or the errno of
+  # asking.
+  def pending_error: () -> untyped
+end

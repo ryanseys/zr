@@ -1,0 +1,85 @@
+# ossl_pkey_rsa.c: OpenSSL::PKey::RSA.
+module OpenSSL
+  module Lib
+    RSA_PKCS1_PSS_PADDING: 6
+  end
+
+  module Ossl
+    # The addresses a get0 function writes into its out-parameters,
+    # the key's struct first.
+    def self.get0: (untyped function, untyped object, untyped count) -> untyped
+
+    # OSSL_PKEY_BN_DEF_GETTER0's result: a BN copying `bn`, or nil.
+    def self.bn_or_nil: (untyped bn) -> (nil | untyped)
+
+    # The EVP_PKEY of `object` when its type is `type`, as the Get
+    # macros of each key type check it; `name` is the type's name.
+    def self.typed_pkey: (untyped object, untyped type, untyped name) -> untyped
+
+    # The legacy key struct a key type's Get macro takes from the
+    # EVP_PKEY with `get0`.
+    def self.legacy_key: (untyped object, untyped type, untyped name, untyped get0) -> untyped
+
+    def self.rsa: (untyped object) -> untyped
+
+    # The `legacy:` label of each key type's initialize: `key` assigned
+    # to a new EVP_PKEY that `object` owns.
+    def self.assign_legacy: (untyped object, untyped type, untyped key, untyped free, untyped name) -> untyped
+
+    # The generic read of a key type's initialize: `bio` decoded as any
+    # key, which must be of `type`.
+    def self.read_typed_pkey: (untyped object, untyped bio, untyped password, untyped type, untyped message) -> untyped
+
+    # can_export_rsaprivatekey: whether every part of an RSA private key
+    # is there to write.
+    def self.rsa_private_exportable?: (untyped object) -> untyped
+
+    # A salt length of sign_pss and verify_pss: `named` maps the
+    # symbols it takes, anything else is an int.
+    def self.pss_salt_length: (untyped value, untyped named) -> untyped
+  end
+
+  module PKey
+    class RSA < PKey
+      def initialize: (*untyped args) { (?) -> untyped } -> void
+
+      def public?: () -> true
+
+      def private?: () -> untyped
+
+      def export: (*untyped args) -> untyped
+
+      alias to_pem export
+
+      alias to_s export
+
+      def to_der: () -> untyped
+
+      def sign_pss: (untyped digest, untyped data, salt_length: untyped, mgf1_hash: untyped) -> untyped
+
+      def verify_pss: (untyped digest, untyped signature, untyped data, salt_length: untyped, mgf1_hash: untyped) -> untyped
+
+      def n: () -> untyped
+
+      def e: () -> untyped
+
+      def d: () -> untyped
+
+      def p: () -> untyped
+
+      def q: () -> untyped
+
+      def dmp1: () -> untyped
+
+      def dmq1: () -> untyped
+
+      def iqmp: () -> untyped
+
+      def set_key: (untyped _n, untyped _e, untyped _d) -> untyped
+
+      def set_factors: (untyped _p, untyped _q) -> untyped
+
+      def set_crt_params: (untyped _dmp1, untyped _dmq1, untyped _iqmp) -> untyped
+    end
+  end
+end

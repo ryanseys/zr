@@ -1,0 +1,6 @@
+module Zr
+  module Hir
+    # Every name `require` answers in ruby itself.
+    FEATURES: untyped
+  end
+end

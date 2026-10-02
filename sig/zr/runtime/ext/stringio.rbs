@@ -1,0 +1,239 @@
+# stringio.c, in ruby: an IO over a String. The buffer is the same String
+# that the program gave, so a write shows through it, and a change to it
+# shows here. A Strio contains what the extension keeps in `struct
+# StringIO`: the string, the encoding, the position, the line number and
+# the mode. A copy of a stream shares its Strio, as a copy in C shares the
+# struct. Whether this object can still read or write is its own state.
+class StringIO
+  include Enumerable
+
+  VERSION: "3.2.0"
+
+  MAX_LENGTH: 9223372036854775807
+
+  # struct StringIO.
+  class Strio
+    @string: untyped
+
+    @enc: untyped
+
+    @pos: untyped
+
+    @lineno: untyped
+
+    @flags: untyped
+
+    attr_accessor string: untyped
+
+    attr_accessor enc: untyped
+
+    attr_accessor pos: untyped
+
+    attr_accessor lineno: untyped
+
+    attr_accessor flags: untyped
+
+    def initialize: () -> void
+
+    # get_enc: the encoding set, else the string's.
+    def encoding: () -> untyped
+  end
+
+  # The FMODE bits a mode sets.
+  READABLE: 1
+
+  WRITABLE: 2
+
+  READWRITE: 3
+
+  BINMODE: 4
+
+  APPEND: 64
+
+  TRUNC: 2048
+
+  SETENC_BY_BOM: 1048576
+
+  def self.new: (*untyped args, **untyped opts) ?{ (?) -> untyped } -> untyped
+
+  def self.open: (*untyped args, **untyped opts) ?{ (untyped) -> untyped } -> untyped
+
+  def initialize: (*untyped args, **untyped opts) -> void
+
+  def initialize_copy: (untyped orig) -> self
+
+  def reopen: (*untyped args, **untyped opts) -> untyped
+
+  def string: () -> untyped
+
+  def string=: (untyped string) -> untyped
+
+  def lineno: () -> untyped
+
+  def lineno=: (untyped lineno) -> untyped
+
+  def binmode: () -> self
+
+  def close: () -> nil
+
+  def close_read: () -> nil
+
+  def close_write: () -> nil
+
+  def closed?: () -> untyped
+
+  def closed_read?: () -> untyped
+
+  def closed_write?: () -> untyped
+
+  def eof: () -> untyped
+
+  def eof?: () -> untyped
+
+  def fcntl: (*untyped) -> untyped
+
+  def flush: () -> self
+
+  def fsync: () -> 0
+
+  def pos: () -> untyped
+
+  def pos=: (untyped pos) -> untyped
+
+  def rewind: () -> 0
+
+  def seek: (untyped amount, ?untyped? whence) -> 0
+
+  def sync: () -> true
+
+  def sync=: (untyped value) -> untyped
+
+  def tell: () -> untyped
+
+  def each: (*untyped args, **untyped opts) ?{ (untyped) -> untyped } -> (untyped | self)
+
+  alias each_line each
+
+  def each_byte: () ?{ (untyped) -> untyped } -> (untyped | self)
+
+  def each_char: () ?{ (untyped) -> untyped } -> (untyped | self)
+
+  def each_codepoint: () ?{ (untyped) -> untyped } -> (untyped | self)
+
+  def getc: () -> (nil | untyped)
+
+  def ungetc: (untyped c) -> nil
+
+  def ungetbyte: (untyped c) -> nil
+
+  def getbyte: () -> (nil | untyped)
+
+  def gets: (*untyped args, **untyped opts) -> (nil | untyped)
+
+  def readlines: (*untyped args, **untyped opts) -> untyped
+
+  def read: (*untyped args) -> (nil | untyped)
+
+  def pread: (untyped length, untyped offset, ?untyped? buffer) -> untyped
+
+  def write: (*untyped objects) -> untyped
+
+  def putc: (untyped ch) -> untyped
+
+  def isatty: () -> false
+
+  def tty?: () -> false
+
+  def pid: () -> nil
+
+  def fileno: () -> nil
+
+  def size: () -> untyped
+
+  def length: () -> untyped
+
+  def truncate: (untyped len) -> 0
+
+  def external_encoding: () -> untyped
+
+  def internal_encoding: () -> nil
+
+  def set_encoding: (untyped ext_enc, ?untyped? int_enc, **untyped opt) -> self
+
+  def set_encoding_by_bom: () -> (nil | untyped)
+
+  private
+
+  # rb_convert_type to StringIO through `to_strio`.
+  def self.convert: (untyped obj) -> untyped
+
+  # rb_str_cat: bytes onto a String that keeps its encoding.
+  def self.cat: (untyped str, untyped bytes) -> untyped
+
+  # get_strio: the struct, once initialize made one.
+  def strio: () -> untyped
+
+  # STRIO_MODE_SET_P: this object and its struct both allow `mode`.
+  def open?: (untyped mode) -> untyped
+
+  def readable: () -> untyped
+
+  def writable: () -> untyped
+
+  def writable?: () -> untyped
+
+  def outside?: (untyped ptr, untyped pos) -> untyped
+
+  def end_of?: (untyped ptr) -> untyped
+
+  def to_read: () -> untyped
+
+  def modifiable: (untyped ptr) -> untyped
+
+  # strio_init: the string and the mode, from the arguments `new` or
+  # `reopen` was given.
+  def init: (untyped args, untyped opts, untyped ptr) -> self
+
+  # rb_io_extract_modeenc: the FMODE bits and the encoding a mode and
+  # the options name.
+  def mode_of: (untyped vmode, untyped opts) -> ::Array[untyped]
+
+  def encoding_by_bom: (untyped ptr) -> (nil | untyped)
+
+  # strio_substr: `len` bytes of the string from `pos`, in `enc`.
+  def substr: (untyped ptr, untyped pos, untyped len, untyped enc) -> untyped
+
+  # rb_str_conv_enc: `str` in `to`, or `str` itself where it will not go.
+  def converted: (untyped str, untyped from, untyped to) -> untyped
+
+  # The character at byte `at` of `string` in `enc`, cut off at `stop`,
+  # as rb_enc_mbclen measures it: one byte where no character starts.
+  def char_at: (untyped string, untyped at, untyped stop, untyped enc) -> untyped
+
+  # rb_enc_right_char_head: `at`, moved on to the start of the next
+  # character when it falls inside one, counting from `start`.
+  def right_char_head: (untyped string, untyped start, untyped at, untyped stop, untyped enc) -> untyped
+
+  def unget_bytes: (untyped ptr, untyped bytes) -> untyped
+
+  def replace_bytes: (untyped string, untyped bytes) -> untyped
+
+  # prepare_getline_args: the separator, the limit and whether to chomp.
+  def line_args: (untyped ptr, untyped args, untyped opts) -> ::Array[untyped]
+
+  # strio_getline.
+  def getline: (untyped ptr, untyped rs, untyped limit, untyped chomp) -> (nil | untyped)
+
+  # The byte index of `needle` in `string` between `from` and `stop`.
+  def find: (untyped string, untyped needle, untyped from, untyped stop) -> untyped
+
+  def line_break_at?: (untyped string, untyped p, untyped e) -> untyped
+
+  def newline_width: (untyped string, untyped s, untyped e) -> (0 | untyped)
+
+  # strio_write.
+  def write_one: (untyped object) -> (0 | untyped)
+
+  # strio_finalize, which StringIO.open runs as its block ends.
+  def finalize: () -> self
+end

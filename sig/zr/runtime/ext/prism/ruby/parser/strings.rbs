@@ -1,0 +1,92 @@
+module Prism
+  module Ruby
+    class Parser
+      # Ruby does not see an encoding across an interpolation.
+      @explicit_encoding: untyped
+
+      @brace_nesting: untyped
+
+      @lex_state: untyped
+
+      @previous_start: untyped
+
+      @previous_type: untyped
+
+      # PM_CASE_KEYWORD
+      CASE_KEYWORD: ::Array[:KEYWORD___ENCODING__ | :KEYWORD___FILE__ | :KEYWORD___LINE__ | :KEYWORD_ALIAS | :KEYWORD_AND | :KEYWORD_BEGIN | :KEYWORD_BEGIN_UPCASE | :KEYWORD_BREAK | :KEYWORD_CASE | :KEYWORD_CLASS | :KEYWORD_DEF | :KEYWORD_DEFINED | :KEYWORD_DO | :KEYWORD_DO_LOOP | :KEYWORD_ELSE | :KEYWORD_ELSIF | :KEYWORD_END | :KEYWORD_END_UPCASE | :KEYWORD_ENSURE | :KEYWORD_FALSE | :KEYWORD_FOR | :KEYWORD_IF | :KEYWORD_IN | :KEYWORD_MODULE | :KEYWORD_NEXT | :KEYWORD_NIL | :KEYWORD_NOT | :KEYWORD_OR | :KEYWORD_REDO | :KEYWORD_RESCUE | :KEYWORD_RETRY | :KEYWORD_RETURN | :KEYWORD_SELF | :KEYWORD_SUPER | :KEYWORD_THEN | :KEYWORD_TRUE | :KEYWORD_UNDEF | :KEYWORD_UNLESS | :KEYWORD_UNTIL | :KEYWORD_WHEN | :KEYWORD_WHILE | :KEYWORD_YIELD]
+
+      # PM_CASE_OPERATOR
+      CASE_OPERATOR: ::Array[:AMPERSAND | :BACKTICK | :BANG_EQUAL | :BANG_TILDE | :BANG | :BRACKET_LEFT_RIGHT_EQUAL | :BRACKET_LEFT_RIGHT | :CARET | :EQUAL_EQUAL_EQUAL | :EQUAL_EQUAL | :EQUAL_TILDE | :GREATER_EQUAL | :GREATER_GREATER | :GREATER | :LESS_EQUAL_GREATER | :LESS_EQUAL | :LESS_LESS | :LESS | :MINUS | :PERCENT | :PIPE | :PLUS | :SLASH | :STAR_STAR | :STAR | :TILDE | :UAMPERSAND | :UMINUS | :UMINUS_NUM | :UPLUS | :USTAR | :USTAR_STAR]
+
+      # PM_CASE_PRIMITIVE
+      CASE_PRIMITIVE: ::Array[:INTEGER | :INTEGER_IMAGINARY | :INTEGER_RATIONAL | :INTEGER_RATIONAL_IMAGINARY | :FLOAT | :FLOAT_IMAGINARY | :FLOAT_RATIONAL | :FLOAT_RATIONAL_IMAGINARY | :SYMBOL_BEGIN | :REGEXP_BEGIN | :BACKTICK | :PERCENT_LOWER_X | :PERCENT_LOWER_I | :PERCENT_LOWER_W | :PERCENT_UPPER_I | :PERCENT_UPPER_W | :STRING_BEGIN | :KEYWORD_NIL | :KEYWORD_SELF | :KEYWORD_TRUE | :KEYWORD_FALSE | :KEYWORD___FILE__ | :KEYWORD___LINE__ | :KEYWORD___ENCODING__ | :MINUS_GREATER | :HEREDOC_START | :UMINUS_NUM | :CHARACTER_LITERAL]
+
+      # PM_CASE_PARAMETER
+      CASE_PARAMETER: ::Array[:UAMPERSAND | :AMPERSAND | :UDOT_DOT_DOT | :IDENTIFIER | :LABEL | :USTAR | :STAR | :STAR_STAR | :USTAR_STAR | :CONSTANT | :INSTANCE_VARIABLE | :GLOBAL_VARIABLE | :CLASS_VARIABLE]
+
+      # The tokens a symbol or alias may name without quotes.
+      SYMBOL_NAMES: untyped
+
+      private
+
+      # parse_unescaped_encoding: the encoding flag a string's escapes force.
+      def parse_unescaped_encoding: () -> (0 | untyped)
+
+      # parse_string_part: string content, `#{...}` or `#@var`; nil (with an
+      # error) for anything else.
+      def parse_string_part: (untyped depth) -> untyped
+
+      # parse_operator_symbol_name: `~@` and `!@` name `~` and `!`.
+      def operator_symbol_name_end: (untyped name) -> untyped
+
+      # parse_operator_symbol
+      def parse_operator_symbol: (untyped opening, untyped next_state) -> untyped
+
+      # parse_symbol: a symbol or interpolated symbol after its opening, in
+      # `lex_mode`, the mode that opening pushed.
+      def parse_symbol: (untyped lex_mode, untyped next_state, untyped depth) -> untyped
+
+      # A bare name as a symbol: `foo` in `undef foo` or `alias foo bar`.
+      def parse_bare_symbol: () -> untyped
+
+      # parse_undef_argument
+      def parse_undef_argument: (untyped depth) -> untyped
+
+      # parse_alias_argument: after the first name, the state lexes the
+      # second as a method name.
+      def parse_alias_argument: (untyped first, untyped depth) -> untyped
+
+      # The names in pm_numbered_parameter_names.
+      NUMBERED_PARAMETER_NAMES: untyped
+
+      # parse_variable: the previous identifier as a local variable read, a
+      # numbered parameter, or `it`; nil when it is none of them.
+      def parse_variable: () -> (untyped | nil)
+
+      # parse_variable_call: the previous identifier as a local variable read
+      # or a method call.
+      def parse_variable_call: () -> untyped
+
+      # parse_method_definition_name: the name after `def`, or a missing token
+      # with an error.
+      def parse_method_definition_name: () -> untyped
+
+      # parse_heredoc_dedent_string: the string without up to
+      # `common_whitespace` columns of indentation. It is always a copy, as
+      # pm_string_ensure_owned makes it.
+      def parse_heredoc_dedent_string: (untyped string, untyped common_whitespace) -> untyped
+
+      # parse_heredoc_dedent: the indentation of a <<~ heredoc's lines, which
+      # are the string parts at the start or after another string part; a
+      # part left empty goes.
+      def parse_heredoc_dedent: (untyped nodes, untyped common_whitespace) -> untyped
+
+      # parse_strings: string literals, joined when adjacent (`"a" 'b'`), or
+      # a symbol from a label (`"a":`).
+      def parse_strings: (untyped current, untyped accepts_label, untyped depth) -> untyped
+
+      # The end of an interpolated string, or a symbol from a label.
+      def parse_strings_close: (untyped opening, untyped parts, untyped label_allowed) -> untyped
+    end
+  end
+end

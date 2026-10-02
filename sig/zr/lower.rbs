@@ -1,0 +1,414 @@
+module Zr
+  # Lowers the HIR to the IR, over the zr runtime: one Function per scope
+  # (the toplevel, each def, class body and block), the data that they
+  # refer to, and the FrameMeta records that backtraces read.
+  class Lower
+    @program: untyped
+
+    @ids: untyped
+
+    @kernel: untyped
+
+    @target: untyped
+
+    @symbols: untyped
+
+    @fixed: untyped
+
+    @units: untyped
+
+    @entry: untyped
+
+    @internal: untyped
+
+    @ext: untyped
+
+    @unit_internal: untyped
+
+    @kind: untyped
+
+    @outer: untyped
+
+    @file: untyped
+
+    @warnings: untyped
+
+    @data: untyped
+
+    @functions: untyped
+
+    @prefix: untyped
+
+    @next: untyped
+
+    @lits: untyped
+
+    @sites: untyped
+
+    @pool: untyped
+
+    @pool_at: untyped
+
+    @spelled: untyped
+
+    @file_bytes: untyped
+
+    @keyword_tables: untyped
+
+    # The unit's own tree (a site can inline a def from it,
+    # `Function::Inline`), the function name of each def, and the cells
+    # that a site and its inlined copies share.
+    @unit_body: untyped
+
+    @inline_defs: untyped
+
+    @def_names: untyped
+
+    @block_names: untyped
+
+    @site_cells: untyped
+
+    @unit_hidden: untyped
+
+    # A scope that an eval runs inside: the names of its locals in Env
+    # order, and the enclosing scope. It is used in place of a block's
+    # Function, so a name that the string did not declare resolves to its
+    # slot in the calling scope.
+    class Outer
+      @slot_of: untyped
+
+      @outer: untyped
+
+      attr_reader outer: untyped
+
+      def initialize: (untyped names, ?untyped? outer) -> void
+
+      def meta: () -> nil
+
+      # A scope that an eval runs inside is already compiled, and its
+      # captures are already recorded. The eval keeps its own table, and
+      # the walk stops here.
+      def capture: (untyped _name, untyped _depth, write: untyped) -> nil
+
+      # Its body is not available, so no local counts as bound twice.
+      def bindings: () -> untyped
+
+      def slot_index: (untyped node) -> untyped
+    end
+
+    class Refused < Zr::Refused
+    end
+
+    # The Symbol Value for `id`: the id shifted above the tag that the
+    # kernel reads (lib/zr/runtime/kernel/object.rb).
+    def self.symbol_value: (untyped id, untyped tag) -> untyped
+
+    # The bit in an ivar table's `names` for the name `id`
+    # (lib/zr/runtime/kernel/object.rb, zr_ivtab_name_bit), as a signed word.
+    def self.ivar_name_bit: (untyped id) -> untyped
+
+    # `fixed`: the ids that this lowering's code has as immediates (the
+    # kernel's), or nil when the lowering owns the table.
+    attr_reader program: untyped
+
+    # `fixed`: the ids that this lowering's code has as immediates (the
+    # kernel's), or nil when the lowering owns the table.
+    attr_reader unit: untyped
+
+    # `fixed`: the ids that this lowering's code has as immediates (the
+    # kernel's), or nil when the lowering owns the table.
+    attr_reader symbols: untyped
+
+    # `fixed`: the ids that this lowering's code has as immediates (the
+    # kernel's), or nil when the lowering owns the table.
+    attr_reader data: untyped
+
+    # `fixed`: the ids that this lowering's code has as immediates (the
+    # kernel's), or nil when the lowering owns the table.
+    attr_reader functions: untyped
+
+    # `fixed`: the ids that this lowering's code has as immediates (the
+    # kernel's), or nil when the lowering owns the table.
+    attr_reader file: untyped
+
+    # `fixed`: the ids that this lowering's code has as immediates (the
+    # kernel's), or nil when the lowering owns the table.
+    attr_reader warnings: untyped
+
+    # `fixed`: the ids that this lowering's code has as immediates (the
+    # kernel's), or nil when the lowering owns the table.
+    attr_reader fixed: untyped
+
+    # The id of the prism node that `node` came from, or 0. The ids are
+    # those of the file that is lowering now (`@ids`): the program's main
+    # file, or a unit. A unit's ids go with its tree (`spent`).
+    def node_id: (untyped node) -> untyped
+
+    # Gives `made` (a node that the lowering builds for `node`) the same
+    # node id as `node`.
+    def noted: (untyped made, untyped node) -> untyped
+
+    # Whether the program uses TracePoint, so its own code fires events.
+    def traced?: () -> (true | false)
+
+    # True in the core library and in an extension's Ruby part. Both are
+    # runtime code, so `Primitive` resolves there.
+    def internal?: () -> untyped
+
+    # True in an extension's Ruby part: a port of a library that ruby
+    # writes in C or in Ruby, never one of the core's own classes.
+    def extension?: () -> (true | false)
+
+    # True in a unit of eval support (a hidden unit): the compiler that a
+    # program carries. ruby's compiler is C, so what the program redefines
+    # or traces must not reach this code either.
+    def support?: () -> untyped
+
+    # The builtin classes that the kernel sets at boot, each with its
+    # global slot. The core library reads them directly from the slot, as
+    # CRuby's C reads rb_cInteger. So a constant that a program defines
+    # never replaces one, and no read walks the constant tables.
+    def self.boot_classes: () -> untyped
+
+    # The slot for a bare constant `name` in the core library, or nil.
+    def boot_class_slot: (untyped name) -> (untyped | nil)
+
+    # `internal` marks the core library: a backtrace shows its methods as
+    # builtins, and its blocks and bodies have no backtrace entry. `ext`
+    # marks a program that is one extension file, compiled alone; it is
+    # internal as a one-unit program. `kind` is `:top` for a loaded file
+    # (its toplevel is a file's, not a program's): it starts no program
+    # and prints no parse warning.
+    def initialize: (untyped program, untyped kernel, untyped symbols, ?entry: ::String, ?internal: bool, ?ext: bool, ?kind: ::Symbol, ?outer: untyped?, ?target: untyped, ?fixed: untyped?, ?units: untyped?) -> void
+
+    # Each unit is independent. Every name in it starts with its own
+    # prefix and uses its own counters, so a file gets the same names
+    # whatever was compiled before it. The program's main file keeps the
+    # entry that it was given.
+    def open_unit: (?untyped prefix, ?untyped? body) -> untyped
+
+    # The def in this unit that a send of `name` can inline, or nil. It
+    # must be the only def of that name in the unit, with a shape that
+    # `Function::Inline` accepts. The name is only a guess at the callee;
+    # the site's cell decides at run time.
+    def inline_def: (untyped name) -> untyped
+
+    # The function name of the def `node`. It is made once, whether the
+    # def or a site that inlines it needs it first.
+    def def_name: (untyped node) -> untyped
+
+    # The cell of the site `node`, shared by every lowering of the node.
+    # The def's own function and each inlined copy read one cell, which
+    # the def's run fills.
+    def site_cell: (untyped node, untyped prefix, untyped bytes) -> untyped
+
+    # The fixed id of `name`, or nil. An id is fixed for a name of the
+    # kernel, or for any name in a lowering that owns the table (an eval in
+    # a running program). For nil, the link numbers the name, and the
+    # caller emits a word and a relocation.
+    def fixed_id: (untyped name) -> untyped
+
+    # The word in this unit's pool for `name` under `kind`, as `[the
+    # pool's name, its offset]`. A unit's code loads it, so the code does
+    # not contain a number that depends on the compile order.
+    def pool_word: (untyped kind, untyped name) -> ::Array[::String | untyped]
+
+    # The pool as data: one zero word per entry, each with the relocation
+    # that tells the link what to write there.
+    def close_pool: () -> (nil | untyped)
+
+    # The unit's code from an earlier build's cache, with its data added
+    # to this build's data.
+    def taken: (untyped unit) -> (nil | untyped)
+
+    # A read-only table of words. A word given as a name becomes the
+    # program's id for it, or the Symbol Value of that id when `tagged`.
+    # A fixed id is written directly; other ids are words that the link
+    # fills.
+    def id_table: (untyped name, untyped words, ?section: ::Symbol, ?tagged: bool) -> untyped
+
+    # The words of an Array or Hash literal that contains only
+    # immediates, as data that zr_ary_of and zr_hash_of copy into the
+    # object's slots. Each word is an Integer, or a name whose Symbol the
+    # link writes.
+    def word_table: (untyped words) -> untyped
+
+    # `[functions, data]`: the program's toplevel, then one function
+    # per required file, each with its own file name for backtraces.
+    #
+    # With a block, each function goes to the block after its file is
+    # lowered, and the result is the block's return values. So a program
+    # of a thousand files never has all of their IR in memory at once.
+    def run: () ?{ (?) -> untyped } -> ::Array[untyped]
+
+    # The program's toplevel alone, as `run` lowers it first: its
+    # `[functions, data]`. With `lower_unit`, a caller can lower the units
+    # one at a time, in any order (`Cache::Lowering::EvalSupport`): each unit uses its own
+    # names and counters, so its code is the same as in `run`. The pool
+    # closes at the end of each, where `run` puts it.
+    def lower_entry: () -> untyped
+
+    # The unit at `index` of the program, as `run` lowers it: its
+    # `[functions, data]`.
+    def lower_unit: (untyped index) -> untyped
+
+    private
+
+    # The functions and data that the block adds. Each is a copy: a slice
+    # (`@data[data..]`) shares the whole buffer of the array, and eval
+    # support's 411 slices kept 0.9 GB for the collector to mark.
+    def sliced: () { () -> untyped } -> ::Array[untyped]
+
+    public
+
+    # Releases a unit after its code is made and cached. Only the
+    # lowering reads its tree, locals and source, and the cache already
+    # has the source for its key. A self-compile lowers about 4,000
+    # units, and keeping every tree to the end of the build is most of
+    # what the collector marks on each pass.
+    #
+    # Only the streaming path releases. Without a block, `run` returns
+    # all functions at once, and the caller can be a test that lowers a
+    # program and then dumps it.
+    def spent: (untyped unit) -> untyped
+
+    # The prefix of each function name in the current unit.
+    def entry: () -> untyped
+
+    # A unit's toplevel entry. For a file in eval support, it is the
+    # entry that eval support already built. Otherwise it is a name made
+    # from this lowering's entry and the file. The name uses the file,
+    # not the position in the program, so a unit's names and code do not
+    # change when a file is added before it. The name includes the entry
+    # because the core library is lowered one file at a time, and each
+    # lowering contains its own copy of what it requires. Two copies of
+    # one file must be two symbols.
+    def unit_entry: (untyped index) -> untyped
+
+    # The entry of the unit at `index` and `file`, in a program lowered
+    # from `entry`.
+    def self.entry_of: (untyped entry, untyped index, untyped file) -> ::String
+
+    # Every unit's entry, in order. A require or an autoload refers to
+    # its target by this entry, so the entries are an input of each
+    # unit's bytes (`Cache::Unit`).
+    def self.entries_of: (untyped entry, untyped units) -> untyped
+
+    # Whether the code goes to the wasm backend, where the preemption
+    # count is the clock (lib/zr/runtime/kernel/send.rb).
+    def wasm?: () -> untyped
+
+    # The FrameMeta kind of a function of `kind` in this lowering.
+    def frame_kind: (untyped kind) -> untyped
+
+    def const: (untyped name) -> untyped
+
+    def layout: (untyped name) -> untyped
+
+    # Whether `word` is an immediate and not a cell, as the kernel
+    # defines it (lib/zr/runtime/kernel/value.rb).
+    def immediate?: (untyped word) -> untyped
+
+    # The kernel def named `name`, with the signature a call needs.
+    def kernel_def: (untyped name) -> untyped
+
+    def refuse: (untyped node, untyped message) -> untyped
+
+    # A form of Ruby that zr does not support yet, at the node's line.
+    def unsupported: (untyped node, ?untyped form) -> untyped
+
+    # A read-only string literal, as data in this unit.
+    def literal: (untyped bytes) -> untyped
+
+    # The slot of a regexp or range literal site in the runtime's table,
+    # when this lowering owns the counter.
+    def literal_index: () -> untyped
+
+    # The pool word for this unit's next literal site, or nil when the
+    # lowering owns the counter and can take a slot now. A site is a
+    # location, not a name, so each call takes its own pool entry.
+    def pool_site: () -> (nil | ::Array[::String | untyped])
+
+    # A zeroed cell of `bytes` for one site's cache (lib/zr/runtime/kernel/cache.rb).
+    # Its name includes the site count, so two lowerings that share a
+    # symbol table never make the same cell name.
+    def cache_cell: (untyped prefix, untyped bytes) -> untyped
+
+    # The current unit's file name as a build writes it (`Paths.shown`),
+    # and as bytes in the object.
+    def shown_file: () -> untyped
+
+    def file_bytes: () -> untyped
+
+    # The FrameMeta of function `fn`. It is writable, because the runtime
+    # fills in the owner and name at definition. A class body's name is
+    # the class's, set here. A def or block contains its arity and its
+    # parameter entries, and a block contains its function, so a Proc
+    # finds both.
+    def meta: (untyped fn, untyped kind, untyped line, ?name: ::Integer, ?parent: untyped?, ?params: untyped?, ?locals: untyped, ?env: bool, ?ruby: bool, ?captures: bool, ?node: ::Integer, ?cover: untyped?, ?twin: untyped?, ?owns_backref: bool, ?frameless: bool) -> untyped
+
+    # The scope's locals as data: the count, then one name id for each,
+    # in slot order. An eval and a Binding read the scope's names here.
+    def local_table: (untyped fn, untyped locals) -> untyped
+
+    # The scope's captures (outer locals) as data: the count, then a name
+    # id and flags for each (1: the scope writes it, 2: the owner scope
+    # binds it more than once). A Ractor reads them from a block's meta to
+    # refuse a block that it cannot isolate, and to list the captures.
+    #
+    # The order is ruby's. Ruby keys a block's outer variables by symbol,
+    # in the order that the program first uses each name. zr's symbol ids
+    # do not follow the program (the runtime used many names first), so
+    # the entries follow the order of each local's first declaration.
+    def captures_table: (untyped fn, untyped rows) -> untyped
+
+    # Each of `names` in the order the program first declares it.
+    def spell: (untyped names) -> untyped
+
+    PARAM_KINDS: untyped
+
+    # `Method#parameters` as data: the count, then a kind and a name id
+    # for each parameter (0 for no name).
+    def param_table: (untyped fn, untyped params) -> untyped
+
+    # A read-only table of symbol ids: the keywords of a def, or a call's
+    # keywords after their count. All sites in the unit that pass the same
+    # keys in the same order share one table, so a def's shape cell hits
+    # for all of them.
+    def keyword_table: (untyped words) -> untyped
+
+    # Lowers a def now into a function, named for the site.
+    def define: (untyped node) -> untyped
+
+    # Lowers a class, module or singleton class body into a function.
+    #
+    # A `class << self` body keeps `outer`, the Function that contains it,
+    # as the parent of its frame metadata, so a `return` in it finds its
+    # method.
+    def body: (untyped node, ?untyped? outer) -> untyped
+
+    # Lowers a block literal into a function. `outer` is the Function
+    # that contains it. The block of a `define_method` call (`method`)
+    # also gets its twin, if it can have one (`twin?`): the same body as a
+    # function with the method signature (FrameMeta, `twin`).
+    def block: (untyped node, untyped outer, ?method: bool) -> untyped
+
+    # Whether a block can have a twin. A traced program reads every block
+    # frame from its Proc. A scope inside the body would be lowered twice,
+    # and a Binding or an eval is left to the block.
+    def twin?: (untyped node) -> untyped
+
+    # Whether `node` contains a block, a lambda, a def or a body.
+    def scopes?: (untyped node) -> untyped
+
+    private
+
+    # Sends the functions lowered since the last call to `finish`. The
+    # lowering keeps none of them.
+    def finished_functions: () { (?) -> untyped } -> untyped
+
+    # A new function number. Functions nest, so the count of finished
+    # functions cannot identify them.
+    def number: () -> untyped
+  end
+end

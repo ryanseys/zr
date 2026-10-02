@@ -1,0 +1,122 @@
+module Zr::Kern
+  # trees.c: the Huffman trees that encode a block, and the bit output
+  # that they use. A tree entry is the C ct_data as two 32-bit fields:
+  # fc (freq or code), then dl (dad or len), 8 bytes for each entry.
+  # Derived from zlib; the license is in lib/zr/runtime/kernel/zlib.rb.
+  TR_MAX_BITS: 15
+
+  TR_MAX_BL_BITS: 7
+
+  TR_LITERALS: 256
+
+  TR_LENGTH_CODES: 29
+
+  TR_L_CODES: 286
+
+  TR_D_CODES: 30
+
+  TR_BL_CODES: 19
+
+  TR_HEAP_SIZE: 573
+
+  TR_END_BLOCK: 256
+
+  TR_REP_3_6: 16
+
+  TR_REPZ_3_10: 17
+
+  TR_REPZ_11_138: 18
+
+  TR_BUF_SIZE: 16
+
+  TR_STORED_BLOCK: 0
+
+  TR_STATIC_TREES: 1
+
+  TR_DYN_TREES: 2
+
+  TR_SMALLEST: 1
+
+  MIN_MATCH: 3
+
+  MAX_MATCH: 258
+
+  # The tree that build_tree builds.
+  TR_LTREE: 0
+
+  TR_DTREE: 1
+
+  TR_BLTREE: 2
+
+  def zr_tr_freq: (untyped tree, untyped n) -> untyped
+
+  def zr_tr_set_freq: (untyped tree, untyped n, untyped v) -> untyped
+
+  def zr_tr_code: (untyped tree, untyped n) -> untyped
+
+  def zr_tr_set_code: (untyped tree, untyped n, untyped v) -> untyped
+
+  def zr_tr_len: (untyped tree, untyped n) -> untyped
+
+  def zr_tr_set_len: (untyped tree, untyped n, untyped v) -> untyped
+
+  def zr_tr_dad: (untyped tree, untyped n) -> untyped
+
+  def zr_tr_set_dad: (untyped tree, untyped n, untyped v) -> untyped
+
+  def zr_tr_d_code: (untyped dist) -> untyped
+
+  def zr_tr_put_byte: (untyped s, untyped c) -> untyped
+
+  def zr_tr_put_short: (untyped s, untyped w) -> untyped
+
+  def zr_tr_bi_reverse: (untyped code, untyped len) -> untyped
+
+  def zr_tr_bi_flush: (untyped s) -> (untyped | untyped | nil)
+
+  def zr_tr_bi_windup: (untyped s) -> untyped
+
+  def zr_tr_send_bits: (untyped s, untyped value, untyped length) -> untyped
+
+  def zr_tr_send_code: (untyped s, untyped c, untyped tree) -> untyped
+
+  def zr_tr_gen_codes: (untyped tree, untyped max_code, untyped bl_count) -> untyped
+
+  def zr_tr_init_block: (untyped s) -> untyped
+
+  def zr_tr_init: (untyped s) -> untyped
+
+  def zr_tr_smaller: (untyped tree, untyped n, untyped m, untyped depth) -> untyped
+
+  def zr_tr_heap: (untyped s, untyped i) -> untyped
+
+  def zr_tr_set_heap: (untyped s, untyped i, untyped v) -> untyped
+
+  def zr_tr_pqdownheap: (untyped s, untyped tree, untyped k) -> untyped
+
+  def zr_tr_gen_bitlen: (untyped s, untyped tree, untyped max_code, untyped stree, untyped extra, untyped base, untyped max_length) -> (nil | untyped)
+
+  def zr_tr_build_tree: (untyped s, untyped which) -> untyped
+
+  def zr_tr_scan_tree: (untyped s, untyped tree, untyped max_code) -> untyped
+
+  def zr_tr_send_tree: (untyped s, untyped tree, untyped max_code) -> untyped
+
+  def zr_tr_build_bl_tree: (untyped s) -> untyped
+
+  def zr_tr_send_all_trees: (untyped s, untyped lcodes, untyped dcodes, untyped blcodes) -> untyped
+
+  def zr_tr_stored_block: (untyped s, untyped buf, untyped stored_len, untyped last) -> untyped
+
+  def zr_tr_flush_bits: (untyped s) -> untyped
+
+  def zr_tr_align: (untyped s) -> untyped
+
+  def zr_tr_compress_block: (untyped s, untyped ltree, untyped dtree) -> untyped
+
+  def zr_tr_detect_data_type: (untyped s) -> untyped
+
+  def zr_tr_flush_block: (untyped s, untyped buf, untyped stored_len, untyped last) -> untyped
+
+  def zr_tr_tally: (untyped s, untyped dist, untyped lc) -> (1 | 0)
+end

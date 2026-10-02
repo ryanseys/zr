@@ -1,0 +1,49 @@
+# frozen_string_literal: false
+#
+# This file is intentionally NOT frozen-literal. Real rbconfig's values are
+# mutable strings (`RbConfig::CONFIG["cflags"].frozen?` is false in CRuby),
+# and both `RbConfig.expand` and mkmf's `init_mkmf` write THROUGH them with
+# `String#replace`. A frozen literal here is a `FrozenError` before any
+# extension is configured.
+#
+# zr's own `rbconfig`. Ruby generates this file at build time from its
+# build configuration; zr has no such build, so the facts come from the
+# running program instead. It contains the keys that rubygems and bundler
+# read: version, platform, and the install layout.
+#
+module RbConfig
+  # The staging root of `make install`, empty for an installed ruby.
+  DESTDIR: ""
+
+  CONFIG: { "DESTDIR" => untyped, "MAJOR" => "4", "MINOR" => "0", "TEENY" => "7", "PATCHLEVEL" => "0", "ruby_version" => untyped, "RUBY_SO_NAME" => "ruby.4.0", "ruby_install_name" => untyped, "RUBY_INSTALL_NAME" => untyped, "RUBY_BASE_NAME" => "ruby", "arch" => untyped, "sitearch" => untyped, "platform" => untyped, "host" => untyped, "host_alias" => "", "host_cpu" => untyped, "host_vendor" => untyped, "host_os" => untyped, "target" => untyped, "target_cpu" => untyped, "target_vendor" => untyped, "target_os" => untyped, "EXEEXT" => "", "EXECUTABLE_EXTS" => "", "DLEXT" => untyped, "SOEXT" => untyped, "LIBEXT" => "a", "OBJEXT" => "o", "prefix" => untyped, "exec_prefix" => untyped, "bindir" => untyped, "libdir" => ::String, "rubylibprefix" => ::String, "rubylibdir" => ::String, "archdir" => ::String, "rubyarchdir" => ::String, "sitedir" => ::String, "sitelibdir" => ::String, "sitearchdir" => ::String, "vendordir" => ::String, "vendorlibdir" => ::String, "vendorarchdir" => ::String, "sysconfdir" => ::String, "mandir" => ::String, "datadir" => ::String, "localstatedir" => "/var", "ENABLE_SHARED" => untyped, "host_os_version" => untyped, "CC" => untyped, "CXX" => untyped, "LD" => untyped, "AR" => "ar", "LDSHARED" => untyped, "DLDFLAGS" => untyped, "configure_args" => "", "topdir" => untyped, "hdrdir" => untyped, "rubyhdrdir" => untyped, "rubyarchhdrdir" => untyped, "srcdir" => ".", "build_os" => untyped, "GCC" => "yes", "CC_WRAPPER" => "", "CCDLFLAGS" => "-fPIC", "CSRCFLAG" => "", "COUTFLAG" => "-o ", "OUTFLAG" => "-o ", "CPPOUTFILE" => "-o conftest.i", "PATH_SEPARATOR" => ":", "NULLCMD" => ":", "MKMF_VERBOSE" => "0", "DEFS" => "", "DLDLIBS" => "", "EXTDLDFLAGS" => "", "LIBRUBY" => "", "LIBRUBY_A" => "", "LIBRUBYARG" => "", "LIBRUBYARG_SHARED" => "", "LIBRUBYARG_STATIC" => "", "LIBS" => "-lm -lpthread", "SOLIBS" => "", "cflags" => "$(optflags) $(debugflags) $(warnflags) $(unwindflags)", "cxxflags" => "$(optflags) $(debugflags) $(warnflags) $(unwindflags)", "cppflags" => "", "optflags" => "-O2", "debugflags" => "-g", "warnflags" => "-Wall -Wextra -Wno-unused-parameter -Wno-missing-field-initializers", "unwindflags" => "-fexceptions -fasynchronous-unwind-tables", "CFLAGS" => "$(cflags) -fPIC", "CXXFLAGS" => "$(cxxflags) -fPIC", "CPPFLAGS" => "$(DEFS) $(cppflags)", "LDFLAGS" => "", "ARCH_FLAG" => "", "STRIP" => "strip -A -n", "TRY_LINK" => "", "COMMON_HEADERS" => "", "COMMON_MACROS" => "", "COMMON_LIBS" => "", "RUBY_PROGRAM_VERSION" => untyped, "UNIVERSAL_ARCHNAMES" => "", "universal" => "" }
+
+  # `MAKEFILE_CONFIG`'s values keep their `$(var)` references: mkmf writes
+  # them into the Makefile verbatim, and `make` is what expands them. `CONFIG`
+  # is the same table with every reference already resolved, which is what
+  # `expand` below does.
+  MAKEFILE_CONFIG: untyped
+
+  TOPDIR: untyped
+
+  # `RbConfig.ruby` -- the full path to the running interpreter.
+  def self.ruby: () -> untyped
+
+  # `RbConfig.fire_update!` -- upstream's, transcribed: sets `key` in
+  # MAKEFILE_CONFIG, then expands again each entry of CONFIG that refers
+  # to it, directly or through another entry. It returns those keys.
+  def self.fire_update!: (untyped key, untyped val, ?untyped mkconf, ?untyped conf) -> (nil | untyped)
+
+  # `RbConfig.expand` -- upstream's implementation, transcribed.
+  #
+  # Two details are load-bearing and neither is obvious. It MUTATES `val` in
+  # place (`val.replace`) and callers depend on that: mkmf writes
+  # `RbConfig.expand(srcdir = srcprefix.dup)` and then reads `srcdir`,
+  # discarding the return value. And it expands the config entry it reaches
+  # THROUGH, memoizing the result, so `$(CFLAGS)` resolves the whole chain in
+  # one pass and a cycle raises instead of spinning.
+  #
+  # An earlier version here returned a new String and left `val` alone. Every
+  # generated Makefile came out with an empty `SRCS`, because mkmf's `srcdir`
+  # stayed the literal `$(srcdir)` and globbed nothing.
+  def self.expand: (untyped val, ?untyped config) -> untyped
+end

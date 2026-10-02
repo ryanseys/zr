@@ -1,0 +1,6 @@
+module Zr::Kern
+  # Darwin numbers its signals 1 to 31.
+  NSIG: 32
+
+  def zr_os_sigaction: (untyped signo, untyped fn, untyped old) -> untyped
+end

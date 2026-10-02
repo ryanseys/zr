@@ -1,0 +1,45 @@
+module Zr::Kern
+  # `rows` contains one CovRow record for each file seen. `last` is the
+  # record of the last event, which is most probably the record of the
+  # next event.
+  Coverage: untyped
+
+  # `file` is the FrameMeta's file bytes, one address for each file that a
+  # lowering made. `counts` contains `size` words, a count for each line
+  # from 1.
+  CovRow: untyped
+
+  def zr_coverage: () -> untyped
+
+  def zr_coverage_setup_p: () -> untyped
+
+  def zr_coverage_state_set: (untyped state) -> untyped
+
+  def zr_coverage_forget: (untyped c) -> untyped
+
+  def zr_coverage_row: (untyped c, untyped file, untyped file_len, untyped toplevel) -> untyped
+
+  def zr_coverage_line: (untyped rec) -> (nil | untyped)
+
+  def zr_coverage_branch: (untyped id) -> (nil | untyped)
+
+  def zr_coverage_branch_counts: (untyped clear) -> untyped
+
+  def zr_coverage_counts: (untyped clear) -> untyped
+
+  # The methods that Coverage reports: the definitions that ran while it
+  # was set up. Each one has a record of four words, `[def-site id, owner,
+  # name, count]`, in one flat global Array, so the collector keeps the
+  # owners. The records stay after a `forget`, because a method entry
+  # refers to its record by position, and zr never measures a file two
+  # times. A `forget` and a `clear` discard only the counts.
+  G_COVERAGE_METHODS: 53
+
+  def zr_coverage_method_rows: () -> untyped
+
+  def zr_coverage_method_claim: (untyped klass, untyped mid, untyped meta) -> (nil | untyped)
+
+  def zr_coverage_method: (untyped e) -> (nil | untyped)
+
+  def zr_coverage_method_counts: (untyped clear) -> untyped
+end

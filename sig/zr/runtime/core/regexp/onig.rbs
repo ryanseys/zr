@@ -1,0 +1,22 @@
+class Regexp
+  module Onig
+    STACK_POP_LEVEL_FREE: 0
+
+    STACK_POP_LEVEL_MEM_START: 1
+
+    STACK_POP_LEVEL_ALL: 2
+
+    # The tree of `pattern` (bytes) under `options`, as [root, reg,
+    # warnings]. `enc` is an Enc encoding (Enc.for).
+    def self.parse: (untyped pattern, untyped options, untyped enc) -> ::Array[untyped]
+
+    # onig_reg_init: the options a pattern compiles under, with the
+    # syntax's defaults.
+    def self.reg_init: (untyped option, untyped enc) -> untyped
+
+    # onig_compile: `pattern` (bytes) compiled under `option` for `enc`;
+    # [reg, warnings], the reg holding the byte code and the search
+    # information. Raises Onig::Error as onig_new fails.
+    def self.compile: (untyped pattern, untyped option, untyped enc) -> ::Array[untyped]
+  end
+end

@@ -1,0 +1,174 @@
+module Zr
+  module Machine
+    class Host
+      P: untyped
+
+      # The real memory of this process. An address is an Integer.
+      #
+      # Most of the memory that the kernel uses is the host's region
+      # (`Region`): the bytes of one String, which an IO::Buffer reads and
+      # writes in place. That costs a fifth of a Fiddle read, which makes a
+      # new String for each load. An address outside the region (memory
+      # that C gave) goes through Fiddle.
+      module Memory
+        # The host's memory: the bytes of one String of zero bytes. ruby
+        # allocates such a String zeroed (calloc), so the system gives a
+        # page only when it is first written, and a fork gets its own copy.
+        #
+        # It answers the kernel's malloc and free: a block has a header
+        # with its size class before it, and a freed block waits in the
+        # list of its class for the next request of that class. A request
+        # that the region cannot hold goes to C.
+        class Region
+          @bytes: untyped
+
+          @base: untyped
+
+          @size: untyped
+
+          # IO::Buffer.for writes the String in place only inside its
+          # block, so a fiber stays in the block for the life of the
+          # process. ruby warns once that IO::Buffer is experimental.
+          @holder: untyped
+
+          @buffer: untyped
+
+          @top: untyped
+
+          @free: untyped
+
+          # The bytes before each block: its size class, and padding that
+          # keeps the block 16-byte aligned, as malloc's are.
+          HEADER: 16
+
+          attr_reader base: untyped
+
+          attr_reader size: untyped
+
+          attr_reader buffer: untyped
+
+          def initialize: (untyped size) -> void
+
+          def include?: (untyped addr) -> untyped
+
+          # A block of at least `bytes`, or nil when the region is full.
+          def malloc: (untyped bytes) -> untyped
+
+          # A block of at least `bytes` at a multiple of `align`, a power
+          # of two, or nil when the region is full.
+          def memalign: (untyped align, untyped bytes) -> untyped
+
+          def free: (untyped addr) -> untyped
+
+          # The bytes that the block at `addr` holds.
+          def usable: (untyped addr) -> untyped
+
+          # `size` bytes never used before, so zero, at a multiple of
+          # `align`; or nil when the region is full.
+          def fresh: (untyped size, untyped align) -> (nil | untyped)
+
+          private
+
+          # A freed block this large gives its pages back to the system, as
+          # malloc unmaps a large block: a program that makes and drops
+          # large buffers stays as small as it is in a binary.
+          RELEASE: untyped
+
+          # mmap(2) of fresh zero pages over the whole pages of a block, in
+          # place: the system takes the old pages back.
+          MMAP: untyped
+
+          READ_WRITE: 3
+
+          MAP_PRIVATE: 2
+
+          MAP_FIXED: 16
+
+          MAP_ANON: untyped
+
+          PAGE: untyped
+
+          def release: (untyped addr, untyped size) -> untyped
+
+          # The size class of a request: a multiple of 16 up to 1 KiB,
+          # then four classes in each doubling, so a block wastes at most a
+          # quarter of itself.
+          def rounded: (untyped bytes) -> untyped
+        end
+
+        # The region takes this much address space. A system that refuses
+        # so much (Linux counts a calloc against its memory) gets one half
+        # as large, and so on.
+        REGION_BYTES: untyped
+
+        def self.reserve: (?untyped bytes) -> untyped
+
+        REGION: untyped
+
+        BUFFER: untyped
+
+        BASE: untyped
+
+        LIMIT: untyped
+
+        def self?.read: (untyped addr, untyped len) -> untyped
+
+        def self?.write: (untyped addr, untyped bytes) -> untyped
+
+        def self?.word: (untyped addr) -> untyped
+
+        def self?.set_word: (untyped addr, untyped value) -> untyped
+
+        # The IO::Buffer types of `n` words, for each `n` up to WORDS: one
+        # call reads or writes them all.
+        WORDS: 64
+
+        LOAD_WORDS: untyped
+
+        STORE_WORDS: untyped
+
+        # `n` words from `addr`, as an Array.
+        def self?.words: (untyped addr, untyped n) -> (::Array[untyped] | untyped)
+
+        # `values` as words at `addr`.
+        def self?.set_words: (untyped addr, untyped values) -> untyped
+
+        # The load of a `type` (`Host::Type`) at `offset` from a pointer,
+        # as a lambda that reads the memory itself, so a field's reader is
+        # one call.
+        def self?.reader: (untyped type, untyped offset) -> untyped
+
+        # The store of a `type` at `offset` from a pointer, as a lambda. An
+        # unsigned store takes a value of the signed range too.
+        def self?.writer: (untyped type, untyped offset) -> untyped
+
+        # `size` zeroed bytes that stay until the process ends.
+        def self?.zeroed: (untyped size, ?::Integer align) -> untyped
+
+        # The C functions that only read and write memory, or allocate it,
+        # in Ruby (`Host#answer`): through Fiddle each costs more than the
+        # work it does, and none of them sets errno. `c` calls the C
+        # function, for memory that the region does not hold.
+        #
+        # Each lambda becomes a method of `Libc`, so it names `Memory`.
+        def self?.function: (untyped name, untyped c) -> untyped
+
+        # memmove(3): returns `to`.
+        def self?.copy: (untyped to, untyped from, untyped n) -> untyped
+
+        # memchr(3): the address of the first `byte` in the `n` bytes at
+        # `p`, or 0. A caller may give an `n` past the end of the memory
+        # (a search for a string's NUL), so the search reads a page at a
+        # time and stops at the byte, as C's does.
+        def self?.find: (untyped p, untyped byte, untyped n) -> (untyped | 0)
+
+        # The smallest page of the systems the host runs on: no read that
+        # stays inside one can fault after a byte that is mapped.
+        PAGE: 4096
+
+        # memset(3): returns `p`.
+        def self?.fill: (untyped p, untyped byte, untyped n) -> untyped
+      end
+    end
+  end
+end

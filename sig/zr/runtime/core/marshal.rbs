@@ -1,0 +1,332 @@
+# The 4.8 wire format: a one-byte tag for each kind, a packed integer for
+# every count, and two link tables so a graph that shares an object or a
+# symbol writes it once.
+module Marshal
+  MAJOR_VERSION: 4
+
+  MINOR_VERSION: 8
+
+  def self?.dump: (untyped obj, ?untyped? io, ?::Integer limit) -> untyped
+
+  # CRuby writes load in Ruby (its marshal.rb), so it returns its own
+  # parameters, under CRuby's names.
+  def self.load: (untyped source, ?untyped? proc, ?freeze: bool) -> untyped
+
+  alias self.restore self.load
+
+  # Objects that contain a task, a lock, a descriptor or compiled code,
+  # which no wire format can contain.
+  UNDUMPABLE: ::Array["Proc" | "Method" | "UnboundMethod" | "Binding" | "Enumerator" | "Fiber" | "Dir" | "MatchData" | "Ractor" | "StringIO" | "Thread" | "Thread::Mutex" | "Thread::Queue" | "Thread::SizedQueue" | "Thread::ConditionVariable"]
+
+  # The packed integer: one byte for a small number, else a length byte
+  # and the bytes of the number, least significant first. A `_dump` that
+  # writes a count of its own uses the same spelling.
+  def self.long_bytes: (untyped n) -> untyped
+
+  # The same, read back: the number and the bytes after it.
+  def self.read_long_bytes: (untyped text) -> (::Array[0 | untyped] | ::Array[untyped])
+
+  # What a `_dump` payload contains next to its bytes: the names that the
+  # C API sets on the payload itself, with no `@` in front, which only the
+  # `_load` of that class reads. Time writes its zone and offset this way.
+  def self.extras_of: (untyped text) -> untyped
+
+  def self.extra_set: (untyped text, untyped name, untyped value) -> untyped
+
+  # The tags, by the character each one writes.
+  class Writer
+    @limit: untyped
+
+    @out: untyped
+
+    @objects: untyped
+
+    @symbols: untyped
+
+    @encodings: untyped
+
+    @count: untyped
+
+    def initialize: (untyped limit) -> void
+
+    def run: (untyped obj) -> untyped
+
+    private
+
+    def write: (untyped obj, untyped limit) -> untyped
+
+    # An object the format can name twice: the second time it is a link.
+    def linked: (untyped obj, untyped limit) -> untyped
+
+    def refuse: (untyped obj) -> (nil | untyped)
+
+    def body: (untyped obj, untyped limit) -> untyped
+
+    # A Set writes as the pure-Ruby Set of Ruby 3 did: an object whose
+    # @hash contains its members, which set.c's compat dumper is in place
+    # of. Its own instance variables wrap that.
+    def set: (untyped obj, untyped limit) -> untyped
+
+    # A Range writes the three parts ruby gives it, in ruby's order.
+    def range_parts: (untyped range) -> ::Array[::Array[:excl | untyped] | ::Array[:begin | untyped] | ::Array[:end | untyped]]
+
+    # Ruby keeps an exception's message, its backtrace and an errno next
+    # to its instance variables, under names of its own.
+    def exception_parts: (untyped exception) -> untyped
+
+    def object_body: (untyped path, untyped parts, untyped limit) -> untyped
+
+    # A Struct and a Data value write the same record: each member's name
+    # and value. A Data value has no `[]`, so its values come as it keeps
+    # them.
+    def struct: (untyped obj, untyped limit) -> untyped
+
+    def array: (untyped obj, untyped limit) -> untyped
+
+    def hash: (untyped obj, untyped limit) -> untyped
+
+    # `C` gives the subclass of a String, Array, Hash or Regexp.
+    def uclass: (untyped obj, untyped base) -> untyped
+
+    # `e` gives each module that only the object was extended with.
+    # The modules an object was extended with, as w_extended walks them:
+    # those between its singleton class and its class, never one that the
+    # class itself includes. An object with no singleton class has none,
+    # and the walk does not make one.
+    def extended: (untyped obj) -> (nil | untyped)
+
+    def user_marshal: (untyped obj, untyped limit) -> untyped
+
+    def user_dump: (untyped obj, untyped limit) -> untyped
+
+    def remember: (untyped obj) -> untyped
+
+    # What an object has next to its parts: its instance variables, and
+    # for a String, a Regexp or a Symbol the name of its encoding.
+    def ivars_of: (untyped obj) -> (::Array[untyped] | untyped)
+
+    # An encoding writes only its name, and the name takes a link slot of
+    # its own, so a second string in the same encoding writes it once.
+    def encoding_name: (untyped name) -> untyped
+
+    def encoding_ivar: (untyped encoding) -> untyped
+
+    def write_ivars: (untyped ivars, untyped limit) -> untyped
+
+    # A Range and a plain object write their parts as the object body, so
+    # the wrapper must not write them twice.
+    def plain_object?: (untyped obj) -> (false | untyped)
+
+    def class_path: (untyped mod) -> untyped
+
+    def symbol: (untyped sym) -> untyped
+
+    # A symbol writes once; every later use is a link into the same table.
+    def symbol_bytes: (untyped sym) -> untyped
+
+    # Ruby keeps `i` for what fits in four bytes and writes every wider
+    # number as a bignum, whatever its class.
+    def integer: (untyped n) -> untyped
+
+    def bignum: (untyped n) -> untyped
+
+    def bytes: (untyped text) -> untyped
+
+    def long: (untyped n) -> untyped
+
+    def float_text: (untyped value) -> ("inf" | "-inf" | "nan" | untyped)
+
+    def float_exponent: (untyped digits, untyped point) -> ::String
+
+    def float_plain: (untyped digits, untyped point) -> (untyped | ::String)
+  end
+
+  # The reader, over the bytes a writer made.
+  class Reader
+    @io: untyped
+
+    @bytes: untyped
+
+    @pos: untyped
+
+    @handler: untyped
+
+    @freeze: untyped
+
+    @objects: untyped
+
+    @symbols: untyped
+
+    # The class or module that each name resolved to: a tree of a
+    # thousand nodes refers to its few classes a thousand times.
+    @constants: untyped
+
+    # The tags, as bytes: a tag is read once as a byte and compared as
+    # one, since a tree of any size is a byte a value and a compare a
+    # kind.
+    NIL: 48
+
+    TRUE: 84
+
+    FALSE: 70
+
+    FIXNUM: 105
+
+    SYMBOL: 58
+
+    SYMLINK: 59
+
+    LINK: 64
+
+    IVARS: 73
+
+    EXTENDED: 101
+
+    BIGNUM: 108
+
+    FLOAT: 102
+
+    STRING: 34
+
+    REGEXP: 47
+
+    ARRAY: 91
+
+    HASH: 123
+
+    HASH_DEF: 125
+
+    CLASS: 99
+
+    MODULE: 109
+
+    MODULE_OLD: 77
+
+    STRUCT: 83
+
+    OBJECT: 111
+
+    UCLASS: 67
+
+    DATA: 100
+
+    USRDEF: 117
+
+    USRMARSHAL: 85
+
+    # The bytes, or a stream to take them from. A stream gives only the
+    # bytes that one value needs, so the next value starts where this one
+    # stopped.
+    def initialize: (untyped source, untyped handler, untyped freeze) -> void
+
+    def run: () -> untyped
+
+    private
+
+    # Every value the reader leaves runs the handler and takes the freeze;
+    # a tag that only wraps another one does neither, so a wrapped value
+    # is reported once, after its ivars.
+    def read: () -> untyped
+
+    def leave: (untyped value) -> untyped
+
+    # The kinds a tree dump is mostly made of come first: an object, a
+    # symbol link, a small integer, nil, a string with its encoding.
+    def read_value: () -> untyped
+
+    # `I` marks the ivars that follow the object they belong to, so the
+    # object must be built before they can be read.
+    def with_ivars: () -> untyped
+
+    # A regexp and a `_dump` payload need their encoding before they can be
+    # built, so both read their own bytes, then their own ivars.
+    def deferred: (untyped tag) -> untyped
+
+    # `_load`, then the loader that ruby registers next to it: an
+    # Encoding's `_load` returns its name, which the load turns into the encoding.
+    def loaded: (untyped klass, untyped payload) -> untyped
+
+    # The ivars a record lists: each name and its value, as they come.
+    def each_ivar: () { (untyped, untyped) -> untyped } -> untyped
+
+    def apply_ivar: (untyped value, untyped name, untyped item) -> untyped
+
+    def extended: () -> untyped
+
+    def subclass: () -> untyped
+
+    def regexp: () -> untyped
+
+    def array: (untyped klass) -> untyped
+
+    def hash: (untyped klass, untyped defaulted, ?identity: bool) -> untyped
+
+    def struct: () -> untyped
+
+    # A plain object takes each ivar as it is read, which is the order
+    # in which ruby sets them. A Range or a Set is built from its parts
+    # after all of them are read.
+    def object: () -> untyped
+
+    # A name without an `@` is one of the parts ruby keeps of its own.
+    def set_part: (untyped built, untyped name, untyped value) -> untyped
+
+    def user_dump: () -> untyped
+
+    def user_marshal: () -> untyped
+
+    # `d`, what CRuby's `_dump_data` writes for a T_DATA object. The name
+    # comes first, so an absent class raises the same error as for every
+    # other tag. Then marshal.c allocates the class and refuses unless the
+    # result is T_DATA.
+    #
+    # Only a C extension makes a T_DATA object, and this runtime has no C.
+    # So that check refuses every `d` that a program can give this reader,
+    # as ruby does with the same bytes: `_load_data` is unreachable in
+    # both. The payload is left unread, as marshal.c leaves it.
+    def data: () -> untyped
+
+    def symbol_or_link: () -> untyped
+
+    # A symbol's name takes its encoding before it is interned, since a
+    # Symbol is its bytes and their encoding. Its link slot comes first,
+    # as r_symreal keeps it.
+    def encoded_symbol: () -> untyped
+
+    def new_symbol: (untyped name) -> untyped
+
+    # The class or module that `path` gives, a String or a Symbol. A name
+    # that was looked up before returns the same result, kind included.
+    def constant: (untyped path, untyped kind) -> untyped
+
+    # `rb_path_to_class` (variable.c): the path walked from Object one
+    # component at a time. A component that names nothing stops with the
+    # path as far as the walk read it, which takes in the separator the
+    # walk had already stepped past -- so `Absent::Nested` is refused as
+    # "Absent::" and `Outer::Nope` as the whole of itself. A component
+    # that names something other than a class or a module is ruby's
+    # TypeError, whatever kind the caller wanted.
+    def namespace: (untyped path) -> untyped
+
+    def undefined: (untyped path, untyped read) -> untyped
+
+    def keep: (untyped value) -> untyped
+
+    # `count` more bytes available, when a stream can still give them.
+    def need: (untyped count) -> (nil | untyped)
+
+    # A stream that runs out has reached its end; bytes that run out are
+    # a dump that was cut short.
+    def short!: () -> untyped
+
+    def byte: () -> untyped
+
+    def text: () -> untyped
+
+    def long: () -> (0 | untyped)
+
+    def bignum: () -> untyped
+
+    def float: (untyped name) -> untyped
+  end
+end

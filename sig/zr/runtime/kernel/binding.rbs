@@ -1,0 +1,59 @@
+module Zr::Kern
+  def zr_caller_frame: () -> untyped
+
+  def zr_eval_frame: () -> untyped
+
+  def zr_eval_cref: () -> untyped
+
+  def zr_eval_block: () -> untyped
+
+  def zr_eval_source_name: () -> untyped
+
+  def zr_eval_cref_under: (untyped mod, untyped outer) -> untyped
+
+  def zr_wrap_cref: (untyped mod) -> untyped
+
+  def zr_local_names: (untyped table) -> untyped
+
+  def zr_frame_env: (untyped rec) -> untyped
+
+  def zr_eval_env: () -> untyped
+
+  def zr_eval_parameters: () -> untyped
+
+  def zr_binding_parameters: (untyped b) -> untyped
+
+  def zr_meta_parameters: (untyped meta) -> untyped
+
+  def zr_meta_in_method: (untyped meta) -> (true | false)
+
+  def zr_eval_scopes: () -> untyped
+
+  def zr_binding: () -> untyped
+
+  def zr_proc_binding: (untyped p) -> untyped
+
+  def zr_proc_scope: (untyped p) -> untyped
+
+  def zr_binding_of: (untyped meta, untyped env, untyped self_, untyped cref) -> untyped
+
+  def zr_binding_cref: (untyped b) -> untyped
+
+  def zr_binding_scopes: (untyped b) -> untyped
+
+  def zr_binding_receiver: (untyped b) -> untyped
+
+  def zr_binding_file: (untyped b) -> untyped
+
+  def zr_binding_line: (untyped b) -> untyped
+
+  def zr_binding_get: (untyped b, untyped depth, untyped index) -> untyped
+
+  def zr_binding_set: (untyped b, untyped depth, untyped index, untyped v) -> untyped
+
+  def zr_binding_run: (untyped code, untyped b) -> untyped
+
+  def zr_binding_add: (untyped b, untyped name) -> untyped
+
+  def zr_toplevel_binding: (untyped env, untyped self_, untyped cref, untyped meta) -> untyped
+end

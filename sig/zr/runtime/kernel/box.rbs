@@ -1,0 +1,47 @@
+module Zr::Kern
+  # Ruby::Box. A box is a module that represents its own view of the
+  # program state. When a box patches a class, the class gets a SHADOW: a
+  # separate class whose superclass is the shared class. Each lookup in
+  # the box reads the shadow first. The toplevel constants and globals
+  # that a box writes belong to the box. Of main's state, a box reads only
+  # what the runtime contained when the program started.
+  G_MASTER_GVARS: 48
+
+  G_BOX: 49
+
+  def zr_box_register: (untyped klass) -> untyped
+
+  def zr_toplevel_scope_p: (untyped scope) -> (true | untyped)
+
+  def zr_box_current: () -> untyped
+
+  def zr_box_reach: () -> untyped
+
+  def zr_box_compiled: (untyped meta) -> untyped
+
+  def zr_box_stamp: (untyped metas, untyped b) -> untyped
+
+  def zr_box_slot: () -> untyped
+
+  def zr_box_view: (untyped klass) -> untyped
+
+  def zr_box_bind: (untyped klass, untyped slot, untyped shadow) -> untyped
+
+  def zr_box_origin: (untyped klass) -> untyped
+
+  def zr_box_shared_p: (untyped klass) -> untyped
+
+  def zr_box_snapshot: () -> untyped
+
+  def zr_box_master_gvars: () -> untyped
+
+  def zr_box_const_hidden: (untyped klass, untyped i) -> untyped
+
+  def zr_box_gvars: (untyped b) -> untyped
+
+  def zr_box_seen: (untyped v) -> untyped
+
+  def zr_box_name: (untyped klass, untyped name) -> untyped
+
+  def zr_box_gvar_key: (untyped name) -> untyped
+end

@@ -1,0 +1,30 @@
+module Zr
+  class Server
+    # The client of the warm compiler: `exe/zr` gives it the words of a
+    # `zr run` or `zr build`, and it sends them to the server that listens
+    # for this cache. It also holds the framing that both sides use to
+    # send one message (`put`, `take`).
+    class Client
+      # One message: its size, then its Marshal.
+      def self.put: (untyped io, untyped message) -> untyped
+
+      def self.take: (untyped io) -> untyped
+
+      # Gives `argv` to the server when one listens, and does not return:
+      # it execs the program or exits with the build's status. Returns when
+      # there is no server, or the server says to build here, and then the
+      # caller builds as it would without one.
+      def hand_to: (untyped argv) -> (nil | untyped)
+
+      # The server's socket for `argv`, or nil when the server does not
+      # take it: a command other than `run` or `build`, a `zr run` of wasm or
+      # for another target (the server builds only; the client runs), inside
+      # a compiled program, or in the second start of zr.
+      def client_socket: (untyped argv) -> (nil | untyped)
+
+      private
+
+      def answer: (untyped reply) -> untyped
+    end
+  end
+end

@@ -1,0 +1,161 @@
+# `Kernel#format` over Integer, Float, String, Symbol and the `%c` and
+# `%p` directives.
+module Kernel
+  private
+
+  def format: (*untyped args) -> untyped
+
+  public
+
+  alias sprintf format
+
+  # One `format` call: walks the spec's bytes, taking arguments in
+  # order, by position (`%1$d`) or by name (`%<n>d`, `%{n}`). Its
+  # methods are hidden helpers: a backtrace shows Kernel#format alone.
+  class Formatter
+    # A subclass's text is read as its bytes, as rb_str_format reads it.
+    @spec: untyped
+
+    @args: untyped
+
+    # sprintf.c's `posarg`: 0 before any argument, the last unnumbered
+    # one taken, -1 after a numbered one, -2 after a named one.
+    @posarg: untyped
+
+    @nextarg: untyped
+
+    @hash: untyped
+
+    @out: untyped
+
+    # The bits of sprintf.c's `flags`: the five flag characters, then
+    # whether a width, a precision, and a `.` were given.
+    FSHARP: 1
+
+    FMINUS: 2
+
+    FPLUS: 4
+
+    FZERO: 8
+
+    FSPACE: 16
+
+    FWIDTH: 32
+
+    FPREC: 64
+
+    FPREC0: 128
+
+    FLAG_BITS: { 32 => untyped, 35 => untyped, 43 => untyped, 45 => untyped, 48 => untyped }
+
+    CONVERSIONS: untyped
+
+    # No value was taken yet for a directive.
+    NONE: untyped
+
+    def initialize: (untyped spec, untyped args) -> void
+
+    def render: () -> untyped
+
+    private
+
+    # rb_str_format's `retry` loop over one directive, from the byte after
+    # its `%`. Returns the index after the directive.
+    def directive: (untyped i) -> untyped
+
+    # get_num: the digits from `i`, which must not run to the end.
+    def get_num: (untyped i, untyped what) -> ::Array[untyped]
+
+    # GETASTER at the `*` at `i`: `*n$` takes argument n, a bare `*` the
+    # next one. Returns the Integer and the index after the `*` form.
+    def aster: (untyped i, untyped what) -> ::Array[untyped]
+
+    # NUM2INT: a width or precision must fit in a C int.
+    def num2int: (untyped v) -> untyped
+
+    # GETNEXTARG: an argument in order, unless a numbered or a named one
+    # came before.
+    def next_arg: () -> untyped
+
+    # GETPOSARG: argument `n`, counted from 1.
+    def pos_arg: (untyped n) -> untyped
+
+    def nth: (untyped n) -> untyped
+
+    # get_hash: the one argument, as a Hash (to_hash).
+    def one_hash: () -> untyped
+
+    def width_check: (untyped flags) -> untyped
+
+    # sprint_exit: arguments in order that the string left unused are an
+    # error under $DEBUG and a warning under $VERBOSE.
+    def too_many: () -> (nil | untyped)
+
+    def convert: (untyped b, untyped value, untyped flags, untyped width, untyped precision) -> untyped
+
+    # `%c`: a String gives its first character; a number is a character
+    # of the result's encoding. US-ASCII past 127 turns the result binary,
+    # as rb_ascii8bit_appendable_encoding_index does.
+    def character: (untyped value, untyped flags, untyped width) -> untyped
+
+    # The digits with sign, prefix, precision and width applied; a
+    # negative number in a base other than 10 without a sign flag
+    # prints as CRuby's `..f01` two's complement.
+    def integer: (untyped value, untyped base, untyped flags, untyped width, untyped precision, untyped upper) -> untyped
+
+    # `#` writes the base's own prefix. Octal's prefix is a leading
+    # zero that the digits contain themselves, so it is not one of these.
+    def base_prefix: (untyped base, untyped flags, untyped n) -> untyped
+
+    def complement: (untyped m, untyped base) -> untyped
+
+    def pad: (untyped text, untyped flags, untyped width) -> untyped
+
+    # %f of an Integer or a Rational, as CRuby's sprintf writes it: the
+    # exact digits, the magnitude rounded half up at `precision` places,
+    # its own fill, and no `#`.
+    def exact_fixed: (untyped value, untyped flags, untyped width, untyped precision) -> untyped
+
+    # %f, %e and %g round the shortest round-trip digits half to even,
+    # as CRuby's dtoa comes out; past those digits, and when the
+    # rounding place comes before the first digit, the exact value
+    # decides.
+    def float: (untyped value, untyped flags, untyped width, untyped precision, untyped style, untyped upper) -> untyped
+
+    # `%a` without its `0x`: the exact value in hexadecimal, one digit
+    # before the point. A subnormal is normalized first, so that digit
+    # is 1 for every number but zero.
+    def hex_text: (untyped x, untyped precision, untyped flags, untyped upper) -> untyped
+
+    # The hexadecimal digits kept to `precision`, rounded half to even.
+    # A carry past the leading digit halves it and lifts the exponent.
+    def round_hex: (untyped lead, untyped digits, untyped precision, untyped power) -> (::Array[untyped] | ::Array[1 | untyped])
+
+    def fixed_text: (untyped x, untyped precision, untyped flags) -> untyped
+
+    # The first k digits of x: the shortest digits rounded half to
+    # even when they are longer, else the exact digits.
+    def rounded_digits: (untyped x, untyped digits, untyped point, untyped k) -> (untyped | ::Array[untyped])
+
+    # The first k significant digits of x's exact decimal value, rounded
+    # half to even, and where the point falls after them, as ecvt(3)
+    # gives them: x is its mantissa times a power of two, so the digits
+    # are one Integer division.
+    def exact_digits: (untyped x, untyped k) -> (::Array[untyped | 1] | ::Array[untyped])
+
+    def zero_text: (untyped precision, untyped flags) -> untyped
+
+    def exponent_text: (untyped x, untyped precision, untyped flags, untyped upper) -> ::String
+
+    def general_text: (untyped x, untyped precision, untyped flags, untyped upper) -> untyped
+
+    # Trailing zeros of a fraction go, and the point after them.
+    def trim_zeros: (untyped text) -> untyped
+  end
+end
+
+class String
+  # rb_str_format_m: an Array, or an object with to_ary, gives the
+  # arguments; anything else is the one argument.
+  def %: (untyped args) -> untyped
+end

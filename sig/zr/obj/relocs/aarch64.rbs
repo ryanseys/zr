@@ -1,0 +1,28 @@
+module Zr
+  module Obj
+    module Relocs
+      # Applies the arm64 relocations that `Backend::Aarch64::Codegen`
+      # records to a known address. The bit patterns are in this file only.
+      # `Obj::Patch` gives each relocation with the address of its symbol.
+      # `Obj::MachO::Block` calls `encode` directly.
+      module Aarch64
+        KINDS: ::Array[:branch26 | :page21 | :got_page21 | :pageoff12 | :got_pageoff12]
+
+        # Whether `kind` is an arm64 relocation that `patch` applies.
+        def self?.handles?: (untyped kind) -> untyped
+
+        # Patches `bytes` for `r` at `place`, with its symbol at `target`.
+        def self?.patch: (untyped bytes, untyped r, untyped target, untyped place) -> untyped
+
+        # Returns the instruction `word` at `place` with its field for `kind`
+        # set to reach `target`. Returns nil when the field cannot contain the
+        # offset, because a target out of range would encode a different address.
+        def self?.encode: (untyped kind, untyped word, untyped target, untyped place) -> untyped
+
+        # Whether a signed field of `bits` bits can contain `value`. A link
+        # asks this about a million times: `between?` cost 4% of a prelink.
+        def self?.fits?: (untyped value, untyped bits) -> untyped
+      end
+    end
+  end
+end

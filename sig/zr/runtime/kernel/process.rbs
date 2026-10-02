@@ -1,0 +1,55 @@
+module Zr::Kern
+  def zr_spawn_vector: (untyped words) -> untyped
+
+  def zr_posix_spawn: (untyped words, untyped dups, untyped closes, untyped env, untyped chdir, untyped flags) -> untyped
+
+  def zr_exec_options: (untyped options) -> (untyped | 0)
+
+  def zr_exec_tty: (untyped tty) -> untyped
+
+  def zr_spawn_forked: (untyped path, untyped words, untyped env, untyped options) -> untyped
+
+  def zr_exec_with: (untyped path, untyped words, untyped env, untyped options) -> untyped
+
+  def zr_proc_wait: (untyped pid, untyped flags) -> untyped
+
+  def zr_io_pipe: () -> untyped
+
+  def zr_proc_rusage: (untyped who) -> untyped
+
+  def zr_proc_ppid: () -> untyped
+
+  def zr_proc_getpriority: (untyped which, untyped who) -> untyped
+
+  def zr_proc_setpriority: (untyped which, untyped who, untyped priority) -> untyped
+
+  def zr_proc_getpgrp: () -> untyped
+
+  def zr_proc_getpgid: (untyped pid) -> untyped
+
+  def zr_proc_setpgid: (untyped pid, untyped pgrp) -> untyped
+
+  def zr_proc_getsid: (untyped pid) -> untyped
+
+  def zr_proc_setsid: () -> untyped
+
+  def zr_proc_groups: () -> untyped
+
+  def zr_proc_kill: (untyped pid, untyped signal) -> untyped
+
+  def zr_proc_kill_all: (untyped pids, untyped signal) -> untyped
+
+  def zr_proc_getrlimit: (untyped resource) -> untyped
+
+  def zr_proc_setrlimit: (untyped resource, untyped cur, untyped max) -> untyped
+
+  def zr_proc_setreid: (untyped group, untyped real, untyped effective) -> untyped
+
+  def zr_proc_setgroups: (untyped ids) -> untyped
+
+  def zr_proc_initgroups: (untyped user, untyped gid) -> untyped
+
+  def zr_proc_fork: () -> untyped
+
+  def zr_proc_child_exit: (untyped exc) -> untyped
+end

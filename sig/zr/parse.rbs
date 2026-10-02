@@ -1,0 +1,5 @@
+module Zr
+  # Prism.parse for the compiler. It uses the parse cache when the parser
+  # is zr's port.
+  def self.parse: (untyped source, **untyped) -> untyped
+end

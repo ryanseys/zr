@@ -1,0 +1,1227 @@
+# String methods written over the byte primitives. Character indexes
+# map to byte offsets through the kernel, which reads UTF-8; a binary
+# string's bytes are its characters. Case mapping, succ and character
+# sets stop on non-ASCII text.
+class String
+  include Comparable
+
+  def []: (untyped index, ?untyped? length) -> untyped
+
+  alias slice []
+
+  def chars: () ?{ (?) -> untyped } -> untyped
+
+  def each_char: () ?{ (untyped) -> untyped } -> (untyped | self)
+
+  def bytes: () ?{ (?) -> untyped } -> untyped
+
+  def each_byte: () ?{ (untyped) -> untyped } -> (untyped | self)
+
+  def bytesize: () -> untyped
+
+  # The index converts as NUM2LONG converts one: a Float is truncated,
+  # `to_int` is called, and a Bignum out of range is refused.
+  def getbyte: (untyped i) -> untyped
+
+  # The index converts as getbyte's index does and is checked first.
+  # Then the byte converts as rb_to_int converts one, and its low eight
+  # bits are written. The return value is the byte as it was given.
+  def setbyte: (untyped i, untyped byte) -> untyped
+
+  def ord: () -> untyped
+
+  # The arguments are walked without Array's own methods: the runtime
+  # itself calls these two, so a program that redefines Array#each must
+  # not change them.
+  def start_with?: (*untyped prefixes) -> (true | false)
+
+  def end_with?: (*untyped suffixes) -> (true | false)
+
+  def delete_prefix: (untyped prefix) -> untyped
+
+  def delete_suffix: (untyped suffix) -> untyped
+
+  def replace: (untyped other) -> untyped
+
+  # `slice!`: removes the part that `[]` returns from the receiver.
+  def slice!: (*untyped args) -> (nil | untyped)
+
+  # `s[i] = t`, `s[start, len] = t`, `s[range] = t` and `s[sub] = t`:
+  # the span leaves and `t` takes its place.
+  def []=: (*untyped args) -> untyped
+
+  # A copy whose bytes are its characters (CRuby's ASCII-8BIT).
+  def b: () -> untyped
+
+  def clear: () -> untyped
+
+  def prepend: (*untyped others) -> untyped
+
+  def insert: (untyped index, untyped other) -> untyped
+
+  # The four case mappings, each character through the Unicode tables.
+  # `:ascii` leaves everything above 127 alone, `:turkic` gives the
+  # dotted and dotless i their own rules, and `:fold` is downcasing
+  # for comparison. `:lithuanian` reads as the plain mapping, as it
+  # does in ruby.
+  def upcase: (*untyped options) -> untyped
+
+  def downcase: (*untyped options) -> untyped
+
+  def capitalize: (*untyped options) -> untyped
+
+  def swapcase: (*untyped options) -> untyped
+
+  # The bang forms return nil when nothing changed.
+  def upcase!: (*untyped options) -> untyped
+
+  def downcase!: (*untyped options) -> untyped
+
+  def capitalize!: (*untyped options) -> untyped
+
+  def swapcase!: (*untyped options) -> untyped
+
+  def reverse!: () -> untyped
+
+  def delete!: (*untyped sets) -> untyped
+
+  def strip!: (*untyped selectors) -> untyped
+
+  def lstrip!: (*untyped selectors) -> untyped
+
+  def rstrip!: (*untyped selectors) -> untyped
+
+  def chomp!: (?untyped separator) -> untyped
+
+  def chop!: () -> untyped
+
+  def squeeze!: (*untyped sets) -> untyped
+
+  # Whitespace and NUL off both ends, in one String. The end is found by
+  # walking back over characters, which bytes that make none refuse, as
+  # rstrip_offset has it. With `selectors`, the characters they pick come
+  # off instead, as `delete` picks them.
+  def strip: (*untyped selectors) -> untyped
+
+  def lstrip: (*untyped selectors) -> untyped
+
+  def rstrip: (*untyped selectors) -> untyped
+
+  # The characters `selectors` pick off the left end, the right end, or
+  # both.
+  def stripped: (untyped selectors, untyped left, untyped right) -> untyped
+
+  # lstrip_offset and rstrip_offset over a text of UTF-16 or UTF-32,
+  # which reads code points: NUL and ASCII whitespace come off.
+  def wide_stripped: (untyped left, untyped right) -> untyped
+
+  # rb_enc_codepoint_len: [the code point at `at`, its byte length],
+  # refused where no character starts.
+  def codepoint_len: (untyped bytes, untyped at, untyped onig, untyped enc) -> ::Array[untyped]
+
+  # rb_isspace: ASCII's whitespace, over a code point.
+  def ascii_space?: (untyped code) -> untyped
+
+  def broken_tail!: () -> untyped
+
+  def chomp: (?untyped separator) -> untyped
+
+  def chop: () -> untyped
+
+  # chompped_length: the bytes left once `rs` comes off the end. The
+  # default separator takes a newline, a carriage return or both; ""
+  # takes every trailing newline; another separator comes off only at a
+  # character's start.
+  def chompped_length: (untyped rs) -> (0 | untyped)
+
+  # smart_chomp: a newline, a carriage return, or the two together.
+  def smart_chomp: (untyped bytes, untyped e) -> untyped
+
+  # chopped_length: the bytes before the last character, or before a
+  # carriage return and newline together.
+  def chopped_length: () -> (0 | untyped)
+
+  # An empty String in the receiver's encoding, which a result built a
+  # piece at a time keeps when every piece is plain ASCII or none is left.
+  def empty_like: () -> untyped
+
+  def squeeze: (*untyped sets) -> untyped
+
+  # rb_default_rs: the separator `$/` until a program sets another.
+  # Lines split at this object read it in the text's own encoding, so
+  # a UTF-16 text splits at its own newline.
+  # It is made on first use because the Encoding constants come later in this file.
+  DEFAULT_RS: ::Array[untyped]
+
+  def self.default_rs: () -> untyped
+
+  # rb_str_enumerate_lines: the lines up to and including `separator`,
+  # read a character at a time in the text's encoding. nil keeps the
+  # whole text, "" splits paragraphs at blank lines, `chomp` strips
+  # the separator.
+  def lines: (?untyped separator, ?chomp: bool) ?{ (?) -> untyped } -> (untyped | ::Array[self] | ::Array[untyped])
+
+  # The paragraph mode of rb_str_enumerate_lines: a line runs to the end
+  # of the blank lines after it, and `chomp` keeps only its last newline
+  # off.
+  def paragraphs: (untyped bytes, untyped enc, untyped chomp) -> untyped
+
+  # chomp_newline: `stop` moved back over one newline, and a carriage
+  # return before it.
+  def chomp_newline: (untyped bytes, untyped start, untyped stop, untyped onig, untyped compat) -> untyped
+
+  def each_line: (?untyped separator, ?chomp: untyped) ?{ (?) -> untyped } -> (untyped | self)
+
+  # CRuby's four splits: awk (nil or " "), characters (""), a String
+  # and a Regexp. A positive limit caps the pieces; a negative one keeps
+  # trailing empty pieces; zero drops them.
+  def split: (?untyped? pattern, ?::Integer limit) ?{ (untyped) -> untyped } -> (untyped | self)
+
+  # `sub`: replaces the first match with `replacement` (with its `\1`,
+  # `\k<name>`, `\0` and `\&` filled in), with the Hash's entry for the
+  # match, or with the block's return value (with `$~` set).
+  def sub: (untyped pattern, ?untyped? replacement) { (?) -> untyped } -> untyped
+
+  def gsub: (untyped pattern, ?untyped? replacement) { (?) -> untyped } -> untyped
+
+  # Appends `n` bytes of the receiver from byte `at` to `out`, as
+  # `buf_cat` appends them. In one encoding that is a copy of the bytes.
+  def cat_range: (untyped out, untyped at, untyped n) -> untyped
+
+  # A match makes the receiver the result and returns it, even when the
+  # text comes out the same; `$~` tells whether there was one.
+  def sub!: (untyped pattern, ?untyped? replacement) { (?) -> untyped } -> untyped
+
+  def gsub!: (untyped pattern, ?untyped? replacement) { (?) -> untyped } -> untyped
+
+  # `include?`, and a String `[]`, search the way `index` does, so the
+  # argument joins with the receiver before its bytes are read.
+  def include?: (untyped other) -> untyped
+
+  def index: (untyped needle, ?::Integer start) -> (nil | untyped)
+
+  def rindex: (untyped needle, ?untyped start) -> (nil | untyped)
+
+  # str_rindex: the last start at or before byte `s` where `sub`'s bytes
+  # sit at a character's start. A hit inside a character skips that
+  # whole character, as CRuby's search does.
+  def str_rindex: (untyped sub, untyped s, untyped enc) -> (untyped | nil)
+
+  # The characters are walked by byte offset and read as code points:
+  # no String a character, as `rb_str_count` makes none.
+  def count: (*untyped sets) -> untyped
+
+  # The runs of characters kept are copied whole: a delete that keeps
+  # most of the text copies it in a few pieces.
+  def delete: (*untyped sets) -> untyped
+
+  # Each character's byte offset and length, in order.
+  def each_char_at: () { (untyped, untyped) -> untyped } -> untyped
+
+  def tr: (untyped from, untyped to) -> untyped
+
+  # nil when no character of `from` occurs, even if nothing changed.
+  def tr!: (untyped from, untyped to) -> (nil | untyped)
+
+  def tr_s!: (untyped from, untyped to) -> (nil | untyped)
+
+  # The next string: the rightmost run of letters or digits counts up
+  # with carries, a carry past its start adds a first letter or digit;
+  # with none, the last character moves on. Beyond ASCII a character
+  # counts as a letter or digit by its Unicode class, and steps by
+  # codepoint.
+  def succ: () -> untyped
+
+  alias next succ
+
+  def succ!: () -> untyped
+
+  alias next! succ!
+
+  def ascii_alpha?: (untyped byte) -> untyped
+
+  def ascii_digit?: (untyped byte) -> untyped
+
+  # ONIGENC_CTYPE_ALPHA, _DIGIT and _PRINT (Regexp::Onig::CType).
+  ONIG_ALPHA: 1
+
+  ONIG_DIGIT: 4
+
+  ONIG_PRINT: 7
+
+  # enc_succ_char and enc_pred_char: the character `char` (a binary
+  # String, changed in place) moved one on or back. A wide encoding
+  # steps its code point; any other steps the bytes, carrying, until
+  # they make a character of the same length. :found, :wrapped past the
+  # last or first, or :not_char.
+  def succ_char: (untyped char, untyped onig, ?::Integer step) -> (:not_char | :wrapped | untyped | :found)
+
+  # enc_succ_alnum_char: moves a letter or digit one step in its run of
+  # letters or digits and returns [:found]. If it wraps to the first of
+  # the run, it returns [:wrapped, carry]. It returns [:not_char] for any
+  # other character, or for a run of one.
+  def succ_alnum_char: (untyped char, untyped onig) -> (::Array[:not_char] | ::Array[:found] | ::Array[:wrapped | untyped])
+
+  def delete_prefix!: (untyped prefix) -> untyped
+
+  def delete_suffix!: (untyped suffix) -> untyped
+
+  # Bytes and Strings appended as they are, whatever the encodings.
+  def append_as_bytes: (*untyped parts) -> self
+
+  def crypt: (untyped salt) -> untyped
+
+  def each_codepoint: () ?{ (untyped) -> untyped } -> (untyped | self)
+
+  alias dedup -@
+
+  # The bytes from `start` (`length` of them, or a Range) replaced by
+  # `text`'s, in place; the ends must sit on character boundaries.
+  def bytesplice: (*untyped args) -> untyped
+
+  def self.try_convert: (untyped object) -> untyped
+
+  def tr_s: (untyped from, untyped to) -> untyped
+
+  def upto: (untyped last, ?bool exclusive) ?{ (untyped) -> untyped } -> (untyped | self)
+
+  def partition: (untyped sep) -> (::Array[untyped] | untyped)
+
+  def rpartition: (untyped sep) -> ::Array[untyped]
+
+  def sum: (?::Integer bits) -> untyped
+
+  def byteslice: (untyped start, ?untyped? length) -> (untyped | nil)
+
+  def codepoints: () ?{ (untyped) -> untyped } -> untyped
+
+  # Each match in sequence, as rb_str_scan finds them: the whole match
+  # when the pattern has no group, else the groups. An empty match steps
+  # one character. The items are sliced from the offsets that a search
+  # returns. A MatchData is made for each match only under a block,
+  # which can read `$~`. Otherwise only the last match gets one, which
+  # `$~` keeps.
+  def scan: (untyped pattern) ?{ (untyped) -> untyped } -> untyped
+
+  # str_mod_check: the RuntimeError of a block that changed the receiver
+  # while scan or gsub walked it.
+  def modified_check: (untyped len) -> untyped
+
+  # The bytes from `from` to `to`, or nil for a group that did not take
+  # part (-1 for both).
+  def slice_at: (untyped from, untyped to) -> untyped
+
+  DUMP_ESCAPES: { 7 => "\\a", 8 => "\\b", 9 => "\\t", 10 => "\\n", 11 => "\\v", 12 => "\\f", 13 => "\\r", 27 => "\\e", 34 => "\\\"", 92 => "\\\\" }
+
+  # Everything outside printable ASCII escaped, so the result reads
+  # back as the same bytes: a whole character as \u, a stray byte as
+  # \x.
+  def dump: () -> (::String | untyped)
+
+  UNIT_ESCAPES: { 34 => "\\\"", 92 => "\\\\", 10 => "\\n", 9 => "\\t", 13 => "\\r", 27 => "\\e", 7 => "\\a", 8 => "\\b", 12 => "\\f", 11 => "\\v" }
+
+  # What ruby_escaped_char writes for a control character.
+  CONTROL_ESCAPES: { 0 => "\\0", 10 => "\\n", 13 => "\\r", 9 => "\\t", 12 => "\\f", 11 => "\\v", 8 => "\\b", 7 => "\\a", 27 => "\\e", 127 => "\\c?" }
+
+  UNICODE_NAMES: ::Array["UTF-8" | "UTF8-MAC" | "CESU-8" | "UTF-16BE" | "UTF-16LE" | "UTF-32BE" | "UTF-32LE" | "UTF-16" | "UTF-32"]
+
+  # rb_str_escape: an inspect past ASCII in an encoding other than the
+  # default external one, as rb_inspect shows it -- printable ASCII as
+  # it is and every other character escaped, in US-ASCII.
+  def escape: () -> untyped
+
+  # A UTF-16 or UTF-32 String inspected as ruby writes one: ASCII as it
+  # is, every other character as \u, and bytes that make no character
+  # as \x. A dummy name has no characters to show, so every byte is \x.
+  def unit_inspect: () -> (::String | untyped)
+
+  # Whether inspect escapes this code point rather than showing it.
+  # onigmo calls a code point with no category of its own unprintable.
+  # The table contains those as runs of a first point and a length.
+  def self.unprintable?: (untyped point) -> (false | true)
+
+  # A UTF-8 String inspected as ruby writes one: a character that has a
+  # category of its own as it is, one that has none as \u, and bytes
+  # that make no character as \x.
+  def utf8_inspect: () -> untyped
+
+  # A code point appended to a UTF-16 or UTF-32 String, as its code
+  # units.
+  def append_unit_point: (untyped point) -> untyped
+
+  # The text that `dump` wrote, read back; a trailing
+  # `.force_encoding(...)` gives the encoding.
+  # str_undump: the inverse of dump, byte by byte. Every error is a
+  # RuntimeError, as CRuby raises them.
+  def undump: () -> untyped
+
+  # undump_after_backslash: the escape at `i`, onto `out`. Returns the
+  # index after it.
+  def undump_escape: (untyped bytes, untyped i, untyped out, untyped state) -> untyped
+
+  # The `\u{...}` form: code points apart by spaces, up to the brace.
+  def undump_braced: (untyped bytes, untyped i, untyped out) -> untyped
+
+  def undump_point: (untyped point) -> untyped
+
+  def hex: () -> untyped
+
+  def oct: () -> untyped
+
+  def center: (untyped width, ?untyped pad) -> untyped
+
+  def ljust: (untyped width, ?untyped pad) -> untyped
+
+  def rjust: (untyped width, ?untyped pad) -> untyped
+
+  def to_i: (?::Integer base) -> untyped
+
+  # `casecmp` folds ASCII only; `casecmp?` folds all of Unicode. Two
+  # Strings with no encoding in common return nil, as str_casecmp does.
+  def casecmp: (untyped other) -> (nil | untyped)
+
+  def casecmp?: (untyped other) -> (nil | untyped)
+
+  def chr: () -> untyped
+
+  # Ruby runs `=~` as an instruction (opt_regexpmatch2), with no frame.
+  def =~: (untyped other) -> untyped
+
+  def match: (untyped pattern, ?::Integer pos) { (?) -> untyped } -> untyped
+
+  def match?: (untyped pattern, ?::Integer pos) -> untyped
+
+  # get_pat: a Regexp, or a String compiled as one.
+  def self.pattern_of: (untyped pattern) -> untyped
+
+  def encoding: () -> untyped
+
+  def force_encoding: (untyped encoding) -> untyped
+
+  # A copy of the receiver's characters written in `target`. Every pair
+  # meets in UTF-8, so a conversion between two other encodings is two
+  # steps and reads as one in its errors.
+  # With no target, str_transcode0 converts to the default internal
+  # encoding, replacing what it cannot write; with none set, only a
+  # decorator converts, within the receiver's own encoding.
+  def encode: (?untyped target, ?untyped? source, **untyped options) -> untyped
+
+  # A code point appended to a String in a multibyte encoding: the bytes
+  # that spell it, which the encoding must hold as one character.
+  def append_mb_point: (untyped point) -> untyped
+
+  # A String in a multibyte encoding, as CRuby's rb_str_inspect writes
+  # one. A character that represents no Unicode point prints as the
+  # number of its own bytes. Bytes that make no character print one by
+  # one. CESU-8's characters are Unicode's, and print as Unicode's.
+  def mb_inspect: () -> untyped
+
+  # An ASCII run escaped as any String is. The runtime's own inspect
+  # returns this after the bytes are tagged as UTF-8.
+  def ascii_escaped: (untyped run, ?bool unicode) -> untyped
+
+  # `xml: :text` writes the three characters XML reserves as entities,
+  # and `:attr` the quote as well. A character the target has no room
+  # for then becomes a numeric reference rather than an error.
+  def escaped: (untyped text, untyped options) -> untyped
+
+  # `newline:` and the older spellings of the same three choices
+  # rewrite the line ends once the conversion is done.
+  def newlines: (untyped text, untyped options) -> untyped
+
+  # `String.new(source, encoding:, capacity:)`. The capacity is not
+  # reserved: the buffer grows as the bytes arrive.
+  #
+  # With no source the String keeps its bytes, unless a capacity is
+  # given, which discards the bytes. In both cases it keeps its
+  # encoding. A new String is binary because `allocate` made it so.
+  def initialize: (?untyped source, ?encoding: untyped?, ?capacity: untyped?) -> void
+
+  def encode!: (*untyped args, **untyped options) -> untyped
+
+  # UTF-16 and UTF-32 are never ASCII, not even empty.
+  def ascii_only?: () -> untyped
+
+  def valid_encoding?: () -> untyped
+
+  # Replaces every invalid byte with `replacement` (U+FFFD, or the
+  # block's return value for the bad bytes).
+  def scrub: (?untyped? replacement) ?{ (untyped) -> untyped } -> untyped
+
+  # rb_enc_str_scrub's run of broken bytes at `at` in a multibyte
+  # encoding: the rest of the text when a character stops inside it,
+  # else the longest start of a character shorter than the encoding's
+  # longest, or one byte.
+  def mb_scrub_len: (untyped at) -> (untyped | 1)
+
+  # mb_scrub_len for UTF-8, over rb_enc_precise_mbclen's answer for the
+  # bytes from `at` to `stop`: a whole character, a character cut off at
+  # `stop` (:more), or bytes that start no character (:bad).
+  def utf8_scrub_len: (untyped at) -> (untyped | 1)
+
+  def utf8_precise: (untyped at, untyped stop) -> (:bad | :more | untyped)
+
+  # str_compat_and_valid: a replacement that is whole, and in the
+  # receiver's encoding, or plain ASCII where ASCII is one byte.
+  def scrub_replacement: (untyped text, untyped encoding) -> untyped
+
+  def scrub!: (?untyped? replacement) { (?) -> untyped } -> self
+
+  # Whether byte `at` starts a character (or ends the text). A
+  # continuation byte is inside a character only when the nearest lead
+  # byte before it, at most three back, starts a sequence that reaches it;
+  # a stray one is a character of its own.
+  def char_boundary?: (untyped at) -> (true | untyped)
+
+  def byteindex: (untyped needle, ?::Integer start) -> (nil | untyped)
+
+  def byterindex: (untyped needle, ?untyped start) -> (nil | untyped)
+
+  # Ruby's own normalize.rb does the work. A program that calls one of
+  # these methods by name arms its load, which runs on the first call.
+  NORMALIZER: ::Array[untyped]
+
+  def self.normalizer=: (untyped load) -> untyped
+
+  def unicode_normalize: (?::Symbol form) -> untyped
+
+  def unicode_normalize!: (?::Symbol form) -> untyped
+
+  def unicode_normalized?: (?::Symbol form) -> untyped
+
+  def normalizer: () -> untyped
+
+  # A grapheme cluster is what the regex engine's `\\X` matches from
+  # each place in turn, as rb_str_enumerate_grapheme_clusters takes them.
+  def each_grapheme_cluster: () ?{ (?) -> untyped } -> (untyped | self)
+
+  # A byte that is in no character is a cluster by itself. An encoding
+  # that is not Unicode has only characters.
+  def grapheme_clusters: () -> untyped
+
+  # The clusters of a UTF-16, UTF-32 or CESU-8 string: the engine reads
+  # none of them as Unicode, so the clusters are found in UTF-8 and the
+  # characters of the receiver taken in those counts.
+  def wide_clusters: () -> untyped
+
+  def byteslice_of: (untyped start, untyped length) -> untyped
+
+  # The receiver's bytes and encoding in a new String, as rb_str_dup makes
+  # one: never through String.new, which runs a program's initialize.
+  def copied: () -> untyped
+
+  # The receiver as a plain String, which code written for String's own
+  # bytes reads as the C reads a subclass's: never through its methods.
+  def plain: () -> untyped
+
+  # The characters as an Array, walked as each_char walks them, for the
+  # methods that read them all: an Enumerator over the receiver would
+  # call its each_char again.
+  # The characters up to the first whose lead needs more bytes than
+  # are left: the engine's `\X` does not match there, and ruby's clusters
+  # end. (A lone lead surrogate in the middle of a UTF-16 string stays
+  # one character here; ruby's engine splits its bytes.)
+  def engine_whole: (untyped chars) -> untyped
+
+  def characters: () -> untyped
+
+  private
+
+  # Membership in the intersection of `sets`, each a tr-style spec:
+  # characters, `a-z` ranges, and a leading `^` for the complement.
+  def charset_test: (untyped sets) -> untyped
+
+  # The characters a tr spec names, as codepoint ranges in the order
+  # they are written, and whether a leading `^` negates the set. A
+  # range stays a range so that `"\\x00-\\x{10FFFF}"` costs one row.
+  def charset: (untyped spec) -> ::Array[untyped]
+
+  def charset_cover?: (untyped ranges, untyped cp) -> untyped
+
+  # The place `cp` last takes in the expanded spec, or nil. A spec may
+  # name a character twice, and ruby lets the later place win.
+  def charset_index: (untyped ranges, untyped cp) -> untyped
+
+  # The codepoint at position `n` in the expanded spec. The last one
+  # is used for every position past the end.
+  def charset_at: (untyped ranges, untyped n) -> untyped
+
+  # tr: each character in `from` becomes the character at the same
+  # place in `to`, the last one standing in for the rest; a negated
+  # `from` maps every other character to the last of `to`. `squeeze`
+  # collapses runs of one translated character.
+  def translate: (untyped from, untyped to, untyped squeeze) -> untyped
+
+  def char_of: (untyped cp, untyped enc) -> untyped
+
+  def digits?: () -> untyped
+
+  # An Integer read the way `hex` and `oct` read one: whitespace, a
+  # sign, a base prefix, digits with single underscores, and nothing
+  # past the first stray byte. A negative base means the prefix picks
+  # the base.
+  def lenient_integer: (untyped base) -> untyped
+
+  def mutate: (untyped result) -> (nil | untyped)
+
+  # The receiver becomes `result`, the same text or not.
+  def replaced: (untyped result) -> untyped
+
+  def space_byte?: (untyped b) -> untyped
+
+  def digit_byte?: (untyped b) -> untyped
+
+  # The start and length a Range names in a string of `size` bytes,
+  # or nil when it starts past the end.
+  def range_span: (untyped range, untyped size) -> (nil | ::Array[untyped])
+
+  # awk-style words: runs of bytes between whitespace, which for split
+  # leaves NUL out. The piece that would reach `limit`, and a last word
+  # that runs to the end, are the tail.
+  # literal_split_pattern: whether the pattern is one space, read in its
+  # own encoding.
+  def awk_pattern?: (untyped pattern) -> untyped
+
+  def split_words: (untyped limit) -> untyped
+
+  # The awk split of rb_str_split_m over code points, for a text of
+  # UTF-16 or UTF-32.
+  def wide_words: (untyped limit) -> untyped
+
+  def split_chars: (untyped limit) -> untyped
+
+  def split_by_string: (untyped pattern, untyped limit) -> untyped
+
+  # The text after the last piece: kept under a limit, or when it is
+  # not empty.
+  def split_tail: (untyped out, untyped beg, untyped limit) -> untyped
+
+  # The first match of a Regexp or String pattern at or after byte
+  # `start`, as a MatchData; a String pattern matches its bytes.
+  def first_match: (untyped pattern, untyped start) -> untyped
+
+  # The offsets of the first match of `pattern` at or after byte
+  # `start` (`[position, begin, end, ...]`, as a search returns them),
+  # or nil. A String pattern matches itself, with no group.
+  def match_offsets: (untyped pattern, untyped start) -> untyped
+
+  # What replaces one match: the block's return value, the Hash's entry,
+  # or the replacement text with its backreferences filled in by
+  # rb_reg_regsub. `regexp` is nil for a String pattern.
+  def replacement_for: (untyped match, untyped replacement, untyped regexp) ?{ (untyped) -> untyped } -> untyped
+
+  # rb_reg_regsub: `repl` with each `\1`, `\k<name>`, `\0`, `\&`,
+  # `` \` ``, `\'`, `\+` and `\\` filled in from the match on the
+  # receiver. The replacement is read a character at a time in its own
+  # encoding, so a UTF-16 backslash is one and a Shift_JIS trail byte is
+  # not. The pieces join as rb_enc_str_buf_cat joins them.
+  def regsub: (untyped repl, untyped match, untyped regexp) -> untyped
+
+  # NAME_TO_NUMBER: the group `\k<name>` reads, the last of a repeated
+  # name's groups that took part in the match. A String pattern has no
+  # names, and a name whose encoding cannot meet the pattern's names
+  # none.
+  def regsub_name_number: (untyped regexp, untyped name, untyped match) -> untyped
+
+  # rb_str_quote_unprintable: the text as it is when it is printable in
+  # the encoding messages are shown in, else escaped.
+  def quote_unprintable: () -> (untyped | self)
+
+  # rb_enc_cr_str_buf_cat: appends `piece` to the receiver, a buffer
+  # that only its caller can see. The buffer takes the piece's encoding
+  # while it is empty and the two cannot share one, or while it is plain
+  # ASCII and the piece is not. Two non-ASCII encodings raise.
+  def buf_cat: (untyped piece) -> (self | untyped)
+
+  def buf_incompatible: (untyped enc, untyped other) -> untyped
+
+  # split by a Regexp, as CRuby walks it: the text between matches with
+  # the groups after each; an empty match at the search start skips one
+  # character, and splits the next time it is seen there.
+  def split_by_regexp: (untyped pattern, untyped limit) -> untyped
+
+  # The byte offset of `needle` at or after byte `start`, or nil.
+  # A Range of byte offsets as [start, length] within the text.
+  def byte_range: (untyped range) -> ::Array[untyped]
+
+  # The one option each case method takes, checked as ruby checks it.
+  # `:lithuanian` has no mapping of its own.
+  def case_mode: (untyped options, untyped kind) -> (:turkic | :full | untyped)
+
+  # Each character mapped: the first through the title table for
+  # `capitalize`, the rest through the lowercase one.
+  def mapped_case: (untyped kind, untyped options) -> untyped
+
+  # A byte of a longer character is left alone, even where it spells an
+  # ASCII letter, as a Shift_JIS trail byte may.
+  def ascii_cased: (untyped kind, untyped encoding) -> untyped
+
+  # A single-byte encoding cases its characters as Unicode does, over
+  # their code points. A character whose new case the encoding has no
+  # byte for stays as it was, and so does a byte it never defined.
+  def recoded_case: (untyped kind, untyped options) -> untyped
+
+  def recased_char: (untyped char, untyped kind, untyped options, untyped target) -> untyped
+
+  def case_char: (untyped char, untyped kind, untyped mode) -> untyped
+
+  # How far `code` moves in a table of (first, how many, how far)
+  # triples, found by halving.
+  def case_delta: (untyped runs, untyped code) -> (untyped | 0)
+
+  # rb_enc_check: a String argument must join with the receiver before
+  # its bytes can be read as characters of one encoding. Two strings of
+  # one encoding always join, which is the common way in.
+  def joined: (untyped other) -> untyped
+
+  def byte_index: (untyped needle, untyped start) -> (nil | untyped)
+
+  # rb_str_justify: `pad` (nil for the one space byte) repeated on the
+  # sides, whole copies and then the characters of it that fit.
+  def justify: (untyped width, untyped pad, untyped side) -> untyped
+
+  def padding: (untyped fill, untyped n, untyped fclen, untyped tail) -> untyped
+
+  # The method entries as they are at boot, which String's own methods
+  # call as the C calls its functions: a subclass's or a program's
+  # redefinition of one does not change what another reaches.
+  OWN: untyped
+
+  # The encodings whose characters rb_enc_unicode_p says are Unicode.
+  GRAPHEMES: ::Array["UTF-8" | "UTF-16BE" | "UTF-16LE" | "UTF-32BE" | "UTF-32LE" | "UTF8-MAC" | "CESU-8" | "UTF8-DoCoMo" | "UTF8-KDDI" | "UTF8-SoftBank"]
+end
+
+class Symbol
+  # The String method entries as they are at boot. Ruby reaches its own
+  # C functions from here, so a prepend or a redefinition of a String
+  # method does not change Symbol's.
+  STRING: untyped
+
+  def []: (*untyped args) -> untyped
+
+  alias slice []
+
+  def length: () -> untyped
+
+  alias size length
+
+  def =~: (untyped other) -> untyped
+
+  def match: (*untyped args) { (?) -> untyped } -> untyped
+
+  def match?: (*untyped args) -> untyped
+
+  def upcase: (*untyped options) -> untyped
+
+  def downcase: (*untyped options) -> untyped
+
+  def capitalize: (*untyped options) -> untyped
+
+  def swapcase: (*untyped options) -> untyped
+
+  def succ: () -> untyped
+
+  alias next succ
+
+  def start_with?: (*untyped prefixes) -> untyped
+
+  def end_with?: (*untyped suffixes) -> untyped
+
+  def empty?: () -> untyped
+end
+
+class Symbol
+  include Comparable
+
+  # A name that contains a character outside ASCII. If all its
+  # characters have a category of their own, it shows as the runtime
+  # writes it. If one needs an escape, the name is quoted and escaped.
+  def utf8_inspect: () -> (untyped | ::String)
+
+  def to_sym: () -> self
+
+  def intern: () -> self
+
+  def casecmp: (untyped other) -> (untyped | nil)
+
+  def casecmp?: (untyped other) -> (untyped | nil)
+
+  alias id2name to_s
+
+  # Ruby keeps one frozen name String per symbol, so `name` returns the
+  # same object each time.
+  NAMES: untyped
+
+  def name: () -> untyped
+
+  def self.all_symbols: () -> untyped
+end
+
+# Every encoding that ruby registers is defined here. A String has one
+# of the three that the runtime walks: UTF-8, ASCII-8BIT and US-ASCII.
+class Encoding
+  self.@by_name: untyped
+
+  @names: untyped
+
+  @index: untyped
+
+  @dummy: untyped
+
+  @ascii: untyped
+
+  @loaded: untyped
+
+  @bytewise: untyped
+
+  @points: untyped
+
+  class CompatibilityError < EncodingError
+  end
+
+  class ConverterNotFoundError < EncodingError
+  end
+
+  # The two failures that a conversion can return give both of its ends,
+  # and the character or the bytes where it stopped.
+  class UndefinedConversionError < EncodingError
+    @source: untyped
+
+    @destination: untyped
+
+    @char: untyped
+
+    @names: untyped
+
+    def source_encoding_name: () -> untyped
+
+    def destination_encoding_name: () -> untyped
+
+    def source_encoding: () -> untyped
+
+    def destination_encoding: () -> untyped
+
+    def error_char: () -> untyped
+
+    private
+
+    def setup: (untyped source, untyped destination, untyped char) -> self
+
+    public
+
+    private
+
+    # A step whose transcoder gives its ends separately from the encodings.
+    def named: (untyped source, untyped destination) -> self
+
+    public
+  end
+
+  class InvalidByteSequenceError < EncodingError
+    @source: untyped
+
+    @destination: untyped
+
+    @bytes: untyped
+
+    @again: untyped
+
+    @incomplete: untyped
+
+    @names: untyped
+
+    def source_encoding_name: () -> untyped
+
+    def destination_encoding_name: () -> untyped
+
+    def source_encoding: () -> untyped
+
+    def destination_encoding: () -> untyped
+
+    def error_bytes: () -> untyped
+
+    def readagain_bytes: () -> untyped
+
+    def incomplete_input?: () -> untyped
+
+    private
+
+    def setup: (untyped source, untyped destination, untyped bytes, untyped again, untyped incomplete) -> self
+
+    public
+
+    private
+
+    def named: (untyped source, untyped destination) -> self
+
+    public
+  end
+
+  # The two failures, built with all their attributes.
+  def self.byte_error: (untyped message, untyped source, untyped destination, untyped bytes, untyped again, untyped incomplete) -> untyped
+
+  def self.char_error: (untyped message, untyped source, untyped destination, untyped char) -> untyped
+
+  attr_reader names: untyped
+
+  # Every name is a frozen US-ASCII String, the same object on each
+  # call.
+  def initialize: (untyped index, untyped names, untyped dummy, untyped ascii, untyped loaded, untyped bytewise) -> void
+
+  # Ruby's own index for this encoding in `Encoding.list`. A String
+  # stores this number.
+  def index: () -> untyped
+
+  # Whether one byte is always one character, which is what the runtime
+  # needs to walk a String in this encoding.
+  def bytewise?: () -> untyped
+
+  def name: () -> untyped
+
+  alias to_s name
+
+  # Marshal writes an encoding by name, as ruby does.
+  def _dump: (?untyped? _limit) -> untyped
+
+  # CRuby's `_load` returns the name; Marshal's own loader for
+  # Encoding turns it into the encoding.
+  def self._load: (untyped name) -> untyped
+
+  # BINARY is the name that the report shows, and ASCII-8BIT is the one
+  # that `name` returns. A dummy encoding says so, and so does one whose
+  # table a fresh ruby has not read, in that order, as enc_inspect writes them.
+  def inspect: () -> untyped
+
+  def ascii_compatible?: () -> untyped
+
+  def dummy?: () -> untyped
+
+  # A lookup of an encoding by name reads its table.
+  def load: () -> self
+
+  LIST: untyped
+
+  BY_NAME: untyped
+
+  def self.at: (untyped index) -> untyped
+
+  # Whether this encoding gives every byte from 128 up a code point of
+  # its own, which is what reading its characters needs.
+  def self.tabled?: (untyped encoding) -> untyped
+
+  # Whether this encoding cases its non-ASCII characters at all.
+  def self.cased?: (untyped encoding) -> untyped
+
+  # A String has a byte-oriented encoding, UTF-8, or UTF-16 or UTF-32.
+  # The others need byte tables that this runtime does not have.
+  def self.carried: (untyped encoding) -> untyped
+
+  # Whether a String in this encoding walks by the multibyte rules in
+  # lib/zr/runtime/kernel/enc_mb.rb, or by UTF-8's own rules.
+  def self.mb?: (untyped encoding) -> untyped
+
+  def self.utf8_like?: (untyped encoding) -> untyped
+
+  # Whether a conversion out of this multibyte encoding has entries to
+  # read. Ruby has no converter for some of them. A String in one of
+  # those is walked and never converted.
+  def self.mb_converts?: (untyped encoding) -> untyped
+
+  # The error that a String whose bytes make no character raises. The
+  # runtime calls this, because the names are here.
+  def self.invalid_bytes: (untyped text) -> untyped
+
+  # A multibyte encoding's entries, unpacked on first use. They map the
+  # bytes before a character's last byte to the result of converting each
+  # last byte. A code point represents itself. A String is a character
+  # that needs more than one code point. `true` is a character that the
+  # encoding gives no code point. `:more` starts a longer character.
+  # The kernel's own rules find where a character ends, because ruby's
+  # converters are narrower than its character counts.
+  MB_TABLES: ::Hash[untyped, untyped]
+
+  MB_WRITERS: ::Hash[untyped, untyped]
+
+  def self.mb_table: (untyped encoding) -> untyped
+
+  def self.mb_rows: (untyped name) -> untyped
+
+  # The characters of an encoding that need more than one code point,
+  # keyed by the bytes that a walk uses to reach them. The generated
+  # table's own keys are source literals, which have the source's encoding.
+  def self.mb_multi: (untyped name) -> (nil | untyped)
+
+  # A number folded onto the positive ones, read back.
+  def self.mb_signed: (untyped value) -> untyped
+
+  # From a code point to the bytes the encoding writes it as: the rows
+  # read backwards, lowest sequence first, with the ones ruby writes
+  # another way on top.
+  def self.mb_writer: (untyped encoding) -> untyped
+
+  # One number of the packed rows, and where the next one starts.
+  def self.mb_varint: (untyped bytes, untyped at) -> ::Array[untyped]
+
+  # UTF-16 and UTF-32: the width of a code unit, and whether it is big
+  # endian. The two dummy names write big endian after a byte-order
+  # mark, and read the order off the mark.
+  UNITS: { "UTF-16BE" => ::Array[2 | true], "UTF-16LE" => ::Array[2 | false], "UTF-32BE" => ::Array[4 | true], "UTF-32LE" => ::Array[4 | false], "UTF-16" => ::Array[2 | nil], "UTF-32" => ::Array[4 | nil] }
+
+  BOMS: { 2 => ::Array[::Array[254 | 255] | ::Array[255 | 254]], 4 => ::Array[::Array[0 | 254 | 255] | ::Array[255 | 254 | 0]] }
+
+  # Whether a String in this encoding walks by UTF-16 or UTF-32 code
+  # units: the four named with a byte order.
+  def self.wide?: (untyped encoding) -> untyped
+
+  # For each lead byte of a UTF-8 sequence: how many bytes follow, and
+  # the range the first of them must fall in. Every later one is 80-BF.
+  UTF8_LEADS: untyped
+
+  # The message that a join of two encodings raises. The runtime calls
+  # this because the names are here.
+  def self.incompatible: (untyped a, untyped b) -> untyped
+
+  # BINARY shows as both its names when an error gives it.
+  def self.shown: (untyped encoding) -> untyped
+
+  # The code point that each byte from 128 up represents, or nil where
+  # the encoding leaves the byte out. Bytes below 128 represent
+  # themselves in every encoding that has a table.
+  def points: () -> untyped
+
+  # `text` written in `target`. UTF-8 is the meeting point, so a pair
+  # with neither side in it converts twice, and its errors name both
+  # steps.
+  def self.convert: (untyped text, untyped target, untyped options) -> untyped
+
+  # An encoding with no table gets past here, and so does a pair ruby
+  # itself refuses to convert between. Plain ASCII crosses that second
+  # one anyway, converter or none.
+  def self.converter: (untyped a, untyped b, untyped path, untyped ascii, ?untyped decorators) -> untyped
+
+  def self.not_found: (untyped path, untyped decorators) -> ::String
+
+  # The decorators that the options of an encode request, by ruby's names.
+  def self.decorators: (untyped options) -> untyped
+
+  # How ruby words a failure for an encoding. The single-byte entries
+  # and the multibyte ones give the same three facts.
+  def self.shaped?: (untyped encoding) -> untyped
+
+  def self.shape_of: (untyped encoding) -> untyped
+
+  # Each byte read as the code point its encoding gives it.
+  def self.to_utf8: (untyped text, untyped path, untyped options) -> untyped
+
+  # Each character written as the bytes the target gives its code point.
+  def self.from_utf8: (untyped text, untyped target, untyped path, untyped options) -> untyped
+
+  # The bytes of code point `point` in the target: its code units, or
+  # the one byte a table or ASCII gives it; nil when it has none.
+  def self.point_bytes: (untyped point, untyped unit, untyped big, untyped points, ?untyped? writer) -> untyped
+
+  # econv_opts and rb_econv_prepare_options: invalid: and undef: take
+  # only :replace, and a replacement is whole in its own encoding.
+  def self.check_options: (untyped options) -> (nil | untyped)
+
+  # A converter that opens takes the replacement in its target encoding,
+  # and does not open when it cannot have one. str_transcode0 opens none
+  # when there is nothing to convert: the same encoding, or ASCII text
+  # between two encodings that contain ASCII, with no decorator.
+  def self.check_replacement: (untyped text, untyped from, untyped target, untyped options) -> untyped
+
+  # What `invalid: :replace` writes: the caller's text, else U+FFFD into
+  # a Unicode encoding and "?" into any other.
+  def self.replacement: (untyped target, untyped options) -> untyped
+
+  # Each code point of UTF-8 `text`, on its way to `target`. Bytes UTF-8
+  # does not allow raise as ruby's decoder words them, or become `mark`
+  # once under `invalid: :replace`.
+  def self.utf8_points: (untyped text, untyped mark, untyped options, untyped target, ?untyped source) { (untyped) -> untyped } -> untyped
+
+  # The character at byte `i`: [code point, length], or [nil, length of
+  # the bad bytes, how they went bad]. A lead byte UTF-8 never uses is
+  # bad alone; a byte out of place ends the bad bytes before it, to be
+  # read again; the end of the input inside a sequence leaves it
+  # incomplete.
+  def self.utf8_step: (untyped bytes, untyped i) -> (::Array[untyped | 1] | ::Array[nil | 1 | :lead] | ::Array[nil | untyped | :ended] | ::Array[nil | untyped | :bad] | ::Array[untyped])
+
+  # Each code unit of a UTF-16 or UTF-32 String read as its code point,
+  # written as UTF-8. A lone or unpaired surrogate, a UTF-32 unit past
+  # Unicode or a short tail raises as ruby's decoder words it, or
+  # becomes `mark` once under `invalid: :replace`.
+  def self.units_to_utf8: (untyped text, untyped from, untyped mark, untyped options) -> untyped
+
+  # One step of the from_UTF_16LE/BE and from_UTF_32LE/BE transcoders
+  # (enc/trans/utf_16_32.trans) at byte `at`: [:char, code point,
+  # length], [:incomplete] where the text ends inside a character, or
+  # [:invalid, error length, read-again length]. A byte the table
+  # refuses inside the first unit takes the rest of that unit with it.
+  def self.unit_step: (untyped bytes, untyped at, untyped unit, untyped big) -> (::Array[:incomplete] | untyped | ::Array[:char | untyped | 2] | ::Array[:char | untyped | 4])
+
+  # Each character of a multibyte String read as its code point, written
+  # as UTF-8. The entries show where a character ends: a slot that starts
+  # a longer one continues the walk. A slot with no code point is a
+  # character that this pair cannot convert. No slot at all is bytes
+  # that make no character.
+  def self.mb_to_utf8: (untyped text, untyped from, untyped path, untyped options) -> untyped
+
+  # Whether the bytes from `at` start a character that the text ends
+  # inside. A conversion in pieces keeps those bytes for the next piece
+  # rather than refusing them.
+  def self.incomplete_tail?: (untyped bytes, untyped at, untyped encoding) -> (false | untyped | true)
+
+  # An encoding that writes its characters as UTF-8 writes them: only
+  # the form parts. UTF8-MAC stores each one decomposed, which ruby
+  # calls NFD, and reads it back composed.
+  def self.utf8_like_read: (untyped text, untyped from, untyped path, untyped options) -> untyped
+
+  def self.utf8_like_write: (untyped text, untyped target, untyped path, untyped options) -> untyped
+
+  # `text`, in UTF-8 or a carrier's encoding, into `target`, the other
+  # of the two or another carrier's: each emoji the pair exchanges
+  # becomes the target's own, and every other character stays as it is.
+  def self.exchange: (untyped text, untyped target, untyped path, untyped options) -> untyped
+
+  # The transcoders' own names for the step between a carrier's
+  # Shift_JIS or JIS and the carrier's UTF-8, which ruby's failures use.
+  HUB_NAMES: { "SJIS-DoCoMo" => ::Array["SJIS-DOCOMO" | "UTF8-DOCOMO"], "SJIS-KDDI" => ::Array["SJIS-KDDI" | "UTF8-KDDI"], "SJIS-SoftBank" => ::Array["SJIS-SoftBank" | "UTF8-SoftBank"], "stateless-ISO-2022-JP-KDDI" => ::Array["stateless-ISO-2022-JP-KDDI" | "UTF8-KDDI"] }
+
+  # A carrier's Shift_JIS or JIS reads into the carrier's own UTF-8 and
+  # writes out of it, as ruby's converters do: the carrier's emoji are
+  # private-use code points there, and the exchange with Unicode or with
+  # another carrier is a separate step. The path shows each hub step
+  # with its transcoder's name.
+  def self.hub_convert: (untyped text, untyped from, untyped target, untyped options) -> untyped
+
+  def self.hub_read: (untyped text, untyped from, untyped hub, untyped path, untyped options) -> untyped
+
+  # Each code point of the carrier's UTF-8 in the carrier's own bytes.
+  def self.hub_write: (untyped text, untyped hub, untyped target, untyped path, untyped options) -> untyped
+
+  # Ruby's words for bytes that a decoder cannot read: `incomplete` when
+  # the input ends inside them, else `followed by` the bytes it reads
+  # again. The failure gives the ends of the step that read them: the
+  # decoding into UTF-8, or from UTF-8 the one step to the target.
+  def self.invalid: (untyped error, untyped again, untyped ended, untyped name, ?untyped destination) -> untyped
+
+  # A byte or a character the step cannot write: replaced when the
+  # caller asked for that, else ruby's own error, worded for the whole
+  # path.
+  def self.undefined: (untyped shown, untyped from, untyped to, untyped path, untyped options, ?untyped? char) { (untyped) -> untyped } -> untyped
+
+  # The text that a `fallback:` gives for a character the target cannot
+  # encode, as transcode_loop calls it: a Proc or a Method is called,
+  # and a Hash or any other object that responds to `[]` is indexed.
+  # nil when there is no fallback, or when the option gives no usable object.
+  def self.fallback: (untyped fallback, untyped char) -> (nil | untyped)
+
+  # `X from A to B` for a single step that ruby words that way, else the
+  # chain form, which gives every encoding on the path.
+  def self.message: (untyped shown, untyped from, untyped to, untyped path) -> ::String
+
+  def self.byte_text: (untyped byte) -> ::String
+
+  def self.list: () -> untyped
+
+  # Every name, and `internal` for the encoding a read converts to.
+  def self.name_list: () -> untyped
+
+  # Every name but the first of each encoding, pointing at the first.
+  def self.aliases: () -> untyped
+
+  def self.locale_charmap: () -> untyped
+
+  def self.find: (untyped name) -> untyped
+
+  # Each name of an encoding, as written and upper-cased, mapped to the
+  # first encoding in the list that has it. This makes a lookup by an
+  # ASCII name (every encoding name is ASCII) one step.
+  def self.by_name: () -> untyped
+
+  # Both ends of a conversion. A name that matches no encoding is not an
+  # ArgumentError here: ruby looks for a converter by the two names and
+  # finds none.
+  def self.pair: (untyped source, untyped target) -> untyped
+
+  # The external and internal encodings a program set, nil for the ones
+  # it did not: UTF-8 and none.
+  DEFAULTS: ::Array[nil]
+
+  def self.default_external: () -> untyped
+
+  def self.default_internal: () -> untyped
+
+  # The external encoding is also the one "external" and "filesystem"
+  # name, as enc_set_default_encoding moves both aliases.
+  def self.default_external=: (untyped encoding) -> untyped
+
+  def self.default_internal=: (untyped encoding) -> untyped
+
+  # The names that follow the defaults, rather than one encoding.
+  MOVING: ::Array["external" | "filesystem" | "internal"]
+
+  def names: () -> untyped
+
+  # The encodings a conversion passes through, ruby's own converter
+  # pairs being the only steps it may take: the shortest way from one
+  # name to the other.
+  def self.convpath_for: (untyped source, untyped destination, untyped shown) -> untyped
+
+  # econv_opts' line ends, by decorator name: `newline:` names one and
+  # wins over the older booleans, which can name several, and the
+  # conversion then finds no converter. A nil names none.
+  NEWLINE_OPTIONS: ::Array[:universal_newline | :crlf_newline | :cr_newline | :lf_newline]
+
+  def self.newline_decorators: (untyped options) -> untyped
+
+  # The options with their line end as one `newline:`, or none. Two line
+  # ends are no conversion that ruby has.
+  def self.one_newline: (untyped options, untyped from, untyped target) -> untyped
+
+  # The decorator a `newline:` option names. A name that is no Symbol is
+  # not shown, as CRuby's own check writes it.
+  def self.newline_decorator: (untyped kind) -> untyped
+
+  # What writing a code point into `target` needs: the width and order
+  # of its code units, its byte table, its multibyte entries, and whether
+  # it writes UTF-8 or keeps a state between characters.
+  def self.writing: (untyped target) -> ::Array[untyped]
+
+  # ISO-2022-JP keeps a state: its characters are the bytes of
+  # stateless-ISO-2022-JP with the high bit off, inside an escape that
+  # says so, and the text ends back in ASCII.
+  JIS_IN: "\e$B"
+
+  JIS_OUT: "\e(B"
+
+  # JIS X 0208's own entries, which are the set that the escape selects.
+  # Ruby marks that set with a 0x92 byte in stateless-ISO-2022-JP, and
+  # the two bytes after it are the character with their high bits on. A
+  # character that never follows the marker is one ISO-2022-JP cannot write.
+  JIS_0208: ::Array[untyped]
+
+  def self.jis_writer: () -> untyped
+
+  def self.jis_bytes: (untyped point) -> untyped
+
+  # enc_compatible_p: the encoding that two objects with encodings can
+  # join in, or nil. A String, a Symbol, a Regexp, an IO and an Encoding
+  # have one. A String's encoding is read from its own bytes, so a
+  # subclass's encoding, empty? and ascii_only? are not called.
+  def self.compatible?: (untyped a, untyped b) -> (nil | untyped)
+
+  # rb_enc_get_index: the encoding of `object`, or nil for an object
+  # with no encoding. is_a? rather than case: String's own boot runs
+  # before Module#=== is defined.
+  def self.encoding_of: (untyped object) -> untyped
+end
+
+class Symbol
+  def encoding: () -> untyped
+end
+
+# An empty namespace at boot, as CRuby defines it; ruby's normalize.rb
+# fills it on String#unicode_normalize's first call.
+module UnicodeNormalize
+end

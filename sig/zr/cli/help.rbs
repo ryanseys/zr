@@ -1,0 +1,33 @@
+module Zr
+  module CLI
+    # What `zr help` prints: the list of commands (`USAGE`) and one page for
+    # each command (`PAGES`).
+    module Help
+      USAGE: ::String
+
+      # The words that ask for help.
+      FLAGS: ::Array["-h" | "--help"]
+
+      OUTPUT: "  -o, --output <path>    write the output to <path>\n"
+
+      PRINT_GEMS: "  --print-gems           print the gems that the output was built with\n"
+
+      # The options that choose the gems of a build.
+      GEMS: untyped
+
+      OPTIONS: untyped
+
+      PAGES: { "run" => ::String, "build" => ::String, "doctor" => "Usage: zr doctor\n\nChecks what zr needs on this host, and prints ok, warn or fail for\neach: the ruby version, the host, wasmtime, OpenSSL 3, the standard\nlibrary and the cache. A `target` line for each target gives the\noutputs that zr makes for it (binary, obj, wasm), and the outputs\nthat this host can make. Exits with status 1 if a check fails.\n", "gems" => "Usage: zr gems [--gem <name>=<version|dir>]... [--gemfile <path>] [--json] [<file.rb>]\n\nLists each gem that a build can read, with its version and its\nsource: stdlib (ruby 4.0.7's library in zr), port (a gem with a C\npart that zr ports), Gemfile.lock, or --gem. With <file.rb>, lists\nonly the gems that the build of <file.rb> reads.\n\n--json                 print JSON, one object for each gem\n--target <triple>      the target of the build of <file.rb>\n", "inspect" => "Usage: zr inspect [--json] <binary>\n\nPrints the gems that zr built <binary> with, from the manifest that\neach binary, object and WASI module carries: the zr and ruby\nversions, the target, and each gem with its version and source.\n", "diff" => ::String, "version" => ::String, "help" => "Usage: zr help [<command>]\n\nPrints the commands of zr, or the help of one command.\n`zr <command> --help` does the same.\n", "cache" => "Usage: zr cache [path|size|clean [--days N | --all]]\n\npath            print the cache directory (the default)\nsize            what the cache holds, by kind\nclean           delete the files that this zr does not use, and the\n                compiled compilers that older zr versions kept\nclean --days N  the same, but keep the files used in the last N days\nclean --all     delete every file in the cache, also this zr's own;\n                the next build makes them again\n\nAn installed zr also cleans its cache when it grows past\nZR_CACHE_MAX_GB (default 5).\n" }
+
+      # Prints the page of `command`, or the list of commands for nil.
+      def self?.show: (?untyped? command) -> untyped
+
+      # Whether the options before the first word of `args` ask for help.
+      def self?.asked?: (untyped args) -> untyped
+
+      # Whether `word` is one edit (a letter added, removed, changed, or
+      # two letters swapped) from `name`.
+      def self?.near?: (untyped word, untyped name) -> (false | untyped)
+    end
+  end
+end

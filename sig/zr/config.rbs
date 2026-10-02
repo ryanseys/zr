@@ -1,0 +1,170 @@
+module Zr
+  # The `ZR_*` environment variables that steer a build, read once.
+  # `Config.current` reads the environment on first use; every later call
+  # in the same process gets that same frozen instance, so one build sees
+  # one consistent set of settings even if something changes `ENV`
+  # afterward. Code reads a `ZR_*` variable only through this class.
+  class Config
+    @linker: untyped
+
+    @jobs_given: untyped
+
+    @jobs: untyped
+
+    # Not exposed as a plain reader: `eval` is a Kernel method, and
+    # `eval_walk?` is the only thing anything reads this for.
+    @eval_mode: untyped
+
+    @timing: untyped
+
+    @verify: untyped
+
+    @kernel_checked: untyped
+
+    @wasm_names: untyped
+
+    # `ZR_WASM_WIDTH`: the group size of a large wasm function's dispatch
+    # (`Backend::Wasm::Codegen::Body::LADDER` explains the default).
+    @wasm_width: untyped
+
+    @tune: untyped
+
+    @cache: untyped
+
+    # `ZR_CACHE_MAX_GB`: the most GB an installed zr keeps in its cache
+    # (default 5; 0 turns the limit off).
+    @cache_max_gb: untyped
+
+    # `ZR_TEST_BINARIES_GB`: the most GB of binaries that the program tests
+    # keeps in the store (default 8).
+    @test_binaries_gb: untyped
+
+    # `ZR_HOST_RUBY`: the ruby that zr starts when it needs ruby itself:
+    # to resolve gems (lib/zr/gem_set.rb), and for ruby's report of a
+    # syntax error (`CLI::Refusals.syntax_report`).
+    @host_ruby: untyped
+
+    # `ZR_LINK_ARGS`: words for the system linker, as `--link` gives
+    # them, split as a shell splits them.
+    @link: untyped
+
+    @run_cache: untyped
+
+    @code_cache: untyped
+
+    @server: untyped
+
+    # `ZR_LINKER`: `auto` (zr's own linker, and cc for what it cannot
+    # link), `ruby` (zr's linker only) or `cc`. Empty or unset is `auto`.
+    LINKERS: ::Array["auto" | "ruby" | "cc"]
+
+    # `ZR_CODE_CACHE`: on, off, or on with a check of each hit.
+    CODE_CACHES: ::Array["1" | "0" | "verify"]
+
+    # A `ZR_*` value that zr cannot use. The message names the variable,
+    # its value, and a value that works. The CLI prints it and exits 2.
+    class Invalid < ArgumentError
+    end
+
+    attr_reader linker: untyped
+
+    attr_reader wasm_width: untyped
+
+    attr_reader cache: untyped
+
+    attr_reader cache_max_gb: untyped
+
+    attr_reader link: untyped
+
+    attr_reader test_binaries_gb: untyped
+
+    attr_reader host_ruby: untyped
+
+    def initialize: () -> void
+
+    private
+
+    # The words of `line` as Shellwords.split gives them. zr does not
+    # require shellwords: the compiled compiler goes into a program with
+    # eval, and shellwords would give that program String#shellsplit,
+    # String#shellescape and Array#shelljoin.
+    def words: (untyped line) -> untyped
+
+    # The ruby that runs zr, or `ruby` on PATH in a binary that zr built,
+    # whose `RbConfig.ruby` names zr itself.
+    def running_ruby: () -> (untyped | "ruby")
+
+    # The value of `name` when it is one of `values`, or `default` when
+    # it is unset or empty.
+    def choice: (untyped name, untyped values, untyped default) -> untyped
+
+    # The number in `name` (an Integer, or with `kind: :Float` any
+    # number) that is at least `min`, or `default` when it is unset or
+    # empty. `example` is a good value for the message.
+    def number: (untyped name, untyped default, untyped example, ?kind: ::Symbol, ?min: untyped?) -> untyped
+
+    public
+
+    # `ZR_EVAL=walk` builds a native program with the tree-walking
+    # interpreter as its eval support, instead of the compiler.
+    def eval_walk?: () -> untyped
+
+    # `ZR_TIMING=1` prints one line to stderr for each build phase.
+    def timing?: () -> untyped
+
+    # `ZR_VERIFY=1` runs the IR against the interpreter as it lowers.
+    def verify?: () -> untyped
+
+    # `ZR_KERNEL_CHECKED=1` lowers the kernel with a check at each
+    # operator whose meaning differs from Ruby's (`Machine::Function#check_wrap`).
+    # It is part of the runtime digest.
+    def kernel_checked?: () -> untyped
+
+    # `ZR_WASM_NAMES=1` adds the wasm name section, for a stack trace or
+    # a profiler that reads function names.
+    def wasm_names?: () -> untyped
+
+    # `ZR_TUNE=0` keeps ruby's limits and leaves YJIT off.
+    def tune?: () -> untyped
+
+    # `ZR_RUN_CACHE=0` makes `zr run` build each run (`Cache::Run`).
+    def run_cache?: () -> untyped
+
+    # `ZR_CODE_CACHE`: "1", "0" or "verify" (`Native::CodeCache`).
+    attr_reader code_cache: untyped
+
+    # `ZR_SERVER`: nil (use the server if one listens at its default
+    # socket), "0" (never), or the path of a socket (lib/zr/server.rb).
+    attr_reader server: untyped
+
+    # Whether `ZR_JOBS` sets the worker count. Then it also overrides the
+    # memory limit (`Native::Parallel.afforded`).
+    def jobs_given?: () -> untyped
+
+    # `ZR_JOBS`, or the processors up to 6. etc loads at the first call,
+    # not with this file: the compiler goes into a program with eval, and
+    # etc would give that program IO#pathconf.
+    def jobs: () -> untyped
+
+    # `ZR_DEBUG=1` shows the backtrace of an error that stops zr
+    # (`CLI.guard`). It is read on its own, not with the rest: it must
+    # work when another ZR_* value is bad.
+    def self.debug?: () -> untyped
+
+    # Whether the environment variable `name` is on. Unset or empty gives
+    # `default`, "0" is off, and any other value is on.
+    def self.flag?: (untyped name, ?default: bool) -> untyped
+
+    # The one instance for this process. A later call returns the same
+    # instance; `reset!` and `with` are the only way to get a new one.
+    def self.current: () -> untyped
+
+    # Drops the current instance, so the next `current` reads `ENV` again.
+    def self.reset!: () -> untyped
+
+    # Sets each of `ENV` (by keyword, e.g. `ZR_TUNE: "0"`) for the block,
+    # yields the `Config` that reading it there gives, and puts `ENV`
+    # back after. For tests only; a build reads `Config.current` once.
+    def self.with: (**untyped overrides) { (untyped) -> untyped } -> untyped
+  end
+end

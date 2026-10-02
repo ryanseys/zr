@@ -1,0 +1,60 @@
+# ossl_digest.c: OpenSSL::Digest over EVP_MD_CTX.
+module OpenSSL
+  module Lib
+    OBJ_NAME_TYPE_MD_METH: 1
+
+    # EVP_MD_CTX_size (evp.h): the output length, which an XOF's context
+    # sets where the library knows how.
+    def self.EVP_MD_CTX_size: (untyped ctx) -> untyped
+
+    # EVP_MD_CTX_block_size (evp.h).
+    def self.EVP_MD_CTX_block_size: (untyped ctx) -> untyped
+
+    # EVP_get_digestbyobj (evp.h).
+    def self.EVP_get_digestbyobj: (untyped oid) -> untyped
+  end
+
+  class Digest < ::Digest::Class
+    class DigestError < OpenSSLError
+    end
+  end
+
+  module Ossl
+    DIGEST: untyped
+
+    # ossl_evp_md_fetch: the EVP_MD `object` names (a Digest, or an
+    # algorithm's name or OID), and the handle that keeps a fetched one
+    # alive while the caller uses it.
+    def self.fetch_md: (untyped object) -> ::Array[untyped]
+  end
+
+  class Digest
+    def self.digests: () -> untyped
+
+    private
+
+    def digests: () -> untyped
+
+    public
+
+    def initialize: (untyped type, ?untyped? data) -> void
+
+    def initialize_copy: (untyped other) -> self
+
+    def reset: () -> self
+
+    def update: (untyped data) -> self
+
+    alias << update
+
+    def digest_length: () -> untyped
+
+    def block_length: () -> untyped
+
+    def name: () -> untyped
+
+    private
+
+    def finish: () -> untyped
+  end
+end

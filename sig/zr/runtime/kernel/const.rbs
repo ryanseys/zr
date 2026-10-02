@@ -1,0 +1,245 @@
+module Zr::Kern
+  # Constants and the lexical scope list. A cref cell refers to a class and
+  # to the cref outside it. The toplevel cref refers to Object alone. A
+  # constant read looks through the lexical scope list first (Object last,
+  # and only as an ancestor), then the ancestors of the innermost class.
+  # `vis` is the visibility (VIS_*) that a def under the cref gets, and
+  # `modfn` is whether `module_function` is on.
+  # `class_eval`, `instance_eval` and `Class.new` push a cref with `eval`
+  # set. A `def` defines its method there, but constants and class
+  # variables skip that cref and use the lexical scope. The cref of a
+  # method from `define_method` refers to its method entry, and `super` in
+  # the body resolves from that entry.
+  # `lazy` is the object that an `instance_exec` runs under, until some
+  # code needs its singleton class. ruby makes that class only then, and an
+  # object with a singleton class shows differently in an error message.
+  RCref: untyped
+
+  T_CREF: 25
+
+  # The `RCref.eval` value for a block that runs under an object with no
+  # singleton class, as in `1.instance_eval`. A `def` there has no class to
+  # define the method on.
+  EVAL_NO_DEF: 2
+
+  VIS_PUBLIC: 0
+
+  VIS_PRIVATE: 1
+
+  VIS_PROTECTED: 2
+
+  G_TOP_CREF: 24
+
+  def zr_cref_push: (untyped klass, untyped outer) -> untyped
+
+  def zr_cref_klass: (untyped cref) -> untyped
+
+  def zr_cref_push_eval: (untyped klass, untyped outer) -> untyped
+
+  def zr_same_p: (untyped a, untyped b) -> untyped
+
+  def zr_cref_set_vis: (untyped cref, untyped vis) -> untyped
+
+  def zr_cref_set_modfn: (untyped cref) -> untyped
+
+  def zr_cref_lexical: (untyped cref) -> untyped
+
+  def zr_cref_lexical_class: (untyped cref) -> untyped
+
+  # A constant table of this length or more has a hash index of its ids.
+  # The first lookup that needs the index builds it. Object's table has
+  # hundreds of entries, and every bare constant read ends there. A lookup
+  # scans a shorter table.
+  CONST_INDEX_MIN: 16
+
+  def zr_const_index_drop: (untyped ext) -> (untyped | nil)
+
+  def zr_const_index_put: (untyped ext, untyped row) -> untyped
+
+  def zr_const_index_build: (untyped ext) -> untyped
+
+  def zr_const_index_add: (untyped ext, untyped row) -> (nil | untyped)
+
+  def zr_const_index_find: (untyped ext, untyped id) -> untyped
+
+  def zr_const_row: (untyped klass, untyped id) -> (0 | untyped)
+
+  def zr_const_sees_concealed: () -> (true | untyped)
+
+  def zr_core_asks_reflectively: (untyped top, untyped asking) -> (false | untyped)
+
+  def zr_const_sees_reflectively: () -> untyped
+
+  def zr_const_reveal: (untyped id) -> untyped
+
+  def zr_const_reveal_in: (untyped klass, untyped id) -> untyped
+
+  def zr_const_reveal_m: (untyped klass, untyped name) -> untyped
+
+  def zr_const_row_opened: (untyped scope, untyped id) -> untyped
+
+  def zr_const_row_kept: (untyped klass, untyped id) -> (0 | untyped)
+
+  def zr_const_set: (untyped klass, untyped id, untyped v) -> untyped
+
+  def zr_const_announce: (untyped klass, untyped id) -> untyped
+
+  def zr_const_write: (untyped klass, untyped id, untyped v) -> (0 | untyped)
+
+  def zr_warn_reassigned_constant: (untyped klass, untyped id, untyped e) -> (nil | untyped)
+
+  def zr_buf_previous_definition: (untyped b, untyped e, untyped id) -> untyped
+
+  def zr_const_row_in: (untyped klass, untyped id, untyped skip_object) -> (untyped | 0)
+
+  def zr_const_row_read_in: (untyped klass, untyped id, untyped skip_object) -> (untyped | 0)
+
+  def zr_own_const_missing_p: (untyped home) -> untyped
+
+  def zr_send_const_missing: (untyped home, untyped id) -> untyped
+
+  def zr_private_constant_read: (untyped scope, untyped e, untyped id) -> untyped
+
+  def zr_uninitialized_constant: (untyped scope, untyped id) -> untyped
+
+  def zr_const_get: (untyped cref, untyped id) -> untyped
+
+  def zr_const_row_under: (untyped cref, untyped id) -> untyped
+
+  def zr_const_lookup: (untyped cref, untyped id) -> untyped
+
+  def zr_const_lookup_at: (untyped scope, untyped id) -> untyped
+
+  def zr_const_declared_only: (untyped e) -> (false | true)
+
+  def zr_const_defined: (untyped cref, untyped id) -> untyped
+
+  def zr_const_defined_at: (untyped scope, untyped id) -> untyped
+
+  def zr_private_constant: (untyped scope, untyped id) -> untyped
+
+  def zr_const_deprecated: (untyped e, untyped id) -> untyped
+
+  def zr_mod_constant_visibility: (untyped recv, untyped argc, untyped argv, untyped private) -> untyped
+
+  def zr_mod_private_constant: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_mod_public_constant: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_mod_deprecate_constant: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_namespace_check: (untyped scope) -> untyped
+
+  def zr_const_get_at: (untyped scope, untyped id) -> untyped
+
+  def zr_class_name_under: (untyped scope, untyped id) -> untyped
+
+  def zr_class_name_str: (untyped s) -> untyped
+
+  def zr_class_named_for_good: (untyped scope) -> untyped
+
+  def zr_name_nested: (untyped mod) -> untyped
+
+  def zr_class_define: (untyped scope, untyped id, untyped sup, untyped scoped) -> untyped
+
+  def zr_module_define: (untyped scope, untyped id, untyped scoped) -> untyped
+
+  def zr_module_define_m: (untyped scope, untyped name) -> untyped
+
+  def zr_const_name_id: (untyped recv, untyped name, untyped out) -> untyped
+
+  def zr_const_name_p: (untyped p, untyped n) -> (false | true)
+
+  def zr_const_row_segment: (untyped recv, untyped id, untyped inherit, untyped later) -> untyped
+
+  def zr_mod_const_get_m: (untyped recv, untyped name, untyped inherit, untyped later) -> untyped
+
+  def zr_mod_const_source_location_m: (untyped recv, untyped name, untyped inherit, untyped later) -> untyped
+
+  def zr_mod_const_defined_m: (untyped recv, untyped name, untyped inherit, untyped later) -> untyped
+
+  def zr_const_row_segment_defined: (untyped recv, untyped id, untyped inherit, untyped later) -> untyped
+
+  def zr_const_row_defined_for: (untyped mod, untyped id) -> untyped
+
+  def zr_mod_remove_const: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_const_row_for: (untyped mod, untyped id, untyped inherit) -> untyped
+
+  def zr_mod_const_set: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_const_names_at: (untyped klass, untyped out) -> untyped
+
+  def zr_const_names_of: (untyped mod, untyped out, untyped inherit) -> untyped
+
+  def zr_mod_s_constants: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_mod_constants: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_const_remove: (untyped klass, untyped id) -> (nil | untyped)
+
+  G_AUTOLOADS: 38
+
+  # Autoload: a constant entry whose value is undef until its file runs.
+  # Each record of G_AUTOLOADS has AUTOLOAD_ROW words: the module, the
+  # name, the feature as the program wrote it, the function of the unit as
+  # a fixnum, the require kind (zr_require's: 0, or 3 for eval support's
+  # own files), and the resolved path of the feature. A require of the same
+  # file records that path. A feature that the program computed has no
+  # unit. Its kind is AUTOLOAD_REQUIRE, and the first read of the constant
+  # calls `require` on main with it, as ruby's autoload does.
+  # `Kernel#autoload` and `Kernel.autoload` register on the class of the
+  # caller, as CRuby's rb_f_autoload does.
+  AUTOLOAD_ROW: 6
+
+  AUTOLOAD_REQUIRE: 4
+
+  # The kind of a record whose feature a require would not read, because
+  # the program contains it or a require already read it. The record stays, as ruby keeps its
+  # own, but it stops counting: `autoload?` returns nil and
+  # `const_defined?` returns false. The name is still declared, so the
+  # constant is undefined here and hides a constant of the same name
+  # farther out. A record gets this kind where it is registered, or where
+  # `zr_autoload_provided` finds the require that provided its feature.
+  AUTOLOAD_DECLARED: 5
+
+  def zr_autoload: (untyped mod, untyped id, untyped feature, untyped fn, untyped cref, untyped kind, untyped path) -> untyped
+
+  def zr_autoload_computed: (untyped mod, untyped name, untyped feature, untyped cref, untyped loaded, untyped file) -> untyped
+
+  def zr_autoload_push: (untyped rows, untyped mod, untyped id, untyped feature, untyped fn, untyped kind, untyped path) -> untyped
+
+  def zr_autoload_require: (untyped feature) -> untyped
+
+  def zr_autoload_waiting: (untyped rows, untyped i) -> untyped
+
+  def zr_autoload_pending: (untyped mod, untyped id) -> untyped
+
+  def zr_autoload_provided: (untyped feature, untyped path) -> untyped
+
+  def zr_autoload_names: (untyped kept, untyped asked) -> (false | untyped)
+
+  def zr_autoload_row: (untyped mod, untyped id) -> untyped
+
+  def zr_autoload_feature: (untyped mod, untyped id) -> untyped
+
+  def zr_const_value: (untyped e) -> untyped
+
+  def zr_const_raw_value: (untyped e) -> untyped
+
+  def zr_const_searched: (untyped e, untyped gone) -> untyped
+
+  def zr_const_loaded: (untyped e, untyped gone) -> untyped
+
+  def zr_mod_autoload_p: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_const_get_m: (untyped cref, untyped name) -> untyped
+
+  def zr_const_defined_m: (untyped cref, untyped name) -> untyped
+
+  def zr_const_get_at_m: (untyped scope, untyped name) -> untyped
+
+  def zr_const_defined_at_m: (untyped scope, untyped name) -> untyped
+
+  def zr_const_set_m: (untyped klass, untyped name, untyped v) -> untyped
+end

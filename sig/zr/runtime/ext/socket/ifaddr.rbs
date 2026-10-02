@@ -1,0 +1,45 @@
+# ifaddr.c: one interface address that getifaddrs(3) returned, with its
+# name, flags and addresses read at the same time as the list.
+class Socket < BasicSocket
+  class Ifaddr
+    @name: untyped
+
+    @flags: untyped
+
+    @addr: untyped
+
+    @netmask: untyped
+
+    @dstaddr: untyped
+
+    # The flags ifaddr_inspect_flags names, in its order.
+    FLAG_NAMES: ::Array[:UP | :BROADCAST | :DEBUG | :LOOPBACK | :POINTOPOINT | :RUNNING | :NOARP | :PROMISC | :NOTRAILERS | :ALLMULTI | :SIMPLEX | :MULTICAST]
+
+    def name: () -> untyped
+
+    def ifindex: () -> untyped
+
+    attr_reader flags: untyped
+
+    def addr: () -> untyped
+
+    def netmask: () -> untyped
+
+    def broadaddr: () -> (untyped | nil)
+
+    def dstaddr: () -> (untyped | nil)
+
+    def inspect: () -> untyped
+
+    # Every row as an Ifaddr.
+    def self.list: () -> untyped
+
+    def self.shown_flags: (untyped flags) -> ::String
+
+    private
+
+    def assign: (untyped name, untyped flags, untyped addr, untyped netmask, untyped dstaddr) -> self
+  end
+
+  def self.getifaddrs: () -> untyped
+end

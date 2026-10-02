@@ -1,0 +1,95 @@
+module Zr
+  # The gems that a build reads before zr's standard library, in the order
+  # that bundler gives them precedence:
+  #
+  # 1. each `--gem NAME=VERSION` or `--gem NAME=PATH`;
+  # 2. every gem in the Gemfile.lock of `--gemfile PATH`, or of
+  #    `BUNDLE_GEMFILE` (which `bundle exec` sets), as `bundle exec ruby`
+  #    reads it;
+  # 3. zr's standard library (lib/zr/library/roots.rb), which is always last.
+  #
+  # zr never reads another installed gem. The rubygems and bundler that
+  # resolve the set are zr's own copies (vendor/ruby), as JRuby and
+  # TruffleRuby ship theirs, so zr needs no bundler of the host and no
+  # `bundle exec`. They run in a child of the host ruby
+  # (gem_set/resolve.rb): zr itself loads neither, and the compiled
+  # compiler has neither. The answer is kept in the cache, keyed on
+  # everything the child reads, so a build with the same lock starts no
+  # child.
+  class GemSet
+    @gems: untyped
+
+    @digest: untyped
+
+    # One gem: its name, version, where it came from (`Gemfile.lock` or
+    # the flag), its require roots, and why a build cannot use it, or nil.
+    Entry: untyped
+
+    # The set cannot be resolved: a gem is not installed, a flag names no
+    # directory, or the Gemfile does not parse.
+    class Unresolved < StandardError
+    end
+
+    RESOLVE: untyped
+
+    VERSION: 1
+
+    # The environment of the child: the host's gems, without a bundle
+    # that this process runs in.
+    CHILD_ENV: untyped
+
+    # The variables that change which gems the child finds.
+    READS: ::Array["GEM_HOME" | "GEM_PATH" | "BUNDLE_PATH" | "BUNDLE_APP_CONFIG" | "BUNDLE_WITHOUT" | "BUNDLE_WITH" | "BUNDLE_FROZEN" | "BUNDLE_DEPLOYMENT"]
+
+    attr_reader gems: untyped
+
+    def initialize: (untyped gems) -> void
+
+    EMPTY: untyped
+
+    def empty?: () -> untyped
+
+    # The require roots, in search order. A refused gem's roots are here
+    # too: a require finds its file first, as ruby would, and the build
+    # then stops (`refusal`).
+    def roots: () -> untyped
+
+    # The refusal of the gem whose root holds `path`, or nil. A default
+    # gem has no root (its files are ruby's own), so a require of
+    # `feature` finds it by the gem's name: `json`, `json/ext`, and
+    # `io/console` for io-console.
+    def refusal: (untyped path, ?untyped? feature) -> (untyped | nil)
+
+    # Names the set for a cache key: a build with other gems is another
+    # build.
+    attr_reader digest: untyped
+
+    # zr's own development Gemfile, in a checkout. `bundle exec rake` sets
+    # BUNDLE_GEMFILE to it for every tool, and a build of zr, a spec or a
+    # benchmark must not read those gems.
+    OWN: untyped
+
+    # `flags` are the `--gem` words as [name, value] pairs, and `gemfile`
+    # is the path that `--gemfile` gives, or nil.
+    def self.resolve: (untyped flags, ?gemfile: untyped?, ?env: untyped) -> untyped
+
+    # What the child reads: the flags, the Gemfile and its lock, and the
+    # variables that move the gems.
+    def self.key: (untyped flags, untyped gemfile, untyped env) -> untyped
+
+    # The lock of `gemfile`, as bundler names it: `gems.locked` for
+    # `gems.rb`, else `<gemfile>.lock`.
+    def self.lockfile: (untyped gemfile) -> (untyped | ::String)
+
+    def self.read: (untyped path) -> (untyped | "")
+
+    # The set of the kept `rows`, while each root is still there. A
+    # `gem uninstall` removes a root, and the child runs again.
+    def self.kept: (untyped rows) -> untyped
+
+    # The ruby that runs the resolver (`Config#host_ruby`).
+    def self.ruby: () -> untyped
+
+    def self.child: (untyped flags, untyped gemfile, untyped env) -> untyped
+  end
+end

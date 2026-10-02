@@ -1,0 +1,108 @@
+class Ripper
+  @cursor: untyped
+
+  Version: "0.1.0"
+
+  # The tables ripper/core.rb reads, which ripper/lexer.rb adds to.
+  PARSER_EVENT_TABLE: untyped
+
+  SCANNER_EVENT_TABLE: untyped
+
+  def self.lex_state_name: (untyped state) -> untyped
+
+  # The leading spaces and tabs of `input` that make up `width` columns,
+  # a tab reaching the next multiple of eight, removed in place, as
+  # parse.y's dedent_string removes them. Returns the bytes removed.
+  def self.dedent_string: (untyped input, untyped width) -> untyped
+
+  def initialize: (untyped src, ?::String filename, ?::Integer lineno) -> void
+
+  def filename: () -> untyped
+
+  # The position of the event being dispatched, and the lexer's state
+  # and token there; nil outside a parse.
+  def lineno: () -> (untyped | nil)
+
+  def column: () -> (untyped | nil)
+
+  def state: () -> (untyped | nil)
+
+  def token: () -> (untyped | nil)
+
+  def error?: () -> untyped
+
+  def end_seen?: () -> untyped
+
+  def encoding: () -> untyped
+
+  def yydebug: () -> false
+
+  def yydebug=: (untyped flag) -> nil
+
+  def debug_output: () -> nil
+
+  def debug_output=: (untyped output) -> nil
+
+  # Every token as its scanner event, in order; then the tree as its
+  # parser events, where a token in the tree gives the value that its
+  # scanner event returned. A second parse finds the input at its end.
+  def parse: () -> (nil | untyped)
+
+  private
+
+  def dedent_string: (untyped input, untyped width) -> untyped
+
+  # A parse's source and the positions of its events.
+  Cursor: untyped
+
+  # prism's walk of the tree, which calls each event on the Ripper that
+  # requested the parse.
+  class Events < Prism::Translation::Ripper
+    @ripper: untyped
+
+    @cursor: untyped
+
+    @tokens: untyped
+
+    @result: untyped
+
+    def initialize: (untyped ripper, untyped cursor) -> void
+
+    # The scanner events first, each token once, remembered by its line
+    # and event; then the parser events.
+    def parse: () -> untyped
+
+    # The whole program: a jump with nowhere to go (`yield` outside a
+    # method, a bare `break`) is an error, as parse.y reports it, where
+    # prism's own translation reads the source as part of a script. It
+    # starts at the parse's first line, as the tokens do (irb lexes from
+    # line 0, after a line that declares its local variables).
+    def result: () -> untyped
+
+    # A superclass takes the terminator after it, as parse.y's
+    # `superclass` rule does, so the body starts with no void statement.
+    def visit_class_node: (untyped node) -> untyped
+
+    private
+
+    # The value that the scanner event returned for the token at this
+    # place in the tree: the token that starts here, or one inside the
+    # text, which a squiggly heredoc's lexing has already dedented.
+    def token_at: (untyped event, untyped text) -> untyped
+
+    def bounds: (untyped location) -> untyped
+
+    # A squiggly heredoc's tokens come from prism's lexer already
+    # dedented, as were their scanner events, so no width is left to
+    # take off.
+    def on_heredoc_dedent: (untyped value, untyped _width) -> untyped
+
+    def warn: (untyped fmt, *untyped args) -> untyped
+
+    def warning: (untyped fmt, *untyped args) -> untyped
+
+    def compile_error: (untyped message) -> untyped
+
+    def dedent_string: (untyped input, untyped width) -> untyped
+  end
+end

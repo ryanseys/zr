@@ -1,0 +1,174 @@
+module Zr
+  class Lower
+    class Function
+      module Sends
+        @native_operators: untyped
+
+        @native_each: untyped
+
+        private
+
+        # An Integer operator: the inline fixnum fast path if both sides
+        # are fixnums and the gate is clear, else the call. Equality also
+        # uses the call for other operands: `1 == 1.0` is true, and
+        # `1 == obj` sends `obj == 1`.
+        def operator: (untyped node, untyped recv, untyped argv, ?untyped arg) ?{ () -> untyped } -> untyped
+
+        # In the core library, `==` and `!=` answer natively for the values
+        # that CRuby's C compares natively (zr_native_eq_kind). The block
+        # takes the answer as a condition, and the send follows for all
+        # other operands.
+        def native_equality: (untyped node, untyped recv, untyped arg) { (untyped) -> untyped } -> (nil | untyped)
+
+        # In the core library, `<=>` of two fixnums answers natively while
+        # Integer#<=> is ruby's own, as CRuby's OPTIMIZED_CMP does. All
+        # other operands send it.
+        def native_compare: (untyped node, untyped recv, untyped argv) -> untyped
+
+        # `recv.succ` and `-recv` on a fixnum while Integer's method is not
+        # redefined: the sum or the difference inline. Outside the fixnums
+        # or after a redefinition, the call. `bm_ruby_xor` counts with
+        # `i.succ`, so this removes a send per iteration.
+        #
+        # `-recv` on a flonum while Float's `-@` is not redefined flips the
+        # sign, which a flonum keeps at bit 2. Two flonums use the call:
+        # +0.0, whose negation is not a flonum, and the one whose negation
+        # is the double that the flonum zero's bit pattern replaces
+        # (`float_value`). The two differ only in that bit.
+        def unary: (untyped node, untyped recv, untyped argv) ?{ () -> untyped } -> untyped
+
+        # Whether the site gets the flonum path (`float_path`), which is
+        # about forty instructions: an operator that has one, unless an
+        # operand is an Integer literal in a sum, a difference or a
+        # comparison. Those count and index much more often than they get
+        # a Float (`x * 2` and `x / 2` keep the path).
+        def float_path?: (untyped node) -> (false | true | untyped)
+
+        # The flonum path: both operands are flonums, or one is a flonum
+        # and the other a fixnum (within 2^53 for a comparison, which ruby
+        # does exactly), and the operator's Integer and Float gates are
+        # clear. The arithmetic is on doubles, and the result is a flonum
+        # or the kernel's heap Float. A comparison is as in ruby (false with
+        # a NaN). All other cases go to `slow`.
+        def float_path: (untyped op, untyped a, untyped b, untyped slow) -> untyped
+
+        # The operands of `op` as doubles, if the flonum path accepts them.
+        # Else the branch to `slow`. Each operand is a Value or an Operand.
+        def doubles: (untyped op, untyped a, untyped b, untyped slow) -> ::Array[untyped]
+
+        # An operand of a float operator. `bits` is nil for a plain Value.
+        # Else the operand is an inner float operator's result
+        # (`unboxed_operator`): `value` is QUNDEF when the inner operator
+        # took its flonum path, and then `bits` holds the double, which no
+        # code boxes unless the outer operator sends.
+        Operand: untyped
+
+        # Whether the operand holds its double in `bits`.
+        def unboxed?: (untyped o) -> untyped
+
+        def number_operand?: (untyped o, untyped exact) -> untyped
+
+        def float_operand?: (untyped o) -> untyped
+
+        def operand_double: (untyped o) -> untyped
+
+        # The operand as a Value: an unboxed double becomes a Float.
+        def boxed: (untyped o) -> untyped
+
+        # Whether `node`, as an operand of a float operator, can give its
+        # result as a double: an arithmetic float operator that lowers
+        # through `direct_operator`.
+        def unboxable?: (untyped node) -> untyped
+
+        # An operand of the operator `node`: an inner float operator
+        # unboxed if `node` has the flonum path, else the plain Value.
+        # Equality in the core library answers natively first
+        # (`native_equality`), so it keeps its Values.
+        def operand_of: (untyped node, untyped operand) -> untyped
+
+        # A float operator whose result goes to an outer float operator.
+        def unboxed_operator: (untyped node) -> untyped
+
+        # The send of an operator with Operands. Both go into their slots
+        # first, so a Float that boxes one cannot free the other, then each
+        # double is boxed in its slot.
+        def sent_fused: (untyped node, untyped a, untyped b) -> untyped
+
+        # `operator` with Operands. With `unboxed`, the result is an
+        # Operand, and its flonum path gives the double; else it is a
+        # Value.
+        def fused_operator: (untyped node, untyped a, untyped b, unboxed: untyped) -> untyped
+
+        def fixnums?: (untyped a, untyped b) -> untyped
+
+        def flonum?: (untyped v) -> untyped
+
+        # Whether `v` is a flonum or a fixnum. When `exact`, the fixnum must
+        # be within 2^53 in both directions.
+        def number?: (untyped v, untyped exact) -> untyped
+
+        # The double value of a flonum or fixnum `v`: `zr_float_value`'s
+        # rotation, +0.0 for the flonum zero, or a converted fixnum.
+        def as_double: (untyped v) -> untyped
+
+        # The bits of `as_double`'s result.
+        def double_bits: (untyped v) -> untyped
+
+        # `zr_float_new` inline: a flonum if the exponent's top bits are
+        # 011 or 100, the flonum zero for +0.0, else the kernel's cell.
+        def float_value: (untyped d) -> untyped
+
+        # The tagged result of `op` on tagged fixnums `a` and `b`. A result
+        # outside the fixnum range goes to `slow`.
+        def fast_path: (untyped op, untyped a, untyped b, untyped slow) -> untyped
+
+        # A negative count is a very large unsigned value, so one branch
+        # checks both ends of the range.
+        def unless_unsigned_below: (untyped value, untyped n, untyped escape) -> untyped
+
+        # `x / y` or `x % y` rounded toward minus infinity, for `y` not 0.
+        # If neither is negative, the machine's truncation gives the same
+        # result. Else use the kernel's floor.
+        def floored: (untyped op, untyped x, untyped y) -> untyped
+
+        def unless_equal: (untyped value, untyped n, untyped escape) -> untyped
+
+        def overflow_or: (untyped, untyped slow) -> untyped
+
+        def gate_clear: (untyped name) -> untyped
+
+        # Whether the fast paths ignore the gates. The core library and
+        # the compiler that eval carries are ruby's C, which compares and
+        # counts its own values natively whatever a program redefines. A
+        # method that CRuby writes in Ruby (`:ruby`) sends as Ruby does.
+        def native_operators?: () -> untyped
+
+        # Whether `each` finds the core's own method. Ruby's C walks its
+        # own Arrays and Hashes directly, and sends `each` by name only in
+        # Enumerable (Primitive.zr_enum_each) and where a def is marked
+        # `:sends_each`: rb_block_call(obj, id_each) in the Lazy and Chain
+        # enumerators, zip of an enumerable and Range#first, and the few
+        # methods that CRuby writes in Ruby with an `each` of their own
+        # (Pathname, Ractor.select). A `:ruby` method alone, such as
+        # Kernel#warn, has a C body behind its Ruby signature.
+        def native_each?: () -> untyped
+
+        # Whether all the given gates are clear: one test of the gate word,
+        # from its register.
+        def gates_clear: (*untyped names) -> untyped
+
+        # The gate of an inline `each` over an Array or a Range, which a
+        # def marked `:sends_each` keeps (`native_each?`).
+        def each_gate_clear: (untyped name) -> untyped
+
+        def gate_test: (untyped names) -> untyped
+
+        # `!v` inline for nil, true and false while none of their classes
+        # redefines `!` (GATE_NOT). All other receivers send `!` through
+        # the site's own cell, as a call does. The three are the only
+        # Values below 28 with their low two bits clear.
+        def negate: (untyped node) -> untyped
+      end
+    end
+  end
+end

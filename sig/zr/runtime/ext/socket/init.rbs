@@ -1,0 +1,190 @@
+class SocketError < StandardError
+end
+
+class Socket < BasicSocket
+  self.@names: untyped
+
+  self.@interns: untyped
+
+  class ResolutionError < SocketError
+    attr_reader error_code: untyped
+  end
+
+  # rsock_raise_resolution_error: the resolver's result, in its own
+  # words; a failure in a system call is that call's error.
+  def self.resolution_error: (untyped reason, untyped code) -> untyped
+
+  # rb_syserr_fail_str: the errno's error, with `message`.
+  def self.syserr_fail: (untyped errno, untyped message) -> untyped
+
+  # rsock_syserr_fail_host_port: a failure named with where it was
+  # aimed; a connection that timed out is IO's timeout instead.
+  def self.syserr_fail_host_port: (untyped errno, untyped message, untyped host, untyped port) -> untyped
+
+  # rsock_syserr_fail_path: a failure named with the path, when there
+  # is one.
+  def self.syserr_fail_path: (untyped errno, untyped message, untyped path) -> untyped
+
+  # rsock_syserr_fail_raddrinfo_or_sockaddr: a failure named with the
+  # address, as Addrinfo shows it.
+  def self.syserr_fail_sockaddr: (untyped errno, untyped message, untyped sockaddr, ?untyped? addrinfo) -> untyped
+
+  # rb_readwrite_syserr_fail: the errno's error, as the wait it names.
+  def self.wait_fail: (untyped errno, untyped event, untyped message) -> untyped
+
+  # constant_arg: a Symbol or a String is the name of a constant in
+  # `table`, and any other value is its number.
+  def self.constant_arg: (untyped arg, untyped table, untyped message) -> untyped
+
+  def self.family_arg: (untyped domain) -> untyped
+
+  def self.socktype_arg: (untyped type) -> untyped
+
+  def self.shutdown_how_arg: (untyped how) -> untyped
+
+  def self.level_arg: (untyped family, untyped level) -> untyped
+
+  OPTNAMES: { SOL_SOCKET: ::Array[::Regexp | "SO_" | "unknown socket level option name"], IPPROTO_IP: ::Array[::Regexp | "IP_" | "unknown IP level option name"], IPPROTO_IPV6: ::Array[::Regexp | "IPV6_" | "unknown IPv6 level option name"], IPPROTO_TCP: ::Array[::Regexp | "TCP_" | "unknown TCP level option name"], IPPROTO_UDP: ::Array[::Regexp | "UDP_" | "unknown UDP level option name"] }
+
+  def self.optname_arg: (untyped family, untyped level, untyped optname) -> untyped
+
+  CMSG_TYPES: { SOL_SOCKET: ::Array[::Regexp | "SCM_" | "unknown UNIX control message"], IPPROTO_IP: ::Array[::Regexp | "IP_" | "unknown IP control message"], IPPROTO_IPV6: ::Array[::Regexp | "IPV6_" | "unknown IPv6 control message"], IPPROTO_TCP: ::Array[::Regexp | "TCP_" | "unknown TCP control message"], IPPROTO_UDP: ::Array[::Regexp | "UDP_" | "unknown UDP control message"] }
+
+  def self.cmsg_type_arg: (untyped family, untyped level, untyped type) -> untyped
+
+  # An option or a control message named for its level: every level an
+  # IP socket knows, and the socket level alone for anything else.
+  def self.level_arg_of: (untyped family, untyped level, untyped arg, untyped rows) -> untyped
+
+  def self.ip_family?: (untyped family) -> untyped
+
+  # The names mkconstants.rb makes a lookup of, each to its number: the
+  # names `pattern` matches, and with a prefix those names without it.
+  def self.names: (untyped pattern, ?untyped? prefix) -> untyped
+
+  # The name mkconstants.rb shows a number by: the first name `pattern`
+  # matches that has it, and with a prefix the first such name without
+  # the prefix, which wins over every whole one.
+  def self.intern: (untyped value, untyped pattern, ?untyped? prefix) -> untyped
+
+  # rsock_init_sock: `sock`, opened over `fd` for reading and writing,
+  # in binary and synchronous, and not reverse looking up its addresses
+  # while BasicSocket says so.
+  def self.init_sock: (untyped sock, untyped fd) -> untyped
+
+  # rb_obj_alloc and rsock_init_sock: a new socket of `klass`, which no
+  # `initialize` of its own runs for.
+  def self.new_sock: (untyped klass, untyped fd) -> untyped
+
+  # rsock_socket: a descriptor of the requested kind, or the errno.
+  def self.socket_fd: (untyped domain, untyped type, untyped protocol) -> untyped
+
+  # raddrinfo_host_str: the host to give the resolver, and the flags
+  # that say it is already numeric.
+  def self.host_str: (untyped host) -> (::Array[nil | 0] | ::Array[untyped] | ::Array["0.0.0.0" | untyped] | ::Array["255.255.255.255" | untyped] | ::Array[untyped | 0])
+
+  # raddrinfo_port_str: the service to give the resolver.
+  def self.port_str: (untyped port) -> (::Array[nil | 0] | ::Array[untyped] | ::Array[untyped | 0])
+
+  # StringValueCStr.
+  def self.cstr: (untyped value) -> untyped
+
+  # An IPv4 address's four bytes as getnameinfo writes them.
+  def self.inet_text: (untyped bytes) -> untyped
+
+  # str_is_number: digits strtoul reads to the end.
+  def self.number?: (untyped text) -> untyped
+
+  NUMERIC_SOCKTYPES: ::Array[::Array[untyped] | ::Array[untyped | 0]]
+
+  # numeric_getaddrinfo: an address written as digits resolves without
+  # the resolver, one row a socket kind the hints allow.
+  def self.numeric_getaddrinfo: (untyped node, untyped service, untyped family, untyped socktype, untyped protocol) -> (nil | untyped)
+
+  # rsock_getaddrinfo: every row a host and a service resolve to, each
+  # [family, socktype, protocol, sockaddr, canonical name].
+  def self.resolve: (untyped host, untyped port, ?family: untyped, ?socktype: ::Integer, ?protocol: ::Integer, ?flags: ::Integer, ?socktype_hack: bool) -> untyped
+
+  # ruby_getaddrinfo__darwin: a service of port 0 is given as no
+  # service, and an entry with no kind or protocol takes the hint's.
+  def self.darwin_getaddrinfo: (untyped node, untyped service, untyped family, untyped socktype, untyped protocol, untyped flags) -> untyped
+
+  # rb_getnameinfo, raising the resolver's error.
+  def self.nameinfo: (untyped sockaddr, untyped flags, ?::Integer want) -> untyped
+
+  # rsock_make_ipaddr: the address's host as digits.
+  def self.make_ipaddr: (untyped sockaddr) -> untyped
+
+  # rsock_ipaddr: [family name, port, host, host as digits], the host
+  # looked up by name unless `norevlookup`.
+  def self.ipaddr: (untyped sockaddr, untyped norevlookup) -> ::Array[untyped]
+
+  # rsock_unixpath_str: a unix address's path, its trailing NULs gone.
+  def self.unixpath: (untyped sockaddr) -> untyped
+
+  def self.unixaddr: (untyped sockaddr) -> ::Array["AF_UNIX" | untyped]
+
+  # INIT_SOCKADDR_UN: a unix address for `path`, as long as the
+  # structure, as rsock_unix_sockaddr_len makes it here.
+  def self.pack_unix: (untyped path) -> untyped
+
+  # The maximum number of path bytes that a sockaddr_un contains.
+  def self.unix_path_max: () -> untyped
+
+  # CMSG_LEN and CMSG_SPACE: the length a control message of `size`
+  # bytes of data records, and the room it takes with its padding.
+  def self.cmsg_len: (untyped size) -> untyped
+
+  def self.cmsg_space: (untyped size) -> untyped
+
+  def self.cmsg_align: (untyped size) -> untyped
+
+  # One control message: the header, the data, and its padding.
+  def self.cmsg: (untyped level, untyped type, untyped data) -> untyped
+
+  # A control message's header at `at`: its length, level and type.
+  def self.cmsg_header: (untyped control, untyped at) -> untyped
+
+  # The bytes of a cmsghdr.
+  def self.cmsg_header_size: () -> untyped
+
+  # SockAddrStringValueWithAddrinfo: an address's bytes, from an
+  # Addrinfo or a String, and the Addrinfo it came from.
+  def self.sockaddr_string: (untyped value) -> (::Array[untyped] | ::Array[untyped | nil])
+
+  # rsock_fd_socket_addrinfo: an Addrinfo for an address a descriptor
+  # sent or received, of the descriptor's own kind.
+  def self.fd_socket_addrinfo: (untyped fd, untyped sockaddr) -> untyped
+
+  # rsock_revlookup_flag: the value that a reverse_lookup argument
+  # selects, or nil for none.
+  def self.norevlookup_flag: (untyped revlookup) -> (true | false | untyped)
+end
+
+class BasicSocket < IO
+  @sync: untyped
+
+  @nonblock: untyped
+
+  @norevlookup: untyped
+
+  private
+
+  # rsock_init_sock, on the socket itself.
+  def open_socket: (untyped fd) -> self
+
+  # GetOpenFile: the open descriptor.
+  def descriptor: () -> untyped
+
+  # rb_io_maybe_wait: whether a call that failed with `errno` goes round
+  # again, once the descriptor is ready for `event`.
+  def maybe_wait: (untyped errno, untyped event) -> (true | false)
+
+  # rb_io_wait_readable and rb_io_wait_writable: whether a call that
+  # failed with `errno` goes round again, waiting as long as it takes.
+  def wait_io?: (untyped errno, untyped event) -> (true | false | untyped)
+
+  # rb_io_wait: whether the descriptor came ready for `events` before
+  # `timeout` seconds ran out. Another green thread runs meanwhile.
+  def wait_ready: (untyped events, untyped timeout) -> untyped
+end

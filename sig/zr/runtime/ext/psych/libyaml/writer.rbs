@@ -1,0 +1,31 @@
+# The output writer of libyaml 0.2.5 (src/writer.c).
+#
+# The emitter writes UTF-8 into `@buffer` and flushes it through the
+# write handler when it fills up, at the end of each document and at the
+# end of the stream. For a UTF-16 stream the writer recodes the buffer
+# into `@raw_buffer` first.
+module Psych
+  module LibYAML
+    module Writer
+      @error: untyped
+
+      @problem: untyped
+
+      # The C code rewinds the buffer before it writes, so a failed
+      # write loses the buffer's contents.
+      @buffer: untyped
+
+      @raw_buffer: untyped
+
+      private
+
+      # yaml_emitter_set_writer_error
+      def writer_error: (untyped problem) -> untyped
+
+      # yaml_emitter_flush
+      def flush: () -> (nil | untyped)
+
+      def put_code_unit: (untyped high_octet, untyped low_octet, untyped low, untyped high) -> untyped
+    end
+  end
+end

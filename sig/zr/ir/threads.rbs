@@ -1,0 +1,74 @@
+module Zr
+  module IR
+    # Jump threading. An edge that gives a block a constant can skip the
+    # blocks that only test that constant. The pass follows the edge
+    # through blocks that only jump on (their parameters become the
+    # arguments) and blocks that only branch on a compare it can decide,
+    # and points the edge at the first block that does more.
+    #
+    # An inlined kernel def returns a constant to a join, and its caller
+    # tests the value at once (`return ONIG_OP_NEXT` and the match loop's
+    # `if r == ONIG_OP_FAIL`). Each such return then goes to the right
+    # successor with no join and no compare.
+    #
+    # The new edge must keep each value's definition before its uses. The
+    # skipped blocks stay, with their other edges. A skipped block's
+    # parameters and results are read only in the blocks that it
+    # dominates, so a block that reads one must not be reachable from the
+    # new target except through that skipped block.
+    class Threads
+      @f: untyped
+
+      @const: untyped
+
+      @named: untyped
+
+      # The blocks that read each value. The pass only moves edges, so
+      # this stays a superset.
+      @read_in: untyped
+
+      MASK: { "i8" => 255, "i32" => 4294967295, "i64" => 18446744073709551615 }
+
+      SIGNED: ::Array["slt" | "sle" | "sgt" | "sge"]
+
+      # The longest run of blocks that one edge skips.
+      LIMIT: 8
+
+      def self.run: (untyped f) -> untyped
+
+      def initialize: (untyped f) -> void
+
+      def run: () -> untyped
+
+      private
+
+      # The target and arguments that an edge to `name` with `args` can
+      # take in place of its own, or nil.
+      def thread: (untyped name, untyped args) -> (nil | ::Array[untyped])
+
+      # Binds the parameters of `b` to `args` in `env`.
+      def bind: (untyped b, untyped args, untyped env) -> untyped
+
+      # The edge after `b`, if `b` only jumps or only branches on a compare
+      # that `env` and the constants decide.
+      def decide: (untyped b, untyped env) -> (::Array[untyped] | nil)
+
+      # A skipped run must decide on a constant somewhere: a run of jumps
+      # alone is the `Blocks` pass's work.
+      def constant_edge?: (untyped skipped) -> untyped
+
+      # The result of the compare `cmp`, when both operands are constants.
+      def compare: (untyped cmp, untyped env) -> (nil | untyped)
+
+      def signed: (untyped raw, untyped bits) -> untyped
+
+      # Whether the edge can go to `name` with `args`: no argument is made
+      # in a skipped block, and for each skipped block, no block that reads
+      # a value made there is reachable from `name` other than through it.
+      def safe?: (untyped skipped, untyped name, untyped args) -> (false | untyped)
+
+      # Whether `from` reaches a block in `targets` without passing `stop`.
+      def reaches?: (untyped from, untyped stop, untyped targets) -> (true | false)
+    end
+  end
+end

@@ -1,0 +1,239 @@
+# Integer over the kernel's arithmetic.
+class Integer
+  alias inspect to_s
+
+  alias === ==
+
+  # The remainder takes the receiver's sign, as Numeric's rule has it,
+  # without a Float or a coercion between two Integers.
+  def remainder: (untyped other) -> untyped
+
+  def odd?: () -> untyped
+
+  def even?: () -> untyped
+
+  def zero?: () -> untyped
+
+  def -@: () -> untyped
+
+  def succ: () -> untyped
+
+  def next: () -> untyped
+
+  def pred: () -> untyped
+
+  def abs: () -> (untyped | self)
+end
+
+class Integer
+  def <=>: (untyped other) -> untyped
+end
+
+class Integer
+  def to_i: () -> self
+
+  alias to_int to_i
+
+  alias truncate to_i
+
+  def integer?: () -> true
+
+  def **: (untyped other) -> (untyped | 1 | 0)
+
+  # rb_big_pow refuses a result of more than 2**34 bits: an exponent that
+  # is a Bignum, or bits(x) * y past the limit. A Fixnum base first goes
+  # through int_pow, which squares it while it fits in a long, so the
+  # check reads x and y where int_pow passes them on.
+  def pow_too_large?: (untyped y) -> (true | false | untyped)
+
+  def pow: (untyped exponent, ?untyped? modulus) -> untyped
+
+  # `n[i]` is bit i; `n[i, len]` and `n[i..j]` are the bits from i as
+  # an Integer, as CRuby's int_aref reads them.
+  def []: (untyped bit, ?untyped? len) -> (untyped | 0)
+
+  private
+
+  def bit_at: (untyped bit) -> (0 | untyped)
+
+  public
+
+  # Without an encoding: US-ASCII below 128, else one binary byte.
+  def chr: (?untyped? encoding) -> untyped
+
+  def ord: () -> self
+
+  def divmod: (untyped other) -> (untyped | ::Array[untyped])
+
+  # A Float divisor of zero divides by zero; a Bignum's Float quotient
+  # truncates (rb_big_divide), a Fixnum's floors (fix_divide).
+  def div: (untyped other) -> untyped
+
+  def modulo: (untyped other) -> untyped
+
+  # CRuby's rb_int_fdiv_double: both sides divided by their gcd first;
+  # two that fit divide as doubles, and anything wider goes through
+  # big_fdiv, so a quotient in range comes out when each side is past a
+  # double. A Float divides the double this is, unless that is infinite:
+  # then its 53-bit mantissa divides, as big_fdiv_float does.
+  def fdiv: (untyped other) -> untyped
+
+  # CRuby's big_fdiv: `x` shifted to 128 bits, as an arithmetic shift
+  # rounds, divided by `y` truncating, and scaled back by both shifts.
+  # With no `ey`, `y` is first shifted to 64 bits, as big_fdiv_int does.
+  def self.big_fdiv: (untyped x, untyped y, ?untyped? ey) -> untyped
+
+  def gcdlcm: (untyped other) -> ::Array[untyped]
+
+  def gcd: (untyped other) -> untyped
+
+  def lcm: (untyped other) -> (0 | untyped)
+
+  # A fixnum's from its highest bit (zr_fix_bit_length); a bignum's
+  # from its limbs.
+  def bit_length: () -> untyped
+
+  # rb_int_digits: the receiver's sign first, as rb_num_negative_int_p
+  # reads it, then the radix.
+  def digits: (?::Integer base) -> (::Array[0] | untyped)
+
+  # rb_num_negative_int_p: the sign natively while Integer#< is ruby's
+  # own, else `n < 0` sent.
+  def self.negative_int?: (untyped n) -> untyped
+
+  def ceil: (?::Integer digits) -> untyped
+
+  def truncate: (?::Integer digits) -> untyped
+
+  def allbits?: (untyped mask) -> untyped
+
+  def anybits?: (untyped mask) -> untyped
+
+  def nobits?: (untyped mask) -> untyped
+
+  private
+
+  # A mask is any Integer, or what to_int makes of the argument.
+  def bit_mask: (untyped mask) -> untyped
+
+  public
+
+  alias magnitude abs
+
+  def ceildiv: (untyped other) -> untyped
+
+  def floor: (?::Integer digits) -> untyped
+
+  # int_round: with no digits the keywords are not read; the digits must
+  # fit an int, then the rounding mode is read.
+  def round: (*untyped args, **untyped opts) -> (self | untyped)
+
+  # An Integer through `to_int` alone, or nil: `String` is not a form
+  # this conversion reads.
+  def self.try_convert: (untyped value) -> untyped
+
+  def self.sqrt: (untyped n) -> untyped
+
+  # The bytes a bignum's magnitude takes; a fixnum's word.
+  def size: () -> (8 | untyped)
+
+  def coerce: (untyped other) -> (::Array[untyped] | ::Array[untyped | self])
+
+  private
+
+  # Rounding to a negative number of digits; a non-negative count
+  # leaves an Integer as it is.
+  def round_to: (untyped digits, untyped how) -> (self | untyped)
+end
+
+class Numeric
+  # A number never copies: `clone` and `dup` return the receiver. The
+  # default `<=>` knows only that a number equals itself; a subclass
+  # that orders its values writes its own.
+  def clone: (?freeze: bool) -> self
+
+  def dup: () -> self
+
+  def <=>: (untyped other) -> (0 | nil)
+
+  # num_eql: a number of the same type, then rb_equal, which sends a
+  # redefined `==`.
+  def eql?: (untyped other) -> untyped
+
+  # CRuby's rule: the modulo, moved back by the divisor when the signs
+  # differ, so the remainder takes the receiver's sign.
+  # An operand that is no Numeric coerces first, as num_remainder does.
+  def remainder: (untyped other) -> untyped
+
+  def nonzero?: () -> (nil | self)
+
+  def magnitude: () -> untyped
+
+  # The defaults a Numeric subclass inherits, each through the
+  # operators and conversions the subclass defines.
+  def abs: () -> (untyped | self)
+
+  def -@: () -> untyped
+
+  def +@: () -> self
+
+  def zero?: () -> untyped
+
+  def positive?: () -> untyped
+
+  def negative?: () -> untyped
+
+  def integer?: () -> false
+
+  def finite?: () -> true
+
+  def infinite?: () -> nil
+
+  def div: (untyped other) -> untyped
+
+  def modulo: (untyped other) -> untyped
+
+  alias % modulo
+
+  def divmod: (untyped other) -> ::Array[untyped]
+
+  def quo: (untyped other) -> untyped
+
+  def fdiv: (untyped other) -> untyped
+
+  def to_int: () -> untyped
+
+  def numerator: () -> untyped
+
+  def denominator: () -> untyped
+
+  def floor: (?::Integer digits) -> untyped
+
+  def ceil: (?::Integer digits) -> untyped
+
+  def round: (?::Integer digits, ?half: untyped?) -> untyped
+
+  def truncate: (?::Integer digits) -> untyped
+
+  def coerce: (untyped other) -> (::Array[untyped | self] | ::Array[untyped])
+
+  # The `half:` keyword as one of :up, :even, :down.
+  def self.half_mode: (untyped half) -> (:up | untyped)
+
+  # CRuby's NUM2INT: an operand as an Integer that fits in a C int, with
+  # a RangeError past that range.
+  def self.int_operand: (untyped n) -> untyped
+
+  # num_step: `step(limit, step)` or `step(to:, by:)`. Without a block,
+  # an ArithmeticSequence over numbers, else an Enumerator; with one,
+  # each value up to `limit`. A Float anywhere makes every value a
+  # Float, spaced as CRuby's float step is.
+  def step: (*untyped args, **untyped kwargs) ?{ (?) -> untyped } -> (untyped | self)
+
+  private
+
+  # num_step's walk: a missing limit is an infinite one in the step's
+  # direction, a Float anywhere walks as ruby_float_step does, and any
+  # other value is compared with the limit before each yield.
+  def stepping: (untyped limit, untyped step) { (untyped) -> untyped } -> untyped
+end

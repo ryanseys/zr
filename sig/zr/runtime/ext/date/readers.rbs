@@ -1,0 +1,74 @@
+class Date
+  ISO_EXT_DATETIME_RE: ::Regexp
+
+  ISO_BAS_DATETIME_RE: ::Regexp
+
+  ISO_EXT_TIME_RE: ::Regexp
+
+  ISO_BAS_TIME_RE: ::Regexp
+
+  RFC3339_RE: ::Regexp
+
+  XSD_DATETIME_RE: ::Regexp
+
+  XSD_TIME_RE: ::Regexp
+
+  XSD_TRUNC_RE: ::Regexp
+
+  RFC2822_RE: ::Regexp
+
+  HTTPDATE1_RE: ::Regexp
+
+  HTTPDATE2_RE: ::Regexp
+
+  HTTPDATE3_RE: ::Regexp
+
+  JISX0301_RE: ::Regexp
+
+  def self._iso8601: (untyped text) -> untyped
+
+  def self._rfc3339: (untyped text) -> untyped
+
+  def self._xmlschema: (untyped text) -> untyped
+
+  def self._rfc2822: (untyped text) -> untyped
+
+  alias self._rfc822 self._rfc2822
+
+  def self._httpdate: (untyped text) -> untyped
+
+  def self._jisx0301: (untyped text) -> untyped
+
+  private
+
+  def self.fraction_of: (untyped digits) -> untyped
+
+  def self.comp_year50: (untyped year) -> untyped
+
+  def self.comp_year69: (untyped year) -> untyped
+
+  # A year of fewer than four digits is this century or the last.
+  def self.wide_year: (untyped text) -> untyped
+
+  def self.iso_ext_datetime: (untyped text, untyped found) -> (false | untyped)
+
+  def self.iso_bas_datetime: (untyped text, untyped found) -> (false | untyped)
+
+  def self.iso_tail: (untyped found, untyped hour, untyped min, untyped sec, untyped fraction, untyped zone) -> true
+
+  def self.iso_ext_time: (untyped text, untyped found) -> (false | true)
+
+  def self.iso_bas_time: (untyped text, untyped found) -> (false | true)
+
+  def self.xsd_datetime: (untyped text, untyped found) -> (false | true)
+
+  def self.xsd_time: (untyped text, untyped found) -> (false | true)
+
+  def self.xsd_trunc: (untyped text, untyped found) -> (false | true)
+
+  def self.httpdate1: (untyped text, untyped found) -> (false | true)
+
+  def self.httpdate2: (untyped text, untyped found) -> (false | true)
+
+  def self.httpdate3: (untyped text, untyped found) -> (false | true)
+end

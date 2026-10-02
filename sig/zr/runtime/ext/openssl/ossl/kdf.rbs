@@ -1,0 +1,18 @@
+# ossl_kdf.c: OpenSSL::KDF, PBKDF2, scrypt and HKDF.
+module OpenSSL
+  module Lib
+    EVP_PKEY_HKDF: 1036
+  end
+
+  module KDF
+    class KDFError < OpenSSLError
+    end
+
+    def self?.pbkdf2_hmac: (untyped pass, salt: untyped, iterations: untyped, length: untyped, hash: untyped) -> untyped
+
+    # scrypt's cost keyword is a capital N, which no Ruby parameter can be.
+    def self?.scrypt: (untyped pass, **untyped options) -> untyped
+
+    def self?.hkdf: (untyped ikm, salt: untyped, info: untyped, length: untyped, hash: untyped) -> untyped
+  end
+end

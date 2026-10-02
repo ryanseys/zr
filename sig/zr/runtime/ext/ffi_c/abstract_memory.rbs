@@ -1,0 +1,136 @@
+# AbstractMemory.c: an address, how many bytes past it can be used,
+# whether they can be read and written, and every typed read and write
+# of them. A memory object of any class contains these four, which the
+# other files reach through the hidden ffi_ methods.
+module FFI
+  class NullPointerError < RuntimeError
+  end
+
+  class AbstractMemory
+    @flags: untyped
+
+    @address: untyped
+
+    @size: untyped
+
+    @type_size: untyped
+
+    MEM_RD: 1
+
+    MEM_WR: 2
+
+    MEM_SWAP: 8
+
+    MEM_EMBED: 16
+
+    # LONG_MAX, the size of memory no bound is known for.
+    UNBOUNDED: untyped
+
+    # A memory op for each native kind: how its bytes pack in this order
+    # and swapped, how a value converts to native, and how the native
+    # value reads back. The kinds without a pack of their own come after.
+    NUMBERS: { INT8: ::Array["c" | :int_value], UINT8: ::Array["C" | :uint_value], INT16: ::Array["s" | "s>" | :int_value], UINT16: ::Array["S" | "S>" | :uint_value], INT32: ::Array["l" | "l>" | :int_value], UINT32: ::Array["L" | "L>" | :uint_value], INT64: ::Array["q" | "q>" | :ll_value], UINT64: ::Array["Q" | "Q>" | :ull_value], LONG: ::Array["q" | "q>" | :long_value], ULONG: ::Array["Q" | "Q>" | :ulong_value], FLOAT32: ::Array["f" | :dbl_value], FLOAT64: ::Array["d" | :dbl_value], LONGDOUBLE: ::Array["d" | :longdouble_value], POINTER: ::Array["Q" | :pointer_value], BOOL: ::Array["C" | :bool_value] }
+
+    # get_memory_op: whether a memory op reads and writes `kind`.
+    def self.op?: (untyped kind) -> untyped
+
+    def self.op_size: (untyped kind) -> untyped
+
+    def put_pointer: (untyped offset, untyped value) -> untyped
+
+    def get_pointer: (untyped offset) -> untyped
+
+    def write_pointer: (untyped value) -> untyped
+
+    def read_pointer: () -> untyped
+
+    def put_array_of_pointer: (untyped offset, untyped ary) -> untyped
+
+    def get_array_of_pointer: (untyped offset, untyped length) -> untyped
+
+    def write_array_of_pointer: (untyped ary) -> untyped
+
+    def read_array_of_pointer: (untyped length) -> untyped
+
+    def get_string: (untyped offset, ?untyped? length) -> untyped
+
+    def get_array_of_string: (untyped offset, ?untyped? count) -> untyped
+
+    def read_array_of_string: (*untyped args) -> untyped
+
+    def put_string: (untyped offset, untyped str) -> self
+
+    def get_bytes: (untyped offset, untyped length) -> untyped
+
+    def put_bytes: (untyped offset, untyped str, *untyped range) -> self
+
+    def read_bytes: (untyped length) -> untyped
+
+    def write_bytes: (*untyped args) -> untyped
+
+    def get: (untyped type_name, untyped offset) -> untyped
+
+    def put: (untyped type_name, untyped offset, untyped value) -> nil
+
+    def clear: () -> self
+
+    def total: () -> untyped
+
+    alias size total
+
+    def type_size: () -> untyped
+
+    def []: (untyped index) -> untyped
+
+    def __copy_from__: (untyped src, untyped length) -> self
+
+    def freeze: () -> untyped
+
+    # The four fields of struct AbstractMemory.
+    def ffi_address: () -> untyped
+
+    def ffi_size: () -> untyped
+
+    def ffi_flags: () -> untyped
+
+    def ffi_memory: (untyped address, untyped size, untyped flags, untyped type_size) -> self
+
+    def ffi_swapped?: () -> untyped
+
+    # checkRead, checkWrite and checkBounds.
+    def ffi_check_read: () -> untyped
+
+    def ffi_check_write: () -> untyped
+
+    def ffi_access_error: (untyped access) -> untyped
+
+    def ffi_check_bounds: (untyped offset, untyped length) -> (nil | untyped)
+
+    # The memory op for `kind` reading at `offset`.
+    def ffi_get: (untyped kind, untyped offset) -> untyped
+
+    # The memory op for `kind` writing `value` at `offset`.
+    def ffi_put: (untyped kind, untyped offset, untyped value) -> self
+
+    def ffi_pack: (untyped kind, untyped value) -> untyped
+
+    def ffi_get_array: (untyped kind, untyped offset, untyped length) -> untyped
+
+    # Each value converts and goes in in turn, so the ones before a value
+    # that does not convert are written.
+    def ffi_put_array: (untyped kind, untyped offset, untyped ary) -> self
+
+    def ffi_get_strptr: (untyped offset) -> (nil | untyped)
+  end
+
+  # get_pointer_value: the address that a value represents.
+  def self.pointer_value: (untyped value) -> untyped
+
+  def self.bool_value: (untyped value) -> untyped
+
+  # A number that a memory op read, as the ruby value it represents.
+  def self.from_native_number: (untyped kind, untyped raw) -> untyped
+
+  # rb_str_new2 of a char *: nil for NULL.
+  def self.string_at: (untyped address) -> untyped
+end

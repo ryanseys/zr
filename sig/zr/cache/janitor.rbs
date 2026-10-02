@@ -1,0 +1,91 @@
+module Zr
+  module Cache
+    # The runtime cache (`Paths.cache`), as `zr cache` and
+    # `zr doctor` see it. Almost all of it is the store (lib/zr/cache/store.rb):
+    # a runtime object, a prelinked image and eval support for each digest
+    # that a zr builds, code packs, lowerings, parsed trees, and the
+    # binaries that `zr run` and the program tests keep. The digest changes with
+    # every file under lib/, so old entries collect: 9.5 GB
+    # after one week of work in a checkout, and some hundred MB for each
+    # release that a user installs.
+    #
+    # A clean keeps the entries that a fresh root of the store names
+    # (`live`), whatever their age, so the next build rebuilds nothing.
+    # All other entries are made again on demand. The files that a zr wrote
+    # before the store ("old layout") are never read again, and a clean
+    # removes them.
+    module Janitor
+      # The files that an older zr wrote, outside the store.
+      OLD: "{*,binaries/*,parse/*,iseq/*,gems/*,run/*/*,code/*/*,core/*/*,eval-*/*/*}"
+
+      # A binary that the server gave a client to run (lib/zr/server.rb).
+      # The client removes it after the run, so an older one is left over.
+      SERVED_HOURS: 1
+
+      # Each entry of the store (a file, or a directory for `run` and
+      # `code`), each file of the old layout, and each binary that the
+      # server left.
+      def self?.all: () -> untyped
+
+      # The spec harness's marks (`built-<digest>.ok`, test/support/built.rb)
+      # are not old: they are empty, and a mark that goes makes the harness
+      # check its runtime again.
+      def self?.old: () -> untyped
+
+      def self?.served: () -> untyped
+
+      # The compiled compilers and prebuilt binaries that older zr
+      # versions kept in the user's cache (`self-*`, `shipped-*`). zr no
+      # longer uses them. Each one is about 120 MB.
+      def self?.old_compilers: () -> untyped
+
+      # The entries that this zr uses: each entry that a fresh root of the
+      # store names. A build writes its roots: the runtime and eval support
+      # objects, their images and metadata, and the code and lowering
+      # entries of the backend.
+      def self?.live: () -> untyped
+
+      # The entries that the roots of `target` name.
+      def self?.live_for: (untyped target) -> untyped
+
+      def self?.bytes: (untyped paths) -> untyped
+
+      def self?.megabytes: (untyped paths) -> untyped
+
+      # The store's kind of the entry at `path` (lib/zr/cache/store.rb), or
+      # "old layout" or "served".
+      def self?.kind: (untyped path) -> untyped
+
+      # Deletes the entries that this zr does not use and that were not used
+      # in the last `days`, each file of the old layout, and the binaries
+      # that the server left. Returns the paths it deleted.
+      def self?.prune: (?days: ::Integer) -> untyped
+
+      # Deletes the whole cache, also the entries this zr uses. Returns the
+      # paths it deleted.
+      def self?.clear: () -> untyped
+
+      def self?.remove: (untyped paths) -> untyped
+
+      # The directories of the old layout, once empty.
+      def self?.remove_empty_dirs: () -> untyped
+
+      # The most GB that an installed zr keeps in its cache before a build
+      # prunes it (`ZR_CACHE_MAX_GB`, default 5; 0 turns the limit off).
+      def self?.limit_gb: () -> untyped
+
+      # How often a build measures the cache. A measure stats every entry
+      # (tens of thousands of parsed trees), so a build does it at most once
+      # a day.
+      CHECK_EVERY: 86400
+
+      # After a build of an installed zr: removes the old layout, then
+      # evicts the entries used longest ago that no root names until the
+      # store is under the limit, then removes the compiled compilers of
+      # other versions if it is still over. A checkout cleans its own cache
+      # with `zr cache clean`; the quotas of `run` and `binary` hold in
+      # both.
+      def self?.trim: () -> untyped
+    end
+  end
+end

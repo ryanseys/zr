@@ -1,0 +1,98 @@
+# ossl_x509cert.c: OpenSSL::X509::Certificate over X509.
+module OpenSSL
+  module Lib
+    PEM_R_NO_START_LINE: 108
+  end
+
+  module X509
+    class CertificateError < OpenSSLError
+    end
+
+    class Certificate
+    end
+  end
+
+  module Ossl
+    X509_CERT: untyped
+
+    # ossl_x509_new.
+    def self.x509_new: (untyped x509) -> untyped
+
+    # GetX509CertPtr.
+    def self.x509: (untyped object) -> untyped
+
+    # DupX509CertPtr.
+    def self.dup_x509: (untyped object) -> untyped
+
+    # load_chained_certificates_PEM.
+    def self.load_pem_certificates: (untyped bio) -> (nil | untyped)
+
+    # load_chained_certificates_append: a Certificate copying
+    # `certificate`, which is freed.
+    def self.take_certificate: (untyped certificate) -> untyped
+  end
+
+  module X509
+    class Certificate
+      def self.load: (untyped buffer) -> (::Array[untyped] | untyped)
+
+      def initialize: (*untyped args) -> void
+
+      def initialize_copy: (untyped other) -> self
+
+      def to_der: () -> untyped
+
+      def to_pem: () -> untyped
+
+      alias to_s to_pem
+
+      def to_text: () -> untyped
+
+      def version: () -> untyped
+
+      def version=: (untyped version) -> untyped
+
+      def signature_algorithm: () -> untyped
+
+      def serial: () -> untyped
+
+      def serial=: (untyped num) -> untyped
+
+      def subject: () -> untyped
+
+      def subject=: (untyped subject) -> untyped
+
+      def issuer: () -> untyped
+
+      def issuer=: (untyped issuer) -> untyped
+
+      def not_before: () -> untyped
+
+      def not_before=: (untyped time) -> untyped
+
+      def not_after: () -> untyped
+
+      def not_after=: (untyped time) -> untyped
+
+      def public_key: () -> untyped
+
+      def public_key=: (untyped key) -> untyped
+
+      def sign: (untyped key, untyped digest) -> self
+
+      def verify: (untyped key) -> untyped
+
+      def check_private_key: (untyped key) -> (true | false)
+
+      def extensions: () -> untyped
+
+      def extensions=: (untyped extensions) -> untyped
+
+      def add_extension: (untyped extension) -> untyped
+
+      def ==: (untyped other) -> (false | untyped)
+
+      def tbs_bytes: () -> untyped
+    end
+  end
+end

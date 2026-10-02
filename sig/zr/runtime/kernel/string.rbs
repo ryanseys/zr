@@ -1,0 +1,387 @@
+module Zr::Kern
+  # Strings: a length, a capacity, and a buffer outside the arena.
+  RString: untyped
+
+  # A String whose bytes are in its own cell, after the header, with as
+  # many bytes as the cell has room for, plus a NUL. A longer String keeps
+  # its bytes in a malloc'd buffer of `capa` + 1 bytes. In both cases
+  # `ptr` points to the bytes and `capa` gives the room, so a reader does
+  # not need to know which. An Array keeps its elements the same way.
+  FL_EMBED: untyped
+
+  FL_EMBED_CLEAR: untyped
+
+  def zr_str_embedded_p: (untyped s) -> untyped
+
+  def zr_str_embed_capa: (untyped s) -> untyped
+
+  def zr_str_cell_bytes: (untyped n) -> untyped
+
+  def zr_str_buf_new: (untyped s, untyped n) -> untyped
+
+  # A malloc'd buffer can start after the start of its block: a shift off
+  # the front (zr_str_shift_front) moves `ptr` forward and leaves the other
+  # bytes where they are. These flag bits keep the size of that gap, so
+  # the free gets the whole block back. `capa` counts from `ptr`.
+  FL_GAP_SHIFT: 40
+
+  FL_GAP_MAX: untyped
+
+  FL_GAP_CLEAR: untyped
+
+  def zr_str_gap: (untyped s) -> untyped
+
+  def zr_str_buf_free: (untyped s) -> (untyped | nil)
+
+  def zr_str_reserve: (untyped s, untyped n) -> (untyped | nil)
+
+  def zr_str_grow: (untyped s, untyped n) -> untyped
+
+  # A String whose bytes a scan found all below 0x80, which CRuby calls the
+  # 7-bit coderange. Each write to the bytes clears it, so the runtime scans
+  # a String that it reads many times only once.
+  FL_ASCII: untyped
+
+  # A String that a scan found valid in its encoding, CRuby's valid
+  # coderange. The same writes clear it, and so does a new encoding.
+  FL_VALID: untyped
+
+  # A String whose bytes the ASCII scan read, whatever the result. With
+  # FL_ASCII, the bytes are all below 0x80. Without it, one byte is not.
+  # FL_ASCII alone records only a scan that succeeded, so without this flag
+  # a text with one non-ASCII byte gets a new scan for each check, for
+  # example each Regexp match on it. Each write to the bytes clears it, and
+  # so does an encoding that cannot hold ASCII text. (Bits 24 to 31 hold
+  # the encoding, FL_ENC_SHIFT, and bit 32 is FL_SNAPSHOT; this bit is
+  # above them.)
+  FL_SCANNED: untyped
+
+  FL_ASCII_CLEAR: untyped
+
+  # A String whose frozen copy MatchData keeps (MatchData.snapshot) and that
+  # is still equal to the copy: nothing changed it since. Each change clears
+  # it. Each change also calls the frozen check first (zr_modify_frozen_p),
+  # which clears it too, before a byte changes. Bits 24 to 31 hold the
+  # encoding (FL_ENC_SHIFT); no bit above them is in use.
+  FL_SNAPSHOT: untyped
+
+  FL_SNAPSHOT_CLEAR: untyped
+
+  FL_SCANS_CLEAR: untyped
+
+  def zr_str_modified: (untyped s) -> untyped
+
+  def zr_str_snapshot_p: (untyped s) -> untyped
+
+  def zr_str_snapshot_set: (untyped s) -> untyped
+
+  def zr_str_new: (untyped bytes, untyped len) -> untyped
+
+  def zr_str_initialize_m: (untyped recv, untyped src) -> untyped
+
+  def zr_str_take_bytes: (untyped recv, untyped src) -> (nil | untyped)
+
+  def zr_str_initialize: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_str_to_s: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  G_FROZEN_ERROR: 27
+
+  def zr_frozen_p: (untyped v) -> (true | untyped)
+
+  def zr_frozen_error: (untyped v) -> untyped
+
+  def zr_str_operand: (untyped v) -> untyped
+
+  def zr_str_encoding_index: (untyped s) -> untyped
+
+  def zr_str_set_index: (untyped s, untyped index) -> untyped
+
+  def zr_str_copy_encoding: (untyped s, untyped src) -> untyped
+
+  def zr_str_wide_p: (untyped s) -> untyped
+
+  def zr_str_mb_p: (untyped s) -> untyped
+
+  def zr_str_mb_len: (untyped s, untyped off) -> (1 | untyped)
+
+  def zr_str_mb_precise_len_m: (untyped s, untyped from, untyped to) -> untyped
+
+  def zr_str_mb_max_len_m: (untyped s) -> untyped
+
+  def zr_str_bad_bytes: (untyped s) -> untyped
+
+  def zr_enc_ascii_compat_p: (untyped index) -> untyped
+
+  def zr_enc_dummy_p: (untyped index) -> untyped
+
+  def zr_str_unit: (untyped s) -> (2 | 4 | 0)
+
+  def zr_str_unit_m: (untyped s) -> untyped
+
+  def zr_str_mb_p_m: (untyped s) -> untyped
+
+  def zr_str_mark_valid_m: (untyped s) -> untyped
+
+  def zr_str_unit_at: (untyped s, untyped off, untyped unit) -> untyped
+
+  def zr_unit_char_len: (untyped s, untyped off, untyped unit) -> (untyped | 4)
+
+  def zr_unit_char_valid_p: (untyped s, untyped off, untyped len, untyped unit) -> (false | true | untyped)
+
+  def zr_unit_point: (untyped s, untyped off, untyped len, untyped unit) -> untyped
+
+  def zr_buf_unit_name: (untyped b, untyped index) -> untyped
+
+  def zr_str_discard: (untyped s) -> untyped
+
+  def zr_str_set_binary: (untyped s) -> untyped
+
+  def zr_str_encoding_index_m: (untyped s) -> untyped
+
+  def zr_str_set_index_m: (untyped s, untyped index) -> untyped
+
+  def zr_usascii_str_new: (untyped bytes, untyped len) -> untyped
+
+  def zr_str_usascii: (untyped s) -> untyped
+
+  def zr_enc_append: (untyped index, untyped ascii, untyped len, untyped piece, untyped piece_ascii) -> untyped
+
+  def zr_enc_append_str: (untyped index, untyped ascii, untyped len, untyped s) -> untyped
+
+  def zr_str_join_index: (untyped a, untyped b) -> untyped
+
+  def zr_str_join_incompatible_p: (untyped a, untyped b) -> (false | true | untyped)
+
+  def zr_str_join_incompatible: (untyped a, untyped b) -> untyped
+
+  def zr_str_ascii_bytes_p: (untyped s) -> (true | false)
+
+  def zr_str_plus: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_str_times: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_str_concat_codepoint: (untyped recv, untyped c) -> untyped
+
+  def zr_str_cat_bytes: (untyped recv, untyped other) -> untyped
+
+  def zr_str_cat_range: (untyped recv, untyped other, untyped from, untyped len) -> untyped
+
+  def zr_pack_ints: (untyped out, untyped items, untyped at, untyped n, untyped size, untyped big) -> untyped
+
+  def zr_unpack_ints: (untyped out, untyped bytes, untyped at, untyped n, untyped size, untyped signed, untyped big) -> untyped
+
+  def zr_str_concat: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_str_concat_m: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_bytes_cmp: (untyped a, untyped alen, untyped b, untyped blen) -> (untyped | 0)
+
+  def zr_str_cmp: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_str_cmp_other: (untyped recv, untyped other) -> untyped
+
+  def zr_str_comparable: (untyped a, untyped b) -> untyped
+
+  def zr_str_ascii_only: (untyped s) -> untyped
+
+  def zr_str_ascii_only_m: (untyped s) -> untyped
+
+  def zr_str_eq: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_str_equal: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_str_length: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_str_new_frozen_m: (untyped s) -> untyped
+
+  def zr_str_length_m: (untyped s) -> untyped
+
+  def zr_str_bytes_are_chars: (untyped s) -> (untyped | true | false)
+
+  def zr_str_ascii_check: (untyped s) -> untyped
+
+  def zr_str_char_len_at: (untyped s, untyped off) -> (1 | untyped)
+
+  def zr_str_char_count: (untyped s) -> untyped
+
+  def zr_utf8_char_offset: (untyped p, untyped n, untyped index) -> untyped
+
+  def zr_utf8_char_count: (untyped p, untyped n) -> untyped
+
+  def zr_str_char_offset: (untyped s, untyped index) -> untyped
+
+  def zr_str_char_offset_m: (untyped s, untyped index) -> untyped
+
+  def zr_str_byte_to_char: (untyped s, untyped off) -> untyped
+
+  def zr_str_char_slice: (untyped s, untyped start, untyped len) -> untyped
+
+  def zr_str_char_len_at_m: (untyped s, untyped off) -> untyped
+
+  def zr_cesu8_point: (untyped p, untyped width) -> untyped
+
+  def zr_str_ord: (untyped s) -> untyped
+
+  def zr_str_ord_at_m: (untyped s, untyped off) -> untyped
+
+  def zr_str_ord_at: (untyped s, untyped off) -> untyped
+
+  def zr_str_valid_p: (untyped s) -> untyped
+
+  def zr_str_valid_scan: (untyped s) -> untyped
+
+  def zr_non_ascii_stop: (untyped s, untyped what, untyped len) -> untyped
+
+  def zr_str_map_case: (untyped s, untyped how) -> untyped
+
+  def zr_str_upcase: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_str_map_case_m: (untyped s, untyped how) -> untyped
+
+  def zr_str_downcase: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_str_capitalize: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_str_reverse: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_str_find: (untyped hay, untyped needle, untyped from) -> untyped
+
+  def zr_bytes_find: (untyped hay, untyped n, untyped needle, untyped m, untyped from) -> untyped
+
+  def zr_str_split_by: (untyped s, untyped sep, untyped limit_v) -> untyped
+
+  def zr_str_split_words: (untyped s, untyped limit_v) -> untyped
+
+  def zr_str_blank_sep_p: (untyped sep) -> untyped
+
+  def zr_str_plain_sep_p: (untyped sep) -> untyped
+
+  def zr_str_to_i10: (untyped s) -> untyped
+
+  def zr_blank_byte_p: (untyped b) -> untyped
+
+  def zr_digit_byte_p: (untyped b) -> untyped
+
+  def zr_str_include_p: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_str_index: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_str_empty_p: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_str_to_sym: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_str_uplus: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_str_uminus: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_obj_freeze: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_literal_freeze: (untyped v) -> untyped
+
+  def zr_obj_frozen_p: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_str_succ_ascii: (untyped recv) -> untyped
+
+  def zr_alnum_p: (untyped c) -> untyped
+
+  def zr_str_interp: (untyped argc, untyped argv) -> untyped
+
+  def zr_str_from_buf_obj_head: (untyped v) -> untyped
+
+  def zr_str_frozen: (untyped bytes, untyped len) -> untyped
+
+  # A String that a literal made in a file with no frozen_string_literal
+  # setting (STR_CHILLED_LITERAL), or that `Symbol#to_s` made
+  # (STR_CHILLED_SYMBOL_TO_S). It is not frozen, but its first change warns
+  # that it will be frozen, and after that it is an ordinary String.
+  FL_CHILLED: untyped
+
+  FL_CHILLED_SYMBOL: untyped
+
+  FL_CHILLED_CLEAR: untyped
+
+  def zr_str_new_chilled: (untyped bytes, untyped len) -> untyped
+
+  def zr_str_new_chilled_at: (untyped bytes, untyped len, untyped index) -> untyped
+
+  def zr_str_chilled_p: (untyped s) -> untyped
+
+  def zr_modify_frozen_p: (untyped v) -> (true | untyped)
+
+  def zr_str_modify_marked_p: (untyped v) -> untyped
+
+  def zr_modify_frozen_m: (untyped v) -> untyped
+
+  def zr_warn_deprecated_set: (untyped flag) -> untyped
+
+  def zr_str_unchill: (untyped s) -> (nil | untyped)
+
+  def zr_str_new_at: (untyped bytes, untyped len, untyped index) -> untyped
+
+  def zr_str_frozen_at: (untyped bytes, untyped len, untyped index) -> untyped
+
+  def zr_str_literal_freeze_at: (untyped bytes, untyped len, untyped index) -> untyped
+
+  def zr_str_literal_freeze: (untyped bytes, untyped len) -> untyped
+
+  G_FROZEN_LITERALS: 52
+
+  def zr_str_literal_shared: (untyped bytes, untyped len) -> untyped
+
+  def zr_str_literal_cell: (untyped cell, untyped bytes, untyped len) -> untyped
+
+  GATE_FREEZE: 32768
+
+  G_FSTRINGS: 44
+
+  def zr_str_intern: (untyped s) -> untyped
+
+  # A String in the fstring table, which cannot have a singleton class
+  # (CRuby's RSTRING_FSTR).
+  FL_FSTR: untyped
+
+  GATE_LTLT: 16384
+
+  def zr_opt_ltlt: (untyped recv, untyped mid, untyped argc, untyped argv, untyped mode) -> untyped
+
+  def zr_opt_getbyte: (untyped recv, untyped mid, untyped argc, untyped argv, untyped mode) -> untyped
+
+  def zr_opt_setbyte: (untyped recv, untyped mid, untyped argc, untyped argv, untyped mode) -> untyped
+
+  def zr_str_bytesize: (untyped s) -> untyped
+
+  def zr_str_byte_at: (untyped s, untyped i) -> untyped
+
+  def zr_str_bytes_at_m: (untyped s, untyped at, untyped other) -> untyped
+
+  def zr_str_byteslice: (untyped s, untyped off, untyped len) -> untyped
+
+  def zr_str_piece: (untyped src, untyped bytes, untyped len) -> untyped
+
+  def zr_str_replace: (untyped s, untyped other) -> untyped
+
+  def zr_str_setbyte: (untyped s, untyped i, untyped byte) -> untyped
+
+  def zr_str_from_byte: (untyped byte) -> untyped
+
+  def zr_str_find_from: (untyped s, untyped needle, untyped start) -> untyped
+
+  def zr_str_shift_front: (untyped s, untyped n) -> untyped
+
+  def zr_space_byte_p: (untyped c, untyped nul) -> untyped
+
+  def zr_str_space_end: (untyped s, untyped from, untyped nul) -> untyped
+
+  def zr_str_word_end: (untyped s, untyped from) -> untyped
+
+  def zr_blank_word_p: (untyped w) -> untyped
+
+  def zr_str_space_start: (untyped s, untyped to, untyped nul) -> untyped
+
+  def zr_str_splice: (untyped s, untyped from, untyped len, untyped other) -> untyped
+
+  def zr_str_push_byte: (untyped recv, untyped byte) -> untyped
+
+  def zr_str_bytes_address: (untyped s) -> untyped
+end

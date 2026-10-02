@@ -1,0 +1,452 @@
+# Enumerator: an iteration as an object. One made by `to_enum` sends
+# its method with the block it is given. One made with a block runs the
+# block with a Yielder. External iteration (`next`, `peek`) runs the
+# iteration on its own fiber, one value per resume, so an endless
+# iteration is fine.
+class Enumerator
+  @generator: untyped
+
+  @receiver: untyped
+
+  @method: untyped
+
+  @args: untyped
+
+  @kwargs: untyped
+
+  @size: untyped
+
+  @lookahead: untyped
+
+  @fiber: untyped
+
+  @stop: untyped
+
+  @feed: untyped
+
+  include Enumerable
+
+  class Yielder
+    @block: untyped
+
+    def initialize: () ?{ (?) -> untyped } -> void
+
+    def <<: (untyped value) -> self
+
+    # Keywords go on to the block, as yielder_yield passes them. Only
+    # keywords given go on: an empty `**` would keep a lone Array whole.
+    def yield: (*untyped values, **untyped keywords) -> untyped
+
+    def to_proc: () -> untyped
+  end
+
+  # The block that an `Enumerator.new` runs. It is an Enumerable of its
+  # own and keeps the block hidden from programs.
+  class Generator
+    include Enumerable
+
+    def initialize: () ?{ (?) -> untyped } -> void
+
+    # The yielder ignores any arguments that a caller adds, as CRuby's
+    # own method entry takes them and returns an arity of -1.
+    def each: (*untyped) { (?) -> untyped } -> untyped
+
+    private
+
+    def initialize_copy: (untyped other) -> self
+  end
+
+  def initialize: (?untyped? size) ?{ (?) -> untyped } -> void
+
+  # `Enumerator.produce(initial) { |prev| }`: the initial value, then
+  # each block return value, until the block raises StopIteration.
+  class Producer
+    def initialize: (untyped initial, untyped has_initial, untyped block) -> void
+
+    def each: () { (untyped) -> untyped } -> self
+  end
+
+  def self.produce: (*untyped initial) ?{ (?) -> untyped } -> untyped
+
+  # `to_enum(:method, *args, **kwargs)`, with a size or a proc that
+  # returns it.
+  def self.for: (untyped receiver, untyped method, untyped args, untyped kwargs, untyped size) -> untyped
+
+  def each: (*untyped extra) ?{ (?) -> untyped } -> (self | untyped)
+
+  def size: () -> untyped
+
+  # Without a block, the enumerator shows the offset only as it was given.
+  def with_index: (?untyped offset) ?{ (?) -> untyped } -> untyped
+
+  def each_with_index: () ?{ (?) -> untyped } -> untyped
+
+  def with_object: (untyped memo) ?{ (untyped, untyped) -> untyped } -> untyped
+
+  alias each_with_object with_object
+
+  def next: () -> untyped
+
+  def peek: () -> untyped
+
+  def next_values: () -> untyped
+
+  def peek_values: () -> untyped
+
+  def rewind: () -> self
+
+  # The value that the paused `yield` returns at the next `next`.
+  def feed: (untyped value) -> nil
+
+  # A lazy shows what it was made with rather than what `each` runs.
+  def inspect: () -> untyped
+
+  private
+
+  # enumerator_ptr: an allocated enumerator has nothing to iterate.
+  def initialized!: () -> untyped
+
+  # enumerator_with_index_i: the values that `each` yields, packed as
+  # rb_enum_values_pack packs them, with the index next to them. The
+  # block's own return value goes back to `each`. The kernel does the
+  # packing (`zr_enum_each`), not a `|*values|` parameter: that would make
+  # an Array for each element, and the assembler walks every instruction
+  # of every function this way.
+  def indexed: (untyped offset) { (untyped, untyped) -> untyped } -> untyped
+
+  # Each `next` resumes the fiber that runs the iteration; the block
+  # yields every value set back as an array. When the iteration ends,
+  # its return value becomes the StopIteration's result, and every later
+  # `next` raises a new StopIteration caused by the first.
+  def take_next: () -> untyped
+
+  def run: () -> nil
+
+  def raise_stop: () -> untyped
+
+  def enumerate: (untyped receiver, untyped method, untyped args, untyped kwargs, untyped size) -> untyped
+
+  # What a copy iterates is what the other iterates; where the other is
+  # in an external iteration is a fiber's stack, which does not copy.
+  def initialize_copy: (untyped other) -> self
+end
+
+module Kernel
+  def to_enum: (?::Symbol method, *untyped args, **untyped kwargs) { (?) -> untyped } -> untyped
+
+  alias enum_for to_enum
+
+  private
+
+  # What a builtin iterator returns without a block: its count comes
+  # last.
+  def enum_with_size: (untyped method, *untyped args, untyped size) -> untyped
+end
+
+# `1.step(10, 3)` and `(1..10).step(3)` without a block: an Enumerator
+# that also returns its bounds and step, CRuby's enumerator.c arith_seq.
+# It keeps the call that made it, which `inspect` replays.
+class Enumerator::ArithmeticSequence < Enumerator
+  @call: untyped
+
+  @begin: untyped
+
+  @end: untyped
+
+  @step: untyped
+
+  @exclude_end: untyped
+
+  @receiver: untyped
+
+  @method: untyped
+
+  @args: untyped
+
+  @kwargs: untyped
+
+  @size: untyped
+
+  attr_reader begin: untyped
+
+  attr_reader end: untyped
+
+  attr_reader step: untyped
+
+  # rb_arith_seq_new: `receiver.method(*args, **kwargs)` made the sequence
+  # from `first` to `last` by `step`.
+  def self.for: (untyped receiver, untyped method, untyped args, untyped kwargs, untyped first, untyped last, untyped step, untyped exclude_end) -> untyped
+
+  def exclude_end?: () -> untyped
+
+  # arith_seq_each: a Float anywhere walks as ruby_float_step does;
+  # otherwise the last element is computed first, and the walk stops
+  # there.
+  def each: () ?{ (untyped) -> untyped } -> (self | untyped)
+
+  # rb_num_coerce_relop, which arith_seq_each's NUM_GE is: `y.coerce(x)`,
+  # then the operator on the pair it gives. No pair, or a nil answer, is
+  # a failed comparison.
+  def self.coerce_relop: (untyped x, untyped y, untyped op) -> untyped
+
+  # arith_seq_size: counted, never walked.
+  def size: () -> (untyped | 0)
+
+  # arith_seq_first: `begin` itself, unless the sequence is empty; with a
+  # count, a walk.
+  def first: (?untyped n) -> (untyped | nil)
+
+  private
+
+  # arith_seq_take: a Float anywhere takes as the walk does.
+  def taken: (untyped n) -> (::Array[untyped] | untyped)
+
+  public
+
+  # arith_seq_last: computed from the four parts, not walked.
+  def last: (?untyped n) -> untyped
+
+  def ==: (untyped other) -> untyped
+
+  alias eql? ==
+
+  alias === ==
+
+  def hash: () -> untyped
+
+  # arith_seq_inspect: the call again, a Range receiver in parentheses,
+  # and keywords as a call spells them.
+  def inspect: () -> ::String
+
+  private
+
+  def sequence: (untyped call, untyped first, untyped last, untyped step, untyped exclude_end) -> untyped
+
+  def float?: () -> untyped
+
+  # The last element a whole walk would reach: `begin` plus as many whole
+  # steps as fit, one fewer where an excluded end is met exactly.
+  def last_element: () -> untyped
+
+  # num_idiv: a quotient taken down to a whole number.
+  def idiv: (untyped a, untyped b) -> untyped
+
+  # ruby_float_step_size: the count allows for rounding in the last
+  # value. NaN and infinity travel through, so the walk reads them as
+  # nothing to do and forever, and `size` reports them as ruby does.
+  def float_count: () -> (untyped | ::Float)
+
+  # ruby_float_step: `count` values, each `begin + i * step`, limited to
+  # the end.
+  def float_walk: (untyped count) { (untyped) -> untyped } -> self
+end
+
+# A lazy enumerator is an Enumerator whose `each` runs a chain of steps.
+# Each lazy has one Step: the receiver it reads, and the runner that
+# streams the output to the block that `each` gets. A step that stops
+# early breaks out of its receiver's `each`. A step's yields keep the
+# receiver's value packing unless CRuby's step passes one value.
+# `inspect` shows the receiver, method and arguments that made the lazy.
+# CRuby keeps these separate from what `each` runs, and so does this file.
+class Enumerator::Lazy < Enumerator
+  @shown: untyped
+
+  def self.from: (untyped receiver) -> untyped
+
+  def initialize: (untyped receiver, ?untyped? size) ?{ (?) -> untyped } -> void
+
+  def lazy: () -> self
+
+  def force: (*untyped) -> untyped
+
+  def eager: () -> untyped
+
+  def to_enum: (?::Symbol method, *untyped args, **untyped kwargs) { (?) -> untyped } -> untyped
+
+  alias enum_for to_enum
+
+  def map: () { (?) -> untyped } -> untyped
+
+  alias collect map
+
+  def flat_map: () { (?) -> untyped } -> untyped
+
+  alias collect_concat flat_map
+
+  def select: () { (?) -> untyped } -> untyped
+
+  alias filter select
+
+  alias find_all select
+
+  def filter_map: () { (?) -> untyped } -> untyped
+
+  def reject: () { (?) -> untyped } -> untyped
+
+  def take_while: () { (?) -> untyped } -> untyped
+
+  def drop_while: () { (?) -> untyped } -> untyped
+
+  def take: (untyped n) -> untyped
+
+  def drop: (untyped n) -> untyped
+
+  def grep: (untyped pattern) ?{ (?) -> untyped } -> untyped
+
+  def grep_v: (untyped pattern) ?{ (?) -> untyped } -> untyped
+
+  def zip: (*untyped others) ?{ (?) -> untyped } -> untyped
+
+  def uniq: () { (?) -> untyped } -> untyped
+
+  def compact: () -> untyped
+
+  def with_index: (?::Integer offset) ?{ (?) -> untyped } -> untyped
+
+  # The chunking methods stay Enumerable's, their enumerator made lazy.
+  def chunk: (*untyped) { (?) -> untyped } -> untyped
+
+  def chunk_while: (*untyped) { (?) -> untyped } -> untyped
+
+  def slice_when: (*untyped) { (?) -> untyped } -> untyped
+
+  def slice_before: (*untyped) { (?) -> untyped } -> untyped
+
+  def slice_after: (*untyped) { (?) -> untyped } -> untyped
+
+  private
+
+  def _enumerable_with_index: (?untyped offset) ?{ (?) -> untyped } -> untyped
+
+  # This lazy, reading `receiver` through `runner`, and shown as
+  # `receiver`, `method` and `args`; a false `method` shows none.
+  def chain: (untyped receiver, untyped method, untyped runner, ?block: untyped?, ?args: untyped, ?kwargs: ::Hash[untyped, untyped]) { (?) -> untyped } -> self
+
+  # The lazy one method adds to this one: named after that method, sized
+  # like this one when `sized`, and refused without a block when `check`.
+  def step: (untyped method, untyped runner, untyped block, ?untyped args, ?check: bool, ?sized: bool) ?{ (?) -> untyped } -> untyped
+
+  # What a lazy's `each` runs: its receiver, through one runner. Each
+  # runner sends `each` to its receiver by name, as CRuby's
+  # lazy_init_iterator does, so a program's own `each` is called.
+  class Step
+    @receiver: untyped
+
+    @method: untyped
+
+    @runner: untyped
+
+    @block: untyped
+
+    @args: untyped
+
+    @kwargs: untyped
+
+    def initialize: (untyped receiver, untyped method, untyped runner, untyped block, untyped args, untyped kwargs) -> void
+
+    # Any arguments a caller adds are ignored, as CRuby's generator
+    # ignores them.
+    def each: (*untyped) ?{ (?) -> untyped } -> untyped
+
+    private
+
+    def run_each: () { (?) -> untyped } -> untyped
+
+    def run_new: () { (?) -> untyped } -> nil
+
+    def run_send: () { (untyped) -> untyped } -> untyped
+
+    # The four stages that keep no state go through the kernel's
+    # adapter (zr_lazy_stage), which reads an element without the
+    # `|*values|` Array the others pay once an element.
+    def run_map: () { (?) -> untyped } -> untyped
+
+    def run_select: () { (?) -> untyped } -> untyped
+
+    def run_reject: () { (?) -> untyped } -> untyped
+
+    def run_filter_map: () { (?) -> untyped } -> untyped
+
+    def run_flat_map: () { (untyped) -> untyped } -> nil
+
+    def run_take_while: () { (untyped) -> untyped } -> nil
+
+    def run_drop_while: () { (untyped) -> untyped } -> nil
+
+    def run_take: () { (untyped) -> untyped } -> nil
+
+    def run_drop: () { (untyped) -> untyped } -> nil
+
+    def run_grep: () { (untyped) -> untyped } -> nil
+
+    def run_grep_map: () { (untyped) -> untyped } -> nil
+
+    def run_grep_v: () { (untyped) -> untyped } -> nil
+
+    def run_grep_v_map: () { (untyped) -> untyped } -> nil
+
+    # Arrays are read by index; any other object is read with `next`,
+    # and gives nil after it stops.
+    def run_zip: () { (untyped) -> untyped } -> nil
+
+    def run_uniq: () { (untyped) -> untyped } -> nil
+
+    def run_compact: () { (untyped) -> untyped } -> nil
+
+    def run_with_index: () { (untyped) -> untyped } -> nil
+
+    def run_with_index_each: () { (untyped) -> untyped } -> nil
+  end
+end
+
+# `a.chain(b, c)`: the enumerables one after another.
+class Enumerator::Chain < Enumerator
+  @enums: untyped
+
+  def initialize: (*untyped enums) -> void
+
+  # Without a block, CRuby wraps the chain twice. Each enumerable gets
+  # `each` by name, as enum_chain_each sends it.
+  def each: (*untyped args) ?{ (?) -> untyped } -> (untyped | self)
+
+  # The sizes added; nil when one is unknown, Infinity when one is.
+  def size: () -> (nil | untyped)
+
+  def rewind: () -> self
+
+  def inspect: () -> untyped
+
+  private
+
+  def initialize_copy: (untyped other) -> self
+end
+
+class Enumerator
+  def +: (untyped other) -> untyped
+end
+
+# `Enumerator.product(a, b)`: every combination, the last enumerable
+# varying fastest.
+class Enumerator::Product < Enumerator
+  @enums: untyped
+
+  def initialize: (*untyped enums) -> void
+
+  def each: () ?{ (?) -> untyped } -> (untyped | self)
+
+  def size: () -> (nil | untyped)
+
+  def rewind: () -> self
+
+  def inspect: () -> untyped
+
+  private
+
+  def initialize_copy: (untyped other) -> self
+
+  def walk: (untyped depth, untyped picked) { (untyped) -> untyped } -> untyped
+end
+
+class Enumerator
+  def self.product: (*untyped enums, **untyped nothing) ?{ (?) -> untyped } -> (untyped | nil)
+end

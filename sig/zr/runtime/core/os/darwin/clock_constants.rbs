@@ -1,0 +1,21 @@
+# darwin's clock_gettime(2) ids, with Process's names for them.
+module Process
+  CLOCK_REALTIME: 0
+
+  CLOCK_MONOTONIC: 6
+
+  CLOCK_PROCESS_CPUTIME_ID: 12
+
+  CLOCK_THREAD_CPUTIME_ID: 16
+
+  CLOCK_MONOTONIC_RAW: 4
+
+  CLOCK_MONOTONIC_RAW_APPROX: 5
+
+  CLOCK_UPTIME_RAW: 8
+
+  CLOCK_UPTIME_RAW_APPROX: 9
+
+  # Every clock here is a number.
+  CLOCK_IDS: ::Hash[untyped, untyped]
+end

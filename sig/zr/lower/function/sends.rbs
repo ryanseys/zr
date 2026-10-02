@@ -1,0 +1,371 @@
+module Zr
+  class Lower
+    class Function
+      # Method calls: the receiver and arguments staged in the record, the
+      # dispatch, the block-passing form, and the inline fixnum operators.
+      module Sends
+        @funcalls: untyped
+
+        @sp: untyped
+
+        @sites: untyped
+
+        # The operators with an inline fixnum fast path, and their gates.
+        OPS: { :+ => "GATE_PLUS", :- => "GATE_MINUS", :* => "GATE_MUL", :/ => "GATE_DIV", :% => "GATE_MOD", :< => "GATE_LT", :<= => "GATE_LE", :> => "GATE_GT", :>= => "GATE_GE", :== => "GATE_EQ", :!= => "GATE_NE", :& => "GATE_AND", :| => "GATE_OR", :^ => "GATE_XOR", :>> => "GATE_SHR" }
+
+        # The comparison operators among them, as the IR's signed
+        # conditions on the tagged words.
+        RELATIONS: { :< => "slt", :<= => "sle", :> => "sgt", :>= => "sge", :== => "eq", :!= => "ne" }
+
+        # What a site can do in place of a call, by the kernel's name for the
+        # cell's shape (lib/zr/runtime/kernel/cache.rb): an accessor's body, or one of
+        # the core's type checks. The two accessors read and write a cell's
+        # table, so their receiver must be a cell. The type checks accept any
+        # receiver.
+        SHAPES: { reader: "SHAPE_READER", writer: "SHAPE_WRITER", is_a: "SHAPE_IS_A", instance_of: "SHAPE_INSTANCE_OF", nil_p: "SHAPE_NIL_P", frozen_p: "SHAPE_FROZEN_P", ary_length: "SHAPE_ARY_LENGTH", mod_eqq: "SHAPE_MOD_EQQ", eq: "SHAPE_EQ", ne: "SHAPE_NE", eqq: "SHAPE_EQQ" }
+
+        ACCESSOR_SHAPES: ::Array[:reader | :writer]
+
+        # The zero-argument checks that a site handles by name. `nil?` and
+        # `frozen?` cannot be attribute names, so the site does not test for
+        # a reader.
+        QUESTIONS: { :nil? => ::Array[:nil_p], :frozen? => ::Array[:frozen_p], size: ::Array[:ary_length | :reader], length: ::Array[:ary_length | :reader] }
+
+        # The one-argument checks. `case` sends `===` for each `when`, and
+        # Module#=== does the class tests of a `case` on objects. `==`,
+        # `equal?` and `!=` are identity tests if the cell has BasicObject's.
+        ARGUED: { :is_a? => ::Array[:is_a], :kind_of? => ::Array[:is_a], :instance_of? => ::Array[:instance_of], :=== => ::Array[:mod_eqq | :eqq], :== => ::Array[:eq], :equal? => ::Array[:eq], :!= => ::Array[:ne] }
+
+        # The type checks that a site handles before its cell, while no
+        # class has defined the name (lib/zr/runtime/kernel/integer.rb).
+        QUESTION_GATES: { :is_a? => "GATE_IS_A", :kind_of? => "GATE_IS_A", :instance_of? => "GATE_INSTANCE_OF" }
+
+        # The kernel entry of each operator and named call with a core
+        # fast path, and the classes that it handles. The named calls are
+        # in `Hir::Build::OPT_CALLS`, which marks the call.
+        OPT_ENTRIES: { :[] => ::Array["zr_opt_aref" | ::Array["G_ARRAY" | "G_HASH"]], :[]= => ::Array["zr_opt_aset" | ::Array["G_ARRAY" | "G_HASH"]], :<< => ::Array["zr_opt_ltlt" | ::Array["G_ARRAY" | "G_STRING"]], getbyte: ::Array["zr_opt_getbyte" | ::Array["G_STRING"]], setbyte: ::Array["zr_opt_setbyte" | ::Array["G_STRING"]], push: ::Array["zr_opt_push" | ::Array["G_ARRAY"]], pop: ::Array["zr_opt_pop" | ::Array["G_ARRAY"]], shift: ::Array["zr_opt_shift" | ::Array["G_ARRAY"]], :empty? => ::Array["zr_opt_empty_p" | ::Array["G_ARRAY"]] }
+
+        # `Math.f(x)` that a site calls directly while GATE_MATH is clear:
+        # the number of each function in zr_math_call (sqrt has its own).
+        MATH_CALLS: { sqrt: 0, cbrt: 1, sin: 2, cos: 3, tan: 4, atan: 5, exp: 6 }
+
+        # The unary Integer calls with an inline fixnum fast path, and
+        # their gates.
+        UNARY: { succ: "GATE_SUCC", :-@ => "GATE_UMINUS" }
+
+        # The unary calls with a flonum path as well, and Float's gates.
+        FLOAT_UNARY: { :-@ => "GATE_FLO_UMINUS" }
+
+        # The operators with a flonum path: the f64 instruction or the
+        # fcmp condition, and the gate of Float's method.
+        FLOAT_OPS: { :+ => ::Array[:fadd | "GATE_FLO_PLUS"], :- => ::Array[:fsub | "GATE_FLO_MINUS"], :* => ::Array[:fmul | "GATE_FLO_MUL"], :/ => ::Array[:fdiv | "GATE_FLO_DIV"], :< => ::Array["lt" | "GATE_FLO_LT"], :<= => ::Array["le" | "GATE_FLO_LE"], :> => ::Array["gt" | "GATE_FLO_GT"], :>= => ::Array["ge" | "GATE_FLO_GE"], :== => ::Array["eq" | "GATE_FLO_EQ"] }
+
+        # The bits of +0.0 as a flonum, and of the double that the rotation
+        # cannot represent (lib/zr/runtime/kernel/float.rb).
+        FLONUM_ZERO: untyped
+
+        FLONUM_HOLE: 3458764513820540928
+
+        # The names that CRuby's C sends by name, even to instances of its
+        # own classes, so a method that a program defines is called: the
+        # conversions, equality, hashing and ordering, iteration, the object
+        # protocol and its hooks, and error reporting. Any other send by the
+        # core library to an instance of a runtime class goes to the core
+        # library's own method, as a C call goes to a C function
+        # (lib/zr/runtime/kernel/send.rb, SEND_CORE).
+        PROTOCOL: untyped
+
+        # The flag bit of a send in the core library (SEND_CORE).
+        SEND_CORE: 8
+
+        # The flag bit of a send under `using` (SEND_USING). Its cells
+        # contain the result of the lookup with the site's refinements.
+        SEND_USING: 16
+
+        # The number of cells of a send site (lib/zr/runtime/kernel/cache.rb, CALL_WAYS).
+        CALL_WAYS: 4
+
+        # The names that numeric code sends to a Float. Their sites find a
+        # flonum's class inline. All other sites let the kernel read a
+        # flonum's class, to keep the code small.
+        FLONUM_NAMES: untyped
+
+        private
+
+        # The receiver and arguments go into record slots (a splat collects
+        # them into one Array there), then keywords as a Hash that the task
+        # flags, then the send.
+        def call: (untyped node) -> untyped
+
+        # An operator site tests its operands directly when no collection
+        # can occur while it holds the receiver's value only in a register:
+        # the argument is a plain read (a local, self, an immediate literal:
+        # nothing that calls or allocates), or the receiver is self or an
+        # immediate literal, which need no root. An argument of operators
+        # and simple calls (`operator_tree?`) can also be direct: then the
+        # receiver waits in its record slot while the argument runs
+        # (`site_operands`). Thus `(a * b) * c`, `1.0 / (a * b)` and
+        # `v - dx * b.mass` keep the intermediate values out of the record. The site stages the
+        # operands in the record only on the send branch, so the fast
+        # branch stores and releases nothing. A unary operator has one
+        # operand, and nothing runs between its read and the test, so any
+        # receiver is permitted.
+        def direct_operands?: (untyped node, untyped recv_node) -> (false | untyped)
+
+        # Self, or an immediate literal: a value that needs no root.
+        def rootless?: (untyped node) -> untyped
+
+        # The two operands of a direct operator site, in order. While an
+        # argument that is not a plain read runs, the receiver waits in the
+        # slot that the send has for it (Scope counts it), so a collection
+        # sees it.
+        def site_operands: (untyped node, untyped recv_node) -> ::Array[untyped]
+
+        # Whether `node` is only operators over plain reads and simple
+        # calls, such as `a * (b + 1.0)` or `dx * b.mass`.
+        def operator_tree?: (untyped node) -> (true | untyped)
+
+        # A call of a plain read or a constant with plain reads as its
+        # arguments, such as `b.mass`, `a[i]` or `Math.sqrt(x)`.
+        def simple_call?: (untyped node) -> untyped
+
+        def plain_read?: (untyped node) -> untyped
+
+        def direct_operator: (untyped node, untyped recv_node) -> untyped
+
+        # The send of an operator whose operands were read as values. They
+        # are staged in the record only here, on the send branch.
+        def sent_directly: (untyped node, untyped recv, untyped args) -> untyped
+
+        # Whether a test of `node` branches on the comparison itself: a
+        # comparison of plain reads (`direct_operands?`).
+        def relation_test?: (untyped node) -> untyped
+
+        # `a < b` and the other comparisons as a test (`Control#jump_if`).
+        # The fixnum and flonum paths branch on the comparison, so no true
+        # or false is made only to be tested again (for example, fib's
+        # `n < 2` or a loop's `i < n`). The call's result is tested as a
+        # value.
+        def relation_jump: (untyped node, untyped yes, untyped no) -> untyped
+
+        # `relation_jump` with an inner float operator's result as one
+        # operand.
+        def fused_relation_jump: (untyped node, untyped a, untyped b, untyped yes, untyped no) -> untyped
+
+        # In the runtime's own Ruby, `recv.send(:name, ...)` is rb_funcall
+        # in CRuby's C: a direct call of `name`, private permitted, and
+        # never a class's own `send` (BasicSocket has one). The call uses
+        # its own cell, with no send frame and no lookup by name. For all
+        # names except PROTOCOL, the core's own method entry is used, as
+        # for every other call that the core makes.
+        def kernel_send?: (untyped node) -> untyped
+
+        # The call that a kernel send gives, marked so it can call a
+        # private method with any receiver (`send_mode`).
+        def funcall: (untyped node) -> untyped
+
+        # `recv&.name(args)`: nil if the receiver is nil, with the arguments
+        # not evaluated; else the send.
+        def safe_call: (untyped node) -> untyped
+
+        # The `to_s` of an interpolated part under refinements: a String or a
+        # Symbol is the part as it is, and any other value gets the send.
+        def interp_to_s: (untyped node) -> untyped
+
+        # In the core library, `Primitive.zr_name(args)` calls the kernel
+        # def directly with Values. A block literal is its last Value, a
+        # Proc, and its `break` comes here as for a send.
+        def primitive?: (untyped node) -> untyped
+
+        def primitive: (untyped node) -> untyped
+
+        # `Primitive.arg!(:in)`: the parameter with that name. Ruby cannot
+        # write it as a variable when the name is a keyword. CRuby's builtin
+        # methods read it the same way.
+        def parameter_named: (untyped node) -> untyped
+
+        def explicit?: (untyped node) -> untyped
+
+        # A traced program sends every operator, so a :c_call sees it.
+        def send_staged: (untyped node, untyped recv, untyped argv, untyped argc) -> untyped
+
+        # Pushes `parts` one at a time into an Array in the record slot
+        # `slot`. A Splat spreads its value. Returns the Array.
+        def gather: (untyped parts, untyped slot) -> untyped
+
+        def array_ptr: (untyped ary) -> untyped
+
+        def array_len: (untyped ary) -> untyped
+
+        # A call's keywords as arguments. `k: v` pairs with plain Symbol
+        # keys go as trailing values, with a static table of the keys that
+        # the task gets just before the send. All other keywords go as one
+        # Hash that the task flags (lib/zr/runtime/kernel/send.rb).
+        def keyword_args: (untyped node) -> (::Array[untyped] | untyped)
+
+        # The count that the callee sees: a keywords Hash goes last and
+        # flags the task. A splat's last element can be a ruby2_keywords
+        # Hash.
+        def keyword_argc: (untyped node, untyped argc, untyped argv) -> untyped
+
+        # The mode for `zr_dispatch`: 0 for an implicit or `self` receiver,
+        # 1 for a bare identifier, 2 for an explicit receiver (visibility
+        # applies).
+        def send_mode: (untyped node) -> untyped
+
+        # Whether a send of `name` finds the core's own method: in the
+        # core library and eval's compiler, for any name but PROTOCOL, and
+        # for `each` as CRuby's C sends it (`native_each?`).
+        def core_send?: (untyped name) -> (false | untyped)
+
+        def dispatch: (untyped node, untyped recv, untyped argv, untyped argc) -> untyped
+
+        # Whether `node` is `Math.f(x)` (MATH_CALLS) with one plain argument.
+        def math_call?: (untyped node) -> untyped
+
+        # `Math.f(x)`: when the constant is Math (its class is Math's
+        # singleton class) and its functions are the core's, the kernel's
+        # fast path for a Float or an Integer, which Math's own method calls
+        # first. Any other value, a value out of the domain, and any other
+        # receiver make the send, which converts or raises.
+        def math_send: (untyped node, untyped recv, untyped argc, untyped argv) -> untyped
+
+        # Whether `recv` reads a `&b` parameter bound to the block as given
+        # (`Params#raw_block?`), in this scope or an enclosing scope.
+        def raw_block_recv?: (untyped recv) -> untyped
+
+        # `recv[i]`, `recv[i] = v` and `recv << v`. A receiver of a core
+        # class with a fast path goes to the kernel's entry, which tests the
+        # method's gate and calls it. All other receivers use the site's
+        # cell.
+        def opt_send: (untyped node, untyped recv, untyped argc, untyped argv) -> untyped
+
+        # The core class whose elements the site reads or writes inline, or
+        # nil: an Array's by `[]` and `[]=`, a String's bytes by `getbyte`
+        # and `setbyte`.
+        def in_place_class: (untyped node) -> ("G_ARRAY" | "G_STRING" | nil)
+
+        # `recv[i]` and `recv[i] = v` with one plain index: for an Array
+        # receiver, read or write the element inline.
+        def array_element?: (untyped node) -> (false | untyped)
+
+        # The element of an Array `recv` at a fixnum index in range, while
+        # Array's `[]` or `[]=` is not redefined (the gate) and, for a
+        # write, the Array is not frozen. The value goes to `merge`. A
+        # negative index, one past the end, and all other cases go to
+        # `slow`, the kernel's entry.
+        def array_element: (untyped site, untyped slow) -> untyped
+
+        # `s.getbyte(i)` and `s.setbyte(i, b)` on a String at a fixnum
+        # index in range, with a fixnum byte, while String's method is not
+        # redefined (the gate). Reads or writes the byte inline, as
+        # zr_str_byte_at and zr_str_setbyte do. A write also needs a String
+        # that is not frozen or chilled, and clears the cached scan data of
+        # its bytes (zr_str_modified). A negative index, one past the end,
+        # and all other cases go to `slow`, the kernel's entry, which raises
+        # or returns nil as the method does. Without this, `bm_ruby_xor`
+        # spends three fifths of its time in the entries.
+        def string_byte: (untyped node, untyped recv, untyped argv, untyped merge, untyped slow) -> untyped
+
+        # A send through the site's own cell (lib/zr/runtime/kernel/cache.rb). The
+        # cell keeps the method of the last receiver class at this site.
+        # The site tests the cell inline: a fixnum's class is Integer, a
+        # flonum's is Float, and a heap object's class is in its header.
+        # If that class is the cell's and the cell's stamp is the site
+        # stamp, the site calls the cell's function with the method
+        # signature. All other cases (a different special constant, a stale
+        # cell, cells turned off) go to the kernel's send, which tests the
+        # site's other cells and fills one. A site under `using` tests its
+        # cell in the same way (the cell has the result of the lookup with
+        # its refinements, and the task has the refinements for the
+        # callee). A site in a `refine` block always calls the kernel.
+        def cached_send: (untyped node, untyped recv, untyped argc, untyped argv, untyped blk, ?mode: untyped, ?cc: untyped) -> untyped
+
+        # `x.nil?` while no class has defined the name (GATE_NIL_P): true
+        # for nil here, before any class is read. False at `have` for a
+        # receiver whose class is ranked (under Object, where Kernel's
+        # `nil?` applies; `nil_after_class`). The cell for all others.
+        def nil_before_class: (untyped recv, untyped merge) -> untyped
+
+        def nil_after_class: (untyped klass, untyped merge) -> untyped
+
+        # Reaches the join with the receiver's class, and whether the
+        # receiver is a cell. The compiler knows the class of a literal
+        # symbol, nil, true or false receiver. For example, a `case` branch
+        # on a symbol sends `:sym === x` to the literal.
+        def receiver_class: (untyped node, untyped recv, untyped reach, untyped fixnum, untyped other, untyped heap) -> untyped
+
+        # `recv.is_a?(K)` uses only the receiver's class while no class
+        # has defined the name (GATE_IS_A). It uses no cell, because a
+        # site with receivers of many classes would thrash the cells.
+        def question_gate: (untyped node, untyped klass, untyped argv, untyped merge) -> (nil | untyped)
+
+        # A hit whose cell holds one of the site's shapes (an accessor, a
+        # struct member, ...) runs the shape in place.
+        def shape_hits: (untyped shapes, untyped site, untyped klass, untyped cellular, untyped miss) -> untyped
+
+        # An accessor's two shapes, each with its own body at the site: an
+        # attr_reader's or attr_writer's first, then a struct member's. A
+        # failed guard in either goes to `miss`, the kernel's send, which
+        # sets the guess.
+        def accessor_hits: (untyped shape, untyped site, untyped cellular, untyped wanted, untyped held, untyped miss, untyped onward) -> untyped
+
+        # The def's direct entry, if the cell has one for this site's
+        # count. The staged arguments go in registers, with no count and
+        # no keyword word for the def to check.
+        def direct_entry: (untyped site, untyped blk, untyped found) -> untyped
+
+        # The send with a block: a descriptor for a block literal (the
+        # site catches its own `break` on return), or the `&value`.
+        def call_with_block: (untyped node, untyped recv, untyped argv, untyped argc) -> untyped
+
+        # `recv.new(...)`, with its block if it has one: the kernel's
+        # opt_new, with a cell for `new` and one for `initialize`.
+        #
+        # A program's `Klass.new(...)` with no block does opt_new's work
+        # inline while the cell has Class#new (SHAPE_NEW). It gets the
+        # object from the class's allocator, then sends `initialize` as a
+        # normal call, through the site's own cell. So a def's direct entry
+        # gets the arguments in place. Class#new has no frame on this path,
+        # as in the kernel. Any other receiver or `new`, or a stale cell,
+        # uses the kernel's path, which fills the cell.
+        def new_send: (untyped node, untyped recv, untyped argc, untyped argv, untyped blk) -> untyped
+
+        # Whether a `new` site uses the inline path: in a program (not the
+        # core), with an explicit receiver (so the cell has only a public
+        # `new`), with no block (a `new` with a block calls Class#new with
+        # a frame), not traced, and not in a `refine` block.
+        def new_in_place?: (untyped node) -> untyped
+
+        # The `initialize` that a `new` site sends to its object: an
+        # implicit call, private permitted, with the site's arguments.
+        def initializer: (untyped node) -> untyped
+
+        # The block literal's descriptor and its site number. The
+        # descriptor is a Proc image in a slot of this record, written
+        # only by stores. It is not a cell unless a kernel def keeps the
+        # block (`zr_block_proc`, lib/zr/runtime/kernel/proc.rb). Its flags mark
+        # it as on the stack and already marked, so the collector reads
+        # nothing through it. This frame roots all that it refers to.
+        def make_block: (untyped block, ?method: bool) -> ::Array[untyped]
+
+        # The result of the block's call. A `break` from the block literal
+        # at `site` gives the result. Any other unwind goes to the landing
+        # block.
+        def catching_break: (untyped site) { () -> untyped } -> untyped
+
+        # `super(args)`: the arguments are staged as for a send, then the
+        # runtime finds the next method after this frame's owner. A bare
+        # `super` in a block first checks whether `define_method` made the
+        # block a method, because CRuby raises for that case.
+        def super_call: (untyped node) -> untyped
+
+        def super_staged: (untyped node, untyped argv, untyped argc) -> untyped
+
+        # A bare `super` that the builder could not expand (no enclosing
+        # def). The runtime raises for it.
+        def zsuper: (untyped node) -> untyped
+      end
+    end
+  end
+end

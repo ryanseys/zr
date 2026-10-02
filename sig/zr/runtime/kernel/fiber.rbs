@@ -1,0 +1,113 @@
+module Zr::Kern
+  RFiber: untyped
+
+  T_FIBER: 30
+
+  G_FIBER: 39
+
+  FIBER_CREATED: 0
+
+  FIBER_RESUMED: 1
+
+  FIBER_SUSPENDED: 2
+
+  FIBER_TERMINATED: 3
+
+  # The size of the machine stack of a task. Ruby frames are native
+  # frames here, so the stack must have space for the depth that ruby
+  # gets on its VM stack. 10,000 frames of a plain method use about
+  # 36 MiB. The system maps the pages only when the stack grows into them.
+  FIBER_STACK_BYTES: 67108864
+
+  def zr_fiber_stack_error: (untyped err) -> untyped
+
+  # The task word and the preemption poll word (send.rb) are in one
+  # static, so a compiled function reads both from one address.
+  def zr_current_task_slot: () -> untyped
+
+  def zr_poll_slot: () -> untyped
+
+  def zr_task: () -> untyped
+
+  def zr_task_init: (untyped t, untyped stack_limit) -> untyped
+
+  def zr_ractor_enter_m: () -> untyped
+
+  def zr_fiber_current: () -> untyped
+
+  def zr_fiber_current_m: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_fiber_alloc: (untyped klass) -> untyped
+
+  def zr_fiber_make: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_fiber_transfer_value: (untyped argc, untyped argv) -> untyped
+
+  def zr_fiber_switch: (untyped from, untyped to) -> untyped
+
+  def zr_fiber_error: (untyped bytes, untyped len) -> untyped
+
+  def zr_fiber_resume: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_fiber_transfer: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_fiber_run: (untyped from, untyped to, untyped argc, untyped argv) -> untyped
+
+  def zr_fiber_return_to: (untyped cur, untyped terminating) -> untyped
+
+  def zr_fiber_root: () -> untyped
+
+  def zr_fiber_yield: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_fiber_start: () -> untyped
+
+  def zr_fiber_alive_p: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_fiber_inspect_m: (untyped recv, untyped blk) -> untyped
+
+  def zr_fiber_resuming_m: (untyped recv) -> untyped
+
+  def zr_fiber_prev_m: (untyped recv) -> untyped
+
+  def zr_fiber_transferred_away_p: (untyped recv) -> untyped
+
+  def zr_fiber_unborn_p: (untyped recv) -> untyped
+
+  def zr_fiber_terminate: (untyped recv) -> untyped
+
+  def zr_fiber_rehome: (untyped recv) -> untyped
+
+  def zr_mark_fiber: (untyped f) -> untyped
+
+  # A list of all fibers that the program makes, so that a collection can
+  # read the frames and kernel roots of each live fiber.
+  #
+  # A stack is not a set of ordinary references. It changes with no store
+  # that the write barrier sees, so a minor collection that stops at an
+  # old fiber would sweep objects that only the stack refers to.
+  #
+  # CRuby solves this in two ways. A running thread is reachable from
+  # `vm->ractor.set`, which is a root (vm.c, rb_vm_mark). A suspended
+  # Fiber is wb-unprotected: `fiber_data_type` (cont.c:2049) does not set
+  # `RUBY_TYPED_WB_PROTECTED`, so `gc_aging` (default.c:4390) never
+  # promotes it, each minor collection traces it again, and
+  # `rgengc_check_relation` remembers each old object that points to one.
+  #
+  # Here, one list does both. A collection marks the object graph. Then it
+  # reads the stack of each fiber in this list that the graph reaches, and
+  # repeats while that marks more. A fiber with no references is never
+  # read and is swept as usual. A live fiber has its stack read, old or young.
+  FiberList: untyped
+
+  def zr_fiber_list: () -> untyped
+
+  def zr_fiber_register: (untyped f) -> untyped
+
+  def zr_mark_fibers: () -> untyped
+
+  def zr_fiber_prune: () -> untyped
+
+  def zr_release_fiber: (untyped f) -> untyped
+
+  def zr_fiber_scheduler_switch: (untyped to) -> untyped
+end

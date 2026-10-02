@@ -1,0 +1,4 @@
+module Digest
+  class RMD160 < Base
+  end
+end

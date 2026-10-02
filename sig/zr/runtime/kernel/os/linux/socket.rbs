@@ -1,0 +1,28 @@
+module Zr::Kern
+  EPROTOTYPE: 91
+
+  EAI_SYSTEM: untyped
+
+  # struct msghdr: the name and its length, the iovecs and their count,
+  # the control buffer and its length as 32 bits at 40, and the flags at
+  # 48.
+  MSGHDR_LEN: 56
+
+  MSGHDR_FLAGS: 48
+
+  def zr_os_sockaddr_len: (untyped addr) -> (16 | 28 | 110 | untyped | 2)
+
+  def zr_os_addrinfo_row: (untyped node) -> untyped
+
+  def zr_os_addrinfo_next: (untyped node) -> untyped
+
+  def zr_os_h_errno: () -> untyped
+
+  # SO_PEERCRED at SOL_SOCKET: a struct ucred with the peer's pid, uid and
+  # gid. ruby's getpeereid reads it on Linux.
+  SOL_SOCKET: 1
+
+  SO_PEERCRED: 17
+
+  def zr_os_peereid: (untyped fd) -> untyped
+end

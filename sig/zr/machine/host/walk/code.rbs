@@ -1,0 +1,180 @@
+module Zr
+  module Machine
+    class Host
+      class Walk
+        # The code of each HIR node: a lambda of the running Frame that
+        # returns the node's Value. A node is compiled once, when the code
+        # of its scope is first needed, so a run does none of the work that
+        # depends only on the tree: the dispatch on the node's class, the
+        # lookup of a local's slot, a site's cell, a name's id, a send's
+        # mode. A def's and a block's body compile when they first run.
+        #
+        # A form that the walker does not run compiles to code that raises
+        # `Unsupported` when it runs, as a branch that never runs never
+        # did.
+        module Code
+          private
+
+          def code: (untyped node, untyped s) -> untyped
+
+          # The code of `self`.
+          SELF: untyped
+
+          def constant: (untyped v) -> untyped
+
+          # The code of a send's receiver: `recv`'s, or `self` for none.
+          def receiver: (untyped recv, untyped s) -> untyped
+
+          def unsupported: (untyped message) -> untyped
+
+          # A pending unwind in the task is QUNDEF from the kernel: the code
+          # raises `Unwind` until a handler takes it.
+          def check: (untyped v) -> untyped
+
+          def truthy?: (untyped v) -> untyped
+
+          def bool: (untyped b) -> untyped
+
+          # The pins after `mark` go: the Values that a statement held.
+          def drop_pins: (untyped pins, untyped mark) -> (untyped | nil)
+
+          def seq: (untyped node, untyped s) -> untyped
+
+          def literal: (untyped node, untyped s) -> untyped
+
+          def string: (untyped text) -> untyped
+
+          # The code of a String literal, made by the kernel's `fn` with the
+          # file's script encoding (`Expressions#string_literal`).
+          def string_literal: (untyped text, untyped fn) -> untyped
+
+          # ruby's own index for an encoding, which a String holds.
+          ENCODING_INDEX: untyped
+
+          def frozen_string: (untyped node, untyped _s) -> untyped
+
+          # The one shared frozen String of a UTF-8 literal, which the site's
+          # first run makes and keeps in the site's word
+          # (`Expressions#shared_literal`). Later runs read the word.
+          def shared_literal: (untyped node, untyped bytes) -> untyped
+
+          def regexp: (untyped node) -> untyped
+
+          def regexp_once: (untyped node, untyped s) -> untyped
+
+          def range: (untyped node, untyped s) -> untyped
+
+          def array: (untyped node, untyped s) -> untyped
+
+          # The code of an Array of `parts`; a Splat spreads its value.
+          def gather: (untyped parts, untyped s) -> untyped
+
+          def hash: (untyped node, untyped s) -> untyped
+
+          def kw_element: (untyped node, untyped s) -> untyped
+
+          def interp: (untyped node, untyped s) -> untyped
+
+          def core_class: (untyped node) -> untyped
+
+          def once: (untyped node, untyped s) -> untyped
+
+          def stop: (untyped node) -> untyped
+
+          def trace: (untyped node, untyped s) -> untyped
+
+          def cover: (untyped node, untyped s) -> untyped
+
+          def using: (untyped node, untyped s) -> untyped
+
+          def using_defaults: (untyped node) -> untyped
+
+          def activations: (untyped node) -> untyped
+
+          # The code that finds the Env `depth` scopes out, from a Frame.
+          def env_at: (untyped depth) -> untyped
+
+          def local_get: (untyped name, untyped depth, untyped s) -> untyped
+
+          # The code that sets a local to `value`'s Value. A store into an
+          # Env gets the collector's write barrier, unless the Value is an
+          # immediate, as the lowering's `barrier`.
+          def local_set: (untyped name, untyped depth, untyped s, untyped value) -> untyped
+
+          # The code that stores a Value (its second argument) into a local,
+          # and returns it.
+          def local_store: (untyped name, untyped depth, untyped s) -> untyped
+
+          # Whether `v` is no cell (`zr_special_p`): a write barrier for it
+          # has nothing to remember.
+          def immediate?: (untyped v) -> untyped
+
+          def scope_class: (untyped scope, untyped s) -> untyped
+
+          def const_read: (untyped node, untyped s) -> untyped
+
+          def const_write: (untyped node, untyped s) -> untyped
+
+          def const_or_write: (untyped node, untyped s) -> untyped
+
+          # The name of an ivar as the core's code sees it: a core file's
+          # ivars are hidden from a program, as CRuby's C fields are, unless
+          # the file or the method shows them.
+          def ivar: (untyped name, untyped s) -> untyped
+
+          def ivar_read: (untyped node, untyped s) -> untyped
+
+          def ivar_write: (untyped node, untyped s) -> untyped
+
+          # The code that stores a Value into the ivar `node` names.
+          def ivar_store: (untyped node, untyped s) -> untyped
+
+          def gvar_read: (untyped node, untyped s) -> untyped
+
+          def gvar_write: (untyped node, untyped s) -> untyped
+
+          HOOKED_GVARS: untyped
+
+          # The code that stores a Value into the gvar `name`: `$~` and `$_`
+          # are the frame's, a hooked one runs its setter, and a program's
+          # store checks that it runs in the main Ractor.
+          def gvar_store: (untyped name, untyped s, ?untyped? shown, ?untyped? node) -> untyped
+
+          def back_ref: (untyped node) -> untyped
+
+          def cvar_read: (untyped node, untyped s) -> untyped
+
+          def cvar_write: (untyped node, untyped s) -> untyped
+
+          def alias_node: (untyped node, untyped s) -> untyped
+
+          def alias_value: (untyped node, untyped s) -> untyped
+
+          def undef_node: (untyped node, untyped s) -> untyped
+
+          def undef_value: (untyped node, untyped s) -> untyped
+
+          def gvar_alias: (untyped node, untyped s) -> untyped
+
+          # Runs the block with the slots it takes given back after.
+          def slots: (untyped f) { () -> untyped } -> untyped
+
+          # `values` as an argument vector in the slot area, which the caller
+          # gives back when the call returns (`slots`).
+          def argv: (untyped f, untyped values) -> (0 | untyped)
+
+          # A zeroed cell of `bytes` for one site and kind.
+          def cell: (untyped node, untyped kind, untyped bytes) -> untyped
+
+          # A static table of words: `[count, ids...]` and the like.
+          def table: (untyped words) -> untyped
+
+          def id_table: (untyped names) -> untyped
+
+          # The elements of an Array as Values.
+          def elements: (untyped ary) -> untyped
+        end
+      end
+    end
+  end
+end

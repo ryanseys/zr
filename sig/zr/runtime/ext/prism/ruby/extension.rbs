@@ -1,0 +1,180 @@
+module Prism
+  module Ruby
+    # The size of pm_parse_stream_read's line buffer.
+    STREAM_LINE_SIZE: 4096
+
+    # Prism.dump
+    def self.dump: (untyped source, **untyped keywords) -> untyped
+
+    # Prism.dump_file
+    def self.dump_file: (untyped filepath, **untyped keywords) -> untyped
+
+    # Prism.lex
+    def self.lex: (untyped source, **untyped keywords) -> untyped
+
+    # Prism.lex_file
+    def self.lex_file: (untyped filepath, **untyped keywords) -> untyped
+
+    # Prism.parse
+    def self.parse: (untyped source, **untyped keywords) -> untyped
+
+    # Prism.parse_file
+    def self.parse_file: (untyped filepath, **untyped keywords) -> untyped
+
+    # Prism.profile: the parse alone.
+    def self.profile: (untyped source, **untyped keywords) -> nil
+
+    # Prism.profile_file
+    def self.profile_file: (untyped filepath, **untyped keywords) -> nil
+
+    # Prism.parse_stream: pm_parse_stream over an object that responds to
+    # gets and eof?. The lines read so far parse again while the source is
+    # cut inside a string, heredoc or other lex mode.
+    def self.parse_stream: (untyped stream, **untyped keywords) -> untyped
+
+    # Prism.parse_comments
+    def self.parse_comments: (untyped source, **untyped keywords) -> untyped
+
+    # Prism.parse_file_comments
+    def self.parse_file_comments: (untyped filepath, **untyped keywords) -> untyped
+
+    # Prism.parse_lex
+    def self.parse_lex: (untyped source, **untyped keywords) -> untyped
+
+    # Prism.parse_lex_file
+    def self.parse_lex_file: (untyped filepath, **untyped keywords) -> untyped
+
+    # Prism.parse_success?
+    def self.parse_success?: (untyped source, **untyped keywords) -> untyped
+
+    # Prism.parse_failure?
+    def self.parse_failure?: (untyped source, **untyped keywords) -> untyped
+
+    # Prism.parse_file_success?
+    def self.parse_file_success?: (untyped filepath, **untyped keywords) -> untyped
+
+    # Prism.parse_file_failure?
+    def self.parse_file_failure?: (untyped filepath, **untyped keywords) -> untyped
+
+    # The tokens of a source as the lex callback sees them, with no parser
+    # behind the lexer: `[type, start, length, lex_state]` each, the last
+    # one EOF. Tokens whose kind the parser decides differ from Prism.lex's.
+    def self.lex_tokens: (untyped source, **untyped keywords) -> untyped
+
+    private
+
+    # string_options: the keywords are read before the source's type is
+    # checked.
+    def self.string_options: (untyped source, untyped keywords) -> untyped
+
+    # file_options: the source, and the options with the path as the
+    # filepath. The path is read up to a NUL, as a C string.
+    def self.file_options: (untyped filepath, untyped keywords) -> ::Array[untyped]
+
+    # rb_str_encode_ospath: on macOS and Windows a path in an encoding
+    # other than binary and UTF-8 is converted to UTF-8 when it can be.
+    def self.encode_ospath: (untyped path) -> untyped
+
+    # pm_string_file_init, with the errno of a failure raised against the
+    # path.
+    def self.read_file: (untyped path) -> untyped
+
+    # dump_input
+    def self.dump_input: (untyped source, untyped options) -> untyped
+
+    # parse_input
+    def self.parse_input: (untyped source, untyped options) -> untyped
+
+    # parse_input_comments
+    def self.parse_input_comments: (untyped source, untyped options) -> untyped
+
+    # parse_input_success_p
+    def self.parse_input_success?: (untyped source, untyped options) -> untyped
+
+    # pm_parse, and the Source pm_source_new makes after it in the
+    # parser's final encoding. The nodes hold the Source as they are made,
+    # so it is made first and made again when a magic comment changes the
+    # encoding, which it can do only before the first node. A dump makes
+    # no Source in C, so its Source never freezes.
+    def self.parse_tree: (untyped parser, untyped freeze) -> untyped
+
+    # pm_source_new. Under `freeze: true` the String freezes before
+    # Source.for sees it, which raises FrozenError for a binary source that
+    # is not ASCII, as Source.for would make it UTF-8.
+    def self.source_new: (untyped parser, untyped freeze) -> untyped
+
+    # parse_lex_input: a LexResult of `[token, lex_state]` pairs, or with
+    # `return_nodes` a ParseLexResult of the tree and the pairs. The
+    # Source is made before the parse over the source as binary. The
+    # tokens take UTF-8 until a magic comment changes the encoding, and
+    # the tokens lexed before it are made again in the new one; an
+    # encoding from the options is not a change.
+    def self.parse_lex_input: (untyped source, untyped options, untyped return_nodes) -> untyped
+
+    # A ParseResult of a parsed tree, as parse_input makes it.
+    def self.parse_result: (untyped type, untyped parser, untyped node, untyped freeze) -> untyped
+
+    # rb_class_new_instance_freeze and its kin: the value, frozen under
+    # `freeze: true`.
+    def self.freeze_if: (untyped freeze, untyped value) -> untyped
+
+    # The freezing of pm_source_new.
+    def self.source_freeze: (untyped source, untyped freeze) -> untyped
+
+    # parse_result_create
+    def self.result_create: (untyped type, untyped parser, untyped value, untyped encoding, untyped source, untyped freeze) -> untyped
+
+    # parser_location
+    def self.location: (untyped source, untyped start, untyped length, untyped freeze) -> untyped
+
+    # parser_comments
+    def self.comments: (untyped parser, untyped source, untyped freeze) -> untyped
+
+    # parser_magic_comments
+    def self.magic_comments: (untyped parser, untyped source, untyped freeze) -> untyped
+
+    # parser_data_loc
+    def self.data_loc: (untyped parser, untyped source, untyped freeze) -> untyped
+
+    # parser_errors and parser_warnings
+    def self.diagnostics: (untyped list, untyped type, untyped encoding, untyped source, untyped freeze) -> untyped
+
+    # pm_parse_stream_read: lines appended to the buffer until the end of
+    # the stream (true) or an __END__ line (false). A line is read as
+    # `gets(4095)`; a line that fills the buffer continues to be read
+    # without the checks. eof? counts as true for any value but false,
+    # because C tests the VALUE itself.
+    def self.parse_stream_read: (untyped buffer, untyped stream) -> (false | true)
+
+    public
+
+    class AST
+      @source: untyped
+
+      @encoding: untyped
+
+      @freeze: untyped
+
+      @constants: untyped
+
+      def initialize: (untyped source, untyped encoding, untyped freeze) -> void
+
+      def freeze?: () -> untyped
+
+      # pm_ast_new: each node of the tree, parents first.
+      def build: (untyped root) -> untyped
+
+      # pm_string_new
+      def string: (untyped string) -> untyped
+
+      # The constant pool's Symbols: a name not valid in the encoding reads
+      # `:?`, as rb_str_intern refuses it.
+      def constant: (untyped symbol) -> (nil | untyped)
+
+      def constants: (untyped symbols) -> untyped
+
+      # pm_location_new under `freeze: true`
+      def location: (untyped packed) -> untyped
+    end
+  end
+end

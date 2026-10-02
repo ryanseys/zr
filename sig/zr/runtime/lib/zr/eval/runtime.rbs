@@ -1,0 +1,46 @@
+module Zr
+  class Eval
+    # What an eval needs from the program it runs inside: the symbol
+    # table that the program was built on, and the program's `using` entries.
+    class Runtime
+      # A name for each id, nil for a pad (`Machine::Symbols`).
+      def symbol_names: () -> untyped
+
+      def sites: () -> untyped
+
+      def intern: (untyped name) -> untyped
+
+      # A `using` entry is a position in one table that the whole program
+      # shares. All the program's entries are taken before its first line,
+      # so a snippet numbers its own entries after them and takes them
+      # immediately: nothing runs in between to take them for it.
+      def activations: () -> untyped
+
+      # An eval compiles its string with TracePoint's events armed when one
+      # is enabled, as ruby's instructions fire them.
+      def tracing?: () -> untyped
+
+      def take_activations: (untyped count) -> untyped
+
+      # The SHA-256 of each source file of the compiler that this program
+      # links in, by path (lib/zr/load_tables.rb).
+      def self.sources: () -> untyped
+
+      # The library directories the program was built against, as its
+      # build named them (Library::Roots.stdlib), or none where it does not
+      # eval.
+      def self.library_roots: () -> untyped
+
+      # The separators that the core library reads from globals, which a
+      # program can set: while the compiler runs they are ruby's defaults,
+      # and the program's come back after, with no hook and no warning.
+      SEPARATORS: ::Array[:$, | :$; | :$/ | :$\]
+
+      def self.plain_separators: () { () -> untyped } -> untyped
+
+      # The compiler's Enumerable methods walk the core's collections with
+      # the core's own `each` (zr_eval_compiling_m) while it runs.
+      def self.compiling: () { () -> untyped } -> untyped
+    end
+  end
+end

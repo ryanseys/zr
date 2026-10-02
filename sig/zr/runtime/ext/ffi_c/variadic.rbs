@@ -1,0 +1,21 @@
+# Variadic.c: a call of a C function that takes arguments past its fixed
+# ones, whose types each call names.
+module FFI
+  class VariadicInvoker
+    @enums: untyped
+
+    @address: untyped
+
+    @function: untyped
+
+    @blocking: untyped
+
+    @return_type: untyped
+
+    def initialize: (untyped function, untyped parameter_types, untyped return_type, untyped options) -> void
+
+    def invoke: (untyped parameter_types, untyped parameter_values) -> untyped
+
+    def return_type: () -> untyped
+  end
+end

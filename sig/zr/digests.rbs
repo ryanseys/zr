@@ -1,0 +1,50 @@
+module Zr
+  # The digests that name the cache's entries and that do not belong to
+  # one target's sources (`RuntimeSources` has those).
+  module Digests
+    # One digest of the LINK_ONLY files. A cache that the link writes
+    # includes this digest in its name, with its other inputs.
+    def self?.link: () -> untyped
+
+    # The digest that names a runtime's cache files: the target, the path
+    # root, and each of `files` with its bytes (`bytes` has the ones that a
+    # build already read, so it hashes what it lowered). A file of the
+    # compiler counts by its code (`code`), so an edit of its comments
+    # rebuilds nothing; the kernel and the core count by their bytes,
+    # because a binary holds their line numbers.
+    def self?.sources: (untyped target, untyped files, ?::Hash[untyped, untyped] bytes) -> untyped
+
+    COMPILER: untyped
+
+    # Whether `path` is a file of the compiler, not one that it compiles.
+    def self?.compiler_file?: (untyped path) -> untyped
+
+    # The digest of `bytes` without their comments (`code`), kept in the
+    # store by the digest of the bytes, so only a file that changed is
+    # read again.
+    def self?.code_digest: (untyped bytes) -> untyped
+
+    # The Ruby source `bytes` without its comments: a comment that is
+    # the whole line goes with its line, and one after code goes with the
+    # spaces before it. Prism finds the comments, so a `#` in a string
+    # stays. A magic comment (`frozen_string_literal`) stays: it changes
+    # what the code does.
+    def self?.code: (untyped bytes) -> untyped
+
+    # A space and a tab: the blanks before a comment after code.
+    BLANKS: ::Array[32 | 9]
+
+    MAGIC: ::Regexp
+
+    # The key of what eval support reads: the eval digest and the bytes of
+    # each file (`EvalSupport#files_key`). `bytes` has the ones that a build
+    # already read. `absent` lists the paths that must still not exist.
+    def self?.eval_files_key: (untyped eval_digest, untyped files, ?::Hash[untyped, untyped] bytes, ?untyped absent) -> untyped
+
+    # The key of an eval support object and of its symbol table: the key of
+    # its files, and the names and site count that numbered its data. Two
+    # tables number the same data to other words, so they must never share
+    # a key.
+    def self?.eval_key: (untyped files_key, untyped names, untyped sites) -> untyped
+  end
+end

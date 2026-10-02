@@ -1,0 +1,41 @@
+module Zr::Kern
+  def zr_crc_table: () -> untyped
+
+  def zr_crc_x2n_table: () -> untyped
+
+  def zr_inflate_lenfix: () -> untyped
+
+  def zr_inflate_distfix: () -> untyped
+
+  def zr_inflate_lbase: () -> untyped
+
+  def zr_inflate_lext: () -> untyped
+
+  def zr_inflate_dbase: () -> untyped
+
+  def zr_inflate_dext: () -> untyped
+
+  def zr_inflate_order: () -> untyped
+
+  def zr_tr_static_ltree: () -> untyped
+
+  def zr_tr_static_dtree: () -> untyped
+
+  def zr_tr_dist_code: () -> untyped
+
+  def zr_tr_length_code: () -> untyped
+
+  def zr_tr_base_length: () -> untyped
+
+  def zr_tr_base_dist: () -> untyped
+
+  def zr_tr_extra_lbits: () -> untyped
+
+  def zr_tr_extra_dbits: () -> untyped
+
+  def zr_tr_extra_blbits: () -> untyped
+
+  def zr_tr_bl_order: () -> untyped
+
+  def zr_deflate_config_table: () -> untyped
+end

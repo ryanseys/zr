@@ -1,0 +1,103 @@
+# syslog.c, in ruby: one process-wide connection to the system logger,
+# which the gem's own syslog.rb requires as syslog_ext.
+module Syslog
+  self.@ident_text: untyped
+
+  self.@option_bits: untyped
+
+  self.@facility_code: untyped
+
+  self.@opened: untyped
+
+  self.@mask_bits: untyped
+
+  module Constants
+  end
+
+  module Option
+  end
+
+  module Facility
+  end
+
+  module Level
+  end
+
+  module Macros
+  end
+
+  VERSION: "0.4.0"
+
+  LEVELS: { LOG_EMERG: 0, LOG_ALERT: 1, LOG_CRIT: 2, LOG_ERR: 3, LOG_WARNING: 4, LOG_NOTICE: 5, LOG_INFO: 6, LOG_DEBUG: 7 }
+
+  private
+
+  attr_reader self.ident_text: untyped
+
+  attr_reader self.option_bits: untyped
+
+  attr_reader self.facility_code: untyped
+
+  attr_reader self.mask_bits: untyped
+
+  def self.connect: (untyped ident, untyped options, untyped facility) -> untyped
+
+  def self.disconnect: () -> nil
+
+  def self.connected?: () -> (true | false)
+
+  def self.set_mask: (untyped mask) -> untyped
+
+  # syslog_write: the arguments as sprintf formats them, as one message.
+  def self.write: (untyped priority, untyped args) -> untyped
+
+  public
+
+  def open: (?untyped? ident, ?untyped? options, ?untyped? facility) ?{ (untyped) -> untyped } -> untyped
+
+  def reopen: (*untyped args) { (?) -> untyped } -> untyped
+
+  def open!: (*untyped args) { (?) -> untyped } -> untyped
+
+  def opened?: () -> untyped
+
+  def ident: () -> (untyped | nil)
+
+  def options: () -> (untyped | nil)
+
+  def facility: () -> (untyped | nil)
+
+  def log: (untyped priority, *untyped args) -> untyped
+
+  def close: () -> untyped
+
+  def mask: () -> (untyped | nil)
+
+  def mask=: (untyped mask) -> untyped
+
+  def instance: () -> untyped
+
+  def self.inspect: () -> ::String
+
+  module Macros
+    def LOG_MASK: (untyped pri) -> untyped
+
+    def LOG_UPTO: (untyped pri) -> untyped
+
+    def self.included: (untyped target) -> self
+  end
+
+  module Constants
+    include Option
+
+    include Facility
+
+    include Level
+
+    include Macros
+
+    def self.included: (untyped target) -> self
+  end
+
+  include Constants
+end

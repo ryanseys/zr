@@ -1,0 +1,177 @@
+module Zr
+  module Machine
+    class Host
+      # The whole kernel on CRuby, booted (`zr_boot`): the portable files
+      # and the OS layer of this machine, with the host's arch layer in
+      # place of the one in lib/zr/runtime/kernel/arch. It gives the
+      # kernel the tables that a link gives a binary (`LoadTables`,
+      # `SymbolNumbering.names_table`): the kernel's symbol names and empty
+      # load tables.
+      class Boot
+        @symbols: untyped
+
+        @host: untyped
+
+        @fibers: untyped
+
+        @indices: untyped
+
+        @captures: untyped
+
+        @jump: untyped
+
+        @walk: untyped
+
+        @handlers: untyped
+
+        @owner: untyped
+
+        @wake: untyped
+
+        @poll: untyped
+
+        # The host's machine state: a context is the index of its Ruby
+        # Fiber (0 before the first switch into it), the entry, the top of
+        # its slot area and the slot top it left at.
+        CONTEXT_BYTES: 32
+
+        # The arch layer (`os.rb`): contexts are Ruby Fibers, and a switch is
+        # `Fiber#transfer`. The kernel changes the task, the root frames and
+        # the current fiber in memory before it switches, so nothing else
+        # moves.
+        #
+        # Each method runs with the kernel module as self, so `self::BOOT`
+        # is the Boot.
+        module Arch
+          def zr_arch_context_start: (untyped ctx, untyped entry, untyped top) -> nil
+
+          def zr_arch_context_sp: (untyped ctx) -> untyped
+
+          def zr_switch: (untyped from, untyped to) -> untyped
+        end
+
+        # The OS layer's stack bounds are the main fiber's slot area: a
+        # stack check compares a slot's address with them.
+        #
+        # A fiber's stack is in the host's region, so its slots are as fast
+        # to read as the main fiber's. It has no guard page: the walker's
+        # depth limit stops a deep recursion first. `munmap` gives it back
+        # (`Memory.function`).
+        module Stack
+          def zr_os_stack_low: () -> untyped
+
+          def zr_os_stack_high: () -> untyped
+
+          def zr_os_stack_map: (untyped bytes) -> untyped
+        end
+
+        # Signals go through ruby: a C handler would run a Ruby closure in
+        # the signal's context, which CRuby cannot do. A trap runs the
+        # kernel's handler at ruby's next safe point, as the kernel's own
+        # handler defers its work to the next poll.
+        module Signals
+          def zr_os_sigaction: (untyped signo, untyped fn, untyped old) -> untyped
+
+          # The preemption timer (os/<os>/stack.rb) is a Ruby thread, not a
+          # C thread: it sets the poll word every 100 ms.
+          def zr_os_poll_start: () -> untyped
+        end
+
+        # nanosleep(2) that a signal cuts short, as in a binary: ruby runs a
+        # trap on its main thread, and the program runs on another one.
+        module Sleep
+          def nanosleep: (untyped request, untyped remaining) -> untyped
+        end
+
+        # fork(2) as ruby forks, so ruby's own state in the child is right.
+        # The child runs the program (`restart`).
+        module Fork
+          def zr_proc_fork: () -> untyped
+        end
+
+        # A Regexp's compile, which CRuby makes here (`Walk::Regexps`). The
+        # kernel's own def answers nil, as it does in a binary, until a
+        # walker runs the core.
+        module Regexps
+          def zr_regexp_host_compile: (untyped source, untyped bits) -> untyped
+        end
+
+        attr_reader host: untyped
+
+        # The walker that runs the core over this kernel.
+        attr_accessor walk: untyped
+
+        def initialize: (?untyped target) -> void
+
+        def kern: () -> untyped
+
+        # Switches from the context `from` to `to`, starting `to`'s Fiber at
+        # its entry the first time.
+        #
+        # A continuation (continuation.rb) copies the slot area on a side
+        # context, but the walker's frames are Ruby frames. So a switch to
+        # the side context also captures them with ruby's `callcc`, with
+        # its fiber's Stack (`Host::Stack`). When a restore on the side context
+        # switches back to a context that a capture left, the switch goes
+        # through that capture, and the capture's switch returns again.
+        #
+        # Ruby's `callcc` does not restore the locals of Ruby frames, so a
+        # kernel loop (Array#each) would go on from the index it had last.
+        # Each kernel def that loops and can yield is rooted, and its frame
+        # can be read (`Host#live_roots`): the capture keeps the locals of
+        # each one, and the jump writes them back.
+        def switch: (untyped from, untyped to) -> nil
+
+        # The locals of each rooted kernel frame, by name (`switch`).
+        def locals: (untyped frames) -> untyped
+
+        # A switch writes the whole `from` context, as a binary's saves
+        # every register there: a context that the kernel allocates (a
+        # continuation's, in memory that malloc gave again) holds old bytes
+        # until then.
+        def leave: (untyped from, untyped to) -> nil
+
+        # A thread's time slice, as a binary's.
+        SLICE: ::Float
+
+        # A forked child has no thread but the one that forked: the timer
+        # starts again in it (`restart`).
+        def poll_start: () -> nil
+
+        # After a fork: this process runs the program now. The timer that
+        # the kernel started runs again, and the kernel's signal handlers
+        # run here (`sigaction`).
+        def restart: () -> untyped
+
+        # The process whose kernel takes the signals: the one that booted,
+        # or a fork that runs a program (`restart`).
+        attr_reader owner: untyped
+
+        # A signal's handler ran: a sleep ends now (`nanosleep`).
+        def wake: () -> untyped
+
+        # The kernel's nanosleep (`Sleep`): 0 after the whole time, or -1
+        # with EINTR and the time left when a signal arrives. A signal that
+        # came before the sleep does not cut it short.
+        def nanosleep: (untyped request, untyped remaining) -> (0 | -1)
+
+        # `Process.fork` for the kernel (`Fork`): the child's pid, or 0 in
+        # the child.
+        def fork_process: () -> (untyped | 0)
+
+        # sigaction(2) for the kernel: `fn` 0 is the default, 1 is ignore,
+        # else the address of a kernel def (`Machine.addr`). Stores the
+        # previous `fn` at `old`. Returns 0, or -1 with errno EINVAL for a
+        # signal that ruby does not let a program trap.
+        def sigaction: (untyped signo, untyped fn, untyped old) -> untyped
+
+        private
+
+        # The data objects of other units that the kernel reads.
+        def externs: () -> { "zr_symbol_names" => untyped, "zr_symbol_count" => untyped, "zr_site_count" => untyped, "zr_load_tables" => untyped, "environ" => untyped }
+
+        def word: (untyped n) -> untyped
+      end
+    end
+  end
+end

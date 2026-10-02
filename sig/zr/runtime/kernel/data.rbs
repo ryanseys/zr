@@ -1,0 +1,17 @@
+module Zr::Kern
+  def zr_data_new: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_data_core_init_p: (untyped klass) -> untyped
+
+  def zr_data_made: (untyped klass, untyped values) -> untyped
+
+  def zr_data_fill: (untyped o, untyped values) -> untyped
+
+  def zr_data_values_from: (untyped members, untyped h) -> untyped
+
+  def zr_data_initialize: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_data_constructors: (untyped klass) -> untyped
+
+  def zr_data_builtins: (untyped klass) -> untyped
+end

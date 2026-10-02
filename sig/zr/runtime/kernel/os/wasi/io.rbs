@@ -1,0 +1,150 @@
+module Zr::Kern
+  def zr_os_errno: () -> untyped
+
+  def zr_os_set_errno: (untyped n) -> untyped
+
+  EINTR: 27
+
+  EBADF: 8
+
+  # The *at calls' directory for the working directory, and their flag
+  # for a link itself, as wasi-libc defines them.
+  AT_FDCWD: untyped
+
+  AT_SYMLINK_NOFOLLOW: 1
+
+  # wasi-libc's open flags. The file status flags are WASI's fdflags. The
+  # creation flags are WASI's oflags, shifted up 12 bits. The access modes
+  # have their own high bits.
+  O_APPEND: 1
+
+  O_NONBLOCK: 4
+
+  O_NONBLOCK_OFF: 4294967291
+
+  O_FDFLAGS: 31
+
+  O_NOFOLLOW: 16777216
+
+  O_RDONLY: 67108864
+
+  O_WRONLY: 268435456
+
+  # wasi-libc has no exec, so close-on-exec does nothing.
+  O_CLOEXEC: 0
+
+  PTY_OPEN_FLAGS: 335544320
+
+  # musl's ioctl numbers. wasi-libc keeps them, but no call supports them.
+  TIOCGWINSZ: 21523
+
+  # TIOCSCTTY: makes the descriptor the session's controlling terminal.
+  TIOCSCTTY: 21518
+
+  TIOCSWINSZ: 21524
+
+  TERMIOS_LEN: 60
+
+  F_GETFD: 1
+
+  # The rights that path_open grants for each access mode, as wasi-libc
+  # requests them: all rights except read and write, plus the read rights
+  # for O_RDONLY and the write rights for O_WRONLY.
+  RIGHTS_READ: 16386
+
+  RIGHTS_WRITE: 4194625
+
+  RIGHTS_OTHER: untyped
+
+  FDSTAT_LEN: 24
+
+  def zr_os_realpath: (untyped path) -> untyped
+
+  def zr_os_open: (untyped path, untyped flags, untyped _mode) -> untyped
+
+  def zr_os_fcntl: (untyped fd, untyped command, untyped argument) -> untyped
+
+  def zr_os_ioctl: (untyped fd, untyped request, untyped argument) -> untyped
+
+  def isatty: (untyped fd) -> untyped
+
+  def write: (untyped fd, untyped buf, untyped len) -> untyped
+
+  def read: (untyped fd, untyped buf, untyped len) -> untyped
+
+  def pread: (untyped fd, untyped buf, untyped len, untyped offset) -> untyped
+
+  def pwrite: (untyped fd, untyped buf, untyped len, untyped offset) -> untyped
+
+  def close: (untyped fd) -> untyped
+
+  def fsync: (untyped fd) -> untyped
+
+  def lseek: (untyped fd, untyped offset, untyped whence) -> untyped
+
+  def ftruncate: (untyped fd, untyped size) -> untyped
+
+  def fchmod: (untyped fd, untyped mode) -> untyped
+
+  def umask: (untyped mask) -> untyped
+
+  # A stat buffer is WASI's filestat: the device at 0, the inode at 8, the
+  # file type byte at 16, the link count at 24, the size at 32, and the
+  # access, modification and change times at 40, 48 and 56, in
+  # nanoseconds.
+  STAT_LEN: 64
+
+  def zr_wasi_path_stat: (untyped path, untyped buf, untyped follow) -> untyped
+
+  def stat: (untyped path, untyped buf) -> untyped
+
+  def lstat: (untyped path, untyped buf) -> untyped
+
+  def fstat: (untyped fd, untyped buf) -> untyped
+
+  def access: (untyped path, untyped mode) -> untyped
+
+  def zr_os_stat_mode: (untyped buf) -> (16877 | 24996 | 8630 | 49572 | 41471 | 33188)
+
+  def zr_os_stat_size: (untyped buf) -> untyped
+
+  def zr_os_stat_rows: (untyped buf) -> untyped
+
+  def unlink: (untyped path) -> untyped
+
+  def rmdir: (untyped path) -> untyped
+
+  def mkdir: (untyped path, untyped mode) -> untyped
+
+  def readlink: (untyped path, untyped buf, untyped len) -> untyped
+
+  def rename: (untyped from, untyped to) -> untyped
+
+  def link: (untyped from, untyped to) -> untyped
+
+  def symlink: (untyped target, untyped path) -> untyped
+
+  # A directory stream: its descriptor, the cookie of the next entry, and
+  # the last entry that fd_readdir returned, with a NUL after its name.
+  DIR_BUFFER: 4096
+
+  def fdopendir: (untyped fd) -> untyped
+
+  def opendir: (untyped path) -> untyped
+
+  def readdir: (untyped d) -> untyped
+
+  def zr_os_dirent_name: (untyped entry) -> untyped
+
+  def zr_os_dirent_kind: (untyped entry) -> (0 | 1 | 2 | 3)
+
+  def closedir: (untyped d) -> untyped
+
+  def zr_os_wait_fds: (untyped fds, untyped events, untyped milliseconds) -> untyped
+
+  def zr_os_wait_fd: (untyped fd, untyped events, untyped milliseconds) -> untyped
+
+  def strerror: (untyped n) -> untyped
+
+  def getcwd: (untyped buf, untyped size) -> untyped
+end

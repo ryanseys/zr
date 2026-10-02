@@ -1,0 +1,54 @@
+module Zr::Kern
+  # The operations that zr_zlib_call runs.
+  ZLIB_DEFLATE: 0
+
+  ZLIB_INFLATE: 1
+
+  ZLIB_DEFLATE_END: 2
+
+  ZLIB_INFLATE_END: 3
+
+  ZLIB_DEFLATE_RESET: 4
+
+  ZLIB_INFLATE_RESET: 5
+
+  ZLIB_INFLATE_SYNC: 6
+
+  ZLIB_INFLATE_SYNC_POINT: 7
+
+  def zr_zlib_stream: (untyped addr) -> untyped
+
+  def zr_zlib_new: () -> untyped
+
+  def zr_zlib_release: (untyped addr, untyped kind) -> untyped
+
+  def zr_zlib_init: (untyped addr, untyped kind, untyped level, untyped wbits, untyped memlevel, untyped strategy) -> untyped
+
+  def zr_zlib_input: (untyped addr, untyped str, untyped offset) -> untyped
+
+  def zr_zlib_output: (untyped z, untyped buf, untyped room) -> (nil | untyped)
+
+  def zr_zlib_output_taken: (untyped z, untyped buf) -> (nil | untyped)
+
+  def zr_zlib_call: (untyped addr, untyped op, untyped flush, untyped buf, untyped room) -> untyped
+
+  def zr_zlib_params: (untyped addr, untyped level, untyped strategy, untyped buf, untyped room) -> untyped
+
+  def zr_zlib_dictionary: (untyped addr, untyped kind, untyped dict) -> untyped
+
+  def zr_zlib_copy: (untyped dest, untyped source) -> untyped
+
+  def zr_zlib_fields: (untyped addr) -> untyped
+
+  def zr_zlib_count_in: (untyped addr, untyped n) -> untyped
+
+  def zr_zlib_checksum: (untyped kind, untyped sum, untyped str) -> untyped
+
+  def zr_zlib_combine: (untyped kind, untyped first, untyped second, untyped len) -> untyped
+
+  def zr_zlib_crc_table: () -> untyped
+
+  def zr_zlib_version: () -> untyped
+
+  def zr_zlib_message: (untyped err) -> untyped
+end

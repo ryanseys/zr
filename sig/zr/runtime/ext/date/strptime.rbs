@@ -1,0 +1,92 @@
+class Date
+  STRPTIME_ZONE_RE: ::Regexp
+
+  NUMERIC_DIRECTIVES: "CDdeFGgHIjkLlMmNQRrSsTUuVvWwXxYy"
+
+  COMPOUND_DIRECTIVES: { "c" => "%a %b %e %H:%M:%S %Y", "D" => "%m/%d/%y", "x" => "%m/%d/%y", "F" => "%Y-%m-%d", "n" => " ", "t" => " ", "R" => "%H:%M", "r" => "%I:%M:%S %p", "T" => "%H:%M:%S", "X" => "%H:%M:%S", "v" => "%e-%b-%Y", "+" => "%a %b %e %H:%M:%S %Z %Y" }
+
+  # One run of a format over a text. The reader keeps its position,
+  # so a compound directive continues from where the last one stopped.
+  class Reader
+    @text: untyped
+
+    @found: untyped
+
+    @at: untyped
+
+    @failed: untyped
+
+    def initialize: (untyped text, untyped found) -> void
+
+    attr_reader at: untyped
+
+    def failed?: () -> untyped
+
+    def run: (untyped format) -> (untyped | nil)
+
+    private
+
+    def refuse: () -> nil
+
+    def literal: (untyped format, untyped fi) -> untyped
+
+    # The directive at `fi`, which starts with a `%`. Returns the position
+    # where the format continues.
+    def directive: (untyped format, untyped fi) -> untyped
+
+    # "%E" and "%O" come before only a few letters, and "%:z" has up
+    # to three colons; anything else leaves the "%" as it is.
+    def modifier?: (untyped format, untyped fi) -> untyped
+
+    # A directive with no meaning wants its own text, "%" and all.
+    def unknown: (untyped format, untyped start, untyped fi) -> untyped
+
+    def take: (untyped letter, untyped format, untyped fi) -> untyped
+
+    def run_compound: (untyped format) -> untyped
+
+    def set: (untyped key, untyped value) -> (false | true)
+
+    def ranged: (untyped key, untyped value, untyped low, untyped high) -> (false | true)
+
+    # A width of two, unless a space is in place of the leading digit.
+    def spaced: (untyped width) -> untyped
+
+    def digits: (untyped width) -> (nil | untyped)
+
+    # A directive next to another number reads a fixed width; alone it
+    # reads every digit it can.
+    def wide: (untyped format, untyped fi, untyped width) -> untyped
+
+    def number_next?: (untyped format, untyped fi) -> (true | false | untyped)
+
+    def name_of: (untyped names) { (untyped) -> untyped } -> (true | false)
+
+    def signed_year: (untyped format, untyped fi) -> (false | true)
+
+    def two_digit_year: (untyped key) -> (false | true)
+
+    def fraction: (untyped format, untyped fi, untyped width) -> (false | true)
+
+    def seconds_since_epoch: (untyped divisor) -> (false | true)
+
+    def sign_ahead: () -> (1 | untyped)
+
+    # "am", "AM", "a.m." and the rest, which set the half of the day.
+    def meridian: () -> (false | true)
+
+    def zone: () -> (false | true)
+
+    def percent: () -> (false | true)
+  end
+
+  # Every element the format names, plus what was left over, or nil
+  # when the text does not fit the format.
+  def self._strptime: (untyped text, ?::String format) -> (nil | untyped)
+
+  private
+
+  def self.complete_century_frag: (untyped found) -> (nil | untyped)
+
+  def self.complete_meridian: (untyped found) -> (nil | untyped)
+end

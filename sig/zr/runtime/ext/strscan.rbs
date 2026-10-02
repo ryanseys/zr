@@ -1,0 +1,189 @@
+# StringScanner: a position in a string and a match at it. Ruby ships
+# this as a C extension with a small part in ruby. This file is both
+# parts, over the same Regexp engine that the runtime already includes.
+#
+# `pos` counts bytes, as ruby's does. A match is a byte range in the
+# string, and the MatchData next to it when a pattern made it. A byte or
+# a character taken on its own has a range and no groups. This is how
+# `get_byte` returns a raw byte of a multibyte character.
+#
+# A scan gives the compiled pattern the string in place with the scan
+# pointer as the text's start, as strscan.c's onig_match and onig_search
+# do, so `\A`, `^` and `\G` all read the pointer as the start;
+# `fixed_anchor: true` starts the text at the string's own beginning,
+# where `\A` keeps the real beginning.
+#
+# CRuby keeps all of this in a C struct, so a program sees no instance
+# variable on a scanner. The fields are in hidden slots, which leaves
+# `instance_variables` for the program's own variables.
+class StringScanner
+  Error: untyped
+
+  # The two names that the C extension defines next to its error class.
+  Version: "3.1.6"
+
+  Id: "$Id$"
+
+  def initialize: (untyped string, ?fixed_anchor: bool) -> void
+
+  def self.must_C_version: () -> self
+
+  def string: () -> untyped
+
+  def reset: () -> self
+
+  def terminate: () -> self
+
+  def string=: (untyped text) -> untyped
+
+  # strscan_concat: the string itself grows, as rb_str_append grows it.
+  def concat: (untyped more) -> self
+
+  alias << concat
+
+  def pos: () -> untyped
+
+  def pos=: (untyped byte) -> untyped
+
+  alias pointer pos
+
+  alias pointer= pos=
+
+  def charpos: () -> untyped
+
+  def eos?: () -> untyped
+
+  # Past the end of a string that shrank, the rest is empty.
+  def rest: () -> untyped
+
+  def rest_size: () -> (0 | untyped)
+
+  def rest?: () -> untyped
+
+  def beginning_of_line?: () -> (true | false | untyped)
+
+  alias bol? beginning_of_line?
+
+  def size: () -> (nil | untyped)
+
+  def scan: (untyped pattern) -> untyped
+
+  def check: (untyped pattern) -> untyped
+
+  def skip: (untyped pattern) -> untyped
+
+  def match?: (untyped pattern) -> untyped
+
+  def scan_until: (untyped pattern) -> untyped
+
+  def check_until: (untyped pattern) -> untyped
+
+  def skip_until: (untyped pattern) -> untyped
+
+  def exist?: (untyped pattern) -> untyped
+
+  def scan_full: (untyped pattern, untyped advance, untyped answer) -> untyped
+
+  def search_full: (untyped pattern, untyped advance, untyped answer) -> untyped
+
+  # A number at the scan pointer, as ruby's own strscan.rb writes it.
+  def scan_integer: (?base: ::Integer) -> untyped
+
+  def getch: () -> (nil | untyped)
+
+  # The raw byte at the pointer, which is part of a character when the
+  # string contains a multibyte one.
+  def get_byte: () -> (nil | untyped)
+
+  def peek: (untyped len) -> untyped
+
+  def peek_byte: () -> untyped
+
+  # The byte at the scan pointer as an Integer, and the pointer past
+  # it; nil at the end. The match is that byte, as get_byte's is.
+  def scan_byte: () -> (nil | untyped)
+
+  def unscan: () -> self
+
+  def matched?: () -> untyped
+
+  def matched: () -> (nil | untyped)
+
+  def matched_size: () -> (untyped | nil)
+
+  def pre_match: () -> (untyped | nil)
+
+  def post_match: () -> (nil | untyped)
+
+  # A group by number or by name. A match with no groups of its own —
+  # a byte or a character taken alone — has the whole of itself at 0.
+  # strscan_aref: a name reads only a Regexp's groups; a number counts
+  # from the end where it is negative.
+  def []: (untyped index) -> (nil | untyped)
+
+  def values_at: (*untyped indexes) -> (untyped | nil)
+
+  def captures: () -> (nil | untyped)
+
+  # The names of the last Regexp that a scan tried, matched or not.
+  def named_captures: () -> (::Hash[untyped, untyped] | untyped)
+
+  # `#<StringScanner 5/11 "test " @ "strin...">`: the position, the five
+  # bytes on each side of the pointer, and the rest of the text. A
+  # scanner that has taken nothing shows no text, and one at the end
+  # says only that.
+  def inspect: () -> ::String
+
+  def fixed_anchor?: () -> untyped
+
+  private
+
+  # GET_SCANNER: the string, once initialize gave the scanner one.
+  def scanner: () -> untyped
+
+  # `[+-]?\d+` and `[+-]?(0x)?[0-9a-fA-F]+`, which is what CRuby's own
+  # rows scan for the two bases it takes.
+  def scan_base10_integer: () -> untyped
+
+  def scan_base16_integer: () -> (nil | untyped)
+
+  # strscan_must_ascii_compat.
+  def ascii_compatible!: () -> untyped
+
+  # A copy scans the same string from the same place.
+  def initialize_copy: (untyped other) -> self
+
+  # Where the last match sits in the string, how long it is, and the
+  # MatchData beside it when a pattern made it: CRuby's struct fields.
+  def match_from: () -> untyped
+
+  def match_len: () -> untyped
+
+  def groups: () -> untyped
+
+  def group_index: (untyped index) -> untyped
+
+  # strscan_do_scan: `pattern` at the scan pointer (`anchored`) or
+  # anywhere past it. A Regexp runs in place over the string; a String
+  # compares its bytes. The span runs from the pointer to the end of the
+  # match, which is what a `_until` form returns. `answer` decides whether
+  # the bytes or their count comes back, and `advance` whether the
+  # pointer moves past them.
+  def run: (untyped pattern, untyped anchored, untyped answer, untyped advance) -> (nil | untyped)
+
+  # strscan_enc_check: two Strings of different encodings must be able
+  # to meet.
+  def enc_check: (untyped text, untyped pattern) -> (nil | untyped)
+
+  # A byte or a character taken on its own: a match of its own bytes,
+  # with no groups behind it.
+  def keep: (untyped at, untyped len) -> untyped
+
+  def clear_match: () -> nil
+
+  # inspect1 and inspect2: the five bytes on each side of the pointer,
+  # with the dots that show that there is more, dumped as bytes.
+  def before: () -> untyped
+
+  def after: () -> untyped
+end

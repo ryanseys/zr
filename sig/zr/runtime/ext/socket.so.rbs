@@ -1,0 +1,9 @@
+# socket.so: ext/socket's C part, in ruby over the kernel's calls
+# (lib/zr/runtime/kernel/socket.rb). lib/socket.rb, as the gem ships it, requires
+# this first and then reopens what it defines. Each file here represents
+# the C file in its name.
+class BasicSocket < IO
+end
+
+class Socket < BasicSocket
+end

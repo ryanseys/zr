@@ -1,0 +1,67 @@
+# ossl_x509name.c: OpenSSL::X509::Name over X509_NAME.
+module OpenSSL
+  module Lib
+    XN_FLAG_COMPAT: 0
+
+    ASN1_STRFLGS_ESC_MSB: 4
+
+    # X509_NAME_hash (x509.h).
+    def self.X509_NAME_hash: (untyped name) -> untyped
+  end
+
+  module X509
+    class NameError < OpenSSLError
+    end
+
+    class Name
+      include Comparable
+    end
+  end
+
+  module Ossl
+    X509_NAME: untyped
+
+    # ossl_x509name_new.
+    def self.x509name_new: (untyped name) -> untyped
+
+    # x509name_print.
+    def self.x509name_print: (untyped object, untyped flags) -> untyped
+  end
+
+  module X509
+    class Name
+      def initialize: (*untyped args) -> void
+
+      def initialize_copy: (untyped other) -> self
+
+      def add_entry: (untyped oid, untyped value, ?untyped? type, ?loc: ::Integer, ?set: ::Integer) -> self
+
+      def to_s: (*untyped args) -> untyped
+
+      def to_utf8: () -> untyped
+
+      def inspect: () -> ::String
+
+      def to_a: () -> untyped
+
+      def cmp: (untyped other) -> (nil | untyped)
+
+      alias <=> cmp
+
+      def eql?: (untyped other) -> (false | untyped)
+
+      def hash: () -> untyped
+
+      def hash_old: () -> untyped
+
+      def to_der: () -> untyped
+
+      OBJECT_TYPE_TEMPLATE: untyped
+    end
+  end
+
+  module Ossl
+    # ossl_x509name_add_entry.
+    def self.x509name_add_entry: (untyped object, untyped oid, untyped value, untyped type, ?::Integer loc, ?::Integer set) -> untyped
+  end
+end

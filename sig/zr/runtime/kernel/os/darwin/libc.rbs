@@ -1,0 +1,7 @@
+module Zr::Kern
+  def zr_os_sort: (untyped st, untyped n) -> untyped
+
+  def zr_os_malloc_size: (untyped p) -> untyped
+
+  def zr_os_sha256_blocks: (untyped h, untyped p, untyped n) -> true
+end

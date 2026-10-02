@@ -1,0 +1,43 @@
+module Zr
+  module IR
+    # Promotes stack slots to SSA values in a finished function.
+    #
+    # The machine dialect gives each local a slot. A slot costs a store at
+    # each assignment and a load at each read, and the register allocator
+    # sees only values, so it cannot remove them. A slot that the function
+    # only loads and stores whole, through its address, is a private
+    # variable. Each load gets the value of the last store before it, and a
+    # block that different stores reach takes the value as a parameter.
+    #
+    # A slot qualifies when it is eight bytes and its address is used only
+    # for a load or a store at offset 0. An address that is passed to a
+    # call, added to, passed to a block or stored keeps its slot. Thus no
+    # root is lost: the collector reads the kernel root frames and the task
+    # frame records through an address that was stored or passed, and such
+    # a slot stays in memory.
+    #
+    # A path with no store reads zero. This runs in the kernel lowering,
+    # before `IR::Passes`. `IR::Passes::Blocks` removes a split edge that
+    # passes no values.
+    class Mem2Reg < Promotion
+      @slot_of: untyped
+
+      private
+
+      # `address value => load type` of each slot that qualifies. A slot that
+      # no load reads has type nil: its stores are dead.
+      def candidates: () -> (::Hash[untyped, untyped] | untyped)
+
+      # If the address of a slot is in `args`, the slot does not qualify.
+      def escapes: (untyped args, untyped type, untyped refused) -> untyped
+
+      # A store is a write. A load gets the value of the last store in the
+      # block, or the value at block entry.
+      def walk: (untyped b, untyped slots, untyped last, untyped reads) -> untyped
+
+      def initial: (untyped _addr, untyped type) -> untyped
+
+      def rewrite: (untyped slots) -> untyped
+    end
+  end
+end

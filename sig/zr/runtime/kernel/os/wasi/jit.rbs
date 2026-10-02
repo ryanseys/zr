@@ -1,0 +1,17 @@
+module Zr::Kern
+  # The WASI part of code loading. A module cannot map code or look up a
+  # symbol, so the eval compiler (JIT) has no memory to write into.
+  RTLD_DEFAULT: 0
+
+  def zr_os_jit_reserve: (untyped size) -> untyped
+
+  def zr_os_jit_release: (untyped at, untyped size) -> untyped
+
+  def zr_os_jit_map: (untyped size, untyped exec, untyped hint) -> untyped
+
+  def zr_os_symbol: (untyped name) -> untyped
+
+  def zr_os_jit_write: (untyped at, untyped bytes) -> untyped
+
+  def zr_os_libffi_path: () -> untyped
+end

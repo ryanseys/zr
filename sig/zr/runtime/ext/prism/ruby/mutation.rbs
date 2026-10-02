@@ -1,0 +1,25 @@
+module Prism
+  module Ruby
+    # The parser's view of a node: prism.c reads and changes nodes after it
+    # creates them, and the nodes are immutable outside the parser, so the
+    # writers are a refinement that only the parser's files use.
+    #
+    # While the parser runs, a node's location and each location field are
+    # packed as `(start << 32) | length` (nil for an absent optional one).
+    # Inside the refinement their readers answer the packed value; outside,
+    # the node's own readers inflate it to a Location.
+    #
+    # The readers and writers are plain methods rather than attr_accessor:
+    # in a zr binary the runtime's own attributes name its hidden fields,
+    # while these name the gem's instance variables (VISIBLE_IVARS in
+    # lib/zr/hir/build.rb).
+    module Mutation
+      # Packed locations.
+      module Location
+        def self?.pack: (untyped start, untyped finish) -> untyped
+
+        def self?.packed_end: (untyped location) -> untyped
+      end
+    end
+  end
+end

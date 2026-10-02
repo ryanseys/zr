@@ -1,0 +1,56 @@
+module Zr
+  module Backend
+    module Aarch64
+      # The general-purpose registers, and the SIMD&FP registers as
+      # doubles. Register 31 reads as the stack pointer in one family of
+      # encodings and as the zero register in the other, so the two are
+      # separate objects that share a number.
+      module Registers
+        class Register
+          @to_i: untyped
+
+          @wide: untyped
+
+          @sp: untyped
+
+          @float: untyped
+
+          attr_reader to_i: untyped
+
+          def initialize: (untyped number, wide: untyped, ?sp: bool, ?float: bool) -> void
+
+          def wide?: () -> untyped
+
+          def sp?: () -> untyped
+
+          def float?: () -> untyped
+
+          def sf: () -> (1 | 0)
+
+          def size: () -> (64 | 32)
+
+          def zr: () -> untyped
+
+          def name: () -> (::String | untyped)
+
+          alias inspect name
+        end
+
+        # The registers by number, for a loop that counts over slots.
+        def self?.x: (untyped i) -> untyped
+
+        def self?.w: (untyped i) -> untyped
+
+        def self?.d: (untyped i) -> untyped
+
+        SP: untyped
+
+        WSP: untyped
+
+        XZR: untyped
+
+        WZR: untyped
+      end
+    end
+  end
+end

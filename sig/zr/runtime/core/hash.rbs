@@ -1,0 +1,173 @@
+# Hash over the kernel's table: each, [], []=, fetch, delete, keys and
+# values come from the kernel; the rest is written over them. A walk of
+# a Hash's own table is Primitive.zr_hash_foreach, which a subclass's
+# `each` leaves alone, as rb_hash_foreach does, and a read or a write of
+# a pair inside another method is a primitive, never `self[key]`: a
+# subclass sees only the calls hash.c makes by dispatch.
+class Hash
+  # hash.rb's: a default value or a default proc, and room for
+  # `capacity` pairs.
+  def initialize: (?untyped ifnone, ?capacity: ::Integer) { (?) -> untyped } -> void
+
+  include Enumerable
+
+  # The flag a `ruby2_keywords` method sets on the Hash it took from
+  # keywords, so a later splat passes it on as keywords again.
+  def self.ruby2_keywords_hash: (untyped hash) -> untyped
+
+  def self.ruby2_keywords_hash?: (untyped hash) -> untyped
+
+  # Always a new Hash of the receiver's class, as rb_hash_s_create
+  # builds it: a Hash given alone lends its pairs, but neither its
+  # default nor its compare_by_identity.
+  def self.[]: (*untyped args) -> untyped
+
+  # An empty plain Hash with this one's compare_by_identity and nothing
+  # else of it, as hash_dup_with_compare_by_id starts one.
+  def identity_shaped: () -> untyped
+
+  def each_key: () ?{ (untyped) -> untyped } -> (untyped | self)
+
+  def each_value: () ?{ (untyped) -> untyped } -> (untyped | self)
+
+  def select: () ?{ (untyped, untyped) -> untyped } -> untyped
+
+  alias filter select
+
+  def reject: () ?{ (untyped, untyped) -> untyped } -> untyped
+
+  def select!: () ?{ (untyped, untyped) -> untyped } -> untyped
+
+  alias filter! select!
+
+  def keep_if: () ?{ (untyped, untyped) -> untyped } -> (untyped | self)
+
+  def reject!: () ?{ (untyped, untyped) -> untyped } -> untyped
+
+  def delete_if: () ?{ (untyped, untyped) -> untyped } -> (untyped | self)
+
+  # A subclass returns a plain Hash with the same pairs, default and
+  # compare_by_identity, as rb_hash_to_h copies them.
+  def to_h: () ?{ (untyped, untyped) -> untyped } -> (self | untyped)
+
+  def to_hash: () -> self
+
+  def to_a: () -> untyped
+
+  # rb_hash_merge: a copy of the receiver as rb_hash_dup makes one, with
+  # no `initialize_copy`, updated as merge! updates.
+  def merge: (*untyped others) { (?) -> untyped } -> untyped
+
+  def merge!: (*untyped others) { (?) -> untyped } -> self
+
+  alias update merge!
+
+  # One argument of merge!: its pairs in, a block deciding a key both
+  # have.
+  def update_from: (untyped other) ?{ (untyped, untyped, untyped) -> untyped } -> untyped
+
+  def store: (untyped key, untyped value) -> untyped
+
+  def key: (untyped value) -> (untyped | nil)
+
+  def value?: (untyped value) -> (true | false)
+
+  alias has_value? value?
+
+  def invert: () -> untyped
+
+  def transform_values: () ?{ (untyped) -> untyped } -> untyped
+
+  def transform_values!: () ?{ (untyped) -> untyped } -> (untyped | self)
+
+  def transform_keys: (?untyped? mapping) ?{ (untyped) -> untyped } -> untyped
+
+  # rb_hash_transform_keys_bang: each pair taken out and put back under
+  # its new key, in the order the pairs were, a key another pair has
+  # already moved to left where it is.
+  def transform_keys!: (?untyped? mapping) ?{ (untyped) -> untyped } -> (untyped | self)
+
+  # rb_hash_replace: the other's pairs, default and compare_by_identity,
+  # in CRuby's order of refusals; a Hash replaced by itself stays.
+  def replace: (untyped other) -> (self | untyped)
+
+  def clear: () -> untyped
+
+  def default=: (untyped value) -> untyped
+
+  def default_proc: () -> untyped
+
+  def default_proc=: (untyped pr) -> untyped
+
+  def dig: (untyped key, *untyped rest) -> untyped
+
+  def fetch_values: (*untyped keys) { (?) -> untyped } -> untyped
+
+  def values_at: (*untyped keys) -> untyped
+
+  def slice: (*untyped keys) -> untyped
+
+  # A plain Hash: the default and default proc are not copied.
+  def except: (*untyped keys) -> untyped
+
+  # rb_hash_any_p: each pair, as one value that a two-parameter block
+  # splits, against the pattern or the block. The walk is the Hash's
+  # own, not a send of `each`.
+  def any?: (*untyped pattern) ?{ (untyped) -> untyped } -> (false | true)
+
+  # `default` with no argument returns the default value; with a key, the
+  # value that a default proc would return for it.
+  def default: (*untyped key) -> untyped
+
+  # `delete(key) { |key| }`: the block's return value for a missing key.
+  def delete: (untyped key) ?{ (untyped) -> untyped } -> untyped
+
+  # The whole Hash copied, as rb_hash_compact copies it, less the nils.
+  def compact: () -> untyped
+
+  def compact!: () -> untyped
+
+  def flatten: (?::Integer depth) -> untyped
+
+  def rehash: () -> untyped
+
+  def assoc: (untyped key) -> (::Array[untyped] | nil)
+
+  def rassoc: (untyped value) -> (::Array[untyped] | nil)
+
+  def shift: () -> (::Array[untyped] | nil)
+
+  # The same two Hashes compared again inside their own comparison is a
+  # recursion, which gives equal, as rb_exec_recursive_paired does.
+  def eql?: (untyped other) -> (true | false | untyped)
+
+  # Order does not matter: the pairs' hashes combine by a sum.
+  # A hash that contains itself uses a fixed value for the reference
+  # back, so the walk ends.
+  def hash: () -> (7 | untyped)
+
+  # Each comparison reads the other side as a Hash, and gives the class
+  # that it got when the argument is not one.
+  def <=: (untyped other) -> untyped
+
+  def <: (untyped other) -> untyped
+
+  def >=: (untyped other) -> untyped
+
+  def >: (untyped other) -> untyped
+
+  # hash_le: every pair of the receiver is a pair of `other`.
+  def within: (untyped other) -> (false | true)
+
+  def hash_operand: (untyped other) -> untyped
+
+  def to_proc: () -> untyped
+
+  def deconstruct_keys: (untyped keys) -> self
+
+  def self.try_convert: (untyped object) -> untyped
+
+  def compare_by_identity: () -> untyped
+
+  def compare_by_identity?: () -> untyped
+end

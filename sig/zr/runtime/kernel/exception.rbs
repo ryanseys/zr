@@ -1,0 +1,195 @@
+module Zr::Kern
+  # Exceptions and the pending unwind protocol. A function that can raise
+  # returns a Value. `undef` means that the exception is in the pending
+  # slot of the task. Each call site checks for `undef` and leaves through
+  # its landing block. A raise captures the frame list, and the report
+  # prints it as CRuby does.
+  #
+  # Each frame record has a FrameMeta, which gives what the backtrace
+  # prints for the frame. Dispatch pushes the frame of a builtin method,
+  # and that frame uses the file and line of the nearest Ruby frame
+  # outside it.
+  # `locals` gives the locals of the scope in slot order (the count, then
+  # one symbol id for each). `env` is 1 when the first slot of the record
+  # contains the Env that keeps them. An eval and a Binding read this.
+  # `box` is the Ruby::Box that the function belongs to, or nil for main.
+  # It makes the code in a box see the definitions of that box.
+  # `ruby` is 1 on a core def that CRuby itself writes in Ruby. Such a
+  # method returns its real parameters, where a C method returns `[[:rest]]`.
+  # `node` is the id of the prism node that defines the function. A frame
+  # that raises on entry reports it.
+  # `cover` is the def-site record of this scope plus one, in a program
+  # where Coverage measures methods, and 0 in all other programs. A
+  # definition from this scope takes that record, which gives the span
+  # that ruby reports for the method. It is here, where both a Proc and a
+  # method entry can read it, because `define_method` takes a block.
+  # `twin` is set on the block literal of a `define_method` call in a
+  # program that does not trace: a second function of the same body with
+  # the method signature, which a send calls directly (`zr_entry_fn`). It
+  # makes the same frame as the block, with no Proc copy. Else it is 0.
+  FrameMeta: untyped
+
+  KIND_MAIN: 0
+
+  KIND_DEF: 1
+
+  KIND_BUILTIN: 2
+
+  KIND_CLASS: 3
+
+  KIND_MODULE: 4
+
+  KIND_BLOCK: 5
+
+  KIND_SCLASS: 6
+
+  # A frame of the runtime's own Ruby (a block in a builtin written in
+  # Ruby). It has no frame in a backtrace.
+  KIND_HIDDEN: 7
+
+  # The toplevel of a required file.
+  KIND_TOP: 8
+
+  # The toplevel of an eval. It shows the label of the frame that called
+  # eval: `parent` is the meta of that frame, written at the call.
+  KIND_EVAL: 9
+
+  # A snippet that a box ran. It shows its own label, not the label of
+  # its caller.
+  KIND_COMPILED: 10
+
+  # One backtrace frame. `node` is the id of the prism node that the line
+  # ran, or 0.
+  BtRow: untyped
+
+  # `bt` is a backtrace that the program set, or nil to use the captured
+  # frames. `cause` is undef until the raise sets it.
+  RException: untyped
+
+  T_EXCEPTION: 24
+
+  G_EXCEPTION: 16
+
+  G_STANDARD_ERROR: 17
+
+  G_ARGUMENT_ERROR: 18
+
+  G_NAME_ERROR: 19
+
+  G_NO_METHOD_ERROR: 20
+
+  G_TYPE_ERROR: 21
+
+  G_ZERO_DIVISION_ERROR: 22
+
+  G_RUNTIME_ERROR: 23
+
+  def zr_mark_backtrace_rows: (untyped exc) -> untyped
+
+  def zr_frame_line: (untyped rec) -> untyped
+
+  def zr_frame_node_id: (untyped rec) -> untyped
+
+  def zr_frame_with_file: (untyped rec) -> untyped
+
+  def zr_frame_shown_p: (untyped rec) -> (false | true | untyped)
+
+  def zr_frame_helper_p: (untyped rec) -> untyped
+
+  def zr_backtrace_capture: (untyped exc, untyped top) -> untyped
+
+  def zr_exc_new: (untyped klass, untyped message) -> untyped
+
+  def zr_raise_from: (untyped exc, untyped top) -> untyped
+
+  def zr_raise_as_is: (untyped exc, untyped top) -> untyped
+
+  def zr_raise: (untyped exc) -> untyped
+
+  def zr_rescuable: () -> untyped
+
+  def zr_exc_match: (untyped exc, untyped klass) -> untyped
+
+  def zr_exc_match_any: (untyped exc, untyped list) -> untyped
+
+  def zr_case_any: (untyped subject, untyped list) -> untyped
+
+  def zr_any_truthy: (untyped list) -> untyped
+
+  def zr_rescue_enter: () -> untyped
+
+  def zr_errinfo: () -> untyped
+
+  def zr_errinfo_set: (untyped v) -> untyped
+
+  def zr_signal_take: (untyped out) -> untyped
+
+  def zr_signal_restore: (untyped v, untyped out) -> untyped
+
+  def zr_kernel_raise: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_exc_check_cause: (untyped e, untyped cause) -> untyped
+
+  def zr_raise_msg: (untyped klass, untyped bytes, untyped len) -> untyped
+
+  def zr_raise_buf: (untyped klass, untyped b) -> untyped
+
+  def zr_core_class: (untyped id) -> untyped
+
+  def zr_buf_label: (untyped b, untyped meta) -> untyped
+
+  def zr_buf_label_as: (untyped b, untyped meta, untyped qualified) -> untyped
+
+  def zr_buf_method_label: (untyped b, untyped owner, untyped name) -> untyped
+
+  def zr_buf_row: (untyped b, untyped row) -> untyped
+
+  def zr_exc_backtrace: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_exc_raise_rows: (untyped recv) -> untyped
+
+  def zr_exc_raise_nodes: (untyped recv) -> untyped
+
+  def zr_caller_nodes: (untyped start, untyped limit) -> untyped
+
+  # The class of an error that no rescue can catch by name: a deadlock.
+  G_FATAL: 41
+
+  def zr_fatal_class: () -> untyped
+
+  def zr_error_print_m: (untyped exc) -> untyped
+
+  def zr_report: (untyped exc) -> untyped
+
+  def zr_error_print_upto: (untyped exc, untyped stop) -> (nil | untyped)
+
+  def zr_error_print: (untyped exc) -> untyped
+
+  def zr_error_print_one: (untyped exc) -> untyped
+
+  G_SYSTEM_STACK_ERROR: 35
+
+  def zr_protect: (untyped failed, untyped blk) -> untyped
+
+  def zr_no_memory: () -> untyped
+
+  def zr_stack_overflow: () -> untyped
+
+  def zr_exc_set_backtrace_value: (untyped exc, untyped bt) -> untyped
+
+  def zr_exc_set_backtrace: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_exc_cause: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_exc_detail: (untyped exc, untyped id, untyped v) -> untyped
+
+  def zr_exc_set_class: (untyped exc, untyped klass) -> untyped
+
+  def zr_buf_frame: (untyped b, untyped rec) -> untyped
+
+  def zr_frame_label_meta: (untyped rec) -> untyped
+
+  def zr_kernel_caller: (untyped recv, untyped argc, untyped argv, untyped cref, untyped blk) -> untyped
+
+  def zr_fiber_backtrace_m: (untyped fiber, untyped start, untyped limit) -> untyped
+end

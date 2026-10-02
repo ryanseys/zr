@@ -1,0 +1,66 @@
+module Zr
+  module Cache
+    # The binaries that `zr run` built, kept so that a second run of the
+    # same program runs at once, with no lowering and no link. Each is a
+    # directory entry of the store (kind `run`), which keeps them under
+    # its quota: a binary with eval support is 130 MB.
+    #
+    # An entry is found by a digest of what a build reads before it knows
+    # which files the program requires: zr's version, the runtime and link
+    # digests, the target, the path root, the settings that change a
+    # build's bytes, the link arguments, and the program's path and bytes.
+    # The entry then lists every file that the build compiled, with the
+    # digest of its bytes, and the key of eval support for a program that
+    # evals. A hit needs each of them to be the same now, so an edit to a
+    # required file is a miss, as a make rule would see it.
+    #
+    # The binary runs from the cache. A new file is slow to start the first
+    # time (macOS checks it: 61 ms against 11 ms), so a copy per run would
+    # give most of that back.
+    class Run
+      @input: untyped
+
+      @digest: untyped
+
+      @target: untyped
+
+      @key: untyped
+
+      VERSION: 1
+
+      # `ZR_RUN_CACHE=0` builds each run again.
+      def self.wanted?: () -> untyped
+
+      # `digest` is the runtime's digest (`RuntimeSources#runtime_digest`). `gems` is the
+      # build's GemSet: a program built with other gems is another entry,
+      # also when the files of the first gems are still there.
+      def initialize: (untyped input, target: untyped, digest: untyped, link: untyped, ?gems: untyped?) -> void
+
+      # The path of the kept binary when every file it was built from is as
+      # it was, else nil.
+      def hit: () -> untyped
+
+      # Keeps the binary at `out`, built from `program`, and returns the path
+      # of the kept binary. It keeps nothing, and returns nil, when a source
+      # changed during the build (`SourceGuard.changed_file`), when the build does not know
+      # its sources, or when the binary spells the build directory `work`,
+      # which a later run would not have.
+      def keep: (untyped out, untyped program, untyped work) -> untyped
+
+      private
+
+      # Puts the binary at `to`: a second name for the same file where the
+      # volume allows, else a copy. A copy of a binary with eval support
+      # took 30 ms. The same file also keeps macOS's check of its code
+      # signature, so the first run from the cache does not pay it again.
+      def kept: (untyped out, untyped to) -> untyped
+
+      # Whether the eval support that the binary linked is still current: its
+      # metadata has the same key (the same code), and its files are as that
+      # metadata read them.
+      def eval_current?: (untyped meta_path, untyped key) -> untyped
+
+      def current?: (untyped sources) -> untyped
+    end
+  end
+end

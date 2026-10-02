@@ -1,0 +1,94 @@
+# The input reader of libyaml 0.2.5 (src/reader.c).
+#
+# The read handler fills a raw buffer of at most RAW_BUFFER_SIZE bytes.
+# The reader decodes all of the raw buffer it can (UTF-8 or UTF-16) into
+# a UTF-8 buffer, and checks each character on the way. So an invalid
+# character stops the stream as soon as the reader decodes its chunk,
+# which can be before the scanner comes near it, exactly as in libyaml.
+#
+# In the parser, `@raw_buffer` and `@buffer` are binary strings. The
+# "last" pointer of each C buffer is the end of its Ruby string, and
+# `@raw_pointer` and `@pointer` are the byte offsets the C code moves.
+module Psych
+  module LibYAML
+    module Reader
+      @buffer: untyped
+
+      @pointer: untyped
+
+      @unread: untyped
+
+      @error: untyped
+
+      @problem: untyped
+
+      @problem_offset: untyped
+
+      @problem_value: untyped
+
+      @encoding: untyped
+
+      @raw_pointer: untyped
+
+      @offset: untyped
+
+      @raw_buffer: untyped
+
+      @eof: untyped
+
+      RAW_BUFFER_SIZE: 16384
+
+      # MAX_FILE_SIZE is (~(size_t)0 / 2) on a 64-bit build.
+      MAX_FILE_SIZE: untyped
+
+      BOM_UTF8: untyped
+
+      BOM_UTF16LE: untyped
+
+      BOM_UTF16BE: untyped
+
+      # Any byte but the ones that decode to themselves and pass the
+      # character check: tab, LF, CR and printable ASCII.
+      NOT_PLAIN: ::Regexp
+
+      private
+
+      # yaml_parser_update_buffer: make sure the buffer contains at least
+      # `length` characters, or all the rest of the input and its NUL.
+      def update_buffer: (untyped length) -> (nil | untyped)
+
+      # yaml_parser_set_reader_error
+      def reader_error: (untyped problem, untyped offset, untyped value) -> untyped
+
+      def raw_unread: () -> untyped
+
+      # yaml_parser_determine_encoding: read the byte order mark, if any.
+      # With no mark the input is UTF-8.
+      def determine_encoding: () -> untyped
+
+      # yaml_parser_update_raw_buffer: move the unread raw bytes to the
+      # front and read as many bytes as fit after them from the read handler.
+      def update_raw_buffer: () -> (nil | untyped)
+
+      # The inner loop of yaml_parser_update_buffer: decode characters
+      # from the raw buffer until it runs out or ends in the middle of a
+      # character.
+      def decode_raw_buffer: () -> untyped
+
+      def plain_run_length: (untyped raw, untyped from) -> untyped
+
+      # One UTF-8 character (RFC 3629), with the checks that libyaml makes.
+      # Returns [value, width], or nil when the character is incomplete
+      # and more input can follow.
+      def decode_utf8: (untyped raw, untyped raw_unread) -> (nil | ::Array[untyped])
+
+      # One UTF-16 character (RFC 2781), which a surrogate pair makes from
+      # two code units. Returns [value, width], or nil when the character
+      # is incomplete and more input can follow.
+      def decode_utf16: (untyped raw, untyped raw_unread) -> (nil | ::Array[untyped | 2] | ::Array[untyped | 4])
+
+      # Append a character to the buffer as UTF-8.
+      def put_utf8: (untyped value) -> untyped
+    end
+  end
+end

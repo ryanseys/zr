@@ -1,0 +1,127 @@
+module Zr
+  class Lower
+    class Function
+      # The Value of each HIR node, in a register. A caller that keeps it
+      # across a call stores it in the record first.
+      module Expressions
+        @sp: untyped
+
+        private
+
+        def expr: (untyped node) -> untyped
+
+        # The one shared frozen String of a UTF-8 literal. The site's first
+        # run makes it (zr_str_literal_shared, which keeps it rooted).
+        # Later runs read it from the site's own word, with no call.
+        def shared_literal: (untyped text) -> untyped
+
+        # Runs the body only the first time the site runs, and returns nil
+        # each time. The site has a flag word, set before the body runs.
+        def once: (untyped node) -> untyped
+
+        # `-> { }`: a Proc with the lambda flag. Its `break` and `return`
+        # stay inside it, so it has no call site to return to.
+        def lambda_literal: (untyped node) -> untyped
+
+        # `[a, b]`: the elements are staged in the record and copied into a
+        # new Array. If every element is an immediate, they are copied from
+        # data that the link wrote once (`word_table`). A splat pushes its
+        # elements. A frozen literal (a shareable constant's) gets the flag
+        # with no send, as compile.c freezes what it built.
+        def array_literal: (untyped node) -> untyped
+
+        # The words of `nodes` if each is an immediate literal (a fixnum, a
+        # flonum, a Symbol (its name, for the link), nil, true or false),
+        # else nil.
+        def immediate_words: (untyped nodes) -> (nil | untyped)
+
+        # `@name`: the guessed ivar entry's value inline (nil for an unset
+        # entry), else the kernel's read.
+        def ivar_read: (untyped node) -> untyped
+
+        # `{k => v, **h}`: if there is a double splat, the pairs are stored
+        # one at a time into a Hash in a record slot.
+        def hash_literal: (untyped node) -> untyped
+
+        def seq: (untyped node) -> untyped
+
+        def literal: (untyped node) -> untyped
+
+        # A Float literal that fits a flonum is its rotated bits, computed
+        # at compile time, exactly as zr_float_new makes it. +0.0 is the
+        # flonum zero.
+        # All other doubles are heap cells made at run time.
+        def float_literal: (untyped v) -> untyped
+
+        # The flonum word of `v` as a signed 64-bit value, or nil if the
+        # double does not fit.
+        def flonum_word: (untyped v) -> untyped
+
+        # `"a#{b}c"`. The program never gets the literal parts between the
+        # embedded expressions: `zr_str_interp` (lib/zr/runtime/kernel/string.rb)
+        # reads their bytes and returns a new String. So each part is the
+        # shared frozen String of its bytes, not a new String on each run.
+        # This saves an allocation, a malloc and a copy per part.
+        def interp: (untyped node) -> untyped
+
+        # A part of an interpolation: the shared String if it is a UTF-8
+        # literal of this file, else lowered as usual. The shared table
+        # keys only on bytes and cannot distinguish two encodings, so a file
+        # with a different script encoding uses the plain form. The site
+        # keeps the String in its own word, as a frozen literal does.
+        def interp_part: (untyped node) -> untyped
+
+        # A String literal, built by `fn` and tagged with the file's script
+        # encoding. UTF-8 is the usual encoding and needs no number.
+        def string_literal: (untyped text, untyped fn) -> untyped
+
+        # ruby's own index for an encoding. A String contains this index
+        # at run time.
+        ENCODING_INDEX: untyped
+
+        # The special globals: `$!` is in the task, `$~` and `$_` are in
+        # the frame, and `$<` is ARGF. All others (`$.` too) are in the
+        # globals table, where the core sets them.
+        def gvar_read: (untyped node) -> untyped
+
+        # The globals that ruby hooks: a write checks the value, or raises
+        # for a read-only name. The core library writes them unchecked.
+        HOOKED_GVARS: untyped
+
+        # `$~` and `$_` are in the frame. The others are globals, and a
+        # trace_var command on one runs at this line.
+        def gvar_write: (untyped node, untyped v) -> untyped
+
+        # `$1`, `$&`, `` $` ``, `$'` and `$+`: the groups of `$~`, or nil
+        # with no match.
+        def back_ref: (untyped node) -> untyped
+
+        def cvar_read: (untyped node) -> untyped
+
+        def undef_methods: (untyped node) -> untyped
+
+        def alias_method: (untyped node) -> untyped
+
+        # `/#{x}/o` runs its site once. The regexp stays in the literal
+        # table, and every later run reads it from there.
+        def regexp_once: (untyped node) -> untyped
+
+        # The names stay in record slots, because making one can start a
+        # collection.
+        def alias_value: (untyped node) -> untyped
+
+        def undef_values: (untyped node) -> untyped
+
+        def alias_global: (untyped node) -> untyped
+
+        def cvar_write: (untyped node) -> untyped
+
+        # `Name ||= value`: the constant if it is set and truthy, else the
+        # assignment.
+        def const_or_write: (untyped node) -> untyped
+
+        def symbol: (untyped name) -> untyped
+      end
+    end
+  end
+end

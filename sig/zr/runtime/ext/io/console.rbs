@@ -1,0 +1,181 @@
+class IO
+  # The escape introducer every cursor row writes.
+  CSI: "\e["
+
+  # A terminal's mode, kept as the bytes that tcgetattr gave. ruby calls
+  # the class IO::ConsoleMode and keeps the bytes hidden.
+  # Only IO#console_mode makes one: console.c undefines its initialize.
+  class ConsoleMode
+    def initialize_copy: (untyped other) -> self
+
+    def echo=: (untyped flag) -> self
+
+    # In place, and a copy under the same name without the bang.
+    def raw!: (**untyped options) -> self
+
+    def raw: (**untyped options) -> untyped
+
+    private
+
+    def mode_bytes: () -> untyped
+  end
+
+  private
+
+  # The mode that a block runs under, and the old mode restored after it.
+  # Both descriptors of a duplex handle take it. A failure here gives no
+  # path, because CRuby reaches these calls through a helper that has
+  # no path to give.
+  def ttymode: (untyped setter, ?untyped? options) { (untyped) -> untyped } -> untyped
+
+  public
+
+  def raw: (**untyped options) { (?) -> untyped } -> untyped
+
+  def raw!: (**untyped options) -> self
+
+  def cooked: () { (?) -> untyped } -> untyped
+
+  def cooked!: () -> self
+
+  def echo=: (untyped flag) -> self
+
+  def echo?: () -> untyped
+
+  def noecho: () { (?) -> untyped } -> untyped
+
+  # One character, read while the terminal hands each one straight over.
+  def getch: (**untyped options) -> untyped
+
+  # A line read with the echo off, and a newline written after it so the
+  # invisible line is left behind.
+  def getpass: (?untyped? prompt) -> untyped
+
+  def console_mode: () -> untyped
+
+  def console_mode=: (untyped mode) -> untyped
+
+  def winsize: () -> untyped
+
+  # Two numbers, the rows and the columns, or four with the pixels as
+  # well. Kernel#Array counts them, so a lone value counts as one.
+  def winsize=: (untyped size) -> self
+
+  # The terminal's name, frozen, and nil for a descriptor that names
+  # none.
+  def ttyname: () -> untyped
+
+  def iflush: () -> self
+
+  def oflush: () -> self
+
+  # One queue each way on a duplex handle, and both at once when the two
+  # are the same descriptor.
+  def ioflush: () -> (untyped | self)
+
+  def beep: () -> untyped
+
+  def goto: (untyped line, untyped column) -> untyped
+
+  def goto_column: (untyped column) -> untyped
+
+  def cursor_up: (untyped lines) -> untyped
+
+  def cursor_down: (untyped lines) -> untyped
+
+  def cursor_left: (untyped columns) -> untyped
+
+  def cursor_right: (untyped columns) -> untyped
+
+  def scroll_forward: (untyped lines) -> untyped
+
+  def scroll_backward: (untyped lines) -> untyped
+
+  def erase_line: (untyped mode) -> untyped
+
+  def erase_screen: (untyped mode) -> untyped
+
+  def clear_screen: () -> untyped
+
+  # The position that the terminal itself reports. A reply that is not in
+  # the shape ESC [ row ; column R gives nil.
+  def cursor: () -> untyped
+
+  def cursor=: (untyped position) -> untyped
+
+  # Only Windows has these two, and ruby refuses them here with their names.
+  def pressed?: (*untyped) -> untyped
+
+  def check_winsize_changed: (*untyped) -> untyped
+
+  # The controlling terminal, opened once and kept. A process that has
+  # none returns nil, as in CRuby: it does not raise. A Symbol gives an
+  # entry to send to the terminal instead.
+  def self.console: (*untyped args) -> (nil | untyped)
+
+  # /dev/tty for reading and writing, and nil when the process has no
+  # terminal to open.
+  def self.console_open: () -> (nil | untyped)
+
+  private
+
+  # The descriptors that a mode covers: the one that a read uses, and the
+  # one that a write uses when a duplex handle has two.
+  def console_fds: () -> untyped
+
+  def console_read_fd: () -> untyped
+
+  def console_write_fd: () -> untyped
+
+  def console_mode_bytes: (untyped fd, untyped named) -> untyped
+
+  def console_set_mode: (untyped fd, untyped bytes, untyped named) -> untyped
+
+  # Nothing for a distance of zero, and a flipped direction for a
+  # negative one: the letter gives the direction, never a sign.
+  def console_move: (untyped lines, untyped columns) -> (self | untyped)
+
+  def console_scroll: (untyped lines) -> (self | untyped)
+
+  def escape: (untyped text) -> self
+
+  # ESC [ row ; column R, counted from one, which ruby reports counted
+  # from zero.
+  def console_read_position: () -> (nil | ::Array[untyped])
+
+  def peek_position_byte: () -> untyped
+
+  public
+
+  # cfmakeraw and the three keyword arguments that follow it.
+  def self.raw_mode: (untyped bytes, untyped options) -> untyped
+
+  def self.cooked_mode: (untyped bytes, ?untyped? _options) -> untyped
+
+  def self.noecho_mode: (untyped bytes, ?untyped? _options) -> untyped
+
+  def self.echo_mode: (untyped bytes, ?untyped? _options) -> untyped
+
+  # A flag word, as wide as the OS's tcflag_t.
+  def self.flag_of: (untyped bytes, untyped offset) -> untyped
+
+  def self.put_flag: (untyped bytes, untyped offset, untyped value) -> untyped
+
+  # min:, time: and intr:, and nothing else. A call that names none of
+  # them leaves the mode's own control characters alone.
+  def self.raw_options: (untyped options) -> (nil | { vmin: untyped, vtime: untyped, intr: untyped })
+
+  def self.clamp_uchar: (untyped value) -> untyped
+
+  # NUM2INT and NUM2UINT, whose ranges a coordinate has to fit.
+  def self.int_arg: (untyped value) -> untyped
+
+  def self.uint_arg: (untyped value) -> untyped
+
+  # The number in an escape. CRuby counts from one inside an
+  # unsigned int and prints the result as a signed one, so a position
+  # of -1 comes out as 0 and -2 as -1.
+  def self.shown: (untyped value) -> untyped
+
+  def self.erase_arg: (untyped value, untyped top, untyped kind) -> (0 | untyped)
+end

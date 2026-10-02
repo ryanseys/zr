@@ -1,0 +1,47 @@
+module Zr
+  module Native
+    # The C toolchain that zr runs: the target's `cc` (`Target#tool`), to link.
+    #
+    # On macOS, `cc` finds its SDK and its `ld` in two ways that can
+    # differ. Clang uses the newest SDK that it finds, and `ld` comes from
+    # the developer directory that `xcode-select` gives. An Xcode older
+    # than the Command Line Tools can pair an `ld` with an SDK whose `.tbd`
+    # files it cannot read ("tapi error: malformed file"). Thus every tool
+    # runs with DEVELOPER_DIR and SDKROOT set to the install that contains
+    # the SDK. When the user already set DEVELOPER_DIR or SDKROOT, zr
+    # keeps those values.
+    module Toolchain
+      @env: untyped
+
+      # The environment a `cc` runs under.
+      def self?.env: () -> untyped
+
+      # The command for the tool `name` ("cc") of `target`: the host's
+      # tool or a cross toolchain's tool. Else the plain name; if it fails
+      # to run, its error tells what is missing.
+      def self?.command: (untyped target, untyped name) -> untyped
+
+      # Runs `argv` under `env`. Returns `[output, success]`; the output
+      # contains stdout and stderr together.
+      def self?.run: (untyped argv) -> ::Array[untyped]
+
+      # The developer directory that `xcode-select` chose: its link, else
+      # the Command Line Tools.
+      SELECTED: "/var/db/xcode_select_link"
+
+      TOOLS: "/Library/Developer/CommandLineTools"
+
+      # The macOS SDK in a developer directory: an Xcode's, or the Command
+      # Line Tools'.
+      SDKS: ::Array["Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk" | "SDKs/MacOSX.sdk"]
+
+      # Returns the user's DEVELOPER_DIR and SDKROOT unchanged when set.
+      # Else the developer directory that `xcode-select` chose and its
+      # SDK, which is what `xcrun --show-sdk-path` gives, read without
+      # starting xcrun. On a host with neither, nothing is pinned.
+      def self?.pinned: () -> untyped
+
+      def self?.selected_developer_dir: () -> untyped
+    end
+  end
+end

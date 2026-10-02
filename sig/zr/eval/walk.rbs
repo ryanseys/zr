@@ -1,0 +1,60 @@
+module Zr
+  # The tree-walking interpreter: it runs a string of Ruby in the running
+  # program that evals it.
+  #
+  # A program uses it when it cannot write machine code into itself. The
+  # engine fixes the code of a wasm module when it instantiates it, and
+  # WASI gives a guest no way to make a second module. Thus the eval
+  # compiler (`lib/zr/eval.rb`) has no place for its output. The front
+  # end is the same for both (prism port, `Hir.build`, the same
+  # desugaring). Only the back end is different: here `Eval::Walk::Tree` walks
+  # the tree and does not lower it.
+  #
+  # `ZR_EVAL=walk` builds a native program with the tree-walking
+  # interpreter, so the tests can check it against the eval compiler.
+  class Eval
+    # The interpreter loads with the first string that a program evals,
+    # as the eval compiler does.
+    self.@current: untyped
+
+    # The interpreter loads with the first string that a program evals,
+    # as the eval compiler does.
+    def self.current: () -> untyped
+
+    # Walks `source` in `scope` (the Binding of the calling frame), with
+    # `self_` and `cref`. `block` is the block that a `yield` in the
+    # string calls. `add` marks a `Binding#eval`: a new local of the
+    # string becomes a local of the Binding, as in ruby.
+    def run: (untyped source, untyped file, untyped line, untyped scope, untyped self_, untyped cref, untyped block, ?add: bool) -> untyped
+
+    # A file that is not compiled into the program. The eval compiler
+    # returns the address of its toplevel, and the kernel calls it. The
+    # interpreter has no address, so it refuses, with a message that
+    # gives the file.
+    def compile_file: (untyped path) -> untyped
+
+    # `RubyVM::InstructionSequence.compile` and the loader of a Ractor
+    # need code to run later. The interpreter cannot make such code.
+    def compile: (untyped _source, untyped file, ?::Integer line, ?untyped _scopes, ?untyped? _method) -> untyped
+
+    private
+
+    # Builds the tree one scope inside the scopes of the frame, as the
+    # eval compiler does. A write to a name that the frame has goes to the
+    # frame. A new name stays in the scope of the string.
+    def built: (untyped source, untyped file, untyped line, untyped scope) -> untyped
+
+    # The scopes of the frame, innermost first, in the order of lookup.
+    def held: (untyped scope) -> untyped
+
+    # `Binding#eval`: the new locals of the string become locals of the
+    # Binding, so a later read there returns the value the string set.
+    def keep: (untyped scope, untyped own) -> untyped
+
+    # The argument as a String, as ruby converts it: a String, or an
+    # object that responds to `to_str`.
+    def string: (untyped value) -> untyped
+
+    def name_of: (untyped value) -> untyped
+  end
+end

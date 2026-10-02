@@ -1,0 +1,271 @@
+module Zr::Kern
+  # The program header, in lib/zr/runtime/core/regexp/onig/program.rb's field order.
+  OnigProg: untyped
+
+  def zr_onig_prog_enc: (untyped prog) -> untyped
+
+  ONIG_MISMATCH: untyped
+
+  ONIGERR_MEMORY: untyped
+
+  ONIGERR_UNDEFINED_BYTECODE: untyped
+
+  ONIGERR_UNEXPECTED_BYTECODE: untyped
+
+  ONIGERR_TIMEOUT: untyped
+
+  ONIG_REGION_NOTPOS: untyped
+
+  ONIG_INFINITE_DISTANCE: untyped
+
+  ONIG_HRTIME_MAX: untyped
+
+  ONIG_OPTION_NOTBOL: untyped
+
+  ONIG_OPTION_NOTEOL: untyped
+
+  ONIG_OPTION_NOTBOS: untyped
+
+  ONIG_OPTION_NOTEOS: untyped
+
+  ONIG_SIZE_BITSET: 32
+
+  ONIG_SIZE_RELADDR: 4
+
+  ONIG_SIZE_MEMNUM: 2
+
+  OP_FINISH: 0
+
+  OP_END: 1
+
+  OP_EXACT1: 2
+
+  OP_EXACT2: 3
+
+  OP_EXACT3: 4
+
+  OP_EXACT4: 5
+
+  OP_EXACT5: 6
+
+  OP_EXACTN: 7
+
+  OP_EXACTMB2N1: 8
+
+  OP_EXACTMB2N2: 9
+
+  OP_EXACTMB2N3: 10
+
+  OP_EXACTMB2N: 11
+
+  OP_EXACTMB3N: 12
+
+  OP_EXACTMBN: 13
+
+  OP_EXACT1_IC: 14
+
+  OP_EXACTN_IC: 15
+
+  OP_CCLASS: 16
+
+  OP_CCLASS_MB: 17
+
+  OP_CCLASS_MIX: 18
+
+  OP_CCLASS_NOT: 19
+
+  OP_CCLASS_MB_NOT: 20
+
+  OP_CCLASS_MIX_NOT: 21
+
+  OP_ANYCHAR: 22
+
+  OP_ANYCHAR_ML: 23
+
+  OP_ANYCHAR_STAR: 24
+
+  OP_ANYCHAR_ML_STAR: 25
+
+  OP_ANYCHAR_STAR_PEEK_NEXT: 26
+
+  OP_ANYCHAR_ML_STAR_PEEK_NEXT: 27
+
+  OP_WORD: 28
+
+  OP_NOT_WORD: 29
+
+  OP_WORD_BOUND: 30
+
+  OP_NOT_WORD_BOUND: 31
+
+  OP_ASCII_WORD: 34
+
+  OP_NOT_ASCII_WORD: 35
+
+  OP_ASCII_WORD_BOUND: 36
+
+  OP_NOT_ASCII_WORD_BOUND: 37
+
+  OP_BEGIN_BUF: 40
+
+  OP_END_BUF: 41
+
+  OP_BEGIN_LINE: 42
+
+  OP_END_LINE: 43
+
+  OP_SEMI_END_BUF: 44
+
+  OP_BEGIN_POSITION: 45
+
+  OP_BACKREF1: 46
+
+  OP_BACKREF2: 47
+
+  OP_BACKREFN: 48
+
+  OP_BACKREFN_IC: 49
+
+  OP_BACKREF_MULTI: 50
+
+  OP_BACKREF_MULTI_IC: 51
+
+  OP_BACKREF_WITH_LEVEL: 52
+
+  OP_MEMORY_START: 53
+
+  OP_MEMORY_START_PUSH: 54
+
+  OP_MEMORY_END_PUSH: 55
+
+  OP_MEMORY_END_PUSH_REC: 56
+
+  OP_MEMORY_END: 57
+
+  OP_MEMORY_END_REC: 58
+
+  OP_KEEP: 59
+
+  OP_FAIL: 60
+
+  OP_JUMP: 61
+
+  OP_PUSH: 62
+
+  OP_POP: 63
+
+  OP_PUSH_IF_PEEK_NEXT: 65
+
+  OP_REPEAT: 66
+
+  OP_REPEAT_NG: 67
+
+  OP_REPEAT_INC: 68
+
+  OP_REPEAT_INC_NG: 69
+
+  OP_REPEAT_INC_SG: 70
+
+  OP_REPEAT_INC_NG_SG: 71
+
+  OP_NULL_CHECK_START: 72
+
+  OP_NULL_CHECK_END: 73
+
+  OP_NULL_CHECK_END_MEMST: 74
+
+  OP_NULL_CHECK_END_MEMST_PUSH: 75
+
+  OP_PUSH_POS: 76
+
+  OP_POP_POS: 77
+
+  OP_PUSH_POS_NOT: 78
+
+  OP_FAIL_POS: 79
+
+  OP_PUSH_STOP_BT: 80
+
+  OP_POP_STOP_BT: 81
+
+  OP_LOOK_BEHIND: 82
+
+  OP_PUSH_LOOK_BEHIND_NOT: 83
+
+  OP_FAIL_LOOK_BEHIND_NOT: 84
+
+  OP_PUSH_ABSENT_POS: 85
+
+  OP_ABSENT: 86
+
+  OP_ABSENT_END: 87
+
+  OP_CALL: 88
+
+  OP_RETURN: 89
+
+  OP_CONDITION: 90
+
+  # The return values of an opcode def.
+  ONIG_OP_NEXT: 0
+
+  ONIG_OP_FAIL: 1
+
+  ONIG_OP_FINISH: 2
+
+  def zr_onig_get_i32: (untyped p) -> untyped
+
+  def zr_onig_bitset_at: (untyped p, untyped c) -> untyped
+
+  def zr_onig_repeat_range: (untyped m, untyped id, untyped which) -> untyped
+
+  def zr_onig_now: () -> untyped
+
+  def zr_onig_check_interrupt: (untyped m) -> (false | untyped)
+
+  def zr_onig_check_clock: (untyped m) -> (false | untyped)
+
+  def zr_onig_op_end: (untyped m) -> untyped
+
+  def zr_onig_op_exact: (untyped m, untyped op) -> untyped
+
+  def zr_onig_op_exact_mb: (untyped m, untyped op) -> untyped
+
+  def zr_onig_cclass_mb: (untyped m, untyped p, untyped s, untyped sbegin) -> untyped
+
+  def zr_onig_cclass_mb_not: (untyped m, untyped p, untyped s, untyped sbegin) -> untyped
+
+  def zr_onig_op_cclass: (untyped m, untyped op) -> untyped
+
+  def zr_onig_op_anychar: (untyped m, untyped op) -> untyped
+
+  def zr_onig_op_word: (untyped m, untyped op) -> untyped
+
+  def zr_onig_op_anchor: (untyped m, untyped op) -> untyped
+
+  def zr_onig_backref_one: (untyped m, untyped mem, untyped ic) -> untyped
+
+  def zr_onig_op_backref: (untyped m, untyped op) -> untyped
+
+  def zr_onig_op_memory: (untyped m, untyped op) -> untyped
+
+  def zr_onig_repeat_inc: (untyped m, untyped mem, untyped si, untyped p, untyped pbegin) -> untyped
+
+  def zr_onig_repeat_inc_ng: (untyped m, untyped mem, untyped si, untyped p, untyped pbegin) -> untyped
+
+  def zr_onig_op_control: (untyped m, untyped op) -> untyped
+
+  def zr_onig_null_check_found: (untyped m, untyped p) -> untyped
+
+  def zr_onig_op_null_check: (untyped m, untyped op) -> untyped
+
+  def zr_onig_op_pos: (untyped m, untyped op) -> untyped
+
+  def zr_onig_op_absent: (untyped m, untyped op) -> untyped
+
+  def zr_onig_op_call: (untyped m, untyped op) -> untyped
+
+  def zr_onig_step: (untyped m, untyped op) -> untyped
+
+  def zr_onig_match_at: (untyped m, untyped sstart, untyped sprev) -> untyped
+end

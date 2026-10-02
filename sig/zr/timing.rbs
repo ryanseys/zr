@@ -1,0 +1,15 @@
+module Zr
+  # With `ZR_TIMING=1`, each build phase prints one line to stderr when it
+  # ends. The line gives the seconds, the collector's run count, and its
+  # marking and sweeping milliseconds for the phase. Both ruby and a zr
+  # binary report these (GC.stat).
+  module Timing
+    # Runs the block, the phase `label`, and returns its value.
+    def self?.phase: (untyped label) { () -> untyped } -> untyped
+
+    # `[count, majors, marking ms, sweeping ms]` so far, zeros where the
+    # collector does not say. A collector that does not know a key raises;
+    # the line is for a person, so it shows zeros and the build continues.
+    def self?.collector: () -> untyped
+  end
+end

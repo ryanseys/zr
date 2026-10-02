@@ -1,0 +1,60 @@
+# Proc and Method: composition and currying, written over `call`.
+class Proc
+  # The scope the block was written in.
+  def binding: () -> untyped
+
+  alias === call
+
+  # `lambda: true` reports a plain positional as :req and `false` as
+  # :opt; nil takes the view this proc has of its own.
+  def parameters: (?lambda: untyped?) -> untyped
+
+  def to_proc: () -> self
+
+  # Only a proc with a rest and no keywords or post parameters can
+  # take keywords in its rest; any other shape causes a warning.
+  def ruby2_keywords: () -> (self | untyped)
+
+  # `f >> g` calls f then g; `f << g` calls g then f. The result is a
+  # lambda when the proc whose arguments it takes first is one, or when
+  # that is any other callable.
+  def >>: (untyped other) -> untyped
+
+  def <<: (untyped other) -> untyped
+
+  # A proc that collects arguments over calls until `arity` of them
+  # arrived, then calls this one. A lambda's arity is checked here.
+  def curry: (?untyped? arity) -> untyped
+
+  # rb_proc_min_max_arity: the required count (and one for required
+  # keywords), and the most (and one for any keywords), nil when a rest
+  # takes any number.
+  def self.min_max_arity: (untyped pr) -> (::Array[untyped | nil] | ::Array[untyped])
+
+  def self.callable: (untyped other) -> untyped
+
+  # `2..3`, `2+` or `2` as a lambda's arity reads in an error.
+  def self.arity_range: (untyped pr) -> (::String | untyped)
+
+  private
+
+  def compose: (untyped as_lambda) { (?) -> untyped } -> untyped
+
+  def curried: (untyped arity, untyped collected) -> untyped
+end
+
+class Method
+  # method_inspect: the parameter list that inspect shows, from what
+  # `parameters` gives, for a method with no compiled table of its own.
+  def self.params_shown: (untyped params) -> untyped
+
+  # The box where the method was defined, while boxes are on: its own box
+  # for a method a program wrote, the master box for one that ruby includes.
+  def box: () -> (nil | untyped)
+
+  def >>: (untyped other) -> untyped
+
+  def <<: (untyped other) -> untyped
+
+  def curry: (?untyped? arity) -> untyped
+end

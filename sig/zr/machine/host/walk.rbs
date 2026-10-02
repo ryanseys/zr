@@ -1,0 +1,342 @@
+module Zr
+  module Machine
+    class Host
+      # Runs HIR (the core library, then a program) on CRuby over the
+      # kernel's heap (A7). A value is a kernel Value; a send, a constant,
+      # a block and a raise go through the same kernel calls as the code
+      # that `Lower` emits (lib/zr/lower/function/*.rb), so a binary and
+      # the walker agree. A def and a block are functions of the kernel:
+      # Ruby procs at addresses that `Host#callable` gives.
+      #
+      # The walker compiles each scope's HIR to Ruby lambdas once (`Code`),
+      # and runs those: the work that depends only on the tree is done
+      # once, not at each run. The modules below follow the lowering's
+      # (`Lower::Function`): `Frames`, `Code`, `Sends`, `Control`,
+      # `Assign`, `Arguments` and `Definitions`.
+      #
+      # A pending unwind in the task (a raise, a break to a call site, a
+      # return from a block) is the Ruby exception `Unwind` in the walker,
+      # until a rescue, a call site or a frame takes it; a frame then
+      # returns QUNDEF to the kernel.
+      class Walk
+        @boot: untyped
+
+        @kern: untyped
+
+        @host: untyped
+
+        @qnil: untyped
+
+        @qtrue: untyped
+
+        @qfalse: untyped
+
+        @qundef: untyped
+
+        @ids: untyped
+
+        @sites: untyped
+
+        @cells: untyped
+
+        @metas: untyped
+
+        @fns: untyped
+
+        @tables: untyped
+
+        @once: untyped
+
+        # The bytes of a String that `value` makes, before the kernel
+        # copies them.
+        @scratch: untyped
+
+        @scratch_size: untyped
+
+        @task_slot: untyped
+
+        @boot_classes: untyped
+
+        @traced: untyped
+
+        @eval_files: untyped
+
+        @record: untyped
+
+        @line_at: untyped
+
+        @env_slots: untyped
+
+        @env_parent: untyped
+
+        @ary_ptr: untyped
+
+        @ary_len: untyped
+
+        @basic_klass: untyped
+
+        @proc_fn: untyped
+
+        @proc_env: untyped
+
+        @proc_self: untyped
+
+        @proc_cref: untyped
+
+        @proc_blk: untyped
+
+        @proc_ret_home: untyped
+
+        @proc_ret_serial: untyped
+
+        @proc_lambda: untyped
+
+        @cc_klass: untyped
+
+        @cc_stamp: untyped
+
+        @cc_entry: untyped
+
+        @cc_found: untyped
+
+        @cc_fn: untyped
+
+        @task_top: untyped
+
+        @task_set_top: untyped
+
+        @task_limit: untyped
+
+        @task_refine: untyped
+
+        @task_kw: untyped
+
+        @task_set_kw: untyped
+
+        @site_stamp: untyped
+
+        @poll: untyped
+
+        @trace_events: untyped
+
+        @integer: untyped
+
+        # One lowering takes a program and its units, or the units of eval
+        # support, so they share one spelling.
+        @spellings: untyped
+
+        @eval_support: untyped
+
+        @prism: untyped
+
+        include Frames
+
+        include Code
+
+        include Sends
+
+        include Control
+
+        include Assign
+
+        include Arguments
+
+        include Definitions
+
+        include Regexps
+
+        # The task has a pending unwind.
+        class Unwind < StandardError
+        end
+
+        # The one Unwind that the walker raises. Its backtrace is set, so a
+        # raise records none: an unwind out of 30,000 frames raises again in
+        # each, and a backtrace of the ruby stack at each would cost the
+        # square of the depth. With no cause, it never refers to itself.
+        UNWIND: untyped
+
+        # `retry`: the begin body again, from its rescue clause.
+        class RetryJump < StandardError
+        end
+
+        # A form the walker does not run yet.
+        class Unsupported < StandardError
+        end
+
+        # What a unit's code runs with: its file, as a backtrace shows it,
+        # whether it is the core library, and the units of its program,
+        # which its requires name by index, and the prism node id of each
+        # of its HIR nodes (for error_highlight). `core` is the core library
+        # itself, where a bare boot class name reads its global slot; an
+        # extension's Ruby part is internal but not core (`Lower#boot_class_slot`).
+        # `hidden` is a unit that loads only for the runtime's own use: its
+        # code reads the constants that such units set (`zr_const_sees_concealed`).
+        # `root` is the FrameMeta of an eval's toplevel: the walker makes the
+        # metas of its scopes when it first runs them, so each takes the box
+        # that `zr_box_stamp` gave the root. `traced` is a unit of a program
+        # that uses TracePoint, whose code fires events (`Lower#traced?`).
+        # `spelling` is the order of its program's local names (`Spelling`).
+        Unit: untyped
+
+        # The order in which a lowering first meets each local name of its
+        # program (`Lower#spell`): the toplevels in order, each scope's
+        # locals before the scopes in it. A captures table is in this order.
+        class Spelling
+          @roots: untyped
+
+          @order: untyped
+
+          def initialize: (untyped roots) -> void
+
+          def index: (untyped name) -> untyped
+
+          private
+
+          def order: () -> untyped
+        end
+
+        attr_reader boot: untyped
+
+        attr_reader kern: untyped
+
+        attr_reader host: untyped
+
+        def initialize: (?untyped boot) -> void
+
+        # Runs each core file's toplevel in the order a binary's
+        # `zr_prelude` runs them. Returns the Value of the last, or QUNDEF
+        # when one left a pending unwind.
+        def core: (?untyped target) -> untyped
+
+        # Runs the program `hir` (a Hir::Program) as `zr_toplevel`.
+        def program: (untyped hir, untyped file, ?untyped target) -> untyped
+
+        # CRuby's gem prelude, as `zr_gem_prelude`.
+        def gem_prelude: (?untyped target) -> untyped
+
+        # Runs `path` as a binary built from it runs: the boot, the core,
+        # the gem prelude, then the program, with `args` as ARGV. Returns
+        # the exit status.
+        def main: (untyped path, ?untyped args, ?target: untyped) -> untyped
+
+        # All a program needs before its first line: the core and the gem
+        # prelude. A test worker does this once, and forks for each program.
+        def prepare: (?untyped target) -> untyped
+
+        # Runs the program at `path` with `args` in ARGV, after `prepare`.
+        # Returns the exit status. `source` is the program's text in place
+        # of the file's.
+        def run: (untyped path, ?untyped args, ?target: untyped, ?source: untyped) -> untyped
+
+        # The symbol id of `name`, interned in the kernel's table if the
+        # kernel has not seen it.
+        def id: (untyped name) -> untyped
+
+        def sym: (untyped name) -> untyped
+
+        # Interns each Symbol in the trees `roots`, as a binary's symbol
+        # table has every name its program uses before the first line:
+        # Symbol.all_symbols lists one that has not run yet.
+        def interned: (untyped roots) -> untyped
+
+        private
+
+        def k: () -> untyped
+
+        # The running task (`zr_task`), read from its static slot.
+        def task: () -> untyped
+
+        # The offsets of the kernel's fields that the code reads and writes
+        # itself, and the statics it reads.
+        def layouts!: () -> untyped
+
+        def offset: (untyped layout, untyped field) -> untyped
+
+        # A core file's or a program's toplevel.
+        def toplevel: (untyped hir, untyped unit, untyped kind) -> untyped
+
+        # Gives the load tables what a link writes into a binary
+        # (`LoadTables#data`): the texts (`LoadTables#texts`: for a program with
+        # eval, what a require of a computed name searches; error_highlight's
+        # spots; Coverage's tables), and the files the program was built
+        # with, by path, each with its toplevel, where a require of a
+        # computed name finds its file (`zr_unit_for`).
+        TEXTS: ::Array["roots" | "missing" | "preloaded" | "ext" | "spots" | "coverable" | "branches" | "defs" | "sources" | "manifest"]
+
+        def spotted: (untyped hir, untyped target) -> untyped
+
+        # `values` as an argument vector in the slot area for a call that no
+        # frame makes; the slots are given back after the block.
+        def outside: (untyped values) { (untyped) -> untyped } -> untyped
+
+        # The compiler that a binary with eval links in, as the core's eval
+        # forms call it (lib/zr/runtime/lib/zr/eval/forms.rb): here it
+        # builds the HIR of the string and gives a function of the walker.
+        EVAL_SUPPORT: "module Zr\n  class Eval\n    def self.current = @current ||= new\n\n    def compile(source, file, line = 1, scopes = [], method = nil)\n      Primitive.attr! :hidden\n      # String#+ converts as prism does: `eval(123)` is a TypeError.\n      Primitive.zr_host_eval_compile(+\"\" + source, file, line, scopes, method)\n    end\n\n    def compile_file(path)\n      Primitive.attr! :hidden\n      Primitive.zr_host_eval_file(path)\n    end\n\n    # prism loads at the first parse: walking it takes seconds here.\n    def parse(source, line)\n      Primitive.attr! :hidden\n      Primitive.zr_host_prism\n      ::Prism.parse(source, line: line).value\n    end\n  end\nend\n"
+
+        # Eval support for a program's build (`Hir.build(prebuilt:)`), as a
+        # binary links it in: the libraries a program with eval gets
+        # (rubygems, rbconfig, pp, irb, ...), built once, which the program
+        # refers to and does not build again. Its compiler file stands for
+        # the host's own `Zr::Eval` (EVAL_SUPPORT), not for zr's compiler.
+        class EvalSupport
+          @loader: untyped
+
+          @compiler: untyped
+
+          @units: untyped
+
+          attr_reader loader: untyped
+
+          def initialize: (untyped target) -> void
+
+          # Each file by path, and its entry: `[:eval, index]` into the
+          # loader's units, or `[:eval]` for the compiler.
+          def units: () -> untyped
+
+          def configures?: () -> untyped
+
+          def normalizes?: () -> untyped
+
+          def pretty_prints?: () -> untyped
+
+          def irbs?: () -> untyped
+
+          def gems?: () -> untyped
+
+          def activations: () -> untyped
+        end
+
+        # Loads the eval forms, at the first program that evals.
+        def eval_support!: () -> (nil | untyped)
+
+        # `Zr::Eval#compile`: the code record of the string `source`, as the
+        # kernel reads it (`zr_code_word`): the toplevel, its FrameMeta,
+        # and the slot count and names of the Env for its own locals.
+        def eval_compile: (untyped source, untyped file, untyped line, untyped scopes, untyped method) -> untyped
+
+        # prism's files of eval support, required hidden as a binary's
+        # compiler requires them, the first time the host's `Zr::Eval#parse`
+        # runs.
+        def prism!: () -> untyped
+
+        # `Zr::Eval#compile_file`: the toplevel of a file that the program
+        # was not built with, as a fixnum address.
+        def eval_file: (untyped path) -> untyped
+
+        # A String's bytes as a Ruby String.
+        def text: (untyped s) -> untyped
+
+        # A plain Ruby value as a Value: nil, true, false, Integers of the
+        # fixnum range, Strings (their bytes) and Arrays of these. Each
+        # String and Array is pinned (`Host#pin`), so a collection while the
+        # rest is made keeps it.
+        def value: (untyped x) -> untyped
+
+        # A Value as a plain Ruby value: Integers, Symbols, Strings, Arrays,
+        # nil, true and false.
+        def ruby: (untyped v) -> (nil | true | false | untyped)
+      end
+    end
+  end
+end

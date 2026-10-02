@@ -1,0 +1,357 @@
+# Onigmo's multibyte encodings past Unicode: EUC-JP (enc/euc_jp.c),
+# Shift_JIS and Windows-31J (shift_jis.h), Big5, GBK and CP949 (big5.c,
+# gbk.c, cp949.c), EUC-KR (euc_kr.c), EUC-TW (euc_tw.c), GB18030
+# (gb18030.c) and Emacs-Mule (emacs_mule.c), with the helpers of
+# regenc.c they share (onigenc_mbn_*, onigenc_mb2_*, onigenc_mb4_*). A
+# port under the BSD-2-Clause license reproduced in regexp.rb.
+class Regexp
+  module Onig
+    module Enc
+      ACCEPT: -1
+
+      # trans[state][byte] of a state table String: -1 accepts, -2 fails.
+      def self.trans: (untyped table, untyped state, untyped byte) -> untyped
+
+      # An encoding whose mbc_enc_len walks a `trans` table from its lead
+      # byte: the result for each step's end of text comes from `need`.
+      class Automaton < Base
+        @name: untyped
+
+        @len: untyped
+
+        @trans: untyped
+
+        @trail: untyped
+
+        attr_reader name: untyped
+
+        def initialize: (untyped name, untyped tables) -> void
+
+        def min_len: () -> 1
+
+        # mbc_enc_len
+        def precise_len: (untyped s, untyped p, untyped e) -> untyped
+
+        # ONIGENC_CONSTRUCT_MBCLEN_NEEDMORE's count when the text ends
+        # after `k` bytes of a character that started with `first`.
+        def need: (untyped k, untyped first) -> untyped
+
+        # onigenc_mbn_mbc_to_code over `len` bytes (enclen, or
+        # mbc_enc_len where the encoding reads it so).
+        def mbn_to_code: (untyped s, untyped p, untyped e, untyped len) -> untyped
+
+        def mbc_to_code: (untyped s, untyped p, untyped e) -> untyped
+
+        # onigenc_mbn_mbc_case_fold
+        def mbc_case_fold: (untyped _flag, untyped s, untyped p, untyped e) -> (::Array[untyped | 1] | ::Array[untyped])
+
+        def apply_all_case_fold: (untyped _flag) { (?) -> untyped } -> untyped
+
+        def case_fold_codes_by_str: (untyped _flag, untyped s, untyped p, untyped _e) -> untyped
+
+        # onigenc_mb2_is_code_ctype / onigenc_mb4_is_code_ctype
+        def code_ctype?: (untyped code, untyped ctype) -> (untyped | false)
+
+        # onigenc_mb2_code_to_mbclen
+        def mb2_code_to_mbclen: (untyped code) -> (1 | 2 | untyped)
+
+        # onigenc_mb4_code_to_mbclen
+        def mb4_code_to_mbclen: (untyped code) -> (4 | 3 | 2 | 1)
+
+        # onigenc_mb2_code_to_mbc
+        def mb2_code_to_mbc: (untyped code) -> untyped
+
+        # onigenc_mb4_code_to_mbc
+        def mb4_code_to_mbc: (untyped code) -> untyped
+
+        # The `enclen(enc, buf, p) != (p - buf)` check of the code_to_mbc
+        # helpers.
+        def checked: (untyped buf) -> untyped
+
+        # The tail that every left_adjust_char_head of these encodings
+        # shares: from the head that `q` found, the character there if it
+        # contains `p`, else the even offset past it.
+        def adjust_tail: (untyped p, untyped q, untyped len) -> untyped
+
+        def kernel_tables: () -> { len: untyped, trans: untyped, trail: untyped }
+      end
+
+      # The JIS properties of EUC-JP, Shift_JIS and Windows-31J
+      # (enc/jis/props.h): six names past the POSIX ones, each a table of
+      # code ranges in the encoding's own codes.
+      module JIS
+        KEYWORDS: ::Array["hiragana" | "katakana" | "han" | "latin" | "greek" | "cyrillic"]
+
+        # The tables as flat [low, high, ...] Arrays.
+        def self.ranges: (untyped tables) -> untyped
+
+        # onig_jis_property: the name's bytes, as they are, matched
+        # without regard to ASCII case.
+        def property_name_to_ctype: (untyped s, untyped p, untyped e, ?untyped reader) -> untyped
+
+        def jis_ranges: (untyped ctype) -> untyped
+
+        def code_ctype?: (untyped code, untyped ctype) -> (untyped | false | untyped)
+
+        def wide_word?: (untyped code) -> untyped
+
+        # get_ctype_code_range: [sb_out, ranges], nil for the POSIX types.
+        def ctype_code_range: (untyped ctype) -> (nil | ::Array[128 | untyped])
+
+        # get_case_fold_codes_by_str
+        def case_fold_codes_by_str: (untyped _flag, untyped s, untyped p, untyped e) -> untyped
+      end
+
+      # EUC-JP
+      class EUCJP < Automaton
+        @props: untyped
+
+        @folds: untyped
+
+        include JIS
+
+        def initialize: () -> void
+
+        def max_len: () -> 3
+
+        def mbc_to_code: (untyped s, untyped p, untyped e) -> untyped
+
+        def code_to_mbclen: (untyped code) -> (1 | untyped | 3 | 2 | untyped)
+
+        # code_to_mbc: the bytes, or the error code when they are not one
+        # character.
+        def raw_code_to_mbc: (untyped code) -> untyped
+
+        def code_to_mbc: (untyped code) -> untyped
+
+        def lower_case: (untyped code) -> untyped
+
+        def upper_case: (untyped code) -> untyped
+
+        # mbc_case_fold: a character that folds to no character is read
+        # as its first byte.
+        def mbc_case_fold: (untyped _flag, untyped s, untyped p, untyped e) -> (::Array[untyped | 1] | ::Array[untyped])
+
+        def apply_all_case_fold: (untyped _flag) { (?) -> untyped } -> untyped
+
+        def left_adjust_char_head: (untyped s, untyped start, untyped p, untyped e) -> untyped
+
+        # eucjp_islead
+        def eucjp_lead?: (untyped c) -> untyped
+
+        def allowed_reverse_match?: (untyped s, untyped p, untyped _e) -> untyped
+
+        def kernel_kind: () -> untyped
+      end
+
+      # Shift_JIS and Windows-31J, which differ in their Han table.
+      class ShiftJIS < Automaton
+        @props: untyped
+
+        @folds: untyped
+
+        include JIS
+
+        def initialize: (untyped name, untyped props) -> void
+
+        def max_len: () -> 2
+
+        def mbc_to_code: (untyped s, untyped p, untyped e) -> untyped
+
+        def code_to_mbclen: (untyped code) -> (1 | untyped | 2 | untyped | untyped)
+
+        def code_to_mbc: (untyped code) -> untyped
+
+        def lower_case: (untyped code) -> untyped
+
+        def upper_case: (untyped code) -> untyped
+
+        def mbc_case_fold: (untyped _flag, untyped s, untyped p, untyped e) -> (::Array[untyped | 1] | ::Array[untyped])
+
+        def apply_all_case_fold: (untyped _flag) { (?) -> untyped } -> untyped
+
+        # is_code_ctype: every code past ASCII is a word, graph and print
+        # character.
+        def wide_word?: (untyped _code) -> true
+
+        def left_adjust_char_head: (untyped s, untyped start, untyped p, untyped e) -> untyped
+
+        def allowed_reverse_match?: (untyped s, untyped p, untyped _e) -> untyped
+
+        def kernel_kind: () -> untyped
+      end
+
+      # Big5 (and the Big5-HKSCS and Big5-UAO that read as it), GBK and
+      # CP949: two-byte encodings whose left_adjust_char_head steps back
+      # over trail bytes.
+      class Trail < Automaton
+        def max_len: () -> 2
+
+        def need: (untyped _k, untyped first) -> untyped
+
+        def code_to_mbclen: (untyped code) -> untyped
+
+        def code_to_mbc: (untyped code) -> untyped
+
+        def left_adjust_char_head: (untyped s, untyped start, untyped p, untyped e) -> untyped
+
+        def allowed_reverse_match?: (untyped s, untyped p, untyped _e) -> untyped
+
+        def kernel_kind: () -> untyped
+      end
+
+      # EUC-KR, and GB2312 and GB12345 that read as it.
+      class EUCKR < Automaton
+        def initialize: () -> void
+
+        def max_len: () -> 2
+
+        def need: (untyped _k, untyped first) -> untyped
+
+        def code_to_mbclen: (untyped code) -> untyped
+
+        def code_to_mbc: (untyped code) -> untyped
+
+        def left_adjust_char_head: (untyped s, untyped start, untyped p, untyped e) -> untyped
+
+        # euckr_islead
+        def euckr_lead?: (untyped c) -> untyped
+
+        def allowed_reverse_match?: (untyped s, untyped p, untyped _e) -> untyped
+
+        def kernel_kind: () -> untyped
+      end
+
+      # EUC-TW
+      class EUCTW < Automaton
+        def initialize: () -> void
+
+        def max_len: () -> 4
+
+        def need: (untyped k, untyped first) -> untyped
+
+        def code_to_mbclen: (untyped code) -> untyped
+
+        def code_to_mbc: (untyped code) -> untyped
+
+        def left_adjust_char_head: (untyped s, untyped start, untyped p, untyped e) -> untyped
+
+        # euctw_islead
+        def euctw_lead?: (untyped c) -> untyped
+
+        def allowed_reverse_match?: (untyped s, untyped p, untyped _e) -> untyped
+
+        def kernel_kind: () -> untyped
+      end
+
+      # GB18030
+      class GB18030 < Automaton
+        @map: untyped
+
+        C1: 0
+
+        C2: 1
+
+        C4: 2
+
+        CM: 3
+
+        def initialize: () -> void
+
+        def max_len: () -> 4
+
+        def need: (untyped k, untyped _first) -> (1 | untyped)
+
+        def code_to_mbclen: (untyped code) -> untyped
+
+        def code_to_mbc: (untyped code) -> untyped
+
+        def allowed_reverse_match?: (untyped s, untyped p, untyped _e) -> untyped
+
+        # The states of gb18030_left_adjust_char_head, in its order.
+        S_START: 0
+
+        S_ONE_C2: 1
+
+        S_ONE_C4: 2
+
+        S_ONE_CM: 3
+
+        S_ODD_CM_ONE_CX: 4
+
+        S_EVEN_CM_ONE_CX: 5
+
+        S_ONE_CMC4: 6
+
+        S_ODD_CMC4: 7
+
+        S_ONE_C4_ODD_CMC4: 8
+
+        S_EVEN_CMC4: 9
+
+        S_ONE_C4_EVEN_CMC4: 10
+
+        S_ODD_CM_ODD_CMC4: 11
+
+        S_EVEN_CM_ODD_CMC4: 12
+
+        S_ODD_CM_EVEN_CMC4: 13
+
+        S_EVEN_CM_EVEN_CMC4: 14
+
+        S_ODD_C4CM: 15
+
+        S_ONE_CM_ODD_C4CM: 16
+
+        S_EVEN_C4CM: 17
+
+        S_ONE_CM_EVEN_C4CM: 18
+
+        S_EVEN_CM_ODD_C4CM: 19
+
+        S_ODD_CM_ODD_C4CM: 20
+
+        S_EVEN_CM_EVEN_C4CM: 21
+
+        S_ODD_CM_EVEN_C4CM: 22
+
+        # For each state, what each byte class (C1, C2, C4, CM) does: a
+        # state to move to, or [:back, n] to return the position n bytes
+        # before the given one.
+        MOVES: ::Array[::Array[::Array[:back | 0] | untyped] | ::Array[::Array[:back | 1] | untyped] | ::Array[::Array[:back | 3] | untyped] | ::Array[::Array[:back | 2] | untyped]]
+
+        # What each state returns when the text runs out, as bytes back.
+        AT_START: ::Array[0 | 1 | 3 | 2]
+
+        # gb18030_left_adjust_char_head
+        def left_adjust_char_head: (untyped s, untyped start, untyped p, untyped _e) -> untyped
+
+        def kernel_kind: () -> untyped
+
+        def kernel_tables: () -> { map: untyped, trans: untyped }
+      end
+
+      # Emacs-Mule, and stateless-ISO-2022-JP that reads as it.
+      class EmacsMule < Automaton
+        def initialize: () -> void
+
+        def max_len: () -> 4
+
+        def code_to_mbclen: (untyped code) -> (1 | 4 | 3 | 2 | untyped)
+
+        def code_to_mbc: (untyped code) -> untyped
+
+        # mbc_case_fold: the bytes mbc_enc_len counts, as they are.
+        def mbc_case_fold: (untyped _flag, untyped s, untyped p, untyped e) -> (::Array[untyped | 1] | ::Array[untyped])
+
+        # is_code_ctype: any code past ASCII of more than a byte is of
+        # every type.
+        def code_ctype?: (untyped code, untyped ctype) -> untyped
+
+        def left_adjust_char_head: (untyped s, untyped start, untyped p, untyped _e) -> untyped
+
+        def kernel_kind: () -> untyped
+      end
+    end
+  end
+end

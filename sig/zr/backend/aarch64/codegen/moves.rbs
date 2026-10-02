@@ -1,0 +1,74 @@
+module Zr
+  module Backend
+    module Aarch64
+      class Codegen
+        private
+
+        # Parallel moves between registers and values. Each `[to, v]` of
+        # `dests` gets the source at the same index of `srcs`. A source is a
+        # value or a register, and `to` is a register or the value whose place
+        # gets it. No destination is written while a pending copy reads it.
+        # `SCRATCH[1]` breaks a cycle.
+        def move_registers: (untyped dests, untyped srcs) -> untyped
+
+        # One move of `move_registers`: to the register `to`, or to the
+        # home of the value `v`.
+        def move_register: (untyped to, untyped v, untyped src) -> untyped
+
+        # The location of a value between instructions: the register from
+        # the allocator, or the offset of its frame slot. Two values share a
+        # place only when they share a register, because each slot has its
+        # own offset.
+        #
+        # A Register or an Integer, with no tag. A Register compares by
+        # identity and is never equal to a number, so the two kinds cannot
+        # be confused. This runs several times for every edge in the program,
+        # so it must not make an Array.
+        #
+        # A constant made at its reads has no place and is never a
+        # destination. Its name is in place of a location, and no Register or
+        # Integer is equal to it.
+        def place: (untyped v) -> untyped
+
+        # The place of a value that has no register and no home.
+        def unhomed: (untyped v) -> untyped
+
+        # The copies of an edge, in an order where no destination is written
+        # while a source must still be read from it.
+        #
+        # An argument that is already in its parameter's place (for example a
+        # loop variable that the back edge passes without change) needs no
+        # instruction. Another argument needs one load, `mov` or store. A
+        # temporary is necessary only for a real cycle, where two parameters
+        # swap places.
+        #
+        # The saving is small: the allocator gives out ten registers, so most
+        # arguments and parameters are in the frame, and a slot-to-slot copy
+        # still costs a load and a store. The saving is on edges where one end
+        # has a register.
+        #
+        # `SCRATCH[0]` contains one copy and is dead after it. `SCRATCH[1]`
+        # contains the value that a broken cycle moved out, and is live until
+        # the last copy of that cycle.
+        def parallel_copy: (untyped dests, untyped srcs) -> untyped
+
+        # Emits every copy whose destination no pending copy reads, then
+        # every copy that this frees, until only cycles are left.
+        def drain: (untyped pending, untyped reads) -> untyped
+
+        # After `drain`, only cycles are left: every remaining destination is
+        # still read, and a copy reads one place, so the remaining places map
+        # one to one onto themselves.
+        #
+        # Move the source of one copy into a scratch register. Then the rest
+        # of its cycle can be emitted in order.
+        def break_cycle: (untyped pending) -> untyped
+
+        # Copies one value to the place of another. A source with a register
+        # home is stored directly from it. Only a slot source needs a load,
+        # which goes directly into the destination's register, if it has one.
+        def copy: (untyped dest, untyped source) -> untyped
+      end
+    end
+  end
+end

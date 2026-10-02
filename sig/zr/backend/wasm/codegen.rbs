@@ -1,0 +1,178 @@
+module Zr
+  module Backend
+    module Wasm
+      # The wasm32 emitter: writes IR functions and data objects as one WASI module.
+      #
+      # Values: each value is in a local of its type (`Locals`). Values whose
+      # live ranges do not overlap share a local. An i8 uses an i32 local. An
+      # i64 stays i64, so a pointer is 64 bits and wraps to 32 bits at each
+      # memory access.
+      #
+      # Control flow: one `loop` around nested `block`s and a `br_table` on a
+      # block-index local. Each IR block sets the index of its successor and
+      # branches to the loop. Stack slots are in a shadow stack in linear
+      # memory, below a global stack pointer.
+      #
+      # `LIBC_SHIMS`: the module defines some libc calls when no function
+      # defines them. `malloc` increments a heap pointer above the shadow
+      # stack and grows the memory, `free` does nothing, and `write` and
+      # `exit` become `fd_write` and `proc_exit` for a unit with no OS layer.
+      # The OS layer, lib/zr/runtime/kernel/os/wasi, implements every other call with
+      # its own imports. A function's address is its index in the one table,
+      # starting at 1 so that a pointer is never zero. `call_indirect` uses that table.
+      class Codegen
+        @functions: untyped
+
+        @data: untyped
+
+        @prelude: untyped
+
+        @pending: untyped
+
+        @imports: untyped
+
+        @shims: untyped
+
+        @index: untyped
+
+        @types: untyped
+
+        @table: untyped
+
+        @promised: untyped
+
+        @function_named: untyped
+
+        @data_at: untyped
+
+        @data_end: untyped
+
+        class Refused < Backend::Refused
+        end
+
+        PAGE: 65536
+
+        # The bottom of linear memory: the iovec scratch, then data objects,
+        # then the shadow stack growing up from its base.
+        SCRATCH: 16
+
+        DATA_BASE: 32
+
+        STACK_PAGES: 16
+
+        # Data objects at most this many bytes apart share a segment.
+        # wasmtime 48 checks each segment against its own alias region in the
+        # module's startup function, and a function can have at most 65,535
+        # regions. wasm itself allows 100,000 segments.
+        SEGMENT_GAP: 16
+
+        TYPE: { "i8" => 127, "i32" => 127, "i64" => 126, "f64" => 124 }
+
+        OP: { "i32" => { const: 65, add: 106, sub: 107, mul: 108, div_s: 109, div_u: 110, rem_s: 111, rem_u: 112, and: 113, or: 114, xor: 115, shl: 116, shr_s: 117, shr_u: 118, eq: 70, ne: 71, lt_s: 72, lt_u: 73, gt_s: 74, gt_u: 75, le_s: 76, le_u: 77, ge_s: 78, ge_u: 79 }, "i64" => { const: 66, add: 124, sub: 125, mul: 126, div_s: 127, div_u: 128, rem_s: 129, rem_u: 130, and: 131, or: 132, xor: 133, shl: 134, shr_s: 135, shr_u: 136, eq: 81, ne: 82, lt_s: 83, lt_u: 84, gt_s: 85, gt_u: 86, le_s: 87, le_u: 88, ge_s: 89, ge_u: 90 } }
+
+        WASI: "wasi_snapshot_preview1"
+
+        # An import: the module it comes from, its name, and its wasm
+        # parameter and result types.
+        Import: untyped
+
+        # The imports that the libc shims and `_start` call. Every module
+        # includes them, whatever its functions import.
+        OWN_IMPORTS: ::Array[untyped]
+
+        COND: { "eq" => :eq, "ne" => :ne, "slt" => :lt_s, "sle" => :le_s, "sgt" => :gt_s, "sge" => :ge_s, "ult" => :lt_u, "ule" => :le_u, "ugt" => :gt_u, "uge" => :ge_u }
+
+        # The runtime part of a module, emitted one time and kept. It contains
+        # the function names and signatures, their bodies, the types they use,
+        # the placed and patched data, the table, and the symbols that it refers
+        # to but a program defines. Those symbols have fixed indices and
+        # addresses (`pending`). A program's module puts its own part after
+        # this one and must define those symbols at those positions.
+        Prelude: untyped
+
+        # `prelude`: a Prelude that this module extends. `pending`: when this
+        # emits a prelude, the function and data names that another module
+        # defines, in the order that it must define them.
+        def initialize: (untyped functions, untyped data, ?prelude: untyped?, ?pending: untyped?) -> void
+
+        # Returns a Prelude of these functions and data, for modules to extend.
+        def prelude: () -> untyped
+
+        # Returns the module's bytes.
+        def emit: () -> untyped
+
+        # The function names, as a custom section. The program does not read
+        # it, but wasmtime does: a trap then shows `zr_ivtab_append` in place
+        # of `<wasm function 1097>`. It is as large as all symbol names, so
+        # it is emitted only on request.
+        def names_section: () -> untyped
+
+        # The active data segments for `[address, bytes]` objects: objects
+        # closer than SEGMENT_GAP bytes share one segment, with zeros between
+        # them.
+        def segments: (untyped placed) -> untyped
+
+        # Function index space: imports, then the shims, then the prelude's
+        # functions, then this module's functions (the prelude's pending
+        # ones first, at their fixed indices). Data comes after the prelude's
+        # data, with the pending objects first at their fixed addresses.
+        # Imports, shims, types and the table continue from the prelude's.
+        def layout: () -> untyped
+
+        # The module's own imports, then each import that its functions
+        # refer to, in order of first use.
+        def imports: () -> untyped
+
+        # The imports of the functions, with types from the IR signature of each call.
+        def imported: () -> untyped
+
+        # When this emits a prelude, the pending functions get the indices
+        # directly after this module's functions. The pending data gets the
+        # addresses directly after this module's data, 8 bytes each, except
+        # the last, which can be any size.
+        def promise: () -> (nil | untyped)
+
+        def signature: (untyped f) -> ::Array[untyped]
+
+        def type_index: (untyped t) -> untyped
+
+        def function_index: (untyped name) -> untyped
+
+        # Returns the wasm parameter and result types for a call to `name`,
+        # or nil for a function that this module does not know.
+        def function_type: (untyped name) -> untyped
+
+        # The table index that represents the address of `name`.
+        def table_index: (untyped name) -> untyped
+
+        # The wasm type of an IR signature.
+        def sig_type: (untyped s) -> ::Array[untyped]
+
+        # Returns a data object's bytes with every absolute relocation filled
+        # in. A function's address is its table index, as for `func_addr`.
+        def patched: (untyped d) -> untyped
+
+        def data_address: (untyped name) -> untyped
+
+        def place_data: (untyped at, untyped placed) -> untyped
+
+        # `_start`: main(0, 0), then proc_exit with its return value.
+        def start_body: () -> untyped
+
+        def leb: (untyped n) -> untyped
+
+        def sleb: (untyped n) -> untyped
+
+        def i32c: (untyped n) -> untyped
+
+        def vec: (untyped items) -> untyped
+
+        def vec_bytes: (untyped bytes) -> untyped
+
+        def name: (untyped s) -> untyped
+
+        def section: (untyped id, untyped payload) -> untyped
+      end
+    end
+  end
+end

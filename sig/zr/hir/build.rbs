@@ -1,0 +1,479 @@
+module Zr
+  module Hir
+    class Refused < Zr::Refused
+    end
+
+    # A form that ruby itself refuses when it compiles, not one that the
+    # HIR does not support yet. A build treats it as any other refusal: it
+    # stops and gives the line. But a program that compiles this at run
+    # time must get what ruby raises, a SyntaxError, and `Zr::Eval` makes
+    # it one.
+    class Invalid < Refused
+    end
+
+    # Prism to HIR. A form that the HIR does not support yet is refused,
+    # with a message that gives the form and the line. The rule: the same
+    # as CRuby, or refused. Never a guess.
+    class Build
+      @file: untyped
+
+      @eval: untyped
+
+      @loader: untyped
+
+      @root: untyped
+
+      # The prism node id of each HIR node that this file builds, by
+      # identity. The file's Unit keeps it, and the lowering drops it
+      # with the unit's tree (`Lower#spent`).
+      @node_ids: untyped
+
+      @encoding: untyped
+
+      @shadowed: untyped
+
+      @path: untyped
+
+      @singleton: untyped
+
+      @body_marks: untyped
+
+      @block_depth: untyped
+
+      @using: untyped
+
+      # The number of `using` entries that this build made. `statement`
+      # reads it to know if a search of its new statement can find one.
+      @usings: untyped
+
+      @in_def: untyped
+
+      @in_sclass: untyped
+
+      @dead: untyped
+
+      @activations: untyped
+
+      @temps: untyped
+
+      @scopes: untyped
+
+      # The line of each scope's last `:line` event, in the compiler's
+      # statement order (ruby's last_line).
+      @last_lines: untyped
+
+      @warnings: untyped
+
+      # The depth of each parameter of the method that an eval runs in,
+      # outside the eval's own scope. nil inside a def of the file,
+      # whose parameters are in its own scope.
+      @def_depths: untyped
+
+      @def_params: untyped
+
+      @flip_flops: untyped
+
+      @guarded: untyped
+
+      @certain: untyped
+
+      # The named calls that a site lowers to a kernel entry with a core
+      # fast path (Zr::Lower::Function::Sends::OPT_ENTRIES), with each
+      # one's argument count. A call with a different count, or with a
+      # block, keywords or a splat, raises or does something different,
+      # and only the real call can tell.
+      OPT_CALLS: { getbyte: 1, setbyte: 2, push: 1, pop: 0, shift: 0, :empty? => 0 }
+
+      # `eval_support` is false for an eval: the program already contains
+      # the compiler, so the eval must not compile it again. It is true to
+      # build the compiler into a program with eval. `prebuilt` is an
+      # EvalSupport that is already built (`Zr::EvalSupport`), or nil. With
+      # it, a program with eval refers to eval support's units and does not
+      # build them, also for every file that it shares with eval support.
+      # Only the end of a build knows if the program evals, so such a
+      # program is built again with eval support.
+      # `method` is the parameters of the method that an eval's string
+      # runs inside, as from Method#parameters, or nil outside a method:
+      # a `yield` has a block only inside a method, and a bare `super`
+      # passes those parameters.
+      # `trace` arms the events from the start, for an eval under an
+      # enabled TracePoint.
+      # `gem_set` is a GemSet (lib/zr/gem_set.rb): the gems that come
+      # before zr's standard library, or nil. `gate` stops the build at a
+      # require in the program's own files that no root has (Loader).
+      def self.program: (untyped source, untyped file, ?roots: untyped, ?eval_support: bool, ?prebuilt: untyped?, ?line: ::Integer, ?scopes: untyped?, ?method: untyped?, ?activations: untyped?, ?target: untyped, ?trace: bool, ?gem_set: untyped?, ?gate: bool) -> untyped
+
+      def initialize: (untyped file, ?untyped? loader, ?untyped encoding, ?shadowed: ::Hash[untyped, untyped], ?root: untyped?, ?eval: bool) -> void
+
+      # An eval's string runs inside a method. A bare `super` passes the
+      # parameters in `rows`, each read from the scope in `scopes`
+      # (innermost first) that contains it. A parameter with no name (a
+      # destructured one) cannot be passed, so neither `super` can.
+      def within_method: (untyped rows, untyped scopes) -> (nil | untyped)
+
+      # The warnings ruby's compiler gives for the file's regexp literals,
+      # after the parser's own.
+      attr_reader warnings: untyped
+
+      # The prism node id of each HIR node that this file built, or nil.
+      attr_reader node_ids: untyped
+
+      # Ruby's compiler warns as it compiles a file (not an eval) with a
+      # `return` of a value at its top level, where the value goes
+      # nowhere. The warning has the file and no line. A `return` in a
+      # `class << self` body belongs to a method or a block, never to the top level.
+      def top_return_warning: () -> (nil | untyped)
+
+      # The hidden locals the toplevel scope needs.
+      def temps: () -> untyped
+
+      # The names of the anonymous parameters `*`, `**`, `&` and `...`,
+      # as locals of the def that declares them.
+      ANONYMOUS: { rest: :*, kwrest: :**, block: :& }
+
+      # Builds `body` in a branch that a literal condition never takes,
+      # if `never` is true.
+      def dead: (untyped never) { () -> untyped } -> untyped
+
+      # Builds `body` one block scope deeper. A `using` in a block at the
+      # top level of a file refines the file's own scope, so it applies to
+      # the rest of the file after the block, as in ruby.
+      def in_block: () { () -> untyped } -> untyped
+
+      # Builds `body` in a new scope: a def or a class body.
+      def in_scope: () { () -> untyped } -> untyped
+
+      # A scope's locals: the parser's, then the hidden ones from its body.
+      def with_temps: (untyped locals) -> untyped
+
+      # The globals that are in the frame or the task, not the global
+      # table. An alias of one is a second name that the lowering resolves.
+      FRAME_GVARS: ::Array[:$~ | :$_ | :$! | :$@]
+
+      # The other names ruby gives one global.
+      GVAR_ALIASES: { :$PROGRAM_NAME => :$0, :$: => :$LOAD_PATH, :$-I => :$LOAD_PATH, :$" => :$LOADED_FEATURES, :$> => :$stdout, :$-0 => :$/, :$-F => :$;, :$-v => :$VERBOSE, :$-w => :$VERBOSE, :$-d => :$DEBUG }
+
+      def gvar_name: (untyped name) -> untyped
+
+      # A `$name` read: through an alias of a frame global, `$@` as the
+      # backtrace of `$!`, or the global itself.
+      def gvar_read: (untyped name, untyped line) -> untyped
+
+      # `$name = value`: a write through an alias of a frame global goes to
+      # that global, and keeps the program's name for error messages.
+      # Every back reference is read-only, as `$&` is.
+      def gvar_write: (untyped name, untyped value, untyped line) -> untyped
+
+      # `$&`, `` $` ``, `$'` and `$+`: from the last match, or nil if there
+      # is none.
+      def back_reference: (untyped node, untyped line) -> untyped
+
+      # `a..b` in a condition is a flip-flop: it is true from the run where
+      # the left side is true to the run where the right side is true. The
+      # state is a hidden local of the enclosing def, so a block shares its
+      # method's state, as in ruby.
+      def flip_flop: (untyped node, untyped line) -> untyped
+
+      # An end of a flip-flop. A missing end never fires. An integer
+      # literal is a test of the last line read, `$. == n`, as ruby's
+      # compiler makes it.
+      def end_test: (untyped node, untyped line) -> untyped
+
+      def flip_flop_state: () -> untyped
+
+      # `hoist` puts the `BEGIN { }` blocks of a file first, in their
+      # order, before anything else runs.
+      #
+      # A sequence returns its last statement's value, so the value of each
+      # earlier statement is never used, in every context.
+      def seq: (untyped node, ?hoist: bool, ?taken: bool) -> untyped
+
+      # One statement. Each send in it gets the activation that is active
+      # at the statement. A `using` changes the activation for the
+      # statements after it.
+      def statement: (untyped node, ?taken: bool) -> untyped
+
+      # The `using` entries in a statement, below its top level, which a
+      # condition can skip.
+      def usings_in: (untyped node, untyped seen, ?untyped out) -> untyped
+
+      # `using mod` where ruby permits it: at toplevel or in a class or
+      # module body, never in a method, and never as a send whose value
+      # is used.
+      def using_activation: (untyped node) -> (nil | untyped)
+
+      def mark_using: (untyped node, untyped seen) -> (nil | untyped)
+
+      # A prism node's HIR, noted with the node's id.
+      #
+      # `taken` is false if the program never uses this expression's
+      # value: a statement before the last of its scope, a `while` body,
+      # or a branch that a literal condition never selects. Ruby's
+      # compiler writes no code for such an expression and does not read
+      # it. So `puts 1; /[z-a]/; puts 2` runs, but the same literal as a
+      # scope's value is a SyntaxError. A regexp is the only literal that
+      # zr reads when it builds, so only it uses this flag.
+      def expr: (untyped node, ?taken: bool) -> untyped
+
+      # `hir` came from prism's `node`. Its frame reports that node's id,
+      # as node_id_for_backtrace_location reads it. A HIR node that an
+      # inner prism node already built keeps the inner node's id.
+      def noted: (untyped hir, untyped node) -> untyped
+
+      def built: (untyped node, ?taken: bool) -> untyped
+
+      # `begin ... end` with its clauses. A bare `begin ... end` is its
+      # body. A region's body and its `else` give the region's value, and
+      # have its `taken`. An `ensure` runs only for its effect, so its
+      # value is never used. A `rescue` body is different: ruby reads a
+      # regexp there even if the region's value is not used.
+      def protected_region: (untyped node, ?taken: bool) -> untyped
+
+      # The exceptions that rescue a missing file: ruby raises LoadError,
+      # a ScriptError, which a bare `rescue` (StandardError) does not catch.
+      LOAD_RESCUES: ::Array[:LoadError | :ScriptError | :Exception]
+
+      # Builds the block's body as the body of a region whose clauses
+      # start at `clause`. When one of them rescues LoadError, a require in
+      # the body is guarded: it can fail when it runs (`gate!`).
+      def guarded: (untyped clause) { () -> untyped } -> untyped
+
+      def rescue_clause: (untyped node) -> untyped
+
+      # The value of `return`, `break` and `next`: none is nil, one value
+      # is itself, and several are an Array.
+      def jump_value: (untyped arguments, untyped line) -> untyped
+
+      # `[scope, name]` of a constant path: nil for a bare name, :top for
+      # `::Name`, else the expression before the last `::`.
+      def constant_path: (untyped node) -> untyped
+
+      # The scope of a constant that `A::B op= v` reads and writes. A path
+      # of constants gives the same value twice. A computed scope goes into
+      # a hidden local, so it is evaluated once.
+      def constant_scope: (untyped node, untyped line) -> (::Array[untyped | nil] | ::Array[untyped])
+
+      def with_scope: (untyped prelude, untyped node, untyped line) -> untyped
+
+      def constant_only?: (untyped scope) -> untyped
+
+      def define: (untyped node) -> untyped
+
+      # The body with the `Primitive.attr!` calls of `marks` first, where
+      # a def's own attributes are.
+      def marked: (untyped body, untyped marks, untyped line) -> untyped
+
+      # Whether an eval is anywhere in this body, blocks included, nested
+      # defs not included. A `return` in an eval belongs to the enclosing
+      # method, so that method arms the catch for an unwind with no home.
+      # Every form of eval counts, because ruby gives them all that
+      # return: `instance_eval`, `class_eval` and `module_eval` of a
+      # string, and a `send` or `method` that calls one of them by name.
+      # A `return` in a `class << self` body has no home either: it returns
+      # from the method that holds the body.
+      def evals?: (untyped node, ?sclass: bool) -> (false | true | untyped)
+
+      # `Build.eval_call?` for a prism call, whose arguments are still
+      # nodes. A leading Symbol literal is the method name that a send
+      # calls or a fetch returns.
+      def eval_call?: (untyped node) -> untyped
+
+      # Runs a body with its definee: one step down the lexical path, and
+      # whether it is the singleton side. A `using` in a body applies to
+      # the rest of that body and to nothing outside it.
+      def in_definee: (untyped name, untyped singleton) { () -> untyped } -> untyped
+
+      # A bare `super`: passes the method's parameters with their current
+      # values, as a `Super` with the locals of the enclosing def.
+      def zsuper: (untyped node, untyped line) -> untyped
+
+      # A ParametersNode as one Params.
+      def parameters: (untyped node) -> untyped
+
+      # A required parameter: its name, or a MultiTarget for `(a, b)`. A
+      # bare super passes such an argument as it was given, so the full
+      # value is kept in a hidden local next to the destructured names.
+      def name_of: (untyped param) -> untyped
+
+      def multi_target: (untyped node) -> untyped
+
+      # One target of a multiple assignment.
+      def target: (untyped node) -> untyped
+
+      # The indexes of an index target. A splat disables the inline `[]`
+      # path, because the count is known only at run time.
+      def index_args: (untyped node, untyped line) -> untyped
+
+      # A rest parameter's name. `|a, |` has an implicit rest that binds
+      # nothing.
+      def rest_name: (untyped node) -> untyped
+
+      # A block literal, or the `&value` a call passes on.
+      def block: (untyped node) -> untyped
+
+      # A block's Params and the locals prism leaves implicit: `it`, or
+      # the numbered parameters.
+      def block_params: (untyped node) -> untyped
+
+      # Whether the definee of this call defines its own `require` or
+      # `load`, which dispatch finds before Kernel's.
+      def shadowed?: (untyped name) -> untyped
+
+      def call: (untyped node) -> untyped
+
+      # compile.c's opt_newarray_send: `[a, b].min` or `.max` on a literal
+      # that is not static and has no splat runs without Array#min, which
+      # compares in the other order. The core's own files keep the send.
+      def newarray_send?: (untyped node) -> untyped
+
+      # The program itself sends the method when it is redefined, so the
+      # send sees what the program sees.
+      def newarray_send: (untyped node) -> untyped
+
+      # A file of the program uses rubygems' API. rubygems' own files and
+      # the runtime's files do not count.
+      def gems!: (untyped name) -> (untyped | nil)
+
+      # `Primitive.attr! :ruby`, `:hidden`, `:ivars` or `:sends_each` in a
+      # class body of the core library: every later def in that body gets
+      # the attribute, as if each def started with it. `:ruby` marks
+      # methods that CRuby writes in Ruby. `:hidden` marks a class of
+      # helpers that CRuby writes as a C struct. `:ivars` marks a class
+      # whose instance variables CRuby shows. `:sends_each` marks methods
+      # that send `each` by name, as CRuby's rb_block_call does.
+      def body_mark: (untyped node) -> (nil | untyped)
+
+      # A string compiled at run time from a file with a location (loaded
+      # by `load`, or given a file by an eval) keeps its literal
+      # require_relative as a send. The name that it passes is made from
+      # that file's directory, which the runtime's frame cannot know.
+      def relative_in_file: (untyped node, untyped send) -> untyped
+
+      # A call as a plain Send, with none of the special forms above.
+      # `defined?` uses it, because it never runs the call. `compiles` is
+      # false for a require of a literal name that no root contains. The
+      # call searches at run time, and finds a file that was not compiled
+      # in only if the program changed $LOAD_PATH. That change already
+      # links in the compiler.
+      def plain_call: (untyped node, ?compiles: bool) -> untyped
+
+      def in_refine: (untyped name) { () -> untyped } -> untyped
+
+      # A call's line is its name's line, which can differ from the
+      # receiver's if the receiver has several lines.
+      def message_line: (untyped node) -> untyped
+
+      # The globals that ruby always has. Their `defined?` is
+      # "global-variable" whether they have a value or not (CRuby's hooked
+      # variables).
+      SPECIAL_GVARS: ::Array[:$! | :$@ | :$~ | :$_ | :$; | :$, | :$/ | :$\ | :$0 | :$* | :$$ | :$? | :$: | :$" | :$< | :$> | :$. | :$stdin | :$stdout | :$stderr | :$VERBOSE | :$DEBUG | :$FILENAME | :$LOAD_PATH | :$LOADED_FEATURES | :$PROGRAM_NAME]
+
+      # `defined?(value)`, as CRuby's defined_expr0: the result of each
+      # form. The form decides at compile time. Only an ivar, gvar, cvar,
+      # constant, method, yield or super is tested at run time.
+      def defined: (untyped node, untyped line) -> untyped
+
+      # Every form that writes a variable, a constant, an attribute or an
+      # index, including operator assignments. A named-capture match is a
+      # call.
+      def assignment?: (untyped node) -> untyped
+
+      # `for x in list; body; end` is `list.each { |x| body }` with the
+      # body in the enclosing scope: its locals move one scope out.
+      def for_loop: (untyped node) -> untyped
+
+      # `node` as read from one block scope deeper: every local at
+      # `level` or more is one scope further out.
+      def deepen: (untyped node, untyped level) -> untyped
+
+      # `[args, kwargs, block]` of an argument list: the args (with any
+      # Splats), the keywords as one HashLit or nil, and the block that
+      # `...` forwards, or nil.
+      def arguments: (untyped node) -> ::Array[untyped]
+
+      # The pairs of a call's keywords. A literal key given twice keeps its
+      # last place, as ruby's keyword arguments do (`r(b: 1, a: 2, b: 3)`
+      # is `{a: 2, b: 3}`), where a Hash literal keeps the first. Each
+      # earlier value still runs in its place, as `**(value; {})`. Only
+      # keywords that are all Symbol literals compile so; with a `**` or
+      # any other key among them, ruby builds a Hash, which keeps the
+      # first place.
+      def call_keyword_pairs: (untyped pairs, untyped line) -> untyped
+
+      # `*value`, or a bare `*`: the anonymous rest parameter that the
+      # method forwards, anywhere a splat can be.
+      def splat: (untyped node, untyped line) -> untyped
+
+      # The bodies that a file always runs when it loads: its own
+      # statements, a class or a module body, and a `begin` for grouping.
+      # A branch, a loop, a block and a method body are not included.
+      def self.always_run: (untyped node) -> untyped
+
+      # Every `alias $x $&` the file always runs, by identity.
+      def self.certain_aliases: (untyped node, ?untyped out) -> untyped
+
+      # Whether this file always runs `node`. The walk occurs at the first
+      # call, which for almost every file never occurs.
+      def certain_alias?: (untyped node) -> (true | untyped)
+
+      def refuse: (untyped node, untyped message) -> untyped
+
+      # A form of Ruby that zr does not support yet, at the node's line and
+      # column. `form` is in user words (Refused.form_of).
+      def unsupported: (untyped node, ?untyped form) -> untyped
+
+      # A refusal of a form that ruby also refuses. A program that compiles
+      # it at run time gets the SyntaxError that ruby raises.
+      def invalid: (untyped node, untyped message) -> untyped
+
+      private
+
+      def lambda_literal: (untyped node, untyped line) -> untyped
+
+      def undef_names: (untyped node, untyped line) -> untyped
+
+      def super_call: (untyped node, untyped line) -> untyped
+
+      def if_branch: (untyped node, untyped line, taken: untyped) -> untyped
+
+      def unless_branch: (untyped node, untyped line, taken: untyped) -> untyped
+
+      # A loop returns nil, so its body's value is not used.
+      def while_loop: (untyped node, untyped line) -> untyped
+
+      def until_loop: (untyped node, untyped line) -> untyped
+
+      def class_body: (untyped node, untyped line) -> untyped
+
+      def module_body: (untyped node, untyped line) -> untyped
+
+      def singleton_class_body: (untyped node, untyped line) -> untyped
+
+      def const_read: (untyped node, untyped line) -> untyped
+
+      def const_path_read: (untyped node, untyped line) -> untyped
+
+      def interpolated_string: (untyped node, untyped line) -> untyped
+
+      def range_literal: (untyped node, untyped line) -> untyped
+
+      def alias_method_names: (untyped node, untyped line) -> untyped
+
+      def alias_global: (untyped node, untyped line) -> untyped
+
+      def case_when: (untyped node, untyped line, taken: untyped) -> untyped
+
+      def index_op_assign: (untyped node, untyped line) -> untyped
+
+      def attr_op_assign: (untyped node, untyped line) -> untyped
+
+      def post_execution: (untyped node, untyped line) -> untyped
+    end
+
+    # The runtime files whose instance variables a program sees as in
+    # ruby: prism's port, which changes the prism gem's nodes after they
+    # are built, and openssl's port (its C creates each visible instance
+    # variable by name and keeps the rest in hidden slots).
+    VISIBLE_IVARS: untyped
+  end
+end

@@ -1,0 +1,407 @@
+module Prism
+  module Ruby
+    # pm_token_t, where a token is copied by value.
+    Token: untyped
+
+    # not_provided: the placeholder for a token that is absent without
+    # error, at the start of the source.
+    NOT_PROVIDED: untyped
+
+    # A diagnostic in discovery order: its id (a ParseError#type Symbol),
+    # its byte range, its message bytes and its level.
+    Diagnostic: untyped
+
+    # pm_lex_mode_t: the mode and whichever of its fields that mode reads.
+    LexMode: untyped
+
+    # pm_parser_t and prism.c's functions over it. The class is reopened by
+    # one file per part of prism.c (lexer.rb, escapes.rb, and the parser's
+    # families), as prism.c is one file of sections.
+    #
+    # Offsets into the source are Integers. The current and previous tokens
+    # are three instance variables each, as C reads their fields in place;
+    # `previous_token` and `current_token` copy one where C copies a
+    # pm_token_t.
+    class Parser
+      @source: untyped
+
+      @end: untyped
+
+      @options: untyped
+
+      @node_id: untyped
+
+      @lex_state: untyped
+
+      @enclosure_nesting: untyped
+
+      @lambda_enclosure_nesting: untyped
+
+      @brace_nesting: untyped
+
+      @do_loop_stack: untyped
+
+      @accepts_block_stack: untyped
+
+      @lex_modes: untyped
+
+      @breakpoints: untyped
+
+      @lex_mode: untyped
+
+      @previous_type: untyped
+
+      @previous_start: untyped
+
+      @current_type: untyped
+
+      @current_start: untyped
+
+      @next_start: untyped
+
+      @heredoc_end: untyped
+
+      @comments: untyped
+
+      # The strings that are slices of the source, by identity, with where
+      # each starts (pm_string_t's shared kind), for Prism.dump.
+      @shared_strings: untyped
+
+      @magic_comments: untyped
+
+      @data_loc: untyped
+
+      @warnings: untyped
+
+      @errors: untyped
+
+      @current_scope: untyped
+
+      @contexts: untyped
+
+      @current_hash_keys: untyped
+
+      @encoding: untyped
+
+      @encoding_comment_start: untyped
+
+      @lex_callback: untyped
+
+      @encoding_changed_callback: untyped
+
+      @filepath: untyped
+
+      @constant_pool: untyped
+
+      # pm_newline_list_t: the offset each line starts at.
+      @newlines: untyped
+
+      @integer_base: untyped
+
+      @current_string: untyped
+
+      @start_line: untyped
+
+      @explicit_encoding: untyped
+
+      @current_block_exits: untyped
+
+      @version: untyped
+
+      @command_line: untyped
+
+      @frozen_string_literal: untyped
+
+      @parsing_eval: untyped
+
+      @partial_script: untyped
+
+      @command_start: untyped
+
+      @recovering: untyped
+
+      @encoding_locked: untyped
+
+      @encoding_changed: untyped
+
+      @pattern_matching_newlines: untyped
+
+      @in_keyword_arg: untyped
+
+      @semantic_token_seen: untyped
+
+      @current_regular_expression_ascii_only: untyped
+
+      @warn_mismatched_indentation: untyped
+
+      @node_source: untyped
+
+      # The Symbol of each constant id, made on first use.
+      @constant_symbols: untyped
+
+      # The ids of the numeric nodes negated to a zero (`-0`).
+      @negative_zeros: untyped
+
+      @current_end: untyped
+
+      include Characters
+
+      # pm_lex_state_t
+      STATE_NONE: 0
+
+      STATE_BEG: untyped
+
+      STATE_END: untyped
+
+      STATE_ENDARG: untyped
+
+      STATE_ENDFN: untyped
+
+      STATE_ARG: untyped
+
+      STATE_CMDARG: untyped
+
+      STATE_MID: untyped
+
+      STATE_FNAME: untyped
+
+      STATE_DOT: untyped
+
+      STATE_CLASS: untyped
+
+      STATE_LABEL: untyped
+
+      STATE_LABELED: untyped
+
+      STATE_FITEM: untyped
+
+      STATE_BEG_ANY: untyped
+
+      STATE_ARG_ANY: untyped
+
+      STATE_END_ANY: untyped
+
+      # pm_integer_base_flags, which the lexer leaves for the parser.
+      INTEGER_BASE_BINARY: untyped
+
+      INTEGER_BASE_DECIMAL: untyped
+
+      INTEGER_BASE_OCTAL: untyped
+
+      INTEGER_BASE_HEXADECIMAL: untyped
+
+      # PM_TAB_WHITESPACE_SIZE
+      TAB_WHITESPACE_SIZE: 8
+
+      attr_reader source: untyped
+
+      attr_reader errors: untyped
+
+      attr_reader warnings: untyped
+
+      attr_reader comments: untyped
+
+      attr_reader magic_comments: untyped
+
+      attr_reader data_loc: untyped
+
+      attr_reader newlines: untyped
+
+      attr_reader constant_pool: untyped
+
+      attr_reader encoding: untyped
+
+      attr_reader start_line: untyped
+
+      attr_reader options: untyped
+
+      attr_reader shared_strings: untyped
+
+      attr_reader negative_zeros: untyped
+
+      # The Source that each node refers to.
+      attr_accessor node_source: untyped
+
+      # pm_lex_callback_t: called with each token's type, start and end, and
+      # the lex state after it.
+      attr_writer lex_callback: untyped
+
+      # pm_encoding_changed_callback_t: called when a magic comment changes
+      # the encoding.
+      attr_writer encoding_changed_callback: untyped
+
+      # pm_parser_init
+      def initialize: (untyped source, untyped options) -> void
+
+      # Whether a lex mode other than the default one is open (the lex mode
+      # stack's index past 0).
+      def lex_mode_nested?: () -> untyped
+
+      def current_token: () -> untyped
+
+      def previous_token: () -> untyped
+
+      # The Symbol of the constant numbered `id`, as the loader makes it.
+      def constant_symbol: (untyped id) -> untyped
+
+      # The Encoding the source's strings take.
+      def ruby_encoding: () -> untyped
+
+      private
+
+      def read_options: (untyped options) -> untyped
+
+      def skip_bom: () -> (nil | untyped)
+
+      # The shebang handling of pm_parser_init: a first line that names ruby
+      # moves where an encoding comment may be; with -x, or with a main
+      # script whose shebang does not name ruby, parsing starts at the first
+      # shebang line that does.
+      def find_shebang: (untyped options) -> (nil | untyped)
+
+      # pm_strnstr: whether `little` lies within `length` bytes of `from`.
+      def strnstr: (untyped from, untyped little, untyped length) -> untyped
+
+      # pm_parser_warn_shebang_carriage_return
+      def warn_shebang_carriage_return: (untyped start, untyped length) -> (nil | untyped)
+
+      def command_line?: (untyped flag) -> untyped
+
+      # pm_diagnostic_list_append and its _format twin: the message filled
+      # from the C format with `arguments`.
+      def diagnostic: (untyped list, untyped table, untyped start, untyped finish, untyped id, untyped arguments) -> untyped
+
+      # pm_parser_err, PM_PARSER_ERR_FORMAT
+      def err: (untyped start, untyped finish, untyped id, *untyped arguments) -> untyped
+
+      # pm_parser_warn, PM_PARSER_WARN_FORMAT
+      def warn: (untyped start, untyped finish, untyped id, *untyped arguments) -> untyped
+
+      def err_current: (untyped id, *untyped arguments) -> untyped
+
+      def err_previous: (untyped id, *untyped arguments) -> untyped
+
+      def warn_current: (untyped id, *untyped arguments) -> untyped
+
+      # PM_PARSER_ERR_TOKEN_FORMAT_CONTENT with the current token.
+      def err_current_content: (untyped id) -> untyped
+
+      # pm_parser_err_heredoc_term
+      def err_heredoc_term: (untyped ident_start, untyped ident_length) -> untyped
+
+      # lex_mode_incrementor
+      def lex_mode_incrementor: (untyped start) -> (untyped | 0)
+
+      # lex_mode_terminator
+      def lex_mode_terminator: (untyped start) -> untyped
+
+      # lex_mode_push
+      def lex_mode_push: (untyped mode) -> untyped
+
+      # lex_mode_push_list
+      def lex_mode_push_list: (untyped interpolation, untyped delimiter) -> untyped
+
+      # lex_mode_push_list_eof
+      def lex_mode_push_list_eof: () -> untyped
+
+      # lex_mode_push_regexp
+      def lex_mode_push_regexp: (untyped incrementor, untyped terminator) -> untyped
+
+      # lex_mode_push_string
+      def lex_mode_push_string: (untyped interpolation, untyped label_allowed, untyped incrementor, untyped terminator) -> untyped
+
+      # lex_mode_push_string_eof
+      def lex_mode_push_string_eof: () -> untyped
+
+      # lex_mode_pop: the bottom mode is never popped, only made default.
+      def lex_mode_pop: () -> untyped
+
+      def lex_state?: (untyped state) -> untyped
+
+      # lex_state_ignored_p: :none, :all or :pattern.
+      def lex_state_ignored: () -> (:all | :pattern | :none)
+
+      # lex_state_beg_p
+      def lex_state_beg?: () -> untyped
+
+      # lex_state_arg_p
+      def lex_state_arg?: () -> untyped
+
+      # lex_state_spcarg_p
+      def lex_state_spcarg?: (untyped space_seen) -> (false | untyped)
+
+      # lex_state_end_p
+      def lex_state_end?: () -> untyped
+
+      # lex_state_operator_p
+      def lex_state_operator?: () -> untyped
+
+      # pm_accepts_block_stack_push, which pushes the negation.
+      def accepts_block_stack_push: (untyped value) -> untyped
+
+      def accepts_block_stack_pop: () -> untyped
+
+      def accepts_block_stack?: () -> untyped
+
+      def do_loop_stack_push: (untyped value) -> untyped
+
+      def do_loop_stack_pop: () -> untyped
+
+      def do_loop_stack?: () -> untyped
+
+      # pm_parser_scope_push
+      def scope_push: (untyped closed) -> untyped
+
+      # pm_parser_scope_pop
+      def scope_pop: () -> untyped
+
+      # pm_parser_constant_id_location
+      def constant_id_location: (untyped start, untyped finish) -> untyped
+
+      # pm_parser_constant_id_owned
+      def constant_id_owned: (untyped bytes) -> untyped
+
+      # pm_parser_constant_id_constant
+      def constant_id_constant: (untyped bytes) -> untyped
+
+      # pm_parser_local_depth_constant_id: how many scopes out the local is,
+      # or -1.
+      def local_depth_constant_id: (untyped constant_id) -> (untyped | -1)
+
+      # pm_parser_local_depth, which interns the token's name.
+      def local_depth: (untyped start, untyped finish) -> untyped
+
+      # pm_parser_local_add
+      def local_add: (untyped constant_id, untyped start, untyped finish, untyped reads) -> untyped
+
+      # pm_parser_local_add_owned
+      def local_add_owned: (untyped bytes) -> untyped
+
+      # pm_newline_list_append: the newline at `at` starts a line after it.
+      def newline_append: (untyped at) -> untyped
+
+      # peek_at
+      def peek_at: (untyped cursor) -> (untyped | 0)
+
+      # peek_offset
+      def peek_offset: (untyped offset) -> untyped
+
+      # peek
+      def peek: () -> untyped
+
+      # match
+      def match: (untyped value) -> (false | true)
+
+      # match_eol_at: the length of a line ending at `cursor`, or 0.
+      def match_eol_at: (untyped cursor) -> (1 | 2 | 0)
+
+      def match_eol_offset: (untyped offset) -> untyped
+
+      def match_eol: () -> untyped
+
+      # next_newline: the offset of the next \n at or after `cursor` before
+      # `limit`, or nil.
+      def next_newline: (untyped cursor, ?untyped limit) -> untyped
+    end
+  end
+end

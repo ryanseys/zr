@@ -1,0 +1,81 @@
+module Zr
+  module Library
+    # The directories that a program's `require` reads, and the names that
+    # the loader treats as part of the runtime. The directories: ruby 4.0.7's
+    # own library and bundled gems as a stock ruby installs them, in
+    # vendor/ruby (`zr-dev vendor` writes it, lib/zr/library/vendor.rb). zr
+    # compiles their files into the program, and never loads them itself. A
+    # build reads no gem of the host, so it needs no gem but zr, and two
+    # machines build the same bytes.
+    #
+    # The gems with a C part are zr's own (lib/zr/library/ports.rb).
+    module Roots
+      # The name of the kernel's description (`Runtime#carried_text`), which
+      # `require "zr_description"` finds. No file has it: the loader takes
+      # its source from the runtime. So the name is the same in every
+      # checkout and cache, and a compiler that zr builds does not carry
+      # where its cache was. It is part of the runtime, as its kernel is.
+      DESCRIPTION: "<zr>/zr_description.rb"
+
+      # The compiler that a program with eval links in, and the
+      # tree-walking interpreter for a program that cannot write machine
+      # code into itself. Both contain the same front end. `Zr::Eval`
+      # gives the back end that each one runs.
+      EVAL_COMPILER: untyped
+
+      EVAL_INTERPRETER: untyped
+
+      # The directory of ruby's own library and the default gems.
+      def self?.pure: () -> untyped
+
+      # The lib directory of each bundled gem, in Stdlib::BUNDLED's order,
+      # each in its own directory, as ruby installs them.
+      def self?.bundled_roots: () -> untyped
+
+      # The lib directory of the bundled gem `name`.
+      def self?.lib_of: (untyped name) -> untyped
+
+      # `[pure, bundled_roots]`.
+      def self?.upstream: () -> untyped
+
+      # A program that includes the compiler uses the directories from its
+      # build, because it can run on a machine with no zr. Only a build
+      # with eval support writes them (`LoadTables`): the roots of
+      # `Roots.stdlib`, ruby's library first and the bundled gems
+      # last. Other compiled compilers find vendor/ruby beside themselves.
+      def self?.carried: () -> (nil | untyped)
+
+      # The library roots for `target`, in search order. zr's own code
+      # comes first: the OS layer's native parts and tables, then the
+      # portable ones, then zr's own libraries. A file there replaces an upstream file of the same
+      # name (lib/zr/runtime/ext/date.rb, not ruby's date.rb). Then the port gems,
+      # which win over ruby's own copies as an installed gem wins over a
+      # default gem (json 3.0.2, not 2.18.0), then ruby's own library,
+      # then the bundled gems in their own directories.
+      def self?.stdlib: (?untyped target) -> untyped
+
+      # Every file of the library, for a stamp of what a build can read.
+      def self?.files: () -> untyped
+
+      def self?.runtime_file?: (untyped file) -> untyped
+
+      def self?.description?: (untyped file) -> untyped
+
+      # Gives the source of the kernel's description of `target` when a
+      # file requires `zr_description`: only eval support and a program
+      # that compiles itself do. Nil where no runtime is loaded (an eval
+      # in a binary).
+      def self?.description: (untyped target) -> untyped
+
+      # A file of the runtime's libraries (Layout::EXT, Layout::RUNTIME_LIB): it is
+      # internal, as the core is, so a backtrace shows its methods as
+      # builtins.
+      def self?.internal_library?: (untyped file) -> untyped
+
+      # The eval support file for `target`. `ZR_EVAL=walk` selects the
+      # tree-walking interpreter where the eval compiler (JIT) could run.
+      # The tests use this to check the interpreter against the JIT.
+      def self?.eval_file: (?untyped target) -> untyped
+    end
+  end
+end

@@ -1,0 +1,138 @@
+module Zr
+  module Machine
+    class Host
+      class Walk
+        # The code of control flow, as `Lower::Function::Control` and
+        # `Regions` emit it. A local jump is a `throw`: to its loop's tags
+        # for a `break`, `next` or `redo`, and to the scope's Frame for a
+        # def's `return` or a block's `next` (`Frames#run_body` catches it).
+        # A throw runs no handler, so it costs no backtrace. A loop or a
+        # scope catches only the jumps that its code has.
+        module Control
+          private
+
+          def if_node: (untyped node, untyped s) -> untyped
+
+          def and_node: (untyped node, untyped s) -> untyped
+
+          def or_node: (untyped node, untyped s) -> untyped
+
+          # A `while`: its tags are `[break, next, redo]`, one set for the
+          # loop's code, which the innermost run of the loop catches.
+          def while_loop: (untyped node, untyped s) -> untyped
+
+          # Whether a loop's condition holds. A `next` in the condition
+          # (thrown to `tag`) starts the next pass, as one in the body does:
+          # the test is then nil, and the pass does not run.
+          def holds?: (untyped f, untyped cond, untyped tag) -> untyped
+
+          # A loop's pass that runs again for each `redo` thrown to `tag`.
+          def redo_pass: (untyped tag, untyped pass) -> untyped
+
+          # Runs the block again for each `redo` thrown to `tag`, and returns
+          # its value.
+          def redoable: (untyped tag) { () -> untyped } -> untyped
+
+          # The jumps of a loop's own code: the `break`, `next` and `redo`
+          # that a nested loop or scope does not take.
+          class LoopJumps
+            @loop: untyped
+
+            include Enumerable
+
+            def initialize: (untyped loop) -> void
+
+            def each: () { (?) -> untyped } -> untyped
+
+            private
+
+            def visit: (untyped node) { (untyped) -> untyped } -> (nil | untyped)
+          end
+
+          # A safe point of program code, at a def's entry and a loop's back
+          # edge (Lower::Function::Control#preempt): when the timer or a
+          # signal set the poll word, the kernel runs the scheduler and the
+          # traps. The core has none.
+          def preempt: () -> (untyped | nil)
+
+          # `redo`: a back edge, so a safe point, as the lowering's
+          # `redo_body` has.
+          def redo_node: (untyped s) -> untyped
+
+          def do_return: (untyped node, untyped s) -> untyped
+
+          def do_break: (untyped node, untyped s) -> untyped
+
+          def do_next: (untyped node, untyped s) -> untyped
+
+          def case_node: (untyped node, untyped s) -> untyped
+
+          # The code of one `when` value: whether it matches the subject (the
+          # second argument), or, with no subject, whether it is true. A
+          # `when`'s `===` sees the refinements of its `case`.
+          def when_test: (untyped value, untyped node, untyped s, untyped subject) -> untyped
+
+          # A Symbol `when` value: while Symbol#=== is the runtime's own
+          # (GATE_SYM_EQQ, which the core ignores), `:sym === subject` is
+          # identity, as `Control#symbol_case` compiles it. Else it sends.
+          def symbol_when: (untyped value, untyped s, untyped eqq) -> untyped
+
+          # `begin`/`rescue`/`else`/`ensure`, as Lower::Function::Regions.
+          #
+          # An ensure body runs on every exit: inline after the body, with
+          # the pending unwind set aside for a raise (`ensured`), and as it is
+          # for a local jump (a `throw` out of the region).
+          def begin_node: (untyped node, untyped s) -> untyped
+
+          # The code of a region's body and its rescue clauses, a lambda of
+          # the Frame and the `$!` of the region's start.
+          def rescued: (untyped node, untyped s) -> untyped
+
+          # An unwind out of a region's body: the first clause that matches
+          # the exception takes it, else the unwind goes on. A `retry` in
+          # the clause runs the region (`run`) again.
+          def rescue_unwind: (untyped f, untyped saved, untyped clauses, untyped run) -> untyped
+
+          # A rescue clause as `[matches, handler]`: whether it takes the
+          # exception, and the code that binds it and runs the clause's body.
+          # `:rescue` fires at the clause's first statement (`Regions`).
+          def rescue_clause: (untyped clause, untyped s) -> ::Array[untyped]
+
+          # The ensure body on an unwind: the pending unwind is set aside
+          # while it runs, and restored after.
+          #
+          # If the ensure body itself leaves (a raise or a jump), `$!` goes
+          # back to `saved`, its value when the region began.
+          def ensured: (untyped f, untyped ensure_body, untyped saved) -> untyped
+
+          # `defined?`, as Lower::Function::Defined: the description, or nil.
+          # A form whose test can raise runs in a guard, so a raise is nil.
+          DEFINED_NAMES: { local: "local-variable", ivar: "instance-variable", gvar: "global-variable", global: "global-variable", backref: "global-variable", attrasgn: "method", cvar: "class variable", const: "constant", method: "method", yield: "yield", super: "super", self: "self", nil: "nil", true: "true", false: "false", assignment: "assignment", expression: "expression", list: "expression" }
+
+          TESTED: ::Array[:ivar | :gvar | :backref | :cvar | :const | :method | :attrasgn | :yield | :super | :list]
+
+          UNGUARDED: ::Array[:ivar | :gvar | :backref | :yield]
+
+          def defined: (untyped node, untyped s) -> untyped
+
+          # The code of whether the target of a `defined?` is defined.
+          def defined_test: (untyped node, untyped s) -> untyped
+
+          # Whether an expression used as a receiver or argument is itself
+          # defined: a name by its form, anything else is.
+          def part_defined: (untyped node, untyped s) -> untyped
+
+          def const_defined: (untyped read, untyped s) -> untyped
+
+          # A method: its receiver and arguments must be defined, then the
+          # receiver's class answers. Any receiver, `self` too, makes the
+          # call explicit.
+          def method_defined: (untyped send, untyped s) -> untyped
+
+          # The block's value, or nil if it raised (the raise is dropped).
+          def guarded: () { () -> untyped } -> untyped
+        end
+      end
+    end
+  end
+end

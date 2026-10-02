@@ -1,0 +1,73 @@
+module Zr::Kern
+  # The largest sockaddr, the size of union_sockaddr. A unix path fits in
+  # it, and so does each other family.
+  SOCKADDR_MAX: 256
+
+  def zr_sock_bytes: (untyped bytes, untyped len) -> untyped
+
+  def zr_sock_cstr: (untyped text) -> untyped
+
+  def zr_sock_fd: (untyped fd) -> untyped
+
+  def zr_sock_prepare: (untyped fd) -> untyped
+
+  def zr_sock_socket: (untyped domain, untyped type, untyped protocol) -> untyped
+
+  def zr_sock_socketpair: (untyped domain, untyped type, untyped protocol) -> untyped
+
+  def zr_sock_bind: (untyped fd, untyped addr) -> untyped
+
+  def zr_sock_connect: (untyped fd, untyped addr) -> untyped
+
+  def zr_sock_listen: (untyped fd, untyped backlog) -> untyped
+
+  def zr_sock_shutdown: (untyped fd, untyped how) -> untyped
+
+  def zr_sock_addr_str: (untyped addr, untyped size) -> untyped
+
+  def zr_sock_accept: (untyped fd) -> untyped
+
+  def zr_sock_send: (untyped fd, untyped text, untyped flags, untyped addr) -> untyped
+
+  def zr_sock_recvfrom: (untyped fd, untyped count, untyped flags) -> untyped
+
+  def zr_sock_inet_pton: (untyped family, untyped text) -> untyped
+
+  def zr_sock_name: (untyped fd, untyped peer) -> untyped
+
+  def zr_sock_getsockopt: (untyped fd, untyped level, untyped name) -> untyped
+
+  def zr_sock_setsockopt: (untyped fd, untyped level, untyped name, untyped bytes) -> untyped
+
+  def zr_sock_hostname: () -> untyped
+
+  def zr_sock_gai_failed: (untyped r) -> untyped
+
+  def zr_sock_getaddrinfo: (untyped host, untyped service, untyped family, untyped socktype, untyped protocol, untyped flags) -> untyped
+
+  def zr_sock_getnameinfo: (untyped addr, untyped flags, untyped want) -> untyped
+
+  def zr_sock_gai_message: (untyped code) -> untyped
+
+  def zr_sock_cstr_list: (untyped list) -> untyped
+
+  def zr_sock_host_aliases: (untyped name) -> untyped
+
+  def zr_sock_host_by_addr: (untyped addr, untyped family) -> untyped
+
+  def zr_sock_service_port: (untyped name, untyped protocol) -> untyped
+
+  def zr_sock_service_name: (untyped port, untyped protocol) -> untyped
+
+  def zr_sock_addr_or_nil: (untyped addr) -> untyped
+
+  def zr_sock_ifaddrs: () -> untyped
+
+  def zr_sock_if_index: (untyped name) -> untyped
+
+  def zr_sock_if_name: (untyped index) -> untyped
+
+  def zr_sock_sendmsg: (untyped fd, untyped data, untyped flags, untyped addr, untyped control) -> untyped
+
+  def zr_sock_recvmsg: (untyped fd, untyped size, untyped flags, untyped room) -> untyped
+end

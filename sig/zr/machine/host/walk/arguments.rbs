@@ -1,0 +1,82 @@
+module Zr
+  module Machine
+    class Host
+      class Walk
+        # The code that binds a def's or a block's arguments to its
+        # parameters, as `Lower::Function::Params` emits it: the keywords
+        # out of the argument vector, the arity check, the positional
+        # parameters, the defaults, the keywords and the block.
+        module Arguments
+          @owners: untyped
+
+          private
+
+          # The code that binds a def's `argc` arguments at `argv` in its
+          # Frame. `fn` is the def's function: a `ruby2_keywords` method is
+          # known by it (`zr_kw_undeclared`).
+          def method_binder: (untyped p, untyped s, untyped fn) -> untyped
+
+          # The code that binds only required parameters, each a name of its
+          # own: they are the scope's first locals, so the argument vector is
+          # copied to them as it is.
+          def plain_binder: (untyped p, untyped s) -> (nil | untyped)
+
+          def general_binder: (untyped p, untyped s, untyped fn) -> untyped
+
+          # The code that binds a block's arguments. A proc's parameters
+          # take what they get (`loose`); a lambda's are a method's.
+          def block_binder: (untyped p, untyped s) -> untyped
+
+          def keywords?: (untyped p) -> untyped
+
+          # The code that checks a count of arguments against the
+          # parameters, and raises ArgumentError for a wrong one.
+          def arity_check: (untyped p) -> untyped
+
+          # The code that binds `&block` to the Proc of the block given.
+          def block_store: (untyped p, untyped s) -> (nil | untyped)
+
+          # The code of a lambda's or a method's positional parameters:
+          # required parameters from the front, post parameters from the
+          # back, then the optional ones in order, then the rest.
+          def positional_binder: (untyped p, untyped s) -> untyped
+
+          # The code of a proc's parameters: missing ones are nil, extra ones
+          # are dropped.
+          def loose_binder: (untyped p, untyped s) -> untyped
+
+          # The code that binds each required and each post parameter, or
+          # nil for one that a repeated `_` before it owns.
+          def required_binds: (untyped p, untyped s) -> ::Array[untyped]
+
+          # The code that binds the rest parameter to an Array of its
+          # arguments.
+          def rest_store: (untyped p, untyped s) -> (nil | untyped)
+
+          # The code of the optional parameters: a given argument binds its
+          # slot, if the slot owns the name; a default is an assignment to
+          # the name, as CRuby compiles it, so a repeated `_`'s default
+          # reaches the first.
+          def optional_binder: (untyped p, untyped s) -> (nil | untyped)
+
+          # The code that binds a positional parameter, a name or a
+          # destructuring `(a, b)`, to a Value.
+          def target_bind: (untyped target, untyped s) -> untyped
+
+          # Whether the parameter `target` at position `i` of the required
+          # and post parameters is the first of its name: a repeated `_`
+          # binds its first argument, as in ruby.
+          def first?: (untyped p, untyped target, untyped i) -> untyped
+
+          # Whether the parameter at `slot` (`[kind, index]`) owns the name
+          # `name`: it is the first parameter of that name, in ruby's order.
+          def owns?: (untyped p, untyped name, untyped slot) -> (true | untyped)
+
+          # The code that binds the keyword parameters from the keywords
+          # Hash (nil when the call gave none).
+          def keywords_binder: (untyped p, untyped s) -> untyped
+        end
+      end
+    end
+  end
+end

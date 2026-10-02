@@ -1,0 +1,378 @@
+module Zr
+  module IR
+    # The passes that each emitter runs on a function before assembly. They
+    # run in one order from one place, so the aarch64 backend, the wasm
+    # backend and eval support all get the same IR.
+    #
+    # Each pass keeps these invariants: a value has one definition, and the
+    # definition dominates its uses. The entry block stays first and keeps
+    # its parameters. Each block ends in a terminator. A `brif` has no
+    # arguments. A store to a record slot is never removed, because the
+    # collector reads it as a root.
+    module Passes
+      # Renames uses in place through `@rename` (a value to its replacement).
+      # The lookup follows the chain, because a replacement can also have a
+      # replacement.
+      module Renaming
+        def rename_uses: () -> untyped
+
+        def rename: (untyped i) -> (nil | untyped)
+
+        def resolve: (untyped v) -> untyped
+      end
+
+      # Inlines the small leaf functions of the unit into their callers,
+      # before the pipeline runs on each function.
+      def self?.inline: (untyped functions) -> untyped
+
+      # The pipeline, in order.
+      #
+      # `Fold` runs two times, because `Forward` finds constants that the
+      # first fold cannot see. Without the second fold, the runtime object is
+      # 223 KB larger; the pass costs 0.6 s of the 9.3 s build of that object.
+      # `Statics` runs after `Forward`, so it does not see the slot loads, and
+      # before `Chains`, so its gate test splits into the branch chain. `GVN`
+      # runs after `Statics` to number its new values. `LICM` runs last, so a
+      # loop has one copy of each value. `Threads` runs after `Chains`, whose
+      # split tests it can skip. `Switches` runs after both, on the tests
+      # that are left, and `Blocks` drops the blocks they leave.
+      def self?.run: (untyped f) -> untyped
+
+      # Runs the pipeline and then the checks, and returns the IR for an
+      # emitter. The dominance and type checks are slow, so a build runs them
+      # only when `ZR_VERIFY=1`. The checks that run the IR against the
+      # interpreter always run.
+      def self?.prepare: (untyped f, ?strict: untyped) -> untyped
+
+      # Constant folding. An integer instruction on constants becomes its
+      # result, with the same rules as `IR::Interp`: arithmetic narrower than
+      # `i64` is 32 bits wide, a shift uses its amount modulo the width, a
+      # division by zero gives zero, and a remainder by zero gives the
+      # dividend. An identity (`x + 0`, `x * 1`, `x & 0`) becomes its operand
+      # or constant. A multiply, unsigned division or remainder by a power of
+      # two becomes a shift or a mask. A `select` on a constant becomes the
+      # selected arm. A widened constant becomes a constant. A `brif` on a
+      # constant becomes a `jump`. The pass renames uses in place. `Blocks`
+      # removes blocks that become unreachable.
+      class Fold
+        @f: untyped
+
+        @const: untyped
+
+        @rename: untyped
+
+        @jumped: untyped
+
+        @added: untyped
+
+        include Renaming
+
+        MASK: { "i8" => 255, "i32" => 4294967295, "i64" => 18446744073709551615 }
+
+        SIGNED: ::Array["slt" | "sle" | "sgt" | "sge"]
+
+        def self.run: (untyped f) -> untyped
+
+        # The pass needs only the types of constants, and it knows each type
+        # where it makes the constant. So `@const` keeps the number and type of
+        # each constant, and no pass calculates types for the whole function.
+        def initialize: (untyped f) -> void
+
+        # Visits blocks in layout order. A block is settled on entry when all
+        # its predecessors come before it. An edge reaches a settled block only
+        # if its predecessor was reached and the folded terminator still targets
+        # the block. A settled block that no edge reaches is dead, and its edges
+        # do not count. If each reaching edge gives a parameter the same
+        # constant, the parameter is that constant. A loop header is never
+        # settled.
+        def run: () -> untyped
+
+        private
+
+        def fold_insts: (untyped b) -> untyped
+
+        # Makes a constant operand just before the instruction at `n`, when the
+        # function does not have that constant.
+        def constant_before: (untyped n, untyped type) -> untyped
+
+        # Sets each parameter of `b` to a constant when every edge in `edges`
+        # gives it that same constant.
+        def enter: (untyped b, untyped edges) -> untyped
+
+        # The number in `v`, masked to its type, or nil.
+        def constant: (untyped v) -> untyped
+
+        # The type of the constant `v`.
+        def constant_type: (untyped v) -> untyped
+
+        def fold: (untyped i) -> untyped
+
+        # The type of a result gives the width of its arithmetic: 64 bits for
+        # `i64`, 32 bits for a narrower type.
+        def bits_of: (untyped type) -> (64 | 32)
+
+        def signed: (untyped raw, untyped bits) -> untyped
+
+        def quotient: (untyped a, untyped b) -> untyped
+
+        def become_constant: (untyped i, untyped n, untyped type) -> untyped
+
+        def become: (untyped i, untyped v) -> untyped
+
+        def fold_binop: (untyped i) -> (untyped | nil)
+
+        def power_of_two?: (untyped n) -> untyped
+
+        # Replaces `i` with the cheaper `op` of `a` and the constant `n`. A
+        # multiply, unsigned division or remainder by a power of two becomes a
+        # shift or a mask.
+        def reduce: (untyped i, untyped op, untyped a, untyped n, untyped type) -> untyped
+
+        def binop: (untyped op, untyped a, untyped b, untyped bits) -> untyped
+
+        def fold_compare: (untyped i) -> (nil | untyped)
+
+        def fold_select: (untyped i) -> untyped
+
+        # Folds the bit operations on constants, with the same rules as
+        # `IR::Interp`.
+        def fold_bitop: (untyped i) -> (nil | untyped)
+
+        def fold_width: (untyped i) -> (nil | untyped)
+
+        def fold_branch: (untyped i) -> (nil | untyped)
+
+        def fold_switch: (untyped i) -> (nil | untyped)
+      end
+
+      # Store-to-load forwarding for stack slots. A load from a slot at a
+      # constant offset gets the value of the last store to that slot in the
+      # block, if nothing between them can write the slot. The pass deletes
+      # the load; the store stays as a root for the collector.
+      # `Zr::Lower::Function` stores the receiver and arguments of each send
+      # in record slots and loads them back at once, so this occurs at each
+      # send. A call (which can get a frame address that the function passed
+      # out) or a store through a non-slot address clears all known stores.
+      # A store to a slot clears the stores that it overlaps.
+      class Forward
+        @f: untyped
+
+        @types: untyped
+
+        @const: untyped
+
+        @roots: untyped
+
+        @rename: untyped
+
+        include Renaming
+
+        def self.run: (untyped f) -> untyped
+
+        def initialize: (untyped f) -> void
+
+        def run: () -> untyped
+
+        private
+
+        def forward: (untyped b) -> untyped
+
+        # `v = base + k`, where `base` is a slot address, is that slot address
+        # plus a constant.
+        def note_sum: (untyped i) -> (nil | untyped)
+
+        # `[root, offset]` of the slot byte at `addr` plus `off`, or nil.
+        def slot: (untyped addr, untyped off) -> untyped
+
+        # A store clears the known stores that it overlaps. A known store is at
+        # most 8 bytes wide, so an overlapping store starts at most 7 bytes
+        # below this one, or inside it. The pass checks only those keys. A scan
+        # of the full table at each store is slow in a block with many stores.
+        def remember: (untyped known, untyped i) -> untyped
+
+        # Whether the load reads all of a known store's value, with the same
+        # type.
+        def forwarded?: (untyped known, untyped i) -> (false | true)
+      end
+
+      # Changes a branch on a conjunction into a chain of branches:
+      # `brif (band a, c) T F` becomes `brif a mid F; mid: brif c T F`. `bor`
+      # is the same with the arms swapped. The backend then fuses each compare
+      # with its branch, and the second test runs only when it is necessary.
+      # The chain of `c` moves into `mid`: the instructions of the block that
+      # only that chain reads, all without effects. A load moves only when no
+      # call or store follows it in the block. If the chain cannot move, or
+      # `c` comes from a different block, `c` stays before both branches.
+      # The pass splits both halves again, so `a || b || c` becomes three
+      # branches. `Zr::Lower::Function` makes this shape at each gated
+      # operator: the fixnum test and the gate test.
+      class Chains
+        @f: untyped
+
+        @uses: untyped
+
+        @after: untyped
+
+        MOVABLE: untyped
+
+        def self.run: (untyped f) -> untyped
+
+        def initialize: (untyped f) -> void
+
+        def run: () -> untyped
+
+        private
+
+        # Puts each new block just after the block that it split, before
+        # the blocks of that block's earlier splits: the layout of an insert
+        # into `blocks` at each split, which was quadratic (0.5 s of a
+        # function of 23,000 blocks).
+        def lay_out: () -> untyped
+
+        # Returns the block of the second test, or nil.
+        def split: (untyped b) -> (nil | untyped)
+
+        # Returns, in order, the instructions of `b` before index `stop` that
+        # make `v` and feed nothing else. Returns nil when `v` is not made in
+        # `b` or its chain cannot move.
+        def chain_of: (untyped b, untyped v, untyped stop) -> (nil | untyped)
+      end
+
+      # Simplifies the blocks. The pass removes a block that the entry does
+      # not reach. It skips a block that only jumps and has no parameters. It
+      # joins a block to its single predecessor when the block is the only
+      # successor of that predecessor; the block parameters become the jump
+      # arguments. One round can make work for the next, so rounds continue
+      # until nothing changes. The entry block stays first and is never joined.
+      class Blocks
+        @f: untyped
+
+        @rename: untyped
+
+        include Renaming
+
+        def self.run: (untyped f) -> untyped
+
+        def initialize: (untyped f) -> void
+
+        def run: () -> untyped
+
+        private
+
+        # `{ name => [[block, k], ...] }`: each edge into a block, as the
+        # predecessor and the index of the target.
+        def edges: () -> untyped
+
+        # Drops the unreachable blocks. The blocks in reverse postorder are
+        # the reachable blocks.
+        def pruned?: () -> (false | true)
+
+        def bypassed?: () -> untyped
+
+        # Joins all such blocks in one round, in layout order. A block that
+        # takes the instructions of another block also takes its outgoing
+        # edges. So a later block whose predecessor was joined joins the block
+        # that took it. A predecessor after its successor in the layout moves up
+        # to the successor's position. Thus each definition stays before the
+        # blocks that it dominates, which `Types` needs.
+        def merged?: () -> (false | true)
+      end
+
+      # Dead code elimination. The pass removes an instruction with no
+      # effect whose result nothing reads. It continues to a fixpoint, so it
+      # removes a full chain in one run. A call, a store and a terminator
+      # always stay.
+      class DCE
+        PURE: untyped
+
+        # Counts the readers of each value one time. When the pass removes an
+        # instruction, it subtracts one reader from each operand. An operand
+        # with zero readers is then dead.
+        def self.run: (untyped f) -> untyped
+
+        def self.unread?: (untyped i, untyped readers) -> untyped
+      end
+
+      # Inlines the small leaf functions of a unit at their call sites. A leaf
+      # has no call, at most LIMIT instructions and at most SLOT_BYTES of
+      # stack (for example a type or class test, or a frozen test, that the
+      # kernel leaves as a call in a loop). The pass copies the callee into
+      # the caller: the parameters become the arguments, the slots become
+      # caller slots, and each `return` becomes a jump to the block after the
+      # call, which takes the result as its parameter. The pass inlines the
+      # calls in a callee first, so a callee can become a leaf (zr_class_of
+      # after zr_fixnum_p). A cycle stays as calls. The original function
+      # stays in the unit, because the unit exports it.
+      class Inline
+        @by_name: untyped
+
+        @outputs: untyped
+
+        @sources: untyped
+
+        @state: untyped
+
+        @calls: untyped
+
+        LIMIT: 24
+
+        # Each call site gets a copy of the callee slots, so a callee with a
+        # large buffer stays a call.
+        SLOT_BYTES: 128
+
+        def self.run: (untyped functions) -> untyped
+
+        # `sources` are functions that can be inlined but that this pass
+        # does not change, because a pass inlined them already: the kernel
+        # under a core file (`Cache::Lowering::Core`).
+        def initialize: (untyped functions, ?sources: untyped) -> void
+
+        def run: () -> untyped
+
+        # Whether the function `name` is a leaf that this pass inlines, once
+        # it ran.
+        def settled_leaf?: (untyped name) -> untyped
+
+        # The colocated symbols that the calls of the function `name` named,
+        # before this pass inlined any of them: a `Cache::Lowering::Core` entry depends on
+        # what each of them is.
+        def calls: (untyped name) -> untyped
+
+        private
+
+        # Whether the function is a leaf that is small enough to inline, after
+        # its own calls are inlined. The first question inlines them (not
+        # those of a source, which are inlined already).
+        def inlinable?: (untyped name) -> (true | false | untyped)
+
+        # No call, not too many instructions, and little stack in the slots that
+        # are still read (a slot that Mem2Reg promoted does not count).
+        def leaf?: (untyped f) -> (false | untyped)
+
+        def slot_of: (untyped f, untyped name) -> untyped
+
+        # Expands each site in turn. The blocks before a site's block have no
+        # site, and the copy of the callee comes after it, so the search for
+        # the next site starts at that block.
+        def inline_into: (untyped f) -> untyped
+
+        # A call in `f`, from the block at `from` on, to a function that this
+        # pass inlines: the index of its block, the block, the index of the
+        # call, the call and the callee.
+        def site_in: (untyped f, untyped from) -> (::Array[untyped] | nil)
+
+        # Replaces the call at `k` of `b` with a copy of `target`. `b` ends
+        # with a jump to the copy of the entry. If no block of `target` jumps
+        # back to its entry, the entry parameters become the arguments (so a
+        # constant argument folds in the copy). If not, the jump passes them.
+        # The instructions after the call move to a block after the copy. That
+        # block takes the result of the call as its parameter.
+        def expand: (untyped f, untyped b, untyped k, untyped call, untyped target) -> untyped
+
+        def copy: (untyped i, untyped names, untyped rest) -> untyped
+
+        def renamed: (untyped a, untyped names) -> untyped
+      end
+    end
+  end
+end

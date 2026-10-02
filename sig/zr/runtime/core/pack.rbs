@@ -1,0 +1,192 @@
+# Array#pack and String#unpack: a template of directives, each with
+# an optional count or `*`, over bytes. Integers are little-endian
+# unless the directive or a `>` says otherwise; a double is packed
+# from its bit halves, a single from those bits rounded to 24 bits.
+module Packing
+  INTEGERS: { "C" => ::Array[1 | false], "c" => ::Array[1 | true], "S" => ::Array[2 | false], "s" => ::Array[2 | true], "L" => ::Array[4 | false], "l" => ::Array[4 | true], "Q" => ::Array[8 | false], "q" => ::Array[8 | true], "J" => ::Array[8 | false], "j" => ::Array[8 | true], "I" => ::Array[4 | false], "i" => ::Array[4 | true], "n" => ::Array[2 | false | :big], "N" => ::Array[4 | false | :big], "v" => ::Array[2 | false | :little], "V" => ::Array[4 | false | :little] }
+
+  BASE64: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+
+  # The directives a template may name, the bytes a space is written
+  # with, the modifiers that follow a directive, and the star and the
+  # digits a count is written in.
+  KNOWN: "CcSsLlQqJjIinNvVUwaAZHhBbmMuxX@dDeEfFgGpP"
+
+  SPACE: ::Array[32 | 9 | 10 | 11 | 12 | 13]
+
+  NATIVE: "sSiIlLqQjJ"
+
+  MODIFIERS: ::Array[60 | 62 | 95 | 33]
+
+  STAR: 42
+
+  DIGIT_0: 48
+
+  DIGIT_9: 57
+
+  # The template as [directive, count, big?] triples; count is nil
+  # for none, :all for `*`. `check` off keeps an unknown directive, so
+  # a caller that reads the template as it goes refuses in ruby's
+  # order.
+  #
+  # Read by its bytes, with one String cut of it a directive:
+  # `template[i]` made one of every byte it looked at, and a program
+  # packs the same short template again and again -- one build of the
+  # compiler packs 555,616 times, mostly with `L<` and `Q<`.
+  def self.directives: (untyped template, untyped kind, ?check: bool) -> untyped
+
+  # Quoted printable, as CRuby's qpencode writes it: a byte outside the
+  # printable ASCII range, but for tab and newline, and `=` itself,
+  # become `=XX`; a space or tab before a newline takes a soft break; a
+  # line past `count` characters breaks after the one that passed it;
+  # a last line with anything on it ends with a soft break.
+  # unknown_directive: a printable directive as itself, any other byte as
+  # `\xNN`; a template with an unprintable character quoted as
+  # rb_str_quote_unprintable quotes it: as inspect does, but NUL as `\0`
+  # and DEL as `\c?`.
+  def self.unknown_directive: (untyped kind, untyped byte, untyped template) -> ::String
+
+  def self.quoted_printable: (untyped bytes, untyped count) -> untyped
+
+  # unpack's `M`: `=XX` is a byte, `=` before a line end (LF or CRLF) a
+  # soft break. At the first `=` that is neither, the rest of the text,
+  # from that `=`, is kept as it is.
+  def self.decode_quoted_printable: (untyped text) -> untyped
+
+  def self.hex_digit: (untyped b) -> untyped
+
+  # The byte an unpack starts at. The directives read the String where
+  # it is, from there on: a copy of a long String for each unpack1 at
+  # an offset makes a reader of records quadratic.
+  def self.from: (untyped text, untyped offset) -> untyped
+
+  # `n` bytes of `bytes` from `at` as a binary String of their own.
+  def self.chunk: (untyped bytes, untyped at, untyped n) -> untyped
+
+  # Uuencoding: a line contains `count` bytes rounded down to a multiple
+  # of three, and starts with its own length; each three bytes become
+  # four characters of six bits over a space, with a zero as a
+  # backquote.
+  def self.uuencode: (untyped bytes, untyped count) -> untyped
+
+  def self.uuchar: (untyped value) -> untyped
+
+  def self.uudecode: (untyped text) -> untyped
+
+  # The result is US-ASCII while every directive writes ASCII (`m`, `M`,
+  # `u` and none at all), UTF-8 once a `U` widens that, and binary as
+  # soon as one directive writes arbitrary bytes.
+  def self.pack: (untyped items, untyped template) -> untyped
+
+  # A pointer `p` or `P` packs keeps the Strings it points at alive, on
+  # the packed String, where `unpack` finds them again.
+  def self.associate: (untyped text, untyped strings) -> untyped
+
+  def self.associated: (untyped text) -> untyped
+
+  # associated_pointer: the String whose bytes sit at `address`.
+  def self.pointed: (untyped associates, untyped address) -> untyped
+
+  # An item for an integer directive: a Numeric truncated to an Integer,
+  # or the value of `to_int` for any other object that has one. An
+  # Integer is used as it is. Kernel#Integer would need a base and a
+  # keyword parameter to do this, a cost for every element of a `Q<*`.
+  def self.integer_item: (untyped item) -> untyped
+
+  # rb_to_float: a Numeric as a Float, and nothing else.
+  def self.float_item: (untyped item) -> untyped
+
+  # rb_uv_to_utf8: a code point as UTF-8's bytes, in as many as six of
+  # them, surrogates and all.
+  def self.utf8: (untyped code) -> untyped
+
+  def self.each_item: (untyped items, untyped at, untyped count) { (untyped) -> untyped } -> untyped
+
+  # The low `size` bytes of n in two's complement, appended to `out`; a
+  # negative n is taken byte by byte so no shift leaves the fixnum
+  # range. It appends rather than returning a new String, because the
+  # packed String is available to write into. A new String per element
+  # of a `Q<*` over a long Array would also make an Array of its bytes,
+  # and a String per byte.
+  def self.push_integer: (untyped out, untyped n, untyped size, untyped big) -> untyped
+
+  # The `n` bytes from `at` in the other order, in place.
+  def self.reverse_bytes: (untyped out, untyped at, untyped n) -> untyped
+
+  def self.pack_integer: (untyped n, untyped size, untyped big) -> untyped
+
+  def self.pack_text: (untyped item, untyped c, untyped count) -> untyped
+
+  # pack_pack's `H` and `h`: two characters to a byte, and past the end
+  # of the text the zero bytes the count still asks for.
+  def self.pack_hex: (untyped text, untyped high_first, untyped count) -> untyped
+
+  # A letter counts from 10 by its low four bits, as `a` to `f` do; any
+  # other byte gives its own low four bits.
+  def self.hex_value: (untyped b) -> untyped
+
+  # `B` and `b`: eight characters to a byte. Past the end of the text,
+  # the C adds (count - length + 1) / 2 zero bytes.
+  def self.pack_bits: (untyped text, untyped high_first, untyped count) -> untyped
+
+  def self.base64: (untyped bytes, untyped count) -> untyped
+
+  def self.ber: (untyped n) -> untyped
+
+  def self.pack_double: (untyped x, untyped big) -> untyped
+
+  def self.pack_single: (untyped x, untyped big) -> untyped
+
+  # A double's bits rounded to IEEE single precision, half to even.
+  def self.single_bits: (untyped x) -> untyped
+
+  # From byte `base` on; `@` and `X` count from the String's start, as
+  # CRuby's do whatever the offset.
+  def self.unpack: (untyped bytes, untyped template, untyped single, ?untyped? associates, ?::Integer base) -> untyped
+
+  def self.each_slot: (untyped bytes, untyped at, untyped size, untyped count, untyped out) { (untyped) -> untyped } -> untyped
+
+  def self.unpack_integer: (untyped chunk, untyped signed, untyped big) -> untyped
+
+  # The hex and bit directives return US-ASCII text, as CRuby's do.
+  def self.unpack_hex: (untyped bytes, untyped at, untyped n, untyped high_first) -> untyped
+
+  def self.unpack_bits: (untyped bytes, untyped at, untyped n, untyped high_first) -> untyped
+
+  # `m`: the base64 characters, skipping all others, up to the first `=`
+  # past two of a group.
+  def self.decode_base64: (untyped text) -> untyped
+
+  # `m0`, RFC 4648: groups of four with no other byte, padding only at
+  # the end, and no bits left over in the last character.
+  def self.strict_base64: (untyped text) -> untyped
+
+  def self.base64_value: (untyped b) -> untyped
+
+  # utf8_to_uv: the value of the UTF-8 character at `at`, and its length,
+  # in the forms of up to six bytes that the C reads.
+  def self.utf8_to_uv: (untyped bytes, untyped at) -> (::Array[untyped | 1] | ::Array[untyped])
+
+  def self.unpack_double: (untyped chunk, untyped big) -> untyped
+
+  # The double that a single's bits represent.
+  def self.single_value: (untyped bits) -> untyped
+end
+
+# A helper that CRuby has no module for: no program refers to it.
+class Object
+end
+
+# CRuby writes these three in Ruby (its pack.rb), so they return their
+# own parameters, under CRuby's names.
+class Array
+  def pack: (untyped fmt, ?buffer: untyped?) -> untyped
+end
+
+class String
+  # With a block, each value goes to it in sequence and the return value
+  # is nil, as CRuby's unpack does.
+  def unpack: (untyped fmt, ?offset: ::Integer) ?{ (untyped) -> untyped } -> (untyped | nil)
+
+  def unpack1: (untyped fmt, ?offset: ::Integer) -> untyped
+end

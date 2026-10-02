@@ -1,0 +1,24 @@
+module Zr::Kern
+  # On this platform, a send on a connected datagram socket can fail with
+  # EPROTOTYPE for a short time while the socket closes. ruby tries again.
+  EPROTOTYPE: 41
+
+  EAI_SYSTEM: 11
+
+  # struct msghdr: the name and its length, the iovecs and their count,
+  # the control buffer and its length as 32 bits at 40, and the flags at
+  # 44.
+  MSGHDR_LEN: 48
+
+  MSGHDR_FLAGS: 44
+
+  def zr_os_sockaddr_len: (untyped addr) -> (untyped | 16 | 28)
+
+  def zr_os_addrinfo_row: (untyped node) -> untyped
+
+  def zr_os_addrinfo_next: (untyped node) -> untyped
+
+  def zr_os_h_errno: () -> untyped
+
+  def zr_os_peereid: (untyped fd) -> untyped
+end

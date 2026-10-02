@@ -1,0 +1,121 @@
+# Type.c, ArrayType.c, MappedType.c and StructByValue.c: a C type, its
+# builtin instances under every name the gem gives them, and the types
+# that describe an array, a converted value and a struct passed whole.
+module FFI
+  TypeDefs: ::Hash[untyped, untyped]
+
+  class Type
+    @native: untyped
+
+    @ffi: untyped
+
+    # NativeType, the kinds of value the C half reads and writes.
+    NATIVE: untyped
+
+    def initialize: (untyped value) -> void
+
+    def size: () -> untyped
+
+    def alignment: () -> untyped
+
+    def inspect: () -> ::String
+
+    # The NativeType this is, as a Symbol.
+    def ffi_native: () -> untyped
+
+    def ffi_kind: () -> untyped
+
+    # The ffi_type libffi reads for this.
+    def ffi_type: () -> untyped
+
+    class Builtin < Type
+      @name: untyped
+
+      @native: untyped
+
+      @ffi: untyped
+
+      def inspect: () -> ::String
+
+      private
+
+      def assign: (untyped name, untyped ffi) -> untyped
+    end
+  end
+
+  module NativeType
+  end
+
+  class Type
+  end
+
+  # rbffi_Type_Lookup: the Type that a name represents, or nil.
+  def self.type_lookup: (untyped name) -> untyped
+
+  # rbffi_type_size: how many bytes a type spec takes.
+  def self.size_of: (untyped type) -> untyped
+
+  class ArrayType < Type
+    @length: untyped
+
+    @component: untyped
+
+    @ffi: untyped
+
+    def initialize: (untyped component, untyped length) -> void
+
+    def length: () -> untyped
+
+    def elem_type: () -> untyped
+
+    def ffi_native: () -> untyped
+
+    def ffi_type: () -> untyped
+  end
+
+  Type::Array: untyped
+
+  class Type
+    class Mapped < Type
+      @type: untyped
+
+      @converter: untyped
+
+      @ffi: untyped
+
+      def initialize: (untyped converter) -> void
+
+      def native_type: () -> untyped
+
+      alias type native_type
+
+      def to_native: (*untyped args) -> untyped
+
+      def from_native: (*untyped args) -> untyped
+
+      def converter: () -> untyped
+
+      def ffi_native: () -> untyped
+    end
+  end
+
+  class StructByValue < Type
+    @struct_class: untyped
+
+    @layout: untyped
+
+    @ffi: untyped
+
+    def initialize: (untyped struct_class) -> void
+
+    def layout: () -> untyped
+
+    def struct_class: () -> untyped
+
+    def ffi_native: () -> untyped
+
+    def ffi_type: () -> untyped
+  end
+
+  Type::Struct: untyped
+end

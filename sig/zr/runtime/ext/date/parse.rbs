@@ -1,0 +1,150 @@
+class Date
+  ABBR_DAYS: "sun|mon|tue|wed|thu|fri|sat"
+
+  ABBR_MONS: "jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec"
+
+  NUMBER: "(?<!\\d)\\d"
+
+  ERA: "(c(?:e|\\.e\\.)|b(?:ce|\\.c\\.e\\.)|a(?:d|\\.d\\.)|b(?:c|\\.c\\.))"
+
+  BLANK_RE: ::Regexp
+
+  DAY_RE: ::Regexp
+
+  TIME_RE: ::Regexp
+
+  TIME2_RE: ::Regexp
+
+  EU_RE: ::Regexp
+
+  US_RE: ::Regexp
+
+  ISO_RE: ::Regexp
+
+  JIS_RE: ::Regexp
+
+  VMS11_RE: ::Regexp
+
+  VMS12_RE: ::Regexp
+
+  SLA_RE: ::Regexp
+
+  DOT_RE: ::Regexp
+
+  ISO21_RE: ::Regexp
+
+  ISO22_RE: ::Regexp
+
+  ISO23_RE: ::Regexp
+
+  ISO24_RE: ::Regexp
+
+  ISO25_BAR_RE: ::Regexp
+
+  ISO25_RE: ::Regexp
+
+  ISO26_BAR_RE: ::Regexp
+
+  ISO26_RE: ::Regexp
+
+  YEAR_RE: ::Regexp
+
+  MON_RE: ::Regexp
+
+  MDAY_RE: ::Regexp
+
+  DDD_RE: ::Regexp
+
+  BC_RE: ::Regexp
+
+  FRAG_RE: ::Regexp
+
+  GENGO: { "m" => 1867, "t" => 1911, "s" => 1925, "h" => 1988, "r" => 2018 }
+
+  # Every element a loose string names, as far as the reader gets.
+  def self._parse: (untyped text, ?bool comp) -> untyped
+
+  private
+
+  # The date shapes, in the order that ruby tries them: the first that
+  # fits wins, and the others never see the text it read.
+  def self.parse_date: (untyped str, untyped found) -> (nil | untyped)
+
+  def self.text_of: (untyped text) -> untyped
+
+  # The character classes that ruby's own reader checks. It reads them
+  # as bytes, so only ASCII counts.
+  def self.ascii?: (untyped str, *untyped kinds) -> untyped
+
+  # Reads one shape and blanks what it read.
+  def self.subs: (untyped str, untyped pattern) { (untyped) -> untyped } -> (false | true)
+
+  def self.day_num: (untyped text) -> untyped
+
+  def self.mon_num: (untyped text) -> untyped
+
+  def self.digit_span: (untyped text, untyped from) -> untyped
+
+  # The year, month and day three loose texts name, put in the order
+  # their own shapes imply.
+  def self.s3e: (untyped found, untyped y, untyped m, untyped d, untyped bc) -> untyped
+
+  def self.digits_in: (untyped text) -> (nil | untyped)
+
+  def self.parse_day: (untyped str, untyped found) -> untyped
+
+  def self.parse_time: (untyped str, untyped found) -> untyped
+
+  # The half day that an "am" or a "pm" gives is counted in a machine
+  # int, so an hour past its range has no result.
+  def self.int_hour: (untyped hour) -> untyped
+
+  def self.parse_eu: (untyped str, untyped found) -> untyped
+
+  def self.parse_us: (untyped str, untyped found) -> untyped
+
+  def self.parse_iso: (untyped str, untyped found) -> untyped
+
+  def self.parse_jis: (untyped str, untyped found) -> untyped
+
+  def self.parse_vms: (untyped str, untyped found) -> untyped
+
+  def self.parse_sla: (untyped str, untyped found) -> untyped
+
+  def self.parse_dot: (untyped str, untyped found) -> untyped
+
+  def self.parse_iso2: (untyped str, untyped found) -> (true | false | untyped)
+
+  def self.parse_quoted_year: (untyped str, untyped found) -> untyped
+
+  def self.parse_mon: (untyped str, untyped found) -> untyped
+
+  def self.parse_mday: (untyped str, untyped found) -> untyped
+
+  # A run of digits with no separators. How many there are says what
+  # they name, and a fraction with no time before it means a clock.
+  def self.parse_ddd: (untyped str, untyped found) -> untyped
+
+  def self.ddd_digits: (untyped found, untyped digits, untyped negative, untyped clock) -> untyped
+
+  # The same digits read from the right, as a clock.
+  def self.clock_tail: (untyped found, untyped digits, untyped size) -> untyped
+
+  def self.ddd_time: (untyped found, untyped time, untyped fraction) -> (nil | untyped)
+
+  # A zone in brackets contains an offset, and after a colon its name.
+  def self.ddd_zone: (untyped found, untyped text) -> (nil | untyped)
+
+  def self.signed: (untyped value, untyped negative) -> untyped
+
+  def self.parse_bc: (untyped str, untyped found) -> untyped
+
+  # A lone one or two digit number beside a time is a day, and beside
+  # a day it is an hour.
+  def self.parse_frag: (untyped str, untyped found) -> untyped
+
+  def self.complete_era: (untyped found) -> (nil | untyped)
+
+  # A two digit year is this century when it is under 69.
+  def self.complete_century: (untyped found) -> untyped
+end
