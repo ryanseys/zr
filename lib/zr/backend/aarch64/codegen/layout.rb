@@ -11,6 +11,34 @@ module Zr
 
         private
 
+        # The blocks in the order of their code: the others in their own
+        # order, then the cold ones (`IR::Block#cold`), so that a common path
+        # falls through and fetches no taken branch over a slow path. A block
+        # is also cold when every block that jumps to it is cold. The entry
+        # stays first. The registers do not depend on this order: each value
+        # keeps one register or one home for its whole life.
+        def laid_out
+          entry = @f.entry_block
+          before = Hash.new { |h, k| h[k] = [] }
+          @f.blocks.each { |b| b.insts.last&.targets&.each { |(to, _)| before[to] << b.name } }
+          cold = Set.new(@f.blocks.select { |b| b.cold && !b.equal?(entry) }.map(&:name))
+          # Most blocks come after the blocks that jump to them, so one pass
+          # in order finds most of them, and a loop's head needs another.
+          loop do
+            grew = false
+            @f.blocks.each do |b|
+              next if b.equal?(entry) || cold.include?(b.name) || before[b.name].empty?
+              next unless before[b.name].all? { |p| cold.include?(p) }
+
+              cold << b.name
+              grew = true
+            end
+            break unless grew
+          end
+          hot, slow = @f.blocks.partition { |b| !cold.include?(b.name) }
+          hot + slow
+        end
+
         def assign_types
           @types = IR::Types.new(@f)
           @types.all

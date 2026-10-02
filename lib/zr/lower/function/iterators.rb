@@ -144,7 +144,7 @@ module Zr
           done, (value,) = @f.block(["i64"])
           loop = Loop.new(head: head, body: body, done: done, depth: @regions.size, step: step)
           @loops << loop
-          unlink = Regions::Region.new(@f.label, nil, nil, [@inline_scope, @line_rec])
+          unlink = Regions::Region.new(@f.cold(@f.label), nil, nil, [@inline_scope, @line_rec])
           @regions << unlink
           @f.jump(head)
           switch(head)

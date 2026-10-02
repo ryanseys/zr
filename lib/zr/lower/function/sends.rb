@@ -190,7 +190,7 @@ module Zr
           recv = expr(node.recv || Hir::SelfRef.new(node.line))
           arg = expr(node.args.first)
           fast = @f.label
-          slow = @f.label
+          slow = @f.cold(@f.label)
           floating = @f.label if float_path?(node)
           @f.brif(@f.band(fixnums?(recv, arg), gate_clear(OPS.fetch(node.name))), fast, floating || slow)
           switch(fast)
@@ -590,7 +590,7 @@ module Zr
           have, (klass, cellular) = @f.block(own ? %w[i64 i64] : %w[i64])
           reach = ->(k, cell_p) { @f.jump(have, own ? [k, imm(cell_p)] : [k]) }
           direct = @f.label
-          miss = @f.label
+          miss = @f.cold(@f.label)
           merge, (result,) = @f.block(["i64"])
           nil_p = node.name == :nil? && node.args.empty? && node.block.nil? && node.kwargs.nil? && !traced?
           nil_before_class(recv, merge) if nil_p
@@ -658,7 +658,7 @@ module Zr
             reach.call(global("G_FLOAT"), 0)
             switch(rest)
           end
-          special = @f.label
+          special = @f.cold(@f.label)
           pointer = @f.band(@f.icmp("eq", @f.band(recv, imm(7)), imm(0)), @f.icmp("ugt", recv, @qnil))
           @f.brif(pointer, heap, special)
           switch(heap)

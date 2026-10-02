@@ -88,7 +88,7 @@ module Zr
         def preempt
           return if @l.internal?
 
-          expired = @f.label
+          expired = @f.cold(@f.label)
           go = @f.label
           if @l.wasm?
             count = static("preempt_count")

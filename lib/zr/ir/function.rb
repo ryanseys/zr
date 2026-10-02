@@ -22,6 +22,10 @@ module Zr
     # instructions in order.
     class Block
       attr_reader :name, :params, :insts
+      # A block that runs rarely (a slow path: a miss, an overflow, a
+      # poll that fired). The backend puts it after the other blocks, so
+      # the common path falls through and fetches no taken branch.
+      attr_accessor :cold
 
       def initialize(name, params)
         @name = name
@@ -88,6 +92,12 @@ module Zr
       # A block with no parameters, by name only.
       def label
         block.first
+      end
+
+      # Marks the block `label` as a slow path (`Block#cold`).
+      def cold(label)
+        @block_of.fetch(label).cold = true
+        label
       end
 
       # Continues to emit into `block`. The current block must end in a jump,

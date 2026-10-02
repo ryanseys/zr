@@ -388,7 +388,7 @@ module Zr
       # limit. Nothing is linked yet, so the function returns at once.
       def stack_check
         limit = @f.fetch("i64", @task_addr, off(@task, "stack_limit"))
-        over = @f.label
+        over = @f.cold(@f.label)
         ok = @f.label
         @f.brif(@f.icmp("ult", @rec, limit), over, ok)
         switch(over)

@@ -127,9 +127,10 @@ module Zr
           @f.blocks.each { |b| @labels[b.name] = @asm.make_label(b.name) }
           @epilogue = @asm.make_label("epilogue") if @returns > 1
           prologue
-          @f.blocks.each_with_index do |b, n|
+          order = laid_out
+          order.each_with_index do |b, n|
             @asm.put_label(@labels[b.name])
-            @next = @f.blocks[n + 1]&.name
+            @next = order[n + 1]&.name
             forget_doubles
             b.insts.each { |i| emit(i) }
           end

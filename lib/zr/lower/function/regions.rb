@@ -23,7 +23,7 @@ module Zr
         # The landing block for an unwind from here: the innermost
         # region's, or the function's own.
         def landing
-          @regions.last&.landing || (@landing ||= @f.label)
+          @regions.last&.landing || (@landing ||= @f.cold(@f.label))
         end
 
         def protect(node)
@@ -38,7 +38,7 @@ module Zr
         # is false. An ensure body that jumps out discards the raise, and
         # `$!` is restored to its value at the region's start, as in ruby.
         def with_ensure(body, errinfo: true)
-          region = Region.new(@f.label, body, reserve(errinfo ? 3 : 2))
+          region = Region.new(@f.cold(@f.label), body, reserve(errinfo ? 3 : 2))
           value_at = value_offset(region.slot)
           prev_at = value_offset(region.slot + 1)
           began_at = value_offset(region.slot + 2)
@@ -81,7 +81,7 @@ module Zr
         def rescue_region(node)
           return expr(node.body) if node.rescues.empty?
 
-          region = Region.new(@f.label, nil, reserve(2))
+          region = Region.new(@f.cold(@f.label), nil, reserve(2))
           exc_at = value_offset(region.slot)
           prev_at = value_offset(region.slot + 1)
           head = @f.label
@@ -138,7 +138,7 @@ module Zr
         # The block's value, or nil if a raise leaves it. `defined?` uses
         # this to test a receiver.
         def guarded
-          region = Region.new(@f.label, nil, reserve(1))
+          region = Region.new(@f.cold(@f.label), nil, reserve(1))
           prev_at = value_offset(region.slot)
           merge, (result,) = @f.block(["i64"])
           @regions << region

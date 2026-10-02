@@ -16,7 +16,7 @@ module Zr
         def operator(node, recv, argv, arg = @f.fetch("i64", argv))
           ok = @f.band(fixnums?(recv, arg), gate_clear(OPS.fetch(node.name)))
           fast = @f.label
-          slow = @f.label
+          slow = @f.cold(@f.label)
           floating = @f.label if float_path?(node)
           merge, (result,) = @f.block(["i64"])
           @f.brif(ok, fast, floating || slow)
@@ -56,7 +56,7 @@ module Zr
         def native_compare(node, recv, argv)
           arg = @f.fetch("i64", argv)
           fast = @f.label
-          slow = @f.label
+          slow = @f.cold(@f.label)
           merge, (result,) = @f.block(["i64"])
           own = @f.icmp("eq", @f.band(@f.gates, imm(@l.const("GATE_CMP"))), imm(0))
           @f.brif(@f.band(fixnums?(recv, arg), own), fast, slow)
@@ -84,7 +84,7 @@ module Zr
           fix = @f.icmp("ne", @f.band(recv, imm(1)), imm(0))
           ok = @f.band(fix, gate_clear(UNARY.fetch(node.name)))
           fast = @f.label
-          slow = @f.label
+          slow = @f.cold(@f.label)
           floating = @f.label if FLOAT_UNARY.key?(node.name)
           merge, (result,) = @f.block(["i64"])
           @f.brif(ok, fast, floating || slow)
