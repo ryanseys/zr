@@ -160,7 +160,7 @@ module Zr
 
         # An accessor's full body at the site. The cell's entry is an
         # accessor, and the receiver's class matches the cell, so the
-        # remaining tests are the receiver's kind, the ractor, and the
+        # remaining tests are the receiver's kind, GATE_RACTOR, and the
         # guessed ivar entry (the same tests that `guessed_ivar_row` does
         # for `@name`). A receiver that is not a plain object, a ractor, a
         # frozen receiver for the writer, or a wrong guess goes to `slow`,
@@ -186,8 +186,7 @@ module Zr
           @f.store(imm(0), @task_addr, off(@task, "kw"), region: :task)
           mask = @l.const("T_MASK") | (shape == :writer ? @l.const("FL_FREEZE") : 0)
           kind = @f.band(@f.fetch("i64", recv, off(@l.layout("RBasic"), "flags")), imm(mask))
-          outside = @f.icmp("eq", @f.fetch("i64", @task_addr, off(@task, "ractor")), imm(0))
-          @f.brif(@f.band(@f.icmp("eq", kind, imm(@l.const("T_OBJECT"))), outside), plain, slow)
+          @f.brif(@f.band(@f.icmp("eq", kind, imm(@l.const("T_OBJECT"))), gate_test(["GATE_RACTOR"])), plain, slow)
           switch(plain)
           t = @f.iadd(recv, imm(off(@l.layout("RObject"), "iv")))
           i = @f.fetch("i64", @f.iadd(entry, imm(off(meta, "ivar"))), off(@l.layout("IvarCache"), "index"))

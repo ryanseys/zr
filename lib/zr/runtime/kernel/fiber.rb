@@ -71,6 +71,7 @@ module Zr::Kern
   sig [] => Value
   def zr_ractor_enter_m
     Task.set_ractor(zr_task(), 1)
+    Machine.gates_set(Machine.gates | GATE_RACTOR)
     # Each constant read in a ractor checks whether it can share the
     # value, so no cache entry that the main ractor filled can be used.
     zr_consts_changed()

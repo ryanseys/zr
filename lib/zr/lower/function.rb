@@ -510,8 +510,9 @@ module Zr
       # this returns the entry in a new block. Else it branches to `slow`,
       # the kernel's read or write, which sets the guess
       # (lib/zr/runtime/kernel/cache.rb). The inline path accepts a plain object,
-      # class or module outside a ractor (the kernel applies the ractor
-      # isolation rule), and not frozen when `writing`.
+      # class or module while no ractor has started (GATE_RACTOR; the
+      # kernel applies the ractor isolation rule), and not frozen when
+      # `writing`.
       def guessed_ivar_row(ic, ivar, slow, writing:)
         table = @l.layout("IvTab")
         entry = @l.layout("IvEntry")
@@ -519,8 +520,7 @@ module Zr
         indexed = @f.label
         hit = @f.label
         pointer = @f.band(@f.icmp("eq", @f.band(@self, imm(7)), imm(0)), @f.icmp("ugt", @self, @qnil))
-        outside = @f.icmp("eq", @f.fetch("i64", @task_addr, off(@task, "ractor")), imm(0))
-        @f.brif(@f.band(pointer, outside), plain, slow)
+        @f.brif(@f.band(pointer, gate_test(["GATE_RACTOR"])), plain, slow)
         switch(plain)
         t = own_ivar_table(slow, writing)
         i = @f.fetch("i64", ic, off(@l.layout("IvarCache"), "index"))

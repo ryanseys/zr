@@ -77,6 +77,11 @@ module Zr::Kern
   # the kernel's fast path for a Float or an Integer directly, with no
   # send, while Math's singleton methods are the core's (G_MATH_META).
   GATE_MATH = 1 << 52
+  # Closes when the first ractor task starts (zr_ractor_enter_m). Until
+  # then, an inline instance variable read or write needs no test of the
+  # task: no task can be a ractor's. After, every one goes to the kernel,
+  # which applies the ractor rule for the task that runs.
+  GATE_RACTOR = 1 << 53
 
   # Writes the decimal digits of `n` into `buf` and returns the number of
   # bytes. `buf` must have 24 bytes.
