@@ -205,11 +205,10 @@ module Zr
     def zr_big_put: (Integer p, Integer i, Integer w) -> void
     def zr_big_route: (Integer recv, Integer mid, Integer argc, Integer argv) -> Integer
     def zr_big_route_blk: (Integer recv, Integer mid, Integer argc, Integer argv, Integer blk) -> Integer
-    def zr_big_shl_words: (Integer words, Integer n, Integer s) -> void
+    def zr_big_shifted_words: (Integer a, Integer s) -> Integer
     def zr_big_sub_mag: (Integer a, Integer b) -> Integer
     def zr_big_to_long: (Integer v, Integer out) -> bool
     def zr_big_word_bits: (Integer w) -> Integer
-    def zr_big_words: (Integer a, Integer extra) -> Integer
     def zr_big_zeros: (Integer n) -> Integer
     def zr_binding: () -> Integer
     def zr_binding_add: (Integer b, Integer name) -> Integer

@@ -26,8 +26,14 @@ module Zr::Kern
     o = RArray.ptr(out)
     carry = 0
     i = 0
+    while i < m
+      t = zr_big_at(x, i) + zr_big_at(y, i) + carry
+      zr_big_put(o, i, t & BIG_MASK)
+      carry = t >> BIG_BITS
+      i += 1
+    end
     while i < n
-      t = zr_big_at(x, i) + (i < m ? zr_big_at(y, i) : 0) + carry
+      t = zr_big_at(x, i) + carry
       zr_big_put(o, i, t & BIG_MASK)
       carry = t >> BIG_BITS
       i += 1
@@ -36,7 +42,8 @@ module Zr::Kern
     zr_big_done(out, n + 1)
   end
 
-  # `a - b`, for `a >= b`.
+  # `a - b`, for `a >= b`. A limb's difference is above -2^30, so its low
+  # 30 bits are the limb, and bit 30 is the borrow: no branch on it.
   sig [Value, Value] => Value
   def zr_big_sub_mag(a, b)
     n = RArray.len(a)
@@ -47,15 +54,16 @@ module Zr::Kern
     o = RArray.ptr(out)
     borrow = 0
     i = 0
+    while i < m
+      t = zr_big_at(x, i) - zr_big_at(y, i) - borrow
+      zr_big_put(o, i, t & BIG_MASK)
+      borrow = (t >> BIG_BITS) & 1
+      i += 1
+    end
     while i < n
-      t = zr_big_at(x, i) - (i < m ? zr_big_at(y, i) : 0) - borrow
-      if t < 0
-        t += BIG_MASK + 1
-        borrow = 1
-      else
-        borrow = 0
-      end
-      zr_big_put(o, i, t)
+      t = zr_big_at(x, i) - borrow
+      zr_big_put(o, i, t & BIG_MASK)
+      borrow = (t >> BIG_BITS) & 1
       i += 1
     end
     zr_big_done(out, n)
@@ -144,12 +152,10 @@ module Zr::Kern
     zr_ary_push(out, quotient)
     remainder = zr_ary_new(n)
     zr_ary_push(out, remainder)
-    u = zr_big_words(a, 1)
-    v = zr_big_words(b, 0)
     # Shifts both so the divisor's top limb has its top bit set.
-    s = BIG_BITS - zr_big_word_bits(Machine.load64(v + ((n - 1) * 8), 0))
-    zr_big_shl_words(u, size + 1, s)
-    zr_big_shl_words(v, n, s)
+    s = BIG_BITS - zr_big_word_bits(zr_big_at(RArray.ptr(b), n - 1))
+    u = zr_big_shifted_words(a, s)
+    v = zr_big_shifted_words(b, s)
     q = RArray.ptr(quotient)
     vtop = Machine.load64(v + ((n - 1) * 8), 0)
     vsec = Machine.load64(v + ((n - 2) * 8), 0)
@@ -170,13 +176,8 @@ module Zr::Kern
         p = (qhat * Machine.load64(v + (i * 8), 0)) + carry
         carry = p >> BIG_BITS
         t = Machine.load64(u + ((i + j) * 8), 0) - (p & BIG_MASK) - borrow
-        if t < 0
-          t += BIG_MASK + 1
-          borrow = 1
-        else
-          borrow = 0
-        end
-        Machine.store64(u + ((i + j) * 8), 0, t)
+        Machine.store64(u + ((i + j) * 8), 0, t & BIG_MASK)
+        borrow = (t >> BIG_BITS) & 1
         i += 1
       end
       t = Machine.load64(u + ((j + n) * 8), 0) - carry - borrow
@@ -272,18 +273,23 @@ module Zr::Kern
     zr_big_done(out, n)
   end
 
-  # A block of the limbs of the Array `a` as words, then `extra` zero
-  # words. The caller frees it.
+  # A block of the limbs of the Array `a` shifted left by `s` bits (below
+  # 30), as words, and one word on top with the bits that come up. One
+  # pass: the division's normalized operands. The caller frees it.
   sig [Value, Word] => Ptr
-  def zr_big_words(a, extra)
+  def zr_big_shifted_words(a, s)
     n = RArray.len(a)
-    out = zr_big_zeros(n + extra)
+    out = zr_xmalloc((n + 1) * 8)
     p = RArray.ptr(a)
+    low = 0
     i = 0
     while i < n
-      Machine.store64(out + (i * 8), 0, zr_big_at(p, i))
+      w = zr_big_at(p, i)
+      Machine.store64(out + (i * 8), 0, ((w << s) | (low >> (BIG_BITS - s))) & BIG_MASK)
+      low = w
       i += 1
     end
+    Machine.store64(out + (n * 8), 0, low >> (BIG_BITS - s))
     out
   end
 
@@ -297,19 +303,6 @@ module Zr::Kern
       i += 1
     end
     out
-  end
-
-  # Shifts the `n` limbs at `words` left by `s` bits (below 30) in place.
-  # The top limb must have room for the bits that come up.
-  sig [Ptr, Word, Word] => Void
-  def zr_big_shl_words(words, n, s)
-    i = n - 1
-    while i > 0
-      low = Machine.load64(words + ((i - 1) * 8), 0)
-      Machine.store64(words + (i * 8), 0, ((Machine.load64(words + (i * 8), 0) << s) | (low >> (BIG_BITS - s))) & BIG_MASK)
-      i -= 1
-    end
-    Machine.store64(words, 0, (Machine.load64(words, 0) << s) & BIG_MASK)
   end
 
   # The bits of `w` (above zero) up to its top set bit.
