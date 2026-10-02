@@ -142,6 +142,8 @@ module Zr::Kern
       zr_onig_stack_double(m)
     end
   end
+  # Each push of the match loop runs these, so they are in its code.
+  inline :zr_onig_stack_ensure
 
   # STACK_SAVE: a stack that moved out of the arena stays with the search.
   sig [Ptr] => Void
@@ -158,6 +160,7 @@ module Zr::Kern
   def zr_onig_inherit_null_check(m, stk)
     stk == OnigMatch.stk_base(m) ? 0 : OnigStk.null_check(stk - OnigStk.size)
   end
+  inline :zr_onig_inherit_null_check
 
   # STACK_PUSH: a state entry (ALT, POS, POS_NOT, LOOK_BEHIND_NOT).
   sig [Ptr, Word, Ptr, Ptr, Ptr, Ptr] => Void
@@ -172,6 +175,7 @@ module Zr::Kern
     OnigStk.set_d(stk, Machine.word(keep))
     OnigMatch.set_stk(m, stk + OnigStk.size)
   end
+  inline :zr_onig_push
 
   # STACK_PUSH_TYPE: a marker entry (STOP_BT, ABSENT, RETURN).
   sig [Ptr, Word] => Void
