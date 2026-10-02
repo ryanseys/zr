@@ -78,7 +78,7 @@ module Zr
     end
 
     # A command whose first word names one of its own commands, as
-    # `zr-dev gen unicode` and `zr-dev cache prune` do. `commands` maps
+    # `zr-dev gen unicode` and `zr-dev gems try` do. `commands` maps
     # each word to its summary and a lambda that loads its class.
     #
     # A group can also have a `fallback`: a lambda that loads the command

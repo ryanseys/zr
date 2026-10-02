@@ -136,14 +136,15 @@ module Zr
           `zr <command> --help` does the same.
         TEXT
         "cache" => <<~TEXT
-          Usage: zr cache [path|size|clean [--all]]
+          Usage: zr cache [path|size|clean [--days N | --all]]
 
-          path          print the cache directory (the default)
-          size          what the cache holds, by kind
-          clean         delete the files that this zr does not use, and the
-                        compiled compilers that older zr versions kept
-          clean --all   delete every file in the cache, also this zr's own;
-                        the next build makes them again
+          path            print the cache directory (the default)
+          size            what the cache holds, by kind
+          clean           delete the files that this zr does not use, and the
+                          compiled compilers that older zr versions kept
+          clean --days N  the same, but keep the files used in the last N days
+          clean --all     delete every file in the cache, also this zr's own;
+                          the next build makes them again
 
           An installed zr also cleans its cache when it grows past
           ZR_CACHE_MAX_GB (default 5).

@@ -241,15 +241,6 @@ output through the same rewrite (`tool/lib/zr/dev/files.rb`).
 
 See [Bootstrapping](../explanation/bootstrapping.md).
 
-### Cache
-
-| Command | Does |
-|---|---|
-| `zr-dev cache size` | Shows the size of the cache, by kind of file. |
-| `zr-dev cache live` | Lists the cache files of this checkout, and whether each is built. |
-| `zr-dev cache prune [--days N]` | Deletes all cache files that this checkout does not use and that are older than one day (`ZR_CACHE_DAYS`). `--days 3` keeps files used in the last 3 days. |
-| `zr-dev cache clear` | Deletes all the cache, also the files of this checkout. |
-
 ### Build server
 
 | Command | Does |

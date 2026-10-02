@@ -178,7 +178,7 @@ runs it (see [Tools](../reference/tools.md)).
 - A command that must stop calls `fail!(message)`. It prints the
   message and exits with status 1.
 - A command whose first word names a command of its own (`zr-dev gen`,
-  `zr-dev cache`, `zr-dev gems`, `zr-dev vendor`) is a `Group`.
+  `zr-dev gems`, `zr-dev vendor`) is a `Group`.
 - The tools share `Dev.parallel_map`, `Dev.git`, `Dev.revision`,
   `Dev.tree_files` and `Dev.timed`. Do not write another copy in a
   tool.

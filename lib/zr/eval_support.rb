@@ -66,7 +66,7 @@ module Zr
 
     # The cache files of eval support: the object, by the key in its
     # metadata, and the metadata, by the runtime's digest and the kind
-    # of eval (`jit` or `walk`). `zr-dev cache prune` reads these too.
+    # of eval (`jit` or `walk`). `zr cache clean` reads these too.
     def self.object_path(key) = Cache::Store.path(:object, key)
     def self.meta_path(runtime, kind) = meta_file(runtime.eval_digest, kind)
     def self.meta_file(eval_digest, kind) = Cache::Store.path(:meta, "#{eval_digest}-eval-#{kind}")

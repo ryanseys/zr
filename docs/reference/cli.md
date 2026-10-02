@@ -177,7 +177,7 @@ line says what to do.
 `fail` means that zr cannot build, and `zr doctor` then exits with
 status 1. Put the output of `zr doctor` in a bug report.
 
-## `zr cache [path|size|clean [--all]]`
+## `zr cache [path|size|clean [--days N | --all]]`
 
 zr keeps what it builds once in a cache: the runtime, eval support, the
 prelinked images, machine code, parsed trees and the binaries of
@@ -186,8 +186,9 @@ prelinked images, machine code, parsed trees and the binaries of
 | Command | Effect |
 |---|---|
 | `zr cache` or `zr cache path` | Prints the cache directory. |
-| `zr cache size` | Prints what the cache holds, by kind, and the compiled compilers that older zr versions kept. |
+| `zr cache size` | Prints what the cache holds, by kind, and the compiled compilers that older zr versions kept. It also prints the size of wasmtime's own cache, if there is one. zr does not clean that cache. |
 | `zr cache clean` | Deletes the entries that this zr does not use, the files of a zr from before the store, and the compiled compilers that older zr versions kept. The next build rebuilds nothing. |
+| `zr cache clean --days N` | Does the same as `zr cache clean`, but keeps the entries used in the last N days. In a checkout, `--days 1` keeps the entries of a branch that you used today. |
 | `zr cache clean --all` | Deletes every entry in the cache. The next build makes them again. |
 
 The cache is one content store, `<cache>/store/`. Each entry is at

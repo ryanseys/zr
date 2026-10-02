@@ -6,7 +6,7 @@ require_relative "../version"
 
 module Zr
   module Cache
-    # The runtime cache (`Paths.cache`), as `zr cache`, `zr-dev cache` and
+    # The runtime cache (`Paths.cache`), as `zr cache` and
     # `zr doctor` see it. Almost all of it is the store (lib/zr/cache/store.rb):
     # a runtime object, a prelinked image and eval support for each digest
     # that a zr builds, code packs, lowerings, parsed trees, and the
@@ -113,7 +113,7 @@ module Zr
       # evicts the entries used longest ago that no root names until the
       # store is under the limit, then removes the compiled compilers of
       # other versions if it is still over. A checkout cleans its own cache
-      # with `zr-dev cache prune`; the quotas of `run` and `binary` hold in
+      # with `zr cache clean`; the quotas of `run` and `binary` hold in
       # both.
       def trim
         return if Paths.checkout? || limit_gb <= 0

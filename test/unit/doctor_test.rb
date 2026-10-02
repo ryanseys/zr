@@ -103,6 +103,32 @@ class DoctorTest < Minitest::Test
     end
   end
 
+  def test_cache_clean_days_keeps_the_entries_used_in_those_days
+    Dir.mktmpdir("zr-cache-") do |dir|
+      old, young = %w[aa bb].map do |key|
+        File.join(dir, "store", "parse", key, key * 32).tap do |path|
+          FileUtils.mkdir_p(File.dirname(path))
+          File.write(path, "x")
+        end
+      end
+      File.utime(Time.now - (3 * 86_400), Time.now - (3 * 86_400), old)
+
+      out, _, status = zr("cache", "clean", "--days", "1", env: { "ZR_CACHE" => dir })
+
+      assert_predicate status, :success?
+      assert_match(/\Adeleted 1 file\(s\)/, out)
+      refute_path_exists old
+      assert_path_exists young
+    end
+  end
+
+  def test_cache_clean_days_needs_a_number
+    _, err, status = zr("cache", "clean", "--days", "soon")
+
+    assert_equal 2, status.exitstatus
+    assert_includes err, "--days needs a number of days, 0 or more"
+  end
+
   def test_run_emit_wasm_without_wasmtime_stops_before_the_build
     Dir.mktmpdir("zr-no-wasmtime-") do |dir|
       program = File.join(dir, "app.rb")
