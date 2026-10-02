@@ -9,11 +9,7 @@
 # file. Thus the file cannot become out of date.
 
 stdlib/ffi/ffi/toplevel_runs_on_the_process_main_thread.rb	the program runs on a ruby thread with a big stack, not on the process main thread, whose stack the OS sizes
-cli/stdlib/bundler/bundler_resolves_a_gemfile.rb	too slow for the walker: loading bundler and rubygems runs past the 120 s host limit
 stdlib/digest/digest/big5_and_euc_jp_encode_exactly.rb	too slow for the walker: encoding every code point to U+2FFFF twice runs past the 120 s host limit
 stdlib/json/json/a_document_handed_straight_to_parse_stays_rooted_for_the_who.rb	too slow for the walker: parsing an 80,000-record document (sized so the parse collects) runs past the 120 s host limit
 stdlib/json/json/tens_of_thousands_of_generated_documents_each_answer_or_rais.rb	too slow for the walker: parsing tens of thousands of generated documents runs past the 120 s host limit
-stdlib/net/net/http_request_reaches_a_server_thread.rb	too slow for the walker: require "net/http" alone takes about 200 s on the host
-stdlib/net/net/issue_net_http_missing.rb	too slow for the walker: require "net/http" alone takes about 200 s on the host
-stdlib/rubygems/rubygems/requiring_rubygems_then_bundler_installs_the_monkeypatches_w.rb	too slow for the walker: loading rubygems and then bundler runs past the 120 s host limit
 stdlib/zlib/zlib/deflate_flush_modes_and_chunks.rb	too slow for the walker: deflating 100 KB in one-byte chunks (100,000 deflate calls) runs past the 120 s host limit
