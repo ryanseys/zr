@@ -213,8 +213,16 @@ module Process
       @dups << fd << source
     end
 
+    # A file that does not open closes the ones opened before it, and
+    # the error names only the path, as ruby's child reports its open.
     def open_file(fd, path, mode, perm)
-      io = File.open(path_of(path), mode || (fd == 0 ? "r" : "w"), perm || 0o666)
+      name = path_of(path)
+      begin
+        io = File.open(name, mode || (fd == 0 ? "r" : "w"), perm || 0o666)
+      rescue SystemCallError => e
+        @opened.each(&:close)
+        raise e.class.new(name)
+      end
       @opened << io
       dup2(fd, io.fileno)
     end
@@ -604,8 +612,13 @@ module Process
 
   # The error of a command that did not start, named by its program as
   # rb_exec_fail names it: after the environment and options come off.
+  # The error names what failed, as ruby's child reports it: the
+  # `chdir:` directory when the child could not enter it, else the
+  # command.
   def self.start_error(args, options, pid)
-    SystemCallError.new(command_words(exec_args(args, options)[1]).first, -pid)
+    _, args, options = exec_args(args, options)
+    dir = options[:chdir] && (String.try_convert(options[:chdir]) || options[:chdir].to_path)
+    SystemCallError.new(dir && !Primitive.zr_path_access(dir, 1) ? dir : command_words(args).first, -pid)
   end
 
   def self.spawn_command(args, options)

@@ -1,0 +1,4 @@
+Errno::ENOENT: No such file or directory - /no-such-directory-here
+Errno::ENOENT: No such file or directory - DIR/absent
+Errno::ENOENT: No such file or directory - DIR/nodir/x
+0
