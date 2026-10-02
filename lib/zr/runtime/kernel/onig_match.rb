@@ -159,6 +159,8 @@ module Zr::Kern
   # CHECK_INTERRUPT_IN_MATCH_AT with rb_reg_timeout_p (re.c). Every 128th
   # check reads the clock. The first read sets the deadline from the
   # limit. Each later read checks whether the deadline passed.
+  # The count is the match loop's, after each failure, so its test is
+  # inline, and only every 128th check calls the clock part.
   sig [Ptr] => Bool
   def zr_onig_check_interrupt(m)
     counter = OnigMatch.counter(m) + 1
@@ -166,6 +168,12 @@ module Zr::Kern
       OnigMatch.set_counter(m, counter)
       return false
     end
+    zr_onig_check_clock(m)
+  end
+  inline :zr_onig_check_interrupt
+
+  sig [Ptr] => Bool
+  def zr_onig_check_clock(m)
     OnigMatch.set_counter(m, 0)
     if OnigMatch.end_time(m) == 0
       limit = OnigMatch.limit(m)
@@ -484,6 +492,7 @@ module Zr::Kern
     end
     ONIGERR_UNDEFINED_BYTECODE
   end
+  inline :zr_onig_op_cclass
 
   # OP_ANYCHAR..OP_ANYCHAR_ML_STAR_PEEK_NEXT: `.` and `.*`.
   sig [Ptr, Word] => Word
@@ -601,6 +610,10 @@ module Zr::Kern
     end
     ONIGERR_UNDEFINED_BYTECODE
   end
+  # The opcodes of the most common patterns (classes, words, groups,
+  # alternation) are in the match loop itself (`zr_onig_step`), with no
+  # call each.
+  inline :zr_onig_op_word
 
   # OP_BEGIN_BUF..OP_BEGIN_POSITION: anchors.
   sig [Ptr, Word] => Word
@@ -834,6 +847,7 @@ module Zr::Kern
     end
     ONIGERR_UNDEFINED_BYTECODE
   end
+  inline :zr_onig_op_memory
 
   # The repeat_inc tail for OP_REPEAT_INC and OP_REPEAT_INC_SG. `pbegin`
   # is the opcode's address, or 0 for the SG form, which the match cache
@@ -981,6 +995,7 @@ module Zr::Kern
     end
     ONIGERR_UNDEFINED_BYTECODE
   end
+  inline :zr_onig_op_control
 
   # null_check_found: an empty loop is found, so skip the next
   # instruction.

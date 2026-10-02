@@ -1524,6 +1524,7 @@ module Zr
     def zr_onig_cclass_mb: (Integer m, Integer p, Integer s, Integer sbegin) -> Integer
     def zr_onig_cclass_mb_not: (Integer m, Integer p, Integer s, Integer sbegin) -> Integer
     def zr_onig_cesu8_to_code: (Integer enc, Integer p, Integer e) -> Integer
+    def zr_onig_check_clock: (Integer m) -> bool
     def zr_onig_check_extended_cache_point: (Integer buf, Integer index, Integer mask) -> bool
     def zr_onig_check_interrupt: (Integer m) -> bool
     def zr_onig_check_match_cache: (Integer m, Integer pbegin) -> Integer
@@ -1543,6 +1544,7 @@ module Zr
     def zr_onig_exact: (Integer prog) -> Integer
     def zr_onig_exact_end: (Integer prog) -> Integer
     def zr_onig_fail_match_cache: (Integer m) -> Integer
+    def zr_onig_fail_match_cache_init: (Integer m, Integer status, Integer num_fails, Integer len) -> Integer
     def zr_onig_find_cache_point: (Integer m, Integer p, Integer cop) -> Integer
     def zr_onig_fold_lookup: (Integer code) -> Integer
     def zr_onig_fold_rows: () -> Integer

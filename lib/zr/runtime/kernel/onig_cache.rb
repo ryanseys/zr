@@ -513,7 +513,9 @@ module Zr::Kern
   # The fail path accounting (OP_FAIL, regexec.c:4103-4160). It adds
   # one to the failure count. When the failures get to the subject length
   # times the count, it counts and numbers the cache opcodes and makes the
-  # bit array. Returns 0, or an error.
+  # bit array. Returns 0, or an error. The match loop runs it after each
+  # failure, so the count is inline, and the rest is a call only when the
+  # count gets to the limit.
   sig [Ptr] => Word
   def zr_onig_fail_match_cache(m)
     status = OnigMatch.match_cache_status(m)
@@ -522,6 +524,12 @@ module Zr::Kern
     OnigMatch.set_num_fails(m, num_fails)
     len = Machine.word(OnigMatch.aend(m) - OnigMatch.str(m))
     return 0 if num_fails < len * OnigMatch.num_cache_opcodes(m)
+    zr_onig_fail_match_cache_init(m, status, num_fails, len)
+  end
+  inline :zr_onig_fail_match_cache
+
+  sig [Ptr, Word, Word, Word] => Word
+  def zr_onig_fail_match_cache_init(m, status, num_fails, len)
     if status == ONIG_MATCH_CACHE_STATUS_UNINIT
       OnigMatch.set_match_cache_status(m, ONIG_MATCH_CACHE_STATUS_INIT)
       cell = Machine.slot(8)
