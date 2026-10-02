@@ -472,7 +472,7 @@ module Zr::Kern
     zr_builtin_hidden(zr_global(G_FIBER), Machine.id(:__make__), Machine.addr(:zr_fiber_make), 0)
     zr_builtin_hidden(fiber, Machine.id(:__yield__), Machine.addr(:zr_fiber_yield), 0 - 1)
     zr_builtin(fiber, Machine.id(:current), Machine.addr(:zr_fiber_current_m), 0)
-    zr_builtin(zr_global(G_FIBER), Machine.id(:resume), Machine.addr(:zr_fiber_resume), 0 - 1)
+    zr_builtin_hidden(zr_global(G_FIBER), Machine.id(:__resume__), Machine.addr(:zr_fiber_resume), 0 - 1)
     zr_builtin_hidden(zr_global(G_FIBER), Machine.id(:__transfer__), Machine.addr(:zr_fiber_transfer), 0 - 1)
     zr_builtin(zr_global(G_FIBER), Machine.id(:alive?), Machine.addr(:zr_fiber_alive_p), 0)
     main = zr_singleton_class(zr_global(G_MAIN))

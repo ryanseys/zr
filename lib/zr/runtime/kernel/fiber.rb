@@ -422,6 +422,12 @@ module Zr::Kern
     RFiber.resuming(recv)
   end
 
+  # Returns the fiber that resumed `recv` and waits for it, or nil.
+  sig [Value] => Value
+  def zr_fiber_prev_m(recv)
+    RFiber.prev(recv)
+  end
+
   # Whether the fiber stopped because it transferred away, not because it
   # yielded or resumed another fiber (FIBER_SUSPENDED_P without yielding).
   sig [Value] => Value

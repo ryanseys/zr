@@ -403,7 +403,7 @@ class Thread
       finish
     elsif equal?(Thread.current)
       Kernel.exit if equal?(Thread.main)
-      throw @kill_tag
+      kill_here
     else
       @killed = true
       wakeup
@@ -569,6 +569,28 @@ class Thread
     equal?(Thread.current) ? Fiber.current : @fiber
   end
 
+  # Whether `fiber` is the thread's own; @fiber is where the thread
+  # stopped.
+  def root?(fiber)
+    Primitive.attr! :hidden
+    fiber.equal?(@root)
+  end
+
+  # A kill ends the thread where it runs. In a fiber that the thread
+  # resumed, it ends that fiber first, each ensure on the way running,
+  # and goes on in the fiber that resumed it, as ruby's kill crosses
+  # fibers.
+  def kill_here
+    Primitive.attr! :hidden
+    fiber = Fiber.current
+    resumer = Primitive.zr_fiber_prev_m(fiber) unless root?(fiber)
+    tag = resumer && Primitive.zr_hidden_get(fiber, :__kill__)
+    throw @kill_tag unless tag
+
+    Primitive.zr_hidden_set(resumer, :__action__, :thread_kill)
+    throw tag
+  end
+
   def push_mask(mask)
     Primitive.attr! :hidden
     (@masks ||= []) << mask
@@ -597,7 +619,7 @@ class Thread
     Primitive.attr! :hidden
     initialize { nil }
     @status = :run
-    @fiber = Fiber.current
+    @root = @fiber = Fiber.current
     @site = nil
     @armed = true
   end
@@ -606,7 +628,7 @@ class Thread
     Primitive.attr! :hidden
     @site = site && site[0, site.index(":in ")]
     # A thread's own fiber blocks, as every thread's root fiber does.
-    @fiber = Fiber.new(blocking: true) { body }
+    @root = @fiber = Fiber.new(blocking: true) { body }
     # The fiber heads a thread of its own, so every fiber made on it
     # belongs to this thread.
     Primitive.zr_fiber_rehome(@fiber)
@@ -710,7 +732,7 @@ class Thread
     Primitive.attr! :hidden
     return unless @armed
 
-    throw @kill_tag if @killed
+    kill_here if @killed
     if @pending && !masked?(@pending)
       e = @pending
       @pending = nil
@@ -1055,6 +1077,7 @@ class Fiber
       return value if action.nil?
 
       Primitive.zr_hidden_set(current, :__action__, nil)
+      Thread.current.send(:kill_here) if action == :thread_kill
       Kernel.throw(Primitive.zr_hidden_get(current, :__kill__)) if action == :kill
       Kernel.raise(action)
     end
@@ -1078,8 +1101,14 @@ class Fiber
     return self unless alive?
     return self if Primitive.zr_fiber_unborn_p(self) && Primitive.zr_fiber_terminate(self)
 
+    # The root fiber of a thread other than the main one: the kill ends
+    # the thread.
+    thread = Thread.current
+    thread.send(:kill_here) if thread.send(:root?, self) && !thread.equal?(Thread.main)
+    # The main thread's own fiber has no tag: it ignores its own kill,
+    # and another thread's resume of it is refused.
     tag = Primitive.zr_hidden_get(self, :__kill__)
-    return self if tag.nil?
+    return self if tag.nil? && thread.send(:root?, self)
 
     if equal?(Fiber.current)
       Kernel.throw(tag)
@@ -1088,6 +1117,10 @@ class Fiber
     end
     self
   end
+
+  # `resume`: runs the fiber until it yields or ends. A kill of the
+  # thread that ended the fiber goes on here.
+  def resume(...) = Fiber.send(:take_action, __resume__(...))
 
   # `transfer`: control moves to the fiber, which comes back with the
   # kill or the exception left for it, if any.
@@ -1149,7 +1182,13 @@ class Fiber
     return resumed.send(:deliver, action) if resumed
 
     Primitive.zr_hidden_set(self, :__action__, action)
-    Primitive.zr_fiber_transferred_away_p(self) ? transfer : resume
+    begin
+      Primitive.zr_fiber_transferred_away_p(self) ? transfer : resume
+    rescue FiberError
+      # The fiber did not run, so the action is not left for it.
+      Primitive.zr_hidden_set(self, :__action__, nil)
+      Kernel.raise
+    end
   end
 
   def storage_table

@@ -1,0 +1,9 @@
+[:inner, :outer, :thread]
+false
+thread ensure
+nil
+a ensure
+nil
+nil
+"attempt to resume a transferring fiber"
+"fiber rescued boom"
