@@ -95,11 +95,45 @@ module Zr
         # checks whether `self.helper` can be called as written, and a
         # private `helper` cannot. A private writer also cannot, although a
         # call of `self.x = v` can call one.
-        def method_defined(send)
-          all_defined([send.recv, *send.args].compact) do
-            recv = send.recv ? expr(send.recv) : @self
-            truth(kernel("zr_method_defined", recv, sym_word(send.name), imm_bool(!send.recv.nil?)))
+        #
+        # As compile.c's defined_expr, the arguments are tested first, then
+        # the receiver, and a receiver is evaluated once. `keep` is a record
+        # slot that gets the receiver's value, for a caller that sends to it.
+        def method_defined(send, keep = nil)
+          all_defined(send.args.compact) do
+            next truth(kernel("zr_method_defined", @self, sym_word(send.name), imm_bool(false))) unless send.recv
+
+            with_receiver(send.recv) do |recv|
+              @f.store(recv, @rec, value_offset(keep)) if keep
+              truth(kernel("zr_method_defined", recv, sym_word(send.name), imm_bool(true)))
+            end
           end
+        end
+
+        # If the receiver `node` is defined, returns the block's value for
+        # the receiver's value. A call on a receiver of its own runs once,
+        # on the receiver that its test evaluated.
+        def with_receiver(node)
+          merge, (ok,) = @f.block(["i8"])
+          yes = @f.label
+          no = @f.label
+          base = @sp
+          kept = node.is_a?(Hir::Send) && node.recv && !node.recv.is_a?(Hir::SelfRef) && !node.safe
+          slot = reserve(1) if kept
+          @f.brif(kept ? method_defined(node, slot) : part_defined(node), yes, no)
+          switch(no)
+          @f.jump(merge, [imm_bool(false)])
+          switch(yes)
+          value = if kept
+                    call(Hir::Send.of(Hir::Slot.new(slot, node.line), node.name, node.args, node.line,
+                                      opt: node.opt, block: node.block, kwargs: node.kwargs, write: node.write, using: node.using))
+                  else
+                    expr(node)
+                  end
+          @f.jump(merge, [yield(value)])
+          switch(merge)
+          @sp = base
+          ok
         end
 
         # If every part is defined, returns the block's value. The tests
