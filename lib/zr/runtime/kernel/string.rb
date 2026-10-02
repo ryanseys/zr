@@ -59,9 +59,15 @@ module Zr::Kern
   # grows leaves the cell, and after that it doubles each time.
   sig [Value, Word] => Void
   def zr_str_reserve(s, n)
-    if n <= RString.capa(s)
-      return
+    if n > RString.capa(s)
+      zr_str_grow(s, n)
     end
+  end
+  # Most appends fit, so the test is in the writer's code.
+  inline :zr_str_reserve
+
+  sig [Value, Word] => Void
+  def zr_str_grow(s, n)
     capa = RString.capa(s) * 2
     if capa < n
       capa = n
@@ -274,6 +280,8 @@ module Zr::Kern
     RBasic.set_flags(s, flags)
     s
   end
+  # Each append sets the receiver's encoding again.
+  inline :zr_str_set_index
 
   # Copies the encoding of `src` to `s`.
   sig [Value, Value] => Value
@@ -543,6 +551,8 @@ module Zr::Kern
     end
     zr_str_ascii_bytes_p(b) ? ia : zr_str_encoding_index(b)
   end
+  # The two joins checks run at each append; most join one encoding.
+  inline :zr_str_join_index
 
   # Whether a join of `a` and `b` is ruby's compatibility error: two
   # different encodings, neither side empty, and either one side in UTF-16
@@ -559,6 +569,7 @@ module Zr::Kern
     end
     !zr_str_ascii_bytes_p(a) && !zr_str_ascii_bytes_p(b)
   end
+  inline :zr_str_join_incompatible_p
 
   # Raises the error, with the encoding of the receiver first. Encoding
   # has the names, so it writes the message.
@@ -862,8 +873,11 @@ module Zr::Kern
     if zr_fixnum_p(Machine.value(Machine.load64(argv, 0)))
       return zr_str_concat_codepoint(recv, zr_fix2long(Machine.value(Machine.load64(argv, 0))))
     end
-    other = zr_str_operand(Machine.value(Machine.load64(argv, 0)))
-    return other if other == QUNDEF
+    other = Machine.value(Machine.load64(argv, 0))
+    if zr_special_p(other) || zr_type(other) != T_STRING
+      other = zr_str_operand(other)
+      return other if other == QUNDEF
+    end
     if zr_str_join_incompatible_p(recv, other)
       return zr_str_join_incompatible(recv, other)
     end
@@ -1947,14 +1961,25 @@ module Zr::Kern
   sig [Value] => Bool
   def zr_modify_frozen_p(v)
     if zr_special_p(v)
-      return true
+      true
+    elsif (RBasic.flags(v) & T_MASK) == T_STRING && (RBasic.flags(v) & (FL_CHILLED | FL_CHILLED_SYMBOL | FL_SNAPSHOT)) != 0
+      zr_str_modify_marked_p(v)
+    else
+      (RBasic.flags(v) & FL_FREEZE) != 0
     end
+  end
+  # Each write to a String checks this first, so the test of the flags is
+  # in the writer's code; a chilled or snapshot String is a call.
+  inline :zr_modify_frozen_p
+
+  sig [Value] => Bool
+  def zr_str_modify_marked_p(v)
     flags = RBasic.flags(v)
-    if (flags & T_MASK) == T_STRING && (flags & (FL_CHILLED | FL_CHILLED_SYMBOL)) != 0
+    if (flags & (FL_CHILLED | FL_CHILLED_SYMBOL)) != 0
       zr_str_unchill(v)
       flags = RBasic.flags(v)
     end
-    if (flags & T_MASK) == T_STRING && (flags & FL_SNAPSHOT) != 0
+    if (flags & FL_SNAPSHOT) != 0
       RBasic.set_flags(v, flags & FL_SNAPSHOT_CLEAR)
     end
     (flags & FL_FREEZE) != 0
