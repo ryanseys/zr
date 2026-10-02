@@ -627,6 +627,17 @@ module Zr::Kern
       c += 1
     end
     zr_arena_add(1)
+    zr_heap_env()
+  end
+
+  # The collector's switches that the environment turns on: ZR_GC_STRESS,
+  # ZR_GC_VERIFY and ZR_GC_TRACE. The heap reads them as it starts. The
+  # host reads them again for a program test that sets them
+  # (test/support/host_program.rb), which is cheaper than a boot under
+  # them.
+  sig [] => Void
+  def zr_heap_env
+    h = zr_heap()
     if Libc.getenv(Machine.bytes("ZR_GC_STRESS\0")) != 0
       Heap.set_stress(h, 1)
     end

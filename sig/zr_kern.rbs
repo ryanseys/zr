@@ -938,6 +938,7 @@ module Zr
     def zr_heap: () -> Integer
     def zr_heap_bytes: () -> Integer
     def zr_heap_cells: () -> Integer
+    def zr_heap_env: () -> void
     def zr_heap_grow: (Integer wanting, bool short) -> void
     def zr_heap_init: () -> void
     def zr_heap_pressed: () -> bool

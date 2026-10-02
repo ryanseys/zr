@@ -8,8 +8,8 @@ require_relative "../../lib/zr/machine/host/walk"
 
 module Zr
   module Test
-    # Runs a program test on CRuby over zr's kernel (`bin/test programs
-    # --host`, A7): no build. This process walks the core and the gem
+    # Runs a program test on CRuby over zr's kernel (`ZR_TEST_HOST=1`,
+    # test/programs_test.rb): no build. This process walks the core and the gem
     # prelude once (`walk`); each test runs in a fork of it, so it starts
     # from the same heap, with the test's directory, arguments,
     # environment and input. Its answer goes through the same
@@ -19,7 +19,7 @@ module Zr
       # much slower than a binary: `require "date"` takes about 50 s. So a
       # test gets this many times a binary's time limit, which stays under
       # the worker's deadline (`Workers::DEADLINE`). A limit that the run
-      # sets (`bin/test --timeout`, `ZR_TEST_SECONDS`) applies as it is.
+      # sets (`ZR_TEST_SECONDS`) applies as it is.
       SLOWER = 2
 
       FFLUSH = Fiddle::Function.new(Fiddle::Handle::DEFAULT["fflush"], [Fiddle::TYPE_VOIDP], Fiddle::TYPE_INT)
@@ -41,6 +41,23 @@ module Zr
         end
       end
 
+      # The collector's switches, which the kernel reads again after the
+      # boot (`zr_heap_env`).
+      GC_SWITCHES = %w[ZR_GC_STRESS ZR_GC_VERIFY ZR_GC_TRACE].freeze
+
+      # The walker for a program whose test sets `env`, in the child. The
+      # kernel and the core read some variables as they boot (`RUBY_BOX`),
+      # so a test that sets one boots again, as a binary boots with its
+      # environment. A test that sets only the collector's switches has
+      # the kernel read them again: a boot under ZR_GC_STRESS takes
+      # minutes on the host, and the switches are for the program.
+      def with_env(walk, env)
+        return walk if env.empty?
+        return walk.tap { walk.kern.zr_heap_env } if (env.keys - GC_SWITCHES).empty?
+
+        Machine::Host::Walk.new.tap(&:prepare)
+      end
+
       # The answer of the program in a child of this process.
       def forked(test, run, w, megabytes)
         out_r, out_w = IO.pipe
@@ -54,10 +71,7 @@ module Zr
           $stdout.reopen(out_w)
           $stderr.reopen(err_w)
           ENV.replace(Harness::CleanEnv.env(test.env))
-          # The kernel and the core read some variables as they boot
-          # (`RUBY_BOX`, `ZR_GC_STRESS`), so a test that sets any boots
-          # again here, as a binary boots with its environment.
-          w = Machine::Host::Walk.new.tap(&:prepare) unless test.env.empty?
+          w = with_env(w, test.env)
           Dir.chdir(run)
           status = 1
           Thread.new do
