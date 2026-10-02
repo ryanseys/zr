@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "version"
-
 module Zr
   # Marks an exception as a refusal: the program uses a form that the
   # marked stage does not support, as opposed to a bug in that stage. A
@@ -20,10 +18,6 @@ module Zr
   # tests report an error, unless the target's baseline lists the test.
   class Refused < StandardError
     include Refusal
-
-    # The page that lists what zr supports, for the user who reads a
-    # refusal.
-    DOCS = "#{DOCS_URL}/reference/support.md".freeze
 
     # User words for the syntax nodes that zr refuses by their class. A
     # node that is not here gets its class name in words.

@@ -51,7 +51,7 @@ class CliRefusalTest < Minitest::Test
       report = Zr::CLI::Refusals.refusal_report(error)
 
       assert_equal ["zr: #{file}:2:1: zr does not support `BEGIN { }` here yet", "    BEGIN { p 2 }", "    ^",
-                    "zr: #{Zr::Refused::DOCS} lists what zr supports"], report.lines(chomp: true)
+                    "zr: #{Zr::CLI::Refusals::SUPPORT} lists what zr supports"], report.lines(chomp: true)
     end
   end
 

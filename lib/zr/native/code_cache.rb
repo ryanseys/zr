@@ -2,7 +2,6 @@
 
 require "digest/sha2"
 require_relative "../config"
-require_relative "../paths"
 require_relative "../ir/fingerprint"
 
 module Zr
@@ -16,10 +15,10 @@ module Zr
     # their assembly were 58 s of work for the runtime object, and 177 s for
     # eval support, before this cache.
     #
-    # The cache has one directory for each backend digest: the files that
-    # the passes and the backend load (`BACKEND`), and this file. An edit to
-    # the lowering keeps the directory; an edit to a pass or to the backend
-    # starts a new one. Each build of an object writes one pack, with the
+    # The cache has one directory for each backend digest: the code of the
+    # files that the passes and the backend load (`BACKEND`), and this file.
+    # An edit to the lowering, or to a comment, keeps the directory; an edit
+    # to the code of a pass or of the backend starts a new one. Each build of an object writes one pack, with the
     # code of all its functions, and an index of it. A build reads the
     # indexes of the packs of its kind, and keeps the `KEPT` newest packs of
     # each kind of object.
@@ -37,10 +36,10 @@ module Zr
       BACKEND = %w[
         backend.rb backend/aarch64.rb backend/aarch64/assembler.rb backend/aarch64/codegen.rb
         backend/aarch64/codegen/layout.rb backend/aarch64/codegen/moves.rb backend/aarch64/regalloc.rb
-        backend/aarch64/registers.rb backend/aarch64/stub.rb bytes.rb config.rb host.rb ir/analysis.rb
+        backend/aarch64/registers.rb backend/aarch64/stub.rb bytes.rb config.rb ir/analysis.rb
         ir/effects.rb ir/fingerprint.rb ir/function.rb ir/gvn.rb ir/inst.rb ir/licm.rb ir/passes.rb
         ir/promotion.rb ir/regions.rb ir/statics.rb ir/types.rb ir/verify.rb obj/model.rb refused.rb
-        native/code_cache.rb paths.rb session.rb version.rb
+        native/code_cache.rb session.rb
       ].freeze
 
       LIB = File.expand_path("..", __dir__)
@@ -55,16 +54,20 @@ module Zr
         new(kind)
       end
 
+      # The digests load here, not with this file (see `dir`).
       def self.backend_digest
-        @backend_digest ||= Digest::SHA256.new.tap do |d|
-          d << VERSION.to_s << "\0"
-          BACKEND.each { |name| d << name << "\0" << File.binread(File.join(LIB, name)) << "\0" }
-        end.hexdigest
+        @backend_digest ||= begin
+          require_relative "../digests"
+          Digest::SHA256.new.tap do |d|
+            d << VERSION.to_s << "\0"
+            BACKEND.each { |name| d << name << "\0" << Digests.code_digest(File.binread(File.join(LIB, name))) << "\0" }
+          end.hexdigest
+        end
       end
 
-      # The store loads here, not with this file: a file that the backend
-      # loads is in BACKEND, and an edit to the store must not make every
-      # pack a miss.
+      # The store (and `Paths`, which `keep` uses) loads here, not with
+      # this file: a file that the backend loads is in BACKEND, and an edit
+      # to the store must not make every pack a miss.
       def self.dir
         require_relative "../cache/store"
         Cache::Store.path(:code, backend_digest[0, 32])

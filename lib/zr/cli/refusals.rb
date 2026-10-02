@@ -13,6 +13,10 @@ module Zr
     module Refusals
       TARGET_NAMES = { "aarch64-apple-darwin" => "macOS on Apple Silicon" }.freeze
 
+      # The page that lists what zr supports, for the user who reads a
+      # refusal.
+      SUPPORT = "#{DOCS_URL}/reference/support.md".freeze
+
       # The program that writes ruby's report of a syntax error. It loads
       # zr's own syntax_suggest (vendor/ruby) by its path, as a stock ruby
       # 4.0.7 has it: `api` first, so `core_ext` does not require it by name
@@ -105,7 +109,7 @@ module Zr
         lines = ["zr: #{error.message}"]
         if error.form
           lines << error.excerpt if error.excerpt
-          lines << "zr: #{Refused::DOCS} lists what zr supports"
+          lines << "zr: #{SUPPORT} lists what zr supports"
         end
         lines.join("\n")
       end
