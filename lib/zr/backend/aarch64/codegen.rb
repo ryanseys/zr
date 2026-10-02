@@ -379,8 +379,9 @@ module Zr
 
           v, d = @pending_double
           @pending_double = nil
-          @asm.fmov X11, d
-          store_value(v, X11)
+          x = result_in(v, X11)
+          @asm.fmov x, d
+          store_value(v, x)
           remember_double(v, d)
         end
 
@@ -476,8 +477,9 @@ module Zr
             a = value_in(i.args[0], X9)
             @asm.scvtf double_out(i.results[0]), wide?(i.args[0]) ? a : Registers.w(a.to_i)
           when :fcvt_to_sint_sat
-            @asm.fcvtzs X11, double_in(i.args[0])
-            store_value(i.results[0], X11)
+            d = result_in(i.results[0], X11)
+            @asm.fcvtzs d, double_in(i.args[0])
+            store_value(i.results[0], d)
           when :bitcast
             # The same bits as another type: the d register that contains
             # them also contains the result.
@@ -628,8 +630,9 @@ module Zr
         # A symbol's address: page plus offset for a symbol that this link
         # defines, or through the GOT for an import.
         def emit_symbol(result, symbol, local)
-          symbol_address(X9, symbol, local)
-          store_value(result, X9)
+          d = result_in(result, X9)
+          symbol_address(d, symbol, local)
+          store_value(result, d)
         end
 
         # `reg = &symbol`: the page and the offset for a symbol of this link,
@@ -766,6 +769,7 @@ module Zr
         # A constant on the left moves to the right, and the condition swaps.
         def emit_compare(i)
           if (x, mask = @mask_tests[i])
+            mask = reg_for(x, value_in(mask, X10)) unless mask.is_a?(Integer)
             @asm.tst reg_for(x, value_in(x, X9)), mask
             return CONDS.fetch(i.cond)
           end

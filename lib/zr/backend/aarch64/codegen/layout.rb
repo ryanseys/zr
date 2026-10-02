@@ -88,7 +88,7 @@ module Zr
                 @via[r] = test[0]
               else
                 @fused[cmp] = reader
-                next unless cmp.op == :icmp && (test = mask_test(cmp))
+                next unless cmp.op == :icmp && (test = mask_test(cmp, n.positive? ? insts[n - 1] : nil))
 
                 # `tst` reads the word, so the `band` is never made.
                 @mask_tests[cmp] = test
@@ -148,8 +148,11 @@ module Zr
         # Returns `[word, mask]` when `cmp` tests whether any of some bits of
         # a word are set: a `band` of the word and a bitmask immediate,
         # compared with zero, and nothing else reads the `band`. This is one
-        # `tst` in place of an `and` and a `cmp`.
-        def mask_test(cmp)
+        # `tst` in place of an `and` and a `cmp`. The mask can also be a
+        # second word (a value), when the `band` is `prev`, the instruction
+        # just before the compare. Then the second word is still in its
+        # place at the compare, though the `band` was its last read.
+        def mask_test(cmp, prev)
           return unless cmp.cond == "eq" || cmp.cond == "ne"
 
           m, z = cmp.args
@@ -161,9 +164,9 @@ module Zr
           return if @const.key?(x)
 
           mask = constant(k, type_of(x))
-          return unless mask && Assembler.bitmask(mask, wide?(x) ? 64 : 32)
+          return [x, mask] if mask && Assembler.bitmask(mask, wide?(x) ? 64 : 32)
 
-          [x, mask]
+          [x, k] if prev.equal?(@def_of[m]) && type_of(k) == type_of(x)
         end
 
         # A `gates` value is the gate word at the time of the read. A later
