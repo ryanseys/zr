@@ -742,6 +742,24 @@ module Zr::Kern
   G_SYSTEM_STACK_ERROR = 35
 
   # Raises for a Ruby frame that starts below the stack limit of the task.
+  # rb_protect: calls the block, and any unwind out of it (a raise, a
+  # throw, a break or a return through it) stops here, after the ensure
+  # clauses on its way ran. Returns the block's value, or `failed` after an
+  # unwind.
+  sig [Value, Value] => Value
+  def zr_protect(failed, blk)
+    r = zr_yield(blk, 0, 0)
+    if r == QUNDEF
+      t = zr_task()
+      Task.set_pending(t, Machine.value(QNIL))
+      Task.set_throw_tag(t, Machine.value(QNIL))
+      Task.set_pending_kind(t, PENDING_RAISE)
+      Task.set_pending_home(t, Machine.ptr(0))
+      return failed
+    end
+    r
+  end
+
   # rb_memerror: a NoMemoryError with no backtrace, as ruby raises the one
   # it made at start, so an uncaught one prints no line.
   sig [] => Value

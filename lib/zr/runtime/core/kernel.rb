@@ -242,27 +242,58 @@ module Kernel
     exception = exception_flag(exception)
     value = arg
     base = implicit_integer(base)
-    if value.is_a?(String)
-      n = parse_integer(value, base)
-      return n if n
-      return nil unless exception
+    # rb_convert_to_integer, step by step.
+    unless base.zero? || value.is_a?(String)
+      value = String.try_convert(value)
+      unless value
+        return nil unless exception
 
-      raise ArgumentError, "invalid value for Integer(): #{value.inspect}"
+        raise ArgumentError, +"base specified for non string value"
+      end
     end
-    raise ArgumentError, +"base specified for non string value" unless base.zero?
-    return value if value.is_a?(Integer)
+    case value
+    when String then return string_integer(value, base, exception)
+    when Integer then return value
+    when Float
+      return nil if !exception && !value.finite?
 
-    if value.nil?
+      return value.to_i
+    when nil
       return nil unless exception
 
       raise TypeError, +"can't convert nil into Integer"
     end
-    return value.to_int if value.respond_to?(:to_int)
-    return value.to_i if value.respond_to?(:to_i)
+    # to_int under rb_protect: an error, a throw, a break or a return out
+    # of it, or a value that is no Integer, passes on to to_str, then to
+    # to_i.
+    converted = Primitive.zr_protect(nil) { value.to_int if value.respond_to?(:to_int) }
+    return converted if converted.is_a?(Integer)
+
+    text = String.try_convert(value)
+    return string_integer(text, base, exception) if text
+
+    unless exception
+      converted = Primitive.zr_protect(nil) { value.to_i if value.respond_to?(:to_i) }
+      return converted.is_a?(Integer) ? converted : nil
+    end
+    raise TypeError, "can't convert #{conversion_name(value)} into Integer" unless value.respond_to?(:to_i)
+
+    converted = value.to_i
+    return converted if converted.is_a?(Integer)
+
+    raise TypeError, "can't convert #{conversion_name(value)} to Integer (#{conversion_name(value)}#to_i gives #{converted.class})"
+  end
+
+  # rb_str_convert_to_inum for Integer(): the whole text in `base`.
+  def string_integer(text, base, exception)
+    Primitive.attr! :hidden
+    n = parse_integer(text, base)
+    return n if n
     return nil unless exception
 
-    raise TypeError, "can't convert #{conversion_name(value)} into Integer"
+    raise ArgumentError, "invalid value for Integer(): #{text.inspect}"
   end
+  private :string_integer
 
   # rb_String: to_str, else to_s, each as rb_check_funcall calls it.
   def String(value)

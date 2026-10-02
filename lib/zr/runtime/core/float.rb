@@ -97,10 +97,18 @@ module Kernel
 
       raise TypeError, "can't convert #{value.inspect} into Float"
     else
-      return value.to_f if value.respond_to?(:to_f)
-      return nil unless exception
+      # rb_convert_to_float: to_f must give a Float; with exception: false,
+      # an error in it gives nil.
+      unless exception
+        converted = Primitive.zr_protect(nil) { value.to_f if value.respond_to?(:to_f) }
+        return converted.is_a?(Float) ? converted : nil
+      end
+      raise TypeError, "can't convert #{conversion_name(value)} into Float" unless value.respond_to?(:to_f)
 
-      raise TypeError, "can't convert #{conversion_name(value)} into Float"
+      converted = value.to_f
+      return converted if converted.is_a?(Float)
+
+      raise TypeError, "can't convert #{conversion_name(value)} to Float (#{conversion_name(value)}#to_f gives #{converted.class})"
     end
   end
 

@@ -1,0 +1,18 @@
+[TypeError, "can't convert NilAnswer into Integer"]
+5
+[TypeError, "can't convert StrAnswer into Integer"]
+5
+[12, 18]
+[TypeError, "can't convert ToIString to Integer (ToIString#to_i gives String)"]
+[TypeError, "can't convert ToINil to Integer (ToINil#to_i gives NilClass)"]
+nil
+nil
+[FloatDomainError, "Infinity"]
+12
+[ArgumentError, "base specified for non string value"]
+nil
+[TypeError, "can't convert FloatNil to Float (FloatNil#to_f gives NilClass)"]
+nil
+nil
+7
+:after
