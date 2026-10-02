@@ -66,6 +66,10 @@ module Zr::Kern
   # Integer#<=>: the core library compares two fixnums natively while it
   # is ruby's own, as CRuby's OPTIMIZED_CMP does.
   GATE_CMP = 1 << 48
+  # Array#map and Array#select: a site with a block literal runs the
+  # loop inline, and pushes to the new Array there (Function::Iterators).
+  GATE_MAP = 1 << 49
+  GATE_SELECT = 1 << 50
 
   # Writes the decimal digits of `n` into `buf` and returns the number of
   # bytes. `buf` must have 24 bytes.

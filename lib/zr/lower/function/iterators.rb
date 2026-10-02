@@ -77,6 +77,15 @@ module Zr
             @f.brif(kernel("zr_range_fix_bounds", recv, bounds), fast, slow)
             switch(fast)
             @f.jump(merge, [loop_in_place(node, recv, :range, bounds)])
+          when :map, :select
+            cell = @f.label
+            @f.brif(@f.band(@f.icmp("eq", @f.band(recv, imm(7)), imm(0)), @f.icmp("ugt", recv, @qnil)), cell, slow)
+            switch(cell)
+            klass = @f.fetch("i64", recv, off(@l.layout("RBasic"), "klass"))
+            gate = node.name == :map ? "GATE_MAP" : "GATE_SELECT"
+            @f.brif(@f.band(@f.icmp("eq", klass, global("G_ARRAY")), gates_clear(gate)), fast, slow)
+            switch(fast)
+            @f.jump(merge, [loop_in_place(node, recv, :array)])
           when :times
             fix = @f.icmp("ne", @f.band(recv, imm(1)), imm(0))
             # <internal:numeric> counts with `<` and `succ`, so a program that
@@ -105,17 +114,25 @@ module Zr
           recs = @f.stack_addr(@f.slot(2 * frame.size))
           block_rec = @f.iadd(recs, imm(frame.size))
           kernel("zr_iter_enter", recs, recv, sym_word(node.name), @f.symbol_value(@f.symbol("zr_meta_#{fn}")))
-          base = reserve(block.locals.size + 1)
+          base = reserve(Scope.loop_slots(node))
           index_at = value_offset(base + block.locals.size)
           slots = block.locals.each_with_index.to_h { |name, i| [name, base + i] }
           param = block.params.required.first
           @f.store(kind == :range ? @f.fetch("i64", bounds, 0) : imm(1), @rec, index_at)
+          # `map` and `select` make an Array as their builtins do (the
+          # receiver's length, or 4), and push to it in the step.
+          if %i[map select].include?(node.name)
+            made_at = value_offset(base + block.locals.size + 1)
+            @f.store(kernel("zr_ary_new", node.name == :map ? array_len(recv) : imm(4)), @rec, made_at)
+            step, (got,) = @f.block(["i64"])
+          end
           head = @f.label
           body = @f.label
           take = @f.label
           out = @f.label
           done, (value,) = @f.block(["i64"])
-          @loops << Loop.new(head: head, body: body, done: done, depth: @regions.size)
+          loop = Loop.new(head: head, body: body, done: done, depth: @regions.size, step: step)
+          @loops << loop
           unlink = Regions::Region.new(@f.label, nil, nil, [@inline_scope, @line_rec])
           @regions << unlink
           @f.jump(head)
@@ -139,17 +156,22 @@ module Zr
           @inline_scope = InlineScope.new(slots)
           @line_rec = block_rec
           @line = nil
-          expr(block.body) if block.body
+          last = block.body ? expr(block.body) : @qnil
           unless @f.terminated?
-            preempt
-            @f.jump(head)
+            if step
+              @f.jump(step, [last])
+            else
+              preempt
+              @f.jump(head)
+            end
           end
           @inline_scope, @line_rec, _ = saved
           @line = nil
           @regions.pop
           @loops.pop
+          collect(node, recv, loop, got, base) if step
           switch(out)
-          @f.jump(done, [recv])
+          @f.jump(done, [step ? @f.fetch("i64", @rec, made_at) : recv])
           # An unwind from the body: put the caller's frame back on top,
           # then go to the outer landing block.
           switch(unlink.landing, open: true)
@@ -159,6 +181,33 @@ module Zr
           @f.store(@rec, @task_addr, off(@task, "top"), region: :task)
           release(base)
           value
+        end
+
+        # The step of an inline `map` or `select`: push the body's value
+        # (`map`), or else, if the value is truthy, the element now at the
+        # index (`select`; nil if the block shortened the Array, as
+        # CRuby's rb_ary_elt gives), then go to the loop's head. The index
+        # and the new Array are the slots above the block's locals at
+        # `base` (`Scope.loop_slots`).
+        def collect(node, recv, loop, got, base)
+          switch(loop.step)
+          index_at = value_offset(base + node.block.locals.size)
+          made = @f.fetch("i64", @rec, value_offset(base + node.block.locals.size + 1))
+          if node.name == :map
+            kernel("zr_ary_push", made, got)
+          else
+            keep = @f.label
+            onward = @f.label
+            @f.brif(truthy(got), keep, onward)
+            switch(keep)
+            # The index slot already holds the next index, as a fixnum.
+            at = @f.isub(@f.sshr(@f.fetch("i64", @rec, index_at), imm(1)), imm(1))
+            kernel("zr_ary_push", made, kernel("zr_ary_at", recv, at))
+            @f.jump(onward)
+            switch(onward)
+          end
+          preempt
+          @f.jump(loop.head)
         end
       end
     end

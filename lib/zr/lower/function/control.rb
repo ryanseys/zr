@@ -515,6 +515,8 @@ module Zr
             v = through_ensures(v, loop.depth)
             if kind == :break
               @f.jump(loop.done, [v])
+            elsif loop.step
+              @f.jump(loop.step, [v])
             else
               # A back edge like the one at the body's end.
               preempt

@@ -12,7 +12,14 @@ module Zr
       # The iterators that a site with a block literal runs inline
       # (Function::Iterators), each with the maximum parameter count of
       # its block.
-      ITERATORS = { each: 1, times: 1 }.freeze
+      ITERATORS = { each: 1, times: 1, map: 1, select: 1 }.freeze
+
+      # The record slots that an inline iterator keeps above its receiver:
+      # its block's locals and its index. `map` and `select` also keep the
+      # Array that they make.
+      def loop_slots(node)
+        node.block.locals.size + (%i[map select].include?(node.name) ? 2 : 1)
+      end
 
       # Whether `node` is a send of one of ITERATORS that a site can run
       # inline. It needs no arguments, an explicit receiver, and a block
@@ -58,7 +65,7 @@ module Zr
           top = base + (spread?(node.args) ? 2 : 1 + node.args.size) + extra
           # An inline iterator keeps its block's locals and its index
           # above the receiver, and the body stages above those.
-          inside = iterator_template?(node) ? staging(node.block.body, top + node.block.locals.size + 1) : top
+          inside = iterator_template?(node) ? staging(node.block.body, top + loop_slots(node)) : top
           [top, inside, staging(node.recv, top), staging(node.kwargs, top), staging(node.block, top), *node.args.map { |a| staging(a, top) }].max
         when Hir::Super
           top = base + (spread?(node.args) ? 2 : 1 + node.args.size) + keyword_slots(node.kwargs)
