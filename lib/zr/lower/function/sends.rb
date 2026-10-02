@@ -6,6 +6,8 @@ module Zr
       # Method calls: the receiver and arguments staged in the record, the
       # dispatch, the block-passing form, and the inline fixnum operators.
       module Sends
+        # @type instance: Function
+
         # The operators with an inline fixnum fast path, and their gates.
         OPS = {
           :+ => "GATE_PLUS", :- => "GATE_MINUS", :* => "GATE_MUL", :/ => "GATE_DIV", :% => "GATE_MOD",

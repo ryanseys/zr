@@ -823,6 +823,7 @@ module Zr
       end
 
       # A call into the kernel, typed from the def's own signature.
+      #: (String name, *untyped args) -> String?
       def kernel(name, *args)
         d = @l.kernel_def(name)
         params = d.params.map { |_, type| Machine::TYPES.fetch(type) }

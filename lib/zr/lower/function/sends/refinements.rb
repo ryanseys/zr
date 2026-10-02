@@ -7,6 +7,8 @@ module Zr
   class Lower
     class Function
       module Sends
+        # @type instance: Function
+
         private
 
         # `using mod` fills its activation entry, so every send under it

@@ -249,6 +249,7 @@ module Zr
       # Used in place of $stderr while a check compiles a pattern. It keeps
       # what the engine writes.
       class Written < String
+        #: (*_ToS parts) -> Integer
         def write(*parts) = parts.sum { |part| concat(part.to_s) && part.to_s.bytesize }
       end
 

@@ -1,52 +1,14 @@
+# The fields of the record in lib/zr/program.rb. Its methods are inline.
 module Zr
-  # A program's own functions and data, and its runtime. It destructures
-  # as `[functions, data, raw]` with the runtime included, for a build
-  # that uses one unit for everything. `evals` is the EvalSupport that
-  # the program links next to the runtime, or nil. Its JIT finds kernel
-  # functions by name. `sources` maps the path of each file the program was
-  # built from to the digest of the bytes that were compiled (the run
-  # cache checks them); it is empty when the build does not know them.
-  # `gems` are the manifest's rows (lib/zr/manifest.rb): the gems that the
-  # program's files come from.
-  Program: untyped
+  class Program < Data
+    attr_reader runtime: untyped
+    attr_reader functions: Array[Obj::Code]
+    attr_reader data: Array[Obj::Datum]
+    attr_reader evals: untyped
+    attr_reader sources: Hash[String, String]
+    attr_reader gems: Array[untyped]
 
-  class Program
-    # The bytes of source above which a program's build tunes
-    # (`GcTuning.heavy!`). hello and a probe are far below it; the stdlib rung
-    # of the compile benchmark is above.
-    HEAVY_SOURCE: untyped
-
-    # The program of `source` (the file `file`) for `target`.
-    #
-    # With a block, each function goes to the block when its file is
-    # lowered (`Lower#run`), with the lowering's entry name. The program
-    # contains the block's results.
-    #
-    # With `sources`, the program lists the files it was built from
-    # (`Program#sources`), for the run cache.
-    #
-    # `gem_set` is the GemSet whose gems come before zr's standard library
-    # (lib/zr/gem_set.rb), or nil. `gate` stops the build at a require that
-    # nothing has in the program's own files (`Hir::Build#gate!`).
-    def self.build: (untyped source, untyped file, ?target: untyped, ?sources: bool, ?gem_set: untyped?, ?gate: bool) ?{ (untyped, untyped) -> untyped } -> untyped
-
-    # A program with eval carries eval support, which has zr's own copy of
-    # some libraries (fileutils, pp, irb, reline, rubygems and others). A
-    # file of a gem in the GemSet with the same feature name would load a
-    # second copy beside it, where ruby loads one. So such a build stops.
-    def self.gem_conflicts!: (untyped hir, untyped support, untyped gem_set, untyped target) -> untyped
-
-    # The path and digest of each file that `hir` was built from: `file`,
-    # with `source`, and each unit that has its own file. Empty when a
-    # require stays for the run time (a file that did not exist, or a name
-    # built at run time): a file that appears later would change the
-    # build, and no list of paths can say which.
-    def self.built_from: (untyped source, untyped file, untyped hir) -> (::Hash[untyped, untyped] | untyped)
-
-    REQUIRES: ::Array[:require | :require_relative | :load]
-
-    # A require, require_relative or load of Kernel, or any autoload, that
-    # the HIR left as a call.
-    def self.run_time_require?: (untyped node) -> (true | untyped | false)
+    def self.new: (runtime: untyped, functions: Array[Obj::Code], data: Array[Obj::Datum], evals: untyped,
+                   ?sources: Hash[String, String], ?gems: Array[untyped]) -> instance
   end
 end

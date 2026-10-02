@@ -9,12 +9,22 @@ module Zr
       # the pending exception. An ensure landing saves the pending unwind,
       # runs the ensure body, then continues the unwind.
       module Regions
+        # @type instance: Function
+        # @rbs @landing: String?
+
         # `slot` is the first record slot for the region's values: the
         # exit value or the exception, the `$!` that the region replaced,
         # and for an ensure, the `$!` at its start. `outer` marks an inline
         # loop (Iterators): it holds the site's own inline scope and line
         # record, which the regions under it lower with.
-        Region = Data.define(:landing, :ensure_body, :slot, :outer) do
+        #
+        # The record's fields are typed in sig/zr/lower/function/regions.rbs.
+        # @rbs skip
+        Region = Data.define(:landing, :ensure_body, :slot, :outer)
+
+        # The methods are in a reopened class, not in the block of
+        # `Data.define`, so that the type check sees them in their class.
+        class Region
           def initialize(landing:, ensure_body:, slot:, outer: nil) = super
         end
 
@@ -23,7 +33,10 @@ module Zr
         # The landing block for an unwind from here: the innermost
         # region's, or the function's own.
         def landing
-          @regions.last&.landing || (@landing ||= @f.cold(@f.label))
+          region = @regions.last
+          return region.landing if region
+
+          @landing ||= @f.cold(@f.label)
         end
 
         def protect(node)

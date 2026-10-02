@@ -9,6 +9,8 @@ module Zr
         # targets' receivers and arguments are staged first, and the
         # op-assigns of an index and an attribute.
         module Assign
+          # @type instance: Walk
+
           # The staged parts of a multiple assignment with none.
           UNSTAGED = {}.compare_by_identity.freeze
 

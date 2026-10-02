@@ -142,6 +142,7 @@ module Zr
 
       # The state of one call: the values it defined, and the addresses of
       # its stack slots.
+      # @rbs skip -- typed in sig/zr/ir/interp.rbs
       Frame = Data.define(:values, :slot_at, :types)
 
       attr_reader :memory

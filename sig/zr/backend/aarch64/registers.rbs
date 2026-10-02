@@ -1,55 +1,125 @@
+# The registers that lib/zr/backend/aarch64/registers.rb makes with
+# `const_set`, which inline RBS cannot see. SP, WSP, XZR and WZR are
+# plain constants there, and inline.
 module Zr
   module Backend
     module Aarch64
-      # The general-purpose registers, and the SIMD&FP registers as
-      # doubles. Register 31 reads as the stack pointer in one family of
-      # encodings and as the zero register in the other, so the two are
-      # separate objects that share a number.
       module Registers
-        class Register
-          @to_i: untyped
+        X0: Register
+        X1: Register
+        X2: Register
+        X3: Register
+        X4: Register
+        X5: Register
+        X6: Register
+        X7: Register
+        X8: Register
+        X9: Register
+        X10: Register
+        X11: Register
+        X12: Register
+        X13: Register
+        X14: Register
+        X15: Register
+        X16: Register
+        X17: Register
+        X18: Register
+        X19: Register
+        X20: Register
+        X21: Register
+        X22: Register
+        X23: Register
+        X24: Register
+        X25: Register
+        X26: Register
+        X27: Register
+        X28: Register
+        X29: Register
+        X30: Register
 
-          @wide: untyped
+        W0: Register
+        W1: Register
+        W2: Register
+        W3: Register
+        W4: Register
+        W5: Register
+        W6: Register
+        W7: Register
+        W8: Register
+        W9: Register
+        W10: Register
+        W11: Register
+        W12: Register
+        W13: Register
+        W14: Register
+        W15: Register
+        W16: Register
+        W17: Register
+        W18: Register
+        W19: Register
+        W20: Register
+        W21: Register
+        W22: Register
+        W23: Register
+        W24: Register
+        W25: Register
+        W26: Register
+        W27: Register
+        W28: Register
+        W29: Register
+        W30: Register
 
-          @sp: untyped
+        D0: Register
+        D1: Register
+        D2: Register
+        D3: Register
+        D4: Register
+        D5: Register
+        D6: Register
+        D7: Register
+        D8: Register
+        D9: Register
+        D10: Register
+        D11: Register
+        D12: Register
+        D13: Register
+        D14: Register
+        D15: Register
+        D16: Register
+        D17: Register
+        D18: Register
+        D19: Register
+        D20: Register
+        D21: Register
+        D22: Register
+        D23: Register
+        D24: Register
+        D25: Register
+        D26: Register
+        D27: Register
+        D28: Register
+        D29: Register
+        D30: Register
+        D31: Register
+      end
 
-          @float: untyped
+      # Steep finds a constant through an `include` that a .rbs file
+      # declares, not through an inline one. So these includes have
+      # `# @rbs skip` in the code and are here.
+      class Assembler
+        include Registers
+      end
 
-          attr_reader to_i: untyped
+      class Codegen
+        include Registers
+      end
 
-          def initialize: (untyped number, wide: untyped, ?sp: bool, ?float: bool) -> void
+      class Regalloc
+        include Registers
+      end
 
-          def wide?: () -> untyped
-
-          def sp?: () -> untyped
-
-          def float?: () -> untyped
-
-          def sf: () -> (1 | 0)
-
-          def size: () -> (64 | 32)
-
-          def zr: () -> untyped
-
-          def name: () -> (::String | untyped)
-
-          alias inspect name
-        end
-
-        # The registers by number, for a loop that counts over slots.
-        def self?.x: (untyped i) -> untyped
-
-        def self?.w: (untyped i) -> untyped
-
-        def self?.d: (untyped i) -> untyped
-
-        SP: untyped
-
-        WSP: untyped
-
-        XZR: untyped
-
-        WZR: untyped
+      module Stub
+        include Registers
       end
     end
   end

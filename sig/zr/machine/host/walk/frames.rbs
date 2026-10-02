@@ -1,136 +1,42 @@
+# The records of lib/zr/machine/host/walk/frames.rb. Their methods are
+# inline.
 module Zr
   module Machine
     class Host
       class Walk
-        # What the code of a scope knows when it is compiled: its HIR node,
-        # its unit, the Hir::Def it is in (`def_node`), its kind (:main, :def,
-        # :block, :class or :eval), the locals of each lexical scope out to
-        # the def or toplevel (`scopes`, innermost first), and the HIR node
-        # of each (`homes`: a block reads from them how often each outer
-        # local is bound). Its FrameMeta, its parameters, whether its locals
-        # are in an Env (`open`), and the first `line` word of its record.
-        # Its record holds `values` Values: the Env, or each local, which
-        # starts as `blank` gives it. `names` is the id table of its locals,
-        # which its Env holds.
-        # `loops` are the tags of the loops around the code being compiled,
-        # innermost first: a `break`, `next` or `redo` throws one.
-        Scope: untyped
+        class Scope < Data
+          attr_reader node: untyped
+          attr_reader unit: Unit
+          attr_reader def_node: untyped
+          attr_reader kind: untyped
+          attr_reader scopes: untyped
+          attr_reader homes: untyped
+          attr_reader meta: untyped
+          attr_reader params: untyped
+          attr_reader open: untyped
+          attr_reader line: untyped
+          attr_reader values: untyped
+          attr_reader blank: untyped
+          attr_reader names: untyped
+          attr_reader loops: Array[untyped]
 
-        # One run of a scope: its record in the slot area, its Env (nil
-        # when its locals are in the record), self, cref, block, the Proc
-        # of a block's run, the Env around a block (`outer`), and the host
-        # Stack it runs on. `opened` and `ret_line` are for its TracePoint
-        # events. A `return` throws to the Frame of its scope.
-        Frame: untyped
+          def self.new: (*untyped) -> instance
+                      | (**untyped) -> instance
+        end
 
-        # The frames of the walker's code. Each run of a scope has a record
-        # in the slot area, linked from the task, and a heap Env for its
-        # locals when its scope keeps them there. So the collector, a
-        # Binding and a backtrace see the frames as they see a binary's. A
-        # Value that the code holds between kernel calls is pinned
-        # (`Host#pin`) until the statement that made it ends.
-        module Frames
-          # The most frames that a ruby stack holds here: about 39,000 fit
-          # in `zr-dev host`'s, a thread's or a fiber's. Past this a call
-          # overflows as past the slots, and the margin keeps room for the
-          # error's report, as STACK_MARGIN does.
-          DEPTH: 20000
+        class Frame < Struct[untyped]
+          attr_accessor rec: untyped
+          attr_accessor env: untyped
+          attr_accessor self_: untyped
+          attr_accessor cref: untyped
+          attr_accessor blk: untyped
+          attr_accessor proc: untyped
+          attr_accessor outer: untyped
+          attr_accessor stack: untyped
+          attr_accessor opened: untyped
+          attr_accessor ret_line: untyped
 
-          PARAM_KINDS: untyped
-
-          private
-
-          # The Scope of `node`, whose FrameMeta is `meta`.
-          def scope: (untyped node, untyped unit, untyped kind, untyped meta, scopes: untyped, homes: untyped, ?def_node: untyped?, ?params: untyped?, ?open: bool) -> untyped
-
-          # The FrameMeta of the scope `node`.
-          #
-          # `ruby` is a core method that CRuby writes in Ruby: its signature
-          # shows as ruby's. `cover` is the def-site entry of a method that
-          # Coverage measures.
-          def meta: (untyped node, untyped unit, untyped kind, ?name: ::Integer, ?parent: ::Integer, ?params: untyped?, ?locals: untyped, ?fn: ::Integer, ?open: bool, ?ruby: bool, ?cover: untyped?) -> untyped
-
-          # `Method#parameters` as a table: the count, then a kind and a name
-          # id (0 for none) for each (`Lower#param_table`).
-          def param_table: (untyped params) -> untyped
-
-          # A scope's first line: its node's, or 1 for a file.
-          def line_of: (untyped node) -> (untyped | 1)
-
-          # Whether the scope `node` keeps its locals in an Env, as the
-          # lowering decides (`Lower::Function`, `@has_env`): a main or eval
-          # scope, or one that holds a block or opens its locals (`binding`,
-          # `eval`, `local_variables`). In a traced program, a hook can read a
-          # Binding of any def, block or file, and only an Env gives one.
-          def open?: (untyped node, untyped kind, untyped unit, ?untyped? params) -> (true | untyped)
-
-          # Runs the block in a new frame of the scope `s`: a record in the
-          # slot area linked from the task, and an Env for the scope's
-          # locals if it is open (an eval's frame gets its `env` from the
-          # kernel). The block gets the Frame. Returns the block's Value, or
-          # QUNDEF for a pending unwind that no handler took.
-          def enter: (untyped s, untyped self_, untyped cref, untyped blk, ?proc: untyped?, ?outer: untyped, ?entry: ::Integer, ?defined: untyped, ?env: untyped?) { (untyped) -> untyped } -> untyped
-
-          # Runs a scope's body: a `return` in it (or a `break`, `next` or
-          # `redo` that leaves the scope) throws to the Frame, which this
-          # catches when the body has one (`jumps`). A pending unwind that
-          # leaves the body makes the frame return QUNDEF, after a `return`
-          # from a block is caught.
-          #
-          # A scope that fired its opening event fires its closing event as
-          # it leaves, with its value, or QUNDEF while it unwinds.
-          def run_body: (untyped s, untyped f, untyped jumps, ?untyped? node) { () -> untyped } -> untyped
-
-          # Whether the code of a scope's `body` throws to its Frame: a
-          # `return`, or a `break`, `next` or `redo` outside the loops of
-          # the scope. A nested scope's jumps are its own.
-          def jumps?: (untyped body) -> untyped
-
-          # Whether a `redo` in a block's body restarts the block.
-          def redoes?: (untyped body) -> untyped
-
-          # The jumps of a scope's body that leave it, as `jumps?` finds
-          # them.
-          class Jumps
-            @body: untyped
-
-            include Enumerable
-
-            def initialize: (untyped body) -> void
-
-            def each: () { (?) -> untyped } -> untyped
-
-            private
-
-            def visit: (untyped node, untyped looped) { (untyped) -> untyped } -> (nil | untyped)
-          end
-
-          EVENTS: { line: 1, class: 2, end: 4, call: 8, return: 16, b_call: 256, b_return: 512 }
-
-          OPENING: { def: :call, block: :b_call, class: :class }
-
-          CLOSING: { def: :return, block: :b_return, class: :end }
-
-          # Whether an enabled TracePoint listens for `event`.
-          def armed?: (untyped event) -> untyped
-
-          def fire: (untyped event) -> (untyped | nil)
-
-          # The scope's opening event, once its parameters are bound.
-          def opened: (untyped s, untyped f, untyped kind) -> (nil | untyped)
-
-          # The closing event of a scope that leaves with `v`: at the line of
-          # its `return`, else at its `end`; an unwind keeps the line where
-          # it raised. Returns `v`, or QUNDEF if a hook raised.
-          def closed: (untyped f, untyped node, untyped v) -> untyped
-
-          # Sets the frame's line word, as the lowering's `at_node` does
-          # before a kernel call that can raise: the line, and the prism node
-          # id above it, which error_highlight reads.
-          def line!: (untyped f, untyped word) -> untyped
-
-          # The line word of `node` in the scope `s` (`line!`).
-          def line_word: (untyped node, untyped s) -> untyped
+          def self.new: (*untyped) -> instance
         end
       end
     end

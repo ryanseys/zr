@@ -1,18 +1,18 @@
+# lib/zr/lower/function/call_site.rb. A Data record assigned to a
+# constant, which inline RBS cannot type.
 module Zr
   class Lower
     class Function
-      # The values that the in-place paths of one send site share: the
-      # call `node`, the site's cache cell `cc`, the receiver `recv`, the
-      # cell's `entry`, the staged arguments `argv`, and the `merge` block
-      # that takes the result. A path that has no cell (`opt_send`) or no
-      # entry (an inline copy) leaves `cc` or `entry` nil.
-      CallSite: untyped
+      class CallSite < Data
+        attr_reader node: untyped
+        attr_reader cc: String?
+        attr_reader recv: String
+        attr_reader entry: String?
+        attr_reader argv: Array[String]?
+        attr_reader merge: String
 
-      # The default of `cc` and `entry` is in a reopened class, not in the
-      # block of `Data.define`, so that the type check
-      # (sig/pilot/records.rbs) sees it in the class that it belongs to.
-      class CallSite
-        def initialize: (node: untyped, recv: untyped, argv: untyped, merge: untyped, ?cc: untyped?, ?entry: untyped?) -> void
+        def self.new: (node: untyped, recv: String, argv: Array[String]?, merge: String, ?cc: String?, ?entry: String?) -> instance
+        def initialize: (node: untyped, recv: String, argv: Array[String]?, merge: String, ?cc: String?, ?entry: String?) -> void
       end
     end
   end

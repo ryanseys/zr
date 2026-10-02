@@ -1,79 +1,14 @@
+# The record of lib/zr/diff.rb. Its methods are inline.
 module Zr
-  # Runs a program and compares two runs of it: under ruby and as a zr
-  # binary. `zr diff` and `zr-dev probe` use it.
-  #
-  # An object address (`0x` and 16 hex digits) is never the same in two
-  # processes, so both outputs have each one as `0x...`.
   module Diff
-    # One run: its stdout, stderr, exit status, and the signal that
-    # stopped it (nil when it exited). `timeout` is true when the run took
-    # longer than its limit and was stopped.
-    Answer: untyped
+    class Answer < Struct[untyped]
+      attr_accessor stdout: String
+      attr_accessor stderr: String
+      attr_accessor status: untyped
+      attr_accessor signal: untyped
+      attr_accessor timeout: bool?
 
-    # Seconds that one run can take.
-    LIMIT: 60
-
-    ADDRESS: ::Regexp
-
-    # The parts of an answer, in the order that a report shows them.
-    PARTS: ::Array[:stdout | :stderr | :status | :signal]
-
-    def self?.unaddressed: (untyped text) -> untyped
-
-    # Runs `command` in `dir` with an empty stdin and `env` over this
-    # environment. A run longer than `limit` seconds is killed.
-    def self?.run: (untyped command, ?dir: untyped, ?env: ::Hash[untyped, untyped], ?limit: untyped) -> untyped
-
-    # The kind of difference between ruby's answer and zr's, in words:
-    #
-    #   same            every part is the same
-    #   timeout         the zr binary ran longer than its limit
-    #   crash           a signal stopped the zr binary, and not ruby
-    #   status-diff     the exit statuses differ
-    #   exception-diff  the stderr differs (ruby's report of an exception)
-    #   output-diff     only the stdout differs
-    #
-    # A build that fails has its own kind (`refused`, `build-error`),
-    # which the caller gives.
-    def self?.kind: (untyped ruby, untyped zr) -> ("same" | "timeout" | "crash" | "status-diff" | "exception-diff" | "output-diff")
-
-    # Lines of context around each change in a hunk, as `diff -u` gives.
-    CONTEXT: 3
-
-    # The mark at the start of each line of a hunk.
-    MARKS: { same: " ", del: "-", ins: "+" }
-
-    # A unified diff of two texts, as `diff -u` writes it without its two
-    # header lines: hunks of `-` lines (only in `a`), `+` lines (only in
-    # `b`) and context lines. Empty when the texts are the same. In Ruby,
-    # so zr needs no `diff` program.
-    def self?.unified: (untyped a, untyped b) -> ("" | untyped)
-
-    # The edit script from `old` to `new`: `[op, i, j]` for each line, where
-    # op is :same (old[i] is new[j]), :del (old[i] only) or :ins (new[j]
-    # only). Myers' algorithm: the shortest script, in O((N+M)D) time.
-    def self?.script: (untyped old, untyped new) -> (untyped | ::Array[untyped])
-
-    def self?.backtrack: (untyped trace, untyped x, untyped y) -> untyped
-
-    # The edits in groups: each change with CONTEXT lines of `:same`
-    # before and after, and two changes closer than 2 * CONTEXT in one.
-    def self?.hunks: (untyped edits) -> untyped
-
-    # The text of one hunk. Its first edit is at old line `a` and new line
-    # `b` (from 0); a side with no lines names the line before the hunk,
-    # as `diff -u` does.
-    def self?.hunk_text: (untyped hunk, untyped old, untyped new) -> untyped
-
-    # The line of one side (1 for old, 2 for new) where the hunk starts:
-    # its first edit that has a line on that side. A hunk has context
-    # lines wherever the side has lines, so a hunk with none is a side
-    # with no lines at all, which starts at 0.
-    def self?.before: (untyped hunk, untyped side) -> untyped
-
-    def self?.range: (untyped at, untyped count) -> (untyped | ::String)
-
-    # The report of each part that differs: a heading, then its diff.
-    def self?.report: (untyped ruby, untyped zr) -> untyped
+      def self.new: (String stdout, String stderr, untyped status, untyped signal, ?bool? timeout) -> instance
+    end
   end
 end

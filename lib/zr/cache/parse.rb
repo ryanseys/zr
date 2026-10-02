@@ -108,6 +108,7 @@ module Zr
 
       module_function
 
+      #: (String source, **untyped options) -> Prism::ParseResult
       def parse(source, **options)
         key = key(source, options)
         memo[key] || memo.keep(key, parsed(key, source, options), source.bytesize)

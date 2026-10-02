@@ -16,12 +16,21 @@ module Zr
         # which its Env holds.
         # `loops` are the tags of the loops around the code being compiled,
         # innermost first: a `break`, `next` or `redo` throws one.
+        #
+        # The fields of Scope and Frame are typed in
+        # sig/zr/machine/host/walk/frames.rbs, the methods here.
+        # @rbs skip
         Scope = Data.define(:node, :unit, :def_node, :kind, :scopes, :homes, :meta, :params, :open, :line, :values, :blank, :names,
-                            :loops) do
+                            :loops)
+
+        class Scope
           def locals = scopes.first
+
+          #: () -> bool
           def internal? = unit.internal
 
           # The scope inside a loop with `tags`: `[break, next, redo]`.
+          #: (untyped tags) -> Scope
           def looping(tags) = with(loops: [tags, *loops])
         end
 
@@ -30,6 +39,7 @@ module Zr
         # of a block's run, the Env around a block (`outer`), and the host
         # Stack it runs on. `opened` and `ret_line` are for its TracePoint
         # events. A `return` throws to the Frame of its scope.
+        # @rbs skip
         Frame = Struct.new(:rec, :env, :self_, :cref, :blk, :proc, :outer, :stack, :opened, :ret_line)
 
         # The frames of the walker's code. Each run of a scope has a record
@@ -39,6 +49,8 @@ module Zr
         # Value that the code holds between kernel calls is pinned
         # (`Host#pin`) until the statement that made it ends.
         module Frames
+          # @type instance: Walk
+
           # The most frames that a ruby stack holds here: about 39,000 fit
           # in `zr-dev host`'s, a thread's or a fiber's. Past this a call
           # overflows as past the slots, and the margin keeps room for the
@@ -184,10 +196,11 @@ module Zr
           # The jumps of a scope's body that leave it, as `jumps?` finds
           # them.
           class Jumps
-            include Enumerable
+            include Enumerable #[Hir::Node]
 
             def initialize(body) = @body = body
 
+            #: () { (Hir::Node) -> void } -> void
             def each(&) = visit(@body, false, &)
 
             private

@@ -5,8 +5,9 @@ require_relative "prism"
 module Zr
   # Prism.parse for the compiler. It uses the parse cache when the parser
   # is zr's port.
-  def self.parse(source, **)
-    defined?(Cache::Parse) ? Cache::Parse.parse(source, **) : Prism.parse(source, **)
+  #: (String source, **untyped options) -> Prism::ParseResult
+  def self.parse(source, **options)
+    defined?(Cache::Parse) ? Cache::Parse.parse(source, **options) : Prism.parse(source, **options)
   end
 end
 

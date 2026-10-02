@@ -59,6 +59,9 @@ module Zr
         WASI = "wasi_snapshot_preview1"
         # An import: the module it comes from, its name, and its wasm
         # parameter and result types.
+        # The fields of Import and Prelude are typed in
+        # sig/zr/backend/wasm/codegen.rbs, the methods here.
+        # @rbs skip
         Import = Data.define(:from, :name, :params, :results)
         # The imports that the libc shims and `_start` call. Every module
         # includes them, whatever its functions import.
@@ -74,8 +77,12 @@ module Zr
         # to but a program defines. Those symbols have fixed indices and
         # addresses (`pending`). A program's module puts its own part after
         # this one and must define those symbols at those positions.
+        # @rbs skip
         Prelude = Data.define(:imports, :shims, :sigs, :bodies, :types, :data_at, :data_end, :segments, :table,
-                              :pending) do
+                              :pending)
+
+        class Prelude
+          #: () -> Array[String]
           def functions = sigs.keys
         end
 

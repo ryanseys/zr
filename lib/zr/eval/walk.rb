@@ -25,6 +25,10 @@ module Zr
   class Eval
     # The interpreter loads with the first string that a program evals,
     # as the eval compiler does.
+    #
+    # This method and the others that lib/zr/eval.rb defines too have
+    # `@rbs skip`: their types are those of eval.rb.
+    # @rbs skip
     def self.current = @current ||= new
 
     # Walks `source` in `scope` (the Binding of the calling frame), with
@@ -56,12 +60,14 @@ module Zr
     # returns the address of its toplevel, and the kernel calls it. The
     # interpreter has no address, so it refuses, with a message that
     # gives the file.
+    # @rbs skip
     def compile_file(path)
       raise Walk::Tree::Refused, "#{path}:1: a require of a file the program was not compiled with is not walked yet"
     end
 
     # `RubyVM::InstructionSequence.compile` and the loader of a Ractor
     # need code to run later. The interpreter cannot make such code.
+    # @rbs skip
     def compile(_source, file, line = 1, _scopes = [], _method = nil)
       raise Walk::Tree::Refused, "#{file}:#{line}: compiling a string to code that runs later is not walked yet"
     end
@@ -94,6 +100,7 @@ module Zr
 
     # The argument as a String, as ruby converts it: a String, or an
     # object that responds to `to_str`.
+    # @rbs skip
     def string(value)
       return value if value.is_a?(String)
       raise TypeError, "no implicit conversion of #{name_of(value)} into String" unless value.respond_to?(:to_str)
@@ -101,6 +108,7 @@ module Zr
       value.to_str
     end
 
+    # @rbs skip
     def name_of(value)
       value.nil? || value == true || value == false ? value.inspect : value.class.name
     end

@@ -20,6 +20,7 @@ module Zr
       # first caret if it is this far in.
       TRUNCATE = 30
 
+      # @rbs skip -- typed in sig/zr/hir/syntax_report.rbs
       Row = Data.define(:error, :line, :column_start, :column_end)
 
       def self.error(result, file) = new(result, file).error

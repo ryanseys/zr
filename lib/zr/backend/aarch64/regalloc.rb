@@ -34,6 +34,7 @@ module Zr
       # backend time (20 seconds of backend against 4 for all earlier steps
       # when compiling the compiler), and a String key hashes its bytes at each use.
       class Regalloc
+        # @rbs skip -- in sig/zr/backend/aarch64/registers.rbs
         include Registers
 
         CALLEE = [X19, X20, X21, X22, X23, X24, X25, X26, X27].freeze

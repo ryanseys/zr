@@ -157,8 +157,9 @@ module Zr
     # (`<prefix><date>-<pid>-<random>`; the test harness's sweep reads
     # the pid from the name). The block's end removes it and its contents.
     def self.tmpdir(prefix, root = nil)
-      root ||= [ENV.fetch("TMPDIR", ""), "/tmp"].find { |dir| File.directory?(dir) && File.writable?(dir) } or
-        raise Missing, "zr found no temp directory that it can write to. Set TMPDIR to one."
+      root ||= [ENV.fetch("TMPDIR", ""), "/tmp"].find { |dir| File.directory?(dir) && File.writable?(dir) }
+      raise Missing, "zr found no temp directory that it can write to. Set TMPDIR to one." unless root
+
       dir = nil
       until dir
         name = File.join(root, "#{prefix}#{Time.now.strftime("%Y%m%d")}-#{Process.pid}-#{rand(0x100000000).to_s(36)}")

@@ -8,6 +8,8 @@ module Zr
   class Lower
     class Function
       module Sends
+        # @type instance: Function
+
         private
 
         # The global of a literal receiver's class, or nil. A Symbol, nil,

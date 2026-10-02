@@ -1,78 +1,17 @@
+# The fields of the record in lib/zr/lower/function/regions.rb.
 module Zr
   class Lower
     class Function
-      # `begin`/`rescue`/`else`/`ensure` and `retry`. A protected region
-      # has its own landing block: an unwind inside it goes there and does
-      # not leave the function. A rescue landing tests each clause against
-      # the pending exception. An ensure landing saves the pending unwind,
-      # runs the ensure body, then continues the unwind.
       module Regions
-        @landing: untyped
+        class Region < Data
+          attr_reader landing: String
+          attr_reader ensure_body: untyped
+          attr_reader slot: Integer?
+          attr_reader outer: Array[untyped]?
 
-        @sp: untyped
-
-        @inline_scope: untyped
-
-        @line_rec: untyped
-
-        @line: untyped
-
-        # `slot` is the first record slot for the region's values: the
-        # exit value or the exception, the `$!` that the region replaced,
-        # and for an ensure, the `$!` at its start. `outer` marks an inline
-        # loop (Iterators): it holds the site's own inline scope and line
-        # record, which the regions under it lower with.
-        Region: untyped
-
-        private
-
-        # The landing block for an unwind from here: the innermost
-        # region's, or the function's own.
-        def landing: () -> untyped
-
-        def protect: (untyped node) -> untyped
-
-        # The ensure body (a node, or a lowering block) runs after the
-        # block's code on a normal exit. During an unwind, it runs in the
-        # landing block, and a raise is visible as `$!` unless `errinfo`
-        # is false. An ensure body that jumps out discards the raise, and
-        # `$!` is restored to its value at the region's start, as in ruby.
-        def with_ensure: (untyped body, ?errinfo: bool) { () -> untyped } -> untyped
-
-        def run_ensure: (untyped body) -> untyped
-
-        # The body in its rescue clauses, and the else branch after a body
-        # that raised nothing.
-        def rescue_region: (untyped node) -> untyped
-
-        # The block's value, or nil if a raise leaves it. `defined?` uses
-        # this to test a receiver.
-        def guarded: () { () -> untyped } -> untyped
-
-        # The tests for one clause, each a branch to the handler block
-        # that this returns. A miss falls through to the next test.
-        def rescue_test: (untyped clause, untyped exc_at) -> untyped
-
-        # `retry`: restore `$!`, then run the begin body again.
-        def retry_region: (untyped node) -> untyped
-
-        # The ensure bodies between here and region depth `depth`,
-        # innermost first. A `return` or a loop's jump runs them when it
-        # leaves.
-        def unwind: (untyped depth) -> untyped
-
-        # An unwind that goes on past an inline loop leaves the loop: the
-        # caller's frame goes back on top, and the ensure bodies outside
-        # the loop read the site's locals, not the block's.
-        def leave_inline: (untyped outer) -> untyped
-
-        # Runs the ensure bodies down to region depth `depth`, then returns
-        # `v`. The record keeps `v` during the ensure bodies.
-        def through_ensures: (untyped v, ?::Integer depth) -> untyped
-
-        # Reserves `n` new record slots. The scope's slot count must
-        # include them.
-        def reserve: (untyped n) -> untyped
+          def self.new: (String landing, untyped ensure_body, Integer? slot, ?Array[untyped]? outer) -> instance
+                      | (landing: String, ensure_body: untyped, slot: Integer?, ?outer: Array[untyped]?) -> instance
+        end
       end
     end
   end

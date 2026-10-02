@@ -179,6 +179,7 @@ module Zr
     # Sets each of `ENV` (by keyword, e.g. `ZR_TUNE: "0"`) for the block,
     # yields the `Config` that reading it there gives, and puts `ENV`
     # back after. For tests only; a build reads `Config.current` once.
+    #: [T] (**String? overrides) { (Config) -> T } -> T
     def self.with(**overrides)
       saved = overrides.to_h { |name, _| [name, ENV[name.to_s]] }
       overrides.each { |name, value| ENV[name.to_s] = value }

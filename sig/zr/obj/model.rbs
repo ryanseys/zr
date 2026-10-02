@@ -1,79 +1,65 @@
+# lib/zr/obj/model.rb. Its Struct records are assigned to constants,
+# which inline RBS cannot type.
 module Zr
-  # The backend-neutral object model. Every native backend produces it,
-  # and every object writer and loader reads it. A function is machine
-  # code plus the relocations that the code needs. A data object is bytes
-  # in a section. A relocation gives a symbol and how to patch for it.
   module Obj
-    # `kind`: :branch26, :page21, :pageoff12, :got_page21, :got_pageoff12,
-    # :abs64. `offset` is from the start of the owning function or data.
-    #
-    # Four more kinds occur only in data, and only until the link numbers
-    # the program's symbols (`Zr::SymbolNumbering.number`):
-    # - :symid writes the id that the program gives `symbol`.
-    # - :symval writes that id as a tagged Symbol.
-    # - :symbit writes the bit for the symbol in an ivar table's `names`.
-    # - :site writes the slot of one literal site in the run-time table of
-    #   literal objects.
-    # A unit gives a name or requests a slot, and the link sets the number.
-    # Thus a unit's code does not depend on what compiled before it. No
-    # object writer sees these kinds.
-    Reloc: untyped
+    class Reloc < Struct[untyped]
+      attr_accessor offset: Integer
+      attr_accessor kind: Symbol
+      attr_accessor symbol: String
+      attr_accessor addend: Integer
 
-    # The methods of a record are in a reopened class, not in the block of
-    # `Struct.new`, so that the type check (sig/pilot/obj_model.rbs) sees
-    # them in the class that they belong to.
-    class Reloc
-      def initialize: (untyped offset, untyped kind, untyped symbol, ?::Integer addend) -> void
+      def self.new: (Integer offset, Symbol kind, String symbol, ?Integer addend) -> instance
+      def initialize: (Integer offset, Symbol kind, String symbol, ?Integer addend) -> void
     end
 
-    # The machine code of one function, as a backend assembled it.
-    # `linkage`: :export (visible to the link), :local (this object only).
-    Code: untyped
+    class Code < Struct[untyped]
+      attr_accessor name: String
+      attr_accessor bytes: String
+      attr_accessor relocs: Array[Reloc]
+      attr_accessor align: Integer
+      attr_accessor linkage: Symbol
 
-    class Code
-      def initialize: (untyped name, untyped bytes, ?relocs: untyped, ?align: ::Integer, ?linkage: ::Symbol) -> void
-
-      def size: () -> untyped
+      def self.new: (String name, String bytes, ?relocs: Array[Reloc], ?align: Integer, ?linkage: Symbol) -> instance
+      def initialize: (String name, String bytes, ?relocs: Array[Reloc], ?align: Integer, ?linkage: Symbol) -> void
+      def size: () -> Integer
     end
 
-    # One item of data: a string, a table, or a static slot.
-    # `section`: :text_const (pure bytes), :data_const (contains pointers,
-    # read-only after the link), :data (writable), :bss (zeros; `bytes` is
-    # then the size).
-    Datum: untyped
+    # `bytes` is a String, or the size (an Integer) in a :bss section. The
+    # code tells them apart by `section`, which a type cannot follow, so
+    # `bytes` is untyped.
+    class Datum < Struct[untyped]
+      attr_accessor name: String
+      attr_accessor section: Symbol
+      attr_accessor bytes: untyped
+      attr_accessor relocs: Array[Reloc]
+      attr_accessor align: Integer
+      attr_accessor linkage: Symbol
 
-    class Datum
-      def initialize: (untyped name, untyped section, untyped bytes, ?relocs: untyped, ?align: ::Integer, ?linkage: ::Symbol) -> void
-
-      def size: () -> untyped
+      def self.new: (String name, Symbol section, untyped bytes, ?relocs: Array[Reloc], ?align: Integer, ?linkage: Symbol) -> instance
+      def initialize: (String name, Symbol section, untyped bytes, ?relocs: Array[Reloc], ?align: Integer, ?linkage: Symbol) -> void
+      def size: () -> Integer
     end
 
-    # One object: its functions and data, in definition order. A symbol
-    # that a relocation refers to and that this unit does not define is
-    # an import.
     class Unit
-      @functions: untyped
-
-      @data: untyped
-
-      attr_reader functions: untyped
-
-      attr_reader data: untyped
+      attr_reader functions: Array[Code]
+      attr_reader data: Array[Datum]
 
       def initialize: () -> void
-
-      # `function` and `datum` add one item and return the unit, so a test
-      # builds a unit in one expression (test/support/obj_unit.rb).
-      # These two name their keywords: Steep stops on an anonymous `**` in
-      # a call.
-      # rubocop:disable Style/ArgumentsForwarding
-      def function: (untyped name, untyped bytes, **untyped options) -> self
-
-      def datum: (untyped name, untyped section, untyped bytes, **untyped options) -> self
-
-      def defined_names: () -> untyped
-
-      def imports: () -> untyped
+      def function: (String name, String bytes, ?relocs: Array[Reloc], ?align: Integer, ?linkage: Symbol) -> self
+      def datum: (String name, Symbol section, untyped bytes, ?relocs: Array[Reloc], ?align: Integer, ?linkage: Symbol) -> self
+      def defined_names: () -> Array[String]
+      def imports: () -> Array[String]
     end
   end
+end
+
+# The `initialize` that `Struct.new` and `Data.define` give a record. A
+# record's own `initialize` calls it with `super`. The core signatures do
+# not declare it.
+class Struct[E]
+  def initialize: (*untyped, **untyped) -> void
+end
+
+class Data
+  def initialize: (*untyped, **untyped) -> void
 end

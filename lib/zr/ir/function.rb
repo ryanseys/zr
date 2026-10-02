@@ -11,21 +11,28 @@ module Zr
     # a signature to eight, so no backend needs stack arguments.
     REGISTER_ARGS = 8
 
+    # The records' types are in sig/zr/ir/function.rbs.
+    # @rbs skip
     Slot = Struct.new(:bytes, :align)
+    # @rbs skip
     Global = Data.define(:gv, :symbol, :colocated)
+    # @rbs skip
     Sig = Data.define(:sig, :params, :ret)
     # `from`: the wasm module an imported callee comes from, or nil.
     # `effects`: the `IR::Effects` bits that a call can write.
+    # @rbs skip
     Callee = Struct.new(:fn, :symbol, :sig, :colocated, :from, :effects)
 
     # A basic block: its parameters as `[value, type]` pairs, and its
     # instructions in order.
     class Block
-      attr_reader :name, :params, :insts
+      attr_reader :name #: String
+      attr_reader :params #: Array[[String, String]]
+      attr_reader :insts #: Array[Inst]
       # A block that runs rarely (a slow path: a miss, an overflow, a
       # poll that fired). The backend puts it after the other blocks, so
       # the common path falls through and fetches no taken branch.
-      attr_accessor :cold
+      attr_accessor :cold #: bool?
 
       def initialize(name, params)
         @name = name
@@ -44,7 +51,17 @@ module Zr
     class Function
       # `current` is the block that gets new instructions. A caller that
       # fills a block out of order needs it to resume.
-      attr_reader :name, :params, :ret_type, :args, :current, :slots, :globals, :sigs, :callees, :blocks, :entry_block
+      attr_reader :name #: String
+      attr_reader :params #: Array[String]
+      attr_reader :ret_type #: String
+      attr_reader :args #: Array[String]
+      attr_reader :current #: Block?
+      attr_reader :slots #: Array[Slot]
+      attr_reader :globals #: Array[Global]
+      attr_reader :sigs #: Array[Sig]
+      attr_reader :callees #: Array[Callee]
+      attr_reader :blocks #: Array[Block]
+      attr_reader :entry_block #: Block?
 
       # `params`/`ret`: IR types. The entry block takes the parameters
       # as v0..vN-1.

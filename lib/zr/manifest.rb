@@ -19,7 +19,12 @@ module Zr
   # (lib/zr/gem_set.rb). A file of ruby itself that no gem ships
   # (`pathname.rb`) is the row `ruby`. The program's own files have no row.
   module Manifest
-    Row = Struct.new(:name, :version, :source) do
+    # @rbs skip
+    Row = Struct.new(:name, :version, :source)
+
+    # The fields are typed in sig/zr/manifest.rbs, the methods here.
+    class Row
+      #: () -> Hash[String, String]
       def to_h = { "name" => name, "version" => version, "source" => source }
     end
 

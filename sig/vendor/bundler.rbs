@@ -1,0 +1,22 @@
+# The members of Bundler that lib/ uses (`GemSet#locked`). RBS's stdlib
+# has no signatures for Bundler.
+module Bundler
+  def self.ui=: (untyped ui) -> untyped
+  def self.default_lockfile: () -> Pathname
+  def self.definition: () -> Definition
+
+  class Definition
+    def specs: () -> Enumerable[Gem::Specification]
+  end
+
+  class BundlerError < StandardError
+  end
+
+  class GemNotFound < BundlerError
+  end
+
+  module UI
+    class Silent
+    end
+  end
+end

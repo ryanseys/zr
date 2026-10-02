@@ -10,6 +10,7 @@ module Zr
       # The functions that the machine dialect cannot express. This file
       # assembles their machine code and gives it as raw bytes to every target path.
       module Stub
+        # @rbs skip -- in sig/zr/backend/aarch64/registers.rbs
         include Registers
 
         # The context `zr_switch` saves and restores: the callee-saved

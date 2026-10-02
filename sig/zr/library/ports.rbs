@@ -1,34 +1,14 @@
+# The record of lib/zr/library/ports.rb.
 module Zr
   module Library
-    # The gems with a C part that zr implements in Ruby. zr owns each one, as
-    # JRuby owns its json: the gem's Ruby half, as the gem ships it, and zr's
-    # port of the C half (lib/zr/runtime/ext) come together, at one version.
-    #
-    # A port with `vendored: true` is vendored as a gem at zr's version
-    # (vendor/ruby/lib/ruby/gems/4.0.0/gems/<name>-<version>, which
-    # `zr-dev vendor` writes). It comes before ruby's own library on the
-    # load path, as rubygems activates an installed gem over a default gem.
-    # One with `vendored: false` has its Ruby half in ruby's own library at the
-    # same version (psych, openssl), or has no Ruby half (zlib).
-    #
-    # Some versions are newer than the ones ruby 4.0.7 ships (json 3.0.2,
-    # not 2.18.0): docs/reference/differences-from-ruby.md lists them.
     module Ports
-      # One port: the gem's version, the versions whose C interface the port
-      # implements (a rubygems requirement, read only when a build selects
-      # another version of the gem), and whether vendor/ holds the gem.
-      Port: untyped
+      class Port < Struct[untyped]
+        attr_accessor version: String
+        attr_accessor compat: String
+        attr_accessor vendored: bool
 
-      def self.port: (untyped version, ?compat: ::String, ?vendored: bool) -> untyped
-
-      ALL: { "prism" => untyped, "json" => untyped, "psych" => untyped, "bigdecimal" => untyped, "digest" => untyped, "syslog" => untyped, "ffi" => untyped, "openssl" => untyped, "nkf" => untyped, "fiddle" => untyped, "racc" => untyped, "date" => untyped, "stringio" => untyped, "strscan" => untyped, "zlib" => untyped, "io-console" => untyped, "etc" => untyped, "fcntl" => untyped }
-
-      # The lib directory of each gem that vendor/ holds, in the order a
-      # require searches them.
-      def self.roots: () -> untyped
-
-      # The lib directory of port `name` in vendor/.
-      def self.lib: (untyped name, ?untyped version) -> untyped
+        def self.new: (version: String, compat: String, vendored: bool) -> instance
+      end
     end
   end
 end

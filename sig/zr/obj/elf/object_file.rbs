@@ -1,80 +1,35 @@
+# The records of lib/zr/obj/elf/object_file.rb.
 module Zr
   module Obj
     module Elf
-      # Writes a relocatable ELF64 object for aarch64 (`ET_REL`) from an
-      # `Obj::Unit`, for `cc` to link on an aarch64-linux host. Each function
-      # and data object has its own section (`.text.<name>`,
-      # `.rodata.<name>`, ...), so `--gc-sections` can remove what nothing
-      # refers to. Relocations are `SHT_RELA`, each with its addend in the
-      # entry. Symbols have no prefix; locals come first, as the format
-      # requires. The layout follows the System V gABI and the AArch64 ELF ABI.
-      #
-      # The runtime alone has tens of thousands of sections, so at
-      # `SHN_LORESERVE` and above the file uses the gABI's extended numbering.
       module ObjectFile
-        EM_AARCH64: 183
+        class Section < Struct[untyped]
+          attr_accessor name: String
+          attr_accessor type: Integer
+          attr_accessor flags: Integer
+          attr_accessor bytes: untyped
+          attr_accessor size: Integer
+          attr_accessor align: Integer
+          attr_accessor link: untyped
+          attr_accessor info: untyped
+          attr_accessor entsize: untyped
+          attr_accessor offset: untyped
+          attr_accessor item: untyped
 
-        ET_REL: 1
+          def self.new: (**untyped) -> instance
+        end
 
-        SHT_PROGBITS: 1
+        class Sym < Struct[untyped]
+          attr_accessor name: String
+          attr_accessor bind: Integer
+          attr_accessor type: Integer
+          attr_accessor shndx: Integer
+          attr_accessor value: Integer
+          attr_accessor size: Integer
+          attr_accessor strx: Integer?
 
-        SHT_SYMTAB: 2
-
-        SHT_STRTAB: 3
-
-        SHT_RELA: 4
-
-        SHT_NOBITS: 8
-
-        SHT_SYMTAB_SHNDX: 18
-
-        SHF_WRITE: 1
-
-        SHF_ALLOC: 2
-
-        SHF_EXECINSTR: 4
-
-        SHF_INFO_LINK: 64
-
-        STB_LOCAL: 0
-
-        STB_GLOBAL: 1
-
-        STT_NOTYPE: 0
-
-        STT_OBJECT: 1
-
-        STT_FUNC: 2
-
-        SHN_UNDEF: 0
-
-        # A section index at or above this does not fit its 16-bit field.
-        # The header, section 0 and `.symtab_shndx` contain the real index.
-        SHN_LORESERVE: 65280
-
-        SHN_XINDEX: 65535
-
-        # The AArch64 relocation type for each kind that `Backend::Aarch64`
-        # records.
-        RELOC: { abs64: 257, branch26: 283, page21: 275, pageoff12: 277, got_page21: 311, got_pageoff12: 312 }
-
-        # Each `Obj` section's ELF name prefix, type and flags.
-        SECTIONS: { function: ::Array[".text" | untyped], text_const: ::Array[".rodata" | untyped], data_const: ::Array[".data.rel.ro" | untyped], data: ::Array[".data" | untyped], bss: ::Array[".bss" | untyped] }
-
-        Section: untyped
-
-        # One `Elf64_Sym`. `strx` is the name's offset in the string table;
-        # `write` sets it after it builds that table.
-        Sym: untyped
-
-        # Returns the bytes of the object file.
-        def self?.write: (untyped unit) -> untyped
-
-        # The null symbol, then locals, then globals and imports, each group
-        # by name.
-        def self?.symbol_table: (untyped unit, untyped item_sections) -> untyped
-
-        def self?.header: (untyped shoff, untyped shnum, untyped shstrndx) -> untyped
+          def self.new: (**untyped) -> instance
+        end
       end
     end
   end

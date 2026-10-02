@@ -20,7 +20,8 @@ module Zr
 
         def set(name, value, line) = Assign.new(name, 0, value, line)
 
-        def send_to(recv, name, args, line, **) = Send.of(recv, name, args, line, **)
+        #: (untyped recv, String name, Array[untyped] args, Integer line, **untyped options) -> Send
+        def send_to(recv, name, args, line, **options) = Send.of(recv, name, args, line, **options)
 
         # A core class by name. No constant of the program can shadow it.
         def core(name, line) = Core.new(name, line)

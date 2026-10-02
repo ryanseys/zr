@@ -10,7 +10,14 @@ module Zr
   # cache checks them); it is empty when the build does not know them.
   # `gems` are the manifest's rows (lib/zr/manifest.rb): the gems that the
   # program's files come from.
-  Program = Data.define(:runtime, :functions, :data, :evals, :sources, :gems) do
+  #
+  # The record's fields are typed in sig/zr/program.rbs.
+  # @rbs skip
+  Program = Data.define(:runtime, :functions, :data, :evals, :sources, :gems)
+
+  # The methods are in a reopened class, not in the block of
+  # `Data.define`, so that the type check sees them in their class.
+  class Program
     def initialize(runtime:, functions:, data:, evals:, sources: {}, gems: [])
       super
     end
@@ -35,9 +42,7 @@ module Zr
     def write_wasm(out) = Native::Build.wasm_program(self, out)
 
     def write_binary(out, work:, link:) = Native::Build.program(self, out, work: work, link: link)
-  end
 
-  class Program
     # The bytes of source above which a program's build tunes
     # (`GcTuning.heavy!`). hello and a probe are far below it; the stdlib rung
     # of the compile benchmark is above.

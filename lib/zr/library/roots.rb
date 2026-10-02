@@ -31,22 +31,26 @@ module Zr
       # tree-walking interpreter for a program that cannot write machine
       # code into itself. Both contain the same front end. `Zr::Eval`
       # gives the back end that each one runs.
-      EVAL_COMPILER = File.expand_path("../eval.rb", __dir__)
-      EVAL_INTERPRETER = File.expand_path("../eval/walk.rb", __dir__)
+      EVAL_COMPILER = File.expand_path("../eval.rb", __dir__) #: String
+      EVAL_INTERPRETER = File.expand_path("../eval/walk.rb", __dir__) #: String
 
       module_function
 
       # The directory of ruby's own library and the default gems.
+      #: () -> String
       def pure = upstream.first
 
       # The lib directory of each bundled gem, in Stdlib::BUNDLED's order,
       # each in its own directory, as ruby installs them.
+      #: () -> Array[String]
       def bundled_roots = upstream.last
 
       # The lib directory of the bundled gem `name`.
+      #: (String name) -> String
       def lib_of(name) = bundled_roots.fetch(Stdlib::BUNDLED.keys.index(name) || raise(KeyError, "no bundled gem #{name}"))
 
       # `[pure, bundled_roots]`.
+      #: () -> [String, Array[String]]
       def upstream
         Session.current.memo(:library_roots) do
           carried || [Layout::RUBYLIBDIR, Stdlib::BUNDLED.map { |name, version| File.join(Layout.gem_root(name, version), "lib") }]
@@ -58,6 +62,7 @@ module Zr
       # with eval support writes them (`LoadTables`): the roots of
       # `Roots.stdlib`, ruby's library first and the bundled gems
       # last. Other compiled compilers find vendor/ruby beside themselves.
+      #: () -> [String, Array[String]]?
       def carried
         return nil unless Host.compiled? && defined?(::Zr::Eval::Runtime)
 
@@ -72,31 +77,38 @@ module Zr
       # which win over ruby's own copies as an installed gem wins over a
       # default gem (json 3.0.2, not 2.18.0), then ruby's own library,
       # then the bundled gems in their own directories.
+      #: (?Target target) -> Array[String]
       def stdlib(target = Target.default)
         Session.current.memo([:stdlib, target.triple]) { [Layout.ext_os(target), Layout::EXT, Layout::RUNTIME_LIB, *Ports.roots, pure, *bundled_roots].freeze }
       end
 
       # Every file of the library, for a stamp of what a build can read.
+      #: () -> Array[String]
       def files = Dir[File.join(Layout::PREFIX, "lib/**/*")].select { |path| File.file?(path) }
 
+      #: (String file) -> bool
       def runtime_file?(file) = File.expand_path(file).start_with?("#{Paths::RUNTIME}/") || description?(file)
 
+      #: (String file) -> bool
       def description?(file) = file == DESCRIPTION
 
       # Gives the source of the kernel's description of `target` when a
       # file requires `zr_description`: only eval support and a program
       # that compiles itself do. Nil where no runtime is loaded (an eval
       # in a binary).
+      #: (Target target) -> ^() -> String?
       def description(target) = -> { Zr::Runtime.for(target).carried_text if Zr.const_defined?(:Runtime, false) }
 
       # A file of the runtime's libraries (Layout::EXT, Layout::RUNTIME_LIB): it is
       # internal, as the core is, so a backtrace shows its methods as
       # builtins.
+      #: (String file) -> bool
       def internal_library?(file) = file.start_with?("#{Layout::EXT}/", "#{Layout::RUNTIME_LIB}/") || description?(file)
 
       # The eval support file for `target`. `ZR_EVAL=walk` selects the
       # tree-walking interpreter where the eval compiler (JIT) could run.
       # The tests use this to check the interpreter against the JIT.
+      #: (?Target target) -> String
       def eval_file(target = Target.default)
         target.jits? && !Config.current.eval_walk? ? EVAL_COMPILER : EVAL_INTERPRETER
       end

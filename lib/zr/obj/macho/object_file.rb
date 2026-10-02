@@ -54,26 +54,44 @@ module Zr
           ["__bss", "__DATA", S_ZEROFILL, [:bss]]
         ].freeze
 
+        # The fields of this file's records are typed in
+        # sig/zr/obj/macho/object_file.rbs, their methods here.
+        # @rbs skip
         Placed = Data.define(:item, :section, :addr)
 
         # An object as `read` returns it. `symbols` contains two words for
         # each symbol, packed as in `nlist_64`: the string offset, type,
         # section and description in the first word, the value in the
         # second. `strings` is the string table.
-        Read = Struct.new(:sections, :symbols, :strings, keyword_init: true) do
+        # @rbs skip
+        Read = Struct.new(:sections, :symbols, :strings, keyword_init: true)
+
+        class Read
+          # @rbs @names: Hash[Integer, String]?
+
+          #: () -> Integer
           def count = symbols.size / 2
+
+          #: (Integer index) -> Integer
           def strx(index) = symbols[index * 2] & 0xFFFF_FFFF
+
+          #: (Integer index) -> Integer
           def type(index) = (symbols[index * 2] >> 32) & 0xFF
+
+          #: (Integer index) -> Integer
           def sect(index) = (symbols[index * 2] >> 40) & 0xFF
+
+          #: (Integer index) -> Integer
           def value(index) = symbols[(index * 2) + 1]
 
           # A symbol's name. This splits the table once and keeps each name
           # by its offset. In the compiled runtime, a search for the end of
           # the name from the offset counts characters from the start of
           # the table, once for each of hundreds of thousands of symbols.
+          #: (Integer index) -> String
           def name(index)
-            @names ||= begin
-              table = {}
+            names = @names ||= begin
+              table = {} #: Hash[Integer, String]
               at = 0
               strings.split("\0").each do |name|
                 table[at] = name
@@ -81,13 +99,14 @@ module Zr
               end
               table
             end
-            @names.fetch(strx(index))
+            names.fetch(strx(index))
           end
         end
 
         # A section as `read` returns it. `relocs` contains two words for
         # each `relocation_info`: the address and the packed other fields.
-        Section = Struct.new(:name, :segment, :addr, :size, :align, :flags, :bytes, :relocs, keyword_init: true)
+        # @rbs skip
+        Section =Struct.new(:name, :segment, :addr, :size, :align, :flags, :bytes, :relocs, keyword_init: true)
 
         module_function
 
@@ -153,17 +172,20 @@ module Zr
         # The layout before any bytes are written: the sections and their
         # bytes, the symbol table, the relocations and the string table.
         # Both `write` and `of` start from this layout.
+        # @rbs skip
         Laid = Data.define(:sections, :symbols, :strtab, :vmsize, :data_start, :data_end, :symoff, :stroff, :sizeofcmds,
                            :segment_cmd)
 
         # A section while `laid_out` builds it. `addr`, `offset` and `reloff`
         # stay zero until the layout reaches them; `items` holds each item
         # with its offset in the section.
+        # @rbs skip
         SectionBuild = Struct.new(:name, :seg, :flags, :bytes, :size, :align, :items, :relocs, :addr, :offset, :reloff,
                                   keyword_init: true)
 
         # A symbol while `laid_out` builds it. `bare` is the name without the
         # leading `_`. `strx` stays nil until the string table exists.
+        # @rbs skip
         Sym = Struct.new(:name, :bare, :linkage, :sect, :value, :type, :strx, keyword_init: true)
 
         def laid_out(unit)

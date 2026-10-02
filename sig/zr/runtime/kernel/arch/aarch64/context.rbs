@@ -1,7 +1,0 @@
-module Zr::Kern
-  CONTEXT_BYTES: 176
-
-  def zr_arch_context_start: (untyped ctx, untyped entry, untyped top) -> untyped
-
-  def zr_arch_context_sp: (untyped ctx) -> untyped
-end

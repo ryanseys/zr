@@ -39,6 +39,7 @@ module Zr
       # A piece to build: its path, its entry function, its key (nil when no
       # key can describe it; then it is always made), its weight for the
       # workers, and `make`, which returns `[functions, data]` of IR.
+      # @rbs skip -- typed in sig/zr/cache/lowering.rbs
       Piece = Struct.new(:path, :entry, :key, :weight, :make)
 
       attr_reader :code
@@ -209,10 +210,12 @@ module Zr
 
       # An entry's key: the cache's kind (core, eval-jit, eval-walk), the
       # backend, the base of the unit and the piece's own parts.
+      #: (*_ToS parts) -> String
       def key_of(*parts) = Store.key(@kind, @backend, @base, *parts)
 
       # The base of every key of this lowering: the format, the target, the
       # path root and the compiler, then `parts` of the unit.
+      #: (*_ToS parts) -> String
       def base_key(*parts) = Store.key(VERSION, @target.triple, Paths.root.to_s, RuntimeSources.for(@target).compiler_digest, *parts)
 
       # Notes the first reason that a piece is made, for ZR_TIMING.

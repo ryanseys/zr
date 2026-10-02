@@ -8,6 +8,8 @@ module Zr
       # Each one tests the kernel's event mask, so if all TracePoints are
       # disabled, each point costs one load and one branch.
       module Tracing
+        # @type instance: Function
+
         # ruby's RUBY_EVENT_* bits.
         EVENTS = { line: 0x1, class: 0x2, end: 0x4, call: 0x8, return: 0x10, b_call: 0x100, b_return: 0x200 }.freeze
         # The event that a scope fires when it starts, and the one that it

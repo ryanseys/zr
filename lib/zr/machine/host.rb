@@ -34,7 +34,14 @@ module Zr
       # Fiddle, its `pack` format (`packing`), and its IO::Buffer types for
       # a load (`loads`) and a store (`stores`). A store takes a value of the signed or the unsigned range
       # alike: `pack` and an unsigned IO::Buffer type take either.
-      Type = Data.define(:name, :size, :fiddle, :packing, :loads, :stores) do
+      #
+      # The fields of Host's records are typed in sig/zr/machine/host.rbs,
+      # the methods here.
+      # @rbs skip
+      Type = Data.define(:name, :size, :fiddle, :packing, :loads, :stores)
+
+      class Type
+        #: () -> String
         def inspect = name
       end
       TYPES = [
@@ -98,6 +105,7 @@ module Zr
           @layout_fields.each { |name, (at, type)| accessors(name, at, type) }
         end
 
+        #: (*untyped pointer) -> Integer
         def size(*pointer)
           pointer.empty? ? @layout_size : raise(NoMethodError, "no field size")
         end
@@ -149,6 +157,7 @@ module Zr
           @ret = ret
         end
 
+        #: (Integer at, *untyped args) -> untyped
         def call(at, *args) = @host.call_at(at, @params, @ret, args)
       end
 
@@ -425,8 +434,12 @@ module Zr
       # `rooted` tells whether the innermost def that can collect is one.
       # `frames` are the rooted frames of a fiber that switched away
       # (`live_roots`): only the running fiber's frames can be read.
-      Stack = Struct.new(:top, :low, :pins, :depth, :roots, :rooted, :frames) do
+      # @rbs skip
+      Stack = Struct.new(:top, :low, :pins, :depth, :roots, :rooted, :frames)
+
+      class Stack
         # `size` bytes of slots, rounded up to 16, below the top.
+        #: (Integer size) -> Integer
         def take(size)
           slot = top - ((size + 15) & -16)
           raise "the slot area is full" if slot < low
@@ -741,6 +754,7 @@ module Zr
       # A rooted caller pins nothing, so a def that can collect and is not
       # rooted pins its Value arguments (`params`, their indices), as the
       # lowering's root frame holds a def's parameters.
+      # @rbs skip
       Framing = Data.define(:restores, :drops, :value, :roots, :params)
 
       # The locals of the def `node` that hold Values, as the typed lowering

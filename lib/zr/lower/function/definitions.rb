@@ -5,6 +5,8 @@ module Zr
     class Function
       # Methods, classes, modules and constants: what a scope defines.
       module Definitions
+        # @type instance: Function
+
         private
 
         # `def`: the body becomes its own function, defined on the cref's

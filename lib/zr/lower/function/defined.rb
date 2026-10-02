@@ -5,6 +5,8 @@ module Zr
     class Function
       # `defined?`: the description String, or nil.
       module Defined
+        # @type instance: Function
+
         NAMES = {
           local: "local-variable", ivar: "instance-variable", gvar: "global-variable", global: "global-variable",
           backref: "global-variable", attrasgn: "method", cvar: "class variable",

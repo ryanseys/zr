@@ -102,9 +102,11 @@ module Zr
         # A segment of the image. `pieces` are its file bytes, in order,
         # each `[bytes, hashes, dirty pages]`. `hashes` are the page hashes
         # stored with a base, or nil for bytes that this linker makes.
+        # @rbs skip -- typed in sig/zr/obj/macho/executable.rbs
         Segment = Struct.new(:name, :vm, :vmsize, :fileoff, :filesize, :prot, :flags, :sections, :pieces, :starts,
                              keyword_init: true)
         # A section: its name, address, size, alignment and flags.
+        # @rbs skip -- typed in sig/zr/obj/macho/executable.rbs
         Section = Data.define(:name, :vm, :size, :align, :flags)
 
         Refused = MachO::Refused

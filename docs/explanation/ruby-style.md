@@ -221,21 +221,47 @@ functions on `module Zr`:
 
 ## Types
 
-A pilot checks the types of a few files with Steep (`bin/steep check`,
-the `Steepfile`). A file with methods has inline RBS annotations:
+Steep checks the types of every file of the compiler (`bin/steep
+check`, the `Steepfile`). The runtime is not checked: it is zr's own
+core and kernel, which a program carries. The exceptions are the few
+runtime files that ruby loads too.
 
-```ruby
-#: (Integer n, Integer a) -> Integer
-def align(n, a) = (n + a - 1) & ~(a - 1)
-```
+Each declaration has its types in one place:
 
-A file that assigns a `Struct` or a `Data` record to a constant has its
-types in `sig/pilot/`, because the inline form cannot give a type to the
-fields of such a record. Put the methods of such a record in a reopened
-class, not in the block of `Data.define`, so that Steep sees them in
-their class (`lib/zr/load_tables.rb`). To add a file to the
-check, annotate it and add it to the `Steepfile`. The rest of `lib/` is
-not checked yet.
+- **Inline RBS annotations** in the code are the default:
+
+  ```ruby
+  #: (Integer n, Integer a) -> Integer
+  def align(n, a) = (n + a - 1) & ~(a - 1)
+  ```
+
+  `attr_reader :name #: String` types an attribute, `# @rbs @ivar: T`
+  at the top of a class body types an instance variable, and
+  `# @rbs module-self: T` names the class that a mixin expects.
+- **`sig/zr/`** holds what inline RBS cannot type. Each such
+  declaration has `# @rbs skip` above it in the code, with its types
+  in the `.rbs` file of the same path:
+  - a `Struct` or a `Data` record assigned to a constant;
+  - a `module_function` module (`def self?.name`);
+  - constants that `const_set` makes.
+
+  A file that is mostly records (`lib/zr/hir/node.rb`) has all its
+  types in `sig/zr/`, and the `Steepfile` lists it in `RBS_TYPED`.
+- **`sig/vendor/`** holds the members that `lib/` uses of a gem that has
+  no signatures (fiddle, debug_inspector, Bundler).
+
+Put the methods of a record in a reopened class, not in the block of
+`Data.define`, so that Steep sees them in their class
+(`lib/zr/load_tables.rb`).
+
+A def with no annotation takes the type of the method that it
+overrides. An `initialize(a, b)` with no annotation takes Object's
+`() -> void`, and a def named `hash` or `clone` takes the core type.
+Annotate such a def.
+
+The `Steepfile` puts each file in a level: `strict`, `default` or
+`lenient`. A file starts at lenient. To check it more strictly, name
+it, or its directory, in a stricter level.
 
 ## Lint
 

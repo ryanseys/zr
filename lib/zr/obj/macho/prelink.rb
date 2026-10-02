@@ -45,6 +45,7 @@ module Zr
         # A slot that contains an external's address: its segment, its
         # offset in the segment's bytes, the distance to the next slot's
         # entry, the name, and the addend.
+        # @rbs skip -- typed in sig/zr/obj/macho/prelink.rbs
         Late = Data.define(:segment, :offset, :next, :name, :addend)
 
         attr_reader :parts, :text_size, :got_vm, :got_size, :data_vm, :data_filesize, :data_vmsize,
@@ -200,6 +201,7 @@ module Zr
 
         # Reads a base that `dump` wrote. Returns nil for other bytes: a
         # truncated cache file or a file of another format is a cache miss.
+        #: (String bytes) -> Prelink?
         def self.load(bytes)
           return nil unless bytes.start_with?(MAGIC)
 

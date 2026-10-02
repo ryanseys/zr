@@ -7,6 +7,8 @@ module Zr
   class Lower
     class Function
       module Sends
+        # @type instance: Function
+
         private
 
         # An Integer operator: the inline fixnum fast path if both sides
@@ -150,6 +152,7 @@ module Zr
         # (`unboxed_operator`): `value` is QUNDEF when the inner operator
         # took its flonum path, and then `bits` holds the double, which no
         # code boxes unless the outer operator sends.
+        # @rbs skip -- typed in sig/zr/lower/function/sends/arith.rbs
         Operand = Data.define(:value, :bits)
 
         # Whether the operand holds its double in `bits`.
@@ -403,6 +406,7 @@ module Zr
 
         # Whether all the given gates are clear: one test of the gate word,
         # from its register.
+        #: (*Symbol names) -> String
         def gates_clear(*names)
           return @f.icmp("eq", imm(0), imm(0)) if native_operators?
 

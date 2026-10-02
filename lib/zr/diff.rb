@@ -12,7 +12,12 @@ module Zr
     # One run: its stdout, stderr, exit status, and the signal that
     # stopped it (nil when it exited). `timeout` is true when the run took
     # longer than its limit and was stopped.
-    Answer = Struct.new(:stdout, :stderr, :status, :signal, :timeout) do
+    # @rbs skip
+    Answer = Struct.new(:stdout, :stderr, :status, :signal, :timeout)
+
+    # The fields are typed in sig/zr/diff.rbs, the methods here.
+    class Answer
+      #: () -> Hash[Symbol, untyped]
       def parts = { stdout: stdout, stderr: stderr, status: status, signal: signal }
     end
 

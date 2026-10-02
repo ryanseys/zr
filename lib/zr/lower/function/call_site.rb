@@ -12,7 +12,8 @@ module Zr
 
       # The default of `cc` and `entry` is in a reopened class, not in the
       # block of `Data.define`, so that the type check
-      # (sig/pilot/records.rbs) sees it in the class that it belongs to.
+      # (sig/zr/lower/function/call_site.rbs) sees it in the class that it
+      # belongs to.
       class CallSite
         def initialize(node:, recv:, argv:, merge:, cc: nil, entry: nil) = super
       end

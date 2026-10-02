@@ -33,7 +33,7 @@ module Zr
   LoadTables = Data.define(:evals, :spots, :coverable, :branches, :defs, :sources, :target, :gem_roots, :manifest)
 
   # The methods are in a reopened class, not in the block of
-  # `Data.define`, so that the type check (sig/pilot/records.rbs) sees
+  # `Data.define`, so that the type check (sig/zr/load_tables.rbs) sees
   # them in the class that they belong to.
   class LoadTables
     def initialize(evals: false, spots: {}, coverable: {}, branches: {}, defs: {}, sources: {}, target: Target.default, gem_roots: [],

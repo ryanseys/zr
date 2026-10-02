@@ -1,5 +1,0 @@
-module Zr
-  module Hir
-    def self.build: (untyped source, untyped file, ?roots: untyped, ?eval_support: bool, ?prebuilt: untyped?, ?line: ::Integer, ?scopes: untyped?, ?method: untyped?, ?activations: untyped?, ?target: untyped, ?trace: bool, ?gem_set: untyped?, ?gate: bool) -> untyped
-  end
-end

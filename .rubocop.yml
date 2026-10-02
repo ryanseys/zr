@@ -137,9 +137,12 @@ Style/LambdaCall: { Enabled: true }
 
 # A block that a method only passes on needs no name: `def f(&) = g(&)`.
 Naming/BlockForwarding: { Enabled: true }
-# The same for arguments: `def f(*, **) = g(*, **)`. zr compiles these
+# Arguments that a method only passes on go as `...`. The cop does not
+# ask for an anonymous `*` or `**` in place of a name: Steep stops on an
+# anonymous `**` (`bin/steep check`), so a method names its keywords.
+# zr compiles the anonymous forms all the same
 # (test/programs/lang/methods/definition/anonymous_*).
-Style/ArgumentsForwarding: { Enabled: true }
+Style/ArgumentsForwarding: { Enabled: true, UseAnonymousForwarding: false }
 
 # A constant that code changes is state; an object or a variable owns it.
 Style/MutableConstant: { Enabled: true }

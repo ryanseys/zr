@@ -54,10 +54,12 @@ form by name. See [The contract](docs/explanation/the-contract.md).
   issue number.
 - `bundle exec rake lint` runs RuboCop: the Lint cops and the cops that
   `.rubocop.yml` adds, each with its reason.
-- `bin/steep check` runs Steep on the files that the
-  `Steepfile` names. To add a file, annotate its methods with inline RBS
-  (`#: (Integer) -> String`) and add it to the `Steepfile`. A `Struct`
-  or `Data` record has its types in `sig/pilot`.
+- `bin/steep check` runs Steep on every file of the compiler. Annotate
+  methods with inline RBS (`#: (Integer) -> String`). A declaration that
+  inline RBS cannot type (a `Struct` or `Data` record, a
+  `module_function` module) has `# @rbs skip` above it and its types in
+  `sig/zr/`. To check a file more strictly, name it in a stricter level
+  of the `Steepfile`.
 - `COVERAGE=1 bin/minitest <paths>` measures the line and branch coverage of
   `lib/` and writes `tmp/coverage/index.html`. It gates nothing.
 

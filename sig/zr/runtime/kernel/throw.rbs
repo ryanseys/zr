@@ -1,9 +1,0 @@
-module Zr::Kern
-  def zr_catches: () -> untyped
-
-  def zr_catch_tag_p: (untyped tag) -> untyped
-
-  def zr_throw: (untyped tag, untyped value) -> untyped
-
-  def zr_catch: (untyped tag, untyped blk) -> untyped
-end

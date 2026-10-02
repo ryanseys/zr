@@ -1,0 +1,11 @@
+# The members of the debug_inspector gem that lib/ uses
+# (`Machine::Host#live_roots`). The gem ships no signatures.
+class DebugInspector
+  def self.open: [T] () { (DebugInspector) -> T } -> T
+
+  def backtrace_locations: () -> Array[Thread::Backtrace::Location]
+  def frame_binding: (Integer index) -> Binding?
+  def frame_class: (Integer index) -> Module?
+  def frame_iseq: (Integer index) -> RubyVM::InstructionSequence?
+  def frame_self: (Integer index) -> untyped
+end

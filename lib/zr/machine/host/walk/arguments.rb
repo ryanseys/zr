@@ -9,6 +9,8 @@ module Zr
         # out of the argument vector, the arity check, the positional
         # parameters, the defaults, the keywords and the block.
         module Arguments
+          # @type instance: Walk
+
           private
 
           # The code that binds a def's `argc` arguments at `argv` in its

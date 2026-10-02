@@ -1,322 +1,34 @@
+# The records of lib/zr/backend/aarch64/assembler.rb. Their methods are
+# inline.
 module Zr
   module Backend
     module Aarch64
-      # An arm64 encoder for only the instructions that the two backends
-      # emit. An instruction is a word, or an object whose `encode` takes its
-      # own index and returns a word after every label has a position.
-      #
-      # A label contains an instruction index, not a byte offset, so a branch
-      # encodes its distance as `target - here`.
       class Assembler
-        @insns: untyped
+        class Branch < Data
+          attr_reader base: Integer
+          attr_reader label: Label
+          attr_reader shift: Integer
+          attr_reader bits: Integer
 
-        include Registers
-
-        class Refused < StandardError
-          include Zr::Refusal
+          def self.new: (Integer base, Label label, Integer shift, Integer bits) -> instance
+                      | (base: Integer, label: Label, shift: Integer, bits: Integer) -> instance
         end
 
-        # A branch whose target is out of the range of its field.
-        class OutOfReach < Refused
+        class Adr < Data
+          attr_reader d: Registers::Register
+          attr_reader label: Label
+
+          def self.new: (Registers::Register d, Label label) -> instance
+                      | (d: Registers::Register, label: Label) -> instance
         end
 
-        CONDITIONS: { eq: 0, ne: 1, cs: 2, hs: 2, cc: 3, lo: 3, mi: 4, pl: 5, vs: 6, vc: 7, hi: 8, ls: 9, ge: 10, lt: 11, gt: 12, le: 13, al: 14 }
+        class TableWord < Data
+          attr_reader label: Label
+          attr_reader base: Label
 
-        SHIFTS: { lsl: 0, lsr: 1, asr: 2 }
-
-        class Label
-          @name: untyped
-
-          @offset: untyped
-
-          attr_reader name: untyped
-
-          attr_reader offset: untyped
-
-          def initialize: (untyped name) -> void
-
-          def at_offset: (untyped offset) -> self
-
-          def to_i: () -> untyped
+          def self.new: (Label label, Label base) -> instance
+                      | (label: Label, base: Label) -> instance
         end
-
-        # A branch whose distance is known only when every instruction has
-        # an index.
-        Branch: untyped
-
-        # `ADR`: a register gets the address of a label, which is within
-        # 1 MB of the instruction.
-        Adr: untyped
-
-        # One word of a jump table: the distance in bytes from the table's
-        # start (`base`) to `label`, signed.
-        TableWord: untyped
-
-        # Returns `[N, immr, imms]` for a logical immediate, or nil for a
-        # value that arm64 cannot encode in one instruction.
-        #
-        # The only constants `AND`, `ORR` and `EOR` take are a run of
-        # ones, rotated, in an element of 2, 4, 8, 16, 32 or 64 bits that
-        # repeats to fill the register. 0x5555555555555555 is one, 5 is
-        # not. All ones and all zeros are excluded: every element size would
-        # encode them, so the encoding uses that space for `N`.
-        #
-        # Memoized, with one table for each width, not one table keyed by
-        # both. A compile makes the same few calls on the same few masks
-        # millions of times, and a pair key makes an Array for each call.
-        # A value that is not a bitmask memoizes as nil.
-        def self.bitmask: (untyped value, untyped width) -> untyped
-
-        BITMASK64: untyped
-
-        BITMASK32: untyped
-
-        def self.encode_bitmask: (untyped value, untyped width) -> (nil | ::Array[untyped])
-
-        def self.rotated: (untyped value, untyped by, untyped size, untyped element) -> untyped
-
-        def self.signed: (untyped value, untyped bits) -> untyped
-
-        def initialize: () -> void
-
-        def make_label: (untyped name) -> untyped
-
-        def put_label: (untyped label) -> self
-
-        # The byte offset of the next instruction. A relocation on that
-        # instruction points here.
-        def patch_location: () { (untyped) -> untyped } -> untyped
-
-        def to_binary: () -> untyped
-
-        def add: (untyped d, untyped n, untyped m, ?lsl: ::Integer) -> untyped
-
-        def adds: (untyped d, untyped n, untyped m) -> untyped
-
-        def sub: (untyped d, untyped n, untyped m, ?lsl: ::Integer) -> untyped
-
-        def subs: (untyped d, untyped n, untyped m, ?shift: ::Symbol, ?amount: ::Integer) -> untyped
-
-        def cmp: (untyped n, untyped m, ?shift: ::Symbol, ?amount: ::Integer) -> untyped
-
-        def mul: (untyped d, untyped n, untyped m) -> untyped
-
-        def madd: (untyped d, untyped n, untyped m, untyped a) -> untyped
-
-        def msub: (untyped d, untyped n, untyped m, untyped a) -> untyped
-
-        def smulh: (untyped d, untyped n, untyped m) -> untyped
-
-        def udiv: (untyped d, untyped n, untyped m) -> untyped
-
-        def sdiv: (untyped d, untyped n, untyped m) -> untyped
-
-        def and: (untyped d, untyped n, untyped m) -> untyped
-
-        def orr: (untyped d, untyped n, untyped m) -> untyped
-
-        def eor: (untyped d, untyped n, untyped m) -> untyped
-
-        def ands: (untyped d, untyped n, untyped m) -> untyped
-
-        def tst: (untyped n, untyped m) -> untyped
-
-        # A register amount shifts by the value in the register. An Integer
-        # amount is a bitfield move, which is the arm64 name for these forms.
-        # The signatures are the same as the gem's, so `aarch64_test` checks
-        # both forms against the ARM specification.
-        def lsl: (untyped d, untyped n, untyped m) -> untyped
-
-        def lsr: (untyped d, untyped n, untyped m) -> untyped
-
-        def asr: (untyped d, untyped n, untyped m) -> untyped
-
-        # `SXTB` and `SXTW` are `SBFM` over a fixed range of bits, and
-        # `UXTB` is `UBFM` over the same range.
-        def sxtb: (untyped d, untyped n) -> untyped
-
-        def sxtw: (untyped d, untyped n) -> untyped
-
-        def uxtb: (untyped d, untyped n) -> untyped
-
-        # The one-source forms: the bits reversed, the bytes reversed
-        # (`rev` of a w register turns four, of an x register eight), and
-        # the leading zeros counted.
-        def rbit: (untyped d, untyped n) -> untyped
-
-        def rev: (untyped d, untyped n) -> untyped
-
-        def clz: (untyped d, untyped n) -> untyped
-
-        def one_source: (untyped opcode, untyped d, untyped n) -> untyped
-
-        # `cnt v.8b, v.8b` counts the set bits of each of a double's eight
-        # bytes; `addv b, v.8b` sums them into the low byte and clears
-        # the rest of the register.
-        def cnt: (untyped d, untyped n) -> untyped
-
-        def addv: (untyped d, untyped n) -> untyped
-
-        # A logical instruction cannot use the stack pointer, so a move that
-        # uses sp is an add of zero.
-        def mov: (untyped d, untyped m) -> untyped
-
-        def movz: (untyped d, untyped value, ?lsl: ::Integer) -> untyped
-
-        def movn: (untyped d, untyped value, ?lsl: ::Integer) -> untyped
-
-        def movk: (untyped d, untyped value, ?lsl: ::Integer) -> untyped
-
-        def csel: (untyped d, untyped n, untyped m, untyped cond) -> untyped
-
-        # `CSET d, cond` is `CSINC d, zr, zr` on the opposite condition.
-        def cset: (untyped d, untyped cond) -> untyped
-
-        # `fmov d, x`, `fmov x, d` or `fmov d, d`: the registers select the form.
-        # `fmov d, x` and `fmov s, w` (the rest of the register cleared),
-        # `fmov d, d` and `fmov x, d`.
-        def fmov: (untyped d, untyped n) -> untyped
-
-        def fadd: (untyped d, untyped n, untyped m) -> untyped
-
-        def fsub: (untyped d, untyped n, untyped m) -> untyped
-
-        def fmul: (untyped d, untyped n, untyped m) -> untyped
-
-        def fdiv: (untyped d, untyped n, untyped m) -> untyped
-
-        def fneg: (untyped d, untyped n) -> untyped
-
-        def fabs: (untyped d, untyped n) -> untyped
-
-        def fsqrt: (untyped d, untyped n) -> untyped
-
-        def frintm: (untyped d, untyped n) -> untyped
-
-        def frintp: (untyped d, untyped n) -> untyped
-
-        def frintz: (untyped d, untyped n) -> untyped
-
-        def frintn: (untyped d, untyped n) -> untyped
-
-        def fcmp: (untyped n, untyped m) -> untyped
-
-        # `scvtf d, x` or `scvtf d, w`: the integer register's width selects the form.
-        def scvtf: (untyped d, untyped n) -> untyped
-
-        def fcvtzs: (untyped d, untyped n) -> untyped
-
-        def ldr: (untyped rt, untyped address) -> untyped
-
-        def str: (untyped rt, untyped address) -> untyped
-
-        # The size field of a load or a store of a general register.
-        def gp_size: (untyped rt) -> (3 | 2)
-
-        def ldrb: (untyped rt, untyped address) -> untyped
-
-        def strb: (untyped rt, untyped address) -> untyped
-
-        # `ldrsw xt, [xn, xm, lsl #2]`: a signed word of a table, at index `xm`.
-        def ldrsw_index: (untyped rt, untyped n, untyped m) -> untyped
-
-        def ldp: (untyped rt1, untyped rt2, untyped address, ?untyped? imm) -> untyped
-
-        def stp: (untyped rt1, untyped rt2, untyped address, ?untyped? imm) -> untyped
-
-        # `B` to a label, or `B.cond` when a condition is given. The
-        # signature is the same as the gem's, so `aarch64_test` checks the
-        # encoding against the ARM specification.
-        def b: (untyped label, ?cond: untyped?) -> untyped
-
-        def bl: (untyped label) -> untyped
-
-        def blr: (untyped n) -> untyped
-
-        def br: (untyped n) -> untyped
-
-        def adr: (untyped d, untyped label) -> untyped
-
-        def table_word: (untyped label, untyped base) -> untyped
-
-        def ret: (?untyped n) -> untyped
-
-        def cbz: (untyped rt, untyped label) -> untyped
-
-        def cbnz: (untyped rt, untyped label) -> untyped
-
-        # `tbz`/`tbnz rt, #bit, label`: the bit's high digit is the width bit.
-        def tbz: (untyped rt, untyped bit, untyped label) -> untyped
-
-        def tbnz: (untyped rt, untyped bit, untyped label) -> untyped
-
-        # A relocation fills in the page, so the encoded page is zero.
-        def adrp: (untyped d, untyped page) -> untyped
-
-        private
-
-        def emit: (untyped word) -> self
-
-        # Every caller in the repository gives the Symbol key of the table.
-        # This runs once per instruction, so it reads the Symbol first and
-        # converts the name only as a fallback: `:eq.to_s.downcase.to_sym`
-        # makes two Strings for each `cset` and each conditional branch.
-        def condition: (untyped cond) -> untyped
-
-        def unsigned: (untyped value, untyped bits) -> untyped
-
-        # An Integer third operand is an immediate, shifted left twelve when
-        # `lsl` is set. A register operand takes an optional shift.
-        # An immediate operand shifts by 0 or by 12, the only shift that
-        # the instruction has.
-        def addsub: (untyped op, untyped s, untyped d, untyped n, untyped m, untyped lsl, ?::Symbol shift, ?::Integer amount) -> untyped
-
-        # A register third operand, or a bitmask immediate, which is a
-        # different instruction family with the same name.
-        #
-        # The Integer branch must come first and must be here.
-        # `Integer#to_i` exists, so without this branch `and d, a, 7`
-        # encodes as `and d, a, x7` with no error.
-        def logical: (untyped opc, untyped d, untyped n, untyped m) -> untyped
-
-        def logical_immediate: (untyped opc, untyped d, untyped n, untyped m) -> untyped
-
-        # arm64 cannot encode a shift larger than the register: the
-        # field has the width of the register and contains nothing else.
-        def shift: (untyped d, untyped m) -> untyped
-
-        def variable_shift: (untyped op2, untyped d, untyped n, untyped m) -> untyped
-
-        def multiply: (untyped sub, untyped d, untyped n, untyped m, untyped a) -> untyped
-
-        def divide: (untyped signed, untyped d, untyped n, untyped m) -> untyped
-
-        def move_wide: (untyped opc, untyped d, untyped value, untyped lsl) -> untyped
-
-        def sbfm: (untyped d, untyped n, untyped immr, untyped imms) -> untyped
-
-        def ubfm: (untyped d, untyped n, untyped immr, untyped imms) -> untyped
-
-        # The N bit repeats the operand size, as every bitfield form does.
-        def bitfield: (untyped opc, untyped d, untyped n, untyped immr, untyped imms) -> untyped
-
-        def float3: (untyped base, untyped d, untyped n, untyped m) -> untyped
-
-        def float2: (untyped base, untyped d, untyped n) -> untyped
-
-        # `ldr`/`str d, [base, #off]`, the offset unsigned and scaled by 8.
-        def float_load_store: (untyped load, untyped rt, untyped address) -> untyped
-
-        # The unsigned-offset form: the offset counts whole accesses.
-        def load_store: (untyped size, untyped load, untyped rt, untyped address) -> untyped
-
-        # `imm` is `:!` for the pre-indexed form and a number for the
-        # post-indexed one; without it the offset in `address` is a plain one.
-        def pair: (untyped load, untyped rt1, untyped rt2, untyped address, untyped imm) -> untyped
-
-        def test_bit: (untyped base, untyped rt, untyped bit, untyped label) -> untyped
-
-        def branch: (untyped base, untyped label, untyped shift, untyped bits) -> untyped
       end
     end
   end

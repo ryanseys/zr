@@ -29,6 +29,8 @@ module Zr
       # SystemStackError and polls one time less at entry. No backtrace
       # is taken inside the copy, because nothing in it raises.
       module Inline
+        # @type instance: Function
+
         # The maximum HIR node count of a candidate's body.
         LIMIT = 24
         # The one-argument sends that a copy handles: an Integer operator
@@ -41,6 +43,7 @@ module Zr
         # A copy that runs at a site: the value of each parameter by name,
         # the block that its `return` goes to (`done`; not `exit`, which is
         # Kernel's), and the block that each failed guard goes to.
+        # @rbs skip -- typed in sig/zr/lower/function/inline.rbs
         Site = Data.define(:locals, :done, :bail)
 
         # The defs in the unit tree `body` that a site can inline, by name.

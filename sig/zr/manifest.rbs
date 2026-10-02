@@ -1,51 +1,12 @@
+# The record of lib/zr/manifest.rb. Its method is inline.
 module Zr
-  # Which gem each file of a build comes from. `zr gems` prints it, and
-  # each binary carries it (`MAGIC`, then JSON), so `zr inspect` can tell
-  # which gems a binary was built with.
-  #
-  # A row names the gem, its version and its source: `stdlib` (ruby's
-  # own library in zr, a default or bundled gem), `port` (a gem with a C
-  # part that zr ports, lib/zr/library/ports.rb), `Gemfile.lock` or `--gem`
-  # (lib/zr/gem_set.rb). A file of ruby itself that no gem ships
-  # (`pathname.rb`) is the row `ruby`. The program's own files have no row.
   module Manifest
-    Row: untyped
+    class Row < Struct[untyped]
+      attr_accessor name: String
+      attr_accessor version: String
+      attr_accessor source: String
 
-    # The bytes before the manifest in a binary. A search for them finds
-    # it in a Mach-O, an ELF file and a wasm module alike.
-    MAGIC: "ZRGEMS1\n"
-
-    # The rows of every gem that a build can read: zr's standard library
-    # and ports, with the gems of `gem_set` in place of theirs.
-    def self?.all: (?untyped? gem_set) -> untyped
-
-    # The rows of the gems that the program `hir` carries: its own files,
-    # and for a program with eval, every file of eval support (`support`),
-    # which holds the libraries that the program and its evals load.
-    def self?.of_program: (untyped hir, untyped support, ?untyped? gem_set) -> untyped
-
-    # The rows of the gems that `files` (a build's files) come from. A
-    # program with eval (`evals`) can also require each gem of `gem_set`
-    # at run time, from the gem's roots, so each of those has a row too.
-    def self?.of: (untyped files, ?untyped? gem_set, ?evals: bool) -> untyped
-
-    # The bytes that a binary carries: MAGIC, then one line of JSON.
-    def self?.bytes: (untyped rows, untyped target) -> untyped
-
-    # The manifest in the bytes of a binary, as a Hash, or nil. The text
-    # ends at its newline or at the NUL after it. A binary that contains
-    # zr itself also has MAGIC as a string of this file, which no JSON
-    # follows, so each place is tried.
-    def self?.find: (untyped bytes) -> (untyped | nil)
-
-    # A GemSet gem's source, without the path of a `--gem` directory, so
-    # that the same build on two machines carries the same bytes.
-    def self?.source_of: (untyped gem) -> ("--gem" | untyped)
-
-    def self?.row_for: (untyped file, untyped gem_set) -> (untyped | nil)
-
-    # Each file of a default gem in ruby's library, by its path there,
-    # from the gem's specification (`s.files`).
-    def self?.default_gems: () -> untyped
+      def self.new: (String name, String version, String source) -> instance
+    end
   end
 end

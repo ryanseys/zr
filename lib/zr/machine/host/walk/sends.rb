@@ -9,6 +9,8 @@ module Zr
         # literal as an image in the slot area, `yield`, `super`, and the
         # core's `Primitive` calls.
         module Sends
+          # @type instance: Walk
+
           SEND_CORE = 8
           SEND_USING = 16
 

@@ -15,6 +15,8 @@ module Zr
         # `Unsupported` when it runs, as a branch that never runs never
         # did.
         module Code
+          # @type instance: Walk
+
           private
 
           def code(node, s)
@@ -262,6 +264,7 @@ module Zr
             end
           end
 
+          #: (Hir::HashLit node, untyped s) -> ^(untyped) -> untyped
           def hash(node, s)
             steps = node.pairs.each_slice(2).map do |key, value|
               if key.is_a?(Hir::HashSplat)

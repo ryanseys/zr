@@ -11,6 +11,7 @@ module Zr
   # of detail. Only a `:fail` stops a build; a `:warn` limits what zr can
   # do here.
   module Doctor
+    # @rbs skip -- typed in sig/zr/doctor.rbs
     Check = Data.define(:status, :name, :detail)
 
     module_function

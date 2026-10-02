@@ -14,6 +14,8 @@ module Zr
         # (`Regexp.compiled`); a binary's kernel answers nil, and the core
         # compiles the pattern itself.
         module Regexps
+          # @type instance: Walk
+
           FILES = [*RuntimeSources::ONIG_NAMES, "regexp_pattern"].map { |name| File.join(Paths::RUNTIME, "core/#{name}.rb") }.freeze
 
           # The compile of the String Value `source` under the fixnum Value

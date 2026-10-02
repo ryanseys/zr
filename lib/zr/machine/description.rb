@@ -23,20 +23,28 @@ module Zr
 
     # `from`: the wasm module of the import, or nil for a symbol that the
     # linker finds.
+    #
+    # The fields of these records are typed in
+    # sig/zr/machine/description.rbs.
+    # @rbs skip
     Import = Data.define(:name, :params, :ret, :from)
     # `effects`: the `IR::Effects` bits that a call of the def can write,
     # including the defs it calls. Nil until the fixpoint of the unit
     # sets it.
+    # @rbs skip
     Def = Struct.new(:name, :params, :ret, :node, :file, :effects)
     # A function delivered as machine code: `Machine.raw "zr_switch"`.
+    # @rbs skip
     Raw = Data.define(:name, :params, :ret)
     # The raw functions by name. The dialect knows only their signatures;
     # the native build gets their machine code from the backend
     # (`Backend::Aarch64::Stub`).
-    RAW = [Raw.new("zr_switch", %w[Ptr Ptr], "Void")].to_h { |r| [r.name, r] }.freeze
+    RAW = [Raw.new("zr_switch", %w[Ptr Ptr], "Void")].to_h { |r| [r.name, r] }.freeze #: Hash[String, Raw]
     # A signature for `Machine.call`: `Machine.sig :name, [types] => type`.
+    # @rbs skip
     Signature = Data.define(:name, :params, :ret)
     # `Machine.struct :Name, field: Type, ...`: fields as `name => [offset, type]`.
+    # @rbs skip
     Layout = Data.define(:name, :fields, :size, :align)
 
     # The symbol ids that a unit gets with `Machine.id(:name)`. The

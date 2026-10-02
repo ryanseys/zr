@@ -1,5 +1,0 @@
-module Zr::Kern
-  def frexp: (untyped x, untyped e) -> untyped
-
-  def ldexp: (untyped x, untyped n) -> untyped
-end

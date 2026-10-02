@@ -75,6 +75,7 @@ module Zr
         # expected skeleton size (the binary's `__TEXT` as a file). A
         # skeleton of a different size belongs to another base; this does
         # not use it.
+        #: (String? skeleton, String out, Integer size) -> bool
         def self.clone(skeleton, out, size)
           return false unless skeleton && File.size?(skeleton) == size && (fn = clonefile)
 

@@ -1,5 +1,0 @@
-module Zr::Kern
-  def zr_os_cospi: (untyped x) -> untyped
-
-  def zr_os_sinpi: (untyped x) -> untyped
-end

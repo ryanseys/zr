@@ -10,6 +10,8 @@ module Zr
       # trailing Hash, or trailing values with a table of their keys. The
       # word is read and cleared here.
       module Params
+        # @type instance: Function
+
         private
 
         def bind_params

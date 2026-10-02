@@ -1,358 +1,521 @@
+# The types of lib/zr/hir/node.rb. `Node.new` makes each node class, and
+# the class is assigned to a constant, which inline RBS cannot type. So
+# this file types the whole of node.rb (the Steepfile's RBS_TYPED).
 module Zr
-  # The high-level IR: a tree of Ruby-level nodes, desugared and
-  # name-resolved, that every lowering reads instead of Prism. One class
-  # per kind; `line` is where the node starts; `locals` lists every local
-  # of a scope, parameters first.
   module Hir
-    # The slot of a block's implicit `it`. No program can write this name, so
-    # `parameters` and `local_variables` leave it out, as CRuby does.
-    IT: :"%it"
+    IT: Symbol
+    STRING_EVALS: Array[Symbol]
 
-    # The evals that run a string, with a different self. A program that
-    # calls one with an argument compiles ruby at run time, and the
-    # string reads the locals of the scope, as `eval` does. The block
-    # forms do neither.
-    STRING_EVALS: ::Array[:class_eval | :module_eval | :instance_eval]
+    def self.node?: (untyped value) -> bool
+    def self.each_child: (untyped node) { (untyped) -> void } -> Array[untyped]
+                       | (untyped node) -> Array[untyped]
 
-    # The class of every HIR node class below: `Node.new(:a, :b)` makes
-    # a Struct class with the fields `a` and `b`, as `Struct.new` does.
-    # Each node is thus equal by value, and a walk reads its fields in
-    # order with `to_a` and `each_pair`. A node's fields change after it is
-    # made (the builder and the lowering set them), so a node is a Struct
-    # and not a Data.
-    class Node < Struct
+    class Node < Struct[untyped]
+      def self.new: (*untyped) -> instance
+                  | (**untyped) -> instance
     end
 
-    # Whether `value` is a HIR node: one `Node` of the classes below,
-    # never a bare `Array`, `Symbol`, `Integer` or other field value.
-    def self.node?: (untyped value) -> untyped
-
-    # Yields each child of `node`: the fields of a HIR node, or the
-    # elements of an Array of nodes. Anything else (nil, a literal value,
-    # ...) has no children. Several walks share this fallback for the
-    # fields or elements that their own scope-boundary rules do not name;
-    # each keeps those rules and only reads its children through this.
-    #
-    # With no block, returns the children as an Array instead of an
-    # Enumerator, so a caller can still write `each_child(node).any? { ... }`
-    # without allocating one on every node.
-    def self.each_child: (untyped node) ?{ (untyped) -> untyped } -> untyped
-
-    # `units` are the files that a require or load reaches, each with its
-    # own toplevel, in order of first reference. `warnings` are the
-    # parse-time warnings that ruby prints for the file, printed when it
-    # runs. `evals` tells that the program links in the compiler.
-    # `entries` maps each file path to its unit: an index into `units`,
-    # or the entry of a file in eval support.
-    # `traced` tells that the program uses TracePoint, so its code fires
-    # the events that a TracePoint listens for.
-    # `node_ids` maps a HIR node of the main file, by identity, to its prism
-    # node id; each Unit has its own.
-    # `spots` contains each file's error_highlight spots (Hir::Spots), by
-    # the file name in its frames.
-    # `activations` is the number of `using` entries in this program. A
-    # compile at run time takes the entries after them.
-    # `branches` contains each measured file's branch records, by file
-    # name, in Coverage's order. `defs` contains each file's def and
-    # block spans; a definition uses its span to become a method entry.
-    Program: untyped
-
-    # `hidden` if the unit loads only for the runtime's own use, as the
-    # eval support files do.
-    # `source` is the bytes that the unit was built from. `activates`
-    # tells that the file took an activation entry for a `using`. The
-    # unit cache uses both (lib/zr/cache/unit.rb). It keeps the bytes,
-    # not a digest, because the loader also runs in a program with eval,
-    # and there it must not require a library that it would then have to
-    # load. `node_ids` maps each HIR node of the unit, by identity, to its
-    # prism node id.
-    Unit: untyped
-
-    # `require`, `require_relative` or `load` of a literal name: `path`
-    # is the resolved file and `unit` is that file's index. Both are nil
-    # if no file is found.
-    Require: untyped
-
-    # The `using` entries of a program, taken before its first line runs,
-    # so a compile at run time can take the entries after them. Only a
-    # program that links in the compiler needs this, because no other
-    # program compiles after it starts.
-    Activations: untyped
-
-    # A form that this runtime does not support, kept until the program
-    # runs it. If the program gets to it, the program stops with a message
-    # that gives the form. If not, it costs nothing.
-    Stop: untyped
-
-    # `autoload :Name, "feature"` on `recv` (nil for self): the file is
-    # `path`, unit `unit`; it runs when the constant is first read.
-    # `declared` is an autoload of a feature for which a require reads no
-    # file. The name is declared and no entry is kept, so nothing waits
-    # for a file and `autoload?` returns nil.
-    Autoload: untyped
-
-    # A statement list; its value is the last statement's.
-    Seq: untyped
-
-    # A method call. `recv` is nil for an implicit self. `vcall` marks a
-    # bare identifier, which is a NameError if no method is found. `opt`
-    # marks the operator syntax `recv[i]`, `recv[i] = v` and `recv << v`,
-    # which CRuby runs without a frame on its builtin receivers. An
-    # argument can be a Splat. `kwargs` is a HashLit passed as keywords,
-    # or nil. `block` is a Block literal, a BlockPass, or nil.
-    # `using` is the active activation entry at the call, or nil if no
-    # refinement is active.
-    # `covers` is a safe call's two branches, `[then, else]`, which
-    # Coverage counts for a non-nil and a nil receiver. It is nil for all
-    # other calls. `interp` marks the `to_s` of an interpolated part under
-    # refinements, which a String or a Symbol does not get.
-    Send: untyped
-
-    # `using mod`: entry `id` contains the contents of entry `from` plus
-    # every refinement in `mod`. `from` is -1 if nothing was active.
-    Using: untyped
-
-    # Before a statement that contains a `using` that a condition can
-    # skip: each `[id, from]` entry contains the contents of entry `from`
-    # until its `using` runs.
-    UsingDefaults: untyped
-
-    # A value that the lowering already put in record slot `index`. Only
-    # the lowering makes this node, for a receiver or argument evaluated
-    # once.
-    Slot: untyped
-
-    # `recv[args] op= value` and `recv.name op= value`, the receiver and
-    # arguments evaluated once; `op` is an operator, or :or / :and.
-    # `using` is the active refinements, as for a Send, for each of its
-    # sends.
-    IndexOpAssign: untyped
-
-    # `safe` is `recv&.name op= value`: nil, with nothing else run, if
-    # the receiver is nil.
-    AttrOpAssign: untyped
-
-    # `*value` among arguments or elements.
-    Splat: untyped
-
-    # `**value` among a hash literal's pairs: the key, with a nil value.
-    HashSplat: untyped
-
-    # `&value`: the block a call passes on.
-    BlockPass: untyped
-
-    # A block literal: its parameters, every local of its scope
-    # (parameters first), and its body.
-    Block: untyped
-
-    # `-> (params) { body }`: a Block that is a lambda from the start.
-    Lambda: untyped
-
-    # The one parameter shape: `required` and `post` are names,
-    # `optional` and `keywords` are `[name, default]` pairs (a keyword
-    # with no default is required), `rest`, `kwrest` and `block` are a
-    # name or nil; a block's `|a, |` has the rest `:implicit`.
-    Params: untyped
-
-    Yield: untyped
-
-    # `super(args)`; `block` as for a Send. `ZSuper` is the bare `super`,
-    # which passes the method's own parameters with their current values.
-    # `in_block` marks a bare `super` in a block of a def. CRuby raises for
-    # it if `define_method` made the block a method.
-    # `using` is the active activation at the super, as for a Send: ruby
-    # resolves a super with the refinements of its scope.
-    Super: untyped
-
-    ZSuper: untyped
-
-    Break: untyped
-
-    Next: untyped
-
-    # An Integer, String, Symbol, nil, true or false.
-    # `chilled` marks a String literal in a file with no
-    # frozen_string_literal: its String warns at its first change.
-    Literal: untyped
-
-    SelfRef: untyped
-
-    # `def name(params) body end`; its value is the name. `params` is a
-    # Params; `receiver` is the expression of a singleton def
-    # (`def self.x`, `def obj.x`), or nil.
-    Def: untyped
-
-    # `depth` counts block scopes up to the scope that owns the local.
-    Local: untyped
-
-    # A point where a traced program fires a TracePoint `event`: a
-    # `:line` event, where ruby's compiler puts one (at a statement that
-    # starts a new line).
-    Trace: untyped
-
-    # Counts one run of branch `id` in a program that Coverage measures.
-    # The id is unique in the program, not only in the file: all branches
-    # of all files share one counter array, and `Program#branches` tells
-    # which records belong to which file. Its value is nil, so it can be
-    # anywhere a statement can, also as an else that the source does not
-    # have.
-    Cover: untyped
-
-    Assign: untyped
-
-    # `a, (b, *c), *d, e = value`; its value is the right-hand side's.
-    # `taken` is false if the value is not used: a statement before the
-    # last of a sequence, or a loop body.
-    MultiAssign: untyped
-
-    # The targets before the rest, the rest (a target, `:implicit` for a
-    # bare `*`, or nil) and the targets after it. A target is an Assign
-    # or IvarWrite with a nil value, a Send with the value to append
-    # (`h[k]`, `o.attr`), or a nested MultiTarget. As a block parameter,
-    # a MultiTarget is one of the required names.
-    MultiTarget: untyped
-
-    # `if`. `unless` becomes an If with its branches swapped. A branch can
-    # be nil.
-    If: untyped
-
-    # `body_first` is a `begin ... end while cond`: the body runs once
-    # before the first test.
-    While: untyped
-
-    Return: untyped
-
-    # `a && b`, `a || b`, `!a`: on truthiness, with short-circuit.
-    And: untyped
-
-    Or: untyped
-
-    Not: untyped
-
-    # A class or module that the core defines, read from the runtime and
-    # never through lexical scope. A desugaring uses it (`Array` in a
-    # pattern), so a program's own `Array` cannot replace it.
-    Core: untyped
-
-    # A body that runs the first time its site is reached and never again
-    # (CRuby's `once` instruction), as `END { }` registers.
-    Once: untyped
-
-    # `class Name < superclass; body; end`. `scope` is nil for a bare
-    # name, `:top` for `::Name`, else the expression before `::`.
-    ClassDef: untyped
-
-    ModuleDef: untyped
-
-    # `class << target; body; end`: the body runs with the singleton
-    # class as self and as the definee.
-    SingletonClassDef: untyped
-
-    ConstRead: untyped
-
-    ConstWrite: untyped
-
-    IvarRead: untyped
-
-    GvarRead: untyped
-
-    # `shown` is the name that the program wrote, if it is not `name`.
-    GvarWrite: untyped
-
-    CvarRead: untyped
-
-    CvarWrite: untyped
-
-    # `Name ||= value`: set only if unset or falsy.
-    ConstOrWrite: untyped
-
-    # `alias new old`.
-    Alias: untyped
-
-    # `alias $new $old`: one global under two names.
-    GvarAlias: untyped
-
-    # `undef name, ...`.
-    Undef: untyped
-
-    # `alias :"#{a}" :"#{b}"` and `undef :"#{a}"`: the names are values.
-    AliasValue: untyped
-
-    UndefValue: untyped
-
-    # `defined?(...)`: `kind` is the form (:local, :ivar, :gvar, :cvar,
-    # :const, :method, :yield, :super, :self, :nil, :true, :false,
-    # :assignment, :expression). `target` is the name, the ConstRead, or
-    # the Send that the form tests.
-    Defined: untyped
-
-    # `case subject; when a, b then body; ... else else_body end`. Each
-    # clause is `[values, body]`; a nil subject tests each value itself.
-    # `using` is the refinement entry of each `value === subject`, as a
-    # Send's: a refined `===` applies in a `when`.
-    Case: untyped
-
-    IvarWrite: untyped
-
-    # `[a, b]`. `frozen` if it is the value of a
-    # `# shareable_constant_value: literal` constant: built frozen with
-    # no send (compile.c freezes it in the compiler).
-    ArrayLit: untyped
-
-    # The keywords of an array literal made only of double splats, as an
-    # Array to splat: `[h]`, or `[]` when they come out empty, so `[**{}]`
-    # adds no element (CRuby's pushtoarraykwsplat).
-    KwSplatElement: untyped
-
-    # `{k => v, ...}`: `pairs` is a flat list, key then value. `frozen`
-    # as for an ArrayLit.
-    HashLit: untyped
-
-    # `$1` and the other numbered groups (`kind` :nth, `number` the
-    # group, 0 for `$&`), `` $` `` (:pre), `$'` (:post) and `$+` (:last),
-    # read from `$~`'s registers, never through MatchData's methods.
-    BackRef: untyped
-
-    # `low..high` / `low...high`. A missing bound is nil. `static` if both
-    # ends are Integer or nil literals: one frozen Range for the site.
-    RangeLit: untyped
-
-    # `"a#{b}c"`: literal and expression parts in order.
-    Interp: untyped
-
-    # `/#{x}/o`: the interpolated regexp that its site keeps after the
-    # first run.
-    RegexpOnce: untyped
-
-    # A regexp literal: its source and option bits. One object per site.
-    RegexpLit: untyped
-
-    # `"text".freeze`: the one frozen String of that text, or a send of
-    # `freeze` if the program redefines it. `shared` is true for a
-    # shareable constant or under a frozen_string_literal comment: the
-    # shared String with no send, as the compiler's own fstring. `false`
-    # means the same for a text that is not UTF-8: frozen with no send,
-    # but not shared.
-    FrozenString: untyped
-
-    # `begin body rescue ... else else_body ensure ensure_body end`. The
-    # else branch runs after a body that raised nothing. The ensure branch
-    # runs on every exit. `rescues` are Rescue nodes in order. `else_body`
-    # and `ensure_body` can be nil. A `rescue` modifier is a Begin with
-    # one clause and no classes.
-    Begin: untyped
-
-    # One clause: the exception classes (none means StandardError; one
-    # can be a Splat), the target that gets the exception (`=> e`, an
-    # Assign, IvarWrite or Send target with a nil value) or nil, and the
-    # handler.
-    Rescue: untyped
-
-    # `retry`: the begin body again, from a rescue clause.
-    Retry: untyped
-
-    # `redo`: the loop body or block body again, without a new test or
-    # new arguments.
-    Redo: untyped
+    class Program < Node
+      attr_accessor file: untyped
+      attr_accessor locals: untyped
+      attr_accessor body: untyped
+      attr_accessor units: untyped
+      attr_accessor warnings: untyped
+      attr_accessor evals: untyped
+      attr_accessor entries: untyped
+      attr_accessor traced: untyped
+      attr_accessor node_ids: untyped
+      attr_accessor spots: untyped
+      attr_accessor coverable: untyped
+      attr_accessor activations: untyped
+      attr_accessor branches: untyped
+      attr_accessor defs: untyped
+    end
+
+    class Unit < Node
+      attr_accessor file: untyped
+      attr_accessor locals: untyped
+      attr_accessor body: untyped
+      attr_accessor warnings: untyped
+      attr_accessor internal: untyped
+      attr_accessor spots: untyped
+      attr_accessor hidden: untyped
+      attr_accessor source: untyped
+      attr_accessor activates: untyped
+      attr_accessor node_ids: untyped
+    end
+
+    class Require < Node
+      attr_accessor kind: untyped
+      attr_accessor feature: untyped
+      attr_accessor path: untyped
+      attr_accessor unit: untyped
+      attr_accessor line: untyped
+    end
+
+    class Activations < Node
+      attr_accessor count: untyped
+      attr_accessor line: untyped
+    end
+
+    class Stop < Node
+      attr_accessor what: untyped
+      attr_accessor line: untyped
+    end
+
+    class Autoload < Node
+      attr_accessor recv: untyped
+      attr_accessor name: untyped
+      attr_accessor feature: untyped
+      attr_accessor path: untyped
+      attr_accessor unit: untyped
+      attr_accessor line: untyped
+      attr_accessor declared: untyped
+    end
+
+    class Seq < Node
+      attr_accessor stmts: untyped
+      attr_accessor line: untyped
+    end
+
+    class Send < Node
+      attr_accessor recv: untyped
+      attr_accessor name: untyped
+      attr_accessor args: untyped
+      attr_accessor line: untyped
+      attr_accessor vcall: untyped
+      attr_accessor opt: untyped
+      attr_accessor block: untyped
+      attr_accessor kwargs: untyped
+      attr_accessor safe: untyped
+      attr_accessor write: untyped
+      attr_accessor using: untyped
+      attr_accessor covers: untyped
+      attr_accessor interp: untyped
+
+      def self.of: (untyped recv, untyped name, untyped args, untyped line, ?vcall: untyped, ?opt: untyped, ?block: untyped,
+                    ?kwargs: untyped, ?safe: untyped, ?write: untyped, ?using: untyped, ?covers: untyped, ?interp: untyped) -> Send
+    end
+
+    class Using < Node
+      attr_accessor id: untyped
+      attr_accessor from: untyped
+      attr_accessor value: untyped
+      attr_accessor line: untyped
+    end
+
+    class UsingDefaults < Node
+      attr_accessor rows: untyped
+      attr_accessor line: untyped
+    end
+
+    class Slot < Node
+      attr_accessor index: untyped
+      attr_accessor line: untyped
+    end
+
+    class IndexOpAssign < Node
+      attr_accessor recv: untyped
+      attr_accessor args: untyped
+      attr_accessor op: untyped
+      attr_accessor value: untyped
+      attr_accessor line: untyped
+      attr_accessor using: untyped
+    end
+
+    class AttrOpAssign < Node
+      attr_accessor recv: untyped
+      attr_accessor name: untyped
+      attr_accessor op: untyped
+      attr_accessor value: untyped
+      attr_accessor line: untyped
+      attr_accessor safe: untyped
+      attr_accessor using: untyped
+    end
+
+    class Splat < Node
+      attr_accessor value: untyped
+      attr_accessor line: untyped
+    end
+
+    class HashSplat < Node
+      attr_accessor value: untyped
+      attr_accessor line: untyped
+    end
+
+    class BlockPass < Node
+      attr_accessor value: untyped
+      attr_accessor line: untyped
+    end
+
+    class Block < Node
+      attr_accessor params: untyped
+      attr_accessor locals: untyped
+      attr_accessor body: untyped
+      attr_accessor line: untyped
+      attr_accessor end_line: untyped
+      attr_accessor cover: untyped
+    end
+
+    class Lambda < Node
+      attr_accessor block: untyped
+      attr_accessor line: untyped
+    end
+
+    class Params < Node
+      attr_accessor required: untyped
+      attr_accessor optional: untyped
+      attr_accessor rest: untyped
+      attr_accessor post: untyped
+      attr_accessor keywords: untyped
+      attr_accessor kwrest: untyped
+      attr_accessor block: untyped
+
+      def positional: () -> Integer
+      def spread?: () -> bool
+      def plain?: () -> bool
+      def names: () -> Array[Symbol]
+      def arity: () -> Integer
+      def rows: () -> Array[Array[Symbol]]
+      def kwrest_rows: () -> Array[Array[Symbol]]
+    end
+
+    class Yield < Node
+      attr_accessor args: untyped
+      attr_accessor line: untyped
+      attr_accessor kwargs: untyped
+    end
+
+    class Super < Node
+      attr_accessor args: untyped
+      attr_accessor kwargs: untyped
+      attr_accessor block: untyped
+      attr_accessor line: untyped
+      attr_accessor in_block: untyped
+      attr_accessor using: untyped
+    end
+
+    class ZSuper < Node
+      attr_accessor block: untyped
+      attr_accessor line: untyped
+    end
+
+    class Break < Node
+      attr_accessor value: untyped
+      attr_accessor line: untyped
+    end
+
+    class Next < Node
+      attr_accessor value: untyped
+      attr_accessor line: untyped
+    end
+
+    class Literal < Node
+      attr_accessor value: untyped
+      attr_accessor line: untyped
+      attr_accessor chilled: untyped
+    end
+
+    class SelfRef < Node
+      attr_accessor line: untyped
+    end
+
+    class Def < Node
+      attr_accessor name: untyped
+      attr_accessor params: untyped
+      attr_accessor locals: untyped
+      attr_accessor body: untyped
+      attr_accessor line: untyped
+      attr_accessor receiver: untyped
+      attr_accessor evals: untyped
+      attr_accessor end_line: untyped
+      attr_accessor cover: untyped
+    end
+
+    class Local < Node
+      attr_accessor name: untyped
+      attr_accessor depth: untyped
+      attr_accessor line: untyped
+    end
+
+    class Trace < Node
+      attr_accessor event: untyped
+      attr_accessor line: untyped
+    end
+
+    class Cover < Node
+      attr_accessor id: untyped
+      attr_accessor line: untyped
+    end
+
+    class Assign < Node
+      attr_accessor name: untyped
+      attr_accessor depth: untyped
+      attr_accessor value: untyped
+      attr_accessor line: untyped
+    end
+
+    class MultiAssign < Node
+      attr_accessor target: untyped
+      attr_accessor value: untyped
+      attr_accessor line: untyped
+      attr_accessor taken: untyped
+    end
+
+    class MultiTarget < Node
+      attr_accessor lefts: untyped
+      attr_accessor rest: untyped
+      attr_accessor rights: untyped
+      attr_accessor line: untyped
+      attr_accessor whole: untyped
+
+      def names: () -> Array[Symbol]
+    end
+
+    class If < Node
+      attr_accessor cond: untyped
+      attr_accessor yes: untyped
+      attr_accessor no: untyped
+      attr_accessor line: untyped
+    end
+
+    class While < Node
+      attr_accessor cond: untyped
+      attr_accessor body: untyped
+      attr_accessor line: untyped
+      attr_accessor body_first: untyped
+    end
+
+    class Return < Node
+      attr_accessor value: untyped
+      attr_accessor line: untyped
+    end
+
+    class And < Node
+      attr_accessor left: untyped
+      attr_accessor right: untyped
+      attr_accessor line: untyped
+    end
+
+    class Or < Node
+      attr_accessor left: untyped
+      attr_accessor right: untyped
+      attr_accessor line: untyped
+    end
+
+    class Not < Node
+      attr_accessor value: untyped
+      attr_accessor line: untyped
+    end
+
+    class Core < Node
+      attr_accessor name: untyped
+      attr_accessor line: untyped
+    end
+
+    class Once < Node
+      attr_accessor body: untyped
+      attr_accessor line: untyped
+    end
+
+    class ClassDef < Node
+      attr_accessor scope: untyped
+      attr_accessor name: untyped
+      attr_accessor superclass: untyped
+      attr_accessor locals: untyped
+      attr_accessor body: untyped
+      attr_accessor line: untyped
+      attr_accessor end_line: untyped
+    end
+
+    class ModuleDef < Node
+      attr_accessor scope: untyped
+      attr_accessor name: untyped
+      attr_accessor locals: untyped
+      attr_accessor body: untyped
+      attr_accessor line: untyped
+      attr_accessor end_line: untyped
+    end
+
+    class SingletonClassDef < Node
+      attr_accessor target: untyped
+      attr_accessor locals: untyped
+      attr_accessor body: untyped
+      attr_accessor line: untyped
+      attr_accessor end_line: untyped
+    end
+
+    class ConstRead < Node
+      attr_accessor scope: untyped
+      attr_accessor name: untyped
+      attr_accessor line: untyped
+    end
+
+    class ConstWrite < Node
+      attr_accessor scope: untyped
+      attr_accessor name: untyped
+      attr_accessor value: untyped
+      attr_accessor line: untyped
+    end
+
+    class IvarRead < Node
+      attr_accessor name: untyped
+      attr_accessor line: untyped
+    end
+
+    class GvarRead < Node
+      attr_accessor name: untyped
+      attr_accessor line: untyped
+    end
+
+    class GvarWrite < Node
+      attr_accessor name: untyped
+      attr_accessor value: untyped
+      attr_accessor line: untyped
+      attr_accessor shown: untyped
+    end
+
+    class CvarRead < Node
+      attr_accessor name: untyped
+      attr_accessor line: untyped
+    end
+
+    class CvarWrite < Node
+      attr_accessor name: untyped
+      attr_accessor value: untyped
+      attr_accessor line: untyped
+    end
+
+    class ConstOrWrite < Node
+      attr_accessor scope: untyped
+      attr_accessor name: untyped
+      attr_accessor value: untyped
+      attr_accessor line: untyped
+    end
+
+    class Alias < Node
+      attr_accessor new_name: untyped
+      attr_accessor old_name: untyped
+      attr_accessor line: untyped
+    end
+
+    class GvarAlias < Node
+      attr_accessor new_name: untyped
+      attr_accessor old_name: untyped
+      attr_accessor line: untyped
+    end
+
+    class Undef < Node
+      attr_accessor names: untyped
+      attr_accessor line: untyped
+    end
+
+    class AliasValue < Node
+      attr_accessor new_name: untyped
+      attr_accessor old_name: untyped
+      attr_accessor line: untyped
+    end
+
+    class UndefValue < Node
+      attr_accessor names: untyped
+      attr_accessor line: untyped
+    end
+
+    class Defined < Node
+      attr_accessor kind: untyped
+      attr_accessor target: untyped
+      attr_accessor line: untyped
+    end
+
+    class Case < Node
+      attr_accessor subject: untyped
+      attr_accessor clauses: untyped
+      attr_accessor else_body: untyped
+      attr_accessor line: untyped
+      attr_accessor using: untyped
+    end
+
+    class IvarWrite < Node
+      attr_accessor name: untyped
+      attr_accessor value: untyped
+      attr_accessor line: untyped
+    end
+
+    class ArrayLit < Node
+      attr_accessor elements: untyped
+      attr_accessor line: untyped
+      attr_accessor frozen: untyped
+    end
+
+    class KwSplatElement < Node
+      attr_accessor pairs: untyped
+      attr_accessor line: untyped
+    end
+
+    class HashLit < Node
+      attr_accessor pairs: untyped
+      attr_accessor line: untyped
+      attr_accessor frozen: untyped
+    end
+
+    class BackRef < Node
+      attr_accessor kind: untyped
+      attr_accessor number: untyped
+      attr_accessor line: untyped
+    end
+
+    class RangeLit < Node
+      attr_accessor low: untyped
+      attr_accessor high: untyped
+      attr_accessor exclusive: untyped
+      attr_accessor line: untyped
+      attr_accessor static: untyped
+    end
+
+    class Interp < Node
+      attr_accessor parts: untyped
+      attr_accessor line: untyped
+    end
+
+    class RegexpOnce < Node
+      attr_accessor value: untyped
+      attr_accessor line: untyped
+    end
+
+    class RegexpLit < Node
+      attr_accessor source: untyped
+      attr_accessor options: untyped
+      attr_accessor pinned: untyped
+      attr_accessor line: untyped
+    end
+
+    class FrozenString < Node
+      attr_accessor value: untyped
+      attr_accessor line: untyped
+      attr_accessor shared: untyped
+    end
+
+    class Begin < Node
+      attr_accessor body: untyped
+      attr_accessor rescues: untyped
+      attr_accessor else_body: untyped
+      attr_accessor ensure_body: untyped
+      attr_accessor line: untyped
+    end
+
+    class Rescue < Node
+      attr_accessor classes: untyped
+      attr_accessor target: untyped
+      attr_accessor body: untyped
+      attr_accessor line: untyped
+    end
+
+    class Retry < Node
+      attr_accessor line: untyped
+    end
+
+    class Redo < Node
+      attr_accessor line: untyped
+    end
   end
 end

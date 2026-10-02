@@ -14,6 +14,8 @@ module Zr
       # compiler does for a popped `masgn`. A rest target still gets an
       # Array of the remaining elements.
       module Targets
+        # @type instance: Function
+
         private
 
         def multi_assign(node)

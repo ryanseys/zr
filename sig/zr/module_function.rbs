@@ -1,0 +1,188 @@
+# The modules of lib/ that call `module_function`. Inline RBS sees their
+# defs as instance methods only, so `Bytes.align` would have no type.
+# Each module extends itself here, which gives its module functions the
+# inline types of its instance methods. test/unit/steepfile_test.rb
+# checks that this list names every such module.
+module Zr::Backend::Aarch64
+  extend Zr::Backend::Aarch64
+end
+
+module Zr::Backend::Aarch64::Registers
+  extend Zr::Backend::Aarch64::Registers
+end
+
+module Zr::Backend::Aarch64::Stub
+  extend Zr::Backend::Aarch64::Stub
+end
+
+module Zr::Backend::Wasm
+  extend Zr::Backend::Wasm
+end
+
+module Zr::Bytes
+  extend Zr::Bytes
+end
+
+module Zr::Cache::Janitor
+  extend Zr::Cache::Janitor
+end
+
+module Zr::Cache::Kernel
+  extend Zr::Cache::Kernel
+end
+
+module Zr::Cache::Parse
+  extend Zr::Cache::Parse
+end
+
+module Zr::Cache::Store
+  extend Zr::Cache::Store
+end
+
+module Zr::CLI
+  extend Zr::CLI
+end
+
+module Zr::CLI::Errors
+  extend Zr::CLI::Errors
+end
+
+module Zr::CLI::Help
+  extend Zr::CLI::Help
+end
+
+module Zr::CLI::Options
+  extend Zr::CLI::Options
+end
+
+module Zr::CLI::Refusals
+  extend Zr::CLI::Refusals
+end
+
+module Zr::CLI::Runner
+  extend Zr::CLI::Runner
+end
+
+module Zr::Diff
+  extend Zr::Diff
+end
+
+module Zr::Digests
+  extend Zr::Digests
+end
+
+module Zr::Doctor
+  extend Zr::Doctor
+end
+
+module ZrGemSet
+  extend ZrGemSet
+end
+
+module Zr::Hir::Dump
+  extend Zr::Hir::Dump
+end
+
+module Zr::Hir::Locals
+  extend Zr::Hir::Locals
+end
+
+module Zr::Hir::Spots
+  extend Zr::Hir::Spots
+end
+
+module Zr::Host
+  extend Zr::Host
+end
+
+module Zr::IR::Effects
+  extend Zr::IR::Effects
+end
+
+module Zr::IR::Fingerprint
+  extend Zr::IR::Fingerprint
+end
+
+module Zr::IR::Passes
+  extend Zr::IR::Passes
+end
+
+module Zr::IR::Verify
+  extend Zr::IR::Verify
+end
+
+module Zr::Library::Layout
+  extend Zr::Library::Layout
+end
+
+module Zr::Library::Roots
+  extend Zr::Library::Roots
+end
+
+module Zr::Lower::Scope
+  extend Zr::Lower::Scope
+end
+
+module Zr::Machine::Host::Memory
+  extend Zr::Machine::Host::Memory
+end
+
+module Zr::Manifest
+  extend Zr::Manifest
+end
+
+module Zr::Native::Build
+  extend Zr::Native::Build
+end
+
+module Zr::Native::Link
+  extend Zr::Native::Link
+end
+
+module Zr::Native::Link::Darwin
+  extend Zr::Native::Link::Darwin
+end
+
+module Zr::Native::Link::Static
+  extend Zr::Native::Link::Static
+end
+
+module Zr::Native::Parallel
+  extend Zr::Native::Parallel
+end
+
+module Zr::Native::Toolchain
+  extend Zr::Native::Toolchain
+end
+
+module Zr::Obj::Elf::ObjectFile
+  extend Zr::Obj::Elf::ObjectFile
+end
+
+module Zr::Obj::MachO::Chains
+  extend Zr::Obj::MachO::Chains
+end
+
+module Zr::Obj::MachO::ObjectFile
+  extend Zr::Obj::MachO::ObjectFile
+end
+
+module Zr::Obj::Patch
+  extend Zr::Obj::Patch
+end
+
+module Zr::Obj::Relocs::Aarch64
+  extend Zr::Obj::Relocs::Aarch64
+end
+
+module Zr::SourceGuard
+  extend Zr::SourceGuard
+end
+
+module Zr::SymbolNumbering
+  extend Zr::SymbolNumbering
+end
+
+module Zr::Timing
+  extend Zr::Timing
+end

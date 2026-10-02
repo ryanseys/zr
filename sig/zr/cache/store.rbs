@@ -1,137 +1,27 @@
+# The records of lib/zr/cache/store.rb.
 module Zr
-  # zr's caches between builds. `Store` keeps every entry on disk. Each
-  # other cache is a kind of entry with its own key and build code
-  # (`Parse`, `Unit`, `Lowering`, `Run`), and `Janitor` sizes and
-  # cleans them.
   module Cache
-    # The one content store of zr's caches, in `<cache>/store`. An entry is
-    # a file or a directory at `<kind>/<first two characters of its key>/<key>`,
-    # and it is made again on demand. This module owns the layout, the
-    # keys, the reads and writes, the locks and the eviction, so each
-    # cache is its kind, its key parts and its build code.
-    #
-    #   key = Store.key(stamp, file, source)
-    #   Store.write(:unit, key, code)
-    #   Store.read(:unit, key)      # => code, or nil on a miss
-    #
-    # Eviction removes the entries used longest ago. A read touches an
-    # entry, at most once a day. A build names the entries that the next
-    # build needs (the runtime object, eval support, the code of its
-    # backend) in a root (`root`), and no eviction removes them while the
-    # root is fresh.
     module Store
-      # How an entry's value is kept. `:raw` is bytes, `:json` and
-      # `:marshal` encode a value, and `:dir` is a directory that the
-      # block of `write` fills.
-      Kind: untyped
+      class Kind < Data
+        attr_reader name: Symbol
+        attr_reader codec: Symbol
+        attr_reader ext: String
+        attr_reader quota_gb: Integer?
 
-      KINDS: untyped
+        def self.new: (Symbol name, Symbol codec, String ext, Integer? quota_gb) -> instance
+                    | (name: Symbol, codec: Symbol, ext: String, quota_gb: Integer?) -> instance
+      end
 
-      # A root older than this protects nothing: the zr that wrote it is
-      # likely gone.
-      ROOT_DAYS: 30
+      class Entry < Data
+        attr_reader kind: Kind
+        attr_reader key: String
+        attr_reader path: String
+        attr_reader bytes: Integer
+        attr_reader mtime: untyped
 
-      # A read touches an entry only when its mtime is older than this.
-      TOUCH_EVERY: 86400
-
-      # A key is a digest, and sometimes a suffix (`<digest>-symbols`). No
-      # key names a path outside its kind.
-      KEY: ::Regexp
-
-      Entry: untyped
-
-      def self?.dir: () -> untyped
-
-      # A key of `parts`: each part as a string, ended by a NUL, into one
-      # SHA-256.
-      def self?.key: (*untyped parts) -> untyped
-
-      def self?.kind: (untyped name) -> untyped
-
-      def self?.path: (untyped name, untyped key) -> untyped
-
-      # The value of the entry, or nil when there is none or it does not
-      # decode.
-      def self?.read: (untyped name, untyped key) -> untyped
-
-      # Writes the entry and returns its path. A `:dir` kind takes a block
-      # that fills the directory it gets. Writes nothing when a source
-      # changed during the build (`SourceGuard.check!` raises SourceChanged).
-      def self?.write: (untyped name, untyped key, ?untyped? value) { (?) -> untyped } -> untyped
-
-      # Writes `bytes` to the cache file at `path` atomically, so a parallel
-      # build never reads half of it, and returns `path`. Every write of
-      # the cache comes here, also of a file whose path a cache makes
-      # itself. Writes nothing when a source changed during the build.
-      def self?.write_file: (untyped path, untyped bytes) -> untyped
-
-      # Runs the block with the entry's path while this process holds the
-      # entry's lock, unless the entry exists (`Paths.once`), and returns
-      # the path. The block writes the file.
-      def self?.once: (untyped name, untyped key, ?waiting: untyped?) { (untyped) -> untyped } -> untyped
-
-      # Records that the entries at `paths` (from `path`) are the ones that
-      # root `name` needs. A root is replaced, not added to. A root that
-      # has the same entries is only touched, so each build can call this.
-      def self?.root: (untyped name, untyped paths) -> untyped
-
-      # The entries that the root file `file` lists, or nil when it has none.
-      def self?.roots_of: (untyped file) -> untyped
-
-      # The path of an entry below the store's directory (`object/ab/ab12….o`).
-      def self?.relative: (untyped path) -> untyped
-
-      # The path of each entry that a fresh root names (all roots, or those
-      # whose name starts with `prefix`).
-      def self?.rooted_paths: (?prefix: untyped?) -> untyped
-
-      # The relative path of each entry that a fresh root names.
-      def self?.rooted: (?untyped now, ?prefix: untyped?) -> (::Array[untyped] | untyped)
-
-      # Every entry of the kinds `names` (all kinds by default).
-      def self?.entries: (?untyped names) -> untyped
-
-      # The most bytes of kind `name`, or nil for no quota.
-      def self?.quota: (untyped name) -> untyped
-
-      # Removes the entries used longest ago that no fresh root names, until
-      # each kind is within its quota and all entries are within `limit`
-      # bytes (nil: no limit). `kinds` limits the pass to those kinds: a
-      # write of a kind with a quota evicts only that kind. Returns the
-      # entries it removed.
-      def self?.evict: (?limit: untyped?, ?kinds: untyped, ?now: untyped) -> untyped
-
-      # Removes every entry that no fresh root names and that was not used
-      # in the last `days`. Returns them.
-      def self?.clean: (?days: ::Integer, ?now: untyped) -> untyped
-
-      # The lock files (`once`) whose entry is not there: a build that
-      # stopped, or an entry that a clean removed. The lock of an entry
-      # that a build makes now goes too; a second build then waits on a new
-      # lock, and at worst builds the entry again, which the atomic write
-      # allows.
-      def self?.orphan_locks: () -> untyped
-
-      # Removes the whole store.
-      def self?.clear: () -> untyped
-
-      def self?.children: (untyped dir) -> (untyped | ::Array[untyped])
-
-      # The bytes of every file below `dir`.
-      def self?.tree_bytes: (untyped dir) -> untyped
-
-      def self?.touch: (untyped file, ?untyped every) -> untyped
-
-      # JSON loads on first use, so a store that holds no JSON costs nothing.
-      def self?.json: () -> untyped
-
-      def self?.decode: (untyped codec, untyped file) -> untyped
-
-      def self?.encode: (untyped codec, untyped value) -> untyped
-
-      # Fills a new directory with the block, then renames it to `file`. A
-      # second writer that renames first wins; this one's copy goes.
-      def self?.write_dir: (untyped file) { (untyped) -> untyped } -> untyped
+        def self.new: (Kind kind, String key, String path, Integer bytes, untyped mtime) -> instance
+                    | (kind: Kind, key: String, path: String, bytes: Integer, mtime: untyped) -> instance
+      end
     end
   end
 end

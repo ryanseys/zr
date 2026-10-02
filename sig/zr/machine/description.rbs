@@ -1,147 +1,54 @@
+# The records of lib/zr/machine/description.rb. A kernel type is its
+# name: "Word", "Value", "Ptr", "I32", "I8", "Bool", "F64" or "Void".
 module Zr
   module Machine
-    TYPES: { "I8" => "i8", "Bool" => "i8", "I32" => "i32", "Word" => "i64", "Ptr" => "i64", "Value" => "i64", "F64" => "f64", "Void" => nil }
+    class Import < Data
+      attr_reader name: String
+      attr_reader params: Array[String]
+      attr_reader ret: String
+      attr_reader from: String?
 
-    # Whether a word is an immediate and not a pointer to a cell: a
-    # Fixnum, a flonum, a Symbol, nil, true or false. This is the same
-    # test as `zr_special_p` (lib/zr/runtime/kernel/value.rb), applied at compile
-    # time to a known word. Thus a lowering can remove a sequence whose
-    # result the test already decides.
-    #
-    # The unit being lowered and the description that a later build reads
-    # both include it, each with its own constants.
-    module Immediates
-      def immediate?: (untyped word) -> untyped
+      def self.new: (String name, Array[String] params, String ret, String? from) -> instance
+                  | (name: String, params: Array[String], ret: String, from: String?) -> instance
     end
 
-    # `from`: the wasm module of the import, or nil for a symbol that the
-    # linker finds.
-    Import: untyped
+    class Def < Struct[untyped]
+      attr_accessor name: String
+      attr_accessor params: Array[[untyped, String]]
+      attr_accessor ret: String
+      attr_accessor node: untyped
+      attr_accessor file: String
+      attr_accessor effects: Integer?
 
-    # `effects`: the `IR::Effects` bits that a call of the def can write,
-    # including the defs it calls. Nil until the fixpoint of the unit
-    # sets it.
-    Def: untyped
-
-    # A function delivered as machine code: `Machine.raw "zr_switch"`.
-    Raw: untyped
-
-    # The raw functions by name. The dialect knows only their signatures;
-    # the native build gets their machine code from the backend
-    # (`Backend::Aarch64::Stub`).
-    RAW: untyped
-
-    # A signature for `Machine.call`: `Machine.sig :name, [types] => type`.
-    Signature: untyped
-
-    # `Machine.struct :Name, field: Type, ...`: fields as `name => [offset, type]`.
-    Layout: untyped
-
-    # The symbol ids that a unit gets with `Machine.id(:name)`. The
-    # compiler owns the table. A unit compiled alone numbers the names in
-    # the order it finds them.
-    #
-    # Only the kernel's ids are fixed in code. Every other lowering (the
-    # core, the gem prelude, eval support, a program) loads the id of any
-    # other name from its unit's pool, and the link numbers the pools in
-    # the order of the pieces (`Zr.numbered`). So a table is the kernel's
-    # names, then the core's, then eval support's or the program's.
-    #
-    # A table can have pads: ids that no name has (nil in `names`). A
-    # binary's table marks a pad, so no symbol has its id.
-    class Symbols
-      @ids: untyped
-
-      @names: untyped
-
-      @sites: untyped
-
-      @intern: untyped
-
-      attr_reader ids: untyped
-
-      attr_reader names: untyped
-
-      attr_accessor sites: untyped
-
-      # `intern` lets a running program get an id for a new symbol. Only
-      # eval support has one, and it applies only to names after `names`.
-      # `names` gives a name, or nil for a pad, for each id from 0.
-      def initialize: (?untyped names, ?sites: ::Integer, ?intern: untyped?) -> void
-
-      # With an `intern`, a new name goes to the program immediately, and
-      # gets the id that the program's own table returns. Thus the two
-      # tables always agree, whatever other names the program interned.
-      def id: (untyped name) -> untyped
-
-      # A new index for a site that owns a run-time slot (the cached
-      # object of a regexp literal). It is unique across all lowerings that
-      # share this table or start from a copy of it.
-      def site: () -> untyped
+      def self.new: (String name, Array[[untyped, String]] params, String ret, untyped node, String file, ?Integer? effects) -> instance
     end
 
-    # The three tables that a lowering reads from a kernel unit: the
-    # parameters and return type of each `machine def`, the value of each
-    # `Machine.const`, and the layout of each `Machine.struct`. Eval
-    # support contains this in place of the kernel sources, and returns
-    # the same results as the unit.
-    class Description
-      @defs: untyped
+    class Raw < Data
+      attr_reader name: String
+      attr_reader params: Array[String]
+      attr_reader ret: String
 
-      @consts: untyped
+      def self.new: (String name, Array[String] params, String ret) -> instance
+                  | (name: String, params: Array[String], ret: String) -> instance
+    end
 
-      @structs: untyped
+    class Signature < Data
+      attr_reader name: untyped
+      attr_reader params: Array[String]
+      attr_reader ret: String
 
-      @reads: untyped
+      def self.new: (untyped name, Array[String] params, String ret) -> instance
+                  | (name: untyped, params: Array[String], ret: String) -> instance
+    end
 
-      include Immediates
+    class Layout < Data
+      attr_reader name: untyped
+      attr_reader fields: Hash[untyped, [Integer, String]]
+      attr_reader size: Integer
+      attr_reader align: Integer
 
-      attr_reader defs: untyped
-
-      attr_reader consts: untyped
-
-      attr_reader structs: untyped
-
-      # `unit` is a lowered kernel. This resolves each constant and
-      # layout, so the tables contain only plain data.
-      # The Ruby file that carries `text` into eval support
-      # (`Runtime#carried_text`, which the loader finds as `Library::Roots::DESCRIPTION`).
-      def self.carried: (untyped text) -> ::String
-
-      def self.of: (untyped unit) -> untyped
-
-      # One line for each entry. A def line gives its return type, then
-      # its parameters. An `e` line gives the effects of a def. A const
-      # line gives its value. A layout line gives its size and alignment,
-      # then its fields. The format is text because a program contains it
-      # as one frozen literal and reads it with only String#split.
-      def self.parse: (untyped text) -> untyped
-
-      def to_text: () -> untyped
-
-      def initialize: (untyped defs, untyped consts, untyped structs) -> void
-
-      def def_for: (untyped name) -> untyped
-
-      def const_for: (untyped name) -> untyped
-
-      def struct_for: (untyped name) -> untyped
-
-      # The rows that the lookups in the block read, as `rows` gives them.
-      # A cache of lowered code keys a piece on these, not on the whole
-      # description, so a new kernel function keeps each piece that does
-      # not call it (`Cache::Lowering::EvalSupport`).
-      def record: () { () -> untyped } -> untyped
-
-      # The text of each row that `reads` (from `record`) names, now: nil
-      # for a name that has none.
-      def rows: (untyped reads) -> untyped
-
-      private
-
-      def read: (untyped kind, untyped name, untyped found) -> untyped
-
-      def row: (untyped kind, untyped name) -> untyped
+      def self.new: (untyped name, Hash[untyped, [Integer, String]] fields, Integer size, Integer align) -> instance
+                  | (name: untyped, fields: Hash[untyped, [Integer, String]], size: Integer, align: Integer) -> instance
     end
   end
 end

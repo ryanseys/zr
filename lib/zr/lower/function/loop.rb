@@ -14,8 +14,9 @@ module Zr
       Loop = Data.define(:head, :body, :done, :depth, :step)
 
       # The default of `step` is in a reopened class, not in the block of
-      # `Data.define`, so that the type check (sig/pilot/records.rbs) sees
-      # it in the class that it belongs to.
+      # `Data.define`, so that the type check
+      # (sig/zr/lower/function/loop.rbs) sees it in the class that it
+      # belongs to.
       class Loop
         def initialize(head:, body:, done:, depth:, step: nil) = super
       end

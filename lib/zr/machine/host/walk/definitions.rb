@@ -9,6 +9,8 @@ module Zr
         # Value`) at an address that `Host#callable` gives, a class body
         # runs in a frame of its own, and a require runs a unit's toplevel.
         module Definitions
+          # @type instance: Walk
+
           # zr_require's kinds (Lower::Function::Control::REQUIRE_KINDS).
           REQUIRE_KINDS = { require: 0, require_relative: 1, load: 2, hidden: 3, computed: 4, declared: 5 }.freeze
 

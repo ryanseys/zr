@@ -1,7 +1,0 @@
-module Zr::Kern
-  # WASI signals. wasi-libc defines 64 of them, but a module receives none,
-  # so each signal keeps its default handler.
-  NSIG: 65
-
-  def zr_os_sigaction: (untyped signo, untyped fn, untyped old) -> untyped
-end

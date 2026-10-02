@@ -111,7 +111,12 @@ module Zr
     # Coverage counts for a non-nil and a nil receiver. It is nil for all
     # other calls. `interp` marks the `to_s` of an interpolated part under
     # refinements, which a String or a Symbol does not get.
-    Send = Node.new(:recv, :name, :args, :line, :vcall, :opt, :block, :kwargs, :safe, :write, :using, :covers, :interp) do
+    Send = Node.new(:recv, :name, :args, :line, :vcall, :opt, :block, :kwargs, :safe, :write, :using, :covers, :interp)
+
+    # The methods of the nodes are in reopened classes, not in the block
+    # of `Node.new`, so that the type check (sig/zr/hir/node.rbs) sees them
+    # in their class.
+    class Send
       # `recv.name(args)` at `line`, with keywords for the fields that a
       # send usually leaves at their default. Every field but the first
       # four reads as a boolean somewhere in the lowering (`node.opt &&`,
@@ -159,7 +164,9 @@ module Zr
     # `optional` and `keywords` are `[name, default]` pairs (a keyword
     # with no default is required), `rest`, `kwrest` and `block` are a
     # name or nil; a block's `|a, |` has the rest `:implicit`.
-    Params = Node.new(:required, :optional, :rest, :post, :keywords, :kwrest, :block) do
+    Params = Node.new(:required, :optional, :rest, :post, :keywords, :kwrest, :block)
+
+    class Params
       def positional
         required.size + optional.size + post.size
       end
@@ -262,7 +269,9 @@ module Zr
     # or IvarWrite with a nil value, a Send with the value to append
     # (`h[k]`, `o.attr`), or a nested MultiTarget. As a block parameter,
     # a MultiTarget is one of the required names.
-    MultiTarget = Node.new(:lefts, :rest, :rights, :line, :whole) do
+    MultiTarget = Node.new(:lefts, :rest, :rights, :line, :whole)
+
+    class MultiTarget
       def names
         (lefts + [rest] + rights).flat_map do |t|
           case t

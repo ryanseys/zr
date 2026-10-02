@@ -124,6 +124,7 @@ module Zr
         # again. `tag` marks the innermost block or loop, which `break`,
         # `next` and `redo` leave. `home` marks the method that a `return`
         # leaves; it is nil when there is no such method.
+        # @rbs skip -- typed in sig/zr/eval/walk/tree.rbs
         Ctx = Data.define(:self_, :cref, :chain, :block, :name, :owner, :args, :kwargs, :tag, :home)
 
         def initialize(file)

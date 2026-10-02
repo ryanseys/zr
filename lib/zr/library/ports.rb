@@ -21,6 +21,7 @@ module Zr
       # One port: the gem's version, the versions whose C interface the port
       # implements (a rubygems requirement, read only when a build selects
       # another version of the gem), and whether vendor/ holds the gem.
+      # @rbs skip -- typed in sig/zr/library/ports.rbs
       Port = Struct.new(:version, :compat, :vendored, keyword_init: true)
 
       def self.port(version, compat: "~> #{version}", vendored: true) = Port.new(version: version, compat: compat, vendored: vendored).freeze

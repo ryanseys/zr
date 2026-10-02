@@ -11,6 +11,8 @@ module Zr
         # A throw runs no handler, so it costs no backtrace. A loop or a
         # scope catches only the jumps that its code has.
         module Control
+          # @type instance: Walk
+
           private
 
           def if_node(node, s)
@@ -99,10 +101,11 @@ module Zr
           # The jumps of a loop's own code: the `break`, `next` and `redo`
           # that a nested loop or scope does not take.
           class LoopJumps
-            include Enumerable
+            include Enumerable #[Hir::Node]
 
             def initialize(loop) = @loop = loop
 
+            #: () { (Hir::Node) -> void } -> void
             def each(&)
               visit(@loop.cond, &)
               visit(@loop.body, &)

@@ -61,11 +61,13 @@ module Zr
           bss: [".bss", SHT_NOBITS, SHF_ALLOC | SHF_WRITE]
         }.freeze
 
+        # @rbs skip -- typed in sig/zr/obj/elf/object_file.rbs
         Section = Struct.new(:name, :type, :flags, :bytes, :size, :align, :link, :info, :entsize, :offset, :item,
                              keyword_init: true)
 
         # One `Elf64_Sym`. `strx` is the name's offset in the string table;
         # `write` sets it after it builds that table.
+        # @rbs skip -- typed in sig/zr/obj/elf/object_file.rbs
         Sym = Struct.new(:name, :bind, :type, :shndx, :value, :size, :strx, keyword_init: true)
 
         module_function

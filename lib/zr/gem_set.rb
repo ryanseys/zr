@@ -28,6 +28,7 @@ module Zr
   class GemSet
     # One gem: its name, version, where it came from (`Gemfile.lock` or
     # the flag), its require roots, and why a build cannot use it, or nil.
+    # @rbs skip -- typed in sig/zr/gem_set.rbs
     Entry = Struct.new(:name, :version, :source, :roots, :refusal, keyword_init: true)
 
     # The set cannot be resolved: a gem is not installed, a flag names no

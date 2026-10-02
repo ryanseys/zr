@@ -70,6 +70,7 @@ module Zr
         # that `zr_box_stamp` gave the root. `traced` is a unit of a program
         # that uses TracePoint, whose code fires events (`Lower#traced?`).
         # `spelling` is the order of its program's local names (`Spelling`).
+        # @rbs skip -- typed in sig/zr/machine/host/walk.rbs
         Unit = Struct.new(:file, :internal, :units, :node_ids, :core, :hidden, :root, :traced, :spelling)
 
         # The order in which a lowering first meets each local name of its

@@ -26,6 +26,8 @@ module Zr
       # at most one parameter, no inner block (its locals would need an
       # Env), no binding, no super, no def.
       module Iterators
+        # @type instance: Function
+
         # The block's locals as record slots of the site's function. It
         # is used in place of the block's scope while its body lowers.
         class InlineScope

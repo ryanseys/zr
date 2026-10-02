@@ -22,7 +22,7 @@ module Zr
     Reloc = Struct.new(:offset, :kind, :symbol, :addend)
 
     # The methods of a record are in a reopened class, not in the block of
-    # `Struct.new`, so that the type check (sig/pilot/obj_model.rbs) sees
+    # `Struct.new`, so that the type check (sig/zr/obj/model.rbs) sees
     # them in the class that they belong to.
     class Reloc
       def initialize(offset, kind, symbol, addend = 0) = super
@@ -69,9 +69,6 @@ module Zr
 
       # `function` and `datum` add one item and return the unit, so a test
       # builds a unit in one expression (test/support/obj_unit.rb).
-      # These two name their keywords: Steep stops on an anonymous `**` in
-      # a call.
-      # rubocop:disable Style/ArgumentsForwarding
       def function(name, bytes, **options)
         @functions << Code.new(name, bytes, **options)
         self
@@ -81,7 +78,6 @@ module Zr
         @data << Datum.new(name, section, bytes, **options)
         self
       end
-      # rubocop:enable Style/ArgumentsForwarding
 
       def defined_names
         (@functions + @data).map(&:name)

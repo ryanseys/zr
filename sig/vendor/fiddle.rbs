@@ -1,0 +1,65 @@
+# The members of the fiddle gem that lib/ uses. The gem ships no
+# signatures, and neither does RBS's stdlib.
+module Fiddle
+  TYPE_VOID: Integer
+  TYPE_VOIDP: Integer
+  TYPE_CHAR: Integer
+  TYPE_INT: Integer
+  TYPE_UINT: Integer
+  TYPE_LONG: Integer
+  TYPE_LONG_LONG: Integer
+  TYPE_SIZE_T: Integer
+  TYPE_UINT32_T: Integer
+  TYPE_UINT64_T: Integer
+  TYPE_DOUBLE: Integer
+
+  RUBY_FREE: Integer
+
+  def self.malloc: (Integer size) -> Integer
+  def self.free: (Integer address) -> void
+  def self.last_error: () -> untyped
+
+  class Error < StandardError
+  end
+
+  class DLError < Error
+  end
+
+  class Handle
+    DEFAULT: Handle
+
+    def []: (String name) -> Integer
+    def sym: (String name) -> Integer
+  end
+
+  class Pointer
+    def self.malloc: (Integer size, ?Integer free) -> Pointer
+    def self.new: (Integer address, ?Integer size, ?Integer free) -> Pointer
+    def self.read: (Integer address, Integer len) -> String
+    def self.write: (Integer address, String bytes) -> void
+    def self.[]: (untyped value) -> Pointer
+
+    def to_i: () -> Integer
+    def to_str: (?Integer len) -> String
+    def size: () -> Integer
+    def +: (Integer offset) -> Pointer
+    def []: (Integer offset) -> Integer
+          | (Integer offset, Integer len) -> String
+    def []=: (Integer offset, Integer value) -> Integer
+           | (Integer offset, Integer len, String bytes) -> String
+  end
+
+  class Function
+    def initialize: (Integer | Pointer address, Array[Integer] params, Integer ret, ?untyped abi, ?name: String, ?need_gvl: bool) -> void
+    def call: (*untyped args) -> untyped
+    def to_i: () -> Integer
+  end
+
+  class Closure
+    def to_i: () -> Integer
+
+    class BlockCaller < Closure
+      def initialize: (Integer ret, Array[Integer] params, ?untyped abi) { (*untyped) -> untyped } -> void
+    end
+  end
+end

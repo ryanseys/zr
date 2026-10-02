@@ -6,6 +6,8 @@ module Zr
       # The Value of each HIR node, in a register. A caller that keeps it
       # across a call stores it in the record first.
       module Expressions
+        # @type instance: Function
+
         private
 
         def expr(node)

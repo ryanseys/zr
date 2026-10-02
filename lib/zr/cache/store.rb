@@ -30,6 +30,7 @@ module Zr
       # How an entry's value is kept. `:raw` is bytes, `:json` and
       # `:marshal` encode a value, and `:dir` is a directory that the
       # block of `write` fills.
+      # @rbs skip -- typed in sig/zr/cache/store.rbs
       Kind = Data.define(:name, :codec, :ext, :quota_gb)
 
       KINDS = [
@@ -59,6 +60,7 @@ module Zr
       # key names a path outside its kind.
       KEY = /\A[0-9A-Za-z_-][0-9A-Za-z_.-]+\z/
 
+      # @rbs skip -- typed in sig/zr/cache/store.rbs
       Entry = Data.define(:kind, :key, :path, :bytes, :mtime)
 
       module_function
@@ -67,6 +69,7 @@ module Zr
 
       # A key of `parts`: each part as a string, ended by a NUL, into one
       # SHA-256.
+      #: (*_ToS parts) -> String
       def key(*parts)
         digest = Digest::SHA256.new
         parts.each { |part| digest << part.to_s << "\0" }

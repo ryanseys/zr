@@ -35,6 +35,7 @@ module Zr
       # relocation at the instruction's offset. `codegen/layout.rb` plans
       # the layout, and `codegen/moves.rb` makes the parallel moves.
       class Codegen
+        # @rbs skip -- in sig/zr/backend/aarch64/registers.rbs
         include Registers
 
         # The two registers that `parallel_copy` moves values through. An
@@ -570,6 +571,7 @@ module Zr
         # `cbz`, `cbnz`, `tbz` or `tbnz` of `operands` to a block. A far
         # branch uses the opposite condition to skip over a `b`. A `b`
         # reaches 128 MB, and a conditional branch reaches 1 MB.
+        #: (Symbol op, String target, *untyped operands) -> void
         def branch_if(op, target, *operands)
           return @asm.public_send(op, *operands, @labels.fetch(target)) unless @far
 

@@ -6,6 +6,8 @@ module Zr
       # Branches, loops, short-circuit operators, and the jumps that leave
       # a block or a loop.
       module Control
+        # @type instance: Function
+
         private
 
         # The condition a Value's truthiness gives: anything but nil and false.

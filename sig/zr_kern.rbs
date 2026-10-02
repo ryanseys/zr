@@ -399,6 +399,7 @@ module Zr
     def zr_class_new: (Integer sup) -> Integer
     def zr_class_new_instance: (Integer recv, Integer argc, Integer argv, Integer cref, Integer blk) -> Integer
     def zr_class_new_object: (Integer recv) -> Integer
+    def zr_class_new_program: (Integer klass, Integer args) -> Integer
     def zr_class_of: (Integer v) -> Integer
     def zr_class_of_is: (Integer v, Integer klass) -> Integer
     def zr_class_path: (Integer klass) -> Integer
@@ -454,6 +455,7 @@ module Zr
     def zr_const_remove: (Integer klass, Integer id) -> void
     def zr_const_reveal: (Integer id) -> void
     def zr_const_reveal_in: (Integer klass, Integer id) -> void
+    def zr_const_reveal_m: (Integer klass, Integer name) -> Integer
     def zr_const_row: (Integer klass, Integer id) -> Integer
     def zr_const_row_defined_for: (Integer mod, Integer id) -> Integer
     def zr_const_row_for: (Integer mod, Integer id, bool inherit) -> Integer
@@ -482,6 +484,7 @@ module Zr
     def zr_copy_allocatable: (Integer recv) -> Integer
     def zr_copy_cell: (Integer orig) -> Integer
     def zr_copy_payload: (Integer copy, Integer orig) -> Integer
+    def zr_core_asks_reflectively: (Integer top, Integer asking) -> bool
     def zr_core_class: (Integer id) -> Integer
     def zr_core_class_p: (Integer klass) -> bool
     def zr_core_cmp_p: (Integer klass) -> bool
@@ -631,9 +634,11 @@ module Zr
     def zr_enum_each: (Integer recv, Integer args, Integer blk) -> Integer
     def zr_enum_each_asked: (Integer recv, Integer args, Integer blk, Integer ask) -> Integer
     def zr_enum_each_block: (Integer p, Integer argc, Integer argv, Integer blk) -> Integer
+    def zr_enum_each_values: (Integer recv, Integer args, Integer user, Integer inner) -> Integer
     def zr_enum_for: (Integer recv, Integer mid, Integer argc, Integer argv, Integer size) -> Integer
     def zr_enum_send_each: (Integer recv, Integer argc, Integer argv, Integer p) -> Integer
     def zr_enum_value: (Integer values) -> Integer
+    def zr_enum_values_block: (Integer p, Integer argc, Integer argv, Integer blk) -> Integer
     def zr_env_barrier: (Integer env, Integer v) -> void
     def zr_env_escape: (Integer env) -> Integer
     def zr_env_get: (Integer env, Integer i) -> Integer
@@ -643,6 +648,7 @@ module Zr
     def zr_environment_get: (Integer name) -> Integer
     def zr_environment_list: () -> Integer
     def zr_environment_set: (Integer name, Integer value) -> Integer
+    def zr_eq_by_conversion: (Integer recv, Integer other, Integer conv) -> Integer
     def zr_errinfo: () -> Integer
     def zr_errinfo_set: (Integer v) -> void
     def zr_errno: () -> Integer
@@ -729,6 +735,7 @@ module Zr
     def zr_fiber_inspect_m: (Integer recv, Integer blk) -> Integer
     def zr_fiber_list: () -> Integer
     def zr_fiber_make: (Integer recv, Integer argc, Integer argv, Integer cref, Integer blk) -> Integer
+    def zr_fiber_prev_m: (Integer recv) -> Integer
     def zr_fiber_prune: () -> void
     def zr_fiber_register: (Integer f) -> void
     def zr_fiber_rehome: (Integer recv) -> Integer
@@ -1168,8 +1175,10 @@ module Zr
     def zr_key_hash: (Integer h, Integer key, Integer out) -> bool
     def zr_kroots: () -> Integer
     def zr_kw_argc: (Integer argc, Integer argv) -> Integer
+    def zr_kw_argc_yield: (Integer argc, Integer argv) -> Integer
     def zr_kw_declared: (Integer ids, Integer n, Integer id) -> bool
     def zr_kw_get: (Integer hash, Integer id) -> Integer
+    def zr_kw_hashed: (Integer tab) -> Integer
     def zr_kw_missing: (Integer hash, Integer ids, Integer n) -> Integer
     def zr_kw_missing_tab: (Integer tab, Integer ids, Integer n) -> Integer
     def zr_kw_none: (Integer hash) -> Integer
@@ -1211,7 +1220,6 @@ module Zr
     def zr_local_names: (Integer table) -> Integer
     def zr_login_name: () -> Integer
     def zr_long_digits: (Integer n, Integer buf) -> Integer
-    def zr_lutimes_m: (Integer path, Integer atime_us, Integer mtime_us) -> Integer
     def zr_machine_bytes: () -> Integer
     def zr_main: (Integer argc, Integer argv) -> Integer
     def zr_main_define_method: (Integer recv, Integer argc, Integer argv, Integer cref, Integer blk) -> Integer
@@ -1440,6 +1448,7 @@ module Zr
     def zr_new_cached: (Integer cc, Integer recv, Integer argc, Integer argv, Integer blk, Integer mode) -> Integer
     def zr_nil_inspect: (Integer recv, Integer argc, Integer argv, Integer cref, Integer blk) -> Integer
     def zr_nil_to_s: (Integer recv, Integer argc, Integer argv, Integer cref, Integer blk) -> Integer
+    def zr_no_memory: () -> Integer
     def zr_no_method: (Integer recv, Integer mid, bool vcall, Integer argc, Integer argv) -> Integer
     def zr_no_method_from: (Integer recv, Integer mid, bool vcall, bool from_super, Integer argc, Integer argv) -> Integer
     def zr_non_ascii_stop: (Integer s, Integer what, Integer len) -> Integer
@@ -1740,6 +1749,7 @@ module Zr
     def zr_param_rows: (Integer table, bool lenient) -> Integer
     def zr_params_forwarding_p: (Integer table) -> bool
     def zr_params_min: (Integer table) -> Integer
+    def zr_params_positional: (Integer table) -> Integer
     def zr_params_rest_p: (Integer table) -> bool
     def zr_path_access: (Integer path, Integer mode) -> Integer
     def zr_path_kind: (Integer path) -> Integer
@@ -1807,6 +1817,7 @@ module Zr
     def zr_program_name: () -> Integer
     def zr_program_start: (Integer file, Integer len) -> void
     def zr_program_started_p: () -> bool
+    def zr_protect: (Integer failed, Integer blk) -> Integer
     def zr_proxies_of: (Integer mod) -> Integer
     def zr_pty_open: () -> Integer
     def zr_public_method_new: (Integer recv, Integer klass, Integer mid) -> Integer
@@ -2333,7 +2344,7 @@ module Zr
     def zr_utf8_char_count: (Integer p, Integer n) -> Integer
     def zr_utf8_char_len: (Integer p, Integer n) -> Integer
     def zr_utf8_char_offset: (Integer p, Integer n, Integer index) -> Integer
-    def zr_utimes_m: (Integer path, Integer atime_us, Integer mtime_us) -> Integer
+    def zr_utimens_m: (Integer path, Integer times, Integer link) -> Integer
     def zr_value_code: (Integer key) -> Integer
     def zr_verify_arena: (Integer a) -> void
     def zr_verify_minor: () -> void
@@ -2355,6 +2366,7 @@ module Zr
     def zr_warn_prepended_operators: (Integer klass) -> Integer
     def zr_warn_reassigned_constant: (Integer klass, Integer id, Integer e) -> void
     def zr_warn_redefined: (Integer owner, Integer ext, Integer mid, Integer e, Integer fn, Integer kind, Integer meta, Integer cref) -> void
+    def zr_warning_write: (Integer s) -> void
     def zr_wasi_addr: (Integer p) -> Integer
     def zr_wasi_dir: (Integer path, Integer rest) -> Integer
     def zr_wasi_env_row: (Integer name) -> Integer

@@ -13,6 +13,7 @@ module Zr
       # A label contains an instruction index, not a byte offset, so a branch
       # encodes its distance as `target - here`.
       class Assembler
+        # @rbs skip -- in sig/zr/backend/aarch64/registers.rbs
         include Registers
 
         class Refused < StandardError
@@ -46,7 +47,14 @@ module Zr
 
         # A branch whose distance is known only when every instruction has
         # an index.
-        Branch = Data.define(:base, :label, :shift, :bits) do
+        #
+        # The fields of these records are typed in
+        # sig/zr/backend/aarch64/assembler.rbs, the methods here.
+        # @rbs skip
+        Branch = Data.define(:base, :label, :shift, :bits)
+
+        class Branch
+          #: (Integer at) -> Integer
           def encode(at)
             distance = label.to_i - at
             limit = 1 << (bits - 1)
@@ -58,7 +66,11 @@ module Zr
 
         # `ADR`: a register gets the address of a label, which is within
         # 1 MB of the instruction.
-        Adr = Data.define(:d, :label) do
+        # @rbs skip
+        Adr = Data.define(:d, :label)
+
+        class Adr
+          #: (Integer at) -> Integer
           def encode(at)
             bytes = Assembler.signed((label.to_i - at) * 4, 21)
             0x1000_0000 | (bytes & 0b11) << 29 | (bytes >> 2) << 5 | d.to_i
@@ -67,7 +79,11 @@ module Zr
 
         # One word of a jump table: the distance in bytes from the table's
         # start (`base`) to `label`, signed.
-        TableWord = Data.define(:label, :base) do
+        # @rbs skip
+        TableWord = Data.define(:label, :base)
+
+        class TableWord
+          #: (Integer _at) -> Integer
           def encode(_at) = Assembler.signed((label.to_i - base.to_i) * 4, 32)
         end
 
