@@ -284,7 +284,11 @@ module Zr::Kern
   # contains the body.)
   sig [Ptr, Value, Word, Ptr, Value] => Value
   def zr_bmethod_call(e, recv, argc, argv, blk)
-    zr_coverage_method(e)
+    # An entry has a coverage record only when the program measures
+    # coverage, so most calls skip the call.
+    if MEntry.cover(e) != 0
+      zr_coverage_method(e)
+    end
     body = MEntry.cref(e)
     if RProc.meta(body) == 0
       # The Proc of a Symbol or a Method uses only its arguments.
@@ -295,7 +299,12 @@ module Zr::Kern
     p = Machine.value(d)
     RBasic.set_flags(p, T_PROC | FL_ALLOCATED | FL_STACK)
     RProc.set_self(p, recv)
-    RProc.set_cref(p, zr_bmethod_cref(e))
+    # The entry keeps its cref after the first call (`zr_bmethod_cref`).
+    cref = zr_bmethod_cref_kept(e)
+    if cref == QNIL || RCref.entry(cref) != e
+      cref = zr_bmethod_cref(e)
+    end
+    RProc.set_cref(p, cref)
     RProc.set_lambda(p, 1)
     RProc.set_home(p, 0)
     if (Machine.load64(Machine.static(:trace_events, 8), 0) & (TRACE_CALL | TRACE_RETURN)) == 0
@@ -344,6 +353,7 @@ module Zr::Kern
     kept = IvarCache.index(MEntry.ivar(e))
     kept == 0 ? Machine.value(QNIL) : Machine.value(kept)
   end
+  inline :zr_bmethod_cref_kept
 
   # Runs the body of a `refine` block with the holder module as self. A
   # `def` in it defines into the holder, and the block gets the holder as
