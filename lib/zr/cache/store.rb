@@ -41,6 +41,7 @@ module Zr
         Kind.new(:parse, :raw, "", nil),          # Prism parse results (Parse encodes them)
         Kind.new(:unit, :marshal, ".marshal", nil),
         Kind.new(:lowering, :marshal, ".marshal", nil),
+        Kind.new(:kernel, :marshal, ".marshal", nil),   # the kernel's lowering (Cache::Kernel)
         Kind.new(:code, :dir, "", nil),           # packs of machine code, one directory per backend
         Kind.new(:run, :dir, "", 2),              # `zr run` binaries
         Kind.new(:binary, :raw, "", nil),         # program test binaries; quota from ZR_TEST_BINARIES_GB

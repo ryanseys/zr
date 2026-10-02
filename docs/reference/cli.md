@@ -215,6 +215,7 @@ SHA-256 digest of every input of the entry:
 | `meta` | symbol tables, gem prelude lists and eval support metadata |
 | `code` | the machine code of each function, one directory for each backend |
 | `lowering` | what the core and eval support need from each file that they did not lower again |
+| `kernel` | the kernel's lowering, so an edit to the core or to `lib/zr/lower` does not lower the kernel again |
 | `unit` | the machine code of each file of a program |
 | `parse` | parsed trees |
 | `gems` | the gems that `--gem` and a Gemfile.lock resolved |

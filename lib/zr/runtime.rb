@@ -15,6 +15,7 @@ require_relative "symbol_numbering"
 require_relative "gc_tuning"
 require_relative "source_guard"
 require_relative "cache/store"
+require_relative "cache/kernel"
 require_relative "runtime_sources"
 require_relative "cache/lowering/core"
 require_relative "cache/lowering/eval_support"
@@ -41,14 +42,16 @@ module Zr
       @sources ||= RuntimeSources.for(target).sources.to_h { |path| [path, File.read(path)] }
     end
 
-    # The lowered kernel. The core's lowering and the runtime object need
-    # it. A program's own lowering does not.
+    # The lowered kernel, from the cache when an earlier build lowered the
+    # same kernel (`Cache::Kernel`). The core's lowering and the runtime
+    # object need it. A program's own lowering does not.
     def unit
       raise "the runtime's IR was released" if @released
 
       @unit ||= Timing.phase("kernel lowered") do
         GcTuning.heavy!
-        Machine::Lower.new(RuntimeSources.for(target).kernel_files.map { |path| [sources.fetch(path), path] }, kernel_symbols).tap(&:run)
+        files = RuntimeSources.for(target).kernel_files.map { |path| [sources.fetch(path), path] }
+        Cache::Kernel.lowered(target, files) { Machine::Lower.new(files).tap(&:run) }
       end
     end
 
@@ -179,9 +182,7 @@ module Zr
 
     # The kernel's own symbol table: the names of its `Machine.id`s, in the
     # order of its files. Only these ids are in code outside the kernel.
-    def kernel_symbols
-      @kernel_symbols ||= Machine::Symbols.new
-    end
+    def kernel_symbols = unit.symbols
 
     # The symbol table, the wanted symbols and the kernel's description.
     # They come from the cache, or from lowering the kernel and the core
