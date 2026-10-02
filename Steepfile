@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# A pilot of the type check, on a few files. `zr-dev typecheck` runs it.
+# A pilot of the type check, on a few files. `bin/steep check` runs it.
 # A file with methods carries inline RBS annotations (`#:` and `# @rbs`).
 # A file that assigns a Struct or a Data record to a constant has its
 # types in sig/pilot, because the inline form cannot type such a record.

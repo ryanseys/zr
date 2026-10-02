@@ -109,7 +109,7 @@ The first public release.
   of files without it does not build the runtime. `bin/zr-dev affected`
   maps a change to unit tests and to program tests, and runs them with
   `bin/minitest`.
-- `zr-dev typecheck` runs Steep on the files that the `Steepfile`
+- `bin/steep check` runs Steep on the files that the `Steepfile`
   names: a pilot of inline RBS annotations, with the types of records in
   `sig/pilot/`. CI runs it after the lint step.
 - `COVERAGE=1 bin/minitest <paths>` measures the line and branch coverage of

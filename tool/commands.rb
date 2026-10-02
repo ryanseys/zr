@@ -31,7 +31,6 @@ module Zr
       "gems" => ["Check which gems zr compiles, and group what stops the others", -> { require_relative "gems"; GemCompat }],
       "vendor" => ["Write vendor/ (ruby's library and gems, as upstream ships them) again, or check it",
                    -> { require_relative "vendor"; VendorCommand }],
-      "typecheck" => ["Check the types of the files in the Steepfile (Steep)", -> { require_relative "typecheck"; Typecheck }],
       "serve" => ["Keep a warm compiler that zr run and zr build of this checkout use", -> { require_relative "serve"; Serve }]
     }.freeze
 

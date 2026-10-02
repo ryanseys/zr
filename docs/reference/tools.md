@@ -17,6 +17,7 @@ steps to run the tests, see [How to run the tests](../how-to/run-the-tests.md).
 | `bin/zr` | The binstub of `exe/zr`, the `zr` command of this checkout. |
 | `bin/zr-dev` | The binstub of `tool/zr-dev.rb`, the [`zr-dev`](#zr-dev) commands. |
 | `bin/console` | Starts IRB with zr loaded. |
+| `bin/steep check [FILE...]` | Checks the types of the files that the `Steepfile` names, with the Steep of this checkout's bundle. Most of them carry inline RBS annotations (`#:`, `# @rbs`). A file that assigns a `Struct` or a `Data` record to a constant has its types in `sig/pilot`. The rest of `lib/` is not checked yet. With files, it checks only those. It stops with a status that is not 0 when Steep finds an error. CI runs it after the lint step. |
 
 A `bin/minitest` path is a test file or a directory of test files
 (`bin/minitest test/unit`), and `path:line` runs the test at that line.
@@ -229,12 +230,6 @@ that the IR stays the same.
 
 A generator that writes a file below `lib/zr/runtime/kernel/` puts its
 output through the same rewrite (`tool/lib/zr/dev/files.rb`).
-
-### Types
-
-| Command | Does |
-|---|---|
-| `zr-dev typecheck [FILE...]` | Checks the types of the files that the `Steepfile` names, with the Steep of this checkout's bundle. Most of them carry inline RBS annotations (`#:`, `# @rbs`). A file that assigns a `Struct` or a `Data` record to a constant has its types in `sig/pilot`. The rest of `lib/` is not checked yet. With files, it checks only those. It stops with status 1 when Steep reports an error. CI runs it after the lint step. |
 
 ### Self-compile checks
 

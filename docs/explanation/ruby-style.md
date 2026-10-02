@@ -221,7 +221,7 @@ functions on `module Zr`:
 
 ## Types
 
-A pilot checks the types of a few files with Steep (`zr-dev typecheck`,
+A pilot checks the types of a few files with Steep (`bin/steep check`,
 the `Steepfile`). A file with methods has inline RBS annotations:
 
 ```ruby

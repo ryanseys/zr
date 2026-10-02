@@ -115,8 +115,8 @@ The gem's only require path is `lib/`. `lib/zr/runtime/` is below
 | `tool/*.rb` | the body of each `zr-dev` command, one file for each command (`tool/bench.rb` for `zr-dev bench`) |
 | `tool/lib/zr/dev.rb`, `tool/lib/zr/dev/` | the code that the commands share: the command class, the paths, the host ruby and the C sources |
 | `tool/lib/zr/dev/parallel.rb` | `Dev.parallel_map`: the one worker pool of the tools, with the results in the order of the items |
-| `tool/typecheck.rb` | `zr-dev typecheck`: Steep checks the files that the `Steepfile` names |
-| `Steepfile` | the files of the type check pilot |
+| `tool/install_reference_gems.rb` | installs the gems of the reference ruby into `tmp/reference/gems`; `bin/setup` runs it |
+| `Steepfile` | the files of the type check pilot; `bin/steep check` checks them |
 | `sig/pilot/` | the types of the pilot's `Struct` and `Data` records, and of the classes that the checked files use |
 | `sig/zr_kern.rbs` | the type of each kernel def, from its sig (`zr-dev gen kern_rbs` writes it); not part of the type check |
 | `.rubocop.yml`, `.rubocop_todo.yml` | the cops of `rake lint`, each with its reason; the files that a cop found when it came in, to fix |
