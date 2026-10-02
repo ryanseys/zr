@@ -1331,12 +1331,15 @@ module Zr::Kern
   # linked under the caller's frame, which is the top. The site stores the
   # caller's frame back when the loop ends, and its landing block does the
   # same on a pending unwind. The gate that the site checked tells that
-  # `mid` is the builtin that the receiver's class finds.
+  # `mid` is the builtin that the receiver's class finds. With no
+  # refinement in use, the method cache gives the entry; a refined lookup
+  # would find the refinement, so the walk does.
   sig [Ptr, Value, Word, Ptr] => Void
   def zr_iter_enter(recs, recv, mid, meta)
     t = zr_task()
     home = Task.top(t)
-    e = zr_search_method(zr_class_of(recv), mid)
+    klass = zr_class_of(recv)
+    e = Task.refine(t) == QNIL ? zr_find_method(klass, mid) : zr_search_method(klass, mid)
     Frame.set_prev(recs, home)
     Frame.set_meta(recs, MEntry.meta(e))
     Frame.set_line(recs, 0)

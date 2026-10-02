@@ -68,6 +68,13 @@ module Zr
             klass = @f.fetch("i64", recv, off(@l.layout("RBasic"), "klass"))
             @f.brif(@f.band(@f.icmp("eq", klass, global("G_ARRAY")), each_gate_clear("GATE_EACH")), array, other)
             switch(array)
+            # An empty Array runs no body, so it needs no frames.
+            empty = @f.label
+            filled = @f.label
+            @f.brif(@f.icmp("eq", array_len(recv), imm(0)), empty, filled)
+            switch(empty)
+            @f.jump(merge, [recv])
+            switch(filled)
             @f.jump(merge, [loop_in_place(node, recv, :array)])
             switch(other)
             @f.brif(@f.band(@f.icmp("eq", klass, global("G_RANGE")), each_gate_clear("GATE_RANGE_EACH")), ranged, slow)
