@@ -141,10 +141,10 @@ module Zr
         # the argument is a plain read (a local, self, an immediate literal:
         # nothing that calls or allocates), or the receiver is self or an
         # immediate literal, which need no root. An argument of operators
-        # (`operator_tree?`) can also be direct: then the receiver waits in
-        # its record slot while the argument runs (`site_operands`). Thus
-        # `(a * b) * c`, `1.0 / (a * b)` and `s + a / b` keep the
-        # intermediate values out of the record. The site stages the
+        # and simple calls (`operator_tree?`) can also be direct: then the
+        # receiver waits in its record slot while the argument runs
+        # (`site_operands`). Thus `(a * b) * c`, `1.0 / (a * b)` and
+        # `v - dx * b.mass` keep the intermediate values out of the record. The site stages the
         # operands in the record only on the send branch, so the fast
         # branch stores and releases nothing. A unary operator has one
         # operand, and nothing runs between its read and the test, so any
@@ -180,13 +180,20 @@ module Zr
           [Operand.new(held, a.bits), b]
         end
 
-        # Whether `node` is only operators over plain reads, such as
-        # `a * (b + 1.0)`.
+        # Whether `node` is only operators over plain reads and simple
+        # calls, such as `a * (b + 1.0)` or `dx * b.mass`.
         def operator_tree?(node)
-          return true if plain_read?(node)
+          return true if plain_read?(node) || simple_call?(node)
 
           node.is_a?(Hir::Send) && node.args.size == 1 && OPS.key?(node.name) && node.recv && !node.block &&
             !node.kwargs && !node.write && !node.safe && operator_tree?(node.recv) && operator_tree?(node.args.first)
+        end
+
+        # A call of a plain read or a constant with plain reads as its
+        # arguments, such as `b.mass`, `a[i]` or `Math.sqrt(x)`.
+        def simple_call?(node)
+          node.is_a?(Hir::Send) && !OPS.key?(node.name) && !node.block && !node.kwargs && !node.write &&
+            (plain_read?(node.recv) || node.recv.is_a?(Hir::ConstRead)) && node.args.all? { |a| plain_read?(a) }
         end
 
         def plain_read?(node)

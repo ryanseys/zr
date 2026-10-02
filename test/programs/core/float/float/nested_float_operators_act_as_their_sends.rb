@@ -41,6 +41,26 @@ h = Hook.new(pr)
 p s + (c * h)
 p s
 
+# A call operand that runs the collector and changes a captured local.
+class Body
+  attr_reader :mass
+  def initialize(mass, pr) = (@mass = mass; @pr = pr)
+  def heavy
+    @pr.call
+    GC.start
+    @mass * 2.0
+  end
+end
+body = Body.new(3.0, pr)
+s = 1.0e300
+p s * 10.0 - c * body.heavy
+p s
+p (c * c) * body.mass - body.heavy
+xs = [1.5, 2.5e300, 0.0]
+i = 1
+p xs[i] * 10.0 + xs[0] * xs[2]
+p 2.0 * Math.sqrt(c * c)
+
 # A string receiver held while the argument runs.
 str = "ab"
 p str * (1 + 2)
