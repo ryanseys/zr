@@ -487,6 +487,9 @@ class Regexp
 
     text = text.to_s if text.is_a?(Symbol)
     pos = implicit_integer(pos)
+    # From the start, no character of the text needs a count.
+    return !Primitive.zr_regexp_search(self, program_for(text), text, 0, false).nil? if pos == 0
+
     pos += Primitive.zr_str_length_m(text) if pos < 0
     return false if pos < 0 || pos > Primitive.zr_str_length_m(text)
 

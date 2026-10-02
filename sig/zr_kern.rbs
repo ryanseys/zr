@@ -2022,6 +2022,7 @@ module Zr
     def zr_str_byteslice: (Integer s, Integer off, Integer len) -> Integer
     def zr_str_capitalize: (Integer recv, Integer argc, Integer argv, Integer cref, Integer blk) -> Integer
     def zr_str_cat_bytes: (Integer recv, Integer other) -> Integer
+    def zr_str_cat_range: (Integer recv, Integer other, Integer from, Integer len) -> Integer
     def zr_str_cell_bytes: (Integer n) -> Integer
     def zr_str_char_count: (Integer s) -> Integer
     def zr_str_char_len_at: (Integer s, Integer off) -> Integer
@@ -2316,6 +2317,7 @@ module Zr
     def zr_using_holders: (Integer list, Integer mod) -> Integer
     def zr_utf8_char_count: (Integer p, Integer n) -> Integer
     def zr_utf8_char_len: (Integer p, Integer n) -> Integer
+    def zr_utf8_char_offset: (Integer p, Integer n, Integer index) -> Integer
     def zr_utimes_m: (Integer path, Integer atime_us, Integer mtime_us) -> Integer
     def zr_value_code: (Integer key) -> Integer
     def zr_verify_arena: (Integer a) -> void

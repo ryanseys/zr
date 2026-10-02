@@ -749,6 +749,21 @@ module Zr::Kern
     recv
   end
 
+  # Appends `len` bytes of `other` from byte `from` to `recv`, another
+  # String, with no String between: `gsub` joins the text between its
+  # matches this way.
+  sig [Value, Value, Value, Value] => Value
+  def zr_str_cat_range(recv, other, from, len)
+    count = zr_fix2long(len)
+    n = RString.len(recv) + count
+    zr_str_reserve(recv, n)
+    zr_memcpy(RString.ptr(recv) + RString.len(recv), RString.ptr(other) + zr_fix2long(from), count)
+    RString.set_len(recv, n)
+    Machine.store8(RString.ptr(recv) + n, 0, Machine.i8(0))
+    zr_str_modified(recv)
+    recv
+  end
+
   # The integer directives of Array#pack and String#unpack for machine
   # words: `size` bytes (1, 2, 4 or 8) for each integer, most significant
   # first when `big` is true. lib/zr/runtime/core/pack.rb does all other elements
@@ -1113,6 +1128,36 @@ module Zr::Kern
     count
   end
 
+  # Returns the byte offset of character `index` in `n` bytes of valid
+  # UTF-8, or -1 past the end: the place of the next byte that starts a
+  # character once `index` of them are behind. It passes eight bytes at a
+  # time while they hold no more starts than it still needs, as
+  # `zr_utf8_char_count` counts them.
+  sig [Ptr, Word, Word] => Word
+  def zr_utf8_char_offset(p, n, index)
+    need = index
+    i = 0
+    while i + 8 <= n
+      w = Machine.load64(p + i, 0)
+      starts = 8 - Machine.popcnt((w >> 7) & ((w >> 6) ^ (0 - 1)) & 0x0101010101010101)
+      if starts > need
+        break
+      end
+      need -= starts
+      i += 8
+    end
+    while i < n
+      if (Machine.u8(Machine.load8(p + i, 0)) & 0xC0) != 0x80
+        if need == 0
+          return i
+        end
+        need -= 1
+      end
+      i += 1
+    end
+    need == 0 ? n : 0 - 1
+  end
+
   # Returns the number of characters in `n` bytes of valid UTF-8: all bytes
   # except the continuation bytes, which are `10xxxxxx`. It counts eight
   # bytes at a time (`popcnt` of one bit for each byte), then one at a time.
@@ -1155,6 +1200,9 @@ module Zr::Kern
         return 0 - 1
       end
     end
+    if zr_str_encoding_index(s) == ENC_UTF8 && zr_str_valid_p(s) == QTRUE
+      return zr_utf8_char_offset(RString.ptr(s), n, index)
+    end
     i = 0
     while index > 0
       if i >= n
@@ -1179,6 +1227,9 @@ module Zr::Kern
     # One byte for each character: the offset is the index.
     if (RBasic.flags(s) & FL_ASCII) != 0 || (!zr_str_wide_p(s) && zr_str_unit(s) == 0 && !zr_str_mb_p(s)) || zr_str_ascii_bytes_p(s)
       return off
+    end
+    if zr_str_encoding_index(s) == ENC_UTF8 && zr_str_valid_p(s) == QTRUE && stop <= RString.len(s)
+      return zr_fix(zr_utf8_char_count(RString.ptr(s), stop))
     end
     i = 0
     count = 0

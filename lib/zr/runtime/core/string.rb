@@ -728,22 +728,31 @@ class String
       val = replacement_for(match, replacement, regexp, &block)
       # str_mod_check: a block or a Hash must leave the receiver as it was.
       modified_check(len) unless replacement.is_a?(String)
-      out.send(:buf_cat, byteslice_of(start, from - start)) if from > start
+      cat_range(out, start, from - start) if from > start
       out.send(:buf_cat, val)
       start = to
       if to == from
         break if to >= Primitive.zr_str_bytesize(self)
 
         step = Primitive.zr_str_char_len_at_m(self, to)
-        out.send(:buf_cat, byteslice_of(to, step))
+        cat_range(out, to, step)
         start = to + step
       end
     end
     Primitive.zr_backref_set(last)
     return copied unless out
 
-    out.send(:buf_cat, byteslice_of(start, Primitive.zr_str_bytesize(self) - start)) if Primitive.zr_str_bytesize(self) > start
+    cat_range(out, start, Primitive.zr_str_bytesize(self) - start) if Primitive.zr_str_bytesize(self) > start
     out
+  end
+
+  # Appends `n` bytes of the receiver from byte `at` to `out`, as
+  # `buf_cat` appends them. In one encoding that is a copy of the bytes.
+  def cat_range(out, at, n)
+    Primitive.attr! :hidden
+    return out.send(:buf_cat, byteslice_of(at, n)) unless Primitive.zr_str_encoding_index_m(out) == Primitive.zr_str_encoding_index_m(self)
+
+    Primitive.zr_str_cat_range(out, self, at, n)
   end
 
   def sub!(pattern, replacement = nil, &block) = mutate(OWN[:sub].bind_call(self, pattern, replacement, &block))
@@ -2619,9 +2628,11 @@ class String
     start = 0
     last_null = false
     pieces = 1
-    while (match = pattern.send(:search, self, start, false))
-      from = match.send(:begin_at, 0)
-      to = match.send(:end_at, 0)
+    # The offsets of each match, as `scan` reads them: no MatchData.
+    program = pattern.send(:program_for, self)
+    while (offsets = Primitive.zr_regexp_search(pattern, program, self, start, false))
+      from = offsets[1]
+      to = offsets[2]
       if start == from && from == to
         if Primitive.zr_str_bytesize(self) == 0
           out << ""
@@ -2639,7 +2650,11 @@ class String
         beg = start = to
       end
       last_null = false
-      match.captures.each { |c| out << c unless c.nil? }
+      group = 3
+      while group < offsets.size
+        out << slice_at(offsets[group], offsets[group + 1]) if offsets[group] >= 0
+        group += 2
+      end
       break if limit > 0 && limit <= (pieces += 1)
     end
     split_tail(out, beg, limit)
