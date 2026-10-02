@@ -130,17 +130,127 @@ module Zr
         end
 
         # The operands of `op` as doubles, if the flonum path accepts them.
-        # Else the branch to `slow`.
+        # Else the branch to `slow`. Each operand is a Value or an Operand.
         def doubles(op, a, b, slow)
+          a = Operand.new(a, nil) unless a.is_a?(Operand)
+          b = Operand.new(b, nil) unless b.is_a?(Operand)
           fop, gate = FLOAT_OPS.fetch(op)
           compare = fop.is_a?(String)
           go = @f.label
-          numbers = @f.band(number?(a, compare), number?(b, compare))
-          some_flonum = @f.bor(flonum?(a), flonum?(b))
+          numbers = @f.band(number_operand?(a, compare), number_operand?(b, compare))
+          some_flonum = @f.bor(float_operand?(a), float_operand?(b))
           gates = gates_clear(OPS.fetch(op), gate)
           @f.brif(@f.band(@f.band(numbers, some_flonum), gates), go, slow)
           switch(go)
-          [as_double(a), as_double(b)]
+          [operand_double(a), operand_double(b)]
+        end
+
+        # An operand of a float operator. `bits` is nil for a plain Value.
+        # Else the operand is an inner float operator's result
+        # (`unboxed_operator`): `value` is QUNDEF when the inner operator
+        # took its flonum path, and then `bits` holds the double, which no
+        # code boxes unless the outer operator sends.
+        Operand = Data.define(:value, :bits)
+
+        # Whether the operand holds its double in `bits`.
+        def unboxed?(o) = @f.icmp("eq", o.value, qundef)
+
+        def number_operand?(o, exact)
+          o.bits ? @f.bor(unboxed?(o), number?(o.value, exact)) : number?(o.value, exact)
+        end
+
+        def float_operand?(o)
+          o.bits ? @f.bor(unboxed?(o), flonum?(o.value)) : flonum?(o.value)
+        end
+
+        def operand_double(o)
+          return as_double(o.value) unless o.bits
+
+          @f.bitcast("f64", @f.csel(unboxed?(o), o.bits, double_bits(o.value)))
+        end
+
+        # The operand as a Value: an unboxed double becomes a Float.
+        def boxed(o)
+          return o.value unless o.bits
+
+          box = @f.label
+          keep = @f.label
+          merge, (v,) = @f.block(["i64"])
+          @f.brif(unboxed?(o), box, keep)
+          switch(box)
+          @f.jump(merge, [float_value(@f.bitcast("f64", o.bits))])
+          switch(keep)
+          @f.jump(merge, [o.value])
+          switch(merge)
+          v
+        end
+
+        # Whether `node`, as an operand of a float operator, can give its
+        # result as a double: an arithmetic float operator that lowers
+        # through `direct_operator`.
+        def unboxable?(node)
+          node.is_a?(Hir::Send) && !node.safe && !node.interp && FLOAT_OPS.key?(node.name) &&
+            !FLOAT_OPS.fetch(node.name).first.is_a?(String) && float_path?(node) && !primitive?(node) &&
+            direct_operands?(node, node.recv || Hir::SelfRef.new(node.line))
+        end
+
+        # An operand of the operator `node`: an inner float operator
+        # unboxed if `node` has the flonum path, else the plain Value.
+        # Equality in the core library answers natively first
+        # (`native_equality`), so it keeps its Values.
+        def operand_of(node, operand)
+          fused = float_path?(node) && !(native_operators? && %i[== !=].include?(node.name))
+          return Operand.new(expr(operand), nil) unless fused && unboxable?(operand)
+
+          unboxed_operator(operand)
+        end
+
+        # A float operator whose result goes to an outer float operator.
+        def unboxed_operator(node)
+          a, b = site_operands(node, node.recv || Hir::SelfRef.new(node.line))
+          fused_operator(node, a, b, unboxed: true).tap { deactivate(node) }
+        end
+
+        # The send of an operator with Operands. Both go into their slots
+        # first, so a Float that boxes one cannot free the other, then each
+        # double is boxed in its slot.
+        def sent_fused(node, a, b)
+          base = reserve(2)
+          [a, b].each_with_index { |o, i| @f.store(o.value, @rec, value_offset(base + i)) }
+          [a, b].each_with_index { |o, i| @f.store(boxed(o), @rec, value_offset(base + i)) if o.bits }
+          slots = @f.iadd(@rec, imm(value_offset(base)))
+          result = dispatch(node, @f.fetch("i64", slots), @f.iadd(slots, imm(8)), imm(1))
+          release(base)
+          result
+        end
+
+        # `operator` with Operands. With `unboxed`, the result is an
+        # Operand, and its flonum path gives the double; else it is a
+        # Value.
+        def fused_operator(node, a, b, unboxed:)
+          op = node.name
+          fop = FLOAT_OPS.fetch(op).first
+          fast = @f.label
+          slow = @f.cold(@f.label)
+          floating = @f.label
+          merge, (result, bits) = @f.block(unboxed ? %w[i64 i64] : ["i64"])
+          tail = unboxed ? [imm(0)] : []
+          @f.brif(@f.band(fixnums?(a.value, b.value), gate_clear(OPS.fetch(op))), fast, floating)
+          switch(fast)
+          @f.jump(merge, [fast_path(op, a.value, b.value, slow), *tail])
+          switch(floating)
+          x, y = doubles(op, a, b, slow)
+          if fop.is_a?(String)
+            @f.jump(merge, [ruby_bool(@f.fcmp(fop, x, y))])
+          elsif unboxed
+            @f.jump(merge, [qundef, @f.bitcast("i64", @f.fbinop(fop, x, y))])
+          else
+            @f.jump(merge, [float_value(@f.fbinop(fop, x, y))])
+          end
+          switch(slow)
+          @f.jump(merge, [sent_fused(node, a, b), *tail])
+          switch(merge)
+          unboxed ? Operand.new(result, bits) : result
         end
 
         def fixnums?(a, b) = @f.icmp("ne", @f.band(@f.band(a, b), imm(1)), imm(0))
@@ -157,13 +267,16 @@ module Zr
 
         # The double value of a flonum or fixnum `v`: `zr_float_value`'s
         # rotation, +0.0 for the flonum zero, or a converted fixnum.
-        def as_double(v)
+        def as_double(v) = @f.bitcast("f64", double_bits(v))
+
+        # The bits of `as_double`'s result.
+        def double_bits(v)
           sign = @f.ushr(v, imm(63))
           x = @f.bor(@f.isub(imm(2), sign), @f.band(v, imm(-4)))
           rotated = @f.bor(@f.ushr(x, imm(3)), @f.ishl(x, imm(61)))
           decoded = @f.csel(@f.icmp("eq", v, imm(FLONUM_ZERO)), imm(0), rotated)
           converted = @f.bitcast("i64", @f.fcvt_from_sint(@f.sshr(v, imm(1))))
-          @f.bitcast("f64", @f.csel(flonum?(v), decoded, converted))
+          @f.csel(flonum?(v), decoded, converted)
         end
 
         # `zr_float_new` inline: a flonum if the exponent's top bits are

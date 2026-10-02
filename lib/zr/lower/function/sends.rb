@@ -136,20 +136,57 @@ module Zr
           end
         end
 
-        # An operator site whose operands are plain reads (a local, self, an
-        # immediate literal: nothing that calls or allocates) tests them
-        # directly. It stages them in the record only on the send branch, so
-        # the fast branch stores and releases nothing. A unary operator has
-        # one operand, and nothing runs between its read and the test, so
-        # any receiver is permitted.
+        # An operator site tests its operands directly when no collection
+        # can occur while it holds the receiver's value only in a register:
+        # the argument is a plain read (a local, self, an immediate literal:
+        # nothing that calls or allocates), or the receiver is self or an
+        # immediate literal, which need no root. An argument of operators
+        # (`operator_tree?`) can also be direct: then the receiver waits in
+        # its record slot while the argument runs (`site_operands`). Thus
+        # `(a * b) * c`, `1.0 / (a * b)` and `s + a / b` keep the
+        # intermediate values out of the record. The site stages the
+        # operands in the record only on the send branch, so the fast
+        # branch stores and releases nothing. A unary operator has one
+        # operand, and nothing runs between its read and the test, so any
+        # receiver is permitted.
         def direct_operands?(node, recv_node)
           return false if node.block || node.kwargs || node.write || node.vcall || owner_using?(node) || traced?
 
           if node.args.size == 1 && OPS.key?(node.name)
-            plain_read?(recv_node) && plain_read?(node.args.first)
+            arg = node.args.first
+            !arg.is_a?(Hir::Splat) && (plain_read?(arg) || rootless?(recv_node) || operator_tree?(arg))
           else
             node.args.empty? && UNARY.key?(node.name) && explicit?(node)
           end
+        end
+
+        # Self, or an immediate literal: a value that needs no root.
+        def rootless?(node) = node.is_a?(Hir::SelfRef) || (node.is_a?(Hir::Literal) && plain_read?(node))
+
+        # The two operands of a direct operator site, in order. While an
+        # argument that is not a plain read runs, the receiver waits in the
+        # slot that the send has for it (Scope counts it), so a collection
+        # sees it.
+        def site_operands(node, recv_node)
+          arg = node.args.first
+          a = operand_of(node, recv_node)
+          return [a, operand_of(node, arg)] if plain_read?(arg) || rootless?(recv_node)
+
+          base = reserve(1)
+          @f.store(a.value, @rec, value_offset(base))
+          b = operand_of(node, arg)
+          held = @f.fetch("i64", @rec, value_offset(base))
+          release(base)
+          [Operand.new(held, a.bits), b]
+        end
+
+        # Whether `node` is only operators over plain reads, such as
+        # `a * (b + 1.0)`.
+        def operator_tree?(node)
+          return true if plain_read?(node)
+
+          node.is_a?(Hir::Send) && node.args.size == 1 && OPS.key?(node.name) && node.recv && !node.block &&
+            !node.kwargs && !node.write && !node.safe && operator_tree?(node.recv) && operator_tree?(node.args.first)
         end
 
         def plain_read?(node)
@@ -164,8 +201,16 @@ module Zr
         end
 
         def direct_operator(node, recv_node)
-          recv = expr(recv_node)
-          args = node.args.map { |a| expr(a) }
+          if node.args.empty?
+            recv = expr(recv_node)
+            args = []
+          else
+            a, b = site_operands(node, recv_node)
+            return fused_operator(node, a, b, unboxed: false).tap { deactivate(node) } if a.bits || b.bits
+
+            recv = a.value
+            args = [b.value]
+          end
           slow = -> { sent_directly(node, recv, args) }
           (args.empty? ? unary(node, recv, nil, &slow) : operator(node, recv, nil, args.first, &slow)).tap { deactivate(node) }
         end
@@ -190,8 +235,11 @@ module Zr
         # `n < 2` or a loop's `i < n`). The call's result is tested as a
         # value.
         def relation_jump(node, yes, no)
-          recv = expr(node.recv || Hir::SelfRef.new(node.line))
-          arg = expr(node.args.first)
+          a, b = site_operands(node, node.recv || Hir::SelfRef.new(node.line))
+          return fused_relation_jump(node, a, b, yes, no) if a.bits || b.bits
+
+          recv = a.value
+          arg = b.value
           fast = @f.label
           slow = @f.cold(@f.label)
           floating = @f.label if float_path?(node)
@@ -206,6 +254,24 @@ module Zr
           switch(slow)
           native_equality(node, recv, arg) { |equal| @f.brif(equal, yes, no) }
           v = sent_directly(node, recv, [arg])
+          deactivate(node)
+          @f.brif(truthy(v), yes, no) unless @f.terminated?
+        end
+
+        # `relation_jump` with an inner float operator's result as one
+        # operand.
+        def fused_relation_jump(node, a, b, yes, no)
+          fast = @f.label
+          slow = @f.cold(@f.label)
+          floating = @f.label
+          @f.brif(@f.band(fixnums?(a.value, b.value), gate_clear(OPS.fetch(node.name))), fast, floating)
+          switch(fast)
+          @f.brif(@f.icmp(RELATIONS.fetch(node.name), a.value, b.value), yes, no)
+          switch(floating)
+          x, y = doubles(node.name, a, b, slow)
+          @f.brif(@f.fcmp(FLOAT_OPS.fetch(node.name).first, x, y), yes, no)
+          switch(slow)
+          v = sent_fused(node, a, b)
           deactivate(node)
           @f.brif(truthy(v), yes, no) unless @f.terminated?
         end
