@@ -11,7 +11,12 @@ module Zr
       # `map` or `select` also has a step: the block that takes the value
       # of each run of the body (its last value, or the value of `next`)
       # and then goes to the head.
-      Loop = Data.define(:head, :body, :done, :depth, :step) do
+      Loop = Data.define(:head, :body, :done, :depth, :step)
+
+      # The default of `step` is in a reopened class, not in the block of
+      # `Data.define`, so that the type check (sig/pilot/records.rbs) sees
+      # it in the class that it belongs to.
+      class Loop
         def initialize(head:, body:, done:, depth:, step: nil) = super
       end
     end

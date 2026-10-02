@@ -10,9 +10,10 @@ module Zr
         attr_reader body: String
         attr_reader done: String
         attr_reader depth: Integer
+        attr_reader step: String?
 
-        def self.new: (head: String, body: String, done: String, depth: Integer) -> instance
-                    | (String head, String body, String done, Integer depth) -> instance
+        def self.new: (head: String, body: String, done: String, depth: Integer, ?step: String?) -> instance
+        def initialize: (head: String, body: String, done: String, depth: Integer, ?step: String?) -> void
       end
 
       class CallSite < Data
