@@ -1,0 +1,17 @@
+[TypeError, "no implicit conversion from string"]
+[TypeError, "no implicit conversion from string"]
+[TypeError, "no implicit conversion from string"]
+[ArgumentError, "negative length -1 given"]
+[ArgumentError, "negative length -1 given"]
+[ArgumentError, "negative length -1 given"]
+nil
+nil
+[IOError, "closed stream"]
+[IOError, "closed directory"]
+[IOError, "closed directory"]
+[IOError, "closed directory"]
+[IOError, "closed directory"]
+[IOError, "closed directory"]
+[IOError, "closed directory"]
+[IOError, "closed directory"]
+[:main, :locked]

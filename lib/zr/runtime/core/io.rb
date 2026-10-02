@@ -392,6 +392,7 @@ class IO
     return nil if value.nil?
     raise TypeError, "can't convert #{conversion_name(value)} into time interval" unless value.is_a?(Numeric)
     raise ArgumentError, +"time interval must not be negative" if value.negative?
+    raise RangeError, +"NaN out of Time range" if value.is_a?(Float) && value.nan?
 
     value
   end
@@ -1004,6 +1005,8 @@ class IO
   # Half-closing an end the stream does not have is an error; on one it
   # does have, and which is not duplex, it closes the whole stream.
   def close_read
+    # rb_io_close_read: a closed stream has nothing left to close.
+    return nil if closed?
     raise IOError, +"closing non-duplex IO for reading" if @mode.start_with?("w", "a") && !@mode.include?("+")
 
     close
@@ -1012,6 +1015,7 @@ class IO
   # A duplex handle really half-closes: the twin closes and the child
   # reads its end of input, while its output stays readable here.
   def close_write
+    return nil if closed?
     raise IOError, +"closing non-duplex IO for writing" if @mode.start_with?("r") && !@mode.include?("+")
     return close unless @twin
 
@@ -1119,6 +1123,7 @@ class IO
 
   # The offset where the seek lands, as lseek returns it.
   def sysseek(offset, whence = SEEK_SET)
+    offset = IO.send(:offset_of, offset)
     check_open
     raise IOError, +"sysseek for buffered IO" unless @buffer.empty?
 
@@ -1329,9 +1334,11 @@ class IO
 
   # `read(length)`: that many bytes, fewer at the end, nil past it, and
   # always binary; without a length, everything that is left.
+  # The length is checked before the stream, as io_read does.
   def read(length = nil, buffer = nil)
-    check_readable
     raise ArgumentError, "negative length #{length} given" if length && length < 0
+
+    check_readable
 
     IO.send(:room_for!, length)
     # A scheduler's io_read gets the same byte count that io.c requests.
@@ -1388,8 +1395,9 @@ class IO
   # own parameters, under CRuby's names.
   def read_nonblock(len, buf = nil, exception: true)
     Primitive.attr! :ruby
-    check_readable
     raise ArgumentError, "negative length #{len} given" if len < 0
+
+    check_readable
     if !buffered? && !len.zero? && would_block?(READABLE)
       return :wait_readable unless exception
 
@@ -1659,6 +1667,7 @@ class IO
   alias tell pos
 
   def seek(offset, whence = SEEK_SET)
+    offset = IO.send(:offset_of, offset)
     check_open
     write_pending
     whence = { set: SEEK_SET, cur: SEEK_CUR, end: SEEK_END }.fetch(whence) if whence.is_a?(Symbol)
@@ -1969,8 +1978,9 @@ class IO
   # reader of a pipe returns as soon as any bytes arrive.
   def read_some(length)
     Primitive.attr! :hidden
-    check_readable
     raise ArgumentError, "negative length #{length} given" if length < 0
+
+    check_readable
     return "".b if length.zero?
 
     IO.send(:room_for!, length)

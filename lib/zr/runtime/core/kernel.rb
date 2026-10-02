@@ -305,6 +305,7 @@ module Kernel
     unless duration.nil?
       raise TypeError, "can't convert #{duration.class} into time interval" unless duration.is_a?(Numeric)
       raise ArgumentError, +"time interval must not be negative" if duration < 0
+      raise RangeError, +"NaN out of Time range" if duration.is_a?(Float) && duration.nan?
     end
     # The return value is whole seconds of the wall clock: time(2) after
     # minus time(2) before, as rb_f_sleep counts them.

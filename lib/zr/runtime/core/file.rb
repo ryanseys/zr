@@ -976,10 +976,17 @@ class File < IO
   end
 
 
+  # rb_file_flock: a blocking lock is tried without blocking, and between
+  # tries the thread sleeps, so the other threads run while it waits.
   def flock(operation)
-    result = Primitive.zr_fs_call(8, "", fileno, operation)
-    return false if result == -Errno::EWOULDBLOCK::Errno
+    operation = Primitive.zr_index_operand_m(operation)
+    while true
+      result = Primitive.zr_fs_call(8, "", fileno, operation | LOCK_NB)
+      break unless result == -Errno::EWOULDBLOCK::Errno
+      return false unless (operation & LOCK_NB).zero?
 
+      sleep 0.1
+    end
     raise SystemCallError.new(path, -result, +"rb_file_flock") if result < 0
 
     0
@@ -1142,21 +1149,28 @@ class Dir
 
   # The cursor is the index of the next name. CRuby returns the value of
   # `telldir`, which is a cookie for `seek` only.
-  def pos = @pos
+  # Each refuses a closed Dir, as dir_check does.
+  def pos
+    open_names
+    @pos
+  end
 
-  def tell = @pos
+  def tell = pos
 
   def pos=(where)
+    open_names
     @pos = where
     where
   end
 
   def seek(where)
+    open_names
     @pos = where
     self
   end
 
   def rewind
+    open_names
     @pos = 0
     self
   end

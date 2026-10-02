@@ -21,10 +21,11 @@ class Thread
   class << self
     def report_on_exception = equal?(Thread) ? @report_on_exception : Thread.report_on_exception
 
+    # The flags read back as true or false, as RTEST stores them.
     def report_on_exception=(value)
       return Thread.report_on_exception = value unless equal?(Thread)
 
-      @report_on_exception = value
+      @report_on_exception = value ? true : false
     end
 
     def abort_on_exception = equal?(Thread) ? @abort_on_exception : Thread.abort_on_exception
@@ -32,7 +33,7 @@ class Thread
     def abort_on_exception=(value)
       return Thread.abort_on_exception = value unless equal?(Thread)
 
-      @abort_on_exception = value
+      @abort_on_exception = value ? true : false
     end
 
     def current = equal?(Thread) ? @current : Thread.current
@@ -124,6 +125,7 @@ class Thread
       Primitive.attr! :hidden
       raise TypeError, "can't convert #{timeout.nil? ? 'nil' : timeout.class} into time interval" unless timeout.is_a?(Numeric)
       raise ArgumentError, +"time interval must not be negative" if timeout.negative?
+      raise RangeError, +"NaN out of Time range" if timeout.is_a?(Float) && timeout.nan?
 
       timeout.to_f
     end
@@ -137,7 +139,9 @@ class Thread
       raise TypeError, +"no implicit conversion to float from string" if limit.is_a?(String)
       raise TypeError, "can't convert #{limit.nil? ? 'nil' : limit.class} into Float" unless limit.is_a?(Numeric)
 
-      limit.to_f
+      # A NaN limit waits for nothing, as Queue#pop and Thread#join take it.
+      limit = limit.to_f
+      limit.nan? ? 0.0 : limit
     end
 
     # Wakes the waiters that still sleep, `count` of them at the most.
@@ -345,7 +349,15 @@ class Thread
     @waiters = []
   end
 
-  attr_accessor :report_on_exception, :abort_on_exception
+  attr_reader :report_on_exception, :abort_on_exception
+
+  def report_on_exception=(value)
+    @report_on_exception = value ? true : false
+  end
+
+  def abort_on_exception=(value)
+    @abort_on_exception = value ? true : false
+  end
   attr_reader :name
 
   def name=(name)
@@ -630,7 +642,8 @@ class Thread
       end)
     rescue Exception => e
       @exception = e
-      report(e) if @report_on_exception
+      # thread_start_func_2 reports no SystemExit.
+      report(e) if @report_on_exception && !e.is_a?(SystemExit)
     end
     # After the scheduler is closed and before the joiners wake, which
     # is where thread_start_func_2 fires it, whether the body ended or
@@ -975,12 +988,18 @@ class Fiber
     # resume's value, or the kill or the exception left for the fiber.
     def yield(*args) = take_action(__yield__(*args))
 
+    # A read makes no storage.
     def [](key)
-      current.send(:storage_table)[storage_key(key)]
+      key = storage_key(key)
+      Primitive.zr_hidden_get(current, :__storage__)&.[](key)
     end
 
+    # A nil value removes the key, as fiber_storage_set does.
     def []=(key, value)
-      current.send(:storage_table)[storage_key(key)] = value
+      key = storage_key(key)
+      return Primitive.zr_hidden_get(current, :__storage__)&.delete(key) && nil if value.nil?
+
+      current.send(:storage_table)[key] = value
     end
 
     private
@@ -1108,7 +1127,8 @@ class Fiber
   def storage
     Kernel.raise ArgumentError, +"Fiber storage can only be accessed from the Fiber it belongs to" unless equal?(Fiber.current)
 
-    storage_table.dup
+    # nil until a key is set.
+    Primitive.zr_hidden_get(self, :__storage__)&.dup
   end
 
   def storage=(hash)
