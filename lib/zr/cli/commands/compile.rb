@@ -54,7 +54,10 @@ module Zr
           if name == "run" && emit.nil? && Zr::Cache::Run.wanted?
             cache ||= Zr::Cache::Run.new(input, target: target, digest: Runtime.for(target).digest, link: link, gems: gems)
           end
-          program = lower(input, target, assemble: emit.nil?, gem_set: gems, gate: !opts[:runtime_require])
+          # Only `zr build` notes a require that will raise LoadError when it
+          # runs; `run` and `diff` print the program's output alone.
+          gate = opts[:runtime_require] ? false : (name == "build" ? :warn : true)
+          program = lower(input, target, assemble: emit.nil?, gem_set: gems, gate: gate)
           status = Paths.tmpdir("zr-build-") do |work|
             out = name == "run" ? File.join(work, "program") : File.expand_path(opts[:output])
             case emit
@@ -115,8 +118,6 @@ module Zr
           return Program.build(source, input, target: target, gem_set: gem_set, gate: gate) unless assemble
 
           Native::Build.lower(source, input, target: target, sources: name == "run", gem_set: gem_set, gate: gate)
-        rescue Hir::Missing => e
-          abort "zr: #{e.message}"
         rescue Refused => e
           warn Refusals.refusal_report(e)
           exit REFUSED

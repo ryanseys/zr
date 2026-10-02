@@ -90,23 +90,24 @@ module Zr
         Require.new(node.name, feature, path, @loader.add(path), line)
       end
 
-      # A literal require in the program's own file that no root has would
-      # stay for the run time, and the binary would carry the compiler to
-      # compile what it finds then (about 90 MB). In a build with the gate
-      # (the CLI's, without --allow-runtime-require), it stops the build
-      # instead. A require that a `rescue LoadError` guards stays, as does
-      # one in a library's file: code there can handle the LoadError.
+      # A literal require in the program's own file that no root has stays
+      # for the run time, as in ruby: it raises LoadError only if it runs,
+      # so one in a branch that never runs costs nothing. With the gate
+      # (the CLI's, without --allow-runtime-require) the binary has no
+      # compiler to compile a file it finds then, and `zr build` says so.
+      # A require that a `rescue LoadError` guards is quiet, as is one in a
+      # library's file: code there can handle the LoadError.
       def gate!(node, feature)
-        return unless @loader.gated? && @loader.own?(@file) && @guarded.to_i.zero?
+        return unless @loader.gated? == :warn && @loader.own?(@file) && @guarded.to_i.zero?
 
         name = feature.to_s.delete_suffix(".rb")
         fix = if node.name == :require && !name.start_with?("/", ".", "~")
-                "Give --gem #{name.split("/").first}=<dir> or a --gemfile that has it, "
+                "give --gem #{name.split("/").first}=<dir> or a --gemfile that has it"
               else
-                "Add the file, "
+                "add the file"
               end
-        raise Missing, "#{@file}:#{node.location.start_line}: cannot load such file -- #{name}. #{fix}" \
-                       "put the #{node.name} in `begin ... rescue LoadError`, or build with --allow-runtime-require"
+        warn "zr: warning: #{@file}:#{node.location.start_line}: cannot load such file -- #{name}; the #{node.name} raises " \
+             "LoadError if it runs. To load it, #{fix}, or build with --allow-runtime-require"
       end
 
       # A require that reaches a file of a gem that zr cannot compile

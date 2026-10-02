@@ -21,11 +21,6 @@ module Zr
     # it one.
     class Invalid < Refused; end
 
-    # A literal require in the program's own files that no root has, in a
-    # build with the gate (`Build#gate!`). It is an error in the program's
-    # setup, not a form of Ruby that zr refuses.
-    class Missing < StandardError; end
-
     # Prism to HIR. A form that the HIR does not support yet is refused,
     # with a message that gives the form and the line. The rule: the same
     # as CRuby, or refused. Never a guess.
