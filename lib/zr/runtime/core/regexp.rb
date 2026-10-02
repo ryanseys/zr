@@ -112,40 +112,63 @@ class Regexp
   # flags. A pattern that `warns` prints the engine's warnings.
   def self.seat(re, source, bits, warns: true)
     source = source.dup.freeze unless source.frozen?
-    encoding, bits, compiled, warnings = Pattern.compile(source, bits)
+    encoding, bits, program, names, warnings = compiled(source, bits)
     # reg_set_source: the source reads in the pattern's encoding.
     source = source.dup.force_encoding(encoding).freeze unless source.encoding == encoding
-    Primitive.zr_regexp_seat(re, Onig::Program.pack(compiled), source, bits, name_rows_of(compiled, encoding))
+    Primitive.zr_regexp_seat(re, program, source, bits, name_rows(names, encoding))
     Primitive.zr_state_set(re, :encoding, encoding)
     warn_of(warnings) if warns
     re
   end
   private_class_method :seat
 
+  # `source` compiled with the option `bits`, as [encoding, bits, program,
+  # names, warnings]: the program that the kernel's matcher reads
+  # (Onig::Program), the named groups as [name, [group numbers]], and the
+  # warnings as [verbose, text]. On the host, CRuby runs this same
+  # compiler (`zr_regexp_host_compile`); a binary compiles here.
+  def self.compiled(source, bits)
+    Primitive.attr! :hidden
+    if (done = Primitive.zr_regexp_host_compile(source, bits))
+      index, bits, program, names, warnings = done
+      return [Encoding.at(index), bits, program.freeze, names, warnings]
+    end
+
+    encoding, bits, compiled, warnings = Pattern.compile(source, bits)
+    names = compiled.name_table.to_a.map { |name, entry| [name, entry.back_refs] }
+    [encoding, bits, Onig::Program.pack(compiled), names, warning_rows(warnings)]
+  end
+  private_class_method :compiled
+
   # A Regexp of this class over `source`: the husk and its pattern in
   # one step, which the literal table and the copies use.
   def self.compile_source(source, bits, warns: true) = seat(allocate, source, bits, warns: warns)
   private_class_method :compile_source
 
-  # The named groups of a compiled pattern, [[name, [group numbers]], ...]
-  # in definition order, the names in the pattern's encoding.
-  def self.name_rows_of(compiled, encoding)
+  # The named groups of a compile, [[name, [group numbers]], ...] in
+  # definition order, the names in the pattern's encoding.
+  def self.name_rows(names, encoding)
     Primitive.attr! :hidden
-    return [].freeze unless compiled.name_table
-
-    compiled.name_table.to_a.map { |name, entry| [name.dup.force_encoding(encoding).freeze, entry.back_refs.dup.freeze].freeze }.freeze
+    names.map { |name, refs| [name.dup.force_encoding(encoding).freeze, refs.dup.freeze].freeze }.freeze
   end
-  private_class_method :name_rows_of
+  private_class_method :name_rows
+
+  # The warnings of a compile as [verbose, text] pairs (`warn_of`).
+  def self.warning_rows(warnings)
+    Primitive.attr! :hidden
+    warnings.rows.map { |row| [row.verbose, row.text] }
+  end
+  private_class_method :warning_rows
 
   # What the engine warned of as it compiled the pattern (re_warn), each
   # warning naming the engine's text as Onigmo writes it. One ruby
   # gives only when verbose waits for $VERBOSE.
   def self.warn_of(warnings)
     Primitive.attr! :hidden
-    warnings.rows.each do |row|
-      next if row.verbose && !$VERBOSE
+    warnings.each do |verbose, text|
+      next if verbose && !$VERBOSE
 
-      Primitive.zr_warn_here_m(row.text)
+      Primitive.zr_warn_here_m(text)
     end
   end
   private_class_method :warn_of
@@ -219,7 +242,7 @@ class Regexp
 
     entry = programs[enc] ||= begin
       compiled, warnings = Pattern.recompile(pattern, options, own, enc)
-      [Onig::Program.pack(compiled).freeze, warnings].freeze
+      [Onig::Program.pack(compiled).freeze, Regexp.send(:warning_rows, warnings)].freeze
     rescue ArgumentError, RegexpError => e
       [nil, e.class, e.message].freeze
     end

@@ -1833,6 +1833,7 @@ module Zr
     def zr_regexp_captures: (Integer re) -> Integer
     def zr_regexp_copy_from: (Integer re, Integer other) -> Integer
     def zr_regexp_failed: (Integer r) -> Integer
+    def zr_regexp_host_compile: (Integer source, Integer bits) -> Integer
     def zr_regexp_limit: (Integer re) -> Integer
     def zr_regexp_limit_for: (Integer re) -> Integer
     def zr_regexp_limit_set: (Integer re, Integer nanoseconds) -> Integer

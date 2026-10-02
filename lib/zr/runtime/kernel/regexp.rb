@@ -76,6 +76,14 @@ module Zr::Kern
     re
   end
 
+  # The compile of `source` under the option `bits` that the host makes
+  # with CRuby, or nil (lib/zr/machine/host/walk/regexps.rb). A binary has
+  # none: the core compiles each pattern itself (`Regexp.compiled`).
+  sig [Value, Value] => Value
+  def zr_regexp_host_compile(source, bits)
+    Machine.value(QNIL)
+  end
+
   # Puts the compiled `program` into the empty cell `re`, with the
   # `options` (Ruby's bits) that it was compiled with, `shown` (the text
   # as written, which the Regexp reports as its source) and its `names`.

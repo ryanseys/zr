@@ -76,7 +76,20 @@ module Zr
           def zr_proc_fork = zr_fix(self::BOOT.fork_process)
         end
 
+        # A Regexp's compile, which CRuby makes here (`Walk::Regexps`). The
+        # kernel's own def answers nil, as it does in a binary, until a
+        # walker runs the core.
+        module Regexps
+          def zr_regexp_host_compile(source, bits)
+            walk = self::BOOT.walk
+            walk ? walk.regexp_compile(source, bits) : super
+          end
+        end
+
         attr_reader :host
+
+        # The walker that runs the core over this kernel.
+        attr_accessor :walk
 
         def initialize(target = Target.default)
           files = RuntimeSources.for(target).kernel_files.reject { |path| path.include?("/kernel/arch/") }
@@ -87,12 +100,13 @@ module Zr
           @indices = {}
           @captures = {}
           @jump = nil
+          @walk = nil
           kern = @host.kern
           kern.const_set(:BOOT, self)
           @handlers = {}
           @owner = Process.pid
           @wake = Thread::Queue.new
-          kern.prepend(Arch, Stack, Signals, Sleep, Fork)
+          kern.prepend(Arch, Stack, Signals, Sleep, Fork, Regexps)
           kern.zr_boot
         end
 
@@ -110,28 +124,29 @@ module Zr
         #
         # Ruby's `callcc` does not restore the locals of Ruby frames, so a
         # kernel loop (Array#each) would go on from the index it had last.
-        # Each kernel def that loops and can yield is rooted, and its
-        # binding is in `stack.roots`: the capture keeps the locals of each
-        # one, and the jump writes them back.
+        # Each kernel def that loops and can yield is rooted, and its frame
+        # can be read (`Host#live_roots`): the capture keeps the locals of
+        # each one, and the jump writes them back.
         def switch(from, to)
           if to == kern.zr_cont_side_ctx
             k = callcc { |c| c }
             return unless k
 
             stack = @host.stack
-            capture = [k, stack.top, stack.pins.dup, stack.roots.dup, locals(stack.roots), stack.rooted, stack.depth]
+            frames = @host.live_roots
+            capture = [k, stack.top, stack.pins.dup, stack.roots, frames, locals(frames), stack.rooted, stack.depth]
           end
           @jump = @captures[to] if @captures.key?(to)
           leave(from, to)
           if (jump = @jump)
             @jump = nil
-            k, top, pins, roots, locals, rooted, depth = jump
+            k, top, pins, roots, frames, locals, rooted, depth = jump
             stack = @host.stack
             stack.top = top
             stack.pins.replace(pins)
-            stack.roots.replace(roots)
-            roots.each_with_index do |(binding, _), i|
-              locals[i]&.each { |name, v| binding.local_variable_set(name, v) }
+            stack.roots = roots
+            frames.each_with_index do |(binding, _), i|
+              locals[i].each { |name, v| binding.local_variable_set(name, v) }
             end
             stack.rooted = rooted
             stack.depth = depth
@@ -142,9 +157,9 @@ module Zr
         end
 
         # The locals of each rooted kernel frame, by name (`switch`).
-        def locals(roots)
-          roots.map do |binding, _|
-            binding&.local_variables&.to_h { |name| [name, binding.local_variable_get(name)] }
+        def locals(frames)
+          frames.map do |binding, _|
+            binding.local_variables.to_h { |name| [name, binding.local_variable_get(name)] }
           end
         end
 
@@ -167,6 +182,10 @@ module Zr
             target = @indices[fiber] = @fibers.push(fiber).size - 1
             Memory.write(to, [target].pack("Q<"))
           end
+          # A collection on another fiber marks this one's rooted frames,
+          # which only this fiber can read.
+          stack = @host.stack
+          stack.frames = @host.live_roots
           @fibers.fetch(target).transfer
           nil
         end

@@ -10,6 +10,7 @@ require_relative "walk/control"
 require_relative "walk/assign"
 require_relative "walk/arguments"
 require_relative "walk/definitions"
+require_relative "walk/regexps"
 
 module Zr
   module Machine
@@ -39,6 +40,7 @@ module Zr
         include Assign
         include Arguments
         include Definitions
+        include Regexps
 
         # The task has a pending unwind.
         class Unwind < StandardError; end
@@ -118,6 +120,11 @@ module Zr
           @fns = {}.compare_by_identity
           @tables = {}
           @once = {}.compare_by_identity
+          # The bytes of a String that `value` makes, before the kernel
+          # copies them.
+          @scratch = 0
+          @scratch_size = 0
+          boot.walk = self
           @boot_classes = File.read(File.join(Paths::RUNTIME, "kernel/main.rb"))
                               .scan(/zr_boot_name\((G_\w+), Machine\.id\(:(\w+)\)\)/).to_h { |slot, name| [name.to_sym, k.const_get(slot)] }
           layouts!
@@ -487,6 +494,32 @@ module Zr
         # A String's bytes as a Ruby String.
         def text(s)
           Memory.read(k::RString.ptr(s), k::RString.len(s)).force_encoding(::Encoding::UTF_8)
+        end
+
+        # A plain Ruby value as a Value: nil, true, false, Integers of the
+        # fixnum range, Strings (their bytes) and Arrays of these. Each
+        # String and Array is pinned (`Host#pin`), so a collection while the
+        # rest is made keeps it.
+        def value(x)
+          case x
+          when nil then @qnil
+          when true then @qtrue
+          when false then @qfalse
+          when Integer then (x << 1) | 1
+          when String
+            bytes = x.b
+            if @scratch_size < bytes.bytesize
+              @scratch_size = [bytes.bytesize, 2 * @scratch_size].max
+              @scratch = Memory.zeroed(@scratch_size)
+            end
+            Memory.write(@scratch, bytes)
+            @host.pin(k.zr_str_new(@scratch, bytes.bytesize))
+          when Array
+            a = @host.pin(k.zr_ary_new(x.size))
+            x.each { |e| k.zr_ary_push(a, value(e)) }
+            a
+          else raise ArgumentError, "a #{x.class} has no Value here"
+          end
         end
 
         # A Value as a plain Ruby value: Integers, Symbols, Strings, Arrays,

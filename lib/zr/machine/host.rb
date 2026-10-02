@@ -1,6 +1,10 @@
 # frozen_string_literal: true
 
 require "fiddle"
+# The frames of the running fiber, for the collector's roots
+# (`Host#live_roots`). The host is a tool of the tests and of zr-dev; a
+# build never loads it.
+require "debug_inspector"
 require_relative "../prism"
 require_relative "description"
 require_relative "host/memory"
@@ -319,6 +323,8 @@ module Zr
         @slot_base = Memory.zeroed(SLOT_BYTES)
         @stack_key = :"zr_host_stack_#{object_id}"
         @stacks = []
+        # The rooted defs, by name, with the names of their Value locals.
+        @rooted = {}
         @collecting = false
         @collectors = []
         @kern = kernel_module
@@ -415,9 +421,11 @@ module Zr
       # The machine stack of one fiber: `top` is where its next slot ends,
       # and a slot below `low` overflows. `pins` are the Values that its
       # defs hold (`pin`), and `depth` counts the walker's frames on it.
-      # `roots` are the Bindings of its rooted defs (`Framing`), and
+      # `roots` counts its rooted defs that run now (`Framing`), and
       # `rooted` tells whether the innermost def that can collect is one.
-      Stack = Struct.new(:top, :low, :pins, :depth, :roots, :rooted) do
+      # `frames` are the rooted frames of a fiber that switched away
+      # (`live_roots`): only the running fiber's frames can be read.
+      Stack = Struct.new(:top, :low, :pins, :depth, :roots, :rooted, :frames) do
         # `size` bytes of slots, rounded up to 16, below the top.
         def take(size)
           slot = top - ((size + 15) & -16)
@@ -477,18 +485,40 @@ module Zr
       end
 
       # Marks each pinned cell and each Value local of a rooted def, and
-      # runs the collection with no pinning.
+      # runs the collection with no pinning. The running fiber's rooted
+      # frames are read now; another fiber's are those it left with.
       def mark_pins
         arenas = heap_arenas
+        current = stack
         @stacks.each do |s|
           s.pins.each { |v| @kern.zr_mark(v) if live?(v, arenas) }
-          s.roots.each do |binding, names|
-            names&.each do |name|
+          frames = s.equal?(current) ? live_roots : s.frames
+          frames.each do |binding, names|
+            names.each do |name|
               v = binding.local_variable_get(name)
               @kern.zr_mark(v) if v.is_a?(Integer) && object?(v, arenas)
             end
           end
         end
+      end
+
+      # The rooted defs (`Framing`) that run on this fiber's Ruby stack:
+      # the Binding of each, with the names of its Value locals. Ruby gives
+      # the frames of the running fiber only, so a fiber keeps its own as
+      # it switches away (`Boot#leave`).
+      def live_roots
+        return [] if stack.roots.zero?
+
+        found = []
+        DebugInspector.open do |dc|
+          dc.backtrace_locations.each_index do |i|
+            next unless dc.frame_class(i).equal?(@kern)
+
+            names = @rooted[dc.frame_iseq(i)&.label]
+            found << [dc.frame_binding(i), names] if names
+          end
+        end
+        found
       end
 
       def collecting
@@ -500,22 +530,20 @@ module Zr
       end
 
       # Runs the block, a def's body, in its `frame` (`Framing`).
-      # A rooted def's Binding takes its place in `roots` when the def
-      # starts (`frames`).
       def framed(frame)
         stack = self.stack
         top = stack.top
         pins = stack.pins
         mark = pins.size
         rooted = stack.rooted
-        stack.roots << nil if frame.roots
+        stack.roots += 1 if frame.roots
         stack.rooted = frame.roots if frame.drops
         result = begin
           yield
         ensure
           stack.top = top if frame.restores
           pins.slice!(mark, pins.size - mark) if frame.drops
-          stack.roots.pop if frame.roots
+          stack.roots -= 1 if frame.roots
           stack.rooted = rooted
         end
         frame.drops && frame.value ? pin(result) : result
@@ -554,7 +582,7 @@ module Zr
 
       private
 
-      def new_stack(top, low) = Stack.new(top, low, [], 0, [], false).tap { |s| @stacks << s }
+      def new_stack(top, low) = Stack.new(top, low, [], 0, 0, false, []).tap { |s| @stacks << s }
 
       # Whether `v` is a cell the heap has allocated, so the collector
       # may mark it. A pin can hold a word that is no longer one: a cell
@@ -682,12 +710,8 @@ module Zr
           sig = @sigs[name]
           params = collects.include?(name) && !rooted && sig ? sig.first.each_index.select { |i| sig.first[i].name == "Value" } : []
           frame = Framing.new(slots.include?(name), collects.include?(name), sig&.last&.name == "Value", rooted, params)
-          body = @kern.instance_method(name)
-          frames.define_method(name, &framed_def(body.arity, frame))
-          next unless rooted
-
-          names = value_locals(defs.fetch(name)).freeze
-          TracePoint.new(:call) { |tp| host.stack.roots[-1] = [tp.binding, names] }.enable(target: body)
+          frames.define_method(name, &framed_def(@kern.instance_method(name).arity, frame))
+          @rooted[name] = value_locals(defs.fetch(name)).freeze if rooted
         end
         @kern.prepend(frames)
         collector = Module.new
@@ -708,7 +732,8 @@ module Zr
       # A def that can collect and loops is `rooted`: a pin of each pass
       # would stay until it returns, so its locals are its roots instead,
       # as the lowering's root frame holds a def's Value locals. The
-      # collector marks those locals (`value_locals`) through its Binding.
+      # collector reads those locals (`value_locals`) from the def's frame
+      # on the Ruby stack (`live_roots`).
       #
       # A rooted caller pins nothing, so a def that can collect and is not
       # rooted pins its Value arguments (`params`, their indices), as the

@@ -10,7 +10,7 @@ gemspec
 
 group :development, :test do
   gem "rake", "~> 13.0"
-  # The test framework. `bin/test` runs it.
+  # The test framework. `bin/minitest` runs it.
   gem "minitest", "~> 6.0"
   # The slowest-tests report (SLOW=1), and the JUnit file CI shows a
   # failure from.
@@ -27,6 +27,10 @@ group :development, :test do
   # gem too, so it is named here to be required under bundler.
   gem "benchmark", "~> 0.5"
   gem "simplecov", "~> 1.3", require: false
+  # The host's collector reads the locals of the kernel's frames on the
+  # Ruby stack (`Machine::Host#live_roots`). The host runs only in the
+  # tests and in zr-dev; a build never loads it.
+  gem "debug_inspector", "~> 1.2"
 end
 
 # Not part of a build or a test run.
