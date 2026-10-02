@@ -892,6 +892,7 @@ module Zr
     def zr_gvar_read: (Integer id) -> Integer
     def zr_gvar_resolve: (Integer id) -> Integer
     def zr_gvar_resolve_m: (Integer name) -> Integer
+    def zr_gvar_row: (Integer id) -> Integer
     def zr_gvar_set: (Integer id, Integer v) -> Integer
     def zr_gvar_set_m: (Integer name, Integer v) -> Integer
     def zr_gvar_store: (Integer id, Integer v) -> Integer

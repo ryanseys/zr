@@ -823,6 +823,26 @@ module Zr::Kern
     Machine.static(:gvars, IvTab.size)
   end
 
+  # The entry of global `id` in zr_gvars, or 0. An entry never leaves the
+  # table, so it keeps its index. A small static map from the id to that
+  # index finds it with no walk of the other globals; the entry's id
+  # checks the guess.
+  GVAR_GUESSES = 64
+  sig [Word] => Ptr
+  def zr_gvar_row(id)
+    t = zr_gvars()
+    guess = Machine.static(:gvar_guesses, GVAR_GUESSES * 8) + ((Machine.mul_wrap(id, 31) & (GVAR_GUESSES - 1)) * 8)
+    i = Machine.load64(guess, 0)
+    if i < IvTab.len(t) && IvEntry.id(IvTab.rows(t) + (i * IvEntry.size)) == id
+      return IvTab.rows(t) + (i * IvEntry.size)
+    end
+    e = zr_ivtab_row(t, id)
+    if e != 0
+      Machine.store64(guess, 0, (e - IvTab.rows(t)) / IvEntry.size)
+    end
+    e
+  end
+
   # `alias $new $old`: the alias refers to the same entry. The table maps
   # an alias to its resolved target name.
   sig [] => Ptr
@@ -851,11 +871,11 @@ module Zr::Kern
       v = zr_hash_lookup(zr_box_gvars(b), zr_fix(zr_gvar_resolve(id)))
       return v == QUNDEF ? Machine.value(QNIL) : v
     end
-    v = zr_ivtab_get(zr_gvars(), zr_gvar_resolve(id))
-    if v == QUNDEF
+    e = zr_gvar_row(zr_gvar_resolve(id))
+    if e == 0
       return Machine.value(QNIL)
     end
-    v
+    IvEntry.value(e)
   end
 
   # A program's `$name` read. Outside the main ractor it is refused, unless
@@ -894,7 +914,7 @@ module Zr::Kern
     if b != QNIL
       return zr_bool(zr_hash_lookup(zr_box_gvars(b), zr_fix(zr_gvar_resolve(id))) != QUNDEF)
     end
-    zr_bool(zr_ivtab_row(zr_gvars(), zr_gvar_resolve(id)) != 0)
+    zr_bool(zr_gvar_row(zr_gvar_resolve(id)) != 0)
   end
 
   sig [Word, Value] => Value
@@ -904,7 +924,13 @@ module Zr::Kern
       zr_hash_store(zr_box_gvars(b), zr_fix(zr_gvar_resolve(id)), v)
       return v
     end
-    zr_ivtab_set(zr_gvars(), zr_gvar_resolve(id), v)
+    target = zr_gvar_resolve(id)
+    e = zr_gvar_row(target)
+    if e == 0
+      zr_ivtab_set(zr_gvars(), target, v)
+    else
+      IvEntry.set_value(e, v)
+    end
     v
   end
 
