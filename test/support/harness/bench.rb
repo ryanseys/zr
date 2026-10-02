@@ -183,7 +183,7 @@ module Zr
       # is a failure.
       def report(rows, io = $stdout)
         io.puts
-        io.puts format("%-26s %8s %8s %8s %8s %8s %9s %9s", "program", "build", "zr", "cpu", "ruby", "yjit", "vs ruby", "vs yjit")
+        io.puts format("%-26s %8s %8s %8s %8s %8s %13s %13s", "program", "build", "zr", "cpu", "ruby", "yjit", "vs ruby", "vs yjit")
         rows.each { |r| io.puts line(r) }
         timed = rows.select(&:timed?)
         io.puts
@@ -192,22 +192,31 @@ module Zr
           ratios = timed.filter_map { |r| r.against(r.public_send(what)) }
           next if ratios.empty?
 
-          io.puts format("zr is %.2fx of %s, geometric mean over %d program(s)", geomean(ratios), what, ratios.size)
+          mean = geomean(ratios)
+          io.puts format("zr is %s than %s (%.2fx the time), geometric mean over %d program(s)",
+                         times(mean), what, mean, ratios.size)
         end
         io.puts "  wrote #{save(rows)}"
         rows.none? { |r| %i[diverged backend].include?(r.bucket) }
       end
 
       def line(row)
-        return format("%-26s %8.1f %8s %8s %8s %8s %9s %9s", row.name, row.build || 0, row.bucket, "", "", "", "", "") unless row.timed?
+        return format("%-26s %8.1f %8s %8s %8s %8s %13s %13s", row.name, row.build || 0, row.bucket, "", "", "", "", "") unless row.timed?
 
-        format("%-26s %8.1f %8.3f %8.3f %8s %8s %9s %9s", row.name, row.build, row.zr.real, row.cpu,
+        format("%-26s %8.1f %8.3f %8.3f %8s %8s %13s %13s", row.name, row.build, row.zr.real, row.cpu,
                seconds(row.ruby), seconds(row.yjit), times(row.against(row.ruby)), times(row.against(row.yjit)))
       end
 
       # A Tms's wall clock, or a dash for the column ruby left empty.
       def seconds(t) = t ? format("%.3f", t.real) : "-"
-      def times(r) = r ? format("%.2fx", r) : "-"
+      # A ratio of zr's time to another time, as how many times faster or
+      # slower zr is: 0.25 is "4.00x faster", and 1.5 is "1.50x slower".
+      def times(r)
+        return "-" unless r
+        return format("%.2fx faster", 1 / r) if r < 1
+
+        format("%.2fx slower", r)
+      end
 
       # The geometric mean, because these are ratios. With the arithmetic
       # mean, one slow program would control the result of the suite.

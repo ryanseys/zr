@@ -21,7 +21,9 @@ A program with a wrong output fails, and has no time. The summary on
 the terminal gives the median of the runs: `zr` is the binary's
 wall-clock time, `cpu` is the user and system time of the binary
 itself, which other work on the machine does not change, and `ruby` and
-`yjit` are ruby's wall-clock times. The report file gives each program
+`yjit` are ruby's wall-clock times. The columns `vs ruby` and `vs yjit`
+say how many times faster or slower zr is, for example `3.04x faster`.
+The report file gives each program
 in the layout of the benchmark gem: a row each for `zr`, `ruby` and
 `yjit`, with the columns `user`, `system`, `total` and `real`. The command measures each run with
 `Benchmark.measure` from the [benchmark](https://github.com/ruby/benchmark)
