@@ -297,6 +297,15 @@ class Thread
       @io_waiters.reject! { |_, _, waiter| waiter.equal?(thread) }
     end
 
+    # rb_notify_fd_close: each other thread that waits on `fd` gets an
+    # IOError.
+    def fd_closed(fd)
+      Primitive.attr! :hidden
+      @io_waiters.dup.each do |waited, _, thread|
+        thread.raise(IOError, +"stream closed in another thread") if waited == fd && !thread.equal?(@current)
+      end
+    end
+
     def deadlock
       error = Primitive.zr_fatal_class.new(+"No live threads left. Deadlock?\n")
       raise error if @current.equal?(@main)

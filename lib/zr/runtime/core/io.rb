@@ -832,6 +832,7 @@ class IO
 
     write_pending
     @closed = true
+    Thread.send(:fd_closed, @fd) if Primitive.zr_threaded
     if @twin
       twin = @twin
       Fiber.send(:offloaded) { Primitive.zr_io_close(twin) }
