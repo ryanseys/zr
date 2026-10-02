@@ -2149,6 +2149,12 @@ module Zr::Kern
       if k == zr_global(G_STRING) && zr_fixnum_p(other) && Machine.word(other) < 257 && Machine.word(other) > 0
         return zr_str_concat(recv, argc, argv, Machine.value(QNIL), Machine.value(QNIL))
       end
+      # `<<` takes one argument, so push it here unless a frozen Array
+      # must raise.
+      if k == zr_global(G_ARRAY) && argc == 1 && !zr_modify_frozen_p(recv)
+        zr_ary_push(recv, other)
+        return recv
+      end
       if k == zr_global(G_ARRAY)
         return zr_ary_push_m(recv, argc, argv, Machine.value(QNIL), Machine.value(QNIL))
       end

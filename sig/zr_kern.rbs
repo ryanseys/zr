@@ -128,6 +128,7 @@ module Zr
     def zr_ary_eq: (Integer recv, Integer argc, Integer argv, Integer cref, Integer blk) -> Integer
     def zr_ary_filter: (Integer recv, Integer blk, bool keep) -> Integer
     def zr_ary_first: (Integer recv, Integer argc, Integer argv, Integer cref, Integer blk) -> Integer
+    def zr_ary_grow: (Integer a, Integer n) -> void
     def zr_ary_has_bytes: (Integer a, Integer bytes, Integer len) -> bool
     def zr_ary_has_string: (Integer a, Integer s) -> bool
     def zr_ary_index_of: (Integer a, Integer v) -> Integer

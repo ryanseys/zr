@@ -121,31 +121,38 @@ module Zr::Kern
   sig [Value, Word] => Void
   def zr_ary_reserve(a, n)
     if n > RArray.capa(a)
-      len = RArray.len(a)
-      gap = (RArray.ptr(a) - RArray.base(a)) / 8
-      # If the front gap is at least as long as the array and closing it
-      # gives enough space, move the elements back to the start of the
-      # block. The copy costs no more than the shifts that made the gap,
-      # so a queue stays linear.
-      if gap >= len && n <= RArray.capa(a) + gap
-        zr_memmove(RArray.base(a), RArray.ptr(a), len * 8)
-        RArray.set_ptr(a, RArray.base(a))
-        RArray.set_capa(a, RArray.capa(a) + gap)
-        return
-      end
-      capa = RArray.capa(a) * 2
-      # Doubling stops at CRuby's limit, so the byte count cannot overflow.
-      if capa < n || capa > ARY_MAX_SIZE
-        capa = n
-      end
-      p = zr_xmalloc(capa * 8)
-      zr_memcpy(p, RArray.ptr(a), len * 8)
-      zr_ary_buf_free(a)
-      RArray.set_ptr(a, p)
-      RArray.set_base(a, p)
-      RArray.set_capa(a, capa)
-      RBasic.set_flags(a, RBasic.flags(a) & FL_EMBED_CLEAR)
+      zr_ary_grow(a, n)
     end
+  end
+  # Most pushes fit, so the test is in the writer's code.
+  inline :zr_ary_reserve
+
+  sig [Value, Word] => Void
+  def zr_ary_grow(a, n)
+    len = RArray.len(a)
+    gap = (RArray.ptr(a) - RArray.base(a)) / 8
+    # If the front gap is at least as long as the array and closing it
+    # gives enough space, move the elements back to the start of the
+    # block. The copy costs no more than the shifts that made the gap,
+    # so a queue stays linear.
+    if gap >= len && n <= RArray.capa(a) + gap
+      zr_memmove(RArray.base(a), RArray.ptr(a), len * 8)
+      RArray.set_ptr(a, RArray.base(a))
+      RArray.set_capa(a, RArray.capa(a) + gap)
+      return
+    end
+    capa = RArray.capa(a) * 2
+    # Doubling stops at CRuby's limit, so the byte count cannot overflow.
+    if capa < n || capa > ARY_MAX_SIZE
+      capa = n
+    end
+    p = zr_xmalloc(capa * 8)
+    zr_memcpy(p, RArray.ptr(a), len * 8)
+    zr_ary_buf_free(a)
+    RArray.set_ptr(a, p)
+    RArray.set_base(a, p)
+    RArray.set_capa(a, capa)
+    RBasic.set_flags(a, RBasic.flags(a) & FL_EMBED_CLEAR)
   end
 
   sig [Value, Value] => Void
