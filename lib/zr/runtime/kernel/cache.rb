@@ -474,6 +474,10 @@ module Zr::Kern
       return Machine.addr(:zr_attr_writer_fn)
     end
     if kind == KIND_BMETHOD
+      # The twin of the body block, if it has one (FrameMeta).
+      if MEntry.fn(e) != 0
+        return MEntry.fn(e)
+      end
       return Machine.addr(:zr_bmethod_fn)
     end
     if kind == KIND_STRUCT_AREF

@@ -73,7 +73,7 @@ module Zr
           end
           bind_positional(p, argc, argv, strict: false, keep: keep)
           bind_keywords(p, kwargs_at, tab, count, given) if keywords?(p)
-          bind(p.block, block_param(@f.args[3])) if p.block
+          bind(p.block, block_param(call_block)) if p.block
         end
 
         # The value of a `&b` parameter. If the scope only calls, passes
@@ -146,7 +146,7 @@ module Zr
         # that Hash. Returns the new argument count.
         def drop_keywords(argc, argv, abi)
           kw = @f.fetch("i64", @task_addr, off(@task, "kw"))
-          fn = abi ? @f.func_addr(@f.callee(@name, ABI.fetch(abi), "i64")) : imm(0)
+          fn = abi ? @f.func_addr(@f.callee(@twin_of || @name, ABI.fetch(abi), "i64")) : imm(0)
           quick = @f.label
           slow = @f.label
           merge, (count,) = @f.block(["i64"])

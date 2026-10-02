@@ -458,7 +458,7 @@ module Zr
     # parameter entries, and a block contains its function, so a Proc
     # finds both.
     def meta(fn, kind, line, name: 0, parent: nil, params: nil, locals: [], env: false, ruby: false,
-             captures: false, node: 0, cover: nil)
+             captures: false, node: 0, cover: nil, twin: nil)
       layout = layout("FrameMeta")
       file = file_bytes
       bytes = ("\0" * layout.size).b
@@ -485,6 +485,7 @@ module Zr
       # table name is the same in both cases.
       relocs << Obj::Reloc.new(layout.fields.fetch("captures").first, :abs64, "zr_captures_#{fn}") if captures
       relocs << Obj::Reloc.new(layout.fields.fetch("fn").first, :abs64, fn) if kind == "KIND_BLOCK" || kind == "KIND_HIDDEN"
+      relocs << Obj::Reloc.new(layout.fields.fetch("twin").first, :abs64, twin) if twin
       name = "zr_meta_#{fn}"
       @data << Obj::Datum.new(name, :data, bytes, relocs: relocs, align: 8)
       name
@@ -553,12 +554,32 @@ module Zr
     end
 
     # Lowers a block literal into a function. `outer` is the Function
-    # that contains it.
-    def block(node, outer)
+    # that contains it. The block of a `define_method` call (`method`)
+    # also gets its twin, if it can have one (`twin?`): the same body as a
+    # function with the method signature (FrameMeta, `twin`).
+    def block(node, outer, method: false)
       @block_names[node] ||= begin
         name = "#{@prefix}_blk_#{number}"
-        Function.new(self, name, node.locals, node.body, node, :block, outer: outer).lower
+        twin = "#{name}_method" if method && twin?(node)
+        Function.new(self, name, node.locals, node.body, node, :block, outer: outer, twin: twin).lower
+        Function.new(self, twin, node.locals, node.body, node, :block, outer: outer, twin_of: name).lower if twin
         name
+      end
+    end
+
+    # Whether a block can have a twin. A traced program reads every block
+    # frame from its Proc. A scope inside the body would be lowered twice,
+    # and a Binding or an eval is left to the block.
+    def twin?(node)
+      !traced? && !internal? && !scopes?([node.params, node.body]) && !Hir::Locals.opens_locals?([node.params, node.body])
+    end
+
+    # Whether `node` contains a block, a lambda, a def or a body.
+    def scopes?(node)
+      case node
+      when Hir::Block, Hir::Lambda, Hir::Def, Hir::ClassDef, Hir::ModuleDef, Hir::SingletonClassDef then true
+      when Hir::Node, Array then Hir.each_child(node).any? { |v| scopes?(v) }
+      else false
       end
     end
 

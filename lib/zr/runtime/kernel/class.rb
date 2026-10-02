@@ -1276,12 +1276,17 @@ module Zr::Kern
     # meta. A Proc from a Symbol or a Method has none, as CRuby's
     # rb_proc_get_iseq returns nothing for it.
     block_meta = RProc.meta(body)
+    # The entry's `fn` is the block's twin, if it has one (FrameMeta).
+    twin = 0
+    if block_meta != 0 && RProc.fn(body) == FrameMeta.fn(block_meta)
+      twin = FrameMeta.twin(block_meta)
+    end
     if modfn
       single = zr_singleton_class(klass)
-      zr_method_add_vis(single, mid, 0, 0 - 1, KIND_BMETHOD, meta, body, VIS_PUBLIC)
+      zr_method_add_vis(single, mid, twin, 0 - 1, KIND_BMETHOD, meta, body, VIS_PUBLIC)
       zr_coverage_method_claim(single, mid, block_meta)
     end
-    zr_method_add_vis(klass, mid, 0, 0 - 1, KIND_BMETHOD, meta, body, zr_definition_vis(mid, cref))
+    zr_method_add_vis(klass, mid, twin, 0 - 1, KIND_BMETHOD, meta, body, zr_definition_vis(mid, cref))
     zr_coverage_method_claim(klass, mid, block_meta)
     r = zr_method_added(klass, mid)
     return r if r == QUNDEF || !modfn

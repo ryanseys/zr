@@ -80,9 +80,19 @@ module Zr
         !lower.traced? && p.plain? && p.required.size <= DIRECT_ARGS && p.required.none?(Hir::MultiTarget)
       end
 
-      def initialize(lower, name, locals, body, node, kind, outer: nil)
+      # A block can have a twin (`Lower#block`): `twin` names it in the
+      # block's meta, and the twin itself has `twin_of`, the block's name.
+      # The twin takes the method signature from a send of the
+      # `define_method` entry. It uses the block's meta and tables, and it
+      # makes the frame that `zr_bmethod_fn` and the block make together,
+      # with no Proc copy: self is the receiver, the cref is the entry's,
+      # and it is always a lambda. It reads the env and the block from the
+      # entry's Proc.
+      def initialize(lower, name, locals, body, node, kind, outer: nil, twin: nil, twin_of: nil)
         @l = lower
         @name = name
+        @twin = twin
+        @twin_of = twin_of
         @locals = locals
         @body = body
         @def = node
@@ -153,7 +163,11 @@ module Zr
       end
 
       def lower
-        @f = IR::Function.new(@name, ABI.fetch(@direct ? Function.direct_abi(@def.params.required.size) : @kind), "i64")
+        abi = if @direct then Function.direct_abi(@def.params.required.size)
+              elsif @twin_of then :def
+              else @kind
+              end
+        @f = IR::Function.new(@name, ABI.fetch(abi), "i64")
         enter
         bind_params
         # A method that only recurses has no back edge. So it yields to
@@ -172,7 +186,7 @@ module Zr
         land if @landing
         # After the body is lowered, its captures are known, so the
         # captures table that its meta refers to can be written.
-        @l.captures_table(@name, capture_rows)
+        @l.captures_table(@name, capture_rows) unless @twin_of
         @l.functions << @f
         @f
       end
@@ -208,7 +222,10 @@ module Zr
       end
 
       # The data object the meta emitted for this scope's local names.
-      def locals_table = "zr_locals_#{@name}"
+      def locals_table = "zr_locals_#{@twin_of || @name}"
+
+      # The block that a block function's call gives it.
+      def call_block = @twin_of ? arg_blk : @f.args[3]
 
       def slot_index(node)
         @slot_of.fetch(node.name) { @l.refuse(node, "#{node.name} is not a local of this scope") }
@@ -298,23 +315,27 @@ module Zr
         params = @def.params if %i[def block].include?(@kind)
         kind = hidden_def? ? "KIND_HIDDEN" : @l.frame_kind(@kind)
         node_id = @def ? @l.node_id(@def) : 0
-        @meta = @l.meta(@name, kind, line, name: name, parent: @outer&.meta, params: params, locals: @locals,
-                                           env: @has_env, ruby: attributes.include?(:ruby),
-                                           captures: true, node: node_id, cover: method_cover)
+        @meta = if @twin_of
+                  "zr_meta_#{@twin_of}"
+                else
+                  @l.meta(@name, kind, line, name: name, parent: @outer&.meta, params: params, locals: @locals,
+                                             env: @has_env, ruby: attributes.include?(:ruby),
+                                             captures: true, node: node_id, cover: method_cover, twin: @twin)
+                end
         @f.store(@f.symbol_value(@f.symbol(@meta)), @rec, off(@frame, "meta"))
         @line = line | (node_id << 32)
         @f.store(imm(@line), @rec, off(@frame, "line"))
-        @proc = @f.args[0] if @kind == :block
+        @proc = @twin_of ? entry_field("cref") : @f.args[0] if @kind == :block
         @qnil = imm(@l.const("QNIL"))
         @self = case @kind
                 when :main, :top then global("G_MAIN")
-                when :block then proc_field("self")
+                when :block then @twin_of ? @f.args[0] : proc_field("self")
                 else @f.args[0]
                 end
         @cref = case @kind
                 when :main, :top then global("G_TOP_CREF")
                 when :def then cref
-                when :block then proc_field("cref")
+                when :block then @twin_of ? twin_cref : proc_field("cref")
                 else @f.args[1]
                 end
         # An eval's block is the block of its calling scope, so a `yield`
@@ -333,7 +354,7 @@ module Zr
         # finds there the block that a `break` leaves through.
         unless @kind == :def
           @f.store(imm(0), @rec, off(@frame, "entry"))
-          @f.store(@kind == :block ? @f.args[3] : @qnil, @rec, off(@frame, "defined"))
+          @f.store(@kind == :block ? call_block : @qnil, @rec, off(@frame, "defined"))
         end
         # The serial is set when something first needs it
         # (`zr_frame_serial`). `$~` and `$_` are made at their first write.
@@ -831,9 +852,30 @@ module Zr
         @f.fetch("i64", arg_entry, off(@l.layout("MEntry"), name))
       end
 
-      # In a block function: whether this Proc is a lambda.
+      # A twin's cref: the one that its entry keeps in its `ivar` word, if
+      # it is the cref of this entry, else the kernel's
+      # (`zr_bmethod_cref`, which makes it at the first call).
+      def twin_cref
+        kept = entry_field("ivar")
+        check = @f.label
+        hit = @f.label
+        miss = @f.cold(@f.label)
+        merge, (cref,) = @f.block(["i64"])
+        @f.brif(@f.icmp("eq", kept, imm(0)), miss, check)
+        switch(check)
+        @f.brif(@f.icmp("eq", @f.fetch("i64", kept, off(@cref_layout, "entry")), arg_entry), hit, miss)
+        switch(hit)
+        @f.jump(merge, [kept])
+        switch(miss)
+        @f.jump(merge, [kernel("zr_bmethod_cref", arg_entry)])
+        switch(merge)
+        cref
+      end
+
+      # In a block function: whether this Proc is a lambda. A twin is
+      # always one, as `zr_bmethod_fn` makes the body's copy a lambda.
       def lambda?
-        @f.icmp("ne", proc_field("lambda"), imm(0))
+        @f.icmp("ne", @twin_of ? imm(1) : proc_field("lambda"), imm(0))
       end
 
       # In a block function: `return`, `break` and `next` leave a lambda

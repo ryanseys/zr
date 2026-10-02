@@ -886,7 +886,7 @@ module Zr
             return checked(node.name == :new && @l.internal? ? new_send(node, recv, argc, argv, proc) : cached_send(node, recv, argc, argv, proc))
           end
 
-          site, block = make_block(node.block)
+          site, block = make_block(node.block, method: node.name == :define_method)
           at_node(node)
           argc = keyword_argc(node, argc, argv)
           activate(node)
@@ -956,8 +956,8 @@ module Zr
         # block (`zr_block_proc`, lib/zr/runtime/kernel/proc.rb). Its flags mark
         # it as on the stack and already marked, so the collector reads
         # nothing through it. This frame roots all that it refers to.
-        def make_block(block)
-          fn = @l.block(block, self)
+        def make_block(block, method: false)
+          fn = @l.block(block, self, method: method)
           site = (@sites += 1)
           # The target of a `return` in the block. A block in a method
           # refers to that method's frame. A block in another block refers
