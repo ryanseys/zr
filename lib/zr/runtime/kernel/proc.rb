@@ -391,6 +391,51 @@ module Zr::Kern
     zr_dispatch(0, recv, Machine.id(:each), argc, argv, mode, p)
   end
 
+  # Calls `each` on `recv` and yields each step's values, as given, to the
+  # program's block `user`, as enum.c's count_iter_i, flat_map_i and the
+  # other rb_yield_values2 iterators do: a block of one parameter sees the
+  # first of several. Then `inner` gets the step as one value and the
+  # block's result. The adapter is on the stack, with `user` in its block
+  # slot and `inner` as its self, so a step allocates nothing.
+  sig [Value, Value, Value, Value] => Value
+  def zr_enum_each_values(recv, args, user, inner)
+    d = Machine.slot(RProc.size)
+    p = Machine.value(d)
+    RBasic.set_flags(p, T_PROC | FL_ALLOCATED | FL_STACK)
+    RBasic.set_klass(p, zr_global(G_PROC))
+    RProc.set_fn(p, Machine.addr(:zr_enum_values_block))
+    RProc.set_meta(p, 0)
+    RProc.set_env(p, Machine.value(QNIL))
+    RProc.set_self(p, inner)
+    RProc.set_cref(p, Machine.value(QNIL))
+    RProc.set_blk(p, user)
+    RProc.set_home(p, 0)
+    RProc.set_serial(p, 0)
+    RProc.set_site(p, 0)
+    RProc.set_ret_home(p, 0)
+    RProc.set_ret_serial(p, 0)
+    RProc.set_spread(p, 0)
+    RProc.set_lambda(p, 0)
+    RProc.set_passed(p, 1)
+    if args == QNIL
+      return zr_enum_send_each(recv, 0, 0, p)
+    end
+    zr_enum_send_each(recv, RArray.len(args), RArray.ptr(args), p)
+  end
+
+  sig [Value, Word, Ptr, Value] => Value
+  def zr_enum_values_block(p, argc, argv, blk)
+    r = zr_yield(RProc.blk(p), argc, argv)
+    return r if r == QUNDEF
+    x = Machine.value(QNIL)
+    if argc == 1
+      x = Machine.value(Machine.load64(argv, 0))
+    elsif argc > 1
+      x = zr_ary_of(argc, argv)
+    end
+    zr_yield2(RProc.self(p), x, r)
+  end
+
   sig [Value, Word, Ptr, Value] => Value
   def zr_enum_each_block(p, argc, argv, blk)
     if argc == 1
@@ -490,7 +535,9 @@ module Zr::Kern
       r = zr_yield1(user, x)
     else
       x = zr_ary_of(argc, argv)
-      if RProc.lambda(user) != 0 && zr_block_min_params(user) > 1
+      # rb_yield_force_blockarg spreads the values into a lambda of more
+      # than one positional parameter, an optional one included.
+      if RProc.lambda(user) != 0 && RProc.meta(user) != 0 && zr_params_positional(FrameMeta.params(RProc.meta(user))) > 1
         r = zr_yield(user, argc, argv)
       else
         r = zr_yield1(user, x)

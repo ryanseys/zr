@@ -327,6 +327,22 @@ module Zr::Kern
     min + keyreq
   end
 
+  # The required and optional positional parameters of `table`.
+  sig [Ptr] => Word
+  def zr_params_positional(table)
+    n = Machine.load64(table, 0)
+    count = 0
+    i = 0
+    while i < n
+      kind = Machine.load64(table + 8 + (i * 16), 0)
+      if kind == PARAM_REQ || kind == PARAM_OPT
+        count += 1
+      end
+      i += 1
+    end
+    count
+  end
+
   sig [Ptr] => Bool
   def zr_params_rest_p(table)
     n = Machine.load64(table, 0)

@@ -34,12 +34,13 @@ module Enumerable
     out
   end
 
-  def filter_map
-    return to_enum(:filter_map) { enumerable_size } unless block_given?
+  # filter_map and the other iterators that yield with rb_yield_values2
+  # give the block each step's values as `each` gave them.
+  def filter_map(&blk)
+    return to_enum(:filter_map) { enumerable_size } unless blk
 
     out = []
-    Primitive.zr_enum_each(self, nil) do |x|
-      v = yield(x)
+    Primitive.zr_enum_each_values(self, nil, blk) do |_, v|
       out << v if v
       nil
     end
@@ -56,16 +57,16 @@ module Enumerable
     ifnone&.call
   end
 
-  def any?(*pattern)
+  def any?(*pattern, &blk)
     raise ArgumentError, "wrong number of arguments (given #{pattern.size}, expected 0..1)" if pattern.size > 1
     if !pattern.empty?
       Primitive.zr_enum_each(self, nil) do |x|
         return true if pattern[0] === x
         nil
       end
-    elsif block_given?
-      Primitive.zr_enum_each(self, nil) do |x|
-        return true if yield(x)
+    elsif blk
+      Primitive.zr_enum_each_values(self, nil, blk) do |_, hit|
+        return true if hit
         nil
       end
     else
@@ -77,16 +78,16 @@ module Enumerable
     false
   end
 
-  def all?(*pattern)
+  def all?(*pattern, &blk)
     raise ArgumentError, "wrong number of arguments (given #{pattern.size}, expected 0..1)" if pattern.size > 1
     if !pattern.empty?
       Primitive.zr_enum_each(self, nil) do |x|
         return false unless pattern[0] === x
         nil
       end
-    elsif block_given?
-      Primitive.zr_enum_each(self, nil) do |x|
-        return false unless yield(x)
+    elsif blk
+      Primitive.zr_enum_each_values(self, nil, blk) do |_, hit|
+        return false unless hit
         nil
       end
     else
@@ -98,16 +99,16 @@ module Enumerable
     true
   end
 
-  def none?(*pattern)
+  def none?(*pattern, &blk)
     raise ArgumentError, "wrong number of arguments (given #{pattern.size}, expected 0..1)" if pattern.size > 1
     if !pattern.empty?
       Primitive.zr_enum_each(self, nil) do |x|
         return false if pattern[0] === x
         nil
       end
-    elsif block_given?
-      Primitive.zr_enum_each(self, nil) do |x|
-        return false if yield(x)
+    elsif blk
+      Primitive.zr_enum_each_values(self, nil, blk) do |_, hit|
+        return false if hit
         nil
       end
     else
@@ -119,16 +120,16 @@ module Enumerable
     true
   end
 
-  def count(item = (none = true))
+  def count(item = (none = true), &blk)
     n = 0
     if !none
       Primitive.zr_enum_each(self, nil) do |x|
         n += 1 if Primitive.zr_rb_equal(x, item)
         nil
       end
-    elsif block_given?
-      Primitive.zr_enum_each(self, nil) do |x|
-        n += 1 if yield(x)
+    elsif blk
+      Primitive.zr_enum_each_values(self, nil, blk) do |_, hit|
+        n += 1 if hit
         nil
       end
     else
@@ -160,12 +161,12 @@ module Enumerable
     Primitive.zr_sort_by(pairs)
   end
 
-  def take_while
-    return to_enum(:take_while) unless block_given?
+  def take_while(&blk)
+    return to_enum(:take_while) unless blk
 
     out = []
-    Primitive.zr_enum_each(self, nil) do |x|
-      break unless yield(x)
+    Primitive.zr_enum_each_values(self, nil, blk) do |x, kept|
+      return out unless kept
 
       out << x
       nil
@@ -196,12 +197,11 @@ module Enumerable
     memo
   end
 
-  def flat_map
-    return to_enum(__callee__) { enumerable_size } unless block_given?
+  def flat_map(&blk)
+    return to_enum(__callee__) { enumerable_size } unless blk
 
     out = []
-    Primitive.zr_enum_each(self, nil) do |x|
-      v = yield(x)
+    Primitive.zr_enum_each_values(self, nil, blk) do |_, v|
       v.is_a?(Array) ? out.concat(v) : out << v
       nil
     end
@@ -211,12 +211,11 @@ module Enumerable
   # Its own body, as CRuby binds both names to one function: a subclass's
   # flat_map is not called, and an Enumerator made from it names
   # `collect_concat`.
-  def collect_concat
-    return to_enum(:collect_concat) { enumerable_size } unless block_given?
+  def collect_concat(&blk)
+    return to_enum(:collect_concat) { enumerable_size } unless blk
 
     out = []
-    Primitive.zr_enum_each(self, nil) do |x|
-      v = yield(x)
+    Primitive.zr_enum_each_values(self, nil, blk) do |_, v|
       v.is_a?(Array) ? out.concat(v) : out << v
       nil
     end
@@ -538,7 +537,7 @@ module Enumerable
     c
   end
 
-  def one?(*pattern)
+  def one?(*pattern, &blk)
     raise ArgumentError, "wrong number of arguments (given #{pattern.size}, expected 0..1)" if pattern.size > 1
     # A second match ends the walk, as one_iter_i breaks.
     seen = 0
@@ -547,9 +546,9 @@ module Enumerable
         return false if pattern[0] === x && (seen += 1) > 1
         nil
       end
-    elsif block_given?
-      Primitive.zr_enum_each(self, nil) do |x|
-        return false if yield(x) && (seen += 1) > 1
+    elsif blk
+      Primitive.zr_enum_each_values(self, nil, blk) do |_, hit|
+        return false if hit && (seen += 1) > 1
         nil
       end
     else
@@ -613,12 +612,21 @@ module Enumerable
     out
   end
 
-  def find_index(v = (omitted = true; nil))
-    return to_enum(:find_index) if omitted && !block_given?
+  def find_index(v = (omitted = true; nil), &blk)
+    return to_enum(:find_index) if omitted && !blk
 
     i = 0
+    if omitted
+      Primitive.zr_enum_each_values(self, nil, blk) do |_, hit|
+        return i if hit
+
+        i += 1
+        nil
+      end
+      return nil
+    end
     Primitive.zr_enum_each(self, nil) do |x|
-      return i if omitted ? yield(x) : Primitive.zr_rb_equal(x, v)
+      return i if Primitive.zr_rb_equal(x, v)
 
       i += 1
       nil
@@ -626,7 +634,22 @@ module Enumerable
     nil
   end
 
-  def uniq(&block) = elements.uniq(&block)
+  # With a block, the block's value of each step's values is the key, and
+  # the first step with each key stays, as uniq_iter does.
+  def uniq(&block)
+    return elements.uniq unless block
+
+    seen = {}
+    out = []
+    Primitive.zr_enum_each_values(self, nil, block) do |x, key|
+      unless seen.key?(key)
+        seen[key] = true
+        out << x
+      end
+      nil
+    end
+    out
+  end
 
   # `to_a` again, under its own name: a class's own `to_a` does not
   # change it, as CRuby defines both from one function.
@@ -795,14 +818,17 @@ module Enumerable
 
   def to_h(*args, &block)
     out = {}
-    Primitive.zr_enum_each(self, args) do |x|
-      pair = x
-      pair = yield(pair) if block
+    add = lambda do |pair|
       raise TypeError, "wrong element type #{pair.class} (expected array)" unless pair.is_a?(Array)
       raise ArgumentError, "element has wrong array length (expected 2, was #{pair.size})" unless pair.size == 2
 
       out[pair[0]] = pair[1]
       nil
+    end
+    if block
+      Primitive.zr_enum_each_values(self, args, block) { |_, pair| add.(pair) }
+    else
+      Primitive.zr_enum_each(self, args) { |pair| add.(pair) }
     end
     out
   end
