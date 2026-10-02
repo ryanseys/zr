@@ -2187,11 +2187,12 @@ class IO
 
   # Whether `at` starts a character. A separator counts only there. In
   # UTF-8 and the single-byte encodings, every ASCII byte does.
-  def char_boundary?(onig, at)
+  def char_boundary?(at)
     Primitive.attr! :hidden
-    return true if at.zero? || onig.max_len == 1 || read_encoding.equal?(Encoding::UTF_8)
+    return true if at.zero? || read_encoding.equal?(Encoding::UTF_8)
 
-    onig.left_adjust_char_head(@buffer, 0, at, @buffer.bytesize) == at
+    onig = Regexp.encoder(read_encoding)
+    onig.max_len == 1 || onig.left_adjust_char_head(@buffer, 0, at, @buffer.bytesize) == at
   end
 
   # gets' arguments as ruby reads them: one argument is the separator
@@ -2240,13 +2241,12 @@ class IO
       fill_cooked while !@eof && @buffer.start_with?("\n")
       take(1) while @buffer.start_with?("\n")
     end
-    onig = Regexp.encoder(read_encoding)
     from = 0
     while true
       # A byte offset: `take` counts bytes, and a character index would
       # also walk the whole buffer for every line.
       at = Primitive.zr_str_find_from(@buffer, separator, from)
-      if at && !char_boundary?(onig, at)
+      if at && !char_boundary?(at)
         from = at + 1
         next
       end
@@ -2305,7 +2305,8 @@ class IO
   def take(n)
     Primitive.attr! :hidden
     taken = Primitive.zr_str_shift_front(@buffer, n)
-    @cooked = [@cooked - taken.bytesize, 0].max
+    cooked = @cooked - taken.bytesize
+    @cooked = cooked.negative? ? 0 : cooked
     taken
   end
 
