@@ -1532,6 +1532,7 @@ module Zr
     def zr_onig_check_extended_cache_point: (Integer buf, Integer index, Integer mask) -> bool
     def zr_onig_check_interrupt: (Integer m) -> bool
     def zr_onig_check_match_cache: (Integer m, Integer pbegin) -> Integer
+    def zr_onig_check_match_cache_on: (Integer m, Integer pbegin) -> Integer
     def zr_onig_code_to_mbc: (Integer enc, Integer code, Integer buf) -> Integer
     def zr_onig_code_word_p: (Integer enc, Integer code) -> bool
     def zr_onig_count_cache_opcodes: (Integer m, Integer current_repeat_mem, Integer lookaround_nesting, Integer pp, Integer np) -> Integer
