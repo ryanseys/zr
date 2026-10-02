@@ -8,7 +8,9 @@ class EnvironmentVariablesTest < Minitest::Test
   DOC = File.read(File.join(ROOT, "docs/reference/environment-variables.md"))
 
   # Names that a test gives to its own child or program, not settings.
-  NOT_SETTINGS = %w[ZR_TEST_AOT_SMOKE ZR_TEST_AOT_SMOKE_MISSING ZR_POOL_PID ZR_POOL_PIDS].freeze
+  # A prefix that code matches to find a group of variables
+  # (test/support/result_cache.rb) is not a variable either.
+  NOT_SETTINGS = %w[ZR_TEST_AOT_SMOKE ZR_TEST_AOT_SMOKE_MISSING ZR_POOL_PID ZR_POOL_PIDS ZR_GC_].freeze
 
   def read_by_code
     dirs = %w[lib bin tool exe test/support test/unit test/test_helper.rb Rakefile]
