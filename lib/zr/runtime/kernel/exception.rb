@@ -742,6 +742,14 @@ module Zr::Kern
   G_SYSTEM_STACK_ERROR = 35
 
   # Raises for a Ruby frame that starts below the stack limit of the task.
+  # rb_memerror: a NoMemoryError with no backtrace, as ruby raises the one
+  # it made at start, so an uncaught one prints no line.
+  sig [] => Value
+  def zr_no_memory
+    e = zr_exc_new(zr_core_class(Machine.id(:NoMemoryError)), zr_str_new(Machine.bytes("failed to allocate memory"), 25))
+    zr_raise_as_is(e, Task.top(zr_task()))
+  end
+
   sig [] => Value
   def zr_stack_overflow
     zr_raise_msg(zr_global(G_SYSTEM_STACK_ERROR), Machine.bytes("stack level too deep"), 20)

@@ -656,9 +656,14 @@ module Zr::Kern
     if n != 0 && (9223372036854775807 / n) < RString.len(recv)
       return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("argument too big"), 16)
     end
+    total = n * RString.len(recv)
+    # A size no allocator can supply is a NoMemoryError the program can
+    # rescue, not the end of the process. Only a large one is tried.
+    if total > 268435456 && zr_memory_for_p(zr_fix(total)) == QFALSE
+      return zr_no_memory()
+    end
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
-    total = n * RString.len(recv)
     if total > 0
       # As rb_str_times: one copy, then the copied bytes again until the
       # whole length, so the copies number the log of `n`, not `n`.

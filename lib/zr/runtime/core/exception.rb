@@ -8,7 +8,10 @@ class Exception
   UNSET = Object.new
   private_constant :UNSET
 
-  def self.exception(*args) = new(*args)
+  # A send, not the core's own `new`: an `initialize` that the program
+  # wrote for a core exception class runs, as ruby's rb_class_new_instance
+  # finds it.
+  def self.exception(*args) = public_send(:new, *args)
 
   # Whether the report an uncaught error prints goes to a terminal.
   def self.to_tty? = Primitive.zr_io_tty_p(2)

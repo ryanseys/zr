@@ -1851,6 +1851,12 @@ class String
 
       Primitive.zr_frozen_error(self)
     end
+    if capacity
+      # A capacity no allocator can supply is a NoMemoryError, as ruby
+      # reserves the capacity it is given.
+      capacity = Primitive.zr_index_operand_m(capacity)
+      raise NoMemoryError, +"failed to allocate memory" if capacity > 268_435_456 && !Primitive.zr_memory_for_p(capacity)
+    end
     if none
       Primitive.zr_str_discard(self) if capacity
     else

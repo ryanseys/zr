@@ -1,0 +1,5 @@
+[NoMemoryError, "failed to allocate memory"]
+[NoMemoryError, "failed to allocate memory"]
+[ArgumentError, "array size too big"]
+[NoMemoryError, "failed to allocate memory"]
+[NoMemoryError, "failed to allocate memory"]

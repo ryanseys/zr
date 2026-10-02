@@ -1,0 +1,1 @@
+core/string/regressions/repeat_past_memory_is_no_memory_error.rb: failed to allocate memory (NoMemoryError)

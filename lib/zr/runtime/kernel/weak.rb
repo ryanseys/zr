@@ -138,12 +138,19 @@ module Zr::Kern
   # If a proc raises, it prints the error and continues. It runs after a
   # collection that the program requests, and at the next poll after
   # other collections. It never runs inside an allocation.
+  # The queue runs in the order the objects were found, first in first
+  # out, as ruby runs its finalizers.
   sig [] => Value
   def zr_finalizers_run
     q = zr_finalizer_queue()
     while WeakList.len(q) > 0
+      row = Machine.value(Machine.load64(WeakList.ptr(q), 0))
       n = WeakList.len(q) - 1
-      row = Machine.value(Machine.load64(WeakList.ptr(q) + (n * 8), 0))
+      i = 0
+      while i < n
+        Machine.store64(WeakList.ptr(q) + (i * 8), 0, Machine.load64(WeakList.ptr(q) + ((i + 1) * 8), 0))
+        i += 1
+      end
       WeakList.set_len(q, n)
       r = zr_finalizer_row_run(row)
       return r if r == QUNDEF
@@ -151,6 +158,8 @@ module Zr::Kern
     Machine.value(QNIL)
   end
 
+  # A proc that raises gets ruby's warning, `prog: warning: Exception in
+  # finalizer #<Proc...>` (unless $VERBOSE is nil), then its error.
   sig [Value] => Value
   def zr_finalizer_row_run(row)
     slot = Machine.slot(8)
@@ -161,6 +170,18 @@ module Zr::Kern
       if r == QUNDEF
         raised = Task.pending(zr_task())
         Task.set_pending(zr_task(), Machine.value(QNIL))
+        if zr_gvar_get(Machine.id(:$VERBOSE)) != QNIL
+          b = Machine.slot(Buf.size)
+          zr_buf_init(b)
+          zr_buf_str(b, zr_gvar_get(Machine.id(:$0)))
+          zr_buf_push(b, Machine.bytes(": warning: Exception in finalizer "), 34)
+          shown = zr_inspect(zr_ary_at(row, i))
+          if shown != QUNDEF
+            zr_buf_str(b, shown)
+          end
+          zr_buf_byte(b, 10)
+          zr_warning_write(zr_buf_take(b))
+        end
         zr_error_print(raised)
       end
       i += 1
