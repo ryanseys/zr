@@ -343,6 +343,10 @@ module Zr
         ops["switch.wide"] = build("switch_wide", %w[i64], "i64") do |f, v|
           table(f, v, [5000, 5001, 5003])
         end
+        # A word with 0 as its lowest key is its own index: no `sub`.
+        ops["switch.from_zero"] = build("switch_from_zero", %w[i64], "i64") do |f, v|
+          table(f, v, [0, 1, 3])
+        end
         ops["return.void"] = build("return_void", [], nil) { nil }
         ops["return.f64"] = build("return_f64", %w[f64], "f64") { |_f, a| a }
       end

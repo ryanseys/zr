@@ -513,9 +513,10 @@ module Zr
           @asm.b @labels.fetch(no) unless yes == @next || no == @next
         end
 
-        # A jump table. The value less the lowest key is the index; an index
-        # past the table (also a value below the lowest key, which wraps)
-        # goes to the default. The table follows the `br`: one word for
+        # A jump table. The value less the lowest key is the index (a word
+        # whose lowest key is 0 is its own index); an index past the table
+        # (also a value below the lowest key, which wraps) goes to the
+        # default. The table follows the `br`: one word for
         # each index, the distance from the table to its block.
         #
         #   sub  w9, wv, #lo           ; a narrow value: zeros above
@@ -532,7 +533,12 @@ module Zr
           lo, hi = keys.minmax
           index = reg_for(v, X9)
           from = reg_for(v, value_in(v, X9))
-          offset(index, from, lo, X10)
+          # A word whose lowest key is 0 is its own index.
+          if lo.zero? && index.wide?
+            index = from
+          else
+            offset(index, from, lo, X10)
+          end
           span = hi - lo
           if span <= 4095
             @asm.cmp index, span
@@ -543,7 +549,7 @@ module Zr
           branch_on(:hi, default)
           table = @asm.make_label("#{@f.name}_table")
           @asm.adr X10, table
-          @asm.ldrsw_index X9, X10, X9
+          @asm.ldrsw_index X9, X10, Registers.x(index.to_i)
           @asm.add X10, X10, X9
           @asm.br X10
           @asm.put_label(table)
