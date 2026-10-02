@@ -122,7 +122,7 @@ it, and put the new digest in the line.
    `tmp/reference/gems`. `bin/setup` also runs this step.
 
    ```console
-   $ ruby tool/zr-dev.rb reference
+   $ ruby tool/install_reference_gems.rb
    ```
 
 2. Run the tests that the change reaches, one directory at a time:

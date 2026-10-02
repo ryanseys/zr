@@ -5,7 +5,7 @@ source "https://rubygems.org"
 # zr has no runtime dependencies (zr.gemspec): a program's library is
 # vendor/ruby and lib/zr/runtime/ext. These are the tools to build and test zr. The
 # ruby that every expected output comes from is ruby 4.0.7 with its own
-# gems in tmp/reference (`zr-dev reference`), never this bundle.
+# gems in tmp/reference (tool/install_reference_gems.rb), never this bundle.
 gemspec
 
 group :development, :test do

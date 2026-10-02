@@ -99,7 +99,7 @@ $ ruby tool/zr-dev.rb expect --check                      # write nothing; list 
   path.
 - When ruby does not finish, the old files stay.
 - It runs ruby with only the reference gems
-  (`test/support/harness/reference.rb`, `zr-dev reference`), and the
+  (`test/support/harness/reference.rb`, `tool/install_reference_gems.rb`), and the
   options of `foo.rb.ruby`.
 
 `zr-dev expect --check` fails when a file is different from ruby's

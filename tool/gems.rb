@@ -77,9 +77,10 @@ module Zr
           fail!(e.message)
         end
 
-        # The trials compare with the reference ruby (`zr-dev reference`).
+        # The trials compare with the reference ruby
+        # (tool/install_reference_gems.rb).
         def reference!
-          fail!("the reference ruby is not set up; run `zr-dev reference`") unless Harness::Reference.ready?
+          fail!("the reference ruby is not set up; run `ruby tool/install_reference_gems.rb`") unless Harness::Reference.ready?
         end
 
         # Writes the results into `table`, with the commit and the downloads.

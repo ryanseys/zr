@@ -189,7 +189,7 @@ jobs:
           docker exec alpine git config --global --add safe.directory /zr
           docker exec alpine bundle config set --global without development
           docker exec alpine bundle install
-          docker exec alpine ruby tool/zr-dev.rb reference
+          docker exec alpine ruby tool/install_reference_gems.rb
       # A stock ruby 4.0.7 image: vendor/ must be upstream code, byte for
       # byte: ruby's own library at RUBY_REVISION, the .gem files that
       # vendor/vendor.lock names, and prism's templates at its tag. The

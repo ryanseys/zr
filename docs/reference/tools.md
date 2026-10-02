@@ -11,7 +11,8 @@ steps to run the tests, see [How to run the tests](../how-to/run-the-tests.md).
 
 | Script | Does |
 |---|---|
-| `bin/setup` | Installs the gems (`bundle install`), sets up the reference ruby (`zr-dev reference`) and builds the runtime for this host (`rake build`). It tells you if wasmtime is not installed. |
+| `bin/setup` | Installs the gems (`bundle install`), sets up the reference ruby (`tool/install_reference_gems.rb`) and builds the runtime for this host (`rake build`). It tells you if wasmtime is not installed. |
+| `ruby tool/install_reference_gems.rb` | Installs the gems of the ruby that every expected output comes from, into `tmp/reference/gems`: ruby 4.0.7's bundled gems, and zr's versions of the gems whose C it ports (`lib/zr/library/ports.rb`). It installs only the missing gems, tells you about other versions in the directory, and then writes `tmp/reference/STAMP`. `bin/setup` runs it. `expect`, `record`, `probe` and the program tests run ruby with only these gems (`test/support/harness/reference.rb`). |
 | `bin/minitest [paths] [minitest options]` | Runs the tests (minitest's own binstub). With no paths, it runs every `test/**/*_test.rb`: the unit tests and the program tests (`test/programs_test.rb`). It builds the runtime first if the tests need it and it is not built. |
 | `bin/zr` | The binstub of `exe/zr`, the `zr` command of this checkout. |
 | `bin/zr-dev` | The binstub of `tool/zr-dev.rb`, the [`zr-dev`](#zr-dev) commands. |
@@ -117,7 +118,6 @@ gives more examples.
 | `zr-dev vendor --check` | Checks each file of `vendor/` against the lock, offline. |
 | `zr-dev vendor outdated` | Lists the gems of `vendor/` that have a newer release on rubygems.org. |
 | `zr-dev vendor diff GEM [VERSION]` | Lists the files that change from the locked GEM to VERSION (default: the newest), and zr's files under `lib/zr/runtime/` that replace one of them. |
-| `zr-dev reference [--check]` | Installs the gems of the ruby that every expected output comes from, into `tmp/reference/gems`: ruby 4.0.7's bundled gems, and zr's versions of the gems whose C it ports (`lib/zr/library/ports.rb`). `bin/setup` runs it. `expect`, `record`, `probe` and the program tests run ruby with only these gems (`test/support/harness/reference.rb`). `--check` installs nothing. |
 | `zr-dev progress` | Prints the progress of the unit tier that runs now, or of the last one (`tmp/test-progress.txt`). |
 
 ### Gems

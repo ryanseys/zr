@@ -11,7 +11,7 @@ module Zr
     # libraries that a zr build compiles in (vendor/ruby and lib/zr/library/ports.rb).
     #
     # The gems live in their own GEM_HOME, tmp/reference/gems, which
-    # `zr-dev reference` fills. GEM_PATH names only that directory, so
+    # tool/install_reference_gems.rb fills. GEM_PATH names only that directory, so
     # the gems that the host installed next to ruby's own (a `gem update`,
     # or a bundle without a path) never reach a recording. Default gems
     # still load from ruby's own specifications.
@@ -47,7 +47,7 @@ module Zr
       # The environment of a ruby that answers for zr. Stops when GEMS is
       # missing or holds other versions.
       def env
-        raise "the reference ruby is not set up (#{STAMP}); run `ruby tool/zr-dev.rb reference`" unless ready?
+        raise "the reference ruby is not set up (#{STAMP}); run bin/setup or `ruby tool/install_reference_gems.rb`" unless ready?
 
         { "GEM_HOME" => GEMS, "GEM_PATH" => GEMS, "BUNDLE_GEMFILE" => nil, "BUNDLE_BIN_PATH" => nil,
           "BUNDLE_LOCKFILE" => nil, "BUNDLER_SETUP" => nil, "BUNDLER_VERSION" => nil, "RUBYOPT" => nil, "RUBYLIB" => nil }
