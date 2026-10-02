@@ -132,7 +132,9 @@ module Zr
         return Row.new(rb, :diverged, wrong) if wrong
 
         plain, = medians("ruby", [RbConfig.ruby, rel], cwd, nil, {}, rb, nil)
-        jit, = medians("yjit", [RbConfig.ruby, "--yjit", rel], cwd, nil, {}, rb, nil)
+        # A threshold of one call: YJIT then compiles a toplevel loop too,
+        # which runs once (fannkuch, sieve, matmul).
+        jit, = medians("yjit", [RbConfig.ruby, "--yjit", "--yjit-call-threshold=1", rel], cwd, nil, {}, rb, nil)
         Row.new(rb, :timed, build: build.real, zr: got, ruby: plain, yjit: jit)
       end
 

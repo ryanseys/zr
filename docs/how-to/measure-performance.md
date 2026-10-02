@@ -9,7 +9,8 @@ for `ruby tool/zr-dev.rb`.
 
 `zr-dev bench` builds each program in `benchmark/`, checks its output
 against the recording, and then times it beside `ruby` and
-`ruby --yjit`:
+`ruby --yjit --yjit-call-threshold=1` (so that YJIT compiles a
+toplevel loop too, which runs only once):
 
 ```console
 $ ruby tool/zr-dev.rb bench fib tak nbody
