@@ -35,6 +35,14 @@ class CompilerDigestTest < Minitest::Test
     refute_equal Zr::Digests.code(plain), Zr::Digests.code(plain.sub("x\nend", "x + 1\nend"))
   end
 
+  # A comment edit moves the lines of the code after it, and the code
+  # digest does not see that. So no compiler file may read its own line.
+  def test_no_compiler_file_reads_its_line
+    files = Zr::RuntimeSources.for(Zr::Target.default).compiler_files.select { |path| Zr::Digests.compiler_file?(path) }
+    readers = files.select { |path| Zr::Digests.code(File.binread(path)).include?("__LINE__") }
+    assert_empty readers, "a compiler file reads __LINE__; its line can change with a comment edit"
+  end
+
   def test_only_a_compiler_file_counts_by_its_code
     assert Zr::Digests.compiler_file?(File.join(LIB, "zr/lower.rb"))
     refute Zr::Digests.compiler_file?(File.join(Zr::Paths::RUNTIME, "core/array.rb")), "a binary holds the core's lines"
