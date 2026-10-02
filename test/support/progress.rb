@@ -77,7 +77,7 @@ module Zr
 
         def clock(seconds) = format("%d:%02d", seconds / 60, seconds % 60)
 
-        def tier = "unit tier"
+        def tier = "bin/minitest"
       end
     end
   end

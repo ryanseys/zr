@@ -15,10 +15,11 @@
 #
 # The walker of the host nests Ruby frames, so a host run starts ruby
 # again with the stacks and YJIT of `zr-dev host`. ruby reads both only
-# as it starts.
+# as it starts. A host test that passed before with the same inputs
+# passes again at once (test/support/result_cache.rb; ZR_TEST_FRESH=1
+# runs each one).
 host = ENV["ZR_TEST_HOST"] == "1"
 if host
-  require "pathname"
   require_relative "../tool/hosted"
   stacks = Zr::Dev::Hosted::STACK
   unless stacks.all? { |name, value| ENV[name] == value }
@@ -30,23 +31,44 @@ end
 
 require_relative "test_helper"
 require_relative "support/programs"
+require_relative "support/result_cache"
 require_relative "support/host_program" if host
 
 class ProgramsTest < Minitest::Test
   PROGRAMS = Zr::Test::Programs.new(host: ENV["ZR_TEST_HOST"] == "1")
   CASES = Zr::Test::Programs.cases.to_h { |test| ["test_#{test.rel}", test] }
+  RESULTS = (Zr::Test::ResultCache.new if PROGRAMS.host? && Zr::Test::ResultCache.enabled?)
 
   # Why zr did not build or run a program: a test error, not a failure.
   class NotBuilt < StandardError; end
 
-  # Before the workers fork: the host walks the core once, and a build
-  # gets the runtime (and eval support, when a selected program evals).
+  # Counts the host tests that passed from the result cache.
+  class Cached < Minitest::AbstractReporter
+    def initialize(io)
+      super()
+      @io = io
+      @count = 0
+    end
+
+    def record(result)
+      @count += 1 if result.metadata[:cached]
+    end
+
+    def report
+      @io.puts "\n#{@count} of the passes came from the result cache (ZR_TEST_FRESH=1 runs them)" if @count.positive?
+    end
+  end
+
+  # Before the workers fork: the host walks the core once (unless each
+  # selected test passes from the result cache), and a build gets the
+  # runtime (and eval support, when a selected program evals).
   def self.minitest_plugin_init(options)
     selected = filter_runnable_methods(options).map { |name| CASES.fetch(name) }
     return if selected.empty?
 
     if PROGRAMS.host?
-      Zr::Test::HostProgram.walk
+      Minitest.reporter << Cached.new(options[:io]) if RESULTS
+      Zr::Test::HostProgram.walk unless RESULTS && selected.all? { |test| RESULTS.passed?(test, PROGRAMS.baseline(test)) }
     else
       Zr::Test::Built.ready_for_programs!(selected)
     end
@@ -54,12 +76,19 @@ class ProgramsTest < Minitest::Test
 
   CASES.each do |name, test|
     define_method(name) do
+      if RESULTS&.passed?(test, PROGRAMS.baseline(test))
+        metadata[:cached] = true
+        next pass
+      end
+
       kind, detail = PROGRAMS.check(test)
       case kind
       when :skip then skip(detail)
       when :fail then flunk(detail)
       when :error then raise NotBuilt, detail, ["#{test.path}:1"]
-      else pass
+      else
+        RESULTS&.pass!(test, PROGRAMS.baseline(test))
+        pass
       end
     end
   end

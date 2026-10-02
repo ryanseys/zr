@@ -221,6 +221,7 @@ SHA-256 digest of every input of the entry:
 | `wasm` | the prelude of a WASI module |
 | `run` | the binaries of `zr run` (at most 2 GB) |
 | `binary` | the binaries that the program tests keep (at most `ZR_TEST_BINARIES_GB`) |
+| `result` | the host program tests that passed, with no data (`test/support/result_cache.rb`) |
 
 Each build names the entries that the next build needs, such as the
 runtime object and the machine code of its backend, in a root

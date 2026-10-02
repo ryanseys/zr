@@ -42,6 +42,9 @@ module Zr
 
       def host? = @host
 
+      # Why the baseline allows `test` to fail, or nil.
+      def baseline(test) = @allowed[test.rel]
+
       # `[kind, detail]` for one test.
       def check(test)
         kind, detail = unmet(test) ? [:skip, unmet(test)] : outcome(test)
