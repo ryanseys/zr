@@ -240,6 +240,9 @@ class IO
     # NUM2LL, NUM2UINT and NUM2INT check it: 8 bytes as a long long, the
     # narrower types as an int (and then their bytes wrap).
     def integer_value(n, width, signed)
+      # The 128-bit types take any Integer, whose low bytes they keep.
+      return n if width > 8
+
       if width == 8
         if signed
           raise RangeError, +"bignum too big to convert into 'long long'" unless n.between?(-2**63, 2**63 - 1)

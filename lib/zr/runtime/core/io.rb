@@ -2199,7 +2199,12 @@ class IO
   # UTF-8 and the single-byte encodings, every ASCII byte does.
   def char_boundary?(at)
     Primitive.attr! :hidden
-    return true if at.zero? || read_encoding.equal?(Encoding::UTF_8)
+    return true if at.zero?
+    # In UTF-8 only a continuation byte (0x80..0xBF) is inside a character.
+    if read_encoding.equal?(Encoding::UTF_8)
+      b = @buffer.getbyte(at)
+      return !(b && b >= 0x80 && b <= 0xBF)
+    end
 
     onig = Regexp.encoder(read_encoding)
     onig.max_len == 1 || onig.left_adjust_char_head(@buffer, 0, at, @buffer.bytesize) == at
@@ -2230,6 +2235,68 @@ class IO
     [separator, limit&.negative? ? nil : limit]
   end
 
+  # rb_io_getline_0 with a limit, step by step. appendline reads to the
+  # separator's last byte or to the limit; a line ends where the whole
+  # separator ends on a character's start. A limit that runs out on that
+  # last byte with no whole separator leaves 0, which appendline takes as
+  # no limit, so the line reads on to the next separator: ruby's own
+  # quirk. A limit inside a character reads on, a byte at a time, to its
+  # end, at most 16 bytes.
+  def limited_line(separator, limit, paragraph)
+    Primitive.attr! :hidden
+    newline = separator.getbyte(separator.bytesize - 1)
+    size = separator.bytesize
+    pos = 0
+    left = limit
+    extra = 16
+    while true
+      byte = nil
+      while true
+        fill_cooked if pos >= @buffer.bytesize && !@eof
+        break if pos >= @buffer.bytesize
+
+        byte = @buffer.getbyte(pos)
+        pos += 1
+        left -= 1
+        break if byte == newline || left == 0
+
+        byte = nil
+      end
+      return(pos.zero? ? nil : take(pos)) if byte.nil? && pos >= @buffer.bytesize && @eof
+
+      if byte == newline
+        next if pos < size || !char_boundary?(pos - size)
+
+        if @buffer.byteslice(pos - size, size) == separator
+          line = take(pos)
+          skip_newlines if paragraph
+          return line
+        end
+      end
+      next unless left.zero?
+
+      if extra.positive? && whole_char(pos) > pos
+        left = 1
+        extra -= 1
+        next
+      end
+      @cut = true
+      return take(pos)
+    end
+  end
+
+  # Paragraph mode's newlines before a paragraph, read as they arrive: a
+  # fresh stream's buffer is empty until it is filled.
+  def skip_newlines
+    Primitive.attr! :hidden
+    while true
+      fill_cooked if @buffer.empty? && !@eof
+      break unless @buffer.start_with?("\n")
+
+      take(1)
+    end
+  end
+
   # A line the limit cut short counts no line: `@cut` says so, as
   # rb_io_getline_0 leaves fptr->lineno alone then.
   def read_line(separator, limit)
@@ -2247,10 +2314,8 @@ class IO
     end
     paragraph = separator.empty?
     separator = +"\n\n" if paragraph
-    if paragraph
-      fill_cooked while !@eof && @buffer.start_with?("\n")
-      take(1) while @buffer.start_with?("\n")
-    end
+    skip_newlines if paragraph
+    return limited_line(separator, limit, paragraph) if limit
     from = 0
     while true
       # A byte offset: `take` counts bytes, and a character index would
@@ -2267,10 +2332,7 @@ class IO
           @cut = stop < at + separator.bytesize
         end
         line = take(stop)
-        if paragraph
-          fill_cooked while !@eof && @buffer.start_with?("\n")
-          take(1) while @buffer.start_with?("\n")
-        end
+        skip_newlines if paragraph
         return line
       end
       if limit && @buffer.bytesize >= limit
@@ -2346,6 +2408,12 @@ class IO
     bytes = line.b
     return line unless bytes.end_with?(separator.b)
 
+    # A separator that would start inside a character was not matched.
+    start = bytes.bytesize - separator.bytesize
+    if start.positive? && line.encoding.equal?(Encoding::UTF_8)
+      b = bytes.getbyte(start)
+      return line if b >= 0x80 && b <= 0xBF
+    end
     cut = separator.bytesize
     cut += 1 if separator.b == "\n" && bytes.getbyte(-2) == 0x0D && bytes.bytesize > 1
     line.byteslice(0, line.bytesize - cut)
