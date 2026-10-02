@@ -1,0 +1,18 @@
+["block in <main>", "block in <main>", "Array#each", "<main>"]
+["block in <main>", "block in <main>", "Array#each", "<main>"]
+["Regexp#match", "block in <main>", "block in <main>", "Array#each", "<main>"]
+["Regexp#===", "block in <main>", "block in <main>", "Array#each", "<main>"]
+["Regexp#match?", "block in <main>", "block in <main>", "Array#each", "<main>"]
+["Regexp#match", "String#match", "block in <main>", "block in <main>", "Array#each", "<main>"]
+["block in <main>", "block in <main>", "Array#each", "<main>"]
+["Regexp#===", "block in <main>", "block in <main>", "Array#each", "<main>"]
+1
+"b"
+2
+"c"
+false
+nil
+true
+"a"
+nil
+nil

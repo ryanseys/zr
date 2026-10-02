@@ -1680,7 +1680,9 @@ class String
 
   def chr = (Primitive.zr_str_bytesize(self) == 0) ? +"" : OWN[:[]].bind_call(self, 0)
 
+  # Ruby runs `=~` as an instruction (opt_regexpmatch2), with no frame.
   def =~(other)
+    Primitive.attr! :hidden
     raise TypeError, +"wrong argument type String (expected Regexp)" if other.is_a?(String)
     return other.send(:=~, self) if other.is_a?(Regexp)
 

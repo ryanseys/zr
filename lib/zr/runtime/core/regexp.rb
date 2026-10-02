@@ -463,6 +463,15 @@ class Regexp
   # The MatchData for `text` from character `pos`, or nil; `$~` is set
   # either way.
   def match(text, pos = 0)
+    result = matched(text, pos)
+    return result unless block_given? && result
+
+    yield result
+  end
+
+  # `match` with no frame of its own, for `=~` and `===`.
+  def matched(text, pos = 0)
+    Primitive.attr! :hidden
     if text.nil?
       Primitive.zr_backref_set(nil)
       return nil
@@ -478,10 +487,9 @@ class Regexp
     end
     result = search(text, Primitive.zr_str_char_offset_m(text, pos), false)
     Primitive.zr_backref_set(result)
-    return result unless block_given? && result
-
-    yield result
+    result
   end
+  private :matched
 
   def match?(text, pos = 0)
     return false if text.nil?
@@ -497,9 +505,11 @@ class Regexp
     !Primitive.zr_regexp_search(self, program_for(text), text, Primitive.zr_str_char_offset_m(text, pos), false).nil?
   end
 
-  # The character the search matched at (before a `\K`), or nil.
+  # The character the search matched at (before a `\K`), or nil. Ruby
+  # runs `=~` as an instruction (opt_regexpmatch2), with no frame.
   def =~(text)
-    result = match(text)
+    Primitive.attr! :hidden
+    result = matched(text)
     result && Primitive.zr_str_byte_to_char(result.send(:text), result.send(:position))
   end
 
@@ -509,7 +519,7 @@ class Regexp
       return false
     end
 
-    !match(text).nil?
+    !matched(text).nil?
   end
 
   # `~ re`: the match against `$_`.
