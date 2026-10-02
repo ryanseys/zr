@@ -9,9 +9,10 @@ module Zr
   module Native
     # Maps work over many items in forked workers. Use it only for work
     # that computes and has no side effects (a cold unit's passes and
-    # assembly). Each worker gets a bin of items: the heaviest item goes
-    # first, to the lightest bin. Each worker writes its results to a pipe.
-    # The results are in item order, so they do not depend on `jobs`.
+    # assembly). The workers take the items from one queue, the heaviest
+    # first, so a weight that is wrong costs little: a worker that is done
+    # takes the next item. Each worker writes its results to a pipe. The
+    # results are in item order, so they do not depend on `jobs`.
     module Parallel
       module_function
 
@@ -28,9 +29,12 @@ module Zr
         answers = Array.new(items.size)
         warmed
         jobs = afforded(jobs)
-        failures = dealt(weights, jobs).map { |bin| started(items, bin, work) }.filter_map do |pid, reader, bin|
-          collected(pid, reader, bin, answers)
-        end
+        queue, feed = IO.pipe
+        feeder = fed(feed, weights)
+        workers = Array.new(jobs) { started(items, queue, feed, work) }
+        queue.close
+        feeder.join
+        failures = workers.filter_map { |pid, reader| collected(pid, reader, answers) }
         raise_first(failures) unless failures.empty?
         answers
       end
@@ -125,48 +129,53 @@ module Zr
         8 * (1 << 30)
       end
 
-      # Returns the item indexes of each bin. It puts the heaviest item
-      # first, each into the lightest bin so far (the lowest bin on a tie).
-      def dealt(weights, jobs)
-        bins = Array.new(jobs) { [] }
-        loads = Array.new(jobs, 0)
-        weights.each_index.sort_by { |i| [-weights[i], i] }.each do |i|
-          k = loads.index(loads.min)
-          bins[k] << i
-          loads[k] += weights[i]
-        end
-        bins.reject(&:empty?)
+      # Starts a thread that writes the queue of the item indexes to `feed`,
+      # the heaviest first (the lowest index on a tie), 4 bytes each, and
+      # then closes it. A thread writes it, since a long queue is more than
+      # a pipe holds. Each write and read is a whole number of indexes, so
+      # two workers never share one.
+      def fed(feed, weights)
+        order = weights.each_index.sort_by { |i| [-weights[i], i] }
+        Thread.new { feed.binmode.write(order.pack("L*")).tap { feed.close } }
       end
 
-      # Forks a worker for the items of `bin`. A thread reads the worker's
-      # result while the worker writes, so a full pipe does not block it.
-      def started(items, bin, work)
+      # Forks a worker that takes items from `queue`. The worker closes its
+      # copy of `feed`, so its read after the last index gets nil. A thread
+      # reads the worker's result while the worker writes, so a full pipe
+      # does not block it.
+      def started(items, queue, feed, work)
         r, w = IO.pipe
         pid = fork do
+          feed.close
+          queue.binmode
           r.close
           w.binmode
-          w.write(Marshal.dump(answered(items, bin, work)))
+          w.write(Marshal.dump(answered(items, queue, work)))
           w.close
           exit!(0)
         end
         w.close
-        [pid, Thread.new { r.binmode.read.tap { r.close } }, bin]
+        [pid, Thread.new { r.binmode.read.tap { r.close } }]
       end
 
-      # Returns `[:ok, results]`, or `[:raised, index, class name, message]`
-      # for the first item of the bin that raised.
-      def answered(items, bin, work)
+      # Returns `[:ok, [[index, result]…]]`, or `[:raised, index, class
+      # name, message]` for the first item that raised. A worker stops at
+      # its first failure; the others take the rest.
+      def answered(items, queue, work)
         done = []
-        bin.each do |i|
-          done << work.call(items[i])
-        rescue StandardError => e
-          return [:raised, i, e.class.name, e.message]
+        while (word = queue.read(4))
+          i = word.unpack1("L")
+          begin
+            done << [i, work.call(items[i])]
+          rescue StandardError => e
+            return [:raised, i, e.class.name, e.message]
+          end
         end
         [:ok, done]
       end
 
       # Puts the worker's results at their indexes. Returns its failure, if any.
-      def collected(pid, reader, bin, answers)
+      def collected(pid, reader, answers)
         bytes = reader.value
         _, status = Process.wait2(pid)
         raise "a worker stopped without an answer (#{status})" if bytes.empty?
@@ -174,7 +183,7 @@ module Zr
         tag, *rest = Marshal.load(bytes)
         return rest if tag == :raised
 
-        bin.zip(rest.first) { |i, answer| answers[i] = answer }
+        rest.first.each { |i, answer| answers[i] = answer }
         nil
       end
 
