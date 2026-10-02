@@ -202,13 +202,13 @@ class Regexp
     ascii = Primitive.zr_str_ascii_only_m(text)
     raise ArgumentError, "invalid byte sequence in #{Encoding.at(index)}" unless ascii || Primitive.zr_str_valid_p(text)
 
-    # For a text like the last one (the same encoding, ASCII or not, and
-    # the engine unchanged since that call), the program is the one that
-    # call kept. A `scan` over a text calls this once per match, and the
+    # For a text like the last one (the same encoding, ASCII or not), the
+    # program is the one that call kept. A change of engine below drops
+    # it. A `scan` over a text calls this once per match, and the
     # selection below costs a dozen sends.
     programs = Primitive.zr_regexp_alt(self)
     last = programs && programs[:last]
-    return last[3] if last && last[0] == index && last[1] == ascii && last[2].equal?(programs[:engine])
+    return last[2] if last && last[0] == index && last[1] == ascii
 
     pattern
     text_encoding = Encoding.at(index)
@@ -222,11 +222,12 @@ class Regexp
         program_in(enc, warns: true)
         engine = enc
         programs[:engine] = engine
+        programs.delete(:last)
       end
     end
     program = engine == encoding ? nil : programs[engine][0]
     # A program that warns is not kept: ruby warns on every match with it.
-    programs[:last] = [index, ascii, engine, program] unless warning
+    programs[:last] = [index, ascii, program] unless warning
     program
   end
 
