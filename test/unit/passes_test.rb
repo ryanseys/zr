@@ -513,7 +513,7 @@ class PassesTest < Minitest::Test
   # A load of a static reuses the earlier value across a store to a slot.
   # It does not reuse it across a call, or across a store through an
   # unknown address (here, one that a call returned), which can write any
-  # word.
+  # word. A load just after a store of the word is the stored value.
   def test_static_load_is_reused_across_slot_store_but_not_call
     where = function("where", [], "i64") { |f| f.ret(f.symbol_value(f.symbol("zr_static_site_stamp"))) }
     f = function("stores", [], "i64") do |f|
@@ -528,7 +528,7 @@ class PassesTest < Minitest::Test
       f.ret(f.iadd(a, f.iadd(b, c)))
     end
     Zr::IR::Passes.prepare(f, strict: true)
-    assert_equal 2, loads(f).size, "the read after the slot store is the one before it"
+    assert_equal 1, loads(f).size, "the first read is the stored 4; the read after the slot store is the one before it"
     assert_equal 4 + 9 + 9, answer_with([f, where], [static("site_stamp")], [])
   end
 
@@ -692,8 +692,8 @@ class PassesTest < Minitest::Test
 
   # A load that the loop test guards (a word behind a pointer that the
   # head checks for null) stays after the test. A load of the volatile
-  # region stays where it is. A word that a store before the loop proves
-  # present is read before the loop.
+  # region stays where it is. A word that a store before the loop writes,
+  # and the loop does not, is the stored value: no load reads it.
   def test_guarded_and_volatile_loads_stay_in_the_loop
     f = function("guarded", %w[i64 i64], "i64") do |f, p, r|
       poll = f.symbol_addr(f.symbol("zr_static_current_task"))
@@ -715,7 +715,7 @@ class PassesTest < Minitest::Test
     loops = f.analysis.loops
     assert_equal 1, loops.size
     inside, outside = loads(f).partition { |i| loops[0].body.include?(f.blocks.find { |b| b.insts.include?(i) }.name) }
-    assert_equal [16], outside.map(&:offset), "the stored word"
+    assert_empty outside, "the stored word is the stored value"
     assert_equal 3, inside.size, "the poll word and the two behind the tested pointer"
   end
 

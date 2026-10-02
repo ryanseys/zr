@@ -3,6 +3,7 @@
 require_relative "effects"
 require_relative "inst"
 require_relative "regions"
+require_relative "types"
 
 module Zr
   module IR
@@ -19,6 +20,9 @@ module Zr
     # store with no known region, a call whose `IR::Effects` include it,
     # or an indirect call. `Regions` gives the region of a load or store.
     # A load of the volatile region is never the same as another load.
+    # A store is a load of the value it stores, so a later load of the
+    # same address, offset and type is that value: the match loop stores
+    # its position and the handler then reads it.
     #
     # The walk uses a scoped table, so a value from one arm of a branch
     # is not used in the other arm. For each block, `between` gives the
@@ -133,7 +137,9 @@ module Zr
             next if region == :volatile || region == :slot
 
             take(i, [:load, i.type, i.args[0], i.offset, region], region ? Effects.bit(region) : Effects::ALL)
-          when :store then forget(write_bits(i))
+          when :store
+            forget(write_bits(i))
+            stored(i)
           when :call then forget(@effects.fetch(i.callee))
           when :call_indirect then forget(Effects::ALL)
           else
@@ -144,6 +150,26 @@ module Zr
             take(i, [i.op, i.type, i.cond, i.offset, *args], nil)
           end
         end
+      end
+
+      # The store `i` puts its value in the table as the load of its
+      # address. The store's width is its value's type, so only a load of
+      # that type reads all of it, and the key has that type. The store
+      # removed the loads of its region before, so no older entry can
+      # overlap it.
+      def stored(i)
+        v, addr = i.args
+        region = region_of(i, addr)
+        return if region == :volatile || region == :slot
+
+        @types ||= Types.of(@f)
+        return unless (type = @types[v])
+
+        key = [:load, type, addr, i.offset, region]
+        bit = region ? Effects.bit(region) : Effects::ALL
+        @undo << [key, @by_key[key]]
+        @by_key[key] = [v, bit]
+        @loaded[bit] << key
       end
 
       # If the table has a value for `key`, `i` becomes that value.
