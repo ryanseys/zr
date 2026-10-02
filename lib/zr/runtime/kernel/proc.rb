@@ -837,6 +837,8 @@ module Zr::Kern
   sig [Value, Word, Ptr] => Value
   def zr_yield(blk, argc, argv)
     if blk == QNIL
+      # No block takes the keywords the caller flagged.
+      zr_kw_take()
       return zr_local_jump_error(Machine.bytes("no block given (yield)"), 22, Machine.id(:noreason), Machine.value(QNIL))
     end
     # The caller flagged its keywords in the task. A switch at the poll

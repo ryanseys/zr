@@ -509,7 +509,7 @@ module Zr::Kern
     kw = Task.kw(t)
     if kw > 1
       argc = zr_kw_tab_in(kw, argc, argv)
-      kw = 1
+      kw = zr_kw_hashed(kw)
     end
     rec = Machine.slot(Frame.size)
     if Machine.word(rec) < Machine.word(Task.stack_limit(t))

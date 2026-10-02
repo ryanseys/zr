@@ -107,6 +107,9 @@ module Zr::Kern
   sig [Word, Word, Ptr] => Word
   def zr_kw_tab_in(tab, argc, argv)
     n = Machine.load64(tab, 0)
+    if n == 0
+      return argc
+    end
     count = argc - n
     h = zr_hash_new()
     i = 0
@@ -124,6 +127,32 @@ module Zr::Kern
   def zr_kw_argc(argc, argv)
     h = Machine.value(Machine.load64(argv + ((argc - 1) * 8), 0))
     if RHash.live(h) == 0
+      return argc - 1
+    end
+    zr_kw_pass()
+    argc
+  end
+
+  # The keyword word after zr_kw_tab_in: 1 for the Hash that it made, or
+  # 0 for a table of no keywords, which makes none.
+  sig [Word] => Word
+  def zr_kw_hashed(tab)
+    if Machine.load64(tab, 0) == 0
+      return 0
+    end
+    1
+  end
+
+  # `zr_kw_argc` for a yield. An empty Hash is not passed, but the
+  # keyword word is a table of no keywords: a block that ruby does not
+  # count as simple then takes a lone Array whole, as
+  # setup_parameters_complex allows no autosplat after a `**h`, even an
+  # empty one. Every reader of a table finds no keywords in it.
+  sig [Word, Ptr] => Word
+  def zr_kw_argc_yield(argc, argv)
+    h = Machine.value(Machine.load64(argv + ((argc - 1) * 8), 0))
+    if RHash.live(h) == 0
+      Task.set_kw(zr_task(), Machine.word(Machine.static(:kw_none, 8)))
       return argc - 1
     end
     zr_kw_pass()
@@ -217,7 +246,7 @@ module Zr::Kern
   def zr_method_missing(recv, mid, argc, argv, blk, kw, reason)
     if kw > 1
       argc = zr_kw_tab_in(kw, argc, argv)
-      kw = 1
+      kw = zr_kw_hashed(kw)
     end
     e = zr_find_method(zr_box_view(zr_class_of(recv)), Machine.id(:method_missing))
     if e == 0 || MEntry.fn(e) == Machine.addr(:zr_obj_method_missing)
@@ -563,16 +592,18 @@ module Zr::Kern
   sig [Ptr, Value, Word, Ptr, Value, Word] => Value
   def zr_invoke(e, recv, argc, argv, blk, kw)
     kind = MEntry.kind(e)
-    if kw > 1 && kind != KIND_DEF && kind != KIND_BMETHOD
+    # Proc#call gives the block the keyword word as it is, so a table
+    # of no keywords still keeps a lone Array whole.
+    if kw > 1 && kind != KIND_DEF && kind != KIND_BMETHOD && (MEntry.fn(e) != Machine.addr(:zr_proc_call) || Machine.load64(kw, 0) != 0)
       argc = zr_kw_tab_in(kw, argc, argv)
-      kw = 1
+      kw = zr_kw_hashed(kw)
     end
     if kind == KIND_DEF
       arity = MEntry.arity(e)
       if arity >= 0
         # For a def with a fixed count, which declares no keywords, the
         # table's values are one Hash argument.
-        given = kw > 1 ? argc - Machine.load64(kw, 0) + 1 : argc
+        given = kw > 1 ? argc - Machine.load64(kw, 0) + zr_kw_hashed(kw) : argc
         if given != arity
           return zr_wrong_arity_in(given, arity, e, recv)
         end

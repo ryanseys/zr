@@ -56,6 +56,11 @@ module Zr
             # autosplat with keywords.
             keyworded = @f.bor(@f.icmp("ne", tab, imm(0)), @f.icmp("ne", @f.fetch("i64", @rec, kwargs_at), @qnil))
           else
+            # So do keywords given to any block but a simple one (only
+            # leading required parameters), also an empty `**h`.
+            unless simple_block?(p) || !p.spread?
+              keyworded = @f.icmp("ne", @f.fetch("i64", @task_addr, off(@task, "kw")), imm(0))
+            end
             argc = drop_keywords(argc, argv, p.rest && p.rest != :implicit ? :block : nil)
           end
           # A table's values are after the positional arguments as given,
@@ -84,6 +89,11 @@ module Zr
           bind_positional(p, argc, argv, strict: false, keep: keep)
           bind_keywords(p, kwargs_at, tab, count, given) if keywords?(p) && p.kwrest != :nokey
           bind(p.block, block_param(call_block)) if p.block
+        end
+
+        # rb_simple_iseq_p: only leading required parameters, and `|a,|`.
+        def simple_block?(p)
+          p.optional.empty? && [nil, :implicit].include?(p.rest) && p.post.empty? && p.keywords.empty? && p.kwrest.nil? && p.block.nil?
         end
 
         # The value of a `&b` parameter. If the scope only calls, passes

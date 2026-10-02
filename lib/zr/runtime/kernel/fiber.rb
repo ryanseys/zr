@@ -234,7 +234,7 @@ module Zr::Kern
     # resume's arrive as a Hash, the value of Fiber.yield.
     if kw > 1
       argc = zr_kw_tab_in(kw, argc, argv)
-      kw = 1
+      kw = zr_kw_hashed(kw)
     end
     if RFiber.status(recv) == FIBER_CREATED
       RFiber.set_kw(recv, kw)

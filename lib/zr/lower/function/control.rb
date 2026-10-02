@@ -389,7 +389,7 @@ module Zr
             ary = gather(parts, slot)
             at_node(node)
             argc = array_len(ary)
-            argc = kernel("zr_kw_argc", argc, array_ptr(ary)) if node.kwargs
+            argc = kernel("zr_kw_argc_yield", argc, array_ptr(ary)) if node.kwargs
             r = checked(block_call(argc, array_ptr(ary)))
             @sp = slot
             return r
@@ -398,7 +398,7 @@ module Zr
           staged(parts) do |argv|
             at_node(node)
             argc = imm(parts.size)
-            argc = kernel("zr_kw_argc", argc, argv) if node.kwargs
+            argc = kernel("zr_kw_argc_yield", argc, argv) if node.kwargs
             checked(block_call(argc, argv))
           end
         end

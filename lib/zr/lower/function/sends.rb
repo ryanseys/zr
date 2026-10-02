@@ -468,7 +468,9 @@ module Zr
             @f.store(@f.symbol_value(@f.symbol(@l.keyword_table([keys.size, *keys]))), @task_addr, off(@task, "kw"), region: :task)
             return argc
           end
-          return kernel("zr_kw_argc", argc, argv) if node.kwargs
+          # Proc#call and Proc#yield pass a `**h` on to the block as a yield
+          # does, also an empty one (vm_call_opt_call).
+          return kernel(node.is_a?(Hir::Send) && %i[call yield].include?(node.name) ? "zr_kw_argc_yield" : "zr_kw_argc", argc, argv) if node.kwargs
           return kernel("zr_kw_ruby2_out", argc, argv) if node.args.any?(Hir::Splat)
 
           argc
