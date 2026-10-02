@@ -124,6 +124,7 @@ module Zr
           # copies them.
           @scratch = 0
           @scratch_size = 0
+          @task_slot = k.zr_current_task_slot
           boot.walk = self
           @boot_classes = File.read(File.join(Paths::RUNTIME, "kernel/main.rb"))
                               .scan(/zr_boot_name\((G_\w+), Machine\.id\(:(\w+)\)\)/).to_h { |slot, name| [name.to_sym, k.const_get(slot)] }
@@ -232,7 +233,8 @@ module Zr
         private
 
         def k = @kern
-        def task = @kern.zr_task
+        # The running task (`zr_task`), read from its static slot.
+        def task = Memory.word(@task_slot)
 
         # The offsets of the kernel's fields that the code reads and writes
         # itself, and the statics it reads.
