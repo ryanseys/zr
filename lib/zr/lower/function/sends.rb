@@ -739,15 +739,35 @@ module Zr
           call = @f.label
           held = @f.fetch("i64", site.cc, off(@l.layout("CallCache"), "shape"))
           shapes.each_with_index do |shape, i|
-            here = @f.label
             onward = i == shapes.size - 1 ? call : @f.label
             wanted = @f.icmp("eq", held, imm(@l.const(SHAPES.fetch(shape))))
-            wanted = @f.bor(wanted, struct_member?(shape, held)) if ACCESSOR_SHAPES.include?(shape)
-            @f.brif(ACCESSOR_SHAPES.include?(shape) ? @f.band(cellular, wanted) : wanted, here, onward)
-            switch(here)
-            in_place(shape, site, klass, call, miss, held)
+            if ACCESSOR_SHAPES.include?(shape)
+              accessor_hits(shape, site, cellular, wanted, held, miss, onward)
+            else
+              here = @f.label
+              @f.brif(wanted, here, onward)
+              switch(here)
+              in_place(shape, site, klass, call)
+            end
             switch(onward)
           end
+        end
+
+        # An accessor's two shapes, each with its own body at the site: an
+        # attr_reader's or attr_writer's first, then a struct member's. A
+        # failed guard in either goes to `miss`, the kernel's send, which
+        # sets the guess.
+        def accessor_hits(shape, site, cellular, wanted, held, miss, onward)
+          plain = @f.label
+          member = @f.label
+          struct = @f.label
+          @f.brif(@f.band(cellular, wanted), plain, member)
+          switch(plain)
+          accessor_in_place(shape, site, miss)
+          switch(member)
+          @f.brif(@f.band(cellular, struct_member?(shape, held)), struct, onward)
+          switch(struct)
+          accessor_in_place(shape, site, miss, true)
         end
 
         # The def's direct entry, if the cell has one for this site's

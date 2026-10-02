@@ -51,15 +51,14 @@ module Zr
           end
         end
 
-        # What a site does if the cell's shape is `shape`. A failed accessor
-        # guard goes to `miss`, the kernel's send (which sets the guess). A
-        # check that the fast path cannot decide goes to `call`, the cell's
-        # own function, which the cell already found to be valid.
-        def in_place(shape, site, klass, call, miss, held)
+        # What a site does if the cell's shape is `shape`, a check (the
+        # accessors are `Sends#accessor_hits`). A check that the fast path
+        # cannot decide goes to `call`, the cell's own function, which the
+        # cell already found to be valid.
+        def in_place(shape, site, klass, call)
           recv = site.recv
           merge = site.merge
           case shape
-          when :reader, :writer then accessor_in_place(shape, site, miss, held)
           when :nil_p then @f.jump(merge, [ruby_bool(@f.icmp("eq", recv, @qnil))])
           when :frozen_p then frozen_in_place(recv, merge)
           when :ary_length then @f.jump(merge, [@f.bor(@f.ishl(array_len(recv), imm(1)), imm(1))])
@@ -166,13 +165,14 @@ module Zr
         # frozen receiver for the writer, or a wrong guess goes to `slow`,
         # the kernel's send, which calls the accessor and sets the guess.
         #
-        # `held` is the cell's shape. When it can be a struct member's
-        # (`struct_member?`), the guessed entry is the struct's values, and
-        # the member is the element at the entry's index
-        # (`struct_member_in_place`).
+        # `member` says whether the cell's entry is a struct member's
+        # accessor: nil (it is not), true (it is), or a condition that the
+        # code tests (`struct_member?` of the cell's shape). For a member,
+        # the guessed entry is the struct's values, and the member is the
+        # element at the entry's index (`struct_member_in_place`).
         #
         # Clear the keyword word as the accessor call would.
-        def accessor_in_place(shape, site, slow, held = nil)
+        def accessor_in_place(shape, site, slow, member = nil)
           recv = site.recv
           entry = site.entry
           argv = site.argv
@@ -194,9 +194,15 @@ module Zr
           switch(indexed)
           at = @f.iadd(@f.fetch("i64", t, off(table, "rows")), @f.ishl(i, imm(Math.log2(row.size).to_i)))
           fn = @f.fetch("i64", entry, off(meta, "fn"))
-          member = held && struct_member?(shape, held)
-          @f.brif(@f.icmp("eq", @f.fetch("i64", at, off(row, "id")), member ? @f.csel(member, sym_word(:__values__), fn) : fn), hit, slow)
+          id = case member
+               when nil then fn
+               when true then sym_word(:__values__)
+               else @f.csel(member, sym_word(:__values__), fn)
+               end
+          @f.brif(@f.icmp("eq", @f.fetch("i64", at, off(row, "id")), id), hit, slow)
           switch(hit)
+          return struct_member_in_place(shape, @f.fetch("i64", at, off(row, "value")), fn, argv, merge, slow) if member == true
+
           if member
             ivar = @f.label
             element = @f.label
