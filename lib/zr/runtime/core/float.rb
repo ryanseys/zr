@@ -73,6 +73,7 @@ module Kernel
   # strictly.
   def Float(arg, exception: true)
     Primitive.attr! :ruby
+    exception = exception_flag(exception)
     value = arg
     case value
     when Float then value

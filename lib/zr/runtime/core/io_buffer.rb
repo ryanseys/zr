@@ -236,11 +236,32 @@ class IO
       signed && value >= (1 << ((width * 8) - 1)) ? value - (1 << (width * 8)) : value
     end
 
+    # An Integer for a type of `width` bytes, checked as CRuby's NUM2ULL,
+    # NUM2LL, NUM2UINT and NUM2INT check it: 8 bytes as a long long, the
+    # narrower types as an int (and then their bytes wrap).
+    def integer_value(n, width, signed)
+      if width == 8
+        if signed
+          raise RangeError, +"bignum too big to convert into 'long long'" unless n.between?(-2**63, 2**63 - 1)
+        else
+          raise RangeError, +"bignum too big to convert into 'unsigned long long'" if n > 2**64 - 1
+          raise RangeError, +"bignum out of range of unsigned long long" if n < -2**63
+        end
+      elsif signed
+        raise RangeError, "integer #{n} too #{n.negative? ? "small" : "big"} to convert to 'int'" unless n.between?(-2**31, 2**31 - 1)
+      else
+        raise RangeError, "integer #{n} too big to convert to 'unsigned int'" if n > 2**32 - 1
+        raise RangeError, "integer #{n} too small to convert to 'unsigned int'" if n < -2**31
+      end
+      n
+    end
+    private :integer_value
+
     def set_value(type, offset, value)
       width, _signed, host, float = Buffer.send(:row, type)
       writable
       bounds(offset, width, type)
-      value = float ? [value.to_f].pack(width == 4 ? "g" : "G").unpack1(width == 4 ? "N" : "Q>") : value.to_int
+      value = float ? [value.to_f].pack(width == 4 ? "g" : "G").unpack1(width == 4 ? "N" : "Q>") : integer_value(value.to_int, width, _signed)
       i = 0
       while i < width
         @bytes.setbyte(@start + offset + (host ? i : width - 1 - i), (value >> (i * 8)) & 0xff)

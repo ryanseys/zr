@@ -244,8 +244,15 @@ class Integer
     [div(other), modulo(other)]
   end
 
+  # A Float divisor of zero divides by zero; a Bignum's Float quotient
+  # truncates (rb_big_divide), a Fixnum's floors (fix_divide).
   def div(other)
-    return (to_f / other).floor if other.is_a?(Float)
+    if other.is_a?(Float)
+      raise ZeroDivisionError, +"divided by 0" if other == 0.0
+
+      q = to_f / other
+      return between?(-4_611_686_018_427_387_904, 4_611_686_018_427_387_903) ? q.floor : q.truncate
+    end
     return self / other if other.is_a?(Integer)
 
     (Primitive.zr_num_coerce_m(self, other, :/, 0)).floor
@@ -267,7 +274,7 @@ class Integer
       return Integer.send(:big_fdiv, self, Primitive.zr_math_call(23, fraction, 53).to_i, exp - 53)
     end
     unless other.is_a?(Numeric)
-      raise TypeError, "#{conversion_name(other)} can't be coerced into Integer" unless other.respond_to?(:coerce)
+      raise TypeError, "#{other.is_a?(Symbol) ? other.inspect : conversion_name(other)} can't be coerced into Integer" unless other.respond_to?(:coerce)
 
       first, second = other.coerce(self)
       return first.fdiv(second)
@@ -362,9 +369,9 @@ class Integer
   end
   private_class_method :negative_int?
 
-  def ceil(digits = 0) = round_to(digits, :ceil)
+  def ceil(digits = 0) = round_to(Numeric.send(:int_operand, digits), :ceil)
 
-  def truncate(digits = 0) = round_to(digits, :truncate)
+  def truncate(digits = 0) = round_to(Numeric.send(:int_operand, digits), :truncate)
 
   def allbits?(mask)
     mask = bit_mask(mask)
@@ -389,11 +396,18 @@ class Integer
     -div(0 - other)
   end
 
-  def floor(digits = 0) = round_to(digits, :floor)
+  def floor(digits = 0) = round_to(Numeric.send(:int_operand, digits), :floor)
 
-  def round(digits = 0, half: nil)
-    mode = Numeric.send(:half_mode, half)
-    digits = Primitive.zr_index_operand_m(digits)
+  # int_round: with no digits the keywords are not read; the digits must
+  # fit an int, then the rounding mode is read.
+  def round(*args, **opts)
+    raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 0..1)" if args.size > 1
+    return self if args.empty?
+
+    digits = Numeric.send(:int_operand, args.first)
+    mode = Numeric.send(:half_mode, opts.fetch(:half, nil))
+    unknown = opts.keys - [:half]
+    raise ArgumentError, "unknown keyword#{"s" if unknown.size > 1}: #{unknown.map(&:inspect).join(", ")}" unless unknown.empty?
     return self if digits >= 0
 
     unit = 10**-digits
@@ -483,7 +497,10 @@ class Numeric
 
   # CRuby's rule: the modulo, moved back by the divisor when the signs
   # differ, so the remainder takes the receiver's sign.
+  # An operand that is no Numeric coerces first, as num_remainder does.
   def remainder(other)
+    return Primitive.zr_num_coerce_m(self, other, :remainder, 0) unless other.is_a?(Numeric)
+
     z = self % other
     return z if z == 0
 

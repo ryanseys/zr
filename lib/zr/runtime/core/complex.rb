@@ -15,17 +15,37 @@ class Complex < Numeric
     end
     private :build
 
-    def rectangular(real, imag = 0)
-      raise TypeError, +"not a real" unless real.is_a?(Numeric) && real.real? && imag.is_a?(Numeric) && imag.real?
+    # safe_mul: a finite Float times an exact or Float zero is that zero
+    # with the Float's sign, as is an infinite one.
+    def safe_mul(a, b, az, bz)
+      Primitive.attr! :hidden
+      a = a.negative? || (a.zero? && 1.0 / a < 0) ? -1.0 : 1.0 if !az && bz && a.is_a?(Float) && !a.nan?
+      b = b.negative? || (b.zero? && 1.0 / b < 0) ? -1.0 : 1.0 if !bz && az && b.is_a?(Float) && !b.nan?
+      a * b
+    end
+    private :safe_mul
 
-      build(real, imag)
+    # nucomp_real_check: a real number, or a Complex whose imaginary part
+    # is zero, as its real part. Else "not a real".
+    def real_part_of(num)
+      Primitive.attr! :hidden
+      return num.real if num.is_a?(Complex) && num.imaginary.zero?
+      raise TypeError, +"not a real" unless num.is_a?(Numeric) && num.real?
+
+      num
+    end
+    private :real_part_of
+
+    def rectangular(real, imag = 0)
+      build(real_part_of(real), real_part_of(imag))
     end
 
     alias rect rectangular
 
     # CRuby's f_complex_polar: the exact quarter turns stay exact.
     def polar(radius, theta = 0)
-      raise TypeError, +"not a real" unless radius.is_a?(Numeric) && radius.real? && theta.is_a?(Numeric) && theta.real?
+      radius = real_part_of(radius)
+      theta = real_part_of(theta)
       return build(radius, 0.0) if radius == 0 || theta == 0
 
       if theta.is_a?(Float)
@@ -99,11 +119,27 @@ class Complex < Numeric
       if (m = forms[:real].match(body))
         return build(real_part(m[1]), 0)
       end
+      zero_denominator(body)
       return nil unless exception
 
       raise ArgumentError, "invalid value for convert(): #{text.inspect}"
     end
     private :parse
+
+    # read_rat reads a denominator as an integer and divides as soon as it
+    # has one, so "1/0.0" and "1/0x2" divide by zero before the rest of
+    # the text fails to parse.
+    def zero_denominator(body)
+      Primitive.attr! :hidden
+      slash = body.index("/")
+      return unless slash && slash > 0 && body.byteslice(0, slash).each_byte.all? { |b| (b >= 48 && b <= 57) || [43, 45, 46, 69, 95, 101].include?(b) }
+
+      j = slash + 1
+      j += 1 while body.getbyte(j) == 48 || (body.getbyte(j) == 95 && body.getbyte(j - 1) == 48)
+      b = body.getbyte(j)
+      raise ZeroDivisionError, +"divided by 0" if j > slash + 1 && !(b && b >= 48 && b <= 57)
+    end
+    private :zero_denominator
 
     def leading(text)
       Primitive.attr! :hidden
@@ -188,10 +224,21 @@ class Complex < Numeric
     end
   end
 
+  # comp_mul: each product through safe_mul, so an infinite part times a
+  # zero part is a signed zero, not NaN.
   def *(other)
     case other
     when Complex
-      Complex.send(:build, real * other.real - imaginary * other.imaginary, real * other.imaginary + imaginary * other.real)
+      ar = real
+      ai = imaginary
+      br = other.real
+      bi = other.imaginary
+      arz = ar.zero?
+      aiz = ai.zero?
+      brz = br.zero?
+      biz = bi.zero?
+      Complex.send(:build, Complex.send(:safe_mul, ar, br, arz, brz) - Complex.send(:safe_mul, ai, bi, aiz, biz),
+                   Complex.send(:safe_mul, ar, bi, arz, biz) + Complex.send(:safe_mul, ai, br, aiz, brz))
     when Integer, Float, Rational then Complex.send(:build, real * other, imaginary * other)
     else Primitive.zr_num_coerce_m(self, other, :*, 0)
     end
@@ -312,8 +359,9 @@ class Complex < Numeric
     real.to_f
   end
 
+  # nucomp_to_r: unlike to_f and to_i, a Float zero imaginary part is real.
   def to_r
-    raise RangeError, "can't convert #{self} into Rational" unless exact_real?
+    raise RangeError, "can't convert #{self} into Rational" unless imaginary == 0
 
     real.to_r
   end
@@ -372,17 +420,33 @@ module Kernel
   def Complex(real, *rest, exception: true)
     raise ArgumentError, "wrong number of arguments (given #{rest.size + 1}, expected 1..2)" if rest.size > 1
 
-    imag = rest.first
-    if rest.empty?
-      Complex.send(:convert, real, exception)
-    elsif real.is_a?(Numeric) && real.real? && imag.is_a?(Numeric) && imag.real?
-      Complex.send(:build, real, imag)
-    else
-      x = Complex.send(:convert, real, exception)
-      y = Complex.send(:convert, imag, exception)
-      return nil if x.nil? || y.nil?
+    exception = exception_flag(exception)
+    return Complex.send(:convert, real, exception) if rest.empty?
 
-      Complex.send(:build, x.real - y.imaginary, x.imaginary + y.real)
+    # nucomp_convert with two parts.
+    imag = rest.first
+    if real.nil? || imag.nil?
+      return nil unless exception
+
+      raise TypeError, +"can't convert nil into Complex"
+    end
+    real = Complex.send(:convert, real, exception) if real.is_a?(String)
+    imag = Complex.send(:convert, imag, exception) if imag.is_a?(String)
+    return nil if real.nil? || imag.nil?
+
+    # An exact zero imaginary part unwraps here; a Float zero one counts as
+    # real below, and nucomp_real_check unwraps it at the end.
+    exact_zero = ->(x) { x == 0 && !x.is_a?(Float) }
+    realish = ->(x) { x.is_a?(Complex) ? x.imaginary.zero? : x.real? }
+    real = real.real if real.is_a?(Complex) && exact_zero.(real.imaginary)
+    imag = imag.real if imag.is_a?(Complex) && exact_zero.(imag.imaginary)
+    return real if real.is_a?(Complex) && exact_zero.(imag)
+    return real + imag * Complex::I if real.is_a?(Numeric) && imag.is_a?(Numeric) && (!realish.(real) || !realish.(imag))
+
+    begin
+      Complex.rectangular(real, imag)
+    rescue TypeError
+      raise if exception
     end
   end
   private :Complex

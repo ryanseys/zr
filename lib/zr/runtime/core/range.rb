@@ -63,6 +63,7 @@ class Range
   def max(n = nil, &block)
     raise RangeError, +"cannot get the maximum of endless range" if @end.nil?
     if block || n || (@excl && !@end.is_a?(Numeric))
+      raise ArgumentError, +"negative array size (or size too big)" if n && n < 0
       if @begin.nil?
         raise RangeError, +"cannot get the maximum of beginless range with custom comparison method" if block
         raise TypeError, +"can't iterate from NilClass" unless @end.is_a?(Integer)

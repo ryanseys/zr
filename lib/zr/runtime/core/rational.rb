@@ -38,7 +38,8 @@ class Rational < Numeric
         value.to_r
       when String then parse(value, exception)
       when Complex
-        raise RangeError, "can't convert #{value} into Rational" unless value.imaginary == 0 && !value.imaginary.is_a?(Float)
+        # A zero imaginary part, exact or not, leaves the real part.
+        raise RangeError, "can't convert #{value} into Rational" unless value.imaginary == 0
 
         convert(value.real, exception)
       when nil
@@ -159,6 +160,14 @@ class Rational < Numeric
 
       value = 0
       count = 0
+      # A leading run of zeros takes single underscores among them and
+      # after them, as rb_int_parse_cstr skips them ("0_.1").
+      if text.getbyte(s) == 48
+        while (b = text.getbyte(s)) && (b == 48 || (b == 95 && text.getbyte(s + 1) != 95 && text.getbyte(s - 1) != 95))
+          count += 1 if b == 48
+          s += 1
+        end
+      end
       while true
         if digit.(s)
           value = value * 10 + text.getbyte(s) - 48
@@ -306,7 +315,7 @@ class Rational < Numeric
   def truncate(digits = 0) = rounded(digits) { |n, d| n < 0 ? -((-n).div(d)) : n.div(d) }
 
   def round(digits = 0, half: nil)
-    raise ArgumentError, "invalid rounding mode: #{half}" unless [nil, :up, :down, :even].include?(half)
+    half = Numeric.send(:half_mode, half)
 
     rounded(digits) do |n, d|
       neg = n < 0
@@ -385,6 +394,7 @@ module Kernel
   def Rational(a, *rest, exception: true)
     raise ArgumentError, "wrong number of arguments (given #{rest.size + 1}, expected 1..2)" if rest.size > 1
 
+    exception = exception_flag(exception)
     if rest.empty?
       Rational.send(:convert, a, exception)
     else

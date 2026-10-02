@@ -227,8 +227,19 @@ module Kernel
   end
   alias yield_self then
 
+  # The `exception:` keyword of Integer(), Float(), Rational() and
+  # Complex() is true or false (rb_bool_expected).
+  def exception_flag(value)
+    Primitive.attr! :hidden
+    return value if value == true || value == false
+
+    raise ArgumentError, "expected true or false as exception: #{value.inspect}"
+  end
+  private :exception_flag
+
   def Integer(arg, base = 0, exception: true)
     Primitive.attr! :ruby
+    exception = exception_flag(exception)
     value = arg
     base = implicit_integer(base)
     if value.is_a?(String)

@@ -1,0 +1,47 @@
+[ZeroDivisionError, "divided by 0"]
+[ZeroDivisionError, "divided by 0"]
+[ZeroDivisionError, "divided by 0"]
+0
+-4
+[TypeError, ":sym can't be coerced into Integer"]
+1.0
+(1/1)
+(5/2)
+[ArgumentError, "expected true or false as exception: 0"]
+[ArgumentError, "expected true or false as exception: nil"]
+[ArgumentError, "expected true or false as exception: 0"]
+[ArgumentError, "expected true or false as exception: 0"]
+[(1/10), (500/1), (1/1), (5/3)]
+[ZeroDivisionError, "divided by 0"]
+10
+20
+[RangeError, "can't convert 20+2i into Integer"]
+[ArgumentError, "negative array size (or size too big)"]
+1
+1
+[RangeError, "integer 2147483648 too big to convert to 'int'"]
+[TypeError, "no implicit conversion of Hash into Integer"]
+[TypeError, "no implicit conversion of String into Integer"]
+20
+2
+[ArgumentError, "invalid rounding mode: bogus"]
+[RangeError, "bignum too big to convert into 'unsigned long long'"]
+[RangeError, "bignum out of range of unsigned long long"]
+[RangeError, "bignum too big to convert into 'long long'"]
+[RangeError, "integer 4294967296 too big to convert to 'unsigned int'"]
+[RangeError, "integer -2147483649 too small to convert to 'int'"]
+2
+(1+1i)
+(1.0+5.0i)
+(1+2i)
+(1.0+2i)
+(1+2i)
+[TypeError, "not a real"]
+[TypeError, "not a real"]
+nil
+(1+2i)
+[TypeError, "not a real"]
+(1+2i)
+(2+0.0i)
+(0.0+Infinity*i)
+(NaN+Infinity*i)
