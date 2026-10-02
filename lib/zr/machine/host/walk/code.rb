@@ -181,14 +181,25 @@ module Zr
           def frozen_string(node, _s)
             bytes = node.value.b
             case node.shared
-            when true
-              at = cell(node, :str, 8)
-              ptr = @host.bytes(bytes)
-              ->(_) { @kern.zr_str_literal_cell(at, ptr, bytes.bytesize) }
+            when true then shared_literal(node, bytes)
             when false then string_literal(node.value, :zr_str_frozen)
             else
               literal = string_literal(node.value, :zr_str_literal_freeze)
               ->(f) { check(literal.call(f)) }
+            end
+          end
+
+          # The one shared frozen String of a UTF-8 literal, which the site's
+          # first run makes and keeps in the site's word
+          # (`Expressions#shared_literal`). Later runs read the word.
+          def shared_literal(node, bytes)
+            at = cell(node, :str, 8)
+            ptr = @host.bytes(bytes)
+            size = bytes.bytesize
+            kern = @kern
+            lambda do |_|
+              word = Memory.word(at)
+              word.zero? ? kern.zr_str_literal_cell(at, ptr, size) : word
             end
           end
 
@@ -279,9 +290,7 @@ module Zr
             parts = node.parts.map do |part|
               # A part in another script encoding is a plain literal.
               if part.is_a?(Hir::Literal) && part.value.is_a?(String) && part.value.encoding == ::Encoding::UTF_8
-                bytes = part.value.b
-                ptr = @host.bytes(bytes)
-                ->(_) { @kern.zr_str_literal_shared(ptr, bytes.bytesize) }
+                shared_literal(part, part.value.b)
               else
                 code(part, s)
               end
