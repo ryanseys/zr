@@ -129,115 +129,45 @@ class Integer
     end
 
     # --- magnitudes ----------------------------------------------------
+    #
+    # The loops are in the kernel (lib/zr/runtime/kernel/bignum.rb).
 
     def big_cmp_mag(a, b)
       Primitive.attr! :hidden
-      return a.size < b.size ? -1 : 1 if a.size != b.size
-
-      i = a.size - 1
-      while i >= 0
-        return a[i] < b[i] ? -1 : 1 if a[i] != b[i]
-
-        i -= 1
-      end
-      0
+      Primitive.zr_big_cmp_mag(a, b)
     end
 
     def big_add_mag(a, b)
       Primitive.attr! :hidden
-      a, b = b, a if a.size < b.size
-      out = []
-      carry = 0
-      i = 0
-      while i < a.size
-        t = a[i] + (i < b.size ? b[i] : 0) + carry
-        out << (t & LIMB_MASK)
-        carry = t >> LIMB_BITS
-        i += 1
-      end
-      out << carry if carry > 0
-      out
+      Primitive.zr_big_add_mag(a, b)
     end
 
     # `a - b` for a >= b.
     def big_sub_mag(a, b)
       Primitive.attr! :hidden
-      out = []
-      borrow = 0
-      i = 0
-      while i < a.size
-        t = a[i] - (i < b.size ? b[i] : 0) - borrow
-        if t < 0
-          t += LIMB_BASE
-          borrow = 1
-        else
-          borrow = 0
-        end
-        out << t
-        i += 1
-      end
-      out.pop while !out.empty? && out.last == 0
-      out
+      Primitive.zr_big_sub_mag(a, b)
     end
 
     def big_mul_mag(a, b)
       Primitive.attr! :hidden
-      return [] if a.empty? || b.empty?
-
-      out = Array.new(a.size + b.size, 0)
-      i = 0
-      while i < a.size
-        carry = 0
-        ai = a[i]
-        j = 0
-        while j < b.size
-          t = out[i + j] + ai * b[j] + carry
-          out[i + j] = t & LIMB_MASK
-          carry = t >> LIMB_BITS
-          j += 1
-        end
-        out[i + b.size] += carry
-        i += 1
-      end
-      out.pop while !out.empty? && out.last == 0
-      out
+      Primitive.zr_big_mul_mag(a, b)
     end
 
     # `a * m` for a fixnum m below the limb base.
     def big_mul_small_mag(a, m)
       Primitive.attr! :hidden
-      out = []
-      carry = 0
-      i = 0
-      while i < a.size
-        t = a[i] * m + carry
-        out << (t & LIMB_MASK)
-        carry = t >> LIMB_BITS
-        i += 1
-      end
-      out << carry if carry > 0
-      out
+      Primitive.zr_big_mul_mag(a, m == 0 ? [] : [m])
     end
 
-    # `[quotient, remainder]` of a magnitude by a fixnum below the limb
-    # base; the remainder is a fixnum.
+    # `[quotient, remainder]` of a magnitude by a fixnum above zero and
+    # below the limb base; the remainder is a fixnum.
     def big_divmod_small_mag(a, m)
       Primitive.attr! :hidden
-      out = Array.new(a.size, 0)
-      rem = 0
-      i = a.size - 1
-      while i >= 0
-        t = (rem << LIMB_BITS) + a[i]
-        out[i] = t / m
-        rem = t % m
-        i -= 1
-      end
-      out.pop while !out.empty? && out.last == 0
-      [out, rem]
+      Primitive.zr_big_divmod_small_mag(a, m)
     end
 
-    # Knuth's algorithm D over base-2^30 limbs: `[quotient, remainder]`
-    # magnitudes, for a divisor of two limbs or more.
+    # `[quotient, remainder]` magnitudes, by Knuth's algorithm D for a
+    # divisor of two limbs or more.
     def big_divmod_mag(a, b)
       Primitive.attr! :hidden
       return [[], a.dup] if big_cmp_mag(a, b) < 0
@@ -246,62 +176,7 @@ class Integer
         return [q, r == 0 ? [] : [r]]
       end
 
-      s = LIMB_BITS - b.last.bit_length
-      u = big_shl_mag(a, s)
-      v = big_shl_mag(b, s)
-      n = v.size
-      u << 0 while u.size < a.size + 1
-      m = u.size - n - 1
-      q = Array.new(m + 1, 0)
-      vtop = v[n - 1]
-      vsec = v[n - 2]
-      j = m
-      while j >= 0
-        num = (u[j + n] << LIMB_BITS) + u[j + n - 1]
-        qhat = num / vtop
-        rhat = num % vtop
-        while qhat >= LIMB_BASE || qhat * vsec > (rhat << LIMB_BITS) + u[j + n - 2]
-          qhat -= 1
-          rhat += vtop
-          break if rhat >= LIMB_BASE
-        end
-        borrow = 0
-        carry = 0
-        i = 0
-        while i < n
-          p = qhat * v[i] + carry
-          carry = p >> LIMB_BITS
-          t = u[i + j] - (p & LIMB_MASK) - borrow
-          if t < 0
-            t += LIMB_BASE
-            borrow = 1
-          else
-            borrow = 0
-          end
-          u[i + j] = t
-          i += 1
-        end
-        t = u[j + n] - carry - borrow
-        if t < 0
-          u[j + n] = t + LIMB_BASE
-          qhat -= 1
-          carry = 0
-          i = 0
-          while i < n
-            t = u[i + j] + v[i] + carry
-            u[i + j] = t & LIMB_MASK
-            carry = t >> LIMB_BITS
-            i += 1
-          end
-          u[j + n] = (u[j + n] + carry) & LIMB_MASK
-        else
-          u[j + n] = t
-        end
-        q[j] = qhat
-        j -= 1
-      end
-      q.pop while !q.empty? && q.last == 0
-      [q, big_shr_mag(u[0, n], s)]
+      Primitive.zr_big_divmod_mag(a, b)
     end
 
     # A magnitude shifted left `bits` (any count) or right (below the

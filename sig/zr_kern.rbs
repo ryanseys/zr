@@ -188,13 +188,24 @@ module Zr
     def zr_basic_method_m: (Integer recv, Integer name) -> Integer
     def zr_basic_method_p: (Integer recv, Integer mid) -> bool
     def zr_basic_operator_p: (Integer klass, Integer mid) -> bool
+    def zr_big_add_mag: (Integer a, Integer b) -> Integer
     def zr_big_alloc: () -> Integer
+    def zr_big_cmp_mag: (Integer a, Integer b) -> Integer
+    def zr_big_divmod_mag: (Integer a, Integer b) -> Integer
+    def zr_big_divmod_small_mag: (Integer a, Integer m) -> Integer
     def zr_big_hash: (Integer v) -> Integer
+    def zr_big_limbs: (Integer words, Integer n) -> Integer
     def zr_big_literal: (Integer index, Integer bytes, Integer n) -> Integer
+    def zr_big_mul_mag: (Integer a, Integer b) -> Integer
     def zr_big_p: (Integer v) -> bool
     def zr_big_route: (Integer recv, Integer mid, Integer argc, Integer argv) -> Integer
     def zr_big_route_blk: (Integer recv, Integer mid, Integer argc, Integer argv, Integer blk) -> Integer
+    def zr_big_shl_words: (Integer words, Integer n, Integer s) -> void
+    def zr_big_sub_mag: (Integer a, Integer b) -> Integer
     def zr_big_to_long: (Integer v, Integer out) -> bool
+    def zr_big_word_bits: (Integer w) -> Integer
+    def zr_big_words: (Integer a, Integer extra) -> Integer
+    def zr_big_zeros: (Integer n) -> Integer
     def zr_binding: () -> Integer
     def zr_binding_add: (Integer b, Integer name) -> Integer
     def zr_binding_cref: (Integer b) -> Integer
