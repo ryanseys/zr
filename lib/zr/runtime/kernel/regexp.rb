@@ -405,6 +405,36 @@ module Zr::Kern
     home == 0 ? Machine.value(QNIL) : zr_svar_get(home, 0)
   end
 
+  # The hidden ivar `id` of a MatchData. `MatchData#matched` sets its
+  # fields in order, so the ivar is at `row` of the table unless a copy
+  # or a subclass put it elsewhere. Then it is found by name.
+  sig [Value, Word, Word] => Value
+  def zr_match_field(m, id, row)
+    if !zr_special_p(m) && (RBasic.flags(m) & T_MASK) == T_OBJECT
+      t = RObject.iv(m)
+      if t != 0 && row < IvTab.len(t)
+        e = IvTab.rows(t) + (row * IvEntry.size)
+        if IvEntry.id(e) == id && IvEntry.value(e) != QUNDEF
+          return IvEntry.value(e)
+        end
+      end
+    end
+    zr_ivar_get(m, id)
+  end
+  inline :zr_match_field
+
+  sig [Value] => Value
+  def zr_match_string(m)
+    zr_match_field(m, Machine.id(:string), 1)
+  end
+  inline :zr_match_string
+
+  sig [Value] => Value
+  def zr_match_offsets(m)
+    zr_match_field(m, Machine.id(:offsets), 2)
+  end
+  inline :zr_match_offsets
+
   # The registers of a match, read as CRuby's rb_reg_nth_match and
   # related functions read them. `$1`, `$&`, `` $` ``, `$'`, `$+` and the
   # `` of a replacement never call MatchData methods that a user defines.
@@ -416,7 +446,7 @@ module Zr::Kern
     if m == QNIL
       return Machine.value(QNIL)
     end
-    offsets = zr_ivar_get(m, Machine.id(:offsets))
+    offsets = zr_match_offsets(m)
     i = zr_fix2long(n) * 2 + 1
     if i < 1 || i >= RArray.len(offsets)
       return Machine.value(QNIL)
@@ -425,7 +455,7 @@ module Zr::Kern
     if b < 0
       return Machine.value(QNIL)
     end
-    zr_str_byteslice(zr_ivar_get(m, Machine.id(:string)), zr_fix(b), zr_fix(zr_fix2long(zr_ary_at(offsets, i + 1)) - b))
+    zr_str_byteslice(zr_match_string(m), zr_fix(b), zr_fix(zr_fix2long(zr_ary_at(offsets, i + 1)) - b))
   end
 
   # `$+`: the last group that matched, or nil when no group matched.
@@ -434,7 +464,7 @@ module Zr::Kern
     if m == QNIL
       return Machine.value(QNIL)
     end
-    offsets = zr_ivar_get(m, Machine.id(:offsets))
+    offsets = zr_match_offsets(m)
     i = (RArray.len(offsets) - 1) / 2 - 1
     while i > 0 && zr_fix2long(zr_ary_at(offsets, i * 2 + 1)) < 0
       i -= 1
@@ -451,7 +481,7 @@ module Zr::Kern
     if m == QNIL
       return Machine.value(QNIL)
     end
-    zr_str_byteslice(zr_ivar_get(m, Machine.id(:string)), zr_fix(0), zr_ary_at(zr_ivar_get(m, Machine.id(:offsets)), 1))
+    zr_str_byteslice(zr_match_string(m), zr_fix(0), zr_ary_at(zr_match_offsets(m), 1))
   end
 
   # `$'`: the text after the match.
@@ -460,8 +490,8 @@ module Zr::Kern
     if m == QNIL
       return Machine.value(QNIL)
     end
-    s = zr_ivar_get(m, Machine.id(:string))
-    e = zr_fix2long(zr_ary_at(zr_ivar_get(m, Machine.id(:offsets)), 2))
+    s = zr_match_string(m)
+    e = zr_fix2long(zr_ary_at(zr_match_offsets(m), 2))
     zr_str_byteslice(s, zr_fix(e), zr_fix(RString.len(s) - e))
   end
 

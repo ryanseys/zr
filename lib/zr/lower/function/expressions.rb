@@ -282,12 +282,13 @@ module Zr
         # A part of an interpolation: the shared String if it is a UTF-8
         # literal of this file, else lowered as usual. The shared table
         # keys only on bytes and cannot distinguish two encodings, so a file
-        # with a different script encoding uses the plain form.
+        # with a different script encoding uses the plain form. The site
+        # keeps the String in its own word, as a frozen literal does.
         def interp_part(node)
           text = node.is_a?(Hir::Literal) ? node.value : nil
           return expr(node) unless text.is_a?(String) && text.encoding == ::Encoding::UTF_8
 
-          string_literal(text, "zr_str_literal_shared")
+          shared_literal(text)
         end
 
         # A String literal, built by `fn` and tagged with the file's script

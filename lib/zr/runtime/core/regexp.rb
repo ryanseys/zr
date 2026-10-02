@@ -814,13 +814,14 @@ class MatchData
   # group's span is read by `begin_at` and `end_at`.
   # The fields are hidden ivars (no `@` in the runtime's own code), which
   # an ivar write sets through its site's cache. A match makes one per
-  # match of scan and gsub.
+  # match of scan and gsub. They are set in this order, so `string` and
+  # `offsets` are rows 1 and 2, where `zr_match_nth` reads them first.
   def matched(regexp, text, offsets)
     Primitive.attr! :hidden
     @regexp = regexp
     @string = MatchData.send(:snapshot, text)
-    @shown = text if text.frozen?
     @offsets = offsets
+    @shown = text if text.frozen?
   end
 
   def offsets

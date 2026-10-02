@@ -1261,10 +1261,13 @@ module Zr
     def zr_masgn_ary: (Integer v) -> Integer
     def zr_masgn_rest: (Integer ary, Integer nlefts, Integer nrights) -> Integer
     def zr_masgn_right: (Integer ary, Integer nlefts, Integer nrights, Integer i) -> Integer
+    def zr_match_field: (Integer m, Integer id, Integer row) -> Integer
     def zr_match_last: (Integer m) -> Integer
     def zr_match_nth: (Integer m, Integer n) -> Integer
+    def zr_match_offsets: (Integer m) -> Integer
     def zr_match_post: (Integer m) -> Integer
     def zr_match_pre: (Integer m) -> Integer
+    def zr_match_string: (Integer m) -> Integer
     def zr_math_call: (Integer which, Integer x, Integer y) -> Integer
     def zr_math_call_fast: (Integer which, Integer x) -> Integer
     def zr_math_fma: (Integer x, Integer y, Integer z) -> Integer

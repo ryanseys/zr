@@ -543,7 +543,7 @@ module Zr::Kern
   # The same for a String piece. An empty piece does not change the encoding.
   sig [Word, Bool, Word, Value] => Word
   def zr_enc_append_str(index, ascii, len, s)
-    if RString.len(s) == 0
+    if RString.len(s) == 0 || zr_str_encoding_index(s) == index
       return index
     end
     zr_enc_append(index, ascii, len, zr_str_encoding_index(s), zr_str_ascii_bytes_p(s))
@@ -1901,7 +1901,6 @@ module Zr::Kern
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
     index = ENC_UTF8
-    ascii = true
     i = 0
     while i < argc
       v = Machine.value(Machine.load64(argv + (i * 8), 0))
@@ -1917,12 +1916,19 @@ module Zr::Kern
         s = zr_str_from_buf_obj_head(v)
       end
       piece = zr_str_encoding_index(s)
-      joined = i == 0 ? piece : zr_enc_append_str(index, ascii, Buf.len(b), s)
+      joined = piece
+      if i > 0
+        joined = index
+        # Whether the pieces so far are plain ASCII matters only for a
+        # piece in another encoding: the buffer's bytes say it then.
+        if piece != index && RString.len(s) != 0
+          joined = zr_enc_append_str(index, zr_bytes_ascii_only_p(Buf.ptr(b), Buf.len(b)), Buf.len(b), s)
+        end
+      end
       if joined == ENC_NONE
         return zr_str_join_incompatible(zr_str_set_index(zr_buf_take(b), index), s)
       end
       index = piece != ENC_USASCII && joined == ENC_USASCII ? piece : joined
-      ascii = ascii && zr_str_ascii_bytes_p(s)
       zr_buf_str(b, s)
       i += 1
     end
