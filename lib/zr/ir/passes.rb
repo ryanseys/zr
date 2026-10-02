@@ -5,6 +5,7 @@ require_relative "../config"
 require_relative "gvn"
 require_relative "licm"
 require_relative "statics"
+require_relative "threads"
 require_relative "types"
 require_relative "verify"
 
@@ -55,7 +56,8 @@ module Zr
       # `Statics` runs after `Forward`, so it does not see the slot loads, and
       # before `Chains`, so its gate test splits into the branch chain. `GVN`
       # runs after `Statics` to number its new values. `LICM` runs last, so a
-      # loop has one copy of each value.
+      # loop has one copy of each value. `Threads` runs after `Chains`, whose
+      # split tests it can skip, and `Blocks` drops the blocks it leaves.
       def run(f)
         Fold.run(f)
         Forward.run(f)
@@ -64,6 +66,7 @@ module Zr
         LICM.run(f)
         Fold.run(f)
         Chains.run(f)
+        Threads.run(f)
         Blocks.run(f)
         DCE.run(f)
         f

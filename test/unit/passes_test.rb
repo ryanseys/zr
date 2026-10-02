@@ -318,6 +318,57 @@ class PassesTest < Minitest::Test
     assert_equal [11, 6], was
   end
 
+  # The match loop's shape: an inlined def returns a constant to a join,
+  # and the join tests it. The edge with the constant goes straight to
+  # the block that the tests choose.
+  def test_an_edge_with_a_constant_skips_the_tests_of_its_join
+    f = threaded_join(next_reads_join: false)
+    was = [[5, 1], [1, 0], [5, 0], [0, 0]].map { |args| answer(f, args) }
+    Zr::IR::Passes.prepare(f, strict: true)
+    assert_equal [7, 100, 5, 7], was
+    assert_equal was, [[5, 1], [1, 0], [5, 0], [0, 0]].map { |args| answer(f, args) }
+    taken = f.blocks.find { |b| b.name == f.entry_block.insts.last.targets[0][0] }
+    assert_equal :return, taken.insts.last.op, "the constant's edge goes to the block that returns 7"
+    refute(taken.insts.any? { |i| i.op == :icmp }, "the constant's edge has no compare")
+  end
+
+  # The same, but the chosen block reads the join's parameter, which the
+  # join defines. So the edge must still pass the join.
+  def test_an_edge_keeps_its_join_when_the_target_reads_the_join
+    f = threaded_join(next_reads_join: true)
+    was = [[5, 1], [1, 0], [5, 0], [0, 0]].map { |args| answer(f, args) }
+    Zr::IR::Passes.prepare(f, strict: true)
+    assert_equal was, [[5, 1], [1, 0], [5, 0], [0, 0]].map { |args| answer(f, args) }
+    assert(f.blocks.any? { |b| b.insts.any? { |i| i.op == :icmp } }, "the join's compare stays")
+  end
+
+  def threaded_join(next_reads_join:)
+    function("threaded", %w[i64 i8], "i64") do |f, x, c|
+      join, (r,) = f.block(%w[i64])
+      known = f.label
+      unknown = f.label
+      fail = f.label
+      more = f.label
+      other = f.label
+      done = f.label
+      f.brif(c, known, unknown)
+      f.switch(known)
+      f.jump(join, [f.iconst("i64", 0)])
+      f.switch(unknown)
+      f.jump(join, [x])
+      f.switch(join)
+      f.brif(f.icmp("eq", r, f.iconst("i64", 1)), fail, more)
+      f.switch(fail)
+      f.ret(f.iconst("i64", 100))
+      f.switch(more)
+      f.brif(f.icmp("ne", r, f.iconst("i64", 0)), other, done)
+      f.switch(other)
+      f.ret(r)
+      f.switch(done)
+      f.ret(next_reads_join ? f.iadd(r, f.iconst("i64", 7)) : f.iconst("i64", 7))
+    end
+  end
+
   def test_a_select_between_one_value_is_that_value
     f = function("same", %w[i8 i64], "i64") do |f, c, x|
       f.ret(f.csel(c, x, x))
