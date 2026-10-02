@@ -86,6 +86,17 @@ module Zr
             @f.brif(@f.band(@f.icmp("eq", klass, global("G_ARRAY")), gates_clear(gate)), fast, slow)
             switch(fast)
             @f.jump(merge, [loop_in_place(node, recv, :array)])
+          when :upto
+            # From one fixnum to another, Ruby's C counts with no send. The
+            # loop is the one of a Range of fixnums, over these two ends.
+            limit = @f.fetch("i64", argv)
+            fix = @f.icmp("ne", @f.band(@f.band(recv, limit), imm(1)), imm(0))
+            @f.brif(@f.band(fix, gates_clear("GATE_UPTO")), fast, slow)
+            switch(fast)
+            bounds = @f.stack_addr(@f.slot(16))
+            @f.store(recv, bounds, 0)
+            @f.store(limit, bounds, 8)
+            @f.jump(merge, [loop_in_place(node, recv, :range, bounds)])
           when :times
             fix = @f.icmp("ne", @f.band(recv, imm(1)), imm(0))
             # <internal:numeric> counts with `<` and `succ`, so a program that

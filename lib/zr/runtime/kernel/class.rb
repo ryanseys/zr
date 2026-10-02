@@ -916,6 +916,8 @@ module Zr::Kern
         GATE_SUCC
       elsif mid == Machine.id(:times)
         GATE_TIMES
+      elsif mid == Machine.id(:upto)
+        GATE_UPTO
       elsif mid == Machine.id(:-@)
         GATE_UMINUS
       elsif mid == Machine.id(:<=>)
@@ -1002,7 +1004,7 @@ module Zr::Kern
   # start: the class the gate guards (a global's index), the name, the
   # gate bit, and the body and visibility that the class found then.
   GateRow = layout klass: Word, mid: Word, bit: Word, fn: Ptr, vis: Word
-  GATE_ROWS = 48
+  GATE_ROWS = 49
 
   sig [Word, Word, Word, Word] => Word
   def zr_gate_row(i, klass, mid, bit)
@@ -1065,6 +1067,7 @@ module Zr::Kern
     i = zr_gate_row(i, G_ARRAY, Machine.id(:map), GATE_MAP)
     i = zr_gate_row(i, G_ARRAY, Machine.id(:select), GATE_SELECT)
     i = zr_gate_row(i, G_INTEGER, Machine.id(:times), GATE_TIMES)
+    i = zr_gate_row(i, G_INTEGER, Machine.id(:upto), GATE_UPTO)
     i = zr_gate_row(i, G_INTEGER, Machine.id(:-@), GATE_UMINUS)
     i = zr_gate_row(i, G_FLOAT, Machine.id(:-@), GATE_FLO_UMINUS)
     i = zr_gate_row(i, G_INTEGER, Machine.id(:<=>), GATE_CMP)

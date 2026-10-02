@@ -70,6 +70,9 @@ module Zr::Kern
   # loop inline, and pushes to the new Array there (Function::Iterators).
   GATE_MAP = 1 << 49
   GATE_SELECT = 1 << 50
+  # Integer#upto from one fixnum to another: Ruby's C counts in a loop
+  # with no send, so the site does too.
+  GATE_UPTO = 1 << 51
 
   # Writes the decimal digits of `n` into `buf` and returns the number of
   # bytes. `buf` must have 24 bytes.

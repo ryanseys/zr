@@ -12,7 +12,10 @@ module Zr
       # The iterators that a site with a block literal runs inline
       # (Function::Iterators), each with the maximum parameter count of
       # its block.
-      ITERATORS = { each: 1, times: 1, map: 1, select: 1 }.freeze
+      ITERATORS = { each: 1, times: 1, map: 1, select: 1, upto: 1 }.freeze
+      # The iterators that take arguments, with their count: `upto` takes
+      # its limit.
+      ITERATOR_ARGS = { upto: 1 }.freeze
 
       # The record slots that an inline iterator keeps above its receiver:
       # its block's locals and its index. `map` and `select` also keep the
@@ -22,13 +25,15 @@ module Zr
       end
 
       # Whether `node` is a send of one of ITERATORS that a site can run
-      # inline. It needs no arguments, an explicit receiver, and a block
-      # literal with at most one plain parameter. The block must contain no
-      # block, open no binding, and pass `loop_body?`. The block keeps its
-      # locals in the site's record, so `staging` counts them.
+      # inline. It needs its plain arguments (ITERATOR_ARGS, else none), an
+      # explicit receiver, and a block literal with at most one plain
+      # parameter. The block must contain no block, open no binding, and
+      # pass `loop_body?`. The block keeps its locals in the site's
+      # record, so `staging` counts them.
       def iterator_template?(node)
         return false unless node.is_a?(Hir::Send) && node.block.is_a?(Hir::Block) && ITERATORS.key?(node.name)
-        return false unless node.args.empty? && node.kwargs.nil? && node.recv && node.using.nil?
+        return false unless node.args.size == ITERATOR_ARGS.fetch(node.name, 0) && !spread?(node.args)
+        return false unless node.kwargs.nil? && node.recv && node.using.nil?
 
         p = node.block.params
         return false unless p.plain? && p.block.nil? && p.required.size <= ITERATORS.fetch(node.name) && p.required.all?(Symbol)
