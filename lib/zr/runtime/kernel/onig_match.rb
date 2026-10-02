@@ -1052,7 +1052,8 @@ module Zr::Kern
     ONIGERR_UNDEFINED_BYTECODE
   end
 
-  # OP_PUSH_POS..OP_FAIL_LOOK_BEHIND_NOT: look-around and atomic groups.
+  # OP_PUSH_POS..OP_FAIL_LOOK_BEHIND_NOT: look-around. `zr_onig_step`
+  # runs the atomic groups (OP_PUSH_STOP_BT, OP_POP_STOP_BT).
   sig [Ptr, Word] => Word
   def zr_onig_op_pos(m, op)
     p = OnigMatch.p(m)
@@ -1080,14 +1081,6 @@ module Zr::Kern
     if op == OP_FAIL_POS
       zr_onig_stack_pop_til(m, STK_POS_NOT)
       return ONIG_OP_FAIL
-    end
-    if op == OP_PUSH_STOP_BT
-      zr_onig_push_type(m, STK_STOP_BT)
-      return ONIG_OP_NEXT
-    end
-    if op == OP_POP_STOP_BT
-      zr_onig_stack_void_til(m, STK_STOP_BT)
-      return ONIG_OP_NEXT
     end
     if op == OP_LOOK_BEHIND
       tlen = zr_onig_get_i32(p)
@@ -1235,6 +1228,16 @@ module Zr::Kern
     end
     return zr_onig_op_control(m, op) if op < OP_NULL_CHECK_START
     return zr_onig_op_null_check(m, op) if op < OP_PUSH_POS
+    # An atomic group, which the tune pass makes of a repeat that cannot
+    # give back (`\w+` before `=`): common, and cheap here.
+    if op == OP_PUSH_STOP_BT
+      zr_onig_push_type(m, STK_STOP_BT)
+      return ONIG_OP_NEXT
+    end
+    if op == OP_POP_STOP_BT
+      zr_onig_stack_void_til(m, STK_STOP_BT)
+      return ONIG_OP_NEXT
+    end
     return zr_onig_op_pos(m, op) if op < OP_PUSH_ABSENT_POS
     return zr_onig_op_absent(m, op) if op < OP_CALL
     zr_onig_op_call(m, op)
