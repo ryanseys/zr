@@ -190,14 +190,17 @@ module Zr
     def zr_basic_operator_p: (Integer klass, Integer mid) -> bool
     def zr_big_add_mag: (Integer a, Integer b) -> Integer
     def zr_big_alloc: () -> Integer
+    def zr_big_at: (Integer p, Integer i) -> Integer
     def zr_big_cmp_mag: (Integer a, Integer b) -> Integer
     def zr_big_divmod_mag: (Integer a, Integer b) -> Integer
     def zr_big_divmod_small_mag: (Integer a, Integer m) -> Integer
+    def zr_big_done: (Integer out, Integer n) -> Integer
+    def zr_big_fill: (Integer out, Integer words, Integer n) -> Integer
     def zr_big_hash: (Integer v) -> Integer
-    def zr_big_limbs: (Integer words, Integer n) -> Integer
     def zr_big_literal: (Integer index, Integer bytes, Integer n) -> Integer
     def zr_big_mul_mag: (Integer a, Integer b) -> Integer
     def zr_big_p: (Integer v) -> bool
+    def zr_big_put: (Integer p, Integer i, Integer w) -> void
     def zr_big_route: (Integer recv, Integer mid, Integer argc, Integer argv) -> Integer
     def zr_big_route_blk: (Integer recv, Integer mid, Integer argc, Integer argv, Integer blk) -> Integer
     def zr_big_shl_words: (Integer words, Integer n, Integer s) -> void
