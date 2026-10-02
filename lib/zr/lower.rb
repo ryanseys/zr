@@ -81,6 +81,12 @@ module Zr
       @internal || @unit_internal
     end
 
+    # True in an extension's Ruby part: a port of a library that ruby
+    # writes in C or in Ruby, never one of the core's own classes.
+    def extension?
+      @unit_internal && !@internal ? true : false
+    end
+
     # True in a unit of eval support (a hidden unit): the compiler that a
     # program carries. ruby's compiler is C, so what the program redefines
     # or traces must not reach this code either.
@@ -458,7 +464,7 @@ module Zr
     # parameter entries, and a block contains its function, so a Proc
     # finds both.
     def meta(fn, kind, line, name: 0, parent: nil, params: nil, locals: [], env: false, ruby: false,
-             captures: false, node: 0, cover: nil, twin: nil)
+             captures: false, node: 0, cover: nil, twin: nil, owns_backref: false)
       layout = layout("FrameMeta")
       file = file_bytes
       bytes = ("\0" * layout.size).b
@@ -475,6 +481,7 @@ module Zr
       word.call("env", env ? 1 : 0)
       word.call("ruby", ruby ? 1 : 0)
       word.call("hidden", @unit_hidden ? 1 : 0)
+      word.call("owns_backref", owns_backref ? 1 : 0)
       relocs = [Obj::Reloc.new(layout.fields.fetch("file").first, :abs64, file)]
       relocs << Obj::Reloc.new(layout.fields.fetch("name").first, :symid, name.to_s) if !name.is_a?(Integer) && !fixed_id(name)
       relocs << Obj::Reloc.new(layout.fields.fetch("parent").first, :abs64, parent) if parent

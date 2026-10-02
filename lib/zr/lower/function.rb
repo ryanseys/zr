@@ -270,6 +270,48 @@ module Zr
 
       def hidden_def? = attributes.include?(:hidden)
 
+      # A core def that matches for its own work keeps its matches in its
+      # own `$~`, so the program's `$~` is left alone, as a C function's
+      # matches leave it: one marked `Primitive.attr! :own_backref`, or one
+      # with a regexp literal that neither sets nor reads the caller's `$~`
+      # or `$_` itself (those are the methods that ruby defines to set them).
+      # An extension's def also owns them when it matches by a call (Date's
+      # parsers match with Regexps that constants hold).
+      def owns_backref?
+        return false unless @l.internal? && @kind == :def
+        return true if attributes.include?(:own_backref)
+
+        matches?(@body) == :own
+      end
+
+      BACKREF_PRIMITIVES = %i[zr_backref_set zr_backref_get zr_lastline_set zr_lastline_get].freeze
+      MATCH_SENDS = %i[match =~ !~ scan sub gsub sub! gsub! partition rpartition].freeze
+
+      # :own when `node` matches for its own work (a regexp literal, or in an
+      # extension a matching call), :caller when it sets or reads the
+      # caller's `$~` or `$_`, else nil. :caller wins.
+      def matches?(node)
+        found = nil
+        case node
+        when Hir::RegexpLit then found = :own
+        when Hir::BackRef then return :caller
+        when Hir::GvarRead then return :caller if %i[$~ $_].include?(node.name)
+        when Hir::Send
+          return :caller if node.recv.is_a?(Hir::ConstRead) && node.recv.name == :Primitive && BACKREF_PRIMITIVES.include?(node.name)
+
+          found = :own if @l.extension? && MATCH_SENDS.include?(node.name)
+        end
+        Hir.each_child(node) do |child|
+          next unless Hir.node?(child) || child.is_a?(Array)
+
+          inner = matches?(child)
+          return :caller if inner == :caller
+
+          found ||= inner
+        end
+        found
+      end
+
       # The stored name of the instance variable `name`. The ivars of the
       # runtime, the core library and the extensions are hidden: their
       # names have no `@`, as for CRuby's C fields, so a program cannot
@@ -320,7 +362,8 @@ module Zr
                 else
                   @l.meta(@name, kind, line, name: name, parent: @outer&.meta, params: params, locals: @locals,
                                              env: @has_env, ruby: attributes.include?(:ruby),
-                                             captures: true, node: node_id, cover: method_cover, twin: @twin)
+                                             captures: true, node: node_id, cover: method_cover, twin: @twin,
+                                             owns_backref: owns_backref?)
                 end
         @f.store(@f.symbol_value(@f.symbol(@meta)), @rec, off(@frame, "meta"))
         @line = line | (node_id << 32)

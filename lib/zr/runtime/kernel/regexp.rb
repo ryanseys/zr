@@ -328,7 +328,10 @@ module Zr::Kern
 
   # Returns the frame record whose `$~` the running code sees. A block
   # uses the record of its method, an eval uses the scope that called it,
-  # and a core method uses the record of its caller.
+  # and a core method uses the record of its caller, unless it matches
+  # for its own work (`owns_backref`): then the match stays in its own
+  # record and the program's `$~` is left alone, as a C function's
+  # matches leave it.
   sig [] => Ptr
   def zr_backref_home
     rec = Task.top(zr_task())
@@ -338,6 +341,9 @@ module Zr::Kern
         return rec
       end
       if FrameMeta.file_len(meta) == 0
+        if FrameMeta.owns_backref(meta) != 0
+          return rec
+        end
         rec = Frame.prev(rec)
       elsif (FrameMeta.kind(meta) == KIND_BLOCK || FrameMeta.kind(meta) == KIND_HIDDEN || FrameMeta.kind(meta) == KIND_EVAL) && FrameMeta.parent(meta) != 0
         parent = FrameMeta.parent(meta)

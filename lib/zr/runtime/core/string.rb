@@ -1984,7 +1984,7 @@ class String
 
   def scrub!(replacement = nil, &block)
     # A valid String is left alone, frozen or not.
-    return self if valid_encoding?
+    return self if Primitive.zr_str_valid_p(self)
 
     mutate(OWN[:scrub].bind_call(self, replacement, &block))
     self

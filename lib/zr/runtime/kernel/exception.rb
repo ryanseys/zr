@@ -27,7 +27,7 @@ module Zr::Kern
   # program that does not trace: a second function of the same body with
   # the method signature, which a send calls directly (`zr_entry_fn`). It
   # makes the same frame as the block, with no Proc copy. Else it is 0.
-  FrameMeta = layout name: Word, owner: Value, file: Ptr, file_len: Word, kind: Word, line: Word, parent: Ptr, arity: Word, params: Ptr, fn: Ptr, locals: Ptr, env: Word, box: Value, ruby: Word, captures: Ptr, node: Word, hidden: Word, cover: Word, twin: Ptr
+  FrameMeta = layout name: Word, owner: Value, file: Ptr, file_len: Word, kind: Word, line: Word, parent: Ptr, arity: Word, params: Ptr, fn: Ptr, locals: Ptr, env: Word, box: Value, ruby: Word, captures: Ptr, node: Word, hidden: Word, cover: Word, twin: Ptr, owns_backref: Word
   KIND_MAIN = 0
   KIND_DEF = 1
   KIND_BUILTIN = 2

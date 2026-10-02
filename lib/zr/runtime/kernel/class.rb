@@ -1678,6 +1678,10 @@ module Zr::Kern
   # a def of object_id or __send__ over one that exists.
   sig [Value, Word, Word] => Void
   def zr_warn_dangerous(owner, mid, kind)
+    # An extension's Ruby part is C in ruby, whose definitions do not warn.
+    if zr_loading_internal()
+      return
+    end
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
     object = mid == Machine.id(:initialize) || mid == Machine.id(:respond_to_missing?)

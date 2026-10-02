@@ -103,6 +103,7 @@ class Complex < Numeric
     # "1+2i", "3i", "-i", "2.5", "1/2+3/4i", "1@2" (polar).
     def parse(text, exception)
       Primitive.attr! :hidden
+      Primitive.attr! :own_backref
       body = text.strip
       if (m = forms[:polar].match(body))
         return polar(real_part(m[1]), real_part(m[2]))
@@ -143,6 +144,7 @@ class Complex < Numeric
 
     def leading(text)
       Primitive.attr! :hidden
+      Primitive.attr! :own_backref
       m = forms[:leading].match(text)
       m && m[0]
     end
