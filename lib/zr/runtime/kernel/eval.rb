@@ -284,6 +284,14 @@ module Zr::Kern
   # contains the body.)
   sig [Ptr, Value, Word, Ptr, Value] => Value
   def zr_bmethod_call(e, recv, argc, argv, blk)
+    zr_bmethod_fn(recv, argc, argv, e, blk, Machine.value(QNIL))
+  end
+
+  # The same, as the function of a define_method entry that a compiled
+  # site finds (`zr_entry_fn`). The site calls it directly, with no
+  # second frame in between.
+  sig [Value, Word, Ptr, Ptr, Value, Value] => Value
+  def zr_bmethod_fn(recv, argc, argv, e, blk, found)
     # An entry has a coverage record only when the program measures
     # coverage, so most calls skip the call.
     if MEntry.cover(e) != 0
@@ -313,12 +321,6 @@ module Zr::Kern
     fired = zr_trace_bmethod(TRACE_CALL, e, recv, Machine.value(QNIL))
     return fired if fired == QUNDEF
     zr_trace_bmethod(TRACE_RETURN, e, recv, Block.call(RProc.fn(p), p, argc, argv, blk))
-  end
-
-  # Runs a define_method entry that a compiled site finds.
-  sig [Value, Word, Ptr, Ptr, Value, Value] => Value
-  def zr_bmethod_fn(recv, argc, argv, e, blk, found)
-    zr_bmethod_call(e, recv, argc, argv, blk)
   end
 
   # Returns the cref for a define_method body. The entry makes it at its
