@@ -33,16 +33,6 @@ module Zr
     end
   end
 
-  module Native
-    # Loaded by the caller of a `UnitProgram`. Each method returns nil, or
-    # the message of the step that refused.
-    module Build
-      def self.object: (Array[untyped] functions, Array[Obj::Datum] data, String out, raw: Array[String], export: bool, target: Target) -> String?
-      def self.wasm: (Array[untyped] functions, Array[Obj::Datum] data, String out, raw: Array[String]) -> String?
-      def self.binary: (Array[untyped] functions, Array[Obj::Datum] data, String out, work: String, raw: Array[String], target: Target, link: untyped) -> String?
-    end
-  end
-
   # lib/zr/ir/function.rb.
   module IR
     class Sig < Data

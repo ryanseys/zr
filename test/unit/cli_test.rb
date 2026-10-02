@@ -173,7 +173,7 @@ class CliParseTest < Minitest::Test
     _, err = assert_exit(2) { CLI.start(%w[--frob]) }
     assert_equal "zr: unknown option '--frob'\nRun 'zr help' for usage.\n", err
 
-    { "biuld" => "build", "rn" => "run", "doctr" => "doctor", "targetss" => "targets" }.each do |typo, name|
+    { "biuld" => "build", "rn" => "run", "doctr" => "doctor", "gemss" => "gems" }.each do |typo, name|
       _, err = assert_exit(2) { CLI.start([typo]) }
       assert_equal "zr: unknown command '#{typo}'; did you mean '#{name}'?\nRun 'zr help' for usage.\n", err
     end
@@ -181,12 +181,25 @@ class CliParseTest < Minitest::Test
 
   # Each command prints its help for -h and --help, and nothing else.
   def test_every_command_has_help
-    %w[targets doctor cache version help inspect diff gems].each do |command|
+    %w[doctor cache version help inspect diff gems].each do |command|
       out, = assert_exit(0) { CLI.start([command, "--help"]) }
       assert_match(/\AUsage: zr #{command}/, out, command)
     end
-    _, err = assert_exit(2) { CLI.start(%w[targets extra]) }
-    assert_equal "zr targets: unexpected argument 'extra'\nRun 'zr help targets' for usage.\n", err
+    _, err = assert_exit(2) { CLI.start(%w[doctor extra]) }
+    assert_equal "zr doctor: unexpected argument 'extra'\nRun 'zr help doctor' for usage.\n", err
+  end
+
+  def test_machine_and_targets_are_not_commands
+    %w[machine targets].each do |word|
+      _, err = assert_exit(2) { CLI.start([word]) }
+      assert_match(/\Azr: unknown command '#{word}'/, err)
+    end
+  end
+
+  def test_the_help_of_build_names_each_target
+    page = CLI::Help::PAGES.fetch("build").gsub(/\s+/, " ")
+    Zr::Target.all.each { |target| assert_includes page, target.triple }
+    assert_includes page, "`zr doctor` shows what this host can build"
   end
 
   def test_an_unknown_target_lists_the_targets
@@ -217,14 +230,6 @@ class CliParseTest < Minitest::Test
     _, err = assert_exit(1) { CLI.start(%w[run no_such_file.rb]) }
 
     assert_equal "zr: no such file: no_such_file.rb\n", err
-  end
-
-  def test_targets_prints_a_row_for_each_target
-    out, = capture_io { CLI.start(%w[targets]) }
-    lines = out.lines
-
-    assert_match(/\ATARGET\s+OUTPUTS\s+ON THIS HOST$/, lines.first)
-    assert_equal Zr::Target.all.map(&:triple), lines.drop(1).map { |line| line.split.first }
   end
 
   # A host that runs no native target (x86_64 Linux) builds a darwin

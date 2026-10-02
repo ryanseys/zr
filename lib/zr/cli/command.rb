@@ -11,7 +11,7 @@ module Zr
     # the others.
     class Command
       # The word that names the command. One class can have more than one
-      # name: `Commands::Compile` is `run`, `build` and `machine`.
+      # name: `Commands::Compile` is `run` and `build`.
       attr_reader :name
 
       def initialize(name)

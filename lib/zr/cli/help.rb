@@ -14,12 +14,10 @@ module Zr
         Commands:
           run <file.rb> [args...]     compile a program, run it, then delete the build
           build <file.rb> -o <out>    compile a program to a binary, a WASI module or an object
-          machine <file.rb> -o <out>  compile one typed-Ruby kernel file (for runtime work)
-          targets                     list the targets, and what this host can build
           gems [<file.rb>]            list the gems that a build reads, and their sources
           inspect <binary>            print the gems that a binary was built with
           diff <file.rb> [args...]    run a program under ruby and as a zr binary, and compare
-          doctor                      check this host: ruby, wasmtime, OpenSSL, gems, cache
+          doctor                      check this host: ruby, targets, wasmtime, OpenSSL, gems, cache
           cache [path|size|clean]     show or clean the build cache
           version                     print the version
           help [<command>]            print help for zr or for one command
@@ -35,7 +33,7 @@ module Zr
 
       OUTPUT = "  -o, --output <path>    write the output to <path>\n"
       PRINT_GEMS = "  --print-gems           print the gems that the output was built with\n"
-      # `run` and `build` only: a machine file requires nothing.
+      # The options that choose the gems of a build.
       GEMS = <<~TEXT.gsub(/^/, "  ")
         --gem <name>=<version|dir>
                                use this gem in place of the Gemfile.lock's or zr's
@@ -51,7 +49,9 @@ module Zr
       OPTIONS = <<~TEXT.sub("  -h, --help", "#{GEMS}  -h, --help")
         Options:
           --emit <kind>          binary (the default), obj, or wasm
-          --target <triple>      build for <triple> (see `zr targets`)
+          --target <triple>      build for <triple>: aarch64-apple-darwin,
+                                 aarch64-linux-musl or wasm32-wasi (`zr doctor`
+                                 shows what this host can build)
           --path-root <dir>      write source paths in the output as <dir> plus the
                                  path below zr's root or the working directory,
                                  so that two checkouts make the same bytes
@@ -80,21 +80,14 @@ module Zr
 
           #{OPTIONS.sub("Options:\n", "Options:\n#{OUTPUT}#{PRINT_GEMS}")}
         TEXT
-        "machine" => <<~TEXT,
-          Usage: zr machine [options] <file.rb> -o <out>
-
-          Compiles one file of typed Ruby (one `module Zr::Kern`, as in
-          lib/zr/runtime/kernel), without the zr runtime.
-
-          #{OPTIONS.sub(GEMS, "").sub("Options:\n", "Options:\n#{OUTPUT}")}
-        TEXT
         "doctor" => <<~TEXT,
           Usage: zr doctor
 
           Checks what zr needs on this host, and prints ok, warn or fail for
-          each: the ruby version, the targets this host builds, wasmtime,
-          OpenSSL 3, the standard library, the cache and the compiled compiler.
-          Exits with status 1 if a check fails.
+          each: the ruby version, the host, wasmtime, OpenSSL 3, the standard
+          library and the cache. A `target` line for each target gives the
+          outputs that zr makes for it (binary, obj, wasm), and the outputs
+          that this host can make. Exits with status 1 if a check fails.
         TEXT
         "gems" => <<~TEXT,
           Usage: zr gems [--gem <name>=<version|dir>]... [--gemfile <path>] [--json] [<file.rb>]
@@ -129,12 +122,6 @@ module Zr
           `zr gems`.
 
           #{OPTIONS.sub(/^  --emit .*\n/, "")}
-        TEXT
-        "targets" => <<~TEXT,
-          Usage: zr targets
-
-          Lists each target that zr builds for, the outputs it makes for the
-          target (binary, obj, wasm), and the outputs that this host can make.
         TEXT
         "version" => <<~TEXT,
           Usage: zr version

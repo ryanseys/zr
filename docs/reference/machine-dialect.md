@@ -6,8 +6,7 @@ its types. `Zr::Machine` (`lib/zr/machine/lower.rb`) lowers each def
 directly to one IR function. zr refuses a form that the typed lowering
 does not have, with a message that gives the form and the line.
 
-`zr machine <file.rb> -o <out>` compiles one kernel file. To learn why
-the runtime has this form, read
+To learn why the runtime has this form, read
 [The runtime](../explanation/the-runtime.md).
 
 ## Semantics that are different from Ruby

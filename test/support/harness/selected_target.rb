@@ -13,7 +13,7 @@ module Zr
       triple = ENV.fetch("ZR_TARGET", nil)
       return Target.default if triple.nil? || triple.empty?
 
-      Target.fetch(triple) or raise ArgumentError, "no target #{triple}; `zr targets` names them"
+      Target.fetch(triple) or raise ArgumentError, "no target #{triple}; `zr doctor` names them"
     end
   end
 end

@@ -67,7 +67,6 @@ Two kinds of code meet on a program's load path (`Zr::Library::Layout`):
 | `lib/zr/obj/` | the object model, relocations, and the JIT loader |
 | `lib/zr/obj/macho/`, `lib/zr/obj/elf/` | the Mach-O object and executable writers, the prelinked image and the skeleton; the ELF object writer |
 | `lib/zr/native/` | the build driver, parallel assembly, the linkers |
-| `lib/zr/native/unit_program.rb` | `Native::UnitProgram`: a kernel file that `zr machine` compiled; it answers the messages of a `Zr::Program`, so `zr machine` and `zr build` write their output on one path |
 | `lib/zr/cache/unit.rb` | the cache of each compilation unit's machine code |
 | `lib/zr/cache/lowering.rb`, `lib/zr/cache/lowering/core.rb`, `lib/zr/cache/lowering/eval_support.rb` | the core files and eval support's files that a build takes from an earlier build's machine code, and the checks that keep that code the same as a full build's |
 | `lib/zr/cache/run.rb` | the binaries that `zr run` keeps, and the files each was built from |

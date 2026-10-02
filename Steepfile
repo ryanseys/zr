@@ -18,7 +18,6 @@ target :pilot do
   check "lib/zr/load_tables.rb"
   check "lib/zr/lower/function/loop.rb"
   check "lib/zr/lower/function/call_site.rb"
-  check "lib/zr/native/unit_program.rb"
 
   # The records, and the classes that the checked files use and that no
   # checked file defines (sig/pilot/collaborators.rbs).

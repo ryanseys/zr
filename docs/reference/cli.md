@@ -10,12 +10,10 @@ Usage: zr <command> [options]
 Commands:
   run <file.rb> [args...]     compile a program, run it, then delete the build
   build <file.rb> -o <out>    compile a program to a binary, a WASI module or an object
-  machine <file.rb> -o <out>  compile one typed-Ruby kernel file (for runtime work)
-  targets                     list the targets, and what this host can build
   gems [<file.rb>]            list the gems that a build reads, and their sources
   inspect <binary>            print the gems that a binary was built with
   diff <file.rb> [args...]    run a program under ruby and as a zr binary, and compare
-  doctor                      check this host: ruby, wasmtime, OpenSSL, gems, cache
+  doctor                      check this host: ruby, targets, wasmtime, OpenSSL, gems, cache
   cache [path|size|clean]     show or clean the build cache
   version                     print the version
   help [<command>]            print help for zr or for one command
@@ -27,29 +25,29 @@ whose output it gives (`zr 0.1.0 (for ruby 4.0.7)`). `zr --version` and `zr -v` 
 same.
 
 An option takes its value as the next word or after `=`: `--emit wasm`
-and `--emit=wasm` are the same. For `build` and `machine`, options can
+and `--emit=wasm` are the same. For `build`, options can
 come before or after `<file.rb>`. For `run`, options come before
 `<file.rb>`, because every word after it goes to the program. Put `--`
 before `<file.rb>` when the file name starts with `-`.
 
 zr runs on ruby 4.0.7, and on a later 4.0 release with a warning. On
-another ruby, `run`, `build` and `machine` stop with exit status 3,
+another ruby, `run` and `build` stop with exit status 3,
 and the message links [How to install zr](../how-to/install.md).
 
 ## Options
 
-| Option | `run` | `build` | `machine` | Effect |
-|---|---|---|---|---|
-| `-o`, `--output <path>` | no | required | required | Writes the output to `<path>`. |
-| `--emit <kind>` | `binary` or `wasm` | `binary`, `obj` or `wasm` | `binary`, `obj` or `wasm` | The output kind. The default is `binary`. |
-| `--target <triple>` | yes | yes | yes | Builds for `<triple>`. `zr targets` lists the triples. `--emit wasm` without `--target` means `wasm32-wasi`. |
-| `--path-root <dir>` | yes | yes | yes | Writes source paths in the output as `<dir>` plus the path below zr's root or the working directory. `<dir>` must be an absolute path. |
-| `--link <arg>` | yes | yes | yes | Gives `<arg>` to the system linker (`cc`) for a native binary, once for each argument: an object, an archive, `-framework <name>`, `-Wl,<flags>` such as `-Wl,-sectcreate,<segment>,<section>,<file>` or `-Wl,-exported_symbols_list,<file>`. With a link argument, zr links with `cc`, not with its own linker, so the host needs a C toolchain. With `--emit obj` or `--emit wasm` it is a usage error. `ZR_LINK_ARGS` gives the same arguments. |
-| `--gem <name>=<version\|dir>` | yes | yes | no | Uses this gem in place of the one in the Gemfile.lock or in zr's standard library, once for each gem: an installed version (`--gem csv=3.3.6`), or a directory with a gemspec or a `lib/` (`--gem rainbow=vendor/rainbow`). See [How to use a library or a gem](../how-to/use-a-library-or-gem.md#another-version-of-a-gem). |
-| `--gemfile <path>` | yes | yes | no | Reads the gems of `<path>`'s lock (`Gemfile.lock`, or `gems.locked` for `gems.rb`) before zr's standard library, as `bundle exec ruby` does. `BUNDLE_GEMFILE` does the same. zr reads the lock with its own bundler, not the host's. |
-| `--allow-runtime-require` | yes | yes | no | Lets a literal `require` in the program's own files that zr cannot find wait for the run time. The binary then carries the compiler (such a binary is about 110 MB) to compile what it finds then. Without it, such a require stops the build; see [the require gate](#the-require-gate). |
-| `--print-gems` | no | yes | no | After the build, prints the gems that the output was built with, as `zr inspect` does. |
-| `-h`, `--help` | yes | yes | yes | Prints the help for the command. |
+| Option | `run` | `build` | Effect |
+|---|---|---|---|
+| `-o`, `--output <path>` | no | required | Writes the output to `<path>`. |
+| `--emit <kind>` | `binary` or `wasm` | `binary`, `obj` or `wasm` | The output kind. The default is `binary`. |
+| `--target <triple>` | yes | yes | Builds for `<triple>`: `aarch64-apple-darwin`, `aarch64-linux-musl` or `wasm32-wasi`. `zr doctor` shows what this host can build. `--emit wasm` without `--target` means `wasm32-wasi`. |
+| `--path-root <dir>` | yes | yes | Writes source paths in the output as `<dir>` plus the path below zr's root or the working directory. `<dir>` must be an absolute path. |
+| `--link <arg>` | yes | yes | Gives `<arg>` to the system linker (`cc`) for a native binary, once for each argument: an object, an archive, `-framework <name>`, `-Wl,<flags>` such as `-Wl,-sectcreate,<segment>,<section>,<file>` or `-Wl,-exported_symbols_list,<file>`. With a link argument, zr links with `cc`, not with its own linker, so the host needs a C toolchain. With `--emit obj` or `--emit wasm` it is a usage error. `ZR_LINK_ARGS` gives the same arguments. |
+| `--gem <name>=<version\|dir>` | yes | yes | Uses this gem in place of the one in the Gemfile.lock or in zr's standard library, once for each gem: an installed version (`--gem csv=3.3.6`), or a directory with a gemspec or a `lib/` (`--gem rainbow=vendor/rainbow`). See [How to use a library or a gem](../how-to/use-a-library-or-gem.md#another-version-of-a-gem). |
+| `--gemfile <path>` | yes | yes | Reads the gems of `<path>`'s lock (`Gemfile.lock`, or `gems.locked` for `gems.rb`) before zr's standard library, as `bundle exec ruby` does. `BUNDLE_GEMFILE` does the same. zr reads the lock with its own bundler, not the host's. |
+| `--allow-runtime-require` | yes | yes | Lets a literal `require` in the program's own files that zr cannot find wait for the run time. The binary then carries the compiler (such a binary is about 110 MB) to compile what it finds then. Without it, such a require stops the build; see [the require gate](#the-require-gate). |
+| `--print-gems` | no | yes | After the build, prints the gems that the output was built with, as `zr inspect` does. |
+| `-h`, `--help` | yes | yes | Prints the help for the command. |
 
 ## `zr run [options] <file.rb> [args...]`
 
@@ -100,26 +98,6 @@ paths, built with the same root, write the same bytes (`zr-dev repro`
 tests this). A main file given as a relative path keeps that path, as
 in ruby. The program can read a file at a changed path only if that
 path exists on the machine that runs the program.
-
-## `zr machine [options] <file.rb> -o <out>`
-
-Compiles one file of the [kernel's typed Ruby](machine-dialect.md), without
-the zr runtime. It takes the same options as `build`. Use it for work
-on the runtime.
-
-## `zr targets`
-
-Prints a table: each target, the outputs zr can make for it, and the
-outputs this host can make now.
-
-```
-TARGET                 OUTPUTS            ON THIS HOST
-aarch64-apple-darwin   binary, obj        binary, obj
-aarch64-linux-musl     binary, obj        obj
-wasm32-wasi            wasm               wasm
-```
-
-See [Targets](targets.md).
 
 ## `zr gems [options] [<file.rb>]`
 
@@ -178,11 +156,19 @@ Checks what zr needs on this host, and prints one line for each check:
 ok    zr                 0.1.0  /Users/you/.gem/ruby/4.0.0/gems/zr-0.1.0
 ok    ruby               4.0.7
 ok    host               aarch64-apple-darwin
+ok    target             aarch64-apple-darwin   binary, obj; this host: binary, obj
+warn  target             aarch64-linux-musl     binary, obj; this host: obj
+ok    target             wasm32-wasi            wasm; this host: wasm
 ok    wasmtime           /opt/homebrew/bin/wasmtime
 ok    openssl            /opt/homebrew/opt/openssl@3/lib/libssl.3.dylib
 ok    libraries          stdlib of ruby 4.0.7 (59 gems), 17 ports
 ok    cache              ~/Library/Caches/zr, 2703 MB
 ```
+
+A `target` line gives a target, the outputs that zr makes for it, and
+after `this host:`, the outputs that this host can make now. The line
+is `warn` when this host cannot make one of the outputs: for example, a
+Linux binary needs a musl cross toolchain. See [Targets](targets.md).
 
 `warn` means that zr can do less on this host: for example, with no
 wasmtime, `zr run --emit wasm` does not work. Each `warn` and `fail`

@@ -62,7 +62,7 @@ version = run.(zr, "version")
 abort "smoke: zr version printed #{version.inspect}" unless version.match?(/\Azr \S+ \(for ruby 4\.0\.\d+\)\n\z/)
 run.(zr, "doctor")
 run.(zr, "--help")
-run.(zr, "help", "targets")
+run.(zr, "help", "build")
 
 # A bad setting is one line and status 2, with no backtrace.
 out, status = Open3.capture2e(env.merge("ZR_JOBS" => "abc"), zr, "build", "sum.rb", "-o", "sum", chdir: smoke)

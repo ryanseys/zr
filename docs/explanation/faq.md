@@ -61,7 +61,7 @@ Any host with ruby 4.0.7 can build a macOS arm64 binary, a WASI module
 and an object file. Only an Apple Silicon Mac runs the macOS binary.
 An `aarch64-linux-musl` binary needs a musl cross toolchain, or an
 aarch64 Linux host with musl. zr does not build x86_64 or Windows
-binaries yet. `zr targets` shows what this host can build. See
+binaries yet. `zr doctor` shows what this host can build. See
 [Targets](../reference/targets.md).
 
 ## Does a binary need anything to run?

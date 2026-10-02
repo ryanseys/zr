@@ -6,7 +6,7 @@ require_relative "help"
 
 module Zr
   module CLI
-    # The options of `run`, `build`, `machine` and `gems`.
+    # The options of `run`, `build` and `gems`.
     #
     # The parser is a small table, not OptionParser: optparse requires
     # `pp`, which calls eval, and a compiler that zr compiles would then
@@ -16,7 +16,7 @@ module Zr
 
       module_function
 
-      # The options and words of `run`, `build`, `machine` or `gems`, as a
+      # The options and words of `run`, `build` or `gems`, as a
       # Hash. For `run`, every word after the input file goes to the program.
       def parse(command, args)
         opts = { args: [], link: [], gems: [] }
@@ -76,9 +76,6 @@ module Zr
           Errors.usage_error("unknown --emit '#{opts[:emit]}'; use binary, obj or wasm", command)
         end
         Errors.usage_error("--path-root needs an absolute path", command) if opts[:root] && !opts[:root].start_with?("/")
-        if command == "machine" && (!opts[:gems].empty? || opts[:gemfile])
-          Errors.usage_error("--gem and --gemfile do not apply; a machine file requires nothing", command)
-        end
         Errors.usage_error("--print-gems applies only to 'zr build'", command) if opts[:print_gems] && command != "build"
         if command == "run"
           Errors.usage_error("-o does not apply; use 'zr build' to keep the output", command) if opts[:output]

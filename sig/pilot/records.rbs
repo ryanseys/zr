@@ -29,22 +29,6 @@ module Zr
     end
   end
 
-  module Native
-    class UnitProgram < Data
-      attr_reader functions: Array[untyped]
-      attr_reader data: Array[Obj::Datum]
-      attr_reader raw: Array[String]
-      attr_reader target: Target
-
-      def self.new: (functions: Array[untyped], data: Array[Obj::Datum], raw: Array[String], target: Target) -> instance
-                  | (Array[untyped] functions, Array[Obj::Datum] data, Array[String] raw, Target target) -> instance
-
-      def write_object: (String out) -> String?
-      def write_wasm: (String out) -> String?
-      def write_binary: (String out, work: String, link: untyped) -> String?
-    end
-  end
-
   class LoadTables < Data
     attr_reader evals: bool
     attr_reader spots: Hash[String, String]

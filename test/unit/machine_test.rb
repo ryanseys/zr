@@ -4,7 +4,7 @@ require "test_helper"
 require_relative "../../lib/zr/machine/lower"
 require_relative "../../lib/zr/native/build"
 
-# Tests the machine dialect, compiled alone (as `zr machine` does it):
+# Tests the machine dialect, compiled alone (without the zr runtime):
 # - each `test/machine/<name>.rb` compiles to a binary that prints
 #   `<name>.out`;
 # - each `test/machine/units/<name>/` is one unit of several files that

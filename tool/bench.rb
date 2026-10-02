@@ -55,7 +55,7 @@ module Zr
         Dev.tune!
         runs = @runs || Harness::Bench::RUNS
         fail!("--runs takes a count of one or more") if runs < 1
-        target = @triple ? (Target.fetch(@triple) || fail!("no target #{@triple}; `zr targets` names them")) : Target.default
+        target = @triple ? (Target.fetch(@triple) || fail!("no target #{@triple}; `zr doctor` names them")) : Target.default
 
         # The benchmarks run what they build. Thus refuse a target that
         # this host cannot run here, not as one failure for each program.

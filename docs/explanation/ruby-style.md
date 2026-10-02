@@ -217,7 +217,6 @@ functions on `module Zr`:
 | `Zr::GcTuning` | `gc_tuning.rb` | the collector limits and YJIT of a compile (`GcTuning.current`) |
 | `Zr::Runtime.for`, `Zr::EvalSupport.for`, `Zr::Program.build` | `runtime.rb`, `eval_support.rb`, `program.rb` | the runtime of a target, the eval support of a target, and a program's build |
 | `Zr::LoadTables`, `Zr::SymbolNumbering` | `load_tables.rb`, `symbol_numbering.rb` | the load tables that a binary carries, and the link's numbers for symbols |
-| `Zr::Native::UnitProgram` | `native/unit_program.rb` | a kernel file that `zr machine` compiled; it answers the messages of a `Zr::Program` |
 | `Zr::Host`, `Zr::Timing`, `Zr::SourceGuard` | `host.rb`, `timing.rb`, `source_guard.rb` | `Host.compiled?`, the phase times, and the check that no source changed during a build |
 
 ## Types
@@ -234,7 +233,7 @@ A file that assigns a `Struct` or a `Data` record to a constant has its
 types in `sig/pilot/`, because the inline form cannot give a type to the
 fields of such a record. Put the methods of such a record in a reopened
 class, not in the block of `Data.define`, so that Steep sees them in
-their class (`lib/zr/native/unit_program.rb`). To add a file to the
+their class (`lib/zr/load_tables.rb`). To add a file to the
 check, annotate it and add it to the `Steepfile`. The rest of `lib/` is
 not checked yet.
 

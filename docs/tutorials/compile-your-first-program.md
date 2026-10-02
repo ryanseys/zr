@@ -167,7 +167,7 @@ printed.
 
 Next steps:
 
-- To see which targets your machine can build, run `zr targets`, or
+- To see which targets your machine can build, run `zr doctor`, or
   read [How to build for another target](../how-to/build-for-another-target.md).
 - To help zr support more programs, follow
   [Add your first program test](add-your-first-program-test.md).

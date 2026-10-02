@@ -19,7 +19,6 @@ require_relative "cli/commands/doctor"
 require_relative "cli/commands/gems"
 require_relative "cli/commands/help"
 require_relative "cli/commands/inspect"
-require_relative "cli/commands/targets"
 require_relative "cli/commands/version"
 
 module Zr
@@ -42,12 +41,10 @@ module Zr
     COMMANDS = {
       "run" => Commands::Compile,
       "build" => Commands::Compile,
-      "machine" => Commands::Compile,
       "doctor" => Commands::Doctor,
       "gems" => Commands::Gems,
       "inspect" => Commands::Inspect,
       "diff" => Commands::Diff,
-      "targets" => Commands::Targets,
       "version" => Commands::Version,
       "help" => Commands::Help,
       "cache" => Commands::Cache

@@ -58,7 +58,7 @@ $ zr build app.rb -o app                     # a native binary
 $ zr build app.rb -o app.wasm --emit wasm    # a WASI module
 $ zr build app.rb -o app.o --emit obj        # an object file
 $ zr build app.rb -o app --target aarch64-linux-musl
-$ zr targets                                 # what this host can build
+$ zr doctor                                  # check this host, and what it can build
 $ zr help build                              # the options of a command
 ```
 

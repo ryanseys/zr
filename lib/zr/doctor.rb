@@ -15,7 +15,7 @@ module Zr
 
     module_function
 
-    def checks = [zr, ruby, host, wasmtime, openssl, gems, cache]
+    def checks = [zr, ruby, host, *targets, wasmtime, openssl, gems, cache]
 
     # Prints each check. Returns true when none failed.
     def run(out = $stdout)
@@ -43,6 +43,19 @@ module Zr
       return Check.new(:ok, "host", target == Target.fetch(triple) ? triple : "#{triple}, runs #{target.triple}") if target.linkable?
 
       Check.new(:warn, "host", "#{triple}; no cc to link a binary (#{Target.cc_hint}). --emit wasm works")
+    end
+
+    # One line for each target: the outputs that zr makes for it, and the
+    # outputs that this host can make now. A `:warn` means that this host
+    # cannot make some of them.
+    def targets(all = Target.all)
+      label = ->(output) { output == :native ? "binary" : output.to_s }
+      all.map do |target|
+        here = target.outputs.select { |output| target.refusal(output == :native ? nil : output.to_s).nil? }
+        detail = format("%-22s %s; this host: %s", target.triple, target.outputs.map(&label).join(", "),
+                        here.empty? ? "none" : here.map(&label).join(", "))
+        Check.new(here == target.outputs ? :ok : :warn, "target", detail)
+      end
     end
 
     def wasmtime(path = which("wasmtime"))

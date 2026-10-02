@@ -13,9 +13,8 @@ require_relative "gems"
 module Zr
   module CLI
     module Commands
-      # `run`, `build` and `machine`: compile a program, then run it, keep
-      # the binary, the WASI module or the object, or compile one typed-Ruby
-      # kernel file.
+      # `run` and `build`: compile a program, then run it, or keep the
+      # binary, the WASI module or the object.
       #
       # A compile command also holds what a process that serves builds
       # needs: the binary that a `zr run` found in the run cache
@@ -27,13 +26,13 @@ module Zr
       class Compile < Command
         def reads_help? = true
 
-        # `run`, `build` or `machine`, and its arguments.
+        # `run` or `build`, and its arguments.
         def run(argv)
           opts = Options.parse(name, argv)
           Refusals.pinned!
           input = opts[:input]
           abort "zr: no such file: #{input}" unless File.file?(input)
-          gems = Options.gem_set(opts) unless name == "machine"
+          gems = Options.gem_set(opts)
 
           target = Options.target_for(opts[:triple], opts[:emit], name)
           emit = opts[:emit] || ("wasm" if target.outputs == [:wasm])
@@ -46,7 +45,6 @@ module Zr
           cache = @missed || kept_run(input, target, link, opts[:args], gems) if name == "run" && emit.nil?
           require_relative "../../runtime"
           require_relative "../../native/build"
-          require_relative "../../native/unit_program"
           # Under ruby, lib/zr/prism.rb turns the parse cache on. A compiled
           # compiler turns it on here. A program that calls eval includes the
           # same files but never comes here, so it never writes to the cache.
@@ -111,10 +109,9 @@ module Zr
 
         # A binary's functions are assembled as they are lowered, so the IR of
         # a large program is never all in memory at once (`Native::Build.lower`).
-        # Returns a `Zr::Program`, or for `machine` a `Native::UnitProgram`.
+        # Returns a `Zr::Program`.
         def lower(input, target, assemble: false, gem_set: nil, gate: false)
           source = File.read(input)
-          return Native::UnitProgram.new(*Machine.compile(source, input), target) if name == "machine"
           return Program.build(source, input, target: target, gem_set: gem_set, gate: gate) unless assemble
 
           Native::Build.lower(source, input, target: target, sources: name == "run", gem_set: gem_set, gate: gate)

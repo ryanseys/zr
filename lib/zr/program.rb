@@ -21,9 +21,9 @@ module Zr
 
     def to_ary = [runtime.functions + functions, runtime.data + data, raw]
 
-    # The outputs of a build (`Native::Build`, which the caller loads),
-    # also the messages of a `Native::UnitProgram`. Each writes the output to
-    # `out` and returns nil, or the message of the step that refused.
+    # The outputs of a build (`Native::Build`, which the caller loads).
+    # Each writes the output to `out` and returns nil, or the message of
+    # the step that refused.
     #
     # The runtime's object comes from the cache, so the object file at
     # `out` is the only file that zr writes.

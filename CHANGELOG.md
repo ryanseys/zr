@@ -12,7 +12,7 @@ The first public release.
 ### Added
 
 - `gem install zr` installs the `zr` command on ruby 4.0.7: `run`,
-  `build`, `machine`, `targets`, `doctor`, `cache`, `version` and
+  `build`, `gems`, `inspect`, `diff`, `doctor`, `cache`, `version` and
   `help`. The gem has no dependencies: it carries ruby 4.0.7's
   standard library (`vendor/ruby`), so the install downloads only zr, and
   compiles nothing. zr runs on ruby 4.0.7 or a later 4.0 release.
@@ -54,7 +54,7 @@ The first public release.
 - A literal `require` in the program's own files that zr cannot find
   stops the build with the fix, unless `rescue LoadError` guards it
   or the build has `--allow-runtime-require`.
-- `zr doctor` checks the ruby, the host's targets, wasmtime, OpenSSL,
+- `zr doctor` checks the ruby, the host, each target, wasmtime, OpenSSL,
   the standard library and the cache, and says
   what to do for each problem. [How to install zr](docs/how-to/install.md)
   shows how to get ruby 4.0.7, and lists each problem and its fix.
@@ -161,6 +161,9 @@ The first public release.
 - The iseq cache (the `iseq` kind of the store). `exe/zr` loads zr's
   files with plain ruby.
 - The variables `ZR_COMPILED`, `ZR_BINARY` and `ZR_ISEQ_CACHE`.
+- The `zr machine` and `zr targets` commands. `zr doctor` shows each
+  target, its outputs and the outputs that this host can make.
+  `zr help build` lists the triples.
 
 ### Fixed
 

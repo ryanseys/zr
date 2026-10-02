@@ -43,6 +43,24 @@ class DoctorTest < Minitest::Test
     end
   end
 
+  def test_each_target_has_a_line_with_its_outputs_and_what_this_host_makes
+    checks = Zr::Doctor.targets
+
+    assert_equal Zr::Target.all.map(&:triple), checks.map { |c| c.detail.split.first }
+    wasm = checks.find { |c| c.detail.start_with?("wasm32-wasi ") }
+    assert_equal "target", wasm.name
+    assert_equal :ok, wasm.status
+    assert_equal "wasm32-wasi            wasm; this host: wasm", wasm.detail
+  end
+
+  def test_a_target_that_this_host_cannot_link_warns
+    target = Zr::Target.fetch("aarch64-linux-musl")
+    check = stub_method(target, :linkable?, false) { Zr::Doctor.targets([target]).first }
+
+    assert_equal :warn, check.status
+    assert_equal "aarch64-linux-musl     binary, obj; this host: obj", check.detail
+  end
+
   def test_the_first_line_names_this_zr
     assert_equal "#{Zr::VERSION}  #{Zr::Paths::ROOT}", Zr::Doctor.zr.detail
   end
