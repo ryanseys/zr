@@ -94,8 +94,7 @@ built the binary.
 With `--path-root=/src`, a file at `<working directory>/lib/a.rb` is
 `/src/lib/a.rb` in the output. zr's own files below the root of the
 gem or checkout also get the `/src` prefix. Thus two checkouts at two
-paths, built with the same root, write the same bytes (`zr-dev repro`
-tests this). A main file given as a relative path keeps that path, as
+paths, built with the same root, write the same bytes. A main file given as a relative path keeps that path, as
 in ruby. The program can read a file at a changed path only if that
 path exists on the machine that runs the program.
 

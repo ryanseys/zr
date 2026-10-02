@@ -119,7 +119,6 @@ gives more examples.
 | `zr-dev vendor --check` | Checks each file of `vendor/` against the lock, offline. |
 | `zr-dev vendor outdated` | Lists the gems of `vendor/` that have a newer release on rubygems.org. |
 | `zr-dev vendor diff GEM [VERSION]` | Lists the files that change from the locked GEM to VERSION (default: the newest), and zr's files under `lib/zr/runtime/` that replace one of them. |
-| `zr-dev progress` | Prints the progress of the unit tier that runs now, or of the last one (`tmp/test-progress.txt`). |
 
 ### Gems
 
@@ -206,10 +205,7 @@ writes the libSystem list again. See
 | `zr-dev compile --zr --check` | Fails if the compiled compiler is slower than the newest baseline in `benchmark/results/compile/`. |
 | `zr-dev host <file.rb> [args...]` | Runs a program on CRuby with no build: the kernel runs as Ruby (`Machine::Host`), and a walker runs the core library, the gem prelude and the program over the kernel's heap (`Machine::Host::Walk`). The exit status is the program's. It is much slower than a binary. `ZR_TEST_HOST=1 bin/minitest test/programs_test.rb` runs the program tests this way. |
 | `zr-dev probe [-j JOBS] <file.rb\|dir>...` | Runs each Ruby file under ruby 4.0.7 and as a zr binary, and prints a unified diff of each part that differs: stdout, stderr, the exit status and the signal. It compiles each file in a fork of one process that has the compiler and the runtime loaded. A directory means its `.rb` files. `-j` sets the probes at a time (default 4). |
-| `zr-dev edit [--kind KIND,...] [--program NAME,...] [--runs N] [--commit]` | Times `zr run` right after an edit to zr, phase by phase. It works in a copy of the tree with its own cache (`tmp/edit/`), appends a new comment or method to one file for each kind, and puts the file back. The kinds are `none`, `kernel-comment`, `core-comment`, `core-method`, `lower-comment` and `ext-comment`; the programs are `hello` and `eval`. `--commit` writes the table to `benchmark/results/edit/`. |
 | `zr-dev golden save\|check [LABEL]` | Lowers the kernel on `aarch64-apple-darwin`, `aarch64-linux-musl` and `wasm32-wasi`, and writes (`save`) or compares (`check`) one line for each fact a build sees: each function's IR fingerprint, each datum, the raw functions, the kernel's description and the symbol names, in `tmp/golden/LABEL/` (default `base`). A change to the kernel's spelling must keep it the same. |
-| `zr-dev reach [--why NAME] [--rates] [--tsv FILE] [program.rb...]` | Lowers the kernel, the core, the gem prelude and each program (default: `benchmark/bm_*.rb` and `test/programs/*.rb`), and prints the share of the runtime's IR that each program can reach: by selector name, by name and a live owner class, and by name and a live instance. It prints when each rule (R0, R0p, R1) makes a program fall back to a full build. `--why Owner#name` prints the path from a root to a def. `--rates` also measures lowering and assembly per IR instruction, and the cost of pooled symbol ids. It changes no file. |
-| `zr-dev codesize [--all] [--against FILE]` | Counts the instructions the backend writes for the runtime: the total and the 20 largest functions. `--all` lists every function. `--against` compares with the file of an earlier run. |
 
 See [How to measure performance](../how-to/measure-performance.md).
 
@@ -237,7 +233,6 @@ output through the same rewrite (`tool/lib/zr/dev/files.rb`).
 |---|---|
 | `zr-dev stage 1` | Compiles the compiler (`exe/zr`) two times, in two processes with two caches, and compares the compiler objects and the runtime objects byte for byte. |
 | `zr-dev stage 2` | Builds `exe/zr` with ruby, then builds it again with that binary (`tmp/stage1/zr build exe/zr`), and compares the two binaries. It takes about ten minutes and 5 GB of memory. |
-| `zr-dev repro [--wasm]` | Builds one program from two copies of the tree at two paths, with a different home, time zone, locale and job count, and one `--path-root`. It compares the binaries and the objects. `--wasm` also builds and compares the WASI modules. |
 
 See [Bootstrapping](../explanation/bootstrapping.md).
 

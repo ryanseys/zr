@@ -61,7 +61,7 @@ class AffectedTest < Minitest::Test
   end
 
   def test_a_tool_change_reaches_the_unit_tests
-    assert_equal [File.join(Zr::Dev::ROOT, "test/unit")], affected.plan(%w[tool/edit.rb])
+    assert_equal [File.join(Zr::Dev::ROOT, "test/unit")], affected.plan(%w[tool/bench.rb])
   end
 
   def test_a_file_of_an_os_layer_maps_as_its_name

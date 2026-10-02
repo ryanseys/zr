@@ -88,17 +88,6 @@ $ ruby tool/zr-dev.rb compile --zr --commit
 $ ruby tool/zr-dev.rb compile --zr --check
 ```
 
-## Measure the size of the generated code
-
-`zr-dev codesize` counts the instructions that the backend writes for
-the whole runtime. Save a run before your change, and compare after
-it:
-
-```console
-$ ruby tool/zr-dev.rb codesize --all > tmp/codesize-before.tsv
-$ ruby tool/zr-dev.rb codesize --against tmp/codesize-before.tsv
-```
-
 ## Profile the compiler
 
 The compiler is Ruby, so a Ruby profiler works on it. The Gemfile has

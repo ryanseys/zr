@@ -7,8 +7,8 @@ module Zr
     # Writes the status of a run to a file, so that you can check a tier
     # that runs in the background. The file gives the examples done and
     # the total, the failures, the rate, the time left and the last
-    # example. `zr-dev progress` prints it. The reporter writes the
-    # file at most once a second, and one more time at the end.
+    # example. The reporter writes the file at most once a second, and
+    # one more time at the end.
     module Progress
       PATH = File.expand_path("../../tmp/test-progress.txt", __dir__)
       EVERY = 1.0
@@ -16,9 +16,6 @@ module Zr
       def self.minitest_plugin_init(options)
         Minitest.reporter << Reporter.new(options)
       end
-
-      # Returns the text of the file, or nil when no run wrote it.
-      def self.read = File.exist?(PATH) ? File.read(PATH) : nil
 
       class Reporter < Minitest::AbstractReporter
         def initialize(options)

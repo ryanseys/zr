@@ -48,14 +48,6 @@ module Zr
       git("rev-parse", length ? "--short=#{length}" : "--short", "HEAD", dir: dir)&.strip
     end
 
-    # The files of the checkout in `dir`, as paths below it: the tracked
-    # and the untracked files that git does not ignore. Nil when git
-    # fails.
-    def self.tree_files(dir: ROOT)
-      listed = git("ls-files", "-z", "--cached", "--others", "--exclude-standard", dir: dir) or return nil
-      listed.split("\0").select { |file| File.file?(File.join(dir, file)) }
-    end
-
     # Runs the block. Returns its value and the seconds it took.
     def self.timed
       began = Process.clock_gettime(Process::CLOCK_MONOTONIC)

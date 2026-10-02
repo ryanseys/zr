@@ -37,9 +37,6 @@ ThreadSafety/MutableClassInstanceVariable:
   Exclude:
     - "lib/zr/target.rb"
     - "test/support/harness/child.rb"
-ThreadSafety/ClassAndModuleAttributes:
-  Exclude:
-    - "tool/reach.rb"
 ThreadSafety/DirChdir:
   Exclude:
     - "bin/setup"
@@ -80,7 +77,6 @@ Metrics/ParameterLists:
     - "test/support/harness/bench.rb"
     - "tool/gen/onig_unicode.rb"
     - "tool/lib/zr/dev/gems/trial.rb"
-    - "tool/reach.rb"
 
 # Files that had lines over 150 characters when Layout/LineLength came in.
 # Shorten the lines of a file, then delete it from this list.

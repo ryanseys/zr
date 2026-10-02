@@ -39,10 +39,6 @@ which a directory lists its files. If a build depends on one of these,
 two builds can be different, and a bug can come and go between them.
 `zr-dev stage 1` is fast enough to run after any change to the compiler.
 
-`zr-dev repro` checks a related property: two copies of the tree at
-two paths, with a different home, time zone, locale and job count,
-build one program to the same bytes.
-
 ## What `stage 2` checks
 
 `zr-dev stage 2` builds stage 1 with ruby, then runs stage 1 to build

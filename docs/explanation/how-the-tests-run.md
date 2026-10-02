@@ -120,5 +120,4 @@ the build is what it tests.
 
 A test run writes its progress to `tmp/test-progress.txt` at most
 once a second: how many tests are done, which failed, the rate, and the
-time left. `zr-dev progress` prints the file, so you can look at a run
-in the background.
+time left. Read the file to look at a run in the background.

@@ -179,8 +179,8 @@ runs it (see [Tools](../reference/tools.md)).
   message and exits with status 1.
 - A command whose first word names a command of its own (`zr-dev gen`,
   `zr-dev gems`, `zr-dev vendor`) is a `Group`.
-- The tools share `Dev.parallel_map`, `Dev.git`, `Dev.revision`,
-  `Dev.tree_files` and `Dev.timed`. Do not write another copy in a
+- The tools share `Dev.parallel_map`, `Dev.git`, `Dev.revision` and
+  `Dev.timed`. Do not write another copy in a
   tool.
 
 The `zr` command has the same form, without OptionParser (optparse is

@@ -233,7 +233,7 @@ A test run writes its progress to `tmp/test-progress.txt`. From
 another terminal:
 
 ```console
-$ ruby tool/zr-dev.rb progress
+$ cat tmp/test-progress.txt
 ```
 
 ## Find the slow tests
