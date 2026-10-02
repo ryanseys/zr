@@ -705,18 +705,19 @@ module Zr
         def self.run(functions) = new(functions).run
 
         # `sources` are functions that can be inlined but that this pass
-        # does not change: the leaves of a file whose code the build already
-        # has (`Cache::Lowering::Core`).
+        # does not change, because a pass inlined them already: the kernel
+        # under a core file (`Cache::Lowering::Core`).
         def initialize(functions, sources: [])
           @by_name = functions.to_h { |f| [f.name, f] }
           @outputs = @by_name.values
-          sources.each { |f| @by_name[f.name] ||= f }
+          @sources = {}
+          sources.each { |f| @by_name[f.name] ||= @sources[f.name] = f }
           @state = {}
           @calls = Hash.new { |h, name| h[name] = {} }
         end
 
         def run
-          @by_name.each_key { |name| inlinable?(name) }
+          @outputs.each { |f| inlinable?(f.name) }
           @outputs
         end
 
@@ -732,7 +733,8 @@ module Zr
         private
 
         # Whether the function is a leaf that is small enough to inline, after
-        # its own calls are inlined. The first question inlines them.
+        # its own calls are inlined. The first question inlines them (not
+        # those of a source, which are inlined already).
         def inlinable?(name)
           case @state[name]
           when :leaf then return true
@@ -740,7 +742,7 @@ module Zr
           end
           @state[name] = :busy
           f = @by_name.fetch(name)
-          inline_into(f)
+          inline_into(f) unless @sources.key?(name)
           @state[name] = leaf?(f) ? :leaf : :no
           @state[name] == :leaf
         end
@@ -763,23 +765,32 @@ module Zr
 
         def slot_of(f, name) = f.slots.fetch(name.delete_prefix("ss").to_i)
 
+        # Expands each site in turn. The blocks before a site's block have no
+        # site, and the copy of the callee comes after it, so the search for
+        # the next site starts at that block.
         def inline_into(f)
           expanded = false
-          while (site = site_in(f))
+          from = 0
+          while (site = site_in(f, from))
+            from, *site = site
             expand(f, *site)
             expanded = true
           end
           f.changed!(:cfg) if expanded
         end
 
-        # A call in `f` to a function that this pass inlines: its block, the
-        # index of the call, the call and the callee.
-        def site_in(f)
-          f.blocks.each do |b|
+        # A call in `f`, from the block at `from` on, to a function that this
+        # pass inlines: the index of its block, the block, the index of the
+        # call, the call and the callee.
+        def site_in(f, from)
+          callees = {}
+          f.callees.each { |c| callees[c.fn] ||= c }
+          (from...f.blocks.size).each do |n|
+            b = f.blocks[n]
             b.insts.each_with_index do |i, k|
               next unless i.op == :call
 
-              c = f.callees.find { |x| x.fn == i.callee }
+              c = callees[i.callee]
               next if c.nil? || c.from || !c.colocated
 
               @calls[f.name][c.symbol] = true
@@ -787,7 +798,7 @@ module Zr
               target = @by_name[c.symbol]
               next if target.nil? || target.equal?(f) || !inlinable?(target.name)
 
-              return [b, k, i, target]
+              return [n, b, k, i, target]
             end
           end
           nil
