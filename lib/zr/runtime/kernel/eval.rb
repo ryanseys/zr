@@ -302,10 +302,21 @@ module Zr::Kern
       # The Proc of a Symbol or a Method uses only its arguments.
       return Block.call(RProc.fn(body), body, argc, argv, blk)
     end
+    # The copy is field by field: a libc call costs more.
     d = Machine.slot(RProc.size)
-    zr_memcpy(d, Machine.ptr(body), RProc.size)
     p = Machine.value(d)
     RBasic.set_flags(p, T_PROC | FL_ALLOCATED | FL_STACK)
+    RBasic.set_klass(p, RBasic.klass(body))
+    RProc.set_fn(p, RProc.fn(body))
+    RProc.set_meta(p, RProc.meta(body))
+    RProc.set_env(p, RProc.env(body))
+    RProc.set_blk(p, RProc.blk(body))
+    RProc.set_serial(p, RProc.serial(body))
+    RProc.set_site(p, RProc.site(body))
+    RProc.set_ret_home(p, RProc.ret_home(body))
+    RProc.set_ret_serial(p, RProc.ret_serial(body))
+    RProc.set_spread(p, RProc.spread(body))
+    RProc.set_passed(p, RProc.passed(body))
     RProc.set_self(p, recv)
     # The entry keeps its cref after the first call (`zr_bmethod_cref`).
     cref = zr_bmethod_cref_kept(e)
