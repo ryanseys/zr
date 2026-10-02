@@ -1045,20 +1045,31 @@ module Zr::Kern
   end
 
   # Frees an unmarked cell of `bytes` that was live: releases what it owns,
-  # and poisons it.
-  sig [Ptr, Word] => Void
-  def zr_free_cell(cell, bytes)
+  # and poisons it. `watched` tells whether allocation tracing or stress
+  # mode is on, which the sweep reads once for each arena. A plain object
+  # whose ivar entries are in its cell owns nothing outside it.
+  sig [Ptr, Word, Bool] => Void
+  def zr_free_cell(cell, bytes, watched)
     flags = Machine.load64(cell, 0)
-    if (flags & FL_ALLOCATED) != 0
+    if (flags & FL_ALLOCATED) != 0 && ((flags & (T_MASK | FL_EXIVAR)) != T_OBJECT || !zr_ivtab_embedded_p(RObject.iv(Machine.value(cell))))
       zr_release(Machine.value(cell))
       if (flags & FL_EXIVAR) != 0
         zr_exivar_free(Machine.value(cell))
       end
     end
+    if watched
+      zr_free_watched(cell, bytes)
+    end
+    Machine.store64(cell, 0, POISON)
+  end
+  # The sweep frees most cells with no call.
+  inline :zr_free_cell
+
+  sig [Ptr, Word] => Void
+  def zr_free_watched(cell, bytes)
     if AllocTrace.used(zr_alloc_trace()) != 0
       zr_alloc_trace_forget(cell)
     end
-    Machine.store64(cell, 0, POISON)
     # The mark phase checks the header's poison. The payload's poison only
     # makes a stale read fail clearly, which is the purpose of stress mode.
     if Heap.stress(zr_heap()) != 0
@@ -1094,6 +1105,7 @@ module Zr::Kern
     ages = zr_arena_ages(a)
     remembered = zr_arena_remembered(a)
     allocated = zr_arena_allocated(a)
+    watched = AllocTrace.used(zr_alloc_trace()) != 0 || Heap.stress(zr_heap()) != 0
     live = 0
     w = 0
     while w < MARK_BYTES
@@ -1102,7 +1114,7 @@ module Zr::Kern
       while dead != 0
         i = Machine.ctz(dead)
         dead &= Machine.sub_wrap(dead, 1)
-        zr_free_cell(first + (((w << 3) + i) * bytes), bytes)
+        zr_free_cell(first + (((w << 3) + i) * bytes), bytes, watched)
       end
       Machine.store64(allocated + w, 0, mark)
       Machine.store64(ages + w, 0, mark)

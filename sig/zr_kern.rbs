@@ -837,7 +837,8 @@ module Zr
     def zr_frame_serial: (Integer rec) -> Integer
     def zr_frame_shown_p: (Integer rec) -> bool
     def zr_frame_with_file: (Integer rec) -> Integer
-    def zr_free_cell: (Integer cell, Integer bytes) -> void
+    def zr_free_cell: (Integer cell, Integer bytes, bool watched) -> void
+    def zr_free_watched: (Integer cell, Integer bytes) -> void
     def zr_fresh_method: (Integer klass, Integer mid) -> Integer
     def zr_frozen_error: (Integer v) -> Integer
     def zr_frozen_p: (Integer v) -> bool

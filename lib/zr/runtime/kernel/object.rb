@@ -645,6 +645,11 @@ module Zr::Kern
   # Raises NoMethodError for a class whose allocator is undefined.
   sig [Value] => Value
   def zr_class_new_object(recv)
+    # A class that recorded plain objects, outside a box and not a
+    # singleton, passes each check below: allocate directly.
+    if ClassExt.alloc(RClass.ext(recv)) == ALLOC_OBJECT && (RBasic.flags(recv) & FL_SINGLETON) == 0 && zr_box_current() == QNIL
+      return zr_obj_alloc(recv)
+    end
     if zr_alloc_kind(recv) == ALLOC_UNDEF
       b = Machine.slot(Buf.size)
       zr_buf_init(b)
