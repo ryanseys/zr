@@ -36,7 +36,7 @@ Tools does not use its `ld` with an SDK that it cannot read. zr keeps a
 |---|---|---|
 | ruby 4.0.7 (`.ruby-version`) | the host, and the only reference for the tests | everything |
 | `rake` gem ~> 13.0 | the tasks | `Rakefile` |
-| `minitest` gem ~> 6.0 | runs every test | `bin/test` |
+| `minitest` gem ~> 6.0 | runs every test | `bin/minitest` |
 | `minitest-reporters` gem ~> 1.8 | the report of the slowest tests (`SLOW=1`), and the JUnit file for CI | `test/test_helper.rb` |
 | `aarch64` gem ~> 3.0 | pure Ruby, generated from the ARM specification; the tests check zr's encoder against it | `test/unit/aarch64_test.rb` |
 | `fiddle` gem ~> 1.1 | loads code into the test process | `lib/zr/obj/jit/fiddle.rb`, `Harness::KernelJIT` |
@@ -44,6 +44,6 @@ Tools does not use its `ld` with an SDK that it cannot read. zr keeps a
 | `rubocop` gem ~> 1.89 | `rake lint` | `.rubocop.yml` |
 | `irb` gem | `bin/console` | by hand |
 | `vernier` gem ~> 1.0 | profiles the compiler; never part of a build or a test | by hand |
-| wasmtime | runs the wasm tests; a test skips without it | `wasm_test`, the tiers under `TARGET=wasm32-wasi` |
+| wasmtime | runs the wasm tests; a test skips without it | `wasm_test`, the tiers under `ZR_TARGET=wasm32-wasi` |
 | the test reference | ruby 4.0.7's bundled gems, and each port's gem at zr's version, in `tmp/reference/gems` (`zr-dev reference`). Every expected output comes from ruby with only these gems | `zr-dev expect`, `zr-dev record`, `zr-dev probe`, the program tests of a program that does not parse |
 | `nm`, `otool` | read an object and a binary back | `macho_test`, `exe_test`, `native_test` |

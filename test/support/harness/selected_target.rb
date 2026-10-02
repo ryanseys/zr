@@ -5,7 +5,7 @@ require_relative "../../../lib/zr/target"
 module Zr
   module Harness
     # The target that this run selected: the host's target, or the one
-    # that `ZR_TARGET` names (`bin/test` sets it from `TARGET`), as in the
+    # that `ZR_TARGET` names, as in the
     # cross-target CI jobs. An unknown triple raises an error here, not
     # later. It loads only `Target`, so test/support/built.rb, which
     # every unit test loads, does not load the command line.

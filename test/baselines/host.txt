@@ -1,5 +1,6 @@
-# The program tests that can fail on the host (`bin/test --host`: CRuby
-# runs the kernel, the core and the program, lib/zr/machine/host/walk.rb),
+# The program tests that can fail on the host (`ZR_TEST_HOST=1 bin/minitest
+# test/programs_test.rb`: CRuby runs the kernel, the core and the program,
+# lib/zr/machine/host/walk.rb),
 # and why. Each line is a program's path below test/programs and a reason,
 # separated by a tab. A `#` line is a comment (test/support/baseline.rb).
 #

@@ -8,19 +8,19 @@ Thank you for helping. This page tells you how to start. The guides in
 You need ruby 4.0.7 (see `.ruby-version`; for example
 `mise install ruby@4.0.7` or `rbenv install 4.0.7`) on an Apple
 Silicon Mac with 16 GB of memory or more. The first `bin/setup` takes
-some minutes, and a full `bin/test` takes much longer; start with the
+some minutes, and a full `bin/minitest` takes much longer; start with the
 tests near your change. [wasmtime](https://wasmtime.dev) is optional;
 without it, the tests that run WebAssembly modules skip.
 
 On Linux, you can work on the `wasm32-wasi` target:
-`rake build:wasm`, then `TARGET=wasm32-wasi bin/test <paths>`. See
+`rake build:wasm`, then `ZR_TARGET=wasm32-wasi bin/minitest <paths>`. See
 [How to test on another target](docs/how-to/test-on-another-target.md).
 
 ```console
 $ git clone https://github.com/ryanseys/zr.git
 $ cd zr
 $ bin/setup     # installs the gems and builds the runtime (a few minutes)
-$ bin/test      # runs every tier: unit, programs
+$ bin/minitest  # runs every test: unit, programs
 ```
 
 ## Make a change
@@ -28,8 +28,9 @@ $ bin/test      # runs every tier: unit, programs
 1. Write a program test that shows the change: see
    [Add your first program test](docs/tutorials/add-your-first-program-test.md).
 2. Change the compiler (`lib/`) or the runtime (`lib/zr/runtime/`).
-3. Run the tests that cover the change: `bin/test --changed`, or a
-   path such as `bin/test test/programs/core/string`. Then run `bin/test`
+3. Run the tests that cover the change: `bin/zr-dev affected`, or some
+   programs such as
+   `ZR_PROGRAMS=core/string bin/minitest test/programs_test.rb`. Then run `bin/minitest`
    before you open a pull request. A full run takes a long time and
    much memory; `MT_CPU=4` uses fewer workers. See
    [How to run the tests](docs/how-to/run-the-tests.md).
@@ -57,7 +58,7 @@ form by name. See [The contract](docs/explanation/the-contract.md).
   `Steepfile` names. To add a file, annotate its methods with inline RBS
   (`#: (Integer) -> String`) and add it to the `Steepfile`. A `Struct`
   or `Data` record has its types in `sig/pilot`.
-- `COVERAGE=1 bin/test <paths>` measures the line and branch coverage of
+- `COVERAGE=1 bin/minitest <paths>` measures the line and branch coverage of
   `lib/` and writes `tmp/coverage/index.html`. It gates nothing.
 
 ## Report a security problem

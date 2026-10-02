@@ -20,10 +20,21 @@ module Zr
     # digest of its sources. After a change under `lib` or `runtime`, the next
     # build makes them again: about three minutes, and five more for wasm.
     #
-    # `ready!` builds what is missing before the tier forks its workers.
+    # `ready!` builds what is missing before the run forks its workers.
     # If each worker built it, eight builds would run at once and time out.
-    # Then it loads the caches, so that all workers share one copy.
+    # Then it loads the caches, so that all workers share one copy. It runs
+    # as a minitest plugin (test_helper.rb), after the run has loaded its
+    # test files.
     module Built
+      ROOT = File.expand_path("..", __dir__)
+
+      # The unit test files that this run loaded: each declares what it
+      # needs (`Needs`). The program tests get theirs from ProgramsTest.
+      def self.minitest_plugin_init(_options)
+        files = $LOADED_FEATURES.select { |path| path.start_with?(File.join(ROOT, "")) && path.end_with?("_test.rb") }
+        ready!(files: files - [File.join(ROOT, "programs_test.rb")])
+      end
+
       # A program that calls eval, so that the build also makes the eval
       # support object.
       EVALS = %(eval("1")\n)

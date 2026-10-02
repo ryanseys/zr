@@ -2,7 +2,7 @@
 # frozen_string_literal: true
 
 # Sets up a checkout: installs the gems, then builds the zr runtime for
-# this host. The first build takes a few minutes. After that, bin/test
+# this host. The first build takes a few minutes. After that, bin/minitest
 # runs the tests.
 
 require "rbconfig"
@@ -30,4 +30,4 @@ warn "note: wasmtime is not installed; the tests that run WebAssembly modules wi
 system("bundle", "exec", "rake", "build", exception: true)
 
 puts
-puts "Ready. Run the tests near your change with bin/test <path>, or bin/test --changed."
+puts "Ready. Run the tests near your change with bin/minitest <path>, or bin/zr-dev affected."

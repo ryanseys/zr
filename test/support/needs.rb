@@ -8,8 +8,8 @@ module Zr
     #   # zr-test: runtime   it builds a program, without eval support
     #   # zr-test: eval      it builds a program that evals
     #
-    # A file without the comment builds no program. `bin/test` builds the
-    # runtime (and eval support) before a run only when a file of the run
+    # A file without the comment builds no program. A run (`Built`) builds
+    # the runtime (and eval support) before the tests only when a file of the run
     # declares that it needs it, so a run of such files starts at once.
     #
     # The guard makes the comment true: in a test whose file does not

@@ -9,10 +9,10 @@ signal or its exit status is different from what ruby gave.
 Run the one program test:
 
 ```console
-$ bin/test test/programs/core/string/slicing/foo.rb
+$ ZR_PROGRAMS=core/string/slicing/foo.rb bin/minitest test/programs_test.rb
 ```
 
-The runner compares stdout, stderr, the exit status and the signal
+The test compares stdout, stderr, the exit status and the signal
 with ruby's, and prints a diff of each part that is different, so
 the message tells which one changed. See
 [Program tests](../reference/program-tests.md#results).
@@ -20,7 +20,7 @@ the message tells which one changed. See
 To run all the tests of an area and see only the failures:
 
 ```console
-$ bin/test test/programs/core/string
+$ ZR_PROGRAMS=core/string bin/minitest test/programs_test.rb
 ```
 
 ## Make the program smaller
@@ -46,7 +46,7 @@ question.
   only this way, the collector does not find a value:
 
   ```console
-  $ GC=stress bin/test test/programs/core/string
+  $ ZR_GC_STRESS=1 ZR_PROGRAMS=core/string bin/minitest test/programs_test.rb
   $ ZR_GC_STRESS=1 ./binary
   ```
 

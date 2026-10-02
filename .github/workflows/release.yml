@@ -67,7 +67,7 @@ jobs:
       # The release's own checks, whatever CI said: the unit tier, then
       # the gem as a user installs and runs it.
       - name: Run the unit tests
-        run: bin/test test/unit
+        run: bin/minitest test/unit
       # rubygems stamps a gem's files with SOURCE_DATE_EPOCH, so the same
       # commit builds the same .gem as CI did.
       - name: Build the gem

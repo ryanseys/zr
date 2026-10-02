@@ -108,7 +108,9 @@ The gem's only require path is `lib/`. `lib/zr/runtime/` is below
 
 | Path | Contains |
 |---|---|
-| `bin/setup`, `bin/test`, `bin/console` | the scripts of a checkout; see [Tools](tools.md) |
+| `bin/setup`, `bin/console` | the scripts of a checkout; see [Tools](tools.md) |
+| `bin/zr`, `bin/zr-dev` | binstubs: they load `exe/zr` and `tool/zr-dev.rb`; see [Tools](tools.md#the-binstubs) |
+| `bin/minitest`, `bin/rake`, `bin/rubocop`, ... | the binstubs of the gems; `bin/minitest` runs the tests |
 | `Rakefile` | the rake tasks: build, test, gen, lint and release |
 | `tool/zr-dev.rb` | the `zr-dev` command, which lists and starts the maintainer tools; see [Tools](tools.md#zr-dev) |
 | `tool/*.rb` | the body of each `zr-dev` command, one file for each command (`tool/bench.rb` for `zr-dev bench`) |
@@ -125,8 +127,9 @@ The gem's only require path is `lib/`. `lib/zr/runtime/` is below
 | `docs/` | this documentation |
 | `.github/workflows/` | CI (`ci.yml`) and the release (`release.yml`) |
 | `.github/actions/runtime-cache/` | the CI step that keeps the built runtime between runs |
-| `test/test_helper.rb` | what every unit test file requires |
-| `test/support/` | the test library: the program tests' format (`program_case.rb`), run directory (`program_run.rb`), build (`program_build.rb`), runner (`programs.rb`) and baselines (`baseline.rb`); the fork pool, the workers, the kept binaries, the `# zr-test:` needs, the progress file |
+| `test/test_helper.rb` | what every test file requires |
+| `test/programs_test.rb` | the program tests: one minitest test for each program below `test/programs/` |
+| `test/support/` | the test library: the program tests' format (`program_case.rb`), run directory (`program_run.rb`), build (`program_build.rb`), check (`programs.rb`) and baselines (`baseline.rb`); the fork pool, the workers, the kept binaries, the `# zr-test:` needs, the progress file |
 | `test/support/coverage_run.rb` | `COVERAGE=1`: starts SimpleCov, and merges the results of the forked workers |
 | `test/support/harness/` | ruby's reference runs, the child process limits, wasmtime, the benchmark runner, `Harness::KernelJIT`, and the harnesses that compare a port with ruby's C |
 | `test/support/harness/selected_target.rb` | `Harness.selected_target`: the target of this run (`ZR_TARGET`, or the host's), with no load of the command line |

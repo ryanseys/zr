@@ -52,7 +52,9 @@ class CodeCacheTest < Minitest::Test
       require #{File.join(CodeCache::LIB, "backend/aarch64.rb").inspect}
       puts ($LOADED_FEATURES - before).select { |f| f.start_with?(#{"#{CodeCache::LIB}/".inspect}) }.map { |f| f.delete_prefix(#{"#{CodeCache::LIB}/".inspect}) }.sort
     RUBY
-    out, status = Open3.capture2(RbConfig.ruby, "-e", code)
+    # A ruby outside this bundle: bundler's setup reads zr.gemspec, which
+    # loads version.rb before the list starts.
+    out, status = Open3.capture2(Zr::Harness::CleanEnv.env, RbConfig.ruby, "-e", code, unsetenv_others: true)
     assert_predicate status, :success?
     assert_equal CodeCache::BACKEND.sort, out.split("\n"), "CodeCache::BACKEND must list each file that the passes and the backend load"
   end

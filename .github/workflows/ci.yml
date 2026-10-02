@@ -39,7 +39,7 @@ jobs:
       # Every hit of the method cache checked against a fresh lookup,
       # over the program tests that exercise dispatch.
       - name: Run the dispatch tests with the method cache verified
-        run: ZR_MCACHE=verify bundle exec bin/test test/programs/compiler/cache test/programs/compiler/fusion test/programs/lang/methods test/programs/lang/singleton test/programs/lang/refinements
+        run: ZR_MCACHE=verify ZR_PROGRAMS=compiler/cache,compiler/fusion,lang/methods,lang/singleton,lang/refinements bin/minitest test/programs_test.rb
       # rubygems stamps a gem's files with SOURCE_DATE_EPOCH where it is
       # set, and with the clock where not; the commit's own time makes
       # the same commit build the same .gem.
@@ -206,15 +206,15 @@ jobs:
         run: docker exec alpine bundle exec rake build
       - name: Run the units this target answers
         run: >-
-          docker exec alpine bundle exec bin/test
+          docker exec alpine bin/minitest
           test/unit/target_test.rb test/unit/elf_test.rb test/unit/interp_test.rb
           test/unit/os_api_test.rb test/unit/description_test.rb
       - name: Build and run whole programs for this target
-        run: docker exec -e TARGET=aarch64-linux-musl alpine bundle exec bin/test test/programs/cli
+        run: docker exec -e ZR_TARGET=aarch64-linux-musl -e ZR_PROGRAMS=cli alpine bin/minitest test/programs_test.rb
       # A slice of the program tests on this target: the dispatch and the
       # String tests, where a libc or a link difference would show.
       - name: Run a slice of the program tests for this target
-        run: docker exec -e TARGET=aarch64-linux-musl alpine bundle exec bin/test test/programs/lang/methods test/programs/core/string
+        run: docker exec -e ZR_TARGET=aarch64-linux-musl -e ZR_PROGRAMS=lang/methods,core/string alpine bin/minitest test/programs_test.rb
       - name: Write the linux tables again and compare
         run: |
           docker exec alpine wget -qO /tmp/mkconstants.rb https://raw.githubusercontent.com/ruby/ruby/229531a6cfbf07e3caef30dbac24a2a3f3fed482/ext/socket/mkconstants.rb
@@ -239,15 +239,15 @@ jobs:
         run: bundle exec rake build:all
       - name: Run the units this target answers
         run: >-
-          bundle exec bin/test
+          bin/minitest
           test/unit/wasm_test.rb test/unit/wasm_locals_test.rb test/unit/os_api_test.rb
           test/unit/target_test.rb test/unit/description_test.rb
       - name: Build and run whole programs for this target
-        run: TARGET=wasm32-wasi bundle exec bin/test test/programs/cli
+        run: ZR_TARGET=wasm32-wasi ZR_PROGRAMS=cli bin/minitest test/programs_test.rb
       # A slice of the program tests as modules under Winch: the dispatch,
       # Array and Hash tests. The whole tier is hours of wasmtime.
       - name: Run a slice of the program tests for this target
-        run: TARGET=wasm32-wasi bundle exec bin/test test/programs/lang/methods test/programs/core/array test/programs/core/hash
+        run: ZR_TARGET=wasm32-wasi ZR_PROGRAMS=lang/methods,core/array,core/hash bin/minitest test/programs_test.rb
 
   same-bytes:
     name: output does not depend on the host

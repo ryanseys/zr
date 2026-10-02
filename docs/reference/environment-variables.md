@@ -4,7 +4,7 @@ This page lists every environment variable that zr reads. There are
 three groups:
 
 - [For users](#for-users): the `zr` command, and the programs it builds.
-- [For the tests](#for-the-tests): `bin/test`, the rake test tasks and
+- [For the tests](#for-the-tests): `bin/minitest`, the rake test tasks and
   the test harness.
 - [For tools](#for-tools): the `zr-dev` commands.
 
@@ -41,7 +41,7 @@ zr: ZR_JOBS is "abc". Set it to a whole number of 1 or more, for example ZR_JOBS
 | `ZR_SERVER` | `0`, a path | unset | Unset: `zr run` and `zr build` send the build to the server that `zr-dev serve` runs, when one listens at `<cache>/server.sock`. `0`: they always build alone. A path: they use the server that listens at that socket. See [Tools](tools.md#build-server). |
 | `ZR_VERIFY` | flag | off | Checks dominance and types in every IR function before it is assembled, and checks that each pass reported the changes it made (`IR::Analysis`). |
 | `ZR_KERNEL_CHECKED` | flag | off | Lowers the kernel with a check at each operator whose meaning differs from Ruby's: a plain `+ - * <<` that wraps (a signed type) or leaves `[0, 2**64)` (a `Ptr`), a `/ %` with a negative operand or a zero divisor, and a `>>` by the width or more. A failed check prints the kernel file and line, then aborts. It finds the places that need `Machine.add_wrap`, `Machine.sdiv` or a fix, so that the kernel means the same on CRuby. It is part of the runtime digest. |
-| `ZR_HOST_RUBY` | a command | `ruby` | The ruby that a `zr-dev` tool starts its children with when zr compiled the tool into a binary (`Dev.ruby`), and that zr starts when it needs ruby itself: to resolve gems (`lib/zr/gem_set.rb`), and for ruby's report of a syntax error (`lib/zr/config.rb`). |
+| `ZR_HOST_RUBY` | a command | `ruby` | The ruby that a `zr-dev` tool starts its children with (`Dev.ruby`), and that zr starts when it needs ruby itself: to resolve gems (`lib/zr/gem_set.rb`), and for ruby's report of a syntax error (`lib/zr/config.rb`). |
 | `ZR_TUNE` | flag | on | `0` runs the compiler with ruby's own collector settings and without YJIT. When it is on, a build that lowers the kernel, the core or eval support starts `zr` again with larger collector limits (`RUBY_GC_MALLOC_LIMIT`, `RUBY_GC_OLDMALLOC_LIMIT`), and heavy work turns on YJIT. zr does not change limits that you set. |
 | `ZR_EVAL` | `walk` | unset | `walk` makes a native program use the tree-walking interpreter for eval, in place of the eval compiler. A wasm program always uses the tree-walking interpreter. See [Eval in a compiled program](../explanation/eval-in-a-compiled-program.md). |
 | `ZR_WASM_NAMES` | flag | off | A WASI module gets a `name` section, so that wasmtime's traps and profiles show zr's function names. It changes the module's bytes. |
@@ -79,27 +79,26 @@ A program also reads the variables that ruby reads, for example
 
 ## For the tests
 
-`bin/test`, the rake test tasks and the test harness read these.
+`bin/minitest`, the rake test tasks and the test harness read these.
+To select tests by name, give minitest's own options (`-i`, `-e`) to
+`bin/minitest`.
 
 | Variable | Values | Default | Effect |
 |---|---|---|---|
-| `TARGET` | a triple | this host | Builds and runs the programs for that target. It sets `ZR_TARGET`. See [How to test on another target](../how-to/test-on-another-target.md). |
-| `ZR_TARGET` | a triple | this host | The target that the tests build for. Set `TARGET` in its place. |
-| `GC` | `stress` | unset | Sets `ZR_GC_STRESS=1`. |
+| `ZR_PROGRAMS` | paths below `test/programs`, separated by commas | every program | The program tests that `test/programs_test.rb` defines: the programs below each path. A path is a directory or one program, such as `core/gc,lang/blocks`. |
+| `ZR_TARGET` | a triple | this host | Builds and runs the programs for that target. See [How to test on another target](../how-to/test-on-another-target.md). |
 | `ZR_GC_STRESS` | `1` | unset | Each program that a test runs gets `ZR_GC_STRESS=1` in its environment, and collects at every allocation. |
-| `SLOW` | `1`, or a number | unset | Also reports the 25 slowest files and the 20 slowest tests of the unit tier. A number above 1 is the count of tests to report. |
-| `COVERAGE` | flag | off | Measures the line and branch coverage of `lib/` (not `lib/zr/runtime`) with SimpleCov, in the unit tier, and writes `tmp/coverage/index.html`. The workers of the run merge their results. It is a switch of the test harness (`test/support/coverage_run.rb`), not a `ZR_*` setting, so `Zr::Config` does not read it. |
-| `N` | a pattern | unset | Runs only the unit tests whose name matches (minitest `-n`). |
-| `X` | a pattern | unset | Leaves out the unit tests whose name matches (minitest `-e`). |
-| `A` | minitest options | unset | Other options for minitest, for the unit tier. |
-| `MT_CPU` | a number | one for each 2 GB of memory after a quarter (at least 4 GB) is kept free, and at most two fewer than the cores | How many worker processes a tier forks (`test/support/workers.rb`). This is minitest's own name. |
+| `ZR_TEST_FAIL_FAST` | `1` | unset | The run starts no more tests after one fails. |
+| `SLOW` | `1`, or a number | unset | Also reports the 25 slowest files and the 20 slowest tests. A number above 1 is the count of tests to report. |
+| `COVERAGE` | flag | off | Measures the line and branch coverage of `lib/` (not `lib/zr/runtime`) with SimpleCov, and writes `tmp/coverage/index.html`. The workers of the run merge their results. It is a switch of the test harness (`test/support/coverage_run.rb`), not a `ZR_*` setting, so `Zr::Config` does not read it. |
+| `MT_CPU` | a number | one for each 2 GB of memory after a quarter (at least 4 GB) is kept free, and at most two fewer than the cores | How many worker processes a run forks (`test/support/workers.rb`). This is minitest's own name. |
 | `ZR_TEST_TIMEOUT` | seconds | 180, or the suite's own limit | How long one test can take before the tier stops its worker and reports a failure. `0` waits forever, for a debugger session. A value that you set applies to every suite. |
 | `ZR_TEST_RECYCLE_MB` | megabytes | 600 | How much a worker can grow after its fork before the tier stops it and forks a new one. |
 | `ZR_TEST_SECONDS` | seconds | 60 | The time limit for a program that a test runs. A ruby run of a program test gets two times this limit, and a `zr build` of a test below `test/programs/cli/` five times. |
 | `ZR_TEST_RESIDENT_MB` | megabytes | 2048 | The memory limit, in resident megabytes, for a program that a test runs through `Checks` (`test/test_helper.rb`). |
 | `ZR_TEST_BUILD_MB` | megabytes | 2048 | The memory limit for a build, summed over its process group. A program test below `test/programs/cli/` can have a higher limit with `build_mb=` in its `.rb.limits` file. |
 | `ZR_TEST_RUN_MB` | megabytes | 1024 | The memory limit for a run. A program test can have a higher limit with `run_mb=` in its `.rb.limits` file. |
-| `ZR_TEST_HOST` | flag | off | Set by `bin/test --host` when it starts ruby again with the host's stack sizes: the program tests run on CRuby over zr's kernel (`test/support/host_program.rb`), not as binaries. |
+| `ZR_TEST_HOST` | `1` | unset | The program tests run on CRuby over zr's kernel (`test/support/host_program.rb`), not as binaries. `test/programs_test.rb` then starts ruby again with large stacks and `--yjit`. The baseline is `test/baselines/host.txt`. |
 | `ZR_TEST_BUILT` | flag | on | `0`: the run does not build or load the runtime before it forks its workers. A file that builds then builds the runtime cold. A unit file without `# zr-test: runtime` or `# zr-test: eval` in its first lines builds nothing, so the run does not build the runtime for it (`test/support/needs.rb`). |
 | `ZR_TEST_BINARIES` | `0`, `1` | on for a native target | The program tests keep each program's binary in the cache, keyed by every input of its bytes. A later run of an unchanged program uses the kept binary and does not build. A test below `test/programs/cli/` always builds. `1` also keeps WASI modules. `0` keeps nothing. `zr-dev cache prune` deletes old ones. |
 | `ZR_TEST_BINARIES_GB` | gigabytes | 8 | The maximum size of the kept binaries (`<cache>/store/binary/`). Before a tier starts, it deletes the ones used least recently. |

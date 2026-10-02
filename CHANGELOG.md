@@ -75,12 +75,18 @@ The first public release.
 - Documentation in `docs/`: tutorials, how-to guides, reference and
   explanation, with a performance page and a support page that
   `zr-dev gen` writes from the benchmark reports and from the compiler.
-- For contributors: `bin/setup`, `bin/test` (with `--changed`),
-  `bin/console`, the `zr-dev` tools, and CI for all three targets.
+- For contributors: `bin/setup`, `bin/minitest`, `bin/console`, the
+  `bin/zr` and `bin/zr-dev` binstubs, the `zr-dev` tools, and CI for
+  all three targets.
 - Two test tiers: `test/unit` (minitest, plain `def test_...`
-  methods) and `test/programs`. `bin/test` runs both, `rake test:unit`
-  and `rake test:programs` run one, and `bin/test` prints the time of
-  each step at the end. The program tests replace the spec tier
+  methods) and `test/programs`, which `test/programs_test.rb` runs as
+  one minitest test for each program. `bin/minitest` runs both, and
+  `rake test:unit` and `rake test:programs` run one.
+  `ZR_PROGRAMS=core/gc,lang` selects program tests by path,
+  `ZR_TEST_HOST=1` runs them on CRuby over zr's kernel,
+  `ZR_TEST_FAIL_FAST=1` stops at the first failure, and
+  `ZR_TEST_SECONDS` sets the time limit of each program. The program
+  tests replace the spec tier
   (`test/spec`, its `zr(...)` and `must_answer` DSL), the e2e tier
   (`test/e2e`) and `programs_test`.
 - A program test is a plain Ruby program under
@@ -88,27 +94,25 @@ The first public release.
   spinel's format (`foo.rb.expected`, `foo.rb.err.expected`,
   `foo.rb.args`, `foo.rb.stdin`), and zr's own files (`.status`,
   `.env`, `.files/`, `.needs`, `.ruby`, `.limits`, `.links`,
-  `.<platform>.expected`). The runner uses no test framework: forked
-  workers build each program, and a failure prints a unified diff.
+  `.<platform>.expected`). Forked workers build each program, and a
+  failure prints a unified diff.
   Tests below `test/programs/cli/` build with `zr build`. See
   `docs/reference/program-tests.md`.
 - `zr-dev expect [--all] [--check]` writes the expected files of the
   program tests from ruby 4.0.7, in place of `zr-dev oracle` and the
   `zr-dev spec` commands. `zr-dev record` now records only benchmarks.
-- `bin/test --corpus DIR` runs another project's program tests, such as
-  spinel's `test/`, with the baseline
-  `test/baselines/corpus/<project>-<triple>.txt`. The baseline of a
-  target is keyed by the program's path below `test/programs`, and the
-  host has a baseline too (`test/baselines/aarch64-apple-darwin.txt`).
+- The baseline of a target is keyed by the program's path below
+  `test/programs`, and the host has a baseline too
+  (`test/baselines/aarch64-apple-darwin.txt`).
 - A unit test file that builds a program declares
   `# zr-test: runtime` or `# zr-test: eval` in its first lines. A run
-  of files without it does not build the runtime. `bin/test --changed`
-  and `zr-dev affected` map a change to unit tests and to program
-  tests.
+  of files without it does not build the runtime. `bin/zr-dev affected`
+  maps a change to unit tests and to program tests, and runs them with
+  `bin/minitest`.
 - `zr-dev typecheck` runs Steep on the files that the `Steepfile`
   names: a pilot of inline RBS annotations, with the types of records in
   `sig/pilot/`. CI runs it after the lint step.
-- `COVERAGE=1 bin/test <paths>` measures the line and branch coverage of
+- `COVERAGE=1 bin/minitest <paths>` measures the line and branch coverage of
   `lib/` with SimpleCov, and writes `tmp/coverage/index.html`. It gates
   nothing.
 - `rake lint` has more cops, each with its reason in `.rubocop.yml`:
@@ -136,6 +140,11 @@ The first public release.
   build server is the class `Zr::Server`, with `Zr::Server::Client`;
   `Zr::GcTuning` replaces `Tune`; `Runtime.for`, `EvalSupport.for`,
   `Program.build` and `Host.compiled?` replace functions on `module Zr`.
+- Tests run with `bin/minitest` (the standard binstub); `bin/test` is
+  gone. Program tests are `test/programs_test.rb`, one test per
+  program; `ZR_PROGRAMS`, `ZR_TEST_HOST=1`, `ZR_TEST_FAIL_FAST=1`,
+  `ZR_TEST_SECONDS` replace bin/test's options. `bin/zr` and
+  `bin/zr-dev` are binstubs; `rake build:tools` is gone.
 
 ### Removed
 

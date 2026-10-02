@@ -4,9 +4,8 @@ require "etc"
 
 module Zr
   module Test
-    # How many forked test workers a run starts, and when a worker is
-    # replaced. The unit tier's pool (`ForkPool`) and the program tests'
-    # runner (`Programs`) both use it.
+    # How many forked test workers a run starts (`ForkPool`), and when a
+    # worker is replaced.
     module Workers
       # The memory for one worker and the child it starts, in GB. A
       # compile uses most of 1 GB, and the built binary (or wasmtime) can
@@ -58,7 +57,7 @@ module Zr
       # a worker for the heap it allocated and that Ruby does not release.
       RECYCLE_MB = Integer(ENV.fetch("ZR_TEST_RECYCLE_MB", 600))
 
-      # Whether a run stops at its first failure (`bin/test --fail-fast`).
+      # Whether a run stops at its first failure (`ZR_TEST_FAIL_FAST=1`).
       def self.fail_fast? = ENV["ZR_TEST_FAIL_FAST"] == "1"
     end
   end

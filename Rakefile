@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
 # The standard entry points: build, test, lint, gen and release. Every
-# other tool is a `zr-dev` command (`ruby tool/zr-dev.rb help`), and the
-# tests take paths and options through bin/test.
+# other tool is a `zr-dev` command (`bin/zr-dev help`), and the tests run
+# with `bin/minitest` (test/test_helper.rb lists its options).
 require "bundler/setup"
 require "rbconfig"
 
@@ -33,7 +33,7 @@ def build!(targets)
   ruby!("-I#{ROOT}/lib:#{ROOT}/test", "-e", %(require "support/built"; Zr::Test::Built.build(#{targets})))
 end
 
-desc "Build the zr runtime for this host (bin/test also builds it when it is missing)"
+desc "Build the zr runtime for this host (a test run also builds it when it is missing)"
 task("build") { build!("Zr::Test::Built.targets") }
 
 desc "Build the zr runtime for wasm32-wasi"
@@ -42,17 +42,16 @@ task("build:wasm") { build!("[Zr::Target::WASM32_WASI]") }
 desc "Build the zr runtime for this host and for wasm32-wasi"
 task("build:all") { build!("Zr::Test::Built.targets(wasm: true)") }
 
-# The tiers. bin/test tunes the collector, builds the runtime when it is
-# missing, and reads TARGET=, GC=stress, SLOW=, N=, X=, A= and MT_CPU=.
-# `bin/test <paths>` runs only some test files.
+# The tiers, each one `bin/minitest` run. `bin/minitest <paths>` runs only
+# some test files.
 TIERS = {
   "test:unit" => ["test/unit", "zr's own internals"],
-  "test:programs" => ["test/programs", "Ruby programs that zr builds, each checked against ruby 4.0.7"]
+  "test:programs" => ["test/programs_test.rb", "Ruby programs that zr builds, each checked against ruby 4.0.7"]
 }.freeze
 
-TIERS.each do |name, (dir, what)|
+TIERS.each do |name, (path, what)|
   desc what
-  task(name) { ruby!(File.join(ROOT, "bin/test"), dir) }
+  task(name) { ruby!(File.join(ROOT, "bin/minitest"), path) }
 end
 
 desc "Every test: unit, programs"

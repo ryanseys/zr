@@ -30,7 +30,7 @@ Do these by hand before the first release:
 - [ ] The last `ci.yml` run on `main` passed every job, also the
   stock-ruby jobs (`stock ruby, user cache`). The release workflow
   checks this again for the tagged commit (`.github/scripts/ci_passed.rb`).
-- [ ] `bin/test test/unit` passes locally.
+- [ ] `bin/minitest test/unit` passes locally.
 - [ ] `gem build zr.gemspec` makes a gem, and `gem spec zr-*.gem
   dependencies` lists none.
 - [ ] `ruby .github/scripts/smoke.rb --user-cache zr-*.gem DIR` passes

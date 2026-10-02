@@ -8,8 +8,8 @@ module Zr
     # the Gemfile). The report is tmp/coverage/index.html. A run without
     # `COVERAGE` does not load SimpleCov.
     #
-    # bin/test starts it before it loads zr: a file that loads earlier has
-    # no coverage. lib/zr/runtime is not in the report. zr compiles that
+    # test_helper.rb starts it before it loads zr: a file that loads
+    # earlier has no coverage. lib/zr/runtime is not in the report. zr compiles that
     # code, and ruby does not run it.
     #
     # The tests run in forked workers (`ForkPool`). SimpleCov starts itself

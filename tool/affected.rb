@@ -8,8 +8,9 @@ module Zr
     # `zr-dev affected` runs only the tests that a change can affect. Use
     # it after an edit, before you run the full tier. It reads the diff
     # against `main` (or `--base`), finds the tests for each changed file,
-    # and runs them with bin/test. It is for local work; CI runs all
-    # tests.
+    # and runs them with bin/minitest: the unit test files by path, and
+    # the program tests through `ZR_PROGRAMS` (test/programs_test.rb). It
+    # is for local work; CI runs all tests.
     #
     # How a changed file maps to tests:
     # - A unit test file maps to itself, and a program test's program or
@@ -47,7 +48,7 @@ module Zr
       end
 
       # The files changed against `base`, and the test paths that they
-      # reach (`:all` for everything). `bin/test --changed` reads this.
+      # reach (`:all` for everything).
       def self.test_paths(base = "main")
         tool = new("affected")
         files = tool.changed(base)
@@ -58,7 +59,7 @@ module Zr
         base = @base || "main"
         files, plan = Affected.test_paths(base)
         if plan == :all
-          puts "the change reaches everything (#{files.size} file(s) against #{base}); run bin/test"
+          puts "the change reaches everything (#{files.size} file(s) against #{base}); run bin/minitest"
         elsif plan.empty?
           puts "no test reaches the #{files.size} changed file(s) against #{base}"
         else
@@ -66,8 +67,17 @@ module Zr
           puts "#{files.size} file(s) changed against #{base}; running #{rel.size} test path(s)"
           return rel.each { |path| puts "  #{path}" } if @dry
 
-          system(Dev.ruby, Dev.path("bin/test"), *rel)
+          system(*Affected.command(rel))
         end
+      end
+
+      # The bin/minitest command that runs the test paths `rel`: the unit
+      # test files by path, and the program tests below test/programs
+      # through `ZR_PROGRAMS`.
+      def self.command(rel)
+        programs, units = rel.partition { |path| path.start_with?("test/programs/") }
+        env = programs.empty? ? {} : { "ZR_PROGRAMS" => programs.map { |path| path.delete_prefix("test/programs/") }.join(",") }
+        [env, Dev.ruby, Dev.path("bin/minitest"), *units, *("test/programs_test.rb" unless programs.empty?)]
       end
 
       # The changed files, relative to the root, against `base`.

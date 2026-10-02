@@ -42,7 +42,7 @@ module Zr
 
       attr_reader :size
 
-      # With `fail_fast` (`bin/test --fail-fast`), the pool runs no more
+      # With `fail_fast` (`ZR_TEST_FAIL_FAST=1`), the pool runs no more
       # examples after one fails.
       def initialize(size: Workers.size, recycle_mb: Workers::RECYCLE_MB, fail_fast: Workers.fail_fast?)
         @size = size

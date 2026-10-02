@@ -1,6 +1,6 @@
 # Tools
 
-A checkout has three scripts in `bin/`, a small set of rake tasks, and
+A checkout has scripts and binstubs in `bin/`, a small set of rake tasks, and
 the `zr-dev` tool. The rake tasks build, test, lint, generate and
 release. The other maintainer tools are `zr-dev` commands.
 
@@ -12,30 +12,35 @@ steps to run the tests, see [How to run the tests](../how-to/run-the-tests.md).
 | Script | Does |
 |---|---|
 | `bin/setup` | Installs the gems (`bundle install`), sets up the reference ruby (`zr-dev reference`) and builds the runtime for this host (`rake build`). It tells you if wasmtime is not installed. |
-| `bin/test [paths] [minitest options]` | Runs the tests. With no paths, it runs `test/unit`, then `test/programs`. It builds the runtime first if the tests need it and it is not built. At the end, it prints the time of each step to stderr: `bin/test: X s (load, prebuild, require, tests)`. |
-| `bin/test --corpus DIR` | Runs the program tests of another project below `DIR`, such as spinel's `test/`, with the baseline `test/baselines/corpus/<project>-<triple>.txt`. See [Program tests](program-tests.md#another-projects-tests). |
-| `bin/test --changed [--base REVISION]` | Runs the tests that the change against `main` (or `--base`) can reach, as `zr-dev affected` finds them. |
+| `bin/minitest [paths] [minitest options]` | Runs the tests (minitest's own binstub). With no paths, it runs every `test/**/*_test.rb`: the unit tests and the program tests (`test/programs_test.rb`). It builds the runtime first if the tests need it and it is not built. |
+| `bin/zr` | The binstub of `exe/zr`, the `zr` command of this checkout. |
+| `bin/zr-dev` | The binstub of `tool/zr-dev.rb`, the [`zr-dev`](#zr-dev) commands. |
 | `bin/console` | Starts IRB with zr loaded. |
 
-A `bin/test` path can be a directory, a file, or a bare file name that
-zr finds below `test/` (`bin/test cli_test.rb`). The words up to the
-first word that starts with `-` are paths. The words after it go to
-minitest (`bin/test test/unit -n /blocks/`). Each tier runs in its own
-process. The program tests use no test framework, so they take no
-minitest options: select them by path.
+A `bin/minitest` path is a test file or a directory of test files
+(`bin/minitest test/unit`), and `path:line` runs the test at that line.
+The minitest options follow the paths: `-i` (or `-n`) selects tests by
+name, `-e` leaves them out, `-s` sets the seed, and `-v` shows each
+test (`bin/minitest test/unit -i /blocks/`). Each program is one test,
+named `test_<path below test/programs>`, so
+`bin/minitest test/programs_test.rb -i /stdlib.uri/` selects programs
+by name.
 
-`bin/test` reads these environment variables. `rake test` and the tier
-tasks read them too, because they call `bin/test`.
+`bin/minitest` reads these environment variables. `rake test` and the
+tier tasks read them too, because they call `bin/minitest`.
 
 | Variable | Effect |
 |---|---|
-| `TARGET=<triple>` | Builds and runs the programs for that target (sets `ZR_TARGET`). |
-| `GC=stress` | Collects at every allocation (sets `ZR_GC_STRESS=1`). |
-| `SLOW=1` | Also reports the 25 slowest files and the 20 slowest tests of the unit tier. `SLOW=<n>` with `n` > 1 reports `n` tests. |
-| `N=<pattern>` | Runs only the unit tests whose name matches (minitest `-n`). |
-| `X=<pattern>` | Leaves out the unit tests whose name matches (minitest `-e`). |
-| `A="<options>"` | Gives other options to minitest. |
+| `ZR_PROGRAMS=<paths>` | Runs only the program tests below these paths of `test/programs`, separated by commas (`ZR_PROGRAMS=core/gc,lang`). A path is a directory or one program. |
+| `ZR_TEST_HOST=1` | Runs the program tests on CRuby over zr's kernel, with no build (`zr-dev host`). The baseline is `test/baselines/host.txt`. |
+| `ZR_TARGET=<triple>` | Builds and runs the programs for that target. |
+| `ZR_GC_STRESS=1` | Collects at every allocation. |
+| `ZR_TEST_FAIL_FAST=1` | Starts no more tests after one fails. |
+| `ZR_TEST_SECONDS=<n>` | The time limit of each program run and build (default 60). `ZR_TEST_TIMEOUT=0` also lifts the time limit of each test in a worker (default 180). |
+| `SLOW=1` | Also reports the 25 slowest files and the 20 slowest tests. `SLOW=<n>` with `n` > 1 reports `n` tests. |
 | `MT_CPU=<n>` | The number of worker processes. The default is one for each 2 GB of memory, with a quarter of the memory (at least 4 GB) and two cores kept free. |
+
+To time a run, use the shell's `time` (`time bin/minitest test/unit`).
 
 All the test variables are in
 [Environment variables](environment-variables.md#for-the-tests).
@@ -44,13 +49,13 @@ All the test variables are in
 
 `rake -T` lists every task. The `Rakefile` loads the bundle, so
 `rake <task>` needs no `bundle exec`. The rake tasks take no paths and
-no arguments. Give paths and minitest options to `bin/test`.
+no arguments. Give paths and minitest options to `bin/minitest`.
 
 ### Build
 
 | Task | Does |
 |---|---|
-| `rake build` | Builds the runtime for this host: the runtime object, the prelinked image and eval support. `bin/test` also does this when the runtime is not built. |
+| `rake build` | Builds the runtime for this host: the runtime object, the prelinked image and eval support. `bin/minitest` also does this when the runtime is not built. |
 | `rake build:wasm` | Builds the runtime for `wasm32-wasi`. |
 | `rake build:all` | Builds the runtime for this host and for `wasm32-wasi`. |
 
@@ -61,18 +66,18 @@ no arguments. Give paths and minitest options to `bin/test`.
 | `rake` | `rake lint`, then `rake test`. |
 | `rake test` | The two tiers: unit, programs. |
 | `rake test:unit` | The unit tier: zr's own internals (`test/unit`). |
-| `rake test:programs` | The program tests: Ruby programs that zr builds, each checked against ruby 4.0.7 (`test/programs`). |
+| `rake test:programs` | The program tests: Ruby programs that zr builds, each checked against ruby 4.0.7 (`test/programs_test.rb`). |
 | `rake lint` | Runs RuboCop with the cops that `.rubocop.yml` turns on. |
 | `rake gen` | Writes every generated file again (`zr-dev gen all`). `CHECK=1 rake gen` writes nothing, and fails if a file is out of date. |
 
-To run some test files, give their paths to `bin/test`:
-`bin/test test/unit/cli_test.rb`, `bin/test test/unit -n /blocks/`, or
-`bin/test test/programs/core/string`. For the report of the slowest
-unit files and tests, set `SLOW=1`: `SLOW=1 rake test:unit`, or
-`SLOW=1 bin/test test/unit/cli_test.rb`. `COVERAGE=1` measures the
+To run some test files, give their paths to `bin/minitest`:
+`bin/minitest test/unit/cli_test.rb`, `bin/minitest test/unit -i /blocks/`,
+or `ZR_PROGRAMS=core/string bin/minitest test/programs_test.rb`. For the
+report of the slowest files and tests, set `SLOW=1`: `SLOW=1 rake test:unit`, or
+`SLOW=1 bin/minitest test/unit/cli_test.rb`. `COVERAGE=1` measures the
 line and branch coverage of `lib/` (not `lib/zr/runtime`, which zr
 compiles and ruby does not run) with SimpleCov, and writes the report
-to `tmp/coverage/index.html`. Give it paths: `COVERAGE=1 bin/test
+to `tmp/coverage/index.html`. Give it paths: `COVERAGE=1 bin/minitest
 test/unit/bytes_test.rb`. It gates nothing.
 
 ### Gem and release
@@ -98,7 +103,8 @@ $ ruby tool/zr-dev.rb bench --help         # the options of one command
 $ ruby tool/zr-dev.rb gems help            # the commands of a group
 ```
 
-The tables below write `zr-dev` for `ruby tool/zr-dev.rb`. The code of
+The tables below write `zr-dev` for `ruby tool/zr-dev.rb`. The binstub
+`bin/zr-dev` does the same (see [The binstubs](#the-binstubs)). The code of
 each command is in `tool/<command>.rb`. The header comment of each file
 gives more examples.
 
@@ -106,7 +112,7 @@ gives more examples.
 
 | Command | Does |
 |---|---|
-| `zr-dev affected [--base REVISION] [--dry-run]` | Runs the tests that a change can reach, with `bin/test` (the same as `bin/test --changed`). It reads the diff against `main`, or against `--base`, and maps each changed file to unit tests and program tests (`tool/affected.rb`): a changed test to itself, a file beside a program to the program, a core class to its program tests, a library to its `stdlib/` area and the programs that require it, and a file under `lib/zr` that does not change a build to the unit tests that load it. If the change can reach everything (the compiler, the kernel, the test support), it runs nothing and says so. `--dry-run` prints the test paths and runs nothing. |
+| `zr-dev affected [--base REVISION] [--dry-run]` | Runs the tests that a change can reach, with `bin/minitest`: the unit test files by path, and the program tests through `ZR_PROGRAMS`. It reads the diff against `main`, or against `--base`, and maps each changed file to unit tests and program tests (`tool/affected.rb`): a changed test to itself, a file beside a program to the program, a core class to its program tests, a library to its `stdlib/` area and the programs that require it, and a file under `lib/zr` that does not change a build to the unit tests that load it. If the change can reach everything (the compiler, the kernel, the test support), it runs nothing and says so. `--dry-run` prints the test paths and runs nothing. |
 | `zr-dev vendor` | Writes `vendor/` (ruby 4.0.7's own library from its source at `RUBY_REVISION`, the bundled gems and the port gems from their `.gem` files, prism's templates from its tag), `vendor/vendor.lock` and `lib/zr/library/stdlib.rb`, from `lib/zr/library/vendor.rb`, `lib/zr/library/ports.rb` and `lib/zr/version.rb`. It needs `RUBY_SRC` and `PRISM_SRC`. See [How to update the vendored code](../how-to/update-vendored-code.md). |
 | `zr-dev vendor --check` | Checks each file of `vendor/` against the lock, offline. |
 | `zr-dev vendor outdated` | Lists the gems of `vendor/` that have a newer release on rubygems.org. |
@@ -182,7 +188,7 @@ committed files. Thus a file that is out of date makes a test fail.
 | `zr-dev gen prism` | `lib/zr/runtime/ext/prism/ruby/*.rb`, from the templates in `tool/gen/prism/templates` | `test/unit/prism_test.rb` |
 | `zr-dev gen prism_encoding_tables` | `lib/zr/runtime/ext/prism/ruby/encoding_tables.rb` | `test/unit/prism_test.rb` |
 
-`ZR_BLESS=1 bin/test test/unit/description_test.rb` also writes the
+`ZR_BLESS=1 bin/minitest test/unit/description_test.rb` also writes the
 descriptions again. `ZR_BLESS=1` on `test/unit/libsystem_test.rb`
 writes the libSystem list again. See
 [How to run the tests](../how-to/run-the-tests.md#accept-a-new-snapshot).
@@ -197,7 +203,7 @@ writes the libSystem list again. See
 | `zr-dev compile --zr --commit` | Also writes a baseline to `benchmark/results/compile/`. |
 | `zr-dev compile --profile runtime\|eval` | Lowers the runtime or eval support object, then times the passes and the assembly of each function, one at a time. It prints the sums and the 20 slowest functions, and writes all of them to `tmp/bench/profile-<object>.tsv`. |
 | `zr-dev compile --zr --check` | Fails if the compiled compiler is slower than the newest baseline in `benchmark/results/compile/`. |
-| `zr-dev host <file.rb> [args...]` | Runs a program on CRuby with no build: the kernel runs as Ruby (`Machine::Host`), and a walker runs the core library, the gem prelude and the program over the kernel's heap (`Machine::Host::Walk`). The exit status is the program's. It is much slower than a binary. `bin/test --host` runs the program tests this way. |
+| `zr-dev host <file.rb> [args...]` | Runs a program on CRuby with no build: the kernel runs as Ruby (`Machine::Host`), and a walker runs the core library, the gem prelude and the program over the kernel's heap (`Machine::Host::Walk`). The exit status is the program's. It is much slower than a binary. `ZR_TEST_HOST=1 bin/minitest test/programs_test.rb` runs the program tests this way. |
 | `zr-dev probe [-j JOBS] <file.rb\|dir>...` | Runs each Ruby file under ruby 4.0.7 and as a zr binary, and prints a unified diff of each part that differs: stdout, stderr, the exit status and the signal. It compiles each file in a fork of one process that has the compiler and the runtime loaded. A directory means its `.rb` files. `-j` sets the probes at a time (default 4). |
 | `zr-dev edit [--kind KIND,...] [--program NAME,...] [--runs N] [--commit]` | Times `zr run` right after an edit to zr, phase by phase. It works in a copy of the tree with its own cache (`tmp/edit/`), appends a new comment or method to one file for each kind, and puts the file back. The kinds are `none`, `kernel-comment`, `core-comment`, `core-method`, `lower-comment` and `ext-comment`; the programs are `hello` and `eval`. `--commit` writes the table to `benchmark/results/edit/`. |
 | `zr-dev golden save\|check [LABEL]` | Lowers the kernel on `aarch64-apple-darwin`, `aarch64-linux-musl` and `wasm32-wasi`, and writes (`save`) or compares (`check`) one line for each fact a build sees: each function's IR fingerprint, each datum, the raw functions, the kernel's description and the symbol names, in `tmp/golden/LABEL/` (default `base`). A change to the kernel's spelling must keep it the same. |

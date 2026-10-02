@@ -1,14 +1,15 @@
 # Program tests
 
 A program test is a plain Ruby program under `test/programs/`, with
-files beside it that give what ruby 4.0.7 does with it. `bin/test`
+files beside it that give what ruby 4.0.7 does with it. The test
 builds the program with zr, runs the binary, and compares its stdout,
 its stderr and its exit status with ruby's, byte for byte.
 
+`test/programs_test.rb` defines one minitest test for each program.
 `test/support/program_case.rb` defines the format,
 `test/support/program_run.rb` the run directory,
 `test/support/program_build.rb` the build, and
-`test/support/programs.rb` the runner. For the steps to add a test, see
+`test/support/programs.rb` the check. For the steps to add a test, see
 [How to add a program test](../how-to/add-a-program-test.md).
 
 ## The files of a test
@@ -17,8 +18,7 @@ A program is a `.rb` file and nothing else: no header and no DSL.
 `ruby foo.rb` runs it. Thus the program that you debug is the program
 that the test builds.
 
-The names of the files beside it are spinel's, so a spinel test
-directory runs as it is (see [Another project's tests](#another-projects-tests)):
+The names of the files beside it are spinel's:
 
 | File | Contains | When the file is not there |
 |---|---|---|
@@ -124,7 +124,7 @@ Each run of a program, by ruby or by zr, gets a new directory
    binary with the same arguments. Thus `__FILE__` and a backtrace give
    `<rel>`.
 
-The program gets the environment that `bin/test` started with, before
+The program gets the environment that `bin/minitest` started with, before
 bundler (`Harness::CleanEnv`), with the lines of `foo.rb.env` added.
 
 ## Normalization
@@ -158,7 +158,7 @@ group.
 
 ## Results
 
-The runner prints one character for each test, as it ends:
+minitest prints one character for each test, as it ends:
 
 | Mark | Result | Cause |
 |---|---|---|
@@ -171,30 +171,35 @@ A refusal is an error, not a skip. A program that stops at run time
 with `... is not implemented yet` is also a refusal. The baseline of
 the target lists each refusal that the target may have.
 
-After the marks, the runner prints each failure and each error, with
-at most 40 lines of detail, and then a count:
+Each program is one minitest test, named
+`test_<path below test/programs>`. After the marks, minitest prints
+each failure and each error, and then a count:
 
 ```
-FAIL: core/string/blocks/foo.rb
+ProgramsTest#test_core/string/blocks/foo.rb
 --- expected stdout
 +++ actual stdout
  a
 -b
 +c
 
-12 tests: 11 passed, 1 failed, 0 errors, 0 skipped
+12 runs, 12 assertions, 1 failures, 0 errors, 0 skips
 ```
 
 The detail is a unified diff of each part that is different (stderr,
 then stdout), and a `status:` line when the exit status or the signal
 is different. For outputs of more than 2,000 lines, the diff shows only
-the first difference, with its context. The command exits with status
-1 when a test failed or had an error.
+the first difference, with its context. An error gives the reason that
+zr did not build or run the program. A skip gives its reason (the
+baseline, or a need that this machine does not meet); minitest's `-v`
+shows it. The command exits with status 1 when a test failed or had an
+error.
 
-To run one failure again, give its path:
+To run one failure again, give its path below `test/programs` to
+`ZR_PROGRAMS`:
 
 ```console
-$ bin/test test/programs/core/string/blocks/foo.rb
+$ ZR_PROGRAMS=core/string/blocks/foo.rb bin/minitest test/programs_test.rb
 ```
 
 ## Baselines
@@ -220,28 +225,14 @@ See [How to test on another target](../how-to/test-on-another-target.md).
 
 ## Workers
 
-The runner uses no test framework. The parent process loads zr and the
-runtime, and then forks workers (`Programs::Pool`). Each worker takes
-one test at a time, so a worker builds a test in its process and loads
-nothing again. `MT_CPU` sets the number of workers
-(`test/support/workers.rb`). A worker that grows more than
-`ZR_TEST_RECYCLE_MB` stops, and the runner forks a new one. A worker
+The parent process loads zr and the runtime, and then forks workers
+(`Zr::Test::ForkPool`). Each worker takes one test at a time, so a
+worker builds a test in its process and loads nothing again. `MT_CPU`
+sets the number of workers (`test/support/workers.rb`). A worker that
+grows more than `ZR_TEST_RECYCLE_MB` stops, and the parent forks a new
+one. A worker
 that runs one test longer than `ZR_TEST_TIMEOUT` stops, and its test
 has an error.
 
 A test that builds in the worker process uses a kept binary when its
 inputs did not change (`test/support/binaries.rb`, `ZR_TEST_BINARIES`).
-
-## Another project's tests
-
-`bin/test --corpus DIR` runs the program tests below `DIR`, for
-example spinel's `test/` directory. The programs run in `DIR`, so a key
-is a path below `DIR`. The baseline is
-`test/baselines/corpus/<project>-<triple>.txt`, where `<project>` is
-the name of the directory above `DIR`:
-
-```console
-$ bin/test --corpus ~/dev/spinel/test      # baseline: corpus/spinel-aarch64-apple-darwin.txt
-```
-
-A corpus has no baseline file until you add one.

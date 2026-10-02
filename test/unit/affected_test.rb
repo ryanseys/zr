@@ -3,10 +3,25 @@
 require "test_helper"
 require_relative "../../tool/affected"
 
-# Tests how `zr-dev affected` and `bin/test --changed` map changed files
-# to test paths (tool/affected.rb).
+# Tests how `zr-dev affected` maps changed files to test paths, and the
+# bin/minitest command that runs them (tool/affected.rb).
 class AffectedTest < Minitest::Test
   def affected = Zr::Dev::Affected.new("affected")
+
+  def test_the_command_runs_unit_files_by_path_and_programs_by_zr_programs
+    env, _ruby, minitest, *paths = Zr::Dev::Affected.command(%w[test/unit/fork_pool_test.rb test/programs/core/gc test/programs/cli])
+
+    assert minitest.end_with?("bin/minitest")
+    assert_equal %w[test/unit/fork_pool_test.rb test/programs_test.rb], paths
+    assert_equal({ "ZR_PROGRAMS" => "core/gc,cli" }, env)
+  end
+
+  def test_a_command_of_unit_files_alone_sets_nothing
+    env, _ruby, _minitest, *paths = Zr::Dev::Affected.command(%w[test/unit/fork_pool_test.rb])
+
+    assert_empty env
+    assert_equal %w[test/unit/fork_pool_test.rb], paths
+  end
 
   def test_a_changed_test_file_runs_itself
     program = "test/programs/core/comparable/comparison/a_base_class_that_calls_a_name_only_its_descendants_write_ty.rb"

@@ -88,7 +88,7 @@ class ProgramTestsTest < Minitest::Test
   end
 
   def test_a_baselined_failure_skips_and_a_baselined_pass_fails
-    programs = Programs.new([], Zr::Target.default, { "area/foo.rb" => "known" }, StringIO.new)
+    programs = Programs.new(allowed: { "area/foo.rb" => "known" })
     test = Case.new("/nowhere", "area/foo.rb")
 
     assert_equal :skip, programs.baselined(test, :fail, "diff").first
@@ -100,9 +100,17 @@ class ProgramTestsTest < Minitest::Test
 
   def test_a_test_that_needs_another_platform_skips
     with_test("area/foo.rb" => "", "area/foo.rb.expected" => "", "area/foo.rb.needs" => "wasi\n") do |_, test|
-      programs = Programs.new([], Zr::Target.default, {}, StringIO.new)
+      programs = Programs.new(allowed: {})
 
       assert_equal "runs only on wasi", programs.unmet(test)
     end
+  end
+
+  def test_zr_programs_picks_the_tests_below_its_paths
+    picked = Programs.cases("core/gc/gc, lang/blocks").map(&:rel)
+
+    refute_empty picked
+    assert(picked.all? { |rel| rel.start_with?("core/gc/gc/", "lang/blocks/") })
+    assert_raises(ArgumentError) { Programs.cases("no/such/area") }
   end
 end

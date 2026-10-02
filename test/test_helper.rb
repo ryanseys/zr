@@ -1,7 +1,27 @@
 # frozen_string_literal: true
 
-# `COVERAGE=1` measures lib/. bin/test starts it before it loads zr; a
-# run that does not start from bin/test starts it here.
+# The tests run with `bin/minitest` (minitest's own runner):
+#
+#   bin/minitest                                  every test: test/**/*_test.rb
+#   bin/minitest test/unit/cli_test.rb -n /help/  one file, and minitest's options
+#   bin/minitest test/programs_test.rb            the program tests (that file says how
+#                                                 to pick some, and how to run them on
+#                                                 the host)
+#
+# The run reads these variables:
+#   MT_CPU=<n>             the number of worker processes
+#   ZR_TEST_FAIL_FAST=1    run no more tests after one fails
+#   ZR_TEST_SECONDS=<n>    the time limit of each program run and build
+#                          (default 60; the host doubles it unless it is set)
+#   ZR_TEST_TIMEOUT=<n>    the time limit of each test in a worker (default
+#                          180; 0 waits forever)
+#   ZR_TARGET=<triple>     build and run the programs for that target
+#   ZR_GC_STRESS=1         the programs collect at every allocation
+#   SLOW=1                 report the slowest tests
+#   COVERAGE=1             measure lib/ (test/support/coverage_run.rb)
+
+# `COVERAGE=1` measures lib/. It starts before zr loads, because a file
+# that loads earlier has no coverage.
 require_relative "support/coverage_run"
 Zr::Test::CoverageRun.start(root: File.expand_path("..", __dir__)) if Zr::Test::CoverageRun.requested?
 
@@ -9,6 +29,10 @@ require "minitest/autorun"
 
 require_relative "../lib/zr/target"
 require_relative "../lib/zr/config"
+# YJIT for the compiler that the workers run, and the collector limits of
+# a compile for the processes they start (`GcTuning#now` with no script).
+require_relative "../lib/zr/gc_tuning"
+Zr::GcTuning.now
 require_relative "support/fork_pool"
 Zr::Test::CoverageRun.install(Zr::Test::ForkPool::Worker) if Zr::Test::CoverageRun.requested?
 require_relative "support/harness/clean_env"
@@ -50,6 +74,7 @@ ROOT = File.expand_path("..", __dir__)
 require_relative "support/harness/wasmtime"
 require_relative "support/harness/child"
 require_relative "support/built"
+Minitest.register_plugin(Zr::Test::Built)
 require_relative "support/needs"
 Zr::Test::Needs.install!
 Minitest::Test.include(Zr::Test::Needs::Hook)

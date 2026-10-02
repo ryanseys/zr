@@ -13,7 +13,7 @@ Let ruby write its expected output; see
 
 ```console
 $ ruby tool/zr-dev.rb expect test/programs/core/string/squeeze
-$ bin/test test/programs/core/string/squeeze
+$ ZR_PROGRAMS=core/string/squeeze bin/minitest test/programs_test.rb
 ```
 
 The test fails or has an error now. It is the proof of your fix. Cover the
@@ -84,7 +84,7 @@ types and the `Machine.*` operations.
 Then write the descriptions again, because they list every kernel def:
 
 ```console
-$ ZR_BLESS=1 bin/test test/unit/description_test.rb
+$ ZR_BLESS=1 bin/minitest test/unit/description_test.rb
 ```
 
 ## 5. Add a new file, if the class has none
@@ -96,7 +96,7 @@ put a module before the classes that include it.
 ## 6. Run the test again
 
 ```console
-$ bin/test test/programs/core/string/squeeze
+$ ZR_PROGRAMS=core/string/squeeze bin/minitest test/programs_test.rb
 ```
 
 The first build after a change under `lib/zr/runtime/` compiles the runtime
@@ -104,7 +104,7 @@ again, so it takes longer. Then run the class's area, to see that
 nothing else changed:
 
 ```console
-$ bin/test test/programs/core/string
+$ ZR_PROGRAMS=core/string bin/minitest test/programs_test.rb
 $ ruby tool/zr-dev.rb affected
 ```
 

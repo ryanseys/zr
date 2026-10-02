@@ -137,19 +137,20 @@ ruby's output byte for byte. See
 ## Contribute
 
 The full test suite needs an Apple Silicon Mac. On Linux you can work
-on the `wasm32-wasi` target (`TARGET=wasm32-wasi bin/test ...`); see
+on the `wasm32-wasi` target (`ZR_TARGET=wasm32-wasi bin/minitest ...`); see
 [How to test on another target](https://github.com/ryanseys/zr/blob/v0.1.0/docs/how-to/test-on-another-target.md).
 
 ```console
 $ git clone https://github.com/ryanseys/zr.git
 $ cd zr
-$ bin/setup                            # install the gems and build the runtime (a few minutes)
-$ bin/test test/programs/core/string   # the tests in one directory
-$ bin/test --changed                   # the tests that your change can reach
-$ bin/test                             # all the tests: unit, programs
+$ bin/setup               # install the gems and build the runtime (a few minutes)
+$ ZR_PROGRAMS=core/string bin/minitest test/programs_test.rb
+                          # the program tests in one directory
+$ bin/zr-dev affected     # the tests that your change can reach
+$ bin/minitest            # all the tests: unit, programs
 ```
 
-`bin/test` builds the runtime again when a change under `lib/` or
+`bin/minitest` builds the runtime again when a change under `lib/` or
 `lib/zr/runtime/` makes it out of date. Read [CONTRIBUTING.md](https://github.com/ryanseys/zr/blob/v0.1.0/CONTRIBUTING.md)
 before you open a pull request, and the tutorial
 [Add your first program test](https://github.com/ryanseys/zr/blob/v0.1.0/docs/tutorials/add-your-first-program-test.md).

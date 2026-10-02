@@ -37,7 +37,7 @@ This guide writes `zr-dev` for `ruby tool/zr-dev.rb`; see
 4. Run the test:
 
    ```console
-   $ bin/test test/programs/core/string/case_mapping/upcase_keeps_the_receivers_encoding.rb
+   $ ZR_PROGRAMS=core/string/case_mapping/upcase_keeps_the_receivers_encoding.rb bin/minitest test/programs_test.rb
    ```
 
 5. Add the program and each file beside it to git.

@@ -11,22 +11,23 @@ The tests are in two tiers. Each tier is a directory below `test/`.
 | Tier | Directory | Tests |
 |---|---|---|
 | unit | `test/unit/` | zr's own internals: the parser port, the passes, the backends, the linkers, the harness, the tools. Minitest, in plain `def test_...` methods |
-| programs | `test/programs/` | Ruby behavior and the product. Each test is a plain Ruby program that zr builds and runs, checked against ruby 4.0.7's output |
+| programs | `test/programs/`, run by `test/programs_test.rb` | Ruby behavior and the product. Each test is a plain Ruby program that zr builds and runs, checked against ruby 4.0.7's output |
 
 ruby 4.0.7 is the reference for the program tests. Every expected
 output comes from ruby (`zr-dev expect`), never from a person. See
 [The contract](the-contract.md) and
 [Program tests](../reference/program-tests.md).
 
-`bin/test` runs each tier in its own process. The unit tier loads
-minitest and `test/test_helper.rb`. The program tests use no test
-framework: `test/support/programs.rb` runs them.
+`bin/minitest` runs both tiers. Each test file loads minitest and
+`test/test_helper.rb`. `test/programs_test.rb` defines one minitest
+test for each program, named `test_<path below test/programs>`, and
+`test/support/programs.rb` checks each one.
 
 ## The runtime is built first
 
-Every program that a test builds links the same runtime. Before a tier
-starts its workers, `bin/test` builds the runtime for this host if it
-is not built or is out of date (`Zr::Test::Built`). It then loads the
+Every program that a test builds links the same runtime. Before a run
+starts its workers, a minitest plugin builds the runtime for this host
+if it is not built or is out of date (`Zr::Test::Built`). It then loads the
 runtime into the parent process, so all the workers share one copy.
 After a change under `lib/` or `lib/zr/runtime/`, this build takes a few
 minutes.
@@ -48,23 +49,13 @@ machine.
 A run of program tests always needs the runtime. It also builds eval
 support when one of its programs evals.
 
-At the end, `bin/test` prints the time of each step to stderr:
+## A run forks its workers
 
-```
-bin/test: 41.20 s (load 1.10 s, prebuild 0.40 s, require 0.90 s, tests 38.80 s)
-```
-
-A run of program tests has no `require` step.
-
-## A tier forks its workers
-
-The parent process loads zr and, for the unit tier, every test file.
-It then gives the work to forked workers, several at a time. The unit
-tier gives each test method to a worker (`Zr::Test::ForkPool`), so no
-worker waits while another worker has many tests left. The program
-runner gives each program to a worker (`Zr::Test::Programs::Pool`).
-A worker builds the program in its own process, so it loads nothing
-again.
+The parent process loads zr and every test file. It then gives the
+work to forked workers, several at a time. It gives each test method to
+a worker (`Zr::Test::ForkPool`), so no worker waits while another
+worker has many tests left. A program test is one test method, so a
+worker builds the program in its own process, and loads nothing again.
 
 Forks, not threads, give the parallel work. A zr compile is Ruby code,
 and the GVL lets only one thread run Ruby at a time.
@@ -127,8 +118,7 @@ the build is what it tests.
 
 ## Progress
 
-The unit tier writes its progress to `tmp/test-progress.txt` at most
+A test run writes its progress to `tmp/test-progress.txt` at most
 once a second: how many tests are done, which failed, the rate, and the
 time left. `zr-dev progress` prints the file, so you can look at a run
-in the background. The program runner prints its marks as each test
-ends.
+in the background.

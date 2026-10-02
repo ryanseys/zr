@@ -16,17 +16,9 @@ module Zr
 
       def path(target) = File.join(DIR, "#{target.triple}.txt")
 
-      # The baseline of another project's program tests (`bin/test
-      # --corpus DIR`): `corpus/<project>-<triple>.txt`, whose keys are the
-      # programs' paths below DIR. The project is the directory above DIR,
-      # so spinel's `test/` has `corpus/spinel-<triple>.txt`.
-      def corpus(root, target)
-        read(File.join(DIR, "corpus", "#{File.basename(File.dirname(File.expand_path(root)))}-#{target.triple}.txt"))
-      end
-
       def for(target) = read(path(target))
 
-      # What the host (`bin/test --host`, CRuby over the kernel) can fail:
+      # What the host (`ZR_TEST_HOST=1`, CRuby over the kernel) can fail:
       # `host.txt`. A binary's own baseline does not apply there.
       def host = read(File.join(DIR, "host.txt"))
 

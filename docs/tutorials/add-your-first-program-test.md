@@ -77,37 +77,43 @@ is no `.rb.err.expected` file and no `.rb.status` file.
 
 ## Run it
 
-Run the one test, by its path:
+Run the one test. Give its path below `test/programs` in
+`ZR_PROGRAMS`:
 
 ```console
-$ bin/test test/programs/lang/blocks/enumeration/groups_words_by_their_length.rb
-1 program test(s), 6 worker(s) for aarch64-apple-darwin
+$ ZR_PROGRAMS=lang/blocks/enumeration/groups_words_by_their_length.rb bin/minitest test/programs_test.rb
+6 test worker(s) on 12 cores and 16 GB (MT_CPU sets the number)
+Run options: --seed 4242
+
+# Running:
+
 .
 
-1 tests: 1 passed, 0 failed, 0 errors, 0 skipped
-bin/test: 4.12 s (load 0.81 s, prebuild 0.35 s, tests 2.96 s)
+Finished in 2.96s, 0.34 runs/s, 0.34 assertions/s.
+
+1 runs, 1 assertions, 0 failures, 0 errors, 0 skips
 ```
 
-The number of workers and the times are different on your machine.
-The `.` is our test. zr built the program, ran the binary, and
+The number of workers, the seed and the times are different on your
+machine. The `.` is our test. zr built the program, ran the binary, and
 compared all of its output with ruby's: the stdout, the stderr, and the
 exit status. A program that also wrote a backtrace does not pass.
 
 Now run the directory, and then its area:
 
 ```console
-$ bin/test test/programs/lang/blocks/enumeration
-$ bin/test test/programs/lang/blocks
+$ ZR_PROGRAMS=lang/blocks/enumeration bin/minitest test/programs_test.rb
+$ ZR_PROGRAMS=lang/blocks bin/minitest test/programs_test.rb
 ```
 
 ## See a failure
 
 Change the second line of the `.expected` file by hand, for example
-`4 => 2` to `4 => 3`, and run the test again. The mark is `F`, and the
-runner prints the difference:
+`4 => 2` to `4 => 3`, and run the test again. The mark is `F`, and
+minitest prints the name of the test and the difference:
 
 ```
-FAIL: lang/blocks/enumeration/groups_words_by_their_length.rb
+ProgramsTest#test_lang/blocks/enumeration/groups_words_by_their_length.rb
 --- expected stdout
 +++ actual stdout
  Ruby Compiles To Native Code
