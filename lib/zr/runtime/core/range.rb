@@ -270,6 +270,7 @@ class Range
   # A String range covers single characters by order and walks the rest.
   def include?(v)
     return covers_value?(v) unless @begin.is_a?(String) || @end.is_a?(String)
+    raise TypeError, +"cannot determine inclusion in beginless/endless ranges" if @begin.nil? || @end.nil?
     return covers_value?(v) if v.is_a?(String) && v.size == 1 && (@begin.nil? || @begin.size == 1) && (@end.nil? || @end.size == 1)
     return false unless v.is_a?(String)
 

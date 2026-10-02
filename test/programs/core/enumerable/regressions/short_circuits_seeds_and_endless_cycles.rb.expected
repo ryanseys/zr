@@ -1,0 +1,15 @@
+[false, [1, 2]]
+[1, 2, 3]
+[TypeError, "no implicit conversion of false into Integer"]
+[TypeError, "no implicit conversion of false into Integer"]
+[1, 2, 1, 2]
+[ArgumentError, "wrong number of arguments (given 0, expected 1..2)"]
+[TypeError, "2 is not a symbol nor a string"]
+[ArgumentError, "wrong number of arguments (given 3, expected 1..2)"]
+6.5
+7.5
+[ArgumentError, "invalid value for Float(): \"x\""]
+[TypeError, "can't convert nil into Float"]
+Integer
+true
+false

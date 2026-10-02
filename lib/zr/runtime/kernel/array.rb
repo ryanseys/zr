@@ -821,11 +821,33 @@ module Zr::Kern
     zr_str_set_index(zr_buf_take(b), index)
   end
 
+  # `recv == other` for an `other` of another type: when `other` responds
+  # to the conversion `conv` (to_ary for Array#==, to_hash for Hash#==),
+  # `other == recv` decides, as rb_ary_equal and rb_hash_equal do. Else
+  # false.
+  sig [Value, Value, Word] => Value
+  def zr_eq_by_conversion(recv, other, conv)
+    slot = Machine.slot(8)
+    Machine.store64(slot, 0, Machine.word(zr_sym(conv)))
+    responds = zr_send(other, Machine.id(:respond_to?), 1, slot)
+    return responds if responds == QUNDEF
+    if responds == QNIL || responds == QFALSE
+      return Machine.value(QFALSE)
+    end
+    Machine.store64(slot, 0, Machine.word(recv))
+    r = zr_send(other, Machine.id(:==), 1, slot)
+    return r if r == QUNDEF
+    zr_bool(r != QNIL && r != QFALSE)
+  end
+
   sig [Value, Word, Ptr, Value, Value] => Value
   def zr_ary_eq(recv, argc, argv, cref, blk)
     other = Machine.value(Machine.load64(argv, 0))
-    if zr_special_p(other) || zr_type(other) != T_ARRAY
+    if zr_special_p(other)
       return Machine.value(QFALSE)
+    end
+    if zr_type(other) != T_ARRAY
+      return zr_eq_by_conversion(recv, other, Machine.id(:to_ary))
     end
     if RArray.len(recv) != RArray.len(other)
       return Machine.value(QFALSE)

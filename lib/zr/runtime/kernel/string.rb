@@ -999,6 +999,20 @@ module Zr::Kern
         Machine.store64(slot, 0, Machine.word(s))
         return zr_str_cmp(recv, 1, slot, Machine.value(QNIL), Machine.value(QNIL))
       end
+      # rb_check_string_type: a to_str that gives neither a String nor
+      # nil is an error.
+      if s != QNIL
+        b = Machine.slot(Buf.size)
+        zr_buf_init(b)
+        zr_buf_push(b, Machine.bytes("can't convert "), 14)
+        zr_buf_class_of(b, other)
+        zr_buf_push(b, Machine.bytes(" to String ("), 12)
+        zr_buf_class_of(b, other)
+        zr_buf_push(b, Machine.bytes("#to_str gives "), 14)
+        zr_buf_class_of(b, s)
+        zr_buf_push(b, Machine.bytes(")"), 1)
+        return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
+      end
     end
     Machine.store64(slot, 0, Machine.word(recv))
     r = zr_send(other, Machine.id(:<=>), 1, slot)

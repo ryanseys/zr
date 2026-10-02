@@ -1,0 +1,19 @@
+2
+1
+0
+Enumerator
+1
+Enumerator
+true
+false
+false
+"#<Enumerator: [1, 2]:permutation>"
+"#<Enumerator: [1, 2]:permutation(1)>"
+"#<Enumerator: [1, 2]:cycle(nil)>"
+[FrozenError, "can't modify frozen Array: [1]"]
+[FrozenError, "can't modify frozen Array: []"]
+[FrozenError, "can't modify frozen Array: []"]
+nil
+[3]
+5.5
+[ArgumentError, "wrong number of arguments (given 0, expected 1..2)"]

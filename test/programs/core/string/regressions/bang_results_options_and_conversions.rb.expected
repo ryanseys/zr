@@ -1,0 +1,30 @@
+"cats"
+"cats"
+nil
+"aXc"
+"aXc"
+/\[/
+/\./
+-1
+true
+nil
+[TypeError, "can't convert Wrap to String (Wrap#to_str gives Integer)"]
+[TypeError, "can't convert Wrap to String (Wrap#to_str gives Integer)"]
+"fine"
+[FrozenError, "can't modify frozen String: \"AB\""]
+[FrozenError, "can't modify frozen String: \"AB\""]
+[FrozenError, "can't modify frozen String: \"AB\""]
+[FrozenError, "can't modify frozen String: \"AB\""]
+[ArgumentError, "invalid option"]
+[ArgumentError, "invalid option"]
+[ArgumentError, "X outside of string"]
+[ArgumentError, "unknown unpack directive '\\x00' in 'H\\0H'"]
+[ArgumentError, "unknown unpack directive '\\x01' in 'C\\u0001C'"]
+[ArgumentError, "unknown unpack directive '\\xc3' in 'Cé'"]
+[true, true]
+[RangeError, "integer 99999999999 too big to convert to 'int'"]
+[RangeError, "integer 2147483648 too big to convert to 'int'"]
+[RangeError, "integer -2147483649 too small to convert to 'int'"]
+[RangeError, "float 1e+20 out of range of integer"]
+[TypeError, "cannot determine inclusion in beginless/endless ranges"]
+[TypeError, "cannot determine inclusion in beginless/endless ranges"]

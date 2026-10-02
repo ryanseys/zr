@@ -755,12 +755,20 @@ class String
     Primitive.zr_str_cat_range(out, self, at, n)
   end
 
-  def sub!(pattern, replacement = nil, &block) = mutate(OWN[:sub].bind_call(self, pattern, replacement, &block))
+  # A match makes the receiver the result and returns it, even when the
+  # text comes out the same; `$~` tells whether there was one.
+  def sub!(pattern, replacement = nil, &block)
+    Primitive.zr_frozen_error(self) if Primitive.zr_modify_frozen_m(self)
+    result = OWN[:sub].bind_call(self, pattern, replacement, &block)
+    $~ ? replaced(result) : nil
+  end
 
   def gsub!(pattern, replacement = nil, &block)
     return to_enum(:gsub!, pattern) if replacement.nil? && block.nil?
 
-    mutate(gsub(pattern, replacement, &block))
+    Primitive.zr_frozen_error(self) if Primitive.zr_modify_frozen_m(self)
+    result = gsub(pattern, replacement, &block)
+    $~ ? replaced(result) : nil
   end
 
   # `include?`, and a String `[]`, search the way `index` does, so the
@@ -885,12 +893,14 @@ class String
 
   # nil when no character of `from` occurs, even if nothing changed.
   def tr!(from, to)
+    Primitive.zr_frozen_error(self) if Primitive.zr_modify_frozen_m(self)
     return nil unless OWN[:count].bind_call(self, from) > 0
 
     Primitive.zr_str_replace(self, translate(from, to, false))
   end
 
   def tr_s!(from, to)
+    Primitive.zr_frozen_error(self) if Primitive.zr_modify_frozen_m(self)
     return nil unless OWN[:count].bind_call(self, from) > 0
 
     Primitive.zr_str_replace(self, translate(from, to, true))
@@ -1071,10 +1081,12 @@ class String
   end
 
   def delete_prefix!(prefix)
+    Primitive.zr_frozen_error(self) if Primitive.zr_modify_frozen_m(self)
     OWN[:start_with?].bind_call(self, prefix) ? mutate(delete_prefix(prefix)) : nil
   end
 
   def delete_suffix!(suffix)
+    Primitive.zr_frozen_error(self) if Primitive.zr_modify_frozen_m(self)
     OWN[:end_with?].bind_call(self, suffix) ? mutate(delete_suffix(suffix)) : nil
   end
 
@@ -1653,13 +1665,15 @@ class String
   # `casecmp` folds ASCII only; `casecmp?` folds all of Unicode. Two
   # Strings with no encoding in common return nil, as str_casecmp does.
   def casecmp(other)
-    return nil unless other.is_a?(String) && Encoding.compatible?(self, other)
+    other = String.try_convert(other)
+    return nil unless other && Encoding.compatible?(self, other)
 
     OWN[:<=>].bind_call(OWN[:downcase].bind_call(self, :ascii), OWN[:downcase].bind_call(other, :ascii))
   end
 
   def casecmp?(other)
-    return nil unless other.is_a?(String) && Encoding.compatible?(self, other)
+    other = String.try_convert(other)
+    return nil unless other && Encoding.compatible?(self, other)
 
     OWN[:==].bind_call(OWN[:downcase].bind_call(self, :fold), OWN[:downcase].bind_call(other, :fold))
   end
@@ -1963,6 +1977,9 @@ class String
   end
 
   def scrub!(replacement = nil, &block)
+    # A valid String is left alone, frozen or not.
+    return self if valid_encoding?
+
     mutate(OWN[:scrub].bind_call(self, replacement, &block))
     self
   end
@@ -2303,6 +2320,13 @@ class String
     Primitive.zr_str_replace(self, result)
   end
 
+  # The receiver becomes `result`, the same text or not.
+  def replaced(result)
+    Primitive.attr! :hidden
+    Primitive.zr_frozen_error(self) if Primitive.zr_modify_frozen_m(self)
+    Primitive.zr_str_replace(self, result)
+  end
+
   def space_byte?(b)
     Primitive.attr! :hidden
     b == 32 || (b >= 9 && b <= 13) || b == 0
@@ -2459,7 +2483,7 @@ class String
   def replacement_for(match, replacement, regexp, &block)
     Primitive.attr! :hidden
     whole = Primitive.zr_match_nth(match, 0)
-    return yield(whole).to_s if block
+    return yield(whole).to_s if block && replacement.nil?
     return replacement[whole].to_s if replacement.is_a?(Hash)
 
     regsub(replacement.to_str, match, regexp)
@@ -2690,7 +2714,7 @@ class String
     end
 
     mode = options.first
-    return :full if mode.nil? || mode == :lithuanian
+    return :full if options.empty? || mode == :lithuanian
     raise ArgumentError, +"option :fold only allowed for downcasing" if mode == :fold && kind != :down
     raise ArgumentError, +"invalid option" unless mode == :ascii || mode == :turkic || mode == :fold
 

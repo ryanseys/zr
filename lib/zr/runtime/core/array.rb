@@ -30,6 +30,9 @@ class Array
       element = Primitive.zr_ary_aref1_m(self, i)
       return element if yield(element)
 
+      # A shorter array moves the walk to its new end.
+      len = Primitive.zr_ary_len_m(self)
+      i = len if len < i
       i -= 1
     end
     ifnone&.call
@@ -196,13 +199,13 @@ class Array
     out
   end
 
-  def index(v = nil)
-    return to_enum(:index) if v.nil? && !block_given?
+  def index(v = (omitted = true; nil))
+    return to_enum(:index) if omitted && !block_given?
 
     i = 0
     while i < Primitive.zr_ary_len_m(self)
       x = Primitive.zr_ary_aref1_m(self, i)
-      return i if block_given? ? yield(x) : Primitive.zr_rb_equal(x, v)
+      return i if omitted ? yield(x) : Primitive.zr_rb_equal(x, v)
 
       i += 1
     end
@@ -465,9 +468,9 @@ class Array
     self
   end
 
-  def permutation(k = Primitive.zr_ary_len_m(self))
+  def permutation(k = (omitted = true; Primitive.zr_ary_len_m(self)))
     k = Primitive.zr_index_operand_m(k)
-    return to_enum(:permutation, k) { k < 0 || k > Primitive.zr_ary_len_m(self) ? 0 : (Primitive.zr_ary_len_m(self) - k + 1..Primitive.zr_ary_len_m(self)).inject(1) { |a, b| a * b } } unless block_given?
+    return to_enum(:permutation, *([k] unless omitted)) { k < 0 || k > Primitive.zr_ary_len_m(self) ? 0 : (Primitive.zr_ary_len_m(self) - k + 1..Primitive.zr_ary_len_m(self)).inject(1) { |a, b| a * b } } unless block_given?
 
     if k == 0
       yield []
@@ -761,6 +764,7 @@ class Array
   end
 
   def slice!(start, len = nil)
+    Primitive.zr_frozen_error(self) if frozen?
     if len.nil?
       if start.is_a?(Range)
         part = Primitive.zr_ary_aref1_m(self, start)
@@ -786,6 +790,7 @@ class Array
   def map!
     return to_enum(:map!) { Primitive.zr_ary_len_m(self) } unless block_given?
 
+    Primitive.zr_frozen_error(self) if frozen?
     i = 0
     while i < Primitive.zr_ary_len_m(self)
       Primitive.zr_ary_aset_at(self, i, yield(Primitive.zr_ary_aref1_m(self, i)))
@@ -797,6 +802,7 @@ class Array
   def collect!
     return to_enum(:collect!) { Primitive.zr_ary_len_m(self) } unless block_given?
 
+    Primitive.zr_frozen_error(self) if frozen?
     i = 0
     while i < Primitive.zr_ary_len_m(self)
       Primitive.zr_ary_aset_at(self, i, yield(Primitive.zr_ary_aref1_m(self, i)))
@@ -961,10 +967,10 @@ class Array
     indexes.map { |i| fetched(i, [], &block) }
   end
 
-  def fetch(index, *default, &block)
-    raise ArgumentError, "wrong number of arguments (given #{default.size + 1}, expected 1..2)" if default.size > 1
+  def fetch(*args, &block)
+    raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 1..2)" unless args.size.between?(1, 2)
 
-    fetched(index, default, &block)
+    fetched(args.first, args.drop(1), &block)
   end
 
   # rb_ary_fetch, which fetch_values calls as a function.
@@ -972,10 +978,11 @@ class Array
     Primitive.attr! :hidden
 
     Primitive.zr_warn_here_m("block supersedes default value argument") if block_given? && !default.empty?
+    given = index
     index = Primitive.zr_index_operand_m(index)
     i = index < 0 ? index + Primitive.zr_ary_len_m(self) : index
     return Primitive.zr_ary_aref1_m(self, i) if i >= 0 && i < Primitive.zr_ary_len_m(self)
-    return yield(index) if block_given?
+    return yield(given) if block_given?
     return default[0] unless default.empty?
 
     raise IndexError, "index #{index} outside of array bounds: #{-Primitive.zr_ary_len_m(self)}...#{Primitive.zr_ary_len_m(self)}"
@@ -1235,28 +1242,30 @@ class Array
     replaced(sort_by { |x| yield(x) })
   end
 
-  def find_index(v = nil)
-    return to_enum(:find_index) if v.nil? && !block_given?
+  def find_index(v = (omitted = true; nil))
+    return to_enum(:find_index) if omitted && !block_given?
 
     i = 0
     while i < Primitive.zr_ary_len_m(self)
       x = Primitive.zr_ary_aref1_m(self, i)
-      return i if block_given? ? yield(x) : Primitive.zr_rb_equal(x, v)
+      return i if omitted ? yield(x) : Primitive.zr_rb_equal(x, v)
 
       i += 1
     end
     nil
   end
 
-  def rindex(v = nil)
+  def rindex(v = (omitted = true; nil))
+    return to_enum(:rindex) if omitted && !block_given?
+
     i = Primitive.zr_ary_len_m(self) - 1
     while i >= 0
-      return i if block_given? ? yield(Primitive.zr_ary_aref1_m(self, i)) : Primitive.zr_rb_equal(Primitive.zr_ary_aref1_m(self, i), v)
+      return i if omitted ? yield(Primitive.zr_ary_aref1_m(self, i)) : Primitive.zr_rb_equal(Primitive.zr_ary_aref1_m(self, i), v)
 
       # rb_ary_rindex: a shorter array moves the walk to its new end.
       len = Primitive.zr_ary_len_m(self)
       if i > len
-        break unless block_given?
+        break unless omitted
 
         i = len
       end
@@ -1265,8 +1274,8 @@ class Array
     nil
   end
 
-  def cycle(n = nil)
-    return to_enum(:cycle, *[n].compact) { n.nil? ? ((Primitive.zr_ary_len_m(self) == 0) ? 0 : Float::INFINITY) : Primitive.zr_ary_len_m(self) * n } unless block_given?
+  def cycle(n = (omitted = true; nil))
+    return to_enum(:cycle, *([n] unless omitted)) { n.nil? ? ((Primitive.zr_ary_len_m(self) == 0) ? 0 : Float::INFINITY) : Primitive.zr_ary_len_m(self) * n } unless block_given?
 
     # rb_ary_cycle: each round starts only while the array is not empty,
     # so a block that empties it ends the cycle.

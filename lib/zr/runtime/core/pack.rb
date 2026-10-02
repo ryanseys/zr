@@ -65,7 +65,7 @@ module Packing
       end
       raise ArgumentError, +"% is not supported" if c == +"%"
       if check && !KNOWN.include?(c)
-        raise ArgumentError, "unknown #{kind} directive '#{c}' in '#{template}'"
+        raise ArgumentError, unknown_directive(kind, b, template)
       end
       c = c == +"L" ? +"Q" : +"q" if native && (c == +"L" || c == +"l")
       count = nil
@@ -89,6 +89,18 @@ module Packing
   # become `=XX`; a space or tab before a newline takes a soft break; a
   # line past `count` characters breaks after the one that passed it;
   # a last line with anything on it ends with a soft break.
+  # unknown_directive: a printable directive as itself, any other byte as
+  # `\xNN`; a template with an unprintable character quoted as
+  # rb_str_quote_unprintable quotes it: as inspect does, but NUL as `\0`
+  # and DEL as `\c?`.
+  def self.unknown_directive(kind, byte, template)
+    shown = byte.between?(32, 126) ? byte.chr : format("\\x%02x", byte)
+    if template.each_char.any? { |ch| !ch.match?(/[[:print:]]/) }
+      template = template.inspect[1..-2].split("\\u0000", -1).join("\\0").split("\\u007F", -1).join("\\c?")
+    end
+    "unknown #{kind} directive '#{shown}' in '#{template}'"
+  end
+
   def self.quoted_printable(bytes, count)
     len = count.nil? || count == :all || count <= 1 ? 72 : count
     out = "".b
@@ -320,7 +332,7 @@ module Packing
         each_item(items, at, count) { |item| out << pack_single(float_item(item), c == +"g") }
         at += count == :all ? items.size - at : (count || 1)
       else
-        raise ArgumentError, "unknown pack directive '#{c}' in '#{template}'" unless INTEGERS.key?(c)
+        raise ArgumentError, unknown_directive("pack", c.getbyte(0), template) unless INTEGERS.key?(c)
 
         size, _, order = INTEGERS.fetch(c)
         big = order == :big if order
@@ -575,7 +587,8 @@ module Packing
 
         at += n
       when "X"
-        n = count == :all ? 0 : (count || 1)
+        # X* backs over what is left after the position, as pack_unpack does.
+        n = count == :all ? bytes.bytesize - at : (count || 1)
         raise ArgumentError, +"X outside of string" if n > at
 
         at -= n

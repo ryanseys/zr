@@ -251,10 +251,18 @@ class Set
     replace(flatten)
   end
 
+  # A Set that contains itself hashes once: the inner visit adds a
+  # constant, as rb_exec_recursive does.
   def hash
-    sum = table.size
-    walk { |item| sum ^= item.hash }
-    sum
+    return 3 if Primitive.zr_recursive_enter(self, :hash)
+
+    begin
+      sum = table.size
+      walk { |item| sum ^= item.hash }
+      sum
+    ensure
+      Primitive.zr_recursive_leave(self, :hash)
+    end
   end
 
   def include?(item) = table.key?(item)

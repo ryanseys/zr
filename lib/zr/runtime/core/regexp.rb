@@ -680,7 +680,12 @@ class MatchData
     self
   end
 
-  def regexp = @regexp
+  # A match of a String pattern keeps the String; its Regexp is made on
+  # first use, as match_regexp does.
+  def regexp
+    @regexp = Regexp.new(Regexp.escape(@regexp)) if @regexp.is_a?(String)
+    @regexp
+  end
 
   # The text as it was, a frozen String of this match's own, as CRuby
   # gives each MatchData. It is made on first use from the copy that

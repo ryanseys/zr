@@ -540,20 +540,21 @@ module Enumerable
 
   def one?(*pattern)
     raise ArgumentError, "wrong number of arguments (given #{pattern.size}, expected 0..1)" if pattern.size > 1
+    # A second match ends the walk, as one_iter_i breaks.
     seen = 0
     if !pattern.empty?
       Primitive.zr_enum_each(self, nil) do |x|
-        seen += 1 if pattern[0] === x
+        return false if pattern[0] === x && (seen += 1) > 1
         nil
       end
     elsif block_given?
       Primitive.zr_enum_each(self, nil) do |x|
-        seen += 1 if yield(x)
+        return false if yield(x) && (seen += 1) > 1
         nil
       end
     else
       Primitive.zr_enum_each(self, nil) do |x|
-        seen += 1 if x
+        return false if x && (seen += 1) > 1
         nil
       end
     end
@@ -612,12 +613,12 @@ module Enumerable
     out
   end
 
-  def find_index(v = nil)
-    return to_enum(:find_index) if v.nil? && !block_given?
+  def find_index(v = (omitted = true; nil))
+    return to_enum(:find_index) if omitted && !block_given?
 
     i = 0
     Primitive.zr_enum_each(self, nil) do |x|
-      return i if block_given? ? yield(x) : Primitive.zr_rb_equal(x, v)
+      return i if omitted ? yield(x) : Primitive.zr_rb_equal(x, v)
 
       i += 1
       nil
@@ -693,6 +694,11 @@ module Enumerable
   # inject and reduce, which CRuby defines from one function.
   def injected(args, block)
     Primitive.attr! :hidden
+    raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 1..2)" if args.size > 2 || (args.empty? && !block)
+    if args.size == 2 && !args.last.is_a?(Symbol) && !args.last.is_a?(String)
+      raise TypeError, "#{args.last.inspect} is not a symbol nor a string"
+    end
+
     acc = args.empty? ? nil : args.first
     op = args.size == 2 ? args.last : (args.size == 1 && !block ? args.first : nil)
     if op
@@ -733,7 +739,14 @@ module Enumerable
     # A Range of Integers adds in closed form, as enum_sum does.
     if !block && !init.is_a?(Float) && is_a?(Range) && self.begin.is_a?(Integer) && self.end.is_a?(Integer)
       last = exclude_end? ? self.end - 1 : self.end
-      return last < self.begin ? init : init + (self.begin + last) * (last - self.begin + 1) / 2
+      return init if last < self.begin
+
+      # rb_int_plus(total, init): an Integer seed adds; any other coerces.
+      total = (self.begin + last) * (last - self.begin + 1) / 2
+      return init + total if init.is_a?(Integer)
+
+      a, b = total.coerce(init)
+      return a + b
     end
 
     acc = init
@@ -813,15 +826,25 @@ module Enumerable
   def cycle(n = (endless = true; nil))
     return to_enum(:cycle, *([n] unless endless)) { cycle_size(n, endless) } unless block_given?
 
-    items = elements
+    # enum_cycle: the first round yields each element as it comes and
+    # keeps it; the later rounds walk what it kept.
+    rounds = n.nil? ? -1 : Primitive.zr_index_operand_m(n)
+    return nil if !n.nil? && rounds <= 0
+
+    items = []
+    Primitive.zr_enum_each(self, nil) do |x|
+      items << x
+      yield x
+      nil
+    end
     return nil if items.empty?
 
-    if n.nil?
+    if rounds < 0
       while true
         items.each { |x| yield x }
       end
     else
-      n.times { items.each { |x| yield x } }
+      (rounds - 1).times { items.each { |x| yield x } }
       nil
     end
   end

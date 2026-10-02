@@ -913,8 +913,11 @@ module Zr::Kern
   sig [Value, Word, Ptr, Value, Value] => Value
   def zr_hash_eq(recv, argc, argv, cref, blk)
     other = Machine.value(Machine.load64(argv, 0))
-    if zr_special_p(other) || zr_type(other) != T_HASH
+    if zr_special_p(other)
       return Machine.value(QFALSE)
+    end
+    if zr_type(other) != T_HASH
+      return zr_eq_by_conversion(recv, other, Machine.id(:to_hash))
     end
     if RHash.live(recv) != RHash.live(other)
       return Machine.value(QFALSE)

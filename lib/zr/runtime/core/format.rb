@@ -195,12 +195,20 @@ module Kernel
       [num2int(v), i + 1]
     end
 
+    # NUM2INT: a width or precision must fit in a C int.
     def num2int(v)
       Primitive.attr! :hidden
       raise TypeError, +"no implicit conversion from nil to integer" if nil.equal?(v)
-      return v.to_i if Float === v
+      if Float === v
+        raise RangeError, "float #{Kernel.format("%-.10g", v)} out of range of integer" unless v >= -2**63 && v < 2**63
 
-      Primitive.zr_index_operand_m(v)
+        v = v.to_i
+      end
+      n = Primitive.zr_index_operand_m(v)
+      raise RangeError, "integer #{n} too big to convert to 'int'" if n > 2_147_483_647
+      raise RangeError, "integer #{n} too small to convert to 'int'" if n < -2_147_483_648
+
+      n
     end
 
     # GETNEXTARG: an argument in order, unless a numbered or a named one
