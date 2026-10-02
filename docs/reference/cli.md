@@ -222,6 +222,7 @@ SHA-256 digest of every input of the entry:
 | `run` | the binaries of `zr run` (at most 2 GB) |
 | `binary` | the binaries that the program tests keep (at most `ZR_TEST_BINARIES_GB`) |
 | `result` | the host program tests that passed, with no data (`test/support/result_cache.rb`) |
+| `source` | the digest of a compiler file without its comments, so a comment edit rebuilds nothing |
 
 Each build names the entries that the next build needs, such as the
 runtime object and the machine code of its backend, in a root

@@ -23,6 +23,23 @@ class CompilerDigestTest < Minitest::Test
     assert_empty out.split("\n"), "a build loads a file of Zr::RuntimeSources::DRIVER_ONLY; take it out of the list"
   end
 
+  # A compiler file counts by its code: an edit of a comment, a comment
+  # line or a comment after code keeps the runtime's digest.
+  def test_a_comment_edit_keeps_the_code_of_a_compiler_file
+    plain = "# frozen_string_literal: true\n\ndef f\n  x = \"#not a comment\"\n  x\nend\n"
+    commented = "# frozen_string_literal: true\n\n# Says what f does.\ndef f # f\n  # x is one\n  x = \"#not a comment\" # see\n  x\nend\n"
+
+    assert_equal Zr::Digests.code(plain), Zr::Digests.code(commented)
+    assert_includes Zr::Digests.code(commented), "# frozen_string_literal: true", "a magic comment changes what the code does"
+    assert_includes Zr::Digests.code(commented), "\"#not a comment\""
+    refute_equal Zr::Digests.code(plain), Zr::Digests.code(plain.sub("x\nend", "x + 1\nend"))
+  end
+
+  def test_only_a_compiler_file_counts_by_its_code
+    assert Zr::Digests.compiler_file?(File.join(LIB, "zr/lower.rb"))
+    refute Zr::Digests.compiler_file?(File.join(Zr::Paths::RUNTIME, "core/array.rb")), "a binary holds the core's lines"
+  end
+
   def test_the_digest_has_no_driver_file
     files = Zr::RuntimeSources.for(Zr::Target.default).compiler_files
     assert_empty files & Zr::RuntimeSources::DRIVER_ONLY

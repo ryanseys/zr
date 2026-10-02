@@ -3,6 +3,8 @@
 require "digest/sha2"
 require_relative "paths"
 require_relative "config"
+require_relative "prism"
+require_relative "cache/store"
 
 module Zr
   # The digests that name the cache's entries and that do not belong to
@@ -21,15 +23,65 @@ module Zr
 
     # The digest that names a runtime's cache files: the target, the path
     # root, and each of `files` with its bytes (`bytes` has the ones that a
-    # build already read, so it hashes what it lowered).
+    # build already read, so it hashes what it lowered). A file of the
+    # compiler counts by its code (`code`), so an edit of its comments
+    # rebuilds nothing; the kernel and the core count by their bytes,
+    # because a binary holds their line numbers.
     def sources(target, files, bytes = {})
       Digest::SHA256.new.tap do |d|
         d << target.triple << "\0"
         d << "root\0" << Paths.root << "\0" if Paths.root
         d << "checked\0" if Config.current.kernel_checked?
-        files.each { |path| d << path << "\0" << (bytes[path] || File.binread(path)) }
+        files.each do |path|
+          data = bytes[path] || File.binread(path)
+          d << path << "\0" << (compiler_file?(path) ? code_digest(data) : data)
+        end
       end.hexdigest
     end
+
+    COMPILER = File.join(__dir__, "")
+
+    # Whether `path` is a file of the compiler, not one that it compiles.
+    def compiler_file?(path) = path.start_with?(COMPILER) && !path.start_with?(File.join(Paths::RUNTIME, ""))
+
+    # The digest of `bytes` without their comments (`code`), kept in the
+    # store by the digest of the bytes, so only a file that changed is
+    # read again.
+    def code_digest(bytes)
+      key = Digest::SHA256.hexdigest(bytes)
+      Cache::Store.read(:source, key) || Digest::SHA256.hexdigest(code(bytes)).tap { |d| Cache::Store.write(:source, key, d) }
+    rescue SourceChanged
+      Digest::SHA256.hexdigest(code(bytes))
+    end
+
+    # The Ruby source `bytes` without its comments: a comment that is
+    # the whole line goes with its line, and one after code goes with the
+    # spaces before it. Prism finds the comments, so a `#` in a string
+    # stays. A magic comment (`frozen_string_literal`) stays: it changes
+    # what the code does.
+    def code(bytes)
+      out = bytes.b
+      Prism.parse_comments(bytes).reverse_each do |comment|
+        from = comment.location.start_offset
+        to = comment.location.end_offset
+        next if MAGIC.match?(out.byteslice(from, to - from))
+
+        start = from.zero? ? 0 : (out.rindex("\n", from - 1) || -1) + 1
+        if out.byteslice(start, from - start).strip.empty?
+          from = start
+          to += 1 if out.getbyte(to) == 10
+        else
+          from -= 1 while from > start && BLANKS.include?(out.getbyte(from - 1))
+        end
+        out = out.byteslice(0, from) + out.byteslice(to..)
+      end
+      out
+    end
+
+    # A space and a tab: the blanks before a comment after code.
+    BLANKS = [32, 9].freeze
+
+    MAGIC = /\A#\s*(?:-\*-.*)?(?:frozen_string_literal|encoding|coding|warn_indent|warn_past_scope|shareable_constant_value)\s*:/i
 
     # The key of what eval support reads: the eval digest and the bytes of
     # each file (`EvalSupport#files_key`). `bytes` has the ones that a build
