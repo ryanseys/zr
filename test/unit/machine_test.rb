@@ -76,6 +76,57 @@ class MachineTest < Minitest::Test
     assert_equal %w[exit write], called
   end
 
+  # A store of a Value into a cell runs the write barrier, unless the
+  # cell is an image in a slot of the frame: such an image has FL_STACK,
+  # so it is never old. A local that can also hold another address keeps
+  # the barrier. Here the barrier calls `abort`, so its calls are visible.
+  def test_a_stack_image_gets_no_write_barrier
+    source = <<~RUBY
+      module Zr::Kern
+        Libc.import :abort, [] => Void
+        RBasic = layout flags: Word, klass: Value
+        Cell = layout basic: RBasic, item: Value
+
+        sig [Value, Value] => Void
+        def zr_write_barrier(owner, value)
+          if owner == value
+            Libc.abort()
+          end
+        end
+        inline :zr_write_barrier
+
+        sig [Value, Value] => Void
+        def on_heap(cell, v)
+          Cell.set_item(cell, v)
+        end
+
+        sig [Value] => Void
+        def on_stack(v)
+          d = Machine.slot(Cell.size)
+          c = Machine.value(d)
+          Cell.set_item(c, v)
+        end
+
+        sig [Value, Value] => Void
+        def either(cell, v)
+          d = Machine.slot(Cell.size)
+          c = Machine.value(d)
+          if v == cell
+            c = cell
+          end
+          Cell.set_item(c, v)
+        end
+      end
+    RUBY
+    functions, = Zr::Machine.compile(source, "images.rb")
+    aborts = functions.to_h do |f|
+      calls = f.blocks.flat_map(&:insts).select { |i| i.op == :call }
+      [f.name, calls.count { |i| f.callees.find { |c| c.fn == i.callee }.symbol == "abort" }]
+    end
+
+    assert_equal({ "on_heap" => 1, "on_stack" => 0, "either" => 1 }, aborts.slice("on_heap", "on_stack", "either"))
+  end
+
   Dir[File.join(ROOT, "test/machine/refused/*.rb")].sort.each do |rb|
     define_method("test_refused_#{File.basename(rb, ".rb")}") do
       source = File.read(rb)

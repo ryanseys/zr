@@ -262,11 +262,54 @@ module Zr
           refuse(args[1], "#{layout.name}.#{fname} is a #{type}, not a #{vt}") unless ir_type(vt) == ir_type(type)
           region = cell?(layout) ? :heap : :malloc
           @f.store(value, ptr, off, region: region)
-          barrier(ptr, value) if type == "Value" && cell?(layout)
+          barrier(ptr, value) if type == "Value" && cell?(layout) && !stack_image?(args[0])
           [nil, "Void"]
         else
           [@f.fetch(ir_type(type), ptr, off, region: cell?(layout) ? :heap : :malloc), type]
         end
+      end
+
+      # Whether `node` reads a local that only ever holds the address of a
+      # slot of this frame (`stack_images`). A cell image there, such as
+      # the Proc that a define_method call builds, has FL_STACK, so it is
+      # never old and the write barrier would do nothing.
+      def stack_image?(node)
+        node.is_a?(Prism::LocalVariableReadNode) && stack_images(@d).include?(node.name)
+      end
+
+      # The locals of `d` whose every assignment is `Machine.slot(n)`, or
+      # `Machine.value(x)` or `Machine.ptr(x)` of another such local. A
+      # parameter, or a local with any other kind of write, is not one.
+      def stack_images(d)
+        (@stack_images ||= {}.compare_by_identity)[d] ||= begin
+          writes = Hash.new { |h, k| h[k] = [] }
+          other = Set.new(d.params.map { |name, _| name.to_sym })
+          walk = lambda do |n|
+            case n
+            when Prism::LocalVariableWriteNode then writes[n.name] << n.value
+            when Prism::LocalVariableTargetNode, Prism::LocalVariableOperatorWriteNode,
+                 Prism::LocalVariableOrWriteNode, Prism::LocalVariableAndWriteNode then other << n.name
+            end
+            n.compact_child_nodes.each(&walk)
+          end
+          walk.call(d.node.body) if d.node.body
+          names = Set.new(writes.keys) - other
+          loop do
+            kept = names.select { |name| writes[name].all? { |v| slot_address?(v, names) } }.to_set
+            break names if kept == names
+
+            names = kept
+          end
+        end
+      end
+
+      def slot_address?(node, names)
+        return false unless node.is_a?(Prism::CallNode) && node.receiver.is_a?(Prism::ConstantReadNode) && node.receiver.name == :Machine
+        return true if node.name == :slot
+
+        args = node.arguments&.arguments || []
+        %i[value ptr].include?(node.name) && args.size == 1 && args[0].is_a?(Prism::LocalVariableReadNode) &&
+          names.include?(args[0].name)
       end
 
       # Whether a store into a field of `layout` is a store into a cell.
