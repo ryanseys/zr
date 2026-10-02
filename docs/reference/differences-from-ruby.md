@@ -50,7 +50,8 @@ eval, to_binary and each_child as ruby does" tests the parts of
 | A default or bundled gem that is also installed at another version | the version that ruby 4.0.7 ships, from `vendor/ruby` | the newest installed version |
 | `RUBY_PLATFORM` and `RbConfig::CONFIG["arch"]` | the platform of the target that zr built the binary for: `arm64-darwin23` (the Darwin version of macOS 14, the oldest macOS that the binary loads on), `aarch64-linux-musl` or `wasm32-wasi` | the platform that ruby was built for, so `arm64-darwin24` for a ruby built on macOS 15 |
 | `OpenSSL::OPENSSL_LIBRARY_VERSION` | the OpenSSL library that zr runs on. `OPENSSL_VERSION` is ruby's. | the library that ruby's openssl was built against |
-| The core library's own helpers (for example `Packing`) | hidden from `constants`, `ObjectSpace` and the other reflection, but a program that names one (`Packing`, or `const_get`) finds it | not there |
+| The core library's own helpers (for example `Packing`, or a private constant such as `Array`'s `SMALL_ARRAY_LEN`) | hidden from the program: a read, `defined?`, `const_get` and the reflection do not find them, and a program's constant of the same name is its own | not there |
+| How deep Ruby code recurses before `SystemStackError` | about 250,000 frames of a plain method on the main thread, as Ruby frames are native frames on a stack that the system grows as it is used; a thread or a fiber has a 64 MiB stack (`FIBER_STACK_BYTES`, lib/zr/runtime/kernel/fiber.rb) | about 10,000, from a 1 MiB VM stack. The error, its message and the backtrace's form are the same; the `... N levels...` count in an uncaught error's report differs with the depth. |
 
 ## Library versions
 
