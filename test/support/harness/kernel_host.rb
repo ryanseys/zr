@@ -12,10 +12,10 @@ module Zr
       # The imports of the portable kernel, which any of its files can call.
       IMPORTS = File.join(Paths::RUNTIME, "kernel/imports.rb")
 
-      # `patterns` are globs under lib/zr/runtime/kernel. `constants` sets the
+      # `patterns` are globs under lib/zr/runtime/kernel, or absolute paths. `constants` sets the
       # constants that the files read from a kernel file outside them.
       def initialize(*patterns, constants: {})
-        files = patterns.flat_map { |pattern| Dir[File.join(Paths::RUNTIME, "kernel", pattern)].sort }
+        files = patterns.flat_map { |pattern| Dir[File.expand_path(pattern, File.join(Paths::RUNTIME, "kernel"))].sort }
         raise ArgumentError, "no kernel file matches #{patterns.inspect}" if files.empty?
 
         @host = Machine::Host.new([IMPORTS, *files].uniq, constants: constants)
