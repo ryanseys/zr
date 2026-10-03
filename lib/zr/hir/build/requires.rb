@@ -39,6 +39,9 @@ module Zr
       # (`Kernel.builtin_extension`).
       ENCODINGS = %r{\Aenc/}
 
+      # prism and its files, which zr's own ports require.
+      INTERNAL_PRISM = %r{\Aprism(?:/|\z)}
+
       # The ruby features that no library root here contains, and that
       # ruby did not load before the program. A require of one stops with
       # a message.
@@ -92,6 +95,14 @@ module Zr
         unless path
           gate!(node, feature)
           return plain_call(node, compiles: false)
+        end
+
+        # zr's own ports use prism where ruby's C uses parse.y (ripper.so,
+        # RubyVM::AbstractSyntaxTree). ruby loads no Prism for them, so
+        # prism loads hidden, as eval support's does, until the program
+        # requires it itself.
+        if node.name == :require && feature.match?(INTERNAL_PRISM) && Library::Roots.runtime_file?(@file)
+          return Require.new(:hidden, feature, path, @loader.hidden(path), line)
         end
 
         # A file that the program's own file reaches by its path is the
