@@ -28,7 +28,6 @@ Each row gives the spec that tests the behavior, where there is one.
 | `#each_child` and `#trace_points` of the iseq of a running block or method (`RubyVM::InstructionSequence.of`) | `NotImplementedError`: the binary does not keep the source of a block. The children of a compiled string answer both. | the child iseqs, and the events |
 | `Coverage.setup(eval: true)`, then an eval while coverage runs | `NotImplementedError` at the eval: the string is not a file that the build read, so zr cannot measure its lines. A program that asks for eval coverage and never evals gets ruby's result. | the lines of the eval in the result |
 | The message of a `SyntaxError` from `RubyVM::AbstractSyntaxTree.parse` | prism's message: zr parses only with prism | the message of ruby's older parser, parse.y |
-| `GC::Profiler.raw_data` and `GC::Profiler.result` | an empty list and an empty report: the collector keeps no data for each run | data for each run |
 | A method that the program reaches only through a name that it builds at run time, such as `send("ev" + "al", ...)` | `NotImplementedError` when the method needs a part of the runtime that the program did not ask for (the compiler, the normalization tables, pp.rb) | the method's result |
 
 The spec `core/rubyvm/rubyvm_test.rb` "an InstructionSequence answers
@@ -41,6 +40,7 @@ eval, to_binary and each_child as ruby does" tests the parts of
 |---|---|---|
 | The order of `instance_methods`, `methods`, `constants`, `global_variables` and the other lists of names | the order of definition | the order of CRuby's id tables, which comes from the symbols that the boot interned and changes with the installed gems. `core/object/search_test.rb` sorts the lists that it compares. |
 | `ObjectSpace.dump` of an object on the heap | the address, the type, the class, `frozen`, the value, the size and `memsize` | also `shape_id`, `slot_size`, `embedded`, `chilled`, `coderange` and `flags`, which describe CRuby's heap |
+| `GC.compact` and `GC.latest_compact_info` | the live objects by type under `considered`, and empty `moved`, `moved_up` and `moved_down`: this collector never moves an object | the objects that the compaction moved, by type |
 | `Ripper` on source that does not parse | prism's recovery, translated to Ripper's events | the events of parse.y's own error recovery |
 | `$LOADED_FEATURES` after a `require` of a library that ruby ships as a C extension | the files of zr's Ruby port, such as `lib/zr/runtime/ext/etc.rb` and its table of names | one `.bundle` or `.so` file |
 | `source_location` and `Method#inspect` of a method that a ported library defines in Ruby, such as `RbConfig.expand` | nil, and no file in `inspect` | the library's file in ruby's own directory and the line |

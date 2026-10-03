@@ -95,37 +95,65 @@ module GC
     raise ArgumentError, "unknown key: #{hash_or_key}"
   end
 
-  # The switch that a program reads before it requests a report. The
-  # collector keeps no per-run records, so the report is empty.
+  # One record per collection while the profiler is enabled, as CRuby's
+  # gc_profile_record: the collector appends the numbers
+  # (`zr_gc_profile_push`), and the rows here are built from them. The
+  # records stay through a disable, and only `clear` drops them.
   module Profiler
     @enabled = false
 
     class << self
       def enable
         @enabled = true
-        nil
+        Primitive.zr_gc_profile_set(true)
       end
 
       def disable
         @enabled = false
-        nil
+        Primitive.zr_gc_profile_set(false)
       end
 
       def enabled? = @enabled
 
-      def clear = nil
+      def clear = Primitive.zr_gc_profile_clear
 
-      def total_time = 0.0
+      def total_time = rows.sum(0.0) { |row| row[:GC_TIME] }
 
-      def result = +""
+      def raw_data = (rows if @enabled)
 
-      # The rows of each run since the profiler was enabled: this
-      # collector keeps none, so the list is empty.
-      def raw_data = @enabled ? [] : nil
+      def result
+        records = rows
+        return +"" if records.empty?
+
+        out = +"GC #{GC.count} invokes.\n"
+        out << "Index    Invoke Time(sec)       Use Size(byte)     Total Size(byte)         Total Object                    GC Time(ms)\n"
+        records.each.with_index(1) do |row, i|
+          out << format("%5d %19.3f %20d %20d %20d %30.20f\n", i, row[:GC_INVOKE_TIME], row[:HEAP_USE_SIZE],
+                        row[:HEAP_TOTAL_SIZE], row[:HEAP_TOTAL_OBJECTS], row[:GC_TIME] * 1000)
+        end
+        out
+      end
 
       def report(out = $stdout)
         out.write(result)
         nil
+      end
+
+      private
+
+      # A collection's flags as CRuby gives them: GC.start (or stress)
+      # asked for it and swept at once; the collector started any other one
+      # for an allocation.
+      def rows
+        Primitive.zr_gc_profile_rows.map do |row|
+          started, took, live, total, slots, flags = row
+          asked = flags.anybits?(2)
+          major_by = (asked ? :force : :oldgen) if flags.anybits?(1)
+          { GC_FLAGS: { major_by: major_by, gc_by: asked ? :method : :newobj, have_finalizer: false, immediate_sweep: asked,
+                        weak_references_count: 0, retained_weak_references_count: 0 },
+            GC_TIME: took / 1e9, GC_INVOKE_TIME: (started - STARTED) / 1e9, HEAP_USE_SIZE: live, HEAP_TOTAL_SIZE: total,
+            HEAP_TOTAL_OBJECTS: slots, MOVED_OBJECTS: 0, GC_IS_MARKED: true }
+        end
       end
     end
   end
@@ -140,10 +168,17 @@ module GC
     HEAP_PAGE_BITMAP_SIZE: 16_384, HEAP_PAGE_SIZE: 4_194_304, HEAP_COUNT: 5, RVARGC_MAX_ALLOCATE_SIZE: 256, RVALUE_OLD_AGE: 3
   }.freeze
 
-  # Nothing moves here, so a compaction considers no object at all.
-  def self.compact = latest_compact_info
+  # Nothing moves here: a compaction considers each live object by its
+  # type, as CRuby's does, and moves none of them.
+  def self.compact
+    considered = ObjectSpace.count_objects.reject { |type, count| type == :TOTAL || type == :FREE || count.zero? }
+    COMPACTED[0] = { considered: considered, moved: {}, moved_up: {}, moved_down: {} }
+  end
 
-  def self.latest_compact_info = { considered: {}, moved: {}, moved_up: {}, moved_down: {} }
+  COMPACTED = [{ considered: {}, moved: {}, moved_up: {}, moved_down: {} }]
+  private_constant :COMPACTED
+
+  def self.latest_compact_info = COMPACTED[0]
 
   def self.verify_compaction_references(toward: nil, double_heap: false, expand_heap: false) = compact
 
@@ -280,4 +315,11 @@ module Process
     end
   end
   private_class_method :in_unit
+end
+
+module GC::Profiler
+  # The monotonic clock as the program started, which GC_INVOKE_TIME
+  # counts from. It comes after Process above, whose clock it reads.
+  STARTED = Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond)
+  private_constant :STARTED
 end

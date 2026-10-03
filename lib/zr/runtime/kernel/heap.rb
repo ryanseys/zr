@@ -110,6 +110,20 @@ module Zr::Kern
     attr_accessor :reclaimed #: word
   end
 
+  # The rows that GC::Profiler reads: while `on`, each collection appends
+  # PROFILE_ROW words to the malloc'd `rows` (`zr_gc_profile_push`).
+  class GcProfile < Layout
+    attr_accessor :on #: word
+    attr_accessor :rows #: ptr
+    attr_accessor :count #: word
+    attr_accessor :capacity #: word
+  end
+
+  # A profile row's words: the monotonic start in nanoseconds, the
+  # nanoseconds it took, the live bytes and all bytes after it, the cells
+  # of all arenas, and flags (1: major, 2: GC.start or stress asked).
+  PROFILE_ROW = 6
+
   # The payload increase that a collection permits before the next
   # collection starts for that reason, and the limits on that increase.
   # CRuby keeps the same counter between GC_MALLOC_LIMIT_MIN and
@@ -1348,7 +1362,7 @@ module Zr::Kern
     started = zr_fix2long(zr_clock_ns(zr_fix(CLOCK_MONOTONIC)))
     was = Heap[h].live
     why = 0
-    if Heap[h].trace != 0
+    if Heap[h].trace != 0 || GcProfile[zr_gc_profile()].on != 0
       why = zr_gc_why(wanting)
     end
     Heap[h].collections = Heap[h].collections + 1
@@ -1396,6 +1410,82 @@ module Zr::Kern
     if Heap[h].trace != 0
       zr_gc_trace(why, major, was, marked - started, swept - marked)
     end
+    if GcProfile[zr_gc_profile()].on != 0
+      zr_gc_profile_push(started, swept - started, (major ? 1 : 0) | ((why & 16) != 0 ? 2 : 0))
+    end
+  end
+
+  #: () -> ptr
+  def zr_gc_profile
+    Machine.static(:gc_profile, GcProfile.size)
+  end
+
+  # Appends one row for the collection that just ended. The buffer is C
+  # memory, so a collection can grow it.
+  #: (word, word, word) -> void
+  def zr_gc_profile_push(started, took, flags)
+    pr = zr_gc_profile()
+    if GcProfile[pr].count == GcProfile[pr].capacity
+      cap = GcProfile[pr].capacity == 0 ? 64 : GcProfile[pr].capacity * 2
+      rows = Machine.ptr(Libc.malloc(cap * PROFILE_ROW * 8))
+      if rows == 0
+        return
+      end
+      if GcProfile[pr].rows != 0
+        zr_memcpy(rows, GcProfile[pr].rows, GcProfile[pr].count * PROFILE_ROW * 8)
+        Libc.free(GcProfile[pr].rows)
+      end
+      GcProfile[pr].rows = rows
+      GcProfile[pr].capacity = cap
+    end
+    slots = 0
+    c = 0
+    while c < SIZE_CLASSES
+      slots += SizeClass[zr_size_class(c)].arenas * ARENA_CELLS
+      c += 1
+    end
+    row = GcProfile[pr].rows + (GcProfile[pr].count * PROFILE_ROW * 8)
+    Machine.store64(row, 0, started)
+    Machine.store64(row, 8, took)
+    Machine.store64(row, 16, Heap[zr_heap()].live)
+    Machine.store64(row, 24, zr_heap_bytes())
+    Machine.store64(row, 32, slots)
+    Machine.store64(row, 40, flags)
+    GcProfile[pr].count = GcProfile[pr].count + 1
+  end
+
+  # GC::Profiler's switch: true starts the rows, false stops them.
+  #: (value) -> value
+  def zr_gc_profile_set(flag)
+    GcProfile[zr_gc_profile()].on = flag == QTRUE ? 1 : 0
+    QNIL
+  end
+
+  #: () -> value
+  def zr_gc_profile_clear
+    GcProfile[zr_gc_profile()].count = 0
+    QNIL
+  end
+
+  # The rows so far, each an Array of PROFILE_ROW Integers.
+  #: () -> value
+  def zr_gc_profile_rows
+    pr = zr_gc_profile()
+    n = GcProfile[pr].count
+    out = zr_ary_new(n)
+    i = 0
+    while i < n
+      row = GcProfile[pr].rows + (i * PROFILE_ROW * 8)
+      fields = zr_ary_new(PROFILE_ROW)
+      zr_ary_push(out, fields)
+      j = 0
+      while j < PROFILE_ROW
+        zr_ary_push(fields, zr_fix(Machine.load64(row + (j * 8), 0)))
+        j += 1
+      end
+      i += 1
+    end
+    out
   end
 
   # The reasons a collection is about to run, as bits: the payload is over

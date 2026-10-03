@@ -21,7 +21,9 @@ class TracePoint
     line: "line", class: "class", end: "end", call: "call", return: "return",
     c_call: "c-call", c_return: "c-return", raise: "raise"
   }.freeze
-  private_constant :EVENTS, :NAMES, :ALL, :C_EVENTS, :HOOK_NAMES
+  # The RubyVM object that `stat` keys its counts by, made at the first call.
+  VM = [nil]
+  private_constant :EVENTS, :NAMES, :ALL, :C_EVENTS, :HOOK_NAMES, :VM
 
   Primitive.zr_undef_alloc(self)
 
@@ -41,7 +43,12 @@ class TracePoint
 
     def trace(*events, &block) = new(*events, &block).tap(&:enable)
 
-    def stat = {}
+    # The enabled TracePoints of the one VM, by CRuby's key: its RubyVM
+    # object, with the count of hooks and of deleted hooks.
+    def stat
+      VM[0] ||= Primitive.zr_class_build(RubyVM)
+      { VM[0] => [enabled.size, 0] }
+    end
 
     def allow_reentry
       row = current_row
