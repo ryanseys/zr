@@ -1594,21 +1594,11 @@ module Zr::Kern
   #: (ptr) -> ptr
   def zr_meta_at(rec)
     from = Frame[rec].meta
-    meta = zr_xmalloc(FrameMeta.size)
+    meta = zr_meta_new()
     FrameMeta[meta].file = FrameMeta[from].file
     FrameMeta[meta].file_len = FrameMeta[from].file_len
-    FrameMeta[meta].kind = KIND_BUILTIN
     FrameMeta[meta].line = zr_frame_line(rec)
-    FrameMeta[meta].parent = 0
-    FrameMeta[meta].arity = 0
-    FrameMeta[meta].params = 0
-    FrameMeta[meta].fn = 0
-    FrameMeta[meta].locals = 0
-    FrameMeta[meta].env = 0
-    FrameMeta[meta].box = Machine.value(QNIL)
-    FrameMeta[meta].ruby = 0
     FrameMeta[meta].node = zr_frame_node_id(rec)
-    FrameMeta[meta].cover = 0
     meta
   end
 

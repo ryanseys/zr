@@ -136,16 +136,6 @@ module Zr
             read.call(@at)
           end
         end
-
-        # Defines the writer `name=`, which gives `write` the view's
-        # address and the value.
-        #: (Symbol name, ^(Integer at, untyped value) -> void write) -> void
-        def self.writer(name, write)
-          define_method(:"#{name}=") do |value|
-            # @type self: View
-            write.call(@at, value)
-          end
-        end
       end
 
       # `Libc`: a kernel file opens it and declares a C function as
@@ -489,24 +479,19 @@ module Zr
         names.each do |name|
           at, type_name = layout.fields.fetch(name.to_s) { raise ArgumentError, "#{layout.name} has no field #{name}" }
           if @unit.struct_for(type_name)
-            klass.reader(name, ->(p) { kern.const_get(type_name, false).new(p + at) })
+            klass.reader(name, ->(p) { kern.const_get(type_name, false)[p + at] })
             next
           end
 
           type = TYPES.fetch(type_name)
-          load = Memory.reader(type, at)
-          klass.reader(name, type_name == "Value" ? ->(p) { host.pin(load.call(p)) } : load)
+          value = type_name == "Value"
+          # RBS types a method body as a proc of `self: top`, and these are
+          # bodies of a View (`Memory.field_reader`).
+          klass.define_method(name, Memory.field_reader(type, at, pin: value ? host : nil)) # steep:ignore ArgumentTypeMismatch
           next unless writer
 
-          store = Memory.writer(type, at)
-          if cell && type_name == "Value"
-            klass.writer(name, lambda do |p, value|
-              store.call(p, value)
-              host.barrier(p, value)
-            end)
-          else
-            klass.writer(name, store)
-          end
+          barrier = cell && value ? host : nil
+          klass.define_method(:"#{name}=", Memory.field_writer(type, at, barrier: barrier)) # steep:ignore ArgumentTypeMismatch
         end
       end
 

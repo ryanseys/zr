@@ -347,86 +347,26 @@ module Zr
         end
       end
 
-      # A core def starts with its `Primitive.attr!` attributes. `:hidden`
-      # marks a helper that has no CRuby method; it has no backtrace
-      # entry. `:ruby` marks a method that CRuby writes in Ruby; it returns
-      # its own parameters as CRuby's does. `:frameless` marks a method
-      # that ruby runs as an instruction: it is listed as any method is,
-      # and has no backtrace entry.
+      # A core def starts with its `Primitive.attr!` attributes
+      # (`Hir::CoreDef.attributes`).
       #: () -> Array[Symbol]
       def attributes
         return [] unless @l.internal? && @kind == :def
 
-        @attributes ||= begin
-          # For a def with a `rescue` or `ensure`, read its protected body.
-          body = @body
-          body = body.body if body.is_a?(Hir::Begin)
-          stmts = body.is_a?(Hir::Seq) ? body.stmts : [body]
-          names = [] #: Array[Symbol]
-          stmts.each { |stmt| names << (attribute_of(stmt) or break) }
-          names
-        end
+        @attributes ||= Hir::CoreDef.attributes(@body)
       end
       protected :attributes
-
-      # The name in an attribute row, `Primitive.attr! :name`, or nil.
-      #: (Hir::node? node) -> Symbol?
-      def attribute_of(node)
-        return unless node.is_a?(Hir::Send) && node.name == :attr!
-
-        recv = node.recv
-        arg = node.args.first
-        return unless recv.is_a?(Hir::ConstRead) && recv.name == :Primitive && arg.is_a?(Hir::Literal)
-
-        name = arg.value
-        name if name.is_a?(Symbol)
-      end
 
       #: () -> bool
       def hidden_def? = attributes.include?(:hidden)
 
-      # A core def that matches for its own work keeps its matches in its
-      # own `$~`, so the program's `$~` is left alone, as a C function's
-      # matches leave it: one marked `Primitive.attr! :own_backref`, or one
-      # with a regexp literal that neither sets nor reads the caller's `$~`
-      # or `$_` itself (those are the methods that ruby defines to set them).
-      # An extension's def also owns them when it matches by a call (Date's
-      # parsers match with Regexps that constants hold).
+      # Whether this core def keeps its matches in its own `$~`
+      # (`Hir::CoreDef.owns_backref?`).
       #: () -> bool
       def owns_backref?
         return false unless @l.internal? && @kind == :def
-        return true if attributes.include?(:own_backref)
 
-        matches?(@body) == :own
-      end
-
-      BACKREF_PRIMITIVES = %i[zr_backref_set zr_backref_get zr_lastline_set zr_lastline_get].freeze #: Array[Symbol]
-      MATCH_SENDS = %i[match =~ !~ scan sub gsub sub! gsub! partition rpartition].freeze #: Array[Symbol]
-
-      # :own when `node` matches for its own work (a regexp literal, or in an
-      # extension a matching call), :caller when it sets or reads the
-      # caller's `$~` or `$_`, else nil. :caller wins.
-      #: (Hir::node | Array[untyped] | nil node) -> Symbol?
-      def matches?(node)
-        found = nil
-        case node
-        when Hir::RegexpLit then found = :own
-        when Hir::BackRef then return :caller
-        when Hir::GvarRead then return :caller if %i[$~ $_].include?(node.name)
-        when Hir::Send
-          return :caller if node.recv.is_a?(Hir::ConstRead) && node.recv.name == :Primitive && BACKREF_PRIMITIVES.include?(node.name)
-
-          found = :own if @l.extension? && MATCH_SENDS.include?(node.name)
-        end
-        Hir.each_child(node) do |child|
-          next unless Hir.node?(child) || child.is_a?(Array)
-
-          inner = matches?(child)
-          return :caller if inner == :caller
-
-          found ||= inner
-        end
-        found
+        Hir::CoreDef.owns_backref?(@body, extension: @l.extension?)
       end
 
       # The stored name of the instance variable `name`. The ivars of the

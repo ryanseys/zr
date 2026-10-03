@@ -111,8 +111,11 @@ module Zr
           # @rbs open: bool
           # @rbs ruby: bool
           # @rbs cover: Integer?
+          # @rbs owns_backref: bool
+          # @rbs frameless: bool
           # @rbs return: Integer
-          def meta(node, unit, kind, name: 0, parent: 0, params: nil, locals: [], fn: 0, open: true, ruby: false, cover: nil)
+          def meta(node, unit, kind, name: 0, parent: 0, params: nil, locals: [], fn: 0, open: true, ruby: false, cover: nil,
+                   owns_backref: false, frameless: false)
             @metas[node] ||= begin
               m = k::FrameMeta
               addr = Memory.zeroed(m.size, 8)
@@ -133,6 +136,8 @@ module Zr
               row.hidden = unit.hidden ? 1 : 0
               row.ruby = ruby ? 1 : 0
               row.cover = cover ? cover + 1 : 0
+              row.owns_backref = owns_backref ? 1 : 0
+              row.frameless = frameless ? 1 : 0
               row.box = m[unit.root].box if unit.root
               addr
             end

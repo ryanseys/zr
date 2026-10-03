@@ -1249,6 +1249,18 @@ module Zr::Kern
     zr_define_method_as(klass, mid, fn, arity, kind, meta, cref, zr_definition_vis(mid, Machine.value(QNIL)))
   end
 
+  # A FrameMeta of a builtin, with every field 0 but its kind and an
+  # empty box. A malloc'd block holds what it held before, and a field
+  # left as it was can hide the frame (`hidden`, `frameless`).
+  #: () -> ptr
+  def zr_meta_new
+    meta = zr_xmalloc(FrameMeta.size)
+    Libc.memset(meta, Machine.i32(0), FrameMeta.size)
+    FrameMeta[meta].kind = KIND_BUILTIN
+    FrameMeta[meta].box = Machine.value(QNIL)
+    meta
+  end
+
   #: (value, word, ptr, word, word, ptr, value, word) -> value
   def zr_define_method_as(klass, mid, fn, arity, kind, meta, cref, vis)
     # Under `1.instance_eval`, no singleton class can take the method.
@@ -1263,19 +1275,8 @@ module Zr::Kern
     end
     klass = zr_origin(klass)
     if meta == 0
-      meta = zr_xmalloc(FrameMeta.size)
-      FrameMeta[meta].file = 0
-      FrameMeta[meta].file_len = 0
-      FrameMeta[meta].kind = KIND_BUILTIN
-      FrameMeta[meta].line = 0
-      FrameMeta[meta].parent = 0
+      meta = zr_meta_new()
       FrameMeta[meta].arity = arity
-      FrameMeta[meta].params = 0
-      FrameMeta[meta].fn = 0
-      FrameMeta[meta].box = Machine.value(QNIL)
-      FrameMeta[meta].ruby = 0
-      FrameMeta[meta].node = 0
-      FrameMeta[meta].cover = 0
     elsif Machine.word(FrameMeta[meta].owner) != 0 && FrameMeta[meta].owner != klass
       # The same def run under a different class (a class body in a block
       # that runs two times) gets its own meta, so each keeps its owner.

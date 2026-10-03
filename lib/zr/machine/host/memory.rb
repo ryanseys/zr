@@ -249,6 +249,75 @@ module Zr
           end
         end
 
+        # rubocop:disable ThreadSafety/ClassInstanceVariable -- `@at` in
+        # these procs is the view's: each is a method body of a View.
+
+        # `reader` for a field of a view (`Host::View`): the body of the
+        # field's method, which reads the view's `@at` itself. Thus a field
+        # read is one call, the host's most frequent. `pin` pins a Value
+        # (`Host#pin`).
+        #: (Type type, Integer offset, ?pin: Host?) -> Proc
+        def field_reader(type, offset, pin: nil)
+          raise ArgumentError, "no load of a Void" if type.size.zero?
+
+          buffer = BUFFER
+          limit = LIMIT
+          delta = offset - BASE
+          kind = type.loads #: IO::Buffer::int_get_type
+          size = type.size
+          format = type.packing #: String
+          if type.name == "Bool"
+            proc do
+              # @type self: View
+              (off = @at + delta) >= 0 && off < limit ? buffer.get_value(:U8, off) != 0 : P.read(@at + offset, 1).getbyte(0) != 0
+            end
+          elsif pin
+            proc do
+              # @type self: View
+              pin.pin((off = @at + delta) >= 0 && off < limit ? buffer.get_value(kind, off) : P.read(@at + offset, size).unpack1(format))
+            end
+          else
+            proc do
+              # @type self: View
+              (off = @at + delta) >= 0 && off < limit ? buffer.get_value(kind, off) : P.read(@at + offset, size).unpack1(format)
+            end
+          end
+        end
+
+        # `writer` for a field of a view, as `field_reader` is `reader`.
+        # `barrier` runs the write barrier of the cell (`Host#barrier`).
+        #: (Type type, Integer offset, ?barrier: Host?) -> Proc
+        def field_writer(type, offset, barrier: nil)
+          if %w[Bool I8 I32].include?(type.name)
+            store = writer(type, offset)
+            return proc do |value|
+              # @type self: View
+              store.call(@at, value)
+            end
+          end
+
+          buffer = BUFFER
+          limit = LIMIT
+          delta = offset - BASE
+          kind = type.stores #: IO::Buffer::int_get_type | IO::Buffer::float_get_type
+          format = type.packing #: String
+          if barrier
+            proc do |value|
+              # @type self: View
+              at = @at
+              (off = at + delta) >= 0 && off < limit ? buffer.set_value(kind, off, value) : P.write(at + offset, [value].pack(format))
+              barrier.barrier(at, value)
+            end
+          else
+            proc do |value|
+              # @type self: View
+              (off = @at + delta) >= 0 && off < limit ? buffer.set_value(kind, off, value) : P.write(@at + offset, [value].pack(format))
+            end
+          end
+        end
+
+        # rubocop:enable ThreadSafety/ClassInstanceVariable
+
         # `size` zeroed bytes that stay until the process ends.
         #: (Integer size, ?Integer align) -> Integer
         def zeroed(size, align = 16)

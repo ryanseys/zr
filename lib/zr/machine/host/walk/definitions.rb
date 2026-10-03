@@ -63,8 +63,13 @@ module Zr
                      else k::KIND_DEF
                      end
               open = open?(node, :def, unit, node.params)
+              core = unit.internal ? attributes(node) : [] #: Array[Symbol]
+              # As the lowering's meta (`Lower::Function#enter`): an
+              # extension is an internal unit that is not the core.
+              owns = unit.internal && Hir::CoreDef.owns_backref?(node.body, extension: !unit.core)
               m = meta(node, unit, kind, name: node.name, params: node.params, locals: node.locals, open: open,
-                                         ruby: unit.internal && attributes(node).include?(:ruby), cover: node.cover)
+                                         ruby: core.include?(:ruby), cover: node.cover, owns_backref: owns,
+                                         frameless: core.include?(:frameless))
               s = scope(node, unit, :def, m, scopes: [node.locals], homes: [node], def_node: node, params: node.params, open: open)
               # The body compiles at its first run.
               run = nil #: untyped
@@ -95,15 +100,9 @@ module Zr
             end
           end
 
-          # The leading `Primitive.attr!(:name)` statements of a def.
-          def attributes(node)
-            @attributes[node] ||= begin
-              body = node.body.is_a?(Hir::Begin) ? node.body.body : node.body
-              stmts = body.is_a?(Hir::Seq) ? body.stmts : [body]
-              stmts.take_while { |s| s.is_a?(Hir::Send) && s.name == :attr! && s.recv.is_a?(Hir::ConstRead) && s.recv.name == :Primitive }
-                   .flat_map { |s| s.args.map(&:value) }
-            end
-          end
+          # The leading `Primitive.attr!(:name)` statements of a def
+          # (`Hir::CoreDef.attributes`).
+          def attributes(node) = @attributes[node] ||= Hir::CoreDef.attributes(node.body)
 
           def class_body(node, s)
             scope = scope_class(node.scope, s)
