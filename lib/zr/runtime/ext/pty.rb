@@ -55,8 +55,8 @@ module PTY
       Primitive.zr_io_close(master)
       raise SystemCallError.new("open: pty slave", -slave)
     end
+    # tty_spawn closes the slave in this process (zr_spawn_forked).
     pid = Process.send(:tty_spawn, command, master, slave)
-    Primitive.zr_io_close(slave)
     if pid.negative?
       Primitive.zr_io_close(master)
       raise SystemCallError.new("fork failed", -pid)

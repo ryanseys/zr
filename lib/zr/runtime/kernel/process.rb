@@ -197,6 +197,13 @@ module Zr::Kern
     end
     failure = zr_errno()
     Libc.close(writer)
+    # The parent closes a pty's slave now, as pty.c's establishShell does
+    # after its fork, not after the child's exec: on darwin a slave that
+    # this process still holds when the child exits loses what the child
+    # wrote.
+    if RArray[options].len > 6
+      Libc.close(Machine.i32(zr_fix2long(zr_ary_at(zr_ary_at(options, 6), 1))))
+    end
     zr_xfree(argv)
     if env != QNIL
       zr_xfree(envp)

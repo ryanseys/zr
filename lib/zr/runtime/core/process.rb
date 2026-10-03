@@ -644,7 +644,7 @@ module Process
 
   # pty.c's establishShell: the command, or a login shell, on the far
   # end of a pty pair. The pid, or the negated errno the child could not
-  # start with.
+  # start with. It closes `slave` in this process, as establishShell does.
   def self.tty_spawn(args, master, slave)
     Primitive.attr! :hidden
     options = args.size > 1 && args.last.is_a?(Hash) ? args.pop : {}
@@ -654,6 +654,7 @@ module Process
     redirects = Redirects.new(options)
     path = executable(words.first)
     pid = path ? Primitive.zr_spawn_forked(path, words, environment(env, options), redirects.to_a << [master, slave]) : -Errno::ENOENT::Errno
+    Primitive.zr_io_close(slave) unless path
     redirects.opened.each(&:close)
     pid
   end

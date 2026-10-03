@@ -291,9 +291,12 @@ module Zr::Kern
     end
     blk = zr_block_proc(RProc[b].blk)
     env = zr_env_escape(RProc[b].env)
-    # The block of the each adapter is its self (zr_enum_each), kept with it.
+    # An adapter keeps a block as its self: the each adapter its block
+    # (zr_enum_each), and the values adapter its inner block
+    # (zr_enum_each_values). The block can be a stack image, so it goes to
+    # the heap with the adapter.
     self_ = RProc[b].self
-    if RProc[b].fn == Machine.addr(:zr_enum_each_block)
+    if RProc[b].fn == Machine.addr(:zr_enum_each_block) || RProc[b].fn == Machine.addr(:zr_enum_values_block)
       self_ = zr_block_proc(self_)
     end
     p = zr_alloc(T_PROC, zr_global(G_PROC), RProc.size)
