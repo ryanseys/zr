@@ -39,7 +39,7 @@ module Zr
           names = names.map { |rel| rel.sub(/\.(rb|bundle|so)\z/, "") }
           arch = File.basename(RbConfig::CONFIG["rubyarchdir"])
           names = names.grep_v(%r{\A#{Regexp.escape(arch)}/})
-          names.concat(%w[complex enumerator ractor rational thread])
+          names.concat(%w[complex enumerator rational thread])
           names = names.uniq.sort
 
           io.puts <<~HEAD

@@ -35,13 +35,11 @@ Gemfile.lock, and a gem with a C extension needs a port (see
 
 ### `aarch64-apple-darwin`, `aarch64-linux-musl`, `wasm32-wasi`
 
-- `date_core`
 - `mkmf`, which writes a C extension's Makefile: zr compiles no C
 - `portable_ruby_gems`
 - `prism/ffi`, the FFI half of prism: this runtime's prism is a Ruby port of the C
 - `prism/lex_ripper`
-- `ractor`
-- 61 encoding libraries under `enc/`: ruby loads them itself, and zr's runtime has every encoding built in
+- 59 encoding libraries under `enc/`: ruby loads them itself, and zr's runtime has every encoding built in
 
 ## Tests that a target may fail
 
@@ -58,6 +56,19 @@ baseline that passes fails the run, so these lists are current.
 ### aarch64-linux-musl
 
 None.
+
+### host
+
+| Test | Why |
+|---|---|
+| `stdlib/ffi/ffi/toplevel_runs_on_the_process_main_thread.rb` | the program runs on a ruby thread with a big stack, not on the process main thread, whose stack the OS sizes |
+| `stdlib/digest/digest/big5_and_euc_jp_encode_exactly.rb` | too slow for the walker: encoding every code point to U+2FFFF twice runs past the 120 s host limit |
+| `stdlib/json/json/a_document_handed_straight_to_parse_stays_rooted_for_the_who.rb` | too slow for the walker: parsing an 80,000-record document (sized so the parse collects) runs past the 120 s host limit |
+| `stdlib/json/json/tens_of_thousands_of_generated_documents_each_answer_or_rais.rb` | too slow for the walker: parsing tens of thousands of generated documents runs past the 120 s host limit |
+| `stdlib/zlib/zlib/deflate_flush_modes_and_chunks.rb` | too slow for the walker: deflating 100 KB in one-byte chunks (100,000 deflate calls) runs past the 120 s host limit |
+| `compiler/builtins/builtins/marshal_private_surfaces.rb` | too slow for the walker: Random's Mersenne Twister state is Integer work that the walker does in bignum kernel code, about 115 s alone, and past the 120 s host limit under a test run's load |
+| `core/regexp/encoding/every_string_method_taking_a_pattern_reads_wide_and_legacy_t.rb` | too slow for the walker: Onigmo's matcher runs as kernel Ruby over every String method and encoding, about 125 s alone, past the 120 s host limit |
+| `core/regexp/encoding/a_pattern_over_chinese_or_korean_text_reads_whole_characters.rb` | too slow for the walker: Onigmo's matcher runs as kernel Ruby over large multibyte texts, about 122 s alone, past the 120 s host limit |
 
 ### wasm32-wasi
 

@@ -22,7 +22,7 @@ class UnsupportedLibrariesTest < Minitest::Test
   end
 
   def test_a_name_with_no_reason_stops_with_the_name
-    assert_equal %(require of "ractor"), stop(%(require "ractor"\n))
+    assert_equal %(require of "portable_ruby_gems"), stop(%(require "portable_ruby_gems"\n))
   end
 
   def test_every_reason_is_for_a_library_with_no_file
@@ -35,7 +35,7 @@ class UnsupportedLibrariesTest < Minitest::Test
     rows = Zr::LoadTables.new(evals: true).data.find { |data| data.name == "zr_load_names_1" }.bytes.chomp("\0").split("\n")
 
     assert_includes rows, "mkmf\t#{Build::UNSUPPORTED_LIBRARIES.fetch("mkmf")}"
-    assert_includes rows, "ractor"
+    assert_includes rows, "portable_ruby_gems"
   end
 
   private

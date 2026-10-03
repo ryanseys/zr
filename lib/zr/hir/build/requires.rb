@@ -30,7 +30,14 @@ module Zr
       # part is loaded, so `require "pathname"` still runs its Ruby part
       # and returns true.
       GEM_PRELOADED = %w[error_highlight did_you_mean syntax_suggest/core_ext].freeze
-      PRELOADED = (%w[enumerator thread fiber rational complex ruby2_keywords set monitor rbconfig] + GEM_PRELOADED).freeze
+      PRELOADED = (%w[enumerator thread fiber rational complex ruby2_keywords set monitor rbconfig enc/encdb enc/trans/transdb] +
+                   GEM_PRELOADED).freeze
+
+      # ruby's encoding and transcoder extensions, which this runtime has
+      # built in. A require of one stays for the run time, where the core
+      # answers it as ruby does: true the first time, then false
+      # (`Kernel.builtin_extension`).
+      ENCODINGS = %r{\Aenc/}
 
       # The ruby features that no library root here contains, and that
       # ruby did not load before the program. A require of one stops with
@@ -70,6 +77,7 @@ module Zr
         end
 
         return plain_call(node, compiles: false) if @loader.deferred?(feature) || (@in_def && @loader.ahead?(@file))
+        return plain_call(node, compiles: false) if node.name == :require && FEATURES.include?(feature.to_s.delete_suffix(".so")) && feature.match?(ENCODINGS)
 
         path = @loader.resolve(node.name, feature, @file)
         gem_refusal(node, feature, path)

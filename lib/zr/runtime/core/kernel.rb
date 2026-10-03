@@ -172,7 +172,7 @@ module Kernel
   # ruby includes but this runtime has no file for is a refusal.
   def self.load_file(path, feature, kind)
     Primitive.attr! :hidden
-    missing(feature, kind) unless path
+    return missing(feature, kind) unless path
     # An autoload of this feature stops waiting however the file arrives
     # here: through this require, or through an earlier one. Ruby calls
     # `rb_feature_provided` again each time it checks whether an entry is
@@ -184,20 +184,34 @@ module Kernel
     Primitive.zr_require_computed(path, Primitive.zr_unit_for(path) || compile(path), kind)
   end
 
-  # A name that matches no file: ruby's LoadError, or a refusal for a
-  # feature that ruby includes but this runtime has no file for. An
-  # entry of the table contains the reason after a tab when there is
-  # one, and that reason is the full refusal message.
+  # A name that matches no file: ruby's LoadError, a built-in extension,
+  # or a refusal for a feature that ruby includes but this runtime has no
+  # file for. An entry of the table contains the reason after a tab when
+  # there is one, and that reason is the full refusal message.
   def self.missing(feature, kind)
     Primitive.attr! :hidden
     if kind == 0
-      name = feature.delete_suffix(".rb")
+      name = feature.delete_suffix(".rb").delete_suffix(".so")
       row = Primitive.zr_load_names(1).lines(chomp: true).find { |line| line.split("\t", 2).first == name }
+      return builtin_extension(name) if row && name.start_with?("enc/")
+
       Primitive.zr_unloadable(row.split("\t", 2)[1] || "require of #{feature.inspect}") if row
     end
     error = LoadError.new("cannot load such file -- #{feature}")
     error.instance_variable_set(:@path, feature)
     raise error
+  end
+
+  # An encoding or transcoder extension of ruby's, which this runtime has
+  # built in. Like ruby's require of the extension, it returns true the
+  # first time, and lists the file where ruby has it.
+  def self.builtin_extension(name)
+    Primitive.attr! :hidden
+    path = "#{RbConfig::CONFIG["rubyarchdir"]}/#{name}.#{RbConfig::CONFIG["DLEXT"]}"
+    return false if $LOADED_FEATURES.include?(path)
+
+    $LOADED_FEATURES << path
+    true
   end
 
   # A file that the program was not compiled with, compiled by the

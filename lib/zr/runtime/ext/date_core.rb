@@ -1,15 +1,15 @@
 # frozen_string_literal: true
-# zr overlay: replaces date.rb of date 3.5.1 (sha256 6026af9d0963)
 
-# Date and DateTime over a chronological Julian day number, a second of
+# date_core, the C half of date 3.5.1, in Ruby. ruby's own date.rb
+# requires it, then adds Date::VERSION, Date::Infinity and #infinite?.
+#
+# Date and DateTime keep a chronological Julian day number, a second of
 # that day and a nanosecond, all in UTC, with the offset and the day the
 # Gregorian calendar starts kept next to them. Every conversion is exact
 # integer arithmetic, so a date contains no float and never drifts.
 
 class Date
   include Comparable
-
-  VERSION = "3.5.1"
 
   ITALY = 2299161
   ENGLAND = 2361222
@@ -33,55 +33,6 @@ class Date
   private_constant :DAY, :NANOSECOND, :REFORM_BEGIN_JD, :REFORM_END_JD
 
   class Error < ArgumentError; end
-
-  # A value larger, or smaller, than every date. Ranges of dates use it
-  # for an open end.
-  # The gem's lib/date.rb writes this in Ruby.
-  class Infinity < Numeric
-    def initialize(d = 1)
-      @d = d <=> 0
-    end
-
-    def d = @d
-    protected :d
-
-    def zero? = false
-    def finite? = false
-    def infinite? = d.nonzero?
-    def nan? = d.zero?
-    def abs = self.class.new
-    def -@ = self.class.new(-d)
-    def +@ = self.class.new(+d)
-
-    def <=>(other)
-      case other
-      when Infinity then d <=> other.d
-      when Float::INFINITY then d <=> 1
-      when -Float::INFINITY then d <=> -1
-      when Numeric then d
-      else
-        begin
-          l, r = other.coerce(self)
-          l <=> r
-        rescue NoMethodError
-          nil
-        end
-      end
-    end
-
-    def coerce(other)
-      case other
-      when Numeric then [-d, d]
-      else super
-      end
-    end
-
-    def to_f
-      return 0 if @d == 0
-
-      @d > 0 ? Float::INFINITY : -Float::INFINITY
-    end
-  end
 
   class << self
     # The Julian day number of a civil date, with no validity check.
@@ -479,8 +430,6 @@ class Date
     y = year
     julian? ? self.class.julian_leap?(y) : self.class.gregorian_leap?(y)
   end
-
-  def infinite? = false
 
   # The time of day in the date's own offset: the hour, the minute and
   # the second.
