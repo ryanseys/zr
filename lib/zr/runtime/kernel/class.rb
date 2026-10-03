@@ -1965,12 +1965,14 @@ module Zr::Kern
   # `private`, `public`, `protected` and `module_function` in a class
   # body. With no names, they set the visibility of later defs through
   # the caller's cref. With names, they change those methods on `klass`.
+  # A caller with no cref (`C.method(:private).call`, a send through a
+  # core method) has no later defs to change: ruby returns nil.
   #: (value, word, ptr, value, word, word) -> value
   def zr_set_visibility(klass, argc, argv, blk, vis, modfn)
     if argc == 0
       cref = Frame[Frame[Task[zr_task()].top].prev].cref
       if cref == QNIL
-        zr_bug(Machine.bytes("a visibility verb outside a class body is not implemented yet\n"), 62)
+        return Machine.value(QNIL)
       end
       if modfn != 0
         RCref[cref].modfn = 1
