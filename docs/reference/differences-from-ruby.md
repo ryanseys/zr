@@ -75,12 +75,12 @@ zlib, io-console, etc, fcntl) are at ruby 4.0.7's versions.
 
 ## The locale
 
-A program's locale is UTF-8 on every host: `Encoding.locale_charmap`
-returns `"UTF-8"`, and the main file's `__FILE__`, `$0` and `__dir__`
-are UTF-8 strings. ruby gets the locale from `LANG` and `LC_ALL` when
-the program starts, so under `LANG=C` these three are US-ASCII in
-ruby. A build does not read its own locale either: two builds under two
-locales write the same bytes.
+A program reads its locale from `LC_ALL`, `LC_CTYPE` and `LANG` as it
+starts, as ruby does: `Encoding.locale_charmap`, the default external
+encoding, ARGV and ENV follow it. The main file's `__FILE__`, `$0` and
+`__dir__` stay UTF-8 strings; under `LANG=C` they are US-ASCII in ruby. A
+build does not read its own locale: two builds under two locales write
+the same bytes.
 
 ## Ruby bugs
 
