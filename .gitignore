@@ -8,3 +8,6 @@ test/*.tmp
 
 # The platform directory that `zr-dev gem native` packs and removes.
 /exe/*/
+
+# Agent worktrees.
+/.claude/worktrees/

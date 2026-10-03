@@ -27,6 +27,7 @@ AllCops:
     - "test/runtime/**/*"
     - "test/machine/**/*"
     - "test/hir/**/*"     # input programs for the HIR snapshots
+    - ".claude/**/*"      # agent worktrees
     - "gems/**/*"         # the gem probes that zr compiles
     - "tmp/**/*"
     - "lib/zr/hir/features.rb"      # generated
