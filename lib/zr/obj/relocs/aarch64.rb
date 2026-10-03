@@ -8,12 +8,12 @@ module Zr
       # `Obj::Patch` gives each relocation with the address of its symbol.
       # `Obj::MachO::Block` calls `encode` directly.
       module Aarch64
-        KINDS = %i[branch26 page21 got_page21 pageoff12 got_pageoff12].freeze
+        KINDS = %i[branch26 page21 got_page21 pageoff12 got_pageoff12].freeze #: Array[reloc_kind]
 
         module_function
 
         # Whether `kind` is an arm64 relocation that `patch` applies.
-        #: (Symbol kind) -> bool
+        #: (reloc_kind kind) -> bool
         def handles?(kind) = KINDS.include?(kind)
 
         # Patches `bytes` for `r` at `place`, with its symbol at `target`.
@@ -30,7 +30,7 @@ module Zr
         # Returns the instruction `word` at `place` with its field for `kind`
         # set to reach `target`. Returns nil when the field cannot contain the
         # offset, because a target out of range would encode a different address.
-        #: (Symbol kind, Integer word, Integer target, Integer place) -> Integer?
+        #: (reloc_kind kind, Integer word, Integer target, Integer place) -> Integer?
         def encode(kind, word, target, place)
           case kind
           when :branch26

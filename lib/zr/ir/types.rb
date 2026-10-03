@@ -39,7 +39,7 @@ module Zr
         stack_addr: :address, symbol_value: :address, func_addr: :address,
         select: :second,
         sadd_overflow: :first, ssub_overflow: :first, smul_overflow: :first
-      }.merge((Inst::FBINOPS + Inst::FUNOPS).to_h { |op| [op, :float] }).freeze #: Hash[Symbol, Symbol]
+      }.merge((Inst::FBINOPS + Inst::FUNOPS).to_h { |op| [op, :float] }).freeze #: Hash[op, Symbol]
 
       # `{ "v3" => "i64", ... }`, in block layout order. A value gets its type
       # before any block that can use it, because its definition dominates

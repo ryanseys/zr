@@ -54,10 +54,10 @@ module Zr
         STUB = 12
 
         # The relocation kind for each arm64 relocation type in an object.
-        KINDS = ObjectFile::RELOC.to_h { |kind, (type, _, _)| [type, kind] }.freeze #: Hash[Integer, Symbol]
+        KINDS = ObjectFile::RELOC.to_h { |kind, (type, _, _)| [type, kind] }.freeze #: Hash[Integer, reloc_kind]
         ABS64 = ObjectFile::RELOC.fetch(:abs64).first #: Integer
         BRANCH26 = ObjectFile::RELOC.fetch(:branch26).first #: Integer
-        GOT = ObjectFile::RELOC.values_at(:got_page21, :got_pageoff12).map(&:first).freeze #: Array[Integer]
+        GOT = ObjectFile::RELOC.fetch_values(:got_page21, :got_pageoff12).map(&:first).freeze #: Array[Integer]
         # Typed in sig/zr/obj/macho/block.rbs: inline RBS does not read a
         # multiple assignment.
         GOT_PAGE21, GOT_PAGEOFF12 = GOT

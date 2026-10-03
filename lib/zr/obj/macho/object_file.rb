@@ -42,7 +42,7 @@ module Zr
           pageoff12: [4, 0, 2],
           got_page21: [5, 1, 2],
           got_pageoff12: [6, 0, 2]
-        }.freeze
+        }.freeze #: Hash[reloc_kind, [Integer, Integer, Integer]]
         ARM64_RELOC_ADDEND = 10
 
         # The sections, in file order, with the `Obj` sections that go in each.

@@ -31,7 +31,7 @@ module Zr
     module Effects
       BITS = {
         gates: 1, stamps: 2, task: 4, heap: 8, malloc: 16, statics: 32, volatile: 64, slot: 0
-      }.freeze
+      }.freeze #: Hash[region, Integer]
       ALL = 127
       # The regions that a store through an unknown address can write:
       # each word that a pointer can reach. A pointer can reach a guard
@@ -49,7 +49,7 @@ module Zr
         "signal_taken" => :volatile, "preempt_to" => :volatile, "preempt_busy" => :volatile,
         "preempt_mid" => :volatile, "cont_side_ready" => :volatile, "cont_side_ctx" => :volatile,
         "chld_count" => :volatile, "chld_pipe" => :volatile
-      }.freeze
+      }.freeze #: Hash[String, region]
       PREFIX = "zr_static_"
       # The imports that can run zr code before they return.
       CALLBACKS = %w[pthread_create dlopen dlsym].freeze
@@ -64,24 +64,25 @@ module Zr
       # A nil `region` raises KeyError. The type takes nil, because a
       # caller passes `Inst#region` or `static_region` after a check that
       # Steep cannot follow.
-      #: (Symbol? region) -> Integer
+      #: (region? region) -> Integer
       def bit(region) = BITS.fetch(region)
 
       # The region of the word at `offset` of the static `symbol`, or
       # nil when the symbol is not a static.
-      #: (String symbol, ?Integer offset) -> Symbol?
+      #: (String symbol, ?Integer offset) -> region?
       def static_region(symbol, offset = 0)
         return nil unless symbol.start_with?(PREFIX)
 
         name = symbol.delete_prefix(PREFIX)
         return :volatile if name == "current_task" && offset >= 8
 
-        STATICS.fetch(name, :statics)
+        # The block form lets Steep check the default against `region`.
+        STATICS.fetch(name) { :statics }
       end
 
       # Whether `effects` can write a word of `region`.
       # A nil `region` raises KeyError, as in `bit`.
-      #: (Integer effects, Symbol? region) -> bool
+      #: (Integer effects, region? region) -> bool
       def writes?(effects, region) = (effects & BITS.fetch(region)) != 0
     end
   end

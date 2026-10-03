@@ -44,7 +44,7 @@ module Zr
       # @rbs @variant: Hash[String, bool]
       # @rbs @written: Integer
       # @rbs @exits: Array[String]
-      # @rbs @read: Hash[[untyped, Integer], bool]
+      # @rbs @read: Hash[[String, Integer], bool]
 
       include Regions
 
@@ -185,7 +185,7 @@ module Zr
       #: () -> Hash[String, bool]
       def tested_only
         uses = @analysis.uses
-        reads = Hash.new(0) #: Hash[untyped, Integer]
+        reads = Hash.new(0) #: Hash[String, Integer]
         blocks = @f.blocks
         blocks.each do |b|
           br = b.insts.last

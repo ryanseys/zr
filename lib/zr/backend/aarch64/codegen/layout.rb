@@ -108,7 +108,7 @@ module Zr
         # The instructions whose second result is a flag that they also set
         # in NZCV: the overflow checks. Their branch reads `vs` directly when
         # nothing is between them (`emit_overflow`).
-        FLAG_SETTERS = %i[sadd_overflow ssub_overflow smul_overflow].to_set.freeze #: Set[Symbol]
+        FLAG_SETTERS = %i[sadd_overflow ssub_overflow smul_overflow].to_set.freeze #: Set[IR::op]
 
         # Two word stores to the same base, the second 8 bytes after the
         # first, with no emitted instruction between them, become one `stp`.

@@ -171,17 +171,17 @@ module Zr
           # local. Thus the constants and slot addresses in the entry block are
           # not live across all later blocks. That liveness is most of the
           # cost of shared locals.
-          CONSTANTS = %i[iconst symbol_value func_addr stack_addr].freeze #: Array[Symbol]
+          CONSTANTS = %i[iconst symbol_value func_addr stack_addr].freeze #: Array[IR::op]
 
           # The `Codegen::OP` key of each division and remainder opcode, of
           # each integer binary opcode, and the wasm opcode byte of each
           # float comparison, float binary and float unary opcode.
-          DIVIDE_OPS = { udiv: :div_u, sdiv: :div_s, urem: :rem_u, srem: :rem_s }.freeze #: Hash[Symbol, Symbol]
+          DIVIDE_OPS = { udiv: :div_u, sdiv: :div_s, urem: :rem_u, srem: :rem_s }.freeze #: Hash[IR::op, Symbol]
           BINOP_KEYS = { iadd: :add, isub: :sub, imul: :mul, band: :and, bor: :or, bxor: :xor,
-                         ishl: :shl, ushr: :shr_u, sshr: :shr_s }.freeze #: Hash[Symbol, Symbol]
+                         ishl: :shl, ushr: :shr_u, sshr: :shr_s }.freeze #: Hash[IR::op, Symbol]
           FCMP_OPCODES = { "eq" => 0x61, "ne" => 0x62, "lt" => 0x63, "gt" => 0x64, "le" => 0x65, "ge" => 0x66 }.freeze #: Hash[String, Integer]
-          FBINOP_OPCODES = { fadd: 0xA0, fsub: 0xA1, fmul: 0xA2, fdiv: 0xA3 }.freeze #: Hash[Symbol, Integer]
-          FUNOP_OPCODES = { fabs: 0x99, fneg: 0x9A, ceil: 0x9B, floor: 0x9C, trunc: 0x9D, nearest: 0x9E, sqrt: 0x9F }.freeze #: Hash[Symbol, Integer]
+          FBINOP_OPCODES = { fadd: 0xA0, fsub: 0xA1, fmul: 0xA2, fdiv: 0xA3 }.freeze #: Hash[IR::op, Integer]
+          FUNOP_OPCODES = { fabs: 0x99, fneg: 0x9A, ceil: 0x9B, floor: 0x9C, trunc: 0x9D, nearest: 0x9E, sqrt: 0x9F }.freeze #: Hash[IR::op, Integer]
 
           # The load opcode and its alignment of each type.
           LOAD_OPCODES = { "i64" => "\x29\x03".b, "i32" => "\x28\x02".b, "i8" => "\x2D\x00".b, "f64" => "\x2B\x03".b }.freeze #: Hash[String, String]
@@ -327,8 +327,8 @@ module Zr
             ahead.positive? ? ahead : @outer
           end
 
-          WIDE_BITOPS = { clz: "\x79".b, ctz: "\x7A".b, popcnt: "\x7B".b }.freeze #: Hash[Symbol, String]
-          NARROW_BITOPS = { clz: "\x67".b, ctz: "\x68".b, popcnt: "\x69".b }.freeze #: Hash[Symbol, String]
+          WIDE_BITOPS = { clz: "\x79".b, ctz: "\x7A".b, popcnt: "\x7B".b }.freeze #: Hash[IR::op, String]
+          NARROW_BITOPS = { clz: "\x67".b, ctz: "\x68".b, popcnt: "\x69".b }.freeze #: Hash[IR::op, String]
 
           # wasm has no byte swap. Swap the bytes in pairs, then the pairs,
           # then the halves: `(x & m) << k | (x >> k) & m` for each mask, and a

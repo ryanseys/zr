@@ -24,7 +24,7 @@ module Zr
     # @rbs @ext: bool
     # @rbs @unit_internal: bool?
     # @rbs @unit_hidden: bool?
-    # @rbs @kind: Symbol
+    # @rbs @kind: Function::kind
     # @rbs @outer: Outer?
     # @rbs @file: String
     # @rbs @warnings: Array[String]
@@ -34,15 +34,15 @@ module Zr
     # @rbs @next: Integer
     # @rbs @lits: Integer
     # @rbs @sites: Integer
-    # @rbs @pool: Array[[Symbol, String]]
-    # @rbs @pool_at: Hash[[Symbol, String], Integer]
+    # @rbs @pool: Array[[Obj::reloc_kind, String]]
+    # @rbs @pool_at: Hash[[Obj::reloc_kind, String], Integer]
     # @rbs @spelled: Hash[untyped, Integer]
     # @rbs @file_bytes: Hash[String, String]
     # @rbs @keyword_tables: Hash[Array[Integer | String | Symbol | nil], String]
-    # @rbs @unit_body: untyped
-    # @rbs @inline_defs: Hash[Symbol, untyped]?
-    # @rbs @def_names: Hash[untyped, String]
-    # @rbs @block_names: Hash[untyped, String]
+    # @rbs @unit_body: Hir::node?
+    # @rbs @inline_defs: Hash[Symbol, Hir::Def]?
+    # @rbs @def_names: Hash[Hir::Def, String]
+    # @rbs @block_names: Hash[Hir::Block, String]
     # @rbs @site_cells: Hash[untyped, String]
 
     # A scope that an eval runs inside: the names of its locals in Env
@@ -185,7 +185,7 @@ module Zr
     # @rbs entry: String
     # @rbs internal: bool
     # @rbs ext: bool
-    # @rbs kind: Symbol
+    # @rbs kind: Function::kind
     # @rbs outer: Outer?
     # @rbs target: Target
     # @rbs fixed: Hash[String, Integer] | Hash[String?, Integer] | nil
@@ -217,7 +217,7 @@ module Zr
     # prefix and uses its own counters, so a file gets the same names
     # whatever was compiled before it. The program's main file keeps the
     # entry that it was given.
-    #: (?String prefix, ?untyped body) -> void
+    #: (?String prefix, ?Hir::node? body) -> void
     def open_unit(prefix = @entry, body = nil)
       close_pool
       @prefix = prefix
@@ -234,9 +234,9 @@ module Zr
       # that a site and its inlined copies share.
       @unit_body = body
       @inline_defs = nil
-      @def_names = {} #: Hash[untyped, String]
+      @def_names = {} #: Hash[Hir::Def, String]
       @def_names.compare_by_identity
-      @block_names = {} #: Hash[untyped, String]
+      @block_names = {} #: Hash[Hir::Block, String]
       @block_names.compare_by_identity
       @site_cells = {} #: Hash[untyped, String]
       @site_cells.compare_by_identity
@@ -246,7 +246,7 @@ module Zr
     # must be the only def of that name in the unit, with a shape that
     # `Function::Inline` accepts. The name is only a guess at the callee;
     # the site's cell decides at run time.
-    #: (Symbol name) -> untyped
+    #: (Symbol name) -> Hir::Def?
     def inline_def(name)
       defs = @inline_defs ||= Function::Inline.candidates(@unit_body)
       defs[name]
@@ -254,7 +254,7 @@ module Zr
 
     # The function name of the def `node`. It is made once, whether the
     # def or a site that inlines it needs it first.
-    #: (untyped node) -> String
+    #: (Hir::Def node) -> String
     def def_name(node)
       @def_names[node] ||= "#{@prefix}_def_#{number}_#{node.name.to_s.gsub(/[^A-Za-z0-9_]/, "")}"
     end
@@ -284,9 +284,9 @@ module Zr
     # The word in this unit's pool for `name` under `kind`, as `[the
     # pool's name, its offset]`. A unit's code loads it, so the code does
     # not contain a number that depends on the compile order.
-    #: (Symbol kind, String | Symbol name) -> [String, Integer]
+    #: (Obj::reloc_kind kind, String | Symbol name) -> [String, Integer]
     def pool_word(kind, name)
-      row = [kind, name.to_s] #: [Symbol, String]
+      row = [kind, name.to_s] #: [Obj::reloc_kind, String]
       at = @pool_at[row] ||= (@pool << row).size - 1
       ["#{@prefix}_pool", at * 8]
     end
@@ -317,7 +317,7 @@ module Zr
     # program's id for it, or the Symbol Value of that id when `tagged`.
     # A fixed id is written directly; other ids are words that the link
     # fills.
-    #: (String name, Array[Integer | String | Symbol | nil] words, ?section: Symbol, ?tagged: bool) -> String
+    #: (String name, Array[Integer | String | Symbol | nil] words, ?section: Obj::section, ?tagged: bool) -> String
     def id_table(name, words, section: :text_const, tagged: false)
       relocs = [] #: Array[Obj::Reloc]
       filled = words.each_with_index.map do |word, i| #$ Integer
@@ -498,7 +498,7 @@ module Zr
     def wasm? = @target.arch == :wasm32
 
     # The FrameMeta kind of a function of `kind` in this lowering.
-    #: (Symbol kind) -> String
+    #: (Function::kind kind) -> String
     def frame_kind(kind)
       return Function::KINDS.fetch(kind) unless internal?
 
@@ -594,7 +594,7 @@ module Zr
     # @rbs line: Integer
     # @rbs name: Integer | String | Symbol
     # @rbs parent: String?
-    # @rbs params: untyped
+    # @rbs params: Hir::Params?
     # @rbs locals: Array[Symbol]
     # @rbs env: bool
     # @rbs ruby: bool
@@ -674,7 +674,7 @@ module Zr
 
     # `Method#parameters` as data: the count, then a kind and a name id
     # for each parameter (0 for no name).
-    #: (String fn, untyped params) -> String
+    #: (String fn, Hir::Params params) -> String
     def param_table(fn, params)
       rows = params.rows.flat_map { |kind, name| [PARAM_KINDS.fetch(kind), name] }
       id_table("zr_params_#{fn}", [params.rows.size, *rows])
@@ -690,7 +690,7 @@ module Zr
     end
 
     # Lowers a def now into a function, named for the site.
-    #: (untyped node) -> String
+    #: (Hir::Def node) -> String
     def define(node)
       name = def_name(node)
       Function.new(self, name, node.locals, node.body, node, :def).lower
@@ -704,7 +704,7 @@ module Zr
     # method.
     #: (untyped node, ?Function? outer) -> String
     def body(node, outer = nil)
-      kind = { Hir::ClassDef => :class, Hir::ModuleDef => :module, Hir::SingletonClassDef => :sclass }.fetch(node.class)
+      kind = { Hir::ClassDef => :class, Hir::ModuleDef => :module, Hir::SingletonClassDef => :sclass }.fetch(node.class) #: Function::kind
       name = "#{@prefix}_body_#{number}_#{kind == :sclass ? "singleton" : node.name}"
       Function.new(self, name, node.locals, node.body, node, kind, outer: kind == :sclass ? outer : nil).lower
       name
@@ -714,7 +714,7 @@ module Zr
     # that contains it. The block of a `define_method` call (`method`)
     # also gets its twin, if it can have one (`twin?`): the same body as a
     # function with the method signature (FrameMeta, `twin`).
-    #: (untyped node, Function outer, ?method: bool) -> String
+    #: (Hir::Block node, Function outer, ?method: bool) -> String
     def block(node, outer, method: false)
       @block_names[node] ||= begin
         name = "#{@prefix}_blk_#{number}"
@@ -728,7 +728,7 @@ module Zr
     # Whether a block can have a twin. A traced program reads every block
     # frame from its Proc. A scope inside the body would be lowered twice,
     # and a Binding or an eval is left to the block.
-    #: (untyped node) -> bool
+    #: (Hir::Block node) -> bool
     def twin?(node)
       !traced? && !internal? && !scopes?([node.params, node.body]) && !Hir::Locals.opens_locals?([node.params, node.body])
     end

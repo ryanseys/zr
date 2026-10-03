@@ -13,7 +13,7 @@ module Zr
         # @rbs @env: String
         # @rbs @f: IR::Function
         # @rbs @funcalls: Hash[Hir::Send, bool]?
-        # @rbs @kind: Symbol
+        # @rbs @kind: Function::kind
         # @rbs @l: Lower
         # @rbs @locals: Array[Symbol]
         # @rbs @name: String
@@ -87,7 +87,7 @@ module Zr
           :+ => [:fadd, "GATE_FLO_PLUS"], :- => [:fsub, "GATE_FLO_MINUS"], :* => [:fmul, "GATE_FLO_MUL"], :/ => [:fdiv, "GATE_FLO_DIV"],
           :< => ["lt", "GATE_FLO_LT"], :<= => ["le", "GATE_FLO_LE"], :> => ["gt", "GATE_FLO_GT"], :>= => ["ge", "GATE_FLO_GE"],
           :== => ["eq", "GATE_FLO_EQ"]
-        }.freeze #: Hash[Symbol, [Symbol | String, String]]
+        }.freeze #: Hash[Symbol, [IR::op | String, String]]
         # The bits of +0.0 as a flonum, and of the double that the rotation
         # cannot represent (lib/zr/runtime/kernel/float.rb).
         FLONUM_ZERO = 9223372036854775810 - (1 << 64) #: Integer

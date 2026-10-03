@@ -1,6 +1,16 @@
-# The class instance variable of lib/zr/target.rb. Its methods are inline.
+# The class instance variable and the type aliases of lib/zr/target.rb.
+# Its methods are inline. Inline RBS cannot declare an alias.
 module Zr
   class Target
     self.@registry: Hash[String, Target]
+
+    type arch = :aarch64 | :wasm32
+    type os = :darwin | :linux | :wasi
+    type object_format = :macho | :elf | :wasm
+    type libc = :musl
+    # zr's own Mach-O link, or a static link with cc.
+    type link = :darwin | :static
+    # `:native` (a binary), `:obj` (an object), `:wasm` (a module).
+    type output = :native | :obj | :wasm
   end
 end

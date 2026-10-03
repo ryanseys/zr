@@ -236,15 +236,18 @@ module Zr
       # A store of `value` to `addr` (+`offset`), with no trap and aligned.
       # The lowering never writes other flags. `region` is the
       # `IR::Effects` region of the word, when the lowering knows it.
+      # `region` is a Symbol, because `Machine::Lower` selects it in a
+      # local that Steep types as a Symbol.
       #: (String value, String addr, ?Integer offset, ?region: Symbol?) -> nil
       def store(value, addr, offset = 0, region: nil)
-        emit(Inst.new(:store, args: [value, addr], offset: offset, flags: "notrap aligned", region: region))
+        known = region #: region?
+        emit(Inst.new(:store, args: [value, addr], offset: offset, flags: "notrap aligned", region: known))
         nil
       end
 
       # A load of `type` from `addr` (+`offset`); returns the value. The name
       # is `fetch`, not `load`, because `Kernel#load` exists.
-      #: (String type, String addr, ?Integer offset, ?region: Symbol?) -> String
+      #: (String type, String addr, ?Integer offset, ?region: region?) -> String
       def fetch(type, addr, offset = 0, region: nil)
         v = value
         emit(Inst.new(:load, type: type, results: [v], args: [addr], offset: offset, flags: "notrap aligned",
@@ -288,19 +291,22 @@ module Zr
         v
       end
 
-      # The other two-operand integer instructions, by opcode.
+      # The other two-operand integer instructions, by opcode. `op` is a
+      # Symbol, because `Machine::Lower` makes it from an operator. This
+      # checks it, and then it is an `op`.
       #: (Symbol op, String a, String b, ?type: String?) -> String
       def binop(op, a, b, type: nil)
-        raise ArgumentError, "not a binary opcode: #{op}" unless Inst::BINOPS.include?(op)
+        code = op #: IR::op
+        raise ArgumentError, "not a binary opcode: #{op}" unless Inst::BINOPS.include?(code)
 
         v = value
-        emit(Inst.new(op, type: type, results: [v], args: [a, b]))
+        emit(Inst.new(code, type: type, results: [v], args: [a, b]))
         v
       end
 
       # The one-operand integer instructions, by opcode: `ctz`, `clz`,
       # `popcnt`, `bswap`, as wide as `a`.
-      #: (Symbol op, String a) -> String
+      #: (op op, String a) -> String
       def bitop(op, a)
         raise ArgumentError, "not a bit opcode: #{op}" unless Inst::BITOPS.include?(op)
 
@@ -311,16 +317,18 @@ module Zr
 
       # The f64 instructions: arithmetic, one-operand math, comparison
       # (an i8), and the conversions to and from i64.
+      # `op` is a Symbol for the reason in `binop`.
       #: (Symbol op, String a, String b) -> String
       def fbinop(op, a, b)
-        raise ArgumentError, "not an f64 binary opcode: #{op}" unless Inst::FBINOPS.include?(op)
+        code = op #: IR::op
+        raise ArgumentError, "not an f64 binary opcode: #{op}" unless Inst::FBINOPS.include?(code)
 
         v = value
-        emit(Inst.new(op, results: [v], args: [a, b]))
+        emit(Inst.new(code, results: [v], args: [a, b]))
         v
       end
 
-      #: (Symbol op, String a) -> String
+      #: (op op, String a) -> String
       def funop(op, a)
         raise ArgumentError, "not an f64 unary opcode: #{op}" unless Inst::FUNOPS.include?(op)
 
@@ -360,7 +368,7 @@ module Zr
       #: (String type, String a) -> String
       def uextend(type, a) = width(:uextend, type, a)
 
-      #: (Symbol op, String type, String a) -> String
+      #: (op op, String type, String a) -> String
       def width(op, type, a)
         v = value
         emit(Inst.new(op, type: type, results: [v], args: [a]))
@@ -427,7 +435,7 @@ module Zr
       # change while the function runs (for example a pooled symbol id of a
       # unit). The load goes in the entry block, which dominates all other
       # blocks, so the value is available at each use.
-      #: (String type, String addr, ?Integer offset, ?region: Symbol?) -> String
+      #: (String type, String addr, ?Integer offset, ?region: region?) -> String
       def hoisted_fetch(type, addr, offset = 0, region: nil)
         hoisted(:hoisted_fetch, [addr, offset]) do
           Inst.new(:load, type: type, args: [addr], offset: offset, flags: "notrap aligned", region: region)
@@ -620,7 +628,7 @@ module Zr
         @current.insts << inst
       end
 
-      #: (Symbol op, String a, String b) -> [String, String]
+      #: (op op, String a, String b) -> [String, String]
       def pair_overflow(op, a, b)
         lo = value
         hi = value

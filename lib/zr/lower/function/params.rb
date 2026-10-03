@@ -18,7 +18,7 @@ module Zr
         # @rbs @direct: bool
         # @rbs @f: IR::Function
         # @rbs @has_env: bool
-        # @rbs @kind: Symbol
+        # @rbs @kind: Function::kind
         # @rbs @l: Lower
         # @rbs @name: String
         # @rbs @qnil: String

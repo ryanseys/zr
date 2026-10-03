@@ -11,7 +11,7 @@ module Zr
         # @rbs @body_label: String?
         # @rbs @cref: String
         # @rbs @f: IR::Function
-        # @rbs @kind: Symbol
+        # @rbs @kind: Function::kind
         # @rbs @l: Lower
         # @rbs @loops: Array[Loop]
         # @rbs @proc: String

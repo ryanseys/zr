@@ -9,10 +9,13 @@ module Zr
   # whether this host can build it.
   class Target
     attr_reader :triple, :symbol_prefix, :ruby_platform #: String
-    attr_reader :arch, :os, :object_format #: Symbol
-    attr_reader :libc, :link #: Symbol?
+    attr_reader :arch #: arch
+    attr_reader :os #: os
+    attr_reader :object_format #: object_format
+    attr_reader :libc #: libc?
+    attr_reader :link #: link?
     attr_reader :word, :page #: Integer
-    attr_reader :outputs #: Array[Symbol]
+    attr_reader :outputs #: Array[output]
     attr_reader :min_os #: String?
 
     # `outputs` are the outputs zr can build for the target: `:native`
@@ -21,15 +24,15 @@ module Zr
     # the target records none.
     #
     # @rbs triple: String
-    # @rbs arch: Symbol
-    # @rbs os: Symbol
-    # @rbs object_format: Symbol
+    # @rbs arch: arch
+    # @rbs os: os
+    # @rbs object_format: object_format
     # @rbs page: Integer
     # @rbs symbol_prefix: String
     # @rbs ruby_platform: String
-    # @rbs link: Symbol?
-    # @rbs outputs: Array[Symbol]
-    # @rbs libc: Symbol?
+    # @rbs link: link?
+    # @rbs outputs: Array[output]
+    # @rbs libc: libc?
     # @rbs word: Integer
     # @rbs min_os: String?
     # @rbs return: void
@@ -54,9 +57,9 @@ module Zr
 
     # The runtime layer that zr lowers with for each OS. lib/zr/runtime/kernel/os/,
     # lib/zr/runtime/core/os/ and lib/zr/runtime/ext/os/ each contain one directory per layer.
-    OS_LAYERS = { darwin: "darwin", linux: "linux", wasi: "wasi" }.freeze #: Hash[Symbol, String]
+    OS_LAYERS = { darwin: "darwin", linux: "linux", wasi: "wasi" }.freeze #: Hash[os, String]
     # The machine layer, under lib/zr/runtime/kernel/arch/.
-    ARCH_LAYERS = { aarch64: "aarch64", wasm32: "wasm32" }.freeze #: Hash[Symbol, String]
+    ARCH_LAYERS = { aarch64: "aarch64", wasm32: "wasm32" }.freeze #: Hash[arch, String]
 
     #: () -> String
     def os_layer = OS_LAYERS.fetch(os)

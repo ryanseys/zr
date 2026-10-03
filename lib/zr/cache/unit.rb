@@ -68,7 +68,7 @@ module Zr
 
       # Stores the code that this build made for `unit`, for the next build.
       # Stores nothing if a source changed during the build (`SourceGuard.check!`).
-      #: (Hir::Unit unit, String prefix, Array[untyped] functions, Array[untyped]? data) -> String?
+      #: (Hir::Unit unit, String prefix, Array[Obj::Code | IR::Function] functions, Array[Obj::Datum]? data) -> String?
       def keep(unit, prefix, functions, data)
         key = key(unit, prefix) or return nil
 

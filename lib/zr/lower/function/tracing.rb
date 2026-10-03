@@ -11,7 +11,7 @@ module Zr
         # @type instance: Function
         # @rbs @def: Hir::owner?
         # @rbs @f: IR::Function
-        # @rbs @kind: Symbol
+        # @rbs @kind: Function::kind
         # @rbs @l: Lower
         # @rbs @qnil: String
 

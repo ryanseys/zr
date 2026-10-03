@@ -27,7 +27,7 @@ module Zr
       # replacement.
       module Renaming
         # @rbs @f: Function
-        # @rbs @rename: Hash[untyped, untyped]
+        # @rbs @rename: Hash[String, untyped]
 
         #: () -> void
         def rename_uses
@@ -104,7 +104,7 @@ module Zr
       # constant becomes a `jump`. The pass renames uses in place. `Blocks`
       # removes blocks that become unreachable.
       class Fold
-        # @rbs @const: Hash[untyped, [Integer, String?]]
+        # @rbs @const: Hash[String, [Integer, String?]]
         # @rbs @jumped: bool
         # @rbs @added: Array[[Integer, Inst]]
         # @rbs @at: Integer
@@ -280,7 +280,7 @@ module Zr
         # Replaces `i` with the cheaper `op` of `a` and the constant `n`. A
         # multiply, unsigned division or remainder by a power of two becomes a
         # shift or a mask.
-        #: (Inst i, Symbol op, untyped a, Integer n, String? type) -> void
+        #: (Inst i, op op, untyped a, Integer n, String? type) -> void
         def reduce(i, op, a, n, type)
           i.op = op
           i.args = [a, constant_before(n, type)]
@@ -289,7 +289,7 @@ module Zr
         # The return is untyped: the `case` has no `else`, so Steep adds
         # `false` (`nil & mask`), but each opcode in `Inst::BINOPS` has a
         # branch.
-        #: (Symbol op, Integer a, Integer b, Integer bits) -> untyped
+        #: (op op, Integer a, Integer b, Integer bits) -> untyped
         def binop(op, a, b, bits)
           mask = (1 << bits) - 1
           a &= mask
@@ -408,8 +408,8 @@ module Zr
         # A slot place is `[root address, offset]`. `known` maps a place to
         # `[value, width]`.
         # @rbs @types: Hash[String, String?]
-        # @rbs @const: Hash[untyped, Integer]
-        # @rbs @roots: Hash[untyped, [String, Integer]]
+        # @rbs @const: Hash[String, Integer]
+        # @rbs @roots: Hash[String, [String, Integer]]
 
         include Renaming
 
@@ -436,7 +436,7 @@ module Zr
 
         #: (Block b) -> void
         def forward(b)
-          known = {} #: Hash[[String, Integer], [untyped, Integer]]
+          known = {} #: Hash[[String, Integer], [String, Integer]]
           b.insts.reject! do |i|
             rename(i)
             case i.op
@@ -474,7 +474,7 @@ module Zr
         # most 8 bytes wide, so an overlapping store starts at most 7 bytes
         # below this one, or inside it. The pass checks only those keys. A scan
         # of the full table at each store is slow in a block with many stores.
-        #: (Hash[[String, Integer], [untyped, Integer]] known, Inst i) -> void
+        #: (Hash[[String, Integer], [String, Integer]] known, Inst i) -> void
         def remember(known, i)
           v, addr = i.args
           at = slot(addr, i.offset)
@@ -491,7 +491,7 @@ module Zr
 
         # Whether the load reads all of a known store's value, with the same
         # type.
-        #: (Hash[[String, Integer], [untyped, Integer]] known, Inst i) -> bool
+        #: (Hash[[String, Integer], [String, Integer]] known, Inst i) -> bool
         def forwarded?(known, i)
           at = slot(i.args[0], i.offset)
           return false unless at && (held = known[at])
@@ -602,7 +602,7 @@ module Zr
         # `b` or its chain cannot move.
         #: (Block b, untyped v, Integer stop) -> Array[Inst]?
         def chain_of(b, v, stop)
-          by_result = {} #: Hash[untyped, Inst]
+          by_result = {} #: Hash[String, Inst]
           b.insts.first(stop).each { |i| by_result[i.results[0]] = i if i.results[0] }
           root = by_result[v] or return
           last_effect = b.insts.rindex { |i| %i[store call call_indirect].include?(i.op) } || -1
@@ -934,7 +934,7 @@ module Zr
           # A call has a result only when its callee returns a value.
           results = call.results.zip([target.ret_type]) #: Array[[String, String]]
           rest.params.concat(results)
-          names = {} #: Hash[untyped, untyped]
+          names = {} #: Hash[String, String]
           target.globals.each { |g| names[g.gv] = f.symbol(g.symbol, colocated: g.colocated) }
           target.blocks.each do |cb|
             cb.insts.each { |i| names[i.args[0]] ||= f.slot(slot_of(target, i.args[0]).bytes) if i.op == :stack_addr }
@@ -962,7 +962,7 @@ module Zr
           b.insts << Inst.new(:jump, targets: [[names.fetch(entry.name), passed ? [] : call.args]])
         end
 
-        #: (Inst i, Hash[untyped, untyped] names, Block rest) -> Inst
+        #: (Inst i, Hash[String, String] names, Block rest) -> Inst
         def copy(i, names, rest)
           return Inst.new(:jump, targets: [[rest.name, i.args.map { |a| renamed(a, names) }]]) if i.op == :return
 
@@ -972,7 +972,7 @@ module Zr
                    region: i.region)
         end
 
-        #: (untyped a, Hash[untyped, untyped] names) -> untyped
+        #: (untyped a, Hash[String, String] names) -> untyped
         def renamed(a, names) = a.is_a?(String) ? names.fetch(a, a) : a
       end
 

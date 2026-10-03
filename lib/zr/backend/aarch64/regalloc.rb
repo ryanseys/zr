@@ -91,7 +91,7 @@ module Zr
 
         # The instructions that call. At these, a value loses its register
         # unless the callee saves it.
-        CALLS = %i[call call_indirect].freeze #: Array[Symbol]
+        CALLS = %i[call call_indirect].freeze #: Array[IR::op]
         NOTHING = Array.new.freeze #: Array[Integer]
 
         private

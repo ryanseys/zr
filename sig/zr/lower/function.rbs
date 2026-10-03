@@ -1,0 +1,9 @@
+# The type alias of lib/zr/lower/function.rb. Inline RBS cannot declare an alias.
+module Zr
+  class Lower
+    class Function
+      # The kind of scope that a function lowers (`Function::KINDS`).
+      type kind = :main | :top | :def | :class | :module | :sclass | :block | :eval
+    end
+  end
+end

@@ -46,7 +46,7 @@ module Zr
       # @rbs @locals: Array[Symbol]
       # @rbs @body: Hir::node?
       # @rbs @def: Hir::owner?
-      # @rbs @kind: Symbol
+      # @rbs @kind: kind
       # @rbs @direct: bool
       # @rbs @outer: Function | Outer | nil
       # @rbs @frame: Machine::Layout
@@ -103,7 +103,7 @@ module Zr
       include Inline
       include Iterators
 
-      KINDS = { main: "KIND_MAIN", top: "KIND_TOP", def: "KIND_DEF", class: "KIND_CLASS", module: "KIND_MODULE", sclass: "KIND_SCLASS", block: "KIND_BLOCK", eval: "KIND_EVAL" }.freeze #: Hash[Symbol, String]
+      KINDS = { main: "KIND_MAIN", top: "KIND_TOP", def: "KIND_DEF", class: "KIND_CLASS", module: "KIND_MODULE", sclass: "KIND_SCLASS", block: "KIND_BLOCK", eval: "KIND_EVAL" }.freeze #: Hash[kind, String]
       # The maximum arguments that a direct entry takes in registers.
       # `direct0` to `direct4` are its ABIs, one for each count
       # (lib/zr/runtime/kernel/class.rb).
@@ -119,7 +119,7 @@ module Zr
       # still be on the caller's stack), or nil (`Params#raw_block?`).
       attr_reader :meta #: String
       attr_reader :outer #: Function | Outer | nil
-      attr_reader :kind #: Symbol
+      attr_reader :kind #: kind
       attr_reader :raw_block #: Symbol?
 
       # The Def, Block or body node this function came from.
@@ -154,7 +154,7 @@ module Zr
       # @rbs locals: Array[Symbol]
       # @rbs body: Hir::node?
       # @rbs node: Hir::owner?
-      # @rbs kind: Symbol
+      # @rbs kind: kind
       # @rbs outer: Function | Outer | nil
       # @rbs twin: String?
       # @rbs twin_of: String?
@@ -1027,7 +1027,7 @@ module Zr
         @f.hoisted_fetch("i64", @f.symbol_addr(@f.symbol(row.first)), row.last)
       end
 
-      #: (Symbol kind, Symbol name) { (Integer) -> String } -> String
+      #: (Obj::reloc_kind kind, Symbol name) { (Integer) -> String } -> String
       def pooled(kind, name)
         id = @l.fixed_id(name)
         return yield(id) if id

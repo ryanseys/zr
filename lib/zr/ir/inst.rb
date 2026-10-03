@@ -46,36 +46,36 @@ module Zr
       # masked to the value's type, in rising order), and its targets are
       # the default and then one target for each key. Like a `brif`, it
       # passes no block arguments.
-      TERMINATORS = %i[jump brif switch return].freeze
+      TERMINATORS = %i[jump brif switch return].freeze #: Array[op]
       # Opcodes with two results.
-      PAIRS = %i[sadd_overflow ssub_overflow smul_overflow].freeze
+      PAIRS = %i[sadd_overflow ssub_overflow smul_overflow].freeze #: Array[op]
       # The two-operand integer opcodes with one result.
-      BINOPS = %i[iadd isub imul udiv sdiv urem srem band bor bxor ishl ushr sshr].freeze
+      BINOPS = %i[iadd isub imul udiv sdiv urem srem band bor bxor ishl ushr sshr].freeze #: Array[op]
       # The shifts. Their amount can be any integer width.
-      SHIFTS = %i[ishl ushr sshr].freeze
+      SHIFTS = %i[ishl ushr sshr].freeze #: Array[op]
       # The opcodes whose operands can change places.
-      COMMUTATIVE = %i[iadd imul band bor bxor].freeze
+      COMMUTATIVE = %i[iadd imul band bor bxor].freeze #: Array[op]
       # The one-operand integer opcodes: the bit operations.
-      BITOPS = %i[ctz clz popcnt bswap].freeze
+      BITOPS = %i[ctz clz popcnt bswap].freeze #: Array[op]
       # The comparison conditions.
       CONDS = %w[eq ne slt sle sgt sge ult ule ugt uge].freeze
       # The two-operand and one-operand f64 opcodes.
-      FBINOPS = %i[fadd fsub fmul fdiv].freeze
-      FUNOPS = %i[fneg fabs sqrt floor ceil trunc nearest].freeze
+      FBINOPS = %i[fadd fsub fmul fdiv].freeze #: Array[op]
+      FUNOPS = %i[fneg fabs sqrt floor ceil trunc nearest].freeze #: Array[op]
       # Float comparisons: false when either side is NaN, except `ne`.
       FCONDS = %w[eq ne lt le gt ge].freeze
       # The conversions between i64 and f64: by value, and by bits.
-      CONVERSIONS = %i[fcvt_from_sint fcvt_to_sint_sat bitcast].freeze
+      CONVERSIONS = %i[fcvt_from_sint fcvt_to_sint_sat bitcast].freeze #: Array[op]
       # The gate word. The kernel keeps it in its own register (`x28`; a
       # global on wasm). `gates` reads it. `gates_set` writes it after a
       # store of the word. `gates_enter` loads it where foreign code enters
       # compiled code; at return, the register gets back the value of the
       # foreign code.
-      GATES = %i[gates gates_set gates_enter].freeze
+      GATES = %i[gates gates_set gates_enter].freeze #: Array[op]
 
       # `region`: for a load or a store, the `IR::Effects` region of the
       # word, or nil when the lowering does not know it.
-      attr_accessor :op #: Symbol
+      attr_accessor :op #: op
       attr_accessor :type #: String?
       attr_accessor :args #: Array[untyped]
       attr_accessor :results #: Array[String]
@@ -87,9 +87,9 @@ module Zr
       attr_accessor :targets #: Array[[String, Array[String]]]
       attr_accessor :callee #: String?
       attr_accessor :flags #: String?
-      attr_accessor :region #: Symbol?
+      attr_accessor :region #: region?
 
-      # @rbs op: Symbol
+      # @rbs op: op
       # @rbs type: String?
       # @rbs args: Array[untyped]
       # @rbs results: Array[String]
@@ -98,7 +98,7 @@ module Zr
       # @rbs targets: Array[[String, Array[String]]]?
       # @rbs callee: String?
       # @rbs flags: String?
-      # @rbs region: Symbol?
+      # @rbs region: region?
       # @rbs return: void
       def initialize(op, type: nil, args: [], results: [], cond: nil, offset: 0, targets: nil, callee: nil, flags: nil,
                      region: nil)

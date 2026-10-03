@@ -2,14 +2,23 @@
 # which inline RBS cannot type.
 module Zr
   module Obj
+    # A relocation kind (`Reloc#kind`). The comment on `Reloc` tells what
+    # each does.
+    type reloc_kind = :branch26 | :page21 | :pageoff12 | :got_page21 | :got_pageoff12 | :abs64
+                    | :symid | :symval | :symbit | :site
+    # The section of a datum (`Datum#section`).
+    type section = :text_const | :data_const | :data | :bss
+    # The linkage of a function or a datum.
+    type linkage = :export | :local
+
     class Reloc < Struct[untyped]
       attr_accessor offset: Integer
-      attr_accessor kind: Symbol
+      attr_accessor kind: reloc_kind
       attr_accessor symbol: String
       attr_accessor addend: Integer
 
-      def self.new: (Integer offset, Symbol kind, String symbol, ?Integer addend) -> instance
-      def initialize: (Integer offset, Symbol kind, String symbol, ?Integer addend) -> void
+      def self.new: (Integer offset, reloc_kind kind, String symbol, ?Integer addend) -> instance
+      def initialize: (Integer offset, reloc_kind kind, String symbol, ?Integer addend) -> void
     end
 
     class Code < Struct[untyped]
@@ -17,10 +26,10 @@ module Zr
       attr_accessor bytes: String
       attr_accessor relocs: Array[Reloc]
       attr_accessor align: Integer
-      attr_accessor linkage: Symbol
+      attr_accessor linkage: linkage
 
-      def self.new: (String name, String bytes, ?relocs: Array[Reloc], ?align: Integer, ?linkage: Symbol) -> instance
-      def initialize: (String name, String bytes, ?relocs: Array[Reloc], ?align: Integer, ?linkage: Symbol) -> void
+      def self.new: (String name, String bytes, ?relocs: Array[Reloc], ?align: Integer, ?linkage: linkage) -> instance
+      def initialize: (String name, String bytes, ?relocs: Array[Reloc], ?align: Integer, ?linkage: linkage) -> void
       def size: () -> Integer
     end
 
@@ -29,14 +38,14 @@ module Zr
     # `bytes` is untyped.
     class Datum < Struct[untyped]
       attr_accessor name: String
-      attr_accessor section: Symbol
+      attr_accessor section: section
       attr_accessor bytes: untyped
       attr_accessor relocs: Array[Reloc]
       attr_accessor align: Integer
-      attr_accessor linkage: Symbol
+      attr_accessor linkage: linkage
 
-      def self.new: (String name, Symbol section, untyped bytes, ?relocs: Array[Reloc], ?align: Integer, ?linkage: Symbol) -> instance
-      def initialize: (String name, Symbol section, untyped bytes, ?relocs: Array[Reloc], ?align: Integer, ?linkage: Symbol) -> void
+      def self.new: (String name, section section, untyped bytes, ?relocs: Array[Reloc], ?align: Integer, ?linkage: linkage) -> instance
+      def initialize: (String name, section section, untyped bytes, ?relocs: Array[Reloc], ?align: Integer, ?linkage: linkage) -> void
       def size: () -> Integer
     end
 
@@ -63,8 +72,8 @@ module Zr
       attr_reader data: Array[Datum]
 
       def initialize: () -> void
-      def function: (String name, String bytes, ?relocs: Array[Reloc], ?align: Integer, ?linkage: Symbol) -> self
-      def datum: (String name, Symbol section, untyped bytes, ?relocs: Array[Reloc], ?align: Integer, ?linkage: Symbol) -> self
+      def function: (String name, String bytes, ?relocs: Array[Reloc], ?align: Integer, ?linkage: linkage) -> self
+      def datum: (String name, section section, untyped bytes, ?relocs: Array[Reloc], ?align: Integer, ?linkage: linkage) -> self
       def defined_names: () -> Array[String]
       def imports: () -> Array[String]
     end

@@ -18,19 +18,19 @@ module Zr
     # `placements`) and `@effects` (`{ callee => bits }`).
     module Regions
       # @rbs @f: Function
-      # @rbs @placed: Hash[String, [untyped, Integer]]
+      # @rbs @placed: Hash[String, [:slot | String, Integer]]
       # @rbs @effects: Hash[String, Integer]
 
       private
 
       # `{ value => [root, offset] }` for each value that is the address of a
       # slot (root `:slot`) or of a symbol, or one of these plus a constant.
-      # A root is `:slot` or a symbol name (a String), so it is untyped.
-      #: () -> Hash[String, [untyped, Integer]]
+      # A root is `:slot` or a symbol name (a String).
+      #: () -> Hash[String, [:slot | String, Integer]]
       def placements
         symbol_of = @f.globals.to_h { |g| [g.gv, g.symbol] }
         const = {} #: Hash[String, Integer]
-        placed = {} #: Hash[String, [untyped, Integer]]
+        placed = {} #: Hash[String, [:slot | String, Integer]]
         @f.blocks.each do |b|
           b.insts.each do |i|
             case i.op
@@ -49,13 +49,13 @@ module Zr
 
       # The region of the load or store `i` through `addr`: its own region,
       # or the region of the static or slot at its address, or nil.
-      #: (Inst i, untyped addr) -> Symbol?
+      #: (Inst i, untyped addr) -> region?
       def region_of(i, addr)
         return i.region if i.region
 
         root, at = @placed[addr]
         return nil if root.nil?
-        return :slot if root == :slot
+        return :slot unless root.is_a?(String)
 
         Effects.static_region(root, at + i.offset) || :statics
       end

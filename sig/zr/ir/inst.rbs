@@ -1,0 +1,23 @@
+# The type aliases of lib/zr/ir/inst.rb. Inline RBS cannot declare an alias.
+module Zr
+  module IR
+    # Each opcode that zr emits (`Inst#op`).
+    type op = :iadd | :isub | :imul | :udiv | :sdiv | :urem | :srem
+            | :band | :bor | :bxor | :ishl | :ushr | :sshr
+            | :ctz | :clz | :popcnt | :bswap
+            | :fadd | :fsub | :fmul | :fdiv
+            | :fneg | :fabs | :sqrt | :floor | :ceil | :trunc | :nearest
+            | :icmp | :fcmp | :select
+            | :fcvt_from_sint | :fcvt_to_sint_sat | :bitcast
+            | :ireduce | :sextend | :uextend
+            | :sadd_overflow | :ssub_overflow | :smul_overflow
+            | :iconst | :symbol_value | :func_addr | :stack_addr
+            | :load | :store
+            | :gates | :gates_set | :gates_enter
+            | :call | :call_indirect
+            | :jump | :brif | :switch | :return
+
+    # An `IR::Effects` region (`Effects::BITS`, `Inst#region`).
+    type region = :gates | :stamps | :task | :heap | :malloc | :statics | :volatile | :slot
+  end
+end

@@ -114,11 +114,11 @@ module Zr
         # a call all write the flags. A terminator ends the block.
         FLAG_NEUTRAL = (%i[iconst load store stack_addr symbol_value func_addr ireduce uextend sextend bitcast
                            fcvt_from_sint fcvt_to_sint_sat gates] +
-                        IR::Inst::BINOPS + IR::Inst::BITOPS + IR::Inst::FBINOPS + IR::Inst::FUNOPS).to_set.freeze #: Set[Symbol]
+                        IR::Inst::BINOPS + IR::Inst::BITOPS + IR::Inst::FBINOPS + IR::Inst::FUNOPS).to_set.freeze #: Set[IR::op]
 
         # The mnemonics of the one-operand float instructions.
         FUNOPS = { fneg: :fneg, fabs: :fabs, sqrt: :fsqrt, floor: :frintm,
-                   ceil: :frintp, trunc: :frintz, nearest: :frintn }.freeze #: Hash[Symbol, Symbol]
+                   ceil: :frintp, trunc: :frintz, nearest: :frintn }.freeze #: Hash[IR::op, Symbol]
         # The d registers that keep an f64 value from the instruction that
         # makes or loads it to its reads in the same block. They are
         # caller-saved, so a call clears them, and they are never saved.
@@ -970,9 +970,9 @@ module Zr
           CONDS.fetch(cond)
         end
 
-        COMMUTES = %i[iadd band bor bxor].freeze #: Array[Symbol]
-        SHIFTS = { ishl: :lsl, ushr: :lsr, sshr: :asr }.freeze #: Hash[Symbol, Symbol]
-        LOGICAL = { band: :and, bor: :orr, bxor: :eor }.freeze #: Hash[Symbol, Symbol]
+        COMMUTES = %i[iadd band bor bxor].freeze #: Array[IR::op]
+        SHIFTS = { ishl: :lsl, ushr: :lsr, sshr: :asr }.freeze #: Hash[IR::op, Symbol]
+        LOGICAL = { band: :and, bor: :orr, bxor: :eor }.freeze #: Hash[IR::op, Symbol]
 
         # A binary operation. A constant operand is an immediate when the
         # instruction has an immediate form.
@@ -1152,7 +1152,7 @@ module Zr
           end
         end
 
-        #: (Symbol kind, String symbol) -> void
+        #: (Obj::reloc_kind kind, String symbol) -> void
         def reloc(kind, symbol)
           @asm.patch_location { |off| @relocs << Obj::Reloc.new(off, kind, symbol) }
         end

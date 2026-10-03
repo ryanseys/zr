@@ -50,7 +50,7 @@ module Zr
           pageoff12: 277,      # R_AARCH64_ADD_ABS_LO12_NC
           got_page21: 311,     # R_AARCH64_ADR_GOT_PAGE
           got_pageoff12: 312   # R_AARCH64_LD64_GOT_LO12_NC
-        }.freeze
+        }.freeze #: Hash[reloc_kind, Integer]
 
         # Each `Obj` section's ELF name prefix, type and flags.
         SECTIONS = {
