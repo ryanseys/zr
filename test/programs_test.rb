@@ -60,8 +60,9 @@ class ProgramsTest < Minitest::Test
   end
 
   # Before the workers fork: the host walks the core once (unless each
-  # selected test passes from the result cache), and a build gets the
-  # runtime (and eval support, when a selected program evals).
+  # selected test passes from the result cache). A build first trims the
+  # kept binaries to their quota, then gets the runtime (and eval
+  # support, when a selected program evals).
   def self.minitest_plugin_init(options)
     selected = filter_runnable_methods(options).map { |name| CASES.fetch(name) }
     return if selected.empty?
@@ -70,6 +71,7 @@ class ProgramsTest < Minitest::Test
       Minitest.reporter << Cached.new(options[:io]) if RESULTS
       Zr::Test::HostProgram.walk unless RESULTS && selected.all? { |test| RESULTS.passed?(test, PROGRAMS.baseline(test)) }
     else
+      Zr::Test::Binaries.trim
       Zr::Test::Built.ready_for_programs!(selected)
     end
   end
