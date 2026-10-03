@@ -89,6 +89,7 @@ module Zr::Kern
   # Adds each Value in the frames and in the kernel's roots to `roots`.
   #: (value) -> void
   def zr_cont_roots(roots)
+    # @type var i: word
     t = zr_task()
     rec = Task[t].top
     while rec != 0

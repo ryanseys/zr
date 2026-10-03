@@ -176,6 +176,7 @@ module Zr::Kern
   # clears it if it goes below zero.
   #: (ptr) -> void
   def zr_deflate_slide_hash(s)
+    # @type var m: word
     wsize = DeflateState[s].w_size
     head = DeflateState[s].head
     n = DeflateState[s].hash_size

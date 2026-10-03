@@ -286,6 +286,7 @@ module Zr::Kern
   # of its head, as in the module.
   #: (value, value, value, bool) -> void
   def zr_splice_modules(klass, at, mod, whole)
+    # @type var c_seen: bool
     klass_origin = zr_origin(klass)
     c = at
     heads = zr_ary_new(2)

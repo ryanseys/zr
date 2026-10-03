@@ -253,6 +253,7 @@ module Zr::Kern
   # `parts`. Returns false when the range is already sorted.
   #: (ptr, word, word, ptr) -> bool
   def zr_sort_partition(st, a, n, parts)
+    # @type var c: word
     if n < 7
       zr_sort_insertion(st, a, n)
       return false
@@ -341,6 +342,7 @@ module Zr::Kern
 
   #: (ptr, word, word, word) -> void
   def zr_sort_apple(st, a, n, depth)
+    # @type var c: word
     while true
       if depth <= 0
         zr_sort_heap(st, a, n)
@@ -467,6 +469,8 @@ module Zr::Kern
   # runs.
   #: (ptr, word, word) -> void
   def zr_sort_heap(st, a, n)
+    # @type var par: word
+    # @type var child: word
     if n <= 1
       return
     end

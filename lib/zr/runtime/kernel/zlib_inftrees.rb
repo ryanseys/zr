@@ -39,6 +39,7 @@ module Zr::Kern
   # code, or 1 when ENOUGH is not sufficient.
   #: (word, ptr, word, ptr, ptr, ptr) -> word
   def zr_inflate_table(type, lens, codes, table, bits, work)
+    # @type var n: word
     count = Machine.slot(64)
     offs = Machine.slot(64)
     len = 0

@@ -573,6 +573,9 @@ module Zr::Kern
   # of the three has one; the caller then collects or makes an arena.
   #: (ptr) -> bool
   def zr_cursor_advance(sc)
+    # @type var a: ptr
+    # @type var stop: ptr
+    # @type var at: ptr
     at = SizeClass[sc].cursor
     if at != zr_full()
       a = zr_arena_of(Machine.value(at))
@@ -1240,6 +1243,8 @@ module Zr::Kern
   # can come from a reserved arena.
   #: () -> void
   def zr_sweep
+    # @type var sc: ptr
+    # @type var a: ptr
     n = Heap[zr_heap()].arenas
     c = 0
     while c < SIZE_CLASSES
@@ -1535,6 +1540,7 @@ module Zr::Kern
   # clears it.
   #: () -> void
   def zr_verify_minor
+    # @type var a: ptr
     n = Heap[zr_heap()].arenas
     i = 0
     while i < n

@@ -130,6 +130,11 @@ The first public release.
   a condition that is not a `bool`, so the kernel means the same on
   CRuby (`Machine::Host`) as in a binary. Each program in
   `test/machine/` runs on CRuby too, and gives the binary's output.
+- Steep checks the kernel of each target at the strict level
+  (`test/unit/kernel_steep_test.rb`), with `sig/zr/kern.rbs`, which
+  types the `Layout` class and each intrinsic. zr refuses an intrinsic
+  with the wrong number of operands; before, the lowering stopped on a
+  NoMethodError.
 - `COVERAGE=1 bin/minitest <paths>` measures the line and branch coverage of
   `lib/` with SimpleCov, and writes `tmp/coverage/index.html`. It gates
   nothing.

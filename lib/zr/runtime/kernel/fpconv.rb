@@ -91,6 +91,7 @@ module Zr::Kern
   # and returns the digit count.
   #: (ptr, ptr, ptr) -> word
   def zr_fpconv_grisu2(bits, digits, k)
+    # @type var digit: ptr
     frac = bits & FPCONV_FRACMASK
     exp = Machine.word((bits & FPCONV_EXPMASK) >> 52)
     if exp != 0

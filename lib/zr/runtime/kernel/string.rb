@@ -954,6 +954,8 @@ module Zr::Kern
   # difference.
   #: (ptr, word, ptr, word) -> word
   def zr_bytes_cmp(a, alen, b, blen)
+    # @type var x: word
+    # @type var y: word
     n = alen < blen ? alen : blen
     i = 0
     while i + 8 <= n
@@ -1672,6 +1674,7 @@ module Zr::Kern
   # `0d` prefix, or a number of more than 18 digits.
   #: (value) -> value
   def zr_str_to_i10(s)
+    # @type var b: word
     p = RString[s].ptr
     n = RString[s].len
     i = 0

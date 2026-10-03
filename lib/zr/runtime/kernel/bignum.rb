@@ -15,6 +15,7 @@ module Zr::Kern
   # `a + b`.
   #: (value, value) -> value
   def zr_big_add_mag(a, b)
+    # @type var t: word
     if RArray[a].len < RArray[b].len
       return zr_big_add_mag(b, a)
     end
@@ -46,6 +47,7 @@ module Zr::Kern
   # 30 bits are the limb, and bit 30 is the borrow: no branch on it.
   #: (value, value) -> value
   def zr_big_sub_mag(a, b)
+    # @type var t: word
     n = RArray[a].len
     m = RArray[b].len
     out = zr_ary_new(n)

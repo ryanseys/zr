@@ -66,9 +66,16 @@ module, a file contains only:
 | `void` | none | no value; a return type only |
 | a layout, such as `RBasic` | `i64` | a view of that layout |
 
-The types are RBS: `sig/zr/kern.rbs` declares each name, and `bool` and
-`void` are RBS's own. So RBS reads each `#:` comment of the kernel
-(`test/unit/kern_rbs_test.rb`).
+The types are RBS: `sig/zr/kern.rbs` declares each name, the `Layout`
+class and each intrinsic, and `bool` and `void` are RBS's own. So RBS
+reads each `#:` comment of the kernel (`test/unit/kern_rbs_test.rb`),
+and Steep checks the kernel of each target at the strict level
+(`test/unit/kernel_steep_test.rb`): each call, field, import, signature
+and intrinsic.
+
+Steep does not keep the type of a local that a loop assigns when an
+earlier loop assigned it too. A `# @type var name: type` line at the
+start of the def gives Steep that type; the lowering does not read it.
 
 A `word` and a `ptr` fit each other. A view fits only a view of the same
 layout. A local gets its type from its first assignment, and keeps it.

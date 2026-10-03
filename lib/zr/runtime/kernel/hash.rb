@@ -1092,6 +1092,7 @@ module Zr::Kern
   # there are none.
   #: (value, ptr, word) -> value
   def zr_kw_unknown(hash, ids, n)
+    # @type var e: ptr
     if hash == QNIL
       return Machine.value(QNIL)
     end

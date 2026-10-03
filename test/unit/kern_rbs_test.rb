@@ -2,6 +2,7 @@
 
 require "test_helper"
 require "rbs"
+require_relative "../../lib/zr/machine/host"
 
 # Each kernel def's `#:` comment is inline RBS. RBS reads the kernel's
 # files with sig/zr/kern.rbs, which declares the type names, and gives
@@ -22,7 +23,7 @@ class KernRbsTest < Minitest::Test
 
       unit = Zr::Machine::Lower.new(files.map { |path| [File.read(path), path] }, Zr::Machine::Symbols.new).tap(&:run)
       unit.declared_defs.each_value do |d|
-        want = "(#{d.params.map { |_, type| NAMES.fetch(type) }.join(", ")}) -> #{NAMES.fetch(d.ret)}"
+        want = "(#{d.params.map { |_, type| rbs_name(type) }.join(", ")}) -> #{rbs_name(d.ret)}"
         method = kern.methods[d.name.to_sym]
 
         assert method, "#{triple}: RBS has no type for #{d.name}"
@@ -31,7 +32,31 @@ class KernRbsTest < Minitest::Test
     end
   end
 
+  # sig/zr/kern.rbs types each intrinsic: its `Machine` has the methods
+  # of the host's (`Host::Intrinsics`), and the lowering has each one.
+  def test_rbs_types_each_intrinsic
+    env = RBS::Environment.from_loader(RBS::EnvironmentLoader.new)
+    add_rbs(env, File.join(ROOT, "sig/zr/kern.rbs"))
+    machine = RBS::DefinitionBuilder.new(env: env.resolve_type_names).build_singleton(RBS::TypeName.parse("::Zr::Kern::Machine"))
+    typed = machine.methods.select { |_, m| m.defined_in.to_s == "::Zr::Kern::Machine" }.keys.sort
+
+    assert_equal Zr::Machine::Host::Intrinsics.public_instance_methods(false).sort, typed
+    (typed - %i[import indirect raw]).each do |name|
+      source = "module Zr::Kern\n  #: () -> void\n  def probe\n    Machine.#{name}\n  end\nend\n"
+      message = begin
+        Zr::Machine.compile(source, "probe.rb")
+        ""
+      rescue Zr::Machine::Refused => e
+        e.message
+      end
+
+      refute_match(/is not an intrinsic/, message, name)
+    end
+  end
+
   private
+
+  def rbs_name(type) = NAMES.fetch(type) { "::Zr::Kern::#{type}" }
 
   def add_rbs(env, path)
     buffer = RBS::Buffer.new(name: Pathname(path), content: File.read(path))

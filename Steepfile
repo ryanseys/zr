@@ -12,7 +12,8 @@
 # signatures that lib/ uses.
 #
 # lib/zr/runtime is zr's own core and kernel, compiled into each
-# program, and is not checked, except the files that ruby loads too.
+# program, and is not checked here, except the files that ruby loads
+# too. test/unit/kernel_steep_test.rb checks the kernel of each layer.
 #
 # Each file is in the first level that names it, and is checked with that
 # level's diagnostics. All files are strict, except the two record

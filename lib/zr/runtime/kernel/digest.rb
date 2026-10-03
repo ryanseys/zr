@@ -210,6 +210,9 @@ module Zr::Kern
 
   #: (ptr, ptr) -> void
   def zr_sha256_block(h, p)
+    # @type var hh: ptr
+    # @type var s0: ptr
+    # @type var s1: ptr
     k = zr_sha256_k()
     w = Machine.slot(512)
     i = 0
@@ -261,6 +264,9 @@ module Zr::Kern
 
   #: (ptr, ptr) -> void
   def zr_sha512_block(h, p)
+    # @type var hh: ptr
+    # @type var s0: ptr
+    # @type var s1: ptr
     k = zr_sha512_k()
     ones = Machine.ptr(0 - 1)
     w = Machine.slot(640)

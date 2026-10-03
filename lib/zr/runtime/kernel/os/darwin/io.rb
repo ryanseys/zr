@@ -163,6 +163,10 @@ module Zr::Kern
   # negative time waits with no limit.
   #: (value, value, value) -> value
   def zr_os_wait_fds(fds, events, milliseconds)
+    # @type var n: word
+    # @type var bit: word
+    # @type var want: word
+    # @type var at: word
     count = RArray[fds].len
     top = 0
     i = 0
@@ -183,16 +187,16 @@ module Zr::Kern
     while i < count
       n = zr_fix2long(zr_ary_at(fds, i))
       want = zr_fix2long(zr_ary_at(events, i))
-      word = (n / 32) * 4
+      at = (n / 32) * 4
       bit = 1 << (n % 32)
       if (want & WAIT_READABLE) != 0
-        Machine.store32(sets + word, 0, Machine.i32(Machine.u32(Machine.load32(sets + word, 0)) | bit))
+        Machine.store32(sets + at, 0, Machine.i32(Machine.u32(Machine.load32(sets + at, 0)) | bit))
       end
       if (want & WAIT_WRITABLE) != 0
-        Machine.store32(sets + span + word, 0, Machine.i32(Machine.u32(Machine.load32(sets + span + word, 0)) | bit))
+        Machine.store32(sets + span + at, 0, Machine.i32(Machine.u32(Machine.load32(sets + span + at, 0)) | bit))
       end
       if (want & WAIT_PRIORITY) != 0
-        Machine.store32(sets + (span * 2) + word, 0, Machine.i32(Machine.u32(Machine.load32(sets + (span * 2) + word, 0)) | bit))
+        Machine.store32(sets + (span * 2) + at, 0, Machine.i32(Machine.u32(Machine.load32(sets + (span * 2) + at, 0)) | bit))
       end
       i += 1
     end
@@ -215,16 +219,16 @@ module Zr::Kern
     while i < count
       n = zr_fix2long(zr_ary_at(fds, i))
       want = zr_fix2long(zr_ary_at(events, i))
-      word = (n / 32) * 4
+      at = (n / 32) * 4
       bit = 1 << (n % 32)
       ready = 0
-      if (Machine.u32(Machine.load32(sets + word, 0)) & bit) != 0
+      if (Machine.u32(Machine.load32(sets + at, 0)) & bit) != 0
         ready = ready | WAIT_READABLE
       end
-      if (Machine.u32(Machine.load32(sets + span + word, 0)) & bit) != 0
+      if (Machine.u32(Machine.load32(sets + span + at, 0)) & bit) != 0
         ready = ready | WAIT_WRITABLE
       end
-      if (Machine.u32(Machine.load32(sets + (span * 2) + word, 0)) & bit) != 0
+      if (Machine.u32(Machine.load32(sets + (span * 2) + at, 0)) & bit) != 0
         ready = ready | WAIT_PRIORITY
       end
       zr_ary_push(out, zr_fix(ready & want))
@@ -248,16 +252,16 @@ module Zr::Kern
     span = ((n / 32) + 1) * 4
     sets = zr_xmalloc(span * 3)
     Libc.memset(sets, Machine.i32(0), span * 3)
-    word = (n / 32) * 4
+    at = (n / 32) * 4
     bit = 1 << (n % 32)
     if (want & WAIT_READABLE) != 0
-      Machine.store32(sets + word, 0, Machine.i32(bit))
+      Machine.store32(sets + at, 0, Machine.i32(bit))
     end
     if (want & WAIT_WRITABLE) != 0
-      Machine.store32(sets + span + word, 0, Machine.i32(bit))
+      Machine.store32(sets + span + at, 0, Machine.i32(bit))
     end
     if (want & WAIT_PRIORITY) != 0
-      Machine.store32(sets + (span * 2) + word, 0, Machine.i32(bit))
+      Machine.store32(sets + (span * 2) + at, 0, Machine.i32(bit))
     end
     tv = Machine.slot(16)
     ms = zr_fix2long(milliseconds)
@@ -274,13 +278,13 @@ module Zr::Kern
       return zr_fix(0 - errno)
     end
     ready = 0
-    if (Machine.u32(Machine.load32(sets + word, 0)) & bit) != 0
+    if (Machine.u32(Machine.load32(sets + at, 0)) & bit) != 0
       ready = ready | WAIT_READABLE
     end
-    if (Machine.u32(Machine.load32(sets + span + word, 0)) & bit) != 0
+    if (Machine.u32(Machine.load32(sets + span + at, 0)) & bit) != 0
       ready = ready | WAIT_WRITABLE
     end
-    if (Machine.u32(Machine.load32(sets + (span * 2) + word, 0)) & bit) != 0
+    if (Machine.u32(Machine.load32(sets + (span * 2) + at, 0)) & bit) != 0
       ready = ready | WAIT_PRIORITY
     end
     zr_xfree(sets)

@@ -463,6 +463,7 @@ module Zr::Kern
   # subscription is its element index.
   #: (value, value, value) -> value
   def zr_os_wait_fds(fds, events, milliseconds)
+    # @type var want: word
     count = RArray[fds].len
     ms = zr_fix2long(milliseconds)
     subs = zr_xmalloc(((count * 2) + 1) * 48)

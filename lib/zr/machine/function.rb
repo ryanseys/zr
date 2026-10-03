@@ -788,9 +788,23 @@ module Zr
         value
       end
 
+      # The number of operands of each intrinsic whose arm does not count
+      # them itself.
+      OPERANDS = {
+        load64: 2, load32: 2, load8: 2, store64: 3, store32: 3, store8: 3, gates_set: 1,
+        i32: 1, i8: 1, word: 1, sword: 1, ptr: 1, value: 1, u8: 1, u32: 1,
+        f64: 1, bits: 1, to_f64: 1, to_int: 1, ctz: 1, clz: 1, popcnt: 1, bswap: 1,
+        sqrt: 1, floor: 1, ceil: 1, trunc: 1, nearest: 1, fabs: 1
+      }.freeze #: Hash[Symbol, Integer]
+
+      COUNTS = %w[no one two three].freeze #: Array[String]
+
       # Each arm checks the class of the arguments that it reads.
       #: (Prism::CallNode node, Array[untyped] args, String? want) -> [untyped, String]
       def intrinsic(node, args, want)
+        if (n = OPERANDS[node.name]) && args.size != n
+          refuse(node, "Machine.#{node.name} takes #{COUNTS.fetch(n)} operand#{"s" if n > 1}")
+        end
         case node.name
         when :id
           name = args.first

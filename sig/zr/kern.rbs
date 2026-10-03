@@ -1,6 +1,6 @@
-# The kernel's types (lib/zr/runtime/kernel), which each def's `#:` comment
-# names (lib/zr/machine/description.rb, RBS_TYPES). On ruby, each is an
-# Integer or a Float.
+# The kernel's types (lib/zr/runtime/kernel; docs/reference/kernel-subset.md).
+# Each def's `#:` comment names them (lib/zr/machine/description.rb,
+# RBS_TYPES). On CRuby each is an Integer or a Float.
 module Zr
   module Kern
     type i8 = Integer
@@ -9,5 +9,81 @@ module Zr
     type ptr = Integer
     type value = Integer
     type f64 = Float
+
+    # `inline :name` and `collects :name` in a kernel file's module.
+    def self.inline: (Symbol name) -> void
+    def self.collects: (Symbol name) -> void
+
+    # The superclass of each `class Name < Layout`. `Name[p]` is a view
+    # of the layout at `p`; each field is an attribute of the class.
+    class Layout
+      def self.[]: (Integer | Layout address) -> instance
+      def self.size: () -> Integer
+    end
+
+    # The intrinsics (lib/zr/machine/function.rb, `Function#intrinsic`;
+    # lib/zr/machine/host.rb, `Host::Intrinsics`).
+    module Machine
+      # The bodies of the declarations: an import, a signature's `call`,
+      # and a raw function.
+      def self.import: (?from: String) -> bot
+      def self.indirect: () -> bot
+      def self.raw: () -> bot
+
+      def self.id: (Symbol name) -> word
+      def self.bytes: (String text) -> ptr
+      def self.bytesize: (String text) -> word
+      def self.extern: (Symbol name) -> ptr
+      def self.addr: (Symbol name) -> ptr
+      def self.slot: (word bytes) -> ptr
+      def self.static: (Symbol name, word bytes) -> ptr
+
+      def self.load64: (ptr p, word offset) -> word
+      def self.load32: (ptr p, word offset) -> i32
+      def self.load8: (ptr p, word offset) -> i8
+      def self.store64: (ptr p, word offset, word | f64 v) -> void
+      def self.store32: (ptr p, word offset, i32 v) -> void
+      def self.store8: (ptr p, word offset, i8 v) -> void
+
+      def self.gates: () -> word
+      def self.gates_set: (word gates) -> void
+      def self.gates_enter: () -> void
+
+      def self.word: (Integer | bool | Layout x) -> word
+      def self.sword: (Integer x) -> word
+      def self.ptr: (Integer | Layout x) -> ptr
+      def self.value: (Integer | Layout x) -> value
+      def self.i32: (Integer | bool x) -> i32
+      def self.i8: (Integer | bool x) -> i8
+      def self.u8: (i8 x) -> word
+      def self.u32: (i32 x) -> word
+
+      def self.add_wrap: (word a, word b) -> word
+      def self.sub_wrap: (word a, word b) -> word
+      def self.mul_wrap: (word a, word b) -> word
+      def self.shl_wrap: (word a, word b) -> word
+      def self.uadd_wrap: (ptr a, word b) -> ptr
+      def self.usub_wrap: (ptr a, word b) -> ptr
+      def self.umul_wrap: (ptr a, word b) -> ptr
+      def self.ushl_wrap: (ptr a, word b) -> ptr
+      def self.sdiv: (Integer a, Integer b) -> Integer
+      def self.srem: (Integer a, Integer b) -> Integer
+
+      def self.f64: (word bits) -> f64
+      def self.bits: (f64 f) -> word
+      def self.to_f64: (word n) -> f64
+      def self.to_int: (f64 f) -> word
+      def self.sqrt: (f64 f) -> f64
+      def self.floor: (f64 f) -> f64
+      def self.ceil: (f64 f) -> f64
+      def self.trunc: (f64 f) -> f64
+      def self.nearest: (f64 f) -> f64
+      def self.fabs: (f64 f) -> f64
+
+      def self.ctz: (word x) -> word
+      def self.clz: (word x) -> word
+      def self.popcnt: (word x) -> word
+      def self.bswap: (word x) -> word
+    end
   end
 end

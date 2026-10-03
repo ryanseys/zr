@@ -541,6 +541,7 @@ module Zr::Kern
   # and its kernel roots are the live root list, not the copy in the fiber.
   #: () -> void
   def zr_mark_fibers
+    # @type var at: ptr
     l = zr_fiber_list()
     n = FiberList[l].len
     i = 0

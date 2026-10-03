@@ -258,6 +258,7 @@ module Zr::Kern
   # and with the static tree `stree`, if there is one.
   #: (ptr, ptr, word, ptr, ptr, word, word) -> void
   def zr_tr_gen_bitlen(s, tree, max_code, stree, extra, base, max_length)
+    # @type var n: word
     bl_count = DeflateState[s].bl_count
     bits = 0
     while bits <= TR_MAX_BITS
