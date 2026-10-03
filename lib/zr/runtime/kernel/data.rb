@@ -23,13 +23,13 @@ module Zr::Kern
       if kwargs != QNIL
         return zr_wrong_arity(argc + 1, 0)
       end
-      if argc > RArray.len(members)
-        return zr_wrong_arity_range(argc, 0, RArray.len(members))
+      if argc > RArray[members].len
+        return zr_wrong_arity_range(argc, 0, RArray[members].len)
       end
     end
     core = zr_data_core_init_p(recv)
     # A Data with no members still checks the keywords it is given.
-    if core && argc == RArray.len(members) && kwargs == QNIL
+    if core && argc == RArray[members].len && kwargs == QNIL
       return zr_data_made(recv, zr_struct_values_of(argc, argc, argv))
     end
     if core && argc == 0 && kwargs != QNIL
@@ -54,10 +54,10 @@ module Zr::Kern
     return o if o == QUNDEF
     # Each member is nil until `initialize` sets it. This is what a read
     # returns when a subclass's initialize does not call super.
-    zr_ivar_set(o, Machine.id(:__values__), zr_struct_values_of(RArray.len(members), 0, Machine.ptr(0)))
+    zr_ivar_set(o, Machine.id(:__values__), zr_struct_values_of(RArray[members].len, 0, Machine.ptr(0)))
     slot = Machine.slot(8)
     Machine.store64(slot, 0, Machine.word(kwargs))
-    Task.set_kw(zr_task(), 1)
+    Task[zr_task()].kw = 1
     r = zr_send_blk(o, Machine.id(:initialize), 1, slot, blk)
     return r if r == QUNDEF
     o
@@ -68,7 +68,7 @@ module Zr::Kern
   #: (value) -> bool
   def zr_data_core_init_p(klass)
     e = zr_find_method(klass, Machine.id(:initialize))
-    e != 0 && MEntry.kind(e) == KIND_BUILTIN && MEntry.fn(e) == Machine.addr(:zr_data_initialize)
+    e != 0 && MEntry[e].kind == KIND_BUILTIN && MEntry[e].fn == Machine.addr(:zr_data_initialize)
   end
 
   # A new instance of `klass` with `values`, frozen, as `Data#initialize`
@@ -96,8 +96,8 @@ module Zr::Kern
   # own `eql?` raised.
   #: (value, value) -> value
   def zr_data_values_from(members, h)
-    n = RArray.len(members)
-    if RHash.live(h) != n
+    n = RArray[members].len
+    if RHash[h].live != n
       return Machine.value(QNIL)
     end
     values = zr_ary_new(n)
@@ -110,10 +110,10 @@ module Zr::Kern
       if e == 0
         return Machine.value(QNIL)
       end
-      Machine.store64(RArray.ptr(values) + (i * 8), 0, Machine.word(HEntry.value(e)))
+      Machine.store64(RArray[values].ptr + (i * 8), 0, Machine.word(HEntry[e].value))
       i += 1
     end
-    RArray.set_len(values, n)
+    RArray[values].len = n
     values
   end
 
@@ -125,7 +125,7 @@ module Zr::Kern
   def zr_data_initialize(recv, argc, argv, cref, blk)
     kw = zr_kw_take()
     members = zr_struct_members(zr_real_class(recv))
-    if members != QNIL && argc == kw && (argc == 1 || RArray.len(members) == 0)
+    if members != QNIL && argc == kw && (argc == 1 || RArray[members].len == 0)
       values = argc == 0 ? zr_ary_new(0) : zr_data_values_from(members, Machine.value(Machine.load64(argv, 0)))
       return values if values == QUNDEF
       if values != QNIL
@@ -133,7 +133,7 @@ module Zr::Kern
         return r == QUNDEF ? r : Machine.value(QNIL)
       end
     end
-    Task.set_kw(zr_task(), kw)
+    Task[zr_task()].kw = kw
     zr_send(recv, Machine.id(:initialize_members), argc, argv)
   end
 

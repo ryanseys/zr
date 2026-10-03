@@ -12,7 +12,11 @@ module Zr::Kern
   WEAK_KEY = 2
   G_FINALIZERS = 45
 
-  WeakList = layout ptr: Ptr, len: Word, capa: Word
+  class WeakList < Layout
+    attr_accessor :ptr #: ptr
+    attr_accessor :len #: word
+    attr_accessor :capa #: word
+  end
 
   #: () -> ptr
   def zr_weak_list
@@ -26,19 +30,19 @@ module Zr::Kern
 
   #: (ptr, value) -> void
   def zr_weak_list_push(l, v)
-    n = WeakList.len(l)
-    if n == WeakList.capa(l)
+    n = WeakList[l].len
+    if n == WeakList[l].capa
       capa = n < 4 ? 8 : n * 2
       p = zr_xmalloc(capa * 8)
-      if WeakList.ptr(l) != 0
-        zr_memcpy(p, WeakList.ptr(l), n * 8)
-        zr_xfree(WeakList.ptr(l))
+      if WeakList[l].ptr != 0
+        zr_memcpy(p, WeakList[l].ptr, n * 8)
+        zr_xfree(WeakList[l].ptr)
       end
-      WeakList.set_ptr(l, p)
-      WeakList.set_capa(l, capa)
+      WeakList[l].ptr = p
+      WeakList[l].capa = capa
     end
-    Machine.store64(WeakList.ptr(l) + (n * 8), 0, Machine.word(v))
-    WeakList.set_len(l, n + 1)
+    Machine.store64(WeakList[l].ptr + (n * 8), 0, Machine.word(v))
+    WeakList[l].len = n + 1
   end
 
   # Makes a new weak table. `kind` is WEAK_BOTH or WEAK_KEY. If `identity`
@@ -46,11 +50,11 @@ module Zr::Kern
   #: (word, bool) -> value
   def zr_weak_table_new(kind, identity)
     h = zr_hash_new()
-    flags = RBasic.flags(h) | (kind == WEAK_BOTH ? FL_WEAK : FL_WEAKKEY)
+    flags = RBasic[h].flags | (kind == WEAK_BOTH ? FL_WEAK : FL_WEAKKEY)
     if identity
       flags = flags | FL_IDENTITY
     end
-    RBasic.set_flags(h, flags)
+    RBasic[h].flags = flags
     zr_weak_list_push(zr_weak_list(), h)
     h
   end
@@ -62,7 +66,7 @@ module Zr::Kern
 
   #: (value) -> bool
   def zr_dead_p(v)
-    !zr_special_p(v) && (RBasic.flags(v) & FL_STACK) == 0 && !zr_marked_p(v)
+    !zr_special_p(v) && (RBasic[v].flags & FL_STACK) == 0 && !zr_marked_p(v)
   end
 
   # Runs after marking. The live tables stay in the list, and they lose
@@ -73,35 +77,35 @@ module Zr::Kern
     finalizers = zr_global(G_FINALIZERS)
     i = 0
     kept = 0
-    while i < WeakList.len(l)
-      h = Machine.value(Machine.load64(WeakList.ptr(l) + (i * 8), 0))
+    while i < WeakList[l].len
+      h = Machine.value(Machine.load64(WeakList[l].ptr + (i * 8), 0))
       i += 1
       if !zr_dead_p(h)
-        Machine.store64(WeakList.ptr(l) + (kept * 8), 0, Machine.word(h))
+        Machine.store64(WeakList[l].ptr + (kept * 8), 0, Machine.word(h))
         kept += 1
         zr_weak_prune_table(h, h == finalizers)
       end
     end
-    WeakList.set_len(l, kept)
+    WeakList[l].len = kept
   end
 
   #: (value, bool) -> void
   def zr_weak_prune_table(h, finalizer)
-    both = (RBasic.flags(h) & FL_WEAK) != 0
-    n = RHash.len(h)
+    both = (RBasic[h].flags & FL_WEAK) != 0
+    n = RHash[h].len
     i = 0
     while i < n
-      e = RHash.entries(h) + (i * HEntry.size)
-      if HEntry.live(e) != 0 && (zr_dead_p(HEntry.key(e)) || (both && zr_dead_p(HEntry.value(e))))
+      e = RHash[h].entries + (i * HEntry.size)
+      if HEntry[e].live != 0 && (zr_dead_p(HEntry[e].key) || (both && zr_dead_p(HEntry[e].value)))
         if finalizer
-          zr_weak_list_push(zr_finalizer_queue(), HEntry.value(e))
+          zr_weak_list_push(zr_finalizer_queue(), HEntry[e].value)
           # It runs at the next safe point.
           zr_poll_set()
         end
-        HEntry.set_live(e, 0)
-        HEntry.set_key(e, Machine.value(QNIL))
-        HEntry.set_value(e, Machine.value(QNIL))
-        RHash.set_live(h, RHash.live(h) - 1)
+        HEntry[e].live = 0
+        HEntry[e].key = Machine.value(QNIL)
+        HEntry[e].value = Machine.value(QNIL)
+        RHash[h].live = RHash[h].live - 1
       end
       i += 1
     end
@@ -112,8 +116,8 @@ module Zr::Kern
   def zr_mark_finalizer_queue
     q = zr_finalizer_queue()
     i = 0
-    while i < WeakList.len(q)
-      zr_mark(Machine.value(Machine.load64(WeakList.ptr(q) + (i * 8), 0)))
+    while i < WeakList[q].len
+      zr_mark(Machine.value(Machine.load64(WeakList[q].ptr + (i * 8), 0)))
       i += 1
     end
   end
@@ -143,15 +147,15 @@ module Zr::Kern
   #: () -> value
   def zr_finalizers_run
     q = zr_finalizer_queue()
-    while WeakList.len(q) > 0
-      row = Machine.value(Machine.load64(WeakList.ptr(q), 0))
-      n = WeakList.len(q) - 1
+    while WeakList[q].len > 0
+      row = Machine.value(Machine.load64(WeakList[q].ptr, 0))
+      n = WeakList[q].len - 1
       i = 0
       while i < n
-        Machine.store64(WeakList.ptr(q) + (i * 8), 0, Machine.load64(WeakList.ptr(q) + ((i + 1) * 8), 0))
+        Machine.store64(WeakList[q].ptr + (i * 8), 0, Machine.load64(WeakList[q].ptr + ((i + 1) * 8), 0))
         i += 1
       end
-      WeakList.set_len(q, n)
+      WeakList[q].len = n
       r = zr_finalizer_row_run(row)
       return r if r == QUNDEF
     end
@@ -165,11 +169,11 @@ module Zr::Kern
     slot = Machine.slot(8)
     Machine.store64(slot, 0, Machine.word(zr_ary_at(row, 0)))
     i = 1
-    while i < RArray.len(row)
+    while i < RArray[row].len
       r = zr_send(zr_ary_at(row, i), Machine.id(:call), 1, slot)
       if r == QUNDEF
-        raised = Task.pending(zr_task())
-        Task.set_pending(zr_task(), Machine.value(QNIL))
+        raised = Task[zr_task()].pending
+        Task[zr_task()].pending = Machine.value(QNIL)
         if zr_gvar_get(Machine.id(:$VERBOSE)) != QNIL
           b = Machine.slot(Buf.size)
           zr_buf_init(b)
@@ -197,14 +201,14 @@ module Zr::Kern
     if zr_special_p(t)
       return
     end
-    n = RHash.len(t)
+    n = RHash[t].len
     i = 0
     while i < n
-      e = RHash.entries(t) + (i * HEntry.size)
-      if HEntry.live(e) != 0
-        row = HEntry.value(e)
-        HEntry.set_live(e, 0)
-        RHash.set_live(t, RHash.live(t) - 1)
+      e = RHash[t].entries + (i * HEntry.size)
+      if HEntry[e].live != 0
+        row = HEntry[e].value
+        HEntry[e].live = 0
+        RHash[t].live = RHash[t].live - 1
         zr_finalizer_row_run(row)
       end
       i += 1

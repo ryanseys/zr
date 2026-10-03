@@ -2,28 +2,6 @@ module Zr::Kern
   # File descriptors: the libSystem calls that the IO and File classes
   # use. A failure returns the negated errno, and the core converts it to
   # the matching Errno class.
-  Libc.import :read, [I32, Ptr, Word] => Word
-  Libc.import :pread, [I32, Ptr, Word, Word] => Word
-  Libc.import :pwrite, [I32, Ptr, Word, Word] => Word
-  Libc.import :close, [I32] => I32
-  Libc.import :dup, [I32] => I32
-  Libc.import :dup2, [I32, I32] => I32
-  Libc.import :fsync, [I32] => I32
-  Libc.import :lseek, [I32, Word, I32] => Word
-  Libc.import :unlink, [Ptr] => I32
-  Libc.import :rename, [Ptr, Ptr] => I32
-  Libc.import :isatty, [I32] => I32
-  Libc.import :fstat, [I32, Ptr] => I32
-  Libc.import :fchmod, [I32, I32] => I32
-  Libc.import :mkdir, [Ptr, I32] => I32
-  Libc.import :rmdir, [Ptr] => I32
-  Libc.import :chdir, [Ptr] => I32
-  Libc.import :opendir, [Ptr] => Ptr
-  Libc.import :fdopendir, [I32] => Ptr
-  Libc.import :fchdir, [I32] => I32
-  Libc.import :readdir, [Ptr] => Ptr
-  Libc.import :closedir, [Ptr] => I32
-  Libc.import :strerror, [I32] => Ptr
 
   #: () -> word
   def zr_errno
@@ -102,7 +80,7 @@ module Zr::Kern
   #: (value, value, value) -> value
   def zr_io_ioctl_buf(fd, command, bytes)
     zr_io_failed(Machine.sword(zr_os_ioctl(Machine.i32(zr_fix2long(fd)), Machine.word(zr_fix2long(command)),
-                                       RString.ptr(bytes))))
+                                       RString[bytes].ptr)))
   end
 
   # fcntl(2) with a command that the program gives, and the argument of
@@ -118,7 +96,7 @@ module Zr::Kern
   #: (value, value, value) -> value
   def zr_io_fcntl_bytes(fd, command, bytes)
     zr_io_failed(Machine.sword(zr_os_fcntl(Machine.i32(zr_fix2long(fd)), Machine.i32(zr_fix2long(command)),
-                                      Machine.word(RString.ptr(bytes)))))
+                                      Machine.word(RString[bytes].ptr))))
   end
 
   # rb_sysopen: open(2) with the flags, and the permissions for a new
@@ -126,13 +104,13 @@ module Zr::Kern
   # an exec, so rb_sysopen adds O_CLOEXEC to the call.
   #: (value, value, value) -> value
   def zr_io_open_flags(path, flags, perm)
-    fd = zr_os_open(RString.ptr(path), Machine.i32(zr_fix2long(flags) | O_CLOEXEC), Machine.i32(zr_fix2long(perm)))
+    fd = zr_os_open(RString[path].ptr, Machine.i32(zr_fix2long(flags) | O_CLOEXEC), Machine.i32(zr_fix2long(perm)))
     while fd < Machine.i32(0)
       failed = zr_io_retry()
       if failed != QNIL
         return failed
       end
-      fd = zr_os_open(RString.ptr(path), Machine.i32(zr_fix2long(flags) | O_CLOEXEC), Machine.i32(zr_fix2long(perm)))
+      fd = zr_os_open(RString[path].ptr, Machine.i32(zr_fix2long(flags) | O_CLOEXEC), Machine.i32(zr_fix2long(perm)))
     end
     zr_fix(Machine.sword(fd))
   end
@@ -183,10 +161,10 @@ module Zr::Kern
 
   #: (value, value, value) -> value
   def zr_io_pwrite(fd, s, at)
-    n = RString.len(s)
+    n = RString[s].len
     done = 0
     while done < n
-      w = Libc.pwrite(Machine.i32(zr_fix2long(fd)), RString.ptr(s) + done, n - done, zr_fix2long(at) + done)
+      w = Libc.pwrite(Machine.i32(zr_fix2long(fd)), RString[s].ptr + done, n - done, zr_fix2long(at) + done)
       if w < 0
         return zr_fix(0 - zr_errno())
       end
@@ -201,8 +179,8 @@ module Zr::Kern
   #: (value, value) -> value
   def zr_io_write(fd, s)
     done = 0
-    while done < RString.len(s)
-      w = Libc.write(Machine.i32(zr_fix2long(fd)), RString.ptr(s) + done, RString.len(s) - done)
+    while done < RString[s].len
+      w = Libc.write(Machine.i32(zr_fix2long(fd)), RString[s].ptr + done, RString[s].len - done)
       if w < 0
         failed = zr_io_retry()
         if failed != QNIL
@@ -221,17 +199,17 @@ module Zr::Kern
   #: (value, value, value, value) -> value
   def zr_io_write_some(fd, s, from, count)
     at = zr_fix2long(from)
-    n = RString.len(s) - at
+    n = RString[s].len - at
     if n > zr_fix2long(count)
       n = zr_fix2long(count)
     end
-    w = Libc.write(Machine.i32(zr_fix2long(fd)), RString.ptr(s) + at, n)
+    w = Libc.write(Machine.i32(zr_fix2long(fd)), RString[s].ptr + at, n)
     while w < 0
       failed = zr_io_retry()
       if failed != QNIL
         return failed
       end
-      w = Libc.write(Machine.i32(zr_fix2long(fd)), RString.ptr(s) + at, n)
+      w = Libc.write(Machine.i32(zr_fix2long(fd)), RString[s].ptr + at, n)
     end
     zr_fix(w)
   end
@@ -272,10 +250,6 @@ module Zr::Kern
 
   # The terminal calls that io/console makes. An ioctl goes through
   # `zr_os_ioctl`, which passes the variadic argument of ioctl.
-  Libc.import :tcgetattr, [I32, Ptr] => I32
-  Libc.import :tcsetattr, [I32, I32, Ptr] => I32
-  Libc.import :tcflush, [I32, I32] => I32
-  Libc.import :ttyname, [I32] => Ptr
 
   # struct winsize: four unsigned shorts. The rows and the columns are
   # first.
@@ -293,7 +267,7 @@ module Zr::Kern
 
   #: (value, value) -> value
   def zr_io_set_winsize(fd, bytes)
-    zr_io_status(zr_os_ioctl(Machine.i32(zr_fix2long(fd)), TIOCSWINSZ, RString.ptr(bytes)))
+    zr_io_status(zr_os_ioctl(Machine.i32(zr_fix2long(fd)), TIOCSWINSZ, RString[bytes].ptr))
   end
 
   # The mode of the terminal as raw bytes, or the negated errno.
@@ -309,7 +283,7 @@ module Zr::Kern
   #: (value, value, value) -> value
   def zr_io_set_termios(fd, action, bytes)
     zr_io_status(Libc.tcsetattr(Machine.i32(zr_fix2long(fd)), Machine.i32(zr_fix2long(action)),
-                           RString.ptr(bytes)))
+                           RString[bytes].ptr))
   end
 
   #: (value, value) -> value
@@ -320,10 +294,6 @@ module Zr::Kern
   # A pseudo-terminal pair, through the Unix98 calls that ruby makes:
   # posix_openpt for the master, then grantpt and unlockpt, then the name
   # of the slave device. ruby opens the slave by that name.
-  Libc.import :posix_openpt, [I32] => I32
-  Libc.import :grantpt, [I32] => I32
-  Libc.import :unlockpt, [I32] => I32
-  Libc.import :ptsname, [I32] => Ptr
 
   # The master descriptor and the name of the slave, or the negated errno.
   #: () -> value
@@ -358,34 +328,34 @@ module Zr::Kern
 
   #: (value) -> value
   def zr_io_unlink(path)
-    zr_io_status(Libc.unlink(RString.ptr(path)))
+    zr_io_status(Libc.unlink(RString[path].ptr))
   end
 
   #: (value, value) -> value
   def zr_io_rename(from, to)
-    zr_io_status(Libc.rename(RString.ptr(from), RString.ptr(to)))
+    zr_io_status(Libc.rename(RString[from].ptr, RString[to].ptr))
   end
 
   #: (value, value) -> value
   def zr_io_mkdir(path, mode)
-    zr_io_status(Libc.mkdir(RString.ptr(path), Machine.i32(zr_fix2long(mode))))
+    zr_io_status(Libc.mkdir(RString[path].ptr, Machine.i32(zr_fix2long(mode))))
   end
 
   #: (value) -> value
   def zr_io_rmdir(path)
-    zr_io_status(Libc.rmdir(RString.ptr(path)))
+    zr_io_status(Libc.rmdir(RString[path].ptr))
   end
 
   #: (value) -> value
   def zr_io_chdir(path)
-    zr_io_status(Libc.chdir(RString.ptr(path)))
+    zr_io_status(Libc.chdir(RString[path].ptr))
   end
 
   # The names in a directory, including `.` and `..`, in the order of the
   # file system, or the negated errno.
   #: (value) -> value
   def zr_io_dir_names(path)
-    d = Libc.opendir(RString.ptr(path))
+    d = Libc.opendir(RString[path].ptr)
     if d == 0
       return zr_fix(0 - zr_errno())
     end
@@ -406,7 +376,7 @@ module Zr::Kern
   # whose kind the directory already knows.
   #: (value) -> value
   def zr_io_dir_kinds(path)
-    d = Libc.opendir(RString.ptr(path))
+    d = Libc.opendir(RString[path].ptr)
     if d == 0
       return zr_fix(0 - zr_errno())
     end
@@ -428,7 +398,7 @@ module Zr::Kern
   #: (value, value) -> value
   def zr_io_pathconf(path, name)
     zr_os_set_errno(0)
-    r = Libc.pathconf(RString.ptr(path), Machine.i32(zr_fix2long(name)))
+    r = Libc.pathconf(RString[path].ptr, Machine.i32(zr_fix2long(name)))
     if r < 0
       e = zr_errno()
       if e == 0
@@ -478,11 +448,9 @@ module Zr::Kern
     zr_io_status(Libc.fchdir(Machine.i32(zr_fix2long(fd))))
   end
 
-  Libc.import :chroot, [Ptr] => I32
-
   #: (value) -> value
   def zr_io_chroot(path)
-    zr_io_status(Libc.chroot(RString.ptr(path)))
+    zr_io_status(Libc.chroot(RString[path].ptr))
   end
 
   # The message that strerror gives for errno `n`.
@@ -496,28 +464,11 @@ module Zr::Kern
   #: (value) -> value
   def zr_io_file_size(path)
     buf = Machine.slot(STAT_LEN)
-    if Libc.stat(RString.ptr(path), buf) < Machine.i32(0)
+    if Libc.stat(RString[path].ptr, buf) < Machine.i32(0)
       return zr_fix(0 - zr_errno())
     end
     zr_fix(zr_os_stat_size(buf))
   end
-
-  Libc.import :lstat, [Ptr, Ptr] => I32
-  Libc.import :realpath, [Ptr, Ptr] => Ptr
-  Libc.import :chmod, [Ptr, I32] => I32
-  Libc.import :fchmod, [I32, I32] => I32
-  Libc.import :chown, [Ptr, I32, I32] => I32
-  Libc.import :lchown, [Ptr, I32, I32] => I32
-  Libc.import :lchmod, [Ptr, I32] => I32
-  Libc.import :link, [Ptr, Ptr] => I32
-  Libc.import :symlink, [Ptr, Ptr] => I32
-  Libc.import :readlink, [Ptr, Ptr, Word] => Word
-  Libc.import :mkfifo, [Ptr, I32] => I32
-  Libc.import :truncate, [Ptr, Word] => I32
-  Libc.import :ftruncate, [I32, Word] => I32
-  Libc.import :umask, [I32] => I32
-  Libc.import :utimensat, [I32, Ptr, Ptr, I32] => I32
-  Libc.import :flock, [I32, I32] => I32
 
   # Calls that take one path and one small number: the owner for chown,
   # the length for truncate, and others. `which` selects the call. Returns
@@ -527,17 +478,17 @@ module Zr::Kern
     w = zr_fix2long(which)
     r = Machine.i32(0)
     if w == 0
-      r = Libc.chown(RString.ptr(path), Machine.i32(zr_fix2long(a)), Machine.i32(zr_fix2long(b)))
+      r = Libc.chown(RString[path].ptr, Machine.i32(zr_fix2long(a)), Machine.i32(zr_fix2long(b)))
     elsif w == 1
-      r = Libc.lchown(RString.ptr(path), Machine.i32(zr_fix2long(a)), Machine.i32(zr_fix2long(b)))
+      r = Libc.lchown(RString[path].ptr, Machine.i32(zr_fix2long(a)), Machine.i32(zr_fix2long(b)))
     elsif w == 2
-      r = Libc.link(RString.ptr(path), RString.ptr(a))
+      r = Libc.link(RString[path].ptr, RString[a].ptr)
     elsif w == 3
-      r = Libc.symlink(RString.ptr(path), RString.ptr(a))
+      r = Libc.symlink(RString[path].ptr, RString[a].ptr)
     elsif w == 4
-      r = Libc.mkfifo(RString.ptr(path), Machine.i32(zr_fix2long(a)))
+      r = Libc.mkfifo(RString[path].ptr, Machine.i32(zr_fix2long(a)))
     elsif w == 5
-      r = Libc.truncate(RString.ptr(path), zr_fix2long(a))
+      r = Libc.truncate(RString[path].ptr, zr_fix2long(a))
     elsif w == 6
       r = Libc.ftruncate(Machine.i32(zr_fix2long(a)), zr_fix2long(b))
     elsif w == 7
@@ -545,7 +496,7 @@ module Zr::Kern
     elsif w == 8
       r = Libc.flock(Machine.i32(zr_fix2long(a)), Machine.i32(zr_fix2long(b)))
     elsif w == 9
-      r = Libc.lchmod(RString.ptr(path), Machine.i32(zr_fix2long(a)))
+      r = Libc.lchmod(RString[path].ptr, Machine.i32(zr_fix2long(a)))
     end
     zr_io_status(r)
   end
@@ -568,7 +519,7 @@ module Zr::Kern
     if link == QTRUE
       flags = AT_SYMLINK_NOFOLLOW
     end
-    zr_io_status(Libc.utimensat(Machine.i32(AT_FDCWD), RString.ptr(path), spec, Machine.i32(flags)))
+    zr_io_status(Libc.utimensat(Machine.i32(AT_FDCWD), RString[path].ptr, spec, Machine.i32(flags)))
   end
 
   # umask(2): returns the old mask, and sets the new one when `mask` is
@@ -587,7 +538,7 @@ module Zr::Kern
   #: (value) -> value
   def zr_readlink_m(path)
     buf = zr_xmalloc(4096)
-    n = Libc.readlink(RString.ptr(path), buf, 4095)
+    n = Libc.readlink(RString[path].ptr, buf, 4095)
     if n < 0
       zr_xfree(buf)
       return zr_fix(0 - zr_errno())
@@ -604,7 +555,7 @@ module Zr::Kern
   #: (value, value) -> value
   def zr_stat_m(path, follow)
     buf = Machine.slot(STAT_LEN)
-    r = follow == QFALSE ? Libc.lstat(RString.ptr(path), buf) : Libc.stat(RString.ptr(path), buf)
+    r = follow == QFALSE ? Libc.lstat(RString[path].ptr, buf) : Libc.stat(RString[path].ptr, buf)
     if r < Machine.i32(0)
       return zr_fix(0 - zr_errno())
     end
@@ -625,7 +576,7 @@ module Zr::Kern
   # realpath(3): the resolved path, or a negative errno.
   #: (value) -> value
   def zr_realpath_m(path)
-    p = Libc.realpath(RString.ptr(path), 0)
+    p = Libc.realpath(RString[path].ptr, 0)
     if p == 0
       return zr_fix(0 - zr_errno())
     end
@@ -636,7 +587,7 @@ module Zr::Kern
 
   #: (value, value) -> value
   def zr_chmod_m(path, mode)
-    if Libc.chmod(RString.ptr(path), Machine.i32(zr_fix2long(mode))) < Machine.i32(0)
+    if Libc.chmod(RString[path].ptr, Machine.i32(zr_fix2long(mode))) < Machine.i32(0)
       return zr_fix(0 - zr_errno())
     end
     zr_fix(0)
@@ -646,7 +597,7 @@ module Zr::Kern
   # read, 2 write, 1 execute).
   #: (value, value) -> value
   def zr_path_access(path, mode)
-    zr_bool(Machine.u32(Libc.access(RString.ptr(path), Machine.i32(zr_fix2long(mode)))) == 0)
+    zr_bool(Machine.u32(Libc.access(RString[path].ptr, Machine.i32(zr_fix2long(mode)))) == 0)
   end
 
   # The bits in `events`: IO::READABLE, IO::PRIORITY, IO::WRITABLE.
@@ -665,9 +616,9 @@ module Zr::Kern
       if zr_trap_check() == QUNDEF
         return Machine.value(QUNDEF)
       end
-      r = zr_ary_new(RArray.len(fds))
+      r = zr_ary_new(RArray[fds].len)
       i = 0
-      while i < RArray.len(fds)
+      while i < RArray[fds].len
         zr_ary_push(r, zr_fix(0))
         i += 1
       end

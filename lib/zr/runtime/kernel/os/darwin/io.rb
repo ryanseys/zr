@@ -2,13 +2,6 @@ module Zr::Kern
   # The darwin part of the descriptor calls: the location of errno, the
   # calls with a variadic argument, and the layouts of struct dirent and
   # struct stat.
-  Libc.import :__error, [] => Ptr
-  # open(2) takes the mode for a new file as a variadic argument, and this
-  # platform passes a variadic argument on the stack. `__open` is the
-  # fixed-arity call that open's wrapper makes after it reads that
-  # argument.
-  Libc.import :__open, [Ptr, I32, I32] => I32
-  Libc.import :dlsym, [Ptr, Ptr] => Ptr
 
   #: () -> word
   def zr_os_errno
@@ -32,8 +25,6 @@ module Zr::Kern
   # argument. This platform passes a variadic argument on the stack, and
   # this runtime cannot make such a call. `__fcntl` is the fixed-arity
   # call that fcntl's wrapper makes after it reads that argument.
-  Libc.import :__fcntl, [I32, I32, Word] => I32
-
   #: (i32, i32, word) -> i32
   def zr_os_fcntl(fd, command, argument)
     Libc.__fcntl(fd, command, argument)
@@ -43,8 +34,6 @@ module Zr::Kern
   # never supplies it: an ioctl that reads its argument returns EFAULT.
   # `__ioctl` is the fixed-arity call that ioctl's wrapper makes after it
   # reads that argument.
-  Libc.import :__ioctl, [I32, Word, Ptr] => I32
-
   #: (i32, word, ptr) -> i32
   def zr_os_ioctl(fd, request, argument)
     Libc.__ioctl(fd, request, argument)
@@ -153,7 +142,10 @@ module Zr::Kern
   # builds with _DARWIN_UNLIMITED_SELECT). Plain `select` refuses more
   # than 1024 descriptors, and poll(2) on darwin reports a pipe with data
   # as priority-readable. Thus neither one gives CRuby's result.
-  SelectCall = fn [I32, Ptr, Ptr, Ptr, Ptr] => I32
+  module SelectCall
+    #: (ptr, i32, ptr, ptr, ptr, ptr) -> i32
+    def self.call(fn, i, p1, p2, p3, p4) = Machine.indirect
+  end
 
   #: () -> ptr
   def zr_select_fn
@@ -171,7 +163,7 @@ module Zr::Kern
   # negative time waits with no limit.
   #: (value, value, value) -> value
   def zr_os_wait_fds(fds, events, milliseconds)
-    count = RArray.len(fds)
+    count = RArray[fds].len
     top = 0
     i = 0
     while i < count

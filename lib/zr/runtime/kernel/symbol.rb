@@ -3,7 +3,13 @@ module Zr::Kern
   # name. The compiler puts each static name in `zr_symbol_names`, a table
   # of `zr_symbol_count` entries of (bytes, length). Names interned at run
   # time go in a table of the same shape outside the arena.
-  Symtab = layout rows: Ptr, len: Word, capa: Word, bins: Ptr, nbins: Word
+  class Symtab < Layout
+    attr_accessor :rows #: ptr
+    attr_accessor :len #: word
+    attr_accessor :capa #: word
+    attr_accessor :bins #: ptr
+    attr_accessor :nbins #: word
+  end
 
   #: () -> ptr
   def zr_symtab
@@ -32,7 +38,7 @@ module Zr::Kern
     if id < n
       Machine.extern(:zr_symbol_names) + (id * 16)
     else
-      Symtab.rows(zr_symtab()) + ((id - n) * 16)
+      Symtab[zr_symtab()].rows + ((id - n) * 16)
     end
   end
 
@@ -108,21 +114,21 @@ module Zr::Kern
   #: () -> void
   def zr_symbol_index_drop
     t = zr_symtab()
-    if Symtab.bins(t) != 0
-      zr_xfree(Symtab.bins(t))
-      Symtab.set_bins(t, 0)
+    if Symtab[t].bins != 0
+      zr_xfree(Symtab[t].bins)
+      Symtab[t].bins = 0
     end
   end
 
   #: (word) -> void
   def zr_symbol_index_put(id)
     t = zr_symtab()
-    mask = Symtab.nbins(t) - 1
+    mask = Symtab[t].nbins - 1
     h = zr_symbol_hash(zr_symbol_name_ptr(id), zr_symbol_name_len(id), zr_symbol_tag(id)) & mask
-    while Machine.load64(Symtab.bins(t) + (h * 8), 0) != 0
+    while Machine.load64(Symtab[t].bins + (h * 8), 0) != 0
       h = (h + 1) & mask
     end
-    Machine.store64(Symtab.bins(t) + (h * 8), 0, id + 1)
+    Machine.store64(Symtab[t].bins + (h * 8), 0, id + 1)
   end
 
   # Adds all symbols to a new index with at least four bins for each
@@ -131,14 +137,14 @@ module Zr::Kern
   def zr_symbol_index_build
     zr_symbol_index_drop()
     t = zr_symtab()
-    total = zr_static_symbol_count() + Symtab.len(t)
+    total = zr_static_symbol_count() + Symtab[t].len
     bins = 1024
     while bins < total * 4
       bins = bins * 2
     end
-    Symtab.set_bins(t, zr_xmalloc(bins * 8))
-    Libc.memset(Symtab.bins(t), Machine.i32(0), bins * 8)
-    Symtab.set_nbins(t, bins)
+    Symtab[t].bins = zr_xmalloc(bins * 8)
+    Libc.memset(Symtab[t].bins, Machine.i32(0), bins * 8)
+    Symtab[t].nbins = bins
     id = 0
     while id < total
       unless zr_symbol_pad_p(id)
@@ -154,10 +160,10 @@ module Zr::Kern
   #: (word) -> void
   def zr_symbol_index_add(id)
     t = zr_symtab()
-    if Symtab.bins(t) == 0
+    if Symtab[t].bins == 0
       return
     end
-    if (id + 1) * 2 > Symtab.nbins(t)
+    if (id + 1) * 2 > Symtab[t].nbins
       zr_symbol_index_drop()
       return
     end
@@ -169,19 +175,19 @@ module Zr::Kern
   #: (ptr, word, word) -> word
   def zr_symbol_index_find(p, n, tag)
     t = zr_symtab()
-    if Symtab.bins(t) == 0
+    if Symtab[t].bins == 0
       zr_symbol_index_build()
     end
-    mask = Symtab.nbins(t) - 1
+    mask = Symtab[t].nbins - 1
     h = zr_symbol_hash(p, n, tag) & mask
-    slot = Machine.load64(Symtab.bins(t) + (h * 8), 0)
+    slot = Machine.load64(Symtab[t].bins + (h * 8), 0)
     while slot != 0
       id = slot - 1
       if zr_symbol_tag(id) == tag && zr_bytes_eq(p, n, zr_symbol_name_ptr(id), zr_symbol_name_len(id))
         return id
       end
       h = (h + 1) & mask
-      slot = Machine.load64(Symtab.bins(t) + (h * 8), 0)
+      slot = Machine.load64(Symtab[t].bins + (h * 8), 0)
     end
     0 - 1
   end
@@ -196,28 +202,28 @@ module Zr::Kern
       return found
     end
     t = zr_symtab()
-    total = zr_static_symbol_count() + Symtab.len(t)
-    k = Symtab.len(t)
-    if k == Symtab.capa(t)
+    total = zr_static_symbol_count() + Symtab[t].len
+    k = Symtab[t].len
+    if k == Symtab[t].capa
       cap = k * 2
       if cap < 64
         cap = 64
       end
       rows = zr_xmalloc(cap * 16)
-      if Symtab.rows(t) != 0
-        zr_memcpy(rows, Symtab.rows(t), k * 16)
-        zr_xfree(Symtab.rows(t))
+      if Symtab[t].rows != 0
+        zr_memcpy(rows, Symtab[t].rows, k * 16)
+        zr_xfree(Symtab[t].rows)
       end
-      Symtab.set_rows(t, rows)
-      Symtab.set_capa(t, cap)
+      Symtab[t].rows = rows
+      Symtab[t].capa = cap
     end
     copy = zr_xmalloc(n + 1)
     zr_memcpy(copy, p, n)
     Machine.store8(copy + n, 0, Machine.i8(0))
-    row = Symtab.rows(t) + (k * 16)
+    row = Symtab[t].rows + (k * 16)
     Machine.store64(row, 0, copy)
     Machine.store64(row, 8, n | (tag << SYM_TAG_SHIFT))
-    Symtab.set_len(t, k + 1)
+    Symtab[t].len = k + 1
     zr_symbol_index_add(total)
     total
   end
@@ -228,7 +234,7 @@ module Zr::Kern
     s = zr_str_new(zr_symbol_name_ptr(id), zr_symbol_name_len(id))
     # An ASCII-only name is US-ASCII, as in ruby.
     zr_str_set_index(s, zr_str_ascii_only(s) ? ENC_USASCII : zr_symbol_encoding_index(id))
-    RBasic.set_flags(s, RBasic.flags(s) | FL_CHILLED_SYMBOL)
+    RBasic[s].flags = RBasic[s].flags | FL_CHILLED_SYMBOL
     s
   end
 
@@ -258,7 +264,7 @@ module Zr::Kern
   # All symbols interned until now, static names first.
   #: () -> value
   def zr_all_symbols
-    total = zr_static_symbol_count() + Symtab.len(zr_symtab())
+    total = zr_static_symbol_count() + Symtab[zr_symtab()].len
     out = zr_ary_new(total)
     id = 0
     while id < total
@@ -274,7 +280,7 @@ module Zr::Kern
   # numbers its names from this, so that its ids are the program's.
   #: () -> value
   def zr_symbol_table
-    total = zr_static_symbol_count() + Symtab.len(zr_symtab())
+    total = zr_static_symbol_count() + Symtab[zr_symtab()].len
     out = zr_ary_new(total)
     id = 0
     while id < total
@@ -288,7 +294,7 @@ module Zr::Kern
   # ids in its compiled code agree with the ids of this program.
   #: (value) -> value
   def zr_intern_id(name)
-    zr_fix(zr_intern(RString.ptr(name), RString.len(name)))
+    zr_fix(zr_intern(RString[name].ptr, RString[name].len))
   end
 
   # The number of regexp literal sites in the program, so that the sites

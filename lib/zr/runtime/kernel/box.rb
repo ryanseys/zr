@@ -32,15 +32,15 @@ module Zr::Kern
   # box calls it.
   #: () -> value
   def zr_box_current
-    t = Task.top(zr_task())
+    t = Task[zr_task()].top
     if t == 0
       return Machine.value(QNIL)
     end
-    m = Frame.meta(t)
+    m = Frame[t].meta
     if m == 0
       return Machine.value(QNIL)
     end
-    b = FrameMeta.box(m)
+    b = FrameMeta[m].box
     Machine.word(b) == 0 ? Machine.value(QNIL) : b
   end
 
@@ -48,17 +48,17 @@ module Zr::Kern
   # C method does, so the frame walk skips all builtins.
   #: () -> value
   def zr_box_reach
-    f = Task.top(zr_task())
+    f = Task[zr_task()].top
     while f != 0
-      m = Frame.meta(f)
+      m = Frame[f].meta
       if m == 0
         return Machine.value(QNIL)
       end
-      if FrameMeta.kind(m) != KIND_BUILTIN && FrameMeta.kind(m) != KIND_HIDDEN
-        b = FrameMeta.box(m)
+      if FrameMeta[m].kind != KIND_BUILTIN && FrameMeta[m].kind != KIND_HIDDEN
+        b = FrameMeta[m].box
         return Machine.word(b) == 0 ? Machine.value(QNIL) : b
       end
-      f = Frame.prev(f)
+      f = Frame[f].prev
     end
     Machine.value(QNIL)
   end
@@ -66,7 +66,7 @@ module Zr::Kern
   # The snippet's toplevel shows its own label in a backtrace.
   #: (value) -> value
   def zr_box_compiled(meta)
-    FrameMeta.set_kind(Machine.ptr(zr_fix2long(meta)), KIND_COMPILED)
+    FrameMeta[Machine.ptr(zr_fix2long(meta))].kind = KIND_COMPILED
     Machine.value(QNIL)
   end
 
@@ -76,8 +76,8 @@ module Zr::Kern
   #: (value, value) -> value
   def zr_box_stamp(metas, b)
     i = 0
-    while i < RArray.len(metas)
-      FrameMeta.set_box(Machine.ptr(zr_fix2long(zr_ary_at(metas, i))), b)
+    while i < RArray[metas].len
+      FrameMeta[Machine.ptr(zr_fix2long(zr_ary_at(metas, i)))].box = b
       i += 1
     end
     zr_consts_changed()
@@ -101,7 +101,7 @@ module Zr::Kern
     if zr_special_p(klass)
       return klass
     end
-    a = ClassExt.boxed(RClass.ext(klass))
+    a = ClassExt[RClass[klass].ext].boxed
     if a == QNIL
       return klass
     end
@@ -110,7 +110,7 @@ module Zr::Kern
       return klass
     end
     i = zr_fix2long(zr_ivar_get(b, Machine.id(:slot)))
-    if i >= RArray.len(a)
+    if i >= RArray[a].len
       return klass
     end
     v = zr_ary_at(a, i)
@@ -120,21 +120,21 @@ module Zr::Kern
   # Sets `shadow` as the view of `klass` for the box slot.
   #: (value, value, value) -> value
   def zr_box_bind(klass, slot, shadow)
-    ext = RClass.ext(klass)
-    a = ClassExt.boxed(ext)
+    ext = RClass[klass].ext
+    a = ClassExt[ext].boxed
     if a == QNIL
       a = zr_ary_new(4)
-      ClassExt.set_boxed(ext, a)
+      ClassExt[ext].boxed = a
       zr_write_barrier(klass, a)
     end
     i = zr_fix2long(slot)
-    while RArray.len(a) <= i
+    while RArray[a].len <= i
       zr_ary_push(a, Machine.value(QNIL))
     end
     zr_ary_store(a, i, shadow)
-    ClassExt.set_shadow(RClass.ext(shadow), klass)
-    RBasic.set_flags(klass, RBasic.flags(klass) & FL_RANKED_CLEAR)
-    RBasic.set_flags(shadow, RBasic.flags(shadow) & FL_RANKED_CLEAR)
+    ClassExt[RClass[shadow].ext].shadow = klass
+    RBasic[klass].flags = RBasic[klass].flags & FL_RANKED_CLEAR
+    RBasic[shadow].flags = RBasic[shadow].flags & FL_RANKED_CLEAR
     zr_write_barrier(shadow, klass)
     zr_methods_changed()
     Machine.value(QNIL)
@@ -146,7 +146,7 @@ module Zr::Kern
     if !zr_module_p(klass)
       return Machine.value(QNIL)
     end
-    ClassExt.shadow(RClass.ext(klass))
+    ClassExt[RClass[klass].ext].shadow
   end
 
   # Whether `klass` existed when the program started. A box can shadow
@@ -157,7 +157,7 @@ module Zr::Kern
     if !zr_module_p(klass)
       return Machine.value(QFALSE)
     end
-    zr_bool(ClassExt.serial(RClass.ext(klass)) <= Machine.load64(Machine.static(:master_serial, 8), 0))
+    zr_bool(ClassExt[RClass[klass].ext].serial <= Machine.load64(Machine.static(:master_serial, 8), 0))
   end
 
   # Records the runtime state when the program starts: the constants of
@@ -165,15 +165,15 @@ module Zr::Kern
   # reads this state, never what the program adds to it.
   #: () -> value
   def zr_box_snapshot
-    Machine.store64(Machine.static(:master_consts, 8), 0, ClassExt.clen(RClass.ext(zr_global(G_OBJECT))))
+    Machine.store64(Machine.static(:master_consts, 8), 0, ClassExt[RClass[zr_global(G_OBJECT)].ext].clen)
     Machine.store64(Machine.static(:master_serial, 8), 0, Machine.load64(Machine.static(:class_serial, 8), 0))
     h = zr_hash_new()
     t = zr_gvars()
-    n = IvTab.len(t)
+    n = IvTab[t].len
     i = 0
     while i < n
-      e = IvTab.rows(t) + (i * IvEntry.size)
-      zr_hash_store(h, zr_fix(IvEntry.id(e)), IvEntry.value(e))
+      e = IvTab[t].rows + (i * IvEntry.size)
+      zr_hash_store(h, zr_fix(IvEntry[e].id), IvEntry[e].value)
       i += 1
     end
     zr_set_global(G_MASTER_GVARS, h)
@@ -222,7 +222,7 @@ module Zr::Kern
   # A shadow returns the name of the shared class that it is in place of.
   #: (value, value) -> value
   def zr_box_name(klass, name)
-    RClass.set_name(klass, name)
+    RClass[klass].name = name
     Machine.value(QNIL)
   end
 

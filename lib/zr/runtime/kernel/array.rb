@@ -2,7 +2,13 @@ module Zr::Kern
   # Arrays: a length, a capacity and a buffer of Values outside the arena.
   # `base` is the block from malloc. `ptr` is the first element, after the
   # gap that a shift from the front leaves. `capa` counts from `ptr`.
-  RArray = layout basic: RBasic, len: Word, capa: Word, ptr: Ptr, base: Ptr
+  class RArray < Layout
+    attr_reader :basic #: RBasic
+    attr_accessor :len #: word
+    attr_accessor :capa #: word
+    attr_accessor :ptr #: ptr
+    attr_accessor :base #: ptr
+  end
   G_ARRAY = 25
   G_INDEX_ERROR = 26
   # CRuby's ARY_MAX_SIZE: the maximum number of elements in an Array,
@@ -24,7 +30,7 @@ module Zr::Kern
   # reader does not need to check which case applies.
   #: (value) -> bool
   def zr_ary_embedded_p(a)
-    (RBasic.flags(a) & FL_EMBED) != 0
+    (RBasic[a].flags & FL_EMBED) != 0
   end
 
   # The number of elements that the cell of `a` can contain: 2 in a
@@ -49,15 +55,15 @@ module Zr::Kern
     if capa <= zr_ary_embed_capa(a)
       buf = Machine.ptr(a) + RArray.size
       capa = zr_ary_embed_capa(a)
-      RBasic.set_flags(a, RBasic.flags(a) | FL_EMBED)
+      RBasic[a].flags = RBasic[a].flags | FL_EMBED
     else
       buf = zr_xmalloc(capa * 8)
-      RBasic.set_flags(a, RBasic.flags(a) & FL_EMBED_CLEAR)
+      RBasic[a].flags = RBasic[a].flags & FL_EMBED_CLEAR
     end
-    RArray.set_ptr(a, buf)
-    RArray.set_base(a, buf)
-    RArray.set_len(a, 0)
-    RArray.set_capa(a, capa)
+    RArray[a].ptr = buf
+    RArray[a].base = buf
+    RArray[a].len = 0
+    RArray[a].capa = capa
   end
 
   # Frees the buffer when it is a malloc'd block. An embedded buffer is
@@ -65,7 +71,7 @@ module Zr::Kern
   #: (value) -> void
   def zr_ary_buf_free(a)
     if !zr_ary_embedded_p(a)
-      zr_sized_xfree(RArray.base(a), zr_ary_buf_bytes(a))
+      zr_sized_xfree(RArray[a].base, zr_ary_buf_bytes(a))
     end
   end
 
@@ -75,7 +81,7 @@ module Zr::Kern
   # the sum is always the size that was allocated.
   #: (value) -> word
   def zr_ary_buf_bytes(a)
-    (RArray.capa(a) * 8) + (RArray.ptr(a) - RArray.base(a))
+    (RArray[a].capa * 8) + (RArray[a].ptr - RArray[a].base)
   end
 
   #: (word) -> value
@@ -88,7 +94,7 @@ module Zr::Kern
   # Returns the length as a fixnum, for core code that must not dispatch.
   #: (value) -> value
   def zr_ary_len_m(a)
-    zr_fix(RArray.len(a))
+    zr_fix(RArray[a].len)
   end
 
   # Returns the element at `i`, for the same reason.
@@ -99,10 +105,10 @@ module Zr::Kern
 
   #: (value) -> void
   def zr_mark_ary(a)
-    n = RArray.len(a)
+    n = RArray[a].len
     i = 0
     while i < n
-      zr_mark(Machine.value(Machine.load64(RArray.ptr(a) + (i * 8), 0)))
+      zr_mark(Machine.value(Machine.load64(RArray[a].ptr + (i * 8), 0)))
       i += 1
     end
   end
@@ -110,17 +116,17 @@ module Zr::Kern
   #: (value, word) -> value
   def zr_ary_at(a, i)
     if i < 0
-      i += RArray.len(a)
+      i += RArray[a].len
     end
-    if i < 0 || i >= RArray.len(a)
+    if i < 0 || i >= RArray[a].len
       return Machine.value(QNIL)
     end
-    Machine.value(Machine.load64(RArray.ptr(a) + (i * 8), 0))
+    Machine.value(Machine.load64(RArray[a].ptr + (i * 8), 0))
   end
 
   #: (value, word) -> void
   def zr_ary_reserve(a, n)
-    if n > RArray.capa(a)
+    if n > RArray[a].capa
       zr_ary_grow(a, n)
     end
   end
@@ -129,55 +135,55 @@ module Zr::Kern
 
   #: (value, word) -> void
   def zr_ary_grow(a, n)
-    len = RArray.len(a)
-    gap = (RArray.ptr(a) - RArray.base(a)) / 8
+    len = RArray[a].len
+    gap = (RArray[a].ptr - RArray[a].base) / 8
     # If the front gap is at least as long as the array and closing it
     # gives enough space, move the elements back to the start of the
     # block. The copy costs no more than the shifts that made the gap,
     # so a queue stays linear.
-    if gap >= len && n <= RArray.capa(a) + gap
-      zr_memmove(RArray.base(a), RArray.ptr(a), len * 8)
-      RArray.set_ptr(a, RArray.base(a))
-      RArray.set_capa(a, RArray.capa(a) + gap)
+    if gap >= len && n <= RArray[a].capa + gap
+      zr_memmove(RArray[a].base, RArray[a].ptr, len * 8)
+      RArray[a].ptr = RArray[a].base
+      RArray[a].capa = RArray[a].capa + gap
       return
     end
-    capa = RArray.capa(a) * 2
+    capa = RArray[a].capa * 2
     # Doubling stops at CRuby's limit, so the byte count cannot overflow.
     if capa < n || capa > ARY_MAX_SIZE
       capa = n
     end
     p = zr_xmalloc(capa * 8)
-    zr_memcpy(p, RArray.ptr(a), len * 8)
+    zr_memcpy(p, RArray[a].ptr, len * 8)
     zr_ary_buf_free(a)
-    RArray.set_ptr(a, p)
-    RArray.set_base(a, p)
-    RArray.set_capa(a, capa)
-    RBasic.set_flags(a, RBasic.flags(a) & FL_EMBED_CLEAR)
+    RArray[a].ptr = p
+    RArray[a].base = p
+    RArray[a].capa = capa
+    RBasic[a].flags = RBasic[a].flags & FL_EMBED_CLEAR
   end
 
   #: (value, value) -> void
   def zr_ary_push(a, v)
-    n = RArray.len(a)
+    n = RArray[a].len
     zr_ary_reserve(a, n + 1)
-    Machine.store64(RArray.ptr(a) + (n * 8), 0, Machine.word(v))
-    RArray.set_len(a, n + 1)
+    Machine.store64(RArray[a].ptr + (n * 8), 0, Machine.word(v))
+    RArray[a].len = n + 1
     zr_write_barrier(a, v)
   end
 
   #: (value, value) -> void
   def zr_ary_unshift(a, v)
-    n = RArray.len(a)
+    n = RArray[a].len
     zr_ary_reserve(a, n + 1)
-    zr_memmove(RArray.ptr(a) + 8, RArray.ptr(a), n * 8)
-    Machine.store64(RArray.ptr(a), 0, Machine.word(v))
-    RArray.set_len(a, n + 1)
+    zr_memmove(RArray[a].ptr + 8, RArray[a].ptr, n * 8)
+    Machine.store64(RArray[a].ptr, 0, Machine.word(v))
+    RArray[a].len = n + 1
     zr_write_barrier(a, v)
   end
 
   # `a[i] = v`, filling with nil past the end.
   #: (value, word, value) -> value
   def zr_ary_store(a, i, v)
-    n = RArray.len(a)
+    n = RArray[a].len
     if i < 0
       i += n
       if i < 0
@@ -201,12 +207,12 @@ module Zr::Kern
       zr_ary_reserve(a, i + 1)
       j = n
       while j < i
-        Machine.store64(RArray.ptr(a) + (j * 8), 0, QNIL)
+        Machine.store64(RArray[a].ptr + (j * 8), 0, QNIL)
         j += 1
       end
-      RArray.set_len(a, i + 1)
+      RArray[a].len = i + 1
     end
-    Machine.store64(RArray.ptr(a) + (i * 8), 0, Machine.word(v))
+    Machine.store64(RArray[a].ptr + (i * 8), 0, Machine.word(v))
     zr_write_barrier(a, v)
     v
   end
@@ -215,8 +221,8 @@ module Zr::Kern
   #: (word, ptr) -> value
   def zr_ary_of(argc, argv)
     a = zr_ary_new(argc)
-    zr_memcpy(RArray.ptr(a), argv, argc * 8)
-    RArray.set_len(a, argc)
+    zr_memcpy(RArray[a].ptr, argv, argc * 8)
+    RArray[a].len = argc
     zr_write_barrier_all(a)
     a
   end
@@ -235,13 +241,13 @@ module Zr::Kern
       return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("array size too big"), 18)
     end
     out = zr_ary_new(n)
-    p = RArray.ptr(out)
+    p = RArray[out].ptr
     i = 0
     while i < n
       Machine.store64(p + (i * 8), 0, Machine.word(zr_fix(a + i)))
       i += 1
     end
-    RArray.set_len(out, n)
+    RArray[out].len = n
     out
   end
 
@@ -276,7 +282,7 @@ module Zr::Kern
     v = zr_splat_to_a(v)
     return v if v == QUNDEF
     i = 0
-    while i < RArray.len(v)
+    while i < RArray[v].len
       zr_ary_push(a, zr_ary_at(v, i))
       i += 1
     end
@@ -293,14 +299,14 @@ module Zr::Kern
     if zr_modify_frozen_p(recv)
       return zr_frozen_error(recv)
     end
-    RArray.set_len(recv, 0)
+    RArray[recv].len = 0
     if argc == 0
       return recv
     end
     first = Machine.value(Machine.load64(argv, 0))
     if argc == 1 && !zr_special_p(first) && zr_type(first) == T_ARRAY
       i = 0
-      while i < RArray.len(first)
+      while i < RArray[first].len
         zr_ary_push(recv, zr_ary_at(first, i))
         i += 1
       end
@@ -329,7 +335,7 @@ module Zr::Kern
             return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
           end
           i = 0
-          while i < RArray.len(given)
+          while i < RArray[given].len
             zr_ary_push(recv, zr_ary_at(given, i))
             i += 1
           end
@@ -358,11 +364,11 @@ module Zr::Kern
       if n > 0
         zr_ary_reserve(recv, n)
         zr_ary_push(recv, fill)
-        while RArray.len(recv) < n
-          len = RArray.len(recv)
+        while RArray[recv].len < n
+          len = RArray[recv].len
           chunk = len <= n - len ? len : n - len
-          zr_memcpy(RArray.ptr(recv) + (len * 8), RArray.ptr(recv), chunk * 8)
-          RArray.set_len(recv, len + chunk)
+          zr_memcpy(RArray[recv].ptr + (len * 8), RArray[recv].ptr, chunk * 8)
+          RArray[recv].len = len + chunk
         end
       end
       return recv
@@ -381,7 +387,7 @@ module Zr::Kern
   #: (value, value) -> word
   def zr_ary_index_of(a, v)
     i = 0
-    while i < RArray.len(a)
+    while i < RArray[a].len
       if zr_ary_at(a, i) == v
         return i
       end
@@ -397,7 +403,7 @@ module Zr::Kern
   def zr_big_to_long(v, out)
     limbs = zr_hidden_get(v, zr_sym(Machine.id(:__limbs__)))
     neg = zr_hidden_get(v, zr_sym(Machine.id(:__neg__))) == QTRUE
-    n = RArray.len(limbs)
+    n = RArray[limbs].len
     if n > 3
       return false
     end
@@ -486,14 +492,14 @@ module Zr::Kern
   # the end. A start at the end returns an empty Array.
   #: (value, word, word) -> value
   def zr_ary_subseq(a, beg, len)
-    n = RArray.len(a)
+    n = RArray[a].len
     if beg > n || beg < 0 || len < 0
       return Machine.value(QNIL)
     end
     if len > n - beg
       len = n - beg
     end
-    zr_ary_of(len, RArray.ptr(a) + (beg * 8))
+    zr_ary_of(len, RArray[a].ptr + (beg * 8))
   end
 
   # Converts a Range to a start and a length for `n` elements, into `out`.
@@ -556,7 +562,7 @@ module Zr::Kern
       return r if r == QUNDEF
       beg = Machine.load64(out, 0)
       if beg < 0
-        beg += RArray.len(recv)
+        beg += RArray[recv].len
       end
       return zr_ary_subseq(recv, beg, Machine.load64(out, 8))
     end
@@ -564,7 +570,7 @@ module Zr::Kern
       return zr_wrong_arity_range(argc, 1, 2)
     end
     if !zr_special_p(first) && zr_class_of(first) == zr_global(G_RANGE)
-      r = zr_range_beg_len(first, RArray.len(recv), out)
+      r = zr_range_beg_len(first, RArray[recv].len, out)
       return r if r == QUNDEF
       if r == QFALSE
         return Machine.value(QNIL)
@@ -638,20 +644,20 @@ module Zr::Kern
     if zr_modify_frozen_p(recv)
       return zr_frozen_error(recv)
     end
-    n = RArray.len(recv)
+    n = RArray[recv].len
     if argc == 0
       if n == 0
         return Machine.value(QNIL)
       end
-      RArray.set_len(recv, n - 1)
-      return Machine.value(Machine.load64(RArray.ptr(recv) + ((n - 1) * 8), 0))
+      RArray[recv].len = n - 1
+      return Machine.value(Machine.load64(RArray[recv].ptr + ((n - 1) * 8), 0))
     end
     out = Machine.slot(8)
     r = zr_ary_count(argc, argv, n, out)
     return r if r == QUNDEF
     k = Machine.load64(out, 0)
-    taken = zr_ary_of(k, RArray.ptr(recv) + ((n - k) * 8))
-    RArray.set_len(recv, n - k)
+    taken = zr_ary_of(k, RArray[recv].ptr + ((n - k) * 8))
+    RArray[recv].len = n - k
     taken
   end
 
@@ -660,12 +666,12 @@ module Zr::Kern
     if zr_modify_frozen_p(recv)
       return zr_frozen_error(recv)
     end
-    n = RArray.len(recv)
+    n = RArray[recv].len
     if argc == 0
       if n == 0
         return Machine.value(QNIL)
       end
-      v = Machine.value(Machine.load64(RArray.ptr(recv), 0))
+      v = Machine.value(Machine.load64(RArray[recv].ptr, 0))
       zr_ary_drop_front(recv, 1)
       return v
     end
@@ -673,7 +679,7 @@ module Zr::Kern
     r = zr_ary_count(argc, argv, n, out)
     return r if r == QUNDEF
     k = Machine.load64(out, 0)
-    taken = zr_ary_of(k, RArray.ptr(recv))
+    taken = zr_ary_of(k, RArray[recv].ptr)
     zr_ary_drop_front(recv, k)
     taken
   end
@@ -685,9 +691,9 @@ module Zr::Kern
     if zr_modify_frozen_p(recv)
       return zr_frozen_error(recv)
     end
-    p = RArray.ptr(recv)
+    p = RArray[recv].ptr
     i = 0
-    j = RArray.len(recv) - 1
+    j = RArray[recv].len - 1
     while i < j
       v = Machine.load64(p + (i * 8), 0)
       Machine.store64(p + (i * 8), 0, Machine.load64(p + (j * 8), 0))
@@ -700,24 +706,24 @@ module Zr::Kern
 
   #: (value) -> value
   def zr_ary_reversed(a)
-    n = RArray.len(a)
+    n = RArray[a].len
     out = zr_ary_new(n)
-    p = RArray.ptr(a)
-    q = RArray.ptr(out)
+    p = RArray[a].ptr
+    q = RArray[out].ptr
     i = 0
     while i < n
       Machine.store64(q + (i * 8), 0, Machine.load64(p + ((n - 1 - i) * 8), 0))
       i += 1
     end
-    RArray.set_len(out, n)
+    RArray[out].len = n
     out
   end
 
   #: (value, word) -> void
   def zr_ary_drop_front(a, k)
-    RArray.set_ptr(a, RArray.ptr(a) + (k * 8))
-    RArray.set_capa(a, RArray.capa(a) - k)
-    RArray.set_len(a, RArray.len(a) - k)
+    RArray[a].ptr = RArray[a].ptr + (k * 8)
+    RArray[a].capa = RArray[a].capa - k
+    RArray[a].len = RArray[a].len - k
   end
 
   #: (value, word, ptr, value, value) -> value
@@ -728,17 +734,17 @@ module Zr::Kern
     if argc == 0
       return recv
     end
-    n = RArray.len(recv)
-    if argc <= (RArray.ptr(recv) - RArray.base(recv)) / 8
-      RArray.set_ptr(recv, RArray.ptr(recv) - (argc * 8))
-      RArray.set_capa(recv, RArray.capa(recv) + argc)
+    n = RArray[recv].len
+    if argc <= (RArray[recv].ptr - RArray[recv].base) / 8
+      RArray[recv].ptr = RArray[recv].ptr - (argc * 8)
+      RArray[recv].capa = RArray[recv].capa + argc
     else
       zr_ary_reserve(recv, n + argc)
-      zr_memmove(RArray.ptr(recv) + (argc * 8), RArray.ptr(recv), n * 8)
+      zr_memmove(RArray[recv].ptr + (argc * 8), RArray[recv].ptr, n * 8)
     end
-    zr_memcpy(RArray.ptr(recv), argv, argc * 8)
+    zr_memcpy(RArray[recv].ptr, argv, argc * 8)
     zr_write_barrier_all(recv)
-    RArray.set_len(recv, n + argc)
+    RArray[recv].len = n + argc
     recv
   end
 
@@ -763,12 +769,12 @@ module Zr::Kern
 
   #: (value, word, ptr, value, value) -> value
   def zr_ary_length(recv, argc, argv, cref, blk)
-    zr_fix(RArray.len(recv))
+    zr_fix(RArray[recv].len)
   end
 
   #: (value, word, ptr, value, value) -> value
   def zr_ary_empty_p(recv, argc, argv, cref, blk)
-    zr_bool(RArray.len(recv) == 0)
+    zr_bool(RArray[recv].len == 0)
   end
 
   #: (value, word, ptr, value, value) -> value
@@ -788,7 +794,7 @@ module Zr::Kern
   # causes an error.
   #: (value, word, ptr, value, value) -> value
   def zr_ary_inspect(recv, argc, argv, cref, blk)
-    if RArray.len(recv) == 0
+    if RArray[recv].len == 0
       return zr_usascii_str_new(Machine.bytes("[]"), 2)
     end
     if zr_guard_enter(recv, Machine.id(:inspect))
@@ -800,7 +806,7 @@ module Zr::Kern
     index = ENC_USASCII
     ascii = true
     i = 0
-    while i < RArray.len(recv)
+    while i < RArray[recv].len
       if i > 0
         zr_buf_push(b, Machine.bytes(", "), 2)
       end
@@ -810,7 +816,7 @@ module Zr::Kern
         zr_guard_leave(recv, Machine.id(:inspect))
         return s
       end
-      index = i == 0 ? zr_str_encoding_index(s) : zr_enc_append_str(index, ascii, Buf.len(b), s)
+      index = i == 0 ? zr_str_encoding_index(s) : zr_enc_append_str(index, ascii, Buf[b].len, s)
       ascii = ascii && zr_str_ascii_bytes_p(s)
       zr_buf_str(b, s)
       i += 1
@@ -848,7 +854,7 @@ module Zr::Kern
     if zr_type(other) != T_ARRAY
       return zr_eq_by_conversion(recv, other, Machine.id(:to_ary))
     end
-    if RArray.len(recv) != RArray.len(other)
+    if RArray[recv].len != RArray[other].len
       return Machine.value(QFALSE)
     end
     if recv == other
@@ -860,7 +866,7 @@ module Zr::Kern
       return Machine.value(QTRUE)
     end
     i = 0
-    while i < RArray.len(recv)
+    while i < RArray[recv].len
       # The same object is equal without a call to ==, as in rb_equal.
       if zr_ary_at(recv, i) != zr_ary_at(other, i)
         slot = Machine.slot(8)
@@ -886,7 +892,7 @@ module Zr::Kern
   #: (value, word, word, ptr, word) -> value
   def zr_opt_aref(recv, mid, argc, argv, mode)
     if !zr_special_p(recv)
-      k = RBasic.klass(recv)
+      k = RBasic[recv].klass
       if k == zr_global(G_ARRAY) && (Machine.gates & GATE_AREF) == 0
         return zr_ary_aref(recv, argc, argv, Machine.value(QNIL), Machine.value(QNIL))
       end
@@ -903,7 +909,7 @@ module Zr::Kern
   # of the time of `bm_so_lists`, which uses these four on two lists.
   #: (value, word, word, ptr, word) -> value
   def zr_opt_push(recv, mid, argc, argv, mode)
-    if argc == 1 && !zr_special_p(recv) && RBasic.klass(recv) == zr_global(G_ARRAY) && (Machine.gates & GATE_PUSH) == 0
+    if argc == 1 && !zr_special_p(recv) && RBasic[recv].klass == zr_global(G_ARRAY) && (Machine.gates & GATE_PUSH) == 0
       return zr_ary_push_m(recv, argc, argv, Machine.value(QNIL), Machine.value(QNIL))
     end
     zr_dispatch(0, recv, mid, argc, argv, mode, Machine.value(QNIL))
@@ -911,7 +917,7 @@ module Zr::Kern
 
   #: (value, word, word, ptr, word) -> value
   def zr_opt_pop(recv, mid, argc, argv, mode)
-    if argc == 0 && !zr_special_p(recv) && RBasic.klass(recv) == zr_global(G_ARRAY) && (Machine.gates & GATE_POP) == 0
+    if argc == 0 && !zr_special_p(recv) && RBasic[recv].klass == zr_global(G_ARRAY) && (Machine.gates & GATE_POP) == 0
       return zr_ary_pop(recv, argc, argv, Machine.value(QNIL), Machine.value(QNIL))
     end
     zr_dispatch(0, recv, mid, argc, argv, mode, Machine.value(QNIL))
@@ -919,7 +925,7 @@ module Zr::Kern
 
   #: (value, word, word, ptr, word) -> value
   def zr_opt_shift(recv, mid, argc, argv, mode)
-    if argc == 0 && !zr_special_p(recv) && RBasic.klass(recv) == zr_global(G_ARRAY) && (Machine.gates & GATE_SHIFT) == 0
+    if argc == 0 && !zr_special_p(recv) && RBasic[recv].klass == zr_global(G_ARRAY) && (Machine.gates & GATE_SHIFT) == 0
       return zr_ary_shift(recv, argc, argv, Machine.value(QNIL), Machine.value(QNIL))
     end
     zr_dispatch(0, recv, mid, argc, argv, mode, Machine.value(QNIL))
@@ -927,8 +933,8 @@ module Zr::Kern
 
   #: (value, word, word, ptr, word) -> value
   def zr_opt_empty_p(recv, mid, argc, argv, mode)
-    if argc == 0 && !zr_special_p(recv) && RBasic.klass(recv) == zr_global(G_ARRAY) && (Machine.gates & GATE_EMPTY_P) == 0
-      return zr_bool(RArray.len(recv) == 0)
+    if argc == 0 && !zr_special_p(recv) && RBasic[recv].klass == zr_global(G_ARRAY) && (Machine.gates & GATE_EMPTY_P) == 0
+      return zr_bool(RArray[recv].len == 0)
     end
     zr_dispatch(0, recv, mid, argc, argv, mode, Machine.value(QNIL))
   end
@@ -938,7 +944,7 @@ module Zr::Kern
   #: (value, word, word, ptr, word) -> value
   def zr_opt_aset(recv, mid, argc, argv, mode)
     if argc == 2 && !zr_special_p(recv)
-      k = RBasic.klass(recv)
+      k = RBasic[recv].klass
       if k == zr_global(G_ARRAY) && (Machine.gates & GATE_ASET) == 0 && zr_fixnum_p(Machine.value(Machine.load64(argv, 0)))
         return zr_ary_aset_at(recv, Machine.value(Machine.load64(argv, 0)), Machine.value(Machine.load64(argv, 8)))
       end
@@ -978,7 +984,7 @@ module Zr::Kern
   #: (value, word, word) -> value
   def zr_masgn_rest(ary, nlefts, nrights)
     from = nlefts
-    to = RArray.len(ary) - nrights
+    to = RArray[ary].len - nrights
     if to < from
       to = from
     end
@@ -996,7 +1002,7 @@ module Zr::Kern
   # `nlefts`.
   #: (value, word, word, word) -> value
   def zr_masgn_right(ary, nlefts, nrights, i)
-    start = RArray.len(ary) - nrights
+    start = RArray[ary].len - nrights
     if start < nlefts
       start = nlefts
     end
@@ -1013,7 +1019,7 @@ module Zr::Kern
     end
     beg = zr_fix2long(beg_v)
     len = zr_fix2long(len_v)
-    n = RArray.len(a)
+    n = RArray[a].len
     if len < 0
       b = Machine.slot(Buf.size)
       zr_buf_init(b)
@@ -1036,7 +1042,7 @@ module Zr::Kern
     end
     # The length of `vals` before the fill, which grows `vals` too when it
     # is `a` itself.
-    m = RArray.len(vals)
+    m = RArray[vals].len
     if beg > n
       zr_ary_store(a, beg - 1, Machine.value(QNIL))
       n = beg
@@ -1047,29 +1053,29 @@ module Zr::Kern
     # At the front, the elements do not move and `ptr` moves: a shift
     # leaves a gap, and an unshift that fits uses the gap again.
     if beg == 0 && m <= len
-      RArray.set_ptr(a, RArray.ptr(a) + ((len - m) * 8))
-      RArray.set_capa(a, RArray.capa(a) - (len - m))
-      zr_memcpy(RArray.ptr(a), RArray.ptr(vals), m * 8)
-      RArray.set_len(a, n - len + m)
+      RArray[a].ptr = RArray[a].ptr + ((len - m) * 8)
+      RArray[a].capa = RArray[a].capa - (len - m)
+      zr_memcpy(RArray[a].ptr, RArray[vals].ptr, m * 8)
+      RArray[a].len = n - len + m
       zr_write_barrier_all(a)
       return a
     end
-    if beg == 0 && (m - len) <= (RArray.ptr(a) - RArray.base(a)) / 8
-      RArray.set_ptr(a, RArray.ptr(a) - ((m - len) * 8))
-      RArray.set_capa(a, RArray.capa(a) + (m - len))
-      zr_memcpy(RArray.ptr(a), RArray.ptr(vals), m * 8)
-      RArray.set_len(a, n - len + m)
+    if beg == 0 && (m - len) <= (RArray[a].ptr - RArray[a].base) / 8
+      RArray[a].ptr = RArray[a].ptr - ((m - len) * 8)
+      RArray[a].capa = RArray[a].capa + (m - len)
+      zr_memcpy(RArray[a].ptr, RArray[vals].ptr, m * 8)
+      RArray[a].len = n - len + m
       zr_write_barrier_all(a)
       return a
     end
     tail = n - beg - len
     zr_ary_reserve(a, n - len + m)
-    p = RArray.ptr(a)
+    p = RArray[a].ptr
     if m != len
       zr_memmove(p + ((beg + m) * 8), p + ((beg + len) * 8), tail * 8)
     end
-    zr_memcpy(p + (beg * 8), RArray.ptr(vals), m * 8)
-    RArray.set_len(a, n - len + m)
+    zr_memcpy(p + (beg * 8), RArray[vals].ptr, m * 8)
+    RArray[a].len = n - len + m
     zr_write_barrier_all(a)
     a
   end
@@ -1086,7 +1092,7 @@ module Zr::Kern
     if zr_modify_frozen_p(a)
       return zr_frozen_error(a)
     end
-    RArray.set_len(a, 0)
+    RArray[a].len = 0
     a
   end
 

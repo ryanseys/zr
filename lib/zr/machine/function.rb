@@ -547,8 +547,7 @@ module Zr
       # negative operand.
       #: (Prism::node node, Symbol op, String lhs, String lt, String rhs, String rt, ?named: bool) -> [String, String]
       def binary(node, op, lhs, lt, rhs, rt, named: false)
-        lt = "Ptr" if view(lt)
-        rt = "Ptr" if view(rt)
+        refuse(node, "#{op} on a view; Machine.ptr takes its address") if view(lt) || view(rt)
         refuse(node, "#{op} on #{lt} and #{rt}") unless ir_type(lt) && (lt == rt || (PLAIN.include?(lt) && PLAIN.include?(rt)))
         return float_binary(node, op, lhs, rhs) if lt == "F64"
 
@@ -710,15 +709,13 @@ module Zr
 
       PLAIN = %w[Word Ptr].freeze #: Array[String]
 
-      # A Word, a Ptr and a view are each an address or a number, and fit
-      # one another here. Steep tells a view from a word.
+      # A Word and a Ptr are each an address or a number, and fit one
+      # another here; Steep does not tell them apart either. A view fits
+      # only a view of its layout: `Machine.ptr(view)` is its address.
       #: (String want, String got) -> bool
       def fits?(want, got)
-        want == got || (address?(want) && address?(got))
+        want == got || (PLAIN.include?(want) && PLAIN.include?(got))
       end
-
-      #: (String type) -> bool
-      def address?(type) = PLAIN.include?(type) || !view(type).nil?
 
       # A call to an import (`Libc.name`) or to a def of this unit. A bare
       # call goes only to a def or a raw function.

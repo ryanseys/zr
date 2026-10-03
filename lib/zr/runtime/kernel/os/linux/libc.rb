@@ -8,8 +8,6 @@ module Zr::Kern
   end
 
   # The usable size of a malloc'd block. The heap counts it as payload.
-  Libc.import :malloc_usable_size, [Ptr] => Word
-
   #: (ptr) -> word
   def zr_os_malloc_size(p)
     Libc.malloc_usable_size(p)

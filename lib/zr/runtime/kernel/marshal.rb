@@ -14,7 +14,12 @@ module Zr::Kern
   # The reader state is on the stack: the bytes, the length, the position,
   # and a bail flag. The object table and the symbol table are in two
   # Arrays that the caller keeps, because a stack slot is not a GC root.
-  MReader = layout bytes: Ptr, len: Word, pos: Word, bail: Word
+  class MReader < Layout
+    attr_accessor :bytes #: ptr
+    attr_accessor :len #: word
+    attr_accessor :pos #: word
+    attr_accessor :bail #: word
+  end
 
   MR_NIL = 0x30
   MR_TRUE = 0x54
@@ -42,18 +47,18 @@ module Zr::Kern
   def zr_marshal_load_fast(src)
     Machine.store64(Machine.static(:marshal_bailed, 8), 0, 0)
     r = Machine.slot(MReader.size)
-    MReader.set_bytes(r, RString.ptr(src))
-    MReader.set_len(r, RString.len(src))
-    MReader.set_pos(r, 2)
-    MReader.set_bail(r, 0)
-    if RString.len(src) < 2 || Machine.u8(Machine.load8(RString.ptr(src), 0)) != 4 || Machine.u8(Machine.load8(RString.ptr(src), 1)) > 8
+    MReader[r].bytes = RString[src].ptr
+    MReader[r].len = RString[src].len
+    MReader[r].pos = 2
+    MReader[r].bail = 0
+    if RString[src].len < 2 || Machine.u8(Machine.load8(RString[src].ptr, 0)) != 4 || Machine.u8(Machine.load8(RString[src].ptr, 1)) > 8
       zr_mr_bail(r)
       return Machine.value(QNIL)
     end
     objects = zr_ary_new(64)
     symbols = zr_ary_new(64)
     v = zr_mr_value(r, objects, symbols)
-    if MReader.bail(r) != 0
+    if MReader[r].bail != 0
       return Machine.value(QNIL)
     end
     if v == QUNDEF
@@ -61,7 +66,7 @@ module Zr::Kern
     end
     # The Ruby reader also handles bytes after the value, so that the
     # result is the same as ruby's.
-    if MReader.pos(r) != MReader.len(r)
+    if MReader[r].pos != MReader[r].len
       zr_mr_bail(r)
       return Machine.value(QNIL)
     end
@@ -79,7 +84,7 @@ module Zr::Kern
   # caller.
   #: (ptr) -> value
   def zr_mr_bail(r)
-    MReader.set_bail(r, 1)
+    MReader[r].bail = 1
     Machine.store64(Machine.static(:marshal_bailed, 8), 0, 1)
     Machine.value(QUNDEF)
   end
@@ -88,13 +93,13 @@ module Zr::Kern
   # document, so the reader bails and the Ruby reader raises the error.
   #: (ptr) -> word
   def zr_mr_byte(r)
-    pos = MReader.pos(r)
-    if pos >= MReader.len(r)
+    pos = MReader[r].pos
+    if pos >= MReader[r].len
       zr_mr_bail(r)
       return 0 - 1
     end
-    MReader.set_pos(r, pos + 1)
-    Machine.u8(Machine.load8(MReader.bytes(r) + pos, 0))
+    MReader[r].pos = pos + 1
+    Machine.u8(Machine.load8(MReader[r].bytes + pos, 0))
   end
 
   # Reads a packed integer: one byte for a small number, or a count byte
@@ -136,12 +141,12 @@ module Zr::Kern
   # if fewer than `n` bytes remain.
   #: (ptr, word) -> ptr
   def zr_mr_text(r, n)
-    pos = MReader.pos(r)
-    if n < 0 || pos + n > MReader.len(r)
+    pos = MReader[r].pos
+    if n < 0 || pos + n > MReader[r].len
       return 0
     end
-    MReader.set_pos(r, pos + n)
-    MReader.bytes(r) + pos
+    MReader[r].pos = pos + n
+    MReader[r].bytes + pos
   end
 
   # Whether the `n` bytes at `p` are all ASCII. A symbol with a non-ASCII
@@ -165,7 +170,7 @@ module Zr::Kern
     tag = zr_mr_byte(r)
     if tag == MR_SYMLINK
       i = zr_mr_long(r)
-      if i < 0 || i >= RArray.len(symbols)
+      if i < 0 || i >= RArray[symbols].len
         return 0 - 1
       end
       return zr_sym2id(zr_ary_at(symbols, i))
@@ -227,7 +232,7 @@ module Zr::Kern
       return zr_mr_object(r, objects, symbols)
     elsif tag == MR_SYMLINK
       i = zr_mr_long(r)
-      if i < 0 || i >= RArray.len(symbols)
+      if i < 0 || i >= RArray[symbols].len
         return zr_mr_bail(r)
       end
       return zr_ary_at(symbols, i)
@@ -252,7 +257,7 @@ module Zr::Kern
       return Machine.value(QFALSE)
     elsif tag == MR_LINK
       i = zr_mr_long(r)
-      if i < 0 || i >= RArray.len(objects)
+      if i < 0 || i >= RArray[objects].len
         return zr_mr_bail(r)
       end
       return zr_ary_at(objects, i)
@@ -368,7 +373,7 @@ module Zr::Kern
   #: (ptr, value, value) -> value
   def zr_mr_array(r, objects, symbols)
     n = zr_mr_long(r)
-    if n < 0 || n > MReader.len(r)
+    if n < 0 || n > MReader[r].len
       return zr_mr_bail(r)
     end
     a = zr_ary_new(n)
@@ -390,7 +395,7 @@ module Zr::Kern
   #: (ptr, value, value) -> value
   def zr_mr_hash(r, objects, symbols)
     n = zr_mr_long(r)
-    if n < 0 || n > MReader.len(r)
+    if n < 0 || n > MReader[r].len
       return zr_mr_bail(r)
     end
     h = zr_hash_new()
@@ -423,11 +428,11 @@ module Zr::Kern
   # hidden names.
   #: (ptr, value, value) -> value
   def zr_mr_ivars(r, objects, symbols)
-    pos = MReader.pos(r)
-    if pos >= MReader.len(r)
+    pos = MReader[r].pos
+    if pos >= MReader[r].len
       return zr_mr_bail(r)
     end
-    inner = Machine.u8(Machine.load8(MReader.bytes(r) + pos, 0))
+    inner = Machine.u8(Machine.load8(MReader[r].bytes + pos, 0))
     if inner != MR_STRING && inner != MR_ARRAY && inner != MR_HASH && inner != MR_OBJECT && inner != MR_STRUCT && inner != MR_FLOAT
       return zr_mr_bail(r)
     end
@@ -589,14 +594,14 @@ module Zr::Kern
       if members != QNIL
         return members
       end
-      k = RClass.superclass(k)
+      k = RClass[k].superclass
     end
     Machine.value(QNIL)
   end
 
   #: (value, word) -> word
   def zr_mr_member_index(members, id)
-    n = RArray.len(members)
+    n = RArray[members].len
     i = 0
     while i < n
       if zr_ary_at(members, i) == zr_sym(id)

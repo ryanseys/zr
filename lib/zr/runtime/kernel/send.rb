@@ -29,9 +29,9 @@ module Zr::Kern
     # Keep the locals of the Ruby scope that contains the send, for
     # NameError#local_variables. CRuby's name_err_init_attr keeps the
     # frame's ISEQ for the same purpose.
-    source = zr_frame_with_file(Task.top(zr_task()))
+    source = zr_frame_with_file(Task[zr_task()].top)
     if source != 0
-      zr_exc_detail(e, Machine.id(:local_variables), zr_local_names(FrameMeta.locals(Frame.meta(source))))
+      zr_exc_detail(e, Machine.id(:local_variables), zr_local_names(FrameMeta[Frame[source].meta].locals))
     end
     zr_raise(e)
   end
@@ -99,7 +99,7 @@ module Zr::Kern
   # (`zr_kw_tab_in`).
   #: () -> void
   def zr_kw_pass
-    Task.set_kw(zr_task(), 1)
+    Task[zr_task()].kw = 1
   end
 
   # Puts the table's values into one Hash, in place of the first value.
@@ -126,7 +126,7 @@ module Zr::Kern
   #: (word, ptr) -> word
   def zr_kw_argc(argc, argv)
     h = Machine.value(Machine.load64(argv + ((argc - 1) * 8), 0))
-    if RHash.live(h) == 0
+    if RHash[h].live == 0
       return argc - 1
     end
     zr_kw_pass()
@@ -151,8 +151,8 @@ module Zr::Kern
   #: (word, ptr) -> word
   def zr_kw_argc_yield(argc, argv)
     h = Machine.value(Machine.load64(argv + ((argc - 1) * 8), 0))
-    if RHash.live(h) == 0
-      Task.set_kw(zr_task(), Machine.word(Machine.static(:kw_none, 8)))
+    if RHash[h].live == 0
+      Task[zr_task()].kw = Machine.word(Machine.static(:kw_none, 8))
       return argc - 1
     end
     zr_kw_pass()
@@ -171,19 +171,19 @@ module Zr::Kern
     r = zr_name_id(name, slot)
     return r if r == QUNDEF
     e = zr_find_method(klass, Machine.load64(slot, 0))
-    if e != 0 && MEntry.kind(e) == KIND_BMETHOD
+    if e != 0 && MEntry[e].kind == KIND_BMETHOD
       # A define_method method runs its block, and the block's function
       # binds the rest argument, so the mark goes on the block's function.
-      zr_ivtab_set(zr_ruby2_fns(), Machine.word(RProc.fn(MEntry.cref(e))), Machine.value(QTRUE))
-    elsif e != 0 && MEntry.fn(e) != 0
-      zr_ivtab_set(zr_ruby2_fns(), Machine.word(MEntry.fn(e)), Machine.value(QTRUE))
+      zr_ivtab_set(zr_ruby2_fns(), Machine.word(RProc[MEntry[e].cref].fn), Machine.value(QTRUE))
+    elsif e != 0 && MEntry[e].fn != 0
+      zr_ivtab_set(zr_ruby2_fns(), Machine.word(MEntry[e].fn), Machine.value(QTRUE))
     end
     Machine.value(QNIL)
   end
 
   #: (value) -> value
   def zr_ruby2_mark_proc(pr)
-    zr_ivtab_set(zr_ruby2_fns(), Machine.word(RProc.fn(pr)), Machine.value(QTRUE))
+    zr_ivtab_set(zr_ruby2_fns(), Machine.word(RProc[pr].fn), Machine.value(QTRUE))
     pr
   end
 
@@ -199,7 +199,7 @@ module Zr::Kern
     end
     if fn != 0 && argc > 0 && zr_ivtab_get(zr_ruby2_fns(), Machine.word(fn)) != QUNDEF
       h = Machine.value(Machine.load64(argv + ((argc - 1) * 8), 0))
-      RBasic.set_flags(h, RBasic.flags(h) | FL_RUBY2)
+      RBasic[h].flags = RBasic[h].flags | FL_RUBY2
     end
     argc
   end
@@ -212,7 +212,7 @@ module Zr::Kern
       return argc
     end
     h = Machine.value(Machine.load64(argv + ((argc - 1) * 8), 0))
-    if zr_special_p(h) || zr_type(h) != T_HASH || (RBasic.flags(h) & FL_RUBY2) == 0
+    if zr_special_p(h) || zr_type(h) != T_HASH || (RBasic[h].flags & FL_RUBY2) == 0
       return argc
     end
     copy = zr_hash_new()
@@ -224,8 +224,8 @@ module Zr::Kern
   #: () -> word
   def zr_kw_take
     t = zr_task()
-    kw = Task.kw(t)
-    Task.set_kw(t, 0)
+    kw = Task[t].kw
+    Task[t].kw = 0
     kw
   end
 
@@ -249,13 +249,13 @@ module Zr::Kern
       kw = zr_kw_hashed(kw)
     end
     e = zr_find_method(zr_box_view(zr_class_of(recv)), Machine.id(:method_missing))
-    if e == 0 || MEntry.fn(e) == Machine.addr(:zr_obj_method_missing)
+    if e == 0 || MEntry[e].fn == Machine.addr(:zr_obj_method_missing)
       return zr_miss_error(recv, mid, reason, argc, argv)
     end
     args = zr_xmalloc((argc + 1) * 8)
     Machine.store64(args, 0, Machine.word(zr_sym(mid)))
     zr_memcpy(args + 8, argv, argc * 8)
-    Task.set_missing(zr_task(), reason)
+    Task[zr_task()].missing = reason
     r = zr_invoke(e, recv, argc + 1, args, blk, kw)
     zr_xfree(args)
     r
@@ -286,8 +286,8 @@ module Zr::Kern
       return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("no id given"), 11)
     end
     t = zr_task()
-    reason = Task.missing(t)
-    Task.set_missing(t, 0)
+    reason = Task[t].missing
+    Task[t].missing = 0
     zr_miss_error(recv, zr_sym2id(m), reason, argc - 1, argv + 8)
   end
 
@@ -333,7 +333,7 @@ module Zr::Kern
       s = zr_inspect(recv)
       return s if s == QUNDEF
       zr_buf_str(b, s)
-    elsif !zr_special_p(recv) && zr_singleton_p(RBasic.klass(recv))
+    elsif !zr_special_p(recv) && zr_singleton_p(RBasic[recv].klass)
       zr_buf_obj_head(b, recv)
       zr_buf_byte(b, 62)
     else
@@ -352,17 +352,17 @@ module Zr::Kern
   #: (ptr, word) -> word
   def zr_visibility_refused(e, mode)
     mode = mode & SEND_MODE
-    if mode < 2 || MEntry.vis(e) == VIS_PUBLIC
+    if mode < 2 || MEntry[e].vis == VIS_PUBLIC
       return 0
     end
-    if MEntry.vis(e) == VIS_PROTECTED && mode != 3
-      owner = FrameMeta.owner(MEntry.meta(e))
-      caller = Task.top(zr_task())
-      if caller != 0 && zr_is_a(Frame.self(caller), owner)
+    if MEntry[e].vis == VIS_PROTECTED && mode != 3
+      owner = FrameMeta[MEntry[e].meta].owner
+      caller = Task[zr_task()].top
+      if caller != 0 && zr_is_a(Frame[caller].self, owner)
         return 0
       end
     end
-    MEntry.vis(e)
+    MEntry[e].vis
   end
 
   # A send from the core library, to a name outside the protocol that
@@ -392,7 +392,7 @@ module Zr::Kern
     kw = zr_kw_take()
     klass = zr_box_view(zr_class_of(recv))
     e = 0
-    if (mode & SEND_CORE) != 0 && zr_core_class_p(klass) && ClassExt.boxed(RClass.ext(klass)) == QNIL
+    if (mode & SEND_CORE) != 0 && zr_core_class_p(klass) && ClassExt[RClass[klass].ext].boxed == QNIL
       e = zr_find_core_method(klass, mid)
     end
     if e == 0
@@ -421,7 +421,7 @@ module Zr::Kern
     # A site activates refinements for this send only: for the lookup, and
     # for a builtin such as `send` or `respond_to?` that uses them. A site
     # that checks its own cache entry never uses them.
-    Task.set_refine(zr_task(), Machine.value(QNIL))
+    Task[zr_task()].refine = Machine.value(QNIL)
     r
   end
 
@@ -433,56 +433,56 @@ module Zr::Kern
   # def's frame keeps the def's name.
   #: (ptr, ptr, word, ptr, value) -> value
   def zr_super(cc, rec, argc, argv, blk)
-    recv = Frame.self(rec)
+    recv = Frame[rec].self
     entry = zr_bmethod_entry(rec)
     if entry != 0
-      owner = FrameMeta.owner(MEntry.meta(entry))
-      mid = MEntry.orig(entry)
+      owner = FrameMeta[MEntry[entry].meta].owner
+      mid = MEntry[entry].orig
     else
       meta = zr_method_meta_of(rec)
       if meta == 0
         zr_kw_take()
         return zr_raise_msg(zr_global(G_NO_METHOD_ERROR), Machine.bytes("super called outside of method"), 30)
       end
-      owner = FrameMeta.owner(meta)
-      mid = FrameMeta.name(meta)
+      owner = FrameMeta[meta].owner
+      mid = FrameMeta[meta].name
     end
     k = zr_super_from(rec, recv, owner)
     # The site's cache entry is valid for the node and name that it was
     # filled for, under the method stamp, as for a send. The callee reads
     # the keywords that the site set.
     t = zr_task()
-    if cc != 0 && k != QNIL && SuperCache.node(cc) == k && SuperCache.mid(cc) == mid && SuperCache.stamp(cc) == Machine.load64(Machine.static(:mcache_stamp, 8), 0) && Task.refine(t) == QNIL
-      return Method.call(SuperCache.fn(cc), recv, argc, argv, SuperCache.entry(cc), blk, SuperCache.found(cc))
+    if cc != 0 && k != QNIL && SuperCache[cc].node == k && SuperCache[cc].mid == mid && SuperCache[cc].stamp == Machine.load64(Machine.static(:mcache_stamp, 8), 0) && Task[t].refine == QNIL
+      return Method.call(SuperCache[cc].fn, recv, argc, argv, SuperCache[cc].entry, blk, SuperCache[cc].found)
     end
     kw = zr_kw_take()
     e = 0
     refined = false
-    if k != QNIL && zr_type(k) == T_MODULE && ClassExt.refined(RClass.ext(k)) != QNIL
+    if k != QNIL && zr_type(k) == T_MODULE && ClassExt[RClass[k].ext].refined != QNIL
       # `super` in a refined method finds the method that the refinement
       # overrides. It searches the refined class's ancestor list with no
       # refinements, because the refinement would otherwise find itself.
-      e = zr_search_method(ClassExt.refined(RClass.ext(k)), mid)
+      e = zr_search_method(ClassExt[RClass[k].ext].refined, mid)
       refined = true
     elsif k != QNIL
-      e = zr_find_method(RClass.superclass(k), mid)
+      e = zr_find_method(RClass[k].superclass, mid)
     end
     # vm_call_super: with no method above, the receiver's method_missing
     # gets the call (MISSING_SUPER).
     if e == 0
       return zr_method_missing(recv, mid, argc, argv, blk, kw, MISS_SUPER)
     end
-    if cc != 0 && !refined && Task.refine(t) == QNIL && Machine.load64(Machine.static(:mcache_mode, 8), 0) == 0
-      SuperCache.set_node(cc, k)
-      SuperCache.set_mid(cc, mid)
-      SuperCache.set_stamp(cc, Machine.load64(Machine.static(:mcache_stamp, 8), 0))
-      SuperCache.set_entry(cc, e)
-      SuperCache.set_found(cc, zr_entry_found(e))
-      SuperCache.set_fn(cc, zr_entry_fn(e))
+    if cc != 0 && !refined && Task[t].refine == QNIL && Machine.load64(Machine.static(:mcache_mode, 8), 0) == 0
+      SuperCache[cc].node = k
+      SuperCache[cc].mid = mid
+      SuperCache[cc].stamp = Machine.load64(Machine.static(:mcache_stamp, 8), 0)
+      SuperCache[cc].entry = e
+      SuperCache[cc].found = zr_entry_found(e)
+      SuperCache[cc].fn = zr_entry_fn(e)
     end
     r = zr_invoke(e, recv, argc, argv, blk, kw)
     # The site activated the refinements for this super only.
-    Task.set_refine(t, Machine.value(QNIL))
+    Task[t].refine = Machine.value(QNIL)
     r
   end
 
@@ -493,35 +493,35 @@ module Zr::Kern
   def zr_frame_defined(rec)
     meta = zr_method_meta_of(rec)
     r = rec
-    while r != 0 && Frame.meta(r) != meta
-      r = Frame.prev(r)
+    while r != 0 && Frame[r].meta != meta
+      r = Frame[r].prev
     end
     if r == 0
       return Machine.value(QNIL)
     end
-    Frame.defined(r)
+    Frame[r].defined
   end
 
   # Returns the method entry of the `define_method` method that the frame
   # runs in, or 0.
   #: (ptr) -> ptr
   def zr_bmethod_entry(rec)
-    cref = Frame.cref(rec)
-    if cref == QNIL || RCref.eval(cref) == 0
+    cref = Frame[rec].cref
+    if cref == QNIL || RCref[cref].eval == 0
       return 0
     end
-    RCref.entry(cref)
+    RCref[cref].entry
   end
 
   # Returns the meta of the def that contains the frame, through its
   # blocks and evals. Returns 0 in a class body or at the top level.
   #: (ptr) -> ptr
   def zr_method_meta_of(rec)
-    meta = Frame.meta(rec)
-    while (FrameMeta.kind(meta) == KIND_BLOCK || FrameMeta.kind(meta) == KIND_HIDDEN || FrameMeta.kind(meta) == KIND_EVAL) && FrameMeta.parent(meta) != 0
-      meta = FrameMeta.parent(meta)
+    meta = Frame[rec].meta
+    while (FrameMeta[meta].kind == KIND_BLOCK || FrameMeta[meta].kind == KIND_HIDDEN || FrameMeta[meta].kind == KIND_EVAL) && FrameMeta[meta].parent != 0
+      meta = FrameMeta[meta].parent
     end
-    if FrameMeta.kind(meta) != KIND_DEF && FrameMeta.kind(meta) != KIND_BUILTIN
+    if FrameMeta[meta].kind != KIND_DEF && FrameMeta[meta].kind != KIND_BUILTIN
       return 0
     end
     meta
@@ -532,21 +532,21 @@ module Zr::Kern
   def zr_super_defined(rec)
     entry = zr_bmethod_entry(rec)
     if entry != 0
-      owner = FrameMeta.owner(MEntry.meta(entry))
-      mid = MEntry.orig(entry)
+      owner = FrameMeta[MEntry[entry].meta].owner
+      mid = MEntry[entry].orig
     else
       meta = zr_method_meta_of(rec)
       if meta == 0
         return Machine.value(QFALSE)
       end
-      owner = FrameMeta.owner(meta)
-      mid = FrameMeta.name(meta)
+      owner = FrameMeta[meta].owner
+      mid = FrameMeta[meta].name
     end
-    k = zr_super_from(rec, Frame.self(rec), owner)
+    k = zr_super_from(rec, Frame[rec].self, owner)
     if k == QNIL
       return Machine.value(QFALSE)
     end
-    zr_bool(zr_find_method(RClass.superclass(k), mid) != 0)
+    zr_bool(zr_find_method(RClass[k].superclass, mid) != 0)
   end
 
   # Returns the node after which a `super` in the frame continues. This is
@@ -561,8 +561,8 @@ module Zr::Kern
       return k
     end
     k = zr_class_of(recv)
-    while k != QNIL && !(k == owner || (zr_type(k) == T_ICLASS && RClass.attached(k) == owner))
-      k = RClass.superclass(k)
+    while k != QNIL && !(k == owner || (zr_type(k) == T_ICLASS && RClass[k].attached == owner))
+      k = RClass[k].superclass
     end
     k
   end
@@ -591,15 +591,15 @@ module Zr::Kern
   # pushes.
   #: (ptr, value, word, ptr, value, word) -> value
   def zr_invoke(e, recv, argc, argv, blk, kw)
-    kind = MEntry.kind(e)
+    kind = MEntry[e].kind
     # Proc#call gives the block the keyword word as it is, so a table
     # of no keywords still keeps a lone Array whole.
-    if kw > 1 && kind != KIND_DEF && kind != KIND_BMETHOD && (MEntry.fn(e) != Machine.addr(:zr_proc_call) || Machine.load64(kw, 0) != 0)
+    if kw > 1 && kind != KIND_DEF && kind != KIND_BMETHOD && (MEntry[e].fn != Machine.addr(:zr_proc_call) || Machine.load64(kw, 0) != 0)
       argc = zr_kw_tab_in(kw, argc, argv)
       kw = zr_kw_hashed(kw)
     end
     if kind == KIND_DEF
-      arity = MEntry.arity(e)
+      arity = MEntry[e].arity
       if arity >= 0
         # For a def with a fixed count, which declares no keywords, the
         # table's values are one Hash argument.
@@ -608,76 +608,76 @@ module Zr::Kern
           return zr_wrong_arity_in(given, arity, e, recv)
         end
       end
-      Task.set_kw(zr_task(), kw)
-      return Method.call(MEntry.fn(e), recv, argc, argv, e, blk, zr_entry_found(e))
+      Task[zr_task()].kw = kw
+      return Method.call(MEntry[e].fn, recv, argc, argv, e, blk, zr_entry_found(e))
     end
     # An accessor has no frame, so its arity error comes from the caller.
-    if MEntry.kind(e) == KIND_ATTR_READER
+    if MEntry[e].kind == KIND_ATTR_READER
       if argc != 0
         return zr_wrong_arity(argc, 0)
       end
-      return zr_ivar_get(recv, Machine.word(MEntry.fn(e)))
+      return zr_ivar_get(recv, Machine.word(MEntry[e].fn))
     end
-    if MEntry.kind(e) == KIND_ATTR_WRITER
+    if MEntry[e].kind == KIND_ATTR_WRITER
       if argc != 1
         return zr_wrong_arity(argc, 1)
       end
-      return zr_ivar_set(recv, Machine.word(MEntry.fn(e)), Machine.value(Machine.load64(argv, 0)))
+      return zr_ivar_set(recv, Machine.word(MEntry[e].fn), Machine.value(Machine.load64(argv, 0)))
     end
-    if MEntry.kind(e) == KIND_STRUCT_AREF
+    if MEntry[e].kind == KIND_STRUCT_AREF
       if argc != 0
         return zr_wrong_arity(argc, 0)
       end
       return zr_struct_get(recv, e)
     end
-    if MEntry.kind(e) == KIND_STRUCT_ASET
+    if MEntry[e].kind == KIND_STRUCT_ASET
       if argc != 1
         return zr_wrong_arity(argc, 1)
       end
       return zr_struct_set(recv, e, Machine.value(Machine.load64(argv, 0)))
     end
-    if MEntry.kind(e) == KIND_FRAMELESS
-      Task.set_kw(zr_task(), kw)
-      return Builtin.call(MEntry.fn(e), recv, argc, argv, Machine.value(QNIL), blk)
+    if MEntry[e].kind == KIND_FRAMELESS
+      Task[zr_task()].kw = kw
+      return Builtin.call(MEntry[e].fn, recv, argc, argv, Machine.value(QNIL), blk)
     end
-    if MEntry.kind(e) == KIND_BMETHOD
-      Task.set_kw(zr_task(), kw)
+    if MEntry[e].kind == KIND_BMETHOD
+      Task[zr_task()].kw = kw
       return zr_bmethod_call(e, recv, argc, argv, blk)
     end
-    if MEntry.kind(e) == KIND_MISSING
-      return zr_method_missing(recv, MEntry.mid(e), argc, argv, blk, kw, MISS_EXPLICIT)
+    if MEntry[e].kind == KIND_MISSING
+      return zr_method_missing(recv, MEntry[e].mid, argc, argv, blk, kw, MISS_EXPLICIT)
     end
     rec = Machine.slot(Frame.size)
     t = zr_task()
     # A builtin can run Ruby that calls builtins again, with no compiled
     # frame between them. Thus its frame does the stack check of a
     # compiled prologue, before it links the frame.
-    if Machine.word(rec) < Machine.word(Task.stack_limit(t))
+    if Machine.word(rec) < Machine.word(Task[t].stack_limit)
       return zr_stack_overflow()
     end
-    Frame.set_prev(rec, Task.top(t))
-    Frame.set_meta(rec, MEntry.meta(e))
-    Frame.set_line(rec, 0)
-    Frame.set_serial(rec, 0)
-    Frame.set_self(rec, recv)
-    Frame.set_cref(rec, Machine.value(QNIL))
-    Frame.set_blk(rec, blk)
-    Frame.set_nvalues(rec, 0)
+    Frame[rec].prev = Task[t].top
+    Frame[rec].meta = MEntry[e].meta
+    Frame[rec].line = 0
+    Frame[rec].serial = 0
+    Frame[rec].self = recv
+    Frame[rec].cref = Machine.value(QNIL)
+    Frame[rec].blk = blk
+    Frame[rec].nvalues = 0
     # The entry gives the name used in the call, which can be an alias. An
     # enumerator that the builtin returns records that name.
-    Frame.set_entry(rec, e)
-    Frame.set_svars(rec, Machine.value(QNIL))
-    Frame.set_defined(rec, Machine.value(QNIL))
-    Task.set_top(t, rec)
-    Task.set_kw(t, kw)
-    arity = MEntry.arity(e)
+    Frame[rec].entry = e
+    Frame[rec].svars = Machine.value(QNIL)
+    Frame[rec].defined = Machine.value(QNIL)
+    Task[t].top = rec
+    Task[t].kw = kw
+    arity = MEntry[e].arity
     if arity >= 0 && argc != arity
       r = zr_wrong_arity(argc, arity)
     else
-      r = Builtin.call(MEntry.fn(e), recv, argc, argv, Machine.value(QNIL), blk)
+      r = Builtin.call(MEntry[e].fn, recv, argc, argv, Machine.value(QNIL), blk)
     end
-    Task.set_kw(t, 0)
-    Task.set_top(t, Frame.prev(rec))
+    Task[t].kw = 0
+    Task[t].top = Frame[rec].prev
     r
   end
 
@@ -687,20 +687,20 @@ module Zr::Kern
   def zr_wrong_arity_in(given, expected, e, recv)
     rec = Machine.slot(Frame.size)
     t = zr_task()
-    Frame.set_prev(rec, Task.top(t))
-    Frame.set_meta(rec, MEntry.meta(e))
-    Frame.set_line(rec, FrameMeta.line(MEntry.meta(e)) | (FrameMeta.node(MEntry.meta(e)) << 32))
-    Frame.set_serial(rec, 0)
-    Frame.set_self(rec, recv)
-    Frame.set_cref(rec, Machine.value(QNIL))
-    Frame.set_blk(rec, Machine.value(QNIL))
-    Frame.set_nvalues(rec, 0)
-    Frame.set_entry(rec, e)
-    Frame.set_svars(rec, Machine.value(QNIL))
-    Frame.set_defined(rec, Machine.value(QNIL))
-    Task.set_top(t, rec)
+    Frame[rec].prev = Task[t].top
+    Frame[rec].meta = MEntry[e].meta
+    Frame[rec].line = FrameMeta[MEntry[e].meta].line | (FrameMeta[MEntry[e].meta].node << 32)
+    Frame[rec].serial = 0
+    Frame[rec].self = recv
+    Frame[rec].cref = Machine.value(QNIL)
+    Frame[rec].blk = Machine.value(QNIL)
+    Frame[rec].nvalues = 0
+    Frame[rec].entry = e
+    Frame[rec].svars = Machine.value(QNIL)
+    Frame[rec].defined = Machine.value(QNIL)
+    Task[t].top = rec
     r = zr_wrong_arity(given, expected)
-    Task.set_top(t, Frame.prev(rec))
+    Task[t].top = Frame[rec].prev
     r
   end
 
@@ -709,8 +709,8 @@ module Zr::Kern
   # node. Otherwise it is the node where the lookup found the method.
   #: (ptr) -> value
   def zr_entry_found(e)
-    from = MEntry.from(e)
-    from != QNIL ? from : Task.found(zr_task())
+    from = MEntry[e].from
+    from != QNIL ? from : Task[zr_task()].found
   end
 
   # The kernel's own sends, which have no site and thus no cache entry.
@@ -731,13 +731,13 @@ module Zr::Kern
   def zr_ruby2_hash_new(h)
     copy = zr_hash_new()
     zr_hash_update(copy, h)
-    RBasic.set_flags(copy, RBasic.flags(copy) | FL_RUBY2)
+    RBasic[copy].flags = RBasic[copy].flags | FL_RUBY2
     copy
   end
 
   #: (value) -> value
   def zr_ruby2_hash_p(h)
-    zr_bool(!zr_special_p(h) && zr_type(h) == T_HASH && (RBasic.flags(h) & FL_RUBY2) != 0)
+    zr_bool(!zr_special_p(h) && zr_type(h) == T_HASH && (RBasic[h].flags & FL_RUBY2) != 0)
   end
 
   # Preemption. A green thread that only computes makes no blocking call,
@@ -798,7 +798,7 @@ module Zr::Kern
     if zr_trap_check() == QUNDEF
       return Machine.value(QUNDEF)
     end
-    if WeakList.len(zr_finalizer_queue()) > 0 && zr_finalizers_run() == QUNDEF
+    if WeakList[zr_finalizer_queue()].len > 0 && zr_finalizers_run() == QUNDEF
       return Machine.value(QUNDEF)
     end
     mid = Machine.load64(Machine.static(:preempt_mid, 8), 0)
@@ -834,7 +834,7 @@ module Zr::Kern
   def zr_check_funcall(v, mid)
     klass = zr_class_of(v)
     asks = zr_find_method(klass, Machine.id(:respond_to?))
-    if asks != 0 && MEntry.core(asks) == 0
+    if asks != 0 && MEntry[asks].core == 0
       argv = Machine.slot(16)
       Machine.store64(argv, 0, Machine.word(zr_sym(mid)))
       Machine.store64(argv, 8, QTRUE)
@@ -848,7 +848,7 @@ module Zr::Kern
       return Machine.value(QTRUE)
     end
     missing = zr_find_method(klass, Machine.id(:respond_to_missing?))
-    if missing == 0 || MEntry.core(missing) != 0
+    if missing == 0 || MEntry[missing].core != 0
       return Machine.value(QFALSE)
     end
     argv = Machine.slot(16)
@@ -875,19 +875,19 @@ module Zr::Kern
     end
     klass = zr_class_of(v)
     missing = zr_find_method(klass, Machine.id(:method_missing))
-    if missing == 0 || MEntry.core(missing) != 0
+    if missing == 0 || MEntry[missing].core != 0
       return Machine.value(QNIL)
     end
     answers = zr_find_method(klass, Machine.id(:respond_to_missing?))
     asks = zr_find_method(klass, Machine.id(:respond_to?))
-    if (answers != 0 && MEntry.core(answers) == 0) || (asks != 0 && MEntry.core(asks) == 0)
+    if (answers != 0 && MEntry[answers].core == 0) || (asks != 0 && MEntry[asks].core == 0)
       return Machine.value(QNIL)
     end
     r = zr_send(v, mid, 0, 0)
     if r == QUNDEF
       exc = zr_rescuable()
       if exc != QUNDEF && zr_is_a(exc, zr_global(G_NO_METHOD_ERROR))
-        Task.set_pending(zr_task(), Machine.value(QNIL))
+        Task[zr_task()].pending = Machine.value(QNIL)
         return Machine.value(QNIL)
       end
     end

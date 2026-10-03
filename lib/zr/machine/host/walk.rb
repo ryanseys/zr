@@ -287,7 +287,7 @@ module Zr
           @boot.restart
           k.zr_gvar_assign(id(:$$), k.zr_process_id)
           list = k.zr_global(k::G_ARGV)
-          k::RArray.set_len(list, 0)
+          k::RArray[list].len = 0
           args.each { |a| k.zr_ary_push(list, string(a)) }
           # As a build reads it: with error_highlight's spots, which a
           # build without eval support leaves out.
@@ -295,8 +295,8 @@ module Zr
           r = program(hir, path, target)
           exc = @qundef
           if r == @qundef
-            exc = k::Task.pending(task)
-            k::Task.set_pending(task, @qnil)
+            exc = k::Task[task].pending
+            k::Task[task].pending = @qnil
           end
           k.zr_program_end(exc)
         end
@@ -340,7 +340,7 @@ module Zr
         # Reports the pending unwind of a toplevel that returned QUNDEF.
         #: (Integer r) -> void
         def report_unwind(r)
-          k.zr_report(k::Task.pending(task)) if r == @qundef
+          k.zr_report(k::Task[task].pending) if r == @qundef
         end
 
         # The offsets of the kernel's fields that the code reads and writes
@@ -587,7 +587,7 @@ module Zr
           run = nil #: [untyped, bool]?
           fn = @host.callable(lambda do |self_, cref, env, blk|
             body, jumps = run ||= [code(hir.body, s), jumps?(hir.body)]
-            enter(s, self_, cref, blk, env: env, outer: k::REnv.parent(env)) do |f|
+            enter(s, self_, cref, blk, env: env, outer: k::REnv[env].parent) do |f|
               run_body(s, f, jumps) { body.call(f) }
             end
           end)
@@ -635,7 +635,7 @@ module Zr
         # A String's bytes as a Ruby String.
         #: (Integer s) -> String
         def text(s)
-          Memory.read(k::RString.ptr(s), k::RString.len(s)).force_encoding(::Encoding::UTF_8)
+          Memory.read(k::RString[s].ptr, k::RString[s].len).force_encoding(::Encoding::UTF_8)
         end
 
         # A plain Ruby value as a Value: nil, true, false, Integers of the

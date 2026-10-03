@@ -82,12 +82,12 @@ module Zr::Kern
   def zr_zlib_input(addr, str, offset)
     z = zr_zlib_stream(addr)
     if str == QNIL
-      ZStream.set_next_in(z, Machine.bytes("\0"))
-      ZStream.set_avail_in(z, 0)
+      ZStream[z].next_in = Machine.bytes("\0")
+      ZStream[z].avail_in = 0
     else
       at = zr_fix2long(offset)
-      ZStream.set_next_in(z, RString.ptr(str) + at)
-      ZStream.set_avail_in(z, RString.len(str) - at)
+      ZStream[z].next_in = RString[str].ptr + at
+      ZStream[z].avail_in = RString[str].len - at
     end
     Machine.value(QNIL)
   end
@@ -97,14 +97,14 @@ module Zr::Kern
   #: (ptr, value, word) -> void
   def zr_zlib_output(z, buf, room)
     if buf == QNIL
-      ZStream.set_next_out(z, 0)
-      ZStream.set_avail_out(z, 0)
+      ZStream[z].next_out = 0
+      ZStream[z].avail_out = 0
       return
     end
-    len = RString.len(buf)
+    len = RString[buf].len
     zr_str_reserve(buf, len + room)
-    ZStream.set_next_out(z, RString.ptr(buf) + len)
-    ZStream.set_avail_out(z, room)
+    ZStream[z].next_out = RString[buf].ptr + len
+    ZStream[z].avail_out = room
   end
 
   # Adds the bytes that the call wrote to the length of `buf`.
@@ -113,9 +113,9 @@ module Zr::Kern
     if buf == QNIL
       return
     end
-    len = ZStream.next_out(z) - RString.ptr(buf)
-    RString.set_len(buf, len)
-    Machine.store8(RString.ptr(buf) + len, 0, Machine.i8(0))
+    len = ZStream[z].next_out - RString[buf].ptr
+    RString[buf].len = len
+    Machine.store8(RString[buf].ptr + len, 0, Machine.i8(0))
     zr_str_modified(buf)
   end
 
@@ -164,9 +164,9 @@ module Zr::Kern
   def zr_zlib_dictionary(addr, kind, dict)
     z = zr_zlib_stream(addr)
     if zr_fix2long(kind) == ZLIB_DEFLATE
-      return zr_fix(zr_deflate_set_dictionary(z, RString.ptr(dict), RString.len(dict)))
+      return zr_fix(zr_deflate_set_dictionary(z, RString[dict].ptr, RString[dict].len))
     end
-    zr_fix(zr_inflate_set_dictionary(z, RString.ptr(dict), RString.len(dict)))
+    zr_fix(zr_inflate_set_dictionary(z, RString[dict].ptr, RString[dict].len))
   end
 
   #: (value, value) -> value
@@ -179,13 +179,13 @@ module Zr::Kern
   def zr_zlib_fields(addr)
     z = zr_zlib_stream(addr)
     out = zr_ary_new(7)
-    zr_ary_push(out, zr_fix(ZStream.avail_in(z)))
-    zr_ary_push(out, zr_fix(ZStream.total_in(z)))
-    zr_ary_push(out, zr_fix(ZStream.avail_out(z)))
-    zr_ary_push(out, zr_fix(ZStream.total_out(z)))
-    zr_ary_push(out, zr_fix(ZStream.data_type(z)))
-    zr_ary_push(out, zr_fix(ZStream.adler(z)))
-    zr_ary_push(out, zr_cstr_str(ZStream.msg(z)))
+    zr_ary_push(out, zr_fix(ZStream[z].avail_in))
+    zr_ary_push(out, zr_fix(ZStream[z].total_in))
+    zr_ary_push(out, zr_fix(ZStream[z].avail_out))
+    zr_ary_push(out, zr_fix(ZStream[z].total_out))
+    zr_ary_push(out, zr_fix(ZStream[z].data_type))
+    zr_ary_push(out, zr_fix(ZStream[z].adler))
+    zr_ary_push(out, zr_cstr_str(ZStream[z].msg))
     out
   end
 
@@ -193,7 +193,7 @@ module Zr::Kern
   #: (value, value) -> value
   def zr_zlib_count_in(addr, n)
     z = zr_zlib_stream(addr)
-    ZStream.set_total_in(z, ZStream.total_in(z) + zr_fix2long(n))
+    ZStream[z].total_in = ZStream[z].total_in + zr_fix2long(n)
     Machine.value(QNIL)
   end
 
@@ -205,8 +205,8 @@ module Zr::Kern
     p = 0
     n = 0
     if str != QNIL
-      p = RString.ptr(str)
-      n = RString.len(str)
+      p = RString[str].ptr
+      n = RString[str].len
     end
     if zr_fix2long(kind) == 0
       return zr_fix(zr_crc32(s, p, n))

@@ -17,6 +17,9 @@ module Zr
       TYPES = { "Word" => Fiddle::TYPE_LONG, "Ptr" => Fiddle::TYPE_VOIDP, "I32" => Fiddle::TYPE_INT, "I8" => Fiddle::TYPE_CHAR,
                 "Bool" => Fiddle::TYPE_CHAR, "F64" => Fiddle::TYPE_DOUBLE, "Void" => Fiddle::TYPE_VOID }.freeze
 
+      # The imports of the portable kernel, which any of its files can call.
+      IMPORTS = File.join(Paths::RUNTIME, "kernel/imports.rb")
+
       # `patterns` are globs under lib/zr/runtime/kernel. `constants` sets the
       # constants that the files read from a kernel file outside the unit
       # (the OS layer, for example).
@@ -27,7 +30,7 @@ module Zr
         Dir.mktmpdir("zr-kernel-jit-") do |dir|
           defined = File.join(dir, "constants.rb")
           File.write(defined, "module Zr::Kern\n#{constants.map { |name, value| "  #{name} = #{value}\n" }.join}end\n")
-          lower = Machine.unit(files + [defined])
+          lower = Machine.unit([IMPORTS, *files].uniq + [defined])
           unit = Native::Build.unit(lower.functions, lower.data, raw: lower.raw)
           @symbols = Obj::JIT.load(unit, host: Obj::JIT::Fiddle.new)
           @defs = lower.defs

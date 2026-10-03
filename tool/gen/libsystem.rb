@@ -6,10 +6,10 @@ module Zr
   module Dev
     class Gen
       # Writes the list of libSystem names that zr imports, which
-      # `Obj::MachO::Executable` reads. The list contains each
-      # `Libc.import` and `Machine.extern` in darwin's kernel and
-      # test/machine, and each callee of the native fixtures, that this
-      # host's libSystem defines. The list is committed, so
+      # `Obj::MachO::Executable` reads. The list contains each import
+      # (`def self.name(...) = Machine.import`) and `Machine.extern` in
+      # darwin's kernel and test/machine, and each callee of the native
+      # fixtures, that this host's libSystem defines. The list is committed, so
       # `Obj::MachO::Executable` gives the same link result on every host.
       # `test/unit/libsystem_test.rb` fails when it is out of date.
       class Libsystem < Generator
@@ -23,7 +23,7 @@ module Zr
 
           kernel = Zr::RuntimeSources.for(Target::AARCH64_DARWIN).kernel_files
           names = (kernel + Dir[Dev.path("test/machine/**/*.rb")].sort).flat_map do |file|
-            File.read(file).scan(/Libc\.import\s+:(\w+)|Machine\.extern\(:(\w+)\)/).flatten.compact
+            File.read(file).scan(/Libc\.import\s+:(\w+)|def self\.(\w+)\b.*= Machine\.import\b|Machine\.extern\(:(\w+)\)/).flatten.compact
           end
           names += Native::Fixtures::NAMES.flat_map do |name|
             functions, data = Native::Fixtures.build(name)

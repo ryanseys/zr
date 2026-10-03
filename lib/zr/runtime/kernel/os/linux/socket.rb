@@ -2,7 +2,6 @@ module Zr::Kern
   # The Linux part of the socket calls: a sockaddr that starts with a
   # 16-bit family, the layouts of struct addrinfo and struct msghdr,
   # h_errno, and the peer's credentials.
-  Libc.import :__h_errno_location, [] => Ptr
 
   EPROTOTYPE = 91
   EAI_SYSTEM = 0 - 11

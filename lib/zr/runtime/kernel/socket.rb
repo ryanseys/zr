@@ -3,37 +3,6 @@ module Zr::Kern
   # part of ext/socket. An address goes across as the bytes of a sockaddr
   # in a String, which lib/zr/runtime/ext/socket.so.rb builds and reads. A failed
   # call returns the negated errno. A resolver failure returns its own code.
-  Libc.import :socket, [I32, I32, I32] => I32
-  Libc.import :socketpair, [I32, I32, I32, Ptr] => I32
-  Libc.import :bind, [I32, Ptr, I32] => I32
-  Libc.import :listen, [I32, I32] => I32
-  Libc.import :accept, [I32, Ptr, Ptr] => I32
-  Libc.import :connect, [I32, Ptr, I32] => I32
-  Libc.import :send, [I32, Ptr, Word, I32] => Word
-  Libc.import :sendto, [I32, Ptr, Word, I32, Ptr, I32] => Word
-  Libc.import :recvfrom, [I32, Ptr, Word, I32, Ptr, Ptr] => Word
-  Libc.import :sendmsg, [I32, Ptr, I32] => Word
-  Libc.import :recvmsg, [I32, Ptr, I32] => Word
-  Libc.import :shutdown, [I32, I32] => I32
-  Libc.import :getsockname, [I32, Ptr, Ptr] => I32
-  Libc.import :getpeername, [I32, Ptr, Ptr] => I32
-  Libc.import :getsockopt, [I32, I32, I32, Ptr, Ptr] => I32
-  Libc.import :setsockopt, [I32, I32, I32, Ptr, I32] => I32
-  Libc.import :getaddrinfo, [Ptr, Ptr, Ptr, Ptr] => I32
-  Libc.import :freeaddrinfo, [Ptr] => Void
-  Libc.import :gai_strerror, [I32] => Ptr
-  Libc.import :getnameinfo, [Ptr, I32, Ptr, I32, Ptr, I32, I32] => I32
-  Libc.import :gethostname, [Ptr, Word] => I32
-  Libc.import :gethostbyname, [Ptr] => Ptr
-  Libc.import :gethostbyaddr, [Ptr, I32, I32] => Ptr
-  Libc.import :hstrerror, [I32] => Ptr
-  Libc.import :getservbyname, [Ptr, Ptr] => Ptr
-  Libc.import :getservbyport, [I32, Ptr] => Ptr
-  Libc.import :getifaddrs, [Ptr] => I32
-  Libc.import :freeifaddrs, [Ptr] => Void
-  Libc.import :if_nametoindex, [Ptr] => I32
-  Libc.import :if_indextoname, [I32, Ptr] => Ptr
-  Libc.import :inet_pton, [I32, Ptr, Ptr] => I32
 
   # The largest sockaddr, the size of union_sockaddr. A unix path fits in
   # it, and so does each other family.
@@ -94,12 +63,12 @@ module Zr::Kern
 
   #: (value, value) -> value
   def zr_sock_bind(fd, addr)
-    zr_io_status(Libc.bind(zr_sock_fd(fd), RString.ptr(addr), Machine.i32(RString.len(addr))))
+    zr_io_status(Libc.bind(zr_sock_fd(fd), RString[addr].ptr, Machine.i32(RString[addr].len)))
   end
 
   #: (value, value) -> value
   def zr_sock_connect(fd, addr)
-    zr_io_status(Libc.connect(zr_sock_fd(fd), RString.ptr(addr), Machine.i32(RString.len(addr))))
+    zr_io_status(Libc.connect(zr_sock_fd(fd), RString[addr].ptr, Machine.i32(RString[addr].len)))
   end
 
   #: (value, value) -> value
@@ -150,9 +119,9 @@ module Zr::Kern
     r = 0
     while true
       if addr == QNIL
-        r = Libc.send(zr_sock_fd(fd), RString.ptr(text), RString.len(text), zr_sock_fd(flags))
+        r = Libc.send(zr_sock_fd(fd), RString[text].ptr, RString[text].len, zr_sock_fd(flags))
       else
-        r = Libc.sendto(zr_sock_fd(fd), RString.ptr(text), RString.len(text), zr_sock_fd(flags), RString.ptr(addr), Machine.i32(RString.len(addr)))
+        r = Libc.sendto(zr_sock_fd(fd), RString[text].ptr, RString[text].len, zr_sock_fd(flags), RString[addr].ptr, Machine.i32(RString[addr].len))
       end
       if r >= 0 || zr_errno() != EPROTOTYPE
         return zr_io_failed(r)
@@ -196,7 +165,7 @@ module Zr::Kern
   #: (value, value) -> value
   def zr_sock_inet_pton(family, text)
     buffer = Machine.slot(16)
-    if Libc.inet_pton(zr_sock_fd(family), RString.ptr(text), buffer) != Machine.i32(1)
+    if Libc.inet_pton(zr_sock_fd(family), RString[text].ptr, buffer) != Machine.i32(1)
       return Machine.value(QNIL)
     end
     zr_sock_bytes(buffer, zr_fix2long(family) == 2 ? 4 : 16)
@@ -228,7 +197,7 @@ module Zr::Kern
 
   #: (value, value, value, value) -> value
   def zr_sock_setsockopt(fd, level, name, bytes)
-    zr_io_status(Libc.setsockopt(zr_sock_fd(fd), zr_sock_fd(level), zr_sock_fd(name), RString.ptr(bytes), Machine.i32(RString.len(bytes))))
+    zr_io_status(Libc.setsockopt(zr_sock_fd(fd), zr_sock_fd(level), zr_sock_fd(name), RString[bytes].ptr, Machine.i32(RString[bytes].len)))
   end
 
   # The host name, up to the NI_MAXHOST length.
@@ -269,7 +238,7 @@ module Zr::Kern
     head = Machine.slot(8)
     Machine.store64(head, 0, 0)
     zr_clear_errno()
-    r = Libc.getaddrinfo(host == QNIL ? 0 : RString.ptr(host), service == QNIL ? 0 : RString.ptr(service), hints, head)
+    r = Libc.getaddrinfo(host == QNIL ? 0 : RString[host].ptr, service == QNIL ? 0 : RString[service].ptr, hints, head)
     if r != Machine.i32(0)
       return zr_sock_gai_failed(r)
     end
@@ -291,7 +260,7 @@ module Zr::Kern
     service = Machine.slot(1024)
     w = zr_fix2long(want)
     zr_clear_errno()
-    r = Libc.getnameinfo(RString.ptr(addr), Machine.i32(RString.len(addr)), (w & 1) != 0 ? host : 0, Machine.i32((w & 1) != 0 ? 1024 : 0),
+    r = Libc.getnameinfo(RString[addr].ptr, Machine.i32(RString[addr].len), (w & 1) != 0 ? host : 0, Machine.i32((w & 1) != 0 ? 1024 : 0),
                     (w & 2) != 0 ? service : 0, Machine.i32((w & 2) != 0 ? 1024 : 0), zr_sock_fd(flags))
     if r != Machine.i32(0)
       return zr_sock_gai_failed(r)
@@ -324,7 +293,7 @@ module Zr::Kern
   # The aliases that gethostbyname(3) gives for a name, or nil.
   #: (value) -> value
   def zr_sock_host_aliases(name)
-    h = Libc.gethostbyname(RString.ptr(name))
+    h = Libc.gethostbyname(RString[name].ptr)
     if Machine.word(h) == 0
       return Machine.value(QNIL)
     end
@@ -335,7 +304,7 @@ module Zr::Kern
   # resolver's error message.
   #: (value, value) -> value
   def zr_sock_host_by_addr(addr, family)
-    h = Libc.gethostbyaddr(RString.ptr(addr), Machine.i32(RString.len(addr)), zr_sock_fd(family))
+    h = Libc.gethostbyaddr(RString[addr].ptr, Machine.i32(RString[addr].len), zr_sock_fd(family))
     if Machine.word(h) == 0
       return zr_sock_cstr(Libc.hstrerror(Machine.i32(zr_os_h_errno())))
     end
@@ -355,7 +324,7 @@ module Zr::Kern
   # A service's port in host order, or nil.
   #: (value, value) -> value
   def zr_sock_service_port(name, protocol)
-    s = Libc.getservbyname(RString.ptr(name), RString.ptr(protocol))
+    s = Libc.getservbyname(RString[name].ptr, RString[protocol].ptr)
     if Machine.word(s) == 0
       return Machine.value(QNIL)
     end
@@ -367,7 +336,7 @@ module Zr::Kern
   #: (value, value) -> value
   def zr_sock_service_name(port, protocol)
     p = zr_fix2long(port)
-    s = Libc.getservbyport(Machine.i32(((p & 255) << 8) | ((p >> 8) & 255)), RString.ptr(protocol))
+    s = Libc.getservbyport(Machine.i32(((p & 255) << 8) | ((p >> 8) & 255)), RString[protocol].ptr)
     if Machine.word(s) == 0
       return Machine.value(QNIL)
     end
@@ -408,7 +377,7 @@ module Zr::Kern
 
   #: (value) -> value
   def zr_sock_if_index(name)
-    zr_fix(Machine.u32(Libc.if_nametoindex(RString.ptr(name))))
+    zr_fix(Machine.u32(Libc.if_nametoindex(RString[name].ptr)))
   end
 
   # The interface name for an index, or nil.
@@ -428,17 +397,17 @@ module Zr::Kern
     header = Machine.slot(MSGHDR_LEN)
     vector = Machine.slot(16)
     Libc.memset(header, Machine.i32(0), MSGHDR_LEN)
-    Machine.store64(vector, 0, Machine.word(RString.ptr(data)))
-    Machine.store64(vector, 8, RString.len(data))
+    Machine.store64(vector, 0, Machine.word(RString[data].ptr))
+    Machine.store64(vector, 8, RString[data].len)
     if addr != QNIL
-      Machine.store64(header, 0, Machine.word(RString.ptr(addr)))
-      Machine.store32(header, 8, Machine.i32(RString.len(addr)))
+      Machine.store64(header, 0, Machine.word(RString[addr].ptr))
+      Machine.store32(header, 8, Machine.i32(RString[addr].len))
     end
     Machine.store64(header, 16, Machine.word(vector))
     Machine.store32(header, 24, Machine.i32(1))
     if control != QNIL
-      Machine.store64(header, 32, Machine.word(RString.ptr(control)))
-      Machine.store32(header, 40, Machine.i32(RString.len(control)))
+      Machine.store64(header, 32, Machine.word(RString[control].ptr))
+      Machine.store32(header, 40, Machine.i32(RString[control].len))
     end
     zr_io_failed(Libc.sendmsg(zr_sock_fd(fd), header, zr_sock_fd(flags)))
   end

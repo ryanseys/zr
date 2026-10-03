@@ -9,11 +9,26 @@ module Zr::Kern
   # `rows` contains one CovRow record for each file seen. `last` is the
   # record of the last event, which is most probably the record of the
   # next event.
-  Coverage = layout rows: Ptr, len: Word, capa: Word, setup: Word, running: Word, last: Ptr, branches: Ptr, branch_size: Word
+  class Coverage < Layout
+    attr_accessor :rows #: ptr
+    attr_accessor :len #: word
+    attr_accessor :capa #: word
+    attr_accessor :setup #: word
+    attr_accessor :running #: word
+    attr_accessor :last #: ptr
+    attr_accessor :branches #: ptr
+    attr_accessor :branch_size #: word
+  end
   # `file` is the FrameMeta's file bytes, one address for each file that a
   # lowering made. `counts` contains `size` words, a count for each line
   # from 1.
-  CovRow = layout file: Ptr, file_len: Word, counts: Ptr, size: Word, measured: Word
+  class CovRow < Layout
+    attr_accessor :file #: ptr
+    attr_accessor :file_len #: word
+    attr_accessor :counts #: ptr
+    attr_accessor :size #: word
+    attr_accessor :measured #: word
+  end
 
   #: () -> ptr
   def zr_coverage
@@ -22,7 +37,7 @@ module Zr::Kern
 
   #: () -> bool
   def zr_coverage_setup_p
-    Coverage.setup(zr_coverage()) != 0
+    Coverage[zr_coverage()].setup != 0
   end
 
   # Coverage.setup, resume and suspend. `state` is 0 idle, 1 set up and
@@ -34,8 +49,8 @@ module Zr::Kern
     if n == 0
       zr_coverage_forget(c)
     end
-    Coverage.set_setup(c, n == 0 ? 0 : 1)
-    Coverage.set_running(c, n == 2 ? 1 : 0)
+    Coverage[c].setup = n == 0 ? 0 : 1
+    Coverage[c].running = n == 2 ? 1 : 0
     zr_trace_events_arm()
     Machine.value(QNIL)
   end
@@ -43,24 +58,24 @@ module Zr::Kern
   #: (ptr) -> void
   def zr_coverage_forget(c)
     i = 0
-    while i < Coverage.len(c)
-      counts = CovRow.counts(Coverage.rows(c) + (i * CovRow.size))
+    while i < Coverage[c].len
+      counts = CovRow[Coverage[c].rows + (i * CovRow.size)].counts
       if counts != 0
         zr_xfree(counts)
       end
       i += 1
     end
-    Coverage.set_len(c, 0)
-    Coverage.set_last(c, 0)
-    if Coverage.branches(c) != 0
-      zr_xfree(Coverage.branches(c))
+    Coverage[c].len = 0
+    Coverage[c].last = 0
+    if Coverage[c].branches != 0
+      zr_xfree(Coverage[c].branches)
     end
-    Coverage.set_branches(c, 0)
-    Coverage.set_branch_size(c, 0)
+    Coverage[c].branches = 0
+    Coverage[c].branch_size = 0
     rows = zr_global(G_COVERAGE_METHODS)
     if !zr_special_p(rows) && zr_type(rows) == T_ARRAY
       i = 3
-      while i < RArray.len(rows)
+      while i < RArray[rows].len
         zr_ary_store(rows, i, zr_fix(0))
         i += 4
       end
@@ -72,37 +87,37 @@ module Zr::Kern
   # toplevel.
   #: (ptr, ptr, word, bool) -> ptr
   def zr_coverage_row(c, file, file_len, toplevel)
-    last = Coverage.last(c)
-    if last != 0 && CovRow.file(last) == file
+    last = Coverage[c].last
+    if last != 0 && CovRow[last].file == file
       return last
     end
     i = 0
-    while i < Coverage.len(c)
-      row = Coverage.rows(c) + (i * CovRow.size)
-      if CovRow.file(row) == file
-        Coverage.set_last(c, row)
+    while i < Coverage[c].len
+      row = Coverage[c].rows + (i * CovRow.size)
+      if CovRow[row].file == file
+        Coverage[c].last = row
         return row
       end
       i += 1
     end
-    if Coverage.len(c) == Coverage.capa(c)
-      capa = Coverage.capa(c) == 0 ? 16 : Coverage.capa(c) * 2
+    if Coverage[c].len == Coverage[c].capa
+      capa = Coverage[c].capa == 0 ? 16 : Coverage[c].capa * 2
       rows = zr_xmalloc(capa * CovRow.size)
-      if Coverage.len(c) > 0
-        zr_memcpy(rows, Coverage.rows(c), Coverage.len(c) * CovRow.size)
-        zr_xfree(Coverage.rows(c))
+      if Coverage[c].len > 0
+        zr_memcpy(rows, Coverage[c].rows, Coverage[c].len * CovRow.size)
+        zr_xfree(Coverage[c].rows)
       end
-      Coverage.set_rows(c, rows)
-      Coverage.set_capa(c, capa)
+      Coverage[c].rows = rows
+      Coverage[c].capa = capa
     end
-    row = Coverage.rows(c) + (Coverage.len(c) * CovRow.size)
-    Coverage.set_len(c, Coverage.len(c) + 1)
-    CovRow.set_file(row, file)
-    CovRow.set_file_len(row, file_len)
-    CovRow.set_counts(row, 0)
-    CovRow.set_size(row, 0)
-    CovRow.set_measured(row, toplevel ? 1 : 0)
-    Coverage.set_last(c, row)
+    row = Coverage[c].rows + (Coverage[c].len * CovRow.size)
+    Coverage[c].len = Coverage[c].len + 1
+    CovRow[row].file = file
+    CovRow[row].file_len = file_len
+    CovRow[row].counts = 0
+    CovRow[row].size = 0
+    CovRow[row].measured = toplevel ? 1 : 0
+    Coverage[c].last = row
     row
   end
 
@@ -111,30 +126,30 @@ module Zr::Kern
   #: (ptr) -> void
   def zr_coverage_line(rec)
     c = zr_coverage()
-    if Coverage.setup(c) == 0 || rec == 0
+    if Coverage[c].setup == 0 || rec == 0
       return
     end
-    meta = Frame.meta(rec)
-    if FrameMeta.file_len(meta) == 0
+    meta = Frame[rec].meta
+    if FrameMeta[meta].file_len == 0
       return
     end
-    row = zr_coverage_row(c, FrameMeta.file(meta), FrameMeta.file_len(meta), FrameMeta.kind(meta) == KIND_TOP)
+    row = zr_coverage_row(c, FrameMeta[meta].file, FrameMeta[meta].file_len, FrameMeta[meta].kind == KIND_TOP)
     line = zr_frame_line(rec)
-    if CovRow.measured(row) == 0 || Coverage.running(c) == 0 || line <= 0
+    if CovRow[row].measured == 0 || Coverage[c].running == 0 || line <= 0
       return
     end
-    if line > CovRow.size(row)
+    if line > CovRow[row].size
       size = line * 2
       counts = zr_xmalloc(size * 8)
       Libc.memset(counts, Machine.i32(0), size * 8)
-      if CovRow.counts(row) != 0
-        zr_memcpy(counts, CovRow.counts(row), CovRow.size(row) * 8)
-        zr_xfree(CovRow.counts(row))
+      if CovRow[row].counts != 0
+        zr_memcpy(counts, CovRow[row].counts, CovRow[row].size * 8)
+        zr_xfree(CovRow[row].counts)
       end
-      CovRow.set_counts(row, counts)
-      CovRow.set_size(row, size)
+      CovRow[row].counts = counts
+      CovRow[row].size = size
     end
-    slot = CovRow.counts(row) + ((line - 1) * 8)
+    slot = CovRow[row].counts + ((line - 1) * 8)
     Machine.store64(slot, 0, Machine.load64(slot, 0) + 1)
   end
 
@@ -149,21 +164,21 @@ module Zr::Kern
   #: (word) -> void
   def zr_coverage_branch(id)
     c = zr_coverage()
-    if Coverage.running(c) == 0
+    if Coverage[c].running == 0
       return
     end
-    if id >= Coverage.branch_size(c)
+    if id >= Coverage[c].branch_size
       size = (id + 1) * 2
       counts = zr_xmalloc(size * 8)
       Libc.memset(counts, Machine.i32(0), size * 8)
-      if Coverage.branches(c) != 0
-        zr_memcpy(counts, Coverage.branches(c), Coverage.branch_size(c) * 8)
-        zr_xfree(Coverage.branches(c))
+      if Coverage[c].branches != 0
+        zr_memcpy(counts, Coverage[c].branches, Coverage[c].branch_size * 8)
+        zr_xfree(Coverage[c].branches)
       end
-      Coverage.set_branches(c, counts)
-      Coverage.set_branch_size(c, size)
+      Coverage[c].branches = counts
+      Coverage[c].branch_size = size
     end
-    slot = Coverage.branches(c) + (id * 8)
+    slot = Coverage[c].branches + (id * 8)
     Machine.store64(slot, 0, Machine.load64(slot, 0) + 1)
   end
 
@@ -172,14 +187,14 @@ module Zr::Kern
   #: (value) -> value
   def zr_coverage_branch_counts(clear)
     c = zr_coverage()
-    out = zr_ary_new(Coverage.branch_size(c))
+    out = zr_ary_new(Coverage[c].branch_size)
     i = 0
-    while i < Coverage.branch_size(c)
-      zr_ary_push(out, zr_fix(Machine.load64(Coverage.branches(c) + (i * 8), 0)))
+    while i < Coverage[c].branch_size
+      zr_ary_push(out, zr_fix(Machine.load64(Coverage[c].branches + (i * 8), 0)))
       i += 1
     end
-    if clear == QTRUE && Coverage.branches(c) != 0
-      Libc.memset(Coverage.branches(c), Machine.i32(0), Coverage.branch_size(c) * 8)
+    if clear == QTRUE && Coverage[c].branches != 0
+      Libc.memset(Coverage[c].branches, Machine.i32(0), Coverage[c].branch_size * 8)
     end
     out
   end
@@ -190,22 +205,22 @@ module Zr::Kern
   #: (value) -> value
   def zr_coverage_counts(clear)
     c = zr_coverage()
-    out = zr_ary_new(Coverage.len(c))
+    out = zr_ary_new(Coverage[c].len)
     i = 0
-    while i < Coverage.len(c)
-      row = Coverage.rows(c) + (i * CovRow.size)
-      if CovRow.measured(row) != 0
-        counts = zr_ary_new(CovRow.size(row))
+    while i < Coverage[c].len
+      row = Coverage[c].rows + (i * CovRow.size)
+      if CovRow[row].measured != 0
+        counts = zr_ary_new(CovRow[row].size)
         j = 0
-        while j < CovRow.size(row)
-          zr_ary_push(counts, zr_fix(Machine.load64(CovRow.counts(row) + (j * 8), 0)))
+        while j < CovRow[row].size
+          zr_ary_push(counts, zr_fix(Machine.load64(CovRow[row].counts + (j * 8), 0)))
           j += 1
         end
-        if clear == QTRUE && CovRow.counts(row) != 0
-          Libc.memset(CovRow.counts(row), Machine.i32(0), CovRow.size(row) * 8)
+        if clear == QTRUE && CovRow[row].counts != 0
+          Libc.memset(CovRow[row].counts, Machine.i32(0), CovRow[row].size * 8)
         end
         pair = zr_ary_new(2)
-        zr_ary_push(pair, zr_str_new(CovRow.file(row), CovRow.file_len(row)))
+        zr_ary_push(pair, zr_str_new(CovRow[row].file, CovRow[row].file_len))
         zr_ary_push(pair, counts)
         zr_ary_push(out, pair)
       end
@@ -238,7 +253,7 @@ module Zr::Kern
   #: (value, word, ptr) -> void
   def zr_coverage_method_claim(klass, mid, meta)
     c = zr_coverage()
-    if Coverage.setup(c) == 0 || meta == 0 || FrameMeta.cover(meta) == 0
+    if Coverage[c].setup == 0 || meta == 0 || FrameMeta[meta].cover == 0
       return
     end
     e = zr_find_method_at(zr_origin(klass), mid)
@@ -246,8 +261,8 @@ module Zr::Kern
       return
     end
     rows = zr_coverage_method_rows()
-    MEntry.set_cover(e, (RArray.len(rows) / 4) + 1)
-    zr_ary_push(rows, zr_fix(FrameMeta.cover(meta) - 1))
+    MEntry[e].cover = (RArray[rows].len / 4) + 1
+    zr_ary_push(rows, zr_fix(FrameMeta[meta].cover - 1))
     zr_ary_push(rows, zr_origin(klass))
     zr_ary_push(rows, zr_sym(mid))
     zr_ary_push(rows, zr_fix(0))
@@ -260,11 +275,11 @@ module Zr::Kern
   #: (ptr) -> void
   def zr_coverage_method(e)
     c = zr_coverage()
-    if Coverage.running(c) == 0 || MEntry.cover(e) == 0
+    if Coverage[c].running == 0 || MEntry[e].cover == 0
       return
     end
     rows = zr_global(G_COVERAGE_METHODS)
-    i = ((MEntry.cover(e) - 1) * 4) + 3
+    i = ((MEntry[e].cover - 1) * 4) + 3
     zr_ary_store(rows, i, zr_fix(zr_fix2long(zr_ary_at(rows, i)) + 1))
   end
 
@@ -274,15 +289,15 @@ module Zr::Kern
   #: (value) -> value
   def zr_coverage_method_counts(clear)
     rows = zr_coverage_method_rows()
-    out = zr_ary_new(RArray.len(rows))
+    out = zr_ary_new(RArray[rows].len)
     i = 0
-    while i < RArray.len(rows)
+    while i < RArray[rows].len
       zr_ary_push(out, zr_ary_at(rows, i))
       i += 1
     end
     if clear == QTRUE
       i = 3
-      while i < RArray.len(rows)
+      while i < RArray[rows].len
         zr_ary_store(rows, i, zr_fix(0))
         i += 4
       end

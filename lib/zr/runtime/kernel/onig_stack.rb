@@ -3,10 +3,6 @@ module Zr::Kern
   # STACK_* macros as defs on the match state, and the stack itself. The
   # stack starts in the search's arena and doubles into the heap. Derived
   # from Onigmo; the license is in lib/zr/runtime/kernel/regexp.rb.
-  Libc.import :malloc, [Word] => Ptr
-  Libc.import :free, [Ptr] => Void
-  Libc.import :memmove, [Ptr, Ptr, Word] => Ptr
-  Libc.import :abort, [] => Void
 
   STK_ALT = 1
   STK_LOOK_BEHIND_NOT = 2
@@ -43,50 +39,89 @@ module Zr::Kern
   #   null_check: a num, b pstr
   #   call_frame: a ret_addr
   #   absent_pos: a abs_pstr, b end_pstr
-  OnigStk = layout type: Word, null_check: Word, a: Word, b: Word, c: Word, d: Word
+  class OnigStk < Layout
+    attr_accessor :type #: word
+    attr_accessor :null_check #: word
+    attr_accessor :a #: word
+    attr_accessor :b #: word
+    attr_accessor :c #: word
+    attr_accessor :d #: word
+  end
 
   # The match in progress: OnigMatchArg, plus the match_at locals that
   # the opcode defs share. `mem_start_stk` and `mem_end_stk` each contain
   # num_mem + 1 words, with group 0 (ADD_NUMMEM under USE_SUBEXP_CALL).
   # `aend` is match_at's `end`, which the absent operators change.
-  OnigMatch = layout prog: Ptr, code: Ptr, enc: Word, options: Word, case_fold: Word,
-    num_mem: Word, pop_level: Word, bt_mem_start: Word, bt_mem_end: Word,
-    str: Ptr, text_end: Ptr, sstart: Ptr, gpos: Ptr, region: Ptr, mopts: Word,
-    stk_base: Ptr, stk_end: Ptr, stk: Ptr, stk_alloc: Ptr, stack_p: Ptr, stack_n: Word,
-    repeat_stk: Ptr, mem_start_stk: Ptr, mem_end_stk: Ptr,
-    counter: Word, end_time: Word, limit: Word,
-    p: Ptr, s: Ptr, sprev: Ptr, pkeep: Ptr, aend: Ptr, best_len: Word,
-    match_cache_status: Word, num_fails: Word, num_cache_opcodes: Word, cache_opcodes: Ptr,
-    num_cache_points: Word, match_cache_buf: Ptr
+  class OnigMatch < Layout
+    attr_accessor :prog #: ptr
+    attr_accessor :code #: ptr
+    attr_accessor :enc #: word
+    attr_accessor :options #: word
+    attr_accessor :case_fold #: word
+    attr_accessor :num_mem #: word
+    attr_accessor :pop_level #: word
+    attr_accessor :bt_mem_start #: word
+    attr_accessor :bt_mem_end #: word
+    attr_accessor :str #: ptr
+    attr_accessor :text_end #: ptr
+    attr_accessor :sstart #: ptr
+    attr_accessor :gpos #: ptr
+    attr_accessor :region #: ptr
+    attr_accessor :mopts #: word
+    attr_accessor :stk_base #: ptr
+    attr_accessor :stk_end #: ptr
+    attr_accessor :stk #: ptr
+    attr_accessor :stk_alloc #: ptr
+    attr_accessor :stack_p #: ptr
+    attr_accessor :stack_n #: word
+    attr_accessor :repeat_stk #: ptr
+    attr_accessor :mem_start_stk #: ptr
+    attr_accessor :mem_end_stk #: ptr
+    attr_accessor :counter #: word
+    attr_accessor :end_time #: word
+    attr_accessor :limit #: word
+    attr_accessor :p #: ptr
+    attr_accessor :s #: ptr
+    attr_accessor :sprev #: ptr
+    attr_accessor :pkeep #: ptr
+    attr_accessor :aend #: ptr
+    attr_accessor :best_len #: word
+    attr_accessor :match_cache_status #: word
+    attr_accessor :num_fails #: word
+    attr_accessor :num_cache_opcodes #: word
+    attr_accessor :cache_opcodes #: ptr
+    attr_accessor :num_cache_points #: word
+    attr_accessor :match_cache_buf #: ptr
+  end
 
   #: (ptr, word) -> ptr
   def zr_onig_stk_at(m, index)
-    OnigMatch.stk_base(m) + (index * OnigStk.size)
+    OnigMatch[m].stk_base + (index * OnigStk.size)
   end
 
   #: (ptr, ptr) -> word
   def zr_onig_stk_index(m, stk)
-    Machine.word((stk - OnigMatch.stk_base(m)) / OnigStk.size)
+    Machine.word((stk - OnigMatch[m].stk_base) / OnigStk.size)
   end
 
   #: (ptr, word) -> word
   def zr_onig_mem_start(m, n)
-    Machine.load64(OnigMatch.mem_start_stk(m) + (n * 8), 0)
+    Machine.load64(OnigMatch[m].mem_start_stk + (n * 8), 0)
   end
 
   #: (ptr, word, word) -> void
   def zr_onig_set_mem_start(m, n, v)
-    Machine.store64(OnigMatch.mem_start_stk(m) + (n * 8), 0, v)
+    Machine.store64(OnigMatch[m].mem_start_stk + (n * 8), 0, v)
   end
 
   #: (ptr, word) -> word
   def zr_onig_mem_end(m, n)
-    Machine.load64(OnigMatch.mem_end_stk(m) + (n * 8), 0)
+    Machine.load64(OnigMatch[m].mem_end_stk + (n * 8), 0)
   end
 
   #: (ptr, word, word) -> void
   def zr_onig_set_mem_end(m, n, v)
-    Machine.store64(OnigMatch.mem_end_stk(m) + (n * 8), 0, v)
+    Machine.store64(OnigMatch[m].mem_end_stk + (n * 8), 0, v)
   end
 
   # BIT_STATUS_AT: the bit of group n. Groups after 31 share bit 0.
@@ -100,8 +135,8 @@ module Zr::Kern
   #: (ptr, word) -> ptr
   def zr_onig_mem_start_ptr(m, mem)
     v = zr_onig_mem_start(m, mem)
-    if zr_onig_bit_status_at(OnigMatch.bt_mem_start(m), mem)
-      return Machine.ptr(OnigStk.b(zr_onig_stk_at(m, v)))
+    if zr_onig_bit_status_at(OnigMatch[m].bt_mem_start, mem)
+      return Machine.ptr(OnigStk[zr_onig_stk_at(m, v)].b)
     end
     Machine.ptr(v)
   end
@@ -109,8 +144,8 @@ module Zr::Kern
   #: (ptr, word) -> ptr
   def zr_onig_mem_end_ptr(m, mem)
     v = zr_onig_mem_end(m, mem)
-    if zr_onig_bit_status_at(OnigMatch.bt_mem_end(m), mem)
-      return Machine.ptr(OnigStk.b(zr_onig_stk_at(m, v)))
+    if zr_onig_bit_status_at(OnigMatch[m].bt_mem_end, mem)
+      return Machine.ptr(OnigStk[zr_onig_stk_at(m, v)].b)
     end
     Machine.ptr(v)
   end
@@ -121,24 +156,24 @@ module Zr::Kern
   # allocator has no realloc.
   #: (ptr) -> void
   def zr_onig_stack_double(m)
-    base = OnigMatch.stk_base(m)
-    n = Machine.word((OnigMatch.stk_end(m) - base) / OnigStk.size)
+    base = OnigMatch[m].stk_base
+    n = Machine.word((OnigMatch[m].stk_end - base) / OnigStk.size)
     x = Libc.malloc(OnigStk.size * n * 2)
     Libc.abort() if x == 0
     Libc.memmove(x, base, n * OnigStk.size)
-    if base != OnigMatch.stk_alloc(m) || OnigMatch.stack_p(m) != 0
+    if base != OnigMatch[m].stk_alloc || OnigMatch[m].stack_p != 0
       Libc.free(base)
     end
     n = n * 2
-    OnigMatch.set_stk(m, x + (OnigMatch.stk(m) - base))
-    OnigMatch.set_stk_base(m, x)
-    OnigMatch.set_stk_end(m, x + (n * OnigStk.size))
+    OnigMatch[m].stk = x + (OnigMatch[m].stk - base)
+    OnigMatch[m].stk_base = x
+    OnigMatch[m].stk_end = x + (n * OnigStk.size)
   end
 
   # STACK_ENSURE(1).
   #: (ptr) -> void
   def zr_onig_stack_ensure(m)
-    if OnigMatch.stk_end(m) - OnigMatch.stk(m) < OnigStk.size
+    if OnigMatch[m].stk_end - OnigMatch[m].stk < OnigStk.size
       zr_onig_stack_double(m)
     end
   end
@@ -148,9 +183,9 @@ module Zr::Kern
   # STACK_SAVE: a stack that moved out of the arena stays with the search.
   #: (ptr) -> void
   def zr_onig_stack_save(m)
-    if OnigMatch.stk_base(m) != OnigMatch.stk_alloc(m)
-      OnigMatch.set_stack_p(m, OnigMatch.stk_base(m))
-      OnigMatch.set_stack_n(m, Machine.word((OnigMatch.stk_end(m) - OnigMatch.stk_base(m)) / OnigStk.size))
+    if OnigMatch[m].stk_base != OnigMatch[m].stk_alloc
+      OnigMatch[m].stack_p = OnigMatch[m].stk_base
+      OnigMatch[m].stack_n = Machine.word((OnigMatch[m].stk_end - OnigMatch[m].stk_base) / OnigStk.size)
     end
   end
 
@@ -158,7 +193,7 @@ module Zr::Kern
   # below it, or 0 at the base.
   #: (ptr, ptr) -> word
   def zr_onig_inherit_null_check(m, stk)
-    stk == OnigMatch.stk_base(m) ? 0 : OnigStk.null_check(stk - OnigStk.size)
+    stk == OnigMatch[m].stk_base ? 0 : OnigStk[stk - OnigStk.size].null_check
   end
   inline :zr_onig_inherit_null_check
 
@@ -166,14 +201,14 @@ module Zr::Kern
   #: (ptr, word, ptr, ptr, ptr, ptr) -> void
   def zr_onig_push(m, type, pat, s, sprev, keep)
     zr_onig_stack_ensure(m)
-    stk = OnigMatch.stk(m)
-    OnigStk.set_type(stk, type)
-    OnigStk.set_null_check(stk, zr_onig_inherit_null_check(m, stk))
-    OnigStk.set_a(stk, Machine.word(pat))
-    OnigStk.set_b(stk, Machine.word(s))
-    OnigStk.set_c(stk, Machine.word(sprev))
-    OnigStk.set_d(stk, Machine.word(keep))
-    OnigMatch.set_stk(m, stk + OnigStk.size)
+    stk = OnigMatch[m].stk
+    OnigStk[stk].type = type
+    OnigStk[stk].null_check = zr_onig_inherit_null_check(m, stk)
+    OnigStk[stk].a = Machine.word(pat)
+    OnigStk[stk].b = Machine.word(s)
+    OnigStk[stk].c = Machine.word(sprev)
+    OnigStk[stk].d = Machine.word(keep)
+    OnigMatch[m].stk = stk + OnigStk.size
   end
   inline :zr_onig_push
 
@@ -181,150 +216,150 @@ module Zr::Kern
   #: (ptr, word) -> void
   def zr_onig_push_type(m, type)
     zr_onig_stack_ensure(m)
-    stk = OnigMatch.stk(m)
-    OnigStk.set_type(stk, type)
-    OnigStk.set_null_check(stk, zr_onig_inherit_null_check(m, stk))
-    OnigMatch.set_stk(m, stk + OnigStk.size)
+    stk = OnigMatch[m].stk
+    OnigStk[stk].type = type
+    OnigStk[stk].null_check = zr_onig_inherit_null_check(m, stk)
+    OnigMatch[m].stk = stk + OnigStk.size
   end
 
   # STACK_PUSH_REPEAT.
   #: (ptr, word, ptr) -> void
   def zr_onig_push_repeat(m, id, pat)
     zr_onig_stack_ensure(m)
-    stk = OnigMatch.stk(m)
-    OnigStk.set_type(stk, STK_REPEAT)
-    OnigStk.set_null_check(stk, zr_onig_inherit_null_check(m, stk))
-    OnigStk.set_c(stk, id)
-    OnigStk.set_b(stk, Machine.word(pat))
-    OnigStk.set_a(stk, 0)
-    OnigMatch.set_stk(m, stk + OnigStk.size)
+    stk = OnigMatch[m].stk
+    OnigStk[stk].type = STK_REPEAT
+    OnigStk[stk].null_check = zr_onig_inherit_null_check(m, stk)
+    OnigStk[stk].c = id
+    OnigStk[stk].b = Machine.word(pat)
+    OnigStk[stk].a = 0
+    OnigMatch[m].stk = stk + OnigStk.size
   end
 
   # STACK_PUSH_REPEAT_INC.
   #: (ptr, word) -> void
   def zr_onig_push_repeat_inc(m, sindex)
     zr_onig_stack_ensure(m)
-    stk = OnigMatch.stk(m)
-    OnigStk.set_type(stk, STK_REPEAT_INC)
-    OnigStk.set_null_check(stk, zr_onig_inherit_null_check(m, stk))
-    OnigStk.set_a(stk, sindex)
-    OnigMatch.set_stk(m, stk + OnigStk.size)
+    stk = OnigMatch[m].stk
+    OnigStk[stk].type = STK_REPEAT_INC
+    OnigStk[stk].null_check = zr_onig_inherit_null_check(m, stk)
+    OnigStk[stk].a = sindex
+    OnigMatch[m].stk = stk + OnigStk.size
   end
 
   # STACK_PUSH_MEM_START.
   #: (ptr, word, ptr) -> void
   def zr_onig_push_mem_start(m, mnum, s)
     zr_onig_stack_ensure(m)
-    stk = OnigMatch.stk(m)
-    OnigStk.set_type(stk, STK_MEM_START)
-    OnigStk.set_null_check(stk, zr_onig_inherit_null_check(m, stk))
-    OnigStk.set_a(stk, mnum)
-    OnigStk.set_b(stk, Machine.word(s))
-    OnigStk.set_c(stk, zr_onig_mem_start(m, mnum))
-    OnigStk.set_d(stk, zr_onig_mem_end(m, mnum))
+    stk = OnigMatch[m].stk
+    OnigStk[stk].type = STK_MEM_START
+    OnigStk[stk].null_check = zr_onig_inherit_null_check(m, stk)
+    OnigStk[stk].a = mnum
+    OnigStk[stk].b = Machine.word(s)
+    OnigStk[stk].c = zr_onig_mem_start(m, mnum)
+    OnigStk[stk].d = zr_onig_mem_end(m, mnum)
     zr_onig_set_mem_start(m, mnum, zr_onig_stk_index(m, stk))
     zr_onig_set_mem_end(m, mnum, ONIG_INVALID_STACK_INDEX)
-    OnigMatch.set_stk(m, stk + OnigStk.size)
+    OnigMatch[m].stk = stk + OnigStk.size
   end
 
   # STACK_PUSH_MEM_END.
   #: (ptr, word, ptr) -> void
   def zr_onig_push_mem_end(m, mnum, s)
     zr_onig_stack_ensure(m)
-    stk = OnigMatch.stk(m)
-    OnigStk.set_type(stk, STK_MEM_END)
-    OnigStk.set_null_check(stk, zr_onig_inherit_null_check(m, stk))
-    OnigStk.set_a(stk, mnum)
-    OnigStk.set_b(stk, Machine.word(s))
-    OnigStk.set_c(stk, zr_onig_mem_start(m, mnum))
-    OnigStk.set_d(stk, zr_onig_mem_end(m, mnum))
+    stk = OnigMatch[m].stk
+    OnigStk[stk].type = STK_MEM_END
+    OnigStk[stk].null_check = zr_onig_inherit_null_check(m, stk)
+    OnigStk[stk].a = mnum
+    OnigStk[stk].b = Machine.word(s)
+    OnigStk[stk].c = zr_onig_mem_start(m, mnum)
+    OnigStk[stk].d = zr_onig_mem_end(m, mnum)
     zr_onig_set_mem_end(m, mnum, zr_onig_stk_index(m, stk))
-    OnigMatch.set_stk(m, stk + OnigStk.size)
+    OnigMatch[m].stk = stk + OnigStk.size
   end
 
   # STACK_PUSH_MEM_END_MARK.
   #: (ptr, word) -> void
   def zr_onig_push_mem_end_mark(m, mnum)
     zr_onig_stack_ensure(m)
-    stk = OnigMatch.stk(m)
-    OnigStk.set_type(stk, STK_MEM_END_MARK)
-    OnigStk.set_null_check(stk, zr_onig_inherit_null_check(m, stk))
-    OnigStk.set_a(stk, mnum)
-    OnigMatch.set_stk(m, stk + OnigStk.size)
+    stk = OnigMatch[m].stk
+    OnigStk[stk].type = STK_MEM_END_MARK
+    OnigStk[stk].null_check = zr_onig_inherit_null_check(m, stk)
+    OnigStk[stk].a = mnum
+    OnigMatch[m].stk = stk + OnigStk.size
   end
 
   # STACK_PUSH_NULL_CHECK_START: its null_check is its own index.
   #: (ptr, word, ptr) -> void
   def zr_onig_push_null_check_start(m, cnum, s)
     zr_onig_stack_ensure(m)
-    stk = OnigMatch.stk(m)
-    OnigStk.set_type(stk, STK_NULL_CHECK_START)
-    OnigStk.set_null_check(stk, zr_onig_stk_index(m, stk))
-    OnigStk.set_a(stk, cnum)
-    OnigStk.set_b(stk, Machine.word(s))
-    OnigMatch.set_stk(m, stk + OnigStk.size)
+    stk = OnigMatch[m].stk
+    OnigStk[stk].type = STK_NULL_CHECK_START
+    OnigStk[stk].null_check = zr_onig_stk_index(m, stk)
+    OnigStk[stk].a = cnum
+    OnigStk[stk].b = Machine.word(s)
+    OnigMatch[m].stk = stk + OnigStk.size
   end
 
   # STACK_PUSH_NULL_CHECK_END.
   #: (ptr, word) -> void
   def zr_onig_push_null_check_end(m, cnum)
     zr_onig_stack_ensure(m)
-    stk = OnigMatch.stk(m)
-    OnigStk.set_type(stk, STK_NULL_CHECK_END)
-    OnigStk.set_null_check(stk, zr_onig_stk_index(m, stk))
-    OnigStk.set_a(stk, cnum)
-    OnigMatch.set_stk(m, stk + OnigStk.size)
+    stk = OnigMatch[m].stk
+    OnigStk[stk].type = STK_NULL_CHECK_END
+    OnigStk[stk].null_check = zr_onig_stk_index(m, stk)
+    OnigStk[stk].a = cnum
+    OnigMatch[m].stk = stk + OnigStk.size
   end
 
   # STACK_PUSH_CALL_FRAME.
   #: (ptr, ptr) -> void
   def zr_onig_push_call_frame(m, pat)
     zr_onig_stack_ensure(m)
-    stk = OnigMatch.stk(m)
-    OnigStk.set_type(stk, STK_CALL_FRAME)
-    OnigStk.set_null_check(stk, zr_onig_inherit_null_check(m, stk))
-    OnigStk.set_a(stk, Machine.word(pat))
-    OnigMatch.set_stk(m, stk + OnigStk.size)
+    stk = OnigMatch[m].stk
+    OnigStk[stk].type = STK_CALL_FRAME
+    OnigStk[stk].null_check = zr_onig_inherit_null_check(m, stk)
+    OnigStk[stk].a = Machine.word(pat)
+    OnigMatch[m].stk = stk + OnigStk.size
   end
 
   # STACK_PUSH_ABSENT_POS.
   #: (ptr, ptr, ptr) -> void
   def zr_onig_push_absent_pos(m, start, e)
     zr_onig_stack_ensure(m)
-    stk = OnigMatch.stk(m)
-    OnigStk.set_type(stk, STK_ABSENT_POS)
-    OnigStk.set_null_check(stk, zr_onig_inherit_null_check(m, stk))
-    OnigStk.set_a(stk, Machine.word(start))
-    OnigStk.set_b(stk, Machine.word(e))
-    OnigMatch.set_stk(m, stk + OnigStk.size)
+    stk = OnigMatch[m].stk
+    OnigStk[stk].type = STK_ABSENT_POS
+    OnigStk[stk].null_check = zr_onig_inherit_null_check(m, stk)
+    OnigStk[stk].a = Machine.word(start)
+    OnigStk[stk].b = Machine.word(e)
+    OnigMatch[m].stk = stk + OnigStk.size
   end
 
   # Restores the group positions when the stack pops a MEM_START or
   # MEM_END entry.
   #: (ptr, ptr) -> void
   def zr_onig_restore_mem(m, stk)
-    num = OnigStk.a(stk)
-    zr_onig_set_mem_start(m, num, OnigStk.c(stk))
-    zr_onig_set_mem_end(m, num, OnigStk.d(stk))
+    num = OnigStk[stk].a
+    zr_onig_set_mem_start(m, num, OnigStk[stk].c)
+    zr_onig_set_mem_end(m, num, OnigStk[stk].d)
   end
 
   # Undoes the count that a REPEAT_INC entry added, when the stack pops
   # it.
   #: (ptr, ptr) -> void
   def zr_onig_undo_repeat_inc(m, stk)
-    rep = zr_onig_stk_at(m, OnigStk.a(stk))
-    OnigStk.set_a(rep, OnigStk.a(rep) - 1)
+    rep = zr_onig_stk_at(m, OnigStk[stk].a)
+    OnigStk[rep].a = OnigStk[rep].a - 1
   end
 
   # STACK_POP at the pattern's pop level. The stack pointer stops on the
   # state entry from which the match continues.
   #: (ptr) -> void
   def zr_onig_stack_pop(m)
-    level = OnigMatch.pop_level(m)
-    stk = OnigMatch.stk(m)
+    level = OnigMatch[m].pop_level
+    stk = OnigMatch[m].stk
     while true
       stk = stk - OnigStk.size
-      type = OnigStk.type(stk)
+      type = OnigStk[stk].type
       if (type & STK_MASK_POP_USED) != 0
         break
       end
@@ -341,7 +376,7 @@ module Zr::Kern
       end
       zr_onig_memoize_cache_point(m, stk)
     end
-    OnigMatch.set_stk(m, stk)
+    OnigMatch[m].stk = stk
   end
 
   # STACK_POP_TIL_POS_NOT, STACK_POP_TIL_LOOK_BEHIND_NOT and
@@ -350,10 +385,10 @@ module Zr::Kern
   # target counts as a failure, and its cache points are memoized.
   #: (ptr, word) -> void
   def zr_onig_stack_pop_til(m, stop)
-    stk = OnigMatch.stk(m)
+    stk = OnigMatch[m].stk
     while true
       stk = stk - OnigStk.size
-      type = OnigStk.type(stk)
+      type = OnigStk[stk].type
       if type == stop
         break
       end
@@ -364,13 +399,13 @@ module Zr::Kern
       elsif type == STK_MEM_END
         zr_onig_restore_mem(m, stk)
       elsif stop == STK_POS_NOT && (type & STK_MASK_TO_VOID_TARGET) != 0
-        OnigMatch.set_num_fails(m, OnigMatch.num_fails(m) + 1)
+        OnigMatch[m].num_fails = OnigMatch[m].num_fails + 1
       end
       if stop == STK_POS_NOT
         zr_onig_memoize_lookaround_cache_point(m, stk)
       end
     end
-    OnigMatch.set_stk(m, stk)
+    OnigMatch[m].stk = stk
   end
 
   # STACK_POS_END and STACK_STOP_BT_END: void every backtrack target above
@@ -380,20 +415,20 @@ module Zr::Kern
   # group become atomic cache points.
   #: (ptr, word) -> ptr
   def zr_onig_stack_void_til(m, mark)
-    k = OnigMatch.stk(m)
+    k = OnigMatch[m].stk
     while true
       k = k - OnigStk.size
-      type = OnigStk.type(k)
+      type = OnigStk[k].type
       if (type & STK_MASK_TO_VOID_TARGET) != 0
-        OnigMatch.set_num_fails(m, OnigMatch.num_fails(m) + 1)
-        OnigStk.set_type(k, STK_VOID)
+        OnigMatch[m].num_fails = OnigMatch[m].num_fails + 1
+        OnigStk[k].type = STK_VOID
       elsif type == mark
-        OnigStk.set_type(k, STK_VOID)
+        OnigStk[k].type = STK_VOID
         break
       elsif mark == STK_POS
         zr_onig_memoize_lookaround_cache_point(m, k)
       elsif type == STK_MATCH_CACHE_POINT
-        OnigStk.set_type(k, STK_ATOMIC_MATCH_CACHE_POINT)
+        OnigStk[k].type = STK_ATOMIC_MATCH_CACHE_POINT
       end
     end
     k
@@ -404,11 +439,11 @@ module Zr::Kern
   # refers to.
   #: (ptr, word, ptr) -> bool
   def zr_onig_null_check(m, id, s)
-    k = zr_onig_stk_at(m, OnigStk.null_check(OnigMatch.stk(m) - OnigStk.size)) + OnigStk.size
+    k = zr_onig_stk_at(m, OnigStk[OnigMatch[m].stk - OnigStk.size].null_check) + OnigStk.size
     while true
       k = k - OnigStk.size
-      if OnigStk.type(k) == STK_NULL_CHECK_START && OnigStk.a(k) == id
-        return Machine.ptr(OnigStk.b(k)) == s
+      if OnigStk[k].type == STK_NULL_CHECK_START && OnigStk[k].a == id
+        return Machine.ptr(OnigStk[k].b) == s
       end
     end
     false
@@ -421,18 +456,18 @@ module Zr::Kern
   #: (ptr, ptr, ptr) -> word
   def zr_onig_null_check_memst_scan(m, k, s)
     isnull = 1
-    top = OnigMatch.stk(m)
+    top = OnigMatch[m].stk
     while k < top
-      if OnigStk.type(k) == STK_MEM_START
-        if OnigStk.d(k) == ONIG_INVALID_STACK_INDEX
+      if OnigStk[k].type == STK_MEM_START
+        if OnigStk[k].d == ONIG_INVALID_STACK_INDEX
           return 0
         end
-        if zr_onig_bit_status_at(OnigMatch.bt_mem_end(m), OnigStk.a(k))
-          endp = Machine.ptr(OnigStk.b(zr_onig_stk_at(m, OnigStk.d(k))))
+        if zr_onig_bit_status_at(OnigMatch[m].bt_mem_end, OnigStk[k].a)
+          endp = Machine.ptr(OnigStk[zr_onig_stk_at(m, OnigStk[k].d)].b)
         else
-          endp = Machine.ptr(OnigStk.d(k))
+          endp = Machine.ptr(OnigStk[k].d)
         end
-        if Machine.ptr(OnigStk.b(zr_onig_stk_at(m, OnigStk.c(k)))) != endp
+        if Machine.ptr(OnigStk[zr_onig_stk_at(m, OnigStk[k].c)].b) != endp
           return 0
         end
         if endp != s
@@ -447,11 +482,11 @@ module Zr::Kern
   # STACK_NULL_CHECK_MEMST.
   #: (ptr, word, ptr) -> word
   def zr_onig_null_check_memst(m, id, s)
-    k = zr_onig_stk_at(m, OnigStk.null_check(OnigMatch.stk(m) - OnigStk.size)) + OnigStk.size
+    k = zr_onig_stk_at(m, OnigStk[OnigMatch[m].stk - OnigStk.size].null_check) + OnigStk.size
     while true
       k = k - OnigStk.size
-      if OnigStk.type(k) == STK_NULL_CHECK_START && OnigStk.a(k) == id
-        if Machine.ptr(OnigStk.b(k)) != s
+      if OnigStk[k].type == STK_NULL_CHECK_START && OnigStk[k].a == id
+        if Machine.ptr(OnigStk[k].b) != s
           return 0
         end
         return zr_onig_null_check_memst_scan(m, k, s)
@@ -465,14 +500,14 @@ module Zr::Kern
   #: (ptr, word, ptr) -> word
   def zr_onig_null_check_memst_rec(m, id, s)
     level = 0
-    k = zr_onig_stk_at(m, OnigStk.null_check(OnigMatch.stk(m) - OnigStk.size)) + OnigStk.size
+    k = zr_onig_stk_at(m, OnigStk[OnigMatch[m].stk - OnigStk.size].null_check) + OnigStk.size
     while true
       k = k - OnigStk.size
-      type = OnigStk.type(k)
+      type = OnigStk[k].type
       if type == STK_NULL_CHECK_START
-        if OnigStk.a(k) == id
+        if OnigStk[k].a == id
           if level == 0
-            if Machine.ptr(OnigStk.b(k)) != s
+            if Machine.ptr(OnigStk[k].b) != s
               return 0
             end
             return zr_onig_null_check_memst_scan(m, k, s)
@@ -480,7 +515,7 @@ module Zr::Kern
           level -= 1
         end
       elsif type == STK_NULL_CHECK_END
-        if OnigStk.a(k) == id
+        if OnigStk[k].a == id
           level += 1
         end
       end
@@ -492,12 +527,12 @@ module Zr::Kern
   #: (ptr, word) -> ptr
   def zr_onig_get_repeat(m, id)
     level = 0
-    k = OnigMatch.stk(m)
+    k = OnigMatch[m].stk
     while true
       k = k - OnigStk.size
-      type = OnigStk.type(k)
+      type = OnigStk[k].type
       if type == STK_REPEAT
-        if level == 0 && OnigStk.c(k) == id
+        if level == 0 && OnigStk[k].c == id
           break
         end
       elsif type == STK_CALL_FRAME
@@ -514,13 +549,13 @@ module Zr::Kern
   #: (ptr) -> ptr
   def zr_onig_stack_return(m)
     level = 0
-    k = OnigMatch.stk(m)
+    k = OnigMatch[m].stk
     while true
       k = k - OnigStk.size
-      type = OnigStk.type(k)
+      type = OnigStk[k].type
       if type == STK_CALL_FRAME
         if level == 0
-          return Machine.ptr(OnigStk.a(k))
+          return Machine.ptr(OnigStk[k].a)
         end
         level -= 1
       elsif type == STK_RETURN
@@ -535,14 +570,14 @@ module Zr::Kern
   #: (ptr, word) -> ptr
   def zr_onig_get_mem_start(m, mnum)
     level = 0
-    k = OnigMatch.stk(m)
-    base = OnigMatch.stk_base(m)
+    k = OnigMatch[m].stk
+    base = OnigMatch[m].stk_base
     while k > base
       k = k - OnigStk.size
-      type = OnigStk.type(k)
-      if (type & STK_MASK_MEM_END_OR_MARK) != 0 && OnigStk.a(k) == mnum
+      type = OnigStk[k].type
+      if (type & STK_MASK_MEM_END_OR_MARK) != 0 && OnigStk[k].a == mnum
         level += 1
-      elsif type == STK_MEM_START && OnigStk.a(k) == mnum
+      elsif type == STK_MEM_START && OnigStk[k].a == mnum
         if level == 0
           break
         end
@@ -579,23 +614,23 @@ module Zr::Kern
   def zr_onig_backref_at_nested_level(m, ignore_case, nest, mem_num, memp, ps, send)
     pend = Machine.ptr(0)
     level = 0
-    k = OnigMatch.stk(m) - OnigStk.size
-    base = OnigMatch.stk_base(m)
+    k = OnigMatch[m].stk - OnigStk.size
+    base = OnigMatch[m].stk_base
     while k >= base
-      type = OnigStk.type(k)
+      type = OnigStk[k].type
       if type == STK_CALL_FRAME
         level -= 1
       elsif type == STK_RETURN
         level += 1
       elsif level == nest
         if type == STK_MEM_START
-          if zr_onig_mem_in_memp(OnigStk.a(k), mem_num, memp)
-            pstart = Machine.ptr(OnigStk.b(k))
+          if zr_onig_mem_in_memp(OnigStk[k].a, mem_num, memp)
+            pstart = Machine.ptr(OnigStk[k].b)
             if pend != 0
               s = Machine.ptr(Machine.load64(ps, 0))
               return false if pend - pstart > send - s
               if ignore_case != 0
-                ss = zr_onig_string_cmp_ic(OnigMatch.enc(m), OnigMatch.case_fold(m), pstart, s, Machine.word(pend - pstart), send)
+                ss = zr_onig_string_cmp_ic(OnigMatch[m].enc, OnigMatch[m].case_fold, pstart, s, Machine.word(pend - pstart), send)
                 return false if ss == 0
               else
                 p = pstart
@@ -611,8 +646,8 @@ module Zr::Kern
             end
           end
         elsif type == STK_MEM_END
-          if zr_onig_mem_in_memp(OnigStk.a(k), mem_num, memp)
-            pend = Machine.ptr(OnigStk.b(k))
+          if zr_onig_mem_in_memp(OnigStk[k].a, mem_num, memp)
+            pend = Machine.ptr(OnigStk[k].b)
           end
         end
       end

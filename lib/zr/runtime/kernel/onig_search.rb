@@ -71,57 +71,57 @@ module Zr::Kern
   # malloc.
   #: (ptr, ptr, ptr, ptr, ptr, word) -> void
   def zr_onig_msa_init(m, prog, str, text_end, region, limit)
-    OnigMatch.set_prog(m, prog)
-    OnigMatch.set_code(m, prog + OnigProg.code_off(prog))
-    OnigMatch.set_enc(m, zr_onig_prog_enc(prog))
-    OnigMatch.set_options(m, OnigProg.options(prog))
-    OnigMatch.set_case_fold(m, OnigProg.case_fold_flag(prog))
-    num_mem = OnigProg.num_mem(prog)
-    OnigMatch.set_num_mem(m, num_mem)
-    OnigMatch.set_pop_level(m, OnigProg.pop_level(prog))
-    OnigMatch.set_bt_mem_start(m, OnigProg.bt_mem_start(prog))
-    OnigMatch.set_bt_mem_end(m, OnigProg.bt_mem_end(prog))
-    OnigMatch.set_str(m, str)
-    OnigMatch.set_text_end(m, text_end)
-    OnigMatch.set_region(m, region)
-    OnigMatch.set_mopts(m, 0)
-    OnigMatch.set_stack_p(m, Machine.ptr(0))
-    OnigMatch.set_stack_n(m, 0)
-    OnigMatch.set_counter(m, 0)
-    OnigMatch.set_end_time(m, 0)
-    OnigMatch.set_limit(m, limit)
-    OnigMatch.set_best_len(m, ONIG_MISMATCH)
+    OnigMatch[m].prog = prog
+    OnigMatch[m].code = prog + OnigProg[prog].code_off
+    OnigMatch[m].enc = zr_onig_prog_enc(prog)
+    OnigMatch[m].options = OnigProg[prog].options
+    OnigMatch[m].case_fold = OnigProg[prog].case_fold_flag
+    num_mem = OnigProg[prog].num_mem
+    OnigMatch[m].num_mem = num_mem
+    OnigMatch[m].pop_level = OnigProg[prog].pop_level
+    OnigMatch[m].bt_mem_start = OnigProg[prog].bt_mem_start
+    OnigMatch[m].bt_mem_end = OnigProg[prog].bt_mem_end
+    OnigMatch[m].str = str
+    OnigMatch[m].text_end = text_end
+    OnigMatch[m].region = region
+    OnigMatch[m].mopts = 0
+    OnigMatch[m].stack_p = Machine.ptr(0)
+    OnigMatch[m].stack_n = 0
+    OnigMatch[m].counter = 0
+    OnigMatch[m].end_time = 0
+    OnigMatch[m].limit = limit
+    OnigMatch[m].best_len = ONIG_MISMATCH
     # MATCH_ARG_INIT_MATCH_CACHE
-    OnigMatch.set_match_cache_status(m, ONIG_MATCH_CACHE_STATUS_UNINIT)
-    OnigMatch.set_num_fails(m, 0)
-    OnigMatch.set_num_cache_opcodes(m, ONIG_NUM_CACHE_OPCODES_UNINIT)
-    OnigMatch.set_cache_opcodes(m, Machine.ptr(0))
-    OnigMatch.set_num_cache_points(m, 0)
-    OnigMatch.set_match_cache_buf(m, Machine.ptr(0))
-    num_repeat = OnigProg.num_repeat(prog)
+    OnigMatch[m].match_cache_status = ONIG_MATCH_CACHE_STATUS_UNINIT
+    OnigMatch[m].num_fails = 0
+    OnigMatch[m].num_cache_opcodes = ONIG_NUM_CACHE_OPCODES_UNINIT
+    OnigMatch[m].cache_opcodes = Machine.ptr(0)
+    OnigMatch[m].num_cache_points = 0
+    OnigMatch[m].match_cache_buf = Machine.ptr(0)
+    num_repeat = OnigProg[prog].num_repeat
     # ADD_NUMMEM: group 0 also has a slot, for \g<0>.
     words = num_repeat + ((num_mem + 1) * 2)
     arena = zr_onig_scratch(1, (words * 8) + (ONIG_INIT_MATCH_STACK_SIZE * OnigStk.size))
-    OnigMatch.set_repeat_stk(m, arena)
-    OnigMatch.set_mem_start_stk(m, arena + (num_repeat * 8))
-    OnigMatch.set_mem_end_stk(m, arena + (num_repeat * 8) + ((num_mem + 1) * 8))
-    OnigMatch.set_stk_alloc(m, arena + (words * 8))
+    OnigMatch[m].repeat_stk = arena
+    OnigMatch[m].mem_start_stk = arena + (num_repeat * 8)
+    OnigMatch[m].mem_end_stk = arena + (num_repeat * 8) + ((num_mem + 1) * 8)
+    OnigMatch[m].stk_alloc = arena + (words * 8)
   end
 
   # MATCH_ARG_FREE (with the match cache's entries and bits) and the
   # arena.
   #: (ptr) -> void
   def zr_onig_msa_free(m)
-    if OnigMatch.stack_p(m) != 0
-      Libc.free(OnigMatch.stack_p(m))
+    if OnigMatch[m].stack_p != 0
+      Libc.free(OnigMatch[m].stack_p)
     end
-    if OnigMatch.cache_opcodes(m) != 0
-      Libc.free(OnigMatch.cache_opcodes(m))
+    if OnigMatch[m].cache_opcodes != 0
+      Libc.free(OnigMatch[m].cache_opcodes)
     end
-    if OnigMatch.match_cache_buf(m) != 0
-      Libc.free(OnigMatch.match_cache_buf(m))
+    if OnigMatch[m].match_cache_buf != 0
+      Libc.free(OnigMatch[m].match_cache_buf)
     end
-    zr_onig_scratch_free(1, OnigMatch.repeat_stk(m))
+    zr_onig_scratch_free(1, OnigMatch[m].repeat_stk)
   end
 
   # onig_region_resize_clear: sets every position to ONIG_REGION_NOTPOS.
@@ -138,17 +138,17 @@ module Zr::Kern
   # The optimizer's exact bytes and their end.
   #: (ptr) -> ptr
   def zr_onig_exact(prog)
-    prog + OnigProg.exact_off(prog)
+    prog + OnigProg[prog].exact_off
   end
 
   #: (ptr) -> ptr
   def zr_onig_exact_end(prog)
-    prog + OnigProg.exact_off(prog) + OnigProg.exact_len(prog)
+    prog + OnigProg[prog].exact_off + OnigProg[prog].exact_len
   end
 
   #: (ptr, word) -> word
   def zr_onig_map_at(prog, c)
-    Machine.u8(Machine.load8(prog + OnigProg.map_off(prog) + c, 0))
+    Machine.u8(Machine.load8(prog + OnigProg[prog].map_off + c, 0))
   end
 
   # slow_search.
@@ -305,7 +305,7 @@ module Zr::Kern
     s = text
     while s < e
       se = s + tlen1
-      return s if zr_onig_str_lower_case_match(enc, OnigProg.case_fold_flag(prog), target, target_end, s, se + 1)
+      return s if zr_onig_str_lower_case_match(enc, OnigProg[prog].case_fold_flag, target, target_end, s, se + 1)
       break if s + 1 >= e
       skip = zr_onig_map_at(prog, Machine.u8(Machine.load8(se, 1)))
       t = s
@@ -330,7 +330,7 @@ module Zr::Kern
     s = text + tlen1
     while s < e
       p = s - tlen1
-      return p if zr_onig_str_lower_case_match(enc, OnigProg.case_fold_flag(prog), target, target_end, p, s + 1)
+      return p if zr_onig_str_lower_case_match(enc, OnigProg[prog].case_fold_flag, target, target_end, p, s + 1)
       break if s + 1 >= e
       s = s + zr_onig_map_at(prog, Machine.u8(Machine.load8(s, 1)))
     end
@@ -365,12 +365,12 @@ module Zr::Kern
   # The optimizer's forward search from p, as reg->optimize selects.
   #: (ptr, ptr, ptr, ptr) -> ptr
   def zr_onig_forward_find(prog, p, text_end, range)
-    optimize = OnigProg.optimize(prog)
+    optimize = OnigProg[prog].optimize
     enc = zr_onig_prog_enc(prog)
     exact = zr_onig_exact(prog)
     exact_end = zr_onig_exact_end(prog)
     return zr_onig_slow_search(enc, exact, exact_end, p, text_end, range) if optimize == ONIG_OPTIMIZE_EXACT
-    return zr_onig_slow_search_ic(enc, OnigProg.case_fold_flag(prog), exact, exact_end, p, text_end, range) if optimize == ONIG_OPTIMIZE_EXACT_IC
+    return zr_onig_slow_search_ic(enc, OnigProg[prog].case_fold_flag, exact, exact_end, p, text_end, range) if optimize == ONIG_OPTIMIZE_EXACT_IC
     return zr_onig_bm_search(prog, exact, exact_end, p, text_end, range) if optimize == ONIG_OPTIMIZE_EXACT_BM
     return zr_onig_bm_search_notrev(prog, exact, exact_end, p, text_end, range) if optimize == ONIG_OPTIMIZE_EXACT_BM_NOT_REV
     return zr_onig_bm_search_ic(prog, exact, exact_end, p, text_end, range) if optimize == ONIG_OPTIMIZE_EXACT_BM_IC
@@ -385,8 +385,8 @@ module Zr::Kern
   #: (ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr) -> bool
   def zr_onig_forward_search_range(prog, str, text_end, s, range, low, high, low_prev)
     enc = zr_onig_prog_enc(prog)
-    dmin = OnigProg.dmin(prog)
-    dmax = OnigProg.dmax(prog)
+    dmin = OnigProg[prog].dmin
+    dmax = OnigProg[prog].dmax
     pprev = Machine.ptr(0)
     return false if dmin > Machine.word(text_end - str)
     p = s
@@ -407,12 +407,12 @@ module Zr::Kern
       again = false
       if Machine.word(p - s) < dmin
         again = true
-      elsif OnigProg.sub_anchor(prog) == ONIG_ANCHOR_BEGIN_LINE
+      elsif OnigProg[prog].sub_anchor == ONIG_ANCHOR_BEGIN_LINE
         if p != str
           prev = zr_onig_prev_char_head(enc, pprev != 0 ? pprev : str, p, text_end)
           again = true if !zr_onig_newline_p(enc, prev, text_end)
         end
-      elsif OnigProg.sub_anchor(prog) == ONIG_ANCHOR_END_LINE
+      elsif OnigProg[prog].sub_anchor == ONIG_ANCHOR_END_LINE
         # The empty line at the end of the text counts as a line
         # (USE_NEWLINE_AT_END_OF_STRING_HAS_EMPTY_LINE).
         if p != text_end && !zr_onig_newline_p(enc, p, text_end)
@@ -480,7 +480,7 @@ module Zr::Kern
   # The optimizer's backward search from p, as reg->optimize selects.
   #: (ptr, ptr, ptr, ptr, ptr) -> ptr
   def zr_onig_backward_find(prog, p, range, adjrange, text_end)
-    optimize = OnigProg.optimize(prog)
+    optimize = OnigProg[prog].optimize
     enc = zr_onig_prog_enc(prog)
     exact = zr_onig_exact(prog)
     exact_end = zr_onig_exact_end(prog)
@@ -488,7 +488,7 @@ module Zr::Kern
       return zr_onig_slow_search_backward(enc, exact, exact_end, range, adjrange, text_end, p)
     end
     if optimize == ONIG_OPTIMIZE_EXACT_IC || optimize == ONIG_OPTIMIZE_EXACT_BM_IC || optimize == ONIG_OPTIMIZE_EXACT_BM_NOT_REV_IC
-      return zr_onig_slow_search_backward_ic(enc, OnigProg.case_fold_flag(prog), exact, exact_end, range, adjrange, text_end, p)
+      return zr_onig_slow_search_backward_ic(enc, OnigProg[prog].case_fold_flag, exact, exact_end, range, adjrange, text_end, p)
     end
     return zr_onig_map_search_backward(prog, range, adjrange, p, text_end) if optimize == ONIG_OPTIMIZE_MAP
     Machine.ptr(0)
@@ -498,15 +498,15 @@ module Zr::Kern
   #: (ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr) -> bool
   def zr_onig_backward_search_range(prog, str, text_end, s, range, adjrange, low, high)
     enc = zr_onig_prog_enc(prog)
-    dmin = OnigProg.dmin(prog)
-    dmax = OnigProg.dmax(prog)
+    dmin = OnigProg[prog].dmin
+    dmax = OnigProg[prog].dmax
     return false if dmin > Machine.word(text_end - str)
     p = s
     while true
       p = zr_onig_backward_find(prog, p, range, adjrange, text_end)
       return false if p == 0
       again = false
-      if OnigProg.sub_anchor(prog) == ONIG_ANCHOR_BEGIN_LINE
+      if OnigProg[prog].sub_anchor == ONIG_ANCHOR_BEGIN_LINE
         if p != str
           prev = zr_onig_prev_char_head(enc, str, p, text_end)
           if !zr_onig_newline_p(enc, prev, text_end)
@@ -514,7 +514,7 @@ module Zr::Kern
             again = true
           end
         end
-      elsif OnigProg.sub_anchor(prog) == ONIG_ANCHOR_END_LINE
+      elsif OnigProg[prog].sub_anchor == ONIG_ANCHOR_END_LINE
         if p != text_end && !zr_onig_newline_p(enc, p, text_end)
           p = zr_onig_prev_char_head(enc, adjrange, p, text_end)
           return false if p == 0
@@ -548,7 +548,7 @@ module Zr::Kern
   #: (ptr, ptr, ptr) -> word
   def zr_onig_try_at(m, s, prev)
     r = zr_onig_match_at(m, s, prev)
-    return Machine.word(s - OnigMatch.str(m)) if r >= 0
+    return Machine.word(s - OnigMatch[m].str) if r >= 0
     r
   end
 
@@ -557,20 +557,20 @@ module Zr::Kern
   # error code.
   #: (ptr, ptr, ptr, ptr) -> word
   def zr_onig_search_gpos(m, global_pos, start, range)
-    prog = OnigMatch.prog(m)
-    str = OnigMatch.str(m)
-    text_end = OnigMatch.text_end(m)
+    prog = OnigMatch[m].prog
+    str = OnigMatch[m].str
+    text_end = OnigMatch[m].text_end
     enc = zr_onig_prog_enc(prog)
-    region = OnigMatch.region(m)
+    region = OnigMatch[m].region
     if region != 0
-      zr_onig_region_clear(region, OnigProg.num_mem(prog))
+      zr_onig_region_clear(region, OnigProg[prog].num_mem)
     end
     return ONIG_MISMATCH if start > text_end || start < str
-    anchor = OnigProg.anchor(prog)
+    anchor = OnigProg[prog].anchor
     # Anchor optimization: narrow the search range.
     if anchor != 0 && str < text_end
-      anchor_dmin = OnigProg.anchor_dmin(prog)
-      anchor_dmax = OnigProg.anchor_dmax(prog)
+      anchor_dmin = OnigProg[prog].anchor_dmin
+      anchor_dmax = OnigProg[prog].anchor_dmax
       end_buf = false
       min_semi_end = text_end
       max_semi_end = text_end
@@ -643,11 +643,11 @@ module Zr::Kern
       end
     elsif str == text_end
       # The empty string.
-      return ONIG_MISMATCH if OnigProg.threshold_len(prog) != 0
-      OnigMatch.set_gpos(m, start)
+      return ONIG_MISMATCH if OnigProg[prog].threshold_len != 0
+      OnigMatch[m].gpos = start
       return zr_onig_try_at(m, start, Machine.ptr(0))
     end
-    OnigMatch.set_gpos(m, global_pos)
+    OnigMatch[m].gpos = global_pos
     if range > start
       return zr_onig_search_forward(m, start, range)
     end
@@ -657,18 +657,18 @@ module Zr::Kern
   # The forward part of onig_search_gpos, after the anchor adjustments.
   #: (ptr, ptr, ptr) -> word
   def zr_onig_search_forward(m, start, range)
-    prog = OnigMatch.prog(m)
-    str = OnigMatch.str(m)
-    text_end = OnigMatch.text_end(m)
+    prog = OnigMatch[m].prog
+    str = OnigMatch[m].str
+    text_end = OnigMatch[m].text_end
     enc = zr_onig_prog_enc(prog)
-    dmax = OnigProg.dmax(prog)
+    dmax = OnigProg[prog].dmax
     s = start
     if s > str
       prev = zr_onig_prev_char_head(enc, str, s, text_end)
     else
       prev = Machine.ptr(0)
     end
-    if OnigProg.optimize(prog) != ONIG_OPTIMIZE_NONE
+    if OnigProg[prog].optimize != ONIG_OPTIMIZE_NONE
       low = Machine.slot(8)
       high = Machine.slot(8)
       low_prev = Machine.slot(8)
@@ -685,7 +685,7 @@ module Zr::Kern
       else
         sch_range = range
       end
-      return ONIG_MISMATCH if Machine.word(text_end - start) < OnigProg.threshold_len(prog)
+      return ONIG_MISMATCH if Machine.word(text_end - start) < OnigProg[prog].threshold_len
       if dmax != ONIG_INFINITE_DISTANCE
         while true
           return ONIG_MISMATCH if !zr_onig_forward_search_range(prog, str, text_end, s, sch_range, low, high, low_prev)
@@ -705,13 +705,13 @@ module Zr::Kern
       end
       # check only.
       return ONIG_MISMATCH if !zr_onig_forward_search_range(prog, str, text_end, s, sch_range, low, high, Machine.ptr(0))
-      if (OnigProg.anchor(prog) & ONIG_ANCHOR_ANYCHAR_STAR) != 0
+      if (OnigProg[prog].anchor & ONIG_ANCHOR_ANYCHAR_STAR) != 0
         while true
           r = zr_onig_try_at(m, s, prev)
           return r if r != ONIG_MISMATCH
           prev = s
           s = s + zr_onig_enclen(enc, s, text_end)
-          if (OnigProg.anchor(prog) & (ONIG_ANCHOR_LOOK_BEHIND | ONIG_ANCHOR_PREC_READ_NOT)) == 0
+          if (OnigProg[prog].anchor & (ONIG_ANCHOR_LOOK_BEHIND | ONIG_ANCHOR_PREC_READ_NOT)) == 0
             while !zr_onig_newline_p(enc, prev, text_end) && s < range
               prev = s
               s = s + zr_onig_enclen(enc, s, text_end)
@@ -740,15 +740,15 @@ module Zr::Kern
   # The backward part of onig_search_gpos.
   #: (ptr, ptr, ptr) -> word
   def zr_onig_search_backward(m, start, range)
-    prog = OnigMatch.prog(m)
-    str = OnigMatch.str(m)
-    text_end = OnigMatch.text_end(m)
+    prog = OnigMatch[m].prog
+    str = OnigMatch[m].str
+    text_end = OnigMatch[m].text_end
     enc = zr_onig_prog_enc(prog)
-    dmin = OnigProg.dmin(prog)
-    dmax = OnigProg.dmax(prog)
-    threshold_len = OnigProg.threshold_len(prog)
+    dmin = OnigProg[prog].dmin
+    dmax = OnigProg[prog].dmax
+    threshold_len = OnigProg[prog].threshold_len
     s = start
-    if OnigProg.optimize(prog) != ONIG_OPTIMIZE_NONE
+    if OnigProg[prog].optimize != ONIG_OPTIMIZE_NONE
       low = Machine.slot(8)
       high = Machine.slot(8)
       if range < text_end
@@ -832,9 +832,9 @@ module Zr::Kern
     m = Machine.slot(OnigMatch.size)
     zr_onig_msa_init(m, prog, str, text_end, region, limit)
     if region != 0
-      zr_onig_region_clear(region, OnigProg.num_mem(prog))
+      zr_onig_region_clear(region, OnigProg[prog].num_mem)
     end
-    OnigMatch.set_gpos(m, at)
+    OnigMatch[m].gpos = at
     prev = zr_onig_prev_char_head(zr_onig_prog_enc(prog), str, at, text_end)
     r = zr_onig_match_at(m, at, prev)
     zr_onig_msa_free(m)

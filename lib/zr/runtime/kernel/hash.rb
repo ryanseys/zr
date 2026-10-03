@@ -6,8 +6,25 @@ module Zr::Kern
   # in CRuby. `gen` counts the rebuilds of the entries or the bins. Thus a
   # probe that ran a key's own `eql?` can see that the table changed
   # (CRuby's st "rebuilt" check).
-  RHash = layout basic: RBasic, entries: Ptr, len: Word, live: Word, cap: Word, default: Value, default_proc: Value, bins: Ptr, nbins: Word, iter: Word, gen: Word
-  HEntry = layout key: Value, value: Value, live: Word, hash: Word
+  class RHash < Layout
+    attr_reader :basic #: RBasic
+    attr_accessor :entries #: ptr
+    attr_accessor :len #: word
+    attr_accessor :live #: word
+    attr_accessor :cap #: word
+    attr_accessor :default #: value
+    attr_accessor :default_proc #: value
+    attr_accessor :bins #: ptr
+    attr_accessor :nbins #: word
+    attr_accessor :iter #: word
+    attr_accessor :gen #: word
+  end
+  class HEntry < Layout
+    attr_accessor :key #: value
+    attr_accessor :value #: value
+    attr_accessor :live #: word
+    attr_accessor :hash #: word
+  end
   T_HASH = 8
   G_HASH = 30
   G_KEY_ERROR = 31
@@ -25,36 +42,36 @@ module Zr::Kern
   #: () -> value
   def zr_hash_new
     h = zr_alloc(T_HASH, zr_global(G_HASH), RHash.size)
-    RHash.set_entries(h, 0)
-    RHash.set_len(h, 0)
-    RHash.set_live(h, 0)
-    RHash.set_cap(h, 0)
-    RHash.set_default(h, Machine.value(QNIL))
-    RHash.set_default_proc(h, Machine.value(QNIL))
-    RHash.set_bins(h, 0)
-    RHash.set_nbins(h, 0)
-    RHash.set_iter(h, 0)
-    RHash.set_gen(h, 0)
+    RHash[h].entries = 0
+    RHash[h].len = 0
+    RHash[h].live = 0
+    RHash[h].cap = 0
+    RHash[h].default = Machine.value(QNIL)
+    RHash[h].default_proc = Machine.value(QNIL)
+    RHash[h].bins = 0
+    RHash[h].nbins = 0
+    RHash[h].iter = 0
+    RHash[h].gen = 0
     h
   end
 
   #: (value) -> void
   def zr_mark_hash(h)
-    zr_mark(RHash.default(h))
-    zr_mark(RHash.default_proc(h))
-    if (RBasic.flags(h) & FL_WEAK) != 0
+    zr_mark(RHash[h].default)
+    zr_mark(RHash[h].default_proc)
+    if (RBasic[h].flags & FL_WEAK) != 0
       return
     end
-    keys = (RBasic.flags(h) & FL_WEAKKEY) == 0
-    n = RHash.len(h)
+    keys = (RBasic[h].flags & FL_WEAKKEY) == 0
+    n = RHash[h].len
     i = 0
     while i < n
-      e = RHash.entries(h) + (i * HEntry.size)
-      if HEntry.live(e) != 0
+      e = RHash[h].entries + (i * HEntry.size)
+      if HEntry[e].live != 0
         if keys
-          zr_mark(HEntry.key(e))
+          zr_mark(HEntry[e].key)
         end
-        zr_mark(HEntry.value(e))
+        zr_mark(HEntry[e].value)
       end
       i += 1
     end
@@ -80,10 +97,10 @@ module Zr::Kern
       return KEY_DIFFERENT
     end
     if t == T_STRING
-      return zr_bytes_eq(RString.ptr(a), RString.len(a), RString.ptr(b), RString.len(b)) && zr_str_comparable(a, b) ? KEY_SAME : KEY_DIFFERENT
+      return zr_bytes_eq(RString[a].ptr, RString[a].len, RString[b].ptr, RString[b].len) && zr_str_comparable(a, b) ? KEY_SAME : KEY_DIFFERENT
     end
     if t == T_ARRAY
-      if RArray.len(a) != RArray.len(b)
+      if RArray[a].len != RArray[b].len
         return KEY_DIFFERENT
       end
       # The same two Arrays found again inside their own comparison is a
@@ -96,7 +113,7 @@ module Zr::Kern
       return same
     end
     if t == T_REGEXP
-      return RRegexp.options(a) == RRegexp.options(b) ? zr_key_eql(RRegexp.source(a), RRegexp.source(b)) : KEY_DIFFERENT
+      return RRegexp[a].options == RRegexp[b].options ? zr_key_eql(RRegexp[a].source, RRegexp[b].source) : KEY_DIFFERENT
     end
     # Kernel#eql? is identity, which the first check already did. Any
     # other eql? belongs to the key, for all types of object.
@@ -118,8 +135,8 @@ module Zr::Kern
   #: (value, value) -> word
   def zr_key_eql_elements(a, b)
     i = 0
-    while i < RArray.len(a)
-      if i >= RArray.len(b)
+    while i < RArray[a].len
+      if i >= RArray[b].len
         return KEY_DIFFERENT
       end
       same = zr_key_eql(zr_ary_at(a, i), zr_ary_at(b, i))
@@ -147,7 +164,7 @@ module Zr::Kern
   #: (value, value, ptr) -> bool
   def zr_key_hash(h, key, out)
     Machine.store64(out, 0, zr_key_code(h, key))
-    if (RBasic.flags(h) & FL_IDENTITY) != 0 || zr_special_p(key)
+    if (RBasic[h].flags & FL_IDENTITY) != 0 || zr_special_p(key)
       return true
     end
     t = zr_type(key)
@@ -184,7 +201,7 @@ module Zr::Kern
   #: (value, word, ptr) -> bool
   def zr_key_builtin_p(key, mid, builtin)
     e = zr_find_method(zr_class_of(key), mid)
-    e != 0 && MEntry.fn(e) == builtin
+    e != 0 && MEntry[e].fn == builtin
   end
 
   # Returns the code of a key when no Ruby code must run to find it. For a
@@ -192,7 +209,7 @@ module Zr::Kern
   # zr_key_hash replaces it.
   #: (value, value) -> word
   def zr_key_code(h, key)
-    if (RBasic.flags(h) & FL_IDENTITY) != 0
+    if (RBasic[h].flags & FL_IDENTITY) != 0
       return zr_hash_mix(Machine.word(key))
     end
     zr_value_code(key)
@@ -217,7 +234,7 @@ module Zr::Kern
       return zr_hash_mix(zr_str_bytes_hash(key) ^ (zr_str_ascii_only(key) ? 0 : zr_str_encoding_index(key) + 1))
     end
     if t == T_REGEXP
-      return zr_hash_mix(zr_value_code(RRegexp.source(key)) + RRegexp.options(key))
+      return zr_hash_mix(zr_value_code(RRegexp[key].source) + RRegexp[key].options)
     end
     zr_hash_mix(Machine.word(key))
   end
@@ -235,7 +252,7 @@ module Zr::Kern
     mask = 72057594037927935
     h = zr_fix2long(seed) & mask
     i = 0
-    while i < RArray.len(a)
+    while i < RArray[a].len
       v = zr_ary_at(a, i)
       if !zr_special_p(v) && !zr_float_p(v) && zr_type(v) != T_STRING
         return Machine.value(QNIL)
@@ -267,7 +284,7 @@ module Zr::Kern
   # a particular hash value.
   #: (value) -> word
   def zr_str_bytes_hash(s)
-    zr_bytes_hash(RString.ptr(s), RString.len(s)) ^ Machine.load64(zr_hash_seed(), 0)
+    zr_bytes_hash(RString[s].ptr, RString[s].len) ^ Machine.load64(zr_hash_seed(), 0)
   end
 
   # The seed, set one time at boot.
@@ -312,7 +329,7 @@ module Zr::Kern
   # bin. It skips dead entries.
   #: (value, value) -> ptr
   def zr_hash_entry(h, key)
-    if RHash.live(h) == 0
+    if RHash[h].live == 0
       return 0
     end
     code = Machine.slot(8)
@@ -327,32 +344,32 @@ module Zr::Kern
   # does when it finds that the table was rebuilt.
   #: (value, value, word) -> ptr
   def zr_hash_find(h, key, code)
-    identity = (RBasic.flags(h) & FL_IDENTITY) != 0
-    gen = RHash.gen(h)
-    if RHash.nbins(h) == 0
+    identity = (RBasic[h].flags & FL_IDENTITY) != 0
+    gen = RHash[h].gen
+    if RHash[h].nbins == 0
       return zr_hash_scan(h, key, code, identity, gen)
     end
     i = code
-    while RHash.nbins(h) != 0
-      i = i & (RHash.nbins(h) - 1)
-      slot = Machine.load64(RHash.bins(h) + (i * 8), 0)
+    while RHash[h].nbins != 0
+      i = i & (RHash[h].nbins - 1)
+      slot = Machine.load64(RHash[h].bins + (i * 8), 0)
       if slot == 0
         return 0
       end
-      e = RHash.entries(h) + ((slot - 1) * HEntry.size)
+      e = RHash[h].entries + ((slot - 1) * HEntry.size)
       i += 1 # rubocop:disable Lint/UselessAssignment -- the next probe reads it
-      if HEntry.live(e) != 0 && HEntry.hash(e) == code
+      if HEntry[e].live != 0 && HEntry[e].hash == code
         if identity
-          if HEntry.key(e) == key
+          if HEntry[e].key == key
             return e
           end
         else
-          same = zr_key_eql(HEntry.key(e), key)
+          same = zr_key_eql(HEntry[e].key, key)
           if same == KEY_RAISED
             return Machine.ptr(HASH_RAISED)
           end
-          if RHash.gen(h) != gen
-            gen = RHash.gen(h)
+          if RHash[h].gen != gen
+            gen = RHash[h].gen
             i = code
           elsif same == KEY_SAME
             return e
@@ -369,20 +386,20 @@ module Zr::Kern
   #: (value, value, word, bool, word) -> ptr
   def zr_hash_scan(h, key, code, identity, gen)
     i = 0
-    while i < RHash.len(h)
-      e = RHash.entries(h) + (i * HEntry.size)
+    while i < RHash[h].len
+      e = RHash[h].entries + (i * HEntry.size)
       i += 1
-      if HEntry.live(e) != 0 && HEntry.hash(e) == code
+      if HEntry[e].live != 0 && HEntry[e].hash == code
         if identity
-          if HEntry.key(e) == key
+          if HEntry[e].key == key
             return e
           end
         else
-          same = zr_key_eql(HEntry.key(e), key)
+          same = zr_key_eql(HEntry[e].key, key)
           if same == KEY_RAISED
             return Machine.ptr(HASH_RAISED)
           end
-          if RHash.gen(h) != gen
+          if RHash[h].gen != gen
             return zr_hash_find(h, key, code)
           end
           if same == KEY_SAME
@@ -406,22 +423,22 @@ module Zr::Kern
     if e == 0
       return Machine.value(QUNDEF)
     end
-    HEntry.value(e)
+    HEntry[e].value
   end
 
   # Puts entry `n` (its index in the entries) into the bins.
   #: (value, word) -> void
   def zr_hash_bin(h, n)
-    if RHash.nbins(h) == 0
+    if RHash[h].nbins == 0
       return
     end
-    e = RHash.entries(h) + (n * HEntry.size)
-    mask = RHash.nbins(h) - 1
-    i = HEntry.hash(e) & mask
-    while Machine.load64(RHash.bins(h) + (i * 8), 0) != 0
+    e = RHash[h].entries + (n * HEntry.size)
+    mask = RHash[h].nbins - 1
+    i = HEntry[e].hash & mask
+    while Machine.load64(RHash[h].bins + (i * 8), 0) != 0
       i = (i + 1) & mask
     end
-    Machine.store64(RHash.bins(h) + (i * 8), 0, n + 1)
+    Machine.store64(RHash[h].bins + (i * 8), 0, n + 1)
   end
 
   # Rebuilds the bins from the live entries, with two times the entry
@@ -432,15 +449,15 @@ module Zr::Kern
 
   #: (value) -> void
   def zr_hash_rebins(h)
-    zr_sized_xfree(RHash.bins(h), RHash.nbins(h) * 8)
-    if RHash.cap(h) <= HASH_SMALL
-      RHash.set_bins(h, 0)
-      RHash.set_nbins(h, 0)
-      RHash.set_gen(h, RHash.gen(h) + 1)
+    zr_sized_xfree(RHash[h].bins, RHash[h].nbins * 8)
+    if RHash[h].cap <= HASH_SMALL
+      RHash[h].bins = 0
+      RHash[h].nbins = 0
+      RHash[h].gen = RHash[h].gen + 1
       return
     end
     nbins = 16
-    while nbins < RHash.cap(h) * 2
+    while nbins < RHash[h].cap * 2
       nbins = nbins * 2
     end
     bins = zr_xmalloc(nbins * 8)
@@ -449,12 +466,12 @@ module Zr::Kern
       Machine.store64(bins + (i * 8), 0, 0)
       i += 1
     end
-    RHash.set_bins(h, bins)
-    RHash.set_nbins(h, nbins)
-    RHash.set_gen(h, RHash.gen(h) + 1)
+    RHash[h].bins = bins
+    RHash[h].nbins = nbins
+    RHash[h].gen = RHash[h].gen + 1
     i = 0
-    while i < RHash.len(h)
-      if HEntry.live(RHash.entries(h) + (i * HEntry.size)) != 0
+    while i < RHash[h].len
+      if HEntry[RHash[h].entries + (i * HEntry.size)].live != 0
         zr_hash_bin(h, i)
       end
       i += 1
@@ -465,11 +482,11 @@ module Zr::Kern
   # removed, and the bins are rebuilt.
   #: (value) -> void
   def zr_hash_reserve(h)
-    n = RHash.len(h)
-    if n < RHash.cap(h)
+    n = RHash[h].len
+    if n < RHash[h].cap
       return
     end
-    cap = RHash.live(h) * 2
+    cap = RHash[h].live * 2
     if cap < 8
       cap = 8
     end
@@ -477,17 +494,17 @@ module Zr::Kern
     j = 0
     i = 0
     while i < n
-      e = RHash.entries(h) + (i * HEntry.size)
-      if HEntry.live(e) != 0
+      e = RHash[h].entries + (i * HEntry.size)
+      if HEntry[e].live != 0
         zr_memcpy(entries + (j * HEntry.size), e, HEntry.size)
         j += 1
       end
       i += 1
     end
-    zr_sized_xfree(RHash.entries(h), RHash.cap(h) * HEntry.size)
-    RHash.set_entries(h, entries)
-    RHash.set_len(h, j)
-    RHash.set_cap(h, cap)
+    zr_sized_xfree(RHash[h].entries, RHash[h].cap * HEntry.size)
+    RHash[h].entries = entries
+    RHash[h].len = j
+    RHash[h].cap = cap
     zr_hash_rebins(h)
   end
 
@@ -498,25 +515,25 @@ module Zr::Kern
   #: (value) -> bool
   def zr_hash_recode(h)
     code = Machine.slot(8)
-    gen = RHash.gen(h)
+    gen = RHash[h].gen
     i = 0
-    while i < RHash.len(h)
-      if HEntry.live(RHash.entries(h) + (i * HEntry.size)) != 0
-        unless zr_key_hash(h, HEntry.key(RHash.entries(h) + (i * HEntry.size)), code)
+    while i < RHash[h].len
+      if HEntry[RHash[h].entries + (i * HEntry.size)].live != 0
+        unless zr_key_hash(h, HEntry[RHash[h].entries + (i * HEntry.size)].key, code)
           return false
         end
-        if RHash.gen(h) != gen
-          gen = RHash.gen(h)
+        if RHash[h].gen != gen
+          gen = RHash[h].gen
           i = 0
         else
-          HEntry.set_hash(RHash.entries(h) + (i * HEntry.size), Machine.load64(code, 0))
+          HEntry[RHash[h].entries + (i * HEntry.size)].hash = Machine.load64(code, 0)
           i += 1
         end
       else
         i += 1
       end
     end
-    if RHash.cap(h) > 0
+    if RHash[h].cap > 0
       zr_hash_rebins(h)
     end
     true
@@ -536,17 +553,17 @@ module Zr::Kern
       return Machine.value(QUNDEF)
     end
     if e != 0
-      HEntry.set_value(e, value)
+      HEntry[e].value = value
       zr_write_barrier(h, value)
       return value
     end
-    if !zr_special_p(key) && zr_type(key) == T_STRING && !zr_frozen_p(key) && (RBasic.flags(h) & (FL_IDENTITY | FL_WEAKKEY)) == 0
-      copy = zr_str_copy_encoding(zr_str_new(RString.ptr(key), RString.len(key)), key)
+    if !zr_special_p(key) && zr_type(key) == T_STRING && !zr_frozen_p(key) && (RBasic[h].flags & (FL_IDENTITY | FL_WEAKKEY)) == 0
+      copy = zr_str_copy_encoding(zr_str_new(RString[key].ptr, RString[key].len), key)
       # The frozen copy keeps the key's subclass, as CRuby's
       # rb_str_new_frozen does.
-      RBasic.set_klass(copy, zr_real_class(key))
+      RBasic[copy].klass = zr_real_class(key)
       key = copy
-      RBasic.set_flags(key, RBasic.flags(key) | FL_FREEZE)
+      RBasic[key].flags = RBasic[key].flags | FL_FREEZE
     end
     zr_hash_append(h, key, code, value)
   end
@@ -557,16 +574,16 @@ module Zr::Kern
   #: (value, value, word, value) -> value
   def zr_hash_append(h, key, code, value)
     zr_hash_reserve(h)
-    n = RHash.len(h)
-    e = RHash.entries(h) + (n * HEntry.size)
-    HEntry.set_key(e, key)
-    HEntry.set_value(e, value)
+    n = RHash[h].len
+    e = RHash[h].entries + (n * HEntry.size)
+    HEntry[e].key = key
+    HEntry[e].value = value
     zr_write_barrier(h, key)
     zr_write_barrier(h, value)
-    HEntry.set_live(e, 1)
-    HEntry.set_hash(e, code)
-    RHash.set_len(h, n + 1)
-    RHash.set_live(h, RHash.live(h) + 1)
+    HEntry[e].live = 1
+    HEntry[e].hash = code
+    RHash[h].len = n + 1
+    RHash[h].live = RHash[h].live + 1
     zr_hash_bin(h, n)
     value
   end
@@ -575,10 +592,10 @@ module Zr::Kern
   # default.
   #: (value, value) -> value
   def zr_hash_default(h, key)
-    if RHash.default_proc(h) != QNIL
-      return zr_yield2(RHash.default_proc(h), h, key)
+    if RHash[h].default_proc != QNIL
+      return zr_yield2(RHash[h].default_proc, h, key)
     end
-    RHash.default(h)
+    RHash[h].default
   end
 
   #: (value, word, ptr, value, value) -> value
@@ -591,7 +608,7 @@ module Zr::Kern
     if e == 0
       return zr_hash_missing(recv, key)
     end
-    HEntry.value(e)
+    HEntry[e].value
   end
 
   # Returns the value for a missing `key`, as rb_hash_default_value does.
@@ -614,7 +631,7 @@ module Zr::Kern
     end
     value = Machine.value(Machine.load64(argv, 8))
     key = Machine.value(Machine.load64(argv, 0))
-    if RHash.iter(recv) != 0
+    if RHash[recv].iter != 0
       e = zr_hash_entry(recv, key)
       if e == HASH_RAISED
         return Machine.value(QUNDEF)
@@ -641,7 +658,7 @@ module Zr::Kern
       return Machine.value(QUNDEF)
     end
     if found != 0
-      return HEntry.value(found)
+      return HEntry[found].value
     end
     if blk != QNIL
       return zr_yield1(blk, key)
@@ -682,39 +699,39 @@ module Zr::Kern
     if e == 0
       return Machine.value(QNIL)
     end
-    v = HEntry.value(e)
-    HEntry.set_live(e, 0)
-    HEntry.set_key(e, Machine.value(QNIL))
-    HEntry.set_value(e, Machine.value(QNIL))
-    RHash.set_live(recv, RHash.live(recv) - 1)
+    v = HEntry[e].value
+    HEntry[e].live = 0
+    HEntry[e].key = Machine.value(QNIL)
+    HEntry[e].value = Machine.value(QNIL)
+    RHash[recv].live = RHash[recv].live - 1
     v
   end
 
   #: (value, word, ptr, value, value) -> value
   def zr_hash_size(recv, argc, argv, cref, blk)
-    zr_fix(RHash.live(recv))
+    zr_fix(RHash[recv].live)
   end
 
   # Returns the live count as a fixnum, for core code that must not
   # dispatch.
   #: (value) -> value
   def zr_hash_len_m(h)
-    zr_fix(RHash.live(h))
+    zr_fix(RHash[h].live)
   end
 
   #: (value, word, ptr, value, value) -> value
   def zr_hash_empty_p(recv, argc, argv, cref, blk)
-    zr_bool(RHash.live(recv) == 0)
+    zr_bool(RHash[recv].live == 0)
   end
 
   #: (value, word, ptr, value, value) -> value
   def zr_hash_keys(recv, argc, argv, cref, blk)
-    out = zr_ary_new(RHash.live(recv))
+    out = zr_ary_new(RHash[recv].live)
     i = 0
-    while i < RHash.len(recv)
-      e = RHash.entries(recv) + (i * HEntry.size)
-      if HEntry.live(e) != 0
-        zr_ary_push(out, HEntry.key(e))
+    while i < RHash[recv].len
+      e = RHash[recv].entries + (i * HEntry.size)
+      if HEntry[e].live != 0
+        zr_ary_push(out, HEntry[e].key)
       end
       i += 1
     end
@@ -723,12 +740,12 @@ module Zr::Kern
 
   #: (value, word, ptr, value, value) -> value
   def zr_hash_values(recv, argc, argv, cref, blk)
-    out = zr_ary_new(RHash.live(recv))
+    out = zr_ary_new(RHash[recv].live)
     i = 0
-    while i < RHash.len(recv)
-      e = RHash.entries(recv) + (i * HEntry.size)
-      if HEntry.live(e) != 0
-        zr_ary_push(out, HEntry.value(e))
+    while i < RHash[recv].len
+      e = RHash[recv].entries + (i * HEntry.size)
+      if HEntry[e].live != 0
+        zr_ary_push(out, HEntry[e].value)
       end
       i += 1
     end
@@ -739,8 +756,8 @@ module Zr::Kern
   #: (ptr) -> value
   def zr_hash_assoc(e)
     pair = zr_ary_new(2)
-    zr_ary_push(pair, HEntry.key(e))
-    zr_ary_push(pair, HEntry.value(e))
+    zr_ary_push(pair, HEntry[e].key)
+    zr_ary_push(pair, HEntry[e].value)
     pair
   end
 
@@ -758,7 +775,7 @@ module Zr::Kern
   # entry of each iteration, discarded at the end of the block.
   #: (value) -> bool
   def zr_block_takes_pair(blk)
-    RProc.spread(blk) != 0 && RProc.lambda(blk) == 0
+    RProc[blk].spread != 0 && RProc[blk].lambda == 0
   end
 
   # `each`: yields one `[key, value]` for each entry. It reads the table
@@ -766,23 +783,23 @@ module Zr::Kern
   #: (value, word, ptr, value, value) -> value
   def zr_hash_each(recv, argc, argv, cref, blk)
     if blk == QNIL
-      return zr_enum_for(recv, Machine.id(:each), argc, argv, zr_fix(RHash.live(recv)))
+      return zr_enum_for(recv, Machine.id(:each), argc, argv, zr_fix(RHash[recv].live))
     end
     pairless = zr_block_takes_pair(blk)
-    RHash.set_iter(recv, RHash.iter(recv) + 1)
+    RHash[recv].iter = RHash[recv].iter + 1
     i = 0
-    while i < RHash.len(recv)
-      e = RHash.entries(recv) + (i * HEntry.size)
-      if HEntry.live(e) != 0
-        r = pairless ? zr_yield2(blk, HEntry.key(e), HEntry.value(e)) : zr_yield1(blk, zr_hash_assoc(e))
+    while i < RHash[recv].len
+      e = RHash[recv].entries + (i * HEntry.size)
+      if HEntry[e].live != 0
+        r = pairless ? zr_yield2(blk, HEntry[e].key, HEntry[e].value) : zr_yield1(blk, zr_hash_assoc(e))
         if r == QUNDEF
-          RHash.set_iter(recv, RHash.iter(recv) - 1)
+          RHash[recv].iter = RHash[recv].iter - 1
           return r
         end
       end
       i += 1
     end
-    RHash.set_iter(recv, RHash.iter(recv) - 1)
+    RHash[recv].iter = RHash[recv].iter - 1
     recv
   end
 
@@ -795,11 +812,11 @@ module Zr::Kern
 
   #: (value, word, ptr, value, value) -> value
   def zr_hash_to_a(recv, argc, argv, cref, blk)
-    out = zr_ary_new(RHash.live(recv))
+    out = zr_ary_new(RHash[recv].live)
     i = 0
-    while i < RHash.len(recv)
-      e = RHash.entries(recv) + (i * HEntry.size)
-      if HEntry.live(e) != 0
+    while i < RHash[recv].len
+      e = RHash[recv].entries + (i * HEntry.size)
+      if HEntry[e].live != 0
         zr_ary_push(out, zr_hash_assoc(e))
       end
       i += 1
@@ -840,7 +857,7 @@ module Zr::Kern
 
   #: (value, word, ptr, value, value) -> value
   def zr_hash_inspect(recv, argc, argv, cref, blk)
-    if RHash.live(recv) == 0
+    if RHash[recv].live == 0
       return zr_usascii_str_new(Machine.bytes("{}"), 2)
     end
     if zr_guard_enter(recv, Machine.id(:inspect))
@@ -855,13 +872,13 @@ module Zr::Kern
     ascii = true
     first = true
     i = 0
-    while i < RHash.len(recv)
-      e = RHash.entries(recv) + (i * HEntry.size)
-      if HEntry.live(e) != 0
+    while i < RHash[recv].len
+      e = RHash[recv].entries + (i * HEntry.size)
+      if HEntry[e].live != 0
         unless first
           zr_buf_push(b, Machine.bytes(", "), 2)
         end
-        key = HEntry.key(e)
+        key = HEntry[e].key
         if zr_symbol_p(key)
           id = zr_sym2id(key)
           name_ascii = zr_bytes_ascii_only_p(zr_symbol_name_ptr(id), zr_symbol_name_len(id))
@@ -869,7 +886,7 @@ module Zr::Kern
           if first
             index = name_index
           elsif zr_symbol_name_len(id) > 0
-            index = zr_enc_append(index, ascii, Buf.len(b), name_index, name_ascii)
+            index = zr_enc_append(index, ascii, Buf[b].len, name_index, name_ascii)
           end
           ascii = ascii && name_ascii
           if zr_symbol_key_simple_p(key)
@@ -885,19 +902,19 @@ module Zr::Kern
             zr_guard_leave(recv, Machine.id(:inspect))
             return s
           end
-          index = first ? zr_str_encoding_index(s) : zr_enc_append_str(index, ascii, Buf.len(b), s)
+          index = first ? zr_str_encoding_index(s) : zr_enc_append_str(index, ascii, Buf[b].len, s)
           ascii = ascii && zr_str_ascii_bytes_p(s)
           zr_buf_str(b, s)
           zr_buf_push(b, Machine.bytes(" => "), 4)
         end
-        e = RHash.entries(recv) + (i * HEntry.size)
-        s = zr_inspect(HEntry.value(e))
+        e = RHash[recv].entries + (i * HEntry.size)
+        s = zr_inspect(HEntry[e].value)
         if s == QUNDEF
           zr_buf_free(b)
           zr_guard_leave(recv, Machine.id(:inspect))
           return s
         end
-        index = zr_enc_append_str(index, ascii, Buf.len(b), s)
+        index = zr_enc_append_str(index, ascii, Buf[b].len, s)
         ascii = ascii && zr_str_ascii_bytes_p(s)
         zr_buf_str(b, s)
         first = false
@@ -919,7 +936,7 @@ module Zr::Kern
     if zr_type(other) != T_HASH
       return zr_eq_by_conversion(recv, other, Machine.id(:to_hash))
     end
-    if RHash.live(recv) != RHash.live(other)
+    if RHash[recv].live != RHash[other].live
       return Machine.value(QFALSE)
     end
     # The same two Hashes compared again inside their own comparison is a
@@ -935,17 +952,17 @@ module Zr::Kern
   #: (value, value) -> value
   def zr_hash_eq_entries(recv, other)
     i = 0
-    while i < RHash.len(recv)
-      e = RHash.entries(recv) + (i * HEntry.size)
-      if HEntry.live(e) != 0
-        found = zr_hash_entry(other, HEntry.key(e))
+    while i < RHash[recv].len
+      e = RHash[recv].entries + (i * HEntry.size)
+      if HEntry[e].live != 0
+        found = zr_hash_entry(other, HEntry[e].key)
         if found == HASH_RAISED
           return Machine.value(QUNDEF)
         end
         if found == 0
           return Machine.value(QFALSE)
         end
-        r = zr_rb_equal(HEntry.value(RHash.entries(recv) + (i * HEntry.size)), HEntry.value(found))
+        r = zr_rb_equal(HEntry[RHash[recv].entries + (i * HEntry.size)].value, HEntry[found].value)
         return r if r == QUNDEF
         if r == QFALSE
           return Machine.value(QFALSE)
@@ -974,18 +991,18 @@ module Zr::Kern
       if unset != QTRUE
         return zr_wrong_arity(1, 0)
       end
-      RHash.set_default(recv, Machine.value(QNIL))
-      RHash.set_default_proc(recv, zr_block_proc(blk))
+      RHash[recv].default = Machine.value(QNIL)
+      RHash[recv].default_proc = zr_block_proc(blk)
       return recv
     end
-    RHash.set_default(recv, unset == QTRUE ? Machine.value(QNIL) : ifnone)
-    RHash.set_default_proc(recv, Machine.value(QNIL))
+    RHash[recv].default = unset == QTRUE ? Machine.value(QNIL) : ifnone
+    RHash[recv].default_proc = Machine.value(QNIL)
     recv
   end
 
   #: (value, word, ptr, value, value) -> value
   def zr_hash_default_m(recv, argc, argv, cref, blk)
-    RHash.default(recv)
+    RHash[recv].default
   end
 
   # Makes `{k => v, ...}` from `n` pairs in `argv`.
@@ -1062,7 +1079,7 @@ module Zr::Kern
   # `**nil`: raises for any keyword.
   #: (value) -> value
   def zr_kw_none(hash)
-    if hash == QNIL || RHash.live(hash) == 0
+    if hash == QNIL || RHash[hash].live == 0
       return Machine.value(QNIL)
     end
     zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("no keywords accepted"), 20)
@@ -1078,9 +1095,9 @@ module Zr::Kern
     end
     count = 0
     i = 0
-    while i < RHash.len(hash)
-      e = RHash.entries(hash) + (i * HEntry.size)
-      if HEntry.live(e) != 0 && !(zr_symbol_p(HEntry.key(e)) && zr_kw_declared(ids, n, zr_sym2id(HEntry.key(e))))
+    while i < RHash[hash].len
+      e = RHash[hash].entries + (i * HEntry.size)
+      if HEntry[e].live != 0 && !(zr_symbol_p(HEntry[e].key) && zr_kw_declared(ids, n, zr_sym2id(HEntry[e].key)))
         count += 1
       end
       i += 1
@@ -1093,13 +1110,13 @@ module Zr::Kern
     zr_buf_push(b, count == 1 ? Machine.bytes("unknown keyword: ") : Machine.bytes("unknown keywords: "), count == 1 ? 17 : 18)
     seen = 0
     i = 0
-    while i < RHash.len(hash)
-      e = RHash.entries(hash) + (i * HEntry.size)
-      if HEntry.live(e) != 0 && !(zr_symbol_p(HEntry.key(e)) && zr_kw_declared(ids, n, zr_sym2id(HEntry.key(e))))
+    while i < RHash[hash].len
+      e = RHash[hash].entries + (i * HEntry.size)
+      if HEntry[e].live != 0 && !(zr_symbol_p(HEntry[e].key) && zr_kw_declared(ids, n, zr_sym2id(HEntry[e].key)))
         if seen > 0
           zr_buf_push(b, Machine.bytes(", "), 2)
         end
-        s = zr_inspect(HEntry.key(RHash.entries(hash) + (i * HEntry.size)))
+        s = zr_inspect(HEntry[RHash[hash].entries + (i * HEntry.size)].key)
         if s == QUNDEF
           zr_buf_free(b)
           return s
@@ -1256,10 +1273,10 @@ module Zr::Kern
       return out
     end
     i = 0
-    while i < RHash.len(hash)
-      e = RHash.entries(hash) + (i * HEntry.size)
-      if HEntry.live(e) != 0 && !(zr_symbol_p(HEntry.key(e)) && zr_kw_declared(ids, n, zr_sym2id(HEntry.key(e))))
-        zr_hash_append(out, HEntry.key(e), HEntry.hash(e), HEntry.value(e))
+    while i < RHash[hash].len
+      e = RHash[hash].entries + (i * HEntry.size)
+      if HEntry[e].live != 0 && !(zr_symbol_p(HEntry[e].key) && zr_kw_declared(ids, n, zr_sym2id(HEntry[e].key)))
+        zr_hash_append(out, HEntry[e].key, HEntry[e].hash, HEntry[e].value)
       end
       i += 1
     end
@@ -1306,10 +1323,10 @@ module Zr::Kern
       return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
     end
     i = 0
-    while i < RHash.len(other)
-      e = RHash.entries(other) + (i * HEntry.size)
-      if HEntry.live(e) != 0
-        r = zr_hash_store(h, HEntry.key(e), HEntry.value(e))
+    while i < RHash[other].len
+      e = RHash[other].entries + (i * HEntry.size)
+      if HEntry[e].live != 0
+        r = zr_hash_store(h, HEntry[e].key, HEntry[e].value)
         return r if r == QUNDEF
       end
       i += 1
@@ -1322,7 +1339,7 @@ module Zr::Kern
   # CRuby's pushtoarraykwsplat adds no element for an empty Hash.
   #: (value) -> value
   def zr_ary_kw_element(h)
-    if RHash.live(h) == 0
+    if RHash[h].live == 0
       return zr_ary_new(0)
     end
     a = zr_ary_new(1)
@@ -1333,7 +1350,7 @@ module Zr::Kern
   # The primitives that lib/zr/runtime/core/hash.rb uses.
   #: (value) -> value
   def zr_hash_default_proc(h)
-    RHash.default_proc(h)
+    RHash[h].default_proc
   end
 
   #: (value, value) -> value
@@ -1341,8 +1358,8 @@ module Zr::Kern
     if zr_modify_frozen_p(h)
       return zr_frozen_error(h)
     end
-    RHash.set_default(h, v)
-    RHash.set_default_proc(h, Machine.value(QNIL))
+    RHash[h].default = v
+    RHash[h].default_proc = Machine.value(QNIL)
     v
   end
 
@@ -1351,8 +1368,8 @@ module Zr::Kern
     if zr_modify_frozen_p(h)
       return zr_frozen_error(h)
     end
-    RHash.set_default_proc(h, p)
-    RHash.set_default(h, Machine.value(QNIL))
+    RHash[h].default_proc = p
+    RHash[h].default = Machine.value(QNIL)
     p
   end
 
@@ -1363,16 +1380,16 @@ module Zr::Kern
       return zr_frozen_error(h)
     end
     i = 0
-    while i < RHash.len(h)
-      HEntry.set_live(RHash.entries(h) + (i * HEntry.size), 0)
+    while i < RHash[h].len
+      HEntry[RHash[h].entries + (i * HEntry.size)].live = 0
       i += 1
     end
-    RHash.set_len(h, 0)
-    RHash.set_live(h, 0)
-    RHash.set_gen(h, RHash.gen(h) + 1)
+    RHash[h].len = 0
+    RHash[h].live = 0
+    RHash[h].gen = RHash[h].gen + 1
     i = 0
-    while i < RHash.nbins(h)
-      Machine.store64(RHash.bins(h) + (i * 8), 0, 0)
+    while i < RHash[h].nbins
+      Machine.store64(RHash[h].bins + (i * 8), 0, 0)
       i += 1
     end
     h
@@ -1381,23 +1398,23 @@ module Zr::Kern
   # `compare_by_identity`: after this, a key matches only itself.
   #: (value) -> value
   def zr_hash_compare_by_identity(h)
-    if (RBasic.flags(h) & FL_IDENTITY) != 0
+    if (RBasic[h].flags & FL_IDENTITY) != 0
       return h
     end
     if zr_modify_frozen_p(h)
       return zr_frozen_error(h)
     end
-    if RHash.iter(h) != 0
+    if RHash[h].iter != 0
       return zr_raise_msg(zr_global(G_RUNTIME_ERROR), Machine.bytes("compare_by_identity during iteration"), 36)
     end
-    RBasic.set_flags(h, RBasic.flags(h) | FL_IDENTITY)
+    RBasic[h].flags = RBasic[h].flags | FL_IDENTITY
     zr_hash_recode(h)
     h
   end
 
   #: (value) -> value
   def zr_hash_iterating_p(h)
-    zr_bool(RHash.iter(h) != 0)
+    zr_bool(RHash[h].iter != 0)
   end
 
   # `rehash`: computes the codes again after keys changed in the table.
@@ -1406,7 +1423,7 @@ module Zr::Kern
     if zr_modify_frozen_p(h)
       return zr_frozen_error(h)
     end
-    if RHash.iter(h) != 0
+    if RHash[h].iter != 0
       return zr_raise_msg(zr_global(G_RUNTIME_ERROR), Machine.bytes("rehash during iteration"), 23)
     end
     unless zr_hash_recode(h)
@@ -1415,23 +1432,23 @@ module Zr::Kern
     # Keys that came to be eql? fold into the first one, which takes the
     # last value, as rb_hash_rehash builds the table again. The bins are in
     # entry order, so a key's probe meets its first equal entry first.
-    if (RBasic.flags(h) & FL_IDENTITY) != 0
+    if (RBasic[h].flags & FL_IDENTITY) != 0
       return h
     end
     i = 0
-    while i < RHash.len(h)
-      e = RHash.entries(h) + (i * HEntry.size)
-      if HEntry.live(e) != 0
-        found = zr_hash_find(h, HEntry.key(e), HEntry.hash(e))
+    while i < RHash[h].len
+      e = RHash[h].entries + (i * HEntry.size)
+      if HEntry[e].live != 0
+        found = zr_hash_find(h, HEntry[e].key, HEntry[e].hash)
         if found == HASH_RAISED
           return Machine.value(QUNDEF)
         end
         if found != 0 && found != e && found < e
-          HEntry.set_value(found, HEntry.value(e))
-          HEntry.set_live(e, 0)
-          HEntry.set_key(e, Machine.value(QNIL))
-          HEntry.set_value(e, Machine.value(QNIL))
-          RHash.set_live(h, RHash.live(h) - 1)
+          HEntry[found].value = HEntry[e].value
+          HEntry[e].live = 0
+          HEntry[e].key = Machine.value(QNIL)
+          HEntry[e].value = Machine.value(QNIL)
+          RHash[h].live = RHash[h].live - 1
         end
       end
       i += 1
@@ -1441,13 +1458,13 @@ module Zr::Kern
 
   #: (value) -> value
   def zr_hash_identity_p(h)
-    zr_bool((RBasic.flags(h) & FL_IDENTITY) != 0)
+    zr_bool((RBasic[h].flags & FL_IDENTITY) != 0)
   end
 
   # Returns only the default value, for the core.
   #: (value) -> value
   def zr_hash_default_value(h)
-    RHash.default(h)
+    RHash[h].default
   end
 
   # `h[key]`, `h[key] = value`, `key?`, `fetch` and `replace` for the core.

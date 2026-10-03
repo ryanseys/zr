@@ -4,38 +4,6 @@ module Zr::Kern
   # iovecs, and the preopened directories that contain the paths. An
   # address goes to the host as its low 32 bits, which are all of a
   # wasm32 address.
-  Libc.import :args_sizes_get, [I32, I32] => I32, from: "wasi_snapshot_preview1"
-  Libc.import :args_get, [I32, I32] => I32, from: "wasi_snapshot_preview1"
-  Libc.import :environ_sizes_get, [I32, I32] => I32, from: "wasi_snapshot_preview1"
-  Libc.import :environ_get, [I32, I32] => I32, from: "wasi_snapshot_preview1"
-  Libc.import :clock_res_get, [I32, I32] => I32, from: "wasi_snapshot_preview1"
-  Libc.import :clock_time_get, [I32, Word, I32] => I32, from: "wasi_snapshot_preview1"
-  Libc.import :fd_close, [I32] => I32, from: "wasi_snapshot_preview1"
-  Libc.import :fd_fdstat_get, [I32, I32] => I32, from: "wasi_snapshot_preview1"
-  Libc.import :fd_fdstat_set_flags, [I32, I32] => I32, from: "wasi_snapshot_preview1"
-  Libc.import :fd_filestat_get, [I32, I32] => I32, from: "wasi_snapshot_preview1"
-  Libc.import :fd_filestat_set_size, [I32, Word] => I32, from: "wasi_snapshot_preview1"
-  Libc.import :fd_pread, [I32, I32, I32, Word, I32] => I32, from: "wasi_snapshot_preview1"
-  Libc.import :fd_prestat_get, [I32, I32] => I32, from: "wasi_snapshot_preview1"
-  Libc.import :fd_prestat_dir_name, [I32, I32, I32] => I32, from: "wasi_snapshot_preview1"
-  Libc.import :fd_pwrite, [I32, I32, I32, Word, I32] => I32, from: "wasi_snapshot_preview1"
-  Libc.import :fd_read, [I32, I32, I32, I32] => I32, from: "wasi_snapshot_preview1"
-  Libc.import :fd_readdir, [I32, I32, I32, Word, I32] => I32, from: "wasi_snapshot_preview1"
-  Libc.import :fd_seek, [I32, Word, I32, I32] => I32, from: "wasi_snapshot_preview1"
-  Libc.import :fd_sync, [I32] => I32, from: "wasi_snapshot_preview1"
-  Libc.import :fd_write, [I32, I32, I32, I32] => I32, from: "wasi_snapshot_preview1"
-  Libc.import :path_create_directory, [I32, I32, I32] => I32, from: "wasi_snapshot_preview1"
-  Libc.import :path_filestat_get, [I32, I32, I32, I32, I32] => I32, from: "wasi_snapshot_preview1"
-  Libc.import :path_link, [I32, I32, I32, I32, I32, I32, I32] => I32, from: "wasi_snapshot_preview1"
-  Libc.import :path_open, [I32, I32, I32, I32, I32, Word, Word, I32, I32] => I32, from: "wasi_snapshot_preview1"
-  Libc.import :path_readlink, [I32, I32, I32, I32, I32, I32] => I32, from: "wasi_snapshot_preview1"
-  Libc.import :path_remove_directory, [I32, I32, I32] => I32, from: "wasi_snapshot_preview1"
-  Libc.import :path_rename, [I32, I32, I32, I32, I32, I32] => I32, from: "wasi_snapshot_preview1"
-  Libc.import :path_symlink, [I32, I32, I32, I32, I32] => I32, from: "wasi_snapshot_preview1"
-  Libc.import :path_unlink_file, [I32, I32, I32] => I32, from: "wasi_snapshot_preview1"
-  Libc.import :poll_oneoff, [I32, I32, I32, I32] => I32, from: "wasi_snapshot_preview1"
-  Libc.import :proc_exit, [I32] => Void, from: "wasi_snapshot_preview1"
-  Libc.import :random_get, [I32, I32] => I32, from: "wasi_snapshot_preview1"
 
   # WASI's errno numbers, with wasi-libc's E names.
   WASI_EBADF = 8

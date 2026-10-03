@@ -11,21 +11,21 @@ module Zr::Kern
   # class has no singleton class of its own.
   #: (value) -> bool
   def zr_objspace_visible_p(v)
-    t = RBasic.flags(v) & T_MASK
+    t = RBasic[v].flags & T_MASK
     if t == T_NONE || t == T_CREF || t == T_ENV || t == T_ICLASS
       return false
     end
-    klass = RBasic.klass(v)
+    klass = RBasic[v].klass
     if Machine.word(klass) == 0 || zr_special_p(klass)
       return false
     end
-    if (RBasic.flags(v) & FL_CONCEALED) != 0 || (RBasic.flags(klass) & FL_CONCEALED) != 0
+    if (RBasic[v].flags & FL_CONCEALED) != 0 || (RBasic[klass].flags & FL_CONCEALED) != 0
       return false
     end
-    if t == T_CLASS && (RBasic.flags(v) & FL_SINGLETON) != 0
-      attached = RClass.attached(v)
-      if !zr_special_p(attached) && (RBasic.flags(attached) & T_MASK) == T_CLASS
-        return (RBasic.flags(klass) & FL_SINGLETON) != 0 && RClass.attached(klass) == v
+    if t == T_CLASS && (RBasic[v].flags & FL_SINGLETON) != 0
+      attached = RClass[v].attached
+      if !zr_special_p(attached) && (RBasic[attached].flags & T_MASK) == T_CLASS
+        return (RBasic[klass].flags & FL_SINGLETON) != 0 && RClass[klass].attached == v
       end
     end
     true
@@ -36,10 +36,10 @@ module Zr::Kern
   def zr_objspace_objects(mod)
     out = zr_ary_new(1024)
     a = 0
-    while a < Heap.arenas(zr_heap())
+    while a < Heap[zr_heap()].arenas
       base = zr_arena_at(a)
       first = zr_arena_first(base)
-      bytes = ArenaHead.cell(base)
+      bytes = ArenaHead[base].cell
       i = zr_arena_next_allocated(base, 0)
       while i < ARENA_CELLS
         v = Machine.value(first + (i * bytes))
@@ -63,10 +63,10 @@ module Zr::Kern
     Libc.memset(counts, Machine.i32(0), 32 * 8)
     live_cells = 0
     a = 0
-    while a < Heap.arenas(zr_heap())
+    while a < Heap[zr_heap()].arenas
       base = zr_arena_at(a)
       first = zr_arena_first(base)
-      bytes = ArenaHead.cell(base)
+      bytes = ArenaHead[base].cell
       i = zr_arena_next_allocated(base, 0)
       while i < ARENA_CELLS
         flags = Machine.load64(first + (i * bytes), 0)
@@ -93,10 +93,10 @@ module Zr::Kern
   #: (value) -> value
   def zr_objspace_id2ref(id)
     a = 0
-    while a < Heap.arenas(zr_heap())
+    while a < Heap[zr_heap()].arenas
       base = zr_arena_at(a)
       first = zr_arena_first(base)
-      bytes = ArenaHead.cell(base)
+      bytes = ArenaHead[base].cell
       i = zr_arena_next_allocated(base, 0)
       while i < ARENA_CELLS
         v = Machine.value(first + (i * bytes))
@@ -131,7 +131,7 @@ module Zr::Kern
   #: (value, value) -> value
   def zr_objspace_symbol_word_p(high, low)
     w = (Machine.word(zr_fix2long(high)) << 32) | Machine.word(zr_fix2long(low))
-    zr_bool((w >> 8) < zr_static_symbol_count() + Symtab.len(zr_symtab()))
+    zr_bool((w >> 8) < zr_static_symbol_count() + Symtab[zr_symtab()].len)
   end
 
   # The objects that `v` refers to, as the collector reads them: its class,
@@ -146,24 +146,24 @@ module Zr::Kern
       return out
     end
     s = zr_mark_stack()
-    from = MarkStack.len(s)
+    from = MarkStack[s].len
     Machine.store64(zr_mark_every(), 0, 1)
-    zr_mark(RBasic.klass(v))
+    zr_mark(RBasic[v].klass)
     zr_mark_children(v)
-    if (RBasic.flags(v) & FL_EXIVAR) != 0
+    if (RBasic[v].flags & FL_EXIVAR) != 0
       zr_mark_ivtab(zr_exivar_tab(v))
     end
     Machine.store64(zr_mark_every(), 0, 0)
     i = from
-    while i < MarkStack.len(s)
-      child = Machine.value(Machine.load64(MarkStack.ptr(s) + (i * 8), 0))
+    while i < MarkStack[s].len
+      child = Machine.value(Machine.load64(MarkStack[s].ptr + (i * 8), 0))
       zr_mark_unset(child)
       if zr_objspace_visible_p(child)
         zr_ary_push(out, child)
       end
       i += 1
     end
-    MarkStack.set_len(s, from)
+    MarkStack[s].len = from
     out
   end
 
@@ -186,7 +186,7 @@ module Zr::Kern
     zr_hash_store(out, zr_str_new(Machine.bytes("machine_context"), 15), context)
     zr_hash_store(out, zr_str_new(Machine.bytes("finalizers"), 10), finalizers)
     s = zr_mark_stack()
-    from = MarkStack.len(s)
+    from = MarkStack[s].len
     Machine.store64(zr_mark_every(), 0, 1)
     i = 0
     while i < G_COUNT
@@ -213,24 +213,24 @@ module Zr::Kern
   #: (ptr, word, value, value) -> void
   def zr_objspace_take(s, from, into, out)
     i = from
-    while i < MarkStack.len(s)
-      child = Machine.value(Machine.load64(MarkStack.ptr(s) + (i * 8), 0))
+    while i < MarkStack[s].len
+      child = Machine.value(Machine.load64(MarkStack[s].ptr + (i * 8), 0))
       zr_mark_unset(child)
       if zr_objspace_visible_p(child) && child != out && !zr_objspace_row_p(out, child)
         zr_ary_push(into, child)
       end
       i += 1
     end
-    MarkStack.set_len(s, from)
+    MarkStack[s].len = from
   end
 
   # Whether `v` is one of the keys or values of the result `out`.
   #: (value, value) -> bool
   def zr_objspace_row_p(out, v)
     i = 0
-    while i < RHash.len(out)
-      e = RHash.entries(out) + (i * HEntry.size)
-      if HEntry.key(e) == v || HEntry.value(e) == v
+    while i < RHash[out].len
+      e = RHash[out].entries + (i * HEntry.size)
+      if HEntry[e].key == v || HEntry[e].value == v
         return true
       end
       i += 1
@@ -244,7 +244,7 @@ module Zr::Kern
   # hidden class.
   #: (value) -> value
   def zr_objspace_super(klass)
-    s = RClass.superclass(klass)
+    s = RClass[klass].superclass
     if Machine.word(s) == 0 || s == QNIL
       return Machine.value(QNIL)
     end
@@ -261,14 +261,14 @@ module Zr::Kern
     if zr_special_p(v)
       return zr_fix(0)
     end
-    t = RBasic.flags(v) & T_MASK
+    t = RBasic[v].flags & T_MASK
     n = zr_cell_bytes(v)
     if t == T_STRING
-      n += zr_str_embedded_p(v) ? 0 : zr_str_gap(v) + RString.capa(v) + 1
+      n += zr_str_embedded_p(v) ? 0 : zr_str_gap(v) + RString[v].capa + 1
     elsif t == T_ARRAY
-      n += zr_ary_embedded_p(v) ? 0 : RArray.capa(v) * 8
+      n += zr_ary_embedded_p(v) ? 0 : RArray[v].capa * 8
     elsif t == T_HASH
-      n += (RHash.cap(v) * HEntry.size) + (RHash.nbins(v) * 8)
+      n += (RHash[v].cap * HEntry.size) + (RHash[v].nbins * 8)
     end
     zr_fix(n)
   end
@@ -277,9 +277,21 @@ module Zr::Kern
   # allocated while tracing is on. The records are outside the heap, with
   # the cell's address as the key, so a record allocates no cell. The
   # record of a cell goes away when the cell is freed.
-  AllocTrace = layout rows: Ptr, capa: Word, used: Word, on: Word
+  class AllocTrace < Layout
+    attr_accessor :rows #: ptr
+    attr_accessor :capa #: word
+    attr_accessor :used #: word
+    attr_accessor :on #: word
+  end
   # `meta` is the C method that made the cell, or 0 if Ruby code made it.
-  AllocRow = layout cell: Word, file: Ptr, file_len: Word, line: Word, meta: Ptr, generation: Word
+  class AllocRow < Layout
+    attr_accessor :cell #: word
+    attr_accessor :file #: ptr
+    attr_accessor :file_len #: word
+    attr_accessor :line #: word
+    attr_accessor :meta #: ptr
+    attr_accessor :generation #: word
+  end
   # Marks a record whose cell was freed. A probe skips it.
   ALLOC_GONE = 1
 
@@ -293,18 +305,18 @@ module Zr::Kern
   # finds an empty record.
   #: (ptr, word) -> ptr
   def zr_alloc_trace_probe(t, cell)
-    mask = AllocTrace.capa(t) - 1
+    mask = AllocTrace[t].capa - 1
     i = Machine.mul_wrap(cell / CELL_MIN, 2654435761) & mask
-    row = AllocTrace.rows(t) + (i * AllocRow.size)
+    row = AllocTrace[t].rows + (i * AllocRow.size)
     free_row = 0
-    while AllocRow.cell(row) != cell && AllocRow.cell(row) != 0
-      if AllocRow.cell(row) == ALLOC_GONE && free_row == 0
+    while AllocRow[row].cell != cell && AllocRow[row].cell != 0
+      if AllocRow[row].cell == ALLOC_GONE && free_row == 0
         free_row = row
       end
       i = (i + 1) & mask
-      row = AllocTrace.rows(t) + (i * AllocRow.size)
+      row = AllocTrace[t].rows + (i * AllocRow.size)
     end
-    if AllocRow.cell(row) == 0 && free_row != 0
+    if AllocRow[row].cell == 0 && free_row != 0
       return free_row
     end
     row
@@ -314,22 +326,22 @@ module Zr::Kern
   # table doubles, and it does not copy the freed records.
   #: (ptr) -> void
   def zr_alloc_trace_room(t)
-    if (AllocTrace.used(t) + 1) * 2 <= AllocTrace.capa(t)
+    if (AllocTrace[t].used + 1) * 2 <= AllocTrace[t].capa
       return
     end
-    old = AllocTrace.rows(t)
-    old_capa = AllocTrace.capa(t)
+    old = AllocTrace[t].rows
+    old_capa = AllocTrace[t].capa
     capa = old_capa == 0 ? 1024 : old_capa * 2
-    AllocTrace.set_rows(t, zr_xmalloc(capa * AllocRow.size))
-    Libc.memset(AllocTrace.rows(t), Machine.i32(0), capa * AllocRow.size)
-    AllocTrace.set_capa(t, capa)
-    AllocTrace.set_used(t, 0)
+    AllocTrace[t].rows = zr_xmalloc(capa * AllocRow.size)
+    Libc.memset(AllocTrace[t].rows, Machine.i32(0), capa * AllocRow.size)
+    AllocTrace[t].capa = capa
+    AllocTrace[t].used = 0
     i = 0
     while i < old_capa
       row = old + (i * AllocRow.size)
-      if AllocRow.cell(row) > ALLOC_GONE
-        zr_memcpy(zr_alloc_trace_probe(t, AllocRow.cell(row)), row, AllocRow.size)
-        AllocTrace.set_used(t, AllocTrace.used(t) + 1)
+      if AllocRow[row].cell > ALLOC_GONE
+        zr_memcpy(zr_alloc_trace_probe(t, AllocRow[row].cell), row, AllocRow.size)
+        AllocTrace[t].used = AllocTrace[t].used + 1
       end
       i += 1
     end
@@ -342,7 +354,7 @@ module Zr::Kern
   # C method that made it, if the top frame is a C method.
   #: (ptr) -> void
   def zr_alloc_trace_record(cell)
-    top = Task.top(zr_task())
+    top = Task[zr_task()].top
     rec = zr_frame_with_file(top)
     if rec == 0
       return
@@ -350,16 +362,16 @@ module Zr::Kern
     t = zr_alloc_trace()
     zr_alloc_trace_room(t)
     row = zr_alloc_trace_probe(t, cell)
-    if AllocRow.cell(row) != cell
-      AllocTrace.set_used(t, AllocTrace.used(t) + 1)
+    if AllocRow[row].cell != cell
+      AllocTrace[t].used = AllocTrace[t].used + 1
     end
-    meta = Frame.meta(rec)
-    AllocRow.set_cell(row, cell)
-    AllocRow.set_file(row, FrameMeta.file(meta))
-    AllocRow.set_file_len(row, FrameMeta.file_len(meta))
-    AllocRow.set_line(row, zr_frame_line(rec))
-    AllocRow.set_meta(row, top == rec ? 0 : zr_method_meta_of(top))
-    AllocRow.set_generation(row, Heap.collections(zr_heap()))
+    meta = Frame[rec].meta
+    AllocRow[row].cell = cell
+    AllocRow[row].file = FrameMeta[meta].file
+    AllocRow[row].file_len = FrameMeta[meta].file_len
+    AllocRow[row].line = zr_frame_line(rec)
+    AllocRow[row].meta = top == rec ? 0 : zr_method_meta_of(top)
+    AllocRow[row].generation = Heap[zr_heap()].collections
   end
 
   # Removes the record of a freed cell.
@@ -367,24 +379,24 @@ module Zr::Kern
   def zr_alloc_trace_forget(cell)
     t = zr_alloc_trace()
     row = zr_alloc_trace_probe(t, cell)
-    if AllocRow.cell(row) == cell
-      AllocRow.set_cell(row, ALLOC_GONE)
+    if AllocRow[row].cell == cell
+      AllocRow[row].cell = ALLOC_GONE
     end
   end
 
   #: (value) -> ptr
   def zr_alloc_trace_row(v)
     t = zr_alloc_trace()
-    if zr_special_p(v) || AllocTrace.used(t) == 0
+    if zr_special_p(v) || AllocTrace[t].used == 0
       return 0
     end
     row = zr_alloc_trace_probe(t, Machine.word(v))
-    AllocRow.cell(row) == Machine.word(v) ? row : 0
+    AllocRow[row].cell == Machine.word(v) ? row : 0
   end
 
   #: (value) -> value
   def zr_alloc_trace_set(on)
-    AllocTrace.set_on(zr_alloc_trace(), on == QTRUE ? 1 : 0)
+    AllocTrace[zr_alloc_trace()].on = on == QTRUE ? 1 : 0
     zr_heap_slow_update()
     Machine.value(QNIL)
   end
@@ -392,12 +404,12 @@ module Zr::Kern
   #: () -> value
   def zr_alloc_trace_clear
     t = zr_alloc_trace()
-    if AllocTrace.rows(t) != 0
-      zr_xfree(AllocTrace.rows(t))
+    if AllocTrace[t].rows != 0
+      zr_xfree(AllocTrace[t].rows)
     end
-    AllocTrace.set_rows(t, 0)
-    AllocTrace.set_capa(t, 0)
-    AllocTrace.set_used(t, 0)
+    AllocTrace[t].rows = 0
+    AllocTrace[t].capa = 0
+    AllocTrace[t].used = 0
     Machine.value(QNIL)
   end
 
@@ -410,17 +422,17 @@ module Zr::Kern
       return Machine.value(QNIL)
     end
     out = zr_ary_new(5)
-    zr_ary_push(out, zr_str_new(AllocRow.file(row), AllocRow.file_len(row)))
-    zr_ary_push(out, zr_fix(AllocRow.line(row)))
-    meta = AllocRow.meta(row)
-    if meta != 0 && !zr_special_p(FrameMeta.owner(meta))
-      zr_ary_push(out, zr_class_path(FrameMeta.owner(meta)))
-      zr_ary_push(out, zr_sym(FrameMeta.name(meta)))
+    zr_ary_push(out, zr_str_new(AllocRow[row].file, AllocRow[row].file_len))
+    zr_ary_push(out, zr_fix(AllocRow[row].line))
+    meta = AllocRow[row].meta
+    if meta != 0 && !zr_special_p(FrameMeta[meta].owner)
+      zr_ary_push(out, zr_class_path(FrameMeta[meta].owner))
+      zr_ary_push(out, zr_sym(FrameMeta[meta].name))
     else
       zr_ary_push(out, Machine.value(QNIL))
       zr_ary_push(out, Machine.value(QNIL))
     end
-    zr_ary_push(out, zr_fix(AllocRow.generation(row)))
+    zr_ary_push(out, zr_fix(AllocRow[row].generation))
     out
   end
 
@@ -429,7 +441,7 @@ module Zr::Kern
   # writes these helpers in C.
   #: (value) -> value
   def zr_class_conceal_m(klass)
-    RBasic.set_flags(klass, RBasic.flags(klass) | FL_CONCEALED)
+    RBasic[klass].flags = RBasic[klass].flags | FL_CONCEALED
     klass
   end
 end

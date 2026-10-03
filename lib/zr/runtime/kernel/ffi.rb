@@ -5,19 +5,39 @@ module Zr::Kern
   # a program that never calls C has no reference to it. An address goes
   # across as an Integer. The bytes at an address go across as a binary
   # String, which lib/zr/runtime/ext/ffi_c packs and unpacks.
-  Libc.import :dlopen, [Ptr, I32] => Ptr
-  Libc.import :dlsym, [Ptr, Ptr] => Ptr
-  Libc.import :dlerror, [] => Ptr
-  Libc.import :memchr, [Ptr, I32, Word] => Ptr
 
-  FfiPrepCif = fn [Ptr, I32, I32, Ptr, Ptr] => I32
-  FfiPrepCifVar = fn [Ptr, I32, I32, I32, Ptr, Ptr] => I32
-  FfiCall = fn [Ptr, Ptr, Ptr, Ptr] => Void
-  FfiClosureAlloc = fn [Word, Ptr] => Ptr
-  FfiPrepClosureLoc = fn [Ptr, Ptr, Ptr, Ptr, Ptr] => I32
-  FfiClosureFree = fn [Ptr] => Void
-  CWords = fn [Word, Word, Word, Word, Word, Word, Word, Word] => Word
-  CWordsF64 = fn [Word, Word, Word, Word, Word, Word, Word, F64] => Word
+  module FfiPrepCif
+    #: (ptr, ptr, i32, i32, ptr, ptr) -> i32
+    def self.call(fn, p1, i1, i2, p2, p3) = Machine.indirect
+  end
+  module FfiPrepCifVar
+    #: (ptr, ptr, i32, i32, i32, ptr, ptr) -> i32
+    def self.call(fn, p1, i1, i2, i3, p2, p3) = Machine.indirect
+  end
+  module FfiCall
+    #: (ptr, ptr, ptr, ptr, ptr) -> void
+    def self.call(fn, p1, p2, p3, p4) = Machine.indirect
+  end
+  module FfiClosureAlloc
+    #: (ptr, word, ptr) -> ptr
+    def self.call(fn, n, p) = Machine.indirect
+  end
+  module FfiPrepClosureLoc
+    #: (ptr, ptr, ptr, ptr, ptr, ptr) -> i32
+    def self.call(fn, p1, p2, p3, p4, p5) = Machine.indirect
+  end
+  module FfiClosureFree
+    #: (ptr, ptr) -> void
+    def self.call(fn, p) = Machine.indirect
+  end
+  module CWords
+    #: (ptr, word, word, word, word, word, word, word, word) -> word
+    def self.call(fn, n1, n2, n3, n4, n5, n6, n7, n8) = Machine.indirect
+  end
+  module CWordsF64
+    #: (ptr, word, word, word, word, word, word, word, f64) -> word
+    def self.call(fn, n1, n2, n3, n4, n5, n6, n7, x) = Machine.indirect
+  end
 
   RTLD_LAZY = 1
   # The callable that a closure runs, and the pending unwind that a
@@ -74,7 +94,7 @@ module Zr::Kern
   # Writes `len` bytes of `str`, starting at `from`, to `addr`.
   #: (value, value, value, value) -> value
   def zr_ffi_write(addr, str, from, len)
-    zr_memcpy(zr_ffi_ptr(addr), RString.ptr(str) + zr_fix2long(from), zr_fix2long(len))
+    zr_memcpy(zr_ffi_ptr(addr), RString[str].ptr + zr_fix2long(from), zr_fix2long(len))
     Machine.value(QNIL)
   end
 
@@ -117,9 +137,9 @@ module Zr::Kern
   def zr_ffi_cstr(str)
     # C can write through the address. Thus the scan results for the bytes
     # and a MatchData copy that shares them are no longer valid.
-    RBasic.set_flags(str, RBasic.flags(str) & FL_SCANS_CLEAR)
-    Machine.store8(RString.ptr(str) + RString.len(str), 0, Machine.i8(0))
-    RString.ptr(str)
+    RBasic[str].flags = RBasic[str].flags & FL_SCANS_CLEAR
+    Machine.store8(RString[str].ptr + RString[str].len, 0, Machine.i8(0))
+    RString[str].ptr
   end
 
   #: (value) -> value
@@ -207,11 +227,11 @@ module Zr::Kern
       return false
     end
     t = zr_task()
-    Task.set_pending(t, zr_ary_at(left, 0))
-    Task.set_throw_tag(t, zr_ary_at(left, 1))
-    Task.set_pending_kind(t, zr_fix2long(zr_ary_at(left, 2)))
-    Task.set_pending_home(t, Machine.ptr(zr_fix2long(zr_ary_at(left, 3))))
-    Task.set_pending_site(t, zr_fix2long(zr_ary_at(left, 4)))
+    Task[t].pending = zr_ary_at(left, 0)
+    Task[t].throw_tag = zr_ary_at(left, 1)
+    Task[t].pending_kind = zr_fix2long(zr_ary_at(left, 2))
+    Task[t].pending_home = Machine.ptr(zr_fix2long(zr_ary_at(left, 3)))
+    Task[t].pending_site = zr_fix2long(zr_ary_at(left, 4))
     true
   end
 
@@ -222,13 +242,13 @@ module Zr::Kern
   def zr_ffi_park
     t = zr_task()
     left = zr_ary_new(5)
-    zr_ary_push(left, Task.pending(t))
-    zr_ary_push(left, Task.throw_tag(t))
-    zr_ary_push(left, zr_fix(Task.pending_kind(t)))
-    zr_ary_push(left, zr_fix(Machine.word(Task.pending_home(t))))
-    zr_ary_push(left, zr_fix(Task.pending_site(t)))
-    Task.set_pending(t, Machine.value(QNIL))
-    Task.set_throw_tag(t, Machine.value(QNIL))
+    zr_ary_push(left, Task[t].pending)
+    zr_ary_push(left, Task[t].throw_tag)
+    zr_ary_push(left, zr_fix(Task[t].pending_kind))
+    zr_ary_push(left, zr_fix(Machine.word(Task[t].pending_home)))
+    zr_ary_push(left, zr_fix(Task[t].pending_site))
+    Task[t].pending = Machine.value(QNIL)
+    Task[t].throw_tag = Machine.value(QNIL)
     zr_set_global(G_FFI_UNWIND, left)
   end
 
@@ -338,7 +358,7 @@ module Zr::Kern
   # after the end of `args`.
   #: (value, ptr) -> void
   def zr_c_words(args, words)
-    n = RArray.len(args)
+    n = RArray[args].len
     i = 0
     while i < 8
       w = 0

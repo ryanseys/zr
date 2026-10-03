@@ -133,8 +133,9 @@ class MachineHostTest < Minitest::Test
     assert_equal [:v], rooted.fetch("walk")
   end
 
-  # Each layout of the kernel has the offsets and size that the lowering
-  # gives it.
+  # Each layout class of the kernel has the lowering's size, a reader for
+  # each field, and a writer for each field that is not an embedded
+  # layout.
   def test_each_kernel_layout_is_the_lowerings
     files = Zr::RuntimeSources.for(Zr::Target::AARCH64_DARWIN).kernel_files
     unit = Zr::Machine::Lower.new(files.map { |f| [File.read(f), f] }, Zr::Machine::Symbols.new).tap(&:run)
@@ -146,8 +147,11 @@ class MachineHostTest < Minitest::Test
       lowered = unit.struct_for(name)
       hosted = kern.const_get(name)
 
-      assert_equal lowered.size, hosted.layout_size, name
-      assert_equal lowered.fields.transform_values(&:first), hosted.layout_fields.transform_values(&:first), name
+      assert_equal lowered.size, hosted.size, name
+      lowered.fields.each do |field, (_, type)|
+        assert hosted.method_defined?(field), "#{name}##{field}"
+        assert_equal !unit.struct_for(type), hosted.method_defined?(:"#{field}="), "#{name}##{field}="
+      end
     end
   end
 
@@ -155,7 +159,7 @@ class MachineHostTest < Minitest::Test
   # (test/unit/machine_test.rb), and exits 0: the kernel subset means the
   # same on both. switch.rb calls the raw zr_switch, which only a binary
   # has.
-  RUN = <<~RUBY
+  RUN = <<~RUBY.freeze
     require #{File.join(ROOT, "lib/zr/machine/host").dump}
     Zr::Machine::Host.new([ARGV[0]]).call(:main, 0, 0)
   RUBY

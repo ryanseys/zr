@@ -1,6 +1,5 @@
 module Zr::Kern
   # Linux signals: the number of signals, and the layout of sigaction.
-  Libc.import :sigaction, [I32, Ptr, Ptr] => I32
 
   # musl numbers its signals 1 to 64, the real-time ones included.
   NSIG = 65

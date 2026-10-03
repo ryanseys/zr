@@ -1,6 +1,11 @@
 module Zr::Kern
   # Strings: a length, a capacity, and a buffer outside the arena.
-  RString = layout basic: RBasic, len: Word, capa: Word, ptr: Ptr
+  class RString < Layout
+    attr_reader :basic #: RBasic
+    attr_accessor :len #: word
+    attr_accessor :capa #: word
+    attr_accessor :ptr #: ptr
+  end
 
   # A String whose bytes are in its own cell, after the header, with as
   # many bytes as the cell has room for, plus a NUL. A longer String keeps
@@ -12,7 +17,7 @@ module Zr::Kern
 
   #: (value) -> bool
   def zr_str_embedded_p(s)
-    (RBasic.flags(s) & FL_EMBED) != 0
+    (RBasic[s].flags & FL_EMBED) != 0
   end
 
   # Returns the number of bytes that the cell of `s` has room for, not
@@ -36,13 +41,13 @@ module Zr::Kern
   #: (value, word) -> void
   def zr_str_buf_new(s, n)
     if n <= zr_str_embed_capa(s)
-      RString.set_ptr(s, Machine.ptr(s) + RString.size)
-      RString.set_capa(s, zr_str_embed_capa(s))
-      RBasic.set_flags(s, (RBasic.flags(s) | FL_EMBED) & FL_GAP_CLEAR)
+      RString[s].ptr = Machine.ptr(s) + RString.size
+      RString[s].capa = zr_str_embed_capa(s)
+      RBasic[s].flags = (RBasic[s].flags | FL_EMBED) & FL_GAP_CLEAR
     else
-      RString.set_ptr(s, zr_xmalloc(n + 1))
-      RString.set_capa(s, n)
-      RBasic.set_flags(s, RBasic.flags(s) & FL_EMBED_CLEAR & FL_GAP_CLEAR)
+      RString[s].ptr = zr_xmalloc(n + 1)
+      RString[s].capa = n
+      RBasic[s].flags = RBasic[s].flags & FL_EMBED_CLEAR & FL_GAP_CLEAR
     end
   end
 
@@ -56,7 +61,7 @@ module Zr::Kern
 
   #: (value) -> word
   def zr_str_gap(s)
-    (RBasic.flags(s) >> FL_GAP_SHIFT) & FL_GAP_MAX
+    (RBasic[s].flags >> FL_GAP_SHIFT) & FL_GAP_MAX
   end
 
   # Frees the buffer when it is malloc'd. The tail of the cell is freed
@@ -65,7 +70,7 @@ module Zr::Kern
   def zr_str_buf_free(s)
     if !zr_str_embedded_p(s)
       gap = zr_str_gap(s)
-      zr_sized_xfree(RString.ptr(s) - gap, RString.capa(s) + gap + 1)
+      zr_sized_xfree(RString[s].ptr - gap, RString[s].capa + gap + 1)
     end
   end
 
@@ -73,7 +78,7 @@ module Zr::Kern
   # grows leaves the cell, and after that it doubles each time.
   #: (value, word) -> void
   def zr_str_reserve(s, n)
-    if n > RString.capa(s)
+    if n > RString[s].capa
       zr_str_grow(s, n)
     end
   end
@@ -82,18 +87,17 @@ module Zr::Kern
 
   #: (value, word) -> void
   def zr_str_grow(s, n)
-    capa = RString.capa(s) * 2
+    capa = RString[s].capa * 2
     if capa < n
       capa = n
     end
     p = zr_xmalloc(capa + 1)
-    zr_memcpy(p, RString.ptr(s), RString.len(s))
+    zr_memcpy(p, RString[s].ptr, RString[s].len)
     zr_str_buf_free(s)
-    RString.set_ptr(s, p)
-    RString.set_capa(s, capa)
-    RBasic.set_flags(s, RBasic.flags(s) & FL_EMBED_CLEAR & FL_GAP_CLEAR)
+    RString[s].ptr = p
+    RString[s].capa = capa
+    RBasic[s].flags = RBasic[s].flags & FL_EMBED_CLEAR & FL_GAP_CLEAR
   end
-
 
   # A String whose bytes a scan found all below 0x80, which CRuby calls the
   # 7-bit coderange. Each write to the bytes clears it, so the runtime scans
@@ -124,18 +128,18 @@ module Zr::Kern
   # The bytes of `s` changed, so the scan results for them are not valid.
   #: (value) -> void
   def zr_str_modified(s)
-    RBasic.set_flags(s, RBasic.flags(s) & FL_SCANS_CLEAR)
+    RBasic[s].flags = RBasic[s].flags & FL_SCANS_CLEAR
   end
 
   # Whether `s` did not change since MatchData.snapshot last copied it.
   #: (value) -> value
   def zr_str_snapshot_p(s)
-    zr_bool((RBasic.flags(s) & FL_SNAPSHOT) != 0)
+    zr_bool((RBasic[s].flags & FL_SNAPSHOT) != 0)
   end
 
   #: (value) -> value
   def zr_str_snapshot_set(s)
-    RBasic.set_flags(s, RBasic.flags(s) | FL_SNAPSHOT)
+    RBasic[s].flags = RBasic[s].flags | FL_SNAPSHOT
     s
   end
 
@@ -143,9 +147,9 @@ module Zr::Kern
   def zr_str_new(bytes, len)
     s = zr_alloc(T_STRING, zr_global(G_STRING), zr_str_cell_bytes(len))
     zr_str_buf_new(s, len)
-    zr_memcpy(RString.ptr(s), bytes, len)
-    Machine.store8(RString.ptr(s) + len, 0, Machine.i8(0))
-    RString.set_len(s, len)
+    zr_memcpy(RString[s].ptr, bytes, len)
+    Machine.store8(RString[s].ptr + len, 0, Machine.i8(0))
+    RString[s].len = len
     s
   end
 
@@ -176,12 +180,12 @@ module Zr::Kern
     if Machine.word(recv) == Machine.word(src)
       return
     end
-    n = RString.len(src)
+    n = RString[src].len
     zr_str_buf_free(recv)
     zr_str_buf_new(recv, n)
-    zr_memcpy(RString.ptr(recv), RString.ptr(src), n)
-    Machine.store8(RString.ptr(recv) + n, 0, Machine.i8(0))
-    RString.set_len(recv, n)
+    zr_memcpy(RString[recv].ptr, RString[src].ptr, n)
+    Machine.store8(RString[recv].ptr + n, 0, Machine.i8(0))
+    RString[recv].len = n
   end
 
   #: (value, word, ptr, value, value) -> value
@@ -195,7 +199,7 @@ module Zr::Kern
   #: (value, word, ptr, value, value) -> value
   def zr_str_to_s(recv, argc, argv, cref, blk)
     if zr_real_class(recv) != zr_global(G_STRING)
-      return zr_str_new(RString.ptr(recv), RString.len(recv))
+      return zr_str_new(RString[recv].ptr, RString[recv].len)
     end
     recv
   end
@@ -207,7 +211,7 @@ module Zr::Kern
     if zr_special_p(v)
       return true
     end
-    (RBasic.flags(v) & FL_FREEZE) != 0
+    (RBasic[v].flags & FL_FREEZE) != 0
   end
 
   # Raises `can't modify frozen String: "abc"`.
@@ -279,19 +283,19 @@ module Zr::Kern
   # Returns the encoding of `s`: ruby's own index into `Encoding.list`.
   #: (value) -> word
   def zr_str_encoding_index(s)
-    i = (RBasic.flags(s) >> FL_ENC_SHIFT) & 255
+    i = (RBasic[s].flags >> FL_ENC_SHIFT) & 255
     i < 2 ? 1 - i : i
   end
 
   #: (value, word) -> value
   def zr_str_set_index(s, index)
     i = index < 2 ? 1 - index : index
-    flags = (RBasic.flags(s) & FL_ENC_KEEP & (0 - FL_VALID - 1)) | (i << FL_ENC_SHIFT)
+    flags = (RBasic[s].flags & FL_ENC_KEEP & (0 - FL_VALID - 1)) | (i << FL_ENC_SHIFT)
     # ASCII bytes are not ASCII text in UTF-16 or UTF-32.
     if !zr_enc_ascii_compat_p(index)
       flags = flags & FL_ASCII_CLEAR
     end
-    RBasic.set_flags(s, flags)
+    RBasic[s].flags = flags
     s
   end
   # Each append sets the receiver's encoding again.
@@ -326,11 +330,11 @@ module Zr::Kern
   # character that the text ends in the middle of.
   #: (value, word) -> word
   def zr_str_mb_len(s, off)
-    p = RString.ptr(s) + off
+    p = RString[s].ptr + off
     if Machine.u8(Machine.load8(p, 0)) < 128
       return 1
     end
-    n = zr_onig_precise_len(zr_enc_mb_descriptor(zr_str_encoding_index(s)), p, RString.ptr(s) + RString.len(s))
+    n = zr_onig_precise_len(zr_enc_mb_descriptor(zr_str_encoding_index(s)), p, RString[s].ptr + RString[s].len)
     n > 0 ? n : 0
   end
 
@@ -339,14 +343,14 @@ module Zr::Kern
   # character, or less than -1 when the bytes stop inside a character.
   #: (value, value, value) -> value
   def zr_str_mb_precise_len_m(s, from, to)
-    p = RString.ptr(s)
+    p = RString[s].ptr
     zr_fix(zr_onig_precise_len(zr_enc_mb_descriptor(zr_str_encoding_index(s)), p + zr_fix2long(from), p + zr_fix2long(to)))
   end
 
   # rb_enc_mbmaxlen of the encoding of a multibyte String.
   #: (value) -> value
   def zr_str_mb_max_len_m(s)
-    zr_fix(OnigEnc.max_len(Machine.ptr(zr_enc_mb_descriptor(zr_str_encoding_index(s)))))
+    zr_fix(OnigEnc[Machine.ptr(zr_enc_mb_descriptor(zr_str_encoding_index(s)))].max_len)
   end
 
   # Raises the error for a String whose bytes make no character. Encoding
@@ -402,7 +406,7 @@ module Zr::Kern
   # coderange that it copies from another String.
   #: (value) -> value
   def zr_str_mark_valid_m(s)
-    RBasic.set_flags(s, RBasic.flags(s) | FL_VALID)
+    RBasic[s].flags = RBasic[s].flags | FL_VALID
     s
   end
 
@@ -415,7 +419,7 @@ module Zr::Kern
     k = 0
     while k < unit
       at = big ? k : unit - 1 - k
-      v = (v << 8) | Machine.u8(Machine.load8(RString.ptr(s) + off + at, 0))
+      v = (v << 8) | Machine.u8(Machine.load8(RString[s].ptr + off + at, 0))
       k += 1
     end
     v
@@ -426,7 +430,7 @@ module Zr::Kern
   # remaining bytes when they are fewer.
   #: (value, word, word) -> word
   def zr_unit_char_len(s, off, unit)
-    rest = RString.len(s) - off
+    rest = RString[s].len - off
     if rest < unit
       return rest
     end
@@ -487,8 +491,8 @@ module Zr::Kern
     if zr_modify_frozen_p(s)
       return zr_frozen_error(s)
     end
-    RString.set_len(s, 0)
-    Machine.store8(RString.ptr(s), 0, Machine.i8(0))
+    RString[s].len = 0
+    Machine.store8(RString[s].ptr, 0, Machine.i8(0))
     zr_str_modified(s)
     s
   end
@@ -543,7 +547,7 @@ module Zr::Kern
   # The same for a String piece. An empty piece does not change the encoding.
   #: (word, bool, word, value) -> word
   def zr_enc_append_str(index, ascii, len, s)
-    if RString.len(s) == 0 || zr_str_encoding_index(s) == index
+    if RString[s].len == 0 || zr_str_encoding_index(s) == index
       return index
     end
     zr_enc_append(index, ascii, len, zr_str_encoding_index(s), zr_str_ascii_bytes_p(s))
@@ -557,10 +561,10 @@ module Zr::Kern
   #: (value, value) -> word
   def zr_str_join_index(a, b)
     ia = zr_str_encoding_index(a)
-    if ia == zr_str_encoding_index(b) || RString.len(b) == 0
+    if ia == zr_str_encoding_index(b) || RString[b].len == 0
       return ia
     end
-    if RString.len(a) == 0
+    if RString[a].len == 0
       return zr_enc_ascii_compat_p(ia) && zr_str_ascii_bytes_p(b) ? ia : zr_str_encoding_index(b)
     end
     zr_str_ascii_bytes_p(b) ? ia : zr_str_encoding_index(b)
@@ -575,7 +579,7 @@ module Zr::Kern
   def zr_str_join_incompatible_p(a, b)
     ia = zr_str_encoding_index(a)
     ib = zr_str_encoding_index(b)
-    if ia == ib || RString.len(a) == 0 || RString.len(b) == 0
+    if ia == ib || RString[a].len == 0 || RString[b].len == 0
       return false
     end
     if !zr_enc_ascii_compat_p(ia) || !zr_enc_ascii_compat_p(ib)
@@ -600,7 +604,7 @@ module Zr::Kern
   # result in FL_ASCII under FL_SCANNED, for both results.
   #: (value) -> bool
   def zr_str_ascii_bytes_p(s)
-    flags = RBasic.flags(s)
+    flags = RBasic[s].flags
     if (flags & FL_ASCII) != 0
       return true
     end
@@ -610,8 +614,8 @@ module Zr::Kern
     if !zr_enc_ascii_compat_p(zr_str_encoding_index(s))
       return false
     end
-    n = RString.len(s)
-    p = RString.ptr(s)
+    n = RString[s].len
+    p = RString[s].ptr
     i = 0
     # Eight bytes at a time: one of them has its high bit set, or none has.
     while i + 8 <= n && (Machine.load64(p + i, 0) & Machine.word(0x8080808080808080)) == 0
@@ -621,10 +625,10 @@ module Zr::Kern
       i += 1
     end
     if i < n
-      RBasic.set_flags(s, flags | FL_SCANNED)
+      RBasic[s].flags = flags | FL_SCANNED
       return false
     end
-    RBasic.set_flags(s, flags | FL_SCANNED | FL_ASCII)
+    RBasic[s].flags = flags | FL_SCANNED | FL_ASCII
     true
   end
 
@@ -653,10 +657,10 @@ module Zr::Kern
       return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("negative argument"), 17)
     end
     # Checks the size of the copies before it makes any of them.
-    if n != 0 && (9223372036854775807 / n) < RString.len(recv)
+    if n != 0 && (9223372036854775807 / n) < RString[recv].len
       return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("argument too big"), 16)
     end
-    total = n * RString.len(recv)
+    total = n * RString[recv].len
     # A size no allocator can supply is a NoMemoryError the program can
     # rescue, not the end of the process. Only a large one is tried.
     if total > 268435456 && zr_memory_for_p(zr_fix(total)) == QFALSE
@@ -668,11 +672,11 @@ module Zr::Kern
       # As rb_str_times: one copy, then the copied bytes again until the
       # whole length, so the copies number the log of `n`, not `n`.
       zr_buf_str(b, recv)
-      zr_buf_reserve(b, total - Buf.len(b))
-      while Buf.len(b) < total
-        chunk = Buf.len(b) <= total - Buf.len(b) ? Buf.len(b) : total - Buf.len(b)
-        zr_memcpy(Buf.ptr(b) + Buf.len(b), Buf.ptr(b), chunk)
-        Buf.set_len(b, Buf.len(b) + chunk)
+      zr_buf_reserve(b, total - Buf[b].len)
+      while Buf[b].len < total
+        chunk = Buf[b].len <= total - Buf[b].len ? Buf[b].len : total - Buf[b].len
+        zr_memcpy(Buf[b].ptr + Buf[b].len, Buf[b].ptr, chunk)
+        Buf[b].len = Buf[b].len + chunk
       end
     end
     zr_str_copy_encoding(zr_buf_take(b), recv)
@@ -735,12 +739,12 @@ module Zr::Kern
     # because zr_str_join_index returns the receiver's own encoding for a
     # piece in that encoding.
     if c < 128 || !zr_str_wide_p(recv)
-      n = RString.len(recv) + 1
+      n = RString[recv].len + 1
       zr_str_reserve(recv, n)
-      Machine.store8(RString.ptr(recv) + n - 1, 0, Machine.i8(c))
-      RString.set_len(recv, n)
-      Machine.store8(RString.ptr(recv) + n, 0, Machine.i8(0))
-      if c >= 128 || (RBasic.flags(recv) & FL_ASCII) == 0
+      Machine.store8(RString[recv].ptr + n - 1, 0, Machine.i8(c))
+      RString[recv].len = n
+      Machine.store8(RString[recv].ptr + n, 0, Machine.i8(0))
+      if c >= 128 || (RBasic[recv].flags & FL_ASCII) == 0
         zr_str_modified(recv)
       end
       return recv
@@ -770,11 +774,11 @@ module Zr::Kern
   # The write buffer of an IO takes text as bytes.
   #: (value, value) -> value
   def zr_str_cat_bytes(recv, other)
-    n = RString.len(recv) + RString.len(other)
+    n = RString[recv].len + RString[other].len
     zr_str_reserve(recv, n)
-    zr_memcpy(RString.ptr(recv) + RString.len(recv), RString.ptr(other), RString.len(other))
-    RString.set_len(recv, n)
-    Machine.store8(RString.ptr(recv) + n, 0, Machine.i8(0))
+    zr_memcpy(RString[recv].ptr + RString[recv].len, RString[other].ptr, RString[other].len)
+    RString[recv].len = n
+    Machine.store8(RString[recv].ptr + n, 0, Machine.i8(0))
     zr_str_modified(recv)
     recv
   end
@@ -785,11 +789,11 @@ module Zr::Kern
   #: (value, value, value, value) -> value
   def zr_str_cat_range(recv, other, from, len)
     count = zr_fix2long(len)
-    n = RString.len(recv) + count
+    n = RString[recv].len + count
     zr_str_reserve(recv, n)
-    zr_memcpy(RString.ptr(recv) + RString.len(recv), RString.ptr(other) + zr_fix2long(from), count)
-    RString.set_len(recv, n)
-    Machine.store8(RString.ptr(recv) + n, 0, Machine.i8(0))
+    zr_memcpy(RString[recv].ptr + RString[recv].len, RString[other].ptr + zr_fix2long(from), count)
+    RString[recv].len = n
+    Machine.store8(RString[recv].ptr + n, 0, Machine.i8(0))
     zr_str_modified(recv)
     recv
   end
@@ -809,15 +813,15 @@ module Zr::Kern
     count = zr_fix2long(n)
     width = zr_fix2long(size)
     i = 0
-    while i < count && zr_fixnum_p(Machine.value(Machine.load64(RArray.ptr(items) + ((from + i) * 8), 0)))
+    while i < count && zr_fixnum_p(Machine.value(Machine.load64(RArray[items].ptr + ((from + i) * 8), 0)))
       i += 1
     end
-    len = RString.len(out)
+    len = RString[out].len
     zr_str_reserve(out, len + (i * width))
-    p = RString.ptr(out) + len
+    p = RString[out].ptr + len
     j = 0
     while j < i
-      v = zr_fix2long(Machine.value(Machine.load64(RArray.ptr(items) + ((from + j) * 8), 0)))
+      v = zr_fix2long(Machine.value(Machine.load64(RArray[items].ptr + ((from + j) * 8), 0)))
       k = 0
       while k < width
         if big == QTRUE
@@ -831,8 +835,8 @@ module Zr::Kern
       p += width
       j += 1
     end
-    RString.set_len(out, len + (i * width))
-    Machine.store8(RString.ptr(out) + RString.len(out), 0, Machine.i8(0))
+    RString[out].len = len + (i * width)
+    Machine.store8(RString[out].ptr + RString[out].len, 0, Machine.i8(0))
     zr_str_modified(out)
     zr_fix(i)
   end
@@ -849,10 +853,10 @@ module Zr::Kern
     i = 0
     while i < count
       start = from + (i * width)
-      if start + width > RString.len(bytes)
+      if start + width > RString[bytes].len
         zr_ary_push(out, Machine.value(QNIL))
       else
-        p = RString.ptr(bytes) + start
+        p = RString[bytes].ptr + start
         v = 0
         k = 0
         while k < width
@@ -905,12 +909,12 @@ module Zr::Kern
     # piece when the receiver is known ASCII: a scan of the piece costs the
     # same as its copy, and without the flag the next join scans all of the
     # receiver.
-    ascii = (RBasic.flags(recv) & FL_ASCII) != 0 && zr_str_ascii_bytes_p(other)
-    n = RString.len(recv) + RString.len(other)
+    ascii = (RBasic[recv].flags & FL_ASCII) != 0 && zr_str_ascii_bytes_p(other)
+    n = RString[recv].len + RString[other].len
     zr_str_reserve(recv, n)
-    zr_memcpy(RString.ptr(recv) + RString.len(recv), RString.ptr(other), RString.len(other))
-    RString.set_len(recv, n)
-    Machine.store8(RString.ptr(recv) + n, 0, Machine.i8(0))
+    zr_memcpy(RString[recv].ptr + RString[recv].len, RString[other].ptr, RString[other].len)
+    RString[recv].len = n
+    Machine.store8(RString[recv].ptr + n, 0, Machine.i8(0))
     if !ascii
       zr_str_modified(recv)
     end
@@ -981,7 +985,7 @@ module Zr::Kern
     if zr_special_p(other) || zr_type(other) != T_STRING
       return zr_str_cmp_other(recv, other)
     end
-    r = zr_bytes_cmp(RString.ptr(recv), RString.len(recv), RString.ptr(other), RString.len(other))
+    r = zr_bytes_cmp(RString[recv].ptr, RString[recv].len, RString[other].ptr, RString[other].len)
     if r != 0 || zr_str_comparable(recv, other)
       return zr_fix(r)
     end
@@ -1033,7 +1037,7 @@ module Zr::Kern
   # are all ASCII.
   #: (value, value) -> bool
   def zr_str_comparable(a, b)
-    zr_str_encoding_index(a) == zr_str_encoding_index(b) || RString.len(a) == 0 || RString.len(b) == 0 || (zr_str_ascii_only(a) && zr_str_ascii_only(b))
+    zr_str_encoding_index(a) == zr_str_encoding_index(b) || RString[a].len == 0 || RString[b].len == 0 || (zr_str_ascii_only(a) && zr_str_ascii_only(b))
   end
 
   # Same as `zr_str_ascii_bytes_p`, under the name that the rest of the
@@ -1058,7 +1062,7 @@ module Zr::Kern
     if zr_special_p(other) || zr_type(other) != T_STRING
       return Machine.value(QFALSE)
     end
-    zr_bool(zr_bytes_eq(RString.ptr(recv), RString.len(recv), RString.ptr(other), RString.len(other)) && zr_str_comparable(recv, other))
+    zr_bool(zr_bytes_eq(RString[recv].ptr, RString[recv].len, RString[other].ptr, RString[other].len) && zr_str_comparable(recv, other))
   end
 
   # `String#==`: compares another String by its bytes. For any other value
@@ -1092,9 +1096,9 @@ module Zr::Kern
   # one. A MatchData keeps this copy of the text it matched.
   #: (value) -> value
   def zr_str_new_frozen_m(s)
-    copy = zr_str_copy_encoding(zr_str_new(RString.ptr(s), RString.len(s)), s)
-    RBasic.set_klass(copy, zr_real_class(s))
-    RBasic.set_flags(copy, RBasic.flags(copy) | FL_FREEZE)
+    copy = zr_str_copy_encoding(zr_str_new(RString[s].ptr, RString[s].len), s)
+    RBasic[copy].klass = zr_real_class(s)
+    RBasic[copy].flags = RBasic[copy].flags | FL_FREEZE
     copy
   end
 
@@ -1109,15 +1113,15 @@ module Zr::Kern
   #: (value) -> bool
   def zr_str_bytes_are_chars(s)
     if zr_str_unit(s) != 0
-      return RString.len(s) == 0
+      return RString[s].len == 0
     end
     if !zr_str_wide_p(s) && !zr_str_mb_p(s)
       return true
     end
-    n = RString.len(s)
+    n = RString[s].len
     i = 0
     while i < n
-      if Machine.u8(Machine.load8(RString.ptr(s) + i, 0)) >= 128
+      if Machine.u8(Machine.load8(RString[s].ptr + i, 0)) >= 128
         return false
       end
       i += 1
@@ -1135,7 +1139,7 @@ module Zr::Kern
   #: (value, word) -> word
   def zr_str_char_len_at(s, off)
     # Only the flag, never a scan, because this runs once for each character.
-    if (RBasic.flags(s) & FL_ASCII) != 0
+    if (RBasic[s].flags & FL_ASCII) != 0
       return 1
     end
     if !zr_str_wide_p(s)
@@ -1149,22 +1153,22 @@ module Zr::Kern
       end
       return 1
     end
-    len = zr_utf8_char_len(RString.ptr(s) + off, RString.len(s) - off)
+    len = zr_utf8_char_len(RString[s].ptr + off, RString[s].len - off)
     len == 0 ? 1 : len
   end
 
   #: (value) -> word
   def zr_str_char_count(s)
-    n = RString.len(s)
+    n = RString[s].len
     # A scan that found the bytes ASCII gives the result first, with one
     # flag check.
-    if (RBasic.flags(s) & FL_ASCII) != 0 || (!zr_str_wide_p(s) && zr_str_unit(s) == 0 && !zr_str_mb_p(s)) || zr_str_ascii_bytes_p(s)
+    if (RBasic[s].flags & FL_ASCII) != 0 || (!zr_str_wide_p(s) && zr_str_unit(s) == 0 && !zr_str_mb_p(s)) || zr_str_ascii_bytes_p(s)
       return n
     end
     # Valid UTF-8 is counted eight bytes at a time. One scan decides that it
     # is valid, and the flag then keeps that result.
     if zr_str_encoding_index(s) == ENC_UTF8 && zr_str_valid_p(s) == QTRUE
-      return zr_utf8_char_count(RString.ptr(s), n)
+      return zr_utf8_char_count(RString[s].ptr, n)
     end
     count = 0
     i = 0
@@ -1230,9 +1234,9 @@ module Zr::Kern
   # from the end). The character count maps to the end. Past that, -1.
   #: (value, word) -> word
   def zr_str_char_offset(s, index)
-    n = RString.len(s)
+    n = RString[s].len
     # One byte for each character: the index is the offset.
-    if (RBasic.flags(s) & FL_ASCII) != 0 || (!zr_str_wide_p(s) && zr_str_unit(s) == 0 && !zr_str_mb_p(s)) || zr_str_ascii_bytes_p(s)
+    if (RBasic[s].flags & FL_ASCII) != 0 || (!zr_str_wide_p(s) && zr_str_unit(s) == 0 && !zr_str_mb_p(s)) || zr_str_ascii_bytes_p(s)
       if index < 0
         index += n
       end
@@ -1248,7 +1252,7 @@ module Zr::Kern
       end
     end
     if zr_str_encoding_index(s) == ENC_UTF8 && zr_str_valid_p(s) == QTRUE
-      return zr_utf8_char_offset(RString.ptr(s), n, index)
+      return zr_utf8_char_offset(RString[s].ptr, n, index)
     end
     i = 0
     while index > 0
@@ -1272,11 +1276,11 @@ module Zr::Kern
   def zr_str_byte_to_char(s, off)
     stop = zr_fix2long(off)
     # One byte for each character: the offset is the index.
-    if (RBasic.flags(s) & FL_ASCII) != 0 || (!zr_str_wide_p(s) && zr_str_unit(s) == 0 && !zr_str_mb_p(s)) || zr_str_ascii_bytes_p(s)
+    if (RBasic[s].flags & FL_ASCII) != 0 || (!zr_str_wide_p(s) && zr_str_unit(s) == 0 && !zr_str_mb_p(s)) || zr_str_ascii_bytes_p(s)
       return off
     end
-    if zr_str_encoding_index(s) == ENC_UTF8 && zr_str_valid_p(s) == QTRUE && stop <= RString.len(s)
-      return zr_fix(zr_utf8_char_count(RString.ptr(s), stop))
+    if zr_str_encoding_index(s) == ENC_UTF8 && zr_str_valid_p(s) == QTRUE && stop <= RString[s].len
+      return zr_fix(zr_utf8_char_count(RString[s].ptr, stop))
     end
     i = 0
     count = 0
@@ -1299,12 +1303,12 @@ module Zr::Kern
       return Machine.value(QNIL)
     end
     to = from
-    n = RString.len(s)
+    n = RString[s].len
     while count > 0 && to < n
       to += zr_str_char_len_at(s, to)
       count -= 1
     end
-    zr_str_copy_encoding(zr_str_new(RString.ptr(s) + from, to - from), s)
+    zr_str_copy_encoding(zr_str_new(RString[s].ptr + from, to - from), s)
   end
 
   #: (value, value) -> value
@@ -1331,7 +1335,7 @@ module Zr::Kern
   # Returns the code point of the first character.
   #: (value) -> value
   def zr_str_ord(s)
-    if RString.len(s) == 0
+    if RString[s].len == 0
       return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("empty string"), 12)
     end
     zr_str_ord_at(s, 0)
@@ -1346,7 +1350,7 @@ module Zr::Kern
 
   #: (value, word) -> value
   def zr_str_ord_at(s, off)
-    n = RString.len(s) - off
+    n = RString[s].len - off
     unit = zr_str_unit(s)
     if unit != 0
       width = zr_unit_char_len(s, off, unit)
@@ -1359,7 +1363,7 @@ module Zr::Kern
       end
       return zr_fix(zr_unit_point(s, off, width, unit))
     end
-    p = RString.ptr(s) + off
+    p = RString[s].ptr + off
     c = Machine.u8(Machine.load8(p, 0))
     # In a multibyte encoding, the number of a character is the number that
     # its bytes give, as rb_enc_codepoint does: EUC-JP's A4 A2 is 42146.
@@ -1401,13 +1405,13 @@ module Zr::Kern
   def zr_str_valid_p(s)
     # Plain ASCII is valid in each encoding that can hold it, and the
     # ASCII scan's result also carries over to slices (zr_str_piece).
-    if (RBasic.flags(s) & FL_VALID) != 0 || zr_str_ascii_bytes_p(s)
-      RBasic.set_flags(s, RBasic.flags(s) | FL_VALID)
+    if (RBasic[s].flags & FL_VALID) != 0 || zr_str_ascii_bytes_p(s)
+      RBasic[s].flags = RBasic[s].flags | FL_VALID
       return Machine.value(QTRUE)
     end
     valid = zr_str_valid_scan(s)
     if valid == QTRUE
-      RBasic.set_flags(s, RBasic.flags(s) | FL_VALID)
+      RBasic[s].flags = RBasic[s].flags | FL_VALID
     end
     valid
   end
@@ -1420,7 +1424,7 @@ module Zr::Kern
     unit = zr_str_unit(s)
     if unit != 0
       at = 0
-      while at < RString.len(s)
+      while at < RString[s].len
         width = zr_unit_char_len(s, at, unit)
         if !zr_unit_char_valid_p(s, at, width, unit)
           return Machine.value(QFALSE)
@@ -1430,7 +1434,7 @@ module Zr::Kern
       return Machine.value(QTRUE)
     end
     if zr_str_mb_p(s)
-      stop = RString.len(s)
+      stop = RString[s].len
       at = 0
       while at < stop
         width = zr_str_mb_len(s, at)
@@ -1444,15 +1448,15 @@ module Zr::Kern
     if !zr_str_wide_p(s)
       return Machine.value(QTRUE)
     end
-    n = RString.len(s)
+    n = RString[s].len
     i = 0
     while i < n
       # A run of ASCII, eight bytes at a time, is valid as it is.
-      while i + 8 <= n && (Machine.load64(RString.ptr(s) + i, 0) & Machine.word(0x8080808080808080)) == 0
+      while i + 8 <= n && (Machine.load64(RString[s].ptr + i, 0) & Machine.word(0x8080808080808080)) == 0
         i += 8
       end
       if i < n
-        if Machine.u8(Machine.load8(RString.ptr(s) + i, 0)) >= 128 && zr_utf8_char_len(RString.ptr(s) + i, n - i) == 0
+        if Machine.u8(Machine.load8(RString[s].ptr + i, 0)) >= 128 && zr_utf8_char_len(RString[s].ptr + i, n - i) == 0
           return Machine.value(QFALSE)
         end
         i += zr_str_char_len_at(s, i)
@@ -1482,12 +1486,12 @@ module Zr::Kern
   def zr_str_map_case(s, how)
     r = zr_non_ascii_stop(s, Machine.bytes("upcase, downcase or capitalize"), 30)
     return r if r == QUNDEF
-    n = RString.len(s)
+    n = RString[s].len
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
     i = 0
     while i < n
-      c = Machine.u8(Machine.load8(RString.ptr(s) + i, 0))
+      c = Machine.u8(Machine.load8(RString[s].ptr + i, 0))
       up = how == 1 || (how == 3 && i == 0)
       if up && c >= 97 && c <= 122
         c -= 32
@@ -1527,12 +1531,12 @@ module Zr::Kern
     # The code finds the characters from the front, where they start, and
     # puts each one in its place from the back. An invalid byte is one
     # character.
-    n = RString.len(recv)
-    out = zr_str_new(RString.ptr(recv), n)
+    n = RString[recv].len
+    out = zr_str_new(RString[recv].ptr, n)
     i = 0
     while i < n
       len = zr_str_char_len_at(recv, i)
-      zr_memmove(RString.ptr(out) + n - i - len, RString.ptr(recv) + i, len)
+      zr_memmove(RString[out].ptr + n - i - len, RString[recv].ptr + i, len)
       i += len
     end
     zr_str_copy_encoding(out, recv)
@@ -1546,10 +1550,8 @@ module Zr::Kern
     if zr_str_valid_p(needle) == QFALSE
       return 0 - 1
     end
-    zr_bytes_find(RString.ptr(hay), RString.len(hay), RString.ptr(needle), RString.len(needle), from)
+    zr_bytes_find(RString[hay].ptr, RString[hay].len, RString[needle].ptr, RString[needle].len, from)
   end
-
-  Libc.import :memmem, [Ptr, Word, Ptr, Word] => Ptr
 
   # Returns the offset of the `m` bytes at `needle` in the `n` bytes at
   # `hay`, at or after byte `from`, or -1. An empty needle is found at
@@ -1578,27 +1580,27 @@ module Zr::Kern
   #: (value, value, value) -> value
   def zr_str_split_by(s, sep, limit_v)
     limit = zr_fix2long(limit_v)
-    n = RString.len(s)
-    m = RString.len(sep)
+    n = RString[s].len
+    m = RString[sep].len
     out = zr_ary_new(8)
     beg = 0
     pieces = 1
     while limit <= 0 || pieces < limit
-      i = zr_bytes_find(RString.ptr(s), n, RString.ptr(sep), m, beg)
+      i = zr_bytes_find(RString[s].ptr, n, RString[sep].ptr, m, beg)
       if i < 0
         break
       end
-      zr_ary_push(out, zr_str_copy_encoding(zr_str_new(RString.ptr(s) + beg, i - beg), s))
+      zr_ary_push(out, zr_str_copy_encoding(zr_str_new(RString[s].ptr + beg, i - beg), s))
       beg = i + m
       pieces += 1
     end
     if n > 0 && (limit != 0 || n > beg)
-      zr_ary_push(out, zr_str_copy_encoding(zr_str_new(RString.ptr(s) + beg, n - beg), s))
+      zr_ary_push(out, zr_str_copy_encoding(zr_str_new(RString[s].ptr + beg, n - beg), s))
     end
     # With no limit, the empty pieces at the end are dropped.
     if limit == 0
-      while RArray.len(out) > 0 && RString.len(zr_ary_at(out, RArray.len(out) - 1)) == 0
-        RArray.set_len(out, RArray.len(out) - 1)
+      while RArray[out].len > 0 && RString[zr_ary_at(out, RArray[out].len - 1)].len == 0
+        RArray[out].len = RArray[out].len - 1
       end
     end
     out
@@ -1610,34 +1612,34 @@ module Zr::Kern
   #: (value, value) -> value
   def zr_str_split_words(s, limit_v)
     limit = zr_fix2long(limit_v)
-    n = RString.len(s)
+    n = RString[s].len
     out = zr_ary_new(8)
     beg = 0
-    while beg < n && zr_blank_byte_p(Machine.u8(Machine.load8(RString.ptr(s) + beg, 0)))
+    while beg < n && zr_blank_byte_p(Machine.u8(Machine.load8(RString[s].ptr + beg, 0)))
       beg += 1
     end
     while beg < n
-      if limit > 0 && limit <= RArray.len(out) + 1
+      if limit > 0 && limit <= RArray[out].len + 1
         break
       end
       stop = beg
-      while stop + 8 <= n && !zr_blank_word_p(Machine.load64(RString.ptr(s) + stop, 0))
+      while stop + 8 <= n && !zr_blank_word_p(Machine.load64(RString[s].ptr + stop, 0))
         stop += 8
       end
-      while stop < n && !zr_blank_byte_p(Machine.u8(Machine.load8(RString.ptr(s) + stop, 0)))
+      while stop < n && !zr_blank_byte_p(Machine.u8(Machine.load8(RString[s].ptr + stop, 0)))
         stop += 1
       end
       if stop == n
         break
       end
-      zr_ary_push(out, zr_str_piece(s, RString.ptr(s) + beg, stop - beg))
+      zr_ary_push(out, zr_str_piece(s, RString[s].ptr + beg, stop - beg))
       beg = stop
-      while beg < n && zr_blank_byte_p(Machine.u8(Machine.load8(RString.ptr(s) + beg, 0)))
+      while beg < n && zr_blank_byte_p(Machine.u8(Machine.load8(RString[s].ptr + beg, 0)))
         beg += 1
       end
     end
     if n > 0 && (limit != 0 || n > beg)
-      zr_ary_push(out, zr_str_piece(s, RString.ptr(s) + beg, n - beg))
+      zr_ary_push(out, zr_str_piece(s, RString[s].ptr + beg, n - beg))
     end
     out
   end
@@ -1648,7 +1650,7 @@ module Zr::Kern
     if zr_special_p(sep) || zr_type(sep) != T_STRING
       return Machine.value(QFALSE)
     end
-    zr_bool(RString.len(sep) == 1 && Machine.u8(Machine.load8(RString.ptr(sep), 0)) == 32)
+    zr_bool(RString[sep].len == 1 && Machine.u8(Machine.load8(RString[sep].ptr, 0)) == 32)
   end
 
   # Whether `sep` is a String that splits by its bytes: not empty (which
@@ -1658,8 +1660,8 @@ module Zr::Kern
     if zr_special_p(sep) || zr_type(sep) != T_STRING
       return Machine.value(QFALSE)
     end
-    n = RString.len(sep)
-    zr_bool(n > 1 || (n == 1 && Machine.u8(Machine.load8(RString.ptr(sep), 0)) != 32))
+    n = RString[sep].len
+    zr_bool(n > 1 || (n == 1 && Machine.u8(Machine.load8(RString[sep].ptr, 0)) != 32))
   end
 
   # `s.to_i` in base 10 when the result is a fixnum. It reads leading
@@ -1669,8 +1671,8 @@ module Zr::Kern
   # `0d` prefix, or a number of more than 18 digits.
   #: (value) -> value
   def zr_str_to_i10(s)
-    p = RString.ptr(s)
-    n = RString.len(s)
+    p = RString[s].ptr
+    n = RString[s].len
     i = 0
     while i < n && zr_blank_byte_p(Machine.u8(Machine.load8(p + i, 0)))
       i += 1
@@ -1742,7 +1744,7 @@ module Zr::Kern
 
   #: (value, word, ptr, value, value) -> value
   def zr_str_empty_p(recv, argc, argv, cref, blk)
-    zr_bool(RString.len(recv) == 0)
+    zr_bool(RString[recv].len == 0)
   end
 
   # `to_sym`: a Symbol is its bytes and their encoding, the key that
@@ -1751,7 +1753,7 @@ module Zr::Kern
   #: (value, word, ptr, value, value) -> value
   def zr_str_to_sym(recv, argc, argv, cref, blk)
     if zr_str_ascii_bytes_p(recv)
-      return zr_sym(zr_intern(RString.ptr(recv), RString.len(recv)))
+      return zr_sym(zr_intern(RString[recv].ptr, RString[recv].len))
     end
     if zr_str_valid_p(recv) == QFALSE
       b = Machine.slot(Buf.size)
@@ -1768,8 +1770,8 @@ module Zr::Kern
       zr_buf_str(b, s)
       return zr_raise_buf(zr_core_class(Machine.id(:EncodingError)), b)
     end
-    tag = (RBasic.flags(recv) >> FL_ENC_SHIFT) & 255
-    zr_sym(zr_intern_tagged(RString.ptr(recv), RString.len(recv), tag))
+    tag = (RBasic[recv].flags >> FL_ENC_SHIFT) & 255
+    zr_sym(zr_intern_tagged(RString[recv].ptr, RString[recv].len, tag))
   end
 
   # `+str`: returns the string itself unless it is frozen or chilled.
@@ -1778,8 +1780,8 @@ module Zr::Kern
   #: (value, word, ptr, value, value) -> value
   def zr_str_uplus(recv, argc, argv, cref, blk)
     if zr_frozen_p(recv) || zr_str_chilled_p(recv)
-      copy = zr_str_copy_encoding(zr_str_new(RString.ptr(recv), RString.len(recv)), recv)
-      RBasic.set_klass(copy, zr_real_class(recv))
+      copy = zr_str_copy_encoding(zr_str_new(RString[recv].ptr, RString[recv].len), recv)
+      RBasic[copy].klass = zr_real_class(recv)
       return copy
     end
     recv
@@ -1791,14 +1793,14 @@ module Zr::Kern
   # itself, and an unfrozen one returns a frozen copy of its class.
   #: (value, word, ptr, value, value) -> value
   def zr_str_uminus(recv, argc, argv, cref, blk)
-    bare = RBasic.klass(recv) == zr_global(G_STRING) && (RBasic.flags(recv) & FL_EXIVAR) == 0
+    bare = RBasic[recv].klass == zr_global(G_STRING) && (RBasic[recv].flags & FL_EXIVAR) == 0
     if zr_frozen_p(recv)
       return bare ? zr_str_intern(recv) : recv
     end
-    copy = zr_str_copy_encoding(zr_str_new(RString.ptr(recv), RString.len(recv)), recv)
+    copy = zr_str_copy_encoding(zr_str_new(RString[recv].ptr, RString[recv].len), recv)
     if zr_real_class(recv) != zr_global(G_STRING)
-      RBasic.set_klass(copy, zr_real_class(recv))
-      RBasic.set_flags(copy, RBasic.flags(copy) | FL_FREEZE)
+      RBasic[copy].klass = zr_real_class(recv)
+      RBasic[copy].flags = RBasic[copy].flags | FL_FREEZE
       return copy
     end
     zr_str_intern(copy)
@@ -1807,12 +1809,12 @@ module Zr::Kern
   #: (value, word, ptr, value, value) -> value
   def zr_obj_freeze(recv, argc, argv, cref, blk)
     unless zr_special_p(recv)
-      RBasic.set_flags(recv, (RBasic.flags(recv) | FL_FREEZE) & (zr_type(recv) == T_STRING ? FL_CHILLED_CLEAR : 0 - 1))
+      RBasic[recv].flags = (RBasic[recv].flags | FL_FREEZE) & (zr_type(recv) == T_STRING ? FL_CHILLED_CLEAR : 0 - 1)
       # The singleton class freezes with its object, as CRuby's
       # rb_freeze_singleton_class does.
-      k = RBasic.klass(recv)
-      if zr_singleton_p(k) && RClass.attached(k) == recv
-        RBasic.set_flags(k, RBasic.flags(k) | FL_FREEZE)
+      k = RBasic[recv].klass
+      if zr_singleton_p(k) && RClass[k].attached == recv
+        RBasic[k].flags = RBasic[k].flags | FL_FREEZE
       end
     end
     recv
@@ -1824,7 +1826,7 @@ module Zr::Kern
   # the object that it made at compile time.
   #: (value) -> value
   def zr_literal_freeze(v)
-    RBasic.set_flags(v, RBasic.flags(v) | FL_FREEZE)
+    RBasic[v].flags = RBasic[v].flags | FL_FREEZE
     v
   end
 
@@ -1838,14 +1840,14 @@ module Zr::Kern
   # its last byte. The core does other strings.
   #: (value) -> value
   def zr_str_succ_ascii(recv)
-    n = RString.len(recv)
+    n = RString[recv].len
     if n == 0
       return zr_str_new(Machine.bytes(""), 0)
     end
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
-    zr_buf_push(b, RString.ptr(recv), n)
-    p = Buf.ptr(b)
+    zr_buf_push(b, RString[recv].ptr, n)
+    p = Buf[b].ptr
     i = n - 1
     alnum = false
     while i >= 0
@@ -1879,8 +1881,8 @@ module Zr::Kern
         if j < 0
           first = c == 122 ? 97 : (c == 90 ? 65 : 49)
           zr_buf_byte(b, 0)
-          p = Buf.ptr(b)
-          k = Buf.len(b) - 1
+          p = Buf[b].ptr
+          k = Buf[b].len - 1
           while k > i
             Machine.store8(p + k, 0, Machine.load8(p + k - 1, 0))
             k -= 1
@@ -1940,8 +1942,8 @@ module Zr::Kern
         joined = index
         # Whether the pieces so far are plain ASCII matters only for a
         # piece in another encoding: the buffer's bytes say it then.
-        if piece != index && RString.len(s) != 0
-          joined = zr_enc_append_str(index, zr_bytes_ascii_only_p(Buf.ptr(b), Buf.len(b)), Buf.len(b), s)
+        if piece != index && RString[s].len != 0
+          joined = zr_enc_append_str(index, zr_bytes_ascii_only_p(Buf[b].ptr, Buf[b].len), Buf[b].len, s)
         end
       end
       if joined == ENC_NONE
@@ -1981,20 +1983,20 @@ module Zr::Kern
   #: (ptr, word) -> value
   def zr_str_new_chilled(bytes, len)
     s = zr_str_new(bytes, len)
-    RBasic.set_flags(s, RBasic.flags(s) | FL_CHILLED)
+    RBasic[s].flags = RBasic[s].flags | FL_CHILLED
     s
   end
 
   #: (ptr, word, word) -> value
   def zr_str_new_chilled_at(bytes, len, index)
     s = zr_str_new_at(bytes, len, index)
-    RBasic.set_flags(s, RBasic.flags(s) | FL_CHILLED)
+    RBasic[s].flags = RBasic[s].flags | FL_CHILLED
     s
   end
 
   #: (value) -> bool
   def zr_str_chilled_p(s)
-    !zr_special_p(s) && zr_type(s) == T_STRING && (RBasic.flags(s) & (FL_CHILLED | FL_CHILLED_SYMBOL)) != 0
+    !zr_special_p(s) && zr_type(s) == T_STRING && (RBasic[s].flags & (FL_CHILLED | FL_CHILLED_SYMBOL)) != 0
   end
 
   # Whether a change to `v` is refused because `v` is frozen, as
@@ -2004,10 +2006,10 @@ module Zr::Kern
   def zr_modify_frozen_p(v)
     if zr_special_p(v)
       true
-    elsif (RBasic.flags(v) & T_MASK) == T_STRING && (RBasic.flags(v) & (FL_CHILLED | FL_CHILLED_SYMBOL | FL_SNAPSHOT)) != 0
+    elsif (RBasic[v].flags & T_MASK) == T_STRING && (RBasic[v].flags & (FL_CHILLED | FL_CHILLED_SYMBOL | FL_SNAPSHOT)) != 0
       zr_str_modify_marked_p(v)
     else
-      (RBasic.flags(v) & FL_FREEZE) != 0
+      (RBasic[v].flags & FL_FREEZE) != 0
     end
   end
   # Each write to a String checks this first, so the test of the flags is
@@ -2016,13 +2018,13 @@ module Zr::Kern
 
   #: (value) -> bool
   def zr_str_modify_marked_p(v)
-    flags = RBasic.flags(v)
+    flags = RBasic[v].flags
     if (flags & (FL_CHILLED | FL_CHILLED_SYMBOL)) != 0
       zr_str_unchill(v)
-      flags = RBasic.flags(v)
+      flags = RBasic[v].flags
     end
     if (flags & FL_SNAPSHOT) != 0
-      RBasic.set_flags(v, flags & FL_SNAPSHOT_CLEAR)
+      RBasic[v].flags = flags & FL_SNAPSHOT_CLEAR
     end
     (flags & FL_FREEZE) != 0
   end
@@ -2041,8 +2043,8 @@ module Zr::Kern
 
   #: (value) -> void
   def zr_str_unchill(s)
-    symbol = (RBasic.flags(s) & FL_CHILLED_SYMBOL) != 0
-    RBasic.set_flags(s, RBasic.flags(s) & FL_CHILLED_CLEAR)
+    symbol = (RBasic[s].flags & FL_CHILLED_SYMBOL) != 0
+    RBasic[s].flags = RBasic[s].flags & FL_CHILLED_CLEAR
     if Machine.load64(Machine.static(:warn_deprecated, 8), 0) == 0 || zr_gvar_get(Machine.id(:$VERBOSE)) == QNIL
       return
     end
@@ -2050,7 +2052,7 @@ module Zr::Kern
     zr_buf_init(b)
     if symbol
       zr_buf_push(b, Machine.bytes("string returned by :"), 20)
-      zr_buf_push(b, RString.ptr(s), RString.len(s))
+      zr_buf_push(b, RString[s].ptr, RString[s].len)
       zr_buf_push(b, Machine.bytes(".to_s will be frozen in the future"), 34)
     else
       zr_buf_push(b, Machine.bytes("literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)"), 105)
@@ -2061,7 +2063,7 @@ module Zr::Kern
     # The check that called this returns true or false, so a warning that
     # raises is dropped here.
     if r == QUNDEF
-      Task.set_pending(zr_task(), Machine.value(QNIL))
+      Task[zr_task()].pending = Machine.value(QNIL)
     end
   end
 
@@ -2126,7 +2128,7 @@ module Zr::Kern
     end
     key = zr_fix(Machine.word(bytes))
     found = zr_hash_lookup(table, key)
-    if found != QUNDEF && zr_bytes_eq(bytes, len, RString.ptr(found), RString.len(found))
+    if found != QUNDEF && zr_bytes_eq(bytes, len, RString[found].ptr, RString[found].len)
       return found
     end
     s = zr_str_frozen(bytes, len)
@@ -2153,7 +2155,7 @@ module Zr::Kern
   #: (value) -> value
   def zr_str_intern(s)
     if !zr_str_wide_p(s)
-      RBasic.set_flags(s, RBasic.flags(s) | FL_FREEZE)
+      RBasic[s].flags = RBasic[s].flags | FL_FREEZE
       return s
     end
     table = zr_global(G_FSTRINGS)
@@ -2165,7 +2167,7 @@ module Zr::Kern
     if found != QUNDEF
       return found
     end
-    RBasic.set_flags(s, RBasic.flags(s) | FL_FREEZE | FL_FSTR)
+    RBasic[s].flags = RBasic[s].flags | FL_FREEZE | FL_FSTR
     zr_hash_store(table, s, s)
     s
   end
@@ -2181,9 +2183,9 @@ module Zr::Kern
   #: (value, word, word, ptr, word) -> value
   def zr_opt_ltlt(recv, mid, argc, argv, mode)
     if !zr_special_p(recv) && (Machine.gates & GATE_LTLT) == 0
-      k = RBasic.klass(recv)
+      k = RBasic[recv].klass
       other = Machine.value(Machine.load64(argv, 0))
-      if k == zr_global(G_STRING) && !zr_special_p(other) && RBasic.klass(other) == zr_global(G_STRING)
+      if k == zr_global(G_STRING) && !zr_special_p(other) && RBasic[other].klass == zr_global(G_STRING)
         return zr_str_concat(recv, argc, argv, Machine.value(QNIL), Machine.value(QNIL))
       end
       # An ASCII codepoint to append: only a frozen receiver can raise, and
@@ -2210,7 +2212,7 @@ module Zr::Kern
   # builtin calls. Any other receiver or argument dispatches.
   #: (value, word, word, ptr, word) -> value
   def zr_opt_getbyte(recv, mid, argc, argv, mode)
-    if argc == 1 && !zr_special_p(recv) && RBasic.klass(recv) == zr_global(G_STRING) && (Machine.gates & GATE_GETBYTE) == 0
+    if argc == 1 && !zr_special_p(recv) && RBasic[recv].klass == zr_global(G_STRING) && (Machine.gates & GATE_GETBYTE) == 0
       i = Machine.value(Machine.load64(argv, 0))
       if zr_fixnum_p(i)
         return zr_str_byte_at(recv, i)
@@ -2221,7 +2223,7 @@ module Zr::Kern
 
   #: (value, word, word, ptr, word) -> value
   def zr_opt_setbyte(recv, mid, argc, argv, mode)
-    if argc == 2 && !zr_special_p(recv) && RBasic.klass(recv) == zr_global(G_STRING) && (Machine.gates & GATE_SETBYTE) == 0
+    if argc == 2 && !zr_special_p(recv) && RBasic[recv].klass == zr_global(G_STRING) && (Machine.gates & GATE_SETBYTE) == 0
       i = Machine.value(Machine.load64(argv, 0))
       b = Machine.value(Machine.load64(argv, 8))
       if zr_fixnum_p(i) && zr_fixnum_p(b)
@@ -2235,7 +2237,7 @@ module Zr::Kern
 
   #: (value) -> value
   def zr_str_bytesize(s)
-    zr_fix(RString.len(s))
+    zr_fix(RString[s].len)
   end
 
   # Returns the byte at `i`, or nil past the end.
@@ -2247,12 +2249,12 @@ module Zr::Kern
     end
     n = zr_fix2long(i)
     if n < 0
-      n += RString.len(s)
+      n += RString[s].len
     end
-    if n < 0 || n >= RString.len(s)
+    if n < 0 || n >= RString[s].len
       return Machine.value(QNIL)
     end
-    zr_fix(Machine.u8(Machine.load8(RString.ptr(s) + n, 0)))
+    zr_fix(Machine.u8(Machine.load8(RString[s].ptr + n, 0)))
   end
 
   # Whether the bytes of `other` are the bytes of the receiver from byte
@@ -2266,17 +2268,17 @@ module Zr::Kern
   #: (value, value, value) -> value
   def zr_str_bytes_at_m(s, at, other)
     off = zr_fix2long(at)
-    n = RString.len(other)
-    if off < 0 || off + n > RString.len(s)
+    n = RString[other].len
+    if off < 0 || off + n > RString[s].len
       return Machine.value(QFALSE)
     end
-    zr_bool(zr_bytes_eq(RString.ptr(s) + off, n, RString.ptr(other), n))
+    zr_bool(zr_bytes_eq(RString[s].ptr + off, n, RString[other].ptr, n))
   end
 
   # Returns a new String of `len` bytes from `off`. Both are already in range.
   #: (value, value, value) -> value
   def zr_str_byteslice(s, off, len)
-    zr_str_piece(s, RString.ptr(s) + zr_fix2long(off), zr_fix2long(len))
+    zr_str_piece(s, RString[s].ptr + zr_fix2long(off), zr_fix2long(len))
   end
 
   # A new String of the `len` bytes at `bytes`, which are in `src`, with
@@ -2285,8 +2287,8 @@ module Zr::Kern
   #: (value, ptr, word) -> value
   def zr_str_piece(src, bytes, len)
     out = zr_str_copy_encoding(zr_str_new(bytes, len), src)
-    if (RBasic.flags(src) & FL_ASCII) != 0
-      RBasic.set_flags(out, RBasic.flags(out) | FL_ASCII | FL_SCANNED | FL_VALID)
+    if (RBasic[src].flags & FL_ASCII) != 0
+      RBasic[out].flags = RBasic[out].flags | FL_ASCII | FL_SCANNED | FL_VALID
     end
     out
   end
@@ -2309,12 +2311,12 @@ module Zr::Kern
   def zr_str_setbyte(s, i, byte)
     n = zr_fix2long(i)
     if n < 0
-      n += RString.len(s)
+      n += RString[s].len
     end
-    if n >= 0 && n < RString.len(s) && zr_modify_frozen_p(s)
+    if n >= 0 && n < RString[s].len && zr_modify_frozen_p(s)
       return zr_frozen_error(s)
     end
-    if n < 0 || n >= RString.len(s)
+    if n < 0 || n >= RString[s].len
       b = Machine.slot(Buf.size)
       zr_buf_init(b)
       zr_buf_push(b, Machine.bytes("index "), 6)
@@ -2322,7 +2324,7 @@ module Zr::Kern
       zr_buf_push(b, Machine.bytes(" out of string"), 14)
       return zr_raise_buf(zr_global(G_INDEX_ERROR), b)
     end
-    Machine.store8(RString.ptr(s) + n, 0, Machine.i8(zr_fix2long(byte) & 255))
+    Machine.store8(RString[s].ptr + n, 0, Machine.i8(zr_fix2long(byte) & 255))
     zr_str_modified(s)
     byte
   end
@@ -2356,7 +2358,7 @@ module Zr::Kern
   # them were, so FL_ASCII stays correct.
   #: (value, value) -> value
   def zr_str_shift_front(s, n)
-    len = RString.len(s)
+    len = RString[s].len
     k = zr_fix2long(n)
     if k > len
       k = len
@@ -2364,22 +2366,22 @@ module Zr::Kern
     if k < 0
       k = 0
     end
-    out = zr_str_piece(s, RString.ptr(s), k)
-    flags = RBasic.flags(s) & FL_SNAPSHOT_CLEAR
+    out = zr_str_piece(s, RString[s].ptr, k)
+    flags = RBasic[s].flags & FL_SNAPSHOT_CLEAR
     gap = zr_str_gap(s) + k
     # A malloc'd buffer moves its start past the bytes, so each line of a
     # read buffer costs no copy of the bytes after it.
     if (flags & FL_EMBED) == 0 && gap <= FL_GAP_MAX
-      RString.set_ptr(s, RString.ptr(s) + k)
-      RString.set_capa(s, RString.capa(s) - k)
-      RString.set_len(s, len - k)
-      RBasic.set_flags(s, (flags & FL_GAP_CLEAR) | (gap << FL_GAP_SHIFT))
+      RString[s].ptr = RString[s].ptr + k
+      RString[s].capa = RString[s].capa - k
+      RString[s].len = len - k
+      RBasic[s].flags = (flags & FL_GAP_CLEAR) | (gap << FL_GAP_SHIFT)
       return out
     end
-    RBasic.set_flags(s, flags)
-    zr_memmove(RString.ptr(s), RString.ptr(s) + k, len - k)
-    RString.set_len(s, len - k)
-    Machine.store8(RString.ptr(s) + len - k, 0, Machine.i8(0))
+    RBasic[s].flags = flags
+    zr_memmove(RString[s].ptr, RString[s].ptr + k, len - k)
+    RString[s].len = len - k
+    Machine.store8(RString[s].ptr + len - k, 0, Machine.i8(0))
     out
   end
 
@@ -2394,9 +2396,9 @@ module Zr::Kern
   # whitespace, or the length.
   #: (value, value, value) -> value
   def zr_str_space_end(s, from, nul)
-    n = RString.len(s)
+    n = RString[s].len
     i = zr_fix2long(from)
-    while i < n && zr_space_byte_p(Machine.u8(Machine.load8(RString.ptr(s) + i, 0)), nul)
+    while i < n && zr_space_byte_p(Machine.u8(Machine.load8(RString[s].ptr + i, 0)), nul)
       i += 1
     end
     zr_fix(i)
@@ -2407,9 +2409,9 @@ module Zr::Kern
   # (`zr_blank_word_p`); the code checks the rest one byte at a time.
   #: (value, value) -> value
   def zr_str_word_end(s, from)
-    n = RString.len(s)
+    n = RString[s].len
     i = zr_fix2long(from)
-    p = RString.ptr(s)
+    p = RString[s].ptr
     while i + 8 <= n && !zr_blank_word_p(Machine.load64(p + i, 0))
       i += 8
     end
@@ -2431,7 +2433,7 @@ module Zr::Kern
   #: (value, value, value) -> value
   def zr_str_space_start(s, to, nul)
     i = zr_fix2long(to)
-    while i > 0 && zr_space_byte_p(Machine.u8(Machine.load8(RString.ptr(s) + i - 1, 0)), nul)
+    while i > 0 && zr_space_byte_p(Machine.u8(Machine.load8(RString[s].ptr + i - 1, 0)), nul)
       i -= 1
     end
     zr_fix(i)
@@ -2452,29 +2454,29 @@ module Zr::Kern
     index = zr_str_join_index(s, other)
     # ASCII spliced into ASCII stays ASCII, as rb_str_update_1 keeps the
     # 7-bit coderange. Without the flag, the next index scans the whole string.
-    ascii = (RBasic.flags(s) & FL_ASCII) != 0 && zr_str_ascii_bytes_p(other)
+    ascii = (RBasic[s].flags & FL_ASCII) != 0 && zr_str_ascii_bytes_p(other)
     at = zr_fix2long(from)
     cut = zr_fix2long(len)
-    m = RString.len(other)
-    old = RString.len(s)
+    m = RString[other].len
+    old = RString[s].len
     n = old - cut + m
     # When a String is spliced into itself, the code reads its bytes before
     # any of them move.
-    src = RString.ptr(other)
+    src = RString[other].ptr
     if Machine.word(other) == Machine.word(s)
       src = zr_xmalloc(m + 1)
-      zr_memcpy(src, RString.ptr(s), m)
+      zr_memcpy(src, RString[s].ptr, m)
     end
     zr_str_reserve(s, n)
     if m != cut
-      zr_memmove(RString.ptr(s) + at + m, RString.ptr(s) + at + cut, old - at - cut)
+      zr_memmove(RString[s].ptr + at + m, RString[s].ptr + at + cut, old - at - cut)
     end
-    zr_memmove(RString.ptr(s) + at, src, m)
+    zr_memmove(RString[s].ptr + at, src, m)
     if Machine.word(other) == Machine.word(s)
       zr_xfree(src)
     end
-    RString.set_len(s, n)
-    Machine.store8(RString.ptr(s) + n, 0, Machine.i8(0))
+    RString[s].len = n
+    Machine.store8(RString[s].ptr + n, 0, Machine.i8(0))
     if !ascii
       zr_str_modified(s)
     end
@@ -2489,11 +2491,11 @@ module Zr::Kern
     if zr_modify_frozen_p(recv)
       return zr_frozen_error(recv)
     end
-    n = RString.len(recv) + 1
+    n = RString[recv].len + 1
     zr_str_reserve(recv, n)
-    Machine.store8(RString.ptr(recv) + RString.len(recv), 0, Machine.i8(zr_fix2long(byte)))
-    RString.set_len(recv, n)
-    Machine.store8(RString.ptr(recv) + n, 0, Machine.i8(0))
+    Machine.store8(RString[recv].ptr + RString[recv].len, 0, Machine.i8(zr_fix2long(byte)))
+    RString[recv].len = n
+    Machine.store8(RString[recv].ptr + n, 0, Machine.i8(0))
     if (zr_fix2long(byte) & 255) >= 128
       zr_str_modified(recv)
     end
@@ -2507,6 +2509,6 @@ module Zr::Kern
   # directives.
   #: (value) -> value
   def zr_str_bytes_address(s)
-    zr_fix(Machine.word(RString.ptr(s)))
+    zr_fix(Machine.word(RString[s].ptr))
   end
 end

@@ -2,7 +2,6 @@ module Zr::Kern
   # The Linux part of the process environment, as musl supplies it: the
   # platform name, the location of the environment, the source of random
   # bits, and the layouts of struct passwd and struct utsname.
-  Libc.import :getrandom, [Ptr, Word, I32] => Word
 
   # The program's NULL-terminated arguments, which main received.
   #: (i32, ptr) -> ptr
@@ -92,12 +91,6 @@ module Zr::Kern
   def zr_os_spawn(words, dups, closes, env, chdir)
     zr_posix_spawn(words, dups, closes, env, chdir, 0)
   end
-
-  Libc.import :setuid, [I32] => I32
-  Libc.import :setgid, [I32] => I32
-  Libc.import :seteuid, [I32] => I32
-  Libc.import :setegid, [I32] => I32
-  Libc.import :issetugid, [] => I32
 
   # Calls the function that sets a single id, given by its Symbol. Returns
   # 0, or the negative errno. Linux has no setruid or setrgid. ruby

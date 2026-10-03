@@ -7,12 +7,58 @@ module Zr::Kern
   # own return value. No caller asks for a gzip header (inflateGetHeader
   # is not used), so the header fields are read and discarded.
   # Derived from zlib. The license is in lib/zr/runtime/kernel/zlib.rb.
-  InflateState = layout strm: Ptr, mode: Word, last: Word, wrap: Word, havedict: Word, flags: Word, dmax: Word, check: Word, total: Word, wbits: Word, wsize: Word, whave: Word, wnext: Word, window: Ptr, hold: Ptr, bits: Word, length: Word, offset: Word, extra: Word, lencode: Ptr, distcode: Ptr, lenbits: Word, distbits: Word, ncode: Word, nlen: Word, ndist: Word, have: Word, nxt: Ptr, lens: Ptr, work: Ptr, codes: Ptr, sane: Word, back: Word, was: Word
+  class InflateState < Layout
+    attr_accessor :strm #: ptr
+    attr_accessor :mode #: word
+    attr_accessor :last #: word
+    attr_accessor :wrap #: word
+    attr_accessor :havedict #: word
+    attr_accessor :flags #: word
+    attr_accessor :dmax #: word
+    attr_accessor :check #: word
+    attr_accessor :total #: word
+    attr_accessor :wbits #: word
+    attr_accessor :wsize #: word
+    attr_accessor :whave #: word
+    attr_accessor :wnext #: word
+    attr_accessor :window #: ptr
+    attr_accessor :hold #: ptr
+    attr_accessor :bits #: word
+    attr_accessor :length #: word
+    attr_accessor :offset #: word
+    attr_accessor :extra #: word
+    attr_accessor :lencode #: ptr
+    attr_accessor :distcode #: ptr
+    attr_accessor :lenbits #: word
+    attr_accessor :distbits #: word
+    attr_accessor :ncode #: word
+    attr_accessor :nlen #: word
+    attr_accessor :ndist #: word
+    attr_accessor :have #: word
+    attr_accessor :nxt #: ptr
+    attr_accessor :lens #: ptr
+    attr_accessor :work #: ptr
+    attr_accessor :codes #: ptr
+    attr_accessor :sane #: word
+    attr_accessor :back #: word
+    attr_accessor :was #: word
+  end
 
   # The registers of one inflate call: next, have, put, left, hold and
   # bits from the C, the input and output space at the start, the flush
   # mode, and the return value so far.
-  InfCursor = layout nxt: Ptr, have: Word, put: Ptr, left: Word, hold: Ptr, bits: Word, in: Word, out: Word, flush: Word, ret: Word
+  class InfCursor < Layout
+    attr_accessor :nxt #: ptr
+    attr_accessor :have #: word
+    attr_accessor :put #: ptr
+    attr_accessor :left #: word
+    attr_accessor :hold #: ptr
+    attr_accessor :bits #: word
+    attr_accessor :in #: word
+    attr_accessor :out #: word
+    attr_accessor :flush #: word
+    attr_accessor :ret #: word
+  end
 
   # The modes, with the order and numbers of the C. The order is
   # important, because inf_leave compares against BAD and CHECK.
@@ -65,8 +111,8 @@ module Zr::Kern
     if strm == 0
       return 1
     end
-    st = ZStream.state(strm)
-    if st == 0 || InflateState.strm(st) != strm || InflateState.mode(st) < INF_HEAD || InflateState.mode(st) > INF_SYNC
+    st = ZStream[strm].state
+    if st == 0 || InflateState[st].strm != strm || InflateState[st].mode < INF_HEAD || InflateState[st].mode > INF_SYNC
       return 1
     end
     0
@@ -78,26 +124,26 @@ module Zr::Kern
     if zr_inflate_state_check(strm) != 0
       return Z_STREAM_ERROR
     end
-    st = ZStream.state(strm)
-    ZStream.set_total_in(strm, 0)
-    ZStream.set_total_out(strm, 0)
-    InflateState.set_total(st, 0)
-    ZStream.set_msg(strm, 0)
-    if InflateState.wrap(st) != 0
-      ZStream.set_adler(strm, InflateState.wrap(st) & 1)
+    st = ZStream[strm].state
+    ZStream[strm].total_in = 0
+    ZStream[strm].total_out = 0
+    InflateState[st].total = 0
+    ZStream[strm].msg = 0
+    if InflateState[st].wrap != 0
+      ZStream[strm].adler = InflateState[st].wrap & 1
     end
-    InflateState.set_mode(st, INF_HEAD)
-    InflateState.set_last(st, 0)
-    InflateState.set_havedict(st, 0)
-    InflateState.set_flags(st, 0 - 1)
-    InflateState.set_dmax(st, 32768)
-    InflateState.set_hold(st, 0)
-    InflateState.set_bits(st, 0)
-    InflateState.set_lencode(st, InflateState.codes(st))
-    InflateState.set_distcode(st, InflateState.codes(st))
-    InflateState.set_nxt(st, InflateState.codes(st))
-    InflateState.set_sane(st, 1)
-    InflateState.set_back(st, 0 - 1)
+    InflateState[st].mode = INF_HEAD
+    InflateState[st].last = 0
+    InflateState[st].havedict = 0
+    InflateState[st].flags = 0 - 1
+    InflateState[st].dmax = 32768
+    InflateState[st].hold = 0
+    InflateState[st].bits = 0
+    InflateState[st].lencode = InflateState[st].codes
+    InflateState[st].distcode = InflateState[st].codes
+    InflateState[st].nxt = InflateState[st].codes
+    InflateState[st].sane = 1
+    InflateState[st].back = 0 - 1
     Z_OK
   end
 
@@ -107,10 +153,10 @@ module Zr::Kern
     if zr_inflate_state_check(strm) != 0
       return Z_STREAM_ERROR
     end
-    st = ZStream.state(strm)
-    InflateState.set_wsize(st, 0)
-    InflateState.set_whave(st, 0)
-    InflateState.set_wnext(st, 0)
+    st = ZStream[strm].state
+    InflateState[st].wsize = 0
+    InflateState[st].whave = 0
+    InflateState[st].wnext = 0
     zr_inflate_reset_keep(strm)
   end
 
@@ -122,7 +168,7 @@ module Zr::Kern
     if zr_inflate_state_check(strm) != 0
       return Z_STREAM_ERROR
     end
-    st = ZStream.state(strm)
+    st = ZStream[strm].state
     wrap = 0
     if window_bits < 0
       if window_bits < 0 - 15
@@ -139,12 +185,12 @@ module Zr::Kern
     if window_bits != 0 && (window_bits < 8 || window_bits > 15)
       return Z_STREAM_ERROR
     end
-    if InflateState.window(st) != 0 && InflateState.wbits(st) != window_bits
-      Libc.free(InflateState.window(st))
-      InflateState.set_window(st, 0)
+    if InflateState[st].window != 0 && InflateState[st].wbits != window_bits
+      Libc.free(InflateState[st].window)
+      InflateState[st].window = 0
     end
-    InflateState.set_wrap(st, wrap)
-    InflateState.set_wbits(st, window_bits)
+    InflateState[st].wrap = wrap
+    InflateState[st].wbits = window_bits
     zr_inflate_reset(strm)
   end
 
@@ -156,24 +202,24 @@ module Zr::Kern
     if strm == 0
       return Z_STREAM_ERROR
     end
-    ZStream.set_msg(strm, 0)
+    ZStream[strm].msg = 0
     size = InflateState.size + (INF_LENS_WORDS * 4) + (INF_WORK_WORDS * 4) + (INF_ENOUGH * 4)
     st = Libc.malloc(size)
     if st == 0
       return Z_MEM_ERROR
     end
     Libc.memset(st, Machine.i32(0), size)
-    ZStream.set_state(strm, st)
-    InflateState.set_strm(st, strm)
-    InflateState.set_window(st, 0)
-    InflateState.set_lens(st, st + InflateState.size)
-    InflateState.set_work(st, InflateState.lens(st) + (INF_LENS_WORDS * 4))
-    InflateState.set_codes(st, InflateState.work(st) + (INF_WORK_WORDS * 4))
-    InflateState.set_mode(st, INF_HEAD)
+    ZStream[strm].state = st
+    InflateState[st].strm = strm
+    InflateState[st].window = 0
+    InflateState[st].lens = st + InflateState.size
+    InflateState[st].work = InflateState[st].lens + (INF_LENS_WORDS * 4)
+    InflateState[st].codes = InflateState[st].work + (INF_WORK_WORDS * 4)
+    InflateState[st].mode = INF_HEAD
     ret = zr_inflate_reset2(strm, window_bits)
     if ret != Z_OK
       Libc.free(st)
-      ZStream.set_state(strm, 0)
+      ZStream[strm].state = 0
     end
     ret
   end
@@ -184,22 +230,22 @@ module Zr::Kern
     if zr_inflate_state_check(strm) != 0
       return Z_STREAM_ERROR
     end
-    st = ZStream.state(strm)
-    if InflateState.window(st) != 0
-      Libc.free(InflateState.window(st))
+    st = ZStream[strm].state
+    if InflateState[st].window != 0
+      Libc.free(InflateState[st].window)
     end
     Libc.free(st)
-    ZStream.set_state(strm, 0)
+    ZStream[strm].state = 0
     Z_OK
   end
 
   # fixedtables: the decoding tables of a fixed-code block.
   #: (ptr) -> void
   def zr_inflate_fixed_tables(st)
-    InflateState.set_lencode(st, zr_inflate_lenfix())
-    InflateState.set_lenbits(st, 9)
-    InflateState.set_distcode(st, zr_inflate_distfix())
-    InflateState.set_distbits(st, 5)
+    InflateState[st].lencode = zr_inflate_lenfix()
+    InflateState[st].lenbits = 9
+    InflateState[st].distcode = zr_inflate_distfix()
+    InflateState[st].distbits = 5
   end
 
   # updatewindow: copies the last wsize bytes of output before `end_`
@@ -208,25 +254,25 @@ module Zr::Kern
   # made.
   #: (ptr, ptr, ptr, word) -> word
   def zr_inflate_update_window(strm, st, end_, copy)
-    if InflateState.window(st) == 0
-      window = Libc.malloc(1 << InflateState.wbits(st))
+    if InflateState[st].window == 0
+      window = Libc.malloc(1 << InflateState[st].wbits)
       if window == 0
         return 1
       end
-      InflateState.set_window(st, window)
+      InflateState[st].window = window
     end
-    if InflateState.wsize(st) == 0
-      InflateState.set_wsize(st, 1 << InflateState.wbits(st))
-      InflateState.set_wnext(st, 0)
-      InflateState.set_whave(st, 0)
+    if InflateState[st].wsize == 0
+      InflateState[st].wsize = 1 << InflateState[st].wbits
+      InflateState[st].wnext = 0
+      InflateState[st].whave = 0
     end
-    wsize = InflateState.wsize(st)
-    wnext = InflateState.wnext(st)
-    window = InflateState.window(st)
+    wsize = InflateState[st].wsize
+    wnext = InflateState[st].wnext
+    window = InflateState[st].window
     if copy >= wsize
       Libc.memmove(window, end_ - wsize, wsize)
-      InflateState.set_wnext(st, 0)
-      InflateState.set_whave(st, wsize)
+      InflateState[st].wnext = 0
+      InflateState[st].whave = wsize
     else
       dist = wsize - wnext
       if dist > copy
@@ -236,16 +282,16 @@ module Zr::Kern
       copy -= dist
       if copy != 0
         Libc.memmove(window, end_ - copy, copy)
-        InflateState.set_wnext(st, copy)
-        InflateState.set_whave(st, wsize)
+        InflateState[st].wnext = copy
+        InflateState[st].whave = wsize
       else
         wnext += dist
         if wnext == wsize
           wnext = 0
         end
-        InflateState.set_wnext(st, wnext)
-        if InflateState.whave(st) < wsize
-          InflateState.set_whave(st, InflateState.whave(st) + dist)
+        InflateState[st].wnext = wnext
+        if InflateState[st].whave < wsize
+          InflateState[st].whave = InflateState[st].whave + dist
         end
       end
     end
@@ -256,7 +302,7 @@ module Zr::Kern
   # adler32 for a zlib wrapper.
   #: (ptr, word, ptr, word) -> word
   def zr_inflate_update_check(st, check, buf, len)
-    if InflateState.flags(st) != 0
+    if InflateState[st].flags != 0
       return zr_crc32(check, buf, len)
     end
     zr_adler32(check, buf, len)
@@ -270,44 +316,44 @@ module Zr::Kern
     Machine.store8(hbuf, 1, Machine.i8(word >> 8))
     Machine.store8(hbuf, 2, Machine.i8(word >> 16))
     Machine.store8(hbuf, 3, Machine.i8(word >> 24))
-    InflateState.set_check(st, zr_crc32(InflateState.check(st), hbuf, n))
+    InflateState[st].check = zr_crc32(InflateState[st].check, hbuf, n)
   end
 
   # Copies the registers of the stream from the cursor: RESTORE in the C.
   #: (ptr, ptr, ptr) -> void
   def zr_inf_restore(strm, st, cur)
-    ZStream.set_next_out(strm, InfCursor.put(cur))
-    ZStream.set_avail_out(strm, InfCursor.left(cur))
-    ZStream.set_next_in(strm, InfCursor.nxt(cur))
-    ZStream.set_avail_in(strm, InfCursor.have(cur))
-    InflateState.set_hold(st, InfCursor.hold(cur))
-    InflateState.set_bits(st, InfCursor.bits(cur))
+    ZStream[strm].next_out = InfCursor[cur].put
+    ZStream[strm].avail_out = InfCursor[cur].left
+    ZStream[strm].next_in = InfCursor[cur].nxt
+    ZStream[strm].avail_in = InfCursor[cur].have
+    InflateState[st].hold = InfCursor[cur].hold
+    InflateState[st].bits = InfCursor[cur].bits
   end
 
   # Loads the cursor from the registers of the stream: LOAD in the C.
   #: (ptr, ptr, ptr) -> void
   def zr_inf_load(strm, st, cur)
-    InfCursor.set_put(cur, ZStream.next_out(strm))
-    InfCursor.set_left(cur, ZStream.avail_out(strm))
-    InfCursor.set_nxt(cur, ZStream.next_in(strm))
-    InfCursor.set_have(cur, ZStream.avail_in(strm))
-    InfCursor.set_hold(cur, InflateState.hold(st))
-    InfCursor.set_bits(cur, InflateState.bits(st))
+    InfCursor[cur].put = ZStream[strm].next_out
+    InfCursor[cur].left = ZStream[strm].avail_out
+    InfCursor[cur].nxt = ZStream[strm].next_in
+    InfCursor[cur].have = ZStream[strm].avail_in
+    InfCursor[cur].hold = InflateState[st].hold
+    InfCursor[cur].bits = InflateState[st].bits
   end
 
   # PULLBYTE: adds one input byte to the bit buffer. Returns false when
   # there is no input, and then inflate leaves.
   #: (ptr) -> bool
   def zr_inf_pull(cur)
-    have = InfCursor.have(cur)
+    have = InfCursor[cur].have
     if have == 0
       return false
     end
-    InfCursor.set_have(cur, have - 1)
-    nxt = InfCursor.nxt(cur)
-    InfCursor.set_hold(cur, InfCursor.hold(cur) + (Machine.ptr(zr_zlib_byte(nxt)) << InfCursor.bits(cur)))
-    InfCursor.set_nxt(cur, nxt + 1)
-    InfCursor.set_bits(cur, InfCursor.bits(cur) + 8)
+    InfCursor[cur].have = have - 1
+    nxt = InfCursor[cur].nxt
+    InfCursor[cur].hold = InfCursor[cur].hold + (Machine.ptr(zr_zlib_byte(nxt)) << InfCursor[cur].bits)
+    InfCursor[cur].nxt = nxt + 1
+    InfCursor[cur].bits = InfCursor[cur].bits + 8
     true
   end
 
@@ -315,7 +361,7 @@ module Zr::Kern
   # the input ends first.
   #: (ptr, word) -> bool
   def zr_inf_need(cur, n)
-    while InfCursor.bits(cur) < n
+    while InfCursor[cur].bits < n
       if !zr_inf_pull(cur)
         return false
       end
@@ -326,36 +372,36 @@ module Zr::Kern
   # BITS: the low `n` bits of the buffer.
   #: (ptr, word) -> word
   def zr_inf_bits(cur, n)
-    Machine.word(InfCursor.hold(cur) & ((1 << n) - 1))
+    Machine.word(InfCursor[cur].hold & ((1 << n) - 1))
   end
 
   # DROPBITS
   #: (ptr, word) -> void
   def zr_inf_drop(cur, n)
-    InfCursor.set_hold(cur, InfCursor.hold(cur) >> n)
-    InfCursor.set_bits(cur, InfCursor.bits(cur) - n)
+    InfCursor[cur].hold = InfCursor[cur].hold >> n
+    InfCursor[cur].bits = InfCursor[cur].bits - n
   end
 
   # INITBITS
   #: (ptr) -> void
   def zr_inf_init_bits(cur)
-    InfCursor.set_hold(cur, 0)
-    InfCursor.set_bits(cur, 0)
+    InfCursor[cur].hold = 0
+    InfCursor[cur].bits = 0
   end
 
   # BYTEBITS: moves the buffer to a byte boundary.
   #: (ptr) -> void
   def zr_inf_byte_bits(cur)
-    n = InfCursor.bits(cur) & 7
-    InfCursor.set_hold(cur, InfCursor.hold(cur) >> n)
-    InfCursor.set_bits(cur, InfCursor.bits(cur) - n)
+    n = InfCursor[cur].bits & 7
+    InfCursor[cur].hold = InfCursor[cur].hold >> n
+    InfCursor[cur].bits = InfCursor[cur].bits - n
   end
 
   # A data error: sets its message on the stream, and sets the BAD mode.
   #: (ptr, ptr, ptr) -> word
   def zr_inf_bad(strm, st, msg)
-    ZStream.set_msg(strm, msg)
-    InflateState.set_mode(st, INF_BAD)
+    ZStream[strm].msg = msg
+    InflateState[st].mode = INF_BAD
     INF_NEXT
   end
 
@@ -363,25 +409,25 @@ module Zr::Kern
   # zlib header.
   #: (ptr, ptr, ptr) -> word
   def zr_inflate_head(strm, st, cur)
-    if InflateState.wrap(st) == 0
-      InflateState.set_mode(st, INF_TYPEDO)
+    if InflateState[st].wrap == 0
+      InflateState[st].mode = INF_TYPEDO
       return INF_NEXT
     end
     if !zr_inf_need(cur, 16)
       return INF_LEAVE
     end
-    hold = Machine.word(InfCursor.hold(cur))
-    if (InflateState.wrap(st) & 2) != 0 && hold == 35615
-      if InflateState.wbits(st) == 0
-        InflateState.set_wbits(st, 15)
+    hold = Machine.word(InfCursor[cur].hold)
+    if (InflateState[st].wrap & 2) != 0 && hold == 35615
+      if InflateState[st].wbits == 0
+        InflateState[st].wbits = 15
       end
-      InflateState.set_check(st, 0)
+      InflateState[st].check = 0
       zr_inflate_crc_header(st, hold, 2)
       zr_inf_init_bits(cur)
-      InflateState.set_mode(st, INF_FLAGS)
+      InflateState[st].mode = INF_FLAGS
       return INF_NEXT
     end
-    if (InflateState.wrap(st) & 1) == 0 || ((zr_inf_bits(cur, 8) << 8) + (hold >> 8)) % 31 != 0
+    if (InflateState[st].wrap & 1) == 0 || ((zr_inf_bits(cur, 8) << 8) + (hold >> 8)) % 31 != 0
       return zr_inf_bad(strm, st, Machine.bytes("incorrect header check\0"))
     end
     if zr_inf_bits(cur, 4) != Z_DEFLATED
@@ -389,20 +435,20 @@ module Zr::Kern
     end
     zr_inf_drop(cur, 4)
     len = zr_inf_bits(cur, 4) + 8
-    if InflateState.wbits(st) == 0
-      InflateState.set_wbits(st, len)
+    if InflateState[st].wbits == 0
+      InflateState[st].wbits = len
     end
-    if len > 15 || len > InflateState.wbits(st)
+    if len > 15 || len > InflateState[st].wbits
       return zr_inf_bad(strm, st, Machine.bytes("invalid window size\0"))
     end
-    InflateState.set_dmax(st, 1 << len)
-    InflateState.set_flags(st, 0)
-    InflateState.set_check(st, 1)
-    ZStream.set_adler(strm, 1)
-    if (Machine.word(InfCursor.hold(cur)) & 512) != 0
-      InflateState.set_mode(st, INF_DICTID)
+    InflateState[st].dmax = 1 << len
+    InflateState[st].flags = 0
+    InflateState[st].check = 1
+    ZStream[strm].adler = 1
+    if (Machine.word(InfCursor[cur].hold) & 512) != 0
+      InflateState[st].mode = INF_DICTID
     else
-      InflateState.set_mode(st, INF_TYPE)
+      InflateState[st].mode = INF_TYPE
     end
     zr_inf_init_bits(cur)
     INF_NEXT
@@ -412,115 +458,115 @@ module Zr::Kern
   # the header has a check. No header struct gets the fields.
   #: (ptr, ptr, ptr) -> word
   def zr_inflate_gzip_header(strm, st, cur)
-    mode = InflateState.mode(st)
+    mode = InflateState[st].mode
     if mode == INF_FLAGS
       if !zr_inf_need(cur, 16)
         return INF_LEAVE
       end
-      flags = Machine.word(InfCursor.hold(cur))
-      InflateState.set_flags(st, flags)
+      flags = Machine.word(InfCursor[cur].hold)
+      InflateState[st].flags = flags
       if (flags & 255) != Z_DEFLATED
         return zr_inf_bad(strm, st, Machine.bytes("unknown compression method\0"))
       end
       if (flags & 57344) != 0
         return zr_inf_bad(strm, st, Machine.bytes("unknown header flags set\0"))
       end
-      if (flags & 512) != 0 && (InflateState.wrap(st) & 4) != 0
+      if (flags & 512) != 0 && (InflateState[st].wrap & 4) != 0
         zr_inflate_crc_header(st, flags, 2)
       end
       zr_inf_init_bits(cur)
       mode = INF_TIME
-      InflateState.set_mode(st, mode)
+      InflateState[st].mode = mode
     end
     if mode == INF_TIME
       if !zr_inf_need(cur, 32)
         return INF_LEAVE
       end
-      if (InflateState.flags(st) & 512) != 0 && (InflateState.wrap(st) & 4) != 0
-        zr_inflate_crc_header(st, Machine.word(InfCursor.hold(cur)), 4)
+      if (InflateState[st].flags & 512) != 0 && (InflateState[st].wrap & 4) != 0
+        zr_inflate_crc_header(st, Machine.word(InfCursor[cur].hold), 4)
       end
       zr_inf_init_bits(cur)
       mode = INF_OS
-      InflateState.set_mode(st, mode)
+      InflateState[st].mode = mode
     end
     if mode == INF_OS
       if !zr_inf_need(cur, 16)
         return INF_LEAVE
       end
-      if (InflateState.flags(st) & 512) != 0 && (InflateState.wrap(st) & 4) != 0
-        zr_inflate_crc_header(st, Machine.word(InfCursor.hold(cur)), 2)
+      if (InflateState[st].flags & 512) != 0 && (InflateState[st].wrap & 4) != 0
+        zr_inflate_crc_header(st, Machine.word(InfCursor[cur].hold), 2)
       end
       zr_inf_init_bits(cur)
       mode = INF_EXLEN
-      InflateState.set_mode(st, mode)
+      InflateState[st].mode = mode
     end
     if mode == INF_EXLEN
-      if (InflateState.flags(st) & 1024) != 0
+      if (InflateState[st].flags & 1024) != 0
         if !zr_inf_need(cur, 16)
           return INF_LEAVE
         end
-        InflateState.set_length(st, Machine.word(InfCursor.hold(cur)))
-        if (InflateState.flags(st) & 512) != 0 && (InflateState.wrap(st) & 4) != 0
-          zr_inflate_crc_header(st, Machine.word(InfCursor.hold(cur)), 2)
+        InflateState[st].length = Machine.word(InfCursor[cur].hold)
+        if (InflateState[st].flags & 512) != 0 && (InflateState[st].wrap & 4) != 0
+          zr_inflate_crc_header(st, Machine.word(InfCursor[cur].hold), 2)
         end
         zr_inf_init_bits(cur)
       end
       mode = INF_EXTRA
-      InflateState.set_mode(st, mode)
+      InflateState[st].mode = mode
     end
     if mode == INF_EXTRA
-      if (InflateState.flags(st) & 1024) != 0
-        copy = InflateState.length(st)
-        if copy > InfCursor.have(cur)
-          copy = InfCursor.have(cur)
+      if (InflateState[st].flags & 1024) != 0
+        copy = InflateState[st].length
+        if copy > InfCursor[cur].have
+          copy = InfCursor[cur].have
         end
         if copy != 0
-          if (InflateState.flags(st) & 512) != 0 && (InflateState.wrap(st) & 4) != 0
-            InflateState.set_check(st, zr_crc32(InflateState.check(st), InfCursor.nxt(cur), copy))
+          if (InflateState[st].flags & 512) != 0 && (InflateState[st].wrap & 4) != 0
+            InflateState[st].check = zr_crc32(InflateState[st].check, InfCursor[cur].nxt, copy)
           end
-          InfCursor.set_have(cur, InfCursor.have(cur) - copy)
-          InfCursor.set_nxt(cur, InfCursor.nxt(cur) + copy)
-          InflateState.set_length(st, InflateState.length(st) - copy)
+          InfCursor[cur].have = InfCursor[cur].have - copy
+          InfCursor[cur].nxt = InfCursor[cur].nxt + copy
+          InflateState[st].length = InflateState[st].length - copy
         end
-        if InflateState.length(st) != 0
+        if InflateState[st].length != 0
           return INF_LEAVE
         end
       end
-      InflateState.set_length(st, 0)
+      InflateState[st].length = 0
       mode = INF_NAME
-      InflateState.set_mode(st, mode)
+      InflateState[st].mode = mode
     end
     if mode == INF_NAME
-      if (InflateState.flags(st) & 2048) != 0
+      if (InflateState[st].flags & 2048) != 0
         if !zr_inflate_skip_string(st, cur)
           return INF_LEAVE
         end
       end
-      InflateState.set_length(st, 0)
+      InflateState[st].length = 0
       mode = INF_COMMENT
-      InflateState.set_mode(st, mode)
+      InflateState[st].mode = mode
     end
     if mode == INF_COMMENT
-      if (InflateState.flags(st) & 4096) != 0
+      if (InflateState[st].flags & 4096) != 0
         if !zr_inflate_skip_string(st, cur)
           return INF_LEAVE
         end
       end
       mode = INF_HCRC
-      InflateState.set_mode(st, mode)
+      InflateState[st].mode = mode
     end
-    if (InflateState.flags(st) & 512) != 0
+    if (InflateState[st].flags & 512) != 0
       if !zr_inf_need(cur, 16)
         return INF_LEAVE
       end
-      if (InflateState.wrap(st) & 4) != 0 && Machine.word(InfCursor.hold(cur)) != (InflateState.check(st) & 65535)
+      if (InflateState[st].wrap & 4) != 0 && Machine.word(InfCursor[cur].hold) != (InflateState[st].check & 65535)
         return zr_inf_bad(strm, st, Machine.bytes("header crc mismatch\0"))
       end
       zr_inf_init_bits(cur)
     end
-    InflateState.set_check(st, 0)
-    ZStream.set_adler(strm, 0)
-    InflateState.set_mode(st, INF_TYPE)
+    InflateState[st].check = 0
+    ZStream[strm].adler = 0
+    InflateState[st].mode = INF_TYPE
     INF_NEXT
   end
 
@@ -529,11 +575,11 @@ module Zr::Kern
   # false when the input ends before the string.
   #: (ptr, ptr) -> bool
   def zr_inflate_skip_string(st, cur)
-    have = InfCursor.have(cur)
+    have = InfCursor[cur].have
     if have == 0
       return false
     end
-    nxt = InfCursor.nxt(cur)
+    nxt = InfCursor[cur].nxt
     copy = 0
     len = 0
     while true
@@ -543,11 +589,11 @@ module Zr::Kern
         break
       end
     end
-    if (InflateState.flags(st) & 512) != 0 && (InflateState.wrap(st) & 4) != 0
-      InflateState.set_check(st, zr_crc32(InflateState.check(st), nxt, copy))
+    if (InflateState[st].flags & 512) != 0 && (InflateState[st].wrap & 4) != 0
+      InflateState[st].check = zr_crc32(InflateState[st].check, nxt, copy)
     end
-    InfCursor.set_have(cur, have - copy)
-    InfCursor.set_nxt(cur, nxt + copy)
+    InfCursor[cur].have = have - copy
+    InfCursor[cur].nxt = nxt + copy
     len == 0
   end
 
@@ -555,24 +601,24 @@ module Zr::Kern
   # tells the caller to set the dictionary when it has not.
   #: (ptr, ptr, ptr) -> word
   def zr_inflate_dict(strm, st, cur)
-    if InflateState.mode(st) == INF_DICTID
+    if InflateState[st].mode == INF_DICTID
       if !zr_inf_need(cur, 32)
         return INF_LEAVE
       end
-      check = zr_zlib_swap32(Machine.word(InfCursor.hold(cur)))
-      InflateState.set_check(st, check)
-      ZStream.set_adler(strm, check)
+      check = zr_zlib_swap32(Machine.word(InfCursor[cur].hold))
+      InflateState[st].check = check
+      ZStream[strm].adler = check
       zr_inf_init_bits(cur)
-      InflateState.set_mode(st, INF_DICT)
+      InflateState[st].mode = INF_DICT
     end
-    if InflateState.havedict(st) == 0
+    if InflateState[st].havedict == 0
       zr_inf_restore(strm, st, cur)
-      InfCursor.set_ret(cur, Z_NEED_DICT)
+      InfCursor[cur].ret = Z_NEED_DICT
       return INF_RETURN
     end
-    InflateState.set_check(st, 1)
-    ZStream.set_adler(strm, 1)
-    InflateState.set_mode(st, INF_TYPE)
+    InflateState[st].check = 1
+    ZStream[strm].adler = 1
+    InflateState[st].mode = INF_TYPE
     INF_NEXT
   end
 
@@ -580,8 +626,8 @@ module Zr::Kern
   # and the bytes of a stored block.
   #: (ptr, ptr, ptr) -> word
   def zr_inflate_type(strm, st, cur)
-    mode = InflateState.mode(st)
-    flush = InfCursor.flush(cur)
+    mode = InflateState[st].mode
+    flush = InfCursor[cur].flush
     if mode == INF_TYPE
       if flush == Z_BLOCK || flush == Z_TREES
         return INF_LEAVE
@@ -589,31 +635,31 @@ module Zr::Kern
       mode = INF_TYPEDO
     end
     if mode == INF_TYPEDO
-      if InflateState.last(st) != 0
+      if InflateState[st].last != 0
         zr_inf_byte_bits(cur)
-        InflateState.set_mode(st, INF_CHECK)
+        InflateState[st].mode = INF_CHECK
         return INF_NEXT
       end
       if !zr_inf_need(cur, 3)
         return INF_LEAVE
       end
-      InflateState.set_last(st, zr_inf_bits(cur, 1))
+      InflateState[st].last = zr_inf_bits(cur, 1)
       zr_inf_drop(cur, 1)
       kind = zr_inf_bits(cur, 2)
       if kind == 0
-        InflateState.set_mode(st, INF_STORED)
+        InflateState[st].mode = INF_STORED
       elsif kind == 1
         zr_inflate_fixed_tables(st)
-        InflateState.set_mode(st, INF_LEN_)
+        InflateState[st].mode = INF_LEN_
         if flush == Z_TREES
           zr_inf_drop(cur, 2)
           return INF_LEAVE
         end
       elsif kind == 2
-        InflateState.set_mode(st, INF_TABLE)
+        InflateState[st].mode = INF_TABLE
       else
-        ZStream.set_msg(strm, Machine.bytes("invalid block type\0"))
-        InflateState.set_mode(st, INF_BAD)
+        ZStream[strm].msg = Machine.bytes("invalid block type\0")
+        InflateState[st].mode = INF_BAD
       end
       zr_inf_drop(cur, 2)
       return INF_NEXT
@@ -623,42 +669,42 @@ module Zr::Kern
       if !zr_inf_need(cur, 32)
         return INF_LEAVE
       end
-      hold = Machine.word(InfCursor.hold(cur))
+      hold = Machine.word(InfCursor[cur].hold)
       if (hold & 65535) != ((hold >> 16) ^ 65535)
         return zr_inf_bad(strm, st, Machine.bytes("invalid stored block lengths\0"))
       end
-      InflateState.set_length(st, hold & 65535)
+      InflateState[st].length = hold & 65535
       zr_inf_init_bits(cur)
       mode = INF_COPY_
-      InflateState.set_mode(st, mode)
+      InflateState[st].mode = mode
       if flush == Z_TREES
         return INF_LEAVE
       end
     end
     if mode == INF_COPY_
       mode = INF_COPY
-      InflateState.set_mode(st, mode)
+      InflateState[st].mode = mode
     end
-    copy = InflateState.length(st)
+    copy = InflateState[st].length
     if copy != 0
-      if copy > InfCursor.have(cur)
-        copy = InfCursor.have(cur)
+      if copy > InfCursor[cur].have
+        copy = InfCursor[cur].have
       end
-      if copy > InfCursor.left(cur)
-        copy = InfCursor.left(cur)
+      if copy > InfCursor[cur].left
+        copy = InfCursor[cur].left
       end
       if copy == 0
         return INF_LEAVE
       end
-      Libc.memmove(InfCursor.put(cur), InfCursor.nxt(cur), copy)
-      InfCursor.set_have(cur, InfCursor.have(cur) - copy)
-      InfCursor.set_nxt(cur, InfCursor.nxt(cur) + copy)
-      InfCursor.set_left(cur, InfCursor.left(cur) - copy)
-      InfCursor.set_put(cur, InfCursor.put(cur) + copy)
-      InflateState.set_length(st, InflateState.length(st) - copy)
+      Libc.memmove(InfCursor[cur].put, InfCursor[cur].nxt, copy)
+      InfCursor[cur].have = InfCursor[cur].have - copy
+      InfCursor[cur].nxt = InfCursor[cur].nxt + copy
+      InfCursor[cur].left = InfCursor[cur].left - copy
+      InfCursor[cur].put = InfCursor[cur].put + copy
+      InflateState[st].length = InflateState[st].length - copy
       return INF_NEXT
     end
-    InflateState.set_mode(st, INF_TYPE)
+    InflateState[st].mode = INF_TYPE
     INF_NEXT
   end
 
@@ -668,18 +714,18 @@ module Zr::Kern
   def zr_inflate_build(st, type, codes, root)
     table = Machine.slot(8)
     bits = Machine.slot(8)
-    Machine.store64(table, 0, Machine.word(InflateState.nxt(st)))
+    Machine.store64(table, 0, Machine.word(InflateState[st].nxt))
     Machine.store64(bits, 0, root)
-    lens = InflateState.lens(st)
+    lens = InflateState[st].lens
     if type == INF_DISTS
-      lens += InflateState.nlen(st) * 4
+      lens += InflateState[st].nlen * 4
     end
-    ret = zr_inflate_table(type, lens, codes, table, bits, InflateState.work(st))
-    InflateState.set_nxt(st, Machine.ptr(Machine.load64(table, 0)))
+    ret = zr_inflate_table(type, lens, codes, table, bits, InflateState[st].work)
+    InflateState[st].nxt = Machine.ptr(Machine.load64(table, 0))
     if type == INF_DISTS
-      InflateState.set_distbits(st, Machine.load64(bits, 0))
+      InflateState[st].distbits = Machine.load64(bits, 0)
     else
-      InflateState.set_lenbits(st, Machine.load64(bits, 0))
+      InflateState[st].lenbits = Machine.load64(bits, 0)
     end
     ret
   end
@@ -691,7 +737,7 @@ module Zr::Kern
   def zr_inflate_decode(cur, table, table_bits)
     while true
       here = zr_zlib_u32(table, zr_inf_bits(cur, table_bits))
-      if zr_inf_code_bits(here) <= InfCursor.bits(cur)
+      if zr_inf_code_bits(here) <= InfCursor[cur].bits
         return here
       end
       if !zr_inf_pull(cur)
@@ -707,7 +753,7 @@ module Zr::Kern
   def zr_inflate_decode_under(cur, table, last)
     while true
       here = zr_zlib_u32(table, zr_inf_code_val(last) + (zr_inf_bits(cur, zr_inf_code_bits(last) + zr_inf_code_op(last)) >> zr_inf_code_bits(last)))
-      if zr_inf_code_bits(last) + zr_inf_code_bits(here) <= InfCursor.bits(cur)
+      if zr_inf_code_bits(last) + zr_inf_code_bits(here) <= InfCursor[cur].bits
         return here
       end
       if !zr_inf_pull(cur)
@@ -721,51 +767,51 @@ module Zr::Kern
   # dynamic block and builds its tables.
   #: (ptr, ptr, ptr) -> word
   def zr_inflate_table_lens(strm, st, cur)
-    mode = InflateState.mode(st)
-    lens = InflateState.lens(st)
+    mode = InflateState[st].mode
+    lens = InflateState[st].lens
     if mode == INF_TABLE
       if !zr_inf_need(cur, 14)
         return INF_LEAVE
       end
-      InflateState.set_nlen(st, zr_inf_bits(cur, 5) + 257)
+      InflateState[st].nlen = zr_inf_bits(cur, 5) + 257
       zr_inf_drop(cur, 5)
-      InflateState.set_ndist(st, zr_inf_bits(cur, 5) + 1)
+      InflateState[st].ndist = zr_inf_bits(cur, 5) + 1
       zr_inf_drop(cur, 5)
-      InflateState.set_ncode(st, zr_inf_bits(cur, 4) + 4)
+      InflateState[st].ncode = zr_inf_bits(cur, 4) + 4
       zr_inf_drop(cur, 4)
-      if InflateState.nlen(st) > 286 || InflateState.ndist(st) > 30
+      if InflateState[st].nlen > 286 || InflateState[st].ndist > 30
         return zr_inf_bad(strm, st, Machine.bytes("too many length or distance symbols\0"))
       end
-      InflateState.set_have(st, 0)
+      InflateState[st].have = 0
       mode = INF_LENLENS
-      InflateState.set_mode(st, mode)
+      InflateState[st].mode = mode
     end
     if mode == INF_LENLENS
       order = zr_inflate_order()
-      while InflateState.have(st) < InflateState.ncode(st)
+      while InflateState[st].have < InflateState[st].ncode
         if !zr_inf_need(cur, 3)
           return INF_LEAVE
         end
-        zr_zlib_set_u32(lens, zr_zlib_u32(order, InflateState.have(st)), zr_inf_bits(cur, 3))
-        InflateState.set_have(st, InflateState.have(st) + 1)
+        zr_zlib_set_u32(lens, zr_zlib_u32(order, InflateState[st].have), zr_inf_bits(cur, 3))
+        InflateState[st].have = InflateState[st].have + 1
         zr_inf_drop(cur, 3)
       end
-      while InflateState.have(st) < 19
-        zr_zlib_set_u32(lens, zr_zlib_u32(order, InflateState.have(st)), 0)
-        InflateState.set_have(st, InflateState.have(st) + 1)
+      while InflateState[st].have < 19
+        zr_zlib_set_u32(lens, zr_zlib_u32(order, InflateState[st].have), 0)
+        InflateState[st].have = InflateState[st].have + 1
       end
-      InflateState.set_nxt(st, InflateState.codes(st))
-      InflateState.set_lencode(st, InflateState.codes(st))
+      InflateState[st].nxt = InflateState[st].codes
+      InflateState[st].lencode = InflateState[st].codes
       if zr_inflate_build(st, INF_CODES, 19, 7) != 0
         return zr_inf_bad(strm, st, Machine.bytes("invalid code lengths set\0"))
       end
-      InflateState.set_have(st, 0)
+      InflateState[st].have = 0
       mode = INF_CODELENS
-      InflateState.set_mode(st, mode)
+      InflateState[st].mode = mode
     end
-    total = InflateState.nlen(st) + InflateState.ndist(st)
-    while InflateState.have(st) < total
-      here = zr_inflate_decode(cur, InflateState.lencode(st), InflateState.lenbits(st))
+    total = InflateState[st].nlen + InflateState[st].ndist
+    while InflateState[st].have < total
+      here = zr_inflate_decode(cur, InflateState[st].lencode, InflateState[st].lenbits)
       if here < 0
         return INF_LEAVE
       end
@@ -773,8 +819,8 @@ module Zr::Kern
       here_bits = zr_inf_code_bits(here)
       if val < 16
         zr_inf_drop(cur, here_bits)
-        zr_zlib_set_u32(lens, InflateState.have(st), val)
-        InflateState.set_have(st, InflateState.have(st) + 1)
+        zr_zlib_set_u32(lens, InflateState[st].have, val)
+        InflateState[st].have = InflateState[st].have + 1
       else
         len = 0
         copy = 0
@@ -783,10 +829,10 @@ module Zr::Kern
             return INF_LEAVE
           end
           zr_inf_drop(cur, here_bits)
-          if InflateState.have(st) == 0
+          if InflateState[st].have == 0
             return zr_inf_bad(strm, st, Machine.bytes("invalid bit length repeat\0"))
           end
-          len = zr_zlib_u32(lens, InflateState.have(st) - 1)
+          len = zr_zlib_u32(lens, InflateState[st].have - 1)
           copy = 3 + zr_inf_bits(cur, 2)
           zr_inf_drop(cur, 2)
         elsif val == 17
@@ -806,12 +852,12 @@ module Zr::Kern
           copy = 11 + zr_inf_bits(cur, 7)
           zr_inf_drop(cur, 7)
         end
-        if InflateState.have(st) + copy > total
+        if InflateState[st].have + copy > total
           return zr_inf_bad(strm, st, Machine.bytes("invalid bit length repeat\0"))
         end
         while copy > 0
-          zr_zlib_set_u32(lens, InflateState.have(st), len)
-          InflateState.set_have(st, InflateState.have(st) + 1)
+          zr_zlib_set_u32(lens, InflateState[st].have, len)
+          InflateState[st].have = InflateState[st].have + 1
           copy -= 1
         end
       end
@@ -819,17 +865,17 @@ module Zr::Kern
     if zr_zlib_u32(lens, 256) == 0
       return zr_inf_bad(strm, st, Machine.bytes("invalid code -- missing end-of-block\0"))
     end
-    InflateState.set_nxt(st, InflateState.codes(st))
-    InflateState.set_lencode(st, InflateState.codes(st))
-    if zr_inflate_build(st, INF_LENS, InflateState.nlen(st), 9) != 0
+    InflateState[st].nxt = InflateState[st].codes
+    InflateState[st].lencode = InflateState[st].codes
+    if zr_inflate_build(st, INF_LENS, InflateState[st].nlen, 9) != 0
       return zr_inf_bad(strm, st, Machine.bytes("invalid literal/lengths set\0"))
     end
-    InflateState.set_distcode(st, InflateState.nxt(st))
-    if zr_inflate_build(st, INF_DISTS, InflateState.ndist(st), 6) != 0
+    InflateState[st].distcode = InflateState[st].nxt
+    if zr_inflate_build(st, INF_DISTS, InflateState[st].ndist, 6) != 0
       return zr_inf_bad(strm, st, Machine.bytes("invalid distances set\0"))
     end
-    InflateState.set_mode(st, INF_LEN_)
-    if InfCursor.flush(cur) == Z_TREES
+    InflateState[st].mode = INF_LEN_
+    if InfCursor[cur].flush == Z_TREES
       return INF_LEAVE
     end
     INF_NEXT
@@ -839,153 +885,153 @@ module Zr::Kern
   # time, or through inflate_fast while the buffers are large enough.
   #: (ptr, ptr, ptr) -> word
   def zr_inflate_codes(strm, st, cur)
-    mode = InflateState.mode(st)
+    mode = InflateState[st].mode
     if mode == INF_LEN_
       mode = INF_LEN
-      InflateState.set_mode(st, mode)
+      InflateState[st].mode = mode
     end
     if mode == INF_LEN
-      if InfCursor.have(cur) >= 6 && InfCursor.left(cur) >= 258
+      if InfCursor[cur].have >= 6 && InfCursor[cur].left >= 258
         zr_inf_restore(strm, st, cur)
-        zr_inflate_fast(strm, InfCursor.out(cur))
+        zr_inflate_fast(strm, InfCursor[cur].out)
         zr_inf_load(strm, st, cur)
-        if InflateState.mode(st) == INF_TYPE
-          InflateState.set_back(st, 0 - 1)
+        if InflateState[st].mode == INF_TYPE
+          InflateState[st].back = 0 - 1
         end
         return INF_NEXT
       end
-      InflateState.set_back(st, 0)
-      here = zr_inflate_decode(cur, InflateState.lencode(st), InflateState.lenbits(st))
+      InflateState[st].back = 0
+      here = zr_inflate_decode(cur, InflateState[st].lencode, InflateState[st].lenbits)
       if here < 0
         return INF_LEAVE
       end
       if zr_inf_code_op(here) != 0 && (zr_inf_code_op(here) & 240) == 0
         last = here
-        here = zr_inflate_decode_under(cur, InflateState.lencode(st), last)
+        here = zr_inflate_decode_under(cur, InflateState[st].lencode, last)
         if here < 0
           return INF_LEAVE
         end
         zr_inf_drop(cur, zr_inf_code_bits(last))
-        InflateState.set_back(st, InflateState.back(st) + zr_inf_code_bits(last))
+        InflateState[st].back = InflateState[st].back + zr_inf_code_bits(last)
       end
       zr_inf_drop(cur, zr_inf_code_bits(here))
-      InflateState.set_back(st, InflateState.back(st) + zr_inf_code_bits(here))
-      InflateState.set_length(st, zr_inf_code_val(here))
+      InflateState[st].back = InflateState[st].back + zr_inf_code_bits(here)
+      InflateState[st].length = zr_inf_code_val(here)
       op = zr_inf_code_op(here)
       if op == 0
-        InflateState.set_mode(st, INF_LIT)
+        InflateState[st].mode = INF_LIT
         return INF_NEXT
       end
       if (op & 32) != 0
-        InflateState.set_back(st, 0 - 1)
-        InflateState.set_mode(st, INF_TYPE)
+        InflateState[st].back = 0 - 1
+        InflateState[st].mode = INF_TYPE
         return INF_NEXT
       end
       if (op & 64) != 0
         return zr_inf_bad(strm, st, Machine.bytes("invalid literal/length code\0"))
       end
-      InflateState.set_extra(st, op & 15)
+      InflateState[st].extra = op & 15
       mode = INF_LENEXT
-      InflateState.set_mode(st, mode)
+      InflateState[st].mode = mode
     end
     if mode == INF_LENEXT
-      extra = InflateState.extra(st)
+      extra = InflateState[st].extra
       if extra != 0
         if !zr_inf_need(cur, extra)
           return INF_LEAVE
         end
-        InflateState.set_length(st, InflateState.length(st) + zr_inf_bits(cur, extra))
+        InflateState[st].length = InflateState[st].length + zr_inf_bits(cur, extra)
         zr_inf_drop(cur, extra)
-        InflateState.set_back(st, InflateState.back(st) + extra)
+        InflateState[st].back = InflateState[st].back + extra
       end
-      InflateState.set_was(st, InflateState.length(st))
+      InflateState[st].was = InflateState[st].length
       mode = INF_DIST
-      InflateState.set_mode(st, mode)
+      InflateState[st].mode = mode
     end
     if mode == INF_DIST
-      here = zr_inflate_decode(cur, InflateState.distcode(st), InflateState.distbits(st))
+      here = zr_inflate_decode(cur, InflateState[st].distcode, InflateState[st].distbits)
       if here < 0
         return INF_LEAVE
       end
       if (zr_inf_code_op(here) & 240) == 0
         last = here
-        here = zr_inflate_decode_under(cur, InflateState.distcode(st), last)
+        here = zr_inflate_decode_under(cur, InflateState[st].distcode, last)
         if here < 0
           return INF_LEAVE
         end
         zr_inf_drop(cur, zr_inf_code_bits(last))
-        InflateState.set_back(st, InflateState.back(st) + zr_inf_code_bits(last))
+        InflateState[st].back = InflateState[st].back + zr_inf_code_bits(last)
       end
       zr_inf_drop(cur, zr_inf_code_bits(here))
-      InflateState.set_back(st, InflateState.back(st) + zr_inf_code_bits(here))
+      InflateState[st].back = InflateState[st].back + zr_inf_code_bits(here)
       if (zr_inf_code_op(here) & 64) != 0
         return zr_inf_bad(strm, st, Machine.bytes("invalid distance code\0"))
       end
-      InflateState.set_offset(st, zr_inf_code_val(here))
-      InflateState.set_extra(st, zr_inf_code_op(here) & 15)
+      InflateState[st].offset = zr_inf_code_val(here)
+      InflateState[st].extra = zr_inf_code_op(here) & 15
       mode = INF_DISTEXT
-      InflateState.set_mode(st, mode)
+      InflateState[st].mode = mode
     end
     if mode == INF_DISTEXT
-      extra = InflateState.extra(st)
+      extra = InflateState[st].extra
       if extra != 0
         if !zr_inf_need(cur, extra)
           return INF_LEAVE
         end
-        InflateState.set_offset(st, InflateState.offset(st) + zr_inf_bits(cur, extra))
+        InflateState[st].offset = InflateState[st].offset + zr_inf_bits(cur, extra)
         zr_inf_drop(cur, extra)
-        InflateState.set_back(st, InflateState.back(st) + extra)
+        InflateState[st].back = InflateState[st].back + extra
       end
       mode = INF_MATCH
-      InflateState.set_mode(st, mode)
+      InflateState[st].mode = mode
     end
     if mode == INF_MATCH
-      left = InfCursor.left(cur)
+      left = InfCursor[cur].left
       if left == 0
         return INF_LEAVE
       end
-      put = InfCursor.put(cur)
-      copy = InfCursor.out(cur) - left
+      put = InfCursor[cur].put
+      copy = InfCursor[cur].out - left
       from = put
-      if InflateState.offset(st) > copy
-        copy = InflateState.offset(st) - copy
-        if copy > InflateState.whave(st)
-          if InflateState.sane(st) != 0
+      if InflateState[st].offset > copy
+        copy = InflateState[st].offset - copy
+        if copy > InflateState[st].whave
+          if InflateState[st].sane != 0
             return zr_inf_bad(strm, st, Machine.bytes("invalid distance too far back\0"))
           end
         end
-        if copy > InflateState.wnext(st)
-          copy -= InflateState.wnext(st)
-          from = InflateState.window(st) + (InflateState.wsize(st) - copy)
+        if copy > InflateState[st].wnext
+          copy -= InflateState[st].wnext
+          from = InflateState[st].window + (InflateState[st].wsize - copy)
         else
-          from = InflateState.window(st) + (InflateState.wnext(st) - copy)
+          from = InflateState[st].window + (InflateState[st].wnext - copy)
         end
-        if copy > InflateState.length(st)
-          copy = InflateState.length(st)
+        if copy > InflateState[st].length
+          copy = InflateState[st].length
         end
       else
-        from = put - InflateState.offset(st)
-        copy = InflateState.length(st)
+        from = put - InflateState[st].offset
+        copy = InflateState[st].length
       end
       if copy > left
         copy = left
       end
-      InfCursor.set_left(cur, left - copy)
-      InflateState.set_length(st, InflateState.length(st) - copy)
+      InfCursor[cur].left = left - copy
+      InflateState[st].length = InflateState[st].length - copy
       zr_zlib_copy_bytes(put, from, copy)
-      InfCursor.set_put(cur, put + copy)
-      if InflateState.length(st) == 0
-        InflateState.set_mode(st, INF_LEN)
+      InfCursor[cur].put = put + copy
+      if InflateState[st].length == 0
+        InflateState[st].mode = INF_LEN
       end
       return INF_NEXT
     end
-    if InfCursor.left(cur) == 0
+    if InfCursor[cur].left == 0
       return INF_LEAVE
     end
-    Machine.store8(InfCursor.put(cur), 0, Machine.i8(InflateState.length(st)))
-    InfCursor.set_put(cur, InfCursor.put(cur) + 1)
-    InfCursor.set_left(cur, InfCursor.left(cur) - 1)
-    InflateState.set_mode(st, INF_LEN)
+    Machine.store8(InfCursor[cur].put, 0, Machine.i8(InflateState[st].length))
+    InfCursor[cur].put = InfCursor[cur].put + 1
+    InfCursor[cur].left = InfCursor[cur].left - 1
+    InflateState[st].mode = INF_LEN
     INF_NEXT
   end
 
@@ -993,59 +1039,59 @@ module Zr::Kern
   # the end states.
   #: (ptr, ptr, ptr) -> word
   def zr_inflate_check(strm, st, cur)
-    mode = InflateState.mode(st)
+    mode = InflateState[st].mode
     if mode == INF_CHECK
-      if InflateState.wrap(st) != 0
+      if InflateState[st].wrap != 0
         if !zr_inf_need(cur, 32)
           return INF_LEAVE
         end
-        out = InfCursor.out(cur) - InfCursor.left(cur)
-        ZStream.set_total_out(strm, ZStream.total_out(strm) + out)
-        InflateState.set_total(st, InflateState.total(st) + out)
-        if (InflateState.wrap(st) & 4) != 0 && out != 0
-          check = zr_inflate_update_check(st, InflateState.check(st), InfCursor.put(cur) - out, out)
-          InflateState.set_check(st, check)
-          ZStream.set_adler(strm, check)
+        out = InfCursor[cur].out - InfCursor[cur].left
+        ZStream[strm].total_out = ZStream[strm].total_out + out
+        InflateState[st].total = InflateState[st].total + out
+        if (InflateState[st].wrap & 4) != 0 && out != 0
+          check = zr_inflate_update_check(st, InflateState[st].check, InfCursor[cur].put - out, out)
+          InflateState[st].check = check
+          ZStream[strm].adler = check
         end
-        InfCursor.set_out(cur, InfCursor.left(cur))
-        hold = Machine.word(InfCursor.hold(cur))
-        if InflateState.flags(st) == 0
+        InfCursor[cur].out = InfCursor[cur].left
+        hold = Machine.word(InfCursor[cur].hold)
+        if InflateState[st].flags == 0
           hold = zr_zlib_swap32(hold)
         end
-        if (InflateState.wrap(st) & 4) != 0 && hold != InflateState.check(st)
+        if (InflateState[st].wrap & 4) != 0 && hold != InflateState[st].check
           return zr_inf_bad(strm, st, Machine.bytes("incorrect data check\0"))
         end
         zr_inf_init_bits(cur)
       end
       mode = INF_LENGTH
-      InflateState.set_mode(st, mode)
+      InflateState[st].mode = mode
     end
     if mode == INF_LENGTH
-      if InflateState.wrap(st) != 0 && InflateState.flags(st) != 0
+      if InflateState[st].wrap != 0 && InflateState[st].flags != 0
         if !zr_inf_need(cur, 32)
           return INF_LEAVE
         end
-        if (InflateState.wrap(st) & 4) != 0 && Machine.word(InfCursor.hold(cur)) != (InflateState.total(st) & ZLIB_MASK32)
+        if (InflateState[st].wrap & 4) != 0 && Machine.word(InfCursor[cur].hold) != (InflateState[st].total & ZLIB_MASK32)
           return zr_inf_bad(strm, st, Machine.bytes("incorrect length check\0"))
         end
         zr_inf_init_bits(cur)
       end
       mode = INF_DONE
-      InflateState.set_mode(st, mode)
+      InflateState[st].mode = mode
     end
     if mode == INF_DONE
-      InfCursor.set_ret(cur, Z_STREAM_END)
+      InfCursor[cur].ret = Z_STREAM_END
       return INF_LEAVE
     end
     if mode == INF_BAD
-      InfCursor.set_ret(cur, Z_DATA_ERROR)
+      InfCursor[cur].ret = Z_DATA_ERROR
       return INF_LEAVE
     end
     if mode == INF_MEM
-      InfCursor.set_ret(cur, Z_MEM_ERROR)
+      InfCursor[cur].ret = Z_MEM_ERROR
       return INF_RETURN
     end
-    InfCursor.set_ret(cur, Z_STREAM_ERROR)
+    InfCursor[cur].ret = Z_STREAM_ERROR
     INF_RETURN
   end
 
@@ -1053,22 +1099,22 @@ module Zr::Kern
   # space allow.
   #: (ptr, word) -> word
   def zr_inflate(strm, flush)
-    if zr_inflate_state_check(strm) != 0 || ZStream.next_out(strm) == 0 || (ZStream.next_in(strm) == 0 && ZStream.avail_in(strm) != 0)
+    if zr_inflate_state_check(strm) != 0 || ZStream[strm].next_out == 0 || (ZStream[strm].next_in == 0 && ZStream[strm].avail_in != 0)
       return Z_STREAM_ERROR
     end
-    st = ZStream.state(strm)
-    if InflateState.mode(st) == INF_TYPE
-      InflateState.set_mode(st, INF_TYPEDO)
+    st = ZStream[strm].state
+    if InflateState[st].mode == INF_TYPE
+      InflateState[st].mode = INF_TYPEDO
     end
     cur = Machine.slot(InfCursor.size)
     zr_inf_load(strm, st, cur)
-    InfCursor.set_in(cur, InfCursor.have(cur))
-    InfCursor.set_out(cur, InfCursor.left(cur))
-    InfCursor.set_flush(cur, flush)
-    InfCursor.set_ret(cur, Z_OK)
+    InfCursor[cur].in = InfCursor[cur].have
+    InfCursor[cur].out = InfCursor[cur].left
+    InfCursor[cur].flush = flush
+    InfCursor[cur].ret = Z_OK
     step = INF_NEXT
     while step == INF_NEXT
-      mode = InflateState.mode(st)
+      mode = InflateState[st].mode
       if mode == INF_HEAD
         step = zr_inflate_head(strm, st, cur)
       elsif mode <= INF_HCRC
@@ -1086,29 +1132,29 @@ module Zr::Kern
       end
     end
     if step == INF_RETURN
-      return InfCursor.ret(cur)
+      return InfCursor[cur].ret
     end
     zr_inf_restore(strm, st, cur)
-    out = InfCursor.out(cur)
-    mode = InflateState.mode(st)
-    if InflateState.wsize(st) != 0 || (out != ZStream.avail_out(strm) && mode < INF_BAD && (mode < INF_CHECK || flush != Z_FINISH))
-      if zr_inflate_update_window(strm, st, ZStream.next_out(strm), out - ZStream.avail_out(strm)) != 0
-        InflateState.set_mode(st, INF_MEM)
+    out = InfCursor[cur].out
+    mode = InflateState[st].mode
+    if InflateState[st].wsize != 0 || (out != ZStream[strm].avail_out && mode < INF_BAD && (mode < INF_CHECK || flush != Z_FINISH))
+      if zr_inflate_update_window(strm, st, ZStream[strm].next_out, out - ZStream[strm].avail_out) != 0
+        InflateState[st].mode = INF_MEM
         return Z_MEM_ERROR
       end
     end
-    in_ = InfCursor.in(cur) - ZStream.avail_in(strm)
-    out -= ZStream.avail_out(strm)
-    ZStream.set_total_in(strm, ZStream.total_in(strm) + in_)
-    ZStream.set_total_out(strm, ZStream.total_out(strm) + out)
-    InflateState.set_total(st, InflateState.total(st) + out)
-    if (InflateState.wrap(st) & 4) != 0 && out != 0
-      check = zr_inflate_update_check(st, InflateState.check(st), ZStream.next_out(strm) - out, out)
-      InflateState.set_check(st, check)
-      ZStream.set_adler(strm, check)
+    in_ = InfCursor[cur].in - ZStream[strm].avail_in
+    out -= ZStream[strm].avail_out
+    ZStream[strm].total_in = ZStream[strm].total_in + in_
+    ZStream[strm].total_out = ZStream[strm].total_out + out
+    InflateState[st].total = InflateState[st].total + out
+    if (InflateState[st].wrap & 4) != 0 && out != 0
+      check = zr_inflate_update_check(st, InflateState[st].check, ZStream[strm].next_out - out, out)
+      InflateState[st].check = check
+      ZStream[strm].adler = check
     end
-    data_type = InflateState.bits(st)
-    if InflateState.last(st) != 0
+    data_type = InflateState[st].bits
+    if InflateState[st].last != 0
       data_type += 64
     end
     if mode == INF_TYPE
@@ -1117,8 +1163,8 @@ module Zr::Kern
     if mode == INF_LEN_ || mode == INF_COPY_
       data_type += 256
     end
-    ZStream.set_data_type(strm, data_type)
-    ret = InfCursor.ret(cur)
+    ZStream[strm].data_type = data_type
+    ret = InfCursor[cur].ret
     if ((in_ == 0 && out == 0) || flush == Z_FINISH) && ret == Z_OK
       ret = Z_BUF_ERROR
     end
@@ -1132,20 +1178,20 @@ module Zr::Kern
     if zr_inflate_state_check(strm) != 0
       return Z_STREAM_ERROR
     end
-    st = ZStream.state(strm)
-    if InflateState.wrap(st) != 0 && InflateState.mode(st) != INF_DICT
+    st = ZStream[strm].state
+    if InflateState[st].wrap != 0 && InflateState[st].mode != INF_DICT
       return Z_STREAM_ERROR
     end
-    if InflateState.mode(st) == INF_DICT
-      if zr_adler32(1, dictionary, length) != InflateState.check(st)
+    if InflateState[st].mode == INF_DICT
+      if zr_adler32(1, dictionary, length) != InflateState[st].check
         return Z_DATA_ERROR
       end
     end
     if zr_inflate_update_window(strm, st, dictionary + length, length) != 0
-      InflateState.set_mode(st, INF_MEM)
+      InflateState[st].mode = INF_MEM
       return Z_MEM_ERROR
     end
-    InflateState.set_havedict(st, 1)
+    InflateState[st].havedict = 1
     Z_OK
   end
 
@@ -1182,51 +1228,51 @@ module Zr::Kern
     if zr_inflate_state_check(strm) != 0
       return Z_STREAM_ERROR
     end
-    st = ZStream.state(strm)
-    if ZStream.avail_in(strm) == 0 && InflateState.bits(st) < 8
+    st = ZStream[strm].state
+    if ZStream[strm].avail_in == 0 && InflateState[st].bits < 8
       return Z_BUF_ERROR
     end
     have = Machine.slot(8)
-    if InflateState.mode(st) != INF_SYNC
-      InflateState.set_mode(st, INF_SYNC)
-      n = InflateState.bits(st) & 7
-      InflateState.set_hold(st, InflateState.hold(st) >> n)
-      InflateState.set_bits(st, InflateState.bits(st) - n)
+    if InflateState[st].mode != INF_SYNC
+      InflateState[st].mode = INF_SYNC
+      n = InflateState[st].bits & 7
+      InflateState[st].hold = InflateState[st].hold >> n
+      InflateState[st].bits = InflateState[st].bits - n
       buf = Machine.slot(8)
       len = 0
-      while InflateState.bits(st) >= 8
-        Machine.store8(buf + len, 0, Machine.i8(Machine.word(InflateState.hold(st))))
+      while InflateState[st].bits >= 8
+        Machine.store8(buf + len, 0, Machine.i8(Machine.word(InflateState[st].hold)))
         len += 1
-        InflateState.set_hold(st, InflateState.hold(st) >> 8)
-        InflateState.set_bits(st, InflateState.bits(st) - 8)
+        InflateState[st].hold = InflateState[st].hold >> 8
+        InflateState[st].bits = InflateState[st].bits - 8
       end
-      InflateState.set_have(st, 0)
+      InflateState[st].have = 0
       Machine.store64(have, 0, 0)
       zr_inflate_sync_search(have, buf, len)
-      InflateState.set_have(st, Machine.load64(have, 0))
+      InflateState[st].have = Machine.load64(have, 0)
     end
-    Machine.store64(have, 0, InflateState.have(st))
-    len = zr_inflate_sync_search(have, ZStream.next_in(strm), ZStream.avail_in(strm))
-    InflateState.set_have(st, Machine.load64(have, 0))
-    ZStream.set_avail_in(strm, ZStream.avail_in(strm) - len)
-    ZStream.set_next_in(strm, ZStream.next_in(strm) + len)
-    ZStream.set_total_in(strm, ZStream.total_in(strm) + len)
-    if InflateState.have(st) != 4
+    Machine.store64(have, 0, InflateState[st].have)
+    len = zr_inflate_sync_search(have, ZStream[strm].next_in, ZStream[strm].avail_in)
+    InflateState[st].have = Machine.load64(have, 0)
+    ZStream[strm].avail_in = ZStream[strm].avail_in - len
+    ZStream[strm].next_in = ZStream[strm].next_in + len
+    ZStream[strm].total_in = ZStream[strm].total_in + len
+    if InflateState[st].have != 4
       return Z_DATA_ERROR
     end
-    if InflateState.flags(st) == 0 - 1
-      InflateState.set_wrap(st, 0)
+    if InflateState[st].flags == 0 - 1
+      InflateState[st].wrap = 0
     else
-      InflateState.set_wrap(st, InflateState.wrap(st) & 3)
+      InflateState[st].wrap = InflateState[st].wrap & 3
     end
-    flags = InflateState.flags(st)
-    in_ = ZStream.total_in(strm)
-    out = ZStream.total_out(strm)
+    flags = InflateState[st].flags
+    in_ = ZStream[strm].total_in
+    out = ZStream[strm].total_out
     zr_inflate_reset(strm)
-    ZStream.set_total_in(strm, in_)
-    ZStream.set_total_out(strm, out)
-    InflateState.set_flags(st, flags)
-    InflateState.set_mode(st, INF_TYPE)
+    ZStream[strm].total_in = in_
+    ZStream[strm].total_out = out
+    InflateState[st].flags = flags
+    InflateState[st].mode = INF_TYPE
     Z_OK
   end
 
@@ -1237,8 +1283,8 @@ module Zr::Kern
     if zr_inflate_state_check(strm) != 0
       return Z_STREAM_ERROR
     end
-    st = ZStream.state(strm)
-    if InflateState.mode(st) == INF_STORED && InflateState.bits(st) == 0
+    st = ZStream[strm].state
+    if InflateState[st].mode == INF_STORED && InflateState[st].bits == 0
       return 1
     end
     0

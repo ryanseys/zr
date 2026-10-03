@@ -3,14 +3,6 @@ module Zr::Kern
   # the write-protect toggle that each write to them needs, and symbol
   # lookup in this image's own symbol table, then with dlsym in all
   # loaded images.
-  Libc.import :dlsym, [Ptr, Ptr] => Ptr
-  Libc.import :_dyld_get_image_header, [I32] => Ptr
-  Libc.import :_dyld_get_image_vmaddr_slide, [I32] => Word
-  Libc.import :strcmp, [Ptr, Ptr] => I32
-  Libc.import :mmap, [Ptr, Word, I32, I32, I32, Word] => Ptr
-  Libc.import :munmap, [Ptr, Word] => I32
-  Libc.import :pthread_jit_write_protect_np, [I32] => Void
-  Libc.import :sys_icache_invalidate, [Ptr, Word] => Void
 
   PROT_READ_WRITE = 3
   PROT_READ_WRITE_EXEC = 7
@@ -79,9 +71,9 @@ module Zr::Kern
     zr_buf_byte(b, 95)
     zr_buf_str(b, name)
     zr_buf_byte(b, 0)
-    at = zr_symtab_find(Buf.ptr(b))
+    at = zr_symtab_find(Buf[b].ptr)
     if at == 0
-      at = Machine.word(Libc.dlsym(Machine.ptr(RTLD_DEFAULT), Buf.ptr(b) + 1))
+      at = Machine.word(Libc.dlsym(Machine.ptr(RTLD_DEFAULT), Buf[b].ptr + 1))
     end
     zr_buf_free(b)
     if at == 0
@@ -162,9 +154,9 @@ module Zr::Kern
   #: (value, value) -> value
   def zr_os_jit_write(at, bytes)
     to = Machine.ptr(zr_fix2long(at))
-    len = RString.len(bytes)
+    len = RString[bytes].len
     Libc.pthread_jit_write_protect_np(Machine.i32(0))
-    zr_memcpy(to, RString.ptr(bytes), len)
+    zr_memcpy(to, RString[bytes].ptr, len)
     Libc.pthread_jit_write_protect_np(Machine.i32(1))
     Libc.sys_icache_invalidate(to, len)
     Machine.value(QNIL)

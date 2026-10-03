@@ -34,7 +34,9 @@ module Zr::Kern
   #
   # `ZR_MCACHE=0` fills no cache entry. `ZR_MCACHE=verify` checks each hit
   # of a send or constant cache entry against a fresh lookup.
-  IvarCache = layout index: Word
+  class IvarCache < Layout
+    attr_accessor :index #: word
+  end
   # `found` is the ancestor list node that contains the method entry. A call
   # gives it to the frame, as a lookup does. `fn` is the function that a hit
   # calls, with the method signature for all entry kinds (`zr_entry_fn`).
@@ -47,7 +49,15 @@ module Zr::Kern
   # member with SHAPE_STRUCT_READER and SHAPE_STRUCT_WRITER. The other shapes: the
   # site does one of the core's type checks itself (`#in_place`).
   # SHAPE_NONE is for all other kinds, and for a cache entry not yet filled.
-  CallCache = layout klass: Value, stamp: Word, entry: Ptr, found: Value, fn: Ptr, shape: Word, direct: Ptr
+  class CallCache < Layout
+    attr_accessor :klass #: value
+    attr_accessor :stamp #: word
+    attr_accessor :entry #: ptr
+    attr_accessor :found #: value
+    attr_accessor :fn #: ptr
+    attr_accessor :shape #: word
+    attr_accessor :direct #: ptr
+  end
   CALL_WAYS = 4
   SHAPE_NONE = 0
   SHAPE_READER = 1
@@ -73,12 +83,23 @@ module Zr::Kern
   # the same guessed ivar entry as for an accessor.
   SHAPE_STRUCT_READER = 13
   SHAPE_STRUCT_WRITER = 14
-  ConstCache = layout key: Value, stamp: Word, value: Value
+  class ConstCache < Layout
+    attr_accessor :key #: value
+    attr_accessor :stamp #: word
+    attr_accessor :value #: value
+  end
   # The cache entry of a `super` site. The ancestor list node that the
   # method runs from and the name together decide the next method. The
   # entry keeps them and the lookup result for the method stamp
   # (lib/zr/runtime/kernel/send.rb, zr_super).
-  SuperCache = layout node: Value, mid: Word, stamp: Word, entry: Ptr, found: Value, fn: Ptr
+  class SuperCache < Layout
+    attr_accessor :node #: value
+    attr_accessor :mid #: word
+    attr_accessor :stamp #: word
+    attr_accessor :entry #: ptr
+    attr_accessor :found #: value
+    attr_accessor :fn #: ptr
+  end
   # The cache entry of a `case` with class arms
   # (`Zr::Lower::Function::Control#class_case`). `table` has CASE_ROWS
   # rows of CaseRow, one for each class that hashes to it, and the kernel
@@ -89,10 +110,20 @@ module Zr::Kern
   # of the value that the site gives to `zr_case_prove`, or -1 when a
   # value failed the check (a Range, or a class with its own `===`), so
   # the site stops calling the kernel for it.
-  CaseCache = layout mstamp: Word, cstamp: Word, cref: Value, table: Ptr, proven: Word, due: Word
+  class CaseCache < Layout
+    attr_accessor :mstamp #: word
+    attr_accessor :cstamp #: word
+    attr_accessor :cref #: value
+    attr_accessor :table #: ptr
+    attr_accessor :proven #: word
+    attr_accessor :due #: word
+  end
   # A row: the class of a subject, and the index of the arm (the count of
   # `when` clauses for `else`). A row with class 0 is empty.
-  CaseRow = layout klass: Value, arm: Word
+  class CaseRow < Layout
+    attr_accessor :klass #: value
+    attr_accessor :arm #: word
+  end
   CASE_ROWS = 32
 
   # Records a change that a constant lookup can see.
@@ -111,17 +142,17 @@ module Zr::Kern
   def zr_call_cache_hit(cc, recv, mid, mode)
     w = Machine.word(recv)
     if (w & 7) == 0 && w != QFALSE && w != QNIL
-      klass = RBasic.klass(recv)
+      klass = RBasic[recv].klass
     else
       klass = zr_class_of(recv)
     end
-    if klass != CallCache.klass(cc) || CallCache.stamp(cc) != Machine.load64(Machine.static(:mcache_stamp, 8), 0)
+    if klass != CallCache[cc].klass || CallCache[cc].stamp != Machine.load64(Machine.static(:mcache_stamp, 8), 0)
       return 0
     end
-    if Task.refine(Machine.ptr(Machine.load64(Machine.static(:current_task, 16), 0))) != QNIL && (mode & SEND_USING) == 0
+    if Task[Machine.ptr(Machine.load64(Machine.static(:current_task, 16), 0))].refine != QNIL && (mode & SEND_USING) == 0
       return 0
     end
-    e = CallCache.entry(cc)
+    e = CallCache[cc].entry
     if Machine.load64(Machine.static(:mcache_mode, 8), 0) == MCACHE_VERIFY && e != zr_fresh_method(klass, mid)
       zr_bug(Machine.bytes("a call cache answered what the chain does not\n"), 46)
     end
@@ -136,12 +167,12 @@ module Zr::Kern
       return
     end
     t = zr_task()
-    if (Task.refine(t) != QNIL && (mode & SEND_USING) == 0) || ClassExt.boxed(RClass.ext(klass)) != QNIL
+    if (Task[t].refine != QNIL && (mode & SEND_USING) == 0) || ClassExt[RClass[klass].ext].boxed != QNIL
       return
     end
     # For a private or protected method with an explicit receiver, the
     # caller decides the result, not the class.
-    if (mode & SEND_MODE) >= 2 && MEntry.vis(e) != VIS_PUBLIC
+    if (mode & SEND_MODE) >= 2 && MEntry[e].vis != VIS_PUBLIC
       return
     end
     # When the program redefines a method, a core send's entry is different
@@ -150,20 +181,20 @@ module Zr::Kern
     if Machine.load64(Machine.static(:mcache_mode, 8), 0) == MCACHE_VERIFY && (mode & SEND_CORE) != 0 && e != zr_fresh_method(klass, mid)
       return
     end
-    CallCache.set_klass(cc, klass)
-    CallCache.set_stamp(cc, Machine.load64(Machine.static(:mcache_stamp, 8), 0))
-    CallCache.set_entry(cc, e)
-    CallCache.set_found(cc, zr_entry_found(e))
-    CallCache.set_fn(cc, zr_entry_fn(e))
-    CallCache.set_shape(cc, zr_entry_shape(klass, e))
+    CallCache[cc].klass = klass
+    CallCache[cc].stamp = Machine.load64(Machine.static(:mcache_stamp, 8), 0)
+    CallCache[cc].entry = e
+    CallCache[cc].found = zr_entry_found(e)
+    CallCache[cc].fn = zr_entry_fn(e)
+    CallCache[cc].shape = zr_entry_shape(klass, e)
     # The direct entry is for a site that gives the def exactly the
     # arguments that it declares. This does the checks of zr_direct_fn
     # one time, here.
     direct = 0
-    if MEntry.kind(e) == KIND_DEF && MEntry.arity(e) == argc
-      direct = MEntry.direct(e)
+    if MEntry[e].kind == KIND_DEF && MEntry[e].arity == argc
+      direct = MEntry[e].direct
     end
-    CallCache.set_direct(cc, direct)
+    CallCache[cc].direct = direct
   end
 
   # The generic entry of a def that has a direct entry. It checks the
@@ -174,15 +205,15 @@ module Zr::Kern
   #: (value, word, ptr, ptr, value, value) -> value
   def zr_direct_fn(recv, argc, argv, e, blk, found)
     t = zr_task()
-    kw = Task.kw(t)
+    kw = Task[t].kw
     if kw != 0
-      Task.set_kw(t, 0)
+      Task[t].kw = 0
       argc = zr_kw_undeclared(kw, argc, argv, 0)
     end
-    if argc != MEntry.arity(e)
+    if argc != MEntry[e].arity
       return zr_direct_arity(recv, argc, e, blk, found)
     end
-    direct = MEntry.direct(e)
+    direct = MEntry[e].direct
     if argc == 0
       return Direct0.call(direct, recv, e, blk, found)
     end
@@ -207,24 +238,24 @@ module Zr::Kern
   def zr_direct_arity(recv, argc, e, blk, found)
     t = zr_task()
     rec = Machine.slot(Frame.size)
-    if Machine.word(rec) < Machine.word(Task.stack_limit(t))
+    if Machine.word(rec) < Machine.word(Task[t].stack_limit)
       return zr_stack_overflow()
     end
-    meta = MEntry.meta(e)
-    Frame.set_prev(rec, Task.top(t))
-    Frame.set_meta(rec, meta)
-    Frame.set_line(rec, FrameMeta.line(meta) | (FrameMeta.node(meta) << 32))
-    Frame.set_serial(rec, 0)
-    Frame.set_self(rec, recv)
-    Frame.set_cref(rec, MEntry.cref(e))
-    Frame.set_blk(rec, blk)
-    Frame.set_nvalues(rec, 0)
-    Frame.set_entry(rec, e)
-    Frame.set_svars(rec, Machine.value(QNIL))
-    Frame.set_defined(rec, found)
-    Task.set_top(t, rec)
-    r = zr_wrong_arity(argc, MEntry.arity(e))
-    Task.set_top(t, Frame.prev(rec))
+    meta = MEntry[e].meta
+    Frame[rec].prev = Task[t].top
+    Frame[rec].meta = meta
+    Frame[rec].line = FrameMeta[meta].line | (FrameMeta[meta].node << 32)
+    Frame[rec].serial = 0
+    Frame[rec].self = recv
+    Frame[rec].cref = MEntry[e].cref
+    Frame[rec].blk = blk
+    Frame[rec].nvalues = 0
+    Frame[rec].entry = e
+    Frame[rec].svars = Machine.value(QNIL)
+    Frame[rec].defined = found
+    Task[t].top = rec
+    r = zr_wrong_arity(argc, MEntry[e].arity)
+    Task[t].top = Frame[rec].prev
     r
   end
 
@@ -238,7 +269,7 @@ module Zr::Kern
   # identity for `==`, because BasicObject's `!=` calls `==`.
   #: (value, ptr) -> word
   def zr_entry_shape(klass, e)
-    kind = MEntry.kind(e)
+    kind = MEntry[e].kind
     if kind == KIND_ATTR_READER
       return SHAPE_READER
     end
@@ -254,7 +285,7 @@ module Zr::Kern
     if kind != KIND_BUILTIN
       return SHAPE_NONE
     end
-    fn = MEntry.fn(e)
+    fn = MEntry[e].fn
     if fn == Machine.addr(:zr_obj_is_a)
       return SHAPE_IS_A
     end
@@ -281,7 +312,7 @@ module Zr::Kern
     end
     if fn == Machine.addr(:zr_obj_ne) || fn == Machine.addr(:zr_obj_eqq)
       eq = zr_search_method(klass, Machine.id(:==))
-      if eq != 0 && MEntry.kind(eq) == KIND_BUILTIN && MEntry.fn(eq) == Machine.addr(:zr_obj_eq)
+      if eq != 0 && MEntry[eq].kind == KIND_BUILTIN && MEntry[eq].fn == Machine.addr(:zr_obj_eq)
         return fn == Machine.addr(:zr_obj_ne) ? SHAPE_NE : SHAPE_EQQ
       end
     end
@@ -309,18 +340,18 @@ module Zr::Kern
     if w <= QNIL
       return Machine.value(QNIL)
     end
-    if (RBasic.flags(mod) & FL_RANKED) == 0
+    if (RBasic[mod].flags & FL_RANKED) == 0
       return Machine.value(QNIL)
     end
-    if (RBasic.flags(klass) & FL_RANKED) == 0
+    if (RBasic[klass].flags & FL_RANKED) == 0
       return Machine.value(QNIL)
     end
-    ext = RClass.ext(klass)
-    r = ClassExt.rank(RClass.ext(mod))
-    if r > ClassExt.rank(ext)
+    ext = RClass[klass].ext
+    r = ClassExt[RClass[mod].ext].rank
+    if r > ClassExt[ext].rank
       return Machine.value(QFALSE)
     end
-    zr_bool(Machine.value(Machine.load64(ClassExt.supers(ext) + ((r - 1) * 8), 0)) == mod)
+    zr_bool(Machine.value(Machine.load64(ClassExt[ext].supers + ((r - 1) * 8), 0)) == mod)
   end
 
   # `mod === obj` at a site whose cache entry contains Module#===, which is
@@ -332,7 +363,7 @@ module Zr::Kern
   def zr_mod_eqq_fast(mod, obj)
     w = Machine.word(obj)
     if (w & 7) == 0 && w > QUNDEF
-      return zr_is_a_fast(RBasic.klass(obj), mod)
+      return zr_is_a_fast(RBasic[obj].klass, mod)
     end
     zr_is_a_fast(zr_class_of(obj), mod)
   end
@@ -353,20 +384,20 @@ module Zr::Kern
     if ms != Machine.load64(Machine.static(:site_stamp, 8), 0) || cs != Machine.load64(Machine.static(:const_stamp, 8), 0)
       return false
     end
-    if CaseCache.mstamp(cc) == ms && CaseCache.cstamp(cc) == cs && CaseCache.cref(cc) == cref
+    if CaseCache[cc].mstamp == ms && CaseCache[cc].cstamp == cs && CaseCache[cc].cref == cref
       return true
     end
-    t = CaseCache.table(cc)
+    t = CaseCache[cc].table
     if t == 0
       t = zr_xmalloc(CASE_ROWS * CaseRow.size)
-      CaseCache.set_table(cc, t)
+      CaseCache[cc].table = t
     end
     Libc.memset(t, Machine.i32(0), CASE_ROWS * CaseRow.size)
-    CaseCache.set_mstamp(cc, ms)
-    CaseCache.set_cstamp(cc, cs)
-    CaseCache.set_cref(cc, cref)
-    CaseCache.set_proven(cc, 0)
-    CaseCache.set_due(cc, 0)
+    CaseCache[cc].mstamp = ms
+    CaseCache[cc].cstamp = cs
+    CaseCache[cc].cref = cref
+    CaseCache[cc].proven = 0
+    CaseCache[cc].due = 0
     true
   end
 
@@ -379,14 +410,14 @@ module Zr::Kern
   # A value that fails stops the checks until the state changes.
   #: (ptr, value, value, word, word, word) -> void
   def zr_case_prove(cc, cref, v, j, ms, cs)
-    if !zr_case_current(cc, cref, ms, cs) || j != CaseCache.due(cc)
+    if !zr_case_current(cc, cref, ms, cs) || j != CaseCache[cc].due
       return
     end
     if zr_case_plain_arm(v)
-      CaseCache.set_proven(cc, j + 1)
-      CaseCache.set_due(cc, j + 1)
+      CaseCache[cc].proven = j + 1
+      CaseCache[cc].due = j + 1
     else
-      CaseCache.set_due(cc, 0 - 1)
+      CaseCache[cc].due = 0 - 1
     end
   end
 
@@ -401,15 +432,15 @@ module Zr::Kern
     if !zr_module_p(mod) || zr_box_origin(mod) != QNIL
       return false
     end
-    if Task.refine(zr_task()) != QNIL
+    if Task[zr_task()].refine != QNIL
       return false
     end
     k = zr_class_of(mod)
-    if ClassExt.boxed(RClass.ext(k)) != QNIL
+    if ClassExt[RClass[k].ext].boxed != QNIL
       return false
     end
     e = zr_search_method(k, Machine.id(:===))
-    e != 0 && MEntry.kind(e) == KIND_BUILTIN && MEntry.fn(e) == Machine.addr(:zr_mod_eqq)
+    e != 0 && MEntry[e].kind == KIND_BUILTIN && MEntry[e].fn == Machine.addr(:zr_mod_eqq)
   end
 
   # Adds the row `klass` => `arm` after the `when` chain selected `arm`
@@ -421,20 +452,20 @@ module Zr::Kern
   # because the chain's result can differ for them.
   #: (ptr, value, value, word, word, word, word) -> void
   def zr_case_fill(cc, cref, klass, arm, count, ms, cs)
-    if !zr_case_current(cc, cref, ms, cs) || count > CaseCache.proven(cc)
+    if !zr_case_current(cc, cref, ms, cs) || count > CaseCache[cc].proven
       return
     end
-    if ClassExt.boxed(RClass.ext(klass)) != QNIL || zr_box_current() != QNIL
+    if ClassExt[RClass[klass].ext].boxed != QNIL || zr_box_current() != QNIL
       return
     end
     t = zr_task()
-    if Task.ractor(t) != 0 || Task.refine(t) != QNIL
+    if Task[t].ractor != 0 || Task[t].refine != QNIL
       return
     end
     w = Machine.word(klass)
-    row = CaseCache.table(cc) + ((((w / CELL_MIN) ^ (w / (CELL_MIN * CASE_ROWS))) & (CASE_ROWS - 1)) * CaseRow.size)
-    CaseRow.set_klass(row, klass)
-    CaseRow.set_arm(row, arm)
+    row = CaseCache[cc].table + ((((w / CELL_MIN) ^ (w / (CELL_MIN * CASE_ROWS))) & (CASE_ROWS - 1)) * CaseRow.size)
+    CaseRow[row].klass = klass
+    CaseRow[row].arm = arm
   end
 
   # `instance_of?` at a site whose cache entry contains
@@ -449,7 +480,7 @@ module Zr::Kern
     end
     k = klass
     while zr_singleton_p(k) || zr_type(k) == T_ICLASS
-      k = RClass.superclass(k)
+      k = RClass[k].superclass
     end
     zr_bool(k == c)
   end
@@ -460,9 +491,9 @@ module Zr::Kern
   # steps, which push the frame and check the arity.
   #: (ptr) -> ptr
   def zr_entry_fn(e)
-    kind = MEntry.kind(e)
+    kind = MEntry[e].kind
     if kind == KIND_DEF
-      return MEntry.fn(e)
+      return MEntry[e].fn
     end
     if kind == KIND_BUILTIN
       return Machine.addr(:zr_builtin_fn)
@@ -475,8 +506,8 @@ module Zr::Kern
     end
     if kind == KIND_BMETHOD
       # The twin of the body block, if it has one (FrameMeta).
-      if MEntry.fn(e) != 0
-        return MEntry.fn(e)
+      if MEntry[e].fn != 0
+        return MEntry[e].fn
       end
       return Machine.addr(:zr_bmethod_fn)
     end
@@ -493,7 +524,7 @@ module Zr::Kern
   # It takes a keywords Hash that the site flagged, as the dispatch does.
   #: (value, word, ptr, ptr, value, value) -> value
   def zr_invoke_fn(recv, argc, argv, e, blk, found)
-    Task.set_found(zr_task(), found)
+    Task[zr_task()].found = found
     zr_invoke(e, recv, argc, argv, blk, zr_kw_take())
   end
 
@@ -505,37 +536,37 @@ module Zr::Kern
   #: (value, word, ptr, ptr, value, value) -> value
   def zr_builtin_fn(recv, argc, argv, e, blk, found)
     t = zr_task()
-    Task.set_found(t, found)
-    kw = Task.kw(t)
+    Task[t].found = found
+    kw = Task[t].kw
     if kw > 1
       argc = zr_kw_tab_in(kw, argc, argv)
       kw = zr_kw_hashed(kw)
     end
     rec = Machine.slot(Frame.size)
-    if Machine.word(rec) < Machine.word(Task.stack_limit(t))
+    if Machine.word(rec) < Machine.word(Task[t].stack_limit)
       return zr_stack_overflow()
     end
-    Frame.set_prev(rec, Task.top(t))
-    Frame.set_meta(rec, MEntry.meta(e))
-    Frame.set_line(rec, 0)
-    Frame.set_serial(rec, 0)
-    Frame.set_self(rec, recv)
-    Frame.set_cref(rec, Machine.value(QNIL))
-    Frame.set_blk(rec, blk)
-    Frame.set_nvalues(rec, 0)
-    Frame.set_entry(rec, e)
-    Frame.set_svars(rec, Machine.value(QNIL))
-    Frame.set_defined(rec, Machine.value(QNIL))
-    Task.set_top(t, rec)
-    Task.set_kw(t, kw)
-    arity = MEntry.arity(e)
+    Frame[rec].prev = Task[t].top
+    Frame[rec].meta = MEntry[e].meta
+    Frame[rec].line = 0
+    Frame[rec].serial = 0
+    Frame[rec].self = recv
+    Frame[rec].cref = Machine.value(QNIL)
+    Frame[rec].blk = blk
+    Frame[rec].nvalues = 0
+    Frame[rec].entry = e
+    Frame[rec].svars = Machine.value(QNIL)
+    Frame[rec].defined = Machine.value(QNIL)
+    Task[t].top = rec
+    Task[t].kw = kw
+    arity = MEntry[e].arity
     if arity >= 0 && argc != arity
       r = zr_wrong_arity(argc, arity)
     else
-      r = Builtin.call(MEntry.fn(e), recv, argc, argv, Machine.value(QNIL), blk)
+      r = Builtin.call(MEntry[e].fn, recv, argc, argv, Machine.value(QNIL), blk)
     end
-    Task.set_kw(t, 0)
-    Task.set_top(t, Frame.prev(rec))
+    Task[t].kw = 0
+    Task[t].top = Frame[rec].prev
     r
   end
 
@@ -558,14 +589,14 @@ module Zr::Kern
       return zr_wrong_arity(argc, 0)
     end
     t = zr_task()
-    Task.set_kw(t, 0)
-    id = Machine.word(MEntry.fn(e))
-    ic = MEntry.ivar(e)
+    Task[t].kw = 0
+    id = Machine.word(MEntry[e].fn)
+    ic = Machine.ptr(MEntry[e].ivar)
     w = Machine.word(recv)
-    if (w & 7) == 0 && w > QNIL && (RBasic.flags(recv) & T_MASK) == T_OBJECT && Task.ractor(t) == 0
-      row = zr_ivar_guess_row(RObject.iv(recv), id, ic)
+    if (w & 7) == 0 && w > QNIL && (RBasic[recv].flags & T_MASK) == T_OBJECT && Task[t].ractor == 0
+      row = zr_ivar_guess_row(Machine.ptr(RObject[recv].iv), id, ic)
       if row != 0
-        v = IvEntry.value(row)
+        v = IvEntry[row].value
         return v == QUNDEF ? Machine.value(QNIL) : v
       end
     end
@@ -581,15 +612,15 @@ module Zr::Kern
       return zr_wrong_arity(argc, 1)
     end
     t = zr_task()
-    Task.set_kw(t, 0)
-    id = Machine.word(MEntry.fn(e))
-    ic = MEntry.ivar(e)
+    Task[t].kw = 0
+    id = Machine.word(MEntry[e].fn)
+    ic = Machine.ptr(MEntry[e].ivar)
     v = Machine.value(Machine.load64(argv, 0))
     w = Machine.word(recv)
-    if (w & 7) == 0 && w > QNIL && (RBasic.flags(recv) & (T_MASK | FL_FREEZE)) == T_OBJECT && Task.ractor(t) == 0
-      row = zr_ivar_guess_row(RObject.iv(recv), id, ic)
+    if (w & 7) == 0 && w > QNIL && (RBasic[recv].flags & (T_MASK | FL_FREEZE)) == T_OBJECT && Task[t].ractor == 0
+      row = zr_ivar_guess_row(Machine.ptr(RObject[recv].iv), id, ic)
       if row != 0
-        IvEntry.set_value(row, v)
+        IvEntry[row].value = v
         zr_write_barrier(recv, v)
         return v
       end
@@ -603,12 +634,12 @@ module Zr::Kern
   # table. It is small, so an accessor contains a copy in place of a call.
   #: (ptr, word, ptr) -> ptr
   def zr_ivar_guess_row(t, id, ic)
-    i = IvarCache.index(ic)
-    if i >= IvTab.len(t)
+    i = IvarCache[ic].index
+    if i >= IvTab[t].len
       return 0
     end
-    e = IvTab.rows(t) + (i * IvEntry.size)
-    IvEntry.id(e) == id ? e : 0
+    e = IvTab[t].rows + (i * IvEntry.size)
+    IvEntry[e].id == id ? e : 0
   end
 
   # A send through the site's cache entries, when the site's own check
@@ -618,7 +649,7 @@ module Zr::Kern
   #: (ptr, value, word, word, ptr, value, word) -> value
   def zr_send_cached(cc, recv, mid, argc, argv, blk, mode)
     using = (mode & SEND_USING) != 0
-    if Task.refine(zr_task()) == QNIL || using
+    if Task[zr_task()].refine == QNIL || using
       # Read the class and the stamp one time, then check each way. The
       # site already checked the first way for all receivers, so this
       # checks the other ways. Under ZR_MCACHE=verify, no site check hits,
@@ -628,7 +659,7 @@ module Zr::Kern
       w = Machine.word(recv)
       verify = Machine.load64(Machine.static(:mcache_mode, 8), 0) == MCACHE_VERIFY
       if (w & 7) == 0 && w > QUNDEF
-        klass = RBasic.klass(recv)
+        klass = RBasic[recv].klass
       elsif (w & 1) != 0
         klass = zr_global(G_INTEGER)
       else
@@ -638,16 +669,16 @@ module Zr::Kern
       stamp = Machine.load64(Machine.static(:mcache_stamp, 8), 0)
       while i < CALL_WAYS
         way = cc + (i * CallCache.size)
-        if CallCache.klass(way) == klass && CallCache.stamp(way) == stamp
-          e = CallCache.entry(way)
+        if CallCache[way].klass == klass && CallCache[way].stamp == stamp
+          e = CallCache[way].entry
           if verify && e != zr_fresh_method(klass, mid)
             zr_bug(Machine.bytes("a call cache answered what the chain does not\n"), 46)
           end
-          r = Method.call(CallCache.fn(way), recv, argc, argv, e, blk, CallCache.found(way))
+          r = Method.call(CallCache[way].fn, recv, argc, argv, e, blk, CallCache[way].found)
           # The site activated the refinements for this send only, so clear
           # them, as zr_dispatch does.
           if using
-            Task.set_refine(zr_task(), Machine.value(QNIL))
+            Task[zr_task()].refine = Machine.value(QNIL)
           end
           return r
         end
@@ -661,7 +692,7 @@ module Zr::Kern
   # uses the active refinements, or a plain lookup when there are none.
   #: (value, word) -> ptr
   def zr_fresh_method(klass, mid)
-    if Task.refine(zr_task()) != QNIL
+    if Task[zr_task()].refine != QNIL
       return zr_refined_search(klass, mid)
     end
     zr_search_method(klass, mid)
@@ -675,7 +706,7 @@ module Zr::Kern
     i = 0
     while i < CALL_WAYS - 1
       way = cc + (i * CallCache.size)
-      if CallCache.klass(way) == 0 || CallCache.stamp(way) != Machine.load64(Machine.static(:mcache_stamp, 8), 0)
+      if CallCache[way].klass == 0 || CallCache[way].stamp != Machine.load64(Machine.static(:mcache_stamp, 8), 0)
         return way
       end
       i += 1
@@ -707,8 +738,8 @@ module Zr::Kern
     # C's rb_ary_new or rb_class_new_instance, with no frame, so it always
     # takes the fast path below.
     core = (mode & SEND_CORE) != 0
-    plain = e != 0 && (blk == QNIL || core) && (MEntry.fn(e) == Machine.addr(:zr_class_new_instance) || (core && MEntry.fn(e) == Machine.addr(:zr_class_s_new)))
-    if !plain || MEntry.vis(e) != VIS_PUBLIC
+    plain = e != 0 && (blk == QNIL || core) && (MEntry[e].fn == Machine.addr(:zr_class_new_instance) || (core && MEntry[e].fn == Machine.addr(:zr_class_s_new)))
+    if !plain || MEntry[e].vis != VIS_PUBLIC
       return zr_send_cached(cc, recv, Machine.id(:new), argc, argv, blk, mode)
     end
     o = zr_class_new_object(recv)
@@ -728,7 +759,7 @@ module Zr::Kern
   # entries and classes).
   #: (ptr) -> bool
   def zr_const_cacheable(e)
-    CEntry.value(e) != QUNDEF && CEntry.deprecated(e) == 0 && zr_box_current() == QNIL
+    CEntry[e].value != QUNDEF && CEntry[e].deprecated == 0 && zr_box_current() == QNIL
   end
 
   # `stamp` is the value read before the lookup. Thus, a change that the
@@ -738,16 +769,16 @@ module Zr::Kern
     if Machine.load64(Machine.static(:mcache_mode, 8), 0) == MCACHE_OFF
       return
     end
-    ConstCache.set_key(cc, key)
-    ConstCache.set_stamp(cc, stamp)
-    ConstCache.set_value(cc, v)
+    ConstCache[cc].key = key
+    ConstCache[cc].stamp = stamp
+    ConstCache[cc].value = v
   end
 
   # `ZR_MCACHE=verify`: checks that the constant entry from a fresh lookup
   # contains the value that the cache entry returned.
   #: (ptr, ptr) -> void
   def zr_const_cache_verify(cc, e)
-    if e == 0 || !zr_const_cacheable(e) || CEntry.value(e) != ConstCache.value(cc)
+    if e == 0 || !zr_const_cacheable(e) || CEntry[e].value != ConstCache[cc].value
       zr_bug(Machine.bytes("a constant cache answered what the lookup does not\n"), 51)
     end
   end
@@ -757,16 +788,16 @@ module Zr::Kern
   #: (ptr, value, word) -> value
   def zr_const_get_cached(cc, cref, id)
     stamp = Machine.load64(Machine.static(:const_stamp, 8), 0)
-    if ConstCache.key(cc) == cref && ConstCache.stamp(cc) == stamp
+    if ConstCache[cc].key == cref && ConstCache[cc].stamp == stamp
       if Machine.load64(Machine.static(:mcache_mode, 8), 0) == MCACHE_VERIFY
         zr_const_cache_verify(cc, zr_const_row_under(cref, id))
       end
-      return ConstCache.value(cc)
+      return ConstCache[cc].value
     end
     e = zr_const_row_under(cref, id)
     if e != 0 && zr_const_cacheable(e)
-      zr_const_cache_fill(cc, cref, stamp, CEntry.value(e))
-      return CEntry.value(e)
+      zr_const_cache_fill(cc, cref, stamp, CEntry[e].value)
+      return CEntry[e].value
     end
     zr_const_get(cref, id)
   end
@@ -776,7 +807,7 @@ module Zr::Kern
   # a lookup (the stamp changes when a ractor's task starts and stops).
   #: (ptr, value, word) -> value
   def zr_const_read_cached(cc, cref, id)
-    if Task.ractor(zr_task()) == 0
+    if Task[zr_task()].ractor == 0
       return zr_const_get_cached(cc, cref, id)
     end
     v = zr_const_get(cref, id)
@@ -785,13 +816,13 @@ module Zr::Kern
     if e == 0
       return v
     end
-    zr_ractor_const(CEntry.owner(e), id, v)
+    zr_ractor_const(CEntry[e].owner, id, v)
   end
 
   # Reads a program's `scope::Name` in the same way.
   #: (ptr, value, word) -> value
   def zr_const_read_at_cached(cc, scope, id)
-    if Task.ractor(zr_task()) == 0
+    if Task[zr_task()].ractor == 0
       return zr_const_get_at_cached(cc, scope, id)
     end
     v = zr_const_get_at(scope, id)
@@ -803,7 +834,7 @@ module Zr::Kern
     if e == 0
       return v
     end
-    zr_ractor_const(CEntry.owner(e), id, v)
+    zr_ractor_const(CEntry[e].owner, id, v)
   end
 
   # Checks `v`, a constant of `owner`, read outside the main ractor. The
@@ -826,17 +857,17 @@ module Zr::Kern
   #: (ptr, value, word) -> value
   def zr_const_get_at_cached(cc, scope, id)
     stamp = Machine.load64(Machine.static(:const_stamp, 8), 0)
-    if ConstCache.key(cc) == scope && ConstCache.stamp(cc) == stamp
+    if ConstCache[cc].key == scope && ConstCache[cc].stamp == stamp
       if Machine.load64(Machine.static(:mcache_mode, 8), 0) == MCACHE_VERIFY
         zr_const_cache_verify(cc, zr_const_row_in(scope, id, scope != zr_global(G_OBJECT)))
       end
-      return ConstCache.value(cc)
+      return ConstCache[cc].value
     end
     if !zr_special_p(scope) && (zr_type(scope) == T_CLASS || zr_type(scope) == T_MODULE)
       e = zr_const_row_in(scope, id, scope != zr_global(G_OBJECT))
-      if e != 0 && CEntry.private(e) == 0 && zr_const_cacheable(e)
-        zr_const_cache_fill(cc, scope, stamp, CEntry.value(e))
-        return CEntry.value(e)
+      if e != 0 && CEntry[e].private == 0 && zr_const_cacheable(e)
+        zr_const_cache_fill(cc, scope, stamp, CEntry[e].value)
+        return CEntry[e].value
       end
     end
     zr_const_get_at(scope, id)
@@ -848,7 +879,7 @@ module Zr::Kern
   def zr_ivar_get_cached(obj, id, ic)
     e = zr_ivar_row_guessed(obj, id, ic)
     if e != 0
-      v = IvEntry.value(e)
+      v = IvEntry[e].value
       return v == QUNDEF ? Machine.value(QNIL) : v
     end
     g = zr_ractor_guard(obj)
@@ -860,10 +891,10 @@ module Zr::Kern
       return Machine.value(QNIL)
     end
     e = zr_ivtab_guess(t, id, ic)
-    if e == 0 || IvEntry.value(e) == QUNDEF
+    if e == 0 || IvEntry[e].value == QUNDEF
       return Machine.value(QNIL)
     end
-    IvEntry.value(e)
+    IvEntry[e].value
   end
 
   # Writes `@name = v` at a site with the cached index `ic`. Does the same
@@ -871,8 +902,8 @@ module Zr::Kern
   #: (value, word, value, ptr) -> value
   def zr_ivar_set_cached(obj, id, v, ic)
     e = zr_ivar_row_guessed(obj, id, ic)
-    if e != 0 && (RBasic.flags(obj) & FL_FREEZE) == 0
-      IvEntry.set_value(e, v)
+    if e != 0 && (RBasic[obj].flags & FL_FREEZE) == 0
+      IvEntry[e].value = v
       zr_write_barrier(obj, v)
       return v
     end
@@ -880,9 +911,9 @@ module Zr::Kern
     # one past its last ivar entry. This is the first assignment in an
     # `initialize`. When no entry contains `id`, the new entry goes at the
     # end, with no more kernel calls.
-    if !zr_special_p(obj) && (RBasic.flags(obj) & (T_MASK | FL_FREEZE)) == T_OBJECT && Task.ractor(zr_task()) == 0
-      t = RObject.iv(obj)
-      if IvarCache.index(ic) == IvTab.len(t) && zr_ivtab_row(t, id) == 0
+    if !zr_special_p(obj) && (RBasic[obj].flags & (T_MASK | FL_FREEZE)) == T_OBJECT && Task[zr_task()].ractor == 0
+      t = Machine.ptr(RObject[obj].iv)
+      if IvarCache[ic].index == IvTab[t].len && zr_ivtab_row(t, id) == 0
         zr_ivtab_append(t, id, v, obj)
         zr_write_barrier(obj, v)
         return v
@@ -899,10 +930,10 @@ module Zr::Kern
     e = zr_ivtab_guess(t, id, ic)
     if e == 0
       # A new ivar entry goes at the end, where the next cached index finds it.
-      IvarCache.set_index(ic, IvTab.len(t))
+      IvarCache[ic].index = IvTab[t].len
       zr_ivtab_set_in(t, id, v, zr_ivtab_owner(obj))
     else
-      IvEntry.set_value(e, v)
+      IvEntry[e].value = v
     end
     zr_write_barrier(obj, v)
     v
@@ -916,14 +947,14 @@ module Zr::Kern
   # directly.
   #: (value, word, ptr) -> ptr
   def zr_ivar_row_guessed(obj, id, ic)
-    if zr_special_p(obj) || Task.ractor(zr_task()) != 0
+    if zr_special_p(obj) || Task[zr_task()].ractor != 0
       return 0
     end
-    kind = RBasic.flags(obj) & T_MASK
+    kind = RBasic[obj].flags & T_MASK
     if kind == T_OBJECT
-      t = RObject.iv(obj)
+      t = Machine.ptr(RObject[obj].iv)
     elsif kind == T_CLASS || kind == T_MODULE
-      t = ClassExt.iv(RClass.ext(obj))
+      t = Machine.ptr(ClassExt[RClass[obj].ext].iv)
     else
       return 0
     end
@@ -935,16 +966,16 @@ module Zr::Kern
   # becomes the new cached index.
   #: (ptr, word, ptr) -> ptr
   def zr_ivtab_guess(t, id, ic)
-    i = IvarCache.index(ic)
-    if i < IvTab.len(t)
-      e = IvTab.rows(t) + (i * IvEntry.size)
-      if IvEntry.id(e) == id
+    i = IvarCache[ic].index
+    if i < IvTab[t].len
+      e = IvTab[t].rows + (i * IvEntry.size)
+      if IvEntry[e].id == id
         return e
       end
     end
     e = zr_ivtab_row(t, id)
     if e != 0
-      IvarCache.set_index(ic, (Machine.word(e) - Machine.word(IvTab.rows(t))) / IvEntry.size)
+      IvarCache[ic].index = (Machine.word(e) - Machine.word(IvTab[t].rows)) / IvEntry.size
     end
     e
   end

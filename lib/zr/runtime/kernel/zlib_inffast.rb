@@ -11,22 +11,22 @@ module Zr::Kern
   # output of this call starts.
   #: (ptr, word) -> void
   def zr_inflate_fast(strm, start)
-    st = ZStream.state(strm)
-    in_ = ZStream.next_in(strm)
-    last = in_ + (ZStream.avail_in(strm) - 5)
-    out = ZStream.next_out(strm)
-    beg = out - (start - ZStream.avail_out(strm))
-    end_ = out + (ZStream.avail_out(strm) - 257)
-    wsize = InflateState.wsize(st)
-    whave = InflateState.whave(st)
-    wnext = InflateState.wnext(st)
-    window = InflateState.window(st)
-    hold = InflateState.hold(st)
-    bits = InflateState.bits(st)
-    lcode = InflateState.lencode(st)
-    dcode = InflateState.distcode(st)
-    lmask = (1 << InflateState.lenbits(st)) - 1
-    dmask = (1 << InflateState.distbits(st)) - 1
+    st = ZStream[strm].state
+    in_ = ZStream[strm].next_in
+    last = in_ + (ZStream[strm].avail_in - 5)
+    out = ZStream[strm].next_out
+    beg = out - (start - ZStream[strm].avail_out)
+    end_ = out + (ZStream[strm].avail_out - 257)
+    wsize = InflateState[st].wsize
+    whave = InflateState[st].whave
+    wnext = InflateState[st].wnext
+    window = InflateState[st].window
+    hold = InflateState[st].hold
+    bits = InflateState[st].bits
+    lcode = InflateState[st].lencode
+    dcode = InflateState[st].distcode
+    lmask = (1 << InflateState[st].lenbits) - 1
+    dmask = (1 << InflateState[st].distbits) - 1
     done = 0
     while true
       if bits < 15
@@ -94,8 +94,8 @@ module Zr::Kern
               if dist > op
                 op = dist - op
                 if op > whave
-                  ZStream.set_msg(strm, Machine.bytes("invalid distance too far back\0"))
-                  InflateState.set_mode(st, INF_BAD)
+                  ZStream[strm].msg = Machine.bytes("invalid distance too far back\0")
+                  InflateState[st].mode = INF_BAD
                   done = 1
                   break
                 end
@@ -144,8 +144,8 @@ module Zr::Kern
             elsif (op & 64) == 0
               here = zr_zlib_u32(dcode, zr_inf_code_val(here) + Machine.word(hold & ((1 << op) - 1)))
             else
-              ZStream.set_msg(strm, Machine.bytes("invalid distance code\0"))
-              InflateState.set_mode(st, INF_BAD)
+              ZStream[strm].msg = Machine.bytes("invalid distance code\0")
+              InflateState[st].mode = INF_BAD
               done = 1
               break
             end
@@ -154,12 +154,12 @@ module Zr::Kern
         elsif (op & 64) == 0
           here = zr_zlib_u32(lcode, zr_inf_code_val(here) + Machine.word(hold & ((1 << op) - 1)))
         elsif (op & 32) != 0
-          InflateState.set_mode(st, INF_TYPE)
+          InflateState[st].mode = INF_TYPE
           done = 1
           break
         else
-          ZStream.set_msg(strm, Machine.bytes("invalid literal/length code\0"))
-          InflateState.set_mode(st, INF_BAD)
+          ZStream[strm].msg = Machine.bytes("invalid literal/length code\0")
+          InflateState[st].mode = INF_BAD
           done = 1
           break
         end
@@ -175,19 +175,19 @@ module Zr::Kern
     in_ -= len
     bits -= len << 3
     hold = hold & ((1 << bits) - 1)
-    ZStream.set_next_in(strm, in_)
-    ZStream.set_next_out(strm, out)
+    ZStream[strm].next_in = in_
+    ZStream[strm].next_out = out
     if in_ < last
-      ZStream.set_avail_in(strm, 5 + (last - in_))
+      ZStream[strm].avail_in = 5 + (last - in_)
     else
-      ZStream.set_avail_in(strm, 5 - (in_ - last))
+      ZStream[strm].avail_in = 5 - (in_ - last)
     end
     if out < end_
-      ZStream.set_avail_out(strm, 257 + (end_ - out))
+      ZStream[strm].avail_out = 257 + (end_ - out)
     else
-      ZStream.set_avail_out(strm, 257 - (out - end_))
+      ZStream[strm].avail_out = 257 - (out - end_)
     end
-    InflateState.set_hold(st, hold)
-    InflateState.set_bits(st, bits)
+    InflateState[st].hold = hold
+    InflateState[st].bits = bits
   end
 end

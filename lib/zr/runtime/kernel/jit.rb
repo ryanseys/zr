@@ -6,7 +6,7 @@
 module Zr::Kern
   #: (value, value) -> value
   def zr_jit_write_data(at, bytes)
-    zr_memcpy(Machine.ptr(zr_fix2long(at)), RString.ptr(bytes), RString.len(bytes))
+    zr_memcpy(Machine.ptr(zr_fix2long(at)), RString[bytes].ptr, RString[bytes].len)
     Machine.value(QNIL)
   end
 
@@ -19,13 +19,16 @@ module Zr::Kern
 
   # The arguments of an eval's toplevel: its self and cref, the Env for its
   # locals, and the block of the scope that it runs in.
-  Eval = fn [Value, Value, Value, Value] => Value
+  module Eval
+    #: (ptr, value, value, value, value) -> value
+    def self.call(fn, v1, v2, v3, v4) = Machine.indirect
+  end
 
   # The four words that the compiler returns for a string: the toplevel,
   # its FrameMeta, and the size and names of the Env for its own locals.
   #: (value, word) -> word
   def zr_code_word(code, i)
-    zr_fix2long(Machine.value(Machine.load64(RArray.ptr(code) + (i * 8), 0)))
+    zr_fix2long(Machine.value(Machine.load64(RArray[code].ptr + (i * 8), 0)))
   end
 
   # Makes the Env for an eval's own locals, one scope inside `parent`.
@@ -40,7 +43,7 @@ module Zr::Kern
   # FrameMeta, so that a backtrace frame shows the label of the caller.
   #: (value, value, value, value, value) -> value
   def zr_eval_at(code, self_, cref, env, blk)
-    FrameMeta.set_parent(Machine.ptr(zr_code_word(code, 1)), Frame.meta(zr_eval_frame()))
+    FrameMeta[Machine.ptr(zr_code_word(code, 1))].parent = Frame[zr_eval_frame()].meta
     Eval.call(Machine.ptr(zr_code_word(code, 0)), self_, cref, env, blk)
   end
 

@@ -67,15 +67,15 @@ module Zr::Kern
     if n < 2
       return
     end
-    stride = Sort.stride(st)
+    stride = Sort[st].stride
     tmp = Machine.slot(16)
-    zr_memcpy(tmp, Sort.base(st) + (Machine.load64(ar, 0) * stride), stride)
+    zr_memcpy(tmp, Sort[st].base + (Machine.load64(ar, 0) * stride), stride)
     i = 0
     while i < n - 1
-      zr_memcpy(Sort.base(st) + (Machine.load64(ar + (i * 8), 0) * stride), Sort.base(st) + (Machine.load64(ar + ((i + 1) * 8), 0) * stride), stride)
+      zr_memcpy(Sort[st].base + (Machine.load64(ar + (i * 8), 0) * stride), Sort[st].base + (Machine.load64(ar + ((i + 1) * 8), 0) * stride), stride)
       i += 1
     end
-    zr_memcpy(Sort.base(st) + (Machine.load64(ar + ((n - 1) * 8), 0) * stride), tmp, stride)
+    zr_memcpy(Sort[st].base + (Machine.load64(ar + ((n - 1) * 8), 0) * stride), tmp, stride)
   end
 
   # Reads a Leonardo number from `lp`, the table of Leonardo numbers.

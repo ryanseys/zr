@@ -3,12 +3,19 @@ module Zr::Kern
   # z_stream and its codes, and zutil.c's error strings. A ZStream is the
   # C z_stream without the allocator hooks, which no code here sets.
   # Derived from zlib; the license is in lib/zr/runtime/kernel/zlib.rb.
-  Libc.import :malloc, [Word] => Ptr
-  Libc.import :free, [Ptr] => Void
-  Libc.import :memmove, [Ptr, Ptr, Word] => Ptr
-  Libc.import :memset, [Ptr, I32, Word] => Ptr
 
-  ZStream = layout next_in: Ptr, avail_in: Word, total_in: Word, next_out: Ptr, avail_out: Word, total_out: Word, msg: Ptr, state: Ptr, data_type: Word, adler: Word
+  class ZStream < Layout
+    attr_accessor :next_in #: ptr
+    attr_accessor :avail_in #: word
+    attr_accessor :total_in #: word
+    attr_accessor :next_out #: ptr
+    attr_accessor :avail_out #: word
+    attr_accessor :total_out #: word
+    attr_accessor :msg #: ptr
+    attr_accessor :state #: ptr
+    attr_accessor :data_type #: word
+    attr_accessor :adler #: word
+  end
 
   # The flush modes.
   Z_NO_FLUSH = 0

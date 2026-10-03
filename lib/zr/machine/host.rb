@@ -87,8 +87,8 @@ module Zr
       #: (Integer n) -> Integer
       def self.unsigned(n) = !n.negative? && n.bit_length <= 64 ? n : n & MASK
 
-      # An Integer, or a Bool as 1 or 0.
-      #: (Integer | bool | nil value) -> Integer
+      # An Integer, a Bool as 1 or 0, or the address of a view.
+      #: (Integer | bool | View | nil value) -> Integer
       def self.bits(value)
         # @type var value: untyped
         case value
@@ -193,20 +193,20 @@ module Zr
           @at = at
         end
 
-        # Defines the reader `name`, which answers the block's value for
+        # Defines the reader `name`, which answers what `read` gives for
         # the view's address.
-        #: (Symbol name) { (Integer at) -> untyped } -> void
-        def self.reader(name, &read)
+        #: (Symbol name, ^(Integer at) -> untyped read) -> void
+        def self.reader(name, read)
           define_method(name) do
             # @type self: View
             read.call(@at)
           end
         end
 
-        # Defines the writer `name=`, which gives the block the view's
+        # Defines the writer `name=`, which gives `write` the view's
         # address and the value.
-        #: (Symbol name) { (Integer at, untyped value) -> void } -> void
-        def self.writer(name, &write)
+        #: (Symbol name, ^(Integer at, untyped value) -> void write) -> void
+        def self.writer(name, write)
           define_method(:"#{name}=") do |value|
             # @type self: View
             write.call(@at, value)
@@ -375,13 +375,13 @@ module Zr
         end
 
         # A Word of `x`: an Integer in the signed range is one already.
-        #: (Integer | bool | nil x) -> Integer
+        #: (Integer | bool | View | nil x) -> Integer
         def word(x) = x.is_a?(Integer) && x.bit_length < 64 ? x : Host.signed(Host.bits(x))
-        #: (Integer | bool | nil x) -> Integer
+        #: (Integer | bool | View | nil x) -> Integer
         def sword(x) = word(x)
-        #: (Integer | bool | nil x) -> Integer
+        #: (Integer | bool | View | nil x) -> Integer
         def value(x) = @host.pin(word(x))
-        #: (Integer | bool | nil x) -> Integer
+        #: (Integer | bool | View | nil x) -> Integer
         def ptr(x) = Host.unsigned(Host.bits(x))
         #: (Integer x) -> Integer
         def u8(x) = x & 0xFF
@@ -588,27 +588,23 @@ module Zr
         names.each do |name|
           at, type_name = layout.fields.fetch(name.to_s) { raise ArgumentError, "#{layout.name} has no field #{name}" }
           if @unit.struct_for(type_name)
-            klass.reader(name) { |p| kern.const_get(type_name, false).new(p + at) }
+            klass.reader(name, ->(p) { kern.const_get(type_name, false).new(p + at) })
             next
           end
 
           type = TYPES.fetch(type_name)
           load = Memory.reader(type, at)
-          if type_name == "Value"
-            klass.reader(name) { |p| host.pin(load.call(p)) }
-          else
-            klass.reader(name) { |p| load.call(p) }
-          end
+          klass.reader(name, type_name == "Value" ? ->(p) { host.pin(load.call(p)) } : load)
           next unless writer
 
           store = Memory.writer(type, at)
           if cell && type_name == "Value"
-            klass.writer(name) do |p, value|
+            klass.writer(name, lambda do |p, value|
               store.call(p, value)
               host.barrier(p, value)
-            end
+            end)
           else
-            klass.writer(name) { |p, value| store.call(p, value) }
+            klass.writer(name, store)
           end
         end
       end
@@ -925,17 +921,17 @@ module Zr
       # allocated but not yet an object, which the lowering never roots.
       #: (Integer v, Set[Integer] arenas) -> bool
       def object?(v, arenas)
-        live?(v, arenas) && @kern::RBasic.flags(v).anybits?(@kern::FL_ALLOCATED)
+        live?(v, arenas) && @kern::RBasic[v].flags.anybits?(@kern::FL_ALLOCATED)
       end
 
       # The heap's arenas, by address.
       #: () -> Set[Integer]
       def heap_arenas
         h = @kern.zr_heap
-        n = @kern::Heap.arenas(h)
+        n = @kern::Heap[h].arenas
         return Set.new if n.zero?
 
-        words = Memory.read(@kern::Heap.table(h), n * 8).unpack("Q<*") #: Array[Integer]
+        words = Memory.read(@kern::Heap[h].table, n * 8).unpack("Q<*") #: Array[Integer]
         words.to_set
       end
 

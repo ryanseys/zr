@@ -9,16 +9,27 @@ module Zr::Kern
   # `names` has bit `id & 63` set for each name that an ivar entry got. A
   # clear bit shows, with no scan, that no entry contains the name. A
   # removed entry keeps its bit.
-  IvTab = layout rows: Ptr, len: Word, cap: Word, names: Word
-  IvEntry = layout id: Word, value: Value
-  RObject = layout basic: RBasic, iv: IvTab
+  class IvTab < Layout
+    attr_accessor :rows #: ptr
+    attr_accessor :len #: word
+    attr_accessor :cap #: word
+    attr_accessor :names #: word
+  end
+  class IvEntry < Layout
+    attr_accessor :id #: word
+    attr_accessor :value #: value
+  end
+  class RObject < Layout
+    attr_reader :basic #: RBasic
+    attr_reader :iv #: IvTab
+  end
 
   #: (ptr) -> void
   def zr_ivtab_init(t)
-    IvTab.set_rows(t, 0)
-    IvTab.set_len(t, 0)
-    IvTab.set_cap(t, 0)
-    IvTab.set_names(t, 0)
+    IvTab[t].rows = 0
+    IvTab[t].len = 0
+    IvTab[t].cap = 0
+    IvTab[t].names = 0
   end
 
   # The bit of `IvTab.names` that represents `id`.
@@ -35,12 +46,12 @@ module Zr::Kern
     if zr_special_p(v)
       return 0
     end
-    t = RBasic.flags(v) & T_MASK
+    t = RBasic[v].flags & T_MASK
     if t == T_OBJECT
-      RObject.iv(v)
+      Machine.ptr(RObject[v].iv)
     elsif t == T_CLASS || t == T_MODULE
-      ClassExt.iv(RClass.ext(v))
-    elsif (RBasic.flags(v) & FL_EXIVAR) != 0
+      Machine.ptr(ClassExt[RClass[v].ext].iv)
+    elsif (RBasic[v].flags & FL_EXIVAR) != 0
       zr_exivar_tab(v)
     else
       0
@@ -63,10 +74,10 @@ module Zr::Kern
 
   #: (ptr) -> void
   def zr_mark_ivtab(t)
-    n = IvTab.len(t)
+    n = IvTab[t].len
     i = 0
     while i < n
-      zr_mark(IvEntry.value(IvTab.rows(t) + (i * IvEntry.size)))
+      zr_mark(IvEntry[IvTab[t].rows + (i * IvEntry.size)].value)
       i += 1
     end
   end
@@ -74,7 +85,7 @@ module Zr::Kern
   #: (ptr) -> void
   def zr_release_ivtab(t)
     if !zr_ivtab_embedded_p(t)
-      zr_sized_xfree(IvTab.rows(t), IvTab.cap(t) * IvEntry.size)
+      zr_sized_xfree(IvTab[t].rows, IvTab[t].cap * IvEntry.size)
     end
   end
 
@@ -87,7 +98,7 @@ module Zr::Kern
   # and nothing else can be between.
   #: (ptr) -> bool
   def zr_ivtab_embedded_p(t)
-    IvTab.rows(t) == t + IvTab.size
+    IvTab[t].rows == t + IvTab.size
   end
 
   # Returns the object whose cell contains `t`'s ivar entries, or nil when
@@ -95,7 +106,7 @@ module Zr::Kern
   # cell, so only a T_OBJECT can return non-nil.
   #: (value) -> value
   def zr_ivtab_owner(obj)
-    if !zr_special_p(obj) && (RBasic.flags(obj) & T_MASK) == T_OBJECT
+    if !zr_special_p(obj) && (RBasic[obj].flags & T_MASK) == T_OBJECT
       return obj
     end
     Machine.value(QNIL)
@@ -106,7 +117,7 @@ module Zr::Kern
   # bytes, 5 in 128, 13 in 256.
   #: (value) -> value
   def zr_obj_alloc(klass)
-    o = zr_alloc(T_OBJECT, klass, ClassExt.obj_bytes(RClass.ext(klass)))
+    o = zr_alloc(T_OBJECT, klass, ClassExt[RClass[klass].ext].obj_bytes)
     zr_obj_ivtab_init(o)
     o
   end
@@ -116,13 +127,13 @@ module Zr::Kern
   # cell.
   #: (value, word) -> void
   def zr_obj_ivars_seen(o, n)
-    ext = RClass.ext(zr_real_class(o))
+    ext = RClass[zr_real_class(o)].ext
     bytes = RObject.size + (n * IvEntry.size)
     if bytes > CELL_MAX
       bytes = CELL_MAX
     end
-    if bytes > ClassExt.obj_bytes(ext)
-      ClassExt.set_obj_bytes(ext, bytes)
+    if bytes > ClassExt[ext].obj_bytes
+      ClassExt[ext].obj_bytes = bytes
     end
   end
 
@@ -130,24 +141,24 @@ module Zr::Kern
   # own cell.
   #: (value) -> void
   def zr_obj_ivtab_init(o)
-    t = RObject.iv(o)
-    IvTab.set_rows(t, t + IvTab.size)
-    IvTab.set_len(t, 0)
-    IvTab.set_cap(t, (zr_cell_bytes(o) - RObject.size) / IvEntry.size)
-    IvTab.set_names(t, 0)
+    t = Machine.ptr(RObject[o].iv)
+    IvTab[t].rows = t + IvTab.size
+    IvTab[t].len = 0
+    IvTab[t].cap = (zr_cell_bytes(o) - RObject.size) / IvEntry.size
+    IvTab[t].names = 0
   end
 
   # Returns the ivar entry for `id` in the table `t`, or 0.
   #: (ptr, word) -> ptr
   def zr_ivtab_row(t, id)
-    if (IvTab.names(t) & zr_ivtab_name_bit(id)) == 0
+    if (IvTab[t].names & zr_ivtab_name_bit(id)) == 0
       return 0
     end
-    n = IvTab.len(t)
+    n = IvTab[t].len
     i = 0
     while i < n
-      e = IvTab.rows(t) + (i * IvEntry.size)
-      if IvEntry.id(e) == id
+      e = IvTab[t].rows + (i * IvEntry.size)
+      if IvEntry[e].id == id
         return e
       end
       i += 1
@@ -162,7 +173,7 @@ module Zr::Kern
     if e == 0
       return Machine.value(QUNDEF)
     end
-    IvEntry.value(e)
+    IvEntry[e].value
   end
 
   # An instance variable of a shareable object that can still change
@@ -175,7 +186,7 @@ module Zr::Kern
   #: (value) -> value
   def zr_ractor_guard(obj)
     t = zr_task()
-    if Task.ractor(t) == 0
+    if Task[t].ractor == 0
       return Machine.value(QNIL)
     end
     if zr_frozen_p(obj) || zr_class_of(obj) != zr_core_class(Machine.id(:Ractor))
@@ -206,10 +217,10 @@ module Zr::Kern
     if e == 0
       return zr_bool(zr_respond_to_missing_p(recv, id))
     end
-    if explicit && MEntry.vis(e) == VIS_PRIVATE
+    if explicit && MEntry[e].vis == VIS_PRIVATE
       return Machine.value(QFALSE)
     end
-    if explicit && MEntry.vis(e) == VIS_PROTECTED && !zr_is_a(Frame.self(Task.top(zr_task())), FrameMeta.owner(MEntry.meta(e)))
+    if explicit && MEntry[e].vis == VIS_PROTECTED && !zr_is_a(Frame[Task[zr_task()].top].self, FrameMeta[MEntry[e].meta].owner)
       return Machine.value(QFALSE)
     end
     Machine.value(QTRUE)
@@ -259,7 +270,7 @@ module Zr::Kern
     if zr_special_p(obj)
       return Machine.value(QNIL)
     end
-    RBasic.set_klass(obj, klass)
+    RBasic[obj].klass = klass
     Machine.value(QNIL)
   end
 
@@ -329,7 +340,7 @@ module Zr::Kern
     if e == 0
       zr_ivtab_append(t, id, v, owner)
     else
-      IvEntry.set_value(e, v)
+      IvEntry[e].value = v
     end
   end
 
@@ -337,32 +348,32 @@ module Zr::Kern
   # entry. The entries grow when full.
   #: (ptr, word, value, value) -> void
   def zr_ivtab_append(t, id, v, owner)
-    n = IvTab.len(t)
-    if n == IvTab.cap(t)
+    n = IvTab[t].len
+    if n == IvTab[t].cap
       cap = n * 2
       if cap < 4
         cap = 4
       end
       rows = zr_xmalloc(cap * IvEntry.size)
-      if IvTab.rows(t) != 0
-        zr_memcpy(rows, IvTab.rows(t), n * IvEntry.size)
+      if IvTab[t].rows != 0
+        zr_memcpy(rows, IvTab[t].rows, n * IvEntry.size)
         # Entries in the cell stay where they are, and the class records
         # that its objects need space for one more. Otherwise, the old
         # entries are a heap block that the table no longer needs.
         if owner != QNIL && zr_ivtab_embedded_p(t)
           zr_obj_ivars_seen(owner, n + 1)
         else
-          zr_sized_xfree(IvTab.rows(t), IvTab.cap(t) * IvEntry.size)
+          zr_sized_xfree(IvTab[t].rows, IvTab[t].cap * IvEntry.size)
         end
       end
-      IvTab.set_rows(t, rows)
-      IvTab.set_cap(t, cap)
+      IvTab[t].rows = rows
+      IvTab[t].cap = cap
     end
-    e = IvTab.rows(t) + (n * IvEntry.size)
-    IvEntry.set_id(e, id)
-    IvTab.set_len(t, n + 1)
-    IvTab.set_names(t, IvTab.names(t) | zr_ivtab_name_bit(id))
-    IvEntry.set_value(e, v)
+    e = IvTab[t].rows + (n * IvEntry.size)
+    IvEntry[e].id = id
+    IvTab[t].len = n + 1
+    IvTab[t].names = IvTab[t].names | zr_ivtab_name_bit(id)
+    IvEntry[e].value = v
   end
 
   # A Range is a plain frozen object of class Range with three ivars. Its
@@ -454,7 +465,7 @@ module Zr::Kern
     zr_ivar_set(r, Machine.id(:begin), low)
     zr_ivar_set(r, Machine.id(:end), high)
     zr_ivar_set(r, Machine.id(:excl), zr_bool(excl != 0))
-    RBasic.set_flags(r, RBasic.flags(r) | FL_FREEZE)
+    RBasic[r].flags = RBasic[r].flags | FL_FREEZE
     r
   end
 
@@ -465,10 +476,10 @@ module Zr::Kern
   def zr_class_allocate(recv)
     recv = zr_alloc_class(recv)
     # The checks of CRuby's class_call_alloc_func, in the same order.
-    if RClass.superclass(recv) == QNIL && recv != zr_global(G_BASIC_OBJECT)
+    if RClass[recv].superclass == QNIL && recv != zr_global(G_BASIC_OBJECT)
       return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("can't instantiate uninitialized class"), 37)
     end
-    if (RBasic.flags(recv) & FL_SINGLETON) != 0
+    if (RBasic[recv].flags & FL_SINGLETON) != 0
       return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("can't create instance of singleton class"), 40)
     end
     kind = zr_alloc_kind(recv)
@@ -533,7 +544,7 @@ module Zr::Kern
       o = zr_str_new(Machine.bytes(""), 0)
       zr_str_set_binary(o)
     end
-    RBasic.set_klass(o, recv)
+    RBasic[o].klass = recv
     o
   end
 
@@ -567,7 +578,7 @@ module Zr::Kern
 
   #: (value) -> word
   def zr_alloc_kind(klass)
-    kind = ClassExt.alloc(RClass.ext(klass))
+    kind = ClassExt[RClass[klass].ext].alloc
     if kind != 0
       return kind
     end
@@ -579,13 +590,13 @@ module Zr::Kern
       return klass == zr_global(G_BASIC_OBJECT) ? ALLOC_OBJECT : ALLOC_NONE
     end
     kind = zr_alloc_kind(sup)
-    ClassExt.set_alloc(RClass.ext(klass), kind)
+    ClassExt[RClass[klass].ext].alloc = kind
     kind
   end
 
   #: (word, word) -> void
   def zr_alloc_record(g, kind)
-    ClassExt.set_alloc(RClass.ext(zr_global(g)), kind)
+    ClassExt[RClass[zr_global(g)].ext].alloc = kind
   end
 
   # The allocation types of the builtin roots. The value classes, Proc and
@@ -616,7 +627,7 @@ module Zr::Kern
   # TypeError on it, and on a subclass that records no type of its own.
   #: (value) -> value
   def zr_undef_alloc(klass)
-    ClassExt.set_alloc(RClass.ext(klass), ALLOC_UNDEF)
+    ClassExt[RClass[klass].ext].alloc = ALLOC_UNDEF
     Machine.value(QNIL)
   end
 
@@ -624,7 +635,7 @@ module Zr::Kern
   # stays Class#new, and both `new` and `allocate` raise TypeError.
   #: (value) -> value
   def zr_undef_allocator(klass)
-    ClassExt.set_alloc(RClass.ext(klass), ALLOC_NONE)
+    ClassExt[RClass[klass].ext].alloc = ALLOC_NONE
     Machine.value(QNIL)
   end
 
@@ -632,7 +643,7 @@ module Zr::Kern
   # under a class whose allocator is undefined (Struct.new, Data.define).
   #: (value) -> value
   def zr_define_alloc(klass)
-    ClassExt.set_alloc(RClass.ext(klass), ALLOC_OBJECT)
+    ClassExt[RClass[klass].ext].alloc = ALLOC_OBJECT
     Machine.value(QNIL)
   end
 
@@ -647,7 +658,7 @@ module Zr::Kern
   def zr_class_new_object(recv)
     # A class that recorded plain objects, outside a box and not a
     # singleton, passes each check below: allocate directly.
-    if ClassExt.alloc(RClass.ext(recv)) == ALLOC_OBJECT && (RBasic.flags(recv) & FL_SINGLETON) == 0 && zr_box_current() == QNIL
+    if ClassExt[RClass[recv].ext].alloc == ALLOC_OBJECT && (RBasic[recv].flags & FL_SINGLETON) == 0 && zr_box_current() == QNIL
       return zr_obj_alloc(recv)
     end
     if zr_alloc_kind(recv) == ALLOC_UNDEF
@@ -677,7 +688,7 @@ module Zr::Kern
   def zr_class_new_program(klass, args)
     o = zr_class_new_object(klass)
     return o if o == QUNDEF
-    r = zr_send_blk(o, Machine.id(:initialize), RArray.len(args), RArray.ptr(args), Machine.value(QNIL))
+    r = zr_send_blk(o, Machine.id(:initialize), RArray[args].len, RArray[args].ptr, Machine.value(QNIL))
     return r if r == QUNDEF
     o
   end
@@ -736,7 +747,7 @@ module Zr::Kern
     if zr_fixnum_p(recv)
       return recv
     end
-    if !zr_special_p(recv) && RBasic.klass(recv) == zr_global(G_INTEGER)
+    if !zr_special_p(recv) && RBasic[recv].klass == zr_global(G_INTEGER)
       return zr_big_hash(recv)
     end
     zr_fix(zr_obj_id_code(recv) & 4611686018427387903)
@@ -760,7 +771,7 @@ module Zr::Kern
     limbs = zr_hidden_get(v, zr_sym(Machine.id(:__limbs__)))
     h = zr_hidden_get(v, zr_sym(Machine.id(:__neg__))) == QTRUE ? 1 : 2
     i = 0
-    while i < RArray.len(limbs)
+    while i < RArray[limbs].len
       h = zr_hash_mix(h ^ Machine.word(zr_ary_at(limbs, i)))
       i += 1
     end
@@ -802,7 +813,7 @@ module Zr::Kern
     r = zr_name_id(Machine.value(Machine.load64(argv, 0)), slot)
     return r if r == QUNDEF
     if blk != QNIL
-      RProc.set_passed(blk, 1)
+      RProc[blk].passed = 1
     end
     zr_dispatch(0, recv, Machine.load64(slot, 0), argc - 1, argv + 8, 3, blk)
   end
@@ -847,7 +858,7 @@ module Zr::Kern
   #: (value, word, value) -> value
   def zr_respond_to_missing(recv, mid, all)
     e = zr_find_method(zr_class_of(recv), Machine.id(:respond_to_missing?))
-    if e == 0 || MEntry.fn(e) == Machine.addr(:zr_obj_respond_to_missing)
+    if e == 0 || MEntry[e].fn == Machine.addr(:zr_obj_respond_to_missing)
       return Machine.value(QFALSE)
     end
     pair = Machine.slot(16)
@@ -881,7 +892,7 @@ module Zr::Kern
     end
     m = Machine.value(Machine.load64(argv, 0))
     if !zr_special_p(m) && zr_type(m) == T_STRING
-      m = zr_sym(zr_intern(RString.ptr(m), RString.len(m)))
+      m = zr_sym(zr_intern(RString[m].ptr, RString[m].len))
     end
     unless zr_symbol_p(m)
       b = Machine.slot(Buf.size)
@@ -897,10 +908,10 @@ module Zr::Kern
     if e == 0 || zr_entry_hidden_p(e)
       return zr_respond_to_missing(recv, zr_sym2id(m), zr_bool(all))
     end
-    if MEntry.fn(e) == Machine.addr(:zr_f_notimplement)
+    if MEntry[e].fn == Machine.addr(:zr_f_notimplement)
       return Machine.value(QFALSE)
     end
-    zr_bool(all || MEntry.vis(e) == VIS_PUBLIC)
+    zr_bool(all || MEntry[e].vis == VIS_PUBLIC)
   end
 
   # Writes `#<Name:0x...` with sixteen hex digits into `b`.
@@ -927,8 +938,8 @@ module Zr::Kern
   # Ruby, so any message can include any class.
   #: (value) -> value
   def zr_class_path(klass)
-    if RClass.name(klass) != QNIL
-      return RClass.name(klass)
+    if RClass[klass].name != QNIL
+      return RClass[klass].name
     end
     zr_any_to_s(klass)
   end
@@ -959,7 +970,7 @@ module Zr::Kern
       return text
     end
     if zr_frozen_p(text)
-      text = zr_str_new(RString.ptr(text), RString.len(text))
+      text = zr_str_new(RString[text].ptr, RString[text].len)
     end
     zr_str_set_index(text, ENC_BINARY)
   end
@@ -980,12 +991,12 @@ module Zr::Kern
   # writes it. Returns undef when `to_s` raised.
   #: (value) -> value
   def zr_obj_as_string(v)
-    if !zr_special_p(v) && (RBasic.flags(v) & T_MASK) == T_STRING
+    if !zr_special_p(v) && (RBasic[v].flags & T_MASK) == T_STRING
       return v
     end
     s = zr_send(v, Machine.id(:to_s), 0, 0)
     return s if s == QUNDEF
-    if !zr_special_p(s) && (RBasic.flags(s) & T_MASK) == T_STRING
+    if !zr_special_p(s) && (RBasic[s].flags & T_MASK) == T_STRING
       return s
     end
     zr_any_to_s(v)
@@ -1057,15 +1068,15 @@ module Zr::Kern
   def zr_buf_ivars(b, recv, filter)
     i = 0
     shown = 0
-    while i < IvTab.len(RObject.iv(recv))
-      e = IvTab.rows(RObject.iv(recv)) + (i * IvEntry.size)
+    while i < RObject[recv].iv.len
+      e = RObject[recv].iv.rows + (i * IvEntry.size)
       i += 1
-      if zr_ivar_id_visible_p(IvEntry.id(e)) && (filter == QNIL || zr_ary_index_of(filter, zr_sym(IvEntry.id(e))) >= 0)
+      if zr_ivar_id_visible_p(IvEntry[e].id) && (filter == QNIL || zr_ary_index_of(filter, zr_sym(IvEntry[e].id)) >= 0)
         zr_buf_push(b, shown == 0 ? Machine.bytes(" ") : Machine.bytes(", "), shown == 0 ? 1 : 2)
         shown += 1
-        zr_buf_sym(b, IvEntry.id(e))
+        zr_buf_sym(b, IvEntry[e].id)
         zr_buf_byte(b, 61)
-        s = zr_inspect(IvEntry.value(e))
+        s = zr_inspect(IvEntry[e].value)
         return s if s == QUNDEF
         zr_buf_str(b, s)
       end
@@ -1377,7 +1388,7 @@ module Zr::Kern
     end
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
-    zr_buf_str_escaped(b, RString.ptr(recv), RString.len(recv), !zr_str_wide_p(recv))
+    zr_buf_str_escaped(b, RString[recv].ptr, RString[recv].len, !zr_str_wide_p(recv))
     zr_buf_take(b)
   end
 
@@ -1393,15 +1404,15 @@ module Zr::Kern
 
   #: (value, word, ptr, value, value) -> value
   def zr_class_name(recv, argc, argv, cref, blk)
-    RClass.name(recv)
+    RClass[recv].name
   end
 
   # Writes a class's name in a message, or its `#<Class:0x...>` form when
   # it has no name. Returns QUNDEF when an inspect raised.
   #: (ptr, value) -> value
   def zr_buf_class(b, klass)
-    if RClass.name(klass) != QNIL && !zr_singleton_p(klass)
-      zr_buf_str(b, RClass.name(klass))
+    if RClass[klass].name != QNIL && !zr_singleton_p(klass)
+      zr_buf_str(b, RClass[klass].name)
       return Machine.value(QNIL)
     end
     s = zr_class_to_s(klass, 0, 0, Machine.value(QNIL), Machine.value(QNIL))
@@ -1414,7 +1425,7 @@ module Zr::Kern
   # prints as `#<Class:` around the object that it is attached to.
   #: (value, word, ptr, value, value) -> value
   def zr_class_to_s(recv, argc, argv, cref, blk)
-    refined = ClassExt.refined(RClass.ext(recv))
+    refined = ClassExt[RClass[recv].ext].refined
     if refined != QNIL
       inner = zr_send(refined, Machine.id(:to_s), 0, 0)
       return inner if inner == QUNDEF
@@ -1432,7 +1443,7 @@ module Zr::Kern
     if zr_singleton_p(recv)
       # rb_mod_to_s inspects a class or a module, and shows any other
       # object by its address.
-      attached = RClass.attached(recv)
+      attached = RClass[recv].attached
       if !zr_special_p(attached) && (zr_type(attached) == T_CLASS || zr_type(attached) == T_MODULE)
         inner = zr_inspect(attached)
       else
@@ -1446,20 +1457,20 @@ module Zr::Kern
       zr_buf_byte(b, 62)
       return zr_buf_take_at(b, ENC_USASCII)
     end
-    if RClass.name(recv) == QNIL
+    if RClass[recv].name == QNIL
       return zr_any_to_s(recv)
     end
     # The class's name is frozen, so `to_s` returns a copy of it.
-    name = RClass.name(recv)
-    zr_str_copy_encoding(zr_str_new(RString.ptr(name), RString.len(name)), name)
+    name = RClass[recv].name
+    zr_str_copy_encoding(zr_str_new(RString[name].ptr, RString[name].len), name)
   end
 
   # Returns the superclass, after the proxies of included modules.
   #: (value) -> value
   def zr_real_superclass(klass)
-    k = RClass.superclass(klass)
+    k = RClass[klass].superclass
     while k != QNIL && zr_type(k) == T_ICLASS
-      k = RClass.superclass(k)
+      k = RClass[k].superclass
     end
     k
   end
@@ -1467,7 +1478,7 @@ module Zr::Kern
   #: (value, word, ptr, value, value) -> value
   def zr_class_superclass(recv, argc, argv, cref, blk)
     # A class from `Class.allocate` has no superclass until it is set up.
-    if RClass.superclass(recv) == QNIL && recv != zr_global(G_BASIC_OBJECT)
+    if RClass[recv].superclass == QNIL && recv != zr_global(G_BASIC_OBJECT)
       return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("uninitialized class"), 19)
     end
     zr_real_superclass(recv)
@@ -1477,12 +1488,12 @@ module Zr::Kern
   # message. A message that is not a String goes through `to_s`.
   #: (value) -> value
   def zr_exc_to_s(recv)
-    m = RException.message(recv)
+    m = RException[recv].message
     # A new copy of the class's name, as rb_class_name gives, because the
     # caller can change the message that it gets.
     if m == QNIL
       name = zr_class_name_of(recv)
-      return zr_str_new_at(RString.ptr(name), RString.len(name), zr_str_encoding_index(name))
+      return zr_str_new_at(RString[name].ptr, RString[name].len, zr_str_encoding_index(name))
     end
     if zr_special_p(m) || zr_type(m) != T_STRING
       return zr_send(m, Machine.id(:to_s), 0, 0)
@@ -1494,12 +1505,12 @@ module Zr::Kern
   # place of it. Marshal must know the difference.
   #: (value) -> value
   def zr_exc_raw_message(recv)
-    RException.message(recv)
+    RException[recv].message
   end
 
   #: (value, value) -> value
   def zr_exc_set_message(recv, m)
-    RException.set_message(recv, m)
+    RException[recv].message = m
     m
   end
 
@@ -1513,16 +1524,16 @@ module Zr::Kern
       m = zr_send(m, Machine.id(:to_s), 0, 0)
       return m if m == QUNDEF
     end
-    if RString.len(m) == 0
+    if RString[m].len == 0
       return zr_class_name_of(recv)
     end
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
     zr_buf_push(b, Machine.bytes("#<"), 2)
     zr_buf_class_of(b, recv)
-    if zr_bytes_index(RString.ptr(m), RString.len(m), 10) >= 0
+    if zr_bytes_index(RString[m].ptr, RString[m].len, 10) >= 0
       zr_buf_byte(b, 58)
-      zr_buf_str_escaped(b, RString.ptr(m), RString.len(m), !zr_str_wide_p(m))
+      zr_buf_str_escaped(b, RString[m].ptr, RString[m].len, !zr_str_wide_p(m))
     else
       zr_buf_push(b, Machine.bytes(": "), 2)
       zr_buf_str(b, m)
@@ -1550,7 +1561,7 @@ module Zr::Kern
       return zr_wrong_arity_range(argc, 0, 1)
     end
     if argc > 0
-      RException.set_message(recv, Machine.value(Machine.load64(argv, 0)))
+      RException[recv].message = Machine.value(Machine.load64(argv, 0))
     end
     Machine.value(QNIL)
   end
@@ -1563,7 +1574,7 @@ module Zr::Kern
     while i < argc
       s = zr_inspect(Machine.value(Machine.load64(argv + (i * 8), 0)))
       return s if s == QUNDEF
-      zr_write_out(RString.ptr(s), RString.len(s))
+      zr_write_out(RString[s].ptr, RString[s].len)
       zr_write_out(Machine.bytes("\n"), 1)
       i += 1
     end
@@ -1580,22 +1591,22 @@ module Zr::Kern
   # file and line where an attribute is declared.
   #: (ptr) -> ptr
   def zr_meta_at(rec)
-    from = Frame.meta(rec)
+    from = Frame[rec].meta
     meta = zr_xmalloc(FrameMeta.size)
-    FrameMeta.set_file(meta, FrameMeta.file(from))
-    FrameMeta.set_file_len(meta, FrameMeta.file_len(from))
-    FrameMeta.set_kind(meta, KIND_BUILTIN)
-    FrameMeta.set_line(meta, zr_frame_line(rec))
-    FrameMeta.set_parent(meta, 0)
-    FrameMeta.set_arity(meta, 0)
-    FrameMeta.set_params(meta, 0)
-    FrameMeta.set_fn(meta, 0)
-    FrameMeta.set_locals(meta, 0)
-    FrameMeta.set_env(meta, 0)
-    FrameMeta.set_box(meta, Machine.value(QNIL))
-    FrameMeta.set_ruby(meta, 0)
-    FrameMeta.set_node(meta, zr_frame_node_id(rec))
-    FrameMeta.set_cover(meta, 0)
+    FrameMeta[meta].file = FrameMeta[from].file
+    FrameMeta[meta].file_len = FrameMeta[from].file_len
+    FrameMeta[meta].kind = KIND_BUILTIN
+    FrameMeta[meta].line = zr_frame_line(rec)
+    FrameMeta[meta].parent = 0
+    FrameMeta[meta].arity = 0
+    FrameMeta[meta].params = 0
+    FrameMeta[meta].fn = 0
+    FrameMeta[meta].locals = 0
+    FrameMeta[meta].env = 0
+    FrameMeta[meta].box = Machine.value(QNIL)
+    FrameMeta[meta].ruby = 0
+    FrameMeta[meta].node = zr_frame_node_id(rec)
+    FrameMeta[meta].cover = 0
     meta
   end
 
@@ -1624,18 +1635,18 @@ module Zr::Kern
       end
       zr_buf_byte(b, 64)
       zr_buf_sym(b, id)
-      ivar = zr_intern(Buf.ptr(b), Buf.len(b))
-      caller = Frame.prev(Task.top(zr_task()))
+      ivar = zr_intern(Buf[b].ptr, Buf[b].len)
+      caller = Frame[Task[zr_task()].top].prev
       # The runtime's own attributes, which its class bodies define on
       # themselves, read hidden fields: the runtime keeps these instance
       # variables without the `@`. A call that a builtin makes for the
       # program, as in `each(&method(:attr_reader))`, is the program's call.
-      if zr_internal_meta_p(zr_meta_at(caller)) && Frame.self(caller) == klass
-        ivar = zr_intern(Buf.ptr(b) + 1, Buf.len(b) - 1)
+      if zr_internal_meta_p(zr_meta_at(caller)) && Frame[caller].self == klass
+        ivar = zr_intern(Buf[b].ptr + 1, Buf[b].len - 1)
       end
       # The scope's visibility keyword applies only inside this class's own
       # body. From any other place, the attribute is public.
-      cref = Frame.cref(caller)
+      cref = Frame[caller].cref
       if cref != QNIL && zr_cref_klass(zr_cref_lexical(cref)) != klass
         cref = Machine.value(QNIL)
       end
@@ -1649,7 +1660,7 @@ module Zr::Kern
       end
       if which != 1
         zr_buf_byte(b, 61)
-        setter = zr_intern(Buf.ptr(b) + 1, Buf.len(b) - 1)
+        setter = zr_intern(Buf[b].ptr + 1, Buf[b].len - 1)
         r = zr_define_method(klass, setter, Machine.ptr(ivar), 1, KIND_ATTR_WRITER, zr_meta_at(caller), cref)
         if r == QUNDEF
           zr_buf_free(b)
@@ -1684,14 +1695,14 @@ module Zr::Kern
   def zr_dig_into(v, rest)
     klass = zr_class_of(v)
     e = zr_find_method(klass, Machine.id(:dig))
-    if e == 0 || MEntry.vis(e) != VIS_PUBLIC
+    if e == 0 || MEntry[e].vis != VIS_PUBLIC
       b = Machine.slot(Buf.size)
       zr_buf_init(b)
       zr_buf_class_of(b, v)
       zr_buf_push(b, Machine.bytes(" does not have #dig method"), 26)
       return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
     end
-    zr_send(v, Machine.id(:dig), RArray.len(rest), RArray.ptr(rest))
+    zr_send(v, Machine.id(:dig), RArray[rest].len, RArray[rest].ptr)
   end
 
   # How the core library's own `a == b` answers where CRuby's C compares
@@ -1703,8 +1714,8 @@ module Zr::Kern
     if zr_symbol_p(a) || a == QNIL || a == QTRUE || a == QFALSE
       return a == b ? 1 : 2
     end
-    if !zr_special_p(a) && !zr_special_p(b) && RBasic.klass(a) == zr_global(G_STRING) && zr_type(b) == T_STRING
-      same = zr_bytes_eq(RString.ptr(a), RString.len(a), RString.ptr(b), RString.len(b)) && zr_str_comparable(a, b)
+    if !zr_special_p(a) && !zr_special_p(b) && RBasic[a].klass == zr_global(G_STRING) && zr_type(b) == T_STRING
+      same = zr_bytes_eq(RString[a].ptr, RString[a].len, RString[b].ptr, RString[b].len) && zr_str_comparable(a, b)
       return same ? 1 : 2
     end
     0
@@ -1730,13 +1741,13 @@ module Zr::Kern
   #: (value, value) -> value
   def zr_table_member_p(ary, x)
     i = 0
-    while i < RArray.len(ary)
+    while i < RArray[ary].len
       e = zr_ary_at(ary, i)
       if e == x
         return Machine.value(QTRUE)
       end
       if !zr_special_p(e) && !zr_special_p(x) && zr_type(e) == T_STRING && zr_type(x) == T_STRING
-        if zr_bytes_eq(RString.ptr(e), RString.len(e), RString.ptr(x), RString.len(x)) && zr_str_comparable(e, x)
+        if zr_bytes_eq(RString[e].ptr, RString[e].len, RString[x].ptr, RString[x].len) && zr_str_comparable(e, x)
           return Machine.value(QTRUE)
         end
       elsif !zr_special_p(e) && zr_type(e) != T_STRING

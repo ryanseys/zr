@@ -2,8 +2,6 @@ module Zr::Kern
   # The Linux part of code loading into this process: plain executable
   # mappings, an instruction cache flush after each write, and symbol
   # lookup in the binary's own symbol table.
-  Libc.import :mmap, [Ptr, Word, I32, I32, I32, Word] => Ptr
-  Libc.import :__clear_cache, [Ptr, Ptr] => Void
 
   PROT_READ_WRITE = 3
   PROT_READ_WRITE_EXEC = 7
@@ -122,8 +120,8 @@ module Zr::Kern
     end
     table = Machine.ptr(Machine.load64(cell, 0))
     strings = Machine.ptr(Machine.load64(cell, 16))
-    want = RString.ptr(name)
-    len = RString.len(name)
+    want = RString[name].ptr
+    len = RString[name].len
     i = 0
     while i < rows
       row = table + (i * SYM_LEN)
@@ -146,8 +144,8 @@ module Zr::Kern
   #: (value, value) -> value
   def zr_os_jit_write(at, bytes)
     to = Machine.ptr(zr_fix2long(at))
-    len = RString.len(bytes)
-    zr_memcpy(to, RString.ptr(bytes), len)
+    len = RString[bytes].len
+    zr_memcpy(to, RString[bytes].ptr, len)
     Libc.__clear_cache(to, to + len)
     Machine.value(QNIL)
   end

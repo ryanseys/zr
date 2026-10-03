@@ -80,9 +80,9 @@ module Zr::Kern
   # put_byte: adds one byte to the pending output.
   #: (ptr, word) -> void
   def zr_tr_put_byte(s, c)
-    pending = DeflateState.pending(s)
-    Machine.store8(DeflateState.pending_buf(s) + pending, 0, Machine.i8(c))
-    DeflateState.set_pending(s, pending + 1)
+    pending = DeflateState[s].pending
+    Machine.store8(DeflateState[s].pending_buf + pending, 0, Machine.i8(c))
+    DeflateState[s].pending = pending + 1
   end
 
   # put_short: adds a 16-bit word to the pending output, low byte first.
@@ -111,43 +111,43 @@ module Zr::Kern
   # bi_flush: writes out the bit buffer, and keeps 7 bits or fewer.
   #: (ptr) -> void
   def zr_tr_bi_flush(s)
-    if DeflateState.bi_valid(s) == 16
-      zr_tr_put_short(s, DeflateState.bi_buf(s))
-      DeflateState.set_bi_buf(s, 0)
-      DeflateState.set_bi_valid(s, 0)
-    elsif DeflateState.bi_valid(s) >= 8
-      zr_tr_put_byte(s, DeflateState.bi_buf(s) & 255)
-      DeflateState.set_bi_buf(s, DeflateState.bi_buf(s) >> 8)
-      DeflateState.set_bi_valid(s, DeflateState.bi_valid(s) - 8)
+    if DeflateState[s].bi_valid == 16
+      zr_tr_put_short(s, DeflateState[s].bi_buf)
+      DeflateState[s].bi_buf = 0
+      DeflateState[s].bi_valid = 0
+    elsif DeflateState[s].bi_valid >= 8
+      zr_tr_put_byte(s, DeflateState[s].bi_buf & 255)
+      DeflateState[s].bi_buf = DeflateState[s].bi_buf >> 8
+      DeflateState[s].bi_valid = DeflateState[s].bi_valid - 8
     end
   end
 
   # bi_windup: writes out the bit buffer to a byte boundary.
   #: (ptr) -> void
   def zr_tr_bi_windup(s)
-    if DeflateState.bi_valid(s) > 8
-      zr_tr_put_short(s, DeflateState.bi_buf(s))
-    elsif DeflateState.bi_valid(s) > 0
-      zr_tr_put_byte(s, DeflateState.bi_buf(s) & 255)
+    if DeflateState[s].bi_valid > 8
+      zr_tr_put_short(s, DeflateState[s].bi_buf)
+    elsif DeflateState[s].bi_valid > 0
+      zr_tr_put_byte(s, DeflateState[s].bi_buf & 255)
     end
-    DeflateState.set_bi_buf(s, 0)
-    DeflateState.set_bi_valid(s, 0)
+    DeflateState[s].bi_buf = 0
+    DeflateState[s].bi_valid = 0
   end
 
   # send_bits: writes `value` in `length` bits. The buffer is the C 16-bit
   # ush, so it keeps only its low 16 bits at each step.
   #: (ptr, word, word) -> void
   def zr_tr_send_bits(s, value, length)
-    bi_valid = DeflateState.bi_valid(s)
+    bi_valid = DeflateState[s].bi_valid
     value = value & 65535
     if bi_valid > TR_BUF_SIZE - length
-      buf = (DeflateState.bi_buf(s) | (value << bi_valid)) & 65535
+      buf = (DeflateState[s].bi_buf | (value << bi_valid)) & 65535
       zr_tr_put_short(s, buf)
-      DeflateState.set_bi_buf(s, (value >> (TR_BUF_SIZE - bi_valid)) & 65535)
-      DeflateState.set_bi_valid(s, bi_valid + length - TR_BUF_SIZE)
+      DeflateState[s].bi_buf = (value >> (TR_BUF_SIZE - bi_valid)) & 65535
+      DeflateState[s].bi_valid = bi_valid + length - TR_BUF_SIZE
     else
-      DeflateState.set_bi_buf(s, (DeflateState.bi_buf(s) | (value << bi_valid)) & 65535)
-      DeflateState.set_bi_valid(s, bi_valid + length)
+      DeflateState[s].bi_buf = (DeflateState[s].bi_buf | (value << bi_valid)) & 65535
+      DeflateState[s].bi_valid = bi_valid + length
     end
   end
 
@@ -187,31 +187,31 @@ module Zr::Kern
   def zr_tr_init_block(s)
     n = 0
     while n < TR_L_CODES
-      zr_tr_set_freq(DeflateState.dyn_ltree(s), n, 0)
+      zr_tr_set_freq(DeflateState[s].dyn_ltree, n, 0)
       n += 1
     end
     n = 0
     while n < TR_D_CODES
-      zr_tr_set_freq(DeflateState.dyn_dtree(s), n, 0)
+      zr_tr_set_freq(DeflateState[s].dyn_dtree, n, 0)
       n += 1
     end
     n = 0
     while n < TR_BL_CODES
-      zr_tr_set_freq(DeflateState.bl_tree(s), n, 0)
+      zr_tr_set_freq(DeflateState[s].bl_tree, n, 0)
       n += 1
     end
-    zr_tr_set_freq(DeflateState.dyn_ltree(s), TR_END_BLOCK, 1)
-    DeflateState.set_opt_len(s, 0)
-    DeflateState.set_static_len(s, 0)
-    DeflateState.set_sym_next(s, 0)
-    DeflateState.set_matches(s, 0)
+    zr_tr_set_freq(DeflateState[s].dyn_ltree, TR_END_BLOCK, 1)
+    DeflateState[s].opt_len = 0
+    DeflateState[s].static_len = 0
+    DeflateState[s].sym_next = 0
+    DeflateState[s].matches = 0
   end
 
   # _tr_init: sets the tree state of a new stream.
   #: (ptr) -> void
   def zr_tr_init(s)
-    DeflateState.set_bi_buf(s, 0)
-    DeflateState.set_bi_valid(s, 0)
+    DeflateState[s].bi_buf = 0
+    DeflateState[s].bi_valid = 0
     zr_tr_init_block(s)
   end
 
@@ -225,22 +225,22 @@ module Zr::Kern
 
   #: (ptr, word) -> word
   def zr_tr_heap(s, i)
-    zr_zlib_u32(DeflateState.heap(s), i)
+    zr_zlib_u32(DeflateState[s].heap, i)
   end
 
   #: (ptr, word, word) -> void
   def zr_tr_set_heap(s, i, v)
-    zr_zlib_set_u32(DeflateState.heap(s), i, v)
+    zr_zlib_set_u32(DeflateState[s].heap, i, v)
   end
 
   # pqdownheap: restores the heap property from node `k` down.
   #: (ptr, ptr, word) -> void
   def zr_tr_pqdownheap(s, tree, k)
-    depth = DeflateState.depth(s)
+    depth = DeflateState[s].depth
     v = zr_tr_heap(s, k)
     j = k << 1
-    while j <= DeflateState.heap_len(s)
-      if j < DeflateState.heap_len(s) && zr_tr_smaller(tree, zr_tr_heap(s, j + 1), zr_tr_heap(s, j), depth)
+    while j <= DeflateState[s].heap_len
+      if j < DeflateState[s].heap_len && zr_tr_smaller(tree, zr_tr_heap(s, j + 1), zr_tr_heap(s, j), depth)
         j += 1
       end
       if zr_tr_smaller(tree, v, zr_tr_heap(s, j), depth)
@@ -258,15 +258,15 @@ module Zr::Kern
   # and with the static tree `stree`, if there is one.
   #: (ptr, ptr, word, ptr, ptr, word, word) -> void
   def zr_tr_gen_bitlen(s, tree, max_code, stree, extra, base, max_length)
-    bl_count = DeflateState.bl_count(s)
+    bl_count = DeflateState[s].bl_count
     bits = 0
     while bits <= TR_MAX_BITS
       zr_zlib_set_u32(bl_count, bits, 0)
       bits += 1
     end
     overflow = 0
-    zr_tr_set_len(tree, zr_tr_heap(s, DeflateState.heap_max(s)), 0)
-    h = DeflateState.heap_max(s) + 1
+    zr_tr_set_len(tree, zr_tr_heap(s, DeflateState[s].heap_max), 0)
+    h = DeflateState[s].heap_max + 1
     while h < TR_HEAP_SIZE
       n = zr_tr_heap(s, h)
       bits = zr_tr_len(tree, zr_tr_dad(tree, n)) + 1
@@ -282,9 +282,9 @@ module Zr::Kern
           xbits = zr_zlib_u32(extra, n - base)
         end
         f = zr_tr_freq(tree, n)
-        DeflateState.set_opt_len(s, DeflateState.opt_len(s) + (f * (bits + xbits)))
+        DeflateState[s].opt_len = DeflateState[s].opt_len + (f * (bits + xbits))
         if stree != 0
-          DeflateState.set_static_len(s, DeflateState.static_len(s) + (f * (zr_tr_len(stree, n) + xbits)))
+          DeflateState[s].static_len = DeflateState[s].static_len + (f * (zr_tr_len(stree, n) + xbits))
         end
       end
       h += 1
@@ -313,7 +313,7 @@ module Zr::Kern
         m = zr_tr_heap(s, h)
         if m <= max_code
           if zr_tr_len(tree, m) != bits
-            DeflateState.set_opt_len(s, DeflateState.opt_len(s) + ((bits - zr_tr_len(tree, m)) * zr_tr_freq(tree, m)))
+            DeflateState[s].opt_len = DeflateState[s].opt_len + ((bits - zr_tr_len(tree, m)) * zr_tr_freq(tree, m))
             zr_tr_set_len(tree, m, bits)
           end
           n -= 1
@@ -329,35 +329,35 @@ module Zr::Kern
   # lengths.
   #: (ptr, word) -> void
   def zr_tr_build_tree(s, which)
-    tree = DeflateState.dyn_ltree(s)
+    tree = DeflateState[s].dyn_ltree
     stree = zr_tr_static_ltree()
     extra = zr_tr_extra_lbits()
     base = TR_LITERALS + 1
     elems = TR_L_CODES
     max_length = TR_MAX_BITS
     if which == TR_DTREE
-      tree = DeflateState.dyn_dtree(s)
+      tree = DeflateState[s].dyn_dtree
       stree = zr_tr_static_dtree()
       extra = zr_tr_extra_dbits()
       base = 0
       elems = TR_D_CODES
     elsif which == TR_BLTREE
-      tree = DeflateState.bl_tree(s)
+      tree = DeflateState[s].bl_tree
       stree = 0
       extra = zr_tr_extra_blbits()
       base = 0
       elems = TR_BL_CODES
       max_length = TR_MAX_BL_BITS
     end
-    depth = DeflateState.depth(s)
+    depth = DeflateState[s].depth
     max_code = 0 - 1
-    DeflateState.set_heap_len(s, 0)
-    DeflateState.set_heap_max(s, TR_HEAP_SIZE)
+    DeflateState[s].heap_len = 0
+    DeflateState[s].heap_max = TR_HEAP_SIZE
     n = 0
     while n < elems
       if zr_tr_freq(tree, n) != 0
-        DeflateState.set_heap_len(s, DeflateState.heap_len(s) + 1)
-        zr_tr_set_heap(s, DeflateState.heap_len(s), n)
+        DeflateState[s].heap_len = DeflateState[s].heap_len + 1
+        zr_tr_set_heap(s, DeflateState[s].heap_len, n)
         max_code = n
         Machine.store8(depth + n, 0, Machine.i8(0))
       else
@@ -365,29 +365,29 @@ module Zr::Kern
       end
       n += 1
     end
-    while DeflateState.heap_len(s) < 2
+    while DeflateState[s].heap_len < 2
       node = 0
       if max_code < 2
         max_code += 1
         node = max_code
       end
-      DeflateState.set_heap_len(s, DeflateState.heap_len(s) + 1)
-      zr_tr_set_heap(s, DeflateState.heap_len(s), node)
+      DeflateState[s].heap_len = DeflateState[s].heap_len + 1
+      zr_tr_set_heap(s, DeflateState[s].heap_len, node)
       zr_tr_set_freq(tree, node, 1)
       Machine.store8(depth + node, 0, Machine.i8(0))
-      DeflateState.set_opt_len(s, DeflateState.opt_len(s) - 1)
+      DeflateState[s].opt_len = DeflateState[s].opt_len - 1
       if stree != 0
-        DeflateState.set_static_len(s, DeflateState.static_len(s) - zr_tr_len(stree, node))
+        DeflateState[s].static_len = DeflateState[s].static_len - zr_tr_len(stree, node)
       end
     end
     if which == TR_LTREE
-      DeflateState.set_l_max_code(s, max_code)
+      DeflateState[s].l_max_code = max_code
     elsif which == TR_DTREE
-      DeflateState.set_d_max_code(s, max_code)
+      DeflateState[s].d_max_code = max_code
     else
-      DeflateState.set_bl_max_code(s, max_code)
+      DeflateState[s].bl_max_code = max_code
     end
-    n = DeflateState.heap_len(s) / 2
+    n = DeflateState[s].heap_len / 2
     while n >= 1
       zr_tr_pqdownheap(s, tree, n)
       n -= 1
@@ -395,14 +395,14 @@ module Zr::Kern
     node = elems
     while true
       n = zr_tr_heap(s, TR_SMALLEST)
-      zr_tr_set_heap(s, TR_SMALLEST, zr_tr_heap(s, DeflateState.heap_len(s)))
-      DeflateState.set_heap_len(s, DeflateState.heap_len(s) - 1)
+      zr_tr_set_heap(s, TR_SMALLEST, zr_tr_heap(s, DeflateState[s].heap_len))
+      DeflateState[s].heap_len = DeflateState[s].heap_len - 1
       zr_tr_pqdownheap(s, tree, TR_SMALLEST)
       m = zr_tr_heap(s, TR_SMALLEST)
-      DeflateState.set_heap_max(s, DeflateState.heap_max(s) - 1)
-      zr_tr_set_heap(s, DeflateState.heap_max(s), n)
-      DeflateState.set_heap_max(s, DeflateState.heap_max(s) - 1)
-      zr_tr_set_heap(s, DeflateState.heap_max(s), m)
+      DeflateState[s].heap_max = DeflateState[s].heap_max - 1
+      zr_tr_set_heap(s, DeflateState[s].heap_max, n)
+      DeflateState[s].heap_max = DeflateState[s].heap_max - 1
+      zr_tr_set_heap(s, DeflateState[s].heap_max, m)
       zr_tr_set_freq(tree, node, zr_tr_freq(tree, n) + zr_tr_freq(tree, m))
       dn = zr_zlib_byte(depth + n)
       dm = zr_zlib_byte(depth + m)
@@ -416,21 +416,21 @@ module Zr::Kern
       zr_tr_set_heap(s, TR_SMALLEST, node)
       node += 1
       zr_tr_pqdownheap(s, tree, TR_SMALLEST)
-      if DeflateState.heap_len(s) < 2
+      if DeflateState[s].heap_len < 2
         break
       end
     end
-    DeflateState.set_heap_max(s, DeflateState.heap_max(s) - 1)
-    zr_tr_set_heap(s, DeflateState.heap_max(s), zr_tr_heap(s, TR_SMALLEST))
+    DeflateState[s].heap_max = DeflateState[s].heap_max - 1
+    zr_tr_set_heap(s, DeflateState[s].heap_max, zr_tr_heap(s, TR_SMALLEST))
     zr_tr_gen_bitlen(s, tree, max_code, stree, extra, base, max_length)
-    zr_tr_gen_codes(tree, max_code, DeflateState.bl_count(s))
+    zr_tr_gen_codes(tree, max_code, DeflateState[s].bl_count)
   end
 
   # scan_tree: counts the bit length tree frequencies from the lengths of
   # `tree`. It counts runs in the same way as the bit length codes.
   #: (ptr, ptr, word) -> void
   def zr_tr_scan_tree(s, tree, max_code)
-    bl_tree = DeflateState.bl_tree(s)
+    bl_tree = DeflateState[s].bl_tree
     prevlen = 0 - 1
     nextlen = zr_tr_len(tree, 0)
     count = 0
@@ -481,7 +481,7 @@ module Zr::Kern
   # send_tree: writes the lengths of `tree` with the bit length codes.
   #: (ptr, ptr, word) -> void
   def zr_tr_send_tree(s, tree, max_code)
-    bl_tree = DeflateState.bl_tree(s)
+    bl_tree = DeflateState[s].bl_tree
     prevlen = 0 - 1
     nextlen = zr_tr_len(tree, 0)
     count = 0
@@ -539,18 +539,18 @@ module Zr::Kern
   # bl_order of the last bit length code that is necessary to send.
   #: (ptr) -> word
   def zr_tr_build_bl_tree(s)
-    zr_tr_scan_tree(s, DeflateState.dyn_ltree(s), DeflateState.l_max_code(s))
-    zr_tr_scan_tree(s, DeflateState.dyn_dtree(s), DeflateState.d_max_code(s))
+    zr_tr_scan_tree(s, DeflateState[s].dyn_ltree, DeflateState[s].l_max_code)
+    zr_tr_scan_tree(s, DeflateState[s].dyn_dtree, DeflateState[s].d_max_code)
     zr_tr_build_tree(s, TR_BLTREE)
     order = zr_tr_bl_order()
     max_blindex = TR_BL_CODES - 1
     while max_blindex >= 3
-      if zr_tr_len(DeflateState.bl_tree(s), zr_zlib_u32(order, max_blindex)) != 0
+      if zr_tr_len(DeflateState[s].bl_tree, zr_zlib_u32(order, max_blindex)) != 0
         break
       end
       max_blindex -= 1
     end
-    DeflateState.set_opt_len(s, DeflateState.opt_len(s) + (3 * (max_blindex + 1)) + 5 + 5 + 4)
+    DeflateState[s].opt_len = DeflateState[s].opt_len + (3 * (max_blindex + 1)) + 5 + 5 + 4
     max_blindex
   end
 
@@ -564,11 +564,11 @@ module Zr::Kern
     zr_tr_send_bits(s, blcodes - 4, 4)
     rank = 0
     while rank < blcodes
-      zr_tr_send_bits(s, zr_tr_len(DeflateState.bl_tree(s), zr_zlib_u32(order, rank)), 3)
+      zr_tr_send_bits(s, zr_tr_len(DeflateState[s].bl_tree, zr_zlib_u32(order, rank)), 3)
       rank += 1
     end
-    zr_tr_send_tree(s, DeflateState.dyn_ltree(s), lcodes - 1)
-    zr_tr_send_tree(s, DeflateState.dyn_dtree(s), dcodes - 1)
+    zr_tr_send_tree(s, DeflateState[s].dyn_ltree, lcodes - 1)
+    zr_tr_send_tree(s, DeflateState[s].dyn_dtree, dcodes - 1)
   end
 
   # _tr_stored_block: writes a stored block of `stored_len` bytes at `buf`.
@@ -579,9 +579,9 @@ module Zr::Kern
     zr_tr_put_short(s, stored_len & 65535)
     zr_tr_put_short(s, (stored_len ^ ZLIB_MASK32) & 65535)
     if stored_len != 0
-      Libc.memmove(DeflateState.pending_buf(s) + DeflateState.pending(s), buf, stored_len)
+      Libc.memmove(DeflateState[s].pending_buf + DeflateState[s].pending, buf, stored_len)
     end
-    DeflateState.set_pending(s, DeflateState.pending(s) + stored_len)
+    DeflateState[s].pending = DeflateState[s].pending + stored_len
   end
 
   # _tr_flush_bits
@@ -602,8 +602,8 @@ module Zr::Kern
   # compress_block: writes the block's symbols with the given trees.
   #: (ptr, ptr, ptr) -> void
   def zr_tr_compress_block(s, ltree, dtree)
-    sym_buf = DeflateState.sym_buf(s)
-    sym_next = DeflateState.sym_next(s)
+    sym_buf = DeflateState[s].sym_buf
+    sym_next = DeflateState[s].sym_next
     length_code = zr_tr_length_code()
     extra_lbits = zr_tr_extra_lbits()
     extra_dbits = zr_tr_extra_dbits()
@@ -649,7 +649,7 @@ module Zr::Kern
   # list and at least one byte of the allow list. Else Z_BINARY.
   #: (ptr) -> word
   def zr_tr_detect_data_type(s)
-    ltree = DeflateState.dyn_ltree(s)
+    ltree = DeflateState[s].dyn_ltree
     block_mask = 4093624447
     n = 0
     while n <= 31
@@ -679,17 +679,17 @@ module Zr::Kern
     opt_lenb = 0
     static_lenb = 0
     max_blindex = 0
-    if DeflateState.level(s) > 0
-      strm = DeflateState.strm(s)
-      if ZStream.data_type(strm) == Z_UNKNOWN
-        ZStream.set_data_type(strm, zr_tr_detect_data_type(s))
+    if DeflateState[s].level > 0
+      strm = DeflateState[s].strm
+      if ZStream[strm].data_type == Z_UNKNOWN
+        ZStream[strm].data_type = zr_tr_detect_data_type(s)
       end
       zr_tr_build_tree(s, TR_LTREE)
       zr_tr_build_tree(s, TR_DTREE)
       max_blindex = zr_tr_build_bl_tree(s)
-      opt_lenb = (DeflateState.opt_len(s) + 3 + 7) >> 3
-      static_lenb = (DeflateState.static_len(s) + 3 + 7) >> 3
-      if static_lenb <= opt_lenb || DeflateState.strategy(s) == Z_FIXED
+      opt_lenb = (DeflateState[s].opt_len + 3 + 7) >> 3
+      static_lenb = (DeflateState[s].static_len + 3 + 7) >> 3
+      if static_lenb <= opt_lenb || DeflateState[s].strategy == Z_FIXED
         opt_lenb = static_lenb
       end
     else
@@ -703,8 +703,8 @@ module Zr::Kern
       zr_tr_compress_block(s, zr_tr_static_ltree(), zr_tr_static_dtree())
     else
       zr_tr_send_bits(s, (TR_DYN_TREES << 1) + last, 3)
-      zr_tr_send_all_trees(s, DeflateState.l_max_code(s) + 1, DeflateState.d_max_code(s) + 1, max_blindex + 1)
-      zr_tr_compress_block(s, DeflateState.dyn_ltree(s), DeflateState.dyn_dtree(s))
+      zr_tr_send_all_trees(s, DeflateState[s].l_max_code + 1, DeflateState[s].d_max_code + 1, max_blindex + 1)
+      zr_tr_compress_block(s, DeflateState[s].dyn_ltree, DeflateState[s].dyn_dtree)
     end
     zr_tr_init_block(s)
     if last != 0
@@ -716,24 +716,24 @@ module Zr::Kern
   # Returns 1 when the block is full and must be flushed.
   #: (ptr, word, word) -> word
   def zr_tr_tally(s, dist, lc)
-    sym_buf = DeflateState.sym_buf(s)
-    sym_next = DeflateState.sym_next(s)
+    sym_buf = DeflateState[s].sym_buf
+    sym_next = DeflateState[s].sym_next
     Machine.store8(sym_buf + sym_next, 0, Machine.i8(dist))
     Machine.store8(sym_buf + sym_next, 1, Machine.i8(dist >> 8))
     Machine.store8(sym_buf + sym_next, 2, Machine.i8(lc))
     sym_next += 3
-    DeflateState.set_sym_next(s, sym_next)
+    DeflateState[s].sym_next = sym_next
     if dist == 0
-      zr_tr_set_freq(DeflateState.dyn_ltree(s), lc, zr_tr_freq(DeflateState.dyn_ltree(s), lc) + 1)
+      zr_tr_set_freq(DeflateState[s].dyn_ltree, lc, zr_tr_freq(DeflateState[s].dyn_ltree, lc) + 1)
     else
-      DeflateState.set_matches(s, DeflateState.matches(s) + 1)
+      DeflateState[s].matches = DeflateState[s].matches + 1
       dist -= 1
       n = zr_zlib_u32(zr_tr_length_code(), lc) + TR_LITERALS + 1
-      zr_tr_set_freq(DeflateState.dyn_ltree(s), n, zr_tr_freq(DeflateState.dyn_ltree(s), n) + 1)
+      zr_tr_set_freq(DeflateState[s].dyn_ltree, n, zr_tr_freq(DeflateState[s].dyn_ltree, n) + 1)
       d = zr_tr_d_code(dist)
-      zr_tr_set_freq(DeflateState.dyn_dtree(s), d, zr_tr_freq(DeflateState.dyn_dtree(s), d) + 1)
+      zr_tr_set_freq(DeflateState[s].dyn_dtree, d, zr_tr_freq(DeflateState[s].dyn_dtree, d) + 1)
     end
-    if sym_next == DeflateState.sym_end(s)
+    if sym_next == DeflateState[s].sym_end
       return 1
     end
     0

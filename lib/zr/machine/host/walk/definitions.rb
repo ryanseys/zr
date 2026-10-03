@@ -70,7 +70,7 @@ module Zr
               run = nil #: untyped
               @host.callable(lambda do |recv, argc, argv, entry, blk, found|
                 run ||= def_body(node, s)
-                cref = entry.zero? ? @qnil : k::MEntry.cref(entry)
+                cref = entry.zero? ? @qnil : k::MEntry[entry].cref
                 enter(s, recv, cref, blk, entry: entry, defined: found) { |f| run.call(f, argc, argv, entry) }
               end)
             end

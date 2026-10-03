@@ -9,13 +9,13 @@ module Zr::Kern
   # original.
   #: (ptr, ptr, value) -> void
   def zr_ivtab_copy(to, from, owner)
-    IvTab.set_len(to, 0)
-    IvTab.set_names(to, 0)
+    IvTab[to].len = 0
+    IvTab[to].names = 0
     i = 0
-    while i < IvTab.len(from)
-      e = IvTab.rows(from) + (i * IvEntry.size)
-      if IvEntry.id(e) != Machine.id(:__object_id__) && IvEntry.id(e) != Machine.id(:__built__)
-        zr_ivtab_set_in(to, IvEntry.id(e), IvEntry.value(e), owner)
+    while i < IvTab[from].len
+      e = IvTab[from].rows + (i * IvEntry.size)
+      if IvEntry[e].id != Machine.id(:__object_id__) && IvEntry[e].id != Machine.id(:__built__)
+        zr_ivtab_set_in(to, IvEntry[e].id, IvEntry[e].value, owner)
       end
       i += 1
     end
@@ -31,60 +31,60 @@ module Zr::Kern
     if t == T_OBJECT
       # The copy has the cell's bytes, including the ivar entries pointer.
       zr_obj_ivtab_init(copy)
-      zr_ivtab_copy(RObject.iv(copy), RObject.iv(orig), copy)
+      zr_ivtab_copy(Machine.ptr(RObject[copy].iv), Machine.ptr(RObject[orig].iv), copy)
       zr_write_barrier_all(copy)
     elsif t == T_STRING
       zr_str_buf_new(copy, 0)
-      Machine.store8(RString.ptr(copy), 0, Machine.i8(0))
-      RString.set_len(copy, 0)
+      Machine.store8(RString[copy].ptr, 0, Machine.i8(0))
+      RString[copy].len = 0
     elsif t == T_ARRAY
       zr_ary_buf_new(copy, 0)
     elsif t == T_HASH
-      RHash.set_entries(copy, 0)
-      RHash.set_len(copy, 0)
-      RHash.set_live(copy, 0)
-      RHash.set_cap(copy, 0)
-      RHash.set_default(copy, Machine.value(QNIL))
-      RHash.set_default_proc(copy, Machine.value(QNIL))
-      RHash.set_bins(copy, 0)
-      RHash.set_nbins(copy, 0)
-      RHash.set_iter(copy, 0)
-      RHash.set_gen(copy, 0)
+      RHash[copy].entries = 0
+      RHash[copy].len = 0
+      RHash[copy].live = 0
+      RHash[copy].cap = 0
+      RHash[copy].default = Machine.value(QNIL)
+      RHash[copy].default_proc = Machine.value(QNIL)
+      RHash[copy].bins = 0
+      RHash[copy].nbins = 0
+      RHash[copy].iter = 0
+      RHash[copy].gen = 0
     elsif t == T_EXCEPTION
-      if RException.rows(orig) != 0
-        rows = zr_xmalloc(RException.nrows(orig) * BtRow.size)
-        zr_memcpy(rows, RException.rows(orig), RException.nrows(orig) * BtRow.size)
-        RException.set_rows(copy, rows)
+      if RException[orig].rows != 0
+        rows = zr_xmalloc(RException[orig].nrows * BtRow.size)
+        zr_memcpy(rows, RException[orig].rows, RException[orig].nrows * BtRow.size)
+        RException[copy].rows = rows
         zr_write_barrier_all(copy)
       end
     elsif t == T_FIBER
       # CRuby copies a Fiber's fields but not its machine stack. Thus the
       # copy is a fiber that was never set up: it has no context, no stack
       # and no task, and it refuses to run.
-      RFiber.set_task(copy, 0)
-      RFiber.set_ctx(copy, 0)
-      RFiber.set_stack(copy, 0)
-      RFiber.set_kroots(copy, 0)
-      RFiber.set_blk(copy, Machine.value(QNIL))
-      RFiber.set_status(copy, FIBER_CREATED)
-      RFiber.set_prev(copy, Machine.value(QNIL))
-      RFiber.set_resuming(copy, Machine.value(QNIL))
-      RFiber.set_value(copy, Machine.value(QNIL))
-      RFiber.set_yielding(copy, 0)
-      RFiber.set_transferred(copy, 0)
+      RFiber[copy].task = 0
+      RFiber[copy].ctx = 0
+      RFiber[copy].stack = 0
+      RFiber[copy].kroots = 0
+      RFiber[copy].blk = Machine.value(QNIL)
+      RFiber[copy].status = FIBER_CREATED
+      RFiber[copy].prev = Machine.value(QNIL)
+      RFiber[copy].resuming = Machine.value(QNIL)
+      RFiber[copy].value = Machine.value(QNIL)
+      RFiber[copy].yielding = 0
+      RFiber[copy].transferred = 0
     elsif t == T_REGEXP
-      RRegexp.set_source(copy, Machine.value(QNIL))
-      RRegexp.set_names(copy, Machine.value(QNIL))
-      RRegexp.set_options(copy, 0)
-      RRegexp.set_program(copy, Machine.value(QNIL))
-      RRegexp.set_alt(copy, Machine.value(QNIL))
+      RRegexp[copy].source = Machine.value(QNIL)
+      RRegexp[copy].names = Machine.value(QNIL)
+      RRegexp[copy].options = 0
+      RRegexp[copy].program = Machine.value(QNIL)
+      RRegexp[copy].alt = Machine.value(QNIL)
     elsif t != T_PROC && t != T_METHOD
       # The cell already contains the original's words. Clear them, or the
       # collector frees the original's memory when the copy dies.
       Libc.memset(Machine.ptr(copy) + RBasic.size, Machine.i32(0), zr_cell_bytes(copy) - RBasic.size)
       return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("can't copy this kind of object"), 30)
     end
-    if (RBasic.flags(orig) & FL_EXIVAR) != 0
+    if (RBasic[orig].flags & FL_EXIVAR) != 0
       zr_ivtab_copy(zr_exivar_tab_for_write(copy), zr_exivar_tab(orig), Machine.value(QNIL))
     zr_write_barrier_all(copy)
     end
@@ -130,7 +130,7 @@ module Zr::Kern
     if other == recv
       return zr_frozen_p(recv) ? zr_frozen_error(recv) : recv
     end
-    r = zr_ary_splice(recv, zr_fix(0), zr_fix(RArray.len(recv)), other)
+    r = zr_ary_splice(recv, zr_fix(0), zr_fix(RArray[recv].len), other)
     return r if r == QUNDEF
     recv
   end
@@ -154,7 +154,7 @@ module Zr::Kern
   #: (value, word, ptr, value, value) -> value
   def zr_hash_initialize_copy(recv, argc, argv, cref, blk)
     other = Machine.value(Machine.load64(argv, 0))
-    if zr_special_p(other) || zr_type(other) != T_HASH || other == recv || RHash.iter(recv) != 0 || zr_frozen_p(recv)
+    if zr_special_p(other) || zr_type(other) != T_HASH || other == recv || RHash[recv].iter != 0 || zr_frozen_p(recv)
       return zr_send(recv, Machine.id(:replace), 1, argv)
     end
     zr_hash_copy_from(recv, other)
@@ -165,32 +165,32 @@ module Zr::Kern
   # This is what rb_hash_replace and hash_copy do after their checks.
   #: (value, value) -> value
   def zr_hash_copy_from(recv, other)
-    zr_sized_xfree(RHash.entries(recv), RHash.cap(recv) * HEntry.size)
-    zr_sized_xfree(RHash.bins(recv), RHash.nbins(recv) * 8)
-    RHash.set_entries(recv, 0)
-    RHash.set_bins(recv, 0)
-    if RHash.entries(other) != 0
-      entries = zr_xmalloc(RHash.cap(other) * HEntry.size)
-      zr_memcpy(entries, RHash.entries(other), RHash.cap(other) * HEntry.size)
-      RHash.set_entries(recv, entries)
-      if RHash.nbins(other) != 0
-        bins = zr_xmalloc(RHash.nbins(other) * 8)
-        zr_memcpy(bins, RHash.bins(other), RHash.nbins(other) * 8)
-        RHash.set_bins(recv, bins)
+    zr_sized_xfree(RHash[recv].entries, RHash[recv].cap * HEntry.size)
+    zr_sized_xfree(RHash[recv].bins, RHash[recv].nbins * 8)
+    RHash[recv].entries = 0
+    RHash[recv].bins = 0
+    if RHash[other].entries != 0
+      entries = zr_xmalloc(RHash[other].cap * HEntry.size)
+      zr_memcpy(entries, RHash[other].entries, RHash[other].cap * HEntry.size)
+      RHash[recv].entries = entries
+      if RHash[other].nbins != 0
+        bins = zr_xmalloc(RHash[other].nbins * 8)
+        zr_memcpy(bins, RHash[other].bins, RHash[other].nbins * 8)
+        RHash[recv].bins = bins
       end
     end
-    RHash.set_len(recv, RHash.len(other))
-    RHash.set_live(recv, RHash.live(other))
-    RHash.set_cap(recv, RHash.cap(other))
-    RHash.set_nbins(recv, RHash.nbins(other))
-    RHash.set_default(recv, RHash.default(other))
-    RHash.set_default_proc(recv, RHash.default_proc(other))
-    RHash.set_gen(recv, RHash.gen(recv) + 1)
+    RHash[recv].len = RHash[other].len
+    RHash[recv].live = RHash[other].live
+    RHash[recv].cap = RHash[other].cap
+    RHash[recv].nbins = RHash[other].nbins
+    RHash[recv].default = RHash[other].default
+    RHash[recv].default_proc = RHash[other].default_proc
+    RHash[recv].gen = RHash[recv].gen + 1
     zr_write_barrier_all(recv)
-    if (RBasic.flags(other) & FL_IDENTITY) != 0
-      RBasic.set_flags(recv, RBasic.flags(recv) | FL_IDENTITY)
+    if (RBasic[other].flags & FL_IDENTITY) != 0
+      RBasic[recv].flags = RBasic[recv].flags | FL_IDENTITY
     else
-      RBasic.set_flags(recv, RBasic.flags(recv) & (0 - FL_IDENTITY - 1))
+      RBasic[recv].flags = RBasic[recv].flags & (0 - FL_IDENTITY - 1)
     end
     recv
   end
@@ -212,32 +212,32 @@ module Zr::Kern
   #: (value) -> value
   def zr_class_copy(orig)
     klass = zr_type(orig) == T_CLASS ? zr_global(G_CLASS) : zr_global(G_MODULE)
-    copy = zr_class_alloc(zr_type(orig), RClass.superclass(orig), klass)
-    from = RClass.ext(orig)
-    ext = RClass.ext(copy)
-    if ClassExt.mlen(from) > 0
-      tab = zr_xmalloc(ClassExt.mlen(from) * MEntry.size)
-      zr_memcpy(tab, ClassExt.mtab(from), ClassExt.mlen(from) * MEntry.size)
-      ClassExt.set_mtab(ext, tab)
-      ClassExt.set_mlen(ext, ClassExt.mlen(from))
+    copy = zr_class_alloc(zr_type(orig), RClass[orig].superclass, klass)
+    from = RClass[orig].ext
+    ext = RClass[copy].ext
+    if ClassExt[from].mlen > 0
+      tab = zr_xmalloc(ClassExt[from].mlen * MEntry.size)
+      zr_memcpy(tab, ClassExt[from].mtab, ClassExt[from].mlen * MEntry.size)
+      ClassExt[ext].mtab = tab
+      ClassExt[ext].mlen = ClassExt[from].mlen
       zr_methods_changed()
-      ClassExt.set_mcap(ext, ClassExt.mlen(from))
+      ClassExt[ext].mcap = ClassExt[from].mlen
     end
-    if ClassExt.clen(from) > 0
-      tab = zr_xmalloc(ClassExt.clen(from) * CEntry.size)
-      zr_memcpy(tab, ClassExt.ctab(from), ClassExt.clen(from) * CEntry.size)
-      ClassExt.set_ctab(ext, tab)
-      ClassExt.set_clen(ext, ClassExt.clen(from))
-      ClassExt.set_ccap(ext, ClassExt.clen(from))
+    if ClassExt[from].clen > 0
+      tab = zr_xmalloc(ClassExt[from].clen * CEntry.size)
+      zr_memcpy(tab, ClassExt[from].ctab, ClassExt[from].clen * CEntry.size)
+      ClassExt[ext].ctab = tab
+      ClassExt[ext].clen = ClassExt[from].clen
+      ClassExt[ext].ccap = ClassExt[from].clen
     end
-    zr_ivtab_copy(ClassExt.iv(ext), ClassExt.iv(from), Machine.value(QNIL))
-    zr_ivtab_copy(ClassExt.cv(ext), ClassExt.cv(from), Machine.value(QNIL))
+    zr_ivtab_copy(Machine.ptr(ClassExt[ext].iv), Machine.ptr(ClassExt[from].iv), Machine.value(QNIL))
+    zr_ivtab_copy(Machine.ptr(ClassExt[ext].cv), Machine.ptr(ClassExt[from].cv), Machine.value(QNIL))
     zr_write_barrier_all(copy)
     if zr_type(orig) == T_CLASS
       zr_make_metaclass(copy)
     end
-    if zr_singleton_p(RBasic.klass(orig))
-      zr_include_singleton(copy, RBasic.klass(orig))
+    if zr_singleton_p(RBasic[orig].klass)
+      zr_include_singleton(copy, RBasic[orig].klass)
     end
     copy
   end
@@ -297,8 +297,8 @@ module Zr::Kern
       return r if r == QUNDEF
       copy = zr_copy_cell(recv)
       return copy if copy == QUNDEF
-      if zr_singleton_p(RBasic.klass(recv))
-        zr_include_singleton(copy, RBasic.klass(recv))
+      if zr_singleton_p(RBasic[recv].klass)
+        zr_include_singleton(copy, RBasic[recv].klass)
       end
     end
     slot = Machine.slot(16)
@@ -306,10 +306,10 @@ module Zr::Kern
     r = zr_send(copy, Machine.id(:initialize_clone), 1, slot)
     return r if r == QUNDEF
     if freeze == QTRUE || (freeze == QNIL && zr_frozen_p(recv))
-      RBasic.set_flags(copy, RBasic.flags(copy) | FL_FREEZE)
+      RBasic[copy].flags = RBasic[copy].flags | FL_FREEZE
     elsif freeze == QNIL && zr_str_chilled_p(recv)
       # A clone keeps the chilled flag, as rb_obj_clone_setup copies it.
-      RBasic.set_flags(copy, RBasic.flags(copy) | (RBasic.flags(recv) & (FL_CHILLED | FL_CHILLED_SYMBOL)))
+      RBasic[copy].flags = RBasic[copy].flags | (RBasic[recv].flags & (FL_CHILLED | FL_CHILLED_SYMBOL))
     end
     copy
   end
@@ -319,20 +319,20 @@ module Zr::Kern
   #: (value, value) -> void
   def zr_include_singleton(copy, meta)
     own = zr_singleton_class(copy)
-    ext = RClass.ext(meta)
+    ext = RClass[meta].ext
     i = 0
-    while i < ClassExt.mlen(ext)
-      e = ClassExt.mtab(ext) + (i * MEntry.size)
-      zr_method_copy(own, MEntry.mid(e), e, zr_meta_owned_by(MEntry.meta(e), own), MEntry.vis(e), false)
+    while i < ClassExt[ext].mlen
+      e = ClassExt[ext].mtab + (i * MEntry.size)
+      zr_method_copy(own, MEntry[e].mid, e, zr_meta_owned_by(MEntry[e].meta, own), MEntry[e].vis, false)
       i += 1
     end
-    k = RClass.superclass(meta)
+    k = RClass[meta].superclass
     mods = zr_ary_new(4)
     while k != QNIL && zr_type(k) == T_ICLASS
-      zr_ary_push(mods, RClass.attached(k))
-      k = RClass.superclass(k)
+      zr_ary_push(mods, RClass[k].attached)
+      k = RClass[k].superclass
     end
-    i = RArray.len(mods) - 1
+    i = RArray[mods].len - 1
     while i >= 0
       zr_include_module(own, zr_ary_at(mods, i))
       i -= 1

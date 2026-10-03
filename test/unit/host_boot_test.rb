@@ -19,12 +19,12 @@ class HostBootTest < Minitest::Test
     @k.zr_str_new(@host.bytes(text), text.bytesize)
   end
 
-  def text(s) = Zr::Machine::Host::Memory.read(@k::RString.ptr(s), @k::RString.len(s))
+  def text(s) = Zr::Machine::Host::Memory.read(@k::RString[s].ptr, @k::RString[s].len)
 
   def test_the_boot_makes_the_core_classes
     object = @k.zr_global(@k::G_OBJECT)
 
-    assert_equal @k.zr_global(@k::G_NUMERIC), @k::RClass.superclass(@k.zr_global(@k::G_INTEGER))
+    assert_equal @k.zr_global(@k::G_NUMERIC), @k::RClass[@k.zr_global(@k::G_INTEGER)].superclass
     assert_equal "Object", text(@k.zr_class_path(object))
   end
 
@@ -40,15 +40,15 @@ class HostBootTest < Minitest::Test
   def test_a_collection_at_each_allocation_keeps_every_held_value
     @k.zr_gc_set_stress(@k::QTRUE)
     ary = @host.pin(@k.zr_ary_new(0))
-    before = @k::Heap.collections(@k.zr_heap)
+    before = @k::Heap[@k.zr_heap].collections
     100.times do |i|
       s = string("left #{i} ")
       @k.zr_str_cat_bytes(s, string("right"))
       @k.zr_ary_push(ary, s)
     end
 
-    assert_operator @k::Heap.collections(@k.zr_heap) - before, :>=, 100
-    entries = (0...100).map { |i| text(@k::Machine.load64(@k::RArray.ptr(ary), i * 8)) }
+    assert_operator @k::Heap[@k.zr_heap].collections - before, :>=, 100
+    entries = (0...100).map { |i| text(@k::Machine.load64(@k::RArray[ary].ptr, i * 8)) }
 
     assert_equal (0...100).map { |i| "left #{i} right" }, entries
   ensure

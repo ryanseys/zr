@@ -7,7 +7,7 @@ module Zr::Kern
   # that contains the call.
   #: () -> ptr
   def zr_caller_frame
-    Frame.prev(Task.top(zr_task()))
+    Frame[Task[zr_task()].top].prev
   end
 
   # The frame that gives an eval its scope: the nearest frame written in
@@ -24,12 +24,12 @@ module Zr::Kern
 
   #: () -> value
   def zr_eval_cref
-    Frame.cref(zr_eval_frame())
+    Frame[zr_eval_frame()].cref
   end
 
   #: () -> value
   def zr_eval_block
-    Frame.blk(zr_eval_frame())
+    Frame[zr_eval_frame()].blk
   end
 
   # `(eval at file:line)`: the name that ruby gives an eval with no file.
@@ -40,7 +40,7 @@ module Zr::Kern
     zr_buf_init(b)
     zr_buf_push(b, Machine.bytes("(eval at "), 9)
     if rec != 0
-      zr_buf_push(b, FrameMeta.file(Frame.meta(rec)), FrameMeta.file_len(Frame.meta(rec)))
+      zr_buf_push(b, FrameMeta[Frame[rec].meta].file, FrameMeta[Frame[rec].meta].file_len)
       zr_buf_byte(b, 58)
       zr_buf_long(b, zr_frame_line(rec))
     end
@@ -61,7 +61,7 @@ module Zr::Kern
   #: (value) -> value
   def zr_wrap_cref(mod)
     c = zr_cref_push(mod, zr_global(G_TOP_CREF))
-    RCref.set_vis(c, VIS_PRIVATE)
+    RCref[c].vis = VIS_PRIVATE
     c
   end
 
@@ -85,7 +85,7 @@ module Zr::Kern
   # has an Env; `Hir::Locals.opens_locals?` makes sure of this.
   #: (ptr) -> value
   def zr_frame_env(rec)
-    if FrameMeta.env(Frame.meta(rec)) == 0
+    if FrameMeta[Frame[rec].meta].env == 0
       return Machine.value(QNIL)
     end
     zr_env_escape(Machine.value(Machine.load64(rec + Frame.size, 0)))
@@ -102,12 +102,12 @@ module Zr::Kern
   # nil outside a method.
   #: () -> value
   def zr_eval_parameters
-    zr_meta_parameters(Frame.meta(zr_eval_frame()))
+    zr_meta_parameters(Frame[zr_eval_frame()].meta)
   end
 
   #: (value) -> value
   def zr_binding_parameters(b)
-    zr_meta_parameters(RProc.meta(b))
+    zr_meta_parameters(RProc[b].meta)
   end
 
   #: (ptr) -> value
@@ -115,23 +115,23 @@ module Zr::Kern
     if !zr_meta_in_method(meta)
       return Machine.value(QNIL)
     end
-    while FrameMeta.kind(meta) != KIND_DEF
-      meta = FrameMeta.parent(meta)
+    while FrameMeta[meta].kind != KIND_DEF
+      meta = FrameMeta[meta].parent
     end
-    zr_param_rows(FrameMeta.params(meta), false)
+    zr_param_rows(FrameMeta[meta].params, false)
   end
 
   #: (ptr) -> bool
   def zr_meta_in_method(meta)
     while meta != 0
-      kind = FrameMeta.kind(meta)
+      kind = FrameMeta[meta].kind
       if kind == KIND_DEF
         return true
       end
       if kind != KIND_BLOCK && kind != KIND_EVAL
         return false
       end
-      meta = FrameMeta.parent(meta)
+      meta = FrameMeta[meta].parent
     end
     false
   end
@@ -143,8 +143,8 @@ module Zr::Kern
     out = zr_ary_new(0)
     env = zr_eval_env()
     while env != QNIL
-      zr_ary_push(out, zr_local_names(REnv.names(env)))
-      env = REnv.parent(env)
+      zr_ary_push(out, zr_local_names(REnv[env].names))
+      env = REnv[env].parent
     end
     out
   end
@@ -157,10 +157,10 @@ module Zr::Kern
   #: () -> value
   def zr_binding
     rec = zr_caller_frame()
-    blk = zr_block_proc(Frame.blk(rec))
-    b = zr_binding_of(Frame.meta(rec), zr_frame_env(rec), Frame.self(rec), Frame.cref(rec))
-    RProc.set_blk(b, blk)
-    RProc.set_serial(b, zr_frame_line(rec))
+    blk = zr_block_proc(Frame[rec].blk)
+    b = zr_binding_of(Frame[rec].meta, zr_frame_env(rec), Frame[rec].self, Frame[rec].cref)
+    RProc[b].blk = blk
+    RProc[b].serial = zr_frame_line(rec)
     b
   end
 
@@ -169,10 +169,10 @@ module Zr::Kern
   # line.
   #: (value) -> value
   def zr_proc_binding(p)
-    if RProc.meta(p) == 0
+    if RProc[p].meta == 0
       return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("Can't create Binding from C level Proc"), 38)
     end
-    if (RBasic.flags(p) & FL_ISOLATED) != 0
+    if (RBasic[p].flags & FL_ISOLATED) != 0
       return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("Can't create Binding from isolated Proc"), 39)
     end
     zr_proc_scope(p)
@@ -183,29 +183,29 @@ module Zr::Kern
   # reads its env.
   #: (value) -> value
   def zr_proc_scope(p)
-    b = zr_binding_of(RProc.meta(p), RProc.env(p), RProc.self(p), RProc.cref(p))
-    RProc.set_blk(b, RProc.blk(p))
-    RProc.set_serial(b, FrameMeta.line(RProc.meta(p)))
+    b = zr_binding_of(RProc[p].meta, RProc[p].env, RProc[p].self, RProc[p].cref)
+    RProc[b].blk = RProc[p].blk
+    RProc[b].serial = FrameMeta[RProc[p].meta].line
     b
   end
 
   #: (ptr, value, value, value) -> value
   def zr_binding_of(meta, env, self_, cref)
     b = zr_alloc(T_PROC, zr_core_class(Machine.id(:Binding)), RProc.size)
-    RProc.set_fn(b, 0)
-    RProc.set_meta(b, meta)
-    RProc.set_env(b, env)
-    RProc.set_self(b, self_)
-    RProc.set_cref(b, cref)
-    RProc.set_blk(b, Machine.value(QNIL))
-    RProc.set_home(b, 0)
-    RProc.set_serial(b, 0)
-    RProc.set_site(b, 0)
-    RProc.set_ret_home(b, 0)
-    RProc.set_ret_serial(b, 0)
-    RProc.set_spread(b, 0)
-    RProc.set_lambda(b, 0)
-    RProc.set_passed(b, 0)
+    RProc[b].fn = 0
+    RProc[b].meta = meta
+    RProc[b].env = env
+    RProc[b].self = self_
+    RProc[b].cref = cref
+    RProc[b].blk = Machine.value(QNIL)
+    RProc[b].home = 0
+    RProc[b].serial = 0
+    RProc[b].site = 0
+    RProc[b].ret_home = 0
+    RProc[b].ret_serial = 0
+    RProc[b].spread = 0
+    RProc[b].lambda = 0
+    RProc[b].passed = 0
     b
   end
 
@@ -214,53 +214,53 @@ module Zr::Kern
   # Binding to `zr_binding_run` and does not read it.
   #: (value) -> value
   def zr_binding_cref(b)
-    RProc.cref(b)
+    RProc[b].cref
   end
 
   #: (value) -> value
   def zr_binding_scopes(b)
     out = zr_ary_new(0)
-    env = RProc.env(b)
+    env = RProc[b].env
     while env != QNIL
-      zr_ary_push(out, zr_local_names(REnv.names(env)))
-      env = REnv.parent(env)
+      zr_ary_push(out, zr_local_names(REnv[env].names))
+      env = REnv[env].parent
     end
     out
   end
 
   #: (value) -> value
   def zr_binding_receiver(b)
-    RProc.self(b)
+    RProc[b].self
   end
 
   #: (value) -> value
   def zr_binding_file(b)
-    if RProc.site(b) != 0
+    if RProc[b].site != 0
       return zr_str_new(Machine.bytes("<main>"), 6)
     end
-    meta = RProc.meta(b)
-    if FrameMeta.file_len(meta) == 0
+    meta = RProc[b].meta
+    if FrameMeta[meta].file_len == 0
       return Machine.value(QNIL)
     end
-    zr_str_new(FrameMeta.file(meta), FrameMeta.file_len(meta))
+    zr_str_new(FrameMeta[meta].file, FrameMeta[meta].file_len)
   end
 
   #: (value) -> value
   def zr_binding_line(b)
-    if RProc.site(b) != 0
+    if RProc[b].site != 0
       return zr_fix(0)
     end
-    zr_fix(RProc.serial(b))
+    zr_fix(RProc[b].serial)
   end
 
   #: (value, value, value) -> value
   def zr_binding_get(b, depth, index)
-    zr_env_get(zr_env_up(RProc.env(b), zr_fix2long(depth)), zr_fix2long(index))
+    zr_env_get(zr_env_up(RProc[b].env, zr_fix2long(depth)), zr_fix2long(index))
   end
 
   #: (value, value, value, value) -> value
   def zr_binding_set(b, depth, index, v)
-    zr_env_set(zr_env_up(RProc.env(b), zr_fix2long(depth)), zr_fix2long(index), v)
+    zr_env_set(zr_env_up(RProc[b].env, zr_fix2long(depth)), zr_fix2long(index), v)
     v
   end
 
@@ -269,13 +269,13 @@ module Zr::Kern
   # that the string wrote becomes a local of the Binding.
   #: (value, value) -> value
   def zr_binding_run(code, b)
-    e = zr_code_env(code, RProc.env(b))
-    RProc.set_env(b, e)
+    e = zr_code_env(code, RProc[b].env)
+    RProc[b].env = e
     # The string runs inside the Binding's scope, as CRuby makes the
     # binding's iseq its parent: `__method__` and a backtrace label read
     # the scope where the Binding was made.
-    FrameMeta.set_parent(Machine.ptr(zr_code_word(code, 1)), RProc.meta(b))
-    Eval.call(Machine.ptr(zr_code_word(code, 0)), RProc.self(b), RProc.cref(b), e, RProc.blk(b))
+    FrameMeta[Machine.ptr(zr_code_word(code, 1))].parent = RProc[b].meta
+    Eval.call(Machine.ptr(zr_code_word(code, 0)), RProc[b].self, RProc[b].cref, e, RProc[b].blk)
   end
 
   # Adds a name to the Binding, in a new scope inside the Binding's scope.
@@ -284,8 +284,8 @@ module Zr::Kern
   def zr_binding_add(b, name)
     table = zr_xmalloc(16)
     Machine.store64(table, 0, 1)
-    Machine.store64(table, 8, zr_intern(RString.ptr(name), RString.len(name)))
-    RProc.set_env(b, zr_env_new(RProc.env(b), 1, table))
+    Machine.store64(table, 8, zr_intern(RString[name].ptr, RString[name].len))
+    RProc[b].env = zr_env_new(RProc[b].env, 1, table)
     Machine.value(QNIL)
   end
 
@@ -293,7 +293,7 @@ module Zr::Kern
   #: (value, value, value, ptr) -> value
   def zr_toplevel_binding(env, self_, cref, meta)
     b = zr_binding_of(meta, env, self_, cref)
-    RProc.set_site(b, 1)
+    RProc[b].site = 1
     zr_const_set(zr_global(G_OBJECT), Machine.id(:TOPLEVEL_BINDING), b)
   end
 end

@@ -1,9 +1,6 @@
 module Zr::Kern
   # The program's context: its arguments, its name, the process
   # environment and the working directory.
-  Libc.import :setenv, [Ptr, Ptr, I32] => I32
-  Libc.import :unsetenv, [Ptr] => I32
-  Libc.import :getcwd, [Ptr, Word] => Ptr
 
   G_ARGV = 36
   G_AT_EXIT = 37
@@ -72,7 +69,7 @@ module Zr::Kern
     status = zr_program_end_hook(zr_send(zr_core_class(Machine.id(:Signal)), Machine.id(:exit_trap), 0, 0), status, exc)
     hooks = zr_global(G_AT_EXIT)
     if !zr_special_p(hooks)
-      while RArray.len(hooks) > 0
+      while RArray[hooks].len > 0
         blk = zr_ary_pop(hooks, 0, 0, Machine.value(QNIL), Machine.value(QNIL))
         status = zr_program_end_hook(zr_yield(blk, 0, 0), status, exc)
       end
@@ -87,12 +84,12 @@ module Zr::Kern
     # Flush all stream buffers, as CRuby's teardown does. `exit!` skips
     # all of this.
     if zr_send(zr_core_class(Machine.id(:IO)), Machine.id(:flush_pending), 0, 0) == QUNDEF
-      Task.set_pending(zr_task(), Machine.value(QNIL))
+      Task[zr_task()].pending = Machine.value(QNIL)
     end
     zr_finalizers_at_exit()
     # A finalizer's output also goes to a buffer, so flush again.
     if zr_send(zr_core_class(Machine.id(:IO)), Machine.id(:flush_pending), 0, 0) == QUNDEF
-      Task.set_pending(zr_task(), Machine.value(QNIL))
+      Task[zr_task()].pending = Machine.value(QNIL)
     end
     if signo != 0
       zr_die_by_signal(signo)
@@ -107,8 +104,8 @@ module Zr::Kern
     if r != QUNDEF
       return status
     end
-    raised = Task.pending(zr_task())
-    Task.set_pending(zr_task(), Machine.value(QNIL))
+    raised = Task[zr_task()].pending
+    Task[zr_task()].pending = Machine.value(QNIL)
     if zr_system_exit_p(raised)
       return zr_exit_status(raised)
     end
@@ -124,7 +121,7 @@ module Zr::Kern
     end
     n = zr_send(exc, Machine.id(:signo), 0, 0)
     if !zr_fixnum_p(n)
-      Task.set_pending(zr_task(), Machine.value(QNIL))
+      Task[zr_task()].pending = Machine.value(QNIL)
       return 0
     end
     zr_fix2long(n)
@@ -154,7 +151,7 @@ module Zr::Kern
   #: (ptr, word) -> void
   def zr_program_start(file, len)
     name = zr_str_new(file, len)
-    RBasic.set_flags(name, RBasic.flags(name) | FL_FREEZE)
+    RBasic[name].flags = RBasic[name].flags | FL_FREEZE
     zr_set_global(G_ARGV0, name)
     zr_gvar_set(Machine.id(:$0), name)
   end
@@ -166,7 +163,7 @@ module Zr::Kern
 
   #: (value) -> value
   def zr_environment_get(name)
-    p = Libc.getenv(RString.ptr(name))
+    p = Libc.getenv(RString[name].ptr)
     if p == 0
       return Machine.value(QNIL)
     end
@@ -177,8 +174,8 @@ module Zr::Kern
   #: (value, value) -> value
   def zr_environment_set(name, value)
     if value == QNIL
-      Libc.unsetenv(RString.ptr(name))
-    elsif Libc.setenv(RString.ptr(name), RString.ptr(value), Machine.i32(1)) != Machine.i32(0)
+      Libc.unsetenv(RString[name].ptr)
+    elsif Libc.setenv(RString[name].ptr, RString[value].ptr, Machine.i32(1)) != Machine.i32(0)
       return zr_fix(0 - zr_errno())
     end
     value
@@ -218,27 +215,18 @@ module Zr::Kern
   # Returns the file of the frame that called the current core method.
   #: () -> value
   def zr_caller_file
-    rec = zr_frame_with_file(Frame.prev(Task.top(zr_task())))
+    rec = zr_frame_with_file(Frame[Task[zr_task()].top].prev)
     if rec == 0
       return Machine.value(QNIL)
     end
-    meta = Frame.meta(rec)
-    zr_str_new(FrameMeta.file(meta), FrameMeta.file_len(meta))
+    meta = Frame[rec].meta
+    zr_str_new(FrameMeta[meta].file, FrameMeta[meta].file_len)
   end
-
-  Libc.import :getpid, [] => I32
-  Libc.import :access, [Ptr, I32] => I32
-  Libc.import :stat, [Ptr, Ptr] => I32
 
   #: () -> value
   def zr_process_id
     zr_fix(Machine.u32(Libc.getpid()))
   end
-
-  Libc.import :getuid, [] => I32
-  Libc.import :geteuid, [] => I32
-  Libc.import :getgid, [] => I32
-  Libc.import :getegid, [] => I32
 
   # Returns one of the process's ids: 0 uid, 1 euid, 2 gid, 3 egid.
   #: (value) -> value
@@ -262,7 +250,10 @@ module Zr::Kern
     zr_fix(((high << 30) | (low >> 2)) & 4611686018427387903)
   end
 
-  Top = fn [] => Value
+  module Top
+    #: (ptr) -> value
+    def self.call(fn) = Machine.indirect
+  end
 
   # The files that the runtime loaded hidden from the program. They are not
   # in $LOADED_FEATURES. Each file has a record of three slots: its path,
@@ -375,14 +366,14 @@ module Zr::Kern
       return false
     end
     rec = zr_asking_frame()
-    if rec == 0 || FrameMeta.hidden(Frame.meta(rec)) == 0
+    if rec == 0 || FrameMeta[Frame[rec].meta].hidden == 0
       return false
     end
-    meta = Frame.meta(rec)
-    if FrameMeta.file_len(meta) == 0
+    meta = Frame[rec].meta
+    if FrameMeta[meta].file_len == 0
       return !zr_loading_internal()
     end
-    !zr_ary_has_bytes(zr_gvar_get(Machine.id(:$LOADED_FEATURES)), FrameMeta.file(meta), FrameMeta.file_len(meta))
+    !zr_ary_has_bytes(zr_gvar_get(Machine.id(:$LOADED_FEATURES)), FrameMeta[meta].file, FrameMeta[meta].file_len)
   end
 
   # Returns the frame of the code that requests a load or writes a
@@ -390,13 +381,13 @@ module Zr::Kern
   # used.
   #: () -> ptr
   def zr_asking_frame
-    rec = Task.top(zr_task())
+    rec = Task[zr_task()].top
     while rec != 0
-      meta = Frame.meta(rec)
-      if FrameMeta.hidden(meta) != 0 || (FrameMeta.kind(meta) != KIND_BUILTIN && FrameMeta.kind(meta) != KIND_HIDDEN)
+      meta = Frame[rec].meta
+      if FrameMeta[meta].hidden != 0 || (FrameMeta[meta].kind != KIND_BUILTIN && FrameMeta[meta].kind != KIND_HIDDEN)
         return rec
       end
-      rec = Frame.prev(rec)
+      rec = Frame[rec].prev
     end
     0
   end
@@ -411,15 +402,15 @@ module Zr::Kern
     end
     path = Machine.value(loading)
     t = zr_load_table()
-    n = LoadTable.ext_len(t)
-    RString.len(path) > n && zr_bytes_eq(RString.ptr(path), n, LoadTable.ext(t), n)
+    n = LoadTable[t].ext_len
+    RString[path].len > n && zr_bytes_eq(RString[path].ptr, n, LoadTable[t].ext, n)
   end
 
   # Returns the index of the record for `path` in the hidden files, or -1.
   #: (value) -> word
   def zr_hidden_row(path)
     rows = zr_hidden_features()
-    i = RArray.len(rows)
+    i = RArray[rows].len
     while i > 0
       i -= HIDDEN_ROW
       if zr_string_of(zr_ary_at(rows, i), path)
@@ -539,11 +530,11 @@ module Zr::Kern
     rows = zr_hidden_features()
     ids = zr_ary_at(rows, zr_hidden_row(path) + 2)
     i = 0
-    while ids != QNIL && i < RArray.len(ids)
+    while ids != QNIL && i < RArray[ids].len
       item = zr_ary_at(ids, i)
       if zr_fixnum_p(item)
         zr_const_reveal(zr_fix2long(item))
-      elsif RArray.len(item) == 3
+      elsif RArray[item].len == 3
         zr_const_reveal_in(zr_ary_at(item, 0), zr_fix2long(zr_ary_at(item, 1)))
       else
         zr_method_reveal(zr_ary_at(item, 0), zr_fix2long(zr_ary_at(item, 1)))
@@ -551,7 +542,7 @@ module Zr::Kern
       i += 1
     end
     i = 0
-    while i < RArray.len(rows)
+    while i < RArray[rows].len
       if zr_string_of(zr_ary_at(rows, i + 1), path) && !zr_ary_has_string(visible, zr_ary_at(rows, i))
         zr_feature_reveal(zr_ary_at(rows, i))
       end
@@ -564,7 +555,7 @@ module Zr::Kern
   # source.
   #: (value) -> value
   def zr_feature_real_path(path)
-    p = zr_os_realpath(RString.ptr(path))
+    p = zr_os_realpath(RString[path].ptr)
     if p == 0
       return path
     end
@@ -600,7 +591,7 @@ module Zr::Kern
   def zr_require_run(path, fn, kind, framed)
     # A file that is not compiled into the program has no toplevel to run.
     if Machine.word(fn) == 0
-      return zr_load_error_in(kind == 1 ? Machine.id(:require_relative) : (kind == 2 ? Machine.id(:load) : Machine.id(:require)), RString.ptr(path), RString.len(path))
+      return zr_load_error_in(kind == 1 ? Machine.id(:require_relative) : (kind == 2 ? Machine.id(:load) : Machine.id(:require)), RString[path].ptr, RString[path].len)
     end
     hidden = kind == 3 || zr_hidden_now()
     visible = zr_gvar_get(Machine.id(:$LOADED_FEATURES))
@@ -679,30 +670,50 @@ module Zr::Kern
     e = zr_find_method(zr_global(G_KERNEL), mid)
     rec = Machine.slot(Frame.size)
     t = zr_task()
-    Frame.set_prev(rec, Task.top(t))
-    Frame.set_meta(rec, MEntry.meta(e))
-    Frame.set_line(rec, 0)
-    Frame.set_serial(rec, 0)
-    Frame.set_self(rec, zr_global(G_MAIN))
-    Frame.set_cref(rec, Machine.value(QNIL))
-    Frame.set_blk(rec, Machine.value(QNIL))
-    Frame.set_nvalues(rec, 0)
-    Frame.set_entry(rec, 0)
-    Frame.set_svars(rec, Machine.value(QNIL))
-    Frame.set_defined(rec, Machine.value(QNIL))
-    Task.set_top(t, rec)
+    Frame[rec].prev = Task[t].top
+    Frame[rec].meta = MEntry[e].meta
+    Frame[rec].line = 0
+    Frame[rec].serial = 0
+    Frame[rec].self = zr_global(G_MAIN)
+    Frame[rec].cref = Machine.value(QNIL)
+    Frame[rec].blk = Machine.value(QNIL)
+    Frame[rec].nvalues = 0
+    Frame[rec].entry = 0
+    Frame[rec].svars = Machine.value(QNIL)
+    Frame[rec].defined = Machine.value(QNIL)
+    Task[t].top = rec
     r = Top.call(fn)
-    Task.set_top(t, Frame.prev(rec))
+    Task[t].top = Frame[rec].prev
     r
   end
 
   # The table that the compiler writes for a require with a computed name
   # (lib/zr/runtime.rb, `load_tables`): the count of compiled-in files,
   # their entries, and ten (bytes, length) texts.
-  LoadTable = layout units: Word, rows: Ptr, roots: Ptr, roots_len: Word, missing: Ptr, missing_len: Word,
-                             preloaded: Ptr, preloaded_len: Word, ext: Ptr, ext_len: Word, spots: Ptr, spots_len: Word,
-                             coverable: Ptr, coverable_len: Word, branches: Ptr, branches_len: Word, defs: Ptr, defs_len: Word,
-                             sources: Ptr, sources_len: Word, manifest: Ptr, manifest_len: Word
+  class LoadTable < Layout
+    attr_accessor :units #: word
+    attr_accessor :rows #: ptr
+    attr_accessor :roots #: ptr
+    attr_accessor :roots_len #: word
+    attr_accessor :missing #: ptr
+    attr_accessor :missing_len #: word
+    attr_accessor :preloaded #: ptr
+    attr_accessor :preloaded_len #: word
+    attr_accessor :ext #: ptr
+    attr_accessor :ext_len #: word
+    attr_accessor :spots #: ptr
+    attr_accessor :spots_len #: word
+    attr_accessor :coverable #: ptr
+    attr_accessor :coverable_len #: word
+    attr_accessor :branches #: ptr
+    attr_accessor :branches_len #: word
+    attr_accessor :defs #: ptr
+    attr_accessor :defs_len #: word
+    attr_accessor :sources #: ptr
+    attr_accessor :sources_len #: word
+    attr_accessor :manifest #: ptr
+    attr_accessor :manifest_len #: word
+  end
 
   #: () -> ptr
   def zr_load_table
@@ -716,9 +727,9 @@ module Zr::Kern
   def zr_unit_for(path)
     t = zr_load_table()
     i = 0
-    while i < LoadTable.units(t)
-      row = LoadTable.rows(t) + (i * 24)
-      if zr_bytes_eq(Machine.ptr(Machine.load64(row, 0)), Machine.load64(row, 8), RString.ptr(path), RString.len(path))
+    while i < LoadTable[t].units
+      row = LoadTable[t].rows + (i * 24)
+      if zr_bytes_eq(Machine.ptr(Machine.load64(row, 0)), Machine.load64(row, 8), RString[path].ptr, RString[path].len)
         return zr_fix(Machine.load64(row, 16))
       end
       i += 1
@@ -740,31 +751,31 @@ module Zr::Kern
     t = zr_load_table()
     w = zr_fix2long(which)
     if w == 0
-      return zr_str_new(LoadTable.roots(t), LoadTable.roots_len(t))
+      return zr_str_new(LoadTable[t].roots, LoadTable[t].roots_len)
     elsif w == 1
-      return zr_str_new(LoadTable.missing(t), LoadTable.missing_len(t))
+      return zr_str_new(LoadTable[t].missing, LoadTable[t].missing_len)
     elsif w == 2
-      return zr_str_new(LoadTable.preloaded(t), LoadTable.preloaded_len(t))
+      return zr_str_new(LoadTable[t].preloaded, LoadTable[t].preloaded_len)
     elsif w == 4
-      return zr_str_new(LoadTable.spots(t), LoadTable.spots_len(t))
+      return zr_str_new(LoadTable[t].spots, LoadTable[t].spots_len)
     elsif w == 5
-      return zr_str_new(LoadTable.coverable(t), LoadTable.coverable_len(t))
+      return zr_str_new(LoadTable[t].coverable, LoadTable[t].coverable_len)
     elsif w == 6
-      return zr_str_new(LoadTable.branches(t), LoadTable.branches_len(t))
+      return zr_str_new(LoadTable[t].branches, LoadTable[t].branches_len)
     elsif w == 7
-      return zr_str_new(LoadTable.defs(t), LoadTable.defs_len(t))
+      return zr_str_new(LoadTable[t].defs, LoadTable[t].defs_len)
     elsif w == 8
-      return zr_str_new(LoadTable.sources(t), LoadTable.sources_len(t))
+      return zr_str_new(LoadTable[t].sources, LoadTable[t].sources_len)
     elsif w == 9
-      return zr_str_new(LoadTable.manifest(t), LoadTable.manifest_len(t))
+      return zr_str_new(LoadTable[t].manifest, LoadTable[t].manifest_len)
     end
-    zr_str_new(LoadTable.ext(t), LoadTable.ext_len(t))
+    zr_str_new(LoadTable[t].ext, LoadTable[t].ext_len)
   end
 
   # Whether `e` is a String with the same bytes as the String `s`.
   #: (value, value) -> bool
   def zr_string_of(e, s)
-    zr_string_of_bytes(e, RString.ptr(s), RString.len(s))
+    zr_string_of_bytes(e, RString[s].ptr, RString[s].len)
   end
 
   #: (value, ptr, word) -> bool
@@ -772,18 +783,18 @@ module Zr::Kern
     if zr_special_p(e) || zr_type(e) != T_STRING
       return false
     end
-    zr_bytes_eq(RString.ptr(e), RString.len(e), bytes, len)
+    zr_bytes_eq(RString[e].ptr, RString[e].len, bytes, len)
   end
 
   # The index of the last String in `a` equal to `s`, or -1.
   #: (value, value) -> word
   def zr_ary_rindex_string(a, s)
-    zr_ary_rindex_bytes(a, RString.ptr(s), RString.len(s))
+    zr_ary_rindex_bytes(a, RString[s].ptr, RString[s].len)
   end
 
   #: (value, ptr, word) -> word
   def zr_ary_rindex_bytes(a, bytes, len)
-    i = RArray.len(a)
+    i = RArray[a].len
     while i > 0
       i -= 1
       if zr_string_of_bytes(zr_ary_at(a, i), bytes, len)
@@ -825,18 +836,18 @@ module Zr::Kern
     e = zr_find_method(zr_global(G_KERNEL), mid)
     rec = Machine.slot(Frame.size)
     t = zr_task()
-    Frame.set_prev(rec, Task.top(t))
-    Frame.set_meta(rec, MEntry.meta(e))
-    Frame.set_line(rec, 0)
-    Frame.set_serial(rec, 0)
-    Frame.set_self(rec, zr_global(G_MAIN))
-    Frame.set_cref(rec, Machine.value(QNIL))
-    Frame.set_blk(rec, Machine.value(QNIL))
-    Frame.set_nvalues(rec, 0)
-    Frame.set_entry(rec, 0)
-    Frame.set_svars(rec, Machine.value(QNIL))
-    Frame.set_defined(rec, Machine.value(QNIL))
-    Task.set_top(t, rec)
+    Frame[rec].prev = Task[t].top
+    Frame[rec].meta = MEntry[e].meta
+    Frame[rec].line = 0
+    Frame[rec].serial = 0
+    Frame[rec].self = zr_global(G_MAIN)
+    Frame[rec].cref = Machine.value(QNIL)
+    Frame[rec].blk = Machine.value(QNIL)
+    Frame[rec].nvalues = 0
+    Frame[rec].entry = 0
+    Frame[rec].svars = Machine.value(QNIL)
+    Frame[rec].defined = Machine.value(QNIL)
+    Task[t].top = rec
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
     zr_buf_push(b, Machine.bytes("cannot load such file -- "), 25)
@@ -844,7 +855,7 @@ module Zr::Kern
     exc = zr_exc_new(zr_core_class(Machine.id(:LoadError)), zr_buf_take(b))
     zr_ivar_set(exc, Machine.id(:@path), zr_str_new(path, len))
     r = zr_raise(exc)
-    Task.set_top(t, Frame.prev(rec))
+    Task[t].top = Frame[rec].prev
     r
   end
 
@@ -853,7 +864,7 @@ module Zr::Kern
   #: (value) -> value
   def zr_path_kind(path)
     buf = zr_xmalloc(STAT_LEN)
-    r = Machine.u32(Libc.stat(RString.ptr(path), buf))
+    r = Machine.u32(Libc.stat(RString[path].ptr, buf))
     mode = zr_os_stat_mode(buf) & S_IFMT
     zr_xfree(buf)
     if r != 0
@@ -873,11 +884,6 @@ module Zr::Kern
   S_IFMT = 61440
   S_IFDIR = 16384
   S_IFREG = 32768
-
-  Libc.import :clock_gettime, [I32, Ptr] => I32
-  Libc.import :clock_getres, [I32, Ptr] => I32
-  Libc.import :crypt, [Ptr, Ptr] => Ptr
-  Libc.import :nanosleep, [Ptr, Ptr] => I32
 
   # Returns the time in nanoseconds on the clock `id` (darwin: 0 real
   # time, 6 monotonic).
@@ -899,7 +905,7 @@ module Zr::Kern
   # Returns crypt(3) of the text with the salt.
   #: (value, value) -> value
   def zr_str_crypt(text, salt)
-    out = Libc.crypt(RString.ptr(text), RString.ptr(salt))
+    out = Libc.crypt(RString[text].ptr, RString[salt].ptr)
     if out == 0
       return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("invalid salt"), 12)
     end
@@ -924,9 +930,6 @@ module Zr::Kern
     Machine.value(QFALSE)
   end
 
-  Libc.import :tzset, [] => Void
-  Libc.import :localtime_r, [Ptr, Ptr] => Ptr
-
   # Returns the local zone at `secs` since the epoch: its offset east of
   # UTC in seconds, whether daylight time is in effect, and its
   # abbreviation.
@@ -945,8 +948,6 @@ module Zr::Kern
     out
   end
 
-  Libc.import :_exit, [I32] => Void
-
   # `exit!`: the process ends immediately, and no handler runs.
   #: (value) -> value
   def zr_exit_now(status)
@@ -954,14 +955,11 @@ module Zr::Kern
     Machine.value(QNIL)
   end
 
-  Libc.import :getpwnam, [Ptr] => Ptr
-  Libc.import :getpwuid, [I32] => Ptr
-
   # Returns a user's home directory, or nil when there is no such user. A
   # nil name gives the home directory of this process's user.
   #: (value) -> value
   def zr_home_dir(name)
-    pw = name == QNIL ? Libc.getpwuid(Libc.getuid()) : Libc.getpwnam(RString.ptr(name))
+    pw = name == QNIL ? Libc.getpwuid(Libc.getuid()) : Libc.getpwnam(RString[name].ptr)
     if pw == 0
       return Machine.value(QNIL)
     end
@@ -971,21 +969,6 @@ module Zr::Kern
     end
     zr_str_new(dir, zr_cstr_len(dir))
   end
-
-  Libc.import :getgrnam, [Ptr] => Ptr
-  Libc.import :getgrgid, [I32] => Ptr
-  Libc.import :setpwent, [] => Void
-  Libc.import :endpwent, [] => Void
-  Libc.import :getpwent, [] => Ptr
-  Libc.import :setgrent, [] => Void
-  Libc.import :endgrent, [] => Void
-  Libc.import :getgrent, [] => Ptr
-  Libc.import :sysconf, [I32] => Word
-  Libc.import :confstr, [I32, Ptr, Word] => Word
-  Libc.import :pathconf, [Ptr, I32] => Word
-  Libc.import :fpathconf, [I32, I32] => Word
-  Libc.import :uname, [Ptr] => I32
-  Libc.import :getlogin, [] => Ptr
 
   # Returns a C string as a Ruby String, or nil for a null pointer.
   #: (ptr) -> value
@@ -998,7 +981,7 @@ module Zr::Kern
 
   #: (value) -> value
   def zr_pw_name(name)
-    zr_os_passwd_row(Libc.getpwnam(RString.ptr(name)))
+    zr_os_passwd_row(Libc.getpwnam(RString[name].ptr))
   end
 
   #: (value) -> value
@@ -1050,7 +1033,7 @@ module Zr::Kern
 
   #: (value) -> value
   def zr_gr_name(name)
-    zr_gr_row(Libc.getgrnam(RString.ptr(name)))
+    zr_gr_row(Libc.getgrnam(RString[name].ptr))
   end
 
   #: (value) -> value
@@ -1102,8 +1085,8 @@ module Zr::Kern
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
     zr_buf_reserve(b, len)
-    Libc.confstr(which, Buf.ptr(b), len)
-    Buf.set_len(b, len - 1)
+    Libc.confstr(which, Buf[b].ptr, len)
+    Buf[b].len = len - 1
     zr_buf_take(b)
   end
 

@@ -16,32 +16,32 @@ module Zr::Kern
 
   #: (value, value, value) -> value
   def zr_proc_under(p, self_, cref)
-    blk = zr_block_proc(RProc.blk(p))
+    blk = zr_block_proc(RProc[p].blk)
     copy = zr_alloc(T_PROC, zr_global(G_PROC), RProc.size)
     zr_memcpy(Machine.ptr(copy) + RBasic.size, Machine.ptr(p) + RBasic.size, RProc.size - RBasic.size)
-    RProc.set_blk(copy, blk)
-    RProc.set_self(copy, self_)
-    RProc.set_cref(copy, cref)
+    RProc[copy].blk = blk
+    RProc[copy].self = self_
+    RProc[copy].cref = cref
     copy
   end
 
   # Runs the block with `self_` as self and `klass` as the definee.
   #: (value, value, value, word, ptr) -> value
   def zr_yield_under(blk, self_, klass, argc, argv)
-    c = zr_cref_push_eval(klass, RProc.cref(blk))
+    c = zr_cref_push_eval(klass, RProc[blk].cref)
     # An object that can have a singleton class gets one only when the
     # block needs it, as in ruby's instance_exec.
     if klass == QUNDEF
-      RCref.set_klass(c, Machine.value(QNIL))
-      RCref.set_lazy(c, self_)
+      RCref[c].klass = Machine.value(QNIL)
+      RCref[c].lazy = self_
     end
     # A value that cannot have a singleton class also cannot take a `def`,
     # as in CRuby's singleton_class_for_eval.
     if zr_singleton_refused_p(self_)
-      RCref.set_eval(c, EVAL_NO_DEF)
+      RCref[c].eval = EVAL_NO_DEF
     end
     p = zr_proc_under(blk, self_, c)
-    Block.call(RProc.fn(p), p, argc, argv, Machine.value(QNIL))
+    Block.call(RProc[p].fn, p, argc, argv, Machine.value(QNIL))
   end
 
   # Raises `no block given` for a call that needs a block and gets none.
@@ -56,7 +56,7 @@ module Zr::Kern
   # hook, then runs the block with the class as self and as argument.
   #: (value, word, ptr, value, value) -> value
   def zr_class_initialize(recv, argc, argv, cref, blk)
-    if RClass.superclass(recv) != QNIL || recv == zr_global(G_BASIC_OBJECT)
+    if RClass[recv].superclass != QNIL || recv == zr_global(G_BASIC_OBJECT)
       return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("already initialized class"), 25)
     end
     if argc > 1
@@ -67,11 +67,11 @@ module Zr::Kern
       sup = Machine.value(Machine.load64(argv, 0))
       r = zr_check_inheritable(sup)
       return r if r == QUNDEF
-      if RClass.superclass(sup) == QNIL && sup != zr_global(G_BASIC_OBJECT)
+      if RClass[sup].superclass == QNIL && sup != zr_global(G_BASIC_OBJECT)
         return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("can't inherit uninitialized class"), 33)
       end
     end
-    RClass.set_superclass(recv, sup)
+    RClass[recv].superclass = sup
     zr_methods_changed()
     zr_class_rank(recv)
     zr_make_metaclass(recv)
@@ -186,16 +186,16 @@ module Zr::Kern
     return r if r == QUNDEF
     mid = Machine.load64(slot, 0)
     body = zr_block_proc(blk)
-    caller = Frame.prev(Task.top(zr_task()))
+    caller = Frame[Task[zr_task()].top].prev
     # The visibility comes from the caller's frame, not from the cref
     # that the call passes.
     home = zr_cref_in_context(caller, recv)
     if argc > 1
       body = Machine.value(Machine.load64(argv, 8))
       if !zr_special_p(body) && zr_type(body) == T_METHOD
-        e = RMethod.entry(body)
-        owner = FrameMeta.owner(MEntry.meta(e))
-        if MEntry.meta(e) != 0 && owner != recv && zr_type(owner) != T_MODULE && !zr_class_inherits(recv, owner)
+        e = Machine.ptr(RMethod[body].entry)
+        owner = FrameMeta[MEntry[e].meta].owner
+        if MEntry[e].meta != 0 && owner != recv && zr_type(owner) != T_MODULE && !zr_class_inherits(recv, owner)
           if zr_singleton_p(owner)
             return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("can't bind singleton method to a different class"), 47)
           end
@@ -207,11 +207,11 @@ module Zr::Kern
         end
         # A bare `module_function` is a mode. The copy goes to both the
         # module and its singleton class, as a `def` does in that mode.
-        modfn = home != QNIL && RCref.modfn(home) != 0
+        modfn = home != QNIL && RCref[home].modfn != 0
         if modfn
-          zr_method_copy(zr_singleton_class(recv), mid, e, zr_meta_owned_by(MEntry.meta(e), recv), VIS_PUBLIC, false)
+          zr_method_copy(zr_singleton_class(recv), mid, e, zr_meta_owned_by(MEntry[e].meta, recv), VIS_PUBLIC, false)
         end
-        zr_method_copy(recv, mid, e, zr_meta_owned_by(MEntry.meta(e), recv), zr_definition_vis(mid, home), false)
+        zr_method_copy(recv, mid, e, zr_meta_owned_by(MEntry[e].meta, recv), zr_definition_vis(mid, home), false)
         r = zr_method_added(recv, mid)
         return r if r == QUNDEF
         if modfn
@@ -246,7 +246,7 @@ module Zr::Kern
     end
     copy = zr_xmalloc(FrameMeta.size)
     zr_memcpy(copy, meta, FrameMeta.size)
-    FrameMeta.set_owner(copy, zr_origin(owner))
+    FrameMeta[copy].owner = zr_origin(owner)
     copy
   end
 
@@ -255,8 +255,8 @@ module Zr::Kern
   # of `mod`. From any other place, the method is public.
   #: (ptr, value) -> value
   def zr_cref_in_context(frame, mod)
-    cref = Frame.cref(frame)
-    if Frame.self(frame) != mod || cref == QNIL || zr_cref_klass(cref) != mod
+    cref = Frame[frame].cref
+    if Frame[frame].self != mod || cref == QNIL || zr_cref_klass(cref) != mod
       return Machine.value(QNIL)
     end
     cref
@@ -294,44 +294,44 @@ module Zr::Kern
   def zr_bmethod_fn(recv, argc, argv, e, blk, found)
     # An entry has a coverage record only when the program measures
     # coverage, so most calls skip the call.
-    if MEntry.cover(e) != 0
+    if MEntry[e].cover != 0
       zr_coverage_method(e)
     end
-    body = MEntry.cref(e)
-    if RProc.meta(body) == 0
+    body = MEntry[e].cref
+    if RProc[body].meta == 0
       # The Proc of a Symbol or a Method uses only its arguments.
-      return Block.call(RProc.fn(body), body, argc, argv, blk)
+      return Block.call(RProc[body].fn, body, argc, argv, blk)
     end
     # The copy is field by field: a libc call costs more.
     d = Machine.slot(RProc.size)
     p = Machine.value(d)
-    RBasic.set_flags(p, T_PROC | FL_ALLOCATED | FL_STACK)
-    RBasic.set_klass(p, RBasic.klass(body))
-    RProc.set_fn(p, RProc.fn(body))
-    RProc.set_meta(p, RProc.meta(body))
-    RProc.set_env(p, RProc.env(body))
-    RProc.set_blk(p, RProc.blk(body))
-    RProc.set_serial(p, RProc.serial(body))
-    RProc.set_site(p, RProc.site(body))
-    RProc.set_ret_home(p, RProc.ret_home(body))
-    RProc.set_ret_serial(p, RProc.ret_serial(body))
-    RProc.set_spread(p, RProc.spread(body))
-    RProc.set_passed(p, RProc.passed(body))
-    RProc.set_self(p, recv)
+    RBasic[p].flags = T_PROC | FL_ALLOCATED | FL_STACK
+    RBasic[p].klass = RBasic[body].klass
+    RProc[p].fn = RProc[body].fn
+    RProc[p].meta = RProc[body].meta
+    RProc[p].env = RProc[body].env
+    RProc[p].blk = RProc[body].blk
+    RProc[p].serial = RProc[body].serial
+    RProc[p].site = RProc[body].site
+    RProc[p].ret_home = RProc[body].ret_home
+    RProc[p].ret_serial = RProc[body].ret_serial
+    RProc[p].spread = RProc[body].spread
+    RProc[p].passed = RProc[body].passed
+    RProc[p].self = recv
     # The entry keeps its cref after the first call (`zr_bmethod_cref`).
     cref = zr_bmethod_cref_kept(e)
-    if cref == QNIL || RCref.entry(cref) != e
+    if cref == QNIL || RCref[cref].entry != e
       cref = zr_bmethod_cref(e)
     end
-    RProc.set_cref(p, cref)
-    RProc.set_lambda(p, 1)
-    RProc.set_home(p, 0)
+    RProc[p].cref = cref
+    RProc[p].lambda = 1
+    RProc[p].home = 0
     if (Machine.load64(Machine.static(:trace_events, 8), 0) & (TRACE_CALL | TRACE_RETURN)) == 0
-      return Block.call(RProc.fn(p), p, argc, argv, blk)
+      return Block.call(RProc[p].fn, p, argc, argv, blk)
     end
     fired = zr_trace_bmethod(TRACE_CALL, e, recv, Machine.value(QNIL))
     return fired if fired == QUNDEF
-    zr_trace_bmethod(TRACE_RETURN, e, recv, Block.call(RProc.fn(p), p, argc, argv, blk))
+    zr_trace_bmethod(TRACE_RETURN, e, recv, Block.call(RProc[p].fn, p, argc, argv, blk))
   end
 
   # Returns the cref for a define_method body. The entry makes it at its
@@ -343,19 +343,19 @@ module Zr::Kern
   #: (ptr) -> value
   def zr_bmethod_cref(e)
     c = zr_bmethod_cref_kept(e)
-    if c != QNIL && RCref.entry(c) == e
+    if c != QNIL && RCref[c].entry == e
       return c
     end
-    c = zr_cref_push_eval(FrameMeta.owner(MEntry.meta(e)), RProc.cref(MEntry.cref(e)))
-    RCref.set_entry(c, e)
-    IvarCache.set_index(MEntry.ivar(e), Machine.word(c))
+    c = zr_cref_push_eval(FrameMeta[MEntry[e].meta].owner, RProc[MEntry[e].cref].cref)
+    RCref[c].entry = e
+    MEntry[e].ivar.index = Machine.word(c)
     # The cref goes into the entry's `ivar` word. The kernel subset
     # types it as a Word, so the compiler adds no write barrier as it does
     # for a Value field. The entry is in the owner's method table
     # (`zr_method_add_row` writes entries into `RClass.ext(klass)`), and
     # `zr_mark_entry` marks the cref from there. Thus the owner now refers
     # to this cref, and the barrier is on the owner.
-    zr_write_barrier(FrameMeta.owner(MEntry.meta(e)), c)
+    zr_write_barrier(FrameMeta[MEntry[e].meta].owner, c)
     c
   end
 
@@ -363,7 +363,7 @@ module Zr::Kern
   # first call.
   #: (ptr) -> value
   def zr_bmethod_cref_kept(e)
-    kept = IvarCache.index(MEntry.ivar(e))
+    kept = MEntry[e].ivar.index
     kept == 0 ? Machine.value(QNIL) : Machine.value(kept)
   end
   inline :zr_bmethod_cref_kept

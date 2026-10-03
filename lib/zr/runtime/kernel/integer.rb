@@ -169,7 +169,7 @@ module Zr::Kern
   # one operand is a bignum.
   #: (value) -> bool
   def zr_big_p(v)
-    !zr_special_p(v) && zr_type(v) == T_OBJECT && RBasic.klass(v) == zr_global(G_INTEGER)
+    !zr_special_p(v) && zr_type(v) == T_OBJECT && RBasic[v].klass == zr_global(G_INTEGER)
   end
 
   # Makes an empty bignum object for the core to fill.
@@ -284,7 +284,7 @@ module Zr::Kern
         Machine.store64(slot, 0, Machine.word(recv))
         pair = zr_send(other, Machine.id(:coerce), 1, slot)
         return pair if pair == QUNDEF
-        if zr_special_p(pair) || zr_type(pair) != T_ARRAY || RArray.len(pair) != 2
+        if zr_special_p(pair) || zr_type(pair) != T_ARRAY || RArray[pair].len != 2
           return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("coerce must return [x, y]"), 25)
         end
         first = zr_ary_at(pair, 0)

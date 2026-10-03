@@ -3,63 +3,77 @@ module Zr::Kern
   # 64 bytes of its own tail, on the stack with the rest of the buffer. It
   # moves to malloc'd memory only when it grows past those bytes. Thus a
   # message that raises before a String takes it leaves nothing to free.
-  BufTail = layout w0: Word, w1: Word, w2: Word, w3: Word, w4: Word, w5: Word, w6: Word, w7: Word
-  Buf = layout ptr: Ptr, len: Word, capa: Word, tail: BufTail
+  class BufTail < Layout
+    attr_accessor :w0 #: word
+    attr_accessor :w1 #: word
+    attr_accessor :w2 #: word
+    attr_accessor :w3 #: word
+    attr_accessor :w4 #: word
+    attr_accessor :w5 #: word
+    attr_accessor :w6 #: word
+    attr_accessor :w7 #: word
+  end
+  class Buf < Layout
+    attr_accessor :ptr #: ptr
+    attr_accessor :len #: word
+    attr_accessor :capa #: word
+    attr_reader :tail #: BufTail
+  end
 
   #: (ptr) -> void
   def zr_buf_init(b)
-    Buf.set_ptr(b, Buf.tail(b))
-    Buf.set_len(b, 0)
-    Buf.set_capa(b, BufTail.size)
+    Buf[b].ptr = Machine.ptr(Buf[b].tail)
+    Buf[b].len = 0
+    Buf[b].capa = BufTail.size
   end
 
   # Whether the bytes are still in the buffer's own tail.
   #: (ptr) -> bool
   def zr_buf_inline_p(b)
-    Buf.ptr(b) == Buf.tail(b)
+    Buf[b].ptr == Machine.ptr(Buf[b].tail)
   end
 
   # Frees the malloc'd bytes, if the buffer grew into any.
   #: (ptr) -> void
   def zr_buf_free(b)
     if !zr_buf_inline_p(b)
-      zr_xfree(Buf.ptr(b))
+      zr_xfree(Buf[b].ptr)
     end
-    Buf.set_ptr(b, 0)
-    Buf.set_len(b, 0)
-    Buf.set_capa(b, 0)
+    Buf[b].ptr = 0
+    Buf[b].len = 0
+    Buf[b].capa = 0
   end
 
   #: (ptr, word) -> void
   def zr_buf_reserve(b, n)
-    need = Buf.len(b) + n
-    if need > Buf.capa(b)
-      capa = Buf.capa(b) * 2
+    need = Buf[b].len + n
+    if need > Buf[b].capa
+      capa = Buf[b].capa * 2
       if capa < need
         capa = need
       end
       p = zr_xmalloc(capa)
-      zr_memcpy(p, Buf.ptr(b), Buf.len(b))
+      zr_memcpy(p, Buf[b].ptr, Buf[b].len)
       if !zr_buf_inline_p(b)
-        zr_xfree(Buf.ptr(b))
+        zr_xfree(Buf[b].ptr)
       end
-      Buf.set_ptr(b, p)
-      Buf.set_capa(b, capa)
+      Buf[b].ptr = p
+      Buf[b].capa = capa
     end
   end
 
   #: (ptr, ptr, word) -> void
   def zr_buf_push(b, bytes, n)
     zr_buf_reserve(b, n)
-    zr_memcpy(Buf.ptr(b) + Buf.len(b), bytes, n)
-    Buf.set_len(b, Buf.len(b) + n)
+    zr_memcpy(Buf[b].ptr + Buf[b].len, bytes, n)
+    Buf[b].len = Buf[b].len + n
   end
 
   #: (ptr, word) -> void
   def zr_buf_byte(b, c)
     zr_buf_reserve(b, 1)
-    Machine.store8(Buf.ptr(b) + Buf.len(b), 0, Machine.i8(c))
-    Buf.set_len(b, Buf.len(b) + 1)
+    Machine.store8(Buf[b].ptr + Buf[b].len, 0, Machine.i8(c))
+    Buf[b].len = Buf[b].len + 1
   end
 
   #: (ptr, word) -> void
@@ -77,10 +91,10 @@ module Zr::Kern
   # stops with a message, and does not read String fields from the object.
   #: (ptr, value) -> void
   def zr_buf_str(b, s)
-    if zr_special_p(s) || (RBasic.flags(s) & T_MASK) != T_STRING
+    if zr_special_p(s) || (RBasic[s].flags & T_MASK) != T_STRING
       zr_bug(Machine.bytes("zr_buf_str was given something that is not a String\n"), 53)
     end
-    zr_buf_push(b, RString.ptr(s), RString.len(s))
+    zr_buf_push(b, RString[s].ptr, RString[s].len)
   end
 
   # Returns the buffer's bytes as a new String that takes the buffer's
@@ -90,24 +104,24 @@ module Zr::Kern
   # with `zr_str_new` and with what `zr_str_concat` reads.
   #: (ptr) -> value
   def zr_buf_take(b)
-    n = Buf.len(b)
+    n = Buf[b].len
     s = zr_alloc(T_STRING, zr_global(G_STRING), zr_str_cell_bytes(n))
     if n <= zr_str_embed_capa(s)
       # Copies bytes that fit in the cell, from the tail or from a grown
       # buffer. Then it frees the grown buffer.
       zr_str_buf_new(s, n)
-      zr_memcpy(RString.ptr(s), Buf.ptr(b), n)
+      zr_memcpy(RString[s].ptr, Buf[b].ptr, n)
       zr_buf_free(b)
     else
       zr_buf_reserve(b, 1)
-      RString.set_ptr(s, Buf.ptr(b))
-      RString.set_capa(s, Buf.capa(b) - 1)
-      Buf.set_ptr(b, 0)
-      Buf.set_len(b, 0)
-      Buf.set_capa(b, 0)
+      RString[s].ptr = Buf[b].ptr
+      RString[s].capa = Buf[b].capa - 1
+      Buf[b].ptr = 0
+      Buf[b].len = 0
+      Buf[b].capa = 0
     end
-    Machine.store8(RString.ptr(s) + n, 0, Machine.i8(0))
-    RString.set_len(s, n)
+    Machine.store8(RString[s].ptr + n, 0, Machine.i8(0))
+    RString[s].len = n
     s
   end
 
@@ -117,7 +131,7 @@ module Zr::Kern
   # so the String then becomes UTF-8, as with rb_str_buf_append.
   #: (ptr, word) -> value
   def zr_buf_take_at(b, index)
-    ascii = zr_bytes_ascii_only_p(Buf.ptr(b), Buf.len(b))
+    ascii = zr_bytes_ascii_only_p(Buf[b].ptr, Buf[b].len)
     zr_str_set_index(zr_buf_take(b), ascii ? index : ENC_UTF8)
   end
 end

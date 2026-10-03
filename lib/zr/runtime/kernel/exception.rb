@@ -27,7 +27,29 @@ module Zr::Kern
   # program that does not trace: a second function of the same body with
   # the method signature, which a send calls directly (`zr_entry_fn`). It
   # makes the same frame as the block, with no Proc copy. Else it is 0.
-  FrameMeta = layout name: Word, owner: Value, file: Ptr, file_len: Word, kind: Word, line: Word, parent: Ptr, arity: Word, params: Ptr, fn: Ptr, locals: Ptr, env: Word, box: Value, ruby: Word, captures: Ptr, node: Word, hidden: Word, cover: Word, twin: Ptr, owns_backref: Word, frameless: Word
+  class FrameMeta < Layout
+    attr_accessor :name #: word
+    attr_accessor :owner #: value
+    attr_accessor :file #: ptr
+    attr_accessor :file_len #: word
+    attr_accessor :kind #: word
+    attr_accessor :line #: word
+    attr_accessor :parent #: ptr
+    attr_accessor :arity #: word
+    attr_accessor :params #: ptr
+    attr_accessor :fn #: ptr
+    attr_accessor :locals #: ptr
+    attr_accessor :env #: word
+    attr_accessor :box #: value
+    attr_accessor :ruby #: word
+    attr_accessor :captures #: ptr
+    attr_accessor :node #: word
+    attr_accessor :hidden #: word
+    attr_accessor :cover #: word
+    attr_accessor :twin #: ptr
+    attr_accessor :owns_backref #: word
+    attr_accessor :frameless #: word
+  end
   KIND_MAIN = 0
   KIND_DEF = 1
   KIND_BUILTIN = 2
@@ -49,10 +71,23 @@ module Zr::Kern
 
   # One backtrace frame. `node` is the id of the prism node that the line
   # ran, or 0.
-  BtRow = layout meta: Ptr, file: Ptr, file_len: Word, line: Word, node: Word
+  class BtRow < Layout
+    attr_accessor :meta #: ptr
+    attr_accessor :file #: ptr
+    attr_accessor :file_len #: word
+    attr_accessor :line #: word
+    attr_accessor :node #: word
+  end
   # `bt` is a backtrace that the program set, or nil to use the captured
   # frames. `cause` is undef until the raise sets it.
-  RException = layout basic: RBasic, message: Value, rows: Ptr, nrows: Word, bt: Value, cause: Value
+  class RException < Layout
+    attr_reader :basic #: RBasic
+    attr_accessor :message #: value
+    attr_accessor :rows #: ptr
+    attr_accessor :nrows #: word
+    attr_accessor :bt #: value
+    attr_accessor :cause #: value
+  end
   T_EXCEPTION = 24
 
   G_EXCEPTION = 16
@@ -69,10 +104,10 @@ module Zr::Kern
   # replaced.
   #: (value) -> void
   def zr_mark_backtrace_rows(exc)
-    rows = RException.rows(exc)
+    rows = RException[exc].rows
     i = 0
-    while i < RException.nrows(exc)
-      zr_mark(FrameMeta.owner(BtRow.meta(rows + (i * BtRow.size))))
+    while i < RException[exc].nrows
+      zr_mark(FrameMeta[BtRow[rows + (i * BtRow.size)].meta].owner)
       i += 1
     end
   end
@@ -81,19 +116,19 @@ module Zr::Kern
   # of the prism node that runs in its high half.
   #: (ptr) -> word
   def zr_frame_line(rec)
-    Frame.line(rec) & 4294967295
+    Frame[rec].line & 4294967295
   end
 
   #: (ptr) -> word
   def zr_frame_node_id(rec)
-    Frame.line(rec) >> 32
+    Frame[rec].line >> 32
   end
 
   # The nearest frame at or outside `rec` that has a file of its own.
   #: (ptr) -> ptr
   def zr_frame_with_file(rec)
-    while rec != 0 && (FrameMeta.kind(Frame.meta(rec)) == KIND_BUILTIN || FrameMeta.kind(Frame.meta(rec)) == KIND_HIDDEN)
-      rec = Frame.prev(rec)
+    while rec != 0 && (FrameMeta[Frame[rec].meta].kind == KIND_BUILTIN || FrameMeta[Frame[rec].meta].kind == KIND_HIDDEN)
+      rec = Frame[rec].prev
     end
     rec
   end
@@ -105,16 +140,16 @@ module Zr::Kern
   # as the frame that rb_funcall pushes for it does.
   #: (ptr) -> bool
   def zr_frame_shown_p(rec)
-    kind = FrameMeta.kind(Frame.meta(rec))
-    if kind == KIND_HIDDEN || FrameMeta.frameless(Frame.meta(rec)) != 0
+    kind = FrameMeta[Frame[rec].meta].kind
+    if kind == KIND_HIDDEN || FrameMeta[Frame[rec].meta].frameless != 0
       return false
     end
-    helper = Frame.prev(rec)
+    helper = Frame[rec].prev
     if kind != KIND_BUILTIN || helper == 0 || !zr_frame_helper_p(helper)
       return true
     end
-    me = Frame.self(rec)
-    !zr_special_p(me) && zr_type(me) == T_OBJECT && me != Frame.self(helper)
+    me = Frame[rec].self
+    !zr_special_p(me) && zr_type(me) == T_OBJECT && me != Frame[helper].self
   end
 
   # Whether `rec` runs a helper: a hidden def, or a block written in one.
@@ -122,11 +157,11 @@ module Zr::Kern
   # the def that contains it. A def has no parent.
   #: (ptr) -> bool
   def zr_frame_helper_p(rec)
-    meta = Frame.meta(rec)
-    while FrameMeta.kind(meta) == KIND_HIDDEN && FrameMeta.parent(meta) != 0
-      meta = FrameMeta.parent(meta)
+    meta = Frame[rec].meta
+    while FrameMeta[meta].kind == KIND_HIDDEN && FrameMeta[meta].parent != 0
+      meta = FrameMeta[meta].parent
     end
-    FrameMeta.kind(meta) == KIND_HIDDEN
+    FrameMeta[meta].kind == KIND_HIDDEN
   end
 
   # Captures one backtrace frame for each visible frame from `top`
@@ -139,7 +174,7 @@ module Zr::Kern
     rec = top
     while rec != 0
       n += 1
-      rec = Frame.prev(rec)
+      rec = Frame[rec].prev
     end
     rows = zr_xmalloc(n * BtRow.size)
     i = 0
@@ -147,36 +182,36 @@ module Zr::Kern
     while rec != 0
       if zr_frame_shown_p(rec)
         row = rows + (i * BtRow.size)
-        BtRow.set_meta(row, zr_frame_label_meta(rec))
+        BtRow[row].meta = zr_frame_label_meta(rec)
         source = zr_frame_with_file(rec)
         if source == 0
-          BtRow.set_file(row, 0)
-          BtRow.set_file_len(row, 0)
-          BtRow.set_line(row, 0)
-          BtRow.set_node(row, 0)
+          BtRow[row].file = 0
+          BtRow[row].file_len = 0
+          BtRow[row].line = 0
+          BtRow[row].node = 0
         else
-          BtRow.set_file(row, FrameMeta.file(Frame.meta(source)))
-          BtRow.set_file_len(row, FrameMeta.file_len(Frame.meta(source)))
-          BtRow.set_line(row, zr_frame_line(source))
-          BtRow.set_node(row, zr_frame_node_id(source))
+          BtRow[row].file = FrameMeta[Frame[source].meta].file
+          BtRow[row].file_len = FrameMeta[Frame[source].meta].file_len
+          BtRow[row].line = zr_frame_line(source)
+          BtRow[row].node = zr_frame_node_id(source)
         end
         i += 1
       end
-      rec = Frame.prev(rec)
+      rec = Frame[rec].prev
     end
-    RException.set_rows(exc, rows)
-    RException.set_nrows(exc, i)
+    RException[exc].rows = rows
+    RException[exc].nrows = i
     zr_write_barrier_all(exc)
   end
 
   #: (value, value) -> value
   def zr_exc_new(klass, message)
     e = zr_alloc(T_EXCEPTION, klass, RException.size)
-    RException.set_message(e, message)
-    RException.set_rows(e, 0)
-    RException.set_nrows(e, 0)
-    RException.set_bt(e, Machine.value(QNIL))
-    RException.set_cause(e, Machine.value(QUNDEF))
+    RException[e].message = message
+    RException[e].rows = 0
+    RException[e].nrows = 0
+    RException[e].bt = Machine.value(QNIL)
+    RException[e].cause = Machine.value(QUNDEF)
     e
   end
 
@@ -188,26 +223,26 @@ module Zr::Kern
     if zr_frozen_p(exc)
       # setup_exception raises a copy of a frozen exception that has a
       # backtrace or a cause. One with neither goes as it is, with none.
-      if RException.rows(exc) == 0 && RException.bt(exc) == QNIL && RException.cause(exc) == QUNDEF
+      if RException[exc].rows == 0 && RException[exc].bt == QNIL && RException[exc].cause == QUNDEF
         return zr_raise_as_is(exc, top)
       end
       exc = zr_send(exc, Machine.id(:dup), 0, 0)
       return exc if exc == QUNDEF
     end
-    if RException.rows(exc) == 0 && RException.bt(exc) == QNIL
+    if RException[exc].rows == 0 && RException[exc].bt == QNIL
       zr_backtrace_capture(exc, top)
     end
-    if RException.bt(exc) != QNIL && RException.rows(exc) != 0
-      zr_xfree(RException.rows(exc))
-      RException.set_rows(exc, 0)
-      RException.set_nrows(exc, 0)
+    if RException[exc].bt != QNIL && RException[exc].rows != 0
+      zr_xfree(RException[exc].rows)
+      RException[exc].rows = 0
+      RException[exc].nrows = 0
     end
     t = zr_task()
-    if RException.cause(exc) == QUNDEF
-      cause = Task.errinfo(t)
+    if RException[exc].cause == QUNDEF
+      cause = Task[t].errinfo
       r = zr_exc_check_cause(exc, cause)
       return r if r == QUNDEF
-      RException.set_cause(exc, cause == exc ? Machine.value(QNIL) : cause)
+      RException[exc].cause = cause == exc ? Machine.value(QNIL) : cause
     end
     zr_raise_as_is(exc, top)
   end
@@ -222,7 +257,7 @@ module Zr::Kern
       # A backtrace set by hand, or none at all, does not tell where the
       # raise is.
       at = exc
-      if RException.rows(exc) == 0
+      if RException[exc].rows == 0
         at = zr_exc_new(zr_core_class(Machine.id(:Exception)), Machine.value(QNIL))
         zr_backtrace_capture(at, top)
       end
@@ -233,14 +268,14 @@ module Zr::Kern
     end
     fired = zr_trace_raise(exc, top)
     return fired if fired == QUNDEF
-    Task.set_pending_kind(t, PENDING_RAISE)
-    Task.set_pending(t, exc)
+    Task[t].pending_kind = PENDING_RAISE
+    Task[t].pending = exc
     Machine.value(QUNDEF)
   end
 
   #: (value) -> value
   def zr_raise(exc)
-    zr_raise_from(exc, Task.top(zr_task()))
+    zr_raise_from(exc, Task[zr_task()].top)
   end
 
   # For a landing block with a rescue clause. Returns the pending
@@ -249,8 +284,8 @@ module Zr::Kern
   #: () -> value
   def zr_rescuable
     t = zr_task()
-    if Task.pending_kind(t) == PENDING_RAISE
-      return Task.pending(t)
+    if Task[t].pending_kind == PENDING_RAISE
+      return Task[t].pending
     end
     Machine.value(QUNDEF)
   end
@@ -262,7 +297,7 @@ module Zr::Kern
       return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("class or module required for rescue clause"), 42)
     end
     e = zr_find_method(zr_box_view(zr_class_of(klass)), Machine.id(:===))
-    if e != 0 && (FrameMeta.owner(MEntry.meta(e)) != zr_global(G_MODULE) || zr_trace_c_p())
+    if e != 0 && (FrameMeta[MEntry[e].meta].owner != zr_global(G_MODULE) || zr_trace_c_p())
       # The class defines its own `===`, so that method decides. A traced
       # `:c_call` sees Module#=== as ruby sends it.
       arg = Machine.slot(8)
@@ -280,7 +315,7 @@ module Zr::Kern
     list = zr_splat_to_a(list)
     return list if list == QUNDEF
     i = 0
-    while i < RArray.len(list)
+    while i < RArray[list].len
       r = zr_exc_match(exc, zr_ary_at(list, i))
       return r if r == QUNDEF
       if r == QTRUE
@@ -299,7 +334,7 @@ module Zr::Kern
     slot = Machine.slot(8)
     Machine.store64(slot, 0, Machine.word(subject))
     i = 0
-    while i < RArray.len(list)
+    while i < RArray[list].len
       r = zr_send(zr_ary_at(list, i), Machine.id(:===), 1, slot)
       return r if r == QUNDEF
       if r != QNIL && r != QFALSE
@@ -317,7 +352,7 @@ module Zr::Kern
     list = zr_splat_to_a(list)
     return list if list == QUNDEF
     i = 0
-    while i < RArray.len(list)
+    while i < RArray[list].len
       v = zr_ary_at(list, i)
       if v != QNIL && v != QFALSE
         return Machine.value(QTRUE)
@@ -332,20 +367,20 @@ module Zr::Kern
   #: () -> value
   def zr_rescue_enter
     t = zr_task()
-    prev = Task.errinfo(t)
-    Task.set_errinfo(t, Task.pending(t))
-    Task.set_pending(t, Machine.value(QNIL))
+    prev = Task[t].errinfo
+    Task[t].errinfo = Task[t].pending
+    Task[t].pending = Machine.value(QNIL)
     prev
   end
 
   #: () -> value
   def zr_errinfo
-    Task.errinfo(zr_task())
+    Task[zr_task()].errinfo
   end
 
   #: (value) -> void
   def zr_errinfo_set(v)
-    Task.set_errinfo(zr_task(), v)
+    Task[zr_task()].errinfo = v
   end
 
   # An ensure body runs with the pending unwind set aside. Returns the
@@ -355,15 +390,15 @@ module Zr::Kern
   #: (ptr) -> value
   def zr_signal_take(out)
     t = zr_task()
-    v = Task.pending(t)
-    Machine.store64(out, 0, Task.pending_kind(t))
-    Machine.store64(out, 8, Task.pending_home(t))
-    Machine.store64(out, 16, Task.pending_site(t))
-    if Task.pending_kind(t) == PENDING_RAISE
-      Task.set_errinfo(t, v)
+    v = Task[t].pending
+    Machine.store64(out, 0, Task[t].pending_kind)
+    Machine.store64(out, 8, Task[t].pending_home)
+    Machine.store64(out, 16, Task[t].pending_site)
+    if Task[t].pending_kind == PENDING_RAISE
+      Task[t].errinfo = v
     end
-    Task.set_pending(t, Machine.value(QNIL))
-    Task.set_pending_kind(t, PENDING_RAISE)
+    Task[t].pending = Machine.value(QNIL)
+    Task[t].pending_kind = PENDING_RAISE
     v
   end
 
@@ -379,7 +414,7 @@ module Zr::Kern
   # frame of `raise` itself is not in the backtrace.
   #: (value, word, ptr, value, value) -> value
   def zr_kernel_raise(recv, argc, argv, cref, blk)
-    top = Frame.prev(Task.top(zr_task()))
+    top = Frame[Task[zr_task()].top].prev
     cause = Machine.value(QUNDEF)
     if zr_kw_take() != 0
       # `raise` uses `cause:` itself. It gives all other keywords to
@@ -390,7 +425,7 @@ module Zr::Kern
         rest = zr_hash_new()
         zr_hash_update(rest, opts)
         zr_hash_delete_m(rest, zr_sym(Machine.id(:cause)))
-        if RHash.live(rest) == 0
+        if RHash[rest].live == 0
           argc -= 1
         else
           Machine.store64(argv + ((argc - 1) * 8), 0, Machine.word(rest))
@@ -401,7 +436,7 @@ module Zr::Kern
       if cause != QUNDEF
         return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("only cause is given with no arguments"), 37)
       end
-      e = Task.errinfo(zr_task())
+      e = Task[zr_task()].errinfo
       if e == QNIL
         e = zr_exc_new(zr_global(G_RUNTIME_ERROR), zr_str_new(Machine.bytes(""), 0))
       end
@@ -435,7 +470,7 @@ module Zr::Kern
     if cause != QUNDEF
       r = zr_exc_check_cause(e, cause)
       return r if r == QUNDEF
-      RException.set_cause(e, cause == e ? Machine.value(QNIL) : cause)
+      RException[e].cause = cause == e ? Machine.value(QNIL) : cause
     end
     zr_raise_from(e, top)
   end
@@ -452,7 +487,7 @@ module Zr::Kern
       if c == e
         return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("circular causes"), 15)
       end
-      c = RException.cause(c)
+      c = RException[c].cause
     end
     Machine.value(QNIL)
   end
@@ -475,7 +510,7 @@ module Zr::Kern
     if e == 0
       zr_bug(Machine.bytes("a core class is missing at boot\n"), 32)
     end
-    CEntry.value(e)
+    CEntry[e].value
   end
 
   # `block in label`, or `block (N levels) in label` for a nested block.
@@ -489,12 +524,12 @@ module Zr::Kern
   # instruction sequence.
   #: (ptr, ptr, bool) -> void
   def zr_buf_label_as(b, meta, qualified)
-    if FrameMeta.kind(meta) == KIND_BLOCK
+    if FrameMeta[meta].kind == KIND_BLOCK
       levels = 1
-      outer = FrameMeta.parent(meta)
-      while FrameMeta.kind(outer) == KIND_BLOCK
+      outer = FrameMeta[meta].parent
+      while FrameMeta[outer].kind == KIND_BLOCK
         levels += 1
-        outer = FrameMeta.parent(outer)
+        outer = FrameMeta[outer].parent
       end
       zr_buf_push(b, Machine.bytes("block "), 6)
       if levels > 1
@@ -504,24 +539,24 @@ module Zr::Kern
       end
       zr_buf_push(b, Machine.bytes("in "), 3)
       zr_buf_label_as(b, outer, qualified)
-    elsif FrameMeta.kind(meta) == KIND_MAIN
+    elsif FrameMeta[meta].kind == KIND_MAIN
       zr_buf_push(b, Machine.bytes("<main>"), 6)
-    elsif FrameMeta.kind(meta) == KIND_TOP
+    elsif FrameMeta[meta].kind == KIND_TOP
       zr_buf_push(b, Machine.bytes("<top (required)>"), 16)
-    elsif FrameMeta.kind(meta) == KIND_EVAL
-      zr_buf_label_as(b, FrameMeta.parent(meta), qualified)
-    elsif FrameMeta.kind(meta) == KIND_COMPILED
+    elsif FrameMeta[meta].kind == KIND_EVAL
+      zr_buf_label_as(b, FrameMeta[meta].parent, qualified)
+    elsif FrameMeta[meta].kind == KIND_COMPILED
       zr_buf_push(b, Machine.bytes("<compiled>"), 10)
-    elsif FrameMeta.kind(meta) == KIND_SCLASS
+    elsif FrameMeta[meta].kind == KIND_SCLASS
       zr_buf_push(b, Machine.bytes("singleton class"), 15)
-    elsif FrameMeta.kind(meta) == KIND_CLASS || FrameMeta.kind(meta) == KIND_MODULE
-      zr_buf_push(b, FrameMeta.kind(meta) == KIND_CLASS ? Machine.bytes("<class:") : Machine.bytes("<module:"), FrameMeta.kind(meta) == KIND_CLASS ? 7 : 8)
-      zr_buf_sym(b, FrameMeta.name(meta))
+    elsif FrameMeta[meta].kind == KIND_CLASS || FrameMeta[meta].kind == KIND_MODULE
+      zr_buf_push(b, FrameMeta[meta].kind == KIND_CLASS ? Machine.bytes("<class:") : Machine.bytes("<module:"), FrameMeta[meta].kind == KIND_CLASS ? 7 : 8)
+      zr_buf_sym(b, FrameMeta[meta].name)
       zr_buf_byte(b, 62)
     elsif qualified
-      zr_buf_method_label(b, FrameMeta.owner(meta), FrameMeta.name(meta))
+      zr_buf_method_label(b, FrameMeta[meta].owner, FrameMeta[meta].name)
     else
-      zr_buf_sym(b, FrameMeta.name(meta))
+      zr_buf_sym(b, FrameMeta[meta].name)
     end
   end
 
@@ -531,17 +566,17 @@ module Zr::Kern
   #: (ptr, value, word) -> void
   def zr_buf_method_label(b, owner, name)
     if zr_type(owner) == T_ICLASS
-      owner = RClass.attached(owner)
+      owner = RClass[owner].attached
     end
     if zr_singleton_p(owner)
-      attached = RClass.attached(owner)
+      attached = RClass[owner].attached
       t = zr_type(attached)
-      if (t == T_CLASS || t == T_MODULE) && RClass.name(attached) != QNIL
-        zr_buf_str(b, RClass.name(attached))
+      if (t == T_CLASS || t == T_MODULE) && RClass[attached].name != QNIL
+        zr_buf_str(b, RClass[attached].name)
         zr_buf_byte(b, 46)
       end
-    elsif RClass.name(owner) != QNIL
-      zr_buf_str(b, RClass.name(owner))
+    elsif RClass[owner].name != QNIL
+      zr_buf_str(b, RClass[owner].name)
       zr_buf_byte(b, 35)
     end
     zr_buf_sym(b, name)
@@ -550,11 +585,11 @@ module Zr::Kern
   # Writes `file:line:in 'label'` for one backtrace frame.
   #: (ptr, ptr) -> void
   def zr_buf_row(b, row)
-    zr_buf_push(b, BtRow.file(row), BtRow.file_len(row))
+    zr_buf_push(b, BtRow[row].file, BtRow[row].file_len)
     zr_buf_byte(b, 58)
-    zr_buf_long(b, BtRow.line(row))
+    zr_buf_long(b, BtRow[row].line)
     zr_buf_push(b, Machine.bytes(":in '"), 5)
-    zr_buf_label(b, BtRow.meta(row))
+    zr_buf_label(b, BtRow[row].meta)
     zr_buf_byte(b, 39)
   end
 
@@ -562,8 +597,8 @@ module Zr::Kern
   # that the raise captured, or nil before the raise.
   #: (value, word, ptr, value, value) -> value
   def zr_exc_backtrace(recv, argc, argv, cref, blk)
-    if RException.bt(recv) != QNIL
-      return RException.bt(recv)
+    if RException[recv].bt != QNIL
+      return RException[recv].bt
     end
     zr_exc_raise_rows(recv)
   end
@@ -573,11 +608,11 @@ module Zr::Kern
   # them, so `backtrace_locations` returns them.
   #: (value) -> value
   def zr_exc_raise_rows(recv)
-    rows = RException.rows(recv)
+    rows = RException[recv].rows
     if rows == 0
       return Machine.value(QNIL)
     end
-    n = RException.nrows(recv)
+    n = RException[recv].nrows
     out = zr_ary_new(n)
     i = 0
     while i < n
@@ -594,15 +629,15 @@ module Zr::Kern
   # the order of `zr_exc_raise_rows`, or nil before a raise.
   #: (value) -> value
   def zr_exc_raise_nodes(recv)
-    rows = RException.rows(recv)
+    rows = RException[recv].rows
     if rows == 0
       return Machine.value(QNIL)
     end
-    n = RException.nrows(recv)
+    n = RException[recv].nrows
     out = zr_ary_new(n)
     i = 0
     while i < n
-      zr_ary_push(out, zr_fix(BtRow.node(rows + (i * BtRow.size))))
+      zr_ary_push(out, zr_fix(BtRow[rows + (i * BtRow.size)].node))
       i += 1
     end
     out
@@ -616,8 +651,8 @@ module Zr::Kern
     skip = zr_fix2long(start)
     room = limit == QNIL ? 0 - 1 : zr_fix2long(limit)
     out = zr_ary_new(8)
-    rec = Task.top(zr_task())
-    while rec != 0 && (room < 0 || RArray.len(out) < room)
+    rec = Task[zr_task()].top
+    while rec != 0 && (room < 0 || RArray[out].len < room)
       if zr_frame_shown_p(rec)
         if skip > 0
           skip -= 1
@@ -626,7 +661,7 @@ module Zr::Kern
           zr_ary_push(out, zr_fix(source == 0 ? 0 : zr_frame_node_id(source)))
         end
       end
-      rec = Frame.prev(rec)
+      rec = Frame[rec].prev
     end
     out
   end
@@ -669,11 +704,11 @@ module Zr::Kern
       zr_write_stderr(text)
       return
     end
-    Task.set_pending(zr_task(), Machine.value(QNIL))
+    Task[zr_task()].pending = Machine.value(QNIL)
     e = exc
     while e != QNIL && e != QUNDEF && e != stop && !zr_special_p(e) && zr_is_a(e, zr_global(G_EXCEPTION))
       zr_error_print_one(e)
-      e = RException.cause(e)
+      e = RException[e].cause
     end
   end
 
@@ -701,12 +736,12 @@ module Zr::Kern
     detail = zr_send(exc, Machine.id(:detailed_message), 1, slot)
     if detail == QUNDEF || zr_special_p(detail) || zr_type(detail) != T_STRING
       detail = zr_class_name_of(exc)
-      Task.set_pending(zr_task(), Machine.value(QNIL))
+      Task[zr_task()].pending = Machine.value(QNIL)
     end
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
-    rows = RException.rows(exc)
-    n = RException.nrows(exc)
+    rows = RException[exc].rows
+    n = RException[exc].nrows
     if n == 0
       zr_buf_str(b, detail)
       zr_buf_byte(b, 10)
@@ -751,10 +786,10 @@ module Zr::Kern
     r = zr_yield(blk, 0, 0)
     if r == QUNDEF
       t = zr_task()
-      Task.set_pending(t, Machine.value(QNIL))
-      Task.set_throw_tag(t, Machine.value(QNIL))
-      Task.set_pending_kind(t, PENDING_RAISE)
-      Task.set_pending_home(t, Machine.ptr(0))
+      Task[t].pending = Machine.value(QNIL)
+      Task[t].throw_tag = Machine.value(QNIL)
+      Task[t].pending_kind = PENDING_RAISE
+      Task[t].pending_home = Machine.ptr(0)
       return failed
     end
     r
@@ -765,7 +800,7 @@ module Zr::Kern
   #: () -> value
   def zr_no_memory
     e = zr_exc_new(zr_core_class(Machine.id(:NoMemoryError)), zr_str_new(Machine.bytes("failed to allocate memory"), 25))
-    zr_raise_as_is(e, Task.top(zr_task()))
+    zr_raise_as_is(e, Task[zr_task()].top)
   end
 
   #: () -> value
@@ -777,7 +812,7 @@ module Zr::Kern
   #: (value, value) -> value
   def zr_exc_set_backtrace_value(exc, bt)
     if bt == QNIL
-      RException.set_bt(exc, bt)
+      RException[exc].bt = bt
       return bt
     end
     if !zr_special_p(bt) && zr_type(bt) == T_STRING
@@ -789,14 +824,14 @@ module Zr::Kern
       return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("backtrace must be an Array of String or an Array of Thread::Backtrace::Location"), 79)
     end
     i = 0
-    while i < RArray.len(bt)
+    while i < RArray[bt].len
       v = zr_ary_at(bt, i)
       if zr_special_p(v) || zr_type(v) != T_STRING
         return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("backtrace must be an Array of String or an Array of Thread::Backtrace::Location"), 79)
       end
       i += 1
     end
-    RException.set_bt(exc, bt)
+    RException[exc].bt = bt
     bt
   end
 
@@ -807,7 +842,7 @@ module Zr::Kern
 
   #: (value, word, ptr, value, value) -> value
   def zr_exc_cause(recv, argc, argv, cref, blk)
-    c = RException.cause(recv)
+    c = RException[recv].cause
     if c == QUNDEF
       return Machine.value(QNIL)
     end
@@ -825,7 +860,7 @@ module Zr::Kern
   # to the Errno class for its errno, as syserr_initialize does.
   #: (value, value) -> value
   def zr_exc_set_class(exc, klass)
-    RBasic.set_klass(exc, klass)
+    RBasic[exc].klass = klass
     exc
   end
 
@@ -834,7 +869,7 @@ module Zr::Kern
   def zr_buf_frame(b, rec)
     source = zr_frame_with_file(rec)
     if source != 0
-      zr_buf_push(b, FrameMeta.file(Frame.meta(source)), FrameMeta.file_len(Frame.meta(source)))
+      zr_buf_push(b, FrameMeta[Frame[source].meta].file, FrameMeta[Frame[source].meta].file_len)
       zr_buf_byte(b, 58)
       zr_buf_long(b, zr_frame_line(source))
     end
@@ -851,20 +886,20 @@ module Zr::Kern
   # CRuby labels `Mod.name`.
   #: (ptr) -> ptr
   def zr_frame_label_meta(rec)
-    meta = Frame.meta(rec)
-    owner = FrameMeta.owner(meta)
-    if (FrameMeta.kind(meta) != KIND_DEF && FrameMeta.kind(meta) != KIND_BUILTIN) || Frame.self(rec) != owner || zr_type(owner) != T_MODULE
+    meta = Frame[rec].meta
+    owner = FrameMeta[meta].owner
+    if (FrameMeta[meta].kind != KIND_DEF && FrameMeta[meta].kind != KIND_BUILTIN) || Frame[rec].self != owner || zr_type(owner) != T_MODULE
       return meta
     end
-    single = RBasic.klass(owner)
-    if !zr_singleton_p(single) || RClass.attached(single) != owner
+    single = RBasic[owner].klass
+    if !zr_singleton_p(single) || RClass[single].attached != owner
       return meta
     end
-    e = zr_find_method_at(single, FrameMeta.name(meta))
-    if e == 0 || MEntry.meta(e) == 0 || FrameMeta.file(MEntry.meta(e)) != FrameMeta.file(meta) || FrameMeta.line(MEntry.meta(e)) != FrameMeta.line(meta)
+    e = zr_find_method_at(single, FrameMeta[meta].name)
+    if e == 0 || MEntry[e].meta == 0 || FrameMeta[MEntry[e].meta].file != FrameMeta[meta].file || FrameMeta[MEntry[e].meta].line != FrameMeta[meta].line
       return meta
     end
-    MEntry.meta(e)
+    MEntry[e].meta
   end
 
   # `Kernel#caller(start = 1, length = nil)`: the frames outward from the
@@ -908,13 +943,13 @@ module Zr::Kern
       end
     end
     out = zr_ary_new(8)
-    rec = Frame.prev(Task.top(zr_task()))
+    rec = Frame[Task[zr_task()].top].prev
     while rec != 0
       if zr_frame_shown_p(rec)
         if start > 0
           start -= 1
         else
-          if limit >= 0 && RArray.len(out) >= limit
+          if limit >= 0 && RArray[out].len >= limit
             return out
           end
           b = Machine.slot(Buf.size)
@@ -923,7 +958,7 @@ module Zr::Kern
           zr_ary_push(out, zr_buf_take(b))
         end
       end
-      rec = Frame.prev(rec)
+      rec = Frame[rec].prev
     end
     if start > 0
       return Machine.value(QNIL)
@@ -937,20 +972,20 @@ module Zr::Kern
   # outermost frame returns nil, as `caller` does.
   #: (value, value, value) -> value
   def zr_fiber_backtrace_m(fiber, start, limit)
-    t = RFiber.task(fiber)
+    t = RFiber[fiber].task
     if t == 0
       return Machine.value(QNIL)
     end
     skip = zr_fix2long(start)
     room = zr_fix2long(limit)
     out = zr_ary_new(8)
-    rec = Task.top(t)
+    rec = Task[t].top
     while rec != 0
       if zr_frame_shown_p(rec)
         if skip > 0
           skip -= 1
         else
-          if room >= 0 && RArray.len(out) >= room
+          if room >= 0 && RArray[out].len >= room
             return out
           end
           b = Machine.slot(Buf.size)
@@ -959,7 +994,7 @@ module Zr::Kern
           zr_ary_push(out, zr_buf_take(b))
         end
       end
-      rec = Frame.prev(rec)
+      rec = Frame[rec].prev
     end
     if skip > 0
       return Machine.value(QNIL)

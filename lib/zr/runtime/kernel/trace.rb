@@ -78,7 +78,7 @@ module Zr::Kern
 
   #: (ptr) -> bool
   def zr_trace_ruby_entry_p(e)
-    (MEntry.core(e) & MENTRY_CRUBY_RUBY) != 0
+    (MEntry[e].core & MENTRY_CRUBY_RUBY) != 0
   end
 
   # Marks the method `name` of `klass` as a method that CRuby writes in
@@ -86,10 +86,10 @@ module Zr::Kern
   #: (value, value) -> value
   def zr_trace_mark_ruby(klass, name)
     e = zr_find_method_at(klass, zr_sym2id(name))
-    if e == 0 || MEntry.kind(e) == KIND_UNDEF
+    if e == 0 || MEntry[e].kind == KIND_UNDEF
       return Machine.value(QFALSE)
     end
-    MEntry.set_core(e, MEntry.core(e) | MENTRY_CRUBY_RUBY)
+    MEntry[e].core = MEntry[e].core | MENTRY_CRUBY_RUBY
     Machine.value(QTRUE)
   end
 
@@ -99,18 +99,18 @@ module Zr::Kern
   # calls with no frame.
   #: (ptr) -> bool
   def zr_trace_c_entry_p(e)
-    kind = MEntry.kind(e)
+    kind = MEntry[e].kind
     if zr_trace_ruby_entry_p(e)
       return false
     end
     if zr_word_entry_p(kind)
       return true
     end
-    meta = MEntry.meta(e)
+    meta = MEntry[e].meta
     if meta == 0 || (kind != KIND_DEF && kind != KIND_BUILTIN)
       return false
     end
-    FrameMeta.kind(meta) == KIND_BUILTIN && FrameMeta.ruby(meta) == 0
+    FrameMeta[meta].kind == KIND_BUILTIN && FrameMeta[meta].ruby == 0
   end
 
   # Whether the current send comes from a frame of the program. A send
@@ -119,13 +119,13 @@ module Zr::Kern
   # because CRuby uses primitives, so its sends also fire nothing.
   #: () -> bool
   def zr_trace_c_caller_p
-    top = Task.top(zr_task())
+    top = Task[zr_task()].top
     if top == 0
       return true
     end
-    meta = Frame.meta(top)
-    kind = FrameMeta.kind(meta)
-    kind != KIND_BUILTIN && kind != KIND_HIDDEN && FrameMeta.hidden(meta) == 0
+    meta = Frame[top].meta
+    kind = FrameMeta[meta].kind
+    kind != KIND_BUILTIN && kind != KIND_HIDDEN && FrameMeta[meta].hidden == 0
   end
 
   # Calls through the method entry `e` and fires an event before and
@@ -148,30 +148,30 @@ module Zr::Kern
       return value
     end
     t = zr_task()
-    kind = Task.pending_kind(t)
-    pending = Task.pending(t)
+    kind = Task[t].pending_kind
+    pending = Task[t].pending
     r = zr_trace_c_send(after, e, owner, recv, value == QUNDEF ? Machine.value(QNIL) : value)
     return r if r == QUNDEF
     if value == QUNDEF
-      Task.set_pending_kind(t, kind)
-      Task.set_pending(t, pending)
+      Task[t].pending_kind = kind
+      Task[t].pending = pending
     end
     value
   end
 
   #: (word, ptr, value, value, value) -> value
   def zr_trace_c_send(event, e, owner, recv, value)
-    rec = zr_frame_with_file(Task.top(zr_task()))
+    rec = zr_frame_with_file(Task[zr_task()].top)
     if rec == 0
       return Machine.value(QNIL)
     end
-    row = zr_trace_row(event, value, Frame.meta(rec), zr_frame_line(rec))
+    row = zr_trace_row(event, value, Frame[rec].meta, zr_frame_line(rec))
     zr_ary_push(row, zr_sym(zr_method_original_id(e)))
-    zr_ary_push(row, zr_sym(MEntry.mid(e)))
+    zr_ary_push(row, zr_sym(MEntry[e].mid))
     zr_ary_push(row, owner)
     zr_ary_push(row, recv)
     zr_ary_push(row, Machine.value(QNIL))
-    zr_ary_push(row, zr_fix(Machine.word(Frame.meta(rec))))
+    zr_ary_push(row, zr_fix(Machine.word(Frame[rec].meta)))
     zr_ary_push(row, zr_fix(e))
     zr_trace_run(row)
   end
@@ -184,27 +184,27 @@ module Zr::Kern
   def zr_trace_fire(event, value)
     t = zr_task()
     if event == TRACE_LINE
-      zr_coverage_line(Task.top(t))
+      zr_coverage_line(Task[t].top)
       if (Machine.load64(Machine.static(:trace_points, 8), 0) & TRACE_LINE) == 0
         return value
       end
     end
     pending = Machine.value(QNIL)
-    kind = Task.pending_kind(t)
+    kind = Task[t].pending_kind
     if value == QUNDEF
-      pending = Task.pending(t)
-      Task.set_pending(t, Machine.value(QNIL))
+      pending = Task[t].pending
+      Task[t].pending = Machine.value(QNIL)
     end
     # A break or a return leaves with its value. A raise has no value.
     shown = value
     if value == QUNDEF
       shown = kind == PENDING_RAISE || kind == PENDING_THROW ? Machine.value(QNIL) : pending
     end
-    r = zr_trace_send(Task.top(t), event, shown)
+    r = zr_trace_send(Task[t].top, event, shown)
     return r if r == QUNDEF
     if value == QUNDEF
-      Task.set_pending_kind(t, kind)
-      Task.set_pending(t, pending)
+      Task[t].pending_kind = kind
+      Task[t].pending = pending
     end
     value
   end
@@ -218,15 +218,15 @@ module Zr::Kern
       return Machine.value(QNIL)
     end
     rec = top
-    if FrameMeta.kind(Frame.meta(rec)) == KIND_BUILTIN
+    if FrameMeta[Frame[rec].meta].kind == KIND_BUILTIN
       # A method that CRuby writes in Ruby raises from its own file, which
       # is not a program file.
-      if FrameMeta.ruby(Frame.meta(rec)) != 0
+      if FrameMeta[Frame[rec].meta].ruby != 0
         return Machine.value(QNIL)
       end
-      rec = Frame.prev(rec)
+      rec = Frame[rec].prev
     end
-    if rec == 0 || FrameMeta.kind(Frame.meta(rec)) == KIND_BUILTIN || FrameMeta.kind(Frame.meta(rec)) == KIND_HIDDEN
+    if rec == 0 || FrameMeta[Frame[rec].meta].kind == KIND_BUILTIN || FrameMeta[Frame[rec].meta].kind == KIND_HIDDEN
       return Machine.value(QNIL)
     end
     zr_trace_send(rec, TRACE_RAISE, exc)
@@ -243,11 +243,11 @@ module Zr::Kern
     if (Machine.load64(Machine.static(:trace_events, 8), 0) & TRACE_RESCUE) == 0
       return Machine.value(QNIL)
     end
-    rec = Task.top(t)
-    if rec == 0 || FrameMeta.kind(Frame.meta(rec)) == KIND_BUILTIN || FrameMeta.kind(Frame.meta(rec)) == KIND_HIDDEN
+    rec = Task[t].top
+    if rec == 0 || FrameMeta[Frame[rec].meta].kind == KIND_BUILTIN || FrameMeta[Frame[rec].meta].kind == KIND_HIDDEN
       return Machine.value(QNIL)
     end
-    zr_trace_send_at(rec, TRACE_RESCUE, Task.errinfo(t), line)
+    zr_trace_send_at(rec, TRACE_RESCUE, Task[t].errinfo, line)
   end
 
   # Calls TracePoint.fire with the event record for frame `rec`. The
@@ -265,30 +265,30 @@ module Zr::Kern
   # frame: a rescue clause fires from its own line.
   #: (ptr, word, value, word) -> value
   def zr_trace_send_at(rec, event, value, line)
-    row = zr_trace_row(event, value, Frame.meta(rec), line)
+    row = zr_trace_row(event, value, Frame[rec].meta, line)
     method = zr_method_meta_of(rec)
     entry = zr_bmethod_entry(rec)
-    if method != 0 && FrameMeta.kind(method) == KIND_DEF
-      zr_ary_push(row, zr_sym(FrameMeta.name(method)))
+    if method != 0 && FrameMeta[method].kind == KIND_DEF
+      zr_ary_push(row, zr_sym(FrameMeta[method].name))
       home = rec
-      while home != 0 && Frame.meta(home) != method
-        home = Frame.prev(home)
+      while home != 0 && Frame[home].meta != method
+        home = Frame[home].prev
       end
-      zr_ary_push(row, zr_sym(home == 0 || zr_frame_mid(home) == 0 ? FrameMeta.name(method) : zr_frame_mid(home)))
-      zr_ary_push(row, FrameMeta.owner(method))
+      zr_ary_push(row, zr_sym(home == 0 || zr_frame_mid(home) == 0 ? FrameMeta[method].name : zr_frame_mid(home)))
+      zr_ary_push(row, FrameMeta[method].owner)
     elsif entry != 0
       # A define_method body runs as a block, under its method's name.
-      zr_ary_push(row, zr_sym(MEntry.mid(entry)))
-      zr_ary_push(row, zr_sym(MEntry.mid(entry)))
-      zr_ary_push(row, FrameMeta.owner(MEntry.meta(entry)))
+      zr_ary_push(row, zr_sym(MEntry[entry].mid))
+      zr_ary_push(row, zr_sym(MEntry[entry].mid))
+      zr_ary_push(row, FrameMeta[MEntry[entry].meta].owner)
     else
       zr_ary_push(row, Machine.value(QNIL))
       zr_ary_push(row, Machine.value(QNIL))
       zr_ary_push(row, Machine.value(QNIL))
     end
-    zr_ary_push(row, Frame.self(rec))
+    zr_ary_push(row, Frame[rec].self)
     zr_ary_push(row, zr_fix(zr_frame_serial(rec)))
-    zr_ary_push(row, zr_fix(Machine.word(Frame.meta(rec))))
+    zr_ary_push(row, zr_fix(Machine.word(Frame[rec].meta)))
     zr_ary_push(row, zr_fix(entry))
     zr_trace_run(row)
   end
@@ -300,7 +300,7 @@ module Zr::Kern
     row = zr_ary_new(9)
     zr_ary_push(row, zr_fix(event))
     zr_ary_push(row, value)
-    zr_ary_push(row, zr_str_new(FrameMeta.file(meta), FrameMeta.file_len(meta)))
+    zr_ary_push(row, zr_str_new(FrameMeta[meta].file, FrameMeta[meta].file_len))
     zr_ary_push(row, zr_fix(line))
     row
   end
@@ -322,7 +322,7 @@ module Zr::Kern
     this = zr_send(zr_core_class(Machine.id(:Thread)), Machine.id(:current), 0, 0)
     return this if this == QUNDEF
 
-    rec = zr_frame_with_file(Task.top(zr_task()))
+    rec = zr_frame_with_file(Task[zr_task()].top)
     row = zr_ary_new(11)
     zr_ary_push(row, zr_fix(TRACE_FIBER_SWITCH))
     zr_ary_push(row, Machine.value(QNIL))
@@ -330,7 +330,7 @@ module Zr::Kern
       zr_ary_push(row, Machine.value(QNIL))
       zr_ary_push(row, zr_fix(0))
     else
-      zr_ary_push(row, zr_str_new(FrameMeta.file(Frame.meta(rec)), FrameMeta.file_len(Frame.meta(rec))))
+      zr_ary_push(row, zr_str_new(FrameMeta[Frame[rec].meta].file, FrameMeta[Frame[rec].meta].file_len))
       zr_ary_push(row, zr_fix(zr_frame_line(rec)))
     end
     zr_ary_push(row, mid == 0 ? Machine.value(QNIL) : zr_sym(mid))
@@ -352,16 +352,16 @@ module Zr::Kern
       return v
     end
     t = zr_task()
-    kind = Task.pending_kind(t)
-    pending = Task.pending(t)
+    kind = Task[t].pending_kind
+    pending = Task[t].pending
     if v == QUNDEF
-      Task.set_pending(t, Machine.value(QNIL))
+      Task[t].pending = Machine.value(QNIL)
     end
     r = zr_trace_fiber_switch(recv, mid)
     return r if r == QUNDEF
     if v == QUNDEF
-      Task.set_pending_kind(t, kind)
-      Task.set_pending(t, pending)
+      Task[t].pending_kind = kind
+      Task[t].pending = pending
     end
     v
   end
@@ -392,7 +392,7 @@ module Zr::Kern
       zr_ary_push(row, Machine.value(QNIL))
       zr_ary_push(row, zr_fix(0))
     else
-      zr_ary_push(row, zr_str_new(FrameMeta.file(Frame.meta(rec)), FrameMeta.file_len(Frame.meta(rec))))
+      zr_ary_push(row, zr_str_new(FrameMeta[Frame[rec].meta].file, FrameMeta[Frame[rec].meta].file_len))
       zr_ary_push(row, zr_fix(zr_frame_line(rec)))
     end
     zr_ary_push(row, mid == 0 ? Machine.value(QNIL) : zr_sym(mid))
@@ -421,12 +421,12 @@ module Zr::Kern
     if (Machine.load64(Machine.static(:trace_events, 8), 0) & TRACE_SCRIPT_COMPILED) == 0
       return Machine.value(QNIL)
     end
-    form = Task.top(zr_task())
+    form = Task[zr_task()].top
     meta = zr_method_meta_of(form)
-    zr_trace_compiled(zr_frame_with_file(Frame.prev(form)),
+    zr_trace_compiled(zr_frame_with_file(Frame[form].prev),
                       zr_trace_compiled_value(script, path, Machine.bytes("<compiled>"), 10, line),
-                      Frame.self(form), zr_frame_mid(form),
-                      meta == 0 ? Machine.value(QNIL) : FrameMeta.owner(meta))
+                      Frame[form].self, zr_frame_mid(form),
+                      meta == 0 ? Machine.value(QNIL) : FrameMeta[meta].owner)
   end
 
   # Fires `:script_compiled` for a file that a require (kind 0), a
@@ -444,11 +444,11 @@ module Zr::Kern
     if (Machine.load64(Machine.static(:trace_events, 8), 0) & TRACE_SCRIPT_COMPILED) == 0
       return Machine.value(QNIL)
     end
-    rec = zr_frame_with_file(Task.top(zr_task()))
+    rec = zr_frame_with_file(Task[zr_task()].top)
     mid = kind == 1 ? Machine.id(:require_relative) : (kind == 2 ? Machine.id(:load) : Machine.id(:require))
     zr_trace_compiled(rec,
                       zr_trace_compiled_value(Machine.value(QNIL), path, Machine.bytes("<top (required)>"), 16, zr_fix(0)),
-                      rec == 0 ? Machine.value(QNIL) : Frame.self(rec), mid, zr_global(G_KERNEL))
+                      rec == 0 ? Machine.value(QNIL) : Frame[rec].self, mid, zr_global(G_KERNEL))
   end
 
   #: (value) -> value
@@ -463,21 +463,21 @@ module Zr::Kern
   # the runtime wrote fires no event.
   #: (word, ptr, value, value) -> value
   def zr_trace_bmethod(event, e, recv, value)
-    meta = RProc.meta(MEntry.cref(e))
-    if (Machine.load64(Machine.static(:trace_events, 8), 0) & event) == 0 || FrameMeta.file_len(meta) == 0
+    meta = RProc[MEntry[e].cref].meta
+    if (Machine.load64(Machine.static(:trace_events, 8), 0) & event) == 0 || FrameMeta[meta].file_len == 0
       return value
     end
     t = zr_task()
     pending = Machine.value(QNIL)
-    kind = Task.pending_kind(t)
+    kind = Task[t].pending_kind
     if value == QUNDEF
-      pending = Task.pending(t)
-      Task.set_pending(t, Machine.value(QNIL))
+      pending = Task[t].pending
+      Task[t].pending = Machine.value(QNIL)
     end
-    row = zr_trace_row(event, value == QUNDEF ? Machine.value(QNIL) : value, meta, FrameMeta.line(meta))
-    zr_ary_push(row, zr_sym(MEntry.mid(e)))
-    zr_ary_push(row, zr_sym(MEntry.mid(e)))
-    zr_ary_push(row, FrameMeta.owner(MEntry.meta(e)))
+    row = zr_trace_row(event, value == QUNDEF ? Machine.value(QNIL) : value, meta, FrameMeta[meta].line)
+    zr_ary_push(row, zr_sym(MEntry[e].mid))
+    zr_ary_push(row, zr_sym(MEntry[e].mid))
+    zr_ary_push(row, FrameMeta[MEntry[e].meta].owner)
     zr_ary_push(row, recv)
     zr_ary_push(row, Machine.value(QNIL))
     zr_ary_push(row, zr_fix(Machine.word(meta)))
@@ -485,8 +485,8 @@ module Zr::Kern
     r = zr_trace_run(row)
     return r if r == QUNDEF
     if value == QUNDEF
-      Task.set_pending_kind(t, kind)
-      Task.set_pending(t, pending)
+      Task[t].pending_kind = kind
+      Task[t].pending = pending
     end
     value
   end
@@ -495,17 +495,17 @@ module Zr::Kern
   # after the frame returns.
   #: (value) -> value
   def zr_trace_binding(serial)
-    rec = Task.top(zr_task())
-    while rec != 0 && Frame.serial(rec) != zr_fix2long(serial)
-      rec = Frame.prev(rec)
+    rec = Task[zr_task()].top
+    while rec != 0 && Frame[rec].serial != zr_fix2long(serial)
+      rec = Frame[rec].prev
     end
     if rec == 0
       return Machine.value(QNIL)
     end
-    blk = zr_block_proc(Frame.blk(rec))
-    b = zr_binding_of(Frame.meta(rec), zr_frame_env(rec), Frame.self(rec), Frame.cref(rec))
-    RProc.set_blk(b, blk)
-    RProc.set_serial(b, zr_frame_line(rec))
+    blk = zr_block_proc(Frame[rec].blk)
+    b = zr_binding_of(Frame[rec].meta, zr_frame_env(rec), Frame[rec].self, Frame[rec].cref)
+    RProc[b].blk = blk
+    RProc[b].serial = zr_frame_line(rec)
     b
   end
 
@@ -516,17 +516,17 @@ module Zr::Kern
   #: (value, value) -> value
   def zr_trace_parameters(meta_word, entry_word)
     e = Machine.ptr(zr_fix2long(entry_word))
-    if e != 0 && MEntry.kind(e) == KIND_BMETHOD
-      return zr_param_rows(FrameMeta.params(RProc.meta(MEntry.cref(e))), false)
+    if e != 0 && MEntry[e].kind == KIND_BMETHOD
+      return zr_param_rows(FrameMeta[RProc[MEntry[e].cref].meta].params, false)
     end
-    if e != 0 && MEntry.kind(e) != KIND_DEF
-      return zr_arity_rows(MEntry.arity(e))
+    if e != 0 && MEntry[e].kind != KIND_DEF
+      return zr_arity_rows(MEntry[e].arity)
     end
     meta = Machine.ptr(zr_fix2long(meta_word))
-    if meta == 0 || FrameMeta.params(meta) == 0
+    if meta == 0 || FrameMeta[meta].params == 0
       return zr_ary_new(0)
     end
-    zr_param_rows(FrameMeta.params(meta), FrameMeta.kind(meta) == KIND_BLOCK)
+    zr_param_rows(FrameMeta[meta].params, FrameMeta[meta].kind == KIND_BLOCK)
   end
 
   # Whether the code of `meta_word` is `target` or is inside it, as a
@@ -539,7 +539,7 @@ module Zr::Kern
       if meta == goal
         return Machine.value(QTRUE)
       end
-      meta = FrameMeta.parent(meta)
+      meta = FrameMeta[meta].parent
     end
     Machine.value(QFALSE)
   end

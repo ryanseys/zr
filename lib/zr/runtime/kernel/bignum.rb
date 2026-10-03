@@ -15,15 +15,15 @@ module Zr::Kern
   # `a + b`.
   #: (value, value) -> value
   def zr_big_add_mag(a, b)
-    if RArray.len(a) < RArray.len(b)
+    if RArray[a].len < RArray[b].len
       return zr_big_add_mag(b, a)
     end
-    n = RArray.len(a)
-    m = RArray.len(b)
+    n = RArray[a].len
+    m = RArray[b].len
     out = zr_ary_new(n + 1)
-    x = RArray.ptr(a)
-    y = RArray.ptr(b)
-    o = RArray.ptr(out)
+    x = RArray[a].ptr
+    y = RArray[b].ptr
+    o = RArray[out].ptr
     carry = 0
     i = 0
     while i < m
@@ -46,12 +46,12 @@ module Zr::Kern
   # 30 bits are the limb, and bit 30 is the borrow: no branch on it.
   #: (value, value) -> value
   def zr_big_sub_mag(a, b)
-    n = RArray.len(a)
-    m = RArray.len(b)
+    n = RArray[a].len
+    m = RArray[b].len
     out = zr_ary_new(n)
-    x = RArray.ptr(a)
-    y = RArray.ptr(b)
-    o = RArray.ptr(out)
+    x = RArray[a].ptr
+    y = RArray[b].ptr
+    o = RArray[out].ptr
     borrow = 0
     i = 0
     while i < m
@@ -72,20 +72,20 @@ module Zr::Kern
   # `a * b`, by the schoolbook method. A one-limb factor needs no sums.
   #: (value, value) -> value
   def zr_big_mul_mag(a, b)
-    if RArray.len(a) < RArray.len(b)
+    if RArray[a].len < RArray[b].len
       return zr_big_mul_mag(b, a)
     end
-    n = RArray.len(a)
-    m = RArray.len(b)
+    n = RArray[a].len
+    m = RArray[b].len
     out = zr_ary_new(n + m)
     if m == 0
       return out
     end
-    x = RArray.ptr(a)
-    y = RArray.ptr(b)
+    x = RArray[a].ptr
+    y = RArray[b].ptr
     if m == 1
       f = zr_big_at(y, 0)
-      o = RArray.ptr(out)
+      o = RArray[out].ptr
       carry = 0
       i = 0
       while i < n
@@ -120,12 +120,12 @@ module Zr::Kern
   # and below 2^30. The remainder is a fixnum.
   #: (value, value) -> value
   def zr_big_divmod_small_mag(a, m)
-    n = RArray.len(a)
+    n = RArray[a].len
     out = zr_ary_new(2)
     q = zr_ary_new(n)
     zr_ary_push(out, q)
-    x = RArray.ptr(a)
-    o = RArray.ptr(q)
+    x = RArray[a].ptr
+    o = RArray[q].ptr
     d = zr_fix2long(m)
     rem = 0
     i = n
@@ -144,8 +144,8 @@ module Zr::Kern
   # divisor of two limbs or more and `a >= b`.
   #: (value, value) -> value
   def zr_big_divmod_mag(a, b)
-    size = RArray.len(a)
-    n = RArray.len(b)
+    size = RArray[a].len
+    n = RArray[b].len
     m = size - n
     out = zr_ary_new(2)
     quotient = zr_ary_new(m + 1)
@@ -153,10 +153,10 @@ module Zr::Kern
     remainder = zr_ary_new(n)
     zr_ary_push(out, remainder)
     # Shifts both so the divisor's top limb has its top bit set.
-    s = BIG_BITS - zr_big_word_bits(zr_big_at(RArray.ptr(b), n - 1))
+    s = BIG_BITS - zr_big_word_bits(zr_big_at(RArray[b].ptr, n - 1))
     u = zr_big_shifted_words(a, s)
     v = zr_big_shifted_words(b, s)
-    q = RArray.ptr(quotient)
+    q = RArray[quotient].ptr
     vtop = Machine.load64(v + ((n - 1) * 8), 0)
     vsec = Machine.load64(v + ((n - 2) * 8), 0)
     j = m + 1
@@ -202,7 +202,7 @@ module Zr::Kern
     zr_big_done(quotient, m + 1)
     zr_xfree(v)
     # The remainder is the low `n` limbs of `u`, shifted back.
-    r = RArray.ptr(remainder)
+    r = RArray[remainder].ptr
     i = 0
     while i < n
       high = i + 1 < n ? Machine.load64(u + ((i + 1) * 8), 0) : 0
@@ -217,12 +217,12 @@ module Zr::Kern
   # -1, 0 or 1 as `a` is below, equal to or above `b`.
   #: (value, value) -> value
   def zr_big_cmp_mag(a, b)
-    n = RArray.len(a)
-    if n != RArray.len(b)
-      return zr_fix(n < RArray.len(b) ? 0 - 1 : 1)
+    n = RArray[a].len
+    if n != RArray[b].len
+      return zr_fix(n < RArray[b].len ? 0 - 1 : 1)
     end
-    x = RArray.ptr(a)
-    y = RArray.ptr(b)
+    x = RArray[a].ptr
+    y = RArray[b].ptr
     i = n
     while i > 0
       i -= 1
@@ -251,11 +251,11 @@ module Zr::Kern
   # on top, and returns it.
   #: (value, word) -> value
   def zr_big_done(out, n)
-    p = RArray.ptr(out)
+    p = RArray[out].ptr
     while n > 0 && Machine.load64(p + ((n - 1) * 8), 0) == 1
       n -= 1
     end
-    RArray.set_len(out, n)
+    RArray[out].len = n
     out
   end
 
@@ -263,7 +263,7 @@ module Zr::Kern
   # and gives `out` its length.
   #: (value, ptr, word) -> value
   def zr_big_fill(out, words, n)
-    o = RArray.ptr(out)
+    o = RArray[out].ptr
     i = 0
     while i < n
       zr_big_put(o, i, Machine.load64(words + (i * 8), 0))
@@ -278,9 +278,9 @@ module Zr::Kern
   # pass: the division's normalized operands. The caller frees it.
   #: (value, word) -> ptr
   def zr_big_shifted_words(a, s)
-    n = RArray.len(a)
+    n = RArray[a].len
     out = zr_xmalloc((n + 1) * 8)
-    p = RArray.ptr(a)
+    p = RArray[a].ptr
     low = 0
     i = 0
     while i < n

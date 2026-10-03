@@ -40,7 +40,15 @@ module Zr::Kern
   # subjects in other encodings. `names` contains
   # [[name, [group numbers]], ...]. `limit` is the timeout of the pattern
   # in nanoseconds, or 0 for none.
-  RRegexp = layout basic: RBasic, source: Value, options: Word, program: Value, names: Value, alt: Value, limit: Word
+  class RRegexp < Layout
+    attr_reader :basic #: RBasic
+    attr_accessor :source #: value
+    attr_accessor :options #: word
+    attr_accessor :program #: value
+    attr_accessor :names #: value
+    attr_accessor :alt #: value
+    attr_accessor :limit #: word
+  end
   T_REGEXP = 31
   G_REGEXP = 42
   G_REGEXP_LITERALS = 43
@@ -53,12 +61,12 @@ module Zr::Kern
   #: (value) -> value
   def zr_regexp_alloc(klass)
     re = zr_alloc(T_REGEXP, klass, RRegexp.size)
-    RRegexp.set_source(re, Machine.value(QNIL))
-    RRegexp.set_options(re, 0)
-    RRegexp.set_names(re, Machine.value(QNIL))
-    RRegexp.set_program(re, Machine.value(QNIL))
-    RRegexp.set_alt(re, Machine.value(QNIL))
-    RRegexp.set_limit(re, 0)
+    RRegexp[re].source = Machine.value(QNIL)
+    RRegexp[re].options = 0
+    RRegexp[re].names = Machine.value(QNIL)
+    RRegexp[re].program = Machine.value(QNIL)
+    RRegexp[re].alt = Machine.value(QNIL)
+    RRegexp[re].limit = 0
     re
   end
 
@@ -67,12 +75,12 @@ module Zr::Kern
   # them. The copy compiles its own programs for other encodings.
   #: (value, value) -> value
   def zr_regexp_copy_from(re, other)
-    RRegexp.set_source(re, RRegexp.source(other))
-    RRegexp.set_options(re, RRegexp.options(other))
-    RRegexp.set_names(re, RRegexp.names(other))
-    RRegexp.set_program(re, RRegexp.program(other))
-    RRegexp.set_alt(re, Machine.value(QNIL))
-    RRegexp.set_limit(re, RRegexp.limit(other))
+    RRegexp[re].source = RRegexp[other].source
+    RRegexp[re].options = RRegexp[other].options
+    RRegexp[re].names = RRegexp[other].names
+    RRegexp[re].program = RRegexp[other].program
+    RRegexp[re].alt = Machine.value(QNIL)
+    RRegexp[re].limit = RRegexp[other].limit
     re
   end
 
@@ -89,36 +97,36 @@ module Zr::Kern
   # as written, which the Regexp reports as its source) and its `names`.
   #: (value, value, value, value, value) -> value
   def zr_regexp_seat(re, program, shown, options, names)
-    RRegexp.set_program(re, program)
-    RRegexp.set_alt(re, Machine.value(QNIL))
-    RRegexp.set_source(re, shown)
-    RRegexp.set_options(re, zr_fix2long(options))
-    RRegexp.set_names(re, names)
+    RRegexp[re].program = program
+    RRegexp[re].alt = Machine.value(QNIL)
+    RRegexp[re].source = shown
+    RRegexp[re].options = zr_fix2long(options)
+    RRegexp[re].names = names
     re
   end
 
   # The programs compiled for other encodings: nil or a Hash.
   #: (value) -> value
   def zr_regexp_alt(re)
-    RRegexp.alt(re)
+    RRegexp[re].alt
   end
 
   #: (value, value) -> value
   def zr_regexp_alt_set(re, programs)
-    RRegexp.set_alt(re, programs)
+    RRegexp[re].alt = programs
     programs
   end
 
   # The number of groups that the program captures.
   #: (value) -> value
   def zr_regexp_captures(re)
-    zr_fix(OnigProg.num_mem(RString.ptr(RRegexp.program(re))))
+    zr_fix(OnigProg[RString[RRegexp[re].program].ptr].num_mem)
   end
 
   # The named groups: [[name, [group numbers]], ...].
   #: (value) -> value
   def zr_regexp_names(re)
-    RRegexp.names(re)
+    RRegexp[re].names
   end
 
   # The region that a search of `program` fills: 2 * (num_mem + 1) words,
@@ -126,7 +134,7 @@ module Zr::Kern
   # releases it.
   #: (ptr) -> ptr
   def zr_regexp_region_new(prog)
-    zr_onig_scratch(0, (OnigProg.num_mem(prog) + 1) * 16)
+    zr_onig_scratch(0, (OnigProg[prog].num_mem + 1) * 16)
   end
 
   #: (ptr) -> void
@@ -142,12 +150,12 @@ module Zr::Kern
   #: (value, value, value, value, value) -> value
   def zr_regexp_search(re, program, str, start, backward)
     if program == QNIL
-      program = RRegexp.program(re)
+      program = RRegexp[re].program
     end
-    prog = RString.ptr(program)
+    prog = RString[program].ptr
     region = zr_regexp_region_new(prog)
-    base = RString.ptr(str)
-    stop = base + RString.len(str)
+    base = RString[str].ptr
+    stop = base + RString[str].len
     from = base + zr_fix2long(start)
     range = backward == QTRUE ? base : stop
     r = zr_onig_search(prog, base, stop, from, range, region, zr_regexp_limit_for(re))
@@ -155,7 +163,7 @@ module Zr::Kern
       zr_regexp_region_free(region)
       return zr_regexp_failed(r)
     end
-    out = zr_region_offsets(region, OnigProg.num_mem(prog), r)
+    out = zr_region_offsets(region, OnigProg[prog].num_mem, r)
     zr_regexp_region_free(region)
     out
   end
@@ -176,18 +184,18 @@ module Zr::Kern
   #: (value, value, value, value) -> value
   def zr_regexp_match_at(re, program, str, start)
     if program == QNIL
-      program = RRegexp.program(re)
+      program = RRegexp[re].program
     end
-    prog = RString.ptr(program)
+    prog = RString[program].ptr
     region = zr_regexp_region_new(prog)
-    base = RString.ptr(str)
-    stop = base + RString.len(str)
+    base = RString[str].ptr
+    stop = base + RString[str].len
     r = zr_onig_match(prog, base, stop, base + zr_fix2long(start), region, zr_regexp_limit_for(re))
     if r < 0
       zr_regexp_region_free(region)
       return zr_regexp_failed(r)
     end
-    out = zr_region_offsets(region, OnigProg.num_mem(prog), zr_fix2long(start))
+    out = zr_region_offsets(region, OnigProg[prog].num_mem, zr_fix2long(start))
     zr_regexp_region_free(region)
     out
   end
@@ -223,13 +231,13 @@ module Zr::Kern
   #: (value, value, value, value, value, value) -> value
   def zr_regexp_scan_in(re, program, str, base, start, search)
     if program == QNIL
-      program = RRegexp.program(re)
+      program = RRegexp[re].program
     end
-    prog = RString.ptr(program)
+    prog = RString[program].ptr
     region = zr_regexp_region_new(prog)
-    origin = RString.ptr(str) + zr_fix2long(base)
-    stop = RString.ptr(str) + RString.len(str)
-    at = RString.ptr(str) + zr_fix2long(start)
+    origin = RString[str].ptr + zr_fix2long(base)
+    stop = RString[str].ptr + RString[str].len
+    at = RString[str].ptr + zr_fix2long(start)
     r = 0
     if search == QTRUE
       r = zr_onig_search(prog, origin, stop, at, stop, region, zr_regexp_limit_for(re))
@@ -241,7 +249,7 @@ module Zr::Kern
       return zr_regexp_failed(r)
     end
     position = search == QTRUE ? r : zr_fix2long(start) - zr_fix2long(base)
-    out = zr_region_offsets_after(region, OnigProg.num_mem(prog), position, zr_fix2long(base))
+    out = zr_region_offsets_after(region, OnigProg[prog].num_mem, position, zr_fix2long(base))
     zr_regexp_region_free(region)
     out
   end
@@ -250,15 +258,15 @@ module Zr::Kern
   # else Regexp.timeout, else 0 for no limit.
   #: (value) -> word
   def zr_regexp_limit_for(re)
-    RRegexp.limit(re) != 0 ? RRegexp.limit(re) : Machine.load64(Machine.static(:regexp_limit, 8), 0)
+    RRegexp[re].limit != 0 ? RRegexp[re].limit : Machine.load64(Machine.static(:regexp_limit, 8), 0)
   end
 
   #: (value) -> void
   def zr_mark_regexp(re)
-    zr_mark(RRegexp.source(re))
-    zr_mark(RRegexp.names(re))
-    zr_mark(RRegexp.program(re))
-    zr_mark(RRegexp.alt(re))
+    zr_mark(RRegexp[re].source)
+    zr_mark(RRegexp[re].names)
+    zr_mark(RRegexp[re].program)
+    zr_mark(RRegexp[re].alt)
   end
 
   # A regexp has no memory outside the heap.
@@ -268,12 +276,12 @@ module Zr::Kern
 
   #: (value) -> value
   def zr_regexp_source(re)
-    RRegexp.source(re)
+    RRegexp[re].source
   end
 
   #: (value) -> value
   def zr_regexp_options(re)
-    zr_fix(RRegexp.options(re))
+    zr_fix(RRegexp[re].options)
   end
 
   # `/#{x}/o`: the regexp of the site, made once. It is nil until the
@@ -304,7 +312,7 @@ module Zr::Kern
     Machine.store64(slot, 16, Machine.word(pinned < 0 ? Machine.value(QNIL) : zr_fix(pinned)))
     re = zr_send(zr_global(G_REGEXP), Machine.id(:literal), 3, slot)
     return re if re == QUNDEF
-    RBasic.set_flags(re, RBasic.flags(re) | FL_FREEZE)
+    RBasic[re].flags = RBasic[re].flags | FL_FREEZE
     zr_site_literal_set(G_REGEXP_LITERALS, index, re)
     re
   end
@@ -316,14 +324,14 @@ module Zr::Kern
     if re == QNIL
       Machine.store64(Machine.static(:regexp_limit, 8), 0, zr_fix2long(nanoseconds))
     else
-      RRegexp.set_limit(re, zr_fix2long(nanoseconds))
+      RRegexp[re].limit = zr_fix2long(nanoseconds)
     end
     nanoseconds
   end
 
   #: (value) -> value
   def zr_regexp_limit(re)
-    zr_fix(re == QNIL ? Machine.load64(Machine.static(:regexp_limit, 8), 0) : RRegexp.limit(re))
+    zr_fix(re == QNIL ? Machine.load64(Machine.static(:regexp_limit, 8), 0) : RRegexp[re].limit)
   end
 
   # Returns the frame record whose `$~` the running code sees. A block
@@ -334,22 +342,22 @@ module Zr::Kern
   # matches leave it.
   #: () -> ptr
   def zr_backref_home
-    rec = Task.top(zr_task())
+    rec = Task[zr_task()].top
     while rec != 0
-      meta = Frame.meta(rec)
+      meta = Frame[rec].meta
       if meta == 0
         return rec
       end
-      if FrameMeta.file_len(meta) == 0
-        if FrameMeta.owns_backref(meta) != 0
+      if FrameMeta[meta].file_len == 0
+        if FrameMeta[meta].owns_backref != 0
           return rec
         end
-        rec = Frame.prev(rec)
-      elsif (FrameMeta.kind(meta) == KIND_BLOCK || FrameMeta.kind(meta) == KIND_HIDDEN || FrameMeta.kind(meta) == KIND_EVAL) && FrameMeta.parent(meta) != 0
-        parent = FrameMeta.parent(meta)
-        up = Frame.prev(rec)
-        while up != 0 && Frame.meta(up) != parent
-          up = Frame.prev(up)
+        rec = Frame[rec].prev
+      elsif (FrameMeta[meta].kind == KIND_BLOCK || FrameMeta[meta].kind == KIND_HIDDEN || FrameMeta[meta].kind == KIND_EVAL) && FrameMeta[meta].parent != 0
+        parent = FrameMeta[meta].parent
+        up = Frame[rec].prev
+        while up != 0 && Frame[up].meta != parent
+          up = Frame[up].prev
         end
         if up == 0
           return rec
@@ -366,19 +374,19 @@ module Zr::Kern
   # write of one of them.
   #: (ptr) -> value
   def zr_svars(home)
-    cell = Frame.svars(home)
+    cell = Frame[home].svars
     if cell == QNIL
       cell = zr_ary_new(2)
       zr_ary_push(cell, Machine.value(QNIL))
       zr_ary_push(cell, Machine.value(QNIL))
-      Frame.set_svars(home, cell)
+      Frame[home].svars = cell
     end
     cell
   end
 
   #: (ptr, word) -> value
   def zr_svar_get(home, i)
-    cell = Frame.svars(home)
+    cell = Frame[home].svars
     cell == QNIL ? Machine.value(QNIL) : zr_ary_at(cell, i)
   end
 
@@ -416,12 +424,12 @@ module Zr::Kern
   # or a subclass put it elsewhere. Then it is found by name.
   #: (value, word, word) -> value
   def zr_match_field(m, id, row)
-    if !zr_special_p(m) && (RBasic.flags(m) & T_MASK) == T_OBJECT
-      t = RObject.iv(m)
-      if t != 0 && row < IvTab.len(t)
-        e = IvTab.rows(t) + (row * IvEntry.size)
-        if IvEntry.id(e) == id && IvEntry.value(e) != QUNDEF
-          return IvEntry.value(e)
+    if !zr_special_p(m) && (RBasic[m].flags & T_MASK) == T_OBJECT
+      t = Machine.ptr(RObject[m].iv)
+      if t != 0 && row < IvTab[t].len
+        e = IvTab[t].rows + (row * IvEntry.size)
+        if IvEntry[e].id == id && IvEntry[e].value != QUNDEF
+          return IvEntry[e].value
         end
       end
     end
@@ -454,7 +462,7 @@ module Zr::Kern
     end
     offsets = zr_match_offsets(m)
     i = zr_fix2long(n) * 2 + 1
-    if i < 1 || i >= RArray.len(offsets)
+    if i < 1 || i >= RArray[offsets].len
       return Machine.value(QNIL)
     end
     b = zr_fix2long(zr_ary_at(offsets, i))
@@ -471,7 +479,7 @@ module Zr::Kern
       return Machine.value(QNIL)
     end
     offsets = zr_match_offsets(m)
-    i = (RArray.len(offsets) - 1) / 2 - 1
+    i = (RArray[offsets].len - 1) / 2 - 1
     while i > 0 && zr_fix2long(zr_ary_at(offsets, i * 2 + 1)) < 0
       i -= 1
     end
@@ -498,7 +506,7 @@ module Zr::Kern
     end
     s = zr_match_string(m)
     e = zr_fix2long(zr_ary_at(zr_match_offsets(m), 2))
-    zr_str_byteslice(s, zr_fix(e), zr_fix(RString.len(s) - e))
+    zr_str_byteslice(s, zr_fix(e), zr_fix(RString[s].len - e))
   end
 
   # `$_`, the last line read, is next to `$~`.

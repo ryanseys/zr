@@ -370,17 +370,27 @@ module Zr
       # the roots of a loop and the target of a break belong to the def.
       #
       # The `Libc` of an import call is not a node, and `Name.call(p)`
-      # counts one more. Thus the count is the same as in the form that
-      # the kernel was written in before (`Machine.call(:name, p)`), and
-      # the same defs are inlined.
+      # counts one more. The `Name[p]` of a field access is not a node,
+      # and the arguments of a field write are not one either. Thus the
+      # count is the same as in the forms that the kernel was written in
+      # before (`Machine.call(:name, p)`, `Name.f(p)`, `Name.set_f(p, v)`),
+      # and the same defs are inlined.
       #: (Prism::node node, Array[Integer] budget) -> bool
       def small?(node, budget)
-        budget[0] -= 1 unless libc?(node)
+        budget[0] -= 1 unless libc?(node) || layout_view?(node)
+        budget[0] += 1 if node.is_a?(Prism::CallNode) && node.attribute_write? && layout_view?(node.receiver)
         budget[0] -= 1 if node.is_a?(Prism::CallNode) && node.name == :call && sig_read?(node.receiver)
         return false if budget[0].negative?
         return false if node.is_a?(Prism::WhileNode) || node.is_a?(Prism::BreakNode)
 
         node.compact_child_nodes.all? { |c| small?(c, budget) }
+      end
+
+      # Whether `node` is `Name[p]` of a layout `Name`.
+      #: (Prism::node? node) -> bool
+      def layout_view?(node)
+        node.is_a?(Prism::CallNode) && node.name == :[] && node.receiver.is_a?(Prism::ConstantReadNode) &&
+          !struct_for(node.receiver.name.to_s).nil?
       end
 
       # The defs that can run the collector. A fixpoint over the calls of
@@ -529,6 +539,7 @@ module Zr
           refuse(d, "the `#:` type has #{params.size} types for #{stub_arity(d)} parameters") if stub_arity(d) != params.size
           if libc
             refuse(d, "an import is `def self.name(...) = Machine.import`") unless stub(d) == :import
+            refuse(d, "#{d.name} is already imported") if @imports.key?(d.name.to_s)
             @imports[d.name.to_s] = Import.new(d.name.to_s, params, ret, import_module(d))
           else
             refuse(d, "a signature is `def self.call(fn, ...) = Machine.indirect`") unless d.name == :call && stub(d) == :indirect

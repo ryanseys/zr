@@ -1,11 +1,6 @@
 module Zr::Kern
   # darwin machine stacks: the stack of the main thread, and how zr maps
   # a fiber stack.
-  Libc.import :pthread_self, [] => Ptr
-  Libc.import :pthread_get_stackaddr_np, [Ptr] => Ptr
-  Libc.import :pthread_get_stacksize_np, [Ptr] => Word
-  Libc.import :mmap, [Ptr, Word, I32, I32, I32, Word] => Ptr
-  Libc.import :mprotect, [Ptr, Word, I32] => I32
 
   # The program runs on the stack of the main thread. The linker sets its
   # size to `Native::Link::STACK` bytes.
@@ -62,9 +57,6 @@ module Zr::Kern
   # starts, it sets the poll word every 100 ms. Thus a thread that
   # computes with no call into the kernel yields to the scheduler at its
   # next back edge or method entry, as with CRuby's timer thread.
-  Libc.import :pthread_create, [Ptr, Ptr, Ptr, Ptr] => I32
-  Libc.import :pthread_detach, [Ptr] => I32
-
   #: (ptr) -> ptr
   def zr_poll_timer(arg)
     Machine.gates_enter

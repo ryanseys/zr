@@ -20,14 +20,14 @@ module Zr::Kern
   #: (value, value, word) -> bool
   def zr_guard_enter_paired(obj, other, mid)
     t = zr_task()
-    list = Task.guards(t)
+    list = Task[t].guards
     if list == QNIL
       list = zr_ary_new(GUARD_ROW * 4)
-      Task.set_guards(t, list)
+      Task[t].guards = list
     end
     name = zr_sym(mid)
     i = 0
-    while i < RArray.len(list)
+    while i < RArray[list].len
       if zr_ary_at(list, i) == obj && zr_ary_at(list, i + 1) == name && (other == QUNDEF || zr_ary_at(list, i + 2) == other)
         return true
       end
@@ -42,8 +42,8 @@ module Zr::Kern
   # Removes the last guard record. Guards nest.
   #: (value, word) -> void
   def zr_guard_leave(obj, mid)
-    list = Task.guards(zr_task())
-    RArray.set_len(list, RArray.len(list) - GUARD_ROW)
+    list = Task[zr_task()].guards
+    RArray[list].len = RArray[list].len - GUARD_ROW
   end
 
   # The guards as core primitives. `Primitive.zr_recursive_enter(self,

@@ -27,18 +27,28 @@ module Zr::Kern
 
   # The header of the descriptor. Each table offset counts from the start
   # of the descriptor.
-  OnigEnc = layout kind: Word, min_len: Word, max_len: Word, flags: Word,
-    len_off: Word, trail_off: Word, lower_off: Word, word_off: Word, trans_off: Word, map_off: Word
+  class OnigEnc < Layout
+    attr_accessor :kind #: word
+    attr_accessor :min_len #: word
+    attr_accessor :max_len #: word
+    attr_accessor :flags #: word
+    attr_accessor :len_off #: word
+    attr_accessor :trail_off #: word
+    attr_accessor :lower_off #: word
+    attr_accessor :word_off #: word
+    attr_accessor :trans_off #: word
+    attr_accessor :map_off #: word
+  end
 
   #: (word) -> word
   def zr_onig_enc_kind(enc)
-    OnigEnc.kind(Machine.ptr(enc))
+    OnigEnc[Machine.ptr(enc)].kind
   end
 
   # ONIGENC_IS_SINGLEBYTE
   #: (word) -> bool
   def zr_onig_enc_single_byte_p(enc)
-    OnigEnc.max_len(Machine.ptr(enc)) == 1
+    OnigEnc[Machine.ptr(enc)].max_len == 1
   end
 
   # Byte `i` of a table. The word at `field` (a byte offset into the
@@ -151,7 +161,7 @@ module Zr::Kern
   #: (word, ptr, ptr) -> word
   def zr_onig_mb_precise_len(enc, p, e)
     return 0 - 1 if p >= e
-    max = OnigEnc.max_len(Machine.ptr(enc))
+    max = OnigEnc[Machine.ptr(enc)].max_len
     first = Machine.u8(Machine.load8(p, 0))
     state = zr_onig_enc_trans(enc, 0, first)
     k = 1
@@ -225,7 +235,7 @@ module Zr::Kern
   # onigenc_mbclen (regenc.c): the length, limited to the end of the text.
   #: (word, ptr, ptr) -> word
   def zr_onig_mbclen(enc, p, e)
-    if p < e && Machine.u8(Machine.load8(p, 0)) < 128 && OnigEnc.kind(Machine.ptr(enc)) == ONIG_ENC_KIND_UTF8
+    if p < e && Machine.u8(Machine.load8(p, 0)) < 128 && OnigEnc[Machine.ptr(enc)].kind == ONIG_ENC_KIND_UTF8
       return 1
     end
     r = zr_onig_precise_len(enc, p, e)
@@ -244,11 +254,11 @@ module Zr::Kern
   #: (word, ptr, ptr) -> word
   def zr_onig_enclen(enc, p, e)
     base = Machine.ptr(enc)
-    if p < e && Machine.u8(Machine.load8(p, 0)) < 128 && OnigEnc.kind(base) == ONIG_ENC_KIND_UTF8
+    if p < e && Machine.u8(Machine.load8(p, 0)) < 128 && OnigEnc[base].kind == ONIG_ENC_KIND_UTF8
       return 1
     end
-    min = OnigEnc.min_len(base)
-    if min == OnigEnc.max_len(base)
+    min = OnigEnc[base].min_len
+    if min == OnigEnc[base].max_len
       return p < e ? min : 0
     end
     zr_onig_mbclen(enc, p, e)
@@ -262,8 +272,8 @@ module Zr::Kern
   #: (word, ptr, ptr) -> word
   def zr_onig_enclen_approx(enc, p, e)
     base = Machine.ptr(enc)
-    min = OnigEnc.min_len(base)
-    if min == OnigEnc.max_len(base)
+    min = OnigEnc[base].min_len
+    if min == OnigEnc[base].max_len
       return p < e ? min : 0
     end
     r = zr_onig_precise_len(enc, p, e)
@@ -802,7 +812,7 @@ module Zr::Kern
     c = Machine.u8(Machine.load8(p, 0))
     if kind == ONIG_ENC_KIND_SINGLE_BYTE
       Machine.store64(pp, 0, Machine.word(p + 1))
-      if c == 223 && (OnigEnc.flags(Machine.ptr(enc)) & ONIG_ENC_FLAG_SHARP_S) != 0 && (flag & ONIG_CASE_FOLD_MULTI_CHAR) != 0
+      if c == 223 && (OnigEnc[Machine.ptr(enc)].flags & ONIG_ENC_FLAG_SHARP_S) != 0 && (flag & ONIG_CASE_FOLD_MULTI_CHAR) != 0
         Machine.store8(fold, 0, Machine.i8(115))
         Machine.store8(fold, 1, Machine.i8(115))
         return 2

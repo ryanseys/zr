@@ -15,7 +15,7 @@ module Zr::Kern
   #: (value, value) -> value
   def zr_struct_readers(klass, members)
     i = 0
-    while i < RArray.len(members)
+    while i < RArray[members].len
       # A member named object_id warns as any new method over it does.
       if zr_program_started_p()
         zr_warn_dangerous(klass, zr_sym2id(zr_ary_at(members, i)), KIND_STRUCT_AREF)
@@ -31,12 +31,12 @@ module Zr::Kern
   #: (value, value) -> value
   def zr_struct_writers(klass, members)
     i = 0
-    while i < RArray.len(members)
+    while i < RArray[members].len
       b = Machine.slot(Buf.size)
       zr_buf_init(b)
       zr_buf_sym(b, zr_sym2id(zr_ary_at(members, i)))
       zr_buf_byte(b, 61)
-      setter = zr_intern(Buf.ptr(b), Buf.len(b))
+      setter = zr_intern(Buf[b].ptr, Buf[b].len)
       zr_buf_free(b)
       r = zr_define_method_as(klass, setter, Machine.ptr(i), 1, KIND_STRUCT_ASET, 0, Machine.value(QNIL), VIS_PUBLIC)
       return r if r == QUNDEF
@@ -59,12 +59,12 @@ module Zr::Kern
       return zr_wrong_arity(argc, 0)
     end
     t = zr_task()
-    Task.set_kw(t, 0)
+    Task[t].kw = 0
     values = zr_struct_values_guessed(recv, e, t)
     if values != QUNDEF
-      i = Machine.word(MEntry.fn(e))
-      if i < RArray.len(values)
-        return Machine.value(Machine.load64(RArray.ptr(values) + (i * 8), 0))
+      i = Machine.word(MEntry[e].fn)
+      if i < RArray[values].len
+        return Machine.value(Machine.load64(RArray[values].ptr + (i * 8), 0))
       end
     end
     zr_struct_get(recv, e)
@@ -80,13 +80,13 @@ module Zr::Kern
       return zr_wrong_arity(argc, 1)
     end
     t = zr_task()
-    Task.set_kw(t, 0)
+    Task[t].kw = 0
     v = Machine.value(Machine.load64(argv, 0))
     values = zr_struct_values_guessed(recv, e, t)
-    if values != QUNDEF && (RBasic.flags(recv) & FL_FREEZE) == 0
-      i = Machine.word(MEntry.fn(e))
-      if i < RArray.len(values)
-        Machine.store64(RArray.ptr(values) + (i * 8), 0, Machine.word(v))
+    if values != QUNDEF && (RBasic[recv].flags & FL_FREEZE) == 0
+      i = Machine.word(MEntry[e].fn)
+      if i < RArray[values].len
+        Machine.store64(RArray[values].ptr + (i * 8), 0, Machine.word(v))
         zr_write_barrier(values, v)
         return v
       end
@@ -102,21 +102,21 @@ module Zr::Kern
   # `zr_ivar_guess_row`, inline so that the entry makes no calls.
   #: (value, ptr, ptr) -> value
   def zr_struct_values_guessed(recv, e, t)
-    if zr_special_p(recv) || (RBasic.flags(recv) & T_MASK) != T_OBJECT || Task.ractor(t) != 0
+    if zr_special_p(recv) || (RBasic[recv].flags & T_MASK) != T_OBJECT || Task[t].ractor != 0
       return Machine.value(QUNDEF)
     end
-    tab = RObject.iv(recv)
-    ic = MEntry.ivar(e)
-    i = IvarCache.index(ic)
-    if i >= IvTab.len(tab)
+    tab = Machine.ptr(RObject[recv].iv)
+    ic = Machine.ptr(MEntry[e].ivar)
+    i = IvarCache[ic].index
+    if i >= IvTab[tab].len
       return Machine.value(QUNDEF)
     end
-    row = IvTab.rows(tab) + (i * IvEntry.size)
-    if IvEntry.id(row) != Machine.id(:__values__)
+    row = IvTab[tab].rows + (i * IvEntry.size)
+    if IvEntry[row].id != Machine.id(:__values__)
       return Machine.value(QUNDEF)
     end
-    values = IvEntry.value(row)
-    if zr_special_p(values) || (RBasic.flags(values) & T_MASK) != T_ARRAY
+    values = IvEntry[row].value
+    if zr_special_p(values) || (RBasic[values].flags & T_MASK) != T_ARRAY
       return Machine.value(QUNDEF)
     end
     values
@@ -127,11 +127,11 @@ module Zr::Kern
   # has no values.
   #: (value, ptr) -> value
   def zr_struct_get(recv, e)
-    values = zr_ivar_get_cached(recv, Machine.id(:__values__), MEntry.ivar(e))
+    values = zr_ivar_get_cached(recv, Machine.id(:__values__), Machine.ptr(MEntry[e].ivar))
     if values == QUNDEF || values == QNIL
       return values
     end
-    zr_ary_at(values, Machine.word(MEntry.fn(e)))
+    zr_ary_at(values, Machine.word(MEntry[e].fn))
   end
 
   # Writes `v` into the member that the entry `e` writes. If the struct
@@ -141,13 +141,13 @@ module Zr::Kern
     if zr_modify_frozen_p(recv)
       return zr_frozen_error(recv)
     end
-    values = zr_ivar_get_cached(recv, Machine.id(:__values__), MEntry.ivar(e))
+    values = zr_ivar_get_cached(recv, Machine.id(:__values__), Machine.ptr(MEntry[e].ivar))
     return values if values == QUNDEF
     if values == QNIL
       values = zr_struct_values_new(recv)
       return values if values == QUNDEF
     end
-    r = zr_ary_store(values, Machine.word(MEntry.fn(e)), v)
+    r = zr_ary_store(values, Machine.word(MEntry[e].fn), v)
     r == QUNDEF ? r : v
   end
 
@@ -155,7 +155,7 @@ module Zr::Kern
   # its class, in `__values__`.
   #: (value) -> value
   def zr_struct_values_new(recv)
-    values = zr_struct_values_of(RArray.len(zr_struct_members(zr_real_class(recv))), 0, Machine.ptr(0))
+    values = zr_struct_values_of(RArray[zr_struct_members(zr_real_class(recv))].len, 0, Machine.ptr(0))
     r = zr_ivar_set(recv, Machine.id(:__values__), values)
     r == QUNDEF ? r : values
   end
@@ -173,7 +173,7 @@ module Zr::Kern
   #: (value) -> value
   def zr_struct_members(klass)
     e = zr_struct_row(klass)
-    e == 0 ? Machine.value(QNIL) : IvEntry.value(e)
+    e == 0 ? Machine.value(QNIL) : IvEntry[e].value
   end
 
   # Returns the ivar entry of `__members__` in the nearest class that has
@@ -184,15 +184,15 @@ module Zr::Kern
   #: (value) -> ptr
   def zr_struct_row(klass)
     while klass != QNIL
-      t = ClassExt.iv(RClass.ext(klass))
-      if IvTab.len(t) > 0
-        if IvEntry.id(IvTab.rows(t)) == Machine.id(:__members__)
-          return IvTab.rows(t)
+      t = Machine.ptr(ClassExt[RClass[klass].ext].iv)
+      if IvTab[t].len > 0
+        if IvEntry[IvTab[t].rows].id == Machine.id(:__members__)
+          return IvTab[t].rows
         end
         e = zr_ivtab_row(t, Machine.id(:__members__))
         return e if e != 0
       end
-      klass = RClass.superclass(klass)
+      klass = RClass[klass].superclass
     end
     Machine.ptr(0)
   end
@@ -203,13 +203,13 @@ module Zr::Kern
   #: (word, word, ptr) -> value
   def zr_struct_values_of(n, argc, argv)
     values = zr_ary_new(n)
-    zr_memcpy(RArray.ptr(values), argv, argc * 8)
+    zr_memcpy(RArray[values].ptr, argv, argc * 8)
     i = argc
     while i < n
-      Machine.store64(RArray.ptr(values) + (i * 8), 0, Machine.word(QNIL))
+      Machine.store64(RArray[values].ptr + (i * 8), 0, Machine.word(QNIL))
       i += 1
     end
-    RArray.set_len(values, n)
+    RArray[values].len = n
     values
   end
 
@@ -219,7 +219,7 @@ module Zr::Kern
   # a key's own `eql?` raised.
   #: (value, value) -> value
   def zr_struct_values_named(members, h)
-    n = RArray.len(members)
+    n = RArray[members].len
     values = zr_struct_values_of(n, 0, Machine.ptr(0))
     found = 0
     i = 0
@@ -229,12 +229,12 @@ module Zr::Kern
         return Machine.value(QUNDEF)
       end
       if e != 0
-        Machine.store64(RArray.ptr(values) + (i * 8), 0, Machine.word(HEntry.value(e)))
+        Machine.store64(RArray[values].ptr + (i * 8), 0, Machine.word(HEntry[e].value))
         found += 1
       end
       i += 1
     end
-    found == RHash.live(h) ? values : Machine.value(QNIL)
+    found == RHash[h].live ? values : Machine.value(QNIL)
   end
 
   # `Struct#initialize`, as rb_struct_initialize_m. The two usual calls
@@ -250,21 +250,21 @@ module Zr::Kern
     k = zr_real_class(recv)
     e = zr_struct_row(k)
     if kw == 0 && e != 0
-      n = RArray.len(IvEntry.value(e))
+      n = RArray[IvEntry[e].value].len
       if argc <= n && (argc == 0 || zr_struct_keyword_init(k) != QTRUE)
         r = zr_ivar_set(recv, Machine.id(:__values__), zr_struct_values_of(n, argc, argv))
         return r == QUNDEF ? r : Machine.value(QNIL)
       end
     end
     if kw != 0 && argc == 1 && e != 0 && zr_struct_keyword_init(k) != QFALSE
-      values = zr_struct_values_named(IvEntry.value(e), Machine.value(Machine.load64(argv, 0)))
+      values = zr_struct_values_named(IvEntry[e].value, Machine.value(Machine.load64(argv, 0)))
       return values if values == QUNDEF
       if values != QNIL
         r = zr_ivar_set(recv, Machine.id(:__values__), values)
         return r == QUNDEF ? r : Machine.value(QNIL)
       end
     end
-    Task.set_kw(zr_task(), kw)
+    Task[zr_task()].kw = kw
     zr_send(recv, Machine.id(:initialize_members), argc, argv)
   end
 
@@ -274,16 +274,16 @@ module Zr::Kern
   #: (value) -> value
   def zr_struct_keyword_init(klass)
     while klass != QNIL
-      t = ClassExt.iv(RClass.ext(klass))
-      rows = IvTab.rows(t)
-      if IvTab.len(t) > 1 && IvEntry.id(rows) == Machine.id(:__members__) && IvEntry.id(rows + IvEntry.size) == Machine.id(:__keyword_init__)
-        return IvEntry.value(rows + IvEntry.size)
+      t = Machine.ptr(ClassExt[RClass[klass].ext].iv)
+      rows = IvTab[t].rows
+      if IvTab[t].len > 1 && IvEntry[rows].id == Machine.id(:__members__) && IvEntry[rows + IvEntry.size].id == Machine.id(:__keyword_init__)
+        return IvEntry[rows + IvEntry.size].value
       end
-      if IvTab.len(t) > 0 && zr_ivtab_row(t, Machine.id(:__members__)) != 0
+      if IvTab[t].len > 0 && zr_ivtab_row(t, Machine.id(:__members__)) != 0
         v = zr_ivtab_get(t, Machine.id(:__keyword_init__))
         return v == QUNDEF ? Machine.value(QNIL) : v
       end
-      klass = RClass.superclass(klass)
+      klass = RClass[klass].superclass
     end
     Machine.value(QNIL)
   end
@@ -293,7 +293,7 @@ module Zr::Kern
   def zr_struct_to_a(recv, argc, argv, cref, blk)
     values = zr_struct_values(recv)
     return values if values == QUNDEF
-    zr_ary_of(RArray.len(values), RArray.ptr(values))
+    zr_ary_of(RArray[values].len, RArray[values].ptr)
   end
 
   # `Struct#initialize_copy`, which fills a `dup` or a `clone`. The copy
@@ -307,7 +307,7 @@ module Zr::Kern
     if other != recv && !zr_special_p(other) && zr_real_class(other) == zr_real_class(recv) && !zr_frozen_p(recv)
       values = zr_ivar_get(other, Machine.id(:__values__))
       if values != QNIL
-        r = zr_ivar_set(recv, Machine.id(:__values__), zr_ary_of(RArray.len(values), RArray.ptr(values)))
+        r = zr_ivar_set(recv, Machine.id(:__values__), zr_ary_of(RArray[values].len, RArray[values].ptr))
         return r == QUNDEF ? r : recv
       end
     end

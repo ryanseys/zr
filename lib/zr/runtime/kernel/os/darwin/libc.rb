@@ -8,8 +8,6 @@ module Zr::Kern
   end
 
   # The usable size of a malloc'd block. The heap counts it as payload.
-  Libc.import :malloc_size, [Ptr] => Word
-
   #: (ptr) -> word
   def zr_os_malloc_size(p)
     Libc.malloc_size(p)
@@ -23,8 +21,6 @@ module Zr::Kern
   # in 32-bit words. With count 0 and hash `h`, it compresses whole blocks
   # in order and keeps no bytes back. That is the same as zr_sha256_block
   # for each block.
-  Libc.import :CC_SHA256_Update, [Ptr, Ptr, I32] => I32
-
   #: (ptr, ptr, word) -> bool
   def zr_os_sha256_blocks(h, p, n)
     ctx = Machine.slot(104)

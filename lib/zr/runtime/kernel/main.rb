@@ -2,10 +2,6 @@ module Zr::Kern
   # Boot and the C entry point. The compiler supplies `zr_prelude` (the
   # toplevels of the core library) and `zr_toplevel` (the program's
   # toplevel).
-  Libc.import :zr_toplevel, [] => Value
-  Libc.import :zr_prelude, [] => Value
-  Libc.import :zr_gem_prelude, [] => Value
-
 
   #: (word, word, value) -> value
   def zr_boot_class(g, name, sup)
@@ -17,7 +13,7 @@ module Zr::Kern
   #: (word, word) -> void
   def zr_boot_name(g, name)
     k = zr_global(g)
-    RClass.set_name(k, zr_class_name_str(zr_usascii_str_new(zr_symbol_name_ptr(name), zr_symbol_name_len(name))))
+    RClass[k].name = zr_class_name_str(zr_usascii_str_new(zr_symbol_name_ptr(name), zr_symbol_name_len(name)))
     zr_const_set(zr_global(G_OBJECT), name, k)
   end
 
@@ -68,7 +64,7 @@ module Zr::Kern
     zr_boot_class(G_CLASS, Machine.id(:Class), zr_global(G_MODULE))
     i = G_BASIC_OBJECT
     while i <= G_CLASS
-      RBasic.set_klass(zr_global(i), zr_global(G_CLASS))
+      RBasic[zr_global(i)].klass = zr_global(G_CLASS)
       i += 1
     end
     zr_boot_class(G_NUMERIC, Machine.id(:Numeric), zr_global(G_OBJECT))
@@ -137,7 +133,7 @@ module Zr::Kern
     zr_boot_name(G_NUMERIC, Machine.id(:Numeric))
     zr_boot_name(G_FLOAT, Machine.id(:Float))
     zr_boot_name(G_REGEXP, Machine.id(:Regexp))
-    RClass.set_name(zr_global(G_FATAL), zr_class_name_str(zr_usascii_str_new(Machine.bytes("fatal"), 5)))
+    RClass[zr_global(G_FATAL)].name = zr_class_name_str(zr_usascii_str_new(Machine.bytes("fatal"), 5))
     zr_boot_name(G_KEY_ERROR, Machine.id(:KeyError))
     zr_boot_name(G_SYSTEM_STACK_ERROR, Machine.id(:SystemStackError))
     zr_alloc_table()
@@ -154,7 +150,7 @@ module Zr::Kern
     zr_set_global(G_MAIN, zr_obj_alloc(zr_global(G_OBJECT)))
     zr_set_global(G_TOP_CREF, zr_cref_push(zr_global(G_OBJECT), Machine.value(QNIL)))
     # A top-level def is private, as in CRuby's toplevel scope.
-    RCref.set_vis(zr_global(G_TOP_CREF), VIS_PRIVATE)
+    RCref[zr_global(G_TOP_CREF)].vis = VIS_PRIVATE
     # Kernel gets the methods of CRuby's Kernel. BasicObject gets its small
     # set of methods.
     zr_builtin_private(zr_global(G_KERNEL), Machine.id(:puts), Machine.addr(:zr_puts), 0 - 1)
@@ -498,7 +494,7 @@ module Zr::Kern
     zr_args_init(argc, argv)
     r = Libc.zr_prelude()
     if r == QUNDEF
-      zr_report(Task.pending(zr_task()))
+      zr_report(Task[zr_task()].pending)
     end
     # A box sees the shared state as it is here, before the program
     # writes anything of its own. The same snapshot records the operator
@@ -510,7 +506,7 @@ module Zr::Kern
     # replace the operators as they are after these libraries load.
     r = Libc.zr_gem_prelude()
     if r == QUNDEF
-      zr_report(Task.pending(zr_task()))
+      zr_report(Task[zr_task()].pending)
     end
     zr_gates_snapshot()
     r = Libc.zr_toplevel()
@@ -519,11 +515,11 @@ module Zr::Kern
       # Each break stops at the call that received its block, or becomes a
       # LocalJumpError before it leaves. A break that gets here is a bug
       # in the runtime. It reports the bug, and does not exit 1 silently.
-      if Task.pending_kind(zr_task()) == PENDING_BREAK
+      if Task[zr_task()].pending_kind == PENDING_BREAK
         zr_bug(Machine.bytes("a break reached the end of the program with no call to leave\n"), 61)
       end
-      exc = Task.pending(zr_task())
-      Task.set_pending(zr_task(), Machine.value(QNIL))
+      exc = Task[zr_task()].pending
+      Task[zr_task()].pending = Machine.value(QNIL)
     end
     Machine.i32(zr_program_end(exc))
   end

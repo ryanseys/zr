@@ -7,7 +7,7 @@ module Zr::Kern
   def zr_puts_value(v)
     if zr_type(v) == T_ARRAY
       i = 0
-      while i < RArray.len(v)
+      while i < RArray[v].len
         r = zr_puts_value(zr_ary_at(v, i))
         return r if r == QUNDEF
         i += 1
@@ -19,8 +19,8 @@ module Zr::Kern
       s = zr_obj_as_string(v)
       return s if s == QUNDEF
     end
-    len = RString.len(s)
-    ptr = RString.ptr(s)
+    len = RString[s].len
+    ptr = RString[s].ptr
     zr_write_out(ptr, len)
     if len == 0 || Machine.load8(ptr + len - 1, 0) != 10
       zr_write_out(Machine.bytes("\n"), 1)
@@ -54,7 +54,7 @@ module Zr::Kern
         s = zr_obj_as_string(v)
         return s if s == QUNDEF
       end
-      zr_write_out(RString.ptr(s), RString.len(s))
+      zr_write_out(RString[s].ptr, RString[s].len)
       i += 1
     end
     Machine.value(QNIL)
@@ -71,7 +71,7 @@ module Zr::Kern
     s = zr_global(g)
     if zr_special_p(s)
       s = zr_usascii_str_new(bytes, len)
-      RBasic.set_flags(s, RBasic.flags(s) | FL_FREEZE)
+      RBasic[s].flags = RBasic[s].flags | FL_FREEZE
       zr_set_global(g, s)
     end
     s
@@ -110,15 +110,15 @@ module Zr::Kern
   def zr_write_stderr(s)
     out = zr_gvar_get(Machine.id(:$stderr))
     if zr_special_p(out) || out == zr_core_class(Machine.id(:STDERR))
-      zr_write_err(RString.ptr(s), RString.len(s))
+      zr_write_err(RString[s].ptr, RString[s].len)
       return
     end
     slot = Machine.slot(8)
     Machine.store64(slot, 0, Machine.word(s))
     r = zr_send(out, Machine.id(:write), 1, slot)
     if r == QUNDEF
-      Task.set_pending(zr_task(), Machine.value(QNIL))
-      zr_write_err(RString.ptr(s), RString.len(s))
+      Task[zr_task()].pending = Machine.value(QNIL)
+      zr_write_err(RString[s].ptr, RString[s].len)
     end
   end
 
@@ -139,10 +139,10 @@ module Zr::Kern
     end
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
-    rec = zr_frame_with_file(Task.top(zr_task()))
+    rec = zr_frame_with_file(Task[zr_task()].top)
     if rec != 0
-      meta = Frame.meta(rec)
-      zr_buf_push(b, FrameMeta.file(meta), FrameMeta.file_len(meta))
+      meta = Frame[rec].meta
+      zr_buf_push(b, FrameMeta[meta].file, FrameMeta[meta].file_len)
       zr_buf_byte(b, 58)
       zr_buf_long(b, zr_frame_line(rec))
       zr_buf_push(b, Machine.bytes(": "), 2)
@@ -175,14 +175,14 @@ module Zr::Kern
   # an empty String if only runtime frames are on the stack.
   #: () -> value
   def zr_warn_position
-    rec = zr_frame_with_file(Task.top(zr_task()))
+    rec = zr_frame_with_file(Task[zr_task()].top)
     if rec == 0
       return zr_str_new(0, 0)
     end
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
-    meta = Frame.meta(rec)
-    zr_buf_push(b, FrameMeta.file(meta), FrameMeta.file_len(meta))
+    meta = Frame[rec].meta
+    zr_buf_push(b, FrameMeta[meta].file, FrameMeta[meta].file_len)
     zr_buf_byte(b, 58)
     zr_buf_long(b, zr_frame_line(rec))
     zr_buf_push(b, Machine.bytes(": "), 2)
@@ -191,7 +191,7 @@ module Zr::Kern
 
   #: (value) -> value
   def zr_warn_here_m(s)
-    zr_warn_here(RString.ptr(s), RString.len(s))
+    zr_warn_here(RString[s].ptr, RString[s].len)
     Machine.value(QNIL)
   end
 

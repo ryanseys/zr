@@ -51,7 +51,16 @@ module Zr::Kern
   # cells after the head, and its size class's index. `next` links it into
   # its size class's list of arenas with room. For a reserved arena (all
   # cells free, no sweep reads it), `next` links it into the reserved list.
-  ArenaHead = layout cell: Word, shift: Word, ncells: Word, index: Word, reserved: Word, remembered: Word, next: Ptr, exivars: Ptr
+  class ArenaHead < Layout
+    attr_accessor :cell #: word
+    attr_accessor :shift #: word
+    attr_accessor :ncells #: word
+    attr_accessor :index #: word
+    attr_accessor :reserved #: word
+    attr_accessor :remembered #: word
+    attr_accessor :next #: ptr
+    attr_accessor :exivars #: ptr
+  end
 
   # One cell size. `cursor` is the allocated-map word that gives the next
   # cell (`zr_full` while the cursor is in no arena). `origin` and `shift`
@@ -59,7 +68,16 @@ module Zr::Kern
   # a cell address. `room` is its arenas with room, in address order.
   # `freed` is the free cells after the last sweep. Then its arena count,
   # its reserved arenas, and the number of objects it has allocated.
-  SizeClass = layout cursor: Ptr, origin: Ptr, shift: Word, room: Ptr, freed: Word, arenas: Word, reserve: Ptr, allocated: Word
+  class SizeClass < Layout
+    attr_accessor :cursor #: ptr
+    attr_accessor :origin #: ptr
+    attr_accessor :shift #: word
+    attr_accessor :room #: ptr
+    attr_accessor :freed #: word
+    attr_accessor :arenas #: word
+    attr_accessor :reserve #: ptr
+    attr_accessor :allocated #: word
+  end
 
   # Heap state: the collection count, the stress flag, the arena count,
   # the time spent collecting, the arena table and its capacity, the
@@ -68,7 +86,29 @@ module Zr::Kern
   # (zr_heap_slow_update), the collection counts and times by kind, whether
   # ZR_GC_TRACE is on, and the collection number and freed bytes of the
   # last major.
-  Heap = layout collections: Word, stress: Word, disabled: Word, arenas: Word, nanoseconds: Word, table: Ptr, capacity: Word, malloced: Word, malloc_limit: Word, slow: Word, minors: Word, verify: Word, verifying: Word, live: Word, old_limit: Word, majors: Word, marking: Word, sweeping: Word, trace: Word, last_major: Word, reclaimed: Word
+  class Heap < Layout
+    attr_accessor :collections #: word
+    attr_accessor :stress #: word
+    attr_accessor :disabled #: word
+    attr_accessor :arenas #: word
+    attr_accessor :nanoseconds #: word
+    attr_accessor :table #: ptr
+    attr_accessor :capacity #: word
+    attr_accessor :malloced #: word
+    attr_accessor :malloc_limit #: word
+    attr_accessor :slow #: word
+    attr_accessor :minors #: word
+    attr_accessor :verify #: word
+    attr_accessor :verifying #: word
+    attr_accessor :live #: word
+    attr_accessor :old_limit #: word
+    attr_accessor :majors #: word
+    attr_accessor :marking #: word
+    attr_accessor :sweeping #: word
+    attr_accessor :trace #: word
+    attr_accessor :last_major #: word
+    attr_accessor :reclaimed #: word
+  end
 
   # The payload increase that a collection permits before the next
   # collection starts for that reason, and the limits on that increase.
@@ -145,25 +185,25 @@ module Zr::Kern
 
   #: (word) -> ptr
   def zr_arena_at(i)
-    Machine.ptr(Machine.load64(Heap.table(zr_heap()) + (i * 8), 0))
+    Machine.ptr(Machine.load64(Heap[zr_heap()].table + (i * 8), 0))
   end
 
   # Makes room in the arena table for one more arena.
   #: () -> void
   def zr_arena_table_grow
     h = zr_heap()
-    n = Heap.arenas(h)
-    if n < Heap.capacity(h)
+    n = Heap[h].arenas
+    if n < Heap[h].capacity
       return
     end
     capacity = n == 0 ? ARENA_TABLE : n * 2
     table = zr_xmalloc(capacity * 8)
     if n != 0
-      zr_memcpy(table, Heap.table(h), n * 8)
-      zr_xfree(Heap.table(h))
+      zr_memcpy(table, Heap[h].table, n * 8)
+      zr_xfree(Heap[h].table)
     end
-    Heap.set_table(h, table)
-    Heap.set_capacity(h, capacity)
+    Heap[h].table = table
+    Heap[h].capacity = capacity
   end
 
   #: (value) -> ptr
@@ -189,7 +229,7 @@ module Zr::Kern
   # The bytes of `v`'s cell: the cell size of its arena.
   #: (value) -> word
   def zr_cell_bytes(v)
-    ArenaHead.cell(zr_arena_of(v))
+    ArenaHead[zr_arena_of(v)].cell
   end
 
   # Arena `a`'s mark bitmap, between its head and its cells. It is at a
@@ -273,19 +313,19 @@ module Zr::Kern
   # an Array, a Float or a Proc, and the ivars that a clone copies.
   #: (ptr) -> ptr
   def zr_arena_exivars(a)
-    ArenaHead.exivars(a)
+    ArenaHead[a].exivars
   end
 
   # The same, but makes the slots if the arena has none. CRuby also keeps
   # generic ivars in a separate table for the same reason.
   #: (ptr) -> ptr
   def zr_arena_exivars_for_write(a)
-    slots = ArenaHead.exivars(a)
+    slots = ArenaHead[a].exivars
     if slots == 0
-      bytes = ArenaHead.ncells(a) * 8
+      bytes = ArenaHead[a].ncells * 8
       slots = zr_xmalloc(bytes)
       Libc.memset(slots, Machine.i32(0), bytes)
-      ArenaHead.set_exivars(a, slots)
+      ArenaHead[a].exivars = slots
     end
     slots
   end
@@ -315,7 +355,7 @@ module Zr::Kern
   # The index of cell `v` in arena `a`.
   #: (ptr, value) -> word
   def zr_cell_index_in(a, v)
-    (Machine.word(v) - zr_arena_first(a)) >> ArenaHead.shift(a)
+    (Machine.word(v) - zr_arena_first(a)) >> ArenaHead[a].shift
   end
 
   # The index of `v`'s cell in its arena.
@@ -362,7 +402,7 @@ module Zr::Kern
 
   #: (value) -> bool
   def zr_old_p(v)
-    !zr_special_p(v) && (RBasic.flags(v) & FL_STACK) == 0 && zr_aged_p(v)
+    !zr_special_p(v) && (RBasic[v].flags & FL_STACK) == 0 && zr_aged_p(v)
   end
   inline :zr_old_p
 
@@ -376,7 +416,7 @@ module Zr::Kern
     i = zr_cell_index_in(a, v)
     at = zr_remembered_word(a, i)
     Machine.store64(at, 0, Machine.load64(at, 0) | zr_marks_bit(i))
-    ArenaHead.set_remembered(a, 1)
+    ArenaHead[a].remembered = 1
   end
 
   # The write barrier: `owner` now contains a reference to `value`.
@@ -429,7 +469,7 @@ module Zr::Kern
     c = 0
     while c < SIZE_CLASSES
       sc = zr_size_class(c)
-      bytes += ((SizeClass.arenas(sc) * ARENA_CELLS) - SizeClass.freed(sc)) * (CELL_MIN << c)
+      bytes += ((SizeClass[sc].arenas * ARENA_CELLS) - SizeClass[sc].freed) * (CELL_MIN << c)
       c += 1
     end
     bytes
@@ -441,7 +481,7 @@ module Zr::Kern
     bytes = 0
     c = 0
     while c < SIZE_CLASSES
-      bytes += SizeClass.arenas(zr_size_class(c)) * zr_arena_bytes(c)
+      bytes += SizeClass[zr_size_class(c)].arenas * zr_arena_bytes(c)
       c += 1
     end
     bytes
@@ -477,21 +517,21 @@ module Zr::Kern
   def zr_arena_add(c)
     h = zr_heap()
     zr_arena_table_grow()
-    n = Heap.arenas(h)
+    n = Heap[h].arenas
     slot = Machine.slot(8)
     if Libc.posix_memalign(slot, ARENA_BYTES, zr_arena_bytes(c)) != Machine.i32(0)
       zr_memory_exhausted()
     end
     a = Machine.ptr(Machine.load64(slot, 0))
-    ArenaHead.set_cell(a, CELL_MIN << c)
-    ArenaHead.set_shift(a, 5 + c)
-    ArenaHead.set_ncells(a, ARENA_CELLS)
-    ArenaHead.set_index(a, c)
-    Machine.store64(Heap.table(h) + (n * 8), 0, Machine.word(a))
-    Heap.set_arenas(h, n + 1)
+    ArenaHead[a].cell = CELL_MIN << c
+    ArenaHead[a].shift = 5 + c
+    ArenaHead[a].ncells = ARENA_CELLS
+    ArenaHead[a].index = c
+    Machine.store64(Heap[h].table + (n * 8), 0, Machine.word(a))
+    Heap[h].arenas = n + 1
     sc = zr_size_class(c)
-    SizeClass.set_arenas(sc, SizeClass.arenas(sc) + 1)
-    ArenaHead.set_exivars(a, 0)
+    SizeClass[sc].arenas = SizeClass[sc].arenas + 1
+    ArenaHead[a].exivars = 0
     Libc.memset(zr_arena_marks(a), Machine.i32(0), MARK_BYTES * ARENA_MAPS)
     zr_arena_reserve(a)
   end
@@ -499,10 +539,10 @@ module Zr::Kern
   # Puts arena `a`, with all cells free, into its size class's reserve.
   #: (ptr) -> void
   def zr_arena_reserve(a)
-    sc = zr_size_class(ArenaHead.index(a))
-    ArenaHead.set_reserved(a, 1)
-    ArenaHead.set_next(a, SizeClass.reserve(sc))
-    SizeClass.set_reserve(sc, a)
+    sc = zr_size_class(ArenaHead[a].index)
+    ArenaHead[a].reserved = 1
+    ArenaHead[a].next = SizeClass[sc].reserve
+    SizeClass[sc].reserve = a
   end
 
   # A word with all bits set. A size class's cursor points here while it is
@@ -518,10 +558,10 @@ module Zr::Kern
   # cell's address (`zr_cell_take`).
   #: (ptr, ptr, ptr) -> void
   def zr_cursor_set(sc, a, at)
-    SizeClass.set_cursor(sc, at)
+    SizeClass[sc].cursor = at
     # The origin is a virtual address, and it can be below 0: only the
     # sum in zr_cell_take is a real address.
-    SizeClass.set_origin(sc, Machine.usub_wrap(zr_arena_first(a), Machine.word(zr_arena_allocated(a)) << (3 + ArenaHead.shift(a))))
+    SizeClass[sc].origin = Machine.usub_wrap(zr_arena_first(a), Machine.word(zr_arena_allocated(a)) << (3 + ArenaHead[a].shift))
   end
 
   # Moves the cursor of `sc` to the next allocated word with a clear bit:
@@ -530,21 +570,21 @@ module Zr::Kern
   # of the three has one; the caller then collects or makes an arena.
   #: (ptr) -> bool
   def zr_cursor_advance(sc)
-    at = SizeClass.cursor(sc)
+    at = SizeClass[sc].cursor
     if at != zr_full()
       a = zr_arena_of(Machine.value(at))
       stop = zr_arena_allocated(a) + MARK_BYTES
       while at < stop
         if Machine.load64(at, 0) != ALL_MARKED
-          SizeClass.set_cursor(sc, at)
+          SizeClass[sc].cursor = at
           return true
         end
         at += 8
       end
     end
-    while SizeClass.room(sc) != 0
-      a = SizeClass.room(sc)
-      SizeClass.set_room(sc, ArenaHead.next(a))
+    while SizeClass[sc].room != 0
+      a = SizeClass[sc].room
+      SizeClass[sc].room = ArenaHead[a].next
       at = zr_arena_allocated(a)
       stop = at + MARK_BYTES
       while at < stop
@@ -555,13 +595,13 @@ module Zr::Kern
         at += 8
       end
     end
-    a = SizeClass.reserve(sc)
+    a = SizeClass[sc].reserve
     if a == 0
-      SizeClass.set_cursor(sc, zr_full())
+      SizeClass[sc].cursor = zr_full()
       return false
     end
-    SizeClass.set_reserve(sc, ArenaHead.next(a))
-    ArenaHead.set_reserved(a, 0)
+    SizeClass[sc].reserve = ArenaHead[a].next
+    ArenaHead[a].reserved = 0
     zr_cursor_set(sc, a, zr_arena_allocated(a))
     true
   end
@@ -576,8 +616,37 @@ module Zr::Kern
   # against the next frame at that address; it is 0 until something needs
   # it (`zr_frame_serial`). `svars` is nil until `$~` or `$_` is written
   # under the frame, then a two-element Array of them (`zr_svars`).
-  Frame = layout prev: Ptr, meta: Ptr, line: Word, self: Value, cref: Value, blk: Value, entry: Ptr, defined: Value, serial: Word, nvalues: Word, svars: Value
-  Task = layout top: Ptr, serial: Word, pending: Value, errinfo: Value, pending_kind: Word, pending_home: Ptr, pending_site: Word, kw: Word, stack_limit: Ptr, guards: Value, catches: Value, throw_tag: Value, missing: Word, found: Value, refine: Value, ractor: Word
+  class Frame < Layout
+    attr_accessor :prev #: ptr
+    attr_accessor :meta #: ptr
+    attr_accessor :line #: word
+    attr_accessor :self #: value
+    attr_accessor :cref #: value
+    attr_accessor :blk #: value
+    attr_accessor :entry #: ptr
+    attr_accessor :defined #: value
+    attr_accessor :serial #: word
+    attr_accessor :nvalues #: word
+    attr_accessor :svars #: value
+  end
+  class Task < Layout
+    attr_accessor :top #: ptr
+    attr_accessor :serial #: word
+    attr_accessor :pending #: value
+    attr_accessor :errinfo #: value
+    attr_accessor :pending_kind #: word
+    attr_accessor :pending_home #: ptr
+    attr_accessor :pending_site #: word
+    attr_accessor :kw #: word
+    attr_accessor :stack_limit #: ptr
+    attr_accessor :guards #: value
+    attr_accessor :catches #: value
+    attr_accessor :throw_tag #: value
+    attr_accessor :missing #: word
+    attr_accessor :found #: value
+    attr_accessor :refine #: value
+    attr_accessor :ractor #: word
+  end
 
   # The runtime's own roots: the core classes and the main object.
   G_BASIC_OBJECT = 0
@@ -616,13 +685,13 @@ module Zr::Kern
   #: () -> void
   def zr_heap_init
     h = zr_heap()
-    Heap.set_malloc_limit(h, MALLOC_LIMIT)
-    Heap.set_old_limit(h, OLD_LIMIT_MIN)
+    Heap[h].malloc_limit = MALLOC_LIMIT
+    Heap[h].old_limit = OLD_LIMIT_MIN
     Machine.store64(zr_full(), 0, ALL_MARKED)
     c = 0
     while c < SIZE_CLASSES
-      SizeClass.set_cursor(zr_size_class(c), zr_full())
-      SizeClass.set_shift(zr_size_class(c), 5 + c)
+      SizeClass[zr_size_class(c)].cursor = zr_full()
+      SizeClass[zr_size_class(c)].shift = 5 + c
       zr_arena_add(c)
       c += 1
     end
@@ -639,13 +708,13 @@ module Zr::Kern
   def zr_heap_env
     h = zr_heap()
     if Libc.getenv(Machine.bytes("ZR_GC_STRESS\0")) != 0
-      Heap.set_stress(h, 1)
+      Heap[h].stress = 1
     end
     if Libc.getenv(Machine.bytes("ZR_GC_VERIFY\0")) != 0
-      Heap.set_verify(h, 1)
+      Heap[h].verify = 1
     end
     if Libc.getenv(Machine.bytes("ZR_GC_TRACE\0")) != 0
-      Heap.set_trace(h, 1)
+      Heap[h].trace = 1
     end
     zr_heap_slow_update()
   end
@@ -659,7 +728,11 @@ module Zr::Kern
 
   # The cells that are marked but not yet traced. It is a growable stack,
   # so a long chain of objects uses no machine stack.
-  MarkStack = layout ptr: Ptr, len: Word, capa: Word
+  class MarkStack < Layout
+    attr_accessor :ptr #: ptr
+    attr_accessor :len #: word
+    attr_accessor :capa #: word
+  end
 
   #: () -> ptr
   def zr_mark_stack
@@ -673,7 +746,7 @@ module Zr::Kern
   # has no bit in any arena, so its flag excludes it here.
   #: (value) -> void
   def zr_mark(v)
-    unless zr_special_p(v) || (RBasic.flags(v) & FL_STACK) != 0 || zr_marked_p(v)
+    unless zr_special_p(v) || (RBasic[v].flags & FL_STACK) != 0 || zr_marked_p(v)
       zr_mark_cell(v)
     end
   end
@@ -689,7 +762,7 @@ module Zr::Kern
   # that pointed at it.
   #: (value) -> void
   def zr_mark_cell(v)
-    flags = RBasic.flags(v)
+    flags = RBasic[v].flags
     if (flags & FL_ALLOCATED) == 0
       b = Machine.slot(Buf.size)
       zr_buf_init(b)
@@ -701,7 +774,7 @@ module Zr::Kern
         zr_buf_push(b, Machine.bytes("root "), 5)
         zr_buf_long(b, zr_fix2long(parent))
       else
-        zr_buf_long(b, RBasic.flags(parent) & T_MASK)
+        zr_buf_long(b, RBasic[parent].flags & T_MASK)
       end
       zr_buf_push(b, Machine.bytes(" cell "), 6)
       zr_buf_long(b, Machine.word(v))
@@ -718,15 +791,15 @@ module Zr::Kern
       zr_buf_push(b, Machine.bytes(" parent "), 8)
       zr_buf_long(b, Machine.word(parent))
       zr_buf_push(b, Machine.bytes(" collections "), 13)
-      zr_buf_long(b, Heap.collections(zr_heap()))
+      zr_buf_long(b, Heap[zr_heap()].collections)
       zr_buf_byte(b, 10)
-      zr_bug(Buf.ptr(b), Buf.len(b))
+      zr_bug(Buf[b].ptr, Buf[b].len)
     end
     if zr_marked_p(v)
       return
     end
     zr_mark_set(v)
-    if Heap.verifying(zr_heap()) != 0
+    if Heap[zr_heap()].verifying != 0
       zr_verify_reached(v)
     end
     # A String or a Float contains no Value. In a collection, this marks
@@ -735,37 +808,37 @@ module Zr::Kern
     # goes on it.
     t = flags & T_MASK
     if (t == T_STRING || t == T_FLOAT) && (flags & FL_EXIVAR) == 0 && Machine.load64(zr_mark_every(), 0) == 0
-      zr_mark(RBasic.klass(v))
+      zr_mark(RBasic[v].klass)
       return
     end
     s = zr_mark_stack()
-    n = MarkStack.len(s)
-    if n == MarkStack.capa(s)
+    n = MarkStack[s].len
+    if n == MarkStack[s].capa
       capa = n == 0 ? 1024 : n * 2
       grown = zr_xmalloc(capa * 8)
       if n > 0
-        zr_memcpy(grown, MarkStack.ptr(s), n * 8)
-        zr_xfree(MarkStack.ptr(s))
+        zr_memcpy(grown, MarkStack[s].ptr, n * 8)
+        zr_xfree(MarkStack[s].ptr)
       end
-      MarkStack.set_ptr(s, grown)
-      MarkStack.set_capa(s, capa)
+      MarkStack[s].ptr = grown
+      MarkStack[s].capa = capa
     end
-    Machine.store64(MarkStack.ptr(s) + (n * 8), 0, Machine.word(v))
-    MarkStack.set_len(s, n + 1)
+    Machine.store64(MarkStack[s].ptr + (n * 8), 0, Machine.word(v))
+    MarkStack[s].len = n + 1
   end
 
   # Traces each queued cell: its class, its children, its exivars.
   #: () -> void
   def zr_mark_drain
     s = zr_mark_stack()
-    while MarkStack.len(s) > 0
-      n = MarkStack.len(s) - 1
-      MarkStack.set_len(s, n)
-      v = Machine.value(Machine.load64(MarkStack.ptr(s) + (n * 8), 0))
+    while MarkStack[s].len > 0
+      n = MarkStack[s].len - 1
+      MarkStack[s].len = n
+      v = Machine.value(Machine.load64(MarkStack[s].ptr + (n * 8), 0))
       Machine.store64(zr_marking(), 0, Machine.word(v))
-      zr_mark(RBasic.klass(v))
+      zr_mark(RBasic[v].klass)
       zr_mark_children(v)
-      if (RBasic.flags(v) & FL_EXIVAR) != 0
+      if (RBasic[v].flags & FL_EXIVAR) != 0
         zr_mark_ivtab(zr_exivar_tab(v))
       end
     end
@@ -802,7 +875,7 @@ module Zr::Kern
       t = zr_xmalloc(IvTab.size)
       zr_ivtab_init(t)
       Machine.store64(zr_exivar_slot_for_write(v), 0, Machine.word(t))
-      RBasic.set_flags(v, RBasic.flags(v) | FL_EXIVAR)
+      RBasic[v].flags = RBasic[v].flags | FL_EXIVAR
     end
     t
   end
@@ -833,12 +906,12 @@ module Zr::Kern
     t = zr_gvars()
     guess = Machine.static(:gvar_guesses, GVAR_GUESSES * 8) + ((Machine.mul_wrap(id, 31) & (GVAR_GUESSES - 1)) * 8)
     i = Machine.load64(guess, 0)
-    if i < IvTab.len(t) && IvEntry.id(IvTab.rows(t) + (i * IvEntry.size)) == id
-      return IvTab.rows(t) + (i * IvEntry.size)
+    if i < IvTab[t].len && IvEntry[IvTab[t].rows + (i * IvEntry.size)].id == id
+      return IvTab[t].rows + (i * IvEntry.size)
     end
     e = zr_ivtab_row(t, id)
     if e != 0
-      Machine.store64(guess, 0, (e - IvTab.rows(t)) / IvEntry.size)
+      Machine.store64(guess, 0, (e - IvTab[t].rows) / IvEntry.size)
     end
     e
   end
@@ -852,7 +925,7 @@ module Zr::Kern
 
   #: (word) -> word
   def zr_gvar_resolve(id)
-    if IvTab.len(zr_gvar_aliases()) == 0
+    if IvTab[zr_gvar_aliases()].len == 0
       return id
     end
     target = zr_ivtab_get(zr_gvar_aliases(), id)
@@ -875,7 +948,7 @@ module Zr::Kern
     if e == 0
       return Machine.value(QNIL)
     end
-    IvEntry.value(e)
+    IvEntry[e].value
   end
 
   # A program's `$name` read. Outside the main ractor it is refused, unless
@@ -889,7 +962,7 @@ module Zr::Kern
 
   #: (word) -> value
   def zr_ractor_gvar_check(id)
-    if Task.ractor(zr_task()) == 0 || zr_gvar_ractor_local_p(id)
+    if Task[zr_task()].ractor == 0 || zr_gvar_ractor_local_p(id)
       return Machine.value(QNIL)
     end
     args = Machine.slot(8)
@@ -929,7 +1002,7 @@ module Zr::Kern
     if e == 0
       zr_ivtab_set(zr_gvars(), target, v)
     else
-      IvEntry.set_value(e, v)
+      IvEntry[e].value = v
     end
     v
   end
@@ -1044,29 +1117,29 @@ module Zr::Kern
   # A task's roots: its slots and its frame list.
   #: (ptr) -> void
   def zr_mark_task(t)
-    zr_mark(Task.pending(t))
-    zr_mark(Task.errinfo(t))
-    zr_mark(Task.guards(t))
-    zr_mark(Task.catches(t))
-    zr_mark(Task.throw_tag(t))
-    zr_mark(Task.found(t))
-    zr_mark(Task.refine(t))
-    rec = Task.top(t)
+    zr_mark(Task[t].pending)
+    zr_mark(Task[t].errinfo)
+    zr_mark(Task[t].guards)
+    zr_mark(Task[t].catches)
+    zr_mark(Task[t].throw_tag)
+    zr_mark(Task[t].found)
+    zr_mark(Task[t].refine)
+    rec = Task[t].top
     while rec != 0
       Machine.store64(zr_marking(), 0, Machine.word(zr_fix(4)))
-      zr_mark(Frame.self(rec))
-      zr_mark(Frame.cref(rec))
-      zr_mark(Frame.blk(rec))
-      zr_mark(Frame.svars(rec))
-      zr_mark(Frame.defined(rec))
-      n = Frame.nvalues(rec)
+      zr_mark(Frame[rec].self)
+      zr_mark(Frame[rec].cref)
+      zr_mark(Frame[rec].blk)
+      zr_mark(Frame[rec].svars)
+      zr_mark(Frame[rec].defined)
+      n = Frame[rec].nvalues
       i = 0
       while i < n
         Machine.store64(zr_marking(), 0, Machine.word(zr_fix(100 + i)))
         zr_mark(Machine.value(Machine.load64(rec + Frame.size + (i * 8), 0)))
         i += 1
       end
-      rec = Frame.prev(rec)
+      rec = Frame[rec].prev
     end
   end
 
@@ -1077,7 +1150,7 @@ module Zr::Kern
   #: (ptr, word, bool) -> void
   def zr_free_cell(cell, bytes, watched)
     flags = Machine.load64(cell, 0)
-    if (flags & FL_ALLOCATED) != 0 && ((flags & (T_MASK | FL_EXIVAR)) != T_OBJECT || !zr_ivtab_embedded_p(RObject.iv(Machine.value(cell))))
+    if (flags & FL_ALLOCATED) != 0 && ((flags & (T_MASK | FL_EXIVAR)) != T_OBJECT || !zr_ivtab_embedded_p(Machine.ptr(RObject[Machine.value(cell)].iv)))
       zr_release(Machine.value(cell))
       if (flags & FL_EXIVAR) != 0
         zr_exivar_free(Machine.value(cell))
@@ -1093,12 +1166,12 @@ module Zr::Kern
 
   #: (ptr, word) -> void
   def zr_free_watched(cell, bytes)
-    if AllocTrace.used(zr_alloc_trace()) != 0
+    if AllocTrace[zr_alloc_trace()].used != 0
       zr_alloc_trace_forget(cell)
     end
     # The mark phase checks the header's poison. The payload's poison only
     # makes a stale read fail clearly, which is the purpose of stress mode.
-    if Heap.stress(zr_heap()) != 0
+    if Heap[zr_heap()].stress != 0
       zr_poison_payload(cell, bytes)
     end
   end
@@ -1125,13 +1198,13 @@ module Zr::Kern
   # the live cell count; an arena with none becomes reserved.
   #: (ptr) -> word
   def zr_sweep_arena(a)
-    bytes = ArenaHead.cell(a)
+    bytes = ArenaHead[a].cell
     first = zr_arena_first(a)
     marks = zr_arena_marks(a)
     ages = zr_arena_ages(a)
     remembered = zr_arena_remembered(a)
     allocated = zr_arena_allocated(a)
-    watched = AllocTrace.used(zr_alloc_trace()) != 0 || Heap.stress(zr_heap()) != 0
+    watched = AllocTrace[zr_alloc_trace()].used != 0 || Heap[zr_heap()].stress != 0
     live = 0
     w = 0
     while w < MARK_BYTES
@@ -1149,7 +1222,7 @@ module Zr::Kern
       live += Machine.popcnt(mark)
       w += 8
     end
-    ArenaHead.set_remembered(a, 0)
+    ArenaHead[a].remembered = 0
     if live == 0
       zr_arena_reserve(a)
     end
@@ -1163,30 +1236,30 @@ module Zr::Kern
   # can come from a reserved arena.
   #: () -> void
   def zr_sweep
-    n = Heap.arenas(zr_heap())
+    n = Heap[zr_heap()].arenas
     c = 0
     while c < SIZE_CLASSES
       sc = zr_size_class(c)
-      SizeClass.set_freed(sc, 0)
-      SizeClass.set_room(sc, 0)
+      SizeClass[sc].freed = 0
+      SizeClass[sc].room = 0
       c += 1
     end
     i = n - 1
     while i >= 0
       a = zr_arena_at(i)
-      sc = zr_size_class(ArenaHead.index(a))
-      if ArenaHead.reserved(a) != 0
-        SizeClass.set_freed(sc, SizeClass.freed(sc) + ARENA_CELLS)
+      sc = zr_size_class(ArenaHead[a].index)
+      if ArenaHead[a].reserved != 0
+        SizeClass[sc].freed = SizeClass[sc].freed + ARENA_CELLS
       else
         live = zr_sweep_arena(a)
-        SizeClass.set_freed(sc, SizeClass.freed(sc) + (ARENA_CELLS - live))
+        SizeClass[sc].freed = SizeClass[sc].freed + (ARENA_CELLS - live)
         if live == 0
-          if SizeClass.cursor(sc) != zr_full() && zr_arena_of(Machine.value(SizeClass.cursor(sc))) == a
-            SizeClass.set_cursor(sc, zr_full())
+          if SizeClass[sc].cursor != zr_full() && zr_arena_of(Machine.value(SizeClass[sc].cursor)) == a
+            SizeClass[sc].cursor = zr_full()
           end
         elsif live < ARENA_CELLS
-          ArenaHead.set_next(a, SizeClass.room(sc))
-          SizeClass.set_room(sc, a)
+          ArenaHead[a].next = SizeClass[sc].room
+          SizeClass[sc].room = a
         end
       end
       i -= 1
@@ -1200,7 +1273,7 @@ module Zr::Kern
   #: (word) -> void
   def zr_collect(wanting)
     h = zr_heap()
-    major = Heap.live(h) > Heap.old_limit(h) || Heap.minors(h) >= zr_major_every()
+    major = Heap[h].live > Heap[h].old_limit || Heap[h].minors >= zr_major_every()
     zr_collect_kind(wanting, major)
     # If a minor left the class that ran out still short, the dead objects
     # were not young, and only a major collection can free them. CRuby
@@ -1209,7 +1282,7 @@ module Zr::Kern
     # collections. The exception is just after a major: then live objects
     # fill the class, and the room must come from growth.
     short = zr_heap_short(wanting)
-    if !major && short && Heap.collections(h) - Heap.last_major(h) >= MAJOR_AGE
+    if !major && short && Heap[h].collections - Heap[h].last_major >= MAJOR_AGE
       zr_collect_kind(wanting, true)
       short = zr_heap_short(wanting)
     end
@@ -1229,7 +1302,7 @@ module Zr::Kern
   #: () -> word
   def zr_major_every
     h = zr_heap()
-    if zr_heap_pressed() && Heap.reclaimed(h) * MAJOR_YIELD >= Heap.live(h)
+    if zr_heap_pressed() && Heap[h].reclaimed * MAJOR_YIELD >= Heap[h].live
       return MAJOR_EVERY_PRESSED
     end
     MAJOR_EVERY
@@ -1243,7 +1316,7 @@ module Zr::Kern
       return false
     end
     sc = zr_size_class(c)
-    SizeClass.freed(sc) * 100 < SizeClass.arenas(sc) * ARENA_CELLS * FREE_FLOOR
+    SizeClass[sc].freed * 100 < SizeClass[sc].arenas * ARENA_CELLS * FREE_FLOOR
   end
 
   # A collection of one kind, then the growth that the sweep asks for.
@@ -1264,19 +1337,19 @@ module Zr::Kern
   def zr_collect_kind(wanting, major)
     h = zr_heap()
     started = zr_fix2long(zr_clock_ns(zr_fix(CLOCK_MONOTONIC)))
-    was = Heap.live(h)
+    was = Heap[h].live
     why = 0
-    if Heap.trace(h) != 0
+    if Heap[h].trace != 0
       why = zr_gc_why(wanting)
     end
-    Heap.set_collections(h, Heap.collections(h) + 1)
-    Heap.set_minors(h, major ? 0 : Heap.minors(h) + 1)
+    Heap[h].collections = Heap[h].collections + 1
+    Heap[h].minors = major ? 0 : Heap[h].minors + 1
     # `minors` counts down to the next major, and a major resets it, so it
     # cannot give the number of minors. The majors are counted, and the
     # minors are `collections` minus the majors.
     if major
-      Heap.set_majors(h, Heap.majors(h) + 1)
-      Heap.set_last_major(h, Heap.collections(h))
+      Heap[h].majors = Heap[h].majors + 1
+      Heap[h].last_major = Heap[h].collections
     end
     Machine.store64(zr_marking(), 0, QNIL)
     unless major
@@ -1288,7 +1361,7 @@ module Zr::Kern
     end
     zr_mark_drain()
     zr_mark_fibers()
-    if !major && Heap.verify(h) != 0
+    if !major && Heap[h].verify != 0
       zr_verify_minor()
     end
     zr_fiber_prune()
@@ -1299,19 +1372,19 @@ module Zr::Kern
     # sweep walks all arenas for both kinds. The prunes read the marks, so
     # their time counts as trace time.
     marked = zr_fix2long(zr_clock_ns(zr_fix(CLOCK_MONOTONIC)))
-    Heap.set_marking(h, Heap.marking(h) + (marked - started))
+    Heap[h].marking = Heap[h].marking + (marked - started)
     zr_sweep()
     swept = zr_fix2long(zr_clock_ns(zr_fix(CLOCK_MONOTONIC)))
-    Heap.set_sweeping(h, Heap.sweeping(h) + (swept - marked))
+    Heap[h].sweeping = Heap[h].sweeping + (swept - marked)
     live = zr_live_bytes()
-    Heap.set_live(h, live)
+    Heap[h].live = live
     if major
       limit = live * OLD_LIMIT_FACTOR
-      Heap.set_old_limit(h, limit < OLD_LIMIT_MIN ? OLD_LIMIT_MIN : limit)
-      Heap.set_reclaimed(h, was > live ? was - live : 0)
+      Heap[h].old_limit = limit < OLD_LIMIT_MIN ? OLD_LIMIT_MIN : limit
+      Heap[h].reclaimed = was > live ? was - live : 0
     end
-    Heap.set_nanoseconds(h, Heap.nanoseconds(h) + (swept - started))
-    if Heap.trace(h) != 0
+    Heap[h].nanoseconds = Heap[h].nanoseconds + (swept - started)
+    if Heap[h].trace != 0
       zr_gc_trace(why, major, was, marked - started, swept - marked)
     end
   end
@@ -1324,13 +1397,13 @@ module Zr::Kern
   def zr_gc_why(wanting)
     h = zr_heap()
     why = 0
-    if Heap.malloced(h) > Heap.malloc_limit(h)
+    if Heap[h].malloced > Heap[h].malloc_limit
       why = why | 1
     end
-    if Heap.live(h) > Heap.old_limit(h)
+    if Heap[h].live > Heap[h].old_limit
       why = why | 2
     end
-    if Heap.minors(h) >= zr_major_every()
+    if Heap[h].minors >= zr_major_every()
       why = why | 4
     end
     if zr_heap_pressed()
@@ -1353,7 +1426,7 @@ module Zr::Kern
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
     zr_buf_push(b, Machine.bytes("zr_gc "), 6)
-    zr_buf_long(b, Heap.collections(h))
+    zr_buf_long(b, Heap[h].collections)
     if major
       zr_buf_push(b, Machine.bytes(" major"), 6)
       if (why & 2) != 0
@@ -1383,17 +1456,17 @@ module Zr::Kern
     zr_buf_push(b, Machine.bytes(" live "), 6)
     zr_buf_long(b, was >> 20)
     zr_buf_push(b, Machine.bytes(" -> "), 4)
-    zr_buf_long(b, Heap.live(h) >> 20)
+    zr_buf_long(b, Heap[h].live >> 20)
     zr_buf_push(b, Machine.bytes(" malloced "), 10)
-    zr_buf_long(b, Heap.malloced(h) >> 20)
+    zr_buf_long(b, Heap[h].malloced >> 20)
     zr_buf_push(b, Machine.bytes(" of "), 4)
-    zr_buf_long(b, Heap.malloc_limit(h) >> 20)
+    zr_buf_long(b, Heap[h].malloc_limit >> 20)
     zr_buf_push(b, Machine.bytes(" MB mark "), 9)
     zr_buf_long(b, mark_ns / 1000000)
     zr_buf_push(b, Machine.bytes(" sweep "), 7)
     zr_buf_long(b, sweep_ns / 1000000)
     zr_buf_push(b, Machine.bytes(" ms\n"), 4)
-    Libc.write(2, Buf.ptr(b), Buf.len(b))
+    Libc.write(2, Buf[b].ptr, Buf[b].len)
     zr_buf_free(b)
   end
 
@@ -1401,7 +1474,7 @@ module Zr::Kern
   # collection stops at the objects that the last collection kept.
   #: () -> void
   def zr_marks_from_ages
-    n = Heap.arenas(zr_heap())
+    n = Heap[zr_heap()].arenas
     i = 0
     while i < n
       a = zr_arena_at(i)
@@ -1416,13 +1489,13 @@ module Zr::Kern
   # `remembered_bits`.
   #: () -> void
   def zr_mark_remembered
-    n = Heap.arenas(zr_heap())
+    n = Heap[zr_heap()].arenas
     i = 0
     while i < n
       a = zr_arena_at(i)
-      if ArenaHead.remembered(a) != 0
+      if ArenaHead[a].remembered != 0
         first = zr_arena_first(a)
-        bytes = ArenaHead.cell(a)
+        bytes = ArenaHead[a].cell
         map = zr_arena_remembered(a)
         j = 0
         while j < ARENA_CELLS
@@ -1433,9 +1506,9 @@ module Zr::Kern
             if (word & zr_marks_bit(j)) != 0
               v = Machine.value(first + (j * bytes))
               Machine.store64(zr_marking(), 0, Machine.word(v))
-              zr_mark(RBasic.klass(v))
+              zr_mark(RBasic[v].klass)
               zr_mark_children(v)
-              if (RBasic.flags(v) & FL_EXIVAR) != 0
+              if (RBasic[v].flags & FL_EXIVAR) != 0
                 zr_mark_ivtab(zr_exivar_tab(v))
               end
             end
@@ -1458,7 +1531,7 @@ module Zr::Kern
   # clears it.
   #: () -> void
   def zr_verify_minor
-    n = Heap.arenas(zr_heap())
+    n = Heap[zr_heap()].arenas
     i = 0
     while i < n
       a = zr_arena_at(i)
@@ -1467,11 +1540,11 @@ module Zr::Kern
       i += 1
     end
     Machine.store64(zr_marking(), 0, QNIL)
-    Heap.set_verifying(zr_heap(), 1)
+    Heap[zr_heap()].verifying = 1
     zr_mark_roots()
     zr_mark_drain()
     zr_mark_fibers()
-    Heap.set_verifying(zr_heap(), 0)
+    Heap[zr_heap()].verifying = 0
     i = 0
     while i < n
       zr_verify_arena(zr_arena_at(i))
@@ -1498,7 +1571,7 @@ module Zr::Kern
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
     zr_buf_push(b, Machine.bytes("the write barrier missed a store of a cell of type "), 51)
-    zr_buf_long(b, RBasic.flags(v) & T_MASK)
+    zr_buf_long(b, RBasic[v].flags & T_MASK)
     zr_buf_push(b, Machine.bytes(" into "), 6)
     parent = Machine.value(Machine.load64(zr_marking(), 0))
     if zr_fixnum_p(parent)
@@ -1508,10 +1581,10 @@ module Zr::Kern
       zr_buf_push(b, Machine.bytes("a root"), 6)
     else
       zr_buf_push(b, Machine.bytes("a cell of type "), 15)
-      zr_buf_long(b, RBasic.flags(parent) & T_MASK)
+      zr_buf_long(b, RBasic[parent].flags & T_MASK)
     end
     zr_buf_byte(b, 10)
-    zr_bug(Buf.ptr(b), Buf.len(b))
+    zr_bug(Buf[b].ptr, Buf[b].len)
   end
 
   # Each cell of `a` that the full trace marked and the minor did not.
@@ -1520,7 +1593,7 @@ module Zr::Kern
     marks = zr_arena_marks(a)
     minor = zr_arena_remembered(a)
     first = zr_arena_first(a)
-    bytes = ArenaHead.cell(a)
+    bytes = ArenaHead[a].cell
     j = 0
     while j < ARENA_CELLS
       missed = Machine.load64(marks + ((j >> 6) * 8), 0) & (0 - 1 - Machine.load64(minor + ((j >> 6) * 8), 0))
@@ -1533,7 +1606,7 @@ module Zr::Kern
           zr_buf_push(b, Machine.bytes("a minor collection did not reach a live cell of type "), 53)
           zr_buf_long(b, Machine.load64(first + (j * bytes), 0) & T_MASK)
           zr_buf_push(b, Machine.bytes(": the write barrier missed a store into it\n"), 43)
-          zr_bug(Buf.ptr(b), Buf.len(b))
+          zr_bug(Buf[b].ptr, Buf[b].len)
         end
         j += 1
       end
@@ -1578,8 +1651,8 @@ module Zr::Kern
     c = 0
     while c < SIZE_CLASSES
       sc = zr_size_class(c)
-      capacity = SizeClass.arenas(sc) * ARENA_CELLS
-      free = SizeClass.freed(sc)
+      capacity = SizeClass[sc].arenas * ARENA_CELLS
+      free = SizeClass[sc].freed
       live = capacity - free
       want = capacity
       most = (capacity * GROWTH) / 100
@@ -1591,7 +1664,7 @@ module Zr::Kern
         want = (live * 100) / (100 - goal)
       end
       cells = want < most ? want : most
-      while SizeClass.arenas(sc) * ARENA_CELLS < cells
+      while SizeClass[sc].arenas * ARENA_CELLS < cells
         zr_arena_add(c)
       end
       c += 1
@@ -1603,28 +1676,28 @@ module Zr::Kern
   #: () -> void
   def zr_malloc_limit_set
     h = zr_heap()
-    malloced = Heap.malloced(h)
+    malloced = Heap[h].malloced
     grown = (malloced * (MALLOC_GROWTH - 100)) / 100
     step = grown < MALLOC_LIMIT ? MALLOC_LIMIT : grown
-    Heap.set_malloc_limit(h, malloced + (step > MALLOC_LIMIT_MAX ? MALLOC_LIMIT_MAX : step))
+    Heap[h].malloc_limit = malloced + (step > MALLOC_LIMIT_MAX ? MALLOC_LIMIT_MAX : step)
   end
 
   # The payload bytes and the limit that starts the collector, for
   # GC.stat.
   #: () -> value
   def zr_gc_malloced
-    zr_fix(Heap.malloced(zr_heap()))
+    zr_fix(Heap[zr_heap()].malloced)
   end
 
   #: () -> value
   def zr_gc_malloc_limit
-    zr_fix(Heap.malloc_limit(zr_heap()))
+    zr_fix(Heap[zr_heap()].malloc_limit)
   end
 
   # The total nanoseconds of all collections.
   #: () -> value
   def zr_gc_nanoseconds
-    zr_fix(Heap.nanoseconds(zr_heap()))
+    zr_fix(Heap[zr_heap()].nanoseconds)
   end
 
   # The major collection count, and the nanoseconds of traces and of
@@ -1634,9 +1707,9 @@ module Zr::Kern
   def zr_gc_phases
     h = zr_heap()
     out = zr_ary_new(3)
-    zr_ary_push(out, zr_fix(Heap.majors(h)))
-    zr_ary_push(out, zr_fix(Heap.marking(h)))
-    zr_ary_push(out, zr_fix(Heap.sweeping(h)))
+    zr_ary_push(out, zr_fix(Heap[h].majors))
+    zr_ary_push(out, zr_fix(Heap[h].marking))
+    zr_ary_push(out, zr_fix(Heap[h].sweeping))
     out
   end
 
@@ -1654,7 +1727,7 @@ module Zr::Kern
 
   #: () -> value
   def zr_gc_count
-    zr_fix(Heap.collections(zr_heap()))
+    zr_fix(Heap[zr_heap()].collections)
   end
 
   # The number of objects that each size class allocated.
@@ -1663,7 +1736,7 @@ module Zr::Kern
     n = 0
     c = 0
     while c < SIZE_CLASSES
-      n += SizeClass.allocated(zr_size_class(c))
+      n += SizeClass[zr_size_class(c)].allocated
       c += 1
     end
     zr_fix(n)
@@ -1681,12 +1754,12 @@ module Zr::Kern
     allocated = 0
     if i < SIZE_CLASSES
       sc = zr_size_class(i)
-      arenas = SizeClass.arenas(sc)
-      allocated = SizeClass.allocated(sc)
+      arenas = SizeClass[sc].arenas
+      allocated = SizeClass[sc].allocated
       a = 0
-      while a < Heap.arenas(zr_heap())
+      while a < Heap[zr_heap()].arenas
         base = zr_arena_at(a)
-        if ArenaHead.index(base) == i
+        if ArenaHead[base].index == i
           live += zr_arena_live(base)
         end
         a += 1
@@ -1703,34 +1776,34 @@ module Zr::Kern
 
   #: () -> value
   def zr_gc_arenas
-    zr_fix(Heap.arenas(zr_heap()))
+    zr_fix(Heap[zr_heap()].arenas)
   end
 
   # The cell count of all arenas, of all sizes.
   #: () -> word
   def zr_heap_cells
-    Heap.arenas(zr_heap()) * ARENA_CELLS
+    Heap[zr_heap()].arenas * ARENA_CELLS
   end
 
   #: (value) -> value
   def zr_gc_set_disabled(flag)
     h = zr_heap()
-    was = zr_bool(Heap.disabled(h) != 0)
-    Heap.set_disabled(h, flag == QTRUE ? 1 : 0)
+    was = zr_bool(Heap[h].disabled != 0)
+    Heap[h].disabled = flag == QTRUE ? 1 : 0
     was
   end
 
   #: (value) -> value
   def zr_gc_set_stress(flag)
     h = zr_heap()
-    Heap.set_stress(h, flag == QNIL || flag == QFALSE ? 0 : 1)
+    Heap[h].stress = flag == QNIL || flag == QFALSE ? 0 : 1
     zr_heap_slow_update()
     flag
   end
 
   #: () -> value
   def zr_gc_stress
-    zr_bool(Heap.stress(zr_heap()) != 0)
+    zr_bool(Heap[zr_heap()].stress != 0)
   end
 
   # Allocates a cell of `type` with class `klass`, from the smallest size
@@ -1745,8 +1818,8 @@ module Zr::Kern
   #: (word, value, word) -> value
   def zr_alloc(type, klass, bytes)
     sc = zr_size_class(zr_size_class_for(bytes))
-    bits = Machine.load64(SizeClass.cursor(sc), 0)
-    if bits == ALL_MARKED || Heap.slow(zr_heap()) != 0
+    bits = Machine.load64(SizeClass[sc].cursor, 0)
+    if bits == ALL_MARKED || Heap[zr_heap()].slow != 0
       zr_alloc_slow(type, klass, bytes)
     else
       zr_cell_take(sc, bits, type, klass)
@@ -1761,11 +1834,11 @@ module Zr::Kern
   # each constructor (Passes::Inline::LIMIT).
   #: (ptr, word, word, value) -> value
   def zr_cell_take(sc, bits, type, klass)
-    at = SizeClass.cursor(sc)
+    at = SizeClass[sc].cursor
     i = Machine.ctz(0 - 1 - bits)
     Machine.store64(at, 0, bits | Machine.shl_wrap(1, i))
-    SizeClass.set_allocated(sc, SizeClass.allocated(sc) + 1)
-    cell = Machine.uadd_wrap(SizeClass.origin(sc), ((Machine.word(at) << 3) + i) << SizeClass.shift(sc))
+    SizeClass[sc].allocated = SizeClass[sc].allocated + 1
+    cell = Machine.uadd_wrap(SizeClass[sc].origin, ((Machine.word(at) << 3) + i) << SizeClass[sc].shift)
     Machine.store64(cell, 0, type | FL_ALLOCATED)
     Machine.store64(cell, 8, Machine.word(klass))
     Machine.value(cell)
@@ -1777,8 +1850,8 @@ module Zr::Kern
   #: () -> void
   def zr_heap_slow_update
     h = zr_heap()
-    slow = Heap.stress(h) != 0 || AllocTrace.on(zr_alloc_trace()) != 0 || Heap.malloced(h) > Heap.malloc_limit(h)
-    Heap.set_slow(h, slow ? 1 : 0)
+    slow = Heap[h].stress != 0 || AllocTrace[zr_alloc_trace()].on != 0 || Heap[h].malloced > Heap[h].malloc_limit
+    Heap[h].slow = slow ? 1 : 0
   end
 
   # An allocation that `zr_alloc` cannot do inline: it moves the cursor to
@@ -1793,13 +1866,13 @@ module Zr::Kern
     # A stress collection runs at each allocation, whatever the room, so
     # it asks only for the normal growth. More room only makes the next
     # sweep longer.
-    if Heap.stress(h) != 0 && Heap.disabled(h) == 0
+    if Heap[h].stress != 0 && Heap[h].disabled == 0
       zr_collect(SIZE_CLASSES)
     end
     # The cursor takes a reserved arena before a collection: the reserve is
     # room that the last collection already paid for.
     room = zr_cursor_advance(sc)
-    if (!room || Heap.malloced(h) > Heap.malloc_limit(h)) && Heap.disabled(h) == 0
+    if (!room || Heap[h].malloced > Heap[h].malloc_limit) && Heap[h].disabled == 0
       zr_collect(c)
       room = zr_cursor_advance(sc)
     end
@@ -1807,12 +1880,12 @@ module Zr::Kern
       zr_arena_add(c)
       zr_cursor_advance(sc)
     end
-    v = zr_cell_take(sc, Machine.load64(SizeClass.cursor(sc), 0), type, klass)
+    v = zr_cell_take(sc, Machine.load64(SizeClass[sc].cursor, 0), type, klass)
     cell = Machine.ptr(v)
-    if Heap.stress(h) != 0
+    if Heap[h].stress != 0
       zr_poison_payload(cell, CELL_MIN << c)
     end
-    if AllocTrace.on(zr_alloc_trace()) != 0
+    if AllocTrace[zr_alloc_trace()].on != 0
       zr_alloc_trace_record(cell)
     end
     zr_heap_slow_update()

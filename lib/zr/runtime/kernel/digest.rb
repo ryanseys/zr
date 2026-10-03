@@ -402,9 +402,9 @@ module Zr::Kern
     if a == DIGEST_SHA512
       size = 128
     end
-    h = RString.ptr(state)
-    p = RString.ptr(data)
-    n = RString.len(data)
+    h = RString[state].ptr
+    p = RString[data].ptr
+    n = RString[data].len
     if a == DIGEST_SHA256 && zr_os_sha256_blocks(h, p, n - (n % 64))
       return Machine.value(QNIL)
     end

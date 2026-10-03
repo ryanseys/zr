@@ -2,7 +2,13 @@ module Zr::Kern
   # Method and UnboundMethod contain a copy of the method entry, the
   # module where the lookup found it (`owner`), the class of the lookup
   # (`klass`), and the receiver. An UnboundMethod has no receiver.
-  RMethod = layout basic: RBasic, recv: Value, klass: Value, owner: Value, entry: MEntry
+  class RMethod < Layout
+    attr_reader :basic #: RBasic
+    attr_accessor :recv #: value
+    attr_accessor :klass #: value
+    attr_accessor :owner #: value
+    attr_reader :entry #: MEntry
+  end
   T_METHOD = 29
   G_METHOD = 33
   G_UNBOUND_METHOD = 34
@@ -18,10 +24,10 @@ module Zr::Kern
 
   #: (value) -> void
   def zr_mark_method(m)
-    zr_mark(RMethod.recv(m))
-    zr_mark(RMethod.klass(m))
-    zr_mark(RMethod.owner(m))
-    zr_mark_entry(RMethod.entry(m))
+    zr_mark(RMethod[m].recv)
+    zr_mark(RMethod[m].klass)
+    zr_mark(RMethod[m].owner)
+    zr_mark_entry(Machine.ptr(RMethod[m].entry))
   end
 
   # Returns the module in `klass`'s ancestor list whose own method table
@@ -32,15 +38,15 @@ module Zr::Kern
     while k != QNIL
       e = zr_find_method_at(k, mid)
       if e != 0
-        if MEntry.kind(e) == KIND_UNDEF
+        if MEntry[e].kind == KIND_UNDEF
           return Machine.value(QNIL)
         end
         if zr_type(k) == T_ICLASS
-          return RClass.attached(k)
+          return RClass[k].attached
         end
         return k
       end
-      k = RClass.superclass(k)
+      k = RClass[k].superclass
     end
     Machine.value(QNIL)
   end
@@ -94,10 +100,10 @@ module Zr::Kern
       owner = zr_method_owner(klass, mid)
     end
     m = zr_alloc(T_METHOD, zr_global(recv == QUNDEF ? G_UNBOUND_METHOD : G_METHOD), RMethod.size)
-    RMethod.set_recv(m, recv)
-    RMethod.set_klass(m, klass)
-    RMethod.set_owner(m, owner)
-    zr_memcpy(RMethod.entry(m), e, MEntry.size)
+    RMethod[m].recv = recv
+    RMethod[m].klass = klass
+    RMethod[m].owner = owner
+    zr_memcpy(Machine.ptr(RMethod[m].entry), e, MEntry.size)
     zr_write_barrier_all(m)
     m
   end
@@ -108,23 +114,23 @@ module Zr::Kern
   #: (value, value, word) -> value
   def zr_method_missing_new(recv, klass, mid)
     m = zr_alloc(T_METHOD, zr_global(G_METHOD), RMethod.size)
-    RMethod.set_recv(m, recv)
-    RMethod.set_klass(m, klass)
-    RMethod.set_owner(m, klass)
-    e = RMethod.entry(m)
-    MEntry.set_mid(e, mid)
-    MEntry.set_fn(e, 0)
-    MEntry.set_direct(e, 0)
-    MEntry.set_arity(e, 0 - 1)
-    MEntry.set_kind(e, KIND_MISSING)
-    MEntry.set_meta(e, 0)
-    MEntry.set_cref(e, Machine.value(QNIL))
-    MEntry.set_vis(e, VIS_PUBLIC)
-    MEntry.set_orig(e, mid)
-    MEntry.set_from(e, Machine.value(QNIL))
-    MEntry.set_core(e, 0)
-    MEntry.set_concealed(e, 0)
-    IvarCache.set_index(MEntry.ivar(e), 0)
+    RMethod[m].recv = recv
+    RMethod[m].klass = klass
+    RMethod[m].owner = klass
+    e = Machine.ptr(RMethod[m].entry)
+    MEntry[e].mid = mid
+    MEntry[e].fn = 0
+    MEntry[e].direct = 0
+    MEntry[e].arity = 0 - 1
+    MEntry[e].kind = KIND_MISSING
+    MEntry[e].meta = 0
+    MEntry[e].cref = Machine.value(QNIL)
+    MEntry[e].vis = VIS_PUBLIC
+    MEntry[e].orig = mid
+    MEntry[e].from = Machine.value(QNIL)
+    MEntry[e].core = 0
+    MEntry[e].concealed = 0
+    MEntry[e].ivar.index = 0
     zr_methods_changed()
     m
   end
@@ -151,7 +157,7 @@ module Zr::Kern
   def zr_public_method_new(recv, klass, mid)
     m = zr_method_new(recv, klass, mid)
     return m if m == QUNDEF
-    vis = MEntry.vis(RMethod.entry(m))
+    vis = RMethod[m].entry.vis
     return m if vis == VIS_PUBLIC
     zr_undefined_method(klass, mid, vis)
   end
@@ -175,7 +181,7 @@ module Zr::Kern
   #: (value, word, ptr, value, value) -> value
   def zr_method_call(recv, argc, argv, cref, blk)
     if blk != QNIL
-      RProc.set_passed(blk, 1)
+      RProc[blk].passed = 1
     end
     zr_method_invoke(recv, argc, argv, blk)
   end
@@ -183,7 +189,7 @@ module Zr::Kern
   # The block function of `Method#to_proc`: the Proc's self is the Method.
   #: (value, word, ptr, value) -> value
   def zr_method_block(p, argc, argv, blk)
-    zr_method_invoke(RProc.self(p), argc, argv, blk)
+    zr_method_invoke(RProc[p].self, argc, argv, blk)
   end
 
   # Calls the Method's entry on its receiver. The lookup finds the
@@ -191,8 +197,8 @@ module Zr::Kern
   # that ancestor.
   #: (value, word, ptr, value) -> value
   def zr_method_invoke(m, argc, argv, blk)
-    zr_find_method(RMethod.klass(m), MEntry.mid(RMethod.entry(m)))
-    zr_invoke(RMethod.entry(m), RMethod.recv(m), argc, argv, blk, zr_kw_take())
+    zr_find_method(RMethod[m].klass, RMethod[m].entry.mid)
+    zr_invoke(Machine.ptr(RMethod[m].entry), RMethod[m].recv, argc, argv, blk, zr_kw_take())
   end
 
   #: (value, word, ptr, value, value) -> value
@@ -205,11 +211,11 @@ module Zr::Kern
   # body, and 0 for a builtin.
   #: (ptr) -> ptr
   def zr_method_meta(e)
-    if MEntry.kind(e) == KIND_DEF
-      return MEntry.meta(e)
+    if MEntry[e].kind == KIND_DEF
+      return MEntry[e].meta
     end
-    if MEntry.kind(e) == KIND_BMETHOD
-      return RProc.meta(MEntry.cref(e))
+    if MEntry[e].kind == KIND_BMETHOD
+      return RProc[MEntry[e].cref].meta
     end
     0
   end
@@ -219,15 +225,15 @@ module Zr::Kern
   # count), unless CRuby also writes that method in Ruby.
   #: (value) -> word
   def zr_method_arity_of(m)
-    e = RMethod.entry(m)
+    e = Machine.ptr(RMethod[m].entry)
     meta = zr_method_meta(e)
     if meta != 0
-      if FrameMeta.file_len(meta) == 0 && FrameMeta.ruby(meta) == 0 && FrameMeta.arity(meta) < 0
+      if FrameMeta[meta].file_len == 0 && FrameMeta[meta].ruby == 0 && FrameMeta[meta].arity < 0
         return 0 - 1
       end
-      return FrameMeta.arity(meta)
+      return FrameMeta[meta].arity
     end
-    MEntry.fn(e) == Machine.addr(:zr_f_notimplement) ? 0 : MEntry.arity(e)
+    MEntry[e].fn == Machine.addr(:zr_f_notimplement) ? 0 : MEntry[e].arity
   end
 
   #: (value, word, ptr, value, value) -> value
@@ -282,16 +288,16 @@ module Zr::Kern
 
   #: (value) -> value
   def zr_method_rows(m)
-    e = RMethod.entry(m)
+    e = Machine.ptr(RMethod[m].entry)
     meta = zr_method_meta(e)
     # A core def returns what C returns, unless CRuby also writes that
     # method in Ruby. A define_method body, also in the core, returns its
     # block's table.
-    if meta != 0 && (FrameMeta.file_len(meta) > 0 || FrameMeta.ruby(meta) != 0 || MEntry.kind(e) == KIND_BMETHOD)
-      return zr_param_rows(FrameMeta.params(meta), false)
+    if meta != 0 && (FrameMeta[meta].file_len > 0 || FrameMeta[meta].ruby != 0 || MEntry[e].kind == KIND_BMETHOD)
+      return zr_param_rows(FrameMeta[meta].params, false)
     end
     # A struct writer calls its one parameter `_`, as ruby does.
-    if MEntry.kind(e) == KIND_STRUCT_ASET
+    if MEntry[e].kind == KIND_STRUCT_ASET
       row = zr_ary_new(2)
       zr_ary_push(row, zr_sym(Machine.id(:req)))
       zr_ary_push(row, zr_sym(Machine.id(:_)))
@@ -361,26 +367,26 @@ module Zr::Kern
   # parameter.
   #: (value, word, ptr, value, value) -> value
   def zr_proc_arity(recv, argc, argv, cref, blk)
-    meta = RProc.meta(recv)
+    meta = RProc[recv].meta
     if meta == 0
-      if RProc.fn(recv) == Machine.addr(:zr_method_block)
-        return zr_fix(zr_method_arity_of(RProc.self(recv)))
+      if RProc[recv].fn == Machine.addr(:zr_method_block)
+        return zr_fix(zr_method_arity_of(RProc[recv].self))
       end
       return zr_fix(0 - 2)
     end
-    if RProc.lambda(recv) != 0
-      return zr_fix(FrameMeta.arity(meta))
+    if RProc[recv].lambda != 0
+      return zr_fix(FrameMeta[meta].arity)
     end
-    min = zr_params_min(FrameMeta.params(meta))
-    zr_fix(zr_params_rest_p(FrameMeta.params(meta)) ? 0 - min - 1 : min)
+    min = zr_params_min(FrameMeta[meta].params)
+    zr_fix(zr_params_rest_p(FrameMeta[meta].params) ? 0 - min - 1 : min)
   end
 
   #: (value, value) -> value
   def zr_proc_param_rows(recv, lenient)
-    meta = RProc.meta(recv)
+    meta = RProc[recv].meta
     if meta == 0
-      if RProc.fn(recv) == Machine.addr(:zr_method_block)
-        return zr_method_rows(RProc.self(recv))
+      if RProc[recv].fn == Machine.addr(:zr_method_block)
+        return zr_method_rows(RProc[recv].self)
       end
       out = zr_ary_new(2)
       row = zr_ary_new(1)
@@ -391,7 +397,7 @@ module Zr::Kern
       zr_ary_push(out, row)
       return out
     end
-    zr_param_rows(FrameMeta.params(meta), lenient != QFALSE)
+    zr_param_rows(FrameMeta[meta].params, lenient != QFALSE)
   end
 
   #: (word) -> word
@@ -417,53 +423,53 @@ module Zr::Kern
 
   #: (value, word, ptr, value, value) -> value
   def zr_method_owner_m(recv, argc, argv, cref, blk)
-    RMethod.owner(recv)
+    RMethod[recv].owner
   end
 
   #: (value, word, ptr, value, value) -> value
   def zr_method_receiver(recv, argc, argv, cref, blk)
-    RMethod.recv(recv)
+    RMethod[recv].recv
   end
 
   #: (value, word, ptr, value, value) -> value
   def zr_method_name(recv, argc, argv, cref, blk)
-    zr_sym(MEntry.mid(RMethod.entry(recv)))
+    zr_sym(RMethod[recv].entry.mid)
   end
 
   # The name in the method's definition. For an alias, it is the name of
   # the original def.
   #: (ptr) -> word
   def zr_method_original_id(e)
-    if MEntry.kind(e) == KIND_DEF
-      return FrameMeta.name(MEntry.meta(e))
+    if MEntry[e].kind == KIND_DEF
+      return FrameMeta[MEntry[e].meta].name
     end
-    MEntry.orig(e)
+    MEntry[e].orig
   end
 
   # The module where the entry was defined: for an alias, the source of
   # the alias; if not, the method's owner.
   #: (value) -> value
   def zr_method_defined_in(m)
-    e = RMethod.entry(m)
-    if MEntry.kind(e) == KIND_DEF && MEntry.meta(e) != 0 && FrameMeta.owner(MEntry.meta(e)) != QNIL
-      owner = FrameMeta.owner(MEntry.meta(e))
-      return zr_type(owner) == T_ICLASS ? RClass.attached(owner) : owner
+    e = Machine.ptr(RMethod[m].entry)
+    if MEntry[e].kind == KIND_DEF && MEntry[e].meta != 0 && FrameMeta[MEntry[e].meta].owner != QNIL
+      owner = FrameMeta[MEntry[e].meta].owner
+      return zr_type(owner) == T_ICLASS ? RClass[owner].attached : owner
     end
-    RMethod.owner(m)
+    RMethod[m].owner
   end
 
   #: (value, word, ptr, value, value) -> value
   def zr_method_original_name(recv, argc, argv, cref, blk)
-    zr_sym(zr_method_original_id(RMethod.entry(recv)))
+    zr_sym(zr_method_original_id(Machine.ptr(RMethod[recv].entry)))
   end
 
   #: (value, word, ptr, value, value) -> value
   def zr_method_unbind(recv, argc, argv, cref, blk)
     m = zr_alloc(T_METHOD, zr_global(G_UNBOUND_METHOD), RMethod.size)
-    RMethod.set_recv(m, Machine.value(QUNDEF))
-    RMethod.set_klass(m, RMethod.klass(recv))
-    RMethod.set_owner(m, RMethod.owner(recv))
-    zr_memcpy(RMethod.entry(m), RMethod.entry(recv), MEntry.size)
+    RMethod[m].recv = Machine.value(QUNDEF)
+    RMethod[m].klass = RMethod[recv].klass
+    RMethod[m].owner = RMethod[recv].owner
+    zr_memcpy(Machine.ptr(RMethod[m].entry), Machine.ptr(RMethod[recv].entry), MEntry.size)
     m
   end
 
@@ -471,7 +477,7 @@ module Zr::Kern
   # module's method binds to any object.
   #: (value, value) -> value
   def zr_method_bind_to(m, obj)
-    owner = RMethod.owner(m)
+    owner = RMethod[m].owner
     if zr_type(owner) != T_MODULE && !zr_is_a(obj, owner)
       if zr_singleton_p(owner)
         return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("singleton method called for a different object"), 46)
@@ -483,10 +489,10 @@ module Zr::Kern
       return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
     end
     bound = zr_alloc(T_METHOD, zr_global(G_METHOD), RMethod.size)
-    RMethod.set_recv(bound, obj)
-    RMethod.set_klass(bound, zr_class_of(obj))
-    RMethod.set_owner(bound, owner)
-    zr_memcpy(RMethod.entry(bound), RMethod.entry(m), MEntry.size)
+    RMethod[bound].recv = obj
+    RMethod[bound].klass = zr_class_of(obj)
+    RMethod[bound].owner = owner
+    zr_memcpy(Machine.ptr(RMethod[bound].entry), Machine.ptr(RMethod[m].entry), MEntry.size)
     bound
   end
 
@@ -513,10 +519,10 @@ module Zr::Kern
   #: (ptr) -> ptr
   def zr_method_location(e)
     meta = zr_method_meta(e)
-    if meta == 0 && (MEntry.kind(e) == KIND_ATTR_READER || MEntry.kind(e) == KIND_ATTR_WRITER) && FrameMeta.file_len(MEntry.meta(e)) > 0
-      meta = MEntry.meta(e)
+    if meta == 0 && (MEntry[e].kind == KIND_ATTR_READER || MEntry[e].kind == KIND_ATTR_WRITER) && FrameMeta[MEntry[e].meta].file_len > 0
+      meta = MEntry[e].meta
     end
-    if meta != 0 && FrameMeta.file_len(meta) == 0
+    if meta != 0 && FrameMeta[meta].file_len == 0
       return 0
     end
     meta
@@ -526,16 +532,16 @@ module Zr::Kern
   # for a runtime method, or for a method written where no box was open.
   #: (value) -> value
   def zr_method_box_m(m)
-    meta = zr_method_location(RMethod.entry(m))
-    if meta == 0 || Machine.word(FrameMeta.box(meta)) == 0
+    meta = zr_method_location(Machine.ptr(RMethod[m].entry))
+    if meta == 0 || Machine.word(FrameMeta[meta].box) == 0
       return Machine.value(QNIL)
     end
-    FrameMeta.box(meta)
+    FrameMeta[meta].box
   end
 
   #: (value, word, ptr, value, value) -> value
   def zr_method_source_location(recv, argc, argv, cref, blk)
-    e = RMethod.entry(recv)
+    e = Machine.ptr(RMethod[recv].entry)
     meta = zr_method_location(e)
     if meta == 0
       # A method of the core: the def of the ones that CRuby writes in Ruby.
@@ -544,8 +550,8 @@ module Zr::Kern
       return zr_send(zr_core_class(Machine.id(:TracePoint)), Machine.id(:builtin_source), 1, arg)
     end
     out = zr_ary_new(2)
-    zr_ary_push(out, zr_str_new(FrameMeta.file(meta), FrameMeta.file_len(meta)))
-    zr_ary_push(out, zr_fix(FrameMeta.line(meta)))
+    zr_ary_push(out, zr_str_new(FrameMeta[meta].file, FrameMeta[meta].file_len))
+    zr_ary_push(out, zr_fix(FrameMeta[meta].line))
     out
   end
 
@@ -557,12 +563,12 @@ module Zr::Kern
     if zr_special_p(other) || zr_type(other) != T_METHOD || zr_class_of(other) != zr_class_of(recv)
       return Machine.value(QFALSE)
     end
-    a = RMethod.entry(recv)
-    b = RMethod.entry(other)
+    a = Machine.ptr(RMethod[recv].entry)
+    b = Machine.ptr(RMethod[other].entry)
     # A method from `define_method` keeps its body in the entry's cref.
     # Two different bodies are two different methods.
-    zr_bool(RMethod.recv(recv) == RMethod.recv(other) && RMethod.owner(recv) == RMethod.owner(other) && zr_entry_body(a) == zr_entry_body(b) && MEntry.kind(a) == MEntry.kind(b) &&
-            (MEntry.kind(a) != KIND_BMETHOD || MEntry.cref(a) == MEntry.cref(b)))
+    zr_bool(RMethod[recv].recv == RMethod[other].recv && RMethod[recv].owner == RMethod[other].owner && zr_entry_body(a) == zr_entry_body(b) && MEntry[a].kind == MEntry[b].kind &&
+            (MEntry[a].kind != KIND_BMETHOD || MEntry[a].cref == MEntry[b].cref))
   end
 
   # The hash of the parts that `zr_method_eq` compares, so that equal
@@ -570,12 +576,12 @@ module Zr::Kern
   # and the entry.
   #: (value, word, ptr, value, value) -> value
   def zr_method_hash(recv, argc, argv, cref, blk)
-    e = RMethod.entry(recv)
-    h = zr_hash_mix(Machine.word(RMethod.recv(recv)))
-    h = zr_hash_mix(h ^ Machine.word(RMethod.owner(recv)))
-    h = zr_hash_mix(h ^ Machine.word(zr_entry_body(e)) ^ MEntry.kind(e))
-    if MEntry.kind(e) == KIND_BMETHOD
-      h = zr_hash_mix(h ^ Machine.word(MEntry.cref(e)))
+    e = Machine.ptr(RMethod[recv].entry)
+    h = zr_hash_mix(Machine.word(RMethod[recv].recv))
+    h = zr_hash_mix(h ^ Machine.word(RMethod[recv].owner))
+    h = zr_hash_mix(h ^ Machine.word(zr_entry_body(e)) ^ MEntry[e].kind)
+    if MEntry[e].kind == KIND_BMETHOD
+      h = zr_hash_mix(h ^ Machine.word(MEntry[e].cref))
     end
     zr_fix(h & 4611686018427387903)
   end
@@ -600,7 +606,7 @@ module Zr::Kern
         zr_buf_push(b, Machine.bytes("**"), 2)
         zr_buf_sym(b, id)
       elsif i > 0
-        Buf.set_len(b, Buf.len(b) - 2)
+        Buf[b].len = Buf[b].len - 2
       else
         zr_buf_push(b, Machine.bytes("**"), 2)
       end
@@ -609,7 +615,7 @@ module Zr::Kern
         zr_buf_byte(b, 38)
         zr_buf_sym(b, id)
       elsif forwarding
-        Buf.set_len(b, Buf.len(b) - 2)
+        Buf[b].len = Buf[b].len - 2
       else
         zr_buf_push(b, Machine.bytes("..."), 3)
       end
@@ -642,9 +648,9 @@ module Zr::Kern
 
   #: (ptr, value) -> void
   def zr_buf_method_params(b, m)
-    e = RMethod.entry(m)
+    e = Machine.ptr(RMethod[m].entry)
     meta = zr_method_meta(e)
-    if meta == 0 || FrameMeta.file_len(meta) == 0
+    if meta == 0 || FrameMeta[meta].file_len == 0
       # A core method: the list that `parameters` gives, which knows the
       # ones CRuby writes in Ruby.
       params = zr_send(m, Machine.id(:parameters), 0, 0)
@@ -657,12 +663,12 @@ module Zr::Kern
           return
         end
       end
-      Task.set_pending(zr_task(), Machine.value(QNIL))
+      Task[zr_task()].pending = Machine.value(QNIL)
     end
     zr_buf_byte(b, 40)
     arity = zr_method_arity_of(m)
-    if meta != 0 && FrameMeta.file_len(meta) > 0
-      table = FrameMeta.params(meta)
+    if meta != 0 && FrameMeta[meta].file_len > 0
+      table = FrameMeta[meta].params
       n = Machine.load64(table, 0)
       forwarding = zr_params_forwarding_p(table)
       i = 0
@@ -698,16 +704,16 @@ module Zr::Kern
     zr_buf_push(b, Machine.bytes("#<"), 2)
     zr_buf_class(b, zr_class_of(recv))
     zr_buf_push(b, Machine.bytes(": "), 2)
-    owner = RMethod.owner(recv)
-    klass = RMethod.klass(recv)
+    owner = RMethod[recv].owner
+    klass = RMethod[recv].klass
     if zr_singleton_p(owner)
-      attached = RClass.attached(owner)
-      if RMethod.recv(recv) == QUNDEF || RMethod.recv(recv) == attached
-        s = zr_inspect(RMethod.recv(recv) == QUNDEF ? owner : attached)
+      attached = RClass[owner].attached
+      if RMethod[recv].recv == QUNDEF || RMethod[recv].recv == attached
+        s = zr_inspect(RMethod[recv].recv == QUNDEF ? owner : attached)
         return s if s == QUNDEF
         zr_buf_str(b, s)
       else
-        s = zr_inspect(RMethod.recv(recv))
+        s = zr_inspect(RMethod[recv].recv)
         return s if s == QUNDEF
         zr_buf_str(b, s)
         zr_buf_byte(b, 40)
@@ -716,13 +722,13 @@ module Zr::Kern
         zr_buf_str(b, s)
         zr_buf_byte(b, 41)
       end
-      zr_buf_byte(b, RMethod.recv(recv) == QUNDEF ? 35 : 46)
+      zr_buf_byte(b, RMethod[recv].recv == QUNDEF ? 35 : 46)
     else
       while zr_singleton_p(klass) || zr_type(klass) == T_ICLASS
-        klass = RClass.superclass(klass)
+        klass = RClass[klass].superclass
       end
       defined = zr_method_defined_in(recv)
-      if RMethod.recv(recv) == QUNDEF
+      if RMethod[recv].recv == QUNDEF
         klass = defined
       end
       s = zr_inspect(klass)
@@ -737,10 +743,10 @@ module Zr::Kern
       end
       zr_buf_byte(b, 35)
     end
-    e = RMethod.entry(recv)
-    zr_buf_sym(b, MEntry.mid(e))
+    e = Machine.ptr(RMethod[recv].entry)
+    zr_buf_sym(b, MEntry[e].mid)
     original = zr_method_original_id(e)
-    if original != MEntry.mid(e)
+    if original != MEntry[e].mid
       zr_buf_byte(b, 40)
       zr_buf_sym(b, original)
       zr_buf_byte(b, 41)
@@ -749,9 +755,9 @@ module Zr::Kern
     meta = zr_method_location(e)
     if meta != 0
       zr_buf_byte(b, 32)
-      zr_buf_push(b, FrameMeta.file(meta), FrameMeta.file_len(meta))
+      zr_buf_push(b, FrameMeta[meta].file, FrameMeta[meta].file_len)
       zr_buf_byte(b, 58)
-      zr_buf_long(b, FrameMeta.line(meta))
+      zr_buf_long(b, FrameMeta[meta].line)
     else
       # A core method that CRuby writes in Ruby shows its builtin def.
       place = zr_method_source_location(recv, 0, 0, Machine.value(QNIL), Machine.value(QNIL))

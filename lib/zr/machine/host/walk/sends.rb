@@ -452,7 +452,7 @@ module Zr
               kind = unit.internal ? k::KIND_HIDDEN : k::KIND_BLOCK
               open = open?(node, :block, unit, node.params)
               m = meta(node, unit, kind, parent: s.meta, params: node.params, locals: node.locals, open: open, cover: node.cover)
-              k::FrameMeta.set_captures(m, captures_table(node, homes, unit.spelling))
+              k::FrameMeta[m].captures = captures_table(node, homes, unit.spelling)
               inner = scope(node, unit, :block, m, scopes: [node.locals, *s.scopes], homes: homes, def_node: s.def_node, params: node.params,
                                                    open: open)
               # The body compiles at its first run.
@@ -465,7 +465,7 @@ module Zr
                   run.call(f, argc, argv, blk)
                 end
               end)
-              k::FrameMeta.set_fn(m, fn)
+              k::FrameMeta[m].fn = fn
               [fn, m]
             end
           end

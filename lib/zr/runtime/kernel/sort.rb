@@ -12,7 +12,13 @@ module Zr::Kern
   # `plain` means that Integer and String had the core's own `<=>` when the
   # sort started. Then two fixnums or two Strings compare with no send
   # (zr_sort_plain).
-  Sort = layout base: Ptr, stride: Word, blk: Value, failed: Word, plain: Word
+  class Sort < Layout
+    attr_accessor :base #: ptr
+    attr_accessor :stride #: word
+    attr_accessor :blk #: value
+    attr_accessor :failed #: word
+    attr_accessor :plain #: word
+  end
 
   # Converts the result of `x <=> y` to -1, 0 or 1, as CRuby does. For an
   # Integer, it uses the sign. For other values, it tries `> 0`, then
@@ -69,15 +75,15 @@ module Zr::Kern
 
   #: (ptr, word) -> value
   def zr_sort_at(st, i)
-    Machine.value(Machine.load64(Sort.base(st) + (i * Sort.stride(st)), 0))
+    Machine.value(Machine.load64(Sort[st].base + (i * Sort[st].stride), 0))
   end
 
   #: (ptr, word, word) -> void
   def zr_sort_swap(st, i, j)
-    a = Sort.base(st) + (i * Sort.stride(st))
-    b = Sort.base(st) + (j * Sort.stride(st))
+    a = Sort[st].base + (i * Sort[st].stride)
+    b = Sort[st].base + (j * Sort[st].stride)
     off = 0
-    while off < Sort.stride(st)
+    while off < Sort[st].stride
       t = Machine.load64(a + off, 0)
       Machine.store64(a + off, 0, Machine.load64(b + off, 0))
       Machine.store64(b + off, 0, t)
@@ -100,7 +106,7 @@ module Zr::Kern
   #: (word) -> bool
   def zr_core_cmp_p(klass)
     e = zr_find_method(zr_global(klass), Machine.id(:<=>))
-    e != 0 && MEntry.core(e) != 0
+    e != 0 && MEntry[e].core != 0
   end
 
   # `a <=> b` with no send, when both are Strings and `a` finds the core's
@@ -112,7 +118,7 @@ module Zr::Kern
       return Machine.value(QFALSE)
     end
     e = zr_find_method(zr_class_of(a), Machine.id(:<=>))
-    if e == 0 || MEntry.core(e) == 0 || e != zr_find_method(zr_global(G_STRING), Machine.id(:<=>))
+    if e == 0 || MEntry[e].core == 0 || e != zr_find_method(zr_global(G_STRING), Machine.id(:<=>))
       return Machine.value(QFALSE)
     end
     other = Machine.slot(8)
@@ -133,7 +139,7 @@ module Zr::Kern
   def zr_sort_cmp(st, i, j)
     x = zr_sort_at(st, i)
     y = zr_sort_at(st, j)
-    if zr_fixnum_p(x) && zr_fixnum_p(y) && Sort.plain(st) != 0 && Sort.blk(st) == QNIL && Sort.failed(st) == 0
+    if zr_fixnum_p(x) && zr_fixnum_p(y) && Sort[st].plain != 0 && Sort[st].blk == QNIL && Sort[st].failed == 0
       return x < y ? 0 - 1 : (x > y ? 1 : 0)
     end
     zr_sort_cmp_values(st, x, y)
@@ -144,15 +150,15 @@ module Zr::Kern
   # Ruby.
   #: (ptr, value, value) -> word
   def zr_sort_cmp_values(st, x, y)
-    if Sort.failed(st) != 0
+    if Sort[st].failed != 0
       return 0
     end
-    if Sort.blk(st) == QNIL
-      if Sort.plain(st) != 0
+    if Sort[st].blk == QNIL
+      if Sort[st].plain != 0
         if zr_fixnum_p(x) && zr_fixnum_p(y)
           return x < y ? 0 - 1 : (x > y ? 1 : 0)
         end
-        if !zr_special_p(x) && !zr_special_p(y) && RBasic.klass(x) == zr_global(G_STRING) && RBasic.klass(y) == zr_global(G_STRING)
+        if !zr_special_p(x) && !zr_special_p(y) && RBasic[x].klass == zr_global(G_STRING) && RBasic[y].klass == zr_global(G_STRING)
           slot = Machine.slot(8)
           Machine.store64(slot, 0, Machine.word(y))
           return zr_fix2long(zr_str_cmp(x, 1, slot, Machine.value(QNIL), Machine.value(QNIL)))
@@ -162,13 +168,13 @@ module Zr::Kern
       Machine.store64(slot, 0, Machine.word(y))
       r = zr_send(x, Machine.id(:<=>), 1, slot)
     else
-      r = zr_yield2(Sort.blk(st), x, y)
+      r = zr_yield2(Sort[st].blk, x, y)
     end
     if r != QUNDEF
       r = zr_cmpint(r, x, y)
     end
     if r == QUNDEF
-      Sort.set_failed(st, 1)
+      Sort[st].failed = 1
       return 0
     end
     zr_fix2long(r)
@@ -231,12 +237,12 @@ module Zr::Kern
       if left > 1
         n = left
       else
-        if waiting == QNIL || RArray.len(waiting) == 0
+        if waiting == QNIL || RArray[waiting].len == 0
           return
         end
-        n = zr_fix2long(zr_ary_at(waiting, RArray.len(waiting) - 1))
-        a = zr_fix2long(zr_ary_at(waiting, RArray.len(waiting) - 2))
-        RArray.set_len(waiting, RArray.len(waiting) - 2)
+        n = zr_fix2long(zr_ary_at(waiting, RArray[waiting].len - 1))
+        a = zr_fix2long(zr_ary_at(waiting, RArray[waiting].len - 2))
+        RArray[waiting].len = RArray[waiting].len - 2
       end
     end
   end
@@ -451,7 +457,7 @@ module Zr::Kern
   # heapsort numbers them.
   #: (ptr, word, word) -> ptr
   def zr_sort_heap_at(st, a, i)
-    Sort.base(st) + ((a + i - 1) * Sort.stride(st))
+    Sort[st].base + ((a + i - 1) * Sort[st].stride)
   end
 
   # heapsort (stdlib/FreeBSD/heapsort.c): build the heap, then move the
@@ -463,11 +469,11 @@ module Zr::Kern
     if n <= 1
       return
     end
-    stride = Sort.stride(st)
+    stride = Sort[st].stride
     keep = zr_ary_new(2)
     zr_ary_push(keep, Machine.value(QNIL))
     zr_ary_push(keep, Machine.value(QNIL))
-    k = RArray.ptr(keep)
+    k = RArray[keep].ptr
     l = n / 2
     while l > 0
       par = l
@@ -509,7 +515,7 @@ module Zr::Kern
         zr_memcpy(zr_sort_heap_at(st, a, child), zr_sort_heap_at(st, a, par), stride)
       end
     end
-    RArray.set_len(keep, 0)
+    RArray[keep].len = 0
   end
 
   # Sorts `ary` in place. `ary` is a copy that the caller made. Thus a
@@ -517,18 +523,18 @@ module Zr::Kern
   # keeps every element reachable while the block runs.
   #: (value, value) -> value
   def zr_ary_sort_copy(ary, blk)
-    n = RArray.len(ary)
+    n = RArray[ary].len
     if n < 2
       return ary
     end
     st = Machine.slot(Sort.size)
-    Sort.set_base(st, RArray.ptr(ary))
-    Sort.set_stride(st, 8)
-    Sort.set_blk(st, blk)
-    Sort.set_failed(st, 0)
-    Sort.set_plain(st, blk == QNIL ? zr_sort_plain() : 0)
+    Sort[st].base = RArray[ary].ptr
+    Sort[st].stride = 8
+    Sort[st].blk = blk
+    Sort[st].failed = 0
+    Sort[st].plain = blk == QNIL ? zr_sort_plain() : 0
     zr_os_sort(st, n)
-    if Sort.failed(st) != 0
+    if Sort[st].failed != 0
       return Machine.value(QUNDEF)
     end
     ary
@@ -536,7 +542,7 @@ module Zr::Kern
 
   #: (value, word, ptr, value, value) -> value
   def zr_ary_sort(recv, argc, argv, cref, blk)
-    zr_ary_sort_copy(zr_ary_of(RArray.len(recv), RArray.ptr(recv)), blk)
+    zr_ary_sort_copy(zr_ary_of(RArray[recv].len, RArray[recv].ptr), blk)
   end
 
   # Copies the elements and the length of the sorted copy back to the
@@ -547,13 +553,13 @@ module Zr::Kern
     if zr_modify_frozen_p(recv)
       return zr_frozen_error(recv)
     end
-    tmp = zr_ary_sort_copy(zr_ary_of(RArray.len(recv), RArray.ptr(recv)), blk)
+    tmp = zr_ary_sort_copy(zr_ary_of(RArray[recv].len, RArray[recv].ptr), blk)
     return tmp if tmp == QUNDEF
-    n = RArray.len(tmp)
+    n = RArray[tmp].len
     zr_ary_reserve(recv, n)
-    zr_memcpy(RArray.ptr(recv), RArray.ptr(tmp), n * 8)
+    zr_memcpy(RArray[recv].ptr, RArray[tmp].ptr, n * 8)
     zr_write_barrier_all(recv)
-    RArray.set_len(recv, n)
+    RArray[recv].len = n
     recv
   end
 
@@ -561,7 +567,10 @@ module Zr::Kern
   # pairs. When every key is a fixnum or a Float, CRuby sorts with its own
   # introsort in place of `qsort_r`, and the order of equal keys comes from
   # that routine.
-  Pair = layout key: Value, elem: Value
+  class Pair < Layout
+    attr_accessor :key #: value
+    attr_accessor :elem #: value
+  end
 
   # The first two keys that a uniform sort cannot compare (a NaN). The
   # sort keeps them until it has put every record back, because the error
@@ -627,7 +636,7 @@ module Zr::Kern
 
   #: (ptr, word, word) -> bool
   def zr_uniform_less(base, i, j)
-    zr_uniform_key_less(Pair.key(base + (i * Pair.size)), Pair.key(base + (j * Pair.size)))
+    zr_uniform_key_less(Pair[base + (i * Pair.size)].key, Pair[base + (j * Pair.size)].key)
   end
   inline :zr_uniform_less
 
@@ -635,27 +644,27 @@ module Zr::Kern
   def zr_uniform_swap(base, i, j)
     a = base + (i * Pair.size)
     b = base + (j * Pair.size)
-    k = Pair.key(a)
-    e = Pair.elem(a)
-    Pair.set_key(a, Pair.key(b))
-    Pair.set_elem(a, Pair.elem(b))
-    Pair.set_key(b, k)
-    Pair.set_elem(b, e)
+    k = Pair[a].key
+    e = Pair[a].elem
+    Pair[a].key = Pair[b].key
+    Pair[a].elem = Pair[b].elem
+    Pair[b].key = k
+    Pair[b].elem = e
   end
 
   # Moves the record at `i` to `pos`, and shifts the records between them
   # up by one.
   #: (ptr, word, word) -> void
   def zr_uniform_move(base, i, pos)
-    k = Pair.key(base + (i * Pair.size))
-    e = Pair.elem(base + (i * Pair.size))
+    k = Pair[base + (i * Pair.size)].key
+    e = Pair[base + (i * Pair.size)].elem
     while i > pos
-      Pair.set_key(base + (i * Pair.size), Pair.key(base + ((i - 1) * Pair.size)))
-      Pair.set_elem(base + (i * Pair.size), Pair.elem(base + ((i - 1) * Pair.size)))
+      Pair[base + (i * Pair.size)].key = Pair[base + ((i - 1) * Pair.size)].key
+      Pair[base + (i * Pair.size)].elem = Pair[base + ((i - 1) * Pair.size)].elem
       i -= 1
     end
-    Pair.set_key(base + (pos * Pair.size), k)
-    Pair.set_elem(base + (pos * Pair.size), e)
+    Pair[base + (pos * Pair.size)].key = k
+    Pair[base + (pos * Pair.size)].elem = e
   end
 
   #: (ptr, word, word) -> void
@@ -679,23 +688,23 @@ module Zr::Kern
   #: (ptr, word, word, word) -> void
   def zr_uniform_heap_down(base, a, offset, len)
     scratch = Machine.slot(Pair.size)
-    Pair.set_key(scratch, Pair.key(base + ((a + offset) * Pair.size)))
-    Pair.set_elem(scratch, Pair.elem(base + ((a + offset) * Pair.size)))
+    Pair[scratch].key = Pair[base + ((a + offset) * Pair.size)].key
+    Pair[scratch].elem = Pair[base + ((a + offset) * Pair.size)].elem
     while true
       c = (offset * 2) + 1
       break if c > len
       if c < len && zr_uniform_less(base, a + c, a + c + 1)
         c += 1
       end
-      if !zr_uniform_key_less(Pair.key(scratch), Pair.key(base + ((a + c) * Pair.size)))
+      if !zr_uniform_key_less(Pair[scratch].key, Pair[base + ((a + c) * Pair.size)].key)
         break
       end
-      Pair.set_key(base + ((a + offset) * Pair.size), Pair.key(base + ((a + c) * Pair.size)))
-      Pair.set_elem(base + ((a + offset) * Pair.size), Pair.elem(base + ((a + c) * Pair.size)))
+      Pair[base + ((a + offset) * Pair.size)].key = Pair[base + ((a + c) * Pair.size)].key
+      Pair[base + ((a + offset) * Pair.size)].elem = Pair[base + ((a + c) * Pair.size)].elem
       offset = c
     end
-    Pair.set_key(base + ((a + offset) * Pair.size), Pair.key(scratch))
-    Pair.set_elem(base + ((a + offset) * Pair.size), Pair.elem(scratch))
+    Pair[base + ((a + offset) * Pair.size)].key = Pair[scratch].key
+    Pair[base + ((a + offset) * Pair.size)].elem = Pair[scratch].elem
   end
 
   #: (ptr, word, word) -> void
@@ -722,20 +731,20 @@ module Zr::Kern
   def zr_uniform_med3(base, a, b, c)
     if zr_uniform_less(base, a, b)
       if zr_uniform_less(base, b, c)
-        return Pair.key(base + (b * Pair.size))
+        return Pair[base + (b * Pair.size)].key
       end
       if zr_uniform_less(base, c, a)
-        return Pair.key(base + (a * Pair.size))
+        return Pair[base + (a * Pair.size)].key
       end
-      return Pair.key(base + (c * Pair.size))
+      return Pair[base + (c * Pair.size)].key
     end
     if zr_uniform_less(base, c, b)
-      return Pair.key(base + (b * Pair.size))
+      return Pair[base + (b * Pair.size)].key
     end
     if zr_uniform_less(base, a, c)
-      return Pair.key(base + (a * Pair.size))
+      return Pair[base + (a * Pair.size)].key
     end
-    Pair.key(base + (c * Pair.size))
+    Pair[base + (c * Pair.size)].key
   end
 
   #: (ptr, word, word, word) -> void
@@ -752,10 +761,10 @@ module Zr::Kern
     i = a
     j = stop - 1
     while true
-      while zr_uniform_key_less(Pair.key(base + (i * Pair.size)), x)
+      while zr_uniform_key_less(Pair[base + (i * Pair.size)].key, x)
         i += 1
       end
-      while zr_uniform_key_less(x, Pair.key(base + (j * Pair.size)))
+      while zr_uniform_key_less(x, Pair[base + (j * Pair.size)].key)
         j -= 1
       end
       if i <= j
@@ -781,7 +790,7 @@ module Zr::Kern
     i = 1
     sorted = 1
     while i < n
-      if zr_uniform_key_larger(Pair.key(base + ((i - 1) * Pair.size)), Pair.key(base + (i * Pair.size)))
+      if zr_uniform_key_larger(Pair[base + ((i - 1) * Pair.size)].key, Pair[base + (i * Pair.size)].key)
         sorted = 0
         break
       end
@@ -803,14 +812,14 @@ module Zr::Kern
   # elements in key order, or `undef` when a comparison raised.
   #: (value) -> value
   def zr_sort_by(pairs)
-    n = RArray.len(pairs) / 2
-    base = RArray.ptr(pairs)
+    n = RArray[pairs].len / 2
+    base = RArray[pairs].ptr
     # enum.c sorts the keys natively only while Integer and Float have the
     # core's own `<=>`.
     uniform = zr_core_cmp_p(G_INTEGER) && zr_core_cmp_p(G_FLOAT) ? 1 : 0
     i = 0
     while i < n
-      k = Pair.key(base + (i * Pair.size))
+      k = Pair[base + (i * Pair.size)].key
       if !zr_fixnum_p(k) && !zr_float_p(k)
         uniform = 0
       end
@@ -826,20 +835,20 @@ module Zr::Kern
       end
     else
       st = Machine.slot(Sort.size)
-      Sort.set_base(st, base)
-      Sort.set_stride(st, Pair.size)
-      Sort.set_blk(st, Machine.value(QNIL))
-      Sort.set_failed(st, 0)
-      Sort.set_plain(st, zr_sort_plain())
+      Sort[st].base = base
+      Sort[st].stride = Pair.size
+      Sort[st].blk = Machine.value(QNIL)
+      Sort[st].failed = 0
+      Sort[st].plain = zr_sort_plain()
       zr_os_sort(st, n)
-      if Sort.failed(st) != 0
+      if Sort[st].failed != 0
         return Machine.value(QUNDEF)
       end
     end
     out = zr_ary_new(n)
     i = 0
     while i < n
-      zr_ary_push(out, Pair.elem(RArray.ptr(pairs) + (i * Pair.size)))
+      zr_ary_push(out, Pair[RArray[pairs].ptr + (i * Pair.size)].elem)
       i += 1
     end
     out

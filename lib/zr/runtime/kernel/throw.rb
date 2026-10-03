@@ -6,10 +6,10 @@ module Zr::Kern
   #: () -> value
   def zr_catches
     t = zr_task()
-    list = Task.catches(t)
+    list = Task[t].catches
     if list == QNIL
       list = zr_ary_new(8)
-      Task.set_catches(t, list)
+      Task[t].catches = list
     end
     list
   end
@@ -18,7 +18,7 @@ module Zr::Kern
   #: (value) -> value
   def zr_catch_tag_p(tag)
     list = zr_catches()
-    i = RArray.len(list) - 1
+    i = RArray[list].len - 1
     while i >= 0
       if zr_ary_at(list, i) == tag
         return Machine.value(QTRUE)
@@ -32,7 +32,7 @@ module Zr::Kern
   # that a catch for `tag` is active.
   #: (value, value) -> value
   def zr_throw(tag, value)
-    Task.set_throw_tag(zr_task(), tag)
+    Task[zr_task()].throw_tag = tag
     zr_signal(PENDING_THROW, value, 0, 0)
   end
 
@@ -45,13 +45,13 @@ module Zr::Kern
     slot = Machine.slot(8)
     Machine.store64(slot, 0, Machine.word(tag))
     r = zr_yield(blk, 1, slot)
-    RArray.set_len(list, RArray.len(list) - 1)
+    RArray[list].len = RArray[list].len - 1
     t = zr_task()
-    if r == QUNDEF && Task.pending_kind(t) == PENDING_THROW && Task.throw_tag(t) == tag
-      r = Task.pending(t)
-      Task.set_pending_kind(t, PENDING_RAISE)
-      Task.set_pending(t, Machine.value(QNIL))
-      Task.set_throw_tag(t, Machine.value(QNIL))
+    if r == QUNDEF && Task[t].pending_kind == PENDING_THROW && Task[t].throw_tag == tag
+      r = Task[t].pending
+      Task[t].pending_kind = PENDING_RAISE
+      Task[t].pending = Machine.value(QNIL)
+      Task[t].throw_tag = Machine.value(QNIL)
     end
     r
   end

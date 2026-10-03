@@ -13,7 +13,16 @@ module Zr::Kern
   # `lazy` is the object that an `instance_exec` runs under, until some
   # code needs its singleton class. ruby makes that class only then, and an
   # object with a singleton class shows differently in an error message.
-  RCref = layout basic: RBasic, klass: Value, next: Value, vis: Word, modfn: Word, eval: Word, entry: Ptr, lazy: Value
+  class RCref < Layout
+    attr_reader :basic #: RBasic
+    attr_accessor :klass #: value
+    attr_accessor :next #: value
+    attr_accessor :vis #: word
+    attr_accessor :modfn #: word
+    attr_accessor :eval #: word
+    attr_accessor :entry #: ptr
+    attr_accessor :lazy #: value
+  end
   T_CREF = 25
   # The `RCref.eval` value for a block that runs under an object with no
   # singleton class, as in `1.instance_eval`. A `def` there has no class to
@@ -27,13 +36,13 @@ module Zr::Kern
   #: (value, value) -> value
   def zr_cref_push(klass, outer)
     c = zr_alloc(T_CREF, Machine.value(QNIL), RCref.size)
-    RCref.set_klass(c, klass)
-    RCref.set_next(c, outer)
-    RCref.set_vis(c, VIS_PUBLIC)
-    RCref.set_modfn(c, 0)
-    RCref.set_eval(c, 0)
-    RCref.set_entry(c, 0)
-    RCref.set_lazy(c, Machine.value(QNIL))
+    RCref[c].klass = klass
+    RCref[c].next = outer
+    RCref[c].vis = VIS_PUBLIC
+    RCref[c].modfn = 0
+    RCref[c].eval = 0
+    RCref[c].entry = 0
+    RCref[c].lazy = Machine.value(QNIL)
     c
   end
 
@@ -41,18 +50,18 @@ module Zr::Kern
   # an object and no code needed that class yet, it makes the class first.
   #: (value) -> value
   def zr_cref_klass(cref)
-    obj = RCref.lazy(cref)
+    obj = RCref[cref].lazy
     if obj != QNIL
-      RCref.set_klass(cref, zr_singleton_class(obj))
-      RCref.set_lazy(cref, Machine.value(QNIL))
+      RCref[cref].klass = zr_singleton_class(obj)
+      RCref[cref].lazy = Machine.value(QNIL)
     end
-    RCref.klass(cref)
+    RCref[cref].klass
   end
 
   #: (value, value) -> value
   def zr_cref_push_eval(klass, outer)
     c = zr_cref_push(klass, outer)
-    RCref.set_eval(c, 1)
+    RCref[c].eval = 1
     c
   end
 
@@ -71,20 +80,20 @@ module Zr::Kern
   # 0 is public, 1 is private, 2 is protected.
   #: (value, value) -> value
   def zr_cref_set_vis(cref, vis)
-    RCref.set_vis(cref, zr_fix2long(vis))
+    RCref[cref].vis = zr_fix2long(vis)
     Machine.value(QNIL)
   end
 
   #: (value) -> value
   def zr_cref_set_modfn(cref)
-    RCref.set_modfn(cref, 1)
+    RCref[cref].modfn = 1
     Machine.value(QNIL)
   end
 
   #: (value) -> value
   def zr_cref_lexical(cref)
-    while RCref.eval(cref) != 0
-      cref = RCref.next(cref)
+    while RCref[cref].eval != 0
+      cref = RCref[cref].next
     end
     cref
   end
@@ -103,9 +112,9 @@ module Zr::Kern
   # Deletes the index. The next lookup that needs it builds it again.
   #: (ptr) -> void
   def zr_const_index_drop(ext)
-    if ClassExt.cidx(ext) != 0
-      zr_xfree(ClassExt.cidx(ext))
-      ClassExt.set_cidx(ext, 0)
+    if ClassExt[ext].cidx != 0
+      zr_xfree(ClassExt[ext].cidx)
+      ClassExt[ext].cidx = 0
     end
   end
 
@@ -115,26 +124,26 @@ module Zr::Kern
   # scan does.
   #: (ptr, word) -> void
   def zr_const_index_put(ext, row)
-    mask = ClassExt.cbins(ext) - 1
-    h = Machine.mul_wrap(CEntry.id(ClassExt.ctab(ext) + (row * CEntry.size)), 2654435761) & mask
-    while Machine.load64(ClassExt.cidx(ext) + (h * 8), 0) != 0
+    mask = ClassExt[ext].cbins - 1
+    h = Machine.mul_wrap(CEntry[ClassExt[ext].ctab + (row * CEntry.size)].id, 2654435761) & mask
+    while Machine.load64(ClassExt[ext].cidx + (h * 8), 0) != 0
       h = (h + 1) & mask
     end
-    Machine.store64(ClassExt.cidx(ext) + (h * 8), 0, row + 1)
+    Machine.store64(ClassExt[ext].cidx + (h * 8), 0, row + 1)
   end
 
   # Builds a new index of all entries, with at least four bins for each entry.
   #: (ptr) -> void
   def zr_const_index_build(ext)
     zr_const_index_drop(ext)
-    n = ClassExt.clen(ext)
+    n = ClassExt[ext].clen
     bins = 64
     while bins < n * 4
       bins = bins * 2
     end
-    ClassExt.set_cidx(ext, zr_xmalloc(bins * 8))
-    Libc.memset(ClassExt.cidx(ext), Machine.i32(0), bins * 8)
-    ClassExt.set_cbins(ext, bins)
+    ClassExt[ext].cidx = zr_xmalloc(bins * 8)
+    Libc.memset(ClassExt[ext].cidx, Machine.i32(0), bins * 8)
+    ClassExt[ext].cbins = bins
     i = 0
     while i < n
       zr_const_index_put(ext, i)
@@ -147,10 +156,10 @@ module Zr::Kern
   # larger one.
   #: (ptr, word) -> void
   def zr_const_index_add(ext, row)
-    if ClassExt.cidx(ext) == 0
+    if ClassExt[ext].cidx == 0
       return
     end
-    if (row + 1) * 2 > ClassExt.cbins(ext)
+    if (row + 1) * 2 > ClassExt[ext].cbins
       zr_const_index_drop(ext)
       return
     end
@@ -160,18 +169,18 @@ module Zr::Kern
   # Returns the entry number of `id` in the table, or -1.
   #: (ptr, word) -> word
   def zr_const_index_find(ext, id)
-    if ClassExt.cidx(ext) == 0
+    if ClassExt[ext].cidx == 0
       zr_const_index_build(ext)
     end
-    mask = ClassExt.cbins(ext) - 1
+    mask = ClassExt[ext].cbins - 1
     h = Machine.mul_wrap(id, 2654435761) & mask
-    slot = Machine.load64(ClassExt.cidx(ext) + (h * 8), 0)
+    slot = Machine.load64(ClassExt[ext].cidx + (h * 8), 0)
     while slot != 0
-      if CEntry.id(ClassExt.ctab(ext) + ((slot - 1) * CEntry.size)) == id
+      if CEntry[ClassExt[ext].ctab + ((slot - 1) * CEntry.size)].id == id
         return slot - 1
       end
       h = (h + 1) & mask
-      slot = Machine.load64(ClassExt.cidx(ext) + (h * 8), 0)
+      slot = Machine.load64(ClassExt[ext].cidx + (h * 8), 0)
     end
     0 - 1
   end
@@ -181,7 +190,7 @@ module Zr::Kern
   #: (value, word) -> ptr
   def zr_const_row(klass, id)
     e = zr_const_row_kept(klass, id)
-    if e != 0 && CEntry.concealed(e) != 0 && !zr_const_sees_concealed()
+    if e != 0 && CEntry[e].concealed != 0 && !zr_const_sees_concealed()
       return 0
     end
     e
@@ -200,16 +209,16 @@ module Zr::Kern
     if zr_loading_hidden()
       return true
     end
-    rec = Task.top(zr_task())
+    rec = Task[zr_task()].top
     reflective = Machine.load64(Machine.static(:const_reflective, 8), 0) > 0
-    if !reflective && rec != 0 && (FrameMeta.kind(Frame.meta(rec)) == KIND_BUILTIN || FrameMeta.kind(Frame.meta(rec)) == KIND_HIDDEN)
+    if !reflective && rec != 0 && (FrameMeta[Frame[rec].meta].kind == KIND_BUILTIN || FrameMeta[Frame[rec].meta].kind == KIND_HIDDEN)
       return true
     end
     asking = zr_asking_frame()
     if reflective && asking != 0 && zr_core_asks_reflectively(rec, asking)
       return true
     end
-    asking == 0 || FrameMeta.hidden(Frame.meta(asking)) != 0
+    asking == 0 || FrameMeta[Frame[asking].meta].hidden != 0
   end
 
   # Whether the core method that frame `asking` called, the frame just
@@ -221,12 +230,12 @@ module Zr::Kern
     rec = top
     while rec != 0 && rec != asking
       above = rec
-      rec = Frame.prev(rec)
+      rec = Frame[rec].prev
     end
     if above == 0
       return false
     end
-    name = FrameMeta.name(Frame.meta(above))
+    name = FrameMeta[Frame[above].meta].name
     name != Machine.id(:const_get) && name != Machine.id(:constants) && name != Machine.id(:const_defined?) &&
       name != Machine.id(:const_source_location) && name != Machine.id(:send) && name != Machine.id(:__send__) &&
       name != Machine.id(:public_send) && name != Machine.id(:call)
@@ -248,8 +257,8 @@ module Zr::Kern
   #: (word) -> void
   def zr_const_reveal(id)
     e = zr_const_row_kept(zr_global(G_OBJECT), id)
-    if e != 0 && CEntry.concealed(e) != 0
-      CEntry.set_concealed(e, 0)
+    if e != 0 && CEntry[e].concealed != 0
+      CEntry[e].concealed = 0
       zr_consts_changed()
     end
   end
@@ -260,8 +269,8 @@ module Zr::Kern
   #: (value, word) -> void
   def zr_const_reveal_in(klass, id)
     e = zr_const_row_kept(klass, id)
-    if e != 0 && CEntry.concealed(e) != 0
-      CEntry.set_concealed(e, 0)
+    if e != 0 && CEntry[e].concealed != 0
+      CEntry[e].concealed = 0
       zr_consts_changed()
     end
   end
@@ -282,11 +291,11 @@ module Zr::Kern
   #: (value, word) -> ptr
   def zr_const_row_opened(scope, id)
     e = zr_const_row_kept(scope, id)
-    if e != 0 && CEntry.concealed(e) != 0
+    if e != 0 && CEntry[e].concealed != 0
       if zr_hidden_now()
         zr_hidden_defined(id)
       else
-        CEntry.set_concealed(e, 0)
+        CEntry[e].concealed = 0
         zr_consts_changed()
       end
     end
@@ -296,19 +305,19 @@ module Zr::Kern
   # Returns the constant entry for `id` on `klass` alone, hidden or not, or 0.
   #: (value, word) -> ptr
   def zr_const_row_kept(klass, id)
-    ext = RClass.ext(klass)
-    n = ClassExt.clen(ext)
+    ext = RClass[klass].ext
+    n = ClassExt[ext].clen
     if n >= CONST_INDEX_MIN
       i = zr_const_index_find(ext, id)
       if i < 0
         return 0
       end
-      return zr_box_const_hidden(klass, i) ? 0 : ClassExt.ctab(ext) + (i * CEntry.size)
+      return zr_box_const_hidden(klass, i) ? 0 : ClassExt[ext].ctab + (i * CEntry.size)
     end
     i = 0
     while i < n
-      e = ClassExt.ctab(ext) + (i * CEntry.size)
-      if CEntry.id(e) == id
+      e = ClassExt[ext].ctab + (i * CEntry.size)
+      if CEntry[e].id == id
         return zr_box_const_hidden(klass, i) ? 0 : e
       end
       i += 1
@@ -334,7 +343,7 @@ module Zr::Kern
   # value of the hook, or undef when it raises, or nil when there is no hook.
   #: (value, word) -> value
   def zr_const_announce(klass, id)
-    if zr_frame_with_file(Task.top(zr_task())) != 0 && zr_find_method(zr_class_of(klass), Machine.id(:const_added)) != 0
+    if zr_frame_with_file(Task[zr_task()].top) != 0 && zr_find_method(zr_class_of(klass), Machine.id(:const_added)) != 0
       return zr_hook(klass, Machine.id(:const_added), zr_sym(id))
     end
     Machine.value(QNIL)
@@ -362,48 +371,48 @@ module Zr::Kern
       return 0
     end
     e = zr_const_row_kept(klass, id)
-    if e != 0 && CEntry.concealed(e) != 0 && !zr_const_sees_concealed()
+    if e != 0 && CEntry[e].concealed != 0 && !zr_const_sees_concealed()
       # When the program sets a constant with a name that the runtime hides,
       # the program's constant takes the entry as a new one: public, and
       # not deprecated.
-      CEntry.set_concealed(e, 0)
-      CEntry.set_private(e, 0)
-      CEntry.set_deprecated(e, 0)
-      CEntry.set_value(e, Machine.value(QUNDEF))
+      CEntry[e].concealed = 0
+      CEntry[e].private = 0
+      CEntry[e].deprecated = 0
+      CEntry[e].value = Machine.value(QUNDEF)
     end
     if e == 0
-      ext = RClass.ext(klass)
-      n = ClassExt.clen(ext)
-      if n == ClassExt.ccap(ext)
+      ext = RClass[klass].ext
+      n = ClassExt[ext].clen
+      if n == ClassExt[ext].ccap
         cap = n * 2
         if cap < 8
           cap = 8
         end
         tab = zr_xmalloc(cap * CEntry.size)
-        if ClassExt.ctab(ext) != 0
-          zr_memcpy(tab, ClassExt.ctab(ext), n * CEntry.size)
-          zr_xfree(ClassExt.ctab(ext))
+        if ClassExt[ext].ctab != 0
+          zr_memcpy(tab, ClassExt[ext].ctab, n * CEntry.size)
+          zr_xfree(ClassExt[ext].ctab)
         end
-        ClassExt.set_ctab(ext, tab)
-        ClassExt.set_ccap(ext, cap)
+        ClassExt[ext].ctab = tab
+        ClassExt[ext].ccap = cap
       end
-      e = ClassExt.ctab(ext) + (n * CEntry.size)
-      CEntry.set_id(e, id)
-      CEntry.set_private(e, 0)
-      CEntry.set_deprecated(e, 0)
-      CEntry.set_owner(e, klass)
-      CEntry.set_concealed(e, 0)
+      e = ClassExt[ext].ctab + (n * CEntry.size)
+      CEntry[e].id = id
+      CEntry[e].private = 0
+      CEntry[e].deprecated = 0
+      CEntry[e].owner = klass
+      CEntry[e].concealed = 0
       if zr_hidden_now()
-        CEntry.set_concealed(e, 1)
+        CEntry[e].concealed = 1
         if klass == zr_global(G_OBJECT)
           zr_hidden_defined(id)
         else
           zr_hidden_defined_const(klass, id)
         end
       end
-      ClassExt.set_clen(ext, n + 1)
+      ClassExt[ext].clen = n + 1
       zr_const_index_add(ext, n)
-    elsif CEntry.value(e) != QUNDEF
+    elsif CEntry[e].value != QUNDEF
       zr_warn_reassigned_constant(klass, id, e)
     elsif v != QUNDEF
       # A value set on a name that still waits for its autoload file stays,
@@ -413,30 +422,30 @@ module Zr::Kern
         zr_ary_splice(zr_global(G_AUTOLOADS), zr_fix(i), zr_fix(AUTOLOAD_ROW), zr_ary_new(0))
       end
     end
-    CEntry.set_value(e, v)
+    CEntry[e].value = v
     zr_write_barrier(klass, v)
     zr_consts_changed()
     # An anonymous class gets its name here. The name is permanent under a
     # scope with a permanent name (and then the classes it contains get
     # permanent names too). Otherwise the name is temporary.
-    if !zr_special_p(v) && (zr_type(v) == T_CLASS || zr_type(v) == T_MODULE) && (RClass.name(v) == QNIL || (RBasic.flags(v) & FL_TEMP_NAME) != 0)
-      RClass.set_name(v, zr_class_name_under(klass, id))
+    if !zr_special_p(v) && (zr_type(v) == T_CLASS || zr_type(v) == T_MODULE) && (RClass[v].name == QNIL || (RBasic[v].flags & FL_TEMP_NAME) != 0)
+      RClass[v].name = zr_class_name_under(klass, id)
       if zr_class_named_for_good(klass)
-        RBasic.set_flags(v, RBasic.flags(v) & (0 - (FL_TEMP_NAME + 1)))
+        RBasic[v].flags = RBasic[v].flags & (0 - (FL_TEMP_NAME + 1))
         zr_name_nested(v)
       else
-        RBasic.set_flags(v, RBasic.flags(v) | FL_TEMP_NAME)
+        RBasic[v].flags = RBasic[v].flags | FL_TEMP_NAME
       end
     end
-    top = zr_frame_with_file(Task.top(zr_task()))
+    top = zr_frame_with_file(Task[zr_task()].top)
     if top == 0
-      CEntry.set_file(e, 0)
-      CEntry.set_file_len(e, 0)
-      CEntry.set_line(e, 0)
+      CEntry[e].file = 0
+      CEntry[e].file_len = 0
+      CEntry[e].line = 0
     else
-      CEntry.set_file(e, FrameMeta.file(Frame.meta(top)))
-      CEntry.set_file_len(e, FrameMeta.file_len(Frame.meta(top)))
-      CEntry.set_line(e, zr_frame_line(top))
+      CEntry[e].file = FrameMeta[Frame[top].meta].file
+      CEntry[e].file_len = FrameMeta[Frame[top].meta].file_len
+      CEntry[e].line = zr_frame_line(top)
     end
     e
   end
@@ -446,7 +455,7 @@ module Zr::Kern
   # runtime boots.
   #: (value, word, ptr) -> void
   def zr_warn_reassigned_constant(klass, id, e)
-    if Task.top(zr_task()) == 0 || zr_gvar_get(Machine.id(:$VERBOSE)) == QNIL
+    if Task[zr_task()].top == 0 || zr_gvar_get(Machine.id(:$VERBOSE)) == QNIL
       return
     end
     b = Machine.slot(Buf.size)
@@ -457,16 +466,16 @@ module Zr::Kern
       zr_buf_push(b, Machine.bytes("::"), 2)
     end
     zr_buf_sym(b, id)
-    zr_warn_here(Buf.ptr(b), Buf.len(b))
-    if CEntry.file_len(e) > 0
-      Buf.set_len(b, 0)
-      zr_buf_push(b, CEntry.file(e), CEntry.file_len(e))
+    zr_warn_here(Buf[b].ptr, Buf[b].len)
+    if CEntry[e].file_len > 0
+      Buf[b].len = 0
+      zr_buf_push(b, CEntry[e].file, CEntry[e].file_len)
       zr_buf_byte(b, 58)
-      zr_buf_long(b, CEntry.line(e))
+      zr_buf_long(b, CEntry[e].line)
       zr_buf_push(b, Machine.bytes(": warning: previous definition of "), 34)
       zr_buf_sym(b, id)
       zr_buf_push(b, Machine.bytes(" was here\n"), 10)
-      zr_write_err(Buf.ptr(b), Buf.len(b))
+      zr_write_err(Buf[b].ptr, Buf[b].len)
     end
     zr_buf_free(b)
   end
@@ -477,10 +486,10 @@ module Zr::Kern
   #: (ptr, ptr, word) -> void
   def zr_buf_previous_definition(b, e, id)
     zr_buf_byte(b, 10)
-    zr_buf_push(b, CEntry.file(e), CEntry.file_len(e))
+    zr_buf_push(b, CEntry[e].file, CEntry[e].file_len)
     zr_buf_byte(b, 58)
-    if CEntry.file_len(e) > 0
-      zr_buf_long(b, CEntry.line(e))
+    if CEntry[e].file_len > 0
+      zr_buf_long(b, CEntry[e].line)
     end
     zr_buf_push(b, Machine.bytes(": previous definition of "), 25)
     zr_buf_sym(b, id)
@@ -498,7 +507,7 @@ module Zr::Kern
           return e
         end
       end
-      klass = RClass.superclass(klass)
+      klass = RClass[klass].superclass
     end
     0
   end
@@ -518,7 +527,7 @@ module Zr::Kern
           return e
         end
       end
-      klass = RClass.superclass(klass)
+      klass = RClass[klass].superclass
     end
     0
   end
@@ -545,7 +554,7 @@ module Zr::Kern
   #: (value, ptr, word) -> value
   def zr_private_constant_read(scope, e, id)
     return zr_send_const_missing(scope, id) if zr_own_const_missing_p(scope)
-    zr_private_constant(CEntry.owner(e), id)
+    zr_private_constant(CEntry[e].owner, id)
   end
 
   #: (value, word) -> value
@@ -594,14 +603,14 @@ module Zr::Kern
   def zr_const_row_under(cref, id)
     cref = zr_cref_lexical(cref)
     c = cref
-    while RCref.next(c) != QNIL
-      if RCref.eval(c) == 0
+    while RCref[c].next != QNIL
+      if RCref[c].eval == 0
         e = zr_const_row(zr_cref_klass(c), id)
         if e != 0 && !zr_const_declared_only(e)
           return e
         end
       end
-      c = RCref.next(c)
+      c = RCref[c].next
     end
     e = zr_const_row_read_in(zr_cref_klass(cref), id, false)
     if e == 0
@@ -637,7 +646,7 @@ module Zr::Kern
       return Machine.value(QUNDEF)
     end
     e = zr_const_row_in(scope, id, scope != zr_global(G_OBJECT))
-    if e == 0 || CEntry.private(e) != 0
+    if e == 0 || CEntry[e].private != 0
       return Machine.value(QUNDEF)
     end
     zr_const_value(e)
@@ -650,7 +659,7 @@ module Zr::Kern
   # a file is still to come.
   #: (ptr) -> bool
   def zr_const_declared_only(e)
-    if CEntry.value(e) != QUNDEF
+    if CEntry[e].value != QUNDEF
       return false
     end
     rows = zr_global(G_AUTOLOADS)
@@ -658,7 +667,7 @@ module Zr::Kern
       return true
     end
     i = 0
-    while i < RArray.len(rows)
+    while i < RArray[rows].len
       if zr_autoload_waiting(rows, i) && zr_const_row(zr_ary_at(rows, i), zr_sym2id(zr_ary_at(rows, i + 1))) == e
         return false
       end
@@ -682,7 +691,7 @@ module Zr::Kern
       return Machine.value(QFALSE)
     end
     e = zr_const_row_in(scope, id, scope != zr_global(G_OBJECT))
-    zr_bool(e != 0 && CEntry.private(e) == 0 && !zr_const_declared_only(e))
+    zr_bool(e != 0 && CEntry[e].private == 0 && !zr_const_declared_only(e))
   end
 
   # Raises `private constant Foo::BAR referenced`.
@@ -705,13 +714,13 @@ module Zr::Kern
   # program can catch it or make it silent.
   #: (ptr, word) -> value
   def zr_const_deprecated(e, id)
-    if CEntry.deprecated(e) == 0
+    if CEntry[e].deprecated == 0
       return Machine.value(QNIL)
     end
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
     zr_buf_push(b, Machine.bytes("constant "), 9)
-    owner = CEntry.owner(e)
+    owner = CEntry[e].owner
     if owner != zr_global(G_OBJECT)
       zr_buf_str(b, zr_class_to_s(owner, 0, 0, Machine.value(QNIL), Machine.value(QNIL)))
       zr_buf_push(b, Machine.bytes("::"), 2)
@@ -730,7 +739,7 @@ module Zr::Kern
   #: (value, word, ptr, word) -> value
   def zr_mod_constant_visibility(recv, argc, argv, private)
     asking = zr_asking_frame()
-    core = asking == 0 || FrameMeta.hidden(Frame.meta(asking)) != 0
+    core = asking == 0 || FrameMeta[Frame[asking].meta].hidden != 0
     i = 0
     while i < argc
       slot = Machine.slot(8)
@@ -752,11 +761,11 @@ module Zr::Kern
         return zr_raise(exc)
       end
       if private < 0
-        CEntry.set_deprecated(e, 1)
+        CEntry[e].deprecated = 1
       else
-        CEntry.set_private(e, private)
+        CEntry[e].private = private
         if private == 1 && core
-          CEntry.set_concealed(e, 1)
+          CEntry[e].concealed = 1
         end
       end
       zr_consts_changed()
@@ -818,7 +827,7 @@ module Zr::Kern
       if e == 0
         return zr_uninitialized_constant(scope, id)
       end
-      if CEntry.private(e) != 0
+      if CEntry[e].private != 0
         return zr_private_constant_read(scope, e, id)
       end
       r = zr_const_deprecated(e, id)
@@ -848,7 +857,7 @@ module Zr::Kern
       zr_buf_push(b, Machine.bytes("::"), 2)
     end
     tail_ascii = zr_bytes_ascii_only_p(zr_symbol_name_ptr(id), zr_symbol_name_len(id))
-    index = zr_enc_append(index, ascii, Buf.len(b), tail_ascii ? ENC_USASCII : zr_symbol_encoding_index(id), tail_ascii)
+    index = zr_enc_append(index, ascii, Buf[b].len, tail_ascii ? ENC_USASCII : zr_symbol_encoding_index(id), tail_ascii)
     zr_buf_sym(b, id)
     zr_class_name_str(zr_str_set_index(zr_buf_take(b), index))
   end
@@ -857,7 +866,7 @@ module Zr::Kern
   # frozen, so `Module#name` returns the class's own String.
   #: (value) -> value
   def zr_class_name_str(s)
-    RBasic.set_flags(s, RBasic.flags(s) | FL_FREEZE)
+    RBasic[s].flags = RBasic[s].flags | FL_FREEZE
     s
   end
 
@@ -865,7 +874,7 @@ module Zr::Kern
   # toplevel, and under a scope that has a permanent name.
   #: (value) -> bool
   def zr_class_named_for_good(scope)
-    zr_toplevel_scope_p(scope) || (RClass.name(scope) != QNIL && (RBasic.flags(scope) & FL_TEMP_NAME) == 0)
+    zr_toplevel_scope_p(scope) || (RClass[scope].name != QNIL && (RBasic[scope].flags & FL_TEMP_NAME) == 0)
   end
 
   # `mod` just got a permanent name. Each class or module that it contains
@@ -873,13 +882,13 @@ module Zr::Kern
   # as CRuby's set_namespace_path does.
   #: (value) -> void
   def zr_name_nested(mod)
-    ext = RClass.ext(mod)
+    ext = RClass[mod].ext
     i = 0
-    while i < ClassExt.clen(ext)
-      v = CEntry.value(ClassExt.ctab(ext) + (i * CEntry.size))
-      if v != QUNDEF && !zr_special_p(v) && (zr_type(v) == T_CLASS || zr_type(v) == T_MODULE) && (RBasic.flags(v) & FL_TEMP_NAME) != 0
-        RBasic.set_flags(v, RBasic.flags(v) & (0 - (FL_TEMP_NAME + 1)))
-        RClass.set_name(v, zr_class_name_under(mod, CEntry.id(ClassExt.ctab(ext) + (i * CEntry.size))))
+    while i < ClassExt[ext].clen
+      v = CEntry[ClassExt[ext].ctab + (i * CEntry.size)].value
+      if v != QUNDEF && !zr_special_p(v) && (zr_type(v) == T_CLASS || zr_type(v) == T_MODULE) && (RBasic[v].flags & FL_TEMP_NAME) != 0
+        RBasic[v].flags = RBasic[v].flags & (0 - (FL_TEMP_NAME + 1))
+        RClass[v].name = zr_class_name_under(mod, CEntry[ClassExt[ext].ctab + (i * CEntry.size)].id)
         zr_name_nested(v)
       end
       i += 1
@@ -901,12 +910,12 @@ module Zr::Kern
     if e == 0 && zr_box_current() != QNIL
       e = zr_const_row_in(zr_global(G_OBJECT), id, false)
     end
-    if e != 0 && CEntry.value(e) == QUNDEF && zr_autoload_pending(scope, id) < 0
+    if e != 0 && CEntry[e].value == QUNDEF && zr_autoload_pending(scope, id) < 0
       e = 0
     end
     k = Machine.value(QUNDEF)
     # vm_const_get_under: a scoped path reads the constant as a public one.
-    if e != 0 && scoped != 0 && CEntry.private(e) != 0
+    if e != 0 && scoped != 0 && CEntry[e].private != 0
       return zr_private_constant_read(scope, e, id)
     end
     if e != 0
@@ -959,12 +968,12 @@ module Zr::Kern
     if e == 0 && zr_box_current() != QNIL
       e = zr_const_row_in(zr_global(G_OBJECT), id, false)
     end
-    if e != 0 && CEntry.value(e) == QUNDEF && zr_autoload_pending(scope, id) < 0
+    if e != 0 && CEntry[e].value == QUNDEF && zr_autoload_pending(scope, id) < 0
       e = 0
     end
     m = Machine.value(QUNDEF)
     # vm_const_get_under: a scoped path reads the constant as a public one.
-    if e != 0 && scoped != 0 && CEntry.private(e) != 0
+    if e != 0 && scoped != 0 && CEntry[e].private != 0
       return zr_private_constant_read(scope, e, id)
     end
     if e != 0
@@ -1084,9 +1093,9 @@ module Zr::Kern
       return Machine.value(QNIL)
     end
     out = zr_ary_new(2)
-    if CEntry.file_len(e) > 0
-      zr_ary_push(out, zr_str_new(CEntry.file(e), CEntry.file_len(e)))
-      zr_ary_push(out, zr_fix(CEntry.line(e)))
+    if CEntry[e].file_len > 0
+      zr_ary_push(out, zr_str_new(CEntry[e].file, CEntry[e].file_len))
+      zr_ary_push(out, zr_fix(CEntry[e].line))
     end
     out
   end
@@ -1155,7 +1164,7 @@ module Zr::Kern
       zr_exc_detail(exc, Machine.id(:receiver), recv)
       return zr_raise(exc)
     end
-    v = CEntry.value(e)
+    v = CEntry[e].value
     zr_const_remove(recv, id)
     # A name that still waits for its file also forgets the file, and
     # returns nil, as CRuby's rb_const_remove does.
@@ -1193,7 +1202,7 @@ module Zr::Kern
     r = zr_const_name_id(recv, Machine.value(Machine.load64(argv, 0)), slot)
     return r if r == QUNDEF
     v = Machine.value(Machine.load64(argv, 8))
-    if Task.ractor(zr_task()) != 0 && !zr_special_p(v)
+    if Task[zr_task()].ractor != 0 && !zr_special_p(v)
       r = zr_send(zr_core_class(Machine.id(:Ractor)), Machine.id(:const_write), 1, argv + 8)
       return r if r == QUNDEF
     end
@@ -1206,13 +1215,13 @@ module Zr::Kern
   # an id that is not rb_is_const_id.
   #: (value, value) -> void
   def zr_const_names_at(klass, out)
-    ext = RClass.ext(klass)
+    ext = RClass[klass].ext
     i = 0
-    while i < ClassExt.clen(ext)
-      e = ClassExt.ctab(ext) + (i * CEntry.size)
-      id = CEntry.id(e)
+    while i < ClassExt[ext].clen
+      e = ClassExt[ext].ctab + (i * CEntry.size)
+      id = CEntry[e].id
       name = zr_sym(id)
-      visible = CEntry.private(e) == 0 && (CEntry.concealed(e) == 0 || zr_const_sees_reflectively())
+      visible = CEntry[e].private == 0 && (CEntry[e].concealed == 0 || zr_const_sees_reflectively())
       if visible && zr_const_name_p(zr_symbol_name_ptr(id), zr_symbol_name_len(id)) && zr_ary_index_of(out, name) < 0
         zr_ary_push(out, name)
       end
@@ -1228,7 +1237,7 @@ module Zr::Kern
     k = mod
     while k != QNIL && (k != zr_global(G_OBJECT) || mod == zr_global(G_OBJECT))
       zr_const_names_at(k, out)
-      k = inherit ? RClass.superclass(k) : Machine.value(QNIL)
+      k = inherit ? RClass[k].superclass : Machine.value(QNIL)
     end
   end
 
@@ -1242,13 +1251,13 @@ module Zr::Kern
       return zr_mod_constants(recv, argc, argv, cref, blk)
     end
     out = zr_ary_new(8)
-    c = zr_cref_lexical(Frame.cref(Frame.prev(Task.top(zr_task()))))
+    c = zr_cref_lexical(Frame[Frame[Task[zr_task()].top].prev].cref)
     inner = zr_cref_klass(c)
     while c != QNIL
-      if RCref.eval(c) == 0
+      if RCref[c].eval == 0
         zr_const_names_at(zr_cref_klass(c), out)
       end
-      c = RCref.next(c)
+      c = RCref[c].next
     end
     zr_const_names_of(inner, out, true)
     out
@@ -1267,14 +1276,14 @@ module Zr::Kern
   # Removes the entry for `id` from the own table of `klass`.
   #: (value, word) -> void
   def zr_const_remove(klass, id)
-    ext = RClass.ext(klass)
-    n = ClassExt.clen(ext)
+    ext = RClass[klass].ext
+    n = ClassExt[ext].clen
     i = 0
     while i < n
-      e = ClassExt.ctab(ext) + (i * CEntry.size)
-      if CEntry.id(e) == id
+      e = ClassExt[ext].ctab + (i * CEntry.size)
+      if CEntry[e].id == id
         zr_memmove(e, e + CEntry.size, (n - i - 1) * CEntry.size)
-        ClassExt.set_clen(ext, n - 1)
+        ClassExt[ext].clen = n - 1
         # The entries after it moved up by one.
         zr_const_index_drop(ext)
         zr_consts_changed()
@@ -1317,7 +1326,7 @@ module Zr::Kern
     # waiting for a file, or waiting for a file that another require
     # provided) is declared again, and calls the hook again.
     row = zr_const_row(mod, id)
-    if row != 0 && CEntry.value(row) != QUNDEF
+    if row != 0 && CEntry[row].value != QUNDEF
       return Machine.value(QNIL)
     end
     pending = zr_autoload_row(mod, id)
@@ -1338,7 +1347,7 @@ module Zr::Kern
     # no file. ruby keeps no record for that, and only declares the name.
     # The compiler does the same check for a feature that the runtime
     # contains, which is in no table that a program can read.
-    if kind != AUTOLOAD_DECLARED && zr_ary_has_bytes(zr_gvar_get(Machine.id(:$LOADED_FEATURES)), RString.ptr(path), RString.len(path))
+    if kind != AUTOLOAD_DECLARED && zr_ary_has_bytes(zr_gvar_get(Machine.id(:$LOADED_FEATURES)), RString[path].ptr, RString[path].len)
       kind = AUTOLOAD_DECLARED
     end
     # The name is declared and the entry exists before the hook runs. Thus
@@ -1378,7 +1387,7 @@ module Zr::Kern
       zr_exc_detail(exc, Machine.id(:name), zr_sym(id))
       return zr_raise(exc)
     end
-    if RString.len(feature) == 0
+    if RString[feature].len == 0
       return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("empty feature name"), 18)
     end
     zr_autoload(mod, id, feature, Machine.ptr(0), cref, loaded == QTRUE ? AUTOLOAD_DECLARED : AUTOLOAD_REQUIRE,
@@ -1445,7 +1454,7 @@ module Zr::Kern
       return Machine.value(QNIL)
     end
     i = 0
-    while i < RArray.len(rows)
+    while i < RArray[rows].len
       if zr_autoload_names(zr_ary_at(rows, i + 2), feature) || zr_autoload_names(zr_ary_at(rows, i + 5), path)
         zr_ary_store(rows, i + 4, zr_fix(AUTOLOAD_DECLARED))
       end
@@ -1461,7 +1470,7 @@ module Zr::Kern
     if zr_special_p(kept) || zr_special_p(asked) || zr_type(kept) != T_STRING || zr_type(asked) != T_STRING
       return false
     end
-    zr_bytes_eq(RString.ptr(kept), RString.len(kept), RString.ptr(asked), RString.len(asked))
+    zr_bytes_eq(RString[kept].ptr, RString[kept].len, RString[asked].ptr, RString[asked].len)
   end
 
   # Returns the index of the autoload record for `mod` and `id`, waiting or
@@ -1473,7 +1482,7 @@ module Zr::Kern
       return 0 - 1
     end
     i = 0
-    while i < RArray.len(rows)
+    while i < RArray[rows].len
       if zr_ary_at(rows, i) == mod && zr_ary_at(rows, i + 1) == zr_sym(id)
         return i
       end
@@ -1532,13 +1541,13 @@ module Zr::Kern
   # value is nil.
   #: (ptr, ptr) -> value
   def zr_const_loaded(e, gone)
-    v = CEntry.value(e)
+    v = CEntry[e].value
     if v != QUNDEF
       return v
     end
     rows = zr_global(G_AUTOLOADS)
     i = 0
-    while i < RArray.len(rows)
+    while i < RArray[rows].len
       mod = zr_ary_at(rows, i)
       id = zr_sym2id(zr_ary_at(rows, i + 1))
       # An autoload record that does not wait reads no file: a require provided
@@ -1559,17 +1568,17 @@ module Zr::Kern
           return r
         end
         e = zr_const_row(mod, id)
-        if e == 0 || CEntry.value(e) == QUNDEF
+        if e == 0 || CEntry[e].value == QUNDEF
           zr_const_remove(mod, id)
           Machine.store64(gone, 0, Machine.word(mod))
           Machine.store64(gone, 8, id)
           return Machine.value(QNIL)
         end
-        return CEntry.value(e)
+        return CEntry[e].value
       end
       i += AUTOLOAD_ROW
     end
-    zr_uninitialized_constant(Machine.value(QNIL), CEntry.id(e))
+    zr_uninitialized_constant(Machine.value(QNIL), CEntry[e].id)
   end
 
   #: (value, word, ptr, value, value) -> value

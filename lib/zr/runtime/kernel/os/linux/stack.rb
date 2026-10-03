@@ -4,8 +4,6 @@ module Zr::Kern
   # a binary cannot request more. Ruby frames are machine frames here, so
   # the program runs on its own stack, which zr maps as it maps a fiber
   # stack.
-  Libc.import :mmap, [Ptr, Word, I32, I32, I32, Word] => Ptr
-  Libc.import :mprotect, [Ptr, Word, I32] => I32
 
   # `Native::Link::STACK`, the size that the darwin linker gives the main
   # thread.
@@ -94,9 +92,6 @@ module Zr::Kern
   # starts, it sets the poll word every 100 ms. Thus a thread that
   # computes with no call into the kernel yields to the scheduler at its
   # next back edge or method entry, as with CRuby's timer thread.
-  Libc.import :pthread_create, [Ptr, Ptr, Ptr, Ptr] => I32
-  Libc.import :pthread_detach, [Ptr] => I32
-
   #: (ptr) -> ptr
   def zr_poll_timer(arg)
     Machine.gates_enter

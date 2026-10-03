@@ -1,6 +1,5 @@
 module Zr::Kern
   # darwin signals: the number of signals, and the layout of sigaction.
-  Libc.import :sigaction, [I32, Ptr, Ptr] => I32
 
   # Darwin numbers its signals 1 to 31.
   NSIG = 32

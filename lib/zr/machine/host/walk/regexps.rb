@@ -27,7 +27,7 @@ module Zr
           #: (Integer source, Integer bits) -> Integer
           def regexp_compile(source, bits)
             FILES.each { |file| require file }
-            text = Memory.read(k::RString.ptr(source), k::RString.len(source))
+            text = Memory.read(k::RString[source].ptr, k::RString[source].len)
             text.force_encoding(::Encoding.list.fetch(k.zr_str_encoding_index(source)))
             # The core keeps both names private in Regexp.
             encoding, bits, compiled, warnings = ::Regexp.const_get(:Pattern).compile(text.freeze, bits >> 1)

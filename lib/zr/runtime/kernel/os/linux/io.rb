@@ -4,11 +4,6 @@ module Zr::Kern
   # of struct dirent and struct stat. AAPCS64 on Linux passes a variadic
   # argument in a register, the same as a fixed one. Thus fcntl, ioctl and
   # open take their last argument as a fixed third argument.
-  Libc.import :__errno_location, [] => Ptr
-  Libc.import :fcntl, [I32, I32, Word] => I32
-  Libc.import :ioctl, [I32, Word, Ptr] => I32
-  Libc.import :open, [Ptr, I32, I32] => I32
-  Libc.import :poll, [Ptr, Word, I32] => I32
 
   #: () -> word
   def zr_os_errno
@@ -147,7 +142,7 @@ module Zr::Kern
   # negative time waits with no limit.
   #: (value, value, value) -> value
   def zr_os_wait_fds(fds, events, milliseconds)
-    count = RArray.len(fds)
+    count = RArray[fds].len
     entries = zr_xmalloc((count + 1) * 8)
     i = 0
     while i < count

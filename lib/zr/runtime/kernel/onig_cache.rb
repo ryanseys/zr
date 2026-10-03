@@ -6,7 +6,6 @@ module Zr::Kern
   # later visit fails immediately. This keeps CRuby's matching linear on
   # patterns like /(a+)+$/. Derived from Onigmo; the license is in
   # lib/zr/runtime/kernel/regexp.rb.
-  Libc.import :memset, [Ptr, I32, Word] => Ptr
 
   ONIG_NUM_CACHE_OPCODES_UNINIT = 1
   ONIG_NUM_CACHE_OPCODES_IMPOSSIBLE = 0 - 1
@@ -19,8 +18,15 @@ module Zr::Kern
   STK_ATOMIC_MATCH_CACHE_POINT = 3584
 
   # OnigCacheOpcode.
-  OnigCacheOp = layout addr: Ptr, cache_point: Word, outer_repeat_mem: Word,
-    at_outer: Word, in_outer: Word, lookaround_nesting: Word, match_addr: Ptr
+  class OnigCacheOp < Layout
+    attr_accessor :addr #: ptr
+    attr_accessor :cache_point #: word
+    attr_accessor :outer_repeat_mem #: word
+    attr_accessor :at_outer #: word
+    attr_accessor :in_outer #: word
+    attr_accessor :lookaround_nesting #: word
+    attr_accessor :match_addr #: ptr
+  end
 
   # The position after the operands of an opcode that has no cache point
   # and needs no special handling, or 0 for all other opcodes.
@@ -43,7 +49,7 @@ module Zr::Kern
     return p + 4 + (zr_onig_get_i32(p) * 2) if op == OP_EXACTMB2N
     return p + 4 + (zr_onig_get_i32(p) * 3) if op == OP_EXACTMB3N
     return p + 8 + (zr_onig_get_i32(p) * zr_onig_get_i32(p + 4)) if op == OP_EXACTMBN
-    return p + zr_onig_enclen(OnigMatch.enc(m), p, pend) if op == OP_EXACT1_IC
+    return p + zr_onig_enclen(OnigMatch[m].enc, p, pend) if op == OP_EXACT1_IC
     return p + ONIG_SIZE_BITSET if op == OP_CCLASS || op == OP_CCLASS_NOT
     return p + ONIG_SIZE_BITSET + 4 + zr_onig_get_i32(p + ONIG_SIZE_BITSET) if op == OP_CCLASS_MIX || op == OP_CCLASS_MIX_NOT
     return p + ONIG_SIZE_RELADDR if op == OP_JUMP
@@ -58,7 +64,7 @@ module Zr::Kern
   #: (ptr, word, word, ptr, ptr) -> word
   def zr_onig_count_cache_opcodes(m, current_repeat_mem, lookaround_nesting, pp, np)
     p = Machine.ptr(Machine.load64(pp, 0))
-    pend = OnigMatch.code(m) + OnigProg.code_len(OnigMatch.prog(m))
+    pend = OnigMatch[m].code + OnigProg[OnigMatch[m].prog].code_len
     n = Machine.load64(np, 0)
     while p < pend
       op = Machine.u8(Machine.load8(p, 0))
@@ -184,10 +190,10 @@ module Zr::Kern
   #: (ptr, ptr) -> word
   def zr_onig_count_num_cache_opcodes(m, np)
     pp = Machine.slot(8)
-    Machine.store64(pp, 0, Machine.word(OnigMatch.code(m)))
+    Machine.store64(pp, 0, Machine.word(OnigMatch[m].code))
     Machine.store64(np, 0, 0)
     result = zr_onig_count_cache_opcodes(m, 0 - 1, 0, pp, np)
-    pend = OnigMatch.code(m) + OnigProg.code_len(OnigMatch.prog(m))
+    pend = OnigMatch[m].code + OnigProg[OnigMatch[m].prog].code_len
     if result == 0 && Machine.load64(np, 0) >= 0 && Machine.ptr(Machine.load64(pp, 0)) != pend
       return ONIGERR_UNDEFINED_BYTECODE
     end
@@ -201,13 +207,13 @@ module Zr::Kern
     return cache_point if cop == 0
     row = Machine.ptr(Machine.load64(cop, 0))
     return cache_point if row == 0
-    OnigCacheOp.set_addr(row, pbegin)
-    OnigCacheOp.set_cache_point(row, cache_point)
-    OnigCacheOp.set_outer_repeat_mem(row, current_repeat_mem)
-    OnigCacheOp.set_at_outer(row, 0)
-    OnigCacheOp.set_in_outer(row, 0)
-    OnigCacheOp.set_lookaround_nesting(row, lookaround_nesting)
-    OnigCacheOp.set_match_addr(row, Machine.ptr(0))
+    OnigCacheOp[row].addr = pbegin
+    OnigCacheOp[row].cache_point = cache_point
+    OnigCacheOp[row].outer_repeat_mem = current_repeat_mem
+    OnigCacheOp[row].at_outer = 0
+    OnigCacheOp[row].in_outer = 0
+    OnigCacheOp[row].lookaround_nesting = lookaround_nesting
+    OnigCacheOp[row].match_addr = Machine.ptr(0)
     Machine.store64(cop, 0, Machine.word(row + OnigCacheOp.size))
     cache_point + (lookaround_nesting != 0 ? 2 : 1)
   end
@@ -220,8 +226,8 @@ module Zr::Kern
     row = first
     stop = Machine.ptr(Machine.load64(cop, 0))
     while row < stop
-      if OnigCacheOp.match_addr(row) == 0
-        OnigCacheOp.set_match_addr(row, match_addr)
+      if OnigCacheOp[row].match_addr == 0
+        OnigCacheOp[row].match_addr = match_addr
       end
       row = row + OnigCacheOp.size
     end
@@ -233,7 +239,7 @@ module Zr::Kern
   #: (ptr, word, word, ptr, ptr, ptr) -> word
   def zr_onig_init_cache_opcodes(m, current_repeat_mem, lookaround_nesting, cop, pp, npoints)
     p = Machine.ptr(Machine.load64(pp, 0))
-    pend = OnigMatch.code(m) + OnigProg.code_len(OnigMatch.prog(m))
+    pend = OnigMatch[m].code + OnigProg[OnigMatch[m].prog].code_len
     cache_point = Machine.load64(npoints, 0)
     while p < pend
       pbegin = p
@@ -292,8 +298,8 @@ module Zr::Kern
           row = first
           stop = Machine.ptr(Machine.load64(cop, 0))
           while row != 0 && row < stop
-            OnigCacheOp.set_at_outer(row, at_repeat)
-            OnigCacheOp.set_in_outer(row, points_in_repeat)
+            OnigCacheOp[row].at_outer = at_repeat
+            OnigCacheOp[row].in_outer = points_in_repeat
             row = row + OnigCacheOp.size
           end
         end
@@ -337,12 +343,12 @@ module Zr::Kern
   #: (ptr, ptr, ptr) -> word
   def zr_onig_init_cache_rows(m, rows, npoints)
     pp = Machine.slot(8)
-    Machine.store64(pp, 0, Machine.word(OnigMatch.code(m)))
+    Machine.store64(pp, 0, Machine.word(OnigMatch[m].code))
     cop = Machine.slot(8)
     Machine.store64(cop, 0, Machine.word(rows))
     Machine.store64(npoints, 0, 0)
     result = zr_onig_init_cache_opcodes(m, 0 - 1, 0, cop, pp, npoints)
-    pend = OnigMatch.code(m) + OnigProg.code_len(OnigMatch.prog(m))
+    pend = OnigMatch[m].code + OnigProg[OnigMatch[m].prog].code_len
     if result == 0 && Machine.ptr(Machine.load64(pp, 0)) != pend
       return ONIGERR_UNDEFINED_BYTECODE
     end
@@ -357,7 +363,7 @@ module Zr::Kern
     mid = 0
     while l <= r
       mid = (l + r) / 2
-      addr = OnigCacheOp.addr(rows + (mid * OnigCacheOp.size))
+      addr = OnigCacheOp[rows + (mid * OnigCacheOp.size)].addr
       break if addr == p
       if addr < p
         l = mid + 1
@@ -372,25 +378,25 @@ module Zr::Kern
   # repeat count, or -1 for none. Stores its entry in the slot `cop`.
   #: (ptr, ptr, ptr) -> word
   def zr_onig_find_cache_point(m, p, cop)
-    rows = OnigMatch.cache_opcodes(m)
-    n = OnigMatch.num_cache_opcodes(m)
+    rows = OnigMatch[m].cache_opcodes
+    n = OnigMatch[m].num_cache_opcodes
     op = Machine.u8(Machine.load8(p, 0))
     is_inc = op == OP_REPEAT_INC || op == OP_REPEAT_INC_NG
     mid = zr_onig_bsearch_cache_opcodes(rows, n, p)
     row = rows + (mid * OnigCacheOp.size)
-    if !(mid >= 0 && mid < n && OnigCacheOp.addr(row) == p)
+    if !(mid >= 0 && mid < n && OnigCacheOp[row].addr == p)
       return 0 - 1
     end
     Machine.store64(cop, 0, Machine.word(row))
-    cache_point = OnigCacheOp.cache_point(row)
-    outer = OnigCacheOp.outer_repeat_mem(row)
+    cache_point = OnigCacheOp[row].cache_point
+    outer = OnigCacheOp[row].outer_repeat_mem
     return cache_point if outer == 0 - 1
-    at_outer = OnigCacheOp.at_outer(row)
-    in_outer = OnigCacheOp.in_outer(row)
+    at_outer = OnigCacheOp[row].at_outer
+    in_outer = OnigCacheOp[row].in_outer
     lower = zr_onig_repeat_range(m, outer, 0)
     upper = zr_onig_repeat_range(m, outer, 1)
-    stkp = zr_onig_stk_at(m, Machine.load64(OnigMatch.repeat_stk(m) + (outer * 8), 0))
-    count = is_inc ? OnigStk.a(stkp) - 1 : OnigStk.a(stkp)
+    stkp = zr_onig_stk_at(m, Machine.load64(OnigMatch[m].repeat_stk + (outer * 8), 0))
+    count = is_inc ? OnigStk[stkp].a - 1 : OnigStk[stkp].a
     if count < lower
       return at_outer + (in_outer * count) + cache_point
     end
@@ -424,13 +430,13 @@ module Zr::Kern
   # entry.
   #: (ptr, ptr) -> void
   def zr_onig_memoize_cache_point(m, stk)
-    type = OnigStk.type(stk)
+    type = OnigStk[stk].type
     if type == STK_MATCH_CACHE_POINT
-      buf = OnigMatch.match_cache_buf(m)
-      index = OnigStk.a(stk)
-      Machine.store8(buf + index, 0, Machine.i8(Machine.u8(Machine.load8(buf + index, 0)) | OnigStk.b(stk)))
+      buf = OnigMatch[m].match_cache_buf
+      index = OnigStk[stk].a
+      Machine.store8(buf + index, 0, Machine.i8(Machine.u8(Machine.load8(buf + index, 0)) | OnigStk[stk].b))
     elsif type == STK_ATOMIC_MATCH_CACHE_POINT
-      zr_onig_memoize_extended_cache_point(OnigMatch.match_cache_buf(m), OnigStk.a(stk), OnigStk.b(stk))
+      zr_onig_memoize_extended_cache_point(OnigMatch[m].match_cache_buf, OnigStk[stk].a, OnigStk[stk].b)
     end
   end
   # Each pop of the match loop runs it, almost always for no cache point.
@@ -440,9 +446,9 @@ module Zr::Kern
   # look-around leaves, and records it in the extended form.
   #: (ptr, ptr) -> void
   def zr_onig_memoize_lookaround_cache_point(m, stk)
-    if OnigStk.type(stk) == STK_MATCH_CACHE_POINT
-      OnigStk.set_type(stk, STK_VOID)
-      zr_onig_memoize_extended_cache_point(OnigMatch.match_cache_buf(m), OnigStk.a(stk), OnigStk.b(stk))
+    if OnigStk[stk].type == STK_MATCH_CACHE_POINT
+      OnigStk[stk].type = STK_VOID
+      zr_onig_memoize_extended_cache_point(OnigMatch[m].match_cache_buf, OnigStk[stk].a, OnigStk[stk].b)
     end
   end
 
@@ -450,31 +456,31 @@ module Zr::Kern
   # the cache points above it in the extended form.
   #: (ptr) -> void
   def zr_onig_stack_stop_bt_fail(m)
-    stk = OnigMatch.stk(m)
+    stk = OnigMatch[m].stk
     while true
       stk = stk - OnigStk.size
-      type = OnigStk.type(stk)
+      type = OnigStk[stk].type
       if type == STK_STOP_BT
-        OnigStk.set_type(stk, STK_VOID)
+        OnigStk[stk].type = STK_VOID
         break
       end
       if type == STK_MATCH_CACHE_POINT
-        zr_onig_memoize_extended_cache_point(OnigMatch.match_cache_buf(m), OnigStk.a(stk), OnigStk.b(stk))
+        zr_onig_memoize_extended_cache_point(OnigMatch[m].match_cache_buf, OnigStk[stk].a, OnigStk[stk].b)
       end
     end
-    OnigMatch.set_stk(m, stk)
+    OnigMatch[m].stk = stk
   end
 
   # STACK_PUSH_MATCH_CACHE_POINT.
   #: (ptr, word, word) -> void
   def zr_onig_push_cache_point(m, index, mask)
     zr_onig_stack_ensure(m)
-    stk = OnigMatch.stk(m)
-    OnigStk.set_type(stk, STK_MATCH_CACHE_POINT)
-    OnigStk.set_null_check(stk, zr_onig_inherit_null_check(m, stk))
-    OnigStk.set_a(stk, index)
-    OnigStk.set_b(stk, mask)
-    OnigMatch.set_stk(m, stk + OnigStk.size)
+    stk = OnigMatch[m].stk
+    OnigStk[stk].type = STK_MATCH_CACHE_POINT
+    OnigStk[stk].null_check = zr_onig_inherit_null_check(m, stk)
+    OnigStk[stk].a = index
+    OnigStk[stk].b = mask
+    OnigMatch[m].stk = stk + OnigStk.size
   end
 
   # CHECK_MATCH_CACHE at the opcode `pbegin`, with the match at
@@ -485,7 +491,7 @@ module Zr::Kern
   # off, so that test is inline.
   #: (ptr, ptr) -> word
   def zr_onig_check_match_cache(m, pbegin)
-    return 0 if OnigMatch.match_cache_status(m) != ONIG_MATCH_CACHE_STATUS_ENABLED
+    return 0 if OnigMatch[m].match_cache_status != ONIG_MATCH_CACHE_STATUS_ENABLED
     zr_onig_check_match_cache_on(m, pbegin)
   end
   inline :zr_onig_check_match_cache
@@ -496,13 +502,13 @@ module Zr::Kern
     Machine.store64(cop, 0, 0)
     cache_point = zr_onig_find_cache_point(m, pbegin, cop)
     return 0 if cache_point < 0
-    point = (OnigMatch.num_cache_points(m) * Machine.word(OnigMatch.s(m) - OnigMatch.str(m))) + cache_point
+    point = (OnigMatch[m].num_cache_points * Machine.word(OnigMatch[m].s - OnigMatch[m].str)) + cache_point
     index = point >> 3
     mask = 1 << (point & 7)
-    buf = OnigMatch.match_cache_buf(m)
+    buf = OnigMatch[m].match_cache_buf
     if (Machine.u8(Machine.load8(buf + index, 0)) & mask) != 0
       row = Machine.ptr(Machine.load64(cop, 0))
-      nesting = OnigCacheOp.lookaround_nesting(row)
+      nesting = OnigCacheOp[row].lookaround_nesting
       return 1 if nesting == 0
       if nesting < 0
         if zr_onig_check_extended_cache_point(buf, index, mask)
@@ -511,7 +517,7 @@ module Zr::Kern
         return 1
       end
       if zr_onig_check_extended_cache_point(buf, index, mask)
-        OnigMatch.set_p(m, OnigCacheOp.match_addr(row))
+        OnigMatch[m].p = OnigCacheOp[row].match_addr
         return 2
       end
       return 1
@@ -528,12 +534,12 @@ module Zr::Kern
   # count gets to the limit.
   #: (ptr) -> word
   def zr_onig_fail_match_cache(m)
-    status = OnigMatch.match_cache_status(m)
+    status = OnigMatch[m].match_cache_status
     return 0 if status == ONIG_MATCH_CACHE_STATUS_DISABLED
-    num_fails = OnigMatch.num_fails(m) + 1
-    OnigMatch.set_num_fails(m, num_fails)
-    len = Machine.word(OnigMatch.aend(m) - OnigMatch.str(m))
-    return 0 if num_fails < len * OnigMatch.num_cache_opcodes(m)
+    num_fails = OnigMatch[m].num_fails + 1
+    OnigMatch[m].num_fails = num_fails
+    len = Machine.word(OnigMatch[m].aend - OnigMatch[m].str)
+    return 0 if num_fails < len * OnigMatch[m].num_cache_opcodes
     zr_onig_fail_match_cache_init(m, status, num_fails, len)
   end
   inline :zr_onig_fail_match_cache
@@ -541,20 +547,20 @@ module Zr::Kern
   #: (ptr, word, word, word) -> word
   def zr_onig_fail_match_cache_init(m, status, num_fails, len)
     if status == ONIG_MATCH_CACHE_STATUS_UNINIT
-      OnigMatch.set_match_cache_status(m, ONIG_MATCH_CACHE_STATUS_INIT)
+      OnigMatch[m].match_cache_status = ONIG_MATCH_CACHE_STATUS_INIT
       cell = Machine.slot(8)
       r = zr_onig_count_num_cache_opcodes(m, cell)
       return r if r < 0
-      OnigMatch.set_num_cache_opcodes(m, Machine.load64(cell, 0))
+      OnigMatch[m].num_cache_opcodes = Machine.load64(cell, 0)
     end
-    n = OnigMatch.num_cache_opcodes(m)
+    n = OnigMatch[m].num_cache_opcodes
     if n == ONIG_NUM_CACHE_OPCODES_IMPOSSIBLE || n == 0
-      OnigMatch.set_match_cache_status(m, ONIG_MATCH_CACHE_STATUS_DISABLED)
+      OnigMatch[m].match_cache_status = ONIG_MATCH_CACHE_STATUS_DISABLED
       return 0
     end
     return 0 if num_fails < len * n
-    if OnigMatch.cache_opcodes(m) == 0
-      OnigMatch.set_match_cache_status(m, ONIG_MATCH_CACHE_STATUS_ENABLED)
+    if OnigMatch[m].cache_opcodes == 0
+      OnigMatch[m].match_cache_status = ONIG_MATCH_CACHE_STATUS_ENABLED
       rows = Libc.malloc(n * OnigCacheOp.size)
       return ONIGERR_MEMORY if rows == 0
       cell = Machine.slot(8)
@@ -563,20 +569,20 @@ module Zr::Kern
         Libc.free(rows)
         return r
       end
-      OnigMatch.set_num_cache_points(m, Machine.load64(cell, 0))
-      OnigMatch.set_cache_opcodes(m, rows)
+      OnigMatch[m].num_cache_points = Machine.load64(cell, 0)
+      OnigMatch[m].cache_opcodes = rows
     end
-    if OnigMatch.match_cache_buf(m) == 0
+    if OnigMatch[m].match_cache_buf == 0
       length = len + 1
-      points = OnigMatch.num_cache_points(m) * length
+      points = OnigMatch[m].num_cache_points * length
       # Overflow check
-      return ONIGERR_MEMORY if points / length != OnigMatch.num_cache_points(m)
+      return ONIGERR_MEMORY if points / length != OnigMatch[m].num_cache_points
       return ONIGERR_MEMORY if points >= ONIG_LONG_MAX_LIMIT
       buf_len = (points >> 3) + ((points & 7) != 0 ? 1 : 0) + 1
       buf = Libc.malloc(buf_len)
       return ONIGERR_MEMORY if buf == 0
       Libc.memset(buf, Machine.i32(0), buf_len)
-      OnigMatch.set_match_cache_buf(m, buf)
+      OnigMatch[m].match_cache_buf = buf
     end
     0
   end

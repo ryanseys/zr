@@ -3,7 +3,8 @@ module Zr::Kern
   # (`Backend::Aarch64::Stub`) saves the callee-saved registers, the frame
   # and link registers, and the stack pointer into a context. Then it loads
   # the registers from a different context.
-  raw :zr_switch, [Ptr, Ptr] => Void
+  #: (ptr, ptr) -> void
+  def zr_switch(p1, p2) = Machine.raw
 
   CONTEXT_BYTES = 176
 

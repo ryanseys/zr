@@ -8,7 +8,14 @@ module Zr::Kern
   # a Value; the cref is the lexical scope list where the method was
   # defined. `origin` is the proxy that contains a prepended class's own
   # methods, below the prepended modules, or nil.
-  RClass = layout basic: RBasic, name: Value, superclass: Value, ext: Ptr, attached: Value, origin: Value
+  class RClass < Layout
+    attr_reader :basic #: RBasic
+    attr_accessor :name #: value
+    attr_accessor :superclass #: value
+    attr_accessor :ext #: ptr
+    attr_accessor :attached #: value
+    attr_accessor :origin #: value
+  end
   # `serial` counts classes in creation order, which `subclasses` reads.
   # `refined` is the class that a refinement holder refines, and `active`
   # is the one-item activation list that only that holder makes. Both are
@@ -21,8 +28,31 @@ module Zr::Kern
   # `saved` contains `slen` method entries: the core library's entries that
   # a program overwrote or removed. The core library's own sends still find
   # them (see zr_find_core_method).
-  ClassExt = layout mtab: Ptr, mlen: Word, mcap: Word, ctab: Ptr, clen: Word, ccap: Word, iv: IvTab, cv: IvTab, serial: Word, refined: Value, active: Value, boxed: Value, shadow: Value, alloc: Word, cidx: Ptr, cbins: Word,
-                             saved: Ptr, slen: Word, supers: Ptr, rank: Word, midx: Ptr, mbins: Word, obj_bytes: Word
+  class ClassExt < Layout
+    attr_accessor :mtab #: ptr
+    attr_accessor :mlen #: word
+    attr_accessor :mcap #: word
+    attr_accessor :ctab #: ptr
+    attr_accessor :clen #: word
+    attr_accessor :ccap #: word
+    attr_reader :iv #: IvTab
+    attr_reader :cv #: IvTab
+    attr_accessor :serial #: word
+    attr_accessor :refined #: value
+    attr_accessor :active #: value
+    attr_accessor :boxed #: value
+    attr_accessor :shadow #: value
+    attr_accessor :alloc #: word
+    attr_accessor :cidx #: ptr
+    attr_accessor :cbins #: word
+    attr_accessor :saved #: ptr
+    attr_accessor :slen #: word
+    attr_accessor :supers #: ptr
+    attr_accessor :rank #: word
+    attr_accessor :midx #: ptr
+    attr_accessor :mbins #: word
+    attr_accessor :obj_bytes #: word
+  end
   # `orig` is the name of the first definition of the method, which an
   # alias keeps. `from` is the ancestor list node where an alias or a
   # visibility change found the entry that it copied. `super` in the body
@@ -41,21 +71,67 @@ module Zr::Kern
   # cache entry (CallCache.direct). The `fn` of such a def is
   # `zr_direct_fn`, which takes the generic arguments and checks what the
   # site proved.
-  MEntry = layout mid: Word, fn: Ptr, arity: Word, kind: Word, meta: Ptr, cref: Value, vis: Word, orig: Word, from: Value, core: Word, ivar: IvarCache, cover: Word, direct: Ptr, concealed: Word
-  CEntry = layout id: Word, value: Value, file: Ptr, file_len: Word, line: Word, private: Word, deprecated: Word, owner: Value, concealed: Word
+  class MEntry < Layout
+    attr_accessor :mid #: word
+    attr_accessor :fn #: ptr
+    attr_accessor :arity #: word
+    attr_accessor :kind #: word
+    attr_accessor :meta #: ptr
+    attr_accessor :cref #: value
+    attr_accessor :vis #: word
+    attr_accessor :orig #: word
+    attr_accessor :from #: value
+    attr_accessor :core #: word
+    attr_reader :ivar #: IvarCache
+    attr_accessor :cover #: word
+    attr_accessor :direct #: ptr
+    attr_accessor :concealed #: word
+  end
+  class CEntry < Layout
+    attr_accessor :id #: word
+    attr_accessor :value #: value
+    attr_accessor :file #: ptr
+    attr_accessor :file_len #: word
+    attr_accessor :line #: word
+    attr_accessor :private #: word
+    attr_accessor :deprecated #: word
+    attr_accessor :owner #: value
+    attr_accessor :concealed #: word
+  end
   # A compiled method takes `(recv, argc, argv, entry, blk, found)`: its
   # own entry, whose name and cref its frame records, and the ancestor list
   # node where the lookup found it. A builtin takes
   # `(recv, argc, argv, cref, blk)`. A direct entry takes
   # `(recv, entry, blk, found, ...)` plus up to four arguments in
   # registers, with one signature for each count.
-  Method = fn [Value, Word, Ptr, Ptr, Value, Value] => Value
-  Builtin = fn [Value, Word, Ptr, Value, Value] => Value
-  Direct0 = fn [Value, Ptr, Value, Value] => Value
-  Direct1 = fn [Value, Ptr, Value, Value, Value] => Value
-  Direct2 = fn [Value, Ptr, Value, Value, Value, Value] => Value
-  Direct3 = fn [Value, Ptr, Value, Value, Value, Value, Value] => Value
-  Direct4 = fn [Value, Ptr, Value, Value, Value, Value, Value, Value] => Value
+  module Method
+    #: (ptr, value, word, ptr, ptr, value, value) -> value
+    def self.call(fn, v1, n, p1, p2, v2, v3) = Machine.indirect
+  end
+  module Builtin
+    #: (ptr, value, word, ptr, value, value) -> value
+    def self.call(fn, v1, n, p, v2, v3) = Machine.indirect
+  end
+  module Direct0
+    #: (ptr, value, ptr, value, value) -> value
+    def self.call(fn, v1, p, v2, v3) = Machine.indirect
+  end
+  module Direct1
+    #: (ptr, value, ptr, value, value, value) -> value
+    def self.call(fn, v1, p, v2, v3, v4) = Machine.indirect
+  end
+  module Direct2
+    #: (ptr, value, ptr, value, value, value, value) -> value
+    def self.call(fn, v1, p, v2, v3, v4, v5) = Machine.indirect
+  end
+  module Direct3
+    #: (ptr, value, ptr, value, value, value, value, value) -> value
+    def self.call(fn, v1, p, v2, v3, v4, v5, v6) = Machine.indirect
+  end
+  module Direct4
+    #: (ptr, value, ptr, value, value, value, value, value, value) -> value
+    def self.call(fn, v1, p, v2, v3, v4, v5, v6, v7) = Machine.indirect
+  end
   # Method kinds other than a compiled def and a builtin. Accessors keep
   # the ivar's id in `fn`.
   KIND_ATTR_READER = 3
@@ -72,37 +148,37 @@ module Zr::Kern
   #: (word, value, value) -> value
   def zr_class_alloc(type, sup, klass)
     c = zr_alloc(type, klass, RClass.size)
-    RClass.set_name(c, Machine.value(QNIL))
-    RClass.set_superclass(c, sup)
-    RClass.set_attached(c, Machine.value(QNIL))
-    RClass.set_origin(c, Machine.value(QNIL))
+    RClass[c].name = Machine.value(QNIL)
+    RClass[c].superclass = sup
+    RClass[c].attached = Machine.value(QNIL)
+    RClass[c].origin = Machine.value(QNIL)
     ext = zr_xmalloc(ClassExt.size)
-    ClassExt.set_mtab(ext, 0)
-    ClassExt.set_mlen(ext, 0)
-    ClassExt.set_mcap(ext, 0)
-    ClassExt.set_ctab(ext, 0)
-    ClassExt.set_clen(ext, 0)
-    ClassExt.set_ccap(ext, 0)
-    ClassExt.set_cidx(ext, 0)
-    ClassExt.set_cbins(ext, 0)
-    zr_ivtab_init(ClassExt.iv(ext))
-    zr_ivtab_init(ClassExt.cv(ext))
-    ClassExt.set_refined(ext, Machine.value(QNIL))
-    ClassExt.set_active(ext, Machine.value(QNIL))
-    ClassExt.set_boxed(ext, Machine.value(QNIL))
-    ClassExt.set_shadow(ext, Machine.value(QNIL))
-    ClassExt.set_alloc(ext, 0)
-    ClassExt.set_saved(ext, 0)
-    ClassExt.set_slen(ext, 0)
-    ClassExt.set_supers(ext, 0)
-    ClassExt.set_rank(ext, 0)
-    ClassExt.set_midx(ext, 0)
-    ClassExt.set_mbins(ext, 0)
-    ClassExt.set_obj_bytes(ext, RObject.size)
+    ClassExt[ext].mtab = 0
+    ClassExt[ext].mlen = 0
+    ClassExt[ext].mcap = 0
+    ClassExt[ext].ctab = 0
+    ClassExt[ext].clen = 0
+    ClassExt[ext].ccap = 0
+    ClassExt[ext].cidx = 0
+    ClassExt[ext].cbins = 0
+    zr_ivtab_init(Machine.ptr(ClassExt[ext].iv))
+    zr_ivtab_init(Machine.ptr(ClassExt[ext].cv))
+    ClassExt[ext].refined = Machine.value(QNIL)
+    ClassExt[ext].active = Machine.value(QNIL)
+    ClassExt[ext].boxed = Machine.value(QNIL)
+    ClassExt[ext].shadow = Machine.value(QNIL)
+    ClassExt[ext].alloc = 0
+    ClassExt[ext].saved = 0
+    ClassExt[ext].slen = 0
+    ClassExt[ext].supers = 0
+    ClassExt[ext].rank = 0
+    ClassExt[ext].midx = 0
+    ClassExt[ext].mbins = 0
+    ClassExt[ext].obj_bytes = RObject.size
     counter = Machine.static(:class_serial, 8)
     Machine.store64(counter, 0, Machine.load64(counter, 0) + 1)
-    ClassExt.set_serial(ext, Machine.load64(counter, 0))
-    RClass.set_ext(c, ext)
+    ClassExt[ext].serial = Machine.load64(counter, 0)
+    RClass[c].ext = ext
     zr_methods_changed()
     # Builds the rank table at creation, if Object exists. Then a site's
     # type check can use the table at its first call. A class from
@@ -112,7 +188,7 @@ module Zr::Kern
       zr_class_rank(c)
     end
     if zr_program_started_p() && zr_hidden_now()
-      RBasic.set_flags(c, RBasic.flags(c) | FL_CONCEALED)
+      RBasic[c].flags = RBasic[c].flags | FL_CONCEALED
     end
     c
   end
@@ -161,10 +237,10 @@ module Zr::Kern
   def zr_chain_includes(klass, mod)
     k = klass
     while k != QNIL
-      if k == mod || ((RBasic.flags(k) & T_MASK) == T_ICLASS && RClass.attached(k) == mod)
+      if k == mod || ((RBasic[k].flags & T_MASK) == T_ICLASS && RClass[k].attached == mod)
         return true
       end
-      k = RClass.superclass(k)
+      k = RClass[k].superclass
     end
     false
   end
@@ -173,13 +249,13 @@ module Zr::Kern
   # of one) before `sup`, which shares the node's tables.
   #: (value, value) -> value
   def zr_iclass_new(node, sup)
-    mod = zr_type(node) == T_ICLASS ? RClass.attached(node) : node
+    mod = zr_type(node) == T_ICLASS ? RClass[node].attached : node
     ic = zr_alloc(T_ICLASS, mod, RClass.size)
-    RClass.set_name(ic, Machine.value(QNIL))
-    RClass.set_superclass(ic, sup)
-    RClass.set_ext(ic, RClass.ext(node))
-    RClass.set_attached(ic, mod)
-    RClass.set_origin(ic, Machine.value(QNIL))
+    RClass[ic].name = Machine.value(QNIL)
+    RClass[ic].superclass = sup
+    RClass[ic].ext = RClass[node].ext
+    RClass[ic].attached = mod
+    RClass[ic].origin = Machine.value(QNIL)
     zr_methods_changed()
     ic
   end
@@ -188,8 +264,8 @@ module Zr::Kern
   # is prepended, else the class.
   #: (value) -> value
   def zr_origin(klass)
-    if RClass.origin(klass) != QNIL
-      return RClass.origin(klass)
+    if RClass[klass].origin != QNIL
+      return RClass[klass].origin
     end
     klass
   end
@@ -212,38 +288,38 @@ module Zr::Kern
       if klass_origin != c || whole
         c_seen = klass == c
         class_seen = false
-        p = RClass.superclass(klass)
+        p = RClass[klass].superclass
         while p != QNIL && !found
           if klass_origin == p && !whole
             p = Machine.value(QNIL)
           else
             c_seen = true if c == p
             if zr_type(p) == T_ICLASS
-              if RClass.ext(p) == RClass.ext(m)
+              if RClass[p].ext == RClass[m].ext
                 c = p if c_seen && !class_seen
                 found = true
               end
             elsif zr_type(p) == T_CLASS
               class_seen = true
             end
-            p = RClass.superclass(p) unless found
+            p = RClass[p].superclass unless found
           end
         end
       end
       unless found
-        ic = zr_iclass_new(m, RClass.superclass(c))
-        RClass.set_superclass(c, ic)
+        ic = zr_iclass_new(m, RClass[c].superclass)
+        RClass[c].superclass = ic
         c = ic
-        n = RArray.len(heads)
-        if RClass.origin(m) != QNIL
+        n = RArray[heads].len
+        if RClass[m].origin != QNIL
           zr_ary_push(heads, ic)
-          zr_ary_push(heads, RClass.origin(m))
+          zr_ary_push(heads, RClass[m].origin)
         elsif n > 0 && zr_ary_at(heads, n - 1) == m
-          RClass.set_origin(zr_ary_at(heads, n - 2), ic)
-          RArray.set_len(heads, n - 2)
+          RClass[zr_ary_at(heads, n - 2)].origin = ic
+          RArray[heads].len = n - 2
         end
       end
-      m = RClass.superclass(m)
+      m = RClass[m].superclass
     end
     zr_methods_changed()
     zr_gates_recheck(0)
@@ -255,16 +331,16 @@ module Zr::Kern
   def zr_proxies_of(mod)
     out = zr_ary_new(4)
     a = 0
-    while a < Heap.arenas(zr_heap())
+    while a < Heap[zr_heap()].arenas
       base = zr_arena_at(a)
       first = zr_arena_first(base)
-      bytes = ArenaHead.cell(base)
+      bytes = ArenaHead[base].cell
       i = zr_arena_next_allocated(base, 0)
       while i < ARENA_CELLS
         cell = first + (i * bytes)
         if (Machine.load64(cell, 0) & T_MASK) == T_ICLASS
           ic = Machine.value(cell)
-          if RClass.attached(ic) == mod && RClass.origin(mod) != ic
+          if RClass[ic].attached == mod && RClass[mod].origin != ic
             zr_ary_unshift(out, ic)
           end
         end
@@ -285,7 +361,7 @@ module Zr::Kern
     end
     proxies = zr_proxies_of(klass)
     i = 0
-    while i < RArray.len(proxies)
+    while i < RArray[proxies].len
       ic = zr_ary_at(proxies, i)
       unless zr_chain_includes(ic, mod)
         zr_splice_modules(ic, zr_origin(ic), mod, true)
@@ -298,38 +374,38 @@ module Zr::Kern
   # `super` from them starts. Does nothing if it has one.
   #: (value) -> bool
   def zr_ensure_origin(klass)
-    if RClass.origin(klass) != QNIL
+    if RClass[klass].origin != QNIL
       return false
     end
-    o = zr_iclass_new(klass, RClass.superclass(klass))
+    o = zr_iclass_new(klass, RClass[klass].superclass)
     ext = zr_xmalloc(ClassExt.size)
-    zr_memcpy(ext, RClass.ext(klass), ClassExt.size)
-    ClassExt.set_ctab(ext, 0)
-    ClassExt.set_clen(ext, 0)
-    ClassExt.set_ccap(ext, 0)
-    ClassExt.set_cidx(ext, 0)
-    ClassExt.set_cbins(ext, 0)
-    zr_ivtab_init(ClassExt.iv(ext))
-    zr_ivtab_init(ClassExt.cv(ext))
-    RClass.set_ext(o, ext)
-    ClassExt.set_mtab(RClass.ext(klass), 0)
-    ClassExt.set_mlen(RClass.ext(klass), 0)
-    ClassExt.set_mcap(RClass.ext(klass), 0)
+    zr_memcpy(ext, RClass[klass].ext, ClassExt.size)
+    ClassExt[ext].ctab = 0
+    ClassExt[ext].clen = 0
+    ClassExt[ext].ccap = 0
+    ClassExt[ext].cidx = 0
+    ClassExt[ext].cbins = 0
+    zr_ivtab_init(Machine.ptr(ClassExt[ext].iv))
+    zr_ivtab_init(Machine.ptr(ClassExt[ext].cv))
+    RClass[o].ext = ext
+    ClassExt[RClass[klass].ext].mtab = 0
+    ClassExt[RClass[klass].ext].mlen = 0
+    ClassExt[RClass[klass].ext].mcap = 0
     # The table's index moves with the table, to the origin's copy.
-    ClassExt.set_midx(RClass.ext(klass), 0)
-    ClassExt.set_mbins(RClass.ext(klass), 0)
-    ClassExt.set_saved(RClass.ext(klass), 0)
-    ClassExt.set_slen(RClass.ext(klass), 0)
+    ClassExt[RClass[klass].ext].midx = 0
+    ClassExt[RClass[klass].ext].mbins = 0
+    ClassExt[RClass[klass].ext].saved = 0
+    ClassExt[RClass[klass].ext].slen = 0
     i = 0
-    while i < ClassExt.mlen(ext)
-      e = ClassExt.mtab(ext) + (i * MEntry.size)
-      if MEntry.meta(e) != 0 && FrameMeta.owner(MEntry.meta(e)) == klass
-        FrameMeta.set_owner(MEntry.meta(e), o)
+    while i < ClassExt[ext].mlen
+      e = ClassExt[ext].mtab + (i * MEntry.size)
+      if MEntry[e].meta != 0 && FrameMeta[MEntry[e].meta].owner == klass
+        FrameMeta[MEntry[e].meta].owner = o
       end
       i += 1
     end
-    RClass.set_superclass(klass, o)
-    RClass.set_origin(klass, o)
+    RClass[klass].superclass = o
+    RClass[klass].origin = o
     zr_methods_changed()
     true
   end
@@ -346,12 +422,12 @@ module Zr::Kern
     end
     proxies = zr_proxies_of(klass)
     i = 0
-    while i < RArray.len(proxies)
+    while i < RArray[proxies].len
       ic = zr_ary_at(proxies, i)
-      if fresh && RClass.origin(ic) == QNIL
-        o = zr_iclass_new(RClass.origin(klass), RClass.superclass(ic))
-        RClass.set_superclass(ic, o)
-        RClass.set_origin(ic, o)
+      if fresh && RClass[ic].origin == QNIL
+        o = zr_iclass_new(RClass[klass].origin, RClass[ic].superclass)
+        RClass[ic].superclass = o
+        RClass[ic].origin = o
       end
       zr_splice_modules(ic, ic, mod, false)
       i += 1
@@ -399,11 +475,11 @@ module Zr::Kern
   #: (value, word) -> bool
   def zr_program_hook_p(recv, mid)
     e = zr_find_method(zr_class_of(recv), mid)
-    if e == 0 || MEntry.core(e) != 0
+    if e == 0 || MEntry[e].core != 0
       return false
     end
-    meta = MEntry.meta(e)
-    meta == 0 || FrameMeta.hidden(meta) == 0
+    meta = MEntry[e].meta
+    meta == 0 || FrameMeta[meta].hidden == 0
   end
 
   #: (value) -> value
@@ -508,7 +584,7 @@ module Zr::Kern
         # With the name and the receiver, which did_you_mean reads.
       return zr_undefined_method(klass, old_id, VIS_PUBLIC)
     end
-    zr_method_copy(klass, new_id, e, MEntry.meta(e), MEntry.vis(e), true)
+    zr_method_copy(klass, new_id, e, MEntry[e].meta, MEntry[e].vis, true)
     zr_method_added(klass, new_id)
   end
 
@@ -580,7 +656,7 @@ module Zr::Kern
     end
     k = zr_cref_klass(cref)
     while zr_singleton_p(k)
-      k = RClass.attached(k)
+      k = RClass[k].attached
       if zr_special_p(k) || (zr_type(k) != T_CLASS && zr_type(k) != T_MODULE)
         return Machine.value(QNIL)
       end
@@ -593,10 +669,10 @@ module Zr::Kern
   def zr_cvar_owner(klass, id)
     k = klass
     while k != QNIL
-      if zr_ivtab_row(ClassExt.cv(RClass.ext(k)), id) != 0
+      if zr_ivtab_row(Machine.ptr(ClassExt[RClass[k].ext].cv), id) != 0
         return k
       end
-      k = RClass.superclass(k)
+      k = RClass[k].superclass
     end
     Machine.value(QNIL)
   end
@@ -609,10 +685,10 @@ module Zr::Kern
   def zr_mod_import_ok_p(mod, name)
     id = zr_sym2id(name)
     e = zr_find_method(mod, id)
-    if e == 0 || MEntry.kind(e) != KIND_DEF || MEntry.orig(e) != id
+    if e == 0 || MEntry[e].kind != KIND_DEF || MEntry[e].orig != id
       return Machine.value(QFALSE)
     end
-    if MEntry.core(e) != 0
+    if MEntry[e].core != 0
       return Machine.value(QNIL)
     end
     Machine.value(QTRUE)
@@ -628,19 +704,19 @@ module Zr::Kern
     target = Machine.value(QNIL)
     k = klass
     while k != QNIL
-      if zr_ivtab_row(ClassExt.cv(RClass.ext(k)), id) != 0
+      if zr_ivtab_row(Machine.ptr(ClassExt[RClass[k].ext].cv), id) != 0
         if front == QNIL
           front = k
         end
         target = k
       end
-      k = RClass.superclass(k)
+      k = RClass[k].superclass
     end
     if front == QNIL || target == front
       return target
     end
-    near = zr_type(front) == T_ICLASS ? RClass.attached(front) : front
-    far = zr_type(target) == T_ICLASS ? RClass.attached(target) : target
+    near = zr_type(front) == T_ICLASS ? RClass[front].attached : front
+    far = zr_type(target) == T_ICLASS ? RClass[target].attached : target
     if near != far
       b = Machine.slot(Buf.size)
       zr_buf_init(b)
@@ -653,13 +729,13 @@ module Zr::Kern
       return zr_raise_buf(zr_global(G_RUNTIME_ERROR), b)
     end
     if zr_type(front) == T_CLASS
-      t = ClassExt.cv(RClass.ext(front))
+      t = Machine.ptr(ClassExt[RClass[front].ext].cv)
       e = zr_ivtab_row(t, id)
-      last = IvTab.rows(t) + ((IvTab.len(t) - 1) * IvEntry.size)
+      last = IvTab[t].rows + ((IvTab[t].len - 1) * IvEntry.size)
       if e != last
         zr_memmove(e, e + IvEntry.size, last - e)
       end
-      IvTab.set_len(t, IvTab.len(t) - 1)
+      IvTab[t].len = IvTab[t].len - 1
     end
     target
   end
@@ -683,13 +759,13 @@ module Zr::Kern
     end
     r = zr_ractor_cvar_check(owner, id)
     return r if r == QUNDEF
-    zr_ivtab_get(ClassExt.cv(RClass.ext(owner)), id)
+    zr_ivtab_get(Machine.ptr(ClassExt[RClass[owner].ext].cv), id)
   end
 
   # A class variable outside the main ractor: CRuby refuses all of them.
   #: (value, word) -> value
   def zr_ractor_cvar_check(owner, id)
-    if Task.ractor(zr_task()) == 0
+    if Task[zr_task()].ractor == 0
       return Machine.value(QNIL)
     end
     args = Machine.slot(16)
@@ -723,7 +799,7 @@ module Zr::Kern
     return r if r == QUNDEF
     frozen = zr_class_modify_check(owner)
     return frozen if frozen == QUNDEF
-    zr_ivtab_set(ClassExt.cv(RClass.ext(owner)), id, v)
+    zr_ivtab_set(Machine.ptr(ClassExt[RClass[owner].ext].cv), id, v)
     zr_write_barrier(owner, v)
     v
   end
@@ -752,10 +828,10 @@ module Zr::Kern
     out = zr_ary_new(8)
     k = recv
     while k != QNIL
-      if RClass.origin(k) == QNIL
-        zr_ary_push(out, zr_type(k) == T_ICLASS ? RClass.attached(k) : k)
+      if RClass[k].origin == QNIL
+        zr_ary_push(out, zr_type(k) == T_ICLASS ? RClass[k].attached : k)
       end
-      k = RClass.superclass(k)
+      k = RClass[k].superclass
     end
     out
   end
@@ -778,7 +854,7 @@ module Zr::Kern
 
   #: (value) -> bool
   def zr_singleton_p(klass)
-    (RBasic.flags(klass) & FL_SINGLETON) != 0
+    (RBasic[klass].flags & FL_SINGLETON) != 0
   end
 
   # Makes the singleton class of the class `klass`. Its superclass is the
@@ -786,9 +862,9 @@ module Zr::Kern
   # `klass`'s class.
   #: (value) -> value
   def zr_make_metaclass(klass)
-    sup = RClass.superclass(klass)
+    sup = RClass[klass].superclass
     while sup != QNIL && zr_type(sup) == T_ICLASS
-      sup = RClass.superclass(sup)
+      sup = RClass[sup].superclass
     end
     if sup == QNIL
       msup = zr_global(G_CLASS)
@@ -797,9 +873,9 @@ module Zr::Kern
     end
     meta = zr_class_alloc(T_CLASS, msup, zr_global(G_CLASS))
     # A singleton class is frozen when its object is frozen.
-    RBasic.set_flags(meta, RBasic.flags(meta) | FL_SINGLETON | (RBasic.flags(klass) & FL_FREEZE))
-    RClass.set_attached(meta, klass)
-    RBasic.set_klass(klass, meta)
+    RBasic[meta].flags = RBasic[meta].flags | FL_SINGLETON | (RBasic[klass].flags & FL_FREEZE)
+    RClass[meta].attached = klass
+    RBasic[klass].klass = meta
     meta
   end
 
@@ -811,7 +887,7 @@ module Zr::Kern
     if zr_special_p(v)
       return v != QNIL && v != QTRUE && v != QFALSE
     end
-    zr_big_p(v) || zr_type(v) == T_FLOAT || zr_type(v) == T_SYMBOL || (zr_type(v) == T_STRING && (RBasic.flags(v) & FL_FSTR) != 0)
+    zr_big_p(v) || zr_type(v) == T_FLOAT || zr_type(v) == T_SYMBOL || (zr_type(v) == T_STRING && (RBasic[v].flags & FL_FSTR) != 0)
   end
 
   # The singleton class of `v`, made on first use.
@@ -823,17 +899,17 @@ module Zr::Kern
     if zr_special_p(v)
       return zr_class_of(v)
     end
-    k = RBasic.klass(v)
-    if zr_singleton_p(k) && RClass.attached(k) == v
+    k = RBasic[v].klass
+    if zr_singleton_p(k) && RClass[k].attached == v
       return k
     end
     if zr_type(v) == T_CLASS
       return zr_make_metaclass(v)
     end
     s = zr_class_alloc(T_CLASS, k, zr_global(G_CLASS))
-    RBasic.set_flags(s, RBasic.flags(s) | FL_SINGLETON | (RBasic.flags(v) & FL_FREEZE))
-    RClass.set_attached(s, v)
-    RBasic.set_klass(v, s)
+    RBasic[s].flags = RBasic[s].flags | FL_SINGLETON | (RBasic[v].flags & FL_FREEZE)
+    RClass[s].attached = v
+    RBasic[v].klass = s
     s
   end
 
@@ -845,7 +921,7 @@ module Zr::Kern
     if !zr_frozen_p(klass)
       return Machine.value(QNIL)
     end
-    zr_frozen_error(zr_singleton_p(klass) ? RClass.attached(klass) : klass)
+    zr_frozen_error(zr_singleton_p(klass) ? RClass[klass].attached : klass)
   end
 
   # The class that `v.class` returns: it skips a singleton class and the
@@ -854,7 +930,7 @@ module Zr::Kern
   def zr_real_class(v)
     k = zr_class_of(v)
     while zr_singleton_p(k) || zr_type(k) == T_ICLASS
-      k = RClass.superclass(k)
+      k = RClass[k].superclass
     end
     k
   end
@@ -1005,19 +1081,25 @@ module Zr::Kern
   # The operators that compiled code inlines, as they were at program
   # start: the class the gate guards (a global's index), the name, the
   # gate bit, and the body and visibility that the class found then.
-  GateRow = layout klass: Word, mid: Word, bit: Word, fn: Ptr, vis: Word
+  class GateRow < Layout
+    attr_accessor :klass #: word
+    attr_accessor :mid #: word
+    attr_accessor :bit #: word
+    attr_accessor :fn #: ptr
+    attr_accessor :vis #: word
+  end
   GATE_ROWS = 56
 
   #: (word, word, word, word) -> word
   def zr_gate_row(i, klass, mid, bit)
     row = Machine.static(:gate_rows, GATE_ROWS * GateRow.size) + (i * GateRow.size)
-    GateRow.set_klass(row, klass)
-    GateRow.set_mid(row, mid)
-    GateRow.set_bit(row, bit)
+    GateRow[row].klass = klass
+    GateRow[row].mid = mid
+    GateRow[row].bit = bit
     e = zr_search_method(zr_global(klass), mid)
     if e != 0
-      GateRow.set_fn(row, zr_entry_body(e))
-      GateRow.set_vis(row, MEntry.vis(e))
+      GateRow[row].fn = zr_entry_body(e)
+      GateRow[row].vis = MEntry[e].vis
     end
     i + 1
   end
@@ -1097,20 +1179,20 @@ module Zr::Kern
     if Machine.load64(Machine.static(:gates_taken, 8), 0) == 0
       return
     end
-    found = Task.found(zr_task())
+    found = Task[zr_task()].found
     rows = Machine.static(:gate_rows, GATE_ROWS * GateRow.size)
     i = 0
     while i < GATE_ROWS
       row = rows + (i * GateRow.size)
-      if (mid == 0 || GateRow.mid(row) == mid) && (Machine.gates & GateRow.bit(row)) == 0
-        e = zr_search_method(zr_global(GateRow.klass(row)), GateRow.mid(row))
-        if e == 0 || zr_entry_body(e) != GateRow.fn(row) || MEntry.vis(e) != GateRow.vis(row)
-          Machine.gates_set(Machine.gates | GateRow.bit(row))
+      if (mid == 0 || GateRow[row].mid == mid) && (Machine.gates & GateRow[row].bit) == 0
+        e = zr_search_method(zr_global(GateRow[row].klass), GateRow[row].mid)
+        if e == 0 || zr_entry_body(e) != GateRow[row].fn || MEntry[e].vis != GateRow[row].vis
+          Machine.gates_set(Machine.gates | GateRow[row].bit)
         end
       end
       i += 1
     end
-    Task.set_found(zr_task(), found)
+    Task[zr_task()].found = found
   end
 
   # A definition. The first one of each builtin operator is the runtime's
@@ -1147,8 +1229,8 @@ module Zr::Kern
   # one (because each such def's `fn` is zr_direct_fn), else its `fn`.
   #: (ptr) -> ptr
   def zr_entry_body(e)
-    direct = MEntry.direct(e)
-    direct != 0 ? direct : MEntry.fn(e)
+    direct = MEntry[e].direct
+    direct != 0 ? direct : MEntry[e].fn
   end
 
   # `def obj.name`, and a def in a method body: public, whatever the
@@ -1161,7 +1243,7 @@ module Zr::Kern
   #: (value, word, ptr, word, word, ptr, value, word) -> value
   def zr_define_method_as(klass, mid, fn, arity, kind, meta, cref, vis)
     # Under `1.instance_eval`, no singleton class can take the method.
-    if cref != QNIL && RCref.eval(cref) == EVAL_NO_DEF
+    if cref != QNIL && RCref[cref].eval == EVAL_NO_DEF
       Machine.store64(zr_direct_pending(), 0, 0)
       return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("can't define singleton"), 22)
     end
@@ -1173,28 +1255,28 @@ module Zr::Kern
     klass = zr_origin(klass)
     if meta == 0
       meta = zr_xmalloc(FrameMeta.size)
-      FrameMeta.set_file(meta, 0)
-      FrameMeta.set_file_len(meta, 0)
-      FrameMeta.set_kind(meta, KIND_BUILTIN)
-      FrameMeta.set_line(meta, 0)
-      FrameMeta.set_parent(meta, 0)
-      FrameMeta.set_arity(meta, arity)
-      FrameMeta.set_params(meta, 0)
-      FrameMeta.set_fn(meta, 0)
-      FrameMeta.set_box(meta, Machine.value(QNIL))
-      FrameMeta.set_ruby(meta, 0)
-      FrameMeta.set_node(meta, 0)
-      FrameMeta.set_cover(meta, 0)
-    elsif Machine.word(FrameMeta.owner(meta)) != 0 && FrameMeta.owner(meta) != klass
+      FrameMeta[meta].file = 0
+      FrameMeta[meta].file_len = 0
+      FrameMeta[meta].kind = KIND_BUILTIN
+      FrameMeta[meta].line = 0
+      FrameMeta[meta].parent = 0
+      FrameMeta[meta].arity = arity
+      FrameMeta[meta].params = 0
+      FrameMeta[meta].fn = 0
+      FrameMeta[meta].box = Machine.value(QNIL)
+      FrameMeta[meta].ruby = 0
+      FrameMeta[meta].node = 0
+      FrameMeta[meta].cover = 0
+    elsif Machine.word(FrameMeta[meta].owner) != 0 && FrameMeta[meta].owner != klass
       # The same def run under a different class (a class body in a block
       # that runs two times) gets its own meta, so each keeps its owner.
       copy = zr_xmalloc(FrameMeta.size)
       zr_memcpy(copy, meta, FrameMeta.size)
       meta = copy
     end
-    FrameMeta.set_name(meta, mid)
-    FrameMeta.set_owner(meta, klass)
-    modfn = cref != QNIL && RCref.modfn(cref) != 0
+    FrameMeta[meta].name = mid
+    FrameMeta[meta].owner = klass
+    modfn = cref != QNIL && RCref[cref].modfn != 0
     core = !zr_program_started_p() || zr_internal_meta_p(meta) ? ROW_CORE : 0
     if modfn
       single = zr_singleton_class(klass)
@@ -1220,12 +1302,12 @@ module Zr::Kern
   # instance method labels them `Mod#name`.
   #: (ptr, value) -> ptr
   def zr_meta_owned(meta, owner)
-    if meta == 0 || FrameMeta.owner(meta) == owner
+    if meta == 0 || FrameMeta[meta].owner == owner
       return meta
     end
     copy = zr_xmalloc(FrameMeta.size)
     zr_memcpy(copy, meta, FrameMeta.size)
-    FrameMeta.set_owner(copy, owner)
+    FrameMeta[copy].owner = owner
     copy
   end
 
@@ -1241,10 +1323,10 @@ module Zr::Kern
     if cref == QNIL
       return VIS_PUBLIC
     end
-    if RCref.modfn(cref) != 0
+    if RCref[cref].modfn != 0
       return VIS_PRIVATE
     end
-    RCref.vis(cref)
+    RCref[cref].vis
   end
 
   # The visibility and the `module_function` copy that a `def` gets under
@@ -1260,7 +1342,7 @@ module Zr::Kern
   # class, as `module_function` requires.
   #: (value) -> value
   def zr_cref_modfn_p(cref)
-    zr_bool(cref != QNIL && RCref.modfn(cref) != 0)
+    zr_bool(cref != QNIL && RCref[cref].modfn != 0)
   end
 
   # A method whose body is the Proc `body`, kept in the entry's cref slot.
@@ -1268,18 +1350,18 @@ module Zr::Kern
   #: (value, word, ptr, value, value) -> value
   def zr_define_bmethod(klass, mid, meta, body, cref)
     klass = zr_origin(klass)
-    FrameMeta.set_name(meta, mid)
-    FrameMeta.set_owner(meta, klass)
-    modfn = cref != QNIL && RCref.modfn(cref) != 0
+    FrameMeta[meta].name = mid
+    FrameMeta[meta].owner = klass
+    modfn = cref != QNIL && RCref[cref].modfn != 0
     # `meta` is the frame of the call, which a backtrace shows. Coverage
     # shows the block, so the entry gets its coverage from the Proc's own
     # meta. A Proc from a Symbol or a Method has none, as CRuby's
     # rb_proc_get_iseq returns nothing for it.
-    block_meta = RProc.meta(body)
+    block_meta = RProc[body].meta
     # The entry's `fn` is the block's twin, if it has one (FrameMeta).
     twin = 0
-    if block_meta != 0 && RProc.fn(body) == FrameMeta.fn(block_meta)
-      twin = FrameMeta.twin(block_meta)
+    if block_meta != 0 && RProc[body].fn == FrameMeta[block_meta].fn
+      twin = FrameMeta[block_meta].twin
     end
     if modfn
       single = zr_singleton_class(klass)
@@ -1300,10 +1382,10 @@ module Zr::Kern
   #: (value, word) -> value
   def zr_method_added(klass, mid)
     if zr_type(klass) == T_ICLASS
-      klass = RClass.attached(klass)
+      klass = RClass[klass].attached
     end
     if zr_singleton_p(klass)
-      recv = RClass.attached(klass)
+      recv = RClass[klass].attached
       hook = Machine.id(:singleton_method_added)
     else
       recv = klass
@@ -1332,7 +1414,7 @@ module Zr::Kern
   # although it loads after the program starts.
   #: (ptr) -> bool
   def zr_internal_meta_p(meta)
-    meta != 0 && FrameMeta.file_len(meta) == 0 && (FrameMeta.kind(meta) == KIND_BUILTIN || FrameMeta.kind(meta) == KIND_HIDDEN)
+    meta != 0 && FrameMeta[meta].file_len == 0 && (FrameMeta[meta].kind == KIND_BUILTIN || FrameMeta[meta].kind == KIND_HIDDEN)
   end
 
   # The same, with ROW_CORE in `vis` when the core library defines the
@@ -1359,8 +1441,8 @@ module Zr::Kern
     # is sooner than necessary, and for each site, but it lets a site under
     # `using` keep an operator's fast path.
     over = klass
-    if zr_type(klass) == T_MODULE && ClassExt.refined(RClass.ext(klass)) != QNIL
-      over = ClassExt.refined(RClass.ext(klass))
+    if zr_type(klass) == T_MODULE && ClassExt[RClass[klass].ext].refined != QNIL
+      over = ClassExt[RClass[klass].ext].refined
     end
     bit = zr_gate_bit(over, mid)
     booting = kind == KIND_BUILTIN && !zr_program_started_p()
@@ -1379,7 +1461,7 @@ module Zr::Kern
       end
     end
     zr_methods_changed()
-    ext = RClass.ext(klass)
+    ext = RClass[klass].ext
     # A redefinition uses the name's existing entry, as ruby does:
     # `instance_methods` shows it at the position of the first definition,
     # and a later `remove_method` leaves nothing.
@@ -1398,44 +1480,44 @@ module Zr::Kern
     # constant does, until the program requires the file itself
     # (zr_feature_reveal). A method that eval support defines for the
     # program, as an FFI attach does, is the program's.
-    conceal = !core && zr_program_started_p() && zr_loading_hidden() && (RBasic.flags(klass) & FL_CONCEALED) == 0
-    conceal = conceal && (e == 0 || MEntry.concealed(e) != 0)
+    conceal = !core && zr_program_started_p() && zr_loading_hidden() && (RBasic[klass].flags & FL_CONCEALED) == 0
+    conceal = conceal && (e == 0 || MEntry[e].concealed != 0)
     if e == 0
-      n = ClassExt.mlen(ext)
-      if n == ClassExt.mcap(ext)
+      n = ClassExt[ext].mlen
+      if n == ClassExt[ext].mcap
         cap = n * 2
         if cap < 8
           cap = 8
         end
         tab = zr_xmalloc(cap * MEntry.size)
-        old = ClassExt.mtab(ext)
+        old = ClassExt[ext].mtab
         if old != 0
           zr_memcpy(tab, old, n * MEntry.size)
           zr_xfree(old)
         end
-        ClassExt.set_mtab(ext, tab)
-        ClassExt.set_mcap(ext, cap)
+        ClassExt[ext].mtab = tab
+        ClassExt[ext].mcap = cap
       end
-      e = ClassExt.mtab(ext) + (n * MEntry.size)
-      ClassExt.set_mlen(ext, n + 1)
-      MEntry.set_mid(e, mid)
+      e = ClassExt[ext].mtab + (n * MEntry.size)
+      ClassExt[ext].mlen = n + 1
+      MEntry[e].mid = mid
       zr_method_index_add(ext, n)
     end
-    MEntry.set_mid(e, mid)
-    MEntry.set_fn(e, fn)
-    MEntry.set_arity(e, arity)
-    MEntry.set_kind(e, kind)
-    MEntry.set_meta(e, meta)
-    MEntry.set_cref(e, cref)
+    MEntry[e].mid = mid
+    MEntry[e].fn = fn
+    MEntry[e].arity = arity
+    MEntry[e].kind = kind
+    MEntry[e].meta = meta
+    MEntry[e].cref = cref
     zr_write_barrier(klass, cref)
-    MEntry.set_vis(e, vis)
-    MEntry.set_orig(e, mid)
-    MEntry.set_from(e, Machine.value(QNIL))
-    MEntry.set_core(e, core ? 1 : 0)
-    MEntry.set_cover(e, 0)
-    MEntry.set_direct(e, Machine.ptr(Machine.load64(zr_direct_pending(), 0)))
-    IvarCache.set_index(MEntry.ivar(e), 0)
-    MEntry.set_concealed(e, conceal ? 1 : 0)
+    MEntry[e].vis = vis
+    MEntry[e].orig = mid
+    MEntry[e].from = Machine.value(QNIL)
+    MEntry[e].core = core ? 1 : 0
+    MEntry[e].cover = 0
+    MEntry[e].direct = Machine.ptr(Machine.load64(zr_direct_pending(), 0))
+    MEntry[e].ivar.index = 0
+    MEntry[e].concealed = conceal ? 1 : 0
     if conceal
       zr_hidden_defined_method(klass, mid)
     end
@@ -1502,7 +1584,7 @@ module Zr::Kern
   # with the first of these, so a second one gives no warning.
   #: (value, word, ptr) -> void
   def zr_warn_operator(klass, mid, e)
-    if !zr_program_started_p() || MEntry.core(e) == 0 || MEntry.orig(e) != mid || !zr_basic_operator_p(klass, mid)
+    if !zr_program_started_p() || MEntry[e].core == 0 || MEntry[e].orig != mid || !zr_basic_operator_p(klass, mid)
       return
     end
     slot = Machine.slot(16)
@@ -1566,7 +1648,7 @@ module Zr::Kern
   # where it was defined. The runtime's own definitions give no warning.
   #: (value, ptr, word, ptr, ptr, word, ptr, value) -> void
   def zr_warn_redefined(owner, ext, mid, e, fn, kind, meta, cref)
-    if zr_gvar_get(Machine.id(:$VERBOSE)) != QTRUE || !zr_program_started_p() || Task.top(zr_task()) == 0 || zr_hidden_now()
+    if zr_gvar_get(Machine.id(:$VERBOSE)) != QTRUE || !zr_program_started_p() || Task[zr_task()].top == 0 || zr_hidden_now()
       return
     end
     if kind == KIND_UNDEF || (zr_internal_meta_p(meta) && !zr_word_entry_p(kind))
@@ -1580,16 +1662,16 @@ module Zr::Kern
     if e == 0 && zr_saved_row(ext, mid) != 0
       return
     end
-    if e == 0 || (MEntry.core(e) & 1) != 0
+    if e == 0 || (MEntry[e].core & 1) != 0
       known = true
-      if e == 0 || (MEntry.kind(e) != KIND_UNDEF && !zr_entry_hidden_p(e) && !zr_program_aliased_p(ext, e, mid))
+      if e == 0 || (MEntry[e].kind != KIND_UNDEF && !zr_entry_hidden_p(e) && !zr_program_aliased_p(ext, e, mid))
         known = zr_warn_core_redefined(owner, mid)
       end
       if known || e == 0
         return
       end
     end
-    if MEntry.kind(e) == KIND_UNDEF || MEntry.orig(e) != mid || MEntry.from(e) != QNIL || zr_entry_hidden_p(e)
+    if MEntry[e].kind == KIND_UNDEF || MEntry[e].orig != mid || MEntry[e].from != QNIL || zr_entry_hidden_p(e)
       return
     end
     # The same definition again, as from `alias_method :m, :m` or a second
@@ -1598,10 +1680,10 @@ module Zr::Kern
     if body == 0
       body = fn
     end
-    if MEntry.kind(e) == kind && (kind == KIND_BMETHOD ? MEntry.cref(e) == cref : zr_entry_body(e) == body && !zr_word_entry_p(kind))
+    if MEntry[e].kind == kind && (kind == KIND_BMETHOD ? MEntry[e].cref == cref : zr_entry_body(e) == body && !zr_word_entry_p(kind))
       return
     end
-    if MEntry.fn(e) == 0 && MEntry.kind(e) != KIND_BMETHOD && !zr_word_entry_p(MEntry.kind(e))
+    if MEntry[e].fn == 0 && MEntry[e].kind != KIND_BMETHOD && !zr_word_entry_p(MEntry[e].kind)
       return
     end
     if zr_program_aliased_p(ext, e, mid)
@@ -1611,17 +1693,17 @@ module Zr::Kern
     zr_buf_init(b)
     zr_buf_push(b, Machine.bytes("method redefined; discarding old "), 33)
     zr_buf_sym(b, mid)
-    old = MEntry.meta(e)
-    if (MEntry.kind(e) == KIND_DEF || MEntry.kind(e) == KIND_BMETHOD) && old != 0 && FrameMeta.file_len(old) > 0
+    old = MEntry[e].meta
+    if (MEntry[e].kind == KIND_DEF || MEntry[e].kind == KIND_BMETHOD) && old != 0 && FrameMeta[old].file_len > 0
       zr_buf_byte(b, 10)
-      zr_buf_push(b, FrameMeta.file(old), FrameMeta.file_len(old))
+      zr_buf_push(b, FrameMeta[old].file, FrameMeta[old].file_len)
       zr_buf_byte(b, 58)
-      zr_buf_long(b, FrameMeta.line(old))
+      zr_buf_long(b, FrameMeta[old].line)
       zr_buf_push(b, Machine.bytes(": warning: previous definition of "), 34)
       zr_buf_sym(b, mid)
       zr_buf_push(b, Machine.bytes(" was here"), 9)
     end
-    zr_warn_here(Buf.ptr(b), Buf.len(b))
+    zr_warn_here(Buf[b].ptr, Buf[b].len)
     zr_buf_free(b)
   end
 
@@ -1631,9 +1713,9 @@ module Zr::Kern
   #: (ptr, ptr, word) -> bool
   def zr_program_aliased_p(ext, e, mid)
     i = 0
-    while i < ClassExt.mlen(ext)
-      row = ClassExt.mtab(ext) + (i * MEntry.size)
-      if row != e && MEntry.orig(row) == mid && MEntry.mid(row) != mid && MEntry.kind(row) != KIND_UNDEF && (MEntry.core(row) & 1) == 0
+    while i < ClassExt[ext].mlen
+      row = ClassExt[ext].mtab + (i * MEntry.size)
+      if row != e && MEntry[row].orig == mid && MEntry[row].mid != mid && MEntry[row].kind != KIND_UNDEF && (MEntry[row].core & 1) == 0
         return true
       end
       i += 1
@@ -1663,12 +1745,12 @@ module Zr::Kern
     zr_buf_sym(b, mid)
     if where != QNIL
       zr_buf_byte(b, 10)
-      zr_buf_push(b, RString.ptr(where), RString.len(where))
+      zr_buf_push(b, RString[where].ptr, RString[where].len)
       zr_buf_push(b, Machine.bytes(": warning: previous definition of "), 34)
       zr_buf_sym(b, mid)
       zr_buf_push(b, Machine.bytes(" was here"), 9)
     end
-    zr_warn_here(Buf.ptr(b), Buf.len(b))
+    zr_warn_here(Buf[b].ptr, Buf[b].len)
     zr_buf_free(b)
     true
   end
@@ -1690,7 +1772,7 @@ module Zr::Kern
       zr_buf_push(b, Machine.bytes("redefining Object#"), 18)
       zr_buf_sym(b, mid)
       zr_buf_push(b, Machine.bytes(" may cause infinite loop"), 24)
-      zr_warn_here(Buf.ptr(b), Buf.len(b))
+      zr_warn_here(Buf[b].ptr, Buf[b].len)
     else
       if kind == KIND_UNDEF && (mid == Machine.id(:object_id) || mid == Machine.id(:__send__) || mid == Machine.id(:initialize))
         # rb_undef warns for the names that ruby itself depends on, then
@@ -1698,8 +1780,8 @@ module Zr::Kern
         zr_buf_push(b, Machine.bytes("undefining '"), 12)
         zr_buf_sym(b, mid)
         zr_buf_push(b, Machine.bytes("' may cause serious problems"), 28)
-        zr_warn_here(Buf.ptr(b), Buf.len(b))
-        Buf.set_len(b, 0)
+        zr_warn_here(Buf[b].ptr, Buf[b].len)
+        Buf[b].len = 0
       end
       if (mid == Machine.id(:object_id) || mid == Machine.id(:__send__)) && zr_find_method(owner, mid) != 0
         # Any new entry over one of them warns: a def, a reader, a
@@ -1707,7 +1789,7 @@ module Zr::Kern
         zr_buf_push(b, Machine.bytes("redefining '"), 12)
         zr_buf_sym(b, mid)
         zr_buf_push(b, Machine.bytes("' may cause serious problems"), 28)
-        zr_warn_here(Buf.ptr(b), Buf.len(b))
+        zr_warn_here(Buf[b].ptr, Buf[b].len)
       end
     end
     zr_buf_free(b)
@@ -1733,26 +1815,26 @@ module Zr::Kern
   # nothing for other entries, and saves each name only one time.
   #: (ptr, ptr) -> void
   def zr_save_core_row(ext, e)
-    if e == 0 || MEntry.core(e) == 0 || !zr_program_started_p() || zr_saved_row(ext, MEntry.mid(e)) != 0
+    if e == 0 || MEntry[e].core == 0 || !zr_program_started_p() || zr_saved_row(ext, MEntry[e].mid) != 0
       return
     end
-    n = ClassExt.slen(ext)
+    n = ClassExt[ext].slen
     tab = zr_xmalloc((n + 1) * MEntry.size)
     if n > 0
-      zr_memcpy(tab, ClassExt.saved(ext), n * MEntry.size)
-      zr_xfree(ClassExt.saved(ext))
+      zr_memcpy(tab, ClassExt[ext].saved, n * MEntry.size)
+      zr_xfree(ClassExt[ext].saved)
     end
     zr_memcpy(tab + (n * MEntry.size), e, MEntry.size)
-    ClassExt.set_saved(ext, tab)
-    ClassExt.set_slen(ext, n + 1)
+    ClassExt[ext].saved = tab
+    ClassExt[ext].slen = n + 1
   end
 
   #: (ptr, word) -> ptr
   def zr_saved_row(ext, mid)
     i = 0
-    while i < ClassExt.slen(ext)
-      e = ClassExt.saved(ext) + (i * MEntry.size)
-      if MEntry.mid(e) == mid
+    while i < ClassExt[ext].slen
+      e = ClassExt[ext].saved + (i * MEntry.size)
+      if MEntry[e].mid == mid
         return e
       end
       i += 1
@@ -1770,15 +1852,15 @@ module Zr::Kern
     if !zr_program_started_p()
       return false
     end
-    while klass != QNIL && (RBasic.flags(klass) & FL_SINGLETON) != 0
-      attached = RClass.attached(klass)
+    while klass != QNIL && (RBasic[klass].flags & FL_SINGLETON) != 0
+      attached = RClass[klass].attached
       if !zr_special_p(attached) && (zr_type(attached) == T_CLASS || zr_type(attached) == T_MODULE)
         klass = attached
       else
-        klass = RClass.superclass(klass)
+        klass = RClass[klass].superclass
       end
     end
-    klass != QNIL && ClassExt.serial(RClass.ext(klass)) <= Machine.load64(Machine.static(:master_serial, 8), 0)
+    klass != QNIL && ClassExt[RClass[klass].ext].serial <= Machine.load64(Machine.static(:master_serial, 8), 0)
   end
 
   # The entry for `mid` on `klass` that a core library send finds: the
@@ -1791,22 +1873,22 @@ module Zr::Kern
   def zr_search_core_method(klass, mid)
     k = klass
     while k != QNIL
-      ext = RClass.ext(k)
+      ext = RClass[k].ext
       e = zr_saved_row(ext, mid)
       if e == 0
         e = zr_find_method_at(k, mid)
-        if e != 0 && MEntry.core(e) == 0
+        if e != 0 && MEntry[e].core == 0
           e = 0
         end
       end
       if e != 0
-        if MEntry.kind(e) == KIND_UNDEF
+        if MEntry[e].kind == KIND_UNDEF
           return 0
         end
-        Task.set_found(zr_task(), k)
+        Task[zr_task()].found = k
         return e
       end
-      k = RClass.superclass(k)
+      k = RClass[k].superclass
     end
     0
   end
@@ -1822,10 +1904,10 @@ module Zr::Kern
     h = ((Machine.word(klass) / CELL_MIN) ^ Machine.mul_wrap(key, 31)) & (MCACHE_ROWS - 1)
     row = Machine.static(:mcache, MCACHE_ROWS * MCache.size) + (h * MCache.size)
     stamp = Machine.load64(Machine.static(:mcache_stamp, 8), 0)
-    if MCache.stamp(row) == stamp && MCache.klass(row) == klass && MCache.mid(row) == key
-      e = MCache.entry(row)
+    if MCache[row].stamp == stamp && MCache[row].klass == klass && MCache[row].mid == key
+      e = MCache[row].entry
       if e != 0
-        Task.set_found(zr_task(), MCache.found(row))
+        Task[zr_task()].found = MCache[row].found
       end
       if mode == MCACHE_VERIFY && e != zr_search_core_method(klass, mid)
         zr_bug(Machine.bytes("the method cache answered what the core chain does not\n"), 55)
@@ -1833,12 +1915,12 @@ module Zr::Kern
       return e
     end
     e = zr_search_core_method(klass, mid)
-    MCache.set_klass(row, klass)
-    MCache.set_mid(row, key)
-    MCache.set_entry(row, e)
-    MCache.set_found(row, e == 0 ? Machine.value(QNIL) : Task.found(zr_task()))
-    MCache.set_stamp(row, stamp)
-    MCache.set_refine(row, Machine.value(QNIL))
+    MCache[row].klass = klass
+    MCache[row].mid = key
+    MCache[row].entry = e
+    MCache[row].found = e == 0 ? Machine.value(QNIL) : Task[zr_task()].found
+    MCache[row].stamp = stamp
+    MCache[row].refine = Machine.value(QNIL)
     e
   end
 
@@ -1851,23 +1933,23 @@ module Zr::Kern
   # the ancestor list node where it was.
   #: (value, word, ptr, ptr, word, bool) -> void
   def zr_method_copy(klass, mid, e, meta, vis, found)
-    orig = MEntry.orig(e)
-    from = MEntry.from(e)
+    orig = MEntry[e].orig
+    from = MEntry[e].from
     if found && from == QNIL
-      from = Task.found(zr_task())
+      from = Task[zr_task()].found
     end
-    cover = MEntry.cover(e)
-    direct = MEntry.direct(e)
-    zr_method_add_vis(klass, mid, MEntry.fn(e), MEntry.arity(e), MEntry.kind(e), meta, MEntry.cref(e), vis)
+    cover = MEntry[e].cover
+    direct = MEntry[e].direct
+    zr_method_add_vis(klass, mid, MEntry[e].fn, MEntry[e].arity, MEntry[e].kind, meta, MEntry[e].cref, vis)
     e = zr_find_method_at(zr_origin(klass), mid)
-    MEntry.set_orig(e, orig)
-    MEntry.set_from(e, from)
+    MEntry[e].orig = orig
+    MEntry[e].from = from
     # An alias or a visibility copy of a def with a direct entry keeps it.
-    MEntry.set_direct(e, direct)
+    MEntry[e].direct = direct
     zr_write_barrier(klass, from)
     # An alias counts for coverage where its original counts, as
     # rb_resolve_me_location does for the :call event.
-    MEntry.set_cover(e, cover)
+    MEntry[e].cover = cover
   end
 
   # `private`, `public`, `protected` and `module_function` in a class
@@ -1876,15 +1958,15 @@ module Zr::Kern
   #: (value, word, ptr, value, word, word) -> value
   def zr_set_visibility(klass, argc, argv, blk, vis, modfn)
     if argc == 0
-      cref = Frame.cref(Frame.prev(Task.top(zr_task())))
+      cref = Frame[Frame[Task[zr_task()].top].prev].cref
       if cref == QNIL
         zr_bug(Machine.bytes("a visibility verb outside a class body is not implemented yet\n"), 62)
       end
       if modfn != 0
-        RCref.set_modfn(cref, 1)
+        RCref[cref].modfn = 1
       else
-        RCref.set_vis(cref, vis)
-        RCref.set_modfn(cref, 0)
+        RCref[cref].vis = vis
+        RCref[cref].modfn = 0
       end
       return Machine.value(QNIL)
     end
@@ -1892,7 +1974,7 @@ module Zr::Kern
     while i < argc
       name = Machine.value(Machine.load64(argv + (i * 8), 0))
       if !zr_special_p(name) && zr_type(name) == T_ARRAY
-        r = zr_set_visibility(klass, RArray.len(name), RArray.ptr(name), blk, vis, modfn)
+        r = zr_set_visibility(klass, RArray[name].len, RArray[name].ptr, blk, vis, modfn)
         return r if r == QUNDEF
       else
         slot = Machine.slot(8)
@@ -1925,7 +2007,7 @@ module Zr::Kern
     end
     if modfn != 0
       single = zr_singleton_class(klass)
-      zr_method_copy(single, mid, e, zr_meta_owned(MEntry.meta(e), single), VIS_PUBLIC, false)
+      zr_method_copy(single, mid, e, zr_meta_owned(MEntry[e].meta, single), VIS_PUBLIC, false)
       vis = VIS_PRIVATE
     end
     # If the method is on an ancestor, the call makes an entry here, and a
@@ -1933,9 +2015,9 @@ module Zr::Kern
     # that this class already has calls no hook.
     copied = zr_find_method_at(zr_origin(klass), mid) != e
     if copied
-      zr_method_copy(zr_origin(klass), mid, e, MEntry.meta(e), vis, true)
+      zr_method_copy(zr_origin(klass), mid, e, MEntry[e].meta, vis, true)
     else
-      MEntry.set_vis(e, vis)
+      MEntry[e].vis = vis
       zr_methods_changed()
       zr_gates_recheck(mid)
     end
@@ -1995,10 +2077,10 @@ module Zr::Kern
   # on a class of the program, except to the eval support itself.
   #: (ptr) -> bool
   def zr_entry_hidden_p(e)
-    if MEntry.concealed(e) != 0 && !zr_hidden_now()
+    if MEntry[e].concealed != 0 && !zr_hidden_now()
       return true
     end
-    (MEntry.kind(e) == KIND_DEF || MEntry.kind(e) == KIND_BUILTIN) && MEntry.meta(e) != 0 && FrameMeta.kind(MEntry.meta(e)) == KIND_HIDDEN
+    (MEntry[e].kind == KIND_DEF || MEntry[e].kind == KIND_BUILTIN) && MEntry[e].meta != 0 && FrameMeta[MEntry[e].meta].kind == KIND_HIDDEN
   end
 
   # Adds the names in one level's table to `out`, filtered by `vis` (a
@@ -2007,15 +2089,15 @@ module Zr::Kern
   # helper.
   #: (value, value, value, word) -> void
   def zr_level_method_names(level, out, seen, vis)
-    ext = RClass.ext(level)
+    ext = RClass[level].ext
     i = 0
-    while i < ClassExt.mlen(ext)
-      e = ClassExt.mtab(ext) + (i * MEntry.size)
-      name = zr_sym(MEntry.mid(e))
+    while i < ClassExt[ext].mlen
+      e = ClassExt[ext].mtab + (i * MEntry.size)
+      name = zr_sym(MEntry[e].mid)
       if zr_ary_index_of(seen, name) < 0
         zr_ary_push(seen, name)
-        e = zr_find_method_at(level, MEntry.mid(e))
-        if MEntry.kind(e) != KIND_UNDEF && !zr_entry_hidden_p(e) && (vis < 0 ? MEntry.vis(e) != VIS_PRIVATE : MEntry.vis(e) == vis)
+        e = zr_find_method_at(level, MEntry[e].mid)
+        if MEntry[e].kind != KIND_UNDEF && !zr_entry_hidden_p(e) && (vis < 0 ? MEntry[e].vis != VIS_PRIVATE : MEntry[e].vis == vis)
           zr_ary_push(out, name)
         end
       end
@@ -2027,13 +2109,13 @@ module Zr::Kern
   # undefines, where a call stops at the module.
   #: (value, word, ptr, value, value) -> value
   def zr_mod_undefined_instance_methods(recv, argc, argv, cref, blk)
-    ext = RClass.ext(zr_origin(recv))
+    ext = RClass[zr_origin(recv)].ext
     out = zr_ary_new(4)
     i = 0
-    while i < ClassExt.mlen(ext)
-      e = ClassExt.mtab(ext) + (i * MEntry.size)
-      if MEntry.kind(e) == KIND_UNDEF && zr_ary_index_of(out, zr_sym(MEntry.mid(e))) < 0
-        zr_ary_push(out, zr_sym(MEntry.mid(e)))
+    while i < ClassExt[ext].mlen
+      e = ClassExt[ext].mtab + (i * MEntry.size)
+      if MEntry[e].kind == KIND_UNDEF && zr_ary_index_of(out, zr_sym(MEntry[e].mid)) < 0
+        zr_ary_push(out, zr_sym(MEntry[e].mid))
       end
       i += 1
     end
@@ -2051,7 +2133,7 @@ module Zr::Kern
     if object
       while k != QNIL && (zr_singleton_p(k) || zr_type(k) == T_ICLASS)
         zr_level_method_names(k, out, seen, vis)
-        k = RClass.superclass(k)
+        k = RClass[k].superclass
       end
     end
     while k != QNIL
@@ -2059,7 +2141,7 @@ module Zr::Kern
       if all == 0
         k = Machine.value(QNIL)
       else
-        k = RClass.superclass(k)
+        k = RClass[k].superclass
       end
     end
     out
@@ -2101,7 +2183,7 @@ module Zr::Kern
   def zr_f_notimplement(recv, argc, argv, cref, blk)
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
-    zr_buf_sym(b, zr_frame_mid(Task.top(zr_task())))
+    zr_buf_sym(b, zr_frame_mid(Task[zr_task()].top))
     zr_buf_push(b, Machine.bytes("() function is unimplemented on this machine"), 44)
     zr_raise_buf(zr_core_class(Machine.id(:NotImplementedError)), b)
   end
@@ -2117,7 +2199,7 @@ module Zr::Kern
   #: (value, word, ptr, word) -> void
   def zr_builtin_private(klass, mid, fn, arity)
     zr_builtin(klass, mid, fn, arity)
-    MEntry.set_vis(zr_find_method_at(zr_origin(klass), mid), VIS_PRIVATE)
+    MEntry[zr_find_method_at(zr_origin(klass), mid)].vis = VIS_PRIVATE
     zr_methods_changed()
   end
 
@@ -2127,7 +2209,7 @@ module Zr::Kern
   #: (value, word, ptr, word) -> void
   def zr_builtin_hidden(klass, mid, fn, arity)
     zr_builtin_private(klass, mid, fn, arity)
-    FrameMeta.set_kind(MEntry.meta(zr_find_method_at(zr_origin(klass), mid)), KIND_HIDDEN)
+    FrameMeta[MEntry[zr_find_method_at(zr_origin(klass), mid)].meta].kind = KIND_HIDDEN
   end
 
   # Makes the method `mid` on `klass` visible. The eval support defined it,
@@ -2135,8 +2217,8 @@ module Zr::Kern
   #: (value, word) -> void
   def zr_method_reveal(klass, mid)
     e = zr_find_method_at(klass, mid)
-    if e != 0 && MEntry.concealed(e) != 0
-      MEntry.set_concealed(e, 0)
+    if e != 0 && MEntry[e].concealed != 0
+      MEntry[e].concealed = 0
       zr_methods_changed()
     end
   end
@@ -2153,34 +2235,34 @@ module Zr::Kern
 
   #: (ptr) -> void
   def zr_method_index_drop(ext)
-    if ClassExt.midx(ext) != 0
-      zr_xfree(ClassExt.midx(ext))
-      ClassExt.set_midx(ext, 0)
+    if ClassExt[ext].midx != 0
+      zr_xfree(ClassExt[ext].midx)
+      ClassExt[ext].midx = 0
     end
   end
 
   #: (ptr, word) -> void
   def zr_method_index_put(ext, row)
-    mask = ClassExt.mbins(ext) - 1
-    h = Machine.mul_wrap(MEntry.mid(ClassExt.mtab(ext) + (row * MEntry.size)), 2654435761) & mask
-    while Machine.load64(ClassExt.midx(ext) + (h * 8), 0) != 0
+    mask = ClassExt[ext].mbins - 1
+    h = Machine.mul_wrap(MEntry[ClassExt[ext].mtab + (row * MEntry.size)].mid, 2654435761) & mask
+    while Machine.load64(ClassExt[ext].midx + (h * 8), 0) != 0
       h = (h + 1) & mask
     end
-    Machine.store64(ClassExt.midx(ext) + (h * 8), 0, row + 1)
+    Machine.store64(ClassExt[ext].midx + (h * 8), 0, row + 1)
   end
 
   # Puts each entry into a new index with at least four bins per entry.
   #: (ptr) -> void
   def zr_method_index_build(ext)
     zr_method_index_drop(ext)
-    n = ClassExt.mlen(ext)
+    n = ClassExt[ext].mlen
     bins = 64
     while bins < n * 4
       bins = bins * 2
     end
-    ClassExt.set_midx(ext, zr_xmalloc(bins * 8))
-    Libc.memset(ClassExt.midx(ext), Machine.i32(0), bins * 8)
-    ClassExt.set_mbins(ext, bins)
+    ClassExt[ext].midx = zr_xmalloc(bins * 8)
+    Libc.memset(ClassExt[ext].midx, Machine.i32(0), bins * 8)
+    ClassExt[ext].mbins = bins
     i = 0
     while i < n
       zr_method_index_put(ext, i)
@@ -2192,10 +2274,10 @@ module Zr::Kern
   # Else it drops the index, and the next lookup builds a larger one.
   #: (ptr, word) -> void
   def zr_method_index_add(ext, row)
-    if ClassExt.midx(ext) == 0
+    if ClassExt[ext].midx == 0
       return
     end
-    if (row + 1) * 2 > ClassExt.mbins(ext)
+    if (row + 1) * 2 > ClassExt[ext].mbins
       zr_method_index_drop(ext)
       return
     end
@@ -2205,27 +2287,27 @@ module Zr::Kern
   # The entry number of `mid` in the table plus one, or 0.
   #: (ptr, word) -> word
   def zr_method_index_find(ext, mid)
-    if ClassExt.midx(ext) == 0
+    if ClassExt[ext].midx == 0
       zr_method_index_build(ext)
     end
-    mask = ClassExt.mbins(ext) - 1
+    mask = ClassExt[ext].mbins - 1
     h = Machine.mul_wrap(mid, 2654435761) & mask
-    slot = Machine.load64(ClassExt.midx(ext) + (h * 8), 0)
+    slot = Machine.load64(ClassExt[ext].midx + (h * 8), 0)
     while slot != 0
-      if MEntry.mid(ClassExt.mtab(ext) + ((slot - 1) * MEntry.size)) == mid
+      if MEntry[ClassExt[ext].mtab + ((slot - 1) * MEntry.size)].mid == mid
         return slot
       end
       h = (h + 1) & mask
-      slot = Machine.load64(ClassExt.midx(ext) + (h * 8), 0)
+      slot = Machine.load64(ClassExt[ext].midx + (h * 8), 0)
     end
     0
   end
 
   #: (value, word) -> ptr
   def zr_find_method_at(klass, mid)
-    ext = RClass.ext(klass)
-    n = ClassExt.mlen(ext)
-    tab = ClassExt.mtab(ext)
+    ext = RClass[klass].ext
+    n = ClassExt[ext].mlen
+    tab = ClassExt[ext].mtab
     if n >= METHOD_INDEX_MIN
       slot = zr_method_index_find(ext, mid)
       return slot == 0 ? 0 : tab + ((slot - 1) * MEntry.size)
@@ -2233,7 +2315,7 @@ module Zr::Kern
     i = n - 1
     while i >= 0
       e = tab + (i * MEntry.size)
-      if MEntry.mid(e) == mid
+      if MEntry[e].mid == mid
         return e
       end
       i -= 1
@@ -2246,7 +2328,14 @@ module Zr::Kern
   # time. `refine` is the activation list of the lookup (Task.refine), or
   # nil. A refined lookup has a separate entry, and never serves a plain
   # lookup. A `using` and a refinement's definition change the stamp.
-  MCache = layout klass: Value, mid: Word, entry: Ptr, found: Value, stamp: Word, refine: Value
+  class MCache < Layout
+    attr_accessor :klass #: value
+    attr_accessor :mid #: word
+    attr_accessor :entry #: ptr
+    attr_accessor :found #: value
+    attr_accessor :stamp #: word
+    attr_accessor :refine #: value
+  end
   MCACHE_ROWS = 2048
   # `ZR_MCACHE=0` does a walk for each send. `ZR_MCACHE=verify` gets both
   # results and stops if they differ, which finds a change to a method
@@ -2297,14 +2386,14 @@ module Zr::Kern
     while klass != QNIL
       e = zr_find_method_at(klass, mid)
       if e != 0
-        if MEntry.kind(e) == KIND_UNDEF
+        if MEntry[e].kind == KIND_UNDEF
           return 0
         end
         # The frame of the call uses this as the class where it was defined.
-        Task.set_found(zr_task(), klass)
+        Task[zr_task()].found = klass
         return e
       end
-      klass = RClass.superclass(klass)
+      klass = RClass[klass].superclass
     end
     0
   end
@@ -2318,7 +2407,7 @@ module Zr::Kern
     # list (zr_refined_search), and the result is kept under its activation
     # list. Thus a site that sees a hundred node classes under `using` (the
     # prism port's `node.reify`) probes as a plain site does.
-    refine = Task.refine(zr_task())
+    refine = Task[zr_task()].refine
     mode = Machine.load64(Machine.static(:mcache_mode, 8), 0)
     if mode == MCACHE_OFF
       return refine == QNIL ? zr_search_method(klass, mid) : zr_refined_search(klass, mid)
@@ -2327,10 +2416,10 @@ module Zr::Kern
     h = ((Machine.word(klass) / CELL_MIN) ^ Machine.mul_wrap(mid, 31) ^ (Machine.word(refine) / CELL_MIN)) & (MCACHE_ROWS - 1)
     row = Machine.static(:mcache, MCACHE_ROWS * MCache.size) + (h * MCache.size)
     stamp = Machine.load64(Machine.static(:mcache_stamp, 8), 0)
-    if MCache.stamp(row) == stamp && MCache.klass(row) == klass && MCache.mid(row) == mid && MCache.refine(row) == refine
-      e = MCache.entry(row)
+    if MCache[row].stamp == stamp && MCache[row].klass == klass && MCache[row].mid == mid && MCache[row].refine == refine
+      e = MCache[row].entry
       if e != 0
-        Task.set_found(zr_task(), MCache.found(row))
+        Task[zr_task()].found = MCache[row].found
       end
       if mode == MCACHE_VERIFY && e != (refine == QNIL ? zr_search_method(klass, mid) : zr_refined_search(klass, mid))
         zr_bug(Machine.bytes("the method cache answered what the chain does not\n"), 50)
@@ -2338,12 +2427,12 @@ module Zr::Kern
       return e
     end
     e = refine == QNIL ? zr_search_method(klass, mid) : zr_refined_search(klass, mid)
-    MCache.set_klass(row, klass)
-    MCache.set_mid(row, mid)
-    MCache.set_entry(row, e)
-    MCache.set_found(row, e == 0 ? Machine.value(QNIL) : Task.found(zr_task()))
-    MCache.set_stamp(row, stamp)
-    MCache.set_refine(row, refine)
+    MCache[row].klass = klass
+    MCache[row].mid = mid
+    MCache[row].entry = e
+    MCache[row].found = e == 0 ? Machine.value(QNIL) : Task[zr_task()].found
+    MCache[row].stamp = stamp
+    MCache[row].refine = refine
     e
   end
 
@@ -2352,7 +2441,7 @@ module Zr::Kern
   #: (value, word) -> bool
   def zr_basic_method_p(recv, mid)
     e = zr_find_method(zr_class_of(recv), mid)
-    e != 0 && MEntry.core(e) != 0
+    e != 0 && MEntry[e].core != 0
   end
 
   # The same for the core: `Primitive.zr_basic_method_m(self, :each)`.
@@ -2367,7 +2456,7 @@ module Zr::Kern
     # of a cell are clear and its address is above all special values. A
     # fixnum is odd, a flonum ends in 10, and a symbol in 1100.
     if (Machine.word(v) & 7) == 0 && Machine.word(v) > QUNDEF
-      return RBasic.klass(v)
+      return RBasic[v].klass
     end
     if zr_fixnum_p(v)
       zr_global(G_INTEGER)
@@ -2382,7 +2471,7 @@ module Zr::Kern
     elsif zr_flonum_p(v)
       zr_global(G_FLOAT)
     else
-      RBasic.klass(v)
+      RBasic[v].klass
     end
   end
 
@@ -2397,19 +2486,19 @@ module Zr::Kern
   # superclass is not set yet. The rank is 0 for it.
   #: (value) -> word
   def zr_class_rank(klass)
-    ext = RClass.ext(klass)
-    if ClassExt.supers(ext) != 0
-      return ClassExt.rank(ext)
+    ext = RClass[klass].ext
+    if ClassExt[ext].supers != 0
+      return ClassExt[ext].rank
     end
     n = 0
     top = klass
     k = klass
     while k != QNIL
-      if (RBasic.flags(k) & T_MASK) == T_CLASS
+      if (RBasic[k].flags & T_MASK) == T_CLASS
         n += 1
         top = k
       end
-      k = RClass.superclass(k)
+      k = RClass[k].superclass
     end
     if top != zr_global(G_BASIC_OBJECT)
       return 0
@@ -2418,14 +2507,14 @@ module Zr::Kern
     i = n
     k = klass
     while k != QNIL
-      if (RBasic.flags(k) & T_MASK) == T_CLASS
+      if (RBasic[k].flags & T_MASK) == T_CLASS
         i -= 1
         Machine.store64(s + (i * 8), 0, Machine.word(k))
       end
-      k = RClass.superclass(k)
+      k = RClass[k].superclass
     end
-    ClassExt.set_supers(ext, s)
-    ClassExt.set_rank(ext, n)
+    ClassExt[ext].supers = s
+    ClassExt[ext].rank = n
     zr_class_ranked(klass)
     n
   end
@@ -2436,14 +2525,14 @@ module Zr::Kern
   # flag. A BasicObject's class has neither.
   #: (value) -> void
   def zr_class_ranked(klass)
-    ext = RClass.ext(klass)
+    ext = RClass[klass].ext
     o = zr_global(G_OBJECT)
-    if o == QFALSE || ClassExt.boxed(ext) != QNIL || ClassExt.shadow(ext) != QNIL
+    if o == QFALSE || ClassExt[ext].boxed != QNIL || ClassExt[ext].shadow != QNIL
       return
     end
     ro = zr_class_rank(o)
-    if ro != 0 && ro <= ClassExt.rank(ext) && Machine.value(Machine.load64(ClassExt.supers(ext) + ((ro - 1) * 8), 0)) == o
-      RBasic.set_flags(klass, RBasic.flags(klass) | FL_RANKED)
+    if ro != 0 && ro <= ClassExt[ext].rank && Machine.value(Machine.load64(ClassExt[ext].supers + ((ro - 1) * 8), 0)) == o
+      RBasic[klass].flags = RBasic[klass].flags | FL_RANKED
     end
   end
 
@@ -2451,11 +2540,11 @@ module Zr::Kern
   # uses the superclass list, else a walk.
   #: (value, value) -> bool
   def zr_class_inherits(klass, target)
-    if !zr_special_p(target) && !zr_special_p(klass) && (RBasic.flags(target) & T_MASK) == T_CLASS && (RBasic.flags(klass) & T_MASK) == T_CLASS
+    if !zr_special_p(target) && !zr_special_p(klass) && (RBasic[target].flags & T_MASK) == T_CLASS && (RBasic[klass].flags & T_MASK) == T_CLASS
       r = zr_class_rank(target)
       n = zr_class_rank(klass)
       if r != 0 && n != 0
-        return r <= n && Machine.value(Machine.load64(ClassExt.supers(RClass.ext(klass)) + ((r - 1) * 8), 0)) == target
+        return r <= n && Machine.value(Machine.load64(ClassExt[RClass[klass].ext].supers + ((r - 1) * 8), 0)) == target
       end
     end
     zr_chain_includes(klass, target)
@@ -2464,7 +2553,7 @@ module Zr::Kern
   #: (value, value) -> bool
   def zr_is_a(v, klass)
     k = zr_class_of(v)
-    if ClassExt.boxed(RClass.ext(k)) != QNIL
+    if ClassExt[RClass[k].ext].boxed != QNIL
       k = zr_box_view(k)
     end
     if zr_class_inherits(k, klass)
@@ -2479,8 +2568,8 @@ module Zr::Kern
   # Marks a method table's crefs, and the Procs of block-defined methods.
   #: (ptr) -> void
   def zr_mark_mtab(ext)
-    zr_mark_entries(ClassExt.mtab(ext), ClassExt.mlen(ext))
-    zr_mark_entries(ClassExt.saved(ext), ClassExt.slen(ext))
+    zr_mark_entries(ClassExt[ext].mtab, ClassExt[ext].mlen)
+    zr_mark_entries(ClassExt[ext].saved, ClassExt[ext].slen)
   end
 
   # Marks what `n` method entries from `tab` contain: a cref or a body,
@@ -2496,9 +2585,9 @@ module Zr::Kern
 
   #: (ptr) -> void
   def zr_mark_entry(e)
-    zr_mark(MEntry.cref(e))
-    zr_mark(MEntry.from(e))
-    if MEntry.kind(e) == KIND_BMETHOD
+    zr_mark(MEntry[e].cref)
+    zr_mark(MEntry[e].from)
+    if MEntry[e].kind == KIND_BMETHOD
       zr_mark(zr_bmethod_cref_kept(e))
     end
   end
@@ -2508,9 +2597,9 @@ module Zr::Kern
   # zr_mark_cell handles those without a queue.
   #: (value) -> void
   def zr_mark_children(v)
-    t = RBasic.flags(v) & T_MASK
+    t = RBasic[v].flags & T_MASK
     if t == T_OBJECT
-      zr_mark_ivtab(RObject.iv(v))
+      zr_mark_ivtab(Machine.ptr(RObject[v].iv))
     elsif t == T_ARRAY
       zr_mark_ary(v)
     elsif t == T_HASH
@@ -2518,40 +2607,40 @@ module Zr::Kern
     elsif t == T_STRING || t == T_FLOAT
       return
     elsif t == T_ICLASS
-      zr_mark(RClass.superclass(v))
-      zr_mark(RClass.attached(v))
-      if RClass.origin(RClass.attached(v)) == v
-        zr_mark_mtab(RClass.ext(v))
+      zr_mark(RClass[v].superclass)
+      zr_mark(RClass[v].attached)
+      if RClass[RClass[v].attached].origin == v
+        zr_mark_mtab(RClass[v].ext)
       end
     elsif t == T_CLASS || t == T_MODULE
-      zr_mark(RClass.name(v))
-      zr_mark(RClass.superclass(v))
-      zr_mark(RClass.attached(v))
-      ext = RClass.ext(v)
+      zr_mark(RClass[v].name)
+      zr_mark(RClass[v].superclass)
+      zr_mark(RClass[v].attached)
+      ext = RClass[v].ext
       zr_mark_mtab(ext)
-      n = ClassExt.clen(ext)
+      n = ClassExt[ext].clen
       i = 0
       while i < n
-        zr_mark(CEntry.value(ClassExt.ctab(ext) + (i * CEntry.size)))
+        zr_mark(CEntry[ClassExt[ext].ctab + (i * CEntry.size)].value)
         i += 1
       end
-      zr_mark_ivtab(ClassExt.iv(ext))
-      zr_mark_ivtab(ClassExt.cv(ext))
-      zr_mark(ClassExt.refined(ext))
-      zr_mark(ClassExt.active(ext))
-      zr_mark(ClassExt.boxed(ext))
-      zr_mark(ClassExt.shadow(ext))
+      zr_mark_ivtab(Machine.ptr(ClassExt[ext].iv))
+      zr_mark_ivtab(Machine.ptr(ClassExt[ext].cv))
+      zr_mark(ClassExt[ext].refined)
+      zr_mark(ClassExt[ext].active)
+      zr_mark(ClassExt[ext].boxed)
+      zr_mark(ClassExt[ext].shadow)
     elsif t == T_EXCEPTION
-      zr_mark(RException.message(v))
-      zr_mark(RException.bt(v))
-      if RException.cause(v) != QUNDEF
-        zr_mark(RException.cause(v))
+      zr_mark(RException[v].message)
+      zr_mark(RException[v].bt)
+      if RException[v].cause != QUNDEF
+        zr_mark(RException[v].cause)
       end
       zr_mark_backtrace_rows(v)
     elsif t == T_CREF
-      zr_mark(RCref.klass(v))
-      zr_mark(RCref.lazy(v))
-      zr_mark(RCref.next(v))
+      zr_mark(RCref[v].klass)
+      zr_mark(RCref[v].lazy)
+      zr_mark(RCref[v].next)
     elsif t == T_ENV
       zr_mark_env(v)
     elsif t == T_PROC
@@ -2570,16 +2659,16 @@ module Zr::Kern
   # caches that a freed class or cref must clear, go to zr_release_other.
   #: (value) -> void
   def zr_release(v)
-    t = RBasic.flags(v) & T_MASK
+    t = RBasic[v].flags & T_MASK
     if t == T_OBJECT
-      zr_release_ivtab(RObject.iv(v))
+      zr_release_ivtab(Machine.ptr(RObject[v].iv))
     elsif t == T_STRING
       zr_str_buf_free(v)
     elsif t == T_ARRAY
       zr_ary_buf_free(v)
     elsif t == T_HASH
-      zr_sized_xfree(RHash.entries(v), RHash.cap(v) * HEntry.size)
-      zr_sized_xfree(RHash.bins(v), RHash.nbins(v) * 8)
+      zr_sized_xfree(RHash[v].entries, RHash[v].cap * HEntry.size)
+      zr_sized_xfree(RHash[v].bins, RHash[v].nbins * 8)
     else
       zr_release_other(v, t)
     end
@@ -2598,42 +2687,42 @@ module Zr::Kern
       zr_consts_changed()
     end
     if t == T_ICLASS
-      if RClass.origin(RClass.attached(v)) == v
-        if ClassExt.mtab(RClass.ext(v)) != 0
-          zr_xfree(ClassExt.mtab(RClass.ext(v)))
+      if RClass[RClass[v].attached].origin == v
+        if ClassExt[RClass[v].ext].mtab != 0
+          zr_xfree(ClassExt[RClass[v].ext].mtab)
         end
-        zr_method_index_drop(RClass.ext(v))
-        zr_xfree(RClass.ext(v))
+        zr_method_index_drop(RClass[v].ext)
+        zr_xfree(RClass[v].ext)
       end
     elsif t == T_CLASS || t == T_MODULE
-      ext = RClass.ext(v)
-      if ClassExt.mtab(ext) != 0
-        zr_xfree(ClassExt.mtab(ext))
+      ext = RClass[v].ext
+      if ClassExt[ext].mtab != 0
+        zr_xfree(ClassExt[ext].mtab)
       end
-      if ClassExt.saved(ext) != 0
-        zr_xfree(ClassExt.saved(ext))
+      if ClassExt[ext].saved != 0
+        zr_xfree(ClassExt[ext].saved)
       end
-      if ClassExt.ctab(ext) != 0
-        zr_xfree(ClassExt.ctab(ext))
+      if ClassExt[ext].ctab != 0
+        zr_xfree(ClassExt[ext].ctab)
       end
-      if ClassExt.supers(ext) != 0
-        zr_xfree(ClassExt.supers(ext))
+      if ClassExt[ext].supers != 0
+        zr_xfree(ClassExt[ext].supers)
       end
       zr_method_index_drop(ext)
       zr_const_index_drop(ext)
-      zr_release_ivtab(ClassExt.iv(ext))
-      zr_release_ivtab(ClassExt.cv(ext))
+      zr_release_ivtab(Machine.ptr(ClassExt[ext].iv))
+      zr_release_ivtab(Machine.ptr(ClassExt[ext].cv))
       zr_xfree(ext)
     elsif t == T_EXCEPTION
-      if RException.rows(v) != 0
-        zr_xfree(RException.rows(v))
+      if RException[v].rows != 0
+        zr_xfree(RException[v].rows)
       end
     elsif t == T_FIBER
       zr_release_fiber(v)
     elsif t == T_REGEXP
       zr_release_regexp(v)
     elsif t == T_ENV
-      zr_xfree(REnv.slots(v))
+      zr_xfree(REnv[v].slots)
     end
   end
 
@@ -2642,14 +2731,14 @@ module Zr::Kern
   # name, which cannot change.
   #: (value, value) -> value
   def zr_mod_set_temporary_name(mod, name)
-    if RClass.name(mod) != QNIL && (RBasic.flags(mod) & FL_TEMP_NAME) == 0
+    if RClass[mod].name != QNIL && (RBasic[mod].flags & FL_TEMP_NAME) == 0
       return Machine.value(QFALSE)
     end
-    RClass.set_name(mod, name)
+    RClass[mod].name = name
     if name == QNIL
-      RBasic.set_flags(mod, RBasic.flags(mod) & (0 - (FL_TEMP_NAME + 1)))
+      RBasic[mod].flags = RBasic[mod].flags & (0 - (FL_TEMP_NAME + 1))
     else
-      RBasic.set_flags(mod, RBasic.flags(mod) | FL_TEMP_NAME)
+      RBasic[mod].flags = RBasic[mod].flags | FL_TEMP_NAME
     end
     Machine.value(QTRUE)
   end
@@ -2669,18 +2758,18 @@ module Zr::Kern
   #: (value, value) -> value
   def zr_refinement_new(klass, active)
     h = zr_class_alloc(T_MODULE, Machine.value(QNIL), zr_global(G_REFINEMENT))
-    ext = RClass.ext(h)
-    ClassExt.set_refined(ext, klass)
+    ext = RClass[h].ext
+    ClassExt[ext].refined = klass
     zr_write_barrier(h, klass)
     zr_ary_push(active, h)
-    ClassExt.set_active(ext, active)
+    ClassExt[ext].active = active
     zr_write_barrier(h, active)
     h
   end
 
   #: (value) -> value
   def zr_refined_class(h)
-    ClassExt.refined(RClass.ext(h))
+    ClassExt[RClass[h].ext].refined
   end
 
   # The current value of activation entry `id`. An entry whose `using` a
@@ -2688,14 +2777,14 @@ module Zr::Kern
   # in its place. An entry that nothing has touched contains nil.
   #: (value, word) -> value
   def zr_activation_row(rows, id)
-    if zr_special_p(rows) || id < 0 || id >= RArray.len(rows)
+    if zr_special_p(rows) || id < 0 || id >= RArray[rows].len
       return Machine.value(QNIL)
     end
     row = zr_ary_at(rows, id)
     while zr_fixnum_p(row)
       from = zr_fix2long(row)
       row = Machine.value(QNIL)
-      if from >= 0 && from < RArray.len(rows)
+      if from >= 0 && from < RArray[rows].len
         row = zr_ary_at(rows, from)
       end
     end
@@ -2706,7 +2795,7 @@ module Zr::Kern
   # it reads.
   #: (word) -> value
   def zr_activate(id)
-    Task.set_refine(zr_task(), zr_activation_row(zr_global(G_ACTIVATIONS), id))
+    Task[zr_task()].refine = zr_activation_row(zr_global(G_ACTIVATIONS), id)
     Machine.value(QNIL)
   end
 
@@ -2717,12 +2806,12 @@ module Zr::Kern
     meta = zr_method_meta_of(rec)
     list = Machine.value(QNIL)
     if meta != 0
-      owner = FrameMeta.owner(meta)
+      owner = FrameMeta[meta].owner
       if !zr_special_p(owner) && (zr_type(owner) == T_MODULE || zr_type(owner) == T_CLASS)
-        list = ClassExt.active(RClass.ext(owner))
+        list = ClassExt[RClass[owner].ext].active
       end
     end
-    Task.set_refine(zr_task(), list)
+    Task[zr_task()].refine = list
     Machine.value(QNIL)
   end
 
@@ -2734,7 +2823,7 @@ module Zr::Kern
       rows = zr_ary_new(8)
       zr_set_global(G_ACTIVATIONS, rows)
     end
-    while RArray.len(rows) <= id
+    while RArray[rows].len <= id
       zr_ary_push(rows, Machine.value(QNIL))
     end
     rows
@@ -2764,7 +2853,7 @@ module Zr::Kern
   #: () -> value
   def zr_activations_count
     rows = zr_global(G_ACTIVATIONS)
-    zr_fix(zr_special_p(rows) ? 0 : RArray.len(rows))
+    zr_fix(zr_special_p(rows) ? 0 : RArray[rows].len)
   end
 
   # A `using` under a condition can never run. Until it runs, its entry
@@ -2824,7 +2913,7 @@ module Zr::Kern
     if zr_special_p(h) || zr_type(h) != T_MODULE
       return Machine.value(QNIL)
     end
-    ClassExt.refined(RClass.ext(h))
+    ClassExt[RClass[h].ext].refined
   end
 
   # Whether a holder for `target` comes before `stop` in the entry.
@@ -2853,11 +2942,11 @@ module Zr::Kern
   #: (value, word, ptr, value, value) -> value
   def zr_mod_used_refinements(recv, argc, argv, cref, blk)
     out = zr_ary_new(4)
-    list = Task.refine(zr_task())
+    list = Task[zr_task()].refine
     if zr_special_p(list) || zr_type(list) != T_ARRAY
       return out
     end
-    n = RArray.len(list)
+    n = RArray[list].len
     i = 0
     while i < n
       target = zr_refined_target(zr_ary_at(list, i))
@@ -2884,7 +2973,7 @@ module Zr::Kern
     found = zr_mod_used_refinements(recv, argc, argv, cref, blk)
     out = zr_ary_new(4)
     i = 0
-    while i < RArray.len(found)
+    while i < RArray[found].len
       origin = zr_ivar_get(zr_ary_at(found, i), Machine.id(:__origin__))
       if zr_ary_index_of(out, origin) < 0
         zr_ary_push(out, origin)
@@ -2903,19 +2992,19 @@ module Zr::Kern
   def zr_refined_search(klass, mid)
     k = klass
     while k != QNIL
-      e = zr_refined_entry_at(zr_type(k) == T_ICLASS ? RClass.attached(k) : k, mid)
+      e = zr_refined_entry_at(zr_type(k) == T_ICLASS ? RClass[k].attached : k, mid)
       if e != 0
         return e
       end
       e = zr_find_method_at(k, mid)
       if e != 0
-        if MEntry.kind(e) == KIND_UNDEF
+        if MEntry[e].kind == KIND_UNDEF
           return 0
         end
-        Task.set_found(zr_task(), k)
+        Task[zr_task()].found = k
         return e
       end
-      k = RClass.superclass(k)
+      k = RClass[k].superclass
     end
     0
   end
@@ -2924,14 +3013,14 @@ module Zr::Kern
   # newest first, or 0.
   #: (value, word) -> ptr
   def zr_refined_entry_at(target, mid)
-    list = Task.refine(zr_task())
+    list = Task[zr_task()].refine
     if zr_special_p(list) || zr_type(list) != T_ARRAY
       return 0
     end
-    i = RArray.len(list) - 1
+    i = RArray[list].len - 1
     while i >= 0
       h = zr_ary_at(list, i)
-      if !zr_special_p(h) && zr_type(h) == T_MODULE && ClassExt.refined(RClass.ext(h)) == target
+      if !zr_special_p(h) && zr_type(h) == T_MODULE && ClassExt[RClass[h].ext].refined == target
         e = zr_search_method(h, mid)
         if e != 0
           return e
@@ -2946,8 +3035,8 @@ module Zr::Kern
   # made from a refined name is owned by its holder.
   #: () -> value
   def zr_found_refinement
-    f = Task.found(zr_task())
-    if !zr_special_p(f) && zr_type(f) == T_MODULE && ClassExt.refined(RClass.ext(f)) != QNIL
+    f = Task[zr_task()].found
+    if !zr_special_p(f) && zr_type(f) == T_MODULE && ClassExt[RClass[f].ext].refined != QNIL
       return f
     end
     Machine.value(QNIL)

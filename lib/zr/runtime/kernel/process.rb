@@ -1,22 +1,16 @@
 module Zr::Kern
   # Child processes: `zr_os_spawn`, a pipe for the output that backticks
   # collect, and waitpid for the status.
-  Libc.import :getrusage, [I32, Ptr] => I32
-  Libc.import :waitpid, [I32, Ptr, I32] => I32
-  Libc.import :pipe, [Ptr] => I32
-  Libc.import :getppid, [] => I32
-  Libc.import :kill, [I32, I32] => I32
-  Libc.import :signal, [I32, Ptr] => Ptr
 
   # Makes a NULL-terminated char* vector from an Array of Strings, with
   # malloc.
   #: (value) -> ptr
   def zr_spawn_vector(words)
-    n = RArray.len(words)
+    n = RArray[words].len
     vector = zr_xmalloc((n + 1) * 8)
     i = 0
     while i < n
-      Machine.store64(vector + (i * 8), 0, Machine.word(RString.ptr(zr_ary_at(words, i))))
+      Machine.store64(vector + (i * 8), 0, Machine.word(RString[zr_ary_at(words, i)].ptr))
       i += 1
     end
     Machine.store64(vector + (n * 8), 0, 0)
@@ -25,15 +19,6 @@ module Zr::Kern
 
   # Starts child processes through posix_spawn (which is not variadic) on
   # an OS that has it. `zr_os_spawn` calls this with the OS's flags.
-  Libc.import :posix_spawnp, [Ptr, Ptr, Ptr, Ptr, Ptr, Ptr] => I32
-  Libc.import :posix_spawn_file_actions_init, [Ptr] => I32
-  Libc.import :posix_spawn_file_actions_adddup2, [Ptr, I32, I32] => I32
-  Libc.import :posix_spawn_file_actions_addclose, [Ptr, I32] => I32
-  Libc.import :posix_spawn_file_actions_addchdir_np, [Ptr, Ptr] => I32
-  Libc.import :posix_spawn_file_actions_destroy, [Ptr] => I32
-  Libc.import :posix_spawnattr_init, [Ptr] => I32
-  Libc.import :posix_spawnattr_setflags, [Ptr, I32] => I32
-  Libc.import :posix_spawnattr_destroy, [Ptr] => I32
 
   # Spawns `words` (an Array of Strings, program first). Returns the pid,
   # or the negated errno.
@@ -52,7 +37,7 @@ module Zr::Kern
     attributes = Machine.slot(SPAWN_ATTR_LEN)
     Libc.posix_spawnattr_init(attributes)
     Libc.posix_spawnattr_setflags(attributes, Machine.i32(flags))
-    n = RArray.len(dups)
+    n = RArray[dups].len
     i = 0
     while i < n
       Libc.posix_spawn_file_actions_adddup2(actions, Machine.i32(zr_fix2long(zr_ary_at(dups, i + 1))), Machine.i32(zr_fix2long(zr_ary_at(dups, i))))
@@ -65,14 +50,14 @@ module Zr::Kern
       end
       i += 2
     end
-    n = RArray.len(closes)
+    n = RArray[closes].len
     i = 0
     while i < n
       Libc.posix_spawn_file_actions_addclose(actions, Machine.i32(zr_fix2long(zr_ary_at(closes, i))))
       i += 1
     end
     if chdir != QNIL
-      Libc.posix_spawn_file_actions_addchdir_np(actions, RString.ptr(chdir))
+      Libc.posix_spawn_file_actions_addchdir_np(actions, RString[chdir].ptr)
     end
     envp = zr_os_environ()
     if env != QNIL
@@ -80,7 +65,7 @@ module Zr::Kern
     end
     pid = Machine.slot(8)
     Machine.store64(pid, 0, 0)
-    r = Libc.posix_spawnp(pid, RString.ptr(zr_ary_at(words, 0)), actions, attributes, argv, envp)
+    r = Libc.posix_spawnp(pid, RString[zr_ary_at(words, 0)].ptr, actions, attributes, argv, envp)
     Libc.posix_spawn_file_actions_destroy(actions)
     Libc.posix_spawnattr_destroy(attributes)
     zr_xfree(argv)
@@ -92,8 +77,6 @@ module Zr::Kern
     end
     zr_fix(Machine.u32(Machine.load32(pid, 0)))
   end
-
-  Libc.import :execve, [Ptr, Ptr, Ptr] => I32
 
   # Applies to this process the options that posix_spawn cannot take, in
   # the order of rb_execarg_run_options: the process group (`pgroup` -1
@@ -114,7 +97,7 @@ module Zr::Kern
     # A pty child starts its own session, with the slave as its
     # controlling terminal and its standard streams, as pty.c's chfunc
     # does. This occurs before all other options.
-    if RArray.len(options) > 6
+    if RArray[options].len > 6
       zr_exec_tty(zr_ary_at(options, 6))
     end
     group = zr_fix2long(pgroup)
@@ -123,7 +106,7 @@ module Zr::Kern
     end
     pair = Machine.slot(16)
     i = 0
-    while i < RArray.len(limits)
+    while i < RArray[limits].len
       Machine.store64(pair, 0, zr_fix2long(zr_ary_at(limits, i + 1)))
       Machine.store64(pair, 8, zr_fix2long(zr_ary_at(limits, i + 2)))
       if Libc.setrlimit(Machine.i32(zr_fix2long(zr_ary_at(limits, i))), pair) < Machine.i32(0)
@@ -135,7 +118,7 @@ module Zr::Kern
       Libc.umask(Machine.i32(zr_fix2long(mask)))
     end
     i = 0
-    while i < RArray.len(dups)
+    while i < RArray[dups].len
       child = Machine.i32(zr_fix2long(zr_ary_at(dups, i)))
       source = Machine.i32(zr_fix2long(zr_ary_at(dups, i + 1)))
       # A dup of a descriptor onto itself only clears close-on-exec, as in
@@ -152,11 +135,11 @@ module Zr::Kern
       i += 2
     end
     i = 0
-    while i < RArray.len(closes)
+    while i < RArray[closes].len
       Libc.close(Machine.i32(zr_fix2long(zr_ary_at(closes, i))))
       i += 1
     end
-    if chdir != QNIL && Libc.chdir(RString.ptr(chdir)) < Machine.i32(0)
+    if chdir != QNIL && Libc.chdir(RString[chdir].ptr) < Machine.i32(0)
       return zr_errno()
     end
     0
@@ -204,7 +187,7 @@ module Zr::Kern
     if pid == 0
       err = zr_exec_options(options)
       if err == 0
-        Libc.execve(RString.ptr(path), argv, envp)
+        Libc.execve(RString[path].ptr, argv, envp)
         err = zr_errno()
       end
       word = Machine.slot(8)
@@ -246,7 +229,7 @@ module Zr::Kern
     if env != QNIL
       envp = zr_spawn_vector(env)
     end
-    Libc.execve(RString.ptr(path), argv, envp)
+    Libc.execve(RString[path].ptr, argv, envp)
     err = zr_errno()
     zr_xfree(argv)
     if env != QNIL
@@ -311,15 +294,6 @@ module Zr::Kern
   def zr_proc_ppid
     zr_fix(Machine.u32(Libc.getppid()))
   end
-
-  Libc.import :getpgrp, [] => I32
-  Libc.import :getpgid, [I32] => I32
-  Libc.import :setpgid, [I32, I32] => I32
-  Libc.import :getsid, [I32] => I32
-  Libc.import :setsid, [] => I32
-  Libc.import :getgroups, [I32, Ptr] => I32
-  Libc.import :getpriority, [I32, I32] => I32
-  Libc.import :setpriority, [I32, I32, I32] => I32
 
   # `getpriority`: returns the niceness and the errno. A niceness of -1 is
   # a valid result, so the call clears errno first. Then only a failure of
@@ -395,7 +369,7 @@ module Zr::Kern
   #: (value, value) -> value
   def zr_proc_kill_all(pids, signal)
     i = 0
-    while i < RArray.len(pids)
+    while i < RArray[pids].len
       r = zr_proc_kill(zr_ary_at(pids, i), signal)
       if r != zr_fix(0)
         return r
@@ -407,9 +381,6 @@ module Zr::Kern
     end
     zr_fix(0)
   end
-
-  Libc.import :getrlimit, [I32, Ptr] => I32
-  Libc.import :setrlimit, [I32, Ptr] => I32
 
   # `getrlimit`: returns `[cur, max]`, each rlim_t's bits as a signed
   # word, or the negated errno.
@@ -436,11 +407,6 @@ module Zr::Kern
     zr_io_status(Libc.setrlimit(Machine.i32(zr_fix2long(resource)), limits))
   end
 
-  Libc.import :setreuid, [I32, I32] => I32
-  Libc.import :setregid, [I32, I32] => I32
-  Libc.import :setgroups, [I32, Ptr] => I32
-  Libc.import :initgroups, [Ptr, I32] => I32
-
   # `setreuid` (`group` false) or `setregid`. An id of -1 keeps the
   # current id. Returns 0, or the negated errno.
   #: (value, value, value) -> value
@@ -453,7 +419,7 @@ module Zr::Kern
   # `setgroups` with an Array of group ids.
   #: (value) -> value
   def zr_proc_setgroups(ids)
-    n = RArray.len(ids)
+    n = RArray[ids].len
     list = zr_xmalloc((n + 1) * 4)
     i = 0
     while i < n
@@ -467,10 +433,8 @@ module Zr::Kern
 
   #: (value, value) -> value
   def zr_proc_initgroups(user, gid)
-    zr_io_status(Libc.initgroups(RString.ptr(user), Machine.i32(zr_fix2long(gid))))
+    zr_io_status(Libc.initgroups(RString[user].ptr, Machine.i32(zr_fix2long(gid))))
   end
-
-  Libc.import :fork, [] => I32
 
   # `fork`: returns the child's pid in the parent, 0 in the child, or the
   # negated errno.

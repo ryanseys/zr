@@ -1,7 +1,6 @@
 module Zr::Kern
   # The darwin part of the socket calls: the BSD sockaddr with its length
   # byte, the layout of struct addrinfo, h_errno, and getpeereid.
-  Libc.import :getpeereid, [I32, Ptr, Ptr] => I32
 
   # On this platform, a send on a connected datagram socket can fail with
   # EPROTOTYPE for a short time while the socket closes. ruby tries again.

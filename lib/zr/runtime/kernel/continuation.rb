@@ -12,7 +12,15 @@ module Zr::Kern
   # away from. `task` is a copy of the task at that time, and `kroots` is
   # the kernel's root list at that time. `resumed` is 1 after a call
   # comes back through the capture.
-  ContState = layout low: Word, high: Word, bytes: Ptr, ctx: Ptr, task: Ptr, kroots: Ptr, resumed: Word
+  class ContState < Layout
+    attr_accessor :low #: word
+    attr_accessor :high #: word
+    attr_accessor :bytes #: ptr
+    attr_accessor :ctx #: ptr
+    attr_accessor :task #: ptr
+    attr_accessor :kroots #: ptr
+    attr_accessor :resumed #: word
+  end
   CONT_SIDE_BYTES = 1048576
   CONT_CAPTURE = 1
   CONT_RESTORE = 2
@@ -30,16 +38,16 @@ module Zr::Kern
     while true
       s = Machine.ptr(Machine.load64(Machine.static(:cont_op, 8), 0))
       if Machine.load64(Machine.static(:cont_mode, 8), 0) == CONT_CAPTURE
-        low = zr_arch_context_sp(ContState.ctx(s))
-        size = ContState.high(s) - low
+        low = zr_arch_context_sp(ContState[s].ctx)
+        size = ContState[s].high - low
         bytes = zr_xmalloc(size)
         zr_memcpy(bytes, Machine.ptr(low), size)
-        ContState.set_low(s, low)
-        ContState.set_bytes(s, bytes)
+        ContState[s].low = low
+        ContState[s].bytes = bytes
       else
-        zr_memcpy(Machine.ptr(ContState.low(s)), ContState.bytes(s), ContState.high(s) - ContState.low(s))
+        zr_memcpy(Machine.ptr(ContState[s].low), ContState[s].bytes, ContState[s].high - ContState[s].low)
       end
-      zr_switch(zr_cont_side_ctx(), ContState.ctx(s))
+      zr_switch(zr_cont_side_ctx(), ContState[s].ctx)
     end
   end
 
@@ -48,8 +56,8 @@ module Zr::Kern
   #: () -> word
   def zr_cont_stack_high
     f = zr_fiber_current()
-    if RFiber.stack(f) != 0
-      return Machine.word(RFiber.stack(f)) + FIBER_STACK_BYTES
+    if RFiber[f].stack != 0
+      return Machine.word(RFiber[f].stack) + FIBER_STACK_BYTES
     end
     zr_os_stack_high()
   end
@@ -64,16 +72,16 @@ module Zr::Kern
   # because they belong to the frame record.
   #: (value, value) -> void
   def zr_cont_root(roots, v)
-    if zr_special_p(v) || (RBasic.flags(v) & FL_STACK) == 0
+    if zr_special_p(v) || (RBasic[v].flags & FL_STACK) == 0
       zr_ary_push(roots, v)
-    elsif (RBasic.flags(v) & T_MASK) == T_PROC
-      zr_cont_root(roots, RProc.env(v))
-      zr_cont_root(roots, RProc.self(v))
-      zr_cont_root(roots, RProc.cref(v))
-      zr_cont_root(roots, RProc.blk(v))
+    elsif (RBasic[v].flags & T_MASK) == T_PROC
+      zr_cont_root(roots, RProc[v].env)
+      zr_cont_root(roots, RProc[v].self)
+      zr_cont_root(roots, RProc[v].cref)
+      zr_cont_root(roots, RProc[v].blk)
     else
-      zr_cont_root(roots, REnv.parent(v))
-      zr_cont_root(roots, REnv.cell(v))
+      zr_cont_root(roots, REnv[v].parent)
+      zr_cont_root(roots, REnv[v].cell)
     end
   end
 
@@ -81,22 +89,22 @@ module Zr::Kern
   #: (value) -> void
   def zr_cont_roots(roots)
     t = zr_task()
-    rec = Task.top(t)
+    rec = Task[t].top
     while rec != 0
-      zr_cont_root(roots, Frame.self(rec))
-      zr_cont_root(roots, Frame.cref(rec))
-      zr_ary_push(roots, zr_block_proc(Frame.blk(rec)))
-      zr_cont_root(roots, Frame.svars(rec))
+      zr_cont_root(roots, Frame[rec].self)
+      zr_cont_root(roots, Frame[rec].cref)
+      zr_ary_push(roots, zr_block_proc(Frame[rec].blk))
+      zr_cont_root(roots, Frame[rec].svars)
       # A block's frame keeps there the block that its call received.
-      zr_ary_push(roots, zr_block_proc(Frame.defined(rec)))
+      zr_ary_push(roots, zr_block_proc(Frame[rec].defined))
       # A frame record's Env image is on the stack, not in a cell. Its
       # slots belong to the frame record, so this loop adds them here.
       i = 0
-      while i < Frame.nvalues(rec)
+      while i < Frame[rec].nvalues
         zr_cont_root(roots, Machine.value(Machine.load64(rec + Frame.size + (i * 8), 0)))
         i += 1
       end
-      rec = Frame.prev(rec)
+      rec = Frame[rec].prev
     end
     frame = Machine.ptr(Machine.load64(zr_kroots(), 0))
     while frame != 0
@@ -107,13 +115,13 @@ module Zr::Kern
       end
       frame = Machine.ptr(Machine.load64(frame, 0))
     end
-    zr_cont_root(roots, Task.pending(t))
-    zr_cont_root(roots, Task.errinfo(t))
-    zr_cont_root(roots, Task.guards(t))
-    zr_cont_root(roots, Task.catches(t))
-    zr_cont_root(roots, Task.throw_tag(t))
-    zr_cont_root(roots, Task.found(t))
-    zr_cont_root(roots, Task.refine(t))
+    zr_cont_root(roots, Task[t].pending)
+    zr_cont_root(roots, Task[t].errinfo)
+    zr_cont_root(roots, Task[t].guards)
+    zr_cont_root(roots, Task[t].catches)
+    zr_cont_root(roots, Task[t].throw_tag)
+    zr_cont_root(roots, Task[t].found)
+    zr_cont_root(roots, Task[t].refine)
   end
 
   # Captures the `callcc` state into `cont`. Returns false the first time,
@@ -137,18 +145,18 @@ module Zr::Kern
     zr_hidden_set(cont, zr_sym(Machine.id(:__roots__)), roots)
     zr_cont_roots(roots)
     s = zr_xmalloc(ContState.size)
-    ContState.set_high(s, high)
-    ContState.set_ctx(s, zr_xmalloc(CONTEXT_BYTES))
-    ContState.set_task(s, zr_xmalloc(Task.size))
-    zr_memcpy(ContState.task(s), zr_task(), Task.size)
-    ContState.set_kroots(s, Machine.ptr(Machine.load64(zr_kroots(), 0)))
-    ContState.set_resumed(s, 0)
+    ContState[s].high = high
+    ContState[s].ctx = zr_xmalloc(CONTEXT_BYTES)
+    ContState[s].task = zr_xmalloc(Task.size)
+    zr_memcpy(ContState[s].task, zr_task(), Task.size)
+    ContState[s].kroots = Machine.ptr(Machine.load64(zr_kroots(), 0))
+    ContState[s].resumed = 0
     zr_hidden_set(cont, zr_sym(Machine.id(:__state__)), zr_fix(Machine.word(s)))
     zr_hidden_set(cont, zr_sym(Machine.id(:__fiber__)), zr_fiber_current())
     Machine.store64(Machine.static(:cont_op, 8), 0, Machine.word(s))
     Machine.store64(Machine.static(:cont_mode, 8), 0, CONT_CAPTURE)
-    zr_switch(ContState.ctx(s), zr_cont_side_ctx())
-    zr_bool(ContState.resumed(s) != 0)
+    zr_switch(ContState[s].ctx, zr_cont_side_ctx())
+    zr_bool(ContState[s].resumed != 0)
   end
 
   # Calls `cont`. It restores the task, the kernel's roots and the stack
@@ -157,9 +165,9 @@ module Zr::Kern
   #: (value) -> value
   def zr_cont_resume(cont)
     s = Machine.ptr(zr_fix2long(zr_hidden_get(cont, zr_sym(Machine.id(:__state__)))))
-    ContState.set_resumed(s, 1)
-    zr_memcpy(zr_task(), ContState.task(s), Task.size)
-    Machine.store64(zr_kroots(), 0, Machine.word(ContState.kroots(s)))
+    ContState[s].resumed = 1
+    zr_memcpy(zr_task(), ContState[s].task, Task.size)
+    Machine.store64(zr_kroots(), 0, Machine.word(ContState[s].kroots))
     Machine.store64(Machine.static(:cont_op, 8), 0, Machine.word(s))
     Machine.store64(Machine.static(:cont_mode, 8), 0, CONT_RESTORE)
     zr_switch(Machine.slot(CONTEXT_BYTES), zr_cont_side_ctx())

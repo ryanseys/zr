@@ -3,15 +3,6 @@ module Zr::Kern
   # is 8, true is 0x14 and undef is 0x34. A static symbol is
   # `id << 8 | 0x0c`. All other values are pointers to a cell whose header
   # is an RBasic. `undef` never gets to Ruby: it means a pending unwind.
-  Libc.import :write, [I32, Ptr, Word] => Word
-  Libc.import :exit, [I32] => Void
-  Libc.import :abort, [] => Void
-  Libc.import :malloc, [Word] => Ptr
-  Libc.import :posix_memalign, [Ptr, Word, Word] => I32
-  Libc.import :free, [Ptr] => Void
-  Libc.import :memmove, [Ptr, Ptr, Word] => Ptr
-  Libc.import :memset, [Ptr, I32, Word] => Ptr
-  Libc.import :getenv, [Ptr] => Ptr
 
   # malloc that returns a block, or ends the program as CRuby does when no
   # memory is available. The kernel cannot unwind from inside an
@@ -27,9 +18,9 @@ module Zr::Kern
       zr_memory_exhausted()
     end
     h = zr_heap()
-    Heap.set_malloced(h, Heap.malloced(h) + n)
-    if Heap.malloced(h) > Heap.malloc_limit(h)
-      Heap.set_slow(h, 1)
+    Heap[h].malloced = Heap[h].malloced + n
+    if Heap[h].malloced > Heap[h].malloc_limit
+      Heap[h].slow = 1
     end
     p
   end
@@ -59,7 +50,7 @@ module Zr::Kern
   def zr_sized_xfree(p, n)
     if p != 0
       h = zr_heap()
-      Heap.set_malloced(h, n > Heap.malloced(h) ? 0 : Heap.malloced(h) - n)
+      Heap[h].malloced = n > Heap[h].malloced ? 0 : Heap[h].malloced - n
       Libc.free(p)
     end
   end
@@ -158,7 +149,10 @@ module Zr::Kern
   # neither it nor its instances.
   FL_CONCEALED = 1 << 36
 
-  RBasic = layout flags: Word, klass: Value
+  class RBasic < Layout
+    attr_accessor :flags #: word
+    attr_accessor :klass #: value
+  end
 
   #: (value) -> bool
   def zr_fixnum_p(v)
@@ -204,7 +198,7 @@ module Zr::Kern
     if zr_special_p(v)
       return false
     end
-    t = RBasic.flags(v) & T_MASK
+    t = RBasic[v].flags & T_MASK
     t == T_CLASS || t == T_MODULE
   end
 
@@ -213,7 +207,7 @@ module Zr::Kern
     # Check for a heap object first. Its type is in its header
     # (zr_class_of).
     if (Machine.word(v) & 7) == 0 && Machine.word(v) > QUNDEF
-      return RBasic.flags(v) & T_MASK
+      return RBasic[v].flags & T_MASK
     end
     if zr_fixnum_p(v)
       T_FIXNUM
@@ -228,7 +222,7 @@ module Zr::Kern
     elsif zr_flonum_p(v)
       T_FLOAT
     else
-      RBasic.flags(v) & T_MASK
+      RBasic[v].flags & T_MASK
     end
   end
 

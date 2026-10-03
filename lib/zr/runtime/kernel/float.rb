@@ -3,10 +3,11 @@ module Zr::Kern
   # exponent fits) or in a heap cell. This file has the shortest
   # round-trip digits (Ryu), CRuby's to_s layout, and the arithmetic and
   # comparisons, also with Integer operands.
-  Libc.import :fmod, [F64, F64] => F64
-  Libc.import :pow, [F64, F64] => F64
 
-  RFloat = layout basic: RBasic, bits: Word
+  class RFloat < Layout
+    attr_reader :basic #: RBasic
+    attr_accessor :bits #: word
+  end
   T_FLOAT = 4
   G_FLOAT = 40
   # The flonum +0.0, 0x8000000000000002, as a signed Word.
@@ -60,8 +61,8 @@ module Zr::Kern
       return Machine.value(FLONUM_ZERO)
     end
     f = zr_alloc(T_FLOAT, zr_global(G_FLOAT), RFloat.size)
-    RFloat.set_bits(f, Machine.word(b))
-    RBasic.set_flags(f, RBasic.flags(f) | FL_FREEZE)
+    RFloat[f].bits = Machine.word(b)
+    RBasic[f].flags = RBasic[f].flags | FL_FREEZE
     f
   end
 
@@ -76,7 +77,7 @@ module Zr::Kern
       x = (2 - b63) | (w & 18446744073709551612)
       return Machine.f64((x >> 3) | Machine.ushl_wrap(x, 61))
     end
-    Machine.f64(RFloat.bits(v))
+    Machine.f64(RFloat[v].bits)
   end
 
   # Converts a Float or Integer operand to a double. For all other values
@@ -856,35 +857,6 @@ module Zr::Kern
   end
 
   # --- parsing and libm -----------------------------------------------------
-  Libc.import :strtod, [Ptr, Ptr] => F64
-  Libc.import :cbrt, [F64] => F64
-  Libc.import :sin, [F64] => F64
-  Libc.import :cos, [F64] => F64
-  Libc.import :tan, [F64] => F64
-  Libc.import :atan, [F64] => F64
-  Libc.import :exp, [F64] => F64
-  Libc.import :atan2, [F64, F64] => F64
-  Libc.import :hypot, [F64, F64] => F64
-  Libc.import :sinh, [F64] => F64
-  Libc.import :cosh, [F64] => F64
-  Libc.import :tanh, [F64] => F64
-  Libc.import :log, [F64] => F64
-  Libc.import :log2, [F64] => F64
-  Libc.import :log10, [F64] => F64
-  Libc.import :asin, [F64] => F64
-  Libc.import :acos, [F64] => F64
-  Libc.import :asinh, [F64] => F64
-  Libc.import :acosh, [F64] => F64
-  Libc.import :atanh, [F64] => F64
-  Libc.import :tgamma, [F64] => F64
-  Libc.import :lgamma_r, [F64, Ptr] => F64
-  Libc.import :erf, [F64] => F64
-  Libc.import :erfc, [F64] => F64
-  Libc.import :expm1, [F64] => F64
-  Libc.import :log1p, [F64] => F64
-  Libc.import :fma, [F64, F64, F64] => F64
-  Libc.import :ldexp, [F64, I32] => F64
-  Libc.import :frexp, [F64, Ptr] => F64
 
   # cos(pi * x) and sin(pi * x), as complex.c computes them when libm has
   # no __cospi and __sinpi: it multiplies x by pi first.
@@ -913,8 +885,8 @@ module Zr::Kern
   # not start with a number.
   #: (value, ptr) -> word
   def zr_float_scan(s, b)
-    p = RString.ptr(s)
-    n = RString.len(s)
+    p = RString[s].ptr
+    n = RString[s].len
     i = 0
     while i < n && (Machine.u8(Machine.load8(p + i, 0)) == 32 || (Machine.u8(Machine.load8(p + i, 0)) >= 9 && Machine.u8(Machine.load8(p + i, 0)) <= 13))
       i += 1
@@ -978,7 +950,7 @@ module Zr::Kern
   #: (ptr) -> f64
   def zr_buf_strtod(b)
     zr_buf_byte(b, 0)
-    d = Libc.strtod(Buf.ptr(b), 0)
+    d = Libc.strtod(Buf[b].ptr, 0)
     zr_buf_free(b)
     d
   end
@@ -1007,8 +979,8 @@ module Zr::Kern
       zr_buf_free(b)
       return Machine.value(QNIL)
     end
-    p = RString.ptr(s)
-    len = RString.len(s)
+    p = RString[s].ptr
+    len = RString[s].len
     if n + 1 < len && (Machine.u8(Machine.load8(p + n, 0)) == 120 || Machine.u8(Machine.load8(p + n, 0)) == 88) && zr_buf_last_is_zero(b)
       zr_buf_free(b)
       return zr_hex_to_f(s)
@@ -1027,8 +999,8 @@ module Zr::Kern
   # goes to it. The end pointer shows whether it read all the text.
   #: (value) -> value
   def zr_hex_to_f(s)
-    p = RString.ptr(s)
-    len = RString.len(s)
+    p = RString[s].ptr
+    len = RString[s].len
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
     i = 0
@@ -1042,20 +1014,20 @@ module Zr::Kern
     zr_buf_byte(b, 0)
     last = Machine.slot(8)
     Machine.store64(last, 0, 0)
-    d = Libc.strtod(Buf.ptr(b), last)
+    d = Libc.strtod(Buf[b].ptr, last)
     stop = Machine.ptr(Machine.load64(last, 0))
-    read = stop == 0 ? 0 : stop - Buf.ptr(b)
-    while read > 0 && read < Buf.len(b) - 1 && (Machine.u8(Machine.load8(Buf.ptr(b) + read, 0)) == 32 || (Machine.u8(Machine.load8(Buf.ptr(b) + read, 0)) >= 9 && Machine.u8(Machine.load8(Buf.ptr(b) + read, 0)) <= 13))
+    read = stop == 0 ? 0 : stop - Buf[b].ptr
+    while read > 0 && read < Buf[b].len - 1 && (Machine.u8(Machine.load8(Buf[b].ptr + read, 0)) == 32 || (Machine.u8(Machine.load8(Buf[b].ptr + read, 0)) >= 9 && Machine.u8(Machine.load8(Buf[b].ptr + read, 0)) <= 13))
       read += 1
     end
-    ok = read > 0 && read == Buf.len(b) - 1
+    ok = read > 0 && read == Buf[b].len - 1
     zr_buf_free(b)
     ok ? zr_float_new(d) : Machine.value(QNIL)
   end
 
   #: (ptr) -> bool
   def zr_buf_last_is_zero(b)
-    Buf.len(b) > 0 && Machine.u8(Machine.load8(Buf.ptr(b) + Buf.len(b) - 1, 0)) == 48
+    Buf[b].len > 0 && Machine.u8(Machine.load8(Buf[b].ptr + Buf[b].len - 1, 0)) == 48
   end
 
   #: (value, value) -> value

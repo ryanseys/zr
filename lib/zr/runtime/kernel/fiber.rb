@@ -2,9 +2,23 @@ module Zr::Kern
   # Fibers. Each fiber has its own task and its own machine stack. The
   # zr_switch stub switches between fibers. The task of the current fiber
   # is the current task. Each fiber keeps its own kernel root list.
-  Libc.import :munmap, [Ptr, Word] => I32
 
-  RFiber = layout basic: RBasic, task: Ptr, ctx: Ptr, stack: Ptr, kroots: Ptr, blk: Value, status: Word, prev: Value, resuming: Value, value: Value, yielding: Word, transferred: Word, home: Value, kw: Word
+  class RFiber < Layout
+    attr_reader :basic #: RBasic
+    attr_accessor :task #: ptr
+    attr_accessor :ctx #: ptr
+    attr_accessor :stack #: ptr
+    attr_accessor :kroots #: ptr
+    attr_accessor :blk #: value
+    attr_accessor :status #: word
+    attr_accessor :prev #: value
+    attr_accessor :resuming #: value
+    attr_accessor :value #: value
+    attr_accessor :yielding #: word
+    attr_accessor :transferred #: word
+    attr_accessor :home #: value
+    attr_accessor :kw #: word
+  end
   T_FIBER = 30
   G_FIBER = 39
   FIBER_CREATED = 0
@@ -49,20 +63,20 @@ module Zr::Kern
   # no check, as under wasm, where the stack bounds are not known.
   #: (ptr, ptr) -> void
   def zr_task_init(t, stack_limit)
-    Task.set_top(t, 0)
-    Task.set_stack_limit(t, stack_limit)
-    Task.set_pending(t, Machine.value(QNIL))
-    Task.set_pending_kind(t, PENDING_RAISE)
-    Task.set_serial(t, 0)
-    Task.set_errinfo(t, Machine.value(QNIL))
-    Task.set_kw(t, 0)
-    Task.set_guards(t, Machine.value(QNIL))
-    Task.set_catches(t, Machine.value(QNIL))
-    Task.set_throw_tag(t, Machine.value(QNIL))
-    Task.set_missing(t, 0)
-    Task.set_found(t, Machine.value(QNIL))
-    Task.set_refine(t, Machine.value(QNIL))
-    Task.set_ractor(t, 0)
+    Task[t].top = 0
+    Task[t].stack_limit = stack_limit
+    Task[t].pending = Machine.value(QNIL)
+    Task[t].pending_kind = PENDING_RAISE
+    Task[t].serial = 0
+    Task[t].errinfo = Machine.value(QNIL)
+    Task[t].kw = 0
+    Task[t].guards = Machine.value(QNIL)
+    Task[t].catches = Machine.value(QNIL)
+    Task[t].throw_tag = Machine.value(QNIL)
+    Task[t].missing = 0
+    Task[t].found = Machine.value(QNIL)
+    Task[t].refine = Machine.value(QNIL)
+    Task[t].ractor = 0
   end
 
   # Marks the current task as a ractor task. After this, the task refuses
@@ -70,7 +84,7 @@ module Zr::Kern
   # object, as CRuby refuses them outside the main ractor.
   #: () -> value
   def zr_ractor_enter_m
-    Task.set_ractor(zr_task(), 1)
+    Task[zr_task()].ractor = 1
     Machine.gates_set(Machine.gates | GATE_RACTOR)
     # Each constant read in a ractor checks whether it can share the
     # value, so no cache entry that the main ractor filled can be used.
@@ -85,18 +99,18 @@ module Zr::Kern
     f = Machine.value(Machine.load64(slot, 0))
     if zr_special_p(f)
       f = zr_alloc(T_FIBER, zr_global(G_FIBER), RFiber.size)
-      RFiber.set_task(f, Machine.static(:task, Task.size))
-      RFiber.set_ctx(f, zr_xmalloc(CONTEXT_BYTES))
-      RFiber.set_stack(f, 0)
-      RFiber.set_kroots(f, 0)
-      RFiber.set_blk(f, Machine.value(QNIL))
-      RFiber.set_status(f, FIBER_RESUMED)
-      RFiber.set_prev(f, Machine.value(QNIL))
-      RFiber.set_resuming(f, Machine.value(QNIL))
-      RFiber.set_value(f, Machine.value(QNIL))
-      RFiber.set_yielding(f, 0)
-      RFiber.set_transferred(f, 0)
-      RFiber.set_home(f, f)
+      RFiber[f].task = Machine.static(:task, Task.size)
+      RFiber[f].ctx = zr_xmalloc(CONTEXT_BYTES)
+      RFiber[f].stack = 0
+      RFiber[f].kroots = 0
+      RFiber[f].blk = Machine.value(QNIL)
+      RFiber[f].status = FIBER_RESUMED
+      RFiber[f].prev = Machine.value(QNIL)
+      RFiber[f].resuming = Machine.value(QNIL)
+      RFiber[f].value = Machine.value(QNIL)
+      RFiber[f].yielding = 0
+      RFiber[f].transferred = 0
+      RFiber[f].home = f
       zr_fiber_register(f)
       Machine.store64(slot, 0, Machine.word(f))
       Machine.store64(Machine.static(:root_fiber, 8), 0, Machine.word(f))
@@ -114,19 +128,19 @@ module Zr::Kern
   #: (value) -> value
   def zr_fiber_alloc(klass)
     f = zr_alloc(T_FIBER, klass, RFiber.size)
-    RFiber.set_task(f, 0)
-    RFiber.set_ctx(f, 0)
-    RFiber.set_stack(f, 0)
-    RFiber.set_kroots(f, 0)
-    RFiber.set_blk(f, Machine.value(QNIL))
-    RFiber.set_status(f, FIBER_CREATED)
-    RFiber.set_prev(f, Machine.value(QNIL))
-    RFiber.set_resuming(f, Machine.value(QNIL))
-    RFiber.set_value(f, Machine.value(QNIL))
-    RFiber.set_yielding(f, 0)
-    RFiber.set_transferred(f, 0)
-    RFiber.set_kw(f, 0)
-    RFiber.set_home(f, Machine.value(QNIL))
+    RFiber[f].task = 0
+    RFiber[f].ctx = 0
+    RFiber[f].stack = 0
+    RFiber[f].kroots = 0
+    RFiber[f].blk = Machine.value(QNIL)
+    RFiber[f].status = FIBER_CREATED
+    RFiber[f].prev = Machine.value(QNIL)
+    RFiber[f].resuming = Machine.value(QNIL)
+    RFiber[f].value = Machine.value(QNIL)
+    RFiber[f].yielding = 0
+    RFiber[f].transferred = 0
+    RFiber[f].kw = 0
+    RFiber[f].home = Machine.value(QNIL)
     zr_fiber_register(f)
     f
   end
@@ -136,33 +150,33 @@ module Zr::Kern
   # resume. A fiber can be initialized only once, as in fiber_t_alloc.
   #: (value, word, ptr, value, value) -> value
   def zr_fiber_make(recv, argc, argv, cref, blk)
-    if RFiber.ctx(recv) != 0
+    if RFiber[recv].ctx != 0
       return zr_raise_msg(zr_global(G_RUNTIME_ERROR), Machine.bytes("cannot initialize twice"), 23)
     end
     cur = zr_fiber_current()
     f = recv
-    RFiber.set_blk(f, zr_block_proc(blk))
-    RFiber.set_status(f, FIBER_CREATED)
-    RFiber.set_prev(f, Machine.value(QNIL))
-    RFiber.set_resuming(f, Machine.value(QNIL))
-    RFiber.set_value(f, Machine.value(QNIL))
-    RFiber.set_yielding(f, 0)
-    RFiber.set_transferred(f, 0)
-    RFiber.set_kroots(f, 0)
+    RFiber[f].blk = zr_block_proc(blk)
+    RFiber[f].status = FIBER_CREATED
+    RFiber[f].prev = Machine.value(QNIL)
+    RFiber[f].resuming = Machine.value(QNIL)
+    RFiber[f].value = Machine.value(QNIL)
+    RFiber[f].yielding = 0
+    RFiber[f].transferred = 0
+    RFiber[f].kroots = 0
     # A fiber belongs to the thread that makes it: the thread of the
     # current fiber.
-    RFiber.set_home(f, RFiber.home(cur))
+    RFiber[f].home = RFiber[cur].home
     stack = zr_os_stack_map(FIBER_STACK_BYTES)
     if stack == 0
       return zr_fiber_stack_error(zr_errno())
     end
     t = zr_xmalloc(Task.size)
     zr_task_init(t, stack + STACK_MARGIN)
-    RFiber.set_task(f, t)
-    RFiber.set_stack(f, stack)
+    RFiber[f].task = t
+    RFiber[f].stack = stack
     ctx = zr_xmalloc(CONTEXT_BYTES)
     zr_arch_context_start(ctx, Machine.addr(:zr_fiber_start), Machine.word(stack) + FIBER_STACK_BYTES)
-    RFiber.set_ctx(f, ctx)
+    RFiber[f].ctx = ctx
     f
   end
 
@@ -186,14 +200,14 @@ module Zr::Kern
     # A switch into or out of a ractor task makes the constant cache
     # entries stale: a ractor's reads check each value, and the main
     # ractor's reads fill the cache entries again.
-    if Task.ractor(RFiber.task(from)) != Task.ractor(RFiber.task(to))
+    if Task[RFiber[from].task].ractor != Task[RFiber[to].task].ractor
       zr_consts_changed()
     end
-    RFiber.set_kroots(from, Machine.ptr(Machine.load64(zr_kroots(), 0)))
+    RFiber[from].kroots = Machine.ptr(Machine.load64(zr_kroots(), 0))
     Machine.store64(Machine.static(:current_fiber, 8), 0, Machine.word(to))
-    Machine.store64(zr_current_task_slot(), 0, Machine.word(RFiber.task(to)))
-    Machine.store64(zr_kroots(), 0, Machine.word(RFiber.kroots(to)))
-    zr_switch(RFiber.ctx(from), RFiber.ctx(to))
+    Machine.store64(zr_current_task_slot(), 0, Machine.word(RFiber[to].task))
+    Machine.store64(zr_kroots(), 0, Machine.word(RFiber[to].kroots))
+    zr_switch(RFiber[from].ctx, RFiber[to].ctx)
   end
 
   #: (ptr, word) -> value
@@ -206,28 +220,28 @@ module Zr::Kern
   #: (value, word, ptr, value, value) -> value
   def zr_fiber_resume(recv, argc, argv, cref, blk)
     kw = zr_kw_take()
-    if RFiber.ctx(recv) == 0
+    if RFiber[recv].ctx == 0
       return zr_fiber_error(Machine.bytes("uninitialized fiber"), 19)
     end
     cur = zr_fiber_current()
-    if RFiber.status(recv) == FIBER_TERMINATED
+    if RFiber[recv].status == FIBER_TERMINATED
       return zr_fiber_error(Machine.bytes("attempt to resume a terminated fiber"), 36)
     end
     if recv == cur
       return zr_fiber_error(Machine.bytes("attempt to resume the current fiber"), 35)
     end
-    if RFiber.prev(recv) != QNIL
+    if RFiber[recv].prev != QNIL
       return zr_fiber_error(Machine.bytes("attempt to resume a resumed fiber (double resume)"), 49)
     end
-    if RFiber.resuming(recv) != QNIL
+    if RFiber[recv].resuming != QNIL
       return zr_fiber_error(Machine.bytes("attempt to resume a resuming fiber"), 34)
     end
     # As ruby's fiber_resume_kw: a fiber that has started and is not in
     # Fiber.yield, a root fiber among them, is transferring.
-    if RFiber.transferred(recv) != 0 || (RFiber.yielding(recv) == 0 && RFiber.status(recv) != FIBER_CREATED)
+    if RFiber[recv].transferred != 0 || (RFiber[recv].yielding == 0 && RFiber[recv].status != FIBER_CREATED)
       return zr_fiber_error(Machine.bytes("attempt to resume a transferring fiber"), 38)
     end
-    if RFiber.home(recv) != RFiber.home(cur)
+    if RFiber[recv].home != RFiber[cur].home
       return zr_fiber_error(Machine.bytes("fiber called across threads"), 27)
     end
     # The first resume's keywords reach the block as keywords; a later
@@ -236,12 +250,12 @@ module Zr::Kern
       argc = zr_kw_tab_in(kw, argc, argv)
       kw = zr_kw_hashed(kw)
     end
-    if RFiber.status(recv) == FIBER_CREATED
-      RFiber.set_kw(recv, kw)
+    if RFiber[recv].status == FIBER_CREATED
+      RFiber[recv].kw = kw
     end
-    RFiber.set_prev(recv, cur)
-    RFiber.set_resuming(cur, recv)
-    RFiber.set_yielding(recv, 0)
+    RFiber[recv].prev = cur
+    RFiber[cur].resuming = recv
+    RFiber[recv].yielding = 0
     zr_trace_fiber_switched(zr_fiber_run(cur, recv, argc, argv), recv, Machine.id(:resume))
   end
 
@@ -250,27 +264,27 @@ module Zr::Kern
   # fiber that the root fiber resumes.
   #: (value, word, ptr, value, value) -> value
   def zr_fiber_transfer(recv, argc, argv, cref, blk)
-    if RFiber.ctx(recv) == 0
+    if RFiber[recv].ctx == 0
       return zr_fiber_error(Machine.bytes("uninitialized fiber"), 19)
     end
     cur = zr_fiber_current()
-    if RFiber.resuming(recv) != QNIL
+    if RFiber[recv].resuming != QNIL
       return zr_fiber_error(Machine.bytes("attempt to transfer to a resuming fiber"), 39)
     end
-    if RFiber.yielding(recv) != 0
+    if RFiber[recv].yielding != 0
       return zr_fiber_error(Machine.bytes("attempt to transfer to a yielding fiber"), 39)
     end
-    if RFiber.status(recv) == FIBER_TERMINATED
+    if RFiber[recv].status == FIBER_TERMINATED
       return zr_fiber_error(Machine.bytes("dead fiber called"), 17)
     end
     if recv == cur
       return zr_fiber_transfer_value(argc, argv)
     end
-    if RFiber.home(recv) != RFiber.home(cur)
+    if RFiber[recv].home != RFiber[cur].home
       return zr_fiber_error(Machine.bytes("fiber called across threads"), 27)
     end
-    RFiber.set_transferred(cur, 1)
-    RFiber.set_status(cur, FIBER_SUSPENDED)
+    RFiber[cur].transferred = 1
+    RFiber[cur].status = FIBER_SUSPENDED
     zr_trace_fiber_switched(zr_fiber_run(cur, recv, argc, argv), recv, Machine.id(:transfer))
   end
 
@@ -278,15 +292,15 @@ module Zr::Kern
   # `from`. Returns the value, or QUNDEF with the pending unwind.
   #: (value, value, word, ptr) -> value
   def zr_fiber_run(from, to, argc, argv)
-    if RFiber.status(to) == FIBER_CREATED
-      RFiber.set_value(to, zr_ary_of(argc, argv))
+    if RFiber[to].status == FIBER_CREATED
+      RFiber[to].value = zr_ary_of(argc, argv)
     else
-      RFiber.set_value(to, zr_fiber_transfer_value(argc, argv))
+      RFiber[to].value = zr_fiber_transfer_value(argc, argv)
     end
-    RFiber.set_status(to, FIBER_RESUMED)
+    RFiber[to].status = FIBER_RESUMED
     zr_fiber_switch(from, to)
-    v = RFiber.value(from)
-    RFiber.set_value(from, Machine.value(QNIL))
+    v = RFiber[from].value
+    RFiber[from].value = Machine.value(QNIL)
     v
   end
 
@@ -294,10 +308,10 @@ module Zr::Kern
   # ends: its resumer, or else the deepest fiber that the root fiber resumes.
   #: (value, word) -> value
   def zr_fiber_return_to(cur, terminating)
-    prev = RFiber.prev(cur)
+    prev = RFiber[cur].prev
     if prev != QNIL
-      RFiber.set_prev(cur, Machine.value(QNIL))
-      RFiber.set_resuming(prev, Machine.value(QNIL))
+      RFiber[cur].prev = Machine.value(QNIL)
+      RFiber[prev].resuming = Machine.value(QNIL)
       return prev
     end
     if terminating == 0
@@ -305,12 +319,12 @@ module Zr::Kern
     end
     # A transferred fiber that ends goes back to the root fiber of its
     # thread, as CRuby's return_fiber does.
-    f = RFiber.home(cur)
+    f = RFiber[cur].home
     if f == QNIL
       f = zr_fiber_root()
     end
-    while RFiber.resuming(f) != QNIL
-      f = RFiber.resuming(f)
+    while RFiber[f].resuming != QNIL
+      f = RFiber[f].resuming
     end
     f
   end
@@ -329,14 +343,14 @@ module Zr::Kern
     if to == QUNDEF
       return Machine.value(QUNDEF)
     end
-    RFiber.set_value(to, zr_fiber_transfer_value(argc, argv))
-    RFiber.set_status(cur, FIBER_SUSPENDED)
-    RFiber.set_yielding(cur, 1)
-    RFiber.set_status(to, FIBER_RESUMED)
+    RFiber[to].value = zr_fiber_transfer_value(argc, argv)
+    RFiber[cur].status = FIBER_SUSPENDED
+    RFiber[cur].yielding = 1
+    RFiber[to].status = FIBER_RESUMED
     zr_fiber_switch(cur, to)
-    RFiber.set_yielding(cur, 0)
-    v = RFiber.value(cur)
-    RFiber.set_value(cur, Machine.value(QNIL))
+    RFiber[cur].yielding = 0
+    v = RFiber[cur].value
+    RFiber[cur].value = Machine.value(QNIL)
     zr_trace_fiber_switched(v, recv, Machine.id(:yield))
   end
 
@@ -352,37 +366,37 @@ module Zr::Kern
     # raises, the fiber ends with that exception, as a raise at the first
     # instruction of the block does.
     r = Machine.value(QNIL)
-    if RFiber.home(cur) != cur
+    if RFiber[cur].home != cur
       r = zr_trace_fiber_switch(Machine.value(QNIL), 0)
     end
     if r != QUNDEF
-      args = RFiber.value(cur)
-      Task.set_kw(zr_task(), RFiber.kw(cur))
-      RFiber.set_kw(cur, 0)
-      r = zr_yield(RFiber.blk(cur), RArray.len(args), RArray.ptr(args))
+      args = RFiber[cur].value
+      Task[zr_task()].kw = RFiber[cur].kw
+      RFiber[cur].kw = 0
+      r = zr_yield(RFiber[cur].blk, RArray[args].len, RArray[args].ptr)
     end
     to = zr_fiber_return_to(cur, 1)
     if r == QUNDEF
       t = zr_task()
-      Task.set_pending(RFiber.task(to), Task.pending(t))
-      Task.set_pending_kind(RFiber.task(to), Task.pending_kind(t))
-      Task.set_pending_home(RFiber.task(to), Task.pending_home(t))
-      Task.set_pending_site(RFiber.task(to), Task.pending_site(t))
-      Task.set_pending(t, Machine.value(QNIL))
+      Task[RFiber[to].task].pending = Task[t].pending
+      Task[RFiber[to].task].pending_kind = Task[t].pending_kind
+      Task[RFiber[to].task].pending_home = Task[t].pending_home
+      Task[RFiber[to].task].pending_site = Task[t].pending_site
+      Task[t].pending = Machine.value(QNIL)
     end
-    RFiber.set_value(to, r)
-    RFiber.set_status(cur, FIBER_TERMINATED)
-    RFiber.set_status(to, FIBER_RESUMED)
+    RFiber[to].value = r
+    RFiber[cur].status = FIBER_TERMINATED
+    RFiber[to].status = FIBER_RESUMED
     zr_fiber_switch(cur, to)
     zr_bug(Machine.bytes("a terminated fiber ran again\n"), 29)
   end
 
   #: (value, word, ptr, value, value) -> value
   def zr_fiber_alive_p(recv, argc, argv, cref, blk)
-    if RFiber.ctx(recv) == 0
+    if RFiber[recv].ctx == 0
       return zr_fiber_error(Machine.bytes("uninitialized fiber"), 19)
     end
-    zr_bool(RFiber.status(recv) != FIBER_TERMINATED)
+    zr_bool(RFiber[recv].status != FIBER_TERMINATED)
   end
 
   # Returns `#<Fiber:0x... file:line (status)>`, as fiber_to_s writes it.
@@ -399,7 +413,7 @@ module Zr::Kern
       zr_buf_free(b)
       return Machine.value(QUNDEF)
     end
-    status = RFiber.resuming(recv) != QNIL ? FIBER_SUSPENDED : RFiber.status(recv)
+    status = RFiber[recv].resuming != QNIL ? FIBER_SUSPENDED : RFiber[recv].status
     if status == FIBER_CREATED
       zr_buf_push(b, Machine.bytes(" (created"), 9)
     elsif status == FIBER_RESUMED
@@ -409,7 +423,7 @@ module Zr::Kern
     else
       zr_buf_push(b, Machine.bytes(" (terminated"), 12)
     end
-    if RFiber.resuming(recv) != QNIL
+    if RFiber[recv].resuming != QNIL
       zr_buf_push(b, Machine.bytes(" by resuming"), 12)
     end
     zr_buf_push(b, Machine.bytes(")>"), 2)
@@ -419,34 +433,34 @@ module Zr::Kern
   # Returns the fiber that `recv` resumed and waits for, or nil.
   #: (value) -> value
   def zr_fiber_resuming_m(recv)
-    RFiber.resuming(recv)
+    RFiber[recv].resuming
   end
 
   # Returns the fiber that resumed `recv` and waits for it, or nil.
   #: (value) -> value
   def zr_fiber_prev_m(recv)
-    RFiber.prev(recv)
+    RFiber[recv].prev
   end
 
   # Whether the fiber stopped because it transferred away, not because it
   # yielded or resumed another fiber (FIBER_SUSPENDED_P without yielding).
   #: (value) -> value
   def zr_fiber_transferred_away_p(recv)
-    zr_bool(RFiber.status(recv) == FIBER_SUSPENDED && RFiber.yielding(recv) == 0 && RFiber.resuming(recv) == QNIL)
+    zr_bool(RFiber[recv].status == FIBER_SUSPENDED && RFiber[recv].yielding == 0 && RFiber[recv].resuming == QNIL)
   end
 
   # Whether the fiber has not run yet: its block waits for a first resume.
   #: (value) -> value
   def zr_fiber_unborn_p(recv)
-    zr_bool(RFiber.status(recv) == FIBER_CREATED)
+    zr_bool(RFiber[recv].status == FIBER_CREATED)
   end
 
   # Ends a fiber that has not run yet. The kill runs no block and leaves
   # no stack to return to.
   #: (value) -> value
   def zr_fiber_terminate(recv)
-    if RFiber.status(recv) == FIBER_CREATED
-      RFiber.set_status(recv, FIBER_TERMINATED)
+    if RFiber[recv].status == FIBER_CREATED
+      RFiber[recv].status = FIBER_TERMINATED
     end
     recv
   end
@@ -455,7 +469,7 @@ module Zr::Kern
   # thread, and each fiber that it makes belongs to the same thread.
   #: (value) -> value
   def zr_fiber_rehome(recv)
-    RFiber.set_home(recv, recv)
+    RFiber[recv].home = recv
     recv
   end
 
@@ -464,11 +478,11 @@ module Zr::Kern
   # `zr_mark_fibers`.
   #: (value) -> void
   def zr_mark_fiber(f)
-    zr_mark(RFiber.blk(f))
-    zr_mark(RFiber.prev(f))
-    zr_mark(RFiber.resuming(f))
-    zr_mark(RFiber.value(f))
-    zr_mark(RFiber.home(f))
+    zr_mark(RFiber[f].blk)
+    zr_mark(RFiber[f].prev)
+    zr_mark(RFiber[f].resuming)
+    zr_mark(RFiber[f].value)
+    zr_mark(RFiber[f].home)
   end
 
   # A list of all fibers that the program makes, so that a collection can
@@ -489,7 +503,11 @@ module Zr::Kern
   # reads the stack of each fiber in this list that the graph reaches, and
   # repeats while that marks more. A fiber with no references is never
   # read and is swept as usual. A live fiber has its stack read, old or young.
-  FiberList = layout ptr: Ptr, len: Word, capa: Word
+  class FiberList < Layout
+    attr_accessor :ptr #: ptr
+    attr_accessor :len #: word
+    attr_accessor :capa #: word
+  end
 
   #: () -> ptr
   def zr_fiber_list
@@ -499,19 +517,19 @@ module Zr::Kern
   #: (value) -> void
   def zr_fiber_register(f)
     l = zr_fiber_list()
-    n = FiberList.len(l)
-    if n == FiberList.capa(l)
+    n = FiberList[l].len
+    if n == FiberList[l].capa
       capa = n == 0 ? 8 : n * 2
       grown = zr_xmalloc(capa * 8)
       if n > 0
-        zr_memcpy(grown, FiberList.ptr(l), n * 8)
-        zr_sized_xfree(FiberList.ptr(l), n * 8)
+        zr_memcpy(grown, FiberList[l].ptr, n * 8)
+        zr_sized_xfree(FiberList[l].ptr, n * 8)
       end
-      FiberList.set_ptr(l, grown)
-      FiberList.set_capa(l, capa)
+      FiberList[l].ptr = grown
+      FiberList[l].capa = capa
     end
-    Machine.store64(FiberList.ptr(l) + (n * 8), 0, Machine.word(f))
-    FiberList.set_len(l, n + 1)
+    Machine.store64(FiberList[l].ptr + (n * 8), 0, Machine.word(f))
+    FiberList[l].len = n + 1
   end
 
   # Marks the stacks of the live fibers, and repeats until no more fibers
@@ -523,10 +541,10 @@ module Zr::Kern
   #: () -> void
   def zr_mark_fibers
     l = zr_fiber_list()
-    n = FiberList.len(l)
+    n = FiberList[l].len
     i = 0
     while i < n
-      at = FiberList.ptr(l) + (i * 8)
+      at = FiberList[l].ptr + (i * 8)
       Machine.store64(at, 0, Machine.load64(at, 0) & (0 - 2))
       i += 1
     end
@@ -534,15 +552,15 @@ module Zr::Kern
     while more
       more = false # rubocop:disable Lint/UselessAssignment -- the outer `while` reads it
       i = 0
-      while i < FiberList.len(l)
-        at = FiberList.ptr(l) + (i * 8)
+      while i < FiberList[l].len
+        at = FiberList[l].ptr + (i * 8)
         w = Machine.load64(at, 0)
         if (w & 1) == 0 && zr_marked_p(Machine.value(w))
           Machine.store64(at, 0, w | 1)
           more = true
-          if RFiber.task(Machine.value(w)) != 0 && w != Machine.load64(Machine.static(:current_fiber, 8), 0)
-            zr_mark_task(RFiber.task(Machine.value(w)))
-            zr_mark_kernel_roots_from(RFiber.kroots(Machine.value(w)))
+          if RFiber[Machine.value(w)].task != 0 && w != Machine.load64(Machine.static(:current_fiber, 8), 0)
+            zr_mark_task(RFiber[Machine.value(w)].task)
+            zr_mark_kernel_roots_from(RFiber[Machine.value(w)].kroots)
             zr_mark_drain()
           end
         end
@@ -557,26 +575,26 @@ module Zr::Kern
   #: () -> void
   def zr_fiber_prune
     l = zr_fiber_list()
-    n = FiberList.len(l)
+    n = FiberList[l].len
     i = 0
     kept = 0
     while i < n
-      f = Machine.value(Machine.load64(FiberList.ptr(l) + (i * 8), 0) & (0 - 2))
+      f = Machine.value(Machine.load64(FiberList[l].ptr + (i * 8), 0) & (0 - 2))
       if zr_marked_p(f)
-        Machine.store64(FiberList.ptr(l) + (kept * 8), 0, Machine.word(f))
+        Machine.store64(FiberList[l].ptr + (kept * 8), 0, Machine.word(f))
         kept += 1
       end
       i += 1
     end
-    FiberList.set_len(l, kept)
+    FiberList[l].len = kept
   end
 
   #: (value) -> void
   def zr_release_fiber(f)
-    zr_xfree(RFiber.ctx(f))
-    if RFiber.stack(f) != 0
-      Libc.munmap(RFiber.stack(f), FIBER_STACK_BYTES)
-      zr_xfree(RFiber.task(f))
+    zr_xfree(RFiber[f].ctx)
+    if RFiber[f].stack != 0
+      Libc.munmap(RFiber[f].stack, FIBER_STACK_BYTES)
+      zr_xfree(RFiber[f].task)
     end
   end
 
