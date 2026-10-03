@@ -132,7 +132,9 @@ The first public release.
   `test/machine/` runs on CRuby too, and gives the binary's output.
 - Steep checks the kernel of each target at the strict level
   (`test/unit/kernel_steep_test.rb`), with `sig/zr/kern.rbs`, which
-  types the `Layout` class and each intrinsic. zr refuses an intrinsic
+  types the `Layout` class and each intrinsic. `value` is the class
+  `Value` there, so Steep, as the lowering, refuses a `word` where a
+  `value` is necessary, and arithmetic on a `value`. zr refuses an intrinsic
   with the wrong number of operands; before, the lowering stopped on a
   NoMethodError.
 - `COVERAGE=1 bin/minitest <paths>` measures the line and branch coverage of

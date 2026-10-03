@@ -534,6 +534,7 @@ module Zr
       #: (Prism::node node, Symbol op, String lhs, String lt, String rhs, String rt, ?named: bool) -> [String, String]
       def binary(node, op, lhs, lt, rhs, rt, named: false)
         refuse(node, "#{op} on a view; Machine.ptr takes its address") if view(lt) || view(rt)
+        refuse(node, "#{op} on a Value; Machine.word gives its bits") if lt == "Value" && !COMPARISONS.include?(op)
         refuse(node, "#{op} on #{lt} and #{rt}") unless ir_type(lt) && (lt == rt || (PLAIN.include?(lt) && PLAIN.include?(rt)))
         return float_binary(node, op, lhs, rhs) if lt == "F64"
 
@@ -694,6 +695,9 @@ module Zr
       end
 
       PLAIN = %w[Word Ptr].freeze #: Array[String]
+
+      # The operators that read a Value as it is.
+      COMPARISONS = %i[== != < <= > >=].freeze #: Array[Symbol]
 
       # A Word and a Ptr are each an address or a number, and fit one
       # another here; Steep does not tell them apart either. A view fits

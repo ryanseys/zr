@@ -77,8 +77,12 @@ Steep does not keep the type of a local that a loop assigns when an
 earlier loop assigned it too. A `# @type var name: type` line at the
 start of the def gives Steep that type; the lowering does not read it.
 
-A `word` and a `ptr` fit each other. A view fits only a view of the same
-layout. A local gets its type from its first assignment, and keeps it.
+A `word` and a `ptr` fit each other. A `value` fits only a `value`, and
+only a comparison reads it as it is: `Machine.word(v)` gives its bits
+for arithmetic, and `Machine.value(w)` makes one. In RBS `value` is the
+class `Value`, so Steep has the same rule. A view fits only a view of
+the same layout. A local gets its type from its first assignment, and
+keeps it.
 
 ## Declarations
 

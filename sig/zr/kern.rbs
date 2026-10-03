@@ -7,7 +7,19 @@ module Zr
     type i32 = Integer
     type word = Integer
     type ptr = Integer
-    type value = Integer
+    type value = Value
+
+    # A tagged Ruby value (docs/reference/runtime-layouts.md): a word that
+    # only a comparison reads as it is. `Machine.word` gives its bits for
+    # arithmetic, and `Machine.value` makes one.
+    class Value
+      def ==: (untyped other) -> bool
+      def !=: (untyped other) -> bool
+      def <: (value other) -> bool
+      def <=: (value other) -> bool
+      def >: (value other) -> bool
+      def >=: (value other) -> bool
+    end
     type f64 = Float
 
     # `inline :name` and `collects :name` in a kernel file's module.
@@ -17,7 +29,7 @@ module Zr
     # The superclass of each `class Name < Layout`. `Name[p]` is a view
     # of the layout at `p`; each field is an attribute of the class.
     class Layout
-      def self.[]: (Integer | Layout address) -> instance
+      def self.[]: (Integer | Value | Layout address) -> instance
       def self.size: () -> Integer
     end
 
@@ -41,7 +53,7 @@ module Zr
       def self.load64: (ptr p, word offset) -> word
       def self.load32: (ptr p, word offset) -> i32
       def self.load8: (ptr p, word offset) -> i8
-      def self.store64: (ptr p, word offset, word | f64 v) -> void
+      def self.store64: (ptr p, word offset, word | value | f64 v) -> void
       def self.store32: (ptr p, word offset, i32 v) -> void
       def self.store8: (ptr p, word offset, i8 v) -> void
 
@@ -49,10 +61,10 @@ module Zr
       def self.gates_set: (word gates) -> void
       def self.gates_enter: () -> void
 
-      def self.word: (Integer | bool | Layout x) -> word
-      def self.sword: (Integer x) -> word
-      def self.ptr: (Integer | Layout x) -> ptr
-      def self.value: (Integer | Layout x) -> value
+      def self.word: (Integer | Value | bool | Layout x) -> word
+      def self.sword: (Integer | Value x) -> word
+      def self.ptr: (Integer | Value | Layout x) -> ptr
+      def self.value: (Integer | Value | Layout x) -> value
       def self.i32: (Integer | bool x) -> i32
       def self.i8: (Integer | bool x) -> i8
       def self.u8: (i8 x) -> word
