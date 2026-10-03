@@ -235,7 +235,7 @@ module Zr::Kern
   # owners. The records stay after a `forget`, because a method entry
   # refers to its record by position, and zr never measures a file two
   # times. A `forget` and a `clear` discard only the counts.
-  G_COVERAGE_METHODS = 53
+  G_COVERAGE_METHODS = 14
 
   #: () -> value
   def zr_coverage_method_rows
