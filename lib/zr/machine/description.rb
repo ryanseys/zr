@@ -29,17 +29,23 @@ module Zr
     end
 
     # The parameter types and the return type of the `#:` comment `text`,
-    # as names of TYPES, or nil when `text` is not `#: (types) -> type`.
+    # as names of TYPES or of layouts (a capitalized name, which the
+    # lowering checks), or nil when `text` is not `#: (types) -> type`.
     # Only a return is `void`.
     #: (String text) -> [Array[String], String]?
     def self.def_type(text)
       m = DEF_TYPE.match(text) or return nil
-      params = m[:params].split(",").map { |name| RBS_TYPES[name.strip] }
-      ret = RBS_TYPES[m[:ret]]
+      params = m[:params].split(",").map { |name| type_named(name.strip) }
+      ret = type_named(m[:ret])
       return nil if ret.nil? || params.any? { |type| type.nil? || type == "Void" }
 
       [params.compact, ret]
     end
+
+    # The type that `name` names in a `#:` comment: a kernel type, or a
+    # layout.
+    #: (String name) -> String?
+    def self.type_named(name) = RBS_TYPES[name] || (name if name.match?(/\A[A-Z]\w*\z/))
 
     # Whether a word is an immediate and not a pointer to a cell: a
     # Fixnum, a flonum, a Symbol, nil, true or false. This is the same

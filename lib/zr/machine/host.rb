@@ -7,6 +7,7 @@ require "fiddle"
 require "debug_inspector"
 require_relative "../prism"
 require_relative "description"
+require_relative "lower"
 require_relative "host/memory"
 
 module Zr
@@ -39,6 +40,8 @@ module Zr
       # @rbs @rooted: Hash[String, Array[Symbol]]
       # @rbs @collecting: bool
       # @rbs @errno_location: Integer?
+      # @rbs @barriers: bool
+      # @rbs @unit: Lower
 
       WORD = 1 << 64
       MASK = WORD - 1
@@ -65,6 +68,11 @@ module Zr
         Type.new("F64", 8, Fiddle::TYPE_DOUBLE, "E", :f64, :f64), Type.new("Void", 0, Fiddle::TYPE_VOID, nil, nil, nil)
       ].to_h { |type| [type.name, type] }.freeze #: Hash[String, Type]
 
+      # The Type of a kernel type name. A view of a layout (`IvTab`) is a
+      # Ptr.
+      #: (String name) -> Type
+      def self.type(name) = TYPES.fetch(name) { TYPES.fetch("Ptr") }
+
       # The bits of `n` as a signed 64-bit Integer. Most words are in the
       # range already, and the test for that makes no Bignum.
       #: (Integer n) -> Integer
@@ -86,6 +94,7 @@ module Zr
         case value
         when true then 1
         when false, nil then 0
+        when View then value.at
         else value
         end
       end
@@ -170,6 +179,41 @@ module Zr
         end
       end
 
+      # The memory of a layout at an address: `RArray[p]`. Each kernel
+      # `class Name < Layout` is a subclass of the host's `Layout`
+      # (`view_base`), and each `attr_accessor` or `attr_reader` of its
+      # body reads, and writes, one field (`Host#view_fields`). A field of
+      # a layout type reads as a view of that layout. In a binary a view
+      # is only its address.
+      class View
+        attr_reader :at #: Integer
+
+        #: (Integer at) -> void
+        def initialize(at)
+          @at = at
+        end
+
+        # Defines the reader `name`, which answers the block's value for
+        # the view's address.
+        #: (Symbol name) { (Integer at) -> untyped } -> void
+        def self.reader(name, &read)
+          define_method(name) do
+            # @type self: View
+            read.call(@at)
+          end
+        end
+
+        # Defines the writer `name=`, which gives the block the view's
+        # address and the value.
+        #: (Symbol name) { (Integer at, untyped value) -> void } -> void
+        def self.writer(name, &write)
+          define_method(:"#{name}=") do |value|
+            # @type self: View
+            write.call(@at, value)
+          end
+        end
+      end
+
       # `Name = fn [types] => type`: a call through a pointer,
       # `Name.call(p, ...)`.
       class Fn
@@ -197,13 +241,34 @@ module Zr
       # and the import's method becomes that: later calls go straight to
       # it. The kernel's own defs are all loaded by then, and the host's
       # layers prepended.
-      class Libc
+      #
+      # Libc is a Module, so that a kernel file can open it and declare
+      # an import as `def self.name(...) = Machine.import`; `bind_imports` then
+      # gives each such import the same lazy answer.
+      class Libc < Module
         # @rbs @host: Host
 
         #: (Host host) -> void
         def initialize(host)
+          super()
           @host = host
           @imports = {}
+        end
+
+        # Gives each import that a kernel file declared in `module Libc`
+        # (not named `bind`: that is a libc call)
+        # its answer on first call, as `import` does.
+        #: (Hash[String, Import | Raw] imports) -> void
+        def bind_imports(imports)
+          imports.each_value do |import|
+            next unless import.is_a?(Import)
+
+            params = import.params.map { |type| Host.type(type) }
+            ret = Host.type(import.ret)
+            name = import.name.to_sym
+            @imports[import.name] = [params, ret]
+            define_singleton_method(name) { |*args| answer(name, params, ret).call(*args) }
+          end
         end
 
         #: (Symbol name, Hash[untyped, Type] signature) -> Symbol
@@ -248,6 +313,17 @@ module Zr
 
         #: (Symbol name) -> Integer
         def id(name) = @ids[name] ||= @host.symbols.id(name.to_s)
+
+        # The bodies of the declarations `def self.name(...) =
+        # Machine.import`, `def self.call(fn, ...) = Machine.indirect` and
+        # `def name(...) = Machine.raw`. The host binds each declaration
+        # when it loads the kernel, so a body that runs is a host bug.
+        #: (?from: String?) -> bot
+        def import(from: nil) = raise(NotImplementedError, "an import that the host did not bind#{" (#{from})" if from}")
+        #: () -> bot
+        def indirect = raise(NotImplementedError, "a signature that the host did not bind")
+        #: () -> bot
+        def raw = raise(NotImplementedError, "a raw function that the host does not have")
         #: (String string) -> Integer
         def bytesize(string) = string.bytesize
         #: (String string) -> Integer
@@ -281,12 +357,22 @@ module Zr
         #: (Integer p, Integer off, Integer value) -> untyped
         def store8(p, off, value) = STORE8.call(p + off, value)
 
+        # The gate word is in a register, and in the static `gates`, which
+        # `gates_enter` reads (`Function#gates_addr`). Here the host keeps
+        # the register's copy (`Host#gates`), which the walker reads.
         #: () -> Integer
         def gates = @host.gates
-        #: (Integer word) -> Integer
-        def gates_set(word) = @host.gates = word
-        #: () -> nil
-        def gates_enter = nil
+
+        #: (Integer word) -> void
+        def gates_set(word)
+          @host.gates = word
+          STORE64.call(static(:gates, 8), word)
+        end
+
+        #: () -> void
+        def gates_enter
+          @host.gates = LOAD64.call(static(:gates, 8))
+        end
 
         # A Word of `x`: an Integer in the signed range is one already.
         #: (Integer | bool | nil x) -> Integer
@@ -438,14 +524,93 @@ module Zr
         @rooted = {}
         @collecting = false
         @collectors = []
+        @unit = Lower.new(files.map { |file| [File.read(file), file] }, symbols).declare_files
+        @unit.declared_defs.each_value do |d|
+          @sigs[d.name] = [d.params.map { |_, type| Host.type(type) }, Host.type(d.ret)]
+        end
         @kern = kernel_module
         constants.each { |name, value| @kern.const_set(name, value) }
-        results = files.to_h { |file| [file, Prism.parse_file(file)] }
-        results.each_value { |result| def_types(result) }
-        trees = results.transform_values(&:value)
+        trees = files.to_h { |file| [file, Prism.parse_file(file).value] }
         load_order(trees).each { |file| load(file) }
+        bind_declarations
+        @barriers = @kern.method_defined?(:zr_write_barrier)
         cells!
         frames(trees.values)
+      end
+
+      # Binds the declarations that a kernel file writes as typed defs:
+      # each import of `module Libc`, and each signature module's `call`.
+      #: () -> void
+      def bind_declarations
+        @kern::Libc.bind_imports(@unit.declared_imports)
+        host = self #: Host
+        @unit.declared_sigs.each do |name, sig|
+          mod = @kern.const_get(name, false)
+          next unless mod.instance_of?(Module)
+
+          params = sig.params.map { |type| Host.type(type) }
+          ret = Host.type(sig.ret)
+          mod.define_singleton_method(:call) { |at, *args| host.call_at(at, params, ret, args) }
+        end
+      end
+
+      # The `Layout` of the kernel files: the superclass of each
+      # `class Name < Layout`. `Name[p]` is a view at `p`, `Name.size` the
+      # layout's size, and each attr of the class body a field.
+      #: () -> singleton(View)
+      def view_base
+        host = self #: Host
+        base = Class.new(View) #: singleton(View)
+        base.define_singleton_method(:[]) { |p| new(Host.bits(p)) }
+        base.define_singleton_method(:size) { host.layout_of(self).size }
+        base.define_singleton_method(:attr_accessor) { |*names| host.view_fields(self, names, writer: true) }
+        base.define_singleton_method(:attr_reader) { |*names| host.view_fields(self, names, writer: false) }
+        base
+      end
+
+      # The lowering's layout of a `class Name < Layout`.
+      #: (singleton(View) klass) -> Machine::Layout
+      def layout_of(klass)
+        name = klass.name.to_s.split("::").last.to_s
+        @unit.struct_for(name) or raise ArgumentError, "#{name} is not a layout of these kernel files"
+      end
+
+      # Defines the reader, and the writer when `writer` is set, of each
+      # field `names` of the layout class `klass`. A Value read is pinned
+      # (`pin`), and a Value written into a cell gets the write barrier,
+      # as the lowering emits them (`Function#access`).
+      #: (singleton(View) klass, Array[Symbol] names, writer: bool) -> void
+      def view_fields(klass, names, writer:)
+        layout = layout_of(klass)
+        cell = layout.name == "RBasic" || layout.fields.first&.last&.last == "RBasic"
+        host = self #: Host
+        kern = @kern
+        names.each do |name|
+          at, type_name = layout.fields.fetch(name.to_s) { raise ArgumentError, "#{layout.name} has no field #{name}" }
+          if @unit.struct_for(type_name)
+            klass.reader(name) { |p| kern.const_get(type_name, false).new(p + at) }
+            next
+          end
+
+          type = TYPES.fetch(type_name)
+          load = Memory.reader(type, at)
+          if type_name == "Value"
+            klass.reader(name) { |p| host.pin(load.call(p)) }
+          else
+            klass.reader(name) { |p| load.call(p) }
+          end
+          next unless writer
+
+          store = Memory.writer(type, at)
+          if cell && type_name == "Value"
+            klass.writer(name) do |p, value|
+              store.call(p, value)
+              host.barrier(p, value)
+            end
+          else
+            klass.writer(name) { |p, value| store.call(p, value) }
+          end
+        end
       end
 
       # Calls the kernel def `name`.
@@ -620,10 +785,11 @@ module Zr
       def pins = stack.pins
 
       # The collector's write barrier after a store of `value` into the
-      # cell at `p`.
+      # cell at `p`. A unit with no `zr_write_barrier` has no barrier, as
+      # in the lowering (`Function#barrier`).
       #: (Integer p, Integer value) -> untyped
       def barrier(p, value)
-        @kern.zr_write_barrier(p, value)
+        @kern.zr_write_barrier(p, value) if @barriers
       end
 
       # Marks each pinned cell and each Value local of a rooted def, and
@@ -799,6 +965,7 @@ module Zr
         TYPES.each { |name, type| kern.const_set(name, type) }
         kern.const_set(:Machine, Intrinsics.new(self))
         kern.const_set(:Libc, Libc.new(self))
+        kern.const_set(:Layout, view_base)
         # The kernel file gives the fields, so Steep cannot type them.
         kern.define_singleton_method(:layout) { |**fields| Layout.new(fields, host) } # steep:ignore FallbackAny
         kern.define_singleton_method(:fn) do |signature|
@@ -810,20 +977,6 @@ module Zr
         kern.define_singleton_method(:raw) { |_name, _signature| nil }
         Zr.send(:remove_const, :Kern) if Zr.const_defined?(:Kern, false)
         Zr.const_set(:Kern, kern)
-      end
-
-      # Records the type of each def of a kernel file: the `#:` comment on
-      # the line above it (`Machine.def_type`).
-      #: (Prism::ParseResult result) -> void
-      def def_types(result)
-        annotations = Machine.annotations(result)
-        defs = statements(result.value).grep(Prism::DefNode) #: Array[Prism::DefNode]
-        defs.each do |node|
-          text = annotations[node.location.start_line - 1] or next
-          type = Machine.def_type(text) or raise ArgumentError, "#{node.name}: a def's type is `#: (types) -> type`"
-          params, ret = type
-          @sigs[node.name.to_s] = [params.map { |type| TYPES.fetch(type) }, TYPES.fetch(ret)]
-        end
       end
 
       # The statements of a kernel file's `module Zr::Kern`.
@@ -946,12 +1099,12 @@ module Zr
       # payload, or at a cell that is not yet an object.
       #: (Prism::DefNode node) -> Array[Symbol]
       def value_locals(node)
-        sig = @sigs[node.name.to_s]
+        d = @unit.declared_defs[node.name.to_s]
         types = {} #: Hash[Symbol, String?]
         (node.parameters&.requireds || []).each_with_index do |param, i|
           raise ArgumentError, "a machine def takes required parameters only" unless param.is_a?(Prism::RequiredParameterNode)
 
-          types[param.name] = sig ? sig.first.fetch(i).name : "Value"
+          types[param.name] = d ? d.params.fetch(i).last : "Value"
         end
         assigns = {} #: Hash[Symbol, Array[Prism::node]]
         queue = [node.body].compact #: Array[Prism::node]
@@ -985,7 +1138,7 @@ module Zr
           elsif kinds.include?(nil) then nil
           else "Word"
           end
-        when Prism::CallNode then call_type(node)
+        when Prism::CallNode then call_type(node, types)
         end
       end
 
@@ -1010,12 +1163,18 @@ module Zr
         end
       end
 
-      # The type of a call: a def's sig, `Machine.value`, a layout field,
-      # or a signature's `call`. An operator on words is a word.
-      #: (Prism::CallNode node) -> String?
-      def call_type(node)
+      # The type of a call: a def's type, `Machine.value`, a layout field,
+      # a view (`Name[p]`), or a signature's `call`. An operator on words
+      # is a word.
+      #: (Prism::CallNode node, Hash[Symbol, String?] types) -> String?
+      def call_type(node, types)
         recv = node.receiver
-        return @sigs[node.name.to_s]&.last&.name if recv.nil?
+        return @unit.declared_defs[node.name.to_s]&.ret if recv.nil?
+        if (layout = view_of(recv, types))
+          type = layout.fields[node.name.to_s]&.last
+          return type == "Value" || @unit.struct_for(type.to_s) ? type : "Word"
+        end
+        return recv.name.to_s if node.name == :[] && recv.is_a?(Prism::ConstantReadNode) && @unit.struct_for(recv.name.to_s)
         return "Word" unless recv.is_a?(Prism::ConstantReadNode)
         return node.name == :value ? "Value" : "Word" if recv.name == :Machine
         return "Word" if recv.name == :Libc
@@ -1026,7 +1185,25 @@ module Zr
           type = thing.layout_fields[node.name.to_s]&.last
           type.is_a?(Type) ? type.name : "Word"
         when Fn then thing.ret.name
+        when Module then @unit.declared_sigs[recv.name.to_s]&.ret
         end
+      end
+
+      # The layout of the view that `node` is: `Name[p]`, a local that
+      # holds a view, or a field of a layout type of a view. Nil for
+      # anything else.
+      #: (Prism::node? node, Hash[Symbol, String?] types) -> Machine::Layout?
+      def view_of(node, types)
+        name = case node
+               when Prism::LocalVariableReadNode then types[node.name]
+               when Prism::CallNode
+                 if node.name == :[] && node.receiver.is_a?(Prism::ConstantReadNode)
+                   node.receiver.name.to_s
+                 elsif (outer = view_of(node.receiver, types))
+                   outer.fields[node.name.to_s]&.last
+                 end
+               end
+        @unit.struct_for(name) if name && !TYPES.key?(name)
       end
 
       # Whether the def `node` has a loop.

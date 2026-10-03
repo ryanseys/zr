@@ -70,7 +70,8 @@ module Zr
       # @rbs @checked: bool
       # @rbs @imports: Hash[String, Import | Raw]
       # @rbs @consts: Hash[String, [Prism::node, String]]
-      # @rbs @structs: Hash[String, [Prism::CallNode, String]]
+      # @rbs @structs: Hash[String, [Prism::CallNode | Prism::ClassNode, String]]
+      # @rbs @class_fields: Hash[String, Array[[String, String, Prism::node]]]
       # @rbs @const_values: Hash[String, Integer]
       # @rbs @layouts: Hash[String, Layout]
       # @rbs @resolving: Array[String]
@@ -100,6 +101,7 @@ module Zr
         @defs = {}
         @consts = {}
         @structs = {}
+        @class_fields = {}
         @const_values = {}
         @layouts = {}
         @resolving = []
@@ -118,6 +120,31 @@ module Zr
       #: () -> [Array[IR::Function], Array[Obj::Datum], Array[String]]
       def run
         # @type ivar @collects: Set[String | Symbol]
+        declare_all
+        @collects = collecting_defs
+        static(nil, ROOTS, 8) unless @collects.empty?
+        @defs.each_value { |d| @functions << Function.new(self, d).lower }
+        assign_effects
+        [@functions, @data, @raw]
+      end
+
+      # Reads the declarations of every file, then folds each constant and
+      # lays out each layout.
+      #: () -> void
+      def declare_all
+        declare_files
+        @consts.each_key { |name| const_for(name) }
+        @structs.each_key { |name| struct_for(name) }
+        @defs.each_value { |d| answers_import(d) }
+      end
+
+      # Reads the declarations of every file: the defs and their types, the
+      # layouts, the imports, the signatures and the constants. The host
+      # (`Host`) reads the kernel's types from here and lowers nothing. It
+      # may load only some kernel files, so a layout is laid out only when
+      # it is used (`struct_for`).
+      #: () -> self
+      def declare_files
         @sources.each do |source, file|
           result = Zr.parse(source, filepath: file)
           unless result.errors.empty?
@@ -128,14 +155,7 @@ module Zr
           @file = file
           declare(kern_body(result.value.statements.body, result.value), Machine.annotations(result))
         end
-        @consts.each_key { |name| const_for(name) }
-        @structs.each_key { |name| struct_for(name) }
-        @defs.each_value { |d| answers_import(d) }
-        @collects = collecting_defs
-        static(nil, ROOTS, 8) unless @collects.empty?
-        @defs.each_value { |d| @functions << Function.new(self, d).lower }
-        assign_effects
-        [@functions, @data, @raw]
+        self
       end
 
       # Sets the effects (`IR::Effects`) of each def: the regions that its
@@ -426,7 +446,14 @@ module Zr
         statements.each do |node|
           case node
           when Prism::ConstantWriteNode then declare_const(node)
-          when Prism::DefNode then add_def(node, def_type(node, annotations))
+          when Prism::ClassNode then declare_layout(node, annotations)
+          when Prism::ModuleNode then declare_module(node, annotations)
+          when Prism::DefNode
+            if stub(node) == :raw
+              add_raw(node, node.name.to_s, def_type(node, annotations))
+            else
+              add_def(node, def_type(node, annotations))
+            end
           when Prism::CallNode
             # The guards below check the class of each argument.
             args = node.arguments&.arguments || [] #: Array[untyped]
@@ -459,6 +486,92 @@ module Zr
         refuse(node, "a def has no `#: (types) -> type` above it") unless text
         Machine.def_type(text) or
           refuse(node, "a def's type is `#: (types) -> type`, each type one of #{RBS_TYPES.keys.join(" ")}")
+      end
+
+      LAYOUT_FIELD = "a layout's field is `attr_accessor :name #: type` (`attr_reader` for an embedded layout)"
+
+      # `class Name < Layout` with one `attr_accessor :field #: type` for
+      # each field, in order. The type is a kernel type or a layout, which
+      # is embedded in place and has only a reader.
+      #: (Prism::ClassNode node, Hash[Integer, String] annotations) -> void
+      def declare_layout(node, annotations)
+        path = node.constant_path
+        refuse(node, "a class of the kernel is a layout, `class Name < Layout`") unless path.is_a?(Prism::ConstantReadNode) && node.superclass&.slice == "Layout"
+        body = node.body
+        refuse(body, LAYOUT_FIELD) unless body.nil? || body.is_a?(Prism::StatementsNode)
+        name = path.name.to_s
+        @class_fields[name] = (body&.body || []).map do |attr|
+          args = attr.arguments&.arguments if attr.is_a?(Prism::CallNode) && attr.receiver.nil? && %i[attr_accessor attr_reader].include?(attr.name)
+          field = args.first if args&.one?
+          refuse(attr, LAYOUT_FIELD) unless field.is_a?(Prism::SymbolNode)
+          type = annotations.delete(attr.location.start_line).to_s[/\A#:\s*(\w+)\s*\z/, 1] or refuse(attr, LAYOUT_FIELD)
+          [field.unescaped, RBS_TYPES.fetch(type, type), attr]
+        end
+        add_struct(node, name)
+      end
+
+      # `module Libc` declares C functions, each a typed
+      # `def self.name(...) = Machine.import`, called as `Libc.name(...)`.
+      # Any other module is the signature of a call through a pointer, one
+      # typed `def self.call(fn, ...) = Machine.indirect`, called as
+      # `Name.call(p, ...)`.
+      #: (Prism::ModuleNode node, Hash[Integer, String] annotations) -> void
+      def declare_module(node, annotations)
+        path = node.constant_path
+        refuse(node, "a module of the kernel is `module Libc` or a signature") unless path.is_a?(Prism::ConstantReadNode)
+        body = node.body
+        defs = body.is_a?(Prism::StatementsNode) ? body.body : [] #: Array[Prism::node]
+        libc = path.name == :Libc
+        refuse(node, "a signature is one `def self.call(fn, ...) = Machine.indirect`") unless libc || defs.one?
+        defs.each do |d|
+          refuse(d, "a module of the kernel has only `def self.name(...)`") unless d.is_a?(Prism::DefNode) && d.receiver.is_a?(Prism::SelfNode)
+          params, ret = def_type(d, annotations)
+          refuse(d, "the `#:` type has #{params.size} types for #{stub_arity(d)} parameters") if stub_arity(d) != params.size
+          if libc
+            refuse(d, "an import is `def self.name(...) = Machine.import`") unless stub(d) == :import
+            @imports[d.name.to_s] = Import.new(d.name.to_s, params, ret, import_module(d))
+          else
+            refuse(d, "a signature is `def self.call(fn, ...) = Machine.indirect`") unless d.name == :call && stub(d) == :indirect
+            refuse(d, "a signature's first parameter is the function's ptr") unless params.first == "Ptr"
+            name = path.name.to_s
+            refuse(node, "#{name} is already a constant") if @consts.key?(name) || @structs.key?(name)
+            add_sig(name, params.drop(1), ret)
+          end
+        end
+      end
+
+      # The kind of a def whose body is only `Machine.import`,
+      # `Machine.indirect` or `Machine.raw`: a declaration with no body of
+      # its own. Nil for a def with a body.
+      #: (Prism::DefNode d) -> Symbol?
+      def stub(d)
+        body = d.body
+        call = body.body.first if body.is_a?(Prism::StatementsNode) && body.body.one?
+        return unless call.is_a?(Prism::CallNode) && machine?(call.receiver)
+
+        call.name if %i[import indirect raw].include?(call.name)
+      end
+
+      #: (Prism::DefNode d) -> Integer
+      def stub_arity(d)
+        params = d.parameters
+        refuse(d, "a declaration takes required parameters only") if params && params.child_nodes.compact.size != params.requireds.size
+        params ? params.requireds.size : 0
+      end
+
+      # The wasm module of an import: `Machine.import(from: "module")`, or
+      # nil for a symbol that the linker finds.
+      #: (Prism::DefNode d) -> String?
+      def import_module(d)
+        body = d.body #: Prism::StatementsNode
+        call = body.body.first #: Prism::CallNode
+        args = call.arguments&.arguments or return
+        hash = args.first if args.one?
+        pair = hash.elements.first if hash.is_a?(Prism::KeywordHashNode) && hash.elements.one?
+        key = pair.key if pair.is_a?(Prism::AssocNode)
+        value = pair.value if pair.is_a?(Prism::AssocNode)
+        refuse(call, "an import names its wasm module with `from: \"module\"`") unless key.is_a?(Prism::SymbolNode) && key.unescaped == "from" && value.is_a?(Prism::StringNode)
+        value.unescaped
       end
 
       # `Name = layout ...`, `Name = fn ...`, or a constant.
@@ -503,7 +616,7 @@ module Zr
       end
 
       # A raw function. Its signature must be the one the backend delivers.
-      #: (Prism::CallNode node, String name, [Array[String], String] sig) -> void
+      #: (Prism::node node, String name, [Array[String], String] sig) -> void
       def add_raw(node, name, sig)
         raw = RAW.fetch(name) { refuse(node, "no raw function named #{name}") }
         refuse(node, "#{name} is [#{raw.params.join(", ")}] => #{raw.ret}") if sig != [raw.params, raw.ret]
@@ -621,8 +734,9 @@ module Zr
         end
       end
 
-      # `node` is the call whose last argument has the fields.
-      #: (Prism::CallNode node, String name) -> void
+      # `node` is the call whose last argument has the fields, or the
+      # `class Name < Layout`.
+      #: (Prism::CallNode | Prism::ClassNode node, String name) -> void
       def add_struct(node, name)
         refuse(node, "#{name} is already a struct") if @structs.key?(name)
         refuse(node, "#{name} is already a constant") if @consts.key?(name) || @sigs.key?(name)
@@ -633,21 +747,31 @@ module Zr
       # embedded in place.
       #: (String name, untyped node) -> Layout
       def layout(name, node)
-        fields = node.arguments.arguments.last
         off = 0
         align = 1
-        rows = fields.elements.to_h do |pair|
-          refuse(pair, "a field is `name: Type`") unless pair.is_a?(Prism::AssocNode) && pair.key.is_a?(Prism::SymbolNode) && pair.value.is_a?(Prism::ConstantReadNode)
-          type = pair.value.name.to_s
-          size, a = field_shape(pair.value, type)
+        rows = layout_fields(name, node).to_h do |field, type, at_node|
+          size, a = field_shape(at_node, type)
           off = Bytes.align(off, a)
           align = [align, a].max
           at = off
           off += size
-          [pair.key.unescaped, [at, type]]
+          [field, [at, type]] #: [String, [Integer, String]]
         end
         size = Bytes.align(off, align)
         Layout.new(name, rows, size, align)
+      end
+
+      # `[field, type, node]` for each field of a layout, in order: from a
+      # `class Name < Layout` (`declare_layout`), or from the keywords of
+      # `Name = layout field: Type, ...`.
+      #: (String name, untyped node) -> Array[[String, String, Prism::node]]
+      def layout_fields(name, node)
+        return @class_fields.fetch(name) if node.is_a?(Prism::ClassNode)
+
+        node.arguments.arguments.last.elements.map do |pair|
+          refuse(pair, "a field is `name: Type`") unless pair.is_a?(Prism::AssocNode) && pair.key.is_a?(Prism::SymbolNode) && pair.value.is_a?(Prism::ConstantReadNode)
+          [pair.key.unescaped, pair.value.name.to_s, pair.value]
+        end
       end
 
       # `[size, align]` of a field of `type`.
@@ -703,6 +827,10 @@ module Zr
       def declared_consts = @consts.keys
       #: () -> Array[String]
       def declared_structs = @structs.keys
+      #: () -> Hash[String, Import | Raw]
+      def declared_imports = @imports
+      #: () -> Hash[String, Signature]
+      def declared_sigs = @sigs
 
       # The file that declares the constant `name`. Only the tests use it
       # (test/unit/os_api_test.rb).

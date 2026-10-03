@@ -30,11 +30,13 @@ module Zr::Kern
     if u != 99
       code = code | 32
     end
+    # A negative operand truncates as Machine.sdiv; a plain `/` floors on
+    # CRuby, so the kernel gives it no negative operand.
     n = 0 - 7
-    if n / 2 != 0 - 3
+    if Machine.sdiv(n, 2) != 0 - 3
       code = code | 64
     end
-    if n % 2 != 0 - 1
+    if Machine.srem(n, 2) != 0 - 1
       code = code | 128
     end
     Libc.exit(Machine.i32(code))

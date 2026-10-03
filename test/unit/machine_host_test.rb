@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "test_helper"
+require "open3"
 require "tmpdir"
 require_relative "../../lib/zr/runtime"
 require_relative "../../lib/zr/machine/host"
@@ -147,6 +148,25 @@ class MachineHostTest < Minitest::Test
 
       assert_equal lowered.size, hosted.layout_size, name
       assert_equal lowered.fields.transform_values(&:first), hosted.layout_fields.transform_values(&:first), name
+    end
+  end
+
+  # A program of test/machine prints on CRuby what its binary prints
+  # (test/unit/machine_test.rb), and exits 0: the kernel subset means the
+  # same on both. switch.rb calls the raw zr_switch, which only a binary
+  # has.
+  RUN = <<~RUBY
+    require #{File.join(ROOT, "lib/zr/machine/host").dump}
+    Zr::Machine::Host.new([ARGV[0]]).call(:main, 0, 0)
+  RUBY
+
+  (Dir[File.join(ROOT, "test/machine/*.rb")].sort - [File.join(ROOT, "test/machine/switch.rb")]).each do |rb|
+    name = File.basename(rb, ".rb")
+    define_method("test_#{name}_prints_on_the_host_what_its_binary_prints") do
+      out, status = Open3.capture2(Gem.ruby, "-e", RUN, rb)
+
+      assert_equal 0, status.exitstatus, "#{name} exited #{status.exitstatus}"
+      assert_equal File.binread(rb.sub(/\.rb\z/, ".out")), out
     end
   end
 end

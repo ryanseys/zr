@@ -46,7 +46,7 @@ module Zr
       def initialize(unit, d)
         @unit = unit
         @d = d
-        @f = IR::Function.new(d.name, d.params.map { |_, t| ir_type(t) }, TYPES.fetch(d.ret))
+        @f = IR::Function.new(d.name, d.params.map { |_, t| ir_type(t) }, ir_type(d.ret))
         @locals = {}
         @loops = []
         @roots = nil
@@ -167,11 +167,19 @@ module Zr
 
       # The IR type of a Machine type, or nil for Void. The type says
       # String: a caller refuses Void first, or gives the nil to an IR
-      # call that reads it as "no type".
+      # call that reads it as "no type". A view of a layout (`IvTab`) is
+      # an address.
       #: (String type) -> String
       def ir_type(type)
-        TYPES.fetch(type) #: String
+        return TYPES.fetch(type) if TYPES.key?(type) # steep:ignore ReturnTypeMismatch
+        return "i64" if @unit.struct_for(type)
+
+        refuse(@d.node, "#{type} is not a kernel type or a layout")
       end
+
+      # The layout of a view type (`RArray[p]` is an `RArray`), or nil.
+      #: (String type) -> Layout?
+      def view(type) = TYPES.key?(type) ? nil : @unit.struct_for(type)
 
       # The value and type of a statement list: those of the last
       # statement. `want` applies only to the last statement.
@@ -282,8 +290,15 @@ module Zr
 
           refuse(node, "a negation of a #{type}") unless ir_type(type)
           [@f.isub(@f.iconst(ir_type(type), 0), value), type]
+        elsif node.name == :[] && node.receiver.is_a?(Prism::ConstantReadNode) && (layout = @unit.struct_for(node.receiver.name.to_s))
+          refuse(node, "#{layout.name}[p] takes one pointer") unless args.one?
+          ptr, pt = expr(args[0])
+          refuse(args[0], "#{layout.name}[p] of a #{pt}") unless %w[Ptr Word Value].include?(pt) || view(pt)
+          [ptr, layout.name]
         elsif node.receiver.is_a?(Prism::ConstantReadNode) && (layout = @unit.struct_for(node.receiver.name.to_s))
           field(node, layout, args, want)
+        elsif (receiver = node.receiver) && !OPERATORS.key?(node.name) && args.size <= 1
+          view_field(node, receiver, args)
         elsif args.size == 1 && OPERATORS.key?(node.name)
           lhs, lt = expr(node.receiver, want)
           rhs, rt = expr(args.first, lt)
@@ -302,19 +317,42 @@ module Zr
 
         writer = name.start_with?("set_")
         fname = writer ? name.delete_prefix("set_") : name
-        off, type = layout.fields.fetch(fname) { refuse(node, "#{layout.name} has no field #{fname}") }
+        layout.fields.fetch(fname) { refuse(node, "#{layout.name} has no field #{fname}") }
         refuse(node, "#{layout.name}.#{name} takes #{writer ? "a pointer and a value" : "a pointer"}") if args.size != (writer ? 2 : 1)
         ptr, pt = expr(args[0])
-        refuse(args[0], "#{layout.name}.#{name} of a #{pt}") unless %w[Ptr Word Value].include?(pt)
+        refuse(args[0], "#{layout.name}.#{name} of a #{pt}") unless %w[Ptr Word Value].include?(pt) || view(pt)
+        access(node, layout, fname, ptr, args[0], writer ? args[1] : nil, view: false)
+      end
+
+      # `view.field` and `view.field = value`, where `view` is `Name[p]`
+      # or a local, a parameter or a field that holds a view.
+      #: (Prism::CallNode node, Prism::node receiver, Array[Prism::node] args) -> [untyped, String]
+      def view_field(node, receiver, args)
+        ptr, pt = expr(receiver)
+        layout = view(pt) or refuse(node, "a call with a receiver that is not Machine or a struct")
+        name = node.name.to_s
+        writer = name.end_with?("=")
+        refuse(node, "#{layout.name}##{name} takes #{writer ? "a value" : "nothing"}") if args.size != (writer ? 1 : 0)
+        at = receiver.is_a?(Prism::CallNode) && receiver.name == :[] ? receiver.arguments&.arguments&.first : receiver
+        access(node, layout, writer ? name.chomp("=") : name, ptr, at, args.first, view: true)
+      end
+
+      # A read or a write of the field `fname` of `layout` at `ptr`. A
+      # field of a layout type is read as its address, which is a view of
+      # that layout when `view` is set (`RObject[o].iv` is an IvTab).
+      # `at` is the node of the address, for the write barrier.
+      #: (Prism::CallNode node, Layout layout, String fname, String ptr, Prism::node? at, Prism::node? value_node, view: bool) -> [untyped, String]
+      def access(node, layout, fname, ptr, at, value_node, view:)
+        off, type = layout.fields.fetch(fname) { refuse(node, "#{layout.name} has no field #{fname}") }
         if @unit.struct_for(type)
-          refuse(node, "#{fname} is a #{type}; set its fields instead") if writer
-          [off.zero? ? ptr : @f.iadd(ptr, @f.iconst("i64", off)), "Ptr"]
-        elsif writer
-          value, vt = expr(args[1], type)
-          refuse(args[1], "#{layout.name}.#{fname} is a #{type}, not a #{vt}") unless ir_type(vt) == ir_type(type)
+          refuse(node, "#{fname} is a #{type}; set its fields instead") if value_node
+          [off.zero? ? ptr : @f.iadd(ptr, @f.iconst("i64", off)), view ? type : "Ptr"]
+        elsif value_node
+          value, vt = expr(value_node, type)
+          refuse(value_node, "#{layout.name}.#{fname} is a #{type}, not a #{vt}") unless ir_type(vt) == ir_type(type)
           region = cell?(layout) ? :heap : :malloc
           @f.store(value, ptr, off, region: region)
-          barrier(ptr, value) if type == "Value" && cell?(layout) && !stack_image?(args[0])
+          barrier(ptr, value) if type == "Value" && cell?(layout) && !stack_image?(at)
           [nil, "Void"]
         else
           [@f.fetch(ir_type(type), ptr, off, region: cell?(layout) ? :heap : :malloc), type]
@@ -509,6 +547,8 @@ module Zr
       # negative operand.
       #: (Prism::node node, Symbol op, String lhs, String lt, String rhs, String rt, ?named: bool) -> [String, String]
       def binary(node, op, lhs, lt, rhs, rt, named: false)
+        lt = "Ptr" if view(lt)
+        rt = "Ptr" if view(rt)
         refuse(node, "#{op} on #{lt} and #{rt}") unless ir_type(lt) && (lt == rt || (PLAIN.include?(lt) && PLAIN.include?(rt)))
         return float_binary(node, op, lhs, rhs) if lt == "F64"
 
@@ -670,10 +710,15 @@ module Zr
 
       PLAIN = %w[Word Ptr].freeze #: Array[String]
 
+      # A Word, a Ptr and a view are each an address or a number, and fit
+      # one another here. Steep tells a view from a word.
       #: (String want, String got) -> bool
       def fits?(want, got)
-        want == got || (PLAIN.include?(want) && PLAIN.include?(got))
+        want == got || (address?(want) && address?(got))
       end
+
+      #: (String type) -> bool
+      def address?(type) = PLAIN.include?(type) || !view(type).nil?
 
       # A call to an import (`Libc.name`) or to a def of this unit. A bare
       # call goes only to a def or a raw function.
@@ -852,7 +897,11 @@ module Zr
           float_convert(node, node.name, value, type) #: [String, String]
         when :ctz, :clz, :popcnt, :bswap
           value, type = expr(args.first)
-          refuse(node, "Machine.#{node.name} of a #{type}") unless %w[i32 i64].include?(ir_type(type)) && args.one?
+          # CRuby keeps no width, so these count the 64 bits of a word.
+          if ir_type(type) == "i32"
+            refuse(node, "Machine.#{node.name} of an I32 counts 64 bits on CRuby; widen it first (Machine.u32)")
+          end
+          refuse(node, "Machine.#{node.name} of a #{type}") unless ir_type(type) == "i64" && args.one?
           [@f.bitop(node.name, value), type]
         when :sqrt, :floor, :ceil, :trunc, :nearest, :fabs
           value, type = expr(args.first)
@@ -963,11 +1012,13 @@ module Zr
         end
       end
 
-      # `[value, type]` of an expression that a branch can test: any integer.
+      # `[value, type]` of an expression that a branch can test: a Bool.
+      # CRuby takes every Integer as true, 0 too, so a test of an integer
+      # would mean another thing on the host; it compares instead.
       #: (Prism::node? node) -> [untyped, String]
       def condition_value(node)
         value, type = expr(node)
-        refuse(node, "a condition that is a #{type}") unless %w[Bool I8 I32 Word Ptr Value].include?(type)
+        refuse(node, "a condition that is a #{type}; CRuby takes 0 as true, so compare it (`x != 0`)") unless type == "Bool"
         [value, type]
       end
 

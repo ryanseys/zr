@@ -46,12 +46,12 @@ module Zr::Kern
     ok = probe(false) || probe(false)
     code = code | 1024 if ok
     code = code | 2048 if Machine.load64(calls(), 0) != 4
-    # `!` on a Bool and on a Word, and `&&` as a Word condition
+    # `!` on a Bool, and `&&` of two tests
     code = code | 4096 if !true
-    code = code | 8192 unless !0
     n = 7
-    code = code | 16384 unless n && n - 7 == 0
-    code = code | 32768 if !n
+    code = code | 8192 unless !(n == 0)
+    code = code | 16384 unless n != 0 && n - 7 == 0
+    code = code | 32768 if n == 0
     # unless as a value
     m = unless n > 5 then 1 else 2 end
     code = code | 65536 if m != 2

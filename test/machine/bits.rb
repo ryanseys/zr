@@ -36,13 +36,13 @@ module Zr::Kern
   def main(argc, argv)
     # 4 + 64 + 63 + 64 = 195
     put_word(Machine.ctz(same(80)) + Machine.ctz(same(0)) + Machine.clz(same(1)) + Machine.clz(same(0)))
-    # 9 + 32 + 32 + 0 = 73
-    put_word(Machine.popcnt(same(Machine.word(0xF0F0000000000001))) + Machine.u32(Machine.popcnt(Machine.i32(same(-1)))) +
-             Machine.u32(Machine.clz(Machine.i32(same(0)))) + Machine.u32(Machine.ctz(Machine.i32(same(1)))))
+    # An I32 widens first: 9 + 32 + (64 - 32) + 0 = 73
+    put_word(Machine.popcnt(same(Machine.word(0xF0F0000000000001))) + Machine.popcnt(Machine.u32(Machine.i32(same(-1)))) +
+             (Machine.clz(Machine.u32(Machine.i32(same(0)))) - 32) + Machine.ctz(Machine.u32(Machine.i32(same(1)))))
     # 0x0102030405060708 turned round is 0x0807060504030201
     put_word(Machine.bswap(same(0x0102030405060708)))
-    # 0x01020304 turned round as an I32 is 0x04030201 = 67305985
-    put_word(Machine.u32(Machine.bswap(Machine.i32(same(0x01020304)))))
+    # 0x01020304 widened and turned round, then shifted down: 0x04030201 = 67305985
+    put_word(Machine.bswap(Machine.u32(Machine.i32(same(0x01020304)))) >> 32)
     # folded: 3 + 60 + 4 + 1 = 68
     put_word(Machine.ctz(8) + Machine.clz(15) + Machine.popcnt(0xF) + Machine.bswap(0x0100000000000000))
     Libc.exit(0)
