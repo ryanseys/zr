@@ -511,7 +511,10 @@ class Thread
         return @path if @path.start_with?("/")
         return nil if @path == +"-e"
 
-        parts = "#{Primitive.zr_getcwd}/#{@path}".split("/").reject { |part| part.empty? || part == +"." }
+        cwd = Primitive.zr_getcwd
+        return @path if cwd.is_a?(Integer)
+
+        parts = "#{cwd}/#{@path}".split("/").reject { |part| part.empty? || part == +"." }
         "/" + parts.join("/")
       end
       def to_s = @row

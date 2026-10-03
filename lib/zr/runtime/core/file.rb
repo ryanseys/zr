@@ -1219,7 +1219,13 @@ class Dir
   end
   private :open_names
 
-  def self.pwd = Primitive.zr_getcwd
+  def self.pwd
+    dir = Primitive.zr_getcwd
+    raise SystemCallError.new(+"getcwd", -dir) if dir.is_a?(Integer)
+
+    dir
+  end
+
   def self.getwd = pwd
   def self.exist?(path) = File.directory?(path)
 

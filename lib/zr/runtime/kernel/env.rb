@@ -198,14 +198,15 @@ module Zr::Kern
     out
   end
 
-  # Returns the working directory. Stops with a bug message when the host
-  # has none.
+  # Returns the working directory, or the negated errno when the host has
+  # none (it was removed). The core raises that errno, as ruby does.
   #: () -> value
   def zr_getcwd
     buf = zr_xmalloc(4096)
     p = Libc.getcwd(buf, 4096)
     if p == 0
-      zr_bug(Machine.bytes("the working directory is not available here\n"), 44)
+      zr_xfree(buf)
+      return zr_fix(0 - zr_errno())
     end
     s = zr_str_new(buf, zr_cstr_len(buf))
     zr_xfree(buf)
