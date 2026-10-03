@@ -77,6 +77,12 @@ module Zr
         # sig/zr/backend/wasm/codegen.rbs, the methods here.
         # @rbs skip
         Import = Data.define(:from, :name, :params, :results)
+
+        class Import
+          #: () -> signature
+          def signature = [params, results]
+        end
+
         # The imports that the libc shims and `_start` call. Every module
         # includes them, whatever its functions import.
         OWN_IMPORTS = [Import.new(WASI, "fd_write", [0x7F, 0x7F, 0x7F, 0x7F], [0x7F]),
@@ -117,7 +123,15 @@ module Zr
           layout
           bodies = @functions.map { |f| Body.new(self, f).emit }
           Prelude.new(@imports, @shims, @functions.to_h { |f| [f.name, signature(f)] }, bodies, @types, @data_at, @data_end,
-                      @data.reject { |d| d.section == :bss }.map { |d| [@data_at[d.name], patched(d)] }, @table, @promised)
+                      placed_data, @table, @promised)
+        end
+
+        # `[address, bytes]` of each initialized data object.
+        #: () -> Array[[Integer, String]]
+        def placed_data
+          @data.reject { |d| d.section == :bss }.map do |d|
+            [@data_at[d.name], patched(d)] #: [Integer, String]
+          end
         end
 
         # Returns the module's bytes.
@@ -130,13 +144,15 @@ module Zr
           @index["_start"] = @index.size
           own = @functions.map { |f| Body.new(self, f).emit }
           bodies = @shims.map { |name| shim(name) } + (pre ? pre.bodies : []) + own + [start_body]
-          sigs = (pre ? pre.sigs.values : []) + @functions.map { |f| signature(f) } + [[[], []]]
+          sigs = pre ? pre.sigs.values : [] #: Array[signature]
+          start = [[], []] #: signature
+          sigs += @functions.map { |f| signature(f) } + [start]
           shim_sigs = @shims.map { |name| LIBC_SHIMS.fetch(name) }
-          (@imports.map { |i| [i.params, i.results] } + shim_sigs + sigs).each { |t| type_index(t) }
+          (@imports.map(&:signature) + shim_sigs + sigs).each { |t| type_index(t) }
 
           out = +"\0asm\x01\0\0\0".b
           out << section(1, vec(@types.map { |p, r| "\x60".b + vec(p.map(&:chr)) + vec(r.map(&:chr)) }))
-          out << section(2, vec(@imports.map { |i| name(i.from) + name(i.name) + "\0".b + leb(type_index([i.params, i.results])) }))
+          out << section(2, vec(@imports.map { |i| name(i.from) + name(i.name) + "\0".b + leb(type_index(i.signature)) }))
           out << section(3, vec((shim_sigs + sigs).map { |t| leb(type_index(t)) }))
           out << section(4, vec(["\x70\x00".b + leb(@table.size + 1)])) unless @table.empty?
           stack_base = Bytes.align(@data_end, 16)
@@ -150,7 +166,8 @@ module Zr
           out << section(7, vec([name("memory") + "\x02".b + leb(0), name("_start") + "\0".b + leb(@index["_start"])]))
           out << section(9, vec(["\0".b + i32c(1) + "\x0B".b + vec(@table.map { |n| leb(function_index(n)) })])) unless @table.empty?
           out << section(10, vec(bodies))
-          placed = (pre ? pre.segments : []) + @data.reject { |d| d.section == :bss }.map { |d| [@data_at[d.name], patched(d)] }
+          placed = pre ? pre.segments : [] #: Array[[Integer, String]]
+          placed += placed_data
           out << section(11, vec(segments(placed).map { |at, bytes| "\0".b + "\x41".b + sleb(at) + "\x0B".b + vec_bytes(bytes) }))
           out << names_section if Config.current.wasm_names?
           out
@@ -195,7 +212,8 @@ module Zr
             extra = imported.map(&:name) - @imports.map(&:name)
             raise Refused, "the prelude does not import #{extra.join(", ")}" unless extra.empty?
           end
-          pending = @pending ? @pending[:functions] : [] #: Array[String]
+          names = @pending
+          pending = names ? names[:functions] : [] #: Array[String]
           @shims = pre ? pre.shims : LIBC_SHIMS.keys - @functions.map(&:name) - pending
           @index = {}
           @imports.each_with_index { |import, i| @index[import.name] = i }
@@ -224,28 +242,38 @@ module Zr
           unknown = used - @shims - @promised[:functions]
           raise Refused, "no wasm shim for #{unknown.join(", ")}" unless unknown.empty?
 
-          taken = @functions.flat_map { |f| f.blocks.flat_map(&:insts).select { |i| i.op == :func_addr }.map { |i| f.callees.find { |c| c.fn == i.args[0] }.symbol } }
+          taken = @functions.flat_map do |f|
+            f.blocks.flat_map(&:insts).select { |i| i.op == :func_addr }.map do |i|
+              c = f.callees.find { |x| x.fn == i.args[0] } or raise "#{f.name}: no callee #{i.args[0]}"
+              c.symbol
+            end
+          end
           named = @data.flat_map { |d| d.relocs.map(&:symbol) }.select { |name| @index.key?(name) }
-          @table = ((pre ? pre.table : []) + taken + named).uniq
+          table = pre ? pre.table : [] #: Array[String]
+          @table = (table + taken + named).uniq
         end
 
         # The module's own imports, then each import that its functions
         # refer to, in order of first use.
         #: () -> Array[Import]
         def imports
-          (OWN_IMPORTS + imported).each_with_object({}) do |import, by_name|
+          by_name = {} #: Hash[String, Import]
+          (OWN_IMPORTS + imported).each do |import|
             known = by_name[import.name] ||= import
             raise Refused, "#{import.name} is imported as #{known.to_h.inspect} and #{import.to_h.inspect}" unless known == import
-          end.values
+          end
+          by_name.values
         end
 
         # The imports of the functions, with types from the IR signature of each call.
         #: () -> Array[Import]
         def imported
           @functions.flat_map do |f|
-            f.callees.select(&:from).map do |c|
-              params, results = sig_type(f.sigs.find { |s| s.sig == c.sig })
-              Import.new(c.from, c.symbol, params, results)
+            f.callees.filter_map do |c|
+              from = c.from or next
+              sig = f.sigs.find { |s| s.sig == c.sig } or raise "#{f.name}: no signature #{c.sig}"
+              params, results = sig_type(sig)
+              Import.new(from, c.symbol, params, results)
             end
           end
         end
@@ -257,12 +285,13 @@ module Zr
         #: () -> void
         def promise
           @promised = { functions: [], data: {} }
-          return unless @pending
+          pending = @pending
+          return unless pending
 
-          @pending[:functions].each { |name| @index[name] = @index.size }
-          @promised[:functions] = @pending[:functions]
+          pending[:functions].each { |name| @index[name] = @index.size }
+          @promised[:functions] = pending[:functions]
           at = @data_end
-          @pending[:data].each do |name|
+          pending[:data].each do |name|
             at = Bytes.align(at, 8)
             @promised[:data][name] = at
             @data_at[name] = at
@@ -290,7 +319,8 @@ module Zr
         #: (String name) -> signature?
         def function_type(name)
           return LIBC_SHIMS[name] if @shims.include?(name)
-          return @prelude.sigs[name] if @prelude&.sigs&.key?(name)
+          pre = @prelude
+          return pre.sigs[name] if pre&.sigs&.key?(name)
 
           named = @function_named ||= @functions.to_h { |x| [x.name, x] }
           f = named[name]
@@ -302,7 +332,7 @@ module Zr
         # The table index that represents the address of `name`.
         #: (String name) -> Integer
         def table_index(name)
-          @table.index(name) + 1
+          (@table.index(name) or raise "#{name} is not in the table") + 1
         end
 
         # The wasm type of an IR signature.
@@ -344,8 +374,8 @@ module Zr
         # `_start`: main(0, 0), then proc_exit with its return value.
         #: () -> String
         def start_body
-          params, results = function_type("main")
-          raise Refused, "no main" unless params
+          type = function_type("main") or raise Refused, "no main"
+          params, results = type
           code = +"".b
           params.each { |t| code << (t == 0x7E ? "\x42\x00".b : "\x41\x00".b) }
           code << "\x10".b << leb(function_index("main"))

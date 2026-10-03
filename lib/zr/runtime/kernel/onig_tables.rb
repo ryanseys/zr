@@ -6,7 +6,7 @@
 
 module Zr::Kern
   # EncLen_UTF8: the length a UTF-8 lead byte announces, 256 bytes (utf_8.c).
-  sig [] => Ptr
+  #: () -> ptr
   def zr_onig_utf8_len
     Machine.bytes(
     "\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\
@@ -20,7 +20,7 @@ module Zr::Kern
   end
 
   # The 8859-1 ctype bits of each code point under 256, as 256 words (unicode.c).
-  sig [] => Ptr
+  #: () -> ptr
   def zr_onig_ctype_bits
     Machine.bytes(
     "\x08\x40\x00\x00\x08\x40\x00\x00\x08\x40\x00\x00\x08\x40\x00\x00\x08\x40\x00\x00\x08\x40\x00\x00\x08\x40\x00\x00\x08\x40\x00\x00\
@@ -58,7 +58,7 @@ module Zr::Kern
   end
 
   # CR_Word: the count, then (low, high) pairs of code points, as words.
-  sig [] => Ptr
+  #: () -> ptr
   def zr_onig_word_ranges
     Machine.bytes(
     "\x22\x03\x00\x00\x30\x00\x00\x00\x39\x00\x00\x00\x41\x00\x00\x00\x5A\x00\x00\x00\x5F\x00\x00\x00\x5F\x00\x00\x00\x61\x00\x00\x00\
@@ -265,7 +265,7 @@ module Zr::Kern
   end
 
   # CaseFold_11 sorted by code point: the count, then rows of five words (from, how many, three codes).
-  sig [] => Ptr
+  #: () -> ptr
   def zr_onig_fold_rows
     Machine.bytes(
     "\x31\x06\x00\x00\x41\x00\x00\x00\x01\x00\x00\x00\x61\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x42\x00\x00\x00\x01\x00\x00\x00\

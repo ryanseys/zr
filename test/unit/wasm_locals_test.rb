@@ -20,7 +20,7 @@ require_relative "../../test/native/fixtures"
 class WasmLocalsTest < Minitest::Test
   SEARCH = <<~RUBY
     module Zr::Kern
-      sig [Ptr, Word] => Bool
+      #: (ptr, word) -> bool
       def in_ranges(ranges, code)
         n = Machine.u32(Machine.load32(ranges, 0))
         data = ranges + 4
@@ -38,7 +38,7 @@ class WasmLocalsTest < Minitest::Test
       end
 
       # One bit of the status for each code, set when it is in a range.
-      sig [I32, Ptr] => I32
+      #: (i32, ptr) -> i32
       def main(argc, argv)
         ranges = Machine.bytes("\\x03\\x00\\x00\\x00\\x0A\\x00\\x00\\x00\\x14\\x00\\x00\\x00\\x1E\\x00\\x00\\x00\\x28\\x00\\x00\\x00\\x32\\x00\\x00\\x00\\x3C\\x00\\x00\\x00")
         bits = 0

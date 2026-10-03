@@ -11,7 +11,7 @@ module Zr
       class Loader
         # @rbs @deferred: Array[String]
         # @rbs @modules: Hash[String, bool]
-        # @rbs @description: ^() -> String
+        # @rbs @description: (^() -> String?)?
         # @rbs @gem_set: GemSet?
         # @rbs @gate: bool | Symbol
         # @rbs @own: Hash[String, bool]
@@ -463,7 +463,7 @@ module Zr
         # @rbs source: String
         # @rbs line: Integer
         # @rbs scopes: Array[Array[Symbol]]?
-        # @rbs method: Array[[Symbol, Symbol]]?
+        # @rbs method: Array[[Symbol, Symbol?]]?
         # @rbs return: Unit
         def unit(file, source = File.read(file), line = 1, scopes = nil, method: nil)
           result = scopes ? Zr.parse(source, filepath: file, line: line, scopes: scopes) : Zr.parse(source, filepath: file, line: line)
@@ -563,8 +563,17 @@ module Zr
 
           i = @units.size
           @index[path] = i
-          @units << nil
-          @units[i] = Library::Roots.description?(path) ? unit(path, @description.call) : unit(path)
+          # The slot is held while the file builds, and the units that it
+          # requires go after it.
+          held = nil #: untyped
+          @units << held
+          @units[i] = if Library::Roots.description?(path)
+                        # `resolve` finds this file only with a description.
+                        text = @description&.call or raise ArgumentError, "#{path} has no description text"
+                        unit(path, text)
+                      else
+                        unit(path)
+                      end
           i
         end
 

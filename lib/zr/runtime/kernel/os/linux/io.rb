@@ -10,12 +10,12 @@ module Zr::Kern
   Libc.import :open, [Ptr, I32, I32] => I32
   Libc.import :poll, [Ptr, Word, I32] => I32
 
-  sig [] => Word
+  #: () -> word
   def zr_os_errno
     Machine.u32(Machine.load32(Libc.__errno_location(), 0))
   end
 
-  sig [Word] => Void
+  #: (word) -> void
   def zr_os_set_errno(n)
     Machine.store32(Libc.__errno_location(), 0, Machine.i32(n))
   end
@@ -28,24 +28,24 @@ module Zr::Kern
   AT_FDCWD = 0 - 100
   AT_SYMLINK_NOFOLLOW = 0x100
 
-  sig [I32, I32, Word] => I32
+  #: (i32, i32, word) -> i32
   def zr_os_fcntl(fd, command, argument)
     Libc.fcntl(fd, command, argument)
   end
 
-  sig [I32, Word, Ptr] => I32
+  #: (i32, word, ptr) -> i32
   def zr_os_ioctl(fd, request, argument)
     Libc.ioctl(fd, request, argument)
   end
 
   # open(2), with the mode for a new file, less the umask.
-  sig [Ptr, I32, I32] => I32
+  #: (ptr, i32, i32) -> i32
   def zr_os_open(path, flags, mode)
     Libc.open(path, flags, mode)
   end
 
   # realpath(3): returns a new buffer that the caller frees, or 0.
-  sig [Ptr] => Ptr
+  #: (ptr) -> ptr
   def zr_os_realpath(path)
     Libc.realpath(path, 0)
   end
@@ -69,7 +69,7 @@ module Zr::Kern
   # The name in a directory entry. Before the name, musl's struct dirent
   # has an 8-byte inode, an 8-byte seek offset, the record length as a
   # short, and the type byte.
-  sig [Ptr] => Ptr
+  #: (ptr) -> ptr
   def zr_os_dirent_name(entry)
     entry + 19
   end
@@ -77,7 +77,7 @@ module Zr::Kern
   # The entry's kind for glob: 0 unknown, 1 a directory, 2 a symbolic
   # link, 3 anything else. d_type is the byte at 18: DT_DIR is 4,
   # DT_LNK 10, DT_UNKNOWN 0.
-  sig [Ptr] => Word
+  #: (ptr) -> word
   def zr_os_dirent_kind(entry)
     t = Machine.u8(Machine.load8(entry, 18))
     if t == 0
@@ -98,7 +98,7 @@ module Zr::Kern
   # Returns stat(2) as fixnums in an Array: dev, ino, mode, nlink, uid,
   # gid, rdev, size, blksize, blocks, then atime, mtime and ctime as
   # seconds and nanoseconds.
-  sig [Ptr] => Value
+  #: (ptr) -> value
   def zr_os_stat_rows(buf)
     out = zr_ary_new(16)
     zr_ary_push(out, zr_fix(Machine.load64(buf, 0)))
@@ -120,13 +120,13 @@ module Zr::Kern
   end
 
   # st_size.
-  sig [Ptr] => Word
+  #: (ptr) -> word
   def zr_os_stat_size(buf)
     Machine.load64(buf, 48)
   end
 
   # st_mode, 32 bits at offset 16.
-  sig [Ptr] => Word
+  #: (ptr) -> word
   def zr_os_stat_mode(buf)
     Machine.u32(Machine.load32(buf, 16))
   end
@@ -145,7 +145,7 @@ module Zr::Kern
   # wait for the threads that are blocked on a descriptor. Returns an
   # Array of the ready events for each entry, or the negated errno. A
   # negative time waits with no limit.
-  sig [Value, Value, Value] => Value
+  #: (value, value, value) -> value
   def zr_os_wait_fds(fds, events, milliseconds)
     count = RArray.len(fds)
     entries = zr_xmalloc((count + 1) * 8)
@@ -193,7 +193,7 @@ module Zr::Kern
   # The events that ruby requests are poll's own bits. A struct pollfd is
   # the descriptor, then the requested and returned events as two shorts.
   # A negative time waits with no limit.
-  sig [Value, Value, Value] => Value
+  #: (value, value, value) -> value
   def zr_os_wait_fd(fd, events, milliseconds)
     n = zr_fix2long(fd)
     if n < 0

@@ -14,17 +14,17 @@ module Zr::Kern
 
   WeakList = layout ptr: Ptr, len: Word, capa: Word
 
-  sig [] => Ptr
+  #: () -> ptr
   def zr_weak_list
     Machine.static(:weak_list, WeakList.size)
   end
 
-  sig [] => Ptr
+  #: () -> ptr
   def zr_finalizer_queue
     Machine.static(:finalizer_queue, WeakList.size)
   end
 
-  sig [Ptr, Value] => Void
+  #: (ptr, value) -> void
   def zr_weak_list_push(l, v)
     n = WeakList.len(l)
     if n == WeakList.capa(l)
@@ -43,7 +43,7 @@ module Zr::Kern
 
   # Makes a new weak table. `kind` is WEAK_BOTH or WEAK_KEY. If `identity`
   # is set, the table compares keys by identity, else by `eql?`.
-  sig [Word, Bool] => Value
+  #: (word, bool) -> value
   def zr_weak_table_new(kind, identity)
     h = zr_hash_new()
     flags = RBasic.flags(h) | (kind == WEAK_BOTH ? FL_WEAK : FL_WEAKKEY)
@@ -55,19 +55,19 @@ module Zr::Kern
     h
   end
 
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_weak_table_new_m(kind, identity)
     zr_weak_table_new(zr_fix2long(kind), identity != QFALSE && identity != QNIL)
   end
 
-  sig [Value] => Bool
+  #: (value) -> bool
   def zr_dead_p(v)
     !zr_special_p(v) && (RBasic.flags(v) & FL_STACK) == 0 && !zr_marked_p(v)
   end
 
   # Runs after marking. The live tables stay in the list, and they lose
   # the entries whose weak key or value is not marked.
-  sig [] => Void
+  #: () -> void
   def zr_weak_prune
     l = zr_weak_list()
     finalizers = zr_global(G_FINALIZERS)
@@ -85,7 +85,7 @@ module Zr::Kern
     WeakList.set_len(l, kept)
   end
 
-  sig [Value, Bool] => Void
+  #: (value, bool) -> void
   def zr_weak_prune_table(h, finalizer)
     both = (RBasic.flags(h) & FL_WEAK) != 0
     n = RHash.len(h)
@@ -108,7 +108,7 @@ module Zr::Kern
   end
 
   # The queued finalizer entries are roots until they run.
-  sig [] => Void
+  #: () -> void
   def zr_mark_finalizer_queue
     q = zr_finalizer_queue()
     i = 0
@@ -119,7 +119,7 @@ module Zr::Kern
   end
 
   # The finalizer table: object => [object_id, proc, ...], with weak keys.
-  sig [] => Value
+  #: () -> value
   def zr_finalizers
     t = zr_global(G_FINALIZERS)
     if zr_special_p(t)
@@ -129,7 +129,7 @@ module Zr::Kern
     t
   end
 
-  sig [] => Value
+  #: () -> value
   def zr_finalizers_m
     zr_finalizers()
   end
@@ -140,7 +140,7 @@ module Zr::Kern
   # other collections. It never runs inside an allocation.
   # The queue runs in the order the objects were found, first in first
   # out, as ruby runs its finalizers.
-  sig [] => Value
+  #: () -> value
   def zr_finalizers_run
     q = zr_finalizer_queue()
     while WeakList.len(q) > 0
@@ -160,7 +160,7 @@ module Zr::Kern
 
   # A proc that raises gets ruby's warning, `prog: warning: Exception in
   # finalizer #<Proc...>` (unless $VERBOSE is nil), then its error.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_finalizer_row_run(row)
     slot = Machine.slot(8)
     Machine.store64(slot, 0, Machine.word(zr_ary_at(row, 0)))
@@ -191,7 +191,7 @@ module Zr::Kern
 
   # At the end of the program, each finalizer that is still registered
   # runs, in registration order.
-  sig [] => Void
+  #: () -> void
   def zr_finalizers_at_exit
     t = zr_global(G_FINALIZERS)
     if zr_special_p(t)

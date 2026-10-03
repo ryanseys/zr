@@ -110,10 +110,16 @@ The first public release.
   maps a change to unit tests and to program tests, and runs them with
   `bin/minitest`.
 - `bin/steep check` runs Steep on every file of the compiler. The
-  `Steepfile` puts each file in a level (strict, default or lenient).
+  `Steepfile` checks each file at the strict level, except two record
+  files at the default level.
   Types are inline RBS annotations, and `sig/zr/` holds what inline RBS
   cannot type: `Struct` and `Data` records, `module_function` modules.
   CI runs it after the lint step, and fails if a Steep worker stops.
+- A kernel def gives its machine types in an inline RBS comment above
+  it, `#: (i32, ptr) -> i32`, in place of a `sig [I32, Ptr] => I32`
+  call. RBS reads the comments with `sig/zr/kern.rbs`, so the generated
+  `sig/zr_kern.rbs` and `zr-dev gen kern_rbs` are gone. zr refuses a
+  `#:` comment that no def follows; two such comments were in the kernel.
 - `COVERAGE=1 bin/minitest <paths>` measures the line and branch coverage of
   `lib/` with SimpleCov, and writes `tmp/coverage/index.html`. It gates
   nothing.

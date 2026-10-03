@@ -573,14 +573,17 @@ module Zr
           br = b.insts.last
           return unless br.op == :brif
 
-          gate = b.insts.find { |i| i.results[0] == br.args[0] }
-          return unless gate && (gate.op == :band || gate.op == :bor) && @uses.fetch(gate.results[0], 0) == 1
+          at = b.insts.index { |i| i.results[0] == br.args[0] }
+          return unless at
+
+          gate = b.insts[at]
+          return unless (gate.op == :band || gate.op == :bor) && @uses.fetch(gate.results[0], 0) == 1
 
           first, second = gate.args
           # If other instructions also read the second operand (`GVN` can merge
           # two equal values), it stays before both branches. Only an operand
           # that only the gate reads moves after the first test.
-          moved = (@uses.fetch(second, 0) == 1 && chain_of(b, second, b.insts.index(gate))) || []
+          moved = (@uses.fetch(second, 0) == 1 && chain_of(b, second, at)) || []
           yes, no = br.targets #: [[String, Array[String]], [String, Array[String]]]
           mid = @f.unplaced_block
           (@after[b] ||= []).unshift(mid)
@@ -608,7 +611,7 @@ module Zr
           until work.empty?
             i = work.pop #: Inst
             next if moved.key?(i.object_id)
-            return unless MOVABLE.include?(i.op) || (i.op == :load && b.insts.index(i) > last_effect)
+            return unless MOVABLE.include?(i.op) || (i.op == :load && (b.insts.index(i) || -1) > last_effect)
             return if i.results.size > 1
 
             moved[i.object_id] = i
@@ -727,8 +730,10 @@ module Zr
             from = laid.fetch(p.name)
             next if from < at
 
-            @f.blocks[at] = p
-            @f.blocks[from] = nil
+            # The hole stays until the `reject!` below.
+            holes = @f.blocks #: Array[Block?]
+            holes[at] = p
+            holes[from] = nil
             laid[p.name] = at
           end
           return false if joined.empty?
@@ -882,8 +887,8 @@ module Zr
           expanded = false
           from = 0
           while (site = site_in(f, from))
-            from, *site = site
-            expand(f, *site)
+            from, b, k, call, target = site
+            expand(f, b, k, call, target)
             expanded = true
           end
           f.changed!(:cfg) if expanded
@@ -924,9 +929,11 @@ module Zr
         #: (Function f, Block b, Integer k, Inst call, Function target) -> void
         def expand(f, b, k, call, target)
           rest = f.block_after(b)
-          rest.insts.concat(b.insts[(k + 1)..])
+          rest.insts.concat(b.insts.drop(k + 1))
           b.insts.slice!(k..)
-          rest.params.concat(call.results.zip([target.ret_type]))
+          # A call has a result only when its callee returns a value.
+          results = call.results.zip([target.ret_type]) #: Array[[String, String]]
+          rest.params.concat(results)
           names = {} #: Hash[untyped, untyped]
           target.globals.each { |g| names[g.gv] = f.symbol(g.symbol, colocated: g.colocated) }
           target.blocks.each do |cb|
@@ -939,7 +946,7 @@ module Zr
           entry = target.entry_block
           passed = target.blocks.none? { |cb| cb.insts.last.targets&.any? { |(blk, _)| blk == entry.name } }
           entry.params.zip(call.args) { |(v, _), arg| names[v] = arg } if passed
-          at = f.blocks.index(b) + 1
+          at = (f.blocks.index(b) or raise "#{f.name}: #{b.name} is not in the function") + 1
           copies = target.blocks.map do |cb|
             nb = f.block_beside(at)
             at += 1

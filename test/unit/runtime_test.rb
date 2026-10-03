@@ -4,7 +4,7 @@
 require "support/runtime_programs"
 
 # Each `test/runtime/<name>.rb` is a toplevel written by hand in the
-# machine dialect. It is linked with the runtime into a binary, which
+# kernel subset. It is linked with the runtime into a binary, which
 # must print `<name>.out` (stdout and stderr together) and exit with
 # `<name>.status` (0 when there is none), both normally and with a
 # collection at every allocation.

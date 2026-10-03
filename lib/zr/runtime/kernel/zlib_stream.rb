@@ -37,14 +37,14 @@ module Zr::Kern
   Z_UNKNOWN = 2
 
   # The zlib version of this port, as zlibVersion returns it.
-  sig [] => Ptr
+  #: () -> ptr
   def zr_zlib_version_text
     Machine.bytes("1.3.1\0")
   end
 
   # zError: the text of a code. It is "" for Z_OK and for a code that zlib
   # never returns.
-  sig [Word] => Ptr
+  #: (word) -> ptr
   def zr_zlib_error_text(err)
     if err == Z_NEED_DICT
       return Machine.bytes("need dictionary\0")
@@ -67,24 +67,24 @@ module Zr::Kern
   end
 
   # ZSWAP32: reverses the byte order of a 32-bit word.
-  sig [Word] => Word
+  #: (word) -> word
   def zr_zlib_swap32(q)
     ((q >> 24) & 255) + ((q >> 8) & 65280) + ((q & 65280) << 8) + ((q & 255) << 24)
   end
 
   # The `i`th element of an array of 32-bit words.
-  sig [Ptr, Word] => Word
+  #: (ptr, word) -> word
   def zr_zlib_u32(p, i)
     Machine.u32(Machine.load32(p + (i * 4), 0))
   end
 
-  sig [Ptr, Word, Word] => Void
+  #: (ptr, word, word) -> void
   def zr_zlib_set_u32(p, i, v)
     Machine.store32(p + (i * 4), 0, Machine.i32(v))
   end
 
   # The byte at `p`, as a word.
-  sig [Ptr] => Word
+  #: (ptr) -> word
   def zr_zlib_byte(p)
     Machine.u8(Machine.load8(p, 0))
   end
@@ -92,7 +92,7 @@ module Zr::Kern
   # Copies `n` bytes from `from` to `out`, one byte at a time. Thus a copy
   # that overlaps its source repeats the bytes it wrote, as a match copy
   # must.
-  sig [Ptr, Ptr, Word] => Void
+  #: (ptr, ptr, word) -> void
   def zr_zlib_copy_bytes(out, from, n)
     while n > 0
       Machine.store8(out, 0, Machine.load8(from, 0))

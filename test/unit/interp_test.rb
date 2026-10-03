@@ -7,7 +7,7 @@ require_relative "../../lib/zr/ir/passes"
 require_relative "../../lib/zr/machine/lower"
 require_relative "../native/fixtures"
 
-# A second reference: `IR::Interp` runs each machine dialect program in
+# A second reference: `IR::Interp` runs each kernel subset program in
 # place of a binary. The compiled binary and the interpreter compare with
 # the same expected output. Thus a miscompile in
 # `Backend::Aarch64::Codegen` shows as a difference between the two, not

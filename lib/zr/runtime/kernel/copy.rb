@@ -7,7 +7,7 @@ module Zr::Kern
   # Copies the ivar entries of one table into a new table. The object id,
   # and the mark that a core class puts on a cell it built, stay with the
   # original.
-  sig [Ptr, Ptr, Value] => Void
+  #: (ptr, ptr, value) -> void
   def zr_ivtab_copy(to, from, owner)
     IvTab.set_len(to, 0)
     IvTab.set_names(to, 0)
@@ -25,7 +25,7 @@ module Zr::Kern
   # starts empty, as with CRuby's allocator. Its `initialize_copy` fills
   # it. Thus a subclass whose `initialize_copy` does not call `super`
   # copies nothing, as in ruby.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_copy_payload(copy, orig)
     t = zr_type(orig)
     if t == T_OBJECT
@@ -93,7 +93,7 @@ module Zr::Kern
 
   # Copies the cell, with its own payload and with the real class. The
   # caller decides to keep or drop the frozen bit and the singleton class.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_copy_cell(orig)
     bytes = zr_cell_bytes(orig)
     copy = zr_alloc(zr_type(orig), zr_real_class(orig), bytes)
@@ -104,7 +104,7 @@ module Zr::Kern
   # A copy starts as `allocate` would make it, so a class with no
   # allocator cannot be copied: a Thread, an Encoding. A Proc, a Method
   # and a Binding use their own copy rules.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_copy_allocatable(recv)
     klass = zr_real_class(recv)
     t = zr_type(recv)
@@ -121,7 +121,7 @@ module Zr::Kern
   # `Array#initialize_copy`, which fills a `dup` or a `clone`. It puts the
   # other Array's elements in place of the receiver's, as `replace` does.
   # A non-Array goes through `replace` itself, which converts it.
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_ary_initialize_copy(recv, argc, argv, cref, blk)
     other = Machine.value(Machine.load64(argv, 0))
     if zr_special_p(other) || zr_type(other) != T_ARRAY
@@ -136,7 +136,7 @@ module Zr::Kern
   end
 
   # `String#initialize_copy`: copies the other String's bytes and encoding.
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_str_initialize_copy(recv, argc, argv, cref, blk)
     other = Machine.value(Machine.load64(argv, 0))
     if zr_special_p(other) || zr_type(other) != T_STRING
@@ -151,7 +151,7 @@ module Zr::Kern
   # compare_by_identity. It copies the tables as they are: a Hash is its
   # entries and its bins, and their hash codes use the same identity rule.
   # `replace` would store the pairs one at a time.
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_hash_initialize_copy(recv, argc, argv, cref, blk)
     other = Machine.value(Machine.load64(argv, 0))
     if zr_special_p(other) || zr_type(other) != T_HASH || other == recv || RHash.iter(recv) != 0 || zr_frozen_p(recv)
@@ -163,7 +163,7 @@ module Zr::Kern
   # Puts the tables, default, default proc and compare_by_identity of
   # `other` in place of the receiver's, and calls no method on either.
   # This is what rb_hash_replace and hash_copy do after their checks.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_hash_copy_from(recv, other)
     zr_sized_xfree(RHash.entries(recv), RHash.cap(recv) * HEntry.size)
     zr_sized_xfree(RHash.bins(recv), RHash.nbins(recv) * 8)
@@ -198,7 +198,7 @@ module Zr::Kern
   # rb_hash_dup: a copy of the receiver's class with its pairs, default,
   # compare_by_identity and instance variables. It does not call
   # `initialize_copy`. merge and compact start from such a copy.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_hash_dup_m(h)
     copy = zr_copy_cell(h)
     return copy if copy == QUNDEF
@@ -209,7 +209,7 @@ module Zr::Kern
   # ancestors, its own method and constant tables with the same entries,
   # the same class-level instance and class variables, and the original's
   # singleton methods.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_class_copy(orig)
     klass = zr_type(orig) == T_CLASS ? zr_global(G_CLASS) : zr_global(G_MODULE)
     copy = zr_class_alloc(zr_type(orig), RClass.superclass(orig), klass)
@@ -244,12 +244,12 @@ module Zr::Kern
 
   # `clone` for a class that has its own `clone` method entry and takes no
   # `freeze:`, as proc_clone and method_clone take none.
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_obj_clone_m(recv, argc, argv, cref, blk)
     zr_obj_clone(recv, Machine.value(QNIL))
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_obj_dup(recv, argc, argv, cref, blk)
     if zr_special_p(recv)
       return recv
@@ -271,7 +271,7 @@ module Zr::Kern
   # rb_obj_clone2, called by kernel.rb's `clone(freeze: nil)`. The clone
   # gets the singleton class's methods. It gets the frozen bit unless
   # `freeze: false`, and always with `freeze: true`.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_obj_clone(recv, freeze)
     if freeze != QNIL && freeze != QTRUE && freeze != QFALSE
       b = Machine.slot(Buf.size)
@@ -316,7 +316,7 @@ module Zr::Kern
 
   # The clone's own singleton class, with the original's methods and
   # extended modules.
-  sig [Value, Value] => Void
+  #: (value, value) -> void
   def zr_include_singleton(copy, meta)
     own = zr_singleton_class(copy)
     ext = RClass.ext(meta)

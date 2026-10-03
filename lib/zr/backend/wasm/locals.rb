@@ -123,8 +123,8 @@ module Zr
               seen[bi] = v
               @in[bi] << v
               work = [bi]
-              until work.empty?
-                @pred[work.pop].each do |p|
+              while (w = work.pop)
+                @pred[w].each do |p|
                   @out[p][v] = true
                   next if p == home || seen[p] == v
 
@@ -182,7 +182,7 @@ module Zr
           order.first(@reached).reverse_each { |bi| colour_block(bi) }
           order.drop(@reached).each { |bi| colour_block(bi) }
           @local = {}
-          @values.each { |v, _| @local[v] = @base + @colour[@id[v]] }
+          @values.each { |v, _| @local[v] = @base + (@colour[@id[v]] or raise "#{@f.name}: #{v} has no local") }
         end
 
         # Gives locals to the values of one block. A local is free when no

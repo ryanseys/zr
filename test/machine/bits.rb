@@ -5,7 +5,7 @@ module Zr::Kern
   Libc.import :write, [I32, Ptr, Word] => Word
   Libc.import :exit, [I32] => Void
 
-  sig [Word] => Void
+  #: (word) -> void
   def put_word(n)
     buf = Machine.slot(24)
     at = 23
@@ -23,7 +23,7 @@ module Zr::Kern
   end
 
   # A loop keeps this def a call, so its answer is no constant to fold.
-  sig [Word] => Word
+  #: (word) -> word
   def same(w)
     k = 0
     while k < 1
@@ -32,7 +32,7 @@ module Zr::Kern
     w
   end
 
-  sig [I32, Ptr] => I32
+  #: (i32, ptr) -> i32
   def main(argc, argv)
     # 4 + 64 + 63 + 64 = 195
     put_word(Machine.ctz(same(80)) + Machine.ctz(same(0)) + Machine.clz(same(1)) + Machine.clz(same(0)))

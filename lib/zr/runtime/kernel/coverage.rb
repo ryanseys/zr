@@ -15,19 +15,19 @@ module Zr::Kern
   # from 1.
   CovRow = layout file: Ptr, file_len: Word, counts: Ptr, size: Word, measured: Word
 
-  sig [] => Ptr
+  #: () -> ptr
   def zr_coverage
     Machine.static(:coverage, Coverage.size)
   end
 
-  sig [] => Bool
+  #: () -> bool
   def zr_coverage_setup_p
     Coverage.setup(zr_coverage()) != 0
   end
 
   # Coverage.setup, resume and suspend. `state` is 0 idle, 1 set up and
   # suspended, 2 running. A change to idle discards all files.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_coverage_state_set(state)
     c = zr_coverage()
     n = zr_fix2long(state)
@@ -40,7 +40,7 @@ module Zr::Kern
     Machine.value(QNIL)
   end
 
-  sig [Ptr] => Void
+  #: (ptr) -> void
   def zr_coverage_forget(c)
     i = 0
     while i < Coverage.len(c)
@@ -70,7 +70,7 @@ module Zr::Kern
   # The record of the file whose bytes are at `file`. If the file is new,
   # this makes the record. The file is measured if the event came from its
   # toplevel.
-  sig [Ptr, Ptr, Word, Bool] => Ptr
+  #: (ptr, ptr, word, bool) -> ptr
   def zr_coverage_row(c, file, file_len, toplevel)
     last = Coverage.last(c)
     if last != 0 && CovRow.file(last) == file
@@ -108,7 +108,7 @@ module Zr::Kern
 
   # A :line event in frame `rec`. Adds one run to its line, if coverage
   # measures the file and coverage runs.
-  sig [Ptr] => Void
+  #: (ptr) -> void
   def zr_coverage_line(rec)
     c = zr_coverage()
     if Coverage.setup(c) == 0 || rec == 0
@@ -146,7 +146,7 @@ module Zr::Kern
   # The line count decides one time if a file is measured (`measured`).
   # The Ruby part does not report the branches of a file whose lines it
   # does not report.
-  sig [Word] => Void
+  #: (word) -> void
   def zr_coverage_branch(id)
     c = zr_coverage()
     if Coverage.running(c) == 0
@@ -169,7 +169,7 @@ module Zr::Kern
 
   # All branch counters, by id, up to the last one that ran. If `clear` is
   # set, this sets them to zero after it reads them.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_coverage_branch_counts(clear)
     c = zr_coverage()
     out = zr_ary_new(Coverage.branch_size(c))
@@ -187,7 +187,7 @@ module Zr::Kern
   # Each measured file as `[path, counts]`, with a count for each line from
   # 1 to the last line that ran. If `clear` is set, this sets the counts to
   # zero after it reads them.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_coverage_counts(clear)
     c = zr_coverage()
     out = zr_ary_new(Coverage.len(c))
@@ -222,7 +222,7 @@ module Zr::Kern
   # times. A `forget` and a `clear` discard only the counts.
   G_COVERAGE_METHODS = 53
 
-  sig [] => Value
+  #: () -> value
   def zr_coverage_method_rows
     rows = zr_global(G_COVERAGE_METHODS)
     if zr_special_p(rows) || zr_type(rows) != T_ARRAY
@@ -235,7 +235,7 @@ module Zr::Kern
   # Records a definition of `mid` on `klass` from the scope `meta`. The
   # method entry keeps the position of the record. A scope that is not
   # from a measured file has no def-site id and gets no record.
-  sig [Value, Word, Ptr] => Void
+  #: (value, word, ptr) -> void
   def zr_coverage_method_claim(klass, mid, meta)
     c = zr_coverage()
     if Coverage.setup(c) == 0 || meta == 0 || FrameMeta.cover(meta) == 0
@@ -257,7 +257,7 @@ module Zr::Kern
   # counts the same on the :call event, for a def and for a
   # `define_method` block. An alias keeps the record of its original, as
   # CRuby resolves an alias to the entry it was made from.
-  sig [Ptr] => Void
+  #: (ptr) -> void
   def zr_coverage_method(e)
     c = zr_coverage()
     if Coverage.running(c) == 0 || MEntry.cover(e) == 0
@@ -271,7 +271,7 @@ module Zr::Kern
   # All method records, as the Ruby part reads them. If `clear` is set,
   # this sets the counts to zero after it reads them. The records stay at
   # their positions, because the method entries point to them.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_coverage_method_counts(clear)
     rows = zr_coverage_method_rows()
     out = zr_ary_new(RArray.len(rows))

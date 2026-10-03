@@ -15,7 +15,7 @@ module Zr::Kern
     exact_off: Word, exact_len: Word, map_off: Word, case_fold_flag: Word
 
   # The encoding descriptor of a program (lib/zr/runtime/kernel/onig_enc.rb).
-  sig [Ptr] => Word
+  #: (ptr) -> word
   def zr_onig_prog_enc(prog)
     Machine.word(prog + OnigProg.enc_off(prog))
   end
@@ -130,26 +130,26 @@ module Zr::Kern
 
   # Reads a RelAddr, AbsAddr or Length operand: a signed 32-bit
   # little-endian int.
-  sig [Ptr] => Word
+  #: (ptr) -> word
   def zr_onig_get_i32(p)
     Machine.sword(Machine.load32(p, 0))
   end
 
   # BITSET_AT: bit `c` of the 256-bit set at p.
-  sig [Ptr, Word] => Bool
+  #: (ptr, word) -> bool
   def zr_onig_bitset_at(p, c)
     (Machine.u8(Machine.load8(p + (c >> 3), 0)) & (1 << (c & 7))) != 0
   end
 
   # Returns the range of repeat `id`: the lower limit, or the upper limit
   # when `which` is 1.
-  sig [Ptr, Word, Word] => Word
+  #: (ptr, word, word) -> word
   def zr_onig_repeat_range(m, id, which)
     Machine.load64(OnigMatch.prog(m) + OnigProg.repeat_off(OnigMatch.prog(m)) + (id * 16) + (which * 8), 0)
   end
 
   # rb_hrtime_now: monotonic nanoseconds.
-  sig [] => Word
+  #: () -> word
   def zr_onig_now
     ts = Machine.slot(16)
     Libc.clock_gettime(Machine.i32(CLOCK_MONOTONIC), ts)
@@ -161,7 +161,7 @@ module Zr::Kern
   # limit. Each later read checks whether the deadline passed.
   # The count is the match loop's, after each failure, so its test is
   # inline, and only every 128th check calls the clock part.
-  sig [Ptr] => Bool
+  #: (ptr) -> bool
   def zr_onig_check_interrupt(m)
     counter = OnigMatch.counter(m) + 1
     if counter < 128
@@ -172,7 +172,7 @@ module Zr::Kern
   end
   inline :zr_onig_check_interrupt
 
-  sig [Ptr] => Bool
+  #: (ptr) -> bool
   def zr_onig_check_clock(m)
     OnigMatch.set_counter(m, 0)
     if OnigMatch.end_time(m) == 0
@@ -184,7 +184,7 @@ module Zr::Kern
   end
 
   # OP_END: the match is found. Fills the region from the memory stacks.
-  sig [Ptr] => Word
+  #: (ptr) -> word
   def zr_onig_op_end(m)
     s = OnigMatch.s(m)
     str = OnigMatch.str(m)
@@ -214,7 +214,7 @@ module Zr::Kern
   end
 
   # OP_EXACT1..OP_EXACTN_IC: literal bytes.
-  sig [Ptr, Word] => Word
+  #: (ptr, word) -> word
   def zr_onig_op_exact(m, op)
     p = OnigMatch.p(m)
     s = OnigMatch.s(m)
@@ -309,7 +309,7 @@ module Zr::Kern
   end
 
   # OP_EXACTMB2N1..OP_EXACTMBN: literal multibyte characters.
-  sig [Ptr, Word] => Word
+  #: (ptr, word) -> word
   def zr_onig_op_exact_mb(m, op)
     p = OnigMatch.p(m)
     s = OnigMatch.s(m)
@@ -384,7 +384,7 @@ module Zr::Kern
 
   # The cclass_mb tail: checks a multibyte character against the code
   # ranges whose Length operand is at p.
-  sig [Ptr, Ptr, Ptr, Ptr] => Word
+  #: (ptr, ptr, ptr, ptr) -> word
   def zr_onig_cclass_mb(m, p, s, sbegin)
     e = OnigMatch.aend(m)
     enc = OnigMatch.enc(m)
@@ -404,7 +404,7 @@ module Zr::Kern
   end
 
   # The cclass_mb_not tail.
-  sig [Ptr, Ptr, Ptr, Ptr] => Word
+  #: (ptr, ptr, ptr, ptr) -> word
   def zr_onig_cclass_mb_not(m, p, s, sbegin)
     e = OnigMatch.aend(m)
     enc = OnigMatch.enc(m)
@@ -429,7 +429,7 @@ module Zr::Kern
   end
 
   # OP_CCLASS..OP_CCLASS_MIX_NOT: character classes.
-  sig [Ptr, Word] => Word
+  #: (ptr, word) -> word
   def zr_onig_op_cclass(m, op)
     p = OnigMatch.p(m)
     s = OnigMatch.s(m)
@@ -495,7 +495,7 @@ module Zr::Kern
   inline :zr_onig_op_cclass
 
   # OP_ANYCHAR..OP_ANYCHAR_ML_STAR_PEEK_NEXT: `.` and `.*`.
-  sig [Ptr, Word] => Word
+  #: (ptr, word) -> word
   def zr_onig_op_anychar(m, op)
     p = OnigMatch.p(m)
     s = OnigMatch.s(m)
@@ -563,7 +563,7 @@ module Zr::Kern
   end
 
   # OP_WORD..OP_NOT_ASCII_WORD_BOUND: word characters and boundaries.
-  sig [Ptr, Word] => Word
+  #: (ptr, word) -> word
   def zr_onig_op_word(m, op)
     s = OnigMatch.s(m)
     e = OnigMatch.aend(m)
@@ -616,7 +616,7 @@ module Zr::Kern
   inline :zr_onig_op_word
 
   # OP_BEGIN_BUF..OP_BEGIN_POSITION: anchors.
-  sig [Ptr, Word] => Word
+  #: (ptr, word) -> word
   def zr_onig_op_anchor(m, op)
     s = OnigMatch.s(m)
     e = OnigMatch.aend(m)
@@ -673,7 +673,7 @@ module Zr::Kern
   # Matches the capture of group `mem` at s, bytewise or case-folded.
   # Returns the position after it, or 0. It sets sprev to the last matched
   # character.
-  sig [Ptr, Word, Word] => Ptr
+  #: (ptr, word, word) -> ptr
   def zr_onig_backref_one(m, mem, ic)
     s = OnigMatch.s(m)
     e = OnigMatch.aend(m)
@@ -708,7 +708,7 @@ module Zr::Kern
   end
 
   # OP_BACKREF1..OP_BACKREF_WITH_LEVEL: back references.
-  sig [Ptr, Word] => Word
+  #: (ptr, word) -> word
   def zr_onig_op_backref(m, op)
     p = OnigMatch.p(m)
     s = OnigMatch.s(m)
@@ -801,7 +801,7 @@ module Zr::Kern
   end
 
   # OP_MEMORY_START..OP_KEEP: capture groups and \K.
-  sig [Ptr, Word] => Word
+  #: (ptr, word) -> word
   def zr_onig_op_memory(m, op)
     p = OnigMatch.p(m)
     s = OnigMatch.s(m)
@@ -852,7 +852,7 @@ module Zr::Kern
   # The repeat_inc tail for OP_REPEAT_INC and OP_REPEAT_INC_SG. `pbegin`
   # is the opcode's address, or 0 for the SG form, which the match cache
   # skips.
-  sig [Ptr, Word, Word, Ptr, Ptr] => Word
+  #: (ptr, word, word, ptr, ptr) -> word
   def zr_onig_repeat_inc(m, mem, si, p, pbegin)
     stkp = zr_onig_stk_at(m, si)
     count = OnigStk.a(stkp) + 1
@@ -881,7 +881,7 @@ module Zr::Kern
   end
 
   # The repeat_inc_ng tail for OP_REPEAT_INC_NG and OP_REPEAT_INC_NG_SG.
-  sig [Ptr, Word, Word, Ptr, Ptr] => Word
+  #: (ptr, word, word, ptr, ptr) -> word
   def zr_onig_repeat_inc_ng(m, mem, si, p, pbegin)
     stkp = zr_onig_stk_at(m, si)
     count = OnigStk.a(stkp) + 1
@@ -910,7 +910,7 @@ module Zr::Kern
   end
 
   # OP_FAIL..OP_REPEAT_INC_NG_SG: control flow and repeats.
-  sig [Ptr, Word] => Word
+  #: (ptr, word) -> word
   def zr_onig_op_control(m, op)
     p = OnigMatch.p(m)
     s = OnigMatch.s(m)
@@ -999,7 +999,7 @@ module Zr::Kern
 
   # null_check_found: an empty loop is found, so skip the next
   # instruction.
-  sig [Ptr, Ptr] => Word
+  #: (ptr, ptr) -> word
   def zr_onig_null_check_found(m, p)
     op = Machine.u8(Machine.load8(p, 0))
     p = p + 1
@@ -1015,7 +1015,7 @@ module Zr::Kern
   end
 
   # OP_NULL_CHECK_START..OP_NULL_CHECK_END_MEMST_PUSH: empty-loop checks.
-  sig [Ptr, Word] => Word
+  #: (ptr, word) -> word
   def zr_onig_op_null_check(m, op)
     p = OnigMatch.p(m)
     s = OnigMatch.s(m)
@@ -1054,7 +1054,7 @@ module Zr::Kern
 
   # OP_PUSH_POS..OP_FAIL_LOOK_BEHIND_NOT: look-around. `zr_onig_step`
   # runs the atomic groups (OP_PUSH_STOP_BT, OP_POP_STOP_BT).
-  sig [Ptr, Word] => Word
+  #: (ptr, word) -> word
   def zr_onig_op_pos(m, op)
     p = OnigMatch.p(m)
     s = OnigMatch.s(m)
@@ -1117,7 +1117,7 @@ module Zr::Kern
   end
 
   # OP_PUSH_ABSENT_POS..OP_ABSENT_END: absent operator (?~...).
-  sig [Ptr, Word] => Word
+  #: (ptr, word) -> word
   def zr_onig_op_absent(m, op)
     p = OnigMatch.p(m)
     s = OnigMatch.s(m)
@@ -1180,7 +1180,7 @@ module Zr::Kern
   end
 
   # OP_CALL, OP_RETURN, OP_CONDITION.
-  sig [Ptr, Word] => Word
+  #: (ptr, word) -> word
   def zr_onig_op_call(m, op)
     p = OnigMatch.p(m)
     if op == OP_CALL
@@ -1209,7 +1209,7 @@ module Zr::Kern
   end
 
   # Runs one opcode. It dispatches by opcode family.
-  sig [Ptr, Word] => Word
+  #: (ptr, word) -> word
   def zr_onig_step(m, op)
     if op < OP_CCLASS
       return zr_onig_op_end(m) if op == OP_END
@@ -1249,7 +1249,7 @@ module Zr::Kern
   # before it (0 at the start). Returns the match length, ONIG_MISMATCH, or
   # an error (for example ONIGERR_TIMEOUT). The region and the stacks
   # belong to the search.
-  sig [Ptr, Ptr, Ptr] => Word
+  #: (ptr, ptr, ptr) -> word
   def zr_onig_match_at(m, sstart, sprev)
     # STACK_INIT: use the stack that an earlier match_at grew, or the
     # arena's stack.

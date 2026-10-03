@@ -10,14 +10,14 @@ module Zr::Kern
   # Makes a context that starts at `entry` on the stack whose top is `top`
   # when zr_switch loads it the first time. It sets the slots of the link
   # register and the stack pointer.
-  sig [Ptr, Word, Word] => Void
+  #: (ptr, word, word) -> void
   def zr_arch_context_start(ctx, entry, top)
     Machine.store64(ctx, 88, entry)
     Machine.store64(ctx, 96, top)
   end
 
   # The stack pointer that zr_switch saved in a context.
-  sig [Ptr] => Word
+  #: (ptr) -> word
   def zr_arch_context_sp(ctx)
     Machine.load64(ctx, 96)
   end

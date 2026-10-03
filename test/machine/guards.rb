@@ -17,7 +17,7 @@ module Zr::Kern
   LINE = 10
 
   # `a` for zero, else `b`.
-  sig [Word] => Word
+  #: (word) -> word
   def zero_or_not(n)
     return A if n == 0
 
@@ -25,7 +25,7 @@ module Zr::Kern
   end
 
   # A guard that answers, and a body that computes: the letter after n.
-  sig [Word] => Word
+  #: (word) -> word
   def clamp(n)
     return C if n > 200
     return D if n < 0
@@ -34,7 +34,7 @@ module Zr::Kern
   end
 
   # Both arms return; nothing falls through.
-  sig [Bool] => Word
+  #: (bool) -> word
   def either(flag)
     if flag
       return E
@@ -44,7 +44,7 @@ module Zr::Kern
   end
 
   # A guard in a def that answers nothing: the write is skipped.
-  sig [Word, Ptr] => Void
+  #: (word, ptr) -> void
   def put_unless_zero(n, buf)
     return if n == 0
 
@@ -53,14 +53,14 @@ module Zr::Kern
   end
 
   # A guarded def called from a guarded def: the exits nest.
-  sig [Word] => Word
+  #: (word) -> word
   def twice_guarded(n)
     return zero_or_not(n) if n < 2
 
     clamp(n)
   end
 
-  sig [I32, Ptr] => I32
+  #: (i32, ptr) -> i32
   def main(argc, argv)
     buf = Machine.slot(8)
     put_unless_zero(zero_or_not(0), buf)     # a

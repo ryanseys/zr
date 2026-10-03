@@ -21,14 +21,14 @@ fixed-width integers and struct layouts.
 The usual solution is C. zr uses the solution of Squeak's Slang,
 RPython and Jikes RVM: write the low level in a restricted form of the
 high-level language. Each kernel file is one `module Zr::Kern` of
-plain Ruby. A `def` comes after a `sig`, every local has a machine
+plain Ruby. A `def` has a `#:` type comment, every local has a machine
 type, a struct is a layout, and a call is a machine call:
 
 ```ruby
 module Zr::Kern
   RString = layout basic: RBasic, len: Word, capa: Word, ptr: Ptr
 
-  sig [Value] => Value
+  #: (value) -> value
   def zr_str_bytesize(s)
     zr_fix(RString.len(s))
   end

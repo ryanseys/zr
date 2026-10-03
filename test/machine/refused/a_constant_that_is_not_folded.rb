@@ -2,7 +2,7 @@
 module Zr::Kern
   LIMIT = Machine.load64(Machine.slot(8), 0)
 
-  sig [I32, Ptr] => I32
+  #: (i32, ptr) -> i32
   def main(argc, argv)
     0
   end

@@ -183,8 +183,8 @@ module Zr
             forget_doubles
             b.insts.each { |i| emit(i) }
           end
-          if @epilogue
-            @asm.put_label(@epilogue)
+          if (shared = @epilogue)
+            @asm.put_label(shared)
             epilogue
           end
           Obj::Code.new(@f.name, @asm.to_binary, relocs: @relocs, linkage: :export)
@@ -196,7 +196,7 @@ module Zr
           # The code and plans of this attempt are as large as the function,
           # and nothing reads them again. Release them before the second attempt.
           assembler = @asm.class
-          @asm = @reg = @home = @labels = @relocs = @const = @remade = @silent = @derived = @via = @types = @epilogue = @pairs = @paired = nil
+          release
           again = self.class.new(@f, defined: @defined, assembler: assembler, far: true)
           bytes = again.compile
           @asm = again.asm
@@ -204,6 +204,26 @@ module Zr
         end
 
         private
+
+        # Replaces the code and plans with empty ones, so that the old ones
+        # can be collected.
+        #: () -> void
+        def release
+          @asm = Assembler.new
+          @reg = {}
+          @home = {}
+          @labels = {}
+          @relocs = []
+          @const = {}
+          @remade = Set.new
+          @silent = Set.new
+          @derived = {}
+          @via = {}
+          @types = IR::Types.new(@f)
+          @epilogue = nil
+          @pairs = {}
+          @paired = Set.new
+        end
 
         # --- frame access -------------------------------------------------
 
@@ -244,8 +264,12 @@ module Zr
           home = @reg[v]
           return narrow(reg, home, @clean.include?(v) ? "i64" : type_of(v)) if home
           return frame_address(reg, @stack[v]) if @stack.key?(v)
-          return symbol_address(reg, *@symbol[v]) if @symbol.key?(v) && @remade.include?(v)
-          return materialize(reg, @const[v] & WIDTH_MASK[type_of(v)]) if @remade.include?(v)
+          if @remade.include?(v)
+            s = @symbol[v]
+            return symbol_address(reg, s[0], s[1]) if s
+
+            return materialize(reg, @const[v] & WIDTH_MASK[type_of(v)])
+          end
 
           off = @home.fetch(v)
           case type_of(v)
@@ -394,7 +418,11 @@ module Zr
         # units of 8), and one at a time after that.
         #: (Symbol pair, Symbol single) -> void
         def saved_registers(pair, single)
-          @saved_at.each_slice(2) do |(r1, off), (r2, _)|
+          @saved_at.each_slice(2) do |first, second|
+            next unless first # `each_slice` gives no empty slice.
+
+            r1, off = first
+            r2 = second&.first
             if r2 && off <= 504
               @asm.public_send(pair, r1, r2, [SP, off])
             else
@@ -418,9 +446,10 @@ module Zr
               @asm.fmov D0, X0 if float?(i.args[0])
             end
           end
-          return epilogue unless @epilogue
+          shared = @epilogue
+          return epilogue unless shared
 
-          @asm.b @epilogue unless @next.nil?
+          @asm.b shared unless @next.nil?
         end
 
         #: () -> void
@@ -598,7 +627,9 @@ module Zr
         #: (IR::Inst i) -> void
         def emit_switch(i)
           v, *keys = i.args
-          default, *blocks = i.targets.map(&:first)
+          names = i.targets.map(&:first)
+          default = names.fetch(0)
+          blocks = names.drop(1)
           to = keys.zip(blocks).to_h
           lo, hi = keys.minmax
           index = reg_for(v, X9)
@@ -828,7 +859,7 @@ module Zr
 
         # A 32-bit or narrower result has undefined bits above: clear them.
         # A float result comes back in d0.
-        #: (String v, String ret) -> void
+        #: (String v, String? ret) -> void
         def store_result(v, ret)
           if ret == "f64"
             @asm.fmov X0, D0
@@ -948,7 +979,7 @@ module Zr
         #: (IR::Inst i) -> void
         def emit_binop(i)
           form = immediate_form(i)
-          return emit_immediate(i, *form) if form
+          return emit_immediate(i, form[0], form[1], form[2]) if form
 
           dest = result_in(i.results[0], X11)
           d, a, b = [dest, value_in(i.args[0], X9), value_in(i.args[1], X10)]

@@ -116,10 +116,9 @@ The gem's only require path is `lib/`. `lib/zr/runtime/` is below
 | `tool/lib/zr/dev.rb`, `tool/lib/zr/dev/` | the code that the commands share: the command class, the paths, the host ruby and the C sources |
 | `tool/lib/zr/dev/parallel.rb` | `Dev.parallel_map`: the one worker pool of the tools, with the results in the order of the items |
 | `tool/install_reference_gems.rb` | installs the gems of the reference ruby into `tmp/reference/gems`; `bin/setup` runs it |
-| `Steepfile` | the type check of the compiler: the level (strict, default, lenient) of each file of `lib/`; `bin/steep check` runs it |
+| `Steepfile` | the type check of the compiler: the level of each file of `lib/` (strict, or default for two record files); `bin/steep check` runs it |
 | `sig/zr/` | the types that inline RBS cannot give: `Struct` and `Data` records, `module_function` modules, the HIR nodes |
 | `sig/vendor/` | the members that `lib/` uses of the gems that have no signatures (fiddle, debug_inspector, Bundler) |
-| `sig/zr_kern.rbs` | the type of each kernel def, from its sig (`zr-dev gen kern_rbs` writes it); not part of the type check |
 | `.rubocop.yml`, `.rubocop_todo.yml` | the cops of `rake lint`, each with its reason; the files that a cop found when it came in, to fix |
 | `tool/gen/` | the generators of `zr-dev gen`, one file for each generated file; `tool/gen/prism/templates/` has the templates of the pure-Ruby prism |
 | `vendor/src/` | upstream sources that only the tools read: prism's templates (`zr-dev gen prism`) |

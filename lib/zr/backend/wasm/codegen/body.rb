@@ -105,9 +105,9 @@ module Zr
           end
 
           # Every name in a function's instructions is defined in it.
-          #: (String fn) -> IR::Callee
+          #: (String? fn) -> IR::Callee
           def callee(fn) = @types.callee_named(fn) #: IR::Callee
-          #: (String sig) -> IR::Sig
+          #: (String? sig) -> IR::Sig
           def sig_named(sig) = @types.sig_named(sig)
           #: (String gv) -> IR::Global
           def global(gv) = @types.global_named(gv) #: IR::Global
@@ -491,7 +491,7 @@ module Zr
             @code << "\x42\x7F".b << "\x51".b
             @code << "\x04\x7F".b
             get(i.args[1])
-            @code << "\x42".b << Bytes.sleb(-(2**63)) << "\x51".b
+            @code << "\x42".b << Bytes.sleb(-(1 << 63)) << "\x51".b
             @code << "\x05".b
             get(i.results[0])
             get(i.args[0])
@@ -522,9 +522,11 @@ module Zr
           #: (IR::Inst i) -> void
           def emit_switch(i)
             v, *keys = i.args
-            default, *blocks = i.targets.map(&:first)
+            names = i.targets.map(&:first)
+            default = names.fetch(0)
             wide = wide?(v)
-            keys.zip(blocks).each do |k, to|
+            keys.each_with_index do |k, n|
+              to = names.fetch(n + 1)
               get(v)
               k -= 1 << 64 if wide && k >= 1 << 63
               k -= 1 << 32 if !wide && k >= 1 << 31

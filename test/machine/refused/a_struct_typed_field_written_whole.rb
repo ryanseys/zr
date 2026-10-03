@@ -3,7 +3,7 @@ module Zr::Kern
   RBasic = layout flags: Word, klass: Value
   RString = layout basic: RBasic, len: Word
 
-  sig [I32, Ptr] => I32
+  #: (i32, ptr) -> i32
   def main(argc, argv)
     p = Machine.slot(RString.size)
     RString.set_basic(p, 0)

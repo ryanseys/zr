@@ -14,24 +14,24 @@ module Zr::Kern
   # The program's stack, after it is mapped: its lowest address, the
   # contexts that the switch onto it and back saves, and the arguments and
   # return value of the entry.
-  sig [] => Ptr
+  #: () -> ptr
   def zr_linux_main_cell
     Machine.static(:linux_main, 24)
   end
 
-  sig [] => Ptr
+  #: () -> ptr
   def zr_linux_process_context
     Machine.static(:linux_process_context, CONTEXT_BYTES)
   end
 
-  sig [] => Ptr
+  #: () -> ptr
   def zr_linux_program_context
     Machine.static(:linux_program_context, CONTEXT_BYTES)
   end
 
   # Runs zr_main on the program's stack, then switches back to the
   # process's stack with its return value.
-  sig [] => Void
+  #: () -> void
   def zr_linux_main_start
     cell = zr_linux_main_cell()
     r = zr_main(Machine.i32(Machine.load64(cell, 8)), Machine.ptr(Machine.load64(cell, 16)))
@@ -41,7 +41,7 @@ module Zr::Kern
 
   # Runs the program on a stack of MAIN_STACK_BYTES. If zr cannot map that
   # stack, it runs on the process's own stack, with no stack check.
-  sig [I32, Ptr] => I32
+  #: (i32, ptr) -> i32
   def zr_os_main(argc, argv)
     stack = zr_os_stack_map(MAIN_STACK_BYTES)
     if stack == 0
@@ -58,14 +58,14 @@ module Zr::Kern
 
   # The lowest address of the program's stack, or 0 if it runs on the
   # process's own stack.
-  sig [] => Word
+  #: () -> word
   def zr_os_stack_low
     Machine.load64(zr_linux_main_cell(), 0)
   end
 
   # The address immediately after the top of the program's stack, or 0 if
   # it runs on the process's own stack.
-  sig [] => Word
+  #: () -> word
   def zr_os_stack_high
     low = Machine.load64(zr_linux_main_cell(), 0)
     low == 0 ? 0 : low + MAIN_STACK_BYTES
@@ -80,7 +80,7 @@ module Zr::Kern
   # Maps a stack of `bytes` with a guard as its lowest page. Returns 0 and
   # sets errno on failure. The system supplies the pages only when the
   # stack grows into them.
-  sig [Word] => Ptr
+  #: (word) -> ptr
   def zr_os_stack_map(bytes)
     stack = Libc.mmap(0, bytes, Machine.i32(STACK_PROT), Machine.i32(STACK_MAP_FLAGS), -1, 0)
     if Machine.word(stack) == 0 - 1
@@ -97,7 +97,7 @@ module Zr::Kern
   Libc.import :pthread_create, [Ptr, Ptr, Ptr, Ptr] => I32
   Libc.import :pthread_detach, [Ptr] => I32
 
-  sig [Ptr] => Ptr
+  #: (ptr) -> ptr
   def zr_poll_timer(arg)
     Machine.gates_enter
     ts = Machine.slot(16)
@@ -110,7 +110,7 @@ module Zr::Kern
     arg
   end
 
-  sig [] => Void
+  #: () -> void
   def zr_os_poll_start
     started = Machine.static(:poll_started, 8)
     if Machine.load64(started, 0) != 0

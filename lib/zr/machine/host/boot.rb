@@ -288,7 +288,7 @@ module Zr
         #: (Integer signo, Integer fn, Integer old) -> Integer
         def sigaction(signo, fn, old)
           kern = @host.kern
-          name = Signal.signame(signo)
+          name = Signal.signame(signo) or raise ArgumentError, "no signal #{signo}"
           handler = case fn
                     when 0 then "SYSTEM_DEFAULT"
                     when 1 then "IGNORE"

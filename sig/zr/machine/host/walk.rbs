@@ -5,14 +5,14 @@ module Zr
       class Walk
         class Unit < Struct[untyped]
           attr_accessor file: String
-          attr_accessor internal: untyped
-          attr_accessor units: untyped
-          attr_accessor node_ids: untyped
-          attr_accessor core: untyped
-          attr_accessor hidden: untyped
-          attr_accessor root: untyped
-          attr_accessor traced: untyped
-          attr_accessor spelling: untyped
+          attr_accessor internal: bool
+          attr_accessor units: Array[Hir::Unit]?
+          attr_accessor node_ids: Hash[Hir::Node, Integer]?
+          attr_accessor core: bool?
+          attr_accessor hidden: bool?
+          attr_accessor root: Integer?
+          attr_accessor traced: bool?
+          attr_accessor spelling: Spelling?
 
           def self.new: (*untyped) -> instance
         end

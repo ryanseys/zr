@@ -21,47 +21,47 @@ class EffectsTest < Minitest::Test
       Row = layout id: Word, value: Value
       Thunk = fn [] => Void
 
-      sig [] => Ptr
+      #: () -> ptr
       def gates
         Machine.static(:gates, 8)
       end
 
-      sig [Word] => Void
+      #: (word) -> void
       def set_gates(v)
         Machine.store64(gates(), 0, v)
       end
 
-      sig [Word] => Void
+      #: (word) -> void
       def set_slowly(v)
         set_gates(v)
       end
 
-      sig [Ptr, Value] => Void
+      #: (ptr, value) -> void
       def link(cell, v)
         Cell.set_next(cell, v)
       end
 
-      sig [Ptr, Word] => Void
+      #: (ptr, word) -> void
       def fill(row, v)
         Row.set_id(row, v)
       end
 
-      sig [Ptr] => Void
+      #: (ptr) -> void
       def poke(p)
         Machine.store64(p, 0, 1)
       end
 
-      sig [Ptr] => Void
+      #: (ptr) -> void
       def tell(p)
         Libc.write(1, p, 1)
       end
 
-      sig [Ptr] => Void
+      #: (ptr) -> void
       def jump(fn)
         Thunk.call(fn)
       end
 
-      sig [] => Word
+      #: () -> word
       def pure
         3
       end

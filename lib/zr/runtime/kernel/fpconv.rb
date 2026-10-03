@@ -14,7 +14,7 @@ module Zr::Kern
   # The cached powers of ten: 87 entries of a 64-bit fraction and its
   # binary exponent, each a little-endian word. They start at 10^-348 and
   # go up in steps of 10^8.
-  sig [] => Ptr
+  #: () -> ptr
   def zr_fpconv_powers
     Machine.bytes(
     "\x88\x02\x1C\x08\xA0\xD5\x8F\xFA\x3C\xFB\xFF\xFF\xFF\xFF\xFF\xFF\x76\xBF\x3E\xA2\x7F\xE1\xAE\xBA\x57\xFB\xFF\xFF\xFF\xFF\xFF\xFF\
@@ -64,7 +64,7 @@ module Zr::Kern
   end
 
   # The high 64 bits of a * b, rounded as fpconv.c's multiply rounds them.
-  sig [Ptr, Ptr] => Ptr
+  #: (ptr, ptr) -> ptr
   def zr_fpconv_mul(a, b)
     lomask = 4294967295
     ah_bl = (a >> 32) * (b & lomask)
@@ -77,7 +77,7 @@ module Zr::Kern
   end
 
   # round_digit: decreases the last digit while that makes it nearer.
-  sig [Ptr, Word, Ptr, Ptr, Ptr, Ptr] => Void
+  #: (ptr, word, ptr, ptr, ptr, ptr) -> void
   def zr_fpconv_round(digits, n, delta, rem, kappa, frac)
     while rem < frac && delta - rem >= kappa && (rem + kappa < frac || frac - rem > rem + kappa - frac)
       at = digits + (n - 1)
@@ -89,7 +89,7 @@ module Zr::Kern
   # grisu2 and generate_digits for the finite, nonzero double of `bits`.
   # Writes the digits into `digits`, stores the decimal exponent at `k`,
   # and returns the digit count.
-  sig [Ptr, Ptr, Ptr] => Word
+  #: (ptr, ptr, ptr) -> word
   def zr_fpconv_grisu2(bits, digits, k)
     frac = bits & FPCONV_FRACMASK
     exp = Machine.word((bits & FPCONV_EXPMASK) >> 52)
@@ -189,7 +189,7 @@ module Zr::Kern
 
   # emit_digits: plain notation up to fifteen places, a leading "0." down
   # to six places below, and scientific notation past these limits.
-  sig [Ptr, Ptr, Word, Word, Bool] => Void
+  #: (ptr, ptr, word, word, bool) -> void
   def zr_fpconv_emit(b, digits, n, k, neg)
     e = k + n - 1
     exp = e
@@ -245,7 +245,7 @@ module Zr::Kern
   end
 
   # Runs fpconv_dtoa for the Float `v`.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_fpconv_dtoa(v)
     bits = Machine.ptr(Machine.bits(zr_float_value(v)))
     b = Machine.slot(Buf.size)

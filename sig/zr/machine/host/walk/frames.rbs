@@ -7,34 +7,36 @@ module Zr
         class Scope < Data
           attr_reader node: untyped
           attr_reader unit: Unit
-          attr_reader def_node: untyped
-          attr_reader kind: untyped
-          attr_reader scopes: untyped
-          attr_reader homes: untyped
-          attr_reader meta: untyped
-          attr_reader params: untyped
-          attr_reader open: untyped
-          attr_reader line: untyped
-          attr_reader values: untyped
-          attr_reader blank: untyped
-          attr_reader names: untyped
+          attr_reader def_node: Hir::Def?
+          attr_reader kind: Symbol
+          attr_reader scopes: Array[Array[Symbol]]
+          attr_reader homes: Array[untyped]
+          attr_reader meta: Integer
+          attr_reader params: Hir::Params?
+          attr_reader open: bool
+          attr_reader line: Integer
+          attr_reader values: Integer
+          attr_reader blank: Array[Integer]
+          attr_reader names: Integer
           attr_reader loops: Array[untyped]
 
           def self.new: (*untyped) -> instance
                       | (**untyped) -> instance
         end
 
+        # `env` is nil when the locals are in the record, and `proc` is
+        # nil but in a block's run.
         class Frame < Struct[untyped]
-          attr_accessor rec: untyped
-          attr_accessor env: untyped
-          attr_accessor self_: untyped
-          attr_accessor cref: untyped
-          attr_accessor blk: untyped
-          attr_accessor proc: untyped
-          attr_accessor outer: untyped
-          attr_accessor stack: untyped
-          attr_accessor opened: untyped
-          attr_accessor ret_line: untyped
+          attr_accessor rec: Integer
+          attr_accessor env: Integer?
+          attr_accessor self_: Integer
+          attr_accessor cref: Integer
+          attr_accessor blk: Integer
+          attr_accessor proc: Integer?
+          attr_accessor outer: Integer
+          attr_accessor stack: Stack
+          attr_accessor opened: Symbol?
+          attr_accessor ret_line: Integer?
 
           def self.new: (*untyped) -> instance
         end

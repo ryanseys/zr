@@ -6,6 +6,9 @@ module Zr
       # Methods, classes, modules and constants: what a scope defines.
       module Definitions
         # @type instance: Function
+        # @rbs @cref: String
+        # @rbs @f: IR::Function
+        # @rbs @l: Lower
 
         private
 
@@ -30,7 +33,11 @@ module Zr
             # The generic entry is the kernel's. It checks what a direct
             # site proves, then calls the body. The body is the direct entry.
             d = @l.kernel_def("zr_direct_fn")
-            generic = @f.func_addr(@f.callee("zr_direct_fn", d.params.map { |_, t| Machine::TYPES.fetch(t) }, "i64", effects: d.effects || IR::Effects::ALL))
+            # A parameter is never Void, so its IR type is never nil.
+            params = d.params.map do |_, t|
+              Machine::TYPES.fetch(t) #: String
+            end
+            generic = @f.func_addr(@f.callee("zr_direct_fn", params, "i64", effects: d.effects || IR::Effects::ALL))
             checked(kernel("#{entry}_direct", owner, sym_word(node.name), generic, addr, imm(checked_arity), imm(@l.const("KIND_DEF")), meta, @cref))
           else
             checked(kernel(entry, owner, sym_word(node.name), addr, imm(checked_arity), imm(@l.const("KIND_DEF")), meta, @cref))
@@ -42,13 +49,13 @@ module Zr
         # the class body's visibility was.
         #: () -> bool
         def inside_method?
-          fn = self #: Function?
+          fn = self #: Function
           # The walk stops at the first scope that is not a block, so it
           # never reaches an eval's Outer.
-          while fn && fn.kind == :block
-            fn = fn.outer #: Function?
+          while fn.kind == :block && (up = fn.outer).is_a?(Function)
+            fn = up
           end
-          fn&.kind == :def
+          fn.kind == :def
         end
 
         # `class << target`: the singleton class is self and the definee.
@@ -82,7 +89,7 @@ module Zr
 
         # The class of a constant path's scope: the lexical scope for a
         # bare name, Object for `::`, else the expression's value.
-        #: (untyped scope) -> String
+        #: (Hir::scope scope) -> String
         def scope_class(scope)
           case scope
           when nil then kernel("zr_cref_lexical_class", @cref)
@@ -129,10 +136,11 @@ module Zr
         def const_at(node, scope, report_hit:)
           id = sym_word(node.name)
           at_node(node)
-          if node.scope.nil?
-            cached_const(@cref, @l.internal? ? "zr_const_get_cached" : "zr_const_read_cached", id, report_hit: report_hit)
-          else
+          # `scope` is nil exactly when the node has no scope.
+          if scope
             cached_const(scope, @l.internal? ? "zr_const_get_at_cached" : "zr_const_read_at_cached", id, report_hit: report_hit)
+          else
+            cached_const(@cref, @l.internal? ? "zr_const_get_cached" : "zr_const_read_cached", id, report_hit: report_hit)
           end
         end
 

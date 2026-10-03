@@ -11,14 +11,31 @@ module Zr
       # word is read and cleared here.
       module Params
         # @type instance: Function
+        # @rbs @blk: String
+        # @rbs @body: Hir::node?
+        # @rbs @bound: Array[Symbol]?
+        # @rbs @def: Hir::owner?
+        # @rbs @direct: bool
+        # @rbs @f: IR::Function
+        # @rbs @has_env: bool
+        # @rbs @kind: Symbol
+        # @rbs @l: Lower
+        # @rbs @name: String
+        # @rbs @qnil: String
+        # @rbs @raw_block: Symbol?
+        # @rbs @rec: String
+        # @rbs @slot_of: Hash[Symbol, Integer]
+        # @rbs @task: Machine::Layout
+        # @rbs @task_addr: String
+        # @rbs @twin_of: String?
 
         private
 
         #: () -> void
         def bind_params
           case @kind
-          when :def then @direct ? bind_direct(@def.params) : bind_method(@def.params, @f.args[1], @f.args[2])
-          when :block then bind_block(@def.params)
+          when :def then @direct ? bind_direct(own_params) : bind_method(own_params, @f.args[1], @f.args[2])
+          when :block then bind_block(own_params)
           end
         end
 
@@ -124,7 +141,9 @@ module Zr
         # hook can get a Binding of the frame.
         #: (Hir::Params p) -> bool
         def raw_block?(p)
-          p.block && !@l.traced? && !Hir::Locals.opens_locals?(@body) && Hir::Escape.raw_block?([@body, *default_expressions], p.block)
+          name = p.block or return false
+
+          !@l.traced? && !Hir::Locals.opens_locals?(@body) && Hir::Escape.raw_block?([@body, *default_expressions], name)
         end
 
         # A block with no parameters accepts any arguments. A lambda
@@ -245,10 +264,10 @@ module Zr
         def direct_params
           return [] unless @kind == :def && !@has_env
 
-          p = @def.params
+          p = own_params
           return [] if keywords?(p) || (p.rest && p.rest != :implicit)
 
-          p.required.reject { |name| name.is_a?(Hir::MultiTarget) || p.required.count(name) > 1 }
+          p.required.filter_map { |name| name if name.is_a?(Symbol) && p.required.count(name) == 1 }
         end
 
         # If `cond` is false, the block raises, and its return value leaves
@@ -315,9 +334,15 @@ module Zr
 
         # Whether `name` is already bound in this parameter list. Only `_`
         # can repeat. Ruby refuses all other duplicate names.
-        #: (untyped name) -> bool
+        #: (Hir::param name) -> bool
         def repeated?(name)
-          !name.is_a?(Hir::MultiTarget) && (@bound ||= []).include?(name)
+          !name.is_a?(Hir::MultiTarget) && bound_names.include?(name)
+        end
+
+        # The parameter names bound so far.
+        #: () -> Array[Symbol]
+        def bound_names
+          @bound ||= [] #: Array[Symbol]
         end
 
         # Ruby compiles an optional parameter's default as an assignment to
@@ -336,15 +361,16 @@ module Zr
 
         # Binds `v` to the parameter `name`, or destructures it into a
         # `(a, b)` target. A repeated name (`_`, `_x`) keeps its first binding.
-        #: (untyped name, String v) -> void
+        #: (Hir::param name, String v) -> void
         def bind(name, v)
           if name.is_a?(Hir::MultiTarget)
-            write_local(slot_of(name.whole), 0, v) if name.whole
+            whole = name.whole
+            write_local(slot_of(whole), 0, v) if whole
             destructure(name, v, {})
-          elsif (@bound ||= []).include?(name)
+          elsif bound_names.include?(name)
             v
           else
-            @bound << name
+            bound_names << name
             write_local(slot_of(name), 0, v)
           end
         end
@@ -394,7 +420,11 @@ module Zr
               req_ids, nreq = required.empty? ? [imm(0), imm(0)] : keyword_ids(required)
               checked(kernel("zr_kw_shape", shape, tab, ids, n, req_ids, nreq, imm(mode)))
             else
-              checked(kernel("zr_kw_missing", hash.call, *keyword_ids(required))) unless required.empty?
+              unless required.empty?
+                given = hash.call
+                req_ids, nreq = keyword_ids(required)
+                checked(kernel("zr_kw_missing", given, req_ids, nreq))
+              end
               checked(kernel("zr_kw_none", hash.call)) if p.kwrest == :nokey
               checked(kernel("zr_kw_unknown", hash.call, ids, n)) if p.kwrest.nil?
             end

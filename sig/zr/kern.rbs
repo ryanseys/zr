@@ -1,0 +1,13 @@
+# The kernel's types (lib/zr/runtime/kernel), which each def's `#:` comment
+# names (lib/zr/machine/description.rb, RBS_TYPES). On ruby, each is an
+# Integer or a Float.
+module Zr
+  module Kern
+    type i8 = Integer
+    type i32 = Integer
+    type word = Integer
+    type ptr = Integer
+    type value = Integer
+    type f64 = Float
+  end
+end

@@ -84,7 +84,8 @@ module Zr
       def path(name, key)
         raise ArgumentError, "not a store key: #{key.inspect}" unless KEY.match?(key)
 
-        File.join(dir, name.to_s, key[0, 2], "#{key}#{kind(name).ext}")
+        shard = key[0, 2] #: String
+        File.join(dir, name.to_s, shard, "#{key}#{kind(name).ext}")
       end
 
       # The value of the entry, or nil when there is none or it does not
@@ -103,12 +104,13 @@ module Zr
       # that fills the directory it gets. Writes nothing when a source
       # changed during the build (`SourceGuard.check!` raises SourceChanged).
       #: (Symbol name, String key, ?untyped value) ?{ (String) -> void } -> String
-      def write(name, key, value = nil, &)
+      def write(name, key, value = nil, &fill)
         file = path(name, key)
         codec = kind(name).codec
         if codec == :dir
           SourceGuard.check!
-          return write_dir(file, &)
+          fill or raise ArgumentError, "#{name}: a :dir entry needs a block"
+          return write_dir(file, &fill)
         end
 
         write_file(file, encode(codec, value))
@@ -326,15 +328,17 @@ module Zr
       def write_dir(file)
         Paths.mkdir_p(File.dirname(file))
         fresh = "#{file}.#{Process.pid}.#{Thread.current.object_id}"
-        Paths.remove(fresh)
-        Dir.mkdir(fresh)
-        yield fresh
-        SourceGuard.check!
-        Paths.remove(file)
-        File.rename(fresh, file)
-        file
-      ensure
-        Paths.remove(fresh) if fresh && File.exist?(fresh)
+        begin
+          Paths.remove(fresh)
+          Dir.mkdir(fresh)
+          yield fresh
+          SourceGuard.check!
+          Paths.remove(file)
+          File.rename(fresh, file)
+          file
+        ensure
+          Paths.remove(fresh) if File.exist?(fresh)
+        end
       end
 
       private_class_method :children, :touch, :json, :decode, :encode, :write_dir, :roots_of

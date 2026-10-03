@@ -59,11 +59,11 @@ module Zr
         def inspect = name
       end
       TYPES = [
-        ["Word", 8, Fiddle::TYPE_LONG_LONG, "q<", :s64, :u64], ["Value", 8, Fiddle::TYPE_LONG_LONG, "q<", :s64, :u64],
-        ["Ptr", 8, Fiddle::TYPE_VOIDP, "Q<", :u64, :u64], ["I32", 4, Fiddle::TYPE_INT, "l<", :s32, :u32],
-        ["I8", 1, Fiddle::TYPE_CHAR, "c", :S8, :U8], ["Bool", 1, Fiddle::TYPE_CHAR, "C", :U8, :U8],
-        ["F64", 8, Fiddle::TYPE_DOUBLE, "E", :f64, :f64], ["Void", 0, Fiddle::TYPE_VOID, nil, nil, nil]
-      ].to_h { |row| [row.first, Type.new(*row)] }.freeze #: Hash[String, Type]
+        Type.new("Word", 8, Fiddle::TYPE_LONG_LONG, "q<", :s64, :u64), Type.new("Value", 8, Fiddle::TYPE_LONG_LONG, "q<", :s64, :u64),
+        Type.new("Ptr", 8, Fiddle::TYPE_VOIDP, "Q<", :u64, :u64), Type.new("I32", 4, Fiddle::TYPE_INT, "l<", :s32, :u32),
+        Type.new("I8", 1, Fiddle::TYPE_CHAR, "c", :S8, :U8), Type.new("Bool", 1, Fiddle::TYPE_CHAR, "C", :U8, :U8),
+        Type.new("F64", 8, Fiddle::TYPE_DOUBLE, "E", :f64, :f64), Type.new("Void", 0, Fiddle::TYPE_VOID, nil, nil, nil)
+      ].to_h { |type| [type.name, type] }.freeze #: Hash[String, Type]
 
       # The bits of `n` as a signed 64-bit Integer. Most words are in the
       # range already, and the test for that makes no Bignum.
@@ -103,13 +103,13 @@ module Zr
       # written to a field of a cell gets the collector's write barrier, as
       # the lowering emits it (`Function#barrier`).
       class Layout
-        # @rbs @host: Host?
+        # @rbs @host: Host
 
         attr_reader :layout_fields #: Hash[String, [Integer, Type | Layout]]
         attr_reader :layout_size, :layout_align #: Integer
 
-        #: (Hash[Symbol, Type | Layout] fields, ?Host? host) -> void
-        def initialize(fields, host = nil)
+        #: (Hash[Symbol, Type | Layout] fields, Host host) -> void
+        def initialize(fields, host)
           @host = host
           off = 0
           @layout_align = 1
@@ -155,17 +155,17 @@ module Zr
           host = @host
           reader = if type.is_a?(Layout)
                      ->(p) { p + at }
-                   elsif type.name == "Value" && host
+                   elsif type.name == "Value"
                      load = Memory.reader(type, at)
                      ->(p) { host.pin(load.call(p)) }
                    else
                      Memory.reader(type, at)
                    end
-          define_singleton_method(:"set_#{name}", &Memory.writer(type, at)) unless type.is_a?(Layout)
+          define_singleton_method(:"set_#{name}", Memory.writer(type, at)) unless type.is_a?(Layout)
           if name == "size"
             define_singleton_method(:size) { |*pointer| pointer.empty? ? @layout_size : reader.call(pointer.first) }
           else
-            define_singleton_method(name, &reader)
+            define_singleton_method(name, reader)
           end
         end
       end
@@ -221,7 +221,7 @@ module Zr
         #: (Symbol name, Array[Type] params, Type ret) -> Proc
         def answer(name, params, ret)
           body = @host.answer(name.to_s, params, ret)
-          define_singleton_method(name, &body)
+          define_singleton_method(name, body)
           body
         end
       end
@@ -242,7 +242,8 @@ module Zr
           @ids = {}
           @statics = {}
           @addrs = {}
-          @bytes = {}.compare_by_identity
+          bytes = {} #: Hash[String, Integer]
+          @bytes = bytes.compare_by_identity
         end
 
         #: (Symbol name) -> Integer
@@ -361,7 +362,10 @@ module Zr
         #: (Integer x) -> Integer
         def popcnt(x) = (x & MASK).digits(2).count(1)
         #: (Integer x) -> Integer
-        def bswap(x) = Host.signed([x & MASK].pack("Q<").unpack1("Q>"))
+        def bswap(x)
+          swapped = [x & MASK].pack("Q<").unpack1("Q>") #: Integer
+          Host.signed(swapped)
+        end
 
         #: (Float f) -> Float
         def sqrt(f) = f.negative? ? Float::NAN : Math.sqrt(f)
@@ -436,7 +440,9 @@ module Zr
         @collectors = []
         @kern = kernel_module
         constants.each { |name, value| @kern.const_set(name, value) }
-        trees = files.to_h { |file| [file, Prism.parse_file(file).value] }
+        results = files.to_h { |file| [file, Prism.parse_file(file)] }
+        results.each_value { |result| def_types(result) }
+        trees = results.transform_values(&:value)
         load_order(trees).each { |file| load(file) }
         cells!
         frames(trees.values)
@@ -647,13 +653,14 @@ module Zr
       def live_roots
         return [] if stack.roots.zero?
 
-        found = []
+        found = [] #: Array[[Binding, Array[Symbol]]]
         DebugInspector.open do |dc|
           dc.backtrace_locations.each_index do |i|
             next unless dc.frame_class(i).equal?(@kern)
 
             names = @rooted[dc.frame_iseq(i)&.label]
-            found << [dc.frame_binding(i), names] if names
+            binding = dc.frame_binding(i)
+            found << [binding, names] if names && binding
           end
         end
         found
@@ -662,10 +669,12 @@ module Zr
       #: [T] () { () -> T } -> T
       def collecting
         was = @collecting
-        @collecting = true
-        yield
-      ensure
-        @collecting = was
+        begin
+          @collecting = true
+          yield
+        ensure
+          @collecting = was
+        end
       end
 
       # Runs the block, a def's body, in its `frame` (`Framing`).
@@ -715,7 +724,7 @@ module Zr
       # the kernel's errno, and the kernel sees the errno that C left.
       #: (Fiddle::Function function, Array[Type] params, Type ret, Array[untyped] args) -> untyped
       def foreign(function, params, ret, args)
-        values = args.zip(params).map { |arg, type| to_c(arg, type) }
+        values = args.zip(params).map { |arg, type| to_c(arg, type || raise(ArgumentError, "#{args.size} arguments for #{params.size}")) }
         P.write(errno_location, P.read(@errno, 4))
         result = function.call(*values)
         P.write(@errno, [Fiddle.last_error.to_i].pack("l<"))
@@ -733,6 +742,7 @@ module Zr
       # that other frames use now. So the flags at `v` prove nothing; the
       # cell must be in one of the heap's `arenas`, with its allocated bit
       # set. A stack image is in none, and the collector never marks one.
+      #: (Integer v, Set[Integer] arenas) -> bool
       def live?(v, arenas)
         return false if @kern.zr_special_p(v)
 
@@ -747,19 +757,25 @@ module Zr
       # Whether the local `v` of a rooted def holds an object. A local is
       # a word of any type: a Ptr or a Word can point at a cell that is
       # allocated but not yet an object, which the lowering never roots.
+      #: (Integer v, Set[Integer] arenas) -> bool
       def object?(v, arenas)
         live?(v, arenas) && @kern::RBasic.flags(v).anybits?(@kern::FL_ALLOCATED)
       end
 
       # The heap's arenas, by address.
+      #: () -> Set[Integer]
       def heap_arenas
         h = @kern.zr_heap
         n = @kern::Heap.arenas(h)
-        n.zero? ? Set.new : Memory.read(@kern::Heap.table(h), n * 8).unpack("Q<*").to_set
+        return Set.new if n.zero?
+
+        words = Memory.read(@kern::Heap.table(h), n * 8).unpack("Q<*") #: Array[Integer]
+        words.to_set
       end
 
       # Gives each layout of a cell (RBasic, and each layout that starts
       # with it) the write barrier, as the lowering's `cell?` does.
+      #: () -> void
       def cells!
         return unless @kern.const_defined?(:RBasic, false)
 
@@ -774,61 +790,88 @@ module Zr
       end
 
       # A fresh `Zr::Kern` with the forms a kernel file declares with.
+      #: () -> Module
       def kernel_module
-        host = self
+        # In the blocks below, self is the module, so they read `host`.
+        host = self #: Host
         kern = Module.new
         kern.extend(kern)
         TYPES.each { |name, type| kern.const_set(name, type) }
         kern.const_set(:Machine, Intrinsics.new(self))
         kern.const_set(:Libc, Libc.new(self))
-        pending = nil
-        kern.define_singleton_method(:layout) { |**fields| Layout.new(fields, host) }
-        kern.define_singleton_method(:fn) { |signature| Fn.new(host, *signature.first) }
-        kern.define_singleton_method(:sig) { |signature| pending = signature.first }
+        # The kernel file gives the fields, so Steep cannot type them.
+        kern.define_singleton_method(:layout) { |**fields| Layout.new(fields, host) } # steep:ignore FallbackAny
+        kern.define_singleton_method(:fn) do |signature|
+          params, ret = signature.first
+          Fn.new(host, params, ret)
+        end
         kern.define_singleton_method(:inline) { |_name| nil }
         kern.define_singleton_method(:collects) { |name| host.collectors << name.to_s }
         kern.define_singleton_method(:raw) { |_name, _signature| nil }
-        kern.define_singleton_method(:method_added) do |name|
-          host.sigs[name.to_s] = pending if pending
-          pending = nil
-        end
         Zr.send(:remove_const, :Kern) if Zr.const_defined?(:Kern, false)
         Zr.const_set(:Kern, kern)
       end
 
+      # Records the type of each def of a kernel file: the `#:` comment on
+      # the line above it (`Machine.def_type`).
+      #: (Prism::ParseResult result) -> void
+      def def_types(result)
+        annotations = Machine.annotations(result)
+        defs = statements(result.value).grep(Prism::DefNode) #: Array[Prism::DefNode]
+        defs.each do |node|
+          text = annotations[node.location.start_line - 1] or next
+          type = Machine.def_type(text) or raise ArgumentError, "#{node.name}: a def's type is `#: (types) -> type`"
+          params, ret = type
+          @sigs[node.name.to_s] = [params.map { |type| TYPES.fetch(type) }, TYPES.fetch(ret)]
+        end
+      end
+
       # The statements of a kernel file's `module Zr::Kern`.
+      #: (Prism::ProgramNode tree) -> Array[Prism::node]
       def statements(tree)
-        mod = tree.statements.body.find { |node| node.is_a?(Prism::ModuleNode) }
-        mod&.body&.body || []
+        mod = tree.statements.body.find { |node| node.is_a?(Prism::ModuleNode) } #: Prism::ModuleNode?
+        body = mod&.body
+        raise ArgumentError, "rescue and ensure are not in the kernel subset" if body.is_a?(Prism::BeginNode)
+
+        body&.body || []
       end
 
       # The files in an order that runs each constant after the constants
       # it reads. The lowering folds a constant on first use, so a file
       # may read a constant of a later file (`RBasic` of value.rb, in
       # array.rb's layouts); ruby reads it when the file runs.
+      #: (Hash[String, Prism::ProgramNode] trees) -> Array[String]
       def load_order(trees)
-        declared = {}
+        declared = {} #: Hash[Symbol, String]
         reads = trees.to_h do |file, tree|
-          names = statements(tree).grep(Prism::ConstantWriteNode).flat_map do |node|
+          writes = statements(tree).grep(Prism::ConstantWriteNode) #: Array[Prism::ConstantWriteNode]
+          names = writes.flat_map do |node|
             declared[node.name] = file
             constant_reads(node.value)
           end
           [file, names]
         end
-        order = []
-        visit = lambda do |file, path|
-          next if order.include?(file)
-          raise ArgumentError, "the constants of #{path.join(" and ")} read each other" if path.include?(file)
-
-          reads.fetch(file).filter_map { |name| declared[name] }.uniq.each { |other| visit.call(other, path + [file]) unless other == file }
-          order << file
-        end
-        trees.each_key { |file| visit.call(file, []) }
+        order = [] #: Array[String]
+        trees.each_key { |file| visit_file(file, [], reads, declared, order) }
         order
       end
 
+      # Adds `file` to `order` after the files whose constants it reads.
+      # `path` is the files that wait for this one.
+      #: (String file, Array[String] path, Hash[String, Array[Symbol]] reads, Hash[Symbol, String] declared, Array[String] order) -> void
+      def visit_file(file, path, reads, declared, order)
+        return if order.include?(file)
+        raise ArgumentError, "the constants of #{path.join(" and ")} read each other" if path.include?(file)
+
+        reads.fetch(file).filter_map { |name| declared[name] }.uniq.each do |other|
+          visit_file(other, path + [file], reads, declared, order) unless other == file
+        end
+        order << file
+      end
+
+      #: (Prism::node node) -> Array[Symbol]
       def constant_reads(node)
-        found = []
+        found = [] #: Array[Symbol]
         queue = [node]
         while (n = queue.shift)
           found << n.name if n.is_a?(Prism::ConstantReadNode)
@@ -842,26 +885,37 @@ module Zr
       # drops the pins of its body when it returns (and pins its Value
       # result for its caller). The collector runs with no pinning, and
       # marks the pins as kernel roots.
+      #: (Array[Prism::ProgramNode] trees) -> void
       def frames(trees)
-        defs = trees.flat_map { |tree| statements(tree).grep(Prism::DefNode) }.to_h { |node| [node.name.to_s, node] }
+        all = trees.flat_map { |tree| statements(tree) }
+        nodes = all.grep(Prism::DefNode) #: Array[Prism::DefNode]
+        defs = nodes.to_h { |node| [node.name.to_s, node] }
         slots = defs.select { |_, node| node.slice.include?("Machine.slot(") }.keys.to_set
         collects = collecting_defs(defs)
-        host = self
+        # In the methods below, self is the kernel, so they read `host`.
+        host = self #: Host
         frames = Module.new
         (slots | collects).each do |name|
           rooted = collects.include?(name) && loops?(defs.fetch(name))
           sig = @sigs[name]
-          params = collects.include?(name) && !rooted && sig ? sig.first.each_index.select { |i| sig.first[i].name == "Value" } : []
+          none = [] #: Array[Integer]
+          params = collects.include?(name) && !rooted && sig ? sig.first.each_index.select { |i| sig.first.fetch(i).name == "Value" } : none
           frame = Framing.new(slots.include?(name), collects.include?(name), sig&.last&.name == "Value", rooted, params)
-          frames.define_method(name, &framed_def(@kern.instance_method(name).arity, frame))
+          # The Proc takes the def's arguments; RBS types it as one with none.
+          frames.define_method(name, framed_def(@kern.instance_method(name).arity, frame)) # steep:ignore ArgumentTypeMismatch
           @rooted[name] = value_locals(defs.fetch(name)).freeze if rooted
         end
         @kern.prepend(frames)
         collector = Module.new
-        collector.define_method(:zr_collect_kind) { |*args| host.collecting { super(*args) } } if defs.key?("zr_collect_kind")
+        # `super` is the kernel's own def, which Steep cannot see.
+        if defs.key?("zr_collect_kind")
+          collector.define_method(:zr_collect_kind) do |*args|
+            host.collecting { super(*args) } # steep:ignore UnexpectedSuper
+          end
+        end
         if defs.key?("zr_mark_kernel_roots")
           collector.define_method(:zr_mark_kernel_roots) do
-            super()
+            super() # steep:ignore UnexpectedSuper
             host.mark_pins
           end
         end
@@ -890,14 +944,19 @@ module Zr
       # assignments is one, or is of a type this cannot tell, so no Value
       # goes unmarked. A Ptr or a Word is never marked: it can point into a
       # payload, or at a cell that is not yet an object.
+      #: (Prism::DefNode node) -> Array[Symbol]
       def value_locals(node)
         sig = @sigs[node.name.to_s]
-        types = {}
-        (node.parameters&.requireds || []).each_with_index { |param, i| types[param.name] = sig ? sig.first[i].name : "Value" }
-        assigns = Hash.new { |h, name| h[name] = [] }
-        queue = [node.body].compact
+        types = {} #: Hash[Symbol, String?]
+        (node.parameters&.requireds || []).each_with_index do |param, i|
+          raise ArgumentError, "a machine def takes required parameters only" unless param.is_a?(Prism::RequiredParameterNode)
+
+          types[param.name] = sig ? sig.first.fetch(i).name : "Value"
+        end
+        assigns = {} #: Hash[Symbol, Array[Prism::node]]
+        queue = [node.body].compact #: Array[Prism::node]
         while (n = queue.shift)
-          assigns[n.name] << n.value if n.is_a?(Prism::LocalVariableWriteNode)
+          (assigns[n.name] ||= []) << n.value if n.is_a?(Prism::LocalVariableWriteNode)
           queue.concat(n.compact_child_nodes)
         end
         assigns.each_key { |name| types[name] ||= "Word" }
@@ -914,6 +973,7 @@ module Zr
 
       # The type name of the kernel expression `node`, or nil when this
       # cannot tell (`value_locals`).
+      #: (Prism::node? node, Hash[Symbol, String?] types) -> String?
       def type_of(node, types)
         case node
         when Prism::LocalVariableReadNode then types[node.name]
@@ -929,12 +989,17 @@ module Zr
         end
       end
 
+      #: (Prism::node? node) -> Prism::node?
       def last_of(node)
-        node = node.body while node.is_a?(Prism::ParenthesesNode)
-        node.is_a?(Prism::StatementsNode) ? node.body.last : node
+        case node
+        when Prism::ParenthesesNode then last_of(node.body)
+        when Prism::StatementsNode then node.body.last
+        else node
+        end
       end
 
       # The values that a conditional answers; nil for a missing branch.
+      #: (Prism::IfNode | Prism::UnlessNode | Prism::AndNode | Prism::OrNode node) -> Array[Prism::node?]
       def branches(node)
         case node
         when Prism::AndNode, Prism::OrNode then [node.left, node.right]
@@ -947,6 +1012,7 @@ module Zr
 
       # The type of a call: a def's sig, `Machine.value`, a layout field,
       # or a signature's `call`. An operator on words is a word.
+      #: (Prism::CallNode node) -> String?
       def call_type(node)
         recv = node.receiver
         return @sigs[node.name.to_s]&.last&.name if recv.nil?
@@ -954,18 +1020,19 @@ module Zr
         return node.name == :value ? "Value" : "Word" if recv.name == :Machine
         return "Word" if recv.name == :Libc
 
-        thing = @kern.const_defined?(recv.name, false) ? @kern.const_get(recv.name, false) : nil
+        thing = @kern.const_get(recv.name, false) if @kern.const_defined?(recv.name, false)
         case thing
         when Layout
-          type = thing.layout_fields[node.name]&.last
-          type.respond_to?(:name) ? type.name : "Word"
+          type = thing.layout_fields[node.name.to_s]&.last
+          type.is_a?(Type) ? type.name : "Word"
         when Fn then thing.ret.name
         end
       end
 
       # Whether the def `node` has a loop.
+      #: (Prism::DefNode node) -> bool
       def loops?(node)
-        queue = [node.body].compact
+        queue = [node.body].compact #: Array[Prism::node]
         while (n = queue.shift)
           return true if n.is_a?(Prism::WhileNode) || n.is_a?(Prism::UntilNode)
 
@@ -979,16 +1046,19 @@ module Zr
       # `super` as they are: a block that takes `*args` makes an Array at
       # each call. In the frame, it pins the arguments that `frame.params`
       # names (`p0`..`p5`, each true or false).
+      #
+      # Each `super` is the kernel's own def, which Steep cannot see.
+      #: (Integer arity, Framing frame) -> Proc
       def framed_def(arity, frame)
-        host = self
+        host = self #: Host
         p0, p1, p2, p3, p4, p5 = Array.new(6) { |i| frame.params.include?(i) }
         case arity
-        when 0 then proc { host.framed(frame) { super() } }
+        when 0 then proc { host.framed(frame) { super() } } # steep:ignore UnexpectedSuper
         when 1
           proc do |a|
             host.framed(frame) do
               host.pin(a) if p0
-              super(a)
+              super(a) # steep:ignore UnexpectedSuper
             end
           end
         when 2
@@ -996,7 +1066,7 @@ module Zr
             host.framed(frame) do
               host.pin(a) if p0
               host.pin(b) if p1
-              super(a, b)
+              super(a, b) # steep:ignore UnexpectedSuper
             end
           end
         when 3
@@ -1005,7 +1075,7 @@ module Zr
               host.pin(a) if p0
               host.pin(b) if p1
               host.pin(c) if p2
-              super(a, b, c)
+              super(a, b, c) # steep:ignore UnexpectedSuper
             end
           end
         when 4
@@ -1015,7 +1085,7 @@ module Zr
               host.pin(b) if p1
               host.pin(c) if p2
               host.pin(d) if p3
-              super(a, b, c, d)
+              super(a, b, c, d) # steep:ignore UnexpectedSuper
             end
           end
         when 5
@@ -1026,7 +1096,7 @@ module Zr
               host.pin(c) if p2
               host.pin(d) if p3
               host.pin(e) if p4
-              super(a, b, c, d, e)
+              super(a, b, c, d, e) # steep:ignore UnexpectedSuper
             end
           end
         when 6
@@ -1038,14 +1108,14 @@ module Zr
               host.pin(d) if p3
               host.pin(e) if p4
               host.pin(g) if p5
-              super(a, b, c, d, e, g)
+              super(a, b, c, d, e, g) # steep:ignore UnexpectedSuper
             end
           end
         else
           proc do |*args|
             host.framed(frame) do
               frame.params.each { |i| host.pin(args[i]) }
-              super(*args)
+              super(*args) # steep:ignore UnexpectedSuper
             end
           end
         end
@@ -1054,10 +1124,12 @@ module Zr
       # The defs that can run the collector, as the lowering finds them
       # (`Lower#collecting_defs`): those that `collects` names, a call
       # through a pointer, and each def that calls one of those.
+      #: (Hash[String, Prism::DefNode] defs) -> Set[String]
       def collecting_defs(defs)
-        signatures = @kern.constants(false).select { |name| @kern.const_get(name).is_a?(Fn) }.to_set
+        signatures = @kern.constants(false).select { |name| @kern.const_get(name).is_a?(Fn) }.to_set #: Set[Symbol]
         calls = defs.transform_values { |node| calls_in(node.body, defs, signatures) }
-        set = @collectors.to_set << :indirect
+        set = Set.new(@collectors) #: Set[String | Symbol]
+        set << :indirect
         loop do
           grown = defs.each_key.select { |name| !set.include?(name) && calls.fetch(name).any? { |c| set.include?(c) } }
           break if grown.empty?
@@ -1065,16 +1137,18 @@ module Zr
           set.merge(grown)
         end
         set.delete(:indirect)
-        set
+        set #: Set[String]
       end
 
+      #: (Prism::node? node, Hash[String, Prism::DefNode] defs, Set[Symbol] signatures) -> Array[String | Symbol]
       def calls_in(node, defs, signatures)
-        found = []
-        queue = [node].compact
+        found = [] #: Array[String | Symbol]
+        queue = [node].compact #: Array[Prism::node]
         while (n = queue.shift)
           if n.is_a?(Prism::CallNode)
             found << n.name.to_s if n.receiver.nil? && defs.key?(n.name.to_s)
-            found << :indirect if n.name == :call && n.receiver.is_a?(Prism::ConstantReadNode) && signatures.include?(n.receiver.name)
+            receiver = n.receiver
+            found << :indirect if n.name == :call && receiver.is_a?(Prism::ConstantReadNode) && signatures.include?(receiver.name)
           end
           queue.concat(n.compact_child_nodes)
         end
@@ -1082,6 +1156,7 @@ module Zr
       end
 
       # This thread's errno, which a C function reads and sets.
+      #: () -> Integer
       def errno_location
         @errno_location ||= begin
           name = RUBY_PLATFORM.include?("darwin") ? "__error" : "__errno_location"
@@ -1089,6 +1164,7 @@ module Zr
         end
       end
 
+      #: (untyped value, Type type) -> untyped
       def to_c(value, type)
         case type.name
         when "Bool" then value ? 1 : 0
@@ -1098,6 +1174,7 @@ module Zr
         end
       end
 
+      #: (untyped value, Type type) -> untyped
       def from_c(value, type)
         case type.name
         when "Ptr" then Host.unsigned(value.to_i)

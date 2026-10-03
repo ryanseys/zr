@@ -33,8 +33,10 @@ module Zr
         # The listing of `function`, as `Codegen` compiles it.
         #: (IR::Function function, ?defined: Array[String] | Set[String]) -> String
         def self.of(function, defined: [])
-          compiler = Codegen.new(function, defined: defined, assembler: self)
-          compiler.asm.text(compiler.compile.relocs)
+          # A Listing stands in for an Assembler by duck typing: its
+          # mnemonics come from `define_method`, which Steep cannot see.
+          compiler = Codegen.new(function, defined: defined, assembler: self) # steep:ignore ArgumentTypeMismatch
+          compiler.asm.text(compiler.compile.relocs) # steep:ignore NoMethod
         end
 
         #: () -> void
@@ -76,6 +78,9 @@ module Zr
 
         (Assembler.instance_methods(false) - OWN).each do |mnemonic|
           define_method(mnemonic) do |*args, **options|
+            # @type self: Listing
+            # @type var args: Array[untyped]
+            # @type var options: Hash[Symbol, untyped]
             parts = operands(args) + modifier(options)
             record("  #{[mnemonic, parts.join(", ")].join(" ").rstrip}")
             @asm.public_send(mnemonic, *args, **options)
@@ -116,7 +121,9 @@ module Zr
             out << case a
                    when Register then a.name.downcase
                    when Assembler::Label then a.name.to_s
-                   when Array then memory(a, rest)
+                   when Array
+                     address = a #: Aarch64::Assembler::address
+                     memory(address, rest)
                    when Symbol then a.to_s
                    else immediate(a)
                    end

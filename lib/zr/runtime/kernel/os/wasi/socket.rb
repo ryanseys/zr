@@ -11,7 +11,7 @@ module Zr::Kern
   # A sockaddr in the wasi-libc layout, which has no length byte. These are
   # the structure size for each family, and the family numbers: AF_INET 1,
   # AF_INET6 2 and AF_UNIX 3.
-  sig [Ptr] => Word
+  #: (ptr) -> word
   def zr_os_sockaddr_len(addr)
     family = Machine.u8(Machine.load8(addr, 0)) | (Machine.u8(Machine.load8(addr, 1)) << 8)
     if family == 1
@@ -23,22 +23,22 @@ module Zr::Kern
     family == 3 ? 110 : 2
   end
 
-  sig [Ptr] => Value
+  #: (ptr) -> value
   def zr_os_addrinfo_row(node)
     Machine.value(QNIL)
   end
 
-  sig [Ptr] => Ptr
+  #: (ptr) -> ptr
   def zr_os_addrinfo_next(node)
     Machine.ptr(0)
   end
 
-  sig [] => Word
+  #: () -> word
   def zr_os_h_errno
     0
   end
 
-  sig [Value] => Value
+  #: (value) -> value
   def zr_os_peereid(fd)
     zr_notimplement(Machine.bytes("getpeereid"), 10)
   end

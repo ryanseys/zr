@@ -323,15 +323,23 @@ module Zr
           def [](n)
             return nil unless n >= 0 && n < @starts.size
 
-            from = @starts[n]
-            @joined.byteslice(from, (n + 1 < @starts.size ? @starts[n + 1] : @joined.bytesize) - from - 1)
+            name(n)
           end
 
-          #: () { (String?) -> bool } -> Integer?
-          def bsearch_index(&) = (0...size).bsearch { |n| yield self[n] }
+          #: () { (String) -> bool } -> Integer?
+          def bsearch_index(&) = (0...size).bsearch { |n| yield name(n) }
 
           #: () -> Array[String?]
           def to_a = Array.new(size) { |n| self[n] }
+
+          private
+
+          # The name at `n`, which is less than `size`.
+          #: (Integer n) -> String
+          def name(n)
+            from = @starts[n]
+            @joined.byteslice(from, (n + 1 < @starts.size ? @starts[n + 1] : @joined.bytesize) - from - 1) #: String
+          end
         end
       end
     end

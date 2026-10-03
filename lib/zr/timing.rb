@@ -17,11 +17,11 @@ module Zr
 
       began = Process.clock_gettime(Process::CLOCK_MONOTONIC)
       before = collector
-      yield
-    ensure
-      if began
+      begin
+        yield
+      ensure
         after = collector
-        gc = after.zip(before).map { |a, b| a - b }
+        gc = after.each_with_index.map { |a, i| a - before.fetch(i) }
         warn format("zr: %-40s %7.3fs  gc %d (%d major) mark %d ms sweep %d ms", label,
                     Process.clock_gettime(Process::CLOCK_MONOTONIC) - began, *gc)
       end

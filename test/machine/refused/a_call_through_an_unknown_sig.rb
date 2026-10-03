@@ -1,11 +1,11 @@
 # Binop is not a `fn` signature here
 module Zr::Kern
-  sig [Word, Word] => Word
+  #: (word, word) -> word
   def add(a, b)
     a + b
   end
 
-  sig [I32, Ptr] => I32
+  #: (i32, ptr) -> i32
   def main(argc, argv)
     Binop.call(Machine.addr(:add), 1, 2)
     0

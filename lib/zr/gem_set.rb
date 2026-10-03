@@ -101,7 +101,8 @@ module Zr
         gemfile = File.expand_path(gemfile)
         raise Unresolved, "--gemfile #{gemfile}: no such file" unless File.file?(gemfile)
       else
-        gemfile = env["BUNDLE_GEMFILE"].to_s.empty? ? nil : File.expand_path(env["BUNDLE_GEMFILE"])
+        named = env["BUNDLE_GEMFILE"].to_s
+        gemfile = named.empty? ? nil : File.expand_path(named)
         gemfile = nil if gemfile == OWN
       end
       return EMPTY if flags.empty? && gemfile.nil?

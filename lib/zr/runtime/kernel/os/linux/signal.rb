@@ -12,7 +12,7 @@ module Zr::Kern
   # int, and the restorer.
   SIGACTION_LEN = 152
 
-  sig [I32, Word, Ptr] => I32
+  #: (i32, word, ptr) -> i32
   def zr_os_sigaction(signo, fn, old)
     act = Machine.slot(SIGACTION_LEN)
     Libc.memset(act, Machine.i32(0), SIGACTION_LEN)

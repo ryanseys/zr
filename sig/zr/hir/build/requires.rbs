@@ -1,0 +1,8 @@
+# The class instance variable of lib/zr/hir/build/requires.rb. Its methods are inline.
+module Zr
+  module Hir
+    class Build
+      self.@missing_features: Hash[String, Array[String]]?
+    end
+  end
+end

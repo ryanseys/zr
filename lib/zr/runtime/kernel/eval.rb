@@ -14,7 +14,7 @@ module Zr::Kern
   # entry makes one time and keeps (`zr_bmethod_cref`).
   KIND_BMETHOD = 8
 
-  sig [Value, Value, Value] => Value
+  #: (value, value, value) -> value
   def zr_proc_under(p, self_, cref)
     blk = zr_block_proc(RProc.blk(p))
     copy = zr_alloc(T_PROC, zr_global(G_PROC), RProc.size)
@@ -26,7 +26,7 @@ module Zr::Kern
   end
 
   # Runs the block with `self_` as self and `klass` as the definee.
-  sig [Value, Value, Value, Word, Ptr] => Value
+  #: (value, value, value, word, ptr) -> value
   def zr_yield_under(blk, self_, klass, argc, argv)
     c = zr_cref_push_eval(klass, RProc.cref(blk))
     # An object that can have a singleton class gets one only when the
@@ -46,7 +46,7 @@ module Zr::Kern
 
   # Raises `no block given` for a call that needs a block and gets none.
   # instance_exec uses this text, not the text of `yield`.
-  sig [] => Value
+  #: () -> value
   def zr_block_needed
     zr_raise_msg(zr_global(G_LOCAL_JUMP_ERROR), Machine.bytes("no block given"), 14)
   end
@@ -54,7 +54,7 @@ module Zr::Kern
   # `Class#initialize(superclass) { }`, on a class that `Class#new` made
   # with no superclass. It sets the ancestor list, calls the `inherited`
   # hook, then runs the block with the class as self and as argument.
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_class_initialize(recv, argc, argv, cref, blk)
     if RClass.superclass(recv) != QNIL || recv == zr_global(G_BASIC_OBJECT)
       return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("already initialized class"), 25)
@@ -86,7 +86,7 @@ module Zr::Kern
     recv
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_module_initialize(recv, argc, argv, cref, blk)
     if blk != QNIL
       slot = Machine.slot(8)
@@ -99,7 +99,7 @@ module Zr::Kern
 
   # `class_eval { }` and `module_eval { }`: run the block with the module
   # as self and as argument. `class_exec` passes its arguments instead.
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_mod_class_eval(recv, argc, argv, cref, blk)
     if blk == QNIL
       if argc > 0
@@ -115,7 +115,7 @@ module Zr::Kern
     zr_yield_under(blk, recv, recv, 1, slot)
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_mod_class_exec(recv, argc, argv, cref, blk)
     if blk == QNIL
       return zr_block_needed()
@@ -129,7 +129,7 @@ module Zr::Kern
   # refuses a `def`. `zr_eval_definee` is the same for a block, but
   # returns undef for an object whose singleton class is made only when
   # the block needs it.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_eval_definee(obj)
     if zr_special_p(obj) || zr_singleton_refused_p(obj)
       return zr_class_of(obj)
@@ -137,7 +137,7 @@ module Zr::Kern
     Machine.value(QUNDEF)
   end
 
-  sig [Value] => Value
+  #: (value) -> value
   def zr_eval_class_of(obj)
     if zr_special_p(obj) || zr_singleton_refused_p(obj)
       return zr_class_of(obj)
@@ -145,7 +145,7 @@ module Zr::Kern
     zr_singleton_class(obj)
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_obj_instance_eval(recv, argc, argv, cref, blk)
     if blk == QNIL
       if argc > 0
@@ -163,7 +163,7 @@ module Zr::Kern
     zr_yield_under(blk, recv, zr_eval_definee(recv), 1, slot)
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_obj_instance_exec(recv, argc, argv, cref, blk)
     if blk == QNIL
       return zr_block_needed()
@@ -174,7 +174,7 @@ module Zr::Kern
   # `define_method(name) { }`, or with a Proc, Method or UnboundMethod in
   # place of the block. It defines a method whose body is the block's
   # body.
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_mod_define_method(recv, argc, argv, cref, blk)
     r = zr_class_modify_check(recv)
     return r if r == QUNDEF
@@ -239,7 +239,7 @@ module Zr::Kern
   # Returns a copy of `meta` with `owner` as its owner and the same name.
   # A backtrace shows this label for a method that
   # `define_method(name, method)` copies, as CRuby does.
-  sig [Ptr, Value] => Ptr
+  #: (ptr, value) -> ptr
   def zr_meta_owned_by(meta, owner)
     if meta == 0
       return 0
@@ -253,7 +253,7 @@ module Zr::Kern
   # Returns the cref that gives the visibility for a `define_method` into
   # `mod`. It is the calling frame's cref only when that frame is the body
   # of `mod`. From any other place, the method is public.
-  sig [Ptr, Value] => Value
+  #: (ptr, value) -> value
   def zr_cref_in_context(frame, mod)
     cref = Frame.cref(frame)
     if Frame.self(frame) != mod || cref == QNIL || zr_cref_klass(cref) != mod
@@ -264,7 +264,7 @@ module Zr::Kern
 
   # `define_singleton_method(name) { }`: the same as `define_method`, on
   # the singleton class.
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_obj_define_singleton_method(recv, argc, argv, cref, blk)
     if zr_special_p(recv) && recv != QNIL && recv != QTRUE && recv != QFALSE
       return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("can't define singleton"), 22)
@@ -282,7 +282,7 @@ module Zr::Kern
   # the call becomes the body's own block, and the frame keeps it in
   # `defined`. (A block frame's `blk` is the block of the method that
   # contains the body.)
-  sig [Ptr, Value, Word, Ptr, Value] => Value
+  #: (ptr, value, word, ptr, value) -> value
   def zr_bmethod_call(e, recv, argc, argv, blk)
     zr_bmethod_fn(recv, argc, argv, e, blk, Machine.value(QNIL))
   end
@@ -290,7 +290,7 @@ module Zr::Kern
   # The same, as the function of a define_method entry that a compiled
   # site finds (`zr_entry_fn`). The site calls it directly, with no
   # second frame in between.
-  sig [Value, Word, Ptr, Ptr, Value, Value] => Value
+  #: (value, word, ptr, ptr, value, value) -> value
   def zr_bmethod_fn(recv, argc, argv, e, blk, found)
     # An entry has a coverage record only when the program measures
     # coverage, so most calls skip the call.
@@ -340,7 +340,7 @@ module Zr::Kern
   # refers to the method entry, so that `super`, a trace and a `break` can
   # find the method. A copy of the entry (in a Method, a saved entry or
   # another class) makes its own cref, because it is a different entry.
-  sig [Ptr] => Value
+  #: (ptr) -> value
   def zr_bmethod_cref(e)
     c = zr_bmethod_cref_kept(e)
     if c != QNIL && RCref.entry(c) == e
@@ -349,7 +349,7 @@ module Zr::Kern
     c = zr_cref_push_eval(FrameMeta.owner(MEntry.meta(e)), RProc.cref(MEntry.cref(e)))
     RCref.set_entry(c, e)
     IvarCache.set_index(MEntry.ivar(e), Machine.word(c))
-    # The cref goes into the entry's `ivar` word. The machine dialect
+    # The cref goes into the entry's `ivar` word. The kernel subset
     # types it as a Word, so the compiler adds no write barrier as it does
     # for a Value field. The entry is in the owner's method table
     # (`zr_method_add_row` writes entries into `RClass.ext(klass)`), and
@@ -361,7 +361,7 @@ module Zr::Kern
 
   # Returns the cref that a define_method entry made, or nil before its
   # first call.
-  sig [Ptr] => Value
+  #: (ptr) -> value
   def zr_bmethod_cref_kept(e)
     kept = IvarCache.index(MEntry.ivar(e))
     kept == 0 ? Machine.value(QNIL) : Machine.value(kept)
@@ -371,7 +371,7 @@ module Zr::Kern
   # Runs the body of a `refine` block with the holder module as self. A
   # `def` in it defines into the holder, and the block gets the holder as
   # its argument.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_refine_body(blk, holder)
     slot = Machine.slot(8)
     Machine.store64(slot, 0, Machine.word(holder))

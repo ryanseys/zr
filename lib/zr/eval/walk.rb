@@ -45,8 +45,8 @@ module Zr
       ctx = Walk::Tree::Ctx.new(self_: self_, cref: cref, chain: [own, *held(scope)], block: block,
                           name: nil, owner: nil, args: nil, kwargs: nil, tag: nil, home: nil)
       World.walk_enter
-      begin
-        value = Walk::Tree.new(file).run(hir, ctx)
+      value = begin
+        Walk::Tree.new(file).run(hir, ctx)
       ensure
         World.walk_leave
       end
@@ -82,8 +82,11 @@ module Zr
     # frame. A new name stays in the scope of the string.
     #: (String source, String file, Integer line, Binding scope) -> Hir::Program
     def built(source, file, line, scope)
-      names = World.binding_scopes(scope)
-      Hir.build(source, file, eval_support: false, line: line, scopes: [*names.reverse, []],
+      # Hir only tests a name for membership, so a slot with no name
+      # matches nothing.
+      names = World.binding_scopes(scope) #: Array[Array[Symbol]]
+      own = [] #: Array[Symbol]
+      Hir.build(source, file, eval_support: false, line: line, scopes: [*names.reverse, own],
                                            method: World.binding_parameters(scope))
     end
 

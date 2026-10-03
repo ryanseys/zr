@@ -15,24 +15,24 @@ class KernelFormsTest < Minitest::Test
       Thunk = fn [Word] => Word
       LIMIT = 1 << 4
 
-      sig [Ptr, Word] => Word
+      #: (ptr, word) -> word
       def first(p, n)
         Libc.memset(p, Machine.i32(0), Pair.size)
         Pair.set_head(p, n * LIMIT)
         Thunk.call(Machine.addr(:twice), Pair.head(p))
       end
 
-      sig [Word] => Word
+      #: (word) -> word
       def twice(n)
         n + n
       end
 
-      sig [I32, I8] => Word
+      #: (i32, i8) -> word
       def widen(a, b)
         Machine.u32(a) + Machine.u8(b) + 0x7fff_ffff_ffff_fff0
       end
 
-      sig [Word, Word] => Word
+      #: (word, word) -> word
       def mix(a, b)
         (a * b) + (a << 3) - (a / b) + (a % b) + (b - a)
       end
@@ -47,24 +47,24 @@ class KernelFormsTest < Minitest::Test
       Thunk = fn [Word] => Word
       LIMIT = 1 << 4
 
-      sig [Ptr, Word] => Word
+      #: (ptr, word) -> word
       def first(p, n)
         Libc.memset(p, Machine.i32(0), Pair.size)
         Pair.set_head(p, n * LIMIT)
         Thunk.call(Machine.addr(:twice), Pair.head(p))
       end
 
-      sig [Word] => Word
+      #: (word) -> word
       def twice(n)
         n + n
       end
 
-      sig [I32, I8] => Word
+      #: (i32, i8) -> word
       def widen(a, b)
         Machine.u32(a) + Machine.u8(b) + Machine.word(0x7fff_ffff_ffff_fff0)
       end
 
-      sig [Word, Word] => Word
+      #: (word, word) -> word
       def mix(a, b)
         Machine.add_wrap(Machine.mul_wrap(a, b), Machine.shl_wrap(a, 3)) - Machine.sdiv(a, b) + Machine.srem(a, b) + Machine.sub_wrap(b, a)
       end
@@ -92,23 +92,23 @@ class KernelFormsTest < Minitest::Test
       Libc.import :write, [I32, Ptr, Word] => Word
       Libc.import :abort, [] => Void
 
-      sig [Ptr, Word] => Void
+      #: (ptr, word) -> void
       def zr_bug(bytes, len)
         Libc.write(2, bytes, len)
         Libc.abort()
       end
 
-      sig [Word, Word] => Word
+      #: (word, word) -> word
       def plain(a, b)
         (a + b) - (a * b) + (a << b) + (a / b) + (a >> b)
       end
 
-      sig [Word, Word] => Word
+      #: (word, word) -> word
       def named(a, b)
         Machine.sub_wrap(Machine.add_wrap(a, b), Machine.mul_wrap(a, b)) + Machine.shl_wrap(a, b)
       end
 
-      sig [Ptr, Word] => Ptr
+      #: (ptr, word) -> ptr
       def address(p, n)
         p + (n * 8)
       end
@@ -155,7 +155,7 @@ class KernelFormsTest < Minitest::Test
   def test_a_bare_call_in_the_plain_form_goes_only_to_a_def
     message = refusal(<<~RUBY)
       Libc.import :getpid, [] => I32
-      sig [] => I32
+      #: () -> i32
       def pid
         getpid
       end
@@ -166,7 +166,7 @@ class KernelFormsTest < Minitest::Test
 
   def test_libc_calls_only_an_import
     message = refusal(<<~RUBY)
-      sig [] => Word
+      #: () -> word
       def one
         Libc.one
       end
@@ -189,18 +189,18 @@ class KernelFormsTest < Minitest::Test
   end
 
   def test_a_literal_past_a_signed_word_is_machine_word
-    message = refusal("sig [] => Word\ndef big\n  0x8000000000000000\nend")
+    message = refusal("#: () -> word\ndef big\n  0x8000000000000000\nend")
 
     assert_match(/a literal at or above 2\*\*63 is a word only as Machine.word\(literal\)/, message)
   end
 
   def test_a_narrow_integer_widens_only_by_name
-    message = refusal("sig [I32] => Word\ndef wide(a)\n  Machine.word(a)\nend")
+    message = refusal("#: (i32) -> word\ndef wide(a)\n  Machine.word(a)\nend")
 
     assert_match(/Machine.word of an I32 is Machine.u32 \(zero-extend\) or Machine.sword \(sign-extend\)/, message)
   end
 
   def test_there_is_no_machine_def
-    assert_match(/not a declaration or a def/, refusal("sig [] => Void\nmachine def x\nend"))
+    assert_match(/not a declaration or a def/, refusal("#: () -> void\nmachine def x\nend"))
   end
 end

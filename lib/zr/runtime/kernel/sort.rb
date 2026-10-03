@@ -17,7 +17,7 @@ module Zr::Kern
   # Converts the result of `x <=> y` to -1, 0 or 1, as CRuby does. For an
   # Integer, it uses the sign. For other values, it tries `> 0`, then
   # `< 0`. nil fails.
-  sig [Value, Value, Value] => Value
+  #: (value, value, value) -> value
   def zr_cmpint(r, x, y)
     if zr_fixnum_p(r)
       n = zr_fix2long(r)
@@ -49,7 +49,7 @@ module Zr::Kern
 
   # Raises `comparison of X with Y failed`. The message shows Y with
   # inspect when it is a special constant, and by its class if not.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_cmperr(x, y)
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
@@ -67,12 +67,12 @@ module Zr::Kern
     zr_raise_buf(zr_global(G_ARGUMENT_ERROR), b)
   end
 
-  sig [Ptr, Word] => Value
+  #: (ptr, word) -> value
   def zr_sort_at(st, i)
     Machine.value(Machine.load64(Sort.base(st) + (i * Sort.stride(st)), 0))
   end
 
-  sig [Ptr, Word, Word] => Void
+  #: (ptr, word, word) -> void
   def zr_sort_swap(st, i, j)
     a = Sort.base(st) + (i * Sort.stride(st))
     b = Sort.base(st) + (j * Sort.stride(st))
@@ -85,7 +85,7 @@ module Zr::Kern
     end
   end
 
-  sig [Ptr, Word, Word, Word] => Void
+  #: (ptr, word, word, word) -> void
   def zr_sort_vecswap(st, i, j, n)
     while n > 0
       zr_sort_swap(st, i, j)
@@ -97,7 +97,7 @@ module Zr::Kern
 
   # Whether `klass` finds the core's own `<=>`: a method entry that the
   # core wrote (MEntry.core). The sort checks this when it starts.
-  sig [Word] => Bool
+  #: (word) -> bool
   def zr_core_cmp_p(klass)
     e = zr_find_method(zr_global(klass), Machine.id(:<=>))
     e != 0 && MEntry.core(e) != 0
@@ -106,7 +106,7 @@ module Zr::Kern
   # `a <=> b` with no send, when both are Strings and `a` finds the core's
   # String#<=>, as CRuby's OPTIMIZED_CMP does in Comparable. Returns false
   # for any other pair, and then the caller sends `<=>`.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_cmp_plain(a, b)
     if zr_special_p(a) || zr_special_p(b) || zr_type(a) != T_STRING || zr_type(b) != T_STRING
       return Machine.value(QFALSE)
@@ -121,7 +121,7 @@ module Zr::Kern
   end
 
   # Whether two fixnums or two Strings compare with no send.
-  sig [] => Word
+  #: () -> word
   def zr_sort_plain
     zr_core_cmp_p(G_INTEGER) && zr_core_cmp_p(G_STRING) ? 1 : 0
   end
@@ -129,7 +129,7 @@ module Zr::Kern
   # Compares the elements at `i` and `j` with the block, or with `<=>`.
   # Two fixnums compare here, with no call, while `zr_sort_cmp_values`
   # would compare them the same way.
-  sig [Ptr, Word, Word] => Word
+  #: (ptr, word, word) -> word
   def zr_sort_cmp(st, i, j)
     x = zr_sort_at(st, i)
     y = zr_sort_at(st, j)
@@ -142,7 +142,7 @@ module Zr::Kern
 
   # Compares two Values as zr_sort_cmp does: after a failure, 0 and no
   # Ruby.
-  sig [Ptr, Value, Value] => Word
+  #: (ptr, value, value) -> word
   def zr_sort_cmp_values(st, x, y)
     if Sort.failed(st) != 0
       return 0
@@ -174,7 +174,7 @@ module Zr::Kern
     zr_fix2long(r)
   end
 
-  sig [Ptr, Word, Word, Word] => Word
+  #: (ptr, word, word, word) -> word
   def zr_sort_med3(st, a, b, c)
     if zr_sort_cmp(st, a, b) < 0
       if zr_sort_cmp(st, b, c) < 0
@@ -194,7 +194,7 @@ module Zr::Kern
     c
   end
 
-  sig [Ptr, Word, Word] => Void
+  #: (ptr, word, word) -> void
   def zr_sort_insertion(st, a, n)
     pm = a + 1
     while pm < a + n
@@ -211,7 +211,7 @@ module Zr::Kern
   # CRuby's mmkubo sort: each split sorts its left part, then its right
   # part. A right part waits on a separate stack, not the machine stack.
   # Thus the sort cannot overflow the stack, even with bad pivots.
-  sig [Ptr, Word, Word] => Void
+  #: (ptr, word, word) -> void
   def zr_sort_range(st, a, n)
     parts = Machine.slot(16)
     waiting = Machine.value(QNIL)
@@ -244,7 +244,7 @@ module Zr::Kern
   # Splits `n` elements from index `a`. Returns true and writes the sizes
   # of the left part (from `a`) and the right part (to `a + n`) to
   # `parts`. Returns false when the range is already sorted.
-  sig [Ptr, Word, Word, Ptr] => Bool
+  #: (ptr, word, word, ptr) -> bool
   def zr_sort_partition(st, a, n, parts)
     if n < 7
       zr_sort_insertion(st, a, n)
@@ -321,7 +321,7 @@ module Zr::Kern
   # sort with a limit of 1 + n / 4 swaps, and goes on from where it
   # stopped if that is not enough. The smaller part is sorted first, and
   # past a depth of 2 * floor(log2 n) splits, heapsort finishes the range.
-  sig [Ptr, Word] => Void
+  #: (ptr, word) -> void
   def zr_sort_apple_all(st, n)
     depth = 0
     m = n
@@ -332,7 +332,7 @@ module Zr::Kern
     zr_sort_apple(st, 0, n, depth)
   end
 
-  sig [Ptr, Word, Word, Word] => Void
+  #: (ptr, word, word, word) -> void
   def zr_sort_apple(st, a, n, depth)
     while true
       if depth <= 0
@@ -426,7 +426,7 @@ module Zr::Kern
 
   # _isort: an insertion sort that stops, returning false, after `limit`
   # swaps when `limit` is not 0.
-  sig [Ptr, Word, Word, Word] => Bool
+  #: (ptr, word, word, word) -> bool
   def zr_sort_isort(st, a, n, limit)
     count = 0
     pm = a + 1
@@ -449,7 +449,7 @@ module Zr::Kern
 
   # The address of element `i` (from 1) of the `n` elements at `a`, as
   # heapsort numbers them.
-  sig [Ptr, Word, Word] => Ptr
+  #: (ptr, word, word) -> ptr
   def zr_sort_heap_at(st, a, i)
     Sort.base(st) + ((a + i - 1) * Sort.stride(st))
   end
@@ -458,7 +458,7 @@ module Zr::Kern
   # top to the end and sift the displaced element back in. The displaced
   # element waits in an Array, where the collector sees it while the block
   # runs.
-  sig [Ptr, Word, Word] => Void
+  #: (ptr, word, word) -> void
   def zr_sort_heap(st, a, n)
     if n <= 1
       return
@@ -515,7 +515,7 @@ module Zr::Kern
   # Sorts `ary` in place. `ary` is a copy that the caller made. Thus a
   # comparison that raises does not change the original, and the copy
   # keeps every element reachable while the block runs.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_ary_sort_copy(ary, blk)
     n = RArray.len(ary)
     if n < 2
@@ -534,7 +534,7 @@ module Zr::Kern
     ary
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_ary_sort(recv, argc, argv, cref, blk)
     zr_ary_sort_copy(zr_ary_of(RArray.len(recv), RArray.ptr(recv)), blk)
   end
@@ -542,7 +542,7 @@ module Zr::Kern
   # Copies the elements and the length of the sorted copy back to the
   # receiver. As in CRuby, changes that a block made to the receiver
   # during the sort are lost.
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_ary_sort_bang(recv, argc, argv, cref, blk)
     if zr_modify_frozen_p(recv)
       return zr_frozen_error(recv)
@@ -568,14 +568,14 @@ module Zr::Kern
   # message allocates, and a record that is moving is only in a scratch
   # slot that the collector does not see. Until then, every comparison
   # returns that neither key is less.
-  sig [] => Ptr
+  #: () -> ptr
   def zr_uniform_failed
     Machine.static(:uniform_failed, 24)
   end
 
   # `x <=> y` for a Float `x` and a fixnum or Float `y`, as in
   # rb_float_cmp. A NaN is recorded as the failure and returns 0.
-  sig [Value, Value] => Word
+  #: (value, value) -> word
   def zr_uniform_float_cmp(x, y)
     st = zr_uniform_failed()
     if Machine.load64(st, 0) != 0
@@ -593,7 +593,7 @@ module Zr::Kern
 
   # rb_uniform_is_less: compares two fixnums by their words. If not, it
   # compares with the Float operand first, as CRuby does.
-  sig [Value, Value] => Bool
+  #: (value, value) -> bool
   def zr_uniform_key_less(a, b)
     if zr_fixnum_p(a) && zr_fixnum_p(b)
       return Machine.sword(a) < Machine.sword(b)
@@ -604,7 +604,7 @@ module Zr::Kern
   inline :zr_uniform_key_less
 
   # rb_uniform_is_less when a key is a Float.
-  sig [Value, Value] => Bool
+  #: (value, value) -> bool
   def zr_uniform_float_less(a, b)
     if zr_fixnum_p(a)
       return zr_uniform_float_cmp(b, a) > 0
@@ -614,7 +614,7 @@ module Zr::Kern
 
   # rb_uniform_is_larger, for the check for an input that is already in
   # order.
-  sig [Value, Value] => Bool
+  #: (value, value) -> bool
   def zr_uniform_key_larger(a, b)
     if zr_fixnum_p(a) && zr_fixnum_p(b)
       return Machine.sword(a) > Machine.sword(b)
@@ -625,13 +625,13 @@ module Zr::Kern
     zr_uniform_float_cmp(a, b) > 0
   end
 
-  sig [Ptr, Word, Word] => Bool
+  #: (ptr, word, word) -> bool
   def zr_uniform_less(base, i, j)
     zr_uniform_key_less(Pair.key(base + (i * Pair.size)), Pair.key(base + (j * Pair.size)))
   end
   inline :zr_uniform_less
 
-  sig [Ptr, Word, Word] => Void
+  #: (ptr, word, word) -> void
   def zr_uniform_swap(base, i, j)
     a = base + (i * Pair.size)
     b = base + (j * Pair.size)
@@ -645,7 +645,7 @@ module Zr::Kern
 
   # Moves the record at `i` to `pos`, and shifts the records between them
   # up by one.
-  sig [Ptr, Word, Word] => Void
+  #: (ptr, word, word) -> void
   def zr_uniform_move(base, i, pos)
     k = Pair.key(base + (i * Pair.size))
     e = Pair.elem(base + (i * Pair.size))
@@ -658,7 +658,7 @@ module Zr::Kern
     Pair.set_elem(base + (pos * Pair.size), e)
   end
 
-  sig [Ptr, Word, Word] => Void
+  #: (ptr, word, word) -> void
   def zr_uniform_insertion(base, a, stop)
     index = a + 1
     while index < stop
@@ -676,7 +676,7 @@ module Zr::Kern
   end
 
   # Sifts `offset` down in the heap at `a`. The heap ends at `a + len`.
-  sig [Ptr, Word, Word, Word] => Void
+  #: (ptr, word, word, word) -> void
   def zr_uniform_heap_down(base, a, offset, len)
     scratch = Machine.slot(Pair.size)
     Pair.set_key(scratch, Pair.key(base + ((a + offset) * Pair.size)))
@@ -698,7 +698,7 @@ module Zr::Kern
     Pair.set_elem(base + ((a + offset) * Pair.size), Pair.elem(scratch))
   end
 
-  sig [Ptr, Word, Word] => Void
+  #: (ptr, word, word) -> void
   def zr_uniform_heapsort(base, a, stop)
     n = stop - a
     if n < 2
@@ -718,7 +718,7 @@ module Zr::Kern
   end
 
   # Returns the pivot key: the median of three records.
-  sig [Ptr, Word, Word, Word] => Value
+  #: (ptr, word, word, word) -> value
   def zr_uniform_med3(base, a, b, c)
     if zr_uniform_less(base, a, b)
       if zr_uniform_less(base, b, c)
@@ -738,7 +738,7 @@ module Zr::Kern
     Pair.key(base + (c * Pair.size))
   end
 
-  sig [Ptr, Word, Word, Word] => Void
+  #: (ptr, word, word, word) -> void
   def zr_uniform_quicksort(base, a, stop, d)
     if stop - a <= 16
       zr_uniform_insertion(base, a, stop)
@@ -776,7 +776,7 @@ module Zr::Kern
 
   # Records that are already in order stay as they are. If not, it runs
   # an introsort with a depth limit of twice the bit length of `n`.
-  sig [Ptr, Word] => Void
+  #: (ptr, word) -> void
   def zr_uniform_sort(base, n)
     i = 1
     sorted = 1
@@ -801,7 +801,7 @@ module Zr::Kern
 
   # `pairs` contains a key, then its element, for each pair. Returns the
   # elements in key order, or `undef` when a comparison raised.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_sort_by(pairs)
     n = RArray.len(pairs) / 2
     base = RArray.ptr(pairs)

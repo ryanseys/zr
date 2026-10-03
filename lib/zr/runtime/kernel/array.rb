@@ -11,7 +11,7 @@ module Zr::Kern
 
   # Returns the limit, for the core code that checks `*` and `fill`
   # against it.
-  sig [] => Value
+  #: () -> value
   def zr_ary_max_size
     zr_fix(ARY_MAX_SIZE)
   end
@@ -22,21 +22,21 @@ module Zr::Kern
   # After a shift, `ptr` can point inside that block. In both cases `ptr`
   # points to the elements and `capa` counts the space from there, so a
   # reader does not need to check which case applies.
-  sig [Value] => Bool
+  #: (value) -> bool
   def zr_ary_embedded_p(a)
     (RBasic.flags(a) & FL_EMBED) != 0
   end
 
   # The number of elements that the cell of `a` can contain: 2 in a
   # 64-byte cell, 10 in 128, 26 in 256.
-  sig [Value] => Word
+  #: (value) -> word
   def zr_ary_embed_capa(a)
     (zr_cell_bytes(a) - RArray.size) / 8
   end
 
   # The cell size for an Array of `capa` elements: a cell that contains
   # them all, else the smallest cell, with the elements in a malloc'd block.
-  sig [Word] => Word
+  #: (word) -> word
   def zr_ary_cell_bytes(capa)
     bytes = RArray.size + (capa * 8)
     bytes <= CELL_MAX ? bytes : RArray.size
@@ -44,7 +44,7 @@ module Zr::Kern
 
   # Makes space for `capa` elements in `a`, which has no old elements:
   # the tail of its own cell when they fit, else a malloc'd block.
-  sig [Value, Word] => Void
+  #: (value, word) -> void
   def zr_ary_buf_new(a, capa)
     if capa <= zr_ary_embed_capa(a)
       buf = Machine.ptr(a) + RArray.size
@@ -62,7 +62,7 @@ module Zr::Kern
 
   # Frees the buffer when it is a malloc'd block. An embedded buffer is
   # part of the cell and goes with it.
-  sig [Value] => Void
+  #: (value) -> void
   def zr_ary_buf_free(a)
     if !zr_ary_embedded_p(a)
       zr_sized_xfree(RArray.base(a), zr_ary_buf_bytes(a))
@@ -73,12 +73,12 @@ module Zr::Kern
   # capacity in words, plus the front gap that shifts left before `ptr`.
   # A shift moves `ptr` up and subtracts the same count from `capa`, so
   # the sum is always the size that was allocated.
-  sig [Value] => Word
+  #: (value) -> word
   def zr_ary_buf_bytes(a)
     (RArray.capa(a) * 8) + (RArray.ptr(a) - RArray.base(a))
   end
 
-  sig [Word] => Value
+  #: (word) -> value
   def zr_ary_new(capa)
     a = zr_alloc(T_ARRAY, zr_global(G_ARRAY), zr_ary_cell_bytes(capa))
     zr_ary_buf_new(a, capa)
@@ -86,18 +86,18 @@ module Zr::Kern
   end
 
   # Returns the length as a fixnum, for core code that must not dispatch.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_ary_len_m(a)
     zr_fix(RArray.len(a))
   end
 
   # Returns the element at `i`, for the same reason.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_ary_at_m(a, i)
     zr_ary_at(a, zr_fix2long(i))
   end
 
-  sig [Value] => Void
+  #: (value) -> void
   def zr_mark_ary(a)
     n = RArray.len(a)
     i = 0
@@ -107,7 +107,7 @@ module Zr::Kern
     end
   end
 
-  sig [Value, Word] => Value
+  #: (value, word) -> value
   def zr_ary_at(a, i)
     if i < 0
       i += RArray.len(a)
@@ -118,7 +118,7 @@ module Zr::Kern
     Machine.value(Machine.load64(RArray.ptr(a) + (i * 8), 0))
   end
 
-  sig [Value, Word] => Void
+  #: (value, word) -> void
   def zr_ary_reserve(a, n)
     if n > RArray.capa(a)
       zr_ary_grow(a, n)
@@ -127,7 +127,7 @@ module Zr::Kern
   # Most pushes fit, so the test is in the writer's code.
   inline :zr_ary_reserve
 
-  sig [Value, Word] => Void
+  #: (value, word) -> void
   def zr_ary_grow(a, n)
     len = RArray.len(a)
     gap = (RArray.ptr(a) - RArray.base(a)) / 8
@@ -155,7 +155,7 @@ module Zr::Kern
     RBasic.set_flags(a, RBasic.flags(a) & FL_EMBED_CLEAR)
   end
 
-  sig [Value, Value] => Void
+  #: (value, value) -> void
   def zr_ary_push(a, v)
     n = RArray.len(a)
     zr_ary_reserve(a, n + 1)
@@ -164,7 +164,7 @@ module Zr::Kern
     zr_write_barrier(a, v)
   end
 
-  sig [Value, Value] => Void
+  #: (value, value) -> void
   def zr_ary_unshift(a, v)
     n = RArray.len(a)
     zr_ary_reserve(a, n + 1)
@@ -175,7 +175,7 @@ module Zr::Kern
   end
 
   # `a[i] = v`, filling with nil past the end.
-  sig [Value, Word, Value] => Value
+  #: (value, word, value) -> value
   def zr_ary_store(a, i, v)
     n = RArray.len(a)
     if i < 0
@@ -212,7 +212,7 @@ module Zr::Kern
   end
 
   # An Array of the `argc` Values at `argv`.
-  sig [Word, Ptr] => Value
+  #: (word, ptr) -> value
   def zr_ary_of(argc, argv)
     a = zr_ary_new(argc)
     zr_memcpy(RArray.ptr(a), argv, argc * 8)
@@ -223,7 +223,7 @@ module Zr::Kern
 
   # `(a..b).to_a` for two fixnums. It fills the Array here, not with one
   # yield for each element through Enumerable.
-  sig [Value, Value, Value] => Value
+  #: (value, value, value) -> value
   def zr_fixnum_range_ary(low, high, excl)
     a = zr_fix2long(low)
     b = zr_fix2long(high)
@@ -249,7 +249,7 @@ module Zr::Kern
   # itself, an object with `to_a` gives its result, and all other values
   # give one element. A `to_a` that returns nil converts nothing, so the
   # object is the one element (rb_check_to_array).
-  sig [Value] => Value
+  #: (value) -> value
   def zr_splat_to_a(v)
     if v == QNIL
       return zr_ary_new(0)
@@ -271,7 +271,7 @@ module Zr::Kern
   end
 
   # Adds the elements of the splat `*v` to the Array `a`.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_ary_splat(a, v)
     v = zr_splat_to_a(v)
     return v if v == QUNDEF
@@ -285,7 +285,7 @@ module Zr::Kern
 
   # `Array#initialize`: nothing, `(size, fill = nil)`, `(size) { |i| }`
   # or `(array)`.
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_ary_initialize(recv, argc, argv, cref, blk)
     if argc > 2
       return zr_wrong_arity_range(argc, 0, 2)
@@ -378,7 +378,7 @@ module Zr::Kern
   end
 
   # Returns the index of `v` in `a`, compared by identity, or -1.
-  sig [Value, Value] => Word
+  #: (value, value) -> word
   def zr_ary_index_of(a, v)
     i = 0
     while i < RArray.len(a)
@@ -393,7 +393,7 @@ module Zr::Kern
   # Writes the value of a bignum to `out` when it fits a signed 64-bit
   # word, as NUM2LONG does: at most three base-2^30 limbs with the top
   # limb below 8, or exactly -2^63.
-  sig [Value, Ptr] => Bool
+  #: (value, ptr) -> bool
   def zr_big_to_long(v, out)
     limbs = zr_hidden_get(v, zr_sym(Machine.id(:__limbs__)))
     neg = zr_hidden_get(v, zr_sym(Machine.id(:__neg__))) == QTRUE
@@ -419,7 +419,7 @@ module Zr::Kern
     true
   end
 
-  sig [Value, Ptr] => Value
+  #: (value, ptr) -> value
   def zr_index_operand(v, out)
     unless zr_fixnum_p(v)
       if zr_float_p(v)
@@ -484,7 +484,7 @@ module Zr::Kern
 
   # `a[beg, len]`: a new Array of the elements from `beg`, or nil after
   # the end. A start at the end returns an empty Array.
-  sig [Value, Word, Word] => Value
+  #: (value, word, word) -> value
   def zr_ary_subseq(a, beg, len)
     n = RArray.len(a)
     if beg > n || beg < 0 || len < 0
@@ -498,7 +498,7 @@ module Zr::Kern
 
   # Converts a Range to a start and a length for `n` elements, into `out`.
   # Returns false when the start is out of range.
-  sig [Value, Word, Ptr] => Value
+  #: (value, word, ptr) -> value
   def zr_range_beg_len(range, n, out)
     low = zr_ivar_get(range, Machine.id(:begin))
     high = zr_ivar_get(range, Machine.id(:end))
@@ -542,7 +542,7 @@ module Zr::Kern
   end
 
   # `a[i]`, `a[beg, len]` and `a[range]`.
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_ary_aref(recv, argc, argv, cref, blk)
     first = Machine.value(Machine.load64(argv, 0))
     if argc == 1 && zr_fixnum_p(first)
@@ -587,14 +587,14 @@ module Zr::Kern
   # `a[x]` and `a[beg, len]` for the core: the result of Array#[], never
   # through a `[]` that a subclass defines, as the C calls rb_ary_aref1
   # and rb_ary_subseq do.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_ary_aref1_m(a, x)
     slot = Machine.slot(8)
     Machine.store64(slot, 0, Machine.word(x))
     zr_ary_aref(a, 1, slot, Machine.value(QNIL), Machine.value(QNIL))
   end
 
-  sig [Value, Value, Value] => Value
+  #: (value, value, value) -> value
   def zr_ary_aref2_m(a, beg, len)
     slot = Machine.slot(16)
     Machine.store64(slot, 0, Machine.word(beg))
@@ -603,7 +603,7 @@ module Zr::Kern
   end
 
   # `a[i] = v` for one index.
-  sig [Value, Value, Value] => Value
+  #: (value, value, value) -> value
   def zr_ary_aset_at(recv, index, v)
     if zr_modify_frozen_p(recv)
       return zr_frozen_error(recv)
@@ -614,7 +614,7 @@ module Zr::Kern
     zr_ary_store(recv, Machine.load64(out, 0), v)
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_ary_push_m(recv, argc, argv, cref, blk)
     if zr_modify_frozen_p(recv)
       return zr_frozen_error(recv)
@@ -627,14 +627,13 @@ module Zr::Kern
     recv
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
   # The stack operations of Array: `pop`, `shift` and `unshift` (`first`
   # and `last` are Ruby, in lib/zr/runtime/core/array.rb). This code reads the
   # count of `pop(n)` and `shift(n)` (zr_ary_count), so a call with no
   # count is only a few loads. A shift does not move the elements. It
   # moves `ptr` past the first element. An unshift uses that gap again,
   # and zr_ary_reserve closes it.
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_ary_pop(recv, argc, argv, cref, blk)
     if zr_modify_frozen_p(recv)
       return zr_frozen_error(recv)
@@ -656,7 +655,7 @@ module Zr::Kern
     taken
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_ary_shift(recv, argc, argv, cref, blk)
     if zr_modify_frozen_p(recv)
       return zr_frozen_error(recv)
@@ -681,7 +680,7 @@ module Zr::Kern
 
   # `reverse!` in place, and the reversed copy that `reverse` and
   # `reverse_each` use.
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_ary_reverse_bang(recv, argc, argv, cref, blk)
     if zr_modify_frozen_p(recv)
       return zr_frozen_error(recv)
@@ -699,7 +698,7 @@ module Zr::Kern
     recv
   end
 
-  sig [Value] => Value
+  #: (value) -> value
   def zr_ary_reversed(a)
     n = RArray.len(a)
     out = zr_ary_new(n)
@@ -714,14 +713,14 @@ module Zr::Kern
     out
   end
 
-  sig [Value, Word] => Void
+  #: (value, word) -> void
   def zr_ary_drop_front(a, k)
     RArray.set_ptr(a, RArray.ptr(a) + (k * 8))
     RArray.set_capa(a, RArray.capa(a) - k)
     RArray.set_len(a, RArray.len(a) - k)
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_ary_unshift_m(recv, argc, argv, cref, blk)
     if zr_modify_frozen_p(recv)
       return zr_frozen_error(recv)
@@ -745,7 +744,7 @@ module Zr::Kern
 
   # Writes the count for `pop(n)` and `shift(n)` into `out`, limited to
   # the `n` elements that there are.
-  sig [Word, Ptr, Word, Ptr] => Value
+  #: (word, ptr, word, ptr) -> value
   def zr_ary_count(argc, argv, n, out)
     if argc != 1
       return zr_wrong_arity_range(argc, 0, 1)
@@ -762,22 +761,22 @@ module Zr::Kern
     Machine.value(QNIL)
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_ary_length(recv, argc, argv, cref, blk)
     zr_fix(RArray.len(recv))
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_ary_empty_p(recv, argc, argv, cref, blk)
     zr_bool(RArray.len(recv) == 0)
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_ary_first(recv, argc, argv, cref, blk)
     zr_ary_at(recv, 0)
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_ary_last(recv, argc, argv, cref, blk)
     zr_ary_at(recv, 0 - 1)
   end
@@ -787,7 +786,7 @@ module Zr::Kern
   # element, and each later element is appended to it, as inspect_ary
   # does. The results of rb_inspect are always compatible, so no pair
   # causes an error.
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_ary_inspect(recv, argc, argv, cref, blk)
     if RArray.len(recv) == 0
       return zr_usascii_str_new(Machine.bytes("[]"), 2)
@@ -825,7 +824,7 @@ module Zr::Kern
   # to the conversion `conv` (to_ary for Array#==, to_hash for Hash#==),
   # `other == recv` decides, as rb_ary_equal and rb_hash_equal do. Else
   # false.
-  sig [Value, Value, Word] => Value
+  #: (value, value, word) -> value
   def zr_eq_by_conversion(recv, other, conv)
     slot = Machine.slot(8)
     Machine.store64(slot, 0, Machine.word(zr_sym(conv)))
@@ -840,7 +839,7 @@ module Zr::Kern
     zr_bool(r != QNIL && r != QFALSE)
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_ary_eq(recv, argc, argv, cref, blk)
     other = Machine.value(Machine.load64(argv, 0))
     if zr_special_p(other)
@@ -884,7 +883,7 @@ module Zr::Kern
 
   # `recv[i]` as CRuby's opt_aref instruction runs it. An Array or a Hash
   # with its original `[]` is read directly, with no frame for a backtrace.
-  sig [Value, Word, Word, Ptr, Word] => Value
+  #: (value, word, word, ptr, word) -> value
   def zr_opt_aref(recv, mid, argc, argv, mode)
     if !zr_special_p(recv)
       k = RBasic.klass(recv)
@@ -902,7 +901,7 @@ module Zr::Kern
   # with its original methods. These run the builtin body directly, with
   # no frame, as `<<` does. The builtin path (zr_builtin_fn) was a third
   # of the time of `bm_so_lists`, which uses these four on two lists.
-  sig [Value, Word, Word, Ptr, Word] => Value
+  #: (value, word, word, ptr, word) -> value
   def zr_opt_push(recv, mid, argc, argv, mode)
     if argc == 1 && !zr_special_p(recv) && RBasic.klass(recv) == zr_global(G_ARRAY) && (Machine.gates & GATE_PUSH) == 0
       return zr_ary_push_m(recv, argc, argv, Machine.value(QNIL), Machine.value(QNIL))
@@ -910,7 +909,7 @@ module Zr::Kern
     zr_dispatch(0, recv, mid, argc, argv, mode, Machine.value(QNIL))
   end
 
-  sig [Value, Word, Word, Ptr, Word] => Value
+  #: (value, word, word, ptr, word) -> value
   def zr_opt_pop(recv, mid, argc, argv, mode)
     if argc == 0 && !zr_special_p(recv) && RBasic.klass(recv) == zr_global(G_ARRAY) && (Machine.gates & GATE_POP) == 0
       return zr_ary_pop(recv, argc, argv, Machine.value(QNIL), Machine.value(QNIL))
@@ -918,7 +917,7 @@ module Zr::Kern
     zr_dispatch(0, recv, mid, argc, argv, mode, Machine.value(QNIL))
   end
 
-  sig [Value, Word, Word, Ptr, Word] => Value
+  #: (value, word, word, ptr, word) -> value
   def zr_opt_shift(recv, mid, argc, argv, mode)
     if argc == 0 && !zr_special_p(recv) && RBasic.klass(recv) == zr_global(G_ARRAY) && (Machine.gates & GATE_SHIFT) == 0
       return zr_ary_shift(recv, argc, argv, Machine.value(QNIL), Machine.value(QNIL))
@@ -926,7 +925,7 @@ module Zr::Kern
     zr_dispatch(0, recv, mid, argc, argv, mode, Machine.value(QNIL))
   end
 
-  sig [Value, Word, Word, Ptr, Word] => Value
+  #: (value, word, word, ptr, word) -> value
   def zr_opt_empty_p(recv, mid, argc, argv, mode)
     if argc == 0 && !zr_special_p(recv) && RBasic.klass(recv) == zr_global(G_ARRAY) && (Machine.gates & GATE_EMPTY_P) == 0
       return zr_bool(RArray.len(recv) == 0)
@@ -936,7 +935,7 @@ module Zr::Kern
 
   # `recv[k] = v`, the same way: an Array for an Integer index, a Hash for
   # all keys.
-  sig [Value, Word, Word, Ptr, Word] => Value
+  #: (value, word, word, ptr, word) -> value
   def zr_opt_aset(recv, mid, argc, argv, mode)
     if argc == 2 && !zr_special_p(recv)
       k = RBasic.klass(recv)
@@ -952,7 +951,7 @@ module Zr::Kern
 
   # Returns the Array for a multiple assignment: the value if it is an
   # Array, its `to_ary` if it has one, else an Array of the value.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_masgn_ary(v)
     if !zr_special_p(v) && zr_type(v) == T_ARRAY
       return v
@@ -976,7 +975,7 @@ module Zr::Kern
 
   # `a, *rest, b = ary`: the elements between the first `nlefts` and the
   # last `nrights`, or an empty Array.
-  sig [Value, Word, Word] => Value
+  #: (value, word, word) -> value
   def zr_masgn_rest(ary, nlefts, nrights)
     from = nlefts
     to = RArray.len(ary) - nrights
@@ -995,7 +994,7 @@ module Zr::Kern
   # The value of the `i`th of the `nrights` targets after a rest: from
   # the end when the Array is long enough, else immediately after the
   # `nlefts`.
-  sig [Value, Word, Word, Word] => Value
+  #: (value, word, word, word) -> value
   def zr_masgn_right(ary, nlefts, nrights, i)
     start = RArray.len(ary) - nrights
     if start < nlefts
@@ -1007,7 +1006,7 @@ module Zr::Kern
   # `a[beg, len] = vals`, the one edit that all mutations use. It removes
   # the `len` elements from `beg` and puts the elements of `vals` in their
   # place. A start after the end first fills with nil.
-  sig [Value, Value, Value, Value] => Value
+  #: (value, value, value, value) -> value
   def zr_ary_splice(a, beg_v, len_v, vals)
     if zr_modify_frozen_p(a)
       return zr_frozen_error(a)
@@ -1077,12 +1076,12 @@ module Zr::Kern
 
   # Moves bytes between overlapping ranges, in the order that keeps them
   # correct.
-  sig [Ptr, Ptr, Word] => Void
+  #: (ptr, ptr, word) -> void
   def zr_memmove(to, from, n)
     Libc.memmove(to, from, n)
   end
 
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_ary_clear(a, unused)
     if zr_modify_frozen_p(a)
       return zr_frozen_error(a)
@@ -1095,7 +1094,7 @@ module Zr::Kern
   # Integer, or its `to_int`, in the range of a signed 64-bit word. A
   # value past the fixnum range comes back as a bignum. Other values get
   # CRuby's TypeError or RangeError.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_index_operand_m(v)
     if zr_fixnum_p(v)
       return v

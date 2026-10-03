@@ -6,25 +6,25 @@ module Zr::Kern
   Libc.import :arc4random, [] => I32
 
   # The program's NULL-terminated arguments, which main received.
-  sig [I32, Ptr] => Ptr
+  #: (i32, ptr) -> ptr
   def zr_os_argv(argc, argv)
     argv
   end
 
   # RUBY_PLATFORM, as ruby 4.0.7 built for this OS and machine gives it.
-  sig [] => Value
+  #: () -> value
   def zr_os_ruby_platform
     zr_str_new(Machine.bytes("arm64-darwin23"), 14)
   end
 
   # The environment's NULL-terminated table of `NAME=value` strings.
-  sig [] => Ptr
+  #: () -> ptr
   def zr_os_environ
     Machine.ptr(Machine.load64(Libc._NSGetEnviron(), 0))
   end
 
   # 32 random bits from the system.
-  sig [] => Word
+  #: () -> word
   def zr_os_random
     Machine.u32(Libc.arc4random()) & 4294967295
   end
@@ -34,7 +34,7 @@ module Zr::Kern
   # gid at 20, gecos at 40, dir at 48, shell at 56, then the password
   # change time at 24, the login class at 32 and the account expiry at 64.
   # The two times are time_t, which INT2NUM converts as an int.
-  sig [Ptr] => Value
+  #: (ptr) -> value
   def zr_os_passwd_row(pw)
     if pw == 0
       return Machine.value(QNIL)
@@ -54,7 +54,7 @@ module Zr::Kern
   end
 
   # `pw_dir`, 48 bytes into darwin's passwd.
-  sig [Ptr] => Ptr
+  #: (ptr) -> ptr
   def zr_os_passwd_dir(pw)
     Machine.ptr(Machine.load64(pw, 48))
   end
@@ -69,7 +69,7 @@ module Zr::Kern
   # The machine's physical memory, for the limit on heap growth
   # (`zr_machine_bytes`, lib/zr/runtime/kernel/heap.rb). Returns 0 if the host does
   # not give it: sysconf returns -1 for a name that it does not know.
-  sig [] => Word
+  #: () -> word
   def zr_os_machine_bytes
     pages = Libc.sysconf(Machine.i32(SC_PHYS_PAGES))
     size = Libc.sysconf(Machine.i32(SC_PAGESIZE))
@@ -93,7 +93,7 @@ module Zr::Kern
   SPAWN_ACTIONS_LEN = 16
   SPAWN_ATTR_LEN = 16
 
-  sig [Value, Value, Value, Value, Value] => Value
+  #: (value, value, value, value, value) -> value
   def zr_os_spawn(words, dups, closes, env, chdir)
     zr_posix_spawn(words, dups, closes, env, chdir, SPAWN_CLOEXEC_DEFAULT)
   end
@@ -108,7 +108,7 @@ module Zr::Kern
 
   # Calls the function that sets a single id, given by its Symbol. Returns
   # 0, or the negative errno.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_os_setid(call, id)
     mid = zr_sym2id(call)
     n = Machine.i32(zr_fix2long(id))
@@ -126,7 +126,7 @@ module Zr::Kern
     zr_io_status(Libc.setrgid(n))
   end
 
-  sig [] => Value
+  #: () -> value
   def zr_os_issetugid
     zr_bool(Libc.issetugid() != Machine.i32(0))
   end

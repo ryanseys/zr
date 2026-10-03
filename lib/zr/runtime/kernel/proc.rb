@@ -47,7 +47,7 @@ module Zr::Kern
   PENDING_RETURN = 2
   PENDING_THROW = 3
 
-  sig [Value, Word, Ptr] => Value
+  #: (value, word, ptr) -> value
   def zr_env_new(parent, n, names)
     e = zr_alloc(T_ENV, Machine.value(QNIL), REnv.size)
     REnv.set_parent(e, parent)
@@ -68,7 +68,7 @@ module Zr::Kern
   # Returns the Env `env` as a cell. A cell returns itself. A frame
   # record's image becomes a cell once, parents first, and after that its
   # frame reads and writes the slots of the cell.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_env_escape(env)
     if env == QNIL || (RBasic.flags(env) & FL_STACK) == 0
       return env
@@ -99,7 +99,7 @@ module Zr::Kern
   end
 
   # Returns the Env that is `depth` parents up from `env`.
-  sig [Value, Word] => Value
+  #: (value, word) -> value
   def zr_env_up(env, depth)
     while depth > 0
       env = REnv.parent(env)
@@ -108,7 +108,7 @@ module Zr::Kern
     env
   end
 
-  sig [Value, Word] => Value
+  #: (value, word) -> value
   def zr_env_get(env, i)
     Machine.value(Machine.load64(REnv.slots(env) + (i * 8), 0))
   end
@@ -126,21 +126,21 @@ module Zr::Kern
   # This is what `vm_env_write_slowpath` (vm_insnhelper.c:514 at 4.0.7)
   # does: it remembers `VM_ENV_ENVVAL(ep)`, which is the cell, never the
   # frame. A heap Env has QNIL in `cell` and is its own cell.
-  sig [Value, Value] => Void
+  #: (value, value) -> void
   def zr_env_barrier(env, v)
     cell = REnv.cell(env)
     zr_write_barrier(cell == QNIL ? env : cell, v)
   end
   inline :zr_env_barrier
 
-  sig [Value, Word, Value] => Value
+  #: (value, word, value) -> value
   def zr_env_set(env, i, v)
     Machine.store64(REnv.slots(env) + (i * 8), 0, Machine.word(v))
     zr_env_barrier(env, v)
     v
   end
 
-  sig [Value] => Void
+  #: (value) -> void
   def zr_mark_env(e)
     zr_mark(REnv.parent(e))
     n = REnv.nslots(e)
@@ -151,7 +151,7 @@ module Zr::Kern
     end
   end
 
-  sig [Value] => Void
+  #: (value) -> void
   def zr_mark_proc(p)
     zr_mark(RProc.env(p))
     zr_mark(RProc.self(p))
@@ -164,7 +164,7 @@ module Zr::Kern
   end
 
   # Returns the self of a block.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_proc_self_m(p)
     RProc.self(p)
   end
@@ -172,7 +172,7 @@ module Zr::Kern
   # Returns the same block with a different self, which is what a Ractor
   # runs. The body of the block runs with the ractor as self, and no frame
   # is between the call and the body where a report would show one.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_proc_rebind_m(p, self_)
     RProc.set_self(p, self_)
     p
@@ -181,7 +181,7 @@ module Zr::Kern
   # Returns the outer locals that a block uses, as Symbols. A Ractor
   # refuses a block that uses one, and gives their names. A block that
   # uses none has no table.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_proc_captures_m(p)
     out = zr_ary_new(4)
     table = zr_proc_captures_table(p)
@@ -200,7 +200,7 @@ module Zr::Kern
   # Returns the same locals as `[name, written, rebound]` records: whether
   # the block writes the local, and whether the scope that owns it binds it
   # more than once. `Ractor.shareable_proc` refuses a block for either.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_proc_capture_rows_m(p)
     out = zr_ary_new(4)
     table = zr_proc_captures_table(p)
@@ -225,7 +225,7 @@ module Zr::Kern
   # Returns a copy of `p` that any ractor can call, with `self_` as self.
   # A literal block becomes a lambda when `lambda` is true. A Proc that
   # was passed in keeps its kind, as ruby's `shareable_lambda(&pr)` does.
-  sig [Value, Value, Value] => Value
+  #: (value, value, value) -> value
   def zr_proc_isolated_m(p, self_, lambda)
     copy = zr_copy_cell(p)
     if copy == QUNDEF
@@ -240,7 +240,7 @@ module Zr::Kern
   end
 
   # A native Proc has no meta, and no outer locals.
-  sig [Value] => Ptr
+  #: (value) -> ptr
   def zr_proc_captures_table(p)
     meta = RProc.meta(p)
     if meta == 0
@@ -253,7 +253,7 @@ module Zr::Kern
   # descriptor becomes a Proc in its own cell, its own block first, so a
   # Proc keeps no descriptor. When code keeps the same descriptor two
   # times, it makes two Procs.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_block_proc(b)
     if b == QNIL || (RBasic.flags(b) & FL_STACK) == 0
       return b
@@ -279,7 +279,7 @@ module Zr::Kern
   # the Proc. A Proc made where refinements are active keeps their list in
   # its cref. Its send looks up the name under them wherever the Proc is
   # called, as ruby's refined Symbol#to_proc does.
-  sig [Value, Word, Ptr, Value] => Value
+  #: (value, word, ptr, value) -> value
   def zr_symbol_block(p, argc, argv, blk)
     if argc == 0
       return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("no receiver given"), 17)
@@ -296,7 +296,7 @@ module Zr::Kern
 
   # Returns the Proc of `sym` under the refinements that are active in the
   # task, or the shared Proc when none are active.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_sym_to_proc_here(sym)
     row = Task.refine(zr_task())
     if row == QNIL
@@ -307,7 +307,7 @@ module Zr::Kern
     p
   end
 
-  sig [Value] => Value
+  #: (value) -> value
   def zr_sym_to_proc(sym)
     # One lambda for each Symbol for the life of the program, as ruby's
     # rb_sym_to_proc returns. A table that the collector roots keeps them.
@@ -335,7 +335,7 @@ module Zr::Kern
   # so a program's Array#each does not run inside it. No code of the
   # program runs in the compiler; another thread that runs meanwhile has
   # a task of its own.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_eval_compiling_m(on)
     slot = Machine.static(:eval_task, 8)
     was = Machine.load64(slot, 0)
@@ -353,7 +353,7 @@ module Zr::Kern
   # reads each element without a splat Array of its own. `args` go to
   # `each`, or nil. The adapter is a stack image of a Proc whose self is
   # `blk`. An `each` that keeps its block gets a cell (zr_block_proc).
-  sig [Value, Value, Value] => Value
+  #: (value, value, value) -> value
   def zr_enum_each(recv, args, blk)
     d = Machine.slot(RProc.size)
     p = Machine.value(d)
@@ -382,7 +382,7 @@ module Zr::Kern
   # The `each` of an Enumerable method: sent by name, as rb_block_call
   # sends it, except inside eval's compiler, which takes the core's own
   # (zr_eval_compiling_m).
-  sig [Value, Word, Ptr, Value] => Value
+  #: (value, word, ptr, value) -> value
   def zr_enum_send_each(recv, argc, argv, p)
     mode = 0
     if Machine.load64(Machine.static(:eval_task, 8), 0) == Machine.load64(zr_current_task_slot(), 0)
@@ -397,7 +397,7 @@ module Zr::Kern
   # first of several. Then `inner` gets the step as one value and the
   # block's result. The adapter is on the stack, with `user` in its block
   # slot and `inner` as its self, so a step allocates nothing.
-  sig [Value, Value, Value, Value] => Value
+  #: (value, value, value, value) -> value
   def zr_enum_each_values(recv, args, user, inner)
     d = Machine.slot(RProc.size)
     p = Machine.value(d)
@@ -423,7 +423,7 @@ module Zr::Kern
     zr_enum_send_each(recv, RArray.len(args), RArray.ptr(args), p)
   end
 
-  sig [Value, Word, Ptr, Value] => Value
+  #: (value, word, ptr, value) -> value
   def zr_enum_values_block(p, argc, argv, blk)
     r = zr_yield(RProc.blk(p), argc, argv)
     return r if r == QUNDEF
@@ -436,7 +436,7 @@ module Zr::Kern
     zr_yield2(RProc.self(p), x, r)
   end
 
-  sig [Value, Word, Ptr, Value] => Value
+  #: (value, word, ptr, value) -> value
   def zr_enum_each_block(p, argc, argv, blk)
     if argc == 1
       return zr_yield1(RProc.self(p), Machine.value(Machine.load64(argv, 0)))
@@ -458,7 +458,7 @@ module Zr::Kern
   # element: 2,000,000 elements take 242 ms that way and 65 ms here.
   # The self of the adapter is the pair [Array, block], so the collector
   # already finds both.
-  sig [Value, Value, Value] => Value
+  #: (value, value, value) -> value
   def zr_enum_collect(recv, args, blk)
     kept = zr_ary_new(2)
     zr_ary_push(kept, zr_ary_new(4))
@@ -480,7 +480,7 @@ module Zr::Kern
   # or more values, as the `each` of a Hash requires of its block.
   # A Method as the block (`&method(:m)`) asks by the Method's required
   # count, as CRuby's method proc takes the yielded values.
-  sig [Value, Value] => Void
+  #: (value, value) -> void
   def zr_block_asks_pair(p, blk)
     need = zr_block_min_params(blk)
     if RProc.meta(blk) == 0 && RProc.fn(blk) == Machine.addr(:zr_method_block)
@@ -495,7 +495,7 @@ module Zr::Kern
 
   # Returns how many values `blk` requires, or 0 for a block with no
   # parameters of its own (from a Symbol or a Method).
-  sig [Value] => Word
+  #: (value) -> word
   def zr_block_min_params(blk)
     if RProc.meta(blk) == 0
       return 0
@@ -509,7 +509,7 @@ module Zr::Kern
   # lambda of two or more parameters gets them spread, and any other block
   # gets one Array (rb_yield_force_blockarg). A Hash yields several values
   # at a time, as rb_block_call2 with RB_BLOCK_NO_USE_PACKED_ARGS makes it do.
-  sig [Value, Value, Value, Value] => Value
+  #: (value, value, value, value) -> value
   def zr_enum_each_asked(recv, args, blk, ask)
     kept = zr_ary_new(2)
     zr_ary_push(kept, blk)
@@ -523,7 +523,7 @@ module Zr::Kern
     zr_enum_send_each(recv, RArray.len(args), RArray.ptr(args), p)
   end
 
-  sig [Value, Word, Ptr, Value] => Value
+  #: (value, word, ptr, value) -> value
   def zr_enum_asked_block(p, argc, argv, blk)
     kept = RProc.self(p)
     user = zr_ary_at(kept, 0)
@@ -547,7 +547,7 @@ module Zr::Kern
     zr_yield2(zr_ary_at(kept, 1), x, r)
   end
 
-  sig [Value, Word, Ptr, Value] => Value
+  #: (value, word, ptr, value) -> value
   def zr_enum_collect_block(p, argc, argv, blk)
     kept = RProc.self(p)
     v = zr_yield(zr_ary_at(kept, 1), argc, argv)
@@ -576,7 +576,7 @@ module Zr::Kern
   # `out` gets the values as the element was yielded, not packed, so the
   # result of the enumerator does not change: the next stage packs them
   # again if it must.
-  sig [Value, Word, Value, Value] => Value
+  #: (value, word, value, value) -> value
   def zr_lazy_stage(recv, kind, blk, out)
     kept = zr_ary_new(3)
     zr_ary_push(kept, zr_fix(kind))
@@ -592,7 +592,7 @@ module Zr::Kern
   # and called after the call that took it returns, so a `break` in it is
   # the LocalJumpError that ruby raises. If `zr_same_block` unwrapped the
   # adapter, the `break` would leave the walk instead.
-  sig [Value, Word, Ptr, Value] => Value
+  #: (value, word, ptr, value) -> value
   def zr_lazy_stage_block(p, argc, argv, blk)
     kept = RProc.self(p)
     v = zr_yield(zr_ary_at(kept, 1), argc, argv)
@@ -623,29 +623,29 @@ module Zr::Kern
     Machine.value(QNIL)
   end
 
-  sig [Value, Value, Value] => Value
+  #: (value, value, value) -> value
   def zr_lazy_map(recv, blk, out)
     zr_lazy_stage(recv, LAZY_MAP, blk, out)
   end
 
-  sig [Value, Value, Value] => Value
+  #: (value, value, value) -> value
   def zr_lazy_select(recv, blk, out)
     zr_lazy_stage(recv, LAZY_SELECT, blk, out)
   end
 
-  sig [Value, Value, Value] => Value
+  #: (value, value, value) -> value
   def zr_lazy_reject(recv, blk, out)
     zr_lazy_stage(recv, LAZY_REJECT, blk, out)
   end
 
-  sig [Value, Value, Value] => Value
+  #: (value, value, value) -> value
   def zr_lazy_filter_map(recv, blk, out)
     zr_lazy_stage(recv, LAZY_FILTER_MAP, blk, out)
   end
 
   # Returns a lambda whose body is the kernel function `fn`, with `self_`
   # as the object it works on: the Proc of a Symbol or a Method.
-  sig [Ptr, Value] => Value
+  #: (ptr, value) -> value
   def zr_native_proc(fn, self_)
     p = zr_alloc(T_PROC, zr_global(G_PROC), RProc.size)
     RProc.set_fn(p, fn)
@@ -667,7 +667,7 @@ module Zr::Kern
 
   # `-> { }`: the Proc of the literal, a lambda, with no call site that a
   # `break` can reach.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_proc_lambda(p)
     p = zr_block_proc(p)
     RProc.set_lambda(p, 1)
@@ -676,7 +676,7 @@ module Zr::Kern
   end
 
   # `Proc#call`: calls the block with the arguments and a block of its own.
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_proc_call(recv, argc, argv, cref, blk)
     Block.call(RProc.fn(recv), recv, argc, argv, blk)
   end
@@ -687,7 +687,7 @@ module Zr::Kern
   # runs as Proc#call would run it. Otherwise the code makes the Proc and
   # sends `call` to it, as to any receiver. Nil gets the send, which raises
   # as usual.
-  sig [Value, Word, Word, Ptr, Word] => Value
+  #: (value, word, word, ptr, word) -> value
   def zr_opt_block_call(recv, mid, argc, argv, mode)
     if recv != QNIL && (Machine.gates & GATE_PROC_CALL) == 0 && RBasic.klass(recv) == zr_global(G_PROC)
       return Block.call(RProc.fn(recv), recv, argc, argv, Machine.value(QNIL))
@@ -700,7 +700,7 @@ module Zr::Kern
   # that a program wrote, and nothing for a core-made or Method Proc.
   # Returns false when the inspect of the Symbol raised; the exception is
   # then pending.
-  sig [Ptr, Value] => Bool
+  #: (ptr, value) -> bool
   def zr_buf_block_where(b, blk)
     meta = RProc.meta(blk)
     if RProc.fn(blk) == Machine.addr(:zr_symbol_block)
@@ -721,7 +721,7 @@ module Zr::Kern
   end
 
   # Returns `#<Proc:0x... file:line (lambda)>`.
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_proc_inspect(recv, argc, argv, cref, blk)
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
@@ -737,14 +737,14 @@ module Zr::Kern
     zr_buf_take_at(b, ENC_BINARY)
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_proc_lambda_p(recv, argc, argv, cref, blk)
     zr_bool(RProc.lambda(recv) != 0)
   end
 
   # `proc { }` and `Proc.new { }`: the Proc of the block, with no call site
   # that a `break` can reach after this.
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_kernel_proc(recv, argc, argv, cref, blk)
     if blk == QNIL
       return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("tried to create Proc object without a block"), 43)
@@ -757,7 +757,7 @@ module Zr::Kern
   # `Proc.new { }`: as `proc`, and the arguments go to `initialize`, as
   # rb_proc_s_new passes them. For a subclass, it returns a copy of the
   # block as an instance of the subclass, as proc_new does.
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_proc_s_new(recv, argc, argv, cref, blk)
     p = zr_kernel_proc(recv, 0, argv, cref, blk)
     return p if p == QUNDEF
@@ -775,7 +775,7 @@ module Zr::Kern
   # `return` leaves the lambda itself. A Proc passed with `&` must already
   # be a lambda (a `->`, a Method's, a Symbol's), and comes back unchanged.
   # It refuses all other Procs.
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_kernel_lambda(recv, argc, argv, cref, blk)
     if blk == QNIL
       return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("tried to create Proc object without a block"), 43)
@@ -794,7 +794,7 @@ module Zr::Kern
   # `&value` at a call: nil passes no block. A Proc passes itself, marked as
   # passed (it is not a literal block, which `lambda` refuses). A Symbol
   # passes its Proc. Any other value must respond to `to_proc`.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_block_pass(v)
     if v == QNIL || zr_symbol_p(v)
       if zr_symbol_p(v)
@@ -834,7 +834,7 @@ module Zr::Kern
   # loop that makes it, so this one place yields to the scheduler for every
   # kernel iterator. Thus a thread that walks a large table yields to the
   # scheduler as a compiled loop does, and a kill reaches it.
-  sig [Value, Word, Ptr] => Value
+  #: (value, word, ptr) -> value
   def zr_yield(blk, argc, argv)
     if blk == QNIL
       # No block takes the keywords the caller flagged.
@@ -850,14 +850,14 @@ module Zr::Kern
     Block.call(RProc.fn(blk), blk, argc, argv, Machine.value(QNIL))
   end
 
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_yield1(blk, v)
     slot = Machine.slot(8)
     Machine.store64(slot, 0, Machine.word(v))
     zr_yield(blk, 1, slot)
   end
 
-  sig [Value, Value, Value] => Value
+  #: (value, value, value) -> value
   def zr_yield2(blk, a, b)
     slot = Machine.slot(16)
     Machine.store64(slot, 0, Machine.word(a))
@@ -875,7 +875,7 @@ module Zr::Kern
   # default runs. Thus a default that changes the Array changes nothing the
   # block was called with. Returns the argument count (a fixnum) to read
   # from `argv_out`, or QUNDEF when `to_ary` raised.
-  sig [Word, Ptr, Word, Ptr, Ptr] => Value
+  #: (word, ptr, word, ptr, ptr) -> value
   def zr_block_args(argc, argv, spread, argv_out, keep)
     if spread != 0 && argc == 1
       v = Machine.value(Machine.load64(argv, 0))
@@ -910,7 +910,7 @@ module Zr::Kern
 
   # Returns the Array `a` as the arguments of a block: rooted at `keep`,
   # and copied first when the defaults of the block could change it.
-  sig [Value, Word, Ptr, Ptr] => Value
+  #: (value, word, ptr, ptr) -> value
   def zr_block_spread(a, spread, argv_out, keep)
     Machine.store64(keep, 0, Machine.word(a))
     if spread == 2
@@ -924,7 +924,7 @@ module Zr::Kern
   # Reads the arguments again after Ruby code ran between two bindings.
   # The `to_ary` of a destructured parameter can grow or empty the spread
   # Array, so the code reads its buffer and length again.
-  sig [Value, Ptr] => Ptr
+  #: (value, ptr) -> ptr
   def zr_block_argv(kept, argv)
     if kept == QNIL
       return argv
@@ -932,7 +932,7 @@ module Zr::Kern
     RArray.ptr(kept)
   end
 
-  sig [Value, Word] => Word
+  #: (value, word) -> word
   def zr_block_argc(kept, argc)
     if kept == QNIL || RArray.len(kept) >= argc
       return argc
@@ -944,7 +944,7 @@ module Zr::Kern
   # other frames at that address. A frame gets its serial the first time
   # code asks for it, because most frames are never a home. A frame with
   # no serial has 0, which no home has.
-  sig [Ptr] => Word
+  #: (ptr) -> word
   def zr_frame_serial(rec)
     if rec == 0
       return 0
@@ -961,14 +961,14 @@ module Zr::Kern
 
   # Returns the name that called the method frame `rec`, or 0 for a frame
   # that is not a method or whose name is the name in its meta.
-  sig [Ptr] => Word
+  #: (ptr) -> word
   def zr_frame_mid(rec)
     e = Frame.entry(rec)
     e == 0 ? 0 : MEntry.mid(e)
   end
 
   # Whether the frame `home` with `serial` is still on the stack.
-  sig [Ptr, Word] => Bool
+  #: (ptr, word) -> bool
   def zr_frame_live(home, serial)
     rec = Task.top(zr_task())
     while rec != 0
@@ -980,7 +980,7 @@ module Zr::Kern
     false
   end
 
-  sig [Word, Value, Ptr, Word] => Value
+  #: (word, value, ptr, word) -> value
   def zr_signal(kind, value, home, site)
     t = zr_task()
     Task.set_pending_kind(t, kind)
@@ -992,7 +992,7 @@ module Zr::Kern
 
   # Returns a LocalJumpError with its reason (`:break`, `:return`,
   # `:noreason`) and the value of the jump.
-  sig [Ptr, Word, Word, Value] => Value
+  #: (ptr, word, word, value) -> value
   def zr_local_jump_error(bytes, len, reason, v)
     exc = zr_exc_new(zr_global(G_LOCAL_JUMP_ERROR), zr_str_new(bytes, len))
     zr_ivar_set(exc, Machine.id(:@exit_value), v)
@@ -1001,7 +1001,7 @@ module Zr::Kern
   end
 
   # `break v` in the block `p`.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_break(p, v)
     unless (RBasic.flags(p) & FL_ISOLATED) == 0 && zr_frame_live(RProc.home(p), RProc.serial(p)) && zr_block_call_live(p)
       return zr_local_jump_error(Machine.bytes("break from proc-closure"), 23, Machine.id(:break), v)
@@ -1019,7 +1019,7 @@ module Zr::Kern
   # block when its block is this block: this Proc, or one made from the
   # same literal in the same run of `home`, as `instance_exec` makes to run
   # the block under a different self.
-  sig [Value] => Bool
+  #: (value) -> bool
   def zr_block_call_live(p)
     home = RProc.home(p)
     rec = Task.top(zr_task())
@@ -1049,7 +1049,7 @@ module Zr::Kern
   # place of the block that they give values to, so a `break` in that block
   # leaves the `each` that got the adapter. One adapter keeps its block as
   # its self, and the other keeps it second in a pair.
-  sig [Value, Value] => Bool
+  #: (value, value) -> bool
   def zr_same_block(given, p)
     if given == p
       return true
@@ -1067,7 +1067,7 @@ module Zr::Kern
   end
 
   # `return v` in the block `p`: leaves the method that contains the block.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_return(p, v)
     # A shareable Proc has no link to the method that contains it, so there
     # is no method for its `return` to leave.
@@ -1085,7 +1085,7 @@ module Zr::Kern
 
   # At a call site with a block: returns the value of the pending break
   # when it is for this site, else undef (the pending unwind stays).
-  sig [Ptr, Word] => Value
+  #: (ptr, word) -> value
   def zr_catch_break(rec, site)
     t = zr_task()
     if Task.pending_kind(t) == PENDING_BREAK && Task.pending_home(t) == rec && Task.pending_site(t) == site
@@ -1103,13 +1103,13 @@ module Zr::Kern
   # when they end at the toplevel or a class body, or the method no longer
   # runs, the return raises LocalJumpError, as ruby's does. An eval whose
   # scope is not known leaves the unwind to the nearest method.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_return_here(v)
     zr_return_out(Task.top(zr_task()), v)
   end
 
   # The same, for a `return` in the scope of the frame `rec`.
-  sig [Ptr, Value] => Value
+  #: (ptr, value) -> value
   def zr_return_out(rec, v)
     meta = FrameMeta.parent(Frame.meta(rec))
     in_block = false
@@ -1132,7 +1132,7 @@ module Zr::Kern
   end
 
   # Whether a frame from `rec` down runs the function of `meta`.
-  sig [Ptr, Ptr] => Bool
+  #: (ptr, ptr) -> bool
   def zr_meta_running(rec, meta)
     while rec != 0
       if Frame.meta(rec) == meta
@@ -1145,7 +1145,7 @@ module Zr::Kern
 
   # In the landing block of a method that contains an eval: returns the
   # value of the pending return when it has no home of its own, else undef.
-  sig [] => Value
+  #: () -> value
   def zr_catch_return_here
     t = zr_task()
     if Task.pending_kind(t) == PENDING_RETURN && Task.pending_home(t) == 0
@@ -1159,7 +1159,7 @@ module Zr::Kern
 
   # In the landing block of a method: returns the value of the pending
   # return when it is for this method, else undef.
-  sig [Ptr] => Value
+  #: (ptr) -> value
   def zr_catch_return(rec)
     t = zr_task()
     if Task.pending_kind(t) == PENDING_RETURN && Task.pending_home(t) == rec
@@ -1172,13 +1172,13 @@ module Zr::Kern
   end
 
   # `block_given?` reads the block of the frame that called it.
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_block_given_p(recv, argc, argv, cref, blk)
     caller = Frame.prev(Task.top(zr_task()))
     zr_bool(Frame.blk(caller) != QNIL)
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_int_times(recv, argc, argv, cref, blk)
     if !zr_fixnum_p(recv)
       return zr_big_route_blk(recv, Machine.id(:times), argc, argv, blk)
@@ -1201,7 +1201,7 @@ module Zr::Kern
 
   # Whether Integer#< is ruby's own, which num_step_negative_p asks
   # (method_basic_p) before it reads a step's sign natively.
-  sig [] => Value
+  #: () -> value
   def zr_int_lt_basic_p
     zr_bool((Machine.gates & GATE_LT) == 0)
   end
@@ -1209,7 +1209,7 @@ module Zr::Kern
   # Integer#times as <internal:numeric> writes it, for a program that
   # redefined Integer#< or Integer#succ: `while i < self`, then
   # `i = i.succ`, each a send.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_int_times_sent(recv, blk)
     slot = Machine.slot(8)
     i = zr_fix(0)
@@ -1231,7 +1231,7 @@ module Zr::Kern
   # Writes the bound of `upto` (dir 1) or `downto` (dir -1) to `out`. A
   # fixnum stays as it is, and a Float becomes its floor or ceiling. Any
   # other value coerces or fails, as an Integer operand does.
-  sig [Value, Ptr, Ptr, Word] => Value
+  #: (value, ptr, ptr, word) -> value
   def zr_int_bound(recv, argv, out, dir)
     other = Machine.value(Machine.load64(argv, 0))
     if zr_float_p(other)
@@ -1272,7 +1272,7 @@ module Zr::Kern
   # Returns the size of `upto` or `downto`: the number of steps to the
   # bound, exact for a Bignum, and 0 on the wrong side. Returns nil for a
   # bound that is not a number.
-  sig [Value, Word, Ptr, Word] => Value
+  #: (value, word, ptr, word) -> value
   def zr_int_step_size(recv, argc, argv, dir)
     if argc != 1
       return Machine.value(QNIL)
@@ -1299,7 +1299,7 @@ module Zr::Kern
     zr_fix(n < 0 ? 0 : n)
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_int_upto(recv, argc, argv, cref, blk)
     if !zr_fixnum_p(recv)
       return zr_big_route_blk(recv, Machine.id(:upto), argc, argv, blk)
@@ -1320,7 +1320,7 @@ module Zr::Kern
     recv
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_int_downto(recv, argc, argv, cref, blk)
     if !zr_fixnum_p(recv)
       return zr_big_route_blk(recv, Machine.id(:downto), argc, argv, blk)
@@ -1344,7 +1344,7 @@ module Zr::Kern
   # A builtin iterator called with no block: returns
   # `to_enum(:name, *args)`, with the count of values that it would yield,
   # or nil when that count is unknown.
-  sig [Value, Word, Word, Ptr, Value] => Value
+  #: (value, word, word, ptr, value) -> value
   def zr_enum_for(recv, mid, argc, argv, size)
     # A builtin called through an alias (`filter` for `select`, `each_pair`
     # for `each`) returns an enumerator with the name of the alias, as ruby's
@@ -1366,7 +1366,7 @@ module Zr::Kern
 
   # The loop reads the length of the Array again at each step, because the
   # block can change it.
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_ary_each(recv, argc, argv, cref, blk)
     if blk == QNIL
       return zr_enum_for(recv, Machine.id(:each), argc, argv, zr_fix(RArray.len(recv)))
@@ -1390,7 +1390,7 @@ module Zr::Kern
   # `mid` is the builtin that the receiver's class finds. With no
   # refinement in use, the method cache gives the entry; a refined lookup
   # would find the refinement, so the walk does.
-  sig [Ptr, Value, Word, Ptr] => Void
+  #: (ptr, value, word, ptr) -> void
   def zr_iter_enter(recs, recv, mid, meta)
     t = zr_task()
     home = Task.top(t)
@@ -1424,7 +1424,7 @@ module Zr::Kern
 
   # Whether `v` is an Array whose `each` is Array's own. Then an Enumerable
   # method can walk it by index and give the same result as `each`.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_ary_plain_each_p(v)
     if zr_special_p(v) || zr_type(v) != T_ARRAY
       return Machine.value(QFALSE)
@@ -1432,12 +1432,12 @@ module Zr::Kern
     zr_key_builtin_p(v, Machine.id(:each), Machine.addr(:zr_ary_each)) ? Machine.value(QTRUE) : Machine.value(QFALSE)
   end
 
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_ary_each_with_index_m(recv, blk)
     zr_ary_each_with_index(recv, 0, 0, Machine.value(QNIL), blk)
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_ary_each_with_index(recv, argc, argv, cref, blk)
     if blk == QNIL
       return zr_enum_for(recv, Machine.id(:each_with_index), argc, argv, zr_fix(RArray.len(recv)))
@@ -1451,7 +1451,7 @@ module Zr::Kern
     recv
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_ary_each_index(recv, argc, argv, cref, blk)
     if blk == QNIL
       return zr_enum_for(recv, Machine.id(:each_index), argc, argv, zr_fix(RArray.len(recv)))
@@ -1467,7 +1467,7 @@ module Zr::Kern
 
   # `map`: puts the results into a new Array, which the frame keeps rooted
   # through the receiver's slot.
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_ary_map(recv, argc, argv, cref, blk)
     if blk == QNIL
       return zr_enum_for(recv, Machine.id(:map), argc, argv, zr_fix(RArray.len(recv)))
@@ -1485,7 +1485,7 @@ module Zr::Kern
 
   # `collect`: the body of map, and an Enumerator with the name `collect`,
   # as CRuby gives the name that it was called by.
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_ary_collect(recv, argc, argv, cref, blk)
     if blk == QNIL
       return zr_enum_for(recv, Machine.id(:collect), argc, argv, zr_fix(RArray.len(recv)))
@@ -1494,7 +1494,7 @@ module Zr::Kern
   end
 
   # `select`/`reject`: `keep` tells which block results keep the element.
-  sig [Value, Value, Bool] => Value
+  #: (value, value, bool) -> value
   def zr_ary_filter(recv, blk, keep)
     out = zr_ary_new(4)
     i = 0
@@ -1510,7 +1510,7 @@ module Zr::Kern
     out
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_ary_select(recv, argc, argv, cref, blk)
     if blk == QNIL
       return zr_enum_for(recv, Machine.id(:select), argc, argv, zr_fix(RArray.len(recv)))
@@ -1518,7 +1518,7 @@ module Zr::Kern
     zr_ary_filter(recv, blk, true)
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_ary_reject(recv, argc, argv, cref, blk)
     if blk == QNIL
       return zr_enum_for(recv, Machine.id(:reject), argc, argv, zr_fix(RArray.len(recv)))
@@ -1528,7 +1528,7 @@ module Zr::Kern
 
   # Returns the element that a block passed on to `each` sees: the one
   # yielded value, or the several values as an Array.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_enum_value(values)
     if RArray.len(values) == 1
       return zr_ary_at(values, 0)
@@ -1542,7 +1542,7 @@ module Zr::Kern
   # A proc that a core method makes, as `curry` and `>>` do. Its
   # parameters are `[[:rest]]` and its arity is -1, whatever the block
   # behind it takes, as for the procs that CRuby makes in C.
-  sig [] => Ptr
+  #: () -> ptr
   def zr_anonymous_meta
     meta = Machine.static(:anonymous_meta, FrameMeta.size)
     if FrameMeta.params(meta) == 0
@@ -1558,7 +1558,7 @@ module Zr::Kern
     meta
   end
 
-  sig [Value] => Value
+  #: (value) -> value
   def zr_proc_anonymous(p)
     RProc.set_meta(p, zr_anonymous_meta())
     p
@@ -1566,7 +1566,7 @@ module Zr::Kern
 
   # Two Procs are equal when they wrap one block over one scope, as `dup`
   # and `clone` make them.
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_proc_eq(recv, argc, argv, cref, blk)
     other = Machine.value(Machine.load64(argv, 0))
     if zr_special_p(other) || zr_type(other) != T_PROC
@@ -1576,7 +1576,7 @@ module Zr::Kern
             RProc.self(recv) == RProc.self(other) && RProc.lambda(recv) == RProc.lambda(other))
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_proc_hash(recv, argc, argv, cref, blk)
     zr_fix(zr_hash_mix(Machine.word(RProc.fn(recv)) ^ Machine.word(RProc.env(recv))) & 4611686018427387903)
   end

@@ -9,7 +9,7 @@ module Zr::Kern
   G_BOX = 49
 
   # The Ruby::Box class, which the core library sets here.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_box_register(klass)
     zr_set_global(G_BOX, klass)
     Machine.value(QNIL)
@@ -18,7 +18,7 @@ module Zr::Kern
   # Whether `scope` is a toplevel: Object, or a box, which has its own
   # toplevel constants. A class set there gets its plain name, as for a
   # class set on Object.
-  sig [Value] => Bool
+  #: (value) -> bool
   def zr_toplevel_scope_p(scope)
     if scope == zr_global(G_OBJECT)
       return true
@@ -30,7 +30,7 @@ module Zr::Kern
   # The box of the running code, which is the box where its FUNCTION was
   # written. Code that is part of the runtime belongs to main, even when a
   # box calls it.
-  sig [] => Value
+  #: () -> value
   def zr_box_current
     t = Task.top(zr_task())
     if t == 0
@@ -46,7 +46,7 @@ module Zr::Kern
 
   # The box that a call COMES from. A builtin runs inside its caller, as a
   # C method does, so the frame walk skips all builtins.
-  sig [] => Value
+  #: () -> value
   def zr_box_reach
     f = Task.top(zr_task())
     while f != 0
@@ -64,7 +64,7 @@ module Zr::Kern
   end
 
   # The snippet's toplevel shows its own label in a backtrace.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_box_compiled(meta)
     FrameMeta.set_kind(Machine.ptr(zr_fix2long(meta)), KIND_COMPILED)
     Machine.value(QNIL)
@@ -73,7 +73,7 @@ module Zr::Kern
   # Each function of a box's own unit refers to the box. Thus the box
   # applies to its own code and to nothing else. A constant cache entry
   # filled before the code had a box is not valid after this.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_box_stamp(metas, b)
     i = 0
     while i < RArray.len(metas)
@@ -86,7 +86,7 @@ module Zr::Kern
 
   # The slot of the next box. It is the index into the shadow list that
   # each class keeps.
-  sig [] => Value
+  #: () -> value
   def zr_box_slot
     c = Machine.static(:box_slots, 8)
     n = Machine.load64(c, 0)
@@ -96,7 +96,7 @@ module Zr::Kern
 
   # The class that the current box sees in place of `klass`: its shadow,
   # or the class itself.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_box_view(klass)
     if zr_special_p(klass)
       return klass
@@ -118,7 +118,7 @@ module Zr::Kern
   end
 
   # Sets `shadow` as the view of `klass` for the box slot.
-  sig [Value, Value, Value] => Value
+  #: (value, value, value) -> value
   def zr_box_bind(klass, slot, shadow)
     ext = RClass.ext(klass)
     a = ClassExt.boxed(ext)
@@ -141,7 +141,7 @@ module Zr::Kern
   end
 
   # The shared class that a box shadow is in place of, or nil.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_box_origin(klass)
     if !zr_module_p(klass)
       return Machine.value(QNIL)
@@ -152,7 +152,7 @@ module Zr::Kern
   # Whether `klass` existed when the program started. A box can shadow
   # only such a class. A class that the program or a box made is not
   # shared.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_box_shared_p(klass)
     if !zr_module_p(klass)
       return Machine.value(QFALSE)
@@ -163,7 +163,7 @@ module Zr::Kern
   # Records the runtime state when the program starts: the constants of
   # Object, the classes that exist, and the globals that are set. A box
   # reads this state, never what the program adds to it.
-  sig [] => Value
+  #: () -> value
   def zr_box_snapshot
     Machine.store64(Machine.static(:master_consts, 8), 0, ClassExt.clen(RClass.ext(zr_global(G_OBJECT))))
     Machine.store64(Machine.static(:master_serial, 8), 0, Machine.load64(Machine.static(:class_serial, 8), 0))
@@ -181,27 +181,27 @@ module Zr::Kern
   end
 
   # The globals of the runtime at the start. A new box copies them.
-  sig [] => Value
+  #: () -> value
   def zr_box_master_gvars
     zr_global(G_MASTER_GVARS)
   end
 
   # Whether Object's constant entry `i` is one that the program wrote. A
   # box does not read such an entry.
-  sig [Value, Word] => Bool
+  #: (value, word) -> bool
   def zr_box_const_hidden(klass, i)
     klass == zr_global(G_OBJECT) && i >= Machine.load64(Machine.static(:master_consts, 8), 0) && zr_box_current() != QNIL
   end
 
   # The box's table of globals.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_box_gvars(b)
     zr_ivar_get(b, Machine.id(:globals))
   end
 
   # When a box reads a shared class, it gets its shadow of that class.
   # This makes the shadow if the box has none. Other values do not change.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_box_seen(v)
     if zr_box_shared_p(v) != QTRUE
       return v
@@ -220,14 +220,14 @@ module Zr::Kern
   end
 
   # A shadow returns the name of the shared class that it is in place of.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_box_name(klass, name)
     RClass.set_name(klass, name)
     Machine.value(QNIL)
   end
 
   # The globals table key for a name symbol, after alias resolution.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_box_gvar_key(name)
     zr_fix(zr_gvar_resolve(zr_sym2id(name)))
   end

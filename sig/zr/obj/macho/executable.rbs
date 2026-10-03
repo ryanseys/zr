@@ -16,7 +16,8 @@ module Zr
           attr_accessor pieces: Array[[String, String?, Array[Integer]]]
           attr_accessor starts: Array[Integer]?
 
-          def self.new: (**untyped) -> instance
+          def self.new: (name: String, vm: Integer, vmsize: Integer, fileoff: Integer, filesize: Integer, prot: Integer, flags: Integer,
+                         sections: Array[Section], pieces: Array[[String, String?, Array[Integer]]], ?starts: Array[Integer]?) -> instance
         end
 
         class Section < Data

@@ -108,7 +108,8 @@ module Zr
         require "json"
         meta = JSON.parse(File.read(meta_path))
         base = RuntimeSources.for(@target).eval_digest(@digest) or return false
-        meta.fetch("key") == key && Digests.eval_files_key(base, meta.fetch("files"), {}, meta.fetch("absent", [])) == meta.fetch("files_key")
+        none = [] #: Array[String]
+        meta.fetch("key") == key && Digests.eval_files_key(base, meta.fetch("files"), {}, meta.fetch("absent", none)) == meta.fetch("files_key")
       rescue JSON::ParserError, KeyError, SystemCallError
         false
       end
@@ -118,7 +119,8 @@ module Zr
       def current?(sources)
         sources.all? do |path, digest|
           if path == :eval
-            eval_current?(*digest)
+            meta_path, key = digest
+            eval_current?(meta_path, key)
           else
             File.file?(path) && Digest::SHA256.file(path).hexdigest == digest
           end

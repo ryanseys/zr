@@ -47,8 +47,8 @@ module Zr
     attr_reader :line, :column #: Integer?
     attr_reader :form #: String?
 
-    # A stage that knows only a message (the linkers, the machine
-    # dialect) gives only the message.
+    # A stage that knows only a message (the linkers, the kernel
+    # subset) gives only the message.
     #: (?String? message, ?file: String?, ?line: Integer?, ?column: Integer?, ?form: String?) -> void
     def initialize(message = nil, file: nil, line: nil, column: nil, form: nil)
       super(message)

@@ -18,7 +18,7 @@ module Zr::Kern
   FIBER_STACK_BYTES = 67108864
 
   # `can't allocate fiber stack: <strerror>`, as CRuby raises it.
-  sig [Word] => Value
+  #: (word) -> value
   def zr_fiber_stack_error(err)
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
@@ -28,26 +28,26 @@ module Zr::Kern
     zr_raise_buf(zr_core_class(Machine.id(:FiberError)), b)
   end
 
-  sig [] => Ptr
   # The task word and the preemption poll word (send.rb) are in one
   # static, so a compiled function reads both from one address.
+  #: () -> ptr
   def zr_current_task_slot
     Machine.static(:current_task, 16)
   end
 
-  sig [] => Ptr
+  #: () -> ptr
   def zr_poll_slot
     Machine.static(:current_task, 16) + 8
   end
 
-  sig [] => Ptr
+  #: () -> ptr
   def zr_task
     Machine.ptr(Machine.load64(zr_current_task_slot(), 0))
   end
 
   # Sets up a task with the stack limit for its stack checks. Zero means
   # no check, as under wasm, where the stack bounds are not known.
-  sig [Ptr, Ptr] => Void
+  #: (ptr, ptr) -> void
   def zr_task_init(t, stack_limit)
     Task.set_top(t, 0)
     Task.set_stack_limit(t, stack_limit)
@@ -68,7 +68,7 @@ module Zr::Kern
   # Marks the current task as a ractor task. After this, the task refuses
   # the program's reads and writes of instance variables of a shareable
   # object, as CRuby refuses them outside the main ractor.
-  sig [] => Value
+  #: () -> value
   def zr_ractor_enter_m
     Task.set_ractor(zr_task(), 1)
     Machine.gates_set(Machine.gates | GATE_RACTOR)
@@ -79,7 +79,7 @@ module Zr::Kern
   end
 
   # Returns the fiber that runs now. The root fiber represents the main task.
-  sig [] => Value
+  #: () -> value
   def zr_fiber_current
     slot = Machine.static(:current_fiber, 8)
     f = Machine.value(Machine.load64(slot, 0))
@@ -104,14 +104,14 @@ module Zr::Kern
     f
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_fiber_current_m(recv, argc, argv, cref, blk)
     zr_fiber_current()
   end
 
   # `Fiber.allocate`: a fiber that is not initialized. It has no block, no
   # context, no stack and no task, and it refuses to run.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_fiber_alloc(klass)
     f = zr_alloc(T_FIBER, klass, RFiber.size)
     RFiber.set_task(f, 0)
@@ -134,7 +134,7 @@ module Zr::Kern
   # `Fiber#initialize`: gives an allocated fiber its block, a task, a
   # stack, and a context that starts at zr_fiber_start on the first
   # resume. A fiber can be initialized only once, as in fiber_t_alloc.
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_fiber_make(recv, argc, argv, cref, blk)
     if RFiber.ctx(recv) != 0
       return zr_raise_msg(zr_global(G_RUNTIME_ERROR), Machine.bytes("cannot initialize twice"), 23)
@@ -168,7 +168,7 @@ module Zr::Kern
 
   # Returns the value that `argc` arguments give across a switch: nil for
   # zero, the argument for one, or an Array of all of them.
-  sig [Word, Ptr] => Value
+  #: (word, ptr) -> value
   def zr_fiber_transfer_value(argc, argv)
     if argc == 0
       return Machine.value(QNIL)
@@ -181,7 +181,7 @@ module Zr::Kern
 
   # Switches from `from` to `to`. It first changes the statics that
   # identify the running fiber. They change back when `from` runs again.
-  sig [Value, Value] => Void
+  #: (value, value) -> void
   def zr_fiber_switch(from, to)
     # A switch into or out of a ractor task makes the constant cache
     # entries stale: a ractor's reads check each value, and the main
@@ -196,14 +196,14 @@ module Zr::Kern
     zr_switch(RFiber.ctx(from), RFiber.ctx(to))
   end
 
-  sig [Ptr, Word] => Value
+  #: (ptr, word) -> value
   def zr_fiber_error(bytes, len)
     zr_raise_msg(zr_core_class(Machine.id(:FiberError)), bytes, len)
   end
 
   # `resume(*args)`: runs the fiber until it yields or ends. Returns the
   # value that it yields or returns, or QUNDEF with its pending unwind.
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_fiber_resume(recv, argc, argv, cref, blk)
     kw = zr_kw_take()
     if RFiber.ctx(recv) == 0
@@ -248,7 +248,7 @@ module Zr::Kern
   # `transfer(*args)`: moves control to the fiber. Only another transfer
   # moves control back. When the fiber ends, control goes to the deepest
   # fiber that the root fiber resumes.
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_fiber_transfer(recv, argc, argv, cref, blk)
     if RFiber.ctx(recv) == 0
       return zr_fiber_error(Machine.bytes("uninitialized fiber"), 19)
@@ -276,7 +276,7 @@ module Zr::Kern
 
   # Gives `argc` arguments to `to` and runs it until control comes back to
   # `from`. Returns the value, or QUNDEF with the pending unwind.
-  sig [Value, Value, Word, Ptr] => Value
+  #: (value, value, word, ptr) -> value
   def zr_fiber_run(from, to, argc, argv)
     if RFiber.status(to) == FIBER_CREATED
       RFiber.set_value(to, zr_ary_of(argc, argv))
@@ -292,7 +292,7 @@ module Zr::Kern
 
   # Returns the fiber that gets control when the current fiber yields or
   # ends: its resumer, or else the deepest fiber that the root fiber resumes.
-  sig [Value, Word] => Value
+  #: (value, word) -> value
   def zr_fiber_return_to(cur, terminating)
     prev = RFiber.prev(cur)
     if prev != QNIL
@@ -315,14 +315,14 @@ module Zr::Kern
     f
   end
 
-  sig [] => Value
+  #: () -> value
   def zr_fiber_root
     Machine.value(Machine.load64(Machine.static(:root_fiber, 8), 0))
   end
 
   # `Fiber.yield(*args)`: goes back to the resumer with a value. Returns
   # the value of the next resume.
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_fiber_yield(recv, argc, argv, cref, blk)
     cur = zr_fiber_current()
     to = zr_fiber_return_to(cur, 0)
@@ -343,7 +343,7 @@ module Zr::Kern
   # The entry point of a new fiber. It calls the block with the arguments
   # of the first resume. When the block ends, its value or its pending
   # unwind goes to the next fiber. Control never comes back to this stack.
-  sig [] => Void
+  #: () -> void
   def zr_fiber_start
     cur = zr_fiber_current()
     # A switch brought control here, as at the other three switch points,
@@ -377,7 +377,7 @@ module Zr::Kern
     zr_bug(Machine.bytes("a terminated fiber ran again\n"), 29)
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_fiber_alive_p(recv, argc, argv, cref, blk)
     if RFiber.ctx(recv) == 0
       return zr_fiber_error(Machine.bytes("uninitialized fiber"), 19)
@@ -390,7 +390,7 @@ module Zr::Kern
   # root fiber of a thread. A fiber that resumes another shows as
   # "suspended by resuming", because CRuby sets that status on the fiber
   # that it switches away from.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_fiber_inspect_m(recv, blk)
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
@@ -417,33 +417,33 @@ module Zr::Kern
   end
 
   # Returns the fiber that `recv` resumed and waits for, or nil.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_fiber_resuming_m(recv)
     RFiber.resuming(recv)
   end
 
   # Returns the fiber that resumed `recv` and waits for it, or nil.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_fiber_prev_m(recv)
     RFiber.prev(recv)
   end
 
   # Whether the fiber stopped because it transferred away, not because it
   # yielded or resumed another fiber (FIBER_SUSPENDED_P without yielding).
-  sig [Value] => Value
+  #: (value) -> value
   def zr_fiber_transferred_away_p(recv)
     zr_bool(RFiber.status(recv) == FIBER_SUSPENDED && RFiber.yielding(recv) == 0 && RFiber.resuming(recv) == QNIL)
   end
 
   # Whether the fiber has not run yet: its block waits for a first resume.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_fiber_unborn_p(recv)
     zr_bool(RFiber.status(recv) == FIBER_CREATED)
   end
 
   # Ends a fiber that has not run yet. The kill runs no block and leaves
   # no stack to return to.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_fiber_terminate(recv)
     if RFiber.status(recv) == FIBER_CREATED
       RFiber.set_status(recv, FIBER_TERMINATED)
@@ -453,7 +453,7 @@ module Zr::Kern
 
   # Makes the fiber the root of its own thread. It belongs to no other
   # thread, and each fiber that it makes belongs to the same thread.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_fiber_rehome(recv)
     RFiber.set_home(recv, recv)
     recv
@@ -462,7 +462,7 @@ module Zr::Kern
   # Marks the references of a fiber object. The frame list, the task
   # slots and the kernel records on its stack are marked by
   # `zr_mark_fibers`.
-  sig [Value] => Void
+  #: (value) -> void
   def zr_mark_fiber(f)
     zr_mark(RFiber.blk(f))
     zr_mark(RFiber.prev(f))
@@ -491,12 +491,12 @@ module Zr::Kern
   # read and is swept as usual. A live fiber has its stack read, old or young.
   FiberList = layout ptr: Ptr, len: Word, capa: Word
 
-  sig [] => Ptr
+  #: () -> ptr
   def zr_fiber_list
     Machine.static(:fiber_list, FiberList.size)
   end
 
-  sig [Value] => Void
+  #: (value) -> void
   def zr_fiber_register(f)
     l = zr_fiber_list()
     n = FiberList.len(l)
@@ -520,7 +520,7 @@ module Zr::Kern
   #
   # This skips the fiber that runs now: `zr_mark_roots` marks its task,
   # and its kernel roots are the live root list, not the copy in the fiber.
-  sig [] => Void
+  #: () -> void
   def zr_mark_fibers
     l = zr_fiber_list()
     n = FiberList.len(l)
@@ -554,7 +554,7 @@ module Zr::Kern
   # Removes the entries of fibers that the collection did not mark, and
   # clears the read bits of the others. This runs with `zr_weak_prune`,
   # before the sweep frees the stack and the task of a dead fiber.
-  sig [] => Void
+  #: () -> void
   def zr_fiber_prune
     l = zr_fiber_list()
     n = FiberList.len(l)
@@ -571,7 +571,7 @@ module Zr::Kern
     FiberList.set_len(l, kept)
   end
 
-  sig [Value] => Void
+  #: (value) -> void
   def zr_release_fiber(f)
     zr_xfree(RFiber.ctx(f))
     if RFiber.stack(f) != 0
@@ -583,7 +583,7 @@ module Zr::Kern
   # The switch for the thread scheduler. It moves control to `to` with no
   # checks and sets no flag, so both fibers keep their resume and
   # transfer state.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_fiber_scheduler_switch(to)
     cur = zr_fiber_current()
     if to == cur

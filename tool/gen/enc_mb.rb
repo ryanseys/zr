@@ -96,20 +96,20 @@ module Zr
             # Whether the encoding `index` has multibyte characters of its own
             # kind: not UTF-8, not UTF-16 or UTF-32, and not one byte for each
             # character.
-            sig [Word] => Bool
+            #: (word) -> bool
             machine def zr_enc_mb_p(index)
               #{test("index", mb.map { |e| index_of(e) })}
             end
 
             # Whether the encoding writes its characters in the same way as UTF-8.
-            sig [Word] => Bool
+            #: (word) -> bool
             machine def zr_enc_utf8_like_p(index)
               #{test("index", utf8_like.map { |e| index_of(e) })}
             end
 
             # The descriptor to step through a multibyte encoding, or 0 for other
             # encodings.
-            sig [Word] => Word
+            #: (word) -> word
             machine def zr_enc_mb_descriptor(index)
           HEAD
           blobs = bases.group_by { |enc, _| enc.descriptor }.to_h { |_, pairs| [pairs.first.first, pairs.flat_map(&:last)] }
@@ -120,7 +120,7 @@ module Zr
           end
           kernel << "  0\nend\n"
           blobs.each_key do |enc|
-            kernel << "\nsig [] => Ptr\nmachine def #{def_name(enc)}\n"
+            kernel << "\n#: () -> ptr\nmachine def #{def_name(enc)}\n"
             kernel << "  Machine.bytes(\n  #{bytes_literal(enc.descriptor)})\nend\n"
           end
           io.print kernel

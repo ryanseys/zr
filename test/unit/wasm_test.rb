@@ -7,7 +7,7 @@ require_relative "../../lib/zr/native/build"
 require_relative "../../test/native/fixtures"
 require "support/runtime_programs"
 
-# The wasm target: every hand-written IR program, every machine-dialect
+# The wasm target: every hand-written IR program, every kernel-subset
 # program that refers to no raw function, and every kernel core becomes
 # one WASI module, and wasmtime prints what the native binary prints.
 #
@@ -52,13 +52,13 @@ class WasmTest < Minitest::Test
     end
   end
 
-  # A dialect import that gives its wasm module reaches the host's own
+  # A kernel import that gives its wasm module reaches the host's own
   # call, and a native build refuses it with a message that gives the name.
   IMPORTED = <<~RUBY
     module Zr::Kern
       Libc.import :fd_write, [I32, I32, I32, I32] => I32, from: "wasi_snapshot_preview1"
 
-      sig [I32, Ptr] => I32
+      #: (i32, ptr) -> i32
       def main(argc, argv)
         iov = Machine.slot(16)
         Machine.store32(iov, 0, Machine.i32(Machine.bytes("hi\n")))

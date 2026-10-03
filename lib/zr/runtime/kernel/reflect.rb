@@ -4,7 +4,7 @@
 module Zr::Kern
   # Converts a method or variable name (a Symbol or a String) to its id,
   # and writes the id to `out`.
-  sig [Value, Ptr] => Value
+  #: (value, ptr) -> value
   def zr_name_id(name, out)
     if !zr_special_p(name) && zr_type(name) == T_STRING
       name = zr_sym(zr_intern(RString.ptr(name), RString.len(name)))
@@ -24,7 +24,7 @@ module Zr::Kern
 
   # Raises `'x' is not allowed as an instance variable name`, or the class
   # variable form, when the name does not start with its sigil.
-  sig [Word, Ptr, Word, Ptr, Word] => Value
+  #: (word, ptr, word, ptr, word) -> value
   def zr_bad_variable_name(id, sigil, siglen, kind, kindlen)
     p = zr_symbol_name_ptr(id)
     n = zr_symbol_name_len(id)
@@ -43,7 +43,7 @@ module Zr::Kern
 
   # Whether the bytes are an identifier: a letter, an underscore or a
   # non-ASCII byte, then any of these or digits.
-  sig [Ptr, Word] => Bool
+  #: (ptr, word) -> bool
   def zr_ident_p(p, n)
     if n == 0
       return false
@@ -60,12 +60,12 @@ module Zr::Kern
     true
   end
 
-  sig [Word] => Value
+  #: (word) -> value
   def zr_check_ivar_name(id)
     zr_bad_variable_name(id, Machine.bytes("@"), 1, Machine.bytes("an instance"), 11)
   end
 
-  sig [Word] => Value
+  #: (word) -> value
   def zr_check_cvar_name(id)
     zr_bad_variable_name(id, Machine.bytes("@@"), 2, Machine.bytes("a class"), 7)
   end
@@ -73,7 +73,7 @@ module Zr::Kern
   # Adds the names in a variable table to `out` as Symbols, with no
   # duplicates. `lead` is the first byte of a name of this kind. It tells a
   # real name from a hidden name that the lowering made.
-  sig [Ptr, Value, Word] => Void
+  #: (ptr, value, word) -> void
   def zr_ivtab_names(t, out, lead)
     i = 0
     while i < IvTab.len(t)
@@ -86,7 +86,7 @@ module Zr::Kern
     end
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_obj_instance_variables(recv, argc, argv, cref, blk)
     out = zr_ary_new(4)
     t = zr_ivtab(recv)
@@ -96,7 +96,7 @@ module Zr::Kern
     out
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_obj_instance_variable_get(recv, argc, argv, cref, blk)
     slot = Machine.slot(8)
     r = zr_name_id(Machine.value(Machine.load64(argv, 0)), slot)
@@ -109,7 +109,7 @@ module Zr::Kern
     zr_ivar_get(recv, id)
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_obj_instance_variable_set(recv, argc, argv, cref, blk)
     slot = Machine.slot(8)
     r = zr_name_id(Machine.value(Machine.load64(argv, 0)), slot)
@@ -122,7 +122,7 @@ module Zr::Kern
     zr_ivar_set(recv, id, Machine.value(Machine.load64(argv, 8)))
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_obj_instance_variable_defined(recv, argc, argv, cref, blk)
     slot = Machine.slot(8)
     r = zr_name_id(Machine.value(Machine.load64(argv, 0)), slot)
@@ -135,7 +135,7 @@ module Zr::Kern
 
   # `Module#class_variables`: the module's own class variables, then
   # those of its ancestors when `inherit` is not false.
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_mod_class_variables(recv, argc, argv, cref, blk)
     inherit = argc == 0 || (Machine.value(Machine.load64(argv, 0)) != QFALSE && Machine.value(Machine.load64(argv, 0)) != QNIL)
     out = zr_ary_new(4)
@@ -151,7 +151,7 @@ module Zr::Kern
     out
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_mod_class_variable_get(recv, argc, argv, cref, blk)
     slot = Machine.slot(8)
     r = zr_name_id(Machine.value(Machine.load64(argv, 0)), slot)
@@ -173,7 +173,7 @@ module Zr::Kern
     zr_ivtab_get(ClassExt.cv(RClass.ext(owner)), id)
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_mod_class_variable_set(recv, argc, argv, cref, blk)
     slot = Machine.slot(8)
     r = zr_name_id(Machine.value(Machine.load64(argv, 0)), slot)
@@ -196,7 +196,7 @@ module Zr::Kern
 
   # `Module#remove_class_variable`: removes the entry from the table of
   # the owning module, and returns its value.
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_mod_remove_class_variable(recv, argc, argv, cref, blk)
     slot = Machine.slot(8)
     r = zr_name_id(Machine.value(Machine.load64(argv, 0)), slot)
@@ -229,7 +229,7 @@ module Zr::Kern
     v
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_mod_class_variable_defined(recv, argc, argv, cref, blk)
     slot = Machine.slot(8)
     r = zr_name_id(Machine.value(Machine.load64(argv, 0)), slot)
@@ -244,7 +244,7 @@ module Zr::Kern
   # singleton class. With `all`, it also includes the methods of the
   # modules that extend it and, for a class, the methods of the singleton
   # classes of its superclasses.
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_obj_singleton_methods(recv, argc, argv, cref, blk)
     all = argc == 0 || (Machine.value(Machine.load64(argv, 0)) != QFALSE && Machine.value(Machine.load64(argv, 0)) != QNIL)
     out = zr_ary_new(4)
@@ -269,7 +269,7 @@ module Zr::Kern
 
   # `methods`, and the three forms for each visibility. `methods(false)`
   # is the same as `singleton_methods(false)`.
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_obj_methods(recv, argc, argv, cref, blk)
     if argc == 1 && (Machine.value(Machine.load64(argv, 0)) == QFALSE || Machine.value(Machine.load64(argv, 0)) == QNIL)
       return zr_obj_singleton_methods(recv, argc, argv, cref, blk)
@@ -277,19 +277,19 @@ module Zr::Kern
     zr_method_names(zr_class_of(recv), 1, 0 - 1, true)
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_obj_public_methods(recv, argc, argv, cref, blk)
     all = argc == 0 || (Machine.value(Machine.load64(argv, 0)) != QFALSE && Machine.value(Machine.load64(argv, 0)) != QNIL)
     zr_method_names(zr_class_of(recv), all ? 1 : 0, VIS_PUBLIC, true)
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_obj_private_methods(recv, argc, argv, cref, blk)
     all = argc == 0 || (Machine.value(Machine.load64(argv, 0)) != QFALSE && Machine.value(Machine.load64(argv, 0)) != QNIL)
     zr_method_names(zr_class_of(recv), all ? 1 : 0, VIS_PRIVATE, true)
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_obj_protected_methods(recv, argc, argv, cref, blk)
     all = argc == 0 || (Machine.value(Machine.load64(argv, 0)) != QFALSE && Machine.value(Machine.load64(argv, 0)) != QNIL)
     zr_method_names(zr_class_of(recv), all ? 1 : 0, VIS_PROTECTED, true)
@@ -299,7 +299,7 @@ module Zr::Kern
   # module or an ancestor defines the name with that visibility. An active
   # refinement does not count, because the check uses only the module's
   # own ancestor list.
-  sig [Value, Word, Ptr, Word] => Value
+  #: (value, word, ptr, word) -> value
   def zr_mod_method_defined_vis(recv, argc, argv, vis)
     slot = Machine.slot(8)
     r = zr_name_id(Machine.value(Machine.load64(argv, 0)), slot)
@@ -312,29 +312,29 @@ module Zr::Kern
     zr_bool(vis < 0 ? MEntry.vis(e) != VIS_PRIVATE : MEntry.vis(e) == vis)
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_mod_method_defined(recv, argc, argv, cref, blk)
     zr_mod_method_defined_vis(recv, argc, argv, 0 - 1)
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_mod_public_method_defined(recv, argc, argv, cref, blk)
     zr_mod_method_defined_vis(recv, argc, argv, VIS_PUBLIC)
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_mod_private_method_defined(recv, argc, argv, cref, blk)
     zr_mod_method_defined_vis(recv, argc, argv, VIS_PRIVATE)
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_mod_protected_method_defined(recv, argc, argv, cref, blk)
     zr_mod_method_defined_vis(recv, argc, argv, VIS_PROTECTED)
   end
 
   # `Method#super_method`: the method after this method's owner in the
   # receiver's ancestor list, bound in the same way, or nil.
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_method_super_method(recv, argc, argv, cref, blk)
     owner = RMethod.owner(recv)
     mid = MEntry.mid(RMethod.entry(recv))
@@ -358,7 +358,7 @@ module Zr::Kern
 
   # `Module#included_modules`: the modules in the ancestor list, nearest
   # first.
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_mod_included_modules(recv, argc, argv, cref, blk)
     out = zr_ary_new(8)
     k = RClass.superclass(recv)
@@ -374,7 +374,7 @@ module Zr::Kern
   # `Module.nesting`: the classes and modules whose bodies enclose the
   # caller, innermost first. An eval's cref is not lexical, so it is
   # skipped.
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_mod_nesting(recv, argc, argv, cref, blk)
     out = zr_ary_new(4)
     c = Frame.cref(Frame.prev(Task.top(zr_task())))
@@ -391,7 +391,7 @@ module Zr::Kern
   # any blocks, or nil at the top level or in a class body. A define_method
   # body is a block whose cref refers to its method entry. Its name is the
   # name that define_method gave, also when it is called through an alias.
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_kernel_method_name(recv, argc, argv, cref, blk)
     rec = Frame.prev(Task.top(zr_task()))
     e = zr_bmethod_entry(rec)
@@ -411,7 +411,7 @@ module Zr::Kern
 
   # `__callee__`: the name that the caller used for the method. For an
   # alias, it is the alias name.
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_kernel_callee(recv, argc, argv, cref, blk)
     rec = Frame.prev(Task.top(zr_task()))
     e = zr_bmethod_entry(rec)
@@ -441,14 +441,14 @@ module Zr::Kern
     zr_sym(mid)
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_mod_singleton_class_p(recv, argc, argv, cref, blk)
     zr_bool(zr_singleton_p(recv))
   end
 
   # `Proc#source_location`: the location of the block in the source, or
   # nil for a block that the runtime made.
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_proc_source_location(recv, argc, argv, cref, blk)
     # The location of a Method's Proc is the location of the method.
     if RProc.fn(recv) == Machine.addr(:zr_method_block)
@@ -466,24 +466,24 @@ module Zr::Kern
 
   # The singleton methods of the main object: `include`, `public` and
   # `private` operate on Object.
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_main_include(recv, argc, argv, cref, blk)
     zr_send(zr_global(G_OBJECT), Machine.id(:include), argc, argv)
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_main_public(recv, argc, argv, cref, blk)
     zr_set_visibility(zr_global(G_OBJECT), argc, argv, blk, VIS_PUBLIC, 0)
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_main_private(recv, argc, argv, cref, blk)
     zr_set_visibility(zr_global(G_OBJECT), argc, argv, blk, VIS_PRIVATE, 0)
   end
 
   # `Module#remove_method`: the method entry must be in the module's own
   # table.
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_mod_remove_method(recv, argc, argv, cref, blk)
     r = zr_class_modify_check(recv)
     return r if r == QUNDEF
@@ -527,19 +527,19 @@ module Zr::Kern
 
   # Calls the `method_removed` or `singleton_method_removed` hook, if the
   # program defines it.
-  sig [Value, Word] => Value
+  #: (value, word) -> value
   def zr_method_removed(klass, mid)
     zr_method_hook(klass, mid, Machine.id(:method_removed), Machine.id(:singleton_method_removed))
   end
 
-  sig [Value, Word] => Value
+  #: (value, word) -> value
   def zr_method_undefined(klass, mid)
     zr_method_hook(klass, mid, Machine.id(:method_undefined), Machine.id(:singleton_method_undefined))
   end
 
   # Calls `hook` on the class, or `singleton_hook` on the object that a
   # singleton class is attached to, if the program defines it.
-  sig [Value, Word, Word, Word] => Value
+  #: (value, word, word, word) -> value
   def zr_method_hook(klass, mid, hook, singleton_hook)
     recv = klass
     if zr_singleton_p(klass)
@@ -554,7 +554,7 @@ module Zr::Kern
 
   # `remove_instance_variable(name)`: removes the ivar entry and returns
   # its value.
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_obj_remove_instance_variable(recv, argc, argv, cref, blk)
     slot = Machine.slot(8)
     r = zr_name_id(Machine.value(Machine.load64(argv, 0)), slot)
@@ -593,7 +593,7 @@ module Zr::Kern
   # `Class#subclasses`: the classes whose superclass is this class, newest
   # first, with no singleton classes. It reads them from the arena and
   # sorts them by creation serial.
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_class_subclasses(recv, argc, argv, cref, blk)
     out = zr_ary_new(4)
     a = 0
@@ -619,7 +619,7 @@ module Zr::Kern
   end
 
   # Inserts `k` before the first class that was made before `k`.
-  sig [Value, Value] => Void
+  #: (value, value) -> void
   def zr_ary_insert_by_serial(out, k)
     serial = ClassExt.serial(RClass.ext(k))
     n = RArray.len(out)
@@ -636,21 +636,21 @@ module Zr::Kern
     zr_ary_store(out, i, k)
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_main_define_method(recv, argc, argv, cref, blk)
     zr_mod_define_method(zr_global(G_OBJECT), argc, argv, cref, blk)
   end
 
   # The main object's `to_s` and `inspect`, which are singleton methods
   # that return `main`.
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_main_to_s(recv, argc, argv, cref, blk)
     zr_str_set_index(zr_str_new(Machine.bytes("main"), 4), ENC_BINARY)
   end
 
   # `attached_object`: the object that a singleton class belongs to. A
   # plain class has no attached object.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_mod_attached(klass)
     if !zr_singleton_p(klass)
       return Machine.value(QNIL)
@@ -661,7 +661,7 @@ module Zr::Kern
   # Returns the FrameMeta of the Ruby code that a Proc, a Method or an
   # UnboundMethod runs, or 0 for runtime code. RubyVM::InstructionSequence.of
   # finds an instruction sequence only when this is not 0.
-  sig [Value] => Ptr
+  #: (value) -> ptr
   def zr_iseq_meta(body)
     if zr_special_p(body)
       return 0
@@ -681,7 +681,7 @@ module Zr::Kern
     meta
   end
 
-  sig [Value] => Value
+  #: (value) -> value
   def zr_iseq_p(body)
     zr_bool(zr_iseq_meta(body) != 0)
   end
@@ -689,14 +689,14 @@ module Zr::Kern
   # Returns the label of the code that `body` runs. With `base`, it
   # returns the label of the method, class or file that contains the
   # blocks.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_iseq_label(body, base)
     zr_iseq_meta_label(zr_fix(Machine.word(zr_iseq_meta(body))), base)
   end
 
   # The same for the FrameMeta at address `meta_word`, in the form that a
   # frame gives it.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_iseq_meta_label(meta_word, base)
     meta = Machine.ptr(zr_fix2long(meta_word))
     if meta == 0
@@ -715,7 +715,7 @@ module Zr::Kern
 
   # Returns `[path, first line, kind]` of the FrameMeta at `meta_word`.
   # The kind is the name that RubyVM::InstructionSequence#type gives.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_iseq_meta_info(meta_word)
     meta = Machine.ptr(zr_fix2long(meta_word))
     out = zr_ary_new(3)
@@ -740,7 +740,7 @@ module Zr::Kern
 
   # Returns the parameter list of the FrameMeta at `meta_word`: for a
   # method, as a method takes them; for a block, as a proc takes them.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_iseq_meta_parameters(meta_word)
     meta = Machine.ptr(zr_fix2long(meta_word))
     if FrameMeta.params(meta) == 0
@@ -749,7 +749,7 @@ module Zr::Kern
     zr_param_rows(FrameMeta.params(meta), FrameMeta.kind(meta) == KIND_BLOCK)
   end
 
-  sig [Value] => Value
+  #: (value) -> value
   def zr_iseq_meta_word(body)
     zr_fix(Machine.word(zr_iseq_meta(body)))
   end
@@ -758,7 +758,7 @@ module Zr::Kern
   # each frame, outward from the caller of this method, as `[backtrace
   # line, node id, self, binding, FrameMeta address, class]`. A frame that
   # the runtime pushed for a C method has no binding, and its address is 0.
-  sig [] => Value
+  #: () -> value
   def zr_debug_frames
     out = zr_ary_new(16)
     rec = Frame.prev(Task.top(zr_task()))

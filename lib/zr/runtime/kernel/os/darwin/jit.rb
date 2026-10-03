@@ -27,7 +27,7 @@ module Zr::Kern
   # its code and data at addresses that it selects. The code and the data
   # must be within the 4 GiB range of adrp, and a hint alone does not keep
   # them that near.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_os_jit_reserve(size)
     at = Libc.mmap(Machine.ptr(0), zr_fix2long(size), Machine.i32(PROT_NONE), Machine.i32(MAP_ANON_PRIVATE), Machine.i32(0 - 1), 0)
     if Machine.word(at) == 0 || Machine.word(at) == 0 - 1
@@ -39,7 +39,7 @@ module Zr::Kern
   # Releases `size` bytes of a reservation, so that a MAP_JIT mapping can
   # use them through a hint. The kernel does not accept MAP_FIXED for a
   # MAP_JIT mapping.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_os_jit_release(at, size)
     Libc.munmap(Machine.ptr(zr_fix2long(at)), zr_fix2long(size))
     Machine.value(QNIL)
@@ -49,7 +49,7 @@ module Zr::Kern
   # caller reserved it). Code uses `at` as a hint. Else the kernel selects
   # the address. Code needs MAP_JIT, which adds a write-protect toggle to
   # each write.
-  sig [Value, Value, Value] => Value
+  #: (value, value, value) -> value
   def zr_os_jit_map(size, exec, at)
     prot = PROT_READ_WRITE
     flags = MAP_ANON_PRIVATE
@@ -71,7 +71,7 @@ module Zr::Kern
   # looks first in this image's own symbol table, then with dlsym (for a
   # libSystem name, or an image that `ld` linked, whose table is not
   # sorted).
-  sig [Value] => Value
+  #: (value) -> value
   def zr_os_symbol(name)
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
@@ -106,7 +106,7 @@ module Zr::Kern
   # this is a binary search over about 330,000 names. A table from a
   # different linker is not sorted, so the search fails, and dlsym does
   # the lookup.
-  sig [Ptr] => Word
+  #: (ptr) -> word
   def zr_symtab_find(cname)
     header = Libc._dyld_get_image_header(Machine.i32(0))
     slide = Libc._dyld_get_image_vmaddr_slide(Machine.i32(0))
@@ -159,7 +159,7 @@ module Zr::Kern
   # Writes into the code mapping. It removes the write protection, copies
   # the bytes, sets the protection again, and flushes the instruction
   # cache for the changed bytes.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_os_jit_write(at, bytes)
     to = Machine.ptr(zr_fix2long(at))
     len = RString.len(bytes)
@@ -172,7 +172,7 @@ module Zr::Kern
 
   # The library that contains libffi. The ffi gem's calls open it the
   # first time a program uses one of them.
-  sig [] => Ptr
+  #: () -> ptr
   def zr_os_libffi_path
     Machine.bytes("/usr/lib/libffi.dylib\0")
   end

@@ -7,9 +7,13 @@ module Zr
         # The libc calls that the module defines itself when no function has
         # the name: memory calls, because only the module can own memory, and
         # the write, exit and abort calls of a unit with no OS layer.
-        LIBC_SHIMS = { "write" => [[0x7F, 0x7E, 0x7E], [0x7E]], "exit" => [[0x7F], []], "_exit" => [[0x7F], []], "abort" => [[], []],
-                  "malloc" => [[0x7E], [0x7E]], "free" => [[0x7E], []], "posix_memalign" => [[0x7E, 0x7E, 0x7E], [0x7F]],
-                  "memmove" => [[0x7E, 0x7E, 0x7E], [0x7E]], "memset" => [[0x7E, 0x7F, 0x7E], [0x7E]] }.freeze #: Hash[String, signature]
+        #
+        # A type annotation does not reach the empty arrays through `.freeze`.
+        LIBC_SHIMS = { "write" => [[0x7F, 0x7E, 0x7E], [0x7E]],
+                       "exit" => [[0x7F], []], "_exit" => [[0x7F], []], "abort" => [[], []], # steep:ignore UnannotatedEmptyCollection
+                       "malloc" => [[0x7E], [0x7E]], "free" => [[0x7E], []], # steep:ignore UnannotatedEmptyCollection
+                       "posix_memalign" => [[0x7E, 0x7E, 0x7E], [0x7F]],
+                            "memmove" => [[0x7E, 0x7E, 0x7E], [0x7E]], "memset" => [[0x7E, 0x7F, 0x7E], [0x7E]] }.freeze #: Hash[String, signature]
 
         # How many i32 locals a shim body declares.
         LOCALS = { "malloc" => 1 }.freeze #: Hash[String, Integer]

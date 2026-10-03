@@ -288,7 +288,8 @@ module Zr
         # alignment of its sections.
         #: () -> void
         def chunks
-          @chunks = FROM.values.to_h { |part| [part, []] }
+          @chunks = {}
+          FROM.each_value { |part| @chunks[part] = [] }
           @sizes = PARTS.to_h { |part| [part, 0] }
           @aligns = PARTS.to_h { |part| [part, 4] }
           @part_of = @inputs.map do |o|
@@ -378,7 +379,7 @@ module Zr
         # is always inside `bytes`.
         #: (String bytes, Integer at) -> Integer
         def word(bytes, at) # steep:ignore MethodBodyTypeMismatch
-          bytes.getbyte(at) | (bytes.getbyte(at + 1) << 8) | (bytes.getbyte(at + 2) << 16) | (bytes.getbyte(at + 3) << 24)
+          bytes.getbyte(at) | (bytes.getbyte(at + 1) << 8) | (bytes.getbyte(at + 2) << 16) | (bytes.getbyte(at + 3) << 24) # steep:ignore NoMethod
         end
 
         # One stub for each external. The stub jumps through its GOT slot.

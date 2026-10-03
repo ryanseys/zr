@@ -12,6 +12,12 @@ module Zr
         # scope catches only the jumps that its code has.
         module Control
           # @type instance: Walk
+          # The ivars of Walk that this module reads (walk.rb):
+          # @rbs @host: Host
+          # @rbs @kern: untyped
+          # @rbs @qnil: Integer
+          # @rbs @qundef: Integer
+          # @rbs @poll: Integer
 
           private
 
@@ -101,9 +107,14 @@ module Zr
           # The jumps of a loop's own code: the `break`, `next` and `redo`
           # that a nested loop or scope does not take.
           class LoopJumps
+            # @rbs @loop: Hir::While
+
             include Enumerable #[Hir::Node]
 
-            def initialize(loop) = @loop = loop
+            #: (Hir::While loop) -> void
+            def initialize(loop)
+              @loop = loop
+            end
 
             #: () { (Hir::Node) -> void } -> void
             def each(&)
@@ -263,9 +274,10 @@ module Zr
             lambda do |f|
               saved = @kern.zr_errinfo
               left = true
-              begin
-                value = body.call(f, saved)
+              value = begin
+                v = body.call(f, saved)
                 left = false
+                v
               rescue Unwind
                 left = false
                 ensured(f, ensure_body, saved)
@@ -289,6 +301,7 @@ module Zr
             body = code(node.body, s)
             other = node.else_body && code(node.else_body, s)
             clauses = node.rescues.map { |clause| rescue_clause(clause, s) }
+            # @type var run: ^(Frame, Integer) -> untyped
             run = lambda do |f, saved|
               begin
                 v = body.call(f)

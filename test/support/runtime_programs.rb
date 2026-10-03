@@ -7,7 +7,7 @@ require_relative "../../lib/zr/native/build"
 module Zr
   module Test
     # The programs in test/runtime. Each is top-level code, written by
-    # hand in the machine dialect, that runs on the zr runtime.
+    # hand in the kernel subset, that runs on the zr runtime.
     # runtime_test.rb links each into a binary, and wasm_test.rb builds
     # each as a WASI module.
     module RuntimePrograms

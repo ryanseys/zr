@@ -1,6 +1,6 @@
 # a machine def's name is letters, digits and underscores
 module Zr::Kern
-  sig [] => Word
+  #: () -> word
   def odd!
     1
   end

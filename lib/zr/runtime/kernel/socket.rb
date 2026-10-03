@@ -41,12 +41,12 @@ module Zr::Kern
 
   # Makes a binary String from bytes or from a C string, as rb_str_new
   # does. A null C string gives nil.
-  sig [Ptr, Word] => Value
+  #: (ptr, word) -> value
   def zr_sock_bytes(bytes, len)
     zr_str_set_index(zr_str_new(bytes, len), ENC_BINARY)
   end
 
-  sig [Ptr] => Value
+  #: (ptr) -> value
   def zr_sock_cstr(text)
     if Machine.word(text) == 0
       return Machine.value(QNIL)
@@ -54,20 +54,20 @@ module Zr::Kern
     zr_sock_bytes(text, zr_cstr_len(text))
   end
 
-  sig [Value] => I32
+  #: (value) -> i32
   def zr_sock_fd(fd)
     Machine.i32(zr_fix2long(fd))
   end
 
   # Makes a descriptor as ruby makes each socket: close-on-exec and
   # nonblocking (EAGAIN in place of a wait), so ruby does the wait itself.
-  sig [Word] => Void
+  #: (word) -> void
   def zr_sock_prepare(fd)
     zr_io_cloexec(zr_fix(fd))
     zr_io_set_nonblock(zr_fix(fd), zr_fix(1))
   end
 
-  sig [Value, Value, Value] => Value
+  #: (value, value, value) -> value
   def zr_sock_socket(domain, type, protocol)
     fd = Machine.sword(Libc.socket(zr_sock_fd(domain), zr_sock_fd(type), zr_sock_fd(protocol)))
     if fd < 0
@@ -78,7 +78,7 @@ module Zr::Kern
   end
 
   # Two connected descriptors of the same kind.
-  sig [Value, Value, Value] => Value
+  #: (value, value, value) -> value
   def zr_sock_socketpair(domain, type, protocol)
     fds = Machine.slot(8)
     if Libc.socketpair(zr_sock_fd(domain), zr_sock_fd(type), zr_sock_fd(protocol), fds) < Machine.i32(0)
@@ -92,22 +92,22 @@ module Zr::Kern
     out
   end
 
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_sock_bind(fd, addr)
     zr_io_status(Libc.bind(zr_sock_fd(fd), RString.ptr(addr), Machine.i32(RString.len(addr))))
   end
 
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_sock_connect(fd, addr)
     zr_io_status(Libc.connect(zr_sock_fd(fd), RString.ptr(addr), Machine.i32(RString.len(addr))))
   end
 
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_sock_listen(fd, backlog)
     zr_io_status(Libc.listen(zr_sock_fd(fd), zr_sock_fd(backlog)))
   end
 
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_sock_shutdown(fd, how)
     zr_io_status(Libc.shutdown(zr_sock_fd(fd), zr_sock_fd(how)))
   end
@@ -115,7 +115,7 @@ module Zr::Kern
   # The bytes of an address that a call filled in, no longer than the
   # space it had. If the kernel gives a larger length, the address was
   # truncated (cloexec_accept).
-  sig [Ptr, Ptr] => Value
+  #: (ptr, ptr) -> value
   def zr_sock_addr_str(addr, size)
     n = Machine.u32(Machine.load32(size, 0))
     zr_sock_bytes(addr, n > SOCKADDR_MAX ? SOCKADDR_MAX : n)
@@ -123,7 +123,7 @@ module Zr::Kern
 
   # The accepted descriptor and the peer's address. If a POSIX signal
   # interrupts the call, its handler runs and the call starts again.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_sock_accept(fd)
     addr = Machine.slot(SOCKADDR_MAX)
     size = Machine.slot(8)
@@ -145,7 +145,7 @@ module Zr::Kern
   end
 
   # send(2), or sendto(2) if there is an address. Returns the count sent.
-  sig [Value, Value, Value, Value] => Value
+  #: (value, value, value, value) -> value
   def zr_sock_send(fd, text, flags, addr)
     r = 0
     while true
@@ -164,7 +164,7 @@ module Zr::Kern
   # Up to `count` bytes and the sender's address. The address is empty if
   # the call does not give one, as for a connected stream on this
   # platform.
-  sig [Value, Value, Value] => Value
+  #: (value, value, value) -> value
   def zr_sock_recvfrom(fd, count, flags)
     n = zr_fix2long(count)
     buffer = zr_xmalloc(n + 1)
@@ -193,7 +193,7 @@ module Zr::Kern
 
   # The bytes of an address written as text, or nil if the text is not an
   # address of the family (inet_pton).
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_sock_inet_pton(family, text)
     buffer = Machine.slot(16)
     if Libc.inet_pton(zr_sock_fd(family), RString.ptr(text), buffer) != Machine.i32(1)
@@ -202,7 +202,7 @@ module Zr::Kern
     zr_sock_bytes(buffer, zr_fix2long(family) == 2 ? 4 : 16)
   end
 
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_sock_name(fd, peer)
     addr = Machine.slot(SOCKADDR_MAX)
     size = Machine.slot(8)
@@ -215,7 +215,7 @@ module Zr::Kern
   end
 
   # The bytes of an option, in 256 bytes of space, as in bsock_getsockopt.
-  sig [Value, Value, Value] => Value
+  #: (value, value, value) -> value
   def zr_sock_getsockopt(fd, level, name)
     buffer = Machine.slot(256)
     size = Machine.slot(8)
@@ -226,13 +226,13 @@ module Zr::Kern
     zr_sock_bytes(buffer, Machine.u32(Machine.load32(size, 0)))
   end
 
-  sig [Value, Value, Value, Value] => Value
+  #: (value, value, value, value) -> value
   def zr_sock_setsockopt(fd, level, name, bytes)
     zr_io_status(Libc.setsockopt(zr_sock_fd(fd), zr_sock_fd(level), zr_sock_fd(name), RString.ptr(bytes), Machine.i32(RString.len(bytes))))
   end
 
   # The host name, up to the NI_MAXHOST length.
-  sig [] => Value
+  #: () -> value
   def zr_sock_hostname
     buffer = Machine.slot(1025)
     if Libc.gethostname(buffer, 1025) < Machine.i32(0)
@@ -243,7 +243,7 @@ module Zr::Kern
 
   # A resolver failure: its code, or the negated errno of the system call
   # that failed (EAI_SYSTEM).
-  sig [I32] => Value
+  #: (i32) -> value
   def zr_sock_gai_failed(r)
     if Machine.sword(r) == EAI_SYSTEM && zr_errno() != 0
       return zr_fix(0 - zr_errno())
@@ -254,7 +254,7 @@ module Zr::Kern
   # All addresses for a host and a service. Each entry is [family,
   # socktype, protocol, sockaddr, canonical name or nil], in the order
   # that the resolver returns them.
-  sig [Value, Value, Value, Value, Value, Value] => Value
+  #: (value, value, value, value, value, value) -> value
   def zr_sock_getaddrinfo(host, service, family, socktype, protocol, flags)
     hints = Machine.slot(48)
     i = 0
@@ -285,7 +285,7 @@ module Zr::Kern
 
   # The host and the service of an address, in 1024 bytes each, as in
   # ruby. `want` selects which ones to get (1 the host, 2 the service).
-  sig [Value, Value, Value] => Value
+  #: (value, value, value) -> value
   def zr_sock_getnameinfo(addr, flags, want)
     host = Machine.slot(1024)
     service = Machine.slot(1024)
@@ -302,13 +302,13 @@ module Zr::Kern
     out
   end
 
-  sig [Value] => Value
+  #: (value) -> value
   def zr_sock_gai_message(code)
     zr_sock_cstr(Libc.gai_strerror(zr_sock_fd(code)))
   end
 
   # The names in a NULL-terminated list of C strings.
-  sig [Ptr] => Value
+  #: (ptr) -> value
   def zr_sock_cstr_list(list)
     out = zr_ary_new(0)
     if Machine.word(list) == 0
@@ -322,7 +322,7 @@ module Zr::Kern
   end
 
   # The aliases that gethostbyname(3) gives for a name, or nil.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_sock_host_aliases(name)
     h = Libc.gethostbyname(RString.ptr(name))
     if Machine.word(h) == 0
@@ -333,7 +333,7 @@ module Zr::Kern
 
   # gethostbyaddr(3): [name, aliases, family, address bytes...], or the
   # resolver's error message.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_sock_host_by_addr(addr, family)
     h = Libc.gethostbyaddr(RString.ptr(addr), Machine.i32(RString.len(addr)), zr_sock_fd(family))
     if Machine.word(h) == 0
@@ -353,7 +353,7 @@ module Zr::Kern
   end
 
   # A service's port in host order, or nil.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_sock_service_port(name, protocol)
     s = Libc.getservbyname(RString.ptr(name), RString.ptr(protocol))
     if Machine.word(s) == 0
@@ -364,7 +364,7 @@ module Zr::Kern
   end
 
   # The service for a port in host order, or nil.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_sock_service_name(port, protocol)
     p = zr_fix2long(port)
     s = Libc.getservbyport(Machine.i32(((p & 255) << 8) | ((p >> 8) & 255)), RString.ptr(protocol))
@@ -374,7 +374,7 @@ module Zr::Kern
     zr_sock_cstr(Machine.ptr(Machine.load64(s, 0)))
   end
 
-  sig [Ptr] => Value
+  #: (ptr) -> value
   def zr_sock_addr_or_nil(addr)
     if Machine.word(addr) == 0
       return Machine.value(QNIL)
@@ -384,7 +384,7 @@ module Zr::Kern
 
   # All interface addresses. Each entry is [name, flags, address, netmask,
   # broadcast or destination address], with nil for an absent address.
-  sig [] => Value
+  #: () -> value
   def zr_sock_ifaddrs
     head = Machine.slot(8)
     if Libc.getifaddrs(head) < Machine.i32(0)
@@ -406,13 +406,13 @@ module Zr::Kern
     out
   end
 
-  sig [Value] => Value
+  #: (value) -> value
   def zr_sock_if_index(name)
     zr_fix(Machine.u32(Libc.if_nametoindex(RString.ptr(name))))
   end
 
   # The interface name for an index, or nil.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_sock_if_name(index)
     buffer = Machine.slot(32)
     if Machine.word(Libc.if_indextoname(zr_sock_fd(index), buffer)) == 0
@@ -423,7 +423,7 @@ module Zr::Kern
 
   # sendmsg(2) of one piece of data, to an address if there is one, with
   # the bytes of the control messages if there are any.
-  sig [Value, Value, Value, Value, Value] => Value
+  #: (value, value, value, value, value) -> value
   def zr_sock_sendmsg(fd, data, flags, addr, control)
     header = Machine.slot(MSGHDR_LEN)
     vector = Machine.slot(16)
@@ -445,7 +445,7 @@ module Zr::Kern
 
   # recvmsg(2) into `size` bytes of data and `room` bytes of control
   # messages: [data, sender's address, msg_flags, control bytes].
-  sig [Value, Value, Value, Value] => Value
+  #: (value, value, value, value) -> value
   def zr_sock_recvmsg(fd, size, flags, room)
     n = zr_fix2long(size)
     c = zr_fix2long(room)

@@ -83,7 +83,7 @@ module Zr
         @loop = loop
         @in = @body.fetch(loop)
         survey
-        pre = nil
+        pre = nil #: Block?
         order = @order
         k = 0
         # `while`: `preheader` inserts into `@order`, and a moved instruction
@@ -103,8 +103,8 @@ module Zr
             end
 
             insts.delete_at(n)
-            pre ||= preheader(loop, loops)
-            pre.insts.insert(-2, i)
+            into = pre ||= preheader(loop, loops)
+            into.insts.insert(-2, i)
             i.results.each { |v| @variant.delete(v) }
           end
         end

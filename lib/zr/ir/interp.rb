@@ -8,7 +8,7 @@ require_relative "../refused"
 module Zr
   module IR
     # An interpreter for `IR::Function`. It gives a second result for each
-    # program in the machine dialect, and does not use the aarch64 backend.
+    # program in the kernel subset, and does not use the aarch64 backend.
     # If it and the compiled binary give different results, the cause is a
     # miscompile. If both give the same wrong result, the cause is a
     # lowering bug.
@@ -127,7 +127,7 @@ module Zr
         end
       end
 
-      # The libSystem calls that a machine-dialect program makes. All calls
+      # The libSystem calls that a kernel-subset program makes. All calls
       # that it can reach are here. Any other call is refused, with a message
       # that gives the name.
       class Host
@@ -323,7 +323,8 @@ module Zr
 
       #: (Function f, Frame frame, Types t) -> Integer
       def walk(f, frame, t)
-        block = f.entry_block #: Block?
+        # @type var block: Block?
+        block = f.entry_block
         while block
           block, answer, done = run_block(block, frame, t)
           return answer if done
@@ -415,8 +416,12 @@ module Zr
         when :load then step_load(frame, i)
         when :store then step_store(frame, i)
         when :stack_addr then assign(frame, i.results[0], frame.slot_at.fetch(slot_index(i.args[0])))
-        when :symbol_value then assign(frame, i.results[0], address_of(t.global_named(i.args[0]).symbol))
-        when :func_addr then assign(frame, i.results[0], address_of(t.callee_named(i.args[0]).symbol))
+        when :symbol_value
+          g = t.global_named(i.args[0]) or raise "no global #{i.args[0]}"
+          assign(frame, i.results[0], address_of(g.symbol))
+        when :func_addr
+          c = t.callee_named(i.args[0]) or raise "no callee #{i.args[0]}"
+          assign(frame, i.results[0], address_of(c.symbol))
         when :call then step_call(frame, t, i)
         when :call_indirect then step_call_indirect(frame, t, i)
         when :icmp then assign(frame, i.results[0], compare(frame, i) ? 1 : 0)
@@ -468,8 +473,9 @@ module Zr
         bits = width_of(frame, i.args[0])
         a = read(frame, i.args[0])
         b = read(frame, i.args[1])
-        a, b = signed(a, bits), signed(b, bits) if i.cond.start_with?("s")
-        case i.cond
+        cond = i.cond or raise "#{i.op} has no condition"
+        a, b = signed(a, bits), signed(b, bits) if cond.start_with?("s")
+        case cond
         when "eq" then a == b
         when "ne" then a != b
         when "slt", "ult" then a < b
@@ -576,7 +582,7 @@ module Zr
       def saturate(a)
         return 0 if a.nan?
 
-        a.clamp(-(2**63).to_f, (2**63 - 1).to_f).truncate.clamp(-(2**63), 2**63 - 1)
+        a.clamp(-(1 << 63).to_f, ((1 << 63) - 1).to_f).truncate.clamp(-(1 << 63), (1 << 63) - 1)
       end
 
       # All conditions except `ne` give false for an unordered pair. Ruby

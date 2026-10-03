@@ -15,6 +15,8 @@ module Zr
         # compiles the pattern itself.
         module Regexps
           # @type instance: Walk
+          # The ivar of Walk that this module reads (walk.rb):
+          # @rbs @qnil: Integer
 
           FILES = [*RuntimeSources::ONIG_NAMES, "regexp_pattern"].map { |name| File.join(Paths::RUNTIME, "core/#{name}.rb") }.freeze
 
@@ -22,6 +24,7 @@ module Zr
           # `bits`, as the Value [encoding index, bits, program, name rows,
           # warning rows]. When CRuby refuses the pattern, nil: the core
           # compiles it again and raises the error.
+          #: (Integer source, Integer bits) -> Integer
           def regexp_compile(source, bits)
             FILES.each { |file| require file }
             text = Memory.read(k::RString.ptr(source), k::RString.len(source))

@@ -3,7 +3,7 @@
 # rescue. The task keeps the tags of the active catches, innermost last.
 
 module Zr::Kern
-  sig [] => Value
+  #: () -> value
   def zr_catches
     t = zr_task()
     list = Task.catches(t)
@@ -15,7 +15,7 @@ module Zr::Kern
   end
 
   # Whether a catch for `tag` is active.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_catch_tag_p(tag)
     list = zr_catches()
     i = RArray.len(list) - 1
@@ -30,7 +30,7 @@ module Zr::Kern
 
   # Starts the pending unwind for a throw. The caller has already checked
   # that a catch for `tag` is active.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_throw(tag, value)
     Task.set_throw_tag(zr_task(), tag)
     zr_signal(PENDING_THROW, value, 0, 0)
@@ -38,7 +38,7 @@ module Zr::Kern
 
   # Runs the block with a catch for `tag`. A throw to `tag` gives the
   # return value.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_catch(tag, blk)
     list = zr_catches()
     zr_ary_push(list, tag)

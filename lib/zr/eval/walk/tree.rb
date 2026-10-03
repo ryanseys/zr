@@ -23,6 +23,7 @@ module Zr
       # it does not support, with a message that gives the form and the line.
       class Tree
         # @rbs @file: String
+        # @rbs @once: Hash[Hir::Once, untyped]?
 
         # A form that the interpreter does not support yet, with its
         # location. The contract lets zr refuse, but not guess.
@@ -323,8 +324,9 @@ module Zr
 
         # An array literal, or the positional arguments of a call. A
         # `*splat` spreads in its position.
+        #: (Array[Hir::node] nodes, Ctx ctx) -> Array[untyped]
         def elements(nodes, ctx)
-          out = []
+          out = [] #: Array[untyped]
           nodes.each do |n|
             if n.is_a?(Hir::Splat)
               value = walk(n.value, ctx)
@@ -348,14 +350,15 @@ module Zr
 
         # `{k => v, **h}`: the pairs are flat, key then value. A double
         # splat is a key with a nil value.
+        #: (Array[Hir::node?] pairs, Ctx ctx) -> Hash[untyped, untyped]
         def hash_lit(pairs, ctx)
-          out = {}
+          out = {} #: Hash[untyped, untyped]
           i = 0
           while i < pairs.size
             key = pairs[i]
             if key.is_a?(Hir::HashSplat)
               spread = walk(key.value, ctx)
-              out.update(spread.nil? ? {} : spread.to_hash)
+              out.update(spread.to_hash) unless spread.nil?
               i += 2
             else
               out[walk(key, ctx)] = walk(pairs[i + 1], ctx)
@@ -398,7 +401,8 @@ module Zr
         end
 
         def const_write(node, value, ctx)
-          World.const_set(const_base(node, ctx), node.name, value)
+          # Steep finds Module#const_set on World before World#const_set.
+          World.const_set(const_base(node, ctx), node.name, value) # steep:ignore UnexpectedPositionalArgument
           value
         end
 
@@ -496,6 +500,15 @@ module Zr
         # One send. `vcall` marks a bare identifier: if no method is found,
         # the error is a NameError, not a NoMethodError. `breaks` is the
         # block literal of this call; a `break` in it returns from this call.
+        # @rbs recv: untyped
+        # @rbs name: Symbol
+        # @rbs args: Array[untyped]
+        # @rbs kwargs: Hash[Symbol, untyped]?
+        # @rbs block: Proc?
+        # @rbs private: bool
+        # @rbs vcall: bool
+        # @rbs breaks: Hir::Block | false | nil
+        # @rbs return: untyped
         def call(recv, name, args, kwargs, block, private:, vcall: false, breaks: nil)
           tag = breaks && breaks.__id__
           if kwargs.nil? || kwargs.empty?
@@ -510,7 +523,8 @@ module Zr
         rescue ::NoMethodError => e
           raise unless vcall && e.name == name && e.receiver.equal?(recv)
 
-          raise ::NameError.new("undefined local variable or method '#{name}' for #{recv.inspect}", name, receiver: recv)
+          # Ruby keeps the Symbol as NameError#name; RBS types it as a String.
+          raise ::NameError.new("undefined local variable or method '#{name}' for #{recv.inspect}", name, receiver: recv) # steep:ignore ArgumentTypeMismatch
         end
 
         # Blocks. A block is a Proc whose body the interpreter walks.
@@ -522,18 +536,31 @@ module Zr
         # and definee. Compiled code can do this to an interpreted block:
         # `Forwardable` evaluates a string to a proc and gives it to
         # `module_eval`. The interpreter then uses that self and scope.
+        #: (Hir::Block node, Ctx ctx, lambda: bool) -> Proc
         def make_proc(node, ctx, lambda:)
           tree = self
           home = World.cref
           # Only the literal makes a lambda: `Kernel#lambda` refuses a Proc
-          # that is not its literal block.
+          # that is not its literal block. The program gives the arguments,
+          # so Steep cannot type them.
           if lambda
-            return ->(*args, **kwargs, &blk) { tree.__send__(:run_block, node, ctx, args, kwargs, blk, lambda: true, home: home, here: World.cref, self_: self) }
+            return ->(*args, **kwargs, &blk) { tree.__send__(:run_block, node, ctx, args, kwargs, blk, lambda: true, home: home, here: World.cref, self_: self) } # steep:ignore FallbackAny
           end
 
-          proc { |*args, **kwargs, &blk| tree.__send__(:run_block, node, ctx, args, kwargs, blk, lambda: false, home: home, here: World.cref, self_: self) }
+          proc { |*args, **kwargs, &blk| tree.__send__(:run_block, node, ctx, args, kwargs, blk, lambda: false, home: home, here: World.cref, self_: self) } # steep:ignore FallbackAny
         end
 
+        # `home` and `here` are crefs (`World.cref`).
+        # @rbs node: Hir::Block
+        # @rbs ctx: Ctx
+        # @rbs args: Array[untyped]
+        # @rbs kwargs: Hash[Symbol, untyped]?
+        # @rbs blk: Proc?
+        # @rbs lambda: bool
+        # @rbs home: untyped
+        # @rbs here: untyped
+        # @rbs self_: untyped
+        # @rbs return: untyped
         def run_block(node, ctx, args, kwargs, blk, lambda:, home: nil, here: nil, self_: nil)
           ctx = ctx.with(self_: self_, cref: here, name: nil, owner: nil, home: nil) if here && !World.same?(here, home)
           tag = node.__id__
@@ -562,8 +589,9 @@ module Zr
           owner = node.receiver ? World.singleton_of(walk(node.receiver, ctx)) : World.cref_klass(ctx.cref)
           tree = self
           cref = ctx.cref
+          # The program gives the arguments, so Steep cannot type them.
           owner.define_method(node.name) do |*args, **kwargs, &blk|
-            tree.__send__(:run_method, node, self, owner, cref, args, kwargs, blk)
+            tree.__send__(:run_method, node, self, owner, cref, args, kwargs, blk) # steep:ignore FallbackAny
           end
           visibility(owner, node, cref) unless node.receiver
           node.name
@@ -600,7 +628,8 @@ module Zr
                  else World.cref_klass(World.cref_lexical(ctx.cref))
                  end
           mod = World.const_defined_at?(base, node.name) ? World.const_get_at(base, node.name) : nil
-          mod ||= World.const_set(base, node.name, new_module(node, ctx))
+          # Steep finds Module#const_set on World before World#const_set.
+          mod ||= World.const_set(base, node.name, new_module(node, ctx)) # steep:ignore ArgumentTypeMismatch,UnexpectedPositionalArgument
           run_body(node, mod, ctx)
         end
 
@@ -676,13 +705,15 @@ module Zr
           value
         end
 
+        #: (Hir::MultiTarget target, Array[untyped] values, Ctx ctx) -> Array[untyped]
         def spread(target, values, ctx)
           values = values.dup
           target.lefts.each { |t| write_target(t, values.shift, ctx) }
           rest = target.rest
           if rest
             take = values.size - target.rights.size
-            taken = take.positive? ? values.shift(take) : []
+            taken = [] #: Array[untyped]
+            taken = values.shift(take) if take.positive?
             write_target(rest, taken, ctx) unless rest == :implicit
           end
           target.rights.each { |t| write_target(t, values.shift, ctx) }
@@ -698,7 +729,8 @@ module Zr
           when Hir::IvarWrite then ctx.self_.instance_variable_set(target.name, value)
           when Hir::GvarWrite then World.gvar_set(target.shown || target.name, target.name, value)
           when Hir::CvarWrite then World.cvar_set(ctx.cref, target.name, value)
-          when Hir::ConstWrite then World.const_set(const_base(target, ctx), target.name, value)
+          # Steep finds Module#const_set on World before World#const_set.
+          when Hir::ConstWrite then World.const_set(const_base(target, ctx), target.name, value) # steep:ignore UnexpectedPositionalArgument
           when Hir::MultiTarget then spread(target, splat_array(value), ctx)
           when Hir::Send then write_send(target, value, ctx)
           else refuse(target, "#{target.class.name.split("::").last} as an assignment target")
@@ -715,7 +747,7 @@ module Zr
         def yield_node(node, ctx)
           block = ctx.block or raise ::LocalJumpError, "no block given (yield)"
           args = elements(node.args, ctx)
-          kwargs = node.kwargs ? hash_lit(node.kwargs.pairs, ctx) : nil
+          kwargs = node.kwargs ? hash_lit(node.kwargs.pairs, ctx) : nil #: Hash[Symbol, untyped]?
           kwargs.nil? || kwargs.empty? ? block.call(*args) : block.call(*args, **kwargs)
         end
 
@@ -733,6 +765,7 @@ module Zr
           call_super(node, ctx, ctx.args || [], ctx.kwargs, block_for(node.block, ctx) || ctx.block)
         end
 
+        #: (untyped node, Ctx ctx, Array[untyped] args, Hash[Symbol, untyped]? kwargs, Proc? block) -> untyped
         def call_super(node, ctx, args, kwargs, block)
           refuse(node, "super outside a method") unless ctx.name && ctx.owner
           method = super_method(node, ctx)
@@ -810,7 +843,8 @@ module Zr
           recv = walk(node.recv, ctx)
           return nil if node.safe && recv.nil?
 
-          current = call(recv, node.name, [], nil, nil, private: private_call?(node))
+          none = [] #: Array[untyped]
+          current = call(recv, node.name, none, nil, nil, private: private_call?(node))
           return current if short_circuit?(node.op, current)
 
           value = combined(node.op, current, node.value, ctx)
@@ -827,7 +861,8 @@ module Zr
         end
 
         def alias_node(_node, ctx, new_name, old_name)
-          World.alias_method(World.cref_klass(ctx.cref), new_name.to_sym, old_name.to_sym)
+          # Steep finds Module#alias_method on World before World#alias_method.
+          World.alias_method(World.cref_klass(ctx.cref), new_name.to_sym, old_name.to_sym) # steep:ignore UnexpectedPositionalArgument
           nil
         end
 
@@ -839,16 +874,29 @@ module Zr
 
         # `END { }`: the body runs only the first time that execution gets
         # to the site.
+        #: (Hir::Once node, Ctx ctx) -> untyped
         def once(node, ctx)
-          @once ||= {}.compare_by_identity
-          return @once[node] if @once.key?(node)
+          once = @once ||= begin
+            seen = {} #: Hash[Hir::Once, untyped]
+            seen.compare_by_identity
+          end
+          return once[node] if once.key?(node)
 
-          @once[node] = walk(node.body, ctx)
+          once[node] = walk(node.body, ctx)
         end
 
         # Parameters. `args` are the positional arguments, and `kwargs` are
         # the keywords or nil. `strict` turns on the arity check: a method
         # and a lambda do it, a block does not.
+        # @rbs params: Hir::Params
+        # @rbs scope: Scope
+        # @rbs args: Array[untyped]
+        # @rbs kwargs: Hash[Symbol, untyped]?
+        # @rbs blk: Proc?
+        # @rbs ctx: Ctx
+        # @rbs strict: bool
+        # @rbs spread: bool
+        # @rbs return: void
         def bind(params, scope, args, kwargs, blk, ctx, strict:, spread:)
           args = args.dup
           kwargs = nil if kwargs && kwargs.empty?
@@ -890,6 +938,7 @@ module Zr
           scope.set(name, value)
         end
 
+        #: (Hir::Params params, Scope scope, Hash[Symbol, untyped] kwargs, Ctx ctx, strict: bool) -> untyped
         def bind_keywords(params, scope, kwargs, ctx, strict:)
           rest = kwargs.dup
           params.keywords.each do |name, default|

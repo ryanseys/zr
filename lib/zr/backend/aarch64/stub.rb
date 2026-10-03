@@ -7,7 +7,7 @@ require_relative "../../obj/model"
 module Zr
   module Backend
     module Aarch64
-      # The functions that the machine dialect cannot express. This file
+      # The functions that the kernel subset cannot express. This file
       # assembles their machine code and gives it as raw bytes to every target path.
       module Stub
         # @rbs skip -- in sig/zr/backend/aarch64/registers.rbs

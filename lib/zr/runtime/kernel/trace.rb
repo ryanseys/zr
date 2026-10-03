@@ -29,7 +29,7 @@ module Zr::Kern
   # event is on, no send site uses its inline cache: each send goes to
   # `zr_dispatch`, which fires the event around a method that CRuby
   # writes in C.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_trace_events_set(mask)
     Machine.store64(Machine.static(:trace_points, 8), 0, zr_fix2long(mask))
     zr_trace_events_arm()
@@ -39,7 +39,7 @@ module Zr::Kern
   # Sets `trace_events`, which compiled code checks: the TracePoint
   # events, plus :line while coverage is set up, because coverage counts
   # each line.
-  sig [] => Void
+  #: () -> void
   def zr_trace_events_arm
     events = Machine.static(:trace_events, 8)
     mask = Machine.load64(Machine.static(:trace_points, 8), 0)
@@ -53,13 +53,13 @@ module Zr::Kern
   end
 
   # Whether a C event is on.
-  sig [] => Bool
+  #: () -> bool
   def zr_trace_c_p
     (Machine.load64(Machine.static(:trace_events, 8), 0) & TRACE_C) != 0
   end
 
   # Whether an event that a send fires is on.
-  sig [] => Bool
+  #: () -> bool
   def zr_trace_sends_p
     (Machine.load64(Machine.static(:trace_events, 8), 0) & TRACE_SENDS) != 0
   end
@@ -71,19 +71,19 @@ module Zr::Kern
 
   # Whether any TracePoint is enabled now, for an eval that compiles its
   # string with the events armed only while one can fire.
-  sig [] => Value
+  #: () -> value
   def zr_trace_armed_m
     zr_bool(Machine.load64(Machine.static(:trace_events, 8), 0) != 0)
   end
 
-  sig [Ptr] => Bool
+  #: (ptr) -> bool
   def zr_trace_ruby_entry_p(e)
     (MEntry.core(e) & MENTRY_CRUBY_RUBY) != 0
   end
 
   # Marks the method `name` of `klass` as a method that CRuby writes in
   # Ruby. Returns false if the class itself does not define that method.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_trace_mark_ruby(klass, name)
     e = zr_find_method_at(klass, zr_sym2id(name))
     if e == 0 || MEntry.kind(e) == KIND_UNDEF
@@ -97,7 +97,7 @@ module Zr::Kern
   # builtin, an accessor, or a core def that CRuby does not write in Ruby.
   # A builtin with no frame (`send` or `Proc#call`) is one that CRuby's VM
   # calls with no frame.
-  sig [Ptr] => Bool
+  #: (ptr) -> bool
   def zr_trace_c_entry_p(e)
     kind = MEntry.kind(e)
     if zr_trace_ruby_entry_p(e)
@@ -117,7 +117,7 @@ module Zr::Kern
   # from the core library is a call in C, which fires nothing. A core def
   # that CRuby writes in Ruby sends much less than the same def here,
   # because CRuby uses primitives, so its sends also fire nothing.
-  sig [] => Bool
+  #: () -> bool
   def zr_trace_c_caller_p
     top = Task.top(zr_task())
     if top == 0
@@ -134,7 +134,7 @@ module Zr::Kern
   # method that CRuby writes in Ruby. Both fire at the file and line of
   # the caller, which TracePoint gives as the location of a Ruby method.
   # The event after the call has nil when the call raises.
-  sig [Ptr, Value, Word, Word, Ptr, Value, Word, Word] => Value
+  #: (ptr, value, word, word, ptr, value, word, word) -> value
   def zr_trace_send_invoke(e, recv, mid, argc, argv, blk, kw, before)
     after = before * 2
     owner = zr_method_owner(zr_box_view(zr_class_of(recv)), mid)
@@ -159,7 +159,7 @@ module Zr::Kern
     value
   end
 
-  sig [Word, Ptr, Value, Value, Value] => Value
+  #: (word, ptr, value, value, value) -> value
   def zr_trace_c_send(event, e, owner, recv, value)
     rec = zr_frame_with_file(Task.top(zr_task()))
     if rec == 0
@@ -180,7 +180,7 @@ module Zr::Kern
   # is undef while a pending unwind leaves the frame, and the unwind waits
   # until the handlers finish. Returns `value`, or undef when a handler
   # raises.
-  sig [Word, Value] => Value
+  #: (word, value) -> value
   def zr_trace_fire(event, value)
     t = zr_task()
     if event == TRACE_LINE
@@ -212,7 +212,7 @@ module Zr::Kern
   # A raise fires `:raise` from the program frame: the frame that raised,
   # or the frame that called the runtime method that raised. A raise
   # deeper in the runtime, for its own use, is not a program event.
-  sig [Value, Ptr] => Value
+  #: (value, ptr) -> value
   def zr_trace_raise(exc, top)
     if (Machine.load64(Machine.static(:trace_events, 8), 0) & TRACE_RAISE) == 0 || top == 0
       return Machine.value(QNIL)
@@ -237,7 +237,7 @@ module Zr::Kern
   # the matching clause, not at the raise (the `:raise` event gives that).
   # `line` is the line of the clause. The frame still has the line of the
   # raise, and a store to change it would slow each rescue, traced or not.
-  sig [Word] => Value
+  #: (word) -> value
   def zr_trace_rescue(line)
     t = zr_task()
     if (Machine.load64(Machine.static(:trace_events, 8), 0) & TRACE_RESCUE) == 0
@@ -256,14 +256,14 @@ module Zr::Kern
   # the frame serial (to find the frame again for a binding), and the
   # addresses of the FrameMeta and of the method entry (to get the
   # parameters).
-  sig [Ptr, Word, Value] => Value
+  #: (ptr, word, value) -> value
   def zr_trace_send(rec, event, value)
     zr_trace_send_at(rec, event, value, zr_frame_line(rec))
   end
 
   # The same, for an event whose line is not the current line of the
   # frame: a rescue clause fires from its own line.
-  sig [Ptr, Word, Value, Word] => Value
+  #: (ptr, word, value, word) -> value
   def zr_trace_send_at(rec, event, value, line)
     row = zr_trace_row(event, value, Frame.meta(rec), line)
     method = zr_method_meta_of(rec)
@@ -295,7 +295,7 @@ module Zr::Kern
 
   # Makes the start of an event record: the event, the value, the file of
   # `meta`, and `line`.
-  sig [Word, Value, Ptr, Word] => Value
+  #: (word, value, ptr, word) -> value
   def zr_trace_row(event, value, meta, line)
     row = zr_ary_new(9)
     zr_ary_push(row, zr_fix(event))
@@ -314,7 +314,7 @@ module Zr::Kern
   # `Fiber#resume`, `Fiber.yield` or `Fiber#transfer`. `recv` is that
   # receiver and `mid` is its name. They are nil and 0 in a fiber that has
   # run no line yet, because such a fiber has no location.
-  sig [Value, Word] => Value
+  #: (value, word) -> value
   def zr_trace_fiber_switch(recv, mid)
     if (Machine.load64(Machine.static(:trace_events, 8), 0) & TRACE_FIBER_SWITCH) == 0
       return Machine.value(QNIL)
@@ -346,7 +346,7 @@ module Zr::Kern
   # The same, where control comes back with `v`. `v` is undef when the
   # fiber left a pending unwind. The pending unwind waits while the
   # handlers run, as in zr_trace_fire, and is restored after them.
-  sig [Value, Value, Word] => Value
+  #: (value, value, word) -> value
   def zr_trace_fiber_switched(v, recv, mid)
     if (Machine.load64(Machine.static(:trace_events, 8), 0) & TRACE_FIBER_SWITCH) == 0
       return v
@@ -370,7 +370,7 @@ module Zr::Kern
   # the source string of the code, or nil for a file, and the three values
   # that `rb_iseqw_new` would give for it: its path, its label, and its
   # first line.
-  sig [Value, Value, Ptr, Word, Value] => Value
+  #: (value, value, ptr, word, value) -> value
   def zr_trace_compiled_value(script, path, label, label_len, line)
     v = zr_ary_new(4)
     zr_ary_push(v, script)
@@ -383,7 +383,7 @@ module Zr::Kern
   # Makes and fires the `:script_compiled` event record for both firing
   # points: `value` at the location of `rec`, with the method name `mid`,
   # the owner `owner`, and `this` as self.
-  sig [Ptr, Value, Value, Word, Value] => Value
+  #: (ptr, value, value, word, value) -> value
   def zr_trace_compiled(rec, value, this, mid, owner)
     row = zr_ary_new(11)
     zr_ary_push(row, zr_fix(TRACE_SCRIPT_COMPILED))
@@ -416,7 +416,7 @@ module Zr::Kern
   # the self, name and owner, and the frame before it gives the location.
   # For example, `1.instance_eval("...")` gives 1, `:instance_eval` and
   # BasicObject, at the line of the call.
-  sig [Value, Value, Value] => Value
+  #: (value, value, value) -> value
   def zr_trace_script_compiled(script, path, line)
     if (Machine.load64(Machine.static(:trace_events, 8), 0) & TRACE_SCRIPT_COMPILED) == 0
       return Machine.value(QNIL)
@@ -439,7 +439,7 @@ module Zr::Kern
   # inline in the frame that contains it. A computed require comes here
   # through hidden frames, which `zr_frame_with_file` skips. In both cases
   # the result is the requiring frame, which ruby reports, with its self.
-  sig [Value, Word] => Value
+  #: (value, word) -> value
   def zr_trace_required(path, kind)
     if (Machine.load64(Machine.static(:trace_events, 8), 0) & TRACE_SCRIPT_COMPILED) == 0
       return Machine.value(QNIL)
@@ -451,7 +451,7 @@ module Zr::Kern
                       rec == 0 ? Machine.value(QNIL) : Frame.self(rec), mid, zr_global(G_KERNEL))
   end
 
-  sig [Value] => Value
+  #: (value) -> value
   def zr_trace_run(row)
     argv = Machine.slot(8)
     Machine.store64(argv, 0, Machine.word(row))
@@ -461,7 +461,7 @@ module Zr::Kern
   # Fires `:call` or `:return` around the body of a define_method method,
   # as vm_call_bmethod does, from the first line of its block. A body that
   # the runtime wrote fires no event.
-  sig [Word, Ptr, Value, Value] => Value
+  #: (word, ptr, value, value) -> value
   def zr_trace_bmethod(event, e, recv, value)
     meta = RProc.meta(MEntry.cref(e))
     if (Machine.load64(Machine.static(:trace_events, 8), 0) & event) == 0 || FrameMeta.file_len(meta) == 0
@@ -493,7 +493,7 @@ module Zr::Kern
 
   # Returns the binding of the live frame whose serial is `serial`, or nil
   # after the frame returns.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_trace_binding(serial)
     rec = Task.top(zr_task())
     while rec != 0 && Frame.serial(rec) != zr_fix2long(serial)
@@ -513,7 +513,7 @@ module Zr::Kern
   # its arity. A define_method body gets them as a method does. All other
   # code gets them from the FrameMeta of the record, and a block gets them
   # as a proc does.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_trace_parameters(meta_word, entry_word)
     e = Machine.ptr(zr_fix2long(entry_word))
     if e != 0 && MEntry.kind(e) == KIND_BMETHOD
@@ -531,7 +531,7 @@ module Zr::Kern
 
   # Whether the code of `meta_word` is `target` or is inside it, as a
   # targeted TracePoint hooks an iseq and its children.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_trace_within(meta_word, target)
     goal = zr_iseq_meta(target)
     meta = Machine.ptr(zr_fix2long(meta_word))

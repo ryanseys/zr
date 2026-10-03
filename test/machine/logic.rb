@@ -10,19 +10,19 @@ module Zr::Kern
   LIMIT = (MASK + ONE) * 2
 
   # calls: 0 the tally of probe calls
-  sig [] => Ptr
+  #: () -> ptr
   def calls
     Machine.static(:calls, 8)
   end
 
-  sig [Bool] => Bool
+  #: (bool) -> bool
   def probe(answer)
     c = calls()
     Machine.store64(c, 0, Machine.load64(c, 0) + 1)
     answer
   end
 
-  sig [I32, Ptr] => I32
+  #: (i32, ptr) -> i32
   def main(argc, argv)
     code = 0
     code = code | 1 if MASK != 19

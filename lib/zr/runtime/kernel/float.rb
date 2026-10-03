@@ -25,30 +25,30 @@ module Zr::Kern
   GATE_FLO_GE = 536870912
   GATE_FLO_EQ = 1073741824
 
-  sig [Value] => Bool
+  #: (value) -> bool
   def zr_flonum_p(v)
     (Machine.word(v) & 3) == 2
   end
 
-  sig [Value] => Bool
+  #: (value) -> bool
   def zr_float_p(v)
     zr_flonum_p(v) || (!zr_special_p(v) && zr_type(v) == T_FLOAT)
   end
 
-  sig [Value] => Value
+  #: (value) -> value
   def zr_float_p_m(v)
     zr_bool(zr_float_p(v))
   end
 
   # Whether `v` is an Integer: a fixnum or a bignum.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_integer_p_m(v)
     zr_bool(zr_fixnum_p(v) || zr_big_p(v))
   end
 
   # Makes a Float from a double: a flonum when the top bits of the
   # exponent are 011 or 100, the flonum zero for +0.0, else a heap cell.
-  sig [F64] => Value
+  #: (f64) -> value
   def zr_float_new(d)
     b = Machine.ptr(Machine.bits(d))
     top = (b >> 60) & 7
@@ -65,7 +65,7 @@ module Zr::Kern
     f
   end
 
-  sig [Value] => F64
+  #: (value) -> f64
   def zr_float_value(v)
     if zr_flonum_p(v)
       if Machine.word(v) == FLONUM_ZERO
@@ -81,7 +81,7 @@ module Zr::Kern
 
   # Converts a Float or Integer operand to a double. For all other values
   # it raises a TypeError and returns undef (it does not call `coerce`).
-  sig [Value, Value, Ptr, Word, Word] => Value
+  #: (value, value, ptr, word, word) -> value
   def zr_float_operand(recv, v, out, mid, kind)
     if zr_fixnum_p(v)
       Machine.store64(out, 0, Machine.bits(Machine.to_f64(zr_fix2long(v))))
@@ -101,19 +101,19 @@ module Zr::Kern
     zr_num_coerce(recv, v, mid, kind)
   end
 
-  sig [F64] => Bool
+  #: (f64) -> bool
   def zr_nan_p(d)
     d != d
   end
 
-  sig [F64] => Bool
+  #: (f64) -> bool
   def zr_inf_p(d)
     Machine.fabs(d) == Machine.f64(INF_BITS)
   end
 
   # --- arithmetic -------------------------------------------------------
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_flo_plus(recv, argc, argv, cref, blk)
     out = Machine.slot(8)
     r = zr_float_operand(recv, Machine.value(Machine.load64(argv, 0)), out, Machine.id(:+), 0)
@@ -121,7 +121,7 @@ module Zr::Kern
     zr_float_new(zr_float_value(recv) + Machine.f64(Machine.load64(out, 0)))
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_flo_minus(recv, argc, argv, cref, blk)
     out = Machine.slot(8)
     r = zr_float_operand(recv, Machine.value(Machine.load64(argv, 0)), out, Machine.id(:-), 0)
@@ -129,7 +129,7 @@ module Zr::Kern
     zr_float_new(zr_float_value(recv) - Machine.f64(Machine.load64(out, 0)))
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_flo_mul(recv, argc, argv, cref, blk)
     out = Machine.slot(8)
     r = zr_float_operand(recv, Machine.value(Machine.load64(argv, 0)), out, Machine.id(:*), 0)
@@ -137,7 +137,7 @@ module Zr::Kern
     zr_float_new(zr_float_value(recv) * Machine.f64(Machine.load64(out, 0)))
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_flo_div(recv, argc, argv, cref, blk)
     out = Machine.slot(8)
     r = zr_float_operand(recv, Machine.value(Machine.load64(argv, 0)), out, Machine.id(:/), 0)
@@ -146,7 +146,7 @@ module Zr::Kern
   end
 
   # CRuby's flodivmod: the modulo takes the divisor's sign.
-  sig [F64, F64] => F64
+  #: (f64, f64) -> f64
   def zr_float_mod(x, y)
     if zr_nan_p(y)
       return y
@@ -162,7 +162,7 @@ module Zr::Kern
     m
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_flo_mod(recv, argc, argv, cref, blk)
     out = Machine.slot(8)
     r = zr_float_operand(recv, Machine.value(Machine.load64(argv, 0)), out, Machine.id(:%), 0)
@@ -176,7 +176,7 @@ module Zr::Kern
 
   # The quotient that CRuby's divmod returns: rounded, and one less when
   # the modulo changed sign.
-  sig [F64, F64] => F64
+  #: (f64, f64) -> f64
   def zr_float_quotient(x, y)
     if zr_nan_p(y)
       return y
@@ -199,7 +199,7 @@ module Zr::Kern
 
   # CRuby's rb_dbl_complex_new_polar_pi: the Complex at the angle `ang`
   # times pi. It is exact on the axes, and else uses cospi and sinpi.
-  sig [F64, F64] => Value
+  #: (f64, f64) -> value
   def zr_complex_polar_pi(abs, ang)
     whole = Machine.trunc(ang)
     fr = ang - whole
@@ -221,7 +221,7 @@ module Zr::Kern
     zr_send(zr_core_class(Machine.id(:Complex)), Machine.id(:rectangular), 2, pair)
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_flo_pow(recv, argc, argv, cref, blk)
     out = Machine.slot(8)
     r = zr_float_operand(recv, Machine.value(Machine.load64(argv, 0)), out, Machine.id(:**), 0)
@@ -234,7 +234,7 @@ module Zr::Kern
     zr_float_new(Libc.pow(x, y))
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_flo_uminus(recv, argc, argv, cref, blk)
     zr_float_new(-zr_float_value(recv))
   end
@@ -242,7 +242,7 @@ module Zr::Kern
   # --- comparison -------------------------------------------------------
 
   # Returns -1, 0, 1, or 2 when one side is NaN.
-  sig [F64, F64] => Word
+  #: (f64, f64) -> word
   def zr_float_cmp(a, b)
     if a < b
       return 0 - 1
@@ -256,7 +256,7 @@ module Zr::Kern
     2
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_flo_eq(recv, argc, argv, cref, blk)
     other = Machine.value(Machine.load64(argv, 0))
     if zr_fixnum_p(other) || zr_float_p(other) || zr_big_p(other)
@@ -267,7 +267,7 @@ module Zr::Kern
     zr_send(other, Machine.id(:==), 1, slot)
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_flo_cmp(recv, argc, argv, cref, blk)
     other = Machine.value(Machine.load64(argv, 0))
     if !zr_fixnum_p(other) && !zr_float_p(other) && !zr_big_p(other)
@@ -284,7 +284,7 @@ module Zr::Kern
   # Returns -1, 0, 1, or 2 when they cannot be compared. A bignum
   # compares exactly, through the Integer code, never through a rounded
   # double.
-  sig [Value, Value] => Word
+  #: (value, value) -> word
   def zr_float_cmp_value(recv, other)
     if zr_fixnum_p(other)
       c = zr_int_float_cmp(zr_fix2long(other), zr_float_value(recv))
@@ -304,7 +304,7 @@ module Zr::Kern
 
   # `<`, `<=`, `>`, `>=` with a Float or Integer. The comparison fails
   # for all other values.
-  sig [Value, Value, Word] => Value
+  #: (value, value, word) -> value
   def zr_flo_relate(recv, other, want)
     if !zr_fixnum_p(other) && !zr_float_p(other) && !zr_big_p(other)
       if want == 0
@@ -334,22 +334,22 @@ module Zr::Kern
     zr_bool(c >= 0)
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_flo_lt(recv, argc, argv, cref, blk)
     zr_flo_relate(recv, Machine.value(Machine.load64(argv, 0)), 0)
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_flo_le(recv, argc, argv, cref, blk)
     zr_flo_relate(recv, Machine.value(Machine.load64(argv, 0)), 1)
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_flo_gt(recv, argc, argv, cref, blk)
     zr_flo_relate(recv, Machine.value(Machine.load64(argv, 0)), 2)
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_flo_ge(recv, argc, argv, cref, blk)
     zr_flo_relate(recv, Machine.value(Machine.load64(argv, 0)), 3)
   end
@@ -358,7 +358,7 @@ module Zr::Kern
 
   # Converts a double to an Integer, truncated. NaN and the infinities
   # raise FloatDomainError. A value past the fixnum range becomes a bignum.
-  sig [F64] => Value
+  #: (f64) -> value
   def zr_float_to_int(d)
     if zr_nan_p(d) || zr_inf_p(d)
       b = Machine.slot(Buf.size)
@@ -375,12 +375,12 @@ module Zr::Kern
     zr_fix(Machine.to_int(t))
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_flo_to_i(recv, argc, argv, cref, blk)
     zr_float_to_int(zr_float_value(recv))
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_flo_floor(recv, argc, argv, cref, blk)
     if argc > 0 && zr_fix2long(Machine.value(Machine.load64(argv, 0))) > 0
       return zr_float_round_digits(zr_float_value(recv), zr_fix2long(Machine.value(Machine.load64(argv, 0))), 1)
@@ -390,28 +390,28 @@ module Zr::Kern
 
   # `floor`, `ceil` and `round` to `digits` places, for the Float
   # methods. Returns nil when the double cannot give an exact result.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_flo_floor_m(recv, digits)
     slot = Machine.slot(8)
     Machine.store64(slot, 0, Machine.word(digits))
     zr_flo_floor(recv, 1, slot, Machine.value(QNIL), Machine.value(QNIL))
   end
 
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_flo_ceil_m(recv, digits)
     slot = Machine.slot(8)
     Machine.store64(slot, 0, Machine.word(digits))
     zr_flo_ceil(recv, 1, slot, Machine.value(QNIL), Machine.value(QNIL))
   end
 
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_flo_round_m(recv, digits)
     slot = Machine.slot(8)
     Machine.store64(slot, 0, Machine.word(digits))
     zr_flo_round(recv, 1, slot, Machine.value(QNIL), Machine.value(QNIL))
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_flo_ceil(recv, argc, argv, cref, blk)
     if argc > 0 && zr_fix2long(Machine.value(Machine.load64(argv, 0))) > 0
       return zr_float_round_digits(zr_float_value(recv), zr_fix2long(Machine.value(Machine.load64(argv, 0))), 2)
@@ -421,7 +421,7 @@ module Zr::Kern
 
   # CRuby's round_half_up: round(x * s) / s, with a correction when the
   # scaled value is just below a half.
-  sig [F64, F64] => F64
+  #: (f64, f64) -> f64
   def zr_round_half_up(x, s)
     xs = x * s
     f = Machine.nearest(xs)
@@ -448,7 +448,7 @@ module Zr::Kern
   # A number with fewer digits than `n` returns itself. A number too
   # small for the digits gives zero. floor corrects a scaled result that
   # went past the number.
-  sig [F64, Word, Word] => Value
+  #: (f64, word, word) -> value
   def zr_float_round_digits(d, digits, how)
     if d == Machine.f64(0) || zr_nan_p(d) || zr_inf_p(d) || zr_float_round_overflow(d, digits)
       return zr_float_new(d)
@@ -478,7 +478,7 @@ module Zr::Kern
 
   # The binary exponent that frexp returns: the number is f * 2**e with
   # f in [0.5, 1).
-  sig [F64] => Word
+  #: (f64) -> word
   def zr_float_binexp(d)
     bits = Machine.ptr(Machine.bits(d))
     Machine.word((bits >> 52) & 2047) - 1022
@@ -486,7 +486,7 @@ module Zr::Kern
 
   # CRuby's float_round_overflow: for `digits` places, a number whose
   # exponent leaves nothing to round returns itself.
-  sig [F64, Word] => Bool
+  #: (f64, word) -> bool
   def zr_float_round_overflow(d, digits)
     e = zr_float_binexp(d)
     digits >= 17 - (e > 0 ? e / 4 : Machine.sdiv(e, 3) - 1)
@@ -494,13 +494,13 @@ module Zr::Kern
 
   # CRuby's float_round_underflow: all the digits requested are above
   # the number.
-  sig [F64, Word] => Bool
+  #: (f64, word) -> bool
   def zr_float_round_underflow(d, digits)
     e = zr_float_binexp(d)
     digits < 0 - (e > 0 ? (e / 3) + 1 : Machine.sdiv(e, 4))
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_flo_round(recv, argc, argv, cref, blk)
     d = zr_float_value(recv)
     digits = 0
@@ -523,12 +523,12 @@ module Zr::Kern
     zr_float_to_int(zr_round_half_up(d, Machine.f64(4607182418800017408)))
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_flo_nan_p(recv, argc, argv, cref, blk)
     zr_bool(zr_nan_p(zr_float_value(recv)))
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_flo_infinite_p(recv, argc, argv, cref, blk)
     d = zr_float_value(recv)
     if zr_inf_p(d)
@@ -537,19 +537,19 @@ module Zr::Kern
     Machine.value(QNIL)
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_flo_finite_p(recv, argc, argv, cref, blk)
     d = zr_float_value(recv)
     zr_bool(!zr_nan_p(d) && !zr_inf_p(d))
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_flo_abs(recv, argc, argv, cref, blk)
     zr_float_new(Machine.fabs(zr_float_value(recv)))
   end
 
   # `hash`: the bits, with -0.0 as 0.0, so equal Floats have the same hash.
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_flo_hash(recv, argc, argv, cref, blk)
     d = zr_float_value(recv)
     if d == Machine.f64(0)
@@ -559,7 +559,7 @@ module Zr::Kern
     zr_fix(Machine.word((bits ^ (bits >> 29)) & 4611686018427387903))
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_flo_eql_p(recv, argc, argv, cref, blk)
     other = Machine.value(Machine.load64(argv, 0))
     if !zr_float_p(other)
@@ -568,7 +568,7 @@ module Zr::Kern
     zr_bool(zr_float_value(recv) == zr_float_value(other))
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_int_to_f(recv, argc, argv, cref, blk)
     if !zr_fixnum_p(recv)
       return zr_big_route(recv, Machine.id(:to_f), argc, argv)
@@ -577,7 +577,7 @@ module Zr::Kern
   end
 
   # A Float literal, from the bits that the compiler read.
-  sig [Word] => Value
+  #: (word) -> value
   def zr_float_from_bits(bits)
     zr_float_new(Machine.f64(bits))
   end
@@ -588,7 +588,7 @@ module Zr::Kern
   # Software License 1.0). See THIRD_PARTY_NOTICES.md.
 
   # The high 64 bits of a * b, both unsigned, by 32-bit halves.
-  sig [Ptr, Ptr] => Ptr
+  #: (ptr, ptr) -> ptr
   def zr_umulh(a, b)
     a_lo = a & 4294967295
     a_hi = a >> 32
@@ -603,7 +603,7 @@ module Zr::Kern
   end
 
   # (m * mul) >> j for a 128-bit `mul` at `row`, `j` past 64 and under 128.
-  sig [Ptr, Ptr, Word] => Ptr
+  #: (ptr, ptr, word) -> ptr
   def zr_ryu_mul_shift(m, row, j)
     mul0 = Machine.ptr(Machine.load64(row, 0))
     mul1 = Machine.ptr(Machine.load64(row, 8))
@@ -620,13 +620,13 @@ module Zr::Kern
     (sum >> dist) | Machine.ushl_wrap(b2_hi, 64 - dist)
   end
 
-  sig [Word] => Word
+  #: (word) -> word
   def zr_pow5_bits(e)
     ((e * 1217359) >> 19) + 1
   end
 
   # Whether `v` divides by five at least `p` times.
-  sig [Ptr, Word] => Bool
+  #: (ptr, word) -> bool
   def zr_multiple_of_pow5(v, p)
     n = 0
     while v > 0 && v % 5 == 0
@@ -636,14 +636,14 @@ module Zr::Kern
     n >= p
   end
 
-  sig [Ptr, Word] => Bool
+  #: (ptr, word) -> bool
   def zr_multiple_of_pow2(v, p)
     (v & ((Machine.ptr(1) << p) - 1)) == 0
   end
 
   # The decimal digits of a finite, nonzero, positive double: the
   # significand `out[0]` and the power of ten `out[1]`.
-  sig [F64, Ptr] => Void
+  #: (f64, ptr) -> void
   def zr_ryu(d, out)
     bits = Machine.ptr(Machine.bits(d))
     ieee_mantissa = bits & 4503599627370495
@@ -753,7 +753,7 @@ module Zr::Kern
   # decimal point when the decimal exponent is between -3 and 15 (or 16
   # with a fraction), else `d.ddde+XX`. NaN, Infinity and -Infinity are
   # written by name.
-  sig [Ptr, F64] => Void
+  #: (ptr, f64) -> void
   def zr_buf_float(b, d)
     if zr_nan_p(d)
       zr_buf_push(b, Machine.bytes("NaN"), 3)
@@ -826,7 +826,7 @@ module Zr::Kern
   end
 
   # Writes the decimal digits of `n` into `buf` and returns their count.
-  sig [Word, Ptr] => Word
+  #: (word, ptr) -> word
   def zr_digits_of(n, buf)
     tmp = Machine.slot(24)
     i = 0
@@ -847,7 +847,7 @@ module Zr::Kern
     i
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_flo_to_s(recv, argc, argv, cref, blk)
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
@@ -890,17 +890,17 @@ module Zr::Kern
   # no __cospi and __sinpi: it multiplies x by pi first.
   PI_BITS = 4614256656552045848
 
-  sig [F64] => F64
+  #: (f64) -> f64
   def zr_cos_of_pi_times(x)
     Libc.cos(x * Machine.f64(PI_BITS))
   end
 
-  sig [F64] => F64
+  #: (f64) -> f64
   def zr_sin_of_pi_times(x)
     Libc.sin(x * Machine.f64(PI_BITS))
   end
 
-  sig [Ptr, Word] => Bool
+  #: (ptr, word) -> bool
   def zr_digit_at(p, i)
     c = Machine.u8(Machine.load8(p + i, 0))
     c >= 48 && c <= 57
@@ -911,7 +911,7 @@ module Zr::Kern
   # and an exponent. The digits go to `b` without underscores, for
   # strtod. Returns the number of bytes read, or -1 when the text does
   # not start with a number.
-  sig [Value, Ptr] => Word
+  #: (value, ptr) -> word
   def zr_float_scan(s, b)
     p = RString.ptr(s)
     n = RString.len(s)
@@ -975,7 +975,7 @@ module Zr::Kern
     i
   end
 
-  sig [Ptr] => F64
+  #: (ptr) -> f64
   def zr_buf_strtod(b)
     zr_buf_byte(b, 0)
     d = Libc.strtod(Buf.ptr(b), 0)
@@ -984,7 +984,7 @@ module Zr::Kern
   end
 
   # `String#to_f`: the number at the start of the text, or 0.0.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_str_to_f(s)
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
@@ -998,7 +998,7 @@ module Zr::Kern
 
   # `Float(text)`: all the text, except whitespace, must be a number.
   # Returns nil when it is not. A hex form goes to `zr_hex_to_f`.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_str_to_f_strict(s)
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
@@ -1025,7 +1025,7 @@ module Zr::Kern
 
   # `Float("0x1p+3")`: strtod reads the hex form itself, so all the text
   # goes to it. The end pointer shows whether it read all the text.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_hex_to_f(s)
     p = RString.ptr(s)
     len = RString.len(s)
@@ -1053,17 +1053,17 @@ module Zr::Kern
     ok ? zr_float_new(d) : Machine.value(QNIL)
   end
 
-  sig [Ptr] => Bool
+  #: (ptr) -> bool
   def zr_buf_last_is_zero(b)
     Buf.len(b) > 0 && Machine.u8(Machine.load8(Buf.ptr(b) + Buf.len(b) - 1, 0)) == 48
   end
 
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_float_quotient_value(a, b)
     zr_float_new(zr_float_quotient(zr_float_value(a), zr_float_value(b)))
   end
 
-  sig [Value] => Value
+  #: (value) -> value
   def zr_math_sqrt(x)
     zr_float_new(Machine.sqrt(zr_float_value(x)))
   end
@@ -1073,7 +1073,7 @@ module Zr::Kern
   G_MATH_META = 63
 
   # The Math functions that a site `Math.f(x)` calls directly.
-  sig [Word] => Bool
+  #: (word) -> bool
   def zr_math_inline_p(mid)
     mid == Machine.id(:sqrt) || mid == Machine.id(:cbrt) || mid == Machine.id(:sin) || mid == Machine.id(:cos) ||
       mid == Machine.id(:tan) || mid == Machine.id(:atan) || mid == Machine.id(:exp)
@@ -1083,7 +1083,7 @@ module Zr::Kern
   # does the send of `check`, the two comparisons and the call of the
   # general path in one function. A zero gives +0.0, as CRuby's math_sqrt
   # does for -0.0.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_math_sqrt_fast(x)
     d = Machine.f64(0)
     if zr_fixnum_p(x)
@@ -1104,7 +1104,7 @@ module Zr::Kern
 
   # `zr_math_call(which, x)` for a Float or fixnum `x`, else nil. The
   # functions with no domain check try this first.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_math_call_fast(which, x)
     if zr_fixnum_p(x)
       return zr_math_call(which, zr_float_new(Machine.to_f64(zr_fix2long(x))), Machine.value(QNIL))
@@ -1116,7 +1116,7 @@ module Zr::Kern
   end
 
   # Calls one libm function, selected by number, on one or two doubles.
-  sig [Value, Value, Value] => Value
+  #: (value, value, value) -> value
   def zr_math_call(which, x, y)
     w = zr_fix2long(which)
     a = zr_float_value(x)
@@ -1180,7 +1180,7 @@ module Zr::Kern
 
   # `[mantissa, exponent]` of frexp: the fraction in [0.5, 1) and the
   # power of two.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_math_frexp(x)
     e = Machine.slot(4)
     Machine.store32(e, 0, Machine.i32(0))
@@ -1194,13 +1194,13 @@ module Zr::Kern
   # x * y + z with one rounding, as C compilers contract `a * b + c` on
   # arm64 (math.c's `d += numbits * M_LN2`, ruby_float_step's
   # `i * unit + beg`).
-  sig [Value, Value, Value] => Value
+  #: (value, value, value) -> value
   def zr_math_fma(x, y, z)
     zr_float_new(Libc.fma(zr_float_value(x), zr_float_value(y), zr_float_value(z)))
   end
 
   # `[log|gamma|, sign]` of lgamma.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_math_lgamma(x)
     s = Machine.slot(4)
     Machine.store32(s, 0, Machine.i32(1))
@@ -1214,7 +1214,7 @@ module Zr::Kern
   # The adjacent double. `up` moves toward +Infinity. From a zero, the
   # result is the smallest subnormal. An infinity does not change, and
   # NaN stays NaN.
-  sig [Value, Word] => Value
+  #: (value, word) -> value
   def zr_float_adjacent(recv, up)
     d = zr_float_value(recv)
     if zr_nan_p(d)
@@ -1234,19 +1234,19 @@ module Zr::Kern
     zr_float_from_bits(bits - 1)
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_flo_next_float(recv, argc, argv, cref, blk)
     zr_float_adjacent(recv, 1)
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_flo_prev_float(recv, argc, argv, cref, blk)
     zr_float_adjacent(recv, 0)
   end
 
   # The shortest digits that read back as the same double, and the
   # position of the decimal point: `0.d1d2... * 10^point`.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_float_shortest(v)
     d = zr_float_value(v)
     if d < Machine.f64(0)
@@ -1269,7 +1269,7 @@ module Zr::Kern
 
   # The IEEE 754 bit patterns of a double, as two 32-bit halves (low
   # first), so the core can pack it without a bignum.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_float_halves(v)
     bits = Machine.ptr(Machine.bits(zr_float_value(v)))
     out = zr_ary_new(2)
@@ -1278,7 +1278,7 @@ module Zr::Kern
     out
   end
 
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_float_of_halves(low, high)
     zr_float_from_bits(Machine.shl_wrap(zr_fix2long(high), 32) | zr_fix2long(low))
   end
@@ -1286,7 +1286,7 @@ module Zr::Kern
   # CRuby's float_decode_internal: [mantissa, exponent], where the double
   # is mantissa * 2**exponent. The mantissa is a 53-bit Integer (with the
   # sign), so a Rational can contain the exact value.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_float_decode(v)
     bits = Machine.ptr(Machine.bits(zr_float_value(v)))
     negative = (bits >> 63) != 0

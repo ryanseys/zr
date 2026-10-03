@@ -6,6 +6,14 @@ module Zr
       # `defined?`: the description String, or nil.
       module Defined
         # @type instance: Function
+        # @rbs @blk: String
+        # @rbs @cref: String
+        # @rbs @f: IR::Function
+        # @rbs @l: Lower
+        # @rbs @qnil: String
+        # @rbs @rec: String
+        # @rbs @self: String
+        # @rbs @sp: Integer
 
         NAMES = {
           local: "local-variable", ivar: "instance-variable", gvar: "global-variable", global: "global-variable",
@@ -37,16 +45,31 @@ module Zr
 
         #: (Hir::Defined node) -> String
         def defined_test(node)
+          # The kind tells the type of the target (Hir::Defined).
+          target = node.target
           case node.kind
-          when :ivar then truth(checked(kernel("zr_ivar_defined", @self, sym_word(ivar_name(node.target)))))
-          when :gvar then truth(kernel("zr_gvar_defined", sym_word(node.target)))
-          when :backref then @f.icmp("ne", expr(node.target), @qnil)
+          when :ivar
+            name = target #: Symbol
+            truth(checked(kernel("zr_ivar_defined", @self, sym_word(ivar_name(name)))))
+          when :gvar
+            name = target #: Symbol
+            truth(kernel("zr_gvar_defined", sym_word(name)))
+          when :backref
+            ref = target #: Hir::node
+            @f.icmp("ne", expr(ref), @qnil)
           when :cvar
+            name = target #: Symbol
             at_node(node)
-            truth(checked(kernel("zr_cvar_defined", @cref, sym_word(node.target))))
-          when :const then const_defined(node.target)
-          when :method, :attrasgn then method_defined(node.target)
-          when :list then all_defined(node.target) { imm_bool(true) }
+            truth(checked(kernel("zr_cvar_defined", @cref, sym_word(name))))
+          when :const
+            read = target #: Hir::ConstRead
+            const_defined(read)
+          when :method, :attrasgn
+            send = target #: Hir::Send
+            method_defined(send)
+          when :list
+            parts = target #: Array[Hir::node]
+            all_defined(parts) { imm_bool(true) }
           when :yield then @f.icmp("ne", @blk, @qnil)
           when :super then truth(kernel("zr_super_defined", @rec))
           else imm_bool(true)
@@ -56,7 +79,7 @@ module Zr
         # Whether an expression used as a receiver or argument is itself
         # defined. A name is tested by its form. All other expressions are
         # defined.
-        #: (untyped node) -> String
+        #: (Hir::node node) -> String
         def part_defined(node)
           case node
           when Hir::Send then defined_test(Hir::Defined.new(:method, node, node.line))
@@ -89,10 +112,11 @@ module Zr
         # expression. If the scope fails, the result is nil.
         #: (Hir::ConstRead read) -> String
         def const_defined(read)
-          if read.scope.nil?
+          outer = read.scope
+          if outer.nil?
             truthy(kernel("zr_const_defined", @cref, sym_word(read.name)))
           else
-            scope = read.scope == :top ? global("G_OBJECT") : expr(read.scope)
+            scope = outer.is_a?(Symbol) ? global("G_OBJECT") : expr(outer)
             truthy(kernel("zr_const_defined_at", scope, sym_word(read.name)))
           end
         end
@@ -111,9 +135,10 @@ module Zr
         #: (Hir::Send send, ?Integer? keep) -> String
         def method_defined(send, keep = nil)
           all_defined(send.args.compact) do
-            next truth(kernel("zr_method_defined", @self, sym_word(send.name), imm_bool(false))) unless send.recv
+            receiver = send.recv
+            next truth(kernel("zr_method_defined", @self, sym_word(send.name), imm_bool(false))) unless receiver
 
-            with_receiver(send.recv) do |recv|
+            with_receiver(receiver) do |recv|
               @f.store(recv, @rec, value_offset(keep)) if keep
               truth(kernel("zr_method_defined", recv, sym_word(send.name), imm_bool(true)))
             end
@@ -123,21 +148,22 @@ module Zr
         # If the receiver `node` is defined, returns the block's value for
         # the receiver's value. A call on a receiver of its own runs once,
         # on the receiver that its test evaluated.
-        #: (untyped node) { (String) -> String } -> String
+        #: (Hir::node node) { (String) -> String } -> String
         def with_receiver(node)
           merge, (ok,) = @f.block(["i8"]) #: [String, [String]]
           yes = @f.label
           no = @f.label
           base = @sp
-          kept = node.is_a?(Hir::Send) && node.recv && !node.recv.is_a?(Hir::SelfRef) && !node.safe
+          recv = node.recv if node.is_a?(Hir::Send)
+          kept = node if node.is_a?(Hir::Send) && recv && !recv.is_a?(Hir::SelfRef) && !node.safe
           slot = reserve(1) if kept
-          @f.brif(kept ? method_defined(node, slot) : part_defined(node), yes, no)
+          @f.brif(kept ? method_defined(kept, slot) : part_defined(node), yes, no)
           switch(no)
           @f.jump(merge, [imm_bool(false)])
           switch(yes)
-          value = if kept
-                    call(Hir::Send.of(Hir::Slot.new(slot, node.line), node.name, node.args, node.line,
-                                      opt: node.opt, block: node.block, kwargs: node.kwargs, write: node.write, using: node.using))
+          value = if kept && slot
+                    call(Hir::Send.of(Hir::Slot.new(slot, kept.line), kept.name, kept.args, kept.line,
+                                      opt: kept.opt, block: kept.block, kwargs: kept.kwargs, write: kept.write, using: kept.using))
                   else
                     expr(node)
                   end
@@ -149,7 +175,7 @@ module Zr
 
         # If every part is defined, returns the block's value. The tests
         # short-circuit, so nothing after an undefined part runs.
-        #: (Array[untyped] parts) { () -> String } -> String
+        #: (Array[Hir::node] parts) { () -> String } -> String
         def all_defined(parts)
           merge, (ok,) = @f.block(["i8"]) #: [String, [String]]
           parts.each do |part|

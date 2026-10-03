@@ -40,7 +40,8 @@ module Zr
       # total size.
       #: [T < ::Zr::Obj::_Placeable] (Array[T] items, Integer least) -> { at: Array[[T, Integer]], size: Integer }
       def layout(items, least)
-        at = [] #: Array[[T, Integer]]
+        # Steep cannot name the method's `T` in a local's type.
+        at = [] #: Array[untyped]
         size = 0
         items.each do |item|
           size = Bytes.align(size, [item.align, least].max)

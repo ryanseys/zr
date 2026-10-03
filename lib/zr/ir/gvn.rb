@@ -244,7 +244,9 @@ module Zr
             d = up[n]
             bits = bits_of[n]
             stamp = Object.new
-            from[n].each do |x|
+            from[n].each do |p|
+              # @type var x: Integer?
+              x = p
               while x && x != d && !seen[x].equal?(stamp)
                 seen[x] = stamp
                 bits |= written[x] | bits_of[x]

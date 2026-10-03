@@ -96,7 +96,7 @@ module Zr::Kern
   CASE_ROWS = 32
 
   # Records a change that a constant lookup can see.
-  sig [] => Void
+  #: () -> void
   def zr_consts_changed
     s = Machine.static(:const_stamp, 8)
     Machine.store64(s, 0, Machine.load64(s, 0) + 1)
@@ -107,7 +107,7 @@ module Zr::Kern
   # from its header, as in `zr_class_of`. A special constant's class comes
   # from `zr_class_of`. The task comes directly from its static word,
   # because every send goes through here.
-  sig [Ptr, Value, Word, Word] => Ptr
+  #: (ptr, value, word, word) -> ptr
   def zr_call_cache_hit(cc, recv, mid, mode)
     w = Machine.word(recv)
     if (w & 7) == 0 && w != QFALSE && w != QNIL
@@ -130,7 +130,7 @@ module Zr::Kern
 
   # Writes the method entry that `zr_dispatch` found for `klass` into the
   # cache entry, when the class and the stamp alone decided the result.
-  sig [Ptr, Value, Ptr, Word, Word, Word] => Void
+  #: (ptr, value, ptr, word, word, word) -> void
   def zr_call_cache_fill(cc, klass, e, mid, mode, argc)
     if Machine.load64(Machine.static(:mcache_mode, 8), 0) == MCACHE_OFF
       return
@@ -171,7 +171,7 @@ module Zr::Kern
   # calls the body with the arguments in registers. A wrong count raises
   # under a frame of the def, as the prologue's check does, so the
   # backtrace shows the def.
-  sig [Value, Word, Ptr, Ptr, Value, Value] => Value
+  #: (value, word, ptr, ptr, value, value) -> value
   def zr_direct_fn(recv, argc, argv, e, blk, found)
     t = zr_task()
     kw = Task.kw(t)
@@ -203,7 +203,7 @@ module Zr::Kern
 
   # Raises the arity error of a def with a direct entry, under a frame of
   # the def: its meta, its line, its self and its block.
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_direct_arity(recv, argc, e, blk, found)
     t = zr_task()
     rec = Machine.slot(Frame.size)
@@ -236,7 +236,7 @@ module Zr::Kern
   # class that defines its own `is_a?` finds a different entry, and gets
   # SHAPE_NONE. `!=` is an identity check only when `klass` also uses
   # identity for `==`, because BasicObject's `!=` calls `==`.
-  sig [Value, Ptr] => Word
+  #: (value, ptr) -> word
   def zr_entry_shape(klass, e)
     kind = MEntry.kind(e)
     if kind == KIND_ATTR_READER
@@ -300,7 +300,7 @@ module Zr::Kern
   #
   # Each check is on its own line with its own return. The lowering turns
   # an `||` expression into booleans, but these checks need one branch each.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_is_a_fast(klass, mod)
     w = Machine.word(mod)
     if (w & 7) != 0
@@ -328,7 +328,7 @@ module Zr::Kern
   # builtin does (`zr_mod_eqq`), and never calls a method that `obj`
   # defines. A heap cell's class comes from its header. The class of any
   # other value comes from `zr_class_of`.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_mod_eqq_fast(mod, obj)
     w = Machine.word(obj)
     if (w & 7) == 0 && w > QUNDEF
@@ -345,7 +345,7 @@ module Zr::Kern
   # write), it returns false, and the chain's result is not for the
   # current state. A site stamp of -1 (caches off or verified) also gives
   # false, so no row goes into the table.
-  sig [Ptr, Value, Word, Word] => Bool
+  #: (ptr, value, word, word) -> bool
   def zr_case_current(cc, cref, ms, cs)
     if ms == 0 - 1
       return false
@@ -377,7 +377,7 @@ module Zr::Kern
   # Module#===. Thus `v === subject` is `subject.is_a?(v)`, which only the
   # subject's class decides, and which calls no method of the program.
   # A value that fails stops the checks until the state changes.
-  sig [Ptr, Value, Value, Word, Word, Word] => Void
+  #: (ptr, value, value, word, word, word) -> void
   def zr_case_prove(cc, cref, v, j, ms, cs)
     if !zr_case_current(cc, cref, ms, cs) || j != CaseCache.due(cc)
       return
@@ -396,7 +396,7 @@ module Zr::Kern
   # that defines `self.===` (SystemCallError, or a program's class), a
   # prepended `===`, or a redefined Module#=== fails. Under a refinement,
   # the lookup can differ from site to site, so that also fails.
-  sig [Value] => Bool
+  #: (value) -> bool
   def zr_case_plain_arm(mod)
     if !zr_module_p(mod) || zr_box_origin(mod) != QNIL
       return false
@@ -419,7 +419,7 @@ module Zr::Kern
   # by the same hash (`Control#case_row`). A class with a box shadow, a
   # read in a box, a ractor and a refinement in use each give no row,
   # because the chain's result can differ for them.
-  sig [Ptr, Value, Value, Word, Word, Word, Word] => Void
+  #: (ptr, value, value, word, word, word, word) -> void
   def zr_case_fill(cc, cref, klass, arm, count, ms, cs)
     if !zr_case_current(cc, cref, ms, cs) || count > CaseCache.proven(cc)
       return
@@ -442,7 +442,7 @@ module Zr::Kern
   # the real class is `c`. The real class skips a singleton class and the
   # proxies of extended modules (`zr_real_class`). It returns nil when `c`
   # is not a class or module, because the builtin raises for that.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_instance_of_fast(klass, c)
     if !zr_module_p(c) || !zr_class_inherits(klass, zr_global(G_OBJECT))
       return Machine.value(QNIL)
@@ -458,7 +458,7 @@ module Zr::Kern
   # signature. For a compiled def, it is the def. For an accessor, it is
   # the accessor's function. For all other kinds, it runs the dispatch
   # steps, which push the frame and check the arity.
-  sig [Ptr] => Ptr
+  #: (ptr) -> ptr
   def zr_entry_fn(e)
     kind = MEntry.kind(e)
     if kind == KIND_DEF
@@ -491,7 +491,7 @@ module Zr::Kern
 
   # Runs a hit on an entry that is not a compiled def, as a dispatch does.
   # It takes a keywords Hash that the site flagged, as the dispatch does.
-  sig [Value, Word, Ptr, Ptr, Value, Value] => Value
+  #: (value, word, ptr, ptr, value, value) -> value
   def zr_invoke_fn(recv, argc, argv, e, blk, found)
     Task.set_found(zr_task(), found)
     zr_invoke(e, recv, argc, argv, blk, zr_kw_take())
@@ -502,7 +502,7 @@ module Zr::Kern
   # a keyword table becomes one Hash argument. The frame that it pushes
   # shows the builtin in a backtrace and does the stack check of a compiled
   # prologue. The arity check runs under that frame.
-  sig [Value, Word, Ptr, Ptr, Value, Value] => Value
+  #: (value, word, ptr, ptr, value, value) -> value
   def zr_builtin_fn(recv, argc, argv, e, blk, found)
     t = zr_task()
     Task.set_found(t, found)
@@ -552,7 +552,7 @@ module Zr::Kern
   # alone. Only a receiver that the cached index does not resolve (a class,
   # a module, a special constant, a ractor's object, a wrong cached index)
   # goes on to the kernel's read, which updates the cached index.
-  sig [Value, Word, Ptr, Ptr, Value, Value] => Value
+  #: (value, word, ptr, ptr, value, value) -> value
   def zr_attr_reader_fn(recv, argc, argv, e, blk, found)
     if argc != 0
       return zr_wrong_arity(argc, 0)
@@ -575,7 +575,7 @@ module Zr::Kern
   # The type check also checks the frozen bit, as in `zr_ivar_set_cached`.
   # A frozen receiver is not a plain unfrozen object, so it goes to the
   # kernel's write, which raises at the caller's line.
-  sig [Value, Word, Ptr, Ptr, Value, Value] => Value
+  #: (value, word, ptr, ptr, value, value) -> value
   def zr_attr_writer_fn(recv, argc, argv, e, blk, found)
     if argc != 1
       return zr_wrong_arity(argc, 1)
@@ -601,7 +601,7 @@ module Zr::Kern
   # the table is long enough and that entry contains `id`. Otherwise it
   # returns 0. This is the part of `zr_ivar_row_guessed` after it finds the
   # table. It is small, so an accessor contains a copy in place of a call.
-  sig [Ptr, Word, Ptr] => Ptr
+  #: (ptr, word, ptr) -> ptr
   def zr_ivar_guess_row(t, id, ic)
     i = IvarCache.index(ic)
     if i >= IvTab.len(t)
@@ -615,7 +615,7 @@ module Zr::Kern
   # did not hit (a special constant, a stale cache entry, a refinement in
   # use, caches off or verified). A hit calls the entry's `fn`. A miss does
   # a dispatch, which fills a cache entry.
-  sig [Ptr, Value, Word, Word, Ptr, Value, Word] => Value
+  #: (ptr, value, word, word, ptr, value, word) -> value
   def zr_send_cached(cc, recv, mid, argc, argv, blk, mode)
     using = (mode & SEND_USING) != 0
     if Task.refine(zr_task()) == QNIL || using
@@ -659,7 +659,7 @@ module Zr::Kern
 
   # Returns the method entry from the ancestor list, with no cache. It
   # uses the active refinements, or a plain lookup when there are none.
-  sig [Value, Word] => Ptr
+  #: (value, word) -> ptr
   def zr_fresh_method(klass, mid)
     if Task.refine(zr_task()) != QNIL
       return zr_refined_search(klass, mid)
@@ -670,7 +670,7 @@ module Zr::Kern
   # Returns the cache entry that a dispatch fills: the first empty or
   # stale one, else the last. Thus the class that the site checks itself
   # keeps the first way.
-  sig [Ptr] => Ptr
+  #: (ptr) -> ptr
   def zr_call_cache_slot(cc)
     i = 0
     while i < CALL_WAYS - 1
@@ -690,7 +690,7 @@ module Zr::Kern
   # it runs with no frame, so a backtrace goes from `initialize` directly
   # to the caller. Any other `new` is a send through the cache entry that
   # the lookup filled.
-  sig [Ptr, Value, Word, Ptr, Value, Word] => Value
+  #: (ptr, value, word, ptr, value, word) -> value
   def zr_new_cached(cc, recv, argc, argv, blk, mode)
     e = zr_call_cache_hit(cc, recv, Machine.id(:new), mode)
     if e == 0
@@ -726,14 +726,14 @@ module Zr::Kern
   # value must be set (not an autoload still to run), not deprecated (each
   # read warns), and read outside a box (a box sees its own constant
   # entries and classes).
-  sig [Ptr] => Bool
+  #: (ptr) -> bool
   def zr_const_cacheable(e)
     CEntry.value(e) != QUNDEF && CEntry.deprecated(e) == 0 && zr_box_current() == QNIL
   end
 
   # `stamp` is the value read before the lookup. Thus, a change that the
   # lookup causes makes the cache entry stale immediately.
-  sig [Ptr, Value, Word, Value] => Void
+  #: (ptr, value, word, value) -> void
   def zr_const_cache_fill(cc, key, stamp, v)
     if Machine.load64(Machine.static(:mcache_mode, 8), 0) == MCACHE_OFF
       return
@@ -745,7 +745,7 @@ module Zr::Kern
 
   # `ZR_MCACHE=verify`: checks that the constant entry from a fresh lookup
   # contains the value that the cache entry returned.
-  sig [Ptr, Ptr] => Void
+  #: (ptr, ptr) -> void
   def zr_const_cache_verify(cc, e)
     if e == 0 || !zr_const_cacheable(e) || CEntry.value(e) != ConstCache.value(cc)
       zr_bug(Machine.bytes("a constant cache answered what the lookup does not\n"), 51)
@@ -754,7 +754,7 @@ module Zr::Kern
 
   # Reads a bare constant under `cref` at a site. Returns the same value as
   # `zr_const_get`.
-  sig [Ptr, Value, Word] => Value
+  #: (ptr, value, word) -> value
   def zr_const_get_cached(cc, cref, id)
     stamp = Machine.load64(Machine.static(:const_stamp, 8), 0)
     if ConstCache.key(cc) == cref && ConstCache.stamp(cc) == stamp
@@ -774,7 +774,7 @@ module Zr::Kern
   # Reads a program's bare constant. Outside the main ractor, the value
   # must be shareable. There, the cache entry is not used, so each read does
   # a lookup (the stamp changes when a ractor's task starts and stops).
-  sig [Ptr, Value, Word] => Value
+  #: (ptr, value, word) -> value
   def zr_const_read_cached(cc, cref, id)
     if Task.ractor(zr_task()) == 0
       return zr_const_get_cached(cc, cref, id)
@@ -789,7 +789,7 @@ module Zr::Kern
   end
 
   # Reads a program's `scope::Name` in the same way.
-  sig [Ptr, Value, Word] => Value
+  #: (ptr, value, word) -> value
   def zr_const_read_at_cached(cc, scope, id)
     if Task.ractor(zr_task()) == 0
       return zr_const_get_at_cached(cc, scope, id)
@@ -808,7 +808,7 @@ module Zr::Kern
 
   # Checks `v`, a constant of `owner`, read outside the main ractor. The
   # ractor can read it only if it is shareable.
-  sig [Value, Word, Value] => Value
+  #: (value, word, value) -> value
   def zr_ractor_const(owner, id, v)
     if zr_special_p(v)
       return v
@@ -823,7 +823,7 @@ module Zr::Kern
   # Reads `scope::Name` at a site. Returns the same value as
   # `zr_const_get_at`. A private constant raises each time, so its constant
   # entry never goes into the cache entry.
-  sig [Ptr, Value, Word] => Value
+  #: (ptr, value, word) -> value
   def zr_const_get_at_cached(cc, scope, id)
     stamp = Machine.load64(Machine.static(:const_stamp, 8), 0)
     if ConstCache.key(cc) == scope && ConstCache.stamp(cc) == stamp
@@ -844,7 +844,7 @@ module Zr::Kern
 
   # Reads `@name` at a site with the cached index `ic`. Returns the same
   # value as `zr_ivar_get`.
-  sig [Value, Word, Ptr] => Value
+  #: (value, word, ptr) -> value
   def zr_ivar_get_cached(obj, id, ic)
     e = zr_ivar_row_guessed(obj, id, ic)
     if e != 0
@@ -868,7 +868,7 @@ module Zr::Kern
 
   # Writes `@name = v` at a site with the cached index `ic`. Does the same
   # as `zr_ivar_set`.
-  sig [Value, Word, Value, Ptr] => Value
+  #: (value, word, value, ptr) -> value
   def zr_ivar_set_cached(obj, id, v, ic)
     e = zr_ivar_row_guessed(obj, id, ic)
     if e != 0 && (RBasic.flags(obj) & FL_FREEZE) == 0
@@ -914,7 +914,7 @@ module Zr::Kern
   # Otherwise it returns 0. A site does this check inline before it calls
   # here (the lowering's `guessed_ivar_row`). An accessor entry calls here
   # directly.
-  sig [Value, Word, Ptr] => Ptr
+  #: (value, word, ptr) -> ptr
   def zr_ivar_row_guessed(obj, id, ic)
     if zr_special_p(obj) || Task.ractor(zr_task()) != 0
       return 0
@@ -933,7 +933,7 @@ module Zr::Kern
   # Returns the ivar entry for `id` in the table `t`, or 0. It first tries
   # the cached index. Otherwise a scan finds the entry, and its index
   # becomes the new cached index.
-  sig [Ptr, Word, Ptr] => Ptr
+  #: (ptr, word, ptr) -> ptr
   def zr_ivtab_guess(t, id, ic)
     i = IvarCache.index(ic)
     if i < IvTab.len(t)

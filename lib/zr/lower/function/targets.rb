@@ -15,6 +15,14 @@ module Zr
       # Array of the remaining elements.
       module Targets
         # @type instance: Function
+        # @rbs @cref: String
+        # @rbs @f: IR::Function
+        # @rbs @l: Lower
+        # @rbs @name: String
+        # @rbs @qnil: String
+        # @rbs @rec: String
+        # @rbs @self: String
+        # @rbs @sp: Integer
 
         private
 
@@ -43,16 +51,18 @@ module Zr
           base = @sp
           target = node.target
           prepared = prepare(target)
-          elements = node.value.elements
+          # `spread_assign?` found an ArrayLit.
+          list = node.value #: Hir::ArrayLit
+          elements = list.elements
           staged(elements) do |_, at|
             target.lefts.each_with_index do |t, i|
               assign_target(t, i < elements.size ? @f.fetch("i64", @rec, value_offset(at + i)) : @qnil, prepared)
             end
             rest = target.rest
-            next if rest.nil? || rest == :implicit
-
-            n = [elements.size - target.lefts.size, 0].max
-            assign_target(rest, kernel("zr_ary_of", imm(n), @f.iadd(@rec, imm(value_offset(at + elements.size - n)))), prepared)
+            unless rest.nil? || rest.is_a?(Symbol)
+              n = [elements.size - target.lefts.size, 0].max
+              assign_target(rest, kernel("zr_ary_of", imm(n), @f.iadd(@rec, imm(value_offset(at + elements.size - n)))), prepared)
+            end
           end
           @sp = base
           @qnil
@@ -60,7 +70,7 @@ module Zr
 
         # Stages the send targets' receivers and arguments into slots. Each
         # send gets a receiver slot, its argument slots, and a value slot.
-        #: (Hir::MultiTarget target, ?Hash[untyped, Integer] prepared) -> Hash[untyped, Integer]
+        #: (Hir::MultiTarget target, ?Hash[Hir::node, Integer] prepared) -> Hash[Hir::node, Integer]
         def prepare(target, prepared = {})
           (target.lefts + [target.rest] + target.rights).each do |t|
             case t
@@ -79,10 +89,11 @@ module Zr
             when Hir::ConstWrite
               # `a::B, c = value` evaluates `a` before the value, in CRuby's
               # order.
-              next if t.scope.nil? || t.scope == :top
+              scope = t.scope
+              next if scope.nil? || scope.is_a?(Symbol)
 
               slot = reserve(1)
-              @f.store(expr(t.scope), @rec, value_offset(slot))
+              @f.store(expr(scope), @rec, value_offset(slot))
               prepared[t] = slot
             when Hir::MultiTarget then prepare(t, prepared)
             end
@@ -90,7 +101,7 @@ module Zr
           prepared
         end
 
-        #: (Hir::MultiTarget target, String value, Hash[untyped, Integer] prepared) -> void
+        #: (Hir::MultiTarget target, String value, Hash[Hir::node, Integer] prepared) -> void
         def destructure(target, value, prepared)
           at = value_offset(reserve(1))
           @f.store(checked(kernel("zr_masgn_ary", value)), @rec, at)
@@ -98,7 +109,8 @@ module Zr
           nl = imm(target.lefts.size)
           nr = imm(target.rights.size)
           target.lefts.each_with_index { |t, i| assign_target(t, kernel("zr_ary_at", ary.call, imm(i)), prepared) }
-          assign_target(target.rest, kernel("zr_masgn_rest", ary.call, nl, nr), prepared) if target.rest && target.rest != :implicit
+          rest = target.rest
+          assign_target(rest, kernel("zr_masgn_rest", ary.call, nl, nr), prepared) unless rest.nil? || rest.is_a?(Symbol)
           target.rights.each_with_index { |t, i| assign_target(t, kernel("zr_masgn_right", ary.call, nl, nr, imm(i)), prepared) }
           @sp -= 1
         end
@@ -234,7 +246,7 @@ module Zr
           @f.store(@f.bor(@f.fetch("i64", t, off(table, "names")), sym_bit(ivar)), t, off(table, "names"), region: :malloc)
         end
 
-        #: (untyped target, String v, Hash[untyped, Integer] prepared) -> void
+        #: (Hir::node target, String v, Hash[Hir::node, Integer] prepared) -> void
         def assign_target(target, v, prepared)
           case target
           when Hir::Assign then write_local(slot_at(target), target.depth, v, target.name)

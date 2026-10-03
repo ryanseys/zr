@@ -9,7 +9,7 @@ module Zr::Kern
   # error, or when the input or output space becomes low. `start` is the
   # output space at the start of inflate. It gives the position where the
   # output of this call starts.
-  sig [Ptr, Word] => Void
+  #: (ptr, word) -> void
   def zr_inflate_fast(strm, start)
     st = ZStream.state(strm)
     in_ = ZStream.next_in(strm)

@@ -11,22 +11,22 @@ module Zr::Kern
   INF_ENOUGH_DISTS = 592
   INF_ENOUGH = 1444
 
-  sig [Word, Word, Word] => Word
+  #: (word, word, word) -> word
   def zr_inf_code(op, bits, val)
     (op & 255) | ((bits & 255) << 8) | ((val & 65535) << 16)
   end
 
-  sig [Word] => Word
+  #: (word) -> word
   def zr_inf_code_op(c)
     c & 255
   end
 
-  sig [Word] => Word
+  #: (word) -> word
   def zr_inf_code_bits(c)
     (c >> 8) & 255
   end
 
-  sig [Word] => Word
+  #: (word) -> word
   def zr_inf_code_val(c)
     (c >> 16) & 65535
   end
@@ -37,7 +37,7 @@ module Zr::Kern
   # `bits` contains the index bits of the root table, on entry and on
   # return. `work` has space for `codes` words. Returns 0, -1 for a bad
   # code, or 1 when ENOUGH is not sufficient.
-  sig [Word, Ptr, Word, Ptr, Ptr, Ptr] => Word
+  #: (word, ptr, word, ptr, ptr, ptr) -> word
   def zr_inflate_table(type, lens, codes, table, bits, work)
     count = Machine.slot(64)
     offs = Machine.slot(64)

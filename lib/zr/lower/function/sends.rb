@@ -7,6 +7,26 @@ module Zr
       # dispatch, the block-passing form, and the inline fixnum operators.
       module Sends
         # @type instance: Function
+        # The ivars that every file of Sends reads:
+        # @rbs @blk: String
+        # @rbs @cref: String
+        # @rbs @env: String
+        # @rbs @f: IR::Function
+        # @rbs @funcalls: Hash[Hir::Send, bool]?
+        # @rbs @kind: Symbol
+        # @rbs @l: Lower
+        # @rbs @locals: Array[Symbol]
+        # @rbs @name: String
+        # @rbs @native_each: bool?
+        # @rbs @native_operators: bool?
+        # @rbs @proc_layout: Machine::Layout
+        # @rbs @qnil: String
+        # @rbs @rec: String
+        # @rbs @self: String
+        # @rbs @sites: Integer
+        # @rbs @sp: Integer
+        # @rbs @task: Machine::Layout
+        # @rbs @task_addr: String
 
         # The operators with an inline fixnum fast path, and their gates.
         OPS = {
@@ -115,7 +135,9 @@ module Zr
         def call(node)
           return safe_call(node) if node.safe
           return interp_to_s(node) if node.interp
-          return call(funcall(node)) if kernel_send?(node)
+          if (name = kernel_send(node))
+            return call(funcall(node, name))
+          end
           return primitive(node) if primitive?(node)
 
           recv_node = node.recv || Hir::SelfRef.new(node.line)
@@ -127,9 +149,13 @@ module Zr
               ary = gather(args, base + 1)
               # A write returns the value that it wrote (the last collected
               # element), not the writer's return value.
-              last = node.write ? kernel("zr_ary_at", ary, @f.isub(array_len(ary), imm(1))) : nil
-              r = send_staged(node, @f.fetch("i64", slots), array_ptr(ary), array_len(ary))
-              node.write ? last : r
+              if node.write
+                last = kernel("zr_ary_at", ary, @f.isub(array_len(ary), imm(1))) #: String
+                send_staged(node, @f.fetch("i64", slots), array_ptr(ary), array_len(ary))
+                last
+              else
+                send_staged(node, @f.fetch("i64", slots), array_ptr(ary), array_len(ary))
+              end
             end
           else
             staged([recv_node, *args]) do |slots|
@@ -152,7 +178,7 @@ module Zr
         # branch stores and releases nothing. A unary operator has one
         # operand, and nothing runs between its read and the test, so any
         # receiver is permitted.
-        #: (Hir::Send node, untyped recv_node) -> bool
+        #: (Hir::Send node, Hir::node recv_node) -> bool
         def direct_operands?(node, recv_node)
           return false if node.block || node.kwargs || node.write || node.vcall || owner_using?(node) || traced?
 
@@ -165,14 +191,14 @@ module Zr
         end
 
         # Self, or an immediate literal: a value that needs no root.
-        #: (untyped node) -> bool
+        #: (Hir::node node) -> bool
         def rootless?(node) =node.is_a?(Hir::SelfRef) || (node.is_a?(Hir::Literal) && plain_read?(node))
 
         # The two operands of a direct operator site, in order. While an
         # argument that is not a plain read runs, the receiver waits in the
         # slot that the send has for it (Scope counts it), so a collection
         # sees it.
-        #: (Hir::Send node, untyped recv_node) -> [Operand, Operand]
+        #: (Hir::Send node, Hir::node recv_node) -> [Operand, Operand]
         def site_operands(node, recv_node)
           arg = node.args.first
           a = operand_of(node, recv_node)
@@ -188,7 +214,7 @@ module Zr
 
         # Whether `node` is only operators over plain reads and simple
         # calls, such as `a * (b + 1.0)` or `dx * b.mass`.
-        #: (untyped node) -> boolish
+        #: (Hir::node? node) -> boolish
         def operator_tree?(node)
           return true if plain_read?(node) || simple_call?(node)
 
@@ -198,13 +224,13 @@ module Zr
 
         # A call of a plain read or a constant with plain reads as its
         # arguments, such as `b.mass`, `a[i]` or `Math.sqrt(x)`.
-        #: (untyped node) -> bool
+        #: (Hir::node? node) -> bool
         def simple_call?(node)
           node.is_a?(Hir::Send) && !OPS.key?(node.name) && !node.block && !node.kwargs && !node.write &&
             (plain_read?(node.recv) || node.recv.is_a?(Hir::ConstRead)) && node.args.all? { |a| plain_read?(a) }
         end
 
-        #: (untyped node) -> bool
+        #: (Hir::node? node) -> bool
         def plain_read?(node)
           case node
           when Hir::Local, Hir::SelfRef then true
@@ -216,7 +242,7 @@ module Zr
           end
         end
 
-        #: (Hir::Send node, untyped recv_node) -> String
+        #: (Hir::Send node, Hir::node recv_node) -> String
         def direct_operator(node, recv_node)
           if node.args.empty?
             recv = expr(recv_node)
@@ -243,9 +269,9 @@ module Zr
 
         # Whether a test of `node` branches on the comparison itself: a
         # comparison of plain reads (`direct_operands?`).
-        #: (untyped node) -> bool
+        #: (Hir::Send node) -> bool
         def relation_test?(node)
-          node.is_a?(Hir::Send) && RELATIONS.key?(node.name) && direct_operands?(node, node.recv || Hir::SelfRef.new(node.line))
+          RELATIONS.key?(node.name) && direct_operands?(node, node.recv || Hir::SelfRef.new(node.line))
         end
 
         # `a < b` and the other comparisons as a test (`Control#jump_if`).
@@ -269,7 +295,9 @@ module Zr
           if floating
             switch(floating)
             x, y = doubles(node.name, recv, arg, slow)
-            @f.brif(@f.fcmp(FLOAT_OPS.fetch(node.name).first, x, y), yes, no)
+            # A relation's float operation is a compare's condition.
+            cond = FLOAT_OPS.fetch(node.name).first #: String
+            @f.brif(@f.fcmp(cond, x, y), yes, no)
           end
           switch(slow)
           native_equality(node, recv, arg) { |equal| @f.brif(equal, yes, no) }
@@ -290,7 +318,8 @@ module Zr
           @f.brif(@f.icmp(RELATIONS.fetch(node.name), a.value, b.value), yes, no)
           switch(floating)
           x, y = doubles(node.name, a, b, slow)
-          @f.brif(@f.fcmp(FLOAT_OPS.fetch(node.name).first, x, y), yes, no)
+          cond = FLOAT_OPS.fetch(node.name).first #: String
+          @f.brif(@f.fcmp(cond, x, y), yes, no)
           switch(slow)
           v = sent_fused(node, a, b)
           deactivate(node)
@@ -303,21 +332,29 @@ module Zr
         # its own cell, with no send frame and no lookup by name. For all
         # names except PROTOCOL, the core's own method entry is used, as
         # for every other call that the core makes.
-        #: (Hir::Send node) -> bool
-        def kernel_send?(node)
-          @l.internal? && %i[send __send__].include?(node.name) && node.args.first.is_a?(Hir::Literal) &&
-            node.args.first.value.is_a?(Symbol) && !%i[send __send__ public_send].include?(node.args.first.value)
+        # This gives the name that the kernel send calls, or nil.
+        #: (Hir::Send node) -> Symbol?
+        def kernel_send(node)
+          return unless @l.internal? && %i[send __send__].include?(node.name)
+
+          first = node.args.first
+          name = first.value if first.is_a?(Hir::Literal)
+          name if name.is_a?(Symbol) && !%i[send __send__ public_send].include?(name)
         end
 
-        # The call that a kernel send gives, marked so it can call a
-        # private method with any receiver (`send_mode`).
-        #: (Hir::Send node) -> Hir::Send
-        def funcall(node)
+        # The call of `name` that a kernel send gives, marked so it can
+        # call a private method with any receiver (`send_mode`).
+        #: (Hir::Send node, Symbol name) -> Hir::Send
+        def funcall(node, name)
           named = node.dup.tap do |n|
-            n.name = node.args.first.value
+            n.name = name
             n.args = node.args.drop(1)
           end
-          (@funcalls ||= {}.compare_by_identity)[named] = true
+          unless (funcalls = @funcalls)
+            funcalls = {} #: Hash[Hir::Send, bool]
+            @funcalls = funcalls.compare_by_identity
+          end
+          funcalls[named] = true
           named
         end
 
@@ -328,8 +365,9 @@ module Zr
           # `self&.x` is `self.x`: self is never nil, and the receiver stays
           # a literal self for the visibility rule. Coverage counts the
           # call, and never counts the nil branch.
+          covers = node.covers
           if node.recv.is_a?(Hir::SelfRef)
-            cover(node.covers.first.id) if node.covers
+            cover(covers.first.id) if covers
             return call(node.dup.tap { |n| n.safe = false })
           end
 
@@ -343,10 +381,10 @@ module Zr
           merge, (result,) = @f.block(["i64"]) #: [String, [String]]
           @f.brif(@f.icmp("eq", @f.fetch("i64", @rec, value_offset(slot)), @qnil), is_nil, go)
           switch(is_nil)
-          cover(node.covers.last.id) if node.covers
+          cover(covers.last.id) if covers
           @f.jump(merge, [@qnil])
           switch(go)
-          cover(node.covers.first.id) if node.covers
+          cover(covers.first.id) if covers
           v = call(plain)
           @f.jump(merge, [v]) unless @f.terminated?
           switch(merge)
@@ -383,9 +421,12 @@ module Zr
         # In the core library, `Primitive.zr_name(args)` calls the kernel
         # def directly with Values. A block literal is its last Value, a
         # Proc, and its `break` comes here as for a send.
-        #: (untyped node) -> bool
+        #: (Hir::Send node) -> bool
         def primitive?(node)
-          @l.internal? && node.recv.is_a?(Hir::ConstRead) && node.recv.name == :Primitive && node.recv.scope.nil?
+          recv = node.recv
+          return false unless @l.internal? && recv.is_a?(Hir::ConstRead)
+
+          recv.name == :Primitive && recv.scope.nil?
         end
 
         #: (Hir::Send node) -> String
@@ -417,9 +458,12 @@ module Zr
         # methods read it the same way.
         #: (Hir::Send node) -> String
         def parameter_named(node)
-          name = node.args.first.value
-          i = @locals.index(name) or @l.refuse(node, "Primitive.arg! names #{name}, which is no parameter here")
-          read_local(i, 0, name)
+          arg = node.args.first
+          name = arg.value if arg.is_a?(Hir::Literal)
+          i = @locals.index(name) if name.is_a?(Symbol)
+          return read_local(i, 0, name) if i && name.is_a?(Symbol)
+
+          @l.refuse(node, "Primitive.arg! names #{name}, which is no parameter here")
         end
 
         #: (Hir::Send node) -> bool
@@ -451,7 +495,7 @@ module Zr
 
         # Pushes `parts` one at a time into an Array in the record slot
         # `slot`. A Splat spreads its value. Returns the Array.
-        #: (Array[untyped] parts, Integer slot) -> String
+        #: (Array[Hir::node?] parts, Integer slot) -> String
         def gather(parts, slot)
           @f.store(kernel("zr_ary_new", imm(parts.size)), @rec, value_offset(slot))
           parts.each do |part|
@@ -478,12 +522,13 @@ module Zr
         # keys go as trailing values, with a static table of the keys that
         # the task gets just before the send. All other keywords go as one
         # Hash that the task flags (lib/zr/runtime/kernel/send.rb).
-        #: (Hir::Send | Hir::Super node) -> Array[untyped]
+        #: (Hir::Send | Hir::Super node) -> Array[Hir::node?]
         def keyword_args(node)
-          return [] unless node.kwargs
-          return [node.kwargs] unless Scope.literal_keywords?(node.kwargs)
+          kwargs = node.kwargs
+          return [] unless kwargs
+          return [kwargs] unless Scope.literal_keywords?(kwargs)
 
-          node.kwargs.pairs.each_slice(2).map(&:last)
+          kwargs.pairs.each_slice(2).map(&:last)
         end
 
         # The count that the callee sees: a keywords Hash goes last and
@@ -491,8 +536,13 @@ module Zr
         # Hash.
         #: (Hir::Send | Hir::Super node, String argc, String argv) -> String
         def keyword_argc(node, argc, argv)
-          if node.kwargs && Scope.literal_keywords?(node.kwargs)
-            keys = node.kwargs.pairs.each_slice(2).map { |key, _| key.value }
+          kwargs = node.kwargs
+          if kwargs && Scope.literal_keywords?(kwargs)
+            # `literal_keywords?` found a Symbol literal in each key.
+            keys = kwargs.pairs.each_slice(2).map do |key, _|
+              literal = key #: Hir::Literal
+              literal.value #: Symbol
+            end
             @f.store(@f.symbol_value(@f.symbol(@l.keyword_table([keys.size, *keys]))), @task_addr, off(@task, "kw"), region: :task)
             return argc
           end
@@ -585,7 +635,7 @@ module Zr
 
         # Whether `recv` reads a `&b` parameter bound to the block as given
         # (`Params#raw_block?`), in this scope or an enclosing scope.
-        #: (untyped recv) -> bool
+        #: (Hir::node? recv) -> bool
         def raw_block_recv?(recv)
           recv.is_a?(Hir::Local) && scope_at(recv.depth).raw_block == recv.name
         end
@@ -937,7 +987,9 @@ module Zr
             return checked(node.name == :new && @l.internal? ? new_send(node, recv, argc, argv, proc) : cached_send(node, recv, argc, argv, proc))
           end
 
-          site, block = make_block(node.block, method: node.name == :define_method)
+          # Not a `&value`, so a block literal.
+          literal = node.block #: Hir::Block
+          site, block = make_block(literal, method: node.name == :define_method)
           at_node(node)
           argc = keyword_argc(node, argc, argv)
           activate(node)
@@ -1010,7 +1062,7 @@ module Zr
         # block (`zr_block_proc`, lib/zr/runtime/kernel/proc.rb). Its flags mark
         # it as on the stack and already marked, so the collector reads
         # nothing through it. This frame roots all that it refers to.
-        #: (untyped block, ?method: bool) -> [Integer, String]
+        #: (Hir::Block block, ?method: bool) -> [Integer, String]
         def make_block(block, method: false)
           fn = @l.block(block, self, method: method)
           site = (@sites += 1)

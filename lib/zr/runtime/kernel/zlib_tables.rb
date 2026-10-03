@@ -6,7 +6,7 @@
 
 module Zr::Kern
   # The CRC of every byte value, 256 words: crc32.c's crc_table, which get_crc_table answers too.
-  sig [] => Ptr
+  #: () -> ptr
   def zr_crc_table
     Machine.bytes(
     "\x00\x00\x00\x00\x96\x30\x07\x77\x2C\x61\x0E\xEE\xBA\x51\x09\x99\x19\xC4\x6D\x07\x8F\xF4\x6A\x70\x35\xA5\x63\xE9\xA3\x95\x64\x9E\
@@ -44,7 +44,7 @@ module Zr::Kern
   end
 
   # x^(2^n) modulo p(x) for n in 0...32: crc32.c's x2n_table, which crc32_combine reads.
-  sig [] => Ptr
+  #: () -> ptr
   def zr_crc_x2n_table
     Machine.bytes(
     "\x00\x00\x00\x40\x00\x00\x00\x20\x00\x00\x00\x08\x00\x00\x80\x00\x00\x80\x00\x00\x20\x83\xB8\xED\x92\xB0\xE6\xB1\x17\x25\x6A\xA0\
@@ -54,7 +54,7 @@ module Zr::Kern
   end
 
   # The fixed literal and length decoding table, 512 packed codes: inffixed.h's lenfix.
-  sig [] => Ptr
+  #: () -> ptr
   def zr_inflate_lenfix
     Machine.bytes(
     "\x60\x07\x00\x00\x00\x08\x50\x00\x00\x08\x10\x00\x14\x08\x73\x00\x12\x07\x1F\x00\x00\x08\x70\x00\x00\x08\x30\x00\x00\x09\xC0\x00\
@@ -124,7 +124,7 @@ module Zr::Kern
   end
 
   # The fixed distance decoding table, 32 packed codes: inffixed.h's distfix.
-  sig [] => Ptr
+  #: () -> ptr
   def zr_inflate_distfix
     Machine.bytes(
     "\x10\x05\x01\x00\x17\x05\x01\x01\x13\x05\x11\x00\x1B\x05\x01\x10\x11\x05\x05\x00\x19\x05\x01\x04\x15\x05\x41\x00\x1D\x05\x01\x40\
@@ -134,7 +134,7 @@ module Zr::Kern
   end
 
   # The base lengths of the length codes 257..285, then two zeros: inftrees.c's lbase.
-  sig [] => Ptr
+  #: () -> ptr
   def zr_inflate_lbase
     Machine.bytes(
     "\x03\x00\x00\x00\x04\x00\x00\x00\x05\x00\x00\x00\x06\x00\x00\x00\x07\x00\x00\x00\x08\x00\x00\x00\x09\x00\x00\x00\x0A\x00\x00\x00\
@@ -144,7 +144,7 @@ module Zr::Kern
   end
 
   # The extra bits of the length codes, with the two invalid codes marked: inftrees.c's lext.
-  sig [] => Ptr
+  #: () -> ptr
   def zr_inflate_lext
     Machine.bytes(
     "\x10\x00\x00\x00\x10\x00\x00\x00\x10\x00\x00\x00\x10\x00\x00\x00\x10\x00\x00\x00\x10\x00\x00\x00\x10\x00\x00\x00\x10\x00\x00\x00\
@@ -154,7 +154,7 @@ module Zr::Kern
   end
 
   # The base distances of the distance codes 0..29, then two zeros: inftrees.c's dbase.
-  sig [] => Ptr
+  #: () -> ptr
   def zr_inflate_dbase
     Machine.bytes(
     "\x01\x00\x00\x00\x02\x00\x00\x00\x03\x00\x00\x00\x04\x00\x00\x00\x05\x00\x00\x00\x07\x00\x00\x00\x09\x00\x00\x00\x0D\x00\x00\x00\
@@ -164,7 +164,7 @@ module Zr::Kern
   end
 
   # The extra bits of the distance codes, with the two invalid codes marked: inftrees.c's dext.
-  sig [] => Ptr
+  #: () -> ptr
   def zr_inflate_dext
     Machine.bytes(
     "\x10\x00\x00\x00\x10\x00\x00\x00\x10\x00\x00\x00\x10\x00\x00\x00\x11\x00\x00\x00\x11\x00\x00\x00\x12\x00\x00\x00\x12\x00\x00\x00\
@@ -174,7 +174,7 @@ module Zr::Kern
   end
 
   # The order the code length code lengths arrive in: inflate.c's order.
-  sig [] => Ptr
+  #: () -> ptr
   def zr_inflate_order
     Machine.bytes(
     "\x10\x00\x00\x00\x11\x00\x00\x00\x12\x00\x00\x00\x00\x00\x00\x00\x08\x00\x00\x00\x07\x00\x00\x00\x09\x00\x00\x00\x06\x00\x00\x00\
@@ -183,7 +183,7 @@ module Zr::Kern
   end
 
   # The static literal and length tree, 288 entries of code then length: trees.h's static_ltree.
-  sig [] => Ptr
+  #: () -> ptr
   def zr_tr_static_ltree
     Machine.bytes(
     "\x0C\x00\x00\x00\x08\x00\x00\x00\x8C\x00\x00\x00\x08\x00\x00\x00\x4C\x00\x00\x00\x08\x00\x00\x00\xCC\x00\x00\x00\x08\x00\x00\x00\
@@ -261,7 +261,7 @@ module Zr::Kern
   end
 
   # The static distance tree, 30 entries of code then length: trees.h's static_dtree.
-  sig [] => Ptr
+  #: () -> ptr
   def zr_tr_static_dtree
     Machine.bytes(
     "\x00\x00\x00\x00\x05\x00\x00\x00\x10\x00\x00\x00\x05\x00\x00\x00\x08\x00\x00\x00\x05\x00\x00\x00\x18\x00\x00\x00\x05\x00\x00\x00\
@@ -275,7 +275,7 @@ module Zr::Kern
   end
 
   # The distance code of each distance: 256 for distances 0..255, then 256 for the high bits of the rest: trees.h's _dist_code.
-  sig [] => Ptr
+  #: () -> ptr
   def zr_tr_dist_code
     Machine.bytes(
     "\x00\x00\x00\x00\x01\x00\x00\x00\x02\x00\x00\x00\x03\x00\x00\x00\x04\x00\x00\x00\x04\x00\x00\x00\x05\x00\x00\x00\x05\x00\x00\x00\
@@ -345,7 +345,7 @@ module Zr::Kern
   end
 
   # The length code of each match length past the minimum: trees.h's _length_code.
-  sig [] => Ptr
+  #: () -> ptr
   def zr_tr_length_code
     Machine.bytes(
     "\x00\x00\x00\x00\x01\x00\x00\x00\x02\x00\x00\x00\x03\x00\x00\x00\x04\x00\x00\x00\x05\x00\x00\x00\x06\x00\x00\x00\x07\x00\x00\x00\
@@ -383,7 +383,7 @@ module Zr::Kern
   end
 
   # The first length of each length code: trees.h's base_length.
-  sig [] => Ptr
+  #: () -> ptr
   def zr_tr_base_length
     Machine.bytes(
     "\x00\x00\x00\x00\x01\x00\x00\x00\x02\x00\x00\x00\x03\x00\x00\x00\x04\x00\x00\x00\x05\x00\x00\x00\x06\x00\x00\x00\x07\x00\x00\x00\
@@ -393,7 +393,7 @@ module Zr::Kern
   end
 
   # The first distance of each distance code: trees.h's base_dist.
-  sig [] => Ptr
+  #: () -> ptr
   def zr_tr_base_dist
     Machine.bytes(
     "\x00\x00\x00\x00\x01\x00\x00\x00\x02\x00\x00\x00\x03\x00\x00\x00\x04\x00\x00\x00\x06\x00\x00\x00\x08\x00\x00\x00\x0C\x00\x00\x00\
@@ -403,7 +403,7 @@ module Zr::Kern
   end
 
   # The extra bits of each length code: trees.c's extra_lbits.
-  sig [] => Ptr
+  #: () -> ptr
   def zr_tr_extra_lbits
     Machine.bytes(
     "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\
@@ -413,7 +413,7 @@ module Zr::Kern
   end
 
   # The extra bits of each distance code: trees.c's extra_dbits.
-  sig [] => Ptr
+  #: () -> ptr
   def zr_tr_extra_dbits
     Machine.bytes(
     "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x00\x02\x00\x00\x00\x02\x00\x00\x00\
@@ -423,7 +423,7 @@ module Zr::Kern
   end
 
   # The extra bits of each bit length code: trees.c's extra_blbits.
-  sig [] => Ptr
+  #: () -> ptr
   def zr_tr_extra_blbits
     Machine.bytes(
     "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\
@@ -432,7 +432,7 @@ module Zr::Kern
   end
 
   # The order the bit length code lengths are sent in: trees.c's bl_order.
-  sig [] => Ptr
+  #: () -> ptr
   def zr_tr_bl_order
     Machine.bytes(
     "\x10\x00\x00\x00\x11\x00\x00\x00\x12\x00\x00\x00\x00\x00\x00\x00\x08\x00\x00\x00\x07\x00\x00\x00\x09\x00\x00\x00\x06\x00\x00\x00\
@@ -441,7 +441,7 @@ module Zr::Kern
   end
 
   # Each level's good, lazy, nice and chain lengths: deflate.c's configuration_table, whose func column zr_deflate_kind answers.
-  sig [] => Ptr
+  #: () -> ptr
   def zr_deflate_config_table
     Machine.bytes(
     "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x04\x00\x00\x00\x04\x00\x00\x00\x08\x00\x00\x00\x04\x00\x00\x00\

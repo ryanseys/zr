@@ -16,7 +16,7 @@ module Zr::Kern
   PARAM_BLOCK = 6
   PARAM_NOKEY = 7
 
-  sig [Value] => Void
+  #: (value) -> void
   def zr_mark_method(m)
     zr_mark(RMethod.recv(m))
     zr_mark(RMethod.klass(m))
@@ -26,7 +26,7 @@ module Zr::Kern
 
   # Returns the module in `klass`'s ancestor list whose own method table
   # has `mid`, or nil.
-  sig [Value, Word] => Value
+  #: (value, word) -> value
   def zr_method_owner(klass, mid)
     k = klass
     while k != QNIL
@@ -48,7 +48,7 @@ module Zr::Kern
   # Raises the NameError for `mid` on `klass`. When `vis` is public (no
   # such method), the message is `undefined method 'x' for class 'C'`. If
   # not, it is `method 'x' for class 'C' is private` or protected.
-  sig [Value, Word, Word] => Value
+  #: (value, word, word) -> value
   def zr_undefined_method(klass, mid, vis)
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
@@ -80,7 +80,7 @@ module Zr::Kern
 
   # Returns the Method (with a receiver) or the UnboundMethod (`recv` is
   # undef) for `mid` on `klass`, or raises the NameError.
-  sig [Value, Value, Word] => Value
+  #: (value, value, word) -> value
   def zr_method_new(recv, klass, mid)
     e = zr_find_method(klass, mid)
     if e == 0
@@ -105,7 +105,7 @@ module Zr::Kern
   # Makes a Method for a name that the receiver handles only through
   # `method_missing`. Its owner is the class of the lookup (the singleton
   # class if the receiver has one), and it takes any number of arguments.
-  sig [Value, Value, Word] => Value
+  #: (value, value, word) -> value
   def zr_method_missing_new(recv, klass, mid)
     m = zr_alloc(T_METHOD, zr_global(G_METHOD), RMethod.size)
     RMethod.set_recv(m, recv)
@@ -129,7 +129,7 @@ module Zr::Kern
     m
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_obj_method(recv, argc, argv, cref, blk)
     slot = Machine.slot(8)
     r = zr_name_id(Machine.value(Machine.load64(argv, 0)), slot)
@@ -137,7 +137,7 @@ module Zr::Kern
     zr_method_new(recv, zr_box_view(zr_class_of(recv)), Machine.load64(slot, 0))
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_mod_instance_method(recv, argc, argv, cref, blk)
     slot = Machine.slot(8)
     r = zr_name_id(Machine.value(Machine.load64(argv, 0)), slot)
@@ -147,7 +147,7 @@ module Zr::Kern
 
   # `public_method` and `public_instance_method`: the same as `method`
   # and `instance_method`, but only when the method is public.
-  sig [Value, Value, Word] => Value
+  #: (value, value, word) -> value
   def zr_public_method_new(recv, klass, mid)
     m = zr_method_new(recv, klass, mid)
     return m if m == QUNDEF
@@ -156,7 +156,7 @@ module Zr::Kern
     zr_undefined_method(klass, mid, vis)
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_obj_public_method(recv, argc, argv, cref, blk)
     slot = Machine.slot(8)
     r = zr_name_id(Machine.value(Machine.load64(argv, 0)), slot)
@@ -164,7 +164,7 @@ module Zr::Kern
     zr_public_method_new(recv, zr_box_view(zr_class_of(recv)), Machine.load64(slot, 0))
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_mod_public_instance_method(recv, argc, argv, cref, blk)
     slot = Machine.slot(8)
     r = zr_name_id(Machine.value(Machine.load64(argv, 0)), slot)
@@ -172,7 +172,7 @@ module Zr::Kern
     zr_public_method_new(Machine.value(QUNDEF), recv, Machine.load64(slot, 0))
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_method_call(recv, argc, argv, cref, blk)
     if blk != QNIL
       RProc.set_passed(blk, 1)
@@ -181,7 +181,7 @@ module Zr::Kern
   end
 
   # The block function of `Method#to_proc`: the Proc's self is the Method.
-  sig [Value, Word, Ptr, Value] => Value
+  #: (value, word, ptr, value) -> value
   def zr_method_block(p, argc, argv, blk)
     zr_method_invoke(RProc.self(p), argc, argv, blk)
   end
@@ -189,13 +189,13 @@ module Zr::Kern
   # Calls the Method's entry on its receiver. The lookup finds the
   # ancestor that has the name, and `super` in the body continues from
   # that ancestor.
-  sig [Value, Word, Ptr, Value] => Value
+  #: (value, word, ptr, value) -> value
   def zr_method_invoke(m, argc, argv, blk)
     zr_find_method(RMethod.klass(m), MEntry.mid(RMethod.entry(m)))
     zr_invoke(RMethod.entry(m), RMethod.recv(m), argc, argv, blk, zr_kw_take())
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_method_to_proc(recv, argc, argv, cref, blk)
     zr_native_proc(Machine.addr(:zr_method_block), recv)
   end
@@ -203,7 +203,7 @@ module Zr::Kern
   # Returns the FrameMeta that gives the parameters, arity and location of
   # a method entry: its own for a def, its block's for a `define_method`
   # body, and 0 for a builtin.
-  sig [Ptr] => Ptr
+  #: (ptr) -> ptr
   def zr_method_meta(e)
     if MEntry.kind(e) == KIND_DEF
       return MEntry.meta(e)
@@ -217,7 +217,7 @@ module Zr::Kern
   # A compiled def has the arity of its parameters. A builtin's arity is
   # in its entry. A core def returns what C returns (-1 for any optional
   # count), unless CRuby also writes that method in Ruby.
-  sig [Value] => Word
+  #: (value) -> word
   def zr_method_arity_of(m)
     e = RMethod.entry(m)
     meta = zr_method_meta(e)
@@ -230,14 +230,14 @@ module Zr::Kern
     MEntry.fn(e) == Machine.addr(:zr_f_notimplement) ? 0 : MEntry.arity(e)
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_method_arity(recv, argc, argv, cref, blk)
     zr_fix(zr_method_arity_of(recv))
   end
 
   # Returns the entries of a parameter table in the form that `parameters`
   # returns. For a plain proc, required parameters are optional.
-  sig [Ptr, Bool] => Value
+  #: (ptr, bool) -> value
   def zr_param_rows(table, lenient)
     out = zr_ary_new(4)
     n = Machine.load64(table, 0)
@@ -261,7 +261,7 @@ module Zr::Kern
 
   # Returns the parameter entries for a C method: `[:rest]` for any
   # count, or one `[:req]` for each argument.
-  sig [Word] => Value
+  #: (word) -> value
   def zr_arity_rows(arity)
     out = zr_ary_new(4)
     if arity < 0
@@ -280,7 +280,7 @@ module Zr::Kern
     out
   end
 
-  sig [Value] => Value
+  #: (value) -> value
   def zr_method_rows(m)
     e = RMethod.entry(m)
     meta = zr_method_meta(e)
@@ -302,14 +302,14 @@ module Zr::Kern
     zr_arity_rows(zr_method_arity_of(m))
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_method_parameters(recv, argc, argv, cref, blk)
     zr_method_rows(recv)
   end
 
   # The required count of a parameter table (all required keywords count
   # as one), and whether the table takes any number of arguments.
-  sig [Ptr] => Word
+  #: (ptr) -> word
   def zr_params_min(table)
     n = Machine.load64(table, 0)
     min = 0
@@ -328,7 +328,7 @@ module Zr::Kern
   end
 
   # The required and optional positional parameters of `table`.
-  sig [Ptr] => Word
+  #: (ptr) -> word
   def zr_params_positional(table)
     n = Machine.load64(table, 0)
     count = 0
@@ -343,7 +343,7 @@ module Zr::Kern
     count
   end
 
-  sig [Ptr] => Bool
+  #: (ptr) -> bool
   def zr_params_rest_p(table)
     n = Machine.load64(table, 0)
     i = 0
@@ -359,7 +359,7 @@ module Zr::Kern
   # `Proc#arity`. For a lambda, it is the method arity. For a plain proc,
   # it is the required count, or -(count + 1) only when it has a rest
   # parameter.
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_proc_arity(recv, argc, argv, cref, blk)
     meta = RProc.meta(recv)
     if meta == 0
@@ -375,7 +375,7 @@ module Zr::Kern
     zr_fix(zr_params_rest_p(FrameMeta.params(meta)) ? 0 - min - 1 : min)
   end
 
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_proc_param_rows(recv, lenient)
     meta = RProc.meta(recv)
     if meta == 0
@@ -394,7 +394,7 @@ module Zr::Kern
     zr_param_rows(FrameMeta.params(meta), lenient != QFALSE)
   end
 
-  sig [Word] => Word
+  #: (word) -> word
   def zr_param_kind_name(kind)
     if kind == PARAM_REQ
       Machine.id(:req)
@@ -415,24 +415,24 @@ module Zr::Kern
     end
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_method_owner_m(recv, argc, argv, cref, blk)
     RMethod.owner(recv)
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_method_receiver(recv, argc, argv, cref, blk)
     RMethod.recv(recv)
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_method_name(recv, argc, argv, cref, blk)
     zr_sym(MEntry.mid(RMethod.entry(recv)))
   end
 
   # The name in the method's definition. For an alias, it is the name of
   # the original def.
-  sig [Ptr] => Word
+  #: (ptr) -> word
   def zr_method_original_id(e)
     if MEntry.kind(e) == KIND_DEF
       return FrameMeta.name(MEntry.meta(e))
@@ -442,7 +442,7 @@ module Zr::Kern
 
   # The module where the entry was defined: for an alias, the source of
   # the alias; if not, the method's owner.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_method_defined_in(m)
     e = RMethod.entry(m)
     if MEntry.kind(e) == KIND_DEF && MEntry.meta(e) != 0 && FrameMeta.owner(MEntry.meta(e)) != QNIL
@@ -452,12 +452,12 @@ module Zr::Kern
     RMethod.owner(m)
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_method_original_name(recv, argc, argv, cref, blk)
     zr_sym(zr_method_original_id(RMethod.entry(recv)))
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_method_unbind(recv, argc, argv, cref, blk)
     m = zr_alloc(T_METHOD, zr_global(G_UNBOUND_METHOD), RMethod.size)
     RMethod.set_recv(m, Machine.value(QUNDEF))
@@ -469,7 +469,7 @@ module Zr::Kern
 
   # `bind(obj)`: the receiver must be an instance of the owner class. A
   # module's method binds to any object.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_method_bind_to(m, obj)
     owner = RMethod.owner(m)
     if zr_type(owner) != T_MODULE && !zr_is_a(obj, owner)
@@ -490,12 +490,12 @@ module Zr::Kern
     bound
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_method_bind(recv, argc, argv, cref, blk)
     zr_method_bind_to(recv, Machine.value(Machine.load64(argv, 0)))
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_method_bind_call(recv, argc, argv, cref, blk)
     if argc == 0
       return zr_wrong_arity_min(0, 1)
@@ -510,7 +510,7 @@ module Zr::Kern
   # attribute uses the class body's. A core method has no file in its
   # FrameMeta, so reflection treats it as a builtin: no location, and the
   # arity and parameters of a C method.
-  sig [Ptr] => Ptr
+  #: (ptr) -> ptr
   def zr_method_location(e)
     meta = zr_method_meta(e)
     if meta == 0 && (MEntry.kind(e) == KIND_ATTR_READER || MEntry.kind(e) == KIND_ATTR_WRITER) && FrameMeta.file_len(MEntry.meta(e)) > 0
@@ -522,10 +522,9 @@ module Zr::Kern
     meta
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
   # Returns the box that contains the method's compiled body. Returns nil
   # for a runtime method, or for a method written where no box was open.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_method_box_m(m)
     meta = zr_method_location(RMethod.entry(m))
     if meta == 0 || Machine.word(FrameMeta.box(meta)) == 0
@@ -534,7 +533,7 @@ module Zr::Kern
     FrameMeta.box(meta)
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_method_source_location(recv, argc, argv, cref, blk)
     e = RMethod.entry(recv)
     meta = zr_method_location(e)
@@ -552,7 +551,7 @@ module Zr::Kern
 
   # Two methods are equal when they refer to the same code, with the same
   # receiver and the same owner.
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_method_eq(recv, argc, argv, cref, blk)
     other = Machine.value(Machine.load64(argv, 0))
     if zr_special_p(other) || zr_type(other) != T_METHOD || zr_class_of(other) != zr_class_of(recv)
@@ -569,7 +568,7 @@ module Zr::Kern
   # The hash of the parts that `zr_method_eq` compares, so that equal
   # methods have the same hash. As in method_hash, it uses the receiver
   # and the entry.
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_method_hash(recv, argc, argv, cref, blk)
     e = RMethod.entry(recv)
     h = zr_hash_mix(Machine.word(RMethod.recv(recv)))
@@ -587,7 +586,7 @@ module Zr::Kern
   # represents the full `(*, **, &)` triple (`forwarding`). An anonymous
   # `**` after another entry writes nothing, and removes the separator
   # before it.
-  sig [Ptr, Word, Word, Word, Bool] => Void
+  #: (ptr, word, word, word, bool) -> void
   def zr_buf_param(b, kind, id, i, forwarding)
     if kind == PARAM_REST
       if id == Machine.id(:*)
@@ -633,7 +632,7 @@ module Zr::Kern
   end
 
   # Whether the table is the `(*, **, &)` of a `(...)` parameter list.
-  sig [Ptr] => Bool
+  #: (ptr) -> bool
   def zr_params_forwarding_p(table)
     Machine.load64(table, 0) == 3 &&
       Machine.load64(table + 8, 0) == PARAM_REST && Machine.load64(table + 16, 0) == Machine.id(:*) &&
@@ -641,7 +640,7 @@ module Zr::Kern
       Machine.load64(table + 40, 0) == PARAM_BLOCK && Machine.load64(table + 48, 0) == Machine.id(:&)
   end
 
-  sig [Ptr, Value] => Void
+  #: (ptr, value) -> void
   def zr_buf_method_params(b, m)
     e = RMethod.entry(m)
     meta = zr_method_meta(e)
@@ -692,7 +691,7 @@ module Zr::Kern
   # `#<Method: C#name(params) file:line>`. A singleton method shows its
   # object and a dot. A method found in an ancestor of the lookup class
   # shows the owner in parentheses. An UnboundMethod shows only the owner.
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_method_inspect(recv, argc, argv, cref, blk)
     b = Machine.slot(Buf.size)
     zr_buf_init(b)

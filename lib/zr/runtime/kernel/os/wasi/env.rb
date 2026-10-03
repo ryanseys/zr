@@ -5,14 +5,14 @@
 
 module Zr::Kern
   # RUBY_PLATFORM, as ruby 4.0.7 built for WASI gives it.
-  sig [] => Value
+  #: () -> value
   def zr_os_ruby_platform
     zr_str_new(Machine.bytes("wasm32-wasi"), 11)
   end
 
   # Converts a host vector of `count` 32-bit addresses at `raw` to a
   # NULL-terminated table of words, with space for `extra` more.
-  sig [Ptr, Word, Word] => Ptr
+  #: (ptr, word, word) -> ptr
   def zr_wasi_table(raw, count, extra)
     table = zr_xmalloc((count + extra + 1) * 8)
     i = 0
@@ -26,7 +26,7 @@ module Zr::Kern
   end
 
   # The arguments come from the host, because `_start` gives main none.
-  sig [I32, Ptr] => Ptr
+  #: (i32, ptr) -> ptr
   def zr_os_argv(argc, argv)
     sizes = Machine.slot(8)
     if Libc.args_sizes_get(zr_wasi_addr(sizes), zr_wasi_addr(sizes + 4)) != Machine.i32(0)
@@ -42,7 +42,7 @@ module Zr::Kern
   # The environment. zr reads the host environment one time into its own
   # table, which setenv and unsetenv change in place. The word after the
   # table address is the number of free entries in the table.
-  sig [] => Ptr
+  #: () -> ptr
   def zr_os_environ
     cell = Machine.static(:wasi_environ, 16)
     if Machine.load64(cell, 0) != 0
@@ -67,7 +67,7 @@ module Zr::Kern
   end
 
   # The entry of `name` in the environment, or the entry that ends it.
-  sig [Ptr] => Ptr
+  #: (ptr) -> ptr
   def zr_wasi_env_row(name)
     len = zr_cstr_len(name)
     row = zr_os_environ()
@@ -81,7 +81,7 @@ module Zr::Kern
     row
   end
 
-  sig [Ptr] => Ptr
+  #: (ptr) -> ptr
   def getenv(name)
     entry = Machine.ptr(Machine.load64(zr_wasi_env_row(name), 0))
     if entry == 0
@@ -90,7 +90,7 @@ module Zr::Kern
     entry + zr_cstr_len(name) + 1
   end
 
-  sig [Ptr, Ptr, I32] => I32
+  #: (ptr, ptr, i32) -> i32
   def setenv(name, value, overwrite)
     row = zr_wasi_env_row(name)
     if Machine.load64(row, 0) != 0 && overwrite == Machine.i32(0)
@@ -123,7 +123,7 @@ module Zr::Kern
     Machine.i32(0)
   end
 
-  sig [Ptr] => I32
+  #: (ptr) -> i32
   def unsetenv(name)
     row = zr_wasi_env_row(name)
     if Machine.load64(row, 0) == 0
@@ -139,7 +139,7 @@ module Zr::Kern
   end
 
   # 32 random bits from the host.
-  sig [] => Word
+  #: () -> word
   def zr_os_random
     bits = Machine.slot(8)
     Libc.random_get(zr_wasi_addr(bits), Machine.i32(4))
@@ -147,12 +147,12 @@ module Zr::Kern
   end
 
   # There is no user database: getpwnam and similar calls find no user.
-  sig [Ptr] => Value
+  #: (ptr) -> value
   def zr_os_passwd_row(pw)
     Machine.value(QNIL)
   end
 
-  sig [Ptr] => Ptr
+  #: (ptr) -> ptr
   def zr_os_passwd_dir(pw)
     Machine.ptr(0)
   end
@@ -170,7 +170,7 @@ module Zr::Kern
   # this in each program. The limit of a module is its own address space,
   # not the host's memory. A wasm32 module can address only 4 GiB, and a
   # return of 0 lets the heap use all of it.
-  sig [] => Word
+  #: () -> word
   def zr_os_machine_bytes
     0
   end
@@ -185,17 +185,17 @@ module Zr::Kern
   SPAWN_ACTIONS_LEN = 16
   SPAWN_ATTR_LEN = 16
 
-  sig [Value, Value, Value, Value, Value] => Value
+  #: (value, value, value, value, value) -> value
   def zr_os_spawn(words, dups, closes, env, chdir)
     zr_notimplement(Machine.bytes("spawn"), 5)
   end
 
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_os_setid(call, id)
     zr_fix(0 - WASI_ENOSYS)
   end
 
-  sig [] => Value
+  #: () -> value
   def zr_os_issetugid
     Machine.value(QFALSE)
   end
@@ -203,48 +203,48 @@ module Zr::Kern
   # wasi-libc's values for a process that does not exist: getpid is 42
   # (the only value greater than 1 that it uses), the parent is 0, and
   # each id is root's.
-  sig [] => I32
+  #: () -> i32
   def getpid
     Machine.i32(42)
   end
 
-  sig [] => I32
+  #: () -> i32
   def getppid
     Machine.i32(0)
   end
 
-  sig [] => I32
+  #: () -> i32
   def getuid
     Machine.i32(0)
   end
 
-  sig [] => I32
+  #: () -> i32
   def geteuid
     Machine.i32(0)
   end
 
-  sig [] => I32
+  #: () -> i32
   def getgid
     Machine.i32(0)
   end
 
-  sig [] => I32
+  #: () -> i32
   def getegid
     Machine.i32(0)
   end
 
-  sig [I32] => Void
+  #: (i32) -> void
   def exit(code)
     Libc.proc_exit(code)
   end
 
-  sig [I32] => Void
+  #: (i32) -> void
   def _exit(code)
     Libc.proc_exit(code)
   end
 
   # A timespec from nanoseconds in a word.
-  sig [Ptr, Word] => Void
+  #: (ptr, word) -> void
   def zr_wasi_timespec(ts, ns)
     Machine.store64(ts, 0, ns / 1000000000)
     Machine.store64(ts, 8, ns % 1000000000)
@@ -254,7 +254,7 @@ module Zr::Kern
   # 3 the thread's CPU time. Process's CLOCK_IDS gives their ruby names.
   CLOCK_MONOTONIC = 1
 
-  sig [I32, Ptr] => I32
+  #: (i32, ptr) -> i32
   def clock_gettime(id, ts)
     out = Machine.slot(8)
     if zr_wasi_status(Libc.clock_time_get(id, 1, zr_wasi_addr(out))) < Machine.i32(0)
@@ -264,7 +264,7 @@ module Zr::Kern
     Machine.i32(0)
   end
 
-  sig [I32, Ptr] => I32
+  #: (i32, ptr) -> i32
   def clock_getres(id, ts)
     out = Machine.slot(8)
     if zr_wasi_status(Libc.clock_res_get(id, zr_wasi_addr(out))) < Machine.i32(0)
@@ -276,7 +276,7 @@ module Zr::Kern
 
   # A sleep is a wait on the monotonic clock only: one 48-byte
   # subscription and one 32-byte event.
-  sig [Ptr, Ptr] => I32
+  #: (ptr, ptr) -> i32
   def nanosleep(req, rem)
     sub = Machine.slot(48)
     Libc.memset(sub, Machine.i32(0), 48)
@@ -288,7 +288,7 @@ module Zr::Kern
   end
 
   # WASI has no time zone: local time is UTC, as wasi-libc gives it.
-  sig [] => Void
+  #: () -> void
   def tzset
   end
 
@@ -297,7 +297,7 @@ module Zr::Kern
   # week, day of the year and daylight time as ints, then the offset east
   # of UTC at 40 and the zone name at 48. The date calculation is Howard
   # Hinnant's civil_from_days.
-  sig [Ptr, Ptr] => Ptr
+  #: (ptr, ptr) -> ptr
   def localtime_r(t, tm)
     secs = Machine.load64(t, 0)
     days = secs / 86400
@@ -335,7 +335,7 @@ module Zr::Kern
 
   # The day of the year, from 0, of a date in the proleptic Gregorian
   # calendar.
-  sig [Word, Word, Word] => Word
+  #: (word, word, word) -> word
   def zr_wasi_year_day(year, month, mday)
     before = (((month - 1) * 367) + 5) / 12
     if month > 2

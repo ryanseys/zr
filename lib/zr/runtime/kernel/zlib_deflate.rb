@@ -53,14 +53,14 @@ module Zr::Kern
 
   # Returns column `col` of the configuration table (0 good, 1 lazy,
   # 2 nice, 3 chain) for `level`.
-  sig [Word, Word] => Word
+  #: (word, word) -> word
   def zr_deflate_config(level, col)
     zr_zlib_u32(zr_deflate_config_table(), (level * 4) + col)
   end
 
   # The func column of the configuration table: the block function that a
   # level runs.
-  sig [Word] => Word
+  #: (word) -> word
   def zr_deflate_kind(level)
     if level == 0
       return DEF_KIND_STORED
@@ -71,13 +71,13 @@ module Zr::Kern
   end
 
   # MAX_DIST
-  sig [Ptr] => Word
+  #: (ptr) -> word
   def zr_deflate_max_dist(s)
     DeflateState.w_size(s) - DEF_MIN_LOOKAHEAD
   end
 
   # RANK: puts Z_BLOCK between Z_NO_FLUSH and Z_PARTIAL_FLUSH.
-  sig [Word] => Word
+  #: (word) -> word
   def zr_deflate_rank(f)
     if f > 4
       return (f * 2) - 9
@@ -86,19 +86,19 @@ module Zr::Kern
   end
 
   # UPDATE_HASH: returns the hash `h` updated with the byte `c`.
-  sig [Ptr, Word, Word] => Word
+  #: (ptr, word, word) -> word
   def zr_deflate_hash(s, h, c)
     ((h << DeflateState.hash_shift(s)) ^ c) & DeflateState.hash_mask(s)
   end
 
-  sig [Ptr, Word] => Word
+  #: (ptr, word) -> word
   def zr_deflate_window_byte(s, i)
     zr_zlib_byte(DeflateState.window(s) + i)
   end
 
   # INSERT_STRING: inserts the string at `str` into the hash chains.
   # Returns the previous head of its hash chain.
-  sig [Ptr, Word] => Word
+  #: (ptr, word) -> word
   def zr_deflate_insert_string(s, str)
     ins_h = zr_deflate_hash(s, DeflateState.ins_h(s), zr_deflate_window_byte(s, str + MIN_MATCH - 1))
     DeflateState.set_ins_h(s, ins_h)
@@ -109,7 +109,7 @@ module Zr::Kern
   end
 
   # CLEAR_HASH
-  sig [Ptr] => Void
+  #: (ptr) -> void
   def zr_deflate_clear_hash(s)
     zr_zlib_set_u32(DeflateState.head(s), DeflateState.hash_size(s) - 1, DEF_NIL)
     Libc.memset(DeflateState.head(s), Machine.i32(0), (DeflateState.hash_size(s) - 1) * 4)
@@ -117,7 +117,7 @@ module Zr::Kern
 
   # slide_hash: moves each hash chain position down by the window size, or
   # clears it if it goes below zero.
-  sig [Ptr] => Void
+  #: (ptr) -> void
   def zr_deflate_slide_hash(s)
     wsize = DeflateState.w_size(s)
     head = DeflateState.head(s)
@@ -146,7 +146,7 @@ module Zr::Kern
 
   # read_buf: reads up to `size` bytes of input into `buf` and adds them
   # to the check value. Returns the number of bytes.
-  sig [Ptr, Ptr, Ptr, Word] => Word
+  #: (ptr, ptr, ptr, word) -> word
   def zr_deflate_read_buf(strm, s, buf, size)
     len = ZStream.avail_in(strm)
     if len > size
@@ -171,7 +171,7 @@ module Zr::Kern
   # needs. It slides the window down when the upper half is full. It sets
   # the bytes after the data to zero, so a match scan reads no undefined
   # bytes.
-  sig [Ptr] => Void
+  #: (ptr) -> void
   def zr_deflate_fill_window(s)
     strm = DeflateState.strm(s)
     wsize = DeflateState.w_size(s)
@@ -236,7 +236,7 @@ module Zr::Kern
   end
 
   # deflateStateCheck: returns 1 when `strm` has no valid deflate state.
-  sig [Ptr] => Word
+  #: (ptr) -> word
   def zr_deflate_state_check(strm)
     if strm == 0
       return 1
@@ -254,7 +254,7 @@ module Zr::Kern
 
   # Sets the pointers for the trees, counts, heap and depths into the
   # block after `s`.
-  sig [Ptr] => Void
+  #: (ptr) -> void
   def zr_deflate_point_tail(s)
     p = s + DeflateState.size
     DeflateState.set_dyn_ltree(s, p)
@@ -272,7 +272,7 @@ module Zr::Kern
 
   # deflateEnd: frees the state and its buffers. Returns Z_DATA_ERROR if
   # the stream is not complete.
-  sig [Ptr] => Word
+  #: (ptr) -> word
   def zr_deflate_end(strm)
     if zr_deflate_state_check(strm) != 0
       return Z_STREAM_ERROR
@@ -302,7 +302,7 @@ module Zr::Kern
   # deflateInit2_: gives a stream its state and buffers. The C code has
   # version and size checks against a caller built for a different zlib.
   # Here no caller can be, so the checks are not necessary.
-  sig [Ptr, Word, Word, Word, Word, Word] => Word
+  #: (ptr, word, word, word, word, word) -> word
   def zr_deflate_init2(strm, level, method, window_bits, mem_level, strategy)
     wrap = 1
     if strm == 0
@@ -367,7 +367,7 @@ module Zr::Kern
 
   # deflateSetDictionary: puts the dictionary into the window and the
   # hash chains, before any input.
-  sig [Ptr, Ptr, Word] => Word
+  #: (ptr, ptr, word) -> word
   def zr_deflate_set_dictionary(strm, dictionary, dict_length)
     if zr_deflate_state_check(strm) != 0 || dictionary == 0
       return Z_STREAM_ERROR
@@ -426,7 +426,7 @@ module Zr::Kern
 
   # deflateResetKeep: resets the stream to its start, but keeps its
   # window.
-  sig [Ptr] => Word
+  #: (ptr) -> word
   def zr_deflate_reset_keep(strm)
     if zr_deflate_state_check(strm) != 0
       return Z_STREAM_ERROR
@@ -454,7 +454,7 @@ module Zr::Kern
   end
 
   # lm_init: sets the matcher's state for a new stream.
-  sig [Ptr] => Void
+  #: (ptr) -> void
   def zr_deflate_lm_init(s)
     DeflateState.set_window_size(s, 2 * DeflateState.w_size(s))
     zr_deflate_clear_hash(s)
@@ -474,7 +474,7 @@ module Zr::Kern
   end
 
   # deflateReset
-  sig [Ptr] => Word
+  #: (ptr) -> word
   def zr_deflate_reset(strm)
     ret = zr_deflate_reset_keep(strm)
     if ret == Z_OK
@@ -485,7 +485,7 @@ module Zr::Kern
 
   # deflateParams: sets a new level and strategy during a stream. It
   # first flushes the data that the old settings compressed.
-  sig [Ptr, Word, Word] => Word
+  #: (ptr, word, word) -> word
   def zr_deflate_params(strm, level, strategy)
     if zr_deflate_state_check(strm) != 0
       return Z_STREAM_ERROR
@@ -528,7 +528,7 @@ module Zr::Kern
 
   # putShortMSB: adds a 16-bit word to the pending output, high byte
   # first.
-  sig [Ptr, Word] => Void
+  #: (ptr, word) -> void
   def zr_deflate_put_short_msb(s, b)
     zr_tr_put_byte(s, (b >> 8) & 255)
     zr_tr_put_byte(s, b & 255)
@@ -536,7 +536,7 @@ module Zr::Kern
 
   # flush_pending: writes as much of the pending output as the stream's
   # output buffer can take.
-  sig [Ptr] => Void
+  #: (ptr) -> void
   def zr_deflate_flush_pending(strm)
     s = ZStream.state(strm)
     zr_tr_flush_bits(s)
@@ -559,7 +559,7 @@ module Zr::Kern
   end
 
   # ERR_RETURN: sets the error's text on the stream and returns the error.
-  sig [Ptr, Word] => Word
+  #: (ptr, word) -> word
   def zr_deflate_err(strm, err)
     ZStream.set_msg(strm, zr_zlib_error_text(err))
     err
@@ -567,7 +567,7 @@ module Zr::Kern
 
   # deflate: compresses as much of the input as the output buffer allows.
   # It writes the header first, and the trailer after a finish.
-  sig [Ptr, Word] => Word
+  #: (ptr, word) -> word
   def zr_deflate(strm, flush)
     if zr_deflate_state_check(strm) != 0 || flush > Z_BLOCK || flush < 0
       return Z_STREAM_ERROR
@@ -724,7 +724,7 @@ module Zr::Kern
   end
 
   # deflateCopy: makes `dest` a copy of `source`, with all its buffers.
-  sig [Ptr, Ptr] => Word
+  #: (ptr, ptr) -> word
   def zr_deflate_copy(dest, source)
     if zr_deflate_state_check(source) != 0 || dest == 0
       return Z_STREAM_ERROR
@@ -761,7 +761,7 @@ module Zr::Kern
   # writes the match start to match_start. As in the C code, the scan can
   # read past the lookahead into bytes that fill_window set to zero. The
   # lookahead limits the length, so the result does not depend on them.
-  sig [Ptr, Word] => Word
+  #: (ptr, word) -> word
   def zr_deflate_longest_match(s, cur_match)
     chain_length = DeflateState.max_chain_length(s)
     window = DeflateState.window(s)
@@ -871,7 +871,7 @@ module Zr::Kern
   end
 
   # FLUSH_BLOCK_ONLY: writes the current block and starts a new one.
-  sig [Ptr, Word] => Void
+  #: (ptr, word) -> void
   def zr_deflate_flush_block_only(s, last)
     buf = 0
     if DeflateState.block_start(s) >= 0
@@ -885,7 +885,7 @@ module Zr::Kern
   # deflate_stored: copies the input to stored blocks. It copies directly
   # to the output when the data fits, and through the window and the
   # pending buffer when it does not.
-  sig [Ptr, Word] => Word
+  #: (ptr, word) -> word
   def zr_deflate_stored(s, flush)
     strm = DeflateState.strm(s)
     min_block = DeflateState.pending_buf_size(s) - 5
@@ -1042,7 +1042,7 @@ module Zr::Kern
 
   # The end of a block function. Returns the value that the C FLUSH_BLOCK
   # returns when the output is full, or -1 to continue.
-  sig [Ptr, Word] => Word
+  #: (ptr, word) -> word
   def zr_deflate_flush_block(s, last)
     zr_deflate_flush_block_only(s, last)
     if ZStream.avail_out(DeflateState.strm(s)) == 0
@@ -1057,7 +1057,7 @@ module Zr::Kern
   # The step that each block function does when no input remains. On a
   # finish, it flushes the last block. If not, it flushes the current
   # block.
-  sig [Ptr, Word] => Word
+  #: (ptr, word) -> word
   def zr_deflate_block_end(s, flush)
     if flush == Z_FINISH
       r = zr_deflate_flush_block(s, 1)
@@ -1077,7 +1077,7 @@ module Zr::Kern
 
   # deflate_fast: uses each match when it finds it, with no lazy
   # evaluation.
-  sig [Ptr, Word] => Word
+  #: (ptr, word) -> word
   def zr_deflate_fast(s, flush)
     while true
       if DeflateState.lookahead(s) < DEF_MIN_LOOKAHEAD
@@ -1139,7 +1139,7 @@ module Zr::Kern
 
   # deflate_slow: lazy evaluation. It keeps a match back in case the next
   # byte starts a longer match.
-  sig [Ptr, Word] => Word
+  #: (ptr, word) -> word
   def zr_deflate_slow(s, flush)
     while true
       if DeflateState.lookahead(s) < DEF_MIN_LOOKAHEAD
@@ -1217,7 +1217,7 @@ module Zr::Kern
   end
 
   # deflate_rle: encodes runs of one byte as matches at distance one.
-  sig [Ptr, Word] => Word
+  #: (ptr, word) -> word
   def zr_deflate_rle(s, flush)
     while true
       if DeflateState.lookahead(s) <= MAX_MATCH
@@ -1303,7 +1303,7 @@ module Zr::Kern
   end
 
   # deflate_huff: encodes each byte as a literal, with no matching.
-  sig [Ptr, Word] => Word
+  #: (ptr, word) -> word
   def zr_deflate_huff(s, flush)
     while true
       if DeflateState.lookahead(s) == 0

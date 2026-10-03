@@ -9,7 +9,7 @@
 # trailing zeros with rbit and clz, so a zero word has 64 of them.
 
 module Zr::Kern
-  sig [Word] => Word
+  #: (word) -> word
   def zr_smooth_ntz(x)
     if x == 0
       return 64
@@ -22,7 +22,7 @@ module Zr::Kern
     n
   end
 
-  sig [Ptr] => Word
+  #: (ptr) -> word
   def zr_smooth_pntz(p)
     r = zr_smooth_ntz(Machine.load64(p, 0) - 1)
     if r != 0
@@ -33,7 +33,7 @@ module Zr::Kern
   end
 
   # shl and shr need n > 0. A shift of 64 or more moves a whole word first.
-  sig [Ptr, Word] => Void
+  #: (ptr, word) -> void
   def zr_smooth_shl(p, n)
     if n >= 64
       n -= 64
@@ -46,7 +46,7 @@ module Zr::Kern
     end
   end
 
-  sig [Ptr, Word] => Void
+  #: (ptr, word) -> void
   def zr_smooth_shr(p, n)
     if n >= 64
       n -= 64
@@ -62,7 +62,7 @@ module Zr::Kern
   # Rotates the elements at the `n` indices in `ar` by one position. Each
   # element gets the bytes of the next one, and the last gets the bytes of
   # the first. A Sort's elements are 16 bytes or less.
-  sig [Ptr, Ptr, Word] => Void
+  #: (ptr, ptr, word) -> void
   def zr_smooth_cycle(st, ar, n)
     if n < 2
       return
@@ -79,12 +79,12 @@ module Zr::Kern
   end
 
   # Reads a Leonardo number from `lp`, the table of Leonardo numbers.
-  sig [Ptr, Word] => Word
+  #: (ptr, word) -> word
   def zr_smooth_lp(lp, i)
     Machine.load64(lp + (i * 8), 0)
   end
 
-  sig [Ptr, Word, Word, Ptr] => Void
+  #: (ptr, word, word, ptr) -> void
   def zr_smooth_sift(st, head, pshift, lp)
     ar = Machine.slot(904)
     Machine.store64(ar, 0, head)
@@ -110,7 +110,7 @@ module Zr::Kern
     zr_smooth_cycle(st, ar, i)
   end
 
-  sig [Ptr, Word, Ptr, Word, Word, Ptr] => Void
+  #: (ptr, word, ptr, word, word, ptr) -> void
   def zr_smooth_trinkle(st, head, pp, pshift, trusty, lp)
     p = Machine.slot(16)
     Machine.store64(p, 0, Machine.load64(pp, 0))
@@ -142,7 +142,7 @@ module Zr::Kern
   end
 
   # Sorts the `n` elements of `st`.
-  sig [Ptr, Word] => Void
+  #: (ptr, word) -> void
   def zr_smoothsort(st, n)
     if n == 0
       return

@@ -9,7 +9,7 @@ require_relative "../native/fixtures"
 
 # Tests the Ruby linker. `Obj::MachO::Executable` writes a signed
 # `MH_EXECUTE` for each program whose imports all come from libSystem:
-# the hand-written IR fixtures, the machine dialect programs, and a Ruby
+# the hand-written IR fixtures, the kernel subset programs, and a Ruby
 # program with the runtime object. Each binary must print the expected
 # output. The tests that link through `cc` have `cc` in their names.
 class ExeTest < Minitest::Test

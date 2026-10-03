@@ -6,7 +6,7 @@ module Zr::Kern
 
   BASE = 10
 
-  sig [Word] => Void
+  #: (word) -> void
   def put_word(n)
     buf = Machine.slot(24)
     at = 23

@@ -6,7 +6,7 @@ module Zr
   module IR
     # Promotes stack slots to SSA values in a finished function.
     #
-    # The machine dialect gives each local a slot. A slot costs a store at
+    # The kernel subset gives each local a slot. A slot costs a store at
     # each assignment and a load at each read, and the register allocator
     # sees only values, so it cannot remove them. A slot that the function
     # only loads and stores whole, through its address, is a private

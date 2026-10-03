@@ -50,7 +50,7 @@ module Zr::Kern
   # is CRuby's rb_reg_s_alloc. A Regexp subclass also allocates with it,
   # so the empty cell that its initialize fills is a real regexp from the
   # start.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_regexp_alloc(klass)
     re = zr_alloc(T_REGEXP, klass, RRegexp.size)
     RRegexp.set_source(re, Machine.value(QNIL))
@@ -65,7 +65,7 @@ module Zr::Kern
   # Copies the pattern of `other` into the empty cell `re`: its source,
   # options, names and program. These never change, so the copy shares
   # them. The copy compiles its own programs for other encodings.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_regexp_copy_from(re, other)
     RRegexp.set_source(re, RRegexp.source(other))
     RRegexp.set_options(re, RRegexp.options(other))
@@ -79,7 +79,7 @@ module Zr::Kern
   # The compile of `source` under the option `bits` that the host makes
   # with CRuby, or nil (lib/zr/machine/host/walk/regexps.rb). A binary has
   # none: the core compiles each pattern itself (`Regexp.compiled`).
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_regexp_host_compile(source, bits)
     Machine.value(QNIL)
   end
@@ -87,7 +87,7 @@ module Zr::Kern
   # Puts the compiled `program` into the empty cell `re`, with the
   # `options` (Ruby's bits) that it was compiled with, `shown` (the text
   # as written, which the Regexp reports as its source) and its `names`.
-  sig [Value, Value, Value, Value, Value] => Value
+  #: (value, value, value, value, value) -> value
   def zr_regexp_seat(re, program, shown, options, names)
     RRegexp.set_program(re, program)
     RRegexp.set_alt(re, Machine.value(QNIL))
@@ -98,25 +98,25 @@ module Zr::Kern
   end
 
   # The programs compiled for other encodings: nil or a Hash.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_regexp_alt(re)
     RRegexp.alt(re)
   end
 
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_regexp_alt_set(re, programs)
     RRegexp.set_alt(re, programs)
     programs
   end
 
   # The number of groups that the program captures.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_regexp_captures(re)
     zr_fix(OnigProg.num_mem(RString.ptr(RRegexp.program(re))))
   end
 
   # The named groups: [[name, [group numbers]], ...].
-  sig [Value] => Value
+  #: (value) -> value
   def zr_regexp_names(re)
     RRegexp.names(re)
   end
@@ -124,12 +124,12 @@ module Zr::Kern
   # The region that a search of `program` fills: 2 * (num_mem + 1) words,
   # in the scratch buffer that all searches share. `zr_regexp_region_free`
   # releases it.
-  sig [Ptr] => Ptr
+  #: (ptr) -> ptr
   def zr_regexp_region_new(prog)
     zr_onig_scratch(0, (OnigProg.num_mem(prog) + 1) * 16)
   end
 
-  sig [Ptr] => Void
+  #: (ptr) -> void
   def zr_regexp_region_free(region)
     zr_onig_scratch_free(0, region)
   end
@@ -139,7 +139,7 @@ module Zr::Kern
   # where the match started (before a `\K`), then the offsets of each
   # group, with -1 for a group that did not match. `program` is the one
   # that Regexp#program_for chose, or nil for the pattern's own.
-  sig [Value, Value, Value, Value, Value] => Value
+  #: (value, value, value, value, value) -> value
   def zr_regexp_search(re, program, str, start, backward)
     if program == QNIL
       program = RRegexp.program(re)
@@ -162,7 +162,7 @@ module Zr::Kern
 
   # The result of a search that found nothing (nil), or that the time
   # limit stopped.
-  sig [Word] => Value
+  #: (word) -> value
   def zr_regexp_failed(r)
     if r != ONIGERR_TIMEOUT
       return Machine.value(QNIL)
@@ -173,7 +173,7 @@ module Zr::Kern
   end
 
   # Matches `str` at exactly byte `start`, as a `\A` anchor would.
-  sig [Value, Value, Value, Value] => Value
+  #: (value, value, value, value) -> value
   def zr_regexp_match_at(re, program, str, start)
     if program == QNIL
       program = RRegexp.program(re)
@@ -193,14 +193,14 @@ module Zr::Kern
   end
 
   # Makes [position, beg0, end0, ...] from a region of num_mem + 1 groups.
-  sig [Ptr, Word, Word] => Value
+  #: (ptr, word, word) -> value
   def zr_region_offsets(region, num_mem, position)
     zr_region_offsets_after(region, num_mem, position, 0)
   end
 
   # The same offsets, for a match whose text starts `base` bytes into the
   # String, counted from the start of the String. -1 stays -1.
-  sig [Ptr, Word, Word, Word] => Value
+  #: (ptr, word, word, word) -> value
   def zr_region_offsets_after(region, num_mem, position, base)
     n = num_mem + 1
     out = zr_ary_new(n * 2 + 1)
@@ -220,7 +220,7 @@ module Zr::Kern
   # bytes into `str` (the scan pointer, or 0 for a fixed anchor). The
   # match is tried at byte `start`, or searched for from there to the end.
   # Offsets count from the start of the String.
-  sig [Value, Value, Value, Value, Value, Value] => Value
+  #: (value, value, value, value, value, value) -> value
   def zr_regexp_scan_in(re, program, str, base, start, search)
     if program == QNIL
       program = RRegexp.program(re)
@@ -248,12 +248,12 @@ module Zr::Kern
 
   # The maximum time in nanoseconds for a match of `re`: its own timeout,
   # else Regexp.timeout, else 0 for no limit.
-  sig [Value] => Word
+  #: (value) -> word
   def zr_regexp_limit_for(re)
     RRegexp.limit(re) != 0 ? RRegexp.limit(re) : Machine.load64(Machine.static(:regexp_limit, 8), 0)
   end
 
-  sig [Value] => Void
+  #: (value) -> void
   def zr_mark_regexp(re)
     zr_mark(RRegexp.source(re))
     zr_mark(RRegexp.names(re))
@@ -262,28 +262,28 @@ module Zr::Kern
   end
 
   # A regexp has no memory outside the heap.
-  sig [Value] => Void
+  #: (value) -> void
   def zr_release_regexp(re)
   end
 
-  sig [Value] => Value
+  #: (value) -> value
   def zr_regexp_source(re)
     RRegexp.source(re)
   end
 
-  sig [Value] => Value
+  #: (value) -> value
   def zr_regexp_options(re)
     zr_fix(RRegexp.options(re))
   end
 
   # `/#{x}/o`: the regexp of the site, made once. It is nil until the
   # site runs.
-  sig [Word] => Value
+  #: (word) -> value
   def zr_regexp_once(index)
     zr_site_literal(G_REGEXP_LITERALS, index)
   end
 
-  sig [Word, Value] => Value
+  #: (word, value) -> value
   def zr_regexp_once_set(index, re)
     zr_site_literal_set(G_REGEXP_LITERALS, index, re)
     re
@@ -292,7 +292,7 @@ module Zr::Kern
   # A regexp literal. The core compiles it the first time its site runs.
   # After that, the site gets the same frozen object from the literal
   # table, at the index of the site.
-  sig [Word, Ptr, Word, Word, Word] => Value
+  #: (word, ptr, word, word, word) -> value
   def zr_regexp_literal(index, bytes, len, options, pinned)
     re = zr_site_literal(G_REGEXP_LITERALS, index)
     if re != QNIL
@@ -311,7 +311,7 @@ module Zr::Kern
 
   # Sets a timeout in nanoseconds (0 for none): the timeout of `re`, or
   # Regexp.timeout when `re` is nil. Returns the timeout.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_regexp_limit_set(re, nanoseconds)
     if re == QNIL
       Machine.store64(Machine.static(:regexp_limit, 8), 0, zr_fix2long(nanoseconds))
@@ -321,7 +321,7 @@ module Zr::Kern
     nanoseconds
   end
 
-  sig [Value] => Value
+  #: (value) -> value
   def zr_regexp_limit(re)
     zr_fix(re == QNIL ? Machine.load64(Machine.static(:regexp_limit, 8), 0) : RRegexp.limit(re))
   end
@@ -332,7 +332,7 @@ module Zr::Kern
   # for its own work (`owns_backref`): then the match stays in its own
   # record and the program's `$~` is left alone, as a C function's
   # matches leave it.
-  sig [] => Ptr
+  #: () -> ptr
   def zr_backref_home
     rec = Task.top(zr_task())
     while rec != 0
@@ -364,7 +364,7 @@ module Zr::Kern
 
   # The `$~` and `$_` of the frame, in an Array that is made at the first
   # write of one of them.
-  sig [Ptr] => Value
+  #: (ptr) -> value
   def zr_svars(home)
     cell = Frame.svars(home)
     if cell == QNIL
@@ -376,13 +376,13 @@ module Zr::Kern
     cell
   end
 
-  sig [Ptr, Word] => Value
+  #: (ptr, word) -> value
   def zr_svar_get(home, i)
     cell = Frame.svars(home)
     cell == QNIL ? Machine.value(QNIL) : zr_ary_at(cell, i)
   end
 
-  sig [Value] => Value
+  #: (value) -> value
   def zr_backref_set(v)
     home = zr_backref_home()
     if home != 0
@@ -393,7 +393,7 @@ module Zr::Kern
 
   # `$~ = v` from a program: `v` must be a MatchData or nil, as the hook
   # of Kernel checks.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_backref_assign(v)
     argv = Machine.slot(24)
     Machine.store64(argv, 0, Machine.word(zr_sym(Machine.id(:$~))))
@@ -405,7 +405,7 @@ module Zr::Kern
     zr_backref_set(v)
   end
 
-  sig [] => Value
+  #: () -> value
   def zr_backref_get
     home = zr_backref_home()
     home == 0 ? Machine.value(QNIL) : zr_svar_get(home, 0)
@@ -414,7 +414,7 @@ module Zr::Kern
   # The hidden ivar `id` of a MatchData. `MatchData#matched` sets its
   # fields in order, so the ivar is at `row` of the table unless a copy
   # or a subclass put it elsewhere. Then it is found by name.
-  sig [Value, Word, Word] => Value
+  #: (value, word, word) -> value
   def zr_match_field(m, id, row)
     if !zr_special_p(m) && (RBasic.flags(m) & T_MASK) == T_OBJECT
       t = RObject.iv(m)
@@ -429,13 +429,13 @@ module Zr::Kern
   end
   inline :zr_match_field
 
-  sig [Value] => Value
+  #: (value) -> value
   def zr_match_string(m)
     zr_match_field(m, Machine.id(:string), 1)
   end
   inline :zr_match_string
 
-  sig [Value] => Value
+  #: (value) -> value
   def zr_match_offsets(m)
     zr_match_field(m, Machine.id(:offsets), 2)
   end
@@ -447,7 +447,7 @@ module Zr::Kern
   # `m` is a MatchData or nil. Its offsets are
   # `[position, begin0, end0, begin1, end1, ...]`, as the search made them
   # (lib/zr/runtime/core/regexp.rb, MatchData#matched).
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_match_nth(m, n)
     if m == QNIL
       return Machine.value(QNIL)
@@ -465,7 +465,7 @@ module Zr::Kern
   end
 
   # `$+`: the last group that matched, or nil when no group matched.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_match_last(m)
     if m == QNIL
       return Machine.value(QNIL)
@@ -482,7 +482,7 @@ module Zr::Kern
   end
 
   # `` $` ``: the text before the match.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_match_pre(m)
     if m == QNIL
       return Machine.value(QNIL)
@@ -491,7 +491,7 @@ module Zr::Kern
   end
 
   # `$'`: the text after the match.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_match_post(m)
     if m == QNIL
       return Machine.value(QNIL)
@@ -502,7 +502,7 @@ module Zr::Kern
   end
 
   # `$_`, the last line read, is next to `$~`.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_lastline_set(v)
     home = zr_backref_home()
     if home != 0
@@ -511,7 +511,7 @@ module Zr::Kern
     v
   end
 
-  sig [] => Value
+  #: () -> value
   def zr_lastline_get
     home = zr_backref_home()
     home == 0 ? Machine.value(QNIL) : zr_svar_get(home, 1)

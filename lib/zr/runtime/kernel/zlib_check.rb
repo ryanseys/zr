@@ -12,7 +12,7 @@ module Zr::Kern
   # returns the initial value, 1. A single byte uses a short path first,
   # as in the C, which keeps it fast for a caller that adds one byte at a
   # time.
-  sig [Word, Ptr, Word] => Word
+  #: (word, ptr, word) -> word
   def zr_adler32(adler, buf, len)
     sum2 = (adler >> 16) & 65535
     adler = adler & 65535
@@ -71,7 +71,7 @@ module Zr::Kern
   # adler32_combine_: the sum of two buffers, from their sums and the
   # length of the second buffer. A negative length returns an invalid sum,
   # as the C does, to show the error.
-  sig [Word, Word, Word] => Word
+  #: (word, word, word) -> word
   def zr_adler32_combine(adler1, adler2, len2)
     if len2 < 0
       return ZLIB_MASK32
@@ -99,7 +99,7 @@ module Zr::Kern
   # crc32_z: updates `crc` with the `len` bytes at `buf`, one byte at a
   # time through the table. The braided and hardware paths of the C give
   # the same bits. A null buffer returns the initial value, 0.
-  sig [Word, Ptr, Word] => Word
+  #: (word, ptr, word) -> word
   def zr_crc32(crc, buf, len)
     if buf == 0
       return 0
@@ -116,7 +116,7 @@ module Zr::Kern
 
   # multmodp: a(x) times b(x) modulo p(x), the CRC polynomial reflected.
   # `a` must not be zero, as the C requires.
-  sig [Word, Word] => Word
+  #: (word, word) -> word
   def zr_crc_multmodp(a, b)
     m = 2147483648
     p = 0
@@ -139,7 +139,7 @@ module Zr::Kern
 
   # x2nmodp: x^(n * 2^k) modulo p(x). A negative `n` never gets to zero,
   # the same as in the C.
-  sig [Word, Word] => Word
+  #: (word, word) -> word
   def zr_crc_x2nmodp(n, k)
     table = zr_crc_x2n_table()
     p = 2147483648
@@ -155,7 +155,7 @@ module Zr::Kern
 
   # crc32_combine64: the CRC of two buffers, from their CRCs and the
   # length of the second buffer.
-  sig [Word, Word, Word] => Word
+  #: (word, word, word) -> word
   def zr_crc32_combine(crc1, crc2, len2)
     zr_crc_multmodp(zr_crc_x2nmodp(len2, 3), crc1 & ZLIB_MASK32) ^ (crc2 & ZLIB_MASK32)
   end

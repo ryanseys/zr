@@ -13,7 +13,7 @@ module Zr::Kern
   DIGEST_MASK32 = 4294967295
 
   # MD5's sine constants.
-  sig [] => Ptr
+  #: () -> ptr
   def zr_md5_k
     Machine.bytes(
     "\x78\xA4\x6A\xD7\x00\x00\x00\x00\x56\xB7\xC7\xE8\x00\x00\x00\x00\xDB\x70\x20\x24\x00\x00\x00\x00\xEE\xCE\xBD\xC1\x00\x00\x00\x00\xAF\x0F\x7C\xF5\x00\x00\x00\x00\x2A\xC6\x87\x47\x00\x00\x00\x00\x13\x46\x30\xA8\x00\x00\x00\x00\x01\x95\x46\xFD\x00\x00\x00\x00\
@@ -27,14 +27,14 @@ module Zr::Kern
   end
 
   # MD5's rotations, one for each step, then its message index for each step.
-  sig [] => Ptr
+  #: () -> ptr
   def zr_md5_shifts
     Machine.bytes(
     "\x07\x0C\x11\x16\x07\x0C\x11\x16\x07\x0C\x11\x16\x07\x0C\x11\x16\x05\x09\x0E\x14\x05\x09\x0E\x14\x05\x09\x0E\x14\x05\x09\x0E\x14\x04\x0B\x10\x17\x04\x0B\x10\x17\x04\x0B\x10\x17\x04\x0B\x10\x17\x06\x0A\x0F\x15\x06\x0A\x0F\x15\x06\x0A\x0F\x15\x06\x0A\x0F\x15\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0A\x0B\x0C\x0D\x0E\x0F\x01\x06\x0B\x00\x05\x0A\x0F\x04\x09\x0E\x03\x08\x0D\x02\x07\x0C\x05\x08\x0B\x0E\x01\x04\x07\x0A\x0D\x00\x03\x06\x09\x0C\x0F\x02\x00\x07\x0E\x05\x0C\x03\x0A\x01\x08\x0F\x06\x0D\x04\x0B\x02\x09")
   end
 
   # SHA-256's constants.
-  sig [] => Ptr
+  #: () -> ptr
   def zr_sha256_k
     Machine.bytes(
     "\x98\x2F\x8A\x42\x00\x00\x00\x00\x91\x44\x37\x71\x00\x00\x00\x00\xCF\xFB\xC0\xB5\x00\x00\x00\x00\xA5\xDB\xB5\xE9\x00\x00\x00\x00\x5B\xC2\x56\x39\x00\x00\x00\x00\xF1\x11\xF1\x59\x00\x00\x00\x00\xA4\x82\x3F\x92\x00\x00\x00\x00\xD5\x5E\x1C\xAB\x00\x00\x00\x00\
@@ -48,7 +48,7 @@ module Zr::Kern
   end
 
   # SHA-512's constants.
-  sig [] => Ptr
+  #: () -> ptr
   def zr_sha512_k
     Machine.bytes(
     "\x22\xAE\x28\xD7\x98\x2F\x8A\x42\xCD\x65\xEF\x23\x91\x44\x37\x71\x2F\x3B\x4D\xEC\xCF\xFB\xC0\xB5\xBC\xDB\x89\x81\xA5\xDB\xB5\xE9\x38\xB5\x48\xF3\x5B\xC2\x56\x39\x19\xD0\x05\xB6\xF1\x11\xF1\x59\x9B\x4F\x19\xAF\xA4\x82\x3F\x92\x18\x81\x6D\xDA\xD5\x5E\x1C\xAB\
@@ -64,7 +64,7 @@ module Zr::Kern
   end
 
   # RIPEMD-160's message indices and rotations: left, right, left, right.
-  sig [] => Ptr
+  #: () -> ptr
   def zr_rmd160_steps
     Machine.bytes(
     "\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0A\x0B\x0C\x0D\x0E\x0F\x07\x04\x0D\x01\x0A\x06\x0F\x03\x0C\x00\x09\x05\x02\x0E\x0B\x08\x03\x0A\x0E\x04\x09\x0F\x08\x01\x02\x07\x00\x06\x0D\x0B\x05\x0C\x01\x09\x0B\x0A\x00\x08\x0C\x04\x0D\x03\x07\x0F\x0E\x05\x06\x02\x04\x00\x05\x09\x07\x0C\x02\x0A\x0E\x01\x03\x08\x0B\x06\x0F\x0D\x05\x0E\x07\x00\x09\x02\x0B\x04\x0D\x06\x0F\x08\x01\x0A\x03\x0C\x06\x0B\x03\x07\x00\x0D\x05\x0A\x0E\x0F\x08\x0C\x04\x09\x01\x02\x0F\x05\x01\x03\x07\x0E\x06\x09\x0B\x08\x0C\x02\x0A\x00\x04\x0D\x08\x06\x04\x01\x03\x0B\x0F\x00\x05\x0C\x02\x0D\x09\x07\x0A\x0E\x0C\x0F\x0A\x04\x01\x05\x08\x07\x06\x02\x0D\x0E\x00\x03\x09\x0B\x0B\x0E\x0F\x0C\x05\x08\x07\x09\x0B\x0D\x0E\x0F\x06\x07\x09\x08\x07\x06\x08\x0D\x0B\x09\x07\x0F\x07\x0C\x0F\x09\x0B\x07\x0D\x0C\x0B\x0D\x06\x07\x0E\x09\x0D\x0F\x0E\x08\x0D\x06\x05\x0C\x07\x05\x0B\x0C\x0E\x0F\x0E\x0F\x09\x08\x09\x0E\x05\x06\x08\x06\x05\x0C\x09\x0F\x05\x0B\x06\x08\x0D\x0C\x05\x0C\x0D\x0E\x0B\x08\x05\x06\x08\x09\x09\x0B\x0D\x0F\x0F\x05\x07\x07\x08\x0B\x0E\x0E\x0C\x06\x09\x0D\x0F\x07\x0C\x08\x09\x0B\x07\x07\x0C\x07\x06\x0F\x0D\x0B\x09\x07\x0F\x0B\x08\x06\x06\x0E\x0C\x0D\x05\x0E\x0D\x0D\x07\x05\x0F\x05\x08\x0B\x0E\x0E\x06\x0E\x06\x09\x0C\x09\x0C\x05\x0F\x08\x08\x05\x0C\x09\x0C\x05\x0E\x06\x08\x0D\x06\x05\x0F\x0D\x0B\x0B")
@@ -72,7 +72,7 @@ module Zr::Kern
 
   # The initial chaining words of each algorithm, in this order: MD5,
   # SHA-1, SHA-256, SHA-512, SHA-384, RIPEMD-160.
-  sig [] => Ptr
+  #: () -> ptr
   def zr_digest_iv
     Machine.bytes(
     "\x01\x23\x45\x67\x00\x00\x00\x00\x89\xAB\xCD\xEF\x00\x00\x00\x00\xFE\xDC\xBA\x98\x00\x00\x00\x00\x76\x54\x32\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\
@@ -85,17 +85,17 @@ module Zr::Kern
 
   # Returns the initial chaining words of algorithm `row` as a state
   # (0 MD5, 1 SHA-1, 2 SHA-256, 3 SHA-512, 4 SHA-384, 5 RIPEMD-160).
-  sig [Value] => Value
+  #: (value) -> value
   def zr_digest_state(row)
     zr_str_new(zr_digest_iv() + (zr_fix2long(row) * 64), 64)
   end
 
-  sig [Ptr] => Ptr
+  #: (ptr) -> ptr
   def zr_digest_le32(p)
     Machine.ptr(Machine.u32(Machine.load32(p, 0)))
   end
 
-  sig [Ptr] => Ptr
+  #: (ptr) -> ptr
   def zr_digest_be32(p)
     b0 = Machine.ptr(Machine.u8(Machine.load8(p, 0)))
     b1 = Machine.ptr(Machine.u8(Machine.load8(p, 1)))
@@ -104,32 +104,32 @@ module Zr::Kern
     (b0 << 24) | (b1 << 16) | (b2 << 8) | b3
   end
 
-  sig [Ptr] => Ptr
+  #: (ptr) -> ptr
   def zr_digest_be64(p)
     (zr_digest_be32(p) << 32) | zr_digest_be32(p + 4)
   end
 
-  sig [Ptr, Word] => Ptr
+  #: (ptr, word) -> ptr
   def zr_digest_rotl32(x, n)
     ((x << n) | (x >> (32 - n))) & DIGEST_MASK32
   end
 
-  sig [Ptr, Word] => Ptr
+  #: (ptr, word) -> ptr
   def zr_digest_rotr64(x, n)
     (x >> n) | Machine.ushl_wrap(x, 64 - n)
   end
 
-  sig [Ptr, Word] => Ptr
+  #: (ptr, word) -> ptr
   def zr_digest_word(h, i)
     Machine.ptr(Machine.load64(h + (i * 8), 0))
   end
 
-  sig [Ptr, Word, Ptr] => Void
+  #: (ptr, word, ptr) -> void
   def zr_digest_set(h, i, v)
     Machine.store64(h + (i * 8), 0, Machine.word(v))
   end
 
-  sig [Ptr, Ptr] => Void
+  #: (ptr, ptr) -> void
   def zr_md5_block(h, p)
     k = zr_md5_k()
     steps = zr_md5_shifts()
@@ -162,7 +162,7 @@ module Zr::Kern
     zr_digest_set(h, 3, (zr_digest_word(h, 3) + d) & DIGEST_MASK32)
   end
 
-  sig [Ptr, Ptr] => Void
+  #: (ptr, ptr) -> void
   def zr_sha1_block(h, p)
     w = Machine.slot(640)
     i = 0
@@ -208,7 +208,7 @@ module Zr::Kern
     zr_digest_set(h, 4, (zr_digest_word(h, 4) + e) & DIGEST_MASK32)
   end
 
-  sig [Ptr, Ptr] => Void
+  #: (ptr, ptr) -> void
   def zr_sha256_block(h, p)
     k = zr_sha256_k()
     w = Machine.slot(512)
@@ -259,7 +259,7 @@ module Zr::Kern
     zr_digest_set(h, 7, (zr_digest_word(h, 7) + hh) & DIGEST_MASK32)
   end
 
-  sig [Ptr, Ptr] => Void
+  #: (ptr, ptr) -> void
   def zr_sha512_block(h, p)
     k = zr_sha512_k()
     ones = Machine.ptr(0 - 1)
@@ -314,7 +314,7 @@ module Zr::Kern
   end
 
   # RIPEMD-160's five boolean functions, selected by step.
-  sig [Word, Ptr, Ptr, Ptr] => Ptr
+  #: (word, ptr, ptr, ptr) -> ptr
   def zr_rmd160_f(j, x, y, z)
     m = DIGEST_MASK32
     if j < 16
@@ -329,7 +329,7 @@ module Zr::Kern
     x ^ (y | (z ^ m))
   end
 
-  sig [Word, Bool] => Ptr
+  #: (word, bool) -> ptr
   def zr_rmd160_k(round, right)
     if right
       if round == 0
@@ -355,7 +355,7 @@ module Zr::Kern
     Machine.ptr(2840853838)
   end
 
-  sig [Ptr, Ptr] => Void
+  #: (ptr, ptr) -> void
   def zr_rmd160_block(h, p)
     steps = zr_rmd160_steps()
     al = zr_digest_word(h, 0)
@@ -395,7 +395,7 @@ module Zr::Kern
   end
 
   # Compresses each whole block of `data` with algorithm `algo` into `state`.
-  sig [Value, Value, Value] => Value
+  #: (value, value, value) -> value
   def zr_digest_blocks(algo, state, data)
     a = zr_fix2long(algo)
     size = 64

@@ -10,6 +10,34 @@ module Zr
         # core's `Primitive` calls.
         module Sends
           # @type instance: Walk
+          # The ivars of Walk that this module reads (walk.rb):
+          # @rbs @host: Host
+          # @rbs @kern: untyped
+          # @rbs @qnil: Integer
+          # @rbs @qtrue: Integer
+          # @rbs @qfalse: Integer
+          # @rbs @qundef: Integer
+          # @rbs @sites: Hash[untyped, Integer]
+          # @rbs @fns: Hash[untyped, untyped]
+          # @rbs @funcall_of: Hash[Hir::Send, Hir::Send]
+          # @rbs @funcalls: Hash[Hir::Send, bool]
+          # @rbs @integer: Integer
+          # @rbs @basic_klass: Integer
+          # @rbs @site_stamp: Integer
+          # @rbs @cc_klass: Integer
+          # @rbs @cc_stamp: Integer
+          # @rbs @cc_entry: Integer
+          # @rbs @cc_found: Integer
+          # @rbs @cc_fn: Integer
+          # @rbs @proc_fn: Integer
+          # @rbs @proc_env: Integer
+          # @rbs @proc_self: Integer
+          # @rbs @proc_cref: Integer
+          # @rbs @proc_blk: Integer
+          # @rbs @proc_ret_home: Integer
+          # @rbs @proc_ret_serial: Integer
+          # @rbs @proc_lambda: Integer
+          # @rbs @task_refine: ^(Integer, untyped) -> untyped
 
           SEND_CORE = 8
           SEND_USING = 16
@@ -130,7 +158,8 @@ module Zr
               kw = kwargs&.call(f)
               stack = f.stack
               top = stack.top
-              begin
+              written = nil #: Integer?
+              result = begin
                 blk = block.call(f)
                 values = elements(list) if splat
                 written = values.last
@@ -141,9 +170,9 @@ module Zr
                 argc = @kern.zr_kw_ruby2_out(argc, av) if splat && !kw
                 line!(f, word)
                 activate(using, f) if using
-                result = dispatch.call(r, argc, av, blk)
+                answer = dispatch.call(r, argc, av, blk)
                 @task_refine.call(task, @qnil) if using
-                result = sent(f, site, result)
+                sent(f, site, answer)
               ensure
                 stack.top = top
               end
@@ -157,7 +186,7 @@ module Zr
           # receiver, with SEND_CORE and SEND_USING.
           def send_mode(node, s)
             mode = if node.vcall then 1
-                   elsif node.recv && !node.recv.is_a?(Hir::SelfRef) && !@funcalls&.key?(node) then 2
+                   elsif node.recv && !node.recv.is_a?(Hir::SelfRef) && !@funcalls.key?(node) then 2
                    else 0
                    end
             mode |= SEND_CORE if core_send?(node.name, s)
@@ -185,11 +214,11 @@ module Zr
             if node.name == :new && node.block.nil?
               # `new` with no block runs with no frame of its own, as in a
               # binary.
-              at = cell(node, :new, 8 * size)
+              at = cell(node, :new, size * 8)
               return ->(r, argc, av, blk) { @kern.zr_new_cached(at, r, argc, av, blk, mode) }
             end
 
-            at = cell(node, :cc, 4 * size)
+            at = cell(node, :cc, size * 4)
             return ->(r, argc, av, blk) { @kern.zr_send_cached(at, r, name, argc, av, blk, mode) } if node.using == :owner
 
             send = cached_send(at, name, mode)
@@ -244,10 +273,10 @@ module Zr
 
           # The call that a kernel send makes, one per site (`Sends#funcall`).
           def funcall(node)
-            (@funcall_of ||= {}.compare_by_identity)[node] ||= node.dup.tap do |n|
+            @funcall_of[node] ||= node.dup.tap do |n|
               n.name = node.args.first.value
               n.args = node.args.drop(1)
-              (@funcalls ||= {}.compare_by_identity)[n] = true
+              @funcalls[n] = true
             end
           end
 
@@ -350,10 +379,12 @@ module Zr
 
           # The code of positional arguments: their codes, or, with a Splat,
           # the code of one Array.
+          #: (Array[Hir::node] nodes, Scope s) -> [Array[untyped], untyped]
           def arguments(nodes, s)
             return [nodes.map { |a| code(a, s) }, nil] unless nodes.any?(Hir::Splat)
 
-            [[], gather(nodes, s)]
+            none = [] #: Array[untyped]
+            [none, gather(nodes, s)]
           end
 
           # The result of a send that a literal block goes with (`site` is the
@@ -424,7 +455,8 @@ module Zr
               k::FrameMeta.set_captures(m, captures_table(node, homes, unit.spelling))
               inner = scope(node, unit, :block, m, scopes: [node.locals, *s.scopes], homes: homes, def_node: s.def_node, params: node.params,
                                                    open: open)
-              run = nil
+              # The body compiles at its first run.
+              run = nil #: untyped
               fn = @host.callable(lambda do |pr, argc, argv, blk|
                 run ||= block_body(node, inner)
                 outer = @host.pin(Memory.word(pr + @proc_env))
@@ -483,10 +515,10 @@ module Zr
             internal = s.internal?
             lambda do |f|
               list = splat&.call(f)
-              values = splat ? nil : args.map { |a| a.call(f) }
+              plain = splat ? nil : args.map { |a| a.call(f) }
               kw = kwargs&.call(f)
               slots(f) do
-                values = elements(list) if splat
+                values = plain || elements(list)
                 values += [kw] if kw
                 av = argv(f, values)
                 argc = values.size
@@ -542,11 +574,11 @@ module Zr
                 check(@kern.zr_zsuper_in_block(f.rec))
               end
               list = splat&.call(f)
-              values = splat ? nil : args.map { |a| a.call(f) }
+              plain = splat ? nil : args.map { |a| a.call(f) }
               kw = kwargs&.call(f)
               slots(f) do
                 blk = block ? block.call(f) : f.blk
-                values = elements(list) if splat
+                values = plain || elements(list)
                 values += [kw] if kw
                 av = argv(f, values)
                 argc = values.size
@@ -577,10 +609,18 @@ module Zr
           # refinements of its `using` entry, and a `when`'s `===` those of
           # its `case`; both are sends of the scope (`core`), which a core
           # scope makes to its own methods.
+          # @rbs node: untyped
+          # @rbs s: Scope
+          # @rbs name: Symbol
+          # @rbs kind: Symbol
+          # @rbs mode: Integer
+          # @rbs using: Hir::using
+          # @rbs core: bool
+          # @rbs return: ^(Frame, Integer, Array[Integer]) -> untyped
           def sender(node, s, name, kind, mode: 0, using: nil, core: true)
             mode |= SEND_CORE if core && core_send?(name, s)
             mode |= SEND_USING if using
-            at = cell(node, kind, 4 * k::CallCache.layout_size)
+            at = cell(node, kind, k::CallCache.layout_size * 4)
             mid = id(name)
             # The site's cell first, as `cached_send` tests it: a hit makes
             # no call into the kernel. Refinements go through the kernel.
@@ -613,7 +653,8 @@ module Zr
               next bool(!truthy?(v)) if (v | 28) == 28 && (internal || (@host.gates & gate).zero?)
 
               line!(f, word)
-              send.call(f, v, [])
+              args = [] #: Array[Integer]
+              send.call(f, v, args)
             end
           end
         end

@@ -52,7 +52,7 @@ module Zr
           ["__const", "__DATA", S_REGULAR, [:data_const]],
           ["__data", "__DATA", S_REGULAR, [:data]],
           ["__bss", "__DATA", S_ZEROFILL, [:bss]]
-        ].freeze
+        ].freeze #: Array[[String, String, Integer, Array[Symbol]]]
 
         # The fields of this file's records are typed in
         # sig/zr/obj/macho/object_file.rbs, their methods here.
@@ -125,7 +125,8 @@ module Zr
           end
 
           sections = [] #: Array[Section]
-          symbols = strings = nil
+          symbols = nil #: Array[Integer]?
+          strings = nil #: String?
           at = 32
           ncmds.times do
             command = bytes.byteslice(at, 8) #: String
@@ -137,21 +138,30 @@ module Zr
               count.times do |i|
                 s = at + 72 + (i * 80)
                 names = bytes.byteslice(s, 32) #: String
-                padded = names.unpack("a16a16") #: Array[String]
-                name, segment = padded.map { |n| n.delete("\0") }
+                padded = names.unpack("a16a16") #: [String, String]
+                name = padded[0].delete("\0")
+                segment = padded[1].delete("\0")
                 fields = bytes.byteslice(s + 32, 40) #: String
                 words = fields.unpack("Q<2L<6") #: [Integer, Integer, Integer, Integer, Integer, Integer, Integer]
                 addr, size_, offset, align, reloff, nreloc, flags = words
-                relocs = nreloc.zero? ? [] : bytes.byteslice(reloff, nreloc * 8) #: String
-                                               .unpack("L<*")
+                relocs = if nreloc.zero?
+                           [] #: Array[Integer]
+                         else
+                           table = bytes.byteslice(reloff, nreloc * 8) #: String
+                           table.unpack("L<*") #: Array[Integer]
+                         end
                 sections << Section.new(name: name, segment: segment, addr: addr, size: size_, align: align, flags: flags,
                                         bytes: flags == S_ZEROFILL ? nil : bytes.byteslice(offset, size_), relocs: relocs)
               end
             when LC_SYMTAB
               symtab = bytes.byteslice(at + 8, 16) #: String
               symoff, nsyms, stroff, strsize = symtab.unpack("L<4") #: [Integer, Integer, Integer, Integer]
-              symbols = nsyms.zero? ? [] : bytes.byteslice(symoff, nsyms * 16) #: String
-                                                .unpack("Q<*")
+              symbols = if nsyms.zero?
+                          [] #: Array[Integer]
+                        else
+                          table = bytes.byteslice(symoff, nsyms * 16) #: String
+                          table.unpack("Q<*") #: Array[Integer]
+                        end
               strings = bytes.byteslice(stroff, strsize)
             end
             at += size
@@ -208,7 +218,9 @@ module Zr
 
         #: (Unit unit) -> Laid
         def laid_out(unit)
-          items = unit.functions.map { |f| [:function, f] } + unit.data.map { |d| [d.section, d] } #: Array[[Symbol, Code | Datum]]
+          functions = unit.functions.map { |f| [:function, f] } #$ [Symbol, Code | Datum]
+          data = unit.data.map { |d| [d.section, d] } #$ [Symbol, Code | Datum]
+          items = functions + data
           placed = [] #: Array[Placed]
           sections = SECTIONS.map do |name, seg, flags, _kinds|
             SectionBuild.new(name: name, seg: seg, flags: flags, bytes: +"".b, size: 0, align: 0, items: [], relocs: [],

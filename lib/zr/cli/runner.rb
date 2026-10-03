@@ -27,9 +27,10 @@ module Zr
       # the status that ruby gives when the signal stops it.
       #: (Process::Status status) -> bot
       def exit_as(status)
-        exit(status.exitstatus) unless status.signaled?
+        code = status.exitstatus
+        exit(code) if code
 
-        # A signaled status has a signal number.
+        # A status with no exit code is signaled, and has a signal number.
         signo = status.termsig #: Integer
         begin
           Signal.trap(signo, "SYSTEM_DEFAULT")

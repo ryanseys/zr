@@ -10,12 +10,12 @@ module Zr::Kern
   Libc.import :__open, [Ptr, I32, I32] => I32
   Libc.import :dlsym, [Ptr, Ptr] => Ptr
 
-  sig [] => Word
+  #: () -> word
   def zr_os_errno
     Machine.u32(Machine.load32(Libc.__error(), 0))
   end
 
-  sig [Word] => Void
+  #: (word) -> void
   def zr_os_set_errno(n)
     Machine.store32(Libc.__error(), 0, Machine.i32(n))
   end
@@ -34,7 +34,7 @@ module Zr::Kern
   # call that fcntl's wrapper makes after it reads that argument.
   Libc.import :__fcntl, [I32, I32, Word] => I32
 
-  sig [I32, I32, Word] => I32
+  #: (i32, i32, word) -> i32
   def zr_os_fcntl(fd, command, argument)
     Libc.__fcntl(fd, command, argument)
   end
@@ -45,19 +45,19 @@ module Zr::Kern
   # reads that argument.
   Libc.import :__ioctl, [I32, Word, Ptr] => I32
 
-  sig [I32, Word, Ptr] => I32
+  #: (i32, word, ptr) -> i32
   def zr_os_ioctl(fd, request, argument)
     Libc.__ioctl(fd, request, argument)
   end
 
   # open(2), with the mode for a new file, less the umask.
-  sig [Ptr, I32, I32] => I32
+  #: (ptr, i32, i32) -> i32
   def zr_os_open(path, flags, mode)
     Libc.__open(path, flags, mode)
   end
 
   # realpath(3): returns a new buffer that the caller frees, or 0.
-  sig [Ptr] => Ptr
+  #: (ptr) -> ptr
   def zr_os_realpath(path)
     Libc.realpath(path, 0)
   end
@@ -84,7 +84,7 @@ module Zr::Kern
   # The name in a directory entry. Before the name, darwin's struct dirent
   # has an 8-byte inode, an 8-byte seek offset, the record and name
   # lengths as two shorts, and the type byte.
-  sig [Ptr] => Ptr
+  #: (ptr) -> ptr
   def zr_os_dirent_name(entry)
     entry + 21
   end
@@ -92,7 +92,7 @@ module Zr::Kern
   # The entry's kind for glob: 0 unknown, 1 a directory, 2 a symbolic
   # link, 3 anything else. d_type is the byte at 20: DT_DIR is 4,
   # DT_LNK 10, DT_UNKNOWN 0.
-  sig [Ptr] => Word
+  #: (ptr) -> word
   def zr_os_dirent_kind(entry)
     t = Machine.u8(Machine.load8(entry, 20))
     if t == 0
@@ -113,7 +113,7 @@ module Zr::Kern
   # Returns stat(2) as fixnums in an Array: dev, ino, mode, nlink, uid,
   # gid, rdev, size, blksize, blocks, then atime, mtime, ctime and the
   # birth time as seconds and nanoseconds.
-  sig [Ptr] => Value
+  #: (ptr) -> value
   def zr_os_stat_rows(buf)
     out = zr_ary_new(18)
     zr_ary_push(out, zr_fix(Machine.sword(Machine.load32(buf, 0))))
@@ -138,13 +138,13 @@ module Zr::Kern
   end
 
   # st_size.
-  sig [Ptr] => Word
+  #: (ptr) -> word
   def zr_os_stat_size(buf)
     Machine.load64(buf, 96)
   end
 
   # st_mode, 16 bits at offset 4.
-  sig [Ptr] => Word
+  #: (ptr) -> word
   def zr_os_stat_mode(buf)
     Machine.u32(Machine.load32(buf, 4)) & 65535
   end
@@ -155,7 +155,7 @@ module Zr::Kern
   # as priority-readable. Thus neither one gives CRuby's result.
   SelectCall = fn [I32, Ptr, Ptr, Ptr, Ptr] => I32
 
-  sig [] => Ptr
+  #: () -> ptr
   def zr_select_fn
     cell = Machine.static(:select_fn, 8)
     if Machine.load64(cell, 0) == 0
@@ -169,7 +169,7 @@ module Zr::Kern
   # wait for the threads that are blocked on a descriptor. Returns an
   # Array of the ready events for each entry, or the negated errno. A
   # negative time waits with no limit.
-  sig [Value, Value, Value] => Value
+  #: (value, value, value) -> value
   def zr_os_wait_fds(fds, events, milliseconds)
     count = RArray.len(fds)
     top = 0
@@ -246,7 +246,7 @@ module Zr::Kern
   # platform. Returns the ready events, 0 if the time ends, or the negated
   # errno. A negative time waits with no limit. Each of the three sets has
   # as many bits as the descriptor needs, so all descriptor numbers fit.
-  sig [Value, Value, Value] => Value
+  #: (value, value, value) -> value
   def zr_os_wait_fd(fd, events, milliseconds)
     n = zr_fix2long(fd)
     if n < 0

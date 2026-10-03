@@ -7,10 +7,18 @@ module Zr
       # across a call stores it in the record first.
       module Expressions
         # @type instance: Function
+        # @rbs @cref: String
+        # @rbs @f: IR::Function
+        # @rbs @l: Lower
+        # @rbs @name: String
+        # @rbs @qnil: String
+        # @rbs @rec: String
+        # @rbs @self: String
+        # @rbs @sp: Integer
 
         private
 
-        #: (untyped node) -> String
+        #: (Hir::node? node) -> String
         def expr(node)
           case node
           when Hir::Seq then seq(node)
@@ -163,7 +171,7 @@ module Zr
         # The words of `nodes` if each is an immediate literal (a fixnum, a
         # flonum, a Symbol (its name, for the link), nil, true or false),
         # else nil.
-        #: (Array[untyped] nodes) -> Array[Integer | Symbol]?
+        #: (Array[Hir::node?] nodes) -> Array[Integer | Symbol]?
         def immediate_words(nodes)
           return nil if nodes.empty?
 
@@ -264,9 +272,10 @@ module Zr
         #: (Float v) -> String
         def float_literal(v)
           word = flonum_word(v)
-          return kernel("zr_float_from_bits", imm([v].pack("E").unpack1("q<"))) unless word
+          return imm(word) if word
 
-          imm(word)
+          bits = [v].pack("E").unpack1("q<") #: Integer
+          kernel("zr_float_from_bits", imm(bits))
         end
 
         # The flonum word of `v` as a signed 64-bit value, or nil if the
@@ -289,7 +298,7 @@ module Zr
         # This saves an allocation, a malloc and a copy per part.
         #: (Hir::Interp node) -> String
         def interp(node)
-          staged(node.parts, evaluate: method(:interp_part)) do |argv|
+          staged(node.parts, evaluate: ->(part) { interp_part(part) }) do |argv|
             checked(kernel("zr_str_interp", imm(node.parts.size), argv))
           end
         end
@@ -299,9 +308,9 @@ module Zr
         # keys only on bytes and cannot distinguish two encodings, so a file
         # with a different script encoding uses the plain form. The site
         # keeps the String in its own word, as a frozen literal does.
-        #: (untyped node) -> String
+        #: (Hir::node node) -> String
         def interp_part(node)
-          text = node.is_a?(Hir::Literal) ? node.value : nil #: Object?
+          text = node.is_a?(Hir::Literal) ? node.value : nil
           return expr(node) unless text.is_a?(String) && text.encoding == ::Encoding::UTF_8
 
           shared_literal(text)
@@ -373,7 +382,8 @@ module Zr
           when :last then kernel("zr_match_last", match)
           when :pre then kernel("zr_match_pre", match)
           when :post then kernel("zr_match_post", match)
-          end #: String
+          else raise ArgumentError, "#{node.kind} is not a back reference"
+          end
         end
 
         #: (Hir::CvarRead node) -> String

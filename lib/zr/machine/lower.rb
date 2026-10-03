@@ -13,7 +13,7 @@ module Zr
   # The typed lowering of the kernel. A unit of one or more files, each
   # one `module Zr::Kern` of plain Ruby, contains `Libc.import`,
   # `Name = layout`, `Name = fn` and constant declarations, and
-  # `sig`-typed defs. Each def lowers directly to one IR function. The
+  # defs typed by a `#:` comment. Each def lowers directly to one IR function. The
   # types are `I8 I32 Word Ptr Value F64 Bool Void`. A local gets its type
   # from its first assignment and is in a frame slot; `IR::Mem2Reg`
   # changes the slot to values when no other code takes its address. A
@@ -126,7 +126,7 @@ module Zr
           end
 
           @file = file
-          declare(kern_body(result.value.statements.body, result.value))
+          declare(kern_body(result.value.statements.body, result.value), Machine.annotations(result))
         end
         @consts.each_key { |name| const_for(name) }
         @structs.each_key { |name| struct_for(name) }
@@ -350,7 +350,7 @@ module Zr
       # the roots of a loop and the target of a break belong to the def.
       #
       # The `Libc` of an import call is not a node, and `Name.call(p)`
-      # counts one more. Thus the count is the same as in the dialect that
+      # counts one more. Thus the count is the same as in the form that
       # the kernel was written in before (`Machine.call(:name, p)`), and
       # the same defs are inlined.
       #: (Prism::node node, Array[Integer] budget) -> bool
@@ -406,7 +406,9 @@ module Zr
         mod = statements.first if statements.one?
         refuse(statements.first || node, "a kernel file is one `module #{KERN}`") unless mod.is_a?(Prism::ModuleNode)
         refuse(mod, "the kernel's module is #{KERN}") unless mod.constant_path.slice == KERN
-        mod.body&.body || []
+        body = mod.body
+        refuse(body, "rescue and ensure are not in the kernel subset") if body.is_a?(Prism::BeginNode)
+        body&.body || []
       end
 
       # The declarations of a file. A call to an import is
@@ -418,26 +420,19 @@ module Zr
       #   NAME = 1 << 4                        a constant
       #   inline :name, collects :name         as `Machine.inline` and `Machine.collects`
       #   raw :name, [types] => type           a function that the backend delivers
-      #   sig [types] => type, then a def      a def
-      #: (Array[Prism::node] statements) -> void
-      def declare(statements)
-        pending_sig = nil #: [Array[String], String]?
+      #   #: (types) -> type, then a def       a def (`def_type`)
+      #: (Array[Prism::node] statements, Hash[Integer, String] annotations) -> void
+      def declare(statements, annotations)
         statements.each do |node|
           case node
           when Prism::ConstantWriteNode then declare_const(node)
-          when Prism::DefNode
-            refuse(node, "a def has no sig ahead of it") if pending_sig.nil?
-            add_def(node, pending_sig)
-            pending_sig = nil
+          when Prism::DefNode then add_def(node, def_type(node, annotations))
           when Prism::CallNode
             # The guards below check the class of each argument.
             args = node.arguments&.arguments || [] #: Array[untyped]
             if libc?(node.receiver) && node.name == :import
               refuse(node, "an import is `Libc.import :name, [types] => type`") unless args.size == 2 && args.first.is_a?(Prism::SymbolNode)
               add_import(args.first.unescaped, args.last)
-            elsif node.receiver.nil? && node.name == :sig
-              refuse(node, "a sig is `sig [types] => type`") unless args.one?
-              pending_sig = signature(args.first)
             elsif node.receiver.nil? && %i[inline collects].include?(node.name)
               refuse(node, "`#{node.name}` takes the symbol of a def") unless args.one? && args.first.is_a?(Prism::SymbolNode)
               (node.name == :inline ? @inlined : @collectors) << args.first.unescaped
@@ -451,6 +446,19 @@ module Zr
             refuse(node, "a statement that is not a declaration or a def")
           end
         end
+        # Each def took its own comment, so a comment left here has no def.
+        line, = annotations.first
+        raise Refused, "#{@sources.size > 1 ? "#{@file}:" : "line "}#{line}: a `#:` comment that no def follows" if line
+      end
+
+      # The type of a def: the `#:` comment on the line above it, which is
+      # inline RBS such as `#: (i32, ptr) -> i32`.
+      #: (Prism::DefNode node, Hash[Integer, String] annotations) -> [Array[String], String]
+      def def_type(node, annotations)
+        text = annotations.delete(node.location.start_line - 1)
+        refuse(node, "a def has no `#: (types) -> type` above it") unless text
+        Machine.def_type(text) or
+          refuse(node, "a def's type is `#: (types) -> type`, each type one of #{RBS_TYPES.keys.join(" ")}")
       end
 
       # `Name = layout ...`, `Name = fn ...`, or a constant.
@@ -468,7 +476,8 @@ module Zr
         when :fn
           refuse(node, "a signature is `Name = fn [types] => type`") unless args&.one?
           refuse(node, "#{name} is already a constant") if @consts.key?(name) || @structs.key?(name)
-          add_sig(name, *signature(args.first))
+          params, ret = signature(args.first)
+          add_sig(name, params, ret)
         else
           add_const(node, name)
         end
@@ -506,8 +515,11 @@ module Zr
       def add_def(d, sig)
         params, ret = sig
         refuse(d, "a machine def's name is letters, digits and underscores") unless d.name.to_s.match?(/\A[A-Za-z_][A-Za-z0-9_]*\z/)
-        names = (d.parameters&.requireds || []).map { |p| p.name.to_s }
-        refuse(d, "the sig has #{params.size} types for #{names.size} parameters") if names.size != params.size
+        names = (d.parameters&.requireds || []).map do |p|
+          refuse(d, "a machine def takes required parameters only") unless p.is_a?(Prism::RequiredParameterNode)
+          p.name.to_s
+        end
+        refuse(d, "the `#:` type has #{params.size} types for #{names.size} parameters") if names.size != params.size
         refuse(d, "a machine def takes required parameters only") if d.parameters && d.parameters.child_nodes.compact.size != names.size
         refuse(d, "a def has a receiver; the kernel's defs are plain `def name`") if d.receiver
         refuse(d, "#{d.name} is defined twice; the first is in #{@defs[d.name.to_s].file}") if @defs.key?(d.name.to_s)
@@ -524,11 +536,13 @@ module Zr
         refuse(node, "a signature is `[types] => type`") unless node.is_a?(Prism::KeywordHashNode) && node.elements.size.between?(1, 2)
         pair, from = node.elements
         return [*pair_signature(pair), nil] unless from
-        unless from.key.is_a?(Prism::SymbolNode) && from.key.unescaped == "from" && from.value.is_a?(Prism::StringNode)
+        key = from.key if from.is_a?(Prism::AssocNode)
+        value = from.value if from.is_a?(Prism::AssocNode)
+        unless key.is_a?(Prism::SymbolNode) && key.unescaped == "from" && value.is_a?(Prism::StringNode)
           refuse(from, "an import names its wasm module with `from: \"module\"`")
         end
 
-        [*pair_signature(pair), from.value.unescaped]
+        [*pair_signature(pair), value.unescaped]
       end
 
       # A def with the name of an import replaces that import for its
@@ -551,10 +565,11 @@ module Zr
         pair_signature(node.elements.first)
       end
 
-      #: (untyped pair) -> [Array[String], String]
+      #: (Prism::node? pair) -> [Array[String], String]
       def pair_signature(pair)
-        refuse(pair.key, "a signature's parameters are an array of types") unless pair.key.is_a?(Prism::ArrayNode)
-        [pair.key.elements.map { |t| type_name(t) }, type_name(pair.value)]
+        key = pair.key if pair.is_a?(Prism::AssocNode)
+        refuse(key || pair, "a signature's parameters are an array of types") unless pair.is_a?(Prism::AssocNode) && key.is_a?(Prism::ArrayNode)
+        [key.elements.map { |t| type_name(t) }, type_name(pair.value)]
       end
 
       #: (Prism::node node) -> String
@@ -569,31 +584,41 @@ module Zr
       def fold(node)
         case node
         when Prism::IntegerNode then node.value
-        when Prism::ParenthesesNode then fold(node.body.body.first)
+        when Prism::ParenthesesNode
+          body = node.body
+          refuse(node, CONSTANT_FORMS) unless body.is_a?(Prism::StatementsNode)
+          fold(body.body.first)
         when Prism::ConstantReadNode
           const_for(node.name.to_s) or refuse(node, "#{node.name} is not a constant here")
         when Prism::CallNode
-          if node.receiver.is_a?(Prism::ConstantReadNode) && node.name == :size && (layout = struct_for(node.receiver.name.to_s))
+          receiver = node.receiver
+          args = node.arguments&.arguments
+          if receiver.is_a?(Prism::ConstantReadNode) && node.name == :size && (layout = struct_for(receiver.name.to_s))
             layout.size
-          elsif node.receiver && node.arguments&.arguments&.size == 1 && %i[+ - * << >> | & ^].include?(node.name)
-            fold(node.receiver).public_send(node.name, fold(node.arguments.arguments.first))
+          elsif receiver && args && args.size == 1 && %i[+ - * << >> | & ^].include?(node.name)
+            # `name` is one of the Integer operators above.
+            fold(receiver).public_send(node.name, fold(args.first)) #: Integer
           else
-            refuse(node, "a constant is an integer, a constant, a struct's size, or an operator over those")
+            refuse(node, CONSTANT_FORMS)
           end
         else
-          refuse(node, "a constant is an integer, a constant, a struct's size, or an operator over those")
+          refuse(node, CONSTANT_FORMS)
         end
       end
+
+      CONSTANT_FORMS = "a constant is an integer, a constant, a struct's size, or an operator over those"
 
       # `fold` for a def in `file`, so that a refusal gives that file and
       # not the last file declared.
       #: (String file, Prism::node? node) -> Integer
       def fold_in(file, node)
         outer = @file
-        @file = file
-        fold(node)
-      ensure
-        @file = outer
+        begin
+          @file = file
+          fold(node)
+        ensure
+          @file = outer
+        end
       end
 
       # `node` is the call whose last argument has the fields.
@@ -704,16 +729,19 @@ module Zr
 
       #: [N < Prism::node, T] (Hash[String, [N, String]] declared, Hash[String, T] resolved, String name) { (N) -> T } -> T?
       def resolve(declared, resolved, name)
-        return resolved[name] if resolved.key?(name)
-        return unless (node, file = declared[name])
+        was = nil #: String?
+        begin
+          return resolved[name] if resolved.key?(name)
+          return unless (node, file = declared[name])
 
-        refuse(node, "#{name} depends on itself") if @resolving.include?(name)
-        @resolving << name
-        was, @file = @file, file
-        resolved[name] = yield(node)
-      ensure
-        @file = was if was
-        @resolving.delete(name)
+          refuse(node, "#{name} depends on itself") if @resolving.include?(name)
+          @resolving << name
+          was, @file = @file, file
+          resolved[name] = yield(node)
+        ensure
+          @file = was if was
+          @resolving.delete(name)
+        end
       end
 
       # Whether this is a unit of several files. Its refusals give the file.
@@ -722,9 +750,10 @@ module Zr
         @sources.size > 1
       end
 
-      #: (String name) -> Signature?
+      # The caller tests `sig_read?` first.
+      #: (String name) -> Signature
       def sig_for(name)
-        @sigs[name]
+        @sigs.fetch(name)
       end
 
       # A read-only byte string, as a data object of this unit.

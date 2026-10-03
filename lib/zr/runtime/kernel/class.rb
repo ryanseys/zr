@@ -69,7 +69,7 @@ module Zr::Kern
   # `method_missing`.
   KIND_MISSING = 9
 
-  sig [Word, Value, Value] => Value
+  #: (word, value, value) -> value
   def zr_class_alloc(type, sup, klass)
     c = zr_alloc(type, klass, RClass.size)
     RClass.set_name(c, Machine.value(QNIL))
@@ -119,7 +119,7 @@ module Zr::Kern
 
   # The three superclasses that ruby refuses, in `rb_check_inheritable`'s
   # order. Returns QUNDEF if it raised.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_check_inheritable(sup)
     if zr_special_p(sup) || zr_type(sup) != T_CLASS
       b = Machine.slot(Buf.size)
@@ -140,14 +140,14 @@ module Zr::Kern
 
   # A class with no metaclass yet: a builtin class gets one on first use,
   # as `zr_singleton_class` makes any.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_class_boot(sup)
     zr_class_alloc(T_CLASS, sup, zr_global(G_CLASS))
   end
 
   # A class with its metaclass, as CRuby makes each class. The metaclass
   # inherits from the superclass's, so class methods are inherited too.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_class_new(sup)
     c = zr_class_boot(sup)
     zr_make_metaclass(c)
@@ -157,7 +157,7 @@ module Zr::Kern
   T_ICLASS = 28
 
   # Whether `klass`'s ancestor list contains `mod`, directly or as a proxy.
-  sig [Value, Value] => Bool
+  #: (value, value) -> bool
   def zr_chain_includes(klass, mod)
     k = klass
     while k != QNIL
@@ -171,7 +171,7 @@ module Zr::Kern
 
   # Makes a proxy for the ancestor list node `node` (a module, or a proxy
   # of one) before `sup`, which shares the node's tables.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_iclass_new(node, sup)
     mod = zr_type(node) == T_ICLASS ? RClass.attached(node) : node
     ic = zr_alloc(T_ICLASS, mod, RClass.size)
@@ -186,7 +186,7 @@ module Zr::Kern
 
   # The location of a class's own methods: its origin proxy if something
   # is prepended, else the class.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_origin(klass)
     if RClass.origin(klass) != QNIL
       return RClass.origin(klass)
@@ -201,7 +201,7 @@ module Zr::Kern
   # superclass contains it. A prepend searches only down to `klass`'s
   # origin. The proxy of a module's origin becomes the origin of the proxy
   # of its head, as in the module.
-  sig [Value, Value, Value, Bool] => Void
+  #: (value, value, value, bool) -> void
   def zr_splice_modules(klass, at, mod, whole)
     klass_origin = zr_origin(klass)
     c = at
@@ -251,7 +251,7 @@ module Zr::Kern
 
   # The proxies of `mod` in other ancestor lists, newest first, in the
   # order of CRuby's subclass list of a module.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_proxies_of(mod)
     out = zr_ary_new(4)
     a = 0
@@ -277,7 +277,7 @@ module Zr::Kern
 
   # `include`: inserts `mod`'s ancestor list after `klass`'s origin, and
   # after each proxy of `klass` in other ancestor lists that do not have it.
-  sig [Value, Value] => Void
+  #: (value, value) -> void
   def zr_include_module(klass, mod)
     zr_splice_modules(klass, zr_origin(klass), mod, true)
     if zr_type(klass) != T_MODULE
@@ -296,7 +296,7 @@ module Zr::Kern
 
   # Moves the class's methods to an origin proxy directly below it, where
   # `super` from them starts. Does nothing if it has one.
-  sig [Value] => Bool
+  #: (value) -> bool
   def zr_ensure_origin(klass)
     if RClass.origin(klass) != QNIL
       return false
@@ -337,7 +337,7 @@ module Zr::Kern
   # `prepend`: inserts `mod`'s ancestor list between `klass` and its
   # origin, and between each proxy of `klass` and that proxy's origin. A
   # proxy made before the module had an origin gets one here.
-  sig [Value, Value] => Void
+  #: (value, value) -> void
   def zr_prepend_module(klass, mod)
     fresh = zr_ensure_origin(klass)
     zr_splice_modules(klass, klass, mod, false)
@@ -360,7 +360,7 @@ module Zr::Kern
 
   # `prepend_features(base)`: puts the module (self) before `base`'s own
   # methods. The core's `prepend` calls it for each module, then `prepended`.
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_mod_prepend_features(recv, argc, argv, cref, blk)
     base = Machine.value(Machine.load64(argv, 0))
     if zr_special_p(base) || (zr_type(base) != T_CLASS && zr_type(base) != T_MODULE)
@@ -383,7 +383,7 @@ module Zr::Kern
 
   # Calls a hook such as `included` or `inherited`: `recv.mid(arg)`,
   # private or not.
-  sig [Value, Word, Value] => Value
+  #: (value, word, value) -> value
   def zr_hook(recv, mid, arg)
     if zr_hidden_now() && zr_program_hook_p(recv, mid)
       return Machine.value(QNIL)
@@ -396,7 +396,7 @@ module Zr::Kern
   # Whether the method that answers hook `mid` on `recv` is the program's
   # own. What eval support defines never reaches one, as ruby's compiler
   # defines nothing; its own hooks and the core library's still run.
-  sig [Value, Word] => Bool
+  #: (value, word) -> bool
   def zr_program_hook_p(recv, mid)
     e = zr_find_method(zr_class_of(recv), mid)
     if e == 0 || MEntry.core(e) != 0
@@ -406,7 +406,7 @@ module Zr::Kern
     meta == 0 || FrameMeta.hidden(meta) == 0
   end
 
-  sig [Value] => Value
+  #: (value) -> value
   def zr_check_module(m)
     if zr_special_p(m) || zr_type(m) != T_MODULE
       b = Machine.slot(Buf.size)
@@ -421,7 +421,7 @@ module Zr::Kern
 
   # `append_features(base)`: inserts the module (self) into `base`. The
   # core's `include` calls it for each module, then `included`.
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_mod_append_features(recv, argc, argv, cref, blk)
     base = Machine.value(Machine.load64(argv, 0))
     if zr_special_p(base) || (zr_type(base) != T_CLASS && zr_type(base) != T_MODULE)
@@ -444,7 +444,7 @@ module Zr::Kern
 
   # `extend`: adds each module to the singleton class, then calls its
   # `extended` hook.
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_obj_extend(recv, argc, argv, cref, blk)
     if argc == 0
       return zr_wrong_arity_min(0, 1)
@@ -467,7 +467,7 @@ module Zr::Kern
 
   # `Module#extend_object`: adds the module to the object's singleton
   # class. A module can override it to see each object that it extends.
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_mod_extend_object(recv, argc, argv, cref, blk)
     obj = Machine.value(Machine.load64(argv, 0))
     s = zr_singleton_class(obj)
@@ -480,7 +480,7 @@ module Zr::Kern
   end
 
   # `alias :"#{a}" :"#{b}"`: the names come as values.
-  sig [Value, Value, Value] => Value
+  #: (value, value, value) -> value
   def zr_alias_value(klass, new_name, old_name)
     made = Machine.slot(8)
     had = Machine.slot(8)
@@ -493,7 +493,7 @@ module Zr::Kern
 
   # `alias new old` and `alias_method`: the old entry again under the new
   # name. It keeps its meta, so a backtrace shows the original name.
-  sig [Value, Word, Word] => Value
+  #: (value, word, word) -> value
   def zr_alias(klass, new_id, old_id)
     if zr_modify_frozen_p(klass)
       return zr_frozen_error(klass)
@@ -512,7 +512,7 @@ module Zr::Kern
     zr_method_added(klass, new_id)
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_mod_alias_method(recv, argc, argv, cref, blk)
     slot = Machine.slot(16)
     r = zr_name_id(Machine.value(Machine.load64(argv, 0)), slot)
@@ -528,7 +528,7 @@ module Zr::Kern
   # `undef name`: an entry that stops the search. Thus the name is removed
   # from this class and its subclasses, even where an ancestor has it.
   # `undef :"#{a}"`: the name comes as a value.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_undef_value(klass, name)
     slot = Machine.slot(8)
     r = zr_name_id(name, slot)
@@ -536,7 +536,7 @@ module Zr::Kern
     zr_undef(klass, Machine.load64(slot, 0))
   end
 
-  sig [Value, Word] => Value
+  #: (value, word) -> value
   def zr_undef(klass, id)
     if zr_modify_frozen_p(klass)
       return zr_frozen_error(klass)
@@ -549,7 +549,7 @@ module Zr::Kern
     zr_method_undefined(klass, id)
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_mod_undef_method(recv, argc, argv, cref, blk)
     slot = Machine.slot(8)
     i = 0
@@ -564,7 +564,7 @@ module Zr::Kern
   end
 
   # `Module#===`: whether the object is an instance of the module.
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_mod_eqq(recv, argc, argv, cref, blk)
     zr_bool(zr_is_a(Machine.value(Machine.load64(argv, 0)), recv))
   end
@@ -572,7 +572,7 @@ module Zr::Kern
   # The class that a class variable belongs to under `cref`: the innermost
   # class, or for a singleton class, the object it is attached to. The top
   # level has none, but a `class Object` body has one.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_cvar_base(cref)
     cref = zr_cref_lexical(cref)
     if cref == zr_global(G_TOP_CREF)
@@ -589,7 +589,7 @@ module Zr::Kern
   end
 
   # The class in `klass`'s ancestor list whose table contains `id`, or nil.
-  sig [Value, Word] => Value
+  #: (value, word) -> value
   def zr_cvar_owner(klass, id)
     k = klass
     while k != QNIL
@@ -605,7 +605,7 @@ module Zr::Kern
   # a program's `def`, false for an attr, a define_method, an alias or a
   # builtin, and nil for a core method written in Ruby, which the caller
   # looks up among CRuby's own Ruby methods.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_mod_import_ok_p(mod, name)
     id = zr_sym2id(name)
     e = zr_find_method(mod, id)
@@ -622,7 +622,7 @@ module Zr::Kern
   # has the name. A nearer class that also has it is "overtaken" and
   # raises; a nearer copy in the same module is removed (cvar_overtaken).
   # Returns nil when no ancestor has the name.
-  sig [Value, Word] => Value
+  #: (value, word) -> value
   def zr_cvar_target(klass, id)
     front = Machine.value(QNIL)
     target = Machine.value(QNIL)
@@ -664,7 +664,7 @@ module Zr::Kern
     target
   end
 
-  sig [Value, Word] => Value
+  #: (value, word) -> value
   def zr_cvar_get(cref, id)
     base = zr_cvar_base(cref)
     if base == QNIL
@@ -687,7 +687,7 @@ module Zr::Kern
   end
 
   # A class variable outside the main ractor: CRuby refuses all of them.
-  sig [Value, Word] => Value
+  #: (value, word) -> value
   def zr_ractor_cvar_check(owner, id)
     if Task.ractor(zr_task()) == 0
       return Machine.value(QNIL)
@@ -699,7 +699,7 @@ module Zr::Kern
   end
 
   # Whether `@@id` is set under `cref`.
-  sig [Value, Word] => Value
+  #: (value, word) -> value
   def zr_cvar_defined(cref, id)
     base = zr_cvar_base(cref)
     if base == QNIL
@@ -708,7 +708,7 @@ module Zr::Kern
     zr_bool(zr_cvar_owner(base, id) != QNIL)
   end
 
-  sig [Value, Word, Value] => Value
+  #: (value, word, value) -> value
   def zr_cvar_set(cref, id, v)
     base = zr_cvar_base(cref)
     if base == QNIL
@@ -731,23 +731,23 @@ module Zr::Kern
   # `@@name` for the tree-walking interpreter, which has a Symbol where
   # compiled code has an id. It uses the kernel's lookup, so a string that
   # it evaluates reads and writes the same class variable as compiled code.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_cvar_get_m(cref, name)
     zr_cvar_get(cref, zr_sym2id(name))
   end
 
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_cvar_defined_m(cref, name)
     zr_cvar_defined(cref, zr_sym2id(name))
   end
 
-  sig [Value, Value, Value] => Value
+  #: (value, value, value) -> value
   def zr_cvar_set_m(cref, name, v)
     zr_cvar_set(cref, zr_sym2id(name), v)
   end
 
   # `Module#ancestors`: the ancestor list, with each proxy as its module.
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_mod_ancestors(recv, argc, argv, cref, blk)
     out = zr_ary_new(8)
     k = recv
@@ -762,7 +762,7 @@ module Zr::Kern
 
   # `Module#include?`: whether `mod` is in the ancestor list, other than as
   # itself.
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_mod_include_p(recv, argc, argv, cref, blk)
     m = Machine.value(Machine.load64(argv, 0))
     if zr_special_p(m) || zr_type(m) != T_MODULE
@@ -776,7 +776,7 @@ module Zr::Kern
     zr_bool(m != recv && zr_chain_includes(recv, m))
   end
 
-  sig [Value] => Bool
+  #: (value) -> bool
   def zr_singleton_p(klass)
     (RBasic.flags(klass) & FL_SINGLETON) != 0
   end
@@ -784,7 +784,7 @@ module Zr::Kern
   # Makes the singleton class of the class `klass`. Its superclass is the
   # superclass's singleton class, or Class for a root. From now on it is
   # `klass`'s class.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_make_metaclass(klass)
     sup = RClass.superclass(klass)
     while sup != QNIL && zr_type(sup) == T_ICLASS
@@ -806,7 +806,7 @@ module Zr::Kern
   # Whether `v` can have no singleton class: an Integer, a Float, a
   # Symbol, or a String in the fstring table, which CRuby's
   # rb_singleton_class refuses. nil, true and false use their own class.
-  sig [Value] => Bool
+  #: (value) -> bool
   def zr_singleton_refused_p(v)
     if zr_special_p(v)
       return v != QNIL && v != QTRUE && v != QFALSE
@@ -815,7 +815,7 @@ module Zr::Kern
   end
 
   # The singleton class of `v`, made on first use.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_singleton_class(v)
     if zr_singleton_refused_p(v)
       return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("can't define singleton"), 22)
@@ -840,7 +840,7 @@ module Zr::Kern
   # Checks before a change to a class's own tables: its own frozen flag,
   # never its origin's. The error for a frozen singleton class shows the
   # object it belongs to, as CRuby's rb_class_modify_check does.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_class_modify_check(klass)
     if !zr_frozen_p(klass)
       return Machine.value(QNIL)
@@ -850,7 +850,7 @@ module Zr::Kern
 
   # The class that `v.class` returns: it skips a singleton class and the
   # proxies of the modules that the object extends.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_real_class(v)
     k = zr_class_of(v)
     while zr_singleton_p(k) || zr_type(k) == T_ICLASS
@@ -861,25 +861,25 @@ module Zr::Kern
 
   # Whether `v`'s class is `klass` with no singleton class of `v` in
   # between, as CRuby's `CLASS_OF(v) == klass` tests.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_class_of_is(v, klass)
     zr_bool(zr_class_of(v) == klass)
   end
 
   # The path of `v`'s class (zr_class_path), always as a String, for a
   # message.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_class_name_of(v)
     zr_class_path(zr_real_class(v))
   end
 
-  sig [] => Value
+  #: () -> value
   def zr_module_new
     zr_class_alloc(T_MODULE, Machine.value(QNIL), zr_global(G_MODULE))
   end
 
   # The gate bit that a redefinition of an operator sets, or 0.
-  sig [Value, Word] => Word
+  #: (value, word) -> word
   def zr_gate_bit(klass, mid)
     if klass == zr_global(G_INTEGER)
       if mid == Machine.id(:+)
@@ -996,7 +996,7 @@ module Zr::Kern
 
   # The classes whose `!` an inline `not` replaces: nil, true and false
   # run inline while none of their ancestors redefines `!`.
-  sig [Value] => Bool
+  #: (value) -> bool
   def zr_not_gated_p(klass)
     klass == zr_global(G_NIL) || klass == zr_global(G_TRUE) || klass == zr_global(G_FALSE) ||
       klass == zr_global(G_OBJECT) || klass == zr_global(G_KERNEL) || klass == zr_global(G_BASIC_OBJECT)
@@ -1008,7 +1008,7 @@ module Zr::Kern
   GateRow = layout klass: Word, mid: Word, bit: Word, fn: Ptr, vis: Word
   GATE_ROWS = 56
 
-  sig [Word, Word, Word, Word] => Word
+  #: (word, word, word, word) -> word
   def zr_gate_row(i, klass, mid, bit)
     row = Machine.static(:gate_rows, GATE_ROWS * GateRow.size) + (i * GateRow.size)
     GateRow.set_klass(row, klass)
@@ -1024,7 +1024,7 @@ module Zr::Kern
 
   # Runs at program start, after the runtime's own definitions. From now
   # on, a change to what an entry's class finds closes that entry's gate.
-  sig [] => Void
+  #: () -> void
   def zr_gates_snapshot
     zr_set_global(G_MATH_META, zr_singleton_class(zr_core_class(Machine.id(:Math))))
     i = zr_gate_row(0, G_INTEGER, Machine.id(:+), GATE_PLUS)
@@ -1092,7 +1092,7 @@ module Zr::Kern
   # site of that operator then makes the call. `mid` 0 checks all entries.
   # A gate never opens again. The walk leaves `Task.found` as the send
   # that called it left it.
-  sig [Word] => Void
+  #: (word) -> void
   def zr_gates_recheck(mid)
     if Machine.load64(Machine.static(:gates_taken, 8), 0) == 0
       return
@@ -1116,7 +1116,7 @@ module Zr::Kern
   # A definition. The first one of each builtin operator is the runtime's
   # own and leaves the gate clear; a later one sets it. `meta` is the
   # compiled def's own FrameMeta, or 0 for a builtin, which gets one here.
-  sig [Value, Word, Ptr, Word, Word, Ptr, Value] => Value
+  #: (value, word, ptr, word, word, ptr, value) -> value
   def zr_define_method(klass, mid, fn, arity, kind, meta, cref)
     zr_define_method_as(klass, mid, fn, arity, kind, meta, cref, zr_definition_vis(mid, cref))
   end
@@ -1126,26 +1126,26 @@ module Zr::Kern
   # the entry's eight fields already fill the argument registers.
   # zr_define_method_as reads and clears it before any hook runs, because
   # `method_added` can call the method.
-  sig [Value, Word, Ptr, Ptr, Word, Word, Ptr, Value] => Value
+  #: (value, word, ptr, ptr, word, word, ptr, value) -> value
   def zr_define_method_direct(klass, mid, fn, direct, arity, kind, meta, cref)
     Machine.store64(zr_direct_pending(), 0, Machine.word(direct))
     zr_define_method(klass, mid, fn, arity, kind, meta, cref)
   end
 
-  sig [Value, Word, Ptr, Ptr, Word, Word, Ptr, Value] => Value
+  #: (value, word, ptr, ptr, word, word, ptr, value) -> value
   def zr_define_method_public_direct(klass, mid, fn, direct, arity, kind, meta, cref)
     Machine.store64(zr_direct_pending(), 0, Machine.word(direct))
     zr_define_method_public(klass, mid, fn, arity, kind, meta, cref)
   end
 
-  sig [] => Ptr
+  #: () -> ptr
   def zr_direct_pending
     Machine.static(:direct_pending, 8)
   end
 
   # The body of `e`, which identifies a method: its direct entry if it has
   # one (because each such def's `fn` is zr_direct_fn), else its `fn`.
-  sig [Ptr] => Ptr
+  #: (ptr) -> ptr
   def zr_entry_body(e)
     direct = MEntry.direct(e)
     direct != 0 ? direct : MEntry.fn(e)
@@ -1153,12 +1153,12 @@ module Zr::Kern
 
   # `def obj.name`, and a def in a method body: public, whatever the
   # scope's visibility, except for the initialize family.
-  sig [Value, Word, Ptr, Word, Word, Ptr, Value] => Value
+  #: (value, word, ptr, word, word, ptr, value) -> value
   def zr_define_method_public(klass, mid, fn, arity, kind, meta, cref)
     zr_define_method_as(klass, mid, fn, arity, kind, meta, cref, zr_definition_vis(mid, Machine.value(QNIL)))
   end
 
-  sig [Value, Word, Ptr, Word, Word, Ptr, Value, Word] => Value
+  #: (value, word, ptr, word, word, ptr, value, word) -> value
   def zr_define_method_as(klass, mid, fn, arity, kind, meta, cref, vis)
     # Under `1.instance_eval`, no singleton class can take the method.
     if cref != QNIL && RCref.eval(cref) == EVAL_NO_DEF
@@ -1218,7 +1218,7 @@ module Zr::Kern
   # `meta` as the method of `owner` shows it: the module function's copy
   # on the singleton class labels its frames `Mod.name`, and the private
   # instance method labels them `Mod#name`.
-  sig [Ptr, Value] => Ptr
+  #: (ptr, value) -> ptr
   def zr_meta_owned(meta, owner)
     if meta == 0 || FrameMeta.owner(meta) == owner
       return meta
@@ -1232,7 +1232,7 @@ module Zr::Kern
   # The visibility that a definition under `cref` gets: the body's current
   # one, private under `module_function`, and always private for
   # `initialize` and related methods.
-  sig [Word, Value] => Word
+  #: (word, value) -> word
   def zr_definition_vis(mid, cref)
     if mid == Machine.id(:initialize) || mid == Machine.id(:initialize_copy) || mid == Machine.id(:initialize_clone) ||
        mid == Machine.id(:initialize_dup) || mid == Machine.id(:respond_to_missing?)
@@ -1251,21 +1251,21 @@ module Zr::Kern
   # `cref`, for the tree-walking interpreter. It defines a method as
   # `Module#define_method` does, then applies the body's rules, which only
   # the cref knows. 0 public, 1 private, 2 protected.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_definition_vis_m(name, cref)
     zr_fix(zr_definition_vis(zr_sym2id(name), cref))
   end
 
   # Whether a `def` under `cref` also copies itself to the singleton
   # class, as `module_function` requires.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_cref_modfn_p(cref)
     zr_bool(cref != QNIL && RCref.modfn(cref) != 0)
   end
 
   # A method whose body is the Proc `body`, kept in the entry's cref slot.
   # `cref` gives the visibility.
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_define_bmethod(klass, mid, meta, body, cref)
     klass = zr_origin(klass)
     FrameMeta.set_name(meta, mid)
@@ -1297,7 +1297,7 @@ module Zr::Kern
   # Calls the `method_added` hook, or `singleton_method_added` on the
   # object that a singleton class is attached to. Nothing until the hooks
   # exist.
-  sig [Value, Word] => Value
+  #: (value, word) -> value
   def zr_method_added(klass, mid)
     if zr_type(klass) == T_ICLASS
       klass = RClass.attached(klass)
@@ -1315,14 +1315,14 @@ module Zr::Kern
     zr_hook(recv, hook, zr_sym(mid))
   end
 
-  sig [Value, Word, Ptr, Word, Word, Ptr, Value] => Void
+  #: (value, word, ptr, word, word, ptr, value) -> void
   def zr_method_add(klass, mid, fn, arity, kind, meta, cref)
     zr_method_add_vis(klass, mid, fn, arity, kind, meta, cref, VIS_PUBLIC)
   end
 
   # Adds the entry to the table with the meta unchanged (an alias keeps the
   # original's name).
-  sig [Value, Word, Ptr, Word, Word, Ptr, Value, Word] => Void
+  #: (value, word, ptr, word, word, ptr, value, word) -> void
   def zr_method_add_vis(klass, mid, fn, arity, kind, meta, cref, vis)
     zr_method_add_row(klass, mid, fn, arity, kind, meta, cref, zr_program_started_p() ? vis : vis | ROW_CORE)
   end
@@ -1330,7 +1330,7 @@ module Zr::Kern
   # Whether `meta` is a method from the runtime's own Ruby, whose frames
   # show no file. A library such as zlib is also part of the core library,
   # although it loads after the program starts.
-  sig [Ptr] => Bool
+  #: (ptr) -> bool
   def zr_internal_meta_p(meta)
     meta != 0 && FrameMeta.file_len(meta) == 0 && (FrameMeta.kind(meta) == KIND_BUILTIN || FrameMeta.kind(meta) == KIND_HIDDEN)
   end
@@ -1340,7 +1340,7 @@ module Zr::Kern
   # overwrites it.
   ROW_CORE = 256
 
-  sig [Value, Word, Ptr, Word, Word, Ptr, Value, Word] => Void
+  #: (value, word, ptr, word, word, ptr, value, word) -> void
   def zr_method_add_row(klass, mid, fn, arity, kind, meta, cref, vis)
     core = (vis & ROW_CORE) != 0
     vis = vis & (ROW_CORE - 1)
@@ -1445,7 +1445,7 @@ module Zr::Kern
   # Whether `mid` on `klass` is one of CRuby's basic operators, which the
   # interpreter and the JITs run inline while the core's entry is in place
   # (vm_init_redefined_flag at 4.0.7).
-  sig [Value, Word] => Bool
+  #: (value, word) -> bool
   def zr_basic_operator_p(klass, mid)
     int = klass == zr_global(G_INTEGER)
     flo = klass == zr_global(G_FLOAT)
@@ -1500,7 +1500,7 @@ module Zr::Kern
   # a basic operator, and a program is about to overwrite it, remove it,
   # undefine it or put a prepended entry before it. The core's entry goes
   # with the first of these, so a second one gives no warning.
-  sig [Value, Word, Ptr] => Void
+  #: (value, word, ptr) -> void
   def zr_warn_operator(klass, mid, e)
     if !zr_program_started_p() || MEntry.core(e) == 0 || MEntry.orig(e) != mid || !zr_basic_operator_p(klass, mid)
       return
@@ -1514,7 +1514,7 @@ module Zr::Kern
   # After a prepend into `klass`: warns for each basic operator whose core
   # entry is no longer first in the ancestor list, as
   # rb_vm_check_redefinition_by_prepend walks the origin's table.
-  sig [Value, Word] => Void
+  #: (value, word) -> void
   def zr_warn_prepended_operator(klass, mid)
     e = zr_find_method_at(zr_origin(klass), mid)
     if e != 0 && zr_find_method(klass, mid) != e
@@ -1522,7 +1522,7 @@ module Zr::Kern
     end
   end
 
-  sig [Value] => Value
+  #: (value) -> value
   def zr_warn_prepended_operators(klass)
     zr_warn_prepended_operator(klass, Machine.id(:+))
     zr_warn_prepended_operator(klass, Machine.id(:-))
@@ -1564,7 +1564,7 @@ module Zr::Kern
   # not an undef, not an alias, not a copy that a visibility call made of
   # an ancestor's method, and not aliased. A method written in Ruby tells
   # where it was defined. The runtime's own definitions give no warning.
-  sig [Value, Ptr, Word, Ptr, Ptr, Word, Ptr, Value] => Void
+  #: (value, ptr, word, ptr, ptr, word, ptr, value) -> void
   def zr_warn_redefined(owner, ext, mid, e, fn, kind, meta, cref)
     if zr_gvar_get(Machine.id(:$VERBOSE)) != QTRUE || !zr_program_started_p() || Task.top(zr_task()) == 0 || zr_hidden_now()
       return
@@ -1628,7 +1628,7 @@ module Zr::Kern
   # Whether `ext` holds an alias of `mid` other than the entry `e`: an
   # aliased method gives no warning when it is redefined. The core's own
   # aliases do not count, because ruby's core has other ones.
-  sig [Ptr, Ptr, Word] => Bool
+  #: (ptr, ptr, word) -> bool
   def zr_program_aliased_p(ext, e, mid)
     i = 0
     while i < ClassExt.mlen(ext)
@@ -1645,7 +1645,7 @@ module Zr::Kern
   # ruby 4.0.7 gives it: Warning.redefinition reads the generated table
   # (lib/zr/runtime/core/redefinitions.rb), which knows the methods that ruby
   # does not warn for and the <internal:*> line of each def.
-  sig [Value, Word] => Bool
+  #: (value, word) -> bool
   def zr_warn_core_redefined(owner, mid)
     slot = Machine.slot(16)
     Machine.store64(slot, 0, Machine.word(owner))
@@ -1676,7 +1676,7 @@ module Zr::Kern
   # rb_method_entry_make's warnings about names that ruby itself depends
   # on, whatever $VERBOSE says unless it is nil: four names on Object, and
   # a def of object_id or __send__ over one that exists.
-  sig [Value, Word, Word] => Void
+  #: (value, word, word) -> void
   def zr_warn_dangerous(owner, mid, kind)
     # An extension's Ruby part is C in ruby, whose definitions do not warn.
     if zr_loading_internal()
@@ -1715,7 +1715,7 @@ module Zr::Kern
 
   # Whether the program has started: all of the core library's own
   # definitions are written.
-  sig [] => Bool
+  #: () -> bool
   def zr_program_started_p
     Machine.load64(Machine.static(:program_started, 8), 0) != 0
   end
@@ -1723,7 +1723,7 @@ module Zr::Kern
   # Marks that the runtime's own definitions are all written. All later
   # definitions are the program's, starting with the gem prelude's
   # libraries.
-  sig [] => Void
+  #: () -> void
   def zr_runtime_written
     Machine.store64(Machine.static(:program_started, 8), 0, 1)
   end
@@ -1731,7 +1731,7 @@ module Zr::Kern
   # Saves entry `e` of `ext`, a core library entry that a program is about
   # to overwrite or remove, for the core library's own sends. It saves
   # nothing for other entries, and saves each name only one time.
-  sig [Ptr, Ptr] => Void
+  #: (ptr, ptr) -> void
   def zr_save_core_row(ext, e)
     if e == 0 || MEntry.core(e) == 0 || !zr_program_started_p() || zr_saved_row(ext, MEntry.mid(e)) != 0
       return
@@ -1747,7 +1747,7 @@ module Zr::Kern
     ClassExt.set_slen(ext, n + 1)
   end
 
-  sig [Ptr, Word] => Ptr
+  #: (ptr, word) -> ptr
   def zr_saved_row(ext, mid)
     i = 0
     while i < ClassExt.slen(ext)
@@ -1765,7 +1765,7 @@ module Zr::Kern
   # before the program started. A class's singleton class counts as its
   # attached class, so a program's subclass keeps its own class methods.
   # Any other singleton class counts as the class after it.
-  sig [Value] => Bool
+  #: (value) -> bool
   def zr_core_class_p(klass)
     if !zr_program_started_p()
       return false
@@ -1787,7 +1787,7 @@ module Zr::Kern
   # C function, not a method that the program defines. Returns 0 when the
   # core library defines no such method in the ancestor list; then the send
   # finds what any send finds.
-  sig [Value, Word] => Ptr
+  #: (value, word) -> ptr
   def zr_search_core_method(klass, mid)
     k = klass
     while k != QNIL
@@ -1812,7 +1812,7 @@ module Zr::Kern
   end
 
   # The same, from the method cache under a separate key.
-  sig [Value, Word] => Ptr
+  #: (value, word) -> ptr
   def zr_find_core_method(klass, mid)
     mode = Machine.load64(Machine.static(:mcache_mode, 8), 0)
     if mode == MCACHE_OFF
@@ -1849,7 +1849,7 @@ module Zr::Kern
   # Adds entry `e` again on `klass` as `mid`. It keeps the name of the
   # first definition and, when `zr_find_method` just found `e` (`found`),
   # the ancestor list node where it was.
-  sig [Value, Word, Ptr, Ptr, Word, Bool] => Void
+  #: (value, word, ptr, ptr, word, bool) -> void
   def zr_method_copy(klass, mid, e, meta, vis, found)
     orig = MEntry.orig(e)
     from = MEntry.from(e)
@@ -1873,7 +1873,7 @@ module Zr::Kern
   # `private`, `public`, `protected` and `module_function` in a class
   # body. With no names, they set the visibility of later defs through
   # the caller's cref. With names, they change those methods on `klass`.
-  sig [Value, Word, Ptr, Value, Word, Word] => Value
+  #: (value, word, ptr, value, word, word) -> value
   def zr_set_visibility(klass, argc, argv, blk, vis, modfn)
     if argc == 0
       cref = Frame.cref(Frame.prev(Task.top(zr_task())))
@@ -1909,7 +1909,7 @@ module Zr::Kern
     zr_ary_of(argc, argv)
   end
 
-  sig [Value, Word, Word, Word] => Value
+  #: (value, word, word, word) -> value
   def zr_set_method_visibility(klass, mid, vis, modfn)
     frozen = zr_class_modify_check(klass)
     return frozen if frozen == QUNDEF
@@ -1952,27 +1952,27 @@ module Zr::Kern
     Machine.value(QNIL)
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_mod_private(recv, argc, argv, cref, blk)
     zr_set_visibility(recv, argc, argv, blk, VIS_PRIVATE, 0)
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_mod_public(recv, argc, argv, cref, blk)
     zr_set_visibility(recv, argc, argv, blk, VIS_PUBLIC, 0)
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_mod_protected(recv, argc, argv, cref, blk)
     zr_set_visibility(recv, argc, argv, blk, VIS_PROTECTED, 0)
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_mod_module_function(recv, argc, argv, cref, blk)
     zr_set_visibility(recv, argc, argv, blk, VIS_PRIVATE, 1)
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_mod_private_class_method(recv, argc, argv, cref, blk)
     r = zr_set_visibility(zr_singleton_class(recv), argc, argv, blk, VIS_PRIVATE, 0)
     return r if r == QUNDEF
@@ -1980,7 +1980,7 @@ module Zr::Kern
     recv
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_mod_public_class_method(recv, argc, argv, cref, blk)
     r = zr_set_visibility(zr_singleton_class(recv), argc, argv, blk, VIS_PUBLIC, 0)
     return r if r == QUNDEF
@@ -1993,7 +1993,7 @@ module Zr::Kern
   # method from `define_method` has its caller's meta, so only a compiled
   # def or a builtin counts. So does a method that the eval support defined
   # on a class of the program, except to the eval support itself.
-  sig [Ptr] => Bool
+  #: (ptr) -> bool
   def zr_entry_hidden_p(e)
     if MEntry.concealed(e) != 0 && !zr_hidden_now()
       return true
@@ -2005,7 +2005,7 @@ module Zr::Kern
   # visibility, or -1 for all except private). A name found at an earlier
   # level is in `seen` and was decided there, also an undef or a hidden
   # helper.
-  sig [Value, Value, Value, Word] => Void
+  #: (value, value, value, word) -> void
   def zr_level_method_names(level, out, seen, vis)
     ext = RClass.ext(level)
     i = 0
@@ -2025,7 +2025,7 @@ module Zr::Kern
 
   # `undefined_instance_methods`: the names that this module's own table
   # undefines, where a call stops at the module.
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_mod_undefined_instance_methods(recv, argc, argv, cref, blk)
     ext = RClass.ext(zr_origin(recv))
     out = zr_ary_new(4)
@@ -2043,7 +2043,7 @@ module Zr::Kern
   # `instance_methods` and the three by visibility, on a module (`all`
   # includes the ancestors) or, for `methods` on an object, on its
   # ancestor list: the singleton class and its extended modules come first.
-  sig [Value, Word, Word, Bool] => Value
+  #: (value, word, word, bool) -> value
   def zr_method_names(klass, all, vis, object)
     out = zr_ary_new(8)
     seen = zr_ary_new(8)
@@ -2065,31 +2065,31 @@ module Zr::Kern
     out
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_mod_instance_methods(recv, argc, argv, cref, blk)
     all = argc == 0 || (Machine.value(Machine.load64(argv, 0)) != QFALSE && Machine.value(Machine.load64(argv, 0)) != QNIL)
     zr_method_names(recv, all ? 1 : 0, 0 - 1, false)
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_mod_public_instance_methods(recv, argc, argv, cref, blk)
     all = argc == 0 || (Machine.value(Machine.load64(argv, 0)) != QFALSE && Machine.value(Machine.load64(argv, 0)) != QNIL)
     zr_method_names(recv, all ? 1 : 0, VIS_PUBLIC, false)
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_mod_private_instance_methods(recv, argc, argv, cref, blk)
     all = argc == 0 || (Machine.value(Machine.load64(argv, 0)) != QFALSE && Machine.value(Machine.load64(argv, 0)) != QNIL)
     zr_method_names(recv, all ? 1 : 0, VIS_PRIVATE, false)
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_mod_protected_instance_methods(recv, argc, argv, cref, blk)
     all = argc == 0 || (Machine.value(Machine.load64(argv, 0)) != QFALSE && Machine.value(Machine.load64(argv, 0)) != QNIL)
     zr_method_names(recv, all ? 1 : 0, VIS_PROTECTED, false)
   end
 
-  sig [Value, Word, Ptr, Word] => Void
+  #: (value, word, ptr, word) -> void
   def zr_builtin(klass, mid, fn, arity)
     zr_define_method(klass, mid, fn, arity, KIND_BUILTIN, 0, Machine.value(QNIL))
   end
@@ -2097,7 +2097,7 @@ module Zr::Kern
   # `rb_f_notimplement`: the entry for a call that this platform does not
   # have. It is listed, reflects as taking no arguments, and `respond_to?`
   # returns false. A call raises NotImplementedError with the function name.
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_f_notimplement(recv, argc, argv, cref, blk)
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
@@ -2107,14 +2107,14 @@ module Zr::Kern
   end
 
   # The core's way to give `klass` such an entry under `name`, a Symbol.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_define_notimplement(klass, name)
     zr_builtin(klass, zr_sym2id(name), Machine.addr(:zr_f_notimplement), 0 - 1)
     Machine.value(QNIL)
   end
 
   # A private builtin, as Kernel's `puts` and `raise` are.
-  sig [Value, Word, Ptr, Word] => Void
+  #: (value, word, ptr, word) -> void
   def zr_builtin_private(klass, mid, fn, arity)
     zr_builtin(klass, mid, fn, arity)
     MEntry.set_vis(zr_find_method_at(zr_origin(klass), mid), VIS_PRIVATE)
@@ -2124,7 +2124,7 @@ module Zr::Kern
   # A private builtin that the core library keeps for itself, as for a def
   # marked `Primitive.attr! :hidden`: no list shows it and no backtrace has
   # a frame for it.
-  sig [Value, Word, Ptr, Word] => Void
+  #: (value, word, ptr, word) -> void
   def zr_builtin_hidden(klass, mid, fn, arity)
     zr_builtin_private(klass, mid, fn, arity)
     FrameMeta.set_kind(MEntry.meta(zr_find_method_at(zr_origin(klass), mid)), KIND_HIDDEN)
@@ -2132,7 +2132,7 @@ module Zr::Kern
 
   # Makes the method `mid` on `klass` visible. The eval support defined it,
   # and now the program required the file that defines it.
-  sig [Value, Word] => Void
+  #: (value, word) -> void
   def zr_method_reveal(klass, mid)
     e = zr_find_method_at(klass, mid)
     if e != 0 && MEntry.concealed(e) != 0
@@ -2151,7 +2151,7 @@ module Zr::Kern
   # number plus one, or zero when empty.
   METHOD_INDEX_MIN = 16
 
-  sig [Ptr] => Void
+  #: (ptr) -> void
   def zr_method_index_drop(ext)
     if ClassExt.midx(ext) != 0
       zr_xfree(ClassExt.midx(ext))
@@ -2159,7 +2159,7 @@ module Zr::Kern
     end
   end
 
-  sig [Ptr, Word] => Void
+  #: (ptr, word) -> void
   def zr_method_index_put(ext, row)
     mask = ClassExt.mbins(ext) - 1
     h = Machine.mul_wrap(MEntry.mid(ClassExt.mtab(ext) + (row * MEntry.size)), 2654435761) & mask
@@ -2170,7 +2170,7 @@ module Zr::Kern
   end
 
   # Puts each entry into a new index with at least four bins per entry.
-  sig [Ptr] => Void
+  #: (ptr) -> void
   def zr_method_index_build(ext)
     zr_method_index_drop(ext)
     n = ClassExt.mlen(ext)
@@ -2190,7 +2190,7 @@ module Zr::Kern
 
   # Adds a new last entry to the index while the bins stay under half full.
   # Else it drops the index, and the next lookup builds a larger one.
-  sig [Ptr, Word] => Void
+  #: (ptr, word) -> void
   def zr_method_index_add(ext, row)
     if ClassExt.midx(ext) == 0
       return
@@ -2203,7 +2203,7 @@ module Zr::Kern
   end
 
   # The entry number of `mid` in the table plus one, or 0.
-  sig [Ptr, Word] => Word
+  #: (ptr, word) -> word
   def zr_method_index_find(ext, mid)
     if ClassExt.midx(ext) == 0
       zr_method_index_build(ext)
@@ -2221,7 +2221,7 @@ module Zr::Kern
     0
   end
 
-  sig [Value, Word] => Ptr
+  #: (value, word) -> ptr
   def zr_find_method_at(klass, mid)
     ext = RClass.ext(klass)
     n = ClassExt.mlen(ext)
@@ -2255,7 +2255,7 @@ module Zr::Kern
   MCACHE_OFF = 1
   MCACHE_VERIFY = 2
 
-  sig [] => Void
+  #: () -> void
   def zr_mcache_init
     v = Libc.getenv(Machine.bytes("ZR_MCACHE\0"))
     if v != 0
@@ -2279,7 +2279,7 @@ module Zr::Kern
   # go to a new class, and a cache entry identifies classes by address). A
   # constant lookup walks the same ancestor lists, so the constant stamp
   # changes too.
-  sig [] => Void
+  #: () -> void
   def zr_methods_changed
     s = Machine.static(:mcache_stamp, 8)
     stamp = Machine.load64(s, 0) + 1
@@ -2292,7 +2292,7 @@ module Zr::Kern
 
   # The entry for `mid` on `klass` or an ancestor, or 0. An undef found on
   # the way also gives 0.
-  sig [Value, Word] => Ptr
+  #: (value, word) -> ptr
   def zr_search_method(klass, mid)
     while klass != QNIL
       e = zr_find_method_at(klass, mid)
@@ -2312,7 +2312,7 @@ module Zr::Kern
   # The same result as a walk, from the cache while the cache has one.
   # Each send comes through here, so the statics are read where they are
   # used: a helper for each costs more than it saves.
-  sig [Value, Word] => Ptr
+  #: (value, word) -> ptr
   def zr_find_method(klass, mid)
     # A refinement in use is checked at its own position in the ancestor
     # list (zr_refined_search), and the result is kept under its activation
@@ -2349,19 +2349,19 @@ module Zr::Kern
 
   # Whether `recv`'s `mid` is still the core library's own entry, which
   # rb_method_basic_definition_p checks before the C code skips a call.
-  sig [Value, Word] => Bool
+  #: (value, word) -> bool
   def zr_basic_method_p(recv, mid)
     e = zr_find_method(zr_class_of(recv), mid)
     e != 0 && MEntry.core(e) != 0
   end
 
   # The same for the core: `Primitive.zr_basic_method_m(self, :each)`.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_basic_method_m(recv, name)
     zr_bool(zr_basic_method_p(recv, zr_sym2id(name)))
   end
 
-  sig [Value] => Value
+  #: (value) -> value
   def zr_class_of(v)
     # A heap object first, with its class in its header: the low three bits
     # of a cell are clear and its address is above all special values. A
@@ -2395,7 +2395,7 @@ module Zr::Kern
   # proxies. An ancestor list that does not get to BasicObject (a class from
   # `Class.allocate`, not yet initialized) stays unbuilt, because its
   # superclass is not set yet. The rank is 0 for it.
-  sig [Value] => Word
+  #: (value) -> word
   def zr_class_rank(klass)
     ext = RClass.ext(klass)
     if ClassExt.supers(ext) != 0
@@ -2434,7 +2434,7 @@ module Zr::Kern
   # has touched it (zr_box_bind clears the flag). With it, a site does a
   # type check with two ranks and one load, and a `nil?` with only the
   # flag. A BasicObject's class has neither.
-  sig [Value] => Void
+  #: (value) -> void
   def zr_class_ranked(klass)
     ext = RClass.ext(klass)
     o = zr_global(G_OBJECT)
@@ -2449,7 +2449,7 @@ module Zr::Kern
 
   # Whether `target` is in `klass`'s ancestor list. For two classes it
   # uses the superclass list, else a walk.
-  sig [Value, Value] => Bool
+  #: (value, value) -> bool
   def zr_class_inherits(klass, target)
     if !zr_special_p(target) && !zr_special_p(klass) && (RBasic.flags(target) & T_MASK) == T_CLASS && (RBasic.flags(klass) & T_MASK) == T_CLASS
       r = zr_class_rank(target)
@@ -2461,7 +2461,7 @@ module Zr::Kern
     zr_chain_includes(klass, target)
   end
 
-  sig [Value, Value] => Bool
+  #: (value, value) -> bool
   def zr_is_a(v, klass)
     k = zr_class_of(v)
     if ClassExt.boxed(RClass.ext(k)) != QNIL
@@ -2477,7 +2477,7 @@ module Zr::Kern
   end
 
   # Marks a method table's crefs, and the Procs of block-defined methods.
-  sig [Ptr] => Void
+  #: (ptr) -> void
   def zr_mark_mtab(ext)
     zr_mark_entries(ClassExt.mtab(ext), ClassExt.mlen(ext))
     zr_mark_entries(ClassExt.saved(ext), ClassExt.slen(ext))
@@ -2485,7 +2485,7 @@ module Zr::Kern
 
   # Marks what `n` method entries from `tab` contain: a cref or a body,
   # the node that a copy came from, and a define_method body's own cref.
-  sig [Ptr, Word] => Void
+  #: (ptr, word) -> void
   def zr_mark_entries(tab, n)
     i = 0
     while i < n
@@ -2494,7 +2494,7 @@ module Zr::Kern
     end
   end
 
-  sig [Ptr] => Void
+  #: (ptr) -> void
   def zr_mark_entry(e)
     zr_mark(MEntry.cref(e))
     zr_mark(MEntry.from(e))
@@ -2506,7 +2506,7 @@ module Zr::Kern
   # Marks what a cell contains in addition to its class, by type, with the
   # common kinds first. A String or a Float contains no Value, and
   # zr_mark_cell handles those without a queue.
-  sig [Value] => Void
+  #: (value) -> void
   def zr_mark_children(v)
     t = RBasic.flags(v) & T_MASK
     if t == T_OBJECT
@@ -2568,7 +2568,7 @@ module Zr::Kern
   # Frees what a cell owns outside the arena. The kinds that a sweep frees
   # in large numbers come first, each with one check. The others, and the
   # caches that a freed class or cref must clear, go to zr_release_other.
-  sig [Value] => Void
+  #: (value) -> void
   def zr_release(v)
     t = RBasic.flags(v) & T_MASK
     if t == T_OBJECT
@@ -2585,7 +2585,7 @@ module Zr::Kern
     end
   end
 
-  sig [Value, Word] => Void
+  #: (value, word) -> void
   def zr_release_other(v, t)
     if t == T_ICLASS || t == T_CLASS || t == T_MODULE
       # A freed class's address can go to another class, so a method cache
@@ -2640,7 +2640,7 @@ module Zr::Kern
   # `set_temporary_name`: a name that a later constant assignment
   # replaces; nil clears it. Returns whether the module had a permanent
   # name, which cannot change.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_mod_set_temporary_name(mod, name)
     if RClass.name(mod) != QNIL && (RBasic.flags(mod) & FL_TEMP_NAME) == 0
       return Machine.value(QFALSE)
@@ -2666,7 +2666,7 @@ module Zr::Kern
   # refinements of the same module share, as rb_mod_refine shares
   # activated_refinements. Thus a call in one refine block finds the
   # module's other refinements, also the later ones.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_refinement_new(klass, active)
     h = zr_class_alloc(T_MODULE, Machine.value(QNIL), zr_global(G_REFINEMENT))
     ext = RClass.ext(h)
@@ -2678,7 +2678,7 @@ module Zr::Kern
     h
   end
 
-  sig [Value] => Value
+  #: (value) -> value
   def zr_refined_class(h)
     ClassExt.refined(RClass.ext(h))
   end
@@ -2686,7 +2686,7 @@ module Zr::Kern
   # The current value of activation entry `id`. An entry whose `using` a
   # condition skipped contains the id of the entry before it, which is used
   # in its place. An entry that nothing has touched contains nil.
-  sig [Value, Word] => Value
+  #: (value, word) -> value
   def zr_activation_row(rows, id)
     if zr_special_p(rows) || id < 0 || id >= RArray.len(rows)
       return Machine.value(QNIL)
@@ -2704,7 +2704,7 @@ module Zr::Kern
 
   # The activation list that a call site refers to, which each send under
   # it reads.
-  sig [Word] => Value
+  #: (word) -> value
   def zr_activate(id)
     Task.set_refine(zr_task(), zr_activation_row(zr_global(G_ACTIVATIONS), id))
     Machine.value(QNIL)
@@ -2712,7 +2712,7 @@ module Zr::Kern
 
   # In a `refine` block, the refinement that it defines is in use, so a
   # sibling method is available by its bare name.
-  sig [Ptr] => Value
+  #: (ptr) -> value
   def zr_activate_owner(rec)
     meta = zr_method_meta_of(rec)
     list = Machine.value(QNIL)
@@ -2727,7 +2727,7 @@ module Zr::Kern
   end
 
   # The table of activation entries, long enough to contain entry `id`.
-  sig [Word] => Value
+  #: (word) -> value
   def zr_activation_rows(id)
     rows = zr_global(G_ACTIVATIONS)
     if zr_special_p(rows)
@@ -2745,7 +2745,7 @@ module Zr::Kern
   # a condition that is never true is never made. Then the table alone
   # does not give the program's entry count, and a compile at run time
   # could reuse an entry number that the program already has.
-  sig [Word] => Value
+  #: (word) -> value
   def zr_activations_reserve(count)
     if count > 0
       zr_activation_rows(count - 1)
@@ -2756,12 +2756,12 @@ module Zr::Kern
   # The same, plus the count of reserved entries, for the compiled compiler
   # in a program: it numbers a snippet's entries after them, then reserves
   # them.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_activations_reserve_m(count)
     zr_activations_reserve(zr_fix2long(count))
   end
 
-  sig [] => Value
+  #: () -> value
   def zr_activations_count
     rows = zr_global(G_ACTIVATIONS)
     zr_fix(zr_special_p(rows) ? 0 : RArray.len(rows))
@@ -2770,7 +2770,7 @@ module Zr::Kern
   # A `using` under a condition can never run. Until it runs, its entry
   # refers to entry `from`, with the value that entry has when a call reads
   # it. An entry that a `using` already filled keeps its own value.
-  sig [Word, Word] => Value
+  #: (word, word) -> value
   def zr_using_default(id, from)
     rows = zr_activation_rows(id)
     if zr_ary_at(rows, id) == QNIL
@@ -2781,7 +2781,7 @@ module Zr::Kern
 
   # `using mod` at entry `id`: the entries in `from` now, then each holder
   # that `mod` refines. `from` is -1 when nothing was in use.
-  sig [Word, Value, Word] => Value
+  #: (word, value, word) -> value
   def zr_using_activate(id, mod, from)
     rows = zr_activation_rows(id)
     list = zr_ary_new(4)
@@ -2800,7 +2800,7 @@ module Zr::Kern
 
   # Appends each holder that `mod` refines to `list`. `Module#refinements`
   # returns them, so a module written in Ruby also works.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_using_holders(list, mod)
     if zr_special_p(mod) || zr_type(mod) != T_MODULE
       b = Machine.slot(Buf.size)
@@ -2819,7 +2819,7 @@ module Zr::Kern
   # anything else in the entry. The entry is filled from
   # `Module#refinements`, which is Ruby, and a program can return any value
   # from it.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_refined_target(h)
     if zr_special_p(h) || zr_type(h) != T_MODULE
       return Machine.value(QNIL)
@@ -2828,7 +2828,7 @@ module Zr::Kern
   end
 
   # Whether a holder for `target` comes before `stop` in the entry.
-  sig [Value, Value, Word] => Bool
+  #: (value, value, word) -> bool
   def zr_refined_target_seen_p(list, target, stop)
     i = 0
     while i < stop
@@ -2850,7 +2850,7 @@ module Zr::Kern
   # This is a builtin because a compiled Ruby frame starts with no
   # refinements in use (they belong to the call site, not to the method it
   # called). A builtin's frame keeps the entry that the site filled.
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_mod_used_refinements(recv, argc, argv, cref, blk)
     out = zr_ary_new(4)
     list = Task.refine(zr_task())
@@ -2879,7 +2879,7 @@ module Zr::Kern
   # `Module.used_modules`: the module where each refinement in use was
   # written, in the same order and without duplicates. A module that
   # refines two classes is in two lists, and CRuby removes duplicates.
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_mod_used_modules(recv, argc, argv, cref, blk)
     found = zr_mod_used_refinements(recv, argc, argv, cref, blk)
     out = zr_ary_new(4)
@@ -2899,7 +2899,7 @@ module Zr::Kern
   # node's own table. Thus a subclass's own method still wins over a
   # refinement of its ancestor, as CRuby resolves a refined entry where the
   # refined class is.
-  sig [Value, Word] => Ptr
+  #: (value, word) -> ptr
   def zr_refined_search(klass, mid)
     k = klass
     while k != QNIL
@@ -2922,7 +2922,7 @@ module Zr::Kern
 
   # The entry that a refinement in use gives for `mid` on `target` itself,
   # newest first, or 0.
-  sig [Value, Word] => Ptr
+  #: (value, word) -> ptr
   def zr_refined_entry_at(target, mid)
     list = Task.refine(zr_task())
     if zr_special_p(list) || zr_type(list) != T_ARRAY
@@ -2944,7 +2944,7 @@ module Zr::Kern
 
   # The refinement where the last lookup found its entry, or nil. A Method
   # made from a refined name is owned by its holder.
-  sig [] => Value
+  #: () -> value
   def zr_found_refinement
     f = Task.found(zr_task())
     if !zr_special_p(f) && zr_type(f) == T_MODULE && ClassExt.refined(RClass.ext(f)) != QNIL

@@ -24,18 +24,18 @@ module Zr::Kern
 
   # No reservation is necessary: the mapping cursor keeps the mappings
   # next to each other.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_os_jit_reserve(size)
     Machine.value(QNIL)
   end
 
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_os_jit_release(at, size)
     Machine.value(QNIL)
   end
 
   # Maps `size` bytes, near `hint` if possible.
-  sig [Value, Value, Value] => Value
+  #: (value, value, value) -> value
   def zr_os_jit_map(size, exec, hint)
     prot = PROT_READ_WRITE
     if exec != QFALSE && exec != QNIL
@@ -77,7 +77,7 @@ module Zr::Kern
   MAP_PRIVATE = 2
   SEEK_END = 2
 
-  sig [] => Ptr
+  #: () -> ptr
   def zr_linux_symtab
     cell = Machine.static(:linux_symtab, 24)
     if Machine.load64(cell, 8) != 0
@@ -113,7 +113,7 @@ module Zr::Kern
 
   # The address of a name that is already in this process, or nil. The
   # name must be a defined global or weak symbol.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_os_symbol(name)
     cell = zr_linux_symtab()
     rows = Machine.load64(cell, 8)
@@ -143,7 +143,7 @@ module Zr::Kern
 
   # Writes into the code mapping, then flushes the instruction cache for
   # the changed bytes.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_os_jit_write(at, bytes)
     to = Machine.ptr(zr_fix2long(at))
     len = RString.len(bytes)
@@ -154,7 +154,7 @@ module Zr::Kern
 
   # libffi's shared library. dlopen cannot open it in a static binary, so
   # the ffi gem's first call returns dlopen's error.
-  sig [] => Ptr
+  #: () -> ptr
   def zr_os_libffi_path
     Machine.bytes("libffi.so.8\0")
   end

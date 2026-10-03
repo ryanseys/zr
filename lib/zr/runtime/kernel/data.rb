@@ -7,7 +7,7 @@ module Zr::Kern
   # While the class's `initialize` is the core's (zr_data_initialize), the
   # keywords are not made: the values come directly from the arguments,
   # which is what `initialize` would do with them.
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_data_new(recv, argc, argv, cref, blk)
     kwargs = Machine.value(QNIL)
     if zr_kw_take() != 0
@@ -65,7 +65,7 @@ module Zr::Kern
 
   # Whether the instances of `klass` run the core's `Data#initialize`, so
   # that `new` can make their values itself.
-  sig [Value] => Bool
+  #: (value) -> bool
   def zr_data_core_init_p(klass)
     e = zr_find_method(klass, Machine.id(:initialize))
     e != 0 && MEntry.kind(e) == KIND_BUILTIN && MEntry.fn(e) == Machine.addr(:zr_data_initialize)
@@ -73,7 +73,7 @@ module Zr::Kern
 
   # A new instance of `klass` with `values`, frozen, as `Data#initialize`
   # leaves it.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_data_made(klass, values)
     o = zr_class_allocate(klass)
     return o if o == QUNDEF
@@ -82,7 +82,7 @@ module Zr::Kern
   end
 
   # Sets the values of `o` and freezes both, as rb_data_initialize_m does.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_data_fill(o, values)
     zr_obj_freeze(values, 0, Machine.ptr(0), Machine.value(QNIL), Machine.value(QNIL))
     r = zr_ivar_set(o, Machine.id(:__values__), values)
@@ -94,7 +94,7 @@ module Zr::Kern
   # `members`, when it names each member once and nothing else. Returns nil
   # when it does not (`Data#initialize` then raises), and undef when a key's
   # own `eql?` raised.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_data_values_from(members, h)
     n = RArray.len(members)
     if RHash.live(h) != n
@@ -121,7 +121,7 @@ module Zr::Kern
   # member once. That call fills the values here. All others (a missing or
   # an unknown keyword, a value by position) go to the core's
   # `initialize_members` (lib/zr/runtime/core/data.rb), which raises.
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_data_initialize(recv, argc, argv, cref, blk)
     kw = zr_kw_take()
     members = zr_struct_members(zr_real_class(recv))
@@ -138,7 +138,7 @@ module Zr::Kern
   end
 
   # Defines the two constructors on the singleton class of `klass`.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_data_constructors(klass)
     zr_builtin(zr_singleton_class(klass), Machine.id(:new), Machine.addr(:zr_data_new), 0 - 1)
     zr_builtin(zr_singleton_class(klass), Machine.id(:[]), Machine.addr(:zr_data_new), 0 - 1)
@@ -146,7 +146,7 @@ module Zr::Kern
   end
 
   # Defines `Data#initialize` on `klass`, which is Data.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_data_builtins(klass)
     zr_builtin(klass, Machine.id(:initialize), Machine.addr(:zr_data_initialize), 0 - 1)
     klass

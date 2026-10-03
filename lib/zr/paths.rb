@@ -13,8 +13,8 @@ module Zr
   module Paths
     ROOT = File.expand_path("../..", __dir__)
 
-    # The runtime that zr compiles into every program, in the machine
-    # dialect and in ordinary Ruby. It is source that zr compiles, not code
+    # The runtime that zr compiles into every program, in the kernel
+    # subset and in ordinary Ruby. It is source that zr compiles, not code
     # of the compiler, although it is under lib/zr.
     RUNTIME = File.join(ROOT, "lib/zr/runtime")
 
@@ -48,9 +48,10 @@ module Zr
     # `path` as a build writes it into its output.
     #: (String path) -> String
     def self.shown(path)
-      return path unless @root && path.start_with?("/")
+      prefixes = @prefixes
+      return path unless @root && prefixes && path.start_with?("/")
 
-      @prefixes.each do |prefix|
+      prefixes.each do |prefix|
         next unless path == prefix || path.start_with?("#{prefix}/")
 
         shown = "#{@root}#{path[prefix.size..]}"
@@ -172,25 +173,30 @@ module Zr
       root ||= [ENV.fetch("TMPDIR", ""), "/tmp"].find { |dir| File.directory?(dir) && File.writable?(dir) }
       raise Missing, "zr found no temp directory that it can write to. Set TMPDIR to one." unless root
 
-      # @type var dir: String?
-      dir = nil
-      until dir
-        name = File.join(root, "#{prefix}#{Time.now.strftime("%Y%m%d")}-#{Process.pid}-#{rand(0x100000000).to_s(36)}")
-        begin
-          Dir.mkdir(name, 0o700)
-          dir = name
-        rescue Errno::EEXIST
-          nil
-        end
-      end
-      @open = open_tmpdirs + 1
-      yield dir
-    ensure
-      if dir
+      dir = new_tmpdir(prefix, root)
+      begin
+        @open = open_tmpdirs + 1
+        yield dir
+      ensure
         @open = open_tmpdirs - 1
         remove(dir)
       end
     end
+
+    # Makes a directory with a new name in `root`, and returns its path.
+    #: (String prefix, String root) -> String
+    def self.new_tmpdir(prefix, root)
+      loop do
+        name = File.join(root, "#{prefix}#{Time.now.strftime("%Y%m%d")}-#{Process.pid}-#{rand(0x100000000).to_s(36)}")
+        begin
+          Dir.mkdir(name, 0o700)
+          return name
+        rescue Errno::EEXIST
+          nil
+        end
+      end
+    end
+    private_class_method :new_tmpdir
 
     #: () -> Integer
     def self.open_tmpdirs = @open || 0

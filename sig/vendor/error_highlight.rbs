@@ -1,0 +1,5 @@
+# The members of ErrorHighlight that lib/ uses (`Hir::Spots`). RBS's
+# stdlib has no signatures for error_highlight.
+module ErrorHighlight
+  def self.spot: (untyped obj, ?point_type: Symbol, ?name: Symbol?) -> Hash[Symbol, Integer]?
+end

@@ -14,7 +14,7 @@ module Zr
 
         # The global of a literal receiver's class, or nil. A Symbol, nil,
         # true and false have no singleton class.
-        #: (untyped recv) -> String?
+        #: (Hir::node? recv) -> String?
         def literal_class(recv)
           return nil unless recv.is_a?(Hir::Literal)
 
@@ -185,7 +185,7 @@ module Zr
         # element at the entry's index (`struct_member_in_place`).
         #
         # Clear the keyword word as the accessor call would.
-        #: (Symbol shape, CallSite site, String slow, ?(String | bool)? member) -> void
+        #: (Symbol shape, CallSite site, String slow, ?(String | true)? member) -> void
         def accessor_in_place(shape, site, slow, member = nil)
           recv = site.recv
           entry = site.entry
@@ -208,16 +208,15 @@ module Zr
           switch(indexed)
           at = @f.iadd(@f.fetch("i64", t, off(table, "rows")), @f.ishl(i, imm(Math.log2(row.size).to_i)))
           fn = @f.fetch("i64", entry, off(meta, "fn"))
-          id = case member
-               when nil then fn
-               when true then sym_word(:__values__)
-               else @f.csel(member, sym_word(:__values__), fn)
+          id = if member.is_a?(String) then @f.csel(member, sym_word(:__values__), fn)
+               elsif member then sym_word(:__values__)
+               else fn
                end
           @f.brif(@f.icmp("eq", @f.fetch("i64", at, off(row, "id")), id), hit, slow)
           switch(hit)
           return struct_member_in_place(shape, @f.fetch("i64", at, off(row, "value")), fn, argv, merge, slow) if member == true
 
-          if member
+          if member.is_a?(String)
             ivar = @f.label
             element = @f.label
             @f.brif(member, element, ivar)

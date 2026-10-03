@@ -1,0 +1,6 @@
+# The form of `IO.select` that lib/zr/server.rb calls. Steep cannot
+# solve RBS's `Array[X & io]` for an Array of IO.
+class IO
+  def self.select: (Array[IO] read_array, nil, nil, Integer? timeout) -> [Array[IO], Array[IO], Array[IO]]?
+                 | ...
+end

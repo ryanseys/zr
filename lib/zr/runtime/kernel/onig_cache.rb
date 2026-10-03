@@ -24,7 +24,7 @@ module Zr::Kern
 
   # The position after the operands of an opcode that has no cache point
   # and needs no special handling, or 0 for all other opcodes.
-  sig [Ptr, Word, Ptr, Ptr] => Ptr
+  #: (ptr, word, ptr, ptr) -> ptr
   def zr_onig_cache_skip(m, op, p, pend)
     if op == OP_FINISH || op == OP_END || op == OP_ANYCHAR || op == OP_ANYCHAR_ML || op == OP_KEEP || op == OP_FAIL || op == OP_POP
       return p
@@ -55,7 +55,7 @@ module Zr::Kern
   # and the slot `np` contains the count. Returns 0, or an error. A count
   # of NUM_CACHE_OPCODES_IMPOSSIBLE shows that the program cannot be
   # cached.
-  sig [Ptr, Word, Word, Ptr, Ptr] => Word
+  #: (ptr, word, word, ptr, ptr) -> word
   def zr_onig_count_cache_opcodes(m, current_repeat_mem, lookaround_nesting, pp, np)
     p = Machine.ptr(Machine.load64(pp, 0))
     pend = OnigMatch.code(m) + OnigProg.code_len(OnigMatch.prog(m))
@@ -181,7 +181,7 @@ module Zr::Kern
   end
 
   # count_num_cache_opcodes: stores the program's count in `np`.
-  sig [Ptr, Ptr] => Word
+  #: (ptr, ptr) -> word
   def zr_onig_count_num_cache_opcodes(m, np)
     pp = Machine.slot(8)
     Machine.store64(pp, 0, Machine.word(OnigMatch.code(m)))
@@ -196,7 +196,7 @@ module Zr::Kern
 
   # INC_CACHE_OPCODES: writes one cache opcode entry at the slot `cop` (0
   # for a dry run) for the opcode at pbegin. Returns the next cache point.
-  sig [Ptr, Ptr, Word, Word, Word] => Word
+  #: (ptr, ptr, word, word, word) -> word
   def zr_onig_cache_row(cop, pbegin, cache_point, current_repeat_mem, lookaround_nesting)
     return cache_point if cop == 0
     row = Machine.ptr(Machine.load64(cop, 0))
@@ -215,7 +215,7 @@ module Zr::Kern
   # Sets `match_addr` in the entries from `first` up to the entry at the
   # slot `cop`, if they have none yet (the end of a look-around or atomic
   # group).
-  sig [Ptr, Ptr, Ptr] => Void
+  #: (ptr, ptr, ptr) -> void
   def zr_onig_cache_rows_match_addr(first, cop, match_addr)
     row = first
     stop = Machine.ptr(Machine.load64(cop, 0))
@@ -230,7 +230,7 @@ module Zr::Kern
   # init_cache_opcodes_inner: writes the entries from the slot `cop` (a
   # pointer to the next entry, or 0 for a dry run). The slot `pp` steps
   # through the code, and the slot `npoints` counts the cache points.
-  sig [Ptr, Word, Word, Ptr, Ptr, Ptr] => Word
+  #: (ptr, word, word, ptr, ptr, ptr) -> word
   def zr_onig_init_cache_opcodes(m, current_repeat_mem, lookaround_nesting, cop, pp, npoints)
     p = Machine.ptr(Machine.load64(pp, 0))
     pend = OnigMatch.code(m) + OnigProg.code_len(OnigMatch.prog(m))
@@ -334,7 +334,7 @@ module Zr::Kern
 
   # init_cache_opcodes: writes the entries at `rows`, and stores the
   # number of cache points in the slot `npoints`.
-  sig [Ptr, Ptr, Ptr] => Word
+  #: (ptr, ptr, ptr) -> word
   def zr_onig_init_cache_rows(m, rows, npoints)
     pp = Machine.slot(8)
     Machine.store64(pp, 0, Machine.word(OnigMatch.code(m)))
@@ -350,7 +350,7 @@ module Zr::Kern
   end
 
   # bsearch_cache_opcodes: the entry index nearest to the opcode at p.
-  sig [Ptr, Word, Ptr] => Word
+  #: (ptr, word, ptr) -> word
   def zr_onig_bsearch_cache_opcodes(rows, n, p)
     l = 0
     r = n - 1
@@ -370,7 +370,7 @@ module Zr::Kern
 
   # find_cache_point: the cache point of the opcode at p in the current
   # repeat count, or -1 for none. Stores its entry in the slot `cop`.
-  sig [Ptr, Ptr, Ptr] => Word
+  #: (ptr, ptr, ptr) -> word
   def zr_onig_find_cache_point(m, p, cop)
     rows = OnigMatch.cache_opcodes(m)
     n = OnigMatch.num_cache_opcodes(m)
@@ -401,7 +401,7 @@ module Zr::Kern
   end
 
   # check_extended_match_cache_point.
-  sig [Ptr, Word, Word] => Bool
+  #: (ptr, word, word) -> bool
   def zr_onig_check_extended_cache_point(buf, index, mask)
     if (mask & 128) != 0
       return (Machine.u8(Machine.load8(buf + index, 1)) & 1) != 0
@@ -410,7 +410,7 @@ module Zr::Kern
   end
 
   # memoize_extended_match_cache_point.
-  sig [Ptr, Word, Word] => Void
+  #: (ptr, word, word) -> void
   def zr_onig_memoize_extended_cache_point(buf, index, mask)
     Machine.store8(buf + index, 0, Machine.i8(Machine.u8(Machine.load8(buf + index, 0)) | mask))
     if (mask & 128) != 0
@@ -422,7 +422,7 @@ module Zr::Kern
 
   # MEMOIZE_MATCH_CACHE_POINT: records the cache point of a popped stack
   # entry.
-  sig [Ptr, Ptr] => Void
+  #: (ptr, ptr) -> void
   def zr_onig_memoize_cache_point(m, stk)
     type = OnigStk.type(stk)
     if type == STK_MATCH_CACHE_POINT
@@ -438,7 +438,7 @@ module Zr::Kern
 
   # MEMOIZE_LOOKAROUND_MATCH_CACHE_POINT: voids a cache point that a
   # look-around leaves, and records it in the extended form.
-  sig [Ptr, Ptr] => Void
+  #: (ptr, ptr) -> void
   def zr_onig_memoize_lookaround_cache_point(m, stk)
     if OnigStk.type(stk) == STK_MATCH_CACHE_POINT
       OnigStk.set_type(stk, STK_VOID)
@@ -448,7 +448,7 @@ module Zr::Kern
 
   # STACK_STOP_BT_FAIL: pops down to the atomic group's mark, and records
   # the cache points above it in the extended form.
-  sig [Ptr] => Void
+  #: (ptr) -> void
   def zr_onig_stack_stop_bt_fail(m)
     stk = OnigMatch.stk(m)
     while true
@@ -466,7 +466,7 @@ module Zr::Kern
   end
 
   # STACK_PUSH_MATCH_CACHE_POINT.
-  sig [Ptr, Word, Word] => Void
+  #: (ptr, word, word) -> void
   def zr_onig_push_cache_point(m, index, mask)
     zr_onig_stack_ensure(m)
     stk = OnigMatch.stk(m)
@@ -483,14 +483,14 @@ module Zr::Kern
   # address, which is in OnigMatch.p.
   # Each push of the match loop runs it, and the cache is almost always
   # off, so that test is inline.
-  sig [Ptr, Ptr] => Word
+  #: (ptr, ptr) -> word
   def zr_onig_check_match_cache(m, pbegin)
     return 0 if OnigMatch.match_cache_status(m) != ONIG_MATCH_CACHE_STATUS_ENABLED
     zr_onig_check_match_cache_on(m, pbegin)
   end
   inline :zr_onig_check_match_cache
 
-  sig [Ptr, Ptr] => Word
+  #: (ptr, ptr) -> word
   def zr_onig_check_match_cache_on(m, pbegin)
     cop = Machine.slot(8)
     Machine.store64(cop, 0, 0)
@@ -526,7 +526,7 @@ module Zr::Kern
   # bit array. Returns 0, or an error. The match loop runs it after each
   # failure, so the count is inline, and the rest is a call only when the
   # count gets to the limit.
-  sig [Ptr] => Word
+  #: (ptr) -> word
   def zr_onig_fail_match_cache(m)
     status = OnigMatch.match_cache_status(m)
     return 0 if status == ONIG_MATCH_CACHE_STATUS_DISABLED
@@ -538,7 +538,7 @@ module Zr::Kern
   end
   inline :zr_onig_fail_match_cache
 
-  sig [Ptr, Word, Word, Word] => Word
+  #: (ptr, word, word, word) -> word
   def zr_onig_fail_match_cache_init(m, status, num_fails, len)
     if status == ONIG_MATCH_CACHE_STATUS_UNINIT
       OnigMatch.set_match_cache_status(m, ONIG_MATCH_CACHE_STATUS_INIT)

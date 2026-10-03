@@ -28,6 +28,9 @@ module Zr
     # The block of a call: a block literal, or `&value`.
     type block = Block | BlockPass
 
+    # A node that has its own scope: its locals and its body.
+    type owner = Def | Block | ClassDef | ModuleDef | SingletonClassDef
+
     def self.node?: (untyped value) -> bool
     def self.each_child: (untyped node) { (untyped) -> void } -> Array[untyped]
                        | (untyped node) -> Array[untyped]
@@ -72,7 +75,7 @@ module Zr
     class Require < Node
       attr_accessor kind: Symbol
       attr_accessor feature: String
-      attr_accessor path: String?
+      attr_accessor path: String
       attr_accessor unit: entry?
       attr_accessor line: Integer
     end
@@ -114,7 +117,8 @@ module Zr
       attr_accessor safe: bool
       attr_accessor write: bool?
       attr_accessor using: using
-      attr_accessor covers: Array[Cover?]?
+      # The coverage entries of a safe call's two branches: the call, and nil.
+      attr_accessor covers: [Cover, Cover]?
       attr_accessor interp: bool
 
       def self.of: (node? recv, Symbol name, Array[node] args, Integer line, ?vcall: bool, ?opt: bool, ?block: block?,
@@ -237,9 +241,10 @@ module Zr
       attr_accessor line: Integer
     end
 
-    # `value` is an Integer, Float, String, Symbol, true, false or nil.
+    type literal = Integer | Float | String | Symbol | bool | nil
+
     class Literal < Node
-      attr_accessor value: untyped
+      attr_accessor value: literal
       attr_accessor line: Integer
       attr_accessor chilled: bool?
     end

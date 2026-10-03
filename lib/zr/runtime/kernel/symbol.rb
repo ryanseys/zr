@@ -5,7 +5,7 @@ module Zr::Kern
   # time go in a table of the same shape outside the arena.
   Symtab = layout rows: Ptr, len: Word, capa: Word, bins: Ptr, nbins: Word
 
-  sig [] => Ptr
+  #: () -> ptr
   def zr_symtab
     Machine.static(:symtab, Symtab.size)
   end
@@ -16,17 +16,17 @@ module Zr::Kern
   SYM_PAD = 255
 
   # Whether `id` is a pad.
-  sig [Word] => Bool
+  #: (word) -> bool
   def zr_symbol_pad_p(id)
     zr_symbol_tag(id) == SYM_PAD
   end
 
-  sig [] => Word
+  #: () -> word
   def zr_static_symbol_count
     Machine.load64(Machine.extern(:zr_symbol_count), 0)
   end
 
-  sig [Word] => Ptr
+  #: (word) -> ptr
   def zr_symbol_row(id)
     n = zr_static_symbol_count()
     if id < n
@@ -36,7 +36,7 @@ module Zr::Kern
     end
   end
 
-  sig [Word] => Ptr
+  #: (word) -> ptr
   def zr_symbol_name_ptr(id)
     Machine.load64(zr_symbol_row(id), 0)
   end
@@ -44,18 +44,18 @@ module Zr::Kern
   # The second word of an entry is the name length, with the encoding tag
   # in its top byte. The tag is the same as in a String's flags, so 0 is
   # UTF-8, which all static names use. An ASCII-only name always has 0.
-  sig [Word] => Word
+  #: (word) -> word
   def zr_symbol_name_len(id)
     Machine.load64(zr_symbol_row(id), 8) & ((1 << SYM_TAG_SHIFT) - 1)
   end
 
-  sig [Word] => Word
+  #: (word) -> word
   def zr_symbol_tag(id)
     Machine.load64(zr_symbol_row(id), 8) >> SYM_TAG_SHIFT
   end
 
   # The encoding index of a symbol's name.
-  sig [Word] => Word
+  #: (word) -> word
   def zr_symbol_encoding_index(id)
     tag = zr_symbol_tag(id)
     tag < 2 ? 1 - tag : tag
@@ -63,7 +63,7 @@ module Zr::Kern
 
   # Whether the `alen` bytes at `a` are equal to the `blen` bytes at `b`.
   # It compares eight bytes at a time, then the rest one at a time.
-  sig [Ptr, Word, Ptr, Word] => Bool
+  #: (ptr, word, ptr, word) -> bool
   def zr_bytes_eq(a, alen, b, blen)
     if alen != blen
       return false
@@ -86,7 +86,7 @@ module Zr::Kern
 
   # The id of the symbol whose name is `n` bytes in UTF-8. It interns the
   # name if it is new.
-  sig [Ptr, Word] => Word
+  #: (ptr, word) -> word
   def zr_intern(p, n)
     zr_intern_tagged(p, n, 0)
   end
@@ -99,13 +99,13 @@ module Zr::Kern
   # A bin contains the id plus one, or zero when empty. The key is the
   # name together with its encoding tag, because `rb_str_intern` uses
   # both as the key of a symbol.
-  sig [Ptr, Word, Word] => Word
+  #: (ptr, word, word) -> word
   def zr_symbol_hash(p, n, tag)
     zr_hash_mix(zr_bytes_hash(p, n) ^ tag)
   end
 
   # Discards the index. The next lookup that needs it builds it again.
-  sig [] => Void
+  #: () -> void
   def zr_symbol_index_drop
     t = zr_symtab()
     if Symtab.bins(t) != 0
@@ -114,7 +114,7 @@ module Zr::Kern
     end
   end
 
-  sig [Word] => Void
+  #: (word) -> void
   def zr_symbol_index_put(id)
     t = zr_symtab()
     mask = Symtab.nbins(t) - 1
@@ -127,7 +127,7 @@ module Zr::Kern
 
   # Adds all symbols to a new index with at least four bins for each
   # symbol.
-  sig [] => Void
+  #: () -> void
   def zr_symbol_index_build
     zr_symbol_index_drop()
     t = zr_symtab()
@@ -151,7 +151,7 @@ module Zr::Kern
   # Adds a newly interned symbol to the index while less than half the
   # bins are full. Else it discards the index, and the next lookup builds
   # a larger one.
-  sig [Word] => Void
+  #: (word) -> void
   def zr_symbol_index_add(id)
     t = zr_symtab()
     if Symtab.bins(t) == 0
@@ -166,7 +166,7 @@ module Zr::Kern
 
   # The id of the symbol whose name is `n` bytes in the encoding `tag`, or
   # -1 if the table does not contain it.
-  sig [Ptr, Word, Word] => Word
+  #: (ptr, word, word) -> word
   def zr_symbol_index_find(p, n, tag)
     t = zr_symtab()
     if Symtab.bins(t) == 0
@@ -189,7 +189,7 @@ module Zr::Kern
   # The id of the symbol whose name is `n` bytes in the encoding `tag`. It
   # interns the name if it is new. rb_str_intern uses both the bytes and
   # the encoding as the key.
-  sig [Ptr, Word, Word] => Word
+  #: (ptr, word, word) -> word
   def zr_intern_tagged(p, n, tag)
     found = zr_symbol_index_find(p, n, tag)
     if found >= 0
@@ -222,7 +222,7 @@ module Zr::Kern
     total
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_sym_to_s(recv, argc, argv, cref, blk)
     id = zr_sym2id(recv)
     s = zr_str_new(zr_symbol_name_ptr(id), zr_symbol_name_len(id))
@@ -235,7 +235,7 @@ module Zr::Kern
   # `Symbol#<=>`: compares the names byte by byte, and returns nil for a
   # non-Symbol. The same bytes in two encodings sort by encoding index, as
   # in rb_str_cmp.
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_sym_cmp(recv, argc, argv, cref, blk)
     other = Machine.value(Machine.load64(argv, 0))
     if !zr_symbol_p(other)
@@ -250,13 +250,13 @@ module Zr::Kern
     zr_fix(order)
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_sym_to_proc_m(recv, argc, argv, cref, blk)
     zr_sym_to_proc_here(recv)
   end
 
   # All symbols interned until now, static names first.
-  sig [] => Value
+  #: () -> value
   def zr_all_symbols
     total = zr_static_symbol_count() + Symtab.len(zr_symtab())
     out = zr_ary_new(total)
@@ -272,7 +272,7 @@ module Zr::Kern
 
   # The symbol of each id, in order, with nil for a pad. Eval support's JIT
   # numbers its names from this, so that its ids are the program's.
-  sig [] => Value
+  #: () -> value
   def zr_symbol_table
     total = zr_static_symbol_count() + Symtab.len(zr_symtab())
     out = zr_ary_new(total)
@@ -286,14 +286,14 @@ module Zr::Kern
 
   # The id of a name, interned if it is new. An eval uses it so that the
   # ids in its compiled code agree with the ids of this program.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_intern_id(name)
     zr_fix(zr_intern(RString.ptr(name), RString.len(name)))
   end
 
   # The number of regexp literal sites in the program, so that the sites
   # of an eval start after them.
-  sig [] => Value
+  #: () -> value
   def zr_static_sites
     zr_fix(Machine.load64(Machine.extern(:zr_site_count), 0))
   end

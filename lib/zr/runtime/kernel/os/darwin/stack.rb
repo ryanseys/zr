@@ -9,14 +9,14 @@ module Zr::Kern
 
   # The program runs on the stack of the main thread. The linker sets its
   # size to `Native::Link::STACK` bytes.
-  sig [I32, Ptr] => I32
+  #: (i32, ptr) -> i32
   def zr_os_main(argc, argv)
     zr_main(argc, argv)
   end
 
   # The lowest address of this thread's stack, or 0 if the host does not
   # give it.
-  sig [] => Word
+  #: () -> word
   def zr_os_stack_low
     me = Libc.pthread_self()
     size = Libc.pthread_get_stacksize_np(me)
@@ -29,7 +29,7 @@ module Zr::Kern
 
   # The address immediately after the top of this thread's stack, or 0 if
   # the host does not give it.
-  sig [] => Word
+  #: () -> word
   def zr_os_stack_high
     Machine.word(Libc.pthread_get_stackaddr_np(Libc.pthread_self()))
   end
@@ -44,7 +44,7 @@ module Zr::Kern
   # Maps a stack of `bytes` with a guard as its lowest page. Returns 0 and
   # sets errno on failure. The system supplies the pages only when the
   # stack grows into them.
-  sig [Word] => Ptr
+  #: (word) -> ptr
   def zr_os_stack_map(bytes)
     stack = Libc.mmap(0, bytes, Machine.i32(STACK_PROT), Machine.i32(STACK_MAP_FLAGS), -1, 0)
     # MAP_FAILED, or no stack because the host has no mmap.
@@ -65,7 +65,7 @@ module Zr::Kern
   Libc.import :pthread_create, [Ptr, Ptr, Ptr, Ptr] => I32
   Libc.import :pthread_detach, [Ptr] => I32
 
-  sig [Ptr] => Ptr
+  #: (ptr) -> ptr
   def zr_poll_timer(arg)
     Machine.gates_enter
     ts = Machine.slot(16)
@@ -78,7 +78,7 @@ module Zr::Kern
     arg
   end
 
-  sig [] => Void
+  #: () -> void
   def zr_os_poll_start
     started = Machine.static(:poll_started, 8)
     if Machine.load64(started, 0) != 0

@@ -10,7 +10,7 @@ module Zr::Kern
   STRING_BYTES = RString.size
   ARENA = STRING_BYTES * 4
 
-  sig [Word] => Void
+  #: (word) -> void
   def put_word(n)
     buf = Machine.slot(24)
     at = 23
@@ -27,12 +27,12 @@ module Zr::Kern
     Libc.write(1, buf + at, 24 - at)
   end
 
-  sig [] => Ptr
+  #: () -> ptr
   def arena
     Machine.static(:arena, ARENA)
   end
 
-  sig [I32, Ptr] => I32
+  #: (i32, ptr) -> i32
   def main(argc, argv)
     put_word(RBasic.size)
     put_word(RString.size)

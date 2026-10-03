@@ -44,7 +44,8 @@ module Zr
           days = 0
           if (at = argv.index("--days"))
             usage_error("--all deletes every file; --days does not apply") if all
-            days = Float(argv.slice!(at, 2)[1].to_s, exception: false)
+            _, word = argv.slice!(at, 2)
+            days = Float(word.to_s, exception: false)
             usage_error("--days needs a number of days, 0 or more") unless days&.finite? && days >= 0
           end
           { all:, days: }

@@ -7,14 +7,16 @@ module Zr
   class Lower
     class Function
       module Regions
+        type ensure_body = Hir::node | ^() -> String
+
         class Region < Data
           attr_reader landing: String
-          attr_reader ensure_body: untyped
+          attr_reader ensure_body: ensure_body?
           attr_reader slot: Integer
           attr_reader outer: [Iterators::InlineScope?, String?]?
 
-          def self.new: (String landing, untyped ensure_body, Integer? slot, ?[Iterators::InlineScope?, String?]? outer) -> instance
-                      | (landing: String, ensure_body: untyped, slot: Integer?, ?outer: [Iterators::InlineScope?, String?]?) -> instance
+          def self.new: (String landing, ensure_body? ensure_body, Integer? slot, ?[Iterators::InlineScope?, String?]? outer) -> instance
+                      | (landing: String, ensure_body: ensure_body?, slot: Integer?, ?outer: [Iterators::InlineScope?, String?]?) -> instance
         end
       end
     end

@@ -7,6 +7,40 @@ module Zr
       "Value" => "i64", "F64" => "f64", "Void" => nil
     }.freeze #: Hash[String, String?]
 
+    # The names of the types in a def's `#:` comment, which is inline RBS:
+    # `#: (i32, ptr) -> i32`. sig/zr/kern.rbs declares each name as a type
+    # alias, so RBS reads the comment too.
+    RBS_TYPES = {
+      "i8" => "I8", "bool" => "Bool", "i32" => "I32", "word" => "Word", "ptr" => "Ptr",
+      "value" => "Value", "f64" => "F64", "void" => "Void"
+    }.freeze #: Hash[String, String]
+
+    DEF_TYPE = /\A#:\s*\((?<params>[^()]*)\)\s*->\s*(?<ret>\w+)\s*\z/
+
+    # The `#:` comments of a parsed file, by line.
+    #: (Prism::ParseResult result) -> Hash[Integer, String]
+    def self.annotations(result)
+      lines = {} #: Hash[Integer, String]
+      result.comments.each do |comment|
+        text = comment.location.slice
+        lines[comment.location.start_line] = text if text.start_with?("#:")
+      end
+      lines
+    end
+
+    # The parameter types and the return type of the `#:` comment `text`,
+    # as names of TYPES, or nil when `text` is not `#: (types) -> type`.
+    # Only a return is `void`.
+    #: (String text) -> [Array[String], String]?
+    def self.def_type(text)
+      m = DEF_TYPE.match(text) or return nil
+      params = m[:params].split(",").map { |name| RBS_TYPES[name.strip] }
+      ret = RBS_TYPES[m[:ret]]
+      return nil if ret.nil? || params.any? { |type| type.nil? || type == "Void" }
+
+      [params.compact, ret]
+    end
+
     # Whether a word is an immediate and not a pointer to a cell: a
     # Fixnum, a flonum, a Symbol, nil, true or false. This is the same
     # test as `zr_special_p` (lib/zr/runtime/kernel/value.rb), applied at compile
@@ -38,7 +72,7 @@ module Zr
     # A function delivered as machine code: `Machine.raw "zr_switch"`.
     # @rbs skip
     Raw = Data.define(:name, :params, :ret)
-    # The raw functions by name. The dialect knows only their signatures;
+    # The raw functions by name. The kernel subset knows only their signatures;
     # the native build gets their machine code from the backend
     # (`Backend::Aarch64::Stub`).
     RAW = [Raw.new("zr_switch", %w[Ptr Ptr], "Void")].to_h { |r| [r.name, r] }.freeze #: Hash[String, Raw]
@@ -206,12 +240,15 @@ module Zr
       #: () { () -> void } -> Hash[[Symbol, String], String?]?
       def record
         outer = @reads
-        @reads = {}
-        yield
-        @reads
-      ensure
-        outer&.merge!(@reads) if @reads
-        @reads = outer
+        begin
+          @reads = {}
+          yield
+          @reads
+        ensure
+          reads = @reads
+          outer&.merge!(reads) if reads
+          @reads = outer
+        end
       end
 
       # The text of each row that `reads` (from `record`) names, now: nil

@@ -60,7 +60,7 @@ module Zr::Kern
   INF_WORK_WORDS = 288
 
   # inflateStateCheck: 1 when `strm` has no valid state.
-  sig [Ptr] => Word
+  #: (ptr) -> word
   def zr_inflate_state_check(strm)
     if strm == 0
       return 1
@@ -73,7 +73,7 @@ module Zr::Kern
   end
 
   # inflateResetKeep: resets the stream to its start, and keeps its window.
-  sig [Ptr] => Word
+  #: (ptr) -> word
   def zr_inflate_reset_keep(strm)
     if zr_inflate_state_check(strm) != 0
       return Z_STREAM_ERROR
@@ -102,7 +102,7 @@ module Zr::Kern
   end
 
   # inflateReset: resets the stream to its start, and clears its window.
-  sig [Ptr] => Word
+  #: (ptr) -> word
   def zr_inflate_reset(strm)
     if zr_inflate_state_check(strm) != 0
       return Z_STREAM_ERROR
@@ -117,7 +117,7 @@ module Zr::Kern
   # inflateReset2: resets the stream with a new windowBits, which also
   # selects the wrapper: negative for raw, plus 16 for gzip, plus 32 for
   # either, 0 to take the window size from the header.
-  sig [Ptr, Word] => Word
+  #: (ptr, word) -> word
   def zr_inflate_reset2(strm, window_bits)
     if zr_inflate_state_check(strm) != 0
       return Z_STREAM_ERROR
@@ -151,7 +151,7 @@ module Zr::Kern
   # inflateInit2_: gives a stream its state. The C checks the version and
   # size to find a caller built for another zlib. Here no caller can be,
   # so these checks are not necessary.
-  sig [Ptr, Word] => Word
+  #: (ptr, word) -> word
   def zr_inflate_init2(strm, window_bits)
     if strm == 0
       return Z_STREAM_ERROR
@@ -179,7 +179,7 @@ module Zr::Kern
   end
 
   # inflateEnd: frees the state and its window.
-  sig [Ptr] => Word
+  #: (ptr) -> word
   def zr_inflate_end(strm)
     if zr_inflate_state_check(strm) != 0
       return Z_STREAM_ERROR
@@ -194,7 +194,7 @@ module Zr::Kern
   end
 
   # fixedtables: the decoding tables of a fixed-code block.
-  sig [Ptr] => Void
+  #: (ptr) -> void
   def zr_inflate_fixed_tables(st)
     InflateState.set_lencode(st, zr_inflate_lenfix())
     InflateState.set_lenbits(st, 9)
@@ -206,7 +206,7 @@ module Zr::Kern
   # into the sliding window. `copy` of them were written in this call.
   # The window is made on first use. Returns 1 when the window cannot be
   # made.
-  sig [Ptr, Ptr, Ptr, Word] => Word
+  #: (ptr, ptr, ptr, word) -> word
   def zr_inflate_update_window(strm, st, end_, copy)
     if InflateState.window(st) == 0
       window = Libc.malloc(1 << InflateState.wbits(st))
@@ -254,7 +254,7 @@ module Zr::Kern
 
   # UPDATE_CHECK: the running check, a crc32 for a gzip wrapper and an
   # adler32 for a zlib wrapper.
-  sig [Ptr, Word, Ptr, Word] => Word
+  #: (ptr, word, ptr, word) -> word
   def zr_inflate_update_check(st, check, buf, len)
     if InflateState.flags(st) != 0
       return zr_crc32(check, buf, len)
@@ -263,7 +263,7 @@ module Zr::Kern
   end
 
   # CRC2 and CRC4: adds the `n` low bytes of `word` to the header check.
-  sig [Ptr, Word, Word] => Void
+  #: (ptr, word, word) -> void
   def zr_inflate_crc_header(st, word, n)
     hbuf = Machine.slot(8)
     Machine.store8(hbuf, 0, Machine.i8(word))
@@ -274,7 +274,7 @@ module Zr::Kern
   end
 
   # Copies the registers of the stream from the cursor: RESTORE in the C.
-  sig [Ptr, Ptr, Ptr] => Void
+  #: (ptr, ptr, ptr) -> void
   def zr_inf_restore(strm, st, cur)
     ZStream.set_next_out(strm, InfCursor.put(cur))
     ZStream.set_avail_out(strm, InfCursor.left(cur))
@@ -285,7 +285,7 @@ module Zr::Kern
   end
 
   # Loads the cursor from the registers of the stream: LOAD in the C.
-  sig [Ptr, Ptr, Ptr] => Void
+  #: (ptr, ptr, ptr) -> void
   def zr_inf_load(strm, st, cur)
     InfCursor.set_put(cur, ZStream.next_out(strm))
     InfCursor.set_left(cur, ZStream.avail_out(strm))
@@ -297,7 +297,7 @@ module Zr::Kern
 
   # PULLBYTE: adds one input byte to the bit buffer. Returns false when
   # there is no input, and then inflate leaves.
-  sig [Ptr] => Bool
+  #: (ptr) -> bool
   def zr_inf_pull(cur)
     have = InfCursor.have(cur)
     if have == 0
@@ -313,7 +313,7 @@ module Zr::Kern
 
   # NEEDBITS: gets at least `n` bits into the buffer. Returns false when
   # the input ends first.
-  sig [Ptr, Word] => Bool
+  #: (ptr, word) -> bool
   def zr_inf_need(cur, n)
     while InfCursor.bits(cur) < n
       if !zr_inf_pull(cur)
@@ -324,27 +324,27 @@ module Zr::Kern
   end
 
   # BITS: the low `n` bits of the buffer.
-  sig [Ptr, Word] => Word
+  #: (ptr, word) -> word
   def zr_inf_bits(cur, n)
     Machine.word(InfCursor.hold(cur) & ((1 << n) - 1))
   end
 
   # DROPBITS
-  sig [Ptr, Word] => Void
+  #: (ptr, word) -> void
   def zr_inf_drop(cur, n)
     InfCursor.set_hold(cur, InfCursor.hold(cur) >> n)
     InfCursor.set_bits(cur, InfCursor.bits(cur) - n)
   end
 
   # INITBITS
-  sig [Ptr] => Void
+  #: (ptr) -> void
   def zr_inf_init_bits(cur)
     InfCursor.set_hold(cur, 0)
     InfCursor.set_bits(cur, 0)
   end
 
   # BYTEBITS: moves the buffer to a byte boundary.
-  sig [Ptr] => Void
+  #: (ptr) -> void
   def zr_inf_byte_bits(cur)
     n = InfCursor.bits(cur) & 7
     InfCursor.set_hold(cur, InfCursor.hold(cur) >> n)
@@ -352,7 +352,7 @@ module Zr::Kern
   end
 
   # A data error: sets its message on the stream, and sets the BAD mode.
-  sig [Ptr, Ptr, Ptr] => Word
+  #: (ptr, ptr, ptr) -> word
   def zr_inf_bad(strm, st, msg)
     ZStream.set_msg(strm, msg)
     InflateState.set_mode(st, INF_BAD)
@@ -361,7 +361,7 @@ module Zr::Kern
 
   # The HEAD mode: no wrapper, the first two bytes of a gzip header, or a
   # zlib header.
-  sig [Ptr, Ptr, Ptr] => Word
+  #: (ptr, ptr, ptr) -> word
   def zr_inflate_head(strm, st, cur)
     if InflateState.wrap(st) == 0
       InflateState.set_mode(st, INF_TYPEDO)
@@ -410,7 +410,7 @@ module Zr::Kern
 
   # The FLAGS through HCRC modes: reads a gzip header and checks it when
   # the header has a check. No header struct gets the fields.
-  sig [Ptr, Ptr, Ptr] => Word
+  #: (ptr, ptr, ptr) -> word
   def zr_inflate_gzip_header(strm, st, cur)
     mode = InflateState.mode(st)
     if mode == INF_FLAGS
@@ -527,7 +527,7 @@ module Zr::Kern
   # The work of the NAME and COMMENT modes: skips a zero-terminated header
   # string, and adds it to the check when the header has a check. Returns
   # false when the input ends before the string.
-  sig [Ptr, Ptr] => Bool
+  #: (ptr, ptr) -> bool
   def zr_inflate_skip_string(st, cur)
     have = InfCursor.have(cur)
     if have == 0
@@ -553,7 +553,7 @@ module Zr::Kern
 
   # The DICTID and DICT modes: reads the check of the dictionary, and
   # tells the caller to set the dictionary when it has not.
-  sig [Ptr, Ptr, Ptr] => Word
+  #: (ptr, ptr, ptr) -> word
   def zr_inflate_dict(strm, st, cur)
     if InflateState.mode(st) == INF_DICTID
       if !zr_inf_need(cur, 32)
@@ -578,7 +578,7 @@ module Zr::Kern
 
   # The TYPE, TYPEDO, STORED, COPY_ and COPY modes: the header of a block,
   # and the bytes of a stored block.
-  sig [Ptr, Ptr, Ptr] => Word
+  #: (ptr, ptr, ptr) -> word
   def zr_inflate_type(strm, st, cur)
     mode = InflateState.mode(st)
     flush = InfCursor.flush(cur)
@@ -664,7 +664,7 @@ module Zr::Kern
 
   # Builds a table. The table pointer and root bits go to inflate_table
   # through stack slots, and come back through them.
-  sig [Ptr, Word, Word, Word] => Word
+  #: (ptr, word, word, word) -> word
   def zr_inflate_build(st, type, codes, root)
     table = Machine.slot(8)
     bits = Machine.slot(8)
@@ -687,7 +687,7 @@ module Zr::Kern
   # Gets a code from `table` for the low bits of the buffer. It pulls
   # input until all the bits of the code are there. Returns the code, or
   # -1 when the input ends.
-  sig [Ptr, Ptr, Word] => Word
+  #: (ptr, ptr, word) -> word
   def zr_inflate_decode(cur, table, table_bits)
     while true
       here = zr_zlib_u32(table, zr_inf_bits(cur, table_bits))
@@ -703,7 +703,7 @@ module Zr::Kern
 
   # Gets the second-level code under `last`, and pulls input as needed.
   # Returns the code, or -1 when the input ends.
-  sig [Ptr, Ptr, Word] => Word
+  #: (ptr, ptr, word) -> word
   def zr_inflate_decode_under(cur, table, last)
     while true
       here = zr_zlib_u32(table, zr_inf_code_val(last) + (zr_inf_bits(cur, zr_inf_code_bits(last) + zr_inf_code_op(last)) >> zr_inf_code_bits(last)))
@@ -719,7 +719,7 @@ module Zr::Kern
 
   # The TABLE, LENLENS and CODELENS modes: reads the code lengths of a
   # dynamic block and builds its tables.
-  sig [Ptr, Ptr, Ptr] => Word
+  #: (ptr, ptr, ptr) -> word
   def zr_inflate_table_lens(strm, st, cur)
     mode = InflateState.mode(st)
     lens = InflateState.lens(st)
@@ -837,7 +837,7 @@ module Zr::Kern
 
   # The LEN_ through LIT modes: decodes literals and matches one at a
   # time, or through inflate_fast while the buffers are large enough.
-  sig [Ptr, Ptr, Ptr] => Word
+  #: (ptr, ptr, ptr) -> word
   def zr_inflate_codes(strm, st, cur)
     mode = InflateState.mode(st)
     if mode == INF_LEN_
@@ -991,7 +991,7 @@ module Zr::Kern
 
   # The CHECK, LENGTH, DONE, BAD, MEM and SYNC modes: the trailer, and
   # the end states.
-  sig [Ptr, Ptr, Ptr] => Word
+  #: (ptr, ptr, ptr) -> word
   def zr_inflate_check(strm, st, cur)
     mode = InflateState.mode(st)
     if mode == INF_CHECK
@@ -1051,7 +1051,7 @@ module Zr::Kern
 
   # inflate: decompresses as much of the stream as the input and output
   # space allow.
-  sig [Ptr, Word] => Word
+  #: (ptr, word) -> word
   def zr_inflate(strm, flush)
     if zr_inflate_state_check(strm) != 0 || ZStream.next_out(strm) == 0 || (ZStream.next_in(strm) == 0 && ZStream.avail_in(strm) != 0)
       return Z_STREAM_ERROR
@@ -1127,7 +1127,7 @@ module Zr::Kern
 
   # inflateSetDictionary: puts into the window the dictionary that a zlib
   # stream identifies, or any dictionary for a raw stream.
-  sig [Ptr, Ptr, Word] => Word
+  #: (ptr, ptr, word) -> word
   def zr_inflate_set_dictionary(strm, dictionary, length)
     if zr_inflate_state_check(strm) != 0
       return Z_STREAM_ERROR
@@ -1152,7 +1152,7 @@ module Zr::Kern
   # syncsearch: searches `len` bytes at `buf` for 0, 0, 0xff, 0xff. The
   # word at `have` contains the count found so far. Returns the number of
   # bytes read.
-  sig [Ptr, Ptr, Word] => Word
+  #: (ptr, ptr, word) -> word
   def zr_inflate_sync_search(have, buf, len)
     got = Machine.load64(have, 0)
     nxt = 0
@@ -1177,7 +1177,7 @@ module Zr::Kern
 
   # inflateSync: searches the input for the next full flush point, and
   # sets the stream to continue from there.
-  sig [Ptr] => Word
+  #: (ptr) -> word
   def zr_inflate_sync(strm)
     if zr_inflate_state_check(strm) != 0
       return Z_STREAM_ERROR
@@ -1232,7 +1232,7 @@ module Zr::Kern
 
   # inflateSyncPoint: whether the stream is at the end of a block that a
   # sync or full flush wrote.
-  sig [Ptr] => Word
+  #: (ptr) -> word
   def zr_inflate_sync_point(strm)
     if zr_inflate_state_check(strm) != 0
       return Z_STREAM_ERROR

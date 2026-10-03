@@ -55,7 +55,7 @@ module Zr
       #: (String? word, String command) -> [String, String]
       def gem_flag(word, command)
         name, value = word.to_s.split("=", 2)
-        if value.to_s.empty? || !name.match?(/\A[\w.-]+\z/)
+        if value.to_s.empty? || !name.to_s.match?(/\A[\w.-]+\z/)
           Errors.usage_error("--gem needs <name>=<version> or <name>=<dir>, for example --gem csv=3.3.6", command)
         end
         # The check above stops the build when `value` is nil.

@@ -68,14 +68,14 @@ it:
 # lib/zr/runtime/kernel/string.rb
 module Zr::Kern
   # ...
-  sig [Value] => Value
+  #: (value) -> value
   def zr_str_bytesize(s)
     zr_fix(RString.len(s))
   end
 end
 ```
 
-Every `def` comes after a `sig`. A bare call goes only to a def. To
+Every `def` has a `#: (types) -> type` comment on the line above it. A bare call goes only to a def. To
 call a libc function, declare it with `Libc.import :name, [types] => type`
 and call it as `Libc.name(...)`.
 [The kernel's typed Ruby](../reference/machine-dialect.md) lists the

@@ -9,6 +9,8 @@ module Zr
       # single-pattern form records the reason, and the final raise reads it.
       module Patterns
         # @type instance: Build
+        # @rbs @temp_serial: Integer?
+        # @rbs @temps: Array[Array[Symbol]]
 
         # A hidden local of the innermost scope.
         #: (Symbol | String hint) -> Symbol

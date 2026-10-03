@@ -28,48 +28,48 @@ module Zr::Kern
   TR_DTREE = 1
   TR_BLTREE = 2
 
-  sig [Ptr, Word] => Word
+  #: (ptr, word) -> word
   def zr_tr_freq(tree, n)
     Machine.u32(Machine.load32(tree + (n * 8), 0))
   end
 
-  sig [Ptr, Word, Word] => Void
+  #: (ptr, word, word) -> void
   def zr_tr_set_freq(tree, n, v)
     Machine.store32(tree + (n * 8), 0, Machine.i32(v))
   end
 
-  sig [Ptr, Word] => Word
+  #: (ptr, word) -> word
   def zr_tr_code(tree, n)
     Machine.u32(Machine.load32(tree + (n * 8), 0))
   end
 
-  sig [Ptr, Word, Word] => Void
+  #: (ptr, word, word) -> void
   def zr_tr_set_code(tree, n, v)
     Machine.store32(tree + (n * 8), 0, Machine.i32(v))
   end
 
-  sig [Ptr, Word] => Word
+  #: (ptr, word) -> word
   def zr_tr_len(tree, n)
     Machine.u32(Machine.load32(tree + (n * 8), 4))
   end
 
-  sig [Ptr, Word, Word] => Void
+  #: (ptr, word, word) -> void
   def zr_tr_set_len(tree, n, v)
     Machine.store32(tree + (n * 8), 4, Machine.i32(v))
   end
 
-  sig [Ptr, Word] => Word
+  #: (ptr, word) -> word
   def zr_tr_dad(tree, n)
     Machine.u32(Machine.load32(tree + (n * 8), 4))
   end
 
-  sig [Ptr, Word, Word] => Void
+  #: (ptr, word, word) -> void
   def zr_tr_set_dad(tree, n, v)
     Machine.store32(tree + (n * 8), 4, Machine.i32(v))
   end
 
   # d_code: the distance code of a distance minus one.
-  sig [Word] => Word
+  #: (word) -> word
   def zr_tr_d_code(dist)
     if dist < 256
       return zr_zlib_u32(zr_tr_dist_code(), dist)
@@ -78,7 +78,7 @@ module Zr::Kern
   end
 
   # put_byte: adds one byte to the pending output.
-  sig [Ptr, Word] => Void
+  #: (ptr, word) -> void
   def zr_tr_put_byte(s, c)
     pending = DeflateState.pending(s)
     Machine.store8(DeflateState.pending_buf(s) + pending, 0, Machine.i8(c))
@@ -86,14 +86,14 @@ module Zr::Kern
   end
 
   # put_short: adds a 16-bit word to the pending output, low byte first.
-  sig [Ptr, Word] => Void
+  #: (ptr, word) -> void
   def zr_tr_put_short(s, w)
     zr_tr_put_byte(s, w & 255)
     zr_tr_put_byte(s, (w >> 8) & 255)
   end
 
   # bi_reverse: reverses the low `len` bits of `code`.
-  sig [Word, Word] => Word
+  #: (word, word) -> word
   def zr_tr_bi_reverse(code, len)
     res = 0
     while true
@@ -109,7 +109,7 @@ module Zr::Kern
   end
 
   # bi_flush: writes out the bit buffer, and keeps 7 bits or fewer.
-  sig [Ptr] => Void
+  #: (ptr) -> void
   def zr_tr_bi_flush(s)
     if DeflateState.bi_valid(s) == 16
       zr_tr_put_short(s, DeflateState.bi_buf(s))
@@ -123,7 +123,7 @@ module Zr::Kern
   end
 
   # bi_windup: writes out the bit buffer to a byte boundary.
-  sig [Ptr] => Void
+  #: (ptr) -> void
   def zr_tr_bi_windup(s)
     if DeflateState.bi_valid(s) > 8
       zr_tr_put_short(s, DeflateState.bi_buf(s))
@@ -136,7 +136,7 @@ module Zr::Kern
 
   # send_bits: writes `value` in `length` bits. The buffer is the C 16-bit
   # ush, so it keeps only its low 16 bits at each step.
-  sig [Ptr, Word, Word] => Void
+  #: (ptr, word, word) -> void
   def zr_tr_send_bits(s, value, length)
     bi_valid = DeflateState.bi_valid(s)
     value = value & 65535
@@ -152,7 +152,7 @@ module Zr::Kern
   end
 
   # send_code: writes code `c` of `tree`.
-  sig [Ptr, Word, Ptr] => Void
+  #: (ptr, word, ptr) -> void
   def zr_tr_send_code(s, c, tree)
     zr_tr_send_bits(s, zr_tr_code(tree, c), zr_tr_len(tree, c))
   end
@@ -160,7 +160,7 @@ module Zr::Kern
   # gen_codes: makes the code of each entry of `tree` up to `max_code`
   # from the counts of each bit length. The codes are bit-reversed, as
   # deflate writes them.
-  sig [Ptr, Word, Ptr] => Void
+  #: (ptr, word, ptr) -> void
   def zr_tr_gen_codes(tree, max_code, bl_count)
     next_code = Machine.slot(64)
     code = 0
@@ -183,7 +183,7 @@ module Zr::Kern
   end
 
   # init_block: clears the tree frequencies for a new block.
-  sig [Ptr] => Void
+  #: (ptr) -> void
   def zr_tr_init_block(s)
     n = 0
     while n < TR_L_CODES
@@ -208,7 +208,7 @@ module Zr::Kern
   end
 
   # _tr_init: sets the tree state of a new stream.
-  sig [Ptr] => Void
+  #: (ptr) -> void
   def zr_tr_init(s)
     DeflateState.set_bi_buf(s, 0)
     DeflateState.set_bi_valid(s, 0)
@@ -216,25 +216,25 @@ module Zr::Kern
   end
 
   # smaller: whether node `n` sorts before `m`, by frequency, then depth.
-  sig [Ptr, Word, Word, Ptr] => Bool
+  #: (ptr, word, word, ptr) -> bool
   def zr_tr_smaller(tree, n, m, depth)
     fn = zr_tr_freq(tree, n)
     fm = zr_tr_freq(tree, m)
     fn < fm || (fn == fm && zr_zlib_byte(depth + n) <= zr_zlib_byte(depth + m))
   end
 
-  sig [Ptr, Word] => Word
+  #: (ptr, word) -> word
   def zr_tr_heap(s, i)
     zr_zlib_u32(DeflateState.heap(s), i)
   end
 
-  sig [Ptr, Word, Word] => Void
+  #: (ptr, word, word) -> void
   def zr_tr_set_heap(s, i, v)
     zr_zlib_set_u32(DeflateState.heap(s), i, v)
   end
 
   # pqdownheap: restores the heap property from node `k` down.
-  sig [Ptr, Ptr, Word] => Void
+  #: (ptr, ptr, word) -> void
   def zr_tr_pqdownheap(s, tree, k)
     depth = DeflateState.depth(s)
     v = zr_tr_heap(s, k)
@@ -256,7 +256,7 @@ module Zr::Kern
   # gen_bitlen: calculates the optimal bit length of each code of `tree`,
   # the count of each length, and the block's bit lengths with this tree
   # and with the static tree `stree`, if there is one.
-  sig [Ptr, Ptr, Word, Ptr, Ptr, Word, Word] => Void
+  #: (ptr, ptr, word, ptr, ptr, word, word) -> void
   def zr_tr_gen_bitlen(s, tree, max_code, stree, extra, base, max_length)
     bl_count = DeflateState.bl_count(s)
     bits = 0
@@ -327,7 +327,7 @@ module Zr::Kern
   # bit length tree) from its frequencies. It sets the lengths and codes,
   # keeps the largest code in the state, and updates the block's bit
   # lengths.
-  sig [Ptr, Word] => Void
+  #: (ptr, word) -> void
   def zr_tr_build_tree(s, which)
     tree = DeflateState.dyn_ltree(s)
     stree = zr_tr_static_ltree()
@@ -428,7 +428,7 @@ module Zr::Kern
 
   # scan_tree: counts the bit length tree frequencies from the lengths of
   # `tree`. It counts runs in the same way as the bit length codes.
-  sig [Ptr, Ptr, Word] => Void
+  #: (ptr, ptr, word) -> void
   def zr_tr_scan_tree(s, tree, max_code)
     bl_tree = DeflateState.bl_tree(s)
     prevlen = 0 - 1
@@ -479,7 +479,7 @@ module Zr::Kern
   end
 
   # send_tree: writes the lengths of `tree` with the bit length codes.
-  sig [Ptr, Ptr, Word] => Void
+  #: (ptr, ptr, word) -> void
   def zr_tr_send_tree(s, tree, max_code)
     bl_tree = DeflateState.bl_tree(s)
     prevlen = 0 - 1
@@ -537,7 +537,7 @@ module Zr::Kern
 
   # build_bl_tree: builds the bit length tree. Returns the index in
   # bl_order of the last bit length code that is necessary to send.
-  sig [Ptr] => Word
+  #: (ptr) -> word
   def zr_tr_build_bl_tree(s)
     zr_tr_scan_tree(s, DeflateState.dyn_ltree(s), DeflateState.l_max_code(s))
     zr_tr_scan_tree(s, DeflateState.dyn_dtree(s), DeflateState.d_max_code(s))
@@ -556,7 +556,7 @@ module Zr::Kern
 
   # send_all_trees: writes the header of a dynamic block: the counts, the
   # bit length code lengths, the literal tree and the distance tree.
-  sig [Ptr, Word, Word, Word] => Void
+  #: (ptr, word, word, word) -> void
   def zr_tr_send_all_trees(s, lcodes, dcodes, blcodes)
     order = zr_tr_bl_order()
     zr_tr_send_bits(s, lcodes - 257, 5)
@@ -572,7 +572,7 @@ module Zr::Kern
   end
 
   # _tr_stored_block: writes a stored block of `stored_len` bytes at `buf`.
-  sig [Ptr, Ptr, Word, Word] => Void
+  #: (ptr, ptr, word, word) -> void
   def zr_tr_stored_block(s, buf, stored_len, last)
     zr_tr_send_bits(s, (TR_STORED_BLOCK << 1) + last, 3)
     zr_tr_bi_windup(s)
@@ -585,14 +585,14 @@ module Zr::Kern
   end
 
   # _tr_flush_bits
-  sig [Ptr] => Void
+  #: (ptr) -> void
   def zr_tr_flush_bits(s)
     zr_tr_bi_flush(s)
   end
 
   # _tr_align: writes an empty static block, so inflate has sufficient
   # lookahead.
-  sig [Ptr] => Void
+  #: (ptr) -> void
   def zr_tr_align(s)
     zr_tr_send_bits(s, TR_STATIC_TREES << 1, 3)
     zr_tr_send_code(s, TR_END_BLOCK, zr_tr_static_ltree())
@@ -600,7 +600,7 @@ module Zr::Kern
   end
 
   # compress_block: writes the block's symbols with the given trees.
-  sig [Ptr, Ptr, Ptr] => Void
+  #: (ptr, ptr, ptr) -> void
   def zr_tr_compress_block(s, ltree, dtree)
     sym_buf = DeflateState.sym_buf(s)
     sym_next = DeflateState.sym_next(s)
@@ -647,7 +647,7 @@ module Zr::Kern
 
   # detect_data_type: Z_TEXT if the block contains no byte of the block
   # list and at least one byte of the allow list. Else Z_BINARY.
-  sig [Ptr] => Word
+  #: (ptr) -> word
   def zr_tr_detect_data_type(s)
     ltree = DeflateState.dyn_ltree(s)
     block_mask = 4093624447
@@ -674,7 +674,7 @@ module Zr::Kern
 
   # _tr_flush_block: writes the block in the smallest form (dynamic trees,
   # static trees, or stored), and starts a new block.
-  sig [Ptr, Ptr, Word, Word] => Void
+  #: (ptr, ptr, word, word) -> void
   def zr_tr_flush_block(s, buf, stored_len, last)
     opt_lenb = 0
     static_lenb = 0
@@ -714,7 +714,7 @@ module Zr::Kern
 
   # _tr_tally: records a literal (dist 0) or a match for the block.
   # Returns 1 when the block is full and must be flushed.
-  sig [Ptr, Word, Word] => Word
+  #: (ptr, word, word) -> word
   def zr_tr_tally(s, dist, lc)
     sym_buf = DeflateState.sym_buf(s)
     sym_next = DeflateState.sym_next(s)

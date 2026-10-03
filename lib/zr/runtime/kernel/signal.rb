@@ -20,7 +20,7 @@ module Zr::Kern
   # the count of `signo`. Only this handler changes the count, and it
   # only increases, so the program reads it without a lock. The program
   # reads it at the next safe point.
-  sig [I32] => Void
+  #: (i32) -> void
   def zr_trap_caught(signo)
     Machine.gates_enter
     count = Machine.static(:signal_counts, NSIG * 8) + (Machine.u32(signo) * 8)
@@ -33,7 +33,7 @@ module Zr::Kern
 
   # SIGCHLD with default handling while a thread waits for a child. The
   # handler only wakes the waiters, because the default does nothing else.
-  sig [I32] => Void
+  #: (i32) -> void
   def zr_chld_caught(signo)
     Machine.gates_enter
     zr_chld_note(signo)
@@ -42,7 +42,7 @@ module Zr::Kern
   # A child changed state. The handler increases the count and writes a
   # byte to the waiters' pipe, so a thread blocked on it wakes. If the
   # pipe is full, the waiters wake already.
-  sig [I32] => Void
+  #: (i32) -> void
   def zr_chld_note(signo)
     cell = Machine.static(:chld_pipe, 24)
     if Machine.load64(cell, 0) == 0 || Machine.u32(signo) != Machine.load64(cell, 16)
@@ -59,7 +59,7 @@ module Zr::Kern
   # it the first time a thread waits for a child while other threads run.
   # Both ends close on exec and never block. If the program does not
   # trap SIGCHLD, zr catches it only for the waiters.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_chld_fd(signo)
     cell = Machine.static(:chld_pipe, 24)
     if Machine.load64(cell, 0) != 0
@@ -90,14 +90,14 @@ module Zr::Kern
   end
 
   # The number of SIGCHLDs since zr made the waiters' pipe.
-  sig [] => Value
+  #: () -> value
   def zr_chld_count
     zr_fix(Machine.load64(Machine.static(:chld_count, 8), 0))
   end
 
   # Reads all bytes from the waiters' pipe, so that a blocked thread waits
   # for the next child.
-  sig [] => Value
+  #: () -> value
   def zr_chld_drain
     cell = Machine.static(:chld_pipe, 24)
     if Machine.load64(cell, 0) == 0
@@ -112,7 +112,7 @@ module Zr::Kern
     Machine.value(QNIL)
   end
 
-  sig [I32] => Void
+  #: (i32) -> void
   def zr_trap_dropped(signo)
   end
 
@@ -120,7 +120,7 @@ module Zr::Kern
   # previous handling, or the negated errno. The mask stays empty and no
   # call restarts, as in ruby_signal. Thus a POSIX signal interrupts a
   # blocking call, and its handler runs without a wait for the call.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_trap_handle(signo, how)
     h = zr_fix2long(how)
     fn = h
@@ -139,7 +139,7 @@ module Zr::Kern
     zr_fix(zr_trap_kind(Machine.load64(old, 0)))
   end
 
-  sig [Word] => Word
+  #: (word) -> word
   def zr_trap_kind(fn)
     if fn == SIGNAL_DEFAULT || fn == SIGNAL_IGNORE
       return fn
@@ -160,7 +160,7 @@ module Zr::Kern
   # nil if none remain. This clears the pending mark before the scan and
   # sets it again when it finds a signal. Thus this call or the next one
   # finds a signal that comes during the scan.
-  sig [] => Value
+  #: () -> value
   def zr_trap_next
     pending = Machine.static(:signal_pending, 8)
     if Machine.load64(pending, 0) == 0
@@ -184,7 +184,7 @@ module Zr::Kern
 
   # A safe point: runs the Ruby handlers of all received POSIX signals.
   # Returns QUNDEF if a handler raised.
-  sig [] => Value
+  #: () -> value
   def zr_trap_check
     if Machine.load64(Machine.static(:signal_pending, 8), 0) == 0
       return Machine.value(QNIL)
@@ -196,7 +196,7 @@ module Zr::Kern
   # run and this returns nil, so the caller makes the call again. Else it
   # returns the caller's result: the negated errno, or QUNDEF if a
   # handler raised.
-  sig [] => Value
+  #: () -> value
   def zr_io_retry
     errno = zr_errno()
     if errno != EINTR

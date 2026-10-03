@@ -2,7 +2,7 @@
 module Zr::Kern
   Libc.import :exit, [I32] => Void
 
-  sig [I32, Ptr] => I32
+  #: (i32, ptr) -> i32
   def main(argc, argv)
     code = 3
     Libc.exit(code)

@@ -200,7 +200,7 @@ runs the HIR of a string node by node (`lib/zr/eval/walk.rb`).
 `ZR_EVAL=walk` uses it on a native target too.
 
 **Typed Ruby.** The language of the kernel: plain Ruby syntax in one
-`module Zr::Kern` for each file, with a `sig` of machine types before
+`module Zr::Kern` for each file, with a `#:` comment of machine types above
 each `def`. See [The kernel's typed Ruby](machine-dialect.md).
 
 **Undef.** The Value `0x34`. A function returns it when an unwind is

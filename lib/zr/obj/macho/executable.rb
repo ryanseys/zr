@@ -76,7 +76,7 @@ module Zr
         STACK = 0x400_0000
         # The oldest macOS that a binary loads on. The SDK version is the
         # same value, because this linker reads no SDK. The target holds it.
-        MIN_MACOS = Target::AARCH64_DARWIN.min_os_parts.then { |x, y, z| (x << 16) | (y << 8) | z }
+        MIN_MACOS = Target::AARCH64_DARWIN.min_os_parts.inject(0) { |version, part| (version << 8) | part }
         SDK = MIN_MACOS
 
         MH_MAGIC_64 = 0xFEEDFACF
@@ -274,7 +274,8 @@ module Zr
         def beside_base
           b = @base
           code_at = BASE + b.text_size
-          code_size = Bytes.align(%i[text stubs const].inject(code_at) { |at, part| place(part, at) } - code_at, PAGE)
+          code_end = %i[text stubs const].inject(code_at) { |at, part| place(part, at) } #$ Integer
+          code_size = Bytes.align(code_end - code_at, PAGE)
           raise Refused, "a program with no code" if code_size.zero?
           raise Refused, "#{code_size} bytes of code, past the room beside the runtime" if code_size > Prelink::RESERVE
 
@@ -446,15 +447,15 @@ module Zr
           end
           order = [nil, *@segments, nil]
           table = +"".b
-          offsets = order.map do |s|
-            next 0 unless s&.starts
+          offsets = order.map do |s| #$ Integer
+            next 0 unless s && (starts = s.starts)
 
             here = 4 + (order.size * 4) + table.bytesize
             # size, page_size, pointer_format, segment_offset,
             # max_valid_pointer, page_count: 22 bytes before the array of
             # page starts.
-            table << [22 + (s.starts.size * 2), PAGE, PTR_64_OFFSET].pack("L<S<2")
-            table << [s.vm - BASE].pack("Q<") << [0, s.starts.size].pack("L<S<") << s.starts.pack("S<*")
+            table << [22 + (starts.size * 2), PAGE, PTR_64_OFFSET].pack("L<S<2")
+            table << [s.vm - BASE].pack("Q<") << [0, starts.size].pack("L<S<") << starts.pack("S<*")
             table << ("\0".b * (-table.bytesize % 4))
             here
           end

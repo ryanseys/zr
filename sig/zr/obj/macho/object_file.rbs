@@ -32,7 +32,8 @@ module Zr
           attr_accessor bytes: String?
           attr_accessor relocs: Array[Integer]
 
-          def self.new: (**untyped) -> instance
+          def self.new: (name: String, segment: String, addr: Integer, size: Integer, align: Integer, flags: Integer, bytes: String?,
+                         relocs: Array[Integer]) -> instance
         end
 
         class Laid < Data
@@ -47,8 +48,8 @@ module Zr
           attr_reader sizeofcmds: Integer
           attr_reader segment_cmd: Integer
 
-          def self.new: (*untyped) -> instance
-                      | (**untyped) -> instance
+          def self.new: (sections: Array[SectionBuild], symbols: Array[Sym], strtab: String, vmsize: Integer, data_start: Integer,
+                         data_end: Integer, symoff: Integer, stroff: Integer, sizeofcmds: Integer, segment_cmd: Integer) -> instance
         end
 
         class SectionBuild < Struct[untyped]
@@ -66,7 +67,9 @@ module Zr
           attr_accessor offset: Integer
           attr_accessor reloff: Integer
 
-          def self.new: (**untyped) -> instance
+          def self.new: (name: String, seg: String, flags: Integer, bytes: String, size: Integer, align: Integer,
+                         items: Array[[Code | Datum, Integer]], relocs: Array[untyped], addr: Integer, offset: Integer,
+                         reloff: Integer) -> instance
         end
 
         # `strx` is nil until `laid_out` sets it, before any reader.
@@ -79,7 +82,7 @@ module Zr
           attr_accessor type: Integer
           attr_accessor strx: Integer
 
-          def self.new: (**untyped) -> instance
+          def self.new: (name: String, bare: String, linkage: Symbol, sect: Integer, value: Integer, type: Integer) -> instance
         end
       end
     end

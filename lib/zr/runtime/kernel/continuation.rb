@@ -17,7 +17,7 @@ module Zr::Kern
   CONT_CAPTURE = 1
   CONT_RESTORE = 2
 
-  sig [] => Ptr
+  #: () -> ptr
   def zr_cont_side_ctx
     Machine.static(:cont_side_ctx, CONTEXT_BYTES)
   end
@@ -25,7 +25,7 @@ module Zr::Kern
   # The work on the side stack. `cont_op` identifies the state, and
   # `cont_mode` identifies the job: copy the stack out, or copy it back.
   # Then it switches back to the capture's context.
-  sig [] => Void
+  #: () -> void
   def zr_cont_side
     while true
       s = Machine.ptr(Machine.load64(Machine.static(:cont_op, 8), 0))
@@ -45,7 +45,7 @@ module Zr::Kern
 
   # The top of the current fiber's stack, or 0 if the host does not give
   # access to it.
-  sig [] => Word
+  #: () -> word
   def zr_cont_stack_high
     f = zr_fiber_current()
     if RFiber.stack(f) != 0
@@ -62,7 +62,7 @@ module Zr::Kern
   # collector read them as a cell. Thus zr adds only the objects that such
   # a cell refers to. The frame loop adds the Values in an Env's slots,
   # because they belong to the frame record.
-  sig [Value, Value] => Void
+  #: (value, value) -> void
   def zr_cont_root(roots, v)
     if zr_special_p(v) || (RBasic.flags(v) & FL_STACK) == 0
       zr_ary_push(roots, v)
@@ -78,7 +78,7 @@ module Zr::Kern
   end
 
   # Adds each Value in the frames and in the kernel's roots to `roots`.
-  sig [Value] => Void
+  #: (value) -> void
   def zr_cont_roots(roots)
     t = zr_task()
     rec = Task.top(t)
@@ -118,7 +118,7 @@ module Zr::Kern
 
   # Captures the `callcc` state into `cont`. Returns false the first time,
   # and true each time a call comes back through the capture.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_cont_capture(cont)
     high = zr_cont_stack_high()
     if high == 0
@@ -154,7 +154,7 @@ module Zr::Kern
   # Calls `cont`. It restores the task, the kernel's roots and the stack
   # as the capture saved them. Then it resumes the capture's context, so
   # this function does not return.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_cont_resume(cont)
     s = Machine.ptr(zr_fix2long(zr_hidden_get(cont, zr_sym(Machine.id(:__state__)))))
     ContState.set_resumed(s, 1)

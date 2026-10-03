@@ -81,10 +81,13 @@ module Zr
     def words(line)
       words = [] #: Array[String]
       field = +""
-      line.scan(/\G\s*(?>([^\0\s\\'"]+)|'([^\0']*)'|"((?:[^\0"\\]|\\[^\0])*)"|(\\[^\0]?)|(\S))(\s|\z)?/m) do |word, sq, dq, esc, garbage, sep|
+      line.scan(/\G\s*(?>([^\0\s\\'"]+)|'([^\0']*)'|"((?:[^\0"\\]|\\[^\0])*)"|(\\[^\0]?)|(\S))(\s|\z)?/m) do |groups|
+        # The pattern has groups, so `scan` yields an Array of them.
+        word, sq, dq, esc, garbage, sep = groups #: Array[String?]
         raise Invalid, "ZR_LINK_ARGS has a quote with no end: #{line.inspect}. Close the quote, or put a \ before it." if garbage
 
-        field << (word || sq || dq&.gsub(/\\([$`"\\\n])/, '\\1') || esc.gsub(/\\(.)/, '\\1'))
+        # One of the five groups matches; the last is an escape.
+        field << (word || sq || dq&.gsub(/\\([$`"\\\n])/, '\\1') || esc.to_s.gsub(/\\(.)/, '\\1'))
         next unless sep
 
         words << field
@@ -108,7 +111,8 @@ module Zr
       return default if value.empty?
       return value if values.include?(value)
 
-      raise Invalid, "#{name} is #{value.inspect}. Set it to #{values[0..-2].join(", ")} or #{values[-1]}, for example #{name}=#{default}."
+      *others, last = values
+      raise Invalid, "#{name} is #{value.inspect}. Set it to #{others.join(", ")} or #{last}, for example #{name}=#{default}."
     end
 
     # The number in `name` (an Integer, or with `kind: :Float` any
@@ -218,12 +222,14 @@ module Zr
     #: [T] (**String? overrides) { (Config) -> T } -> T
     def self.with(**overrides)
       saved = overrides.to_h { |name, _| [name, ENV[name.to_s]] }
-      overrides.each { |name, value| ENV[name.to_s] = value }
-      reset!
-      yield current
-    ensure
-      saved.each { |name, value| ENV[name.to_s] = value }
-      reset!
+      begin
+        overrides.each { |name, value| ENV[name.to_s] = value }
+        reset!
+        yield current
+      ensure
+        saved.each { |name, value| ENV[name.to_s] = value }
+        reset!
+      end
     end
   end
 end

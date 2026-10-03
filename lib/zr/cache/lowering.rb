@@ -99,14 +99,16 @@ module Zr
             made(piece)
           end
         end
-        missing.zip(made) { |i, (record, blobs)| records[i] = [record, blobs] }
-        Timing.phase("#{label}: kept") { keep(pieces, records) }
-        Timing.phase("#{label}: code read") { results(records) }
+        missing.zip(made) { |i, pair| records[i] = pair }
+        # Each piece now has its record.
+        filled = records #: Array[[Hash[Symbol, untyped], Hash[String, String]?]]
+        Timing.phase("#{label}: kept") { keep(pieces, filled) }
+        Timing.phase("#{label}: code read") { results(filled) }
       end
 
       # `[record, nil]` for a piece whose entry holds, else nil. The code
       # comes from the code cache.
-      #: (Piece piece) -> [Hash[Symbol, untyped], nil]?
+      #: (Piece piece) -> [Hash[Symbol, untyped], Hash[String, String]?]?
       def current(piece)
         record = piece.key && Store.read(:lowering, piece.key)
         reason = if piece.key.nil? then "no key"

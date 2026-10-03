@@ -5,7 +5,7 @@ module Zr::Kern
   # The frame that called eval. A runtime method calls the compiler, and
   # that method's frame is on top. Thus the next frame out is the frame
   # that contains the call.
-  sig [] => Ptr
+  #: () -> ptr
   def zr_caller_frame
     Frame.prev(Task.top(zr_task()))
   end
@@ -17,23 +17,23 @@ module Zr::Kern
   # `x`. CRuby finds the same frame with rb_vm_get_ruby_level_next_cfp in
   # eval_string_with_cref, and uses all of that frame's block: its locals,
   # its ep, and its cref.
-  sig [] => Ptr
+  #: () -> ptr
   def zr_eval_frame
     zr_frame_with_file(zr_caller_frame())
   end
 
-  sig [] => Value
+  #: () -> value
   def zr_eval_cref
     Frame.cref(zr_eval_frame())
   end
 
-  sig [] => Value
+  #: () -> value
   def zr_eval_block
     Frame.blk(zr_eval_frame())
   end
 
   # `(eval at file:line)`: the name that ruby gives an eval with no file.
-  sig [] => Value
+  #: () -> value
   def zr_eval_source_name
     rec = zr_eval_frame()
     b = Machine.slot(Buf.size)
@@ -51,14 +51,14 @@ module Zr::Kern
   # The cref for an eval of a string: the module on top of the scope of
   # the call. Thus a constant of the enclosing module stays visible, and
   # `Module.nesting` shows both modules.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_eval_cref_under(mod, outer)
     zr_cref_push(mod, outer)
   end
 
   # The cref for a `load` with a wrap module: the module on top of the
   # toplevel cref. A def there is private, as at the toplevel.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_wrap_cref(mod)
     c = zr_cref_push(mod, zr_global(G_TOP_CREF))
     RCref.set_vis(c, VIS_PRIVATE)
@@ -66,7 +66,7 @@ module Zr::Kern
   end
 
   # The names in a locals table, as symbols in slot order.
-  sig [Ptr] => Value
+  #: (ptr) -> value
   def zr_local_names(table)
     a = zr_ary_new(0)
     if table != 0
@@ -83,7 +83,7 @@ module Zr::Kern
   # The Env of a frame's locals, as a cell, or nil if the frame keeps them
   # only in its frame record. A scope that calls eval or binding always
   # has an Env; `Hir::Locals.opens_locals?` makes sure of this.
-  sig [Ptr] => Value
+  #: (ptr) -> value
   def zr_frame_env(rec)
     if FrameMeta.env(Frame.meta(rec)) == 0
       return Machine.value(QNIL)
@@ -91,7 +91,7 @@ module Zr::Kern
     zr_env_escape(Machine.value(Machine.load64(rec + Frame.size, 0)))
   end
 
-  sig [] => Value
+  #: () -> value
   def zr_eval_env
     zr_frame_env(zr_eval_frame())
   end
@@ -100,17 +100,17 @@ module Zr::Kern
   # as Method#parameters returns them. The frame can be the method body,
   # or a block, an eval, or a block in an eval inside the method. Returns
   # nil outside a method.
-  sig [] => Value
+  #: () -> value
   def zr_eval_parameters
     zr_meta_parameters(Frame.meta(zr_eval_frame()))
   end
 
-  sig [Value] => Value
+  #: (value) -> value
   def zr_binding_parameters(b)
     zr_meta_parameters(RProc.meta(b))
   end
 
-  sig [Ptr] => Value
+  #: (ptr) -> value
   def zr_meta_parameters(meta)
     if !zr_meta_in_method(meta)
       return Machine.value(QNIL)
@@ -121,7 +121,7 @@ module Zr::Kern
     zr_param_rows(FrameMeta.params(meta), false)
   end
 
-  sig [Ptr] => Bool
+  #: (ptr) -> bool
   def zr_meta_in_method(meta)
     while meta != 0
       kind = FrameMeta.kind(meta)
@@ -138,7 +138,7 @@ module Zr::Kern
 
   # The names of all scopes that the calling frame can reach, innermost
   # first: its own, then one Array for each Env along the parent list.
-  sig [] => Value
+  #: () -> value
   def zr_eval_scopes
     out = zr_ary_new(0)
     env = zr_eval_env()
@@ -154,7 +154,7 @@ module Zr::Kern
   # writes go to the scope. A Binding has no home and no call site. Thus
   # `serial` is the line of the capture, and `site` marks the single
   # TOPLEVEL_BINDING, which ruby reports as `<main>` line 0.
-  sig [] => Value
+  #: () -> value
   def zr_binding
     rec = zr_caller_frame()
     blk = zr_block_proc(Frame.blk(rec))
@@ -167,7 +167,7 @@ module Zr::Kern
   # `Proc#binding`: the scope where the block was written, which the Proc
   # already contains. The line is the block's line, because a Proc has no
   # line.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_proc_binding(p)
     if RProc.meta(p) == 0
       return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("Can't create Binding from C level Proc"), 38)
@@ -181,7 +181,7 @@ module Zr::Kern
   # The scope of a Proc written in Ruby, also for an isolated Proc.
   # Ractor.shareable_proc reads a block's outer locals from it, as CRuby
   # reads its env.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_proc_scope(p)
     b = zr_binding_of(RProc.meta(p), RProc.env(p), RProc.self(p), RProc.cref(p))
     RProc.set_blk(b, RProc.blk(p))
@@ -189,7 +189,7 @@ module Zr::Kern
     b
   end
 
-  sig [Ptr, Value, Value, Value] => Value
+  #: (ptr, value, value, value) -> value
   def zr_binding_of(meta, env, self_, cref)
     b = zr_alloc(T_PROC, zr_core_class(Machine.id(:Binding)), RProc.size)
     RProc.set_fn(b, 0)
@@ -212,12 +212,12 @@ module Zr::Kern
   # The lexical scope of a Binding, where `binding.eval` runs its string.
   # The tree-walking interpreter reads it. The eval compiler gives the
   # Binding to `zr_binding_run` and does not read it.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_binding_cref(b)
     RProc.cref(b)
   end
 
-  sig [Value] => Value
+  #: (value) -> value
   def zr_binding_scopes(b)
     out = zr_ary_new(0)
     env = RProc.env(b)
@@ -228,12 +228,12 @@ module Zr::Kern
     out
   end
 
-  sig [Value] => Value
+  #: (value) -> value
   def zr_binding_receiver(b)
     RProc.self(b)
   end
 
-  sig [Value] => Value
+  #: (value) -> value
   def zr_binding_file(b)
     if RProc.site(b) != 0
       return zr_str_new(Machine.bytes("<main>"), 6)
@@ -245,7 +245,7 @@ module Zr::Kern
     zr_str_new(FrameMeta.file(meta), FrameMeta.file_len(meta))
   end
 
-  sig [Value] => Value
+  #: (value) -> value
   def zr_binding_line(b)
     if RProc.site(b) != 0
       return zr_fix(0)
@@ -253,12 +253,12 @@ module Zr::Kern
     zr_fix(RProc.serial(b))
   end
 
-  sig [Value, Value, Value] => Value
+  #: (value, value, value) -> value
   def zr_binding_get(b, depth, index)
     zr_env_get(zr_env_up(RProc.env(b), zr_fix2long(depth)), zr_fix2long(index))
   end
 
-  sig [Value, Value, Value, Value] => Value
+  #: (value, value, value, value) -> value
   def zr_binding_set(b, depth, index, v)
     zr_env_set(zr_env_up(RProc.env(b), zr_fix2long(depth)), zr_fix2long(index), v)
     v
@@ -267,7 +267,7 @@ module Zr::Kern
   # Runs a loaded eval toplevel in a Binding, with its self, its cref and
   # its locals. The Binding keeps the Env where the string ran, so a name
   # that the string wrote becomes a local of the Binding.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_binding_run(code, b)
     e = zr_code_env(code, RProc.env(b))
     RProc.set_env(b, e)
@@ -280,7 +280,7 @@ module Zr::Kern
 
   # Adds a name to the Binding, in a new scope inside the Binding's scope.
   # The Binding keeps the table, so zr never frees it.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_binding_add(b, name)
     table = zr_xmalloc(16)
     Machine.store64(table, 0, 1)
@@ -290,7 +290,7 @@ module Zr::Kern
   end
 
   # `TOPLEVEL_BINDING`: main's scope, set when the program starts.
-  sig [Value, Value, Value, Ptr] => Value
+  #: (value, value, value, ptr) -> value
   def zr_toplevel_binding(env, self_, cref, meta)
     b = zr_binding_of(meta, env, self_, cref)
     RProc.set_site(b, 1)

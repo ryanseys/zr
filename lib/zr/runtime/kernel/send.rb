@@ -5,7 +5,7 @@ module Zr::Kern
   # Raises the error for a miss, with CRuby's message. A bare identifier
   # (`vcall`) raises NameError and shows main as `main`. A `super` with no
   # method above it has its own message.
-  sig [Value, Word, Bool, Bool, Word, Ptr] => Value
+  #: (value, word, bool, bool, word, ptr) -> value
   def zr_no_method_from(recv, mid, vcall, from_super, argc, argv)
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
@@ -39,7 +39,7 @@ module Zr::Kern
   # Raises `wrong number of arguments (given 3, expected 1..2)`. `max` is
   # equal to `min` for an exact count, and -1 for no limit. For a def with
   # required keywords, the message gives them after the count.
-  sig [Word, Word, Word, Ptr, Word] => Value
+  #: (word, word, word, ptr, word) -> value
   def zr_wrong_arity_kw(given, min, max, ids, nkw)
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
@@ -72,17 +72,17 @@ module Zr::Kern
     zr_raise_buf(zr_global(G_ARGUMENT_ERROR), b)
   end
 
-  sig [Word, Word] => Value
+  #: (word, word) -> value
   def zr_wrong_arity(given, expected)
     zr_wrong_arity_kw(given, expected, expected, 0, 0)
   end
 
-  sig [Word, Word, Word] => Value
+  #: (word, word, word) -> value
   def zr_wrong_arity_range(given, min, max)
     zr_wrong_arity_kw(given, min, max, 0, 0)
   end
 
-  sig [Word, Word] => Value
+  #: (word, word) -> value
   def zr_wrong_arity_min(given, min)
     zr_wrong_arity_kw(given, min, 0 - 1, 0, 0)
   end
@@ -97,14 +97,14 @@ module Zr::Kern
   # one Hash argument (`zr_kw_undeclared`). A builtin, an accessor or a
   # `method_missing` gets a flagged Hash, made from the table
   # (`zr_kw_tab_in`).
-  sig [] => Void
+  #: () -> void
   def zr_kw_pass
     Task.set_kw(zr_task(), 1)
   end
 
   # Puts the table's values into one Hash, in place of the first value.
   # Returns the new argument count.
-  sig [Word, Word, Ptr] => Word
+  #: (word, word, ptr) -> word
   def zr_kw_tab_in(tab, argc, argv)
     n = Machine.load64(tab, 0)
     if n == 0
@@ -123,7 +123,7 @@ module Zr::Kern
 
   # Returns the argument count of a send whose last argument is the
   # keywords Hash. An empty Hash, as from `**{}`, is not passed.
-  sig [Word, Ptr] => Word
+  #: (word, ptr) -> word
   def zr_kw_argc(argc, argv)
     h = Machine.value(Machine.load64(argv + ((argc - 1) * 8), 0))
     if RHash.live(h) == 0
@@ -135,7 +135,7 @@ module Zr::Kern
 
   # The keyword word after zr_kw_tab_in: 1 for the Hash that it made, or
   # 0 for a table of no keywords, which makes none.
-  sig [Word] => Word
+  #: (word) -> word
   def zr_kw_hashed(tab)
     if Machine.load64(tab, 0) == 0
       return 0
@@ -148,7 +148,7 @@ module Zr::Kern
   # count as simple then takes a lone Array whole, as
   # setup_parameters_complex allows no autosplat after a `**h`, even an
   # empty one. Every reader of a table finds no keywords in it.
-  sig [Word, Ptr] => Word
+  #: (word, ptr) -> word
   def zr_kw_argc_yield(argc, argv)
     h = Machine.value(Machine.load64(argv + ((argc - 1) * 8), 0))
     if RHash.live(h) == 0
@@ -160,12 +160,12 @@ module Zr::Kern
   end
 
   # `ruby2_keywords`: the marked methods, by their function address.
-  sig [] => Ptr
+  #: () -> ptr
   def zr_ruby2_fns
     Machine.static(:ruby2_fns, IvTab.size)
   end
 
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_ruby2_mark_m(klass, name)
     slot = Machine.slot(8)
     r = zr_name_id(name, slot)
@@ -181,7 +181,7 @@ module Zr::Kern
     Machine.value(QNIL)
   end
 
-  sig [Value] => Value
+  #: (value) -> value
   def zr_ruby2_mark_proc(pr)
     zr_ivtab_set(zr_ruby2_fns(), Machine.word(RProc.fn(pr)), Machine.value(QTRUE))
     pr
@@ -192,7 +192,7 @@ module Zr::Kern
   # `ruby2_keywords` rest (the function `fn`, 0 for no rest) flags the Hash
   # that it gets, so a later `*rest` passes it as keywords again. Returns
   # the new argument count.
-  sig [Word, Word, Ptr, Ptr] => Word
+  #: (word, word, ptr, ptr) -> word
   def zr_kw_undeclared(kw, argc, argv, fn)
     if kw > 1
       argc = zr_kw_tab_in(kw, argc, argv)
@@ -206,7 +206,7 @@ module Zr::Kern
 
   # A splat whose last element is a flagged Hash passes that Hash as
   # keywords, in a new Hash without the flag.
-  sig [Word, Ptr] => Word
+  #: (word, ptr) -> word
   def zr_kw_ruby2_out(argc, argv)
     if argc == 0
       return argc
@@ -221,7 +221,7 @@ module Zr::Kern
     zr_kw_argc(argc, argv)
   end
 
-  sig [] => Word
+  #: () -> word
   def zr_kw_take
     t = zr_task()
     kw = Task.kw(t)
@@ -242,7 +242,7 @@ module Zr::Kern
 
   # Sends a miss to the receiver's `method_missing`, with the name before
   # the arguments. The base `method_missing` raises as a plain miss does.
-  sig [Value, Word, Word, Ptr, Value, Word, Word] => Value
+  #: (value, word, word, ptr, value, word, word) -> value
   def zr_method_missing(recv, mid, argc, argv, blk, kw, reason)
     if kw > 1
       argc = zr_kw_tab_in(kw, argc, argv)
@@ -261,7 +261,7 @@ module Zr::Kern
     r
   end
 
-  sig [Value, Word, Word, Word, Ptr] => Value
+  #: (value, word, word, word, ptr) -> value
   def zr_miss_error(recv, mid, reason, argc, argv)
     if reason == MISS_PRIVATE
       return zr_hidden_method(recv, mid, VIS_PRIVATE, argc, argv)
@@ -276,7 +276,7 @@ module Zr::Kern
   end
 
   # `BasicObject#method_missing`: raises the NoMethodError for a miss.
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_obj_method_missing(recv, argc, argv, cref, blk)
     if argc < 1
       return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("no method name given"), 20)
@@ -291,13 +291,13 @@ module Zr::Kern
     zr_miss_error(recv, zr_sym2id(m), reason, argc - 1, argv + 8)
   end
 
-  sig [Value, Word, Bool, Word, Ptr] => Value
+  #: (value, word, bool, word, ptr) -> value
   def zr_no_method(recv, mid, vcall, argc, argv)
     zr_no_method_from(recv, mid, vcall, false, argc, argv)
   end
 
   # Raises `private method 'x' called for ...`, or the protected form.
-  sig [Value, Word, Word, Word, Ptr] => Value
+  #: (value, word, word, word, ptr) -> value
   def zr_hidden_method(recv, mid, vis, argc, argv)
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
@@ -318,7 +318,7 @@ module Zr::Kern
 
   # Writes how a message shows the receiver: main, a special constant,
   # `#<Foo:0x...>` when it has a singleton class, else `an instance of Foo`.
-  sig [Ptr, Value] => Value
+  #: (ptr, value) -> value
   def zr_buf_receiver(b, recv)
     if recv == zr_global(G_MAIN)
       zr_buf_push(b, Machine.bytes("main"), 4)
@@ -349,7 +349,7 @@ module Zr::Kern
   # needs an implicit receiver. A protected method needs a caller whose
   # self is an instance of the owner. Returns 0, or the visibility that
   # stopped the call.
-  sig [Ptr, Word] => Word
+  #: (ptr, word) -> word
   def zr_visibility_refused(e, mode)
     mode = mode & SEND_MODE
     if mode < 2 || MEntry.vis(e) == VIS_PUBLIC
@@ -387,7 +387,7 @@ module Zr::Kern
   # builtin runs under a frame that this pushes, so a backtrace shows it.
   # A compiled method pushes its own frame. `cc` is the send site's cache
   # entry (cache.rb), which gets the result, or 0 for a send without one.
-  sig [Ptr, Value, Word, Word, Ptr, Word, Value] => Value
+  #: (ptr, value, word, word, ptr, word, value) -> value
   def zr_dispatch(cc, recv, mid, argc, argv, mode, blk)
     kw = zr_kw_take()
     klass = zr_box_view(zr_class_of(recv))
@@ -431,7 +431,7 @@ module Zr::Kern
   # `define_method`, the owner is the method entry's owner, and the name is
   # the name of the definition. An alias keeps that name (`orig`), as a
   # def's frame keeps the def's name.
-  sig [Ptr, Ptr, Word, Ptr, Value] => Value
+  #: (ptr, ptr, word, ptr, value) -> value
   def zr_super(cc, rec, argc, argv, blk)
     recv = Frame.self(rec)
     entry = zr_bmethod_entry(rec)
@@ -489,7 +489,7 @@ module Zr::Kern
   # Returns the ancestor list node where the lookup found the frame's
   # method (through its blocks). Returns nil for a frame that the kernel
   # pushed.
-  sig [Ptr] => Value
+  #: (ptr) -> value
   def zr_frame_defined(rec)
     meta = zr_method_meta_of(rec)
     r = rec
@@ -504,7 +504,7 @@ module Zr::Kern
 
   # Returns the method entry of the `define_method` method that the frame
   # runs in, or 0.
-  sig [Ptr] => Ptr
+  #: (ptr) -> ptr
   def zr_bmethod_entry(rec)
     cref = Frame.cref(rec)
     if cref == QNIL || RCref.eval(cref) == 0
@@ -515,7 +515,7 @@ module Zr::Kern
 
   # Returns the meta of the def that contains the frame, through its
   # blocks and evals. Returns 0 in a class body or at the top level.
-  sig [Ptr] => Ptr
+  #: (ptr) -> ptr
   def zr_method_meta_of(rec)
     meta = Frame.meta(rec)
     while (FrameMeta.kind(meta) == KIND_BLOCK || FrameMeta.kind(meta) == KIND_HIDDEN || FrameMeta.kind(meta) == KIND_EVAL) && FrameMeta.parent(meta) != 0
@@ -528,7 +528,7 @@ module Zr::Kern
   end
 
   # `defined?(super)`: whether a method is after this frame's owner.
-  sig [Ptr] => Value
+  #: (ptr) -> value
   def zr_super_defined(rec)
     entry = zr_bmethod_entry(rec)
     if entry != 0
@@ -554,7 +554,7 @@ module Zr::Kern
   # module included twice has two nodes). Otherwise it is the first node
   # of `owner` in the receiver's ancestor list. Returns nil when there is
   # none.
-  sig [Ptr, Value, Value] => Value
+  #: (ptr, value, value) -> value
   def zr_super_from(rec, recv, owner)
     k = zr_frame_defined(rec)
     if k != QNIL
@@ -569,7 +569,7 @@ module Zr::Kern
 
   # A bare `super` in a block. When the block runs as a method from
   # `define_method`, CRuby raises for implicit arguments, in all defs.
-  sig [Ptr] => Value
+  #: (ptr) -> value
   def zr_zsuper_in_block(rec)
     if zr_bmethod_entry(rec) != 0
       return zr_raise_msg(zr_global(G_RUNTIME_ERROR), Machine.bytes("implicit argument passing of super from method defined by define_method() is not supported. Specify all arguments explicitly."), 125)
@@ -579,7 +579,7 @@ module Zr::Kern
 
   # A bare `super` outside a def. In a method from `define_method` it
   # raises the implicit-argument error. Elsewhere there is no method.
-  sig [Ptr] => Value
+  #: (ptr) -> value
   def zr_zsuper_outside(rec)
     r = zr_zsuper_in_block(rec)
     return r if r == QUNDEF
@@ -589,7 +589,7 @@ module Zr::Kern
   # Calls through the method entry `e`. A compiled def gets the keywords
   # flag and pushes its own frame. A builtin runs under a frame that this
   # pushes.
-  sig [Ptr, Value, Word, Ptr, Value, Word] => Value
+  #: (ptr, value, word, ptr, value, word) -> value
   def zr_invoke(e, recv, argc, argv, blk, kw)
     kind = MEntry.kind(e)
     # Proc#call gives the block the keyword word as it is, so a table
@@ -683,7 +683,7 @@ module Zr::Kern
 
   # Raises an arity error of a compiled method under that method's frame,
   # as CRuby's backtrace shows it.
-  sig [Word, Word, Ptr, Value] => Value
+  #: (word, word, ptr, value) -> value
   def zr_wrong_arity_in(given, expected, e, recv)
     rec = Machine.slot(Frame.size)
     t = zr_task()
@@ -707,7 +707,7 @@ module Zr::Kern
   # Returns the ancestor list node that a method's frame records as its
   # definition point. For an alias or a visibility copy, it is the source
   # node. Otherwise it is the node where the lookup found the method.
-  sig [Ptr] => Value
+  #: (ptr) -> value
   def zr_entry_found(e)
     from = MEntry.from(e)
     from != QNIL ? from : Task.found(zr_task())
@@ -715,19 +715,19 @@ module Zr::Kern
 
   # The kernel's own sends, which have no site and thus no cache entry.
   # Compiled Ruby sends through `zr_send_cached` (cache.rb).
-  sig [Value, Word, Word, Ptr] => Value
+  #: (value, word, word, ptr) -> value
   def zr_send(recv, mid, argc, argv)
     zr_dispatch(0, recv, mid, argc, argv, 0, Machine.value(QNIL))
   end
 
-  sig [Value, Word, Word, Ptr, Value] => Value
+  #: (value, word, word, ptr, value) -> value
   def zr_send_blk(recv, mid, argc, argv, blk)
     zr_dispatch(0, recv, mid, argc, argv, 0, blk)
   end
 
   # `Hash.ruby2_keywords_hash`: a copy with the flag. The next function
   # checks for the flag.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_ruby2_hash_new(h)
     copy = zr_hash_new()
     zr_hash_update(copy, h)
@@ -735,7 +735,7 @@ module Zr::Kern
     copy
   end
 
-  sig [Value] => Value
+  #: (value) -> value
   def zr_ruby2_hash_p(h)
     zr_bool(!zr_special_p(h) && zr_type(h) == T_HASH && (RBasic.flags(h) & FL_RUBY2) != 0)
   end
@@ -754,7 +754,7 @@ module Zr::Kern
   # the scheduler.
   PREEMPT_TICKS = 20_000
 
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_preempt_arm(receiver, message)
     Machine.store64(Machine.static(:preempt_mid, 8), 0, zr_sym2id(message))
     Machine.store64(Machine.static(:preempt_to, 8), 0, Machine.word(receiver))
@@ -764,19 +764,19 @@ module Zr::Kern
 
   # Requests action at the next safe point, for a POSIX signal, a
   # finalizer, or the timer.
-  sig [] => Void
+  #: () -> void
   def zr_poll_set
     Machine.store64(zr_poll_slot(), 0, 1)
   end
 
   # Whether a second thread started. Until then, each task is alone, and
   # IO does not need to call the scheduler before a system call.
-  sig [] => Value
+  #: () -> value
   def zr_threaded
     zr_bool(Machine.load64(Machine.static(:preempt_to, 8), 0) != 0)
   end
 
-  sig [] => Value
+  #: () -> value
   def zr_preempt
     count = Machine.static(:preempt_count, 8)
     n = Machine.load64(count, 0) - 1
@@ -791,7 +791,7 @@ module Zr::Kern
   # runs the handlers of POSIX signals that arrived, and runs the
   # finalizers that a collection queued. Then, if a second thread set up
   # preemption, it yields to the scheduler.
-  sig [] => Value
+  #: () -> value
   def zr_preempt_expired
     Machine.store64(zr_poll_slot(), 0, 0)
     Machine.store64(Machine.static(:preempt_count, 8), 0, PREEMPT_TICKS)
@@ -811,7 +811,7 @@ module Zr::Kern
   # Yields to the scheduler through the receiver that Thread set. It never
   # does this while this task is already in one of those sends, because
   # the scheduler runs its own compiled Ruby, with back edges.
-  sig [Word] => Value
+  #: (word) -> value
   def zr_preempt_send(mid)
     busy = Machine.static(:preempt_busy, 8)
     t = Machine.word(zr_task())
@@ -830,7 +830,7 @@ module Zr::Kern
   # Otherwise, if the program defines respond_to_missing? and it returns
   # true, the result is true and method_missing handles the call. Returns
   # QUNDEF when a hook raised.
-  sig [Value, Word] => Value
+  #: (value, word) -> value
   def zr_check_funcall(v, mid)
     klass = zr_class_of(v)
     asks = zr_find_method(klass, Machine.id(:respond_to?))
@@ -865,7 +865,7 @@ module Zr::Kern
   # core's, and a NoMethodError from it means that `v` does not respond
   # (check_funcall_missing). Works on a BasicObject, which has neither
   # respond_to? nor is_a?. Returns QUNDEF when a call raised.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_check_call(v, name)
     mid = zr_sym2id(name)
     responds = zr_check_funcall(v, mid)

@@ -1,6 +1,6 @@
-# Array is not in the kernel dialect
+# Array is not in the kernel subset
 module Zr::Kern
-  sig [I32, Ptr] => I32
+  #: (i32, ptr) -> i32
   def main(argc, argv)
     xs = [1, 2]
     0

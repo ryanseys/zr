@@ -1,6 +1,6 @@
 # A miss in dispatch: CRuby's message on stderr and exit status 1.
 module Zr::Kern
-  sig [] => Value
+  #: () -> value
   def zr_toplevel
     rec = Machine.slot(Frame.size + 8)
     meta = Machine.static(:meta, FrameMeta.size)

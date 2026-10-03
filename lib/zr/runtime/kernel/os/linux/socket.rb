@@ -17,7 +17,7 @@ module Zr::Kern
   # structure size for its family. AF_UNIX is 1, AF_INET 2, AF_INET6 10.
   # The length of an AF_PACKET (17) address comes from its hardware
   # address length.
-  sig [Ptr] => Word
+  #: (ptr) -> word
   def zr_os_sockaddr_len(addr)
     family = Machine.u32(Machine.load32(addr, 0)) & 65535
     if family == 2
@@ -38,7 +38,7 @@ module Zr::Kern
   # One resolver result as [family, socktype, protocol, sockaddr,
   # canonical name or nil]. musl's addrinfo keeps the address length at
   # 16, the address at 24 and the canonical name at 32.
-  sig [Ptr] => Value
+  #: (ptr) -> value
   def zr_os_addrinfo_row(node)
     row = zr_ary_new(5)
     zr_ary_push(row, zr_fix(Machine.u32(Machine.load32(node, 4))))
@@ -49,13 +49,13 @@ module Zr::Kern
     row
   end
 
-  sig [Ptr] => Ptr
+  #: (ptr) -> ptr
   def zr_os_addrinfo_next(node)
     Machine.ptr(Machine.load64(node, 40))
   end
 
   # The last resolver error, which gethostbyaddr sets in h_errno.
-  sig [] => Word
+  #: () -> word
   def zr_os_h_errno
     Machine.u32(Machine.load32(Libc.__h_errno_location(), 0))
   end
@@ -66,7 +66,7 @@ module Zr::Kern
   SO_PEERCRED = 17
 
   # The peer's effective user and group.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_os_peereid(fd)
     cred = Machine.slot(16)
     size = Machine.slot(8)

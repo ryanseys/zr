@@ -1,8 +1,8 @@
 # The kernel's typed Ruby
 
 The kernel (`lib/zr/runtime/kernel/`) is plain Ruby with types. Each
-file is one `module Zr::Kern`. Each def comes after a `sig` that gives
-its types. `Zr::Machine` (`lib/zr/machine/lower.rb`) lowers each def
+file is one `module Zr::Kern`. Each def has a `#:` comment above it
+that gives its types, in inline RBS: `#: (i32, ptr) -> i32`. `Zr::Machine` (`lib/zr/machine/lower.rb`) lowers each def
 directly to one IR function. zr refuses a form that the typed lowering
 does not have, with a message that gives the form and the line.
 
@@ -44,20 +44,27 @@ module, a file contains only:
 - constant declarations (`NAME = expression`);
 - layouts (`Name = layout ...`) and signatures (`Name = fn ...`);
 - `Libc.import`, `inline`, `collects` and `raw` declarations;
-- `def`s, each after a `sig`.
+- `def`s, each with a `#: (types) -> type` comment on the line above.
 
 ## Types
 
-| Type | IR type | Meaning |
-|---|---|---|
-| `Word` | `i64` | a 64-bit integer |
-| `I32` | `i32` | a 32-bit integer |
-| `I8` | `i8` | a byte |
-| `Ptr` | `i64` | an address |
-| `Value` | `i64` | a tagged Ruby value; see [Runtime layouts](runtime-layouts.md) |
-| `F64` | `f64` | a double |
-| `Bool` | `i8` | the result of a comparison: 0 or 1 |
-| `Void` | none | no value |
+| Type | In a `#:` comment | IR type | Meaning |
+|---|---|---|---|
+| `Word` | `word` | `i64` | a 64-bit integer |
+| `I32` | `i32` | `i32` | a 32-bit integer |
+| `I8` | `i8` | `i8` | a byte |
+| `Ptr` | `ptr` | `i64` | an address |
+| `Value` | `value` | `i64` | a tagged Ruby value; see [Runtime layouts](runtime-layouts.md) |
+| `F64` | `f64` | `f64` | a double |
+| `Bool` | `bool` | `i8` | the result of a comparison: 0 or 1 |
+| `Void` | `void` | none | no value; a return type only |
+
+A def's `#:` comment names the types in lowercase, because it is RBS:
+`sig/zr/kern.rbs` declares each name as a type alias of `Integer` or
+`Float`, and `bool` and `void` are RBS's own. So RBS reads each def's
+type from the kernel's files (`test/unit/kern_rbs_test.rb`). The other
+forms (`Libc.import`, `layout`, `fn`, `raw`) are Ruby code, and name
+the types with the constants `Word`, `Ptr` and so on.
 
 A local gets its type from its first assignment, and keeps it.
 
@@ -65,7 +72,7 @@ A local gets its type from its first assignment, and keeps it.
 
 | Form | Declares |
 |---|---|
-| `sig [T1, T2] => R` then `def name(a, b)` | a function; required parameters only; no receiver; the name has letters, digits and underscores |
+| `#: (t1, t2) -> r` then `def name(a, b)` | a function; required parameters only; no receiver; the name has letters, digits and underscores |
 | `NAME = expression` | a constant: an integer, another constant, the size of a layout, or an operator on these |
 | `Name = layout field: Type, ...` | a layout; each field is at its natural alignment; a field of a layout type is embedded |
 | `Name = fn [types] => type` | a signature for `Name.call` |
@@ -163,7 +170,7 @@ module Zr::Kern
 
   RString = layout basic: RBasic, len: Word, capa: Word, ptr: Ptr
 
-  sig [Value] => Value
+  #: (value) -> value
   def zr_str_bytesize(s)
     zr_fix(RString.len(s))
   end

@@ -85,7 +85,7 @@ module Zr::Kern
 
   # Writes the decimal digits of `n` into `buf` and returns the number of
   # bytes. `buf` must have 24 bytes.
-  sig [Word, Ptr] => Word
+  #: (word, ptr) -> word
   def zr_long_digits(n, buf)
     neg = n < 0
     at = 24
@@ -111,7 +111,7 @@ module Zr::Kern
   end
 
   # `Integer#to_s(base = 10)`: digits in any base from 2 to 36.
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_int_to_s(recv, argc, argv, cref, blk)
     if !zr_fixnum_p(recv)
       return zr_big_route(recv, Machine.id(:to_s), argc, argv)
@@ -167,18 +167,18 @@ module Zr::Kern
   # instance variables, and its arithmetic is in the core library
   # (`Integer#big_op`). Every fixnum builtin sends the operation there when
   # one operand is a bignum.
-  sig [Value] => Bool
+  #: (value) -> bool
   def zr_big_p(v)
     !zr_special_p(v) && zr_type(v) == T_OBJECT && RBasic.klass(v) == zr_global(G_INTEGER)
   end
 
   # Makes an empty bignum object for the core to fill.
-  sig [] => Value
+  #: () -> value
   def zr_big_alloc
     zr_obj_alloc(zr_global(G_INTEGER))
   end
 
-  sig [Value] => Value
+  #: (value) -> value
   def zr_fixnum_p_m(v)
     zr_bool(zr_fixnum_p(v))
   end
@@ -188,7 +188,7 @@ module Zr::Kern
   # the site's index, and later runs return the same Integer.
   G_BIG_LITERALS = 54
 
-  sig [Word, Ptr, Word] => Value
+  #: (word, ptr, word) -> value
   def zr_big_literal(index, bytes, n)
     big = zr_site_literal(G_BIG_LITERALS, index)
     if big != QNIL
@@ -203,7 +203,7 @@ module Zr::Kern
   end
 
   # Calls `recv.big_op(:mid, *argv)` with the builtin's block.
-  sig [Value, Word, Word, Ptr, Value] => Value
+  #: (value, word, word, ptr, value) -> value
   def zr_big_route_blk(recv, mid, argc, argv, blk)
     args = zr_xmalloc((argc + 1) * 8)
     Machine.store64(args, 0, Machine.word(zr_sym(mid)))
@@ -213,7 +213,7 @@ module Zr::Kern
     r
   end
 
-  sig [Value, Word, Word, Ptr] => Value
+  #: (value, word, word, ptr) -> value
   def zr_big_route(recv, mid, argc, argv)
     zr_big_route_blk(recv, mid, argc, argv, Machine.value(QNIL))
   end
@@ -221,7 +221,7 @@ module Zr::Kern
   # Converts a machine word that can be outside the fixnum range. Returns
   # a fixnum when it fits. If not, `Integer.big_from_word(high, low)` makes
   # a bignum from its two halves.
-  sig [Word] => Value
+  #: (word) -> value
   def zr_int_from_word(n)
     if n <= 4611686018427387903 && n >= 0 - 4611686018427387904
       return zr_fix(n)
@@ -234,7 +234,7 @@ module Zr::Kern
 
   # Writes a shift count into `out`. A bignum goes to the core. Any other
   # value converts through to_int (a Float truncates), as rb_to_int does.
-  sig [Value, Ptr, Ptr, Word] => Value
+  #: (value, ptr, ptr, word) -> value
   def zr_shift_operand(recv, argv, out, mid)
     other = Machine.value(Machine.load64(argv, 0))
     if zr_fixnum_p(other) || zr_big_p(other)
@@ -256,7 +256,7 @@ module Zr::Kern
   # Integer, and returns QNIL. If not, `kind` gives the result: 0 sends
   # `mid` through `other.coerce(recv)`, 1 raises the comparison failure,
   # 2 returns nil, and 3 raises only the TypeError.
-  sig [Value, Ptr, Ptr, Word, Word] => Value
+  #: (value, ptr, ptr, word, word) -> value
   def zr_int_operand(recv, argv, out, mid, kind)
     other = Machine.value(Machine.load64(argv, 0))
     unless zr_fixnum_p(other)
@@ -273,7 +273,7 @@ module Zr::Kern
   # [a, b], and the operator runs as `a mid b`. If `other` has no coerce,
   # `kind` decides: 0 and 3 raise the TypeError, 1 raises the comparison
   # failure, and 2 returns nil.
-  sig [Value, Value, Word, Word] => Value
+  #: (value, value, word, word) -> value
   def zr_num_coerce(recv, other, mid, kind)
     if kind != 3 && !zr_special_p(other)
       slot = Machine.slot(8)
@@ -327,19 +327,19 @@ module Zr::Kern
 
   # `zr_num_coerce` for the core. The operator is a Symbol and the kind is
   # an Integer.
-  sig [Value, Value, Value, Value] => Value
+  #: (value, value, value, value) -> value
   def zr_num_coerce_m(recv, other, mid, kind)
     zr_num_coerce(recv, other, zr_sym2id(mid), zr_fix2long(kind))
   end
 
   # Returns an arithmetic result. A result outside the fixnum range
   # becomes a bignum (zr_int_from_word).
-  sig [Word] => Value
+  #: (word) -> value
   def zr_int_result(n)
     zr_int_from_word(n)
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_int_plus(recv, argc, argv, cref, blk)
     if !zr_fixnum_p(recv)
       return zr_big_route(recv, Machine.id(:+), argc, argv)
@@ -354,7 +354,7 @@ module Zr::Kern
     zr_int_result(zr_fix2long(recv) + b)
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_int_minus(recv, argc, argv, cref, blk)
     if !zr_fixnum_p(recv)
       return zr_big_route(recv, Machine.id(:-), argc, argv)
@@ -369,7 +369,7 @@ module Zr::Kern
     zr_int_result(zr_fix2long(recv) - b)
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_int_mul(recv, argc, argv, cref, blk)
     if !zr_fixnum_p(recv)
       return zr_big_route(recv, Machine.id(:*), argc, argv)
@@ -391,7 +391,7 @@ module Zr::Kern
 
   # Floored division and modulo, as Ruby defines them. The caller must
   # make sure that the divisor is not zero.
-  sig [Word, Word] => Word
+  #: (word, word) -> word
   def zr_floor_div(a, b)
     q = Machine.sdiv(a, b)
     if (Machine.srem(a, b) != 0) && ((a < 0) != (b < 0))
@@ -400,12 +400,12 @@ module Zr::Kern
     q
   end
 
-  sig [Word, Word] => Word
+  #: (word, word) -> word
   def zr_floor_mod(a, b)
     a - (zr_floor_div(a, b) * b)
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_int_div(recv, argc, argv, cref, blk)
     if !zr_fixnum_p(recv)
       return zr_big_route(recv, Machine.id(:/), argc, argv)
@@ -421,7 +421,7 @@ module Zr::Kern
     zr_int_result(zr_floor_div(zr_fix2long(recv), b))
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_int_mod(recv, argc, argv, cref, blk)
     if !zr_fixnum_p(recv)
       return zr_big_route(recv, Machine.id(:%), argc, argv)
@@ -443,7 +443,7 @@ module Zr::Kern
 
   # The bit operators. A left shift that leaves the fixnum range goes to
   # the core's bignum code.
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_int_and(recv, argc, argv, cref, blk)
     if !zr_fixnum_p(recv)
       return zr_big_route(recv, Machine.id(:&), argc, argv)
@@ -454,7 +454,7 @@ module Zr::Kern
     zr_fix(zr_fix2long(recv) & Machine.load64(out, 0))
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_int_or(recv, argc, argv, cref, blk)
     if !zr_fixnum_p(recv)
       return zr_big_route(recv, Machine.id(:|), argc, argv)
@@ -465,7 +465,7 @@ module Zr::Kern
     zr_fix(zr_fix2long(recv) | Machine.load64(out, 0))
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_int_xor(recv, argc, argv, cref, blk)
     if !zr_fixnum_p(recv)
       return zr_big_route(recv, Machine.id(:^), argc, argv)
@@ -476,7 +476,7 @@ module Zr::Kern
     zr_fix(zr_fix2long(recv) ^ Machine.load64(out, 0))
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_int_not(recv, argc, argv, cref, blk)
     if !zr_fixnum_p(recv)
       return zr_big_route(recv, Machine.id(:~), argc, argv)
@@ -484,7 +484,7 @@ module Zr::Kern
     zr_fix(0 - zr_fix2long(recv) - 1)
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_int_lshift(recv, argc, argv, cref, blk)
     if !zr_fixnum_p(recv)
       return zr_big_route(recv, Machine.id(:<<), argc, argv)
@@ -514,7 +514,7 @@ module Zr::Kern
   # `Integer#bit_length` of a fixnum: the number of bits after the sign.
   # This is the position of the highest set bit of `n` (of `-n - 1` when
   # `n` is negative).
-  sig [Value] => Value
+  #: (value) -> value
   def zr_fix_bit_length(v)
     n = zr_fix2long(v)
     if n < 0
@@ -526,7 +526,7 @@ module Zr::Kern
     zr_fix(64 - Machine.clz(n))
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_int_rshift(recv, argc, argv, cref, blk)
     if !zr_fixnum_p(recv)
       return zr_big_route(recv, Machine.id(:>>), argc, argv)
@@ -551,7 +551,7 @@ module Zr::Kern
     zr_fix(a >> n)
   end
 
-  sig [Bool] => Value
+  #: (bool) -> value
   def zr_bool(b)
     if b
       Machine.value(QTRUE)
@@ -560,7 +560,7 @@ module Zr::Kern
     end
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_int_lt(recv, argc, argv, cref, blk)
     if !zr_fixnum_p(recv)
       return zr_big_route(recv, Machine.id(:<), argc, argv)
@@ -575,7 +575,7 @@ module Zr::Kern
     zr_bool(zr_fix2long(recv) < b)
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_int_le(recv, argc, argv, cref, blk)
     if !zr_fixnum_p(recv)
       return zr_big_route(recv, Machine.id(:<=), argc, argv)
@@ -590,7 +590,7 @@ module Zr::Kern
     zr_bool(zr_fix2long(recv) <= b)
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_int_gt(recv, argc, argv, cref, blk)
     if !zr_fixnum_p(recv)
       return zr_big_route(recv, Machine.id(:>), argc, argv)
@@ -605,7 +605,7 @@ module Zr::Kern
     zr_bool(zr_fix2long(recv) > b)
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_int_ge(recv, argc, argv, cref, blk)
     if !zr_fixnum_p(recv)
       return zr_big_route(recv, Machine.id(:>=), argc, argv)
@@ -622,7 +622,7 @@ module Zr::Kern
 
   # Equality accepts any operand. A Float compares exactly, and any other
   # non-Integer is not equal.
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_int_eq(recv, argc, argv, cref, blk)
     if !zr_fixnum_p(recv)
       return zr_big_route(recv, Machine.id(:==), argc, argv)
@@ -644,7 +644,7 @@ module Zr::Kern
   # Compares an Integer with a double exactly. Returns -1, 0, 1, or 2 for
   # NaN. If the integer part of the double does not fit a fixnum, its sign
   # gives the result.
-  sig [Word, F64] => Word
+  #: (word, f64) -> word
   def zr_int_float_cmp(n, d)
     if zr_nan_p(d)
       return 2
@@ -672,7 +672,7 @@ module Zr::Kern
     0
   end
 
-  sig [Word, F64, Word] => Value
+  #: (word, f64, word) -> value
   def zr_int_float_relate(n, d, want)
     c = zr_int_float_cmp(n, d)
     if c == 2
@@ -691,7 +691,7 @@ module Zr::Kern
   end
 
   # `Integer#<=>` with a Float. Returns nil for NaN.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_int_float_spaceship(recv, other)
     c = zr_int_float_cmp(zr_fix2long(recv), zr_float_value(other))
     if c == 2

@@ -10,7 +10,7 @@ module Zr::Kern
 
   # Makes a NULL-terminated char* vector from an Array of Strings, with
   # malloc.
-  sig [Value] => Ptr
+  #: (value) -> ptr
   def zr_spawn_vector(words)
     n = RArray.len(words)
     vector = zr_xmalloc((n + 1) * 8)
@@ -44,7 +44,7 @@ module Zr::Kern
   #   to inherit it.
   # - `chdir`: the child's directory, or nil.
   # - `flags`: the OS's posix_spawnattr flags.
-  sig [Value, Value, Value, Value, Value, Word] => Value
+  #: (value, value, value, value, value, word) -> value
   def zr_posix_spawn(words, dups, closes, env, chdir, flags)
     argv = zr_spawn_vector(words)
     actions = Machine.slot(SPAWN_ACTIONS_LEN)
@@ -103,7 +103,7 @@ module Zr::Kern
   # pgroup, umask, limits]; `dups` and `closes` are as for zr_posix_spawn.
   # Returns 0 or the errno. It allocates nothing, so a forked child can run
   # it before its exec.
-  sig [Value] => Word
+  #: (value) -> word
   def zr_exec_options(options)
     dups = zr_ary_at(options, 0)
     closes = zr_ary_at(options, 1)
@@ -165,7 +165,7 @@ module Zr::Kern
   # pty.c's start_new_session, obtain_ctty and drop_privilege for the
   # [master, slave] pair `tty`. It ignores the same errors that pty.c
   # ignores.
-  sig [Value] => Void
+  #: (value) -> void
   def zr_exec_tty(tty)
     master = Machine.i32(zr_fix2long(zr_ary_at(tty, 0)))
     slave = Machine.i32(zr_fix2long(zr_ary_at(tty, 1)))
@@ -185,7 +185,7 @@ module Zr::Kern
   # cannot take. The child applies them, then runs the program at `path`.
   # If the child cannot start, it writes its errno to a pipe that an exec
   # closes, and exits. Returns the pid, or the negated errno.
-  sig [Value, Value, Value, Value] => Value
+  #: (value, value, value, value) -> value
   def zr_spawn_forked(path, words, env, options)
     ends = Machine.slot(8)
     if Libc.pipe(ends) < Machine.i32(0)
@@ -235,7 +235,7 @@ module Zr::Kern
 
   # Applies the options, then calls execve in this process. It returns
   # only on failure, with the negated errno.
-  sig [Value, Value, Value, Value] => Value
+  #: (value, value, value, value) -> value
   def zr_exec_with(path, words, env, options)
     err = zr_exec_options(options)
     if err != 0
@@ -256,7 +256,7 @@ module Zr::Kern
   end
 
   # waitpid: returns [pid, raw status], or the negated errno.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_proc_wait(pid, flags)
     status = Machine.slot(8)
     Machine.store64(status, 0, 0)
@@ -275,7 +275,7 @@ module Zr::Kern
   end
 
   # Makes a pipe: returns [read end, write end], or the negated errno.
-  sig [] => Value
+  #: () -> value
   def zr_io_pipe
     fds = Machine.slot(8)
     if Libc.pipe(fds) < Machine.i32(0)
@@ -297,7 +297,7 @@ module Zr::Kern
   # Returns the user and system time of `who` in seconds, as
   # `[utime, stime]`. These are the first two timevals of a rusage
   # (seconds, then microseconds).
-  sig [Value] => Value
+  #: (value) -> value
   def zr_proc_rusage(who)
     ru = Machine.slot(144)
     Libc.getrusage(Machine.i32(zr_fix2long(who)), ru)
@@ -307,7 +307,7 @@ module Zr::Kern
     out
   end
 
-  sig [] => Value
+  #: () -> value
   def zr_proc_ppid
     zr_fix(Machine.u32(Libc.getppid()))
   end
@@ -324,7 +324,7 @@ module Zr::Kern
   # `getpriority`: returns the niceness and the errno. A niceness of -1 is
   # a valid result, so the call clears errno first. Then only a failure of
   # this call sets it.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_proc_getpriority(which, who)
     zr_clear_errno()
     r = Machine.sword(Libc.getpriority(Machine.i32(zr_fix2long(which)), Machine.i32(zr_fix2long(who))))
@@ -334,40 +334,40 @@ module Zr::Kern
     out
   end
 
-  sig [Value, Value, Value] => Value
+  #: (value, value, value) -> value
   def zr_proc_setpriority(which, who, priority)
     zr_io_status(Libc.setpriority(Machine.i32(zr_fix2long(which)), Machine.i32(zr_fix2long(who)), Machine.i32(zr_fix2long(priority))))
   end
 
   # The process group, the session and the groups. Each returns its id,
   # or the negated errno when the call fails.
-  sig [] => Value
+  #: () -> value
   def zr_proc_getpgrp
     zr_io_failed(Machine.sword(Libc.getpgrp()))
   end
 
-  sig [Value] => Value
+  #: (value) -> value
   def zr_proc_getpgid(pid)
     zr_io_failed(Machine.sword(Libc.getpgid(Machine.i32(zr_fix2long(pid)))))
   end
 
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_proc_setpgid(pid, pgrp)
     zr_io_status(Libc.setpgid(Machine.i32(zr_fix2long(pid)), Machine.i32(zr_fix2long(pgrp))))
   end
 
-  sig [Value] => Value
+  #: (value) -> value
   def zr_proc_getsid(pid)
     zr_io_failed(Machine.sword(Libc.getsid(Machine.i32(zr_fix2long(pid)))))
   end
 
-  sig [] => Value
+  #: () -> value
   def zr_proc_setsid
     zr_io_failed(Machine.sword(Libc.setsid()))
   end
 
   # Returns the supplementary groups as an Array of ids.
-  sig [] => Value
+  #: () -> value
   def zr_proc_groups
     list = Machine.slot(256)
     n = Machine.sword(Libc.getgroups(Machine.i32(64), list))
@@ -383,7 +383,7 @@ module Zr::Kern
     out
   end
 
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_proc_kill(pid, signal)
     zr_io_status(Libc.kill(Machine.i32(zr_fix2long(pid)), Machine.i32(zr_fix2long(signal))))
   end
@@ -392,7 +392,7 @@ module Zr::Kern
   # rb_f_kill does. Thus a POSIX signal that this process sends to itself
   # is handled after all are sent. Returns 0, or the negated errno of the
   # first failure.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_proc_kill_all(pids, signal)
     i = 0
     while i < RArray.len(pids)
@@ -413,7 +413,7 @@ module Zr::Kern
 
   # `getrlimit`: returns `[cur, max]`, each rlim_t's bits as a signed
   # word, or the negated errno.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_proc_getrlimit(resource)
     limits = Machine.slot(16)
     if Libc.getrlimit(Machine.i32(zr_fix2long(resource)), limits) < Machine.i32(0)
@@ -426,7 +426,7 @@ module Zr::Kern
   end
 
   # `setrlimit`. Each limit is the signed word of its bits.
-  sig [Value, Value, Value] => Value
+  #: (value, value, value) -> value
   def zr_proc_setrlimit(resource, cur, max)
     limits = Machine.slot(16)
     r = zr_index_operand(cur, limits)
@@ -443,7 +443,7 @@ module Zr::Kern
 
   # `setreuid` (`group` false) or `setregid`. An id of -1 keeps the
   # current id. Returns 0, or the negated errno.
-  sig [Value, Value, Value] => Value
+  #: (value, value, value) -> value
   def zr_proc_setreid(group, real, effective)
     r = Machine.i32(zr_fix2long(real))
     e = Machine.i32(zr_fix2long(effective))
@@ -451,7 +451,7 @@ module Zr::Kern
   end
 
   # `setgroups` with an Array of group ids.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_proc_setgroups(ids)
     n = RArray.len(ids)
     list = zr_xmalloc((n + 1) * 4)
@@ -465,7 +465,7 @@ module Zr::Kern
     zr_io_status(r)
   end
 
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_proc_initgroups(user, gid)
     zr_io_status(Libc.initgroups(RString.ptr(user), Machine.i32(zr_fix2long(gid))))
   end
@@ -474,7 +474,7 @@ module Zr::Kern
 
   # `fork`: returns the child's pid in the parent, 0 in the child, or the
   # negated errno.
-  sig [] => Value
+  #: () -> value
   def zr_proc_fork
     zr_io_failed(Machine.sword(Libc.fork()))
   end
@@ -483,7 +483,7 @@ module Zr::Kern
   # handlers and flushes the streams as at the end of a program, then the
   # process exits. `exc` is the exception that the fork block raised, or
   # nil. The parent's frames below never see the exception.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_proc_child_exit(exc)
     Libc.exit(Machine.i32(zr_program_end(exc == QNIL ? Machine.value(QUNDEF) : exc)))
     Machine.value(QNIL)

@@ -117,12 +117,16 @@ module Zr
       # compile.c reads through the parentheses of `X = (1..2)`.
       #: (Prism::node node, untyped value) -> [Prism::node, untyped]
       def unparenthesized(node, value)
-        while node.is_a?(Prism::ParenthesesNode) && node.body.is_a?(Prism::StatementsNode) && node.body.body.size == 1 &&
-              value.is_a?(Seq) && value.stmts.size == 1
-          node = node.body.body[0]
-          value = value.stmts[0]
+        # @type var inner: Prism::node
+        # @type var built: untyped
+        inner = node
+        built = value
+        while inner.is_a?(Prism::ParenthesesNode) && (body = inner.body).is_a?(Prism::StatementsNode) && body.body.size == 1 &&
+              built.is_a?(Seq) && built.stmts.size == 1
+          inner = body.body[0]
+          built = built.stmts[0]
         end
-        [node, value]
+        [inner, built]
       end
 
       # Whether CRuby makes a new Range of two String literals at each run.
@@ -133,7 +137,12 @@ module Zr
       # body that a rescue covers.
       #: (Prism::node node) -> bool
       def after_label?(node)
-        after_label = @after_label ||= {}.compare_by_identity.tap { |found| labeled(@root, found) if @root }
+        after_label = @after_label
+        unless after_label
+          after_label = {} #: Hash[Prism::node, bool]
+          labeled(@root, after_label.compare_by_identity)
+          @after_label = after_label
+        end
         after_label.key?(node)
       end
 
@@ -294,9 +303,13 @@ module Zr
         end
 
         written = Written.new
+        stderr = $stderr
+        verbose = $VERBOSE
         begin
-          stderr, $stderr = $stderr, written
-          verbose, $VERBOSE = $VERBOSE, false
+          # Ruby takes any object with a `write` as $stderr, but RBS types
+          # it as an IO.
+          $stderr = written # steep:ignore IncompatibleAssignment
+          $VERBOSE = false
           Regexp.new(held, options)
           written
         ensure

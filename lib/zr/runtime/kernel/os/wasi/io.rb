@@ -4,12 +4,12 @@
 # Each call returns what wasi-libc returns.
 
 module Zr::Kern
-  sig [] => Word
+  #: () -> word
   def zr_os_errno
     Machine.u32(Machine.load32(Machine.static(:errno, 8), 0))
   end
 
-  sig [Word] => Void
+  #: (word) -> void
   def zr_os_set_errno(n)
     Machine.store32(Machine.static(:errno, 8), 0, Machine.i32(n))
   end
@@ -55,14 +55,14 @@ module Zr::Kern
 
   # WASI cannot resolve the links in a path, so this returns 0 for every
   # path, and the caller uses the path as written.
-  sig [Ptr] => Ptr
+  #: (ptr) -> ptr
   def zr_os_realpath(path)
     Machine.ptr(0)
   end
 
   # open(2) on top of path_open, in the preopened directory that contains
   # the path. A WASI file has no permission bits, so the mode is ignored.
-  sig [Ptr, I32, I32] => I32
+  #: (ptr, i32, i32) -> i32
   def zr_os_open(path, flags, _mode)
     where = Machine.slot(16)
     dir = zr_wasi_resolve(path, where)
@@ -92,7 +92,7 @@ module Zr::Kern
   # F_SETFL sets the fdflags. F_GETFL reads them, with the access mode
   # from the rights. F_SETFD and F_GETFD do nothing, because there is no
   # close-on-exec. WASI has no other commands.
-  sig [I32, I32, Word] => I32
+  #: (i32, i32, word) -> i32
   def zr_os_fcntl(fd, command, argument)
     if command == Machine.i32(F_SETFL)
       return zr_wasi_status(Libc.fd_fdstat_set_flags(fd, Machine.i32(argument & O_FDFLAGS)))
@@ -120,13 +120,13 @@ module Zr::Kern
 
   # No descriptor here is a terminal or a device that an ioctl request
   # can reach.
-  sig [I32, Word, Ptr] => I32
+  #: (i32, word, ptr) -> i32
   def zr_os_ioctl(fd, request, argument)
     zr_wasi_fail(WASI_ENOTTY)
   end
 
   # A terminal is a character device, which is filetype 2.
-  sig [I32] => I32
+  #: (i32) -> i32
   def isatty(fd)
     stat = Machine.slot(FDSTAT_LEN)
     if zr_wasi_status(Libc.fd_fdstat_get(fd, zr_wasi_addr(stat))) < Machine.i32(0)
@@ -139,7 +139,7 @@ module Zr::Kern
     Machine.i32(1)
   end
 
-  sig [I32, Ptr, Word] => Word
+  #: (i32, ptr, word) -> word
   def write(fd, buf, len)
     iov = Machine.slot(16)
     if zr_wasi_status(Libc.fd_write(fd, zr_wasi_iovec(iov, buf, len), Machine.i32(1), zr_wasi_addr(iov + 8))) < Machine.i32(0)
@@ -148,7 +148,7 @@ module Zr::Kern
     Machine.u32(Machine.load32(iov, 8))
   end
 
-  sig [I32, Ptr, Word] => Word
+  #: (i32, ptr, word) -> word
   def read(fd, buf, len)
     iov = Machine.slot(16)
     if zr_wasi_status(Libc.fd_read(fd, zr_wasi_iovec(iov, buf, len), Machine.i32(1), zr_wasi_addr(iov + 8))) < Machine.i32(0)
@@ -157,7 +157,7 @@ module Zr::Kern
     Machine.u32(Machine.load32(iov, 8))
   end
 
-  sig [I32, Ptr, Word, Word] => Word
+  #: (i32, ptr, word, word) -> word
   def pread(fd, buf, len, offset)
     iov = Machine.slot(16)
     if zr_wasi_status(Libc.fd_pread(fd, zr_wasi_iovec(iov, buf, len), Machine.i32(1), offset, zr_wasi_addr(iov + 8))) < Machine.i32(0)
@@ -166,7 +166,7 @@ module Zr::Kern
     Machine.u32(Machine.load32(iov, 8))
   end
 
-  sig [I32, Ptr, Word, Word] => Word
+  #: (i32, ptr, word, word) -> word
   def pwrite(fd, buf, len, offset)
     iov = Machine.slot(16)
     if zr_wasi_status(Libc.fd_pwrite(fd, zr_wasi_iovec(iov, buf, len), Machine.i32(1), offset, zr_wasi_addr(iov + 8))) < Machine.i32(0)
@@ -175,18 +175,18 @@ module Zr::Kern
     Machine.u32(Machine.load32(iov, 8))
   end
 
-  sig [I32] => I32
+  #: (i32) -> i32
   def close(fd)
     zr_wasi_status(Libc.fd_close(fd))
   end
 
-  sig [I32] => I32
+  #: (i32) -> i32
   def fsync(fd)
     zr_wasi_status(Libc.fd_sync(fd))
   end
 
   # SEEK_SET, SEEK_CUR and SEEK_END are also WASI's whence numbers.
-  sig [I32, Word, I32] => Word
+  #: (i32, word, i32) -> word
   def lseek(fd, offset, whence)
     out = Machine.slot(8)
     if zr_wasi_status(Libc.fd_seek(fd, offset, whence, zr_wasi_addr(out))) < Machine.i32(0)
@@ -195,20 +195,20 @@ module Zr::Kern
     Machine.load64(out, 0)
   end
 
-  sig [I32, Word] => I32
+  #: (i32, word) -> i32
   def ftruncate(fd, size)
     zr_wasi_status(Libc.fd_filestat_set_size(fd, size))
   end
 
   # WASI has no permission bits, so there is nothing to change.
-  sig [I32, I32] => I32
+  #: (i32, i32) -> i32
   def fchmod(fd, mode)
     Machine.i32(0)
   end
 
   # A module does not use the umask. Returns 022, the usual value in a
   # new shell.
-  sig [I32] => I32
+  #: (i32) -> i32
   def umask(mask)
     Machine.i32(18)
   end
@@ -221,7 +221,7 @@ module Zr::Kern
 
   # Gets a path's filestat. It follows a symlink at the end of the path,
   # or not.
-  sig [Ptr, Ptr, I32] => I32
+  #: (ptr, ptr, i32) -> i32
   def zr_wasi_path_stat(path, buf, follow)
     where = Machine.slot(16)
     dir = zr_wasi_resolve(path, where)
@@ -231,23 +231,23 @@ module Zr::Kern
     zr_wasi_status(Libc.path_filestat_get(dir, follow, zr_wasi_rest(where), zr_wasi_rest_len(where), zr_wasi_addr(buf)))
   end
 
-  sig [Ptr, Ptr] => I32
+  #: (ptr, ptr) -> i32
   def stat(path, buf)
     zr_wasi_path_stat(path, buf, Machine.i32(1))
   end
 
-  sig [Ptr, Ptr] => I32
+  #: (ptr, ptr) -> i32
   def lstat(path, buf)
     zr_wasi_path_stat(path, buf, Machine.i32(0))
   end
 
-  sig [I32, Ptr] => I32
+  #: (i32, ptr) -> i32
   def fstat(fd, buf)
     zr_wasi_status(Libc.fd_filestat_get(fd, zr_wasi_addr(buf)))
   end
 
   # Whether the path exists. WASI has no permission checks.
-  sig [Ptr, I32] => I32
+  #: (ptr, i32) -> i32
   def access(path, mode)
     buf = Machine.slot(STAT_LEN)
     Libc.stat(path, buf)
@@ -255,7 +255,7 @@ module Zr::Kern
 
   # The st_mode type bits for WASI's file type, with the usual permission
   # bits of a new file of that type, because WASI has none.
-  sig [Ptr] => Word
+  #: (ptr) -> word
   def zr_os_stat_mode(buf)
     type = Machine.u8(Machine.load8(buf, 16))
     if type == 3
@@ -276,14 +276,14 @@ module Zr::Kern
     33188
   end
 
-  sig [Ptr] => Word
+  #: (ptr) -> word
   def zr_os_stat_size(buf)
     Machine.load64(buf, 32)
   end
 
   # The fields that zr_stat_m returns. The owner is root and the device
   # number is zero, because a module gets neither. A block is 512 bytes.
-  sig [Ptr] => Value
+  #: (ptr) -> value
   def zr_os_stat_rows(buf)
     size = Machine.load64(buf, 32)
     out = zr_ary_new(16)
@@ -308,7 +308,7 @@ module Zr::Kern
 
   # The calls with one path. The call gives the host the descriptor of the
   # path's directory and the remaining part of the path.
-  sig [Ptr] => I32
+  #: (ptr) -> i32
   def unlink(path)
     where = Machine.slot(16)
     dir = zr_wasi_resolve(path, where)
@@ -318,7 +318,7 @@ module Zr::Kern
     zr_wasi_status(Libc.path_unlink_file(dir, zr_wasi_rest(where), zr_wasi_rest_len(where)))
   end
 
-  sig [Ptr] => I32
+  #: (ptr) -> i32
   def rmdir(path)
     where = Machine.slot(16)
     dir = zr_wasi_resolve(path, where)
@@ -328,7 +328,7 @@ module Zr::Kern
     zr_wasi_status(Libc.path_remove_directory(dir, zr_wasi_rest(where), zr_wasi_rest_len(where)))
   end
 
-  sig [Ptr, I32] => I32
+  #: (ptr, i32) -> i32
   def mkdir(path, mode)
     where = Machine.slot(16)
     dir = zr_wasi_resolve(path, where)
@@ -338,7 +338,7 @@ module Zr::Kern
     zr_wasi_status(Libc.path_create_directory(dir, zr_wasi_rest(where), zr_wasi_rest_len(where)))
   end
 
-  sig [Ptr, Ptr, Word] => Word
+  #: (ptr, ptr, word) -> word
   def readlink(path, buf, len)
     where = Machine.slot(16)
     dir = zr_wasi_resolve(path, where)
@@ -354,7 +354,7 @@ module Zr::Kern
   end
 
   # The calls with two paths.
-  sig [Ptr, Ptr] => I32
+  #: (ptr, ptr) -> i32
   def rename(from, to)
     a = Machine.slot(16)
     b = Machine.slot(16)
@@ -366,7 +366,7 @@ module Zr::Kern
     zr_wasi_status(Libc.path_rename(da, zr_wasi_rest(a), zr_wasi_rest_len(a), db, zr_wasi_rest(b), zr_wasi_rest_len(b)))
   end
 
-  sig [Ptr, Ptr] => I32
+  #: (ptr, ptr) -> i32
   def link(from, to)
     a = Machine.slot(16)
     b = Machine.slot(16)
@@ -379,7 +379,7 @@ module Zr::Kern
   end
 
   # The host stores a symlink's target text as it is given.
-  sig [Ptr, Ptr] => I32
+  #: (ptr, ptr) -> i32
   def symlink(target, path)
     where = Machine.slot(16)
     dir = zr_wasi_resolve(path, where)
@@ -393,7 +393,7 @@ module Zr::Kern
   # the last entry that fd_readdir returned, with a NUL after its name.
   DIR_BUFFER = 4096
 
-  sig [I32] => Ptr
+  #: (i32) -> ptr
   def fdopendir(fd)
     d = zr_xmalloc(16 + DIR_BUFFER + 1)
     Machine.store64(d, 0, Machine.u32(fd))
@@ -401,7 +401,7 @@ module Zr::Kern
     d
   end
 
-  sig [Ptr] => Ptr
+  #: (ptr) -> ptr
   def opendir(path)
     fd = zr_os_open(path, Machine.i32(O_RDONLY | (2 << 12)), Machine.i32(0))
     if fd < Machine.i32(0)
@@ -412,7 +412,7 @@ module Zr::Kern
 
   # Returns the next entry, which it reads one at a time from the cookie,
   # or 0 at the end. A dirent is 24 bytes, followed by the name.
-  sig [Ptr] => Ptr
+  #: (ptr) -> ptr
   def readdir(d)
     buf = d + 16
     used = Machine.slot(8)
@@ -426,7 +426,7 @@ module Zr::Kern
     buf
   end
 
-  sig [Ptr] => Ptr
+  #: (ptr) -> ptr
   def zr_os_dirent_name(entry)
     entry + 24
   end
@@ -434,7 +434,7 @@ module Zr::Kern
   # The entry's kind for glob: 0 unknown, 1 a directory, 2 a symbolic
   # link, 3 anything else. The filetype is the byte at 20: a directory is
   # 3, a symbolic link 7, unknown 0.
-  sig [Ptr] => Word
+  #: (ptr) -> word
   def zr_os_dirent_kind(entry)
     t = Machine.u8(Machine.load8(entry, 20))
     if t == 0
@@ -449,7 +449,7 @@ module Zr::Kern
     3
   end
 
-  sig [Ptr] => I32
+  #: (ptr) -> i32
   def closedir(d)
     r = Libc.close(Machine.load32(d, 0))
     zr_xfree(d)
@@ -461,7 +461,7 @@ module Zr::Kern
   # clock when the wait has a timeout. Returns an Array of the ready events
   # for each element, or the negated errno. The userdata of each
   # subscription is its element index.
-  sig [Value, Value, Value] => Value
+  #: (value, value, value) -> value
   def zr_os_wait_fds(fds, events, milliseconds)
     count = RArray.len(fds)
     ms = zr_fix2long(milliseconds)
@@ -531,7 +531,7 @@ module Zr::Kern
   # Calls poll_oneoff on one descriptor, and on the clock when the wait
   # has a timeout. Returns the ready events, 0 on a timeout, or the negated
   # errno. A subscription is 48 bytes and an event is 32 bytes.
-  sig [Value, Value, Value] => Value
+  #: (value, value, value) -> value
   def zr_os_wait_fd(fd, events, milliseconds)
     n = zr_fix2long(fd)
     if n < 0
@@ -582,7 +582,7 @@ module Zr::Kern
 
   # The messages of wasi-libc's strerror, one on each line, in WASI's
   # errno order.
-  sig [I32] => Ptr
+  #: (i32) -> ptr
   def strerror(n)
     text = Machine.bytes(<<-MESSAGES)
 No error information
@@ -687,7 +687,7 @@ Capabilities insufficient
 
   # A module gets no working directory. It returns the root, which
   # contains every preopened directory.
-  sig [Ptr, Word] => Ptr
+  #: (ptr, word) -> ptr
   def getcwd(buf, size)
     if size < 2
       zr_os_set_errno(68)

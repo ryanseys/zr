@@ -6,7 +6,7 @@ module Zr::Kern
   BufTail = layout w0: Word, w1: Word, w2: Word, w3: Word, w4: Word, w5: Word, w6: Word, w7: Word
   Buf = layout ptr: Ptr, len: Word, capa: Word, tail: BufTail
 
-  sig [Ptr] => Void
+  #: (ptr) -> void
   def zr_buf_init(b)
     Buf.set_ptr(b, Buf.tail(b))
     Buf.set_len(b, 0)
@@ -14,13 +14,13 @@ module Zr::Kern
   end
 
   # Whether the bytes are still in the buffer's own tail.
-  sig [Ptr] => Bool
+  #: (ptr) -> bool
   def zr_buf_inline_p(b)
     Buf.ptr(b) == Buf.tail(b)
   end
 
   # Frees the malloc'd bytes, if the buffer grew into any.
-  sig [Ptr] => Void
+  #: (ptr) -> void
   def zr_buf_free(b)
     if !zr_buf_inline_p(b)
       zr_xfree(Buf.ptr(b))
@@ -30,7 +30,7 @@ module Zr::Kern
     Buf.set_capa(b, 0)
   end
 
-  sig [Ptr, Word] => Void
+  #: (ptr, word) -> void
   def zr_buf_reserve(b, n)
     need = Buf.len(b) + n
     if need > Buf.capa(b)
@@ -48,34 +48,34 @@ module Zr::Kern
     end
   end
 
-  sig [Ptr, Ptr, Word] => Void
+  #: (ptr, ptr, word) -> void
   def zr_buf_push(b, bytes, n)
     zr_buf_reserve(b, n)
     zr_memcpy(Buf.ptr(b) + Buf.len(b), bytes, n)
     Buf.set_len(b, Buf.len(b) + n)
   end
 
-  sig [Ptr, Word] => Void
+  #: (ptr, word) -> void
   def zr_buf_byte(b, c)
     zr_buf_reserve(b, 1)
     Machine.store8(Buf.ptr(b) + Buf.len(b), 0, Machine.i8(c))
     Buf.set_len(b, Buf.len(b) + 1)
   end
 
-  sig [Ptr, Word] => Void
+  #: (ptr, word) -> void
   def zr_buf_long(b, n)
     digits = Machine.slot(24)
     zr_buf_push(b, digits, zr_long_digits(n, digits))
   end
 
-  sig [Ptr, Word] => Void
+  #: (ptr, word) -> void
   def zr_buf_sym(b, id)
     zr_buf_push(b, zr_symbol_name_ptr(id), zr_symbol_name_len(id))
   end
 
   # Appends a String's bytes. Any other object is a bug in the kernel. It
   # stops with a message, and does not read String fields from the object.
-  sig [Ptr, Value] => Void
+  #: (ptr, value) -> void
   def zr_buf_str(b, s)
     if zr_special_p(s) || (RBasic.flags(s) & T_MASK) != T_STRING
       zr_bug(Machine.bytes("zr_buf_str was given something that is not a String\n"), 53)
@@ -88,7 +88,7 @@ module Zr::Kern
   # no second allocation or copy is necessary for each `String#+` and
   # `"#{}"`. `capa` does not include the byte for the NUL, which agrees
   # with `zr_str_new` and with what `zr_str_concat` reads.
-  sig [Ptr] => Value
+  #: (ptr) -> value
   def zr_buf_take(b)
     n = Buf.len(b)
     s = zr_alloc(T_STRING, zr_global(G_STRING), zr_str_cell_bytes(n))
@@ -115,7 +115,7 @@ module Zr::Kern
   # they are plain ASCII, as the core library does for a String it builds
   # from a name or an inspect. A non-ASCII byte came from a UTF-8 piece,
   # so the String then becomes UTF-8, as with rb_str_buf_append.
-  sig [Ptr, Word] => Value
+  #: (ptr, word) -> value
   def zr_buf_take_at(b, index)
     ascii = zr_bytes_ascii_only_p(Buf.ptr(b), Buf.len(b))
     zr_str_set_index(zr_buf_take(b), ascii ? index : ENC_UTF8)

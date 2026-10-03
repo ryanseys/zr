@@ -9,7 +9,7 @@ module Zr::Kern
   Libc.import :write, [I32, Ptr, Word] => Word
   Libc.import :exit, [I32] => Void
 
-  sig [Word] => Void
+  #: (word) -> void
   def put_word(n)
     buf = Machine.slot(24)
     at = 23
@@ -27,7 +27,7 @@ module Zr::Kern
   end
 
   # A loop keeps this def a call, so its write happens behind one.
-  sig [Word] => Void
+  #: (word) -> void
   def set_gates(v)
     k = 0
     while k < 1
@@ -38,7 +38,7 @@ module Zr::Kern
 
   # Reads at every turn, with a call on two of them: over eight turns the
   # sum is 0 + 0 + (0 + 10) + (10 + 100) + 4 * (100 + 100) = 920.
-  sig [Word] => Word
+  #: (word) -> word
   def tally(n)
     sum = 0
     i = 0
@@ -55,7 +55,7 @@ module Zr::Kern
   # A write of the function's own is what every later read gets, and so
   # is a call's: 1 + 2 + 2 + 3 = 8, and the static holds the 3 as well,
   # so 11.
-  sig [] => Word
+  #: () -> word
   def own_write
     Machine.gates_set(1)
     sum = Machine.gates
@@ -66,7 +66,7 @@ module Zr::Kern
     sum + Machine.load64(Machine.static(:gates, 8), 0)
   end
 
-  sig [I32, Ptr] => I32
+  #: (i32, ptr) -> i32
   def main(argc, argv)
     Machine.gates_enter
     put_word(tally(8))

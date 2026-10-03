@@ -13,7 +13,7 @@ module Zr::Kern
   BIG_MASK = 1073741823
 
   # `a + b`.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_big_add_mag(a, b)
     if RArray.len(a) < RArray.len(b)
       return zr_big_add_mag(b, a)
@@ -44,7 +44,7 @@ module Zr::Kern
 
   # `a - b`, for `a >= b`. A limb's difference is above -2^30, so its low
   # 30 bits are the limb, and bit 30 is the borrow: no branch on it.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_big_sub_mag(a, b)
     n = RArray.len(a)
     m = RArray.len(b)
@@ -70,7 +70,7 @@ module Zr::Kern
   end
 
   # `a * b`, by the schoolbook method. A one-limb factor needs no sums.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_big_mul_mag(a, b)
     if RArray.len(a) < RArray.len(b)
       return zr_big_mul_mag(b, a)
@@ -118,7 +118,7 @@ module Zr::Kern
 
   # `[quotient, remainder]` of `a` by the fixnum `m`, which is above zero
   # and below 2^30. The remainder is a fixnum.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_big_divmod_small_mag(a, m)
     n = RArray.len(a)
     out = zr_ary_new(2)
@@ -142,7 +142,7 @@ module Zr::Kern
 
   # Knuth's algorithm D: `[quotient, remainder]` of `a` by `b`, for a
   # divisor of two limbs or more and `a >= b`.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_big_divmod_mag(a, b)
     size = RArray.len(a)
     n = RArray.len(b)
@@ -215,7 +215,7 @@ module Zr::Kern
   end
 
   # -1, 0 or 1 as `a` is below, equal to or above `b`.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_big_cmp_mag(a, b)
     n = RArray.len(a)
     if n != RArray.len(b)
@@ -236,20 +236,20 @@ module Zr::Kern
   end
 
   # The limb at `i` of the Array elements at `p`.
-  sig [Ptr, Word] => Word
+  #: (ptr, word) -> word
   def zr_big_at(p, i)
     Machine.load64(p + (i * 8), 0) >> 1
   end
 
   # Writes the limb `w` as a fixnum at `i` of the Array elements at `p`.
-  sig [Ptr, Word, Word] => Void
+  #: (ptr, word, word) -> void
   def zr_big_put(p, i, w)
     Machine.store64(p + (i * 8), 0, (w << 1) | 1)
   end
 
   # Gives `out` the first `n` limbs written to it, without the zero limbs
   # on top, and returns it.
-  sig [Value, Word] => Value
+  #: (value, word) -> value
   def zr_big_done(out, n)
     p = RArray.ptr(out)
     while n > 0 && Machine.load64(p + ((n - 1) * 8), 0) == 1
@@ -261,7 +261,7 @@ module Zr::Kern
 
   # Writes the `n` words at `words` to `out` as limbs, frees `words`,
   # and gives `out` its length.
-  sig [Value, Ptr, Word] => Value
+  #: (value, ptr, word) -> value
   def zr_big_fill(out, words, n)
     o = RArray.ptr(out)
     i = 0
@@ -276,7 +276,7 @@ module Zr::Kern
   # A block of the limbs of the Array `a` shifted left by `s` bits (below
   # 30), as words, and one word on top with the bits that come up. One
   # pass: the division's normalized operands. The caller frees it.
-  sig [Value, Word] => Ptr
+  #: (value, word) -> ptr
   def zr_big_shifted_words(a, s)
     n = RArray.len(a)
     out = zr_xmalloc((n + 1) * 8)
@@ -294,7 +294,7 @@ module Zr::Kern
   end
 
   # A block of `n` zero words, at least one. The caller frees it.
-  sig [Word] => Ptr
+  #: (word) -> ptr
   def zr_big_zeros(n)
     out = zr_xmalloc((n + 1) * 8)
     i = 0
@@ -306,7 +306,7 @@ module Zr::Kern
   end
 
   # The bits of `w` (above zero) up to its top set bit.
-  sig [Word] => Word
+  #: (word) -> word
   def zr_big_word_bits(w)
     bits = 0
     while w > 0

@@ -45,13 +45,13 @@ module Zr::Kern
   WASI_ENOTTY = 59
 
   # The low 32 bits of an address, which is the form a host call takes.
-  sig [Ptr] => I32
+  #: (ptr) -> i32
   def zr_wasi_addr(p)
     Machine.i32(Machine.word(p))
   end
 
   # Converts a WASI call's errno to the libc result: 0, or -1 with errno set.
-  sig [I32] => I32
+  #: (i32) -> i32
   def zr_wasi_status(errno)
     if errno == Machine.i32(0)
       return Machine.i32(0)
@@ -62,7 +62,7 @@ module Zr::Kern
 
   # Returns -1 and sets errno to `n`, for a call that fails before it gets
   # to the host.
-  sig [Word] => I32
+  #: (word) -> i32
   def zr_wasi_fail(n)
     zr_os_set_errno(n)
     Machine.i32(0 - 1)
@@ -70,7 +70,7 @@ module Zr::Kern
 
   # Writes one iovec of `len` bytes at `buf` into the caller's slot. The
   # host reads two 32-bit words.
-  sig [Ptr, Ptr, Word] => I32
+  #: (ptr, ptr, word) -> i32
   def zr_wasi_iovec(iov, buf, len)
     Machine.store32(iov, 0, zr_wasi_addr(buf))
     Machine.store32(iov, 4, Machine.i32(len))
@@ -83,7 +83,7 @@ module Zr::Kern
   # without a leading `/` or `./`, so `.` and `/` both match all paths.
   PREOPENS = 32
 
-  sig [] => Ptr
+  #: () -> ptr
   def zr_wasi_preopens
     cell = Machine.static(:wasi_preopens, 8)
     if Machine.load64(cell, 0) != 0
@@ -115,7 +115,7 @@ module Zr::Kern
   end
 
   # The number of bytes of leading `/` and `./` in a path.
-  sig [Ptr] => Word
+  #: (ptr) -> word
   def zr_wasi_path_start(path)
     at = 0
     going = true
@@ -137,7 +137,7 @@ module Zr::Kern
   # descriptor and stores the rest of the path at `rest` (`.` for the
   # directory itself). Returns -1 with errno ENOENT if no directory
   # contains the path.
-  sig [Ptr, Ptr] => I32
+  #: (ptr, ptr) -> i32
   def zr_wasi_dir(path, rest)
     p = path + zr_wasi_path_start(path)
     rows = zr_wasi_preopens()
@@ -171,7 +171,7 @@ module Zr::Kern
   # Prepares a call on a path. Returns the descriptor of its directory and
   # stores the rest of the path in `where` (a 16-byte slot: the address,
   # then the length). Returns -1 with errno set on failure.
-  sig [Ptr, Ptr] => I32
+  #: (ptr, ptr) -> i32
   def zr_wasi_resolve(path, where)
     fd = zr_wasi_dir(path, where)
     if fd >= Machine.i32(0)
@@ -180,12 +180,12 @@ module Zr::Kern
     fd
   end
 
-  sig [Ptr] => I32
+  #: (ptr) -> i32
   def zr_wasi_rest(where)
     Machine.i32(Machine.load64(where, 0))
   end
 
-  sig [Ptr] => I32
+  #: (ptr) -> i32
   def zr_wasi_rest_len(where)
     Machine.i32(Machine.load64(where, 8))
   end

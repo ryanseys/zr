@@ -25,8 +25,9 @@ module Zr
       module Lines
         # @rbs @lines: Array[String]
 
+        # Steep cannot see the `super` of a module that a class prepends.
         #: () -> Array[String]
-        def lines = @lines ||= super
+        def lines = @lines ||= super # steep:ignore UnexpectedSuper
       end
       Prism::Source.prepend(Lines)
 
@@ -85,7 +86,8 @@ module Zr
         case node.type
         when :constant_path_node
           chain = [] #: Array[Symbol?]
-          part = node #: Prism::node?
+          # @type var part: Prism::node?
+          part = node
           while part.is_a?(Prism::ConstantPathNode)
             chain << part.name
             part = part.parent

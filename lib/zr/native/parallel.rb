@@ -16,6 +16,9 @@ module Zr
     module Parallel
       module_function
 
+      # The memory that `machine_bytes` assumes when the system does not give it.
+      SMALL_MACHINE = 8 * (1 << 30)
+
       # Runs `work` over `items` in `jobs` workers at most. `weight` returns
       # the cost of an item. The map runs in this process when the total
       # cost is below `floor`, when there is one job, or when fork is not
@@ -99,7 +102,8 @@ module Zr
           return kb && kb.to_i * 1024
         end
         used = Resident.used_pages or return nil
-        [machine_bytes - (used * Etc.sysconf(Etc::SC_PAGESIZE)), 0].max
+        page = Etc.sysconf(Etc::SC_PAGESIZE) or return nil
+        [machine_bytes - (used * page), 0].max
       rescue SystemCallError, IOError, NotImplementedError
         nil
       end
@@ -132,9 +136,13 @@ module Zr
       # NotImplementedError, and one with them can raise SystemCallError.)
       #: () -> Integer
       def machine_bytes
-        Etc.sysconf(Etc::SC_PHYS_PAGES) * Etc.sysconf(Etc::SC_PAGE_SIZE)
+        pages = Etc.sysconf(Etc::SC_PHYS_PAGES)
+        size = Etc.sysconf(Etc::SC_PAGE_SIZE)
+        return SMALL_MACHINE unless pages && size
+
+        pages * size
       rescue StandardError, NotImplementedError
-        8 * (1 << 30)
+        SMALL_MACHINE
       end
 
       # Starts a thread that writes the queue of the item indexes to `feed`,

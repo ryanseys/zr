@@ -46,7 +46,7 @@ module Zr
       def initialize(unit, d)
         @unit = unit
         @d = d
-        @f = IR::Function.new(d.name, d.params.map { |_, t| TYPES.fetch(t) }, TYPES.fetch(d.ret))
+        @f = IR::Function.new(d.name, d.params.map { |_, t| ir_type(t) }, TYPES.fetch(d.ret))
         @locals = {}
         @loops = []
         @roots = nil
@@ -63,10 +63,10 @@ module Zr
           local = declare_local(@d.node, name, type)
           @f.store(@f.args[i], local[:addr])
         end
-        body = @d.node.body
+        body = def_body(@d)
         value, type = body ? statements(body, @d.ret) : [nil, "Void"]
         unless @f.terminated?
-          refuse(@d.node, "the body ends in #{type}, and the sig says #{@d.ret}") unless @d.ret == "Void" || fits?(@d.ret, type)
+          refuse(@d.node, "the body ends in #{type}, and the def's type says #{@d.ret}") unless @d.ret == "Void" || fits?(@d.ret, type)
           ret(@d.ret == "Void" ? nil : value)
         end
         leave_roots if @roots
@@ -138,6 +138,15 @@ module Zr
         raise Refused.new(node, message, @unit.unit? ? @d.file : nil)
       end
 
+      # The statements of a def. A body with `rescue` or `ensure` is a
+      # BeginNode, and the kernel subset does not have them.
+      #: (Def d) -> Prism::StatementsNode?
+      def def_body(d)
+        body = d.node.body
+        refuse(body, "rescue and ensure are not in the kernel subset") if body.is_a?(Prism::BeginNode)
+        body
+      end
+
       # A local is in a slot of its own. A Value in a rooted function is
       # in the root frame.
       #: (Prism::node node, String name, String type) -> { type: String, addr: String }
@@ -181,7 +190,7 @@ module Zr
       def expr(node, want = nil)
         case node
         when Prism::StatementsNode then statements(node, want)
-        when Prism::ParenthesesNode then node.body ? statements(node.body, want) : [nil, "Void"]
+        when Prism::ParenthesesNode then node.body ? expr(node.body, want) : [nil, "Void"]
         when Prism::IntegerNode
           # A Word is signed (A6), so on CRuby a bare literal at or above
           # 2**63 is not the word it is here.
@@ -225,11 +234,11 @@ module Zr
           [nil, "Void"]
         when Prism::ReturnNode
           value, type = node.arguments ? expr(node.arguments.arguments.first, @d.ret) : [nil, "Void"]
-          refuse(node, "a return of #{type} from a def whose sig says #{@d.ret}") unless fits?(@d.ret, type)
+          refuse(node, "a return of #{type} from a def whose type says #{@d.ret}") unless fits?(@d.ret, type)
           ret(type == "Void" ? nil : value)
           [nil, "Void"]
         else
-          refuse(node, "#{node.class.name.split("::").last.delete_suffix("Node")} is not in the kernel dialect")
+          refuse(node, "#{node.class.name.split("::").last.delete_suffix("Node")} is not in the kernel subset")
         end
       end
 
@@ -261,9 +270,9 @@ module Zr
           intrinsic(node, args, want)
         elsif node.name == :call && node.receiver.is_a?(Prism::ConstantReadNode) && !@unit.sig_read?(node.receiver)
           refuse(node, "#{node.receiver.name} is not a `fn` signature here")
-        elsif @unit.sig_read?(node.receiver)
+        elsif (receiver = node.receiver).is_a?(Prism::ConstantReadNode) && @unit.sig_read?(receiver)
           refuse(node, "a signature takes `call`") unless node.name == :call
-          indirect(node, @unit.sig_for(node.receiver.name.to_s), args[0], args[1..])
+          indirect(node, @unit.sig_for(receiver.name.to_s), args[0], args.drop(1))
         elsif node.name == :! && args.empty?
           value, type = condition_value(node.receiver)
           [@f.icmp("eq", value, @f.iconst(ir_type(type), 0)), "Bool"]
@@ -326,26 +335,32 @@ module Zr
       # parameter, or a local with any other kind of write, is not one.
       #: (Def d) -> Set[Symbol]
       def stack_images(d)
-        (@stack_images ||= {}.compare_by_identity)[d] ||= begin
-          writes = Hash.new { |h, k| h[k] = [] }
+        images = @stack_images ||= begin
+          fresh = {} #: Hash[Def, Set[Symbol]]
+          fresh.compare_by_identity
+        end
+        images[d] ||= begin
+          writes = {} #: Hash[Symbol, Array[Prism::node]]
           other = Set.new(d.params.map { |name, _| name.to_sym })
-          walk = lambda do |n|
-            case n
-            when Prism::LocalVariableWriteNode then writes[n.name] << n.value
-            when Prism::LocalVariableTargetNode, Prism::LocalVariableOperatorWriteNode,
-                 Prism::LocalVariableOrWriteNode, Prism::LocalVariableAndWriteNode then other << n.name
-            end
-            n.compact_child_nodes.each(&walk)
-          end
-          walk.call(d.node.body) if d.node.body
+          local_writes(d.node.body, writes, other) if d.node.body
           names = Set.new(writes.keys) - other
-          loop do
-            kept = names.select { |name| writes[name].all? { |v| slot_address?(v, names) } }.to_set
-            break names if kept == names
-
+          while (kept = names.select { |name| writes.fetch(name).all? { |v| slot_address?(v, names) } }.to_set) != names
             names = kept
           end
+          names
         end
+      end
+
+      # Adds each write of a local under `n` to `writes`, and the name of a
+      # local with any other kind of write to `other`.
+      #: (Prism::node n, Hash[Symbol, Array[Prism::node]] writes, Set[Symbol] other) -> void
+      def local_writes(n, writes, other)
+        case n
+        when Prism::LocalVariableWriteNode then (writes[n.name] ||= []) << n.value
+        when Prism::LocalVariableTargetNode, Prism::LocalVariableOperatorWriteNode,
+             Prism::LocalVariableOrWriteNode, Prism::LocalVariableAndWriteNode then other << n.name
+        end
+        n.compact_child_nodes.each { |c| local_writes(c, writes, other) }
       end
 
       #: (Prism::node node, Set[Symbol] names) -> bool
@@ -504,7 +519,8 @@ module Zr
                  end
         case op
         when :+, :-, :*, :&, :|, :^, :<<
-          value = @f.binop(OPERATORS[op].to_sym, lhs, rhs)
+          mnemonic = OPERATORS[op] #: String
+          value = @f.binop(mnemonic.to_sym, lhs, rhs)
           if @unit.checked? && !named
             if result == "Ptr"
               check_unsigned(node, op, lhs, lt, rhs, rt, value)
@@ -518,12 +534,14 @@ module Zr
           mnemonic = DIVISION_MNEMONICS[op]
           [@f.binop(:"#{ptr ? "u" : "s"}#{mnemonic}", lhs, rhs), result]
         when :==, :!=
-          [@f.icmp(OPERATORS[op], lhs, rhs), "Bool"]
+          cond = OPERATORS[op] #: String
+          [@f.icmp(cond, lhs, rhs), "Bool"]
         when :<, :<=, :>, :>=
-          cond = (ptr ? "u" : "s") + OPERATORS[op]
+          cond = OPERATORS[op] #: String
+          cond = (ptr ? "u" : "s") + cond
           [@f.icmp(cond, lhs, rhs), "Bool"]
         else
-          refuse(node, "#{op} is not in the kernel dialect")
+          refuse(node, "#{op} is not in the kernel subset")
         end
       end
 
@@ -666,13 +684,14 @@ module Zr
         callee or refuse(node, imports ? "#{name} is not an import or a machine def here" : "#{name} is not a def here; an import is `Libc.#{name}`")
         refuse(node, "#{name} takes #{callee.params.size} arguments, not #{args.size}") if args.size != callee.params.size
         types = callee.is_a?(Def) ? callee.params.map(&:last) : callee.params
-        values = args.zip(types).map do |arg, type|
-          # @type var type: String
+        values = args.zip(types).map do |arg, want|
+          # The sizes match, so each argument has a type.
+          type = want #: String
           value, got = expr(arg, type)
           refuse(arg, "#{name} wants a #{type} here, not a #{got}") unless fits?(type, got)
           rooted(arg, value, got)
         end
-        return inline(callee, values) if @unit.inline?(callee) && !@inlining.include?(callee.name)
+        return inline(callee, values) if callee.is_a?(Def) && @unit.inline?(callee) && !@inlining.include?(callee.name)
 
         from = callee.from if callee.is_a?(Import)
         fn = @f.callee(name, types.map { |t| ir_type(t) }, ir_type(callee.ret), colocated: !callee.is_a?(Import), from: from)
@@ -700,27 +719,32 @@ module Zr
       def inline(d, values)
         # @type ivar @exit: Exit
         outer = [@locals, @d, @roots, @exit] #: [Hash[String, { type: String, addr: String }], Def, Roots?, Exit]
-        @locals = {}
-        @d = d
-        @roots = nil
-        @exit = Exit.new(type: d.ret)
-        @inlining << d.name
-        d.params.each_with_index do |(name, type), i|
-          @f.store(values[i], declare_local(d.node, name, type)[:addr])
+        begin
+          @locals = {}
+          @d = d
+          @roots = nil
+          @exit = Exit.new(type: d.ret)
+          @inlining << d.name
+          d.params.each_with_index do |(name, type), i|
+            @f.store(values[i], declare_local(d.node, name, type)[:addr])
+          end
+          body = def_body(d)
+          value, type = body ? statements(body, d.ret) : [nil, "Void"]
+          # Only a `return` in the body makes the exit block.
+          exit_block = @exit.block
+          unless @f.terminated?
+            refuse(d.node, "the body ends in #{type}, and the def's type says #{d.ret}") unless d.ret == "Void" || fits?(d.ret, type)
+            ret(d.ret == "Void" ? nil : value) if exit_block
+          end
+          if exit_block
+            @f.switch(exit_block, open: true)
+            value = @exit.value
+          end
+          d.ret == "Void" ? [nil, "Void"] : [value, d.ret] #: [untyped, String]
+        ensure
+          @inlining.pop
+          @locals, @d, @roots, @exit = outer
         end
-        value, type = d.node.body ? statements(d.node.body, d.ret) : [nil, "Void"]
-        unless @f.terminated?
-          refuse(d.node, "the body ends in #{type}, and the sig says #{d.ret}") unless d.ret == "Void" || fits?(d.ret, type)
-          ret(d.ret == "Void" ? nil : value) if @exit.block
-        end
-        if @exit.block
-          @f.switch(@exit.block, open: true)
-          value = @exit.value
-        end
-        d.ret == "Void" ? [nil, "Void"] : [value, d.ret] #: [untyped, String]
-      ensure
-        @inlining.pop
-        @locals, @d, @roots, @exit = outer
       end
 
       # A Value that a call returns must stay alive across the next calls
@@ -847,17 +871,15 @@ module Zr
 
       # A call through the pointer `at` with the signature `s`:
       # `Name.call(at, ...)`.
-      # `s` is not nil: `call` tests `sig_read?` first. `rest` is nil only
-      # when `at` is, and then the first line refuses.
-      #: (Prism::CallNode node, Signature? s, Prism::node? at, Array[Prism::node]? rest) -> [untyped, String]
+      # `rest` is empty when `at` is nil, and then the first line refuses.
+      #: (Prism::CallNode node, Signature s, Prism::node? at, Array[Prism::node] rest) -> [untyped, String]
       def indirect(node, s, at, rest)
-        # @type var s: Signature
-        # @type var rest: Array[Prism::node]
         ptr, pt = expr(at || refuse(node, "#{s.name}.call takes a pointer first"), "Ptr")
         refuse(at, "#{s.name}.call through a #{pt}") unless fits?("Ptr", pt)
         refuse(node, "#{s.name} takes #{s.params.size} arguments, not #{rest.size}") if rest.size != s.params.size
-        values = rest.zip(s.params).map do |arg, type|
-          # @type var type: String
+        values = rest.zip(s.params).map do |arg, want|
+          # The sizes match, so each argument has a type.
+          type = want #: String
           value, got = expr(arg, type)
           refuse(arg, "#{s.name} wants a #{type} here, not a #{got}") unless fits?(type, got)
           rooted(arg, value, got)
@@ -955,6 +977,8 @@ module Zr
       # is the statements of the else arm, an elsif, or nil.
       #: (Prism::IfNode | Prism::UnlessNode node, String? want, Prism::StatementsNode? then_stmts, Prism::node? else_part) -> [untyped, String]
       def branch(node, want, then_stmts, else_part)
+        # @type var tv: untyped
+        # @type var ev: untyped
         then_b = @f.label
         else_b = @f.label
         jump_if(node.predicate, then_b, else_b)

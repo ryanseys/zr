@@ -111,7 +111,7 @@ module Zr
                               branches: hir.branches || {}, defs: hir.defs || {}, sources: hir.evals ? support.digests : {},
                               target: target, gem_roots: gem_set ? gem_set.gems.reject(&:refusal).flat_map(&:roots) : [],
                               manifest: Manifest.bytes(gems, target))
-      new(rt, functions, data + SymbolNumbering.names_table(symbols) + tables.data(units), hir.evals && support, sources, gems)
+      new(rt, functions, data + SymbolNumbering.names_table(symbols) + tables.data(units), (support if hir.evals), sources, gems)
     end
 
     # A program with eval carries eval support, which has zr's own copy of

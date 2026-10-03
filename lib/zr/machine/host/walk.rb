@@ -33,6 +33,67 @@ module Zr
       # until a rescue, a call site or a frame takes it; a frame then
       # returns QUNDEF to the kernel.
       class Walk
+        # The kernel's Values, addresses and offsets are Integers. A code is
+        # a lambda of the running Frame (`Code`).
+        # @rbs @boot: Boot
+        # @rbs @kern: untyped
+        # @rbs @host: Host
+        # @rbs @qnil: Integer
+        # @rbs @qtrue: Integer
+        # @rbs @qfalse: Integer
+        # @rbs @qundef: Integer
+        # @rbs @ids: Hash[Symbol, Integer]
+        # @rbs @sites: Hash[untyped, Integer]
+        # @rbs @cells: Hash[untyped, Hash[Symbol, Integer]]
+        # @rbs @metas: Hash[untyped, Integer]
+        # @rbs @fns: Hash[untyped, untyped]
+        # @rbs @tables: Hash[Array[Integer], Integer]
+        # @rbs @once: Hash[untyped, untyped]
+        # @rbs @scratch: Integer
+        # @rbs @scratch_size: Integer
+        # @rbs @task_slot: Integer
+        # @rbs @boot_classes: Hash[Symbol, Integer]
+        # @rbs @traced: bool
+        # @rbs @eval_files: EvalSupport
+        # @rbs @eval_support: bool
+        # @rbs @eval_entry: Integer?
+        # @rbs @prism: bool
+        # @rbs @spellings: Hash[untyped, Spelling]
+        # @rbs @owners: Hash[Hir::Params, Hash[Symbol?, [Symbol, Integer]]]
+        # @rbs @attributes: Hash[Hir::Def, Array[Symbol]]
+        # @rbs @funcall_of: Hash[Hir::Send, Hir::Send]
+        # @rbs @funcalls: Hash[Hir::Send, bool]
+        # @rbs @record: Integer
+        # @rbs @line_at: Integer
+        # @rbs @env_slots: Integer
+        # @rbs @env_parent: Integer
+        # @rbs @ary_ptr: Integer
+        # @rbs @ary_len: Integer
+        # @rbs @basic_klass: Integer
+        # @rbs @proc_fn: Integer
+        # @rbs @proc_env: Integer
+        # @rbs @proc_self: Integer
+        # @rbs @proc_cref: Integer
+        # @rbs @proc_blk: Integer
+        # @rbs @proc_ret_home: Integer
+        # @rbs @proc_ret_serial: Integer
+        # @rbs @proc_lambda: Integer
+        # @rbs @cc_klass: Integer
+        # @rbs @cc_stamp: Integer
+        # @rbs @cc_entry: Integer
+        # @rbs @cc_found: Integer
+        # @rbs @cc_fn: Integer
+        # @rbs @task_top: ^(Integer) -> untyped
+        # @rbs @task_set_top: ^(Integer, untyped) -> untyped
+        # @rbs @task_limit: ^(Integer) -> untyped
+        # @rbs @task_refine: ^(Integer, untyped) -> untyped
+        # @rbs @task_kw: ^(Integer) -> untyped
+        # @rbs @task_set_kw: ^(Integer, untyped) -> untyped
+        # @rbs @site_stamp: Integer
+        # @rbs @poll: Integer
+        # @rbs @trace_events: Integer
+        # @rbs @integer: Integer
+
         include Frames
         include Code
         include Sends
@@ -77,34 +138,50 @@ module Zr
         # program (`Lower#spell`): the toplevels in order, each scope's
         # locals before the scopes in it. A captures table is in this order.
         class Spelling
+          # @rbs @roots: Array[Hir::Program | Hir::Unit]
+          # @rbs @order: Hash[Symbol, Integer]?
+
+          #: (Array[Hir::Program | Hir::Unit] roots) -> void
           def initialize(roots)
             @roots = roots
             @order = nil
           end
 
+          #: (Symbol name) -> Integer
           def index(name) = order.fetch(name, order.size)
 
           private
 
+          #: () -> Hash[Symbol, Integer]
           def order
-            @order ||= {}.tap do |seen|
-              spell = ->(names) { names.each { |n| seen[n] ||= seen.size } }
-              visit = lambda do |n|
-                case n
-                when Hir::Def, Hir::Block, Hir::ClassDef, Hir::ModuleDef, Hir::SingletonClassDef then spell.call(n.locals)
-                end
-                Hir.each_child(n) { |child| visit.call(child) } if n.is_a?(Hir::Node) || n.is_a?(Array)
-              end
+            @order ||= begin
+              seen = {} #: Hash[Symbol, Integer]
               @roots.each do |root|
-                spell.call(root.locals)
-                visit.call(root.body)
+                # The lowering releases a unit's locals only after it lowers it.
+                spell(root.locals || raise(ArgumentError, "#{root.file}: its locals are gone"), seen)
+                visit(root.body, seen)
               end
+              seen
             end
+          end
+
+          #: (Array[Symbol] names, Hash[Symbol, Integer] seen) -> void
+          def spell(names, seen) = names.each { |n| seen[n] ||= seen.size }
+
+          #: (untyped n, Hash[Symbol, Integer] seen) -> void
+          def visit(n, seen)
+            case n
+            when Hir::Def, Hir::Block, Hir::ClassDef, Hir::ModuleDef, Hir::SingletonClassDef then spell(n.locals, seen)
+            end
+            Hir.each_child(n) { |child| visit(child, seen) } if n.is_a?(Hir::Node) || n.is_a?(Array)
           end
         end
 
-        attr_reader :boot, :kern, :host
+        attr_reader :boot #: Boot
+        attr_reader :kern #: untyped
+        attr_reader :host #: Host
 
+        #: (?Boot boot) -> void
         def initialize(boot = Boot.new)
           @boot = boot
           @kern = boot.kern
@@ -116,25 +193,41 @@ module Zr
           @qundef = k::QUNDEF
           @ids = {}
           @sites = Hash.new { |h, node| h[node] = h.size + 1 }.compare_by_identity
-          @cells = {}.compare_by_identity
-          @metas = {}.compare_by_identity
-          @fns = {}.compare_by_identity
+          @cells = {} #: Hash[untyped, Hash[Symbol, Integer]]
+          @cells.compare_by_identity
+          @metas = {} #: Hash[untyped, Integer]
+          @metas.compare_by_identity
+          @fns = {} #: Hash[untyped, untyped]
+          @fns.compare_by_identity
           @tables = {}
-          @once = {}.compare_by_identity
+          @once = {} #: Hash[untyped, untyped]
+          @once.compare_by_identity
+          @spellings = {} #: Hash[untyped, Spelling]
+          @spellings.compare_by_identity
+          @owners = {} #: Hash[Hir::Params, Hash[Symbol?, [Symbol, Integer]]]
+          @owners.compare_by_identity
+          @attributes = {} #: Hash[Hir::Def, Array[Symbol]]
+          @attributes.compare_by_identity
+          @funcall_of = {} #: Hash[Hir::Send, Hir::Send]
+          @funcall_of.compare_by_identity
+          @funcalls = {} #: Hash[Hir::Send, bool]
+          @funcalls.compare_by_identity
           # The bytes of a String that `value` makes, before the kernel
           # copies them.
           @scratch = 0
           @scratch_size = 0
           @task_slot = k.zr_current_task_slot
           boot.walk = self
-          @boot_classes = File.read(File.join(Paths::RUNTIME, "kernel/main.rb"))
-                              .scan(/zr_boot_name\((G_\w+), Machine\.id\(:(\w+)\)\)/).to_h { |slot, name| [name.to_sym, k.const_get(slot)] }
+          main = File.read(File.join(Paths::RUNTIME, "kernel/main.rb"))
+          pairs = main.scan(/zr_boot_name\((G_\w+), Machine\.id\(:(\w+)\)\)/) #: Array[[String, String]]
+          @boot_classes = pairs.to_h { |slot, name| [name.to_sym, k.const_get(slot)] }
           layouts!
         end
 
         # Runs each core file's toplevel in the order a binary's
         # `zr_prelude` runs them. Returns the Value of the last, or QUNDEF
         # when one left a pending unwind.
+        #: (?Target target) -> Integer
         def core(target = Target.default)
           RuntimeSources.for(target).core_files.each do |path|
             hir = Hir.build(File.read(path), path, eval_support: false, target: target)
@@ -145,6 +238,7 @@ module Zr
         end
 
         # Runs the program `hir` (a Hir::Program) as `zr_toplevel`.
+        #: (Hir::Program hir, String file, ?Target target) -> Integer
         def program(hir, file, target = Target.default)
           spotted(hir, target)
           interned([hir])
@@ -153,6 +247,7 @@ module Zr
         end
 
         # CRuby's gem prelude, as `zr_gem_prelude`.
+        #: (?Target target) -> Integer
         def gem_prelude(target = Target.default)
           hir = Runtime.gem_prelude(target)
           toplevel(hir, Unit.new(Paths.shown(hir.file), false, hir.units, hir.node_ids), @kern::KIND_TOP)
@@ -161,6 +256,7 @@ module Zr
         # Runs `path` as a binary built from it runs: the boot, the core,
         # the gem prelude, then the program, with `args` as ARGV. Returns
         # the exit status.
+        #: (String path, ?Array[String] args, ?target: Target) -> Integer
         def main(path, args = [], target: Target.default)
           prepare(target)
           run(path, args, target: target)
@@ -168,24 +264,23 @@ module Zr
 
         # All a program needs before its first line: the core and the gem
         # prelude. A test worker does this once, and forks for each program.
+        #: (?Target target) -> void
         def prepare(target = Target.default)
-          finish = lambda do |r|
-            k.zr_report(k::Task.pending(task)) if r == @qundef
-          end
           name = Memory.zeroed(16)
           Memory.set_words(name, [@host.bytes("zr"), 0])
           k.zr_args_init(1, name)
           @eval_files = EvalSupport.new(target)
-          finish.call(core(target))
+          report_unwind(core(target))
           k.zr_box_snapshot
           k.zr_runtime_written
-          finish.call(gem_prelude(target))
+          report_unwind(gem_prelude(target))
           k.zr_gates_snapshot
         end
 
         # Runs the program at `path` with `args` in ARGV, after `prepare`.
         # Returns the exit status. `source` is the program's text in place
         # of the file's.
+        #: (String path, ?Array[String] args, ?target: Target, ?source: String) -> Integer
         def run(path, args = [], target: Target.default, source: File.read(path))
           # A test worker forks after `prepare`: this process has its own
           # pid, and only the thread that forked.
@@ -208,6 +303,7 @@ module Zr
 
         # The symbol id of `name`, interned in the kernel's table if the
         # kernel has not seen it.
+        #: (Symbol name) -> Integer
         def id(name)
           @ids[name] ||= begin
             text = name.to_s
@@ -215,11 +311,13 @@ module Zr
           end
         end
 
+        #: (Symbol name) -> Integer
         def sym(name) = (id(name) << 8) | 12
 
         # Interns each Symbol in the trees `roots`, as a binary's symbol
         # table has every name its program uses before the first line:
         # Symbol.all_symbols lists one that has not run yet.
+        #: (Array[untyped] roots) -> void
         def interned(roots)
           stack = roots.dup
           until stack.empty?
@@ -233,12 +331,21 @@ module Zr
 
         private
 
+        #: () -> untyped
         def k = @kern
         # The running task (`zr_task`), read from its static slot.
+        #: () -> Integer
         def task = Memory.word(@task_slot)
+
+        # Reports the pending unwind of a toplevel that returned QUNDEF.
+        #: (Integer r) -> void
+        def report_unwind(r)
+          k.zr_report(k::Task.pending(task)) if r == @qundef
+        end
 
         # The offsets of the kernel's fields that the code reads and writes
         # itself, and the statics it reads.
+        #: () -> void
         def layouts!
           k = @kern
           @record = k::Frame.layout_size
@@ -274,19 +381,22 @@ module Zr
           @integer = k.zr_global(k::G_INTEGER)
         end
 
+        #: (Layout layout, String field) -> Integer
         def offset(layout, field) = layout.layout_fields.fetch(field).first
 
         # A core file's or a program's toplevel.
+        #: (Hir::Program | Hir::Unit hir, Unit unit, Integer kind) -> Integer
         def toplevel(hir, unit, kind)
           # One lowering takes a program and its units, or the units of eval
           # support, so they share one spelling.
-          unit.spelling ||= (@spellings ||= {}.compare_by_identity)[unit.units || hir] ||=
-            Spelling.new(hir.is_a?(Hir::Program) ? [hir, *unit.units] : Array(unit.units))
+          unit.spelling ||= @spellings[unit.units || hir] ||=
+            Spelling.new(hir.is_a?(Hir::Program) ? [hir, *unit.units.to_a] : unit.units.to_a)
           shown = unit.internal ? k::KIND_HIDDEN : kind
           main = kind == k::KIND_MAIN
           open = open?(hir, main ? :main : :top, unit)
-          m = meta(hir, unit, shown, locals: hir.locals, open: open)
-          s = scope(hir, unit, :main, m, scopes: [hir.locals], homes: [hir], open: open)
+          locals = hir.locals or raise ArgumentError, "#{hir.file}: its locals are gone"
+          m = meta(hir, unit, shown, locals: locals, open: open)
+          s = scope(hir, unit, :main, m, scopes: [locals], homes: [hir], open: open)
           body = code(hir.body, s)
           jumps = jumps?(hir.body)
           enter(s, k.zr_global(k::G_MAIN), k.zr_global(k::G_TOP_CREF), @qnil) do |f|
@@ -313,16 +423,21 @@ module Zr
         # computed name finds its file (`zr_unit_for`).
         TEXTS = %w[roots missing preloaded ext spots coverable branches defs sources manifest].freeze
 
+        #: (Hir::Program hir, Target target) -> void
         def spotted(hir, target)
           words = Memory.word(@host.extern("zr_load_tables"))
           table = k::LoadTable
+          # `Walk::EvalSupport` has the `units` that `Manifest` reads of a `Zr::EvalSupport`.
+          manifest = Manifest.of_program(hir, @eval_files) # steep:ignore ArgumentTypeMismatch
           texts = LoadTables.new(evals: hir.evals, spots: hir.spots || {}, coverable: hir.coverable || {}, branches: hir.branches || {},
-                                 defs: hir.defs || {}, target: target, manifest: Manifest.bytes(Manifest.of_program(hir, @eval_files), target)).texts
+                                 defs: hir.defs || {}, target: target, manifest: Manifest.bytes(manifest, target)).texts
           TEXTS.zip(texts) do |field, lines|
             text = lines.join("\n").b
             Memory.set_words(words + table.layout_fields.fetch(field).first, [@host.bytes(text), text.bytesize])
           end
-          units = Hash(hir.entries).select { |path, _| path.start_with?("/") }.map { |path, unit| [Paths.shown(path), unit] }.sort_by(&:first)
+          units = [] #: Array[[String, Hir::entry]]
+          Hash(hir.entries).each { |path, unit| units << [Paths.shown(path), unit] if path.start_with?("/") }
+          units.sort_by!(&:first)
           rows = units.flat_map do |path, unit|
             bytes = path.b
             [@host.bytes(bytes), bytes.bytesize, entry_in(hir.units, unit)]
@@ -335,14 +450,17 @@ module Zr
 
         # `values` as an argument vector in the slot area for a call that no
         # frame makes; the slots are given back after the block.
+        #: [T] (Array[Integer] values) { (Integer) -> T } -> T
         def outside(values)
           stack = @host.stack
           top = stack.top
-          p = stack.take(values.size * 8)
-          Memory.set_words(p, values)
-          yield p
-        ensure
-          stack.top = top
+          begin
+            p = stack.take(values.size * 8)
+            Memory.set_words(p, values)
+            yield p
+          ensure
+            stack.top = top
+          end
         end
 
         # --- eval ---
@@ -382,8 +500,12 @@ module Zr
         # refers to and does not build again. Its compiler file stands for
         # the host's own `Zr::Eval` (EVAL_SUPPORT), not for zr's compiler.
         class EvalSupport
-          attr_reader :loader
+          # @rbs @compiler: String
+          # @rbs @units: Hash[String, Array[Symbol | Hir::entry]]?
 
+          attr_reader :loader #: Hir::Build::Loader
+
+          #: (Target target) -> void
           def initialize(target)
             b = Hir::Build
             @loader = b::Loader.new(Library::Roots.stdlib(target), description: Library::Roots.description(target))
@@ -401,24 +523,36 @@ module Zr
 
           # Each file by path, and its entry: `[:eval, index]` into the
           # loader's units, or `[:eval]` for the compiler.
+          #: () -> Hash[String, Array[Symbol | Hir::entry]]
           def units
-            @units ||= @loader.entries.transform_values { |i| [:eval, i] }.merge(@compiler => [:eval])
+            @units ||= begin
+              compiler = [:eval] #: Array[Symbol | Hir::entry]
+              @loader.entries.transform_values { |i| [:eval, i] }.merge(@compiler => compiler)
+            end
           end
 
+          #: () -> bool
           def configures? = @loader.configures?
+          #: () -> bool
           def normalizes? = @loader.normalizes?
+          #: () -> bool
           def pretty_prints? = @loader.pretty_prints?
+          #: () -> bool
           def irbs? = @loader.irbs?
+          #: () -> bool
           def gems? = @loader.gems?
+          #: () -> Integer
           def activations = @loader.activations
         end
 
         # Loads the eval forms, at the first program that evals.
+        #: () -> void
         def eval_support!
           return if @eval_support
 
           @eval_support = true
-          walk = self
+          # In the methods below, self is the kernel, so they read `walk`.
+          walk = self #: Walk
           k.singleton_class.define_method(:zr_host_eval_compile) { |*args| walk.send(:eval_compile, *args) }
           k.singleton_class.define_method(:zr_host_eval_file) { |path| walk.send(:eval_file, path) }
           k.singleton_class.define_method(:zr_host_prism) { walk.send(:prism!) }
@@ -431,12 +565,14 @@ module Zr
         # `Zr::Eval#compile`: the code record of the string `source`, as the
         # kernel reads it (`zr_code_word`): the toplevel, its FrameMeta,
         # and the slot count and names of the Env for its own locals.
+        #: (Integer source, Integer file, Integer line, Integer scopes, Integer method) -> Integer
         def eval_compile(source, file, line, scopes, method)
-          outer = ruby(scopes).map { |names| names.map(&:to_sym) }
+          outer = ruby(scopes).map { |names| names.map(&:to_sym) } #: Array[Array[Symbol]]
+          own = [] #: Array[Symbol]
           # Its `using` entries take the next free slots of the program's
           # table, now (`Zr::Eval#compiled`); a traced program's eval is
           # traced too.
-          hir = Hir.build(text(source), text(file), eval_support: false, line: k.zr_fix2long(line), scopes: [*outer.reverse, []],
+          hir = Hir.build(text(source), text(file), eval_support: false, line: k.zr_fix2long(line), scopes: [*outer.reverse, own],
                                                     method: method == @qnil ? nil : ruby(method),
                                                     activations: k.zr_fix2long(k.zr_activations_count), trace: @traced)
           k.zr_activations_reserve(hir.activations)
@@ -447,10 +583,10 @@ module Zr
           m = meta(hir, unit, k::KIND_EVAL, locals: hir.locals)
           unit.root = m
           s = scope(hir, unit, :eval, m, scopes: [hir.locals, *outer], homes: [])
-          run = nil
+          # The body compiles at its first run.
+          run = nil #: [untyped, bool]?
           fn = @host.callable(lambda do |self_, cref, env, blk|
-            run ||= [code(hir.body, s), jumps?(hir.body)]
-            body, jumps = run
+            body, jumps = run ||= [code(hir.body, s), jumps?(hir.body)]
             enter(s, self_, cref, blk, env: env, outer: k::REnv.parent(env)) do |f|
               run_body(s, f, jumps) { body.call(f) }
             end
@@ -475,10 +611,11 @@ module Zr
         # prism's files of eval support, required hidden as a binary's
         # compiler requires them, the first time the host's `Zr::Eval#parse`
         # runs.
+        #: () -> Integer
         def prism!
           unless @prism
             @prism = true
-            path, unit = @eval_files.units.find { |p, _| p.end_with?("/prism.rb") }
+            path, unit = @eval_files.units.find { |p, _| p.end_with?("/prism.rb") } || raise(ArgumentError, "eval support has no prism")
             check(k.zr_require(string(Paths.shown(path)), entry_in(nil, unit), Definitions::REQUIRE_KINDS.fetch(:hidden)))
           end
           @qnil
@@ -486,6 +623,7 @@ module Zr
 
         # `Zr::Eval#compile_file`: the toplevel of a file that the program
         # was not built with, as a fixnum address.
+        #: (Integer path) -> Integer
         def eval_file(path)
           name = text(path)
           hir = Hir.build(File.read(name), name, eval_support: false)
@@ -495,6 +633,7 @@ module Zr
         end
 
         # A String's bytes as a Ruby String.
+        #: (Integer s) -> String
         def text(s)
           Memory.read(k::RString.ptr(s), k::RString.len(s)).force_encoding(::Encoding::UTF_8)
         end
@@ -503,6 +642,7 @@ module Zr
         # fixnum range, Strings (their bytes) and Arrays of these. Each
         # String and Array is pinned (`Host#pin`), so a collection while the
         # rest is made keeps it.
+        #: (untyped x) -> Integer
         def value(x)
           case x
           when nil then @qnil
@@ -527,6 +667,7 @@ module Zr
 
         # A Value as a plain Ruby value: Integers, Symbols, Strings, Arrays,
         # nil, true and false.
+        #: (Integer v) -> untyped
         def ruby(v)
           return nil if v == @qnil
           return true if v == @qtrue

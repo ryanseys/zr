@@ -10,9 +10,17 @@ module Zr
         # op-assigns of an index and an attribute.
         module Assign
           # @type instance: Walk
+          # The ivars of Walk that this module reads (walk.rb):
+          # @rbs @host: Host
+          # @rbs @kern: untyped
+          # @rbs @qnil: Integer
+          # @rbs @basic_klass: Integer
 
           # The staged parts of a multiple assignment with none.
-          UNSTAGED = {}.compare_by_identity.freeze
+          UNSTAGED = begin
+            none = {} #: Hash[untyped, untyped]
+            none.compare_by_identity.freeze
+          end
 
           private
 
@@ -39,13 +47,16 @@ module Zr
             return if steps.empty?
 
             lambda do |f|
-              prepared = {}.compare_by_identity
+              prepared = {} #: Hash[untyped, untyped]
+              prepared.compare_by_identity
               steps.each { |step| step.call(f, prepared) }
               prepared
             end
           end
 
+          #: (Hir::MultiTarget target, Scope s) -> Array[^(Frame, Hash[untyped, untyped]) -> untyped]
           def staging(target, s)
+            none = [] #: Array[^(Frame, Hash[untyped, untyped]) -> untyped]
             (target.lefts + [target.rest] + target.rights).flat_map do |t|
               case t
               when Hir::Send
@@ -58,12 +69,12 @@ module Zr
                 end
                 [step]
               when Hir::ConstWrite
-                next [] if t.scope.nil? || t.scope == :top
+                next none if t.scope.nil? || t.scope == :top
 
                 scope = code(t.scope, s)
                 [->(f, prepared) { prepared[t] = @host.pin(scope.call(f)) }]
               when Hir::MultiTarget then staging(t, s)
-              else []
+              else none
               end
             end
           end
@@ -96,6 +107,7 @@ module Zr
 
           # The code that spreads a Value (an Array, or one made of it) over
           # the targets, and returns the Value.
+          #: (Hir::MultiTarget target, Scope s) -> ^(Frame, Integer, Hash[untyped, untyped]) -> Integer
           def multi(target, s)
             lefts = target.lefts.map { |t| target_store(t, s) }
             rest = target.rest && target.rest != :implicit ? target_store(target.rest, s) : nil
@@ -113,6 +125,7 @@ module Zr
 
           # The code that assigns a Value to the target `t`, with the staged
           # parts of its assignment (`stager`).
+          #: (untyped t, Scope s) -> ^(Frame, Integer, ?Hash[untyped, untyped]) -> untyped
           def target_store(t, s)
             case t
             when Hir::Assign
@@ -153,7 +166,7 @@ module Zr
             mode |= Sends::SEND_CORE if core_send?(t.name, s)
             word = line_word(t, s)
             name = id(t.name)
-            at = cell(t, :cc, 4 * k::CallCache.layout_size)
+            at = cell(t, :cc, k::CallCache.layout_size * 4)
             entry, globals = Sends::OPT_ENTRIES[t.name] if t.opt && t.using != :owner && !s.unit.traced
             classes = globals&.map { |g| @kern.zr_global(@kern.const_get(g)) }
             safe = t.safe
@@ -212,7 +225,8 @@ module Zr
               next @qnil if safe && r == @qnil
 
               line!(f, word)
-              old = get.call(f, r, [])
+              args = [] #: Array[Integer]
+              old = get.call(f, r, args)
               v = change.call(f, old) or next old
 
               line!(f, word)

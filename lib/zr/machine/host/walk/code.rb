@@ -16,6 +16,23 @@ module Zr
         # did.
         module Code
           # @type instance: Walk
+          # The ivars of Walk that this module reads (walk.rb):
+          # @rbs @host: Host
+          # @rbs @kern: untyped
+          # @rbs @qnil: Integer
+          # @rbs @qtrue: Integer
+          # @rbs @qfalse: Integer
+          # @rbs @qundef: Integer
+          # @rbs @sites: Hash[untyped, Integer]
+          # @rbs @cells: Hash[untyped, Hash[Symbol, Integer]]
+          # @rbs @once: Hash[untyped, untyped]
+          # @rbs @tables: Hash[Array[Integer], Integer]
+          # @rbs @boot_classes: Hash[Symbol, Integer]
+          # @rbs @record: Integer
+          # @rbs @env_slots: Integer
+          # @rbs @env_parent: Integer
+          # @rbs @ary_ptr: Integer
+          # @rbs @ary_len: Integer
 
           private
 
@@ -404,6 +421,7 @@ module Zr
 
           # The code that stores a Value (its second argument) into a local,
           # and returns it.
+          #: (Symbol name, Integer depth, Scope s) -> ^(Frame, Integer) -> Integer
           def local_store(name, depth, s)
             i = s.scopes.fetch(depth).index(name) or return ->(_, _) { raise Unsupported, "no local #{name} at depth #{depth}" }
             at = i * 8
@@ -674,12 +692,15 @@ module Zr
           # --- the slot area ---
 
           # Runs the block with the slots it takes given back after.
+          #: [T] (Frame f) { () -> T } -> T
           def slots(f)
             stack = f.stack
             top = stack.top
-            yield
-          ensure
-            stack.top = top
+            begin
+              yield
+            ensure
+              stack.top = top
+            end
           end
 
           # `values` as an argument vector in the slot area, which the caller
@@ -693,8 +714,14 @@ module Zr
           end
 
           # A zeroed cell of `bytes` for one site and kind.
+          #: (untyped node, Symbol kind, Integer bytes) -> Integer
           def cell(node, kind, bytes)
-            (@cells[node] ||= {})[kind] ||= Memory.zeroed(bytes, 8)
+            kinds = @cells[node]
+            unless kinds
+              kinds = {} #: Hash[Symbol, Integer]
+              @cells[node] = kinds
+            end
+            kinds[kind] ||= Memory.zeroed(bytes, 8)
           end
 
           # A static table of words: `[count, ids...]` and the like.

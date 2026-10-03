@@ -3,7 +3,7 @@
 module Zr::Kern
   # Writes one line for `v`: its bytes if it is a String, else its `to_s`.
   # It adds a newline if the bytes do not end in one.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_puts_value(v)
     if zr_type(v) == T_ARRAY
       i = 0
@@ -28,7 +28,7 @@ module Zr::Kern
     Machine.value(QNIL)
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_puts(recv, argc, argv, cref, blk)
     if argc == 0
       zr_write_out(Machine.bytes("\n"), 1)
@@ -44,7 +44,7 @@ module Zr::Kern
 
   # `print`: writes the `to_s` of each argument, with nothing between or
   # after them.
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_print(recv, argc, argv, cref, blk)
     i = 0
     while i < argc
@@ -66,7 +66,7 @@ module Zr::Kern
 
   # The single frozen US-ASCII String that `nil.to_s`, `true.to_s` or
   # `false.to_s` always returns. The first call makes it.
-  sig [Word, Ptr, Word] => Value
+  #: (word, ptr, word) -> value
   def zr_fixed_name(g, bytes, len)
     s = zr_global(g)
     if zr_special_p(s)
@@ -77,28 +77,28 @@ module Zr::Kern
     s
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_nil_to_s(recv, argc, argv, cref, blk)
     zr_fixed_name(G_NIL_TO_S, Machine.bytes(""), 0)
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_true_to_s(recv, argc, argv, cref, blk)
     zr_fixed_name(G_TRUE_TO_S, Machine.bytes("true"), 4)
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_false_to_s(recv, argc, argv, cref, blk)
     zr_fixed_name(G_FALSE_TO_S, Machine.bytes("false"), 5)
   end
 
   # `#<Name:0x` and sixteen hex digits of the address, as CRuby prints.
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_obj_to_s(recv, argc, argv, cref, blk)
     zr_any_to_s(recv)
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_obj_not(recv, argc, argv, cref, blk)
     zr_bool(recv == QNIL || recv == QFALSE)
   end
@@ -106,7 +106,7 @@ module Zr::Kern
   # Writes the String `s` to `$stderr`, as CRuby's rb_write_error2 does.
   # While `$stderr` is STDERR, it writes to fd 2. Else it calls `write`.
   # If that `write` raises, it writes the bytes to fd 2.
-  sig [Value] => Void
+  #: (value) -> void
   def zr_write_stderr(s)
     out = zr_gvar_get(Machine.id(:$stderr))
     if zr_special_p(out) || out == zr_core_class(Machine.id(:STDERR))
@@ -123,7 +123,7 @@ module Zr::Kern
   end
 
   # Writes a line on stderr: the output of `warn`.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_warn_line(s)
     zr_write_stderr(s)
     zr_write_stderr(zr_str_new(Machine.bytes("\n"), 1))
@@ -132,7 +132,7 @@ module Zr::Kern
 
   # `rb_warn`: writes `file:line: warning: message` on stderr, with the
   # nearest frame that has a file. It writes nothing if `$VERBOSE` is nil.
-  sig [Ptr, Word] => Void
+  #: (ptr, word) -> void
   def zr_warn_here(bytes, n)
     if zr_gvar_get(Machine.id(:$VERBOSE)) == QNIL
       return
@@ -156,7 +156,7 @@ module Zr::Kern
   # rb_write_warning_str: a warning goes to `Warning.warn`, which a program
   # may override to catch it. Before the program starts, and while
   # `Warning.warn` runs, it goes straight to stderr.
-  sig [Value] => Void
+  #: (value) -> void
   def zr_warning_write(s)
     depth = Machine.static(:warning_depth, 8)
     if !zr_program_started_p() || Machine.load64(depth, 0) != 0
@@ -173,7 +173,7 @@ module Zr::Kern
   # The core library's `rb_warn`.
   # Returns `file:line: ` for the program frame that caused a warning, or
   # an empty String if only runtime frames are on the stack.
-  sig [] => Value
+  #: () -> value
   def zr_warn_position
     rec = zr_frame_with_file(Task.top(zr_task()))
     if rec == 0
@@ -189,7 +189,7 @@ module Zr::Kern
     zr_buf_take(b)
   end
 
-  sig [Value] => Value
+  #: (value) -> value
   def zr_warn_here_m(s)
     zr_warn_here(RString.ptr(s), RString.len(s))
     Machine.value(QNIL)
@@ -197,7 +197,7 @@ module Zr::Kern
 
   # `#<Thread:0x...` without the closing bracket, for an inspect that
   # adds more.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_obj_head(recv)
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
@@ -205,7 +205,7 @@ module Zr::Kern
     zr_buf_take_at(b, ENC_BINARY)
   end
 
-  sig [Value] => Value
+  #: (value) -> value
   def zr_special_p_m(v)
     zr_bool(zr_special_p(v))
   end

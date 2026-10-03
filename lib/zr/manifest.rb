@@ -81,7 +81,10 @@ module Zr
       bytes = bytes.b
       at = 0
       while (at = bytes.index(MAGIC.b, at))
-        line = bytes.byteslice(at + MAGIC.bytesize, 1 << 20)[/\A[^\n\0]*/]
+        # `at` is in `bytes`, and the pattern matches empty text too, so
+        # both are Strings.
+        tail = bytes.byteslice(at + MAGIC.bytesize, 1 << 20) #: String
+        line = tail[/\A[^\n\0]*/] #: String
         manifest = begin
           JSON.parse(line)
         rescue JSON::ParserError

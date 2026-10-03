@@ -10,7 +10,7 @@ module Zr::Kern
   G_ARGV0 = 53
 
   # Makes `ARGV` from the C arguments, without the program's name.
-  sig [I32, Ptr] => Void
+  #: (i32, ptr) -> void
   def zr_args_init(argc, argv)
     args = zr_ary_new(4)
     table = zr_os_argv(argc, argv)
@@ -23,7 +23,7 @@ module Zr::Kern
     zr_set_global(G_ARGV, args)
   end
 
-  sig [Ptr] => Word
+  #: (ptr) -> word
   def zr_cstr_len(p)
     n = 0
     while Machine.u8(Machine.load8(p + n, 0)) != 0
@@ -32,14 +32,14 @@ module Zr::Kern
     n
   end
 
-  sig [] => Value
+  #: () -> value
   def zr_program_args
     zr_global(G_ARGV)
   end
 
   # `at_exit`: adds a handler. The handlers run in reverse order when the
   # program ends.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_at_exit_add(blk)
     blk = zr_block_proc(blk)
     hooks = zr_global(G_AT_EXIT)
@@ -58,7 +58,7 @@ module Zr::Kern
   # printed, unless it is a SystemExit or a POSIX signal other than
   # Interrupt. An uncaught SignalException ends the process by its POSIX
   # signal.
-  sig [Value] => Word
+  #: (value) -> word
   def zr_program_end(exc)
     status = 0
     if exc != QUNDEF
@@ -102,7 +102,7 @@ module Zr::Kern
 
   # Handles the result `r` of an exit handler. A SystemExit that it raised
   # sets the status. Any other error is printed and sets the status to 1.
-  sig [Value, Word, Value] => Word
+  #: (value, word, value) -> word
   def zr_program_end_hook(r, status, exc)
     if r != QUNDEF
       return status
@@ -117,7 +117,7 @@ module Zr::Kern
   end
 
   # Returns the POSIX signal number of an uncaught SignalException, or 0.
-  sig [Value] => Word
+  #: (value) -> word
   def zr_signal_of(exc)
     if zr_special_p(exc) || !zr_is_a(exc, zr_core_class(Machine.id(:SignalException)))
       return 0
@@ -133,25 +133,25 @@ module Zr::Kern
   # Ends the process by the POSIX signal `signo`. It restores the signal's
   # default action, then sends the signal to this process, as CRuby's
   # ruby_default_signal does.
-  sig [Word] => Void
+  #: (word) -> void
   def zr_die_by_signal(signo)
     Libc.signal(Machine.i32(signo), Machine.ptr(0))
     Libc.kill(Libc.getpid(), Machine.i32(signo))
   end
 
-  sig [Value] => Word
+  #: (value) -> word
   def zr_exit_status(exc)
     zr_fix2long(zr_send(exc, Machine.id(:status), 0, 0))
   end
 
-  sig [Value] => Bool
+  #: (value) -> bool
   def zr_system_exit_p(exc)
     !zr_special_p(exc) && zr_is_a(exc, zr_core_class(Machine.id(:SystemExit)))
   end
 
   # The program's entry. `$0` and `$PROGRAM_NAME` get its file name, in a
   # frozen String that `Process.argv0` keeps when `$0` changes.
-  sig [Ptr, Word] => Void
+  #: (ptr, word) -> void
   def zr_program_start(file, len)
     name = zr_str_new(file, len)
     RBasic.set_flags(name, RBasic.flags(name) | FL_FREEZE)
@@ -159,12 +159,12 @@ module Zr::Kern
     zr_gvar_set(Machine.id(:$0), name)
   end
 
-  sig [] => Value
+  #: () -> value
   def zr_program_name
     zr_global(G_ARGV0)
   end
 
-  sig [Value] => Value
+  #: (value) -> value
   def zr_environment_get(name)
     p = Libc.getenv(RString.ptr(name))
     if p == 0
@@ -174,7 +174,7 @@ module Zr::Kern
   end
 
   # `ENV[name] = value`. A nil value removes the variable.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_environment_set(name, value)
     if value == QNIL
       Libc.unsetenv(RString.ptr(name))
@@ -185,7 +185,7 @@ module Zr::Kern
   end
 
   # Returns each `NAME=value` string of the environment.
-  sig [] => Value
+  #: () -> value
   def zr_environment_list
     out = zr_ary_new(8)
     table = zr_os_environ()
@@ -203,7 +203,7 @@ module Zr::Kern
 
   # Returns the working directory. Stops with a bug message when the host
   # has none.
-  sig [] => Value
+  #: () -> value
   def zr_getcwd
     buf = zr_xmalloc(4096)
     p = Libc.getcwd(buf, 4096)
@@ -216,7 +216,7 @@ module Zr::Kern
   end
 
   # Returns the file of the frame that called the current core method.
-  sig [] => Value
+  #: () -> value
   def zr_caller_file
     rec = zr_frame_with_file(Frame.prev(Task.top(zr_task())))
     if rec == 0
@@ -230,7 +230,7 @@ module Zr::Kern
   Libc.import :access, [Ptr, I32] => I32
   Libc.import :stat, [Ptr, Ptr] => I32
 
-  sig [] => Value
+  #: () -> value
   def zr_process_id
     zr_fix(Machine.u32(Libc.getpid()))
   end
@@ -241,7 +241,7 @@ module Zr::Kern
   Libc.import :getegid, [] => I32
 
   # Returns one of the process's ids: 0 uid, 1 euid, 2 gid, 3 egid.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_process_ids(which)
     w = zr_fix2long(which)
     if w == 0
@@ -255,7 +255,7 @@ module Zr::Kern
   end
 
   # Returns 62 random bits from the system, for a default seed.
-  sig [] => Value
+  #: () -> value
   def zr_random_seed
     high = zr_os_random()
     low = zr_os_random()
@@ -276,7 +276,7 @@ module Zr::Kern
   G_HIDDEN_FEATURES = 50
   HIDDEN_ROW = 3
 
-  sig [] => Value
+  #: () -> value
   def zr_hidden_features
     zr_global_list(G_HIDDEN_FEATURES)
   end
@@ -286,13 +286,13 @@ module Zr::Kern
   # different spelling of its directory does not run a second time.
   G_REAL_FEATURES = 60
 
-  sig [] => Value
+  #: () -> value
   def zr_real_features
     zr_global_list(G_REAL_FEATURES)
   end
 
   # Returns the Array in the global `g`. The first read makes it.
-  sig [Word] => Value
+  #: (word) -> value
   def zr_global_list(g)
     list = zr_global(g)
     if zr_special_p(list)
@@ -304,7 +304,7 @@ module Zr::Kern
 
   # The file that is loading now, or 0: the innermost require or load in
   # progress.
-  sig [] => Ptr
+  #: () -> ptr
   def zr_loading
     Machine.static(:loading, 8)
   end
@@ -312,12 +312,12 @@ module Zr::Kern
   # The hidden file that is loading now, or 0. While a hidden file loads,
   # the constants that it defines on Object stay hidden, and the files
   # that it requires also stay hidden.
-  sig [] => Ptr
+  #: () -> ptr
   def zr_hidden_loader
     Machine.static(:hidden_loader, 8)
   end
 
-  sig [] => Bool
+  #: () -> bool
   def zr_loading_hidden
     Machine.load64(zr_hidden_loader(), 0) != 0
   end
@@ -329,30 +329,30 @@ module Zr::Kern
   # A require in the string is the program's require. The eval compiler
   # does not need this, because its code runs in its own frames, which
   # already belong to the program.
-  sig [] => Ptr
+  #: () -> ptr
   def zr_walking
     Machine.static(:walking, 8)
   end
 
-  sig [] => Bool
+  #: () -> bool
   def zr_walking_now
     Machine.load64(zr_walking(), 0) != 0
   end
 
-  sig [] => Value
+  #: () -> value
   def zr_walk_enter
     Machine.store64(zr_walking(), 0, Machine.load64(zr_walking(), 0) + 1)
     Machine.value(QNIL)
   end
 
-  sig [] => Value
+  #: () -> value
   def zr_walk_leave
     Machine.store64(zr_walking(), 0, Machine.load64(zr_walking(), 0) - 1)
     Machine.value(QNIL)
   end
 
   # Returns the path of the hidden file that is loading now, or nil.
-  sig [] => Value
+  #: () -> value
   def zr_hidden_loading_path
     loader = Machine.load64(zr_hidden_loader(), 0)
     Machine.value(loader == 0 ? QNIL : loader)
@@ -366,7 +366,7 @@ module Zr::Kern
   # it is in $LOADED_FEATURES before its body runs. The Ruby part of a
   # native extension has no file of its own there, so it is visible when
   # it is the file that is loading now.
-  sig [] => Bool
+  #: () -> bool
   def zr_hidden_now
     if zr_loading_hidden()
       return true
@@ -388,7 +388,7 @@ module Zr::Kern
   # Returns the frame of the code that requests a load or writes a
   # constant. The core library's frames are skipped, so their caller is
   # used.
-  sig [] => Ptr
+  #: () -> ptr
   def zr_asking_frame
     rec = Task.top(zr_task())
     while rec != 0
@@ -403,7 +403,7 @@ module Zr::Kern
 
   # Whether the file that is loading now is the Ruby part of a native
   # extension, in the runtime's directory for them.
-  sig [] => Bool
+  #: () -> bool
   def zr_loading_internal
     loading = Machine.load64(zr_loading(), 0)
     if loading == 0
@@ -416,7 +416,7 @@ module Zr::Kern
   end
 
   # Returns the index of the record for `path` in the hidden files, or -1.
-  sig [Value] => Word
+  #: (value) -> word
   def zr_hidden_row(path)
     rows = zr_hidden_features()
     i = RArray.len(rows)
@@ -429,14 +429,14 @@ module Zr::Kern
     -1
   end
 
-  sig [Value] => Bool
+  #: (value) -> bool
   def zr_hidden_p(path)
     zr_hidden_row(path) >= 0
   end
 
   # Records that `path` starts to load hidden, under the hidden file that
   # is loading now.
-  sig [Value] => Void
+  #: (value) -> void
   def zr_hidden_add(path)
     rows = zr_hidden_features()
     zr_ary_push(rows, path)
@@ -445,7 +445,7 @@ module Zr::Kern
   end
 
   # Removes `path` from the hidden list, because its run failed.
-  sig [Value] => Void
+  #: (value) -> void
   def zr_hidden_forget(path)
     i = zr_hidden_row(path)
     if i >= 0
@@ -456,7 +456,7 @@ module Zr::Kern
   # Records that the hidden file that is loading now defined or reopened
   # Object's constant `id`. A later require of the file makes the constant
   # visible.
-  sig [Word] => Void
+  #: (word) -> void
   def zr_hidden_defined(id)
     path = zr_hidden_loading_path()
     if path == QNIL
@@ -478,7 +478,7 @@ module Zr::Kern
   # Records that the hidden file that is loading now defined the method
   # `mid` on `klass`, a class of the program. A later require of the file
   # makes the method visible.
-  sig [Value, Word] => Void
+  #: (value, word) -> void
   def zr_hidden_defined_method(klass, mid)
     path = zr_hidden_loading_path()
     if path == QNIL
@@ -504,7 +504,7 @@ module Zr::Kern
   # of `klass`, a module other than Object. A later require of the file
   # makes the constant visible. The record has three items; a method's
   # record (zr_hidden_defined_method) has two.
-  sig [Value, Word] => Void
+  #: (value, word) -> void
   def zr_hidden_defined_const(klass, id)
     path = zr_hidden_loading_path()
     if path == QNIL
@@ -531,7 +531,7 @@ module Zr::Kern
   # and its constants become visible and go into $LOADED_FEATURES. The
   # same occurs for each file that it loaded, because one ruby require
   # loads all of them.
-  sig [Value] => Void
+  #: (value) -> void
   def zr_feature_reveal(path)
     visible = zr_gvar_get(Machine.id(:$LOADED_FEATURES))
     zr_ary_push(visible, path)
@@ -562,7 +562,7 @@ module Zr::Kern
   # Returns realpath(3) of `path`, or `path` itself when no file is there.
   # That occurs for a compiled-in unit when the program runs away from its
   # source.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_feature_real_path(path)
     p = zr_os_realpath(RString.ptr(path))
     if p == 0
@@ -582,7 +582,7 @@ module Zr::Kern
   # instead. When the program first requires one of those files itself,
   # nothing runs again. The file is recorded and the call returns true, as
   # the first load does.
-  sig [Value, Ptr, Word] => Value
+  #: (value, ptr, word) -> value
   def zr_require(path, fn, kind)
     zr_require_run(path, fn, kind, true)
   end
@@ -591,12 +591,12 @@ module Zr::Kern
   # Kernel#require found the file and has its own frame, so the file's
   # toplevel runs under that frame. `fn` is the toplevel's address as an
   # Integer.
-  sig [Value, Value, Value] => Value
+  #: (value, value, value) -> value
   def zr_require_computed(path, fn, kind)
     zr_require_run(path, Machine.ptr(zr_fix2long(fn)), zr_fix2long(kind), false)
   end
 
-  sig [Value, Ptr, Word, Bool] => Value
+  #: (value, ptr, word, bool) -> value
   def zr_require_run(path, fn, kind, framed)
     # A file that is not compiled into the program has no toplevel to run.
     if Machine.word(fn) == 0
@@ -671,7 +671,7 @@ module Zr::Kern
   # Runs the file's toplevel under the frame of the Kernel method `mid`,
   # as a backtrace through a require shows it. When `mid` is 0, it runs
   # under the caller's frame.
-  sig [Ptr, Word] => Value
+  #: (ptr, word) -> value
   def zr_run_top(fn, mid)
     if mid == 0
       return Top.call(fn)
@@ -704,7 +704,7 @@ module Zr::Kern
                              coverable: Ptr, coverable_len: Word, branches: Ptr, branches_len: Word, defs: Ptr, defs_len: Word,
                              sources: Ptr, sources_len: Word, manifest: Ptr, manifest_len: Word
 
-  sig [] => Ptr
+  #: () -> ptr
   def zr_load_table
     Machine.ptr(Machine.load64(Machine.extern(:zr_load_tables), 0))
   end
@@ -712,7 +712,7 @@ module Zr::Kern
   # Returns the compiled toplevel of the program's file at `path`, as an
   # Integer address, or nil. Each entry is (path bytes, length, toplevel),
   # so a require with a computed name can find a compiled-in file.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_unit_for(path)
     t = zr_load_table()
     i = 0
@@ -735,7 +735,7 @@ module Zr::Kern
   # 7: the def and block spans that identify a method entry. 8: the digest
   # of each source file of the compiler that the program links in, each
   # after a path and a tab. 9: the gem manifest (lib/zr/manifest.rb).
-  sig [Value] => Value
+  #: (value) -> value
   def zr_load_names(which)
     t = zr_load_table()
     w = zr_fix2long(which)
@@ -762,12 +762,12 @@ module Zr::Kern
   end
 
   # Whether `e` is a String with the same bytes as the String `s`.
-  sig [Value, Value] => Bool
+  #: (value, value) -> bool
   def zr_string_of(e, s)
     zr_string_of_bytes(e, RString.ptr(s), RString.len(s))
   end
 
-  sig [Value, Ptr, Word] => Bool
+  #: (value, ptr, word) -> bool
   def zr_string_of_bytes(e, bytes, len)
     if zr_special_p(e) || zr_type(e) != T_STRING
       return false
@@ -776,12 +776,12 @@ module Zr::Kern
   end
 
   # The index of the last String in `a` equal to `s`, or -1.
-  sig [Value, Value] => Word
+  #: (value, value) -> word
   def zr_ary_rindex_string(a, s)
     zr_ary_rindex_bytes(a, RString.ptr(s), RString.len(s))
   end
 
-  sig [Value, Ptr, Word] => Word
+  #: (value, ptr, word) -> word
   def zr_ary_rindex_bytes(a, bytes, len)
     i = RArray.len(a)
     while i > 0
@@ -793,18 +793,18 @@ module Zr::Kern
     -1
   end
 
-  sig [Value, Value] => Bool
+  #: (value, value) -> bool
   def zr_ary_has_string(a, s)
     zr_ary_rindex_string(a, s) >= 0
   end
 
-  sig [Value, Ptr, Word] => Bool
+  #: (value, ptr, word) -> bool
   def zr_ary_has_bytes(a, bytes, len)
     zr_ary_rindex_bytes(a, bytes, len) >= 0
   end
 
   # Removes the last String equal to `s` from `a`.
-  sig [Value, Value] => Void
+  #: (value, value) -> void
   def zr_ary_delete_string(a, s)
     i = zr_ary_rindex_string(a, s)
     if i >= 0
@@ -814,13 +814,13 @@ module Zr::Kern
 
   # Raises a LoadError for a file that is not found, with CRuby's message,
   # under the frame of Kernel#require_relative.
-  sig [Ptr, Word] => Value
+  #: (ptr, word) -> value
   def zr_load_error(path, len)
     zr_load_error_in(Machine.id(:require_relative), path, len)
   end
 
   # The same, under the frame of Kernel's `mid`.
-  sig [Word, Ptr, Word] => Value
+  #: (word, ptr, word) -> value
   def zr_load_error_in(mid, path, len)
     e = zr_find_method(zr_global(G_KERNEL), mid)
     rec = Machine.slot(Frame.size)
@@ -850,7 +850,7 @@ module Zr::Kern
 
   # Whether a path exists, and what it is: 0 for nothing, 1 for a
   # directory, 2 for a regular file, 3 for anything else.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_path_kind(path)
     buf = zr_xmalloc(STAT_LEN)
     r = Machine.u32(Libc.stat(RString.ptr(path), buf))
@@ -881,7 +881,7 @@ module Zr::Kern
 
   # Returns the time in nanoseconds on the clock `id` (darwin: 0 real
   # time, 6 monotonic).
-  sig [Value] => Value
+  #: (value) -> value
   def zr_clock_ns(id)
     ts = Machine.slot(16)
     Libc.clock_gettime(Machine.i32(zr_fix2long(id)), ts)
@@ -889,7 +889,7 @@ module Zr::Kern
   end
 
   # Returns the clock's resolution in nanoseconds.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_clock_res_ns(id)
     ts = Machine.slot(16)
     Libc.clock_getres(Machine.i32(zr_fix2long(id)), ts)
@@ -897,7 +897,7 @@ module Zr::Kern
   end
 
   # Returns crypt(3) of the text with the salt.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_str_crypt(text, salt)
     out = Libc.crypt(RString.ptr(text), RString.ptr(salt))
     if out == 0
@@ -909,7 +909,7 @@ module Zr::Kern
   # The full process sleeps `ns` nanoseconds, or until a POSIX signal
   # arrives. Returns true when the time passed. Returns false when a POSIX
   # signal stopped the sleep and its handlers ran.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_nanosleep(ns)
     n = zr_fix2long(ns)
     ts = Machine.slot(16)
@@ -930,7 +930,7 @@ module Zr::Kern
   # Returns the local zone at `secs` since the epoch: its offset east of
   # UTC in seconds, whether daylight time is in effect, and its
   # abbreviation.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_time_local(secs)
     Libc.tzset()
     t = Machine.slot(8)
@@ -948,7 +948,7 @@ module Zr::Kern
   Libc.import :_exit, [I32] => Void
 
   # `exit!`: the process ends immediately, and no handler runs.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_exit_now(status)
     Libc._exit(Machine.i32(zr_fix2long(status)))
     Machine.value(QNIL)
@@ -959,7 +959,7 @@ module Zr::Kern
 
   # Returns a user's home directory, or nil when there is no such user. A
   # nil name gives the home directory of this process's user.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_home_dir(name)
     pw = name == QNIL ? Libc.getpwuid(Libc.getuid()) : Libc.getpwnam(RString.ptr(name))
     if pw == 0
@@ -988,7 +988,7 @@ module Zr::Kern
   Libc.import :getlogin, [] => Ptr
 
   # Returns a C string as a Ruby String, or nil for a null pointer.
-  sig [Ptr] => Value
+  #: (ptr) -> value
   def zr_cstr_str(text)
     if text == 0
       return Machine.value(QNIL)
@@ -996,28 +996,28 @@ module Zr::Kern
     zr_str_new(text, zr_cstr_len(text))
   end
 
-  sig [Value] => Value
+  #: (value) -> value
   def zr_pw_name(name)
     zr_os_passwd_row(Libc.getpwnam(RString.ptr(name)))
   end
 
-  sig [Value] => Value
+  #: (value) -> value
   def zr_pw_uid(uid)
     zr_os_passwd_row(Libc.getpwuid(Machine.i32(zr_fix2long(uid))))
   end
 
-  sig [] => Value
+  #: () -> value
   def zr_pw_next
     zr_os_passwd_row(Libc.getpwent())
   end
 
-  sig [] => Value
+  #: () -> value
   def zr_pw_rewind
     Libc.setpwent()
     Machine.value(QNIL)
   end
 
-  sig [] => Value
+  #: () -> value
   def zr_pw_done
     Libc.endpwent()
     Machine.value(QNIL)
@@ -1025,7 +1025,7 @@ module Zr::Kern
 
   # Returns the four fields of darwin's group: name at 0, password at 8,
   # gid at 16, and a null-terminated array of member names at 24.
-  sig [Ptr] => Value
+  #: (ptr) -> value
   def zr_gr_row(gr)
     if gr == 0
       return Machine.value(QNIL)
@@ -1048,40 +1048,40 @@ module Zr::Kern
     out
   end
 
-  sig [Value] => Value
+  #: (value) -> value
   def zr_gr_name(name)
     zr_gr_row(Libc.getgrnam(RString.ptr(name)))
   end
 
-  sig [Value] => Value
+  #: (value) -> value
   def zr_gr_gid(gid)
     zr_gr_row(Libc.getgrgid(Machine.i32(zr_fix2long(gid))))
   end
 
-  sig [] => Value
+  #: () -> value
   def zr_gr_next
     zr_gr_row(Libc.getgrent())
   end
 
-  sig [] => Value
+  #: () -> value
   def zr_gr_rewind
     Libc.setgrent()
     Machine.value(QNIL)
   end
 
-  sig [] => Value
+  #: () -> value
   def zr_gr_done
     Libc.endgrent()
     Machine.value(QNIL)
   end
 
-  sig [] => Value
+  #: () -> value
   def zr_nprocessors
     zr_fix(Libc.sysconf(Machine.i32(SC_NPROCESSORS_ONLN)))
   end
 
   # Returns a sysconf or pathconf value, or nil when the name has no limit.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_sysconf(name)
     got = Libc.sysconf(Machine.i32(zr_fix2long(name)))
     if got == 0 - 1
@@ -1092,7 +1092,7 @@ module Zr::Kern
 
   # Returns a confstr value. The first call gets the length, which confstr
   # returns when the buffer is empty.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_confstr(name)
     which = Machine.i32(zr_fix2long(name))
     len = Libc.confstr(which, Machine.ptr(0), 0)
@@ -1107,14 +1107,14 @@ module Zr::Kern
     zr_buf_take(b)
   end
 
-  sig [] => Value
+  #: () -> value
   def zr_login_name
     zr_cstr_str(Libc.getlogin())
   end
 
   # Returns uname's first five fields: sysname, nodename, release, version
   # and machine.
-  sig [] => Value
+  #: () -> value
   def zr_uname
     buf = Machine.slot(UTSNAME_LEN)
     if Libc.uname(buf) != 0

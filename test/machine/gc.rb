@@ -1,5 +1,5 @@
 # A precise mark-sweep collector over a shadow stack of frame records, in
-# the kernel dialect: the shape every runtime frame will take.
+# the kernel subset: the shape every runtime frame will take.
 #
 # A cell is 32 bytes: a header (bit 0 allocated, bit 1 marked, bits 8 up
 # the kind: 1 a pair of cells, 2 a leaf) and three words. Cells come from a
@@ -17,19 +17,19 @@ module Zr::Kern
   Libc.import :abort, [] => Void
   Libc.import :exit, [I32] => Void
 
-  sig [] => Ptr
+  #: () -> ptr
   def arena
     Machine.static(:arena, 131072)
   end
 
   # heap: 0 free head, 8 allocations, 16 collections, 24 stress flag,
   # 40 record top, 48 the index of the last cell handed out
-  sig [] => Ptr
+  #: () -> ptr
   def heap
     Machine.static(:heap, 64)
   end
 
-  sig [Word] => Void
+  #: (word) -> void
   def put_word(n)
     buf = Machine.slot(24)
     at = 23
@@ -46,13 +46,13 @@ module Zr::Kern
     Libc.write(1, buf + at, 24 - at)
   end
 
-  sig [Ptr, Word] => Void
+  #: (ptr, word) -> void
   def put(bytes, n)
     Libc.write(1, bytes, n)
   end
 
   # Thread every cell onto the free list.
-  sig [] => Void
+  #: () -> void
   def heap_init
     h = heap()
     a = arena()
@@ -68,7 +68,7 @@ module Zr::Kern
     Machine.store64(h, 0, head)
   end
 
-  sig [Ptr] => Void
+  #: (ptr) -> void
   def mark(cell)
     if cell != 0
       header = Machine.load64(cell, 0)
@@ -86,7 +86,7 @@ module Zr::Kern
     end
   end
 
-  sig [] => Void
+  #: () -> void
   def mark_records
     rec = Machine.load64(heap(), 40)
     while rec != 0
@@ -100,7 +100,7 @@ module Zr::Kern
     end
   end
 
-  sig [Word] => Void
+  #: (word) -> void
   def free_cell(i)
     h = heap()
     cell = arena() + (i * 32)
@@ -118,7 +118,7 @@ module Zr::Kern
 
   # Push the cells in reverse, so the list pops in address order from the
   # cell after the last one handed out.
-  sig [] => Void
+  #: () -> void
   def sweep
     h = heap()
     last = Machine.load64(h, 48)
@@ -135,7 +135,7 @@ module Zr::Kern
     end
   end
 
-  sig [] => Void
+  #: () -> void
   def collect
     h = heap()
     Machine.store64(h, 16, Machine.load64(h, 16) + 1)
@@ -143,7 +143,7 @@ module Zr::Kern
     sweep()
   end
 
-  sig [Word] => Ptr
+  #: (word) -> ptr
   def alloc(kind)
     h = heap()
     if Machine.load64(h, 24) != 0
@@ -167,7 +167,7 @@ module Zr::Kern
     cell
   end
 
-  sig [] => Word
+  #: () -> word
   def live
     a = arena()
     n = 0
@@ -184,7 +184,7 @@ module Zr::Kern
   # A list of `len` pairs whose heads are leaves, its spine kept in the
   # record while it grows. Every pair after the first hangs off the record's
   # slot 0; the leaf under construction sits in slot 1 until its pair holds it.
-  sig [Word] => Ptr
+  #: (word) -> ptr
   def build(len)
     h = heap()
     rec = Machine.slot(32)
@@ -211,7 +211,7 @@ module Zr::Kern
     result
   end
 
-  sig [I32, Ptr] => I32
+  #: (i32, ptr) -> i32
   def main(argc, argv)
     h = heap()
     if argc > 1

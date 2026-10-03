@@ -9,7 +9,7 @@ module Zr::Kern
   # internal_object_p decides. It is not a runtime record, not a hidden
   # object, and not the singleton class of a class while that singleton
   # class has no singleton class of its own.
-  sig [Value] => Bool
+  #: (value) -> bool
   def zr_objspace_visible_p(v)
     t = RBasic.flags(v) & T_MASK
     if t == T_NONE || t == T_CREF || t == T_ENV || t == T_ICLASS
@@ -32,7 +32,7 @@ module Zr::Kern
   end
 
   # All live objects that a program can get, only of `mod` if it is not nil.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_objspace_objects(mod)
     out = zr_ary_new(1024)
     a = 0
@@ -57,7 +57,7 @@ module Zr::Kern
 
   # The heap by type: the total cells, the free cells, then the live cells
   # of each of the 32 type tags.
-  sig [] => Value
+  #: () -> value
   def zr_objspace_census
     counts = Machine.slot(32 * 8)
     Libc.memset(counts, Machine.i32(0), 32 * 8)
@@ -90,7 +90,7 @@ module Zr::Kern
 
   # The live object whose object_id is `id`, or nil. An object has an id
   # only after a call to its object_id.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_objspace_id2ref(id)
     a = 0
     while a < Heap.arenas(zr_heap())
@@ -116,19 +116,19 @@ module Zr::Kern
   # The special constant whose word an id is, given as its high and low
   # 32 bits. Only `_id2ref` calls this, for a word that it checked is an
   # immediate's.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_objspace_word_value(high, low)
     Machine.value(Machine.shl_wrap(Machine.word(zr_fix2long(high)), 32) | Machine.word(zr_fix2long(low)))
   end
 
   # The id that the next object to ask for one gets.
-  sig [] => Value
+  #: () -> value
   def zr_objspace_next_id
     zr_fix(Machine.load64(Machine.static(:object_id_counter, 8), 0) + 8)
   end
 
   # Whether a Symbol's word names a symbol that exists.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_objspace_symbol_word_p(high, low)
     w = (Machine.word(zr_fix2long(high)) << 32) | Machine.word(zr_fix2long(low))
     zr_bool((w >> 8) < zr_static_symbol_count() + Symtab.len(zr_symtab()))
@@ -139,7 +139,7 @@ module Zr::Kern
   # the mark stack, where this code reads them and clears their marks. No
   # cell is marked outside a collection, so each child is new to the
   # stack.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_objspace_reachable(v)
     out = zr_ary_new(8)
     if zr_special_p(v)
@@ -174,7 +174,7 @@ module Zr::Kern
   # and the finalizers. This makes each cell of the result before the
   # first mark, because a collection must not start while this walk owns
   # the marks.
-  sig [] => Value
+  #: () -> value
   def zr_objspace_roots
     out = zr_hash_new()
     vm = zr_ary_new(64)
@@ -210,7 +210,7 @@ module Zr::Kern
   # Clears the marks of the cells marked since `from`, and adds the cells
   # that a program can see to `into`. The result `out` and its keys and
   # values are not added.
-  sig [Ptr, Word, Value, Value] => Void
+  #: (ptr, word, value, value) -> void
   def zr_objspace_take(s, from, into, out)
     i = from
     while i < MarkStack.len(s)
@@ -225,7 +225,7 @@ module Zr::Kern
   end
 
   # Whether `v` is one of the keys or values of the result `out`.
-  sig [Value, Value] => Bool
+  #: (value, value) -> bool
   def zr_objspace_row_p(out, v)
     i = 0
     while i < RHash.len(out)
@@ -242,7 +242,7 @@ module Zr::Kern
   # is the hidden class that an included module makes, this returns its
   # address, which ObjectSpace wraps, because no program can get the
   # hidden class.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_objspace_super(klass)
     s = RClass.superclass(klass)
     if Machine.word(s) == 0 || s == QNIL
@@ -256,7 +256,7 @@ module Zr::Kern
 
   # The bytes that `v` uses: its cell, and the buffer that a String, an
   # Array or a Hash keeps outside the cell. An immediate uses none.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_objspace_memsize(v)
     if zr_special_p(v)
       return zr_fix(0)
@@ -283,7 +283,7 @@ module Zr::Kern
   # Marks a record whose cell was freed. A probe skips it.
   ALLOC_GONE = 1
 
-  sig [] => Ptr
+  #: () -> ptr
   def zr_alloc_trace
     Machine.static(:alloc_trace, AllocTrace.size)
   end
@@ -291,7 +291,7 @@ module Zr::Kern
   # The record for `cell`, or the free record for a new one. At most half
   # of the table contains records, freed ones included, so a probe always
   # finds an empty record.
-  sig [Ptr, Word] => Ptr
+  #: (ptr, word) -> ptr
   def zr_alloc_trace_probe(t, cell)
     mask = AllocTrace.capa(t) - 1
     i = Machine.mul_wrap(cell / CELL_MIN, 2654435761) & mask
@@ -312,7 +312,7 @@ module Zr::Kern
 
   # Makes space for one more record. When half of the table is used, the
   # table doubles, and it does not copy the freed records.
-  sig [Ptr] => Void
+  #: (ptr) -> void
   def zr_alloc_trace_room(t)
     if (AllocTrace.used(t) + 1) * 2 <= AllocTrace.capa(t)
       return
@@ -340,7 +340,7 @@ module Zr::Kern
 
   # Records a new `cell`: the file and line of the top Ruby frame, and the
   # C method that made it, if the top frame is a C method.
-  sig [Ptr] => Void
+  #: (ptr) -> void
   def zr_alloc_trace_record(cell)
     top = Task.top(zr_task())
     rec = zr_frame_with_file(top)
@@ -363,7 +363,7 @@ module Zr::Kern
   end
 
   # Removes the record of a freed cell.
-  sig [Ptr] => Void
+  #: (ptr) -> void
   def zr_alloc_trace_forget(cell)
     t = zr_alloc_trace()
     row = zr_alloc_trace_probe(t, cell)
@@ -372,7 +372,7 @@ module Zr::Kern
     end
   end
 
-  sig [Value] => Ptr
+  #: (value) -> ptr
   def zr_alloc_trace_row(v)
     t = zr_alloc_trace()
     if zr_special_p(v) || AllocTrace.used(t) == 0
@@ -382,14 +382,14 @@ module Zr::Kern
     AllocRow.cell(row) == Machine.word(v) ? row : 0
   end
 
-  sig [Value] => Value
+  #: (value) -> value
   def zr_alloc_trace_set(on)
     AllocTrace.set_on(zr_alloc_trace(), on == QTRUE ? 1 : 0)
     zr_heap_slow_update()
     Machine.value(QNIL)
   end
 
-  sig [] => Value
+  #: () -> value
   def zr_alloc_trace_clear
     t = zr_alloc_trace()
     if AllocTrace.rows(t) != 0
@@ -403,7 +403,7 @@ module Zr::Kern
 
   # Returns `[file, line, class path, method id, generation]` for a traced
   # object, or nil.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_alloc_trace_info(v)
     row = zr_alloc_trace_row(v)
     if row == 0
@@ -427,7 +427,7 @@ module Zr::Kern
   # Keeps a helper class of the core library out of ObjectSpace and out of
   # Class#subclasses, as a class that the eval support makes is kept: ruby
   # writes these helpers in C.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_class_conceal_m(klass)
     RBasic.set_flags(klass, RBasic.flags(klass) | FL_CONCEALED)
     klass

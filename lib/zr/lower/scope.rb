@@ -22,7 +22,9 @@ module Zr
       # Array that they make.
       #: (Hir::Send node) -> Integer
       def loop_slots(node)
-        node.block.locals.size + (%i[map select].include?(node.name) ? 2 : 1)
+        # An iterator template's block is a block literal.
+        block = node.block #: Hir::Block
+        block.locals.size + (%i[map select].include?(node.name) ? 2 : 1)
       end
 
       # Whether `node` is a send of one of ITERATORS that a site can run
@@ -31,16 +33,17 @@ module Zr
       # parameter. The block must contain no block, open no binding, and
       # pass `loop_body?`. The block keeps its locals in the site's
       # record, so `staging` counts them.
-      #: (untyped node) -> bool
+      #: (Hir::Send node) -> bool
       def iterator_template?(node)
-        return false unless node.is_a?(Hir::Send) && node.block.is_a?(Hir::Block) && ITERATORS.key?(node.name)
+        block = node.block
+        return false unless block.is_a?(Hir::Block) && ITERATORS.key?(node.name)
         return false unless node.args.size == ITERATOR_ARGS.fetch(node.name, 0) && !spread?(node.args)
         return false unless node.kwargs.nil? && node.recv && node.using.nil?
 
-        p = node.block.params
+        p = block.params
         return false unless p.plain? && p.block.nil? && p.required.size <= ITERATORS.fetch(node.name) && p.required.all?(Symbol)
 
-        body = node.block.body
+        body = block.body
         !Hir::Locals.holds_block?(body) && !Hir::Locals.opens_locals?(body) && loop_body?(body)
       end
 
@@ -74,7 +77,8 @@ module Zr
           top = base + (spread?(node.args) ? 2 : 1 + node.args.size) + extra
           # An inline iterator keeps its block's locals and its index
           # above the receiver, and the body stages above those.
-          inside = iterator_template?(node) ? staging(node.block.body, top + loop_slots(node)) : top
+          block = node.block
+          inside = block.is_a?(Hir::Block) && iterator_template?(node) ? staging(block.body, top + loop_slots(node)) : top
           [top, inside, staging(node.recv, top), staging(node.kwargs, top), staging(node.block, top), *node.args.map { |a| staging(a, top) }].max
         when Hir::Super
           top = base + (spread?(node.args) ? 2 : 1 + node.args.size) + keyword_slots(node.kwargs)
@@ -148,7 +152,7 @@ module Zr
         staged_in(target).sum { |t| t.is_a?(Hir::Send) ? 2 + t.args.size : 1 }
       end
 
-      #: (Hir::MultiTarget target) -> Array[untyped]
+      #: (Hir::MultiTarget target) -> Array[Hir::Send | Hir::ConstWrite]
       def staged_in(target)
         (target.lefts + [target.rest] + target.rights).flat_map do |t|
           case t
@@ -156,14 +160,14 @@ module Zr
           when Hir::ConstWrite then t.scope.nil? || t.scope == :top ? [] : [t]
           when Hir::MultiTarget then staged_in(t)
           else []
-          end #: Array[untyped]
+          end #: Array[Hir::Send | Hir::ConstWrite]
         end
       end
 
       # The slots for destructuring into `target`: one Array per level.
       #: (Hir::MultiTarget target) -> Integer
       def targets(target)
-        nested = (target.lefts + [target.rest] + target.rights).grep(Hir::MultiTarget).map { |t| targets(t) }.max || 0
+        nested = (target.lefts + [target.rest] + target.rights).filter_map { |t| targets(t) if t.is_a?(Hir::MultiTarget) }.max || 0
         1 + nested
       end
 
@@ -191,7 +195,7 @@ module Zr
         [base + 1, *tops].max #: Integer
       end
 
-      #: (Array[untyped] parts) -> bool
+      #: (Array[Hir::node?] parts) -> bool
       def spread?(parts)
         parts.any? { |p| p.is_a?(Hir::Splat) || p.is_a?(Hir::HashSplat) }
       end
@@ -202,8 +206,8 @@ module Zr
       # keywords go as one Hash.
       #: (Hir::HashLit kwargs) -> bool
       def literal_keywords?(kwargs)
-        keys = kwargs.pairs.each_slice(2).map(&:first)
-        keys.all? { |key| key.is_a?(Hir::Literal) && key.value.is_a?(Symbol) } && keys.map(&:value).uniq.size == keys.size
+        names = kwargs.pairs.each_slice(2).map { |key, _| key.value if key.is_a?(Hir::Literal) }
+        names.all?(Symbol) && names.uniq.size == names.size
       end
 
       # The record slots for a call's keywords, in addition to its arguments.

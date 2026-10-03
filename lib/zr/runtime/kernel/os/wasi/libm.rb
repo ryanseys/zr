@@ -5,7 +5,7 @@
 module Zr::Kern
   # The fraction of `x` in [0.5, 1), with its power of two stored as an
   # I32 at `e`. Zero, an infinity and NaN return themselves with 0.
-  sig [F64, Ptr] => F64
+  #: (f64, ptr) -> f64
   def frexp(x, e)
     bits = Machine.ptr(Machine.bits(x))
     biased = Machine.word((bits >> 52) & 2047)
@@ -30,7 +30,7 @@ module Zr::Kern
 
   # `x` times 2**`n`, rounded once, as musl's scalbn computes it: a scale
   # out of range is applied in at most three steps, each exact.
-  sig [F64, I32] => F64
+  #: (f64, i32) -> f64
   def ldexp(x, n)
     k = Machine.sword(n)
     y = x

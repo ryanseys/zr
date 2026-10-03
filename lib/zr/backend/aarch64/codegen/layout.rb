@@ -82,7 +82,7 @@ module Zr
               r = FLAG_SETTERS.include?(cmp.op) ? cmp.results[1] : cmp.results[0]
               next unless (cmp.op == :icmp || cmp.op == :fcmp || FLAG_SETTERS.include?(cmp.op)) && @uses[r] == 1
 
-              reader = insts[(n + 1)..].find { |i| !FLAG_NEUTRAL.include?(i.op) }
+              reader = insts.drop(n + 1).find { |i| !FLAG_NEUTRAL.include?(i.op) }
               next unless reader && (reader.op == :brif || reader.op == :select) && reader.args[0] == r
 
               # In both cases the boolean is never made, so it has no home.
@@ -121,7 +121,7 @@ module Zr
           @paired = Set.new
           @f.blocks.each do |b|
             b.insts.reject { |i| @silent.include?(i.results[0]) }.each_cons(2) do |first, second|
-              next unless first.op == :store && second.op == :store && !@paired.include?(first)
+              next unless first && second && first.op == :store && second.op == :store && !@paired.include?(first)
               next unless first.args[1] == second.args[1] && second.offset == first.offset + 8
               next unless wide?(first.args[0]) && wide?(second.args[0])
 
@@ -328,10 +328,14 @@ module Zr
               when :store then memory[i.args[1]] << [i.offset, WIDTHS.fetch(type_of(i.args[0]))]
               when :iadd
                 base, k = summed(i)
-                next unless base
+                next unless base && k
 
-                root, j = chain[base]
-                root ? k += j : root = base
+                if (link = chain[base])
+                  root, j = link
+                  k += j
+                else
+                  root = base
+                end
                 chain[i.results[0]] = [root, k]
                 sums << [i.results[0], base, root, k]
               end
@@ -456,11 +460,11 @@ module Zr
         def small_frame? = @frame <= SMALL
 
         # Every name in a function's instructions is defined in it.
-        #: (String fn) -> IR::Sig
+        #: (String? fn) -> IR::Sig
         def sig_of(fn) = @types.sig_of(fn)
-        #: (String sig) -> IR::Sig
+        #: (String? sig) -> IR::Sig
         def sig_named(sig) = @types.sig_named(sig)
-        #: (String fn) -> IR::Callee
+        #: (String? fn) -> IR::Callee
         def callee_of(fn) = @types.callee_named(fn) #: IR::Callee
         #: (String gv) -> IR::Global
         def global_of(gv) = @types.global_named(gv) #: IR::Global

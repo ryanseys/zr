@@ -22,7 +22,7 @@ module Zr::Kern
   KEY_SAME = 1
   KEY_RAISED = 2
 
-  sig [] => Value
+  #: () -> value
   def zr_hash_new
     h = zr_alloc(T_HASH, zr_global(G_HASH), RHash.size)
     RHash.set_entries(h, 0)
@@ -38,7 +38,7 @@ module Zr::Kern
     h
   end
 
-  sig [Value] => Void
+  #: (value) -> void
   def zr_mark_hash(h)
     zr_mark(RHash.default(h))
     zr_mark(RHash.default_proc(h))
@@ -64,7 +64,7 @@ module Zr::Kern
   # here, the object's own `eql?` for an object with an ivar table (Struct,
   # Data and the program's classes), and identity for all others. An
   # `eql?` that raises gives KEY_RAISED, with the exception pending.
-  sig [Value, Value] => Word
+  #: (value, value) -> word
   def zr_key_eql(a, b)
     if a == b
       return KEY_SAME
@@ -115,7 +115,7 @@ module Zr::Kern
   # Whether two Arrays of the same length contain the same keys, element
   # by element. Each step reads the lengths again, because an `eql?` can
   # change either Array.
-  sig [Value, Value] => Word
+  #: (value, value) -> word
   def zr_key_eql_elements(a, b)
     i = 0
     while i < RArray.len(a)
@@ -132,7 +132,7 @@ module Zr::Kern
   end
 
   # Mixes a word into a hash code.
-  sig [Word] => Word
+  #: (word) -> word
   def zr_hash_mix(x)
     x = Machine.mul_wrap(x ^ (x >> 31), 7046029254386353131)
     x ^ (x >> 29)
@@ -144,7 +144,7 @@ module Zr::Kern
   # the parts for a Regexp, and the object's own `hash` for all others.
   # Under compare_by_identity, each key hashes as itself. Returns false
   # when the key's own `hash` raised, with the exception pending.
-  sig [Value, Value, Ptr] => Bool
+  #: (value, value, ptr) -> bool
   def zr_key_hash(h, key, out)
     Machine.store64(out, 0, zr_key_code(h, key))
     if (RBasic.flags(h) & FL_IDENTITY) != 0 || zr_special_p(key)
@@ -181,7 +181,7 @@ module Zr::Kern
 
   # Whether `key`'s method `mid` is the builtin at `builtin`. The table's
   # own identity rule already gives the same result as that builtin.
-  sig [Value, Word, Ptr] => Bool
+  #: (value, word, ptr) -> bool
   def zr_key_builtin_p(key, mid, builtin)
     e = zr_find_method(zr_class_of(key), mid)
     e != 0 && MEntry.fn(e) == builtin
@@ -190,7 +190,7 @@ module Zr::Kern
   # Returns the code of a key when no Ruby code must run to find it. For a
   # key whose own `hash` gives the code, it returns the identity code, and
   # zr_key_hash replaces it.
-  sig [Value, Value] => Word
+  #: (value, value) -> word
   def zr_key_code(h, key)
     if (RBasic.flags(h) & FL_IDENTITY) != 0
       return zr_hash_mix(Machine.word(key))
@@ -200,7 +200,7 @@ module Zr::Kern
 
   # The code of a value that needs no Ruby code, as zr_key_code gives it
   # to a table that compares by value.
-  sig [Value] => Word
+  #: (value) -> word
   def zr_value_code(key)
     if zr_float_p(key)
       d = zr_float_value(key)
@@ -230,7 +230,7 @@ module Zr::Kern
   # hashes with no call: an immediate, a Float or a String. Such an Array
   # cannot reach itself, so it needs no recursion guard. Returns nil when
   # an element needs its own `hash`.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_ary_leaf_hash(a, seed)
     mask = 72057594037927935
     h = zr_fix2long(seed) & mask
@@ -246,7 +246,7 @@ module Zr::Kern
     zr_fix(h)
   end
 
-  sig [Value] => Value
+  #: (value) -> value
   def zr_rb_hash(v)
     if zr_big_p(v)
       return zr_big_hash(v)
@@ -265,18 +265,18 @@ module Zr::Kern
   # Hashes a String's bytes with the process's seed. Thus a String's hash
   # is different in each run, as in ruby, and a program cannot depend on
   # a particular hash value.
-  sig [Value] => Word
+  #: (value) -> word
   def zr_str_bytes_hash(s)
     zr_bytes_hash(RString.ptr(s), RString.len(s)) ^ Machine.load64(zr_hash_seed(), 0)
   end
 
   # The seed, set one time at boot.
-  sig [] => Ptr
+  #: () -> ptr
   def zr_hash_seed
     Machine.static(:hash_seed, 8)
   end
 
-  sig [] => Void
+  #: () -> void
   def zr_hash_seed_init
     Machine.store64(zr_hash_seed(), 0, Machine.shl_wrap(zr_os_random(), 32) | zr_os_random())
   end
@@ -286,7 +286,7 @@ module Zr::Kern
   # goes in first, so a string and the same string plus zero bytes are
   # different. No spec can check a particular value, because the seed is
   # different in each process.
-  sig [Ptr, Word] => Word
+  #: (ptr, word) -> word
   def zr_bytes_hash(p, n)
     x = 1469598103934665603 ^ n
     i = 0
@@ -310,7 +310,7 @@ module Zr::Kern
   # Returns the live entry for `key`, 0 when there is none, or
   # HASH_RAISED. The probe starts at the code's bin and stops at an empty
   # bin. It skips dead entries.
-  sig [Value, Value] => Ptr
+  #: (value, value) -> ptr
   def zr_hash_entry(h, key)
     if RHash.live(h) == 0
       return 0
@@ -325,7 +325,7 @@ module Zr::Kern
   # A key's own `eql?` can add to the table, which rebuilds its entries
   # and bins. The probe then starts again on the new table, as CRuby's st
   # does when it finds that the table was rebuilt.
-  sig [Value, Value, Word] => Ptr
+  #: (value, value, word) -> ptr
   def zr_hash_find(h, key, code)
     identity = (RBasic.flags(h) & FL_IDENTITY) != 0
     gen = RHash.gen(h)
@@ -366,7 +366,7 @@ module Zr::Kern
   # A small table has no bins. The scan reads its entries in order and
   # checks the code first, as the probe does for a bin. If a key's `eql?`
   # changes the table, the lookup starts again, with or without bins.
-  sig [Value, Value, Word, Bool, Word] => Ptr
+  #: (value, value, word, bool, word) -> ptr
   def zr_hash_scan(h, key, code, identity, gen)
     i = 0
     while i < RHash.len(h)
@@ -397,7 +397,7 @@ module Zr::Kern
   # Returns the value for `key` in an internal table of the runtime, or
   # undef when there is none. The key must be a Symbol, a fixnum or a
   # String, so the lookup runs no Ruby code and cannot raise.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_hash_lookup(h, key)
     e = zr_hash_entry(h, key)
     if e == HASH_RAISED
@@ -410,7 +410,7 @@ module Zr::Kern
   end
 
   # Puts entry `n` (its index in the entries) into the bins.
-  sig [Value, Word] => Void
+  #: (value, word) -> void
   def zr_hash_bin(h, n)
     if RHash.nbins(h) == 0
       return
@@ -430,7 +430,7 @@ module Zr::Kern
   # the bins.
   HASH_SMALL = 8
 
-  sig [Value] => Void
+  #: (value) -> void
   def zr_hash_rebins(h)
     zr_sized_xfree(RHash.bins(h), RHash.nbins(h) * 8)
     if RHash.cap(h) <= HASH_SMALL
@@ -463,7 +463,7 @@ module Zr::Kern
 
   # Makes room for one more entry. The table doubles, deleted entries are
   # removed, and the bins are rebuilt.
-  sig [Value] => Void
+  #: (value) -> void
   def zr_hash_reserve(h)
     n = RHash.len(h)
     if n < RHash.cap(h)
@@ -495,7 +495,7 @@ module Zr::Kern
   # compare_by_identity or `rehash`. A key's own `hash` can change the
   # table, and then the loop starts again. Returns false when a `hash`
   # raised.
-  sig [Value] => Bool
+  #: (value) -> bool
   def zr_hash_recode(h)
     code = Machine.slot(8)
     gen = RHash.gen(h)
@@ -524,7 +524,7 @@ module Zr::Kern
 
   # `h[key] = value` for the runtime. Returns the value, or undef when the
   # key's own `hash` or `eql?` raised.
-  sig [Value, Value, Value] => Value
+  #: (value, value, value) -> value
   def zr_hash_store(h, key, value)
     slot = Machine.slot(8)
     unless zr_key_hash(h, key, slot)
@@ -554,7 +554,7 @@ module Zr::Kern
   # Adds a new entry for `key`, with the code `code`, after the last
   # entry. The caller knows that the key is not in `h`, so no method of
   # the key runs.
-  sig [Value, Value, Word, Value] => Value
+  #: (value, value, word, value) -> value
   def zr_hash_append(h, key, code, value)
     zr_hash_reserve(h)
     n = RHash.len(h)
@@ -573,7 +573,7 @@ module Zr::Kern
 
   # Returns the value for a missing key: the default proc's result, or the
   # default.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_hash_default(h, key)
     if RHash.default_proc(h) != QNIL
       return zr_yield2(RHash.default_proc(h), h, key)
@@ -581,7 +581,7 @@ module Zr::Kern
     RHash.default(h)
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_hash_aref(recv, argc, argv, cref, blk)
     key = Machine.value(Machine.load64(argv, 0))
     e = zr_hash_entry(recv, key)
@@ -597,7 +597,7 @@ module Zr::Kern
   # Returns the value for a missing `key`, as rb_hash_default_value does.
   # If the receiver has its own `default`, it calls it. Otherwise it
   # returns the default proc's result or the default.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_hash_missing(h, key)
     if zr_basic_method_p(h, Machine.id(:default))
       return zr_hash_default(h, key)
@@ -607,7 +607,7 @@ module Zr::Kern
     zr_send(h, Machine.id(:default), 1, slot)
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_hash_aset(recv, argc, argv, cref, blk)
     if zr_modify_frozen_p(recv)
       return zr_frozen_error(recv)
@@ -627,7 +627,7 @@ module Zr::Kern
   end
 
   # `fetch(key)`, `fetch(key, default)`, `fetch(key) { |key| }`.
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_hash_fetch(recv, argc, argv, cref, blk)
     if argc < 1 || argc > 2
       return zr_wrong_arity_range(argc, 1, 2)
@@ -661,7 +661,7 @@ module Zr::Kern
     zr_raise(e)
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_hash_key_p(recv, argc, argv, cref, blk)
     e = zr_hash_entry(recv, Machine.value(Machine.load64(argv, 0)))
     if e == HASH_RAISED
@@ -670,7 +670,7 @@ module Zr::Kern
     zr_bool(e != 0)
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_hash_delete(recv, argc, argv, cref, blk)
     if zr_modify_frozen_p(recv)
       return zr_frozen_error(recv)
@@ -690,24 +690,24 @@ module Zr::Kern
     v
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_hash_size(recv, argc, argv, cref, blk)
     zr_fix(RHash.live(recv))
   end
 
   # Returns the live count as a fixnum, for core code that must not
   # dispatch.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_hash_len_m(h)
     zr_fix(RHash.live(h))
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_hash_empty_p(recv, argc, argv, cref, blk)
     zr_bool(RHash.live(recv) == 0)
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_hash_keys(recv, argc, argv, cref, blk)
     out = zr_ary_new(RHash.live(recv))
     i = 0
@@ -721,7 +721,7 @@ module Zr::Kern
     out
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_hash_values(recv, argc, argv, cref, blk)
     out = zr_ary_new(RHash.live(recv))
     i = 0
@@ -736,7 +736,7 @@ module Zr::Kern
   end
 
   # `[key, value]`.
-  sig [Ptr] => Value
+  #: (ptr) -> value
   def zr_hash_assoc(e)
     pair = zr_ary_new(2)
     zr_ary_push(pair, HEntry.key(e))
@@ -756,14 +756,14 @@ module Zr::Kern
   #
   # The Array is the main cost of `each`: a cell and a malloc for each
   # entry of each iteration, discarded at the end of the block.
-  sig [Value] => Bool
+  #: (value) -> bool
   def zr_block_takes_pair(blk)
     RProc.spread(blk) != 0 && RProc.lambda(blk) == 0
   end
 
   # `each`: yields one `[key, value]` for each entry. It reads the table
   # again after each yield, because the block can change it.
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_hash_each(recv, argc, argv, cref, blk)
     if blk == QNIL
       return zr_enum_for(recv, Machine.id(:each), argc, argv, zr_fix(RHash.live(recv)))
@@ -788,12 +788,12 @@ module Zr::Kern
 
   # rb_hash_foreach: yields each pair of `h`'s own table to `blk`, as
   # `each` does, also when a subclass redefines `each`.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_hash_foreach(h, blk)
     zr_hash_each(h, 0, 0, Machine.value(QNIL), blk)
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_hash_to_a(recv, argc, argv, cref, blk)
     out = zr_ary_new(RHash.live(recv))
     i = 0
@@ -809,7 +809,7 @@ module Zr::Kern
 
   # A Symbol key prints as `key: value`, with quotes when its name is not
   # a plain identifier. Any other key prints as `key => value`.
-  sig [Value] => Bool
+  #: (value) -> bool
   def zr_symbol_key_simple_p(key)
     if !zr_symbol_p(key)
       return false
@@ -838,7 +838,7 @@ module Zr::Kern
     true
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_hash_inspect(recv, argc, argv, cref, blk)
     if RHash.live(recv) == 0
       return zr_usascii_str_new(Machine.bytes("{}"), 2)
@@ -910,7 +910,7 @@ module Zr::Kern
   end
 
   # `==`: the same keys, and each value is `==` to the other.
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_hash_eq(recv, argc, argv, cref, blk)
     other = Machine.value(Machine.load64(argv, 0))
     if zr_special_p(other)
@@ -932,7 +932,7 @@ module Zr::Kern
     r
   end
 
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_hash_eq_entries(recv, other)
     i = 0
     while i < RHash.len(recv)
@@ -960,7 +960,7 @@ module Zr::Kern
   # rb_hash_init: sets a default proc from the block, or the default value
   # `ifnone`. A block and `ifnone` cannot both be given. `unset` is true
   # when no default value was given. The capacity only reserves space.
-  sig [Value, Value, Value, Value, Value] => Value
+  #: (value, value, value, value, value) -> value
   def zr_hash_init(recv, capacity, unset, ifnone, blk)
     if zr_modify_frozen_p(recv)
       return zr_frozen_error(recv)
@@ -983,13 +983,13 @@ module Zr::Kern
     recv
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_hash_default_m(recv, argc, argv, cref, blk)
     RHash.default(recv)
   end
 
   # Makes `{k => v, ...}` from `n` pairs in `argv`.
-  sig [Word, Ptr] => Value
+  #: (word, ptr) -> value
   def zr_hash_of(n, argv)
     h = zr_hash_new()
     i = 0
@@ -1003,7 +1003,7 @@ module Zr::Kern
 
   # The keywords that a method declares are `n` symbol ids at `ids`. The
   # call's keywords are `hash`, or nil when the call passed none.
-  sig [Value, Word] => Value
+  #: (value, word) -> value
   def zr_kw_get(hash, id)
     if hash == QNIL
       return Machine.value(QUNDEF)
@@ -1011,7 +1011,7 @@ module Zr::Kern
     zr_hash_lookup(hash, zr_sym(id))
   end
 
-  sig [Ptr, Word, Word] => Bool
+  #: (ptr, word, word) -> bool
   def zr_kw_declared(ids, n, id)
     i = 0
     while i < n
@@ -1026,7 +1026,7 @@ module Zr::Kern
   # Raises `missing keyword: :a` or `missing keywords: :a, :b` for the
   # required keywords that are not in `hash`. Returns nil when all are
   # there.
-  sig [Value, Ptr, Word] => Value
+  #: (value, ptr, word) -> value
   def zr_kw_missing(hash, ids, n)
     count = 0
     i = 0
@@ -1060,7 +1060,7 @@ module Zr::Kern
   end
 
   # `**nil`: raises for any keyword.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_kw_none(hash)
     if hash == QNIL || RHash.live(hash) == 0
       return Machine.value(QNIL)
@@ -1071,7 +1071,7 @@ module Zr::Kern
   # Raises `unknown keyword: :x` or `unknown keywords: :x, :y` for the
   # keys of `hash` that the method does not declare. Returns nil when
   # there are none.
-  sig [Value, Ptr, Word] => Value
+  #: (value, ptr, word) -> value
   def zr_kw_unknown(hash, ids, n)
     if hash == QNIL
       return Machine.value(QNIL)
@@ -1114,7 +1114,7 @@ module Zr::Kern
 
   # A call's keyword table (`zr_kw_pass`) has the count, then the ids.
   # Returns the position of `id` in it, or -1.
-  sig [Ptr, Word] => Word
+  #: (ptr, word) -> word
   def zr_kw_tab_index(tab, id)
     n = Machine.load64(tab, 0)
     i = 0
@@ -1133,7 +1133,7 @@ module Zr::Kern
   # `mode` 0 raises for an undeclared keyword, 1 gives it to a `**rest`,
   # and 2 (`**nil`) raises for any keyword. Returns nil, or undef with the
   # error pending and the shape cache unchanged.
-  sig [Ptr, Ptr, Ptr, Word, Ptr, Word, Word] => Value
+  #: (ptr, ptr, ptr, word, ptr, word, word) -> value
   def zr_kw_shape(shape, tab, ids, m, required, nreq, mode)
     if Machine.load64(shape, 0) == Machine.word(tab)
       return Machine.value(QNIL)
@@ -1157,7 +1157,7 @@ module Zr::Kern
   end
 
   # `zr_kw_missing` for a table.
-  sig [Ptr, Ptr, Word] => Value
+  #: (ptr, ptr, word) -> value
   def zr_kw_missing_tab(tab, ids, n)
     count = 0
     i = 0
@@ -1191,7 +1191,7 @@ module Zr::Kern
   end
 
   # `zr_kw_unknown` for a table.
-  sig [Ptr, Ptr, Word] => Value
+  #: (ptr, ptr, word) -> value
   def zr_kw_unknown_tab(tab, ids, m)
     n = Machine.load64(tab, 0)
     count = 0
@@ -1231,7 +1231,7 @@ module Zr::Kern
 
   # `**rest` from a table: a Hash of the values in `vals` whose keywords
   # the method does not declare.
-  sig [Ptr, Ptr, Ptr, Word] => Value
+  #: (ptr, ptr, ptr, word) -> value
   def zr_kw_rest_tab(tab, vals, ids, m)
     out = zr_hash_new()
     n = Machine.load64(tab, 0)
@@ -1249,7 +1249,7 @@ module Zr::Kern
   # `**rest`: the keywords of `hash` that the method does not declare. The
   # entries are copied with their codes, as rb_hash_dup does. A key's own
   # `hash` ran at the call and does not run again here.
-  sig [Value, Ptr, Word] => Value
+  #: (value, ptr, word) -> value
   def zr_kw_rest(hash, ids, n)
     out = zr_hash_new()
     if hash == QNIL
@@ -1268,7 +1268,7 @@ module Zr::Kern
 
   # `**value` in a hash literal or a call: adds the value's pairs. The
   # value must be a Hash (nil adds nothing).
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_hash_update(h, other)
     if other == QNIL
       return h
@@ -1320,7 +1320,7 @@ module Zr::Kern
   # The keywords of an array literal made only of `**` splats. Returns
   # `[h]` to splat into the literal, or `[]` when `h` is empty, because
   # CRuby's pushtoarraykwsplat adds no element for an empty Hash.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_ary_kw_element(h)
     if RHash.live(h) == 0
       return zr_ary_new(0)
@@ -1331,12 +1331,12 @@ module Zr::Kern
   end
 
   # The primitives that lib/zr/runtime/core/hash.rb uses.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_hash_default_proc(h)
     RHash.default_proc(h)
   end
 
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_hash_set_default(h, v)
     if zr_modify_frozen_p(h)
       return zr_frozen_error(h)
@@ -1346,7 +1346,7 @@ module Zr::Kern
     v
   end
 
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_hash_set_default_proc(h, p)
     if zr_modify_frozen_p(h)
       return zr_frozen_error(h)
@@ -1357,7 +1357,7 @@ module Zr::Kern
   end
 
   # Removes all entries. The defaults stay.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_hash_clear(h)
     if zr_modify_frozen_p(h)
       return zr_frozen_error(h)
@@ -1379,7 +1379,7 @@ module Zr::Kern
   end
 
   # `compare_by_identity`: after this, a key matches only itself.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_hash_compare_by_identity(h)
     if (RBasic.flags(h) & FL_IDENTITY) != 0
       return h
@@ -1395,13 +1395,13 @@ module Zr::Kern
     h
   end
 
-  sig [Value] => Value
+  #: (value) -> value
   def zr_hash_iterating_p(h)
     zr_bool(RHash.iter(h) != 0)
   end
 
   # `rehash`: computes the codes again after keys changed in the table.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_hash_rehash(h)
     if zr_modify_frozen_p(h)
       return zr_frozen_error(h)
@@ -1439,13 +1439,13 @@ module Zr::Kern
     h
   end
 
-  sig [Value] => Value
+  #: (value) -> value
   def zr_hash_identity_p(h)
     zr_bool((RBasic.flags(h) & FL_IDENTITY) != 0)
   end
 
   # Returns only the default value, for the core.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_hash_default_value(h)
     RHash.default(h)
   end
@@ -1454,14 +1454,14 @@ module Zr::Kern
   # They use the table directly, as rb_hash_aref, rb_hash_aset,
   # rb_hash_has_key, rb_hash_fetch and rb_hash_replace do, and never call a
   # method that a subclass can replace.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_hash_aref_m(h, key)
     slot = Machine.slot(8)
     Machine.store64(slot, 0, Machine.word(key))
     zr_hash_aref(h, 1, slot, Machine.value(QNIL), Machine.value(QNIL))
   end
 
-  sig [Value, Value, Value] => Value
+  #: (value, value, value) -> value
   def zr_hash_aset_m(h, key, value)
     slot = Machine.slot(16)
     Machine.store64(slot, 0, Machine.word(key))
@@ -1469,27 +1469,27 @@ module Zr::Kern
     zr_hash_aset(h, 2, slot, Machine.value(QNIL), Machine.value(QNIL))
   end
 
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_hash_key_p_m(h, key)
     slot = Machine.slot(8)
     Machine.store64(slot, 0, Machine.word(key))
     zr_hash_key_p(h, 1, slot, Machine.value(QNIL), Machine.value(QNIL))
   end
 
-  sig [Value, Value, Value] => Value
+  #: (value, value, value) -> value
   def zr_hash_fetch_m(h, key, blk)
     slot = Machine.slot(8)
     Machine.store64(slot, 0, Machine.word(key))
     zr_hash_fetch(h, 1, slot, Machine.value(QNIL), blk)
   end
 
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_hash_replace_m(h, other)
     zr_hash_copy_from(h, other)
   end
 
   # `delete(key)` for the core. Returns the value, or nil.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_hash_delete_m(h, key)
     slot = Machine.slot(8)
     Machine.store64(slot, 0, Machine.word(key))

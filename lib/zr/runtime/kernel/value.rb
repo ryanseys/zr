@@ -20,7 +20,7 @@ module Zr::Kern
   # (lib/zr/runtime/kernel/heap.rb). zr_xfree subtracts the block's real size,
   # which can be larger than the request. Thus the total can be less than
   # the real total, but never more, and it stops at zero.
-  sig [Word] => Ptr
+  #: (word) -> ptr
   def zr_xmalloc(n)
     p = Libc.malloc(n)
     if p == 0 && n != 0
@@ -34,7 +34,7 @@ module Zr::Kern
     p
   end
 
-  sig [Ptr] => Void
+  #: (ptr) -> void
   def zr_xfree(p)
     if p != 0
       zr_sized_xfree(p, zr_os_malloc_size(p))
@@ -55,7 +55,7 @@ module Zr::Kern
   # used again, and the malloc trigger starts a collection too late. The
   # `size > malloced` clamp hides this at zero. A caller that gives the
   # requested size subtracts exactly what was added.
-  sig [Ptr, Word] => Void
+  #: (ptr, word) -> void
   def zr_sized_xfree(p, n)
     if p != 0
       h = zr_heap()
@@ -68,7 +68,7 @@ module Zr::Kern
   # this out when it allocates the buffer for a read. A read calls this
   # first, so that a length too large for the allocator raises
   # NoMemoryError in the program and does not end the process.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_memory_for_p(n)
     size = zr_fix2long(n)
     if size <= 0
@@ -84,7 +84,7 @@ module Zr::Kern
 
   # Writes CRuby's message and exits with CRuby's status when no memory is
   # available.
-  sig [] => Void
+  #: () -> void
   def zr_memory_exhausted
     Libc.write(Machine.i32(2), Machine.bytes("[FATAL] failed to allocate memory\n"), 34)
     Libc.exit(Machine.i32(1))
@@ -160,46 +160,46 @@ module Zr::Kern
 
   RBasic = layout flags: Word, klass: Value
 
-  sig [Value] => Bool
+  #: (value) -> bool
   def zr_fixnum_p(v)
     (Machine.word(v) & 1) == 1
   end
 
   # Whether `v` is not a pointer to a cell.
-  sig [Value] => Bool
+  #: (value) -> bool
   def zr_special_p(v)
     w = Machine.word(v)
     (w & 7) != 0 || w == 0 || w == 8
   end
 
   # CRuby's INT2FIX: a word outside the Fixnum range loses its top bit.
-  sig [Word] => Value
+  #: (word) -> value
   def zr_fix(n)
     Machine.value(Machine.shl_wrap(n, 1) | 1)
   end
 
-  sig [Value] => Word
+  #: (value) -> word
   def zr_fix2long(v)
     Machine.word(v) >> 1
   end
 
-  sig [Word] => Value
+  #: (word) -> value
   def zr_sym(id)
     Machine.value((id << 8) | SYMBOL_TAG)
   end
 
-  sig [Value] => Word
+  #: (value) -> word
   def zr_sym2id(v)
     Machine.word(v) >> 8
   end
 
-  sig [Value] => Bool
+  #: (value) -> bool
   def zr_symbol_p(v)
     (Machine.word(v) & 255) == SYMBOL_TAG
   end
 
   # Whether `v` is a class or a module: a cell of either type.
-  sig [Value] => Bool
+  #: (value) -> bool
   def zr_module_p(v)
     if zr_special_p(v)
       return false
@@ -208,7 +208,7 @@ module Zr::Kern
     t == T_CLASS || t == T_MODULE
   end
 
-  sig [Value] => Word
+  #: (value) -> word
   def zr_type(v)
     # Check for a heap object first. Its type is in its header
     # (zr_class_of).
@@ -232,19 +232,19 @@ module Zr::Kern
     end
   end
 
-  sig [Ptr, Word] => Void
+  #: (ptr, word) -> void
   def zr_write_out(bytes, len)
     Libc.write(1, bytes, len)
   end
 
-  sig [Ptr, Word] => Void
+  #: (ptr, word) -> void
   def zr_write_err(bytes, len)
     Libc.write(2, bytes, len)
   end
 
   # Writes a message to stderr, then aborts. It is for a bug in the
   # runtime, never for a Ruby error.
-  sig [Ptr, Word] => Void
+  #: (ptr, word) -> void
   def zr_bug(bytes, len)
     Libc.write(2, bytes, len)
     Libc.abort()
@@ -252,7 +252,7 @@ module Zr::Kern
 
   # libc's memmove, which is safe for ranges that overlap. Thus a caller
   # that shifts bytes within one buffer needs no other routine.
-  sig [Ptr, Ptr, Word] => Void
+  #: (ptr, ptr, word) -> void
   def zr_memcpy(to, from, n)
     Libc.memmove(to, from, n)
   end
@@ -261,7 +261,7 @@ module Zr::Kern
   # NotImplementedError that gives the case, and never returns a wrong
   # result. A program can rescue it, as it can rescue ruby's error on a
   # platform that does not have the feature.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_unimplemented(what)
     zr_raise_stop(zr_core_class(Machine.id(:NotImplementedError)), what)
   end
@@ -269,7 +269,7 @@ module Zr::Kern
   # For a call that this OS does not have. Raises the NotImplementedError
   # that rb_notimplement raises: `<name>() function is unimplemented on
   # this machine`.
-  sig [Ptr, Word] => Value
+  #: (ptr, word) -> value
   def zr_notimplement(name, len)
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
@@ -281,12 +281,12 @@ module Zr::Kern
   # For a ruby feature that this runtime has no file for. Raises a
   # LoadError that gives the feature, so that a library's
   # `rescue LoadError` around an optional require still runs.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_unloadable(what)
     zr_raise_stop(zr_core_class(Machine.id(:LoadError)), what)
   end
 
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_raise_stop(klass, what)
     b = Machine.slot(Buf.size)
     zr_buf_init(b)

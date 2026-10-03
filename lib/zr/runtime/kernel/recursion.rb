@@ -10,14 +10,14 @@ module Zr::Kern
 
   # Whether `mid` on `obj` is already active, paired or not. If it is not,
   # this adds a guard record, which stays until `zr_guard_leave`.
-  sig [Value, Word] => Bool
+  #: (value, word) -> bool
   def zr_guard_enter(obj, mid)
     zr_guard_enter_paired(obj, Machine.value(QUNDEF), mid)
   end
 
   # Whether `mid` on `obj` and `other` is already active. An unpaired
   # query (`other` undef) matches each guard on `obj`.
-  sig [Value, Value, Word] => Bool
+  #: (value, value, word) -> bool
   def zr_guard_enter_paired(obj, other, mid)
     t = zr_task()
     list = Task.guards(t)
@@ -40,7 +40,7 @@ module Zr::Kern
   end
 
   # Removes the last guard record. Guards nest.
-  sig [Value, Word] => Void
+  #: (value, word) -> void
   def zr_guard_leave(obj, mid)
     list = Task.guards(zr_task())
     RArray.set_len(list, RArray.len(list) - GUARD_ROW)
@@ -50,17 +50,17 @@ module Zr::Kern
   # :inspect)` returns true inside a recursion.
   # `zr_recursive_enter_paired(self, other, :eql?)` returns true inside a
   # recursion on the same pair.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_recursive_enter(obj, name)
     zr_bool(zr_guard_enter(obj, zr_sym2id(name)))
   end
 
-  sig [Value, Value, Value] => Value
+  #: (value, value, value) -> value
   def zr_recursive_enter_paired(obj, other, name)
     zr_bool(zr_guard_enter_paired(obj, other, zr_sym2id(name)))
   end
 
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_recursive_leave(obj, name)
     zr_guard_leave(obj, zr_sym2id(name))
     Machine.value(QNIL)

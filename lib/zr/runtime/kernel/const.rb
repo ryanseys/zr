@@ -24,7 +24,7 @@ module Zr::Kern
   VIS_PROTECTED = 2
   G_TOP_CREF = 24
 
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_cref_push(klass, outer)
     c = zr_alloc(T_CREF, Machine.value(QNIL), RCref.size)
     RCref.set_klass(c, klass)
@@ -39,7 +39,7 @@ module Zr::Kern
 
   # Returns the class of a cref. If the cref is for the singleton class of
   # an object and no code needed that class yet, it makes the class first.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_cref_klass(cref)
     obj = RCref.lazy(cref)
     if obj != QNIL
@@ -49,7 +49,7 @@ module Zr::Kern
     RCref.klass(cref)
   end
 
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_cref_push_eval(klass, outer)
     c = zr_cref_push(klass, outer)
     RCref.set_eval(c, 1)
@@ -59,7 +59,7 @@ module Zr::Kern
   # Whether two Values are the same object, without a method call on
   # either. A cref has no class, so `equal?` on a cref cannot dispatch. The
   # tree-walking interpreter keeps crefs and must tell them apart.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_same_p(a, b)
     zr_bool(a == b)
   end
@@ -69,19 +69,19 @@ module Zr::Kern
   # code writes it where the body runs. The tree-walking interpreter has the
   # cref but no frame of the body to write it in, so it writes it here.
   # 0 is public, 1 is private, 2 is protected.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_cref_set_vis(cref, vis)
     RCref.set_vis(cref, zr_fix2long(vis))
     Machine.value(QNIL)
   end
 
-  sig [Value] => Value
+  #: (value) -> value
   def zr_cref_set_modfn(cref)
     RCref.set_modfn(cref, 1)
     Machine.value(QNIL)
   end
 
-  sig [Value] => Value
+  #: (value) -> value
   def zr_cref_lexical(cref)
     while RCref.eval(cref) != 0
       cref = RCref.next(cref)
@@ -89,7 +89,7 @@ module Zr::Kern
     cref
   end
 
-  sig [Value] => Value
+  #: (value) -> value
   def zr_cref_lexical_class(cref)
     zr_cref_klass(zr_cref_lexical(cref))
   end
@@ -101,7 +101,7 @@ module Zr::Kern
   CONST_INDEX_MIN = 16
 
   # Deletes the index. The next lookup that needs it builds it again.
-  sig [Ptr] => Void
+  #: (ptr) -> void
   def zr_const_index_drop(ext)
     if ClassExt.cidx(ext) != 0
       zr_xfree(ClassExt.cidx(ext))
@@ -113,7 +113,7 @@ module Zr::Kern
   # plus one, or zero when empty. Entries go in in order, so when two
   # entries have the same id, the lookup finds the earlier one first, as a
   # scan does.
-  sig [Ptr, Word] => Void
+  #: (ptr, word) -> void
   def zr_const_index_put(ext, row)
     mask = ClassExt.cbins(ext) - 1
     h = Machine.mul_wrap(CEntry.id(ClassExt.ctab(ext) + (row * CEntry.size)), 2654435761) & mask
@@ -124,7 +124,7 @@ module Zr::Kern
   end
 
   # Builds a new index of all entries, with at least four bins for each entry.
-  sig [Ptr] => Void
+  #: (ptr) -> void
   def zr_const_index_build(ext)
     zr_const_index_drop(ext)
     n = ClassExt.clen(ext)
@@ -145,7 +145,7 @@ module Zr::Kern
   # Adds a new last entry to the index while the bins stay less than half
   # full. Otherwise it deletes the index, and the next lookup builds a
   # larger one.
-  sig [Ptr, Word] => Void
+  #: (ptr, word) -> void
   def zr_const_index_add(ext, row)
     if ClassExt.cidx(ext) == 0
       return
@@ -158,7 +158,7 @@ module Zr::Kern
   end
 
   # Returns the entry number of `id` in the table, or -1.
-  sig [Ptr, Word] => Word
+  #: (ptr, word) -> word
   def zr_const_index_find(ext, id)
     if ClassExt.cidx(ext) == 0
       zr_const_index_build(ext)
@@ -178,7 +178,7 @@ module Zr::Kern
 
   # Returns the constant entry for `id` on `klass` alone, or 0. The program
   # cannot read an entry that the runtime hides.
-  sig [Value, Word] => Ptr
+  #: (value, word) -> ptr
   def zr_const_row(klass, id)
     e = zr_const_row_kept(klass, id)
     if e != 0 && CEntry.concealed(e) != 0 && !zr_const_sees_concealed()
@@ -195,7 +195,7 @@ module Zr::Kern
   # hidden file loads. A reflective read, such as const_get, reads as the
   # frame that called the core library, unless the core library itself
   # asked (File.fnmatch reads its Dir::Glob with const_get).
-  sig [] => Bool
+  #: () -> bool
   def zr_const_sees_concealed
     if zr_loading_hidden()
       return true
@@ -215,7 +215,7 @@ module Zr::Kern
   # Whether the core method that frame `asking` called, the frame just
   # above it from `top`, is another method than the reflective one: then
   # that core method asks, as the runtime's own code.
-  sig [Ptr, Ptr] => Bool
+  #: (ptr, ptr) -> bool
   def zr_core_asks_reflectively(top, asking)
     above = 0
     rec = top
@@ -234,7 +234,7 @@ module Zr::Kern
 
   # Whether a reflective read, such as Module#constants, sees a hidden
   # constant entry.
-  sig [] => Bool
+  #: () -> bool
   def zr_const_sees_reflectively
     depth = Machine.static(:const_reflective, 8)
     Machine.store64(depth, 0, Machine.load64(depth, 0) + 1)
@@ -245,7 +245,7 @@ module Zr::Kern
 
   # Makes Object's constant `id` visible. A hidden file defined or reopened
   # it, and now the program required that file itself.
-  sig [Word] => Void
+  #: (word) -> void
   def zr_const_reveal(id)
     e = zr_const_row_kept(zr_global(G_OBJECT), id)
     if e != 0 && CEntry.concealed(e) != 0
@@ -257,7 +257,7 @@ module Zr::Kern
   # Makes the constant `id` of `klass` visible. A hidden file set it in a
   # module that the program can reach, as eval support's digest/sha2 sets
   # Digest::SHA256, and now the program required that file itself.
-  sig [Value, Word] => Void
+  #: (value, word) -> void
   def zr_const_reveal_in(klass, id)
     e = zr_const_row_kept(klass, id)
     if e != 0 && CEntry.concealed(e) != 0
@@ -269,7 +269,7 @@ module Zr::Kern
   # Makes the private constant `name` of `klass` visible to the program.
   # The runtime's own `private_constant` hides it, but ruby has it too
   # (Pathname::SEPARATOR_LIST), so the program can read it as ruby does.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_const_reveal_m(klass, name)
     zr_const_reveal_in(klass, zr_sym2id(name))
     Machine.value(QNIL)
@@ -279,7 +279,7 @@ module Zr::Kern
   # hidden entry becomes visible, so a program that reopens a module of the
   # runtime adds to the same module that the runtime uses. When a hidden
   # file reopens it, the runtime records that file as one that defined it.
-  sig [Value, Word] => Ptr
+  #: (value, word) -> ptr
   def zr_const_row_opened(scope, id)
     e = zr_const_row_kept(scope, id)
     if e != 0 && CEntry.concealed(e) != 0
@@ -294,7 +294,7 @@ module Zr::Kern
   end
 
   # Returns the constant entry for `id` on `klass` alone, hidden or not, or 0.
-  sig [Value, Word] => Ptr
+  #: (value, word) -> ptr
   def zr_const_row_kept(klass, id)
     ext = RClass.ext(klass)
     n = ClassExt.clen(ext)
@@ -319,7 +319,7 @@ module Zr::Kern
   # Stores a constant under `klass`, then calls the `const_added` hook. An
   # anonymous class or module gets the name of the constant. Returns `v`,
   # or undef when the store or the hook raises.
-  sig [Value, Word, Value] => Value
+  #: (value, word, value) -> value
   def zr_const_set(klass, id, v)
     if zr_const_write(klass, id, v) == 0
       return Machine.value(QUNDEF)
@@ -332,7 +332,7 @@ module Zr::Kern
   # Calls the `const_added` hook for `id` on `klass` when the program
   # defined one and a frame of the program set the constant. Returns the
   # value of the hook, or undef when it raises, or nil when there is no hook.
-  sig [Value, Word] => Value
+  #: (value, word) -> value
   def zr_const_announce(klass, id)
     if zr_frame_with_file(Task.top(zr_task())) != 0 && zr_find_method(zr_class_of(klass), Machine.id(:const_added)) != 0
       return zr_hook(klass, Machine.id(:const_added), zr_sym(id))
@@ -343,7 +343,7 @@ module Zr::Kern
   # Returns the constant entry of `klass` that contains `v` under `id`. It
   # makes a new entry or uses the old one, and records the source position.
   # Returns 0 when the store raises.
-  sig [Value, Word, Value] => Ptr
+  #: (value, word, value) -> ptr
   def zr_const_write(klass, id, v)
     # `1::WHAT = 2` comes here with a scope that has no constants.
     if zr_special_p(klass) || (zr_type(klass) != T_CLASS && zr_type(klass) != T_MODULE)
@@ -444,7 +444,7 @@ module Zr::Kern
   # Warns `already initialized constant M::X`, and gives the location of
   # the first definition when the file is known. It warns nothing while the
   # runtime boots.
-  sig [Value, Word, Ptr] => Void
+  #: (value, word, ptr) -> void
   def zr_warn_reassigned_constant(klass, id, e)
     if Task.top(zr_task()) == 0 || zr_gvar_get(Machine.id(:$VERBOSE)) == QNIL
       return
@@ -474,7 +474,7 @@ module Zr::Kern
   # Appends `\nfile:line: previous definition of Name was here` to a
   # message about a constant. A constant that the runtime set has no file
   # and no line, and CRuby prints them empty.
-  sig [Ptr, Ptr, Word] => Void
+  #: (ptr, ptr, word) -> void
   def zr_buf_previous_definition(b, e, id)
     zr_buf_byte(b, 10)
     zr_buf_push(b, CEntry.file(e), CEntry.file_len(e))
@@ -489,7 +489,7 @@ module Zr::Kern
 
   # Returns the constant entry for `id` on `klass` or an ancestor, or 0.
   # `skip_object` leaves out Object's own constants, as `A::X` does.
-  sig [Value, Word, Bool] => Ptr
+  #: (value, word, bool) -> ptr
   def zr_const_row_in(klass, id, skip_object)
     while klass != QNIL
       unless skip_object && klass == zr_global(G_OBJECT)
@@ -509,7 +509,7 @@ module Zr::Kern
   # the autoload once, finds the entry still undefined, and continues to
   # the next ancestor. `rb_const_defined_0` does not: it stops at that
   # entry and returns false. Thus a read and `const_defined?` differ here.
-  sig [Value, Word, Bool] => Ptr
+  #: (value, word, bool) -> ptr
   def zr_const_row_read_in(klass, id, skip_object)
     while klass != QNIL
       unless skip_object && klass == zr_global(G_OBJECT)
@@ -526,13 +526,13 @@ module Zr::Kern
   # Whether `home` answers const_missing with a method that the program
   # defined. Only such a method gets its own frame. The const_missing of
   # Module raises where the lookup fails, as ruby's does.
-  sig [Value] => Bool
+  #: (value) -> bool
   def zr_own_const_missing_p(home)
     entry = zr_find_method(zr_class_of(home), Machine.id(:const_missing))
     entry != 0 && entry != zr_find_method_at(zr_global(G_MODULE), Machine.id(:const_missing))
   end
 
-  sig [Value, Word] => Value
+  #: (value, word) -> value
   def zr_send_const_missing(home, id)
     slot = Machine.slot(8)
     Machine.store64(slot, 0, Machine.word(zr_sym(id)))
@@ -542,13 +542,13 @@ module Zr::Kern
   # A private constant read as `scope::Name`: the scope's own const_missing
   # answers, else the NameError names the class that holds the constant,
   # as rb_const_get_0 and rb_mod_const_missing do.
-  sig [Value, Ptr, Word] => Value
+  #: (value, ptr, word) -> value
   def zr_private_constant_read(scope, e, id)
     return zr_send_const_missing(scope, id) if zr_own_const_missing_p(scope)
     zr_private_constant(CEntry.owner(e), id)
   end
 
-  sig [Value, Word] => Value
+  #: (value, word) -> value
   def zr_uninitialized_constant(scope, id)
     home = scope == QNIL ? zr_global(G_OBJECT) : scope
     return zr_send_const_missing(home, id) if zr_own_const_missing_p(home)
@@ -567,7 +567,7 @@ module Zr::Kern
   end
 
   # Reads a bare constant under `cref`, or raises `uninitialized constant`.
-  sig [Value, Word] => Value
+  #: (value, word) -> value
   def zr_const_get(cref, id)
     cref = zr_cref_lexical(cref)
     gone = Machine.slot(16)
@@ -590,7 +590,7 @@ module Zr::Kern
   # search order is: the lexical scopes (the cref of an eval is not one),
   # then the ancestors of the innermost scope, then the box's own toplevel
   # and its own Object, then Object when that scope is a module.
-  sig [Value, Word] => Ptr
+  #: (value, word) -> ptr
   def zr_const_row_under(cref, id)
     cref = zr_cref_lexical(cref)
     c = cref
@@ -622,7 +622,7 @@ module Zr::Kern
 
   # Reads a bare constant under `cref` for `||=`. Returns the value, or
   # undef without a raise.
-  sig [Value, Word] => Value
+  #: (value, word) -> value
   def zr_const_lookup(cref, id)
     e = zr_const_row_under(cref, id)
     if e == 0
@@ -631,7 +631,7 @@ module Zr::Kern
     zr_const_value(e)
   end
 
-  sig [Value, Word] => Value
+  #: (value, word) -> value
   def zr_const_lookup_at(scope, id)
     if zr_special_p(scope) || (zr_type(scope) != T_CLASS && zr_type(scope) != T_MODULE)
       return Machine.value(QUNDEF)
@@ -648,7 +648,7 @@ module Zr::Kern
   # QUNDEF, and that one counts as defined. Thus the autoload table
   # decides: if an autoload record refers to this entry and still waits,
   # a file is still to come.
-  sig [Ptr] => Bool
+  #: (ptr) -> bool
   def zr_const_declared_only(e)
     if CEntry.value(e) != QUNDEF
       return false
@@ -671,12 +671,12 @@ module Zr::Kern
   # too), without a load. A name that an autoload declared and that no file
   # will define is not defined. It is in `constants` and hides a name
   # farther out, and `defined?` returns nil for it, as ruby's does.
-  sig [Value, Word] => Value
+  #: (value, word) -> value
   def zr_const_defined(cref, id)
     zr_bool(zr_const_row_under(cref, id) != 0)
   end
 
-  sig [Value, Word] => Value
+  #: (value, word) -> value
   def zr_const_defined_at(scope, id)
     if zr_special_p(scope) || (zr_type(scope) != T_CLASS && zr_type(scope) != T_MODULE)
       return Machine.value(QFALSE)
@@ -686,7 +686,7 @@ module Zr::Kern
   end
 
   # Raises `private constant Foo::BAR referenced`.
-  sig [Value, Word] => Value
+  #: (value, word) -> value
   def zr_private_constant(scope, id)
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
@@ -703,7 +703,7 @@ module Zr::Kern
 
   # Sends the warning for a deprecated constant to `Warning`, so that a
   # program can catch it or make it silent.
-  sig [Ptr, Word] => Value
+  #: (ptr, word) -> value
   def zr_const_deprecated(e, id)
     if CEntry.deprecated(e) == 0
       return Machine.value(QNIL)
@@ -727,7 +727,7 @@ module Zr::Kern
   # `deprecate_constant(*names)` set a flag on the module's own entries.
   # A constant that the runtime's own code makes private is a helper of
   # the runtime that ruby does not have, so the program cannot see it.
-  sig [Value, Word, Ptr, Word] => Value
+  #: (value, word, ptr, word) -> value
   def zr_mod_constant_visibility(recv, argc, argv, private)
     asking = zr_asking_frame()
     core = asking == 0 || FrameMeta.hidden(Frame.meta(asking)) != 0
@@ -765,7 +765,7 @@ module Zr::Kern
     recv
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_mod_private_constant(recv, argc, argv, cref, blk)
     if zr_modify_frozen_p(recv)
       return zr_frozen_error(recv)
@@ -773,7 +773,7 @@ module Zr::Kern
     zr_mod_constant_visibility(recv, argc, argv, 1)
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_mod_public_constant(recv, argc, argv, cref, blk)
     if zr_modify_frozen_p(recv)
       return zr_frozen_error(recv)
@@ -781,7 +781,7 @@ module Zr::Kern
     zr_mod_constant_visibility(recv, argc, argv, 0)
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_mod_deprecate_constant(recv, argc, argv, cref, blk)
     zr_mod_constant_visibility(recv, argc, argv, 0 - 1)
   end
@@ -789,7 +789,7 @@ module Zr::Kern
   # Raises TypeError unless `scope` is a class or a module, as the scope of
   # a constant path must be (`12::Name`, `class nil::Name`). Returns QUNDEF
   # after the raise, else nil.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_namespace_check(scope)
     if zr_special_p(scope) || (zr_type(scope) != T_CLASS && zr_type(scope) != T_MODULE)
       b = Machine.slot(Buf.size)
@@ -804,7 +804,7 @@ module Zr::Kern
   end
 
   # Reads `scope::Name`.
-  sig [Value, Word] => Value
+  #: (value, word) -> value
   def zr_const_get_at(scope, id)
     checked = zr_namespace_check(scope)
     return checked if checked == QUNDEF
@@ -834,7 +834,7 @@ module Zr::Kern
   # Returns the name that a class gets under `scope`: `Outer::Name`, but
   # only `Name` when the scope is a toplevel (Object, or a box), and
   # `#<Module:0x...>::Name` under an anonymous scope.
-  sig [Value, Word] => Value
+  #: (value, word) -> value
   def zr_class_name_under(scope, id)
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
@@ -855,7 +855,7 @@ module Zr::Kern
 
   # Returns the name of a class as rb_class_path keeps it. The name is
   # frozen, so `Module#name` returns the class's own String.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_class_name_str(s)
     RBasic.set_flags(s, RBasic.flags(s) | FL_FREEZE)
     s
@@ -863,7 +863,7 @@ module Zr::Kern
 
   # Whether a name made under `scope` is permanent. It is permanent under a
   # toplevel, and under a scope that has a permanent name.
-  sig [Value] => Bool
+  #: (value) -> bool
   def zr_class_named_for_good(scope)
     zr_toplevel_scope_p(scope) || (RClass.name(scope) != QNIL && (RBasic.flags(scope) & FL_TEMP_NAME) == 0)
   end
@@ -871,7 +871,7 @@ module Zr::Kern
   # `mod` just got a permanent name. Each class or module that it contains
   # and that has a temporary name gets its path under `mod`, recursively,
   # as CRuby's set_namespace_path does.
-  sig [Value] => Void
+  #: (value) -> void
   def zr_name_nested(mod)
     ext = RClass.ext(mod)
     i = 0
@@ -893,7 +893,7 @@ module Zr::Kern
   # constant.
   # A toplevel `class Name` looks at Object's own entries alone, as
   # rb_const_defined_at does: a Kernel::Name is not reopened.
-  sig [Value, Word, Value, Word] => Value
+  #: (value, word, value, word) -> value
   def zr_class_define(scope, id, sup, scoped)
     checked = zr_namespace_check(scope)
     return checked if checked == QUNDEF
@@ -951,7 +951,7 @@ module Zr::Kern
     k
   end
 
-  sig [Value, Word, Word] => Value
+  #: (value, word, word) -> value
   def zr_module_define(scope, id, scoped)
     checked = zr_namespace_check(scope)
     return checked if checked == QUNDEF
@@ -994,7 +994,7 @@ module Zr::Kern
 
   # rb_define_module_under, for a module name that an extension gives but
   # that is not a valid constant name (IO::generic_readable).
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_module_define_m(scope, name)
     zr_module_define(scope, zr_sym2id(name), 0)
   end
@@ -1002,7 +1002,7 @@ module Zr::Kern
   # Writes the id of a constant name, given as a Symbol or String, to
   # `out`. Otherwise raises `wrong constant name x`. A valid name is an
   # upper-case letter, then letters, digits, underscores or non-ASCII bytes.
-  sig [Value, Value, Ptr] => Value
+  #: (value, value, ptr) -> value
   def zr_const_name_id(recv, name, out)
     r = zr_name_id(name, out)
     return r if r == QUNDEF
@@ -1020,7 +1020,7 @@ module Zr::Kern
     Machine.value(QNIL)
   end
 
-  sig [Ptr, Word] => Bool
+  #: (ptr, word) -> bool
   def zr_const_name_p(p, n)
     if n == 0
       return false
@@ -1044,7 +1044,7 @@ module Zr::Kern
   # Returns the constant entry for one segment of a `const_get` path. The
   # first segment uses the `const_get` lookup. A later segment leaves out
   # Object's constants.
-  sig [Value, Word, Value, Value] => Ptr
+  #: (value, word, value, value) -> ptr
   def zr_const_row_segment(recv, id, inherit, later)
     depth = Machine.static(:const_reflective, 8)
     Machine.store64(depth, 0, Machine.load64(depth, 0) + 1)
@@ -1059,7 +1059,7 @@ module Zr::Kern
     e
   end
 
-  sig [Value, Value, Value, Value] => Value
+  #: (value, value, value, value) -> value
   def zr_mod_const_get_m(recv, name, inherit, later)
     slot = Machine.slot(8)
     r = zr_const_name_id(recv, name, slot)
@@ -1074,7 +1074,7 @@ module Zr::Kern
 
   # Returns `[file, line]` of the entry, `[]` for an entry that the runtime
   # made, or nil when there is no entry.
-  sig [Value, Value, Value, Value] => Value
+  #: (value, value, value, value) -> value
   def zr_mod_const_source_location_m(recv, name, inherit, later)
     slot = Machine.slot(8)
     r = zr_const_name_id(recv, name, slot)
@@ -1091,7 +1091,7 @@ module Zr::Kern
     out
   end
 
-  sig [Value, Value, Value, Value] => Value
+  #: (value, value, value, value) -> value
   def zr_mod_const_defined_m(recv, name, inherit, later)
     slot = Machine.slot(8)
     r = zr_const_name_id(recv, name, slot)
@@ -1106,7 +1106,7 @@ module Zr::Kern
 
   # The `const_defined?` lookup, which stops at the first entry that it
   # finds, declared or not.
-  sig [Value, Word, Value, Value] => Ptr
+  #: (value, word, value, value) -> ptr
   def zr_const_row_segment_defined(recv, id, inherit, later)
     depth = Machine.static(:const_reflective, 8)
     Machine.store64(depth, 0, Machine.load64(depth, 0) + 1)
@@ -1123,7 +1123,7 @@ module Zr::Kern
 
   # The two steps of `rb_const_defined_0`: the ancestor list, then Object
   # when the receiver is a module.
-  sig [Value, Word] => Ptr
+  #: (value, word) -> ptr
   def zr_const_row_defined_for(mod, id)
     e = zr_const_row_in(mod, id, false)
     if e == 0 && zr_type(mod) == T_MODULE
@@ -1133,7 +1133,7 @@ module Zr::Kern
   end
 
   # `remove_const(name)`: removes the module's own entry and returns its value.
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_mod_remove_const(recv, argc, argv, cref, blk)
     slot = Machine.slot(8)
     r = zr_const_name_id(recv, Machine.value(Machine.load64(argv, 0)), slot)
@@ -1172,7 +1172,7 @@ module Zr::Kern
   # Returns the constant entry that `const_get` and `const_defined?` find:
   # the module's own, its ancestors' when `inherit` is true, and Object's
   # for a module in all cases.
-  sig [Value, Word, Bool] => Ptr
+  #: (value, word, bool) -> ptr
   def zr_const_row_for(mod, id, inherit)
     if inherit
       e = zr_const_row_read_in(mod, id, false)
@@ -1184,7 +1184,7 @@ module Zr::Kern
     zr_const_row(mod, id)
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_mod_const_set(recv, argc, argv, cref, blk)
     if zr_modify_frozen_p(recv)
       return zr_frozen_error(recv)
@@ -1204,7 +1204,7 @@ module Zr::Kern
   # module that an extension defines under a name that is no constant name
   # (IO::generic_readable) is left out, as rb_local_constants_i leaves out
   # an id that is not rb_is_const_id.
-  sig [Value, Value] => Void
+  #: (value, value) -> void
   def zr_const_names_at(klass, out)
     ext = RClass.ext(klass)
     i = 0
@@ -1223,7 +1223,7 @@ module Zr::Kern
   # Adds the names of `mod`, then of its ancestors up to Object. The
   # search stops at Object unless it started there, as rb_mod_const_of
   # does: a class does not see the names of Object or BasicObject.
-  sig [Value, Value, Bool] => Void
+  #: (value, value, bool) -> void
   def zr_const_names_of(mod, out, inherit)
     k = mod
     while k != QNIL && (k != zr_global(G_OBJECT) || mod == zr_global(G_OBJECT))
@@ -1236,7 +1236,7 @@ module Zr::Kern
   # lexical scope, then those of the ancestors of the innermost scope, as
   # rb_mod_s_constants does. Otherwise it returns the same as
   # `Module#constants`.
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_mod_s_constants(recv, argc, argv, cref, blk)
     if argc != 0 || recv != zr_global(G_MODULE)
       return zr_mod_constants(recv, argc, argv, cref, blk)
@@ -1256,7 +1256,7 @@ module Zr::Kern
 
   # `constants`: the names of the receiver, and of its ancestors unless
   # `inherit` is false.
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_mod_constants(recv, argc, argv, cref, blk)
     out = zr_ary_new(8)
     inherit = argc == 0 || (Machine.value(Machine.load64(argv, 0)) != QFALSE && Machine.value(Machine.load64(argv, 0)) != QNIL)
@@ -1265,7 +1265,7 @@ module Zr::Kern
   end
 
   # Removes the entry for `id` from the own table of `klass`.
-  sig [Value, Word] => Void
+  #: (value, word) -> void
   def zr_const_remove(klass, id)
     ext = RClass.ext(klass)
     n = ClassExt.clen(ext)
@@ -1307,7 +1307,7 @@ module Zr::Kern
   # `zr_autoload_provided` finds the require that provided its feature.
   AUTOLOAD_DECLARED = 5
 
-  sig [Value, Word, Value, Ptr, Value, Word, Value] => Value
+  #: (value, word, value, ptr, value, word, value) -> value
   def zr_autoload(mod, id, feature, fn, cref, kind, path)
     if mod == zr_global(G_MAIN) || mod == zr_global(G_KERNEL)
       mod = zr_cref_klass(zr_cref_lexical(cref))
@@ -1363,7 +1363,7 @@ module Zr::Kern
   # and the record does not wait. `file` is the path that a require of the
   # feature would read, or nil when no such file exists. A later require of
   # that file stops the wait, whatever spelling of the feature it uses.
-  sig [Value, Value, Value, Value, Value, Value] => Value
+  #: (value, value, value, value, value, value) -> value
   def zr_autoload_computed(mod, name, feature, cref, loaded, file)
     slot = Machine.slot(8)
     r = zr_name_id(name, slot)
@@ -1385,7 +1385,7 @@ module Zr::Kern
                 zr_special_p(file) ? feature : file)
   end
 
-  sig [Value, Value, Word, Value, Ptr, Word, Value] => Void
+  #: (value, value, word, value, ptr, word, value) -> void
   def zr_autoload_push(rows, mod, id, feature, fn, kind, path)
     zr_ary_push(rows, mod)
     zr_ary_push(rows, zr_sym(id))
@@ -1397,7 +1397,7 @@ module Zr::Kern
 
   # The first read of a constant whose feature the program computed. It
   # calls `require` on main, which a program can redefine, as ruby does.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_autoload_require(feature)
     slot = Machine.slot(8)
     Machine.store64(slot, 0, Machine.word(feature))
@@ -1410,7 +1410,7 @@ module Zr::Kern
   # `autoload?` returns nil and `const_defined?` returns false, and ruby
   # keeps the record. Here that record has the kind AUTOLOAD_DECLARED, set
   # where it was registered or by `zr_autoload_provided`.
-  sig [Value, Word] => Bool
+  #: (value, word) -> bool
   def zr_autoload_waiting(rows, i)
     zr_fix2long(zr_ary_at(rows, i + 4)) != AUTOLOAD_DECLARED
   end
@@ -1419,7 +1419,7 @@ module Zr::Kern
   # is still to come, or -1. Most callers use this. The three callers that
   # need the record in all cases (a second `autoload`, a value written on
   # the name, and `remove_const`) use `zr_autoload_row`.
-  sig [Value, Word] => Word
+  #: (value, word) -> word
   def zr_autoload_pending(mod, id)
     i = zr_autoload_row(mod, id)
     if i < 0 || !zr_autoload_waiting(zr_global(G_AUTOLOADS), i)
@@ -1438,7 +1438,7 @@ module Zr::Kern
   # and uses $LOAD_PATH. It compares both strings because a record keeps the
   # feature as written and the file that it resolved to at registration.
   # If $LOAD_PATH grew between the two, only the feature can match.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_autoload_provided(feature, path)
     rows = zr_global(G_AUTOLOADS)
     if zr_special_p(rows)
@@ -1456,7 +1456,7 @@ module Zr::Kern
 
   # Whether the `kept` string of the record is `asked`. A record registered
   # before its feature could be resolved has no path, and nothing matches it.
-  sig [Value, Value] => Bool
+  #: (value, value) -> bool
   def zr_autoload_names(kept, asked)
     if zr_special_p(kept) || zr_special_p(asked) || zr_type(kept) != T_STRING || zr_type(asked) != T_STRING
       return false
@@ -1466,7 +1466,7 @@ module Zr::Kern
 
   # Returns the index of the autoload record for `mod` and `id`, waiting or
   # not, or -1.
-  sig [Value, Word] => Word
+  #: (value, word) -> word
   def zr_autoload_row(mod, id)
     rows = zr_global(G_AUTOLOADS)
     if zr_special_p(rows)
@@ -1483,7 +1483,7 @@ module Zr::Kern
   end
 
   # `autoload?(name)`: returns the feature still to load, or nil.
-  sig [Value, Word] => Value
+  #: (value, word) -> value
   def zr_autoload_feature(mod, id)
     i = zr_autoload_pending(mod, id)
     if i < 0
@@ -1496,12 +1496,12 @@ module Zr::Kern
   # and then the constant that it defined is the value. A file that defines
   # nothing leaves the name uninitialized.
   # A box that reads a shared class gets its shadow of that class.
-  sig [Ptr] => Value
+  #: (ptr) -> value
   def zr_const_value(e)
     zr_box_seen(zr_const_raw_value(e))
   end
 
-  sig [Ptr] => Value
+  #: (ptr) -> value
   def zr_const_raw_value(e)
     gone = Machine.slot(16)
     Machine.store64(gone, 0, 0)
@@ -1515,7 +1515,7 @@ module Zr::Kern
   # The same, for a search that continues past an entry that an autoload
   # removed, as CRuby's rb_const_search does. When the entry is removed,
   # `gone` contains its module, and the value is nil.
-  sig [Ptr, Ptr] => Value
+  #: (ptr, ptr) -> value
   def zr_const_searched(e, gone)
     Machine.store64(gone, 0, 0)
     v = zr_const_loaded(e, gone)
@@ -1530,7 +1530,7 @@ module Zr::Kern
   # that is already loading, because its own `class` or `module` can be what
   # defines the name. Then `gone` contains the module and the name, and the
   # value is nil.
-  sig [Ptr, Ptr] => Value
+  #: (ptr, ptr) -> value
   def zr_const_loaded(e, gone)
     v = CEntry.value(e)
     if v != QUNDEF
@@ -1572,7 +1572,7 @@ module Zr::Kern
     zr_uninitialized_constant(Machine.value(QNIL), CEntry.id(e))
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_mod_autoload_p(recv, argc, argv, cref, blk)
     slot = Machine.slot(8)
     r = zr_const_name_id(recv, Machine.value(Machine.load64(argv, 0)), slot)
@@ -1585,27 +1585,27 @@ module Zr::Kern
   # finds what compiled code finds. It has no inline cache and no symbol id,
   # so these functions take the name as a Symbol. They are in place of the
   # cached forms that the compiler emits.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_const_get_m(cref, name)
     zr_const_get(cref, zr_sym2id(name))
   end
 
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_const_defined_m(cref, name)
     zr_const_defined(cref, zr_sym2id(name))
   end
 
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_const_get_at_m(scope, name)
     zr_const_get_at(scope, zr_sym2id(name))
   end
 
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_const_defined_at_m(scope, name)
     zr_const_defined_at(scope, zr_sym2id(name))
   end
 
-  sig [Value, Value, Value] => Value
+  #: (value, value, value) -> value
   def zr_const_set_m(klass, name, v)
     zr_const_set(klass, zr_sym2id(name), v)
   end

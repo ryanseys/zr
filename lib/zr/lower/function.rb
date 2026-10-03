@@ -44,8 +44,8 @@ module Zr
       # @rbs @twin: String?
       # @rbs @twin_of: String?
       # @rbs @locals: Array[Symbol]
-      # @rbs @body: untyped
-      # @rbs @def: untyped
+      # @rbs @body: Hir::node?
+      # @rbs @def: Hir::owner?
       # @rbs @kind: Symbol
       # @rbs @direct: bool
       # @rbs @outer: Function | Outer | nil
@@ -123,7 +123,7 @@ module Zr
       attr_reader :raw_block #: Symbol?
 
       # The Def, Block or body node this function came from.
-      #: () -> untyped
+      #: () -> Hir::owner?
       def def_node
         @def
       end
@@ -152,8 +152,8 @@ module Zr
       # @rbs lower: Lower
       # @rbs name: String
       # @rbs locals: Array[Symbol]
-      # @rbs body: untyped
-      # @rbs node: untyped
+      # @rbs body: Hir::node?
+      # @rbs node: Hir::owner?
       # @rbs kind: Symbol
       # @rbs outer: Function | Outer | nil
       # @rbs twin: String?
@@ -168,7 +168,7 @@ module Zr
         @body = body
         @def = node
         @kind = kind
-        @direct = kind == :def && Function.direct_def?(node, lower)
+        @direct = kind == :def && node.is_a?(Hir::Def) && Function.direct_def?(node, lower)
         @outer = outer
         @frame = lower.layout("Frame")
         @task = lower.layout("Task")
@@ -187,7 +187,8 @@ module Zr
                    default_expressions.any? { |d| Hir::Locals.holds_block?(d) || Hir::Locals.opens_locals?(d) } ||
                    (lower.traced? && !lower.internal? && %i[def block top].include?(@kind))
         @raw_block = nil
-        @raw_block = raw_block?(node.params) ? node.params.block : nil if %i[def block].include?(@kind)
+        # A def's scope has a Def, and a block's a Block.
+        @raw_block = raw_block?(node.params) ? node.params.block : nil if node.is_a?(Hir::Def) || node.is_a?(Hir::Block)
         @sites = 0
         @loops = []
         @regions = []
@@ -195,23 +196,24 @@ module Zr
         # Set for real in `lower` and `enter`, once this scope's IR
         # function exists. Nil here fixes this object's ivar order
         # before then, so every instance has the same shape
-        # (lib/zr/runtime/kernel/cache.rb, guessed_ivar_row).
-        @f = nil
-        @base = nil
-        @nvalues = nil
-        @sp = nil
-        @record = nil
-        @rec = nil
-        @task_addr = nil
-        @prev = nil
-        @meta = nil
+        # (lib/zr/runtime/kernel/cache.rb, guessed_ivar_row). Nothing
+        # reads them before they are set, so their types do not include nil.
+        @f = nil #: untyped
+        @base = nil #: untyped
+        @nvalues = nil #: untyped
+        @sp = nil #: untyped
+        @record = nil #: untyped
+        @rec = nil #: untyped
+        @task_addr = nil #: untyped
+        @prev = nil #: untyped
+        @meta = nil #: untyped
         @line = nil
-        @proc = nil
-        @qnil = nil
-        @self = nil
-        @cref = nil
-        @blk = nil
-        @env = nil
+        @proc = nil #: untyped
+        @qnil = nil #: untyped
+        @self = nil #: untyped
+        @cref = nil #: untyped
+        @blk = nil #: untyped
+        @env = nil #: untyped
         # `lower`, only for a block: the label its body jumps to, so a
         # `redo` (Control) can jump back to it.
         @body_label = nil
@@ -236,7 +238,7 @@ module Zr
       #: () -> IR::Function
       def lower
         # @type ivar @body_label: String
-        abi = if @direct then Function.direct_abi(@def.params.required.size)
+        abi = if @direct then Function.direct_abi(own_params.required.size)
               elsif @twin_of then :def
               else @kind
               end
@@ -268,11 +270,21 @@ module Zr
       # nil if the program does not measure coverage. A block also has
       # one, because `define_method` makes a method from a block, and ruby
       # gives that method the block's location.
-      #: () -> untyped
-      def method_cover = %i[def block].include?(@kind) ? @def&.cover : nil
+      #: () -> Integer?
+      def method_cover
+        d = @def
+        d.is_a?(Hir::Def) || d.is_a?(Hir::Block) ? d.cover : nil
+      end
+
+      # The parameters of a def's or a block's scope.
+      #: () -> Hir::Params
+      def own_params
+        d = @def
+        d.is_a?(Hir::Def) || d.is_a?(Hir::Block) ? d.params : raise(ArgumentError, "a #{@kind} scope has no parameters")
+      end
 
       # The record slot of the local in `node`, `node.depth` scopes up.
-      #: (untyped node) -> Integer
+      #: (Hir::Local | Hir::Assign node) -> Integer
       def slot_at(node)
         scope_at(node.depth).slot_index(node)
       end
@@ -312,7 +324,7 @@ module Zr
       #: () -> String
       def call_block = @twin_of ? arg_blk : @f.args[3]
 
-      #: (untyped node) -> Integer
+      #: (Hir::Local | Hir::Assign node) -> Integer
       def slot_index(node)
         @slot_of.fetch(node.name) { @l.refuse(node, "#{node.name} is not a local of this scope") }
       end
@@ -347,17 +359,27 @@ module Zr
 
         @attributes ||= begin
           # For a def with a `rescue` or `ensure`, read its protected body.
-          body = @body.is_a?(Hir::Begin) ? @body.body : @body
+          body = @body
+          body = body.body if body.is_a?(Hir::Begin)
           stmts = body.is_a?(Hir::Seq) ? body.stmts : [body]
-          stmts.take_while { |stmt| attribute_row?(stmt) }.map { |stmt| stmt.args.first.value }
+          names = [] #: Array[Symbol]
+          stmts.each { |stmt| names << (attribute_of(stmt) or break) }
+          names
         end
       end
       protected :attributes
 
-      #: (untyped node) -> bool
-      def attribute_row?(node)
-        node.is_a?(Hir::Send) && node.name == :attr! && node.recv.is_a?(Hir::ConstRead) && node.recv.name == :Primitive &&
-          node.args.first.is_a?(Hir::Literal)
+      # The name in an attribute row, `Primitive.attr! :name`, or nil.
+      #: (Hir::node? node) -> Symbol?
+      def attribute_of(node)
+        return unless node.is_a?(Hir::Send) && node.name == :attr!
+
+        recv = node.recv
+        arg = node.args.first
+        return unless recv.is_a?(Hir::ConstRead) && recv.name == :Primitive && arg.is_a?(Hir::Literal)
+
+        name = arg.value
+        name if name.is_a?(Symbol)
       end
 
       #: () -> bool
@@ -384,7 +406,7 @@ module Zr
       # :own when `node` matches for its own work (a regexp literal, or in an
       # extension a matching call), :caller when it sets or reads the
       # caller's `$~` or `$_`, else nil. :caller wins.
-      #: (untyped node) -> Symbol?
+      #: (Hir::node | Array[untyped] | nil node) -> Symbol?
       def matches?(node)
         found = nil
         case node
@@ -418,8 +440,11 @@ module Zr
         return name unless @l.internal?
         return name if Hir::VISIBLE_IVARS.include?(@l.file)
 
-        fn = self
-        fn = fn.outer while fn.kind == :block && fn.outer
+        # A block's outer scope is a Function: only an eval's is an Outer.
+        fn = self #: Function
+        while fn.kind == :block && (up = fn.outer).is_a?(Function)
+          fn = up
+        end
         fn.attributes.include?(:ivars) ? name : name.to_s.delete_prefix("@").to_sym
       end
 
@@ -442,6 +467,7 @@ module Zr
         # found (`Machine.sig :method`). Its name and cref come from the
         # entry. Both go into the record before the stack check, so no
         # register keeps them across it.
+        # @type var cref: String
         if @kind == :def
           @f.store(arg_entry, @rec, off(@frame, "entry"))
           @f.store(arg_found, @rec, off(@frame, "defined"))
@@ -450,11 +476,12 @@ module Zr
         stack_check
         @prev = @f.fetch("i64", @task_addr, off(@task, "top"))
         @f.store(@prev, @rec, off(@frame, "prev"))
-        line = @def ? @def.line : 1
-        name = @def && %i[class module].include?(@kind) ? @def.name : 0
-        params = @def.params if %i[def block].include?(@kind)
+        d = @def
+        line = d ? d.line : 1
+        name = d.is_a?(Hir::ClassDef) || d.is_a?(Hir::ModuleDef) ? d.name : 0
+        params = own_params if %i[def block].include?(@kind)
         kind = hidden_def? ? "KIND_HIDDEN" : @l.frame_kind(@kind)
-        node_id = @def ? @l.node_id(@def) : 0
+        node_id = d ? @l.node_id(d) : 0
         @meta = if @twin_of
                   "zr_meta_#{@twin_of}"
                 else
@@ -576,7 +603,7 @@ module Zr
           take(kernel("zr_catch_return", @rec))
         end
         # A `return` in an eval straight in a file's toplevel ends the file.
-        take(kernel("zr_catch_return_here")) if (@kind == :def && @def&.evals) || %i[main top].include?(@kind)
+        take(kernel("zr_catch_return_here")) if ((d = @def).is_a?(Hir::Def) && d.evals) || %i[main top].include?(@kind)
         leave(qundef, unwinding: true)
       end
 
@@ -593,11 +620,11 @@ module Zr
       end
 
       # A parameter's default runs in the prologue, and stages as the body does.
-      #: () -> Array[untyped]
+      #: () -> Array[Hir::node?]
       def default_expressions
         return [] unless %i[def block].include?(@kind)
 
-        p = @def.params
+        p = own_params
         p.optional.map(&:last) + p.keywords.filter_map(&:last)
       end
 
@@ -608,8 +635,8 @@ module Zr
       def prologue_slots
         return 0 unless %i[def block].include?(@kind)
 
-        p = @def.params
-        nested = (p.required + p.post).grep(Hir::MultiTarget).map { |t| Scope.targets(t) }.max || 0
+        p = own_params
+        nested = (p.required + p.post).filter_map { |t| Scope.targets(t) if t.is_a?(Hir::MultiTarget) }.max || 0
         spread = @kind == :block && p.spread? ? 1 : 0
         (keywords?(p) ? 1 : 0) + spread + nested
       end
@@ -657,7 +684,7 @@ module Zr
 
       # The same for `node`, with the id of the prism node it came from in
       # the word's high half, which node_id_for_backtrace_location reads.
-      #: (untyped node) -> void
+      #: (Hir::node node) -> void
       def at_node(node)
         at_line(node.line, @l.node_id(node))
       end
@@ -679,7 +706,7 @@ module Zr
       # The same for the site `node`, with one cell however many times the
       # node is lowered. Its def's function and every inlined copy
       # (`Inline`) share it.
-      #: (untyped node, String prefix, String layout, ?Integer count) -> String
+      #: (Hir::node node, String prefix, String layout, ?Integer count) -> String
       def site_cache(node, prefix, layout, count = 1)
         @f.symbol_value(@f.symbol(@l.site_cell(node, prefix, @l.layout(layout).size * count)))
       end
@@ -820,15 +847,9 @@ module Zr
         env
       end
 
-      # Slot `i` of the Env `depth` scopes up: a load of the slots and a
+      # Slot `i` of the Env `depth` scopes up is a load of the slots and a
       # load or store at the slot, inline. Every local of a scope that
       # contains a block is there (lib/zr/runtime/kernel/proc.rb).
-      # Untyped: Steep cannot type a splat of a tuple.
-      #: (Integer i, Integer depth) -> untyped
-      def env_slot(i, depth)
-        [@f.fetch("i64", env_at(depth), off(@env_layout, "slots")), 8 * i]
-      end
-
       #: (Integer i, Integer depth, ?Symbol? name) -> String
       def read_local(i, depth, name = nil)
         if @inline_scope
@@ -839,7 +860,7 @@ module Zr
         capture(name, depth, write: false)
         return @f.fetch("i64", @rec, value_offset(i)) if depth.zero? && !@has_env
 
-        @f.fetch("i64", *env_slot(i, depth))
+        @f.fetch("i64", @f.fetch("i64", env_at(depth), off(@env_layout, "slots")), 8 * i)
       end
 
       #: (Integer i, Integer depth, String v, ?Symbol? name) -> String
@@ -907,8 +928,8 @@ module Zr
       #: () -> Array[[Symbol, bool, bool]]
       def capture_rows
         @captures.map do |name, depth|
-          home = self
-          depth.times { home = home.outer }
+          home = self #: Function | Outer
+          depth.times { home = home.outer || raise(ArgumentError, "#{name} is a capture past the outermost scope") }
           [name, @writes.include?(name), home.bindings[name] > 1]
         end
       end
@@ -921,7 +942,7 @@ module Zr
       def bindings
         @bindings ||= begin
           counts = Hir::Locals.assignments(@body)
-          params = %i[def block].include?(@kind) ? @def.params : nil #: Hir::Params?
+          params = %i[def block].include?(@kind) ? own_params : nil
           params&.names&.each { |name| counts[name] += 1 }
           counts
         end
@@ -934,8 +955,9 @@ module Zr
       # when `expr` is not correct for this caller: string interpolation
       # uses shared frozen Strings for its literal parts, because the
       # program never gets them.
-      # `evaluate` is a Proc or a Method, which Steep cannot call as one type.
-      #: [T] (Array[untyped] nodes, ?Integer extra, ?evaluate: untyped) { (String, Integer) -> T } -> T
+      # A `nodes` entry is a node, or an IR value for an `evaluate` that
+      # returns it as it is.
+      #: [T] (Array[untyped] nodes, ?Integer extra, ?evaluate: (^(untyped) -> String)?) { (String, Integer) -> T } -> T
       def staged(nodes, extra = 0, evaluate: nil)
         base = reserve(nodes.size + extra)
         nodes.each_with_index { |n, i| @f.store(evaluate ? evaluate.call(n) : expr(n), @rec, value_offset(base + i)) }

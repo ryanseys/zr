@@ -3,33 +3,33 @@ module Zr::Kern
   # symbol, so the eval compiler (JIT) has no memory to write into.
   RTLD_DEFAULT = 0
 
-  sig [Value] => Value
+  #: (value) -> value
   def zr_os_jit_reserve(size)
     Machine.value(QNIL)
   end
 
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_os_jit_release(at, size)
     Machine.value(QNIL)
   end
 
-  sig [Value, Value, Value] => Value
+  #: (value, value, value) -> value
   def zr_os_jit_map(size, exec, hint)
     Machine.value(QNIL)
   end
 
-  sig [Value] => Value
+  #: (value) -> value
   def zr_os_symbol(name)
     Machine.value(QNIL)
   end
 
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_os_jit_write(at, bytes)
     zr_notimplement(Machine.bytes("mmap"), 4)
   end
 
   # A module cannot load a library.
-  sig [] => Ptr
+  #: () -> ptr
   def zr_os_libffi_path
     Machine.bytes("\0")
   end

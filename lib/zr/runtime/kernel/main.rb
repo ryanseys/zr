@@ -7,14 +7,14 @@ module Zr::Kern
   Libc.import :zr_gem_prelude, [] => Value
 
 
-  sig [Word, Word, Value] => Value
+  #: (word, word, value) -> value
   def zr_boot_class(g, name, sup)
     c = zr_class_boot(sup)
     zr_set_global(g, c)
     c
   end
 
-  sig [Word, Word] => Void
+  #: (word, word) -> void
   def zr_boot_name(g, name)
     k = zr_global(g)
     RClass.set_name(k, zr_class_name_str(zr_usascii_str_new(zr_symbol_name_ptr(name), zr_symbol_name_len(name))))
@@ -22,7 +22,7 @@ module Zr::Kern
   end
 
   # The methods that Method and UnboundMethod share.
-  sig [Value] => Void
+  #: (value) -> void
   def zr_boot_method_class(klass)
     zr_builtin(klass, Machine.id(:arity), Machine.addr(:zr_method_arity), 0)
     zr_builtin(klass, Machine.id(:parameters), Machine.addr(:zr_method_parameters), 0)
@@ -44,7 +44,7 @@ module Zr::Kern
 
   # The stack limit of the main task: the margin above the low end of the
   # OS stack, or zero if the OS does not give the low end.
-  sig [] => Ptr
+  #: () -> ptr
   def zr_main_stack_limit
     low = zr_os_stack_low()
     if low == 0
@@ -53,7 +53,7 @@ module Zr::Kern
     Machine.ptr(low + STACK_MARGIN)
   end
 
-  sig [] => Void
+  #: () -> void
   def zr_boot
     zr_heap_init()
     zr_mcache_init()
@@ -486,13 +486,13 @@ module Zr::Kern
 
   # The program's entry. The OS layer runs `zr_main` on the stack that
   # Ruby frames need, which is not always the stack the process starts on.
-  sig [I32, Ptr] => I32
+  #: (i32, ptr) -> i32
   def main(argc, argv)
     Machine.gates_enter
     zr_os_main(argc, argv)
   end
 
-  sig [I32, Ptr] => I32
+  #: (i32, ptr) -> i32
   def zr_main(argc, argv)
     zr_boot()
     zr_args_init(argc, argv)

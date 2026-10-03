@@ -38,7 +38,7 @@ module Zr::Kern
   # document, or a kind that this reader leaves to Ruby. Then
   # zr_marshal_bailed_p returns true. Undef means a raise, which the caller
   # passes on.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_marshal_load_fast(src)
     Machine.store64(Machine.static(:marshal_bailed, 8), 0, 0)
     r = Machine.slot(MReader.size)
@@ -70,14 +70,14 @@ module Zr::Kern
 
   # Whether the fast reader stopped and left the document to the Ruby
   # reader (and did not read it or raise).
-  sig [] => Value
+  #: () -> value
   def zr_marshal_bailed_p
     Machine.value(Machine.load64(Machine.static(:marshal_bailed, 8), 0) != 0 ? QTRUE : QFALSE)
   end
 
   # Stops the fast reader. Returns undef and sets the bail flag for the
   # caller.
-  sig [Ptr] => Value
+  #: (ptr) -> value
   def zr_mr_bail(r)
     MReader.set_bail(r, 1)
     Machine.store64(Machine.static(:marshal_bailed, 8), 0, 1)
@@ -86,7 +86,7 @@ module Zr::Kern
 
   # Returns the next byte, or -1 at the end. The end means a truncated
   # document, so the reader bails and the Ruby reader raises the error.
-  sig [Ptr] => Word
+  #: (ptr) -> word
   def zr_mr_byte(r)
     pos = MReader.pos(r)
     if pos >= MReader.len(r)
@@ -100,7 +100,7 @@ module Zr::Kern
   # Reads a packed integer: one byte for a small number, or a count byte
   # and then that number of bytes, least significant first. Returns -1 for
   # a truncated number. No packed count or index is negative.
-  sig [Ptr] => Word
+  #: (ptr) -> word
   def zr_mr_long(r)
     head = zr_mr_byte(r)
     if head < 0
@@ -134,7 +134,7 @@ module Zr::Kern
 
   # Returns a pointer to the next `n` bytes and moves past them. Returns 0
   # if fewer than `n` bytes remain.
-  sig [Ptr, Word] => Ptr
+  #: (ptr, word) -> ptr
   def zr_mr_text(r, n)
     pos = MReader.pos(r)
     if n < 0 || pos + n > MReader.len(r)
@@ -146,7 +146,7 @@ module Zr::Kern
 
   # Whether the `n` bytes at `p` are all ASCII. A symbol with a non-ASCII
   # byte needs its own encoding for intern, and the Ruby reader finds it.
-  sig [Ptr, Word] => Bool
+  #: (ptr, word) -> bool
   def zr_mr_ascii_p(p, n)
     i = 0
     while i < n
@@ -160,7 +160,7 @@ module Zr::Kern
 
   # Reads a symbol, new or linked, and returns its id. Returns -1 for any
   # other kind.
-  sig [Ptr, Value] => Word
+  #: (ptr, value) -> word
   def zr_mr_symbol(r, symbols)
     tag = zr_mr_byte(r)
     if tag == MR_SYMLINK
@@ -186,7 +186,7 @@ module Zr::Kern
   # Returns the class that `path` refers to ("Prism::CallNode"). It looks
   # up one component at a time from Object. Returns undef if the path
   # refers to nothing, or to something that is not a class.
-  sig [Ptr, Word] => Value
+  #: (ptr, word) -> value
   def zr_mr_class(p, n)
     scope = zr_global(G_OBJECT)
     at = 0
@@ -220,7 +220,7 @@ module Zr::Kern
   # Reads one value. Undef means a bail or a raise (`MReader.bail` tells
   # which). A value that has a link slot registers it before its parts, as
   # marshal.c does.
-  sig [Ptr, Value, Value] => Value
+  #: (ptr, value, value) -> value
   def zr_mr_value(r, objects, symbols)
     tag = zr_mr_byte(r)
     if tag == MR_OBJECT
@@ -284,7 +284,7 @@ module Zr::Kern
   # this form (a prism location, for example), so most of them fit a
   # fixnum. A value larger than a fixnum needs the core's Bignum, which is
   # in Ruby, so the reader bails.
-  sig [Ptr, Value] => Value
+  #: (ptr, value) -> value
   def zr_mr_bignum(r, objects)
     sign = zr_mr_byte(r)
     words = zr_mr_long(r)
@@ -313,7 +313,7 @@ module Zr::Kern
   # the payload is its name, and the reader finds the encoding by name, as
   # the Ruby reader does. A payload with its own ivars goes to the Ruby
   # reader.
-  sig [Ptr, Value, Value] => Value
+  #: (ptr, value, value) -> value
   def zr_mr_user_dump(r, objects, symbols)
     klass = zr_mr_named_class(r, symbols)
     if klass == QUNDEF
@@ -336,7 +336,7 @@ module Zr::Kern
 
   # Reads the bytes of a string. The string is binary until an ivar gives
   # its encoding.
-  sig [Ptr] => Value
+  #: (ptr) -> value
   def zr_mr_string(r)
     n = zr_mr_long(r)
     p = zr_mr_text(r, n)
@@ -350,7 +350,7 @@ module Zr::Kern
 
   # Reads a float's text with strtod, in the form that ruby's writer
   # writes: a decimal, or "inf", "-inf" or "nan".
-  sig [Ptr, Value] => Value
+  #: (ptr, value) -> value
   def zr_mr_float(r, objects)
     n = zr_mr_long(r)
     p = zr_mr_text(r, n)
@@ -365,7 +365,7 @@ module Zr::Kern
     v
   end
 
-  sig [Ptr, Value, Value] => Value
+  #: (ptr, value, value) -> value
   def zr_mr_array(r, objects, symbols)
     n = zr_mr_long(r)
     if n < 0 || n > MReader.len(r)
@@ -387,7 +387,7 @@ module Zr::Kern
 
   # Reads a hash with no default. A key that runs Ruby code for its hash
   # (an object with its own `hash`) goes to the Ruby reader.
-  sig [Ptr, Value, Value] => Value
+  #: (ptr, value, value) -> value
   def zr_mr_hash(r, objects, symbols)
     n = zr_mr_long(r)
     if n < 0 || n > MReader.len(r)
@@ -421,7 +421,7 @@ module Zr::Kern
   # All other cases go to the Ruby reader: a named encoding, a regexp or a
   # `_load` payload with ivars, a symbol with an encoding, and ruby's own
   # hidden names.
-  sig [Ptr, Value, Value] => Value
+  #: (ptr, value, value) -> value
   def zr_mr_ivars(r, objects, symbols)
     pos = MReader.pos(r)
     if pos >= MReader.len(r)
@@ -469,7 +469,7 @@ module Zr::Kern
   # `o`: a plain object of a class with the ordinary allocator. The reader
   # sets its ivars in order. A Range or a Set is built from its parts, and
   # an exception has special parts, so these go to the Ruby reader.
-  sig [Ptr, Value, Value] => Value
+  #: (ptr, value, value) -> value
   def zr_mr_object(r, objects, symbols)
     klass = zr_mr_named_class(r, symbols)
     if klass == QUNDEF
@@ -507,7 +507,7 @@ module Zr::Kern
 
   # Whether `klass` is Set or a subclass of it. The core defines Set in
   # Ruby.
-  sig [Value] => Bool
+  #: (value) -> bool
   def zr_mr_set_p(klass)
     set = zr_const_lookup_at(zr_global(G_OBJECT), Machine.id(:Set))
     if set == QUNDEF || zr_special_p(set) || zr_type(set) != T_CLASS
@@ -518,7 +518,7 @@ module Zr::Kern
 
   # Returns the class that a symbol refers to, from the name in the
   # document.
-  sig [Ptr, Value] => Value
+  #: (ptr, value) -> value
   def zr_mr_named_class(r, symbols)
     id = zr_mr_symbol(r, symbols)
     if id < 0
@@ -531,7 +531,7 @@ module Zr::Kern
   # member writers, as marshal.c does. A Data value is frozen and is built
   # in a different way, and a member that the class does not have is an
   # error. Both cases go to the Ruby reader.
-  sig [Ptr, Value, Value] => Value
+  #: (ptr, value, value) -> value
   def zr_mr_struct(r, objects, symbols)
     klass = zr_mr_named_class(r, symbols)
     if klass == QUNDEF || zr_alloc_kind(klass) != ALLOC_OBJECT
@@ -578,7 +578,7 @@ module Zr::Kern
 
   # Returns the members of a struct class, from the nearest class that has
   # them, or nil for a class that is not a struct.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_mr_members(klass)
     k = klass
     while k != QNIL
@@ -594,7 +594,7 @@ module Zr::Kern
     Machine.value(QNIL)
   end
 
-  sig [Value, Word] => Word
+  #: (value, word) -> word
   def zr_mr_member_index(members, id)
     n = RArray.len(members)
     i = 0
@@ -608,7 +608,7 @@ module Zr::Kern
   end
 
   # Whether `klass` is a subclass of Data. The core defines Data in Ruby.
-  sig [Value] => Bool
+  #: (value) -> bool
   def zr_mr_data_p(klass)
     data = zr_const_lookup_at(zr_global(G_OBJECT), Machine.id(:Data))
     if data == QUNDEF || zr_special_p(data) || zr_type(data) != T_CLASS

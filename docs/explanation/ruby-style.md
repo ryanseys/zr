@@ -268,10 +268,12 @@ overrides. An `initialize(a, b)` with no annotation takes Object's
 `() -> void`, and a def named `hash` or `clone` takes the core type.
 Annotate such a def.
 
-The `Steepfile` puts each file in a level: `strict`, `default` or
-`lenient`. A file starts at lenient. To check it more strictly, name
-it, or its directory, in a stricter level. `STEEP_LEVEL=strict bin/steep
-check lib/zr/ir` shows what that level reports before the move.
+The `Steepfile` checks every file at `strict`, except `hir/node.rb` and
+`obj/model.rb` at `default`: Steep cannot type their records' `new`
+calls. A new file is strict from its first commit. `STEEP_LEVEL=default
+bin/steep check` checks all files at one level. Run `bin/steep check`
+with no paths: with paths, Steep 2.1 checks nothing and reports no
+error.
 
 ## Lint
 

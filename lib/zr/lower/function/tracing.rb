@@ -9,6 +9,11 @@ module Zr
       # disabled, each point costs one load and one branch.
       module Tracing
         # @type instance: Function
+        # @rbs @def: Hir::owner?
+        # @rbs @f: IR::Function
+        # @rbs @kind: Symbol
+        # @rbs @l: Lower
+        # @rbs @qnil: String
 
         # ruby's RUBY_EVENT_* bits.
         EVENTS = { line: 0x1, class: 0x2, end: 0x4, call: 0x8, return: 0x10, b_call: 0x100, b_return: 0x200 }.freeze #: Hash[Symbol, Integer]
@@ -66,7 +71,7 @@ module Zr
           event = CLOSING[@kind]
           return value unless event && traced?
 
-          line ||= @def.end_line
+          line ||= @def&.end_line
           at_line(line) unless unwinding || line.nil?
           on = @f.label
           off = @f.label

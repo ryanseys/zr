@@ -15,10 +15,11 @@ module Zr
         # are fixnums and the gate is clear, else the call. Equality also
         # uses the call for other operands: `1 == 1.0` is true, and
         # `1 == obj` sends `obj == 1`.
-        #: (Hir::Send node, String recv, String? argv, ?String arg) ?{ () -> String } -> String
-        def operator(node, recv, argv, arg = @f.fetch("i64", argv))
-          # `argv` is nil only when the caller gives `arg` and the block:
-          # @type var argv: String
+        #: (Hir::Send node, String recv, String? argv, ?String? arg) ?{ () -> String } -> String
+        def operator(node, recv, argv, arg = nil)
+          # `argv` is nil only when the caller gives `arg` and the block.
+          given = argv #: String
+          arg ||= @f.fetch("i64", given)
           ok = @f.band(fixnums?(recv, arg), gate_clear(OPS.fetch(node.name)))
           fast = @f.label
           slow = @f.cold(@f.label)
@@ -34,7 +35,7 @@ module Zr
           end
           switch(slow)
           native_equality(node, recv, arg) { |equal| @f.jump(merge, [ruby_bool(equal)]) }
-          @f.jump(merge, [block_given? ? yield : dispatch(node, recv, argv, imm(1))])
+          @f.jump(merge, [block_given? ? yield : dispatch(node, recv, given, imm(1))])
           switch(merge)
           result
         end
@@ -89,8 +90,8 @@ module Zr
         # (`float_value`). The two differ only in that bit.
         #: (Hir::Send node, String recv, String? argv) ?{ () -> String } -> String
         def unary(node, recv, argv)
-          # `argv` is nil only when the caller gives the block:
-          # @type var argv: String
+          # `argv` is nil only when the caller gives the block.
+          given = argv #: String
           fix = @f.icmp("ne", @f.band(recv, imm(1)), imm(0))
           ok = @f.band(fix, gate_clear(UNARY.fetch(node.name)))
           fast = @f.label
@@ -110,7 +111,7 @@ module Zr
             @f.jump(merge, [@f.bxor(recv, imm(4))])
           end
           switch(slow)
-          @f.jump(merge, [block_given? ? yield : dispatch(node, recv, argv, imm(0))])
+          @f.jump(merge, [block_given? ? yield : dispatch(node, recv, given, imm(0))])
           switch(merge)
           result
         end
@@ -207,7 +208,7 @@ module Zr
         # Whether `node`, as an operand of a float operator, can give its
         # result as a double: an arithmetic float operator that lowers
         # through `direct_operator`.
-        #: (untyped node) -> bool
+        #: (Hir::node? node) -> bool
         def unboxable?(node)
           node.is_a?(Hir::Send) && !node.safe && !node.interp && FLOAT_OPS.key?(node.name) &&
             !FLOAT_OPS.fetch(node.name).first.is_a?(String) && float_path?(node) && !primitive?(node) &&
@@ -218,10 +219,10 @@ module Zr
         # unboxed if `node` has the flonum path, else the plain Value.
         # Equality in the core library answers natively first
         # (`native_equality`), so it keeps its Values.
-        #: (Hir::Send node, untyped operand) -> Operand
+        #: (Hir::Send node, Hir::node? operand) -> Operand
         def operand_of(node, operand)
           fused = float_path?(node) && !(native_operators? && %i[== !=].include?(node.name))
-          return Operand.new(expr(operand), nil) unless fused && unboxable?(operand)
+          return Operand.new(expr(operand), nil) unless fused && operand.is_a?(Hir::Send) && unboxable?(operand)
 
           unboxed_operator(operand)
         end
@@ -258,7 +259,8 @@ module Zr
           fast = @f.label
           slow = @f.cold(@f.label)
           floating = @f.label
-          merge, (result, bits) = @f.block(unboxed ? %w[i64 i64] : ["i64"]) #: [String, [String, String?]]
+          # `bits` is set and read only when `unboxed`.
+          merge, (result, bits) = @f.block(unboxed ? %w[i64 i64] : ["i64"]) #: [String, [String, String]]
           tail = unboxed ? [imm(0)] : [] #: Array[String]
           @f.brif(@f.band(fixnums?(a.value, b.value), gate_clear(OPS.fetch(op))), fast, floating)
           switch(fast)
@@ -416,17 +418,18 @@ module Zr
         # method that CRuby writes in Ruby (`:ruby`) sends as Ruby does.
         #: () -> bool
         def native_operators?
-          # Nil only until the first call sets it:
-          # @type ivar @native_operators: bool
-          return @native_operators unless @native_operators.nil?
+          # Nil only until the first call sets it.
+          known = @native_operators
+          return known unless known.nil?
 
           fn = self #: Function
           # The walk stops at the first scope that is not a block, so it
           # never reaches an eval's Outer.
-          while fn.kind == :block && fn.outer
-            fn = fn.outer #: Function
+          while fn.kind == :block && (up = fn.outer).is_a?(Function)
+            fn = up
           end
-          @native_operators = (@l.internal? || @l.support?) && !fn.attributes.include?(:ruby)
+          # False, not nil, for a program's code, so the memo holds.
+          @native_operators = @l.internal? || @l.support? ? !fn.attributes.include?(:ruby) : false
         end
 
         # Whether `each` finds the core's own method. Ruby's C walks its
@@ -439,17 +442,17 @@ module Zr
         # Kernel#warn, has a C body behind its Ruby signature.
         #: () -> bool
         def native_each?
-          # Nil only until the first call sets it:
-          # @type ivar @native_each: bool
-          return @native_each unless @native_each.nil?
+          # Nil only until the first call sets it.
+          known = @native_each
+          return known unless known.nil?
 
           fn = self #: Function
           # The walk stops at the first scope that is not a block, so it
           # never reaches an eval's Outer.
-          while fn.kind == :block && fn.outer
-            fn = fn.outer #: Function
+          while fn.kind == :block && (up = fn.outer).is_a?(Function)
+            fn = up
           end
-          @native_each = (@l.internal? || @l.support?) && !fn.attributes.include?(:sends_each)
+          @native_each = @l.internal? || @l.support? ? !fn.attributes.include?(:sends_each) : false
         end
 
         # Whether all the given gates are clear: one test of the gate word,

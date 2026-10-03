@@ -24,7 +24,7 @@
 #   3. This notice may not be removed or altered from any source distribution.
 #
 # The Ruby here is an altered version: the same algorithms, written in
-# the machine dialect. See THIRD_PARTY_NOTICES.md.
+# the kernel subset. See THIRD_PARTY_NOTICES.md.
 
 module Zr::Kern
   # The operations that zr_zlib_call runs.
@@ -37,13 +37,13 @@ module Zr::Kern
   ZLIB_INFLATE_SYNC = 6
   ZLIB_INFLATE_SYNC_POINT = 7
 
-  sig [Value] => Ptr
+  #: (value) -> ptr
   def zr_zlib_stream(addr)
     Machine.ptr(zr_fix2long(addr))
   end
 
   # A zeroed stream: no state, no input, no output.
-  sig [] => Value
+  #: () -> value
   def zr_zlib_new
     z = Libc.malloc(ZStream.size)
     if z == 0
@@ -54,7 +54,7 @@ module Zr::Kern
   end
 
   # Ends the stream's state, whatever it contains, and frees its block.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_zlib_release(addr, kind)
     z = zr_zlib_stream(addr)
     if zr_fix2long(kind) == ZLIB_DEFLATE
@@ -67,7 +67,7 @@ module Zr::Kern
   end
 
   # deflateInit2 for a deflate stream, inflateInit2 for an inflate one.
-  sig [Value, Value, Value, Value, Value, Value] => Value
+  #: (value, value, value, value, value, value) -> value
   def zr_zlib_init(addr, kind, level, wbits, memlevel, strategy)
     z = zr_zlib_stream(addr)
     if zr_fix2long(kind) == ZLIB_DEFLATE
@@ -78,7 +78,7 @@ module Zr::Kern
 
   # Sets the input for the next calls: the bytes of `str` from `offset`,
   # or none. The String must not change until those calls are done.
-  sig [Value, Value, Value] => Value
+  #: (value, value, value) -> value
   def zr_zlib_input(addr, str, offset)
     z = zr_zlib_stream(addr)
     if str == QNIL
@@ -94,7 +94,7 @@ module Zr::Kern
 
   # Sets the output of a call: `room` bytes past the end of `buf`, which
   # grows to contain them. A nil `buf` gets no output.
-  sig [Ptr, Value, Word] => Void
+  #: (ptr, value, word) -> void
   def zr_zlib_output(z, buf, room)
     if buf == QNIL
       ZStream.set_next_out(z, 0)
@@ -108,7 +108,7 @@ module Zr::Kern
   end
 
   # Adds the bytes that the call wrote to the length of `buf`.
-  sig [Ptr, Value] => Void
+  #: (ptr, value) -> void
   def zr_zlib_output_taken(z, buf)
     if buf == QNIL
       return
@@ -121,7 +121,7 @@ module Zr::Kern
 
   # Makes one call of `op`, which writes into `room` bytes past the end of
   # `buf`. `flush` is the flush mode of deflate and inflate.
-  sig [Value, Value, Value, Value, Value] => Value
+  #: (value, value, value, value, value) -> value
   def zr_zlib_call(addr, op, flush, buf, room)
     z = zr_zlib_stream(addr)
     o = zr_fix2long(op)
@@ -151,7 +151,7 @@ module Zr::Kern
 
   # deflateParams, which can flush the data that the old parameters
   # compressed.
-  sig [Value, Value, Value, Value, Value] => Value
+  #: (value, value, value, value, value) -> value
   def zr_zlib_params(addr, level, strategy, buf, room)
     z = zr_zlib_stream(addr)
     zr_zlib_output(z, buf, zr_fix2long(room))
@@ -160,7 +160,7 @@ module Zr::Kern
     zr_fix(err)
   end
 
-  sig [Value, Value, Value] => Value
+  #: (value, value, value) -> value
   def zr_zlib_dictionary(addr, kind, dict)
     z = zr_zlib_stream(addr)
     if zr_fix2long(kind) == ZLIB_DEFLATE
@@ -169,13 +169,13 @@ module Zr::Kern
     zr_fix(zr_inflate_set_dictionary(z, RString.ptr(dict), RString.len(dict)))
   end
 
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_zlib_copy(dest, source)
     zr_fix(zr_deflate_copy(zr_zlib_stream(dest), zr_zlib_stream(source)))
   end
 
   # [avail_in, total_in, avail_out, total_out, data_type, adler, msg]
-  sig [Value] => Value
+  #: (value) -> value
   def zr_zlib_fields(addr)
     z = zr_zlib_stream(addr)
     out = zr_ary_new(7)
@@ -190,7 +190,7 @@ module Zr::Kern
   end
 
   # Adds `n` to total_in, as a gzip footer read counts its bytes.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_zlib_count_in(addr, n)
     z = zr_zlib_stream(addr)
     ZStream.set_total_in(z, ZStream.total_in(z) + zr_fix2long(n))
@@ -199,7 +199,7 @@ module Zr::Kern
 
   # Adds crc32 (kind 0) or adler32 (kind 1) of `str` to `sum`. A nil `str`
   # returns the initial value.
-  sig [Value, Value, Value] => Value
+  #: (value, value, value) -> value
   def zr_zlib_checksum(kind, sum, str)
     s = zr_fix2long(sum)
     p = 0
@@ -214,7 +214,7 @@ module Zr::Kern
     zr_fix(zr_adler32(s, p, n))
   end
 
-  sig [Value, Value, Value, Value] => Value
+  #: (value, value, value, value) -> value
   def zr_zlib_combine(kind, first, second, len)
     if zr_fix2long(kind) == 0
       return zr_fix(zr_crc32_combine(zr_fix2long(first), zr_fix2long(second), zr_fix2long(len)))
@@ -223,17 +223,17 @@ module Zr::Kern
   end
 
   # The CRC table's 256 entries, as the bytes of their 32-bit words.
-  sig [] => Value
+  #: () -> value
   def zr_zlib_crc_table
     zr_str_new(zr_crc_table(), 1024)
   end
 
-  sig [] => Value
+  #: () -> value
   def zr_zlib_version
     zr_cstr_str(zr_zlib_version_text())
   end
 
-  sig [Value] => Value
+  #: (value) -> value
   def zr_zlib_message(err)
     zr_cstr_str(zr_zlib_error_text(zr_fix2long(err)))
   end

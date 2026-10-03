@@ -36,7 +36,9 @@ module Zr
 
     #: (Integer byte_offset) -> Integer
     def find_line(byte_offset)
-      return super if frozen?
+      # Steep looks for `super` in the module, not in Prism::Source, which
+      # it is prepended to.
+      return super if frozen? # steep:ignore UnexpectedSuper
 
       starts = offsets
       at = @zr_line || 0
@@ -45,7 +47,7 @@ module Zr
         return at if after == starts.length || byte_offset < starts[after]
         return @zr_line = after if after + 1 == starts.length || byte_offset < starts[after + 1]
       end
-      @zr_line = super
+      @zr_line = super # steep:ignore UnexpectedSuper
     end
   end
 end

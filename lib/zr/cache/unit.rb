@@ -80,7 +80,10 @@ module Zr
       # The inputs of a unit's bytes after its file: its flags, its source,
       # and what `reached` gives. The block gives the entry of a unit.
       #: (Hir::Unit unit) { (Hir::entry) -> String } -> Array[Integer | String]
-      def self.parts(unit, &) = [unit.internal ? 1 : 0, unit.hidden ? 1 : 0, unit.source.b, *reached(unit.body, &)]
+      def self.parts(unit, &)
+        source = unit.source or raise ArgumentError, "#{unit.file}: a unit with no source"
+        [unit.internal ? 1 : 0, unit.hidden ? 1 : 0, source.b, *reached(unit.body, &)]
+      end
 
       # The path and the entry of each unit that a require or an autoload
       # in `body` runs, in the order of the tree. The block gives the entry

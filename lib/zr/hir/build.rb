@@ -46,7 +46,7 @@ module Zr
       # @rbs @scopes: Array[Array[Symbol]]
       # @rbs @last_lines: Array[Integer]
       # @rbs @warnings: Array[String]
-      # @rbs @def_depths: Hash[Symbol, Integer]
+      # @rbs @def_depths: Hash[Symbol, Integer]?
       # @rbs @def_params: Params?
       # @rbs @flip_flops: Integer?
       # @rbs @guarded: Integer
@@ -85,7 +85,7 @@ module Zr
       # @rbs prebuilt: untyped
       # @rbs line: Integer
       # @rbs scopes: Array[Array[Symbol]]?
-      # @rbs method: Array[[Symbol, Symbol]]?
+      # @rbs method: Array[[Symbol, Symbol?]]?
       # @rbs activations: Integer?
       # @rbs target: Target
       # @rbs trace: bool
@@ -115,15 +115,11 @@ module Zr
         # fileutils, and fileutils evals). So the build repeats: read, add
         # the preludes, and build again while any fact changed. Each fact
         # can only change from false to true, so the loop ends.
-        # @type var loader: Loader
-        # @type var main: Unit
-        # @type var preludes: Array[node]
-        loader = main = preludes = nil
         evals = covers = false
         external = nil #: untyped
+        loader, main = built.call(external, trace, evals, covers)
+        preludes = eval_support ? Build.preludes(loader, target) : [] #: Array[node]
         loop do
-          loader, main = built.call(external, trace, evals, covers)
-          preludes = eval_support ? Build.preludes(loader, target) : []
           over = loader.evals? ? prebuilt : nil
           break if over.equal?(external) && (loader.traces? || trace) == trace && loader.covers? == covers
 
@@ -131,6 +127,8 @@ module Zr
           external = over
           trace ||= loader.traces?
           covers = loader.covers?
+          loader, main = built.call(external, trace, evals, covers)
+          preludes = eval_support ? Build.preludes(loader, target) : []
         end
         # A program with eval numbers its `using` entries here. A compile
         # at run time cannot see how many there are, because an entry
@@ -148,13 +146,13 @@ module Zr
       end
 
       # @rbs file: String
-      # @rbs loader: Loader?
+      # @rbs loader: Loader
       # @rbs encoding: Encoding
       # @rbs shadowed: Hash[[String, bool, Symbol], bool]
       # @rbs root: Prism::ProgramNode?
       # @rbs eval: bool
       # @rbs return: void
-      def initialize(file, loader = nil, encoding = ::Encoding::UTF_8, shadowed: {}, root: nil, eval: false)
+      def initialize(file, loader, encoding = ::Encoding::UTF_8, shadowed: {}, root: nil, eval: false)
         @file = file
         @eval = eval
         @loader = loader
@@ -162,7 +160,8 @@ module Zr
         # The prism node id of each HIR node that this file builds, by
         # identity. The file's Unit keeps it, and the lowering drops it
         # with the unit's tree (`Lower#spent`).
-        @node_ids = loader && {}.compare_by_identity
+        node_ids = {} #: Hash[Node, Integer]
+        @node_ids = node_ids.compare_by_identity
         @encoding = encoding
         @shadowed = shadowed
         @path = [Object.name]
@@ -193,10 +192,12 @@ module Zr
       # parameters in `rows`, each read from the scope in `scopes`
       # (innermost first) that contains it. A parameter with no name (a
       # destructured one) cannot be passed, so neither `super` can.
-      #: (Array[[Symbol, Symbol]] rows, Array[Array[Symbol]] scopes) -> void
+      #: (Array[[Symbol, Symbol?]] rows, Array[Array[Symbol]] scopes) -> void
       def within_method(rows, scopes)
         return if rows.any? { |_, name| name.nil? || scopes.none? { |names| names.include?(name) } }
 
+        # The first line returns if a name is nil.
+        named = rows #: Array[[Symbol, Symbol]]
         # @type var required: Array[param]
         # @type var optional: Array[[Symbol, node?]]
         # @type var post: Array[param]
@@ -206,7 +207,7 @@ module Zr
         # @type var block: Symbol?
         required, optional, post, keywords = [], [], [], []
         rest = kwrest = block = nil
-        rows.each do |kind, name|
+        named.each do |kind, name|
           case kind
           when :req then (optional.empty? && rest.nil? ? required : post) << name
           when :opt then optional << [name, nil]
@@ -218,7 +219,7 @@ module Zr
           end
         end
         @def_params = Params.new(required, optional, rest, post, keywords, kwrest, block)
-        @def_depths = rows.to_h do |_, name|
+        @def_depths = named.to_h do |_, name|
           # The first line returns if a name is in no scope.
           depth = scopes.index { |names| names.include?(name) } #: Integer
           [name, 1 + depth]
@@ -229,7 +230,7 @@ module Zr
       # after the parser's own.
       attr_reader :warnings #: Array[String]
 
-      # The prism node id of each HIR node that this file built, or nil.
+      # The prism node id of each HIR node that this file built.
       attr_reader :node_ids #: Hash[Node, Integer]
 
       # Ruby's compiler warns as it compiles a file (not an eval) with a
@@ -270,30 +271,38 @@ module Zr
         using = @using
         @temps.push([])
         @last_lines.push(-1)
-        yield
-      ensure
-        @block_depth -= 1
-        @using = using unless @path == [Object.name] && !@in_def
-        @temps.pop
-        @last_lines.pop
+        begin
+          yield
+        ensure
+          @block_depth -= 1
+          @using = using unless @path == [Object.name] && !@in_def
+          @temps.pop
+          @last_lines.pop
+        end
       end
 
       # Builds `body` in a new scope: a def or a class body.
       #: [T] () { () -> T } -> T
       def in_scope
-        was = [@block_depth, @def_params, @def_depths]
+        was_depth = @block_depth
+        was_params = @def_params
+        was_depths = @def_depths
         @block_depth = 0
         @def_params = nil
         @def_depths = nil
         @temps.push([])
         @scopes.push(@temps.last)
         @last_lines.push(-1)
-        yield
-      ensure
-        @block_depth, @def_params, @def_depths = was
-        @temps.pop
-        @scopes.pop
-        @last_lines.pop
+        begin
+          yield
+        ensure
+          @block_depth = was_depth
+          @def_params = was_params
+          @def_depths = was_depths
+          @temps.pop
+          @scopes.pop
+          @last_lines.pop
+        end
       end
 
       # A scope's locals: the parser's, then the hidden ones from its body.
@@ -673,6 +682,7 @@ module Zr
         return body if node.rescue_clause.nil? && node.ensure_clause.nil?
 
         rescues = [] #: Array[Rescue]
+        # @type var clause: Prism::RescueNode?
         clause = node.rescue_clause
         while clause
           rescues << rescue_clause(clause)
@@ -693,14 +703,18 @@ module Zr
       #: [T] (Prism::RescueNode? clause) { () -> T } -> T
       def guarded(clause)
         rescues = false
-        while clause
-          rescues ||= clause.exceptions.any? { |e| e.is_a?(Prism::ConstantReadNode) && LOAD_RESCUES.include?(e.name) }
-          clause = clause.subsequent
+        # @type var at: Prism::RescueNode?
+        at = clause
+        while at
+          rescues ||= at.exceptions.any? { |e| e.is_a?(Prism::ConstantReadNode) && LOAD_RESCUES.include?(e.name) }
+          at = at.subsequent
         end
         @guarded = (@guarded || 0) + 1 if rescues
-        yield
-      ensure
-        @guarded -= 1 if rescues
+        begin
+          yield
+        ensure
+          @guarded -= 1 if rescues
+        end
       end
 
       #: (Prism::RescueNode node) -> Rescue
@@ -766,17 +780,19 @@ module Zr
         in_definee(nil, !receiver.nil?) do
           was = @in_def
           @in_def = true
-          in_scope do
-            params = parameters(node.parameters)
-            @def_params = params
-            body = node.body ? expr(node.body) : Literal.new(nil, node.location.start_line)
-            body = marked(body, marks, node.location.start_line) unless marks.empty?
-            locals = with_temps(node.locals + (params.names - node.locals))
-            Def.new(node.name, params, locals, body, node.location.start_line, receiver, evals?(node.body), node.location.end_line,
-                    method_cover(node))
+          begin
+            in_scope do
+              params = parameters(node.parameters)
+              @def_params = params
+              body = node.body ? expr(node.body) : Literal.new(nil, node.location.start_line)
+              body = marked(body, marks, node.location.start_line) unless marks.empty?
+              locals = with_temps(node.locals + (params.names - node.locals))
+              Def.new(node.name, params, locals, body, node.location.start_line, receiver, evals?(node.body), node.location.end_line,
+                      method_cover(node))
+            end
+          ensure
+            @in_def = was
           end
-        ensure
-          @in_def = was
         end
       end
 
@@ -829,12 +845,14 @@ module Zr
         marks = @body_marks
         @singleton = singleton
         @body_marks = []
-        yield
-      ensure
-        @path.pop if name
-        @singleton = was
-        @using = using
-        @body_marks = marks
+        begin
+          yield
+        ensure
+          @path.pop if name
+          @singleton = was
+          @using = using
+          @body_marks = marks
+        end
       end
 
       # A bare `super`: passes the method's parameters with their current
@@ -845,7 +863,8 @@ module Zr
 
         local = lambda do |name|
           name = name.whole if name.is_a?(MultiTarget)
-          Local.new(name, @block_depth + (@def_depths ? @def_depths.fetch(name) : 0), line)
+          depths = @def_depths
+          Local.new(name, @block_depth + (depths ? depths.fetch(name) : 0), line)
         end
         positional = (p.required + p.optional.map(&:first)).map(&local) #: Array[node]
         positional << Splat.new(local.call(p.rest), line) if p.rest && p.rest != :implicit
@@ -1258,8 +1277,8 @@ module Zr
       # `...` forwards, or nil.
       #: (Prism::ArgumentsNode? node) -> [Array[node], HashLit?, BlockPass?]
       def arguments(node)
-        kwargs = nil
-        block = nil
+        kwargs = nil #: HashLit?
+        block = nil #: BlockPass?
         args = (node&.arguments || []).filter_map do |a|
           line = a.location.start_line
           case a
@@ -1320,8 +1339,12 @@ module Zr
       end
 
       # Every `alias $x $&` the file always runs, by identity.
-      #: (Prism::node? node, ?Hash[Prism::node, bool] out) -> Hash[Prism::node, bool]
-      def self.certain_aliases(node, out = {}.compare_by_identity)
+      #: (Prism::node? node, ?Hash[Prism::node, bool]? out) -> Hash[Prism::node, bool]
+      def self.certain_aliases(node, out = nil)
+        unless out
+          out = {} #: Hash[Prism::node, bool]
+          out.compare_by_identity
+        end
         (always_run(node) || []).compact.each do |child|
           out[child] = true if child.is_a?(Prism::AliasGlobalVariableNode)
           certain_aliases(child, out)

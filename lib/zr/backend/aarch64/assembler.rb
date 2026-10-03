@@ -111,8 +111,14 @@ module Zr
           (width == 64 ? BITMASK64 : BITMASK32)[value]
         end
 
-        BITMASK64 = Hash.new { |memo, value| memo[value] = encode_bitmask(value, 64) } #: Hash[Integer, [Integer, Integer, Integer]?]
-        BITMASK32 = Hash.new { |memo, value| memo[value] = encode_bitmask(value, 32) } #: Hash[Integer, [Integer, Integer, Integer]?]
+        # Steep types the key of a `Hash.new` block as `Hash::_Key`, not
+        # the key type of the constant.
+        BITMASK64 = Hash.new do |memo, value|
+          memo[value] = encode_bitmask(value, 64) # steep:ignore ArgumentTypeMismatch
+        end #: Hash[Integer, [Integer, Integer, Integer]?]
+        BITMASK32 = Hash.new do |memo, value|
+          memo[value] = encode_bitmask(value, 32) # steep:ignore ArgumentTypeMismatch
+        end #: Hash[Integer, [Integer, Integer, Integer]?]
 
         #: (Integer value, Integer width) -> [Integer, Integer, Integer]?
         def self.encode_bitmask(value, width)

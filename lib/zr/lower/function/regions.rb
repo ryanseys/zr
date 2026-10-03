@@ -10,6 +10,21 @@ module Zr
       # runs the ensure body, then continues the unwind.
       module Regions
         # @type instance: Function
+        # @rbs @f: IR::Function
+        # @rbs @inline_scope: Iterators::InlineScope?
+        # @rbs @l: Lower
+        # @rbs @landing: String?
+        # @rbs @line: Integer?
+        # @rbs @line_rec: String?
+        # @rbs @name: String
+        # @rbs @nvalues: Integer
+        # @rbs @qnil: String
+        # @rbs @rec: String
+        # @rbs @regions: Array[Regions::Region]
+        # @rbs @retries: Array[[String, Integer, Integer]]
+        # @rbs @sp: Integer
+        # @rbs @task: Machine::Layout
+        # @rbs @task_addr: String
 
         # `slot` is the first record slot for the region's values: the
         # exit value or the exception, the `$!` that the region replaced,
@@ -24,7 +39,7 @@ module Zr
         # The methods are in a reopened class, not in the block of
         # `Data.define`, so that the type check sees them in their class.
         class Region
-          #: (landing: String, ensure_body: untyped, slot: Integer?, ?outer: [Iterators::InlineScope?, String?]?) -> void
+          #: (landing: String, ensure_body: ensure_body?, slot: Integer?, ?outer: [Iterators::InlineScope?, String?]?) -> void
           def initialize(landing:, ensure_body:, slot:, outer: nil) = super
         end
 
@@ -52,7 +67,7 @@ module Zr
         # landing block, and a raise is visible as `$!` unless `errinfo`
         # is false. An ensure body that jumps out discards the raise, and
         # `$!` is restored to its value at the region's start, as in ruby.
-        #: (untyped body, ?errinfo: bool) { () -> String } -> String
+        #: (ensure_body body, ?errinfo: bool) { () -> String } -> String
         def with_ensure(body, errinfo: true)
           region = Region.new(@f.cold(@f.label), body, reserve(errinfo ? 3 : 2))
           value_at = value_offset(region.slot)
@@ -88,7 +103,7 @@ module Zr
           result
         end
 
-        #: (untyped body) -> String
+        #: (ensure_body body) -> String
         def run_ensure(body)
           body.is_a?(Proc) ? body.call : expr(body)
         end
@@ -137,9 +152,10 @@ module Zr
             # statement, not the `rescue` keyword, because its program
             # counter goes there.
             kernel("zr_trace_rescue", imm((clause.body || clause).line))
-            if clause.target
-              prepared = clause.target.is_a?(Hir::Send) ? prepare(Hir::MultiTarget.new([clause.target], nil, [], clause.line)) : {}
-              assign_target(clause.target, @f.fetch("i64", @rec, exc_at), prepared)
+            target = clause.target
+            if target
+              prepared = target.is_a?(Hir::Send) ? prepare(Hir::MultiTarget.new([target], nil, [], clause.line)) : {} #: Hash[Hir::node, Integer]
+              assign_target(target, @f.fetch("i64", @rec, exc_at), prepared)
             end
             restore = -> { kernel("zr_errinfo_set", @f.fetch("i64", @rec, prev_at)) }
             v = with_ensure(restore, errinfo: false) do
@@ -217,17 +233,21 @@ module Zr
         #: (Integer depth) -> void
         def unwind(depth)
           left = [] #: Array[Region]
-          inner = [@inline_scope, @line_rec]
+          inner_scope = @inline_scope
+          inner_rec = @line_rec
           while @regions.size > depth && !@f.terminated?
-            region = @regions.pop
+            region = @regions.pop #: Region
             left.unshift(region)
-            if region.outer
-              leave_inline(region.outer) if @regions.size > depth
-            elsif region.ensure_body
-              run_ensure(region.ensure_body)
+            outer = region.outer
+            body = region.ensure_body
+            if outer
+              leave_inline(outer) if @regions.size > depth
+            elsif body
+              run_ensure(body)
             end
           end
-          @inline_scope, @line_rec = inner
+          @inline_scope = inner_scope
+          @line_rec = inner_rec
           @line = nil
           @regions.concat(left)
         end

@@ -15,29 +15,29 @@ class MachineHostTest < Minitest::Test
       Twice = fn [Word] => Word
       LIMIT = Pair.size * 2
 
-      sig [Word] => Word
+      #: (word) -> word
       def twice(n)
         n + n
       end
 
-      sig [Ptr] => Word
+      #: (ptr) -> word
       def through(fp)
         Twice.call(fp, 21)
       end
 
-      sig [Word] => Word
+      #: (word) -> word
       def scratch(n)
         p = Machine.slot(16)
         Machine.store64(p, 8, n)
         Machine.load64(p, 8)
       end
 
-      sig [] => Word
+      #: () -> word
       def length
         Libc.strlen(Machine.bytes("four"))
       end
 
-      sig [Ptr, Word] => Word
+      #: (ptr, word) -> word
       def pair(p, n)
         Pair.set_head(p, n)
         Pair.set_tail(p, Machine.i32(0 - 1))
@@ -97,6 +97,39 @@ class MachineHostTest < Minitest::Test
     assert_equal [64, 0, 63, 2], [m.ctz(0), m.clz(-1), m.clz(1), m.popcnt(5)]
     assert_equal [-0.0, -1.0, 2.0], [m.ceil(-0.5), m.floor(-0.5), m.nearest(2.5)]
     assert_equal [(1 << 63) - 1, 0], [m.to_int(1e30), m.to_int(Float::NAN)]
+  end
+
+  # A def that can collect and loops keeps its Value locals as roots. A
+  # local that a Value field of a layout gives is one of them.
+  def test_a_value_read_from_a_field_is_a_root
+    source = <<~RUBY
+      module Zr::Kern
+        Cell = layout klass: Value, count: Word
+        collects :zr_gc
+
+        #: () -> void
+        def zr_gc
+        end
+
+        #: (ptr) -> word
+        def walk(p)
+          v = Cell.klass(p)
+          n = Cell.count(p)
+          while n > 0
+            zr_gc
+            n -= 1
+          end
+          0
+        end
+      end
+    RUBY
+    rooted = Dir.mktmpdir("zr-host-") do |dir|
+      path = File.join(dir, "k.rb")
+      File.write(path, source)
+      Zr::Machine::Host.new([path]).instance_variable_get(:@rooted)
+    end
+
+    assert_equal [:v], rooted.fetch("walk")
   end
 
   # Each layout of the kernel has the offsets and size that the lowering

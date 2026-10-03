@@ -27,6 +27,18 @@ module Zr
       # Env), no binding, no super, no def.
       module Iterators
         # @type instance: Function
+        # @rbs @f: IR::Function
+        # @rbs @inline_scope: Iterators::InlineScope?
+        # @rbs @l: Lower
+        # @rbs @line: Integer?
+        # @rbs @line_rec: String?
+        # @rbs @loops: Array[Loop]
+        # @rbs @qnil: String
+        # @rbs @raw_block: Symbol?
+        # @rbs @rec: String
+        # @rbs @regions: Array[Regions::Region]
+        # @rbs @task: Machine::Layout
+        # @rbs @task_addr: String
 
         # The block's locals as record slots of the site's function. It
         # is used in place of the block's scope while its body lowers.
@@ -44,7 +56,7 @@ module Zr
             @raw_block = nil
           end
 
-          #: (untyped node) -> Integer
+          #: (Hir::Local | Hir::Assign node) -> Integer
           def slot_index(node)
             @slots.fetch(node.name)
           end
@@ -53,7 +65,7 @@ module Zr
         private
 
         # Whether the site runs `node` inline.
-        #: (untyped node) -> bool
+        #: (Hir::Send node) -> bool
         def iterator_template?(node)
           !traced? && !@l.internal? && Scope.iterator_template?(node)
         end
@@ -136,9 +148,9 @@ module Zr
         def loop_in_place(node, recv, kind, bounds = nil)
           # `bounds` is set for a :range loop, and `made_at` and `got` for
           # a `map` or `select`; each is read only then:
-          # @type var bounds: String
           # @type var made_at: Integer
           # @type var got: String
+          ends = bounds #: String
           block = node.block #: Hir::Block
           frame = @l.layout("Frame")
           fn = @l.block(block, self)
@@ -150,7 +162,7 @@ module Zr
           index_at = value_offset(base + block.locals.size)
           slots = block.locals.each_with_index.to_h { |name, i| [name, base + i] }
           param = block.params.required.first
-          @f.store(kind == :range ? @f.fetch("i64", bounds, 0) : imm(1), @rec, index_at)
+          @f.store(kind == :range ? @f.fetch("i64", ends, 0) : imm(1), @rec, index_at)
           # `map` and `select` make an Array as their builtins do (the
           # receiver's length, or 4), and push to it in the step.
           if %i[map select].include?(node.name)
@@ -173,7 +185,7 @@ module Zr
           case kind
           when :array then @f.brif(@f.icmp("slt", i, @f.bor(@f.ishl(array_len(recv), imm(1)), imm(1))), take, out)
           when :times then @f.brif(@f.icmp("slt", i, recv), take, out)
-          when :range then @f.brif(@f.icmp("sle", i, @f.fetch("i64", bounds, 8)), take, out)
+          when :range then @f.brif(@f.icmp("sle", i, @f.fetch("i64", ends, 8)), take, out)
           end
           switch(take)
           @f.store(@f.iadd(i, imm(2)), @rec, index_at)
@@ -184,7 +196,8 @@ module Zr
           slots.each { |name, slot| @f.store(@qnil, @rec, value_offset(slot)) unless name == param }
           @f.jump(body)
           switch(body)
-          saved = [@inline_scope, @line_rec, @line]
+          saved_scope = @inline_scope
+          saved_rec = @line_rec
           @inline_scope = InlineScope.new(slots)
           @line_rec = block_rec
           @line = nil
@@ -197,7 +210,8 @@ module Zr
               @f.jump(head)
             end
           end
-          @inline_scope, @line_rec, _ = saved
+          @inline_scope = saved_scope
+          @line_rec = saved_rec
           @line = nil
           @regions.pop
           @loops.pop
@@ -223,9 +237,12 @@ module Zr
         # `base` (`Scope.loop_slots`).
         #: (Hir::Send node, String recv, Loop loop, String got, Integer base) -> void
         def collect(node, recv, loop, got, base)
-          switch(loop.step)
-          index_at = value_offset(base + node.block.locals.size)
-          made = @f.fetch("i64", @rec, value_offset(base + node.block.locals.size + 1))
+          # The loop of a `map` or `select` has a step, and its send a block.
+          step = loop.step #: String
+          block = node.block #: Hir::Block
+          switch(step)
+          index_at = value_offset(base + block.locals.size)
+          made = @f.fetch("i64", @rec, value_offset(base + block.locals.size + 1))
           if node.name == :map
             kernel("zr_ary_push", made, got)
           else

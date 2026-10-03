@@ -29,7 +29,7 @@ class LayeringTest < Minitest::Test
     "hir" => %w[top library],
     "ir" => %w[top],
     # `Lower` reads HIR and emits IR. `machine/description` is the one
-    # machine-dialect file it uses, and it is data only (a struct
+    # kernel-subset file it uses, and it is data only (a struct
     # layout), not code that runs a backend or writes an object.
     "lower" => %w[top hir ir machine],
     "machine" => %w[top obj],

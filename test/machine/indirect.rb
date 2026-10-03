@@ -8,22 +8,22 @@ module Zr::Kern
   Binop = fn [Word, Word] => Word
   Each = fn [Ptr, Word] => Void
 
-  sig [Word, Word] => Word
+  #: (word, word) -> word
   def add(a, b)
     a + b
   end
 
-  sig [Word, Word] => Word
+  #: (word, word) -> word
   def mul(a, b)
     a * b
   end
 
-  sig [Word, Word] => Word
+  #: (word, word) -> word
   def sub(a, b)
     a - b
   end
 
-  sig [Word] => Void
+  #: (word) -> void
   def put_word(n)
     buf = Machine.slot(24)
     at = 23
@@ -41,7 +41,7 @@ module Zr::Kern
   end
 
   # table: three binop pointers
-  sig [] => Ptr
+  #: () -> ptr
   def table
     t = Machine.static(:table, 24)
     Machine.store64(t, 0, Machine.word(Machine.addr(:add)))
@@ -50,12 +50,12 @@ module Zr::Kern
     t
   end
 
-  sig [Ptr, Word] => Void
+  #: (ptr, word) -> void
   def show(fn, n)
     put_word(Binop.call(fn, 20, n))
   end
 
-  sig [Ptr, Ptr, Word] => Void
+  #: (ptr, ptr, word) -> void
   def walk(t, visit, n)
     i = 0
     while i < 3
@@ -65,7 +65,7 @@ module Zr::Kern
     end
   end
 
-  sig [I32, Ptr] => I32
+  #: (i32, ptr) -> i32
   def main(argc, argv)
     t = table()
     walk(t, Machine.addr(:show), 4)

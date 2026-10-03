@@ -50,8 +50,7 @@ module Zr
       # @rbs @types: Hash[String, String?]?
 
       # `symbol => offset` of the word promoted.
-      PROMOTED = {} #: Hash[String, Integer]
-                 .freeze
+      PROMOTED = Hash.new.freeze #: Hash[String, Integer]
 
       TYPE = "i64"
       WIDTH = 8

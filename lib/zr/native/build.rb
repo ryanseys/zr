@@ -335,10 +335,14 @@ module Zr
       # @rbs return: Obj::Unit
       def unit(functions, data, raw: [], assembled: [], export: false, target: Target.default, jobs: Build.jobs,
                floor: PARALLEL_THRESHOLD, cache: nil, inlined: false, known: {})
-        Timing.phase("unit inlined") { IR::Passes.inline(functions) } unless inlined
+        # Only an `inlined` unit has machine code among `functions`, and
+        # only `cached` gets it: the backend gives `functions` to the
+        # block as they are.
+        ir = functions #: Array[IR::Function]
+        Timing.phase("unit inlined") { IR::Passes.inline(ir) } unless inlined
         emitter = backend(target)
         code = assembled + raw.map { |name| emitter::Stub.function(name) }
-        emitter.unit(functions, data, raw: code, export: export) do |all, defined|
+        emitter.unit(ir, data, raw: code, export: export) do |all, defined|
           next cached(all, defined, emitter, cache, jobs, floor, known) if cache
 
           Parallel.map(all, jobs: jobs, weight: ->(f) { f.blocks.sum { |b| b.insts.size } }, floor: floor) do |f| #$ IR::Function, Obj::Code
@@ -489,7 +493,8 @@ module Zr
       def stops(functions, raw, data, known)
         out = raw.map do |name|
           r = Machine::RAW.fetch(name)
-          stop(name, r.params.map { |t| Machine::TYPES.fetch(t) }, Machine::TYPES.fetch(r.ret), data)
+          params = r.params.map { |t| Machine::TYPES.fetch(t) or raise ArgumentError, "#{name}: a Void parameter" }
+          stop(name, params, Machine::TYPES.fetch(r.ret), data)
         end
         defined = Set.new(functions.map(&:name) + out.map(&:name) + Backend::Wasm.libc_shims + known)
         functions.each do |f|

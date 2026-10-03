@@ -67,7 +67,7 @@ module Zr::Kern
   # The label of a captured frame reads the owner of its method, so the
   # frames keep those classes alive until the backtrace is printed or
   # replaced.
-  sig [Value] => Void
+  #: (value) -> void
   def zr_mark_backtrace_rows(exc)
     rows = RException.rows(exc)
     i = 0
@@ -79,18 +79,18 @@ module Zr::Kern
 
   # The line word of a frame contains the line in its low half and the id
   # of the prism node that runs in its high half.
-  sig [Ptr] => Word
+  #: (ptr) -> word
   def zr_frame_line(rec)
     Frame.line(rec) & 4294967295
   end
 
-  sig [Ptr] => Word
+  #: (ptr) -> word
   def zr_frame_node_id(rec)
     Frame.line(rec) >> 32
   end
 
   # The nearest frame at or outside `rec` that has a file of its own.
-  sig [Ptr] => Ptr
+  #: (ptr) -> ptr
   def zr_frame_with_file(rec)
     while rec != 0 && (FrameMeta.kind(Frame.meta(rec)) == KIND_BUILTIN || FrameMeta.kind(Frame.meta(rec)) == KIND_HIDDEN)
       rec = Frame.prev(rec)
@@ -103,7 +103,7 @@ module Zr::Kern
   # or on itself also does not show, because CRuby's C does that work with
   # no frame. A builtin that a helper calls on another plain object shows,
   # as the frame that rb_funcall pushes for it does.
-  sig [Ptr] => Bool
+  #: (ptr) -> bool
   def zr_frame_shown_p(rec)
     kind = FrameMeta.kind(Frame.meta(rec))
     if kind == KIND_HIDDEN || FrameMeta.frameless(Frame.meta(rec)) != 0
@@ -120,7 +120,7 @@ module Zr::Kern
   # Whether `rec` runs a helper: a hidden def, or a block written in one.
   # A block of the core library is also hidden, and its parent refers to
   # the def that contains it. A def has no parent.
-  sig [Ptr] => Bool
+  #: (ptr) -> bool
   def zr_frame_helper_p(rec)
     meta = Frame.meta(rec)
     while FrameMeta.kind(meta) == KIND_HIDDEN && FrameMeta.parent(meta) != 0
@@ -133,7 +133,7 @@ module Zr::Kern
   # outward. The new buffer has space for the full frame list, so the
   # visibility check runs once, while the frames are filled, and not also
   # in a first counting pass.
-  sig [Value, Ptr] => Void
+  #: (value, ptr) -> void
   def zr_backtrace_capture(exc, top)
     n = 0
     rec = top
@@ -169,7 +169,7 @@ module Zr::Kern
     zr_write_barrier_all(exc)
   end
 
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_exc_new(klass, message)
     e = zr_alloc(T_EXCEPTION, klass, RException.size)
     RException.set_message(e, message)
@@ -183,7 +183,7 @@ module Zr::Kern
   # Raises `exc` from the frame `top`. It captures the backtrace if the
   # exception has none, puts the exception in the pending slot of the
   # task, and returns `undef` for the caller to pass on.
-  sig [Value, Ptr] => Value
+  #: (value, ptr) -> value
   def zr_raise_from(exc, top)
     if zr_frozen_p(exc)
       # setup_exception raises a copy of a frozen exception that has a
@@ -214,7 +214,7 @@ module Zr::Kern
 
   # The end of a raise: the $DEBUG report, the `:raise` event, then the
   # exception in the pending slot of the task.
-  sig [Value, Ptr] => Value
+  #: (value, ptr) -> value
   def zr_raise_as_is(exc, top)
     t = zr_task()
     debug = zr_gvar_get(Machine.id(:$DEBUG))
@@ -238,7 +238,7 @@ module Zr::Kern
     Machine.value(QUNDEF)
   end
 
-  sig [Value] => Value
+  #: (value) -> value
   def zr_raise(exc)
     zr_raise_from(exc, Task.top(zr_task()))
   end
@@ -246,7 +246,7 @@ module Zr::Kern
   # For a landing block with a rescue clause. Returns the pending
   # exception when the pending unwind is a raise, else undef (a break or
   # a return passes through).
-  sig [] => Value
+  #: () -> value
   def zr_rescuable
     t = zr_task()
     if Task.pending_kind(t) == PENDING_RAISE
@@ -256,7 +256,7 @@ module Zr::Kern
   end
 
   # Whether a rescue clause for `klass` catches `exc`.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_exc_match(exc, klass)
     if zr_special_p(klass) || (zr_type(klass) != T_CLASS && zr_type(klass) != T_MODULE)
       return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("class or module required for rescue clause"), 42)
@@ -275,7 +275,7 @@ module Zr::Kern
   end
 
   # `rescue *list`: whether a class in the splat catches `exc`.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_exc_match_any(exc, list)
     list = zr_splat_to_a(list)
     return list if list == QUNDEF
@@ -292,7 +292,7 @@ module Zr::Kern
   end
 
   # `when *list`: whether `=== subject` is truthy for an element.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_case_any(subject, list)
     list = zr_splat_to_a(list)
     return list if list == QUNDEF
@@ -312,7 +312,7 @@ module Zr::Kern
 
   # `when *list` with no subject: whether the splat contains a truthy
   # element.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_any_truthy(list)
     list = zr_splat_to_a(list)
     return list if list == QUNDEF
@@ -329,7 +329,7 @@ module Zr::Kern
 
   # Starts a rescue clause: the exception moves from the pending slot to
   # `$!`. Returns the previous `$!`, for the end of the clause.
-  sig [] => Value
+  #: () -> value
   def zr_rescue_enter
     t = zr_task()
     prev = Task.errinfo(t)
@@ -338,12 +338,12 @@ module Zr::Kern
     prev
   end
 
-  sig [] => Value
+  #: () -> value
   def zr_errinfo
     Task.errinfo(zr_task())
   end
 
-  sig [Value] => Void
+  #: (value) -> void
   def zr_errinfo_set(v)
     Task.set_errinfo(zr_task(), v)
   end
@@ -352,7 +352,7 @@ module Zr::Kern
   # pending value, for the caller to keep, and writes the kind, home and
   # site to the three words at `out`. During the body, a raise stays
   # visible as `$!`.
-  sig [Ptr] => Value
+  #: (ptr) -> value
   def zr_signal_take(out)
     t = zr_task()
     v = Task.pending(t)
@@ -367,7 +367,7 @@ module Zr::Kern
     v
   end
 
-  sig [Value, Ptr] => Value
+  #: (value, ptr) -> value
   def zr_signal_restore(v, out)
     zr_signal(Machine.load64(out, 0), v, Machine.ptr(Machine.load64(out, 8)), Machine.load64(out, 16))
   end
@@ -377,7 +377,7 @@ module Zr::Kern
   # the message (a class does this through `new`). A third argument is
   # the backtrace. `cause:` sets the cause, else `$!` is the cause. The
   # frame of `raise` itself is not in the backtrace.
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_kernel_raise(recv, argc, argv, cref, blk)
     top = Frame.prev(Task.top(zr_task()))
     cause = Machine.value(QUNDEF)
@@ -442,7 +442,7 @@ module Zr::Kern
 
   # Raises `circular causes` when `e` is in the cause list of `cause`.
   # An exception that is its own cause gets no cause.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_exc_check_cause(e, cause)
     if cause == e
       return Machine.value(QNIL)
@@ -457,19 +457,19 @@ module Zr::Kern
     Machine.value(QNIL)
   end
 
-  sig [Value, Ptr, Word] => Value
+  #: (value, ptr, word) -> value
   def zr_raise_msg(klass, bytes, len)
     zr_raise(zr_exc_new(klass, zr_str_new(bytes, len)))
   end
 
   # Raises with the message in `b`, and takes ownership of `b`.
-  sig [Value, Ptr] => Value
+  #: (value, ptr) -> value
   def zr_raise_buf(klass, b)
     zr_raise(zr_exc_new(klass, zr_buf_take(b)))
   end
 
   # Returns a class of the core library, found by its constant name.
-  sig [Word] => Value
+  #: (word) -> value
   def zr_core_class(id)
     e = zr_const_row_in(zr_global(G_OBJECT), id, false)
     if e == 0
@@ -479,7 +479,7 @@ module Zr::Kern
   end
 
   # `block in label`, or `block (N levels) in label` for a nested block.
-  sig [Ptr, Ptr] => Void
+  #: (ptr, ptr) -> void
   def zr_buf_label(b, meta)
     zr_buf_label_as(b, meta, true)
   end
@@ -487,7 +487,7 @@ module Zr::Kern
   # Writes the label. When `qualified`, a method label includes the
   # owner, as in a backtrace. Otherwise it is the name only, as in an
   # instruction sequence.
-  sig [Ptr, Ptr, Bool] => Void
+  #: (ptr, ptr, bool) -> void
   def zr_buf_label_as(b, meta, qualified)
     if FrameMeta.kind(meta) == KIND_BLOCK
       levels = 1
@@ -528,7 +528,7 @@ module Zr::Kern
   # Writes `Owner#name`, or `Owner.name` for a singleton method of a
   # class, or the name only for a singleton method of an object or for an
   # anonymous owner.
-  sig [Ptr, Value, Word] => Void
+  #: (ptr, value, word) -> void
   def zr_buf_method_label(b, owner, name)
     if zr_type(owner) == T_ICLASS
       owner = RClass.attached(owner)
@@ -548,7 +548,7 @@ module Zr::Kern
   end
 
   # Writes `file:line:in 'label'` for one backtrace frame.
-  sig [Ptr, Ptr] => Void
+  #: (ptr, ptr) -> void
   def zr_buf_row(b, row)
     zr_buf_push(b, BtRow.file(row), BtRow.file_len(row))
     zr_buf_byte(b, 58)
@@ -560,7 +560,7 @@ module Zr::Kern
 
   # `Exception#backtrace`: the value from set_backtrace, else the frames
   # that the raise captured, or nil before the raise.
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_exc_backtrace(recv, argc, argv, cref, blk)
     if RException.bt(recv) != QNIL
       return RException.bt(recv)
@@ -571,7 +571,7 @@ module Zr::Kern
   # Returns the frames that the raise captured, one `file:line:in 'label'`
   # String each, or nil before a raise. set_backtrace does not change
   # them, so `backtrace_locations` returns them.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_exc_raise_rows(recv)
     rows = RException.rows(recv)
     if rows == 0
@@ -592,7 +592,7 @@ module Zr::Kern
 
   # Returns the prism node id of each frame that the raise captured, in
   # the order of `zr_exc_raise_rows`, or nil before a raise.
-  sig [Value] => Value
+  #: (value) -> value
   def zr_exc_raise_nodes(recv)
     rows = RException.rows(recv)
     if rows == 0
@@ -611,7 +611,7 @@ module Zr::Kern
   # Returns the prism node id of each frame that `caller(start, limit)`
   # would return for the caller, which is the Ruby method that calls this
   # primitive.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_caller_nodes(start, limit)
     skip = zr_fix2long(start)
     room = limit == QNIL ? 0 - 1 : zr_fix2long(limit)
@@ -634,19 +634,19 @@ module Zr::Kern
   # The class of an error that no rescue can catch by name: a deadlock.
   G_FATAL = 41
 
-  sig [] => Value
+  #: () -> value
   def zr_fatal_class
     zr_global(G_FATAL)
   end
 
-  sig [Value] => Value
+  #: (value) -> value
   def zr_error_print_m(exc)
     zr_error_print(exc)
     Machine.value(QNIL)
   end
 
   # Prints an uncaught exception on stderr, as CRuby does, then exits 1.
-  sig [Value] => Void
+  #: (value) -> void
   def zr_report(exc)
     zr_error_print(exc)
     Libc.exit(1)
@@ -658,7 +658,7 @@ module Zr::Kern
   # it becomes the cause of all that a handler raises. CRuby prints it
   # once, at the end, not again under each handler. The kernel refuses a
   # circular cause, so the loop always ends.
-  sig [Value, Value] => Void
+  #: (value, value) -> void
   def zr_error_print_upto(exc, stop)
     # Exception#uncaught_report writes as rb_error_write does. The frames
     # below are for a runtime that cannot run it yet.
@@ -679,7 +679,7 @@ module Zr::Kern
 
   # Prints the full cause list. All callers except an at_exit handler
   # use this.
-  sig [Value] => Void
+  #: (value) -> void
   def zr_error_print(exc)
     zr_error_print_upto(exc, Machine.value(QUNDEF))
   end
@@ -687,7 +687,7 @@ module Zr::Kern
   # Prints one exception on stderr, with its `detailed_message` after the
   # first backtrace frame. A SystemStackError with more than 18 frames
   # shows the first 9 and the last 4, and the count of the levels between.
-  sig [Value] => Void
+  #: (value) -> void
   def zr_error_print_one(exc)
     # `highlight:` is true when stderr is still the original terminal, as
     # rb_stderr_tty_p decides.
@@ -746,7 +746,7 @@ module Zr::Kern
   # throw, a break or a return through it) stops here, after the ensure
   # clauses on its way ran. Returns the block's value, or `failed` after an
   # unwind.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_protect(failed, blk)
     r = zr_yield(blk, 0, 0)
     if r == QUNDEF
@@ -762,19 +762,19 @@ module Zr::Kern
 
   # rb_memerror: a NoMemoryError with no backtrace, as ruby raises the one
   # it made at start, so an uncaught one prints no line.
-  sig [] => Value
+  #: () -> value
   def zr_no_memory
     e = zr_exc_new(zr_core_class(Machine.id(:NoMemoryError)), zr_str_new(Machine.bytes("failed to allocate memory"), 25))
     zr_raise_as_is(e, Task.top(zr_task()))
   end
 
-  sig [] => Value
+  #: () -> value
   def zr_stack_overflow
     zr_raise_msg(zr_global(G_SYSTEM_STACK_ERROR), Machine.bytes("stack level too deep"), 20)
   end
 
   # `set_backtrace`: an Array of Strings, one String, or nil.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_exc_set_backtrace_value(exc, bt)
     if bt == QNIL
       RException.set_bt(exc, bt)
@@ -800,12 +800,12 @@ module Zr::Kern
     bt
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_exc_set_backtrace(recv, argc, argv, cref, blk)
     zr_exc_set_backtrace_value(recv, Machine.value(Machine.load64(argv, 0)))
   end
 
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_exc_cause(recv, argc, argv, cref, blk)
     c = RException.cause(recv)
     if c == QUNDEF
@@ -816,21 +816,21 @@ module Zr::Kern
 
   # Sets a detail of an exception that the program reads. `NameError#name`
   # and similar values are in ivars that the raise sets.
-  sig [Value, Word, Value] => Void
+  #: (value, word, value) -> void
   def zr_exc_detail(exc, id, v)
     zr_ivar_set(exc, id, v)
   end
 
   # `SystemCallError.new(message, errno)`: changes the class of the error
   # to the Errno class for its errno, as syserr_initialize does.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_exc_set_class(exc, klass)
     RBasic.set_klass(exc, klass)
     exc
   end
 
   # Writes `file:line:in 'label'` for the live frame `rec`.
-  sig [Ptr, Ptr] => Void
+  #: (ptr, ptr) -> void
   def zr_buf_frame(b, rec)
     source = zr_frame_with_file(rec)
     if source != 0
@@ -849,7 +849,7 @@ module Zr::Kern
   # itself, so a frame whose self is that module came through the
   # singleton class. The frame then uses the meta of that method, which
   # CRuby labels `Mod.name`.
-  sig [Ptr] => Ptr
+  #: (ptr) -> ptr
   def zr_frame_label_meta(rec)
     meta = Frame.meta(rec)
     owner = FrameMeta.owner(meta)
@@ -869,7 +869,7 @@ module Zr::Kern
 
   # `Kernel#caller(start = 1, length = nil)`: the frames outward from the
   # frame of the caller, after the first `start` frames.
-  sig [Value, Word, Ptr, Value, Value] => Value
+  #: (value, word, ptr, value, value) -> value
   def zr_kernel_caller(recv, argc, argv, cref, blk)
     if argc > 2
       return zr_wrong_arity_range(argc, 0, 2)
@@ -935,7 +935,7 @@ module Zr::Kern
   # `file:line:in 'label'`. `Thread#backtrace` reads another thread this
   # way. A `limit` below zero means all frames. A `start` past the
   # outermost frame returns nil, as `caller` does.
-  sig [Value, Value, Value] => Value
+  #: (value, value, value) -> value
   def zr_fiber_backtrace_m(fiber, start, limit)
     t = RFiber.task(fiber)
     if t == 0

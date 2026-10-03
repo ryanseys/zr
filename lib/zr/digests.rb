@@ -32,7 +32,9 @@ module Zr
     def sources(target, files, bytes = {})
       Digest::SHA256.new.tap do |d|
         d << target.triple << "\0"
-        d << "root\0" << Paths.root << "\0" if Paths.root
+        if (root = Paths.root)
+          d << "root\0" << root << "\0"
+        end
         d << "checked\0" if Config.current.kernel_checked?
         files.each do |path|
           data = bytes[path] || File.binread(path)

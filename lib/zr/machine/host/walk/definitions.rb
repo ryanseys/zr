@@ -10,6 +10,17 @@ module Zr
         # runs in a frame of its own, and a require runs a unit's toplevel.
         module Definitions
           # @type instance: Walk
+          # The ivars of Walk that this module reads (walk.rb):
+          # @rbs @host: Host
+          # @rbs @kern: untyped
+          # @rbs @qnil: Integer
+          # @rbs @qundef: Integer
+          # @rbs @fns: Hash[untyped, untyped]
+          # @rbs @metas: Hash[untyped, Integer]
+          # @rbs @attributes: Hash[Hir::Def, Array[Symbol]]
+          # @rbs @traced: bool
+          # @rbs @eval_files: EvalSupport
+          # @rbs @eval_entry: Integer?
 
           # zr_require's kinds (Lower::Function::Control::REQUIRE_KINDS).
           REQUIRE_KINDS = { require: 0, require_relative: 1, load: 2, hidden: 3, computed: 4, declared: 5 }.freeze
@@ -55,7 +66,8 @@ module Zr
               m = meta(node, unit, kind, name: node.name, params: node.params, locals: node.locals, open: open,
                                          ruby: unit.internal && attributes(node).include?(:ruby), cover: node.cover)
               s = scope(node, unit, :def, m, scopes: [node.locals], homes: [node], def_node: node, params: node.params, open: open)
-              run = nil
+              # The body compiles at its first run.
+              run = nil #: untyped
               @host.callable(lambda do |recv, argc, argv, entry, blk, found|
                 run ||= def_body(node, s)
                 cref = entry.zero? ? @qnil : k::MEntry.cref(entry)
@@ -85,7 +97,7 @@ module Zr
 
           # The leading `Primitive.attr!(:name)` statements of a def.
           def attributes(node)
-            (@attributes ||= {}.compare_by_identity)[node] ||= begin
+            @attributes[node] ||= begin
               body = node.body.is_a?(Hir::Begin) ? node.body.body : node.body
               stmts = body.is_a?(Hir::Seq) ? body.stmts : [body]
               stmts.take_while { |s| s.is_a?(Hir::Send) && s.name == :attr! && s.recv.is_a?(Hir::ConstRead) && s.recv.name == :Primitive }
@@ -138,7 +150,8 @@ module Zr
             open = open?(node, :class, s.unit)
             m = meta(node, s.unit, kind, name: name, parent: parent, locals: node.locals, open: open)
             inner = scope(node, s.unit, :class, m, scopes: [node.locals], homes: [], open: open)
-            run = nil
+            # The body compiles at its first run.
+            run = nil #: untyped
             lambda do |f, klass|
               run ||= class_code(node, inner)
               check(enter(inner, klass, @kern.zr_cref_push(klass, f.cref), @qnil) { |c| run.call(c) })

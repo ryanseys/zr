@@ -279,7 +279,7 @@ module Zr
         def emit_u32(io, name, words, comment)
           rows = words.pack("V*").bytes.each_slice(32).map { |row| row.map { |b| format("\\x%02X", b) }.join }
           io.puts "# #{comment}"
-          io.puts "sig [] => Ptr"
+          io.puts "#: () -> ptr"
           io.puts "machine def #{name}"
           io.puts "  Machine.bytes("
           io.puts "  \"#{rows.join("\\\n")}\")"

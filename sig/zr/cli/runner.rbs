@@ -1,0 +1,10 @@
+# The forms of `system` and `exec` that lib/zr/cli/runner.rb and
+# lib/zr/cli/commands/compile.rb call: an environment, then a
+# `[path, argv0]` pair. RBS's kernel does not have the pair.
+module Kernel
+  def self?.system: (Hash[string, string?] env, [String, String] command, *String args) -> bool?
+                  | ...
+
+  def self?.exec: (Hash[string, string?] env, [String, String] command, *String args) -> bot
+                | ...
+end

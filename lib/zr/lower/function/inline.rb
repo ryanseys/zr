@@ -30,8 +30,13 @@ module Zr
       # is taken inside the copy, because nothing in it raises.
       module Inline
         # @type instance: Function
-        # The `spec` methods run only while a copy is lowered:
-        # @type ivar @inline: Site
+        # @rbs @f: IR::Function
+        # @rbs @l: Lower
+        # @rbs @name: String
+        # @rbs @qnil: String
+        # @rbs @self: String
+        # The copy being lowered, or nil (`inline_site`).
+        # @rbs @inline: Site?
 
         # The maximum HIR node count of a candidate's body.
         LIMIT = 24
@@ -54,11 +59,12 @@ module Zr
         # local, and has a body that passes `pure?` or `leads?`. A def with
         # a receiver (`def self.x`) is never a candidate, and it also
         # disqualifies its name.
-        #: (untyped body) -> Hash[Symbol, Hir::Def]
+        #: (Hir::node? body) -> Hash[Symbol, Hir::Def]
         def self.candidates(body)
           defs = Hash.new { |h, k| h[k] = [] } #: Hash[Symbol, Array[Hir::Def]]
           each_def(body) { |d| defs[d.name] << d }
-          defs.each_with_object({}) do |(name, list), out|
+          out = {} #: Hash[Symbol, Hir::Def]
+          defs.each do |name, list|
             d = list.first
             next unless list.size == 1 && d.receiver.nil? && d.params.plain? && d.params.required.size <= DIRECT_ARGS
             next unless d.params.required.all?(Symbol) && d.locals == d.params.required && d.params.block.nil?
@@ -66,14 +72,21 @@ module Zr
             given = d.params.required.size + 1
             out[name] = d if pure?(d.body, [given]) || leads?(d.body, [given])
           end
+          out
+        end
+
+        # `body` without the Seqs that contain only one statement.
+        #: (Hir::node? body) -> Hir::node?
+        def self.single(body)
+          body.is_a?(Hir::Seq) && body.stmts.size == 1 ? single(body.stmts.first) : body
         end
 
         # Whether `body` starts with a decision that the copy can make: an
         # `if` with a pure test and a pure branch. It is the whole body, or
         # a guard clause (one branch is a `return`) before the rest.
-        #: (untyped body, Array[Integer] count) -> bool
+        #: (Hir::node? body, Array[Integer] count) -> bool
         def self.leads?(body, count)
-          body = body.stmts.first while body.is_a?(Hir::Seq) && body.stmts.size == 1
+          body = single(body)
           test = body.is_a?(Hir::Seq) ? body.stmts.first : body
           return false unless test.is_a?(Hir::If) && pure?(test.cond, count)
 
@@ -83,15 +96,15 @@ module Zr
         end
 
         # Whether `node` ends in a `return`.
-        #: (untyped node) -> bool
+        #: (Hir::node node) -> bool
         def self.returns?(node)
-          node = node.stmts.last if node.is_a?(Hir::Seq)
-          node.is_a?(Hir::Return)
+          last = node.is_a?(Hir::Seq) ? node.stmts.last : node
+          last.is_a?(Hir::Return)
         end
 
         # Every Def under `node`, at any depth. The walk goes into class
         # bodies, blocks and defs.
-        #: (untyped node) { (Hir::Def) -> void } -> void
+        #: (Hir::node? node) { (Hir::Def) -> void } -> void
         def self.each_def(node, &)
           case node
           when Hir::Def
@@ -117,7 +130,7 @@ module Zr
 
         # Whether a copy can lower `node`. Adds its node count to `count`
         # (a one-element Array with the running total).
-        #: (untyped node, Array[Integer] count) -> bool
+        #: (Hir::node? node, Array[Integer] count) -> bool
         def self.pure?(node, count)
           return false if (count[0] += 1) > LIMIT
 
@@ -135,7 +148,7 @@ module Zr
           end
         end
 
-        #: (untyped v) -> bool
+        #: (Hir::literal v) -> bool
         def self.immediate_literal?(v)
           case v
           when Integer then v.bit_length < 63
@@ -182,18 +195,25 @@ module Zr
           d if d && d.params.required.size == node.args.size
         end
 
+        # The site of the copy being lowered. The `spec` methods run only
+        # while a copy is lowered (`inline_body`).
+        #: () -> Site
+        def inline_site = @inline || raise("no inline copy is being lowered")
+
         # The copy of `d`'s body at the site, with `recv` as its self and
         # `given` as its parameters. Every guard that fails jumps to
         # `bail`. Returns the body's value.
         #: (Hir::Def d, String recv, Array[String] given, String bail) -> String
         def inline_body(d, recv, given, bail)
           exit, (result,) = @f.block(["i64"]) #: [String, [String]]
-          saved = [@self, @inline]
+          saved_self = @self
+          saved_site = @inline
           @self = recv
           @inline = Site.new(d.params.required.zip(given).to_h, exit, bail)
           v = spec_leading(d.body)
           @f.jump(exit, [v]) unless @f.terminated?
-          @self, @inline = saved
+          @self = saved_self
+          @inline = saved_site
           switch(exit)
           result
         end
@@ -201,22 +221,26 @@ module Zr
         # The copy of a candidate's body: a pure body in full, or the
         # leading test (`leads?`). Its branches and later statements are
         # copied if pure, else they bail.
-        #: (untyped body) -> String
+        #: (Hir::node? body) -> String
         def spec_leading(body)
           return spec(body) if Inline.pure?(body, [0])
 
-          body = body.stmts.first while body.is_a?(Hir::Seq) && body.stmts.size == 1
-          body.is_a?(Hir::If) ? spec_branch(body) : spec_seq(body)
+          body = Inline.single(body)
+          case body
+          when Hir::If then spec_branch(body)
+          when Hir::Seq then spec_seq(body)
+          else @l.refuse(body, "#{body.class.name} is not a leading test")
+          end
         end
 
         # The value of `node` in the copy: `expr` for the nodes that pass
         # `pure?`, with each miss a jump to the bail block. Code that the
         # copy cannot run (a branch of a leading test that calls, or the
         # rest after a guard clause) is only a bail.
-        #: (untyped node) -> String
+        #: (Hir::node? node) -> String
         def spec(node)
           unless Inline.pure?(node, [0])
-            @f.jump(@inline.bail)
+            @f.jump(inline_site.bail)
             return @qnil
           end
 
@@ -228,7 +252,7 @@ module Zr
           when Hir::Return then spec_return(node)
           when Hir::Literal then literal(node)
           when Hir::SelfRef then @self
-          when Hir::Local then @inline.locals.fetch(node.name)
+          when Hir::Local then inline_site.locals.fetch(node.name)
           when Hir::IvarRead then spec_ivar_read(node)
           when Hir::Send then spec_send(node)
           else @l.refuse(node, "#{node.class.name.split("::").last} is not inlined")
@@ -248,7 +272,7 @@ module Zr
         # A comparison of two fixnums branches on the comparison, as
         # `Sends#relation_jump` does. `==` and `!=` of other values are
         # identity tests (if the def's cell permits), tested as a value.
-        #: (untyped node, String yes, String no) -> void
+        #: (Hir::node node, String yes, String no) -> void
         def spec_jump_if(node, yes, no)
           case node
           when Hir::And, Hir::Or
@@ -257,16 +281,16 @@ module Zr
             switch(rest)
             spec_jump_if(node.right, yes, no)
           else
-            return spec_relation_jump(node, yes, no) if spec_relation?(node)
+            return spec_relation_jump(node, yes, no) if node.is_a?(Hir::Send) && spec_relation?(node)
 
             v = spec(node)
             @f.brif(truthy(v), yes, no) unless @f.terminated?
           end
         end
 
-        #: (untyped node) -> bool
+        #: (Hir::Send node) -> bool
         def spec_relation?(node)
-          node.is_a?(Hir::Send) && Sends::RELATIONS.key?(node.name) && node.args.size == 1 && Inline.pure?(node, [0])
+          Sends::RELATIONS.key?(node.name) && node.args.size == 1 && Inline.pure?(node, [0])
         end
 
         #: (Hir::Send node, String yes, String no) -> void
@@ -279,7 +303,7 @@ module Zr
           switch(fixnums)
           @f.brif(@f.icmp(Sends::RELATIONS.fetch(node.name), recv, arg), yes, no)
           switch(rest)
-          return @f.jump(@inline.bail) unless %i[== !=].include?(node.name)
+          return @f.jump(inline_site.bail) unless %i[== !=].include?(node.name)
 
           merge, (v,) = @f.block(["i64"]) #: [String, [String]]
           spec_identity(node, recv, arg, merge)
@@ -327,7 +351,7 @@ module Zr
           v = spec(node.value)
           go = @f.label
           boolean = @f.icmp("eq", @f.bor(v, imm(28)), imm(28))
-          @f.brif(@f.band(boolean, gate_clear("GATE_NOT")), go, @inline.bail)
+          @f.brif(@f.band(boolean, gate_clear("GATE_NOT")), go, inline_site.bail)
           switch(go)
           @f.csel(truthy(v), imm(@l.const("QFALSE")), imm(@l.const("QTRUE")))
         end
@@ -335,7 +359,7 @@ module Zr
         #: (Hir::Return node) -> String
         def spec_return(node)
           v = node.value ? spec(node.value) : @qnil
-          @f.jump(@inline.done, [v]) unless @f.terminated?
+          @f.jump(inline_site.done, [v]) unless @f.terminated?
           @qnil
         end
 
@@ -344,7 +368,7 @@ module Zr
         def spec_ivar_read(node)
           ivar = ivar_name(node.name)
           ic = site_cache(node, "iv", "IvarCache")
-          row = guessed_ivar_row(ic, ivar, @inline.bail, writing: false)
+          row = guessed_ivar_row(ic, ivar, inline_site.bail, writing: false)
           found = @f.fetch("i64", row, off(@l.layout("IvEntry"), "value"))
           @f.csel(@f.icmp("eq", found, qundef), @qnil, found)
         end
@@ -369,14 +393,14 @@ module Zr
           is_nil = @f.label
           not_nil = @f.label
           ranked = @f.label
-          @f.brif(gate_clear("GATE_NIL_P"), is_nil, @inline.bail)
+          @f.brif(gate_clear("GATE_NIL_P"), is_nil, inline_site.bail)
           switch(is_nil)
           @f.brif(@f.icmp("eq", recv, @qnil), not_nil, ranked)
           switch(not_nil)
           @f.jump(merge, [imm(@l.const("QTRUE"))])
           switch(ranked)
           answer = @f.label
-          @f.brif(ranked?(class_of(recv)), answer, @inline.bail)
+          @f.brif(ranked?(class_of(recv)), answer, inline_site.bail)
           switch(answer)
           @f.jump(merge, [imm(@l.const("QFALSE"))])
         end
@@ -392,16 +416,16 @@ module Zr
           heap = @f.label
           hit = @f.label
           shaped = @f.label
-          @f.brif(cellp(recv), heap, @inline.bail)
+          @f.brif(cellp(recv), heap, inline_site.bail)
           switch(heap)
           klass = @f.fetch("i64", recv, off(@l.layout("RBasic"), "klass"))
-          @f.brif(cell_hit(cc, klass), hit, @inline.bail)
+          @f.brif(cell_hit(cc, klass), hit, inline_site.bail)
           switch(hit)
           held = @f.fetch("i64", cc, off(cell, "shape"))
-          @f.brif(@f.bor(@f.icmp("eq", held, imm(@l.const("SHAPE_READER"))), struct_member?(:reader, held)), shaped, @inline.bail)
+          @f.brif(@f.bor(@f.icmp("eq", held, imm(@l.const("SHAPE_READER"))), struct_member?(:reader, held)), shaped, inline_site.bail)
           switch(shaped)
           site = CallSite.new(node: node, cc: cc, recv: recv, entry: @f.fetch("i64", cc, off(cell, "entry")), argv: nil, merge: merge)
-          accessor_in_place(:reader, site, @inline.bail, struct_member?(:reader, held))
+          accessor_in_place(:reader, site, inline_site.bail, struct_member?(:reader, held))
         end
 
         # An operator on two fixnums under its gate. `==` and `!=` by
@@ -416,18 +440,18 @@ module Zr
             both = @f.icmp("ne", @f.band(@f.band(recv, arg), imm(1)), imm(0))
             @f.brif(@f.band(both, gate_clear(Sends::OPS.fetch(op))), fixnums, rest)
             switch(fixnums)
-            @f.jump(merge, [fast_path(op, recv, arg, @inline.bail)])
+            @f.jump(merge, [fast_path(op, recv, arg, inline_site.bail)])
             switch(rest)
             return spec_identity(node, recv, arg, merge) if %i[== !=].include?(op)
 
-            @f.jump(@inline.bail)
+            @f.jump(inline_site.bail)
           elsif op == :===
             spec_mod_eqq(node, recv, arg, merge)
           else
             gated = @f.label
-            @f.brif(gate_clear("GATE_IS_A"), gated, @inline.bail)
+            @f.brif(gate_clear("GATE_IS_A"), gated, inline_site.bail)
             switch(gated)
-            is_a_in_place(class_of(recv), arg, merge, @inline.bail)
+            is_a_in_place(class_of(recv), arg, merge, inline_site.bail)
           end
         end
 
@@ -440,14 +464,14 @@ module Zr
           heap = @f.label
           hit = @f.label
           shaped = @f.label
-          @f.brif(cellp(recv), heap, @inline.bail)
+          @f.brif(cellp(recv), heap, inline_site.bail)
           switch(heap)
-          @f.brif(cell_hit(cc, @f.fetch("i64", recv, off(@l.layout("RBasic"), "klass"))), hit, @inline.bail)
+          @f.brif(cell_hit(cc, @f.fetch("i64", recv, off(@l.layout("RBasic"), "klass"))), hit, inline_site.bail)
           switch(hit)
           held = @f.icmp("eq", @f.fetch("i64", cc, off(cell, "shape")), imm(@l.const("SHAPE_MOD_EQQ")))
-          @f.brif(@f.band(held, ranked?(recv)), shaped, @inline.bail)
+          @f.brif(@f.band(held, ranked?(recv)), shaped, inline_site.bail)
           switch(shaped)
-          is_a_in_place(class_of(arg), recv, merge, @inline.bail)
+          is_a_in_place(class_of(arg), recv, merge, inline_site.bail)
         end
 
         #: (Hir::Send node, String recv, String arg, String merge) -> void
@@ -456,10 +480,10 @@ module Zr
           cell = @l.layout("CallCache")
           hit = @f.label
           shaped = @f.label
-          @f.brif(cell_hit(cc, class_of(recv)), hit, @inline.bail)
+          @f.brif(cell_hit(cc, class_of(recv)), hit, inline_site.bail)
           switch(hit)
           shape = node.name == :== ? "SHAPE_EQ" : "SHAPE_NE"
-          @f.brif(@f.icmp("eq", @f.fetch("i64", cc, off(cell, "shape")), imm(@l.const(shape))), shaped, @inline.bail)
+          @f.brif(@f.icmp("eq", @f.fetch("i64", cc, off(cell, "shape")), imm(@l.const(shape))), shaped, inline_site.bail)
           switch(shaped)
           @f.jump(merge, [ruby_bool(@f.icmp(node.name == :== ? "eq" : "ne", recv, arg))])
         end

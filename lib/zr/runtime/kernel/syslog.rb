@@ -7,12 +7,12 @@ module Zr::Kern
   Libc.import :closelog, [] => Void
   Libc.import :setlogmask, [I32] => I32
 
-  sig [] => Ptr
+  #: () -> ptr
   def zr_syslog_ident_slot
     Machine.static(:syslog_ident, 8)
   end
 
-  sig [Value, Value, Value] => Value
+  #: (value, value, value) -> value
   def zr_syslog_open(ident, options, facility)
     slot = zr_syslog_ident_slot()
     copy = zr_xmalloc(RString.len(ident) + 1)
@@ -22,7 +22,7 @@ module Zr::Kern
     zr_fix(Machine.sword(Libc.setlogmask(Machine.i32(0))))
   end
 
-  sig [] => Value
+  #: () -> value
   def zr_syslog_close
     slot = zr_syslog_ident_slot()
     Libc.closelog()
@@ -33,13 +33,13 @@ module Zr::Kern
 
   # Logs one message at `priority`. The caller doubles each `%` first,
   # because syslog uses the text as its format.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_syslog_write(priority, format)
     Libc.syslog(Machine.i32(zr_fix2long(priority)), RString.ptr(format))
     Machine.value(QNIL)
   end
 
-  sig [Value] => Value
+  #: (value) -> value
   def zr_syslog_mask(mask)
     zr_fix(Machine.sword(Libc.setlogmask(Machine.i32(zr_fix2long(mask)))))
   end

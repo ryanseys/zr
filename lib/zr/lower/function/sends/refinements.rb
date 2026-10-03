@@ -30,8 +30,9 @@ module Zr
         # where the list is the owner's and has no entry number.
         #: (Hir::Send | Hir::Super node) -> void
         def activate(node)
-          return if node.using.nil?
-          return kernel("zr_activate_owner", @rec) if owner_using?(node)
+          using = node.using
+          return if using.nil?
+          return kernel("zr_activate_owner", @rec) if using.is_a?(Symbol)
 
           rows = global("G_ACTIVATIONS")
           ask = @f.label
@@ -41,17 +42,17 @@ module Zr
           array = @l.layout("RArray")
           @f.brif(@f.band(@f.icmp("eq", @f.band(rows, imm(7)), imm(0)), @f.icmp("ugt", rows, @qnil)), read, ask)
           switch(read)
-          made = @f.icmp("slt", imm(node.using), @f.fetch("i64", rows, off(array, "len")))
+          made = @f.icmp("slt", imm(using), @f.fetch("i64", rows, off(array, "len")))
           @f.brif(made, have, ask)
           switch(have)
-          row = @f.fetch("i64", @f.fetch("i64", rows, off(array, "ptr")), 8 * node.using)
+          row = @f.fetch("i64", @f.fetch("i64", rows, off(array, "ptr")), 8 * using)
           plain = @f.label
           @f.brif(@f.icmp("eq", @f.band(row, imm(1)), imm(0)), plain, ask)
           switch(plain)
           @f.store(row, @task_addr, off(@task, "refine"), region: :task)
           @f.jump(merge, [])
           switch(ask)
-          kernel("zr_activate", imm(node.using))
+          kernel("zr_activate", imm(using))
           @f.jump(merge, [])
           switch(merge)
         end

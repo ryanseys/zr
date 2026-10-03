@@ -7,7 +7,7 @@ module Zr::Kern
   raw :zr_switch, [Ptr, Ptr] => Void
 
   # The other stack's body: bounce back forever.
-  sig [] => Void
+  #: () -> void
   def other
     ctx = Machine.static(:ctx, 512)
     while true
@@ -15,7 +15,7 @@ module Zr::Kern
     end
   end
 
-  sig [I32, Ptr] => I32
+  #: (i32, ptr) -> i32
   def main(argc, argv)
     ctx = Machine.static(:ctx, 512)
     other_ctx = ctx + 256

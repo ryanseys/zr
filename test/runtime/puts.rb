@@ -3,7 +3,7 @@
 # rooted in one frame record; then a thousand strings under the
 # collector.
 module Zr::Kern
-  sig [] => Value
+  #: () -> value
   def zr_toplevel
     rec = Machine.slot(Frame.size + 32)
     meta = Machine.static(:meta, FrameMeta.size)

@@ -3,7 +3,7 @@ module Zr::Kern
   # so each signal keeps its default handler.
   NSIG = 65
 
-  sig [I32, Word, Ptr] => I32
+  #: (i32, word, ptr) -> i32
   def zr_os_sigaction(signo, fn, old)
     Machine.store64(old, 0, 0)
     Machine.i32(0)

@@ -46,10 +46,12 @@ module Zr
       #: [T] () { () -> T } -> T
       def self.plain_separators
         kept = SEPARATORS.map { |name| Primitive.zr_gvar_get_m(name) }
-        SEPARATORS.each { |name| Primitive.zr_gvar_set_m(name, name == :$/ ? String.send(:default_rs) : nil) }
-        yield
-      ensure
-        SEPARATORS.zip(kept) { |name, value| Primitive.zr_gvar_set_m(name, value) } if kept
+        begin
+          SEPARATORS.each { |name| Primitive.zr_gvar_set_m(name, name == :$/ ? String.send(:default_rs) : nil) }
+          yield
+        ensure
+          SEPARATORS.zip(kept) { |name, value| Primitive.zr_gvar_set_m(name, value) }
+        end
       end
 
       # The compiler's Enumerable methods walk the core's collections with
@@ -57,9 +59,11 @@ module Zr
       #: [T] () { () -> T } -> T
       def self.compiling
         was = Primitive.zr_eval_compiling_m(true)
-        yield
-      ensure
-        Primitive.zr_eval_compiling_m(was)
+        begin
+          yield
+        ensure
+          Primitive.zr_eval_compiling_m(was)
+        end
       end
     end
   end

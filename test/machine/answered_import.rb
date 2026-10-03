@@ -5,13 +5,13 @@ module Zr::Kern
   Libc.import :exit, [I32] => Void
   Libc.import :_exit, [I32] => Void
 
-  sig [I32] => Void
+  #: (i32) -> void
   def exit(code)
     Libc.write(1, Machine.bytes("bye\n"), 4)
     Libc._exit(code)
   end
 
-  sig [I32, Ptr] => I32
+  #: (i32, ptr) -> i32
   def main(argc, argv)
     Libc.write(1, Machine.bytes("hi\n"), 3)
     Libc.exit(0)

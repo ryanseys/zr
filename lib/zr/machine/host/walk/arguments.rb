@@ -10,6 +10,16 @@ module Zr
         # parameters, the defaults, the keywords and the block.
         module Arguments
           # @type instance: Walk
+          # The ivars of Walk that this module reads (walk.rb):
+          # @rbs @kern: untyped
+          # @rbs @qnil: Integer
+          # @rbs @qundef: Integer
+          # @rbs @fns: Hash[untyped, untyped]
+          # @rbs @owners: Hash[Hir::Params, Hash[Symbol?, [Symbol, Integer]]]
+          # @rbs @record: Integer
+          # @rbs @env_slots: Integer
+          # @rbs @task_kw: ^(Integer) -> untyped
+          # @rbs @task_set_kw: ^(Integer, untyped) -> untyped
 
           private
 
@@ -258,7 +268,7 @@ module Zr
           def owns?(p, name, slot)
             return true unless name.is_a?(Symbol)
 
-            owners = (@owners ||= {}.compare_by_identity)[p] ||= begin
+            owners = @owners[p] ||= begin
               slots = [*p.required.each_index.map { |i| [[:req, i], p.required[i]] },
                        *p.optional.each_index.map { |i| [[:opt, i], p.optional[i][0]] },
                        [[:rest, 0], p.rest], *p.post.each_index.map { |i| [[:post, i], p.post[i]] },
@@ -270,6 +280,7 @@ module Zr
 
           # The code that binds the keyword parameters from the keywords
           # Hash (nil when the call gave none).
+          #: (Hir::Params p, Scope s) -> ^(Frame, Integer?) -> void
           def keywords_binder(p, s)
             ids = p.keywords.map(&:first)
             required = p.keywords.select { |_, d| d.nil? }.map(&:first)

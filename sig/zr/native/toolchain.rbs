@@ -1,0 +1,6 @@
+# The form of `IO.popen` that lib/zr/native/toolchain.rb calls. RBS's
+# `redirect_fd` has `[:child, int]`, not `[:child, :out]`.
+class IO
+  def self.popen: [X] (Hash[string, string?] env, Array[String] cmd, err: [:child, :out]) { (IO) -> X } -> X
+                | ...
+end

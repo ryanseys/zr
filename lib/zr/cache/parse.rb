@@ -29,7 +29,7 @@ module Zr
     module Parse
       # @rbs @parser: String?
       # @rbs @stamps: Hash[String, [Rational, Integer]?]?
-      # @rbs @makers: Hash[Array[String], String | false | nil]?
+      # @rbs @makers: Hash[Array[String], String?]?
 
       # The files of the parser: these, and every Ruby file under the trees.
       GEM = Library::Ports.lib("prism") #: String
@@ -116,8 +116,8 @@ module Zr
 
         #: () -> void
         def drop_oldest
-          _, held = @held.shift
-          @bytes -= held.bytes
+          oldest = @held.shift or raise "memo: no entry to drop"
+          @bytes -= oldest[1].bytes
         end
       end
 
@@ -193,19 +193,20 @@ module Zr
       # added to the parser's stamps, and `write` checks them again.
       #: (Array[String] files) -> String?
       def maker(files)
-        makers = @makers ||= {} #: Hash[Array[String], String | false | nil]
-        return makers[files] || nil if makers.key?(files)
+        makers = @makers ||= {} #: Hash[Array[String], String?]
+        return makers[files] if makers.key?(files)
 
         digests = if HOSTED
-                    files.to_h { |file| [file, File.file?(file) && Digest::SHA256.hexdigest(File.binread(file))] }
+                    files.to_h { |file| [file, (Digest::SHA256.hexdigest(File.binread(file)) if File.file?(file))] }
                   else
                     carried = ::Zr::Eval::Runtime.sources
                     files.to_h { |file| [file, carried[file]] }
                   end
         parser
         @stamps&.merge!(files.to_h { |file| [file, Paths.stamp(file)] })
-        makers[files] = digests.values.all? && parser_key(digests)
-        makers[files] || nil
+        # `all?` makes sure that each digest is a String.
+        whole = digests #: Hash[String, String]
+        makers[files] = (parser_key(whole) if digests.values.all?)
       end
 
       # The parser files on disk.

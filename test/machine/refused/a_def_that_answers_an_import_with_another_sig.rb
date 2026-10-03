@@ -2,11 +2,11 @@
 module Zr::Kern
   Libc.import :exit, [I32] => Void
 
-  sig [Word] => Void
+  #: (word) -> void
   def exit(code)
   end
 
-  sig [I32, Ptr] => I32
+  #: (i32, ptr) -> i32
   def main(argc, argv)
     0
   end

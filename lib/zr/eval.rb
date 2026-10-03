@@ -48,11 +48,15 @@ module Zr
     # `each`, not one that the program redefines (Runtime.compiling).
     #: [T] () { () -> T } -> T
     def self.plainly(&)
-      stress = GC.stress
-      GC.stress = false
-      Runtime.plain_separators { Runtime.compiling(&) }
-    ensure
-      GC.stress = stress
+      # `GC.stress=` has one overload for an Integer and one for a bool,
+      # and Steep cannot give it the union that `GC.stress` returns.
+      stress = GC.stress #: untyped
+      begin
+        GC.stress = false
+        Runtime.plain_separators { Runtime.compiling(&) }
+      ensure
+        GC.stress = stress
+      end
     end
 
     #: (Runtime runtime) -> void
@@ -170,9 +174,11 @@ module Zr
     end
 
     # Runs the same passes and checks as a build, so eval'd code matches
-    # the code of the program around it.
-    #: (Array[IR::Function] functions, Array[Obj::Datum] data) -> Obj::Unit
-    def unit(functions, data)
+    # the code of the program around it. `Zr::Lower#run` without a block
+    # gives only IR functions.
+    #: (Array[IR::Function | Obj::Code] lowered, Array[Obj::Datum] data) -> Obj::Unit
+    def unit(lowered, data)
+      functions = lowered #: Array[IR::Function]
       functions.each { |f| IR::Passes.prepare(f) }
       Backend::Aarch64.unit(functions, data)
     end

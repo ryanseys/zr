@@ -1,7 +1,7 @@
-# Every integer operator of the dialect, one bit of the exit status each.
+# Every integer operator of the kernel subset, one bit of the exit status each.
 module Zr::Kern
   Libc.import :exit, [I32] => Void
-  sig [I32, Ptr] => I32
+  #: (i32, ptr) -> i32
   def main(argc, argv)
     a = 100
     b = 7

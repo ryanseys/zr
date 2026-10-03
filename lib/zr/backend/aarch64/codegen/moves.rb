@@ -46,7 +46,13 @@ module Zr
               move_register(at, d, s)
               at = s.is_a?(Register) ? s : place(s)
             end
-            v.nil? ? @asm.mov(start, SCRATCH[1]) : store_value(v, SCRATCH[1])
+            if v.nil?
+              # A destination with no value is a register.
+              reg = start #: Registers::Register
+              @asm.mov(reg, SCRATCH[1])
+            else
+              store_value(v, SCRATCH[1])
+            end
           end
         end
 
@@ -55,7 +61,8 @@ module Zr
         #: (Registers::Register | Integer | String to, String? v, String | Registers::Register src) -> void
         def move_register(to, v, src)
           if v.nil?
-            src.is_a?(Register) ? @asm.mov(to, src) : load_value(src, to)
+            reg = to #: Registers::Register
+            src.is_a?(Register) ? @asm.mov(reg, src) : load_value(src, reg)
           elsif src.is_a?(Register)
             store_param(v, src)
           else

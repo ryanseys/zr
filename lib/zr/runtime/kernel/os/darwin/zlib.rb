@@ -1,7 +1,7 @@
 module Zr::Kern
   # The operating system byte in a gzip header: zutil.h's OS_CODE. It is 19
   # for a build on macOS, the same as ruby's zlib on this system.
-  sig [] => Word
+  #: () -> word
   def zr_zlib_os_code
     19
   end

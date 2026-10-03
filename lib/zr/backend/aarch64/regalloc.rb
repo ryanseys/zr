@@ -85,13 +85,14 @@ module Zr
           return {} if @f.blocks.map(&:name).uniq.size != @f.blocks.size
 
           number
-          named(scan(*intervals))
+          order, from, to, crossing = intervals
+          named(scan(order, from, to, crossing))
         end
 
         # The instructions that call. At these, a value loses its register
         # unless the callee saves it.
         CALLS = %i[call call_indirect].freeze #: Array[Symbol]
-        NOTHING = [].freeze #: Array[Integer]
+        NOTHING = Array.new.freeze #: Array[Integer]
 
         private
 
@@ -160,7 +161,8 @@ module Zr
         def read(a)
           return nil unless Regalloc.value?(a)
 
-          a = @via[a] || a if @via
+          via = @via
+          a = via[a] || a if via
           numbered(a)
         end
 

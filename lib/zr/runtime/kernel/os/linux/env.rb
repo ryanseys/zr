@@ -5,25 +5,25 @@ module Zr::Kern
   Libc.import :getrandom, [Ptr, Word, I32] => Word
 
   # The program's NULL-terminated arguments, which main received.
-  sig [I32, Ptr] => Ptr
+  #: (i32, ptr) -> ptr
   def zr_os_argv(argc, argv)
     argv
   end
 
   # RUBY_PLATFORM, as ruby 4.0.7 built against musl gives it.
-  sig [] => Value
+  #: () -> value
   def zr_os_ruby_platform
     zr_str_new(Machine.bytes("aarch64-linux-musl"), 18)
   end
 
   # The environment's NULL-terminated table of `NAME=value` strings.
-  sig [] => Ptr
+  #: () -> ptr
   def zr_os_environ
     Machine.ptr(Machine.load64(Machine.extern(:environ), 0))
   end
 
   # 32 random bits from the kernel.
-  sig [] => Word
+  #: () -> word
   def zr_os_random
     bits = Machine.slot(8)
     Machine.store64(bits, 0, 0)
@@ -34,7 +34,7 @@ module Zr::Kern
   # The seven fields of Linux's passwd that an Etc::Passwd contains, in the
   # order of etc.c's setup_passwd: name at 0, password at 8, uid at 16,
   # gid at 20, gecos at 24, dir at 32 and shell at 40.
-  sig [Ptr] => Value
+  #: (ptr) -> value
   def zr_os_passwd_row(pw)
     if pw == 0
       return Machine.value(QNIL)
@@ -51,7 +51,7 @@ module Zr::Kern
   end
 
   # `pw_dir`, 32 bytes into Linux's passwd.
-  sig [Ptr] => Ptr
+  #: (ptr) -> ptr
   def zr_os_passwd_dir(pw)
     Machine.ptr(Machine.load64(pw, 32))
   end
@@ -66,7 +66,7 @@ module Zr::Kern
   # The machine's physical memory, for the limit on heap growth
   # (`zr_machine_bytes`, lib/zr/runtime/kernel/heap.rb). Returns 0 if the host does
   # not give it: sysconf returns -1 for a name that it does not know.
-  sig [] => Word
+  #: () -> word
   def zr_os_machine_bytes
     pages = Libc.sysconf(Machine.i32(SC_PHYS_PAGES))
     size = Libc.sysconf(Machine.i32(SC_PAGESIZE))
@@ -88,7 +88,7 @@ module Zr::Kern
   SPAWN_ACTIONS_LEN = 80
   SPAWN_ATTR_LEN = 336
 
-  sig [Value, Value, Value, Value, Value] => Value
+  #: (value, value, value, value, value) -> value
   def zr_os_spawn(words, dups, closes, env, chdir)
     zr_posix_spawn(words, dups, closes, env, chdir, 0)
   end
@@ -102,7 +102,7 @@ module Zr::Kern
   # Calls the function that sets a single id, given by its Symbol. Returns
   # 0, or the negative errno. Linux has no setruid or setrgid. ruby
   # refuses them, with a message that gives the name.
-  sig [Value, Value] => Value
+  #: (value, value) -> value
   def zr_os_setid(call, id)
     mid = zr_sym2id(call)
     n = Machine.i32(zr_fix2long(id))
@@ -120,7 +120,7 @@ module Zr::Kern
     zr_notimplement(Machine.bytes("setrgid"), 7)
   end
 
-  sig [] => Value
+  #: () -> value
   def zr_os_issetugid
     zr_bool(Libc.issetugid() != Machine.i32(0))
   end

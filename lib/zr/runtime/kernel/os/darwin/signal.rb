@@ -9,7 +9,7 @@ module Zr::Kern
   # 1 is ignore), an empty mask and no flags. Returns 0 and stores the
   # previous handler at `old`, or returns -1 and sets errno. darwin's
   # struct sigaction is the handler, a 4-byte mask and 4 bytes of flags.
-  sig [I32, Word, Ptr] => I32
+  #: (i32, word, ptr) -> i32
   def zr_os_sigaction(signo, fn, old)
     act = Machine.slot(16)
     Machine.store64(act, 0, fn)

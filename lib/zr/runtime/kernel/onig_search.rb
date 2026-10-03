@@ -33,7 +33,7 @@ module Zr::Kern
   # after it tells the two apart by the address.
   SCRATCH_ROW = 24
 
-  sig [Word, Word] => Ptr
+  #: (word, word) -> ptr
   def zr_onig_scratch(row, bytes)
     s = Machine.static(:onig_scratch, SCRATCH_ROW * 2) + (row * SCRATCH_ROW)
     if Machine.load64(s, 16) != 0
@@ -54,7 +54,7 @@ module Zr::Kern
     Machine.ptr(Machine.load64(s, 0))
   end
 
-  sig [Word, Ptr] => Void
+  #: (word, ptr) -> void
   def zr_onig_scratch_free(row, p)
     s = Machine.static(:onig_scratch, SCRATCH_ROW * 2) + (row * SCRATCH_ROW)
     if Machine.word(p) == Machine.load64(s, 0)
@@ -69,7 +69,7 @@ module Zr::Kern
   # `limit` in nanoseconds (0 for no limit). This is MATCH_ARG_INIT plus
   # the arena of STACK_INIT: the index words and the first stack, in one
   # malloc.
-  sig [Ptr, Ptr, Ptr, Ptr, Ptr, Word] => Void
+  #: (ptr, ptr, ptr, ptr, ptr, word) -> void
   def zr_onig_msa_init(m, prog, str, text_end, region, limit)
     OnigMatch.set_prog(m, prog)
     OnigMatch.set_code(m, prog + OnigProg.code_off(prog))
@@ -110,7 +110,7 @@ module Zr::Kern
 
   # MATCH_ARG_FREE (with the match cache's entries and bits) and the
   # arena.
-  sig [Ptr] => Void
+  #: (ptr) -> void
   def zr_onig_msa_free(m)
     if OnigMatch.stack_p(m) != 0
       Libc.free(OnigMatch.stack_p(m))
@@ -125,7 +125,7 @@ module Zr::Kern
   end
 
   # onig_region_resize_clear: sets every position to ONIG_REGION_NOTPOS.
-  sig [Ptr, Word] => Void
+  #: (ptr, word) -> void
   def zr_onig_region_clear(region, num_mem)
     i = 0
     while i <= num_mem
@@ -136,23 +136,23 @@ module Zr::Kern
   end
 
   # The optimizer's exact bytes and their end.
-  sig [Ptr] => Ptr
+  #: (ptr) -> ptr
   def zr_onig_exact(prog)
     prog + OnigProg.exact_off(prog)
   end
 
-  sig [Ptr] => Ptr
+  #: (ptr) -> ptr
   def zr_onig_exact_end(prog)
     prog + OnigProg.exact_off(prog) + OnigProg.exact_len(prog)
   end
 
-  sig [Ptr, Word] => Word
+  #: (ptr, word) -> word
   def zr_onig_map_at(prog, c)
     Machine.u8(Machine.load8(prog + OnigProg.map_off(prog) + c, 0))
   end
 
   # slow_search.
-  sig [Word, Ptr, Ptr, Ptr, Ptr, Ptr] => Ptr
+  #: (word, ptr, ptr, ptr, ptr, ptr) -> ptr
   def zr_onig_slow_search(enc, target, target_end, text, text_end, text_range)
     e = text_end - (target_end - target - 1)
     if e > text_range
@@ -180,7 +180,7 @@ module Zr::Kern
   end
 
   # slow_search_ic.
-  sig [Word, Word, Ptr, Ptr, Ptr, Ptr, Ptr] => Ptr
+  #: (word, word, ptr, ptr, ptr, ptr, ptr) -> ptr
   def zr_onig_slow_search_ic(enc, flag, target, target_end, text, text_end, text_range)
     e = text_end - (target_end - target - 1)
     if e > text_range
@@ -195,7 +195,7 @@ module Zr::Kern
   end
 
   # slow_search_backward.
-  sig [Word, Ptr, Ptr, Ptr, Ptr, Ptr, Ptr] => Ptr
+  #: (word, ptr, ptr, ptr, ptr, ptr, ptr) -> ptr
   def zr_onig_slow_search_backward(enc, target, target_end, text, adjust_text, text_end, text_start)
     s = text_end - (target_end - target)
     if s > text_start
@@ -221,7 +221,7 @@ module Zr::Kern
   end
 
   # slow_search_backward_ic.
-  sig [Word, Word, Ptr, Ptr, Ptr, Ptr, Ptr, Ptr] => Ptr
+  #: (word, word, ptr, ptr, ptr, ptr, ptr, ptr) -> ptr
   def zr_onig_slow_search_backward_ic(enc, flag, target, target_end, text, adjust_text, text_end, text_start)
     s = text_end - (target_end - target)
     if s > text_start
@@ -238,7 +238,7 @@ module Zr::Kern
   end
 
   # bm_search_notrev: Sunday's quick search for a multibyte string.
-  sig [Ptr, Ptr, Ptr, Ptr, Ptr, Ptr] => Ptr
+  #: (ptr, ptr, ptr, ptr, ptr, ptr) -> ptr
   def zr_onig_bm_search_notrev(prog, target, target_end, text, text_end, text_range)
     enc = zr_onig_prog_enc(prog)
     tail = target_end - 1
@@ -269,7 +269,7 @@ module Zr::Kern
   end
 
   # bm_search: Sunday's quick search.
-  sig [Ptr, Ptr, Ptr, Ptr, Ptr, Ptr] => Ptr
+  #: (ptr, ptr, ptr, ptr, ptr, ptr) -> ptr
   def zr_onig_bm_search(prog, target, target_end, text, text_end, text_range)
     tail = target_end - 1
     tlen1 = Machine.word(tail - target)
@@ -293,7 +293,7 @@ module Zr::Kern
   end
 
   # bm_search_notrev_ic.
-  sig [Ptr, Ptr, Ptr, Ptr, Ptr, Ptr] => Ptr
+  #: (ptr, ptr, ptr, ptr, ptr, ptr) -> ptr
   def zr_onig_bm_search_notrev_ic(prog, target, target_end, text, text_end, text_range)
     enc = zr_onig_prog_enc(prog)
     tail = target_end - 1
@@ -318,7 +318,7 @@ module Zr::Kern
   end
 
   # bm_search_ic.
-  sig [Ptr, Ptr, Ptr, Ptr, Ptr, Ptr] => Ptr
+  #: (ptr, ptr, ptr, ptr, ptr, ptr) -> ptr
   def zr_onig_bm_search_ic(prog, target, target_end, text, text_end, text_range)
     enc = zr_onig_prog_enc(prog)
     tail = target_end - 1
@@ -338,7 +338,7 @@ module Zr::Kern
   end
 
   # map_search.
-  sig [Ptr, Ptr, Ptr, Ptr] => Ptr
+  #: (ptr, ptr, ptr, ptr) -> ptr
   def zr_onig_map_search(prog, text, text_range, text_end)
     enc = zr_onig_prog_enc(prog)
     s = text
@@ -350,7 +350,7 @@ module Zr::Kern
   end
 
   # map_search_backward.
-  sig [Ptr, Ptr, Ptr, Ptr, Ptr] => Ptr
+  #: (ptr, ptr, ptr, ptr, ptr) -> ptr
   def zr_onig_map_search_backward(prog, text, adjust_text, text_start, text_end)
     enc = zr_onig_prog_enc(prog)
     s = text_start
@@ -363,7 +363,7 @@ module Zr::Kern
   end
 
   # The optimizer's forward search from p, as reg->optimize selects.
-  sig [Ptr, Ptr, Ptr, Ptr] => Ptr
+  #: (ptr, ptr, ptr, ptr) -> ptr
   def zr_onig_forward_find(prog, p, text_end, range)
     optimize = OnigProg.optimize(prog)
     enc = zr_onig_prog_enc(prog)
@@ -382,7 +382,7 @@ module Zr::Kern
   # forward_search_range: whether the optimizer finds a possible match
   # start from s before range. It writes the match window to the words
   # `low`, `high` and (when not 0) `low_prev`.
-  sig [Ptr, Ptr, Ptr, Ptr, Ptr, Ptr, Ptr, Ptr] => Bool
+  #: (ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr) -> bool
   def zr_onig_forward_search_range(prog, str, text_end, s, range, low, high, low_prev)
     enc = zr_onig_prog_enc(prog)
     dmin = OnigProg.dmin(prog)
@@ -478,7 +478,7 @@ module Zr::Kern
   end
 
   # The optimizer's backward search from p, as reg->optimize selects.
-  sig [Ptr, Ptr, Ptr, Ptr, Ptr] => Ptr
+  #: (ptr, ptr, ptr, ptr, ptr) -> ptr
   def zr_onig_backward_find(prog, p, range, adjrange, text_end)
     optimize = OnigProg.optimize(prog)
     enc = zr_onig_prog_enc(prog)
@@ -495,7 +495,7 @@ module Zr::Kern
   end
 
   # backward_search_range.
-  sig [Ptr, Ptr, Ptr, Ptr, Ptr, Ptr, Ptr, Ptr] => Bool
+  #: (ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr) -> bool
   def zr_onig_backward_search_range(prog, str, text_end, s, range, adjrange, low, high)
     enc = zr_onig_prog_enc(prog)
     dmin = OnigProg.dmin(prog)
@@ -545,7 +545,7 @@ module Zr::Kern
 
   # MATCH_AND_RETURN_CHECK: runs match_at at s. Returns the match's
   # position, ONIG_MISMATCH to continue, or an error to stop.
-  sig [Ptr, Ptr, Ptr] => Word
+  #: (ptr, ptr, ptr) -> word
   def zr_onig_try_at(m, s, prev)
     r = zr_onig_match_at(m, s, prev)
     return Machine.word(s - OnigMatch.str(m)) if r >= 0
@@ -555,7 +555,7 @@ module Zr::Kern
   # onig_search_gpos with the match state `m` (from zr_onig_msa_init), and
   # global_pos for \G. Returns the match position, ONIG_MISMATCH, or an
   # error code.
-  sig [Ptr, Ptr, Ptr, Ptr] => Word
+  #: (ptr, ptr, ptr, ptr) -> word
   def zr_onig_search_gpos(m, global_pos, start, range)
     prog = OnigMatch.prog(m)
     str = OnigMatch.str(m)
@@ -655,7 +655,7 @@ module Zr::Kern
   end
 
   # The forward part of onig_search_gpos, after the anchor adjustments.
-  sig [Ptr, Ptr, Ptr] => Word
+  #: (ptr, ptr, ptr) -> word
   def zr_onig_search_forward(m, start, range)
     prog = OnigMatch.prog(m)
     str = OnigMatch.str(m)
@@ -738,7 +738,7 @@ module Zr::Kern
   end
 
   # The backward part of onig_search_gpos.
-  sig [Ptr, Ptr, Ptr] => Word
+  #: (ptr, ptr, ptr) -> word
   def zr_onig_search_backward(m, start, range)
     prog = OnigMatch.prog(m)
     str = OnigMatch.str(m)
@@ -816,7 +816,7 @@ module Zr::Kern
   # backward if not). `region` is a word array of 2 * (num_mem + 1), or 0.
   # `limit` is in nanoseconds (0 for no limit). Returns ONIG_MISMATCH for
   # no match, and ONIGERR_TIMEOUT when the time limit is exceeded.
-  sig [Ptr, Ptr, Ptr, Ptr, Ptr, Ptr, Word] => Word
+  #: (ptr, ptr, ptr, ptr, ptr, ptr, word) -> word
   def zr_onig_search(prog, str, text_end, start, range, region, limit)
     m = Machine.slot(OnigMatch.size)
     zr_onig_msa_init(m, prog, str, text_end, region, limit)
@@ -827,7 +827,7 @@ module Zr::Kern
 
   # onig_match: returns the match length at exactly `at`, ONIG_MISMATCH,
   # or an error.
-  sig [Ptr, Ptr, Ptr, Ptr, Ptr, Word] => Word
+  #: (ptr, ptr, ptr, ptr, ptr, word) -> word
   def zr_onig_match(prog, str, text_end, at, region, limit)
     m = Machine.slot(OnigMatch.size)
     zr_onig_msa_init(m, prog, str, text_end, region, limit)

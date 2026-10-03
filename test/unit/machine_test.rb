@@ -4,7 +4,7 @@ require "test_helper"
 require_relative "../../lib/zr/machine/lower"
 require_relative "../../lib/zr/native/build"
 
-# Tests the machine dialect, compiled alone (without the zr runtime):
+# Tests the kernel subset, compiled alone (without the zr runtime):
 # - each `test/machine/<name>.rb` compiles to a binary that prints
 #   `<name>.out`;
 # - each `test/machine/units/<name>/` is one unit of several files that
@@ -87,7 +87,7 @@ class MachineTest < Minitest::Test
         RBasic = layout flags: Word, klass: Value
         Cell = layout basic: RBasic, item: Value
 
-        sig [Value, Value] => Void
+        #: (value, value) -> void
         def zr_write_barrier(owner, value)
           if owner == value
             Libc.abort()
@@ -95,19 +95,19 @@ class MachineTest < Minitest::Test
         end
         inline :zr_write_barrier
 
-        sig [Value, Value] => Void
+        #: (value, value) -> void
         def on_heap(cell, v)
           Cell.set_item(cell, v)
         end
 
-        sig [Value] => Void
+        #: (value) -> void
         def on_stack(v)
           d = Machine.slot(Cell.size)
           c = Machine.value(d)
           Cell.set_item(c, v)
         end
 
-        sig [Value, Value] => Void
+        #: (value, value) -> void
         def either(cell, v)
           d = Machine.slot(Cell.size)
           c = Machine.value(d)

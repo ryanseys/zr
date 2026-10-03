@@ -2,7 +2,7 @@
 module Zr::Kern
   Libc.import :fd_close, [I32] => I32, from: :wasi
 
-  sig [I32, Ptr] => I32
+  #: (i32, ptr) -> i32
   def main(argc, argv)
     0
   end

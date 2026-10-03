@@ -1,4 +1,4 @@
-# a def has no sig ahead of it
+# a def has no `#: (types) -> type` above it
 module Zr::Kern
   def main(argc, argv)
     0

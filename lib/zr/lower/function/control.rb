@@ -7,6 +7,20 @@ module Zr
       # a block or a loop.
       module Control
         # @type instance: Function
+        # @rbs @blk: String
+        # @rbs @body_label: String?
+        # @rbs @cref: String
+        # @rbs @f: IR::Function
+        # @rbs @kind: Symbol
+        # @rbs @l: Lower
+        # @rbs @loops: Array[Loop]
+        # @rbs @proc: String
+        # @rbs @proc_layout: Machine::Layout
+        # @rbs @qnil: String
+        # @rbs @rec: String
+        # @rbs @regions: Array[Regions::Region]
+        # @rbs @self: String
+        # @rbs @sp: Integer
 
         private
 
@@ -23,7 +37,7 @@ module Zr
         # of branches with no join. A comparison of plain reads branches
         # on the comparison (`Sends#relation_jump`). All other nodes are
         # tested as values.
-        #: (untyped node, String yes, String no) -> void
+        #: (Hir::node node, String yes, String no) -> void
         def jump_if(node, yes, no)
           case node
           when Hir::And, Hir::Or
@@ -32,7 +46,7 @@ module Zr
             switch(rest)
             jump_if(node.right, yes, no)
           else
-            return relation_jump(node, yes, no) if relation_test?(node)
+            return relation_jump(node, yes, no) if node.is_a?(Hir::Send) && relation_test?(node)
 
             v = expr(node)
             @f.brif(truthy(v), yes, no) unless @f.terminated?
@@ -177,11 +191,12 @@ module Zr
         # Sends `value === subject` through the site's own cell, with no
         # visibility check, and gives the truth of the result. The subject
         # is in the record slot at `base`.
-        #: (Hir::Case node, untyped value, Integer base) -> String
+        #: (Hir::Case node, Hir::node value, Integer base) -> String
         def when_eqq(node, value, base)
+          subject = node.subject or raise ArgumentError, "a case with no subject has no `===`"
           staged([value, Hir::Slot.new(base, value.line)]) do |slots|
             at_node(value)
-            match = Hir::Send.of(value, :===, [node.subject], value.line, using: node.using)
+            match = Hir::Send.of(value, :===, [subject], value.line, using: node.using)
             activate(match)
             mode = match.using ? Sends::SEND_USING : 0
             truthy(checked(cached_send(match, @f.fetch("i64", slots), imm(1), @f.iadd(slots, imm(8)), @qnil, mode: mode)).tap { deactivate(match) })
@@ -230,7 +245,10 @@ module Zr
           node.clauses.each_with_index do |(values, _), arm|
             values.each do |value|
               miss = @f.label
-              @f.brif(@f.icmp("eq", subject, symbol(value.value)), bodies[arm], miss)
+              name = value.value if value.is_a?(Hir::Literal)
+              raise ArgumentError, "a symbol case has only symbol values" unless name.is_a?(Symbol)
+
+              @f.brif(@f.icmp("eq", subject, symbol(name)), bodies[arm], miss)
               switch(miss)
             end
           end
@@ -274,7 +292,7 @@ module Zr
           values.size >= CLASS_CASE_MIN && values.all? { |v| constant_path?(v) }
         end
 
-        #: (untyped node) -> bool
+        #: (Hir::scope node) -> bool
         def constant_path?(node)
           node.is_a?(Hir::ConstRead) && (node.scope.nil? || node.scope == :top || constant_path?(node.scope))
         end
@@ -299,7 +317,8 @@ module Zr
         def class_case(node)
           base = @sp
           subject_at = value_offset(reserve(1))
-          subject = expr(node.subject)
+          tested_node = node.subject or raise ArgumentError, "a class case has a subject"
+          subject = expr(tested_node)
           @f.store(subject, @rec, subject_at)
           cc = site_cache(node, "case", "CaseCache")
           cell = @l.layout("CaseCache")
@@ -325,6 +344,8 @@ module Zr
           tested = 0
           node.clauses.each_with_index do |(values, _), arm|
             values.each do |value|
+              raise ArgumentError, "a class case has only constant values" unless value.is_a?(Hir::ConstRead)
+
               tested += 1
               chosen = @f.label
               miss = @f.label
@@ -332,7 +353,7 @@ module Zr
               read = ->(n) { n.equal?(value) ? proved_read(value, j, cc, ms, cs) : expr(n) }
               cond = staged([value, Hir::Slot.new(base, value.line)], evaluate: read) do |slots|
                 at_node(value)
-                match = Hir::Send.of(value, :===, [node.subject], value.line)
+                match = Hir::Send.of(value, :===, [tested_node], value.line)
                 truthy(checked(cached_send(match, @f.fetch("i64", slots), imm(1), @f.iadd(slots, imm(8)), @qnil, mode: 0)))
               end
               @f.brif(cond, chosen, miss)
@@ -395,9 +416,9 @@ module Zr
           high = @f.label
           @f.brif(@f.icmp("slt", arm, imm(first + half)), low, high)
           switch(low)
-          arm_jump(arm, targets[0...half], first)
+          arm_jump(arm, targets.first(half), first)
           switch(high)
-          arm_jump(arm, targets[half..], first + half)
+          arm_jump(arm, targets.drop(half), first + half)
         end
 
         #: (Hir::Yield node) -> String
@@ -522,10 +543,11 @@ module Zr
             preempt
             @f.jump(loop.body)
           else
-            @l.unsupported(node, "redo outside a block or loop") unless @kind == :block
+            # Only a block's scope has a body label.
+            label = @body_label || @l.unsupported(node, "redo outside a block or loop")
             through_ensures(@qnil)
             preempt
-            @f.jump(@body_label)
+            @f.jump(label)
           end
           switch(@f.label, open: true)
           @qnil

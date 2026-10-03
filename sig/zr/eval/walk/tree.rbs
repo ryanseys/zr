@@ -3,17 +3,19 @@ module Zr
   class Eval
     module Walk
       class Tree
+        # `self_` is any object, and `cref` is the kernel's lexical scope.
+        # `tag` and `home` are the `__id__` of a node.
         class Ctx < Data
           attr_reader self_: untyped
           attr_reader cref: untyped
-          attr_reader chain: untyped
-          attr_reader block: untyped
-          attr_reader name: untyped
-          attr_reader owner: untyped
-          attr_reader args: untyped
-          attr_reader kwargs: untyped
-          attr_reader tag: untyped
-          attr_reader home: untyped
+          attr_reader chain: Array[Scope | Held]
+          attr_reader block: Proc?
+          attr_reader name: Symbol?
+          attr_reader owner: Module?
+          attr_reader args: Array[untyped]?
+          attr_reader kwargs: Hash[Symbol, untyped]?
+          attr_reader tag: Integer?
+          attr_reader home: Integer?
 
           def self.new: (*untyped) -> instance
                       | (**untyped) -> instance

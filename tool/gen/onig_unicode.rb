@@ -425,7 +425,7 @@ module Zr
         def emit_bytes(io, ename, bytes, comment)
           rows = bytes.each_slice(32).map { |row| row.map { |b| format("\\x%02X", b) }.join }
           io.print "# #{comment}\n"
-          io.print "sig [] => Ptr\n"
+          io.print "#: () -> ptr\n"
           io.print "machine def #{ename}\n"
           io.print "  Machine.bytes(\n"
           io.print "  \"#{rows.join("\\\n")}\")\n"

@@ -2,7 +2,7 @@ module Zr::Kern
   # The parts of darwin's libc that ruby behavior shows. qsort_r sets the
   # order of equal elements in a sort. lib/zr/runtime/kernel/sort.rb copies
   # Libc's BSD qsort.
-  sig [Ptr, Word] => Void
+  #: (ptr, word) -> void
   def zr_os_sort(st, n)
     zr_sort_apple_all(st, n)
   end
@@ -10,7 +10,7 @@ module Zr::Kern
   # The usable size of a malloc'd block. The heap counts it as payload.
   Libc.import :malloc_size, [Ptr] => Word
 
-  sig [Ptr] => Word
+  #: (ptr) -> word
   def zr_os_malloc_size(p)
     Libc.malloc_size(p)
   end
@@ -25,7 +25,7 @@ module Zr::Kern
   # for each block.
   Libc.import :CC_SHA256_Update, [Ptr, Ptr, I32] => I32
 
-  sig [Ptr, Ptr, Word] => Bool
+  #: (ptr, ptr, word) -> bool
   def zr_os_sha256_blocks(h, p, n)
     ctx = Machine.slot(104)
     Machine.store64(ctx, 0, 0)

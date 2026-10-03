@@ -88,27 +88,33 @@ module Zr
     # returned the child while the main thread waited in `IO.select`.)
     #: () -> void
     def serve
-      raise ArgumentError, "the server has no socket (ZR_SERVER=0, or the path is too long)" unless @path
+      path = @path or raise ArgumentError, "the server has no socket (ZR_SERVER=0, or the path is too long)"
 
       require "socket"
       began = Process.clock_gettime(Process::CLOCK_MONOTONIC)
       primed if @prime
       @stamps = stamps
       listener = listen
-      # The binaries that the clients of an earlier server did not remove.
-      require_relative "cache/janitor"
-      Cache::Janitor.remove(Cache::Janitor.served)
-      say format("listening at %s, ready in %.1f s", @path, Process.clock_gettime(Process::CLOCK_MONOTONIC) - began)
-      loop do
-        clients = @jobs.values.map { |job| job[:client] }.reject(&:closed?)
-        ready, = IO.select([listener, *@jobs.keys, *clients], nil, nil, @jobs.empty? ? @idle : nil)
-        break say("idle for #{@idle} s; stopping") unless ready
+      begin
+        # The binaries that the clients of an earlier server did not remove.
+        require_relative "cache/janitor"
+        Cache::Janitor.remove(Cache::Janitor.served)
+        say format("listening at %s, ready in %.1f s", path, Process.clock_gettime(Process::CLOCK_MONOTONIC) - began)
+        loop do
+          clients = @jobs.values.map { |job| job[:client] }.reject(&:closed?)
+          waited = [listener, *@jobs.keys, *clients] #: Array[IO]
+          ready, = IO.select(waited, nil, nil, @jobs.empty? ? @idle : nil)
+          unless ready
+            say("idle for #{@idle} s; stopping")
+            break
+          end
 
-        ready.each { |io| io.equal?(listener) ? request(listener, listener.accept) : event(io) }
+          ready.each { |io| io.equal?(listener) ? request(listener, listener.accept) : event(io) }
+        end
+      ensure
+        listener.close
+        File.delete(path) if File.socket?(path)
       end
-    ensure
-      listener&.close
-      File.delete(@path) if @path && listener && File.socket?(@path)
     end
 
     # Why the server must not build this request, or nil. A build in the
@@ -157,13 +163,14 @@ module Zr
         restart(listener) if why == "zr changed"
         return
       end
-      ios = [client.recv_io, client.recv_io]
+      out = client.recv_io
+      err = client.recv_io
       done, held = IO.pipe
       pid = fork do
         done.close
-        child(client, message, held, *ios)
+        child(client, message, held, out, err)
       end
-      [held, *ios].each(&:close)
+      [held, out, err].each(&:close)
       @jobs[done] = { pid: pid, client: client, argv: message[:argv], began: Process.clock_gettime(Process::CLOCK_MONOTONIC) }
     rescue SystemCallError, IOError, TypeError, ArgumentError => e
       say "a request failed: #{e.class}: #{e.message}"
@@ -187,8 +194,9 @@ module Zr
         refresh if @jobs.empty?
         return
       end
-      done, job = @jobs.find { |_, held| held[:client].equal?(io) }
-      return unless job && io.read_nonblock(1, exception: false).nil?
+      found = @jobs.find { |_, held| held[:client].equal?(io) } or return
+      done, job = found
+      return unless io.read_nonblock(1, exception: false).nil?
 
       io.close
       job[:answered] ||= !done.read_nonblock(1, exception: false).equal?(:wait_readable)
@@ -220,7 +228,7 @@ module Zr
       rescue SystemExit => e
         reply = { exit: e.status }
       rescue Exception => e # rubocop:disable Lint/RescueException -- a child must answer
-        warn "zr: #{e.class}: #{e.message}", *e.backtrace&.first(5)
+        warn "zr: #{e.class}: #{e.message}", *Array(e.backtrace).first(5)
         reply = { exit: 1 }
       end
       $stdout.flush

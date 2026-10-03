@@ -1,10 +1,10 @@
-# F64 in the dialect: arithmetic, comparison and the conversions,
+# F64 in the kernel subset: arithmetic, comparison and the conversions,
 # printed as integers.
 module Zr::Kern
   Libc.import :write, [I32, Ptr, Word] => Word
   Libc.import :exit, [I32] => Void
 
-  sig [Word] => Void
+  #: (word) -> void
   def put_word(n)
     buf = Machine.slot(24)
     at = 23
@@ -29,17 +29,17 @@ module Zr::Kern
     Libc.write(1, buf + at, 24 - at)
   end
 
-  sig [F64, F64] => F64
+  #: (f64, f64) -> f64
   def average(a, b)
     (a + b) / Machine.to_f64(2)
   end
 
-  sig [Bool] => Word
+  #: (bool) -> word
   def flag(b)
     b ? 1 : 0
   end
 
-  sig [I32, Ptr] => I32
+  #: (i32, ptr) -> i32
   def main(argc, argv)
     one_and_half = Machine.f64(4609434218613702656)
     x = (one_and_half + Machine.f64(4612248968380809216)) * Machine.to_f64(2)

@@ -79,7 +79,8 @@ module Zr
       #: () -> String
       def self.dir
         require_relative "../cache/store"
-        Cache::Store.path(:code, backend_digest[0, 32])
+        key = backend_digest[0, 32] #: String
+        Cache::Store.path(:code, key)
       end
 
       attr_reader :hits, :misses #: Integer
