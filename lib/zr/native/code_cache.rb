@@ -26,6 +26,11 @@ module Zr
     # `ZR_CODE_CACHE=0` turns it off. `ZR_CODE_CACHE=verify` assembles each
     # function that the cache has, too, and raises when the bytes differ.
     class CodeCache
+      # @rbs @kind: String
+      # @rbs @dir: String
+      # @rbs @index: Hash[String, [String, Integer, Integer]]
+      # @rbs @handles: Hash[String, File]?
+
       VERSION = 1
       # The newest packs of one kind that a build keeps.
       KEPT = 3
@@ -42,12 +47,14 @@ module Zr
         native/code_cache.rb session.rb
       ].freeze
 
-      LIB = File.expand_path("..", __dir__)
+      LIB = File.expand_path("..", __dir__) #: String
 
+      #: () -> String
       def self.mode = Config.current.code_cache
 
       # The cache for objects of `kind` (such as "runtime"), or nil when the
       # cache is off or the target has another backend.
+      #: (String kind, Target target) -> CodeCache?
       def self.for(kind, target)
         return nil if mode == "0" || target.arch != :aarch64
 
@@ -55,6 +62,7 @@ module Zr
       end
 
       # The digests load here, not with this file (see `dir`).
+      #: () -> String
       def self.backend_digest
         @backend_digest ||= begin
           require_relative "../digests"
@@ -68,13 +76,15 @@ module Zr
       # The store (and `Paths`, which `keep` uses) loads here, not with
       # this file: a file that the backend loads is in BACKEND, and an edit
       # to the store must not make every pack a miss.
+      #: () -> String
       def self.dir
         require_relative "../cache/store"
         Cache::Store.path(:code, backend_digest[0, 32])
       end
 
-      attr_reader :hits, :misses
+      attr_reader :hits, :misses #: Integer
 
+      #: (String kind) -> void
       def initialize(kind)
         @kind = kind
         @dir = self.class.dir
@@ -92,13 +102,16 @@ module Zr
         @hits = @misses = 0
       end
 
+      #: () -> bool
       def verify? = self.class.mode == "verify"
 
       # Whether a pack has the code for `key`. Reads no pack.
+      #: (String key) -> bool
       def has?(key) = @index.key?(key)
 
       # The code for `key`, or nil. The raw bytes come with it, for the new
       # pack.
+      #: (String key) -> [Obj::Code, String]?
       def take(key)
         blob = blob(key)
         blob && [Marshal.load(blob), blob]
@@ -109,6 +122,7 @@ module Zr
       # Only the raw bytes of the code for `key`, or nil. A worker sends
       # them to the build, which loads them once: a load in the worker as
       # well was 7% of its time.
+      #: (String key) -> String?
       def blob(key)
         pack, at, size = @index[key]
         return nil unless pack
@@ -121,21 +135,27 @@ module Zr
 
       # One open file for each pack that this build reads. An open for each
       # function cost more than its read.
-      def handle(pack) = (@handles ||= {})[pack] ||= File.open(pack, "rb")
+      #: (String pack) -> File
+      def handle(pack)
+        handles = @handles ||= {} #: Hash[String, File]
+        handles[pack] ||= File.open(pack, "rb")
+      end
 
+      #: () -> Hash[String, File]
       def close = (@handles || {}).each_value(&:close).tap { @handles = {} }
 
       # Writes one pack with the code of every function of this build:
       # `entries` are `[key, blob]` pairs, a blob being Marshal of an
       # `Obj::Code`. Then removes the packs of this kind beyond KEPT.
       # Writes nothing if a source changed during the build.
+      #: (Array[[String, String]] entries) -> void
       def keep(entries)
         close
         return if SourceGuard.changed_file
 
         Paths.mkdir_p(@dir)
         stem = File.join(@dir, "#{@kind}-#{Time.now.strftime("%Y%m%d%H%M%S%N")}-#{Process.pid}")
-        index = {}
+        index = {} #: Hash[String, [Integer, Integer]]
         File.open("#{stem}.pack.tmp", "wb") do |io|
           entries.each do |key, blob|
             index[key] = [io.pos, blob.bytesize]
@@ -150,6 +170,7 @@ module Zr
         nil
       end
 
+      #: () -> void
       def trim
         packs = Dir[File.join(@dir, "#{@kind}-*.pack")].sort_by { |pack| File.mtime(pack) }
         packs.first([packs.size - KEPT, 0].max).each do |pack|

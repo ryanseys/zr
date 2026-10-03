@@ -20,3 +20,18 @@ module Bundler
     end
   end
 end
+
+# The members of Gem::Specification that lib/zr/gem_set/resolve.rb uses.
+# RBS's core signature of the class is empty.
+class Gem::Specification
+  def self.load: (String file) -> Gem::Specification?
+  def self.find_all_by_name: (String name, *String requirements) -> Array[Gem::Specification]
+
+  def name: () -> String
+  def version: () -> Gem::Version
+  def extensions: () -> Array[String]
+  def require_paths: () -> Array[String]
+  def raw_require_paths: () -> Array[String]
+  def full_gem_path: () -> String
+  def default_gem?: () -> bool
+end

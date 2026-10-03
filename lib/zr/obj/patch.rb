@@ -19,6 +19,7 @@ module Zr
       # applied. The block gets each relocation and returns the address of
       # its symbol. It gets the full relocation, not only the name, so that
       # a caller can tell a GOT slot from the symbol in that slot.
+      #: (Code | Datum item, Integer base, singleton(Relocs::Aarch64) relocs) { (Reloc) -> Integer } -> String
       def apply(item, base, relocs)
         bytes = item.bytes.b
         item.relocs.each do |r|
@@ -37,8 +38,9 @@ module Zr
       # Places `items` one after another. Each item uses the larger of its
       # own alignment and `least`. Returns the offset of each item and the
       # total size.
+      #: [T < ::Zr::Obj::_Placeable] (Array[T] items, Integer least) -> { at: Array[[T, Integer]], size: Integer }
       def layout(items, least)
-        at = []
+        at = [] #: Array[[T, Integer]]
         size = 0
         items.each do |item|
           size = Bytes.align(size, [item.align, least].max)

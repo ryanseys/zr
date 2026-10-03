@@ -17,6 +17,8 @@ module Zr
   # The runtime is the kernel files, the core library written in Ruby on
   # top of them, and the data that the compiler lays out next to them.
   class RuntimeSources
+    # @rbs @compiler_digest: String?
+
     # Regexp::Onig, the regular expression compiler (lib/zr/runtime/core/regexp/onig).
     # Each file defines what the next file reads.
     ONIG_NAMES = %w[
@@ -80,22 +82,26 @@ module Zr
       "backend/wasm" => ->(target) { target.arch == :wasm32 },
       "obj/macho" => ->(target) { target.object_format == :macho },
       "obj/elf" => ->(target) { target.object_format == :elf }
-    }.freeze
+    }.freeze #: Hash[String, ^(Target) -> bool]
 
     # The sources of `target` under this process's path root. The object
     # keeps the compiler's digest, which reads every compiler file.
+    #: (?Target target) -> RuntimeSources
     def self.for(target = Target.default) = Session.current.memo([:runtime_sources, target.triple, Paths.root]) { new(target) }
 
     # The cache file of a runtime's symbol table, its wanted symbols and its
     # kernel's description (`Runtime#cached`).
+    #: (String runtime_digest) -> String
     def self.symbols_path(runtime_digest) = Cache::Store.path(:meta, "#{runtime_digest}-symbols")
 
     # The cache file that lists the files the gem prelude loads, for the
     # digest `of` the runtime's other sources (`Runtime#gem_prelude_files`).
+    #: (String of) -> String
     def self.gem_prelude_list(of) = Cache::Store.path(:meta, "#{of}-gem-prelude")
 
-    attr_reader :target
+    attr_reader :target #: Target
 
+    #: (Target target) -> void
     def initialize(target)
       @target = target
       @compiler_digest = nil
@@ -103,6 +109,7 @@ module Zr
 
     # The kernel files: the portable kernel, then its OS layer, then its
     # architecture layer.
+    #: () -> Array[String]
     def kernel_files
       Dir[File.join(Paths::RUNTIME, "kernel/*.rb")].sort +
         Dir[File.join(Paths::RUNTIME, "kernel/os/#{target.os_layer}/*.rb")].sort +
@@ -110,6 +117,7 @@ module Zr
     end
 
     # The core library files, in the order their toplevels run.
+    #: () -> Array[String]
     def core_files
       layer = target.os_layer
       CORE_NAMES.map do |name|
@@ -119,11 +127,13 @@ module Zr
 
     # The source files of the runtime, and the compiler files that lower
     # them.
+    #: () -> Array[String]
     def sources = kernel_files + core_files + compiler_files
 
     # The compiler's files that can reach the runtime object. The runtime
     # (`Paths::RUNTIME`) is under lib/zr too, but it is what the compiler
     # compiles: `kernel_files` and `core_files` list it.
+    #: () -> Array[String]
     def compiler_files
       (Dir[File.join(__dir__, "**/*.rb")].sort - LINK_ONLY - DRIVER_ONLY).reject do |path|
         name = path.delete_prefix("#{__dir__}/")
@@ -132,7 +142,8 @@ module Zr
     end
 
     # The digest of the compiler files (part of the runtime's).
-    def compiler_digest = @compiler_digest ||= Digests.sources(target, compiler_files)
+    #: () -> String
+    def compiler_digest =@compiler_digest ||= Digests.sources(target, compiler_files)
 
     # The digest of what code outside the kernel takes from the runtime:
     # the compiler files that lower it, the kernel's description (the
@@ -141,6 +152,7 @@ module Zr
     # program's units call the core only by name, and the link numbers every
     # other name, so no core edit changes their code. Nil when the
     # runtime's symbol table is not cached.
+    #: (String runtime_digest) -> String?
     def abi_digest(runtime_digest)
       rows = JSON.parse(File.read(RuntimeSources.symbols_path(runtime_digest)))
       Digest::SHA256.new.tap do |d|
@@ -155,6 +167,7 @@ module Zr
     # ABI (`abi_digest`), and the runtime's table (each name's id, and the
     # count of sites), which numbers eval support's data. Nil when the
     # runtime's symbol table is not cached.
+    #: (String runtime_digest) -> String?
     def eval_digest(runtime_digest)
       abi = abi_digest(runtime_digest) or return nil
       rows = JSON.parse(File.read(RuntimeSources.symbols_path(runtime_digest)))
@@ -169,6 +182,7 @@ module Zr
     # `Runtime#digest` without the compiler: from the sources and the cached
     # gem prelude list. Nil when that list is not cached; then only a build
     # knows the digest.
+    #: () -> String?
     def runtime_digest
       files = sources
       list = RuntimeSources.gem_prelude_list(Digests.sources(target, files))

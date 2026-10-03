@@ -11,6 +11,7 @@ module Zr
     module_function
 
     # Runs the block, the phase `label`, and returns its value.
+    #: [T] (String label) { () -> T } -> T
     def phase(label)
       return yield unless Config.current.timing?
 
@@ -29,6 +30,7 @@ module Zr
     # `[count, majors, marking ms, sweeping ms]` so far, zeros where the
     # collector does not say. A collector that does not know a key raises;
     # the line is for a person, so it shows zeros and the build continues.
+    #: () -> Array[Integer]
     def collector
       # Read one key at a time. A zr binary returns each counter at once,
       # but the full table walks the heap for its slot counts.

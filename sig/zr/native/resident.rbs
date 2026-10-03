@@ -1,0 +1,10 @@
+# The class instance variables of lib/zr/native/resident.rb. Its methods
+# are inline.
+module Zr
+  module Native
+    module Resident
+      self.@host_stats: { host: Fiddle::Function, stats: Fiddle::Function }?
+      self.@asker: Fiddle::Function?
+    end
+  end
+end

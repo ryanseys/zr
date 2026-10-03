@@ -10,6 +10,16 @@ module Zr
   # one consistent set of settings even if something changes `ENV`
   # afterward. Code reads a `ZR_*` variable only through this class.
   class Config
+    # @rbs @jobs_given: bool
+    # @rbs @jobs: Integer?
+    # @rbs @eval_mode: String?
+    # @rbs @timing: bool
+    # @rbs @verify: bool
+    # @rbs @kernel_checked: bool
+    # @rbs @wasm_names: bool
+    # @rbs @tune: bool
+    # @rbs @run_cache: bool
+
     # `ZR_LINKER`: `auto` (zr's own linker, and cc for what it cannot
     # link), `ruby` (zr's linker only) or `cc`. Empty or unset is `auto`.
     LINKERS = %w[auto ruby cc].freeze
@@ -21,8 +31,13 @@ module Zr
     # its value, and a value that works. The CLI prints it and exits 2.
     class Invalid < ArgumentError; end
 
-    attr_reader :linker, :wasm_width, :cache, :cache_max_gb, :link, :test_binaries_gb, :host_ruby
+    attr_reader :linker, :host_ruby #: String
+    attr_reader :wasm_width #: Integer
+    attr_reader :cache #: String?
+    attr_reader :cache_max_gb, :test_binaries_gb #: Float
+    attr_reader :link #: Array[String]
 
+    #: () -> void
     def initialize
       @linker = choice("ZR_LINKER", LINKERS, "auto")
       @jobs_given = !ENV["ZR_JOBS"].to_s.empty?
@@ -48,7 +63,7 @@ module Zr
       # `ZR_HOST_RUBY`: the ruby that zr starts when it needs ruby itself:
       # to resolve gems (lib/zr/gem_set.rb), and for ruby's report of a
       # syntax error (`CLI::Refusals.syntax_report`).
-      @host_ruby = ENV["ZR_HOST_RUBY"].to_s.empty? ? running_ruby : ENV["ZR_HOST_RUBY"]
+      @host_ruby = ENV["ZR_HOST_RUBY"].to_s.empty? ? running_ruby : ENV["ZR_HOST_RUBY"] #: String
       # `ZR_LINK_ARGS`: words for the system linker, as `--link` gives
       # them, split as a shell splits them.
       @link = words(ENV.fetch("ZR_LINK_ARGS", "")).freeze
@@ -62,8 +77,9 @@ module Zr
     # require shellwords: the compiled compiler goes into a program with
     # eval, and shellwords would give that program String#shellsplit,
     # String#shellescape and Array#shelljoin.
+    #: (String line) -> Array[String]
     def words(line)
-      words = []
+      words = [] #: Array[String]
       field = +""
       line.scan(/\G\s*(?>([^\0\s\\'"]+)|'([^\0']*)'|"((?:[^\0"\\]|\\[^\0])*)"|(\\[^\0]?)|(\S))(\s|\z)?/m) do |word, sq, dq, esc, garbage, sep|
         raise Invalid, "ZR_LINK_ARGS has a quote with no end: #{line.inspect}. Close the quote, or put a \ before it." if garbage
@@ -80,11 +96,13 @@ module Zr
 
     # The ruby that runs zr, or `ruby` on PATH in a binary that zr built,
     # whose `RbConfig.ruby` names zr itself.
-    def running_ruby = RbConfig::CONFIG["ruby_install_name"] == "ruby" ? RbConfig.ruby : "ruby"
+    #: () -> String
+    def running_ruby =RbConfig::CONFIG["ruby_install_name"] == "ruby" ? RbConfig.ruby : "ruby"
     private :running_ruby
 
     # The value of `name` when it is one of `values`, or `default` when
     # it is unset or empty.
+    #: (String name, Array[String] values, String default) -> String
     def choice(name, values, default)
       value = ENV[name].to_s
       return default if value.empty?
@@ -96,6 +114,9 @@ module Zr
     # The number in `name` (an Integer, or with `kind: :Float` any
     # number) that is at least `min`, or `default` when it is unset or
     # empty. `example` is a good value for the message.
+    #: (String name, Integer default, String example, ?kind: :Integer, ?min: Integer?) -> Integer
+    #: (String name, nil default, String example, ?kind: :Integer, ?min: Integer?) -> Integer?
+    #: (String name, Float default, String example, ?kind: :Float, ?min: Integer?) -> Float
     def number(name, default, example, kind: :Integer, min: nil)
       value = ENV[name].to_s
       return default if value.empty?
@@ -111,45 +132,56 @@ module Zr
 
     # `ZR_EVAL=walk` builds a native program with the tree-walking
     # interpreter as its eval support, instead of the compiler.
+    #: () -> bool
     def eval_walk? = @eval_mode == "walk"
 
     # `ZR_TIMING=1` prints one line to stderr for each build phase.
+    #: () -> bool
     def timing? = @timing
 
     # `ZR_VERIFY=1` runs the IR against the interpreter as it lowers.
+    #: () -> bool
     def verify? = @verify
 
     # `ZR_KERNEL_CHECKED=1` lowers the kernel with a check at each
     # operator whose meaning differs from Ruby's (`Machine::Function#check_wrap`).
     # It is part of the runtime digest.
+    #: () -> bool
     def kernel_checked? = @kernel_checked
 
     # `ZR_WASM_NAMES=1` adds the wasm name section, for a stack trace or
     # a profiler that reads function names.
+    #: () -> bool
     def wasm_names? = @wasm_names
 
     # `ZR_TUNE=0` keeps ruby's limits and leaves YJIT off.
+    #: () -> bool
     def tune? = @tune
 
     # `ZR_RUN_CACHE=0` makes `zr run` build each run (`Cache::Run`).
+    #: () -> bool
     def run_cache? = @run_cache
 
     # `ZR_CODE_CACHE`: "1", "0" or "verify" (`Native::CodeCache`).
-    attr_reader :code_cache
+    attr_reader :code_cache #: String
 
     # `ZR_SERVER`: nil (use the server if one listens at its default
     # socket), "0" (never), or the path of a socket (lib/zr/server.rb).
-    attr_reader :server
+    attr_reader :server #: String?
 
     # Whether `ZR_JOBS` sets the worker count. Then it also overrides the
     # memory limit (`Native::Parallel.afforded`).
+    #: () -> bool
     def jobs_given? = @jobs_given
 
     # `ZR_JOBS`, or the processors up to 6. etc loads at the first call,
     # not with this file: the compiler goes into a program with eval, and
     # etc would give that program IO#pathconf.
+    #: () -> Integer
     def jobs
-      return @jobs if @jobs_given
+      # `ZR_JOBS` gives a number when it is set.
+      given = @jobs #: Integer
+      return given if @jobs_given
 
       require "etc"
       [Etc.nprocessors, 6].min
@@ -158,10 +190,12 @@ module Zr
     # `ZR_DEBUG=1` shows the backtrace of an error that stops zr
     # (`CLI.guard`). It is read on its own, not with the rest: it must
     # work when another ZR_* value is bad.
+    #: () -> bool
     def self.debug? = flag?("ZR_DEBUG")
 
     # Whether the environment variable `name` is on. Unset or empty gives
     # `default`, "0" is off, and any other value is on.
+    #: (String name, ?default: bool) -> bool
     def self.flag?(name, default: false)
       value = ENV[name]
       value.nil? || value.empty? ? default : value != "0"
@@ -169,9 +203,11 @@ module Zr
 
     # The one instance for this process. A later call returns the same
     # instance; `reset!` and `with` are the only way to get a new one.
+    #: () -> Config
     def self.current = Session.current.memo(:config) { new }
 
     # Drops the current instance, so the next `current` reads `ENV` again.
+    #: () -> void
     def self.reset!
       Session.current.forget(:config)
     end

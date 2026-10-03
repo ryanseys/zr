@@ -12,6 +12,7 @@ module Zr
       # build reads.
       class Gems < Command
         # A table: one row for each gem, and the version range of a port's C.
+        #: (Array[Manifest::Row] rows) -> String
         def self.table(rows)
           return "no gems\n" if rows.empty?
 
@@ -24,8 +25,10 @@ module Zr
           "#{format("%-#{width}s  %-10s %s", "NAME", "VERSION", "SOURCE")}\n#{lines.join("\n")}\n"
         end
 
+        #: () -> bool
         def reads_help? = true
 
+        #: (Array[String] argv) -> void
         def run(argv)
           require "json"
           require_relative "../../manifest"
@@ -45,6 +48,7 @@ module Zr
 
         # The gems that the build of `input` reads. A refused form stops as a
         # build does.
+        #: (String input, GemSet gem_set, Target target) -> Array[Manifest::Row]
         def of_file(input, gem_set, target)
           require_relative "../../runtime"
           support = EvalSupport.for(target)

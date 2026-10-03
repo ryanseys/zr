@@ -11,6 +11,27 @@ module Zr
       class Codegen
         # One function's body.
         class Body
+          # @rbs @m: Codegen
+          # @rbs @f: IR::Function
+          # @rbs @local: Hash[String, Integer]
+          # @rbs @types: IR::Types
+          # @rbs @type: Hash[String, String?]
+          # @rbs @code: String
+          # @rbs @const: Hash[String, IR::Inst]
+          # @rbs @locals: Array[Integer]
+          # @rbs @bb: Integer
+          # @rbs @fp: Integer
+          # @rbs @slot_at: Array[Integer]
+          # @rbs @frame: Integer
+          # @rbs @width: Integer
+          # @rbs @groups: Integer
+          # @rbs @gk: Integer
+          # @rbs @group: Range[Integer]
+          # @rbs @outer: Integer
+          # @rbs @span: Integer
+          # @rbs @row: Integer
+          # @rbs @bias: Integer
+
           # A function with more blocks than this dispatches in two steps,
           # in groups of this size. For the code that zr emits, a group of
           # 256 compiles fastest at every size tested: 8,000 blocks take
@@ -18,6 +39,7 @@ module Zr
           # square root of the block count is much slower.
           LADDER = 256
 
+          #: (Codegen mod, IR::Function f) -> void
           def initialize(mod, f)
             @m = mod
             @f = f
@@ -27,6 +49,7 @@ module Zr
             @code = +"".b
           end
 
+          #: () -> String
           def emit
             assign
             prologue
@@ -41,6 +64,7 @@ module Zr
           # Parameters first, then the shared locals for all other values,
           # then the block index and the frame base. A constant has no local:
           # it is written where it is read (`CONSTANTS`).
+          #: () -> void
           def assign
             n = 0
             @const = {}
@@ -51,7 +75,7 @@ module Zr
               @local[v] = n
               n += 1
             end
-            values = []
+            values = [] #: Array[[String, Integer]]
             @f.blocks.each_with_index do |b, bi|
               b.params.each { |v, t| values << [v, Codegen::TYPE.fetch(t)] unless bi.zero? }
               b.insts.each do |i|
@@ -80,11 +104,17 @@ module Zr
             @frame = Bytes.align(off, 16)
           end
 
-          def callee(fn) = @types.callee_named(fn)
+          # Every name in a function's instructions is defined in it.
+          #: (String fn) -> IR::Callee
+          def callee(fn) = @types.callee_named(fn) #: IR::Callee
+          #: (String sig) -> IR::Sig
           def sig_named(sig) = @types.sig_named(sig)
-          def global(gv) = @types.global_named(gv)
+          #: (String gv) -> IR::Global
+          def global(gv) = @types.global_named(gv) #: IR::Global
+          #: (String name) -> IR::Block
           def block_named(name) = @types.block_named(name)
 
+          #: (String v) -> bool
           def wide?(v)
             @type.fetch(v) == "i64"
           end
@@ -94,6 +124,7 @@ module Zr
           # dividend. The most negative number divided by -1 wraps. wasm's
           # `div` traps on both, so each has a guard. wasm's `rem_s` of that
           # pair returns 0, as the IR does, so it needs no guard.
+          #: (IR::Inst i) -> void
           def divide(i)
             a, b = i.args
             wide = wide?(a)
@@ -122,10 +153,12 @@ module Zr
             set(i.results[0])
           end
 
+          #: (String v) -> Hash[Symbol, Integer]
           def ops(v)
             Codegen::OP.fetch(wide?(v) ? "i64" : "i32")
           end
 
+          #: (String v) -> void
           def get(v)
             i = @const[v]
             return constant(i) if i
@@ -138,28 +171,29 @@ module Zr
           # local. Thus the constants and slot addresses in the entry block are
           # not live across all later blocks. That liveness is most of the
           # cost of shared locals.
-          CONSTANTS = %i[iconst symbol_value func_addr stack_addr].freeze
+          CONSTANTS = %i[iconst symbol_value func_addr stack_addr].freeze #: Array[Symbol]
 
           # The `Codegen::OP` key of each division and remainder opcode, of
           # each integer binary opcode, and the wasm opcode byte of each
           # float comparison, float binary and float unary opcode.
-          DIVIDE_OPS = { udiv: :div_u, sdiv: :div_s, urem: :rem_u, srem: :rem_s }.freeze
+          DIVIDE_OPS = { udiv: :div_u, sdiv: :div_s, urem: :rem_u, srem: :rem_s }.freeze #: Hash[Symbol, Symbol]
           BINOP_KEYS = { iadd: :add, isub: :sub, imul: :mul, band: :and, bor: :or, bxor: :xor,
-                         ishl: :shl, ushr: :shr_u, sshr: :shr_s }.freeze
-          FCMP_OPCODES = { "eq" => 0x61, "ne" => 0x62, "lt" => 0x63, "gt" => 0x64, "le" => 0x65, "ge" => 0x66 }.freeze
-          FBINOP_OPCODES = { fadd: 0xA0, fsub: 0xA1, fmul: 0xA2, fdiv: 0xA3 }.freeze
-          FUNOP_OPCODES = { fabs: 0x99, fneg: 0x9A, ceil: 0x9B, floor: 0x9C, trunc: 0x9D, nearest: 0x9E, sqrt: 0x9F }.freeze
+                         ishl: :shl, ushr: :shr_u, sshr: :shr_s }.freeze #: Hash[Symbol, Symbol]
+          FCMP_OPCODES = { "eq" => 0x61, "ne" => 0x62, "lt" => 0x63, "gt" => 0x64, "le" => 0x65, "ge" => 0x66 }.freeze #: Hash[String, Integer]
+          FBINOP_OPCODES = { fadd: 0xA0, fsub: 0xA1, fmul: 0xA2, fdiv: 0xA3 }.freeze #: Hash[Symbol, Integer]
+          FUNOP_OPCODES = { fabs: 0x99, fneg: 0x9A, ceil: 0x9B, floor: 0x9C, trunc: 0x9D, nearest: 0x9E, sqrt: 0x9F }.freeze #: Hash[Symbol, Integer]
 
           # The load opcode and its alignment of each type.
-          LOAD_OPCODES = { "i64" => "\x29\x03".b, "i32" => "\x28\x02".b, "i8" => "\x2D\x00".b, "f64" => "\x2B\x03".b }.freeze
+          LOAD_OPCODES = { "i64" => "\x29\x03".b, "i32" => "\x28\x02".b, "i8" => "\x2D\x00".b, "f64" => "\x2B\x03".b }.freeze #: Hash[String, String]
 
           # The opcodes of `emit_bswap` (const, and, or, shl, shr, rotl) and
           # its mask and shift steps, for a wide and for a narrow type.
-          BSWAP_WIDE = ["\x42", "\x83", "\x84", "\x86", "\x88", "\x89"].freeze
-          BSWAP_NARROW = ["\x41", "\x71", "\x72", "\x74", "\x76", "\x77"].freeze
-          BSWAP_WIDE_STEPS = [[0x00FF00FF00FF00FF, 8], [0x0000FFFF0000FFFF, 16]].freeze
-          BSWAP_NARROW_STEPS = [[0x00FF00FF, 8]].freeze
+          BSWAP_WIDE = ["\x42", "\x83", "\x84", "\x86", "\x88", "\x89"].freeze #: [String, String, String, String, String, String]
+          BSWAP_NARROW = ["\x41", "\x71", "\x72", "\x74", "\x76", "\x77"].freeze #: [String, String, String, String, String, String]
+          BSWAP_WIDE_STEPS = [[0x00FF00FF00FF00FF, 8], [0x0000FFFF0000FFFF, 16]].freeze #: Array[[Integer, Integer]]
+          BSWAP_NARROW_STEPS = [[0x00FF00FF, 8]].freeze #: Array[[Integer, Integer]]
 
+          #: (IR::Inst i) -> void
           def constant(i)
             case i.op
             when :iconst
@@ -177,18 +211,21 @@ module Zr
             end
           end
 
+          #: (String v) -> void
           def set(v)
             @code << "\x21".b << Bytes.leb(@local.fetch(v))
           end
 
           # The frame: global 0 is the stack pointer. It is saved in the
           # frame base local and incremented past the slots.
+          #: () -> void
           def prologue
             @code << "\x23\x00".b << "\x22".b << Bytes.leb(@fp)
             @code << @m.i32c(@frame) << "\x6A".b << "\x24\x00".b
             @code << @m.i32c(0) << "\x21".b << Bytes.leb(@bb)
           end
 
+          #: () -> void
           def epilogue
             @code << "\x20".b << Bytes.leb(@fp) << "\x24\x00".b
           end
@@ -202,6 +239,7 @@ module Zr
           # more than `LADDER` blocks dispatches in two steps: the index selects
           # a group, and the group selects the block. The deepest nesting is then
           # about two times the square root of the block count.
+          #: () -> void
           def dispatch
             n = @f.blocks.size
             @code << "\x03\x40".b
@@ -232,6 +270,7 @@ module Zr
           # of its first block. `outer` is the number of constructs between
           # the group's loop and the function's loop. It is 0 when the group
           # is the whole function.
+          #: (Array[IR::Block] blocks, Integer first, Integer outer) -> void
           def ladder(blocks, first, outer)
             m = blocks.size
             m.times { @code << "\x02\x40".b }
@@ -252,6 +291,7 @@ module Zr
           # `br_table` over `count` labels, with the first as the default.
           # An index past the end cannot occur, because every branch goes to
           # a block of this function.
+          #: (Integer count) -> void
           def table(count)
             @code << "\x0E".b << Bytes.leb(count)
             count.times { |i| @code << Bytes.leb(i) }
@@ -266,8 +306,9 @@ module Zr
           # reaches that block directly with no index. But it is 8 to 20 times
           # slower to compile: 2,000 blocks take 0.24 s with the `br_table` and
           # 4.93 s without it. Thus every branch goes through a `br_table`.
+          #: (String name) -> void
           def go(name)
-            at = @f.blocks.index { |b| b.name == name }
+            at = @f.blocks.index { |b| b.name == name } #: Integer
             @code << @m.i32c(at) << "\x21".b << Bytes.leb(@bb)
             @code << "\x0C".b << Bytes.leb((@span - 1 - @row + @bias) + reach(at))
           end
@@ -278,6 +319,7 @@ module Zr
           # of it reaches that group's `br_table`. Thus the function's loop does
           # not get a predecessor for each branch that leaves a group. Only a
           # branch to an earlier group goes to the function's loop.
+          #: (Integer at) -> Integer
           def reach(at)
             return 0 if @group.cover?(at)
 
@@ -285,12 +327,13 @@ module Zr
             ahead.positive? ? ahead : @outer
           end
 
-          WIDE_BITOPS = { clz: "\x79".b, ctz: "\x7A".b, popcnt: "\x7B".b }.freeze
-          NARROW_BITOPS = { clz: "\x67".b, ctz: "\x68".b, popcnt: "\x69".b }.freeze
+          WIDE_BITOPS = { clz: "\x79".b, ctz: "\x7A".b, popcnt: "\x7B".b }.freeze #: Hash[Symbol, String]
+          NARROW_BITOPS = { clz: "\x67".b, ctz: "\x68".b, popcnt: "\x69".b }.freeze #: Hash[Symbol, String]
 
           # wasm has no byte swap. Swap the bytes in pairs, then the pairs,
           # then the halves: `(x & m) << k | (x >> k) & m` for each mask, and a
           # rotate for the halves. Each step reads the result's local.
+          #: (IR::Inst i) -> void
           def emit_bswap(i)
             v = i.results[0]
             wide = wide?(i.args[0])
@@ -310,6 +353,7 @@ module Zr
             set(v)
           end
 
+          #: (IR::Inst i) -> void
           def emit_load(i)
             get(i.args[0])
             @code << "\xA7".b
@@ -317,6 +361,7 @@ module Zr
             set(i.results[0])
           end
 
+          #: (IR::Inst i) -> void
           def emit_store(i)
             get(i.args[1])
             @code << "\xA7".b
@@ -324,6 +369,7 @@ module Zr
             @code << { "i64" => "\x37\x03".b, "i32" => "\x36\x02".b, "i8" => "\x3A\x00".b, "f64" => "\x39\x03".b }.fetch(@type[i.args[0]]) << Bytes.leb(i.offset)
           end
 
+          #: (IR::Inst i) -> void
           def emit_call_indirect(i)
             ptr, *args = i.args
             args.each { |a| get(a) }
@@ -339,6 +385,7 @@ module Zr
             end
           end
 
+          #: (IR::Inst i) -> void
           def emit_call(i)
             # A libc call's text signature can give i64 where the shim
             # takes i32. The callee sets the width.
@@ -360,6 +407,7 @@ module Zr
             end
           end
 
+          #: (IR::Inst i) -> void
           def emit_icmp(i)
             get(i.args[0])
             get(i.args[1])
@@ -367,6 +415,7 @@ module Zr
             set(i.results[0])
           end
 
+          #: (IR::Inst i) -> void
           def emit_fcmp(i)
             get(i.args[0])
             get(i.args[1])
@@ -374,6 +423,7 @@ module Zr
             set(i.results[0])
           end
 
+          #: (IR::Inst i) -> void
           def emit_fbinop(i)
             get(i.args[0])
             get(i.args[1])
@@ -381,6 +431,7 @@ module Zr
             set(i.results[0])
           end
 
+          #: (IR::Inst i) -> void
           def emit_binop(i)
             get(i.args[0])
             get(i.args[1])
@@ -388,6 +439,7 @@ module Zr
             set(i.results[0])
           end
 
+          #: (IR::Inst i) -> void
           def emit_select(i)
             get(i.args[1])
             get(i.args[2])
@@ -399,6 +451,7 @@ module Zr
             set(i.results[0])
           end
 
+          #: (IR::Inst i) -> void
           def emit_overflow(i)
             # r = a op b; overflow when the sign of r differs from a and (for
             # add) b, or from a and not b (for sub).
@@ -420,6 +473,7 @@ module Zr
             set(i.results[1])
           end
 
+          #: (IR::Inst i) -> void
           def emit_smul_overflow(i)
             raise Refused, "smul_overflow on i32" unless wide?(i.args[0])
 
@@ -448,6 +502,7 @@ module Zr
             set(i.results[1])
           end
 
+          #: (IR::Inst i) -> void
           def emit_brif(i)
             get(i.args[0])
             @code << (wide?(i.args[0]) ? "\x50".b : "\x45".b)
@@ -464,6 +519,7 @@ module Zr
 
           # A jump table as a compare for each key: wasm's own `br_table`
           # indexes the dispatch's labels, not the blocks of the IR.
+          #: (IR::Inst i) -> void
           def emit_switch(i)
             v, *keys = i.args
             default, *blocks = i.targets.map(&:first)
@@ -482,6 +538,7 @@ module Zr
             go(default)
           end
 
+          #: (IR::Inst i) -> void
           def emit_jump(i)
             name, args = i.targets[0]
             params = block_named(name).params
@@ -490,6 +547,7 @@ module Zr
             go(name)
           end
 
+          #: (IR::Inst i) -> void
           def emit_inst(i)
             case i.op
             # CONSTANTS, written out. test/unit/case_lists_test.rb checks it.

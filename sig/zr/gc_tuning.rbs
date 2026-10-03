@@ -1,0 +1,6 @@
+# The class instance variable of lib/zr/gc_tuning.rb. Its methods are inline.
+module Zr
+  class GcTuning
+    self.@current: GcTuning?
+  end
+end

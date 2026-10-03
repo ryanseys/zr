@@ -31,8 +31,11 @@ module Zr
         # The block's locals as record slots of the site's function. It
         # is used in place of the block's scope while its body lowers.
         class InlineScope
-          attr_reader :raw_block
+          # @rbs @slots: Hash[Symbol, Integer]
 
+          attr_reader :raw_block #: nil
+
+          #: (Hash[Symbol, Integer] slots) -> void
           def initialize(slots)
             @slots = slots
             # An inline scope is never a raw block's own scope, so this
@@ -41,6 +44,7 @@ module Zr
             @raw_block = nil
           end
 
+          #: (untyped node) -> Integer
           def slot_index(node)
             @slots.fetch(node.name)
           end
@@ -49,16 +53,18 @@ module Zr
         private
 
         # Whether the site runs `node` inline.
+        #: (untyped node) -> bool
         def iterator_template?(node)
           !traced? && !@l.internal? && Scope.iterator_template?(node)
         end
 
         # The send with its block: inline if the receiver permits it, else
         # as a call.
+        #: (Hir::Send node, String recv, String argv, String argc) -> String
         def iterate(node, recv, argv, argc)
           fast = @f.label
           slow = @f.label
-          merge, (result,) = @f.block(["i64"])
+          merge, (result,) = @f.block(["i64"]) #: [String, [String]]
           case node.name
           when :each
             cell = @f.label
@@ -126,8 +132,14 @@ module Zr
         # as a call does, and runs the body. It reads an Array's length
         # again in each iteration, as `zr_ary_each` does. A Range's ends
         # are in `bounds`. Returns the receiver.
+        #: (Hir::Send node, String recv, Symbol kind, ?String? bounds) -> String
         def loop_in_place(node, recv, kind, bounds = nil)
-          block = node.block
+          # `bounds` is set for a :range loop, and `made_at` and `got` for
+          # a `map` or `select`; each is read only then:
+          # @type var bounds: String
+          # @type var made_at: Integer
+          # @type var got: String
+          block = node.block #: Hir::Block
           frame = @l.layout("Frame")
           fn = @l.block(block, self)
           at_node(node)
@@ -144,13 +156,13 @@ module Zr
           if %i[map select].include?(node.name)
             made_at = value_offset(base + block.locals.size + 1)
             @f.store(kernel("zr_ary_new", node.name == :map ? array_len(recv) : imm(4)), @rec, made_at)
-            step, (got,) = @f.block(["i64"])
+            step, (got,) = @f.block(["i64"]) #: [String, [String]]
           end
           head = @f.label
           body = @f.label
           take = @f.label
           out = @f.label
-          done, (value,) = @f.block(["i64"])
+          done, (value,) = @f.block(["i64"]) #: [String, [String]]
           loop = Loop.new(head: head, body: body, done: done, depth: @regions.size, step: step)
           @loops << loop
           unlink = Regions::Region.new(@f.cold(@f.label), nil, nil, [@inline_scope, @line_rec])
@@ -209,6 +221,7 @@ module Zr
         # CRuby's rb_ary_elt gives), then go to the loop's head. The index
         # and the new Array are the slots above the block's locals at
         # `base` (`Scope.loop_slots`).
+        #: (Hir::Send node, String recv, Loop loop, String got, Integer base) -> void
         def collect(node, recv, loop, got, base)
           switch(loop.step)
           index_at = value_offset(base + node.block.locals.size)

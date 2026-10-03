@@ -73,8 +73,9 @@ module Zr
         module_function
 
         # Returns the bytes of the object file.
+        #: (Unit unit) -> String
         def write(unit)
-          items = unit.functions.map { |f| [:function, f] } + unit.data.map { |d| [d.section, d] }
+          items = unit.functions.map { |f| [:function, f] } + unit.data.map { |d| [d.section, d] } #: Array[[Symbol, Code | Datum]]
           sections = [Section.new(name: "", type: 0, flags: 0, bytes: "".b, size: 0, align: 0, link: 0, info: 0, entsize: 0)]
           items.each do |kind, item|
             prefix, type, flags = SECTIONS.fetch(kind) { raise ArgumentError, "no ELF section for #{kind}" }
@@ -154,6 +155,7 @@ module Zr
 
         # The null symbol, then locals, then globals and imports, each group
         # by name.
+        #: (Unit unit, Array[Section] item_sections) -> Array[Sym]
         def symbol_table(unit, item_sections)
           defined = item_sections.each_with_index.map do |s, i|
             item = s.item
@@ -170,6 +172,7 @@ module Zr
           [null] + locals + globals
         end
 
+        #: (Integer shoff, Integer shnum, Integer shstrndx) -> String
         def header(shoff, shnum, shstrndx)
           ident = "\x7FELF".b + [2, 1, 1, 0].pack("C4") + ("\0" * 8).b
           ident + [ET_REL, EM_AARCH64, 1, 0, 0, shoff, 0, 64, 0, 0, 64, shnum, shstrndx].pack("S<S<L<Q<Q<Q<L<S<S<S<S<S<S<")

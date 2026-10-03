@@ -9,14 +9,15 @@ module Zr
         # the write, exit and abort calls of a unit with no OS layer.
         LIBC_SHIMS = { "write" => [[0x7F, 0x7E, 0x7E], [0x7E]], "exit" => [[0x7F], []], "_exit" => [[0x7F], []], "abort" => [[], []],
                   "malloc" => [[0x7E], [0x7E]], "free" => [[0x7E], []], "posix_memalign" => [[0x7E, 0x7E, 0x7E], [0x7F]],
-                  "memmove" => [[0x7E, 0x7E, 0x7E], [0x7E]], "memset" => [[0x7E, 0x7F, 0x7E], [0x7E]] }.freeze
+                  "memmove" => [[0x7E, 0x7E, 0x7E], [0x7E]], "memset" => [[0x7E, 0x7F, 0x7E], [0x7E]] }.freeze #: Hash[String, signature]
 
         # How many i32 locals a shim body declares.
-        LOCALS = { "malloc" => 1 }.freeze
+        LOCALS = { "malloc" => 1 }.freeze #: Hash[String, Integer]
 
         private
 
         # `write(fd, ptr, len)`: an iovec in the scratch area, then fd_write.
+        #: (String name) -> String
         def shim(name)
           code = +"".b
           case name

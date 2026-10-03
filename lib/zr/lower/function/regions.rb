@@ -10,7 +10,6 @@ module Zr
       # runs the ensure body, then continues the unwind.
       module Regions
         # @type instance: Function
-        # @rbs @landing: String?
 
         # `slot` is the first record slot for the region's values: the
         # exit value or the exception, the `$!` that the region replaced,
@@ -25,6 +24,7 @@ module Zr
         # The methods are in a reopened class, not in the block of
         # `Data.define`, so that the type check sees them in their class.
         class Region
+          #: (landing: String, ensure_body: untyped, slot: Integer?, ?outer: [Iterators::InlineScope?, String?]?) -> void
           def initialize(landing:, ensure_body:, slot:, outer: nil) = super
         end
 
@@ -32,6 +32,7 @@ module Zr
 
         # The landing block for an unwind from here: the innermost
         # region's, or the function's own.
+        #: () -> String
         def landing
           region = @regions.last
           return region.landing if region
@@ -39,6 +40,7 @@ module Zr
           @landing ||= @f.cold(@f.label)
         end
 
+        #: (Hir::Begin node) -> String
         def protect(node)
           return rescue_region(node) unless node.ensure_body
 
@@ -50,13 +52,14 @@ module Zr
         # landing block, and a raise is visible as `$!` unless `errinfo`
         # is false. An ensure body that jumps out discards the raise, and
         # `$!` is restored to its value at the region's start, as in ruby.
+        #: (untyped body, ?errinfo: bool) { () -> String } -> String
         def with_ensure(body, errinfo: true)
           region = Region.new(@f.cold(@f.label), body, reserve(errinfo ? 3 : 2))
           value_at = value_offset(region.slot)
           prev_at = value_offset(region.slot + 1)
           began_at = value_offset(region.slot + 2)
           signal = @f.stack_addr(@f.slot(24))
-          merge, (result,) = @f.block(["i64"])
+          merge, (result,) = @f.block(["i64"]) #: [String, [String]]
           @f.store(kernel("zr_errinfo"), @rec, began_at) if errinfo
           @regions << region
           v = yield
@@ -85,12 +88,14 @@ module Zr
           result
         end
 
+        #: (untyped body) -> String
         def run_ensure(body)
           body.is_a?(Proc) ? body.call : expr(body)
         end
 
         # The body in its rescue clauses, and the else branch after a body
         # that raised nothing.
+        #: (Hir::Begin node) -> String
         def rescue_region(node)
           return expr(node.body) if node.rescues.empty?
 
@@ -98,7 +103,7 @@ module Zr
           exc_at = value_offset(region.slot)
           prev_at = value_offset(region.slot + 1)
           head = @f.label
-          merge, (result,) = @f.block(["i64"])
+          merge, (result,) = @f.block(["i64"]) #: [String, [String]]
           # When a clause ends, `$!` is restored to its value here, not to
           # the value that an ensure on the way out put in it.
           @f.store(kernel("zr_errinfo"), @rec, prev_at)
@@ -118,7 +123,9 @@ module Zr
           clauses = @f.label
           @f.brif(@f.icmp("eq", exc, qundef), landing, clauses)
           switch(clauses)
-          handlers = node.rescues.map { |clause| [rescue_test(clause, exc_at), clause] }
+          handlers = node.rescues.map do |clause|
+            [rescue_test(clause, exc_at), clause] #: [String, Hir::Rescue]
+          end
           @f.jump(landing)
 
           handlers.each do |handler, clause|
@@ -150,10 +157,11 @@ module Zr
 
         # The block's value, or nil if a raise leaves it. `defined?` uses
         # this to test a receiver.
+        #: () { () -> String } -> String
         def guarded
           region = Region.new(@f.cold(@f.label), nil, reserve(1))
           prev_at = value_offset(region.slot)
-          merge, (result,) = @f.block(["i64"])
+          merge, (result,) = @f.block(["i64"]) #: [String, [String]]
           @regions << region
           v = yield
           @regions.pop
@@ -173,6 +181,7 @@ module Zr
 
         # The tests for one clause, each a branch to the handler block
         # that this returns. A miss falls through to the next test.
+        #: (Hir::Rescue clause, Integer exc_at) -> String
         def rescue_test(clause, exc_at)
           handler = @f.label
           classes = clause.classes.empty? ? [nil] : clause.classes
@@ -191,6 +200,7 @@ module Zr
         end
 
         # `retry`: restore `$!`, then run the begin body again.
+        #: (Hir::Retry node) -> String
         def retry_region(node)
           @l.unsupported(node, "retry outside a rescue clause") if @retries.empty?
           head, prev_at, depth = @retries.last
@@ -204,8 +214,9 @@ module Zr
         # The ensure bodies between here and region depth `depth`,
         # innermost first. A `return` or a loop's jump runs them when it
         # leaves.
+        #: (Integer depth) -> void
         def unwind(depth)
-          left = []
+          left = [] #: Array[Region]
           inner = [@inline_scope, @line_rec]
           while @regions.size > depth && !@f.terminated?
             region = @regions.pop
@@ -224,6 +235,7 @@ module Zr
         # An unwind that goes on past an inline loop leaves the loop: the
         # caller's frame goes back on top, and the ensure bodies outside
         # the loop read the site's locals, not the block's.
+        #: ([Iterators::InlineScope?, String?] outer) -> void
         def leave_inline(outer)
           @f.store(@rec, @task_addr, off(@task, "top"), region: :task)
           @inline_scope, @line_rec = outer
@@ -232,6 +244,7 @@ module Zr
 
         # Runs the ensure bodies down to region depth `depth`, then returns
         # `v`. The record keeps `v` during the ensure bodies.
+        #: (String v, ?Integer depth) -> String
         def through_ensures(v, depth = 0)
           return v if @regions.size <= depth
 
@@ -247,6 +260,7 @@ module Zr
 
         # Reserves `n` new record slots. The scope's slot count must
         # include them.
+        #: (Integer n) -> Integer
         def reserve(n)
           base = @sp
           @sp += n

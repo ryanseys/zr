@@ -12,21 +12,23 @@ module Zr
     # `pp`, which calls eval, and a compiler that zr compiles would then
     # have to include eval support.
     module Options
-      EMITS = { "binary" => nil, "obj" => "obj", "wasm" => "wasm" }.freeze
+      EMITS = { "binary" => nil, "obj" => "obj", "wasm" => "wasm" }.freeze #: Hash[String, String?]
 
       module_function
 
       # The options and words of `run`, `build` or `gems`, as a
       # Hash. For `run`, every word after the input file goes to the program.
+      # The values have one type for each key, so the Hash is untyped.
+      #: (String command, Array[String] args) -> Hash[Symbol, untyped]
       def parse(command, args)
-        opts = { args: [], link: [], gems: [] }
+        opts = { args: [], link: [], gems: [] } #: Hash[Symbol, untyped]
         until args.empty?
           word = args.shift
           if opts[:input] && command == "run"
             opts[:args] << word
             next
           end
-          name, value = word.start_with?("--") && word.include?("=") ? word.split("=", 2) : [word, nil]
+          name, value = word.start_with?("--") && word.include?("=") ? word.split("=", 2) : [word, nil] #: Array[String?]
           case name
           when "--" then opts[:input] ? opts[:args].concat(args.shift(args.size)) : (opts[:input] = args.shift)
           when "-h", "--help"
@@ -50,17 +52,20 @@ module Zr
       end
 
       # `--gem NAME=VERSION` or `--gem NAME=DIR`, as [name, value].
+      #: (String? word, String command) -> [String, String]
       def gem_flag(word, command)
         name, value = word.to_s.split("=", 2)
         if value.to_s.empty? || !name.match?(/\A[\w.-]+\z/)
           Errors.usage_error("--gem needs <name>=<version> or <name>=<dir>, for example --gem csv=3.3.6", command)
         end
-        [name, value]
+        # The check above stops the build when `value` is nil.
+        [name, value] #: [String, String]
       end
 
       # The gems that a compile reads before zr's standard library: the
       # `--gem` flags, then the Gemfile.lock of `--gemfile` or
       # BUNDLE_GEMFILE (lib/zr/gem_set.rb).
+      #: (Hash[Symbol, untyped] opts) -> GemSet
       def gem_set(opts)
         require_relative "../gem_set"
         GemSet.resolve(opts[:gems], gemfile: opts[:gemfile])
@@ -68,6 +73,7 @@ module Zr
         abort "zr: #{e.message}"
       end
 
+      #: (String command, Hash[Symbol, untyped] opts) -> Hash[Symbol, untyped]
       def check(command, opts)
         return check_gems(opts) if command == "gems"
 
@@ -91,6 +97,7 @@ module Zr
       end
 
       # `zr gems` takes the options that choose the gems, and at most one file.
+      #: (Hash[Symbol, untyped] opts) -> Hash[Symbol, untyped]
       def check_gems(opts)
         Errors.usage_error("-o does not apply", "gems") if opts[:output]
         Errors.usage_error("unexpected argument '#{opts[:args].first}'", "gems") unless opts[:args].empty?
@@ -100,6 +107,7 @@ module Zr
 
       # The target that `--target` gives. `--emit wasm` alone means
       # wasm32-wasi.
+      #: (String? triple, String? emit, String command) -> Target
       def target_for(triple, emit, command)
         return emit == "wasm" ? Target::WASM32_WASI : Target.default unless triple
 

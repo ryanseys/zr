@@ -34,6 +34,18 @@ module Zr
     # defines. A build takes an entry while all of these hold and the code
     # cache has its code; else a worker makes the piece again.
     class Lowering
+      # @rbs @kind: String
+      # @rbs @target: Target
+      # @rbs @backend: String
+      # @rbs @base: String
+      # @rbs @known: Hash[String, [String, String]]?
+      # @rbs @wants: Array[[Array[String], Array[String]]]
+      # @rbs @fixed: Hash[String, IR::Function]
+      # @rbs @fixed_names: Set[String]
+      # @rbs @leaf: Hash[String, String?]
+      # @rbs @why: String?
+      # @rbs @whys: Hash[String, Integer]?
+
       VERSION = 4
 
       # A piece to build: its path, its entry function, its key (nil when no
@@ -42,8 +54,9 @@ module Zr
       # @rbs skip -- typed in sig/zr/cache/lowering.rbs
       Piece = Struct.new(:path, :entry, :key, :weight, :make)
 
-      attr_reader :code
+      attr_reader :code #: Native::CodeCache
 
+      #: (String kind, Target target, Native::CodeCache code) -> void
       def initialize(kind, target, code)
         @kind = kind
         @target = target
@@ -53,10 +66,12 @@ module Zr
 
       # The fingerprint and the code of each function of the pieces, by
       # name, for `Native::Build.cached`.
+      #: () -> Hash[String, [String, String]]
       def known = @known ||= {}
 
       # The symbols that the pieces call, and the symbols of the data that
       # they read and that are not colocated (`Runtime#wants`).
+      #: () -> [Array[String], Array[String]]
       def calls_and_reads = [@wants.flat_map(&:first).uniq, @wants.flat_map(&:last).uniq]
 
       private
@@ -67,6 +82,7 @@ module Zr
       # data, and the pieces' entries). Returns `[functions, data]`: the
       # machine code (`Obj::Code`) and the data of every piece, in order.
       # `label` names the steps for ZR_TIMING.
+      #: (Array[Piece] pieces, Array[IR::Function] fixed_ir, Set[String] fixed_names, String label) -> [Array[Obj::Code | IR::Function], Array[Obj::Datum]]
       def build(pieces, fixed_ir, fixed_names, label)
         @fixed = fixed_ir.to_h { |f| [f.name, f] }
         @fixed_names = fixed_names
@@ -77,7 +93,9 @@ module Zr
         missing = pieces.each_index.reject { |i| records[i] }
         report(label, pieces.size - missing.size, pieces.size)
         made = Timing.phase("#{label}: made") do
-          Native::Parallel.map(missing.map { |i| pieces[i] }, jobs: Config.current.jobs, weight: :weight.to_proc) do |piece|
+          Native::Parallel.map(missing.map { |i| pieces[i] }, jobs: Config.current.jobs,
+                               weight: :weight.to_proc #: ^(Piece) -> Integer
+                              ) do |piece|
             made(piece)
           end
         end
@@ -88,6 +106,7 @@ module Zr
 
       # `[record, nil]` for a piece whose entry holds, else nil. The code
       # comes from the code cache.
+      #: (Piece piece) -> [Hash[Symbol, untyped], nil]?
       def current(piece)
         record = piece.key && Store.read(:lowering, piece.key)
         reason = if piece.key.nil? then "no key"
@@ -101,6 +120,7 @@ module Zr
       end
 
       # Why an entry no longer holds, or nil when it holds.
+      #: (Hash[Symbol, untyped] record) -> String?
       def stale(record)
         return "kernel rows" unless reads_hold?(record)
 
@@ -118,6 +138,7 @@ module Zr
 
       # What a fixed symbol is now: the fingerprint of a leaf, :call for a
       # function that is no leaf, or :absent.
+      #: (String sym) -> (String | Symbol)
       def state(sym)
         return :absent unless @fixed.key?(sym)
 
@@ -126,8 +147,9 @@ module Zr
 
       # In a worker: lowers `piece`, inlines it over the fixed part, and
       # returns its entry and the Marshal of each function's code.
+      #: (Piece piece) -> [Hash[Symbol, untyped], Hash[String, String]]
       def made(piece)
-        functions = data = nil
+        functions = data = nil #: untyped
         reads = reading { functions, data = piece.make.call }
         own = (functions.map(&:name) + data.map(&:name)).to_set
         inliner = IR::Passes::Inline.new(functions, sources: @fixed.values)
@@ -137,7 +159,7 @@ module Zr
         defined = own | @fixed_names
         # A code cache is only for this backend (`Native::CodeCache.for`).
         emitter = Backend::Aarch64
-        blobs = {}
+        blobs = {} #: Hash[String, String]
         prints = functions.map do |f|
           key = IR::Fingerprint.of(f, defined)
           blobs[key] = code.blob(key) || begin
@@ -154,6 +176,7 @@ module Zr
 
       # Writes an entry for each piece that a worker made, and the root that
       # keeps this build's entries.
+      #: (Array[Piece] pieces, Array[[Hash[Symbol, untyped], Hash[String, String]?]] records) -> void
       def keep(pieces, records)
         return if SourceGuard.changed_file
 
@@ -167,13 +190,15 @@ module Zr
 
       # The code and the data of each piece, in order. The code of a piece
       # that a worker made came with it; the rest comes from the code cache.
+      #: (Array[[Hash[Symbol, untyped], Hash[String, String]?]] records) -> [Array[Obj::Code | IR::Function], Array[Obj::Datum]]
       def results(records)
         @wants = records.map { |record, _| record[:wants] }
-        functions = []
-        data = []
+        functions = [] #: Array[Obj::Code | IR::Function]
+        data = [] #: Array[Obj::Datum]
         records.each do |record, blobs|
           record[:functions].each do |name, key|
-            blob = blobs ? blobs.fetch(key) : code.blob(key)
+            # `stale` made sure the code cache has each kept key.
+            blob = blobs ? blobs.fetch(key) : code.blob(key) #: String
             known[name] = [key, blob]
             functions << Marshal.load(blob)
           end
@@ -186,24 +211,29 @@ module Zr
       # holds all of it. With one, an entry keeps the rows that its piece
       # read (`Machine::Description#record`), and holds while each is the
       # same: a kernel edit that the piece does not read keeps it.
-      attr_reader :description
+      attr_reader :description #: Machine::Description?
 
+      #: () { () -> void } -> Hash[[Symbol, String], String?]?
       def reading(&)
-        return description.record(&) if description
+        d = description
+        return d.record(&) if d
 
         yield
         {}
       end
 
+      #: (Hash[Symbol, untyped] record) -> bool
       def reads_hold?(record)
-        return true unless description
+        d = description
+        return true unless d
 
         reads = record[:reads]
-        reads.is_a?(Hash) && description.rows(reads) == reads
+        reads.is_a?(Hash) && d.rows(reads) == reads
       end
 
       # The symbols that `functions` call, and those of the data that they
       # read and that are not colocated, as `Runtime#write_cached` counts them.
+      #: (Array[IR::Function] functions) -> [Array[String], Array[String]]
       def wants_of(functions)
         [functions.flat_map { |f| f.callees.map(&:symbol) }.uniq, functions.flat_map { |f| f.globals.reject(&:colocated).map(&:symbol) }.uniq]
       end
@@ -219,11 +249,13 @@ module Zr
       def base_key(*parts) = Store.key(VERSION, @target.triple, Paths.root.to_s, RuntimeSources.for(@target).compiler_digest, *parts)
 
       # Notes the first reason that a piece is made, for ZR_TIMING.
+      #: (String? path, String reason) -> void
       def note(path, reason)
         @why ||= "#{File.basename(path.to_s)}: #{reason}"
         (@whys ||= Hash.new(0))[reason.sub(/\A\S+ (is|was) /, "a callee \\1 ")[0, 60]] += 1
       end
 
+      #: (String label, Integer kept, Integer all) -> void
       def report(label, kept, all)
         return unless Config.current.timing?
 

@@ -13,15 +13,24 @@ module Zr
         # bytes. `-no-pie`: the result does not depend on the toolchain's
         # default (Alpine's gcc makes a static PIE; musl-cross makes an
         # ET_EXEC). The stack is not executable.
-        FLAGS = ["-static", "-no-pie", "-Wl,--build-id=none", "-Wl,-z,noexecstack"].freeze
+        FLAGS = ["-static", "-no-pie", "-Wl,--build-id=none", "-Wl,-z,noexecstack"].freeze #: Array[String]
 
         # Removes code that nothing calls. Each item is in its own section.
-        STRIP_FLAGS = ["-Wl,--gc-sections"].freeze
+        STRIP_FLAGS = ["-Wl,--gc-sections"].freeze #: Array[String]
 
         module_function
 
         # Returns nil, or the linker's message. zr has no Ruby linker for
         # ELF, so `linker` has only `cc` to select.
+        # @rbs image: Obj::Unit
+        # @rbs out: String
+        # @rbs work: String
+        # @rbs objects: Array[String]
+        # @rbs strip: bool
+        # @rbs linker: String
+        # @rbs target: Target
+        # @rbs link: Array[String]
+        # @rbs return: String?
         def link(image, out, work:, objects:, strip:, linker:, target:, link: [])
           return "ZR_LINKER=ruby: zr has no linker of its own for an ELF binary. Set ZR_LINKER=auto or cc" if linker == "ruby"
 
@@ -32,6 +41,7 @@ module Zr
 
         # The byte ranges of a linked binary that do not depend on the
         # inputs: none, because the link writes no build ID.
+        #: (String _bytes) -> Array[Range[Integer]]
         def stamps(_bytes) = []
       end
     end

@@ -32,10 +32,20 @@ module Zr
   # compiler itself), the server answers "fall back", so that the client
   # builds alone, and starts itself again.
   class Server
+    # @rbs @path: String?
+    # @rbs @idle: Integer
+    # @rbs @log: IO?
+    # @rbs @prime: bool
+    # @rbs @argv: Array[String]
+    # @rbs @jobs: Hash[IO, { pid: Integer, client: UNIXSocket, argv: Array[String], began: Float, ?answered: bool, ?stopped: bool }]
+    # @rbs @stamps: Hash[String, [Integer, Rational]?]?
+    # @rbs @digest: String?
+
     VERSION = 1
 
     # The socket of the server for this cache, or nil when the server is
     # off (`ZR_SERVER=0`) or the path is too long for a socket.
+    #: () -> String?
     def self.socket
       path = Config.current.server
       return nil if path == "0"
@@ -45,6 +55,7 @@ module Zr
     end
 
     # The entry points of `exe/zr` and `zr-dev serve`.
+    #: (Array[String] argv) -> void
     def self.hand_to(argv) = Client.new.hand_to(argv)
 
     #: (**untyped options) -> void
@@ -54,6 +65,7 @@ module Zr
     # after which the server stops, and `log` gets one line for each
     # request. `prime` makes the server warm before its first request (a
     # few seconds).
+    #: (?path: String?, ?idle: Integer, ?log: IO?, ?prime: bool) -> void
     def initialize(path: Server.socket, idle: 1800, log: $stdout, prime: true)
       @path = path
       @idle = idle
@@ -61,7 +73,7 @@ module Zr
       @prime = prime
       @argv = [RbConfig.ruby, $PROGRAM_NAME, *ARGV]
       # The builds that run: the pipe of each build to its job.
-      @jobs = {}
+      @jobs = {} #: Hash[IO, { pid: Integer, client: UNIXSocket, argv: Array[String], began: Float, ?answered: bool, ?stopped: bool }]
       # The stamps of zr's files when the server was ready (`stamps`).
       @stamps = nil
       # The digest of the runtime that the server has loaded (`refresh`).
@@ -74,6 +86,7 @@ module Zr
     # build (its child holds the write end of a pipe), and for a client
     # that goes away. (In ruby 4.0.7, a `waitpid` in another thread never
     # returned the child while the main thread waited in `IO.select`.)
+    #: () -> void
     def serve
       raise ArgumentError, "the server has no socket (ZR_SERVER=0, or the path is too long)" unless @path
 
@@ -100,6 +113,7 @@ module Zr
 
     # Why the server must not build this request, or nil. A build in the
     # server must be the build that the client would do alone.
+    #: (untyped message) -> String?
     def refusal(message)
       return "another protocol" unless message.is_a?(Hash) && message[:version] == VERSION
       return "another ruby" unless message[:ruby] == RbConfig.ruby && message[:ruby_version] == RUBY_VERSION
@@ -112,6 +126,7 @@ module Zr
 
     # The stamp of each file of zr that the server loaded: when one
     # changes, the server's code is old.
+    #: () -> Hash[String, [Integer, Rational]?]
     def stamps
       root = "#{Paths::ROOT}/"
       [*$LOADED_FEATURES.select { |path| path.start_with?(root) }, File.join(Paths::ROOT, "exe/zr")].sort.to_h do |path|
@@ -124,13 +139,16 @@ module Zr
 
     private
 
+    #: () -> UNIXServer
     def listen
-      File.delete(@path) if File.socket?(@path)
-      Paths.mkdir_p(File.dirname(@path))
-      UNIXServer.new(@path).tap { File.chmod(0o600, @path) }
+      path = @path #: String
+      File.delete(path) if File.socket?(path)
+      Paths.mkdir_p(File.dirname(path))
+      UNIXServer.new(path).tap { File.chmod(0o600, path) }
     end
 
     # Reads one request, and forks its build, or answers "fall back".
+    #: (UNIXServer listener, UNIXSocket client) -> void
     def request(listener, client)
       message = Client.take(client)
       if (why = refusal(message))
@@ -155,6 +173,7 @@ module Zr
     # A build answered (a byte on its pipe) or ended (the pipe closed), or
     # a client went away. A client that goes away before its answer (a
     # Ctrl-C) stops the build's group, whose end comes next.
+    #: (IO io) -> void
     def event(io)
       if (job = @jobs[io])
         return job[:answered] = true unless io.read_nonblock(1, exception: false).nil?
@@ -184,6 +203,7 @@ module Zr
     # The build of one request, in a forked child: it runs the command as
     # `zr` does, with the client's directory, environment and output, and
     # answers with a binary to run or an exit status.
+    #: (UNIXSocket client, untyped message, IO done, IO out, IO err) -> void
     def child(client, message, done, out, err)
       Process.setpgid(0, 0)
       $stdin.reopen(File::NULL)
@@ -192,7 +212,7 @@ module Zr
       Dir.chdir(message[:cwd])
       ENV.replace(message[:env])
       fresh!(message)
-      reply = nil
+      reply = nil #: Hash[Symbol, untyped]?
       CLI.served! { |binary, args, temp| reply = ran(binary, args, temp) }
       begin
         CLI.start(message[:argv])
@@ -212,6 +232,7 @@ module Zr
 
     # The answer for a binary: the kept one as it is, or one in the build
     # directory under a second name, which the client deletes after the run.
+    #: (String binary, Array[String] args, bool temp) -> { run: String, args: Array[String], temp: bool }
     def ran(binary, args, temp)
       return { run: binary, args: args, temp: false } unless temp
 
@@ -225,6 +246,7 @@ module Zr
     # as a new zr would. The runtime and eval support that the server
     # loaded (`refresh`) stay when they are this build's: the same
     # settings, no path root, and the same runtime digest now.
+    #: (?untyped message) -> void
     def fresh!(message = nil)
       Session.current.reset!(keep_runtimes: true)
       return if message && @digest && settings(message[:env]) == settings(ENV) && message[:argv].none? { |word| word.start_with?("--path-root") } &&
@@ -234,6 +256,7 @@ module Zr
     end
 
     # The variables that steer a build.
+    #: (Hash[String, String] | RBS::Unnamed::ENVClass env) -> Hash[String, String]
     def settings(env) = env.select { |name, _| name.start_with?("ZR_") && name != "ZR_SERVER" && name != "ZR_TIMING" }
 
     # Loads, in the server, what the next builds read for the runtime of
@@ -242,6 +265,7 @@ module Zr
     # and the runtime with eval support). A child then forks with them.
     # The server calls this when it is ready and after each build, so the
     # build after an edit to the runtime starts warm too.
+    #: () -> void
     def refresh
       target = Target.default
       digest = RuntimeSources.for(target).runtime_digest
@@ -271,6 +295,7 @@ module Zr
     # files, and builds and links a small program. Then drops that state,
     # loads the runtime for the next builds (`refresh`), and prepares the
     # heap for the forks (`Process.warmup`).
+    #: () -> void
     def primed
       require_relative "cli"
       require_relative "runtime"
@@ -298,13 +323,16 @@ module Zr
     end
 
     # Starts the server again, with the new code: the same command.
+    #: (UNIXServer listener) -> void
     def restart(listener)
       say "zr changed; starting again"
       listener.close
-      File.delete(@path) if File.socket?(@path)
+      path = @path #: String
+      File.delete(path) if File.socket?(path)
       exec(*@argv)
     end
 
+    #: (String line) -> void
     def say(line)
       @log&.puts("zr server: #{line}")
       @log&.flush

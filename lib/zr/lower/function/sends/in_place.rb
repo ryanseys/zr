@@ -14,6 +14,7 @@ module Zr
 
         # The global of a literal receiver's class, or nil. A Symbol, nil,
         # true and false have no singleton class.
+        #: (untyped recv) -> String?
         def literal_class(recv)
           return nil unless recv.is_a?(Hir::Literal)
 
@@ -27,6 +28,7 @@ module Zr
 
         # Whether a site can use a def's direct entry: only positional
         # arguments, four at most, so the site proves the count.
+        #: (Hir::Send node) -> bool
         def direct_site?(node)
           node.args.size <= DIRECT_ARGS && node.kwargs.nil? && node.args.none?(Hir::Splat)
         end
@@ -41,6 +43,7 @@ module Zr
         # name, so only a site with that name pays for its test. `size`
         # and `length` can be Array's or a reader's, so they test both. A
         # traced program keeps the call, as `opt_send` does.
+        #: (Hir::Send node) -> Array[Symbol]
         def site_shapes(node)
           return [] if node.block || node.kwargs || node.args.any?(Hir::Splat) || traced?
           # In an `initialize`, no check or accessor is worth a test.
@@ -57,6 +60,7 @@ module Zr
         # accessors are `Sends#accessor_hits`). A check that the fast path
         # cannot decide goes to `call`, the cell's own function, which the
         # cell already found to be valid.
+        #: (Symbol shape, CallSite site, String klass, String call) -> void
         def in_place(shape, site, klass, call)
           recv = site.recv
           merge = site.merge
@@ -76,6 +80,7 @@ module Zr
         # receiver, decide inline from the classes. For a module or a class
         # not ranked yet, call the kernel. If that does not decide, go to
         # `call`.
+        #: (String recv, String obj, String merge, String call) -> void
         def mod_eqq_in_place(recv, obj, merge, call)
           classed = @f.label
           asked = @f.label
@@ -88,16 +93,18 @@ module Zr
 
         # Whether the class `klass` is ranked (FL_RANKED): under Object,
         # with its rank table built, and in no box.
+        #: (String klass) -> String
         def ranked?(klass)
           @f.icmp("ne", @f.band(@f.fetch("i64", klass, off(@l.layout("RBasic"), "flags")), imm(@l.const("FL_RANKED"))), imm(0))
         end
 
         # The class of any value: a cell's from its header, the rest from
         # the kernel.
+        #: (String v) -> String
         def class_of(v)
           cell = @f.label
           special = @f.label
-          have, (klass,) = @f.block(["i64"])
+          have, (klass,) = @f.block(["i64"]) #: [String, [String]]
           @f.brif(@f.band(@f.icmp("eq", @f.band(v, imm(7)), imm(0)), @f.icmp("ugt", v, @qnil)), cell, special)
           switch(cell)
           @f.jump(have, [@f.fetch("i64", v, off(@l.layout("RBasic"), "klass"))])
@@ -112,6 +119,7 @@ module Zr
         # `klass`'s table where it can be. All other cases (a module, a
         # class with no table yet, a box's view) go to `open`, the path
         # that calls the kernel, which builds the tables.
+        #: (String klass, String mod, String merge, String open) -> void
         def is_a_in_place(klass, mod, merge, open)
           ext_of = @l.layout("RClass")
           ext = @l.layout("ClassExt")
@@ -138,6 +146,7 @@ module Zr
         # frozen, and a cell has a flag. This is inline and not a call,
         # because the kernel returns a Bool, which is an i32 in wasm, but
         # every Value is an i64.
+        #: (String recv, String merge) -> void
         def frozen_in_place(recv, merge)
           cell = @f.label
           special = @f.label
@@ -150,6 +159,7 @@ module Zr
         end
 
         # A fast result, or nil if the call must decide.
+        #: (String v, String merge, String call) -> void
         def answered(v, merge, call)
           settled = @f.label
           @f.brif(@f.icmp("eq", v, @qnil), call, settled)
@@ -157,6 +167,7 @@ module Zr
           @f.jump(merge, [v])
         end
 
+        #: (String cond) -> String
         def ruby_bool(cond) = @f.csel(cond, imm(@l.const("QTRUE")), imm(@l.const("QFALSE")))
 
         # An accessor's full body at the site. The cell's entry is an
@@ -174,6 +185,7 @@ module Zr
         # element at the entry's index (`struct_member_in_place`).
         #
         # Clear the keyword word as the accessor call would.
+        #: (Symbol shape, CallSite site, String slow, ?(String | bool)? member) -> void
         def accessor_in_place(shape, site, slow, member = nil)
           recv = site.recv
           entry = site.entry
@@ -226,6 +238,7 @@ module Zr
 
         # Whether the cell's shape `held` is a struct member's reader or
         # writer, for an accessor `shape`.
+        #: (Symbol shape, String held) -> String
         def struct_member?(shape, held)
           @f.icmp("eq", held, imm(@l.const(shape == :writer ? "SHAPE_STRUCT_WRITER" : "SHAPE_STRUCT_READER")))
         end
@@ -235,6 +248,7 @@ module Zr
         # of `values`, the struct's values Array. Values that are not an
         # Array yet (nil until the first read of a struct from `allocate`)
         # or an index past their end go to `slow`.
+        #: (Symbol shape, String values, String index, String argv, String merge, String slow) -> void
         def struct_member_in_place(shape, values, index, argv, merge, slow)
           array = @f.label
           inside = @f.label

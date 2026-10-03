@@ -3,12 +3,12 @@ module Zr
   module IR
     class Interp
       class Frame < Data
-        attr_reader values: Hash[String, untyped]
-        attr_reader slot_at: untyped
-        attr_reader types: untyped
+        attr_reader values: Hash[String, Integer]
+        attr_reader slot_at: Array[Integer]
+        attr_reader types: Types
 
-        def self.new: (Hash[String, untyped] values, untyped slot_at, untyped types) -> instance
-                    | (values: Hash[String, untyped], slot_at: untyped, types: untyped) -> instance
+        def self.new: (Hash[String, Integer] values, Array[Integer] slot_at, Types types) -> instance
+                    | (values: Hash[String, Integer], slot_at: Array[Integer], types: Types) -> instance
       end
     end
   end

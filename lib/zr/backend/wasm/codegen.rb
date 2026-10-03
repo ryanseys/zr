@@ -32,6 +32,20 @@ module Zr
       # its own imports. A function's address is its index in the one table,
       # starting at 1 so that a pointer is never zero. `call_indirect` uses that table.
       class Codegen
+        # @rbs @functions: Array[IR::Function]
+        # @rbs @data: Array[Obj::Datum]
+        # @rbs @prelude: Prelude?
+        # @rbs @pending: pending?
+        # @rbs @imports: Array[Import]
+        # @rbs @shims: Array[String]
+        # @rbs @index: Hash[String, Integer]
+        # @rbs @types: Array[signature]
+        # @rbs @data_at: Hash[String, Integer]
+        # @rbs @data_end: Integer
+        # @rbs @table: Array[String]
+        # @rbs @promised: promised
+        # @rbs @function_named: Hash[String, IR::Function]?
+
         class Refused < Backend::Refused; end
 
         PAGE = 65_536
@@ -46,7 +60,7 @@ module Zr
         # regions. wasm itself allows 100,000 segments.
         SEGMENT_GAP = 16
 
-        TYPE = { "i8" => 0x7F, "i32" => 0x7F, "i64" => 0x7E, "f64" => 0x7C }.freeze
+        TYPE = { "i8" => 0x7F, "i32" => 0x7F, "i64" => 0x7E, "f64" => 0x7C }.freeze #: Hash[String, Integer]
         OP = {
           "i32" => { const: 0x41, add: 0x6A, sub: 0x6B, mul: 0x6C, div_s: 0x6D, div_u: 0x6E, rem_s: 0x6F, rem_u: 0x70,
                      and: 0x71, or: 0x72, xor: 0x73, shl: 0x74, shr_s: 0x75, shr_u: 0x76,
@@ -54,7 +68,7 @@ module Zr
           "i64" => { const: 0x42, add: 0x7C, sub: 0x7D, mul: 0x7E, div_s: 0x7F, div_u: 0x80, rem_s: 0x81, rem_u: 0x82,
                      and: 0x83, or: 0x84, xor: 0x85, shl: 0x86, shr_s: 0x87, shr_u: 0x88,
                      eq: 0x51, ne: 0x52, lt_s: 0x53, lt_u: 0x54, gt_s: 0x55, gt_u: 0x56, le_s: 0x57, le_u: 0x58, ge_s: 0x59, ge_u: 0x5A }
-        }.freeze
+        }.freeze #: Hash[String, Hash[Symbol, Integer]]
 
         WASI = "wasi_snapshot_preview1"
         # An import: the module it comes from, its name, and its wasm
@@ -66,10 +80,10 @@ module Zr
         # The imports that the libc shims and `_start` call. Every module
         # includes them, whatever its functions import.
         OWN_IMPORTS = [Import.new(WASI, "fd_write", [0x7F, 0x7F, 0x7F, 0x7F], [0x7F]),
-                       Import.new(WASI, "proc_exit", [0x7F], [])].freeze
+                       Import.new(WASI, "proc_exit", [0x7F], [])].freeze #: Array[Import]
 
         COND = { "eq" => :eq, "ne" => :ne, "slt" => :lt_s, "sle" => :le_s, "sgt" => :gt_s, "sge" => :ge_s,
-                 "ult" => :lt_u, "ule" => :le_u, "ugt" => :gt_u, "uge" => :ge_u }.freeze
+                 "ult" => :lt_u, "ule" => :le_u, "ugt" => :gt_u, "uge" => :ge_u }.freeze #: Hash[String, Symbol]
 
         # The runtime part of a module, emitted one time and kept. It contains
         # the function names and signatures, their bodies, the types they use,
@@ -89,6 +103,7 @@ module Zr
         # `prelude`: a Prelude that this module extends. `pending`: when this
         # emits a prelude, the function and data names that another module
         # defines, in the order that it must define them.
+        #: (Array[IR::Function] functions, Array[Obj::Datum] data, ?prelude: Prelude?, ?pending: pending?) -> void
         def initialize(functions, data, prelude: nil, pending: nil)
           @functions = functions
           @data = data
@@ -97,6 +112,7 @@ module Zr
         end
 
         # Returns a Prelude of these functions and data, for modules to extend.
+        #: () -> Prelude
         def prelude
           layout
           bodies = @functions.map { |f| Body.new(self, f).emit }
@@ -105,6 +121,7 @@ module Zr
         end
 
         # Returns the module's bytes.
+        #: () -> String
         def emit
           layout
           pre = @prelude
@@ -143,6 +160,7 @@ module Zr
         # it, but wasmtime does: a trap then shows `zr_ivtab_append` in place
         # of `<wasm function 1097>`. It is as large as all symbol names, so
         # it is emitted only on request.
+        #: () -> String
         def names_section
           rows = @index.sort_by(&:last).map { |symbol, index| leb(index) + name(symbol) }
           section(0, name("name") + section(1, vec(rows)))
@@ -151,6 +169,7 @@ module Zr
         # The active data segments for `[address, bytes]` objects: objects
         # closer than SEGMENT_GAP bytes share one segment, with zeros between
         # them.
+        #: (Array[[Integer, String]] placed) -> Array[[Integer, String]]
         def segments(placed)
           placed.sort_by(&:first).each_with_object([]) do |(at, bytes), runs|
             run = runs.last
@@ -168,6 +187,7 @@ module Zr
         # ones first, at their fixed indices). Data comes after the prelude's
         # data, with the pending objects first at their fixed addresses.
         # Imports, shims, types and the table continue from the prelude's.
+        #: () -> void
         def layout
           pre = @prelude
           @imports = pre ? pre.imports : imports
@@ -175,7 +195,7 @@ module Zr
             extra = imported.map(&:name) - @imports.map(&:name)
             raise Refused, "the prelude does not import #{extra.join(", ")}" unless extra.empty?
           end
-          pending = @pending ? @pending[:functions] : []
+          pending = @pending ? @pending[:functions] : [] #: Array[String]
           @shims = pre ? pre.shims : LIBC_SHIMS.keys - @functions.map(&:name) - pending
           @index = {}
           @imports.each_with_index { |import, i| @index[import.name] = i }
@@ -190,7 +210,7 @@ module Zr
           end
           # Initialized data comes before bss, so the written bytes are one
           # run, not one segment between each pair of zero objects.
-          first = pre ? pre.pending[:data].keys : []
+          first = pre ? pre.pending[:data].keys : [] #: Array[String]
           @data = @data.sort_by.with_index { |d, i| [first.index(d.name) || first.size, d.section == :bss ? 1 : 0, i] }
           @functions.each { |f| @index[f.name] = @index.size }
           @types = pre ? pre.types.dup : []
@@ -211,14 +231,16 @@ module Zr
 
         # The module's own imports, then each import that its functions
         # refer to, in order of first use.
+        #: () -> Array[Import]
         def imports
           (OWN_IMPORTS + imported).each_with_object({}) do |import, by_name|
             known = by_name[import.name] ||= import
-            raise Refused, "#{import.name} is imported as #{known.to_a.inspect} and #{import.to_a.inspect}" unless known == import
+            raise Refused, "#{import.name} is imported as #{known.to_h.inspect} and #{import.to_h.inspect}" unless known == import
           end.values
         end
 
         # The imports of the functions, with types from the IR signature of each call.
+        #: () -> Array[Import]
         def imported
           @functions.flat_map do |f|
             f.callees.select(&:from).map do |c|
@@ -232,6 +254,7 @@ module Zr
         # directly after this module's functions. The pending data gets the
         # addresses directly after this module's data, 8 bytes each, except
         # the last, which can be any size.
+        #: () -> void
         def promise
           @promised = { functions: [], data: {} }
           return unless @pending
@@ -247,43 +270,50 @@ module Zr
           end
         end
 
+        #: (IR::Function f) -> signature
         def signature(f)
           [f.params.map { |t| TYPE.fetch(t.split.first) }, f.ret_type ? [TYPE.fetch(f.ret_type)] : []]
         end
 
+        #: (signature t) -> Integer
         def type_index(t)
           @types.index(t) || (@types << t).size - 1
         end
 
+        #: (String name) -> Integer
         def function_index(name)
           @index.fetch(name) { raise Refused, "no function named #{name}" }
         end
 
         # Returns the wasm parameter and result types for a call to `name`,
         # or nil for a function that this module does not know.
+        #: (String name) -> signature?
         def function_type(name)
           return LIBC_SHIMS[name] if @shims.include?(name)
           return @prelude.sigs[name] if @prelude&.sigs&.key?(name)
 
-          @function_named ||= @functions.to_h { |x| [x.name, x] }
-          f = @function_named[name]
+          named = @function_named ||= @functions.to_h { |x| [x.name, x] }
+          f = named[name]
           return signature(f) if f
 
           @imports.find { |import| import.name == name }&.then { |import| [import.params, import.results] }
         end
 
         # The table index that represents the address of `name`.
+        #: (String name) -> Integer
         def table_index(name)
           @table.index(name) + 1
         end
 
         # The wasm type of an IR signature.
+        #: (IR::Sig s) -> signature
         def sig_type(s)
           [s.params.map { |t| TYPE.fetch(t) }, s.ret ? [TYPE.fetch(s.ret)] : []]
         end
 
         # Returns a data object's bytes with every absolute relocation filled
         # in. A function's address is its table index, as for `func_addr`.
+        #: (Obj::Datum d) -> String
         def patched(d)
           bytes = d.bytes.dup
           d.relocs.each do |r|
@@ -295,10 +325,12 @@ module Zr
           bytes
         end
 
+        #: (String name) -> Integer
         def data_address(name)
           @data_at.fetch(name) { raise Refused, "no data named #{name}" }
         end
 
+        #: (Integer at, Hash[String, Integer] placed) -> void
         def place_data(at, placed)
           @data_at = placed
           @data.each do |d|
@@ -310,6 +342,7 @@ module Zr
         end
 
         # `_start`: main(0, 0), then proc_exit with its return value.
+        #: () -> String
         def start_body
           params, results = function_type("main")
           raise Refused, "no main" unless params
@@ -324,26 +357,33 @@ module Zr
 
         # --- encoding ---------------------------------------------------
 
+        #: (Integer n) -> String
         def leb(n) = Bytes.leb(n)
 
+        #: (Integer n) -> String
         def sleb(n) = Bytes.sleb(n)
 
+        #: (Integer n) -> String
         def i32c(n)
           "\x41".b + sleb(n)
         end
 
+        #: (Array[String] items) -> String
         def vec(items)
           leb(items.size) + items.join
         end
 
+        #: (String bytes) -> String
         def vec_bytes(bytes)
           leb(bytes.bytesize) + bytes
         end
 
+        #: (String s) -> String
         def name(s)
           vec_bytes(s.b)
         end
 
+        #: (Integer id, String payload) -> String
         def section(id, payload)
           id.chr + vec_bytes(payload)
         end

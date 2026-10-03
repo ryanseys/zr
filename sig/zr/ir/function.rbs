@@ -20,9 +20,9 @@ module Zr
     class Sig < Data
       attr_reader sig: String
       attr_reader params: Array[String]
-      attr_reader ret: String
+      attr_reader ret: String?
 
-      def self.new: (String sig, Array[String] params, String ret) -> instance
+      def self.new: (String sig, Array[String] params, String? ret) -> instance
     end
 
     class Callee < Struct[untyped]

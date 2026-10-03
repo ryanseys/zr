@@ -34,7 +34,7 @@ module Zr
       OUTPUT = "  -o, --output <path>    write the output to <path>\n"
       PRINT_GEMS = "  --print-gems           print the gems that the output was built with\n"
       # The options that choose the gems of a build.
-      GEMS = <<~TEXT.gsub(/^/, "  ")
+      GEMS = <<~TEXT.gsub(/^/, "  ") #: String
         --gem <name>=<version|dir>
                                use this gem in place of the Gemfile.lock's or zr's
                                own: an installed version, or a directory with a
@@ -46,7 +46,7 @@ module Zr
                                find wait for the run time (the binary then carries
                                the compiler to compile what it finds then)
       TEXT
-      OPTIONS = <<~TEXT.sub("  -h, --help", "#{GEMS}  -h, --help")
+      OPTIONS = <<~TEXT.sub("  -h, --help", "#{GEMS}  -h, --help") #: String
         Options:
           --emit <kind>          binary (the default), obj, or wasm
           --target <triple>      build for <triple>: aarch64-apple-darwin,
@@ -149,11 +149,12 @@ module Zr
           An installed zr also cleans its cache when it grows past
           ZR_CACHE_MAX_GB (default 5).
         TEXT
-      }.freeze
+      }.freeze #: Hash[String, String]
 
       module_function
 
       # Prints the page of `command`, or the list of commands for nil.
+      #: (?String? command) -> void
       def show(command = nil)
         return puts(USAGE) if command.nil?
 
@@ -162,14 +163,16 @@ module Zr
       end
 
       # Whether the options before the first word of `args` ask for help.
+      #: (Array[String] args) -> bool
       def asked?(args) = args.take_while { |word| word.start_with?("-") }.intersect?(FLAGS)
 
       # Whether `word` is one edit (a letter added, removed, changed, or
       # two letters swapped) from `name`.
+      #: (String word, String name) -> bool
       def near?(word, name)
         return false if (word.size - name.size).abs > 1
 
-        a, b = [word, name].sort_by(&:size)
+        a, b = [word, name].sort_by(&:size) #: [String, String]
         i = 0
         i += 1 while i < a.size && a[i] == b[i]
         return a[i..] == b[(i + 1)..] if a.size < b.size

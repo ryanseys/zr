@@ -8,7 +8,10 @@ module Zr
       # true and binds its captures as it runs. A failed check in a
       # single-pattern form records the reason, and the final raise reads it.
       module Patterns
+        # @type instance: Build
+
         # A hidden local of the innermost scope.
+        #: (Symbol | String hint) -> Symbol
         def temp(hint)
           @temp_serial = (@temp_serial || 0) + 1
           name = :"%#{hint}#{@temp_serial}"
@@ -16,21 +19,28 @@ module Zr
           name
         end
 
+        # A Match's `why`, `key` and `matchee` are nil together, and are
+        # read only when they are not.
+        #: (Symbol? name, Integer line) -> Local
         def read(name, line) = Local.new(name, 0, line)
 
+        #: (Symbol? name, node value, Integer line) -> Assign
         def set(name, value, line) = Assign.new(name, 0, value, line)
 
-        #: (untyped recv, String name, Array[untyped] args, Integer line, **untyped options) -> Send
+        #: (node? recv, Symbol name, Array[node] args, Integer line, **untyped options) -> Send
         def send_to(recv, name, args, line, **options) = Send.of(recv, name, args, line, **options)
 
         # A core class by name. No constant of the program can shadow it.
+        #: (Symbol name, Integer line) -> Core
         def core(name, line) = Core.new(name, line)
 
         # `!value` on truthiness only, so a program's `!` cannot change it.
         # `until` and an `unless` guard test this, as compile.c branches.
+        #: (node value, Integer line) -> If
         def falsy(value, line) = If.new(value, Literal.new(false, line), Literal.new(true, line), line)
 
         # `case value; in pattern [if guard] then body; ...; else other; end`
+        #: (Prism::CaseMatchNode node, ?taken: bool) -> Seq
         def case_match(node, taken: true)
           line = node.location.start_line
           # Number the branches before the chain is built, because the chain
@@ -50,6 +60,7 @@ module Zr
         end
 
         # `value => pattern`: nil, or the raise.
+        #: (Prism::MatchRequiredNode node) -> Seq
         def match_required(node)
           line = node.location.start_line
           subject = temp(:subject)
@@ -59,6 +70,7 @@ module Zr
         end
 
         # `value in pattern`: true or false.
+        #: (Prism::MatchPredicateNode node) -> Seq
         def match_predicate(node)
           line = node.location.start_line
           subject = temp(:subject)
@@ -73,6 +85,7 @@ module Zr
         # One assignment per name, with the group or nil as its value, not
         # one in each branch: ruby binds a named group once, and
         # `Ractor.shareable_proc` counts a local's bindings.
+        #: (Prism::MatchWriteNode node) -> Seq
         def match_write(node)
           line = node.location.start_line
           result = temp(:matched)
@@ -88,6 +101,7 @@ module Zr
         # is only the subject's to_s. After a single pattern, it is the
         # subject's inspect and the recorded reason. For a missing key, it
         # is the key error with its key and matchee.
+        #: (Symbol subject, Match match, Integer line) -> node
         def no_match(subject, match, line)
           return send_to(core(:Kernel, line), :raise, [core(:NoMatchingPatternError, line),send_to(read(subject, line), :to_s, [], line)], line) if match.why.nil?
 
@@ -103,8 +117,15 @@ module Zr
 
         # One match's state: where a failed check records its reason.
         class Match
-          attr_reader :why, :key, :matchee
+          # @rbs @b: Build
+          # @rbs @why: Symbol?
+          # @rbs @key: Symbol?
+          # @rbs @matchee: Symbol?
+          # @rbs @caches: Hash[Symbol, Symbol]?
 
+          attr_reader :why, :key, :matchee #: Symbol?
+
+          #: (Build build, Symbol? why, Symbol? key, Symbol? matchee) -> void
           def initialize(build, why, key, matchee)
             @b = build
             @why = why
@@ -114,6 +135,7 @@ module Zr
 
           # The hidden locals cleared before the match runs: the reason,
           # and every deconstruct cache (a loop runs the same case again).
+          #: (Integer line) -> Array[Assign]
           def resets(line)
             names = (@caches || {}).values
             names += [@why, @key, @matchee] unless @why.nil?
@@ -121,14 +143,21 @@ module Zr
           end
 
           # An `in` clause's pattern with its guard.
+          #: (untyped node, Symbol subject) -> node
           def clause(node, subject)
             case node
-            when Prism::IfNode then guarded(node.statements.body.first, node.predicate, subject, true)
-            when Prism::UnlessNode then guarded(node.statements.body.first, node.predicate, subject, false)
+            when Prism::IfNode
+              # A guard always has its pattern as its statement.
+              statements = node.statements #: Prism::StatementsNode
+              guarded(statements.body.first, node.predicate, subject, true)
+            when Prism::UnlessNode
+              statements = node.statements #: Prism::StatementsNode
+              guarded(statements.body.first, node.predicate, subject, false)
             else pattern(node, subject)
             end
           end
 
+          #: (Prism::node pattern_node, Prism::node predicate, Symbol subject, bool positive) -> And
           def guarded(pattern_node, predicate, subject, positive)
             line = predicate.location.start_line
             guard = @b.expr(predicate)
@@ -137,6 +166,7 @@ module Zr
           end
 
           # The test for `node` against the hidden local `subject`.
+          #: (untyped node, Symbol subject) -> node
           def pattern(node, subject)
             line = node.location.start_line
             case node
@@ -155,6 +185,7 @@ module Zr
           end
 
           # `pattern === subject`. The reason gives both.
+          #: (node value, Symbol subject, Integer line) -> node
           def value_pattern(value, subject, line)
             return @b.send_to(value, :===, [@b.read(subject, line)], line) if @why.nil?
 
@@ -164,28 +195,34 @@ module Zr
           end
 
           # `x`: the subject bound to the local.
+          #: (untyped target, node value, Integer line) -> Seq
           def bind(target, value, line)
             Seq.new([Assign.new(target.name, target.depth, value, line), Literal.new(true, line)], line)
           end
 
           # `test`, or false with `reason` recorded.
+          #: (node test, node reason, Integer line) -> node
           def failing(test, reason, line)
             return test if @why.nil?
 
             Or.new(test, Seq.new([@b.set(@why, reason, line), @b.set(@key, Literal.new(nil, line), line), Literal.new(false, line)], line), line)
           end
 
+          #: (Symbol name, Integer line) -> Send
           def inspect_of(name, line) = @b.send_to(@b.read(name, line), :inspect, [], line)
 
           # `Const === subject` if the pattern has a constant.
+          #: (Prism::ArrayPatternNode | Prism::FindPatternNode | Prism::HashPatternNode node, Symbol subject, Integer line) -> Array[node]
           def constant_test(node, subject, line)
             node.constant ? [value_pattern(@b.expr(node.constant), subject, line)] : []
           end
 
           # `subject.deconstruct`, called once per subject and kept: an
           # Array, or a TypeError.
+          #: (Symbol subject, Integer line) -> [Symbol, Array[node]]
           def deconstructed(subject, line)
-            cache = (@caches ||= {})[subject] ||= @b.temp(:deconstructed)
+            caches = @caches ||= {} #: Hash[Symbol, Symbol]
+            cache = caches[subject] ||= @b.temp(:deconstructed)
             d = @b.temp(:elements)
             responds = @b.send_to(@b.read(subject, line), :respond_to?, [Literal.new(:deconstruct, line)], line)
             call = Or.new(@b.read(cache, line), @b.set(cache, @b.send_to(@b.read(subject, line), :deconstruct, [], line), line), line)
@@ -196,13 +233,16 @@ module Zr
             [d, steps]
           end
 
+          #: (Symbol d, node index, Integer line) -> Send
           def element(d, index, line)
             @b.send_to(@b.read(d, line), :[], [index], line)
           end
 
+          #: (Symbol d, Integer line) -> Send
           def size_of(d, line) = @b.send_to(@b.read(d, line), :size, [], line)
 
           # `[a, b, *rest, c]`, with an optional constant in front.
+          #: (Prism::ArrayPatternNode node, Symbol subject, Integer line) -> node
           def array_pattern(node, subject, line)
             steps = constant_test(node, subject, line)
             d, ask = deconstructed(subject, line)
@@ -226,6 +266,7 @@ module Zr
           end
 
           # `[*pre, a, b, *post]`: the first position where the middle matches.
+          #: (untyped node, Symbol subject, Integer line) -> node
           def find_pattern(node, subject, line)
             steps = constant_test(node, subject, line)
             d, ask = deconstructed(subject, line)
@@ -235,16 +276,17 @@ module Zr
             steps << failing(@b.send_to(size_of(d, line), :>=, [Literal.new(m, line)], line), Interp.new([inspect_of(d, line), Literal.new(" does not match to find pattern", line)], line), line)
             i = @b.temp(:at)
             found = @b.temp(:found)
-            before = (@caches ||= {}).keys
+            caches = @caches ||= {} #: Hash[Symbol, Symbol]
+            before = caches.keys
             tries = middle.each_with_index.map { |p, k| nested(p, element(d, @b.send_to(@b.read(i, line), :+, [Literal.new(k, line)], line), line), line) }
             # Each position that the loop tries is a new subject for the
             # parts, so their deconstruct caches start empty on each iteration.
-            fresh = (@caches.keys - before).map { |s| @b.set(@caches[s], Literal.new(nil, line), line) }
+            fresh = (caches.keys - before).map { |s| @b.set(caches[s], Literal.new(nil, line), line) }
             test = If.new(conjunction(tries, line), @b.set(found, Literal.new(true, line), line), @b.set(i, @b.send_to(@b.read(i, line), :+, [Literal.new(1, line)], line), line), line)
             body = Seq.new([*fresh, test], line)
             more = @b.send_to(@b.send_to(@b.read(i, line), :+, [Literal.new(m, line)], line), :<=, [size_of(d, line)], line)
             loop = While.new(And.new(@b.falsy(@b.read(found, line), line), more, line), body, line)
-            binds = []
+            binds = [] #: Array[node]
             binds << bind(node.left.expression, @b.send_to(@b.read(d, line), :[], [Literal.new(0, line), @b.read(i, line)], line), line) if node.left.expression
             if node.right.expression
               from = @b.send_to(@b.read(i, line), :+, [Literal.new(m, line)], line)
@@ -257,6 +299,7 @@ module Zr
           end
 
           # `{k: pattern, j:, **rest}`, with an optional constant in front.
+          #: (untyped node, Symbol subject, Integer line) -> node
           def hash_pattern(node, subject, line)
             steps = constant_test(node, subject, line)
             keys = node.elements.map { |e| e.key.unescaped.to_sym }
@@ -292,6 +335,7 @@ module Zr
           end
 
           # `d.key?(key)`, else the key error's facts recorded.
+          #: (Symbol d, Literal key, Integer line) -> node
           def key_present(d, key, line)
             test = @b.send_to(@b.read(d, line), :key?, [key], line)
             return test if @why.nil?
@@ -301,6 +345,7 @@ module Zr
           end
 
           # A copy of `d` without `keys`.
+          #: (Symbol d, Array[Symbol] keys, Integer line) -> Seq
           def without_keys(d, keys, line)
             copy = @b.temp(:copy)
             deletes = keys.map { |k| @b.send_to(@b.read(copy, line), :delete, [Literal.new(k, line)], line) }
@@ -309,11 +354,13 @@ module Zr
 
           # A sub-pattern against `value`, kept in its own hidden local so
           # its deconstruct is called once.
+          #: (Prism::node node, node value, Integer line) -> Seq
           def nested(node, value, line)
             inner = @b.temp(:part)
             Seq.new([@b.set(inner, value, line), pattern(node, inner)], line)
           end
 
+          #: (Array[node] steps, Integer line) -> node
           def conjunction(steps, line)
             steps.reduce { |a, s| And.new(a, s, line) } || Literal.new(true, line)
           end

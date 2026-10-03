@@ -23,17 +23,42 @@ module Zr
       # results never share a local with its arguments, because the overflow
       # instructions read their arguments again after they write the first result.
       class Locals
+        # @rbs @f: IR::Function
+        # @rbs @values: Array[[String, Integer]]
+        # @rbs @base: Integer
+        # @rbs @id: Hash[String, Integer]
+        # @rbs @wasm: Array[Integer]
+        # @rbs @home: Array[Integer?]
+        # @rbs @succ: Array[Array[Integer]]
+        # @rbs @pred: Array[Array[Integer]]
+        # @rbs @last: Array[Hash[Integer, Integer]]
+        # @rbs @uses: Array[Array[Integer]]
+        # @rbs @in: Array[Array[Integer]]
+        # @rbs @out: Array[Hash[Integer, bool]]
+        # @rbs @reached: Integer
+        # @rbs @colour: Array[Integer?]
+        # @rbs @types: Array[Integer]
+        # @rbs @of_type: Hash[Integer, Array[Integer]]
+        # @rbs @freed: Hash[Integer, Array[Integer]]
+        # @rbs @cursor: Hash[Integer, Integer]
+        # @rbs @busy: Array[Integer?]
+        # @rbs @stamp: Integer
+        # @rbs @local: Hash[String, Integer]
+
         # Returns `{ value => local index }` for `values` (`[value, wasm type]`
         # pairs), and the wasm type of each local from `base`, the first
         # shared local.
+        #: (IR::Function f, Array[[String, Integer]] values, Integer base) -> [Hash[String, Integer], Array[Integer]]
         def self.of(f, values, base) = new(f, values, base).assign
 
+        #: (IR::Function f, Array[[String, Integer]] values, Integer base) -> void
         def initialize(f, values, base)
           @f = f
           @values = values
           @base = base
         end
 
+        #: () -> [Hash[String, Integer], Array[Integer]]
         def assign
           number
           live
@@ -46,6 +71,7 @@ module Zr
         # Finds a number for each value, the block that defines it, each
         # block's successors and predecessors, and the index of the last
         # instruction that reads each value in its block.
+        #: () -> void
         def number
           @id = {}
           @wasm = []
@@ -54,7 +80,7 @@ module Zr
             @wasm << t
           end
           blocks = @f.blocks
-          index = {}
+          index = {} #: Hash[String, Integer]
           blocks.each_with_index { |b, bi| index[b.name] = bi }
           @home = Array.new(@wasm.size)
           @succ = []
@@ -63,7 +89,7 @@ module Zr
           @uses = []
           blocks.each_with_index do |b, bi|
             b.params.each { |v, _| (n = @id[v]) && @home[n] = bi }
-            last = {}
+            last = {} #: Hash[Integer, Integer]
             id = @id
             b.insts.each_with_index do |i, k|
               # Only a value has a number. An immediate or an entity name
@@ -83,11 +109,12 @@ module Zr
         # Sets `@in[block]`, the values live into the block, and
         # `@out[block]`, a Hash of the values live out of it. It walks back
         # from each use.
+        #: () -> void
         def live
           n = @f.blocks.size
           @in = Array.new(n) { [] }
           @out = Array.new(n) { {} }
-          seen = Array.new(n)
+          seen = Array.new(n) #: Array[Integer?]
           @uses.each_with_index do |used, bi|
             used.each do |v|
               home = @home[v]
@@ -112,13 +139,14 @@ module Zr
 
         # Returns the postorder of the blocks reachable from the entry.
         # `@reached` is their count. The unreachable blocks come after them.
+        #: () -> Array[Integer]
         def postorder
           seen = Array.new(@f.blocks.size, false)
-          order = []
-          stack = [[0, 0]]
+          order = [] #: Array[Integer]
+          stack = [[0, 0]] #: Array[[Integer, Integer]]
           seen[0] = true
           until stack.empty?
-            frame = stack.last
+            frame = stack.last #: [Integer, Integer]
             bi, k = frame
             if k < @succ[bi].size
               frame[1] += 1
@@ -136,6 +164,7 @@ module Zr
           order + seen.each_index.reject { |bi| seen[bi] }
         end
 
+        #: () -> void
         def colour
           order = postorder
           @colour = Array.new(@wasm.size)
@@ -160,6 +189,7 @@ module Zr
         # live value uses it. Locals freed in this block go on a stack. A
         # cursor over each type's locals finds the others. Thus the cost of a
         # block depends on its live values, not on all locals of the function.
+        #: (Integer bi) -> void
         def colour_block(bi)
           b = @f.blocks[bi]
           @stamp += 1
@@ -196,6 +226,7 @@ module Zr
 
         # A value that is not live out of its block frees its local at its
         # last read in the block. It frees the local one time only.
+        #: (Integer n, Hash[Integer, Integer] last, Hash[Integer, bool] out) -> void
         def free_read(n, last, out)
           return if out.key?(n)
 
@@ -203,6 +234,7 @@ module Zr
           release(n)
         end
 
+        #: (Integer n) -> void
         def take(n)
           t = @wasm[n]
           c = @freed[t].pop
@@ -226,6 +258,7 @@ module Zr
           @colour[n] = c
         end
 
+        #: (Integer n) -> void
         def release(n)
           c = @colour[n] or return
           @busy[c] = nil

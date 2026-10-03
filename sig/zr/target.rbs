@@ -1,0 +1,6 @@
+# The class instance variable of lib/zr/target.rb. Its methods are inline.
+module Zr
+  class Target
+    self.@registry: Hash[String, Target]
+  end
+end

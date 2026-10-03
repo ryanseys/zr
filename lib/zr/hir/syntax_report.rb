@@ -4,6 +4,7 @@ module Zr
   module Hir
     # A SyntaxError about the file at `path`, whose `path` gives that file
     # as the one from ruby's compiler does.
+    #: (String message, String path) -> SyntaxError
     def self.syntax_error(message, path)
       SyntaxError.new(message).tap { |e| e.instance_variable_set(:@path, path) }
     end
@@ -16,6 +17,12 @@ module Zr
     # argument (an unknown encoding comment) is an ArgumentError, and one
     # about a load is a LoadError.
     class SyntaxReport
+      # @rbs @result: Prism::ParseResult
+      # @rbs @file: String
+      # @rbs @bytes: String
+      # @rbs @offsets: Array[Integer]
+      # @rbs @start_line: Integer
+
       # A line is cut this many bytes after its last caret, or before the
       # first caret if it is this far in.
       TRUNCATE = 30
@@ -23,8 +30,10 @@ module Zr
       # @rbs skip -- typed in sig/zr/hir/syntax_report.rbs
       Row = Data.define(:error, :line, :column_start, :column_end)
 
+      #: (Prism::ParseResult result, String file) -> Exception
       def self.error(result, file) = new(result, file).error
 
+      #: (Prism::ParseResult result, String file) -> void
       def initialize(result, file)
         @result = result
         @file = file
@@ -33,6 +42,7 @@ module Zr
         @start_line = result.source.start_line
       end
 
+      #: () -> Exception
       def error
         errors = @result.errors
         errors.each do |e|
@@ -54,6 +64,7 @@ module Zr
       private
 
       # Its message is bytes, as CRuby's `rb_exc_new` makes it.
+      #: (Prism::ParseError e) -> ArgumentError
       def argument_error(e)
         text = "#{@file}:#{e.location.start_line}: #{e.message}".b
         text << "\n" << annotated([e], inline: false) if utf8?(e.location)
@@ -61,15 +72,18 @@ module Zr
       end
 
       # Whether every line the location touches is valid UTF-8.
+      #: (Prism::Location location) -> bool
       def utf8?(location)
         from = @offsets[location.start_line - @start_line]
         last = location.end_line - @start_line
         to = last >= @offsets.size - 1 ? @bytes.bytesize : @offsets[last + 1]
-        @bytes.byteslice(from, to - from).force_encoding(Encoding::UTF_8).valid_encoding?
+        slice = @bytes.byteslice(from, to - from) #: String
+        slice.force_encoding(Encoding::UTF_8).valid_encoding?
       end
 
       # The errors in source order, each with its line and byte columns.
       # An error at the same position as an earlier one goes before it.
+      #: (Array[Prism::ParseError] errors) -> Array[Row]
       def sorted(errors)
         errors.each_with_object([]) do |e, rows|
           loc = e.location
@@ -80,11 +94,13 @@ module Zr
         end
       end
 
+      #: (Integer line) -> Integer
       def line_length(line)
         index = line - @start_line
         @offsets[index + 1] - @offsets[index] - 1
       end
 
+      #: (Array[Prism::ParseError] errors, inline: bool) -> String
       def annotated(errors, inline:)
         rows = sorted(errors)
         widest = [rows.first.line, rows.last.line].map { |n| n.negative? ? -n * 10 : n }.max
@@ -109,7 +125,8 @@ module Zr
 
           if index.zero? || row.line != last_line
             last_column_start = row.column_start
-            column_end = rows[index..].take_while { |r| r.line == row.line }.map(&:column_end).max
+            following = rows[index..] #: Array[Row]
+            column_end = following.take_while { |r| r.line == row.line }.map(&:column_end).max #: Integer
             out << "> " << source_line(number, row.line, row.column_start, column_end)
           end
 
@@ -132,6 +149,7 @@ module Zr
         out
       end
 
+      #: () -> Integer
       def last_source_line
         lines = @offsets.size
         lines -= 1 if @offsets.last == @bytes.bytesize
@@ -140,6 +158,7 @@ module Zr
 
       # A space for each character before the error, a caret for its
       # first, a tilde for each after.
+      #: (Row row, Integer start, Integer last_column_start) -> String
       def carets(row, start, last_column_start)
         out = "".b
         column = 0
@@ -162,6 +181,7 @@ module Zr
 
       # Line `line` of the source with its number, cut after `column_end`
       # and before `column_start` if either is far into the line.
+      #: (String number, Integer line, ?Integer column_start, ?Integer column_end) -> String
       def source_line(number, line, column_start = 0, column_end = 0)
         index = line - @start_line
         start = @offsets[index]
@@ -187,7 +207,8 @@ module Zr
           out << "... "
           start += column_start
         end
-        out << @bytes.byteslice(start, finish - start)
+        text = @bytes.byteslice(start, finish - start) #: String
+        out << text
         if cut
           out << " ...\n"
         elsif finish == @bytes.bytesize && @bytes.getbyte(finish - 1) != 10
@@ -196,14 +217,17 @@ module Zr
         out
       end
 
+      #: (Integer at) -> Integer
       def step(at) = [char_width(at), 1].max
 
       # The byte count of the character at `at` in the source's encoding,
       # or 0 if there is none or it is not valid.
+      #: (Integer at) -> Integer
       def char_width(at)
         return 0 if at >= @bytes.bytesize
 
-        char = @bytes.byteslice(at, 4).force_encoding(@result.encoding)[0]
+        bytes = @bytes.byteslice(at, 4) #: String
+        char = bytes.force_encoding(@result.encoding)[0] #: String
         char.valid_encoding? ? char.bytesize : 0
       end
     end

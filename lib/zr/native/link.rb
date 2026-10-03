@@ -16,6 +16,7 @@ module Zr
       module_function
 
       # Returns nil, or the linker's message when it refused.
+      #: (Array[String] objects, String out, ?flags: Array[String], ?target: Target) -> String?
       def run(objects, out, flags: [], target: Target.default)
         log, ok = Toolchain.run([Toolchain.command(target, "cc"), "-o", out, *objects, *flags])
         ok ? nil : log.strip

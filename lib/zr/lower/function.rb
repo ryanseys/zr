@@ -39,6 +39,58 @@ module Zr
     # the record's first slot, and the block reads and writes them there.
     # A block gets outer locals through its Proc's env chain.
     class Function
+      # @rbs @l: Lower
+      # @rbs @name: String
+      # @rbs @twin: String?
+      # @rbs @twin_of: String?
+      # @rbs @locals: Array[Symbol]
+      # @rbs @body: untyped
+      # @rbs @def: untyped
+      # @rbs @kind: Symbol
+      # @rbs @direct: bool
+      # @rbs @outer: Function | Outer | nil
+      # @rbs @frame: Machine::Layout
+      # @rbs @task: Machine::Layout
+      # @rbs @cref_layout: Machine::Layout
+      # @rbs @proc_layout: Machine::Layout
+      # @rbs @env_layout: Machine::Layout
+      # @rbs @slot_of: Hash[Symbol, Integer]
+      # @rbs @captures: Hash[Symbol, Integer]
+      # @rbs @writes: Array[Symbol]
+      # @rbs @has_env: bool
+      # @rbs @raw_block: Symbol?
+      # @rbs @sites: Integer
+      # @rbs @loops: Array[Loop]
+      # @rbs @regions: Array[Regions::Region]
+      # @rbs @retries: Array[[String, Integer, Integer]]
+      # @rbs @f: IR::Function
+      # @rbs @base: Integer
+      # @rbs @nvalues: Integer
+      # @rbs @sp: Integer
+      # @rbs @record: String
+      # @rbs @rec: String
+      # @rbs @task_addr: String
+      # @rbs @prev: String
+      # @rbs @meta: String
+      # @rbs @line: Integer?
+      # @rbs @proc: String
+      # @rbs @qnil: String
+      # @rbs @self: String
+      # @rbs @cref: String
+      # @rbs @blk: String
+      # @rbs @env: String
+      # @rbs @body_label: String?
+      # @rbs @attributes: Array[Symbol]?
+      # @rbs @bindings: Hash[Symbol, Integer]?
+      # @rbs @bound: Array[Symbol]?
+      # @rbs @funcalls: Hash[Hir::Send, bool]?
+      # @rbs @landing: String?
+      # @rbs @inline_scope: Iterators::InlineScope?
+      # @rbs @line_rec: String?
+      # @rbs @inline: Inline::Site?
+      # @rbs @native_operators: bool?
+      # @rbs @native_each: bool?
+
       include Expressions
       include Definitions
       include Sends
@@ -51,20 +103,27 @@ module Zr
       include Inline
       include Iterators
 
-      KINDS = { main: "KIND_MAIN", top: "KIND_TOP", def: "KIND_DEF", class: "KIND_CLASS", module: "KIND_MODULE", sclass: "KIND_SCLASS", block: "KIND_BLOCK", eval: "KIND_EVAL" }.freeze
+      KINDS = { main: "KIND_MAIN", top: "KIND_TOP", def: "KIND_DEF", class: "KIND_CLASS", module: "KIND_MODULE", sclass: "KIND_SCLASS", block: "KIND_BLOCK", eval: "KIND_EVAL" }.freeze #: Hash[Symbol, String]
       # The maximum arguments that a direct entry takes in registers.
       # `direct0` to `direct4` are its ABIs, one for each count
       # (lib/zr/runtime/kernel/class.rb).
       DIRECT_ARGS = 4
-      ABI = { main: [], top: [], def: %w[i64 i64 i64 i64 i64 i64], class: %w[i64 i64], module: %w[i64 i64], sclass: %w[i64 i64], block: %w[i64 i64 i64 i64], eval: %w[i64 i64 i64 i64],
-              **(0..DIRECT_ARGS).to_h { |n| [:"direct#{n}", Array.new(4 + n, "i64")] } }.freeze
+      ABI = { main: [], #: Array[String]
+              top: [], #: Array[String]
+              def: %w[i64 i64 i64 i64 i64 i64], class: %w[i64 i64], module: %w[i64 i64], sclass: %w[i64 i64], block: %w[i64 i64 i64 i64], eval: %w[i64 i64 i64 i64],
+              **(0..DIRECT_ARGS).to_h { |n| [:"direct#{n}", Array.new(4 + n, "i64")] } }.freeze #: Hash[Symbol, Array[String]]
+      #: (Integer n) -> Symbol
       def self.direct_abi(n) = :"direct#{n}"
 
       # The `&b` parameter bound to the block as given (a Proc that can
       # still be on the caller's stack), or nil (`Params#raw_block?`).
-      attr_reader :meta, :outer, :kind, :raw_block
+      attr_reader :meta #: String
+      attr_reader :outer #: Function | Outer | nil
+      attr_reader :kind #: Symbol
+      attr_reader :raw_block #: Symbol?
 
       # The Def, Block or body node this function came from.
+      #: () -> untyped
       def def_node
         @def
       end
@@ -75,6 +134,7 @@ module Zr
       # registers with no keyword word and no count check
       # (lib/zr/runtime/kernel/class.rb, MEntry.direct). A traced program's defs
       # use the generic ABI, because its hooks read every frame the same way.
+      #: (Hir::Def node, Lower lower) -> bool
       def self.direct_def?(node, lower)
         p = node.params
         !lower.traced? && p.plain? && p.required.size <= DIRECT_ARGS && p.required.none?(Hir::MultiTarget)
@@ -88,6 +148,17 @@ module Zr
       # with no Proc copy: self is the receiver, the cref is the entry's,
       # and it is always a lambda. It reads the env and the block from the
       # entry's Proc.
+      #
+      # @rbs lower: Lower
+      # @rbs name: String
+      # @rbs locals: Array[Symbol]
+      # @rbs body: untyped
+      # @rbs node: untyped
+      # @rbs kind: Symbol
+      # @rbs outer: Function | Outer | nil
+      # @rbs twin: String?
+      # @rbs twin_of: String?
+      # @rbs return: void
       def initialize(lower, name, locals, body, node, kind, outer: nil, twin: nil, twin_of: nil)
         @l = lower
         @name = name
@@ -162,7 +233,9 @@ module Zr
         @inline = nil
       end
 
+      #: () -> IR::Function
       def lower
+        # @type ivar @body_label: String
         abi = if @direct then Function.direct_abi(@def.params.required.size)
               elsif @twin_of then :def
               else @kind
@@ -195,21 +268,29 @@ module Zr
       # nil if the program does not measure coverage. A block also has
       # one, because `define_method` makes a method from a block, and ruby
       # gives that method the block's location.
+      #: () -> untyped
       def method_cover = %i[def block].include?(@kind) ? @def&.cover : nil
 
       # The record slot of the local in `node`, `node.depth` scopes up.
+      #: (untyped node) -> Integer
       def slot_at(node)
         scope_at(node.depth).slot_index(node)
       end
 
       # A def's entry, block and found node, at their ABI positions.
+      #: () -> String
       def arg_entry = @f.args[@direct ? 1 : 3]
+      #: () -> String
       def arg_blk = @f.args[@direct ? 2 : 4]
+      #: () -> String
       def arg_found = @f.args[@direct ? 3 : 5]
 
       # The function `depth` block scopes out from this one.
+      #: (Integer depth) -> (Function | Iterators::InlineScope | Outer)
       def scope_at(depth)
-        fn = self
+        # Read only after the test that it is set:
+        # @type ivar @inline_scope: Iterators::InlineScope
+        fn = self #: Function | Outer
         # A block body that runs inline (`Iterators`): its own scope is
         # first, and this one is a level out.
         if @inline_scope
@@ -217,16 +298,21 @@ module Zr
 
           depth -= 1
         end
-        depth.times { fn = fn.outer }
+        depth.times do
+          fn = fn.outer #: Function | Outer
+        end
         fn
       end
 
       # The data object the meta emitted for this scope's local names.
+      #: () -> String
       def locals_table = "zr_locals_#{@twin_of || @name}"
 
       # The block that a block function's call gives it.
+      #: () -> String
       def call_block = @twin_of ? arg_blk : @f.args[3]
 
+      #: (untyped node) -> Integer
       def slot_index(node)
         @slot_of.fetch(node.name) { @l.refuse(node, "#{node.name} is not a local of this scope") }
       end
@@ -234,12 +320,14 @@ module Zr
       private
 
       # The program's toplevel gives its file to the runtime for `$0`.
+      #: () -> void
       def program_start
         file = @f.symbol_value(@f.symbol(@l.file_bytes))
         kernel("zr_program_start", file, imm(@l.shown_file.bytesize))
       end
 
       # The file's parse-time warnings, on stderr as the file starts.
+      #: () -> void
       def parse_warnings
         @l.warnings.each do |line|
           text = "#{line}\n"
@@ -253,6 +341,7 @@ module Zr
       # its own parameters as CRuby's does. `:frameless` marks a method
       # that ruby runs as an instruction: it is listed as any method is,
       # and has no backtrace entry.
+      #: () -> Array[Symbol]
       def attributes
         return [] unless @l.internal? && @kind == :def
 
@@ -265,11 +354,13 @@ module Zr
       end
       protected :attributes
 
+      #: (untyped node) -> bool
       def attribute_row?(node)
         node.is_a?(Hir::Send) && node.name == :attr! && node.recv.is_a?(Hir::ConstRead) && node.recv.name == :Primitive &&
           node.args.first.is_a?(Hir::Literal)
       end
 
+      #: () -> bool
       def hidden_def? = attributes.include?(:hidden)
 
       # A core def that matches for its own work keeps its matches in its
@@ -279,6 +370,7 @@ module Zr
       # or `$_` itself (those are the methods that ruby defines to set them).
       # An extension's def also owns them when it matches by a call (Date's
       # parsers match with Regexps that constants hold).
+      #: () -> bool
       def owns_backref?
         return false unless @l.internal? && @kind == :def
         return true if attributes.include?(:own_backref)
@@ -286,12 +378,13 @@ module Zr
         matches?(@body) == :own
       end
 
-      BACKREF_PRIMITIVES = %i[zr_backref_set zr_backref_get zr_lastline_set zr_lastline_get].freeze
-      MATCH_SENDS = %i[match =~ !~ scan sub gsub sub! gsub! partition rpartition].freeze
+      BACKREF_PRIMITIVES = %i[zr_backref_set zr_backref_get zr_lastline_set zr_lastline_get].freeze #: Array[Symbol]
+      MATCH_SENDS = %i[match =~ !~ scan sub gsub sub! gsub! partition rpartition].freeze #: Array[Symbol]
 
       # :own when `node` matches for its own work (a regexp literal, or in an
       # extension a matching call), :caller when it sets or reads the
       # caller's `$~` or `$_`, else nil. :caller wins.
+      #: (untyped node) -> Symbol?
       def matches?(node)
         found = nil
         case node
@@ -320,6 +413,7 @@ module Zr
       # see them. A def marked `:ivars` keeps visible names for the ivars
       # that CRuby writes in Ruby. Prism's and openssl's ports do the same
       # (VISIBLE_IVARS).
+      #: (Symbol name) -> Symbol
       def ivar_name(name)
         return name unless @l.internal?
         return name if Hir::VISIBLE_IVARS.include?(@l.file)
@@ -332,7 +426,9 @@ module Zr
       # The prologue: the stack check, then link the record into the
       # task's chain, fill its header, set the slots to nil, and make the
       # Env if a block needs one.
+      #: () -> void
       def enter
+        # @type ivar @line: Integer
         @base = if stack_env? then 1 + @locals.size
                 elsif @has_env then 1
                 else @locals.size
@@ -435,8 +531,10 @@ module Zr
       # to a cell (`zr_env_escape`, lib/zr/runtime/kernel/proc.rb) and points the
       # image's `slots` to the cell's slots. Every read and write loads
       # `slots` first.
+      #: () -> bool
       def stack_env? = @has_env && %i[def block].include?(@kind)
 
+      #: (String parent) -> String
       def env_image(parent)
         env = @f.stack_addr(@f.slot(@env_layout.size))
         basic = @l.layout("RBasic")
@@ -452,6 +550,7 @@ module Zr
 
       # Raises SystemStackError if the record is below the task's stack
       # limit. Nothing is linked yet, so the function returns at once.
+      #: () -> void
       def stack_check
         limit = @f.fetch("i64", @task_addr, off(@task, "stack_limit"))
         over = @f.cold(@f.label)
@@ -465,7 +564,10 @@ module Zr
       # The landing block: a pending unwind leaves the function, unless
       # it is a `return` from a block of this method. Then this function
       # returns its value.
+      #: () -> void
       def land
+        # `lower` calls this only when the landing block exists:
+        # @type ivar @landing: String
         switch(@landing, open: true)
         # A block frame also catches one: an unwind whose home is this
         # frame belongs to it. This occurs when the block is a lambda and
@@ -480,6 +582,7 @@ module Zr
 
       # Returns the value if the catch that the landing block just ran
       # took the unwind. Otherwise the landing block continues.
+      #: (String caught) -> void
       def take(caught)
         done = @f.label
         none = @f.label
@@ -490,6 +593,7 @@ module Zr
       end
 
       # A parameter's default runs in the prologue, and stages as the body does.
+      #: () -> Array[untyped]
       def default_expressions
         return [] unless %i[def block].include?(@kind)
 
@@ -500,6 +604,7 @@ module Zr
       # The record slots for the prologue: one for a method's keyword
       # Hash, one for the Array that a block spreads over its parameters,
       # and one for each level of a destructuring parameter.
+      #: () -> Integer
       def prologue_slots
         return 0 unless %i[def block].include?(@kind)
 
@@ -511,6 +616,7 @@ module Zr
 
       # The scope returns `value`. It fires its closing event first,
       # unless it never opened (an arity error leaves before the event).
+      #: (String value, ?unwinding: bool, ?opened: bool, ?line: Integer?) -> void
       def leave(value, unwinding: false, opened: true, line: nil)
         value = trace_close(value, unwinding, line) if opened
         @f.store(@prev, @task_addr, off(@task, "top"), region: :task)
@@ -519,6 +625,7 @@ module Zr
 
       # A call's result, after the test for a pending unwind: `undef`
       # goes to the landing block.
+      #: (String value) -> String
       def checked(value)
         go = @f.label
         @f.brif(@f.icmp("eq", value, qundef), landing, go)
@@ -528,12 +635,14 @@ module Zr
 
       # Continue in `block`. The record's line is unknown again, because
       # more than one path can arrive.
+      #: (String block, ?open: bool) -> void
       def switch(block, open: false)
         @f.switch(block, open: open)
         @line = nil
       end
 
       # The line a backtrace reports for what runs next.
+      #: (Integer line, ?Integer node_id) -> void
       def at_line(line, node_id = 0)
         # An inlined body's lines are its def's, and nothing in a copy
         # raises or polls. So the record keeps the caller's line.
@@ -548,18 +657,21 @@ module Zr
 
       # The same for `node`, with the id of the prism node it came from in
       # the word's high half, which node_id_for_backtrace_location reads.
+      #: (untyped node) -> void
       def at_node(node)
         at_line(node.line, @l.node_id(node))
       end
 
       # The address of the kernel's static word `name`, found once per
       # function.
+      #: (String name) -> String
       def static(name)
         @f.symbol_addr(@f.symbol("zr_static_#{name}"))
       end
 
       # The address of a new cell for one site's cache: `count` of the
       # kernel's `layout` (lib/zr/runtime/kernel/cache.rb).
+      #: (String prefix, String layout, ?Integer count) -> String
       def cache(prefix, layout, count = 1)
         @f.symbol_value(@f.symbol(@l.cache_cell(prefix, @l.layout(layout).size * count)))
       end
@@ -567,6 +679,7 @@ module Zr
       # The same for the site `node`, with one cell however many times the
       # node is lowered. Its def's function and every inlined copy
       # (`Inline`) share it.
+      #: (untyped node, String prefix, String layout, ?Integer count) -> String
       def site_cache(node, prefix, layout, count = 1)
         @f.symbol_value(@f.symbol(@l.site_cell(node, prefix, @l.layout(layout).size * count)))
       end
@@ -579,6 +692,7 @@ module Zr
       # class or module while no ractor has started (GATE_RACTOR; the
       # kernel applies the ractor isolation rule), and not frozen when
       # `writing`.
+      #: (String ic, Symbol ivar, String slow, writing: bool) ?{ (String, String) -> void } -> String
       def guessed_ivar_row(ic, ivar, slow, writing:)
         table = @l.layout("IvTab")
         entry = @l.layout("IvEntry")
@@ -639,6 +753,7 @@ module Zr
       # class or a module (`own_ivar_table` sends all other kinds, and a
       # Proc or Env on the machine stack, to the kernel). For an element,
       # it is the receiver, which the site already found to be an Array.
+      #: (String owner, String v) -> void
       def cell_barrier(owner, v)
         return if immediate?(v)
 
@@ -659,6 +774,7 @@ module Zr
         switch(done)
       end
 
+      #: (String v) -> void
       def ivar_barrier(v) = cell_barrier(@self, v)
 
       # Whether the compiler knows that `v` is an immediate, so the
@@ -666,6 +782,7 @@ module Zr
       # local, an ivar or an Array are literals, and every such literal
       # goes through `imm`: a Fixnum, a flonum, a Symbol, nil, true and
       # false.
+      #: (String v) -> bool
       def immediate?(v)
         word = @f.iconst_of(v)
         !word.nil? && @l.immediate?(word)
@@ -674,11 +791,12 @@ module Zr
       # Self's own ivar table: in its cell for a plain object, in its
       # extension for a class or module. Branches to `slow` for all other
       # kinds, or for a frozen object when `writing`.
+      #: (String slow, bool writing) -> String
       def own_ivar_table(slow, writing)
         object = @f.label
         other = @f.label
         classy = @f.label
-        found, (t,) = @f.block(["i64"])
+        found, (t,) = @f.block(["i64"]) #: [String, [String]]
         mask = @l.const("T_MASK") | (writing ? @l.const("FL_FREEZE") : 0)
         kind = @f.band(@f.fetch("i64", @self, off(@l.layout("RBasic"), "flags")), imm(mask))
         @f.brif(@f.icmp("eq", kind, imm(@l.const("T_OBJECT"))), object, other)
@@ -695,6 +813,7 @@ module Zr
 
       # The Env `depth` scopes up: this scope's own, or one from the
       # Proc's chain, walked inline with one load for each parent.
+      #: (Integer depth) -> String
       def env_at(depth)
         env, up = @has_env ? [@env, depth] : [proc_field("env"), depth - 1]
         up.times { env = @f.fetch("i64", env, off(@env_layout, "parent")) }
@@ -704,10 +823,13 @@ module Zr
       # Slot `i` of the Env `depth` scopes up: a load of the slots and a
       # load or store at the slot, inline. Every local of a scope that
       # contains a block is there (lib/zr/runtime/kernel/proc.rb).
+      # Untyped: Steep cannot type a splat of a tuple.
+      #: (Integer i, Integer depth) -> untyped
       def env_slot(i, depth)
         [@f.fetch("i64", env_at(depth), off(@env_layout, "slots")), 8 * i]
       end
 
+      #: (Integer i, Integer depth, ?Symbol? name) -> String
       def read_local(i, depth, name = nil)
         if @inline_scope
           return @f.fetch("i64", @rec, value_offset(i)) if depth.zero?
@@ -720,6 +842,7 @@ module Zr
         @f.fetch("i64", *env_slot(i, depth))
       end
 
+      #: (Integer i, Integer depth, String v, ?Symbol? name) -> String
       def write_local(i, depth, v, name = nil)
         if @inline_scope
           if depth.zero?
@@ -752,6 +875,7 @@ module Zr
       # This emits the test that `v` is a cell, not an immediate. A store
       # of a Fixnum, nil, true, false or a Symbol fails it. The kernel's
       # function does the rest.
+      #: (String env, String v) -> void
       def env_barrier(env, v)
         return if immediate?(v)
 
@@ -768,6 +892,7 @@ module Zr
       # or writes. A Ractor refuses a block with captures and gives their
       # names, so every scope between the two records it (a block can see
       # past the block that contains it).
+      #: (Symbol? name, Integer depth, write: bool) -> void
       def capture(name, depth, write:)
         return if name.nil? || depth.zero?
 
@@ -779,6 +904,7 @@ module Zr
       # `[name, written, rebound]` for each capture of this scope: whether
       # it writes the local, and whether the owner scope binds it more
       # than once. `Ractor.shareable_proc` refuses a block for either.
+      #: () -> Array[[Symbol, bool, bool]]
       def capture_rows
         @captures.map do |name, depth|
           home = self
@@ -791,10 +917,11 @@ module Zr
       # and one for each assignment to it here or in an inner block, however
       # often it runs. Ruby counts a local that "may be reassigned" this
       # way: `x = 1` in a loop is one binding, `x = 1; x = 2` is two.
+      #: () -> Hash[Symbol, Integer]
       def bindings
         @bindings ||= begin
           counts = Hir::Locals.assignments(@body)
-          params = %i[def block].include?(@kind) ? @def.params : nil
+          params = %i[def block].include?(@kind) ? @def.params : nil #: Hir::Params?
           params&.names&.each { |name| counts[name] += 1 }
           counts
         end
@@ -807,6 +934,8 @@ module Zr
       # when `expr` is not correct for this caller: string interpolation
       # uses shared frozen Strings for its literal parts, because the
       # program never gets them.
+      # `evaluate` is a Proc or a Method, which Steep cannot call as one type.
+      #: [T] (Array[untyped] nodes, ?Integer extra, ?evaluate: untyped) { (String, Integer) -> T } -> T
       def staged(nodes, extra = 0, evaluate: nil)
         base = reserve(nodes.size + extra)
         nodes.each_with_index { |n, i| @f.store(evaluate ? evaluate.call(n) : expr(n), @rec, value_offset(base + i)) }
@@ -817,16 +946,22 @@ module Zr
 
       # Frees the slots from `base` up, and clears them so the collector
       # keeps nothing alive through them.
+      #: (Integer base) -> void
       def release(base)
         (base...@sp).each { |i| @f.store(@qnil, @rec, value_offset(i)) } unless @f.terminated?
         @sp = base
       end
 
-      # A call into the kernel, typed from the def's own signature.
-      #: (String name, *untyped args) -> String?
+      # A call into the kernel, typed from the def's own signature. The
+      # result is the call's value, or nil for a def with no result: the
+      # kernel description decides, so the type is untyped.
+      #: (String name, *String args) -> untyped
       def kernel(name, *args)
         d = @l.kernel_def(name)
-        params = d.params.map { |_, type| Machine::TYPES.fetch(type) }
+        # A parameter is never Void, so its IR type is never nil.
+        params = d.params.map do |_, type|
+          Machine::TYPES.fetch(type) #: String
+        end
         ret = Machine::TYPES.fetch(d.ret)
         raise ArgumentError, "#{name} takes #{params.size} arguments, not #{args.size}" if params.size != args.size
 
@@ -834,10 +969,12 @@ module Zr
         ret ? @f.call_val(fn, args) : @f.call(fn, args)
       end
 
+      #: (Integer n) -> String
       def imm(n)
         @f.iconst("i64", n)
       end
 
+      #: () -> String
       def qundef
         imm(@l.const("QUNDEF"))
       end
@@ -846,24 +983,29 @@ module Zr
       # the runtime already uses) is an immediate. Every other name is a
       # word in this unit's pool that the link fills, so the unit's code
       # does not depend on the compile order.
+      #: (Symbol name) -> String
       def sym_word(name) = pooled(:symid, name) { |id| imm(id) }
 
       # `name` as a Symbol Value.
+      #: (Symbol name) -> String
       def sym_value(name) = pooled(:symval, name) { |id| imm(Lower.symbol_value(id, @l.const("SYMBOL_TAG"))) }
 
       # The bit in an ivar table's `names` for `name`
       # (lib/zr/runtime/kernel/object.rb, zr_ivtab_name_bit).
+      #: (Symbol name) -> String
       def sym_bit(name) = pooled(:symbit, name) { |id| imm(Lower.ivar_name_bit(id)) }
 
       # This literal site's slot in the run-time table of literal objects.
       # It is a word that the link numbers, as for a symbol id, so a unit
       # contains no counter that the whole program shares.
+      #: () -> String
       def site_word
         row = @l.pool_site or return imm(@l.literal_index)
 
         @f.hoisted_fetch("i64", @f.symbol_addr(@f.symbol(row.first)), row.last)
       end
 
+      #: (Symbol kind, Symbol name) { (Integer) -> String } -> String
       def pooled(kind, name)
         id = @l.fixed_id(name)
         return yield(id) if id
@@ -872,6 +1014,7 @@ module Zr
         @f.hoisted_fetch("i64", @f.symbol_addr(@f.symbol(data)), at)
       end
 
+      #: (String name) -> String
       def proc_field(name)
         @f.fetch("i64", @proc, off(@proc_layout, name))
       end
@@ -879,11 +1022,12 @@ module Zr
       # This frame's serial, set now if it has none. A block descriptor
       # contains it, so a later frame at the same address is different
       # from this one (`zr_frame_live`).
+      #: () -> String
       def frame_serial
         have = @f.fetch("i64", @rec, off(@frame, "serial"))
         give = @f.label
         keep = @f.label
-        merge, (serial,) = @f.block(["i64"])
+        merge, (serial,) = @f.block(["i64"]) #: [String, [String]]
         @f.brif(@f.icmp("eq", have, imm(0)), give, keep)
         switch(keep)
         @f.jump(merge, [have])
@@ -894,6 +1038,7 @@ module Zr
       end
 
       # In a method: a field of the method entry that it was called through.
+      #: (String name) -> String
       def entry_field(name)
         @f.fetch("i64", arg_entry, off(@l.layout("MEntry"), name))
       end
@@ -901,12 +1046,13 @@ module Zr
       # A twin's cref: the one that its entry keeps in its `ivar` word, if
       # it is the cref of this entry, else the kernel's
       # (`zr_bmethod_cref`, which makes it at the first call).
+      #: () -> String
       def twin_cref
         kept = entry_field("ivar")
         check = @f.label
         hit = @f.label
         miss = @f.cold(@f.label)
-        merge, (cref,) = @f.block(["i64"])
+        merge, (cref,) = @f.block(["i64"]) #: [String, [String]]
         @f.brif(@f.icmp("eq", kept, imm(0)), miss, check)
         switch(check)
         @f.brif(@f.icmp("eq", @f.fetch("i64", kept, off(@cref_layout, "entry")), arg_entry), hit, miss)
@@ -920,12 +1066,14 @@ module Zr
 
       # In a block function: whether this Proc is a lambda. A twin is
       # always one, as `zr_bmethod_fn` makes the body's copy a lambda.
+      #: () -> String
       def lambda?
         @f.icmp("ne", @twin_of ? imm(1) : proc_field("lambda"), imm(0))
       end
 
       # In a block function: `return`, `break` and `next` leave a lambda
       # with `v`. For a plain block, this runs the given Ruby block.
+      #: (String v) { () -> void } -> void
       def unless_lambda(v)
         plain = @f.label
         own = @f.label
@@ -936,19 +1084,23 @@ module Zr
         yield
       end
 
+      #: (Machine::Layout layout, String field) -> Integer
       def off(layout, field)
         layout.fields.fetch(field).first
       end
 
+      #: (String name) -> String
       def global(name)
         @f.fetch("i64", static("globals"), 8 * @l.const(name))
       end
 
       # The innermost class of the cref: where a def or a constant goes.
+      #: () -> String
       def cref_class
         kernel("zr_cref_klass", @cref)
       end
 
+      #: (Integer i) -> Integer
       def value_offset(i)
         @frame.size + (8 * i)
       end

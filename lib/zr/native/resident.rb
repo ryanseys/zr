@@ -15,16 +15,18 @@ module Zr
       SIZE = 96
 
       # The resident bytes of `pid`, or nil.
+      #: (Integer pid) -> Integer?
       def self.bytes_of(pid)
         return nil unless (ask = asker)
 
         info = ::Fiddle::Pointer.malloc(SIZE, ::Fiddle::RUBY_FREE)
         return nil unless ask.call(pid, TASKINFO, 0, info, SIZE) == SIZE
 
-        info[8, 8].unpack1("Q<")
+        info[8, 8].unpack1("Q<") #: Integer
       end
 
       # The same in megabytes, for a report.
+      #: (Integer pid) -> Integer?
       def self.of(pid)
         bytes = bytes_of(pid)
         bytes && bytes / (1 << 20)
@@ -39,6 +41,7 @@ module Zr
       # The pages that macOS processes hold: the anonymous pages that are
       # not purgeable, the wired pages, and the compressor's pages (the
       # file cache can be dropped). Nil where the call is missing.
+      #: () -> Integer?
       def self.used_pages
         return nil unless (stats = host_stats)
 
@@ -47,11 +50,12 @@ module Zr
         count[0, 4] = [VM_STATS / 4].pack("L<")
         return nil unless stats.fetch(:stats).call(stats.fetch(:host).call, HOST_VM_INFO64, buffer, count).zero?
 
-        word = ->(at) { buffer[at, 4].unpack1("L<") }
+        word = ->(at) { buffer[at, 4].unpack1("L<") } #: ^(Integer) -> Integer
         # internal_page_count - purgeable_count + wire_count + compressor_page_count
         word[140] - word[88] + word[12] + word[128]
       end
 
+      #: () -> { host: Fiddle::Function, stats: Fiddle::Function }?
       def self.host_stats
         return @host_stats if defined?(@host_stats)
 
@@ -67,6 +71,7 @@ module Zr
         end
       end
 
+      #: () -> Fiddle::Function?
       def self.asker
         return @asker if defined?(@asker)
 

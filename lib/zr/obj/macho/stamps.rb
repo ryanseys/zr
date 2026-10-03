@@ -15,20 +15,21 @@ module Zr
         HEADER = 32
 
         # The byte ranges of `bytes` that differ for each link, lowest first.
+        #: (String bytes) -> Array[Range[Integer]]
         def self.of(bytes)
-          magic, _cpu, _sub, _type, commands, = bytes.unpack("L<4L<")
+          magic, _cpu, _sub, _type, commands, = bytes.unpack("L<4L<") #: [Integer, Integer, Integer, Integer, Integer]
           raise ArgumentError, "not a 64-bit Mach-O" unless magic == MH_MAGIC_64
 
-          ranges = []
+          ranges = [] #: Array[Range[Integer]]
           at = HEADER
           commands.times do
-            cmd, size = bytes.unpack("@#{at}L<2")
+            cmd, size = bytes.unpack("@#{at}L<2") #: [Integer, Integer]
             raise ArgumentError, "a load command of #{size} bytes" if size < 8
 
             case cmd
             when LC_UUID then ranges << ((at + 8)...(at + 24))
             when LC_CODE_SIGNATURE
-              off, len = bytes.unpack("@#{at + 8}L<2")
+              off, len = bytes.unpack("@#{at + 8}L<2") #: [Integer, Integer]
               ranges << (off...(off + len))
             end
             at += size

@@ -17,6 +17,15 @@ module Zr
       # `SymbolNumbering.names_table`): the kernel's symbol names and empty
       # load tables.
       class Boot
+        # @rbs @symbols: Symbols
+        # @rbs @fibers: Array[Fiber?]
+        # @rbs @indices: Hash[Fiber, Integer]
+        # @rbs @captures: Hash[Integer, Array[untyped]]
+        # @rbs @jump: Array[untyped]?
+        # @rbs @handlers: Hash[Integer, Integer]
+        # @rbs @wake: Thread::Queue
+        # @rbs @poll: Thread?
+
         # The host's machine state: a context is the index of its Ruby
         # Fiber (0 before the first switch into it), the entry, the top of
         # its slot area and the slot top it left at.
@@ -29,13 +38,21 @@ module Zr
         #
         # Each method runs with the kernel module as self, so `self::BOOT`
         # is the Boot.
+        #
+        # These modules run as methods of the kernel module, a Module that
+        # `Host#kernel_module` makes; `const_set` gives it `BOOT`, and its
+        # other methods are the kernel's defs. Steep cannot see either.
+        # steep:ignore:start
         module Arch
+          #: (Integer ctx, Integer entry, Integer top) -> nil
           def zr_arch_context_start(ctx, entry, top)
             Memory.write(ctx, [0, entry, top, top].pack("Q<4"))
             nil
           end
 
+          #: (Integer ctx) -> Integer
           def zr_arch_context_sp(ctx) = Memory.read(ctx + 24, 8).unpack1("q<")
+          #: (Integer from, Integer to) -> nil
           def zr_switch(from, to) = self::BOOT.switch(from, to)
         end
 
@@ -85,31 +102,36 @@ module Zr
             walk ? walk.regexp_compile(source, bits) : super
           end
         end
+        # steep:ignore:end
 
-        attr_reader :host
+        attr_reader :host #: Host
 
         # The walker that runs the core over this kernel.
-        attr_accessor :walk
+        attr_accessor :walk #: Walk?
 
+        #: (?Target target) -> void
         def initialize(target = Target.default)
           files = RuntimeSources.for(target).kernel_files.reject { |path| path.include?("/kernel/arch/") }
           @symbols = Symbols.new
           files.each { |path| File.read(path).scan(/Machine\.id\(:"?([^)"]+)"?\)/) { @symbols.id(Regexp.last_match(1)) } }
           @host = Host.new(files, symbols: @symbols, constants: { "CONTEXT_BYTES" => CONTEXT_BYTES }, externs: externs)
           @fibers = [nil]
-          @indices = {}
-          @captures = {}
+          @indices = {} #: Hash[Fiber, Integer]
+          @captures = {} #: Hash[Integer, Array[untyped]]
           @jump = nil
           @walk = nil
           kern = @host.kern
           kern.const_set(:BOOT, self)
-          @handlers = {}
+          @handlers = {} #: Hash[Integer, Integer]
           @owner = Process.pid
           @wake = Thread::Queue.new
           kern.prepend(Arch, Stack, Signals, Sleep, Fork, Regexps)
           kern.zr_boot
         end
 
+        # The kernel module: its methods are the kernel's defs, which it
+        # gets as it loads.
+        #: () -> untyped
         def kern = @host.kern
 
         # Switches from the context `from` to `to`, starting `to`'s Fiber at
@@ -127,6 +149,7 @@ module Zr
         # Each kernel def that loops and can yield is rooted, and its frame
         # can be read (`Host#live_roots`): the capture keeps the locals of
         # each one, and the jump writes them back.
+        #: (Integer from, Integer to) -> nil
         def switch(from, to)
           if to == kern.zr_cont_side_ctx
             k = callcc { |c| c }
@@ -157,6 +180,7 @@ module Zr
         end
 
         # The locals of each rooted kernel frame, by name (`switch`).
+        #: (Array[[Binding, Array[Symbol]]] frames) -> Array[Hash[Symbol, untyped]]
         def locals(frames)
           frames.map do |binding, _|
             binding.local_variables.to_h { |name| [name, binding.local_variable_get(name)] }
@@ -167,11 +191,13 @@ module Zr
         # every register there: a context that the kernel allocates (a
         # continuation's, in memory that malloc gave again) holds old bytes
         # until then.
+        #: (Integer from, Integer to) -> nil
         def leave(from, to)
+          # @type ivar @fibers: Array[Fiber]
           index = @indices[Fiber.current] ||= @fibers.push(Fiber.current).size - 1
           Memory.write(from, [index].pack("Q<"))
           Memory.write(from + 24, [@host.slot_top].pack("Q<"))
-          target, entry, top = Memory.read(to, 24).unpack("Q<3")
+          target, entry, top = Memory.read(to, 24).unpack("Q<3") #: [Integer, Integer, Integer]
           if target.zero?
             host = @host
             fiber = Fiber.new do
@@ -195,6 +221,7 @@ module Zr
 
         # A forked child has no thread but the one that forked: the timer
         # starts again in it (`restart`).
+        #: () -> nil
         def poll_start
           kern = @host.kern
           @poll = nil unless @poll&.alive?
@@ -210,6 +237,7 @@ module Zr
         # After a fork: this process runs the program now. The timer that
         # the kernel started runs again, and the kernel's signal handlers
         # run here (`sigaction`).
+        #: () -> void
         def restart
           @owner = Process.pid
           poll_start if @poll
@@ -217,16 +245,18 @@ module Zr
 
         # The process whose kernel takes the signals: the one that booted,
         # or a fork that runs a program (`restart`).
-        attr_reader :owner
+        attr_reader :owner #: Integer
 
         # A signal's handler ran: a sleep ends now (`nanosleep`).
+        #: () -> void
         def wake = @wake << true
 
         # The kernel's nanosleep (`Sleep`): 0 after the whole time, or -1
         # with EINTR and the time left when a signal arrives. A signal that
         # came before the sleep does not cut it short.
+        #: (Integer request, Integer remaining) -> Integer
         def nanosleep(request, remaining)
-          seconds, nanoseconds = Memory.read(request, 16).unpack("q<q<")
+          seconds, nanoseconds = Memory.read(request, 16).unpack("q<q<") #: [Integer, Integer]
           length = seconds + (nanoseconds / 1e9)
           @wake.clear
           started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
@@ -242,6 +272,7 @@ module Zr
 
         # `Process.fork` for the kernel (`Fork`): the child's pid, or 0 in
         # the child.
+        #: () -> Integer
         def fork_process
           pid = Process.fork
           return pid if pid
@@ -254,6 +285,7 @@ module Zr
         # else the address of a kernel def (`Machine.addr`). Stores the
         # previous `fn` at `old`. Returns 0, or -1 with errno EINVAL for a
         # signal that ruby does not let a program trap.
+        #: (Integer signo, Integer fn, Integer old) -> Integer
         def sigaction(signo, fn, old)
           kern = @host.kern
           name = Signal.signame(signo)
@@ -287,8 +319,10 @@ module Zr
         private
 
         # The data objects of other units that the kernel reads.
+        #: () -> Hash[String, Integer]
         def externs
-          names = @symbols.names
+          # The kernel's table has no pads.
+          names = @symbols.names #: Array[String]
           bytes = Memory.zeroed(names.sum(&:bytesize) + 1, 1)
           table = Memory.zeroed([names.size * 16, 16].max)
           at = bytes
@@ -307,6 +341,7 @@ module Zr
           }
         end
 
+        #: (Integer n) -> Integer
         def word(n)
           addr = Memory.zeroed(8)
           Memory.write(addr, [n].pack("Q<"))

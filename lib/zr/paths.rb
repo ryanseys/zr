@@ -25,6 +25,7 @@ module Zr
     # A git checkout, or a worktree of one, where `.git` is a file. A
     # bundler git source (`gem "zr", git: ...`) is a clone too, but it is
     # an install: bundler puts it in `.../bundler/gems/zr-<revision>`.
+    #: (?String root) -> bool
     def self.checkout?(root = ROOT)
       File.exist?(File.join(root, ".git")) && File.dirname(root).split(File::SEPARATOR).last(2) != %w[bundler gems]
     end
@@ -35,14 +36,17 @@ module Zr
     # root plus its path below that directory. The longer prefix is tried
     # first. So two checkouts built with one root write the same bytes.
     # A relative path (often the main file) stays as given, as in ruby.
+    #: () -> String?
     def self.root = @root
 
+    #: (String? root) -> void
     def self.root=(root)
       @root = root&.then { |r| r == "/" ? "" : r.chomp("/") }
       @prefixes = root && [ROOT, Dir.pwd].uniq.sort_by { |prefix| -prefix.size }
     end
 
     # `path` as a build writes it into its output.
+    #: (String path) -> String
     def self.shown(path)
       return path unless @root && path.start_with?("/")
 
@@ -57,6 +61,7 @@ module Zr
 
     # The user's cache directory for zr: `XDG_CACHE_HOME` when it is
     # set, else the platform's own.
+    #: () -> String
     def self.user_cache
       base = ENV["XDG_CACHE_HOME"]
       if base.nil? || base.empty?
@@ -84,6 +89,7 @@ module Zr
     # with eval support links in this file but never builds. On wasi,
     # `getpwuid` has no wasm form, so reading the home directory at load
     # would stop the module before its first line.
+    #: () -> String
     def self.cache = Session.current.memo(:cache) { Config.current.cache || (checkout? ? File.join(ROOT, "tmp/cache") : user_cache) }
 
     # The functions that the compiler needs from fileutils and tmpdir,
@@ -93,6 +99,7 @@ module Zr
     # hundred eval compiles, half a second before a build starts.
 
     # Makes `dir` and each missing directory above it.
+    #: (String dir) -> void
     def self.mkdir_p(dir)
       return if File.directory?(dir)
 
@@ -104,6 +111,7 @@ module Zr
 
     # Writes `bytes` to `path` through a temporary file and a rename, so
     # that another process never reads half a file. Returns `path`.
+    #: (String path, String bytes) -> String
     def self.write_atomic(path, bytes)
       mkdir_p(File.dirname(path))
       fresh = "#{path}.#{Process.pid}.#{Thread.current.object_id}"
@@ -119,6 +127,7 @@ module Zr
 
     # Copies `from` to `to` with its mode and times, as `FileUtils.cp`
     # with `preserve: true` does.
+    #: (String from, String to) -> void
     def self.copy(from, to)
       IO.copy_stream(from, to)
       stat = File.stat(from)
@@ -130,6 +139,7 @@ module Zr
     # `path` exists, and returns `path`. A second zr that builds the same
     # cache file waits for the first, then uses its file. `waiting` runs
     # before a wait.
+    #: (String path, ?waiting: ^() -> void | nil) { () -> void } -> String
     def self.once(path, waiting: nil)
       return path if File.exist?(path)
 
@@ -146,6 +156,7 @@ module Zr
 
     # The mtime (to the nanosecond) and size of the file at `path`, or
     # nil when there is no file. A change to either shows the file changed.
+    #: (String path) -> [Rational, Integer]?
     def self.stamp(path)
       stat = File.stat(path)
       [stat.mtime.to_r, stat.size]
@@ -156,10 +167,12 @@ module Zr
     # A new directory for the block, named as Dir.mktmpdir does
     # (`<prefix><date>-<pid>-<random>`; the test harness's sweep reads
     # the pid from the name). The block's end removes it and its contents.
+    #: [T] (String prefix, ?String? root) { (String) -> T } -> T
     def self.tmpdir(prefix, root = nil)
       root ||= [ENV.fetch("TMPDIR", ""), "/tmp"].find { |dir| File.directory?(dir) && File.writable?(dir) }
       raise Missing, "zr found no temp directory that it can write to. Set TMPDIR to one." unless root
 
+      # @type var dir: String?
       dir = nil
       until dir
         name = File.join(root, "#{prefix}#{Time.now.strftime("%Y%m%d")}-#{Process.pid}-#{rand(0x100000000).to_s(36)}")
@@ -179,14 +192,17 @@ module Zr
       end
     end
 
+    #: () -> Integer
     def self.open_tmpdirs = @open || 0
 
     # Whether a `tmpdir` block runs now. A process that execs then would
     # leave the directory behind (`GcTuning.heavy!`).
+    #: () -> bool
     def self.tmpdir_open? = open_tmpdirs.positive?
 
     # Removes `path` and, for a directory, all of its contents. It removes
     # a link and does not follow it.
+    #: (String path) -> void
     def self.remove(path)
       if File.directory?(path) && !File.symlink?(path)
         Dir.children(path).each { |child| remove(File.join(path, child)) }

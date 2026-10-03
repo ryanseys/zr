@@ -1,14 +1,16 @@
 # The fields of the record in lib/zr/program.rb. Its methods are inline.
 module Zr
   class Program < Data
-    attr_reader runtime: untyped
-    attr_reader functions: Array[Obj::Code]
+    attr_reader runtime: Runtime
+    attr_reader functions: Array[Obj::Code | IR::Function]
     attr_reader data: Array[Obj::Datum]
-    attr_reader evals: untyped
+    attr_reader evals: EvalSupport?
     attr_reader sources: Hash[String, String]
-    attr_reader gems: Array[untyped]
+    attr_reader gems: Array[Manifest::Row]
 
-    def self.new: (runtime: untyped, functions: Array[Obj::Code], data: Array[Obj::Datum], evals: untyped,
-                   ?sources: Hash[String, String], ?gems: Array[untyped]) -> instance
+    def self.new: (Runtime runtime, Array[Obj::Code | IR::Function] functions, Array[Obj::Datum] data, EvalSupport? evals,
+                   ?Hash[String, String] sources, ?Array[Manifest::Row] gems) -> instance
+                | (runtime: Runtime, functions: Array[Obj::Code | IR::Function], data: Array[Obj::Datum], evals: EvalSupport?,
+                   ?sources: Hash[String, String], ?gems: Array[Manifest::Row]) -> instance
   end
 end

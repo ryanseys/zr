@@ -21,8 +21,13 @@ module Zr
       # refinement has the number of its activation in its HIR, which depends
       # on the units before it; its key also has each such number.
       class EvalSupport < Lowering
+        # @rbs @lower: Lower
+        # @rbs @program: Hir::Program
+        # @rbs @description: Machine::Description?
+
         # The cache for eval support of `target`, or nil: only a native object
         # has a code cache to take the code from.
+        #: (Target target, String | Symbol kind) -> EvalSupport?
         def self.for(target, kind)
           code = Native::CodeCache.for("eval", target)
           code && new("eval-#{kind}", target, code)
@@ -32,12 +37,14 @@ module Zr
         # can from an entry. Returns `[functions, data]`: the toplevel's IR,
         # inlined, then the machine code of each unit; so the object build
         # must not inline again.
+        #: (Lower lower, Machine::Description? description) -> [Array[Obj::Code | IR::Function], Array[Obj::Datum]]
         def lower(lower, description)
           @lower = lower
           @program = lower.program
           @description = description
           # The code has the kernel's ids.
-          @base = base_key(@program.file, *lower.fixed.keys)
+          fixed = lower.fixed #: Hash[String, Integer]
+          @base = base_key(@program.file, *fixed.keys)
           entry_functions, entry_data = lower.lower_entry
           pieces = @program.units.each_index.map do |i|
             u = @program.units[i]
@@ -51,15 +58,17 @@ module Zr
 
         private
 
+        #: (Hir::Unit unit, String entry) -> String?
         def unit_key(unit, entry)
           return nil if unit.source.nil?
 
-          usings = unit.activates ? usings(unit.body) : []
+          usings = unit.activates ? usings(unit.body) : [] #: Array[Integer | String]
           key_of(unit.file, entry, *Unit.parts(unit) { |reached| @lower.unit_entry(reached) }, "usings", *usings)
         end
 
         # The activation numbers in `body`: each `using`'s entry, and the
         # refinement scope of each call under one.
+        #: (untyped body, ?Array[Integer | String] out) -> Array[Integer | String]
         def usings(body, out = [])
           case body
           when Hir::Using then out << body.id

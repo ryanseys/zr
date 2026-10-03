@@ -7,9 +7,10 @@ module Zr
         attr_accessor entry: String
         attr_accessor key: String?
         attr_accessor weight: Integer
-        attr_accessor make: untyped
+        # `Lower#run`'s type: with no block, the functions are all IR.
+        attr_accessor make: ^() -> [Array[IR::Function | Obj::Code], Array[Obj::Datum]]
 
-        def self.new: (String? path, String entry, String? key, Integer weight, untyped make) -> instance
+        def self.new: (String? path, String entry, String? key, Integer weight, ^() -> [Array[IR::Function | Obj::Code], Array[Obj::Datum]] make) -> instance
       end
     end
   end

@@ -14,6 +14,7 @@ module Zr
 
         private
 
+        #: () -> void
         def bind_params
           case @kind
           when :def then @direct ? bind_direct(@def.params) : bind_method(@def.params, @f.args[1], @f.args[2])
@@ -23,12 +24,17 @@ module Zr
 
         # The direct ABI: the arguments are in registers, as many as the
         # def declares. The site or zr_direct_fn has proved the count.
+        #: (Hir::Params p) -> void
         def bind_direct(p)
           p.required.each_with_index { |name, i| bind(name, @f.args[4 + i]) }
           bind(p.block, block_param(@blk)) if p.block
         end
 
+        #: (Hir::Params p, String argc, String argv) -> void
         def bind_method(p, argc, argv)
+          # Both are set when `keywords?(p)`, and only then read:
+          # @type var kwargs_at: Integer
+          # @type var tab: String
           if keywords?(p)
             argc, kwargs_at, tab = take_keywords(argc, argv)
           else
@@ -45,7 +51,11 @@ module Zr
 
         # A lambda checks its arity and never spreads. One function serves
         # both cases, so the Proc's flag decides at run time.
+        #: (Hir::Params p) -> void
         def bind_block(p)
+          # Both are set when `keywords?(p)`, and only then read:
+          # @type var kwargs_at: Integer
+          # @type var tab: String
           return strict_empty(p) if p.names.empty? && p.plain?
 
           argc = @f.args[1]
@@ -94,6 +104,7 @@ module Zr
         end
 
         # rb_simple_iseq_p: only leading required parameters, and `|a,|`.
+        #: (Hir::Params p) -> bool
         def simple_block?(p)
           p.optional.empty? && [nil, :implicit].include?(p.rest) && p.post.empty? && p.keywords.empty? && p.kwrest.nil? && p.block.nil?
         end
@@ -102,6 +113,7 @@ module Zr
         # or tests it (`Hir::Escape`), it is the block as given (a Proc
         # that can still be on the caller's stack). Else it is a heap cell,
         # because the scope keeps it.
+        #: (String blk) -> String
         def block_param(blk)
           @raw_block ? blk : kernel("zr_block_proc", blk)
         end
@@ -110,12 +122,14 @@ module Zr
         # the parameter defaults permits it (`Hir::Escape`), nothing opens
         # the scope's locals (a Binding or an eval reads the Proc), and no
         # hook can get a Binding of the frame.
+        #: (Hir::Params p) -> bool
         def raw_block?(p)
           p.block && !@l.traced? && !Hir::Locals.opens_locals?(@body) && Hir::Escape.raw_block?([@body, *default_expressions], p.block)
         end
 
         # A block with no parameters accepts any arguments. A lambda
         # (including a `define_method` body) accepts none.
+        #: (Hir::Params p) -> void
         def strict_empty(p)
           go = @f.label
           strict = @f.label
@@ -126,10 +140,12 @@ module Zr
           switch(go)
         end
 
+        #: (Hir::Params p) -> bool
         def keywords?(p)
           p.keywords.any? || !p.kwrest.nil?
         end
 
+        #: (Symbol name) -> Integer
         def slot_of(name)
           @slot_of.fetch(name)
         end
@@ -139,6 +155,7 @@ module Zr
         # values stay in place, and the table is the third return value
         # (0 for a Hash), so `bind_keywords` reads them by column. The
         # task's keyword word is cleared, so it cannot leak to a later send.
+        #: (String argc, String argv) -> [String, Integer, String]
         def take_keywords(argc, argv)
           at = value_offset(reserve(1))
           kw = take_keyword_word
@@ -146,7 +163,7 @@ module Zr
           hashed = @f.label
           have = @f.label
           none = @f.label
-          merge, (count, hash, tab) = @f.block(%w[i64 i64 i64])
+          merge, (count, hash, tab) = @f.block(%w[i64 i64 i64]) #: [String, [String, String, String]]
           @f.brif(@f.icmp("ugt", kw, imm(1)), table, hashed)
           switch(table)
           @f.jump(merge, [@f.isub(argc, @f.fetch("i64", kw)), @qnil, kw])
@@ -166,12 +183,13 @@ module Zr
         # First, a table's values become one Hash argument, and a
         # ruby2_keywords rest (a def's or a block's function, `abi`) flags
         # that Hash. Returns the new argument count.
+        #: (String argc, String argv, Symbol? abi) -> String
         def drop_keywords(argc, argv, abi)
           kw = @f.fetch("i64", @task_addr, off(@task, "kw"))
           fn = abi ? @f.func_addr(@f.callee(@twin_of || @name, ABI.fetch(abi), "i64")) : imm(0)
           quick = @f.label
           slow = @f.label
-          merge, (count,) = @f.block(["i64"])
+          merge, (count,) = @f.block(["i64"]) #: [String, [String]]
           @f.brif(@f.icmp("eq", kw, imm(0)), quick, slow)
           switch(quick)
           @f.jump(merge, [argc])
@@ -187,6 +205,7 @@ module Zr
           count
         end
 
+        #: () -> String
         def take_keyword_word
           kw = @f.fetch("i64", @task_addr, off(@task, "kw"))
           @f.store(imm(0), @task_addr, off(@task, "kw"), region: :task)
@@ -195,6 +214,7 @@ module Zr
 
         # CRuby's messages: an exact count, `min+` with a rest, `min..max`
         # with optionals, then the names of missing required keywords.
+        #: (Hir::Params p, String argc) -> void
         def check_arity(p, argc)
           req = p.required.size + p.post.size
           rest = p.rest && p.rest != :implicit
@@ -221,6 +241,7 @@ module Zr
         # record's link and their stores can start a collection. Keywords
         # go into a Hash before the arity check, and a ruby2_keywords rest
         # is flagged, so those methods set every slot to nil first.
+        #: () -> Array[Symbol]
         def direct_params
           return [] unless @kind == :def && !@has_env
 
@@ -232,6 +253,7 @@ module Zr
 
         # If `cond` is false, the block raises, and its return value leaves
         # the function.
+        #: (String cond) { () -> String } -> void
         def fail_unless(cond)
           go = @f.label
           bad = @f.label
@@ -247,6 +269,7 @@ module Zr
         # what remains after the required ones. A block's spread Array stays
         # in the record slot at `keep`. A destructured parameter runs Ruby
         # that can change it, so the arguments are read again after each.
+        #: (Hir::Params p, String argc, String argv, strict: bool, ?keep: Integer?) -> void
         def bind_positional(p, argc, argv, strict:, keep: nil)
           req = p.required.size + p.post.size
           argc = @f.csel(@f.icmp("sgt", argc, imm(req + p.optional.size)), imm(req + p.optional.size), argc) if !strict && !p.rest
@@ -284,6 +307,7 @@ module Zr
           end
         end
 
+        #: (Integer keep, String argc, String argv) -> [String, String]
         def spread_again(keep, argc, argv)
           kept = @f.fetch("i64", @rec, keep)
           [kernel("zr_block_argc", kept, argc), kernel("zr_block_argv", kept, argv)]
@@ -291,6 +315,7 @@ module Zr
 
         # Whether `name` is already bound in this parameter list. Only `_`
         # can repeat. Ruby refuses all other duplicate names.
+        #: (untyped name) -> bool
         def repeated?(name)
           !name.is_a?(Hir::MultiTarget) && (@bound ||= []).include?(name)
         end
@@ -298,6 +323,7 @@ module Zr
         # Ruby compiles an optional parameter's default as an assignment to
         # the NAME, so a repeated `_`'s default writes the first `_`'s
         # local. A given argument writes only a slot that nothing reads.
+        #: (String present) { () -> void } -> void
         def default_only(present)
           miss = @f.label
           done = @f.label
@@ -310,6 +336,7 @@ module Zr
 
         # Binds `v` to the parameter `name`, or destructures it into a
         # `(a, b)` target. A repeated name (`_`, `_x`) keeps its first binding.
+        #: (untyped name, String v) -> void
         def bind(name, v)
           if name.is_a?(Hir::MultiTarget)
             write_local(slot_of(name.whole), 0, v) if name.whole
@@ -322,19 +349,22 @@ module Zr
           end
         end
 
+        #: (String argv, String index) -> String
         def arg_at(argv, index)
           @f.fetch("i64", @f.iadd(argv, @f.ishl(index, imm(3))))
         end
 
+        #: (String argc, String argv, String index) -> String
         def arg_or_nil(argc, argv, index)
           arg_or_default(argv, index, @f.icmp("slt", index, argc)) { @qnil }
         end
 
         # `argv[index]` when `present`, else the block's value.
+        #: (String argv, String index, String present) { () -> String } -> String
         def arg_or_default(argv, index, present)
           have = @f.label
           miss = @f.label
-          merge, (v,) = @f.block(["i64"])
+          merge, (v,) = @f.block(["i64"]) #: [String, [String]]
           @f.brif(present, have, miss)
           switch(have)
           @f.jump(merge, [arg_at(argv, index)])
@@ -351,6 +381,7 @@ module Zr
         # binds, with defaults in order: from a Hash by a probe, from a
         # table by its column in the values after the `count` positional
         # arguments of `argv`.
+        #: (Hir::Params p, Integer kwargs_at, String tab, String count, String argv) -> void
         def bind_keywords(p, kwargs_at, tab, count, argv)
           hash = -> { @f.fetch("i64", @rec, kwargs_at) }
           required = p.keywords.select { |_, default| default.nil? }.map(&:first)
@@ -378,7 +409,7 @@ module Zr
               column = @f.fetch("i64", shape, 8 * (1 + k))
               absent = @f.label
               present = @f.label
-              merge, (found,) = @f.block(["i64"])
+              merge, (found,) = @f.block(["i64"]) #: [String, [String]]
               @f.brif(@f.icmp("slt", column, imm(0)), absent, present)
               switch(absent)
               @f.jump(merge, [qundef])
@@ -390,7 +421,7 @@ module Zr
             if default
               have = @f.label
               miss = @f.label
-              merge, (bound,) = @f.block(["i64"])
+              merge, (bound,) = @f.block(["i64"]) #: [String, [String]]
               @f.brif(@f.icmp("eq", v, qundef), miss, have)
               switch(have)
               @f.jump(merge, [v])
@@ -415,10 +446,11 @@ module Zr
 
         # The block's value for a table (`tab` not 0) or for a Hash, as the
         # call passed them, merged into one value.
+        #: (String tab) { (bool) -> String } -> String
         def by_table(tab)
           table = @f.label
           hashed = @f.label
-          merge, (v,) = @f.block(["i64"])
+          merge, (v,) = @f.block(["i64"]) #: [String, [String]]
           @f.brif(@f.icmp("ne", tab, imm(0)), table, hashed)
           switch(table)
           @f.jump(merge, [yield(true)])
@@ -429,6 +461,7 @@ module Zr
         end
 
         # The ids of `names` as a read-only table, and its length.
+        #: (Array[Symbol] names) -> [String, String]
         def keyword_ids(names)
           table = @l.keyword_table(names)
           [@f.symbol_value(@f.symbol(table)), imm(names.size)]

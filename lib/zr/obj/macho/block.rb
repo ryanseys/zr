@@ -26,6 +26,23 @@ module Zr
       # write are in `fixups`, as `[address, :rebase, target]` or
       # `[address, :external, name, addend]`.
       class Block
+        # A link resolves to `[input, symbol]`, an address or an external's
+        # name, so the links and the GOT keys are untyped.
+        # @rbs @inputs: Array[ObjectFile::Read]
+        # @rbs @outside: (^(String) -> Integer?)?
+        # @rbs @at: Hash[Symbol, Integer]
+        # @rbs @globals: Hash[String, [Integer, Integer]]
+        # @rbs @links: Array[Hash[Integer, untyped]]
+        # @rbs @got: Array[untyped]
+        # @rbs @chunks: Hash[Symbol, Array[[Integer, Integer, Integer]]]
+        # @rbs @sizes: Hash[Symbol, Integer]
+        # @rbs @aligns: Hash[Symbol, Integer]
+        # @rbs @part_of: Array[Array[Symbol?]]
+        # @rbs @placed: Array[Array[Integer]]
+        # @rbs @addr: Array[Array[Integer?]]
+        # @rbs @stub_at: Hash[String, Integer]
+        # @rbs @got_at: Hash[untyped, Integer]
+
         # <mach-o/nlist.h>: a symbol's type byte.
         N_STAB = 0xE0
         N_TYPE = 0x0E
@@ -37,10 +54,12 @@ module Zr
         STUB = 12
 
         # The relocation kind for each arm64 relocation type in an object.
-        KINDS = ObjectFile::RELOC.to_h { |kind, (type, _, _)| [type, kind] }.freeze
-        ABS64 = ObjectFile::RELOC.fetch(:abs64).first
-        BRANCH26 = ObjectFile::RELOC.fetch(:branch26).first
-        GOT = ObjectFile::RELOC.values_at(:got_page21, :got_pageoff12).map(&:first).freeze
+        KINDS = ObjectFile::RELOC.to_h { |kind, (type, _, _)| [type, kind] }.freeze #: Hash[Integer, Symbol]
+        ABS64 = ObjectFile::RELOC.fetch(:abs64).first #: Integer
+        BRANCH26 = ObjectFile::RELOC.fetch(:branch26).first #: Integer
+        GOT = ObjectFile::RELOC.values_at(:got_page21, :got_pageoff12).map(&:first).freeze #: Array[Integer]
+        # Typed in sig/zr/obj/macho/block.rbs: inline RBS does not read a
+        # multiple assignment.
         GOT_PAGE21, GOT_PAGEOFF12 = GOT
         ARM64_RELOC_ADDEND = ObjectFile::ARM64_RELOC_ADDEND
         # `r_extern` of a relocation: it names a symbol, not a section.
@@ -55,12 +74,14 @@ module Zr
         # the relocation, and dyld writes only into data.
         WRITABLE = %i[got dconst data].freeze
 
-        attr_reader :externals, :fixups
+        attr_reader :externals #: Array[String]
+        attr_reader :fixups #: Array[Array[untyped]]
 
         # `objects` are object file bytes, or the result of
         # `ObjectFile.read` for them. `ObjectFile.of` builds that result from
         # a unit without writing an object. `outside` returns the address of
         # a name that no input defines, or nil.
+        #: (Array[String | ObjectFile::Read] objects, ?outside: (^(String) -> Integer?)?) -> void
         def initialize(objects, outside: nil)
           @inputs = objects.map { |o| o.is_a?(String) ? ObjectFile.read(o) : o }
           @outside = outside
@@ -71,35 +92,45 @@ module Zr
           chunks
         end
 
+        #: () -> bool
         def empty? = PARTS.all? { |part| size(part).zero? }
 
+        #: (Symbol part) -> Integer
         def size(part) = @sizes.fetch(part)
 
         # The part's alignment, as a power of two.
+        #: (Symbol part) -> Integer
         def align(part) = @aligns.fetch(part)
 
+        #: (Symbol part, Integer address) -> Integer
         def place(part, address)
           @at[part] = address
         end
 
+        #: (Symbol part) -> Integer
         def at(part) = @at.fetch(part)
 
         # Whether an input defines `name` ("_main") as a global.
+        #: (String name) -> bool
         def defines?(name) = @globals.key?(name)
 
         # The names of every global the inputs define.
+        #: () -> Array[String]
         def names = @globals.keys
 
         # The address of the global `name`, once placed.
+        #: (String name) -> Integer?
         def global(name)
           i, s = @globals[name]
           i && @addr[i][s]
         end
 
         # Every global and its address, once placed.
+        #: () -> Array[[String, Integer?]]
         def exports = @globals.map { |name, (i, s)| [name, @addr[i][s]] }
 
         # The address of the symbol `name` ("main"): a global, else a local.
+        #: (String name) -> Integer?
         def entry(name)
           symbol = "_#{name}"
           return global(symbol) if defines?(symbol)
@@ -113,6 +144,7 @@ module Zr
         end
 
         # Every symbol's address, once every part is placed.
+        #: () -> void
         def addresses!
           @placed = @inputs.map { |o| Array.new(o.sections.size) }
           @chunks.each do |part, chunks|
@@ -139,6 +171,7 @@ module Zr
         end
 
         # A part's bytes, relocated; nil for `bss`, which has none.
+        #: (Symbol part) -> String?
         def bytes(part)
           case part
           when :bss then nil
@@ -148,7 +181,9 @@ module Zr
             out = +"".b
             @chunks.fetch(part).each do |i, k, off|
               Bytes.pad(out, off)
-              out << @inputs[i].sections[k].bytes
+              # Only a zero-fill section has no bytes, and `bss` holds it.
+              section_bytes = @inputs[i].sections[k].bytes #: String
+              out << section_bytes
             end
             Bytes.pad(out, size(part))
             @chunks.fetch(part).each { |i, k, off| relocate(part, out, off, i, @inputs[i].sections[k].relocs) }
@@ -165,9 +200,10 @@ module Zr
         # - The names, in the order of the words.
         # The runtime searches the sorted table in place (`zr_os_symbol`),
         # so an image does not need an exports trie.
+        #: (Hash[Symbol, Integer] ordinals, Integer strings_at) -> [Array[Integer?], String, Array[String]]
         def symbols(ordinals, strings_at)
           strings = +"".b
-          rows = []
+          rows = [] #: Array[[String, Integer, Integer?]]
           @inputs.each_with_index do |o, i|
             base = strings_at + strings.bytesize
             strings << o.strings
@@ -189,9 +225,10 @@ module Zr
         # address from `outside`, or an external's name. `@links[input]`
         # contains the result for each undefined symbol. A defined symbol
         # resolves to itself.
+        #: () -> void
         def resolve
           @globals = {}
-          undefined = []
+          undefined = [] #: Array[[Integer, Integer]]
           @inputs.each_with_index do |o, i|
             o.count.times do |s|
               type = o.type(s)
@@ -207,7 +244,7 @@ module Zr
               end
             end
           end
-          externals = {}
+          externals = {} #: Hash[String, String]
           @links = Array.new(@inputs.size) { {} }
           undefined.each do |i, s|
             name = @inputs[i].name(s)
@@ -218,10 +255,12 @@ module Zr
 
         # The resolved value of symbol `s` of input `i`: `[input, symbol]`,
         # an address, or an external's name.
+        #: (Integer i, Integer s) -> untyped
         def meaning(i, s) = @links[i].fetch(s) { [i, s] }
 
         # One GOT slot for each external, then one for each other symbol
         # whose address some code loads through the GOT.
+        #: () -> void
         def got_slots
           @got = @externals.dup
           seen = @got.to_h { |name| [name, true] }
@@ -247,6 +286,7 @@ module Zr
         # Finds the part of each input section and its offset in the part.
         # Each section starts at its own alignment. A part uses the largest
         # alignment of its sections.
+        #: () -> void
         def chunks
           @chunks = FROM.values.to_h { |part| [part, []] }
           @sizes = PARTS.to_h { |part| [part, 0] }
@@ -280,6 +320,7 @@ module Zr
         # load goes through its GOT slot. All other relocations use the
         # symbol's own address. An `abs64` slot becomes a fixup; its addend
         # is the value that the slot contained.
+        #: (Symbol part, String out, Integer off, Integer i, Array[Integer] words) -> void
         def relocate(part, out, off, i, words)
           addr = @addr[i]
           base = at(part) + off
@@ -333,12 +374,15 @@ module Zr
         # The little-endian word at `at`. A link reads about a million of
         # these. `getbyte` does not allocate, but `unpack` does. In the
         # compiled compiler, each allocation makes the next collection of a
-        # large heap occur sooner.
-        def word(bytes, at)
+        # large heap occur sooner. RBS gives `getbyte` an `Integer?`; `at`
+        # is always inside `bytes`.
+        #: (String bytes, Integer at) -> Integer
+        def word(bytes, at) # steep:ignore MethodBodyTypeMismatch
           bytes.getbyte(at) | (bytes.getbyte(at + 1) << 8) | (bytes.getbyte(at + 2) << 16) | (bytes.getbyte(at + 3) << 24)
         end
 
         # One stub for each external. The stub jumps through its GOT slot.
+        #: () -> String
         def stub_bytes
           @externals.each_with_index.with_object(+"".b) do |(name, n), out|
             here = at(:stubs) + (n * STUB)
@@ -353,6 +397,7 @@ module Zr
         # One GOT slot for each external, which the image binds or rebases.
         # Then one rebase slot for each other symbol that code loads through
         # the GOT.
+        #: () -> String
         def got_bytes
           @got.each_with_index do |key, n|
             slot = at(:got) + (n * 8)
@@ -382,9 +427,10 @@ module Zr
         # `page_count` pages of the file for the kernel to fix up. A count
         # past the file maps the next segment's bytes over the tail, and the
         # kernel's pager then caches those bytes without fixups.
+        #: (Array[Integer] slots, Integer start, Integer size) -> [Array[Integer], Hash[Integer, Integer]]
         def thread(slots, start, size)
           starts = Array.new(Bytes.align(size, PAGE) / PAGE, START_NONE)
-          nexts = {}
+          nexts = {} #: Hash[Integer, Integer]
           slots.sort.group_by { |slot| (slot - start) / PAGE }.each do |page, row|
             starts[page] = (row.first - start) % PAGE
             row.each_with_index { |slot, n| nexts[slot] = row[n + 1] ? (row[n + 1] - slot) / STRIDE : 0 }
@@ -394,12 +440,15 @@ module Zr
 
         # The slot's target as an offset from the image base. The loader
         # adds the slide to it.
+        #: (Integer offset, Integer nxt) -> Integer
         def rebase(offset, nxt) = (offset & ((1 << 36) - 1)) | (nxt << 51)
 
+        #: (Integer ordinal, Integer nxt) -> Integer
         def bind(ordinal, nxt) = (ordinal & 0xFF_FFFF) | (nxt << 51) | (1 << 63)
 
         # Writes the eight-byte little-endian `word` at `at`, one byte at a
         # time. In the compiled runtime, `bytesplice` copies the full string.
+        #: (String bytes, Integer at, Integer word) -> void
         def put(bytes, at, word)
           8.times { |n| bytes.setbyte(at + n, (word >> (8 * n)) & 0xFF) }
         end

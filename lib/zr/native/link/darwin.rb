@@ -18,11 +18,11 @@ module Zr
         # `ld` writes this value to `LC_MAIN.stacksize`.
         # `Obj::MachO::Executable` writes that field from the same value, so
         # the stack size is the same with both linkers.
-        STACK_FLAGS = ["-Wl,-stack_size,0x#{STACK.to_s(16)}"].freeze
+        STACK_FLAGS = ["-Wl,-stack_size,0x#{STACK.to_s(16)}"].freeze #: Array[String]
 
         # `cc` records the host's macOS as the oldest one unless it gets
         # the target's, which `Obj::MachO::Executable` writes.
-        MIN_OS_FLAGS = ["-mmacosx-version-min=#{Target::AARCH64_DARWIN.min_os}"].freeze
+        MIN_OS_FLAGS = ["-mmacosx-version-min=#{Target::AARCH64_DARWIN.min_os}"].freeze #: Array[String]
 
         # A program without eval calls the runtime only through calls that
         # the linker can see, so the linker removes code that nothing
@@ -30,7 +30,7 @@ module Zr
         # exported symbols, so this also removes the exports. A program
         # with eval keeps them: its JIT uses dlsym when the symbol table is
         # not sorted.
-        STRIP_FLAGS = ["-Wl,-dead_strip", "-Wl,-no_exported_symbols"].freeze
+        STRIP_FLAGS = ["-Wl,-dead_strip", "-Wl,-no_exported_symbols"].freeze #: Array[String]
 
         module_function
 
@@ -45,6 +45,15 @@ module Zr
         # `link` goes to `cc` as it is, so it links with `cc`. An exported
         # symbols list keeps its symbols: then the strip keeps the exports.
         # A program with eval keeps every export as well (`EVAL_EXPORTS`).
+        # @rbs image: Obj::Unit
+        # @rbs out: String
+        # @rbs work: String
+        # @rbs objects: Array[String]
+        # @rbs strip: bool
+        # @rbs linker: String
+        # @rbs target: Target
+        # @rbs link: Array[String]
+        # @rbs return: String?
         def link(image, out, work:, objects:, strip:, linker:, target:, link: [])
           unless link.empty?
             return "--link needs cc, and this host has no cc for #{target} (#{Target.cc_hint})" unless target.tool("cc")
@@ -71,16 +80,19 @@ module Zr
         # The JIT of a program with eval finds the runtime's functions with
         # dlsym when `ld` wrote the symbol table. An exported symbols list
         # exports only its own names, so the link exports every name too.
-        EVAL_EXPORTS = ["-Wl,-exported_symbol,*"].freeze
+        EVAL_EXPORTS = ["-Wl,-exported_symbol,*"].freeze #: Array[String]
 
+        #: (Array[String] link) -> bool
         def exports?(link) = link.any? { |arg| arg.include?("-exported_symbol") }
 
+        #: (Array[String] link) -> Array[String]
         def strip_flags(link)
           exports?(link) ? STRIP_FLAGS - ["-Wl,-no_exported_symbols"] : STRIP_FLAGS
         end
 
         # The byte ranges of a linked binary that do not depend on the
         # inputs: the UUID that `ld` writes and the code signature of its page.
+        #: (String bytes) -> Array[Range[Integer]]
         def stamps(bytes) = Obj::MachO::Stamps.of(bytes)
       end
     end

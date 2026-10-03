@@ -36,8 +36,9 @@ module Zr
 
     # The rows of every gem that a build can read: zr's standard library
     # and ports, with the gems of `gem_set` in place of theirs.
+    #: (?GemSet? gem_set) -> Array[Row]
     def all(gem_set = nil)
-      rows = {}
+      rows = {} #: Hash[String, Row]
       Library::Stdlib::DEFAULT.each { |name, version| rows[name] = Row.new(name, version, "stdlib") }
       Library::Stdlib::BUNDLED.each { |name, version| rows[name] = Row.new(name, version, "stdlib") }
       Library::Ports::ALL.each { |name, port| rows[name] = Row.new(name, port.version, "port") }
@@ -48,6 +49,7 @@ module Zr
     # The rows of the gems that the program `hir` carries: its own files,
     # and for a program with eval, every file of eval support (`support`),
     # which holds the libraries that the program and its evals load.
+    #: (Hir::Program hir, EvalSupport support, ?GemSet? gem_set) -> Array[Row]
     def of_program(hir, support, gem_set = nil)
       files = hir.units.filter_map { |unit| unit.file if unit.file&.start_with?("/") }
       files += support.units.keys.select { |file| file.start_with?("/") } if hir.evals
@@ -57,6 +59,7 @@ module Zr
     # The rows of the gems that `files` (a build's files) come from. A
     # program with eval (`evals`) can also require each gem of `gem_set`
     # at run time, from the gem's roots, so each of those has a row too.
+    #: (Array[String] files, ?GemSet? gem_set, ?evals: bool) -> Array[Row]
     def of(files, gem_set = nil, evals: false)
       rows = files.filter_map { |file| row_for(File.expand_path(file), gem_set) }
       rows += gem_set.gems.reject(&:refusal).map { |gem| Row.new(gem.name, gem.version, source_of(gem)) } if evals && gem_set
@@ -64,6 +67,7 @@ module Zr
     end
 
     # The bytes that a binary carries: MAGIC, then one line of JSON.
+    #: (Array[Row] rows, Target target) -> String
     def bytes(rows, target)
       "#{MAGIC}#{JSON.generate({ "zr" => VERSION, "ruby" => RUBY, "target" => target.triple, "gems" => rows.map(&:to_h) })}\n".b
     end
@@ -72,6 +76,7 @@ module Zr
     # ends at its newline or at the NUL after it. A binary that contains
     # zr itself also has MAGIC as a string of this file, which no JSON
     # follows, so each place is tried.
+    #: (String bytes) -> Hash[String, untyped]?
     def find(bytes)
       bytes = bytes.b
       at = 0
@@ -91,8 +96,10 @@ module Zr
 
     # A GemSet gem's source, without the path of a `--gem` directory, so
     # that the same build on two machines carries the same bytes.
+    #: (GemSet::Entry gem) -> String
     def source_of(gem) = gem.source.start_with?("--gem") ? "--gem" : gem.source
 
+    #: (String file, GemSet? gem_set) -> Row?
     def row_for(file, gem_set)
       gem = gem_set&.gems&.find { |g| g.roots.any? { |root| file.start_with?("#{root}/") } }
       return Row.new(gem.name, gem.version, source_of(gem)) if gem
@@ -119,9 +126,12 @@ module Zr
 
     # Each file of a default gem in ruby's library, by its path there,
     # from the gem's specification (`s.files`).
+    #: () -> Hash[String, String]
     def default_gems
       Session.current.memo(:default_gems) do
-        Library::Stdlib::DEFAULT.each_with_object({}) do |(name, version), out|
+        Library::Stdlib::DEFAULT.each_with_object(
+          {} #: Hash[String, String]
+        ) do |(name, version), out|
           spec = File.join(Library::Layout::SPECIFICATIONS, "default", "#{name}-#{version}.gemspec")
           next unless File.file?(spec)
 

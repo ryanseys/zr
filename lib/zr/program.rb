@@ -18,14 +18,24 @@ module Zr
   # The methods are in a reopened class, not in the block of
   # `Data.define`, so that the type check sees them in their class.
   class Program
+    # @rbs runtime: Runtime
+    # @rbs functions: Array[Obj::Code | IR::Function]
+    # @rbs data: Array[Obj::Datum]
+    # @rbs evals: EvalSupport?
+    # @rbs sources: Hash[String, String]
+    # @rbs gems: Array[Manifest::Row]
+    # @rbs return: void
     def initialize(runtime:, functions:, data:, evals:, sources: {}, gems: [])
       super
     end
 
+    #: () -> Array[String]
     def raw = runtime.raw
 
+    #: () -> Target
     def target = runtime.target
 
+    #: () -> [Array[Obj::Code | IR::Function], Array[Obj::Datum], Array[String]]
     def to_ary = [runtime.functions + functions, runtime.data + data, raw]
 
     # The outputs of a build (`Native::Build`, which the caller loads).
@@ -34,14 +44,17 @@ module Zr
     #
     # The runtime's object comes from the cache, so the object file at
     # `out` is the only file that zr writes.
+    #: (String out) -> String?
     def write_object(out)
       Native::Build.runtime_object(runtime)
       Native::Build.object(functions, data, out, export: true, target: target)
     end
 
+    #: (String out) -> String?
     def write_wasm(out) = Native::Build.wasm_program(self, out)
 
-    def write_binary(out, work:, link:) = Native::Build.program(self, out, work: work, link: link)
+    #: (String out, work: String, link: Array[String]) -> String?
+    def write_binary(out, work:, link:) =Native::Build.program(self, out, work: work, link: link)
 
     # The bytes of source above which a program's build tunes
     # (`GcTuning.heavy!`). hello and a probe are far below it; the stdlib rung
@@ -60,6 +73,14 @@ module Zr
     # `gem_set` is the GemSet whose gems come before zr's standard library
     # (lib/zr/gem_set.rb), or nil. `gate` stops the build at a require that
     # nothing has in the program's own files (`Hir::Build#gate!`).
+    # @rbs source: String
+    # @rbs file: String
+    # @rbs target: Target
+    # @rbs sources: bool
+    # @rbs gem_set: GemSet?
+    # @rbs gate: bool | Symbol
+    # @rbs &finish: ? (IR::Function, String) -> Obj::Code
+    # @rbs return: Program
     def self.build(source, file, target: Target.default, sources: false, gem_set: nil, gate: false, &finish)
       rt = Runtime.for(target)
       support = EvalSupport.for(target)
@@ -69,7 +90,7 @@ module Zr
       # source takes seconds to lower.
       GcTuning.heavy!(restart: false) if source.bytesize + hir.units.sum { |u| u.source.to_s.bytesize } > HEAVY_SOURCE
       # Before the lowering, which lets go of each unit's source.
-      sources = sources ? built_from(source, file, hir) : {}
+      sources = sources ? built_from(source, file, hir) : {} #: Hash[String, String]
       gems = Manifest.of_program(hir, support, gem_set)
       symbols = hir.evals ? support.symbols : Machine::Symbols.new(rt.symbols.names, sites: rt.symbols.sites)
       # Only the kernel's names have fixed ids. The link numbers all other
@@ -81,8 +102,11 @@ module Zr
       functions, data = Timing.phase(finish ? "program lowered and assembled" : "program lowered") do
         finish ? lower.run { |f| yield(f, lower.entry) } : lower.run
       end
-      units = hir.entries.map { |path, i| [path, lower.unit_entry(i)] }
-      SymbolNumbering.number(data, symbols, rt.description.const_for("SYMBOL_TAG"))
+      units = hir.entries.map do |path, i|
+        [path, lower.unit_entry(i)] #: [String, String]
+      end
+      tag = rt.description.const_for("SYMBOL_TAG") #: Integer
+      SymbolNumbering.number(data, symbols, tag)
       tables = LoadTables.new(evals: hir.evals, spots: hir.spots || {}, coverable: hir.coverable || {},
                               branches: hir.branches || {}, defs: hir.defs || {}, sources: hir.evals ? support.digests : {},
                               target: target, gem_roots: gem_set ? gem_set.gems.reject(&:refusal).flat_map(&:roots) : [],
@@ -94,6 +118,7 @@ module Zr
     # some libraries (fileutils, pp, irb, reline, rubygems and others). A
     # file of a gem in the GemSet with the same feature name would load a
     # second copy beside it, where ruby loads one. So such a build stops.
+    #: (Hir::Program hir, EvalSupport support, GemSet gem_set, Target target) -> void
     def self.gem_conflicts!(hir, support, gem_set, target)
       stdlib = Library::Roots.stdlib(target)
       carried = support.units.keys.filter_map do |path|
@@ -120,17 +145,20 @@ module Zr
     # require stays for the run time (a file that did not exist, or a name
     # built at run time): a file that appears later would change the
     # build, and no list of paths can say which.
+    #: (String source, String file, Hir::Program hir) -> Hash[String, String]
     def self.built_from(source, file, hir)
       return {} if run_time_require?([hir.body, *hir.units.map(&:body)])
 
-      [[file, source], *hir.units.filter_map { |u| [u.file, u.source] if u.source && File.file?(u.file) }]
-        .to_h { |path, bytes| [File.expand_path(path), Digest::SHA256.hexdigest(bytes)] }
+      # The filter keeps only the units that have a source.
+      files = [[file, source], *hir.units.filter_map { |u| [u.file, u.source] if u.source && File.file?(u.file) }] #: Array[[String, String]]
+      files.to_h { |path, bytes| [File.expand_path(path), Digest::SHA256.hexdigest(bytes)] }
     end
 
     REQUIRES = %i[require require_relative load].freeze
 
     # A require, require_relative or load of Kernel, or any autoload, that
     # the HIR left as a call.
+    #: (untyped node) -> bool
     def self.run_time_require?(node)
       case node
       when Hir::Send

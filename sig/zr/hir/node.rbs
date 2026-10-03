@@ -6,6 +6,28 @@ module Zr
     IT: Symbol
     STRING_EVALS: Array[Symbol]
 
+    # A node that can be a child of another node: every node class with a
+    # `line`. Program, Unit and Params are not in it.
+    type node = Require | Activations | Stop | Autoload | Seq | Send | Using | UsingDefaults | Slot | IndexOpAssign
+              | AttrOpAssign | Splat | HashSplat | BlockPass | Block | Lambda | Yield | Super | ZSuper | Break | Next
+              | Literal | SelfRef | Def | Local | Trace | Cover | Assign | MultiAssign | MultiTarget | If | While | Return
+              | And | Or | Not | Core | Once | ClassDef | ModuleDef | SingletonClassDef | ConstRead | ConstWrite | IvarRead
+              | GvarRead | GvarWrite | CvarRead | CvarWrite | ConstOrWrite | Alias | GvarAlias | Undef | AliasValue
+              | UndefValue | Defined | Case | IvarWrite | ArrayLit | KwSplatElement | HashLit | BackRef | RangeLit | Interp
+              | RegexpOnce | RegexpLit | FrozenString | Begin | Rescue | Retry | Redo
+
+    # The scope of a constant: nil for a bare name, :top for `::Name`.
+    type scope = node | :top | nil
+
+    # The activation entry of a send, or :owner inside a `refine` block.
+    type using = Integer | :owner | nil
+
+    # A unit's index, or the entry of a file in eval support.
+    type entry = Integer | String
+
+    # The block of a call: a block literal, or `&value`.
+    type block = Block | BlockPass
+
     def self.node?: (untyped value) -> bool
     def self.each_child: (untyped node) { (untyped) -> void } -> Array[untyped]
                        | (untyped node) -> Array[untyped]
@@ -16,160 +38,165 @@ module Zr
     end
 
     class Program < Node
-      attr_accessor file: untyped
-      attr_accessor locals: untyped
-      attr_accessor body: untyped
-      attr_accessor units: untyped
-      attr_accessor warnings: untyped
-      attr_accessor evals: untyped
-      attr_accessor entries: untyped
-      attr_accessor traced: untyped
-      attr_accessor node_ids: untyped
-      attr_accessor spots: untyped
-      attr_accessor coverable: untyped
-      attr_accessor activations: untyped
-      attr_accessor branches: untyped
-      attr_accessor defs: untyped
+      attr_accessor file: String
+      attr_accessor locals: Array[Symbol]
+      attr_accessor body: node
+      attr_accessor units: Array[Unit]
+      attr_accessor warnings: Array[String]
+      attr_accessor evals: bool
+      attr_accessor entries: Hash[String, entry]
+      attr_accessor traced: bool?
+      attr_accessor node_ids: Hash[Node, Integer]?
+      attr_accessor spots: Hash[String, String]?
+      attr_accessor coverable: Hash[String, [Integer, Array[Integer]]]?
+      attr_accessor activations: Integer?
+      attr_accessor branches: Hash[String, Array[Array[Symbol | Integer | nil]]]?
+      attr_accessor defs: Hash[String, Array[Array[Integer]]]?
     end
 
+    # The lowering releases `body`, `locals`, `source` and `node_ids`
+    # after it lowers the unit (`Lower#spent`).
     class Unit < Node
-      attr_accessor file: untyped
-      attr_accessor locals: untyped
-      attr_accessor body: untyped
-      attr_accessor warnings: untyped
-      attr_accessor internal: untyped
-      attr_accessor spots: untyped
-      attr_accessor hidden: untyped
-      attr_accessor source: untyped
-      attr_accessor activates: untyped
-      attr_accessor node_ids: untyped
+      attr_accessor file: String
+      attr_accessor locals: Array[Symbol]?
+      attr_accessor body: node?
+      attr_accessor warnings: Array[String]
+      attr_accessor internal: bool
+      attr_accessor spots: String?
+      attr_accessor hidden: bool?
+      attr_accessor source: String?
+      attr_accessor activates: bool?
+      attr_accessor node_ids: Hash[Node, Integer]?
     end
 
     class Require < Node
-      attr_accessor kind: untyped
-      attr_accessor feature: untyped
-      attr_accessor path: untyped
-      attr_accessor unit: untyped
-      attr_accessor line: untyped
+      attr_accessor kind: Symbol
+      attr_accessor feature: String
+      attr_accessor path: String?
+      attr_accessor unit: entry?
+      attr_accessor line: Integer
     end
 
     class Activations < Node
-      attr_accessor count: untyped
-      attr_accessor line: untyped
+      attr_accessor count: Integer
+      attr_accessor line: Integer
     end
 
     class Stop < Node
-      attr_accessor what: untyped
-      attr_accessor line: untyped
+      attr_accessor what: String
+      attr_accessor line: Integer
     end
 
     class Autoload < Node
-      attr_accessor recv: untyped
-      attr_accessor name: untyped
-      attr_accessor feature: untyped
-      attr_accessor path: untyped
-      attr_accessor unit: untyped
-      attr_accessor line: untyped
-      attr_accessor declared: untyped
+      attr_accessor recv: node?
+      attr_accessor name: Symbol
+      attr_accessor feature: String
+      attr_accessor path: String
+      attr_accessor unit: entry?
+      attr_accessor line: Integer
+      attr_accessor declared: bool?
     end
 
     class Seq < Node
-      attr_accessor stmts: untyped
-      attr_accessor line: untyped
+      attr_accessor stmts: Array[node]
+      attr_accessor line: Integer
     end
 
     class Send < Node
-      attr_accessor recv: untyped
-      attr_accessor name: untyped
-      attr_accessor args: untyped
-      attr_accessor line: untyped
-      attr_accessor vcall: untyped
-      attr_accessor opt: untyped
-      attr_accessor block: untyped
-      attr_accessor kwargs: untyped
-      attr_accessor safe: untyped
-      attr_accessor write: untyped
-      attr_accessor using: untyped
-      attr_accessor covers: untyped
-      attr_accessor interp: untyped
+      attr_accessor recv: node?
+      attr_accessor name: Symbol
+      attr_accessor args: Array[node]
+      attr_accessor line: Integer
+      attr_accessor vcall: bool
+      attr_accessor opt: bool
+      attr_accessor block: block?
+      attr_accessor kwargs: HashLit?
+      attr_accessor safe: bool
+      attr_accessor write: bool?
+      attr_accessor using: using
+      attr_accessor covers: Array[Cover?]?
+      attr_accessor interp: bool
 
-      def self.of: (untyped recv, untyped name, untyped args, untyped line, ?vcall: untyped, ?opt: untyped, ?block: untyped,
-                    ?kwargs: untyped, ?safe: untyped, ?write: untyped, ?using: untyped, ?covers: untyped, ?interp: untyped) -> Send
+      def self.of: (node? recv, Symbol name, Array[node] args, Integer line, ?vcall: bool, ?opt: bool, ?block: block?,
+                    ?kwargs: HashLit?, ?safe: bool, ?write: bool?, ?using: using, ?covers: Array[Cover?]?, ?interp: bool) -> Send
     end
 
     class Using < Node
-      attr_accessor id: untyped
-      attr_accessor from: untyped
-      attr_accessor value: untyped
-      attr_accessor line: untyped
+      attr_accessor id: Integer
+      attr_accessor from: Integer
+      attr_accessor value: node
+      attr_accessor line: Integer
     end
 
     class UsingDefaults < Node
-      attr_accessor rows: untyped
-      attr_accessor line: untyped
+      attr_accessor rows: Array[[Integer, Integer]]
+      attr_accessor line: Integer
     end
 
     class Slot < Node
-      attr_accessor index: untyped
-      attr_accessor line: untyped
+      attr_accessor index: Integer
+      attr_accessor line: Integer
     end
 
     class IndexOpAssign < Node
-      attr_accessor recv: untyped
-      attr_accessor args: untyped
-      attr_accessor op: untyped
-      attr_accessor value: untyped
-      attr_accessor line: untyped
-      attr_accessor using: untyped
+      attr_accessor recv: node
+      attr_accessor args: Array[node]
+      attr_accessor op: Symbol
+      attr_accessor value: node
+      attr_accessor line: Integer
+      attr_accessor using: using
     end
 
     class AttrOpAssign < Node
-      attr_accessor recv: untyped
-      attr_accessor name: untyped
-      attr_accessor op: untyped
-      attr_accessor value: untyped
-      attr_accessor line: untyped
-      attr_accessor safe: untyped
-      attr_accessor using: untyped
+      attr_accessor recv: node
+      attr_accessor name: Symbol
+      attr_accessor op: Symbol
+      attr_accessor value: node
+      attr_accessor line: Integer
+      attr_accessor safe: bool
+      attr_accessor using: using
     end
 
     class Splat < Node
-      attr_accessor value: untyped
-      attr_accessor line: untyped
+      attr_accessor value: node
+      attr_accessor line: Integer
     end
 
     class HashSplat < Node
-      attr_accessor value: untyped
-      attr_accessor line: untyped
+      attr_accessor value: node
+      attr_accessor line: Integer
     end
 
     class BlockPass < Node
-      attr_accessor value: untyped
-      attr_accessor line: untyped
+      attr_accessor value: node
+      attr_accessor line: Integer
     end
 
     class Block < Node
-      attr_accessor params: untyped
-      attr_accessor locals: untyped
-      attr_accessor body: untyped
-      attr_accessor line: untyped
-      attr_accessor end_line: untyped
-      attr_accessor cover: untyped
+      attr_accessor params: Params
+      attr_accessor locals: Array[Symbol]
+      attr_accessor body: node
+      attr_accessor line: Integer
+      attr_accessor end_line: Integer?
+      attr_accessor cover: Integer?
     end
 
     class Lambda < Node
-      attr_accessor block: untyped
-      attr_accessor line: untyped
+      attr_accessor block: Block
+      attr_accessor line: Integer
     end
 
+    # A required or post parameter: its name, or a destructuring one.
+    type param = Symbol | MultiTarget
+
     class Params < Node
-      attr_accessor required: untyped
-      attr_accessor optional: untyped
-      attr_accessor rest: untyped
-      attr_accessor post: untyped
-      attr_accessor keywords: untyped
-      attr_accessor kwrest: untyped
-      attr_accessor block: untyped
+      attr_accessor required: Array[param]
+      attr_accessor optional: Array[[Symbol, node?]]
+      attr_accessor rest: Symbol?
+      attr_accessor post: Array[param]
+      attr_accessor keywords: Array[[Symbol, node?]]
+      attr_accessor kwrest: Symbol?
+      attr_accessor block: Symbol?
 
       def positional: () -> Integer
       def spread?: () -> bool
@@ -181,341 +208,346 @@ module Zr
     end
 
     class Yield < Node
-      attr_accessor args: untyped
-      attr_accessor line: untyped
-      attr_accessor kwargs: untyped
+      attr_accessor args: Array[node]
+      attr_accessor line: Integer
+      attr_accessor kwargs: HashLit?
     end
 
     class Super < Node
-      attr_accessor args: untyped
-      attr_accessor kwargs: untyped
-      attr_accessor block: untyped
-      attr_accessor line: untyped
-      attr_accessor in_block: untyped
-      attr_accessor using: untyped
+      attr_accessor args: Array[node]
+      attr_accessor kwargs: HashLit?
+      attr_accessor block: block?
+      attr_accessor line: Integer
+      attr_accessor in_block: bool?
+      attr_accessor using: using
     end
 
     class ZSuper < Node
-      attr_accessor block: untyped
-      attr_accessor line: untyped
+      attr_accessor block: block?
+      attr_accessor line: Integer
     end
 
     class Break < Node
-      attr_accessor value: untyped
-      attr_accessor line: untyped
+      attr_accessor value: node
+      attr_accessor line: Integer
     end
 
     class Next < Node
-      attr_accessor value: untyped
-      attr_accessor line: untyped
+      attr_accessor value: node
+      attr_accessor line: Integer
     end
 
+    # `value` is an Integer, Float, String, Symbol, true, false or nil.
     class Literal < Node
       attr_accessor value: untyped
-      attr_accessor line: untyped
-      attr_accessor chilled: untyped
+      attr_accessor line: Integer
+      attr_accessor chilled: bool?
     end
 
     class SelfRef < Node
-      attr_accessor line: untyped
+      attr_accessor line: Integer
     end
 
     class Def < Node
-      attr_accessor name: untyped
-      attr_accessor params: untyped
-      attr_accessor locals: untyped
-      attr_accessor body: untyped
-      attr_accessor line: untyped
-      attr_accessor receiver: untyped
-      attr_accessor evals: untyped
-      attr_accessor end_line: untyped
-      attr_accessor cover: untyped
+      attr_accessor name: Symbol
+      attr_accessor params: Params
+      attr_accessor locals: Array[Symbol]
+      attr_accessor body: node
+      attr_accessor line: Integer
+      attr_accessor receiver: node?
+      attr_accessor evals: bool
+      attr_accessor end_line: Integer
+      attr_accessor cover: Integer?
     end
 
     class Local < Node
-      attr_accessor name: untyped
-      attr_accessor depth: untyped
-      attr_accessor line: untyped
+      attr_accessor name: Symbol
+      attr_accessor depth: Integer
+      attr_accessor line: Integer
     end
 
     class Trace < Node
-      attr_accessor event: untyped
-      attr_accessor line: untyped
+      attr_accessor event: Symbol
+      attr_accessor line: Integer
     end
 
     class Cover < Node
-      attr_accessor id: untyped
-      attr_accessor line: untyped
+      attr_accessor id: Integer
+      attr_accessor line: Integer
     end
 
+    # `value` is nil for a target of a multiple assignment.
     class Assign < Node
-      attr_accessor name: untyped
-      attr_accessor depth: untyped
-      attr_accessor value: untyped
-      attr_accessor line: untyped
+      attr_accessor name: Symbol
+      attr_accessor depth: Integer
+      attr_accessor value: node?
+      attr_accessor line: Integer
     end
 
     class MultiAssign < Node
-      attr_accessor target: untyped
-      attr_accessor value: untyped
-      attr_accessor line: untyped
-      attr_accessor taken: untyped
+      attr_accessor target: MultiTarget
+      attr_accessor value: node
+      attr_accessor line: Integer
+      attr_accessor taken: bool?
     end
 
     class MultiTarget < Node
-      attr_accessor lefts: untyped
-      attr_accessor rest: untyped
-      attr_accessor rights: untyped
-      attr_accessor line: untyped
-      attr_accessor whole: untyped
+      attr_accessor lefts: Array[node]
+      attr_accessor rest: node | :implicit | nil
+      attr_accessor rights: Array[node]
+      attr_accessor line: Integer
+      attr_accessor whole: Symbol?
 
       def names: () -> Array[Symbol]
     end
 
     class If < Node
-      attr_accessor cond: untyped
-      attr_accessor yes: untyped
-      attr_accessor no: untyped
-      attr_accessor line: untyped
+      attr_accessor cond: node
+      attr_accessor yes: node?
+      attr_accessor no: node?
+      attr_accessor line: Integer
     end
 
     class While < Node
-      attr_accessor cond: untyped
-      attr_accessor body: untyped
-      attr_accessor line: untyped
-      attr_accessor body_first: untyped
+      attr_accessor cond: node
+      attr_accessor body: node?
+      attr_accessor line: Integer
+      attr_accessor body_first: bool?
     end
 
     class Return < Node
-      attr_accessor value: untyped
-      attr_accessor line: untyped
+      attr_accessor value: node
+      attr_accessor line: Integer
     end
 
     class And < Node
-      attr_accessor left: untyped
-      attr_accessor right: untyped
-      attr_accessor line: untyped
+      attr_accessor left: node
+      attr_accessor right: node
+      attr_accessor line: Integer
     end
 
     class Or < Node
-      attr_accessor left: untyped
-      attr_accessor right: untyped
-      attr_accessor line: untyped
+      attr_accessor left: node
+      attr_accessor right: node
+      attr_accessor line: Integer
     end
 
     class Not < Node
-      attr_accessor value: untyped
-      attr_accessor line: untyped
+      attr_accessor value: node
+      attr_accessor line: Integer
     end
 
     class Core < Node
-      attr_accessor name: untyped
-      attr_accessor line: untyped
+      attr_accessor name: Symbol
+      attr_accessor line: Integer
     end
 
     class Once < Node
-      attr_accessor body: untyped
-      attr_accessor line: untyped
+      attr_accessor body: node
+      attr_accessor line: Integer
     end
 
     class ClassDef < Node
-      attr_accessor scope: untyped
-      attr_accessor name: untyped
-      attr_accessor superclass: untyped
-      attr_accessor locals: untyped
-      attr_accessor body: untyped
-      attr_accessor line: untyped
-      attr_accessor end_line: untyped
+      attr_accessor scope: scope
+      attr_accessor name: Symbol
+      attr_accessor superclass: node?
+      attr_accessor locals: Array[Symbol]
+      attr_accessor body: node
+      attr_accessor line: Integer
+      attr_accessor end_line: Integer
     end
 
     class ModuleDef < Node
-      attr_accessor scope: untyped
-      attr_accessor name: untyped
-      attr_accessor locals: untyped
-      attr_accessor body: untyped
-      attr_accessor line: untyped
-      attr_accessor end_line: untyped
+      attr_accessor scope: scope
+      attr_accessor name: Symbol
+      attr_accessor locals: Array[Symbol]
+      attr_accessor body: node
+      attr_accessor line: Integer
+      attr_accessor end_line: Integer
     end
 
     class SingletonClassDef < Node
-      attr_accessor target: untyped
-      attr_accessor locals: untyped
-      attr_accessor body: untyped
-      attr_accessor line: untyped
-      attr_accessor end_line: untyped
+      attr_accessor target: node
+      attr_accessor locals: Array[Symbol]
+      attr_accessor body: node
+      attr_accessor line: Integer
+      attr_accessor end_line: Integer
     end
 
     class ConstRead < Node
-      attr_accessor scope: untyped
-      attr_accessor name: untyped
-      attr_accessor line: untyped
+      attr_accessor scope: scope
+      attr_accessor name: Symbol
+      attr_accessor line: Integer
     end
 
     class ConstWrite < Node
-      attr_accessor scope: untyped
-      attr_accessor name: untyped
-      attr_accessor value: untyped
-      attr_accessor line: untyped
+      attr_accessor scope: scope
+      attr_accessor name: Symbol
+      attr_accessor value: node?
+      attr_accessor line: Integer
     end
 
     class IvarRead < Node
-      attr_accessor name: untyped
-      attr_accessor line: untyped
+      attr_accessor name: Symbol
+      attr_accessor line: Integer
     end
 
     class GvarRead < Node
-      attr_accessor name: untyped
-      attr_accessor line: untyped
+      attr_accessor name: Symbol
+      attr_accessor line: Integer
     end
 
     class GvarWrite < Node
-      attr_accessor name: untyped
-      attr_accessor value: untyped
-      attr_accessor line: untyped
-      attr_accessor shown: untyped
+      attr_accessor name: Symbol
+      attr_accessor value: node?
+      attr_accessor line: Integer
+      attr_accessor shown: Symbol?
     end
 
     class CvarRead < Node
-      attr_accessor name: untyped
-      attr_accessor line: untyped
+      attr_accessor name: Symbol
+      attr_accessor line: Integer
     end
 
     class CvarWrite < Node
-      attr_accessor name: untyped
-      attr_accessor value: untyped
-      attr_accessor line: untyped
+      attr_accessor name: Symbol
+      attr_accessor value: node?
+      attr_accessor line: Integer
     end
 
     class ConstOrWrite < Node
-      attr_accessor scope: untyped
-      attr_accessor name: untyped
-      attr_accessor value: untyped
-      attr_accessor line: untyped
+      attr_accessor scope: scope
+      attr_accessor name: Symbol
+      attr_accessor value: node
+      attr_accessor line: Integer
     end
 
     class Alias < Node
-      attr_accessor new_name: untyped
-      attr_accessor old_name: untyped
-      attr_accessor line: untyped
+      attr_accessor new_name: Symbol
+      attr_accessor old_name: Symbol
+      attr_accessor line: Integer
     end
 
     class GvarAlias < Node
-      attr_accessor new_name: untyped
-      attr_accessor old_name: untyped
-      attr_accessor line: untyped
+      attr_accessor new_name: Symbol
+      attr_accessor old_name: Symbol
+      attr_accessor line: Integer
     end
 
     class Undef < Node
-      attr_accessor names: untyped
-      attr_accessor line: untyped
+      attr_accessor names: Array[Symbol]
+      attr_accessor line: Integer
     end
 
     class AliasValue < Node
-      attr_accessor new_name: untyped
-      attr_accessor old_name: untyped
-      attr_accessor line: untyped
+      attr_accessor new_name: node
+      attr_accessor old_name: node
+      attr_accessor line: Integer
     end
 
     class UndefValue < Node
-      attr_accessor names: untyped
-      attr_accessor line: untyped
+      attr_accessor names: Array[node]
+      attr_accessor line: Integer
     end
 
+    # `target` is a name, the node that the form tests, or the parts of a
+    # list.
     class Defined < Node
-      attr_accessor kind: untyped
-      attr_accessor target: untyped
-      attr_accessor line: untyped
+      attr_accessor kind: Symbol
+      attr_accessor target: Symbol | node | Array[node] | nil
+      attr_accessor line: Integer
     end
 
     class Case < Node
-      attr_accessor subject: untyped
-      attr_accessor clauses: untyped
-      attr_accessor else_body: untyped
-      attr_accessor line: untyped
-      attr_accessor using: untyped
+      attr_accessor subject: node?
+      attr_accessor clauses: Array[[Array[node], node]]
+      attr_accessor else_body: node?
+      attr_accessor line: Integer
+      attr_accessor using: using
     end
 
     class IvarWrite < Node
-      attr_accessor name: untyped
-      attr_accessor value: untyped
-      attr_accessor line: untyped
+      attr_accessor name: Symbol
+      attr_accessor value: node?
+      attr_accessor line: Integer
     end
 
     class ArrayLit < Node
-      attr_accessor elements: untyped
-      attr_accessor line: untyped
-      attr_accessor frozen: untyped
+      attr_accessor elements: Array[node]
+      attr_accessor line: Integer
+      attr_accessor frozen: bool?
     end
 
     class KwSplatElement < Node
-      attr_accessor pairs: untyped
-      attr_accessor line: untyped
+      attr_accessor pairs: HashLit
+      attr_accessor line: Integer
     end
 
+    # `pairs` has a nil value after each HashSplat key.
     class HashLit < Node
-      attr_accessor pairs: untyped
-      attr_accessor line: untyped
-      attr_accessor frozen: untyped
+      attr_accessor pairs: Array[node?]
+      attr_accessor line: Integer
+      attr_accessor frozen: bool?
     end
 
     class BackRef < Node
-      attr_accessor kind: untyped
-      attr_accessor number: untyped
-      attr_accessor line: untyped
+      attr_accessor kind: Symbol
+      attr_accessor number: Integer?
+      attr_accessor line: Integer
     end
 
     class RangeLit < Node
-      attr_accessor low: untyped
-      attr_accessor high: untyped
-      attr_accessor exclusive: untyped
-      attr_accessor line: untyped
-      attr_accessor static: untyped
+      attr_accessor low: node
+      attr_accessor high: node
+      attr_accessor exclusive: bool
+      attr_accessor line: Integer
+      attr_accessor static: bool
     end
 
     class Interp < Node
-      attr_accessor parts: untyped
-      attr_accessor line: untyped
+      attr_accessor parts: Array[node]
+      attr_accessor line: Integer
     end
 
     class RegexpOnce < Node
-      attr_accessor value: untyped
-      attr_accessor line: untyped
+      attr_accessor value: node
+      attr_accessor line: Integer
     end
 
     class RegexpLit < Node
-      attr_accessor source: untyped
-      attr_accessor options: untyped
-      attr_accessor pinned: untyped
-      attr_accessor line: untyped
+      attr_accessor source: String
+      attr_accessor options: Integer
+      attr_accessor pinned: Encoding?
+      attr_accessor line: Integer
     end
 
     class FrozenString < Node
-      attr_accessor value: untyped
-      attr_accessor line: untyped
-      attr_accessor shared: untyped
+      attr_accessor value: String
+      attr_accessor line: Integer
+      attr_accessor shared: bool
     end
 
     class Begin < Node
-      attr_accessor body: untyped
-      attr_accessor rescues: untyped
-      attr_accessor else_body: untyped
-      attr_accessor ensure_body: untyped
-      attr_accessor line: untyped
+      attr_accessor body: node
+      attr_accessor rescues: Array[Rescue]
+      attr_accessor else_body: node?
+      attr_accessor ensure_body: node?
+      attr_accessor line: Integer
     end
 
     class Rescue < Node
-      attr_accessor classes: untyped
-      attr_accessor target: untyped
-      attr_accessor body: untyped
-      attr_accessor line: untyped
+      attr_accessor classes: Array[node]
+      attr_accessor target: node?
+      attr_accessor body: node
+      attr_accessor line: Integer
     end
 
     class Retry < Node
-      attr_accessor line: untyped
+      attr_accessor line: Integer
     end
 
     class Redo < Node
-      attr_accessor line: untyped
+      attr_accessor line: Integer
     end
   end
 end

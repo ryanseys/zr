@@ -1,0 +1,6 @@
+# The class instance variable of lib/zr/session.rb. Its methods are inline.
+module Zr
+  class Session
+    self.@current: Session?
+  end
+end

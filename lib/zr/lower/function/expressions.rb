@@ -10,6 +10,7 @@ module Zr
 
         private
 
+        #: (untyped node) -> String
         def expr(node)
           case node
           when Hir::Seq then seq(node)
@@ -94,11 +95,12 @@ module Zr
         # The one shared frozen String of a UTF-8 literal. The site's first
         # run makes it (zr_str_literal_shared, which keeps it rooted).
         # Later runs read it from the site's own word, with no call.
+        #: (String text) -> String
         def shared_literal(text)
           cell = @f.symbol_value(@f.symbol(@l.cache_cell("lit", 8)))
           hit = @f.label
           miss = @f.label
-          merge, (result,) = @f.block(["i64"])
+          merge, (result,) = @f.block(["i64"]) #: [String, [String]]
           word = @f.fetch("i64", cell)
           @f.brif(@f.icmp("eq", word, imm(0)), miss, hit)
           switch(hit)
@@ -112,11 +114,12 @@ module Zr
 
         # Runs the body only the first time the site runs, and returns nil
         # each time. The site has a flag word, set before the body runs.
+        #: (Hir::Once node) -> String
         def once(node)
           cell = @f.symbol_value(@f.symbol(@l.cache_cell("once", 8)))
           run = @f.label
           skip = @f.label
-          merge, (result,) = @f.block(["i64"])
+          merge, (result,) = @f.block(["i64"]) #: [String, [String]]
           @f.brif(@f.icmp("eq", @f.fetch("i64", cell), imm(0)), run, skip)
           switch(skip)
           @f.jump(merge, [@qnil])
@@ -130,6 +133,7 @@ module Zr
 
         # `-> { }`: a Proc with the lambda flag. Its `break` and `return`
         # stay inside it, so it has no call site to return to.
+        #: (Hir::Lambda node) -> String
         def lambda_literal(node)
           _, block = make_block(node.block)
           kernel("zr_proc_lambda", block)
@@ -140,6 +144,7 @@ module Zr
         # data that the link wrote once (`word_table`). A splat pushes its
         # elements. A frozen literal (a shareable constant's) gets the flag
         # with no send, as compile.c freezes what it built.
+        #: (Hir::ArrayLit node) -> String
         def array_literal(node)
           elements = node.elements
           ary = if (words = immediate_words(elements))
@@ -158,6 +163,7 @@ module Zr
         # The words of `nodes` if each is an immediate literal (a fixnum, a
         # flonum, a Symbol (its name, for the link), nil, true or false),
         # else nil.
+        #: (Array[untyped] nodes) -> Array[Integer | Symbol]?
         def immediate_words(nodes)
           return nil if nodes.empty?
 
@@ -179,11 +185,12 @@ module Zr
 
         # `@name`: the guessed ivar entry's value inline (nil for an unset
         # entry), else the kernel's read.
+        #: (Hir::IvarRead node) -> String
         def ivar_read(node)
           ivar = ivar_name(node.name)
           ic = site_cache(node, "iv", "IvarCache")
           slow = @f.label
-          merge, (v,) = @f.block(["i64"])
+          merge, (v,) = @f.block(["i64"]) #: [String, [String]]
           row = guessed_ivar_row(ic, ivar, slow, writing: false)
           found = @f.fetch("i64", row, off(@l.layout("IvEntry"), "value"))
           @f.jump(merge, [@f.csel(@f.icmp("eq", found, qundef), @qnil, found)])
@@ -195,6 +202,7 @@ module Zr
 
         # `{k => v, **h}`: if there is a double splat, the pairs are stored
         # one at a time into a Hash in a record slot.
+        #: (Hir::HashLit node) -> String
         def hash_literal(node)
           if (words = immediate_words(node.pairs))
             hash = checked(kernel("zr_hash_of", imm(words.size / 2), @f.symbol_value(@f.symbol(@l.word_table(words)))))
@@ -219,8 +227,9 @@ module Zr
           @f.fetch("i64", @rec, at)
         end
 
+        #: (Hir::Seq node) -> String
         def seq(node)
-          last = nil
+          last = nil #: String?
           node.stmts.each do |s|
             last = expr(s)
             break if @f.terminated?
@@ -228,6 +237,7 @@ module Zr
           last || @qnil
         end
 
+        #: (Hir::Literal node) -> String
         def literal(node)
           v = node.value
           case v
@@ -244,13 +254,14 @@ module Zr
           when nil then @qnil
           when true then imm(@l.const("QTRUE"))
           when false then imm(@l.const("QFALSE"))
-          end
+          end #: String
         end
 
         # A Float literal that fits a flonum is its rotated bits, computed
         # at compile time, exactly as zr_float_new makes it. +0.0 is the
         # flonum zero.
         # All other doubles are heap cells made at run time.
+        #: (Float v) -> String
         def float_literal(v)
           word = flonum_word(v)
           return kernel("zr_float_from_bits", imm([v].pack("E").unpack1("q<"))) unless word
@@ -260,14 +271,15 @@ module Zr
 
         # The flonum word of `v` as a signed 64-bit value, or nil if the
         # double does not fit.
+        #: (Float v) -> Integer?
         def flonum_word(v)
-          b = [v].pack("E").unpack1("Q<")
+          b = [v].pack("E").unpack1("Q<") #: Integer
           top = (b >> 60) & 7
           word = if b.zero? then @l.const("FLONUM_ZERO")
                  elsif b != 0x3000000000000000 && (top == 3 || top == 4)
                    ((((b << 3) | (b >> 61)) & 0xFFFF_FFFF_FFFF_FFFE) | 2)
                  end
-          word && [word].pack("Q<").unpack1("q<")
+          word && [word].pack("Q<").unpack1("q<") #: Integer?
         end
 
         # `"a#{b}c"`. The program never gets the literal parts between the
@@ -275,6 +287,7 @@ module Zr
         # reads their bytes and returns a new String. So each part is the
         # shared frozen String of its bytes, not a new String on each run.
         # This saves an allocation, a malloc and a copy per part.
+        #: (Hir::Interp node) -> String
         def interp(node)
           staged(node.parts, evaluate: method(:interp_part)) do |argv|
             checked(kernel("zr_str_interp", imm(node.parts.size), argv))
@@ -286,8 +299,9 @@ module Zr
         # keys only on bytes and cannot distinguish two encodings, so a file
         # with a different script encoding uses the plain form. The site
         # keeps the String in its own word, as a frozen literal does.
+        #: (untyped node) -> String
         def interp_part(node)
-          text = node.is_a?(Hir::Literal) ? node.value : nil
+          text = node.is_a?(Hir::Literal) ? node.value : nil #: Object?
           return expr(node) unless text.is_a?(String) && text.encoding == ::Encoding::UTF_8
 
           shared_literal(text)
@@ -295,6 +309,7 @@ module Zr
 
         # A String literal, built by `fn` and tagged with the file's script
         # encoding. UTF-8 is the usual encoding and needs no number.
+        #: (String text, String fn) -> String
         def string_literal(text, fn)
           bytes = @f.symbol_value(@f.symbol(@l.literal(text)))
           index = ENCODING_INDEX.fetch(text.encoding)
@@ -305,11 +320,12 @@ module Zr
 
         # ruby's own index for an encoding. A String contains this index
         # at run time.
-        ENCODING_INDEX = ::Encoding.list.each_with_index.to_h.freeze
+        ENCODING_INDEX = ::Encoding.list.each_with_index.to_h.freeze #: Hash[Encoding, Integer]
 
         # The special globals: `$!` is in the task, `$~` and `$_` are in
         # the frame, and `$<` is ARGF. All others (`$.` too) are in the
         # globals table, where the core sets them.
+        #: (Hir::GvarRead node) -> String
         def gvar_read(node)
           return kernel("zr_errinfo") if node.name == :$!
           return kernel("zr_backref_get") if node.name == :$~
@@ -329,10 +345,11 @@ module Zr
         HOOKED_GVARS = %i[
           $! $@ $& $` $' $+ $$ $? $* $< $FILENAME $LOAD_PATH $LOADED_FEATURES $-a $-l $-p $-W
           $; $, $/ $\\ $stdout $stderr $0 $VERBOSE $.
-        ].to_set.freeze
+        ].to_set.freeze #: Set[Symbol]
 
         # `$~` and `$_` are in the frame. The others are globals, and a
         # trace_var command on one runs at this line.
+        #: (Hir::GvarWrite node, String v) -> String
         def gvar_write(node, v)
           name = node.name
           return kernel("zr_backref_set", v) if name == :$~ && @l.internal?
@@ -348,6 +365,7 @@ module Zr
 
         # `$1`, `$&`, `` $` ``, `$'` and `$+`: the groups of `$~`, or nil
         # with no match.
+        #: (Hir::BackRef node) -> String
         def back_ref(node)
           match = kernel("zr_backref_get")
           case node.kind
@@ -355,20 +373,23 @@ module Zr
           when :last then kernel("zr_match_last", match)
           when :pre then kernel("zr_match_pre", match)
           when :post then kernel("zr_match_post", match)
-          end
+          end #: String
         end
 
+        #: (Hir::CvarRead node) -> String
         def cvar_read(node)
           at_node(node)
           checked(kernel("zr_cvar_get", @cref, sym_word(node.name)))
         end
 
+        #: (Hir::Undef node) -> String
         def undef_methods(node)
           at_node(node)
           node.names.each { |name| checked(kernel("zr_undef", cref_class, sym_word(name))) }
           @qnil
         end
 
+        #: (Hir::Alias node) -> String
         def alias_method(node)
           at_node(node)
           checked(kernel("zr_alias", cref_class, sym_word(node.new_name), sym_word(node.old_name)))
@@ -376,12 +397,13 @@ module Zr
 
         # `/#{x}/o` runs its site once. The regexp stays in the literal
         # table, and every later run reads it from there.
+        #: (Hir::RegexpOnce node) -> String
         def regexp_once(node)
           index = site_word
           cached = kernel("zr_regexp_once", index)
           make = @f.label
           have = @f.label
-          merge, (result,) = @f.block(["i64"])
+          merge, (result,) = @f.block(["i64"]) #: [String, [String]]
           @f.brif(@f.icmp("eq", cached, @qnil), make, have)
           switch(have)
           @f.jump(merge, [cached])
@@ -395,6 +417,7 @@ module Zr
 
         # The names stay in record slots, because making one can start a
         # collection.
+        #: (Hir::AliasValue node) -> String
         def alias_value(node)
           staged([node.new_name, node.old_name]) do |slots, _base|
             at_node(node)
@@ -402,6 +425,7 @@ module Zr
           end
         end
 
+        #: (Hir::UndefValue node) -> String
         def undef_values(node)
           staged(node.names) do |slots, _base|
             node.names.each_index do |i|
@@ -412,11 +436,13 @@ module Zr
           @qnil
         end
 
+        #: (Hir::GvarAlias node) -> String
         def alias_global(node)
           kernel("zr_gvar_alias", sym_word(node.new_name), sym_word(node.old_name))
           @qnil
         end
 
+        #: (Hir::CvarWrite node) -> String
         def cvar_write(node)
           v = expr(node.value)
           at_node(node)
@@ -425,6 +451,7 @@ module Zr
 
         # `Name ||= value`: the constant if it is set and truthy, else the
         # assignment.
+        #: (Hir::ConstOrWrite node) -> String
         def const_or_write(node)
           at_node(node)
           current = if node.scope.nil?
@@ -434,7 +461,7 @@ module Zr
                     end
           have = @f.label
           set = @f.label
-          merge, (result,) = @f.block(["i64"])
+          merge, (result,) = @f.block(["i64"]) #: [String, [String]]
           @f.brif(@f.band(@f.icmp("ne", current, qundef), truthy(current)), have, set)
           switch(have)
           @f.jump(merge, [current])
@@ -446,6 +473,7 @@ module Zr
           result
         end
 
+        #: (Symbol name) -> String
         def symbol(name)
           sym_value(name)
         end

@@ -13,11 +13,15 @@ module Zr
         module_function
 
         # Whether `kind` is an arm64 relocation that `patch` applies.
+        #: (Symbol kind) -> bool
         def handles?(kind) = KINDS.include?(kind)
 
         # Patches `bytes` for `r` at `place`, with its symbol at `target`.
+        #: (String bytes, Reloc r, Integer target, Integer place) -> String
         def patch(bytes, r, target, place)
-          word = encode(r.kind, bytes[r.offset, 4].unpack1("L<"), target, place)
+          slot = bytes[r.offset, 4] #: String
+          held = slot.unpack1("L<") #: Integer
+          word = encode(r.kind, held, target, place)
           raise RangeError, "#{r.kind} to #{r.symbol} is out of reach" unless word
 
           bytes[r.offset, 4] = [word].pack("L<")
@@ -26,6 +30,7 @@ module Zr
         # Returns the instruction `word` at `place` with its field for `kind`
         # set to reach `target`. Returns nil when the field cannot contain the
         # offset, because a target out of range would encode a different address.
+        #: (Symbol kind, Integer word, Integer target, Integer place) -> Integer?
         def encode(kind, word, target, place)
           case kind
           when :branch26
@@ -47,6 +52,7 @@ module Zr
 
         # Whether a signed field of `bits` bits can contain `value`. A link
         # asks this about a million times: `between?` cost 4% of a prelink.
+        #: (Integer value, Integer bits) -> bool
         def fits?(value, bits)
           half = 1 << (bits - 1)
           value >= -half && value < half

@@ -74,19 +74,20 @@ module Zr
         @type.fetch(v) { raise Refused, "#{@f.name}: no type for #{v}" }
       end
 
-      # The signature of a callee entity name (`"fn0"`).
-      #: (String fn) -> Sig
+      # The signature of a callee entity name (`"fn0"`). A nil name (an
+      # `Inst#callee` that is not set) raises Refused.
+      #: (String? fn) -> Sig
       def sig_of(fn)
         callee = callee_named(fn) or raise Refused, "#{@f.name}: no callee #{fn}"
         sig_named(callee.sig)
       end
 
-      #: (String sig) -> Sig
+      #: (String? sig) -> Sig
       def sig_named(sig)
         (@sig_named ||= first_by(@f.sigs, &:sig))[sig] or raise Refused, "#{@f.name}: no signature #{sig}"
       end
 
-      #: (String fn) -> Callee?
+      #: (String? fn) -> Callee?
       def callee_named(fn)
         (@callee_named ||= first_by(@f.callees, &:fn))[fn]
       end

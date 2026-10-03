@@ -15,12 +15,15 @@ module Zr
         # are fixnums and the gate is clear, else the call. Equality also
         # uses the call for other operands: `1 == 1.0` is true, and
         # `1 == obj` sends `obj == 1`.
+        #: (Hir::Send node, String recv, String? argv, ?String arg) ?{ () -> String } -> String
         def operator(node, recv, argv, arg = @f.fetch("i64", argv))
+          # `argv` is nil only when the caller gives `arg` and the block:
+          # @type var argv: String
           ok = @f.band(fixnums?(recv, arg), gate_clear(OPS.fetch(node.name)))
           fast = @f.label
           slow = @f.cold(@f.label)
           floating = @f.label if float_path?(node)
-          merge, (result,) = @f.block(["i64"])
+          merge, (result,) = @f.block(["i64"]) #: [String, [String]]
           @f.brif(ok, fast, floating || slow)
           switch(fast)
           value = fast_path(node.name, recv, arg, slow)
@@ -40,6 +43,7 @@ module Zr
         # that CRuby's C compares natively (zr_native_eq_kind). The block
         # takes the answer as a condition, and the send follows for all
         # other operands.
+        #: (Hir::Send node, String recv, String arg) { (String) -> void } -> void
         def native_equality(node, recv, arg)
           return unless native_operators? && %i[== !=].include?(node.name)
 
@@ -55,11 +59,12 @@ module Zr
         # In the core library, `<=>` of two fixnums answers natively while
         # Integer#<=> is ruby's own, as CRuby's OPTIMIZED_CMP does. All
         # other operands send it.
+        #: (Hir::Send node, String recv, String argv) -> String
         def native_compare(node, recv, argv)
           arg = @f.fetch("i64", argv)
           fast = @f.label
           slow = @f.cold(@f.label)
-          merge, (result,) = @f.block(["i64"])
+          merge, (result,) = @f.block(["i64"]) #: [String, [String]]
           own = @f.icmp("eq", @f.band(@f.gates, imm(@l.const("GATE_CMP"))), imm(0))
           @f.brif(@f.band(fixnums?(recv, arg), own), fast, slow)
           switch(fast)
@@ -82,13 +87,16 @@ module Zr
         # +0.0, whose negation is not a flonum, and the one whose negation
         # is the double that the flonum zero's bit pattern replaces
         # (`float_value`). The two differ only in that bit.
+        #: (Hir::Send node, String recv, String? argv) ?{ () -> String } -> String
         def unary(node, recv, argv)
+          # `argv` is nil only when the caller gives the block:
+          # @type var argv: String
           fix = @f.icmp("ne", @f.band(recv, imm(1)), imm(0))
           ok = @f.band(fix, gate_clear(UNARY.fetch(node.name)))
           fast = @f.label
           slow = @f.cold(@f.label)
           floating = @f.label if FLOAT_UNARY.key?(node.name)
-          merge, (result,) = @f.block(["i64"])
+          merge, (result,) = @f.block(["i64"]) #: [String, [String]]
           @f.brif(ok, fast, floating || slow)
           switch(fast)
           value = node.name == :succ ? @f.sadd_overflow(recv, imm(2)) : @f.ssub_overflow(imm(2), recv)
@@ -112,6 +120,7 @@ module Zr
         # operand is an Integer literal in a sum, a difference or a
         # comparison. Those count and index much more often than they get
         # a Float (`x * 2` and `x / 2` keep the path).
+        #: (Hir::Send node) -> bool
         def float_path?(node)
           return false unless FLOAT_OPS.key?(node.name)
           return true if %i[* /].include?(node.name)
@@ -125,6 +134,7 @@ module Zr
         # clear. The arithmetic is on doubles, and the result is a flonum
         # or the kernel's heap Float. A comparison is as in ruby (false with
         # a NaN). All other cases go to `slow`.
+        #: (Symbol op, String a, String b, String slow) -> String
         def float_path(op, a, b, slow)
           fop = FLOAT_OPS.fetch(op).first
           x, y = doubles(op, a, b, slow)
@@ -133,6 +143,7 @@ module Zr
 
         # The operands of `op` as doubles, if the flonum path accepts them.
         # Else the branch to `slow`. Each operand is a Value or an Operand.
+        #: (Symbol op, String | Operand a, String | Operand b, String slow) -> [String, String]
         def doubles(op, a, b, slow)
           a = Operand.new(a, nil) unless a.is_a?(Operand)
           b = Operand.new(b, nil) unless b.is_a?(Operand)
@@ -156,16 +167,20 @@ module Zr
         Operand = Data.define(:value, :bits)
 
         # Whether the operand holds its double in `bits`.
+        #: (Operand o) -> String
         def unboxed?(o) = @f.icmp("eq", o.value, qundef)
 
+        #: (Operand o, bool exact) -> String
         def number_operand?(o, exact)
           o.bits ? @f.bor(unboxed?(o), number?(o.value, exact)) : number?(o.value, exact)
         end
 
+        #: (Operand o) -> String
         def float_operand?(o)
           o.bits ? @f.bor(unboxed?(o), flonum?(o.value)) : flonum?(o.value)
         end
 
+        #: (Operand o) -> String
         def operand_double(o)
           return as_double(o.value) unless o.bits
 
@@ -173,12 +188,13 @@ module Zr
         end
 
         # The operand as a Value: an unboxed double becomes a Float.
+        #: (Operand o) -> String
         def boxed(o)
           return o.value unless o.bits
 
           box = @f.label
           keep = @f.label
-          merge, (v,) = @f.block(["i64"])
+          merge, (v,) = @f.block(["i64"]) #: [String, [String]]
           @f.brif(unboxed?(o), box, keep)
           switch(box)
           @f.jump(merge, [float_value(@f.bitcast("f64", o.bits))])
@@ -191,6 +207,7 @@ module Zr
         # Whether `node`, as an operand of a float operator, can give its
         # result as a double: an arithmetic float operator that lowers
         # through `direct_operator`.
+        #: (untyped node) -> bool
         def unboxable?(node)
           node.is_a?(Hir::Send) && !node.safe && !node.interp && FLOAT_OPS.key?(node.name) &&
             !FLOAT_OPS.fetch(node.name).first.is_a?(String) && float_path?(node) && !primitive?(node) &&
@@ -201,6 +218,7 @@ module Zr
         # unboxed if `node` has the flonum path, else the plain Value.
         # Equality in the core library answers natively first
         # (`native_equality`), so it keeps its Values.
+        #: (Hir::Send node, untyped operand) -> Operand
         def operand_of(node, operand)
           fused = float_path?(node) && !(native_operators? && %i[== !=].include?(node.name))
           return Operand.new(expr(operand), nil) unless fused && unboxable?(operand)
@@ -209,6 +227,7 @@ module Zr
         end
 
         # A float operator whose result goes to an outer float operator.
+        #: (Hir::Send node) -> Operand
         def unboxed_operator(node)
           a, b = site_operands(node, node.recv || Hir::SelfRef.new(node.line))
           fused_operator(node, a, b, unboxed: true).tap { deactivate(node) }
@@ -217,6 +236,7 @@ module Zr
         # The send of an operator with Operands. Both go into their slots
         # first, so a Float that boxes one cannot free the other, then each
         # double is boxed in its slot.
+        #: (Hir::Send node, Operand a, Operand b) -> String
         def sent_fused(node, a, b)
           base = reserve(2)
           [a, b].each_with_index { |o, i| @f.store(o.value, @rec, value_offset(base + i)) }
@@ -230,14 +250,16 @@ module Zr
         # `operator` with Operands. With `unboxed`, the result is an
         # Operand, and its flonum path gives the double; else it is a
         # Value.
+        #: (Hir::Send node, Operand a, Operand b, unboxed: false) -> String
+        #: (Hir::Send node, Operand a, Operand b, unboxed: true) -> Operand
         def fused_operator(node, a, b, unboxed:)
           op = node.name
           fop = FLOAT_OPS.fetch(op).first
           fast = @f.label
           slow = @f.cold(@f.label)
           floating = @f.label
-          merge, (result, bits) = @f.block(unboxed ? %w[i64 i64] : ["i64"])
-          tail = unboxed ? [imm(0)] : []
+          merge, (result, bits) = @f.block(unboxed ? %w[i64 i64] : ["i64"]) #: [String, [String, String?]]
+          tail = unboxed ? [imm(0)] : [] #: Array[String]
           @f.brif(@f.band(fixnums?(a.value, b.value), gate_clear(OPS.fetch(op))), fast, floating)
           switch(fast)
           @f.jump(merge, [fast_path(op, a.value, b.value, slow), *tail])
@@ -256,12 +278,15 @@ module Zr
           unboxed ? Operand.new(result, bits) : result
         end
 
+        #: (String a, String b) -> String
         def fixnums?(a, b) = @f.icmp("ne", @f.band(@f.band(a, b), imm(1)), imm(0))
 
+        #: (String v) -> String
         def flonum?(v) = @f.icmp("eq", @f.band(v, imm(3)), imm(2))
 
         # Whether `v` is a flonum or a fixnum. When `exact`, the fixnum must
         # be within 2^53 in both directions.
+        #: (String v, bool exact) -> String
         def number?(v, exact)
           fix = @f.icmp("ne", @f.band(v, imm(1)), imm(0))
           fix = @f.band(fix, @f.icmp("ult", @f.iadd(@f.sshr(v, imm(1)), imm(1 << 53)), imm(1 << 54))) if exact
@@ -270,9 +295,11 @@ module Zr
 
         # The double value of a flonum or fixnum `v`: `zr_float_value`'s
         # rotation, +0.0 for the flonum zero, or a converted fixnum.
+        #: (String v) -> String
         def as_double(v) = @f.bitcast("f64", double_bits(v))
 
         # The bits of `as_double`'s result.
+        #: (String v) -> String
         def double_bits(v)
           sign = @f.ushr(v, imm(63))
           x = @f.bor(@f.isub(imm(2), sign), @f.band(v, imm(-4)))
@@ -284,6 +311,7 @@ module Zr
 
         # `zr_float_new` inline: a flonum if the exponent's top bits are
         # 011 or 100, the flonum zero for +0.0, else the kernel's cell.
+        #: (String d) -> String
         def float_value(d)
           b = @f.bitcast("i64", d)
           top = @f.band(@f.ushr(b, imm(60)), imm(7))
@@ -294,7 +322,7 @@ module Zr
           other = @f.label
           zero = @f.label
           heap = @f.label
-          merge, (v,) = @f.block(["i64"])
+          merge, (v,) = @f.block(["i64"]) #: [String, [String]]
           @f.brif(fits, rotate, other)
           switch(rotate)
           @f.jump(merge, [flonum])
@@ -310,6 +338,7 @@ module Zr
 
         # The tagged result of `op` on tagged fixnums `a` and `b`. A result
         # outside the fixnum range goes to `slow`.
+        #: (Symbol op, String a, String b, String slow) -> String
         def fast_path(op, a, b, slow)
           one = imm(1)
           case op
@@ -334,11 +363,12 @@ module Zr
             unless_unsigned_below(k, 63, slow)
             @f.bor(@f.sshr(a, k), one)
           when *RELATIONS.keys then ruby_bool(@f.icmp(RELATIONS.fetch(op), a, b))
-          end
+          end #: String
         end
 
         # A negative count is a very large unsigned value, so one branch
         # checks both ends of the range.
+        #: (String value, Integer n, String escape) -> void
         def unless_unsigned_below(value, n, escape)
           ok = @f.label
           @f.brif(@f.icmp("uge", value, imm(n)), escape, ok)
@@ -348,10 +378,11 @@ module Zr
         # `x / y` or `x % y` rounded toward minus infinity, for `y` not 0.
         # If neither is negative, the machine's truncation gives the same
         # result. Else use the kernel's floor.
+        #: (Symbol op, String x, String y) -> String
         def floored(op, x, y)
           same = @f.label
           call = @f.label
-          merge, (q,) = @f.block(["i64"])
+          merge, (q,) = @f.block(["i64"]) #: [String, [String]]
           @f.brif(@f.icmp("sge", @f.bor(x, y), imm(0)), same, call)
           switch(same)
           @f.jump(merge, [op == :/ ? @f.sdiv(x, y) : @f.srem(x, y)])
@@ -361,12 +392,14 @@ module Zr
           q
         end
 
+        #: (String value, Integer n, String escape) -> void
         def unless_equal(value, n, escape)
           ok = @f.label
           @f.brif(@f.icmp("eq", value, imm(n)), escape, ok)
           switch(ok)
         end
 
+        # No annotation: Steep cannot type a destructured parameter.
         def overflow_or((value, flag), slow)
           ok = @f.label
           @f.brif(flag, slow, ok)
@@ -374,17 +407,25 @@ module Zr
           value
         end
 
+        #: (String name) -> String
         def gate_clear(name) = gates_clear(name)
 
         # Whether the fast paths ignore the gates. The core library and
         # the compiler that eval carries are ruby's C, which compares and
         # counts its own values natively whatever a program redefines. A
         # method that CRuby writes in Ruby (`:ruby`) sends as Ruby does.
+        #: () -> bool
         def native_operators?
+          # Nil only until the first call sets it:
+          # @type ivar @native_operators: bool
           return @native_operators unless @native_operators.nil?
 
-          fn = self
-          fn = fn.outer while fn.kind == :block && fn.outer
+          fn = self #: Function
+          # The walk stops at the first scope that is not a block, so it
+          # never reaches an eval's Outer.
+          while fn.kind == :block && fn.outer
+            fn = fn.outer #: Function
+          end
           @native_operators = (@l.internal? || @l.support?) && !fn.attributes.include?(:ruby)
         end
 
@@ -396,17 +437,24 @@ module Zr
         # methods that CRuby writes in Ruby with an `each` of their own
         # (Pathname, Ractor.select). A `:ruby` method alone, such as
         # Kernel#warn, has a C body behind its Ruby signature.
+        #: () -> bool
         def native_each?
+          # Nil only until the first call sets it:
+          # @type ivar @native_each: bool
           return @native_each unless @native_each.nil?
 
-          fn = self
-          fn = fn.outer while fn.kind == :block && fn.outer
+          fn = self #: Function
+          # The walk stops at the first scope that is not a block, so it
+          # never reaches an eval's Outer.
+          while fn.kind == :block && fn.outer
+            fn = fn.outer #: Function
+          end
           @native_each = (@l.internal? || @l.support?) && !fn.attributes.include?(:sends_each)
         end
 
         # Whether all the given gates are clear: one test of the gate word,
         # from its register.
-        #: (*Symbol names) -> String
+        #: (*String names) -> String
         def gates_clear(*names)
           return @f.icmp("eq", imm(0), imm(0)) if native_operators?
 
@@ -415,12 +463,14 @@ module Zr
 
         # The gate of an inline `each` over an Array or a Range, which a
         # def marked `:sends_each` keeps (`native_each?`).
+        #: (String name) -> String
         def each_gate_clear(name)
           return @f.icmp("eq", imm(0), imm(0)) if native_each?
 
           gate_test([name])
         end
 
+        #: (Array[String] names) -> String
         def gate_test(names)
           @f.icmp("eq", @f.band(@f.gates, imm(names.sum { |name| @l.const(name) })), imm(0))
         end
@@ -429,12 +479,13 @@ module Zr
         # redefines `!` (GATE_NOT). All other receivers send `!` through
         # the site's own cell, as a call does. The three are the only
         # Values below 28 with their low two bits clear.
+        #: (Hir::Not node) -> String
         def negate(node)
           staged([node.value]) do |slots, base|
             v = @f.fetch("i64", @rec, value_offset(base))
             fast = @f.label
             slow = @f.label
-            merge, (result,) = @f.block(["i64"])
+            merge, (result,) = @f.block(["i64"]) #: [String, [String]]
             boolean = @f.icmp("eq", @f.bor(v, imm(28)), imm(28))
             @f.brif(@f.band(boolean, gate_clear("GATE_NOT")), fast, slow)
             switch(fast)

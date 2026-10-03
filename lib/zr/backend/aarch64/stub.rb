@@ -18,7 +18,7 @@ module Zr
         # Not x28: it contains the gate word. The gate word belongs to the
         # whole program, not to one stack. Thus a switch does not change it,
         # and a resumed stack sees the current gates.
-        CONTEXT = { x19: 0, x21: 16, x23: 32, x25: 48, x27: 64, x29: 80, x30: 88, sp: 96, d8: 104 }.freeze
+        CONTEXT = { x19: 0, x21: 16, x23: 32, x25: 48, x27: 64, x29: 80, x30: 88, sp: 96, d8: 104 }.freeze #: Hash[Symbol, Integer]
         CONTEXT_BYTES = 176
 
         module_function
@@ -26,11 +26,12 @@ module Zr
         # `zr_switch(from: Ptr, to: Ptr)`: saves this stack in `from`, and
         # resumes the stack in `to`. A new context needs only x30 (the start
         # address) and sp (its stack top).
+        #: (?assembler: singleton(Assembler)) -> Obj::Code
         def switch(assembler: Assembler)
           a = assembler.new
-          pairs = [[X19, X20], [X21, X22], [X23, X24], [X25, X26], [X29, X30]]
+          pairs = [[X19, X20], [X21, X22], [X23, X24], [X25, X26], [X29, X30]] #: Array[[Registers::Register, Registers::Register]]
           at = [0, 16, 32, 48, CONTEXT[:x29]]
-          doubles = [[D8, D9], [D10, D11], [D12, D13], [D14, D15]]
+          doubles = [[D8, D9], [D10, D11], [D12, D13], [D14, D15]] #: Array[[Registers::Register, Registers::Register]]
           pairs.each_with_index { |(p, q), i| a.stp p, q, [X0, at[i]] }
           a.str X27, [X0, CONTEXT[:x27]]
           a.mov X9, SP
@@ -46,6 +47,7 @@ module Zr
         end
 
         # The machine code of the raw function `name` (`Machine::RAW`).
+        #: (String name) -> Obj::Code
         def function(name)
           case name
           when "zr_switch" then switch

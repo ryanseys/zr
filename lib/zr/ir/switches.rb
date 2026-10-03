@@ -18,7 +18,16 @@ module Zr
     # that is a widened byte has no value outside 0..255, so its table can
     # cover all 256.
     class Switches
-      MASK = { "i8" => 0xFF, "i32" => 0xFFFF_FFFF, "i64" => 0xFFFF_FFFF_FFFF_FFFF }.freeze
+      # A node of a tree is `[cond, key, yes block, no block]`.
+      # @rbs @f: Function
+      # @rbs @const: Hash[String, Integer]
+      # @rbs @def: Hash[String, Inst]
+      # @rbs @named: Hash[String, Block]
+      # @rbs @uses: Hash[String, Integer]
+      # @rbs @preds: Hash[String, Array[String]]
+      # @rbs @types: Hash[String, String?]
+
+      MASK ={ "i8" => 0xFF, "i32" => 0xFFFF_FFFF, "i64" => 0xFFFF_FFFF_FFFF_FFFF }.freeze
       SWAPPED = { "eq" => "eq", "ne" => "ne", "slt" => "sgt", "sle" => "sge", "sgt" => "slt", "sge" => "sle",
                   "ult" => "ugt", "ule" => "uge", "ugt" => "ult", "uge" => "ule" }.freeze
       # The fewest compares that a table replaces.
@@ -26,8 +35,11 @@ module Zr
       # The most nodes of one tree.
       MOST = 64
 
+      #: (Function f) -> Function
       def self.run(f) = new(f).run
 
+      # `@types` is nil until `tabled?` sets it, before each read.
+      #: (Function f) -> void
       def initialize(f)
         @f = f
         @const = {}
@@ -41,14 +53,15 @@ module Zr
         @named = @f.blocks.to_h { |b| [b.name, b] }
         @uses = @f.analysis.uses
         @preds = @f.analysis.preds
-        @types = nil
+        @types = nil #: untyped
       end
 
+      #: () -> Function
       def run
         changed = false
         # A node of one tree is not the root of another: each tree is found
         # before any table changes a block.
-        trees = @f.blocks.filter_map { |b| (test = test_of(b, nil)) && [b, test, collect(b, test[0], {})] }
+        trees = @f.blocks.filter_map { |b| (test = test_of(b, nil)) && [b, test, collect(b, test[0], {})] } #: Array[untyped]
         inner = trees.flat_map { |b, _, nodes| nodes.keys - [b.name] }.to_set
         trees.each do |b, test, nodes|
           changed = true if !inner.include?(b.name) && tabled?(b, test, nodes)
@@ -62,6 +75,7 @@ module Zr
       # `[value, cond, constant]` when `b` ends in a `brif` on a compare of
       # `value` (or any value when `value` is nil) with a constant, and the
       # branch alone reads the compare.
+      #: (Block b, String? value) -> [String, String?, Integer]?
       def test_of(b, value)
         br = b.insts.last
         return unless br&.op == :brif && @uses[br.args[0]] == 1
@@ -79,6 +93,7 @@ module Zr
       end
 
       # Makes the table of the tree `nodes` under `b`, if it pays.
+      # No annotation: Steep 2.1 cannot type the destructured parameter.
       def tabled?(b, (value, *), nodes)
         return false if nodes.size < FEWEST
 
@@ -87,7 +102,7 @@ module Zr
         return false unless MASK.key?(type)
 
         keys = nodes.each_value.map { |(_, k, _, _)| k & MASK.fetch(type) }
-        cases, default = cases_of(b.name, nodes, keys, value, type)
+        cases, default = cases_of(b.name, nodes, keys, value, type) #: [Hash[Integer, String], String]
         return false unless cases
 
         b.insts[-1] = Inst.new(:switch, args: [value, *cases.keys.sort],
@@ -97,11 +112,13 @@ module Zr
 
       # Returns `nodes`: `{ name => [cond, constant, yes, no] }` for `b`
       # and each node under it.
+      #: (Block b, String value, Hash[String, [String, Integer, String, String]] nodes) -> Hash[String, [String, Integer, String, String]]
       def collect(b, value, nodes)
         return nodes if nodes.size >= MOST
 
-        _, cond, k = test_of(b, value)
-        yes, no = b.insts.last.targets.map { |(t, _)| through(t) }
+        # The caller found the test of `b` first.
+        _, cond, k = test_of(b, value) #: [String, String, Integer]
+        yes, no = b.insts.last.targets.map { |(t, _)| through(t) } #: [String, String]
         nodes[b.name] = [cond, k, yes, no]
         [yes, no].each do |t|
           c = @named.fetch(t)
@@ -114,6 +131,7 @@ module Zr
 
       # The block that `name` leads to past blocks that only jump on with
       # no arguments (`Blocks` would skip them later).
+      #: (String name) -> String
       def through(name)
         8.times do
           b = @named.fetch(name)
@@ -127,8 +145,14 @@ module Zr
 
       # The table: `{ key => leaf }` and the default leaf, or nil when the
       # table is too large or a value outside it has no one leaf.
+      # @rbs root: String
+      # @rbs nodes: Hash[String, [String, Integer, String, String]]
+      # @rbs keys: Array[Integer]
+      # @rbs value: String
+      # @rbs type: String?
+      # @rbs return: [Hash[Integer, String], String]?
       def cases_of(root, nodes, keys, value, type)
-        lo, hi = keys.minmax
+        lo, hi = keys.minmax #: [Integer, Integer]
         top = byte?(value) ? 255 : MASK.fetch(type) >> 1
         outside = [hi < top ? hi + 1 : nil, lo.positive? ? lo - 1 : nil]
         # A byte is never negative. A word can be, and a negative value is
@@ -144,7 +168,7 @@ module Zr
         return if leaves.size > 1 || hi - lo + 1 > [64, 32 * nodes.size].max
 
         default = leaves[0] || leaf(root, nodes, lo, type)
-        cases = {}
+        cases = {} #: Hash[Integer, String]
         (lo..hi).each do |x|
           to = leaf(root, nodes, x, type)
           cases[x] = to unless to == default
@@ -154,12 +178,14 @@ module Zr
 
       # Whether `value` is a byte widened to a word: it has no value
       # outside 0..255.
+      #: (String value) -> bool
       def byte?(value)
         i = @def[value]
         @types[value] == "i8" || (i&.op == :uextend && @types[i.args[0]] == "i8")
       end
 
       # The leaf that `x` reaches from `root`.
+      #: (String root, Hash[String, [String, Integer, String, String]] nodes, Integer x, String? type) -> String
       def leaf(root, nodes, x, type)
         name = root
         while (node = nodes[name])
@@ -169,6 +195,7 @@ module Zr
         name
       end
 
+      #: (String cond, Integer a, Integer b, String? type) -> bool?
       def holds?(cond, a, b, type)
         bits = type == "i64" ? 64 : 32
         a, b = signed(a, bits), signed(b, bits) if cond.start_with?("s")
@@ -182,6 +209,7 @@ module Zr
         end
       end
 
+      #: (Integer raw, Integer bits) -> Integer
       def signed(raw, bits)
         raw &= (1 << bits) - 1
         top = 1 << (bits - 1)

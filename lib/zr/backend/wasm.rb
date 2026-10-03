@@ -10,12 +10,15 @@ module Zr
       module_function
 
       # Returns the module's bytes.
+      #: (Array[IR::Function] functions, Array[Obj::Datum] data, ?prelude: Codegen::Prelude?) -> String
       def emit(functions, data, prelude: nil) = Codegen.new(functions, data, prelude: prelude).emit
 
       # Returns the runtime's prelude. `pending` gives the symbols that a program defines.
+      #: (Array[IR::Function] functions, Array[Obj::Datum] data, pending: Codegen::pending) -> Codegen::Prelude
       def prelude(functions, data, pending:) = Codegen.new(functions, data, pending: pending).prelude
 
       # The libc names that the module defines itself when no other code defines them.
+      #: () -> Array[String]
       def libc_shims = Codegen::LIBC_SHIMS.keys
     end
   end

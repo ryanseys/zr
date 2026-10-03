@@ -11,6 +11,20 @@ require_relative "hir/dump"
 
 module Zr
   module Hir
+    # @rbs source: String
+    # @rbs file: String
+    # @rbs roots: Array[String]
+    # @rbs eval_support: bool
+    # @rbs prebuilt: untyped
+    # @rbs line: Integer
+    # @rbs scopes: Array[Array[Symbol]]?
+    # @rbs method: Array[[Symbol, Symbol?]]?
+    # @rbs activations: Integer?
+    # @rbs target: Target
+    # @rbs trace: bool
+    # @rbs gem_set: GemSet?
+    # @rbs gate: bool | Symbol
+    # @rbs return: Program
     def self.build(source, file, roots: [], eval_support: true, prebuilt: nil, line: 1, scopes: nil, method: nil, activations: nil,
                    target: Target.default, trace: false, gem_set: nil, gate: false)
       Build.program(source, file, roots: roots, eval_support: eval_support, prebuilt: prebuilt, line: line, scopes: scopes, method: method, activations: activations,

@@ -4,6 +4,15 @@ module Zr
   module Backend
     module Wasm
       class Codegen
+        # The wasm parameter and result types of a function.
+        type signature = [Array[Integer], Array[Integer]]
+
+        # The names that a program defines for a prelude, in order.
+        type pending = { functions: Array[String], data: Array[String] }
+
+        # The function names and data addresses that a prelude keeps for a program.
+        type promised = { functions: Array[String], data: Hash[String, Integer] }
+
         class Import < Data
           attr_reader from: String
           attr_reader name: String
@@ -16,18 +25,22 @@ module Zr
 
         class Prelude < Data
           attr_reader imports: Array[Import]
-          attr_reader shims: untyped
-          attr_reader sigs: Hash[String, untyped]
-          attr_reader bodies: untyped
-          attr_reader types: untyped
-          attr_reader data_at: untyped
+          attr_reader shims: Array[String]
+          attr_reader sigs: Hash[String, signature]
+          attr_reader bodies: Array[String]
+          attr_reader types: Array[signature]
+          attr_reader data_at: Hash[String, Integer]
           attr_reader data_end: Integer
-          attr_reader segments: untyped
-          attr_reader table: untyped
-          attr_reader pending: untyped
+          attr_reader segments: Array[[Integer, String]]
+          attr_reader table: Array[String]
+          attr_reader pending: promised
 
-          def self.new: (*untyped) -> instance
-                      | (**untyped) -> instance
+          def self.new: (Array[Import] imports, Array[String] shims, Hash[String, signature] sigs, Array[String] bodies,
+                         Array[signature] types, Hash[String, Integer] data_at, Integer data_end,
+                         Array[[Integer, String]] segments, Array[String] table, promised pending) -> instance
+                      | (imports: Array[Import], shims: Array[String], sigs: Hash[String, signature], bodies: Array[String],
+                         types: Array[signature], data_at: Hash[String, Integer], data_end: Integer,
+                         segments: Array[[Integer, String]], table: Array[String], pending: promised) -> instance
         end
       end
     end

@@ -1,15 +1,16 @@
-# The record of lib/zr/lower/function/inline.rb.
+# The record of lib/zr/lower/function/inline.rb: the value of each
+# parameter by name, and the return and bail blocks.
 module Zr
   class Lower
     class Function
       module Inline
         class Site < Data
-          attr_reader locals: untyped
+          attr_reader locals: Hash[Symbol, String]
           attr_reader done: String
-          attr_reader bail: untyped
+          attr_reader bail: String
 
-          def self.new: (untyped locals, String done, untyped bail) -> instance
-                      | (locals: untyped, done: String, bail: untyped) -> instance
+          def self.new: (Hash[Symbol, String] locals, String done, String bail) -> instance
+                      | (locals: Hash[Symbol, String], done: String, bail: String) -> instance
         end
       end
     end

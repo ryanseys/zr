@@ -5,12 +5,12 @@ module Zr
     module MachO
       module ObjectFile
         class Placed < Data
-          attr_reader item: untyped
-          attr_reader section: untyped
+          attr_reader item: Code | Datum
+          attr_reader section: Integer
           attr_reader addr: Integer
 
-          def self.new: (untyped item, untyped section, Integer addr) -> instance
-                      | (item: untyped, section: untyped, addr: Integer) -> instance
+          def self.new: (Code | Datum item, Integer section, Integer addr) -> instance
+                      | (item: Code | Datum, section: Integer, addr: Integer) -> instance
         end
 
         # `symbols` holds two words for each symbol (`nlist_64`).
@@ -36,8 +36,8 @@ module Zr
         end
 
         class Laid < Data
-          attr_reader sections: untyped
-          attr_reader symbols: untyped
+          attr_reader sections: Array[SectionBuild]
+          attr_reader symbols: Array[Sym]
           attr_reader strtab: String
           attr_reader vmsize: Integer
           attr_reader data_start: Integer
@@ -45,7 +45,7 @@ module Zr
           attr_reader symoff: Integer
           attr_reader stroff: Integer
           attr_reader sizeofcmds: Integer
-          attr_reader segment_cmd: untyped
+          attr_reader segment_cmd: Integer
 
           def self.new: (*untyped) -> instance
                       | (**untyped) -> instance
@@ -55,11 +55,13 @@ module Zr
           attr_accessor name: String
           attr_accessor seg: String
           attr_accessor flags: Integer
-          attr_accessor bytes: untyped
+          attr_accessor bytes: String
           attr_accessor size: Integer
           attr_accessor align: Integer
-          attr_accessor items: untyped
-          attr_accessor relocs: untyped
+          attr_accessor items: Array[[Code | Datum, Integer]]
+          # `[address, words]` groups while `laid_out` collects them, then
+          # the words.
+          attr_accessor relocs: Array[untyped]
           attr_accessor addr: Integer
           attr_accessor offset: Integer
           attr_accessor reloff: Integer
@@ -67,6 +69,7 @@ module Zr
           def self.new: (**untyped) -> instance
         end
 
+        # `strx` is nil until `laid_out` sets it, before any reader.
         class Sym < Struct[untyped]
           attr_accessor name: String
           attr_accessor bare: String
@@ -74,7 +77,7 @@ module Zr
           attr_accessor sect: Integer
           attr_accessor value: Integer
           attr_accessor type: Integer
-          attr_accessor strx: Integer?
+          attr_accessor strx: Integer
 
           def self.new: (**untyped) -> instance
         end

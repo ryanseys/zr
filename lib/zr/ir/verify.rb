@@ -18,9 +18,10 @@ module Zr
 
       module_function
 
+      #: (Function f, ?strict: bool) -> Function
       def check(f, strict: false)
         blocks = f.blocks.to_h { |b| [b.name, b] }
-        defined = {}
+        defined = {} #: Hash[String, String]
         f.blocks.each do |b|
           b.params.each { |v, _| define(f, defined, v, b.name) }
           b.insts.each { |i| i.results.each { |v| define(f, defined, v, b.name) } }
@@ -48,6 +49,7 @@ module Zr
         f
       end
 
+      #: (Function f, Hash[String, String] defined, String v, String block) -> String
       def define(f, defined, v, block)
         raise Error, "#{f.name}: #{v} is defined twice" if defined.key?(v)
 
@@ -60,21 +62,29 @@ module Zr
       # function without `changed!` fails here. Thus all other code can trust
       # a kept analysis.
       class Strict
+        # @rbs @f: Function
+        # @rbs @blocks: Hash[String, Block]
+        # @rbs @typer: Types
+        # @rbs @analysis: Analysis
+
         INTEGERS = %w[i8 i32 i64].freeze
 
+        # `@typer` is nil until `check` sets it, before each read.
+        #: (Function f, Hash[String, Block] blocks) -> void
         def initialize(f, blocks)
           @f = f
           @blocks = blocks
-          @typer = nil
+          @typer = nil #: untyped
         end
 
+        #: () -> void
         def check
           @typer = Types.new(@f)
           @typer.all
           @analysis = fresh
           order = @analysis.rpo
-          defined_in = {}
-          at = {}
+          defined_in = {} #: Hash[String, String]
+          at = {} #: Hash[String, Integer]
           @f.blocks.each do |b|
             b.params.each { |v, _| defined_in[v] = b.name }
             b.insts.each_with_index do |i, n|
@@ -102,6 +112,7 @@ module Zr
         private
 
         # Makes a new analysis, and checks the kept analysis against it.
+        #: () -> Analysis
         def fresh
           built = Analysis.new(@f)
           if @f.analysis? && !@f.analysis.same_as?(built)
@@ -117,6 +128,7 @@ module Zr
         # compared with an `i64` differently (see #43). A shift takes an amount
         # of any integer type. Call arguments have the parameter types of the
         # signature, and a return has the return type of the function.
+        #: (Inst i, Block b) -> void
         def operands(i, b)
           case i.op
           # Inst::BINOPS and Inst::PAIRS, written out.
@@ -159,6 +171,7 @@ module Zr
           end
         end
 
+        #: (Inst i, Block b, Array[untyped] args, Array[String] params) -> void
         def arguments(i, b, args, params)
           raise Error, "#{@f.name}: #{b.name} passes #{args.size} argument(s) to #{i.callee}, which takes #{params.size}" if args.size != params.size
 
@@ -167,6 +180,7 @@ module Zr
 
         # `a` has type `want`, or is an immediate. `to` is the block that a
         # jump passes `a` to.
+        #: (Inst i, Block b, untyped a, String? want, ?to: String?) -> void
         def typed(i, b, a, want, to: nil)
           got = type_of(a) or return
           return if want.nil? || got == want
@@ -175,6 +189,7 @@ module Zr
           raise Error, "#{@f.name}: #{b.name} passes #{a} (#{got}) to #{to}, whose parameter is #{want}"
         end
 
+        #: (Inst i, Block b, untyped a) -> void
         def integer(i, b, a)
           got = type_of(a) or return
           raise Error, "#{@f.name}: #{b.name} #{i.op} takes #{a} (#{got}) where an integer is wanted" unless INTEGERS.include?(got)
@@ -182,6 +197,7 @@ module Zr
 
         # The width of `a` is more than the width of `type` (a reduce), or less
         # than the width of `to` (an extend).
+        #: (Inst i, Block b, String? type, untyped a, ?to: String?) -> void
         def narrower(i, b, type, a, to: nil)
           got = type_of(a) or return
           from, into = to ? [got, to] : [type, got]
@@ -190,11 +206,13 @@ module Zr
         end
 
         # The type of a value operand, or nil for an immediate.
+        #: (untyped a) -> String?
         def type_of(a) = IR.value?(a) ? @typer.of(a) : nil
 
         # Whether the definition of `v` reaches its use at instruction
         # `n` of block `b`: in the same block before it, or in a block
         # that dominates `b`.
+        #: (String v, Block b, Integer n, Hash[String, String] defined_in, Hash[String, Integer] at) -> void
         def dominated(v, b, n, defined_in, at)
           home = defined_in.fetch(v)
           if home == b.name

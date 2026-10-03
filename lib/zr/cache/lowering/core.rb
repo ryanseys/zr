@@ -14,8 +14,15 @@ module Zr
       # state of each kernel function (a leaf, and the fingerprint of its IR)
       # is then known before any check of an entry.
       class Core < Lowering
+        # @rbs @unit: Machine::Lower
+        # @rbs @ids: Hash[String, Integer]
+        # @rbs @sources: Hash[String, String]
+        # @rbs @prelude: IR::Function
+        # @rbs @gem_hir: Hir::Program
+
         # The core cache for `target`, or nil: only the aarch64 runtime object
         # has a code cache to take the code from.
+        #: (Target target) -> Core?
         def self.for(target)
           code = Native::CodeCache.for("runtime", target)
           code && new("core", target, code)
@@ -26,6 +33,7 @@ module Zr
         # `[functions, data]`: machine code (`Obj::Code`) for each core
         # function, then the prelude's IR, and the data of each piece. It
         # inlines the kernel, so the object build must not inline again.
+        #: (Machine::Lower unit, Hash[String, Integer] ids, Hash[String, String] sources) -> [Array[Obj::Code | IR::Function], Array[Obj::Datum]]
         def lower(unit, ids, sources)
           @unit = unit
           @ids = ids
@@ -54,6 +62,7 @@ module Zr
 
         private
 
+        #: (String path) -> Piece
         def core_file(path)
           entry = Runtime.core_entry(path)
           source = @sources.fetch(path) { File.read(path) }
@@ -63,8 +72,10 @@ module Zr
 
         # The key text of the gem prelude: the path and the bytes of each file
         # that its program loads.
+        #: () -> String
         def gem_source = @gem_hir.units.map { |u| "#{u.file}\0#{u.source}" }.join("\0") + File.read(Library::Layout::GEM_PRELUDE)
 
+        #: () -> Piece
         def gem_piece
           entry = Runtime::GEM_PRELUDE_ENTRY
           source = gem_source

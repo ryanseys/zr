@@ -22,6 +22,8 @@ module Zr
       # must not give a result different from ruby. It refuses a form that
       # it does not support, with a message that gives the form and the line.
       class Tree
+        # @rbs @file: String
+
         # A form that the interpreter does not support yet, with its
         # location. The contract lets zr refuse, but not guess.
         class Refused < ::NotImplementedError
@@ -36,8 +38,9 @@ module Zr
         class Signal < ::Exception; end
 
         class Returning < Signal
-          attr_reader :value, :tag
+          attr_reader :value, :tag #: untyped
 
+          #: (untyped value, untyped tag) -> void
           def initialize(value, tag)
             @value = value
             @tag = tag
@@ -46,8 +49,9 @@ module Zr
         end
 
         class Breaking < Signal
-          attr_reader :value, :tag
+          attr_reader :value, :tag #: untyped
 
+          #: (untyped value, untyped tag) -> void
           def initialize(value, tag)
             @value = value
             @tag = tag
@@ -56,8 +60,9 @@ module Zr
         end
 
         class Nexting < Signal
-          attr_reader :value, :tag
+          attr_reader :value, :tag #: untyped
 
+          #: (untyped value, untyped tag) -> void
           def initialize(value, tag)
             @value = value
             @tag = tag
@@ -66,8 +71,9 @@ module Zr
         end
 
         class Redoing < Signal
-          attr_reader :tag
+          attr_reader :tag #: untyped
 
+          #: (untyped tag) -> void
           def initialize(tag)
             @tag = tag
             super("unexpected redo")
@@ -75,6 +81,7 @@ module Zr
         end
 
         class Retrying < Signal
+          #: () -> void
           def initialize = super("retry outside of rescue clause")
         end
 
@@ -82,14 +89,21 @@ module Zr
         # makes is a Hash. The scopes outside an eval belong to the calling
         # frame, and `Held` reads them through its `Binding`.
         class Scope
+          # @rbs @values: Hash[Symbol, untyped]
+
+          #: (Array[Symbol] names) -> void
           def initialize(names)
             @values = {}
             names.each { |name| @values[name] = nil }
           end
 
+          #: (Symbol name) -> bool
           def holds?(name) = @values.key?(name)
+          #: (Symbol name) -> untyped
           def get(name) = @values[name]
+          #: (Symbol name, untyped value) -> untyped
           def set(name, value) = @values[name] = value
+          #: () -> Array[Symbol]
           def names = @values.keys
         end
 
@@ -97,20 +111,29 @@ module Zr
         # and writes go to the frame itself, so the caller sees a local
         # that the string assigns.
         class Held
+          # @rbs @binding: Binding
+          # @rbs @depth: Integer
+          # @rbs @names: Array[Symbol?]
+
+          #: (Binding binding, Integer depth, Array[Symbol?] names) -> void
           def initialize(binding, depth, names)
             @binding = binding
             @depth = depth
             @names = names
           end
 
+          #: (Symbol name) -> bool
           def holds?(name) = !@names.index(name).nil?
+          #: () -> Array[Symbol]
           def names = @names.compact
 
+          #: (Symbol name) -> untyped
           def get(name)
             i = @names.index(name) or return nil
             World.binding_get(@binding, @depth, i)
           end
 
+          #: (Symbol name, untyped value) -> untyped
           def set(name, value)
             i = @names.index(name) or return value
             World.binding_set(@binding, @depth, i, value)
@@ -127,11 +150,13 @@ module Zr
         # @rbs skip -- typed in sig/zr/eval/walk/tree.rbs
         Ctx = Data.define(:self_, :cref, :chain, :block, :name, :owner, :args, :kwargs, :tag, :home)
 
+        #: (String file) -> void
         def initialize(file)
           @file = file
         end
 
         # Runs `hir` in `ctx` and returns the value of its body.
+        #: (Hir::Program hir, Ctx ctx) -> untyped
         def run(hir, ctx) = walk(hir.body, ctx)
 
         def walk(node, ctx)

@@ -9,6 +9,7 @@ module Zr
       attr_accessor refusal: String?
 
       def self.new: (name: String, version: String, source: String, roots: Array[String], ?refusal: String?) -> instance
+                  | (**untyped fields) -> instance
     end
   end
 end

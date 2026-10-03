@@ -28,14 +28,21 @@ module Zr
     # time (macOS checks it: 61 ms against 11 ms), so a copy per run would
     # give most of that back.
     class Run
+      # @rbs @input: String
+      # @rbs @digest: String
+      # @rbs @target: Target
+      # @rbs @key: String
+
       VERSION = 1
 
       # `ZR_RUN_CACHE=0` builds each run again.
+      #: () -> bool
       def self.wanted? = Config.current.run_cache?
 
       # `digest` is the runtime's digest (`RuntimeSources#runtime_digest`). `gems` is the
       # build's GemSet: a program built with other gems is another entry,
       # also when the files of the first gems are still there.
+      #: (String input, target: Target, digest: String, link: Array[String], ?gems: GemSet?) -> void
       def initialize(input, target:, digest:, link:, gems: nil)
         @input = File.expand_path(input)
         config = Config.current
@@ -48,6 +55,7 @@ module Zr
 
       # The path of the kept binary when every file it was built from is as
       # it was, else nil.
+      #: () -> String?
       def hit
         entry = Store.read(:run, @key) or return nil
         binary = File.join(entry, "program")
@@ -62,11 +70,12 @@ module Zr
       # changed during the build (`SourceGuard.changed_file`), when the build does not know
       # its sources, or when the binary spells the build directory `work`,
       # which a later run would not have.
+      #: (String out, Program program, String work) -> String?
       def keep(out, program, work)
         return if program.sources.empty? || SourceGuard.changed_file
         return if File.binread(out).include?(work)
 
-        sources = program.sources.dup
+        sources = program.sources.dup #: Hash[String | Symbol, untyped]
         sources[:eval] = [program.evals.meta_path, program.evals.key] if program.evals
         entry = Store.write(:run, @key) do |dir|
           kept(out, File.join(dir, "program"))
@@ -84,6 +93,7 @@ module Zr
       # volume allows, else a copy. A copy of a binary with eval support
       # took 30 ms. The same file also keeps macOS's check of its code
       # signature, so the first run from the cache does not pay it again.
+      #: (String out, String to) -> void
       def kept(out, to)
         File.link(out, to)
       rescue SystemCallError
@@ -93,6 +103,7 @@ module Zr
       # Whether the eval support that the binary linked is still current: its
       # metadata has the same key (the same code), and its files are as that
       # metadata read them.
+      #: (String meta_path, String key) -> bool
       def eval_current?(meta_path, key)
         require "json"
         meta = JSON.parse(File.read(meta_path))
@@ -102,6 +113,8 @@ module Zr
         false
       end
 
+      # (Marshal gives `sources`, so its keys and values are not checked.)
+      #: (Hash[untyped, untyped] sources) -> bool
       def current?(sources)
         sources.all? do |path, digest|
           if path == :eval

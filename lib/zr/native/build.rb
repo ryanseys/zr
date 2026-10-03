@@ -49,20 +49,24 @@ module Zr
       # from the parent's memory, which is about 100 times larger for the
       # compiled compiler than for the compiler under ruby. `ZR_JOBS`
       # overrides both limits; the table above was measured with it.
+      #: () -> Integer
       def jobs = Config.current.jobs
 
       # The native backend for `target`.
+      #: (Target target) -> singleton(Backend::Aarch64)
       def backend(target)
         { aarch64: Backend::Aarch64 }.fetch(target.arch) { raise ArgumentError, "no native backend for #{target}" }
       end
 
       # The object writer for `target`.
+      #: (Target target) -> (singleton(Obj::MachO::ObjectFile) | singleton(Obj::Elf::ObjectFile))
       def writer(target)
         writers = { macho: Obj::MachO::ObjectFile, elf: Obj::Elf::ObjectFile }
         writers.fetch(target.object_format) { raise ArgumentError, "no object writer for #{target}" }
       end
 
       # The linker for `target`.
+      #: (Target target) -> (singleton(Link::Darwin) | singleton(Link::Static))
       def linker(target)
         { darwin: Link::Darwin, static: Link::Static }.fetch(target.link) { raise ArgumentError, "no linker for #{target}" }
       end
@@ -72,6 +76,19 @@ module Zr
       # nothing calls. `linker` (`ZR_LINKER`) selects the linker when the
       # target has more than one. `link` goes to the system linker as it
       # is (`--link`, `ZR_LINK_ARGS`), so it needs `cc`.
+      # @rbs functions: Array[IR::Function | Obj::Code]
+      # @rbs data: Array[Obj::Datum]
+      # @rbs out: String
+      # @rbs work: String
+      # @rbs raw: Array[String]
+      # @rbs assembled: Array[Obj::Code]
+      # @rbs objects: Array[String]
+      # @rbs strip: bool
+      # @rbs linker: String
+      # @rbs target: Target
+      # @rbs jobs: Integer
+      # @rbs link: Array[String]
+      # @rbs return: String?
       def binary(functions, data, out, work:, raw: [], assembled: [], objects: [], strip: false, linker: Config.current.linker, target: Target.default, jobs: Build.jobs, link: [])
         image = unit(functions, data, raw: raw, assembled: assembled, export: !objects.empty?, target: target, jobs: jobs)
         linker(target).link(image, out, work: work, objects: objects, strip: strip, linker: linker, target: target, link: link)
@@ -84,11 +101,12 @@ module Zr
       # A program that uses eval keeps all symbols, because its JIT finds
       # kernel functions by name. Functions that `assemble` already
       # assembled go in unchanged.
+      #: (Program program, String out, work: String, ?jobs: Integer, ?link: Array[String]) -> String?
       def program(program, out, work:, jobs: Build.jobs, link: [])
         objects = [runtime_object(program.runtime, jobs: jobs)]
         objects << eval_support_object(program.evals, jobs: jobs) if program.evals
         root(program.runtime, objects, program.evals)
-        functions, assembled = program.functions.partition { |f| f.is_a?(IR::Function) }
+        functions, assembled = program.functions.partition { |f| f.is_a?(IR::Function) } #: [Array[IR::Function], Array[Obj::Code]]
         Timing.phase("program object written and linked") do
           binary(functions, program.data, out, work: work, assembled: assembled, objects: objects, strip: !program.evals,
                                                            target: program.runtime.target, jobs: jobs, link: link)
@@ -100,6 +118,7 @@ module Zr
       # skeleton, the runtime's symbol table and gem prelude list, eval
       # support's metadata, and the code packs of this backend. A link with
       # eval support and one without each have a root.
+      #: (Runtime runtime, Array[String] objects, EvalSupport? evals) -> void
       def root(runtime, objects, evals)
         target = runtime.target
         Cache::Store.root("#{target.triple}-link-#{evals ? "eval-#{evals.kind}" : "plain"}",
@@ -114,6 +133,14 @@ module Zr
       # at one time. It builds the runtime object first and then releases
       # the runtime's IR, so on a cold cache the two are not in memory
       # together.
+      # @rbs source: String
+      # @rbs file: String
+      # @rbs target: Target
+      # @rbs jobs: Integer
+      # @rbs sources: bool
+      # @rbs gem_set: GemSet?
+      # @rbs gate: bool | Symbol
+      # @rbs return: Program
       def lower(source, file, target: Target.default, jobs: Build.jobs, sources: false, gem_set: nil, gate: false)
         runtime = Runtime.for(target)
         runtime.description
@@ -124,12 +151,14 @@ module Zr
 
       # Prepares and assembles one function immediately after `Program.build`
       # lowers it. `entry` gives the spelling of its symbols.
+      #: (IR::Function function, String entry, ?target: Target) -> Obj::Code
       def assemble(function, entry, target: Target.default)
         IR::Passes.prepare(function)
         backend(target).assemble(function, backend(target)::Spelled.new(entry))
       end
 
       # The prelinked bases that this process loaded, by path.
+      #: () -> Hash[String, Obj::MachO::Prelink | bool | nil]
       def prelinks = Session.current.memo(:prelinks) { {} }
 
       # Links `objects` once, at the fixed addresses that every program
@@ -137,6 +166,7 @@ module Zr
       # is the digest of its inputs, so the cache keeps its prelinked base
       # under those names. Objects that are not in the cache are linked
       # each time.
+      #: (Array[String] objects) -> Obj::MachO::Prelink
       def prelink(objects)
         path = prelink_path(objects)
         return Obj::MachO::Prelink.build(objects.map { |o| File.binread(o) }) unless path
@@ -144,7 +174,8 @@ module Zr
         # Kept in memory for the life of the process, and on disk. Reading
         # and parsing the 25 MB image took 21% of a link, and a test tier
         # links thousands of times. A link never writes to it.
-        kept = prelinks[path] ||= File.exist?(path) && Timing.phase("prelink loaded") { Obj::MachO::Prelink.load(File.binread(path)) }
+        kept = prelinks[path] ||= File.exist?(path) &&
+                                  Timing.phase("prelink loaded") { Obj::MachO::Prelink.load(File.binread(path)) } #: Obj::MachO::Prelink | false | nil
         return kept if kept
 
         Timing.phase("objects prelinked") do
@@ -157,6 +188,7 @@ module Zr
       # their inputs. `Digests.link` adds the other input of the image:
       # the linker's own files, which the object digests do not include
       # on purpose.
+      #: (Array[String] objects) -> String?
       def prelink_path(objects)
         top = File.dirname(Cache::Store.path(:object, "00"), 2)
         return nil if objects.empty? || objects.any? { |o| File.dirname(File.expand_path(o), 2) != top }
@@ -165,26 +197,32 @@ module Zr
       end
 
       # The cache path of the skeleton of `objects`, next to their prelink.
+      #: (Array[String] objects) -> String?
       def skeleton_path(objects) = prelink_path(objects) && Cache::Store.path(:image, "#{image_key(objects)}-skeleton")
 
+      #: (Array[String] objects) -> String
       def image_key(objects) = Digest::SHA256.hexdigest([*objects.map { |o| File.basename(o) }, Digests.link].join("\n"))
 
       # Returns the path of the skeleton file for `objects`: the bytes that
       # every binary linked against them starts with (`Obj::MachO::Skeleton`).
       # It is in the cache, next to its prelink, and is written once per
       # prelink. Returns nil when the prelink is not in the cache.
+      #: (Array[String] objects) -> String?
       def skeleton(objects)
         path = skeleton_path(objects) or return nil
-        Session.current.memo(:skeletons) { {} }[path] ||= File.exist?(path) ? path : Timing.phase("skeleton written") { Cache::Store.write_file(path, Obj::MachO::Skeleton.bytes(prelink(objects))) }
+        skeletons = Session.current.memo(:skeletons) { {} } #: Hash[String, String]
+        skeletons[path] ||= File.exist?(path) ? path : Timing.phase("skeleton written") { Cache::Store.write_file(path, Obj::MachO::Skeleton.bytes(prelink(objects))) }
       end
 
       # The eval support object, built once for each key.
+      #: (EvalSupport support, ?jobs: Integer) -> String
       def eval_support_object(support, jobs: Build.jobs)
         Paths.once(support.object_path, waiting: -> { waiting("eval support", support.target) }) do
           eval_support_built(support, support.object_path, jobs)
         end
       end
 
+      #: (EvalSupport support, String obj, Integer jobs) -> String
       def eval_support_built(support, obj, jobs)
         Paths.tmpdir("zr-eval-") do |work|
           fresh = File.join(work, "eval.o")
@@ -208,6 +246,7 @@ module Zr
 
       # The runtime's object, built once per digest (the digest includes
       # the target). Two zr processes do not build the same object.
+      #: (Runtime runtime, ?jobs: Integer) -> String
       def runtime_object(runtime, jobs: Build.jobs)
         Paths.once(runtime.object_path, waiting: -> { waiting("the zr runtime", runtime.target) }) do
           Runtime.announce("the zr runtime", runtime.target)
@@ -215,10 +254,12 @@ module Zr
         end
       end
 
+      #: (String what, Target target) -> void
       def waiting(what, target)
         warn "zr: waiting for another zr to build #{what} for #{target.triple}" unless Paths.checkout? && !$stderr.tty?
       end
 
+      #: (Runtime runtime, String obj, Integer jobs) -> String
       def runtime_built(runtime, obj, jobs)
         Paths.tmpdir("zr-runtime-") do |work|
           fresh = File.join(work, "runtime.o")
@@ -243,6 +284,18 @@ module Zr
       # and `known` are `unit`'s. `release` lets the caller drop the IR once
       # it is machine code, before the writer allocates: then a collection
       # does not mark the IR again (4 s of eval support's write).
+      # @rbs functions: Array[IR::Function | Obj::Code]
+      # @rbs data: Array[Obj::Datum]
+      # @rbs obj: String
+      # @rbs raw: Array[String]
+      # @rbs export: bool
+      # @rbs target: Target
+      # @rbs jobs: Integer
+      # @rbs cache: CodeCache?
+      # @rbs inlined: bool
+      # @rbs known: Hash[String, [String, String]]
+      # @rbs release: (^() -> void)?
+      # @rbs return: String?
       def object(functions, data, obj, raw: [], export: false, target: Target.default, jobs: Build.jobs, cache: nil, inlined: false,
                  known: {}, release: nil)
         built = unit(functions, data, raw: raw, export: export, target: target, jobs: jobs, cache: cache, inlined: inlined,
@@ -268,6 +321,18 @@ module Zr
       # that the functions are inlined already (`Cache::Lowering::Core`). `functions` can
       # then have machine code in place of IR, whose fingerprint and bytes
       # `known` gives by name.
+      # @rbs functions: Array[IR::Function | Obj::Code]
+      # @rbs data: Array[Obj::Datum]
+      # @rbs raw: Array[String]
+      # @rbs assembled: Array[Obj::Code]
+      # @rbs export: bool
+      # @rbs target: Target
+      # @rbs jobs: Integer
+      # @rbs floor: Integer
+      # @rbs cache: CodeCache?
+      # @rbs inlined: bool
+      # @rbs known: Hash[String, [String, String]]
+      # @rbs return: Obj::Unit
       def unit(functions, data, raw: [], assembled: [], export: false, target: Target.default, jobs: Build.jobs,
                floor: PARALLEL_THRESHOLD, cache: nil, inlined: false, known: {})
         Timing.phase("unit inlined") { IR::Passes.inline(functions) } unless inlined
@@ -276,7 +341,7 @@ module Zr
         emitter.unit(functions, data, raw: code, export: export) do |all, defined|
           next cached(all, defined, emitter, cache, jobs, floor, known) if cache
 
-          Parallel.map(all, jobs: jobs, weight: ->(f) { f.blocks.sum { |b| b.insts.size } }, floor: floor) do |f|
+          Parallel.map(all, jobs: jobs, weight: ->(f) { f.blocks.sum { |b| b.insts.size } }, floor: floor) do |f| #$ IR::Function, Obj::Code
             IR::Passes.prepare(f)
             emitter.assemble(f, defined)
           end
@@ -291,12 +356,24 @@ module Zr
       # keeps all of it as the cache's newest pack. A function that is
       # machine code already stays as it is; `known` has its key and bytes
       # for the pack.
+      # @rbs all: Array[IR::Function | Obj::Code]
+      # @rbs defined: Set[String]
+      # @rbs emitter: singleton(Backend::Aarch64)
+      # @rbs cache: CodeCache
+      # @rbs jobs: Integer
+      # @rbs floor: Integer
+      # @rbs known: Hash[String, [String, String]]
+      # @rbs return: Array[Obj::Code]
       def cached(all, defined, emitter, cache, jobs, floor, known = {})
         verify = cache.verify?
         ir = all.each_index.select { |i| all[i].is_a?(IR::Function) }
-        answers = Parallel.map(all.values_at(*ir), jobs: jobs, weight: ->(f) { f.blocks.sum { |b| b.insts.size } }, floor: floor) do |f|
+        # The functions at `ir` are IR.
+        functions = all.values_at(*ir) #: Array[IR::Function]
+        weight = ->(f) { f.blocks.sum { |b| b.insts.size } } #: ^(IR::Function) -> Integer
+        answers = Parallel.map(functions, jobs: jobs, weight: weight, floor: floor) do |f| #$ IR::Function, [String, untyped, bool]
           key = IR::Fingerprint.of(f, defined)
-          found = verify ? cache.take(key) : cache.blob(key)
+          # The code and its bytes with `verify`, else only the bytes.
+          found = verify ? cache.take(key) : cache.blob(key) #: untyped
           next [key, found, false] if found && !verify
 
           IR::Passes.prepare(f)
@@ -308,7 +385,9 @@ module Zr
         made = ir.zip(answers).to_h
         Timing.phase("code cache kept") { cache.keep(all.each_with_index.map { |f, i| made[i]&.first(2) || known.fetch(f.name) }) }
         warn format("zr: code cache: %d of %d functions assembled", answers.count(&:last), all.size) if Config.current.timing?
-        Timing.phase("code cache loaded") { all.each_with_index.map { |f, i| made[i] ? Marshal.load(made[i][1]) : f } }
+        loaded = Timing.phase("code cache loaded") { all.each_with_index.map { |f, i| made[i] ? Marshal.load(made[i][1]) : f } }
+        # Each IR function is machine code now.
+        loaded #: Array[Obj::Code]
       end
 
       # Writes the same functions and data as one WASI module. A raw
@@ -318,6 +397,7 @@ module Zr
       # when called. Data from another library also has no wasm form: a
       # zero word is put in its place, because every call that reads it
       # is a stop.
+      #: (Array[IR::Function] functions, Array[Obj::Datum] data, String out, ?raw: Array[String]) -> String?
       def wasm(functions, data, out, raw: [])
         data = data.dup
         zero_words(functions, data, [])
@@ -337,9 +417,11 @@ module Zr
       # second object to link, so a program that uses eval gets a prelude
       # that also contains eval support. Its 16,000 functions then compile
       # once for each cache, not once for each program (about 280 s).
+      #: (Program program, String out) -> String?
       def wasm_program(program, out)
         pre = wasm_prelude(program.runtime, pending_for(program), program.evals || nil)
-        functions = program.functions
+        # A program for wasm assembles nothing, so its functions are IR.
+        functions = program.functions #: Array[IR::Function]
         data = program.data.dup
         zero_words(functions, data, pre.data_at.keys)
         functions += stops(functions, [], data, pre.functions)
@@ -352,6 +434,7 @@ module Zr
 
       # The runtime symbols that `program` defines. The runtime's prelude
       # leaves these symbols pending.
+      #: (Program program) -> Backend::Wasm::Codegen::pending
       def pending_for(program)
         wants = program.runtime.wants
         { functions: wants[:functions] & program.functions.map(&:name), data: wants[:data] & program.data.map(&:name) }
@@ -365,14 +448,16 @@ module Zr
       # prelink is. The prelude is 41 MB of Marshal, and a test tier builds
       # one module for each example. A worker forked after the first build
       # shares the one copy. A build never writes to it.
+      #: (Runtime runtime, Backend::Wasm::Codegen::pending pending, ?EvalSupport? support) -> Backend::Wasm::Codegen::Prelude
       def wasm_prelude(runtime, pending, support = nil)
         key = Digest::SHA256.hexdigest("#{runtime.digest}\n#{support&.key}\n#{pending.inspect}")
         path = Cache::Store.path(:wasm, key)
-        preludes = Session.current.memo(:wasm_preludes) { {} }
+        preludes = Session.current.memo(:wasm_preludes) { {} } #: Hash[String, Backend::Wasm::Codegen::Prelude | false]
         kept = preludes[path] ||= File.exist?(path) && Marshal.load(File.binread(path))
         return kept if kept
 
-        functions = support ? runtime.functions + support.functions : runtime.functions
+        # The wasm backend takes only IR.
+        functions = support ? runtime.functions + support.functions : runtime.functions #: Array[IR::Function]
         data = support ? runtime.data + support.data : runtime.data.dup
         zero_words(functions, data, pending[:data])
         functions += stops(functions, runtime.raw, data, pending[:functions])
@@ -383,12 +468,14 @@ module Zr
       end
 
       # The data symbols that `functions` refer to and `data` does not define.
+      #: (Array[IR::Function] functions, Array[Obj::Datum] data) -> Array[String]
       def foreign(functions, data)
         named = data.map(&:name)
         functions.flat_map { |f| f.globals.reject(&:colocated).map(&:symbol) }.uniq - named
       end
 
       # A zero word into `data` for each foreign data symbol not in `known`.
+      #: (Array[IR::Function] functions, Array[Obj::Datum] data, Array[String] known) -> void
       def zero_words(functions, data, known)
         (foreign(functions, data) - known).each do |symbol|
           data << Obj::Datum.new(symbol, :data_const, "\0".b * 8, align: 8)
@@ -398,6 +485,7 @@ module Zr
       # Stop functions for the raw functions and for each undefined callee
       # that is not a wasm import, not in `Backend::Wasm.libc_shims` and
       # not in `known`.
+      #: (Array[IR::Function] functions, Array[String] raw, Array[Obj::Datum] data, Array[String] known) -> Array[IR::Function]
       def stops(functions, raw, data, known)
         out = raw.map do |name|
           r = Machine::RAW.fetch(name)
@@ -408,7 +496,8 @@ module Zr
           f.callees.each do |c|
             next if c.from || defined.include?(c.symbol)
 
-            sig = f.sigs.find { |x| x.sig == c.sig }
+            # Each callee's signature is in the function's list.
+            sig = f.sigs.find { |x| x.sig == c.sig } #: IR::Sig
             out << stop(c.symbol, sig.params, sig.ret, data)
             defined << c.symbol
           end
@@ -416,6 +505,7 @@ module Zr
         out
       end
 
+      #: (String name, Array[String] params, String? ret, Array[Obj::Datum] data) -> IR::Function
       def stop(name, params, ret, data)
         message = "zr: #{name} has no wasm form\n"
         bytes = "zr_stop_#{name}"

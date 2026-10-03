@@ -1,4 +1,8 @@
-# The fields of the record in lib/zr/lower/function/regions.rb.
+# The fields of the record in lib/zr/lower/function/regions.rb. An
+# ensure body is a node or a lowering Proc. `outer` is the inline scope
+# and line record of an inline loop. An inline loop's region has no
+# `slot` (nil), and nothing reads it there, so the reader types it as
+# an Integer.
 module Zr
   class Lower
     class Function
@@ -6,11 +10,11 @@ module Zr
         class Region < Data
           attr_reader landing: String
           attr_reader ensure_body: untyped
-          attr_reader slot: Integer?
-          attr_reader outer: Array[untyped]?
+          attr_reader slot: Integer
+          attr_reader outer: [Iterators::InlineScope?, String?]?
 
-          def self.new: (String landing, untyped ensure_body, Integer? slot, ?Array[untyped]? outer) -> instance
-                      | (landing: String, ensure_body: untyped, slot: Integer?, ?outer: Array[untyped]?) -> instance
+          def self.new: (String landing, untyped ensure_body, Integer? slot, ?[Iterators::InlineScope?, String?]? outer) -> instance
+                      | (landing: String, ensure_body: untyped, slot: Integer?, ?outer: [Iterators::InlineScope?, String?]?) -> instance
         end
       end
     end

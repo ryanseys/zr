@@ -1,0 +1,6 @@
+# The types of lib/zr/runtime/lib/zr/eval/runtime.rb that inline RBS
+# cannot give.
+
+# The runtime's own calls: the compiler lowers each `Primitive.name` to
+# the runtime function of that name, so no Ruby object stands behind it.
+Primitive: untyped

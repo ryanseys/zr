@@ -13,6 +13,7 @@ module Zr
 
       # A require's name at compile time: a String literal, or a path built
       # from `__dir__` with a literal.
+      #: (untyped node) -> String?
       def literal_feature(node)
         args = node.arguments&.arguments
         return nil unless args&.size == 1
@@ -34,14 +35,17 @@ module Zr
       # The ruby features that no library root here contains, and that
       # ruby did not load before the program. A require of one stops with
       # a message.
+      #: (?Target target) -> Array[String]
       def self.missing_features(target = Target.default)
-        (@missing_features ||= {})[target.triple] ||= FEATURES.reject do |feature|
+        missing = @missing_features ||= {} #: Hash[String, Array[String]]
+        missing[target.triple] ||= FEATURES.reject do |feature|
           PRELOADED.include?(feature) || Library::Roots.stdlib(target).any? { |root| File.file?(File.join(root, "#{feature}.rb")) }
         end.sort.freeze
       end
 
       # A feature ruby loaded before the program, by any of its names:
       # `thread`, `thread.rb` and `enumerator.so` all count.
+      #: (String? feature) -> bool
       def preloaded?(feature)
         (@loader ? @loader.preloaded : PRELOADED).include?(feature.to_s.sub(/\.(?:rb|so|bundle)\z/, ""))
       end
@@ -50,9 +54,11 @@ module Zr
       # becomes a unit of the program. A ruby feature that no root here
       # contains stops with a message. Every other name raises LoadError
       # when it runs, as in ruby.
+      #: (Prism::CallNode node) -> node
       def require_node(node)
         line = node.location.start_line
-        feature = literal_feature(node)
+        # `call` makes this node only for a literal feature.
+        feature = literal_feature(node) #: String
         if node.name == :require && %w[rubygems bundled_gems].include?(feature.to_s.delete_suffix(".rb")) && !@loader.ahead?(@file) && !Library::Roots.runtime_file?(@file)
           # The prelude loaded rubygems as the program booted.
           gems!(:Gem)
@@ -67,7 +73,7 @@ module Zr
 
         path = @loader.resolve(node.name, feature, @file)
         gem_refusal(node, feature, path)
-        stop = path.nil? && node.name != :require_relative && stop_for(node, feature)
+        stop = path.nil? && node.name != :require_relative && stop_for(node, feature) #: Stop | false | nil
         return stop if stop
 
         # No file found: the call searches at run time, in the $LOAD_PATH
@@ -97,6 +103,7 @@ module Zr
       # compiler to compile a file it finds then, and `zr build` says so.
       # A require that a `rescue LoadError` guards is quiet, as is one in a
       # library's file: code there can handle the LoadError.
+      #: (Prism::CallNode node, String? feature) -> void
       def gate!(node, feature)
         return unless @loader.gated? == :warn && @loader.own?(@file) && @guarded.to_i.zero?
 
@@ -113,6 +120,7 @@ module Zr
       # A require that reaches a file of a gem that zr cannot compile
       # (`GemSet#refusal`) stops the build at the require's line: ruby
       # would load the gem's C extension there.
+      #: (Prism::CallNode node, String? feature, String? path) -> void
       def gem_refusal(node, feature, path)
         why = @loader.refused_gem(path, (feature unless node.name == :require_relative))
         refuse(node, "require of #{feature.to_s.inspect}: #{why}") if why
@@ -130,6 +138,7 @@ module Zr
       # A ruby feature that this runtime has no file for. The stop occurs
       # only when the program runs the require, so a guarded require that
       # never runs costs nothing.
+      #: (Prism::CallNode node, String? feature) -> Stop?
       def stop_for(node, feature)
         name = feature.to_s.delete_suffix(".rb")
         return unless FEATURES.include?(name)
@@ -139,6 +148,7 @@ module Zr
         Stop.new(UNSUPPORTED_LIBRARIES[name] || "#{node.name} of #{feature.inspect}", line)
       end
 
+      #: (untyped node) -> boolish
       def literal_autoload?(node)
         args = node.arguments&.arguments
         args&.size == 2 && args[0].is_a?(Prism::SymbolNode) && (args[1].is_a?(Prism::StringNode) || @loader.literal_path(args[1], @file))
@@ -146,10 +156,12 @@ module Zr
 
       # `autoload :Name, "feature"` resolves the feature as a require
       # does, so the file is a unit of the program.
+      #: (untyped node) -> Autoload
       def autoload_node(node)
         line = node.location.start_line
         name_node, path_node = node.arguments.arguments
-        feature = path_node.is_a?(Prism::StringNode) ? path_node.unescaped : @loader.literal_path(path_node, @file)
+        # `literal_autoload?` makes sure that the feature is known.
+        feature = path_node.is_a?(Prism::StringNode) ? path_node.unescaped : @loader.literal_path(path_node, @file) #: String
         # A feature that is already loaded gets no autoload entry, as in
         # ruby: `require` would return false and read no file, so
         # `Object.autoload?(:Set)` is nil after `autoload :Set, "set"`. The

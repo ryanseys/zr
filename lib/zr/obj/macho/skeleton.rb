@@ -27,6 +27,7 @@ module Zr
 
         # Returns the skeleton of `base`: a blank header page, then the
         # text blob.
+        #: (Prelink base) -> String
         def self.bytes(base) = ("\0".b * PAGE) + base.blobs.fetch(:text)
 
         # Opens `out` for a binary whose bytes after the header page start
@@ -35,6 +36,7 @@ module Zr
         # file at offset 0 and whether the text is in place. The block
         # writes the header page, skips or writes the text, then writes the
         # rest. The file ends where the block stops and is executable.
+        #: (String out, String? skeleton, String text) { (File, bool) -> void } -> [[Integer, Integer, Time, Time]?, String]
         def self.write_over(out, skeleton, text)
           size = PAGE + text.bytesize
           kept = kept?(out, text) || clone(skeleton, out, size)
@@ -49,6 +51,7 @@ module Zr
         # Checks whether the file at `out` contains `text` after its header
         # page. It reads and compares the bytes, unless this process wrote
         # the text there and the file did not change after that.
+        #: (String out, String text) -> bool
         def self.kept?(out, text)
           stamp = stamp(out) or return false
           left, held = written[out]
@@ -61,9 +64,11 @@ module Zr
 
         # The files that this process wrote a text into, each with its
         # file stamp and the text.
+        #: () -> Hash[String, [[Integer, Integer, Time, Time]?, String]]
         def self.written = @written ||= {}
 
         # The file stamp: the inode, the size, the mtime and the ctime.
+        #: (String out) -> [Integer, Integer, Time, Time]?
         def self.stamp(out)
           stat = File.stat(out)
           [stat.ino, stat.size, stat.mtime, stat.ctime]
@@ -87,6 +92,7 @@ module Zr
 
         # Returns `clonefile` from libSystem (looked up once), or nil when
         # it is not available.
+        #: () -> ::Fiddle::Function?
         def self.clonefile
           return @clonefile if defined?(@clonefile)
 

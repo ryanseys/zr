@@ -24,12 +24,19 @@ module Zr
         # list of its class for the next request of that class. A request
         # that the region cannot hold goes to C.
         class Region
+          # @rbs @bytes: String
+          # @rbs @holder: Fiber
+          # @rbs @top: Integer
+          # @rbs @free: Hash[Integer, Array[Integer]]
+
           # The bytes before each block: its size class, and padding that
           # keeps the block 16-byte aligned, as malloc's are.
           HEADER = 16
 
-          attr_reader :base, :size, :buffer
+          attr_reader :base, :size #: Integer
+          attr_reader :buffer #: IO::Buffer
 
+          #: (Integer size) -> void
           def initialize(size)
             @bytes = "\0".b * size
             @base = P[@bytes].to_i
@@ -45,13 +52,16 @@ module Zr
             @free = Hash.new { |lists, size_class| lists[size_class] = [] }
           end
 
+          #: (Integer addr) -> bool
           def include?(addr) = addr >= @base && addr < @base + @size
 
           # A block of at least `bytes`, or nil when the region is full.
+          #: (Integer bytes) -> Integer?
           def malloc(bytes) = @free[rounded(bytes)].pop || fresh(rounded(bytes), 16)
 
           # A block of at least `bytes` at a multiple of `align`, a power
           # of two, or nil when the region is full.
+          #: (Integer align, Integer bytes) -> Integer?
           def memalign(align, bytes)
             size_class = rounded(bytes)
             list = @free[size_class]
@@ -59,6 +69,7 @@ module Zr
             at ? list.delete_at(at) : fresh(size_class, align)
           end
 
+          #: (Integer addr) -> void
           def free(addr)
             size = usable(addr)
             release(addr, size) if size >= RELEASE
@@ -66,10 +77,12 @@ module Zr
           end
 
           # The bytes that the block at `addr` holds.
+          #: (Integer addr) -> Integer
           def usable(addr) = @buffer.get_value(:u64, addr - HEADER - @base)
 
           # `size` bytes never used before, so zero, at a multiple of
           # `align`; or nil when the region is full.
+          #: (Integer size, Integer align) -> Integer?
           def fresh(size, align)
             at = @base + @top + HEADER
             at += (-at) % align
@@ -91,13 +104,14 @@ module Zr
           # place: the system takes the old pages back.
           MMAP = Fiddle::Function.new(Fiddle::Handle::DEFAULT["mmap"], [Fiddle::TYPE_VOIDP, Fiddle::TYPE_SIZE_T, Fiddle::TYPE_INT,
                                                                        Fiddle::TYPE_INT, Fiddle::TYPE_INT, Fiddle::TYPE_LONG_LONG],
-                                      Fiddle::TYPE_VOIDP)
+                                      Fiddle::TYPE_VOIDP) #: Fiddle::Function
           READ_WRITE = 3
           MAP_PRIVATE = 0x2
           MAP_FIXED = 0x10
-          MAP_ANON = RUBY_PLATFORM.include?("linux") ? 0x20 : 0x1000
-          PAGE = IO::Buffer::PAGE_SIZE
+          MAP_ANON = RUBY_PLATFORM.include?("linux") ? 0x20 : 0x1000 #: Integer
+          PAGE = IO::Buffer::PAGE_SIZE #: Integer
 
+          #: (Integer addr, Integer size) -> void
           def release(addr, size)
             from = (addr + PAGE - 1) & -PAGE
             to = (addr + size) & -PAGE
@@ -107,6 +121,7 @@ module Zr
           # The size class of a request: a multiple of 16 up to 1 KiB,
           # then four classes in each doubling, so a block wastes at most a
           # quarter of itself.
+          #: (Integer bytes) -> Integer
           def rounded(bytes)
             return (bytes + 15) & -16 if bytes <= 1024
 
@@ -120,6 +135,7 @@ module Zr
         # as large, and so on.
         REGION_BYTES = 16 << 30
 
+        #: (?Integer bytes) -> Region
         def self.reserve(bytes = REGION_BYTES)
           Region.new(bytes)
         rescue NoMemoryError
@@ -128,28 +144,32 @@ module Zr
           reserve(bytes / 2)
         end
 
-        REGION = reserve
-        BUFFER = REGION.buffer
-        BASE = REGION.base
-        LIMIT = REGION.size
+        REGION = reserve #: Region
+        BUFFER = REGION.buffer #: IO::Buffer
+        BASE = REGION.base #: Integer
+        LIMIT = REGION.size #: Integer
 
         module_function
 
+        #: (Integer addr, Integer len) -> String
         def read(addr, len)
           off = addr - BASE
           off >= 0 && off < LIMIT ? BUFFER.get_string(off, len) : P.read(addr, len)
         end
 
+        #: (Integer addr, String bytes) -> void
         def write(addr, bytes)
           off = addr - BASE
           off >= 0 && off < LIMIT ? BUFFER.set_string(bytes, off) : P.write(addr, bytes)
         end
 
+        #: (Integer addr) -> Integer
         def word(addr)
           off = addr - BASE
-          off >= 0 && off < LIMIT ? BUFFER.get_value(:s64, off) : P.read(addr, 8).unpack1("q<")
+          off >= 0 && off < LIMIT ? BUFFER.get_value(:s64, off) : P.read(addr, 8).unpack1("q<") #: Integer
         end
 
+        #: (Integer addr, Integer value) -> void
         def set_word(addr, value)
           off = addr - BASE
           off >= 0 && off < LIMIT ? BUFFER.set_value(:u64, off, value) : P.write(addr, [value].pack("q<"))
@@ -158,18 +178,20 @@ module Zr
         # The IO::Buffer types of `n` words, for each `n` up to WORDS: one
         # call reads or writes them all.
         WORDS = 64
-        LOAD_WORDS = Array.new(WORDS + 1) { |n| Array.new(n, :s64).freeze }.freeze
-        STORE_WORDS = Array.new(WORDS + 1) { |n| Array.new(n, :u64).freeze }.freeze
+        LOAD_WORDS = Array.new(WORDS + 1) { |n| Array.new(n, :s64).freeze }.freeze #: Array[Array[Symbol]]
+        STORE_WORDS = Array.new(WORDS + 1) { |n| Array.new(n, :u64).freeze }.freeze #: Array[Array[Symbol]]
 
         # `n` words from `addr`, as an Array.
+        #: (Integer addr, Integer n) -> Array[Integer]
         def words(addr, n)
           return [] if n.zero?
 
           off = addr - BASE
-          off >= 0 && off < LIMIT && n <= WORDS ? BUFFER.get_values(LOAD_WORDS[n], off) : read(addr, n * 8).unpack("q<*")
+          off >= 0 && off < LIMIT && n <= WORDS ? BUFFER.get_values(LOAD_WORDS[n], off) : read(addr, n * 8).unpack("q<*") #: Array[Integer]
         end
 
         # `values` as words at `addr`.
+        #: (Integer addr, Array[Integer] values) -> void
         def set_words(addr, values)
           n = values.size
           off = addr - BASE
@@ -179,15 +201,19 @@ module Zr
         # The load of a `type` (`Host::Type`) at `offset` from a pointer,
         # as a lambda that reads the memory itself, so a field's reader is
         # one call.
+        #: (Type type, Integer offset) -> ^(Integer) -> untyped
         def reader(type, offset)
           raise ArgumentError, "no load of a Void" if type.size.zero?
 
           buffer = BUFFER
           limit = LIMIT
           delta = offset - BASE
-          kind = type.loads
+          # A type that is not Void has a load and a packing. The load of
+          # an F64 is a float type; the integer type here only picks the
+          # overload of `get_value`.
+          kind = type.loads #: IO::Buffer::int_get_type
           size = type.size
-          format = type.packing
+          format = type.packing #: String
           if type.name == "Bool"
             ->(p) { (off = p + delta) >= 0 && off < limit ? buffer.get_value(:U8, off) != 0 : P.read(p + offset, 1).getbyte(0) != 0 }
           else
@@ -197,14 +223,16 @@ module Zr
 
         # The store of a `type` at `offset` from a pointer, as a lambda. An
         # unsigned store takes a value of the signed range too.
+        #: (Type type, Integer offset) -> ^(Integer, untyped) -> untyped
         def writer(type, offset)
           raise ArgumentError, "no store of a Void" if type.size.zero?
 
           buffer = BUFFER
           limit = LIMIT
           delta = offset - BASE
-          kind = type.stores
-          format = type.packing
+          # A type that is not Void has a store and a packing.
+          kind = type.stores #: IO::Buffer::int_get_type | IO::Buffer::float_get_type
+          format = type.packing #: String
           case type.name
           when "Bool", "I8"
             lambda do |p, value|
@@ -222,6 +250,7 @@ module Zr
         end
 
         # `size` zeroed bytes that stay until the process ends.
+        #: (Integer size, ?Integer align) -> Integer
         def zeroed(size, align = 16)
           REGION.fresh(size, align) || begin
             addr = Fiddle.malloc(size + align)
@@ -237,6 +266,7 @@ module Zr
         # function, for memory that the region does not hold.
         #
         # Each lambda becomes a method of `Libc`, so it names `Memory`.
+        #: (String name, Proc c) -> Proc?
         def function(name, c)
           region = REGION
           case name
@@ -267,6 +297,7 @@ module Zr
         end
 
         # memmove(3): returns `to`.
+        #: (Integer to, Integer from, Integer n) -> Integer
         def copy(to, from, n)
           return to unless n.positive?
 
@@ -282,6 +313,7 @@ module Zr
         # `p`, or 0. A caller may give an `n` past the end of the memory
         # (a search for a string's NUL), so the search reads a page at a
         # time and stops at the byte, as C's does.
+        #: (Integer p, Integer byte, Integer n) -> Integer
         def find(p, byte, n)
           target = (byte & 0xFF).chr
           at = 0
@@ -300,6 +332,7 @@ module Zr
         PAGE = 4096
 
         # memset(3): returns `p`.
+        #: (Integer p, Integer byte, Integer n) -> Integer
         def fill(p, byte, n)
           return p unless n.positive?
 

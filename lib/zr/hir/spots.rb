@@ -23,6 +23,9 @@ module Zr
       # the lines through the node's `Prism::Source`, so the lines can be
       # kept only there.
       module Lines
+        # @rbs @lines: Array[String]
+
+        #: () -> Array[String]
         def lines = @lines ||= super
       end
       Prism::Source.prepend(Lines)
@@ -33,6 +36,7 @@ module Zr
       # parse cache is on (`Cache::Parse.derived`). Finding them is a third of
       # a warm build's HIR time, and the spots are the same for the same
       # tree and the same Spotter.
+      #: (Prism::ParseResult result, String source, Hash[Symbol, untyped] options) -> String
       def for(result, source, options)
         return of(result.value) unless defined?(Cache::Parse)
 
@@ -54,6 +58,7 @@ module Zr
         block_node: %i[name]
       }.freeze
 
+      #: (Prism::node tree) -> String
       def of(tree)
         rows = +""
         queue = [tree]
@@ -75,11 +80,12 @@ module Zr
 
       # The constant names that a NameError at `node` can contain, if the
       # spot depends on the name. `[nil]` if it does not.
+      #: (untyped node) -> Array[Symbol?]
       def names(node)
         case node.type
         when :constant_path_node
-          chain = []
-          part = node
+          chain = [] #: Array[Symbol?]
+          part = node #: Prism::node?
           while part.is_a?(Prism::ConstantPathNode)
             chain << part.name
             part = part.parent
@@ -98,6 +104,7 @@ module Zr
       # Spotter raises for a form that it does not know. A spot only
       # adds a highlight to an error message, so a failed spot is no spot,
       # and it must not stop the build.
+      #: (untyped node, Symbol point, Symbol? name) -> Hash[Symbol, Integer]?
       def spot(node, point, name)
         name ||= node.binary_operator if node.type == :call_operator_write_node
         ErrorHighlight.spot(node, point_type: point, name: name)

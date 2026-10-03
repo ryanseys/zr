@@ -80,6 +80,18 @@ class WasmTest < Minitest::Test
     end
   end
 
+  # An import of a name that the module imports already, with another
+  # signature, is refused, and the message gives both imports.
+  def test_an_import_with_another_signature_is_refused
+    source = IMPORTED.sub("[I32, I32, I32, I32] => I32", "[I32, I32, I32] => I32")
+                     .sub(", Machine.i32(iov + 8))", ")")
+    functions, data = Zr::Machine.compile(source, "imported.rb")
+    Dir.mktmpdir("zr-wasm-") do |dir|
+      message = Zr::Native::Build.wasm(functions, data, File.join(dir, "imported.wasm"))
+      assert_match(/\Afd_write is imported as .*params.* and .*params/, message)
+    end
+  end
+
   # Initialized data goes before bss, and adjacent objects share a
   # segment. A module that includes the compiler has about 90,000 data
   # objects, and wasmtime 48 cannot compile more than 65,535 segments.

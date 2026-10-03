@@ -40,6 +40,24 @@ module Zr
       def size: () -> Integer
     end
 
+    # An item that `Patch.layout` places: a Code or a Datum.
+    interface _Placeable
+      def align: () -> Integer
+      def size: () -> Integer
+    end
+
+    # The system calls of `JIT` (lib/zr/obj/jit.rb): `JIT::Fiddle` or
+    # `JIT::Runtime`.
+    interface _JITHost
+      def reserve: (Integer size) -> Integer?
+      def release: (Integer at, Integer size) -> untyped
+      def map: (Integer size, exec: bool, ?at: Integer?, ?near: Integer) -> Integer?
+      def symbol: (String name) -> Integer
+      def write_data: (Integer at, String bytes) -> untyped
+      def write_code: (Integer at, String bytes) -> untyped
+      def call: (Integer at) -> Integer
+    end
+
     class Unit
       attr_reader functions: Array[Code]
       attr_reader data: Array[Datum]

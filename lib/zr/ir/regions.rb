@@ -17,14 +17,20 @@ module Zr
     # The pass that includes this module sets `@f`, `@placed` (from
     # `placements`) and `@effects` (`{ callee => bits }`).
     module Regions
+      # @rbs @f: Function
+      # @rbs @placed: Hash[String, [untyped, Integer]]
+      # @rbs @effects: Hash[String, Integer]
+
       private
 
       # `{ value => [root, offset] }` for each value that is the address of a
       # slot (root `:slot`) or of a symbol, or one of these plus a constant.
+      # A root is `:slot` or a symbol name (a String), so it is untyped.
+      #: () -> Hash[String, [untyped, Integer]]
       def placements
         symbol_of = @f.globals.to_h { |g| [g.gv, g.symbol] }
-        const = {}
-        placed = {}
+        const = {} #: Hash[String, Integer]
+        placed = {} #: Hash[String, [untyped, Integer]]
         @f.blocks.each do |b|
           b.insts.each do |i|
             case i.op
@@ -43,6 +49,7 @@ module Zr
 
       # The region of the load or store `i` through `addr`: its own region,
       # or the region of the static or slot at its address, or nil.
+      #: (Inst i, untyped addr) -> Symbol?
       def region_of(i, addr)
         return i.region if i.region
 
@@ -54,12 +61,14 @@ module Zr
       end
 
       # The regions that the store `i` can write: the bit of its region, or all.
+      #: (Inst i) -> Integer
       def write_bits(i)
         region = region_of(i, i.args[1])
         region ? Effects.bit(region) : Effects::ALL
       end
 
       # The region bits that the instructions of `b` can write.
+      #: (Block b) -> Integer
       def writes_of(b)
         bits = 0
         b.insts.each do |i|

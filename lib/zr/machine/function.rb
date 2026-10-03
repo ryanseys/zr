@@ -13,7 +13,22 @@ module Zr
     # The root frame links from the static head of the unit and contains
     # each Value of the def (a parameter, a local, or the result of a call
     # that goes to another call). Thus a collection in any call sees them all.
+    #
+    # An expression lowers to `[value, type]`: an IR value name and a
+    # Machine type name. The value is nil when the type is "Void". The
+    # lowering tests the type, not the value, so a value is untyped here.
     class Function
+      # @rbs @unit: Lower
+      # @rbs @d: Def
+      # @rbs @f: IR::Function
+      # @rbs @locals: Hash[String, { type: String, addr: String }]
+      # @rbs @loops: Array[String]
+      # @rbs @roots: Roots?
+      # @rbs @head: String
+      # @rbs @inlining: Array[String]
+      # @rbs @exit: Exit?
+      # @rbs @stack_images: Hash[Def, Set[Symbol]]?
+
       # The root frame of a def: its stack `slot` and the `addr` of it, the
       # number `n` of Value slots made so far, a zero constant `zero`, the
       # constant instruction `count` that holds the slot count, and the
@@ -27,6 +42,7 @@ module Zr
       # @rbs skip -- typed in sig/zr/machine/function.rbs
       Exit = Struct.new(:type, :block, :value, keyword_init: true)
 
+      #: (Lower unit, Def d) -> void
       def initialize(unit, d)
         @unit = unit
         @d = d
@@ -40,6 +56,7 @@ module Zr
         @exit = nil
       end
 
+      #: () -> IR::Function
       def lower
         enter_roots if @unit.collects?(@d.name)
         @d.params.each_with_index do |(name, type), i|
@@ -58,7 +75,9 @@ module Zr
 
       # Links in the root frame before the body. `leave_roots` sets the
       # slot count and the zero fill after the body has made all slots.
+      #: () -> void
       def enter_roots
+        # @type ivar @roots: Roots
         slot = @f.slot(16)
         @roots = Roots.new(slot: slot, addr: @f.stack_addr(slot), n: 0, zero: @f.iconst("i64", 0))
         @head = @f.symbol_value(@f.symbol("zr_static_#{Lower::ROOTS}"))
@@ -69,7 +88,9 @@ module Zr
         @roots.fill_at = @f.entry_block.insts.size
       end
 
+      #: () -> void
       def leave_roots
+        # @type ivar @roots: Roots
         n = @roots.n
         @roots.count.args[0] = n
         @f.slots[@roots.slot.delete_prefix("ss").to_i].bytes = 16 + (8 * n)
@@ -78,7 +99,9 @@ module Zr
       end
 
       # The offset of a new root slot.
+      #: () -> Integer
       def root_slot
+        # @type ivar @roots: Roots
         at = 16 + (8 * @roots.n)
         @roots.n += 1
         at
@@ -87,7 +110,9 @@ module Zr
       # `return`: first unlinks the root frame. In an inlined body, a
       # return is a jump with the value to the block after the body,
       # because a `ret` there would return from the caller.
+      #: (untyped value) -> void
       def ret(value)
+        # @type ivar @roots: Roots
         return @f.jump(inline_exit, [value].compact) if @exit
 
         @f.store(@f.fetch("i64", @roots.addr), @head, 0) if @roots
@@ -96,7 +121,9 @@ module Zr
 
       # The block that all returns of an inlined body jump to. Its
       # parameter is the returned value.
+      #: () -> String
       def inline_exit
+        # @type ivar @exit: Exit
         @exit.block ||= begin
           block, params = @exit.type == "Void" ? @f.block : @f.block([ir_type(@exit.type)])
           @exit.value = params.first
@@ -106,18 +133,22 @@ module Zr
 
       private
 
+      #: (Prism::node? node, String message) -> bot
       def refuse(node, message)
         raise Refused.new(node, message, @unit.unit? ? @d.file : nil)
       end
 
       # A local is in a slot of its own. A Value in a rooted function is
       # in the root frame.
+      #: (Prism::node node, String name, String type) -> { type: String, addr: String }
       def declare_local(node, name, type)
         refuse(node, "#{name} is already a #{@locals[name][:type]}") if @locals.key?(name) && !fits?(@locals[name][:type], type)
         @locals[name] ||= { type: type, addr: local_addr(type) }
       end
 
+      #: (String type) -> String
       def local_addr(type)
+        # @type ivar @roots: Roots
         return @f.stack_addr(@f.slot(8)) unless @roots && type == "Value"
 
         at = root_slot
@@ -125,14 +156,19 @@ module Zr
         @f.hoisted(:root_slot, at) { IR::Inst.new(:iadd, type: "i64", args: [@roots.addr, off]) }
       end
 
+      # The IR type of a Machine type, or nil for Void. The type says
+      # String: a caller refuses Void first, or gives the nil to an IR
+      # call that reads it as "no type".
+      #: (String type) -> String
       def ir_type(type)
-        TYPES.fetch(type)
+        TYPES.fetch(type) #: String
       end
 
       # The value and type of a statement list: those of the last
       # statement. `want` applies only to the last statement.
+      #: (Prism::StatementsNode node, ?String? want) -> [untyped, String]
       def statements(node, want = nil)
-        last = [nil, "Void"]
+        last = [nil, "Void"] #: [untyped, String]
         node.body.each_with_index do |s, i|
           last = expr(s, i == node.body.size - 1 ? want : nil)
           break if @f.terminated?
@@ -141,6 +177,7 @@ module Zr
       end
 
       # Returns `[value, type]`. `want` gives the type of a literal here.
+      #: (Prism::node? node, ?String? want) -> [untyped, String]
       def expr(node, want = nil)
         case node
         when Prism::StatementsNode then statements(node, want)
@@ -198,17 +235,20 @@ module Zr
 
       # A size or an offset: an integer, a constant, or an operator over
       # those, folded at compile time.
+      #: (Prism::node? node) -> Integer
       def immediate(node)
         @unit.fold_in(@d.file, node)
       end
 
       # An integer literal or a constant gets the type in `want`.
+      #: (Prism::node node, Integer n, String? want) -> [String, String]
       def literal(node, n, want)
         type = want || "Word"
         refuse(node, "an integer where a #{type} is wanted") if ir_type(type).nil? || ir_type(type) == "f64"
         [@f.iconst(ir_type(type), n), type]
       end
 
+      #: (Prism::CallNode node, String? want) -> [untyped, String]
       def call(node, want)
         args = node.arguments&.arguments || []
         if node.receiver.nil?
@@ -246,6 +286,7 @@ module Zr
 
       # `Name.size`, `Name.field(p)` and `Name.set_field(p, v)`. For a
       # field of a struct type, `Name.field(p)` returns its address.
+      #: (Prism::CallNode node, Layout layout, Array[Prism::node] args, String? want) -> [untyped, String]
       def field(node, layout, args, want)
         name = node.name.to_s
         return literal(node, layout.size, want) if name == "size" && args.empty?
@@ -275,6 +316,7 @@ module Zr
       # slot of this frame (`stack_images`). A cell image there, such as
       # the Proc that a define_method call builds, has FL_STACK, so it is
       # never old and the write barrier would do nothing.
+      #: (Prism::node? node) -> bool
       def stack_image?(node)
         node.is_a?(Prism::LocalVariableReadNode) && stack_images(@d).include?(node.name)
       end
@@ -282,6 +324,7 @@ module Zr
       # The locals of `d` whose every assignment is `Machine.slot(n)`, or
       # `Machine.value(x)` or `Machine.ptr(x)` of another such local. A
       # parameter, or a local with any other kind of write, is not one.
+      #: (Def d) -> Set[Symbol]
       def stack_images(d)
         (@stack_images ||= {}.compare_by_identity)[d] ||= begin
           writes = Hash.new { |h, k| h[k] = [] }
@@ -305,6 +348,7 @@ module Zr
         end
       end
 
+      #: (Prism::node node, Set[Symbol] names) -> bool
       def slot_address?(node, names)
         return false unless node.is_a?(Prism::CallNode) && node.receiver.is_a?(Prism::ConstantReadNode) && node.receiver.name == :Machine
         return true if node.name == :slot
@@ -318,6 +362,7 @@ module Zr
       # Only a cell starts with an RBasic header, so the type of the
       # first field tells. RBasic is the header itself, and a write to its
       # `klass` is a write to the cell that contains it.
+      #: (Layout layout) -> bool
       def cell?(layout)
         layout.name == "RBasic" || layout.fields.first&.last&.last == "RBasic"
       end
@@ -329,6 +374,7 @@ module Zr
       # store, so it also emits the barrier. `zr_write_barrier` is
       # `Machine.inline`, so the barrier is the four instructions of its
       # fast path and not a call.
+      #: (String owner, String value) -> void
       def barrier(owner, value)
         callee = @unit.def_for("zr_write_barrier") or return
         return if @inlining.include?(callee.name) || immediate?(value)
@@ -339,6 +385,7 @@ module Zr
       # Whether the compiler knows that `value` is an immediate, so the
       # test in the barrier fails. The kernel stores QNIL into a Value
       # field more frequently than any other value.
+      #: (String value) -> bool
       def immediate?(value)
         word = @f.iconst_of(value)
         !word.nil? && @unit.immediate?(word)
@@ -354,6 +401,7 @@ module Zr
       # and the collector calls it for each reference. As a diamond of
       # blocks, each test cost a compare, two sets, three widenings and
       # a branch.
+      #: (Prism::AndNode | Prism::OrNode node, :and | :or op) -> [String, String]
       def logical(node, op)
         bit = truth(*condition_value(node.left))
         if plain?(node.right)
@@ -375,14 +423,15 @@ module Zr
 
       # `value` as a Bool. A Bool is already 0 or 1. Any other integer is
       # true when it is not zero.
+      #: (String value, String type) -> String
       def truth(value, type)
         type == "Bool" ? value : @f.icmp("ne", value, @f.iconst(ir_type(type), 0))
       end
 
       # Operators that lower to one instruction with no effect, and that
       # cannot fault for any operands. Division is not in this list.
-      PLAIN_OPERATORS = %i[+ - * & | ^ << >> < <= > >= == != !].freeze
-      PLAIN_CASTS = %i[i32 i8 word sword ptr value u8 u32].freeze
+      PLAIN_OPERATORS = %i[+ - * & | ^ << >> < <= > >= == != !].freeze #: Array[Symbol]
+      PLAIN_CASTS = %i[i32 i8 word sword ptr value u8 u32].freeze #: Array[Symbol]
 
       # The operators whose result wraps at the width of the type, by
       # name. A plain `+ - * <<` must not overflow, so that it means the
@@ -391,22 +440,23 @@ module Zr
       # `add_wrap` wraps a Word into its signed range, `uadd_wrap` a Ptr
       # into [0, 2**64).
       WRAPS = { add_wrap: :+, sub_wrap: :-, mul_wrap: :*, shl_wrap: :<<,
-                uadd_wrap: :+, usub_wrap: :-, umul_wrap: :*, ushl_wrap: :<< }.freeze
+                uadd_wrap: :+, usub_wrap: :-, umul_wrap: :*, ushl_wrap: :<< }.freeze #: Hash[Symbol, Symbol]
 
       # The instruction name of a `/`, `%` and `>>`, the width in bits of an
       # integer IR type, the IR width and the Machine type that each load
       # and store gives or takes, and the Machine type of each conversion.
-      DIVISION_MNEMONICS = { :/ => "div", :% => "rem", :>> => "shr" }.freeze
-      IR_BITS = { "i8" => 8, "i32" => 32, "i64" => 64 }.freeze
-      LOAD_WIDTHS = { load64: "i64", load32: "i32", load8: "i8" }.freeze
-      LOAD_TYPES = { load64: "Word", load32: "I32", load8: "I8" }.freeze
-      STORE_TYPES = { store64: "Word", store32: "I32", store8: "I8" }.freeze
-      CONVERT_TARGETS = { i32: "I32", i8: "I8", word: "Word", sword: "Word", ptr: "Ptr", value: "Value" }.freeze
+      DIVISION_MNEMONICS = { :/ => "div", :% => "rem", :>> => "shr" }.freeze #: Hash[Symbol, String]
+      IR_BITS = { "i8" => 8, "i32" => 32, "i64" => 64 }.freeze #: Hash[String, Integer]
+      LOAD_WIDTHS = { load64: "i64", load32: "i32", load8: "i8" }.freeze #: Hash[Symbol, String]
+      LOAD_TYPES = { load64: "Word", load32: "I32", load8: "I8" }.freeze #: Hash[Symbol, String]
+      STORE_TYPES = { store64: "Word", store32: "I32", store8: "I8" }.freeze #: Hash[Symbol, String]
+      CONVERT_TARGETS = { i32: "I32", i8: "I8", word: "Word", sword: "Word", ptr: "Ptr", value: "Value" }.freeze #: Hash[Symbol, String]
 
       # Whether `node` reads only literals, constants and locals, through
       # plain operators and casts. Such an expression makes only its value.
       # A local is in the frame, so a read of it is safe on any path. A
       # load through a pointer is not safe.
+      #: (Prism::node? node) -> bool
       def plain?(node)
         # A checked operator branches to its check, so it is not plain.
         return false if @unit.checked?
@@ -433,7 +483,7 @@ module Zr
         :+ => "iadd", :- => "isub", :* => "imul", :& => "band", :| => "bor", :^ => "bxor", :<< => "ishl",
         :< => "lt", :<= => "le", :> => "gt", :>= => "ge", :== => "eq", :!= => "ne",
         :/ => nil, :% => nil, :>> => nil
-      }.freeze
+      }.freeze #: Hash[Symbol, String?]
 
       # Word and Ptr can mix: a Ptr plus or minus a Word is a Ptr, a Ptr
       # minus a Ptr is a Word, and a comparison with a Ptr on one side is
@@ -442,6 +492,7 @@ module Zr
       # `named` is true for `Machine.add_wrap`, `Machine.sdiv` and the
       # others, which the checked build does not check for a wrap or a
       # negative operand.
+      #: (Prism::node node, Symbol op, String lhs, String lt, String rhs, String rt, ?named: bool) -> [String, String]
       def binary(node, op, lhs, lt, rhs, rt, named: false)
         refuse(node, "#{op} on #{lt} and #{rt}") unless ir_type(lt) && (lt == rt || (PLAIN.include?(lt) && PLAIN.include?(rt)))
         return float_binary(node, op, lhs, rhs) if lt == "F64"
@@ -483,8 +534,9 @@ module Zr
       # must shift by less than the width. A failed check prints the
       # kernel file and line and aborts (`zr_bug`). A Ptr is unsigned, so
       # only a shift of one is checked.
-      CHECKED = %w[Word I32 I8 Value].freeze
+      CHECKED = %w[Word I32 I8 Value].freeze #: Array[String]
 
+      #: (Prism::node node, Symbol op, String lhs, String rhs, String value, String type) -> void
       def check_wrap(node, op, lhs, rhs, value, type)
         return unless CHECKED.include?(type)
 
@@ -519,6 +571,7 @@ module Zr
       # A Ptr is in [0, 2**64) (A6). A sum, a difference, a product or a
       # shift whose result is a Ptr must stay in that range. A Word added
       # to a Ptr is signed, so its sign says which way the Ptr may move.
+      #: (Prism::node node, Symbol op, String lhs, String lt, String rhs, String rt, String value) -> void
       def check_unsigned(node, op, lhs, lt, rhs, rt, value)
         zero = @f.iconst("i64", 0)
         case op
@@ -551,6 +604,7 @@ module Zr
         end
       end
 
+      #: (Prism::node node, Symbol op, String lhs, String rhs, String type, bool ptr, bool named) -> void
       def check_operands(node, op, lhs, rhs, type, ptr, named)
         w = ir_type(type)
         zero = @f.iconst(w, 0)
@@ -564,10 +618,12 @@ module Zr
         trap_if(node, bad, "#{op} of a negative number or by zero")
       end
 
+      #: (String w) -> Integer
       def bits(w) = IR_BITS.fetch(w)
 
       # Calls `zr_bug` with "file:line: what" when `bad` is true. A unit
       # without zr_bug (a test of the lowering) gets no check.
+      #: (Prism::node node, String bad, String what) -> void
       def trap_if(node, bad, what)
         bug = @unit.def_for("zr_bug") or return
         fail = @f.label
@@ -581,11 +637,12 @@ module Zr
         @f.switch(ok)
       end
 
-      FLOAT_OPS = { :+ => :fadd, :- => :fsub, :* => :fmul, :/ => :fdiv }.freeze
-      FLOAT_CONDS = { :== => "eq", :!= => "ne", :< => "lt", :<= => "le", :> => "gt", :>= => "ge" }.freeze
+      FLOAT_OPS = { :+ => :fadd, :- => :fsub, :* => :fmul, :/ => :fdiv }.freeze #: Hash[Symbol, Symbol]
+      FLOAT_CONDS = { :== => "eq", :!= => "ne", :< => "lt", :<= => "le", :> => "gt", :>= => "ge" }.freeze #: Hash[Symbol, String]
 
       # F64 arithmetic and comparison. A comparison with NaN on one side
       # is false, except `!=`.
+      #: (Prism::node node, Symbol op, String lhs, String rhs) -> [String, String]
       def float_binary(node, op, lhs, rhs)
         return [@f.fbinop(FLOAT_OPS[op], lhs, rhs), "F64"] if FLOAT_OPS.key?(op)
         return [@f.fcmp(FLOAT_CONDS[op], lhs, rhs), "Bool"] if FLOAT_CONDS.key?(op)
@@ -593,14 +650,16 @@ module Zr
         refuse(node, "#{op} on an F64")
       end
 
-      PLAIN = %w[Word Ptr].freeze
+      PLAIN = %w[Word Ptr].freeze #: Array[String]
 
+      #: (String want, String got) -> bool
       def fits?(want, got)
         want == got || (PLAIN.include?(want) && PLAIN.include?(got))
       end
 
       # A call to an import (`Libc.name`) or to a def of this unit. A bare
       # call goes only to a def or a raw function.
+      #: (Prism::CallNode node, String name, Array[Prism::node] args, ?imports: bool) -> [untyped, String]
       def target(node, name, args, imports: true)
         callee = @unit.def_for(name) || @unit.import_for(name)
         callee = nil if !imports && callee.is_a?(Import)
@@ -608,6 +667,7 @@ module Zr
         refuse(node, "#{name} takes #{callee.params.size} arguments, not #{args.size}") if args.size != callee.params.size
         types = callee.is_a?(Def) ? callee.params.map(&:last) : callee.params
         values = args.zip(types).map do |arg, type|
+          # @type var type: String
           value, got = expr(arg, type)
           refuse(arg, "#{name} wants a #{type} here, not a #{got}") unless fits?(type, got)
           rooted(arg, value, got)
@@ -636,8 +696,10 @@ module Zr
       # a small def) jumps with its value to a block after the body. The
       # last value of the body also jumps there. The parameter of that
       # block is the result of the call.
+      #: (Def d, Array[untyped] values) -> [untyped, String]
       def inline(d, values)
-        outer = [@locals, @d, @roots, @exit]
+        # @type ivar @exit: Exit
+        outer = [@locals, @d, @roots, @exit] #: [Hash[String, { type: String, addr: String }], Def, Roots?, Exit]
         @locals = {}
         @d = d
         @roots = nil
@@ -655,7 +717,7 @@ module Zr
           @f.switch(@exit.block, open: true)
           value = @exit.value
         end
-        d.ret == "Void" ? [nil, "Void"] : [value, d.ret]
+        d.ret == "Void" ? [nil, "Void"] : [value, d.ret] #: [untyped, String]
       ensure
         @inlining.pop
         @locals, @d, @roots, @exit = outer
@@ -665,13 +727,17 @@ module Zr
       # in the same argument list, so it gets a root slot of its own. A
       # struct field read or a `Machine.value` is also a call here: Ruby
       # code in a later argument can free the object it refers to.
+      #: (Prism::node? node, untyped value, String type) -> untyped
       def rooted(node, value, type)
+        # @type ivar @roots: Roots
         return value unless @roots && type == "Value" && node.is_a?(Prism::CallNode)
 
         @f.store(value, @roots.addr, root_slot)
         value
       end
 
+      # Each arm checks the class of the arguments that it reads.
+      #: (Prism::CallNode node, Array[untyped] args, String? want) -> [untyped, String]
       def intrinsic(node, args, want)
         case node.name
         when :id
@@ -759,7 +825,7 @@ module Zr
           binary(node, node.name == :sdiv ? :/ : :%, lhs, lt, rhs, rt, named: true)
         when :f64, :bits, :to_f64, :to_int
           value, type = expr(args.first)
-          float_convert(node, node.name, value, type)
+          float_convert(node, node.name, value, type) #: [String, String]
         when :ctz, :clz, :popcnt, :bswap
           value, type = expr(args.first)
           refuse(node, "Machine.#{node.name} of a #{type}") unless %w[i32 i64].include?(ir_type(type)) && args.one?
@@ -781,11 +847,17 @@ module Zr
 
       # A call through the pointer `at` with the signature `s`:
       # `Name.call(at, ...)`.
+      # `s` is not nil: `call` tests `sig_read?` first. `rest` is nil only
+      # when `at` is, and then the first line refuses.
+      #: (Prism::CallNode node, Signature? s, Prism::node? at, Array[Prism::node]? rest) -> [untyped, String]
       def indirect(node, s, at, rest)
+        # @type var s: Signature
+        # @type var rest: Array[Prism::node]
         ptr, pt = expr(at || refuse(node, "#{s.name}.call takes a pointer first"), "Ptr")
         refuse(at, "#{s.name}.call through a #{pt}") unless fits?("Ptr", pt)
         refuse(node, "#{s.name} takes #{s.params.size} arguments, not #{rest.size}") if rest.size != s.params.size
         values = rest.zip(s.params).map do |arg, type|
+          # @type var type: String
           value, got = expr(arg, type)
           refuse(arg, "#{s.name} wants a #{type} here, not a #{got}") unless fits?(type, got)
           rooted(arg, value, got)
@@ -801,6 +873,7 @@ module Zr
       # the register. `Machine.gates_enter` is first in a def that foreign
       # code calls; it loads the register from the static, and the def
       # restores the register before it returns.
+      #: (Prism::node node) -> String
       def gates_addr(node)
         @f.symbol_value(@f.symbol(@unit.static(node, "gates", 8)))
       end
@@ -808,6 +881,7 @@ module Zr
       # A change of width or of type: `Machine.i32(x)` narrows, `u8` and
       # `u32` zero-extend, `sword` sign-extends. `ptr`, `value` and `word`
       # between 64-bit types change only the type, not the bits.
+      #: (Prism::node node, Symbol to, String value, String type) -> [String, String]
       def convert(node, to, value, type)
         target = CONVERT_TARGETS[to]
         from, into = ir_type(type), ir_type(target)
@@ -821,6 +895,7 @@ module Zr
       # `Machine.f64(word)` and `Machine.bits(f)` read the same 64 bits
       # as the other type. `to_f64` and `to_int` convert the value;
       # `to_int` saturates.
+      #: (Prism::node node, Symbol to, String value, String type) -> [String, String]?
       def float_convert(node, to, value, type)
         case to
         when :f64
@@ -844,6 +919,7 @@ module Zr
       # A `!` swaps the targets. Other nodes are tested as values. Thus a
       # test makes no bit to test (no set, no widening, no join of a byte),
       # and each compare feeds its branch directly.
+      #: (Prism::node? node, String yes, String no) -> void
       def jump_if(node, yes, no)
         case node
         when Prism::AndNode, Prism::OrNode
@@ -866,6 +942,7 @@ module Zr
       end
 
       # `[value, type]` of an expression that a branch can test: any integer.
+      #: (Prism::node? node) -> [untyped, String]
       def condition_value(node)
         value, type = expr(node)
         refuse(node, "a condition that is a #{type}") unless %w[Bool I8 I32 Word Ptr Value].include?(type)
@@ -876,6 +953,7 @@ module Zr
       # arms lower before the shape of the merge block is known, so their
       # jumps are written last. `then_stmts` is the then arm. `else_part`
       # is the statements of the else arm, an elsif, or nil.
+      #: (Prism::IfNode | Prism::UnlessNode node, String? want, Prism::StatementsNode? then_stmts, Prism::node? else_part) -> [untyped, String]
       def branch(node, want, then_stmts, else_part)
         then_b = @f.label
         else_b = @f.label
@@ -892,13 +970,14 @@ module Zr
 
         joined = then_open && else_open && tt == et && tt != "Void" ? tt : "Void"
         merge, params = joined == "Void" ? @f.block : @f.block([ir_type(joined)])
-        carry = joined == "Void" ? [] : nil
+        carry = joined == "Void" ? [] : nil #: Array[String]?
         @f.finish(then_end, IR::Inst.new(:jump, targets: [[merge, carry || [tv]]])) if then_open
         @f.finish(else_end, IR::Inst.new(:jump, targets: [[merge, carry || [ev]]])) if else_open
         @f.switch(merge, open: true)
         [joined == "Void" ? nil : params.first, joined]
       end
 
+      #: (Prism::WhileNode node) -> [nil, String]
       def loop_while(node)
         head = @f.label
         body = @f.label

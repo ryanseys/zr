@@ -24,10 +24,13 @@ module Zr
     # before `IR::Passes`. `IR::Passes::Blocks` removes a split edge that
     # passes no values.
     class Mem2Reg < Promotion
+      # @rbs @slot_of: Hash[String, Integer]
+
       private
 
       # `address value => load type` of each slot that qualifies. A slot that
       # no load reads has type nil: its stores are dead.
+      #: () -> Hash[String, String?]
       def candidates
         @slot_of = {}
         @f.blocks.each do |b|
@@ -40,8 +43,10 @@ module Zr
         end
         return {} if @slot_of.empty?
 
-        type = @slot_of.transform_values { nil }
-        refused = Set.new
+        type = @slot_of.transform_values { nil } #: Hash[String, String?]
+        # Untyped: `type.except(*refused)` splats a Set, and Steep types a
+        # splat only of an Array.
+        refused = Set.new #: untyped
         @f.blocks.each do |b|
           b.insts.each do |i|
             case i.op
@@ -65,12 +70,14 @@ module Zr
       end
 
       # If the address of a slot is in `args`, the slot does not qualify.
+      #: (Array[untyped] args, Hash[String, String?] type, Set[String] refused) -> void
       def escapes(args, type, refused)
         args.each { |a| refused << a if type.key?(a) }
       end
 
       # A store is a write. A load gets the value of the last store in the
       # block, or the value at block entry.
+      #: (Block b, Hash[String, String?] slots, Hash[String, String] last, Array[[String, Block, String]] reads) -> void
       def walk(b, slots, last, reads)
         b.insts.each do |i|
           if i.op == :store && slots.key?(i.args[1])
@@ -86,8 +93,12 @@ module Zr
         end
       end
 
+      # A read of a slot that no load reads cannot happen, so `type` is a
+      # String here.
+      #: (String _addr, String type) -> String
       def initial(_addr, type) = @f.iconst(type, 0)
 
+      #: (Hash[String, String?] slots) -> void
       def rewrite(slots)
         @f.blocks.each do |b|
           b.insts.reject! do |i|

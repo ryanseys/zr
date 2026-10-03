@@ -11,9 +11,10 @@ module Zr
           attr_accessor filesize: Integer
           attr_accessor prot: Integer
           attr_accessor flags: Integer
-          attr_accessor sections: untyped
-          attr_accessor pieces: untyped
-          attr_accessor starts: untyped
+          attr_accessor sections: Array[Section]
+          # `[bytes, stored page hashes or nil, dirty pages]`
+          attr_accessor pieces: Array[[String, String?, Array[Integer]]]
+          attr_accessor starts: Array[Integer]?
 
           def self.new: (**untyped) -> instance
         end

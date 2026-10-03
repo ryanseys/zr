@@ -19,29 +19,39 @@ module Zr
       # a call to an import both assemble to the same `bl`. Thus each
       # relocation is written after its instruction.
       class Listing
-        Assembler = Aarch64::Assembler
-        Register = Aarch64::Registers::Register
+        # @rbs @asm: Aarch64::Assembler
+        # @rbs @lines: Array[[Integer?, String]]
+        # @rbs @at: Integer
+
+        Assembler = Aarch64::Assembler #: singleton(Aarch64::Assembler)
+        Register = Aarch64::Registers::Register #: singleton(Aarch64::Registers::Register)
 
         # A number this size or larger is a bit pattern, so it is written
         # in hex. A smaller number is a count or an offset.
         HEX = 256
 
         # The listing of `function`, as `Codegen` compiles it.
+        #: (IR::Function function, ?defined: Array[String] | Set[String]) -> String
         def self.of(function, defined: [])
           compiler = Codegen.new(function, defined: defined, assembler: self)
           compiler.asm.text(compiler.compile.relocs)
         end
 
+        #: () -> void
         def initialize
           @asm = Assembler.new
           @lines = []
           @at = 0
         end
 
+        #: (String name) -> Aarch64::Assembler::Label
         def make_label(name) = @asm.make_label(name)
+        #: [T] () { (Integer) -> T } -> T
         def patch_location(&) = @asm.patch_location(&)
+        #: () -> String
         def to_binary = @asm.to_binary
 
+        #: (Aarch64::Assembler::Label label) -> self
         def put_label(label)
           @lines << [nil, "#{label.name}:"]
           @asm.put_label(label)
@@ -52,11 +62,12 @@ module Zr
         # mnemonic is defined below. They are defined, not caught by
         # `method_missing`, because no class here can override it. Also, a
         # defined method makes `respond_to?` return true with no more code.
-        OWN = %i[make_label put_label patch_location to_binary b].freeze
+        OWN = %i[make_label put_label patch_location to_binary b].freeze #: Array[Symbol]
 
         # `b` alone, or `b.cond` when a condition is given. The generated
         # form reads the condition as a shift amount, and a Symbol has
         # no `to_i`.
+        #: (Aarch64::Assembler::target label, ?cond: Symbol?) -> self
         def b(label, cond: nil)
           record("  #{cond ? "b.#{cond}" : "b"} #{operands([label]).first}")
           @asm.b(label, cond: cond)
@@ -74,6 +85,7 @@ module Zr
 
         # The listing, one instruction to a line, labels in the first
         # column, and each relocation beside the instruction it patches.
+        #: (?Array[Obj::Reloc] relocs) -> String
         def text(relocs = [])
           at = relocs.group_by { |r| r.offset / 4 }
           @lines.map do |index, line|
@@ -86,6 +98,7 @@ module Zr
 
         # Every mnemonic that the backend calls assembles to one word. Thus
         # the index in a relocation is also the index of a recorded line.
+        #: (String line) -> void
         def record(line)
           @lines << [@at, line]
           @at += 1
@@ -94,9 +107,10 @@ module Zr
         # The operands in arm64 syntax: a register by name, an address in
         # brackets with its index form, an immediate with a `#`. A memory
         # operand that uses the operands after it takes them from `rest`.
+        #: (Array[untyped] args) -> Array[String]
         def operands(args)
           rest = args.dup
-          out = []
+          out = [] #: Array[String]
           until rest.empty?
             a = rest.shift
             out << case a
@@ -110,6 +124,7 @@ module Zr
           out
         end
 
+        #: (Aarch64::Assembler::address address, Array[untyped] rest) -> String
         def memory(address, rest)
           base, off = address
           at = base.name.downcase
@@ -122,6 +137,7 @@ module Zr
 
         # `lsl: 12` is a shifted immediate; `shift:`/`amount:` is a shifted
         # register operand. A shift of nothing is not written.
+        #: (Hash[Symbol, untyped] options) -> Array[String]
         def modifier(options)
           return [] if options.empty?
 
@@ -131,6 +147,7 @@ module Zr
           ["#{options.fetch(:shift, options.keys.first)} #{immediate(amount)}"]
         end
 
+        #: (untyped value) -> String
         def immediate(value)
           n = Integer(value)
           return "##{n}" if n.abs < HEX

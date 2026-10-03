@@ -18,6 +18,7 @@ module Zr
 
         private
 
+        #: (Hir::MultiAssign node) -> String
         def multi_assign(node)
           return spread_assign(node) if spread_assign?(node)
 
@@ -31,11 +32,13 @@ module Zr
           value
         end
 
+        #: (Hir::MultiAssign node) -> bool
         def spread_assign?(node)
           value = node.value
           !node.taken && value.is_a?(Hir::ArrayLit) && value.elements.none?(Hir::Splat) && node.target.rights.empty?
         end
 
+        #: (Hir::MultiAssign node) -> String
         def spread_assign(node)
           base = @sp
           target = node.target
@@ -57,6 +60,7 @@ module Zr
 
         # Stages the send targets' receivers and arguments into slots. Each
         # send gets a receiver slot, its argument slots, and a value slot.
+        #: (Hir::MultiTarget target, ?Hash[untyped, Integer] prepared) -> Hash[untyped, Integer]
         def prepare(target, prepared = {})
           (target.lefts + [target.rest] + target.rights).each do |t|
             case t
@@ -86,6 +90,7 @@ module Zr
           prepared
         end
 
+        #: (Hir::MultiTarget target, String value, Hash[untyped, Integer] prepared) -> void
         def destructure(target, value, prepared)
           at = value_offset(reserve(1))
           @f.store(checked(kernel("zr_masgn_ary", value)), @rec, at)
@@ -100,6 +105,7 @@ module Zr
 
         # `recv[args] op= value`: the receiver and arguments are evaluated
         # once into slots, then `[]`, the operation, and `[]=` are sent.
+        #: (Hir::IndexOpAssign node) -> String
         def index_op_assign(node)
           base = @sp
           slots = reserve(1 + node.args.size)
@@ -124,6 +130,7 @@ module Zr
         end
 
         # `recv.name op= value` likewise.
+        #: (Hir::AttrOpAssign node) -> String
         def attr_op_assign(node)
           base = @sp
           slot = reserve(1)
@@ -143,10 +150,11 @@ module Zr
         end
 
         # The block's value, or nil without running it when `v` is nil.
+        #: (String v) { () -> String } -> String
         def unless_nil(v)
           run = @f.label
           skip = @f.label
-          merge, (result,) = @f.block(["i64"])
+          merge, (result,) = @f.block(["i64"]) #: [String, [String]]
           @f.brif(@f.icmp("eq", v, @qnil), skip, run)
           switch(skip)
           @f.jump(merge, [@qnil])
@@ -160,6 +168,7 @@ module Zr
         # The current value read, the operation (`||=` and `&&=` short
         # circuit), and the write the block builds around the new value,
         # itself kept in a slot.
+        #: (Hir::IndexOpAssign | Hir::AttrOpAssign node, Hir::Send read) { (Hir::Slot) -> Hir::Send } -> String
         def op_assign(node, read)
           slot = reserve(1)
           current_at = value_offset(slot)
@@ -169,7 +178,7 @@ module Zr
           when :or, :and
             keep = @f.label
             write = @f.label
-            merge, (result,) = @f.block(["i64"])
+            merge, (result,) = @f.block(["i64"]) #: [String, [String]]
             cond = truthy(@f.fetch("i64", @rec, current_at))
             node.op == :or ? @f.brif(cond, keep, write) : @f.brif(cond, write, keep)
             switch(keep)
@@ -190,6 +199,7 @@ module Zr
         # `@name = v`: an inline store into the guessed ivar entry, else
         # the kernel's write, which raises for a frozen receiver at this
         # line.
+        #: (Hir::IvarWrite node, String v) -> String
         def ivar_write(node, v)
           at_node(node)
           ivar = ivar_name(node.name)
@@ -212,6 +222,7 @@ module Zr
 
         # Appends an entry for `ivar` with `v` after the last entry of table
         # `t` (length `len`), and sets the name's bit in the table's names.
+        #: (String t, String len, Symbol ivar, String v) -> void
         def append_ivar_row(t, len, ivar, v)
           table = @l.layout("IvTab")
           entry = @l.layout("IvEntry")
@@ -223,6 +234,7 @@ module Zr
           @f.store(@f.bor(@f.fetch("i64", t, off(table, "names")), sym_bit(ivar)), t, off(table, "names"), region: :malloc)
         end
 
+        #: (untyped target, String v, Hash[untyped, Integer] prepared) -> void
         def assign_target(target, v, prepared)
           case target
           when Hir::Assign then write_local(slot_at(target), target.depth, v, target.name)
@@ -247,6 +259,7 @@ module Zr
         end
 
         # The write a send target makes: its staged arguments, then `v`.
+        #: (Hir::Send target, Integer slot, String recv, String v) -> String
         def send_target(target, slot, recv, v)
           if target.args.any?(Hir::Splat)
             ary = @f.fetch("i64", @rec, value_offset(slot + 1))

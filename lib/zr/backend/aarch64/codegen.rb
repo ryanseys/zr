@@ -35,53 +35,94 @@ module Zr
       # relocation at the instruction's offset. `codegen/layout.rb` plans
       # the layout, and `codegen/moves.rb` makes the parallel moves.
       class Codegen
+        # @rbs @f: IR::Function
+        # @rbs @defined: Set[String] | Spelled
+        # @rbs @far: bool
+        # @rbs @allocate: bool
+        # @rbs @asm: Assembler
+        # @rbs @relocs: Array[Obj::Reloc]
+        # @rbs @reg: Hash[String, Registers::Register]
+        # @rbs @home: Hash[String, Integer]
+        # @rbs @labels: Hash[String, Assembler::Label]
+        # @rbs @epilogue: Assembler::Label?
+        # @rbs @returns: Integer
+        # @rbs @next: String?
+        # @rbs @types: IR::Types
+        # @rbs @uses: Hash[String, Integer]
+        # @rbs @def_of: Hash[String, IR::Inst]
+        # @rbs @enters: bool
+        # @rbs @pinned: Set[String]
+        # @rbs @slot_at: Array[Integer]
+        # @rbs @slots_end: Integer
+        # @rbs @stack: Hash[String, Integer]
+        # @rbs @const: Hash[String, Integer]
+        # @rbs @symbol: Hash[String, [String, bool]]
+        # @rbs @remade: Set[String]
+        # @rbs @derived: Hash[String, [String, Integer]]
+        # @rbs @via: Hash[String, String]
+        # @rbs @silent: Set[String]
+        # @rbs @from_sp: Hash[String, Integer]
+        # @rbs @clean: Set[String]
+        # A compare maps to its reader, and the reader to its condition.
+        # The key's role tells the two apart.
+        # @rbs @fused: Hash[IR::Inst, untyped]
+        # @rbs @bit_tests: Hash[IR::Inst, [String, Integer, Symbol]]
+        # @rbs @mask_tests: Hash[IR::Inst, [String, Integer | String]]
+        # @rbs @pairs: Hash[IR::Inst, IR::Inst]
+        # @rbs @paired: Set[IR::Inst]
+        # @rbs @saved_at: Hash[Registers::Register, Integer]
+        # @rbs @frame: Integer
+        # @rbs @doubles: Hash[String, Registers::Register]
+        # @rbs @double_turn: Integer
+        # @rbs @pending_double: [String, Registers::Register]?
+
         # @rbs skip -- in sig/zr/backend/aarch64/registers.rbs
         include Registers
 
         # The two registers that `parallel_copy` moves values through. An
         # instruction that needs more uses x11 and x12. x13 to x15 belong to
         # the allocator, in `Regalloc::CALLER`.
-        SCRATCH = [X9, X10].freeze
+        SCRATCH = [X9, X10].freeze #: [Registers::Register, Registers::Register]
         # Maps IR condition codes to arm64 condition codes.
         CONDS = {
           "eq" => :eq, "ne" => :ne, "slt" => :lt, "sle" => :le, "sgt" => :gt, "sge" => :ge,
           "ult" => :lo, "ule" => :ls, "ugt" => :hi, "uge" => :hs
-        }.freeze
+        }.freeze #: Hash[String, Symbol]
         # Float comparisons after fcmp: NaN on either side sets C and V and
         # clears N and Z. Every condition except `ne` then reads as false.
-        FCONDS = { "eq" => :eq, "ne" => :ne, "lt" => :mi, "le" => :ls, "gt" => :gt, "ge" => :ge }.freeze
+        FCONDS = { "eq" => :eq, "ne" => :ne, "lt" => :mi, "le" => :ls, "gt" => :gt, "ge" => :ge }.freeze #: Hash[String, Symbol]
         # The condition that is true for `b op a` when the IR gives `a op b`.
         SWAPPED = {
           "eq" => "eq", "ne" => "ne", "slt" => "sgt", "sle" => "sge", "sgt" => "slt", "sge" => "sle",
           "ult" => "ugt", "ule" => "uge", "ugt" => "ult", "uge" => "ule"
-        }.freeze
+        }.freeze #: Hash[String, String]
         # The bits that an operand of each type gives to an instruction:
         # the width that its load gives it.
-        WIDTH_MASK = { "i8" => 0xFF, "i32" => 0xFFFF_FFFF, "i64" => 0xFFFF_FFFF_FFFF_FFFF }.freeze
+        WIDTH_MASK = { "i8" => 0xFF, "i32" => 0xFFFF_FFFF, "i64" => 0xFFFF_FFFF_FFFF_FFFF }.freeze #: Hash[String, Integer]
         # The condition that is true only when the other is false. arm64
         # numbers them in pairs, so this is the code with its low bit
         # inverted, written out so that it is easy to read.
         INVERSE = {
           eq: :ne, ne: :eq, lt: :ge, ge: :lt, le: :gt, gt: :le,
           lo: :hs, hs: :lo, ls: :hi, hi: :ls, mi: :pl, pl: :mi, vs: :vc, vc: :vs
-        }.freeze
+        }.freeze #: Hash[Symbol, Symbol]
         # The branch that is taken when the other is not taken.
-        OPPOSITE = { cbz: :cbnz, cbnz: :cbz, tbz: :tbnz, tbnz: :tbz }.freeze
+        OPPOSITE = { cbz: :cbnz, cbnz: :cbz, tbz: :tbnz, tbnz: :tbz }.freeze #: Hash[Symbol, Symbol]
         # The opcodes whose lowering does not change NZCV. A compare's flags
         # stay valid across them until the branch or select that reads the
         # flags. A compare, a select with its own `cmp`, an overflow check and
         # a call all write the flags. A terminator ends the block.
         FLAG_NEUTRAL = (%i[iconst load store stack_addr symbol_value func_addr ireduce uextend sextend bitcast
                            fcvt_from_sint fcvt_to_sint_sat gates] +
-                        IR::Inst::BINOPS + IR::Inst::BITOPS + IR::Inst::FBINOPS + IR::Inst::FUNOPS).to_set.freeze
+                        IR::Inst::BINOPS + IR::Inst::BITOPS + IR::Inst::FBINOPS + IR::Inst::FUNOPS).to_set.freeze #: Set[Symbol]
 
         # The mnemonics of the one-operand float instructions.
         FUNOPS = { fneg: :fneg, fabs: :fabs, sqrt: :fsqrt, floor: :frintm,
-                   ceil: :frintp, trunc: :frintz, nearest: :frintn }.freeze
+                   ceil: :frintp, trunc: :frintz, nearest: :frintn }.freeze #: Hash[Symbol, Symbol]
         # The d registers that keep an f64 value from the instruction that
         # makes or loads it to its reads in the same block. They are
         # caller-saved, so a call clears them, and they are never saved.
-        DOUBLES = [D16, D17, D18, D19, D20, D21, D22, D23].freeze
+        DOUBLES = [D16, D17, D18, D19, D20, D21, D22, D23].freeze #: Array[Registers::Register]
         # The register that `popcnt` counts in. It is not in `DOUBLES`, so
         # it does not replace a value there.
         COUNTER = D24
@@ -90,7 +131,7 @@ module Zr
 
         # The assembler that the compile used. A caller that gave its own
         # assembler reads the listing from it.
-        attr_reader :asm
+        attr_reader :asm #: Assembler
 
         # `defined`: every symbol that this unit defines. It sets whether a
         # symbol is reached directly or through the GOT. It is a Set, because
@@ -101,6 +142,12 @@ module Zr
         # `allocate: false` keeps every value in its frame home. This is the
         # reference for the allocator: both modes must give the same result,
         # and the tests check it.
+        # @rbs function: IR::Function
+        # @rbs defined: Array[String] | Set[String] | Spelled
+        # @rbs assembler: singleton(Assembler)
+        # @rbs far: bool
+        # @rbs allocate: bool
+        # @rbs return: void
         def initialize(function, defined: [], assembler: Assembler, far: false, allocate: true)
           @f = function
           @defined = defined.to_set
@@ -113,6 +160,7 @@ module Zr
           @labels = {}
         end
 
+        #: () -> Obj::Code
         def compile
           assign_types
           count_uses
@@ -169,6 +217,7 @@ module Zr
         # a scratch register would overwrite the value to store. x16 and x17
         # are the linker's veneer registers. They are dead across every call
         # and the backend uses them nowhere else.
+        #: (Integer off, Integer width) -> [Registers::Register, Integer]
         def address(off, width)
           return [SP, off] if off % width == 0 && off / width <= 4095
 
@@ -178,6 +227,7 @@ module Zr
         end
 
         # `reg = sp + off`: one `add` for an offset of 12 bits, two for a larger one.
+        #: (Registers::Register reg, Integer off) -> void
         def frame_address(reg, off)
           return @asm.add(reg, SP, off) if off <= 4095
 
@@ -187,6 +237,7 @@ module Zr
 
         # An f64 value is in its slot as bits and moves through the
         # integer registers.
+        #: (String v, Registers::Register reg) -> void
         def load_value(v, reg)
           return @asm.mov(reg, Regalloc::GATES) if @pinned.include?(v)
 
@@ -216,6 +267,7 @@ module Zr
         # An `i8` is read directly only when it is `@clean`. Its home contains
         # the whole word, and a w-register read gives the bits above the
         # byte to a 32-bit operation.
+        #: (String v, Registers::Register scratch) -> Registers::Register
         def value_in(v, scratch)
           return Regalloc::GATES if @pinned.include?(v)
 
@@ -232,10 +284,12 @@ module Zr
         # Use this only in an instruction that reads every operand before it
         # writes its destination. An instruction that reads an operand after
         # that (`emit_rem`, `emit_mul_overflow`) finds the operand overwritten.
+        #: (String v, Registers::Register scratch) -> Registers::Register
         def result_in(v, scratch) = @reg[v] || scratch
 
         # A register home contains the whole word, so a narrower value uses
         # its low bits, the same bits that the narrow load gives.
+        #: (Registers::Register reg, Registers::Register home, String type) -> void
         def narrow(reg, home, type)
           case type
           when "i64", "f64" then @asm.mov reg, home unless reg.equal?(home)
@@ -246,6 +300,7 @@ module Zr
         end
 
         # Store the whole 64-bit register: a 32-bit result has zero above.
+        #: (String v, Registers::Register reg) -> void
         def store_value(v, reg)
           home = @reg[v]
           return if home.equal?(reg)
@@ -254,6 +309,7 @@ module Zr
           @asm.str reg, address(@home.fetch(v), 8)
         end
 
+        #: (String v, Registers::Register reg) -> void
         def store_param(v, reg)
           home = @reg[v]
           return @asm.mov(home, reg) if home
@@ -267,18 +323,22 @@ module Zr
           end
         end
 
+        #: (Registers::Register x) -> Registers::Register
         def w(x)
           Registers.w(x.to_i)
         end
 
+        #: (String v) -> bool
         def wide?(v)
           type_of(v) == "i64" || type_of(v) == "f64"
         end
 
+        #: (String v) -> bool
         def float?(v)
           type_of(v) == "f64"
         end
 
+        #: (String v, Registers::Register x) -> Registers::Register
         def reg_for(v, x)
           wide?(v) ? x : w(x)
         end
@@ -289,6 +349,7 @@ module Zr
         # keeps the pair where `stp` puts it, above the whole frame, and
         # moves sp down by the frame size. The `PAIR` bytes at the bottom
         # are then not used.
+        #: () -> void
         def prologue
           if small_frame?
             @asm.stp X29, X30, [SP, -@frame], :!
@@ -306,7 +367,7 @@ module Zr
           # program uses.
           raise Refused, "#{@f.name}: more than eight parameters" if entry.params.size > IR::REGISTER_ARGS
 
-          ints, floats = entry.params.partition { |_, t| t != "f64" }.map { |list| list.map(&:first) }
+          ints, floats = entry.params.partition { |_, t| t != "f64" }.map { |list| list.map(&:first) } #: [Array[String], Array[String]]
           # The integer parameters arrive in x0.., and a home can be one of
           # those registers, so they move as one parallel copy. The floats
           # move after them, because a float's home can also be an argument
@@ -320,6 +381,7 @@ module Zr
 
         # Two immediates reach 16 MiB less one page. A larger frame is a
         # refusal, with a message that gives the function, not a truncated frame.
+        #: (Integer n) -> void
         def sub_sp(n)
           raise Refused, "#{@f.name} needs a frame of #{n} bytes, past the 16 MiB sub sp reaches" if n >= 1 << 24
 
@@ -330,6 +392,7 @@ module Zr
         # Moves the saved registers to or from their places, two at a time
         # where the pair form reaches (its offset is seven signed bits in
         # units of 8), and one at a time after that.
+        #: (Symbol pair, Symbol single) -> void
         def saved_registers(pair, single)
           @saved_at.each_slice(2) do |(r1, off), (r2, _)|
             if r2 && off <= 504
@@ -345,6 +408,7 @@ module Zr
         # A function with one return has its epilogue at that return. A
         # function with more returns shares one epilogue. Each return branches
         # to it, except the last, which ends the last block and falls into it.
+        #: (IR::Inst i) -> void
         def emit_return(i)
           unless i.args.empty?
             if (d = @doubles[i.args[0]])
@@ -359,6 +423,7 @@ module Zr
           @asm.b @epilogue unless @next.nil?
         end
 
+        #: () -> void
         def epilogue
           saved_registers(:ldp, :ldr)
           if small_frame?
@@ -374,11 +439,12 @@ module Zr
 
         # A float instruction's result stays in its d register until the
         # instruction is emitted. Then it is also stored to its home.
+        #: (IR::Inst i) -> void
         def emit(i)
           lower(i)
           return unless @pending_double
 
-          v, d = @pending_double
+          v, d = @pending_double #: [String, Registers::Register]
           @pending_double = nil
           x = result_in(v, X11)
           @asm.fmov x, d
@@ -386,6 +452,7 @@ module Zr
           remember_double(v, d)
         end
 
+        #: (IR::Inst i) -> void
         def lower(i)
           case i.op
           when :iconst
@@ -499,8 +566,9 @@ module Zr
         # A branch to one of two blocks. A fused compare puts the result in
         # the flags. A bit test reads the word. Otherwise the branch tests
         # the boolean. The next block needs no branch: control falls into it.
+        #: (IR::Inst i) -> void
         def emit_brif(i)
-          yes, no = i.targets.map(&:first)
+          yes, no = i.targets.map(&:first) #: [String, String]
           if (x, bit, op = @bit_tests[i])
             reg = value_in(x, X9)
             reg = w(reg) if bit < 32
@@ -527,6 +595,7 @@ module Zr
         #   ldrsw x9, [x10, x9, lsl #2]
         #   add  x10, x10, x9
         #   br   x10
+        #: (IR::Inst i) -> void
         def emit_switch(i)
           v, *keys = i.args
           default, *blocks = i.targets.map(&:first)
@@ -559,6 +628,7 @@ module Zr
 
         # `index = from - lo`. A narrow value's index is zero above its
         # width, as a 32-bit operation leaves it.
+        #: (Registers::Register index, Registers::Register from, Integer lo, Registers::Register scratch) -> void
         def offset(index, from, lo, scratch)
           if lo <= 4095
             @asm.sub index, from, lo
@@ -581,6 +651,7 @@ module Zr
 
         # `csel` on the flags of a fused compare, or else on its own `cmp`
         # of the boolean. A constant zero operand is the zero register.
+        #: (IR::Inst i) -> void
         def emit_select(i)
           c, a, b = i.args
           d = result_in(i.results[0], X12)
@@ -595,6 +666,7 @@ module Zr
 
         # An operand's register, or the zero register when it is the
         # constant zero.
+        #: (String v, Registers::Register scratch) -> Registers::Register
         def value_or_zero(v, scratch)
           return reg_for(v, scratch).zr if constant(v, type_of(v)) == 0
 
@@ -603,6 +675,7 @@ module Zr
 
         # `b.cond` to a block, on the flags of a fused compare. A far branch
         # uses the opposite condition to skip over a `b`, as in `branch_if`.
+        #: (Symbol cond, String target) -> void
         def branch_on(cond, target)
           return @asm.b(@labels.fetch(target), cond: cond) unless @far
 
@@ -610,6 +683,7 @@ module Zr
           @asm.b @labels.fetch(target)
         end
 
+        #: (IR::Inst i) -> void
         def emit_load(i)
           d = result_in(i.results[0], X10)
           case i.type
@@ -624,6 +698,7 @@ module Zr
         # The largest offset that a pair reaches: seven signed bits in units of 8.
         PAIR_REACH = 504
 
+        #: (IR::Inst i) -> void
         def emit_store(i)
           return emit_store_pair(i, @pairs[i]) if @pairs.key?(i)
 
@@ -637,6 +712,7 @@ module Zr
 
         # Two stores as one `stp` where the pair form reaches, or else as
         # two `str` through one address.
+        #: (IR::Inst first, IR::Inst second) -> void
         def emit_store_pair(first, second)
           a = value_in(first.args[0], X9)
           # When both stores write the same value or number, read it into
@@ -661,6 +737,7 @@ module Zr
         # register. A folded base (`@derived`) is its root plus a constant. A
         # value made from sp (`@from_sp`) is also read from sp: the direct
         # call loads its arguments this way from a send's argument vector.
+        #: (String base, Registers::Register scratch, Integer off, Integer width) -> [Registers::Register, Integer]
         def through(base, scratch, off, width)
           root, k = @derived[base]
           if root
@@ -676,6 +753,7 @@ module Zr
         # A base and an offset that one load or store can encode: the offset
         # scaled into 12 bits, or else the whole address made in X11 first.
         # The two methods above do not use X11.
+        #: (Registers::Register base, Integer off, Integer width) -> [Registers::Register, Integer]
         def reach(base, off, width)
           return [base, off] if immediate?(off, width)
 
@@ -686,6 +764,7 @@ module Zr
 
         # A symbol's address: page plus offset for a symbol that this link
         # defines, or through the GOT for an import.
+        #: (String result, String symbol, bool local) -> void
         def emit_symbol(result, symbol, local)
           d = result_in(result, X9)
           symbol_address(d, symbol, local)
@@ -694,6 +773,7 @@ module Zr
 
         # `reg = &symbol`: the page and the offset for a symbol of this link,
         # or the GOT word for a symbol of another link.
+        #: (Registers::Register reg, String symbol, bool local) -> void
         def symbol_address(reg, symbol, local)
           if local
             reloc(:page21, symbol)
@@ -708,6 +788,7 @@ module Zr
           end
         end
 
+        #: (IR::Inst i) -> void
         def emit_call(i)
           c = callee_of(i.callee)
           sig = sig_of(i.callee)
@@ -725,8 +806,9 @@ module Zr
         # its own order, as the ABI specifies. The floats go first, read from
         # their current registers. The integers move as one parallel copy,
         # because an argument can be in the register of another argument.
+        #: (Array[String] args) -> void
         def load_args(args)
-          ints = []
+          ints = [] #: Array[String]
           floats = 0
           args.each do |v|
             if float?(v)
@@ -746,6 +828,7 @@ module Zr
 
         # A 32-bit or narrower result has undefined bits above: clear them.
         # A float result comes back in d0.
+        #: (String v, String ret) -> void
         def store_result(v, ret)
           if ret == "f64"
             @asm.fmov X0, D0
@@ -757,6 +840,7 @@ module Zr
 
         # The pointer goes to x16 before the arguments move. It can be in
         # an argument register, and no argument load uses x16.
+        #: (IR::Inst i) -> void
         def emit_call_indirect(i)
           sig = sig_named(i.callee)
           ptr, *args = i.args
@@ -771,6 +855,7 @@ module Zr
         end
 
         # `fcmp`, and the condition that reads its flags.
+        #: (IR::Inst i) -> Symbol
         def emit_fcompare(i)
           a = double_in(i.args[0])
           b = double_in(i.args[1])
@@ -788,6 +873,7 @@ module Zr
 
         # The d register that contains `v`. It loads `v` from its home when
         # `v` is in no d register.
+        #: (String v) -> Registers::Register
         def double_in(v)
           @doubles[v] || begin
             d = next_double
@@ -798,12 +884,14 @@ module Zr
 
         # The d register where a float instruction writes `v`. `emit` stores
         # it to the home of `v` after the instruction.
+        #: (String v) -> Registers::Register
         def double_out(v)
           d = next_double
           @pending_double = [v, d]
           d
         end
 
+        #: () -> Registers::Register
         def next_double
           d = DOUBLES[@double_turn]
           @double_turn = (@double_turn + 1) % DOUBLES.size
@@ -811,10 +899,12 @@ module Zr
           d
         end
 
+        #: (String v, Registers::Register d) -> Registers::Register
         def remember_double(v, d)
           @doubles[v] = d
         end
 
+        #: () -> void
         def forget_doubles
           @doubles = {}
           @double_turn = 0
@@ -824,6 +914,7 @@ module Zr
         # constant uses the immediate form and no register. The check that
         # `Zr::Lower::Function#checked` makes after every call is `cmp x, #52`.
         # A constant on the left moves to the right, and the condition swaps.
+        #: (IR::Inst i) -> Symbol
         def emit_compare(i)
           if (x, mask = @mask_tests[i])
             mask = reg_for(x, value_in(mask, X10)) unless mask.is_a?(Integer)
@@ -848,18 +939,20 @@ module Zr
           CONDS.fetch(cond)
         end
 
-        COMMUTES = %i[iadd band bor bxor].freeze
-        SHIFTS = { ishl: :lsl, ushr: :lsr, sshr: :asr }.freeze
-        LOGICAL = { band: :and, bor: :orr, bxor: :eor }.freeze
+        COMMUTES = %i[iadd band bor bxor].freeze #: Array[Symbol]
+        SHIFTS = { ishl: :lsl, ushr: :lsr, sshr: :asr }.freeze #: Hash[Symbol, Symbol]
+        LOGICAL = { band: :and, bor: :orr, bxor: :eor }.freeze #: Hash[Symbol, Symbol]
 
         # A binary operation. A constant operand is an immediate when the
         # instruction has an immediate form.
+        #: (IR::Inst i) -> void
         def emit_binop(i)
           form = immediate_form(i)
           return emit_immediate(i, *form) if form
 
           dest = result_in(i.results[0], X11)
-          d, a, b = [dest, value_in(i.args[0], X9), value_in(i.args[1], X10)].map { |x| reg_for(i.args[0], x) }
+          d, a, b = [dest, value_in(i.args[0], X9), value_in(i.args[1], X10)]
+                    .map { |x| reg_for(i.args[0], x) } #: [Registers::Register, Registers::Register, Registers::Register]
           case i.op
           when :iadd then @asm.add d, a, b
           when :isub then @asm.sub d, a, b
@@ -877,9 +970,10 @@ module Zr
         end
 
         # `clz` is one instruction. `ctz` is `rbit` then `clz`. `bswap` is `rev`.
+        #: (IR::Inst i) -> void
         def emit_bitop(i)
           dest = result_in(i.results[0], X11)
-          d, a = [dest, value_in(i.args[0], X9)].map { |x| reg_for(i.args[0], x) }
+          d, a = [dest, value_in(i.args[0], X9)].map { |x| reg_for(i.args[0], x) } #: [Registers::Register, Registers::Register]
           case i.op
           when :clz then @asm.clz d, a
           when :bswap then @asm.rev d, a
@@ -894,6 +988,7 @@ module Zr
         # word in (`fmov s, w` for an i32, which clears the rest), count each
         # byte (`cnt`), add them into the low byte (`addv`), and read the
         # whole register back.
+        #: (IR::Inst i) -> void
         def emit_popcnt(i)
           @asm.fmov COUNTER, reg_for(i.args[0], value_in(i.args[0], X9))
           @asm.cnt COUNTER, COUNTER
@@ -911,6 +1006,7 @@ module Zr
         # The constant has the width of its type, the same as a load gives.
         # The instruction runs at the width of the register form, so the low
         # bits of the result are the same.
+        #: (IR::Inst i) -> [Symbol, Integer, String]?
         def immediate_form(i)
           a, b = i.args
           type = type_of(a)
@@ -932,9 +1028,10 @@ module Zr
             when :ishl, :ushr, :sshr then [SHIFTS.fetch(i.op), k] if k < bits
             when :band, :bor, :bxor then [LOGICAL.fetch(i.op), k] if Assembler.bitmask(k, bits)
             end
-          form && [*form, a]
+          form && [*form, a] #: [Symbol, Integer, String]?
         end
 
+        #: (IR::Inst i, Symbol mnemonic, Integer immediate, String a) -> void
         def emit_immediate(i, mnemonic, immediate, a)
           dest = result_in(i.results[0], X11)
           @asm.public_send(mnemonic, reg_for(a, dest), reg_for(a, value_in(a, X9)), immediate)
@@ -942,16 +1039,20 @@ module Zr
         end
 
         # `a - (a / b) * b`, the arm64 form of a remainder.
+        #: (IR::Inst i) -> void
         def emit_rem(i)
-          d, a, b = [X11, value_in(i.args[0], X9), value_in(i.args[1], X10)].map { |x| reg_for(i.args[0], x) }
+          d, a, b = [X11, value_in(i.args[0], X9), value_in(i.args[1], X10)]
+                    .map { |x| reg_for(i.args[0], x) } #: [Registers::Register, Registers::Register, Registers::Register]
           i.op == :urem ? @asm.udiv(d, a, b) : @asm.sdiv(d, a, b)
           @asm.msub d, d, b, a
           store_value(i.results[0], X11)
         end
 
+        #: (IR::Inst i) -> void
         def emit_overflow(i)
           dest = result_in(i.results[0], X11)
-          d, a, b = [dest, value_in(i.args[0], X9), value_in(i.args[1], X10)].map { |x| reg_for(i.args[0], x) }
+          d, a, b = [dest, value_in(i.args[0], X9), value_in(i.args[1], X10)]
+                    .map { |x| reg_for(i.args[0], x) } #: [Registers::Register, Registers::Register, Registers::Register]
           i.op == :sadd_overflow ? @asm.adds(d, a, b) : @asm.subs(d, a, b)
           store_value(i.results[0], dest)
           # The branch or select that follows reads the flags.
@@ -965,6 +1066,7 @@ module Zr
         end
 
         # 64-bit only: the high half of the product must be the sign of the low.
+        #: (IR::Inst i) -> void
         def emit_mul_overflow(i)
           raise Refused, "#{@f.name}: smul_overflow on #{type_of(i.args[0])}" unless wide?(i.args[0])
 
@@ -986,6 +1088,7 @@ module Zr
         # value that its source had before the jump, in any copy order.
         # There is no limit on the number of arguments on an edge, because
         # the resolver keeps only one value in a `SCRATCH` register at a time.
+        #: (IR::Inst i) -> void
         def emit_jump(i)
           name, args = i.targets[0]
           parallel_copy(block_named(name).params.map(&:first), args)
@@ -993,6 +1096,7 @@ module Zr
         end
 
         # The number of instructions that `materialize` uses for `n`.
+        #: (Integer n) -> Integer
         def materialized(n)
           n &= 0xFFFF_FFFF_FFFF_FFFF
           chunks = Array.new(4) { |k| (n >> (16 * k)) & 0xFFFF }
@@ -1002,6 +1106,7 @@ module Zr
 
         # `reg = n`, 16 bits at a time. A negative value starts from its
         # complement, so the high halves need no instruction.
+        #: (Registers::Register reg, Integer n) -> void
         def materialize(reg, n)
           n &= 0xFFFF_FFFF_FFFF_FFFF
           chunks = Array.new(4) { |k| (n >> (16 * k)) & 0xFFFF }
@@ -1016,6 +1121,7 @@ module Zr
           end
         end
 
+        #: (Symbol kind, String symbol) -> void
         def reloc(kind, symbol)
           @asm.patch_location { |off| @relocs << Obj::Reloc.new(off, kind, symbol) }
         end

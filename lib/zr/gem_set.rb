@@ -35,37 +35,42 @@ module Zr
     # directory, or the Gemfile does not parse.
     class Unresolved < StandardError; end
 
-    RESOLVE = File.expand_path("gem_set/resolve.rb", __dir__)
+    RESOLVE = File.expand_path("gem_set/resolve.rb", __dir__) #: String
     VERSION = 1
 
     # The environment of the child: the host's gems, without a bundle
     # that this process runs in.
-    CHILD_ENV = %w[RUBYOPT RUBYLIB BUNDLER_SETUP BUNDLE_BIN_PATH BUNDLE_LOCKFILE BUNDLER_VERSION].to_h { |name| [name, nil] }.freeze
+    CHILD_ENV = %w[RUBYOPT RUBYLIB BUNDLER_SETUP BUNDLE_BIN_PATH BUNDLE_LOCKFILE BUNDLER_VERSION]
+                .to_h { |name| [name, nil] }.freeze #: Hash[String, String?]
 
     # The variables that change which gems the child finds.
     READS = %w[GEM_HOME GEM_PATH BUNDLE_PATH BUNDLE_APP_CONFIG BUNDLE_WITHOUT BUNDLE_WITH BUNDLE_FROZEN BUNDLE_DEPLOYMENT].freeze
 
-    attr_reader :gems
+    attr_reader :gems #: Array[Entry]
 
+    #: (Array[Entry] gems) -> void
     def initialize(gems)
       @gems = gems.freeze
       @digest = Digest::SHA256.hexdigest(Marshal.dump(@gems.map(&:to_a)))
       freeze
     end
 
-    EMPTY = new([])
+    EMPTY = new([]) #: GemSet
 
+    #: () -> bool
     def empty? = @gems.empty?
 
     # The require roots, in search order. A refused gem's roots are here
     # too: a require finds its file first, as ruby would, and the build
     # then stops (`refusal`).
+    #: () -> Array[String]
     def roots = @gems.flat_map(&:roots)
 
     # The refusal of the gem whose root holds `path`, or nil. A default
     # gem has no root (its files are ruby's own), so a require of
     # `feature` finds it by the gem's name: `json`, `json/ext`, and
     # `io/console` for io-console.
+    #: (String? path, ?String? feature) -> String?
     def refusal(path, feature = nil)
       name = feature.to_s.delete_suffix(".rb")
       @gems.each do |gem|
@@ -81,15 +86,16 @@ module Zr
 
     # Names the set for a cache key: a build with other gems is another
     # build.
-    attr_reader :digest
+    attr_reader :digest #: String
 
     # zr's own development Gemfile, in a checkout. `bundle exec rake` sets
     # BUNDLE_GEMFILE to it for every tool, and a build of zr, a spec or a
     # benchmark must not read those gems.
-    OWN = File.join(Paths::ROOT, "Gemfile")
+    OWN = File.join(Paths::ROOT, "Gemfile") #: String
 
     # `flags` are the `--gem` words as [name, value] pairs, and `gemfile`
     # is the path that `--gemfile` gives, or nil.
+    #: (Array[[String, String]] flags, ?gemfile: String?, ?env: RBS::Unnamed::ENVClass) -> GemSet
     def self.resolve(flags, gemfile: nil, env: ENV)
       if gemfile
         gemfile = File.expand_path(gemfile)
@@ -110,6 +116,7 @@ module Zr
 
     # What the child reads: the flags, the Gemfile and its lock, and the
     # variables that move the gems.
+    #: (Array[[String, String]] flags, String? gemfile, RBS::Unnamed::ENVClass env) -> String
     def self.key(flags, gemfile, env)
       parts = [VERSION, Zr::VERSION, *flags.flatten, "\0", gemfile.to_s, *READS.map { |name| env[name].to_s }]
       if gemfile
@@ -122,12 +129,15 @@ module Zr
 
     # The lock of `gemfile`, as bundler names it: `gems.locked` for
     # `gems.rb`, else `<gemfile>.lock`.
+    #: (String gemfile) -> String
     def self.lockfile(gemfile) = gemfile.end_with?("gems.rb") ? gemfile.sub(/gems\.rb\z/, "gems.locked") : "#{gemfile}.lock"
 
+    #: (String path) -> String
     def self.read(path) = File.file?(path) ? File.binread(path) : ""
 
     # The set of the kept `rows`, while each root is still there. A
     # `gem uninstall` removes a root, and the child runs again.
+    #: (Array[Hash[Symbol, untyped]]? rows) -> GemSet?
     def self.kept(rows)
       return nil unless rows
 
@@ -138,8 +148,10 @@ module Zr
     end
 
     # The ruby that runs the resolver (`Config#host_ruby`).
+    #: () -> String
     def self.ruby = Config.current.host_ruby
 
+    #: (Array[[String, String]] flags, String? gemfile, RBS::Unnamed::ENVClass env) -> GemSet
     def self.child(flags, gemfile, env)
       require "json"
       require_relative "library/roots"
@@ -156,8 +168,10 @@ module Zr
       answer = begin
         JSON.parse(out)
       rescue JSON::ParserError
-        raise Unresolved, "the gem resolver (#{ruby} #{RESOLVE}) failed with status #{$?.exitstatus}"
-      end
+        # `IO.popen` with a block waits for the child, so `$?` is set.
+        status = $? #: Process::Status
+        raise Unresolved, "the gem resolver (#{ruby} #{RESOLVE}) failed with status #{status.exitstatus}"
+      end #: Hash[String, untyped]
       raise Unresolved, answer["error"] if answer["error"]
       if answer["rubygems"] != Library::Roots.pure
         raise Unresolved, "the gem resolver loaded rubygems from #{answer["rubygems"]}, not from zr's own #{Library::Roots.pure}"

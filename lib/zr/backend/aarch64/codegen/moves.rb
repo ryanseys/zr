@@ -14,8 +14,9 @@ module Zr
         # value or a register, and `to` is a register or the value whose place
         # gets it. No destination is written while a pending copy reads it.
         # `SCRATCH[1]` breaks a cycle.
+        #: (Array[[Registers::Register | Integer | String, String?]] dests, Array[String | Registers::Register] srcs) -> void
         def move_registers(dests, srcs)
-          pending = {}
+          pending = {} #: Hash[Registers::Register | Integer | String, [String?, String | Registers::Register]]
           reads = Hash.new(0)
           dests.each_with_index do |(to, v), n|
             src = srcs[n]
@@ -28,7 +29,7 @@ module Zr
           ready = pending.keys.reject { |p| reads[p].positive? }
           loop do
             while (p = ready.pop)
-              v, src = pending.delete(p)
+              v, src = pending.delete(p) #: [String?, String | Registers::Register]
               move_register(p, v, src)
               from = src.is_a?(Register) ? src : place(src)
               reads[from] -= 1
@@ -37,11 +38,11 @@ module Zr
             break if pending.empty?
 
             start = pending.keys.first
-            v, src = pending.delete(start)
+            v, src = pending.delete(start) #: [String?, String | Registers::Register]
             src.is_a?(Register) ? @asm.mov(SCRATCH[1], src) : load_value(src, SCRATCH[1])
             at = src.is_a?(Register) ? src : place(src)
             while at != start && pending.key?(at)
-              d, s = pending.delete(at)
+              d, s = pending.delete(at) #: [String?, String | Registers::Register]
               move_register(at, d, s)
               at = s.is_a?(Register) ? s : place(s)
             end
@@ -51,6 +52,7 @@ module Zr
 
         # One move of `move_registers`: to the register `to`, or to the
         # home of the value `v`.
+        #: (Registers::Register | Integer | String to, String? v, String | Registers::Register src) -> void
         def move_register(to, v, src)
           if v.nil?
             src.is_a?(Register) ? @asm.mov(to, src) : load_value(src, to)
@@ -74,9 +76,11 @@ module Zr
         # A constant made at its reads has no place and is never a
         # destination. Its name is in place of a location, and no Register or
         # Integer is equal to it.
+        #: (String v) -> (Registers::Register | Integer | String)
         def place(v) = @reg[v] || @home.fetch(v) { unhomed(v) }
 
         # The place of a value that has no register and no home.
+        #: (String v) -> (Registers::Register | String)
         def unhomed(v)
           return v if @remade.include?(v)
           return Regalloc::GATES if @pinned.include?(v)
@@ -101,8 +105,9 @@ module Zr
         # `SCRATCH[0]` contains one copy and is dead after it. `SCRATCH[1]`
         # contains the value that a broken cycle moved out, and is live until
         # the last copy of that cycle.
+        #: (Array[String] dests, Array[String] srcs) -> void
         def parallel_copy(dests, srcs)
-          pending = {}
+          pending = {} #: Hash[Registers::Register | Integer | String, [String, String]]
           reads = Hash.new(0)
           dests.each_with_index do |d, n|
             s = srcs[n]
@@ -121,10 +126,13 @@ module Zr
 
         # Emits every copy whose destination no pending copy reads, then
         # every copy that this frees, until only cycles are left.
+        # @rbs pending: Hash[Registers::Register | Integer | String, [String, String]]
+        # @rbs reads: Hash[Registers::Register | Integer | String, Integer]
+        # @rbs return: void
         def drain(pending, reads)
           ready = pending.keys.reject { |p| reads[p].positive? }
           while (p = ready.pop)
-            d, s = pending.delete(p)
+            d, s = pending.delete(p) #: [String, String]
             copy(d, s)
             from = place(s)
             reads[from] -= 1
@@ -138,13 +146,14 @@ module Zr
         #
         # Move the source of one copy into a scratch register. Then the rest
         # of its cycle can be emitted in order.
+        #: (Hash[Registers::Register | Integer | String, [String, String]] pending) -> void
         def break_cycle(pending)
           start = pending.keys.first
-          held, source = pending.delete(start)
+          held, source = pending.delete(start) #: [String, String]
           load_value(source, SCRATCH[1])
           at = place(source)
           while at != start
-            d, s = pending.delete(at)
+            d, s = pending.delete(at) #: [String, String]
             copy(d, s)
             at = place(s)
           end
@@ -154,6 +163,7 @@ module Zr
         # Copies one value to the place of another. A source with a register
         # home is stored directly from it. Only a slot source needs a load,
         # which goes directly into the destination's register, if it has one.
+        #: (String dest, String source) -> void
         def copy(dest, source)
           home = @reg[dest]
           return load_value(source, home) if home

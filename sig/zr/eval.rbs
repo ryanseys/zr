@@ -1,0 +1,22 @@
+# The types of lib/zr/eval.rb that inline RBS cannot give. Its methods
+# are inline.
+module Zr
+  class Eval
+    self.@current: Eval?
+  end
+
+  module Machine
+    class Description
+      # The kernel rows, which the generated file "zr_description" defines
+      # in a program that evals (lib/zr/machine/description.rb).
+      KERNEL: String
+    end
+  end
+end
+
+# `caller_locations(1)` is nil only when the stack is shorter than 1,
+# which it never is in a method. Ruby's `set_backtrace` takes nil too.
+class Exception
+  def set_backtrace: (Array[Thread::Backtrace::Location]?) -> Array[Thread::Backtrace::Location]?
+                   | ...
+end

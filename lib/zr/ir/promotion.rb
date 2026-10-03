@@ -26,12 +26,24 @@ module Zr
     # splits each `brif` edge into it: a new block before the join that
     # jumps to it.
     class Promotion
+      # @rbs @f: Function
+      # @rbs @preds: Hash[String, Array[Block]]
+      # @rbs @rename: Hash[String, String]
+      # @rbs @last: Hash[String, Hash[String, String | Inst]]
+      # @rbs @entering: Hash[String, Hash[String, String]]
+      # @rbs @joins: Array[[String, Block, String]]
+      # @rbs @incoming: Hash[String, Array[String]]
+      # @rbs @work: Array[[String, Block, String]]
+
+      #: (Function f) -> Function
       def self.run(f) = new(f).run
 
+      #: (Function f) -> void
       def initialize(f)
         @f = f
       end
 
+      #: () -> Function
       def run
         keys = candidates
         return @f if keys.empty?
@@ -50,8 +62,9 @@ module Zr
 
       # The predecessors of each block, from the terminators that reach it.
       # A block that a `brif` reaches two times lists it two times.
+      #: () -> Hash[String, Array[Block]]
       def predecessors
-        preds = Hash.new { |h, k| h[k] = [] }
+        preds = Hash.new { |h, k| h[k] = [] } #: Hash[String, Array[Block]]
         @f.blocks.each do |b|
           b.insts.last&.targets&.each { |name, _| preds[name] << b }
         end
@@ -61,6 +74,7 @@ module Zr
       # Finds the value of each read, and each parameter that a join needs,
       # for the variables in `keys`. `@rename` maps the result of a read to
       # the value that it reads.
+      #: (Hash[String, String?] keys) -> void
       def plan(keys)
         @rename = {}
         @last = Hash.new { |h, k| h[k] = {} }
@@ -68,17 +82,18 @@ module Zr
         @joins = []
         @incoming = {}
         @work = []
-        reads = []
+        reads = [] #: Array[[String, Block, String]]
         @f.blocks.each { |b| walk(b, keys, @last[b.name], reads) }
         reads.each { |result, b, key| @rename[result] = entering(b, key, keys) }
         until @work.empty?
-          param, b, key = @work.pop
+          param, b, key = @work.pop #: [String, Block, String]
           @incoming[param] = @preds[b.name].map { |p| leaving(p, key, keys) }
         end
         drop_trivial(keys)
       end
 
       # The value of the variable of `key` where control enters `b`.
+      #: (Block b, String key, Hash[String, String?] keys) -> String
       def entering(b, key, keys)
         seen = @entering[key]
         return seen[b.name] if seen.key?(b.name)
@@ -98,6 +113,7 @@ module Zr
       # The value of the variable of `key` where control leaves `b`. This is
       # what the last write in `b` left (a value, or the instruction after
       # which the subclass loads again), or else the value at entry.
+      #: (Block b, String key, Hash[String, String?] keys) -> String
       def leaving(b, key, keys)
         last = @last[b.name]
         return entering(b, key, keys) unless last.key?(key)
@@ -108,6 +124,7 @@ module Zr
 
       # A parameter that gets one value from each edge (or only itself) is
       # that value. When the pass removes one, another can become trivial.
+      #: (Hash[String, String?] keys) -> void
       def drop_trivial(keys)
         loop do
           dropped = false
@@ -126,6 +143,7 @@ module Zr
         @joins.reject! { |param, _, _| @rename.key?(param) }
       end
 
+      #: (untyped v) -> untyped
       def resolve(v)
         v = @rename[v] while @rename.key?(v)
         v
@@ -133,9 +151,12 @@ module Zr
 
       # Adds the parameters of each join, and the value that each edge into
       # it passes. The pass first splits each `brif` edge.
+      #: (Hash[String, String?] keys) -> void
       def apply(keys)
         @joins.each do |param, b, key|
-          b.params << [param, keys.fetch(key)]
+          # A join has a read, so its variable has a type.
+          type = keys.fetch(key) #: String
+          b.params << [param, type]
           into = @preds[b.name]
           values = @incoming[param]
           into.each_with_index do |p, k|
@@ -149,15 +170,17 @@ module Zr
 
       # Makes a new block on the edge from the `brif` of `p` into `join`, so
       # that the edge is a jump that can pass the join parameters.
+      #: (Block p, Block join) -> Block
       def split(p, join)
         br = p.insts.last
         side = @f.block_before(join)
         side.insts << Inst.new(:jump, targets: [[join.name, []]])
-        k = br.targets.index { |(name, _)| name == join.name }
+        k = br.targets.index { |(name, _)| name == join.name } #: Integer
         br.targets[k] = [side.name, []]
         side
       end
 
+      #: () -> void
       def rename_uses
         @f.blocks.each do |b|
           b.insts.each do |i|

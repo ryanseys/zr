@@ -24,6 +24,7 @@ module Zr
       # @rbs skip -- typed in sig/zr/library/ports.rbs
       Port = Struct.new(:version, :compat, :vendored, keyword_init: true)
 
+      #: (String version, ?compat: String, ?vendored: bool) -> Port
       def self.port(version, compat: "~> #{version}", vendored: true) = Port.new(version: version, compat: compat, vendored: vendored).freeze
 
       ALL = {
@@ -48,13 +49,15 @@ module Zr
         "io-console" => port("0.8.2", vendored: false),
         "etc" => port("1.4.6", vendored: false),
         "fcntl" => port("1.3.0", vendored: false)
-      }.freeze
+      }.freeze #: Hash[String, Port]
 
       # The lib directory of each gem that vendor/ holds, in the order a
       # require searches them.
+      #: () -> Array[String]
       def self.roots = ALL.select { |_, port| port.vendored }.map { |name, port| lib(name, port.version) }
 
       # The lib directory of port `name` in vendor/.
+      #: (String name, ?String version) -> String
       def self.lib(name, version = ALL.fetch(name).version) = File.join(Layout.gem_root(name, version), "lib")
     end
   end

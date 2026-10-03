@@ -31,10 +31,12 @@ module Zr
 
     module_function
 
+    #: (String text) -> String
     def unaddressed(text) = text.b.gsub(ADDRESS, "0x...")
 
     # Runs `command` in `dir` with an empty stdin and `env` over this
     # environment. A run longer than `limit` seconds is killed.
+    #: (Array[String] command, ?dir: String, ?env: Hash[String, String?], ?limit: (Integer | Float)?) -> Answer
     def run(command, dir: Dir.pwd, env: {}, limit: LIMIT)
       Open3.popen3(env, *command, chdir: dir) do |stdin, stdout, stderr, waiter|
         stdin.close
@@ -58,6 +60,7 @@ module Zr
     #
     # A build that fails has its own kind (`refused`, `build-error`),
     # which the caller gives.
+    #: (Answer ruby, Answer zr) -> String
     def kind(ruby, zr)
       return "same" if ruby.parts == zr.parts
       return "timeout" if zr.timeout && !ruby.timeout
@@ -77,6 +80,7 @@ module Zr
     # header lines: hunks of `-` lines (only in `a`), `+` lines (only in
     # `b`) and context lines. Empty when the texts are the same. In Ruby,
     # so zr needs no `diff` program.
+    #: (String a, String b) -> String
     def unified(a, b)
       old = a.b.lines
       new = b.b.lines
@@ -94,7 +98,7 @@ module Zr
       m = new.size
       max = n + m
       v = { 1 => 0 }
-      trace = []
+      trace = [] #: Array[Hash[Integer, Integer]]
       (0..max).each do |d|
         trace << v.dup
         (-d..d).step(2) do |k|
@@ -112,7 +116,7 @@ module Zr
     end
 
     def backtrack(trace, x, y)
-      edits = []
+      edits = [] #: Array[[Symbol, Integer?, Integer?]]
       (trace.size - 1).downto(0) do |d|
         v = trace[d]
         k = x - y
@@ -172,9 +176,11 @@ module Zr
       first ? first[side] : 0
     end
 
+    #: (Integer at, Integer count) -> String
     def range(at, count) = count == 1 ? at.to_s : "#{at},#{count}"
 
     # The report of each part that differs: a heading, then its diff.
+    #: (Answer ruby, Answer zr) -> String
     def report(ruby, zr)
       PARTS.filter_map do |part|
         a = ruby.parts.fetch(part)

@@ -1,0 +1,11 @@
+# The members of IO::Buffer that lib/zr/machine/host/memory.rb uses and
+# RBS's core signatures do not have.
+class IO
+  class Buffer
+    def self.for: [T] (String) { (IO::Buffer) -> T } -> T
+                | ...
+
+    def get_values: (Array[Symbol] types, Integer offset) -> Array[Integer]
+    def set_values: (Array[Symbol] types, Integer offset, Array[Integer] values) -> Integer
+  end
+end

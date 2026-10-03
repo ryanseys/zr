@@ -15,6 +15,7 @@ module Zr
 
     # The value that the link writes into one of those words. A site is a
     # location, not a name, so it gets the next free slot.
+    #: (Obj::Reloc reloc, Machine::Symbols symbols, Integer tag) -> Integer?
     def numbered(reloc, symbols, tag)
       return symbols.site if reloc.kind == :site
 
@@ -29,6 +30,7 @@ module Zr
     # Sets the numbers of `data` and writes them into their words. After
     # this, no relocation of these kinds is left. Every object writer and
     # the wasm module rely on this.
+    #: (Array[Obj::Datum] data, Machine::Symbols symbols, Integer tag) -> Array[Obj::Datum]
     def number(data, symbols, tag)
       data.each do |d|
         waiting, keep = d.relocs.partition { |r| NUMBERED.include?(r.kind) }
@@ -44,6 +46,7 @@ module Zr
     # `number` on copies: the data with each number written, where `data`
     # keeps its relocations. A cache keeps a piece's data unnumbered, so
     # that another table can number it again.
+    #: (Array[Obj::Datum] data, Machine::Symbols symbols, Integer tag) -> Array[Obj::Datum]
     def numbered_copies(data, symbols, tag)
       data.map { |d| d.relocs.any? { |r| NUMBERED.include?(r.kind) } ? d.dup : d }.tap { |copies| number(copies, symbols, tag) }
     end
@@ -53,11 +56,12 @@ module Zr
     # into it (an addend). An object for each name made a program that
     # evals carry 18,000 more data items and symbols, which each link
     # read, laid out and wrote again.
+    #: (Machine::Symbols symbols) -> Array[Obj::Datum]
     def names_table(symbols)
       names = symbols.names
       all = +"".b
       table = +"".b
-      relocs = []
+      relocs = [] #: Array[Obj::Reloc]
       names.each_with_index do |name, i|
         # A pad has no bytes, and the tag SYM_PAD (lib/zr/runtime/kernel/symbol.rb).
         if name.nil?

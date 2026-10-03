@@ -32,6 +32,8 @@ module Zr
   # `run_binary` and `exit_as`) are the calls that `exe/zr` and the build
   # server (lib/zr/server.rb) make.
   module CLI
+    # @rbs @commands: Hash[String, Command]
+
     # Exit status 3: zr does not support the program or the target. The
     # test harness counts this separately from zr's defects.
     REFUSED = 3
@@ -48,22 +50,24 @@ module Zr
       "version" => Commands::Version,
       "help" => Commands::Help,
       "cache" => Commands::Cache
-    }.freeze
+    }.freeze #: Hash[String, singleton(Command)]
 
     # The commands that compile.
-    COMPILE = COMMANDS.select { |_, command| command == Commands::Compile }.keys.freeze
+    COMPILE = COMMANDS.select { |_, command| command == Commands::Compile }.keys.freeze #: Array[String]
 
     module_function
 
     # Sets the collector limits and YJIT for a compile (`GcTuning`). With
     # `later`, only the first step of heavy work tunes, so a warm build
     # pays for neither.
+    #: (?String? script, ?later: bool) -> void
     def tune!(script = nil, later: false)
       later ? GcTuning.later(script, ARGV) : GcTuning.now(script, ARGV)
     end
 
     # Runs the command that the first word of `argv` names, with the words
     # after it.
+    #: (Array[String] argv) -> void
     def start(argv)
       args = argv.dup
       verb = args.shift
@@ -71,20 +75,27 @@ module Zr
       verb = "help" if Help::FLAGS.include?(verb)
       return unknown_verb(verb) unless COMMANDS.key?(verb)
 
-      handler = command(verb)
+      # COMMANDS has the word, so it is a String.
+      known = verb #: String
+      handler = command(known)
       if !handler.reads_help? && Help.asked?(args)
-        Help.show(verb)
+        Help.show(known)
         exit
       end
-      Errors.usage_error("unexpected argument '#{args.first}'", verb) if handler.plain? && !args.empty?
+      Errors.usage_error("unexpected argument '#{args.first}'", known) if handler.plain? && !args.empty?
       handler.run(args)
     end
 
     # The command for `verb`. The process keeps it, so a compile command
     # keeps what `kept!` and `served!` give it.
-    def command(verb) = (@commands ||= {})[verb] ||= COMMANDS.fetch(verb).new(verb)
+    #: (String verb) -> Command
+    def command(verb)
+      commands = @commands ||= {} #: Hash[String, Command]
+      commands[verb] ||= COMMANDS.fetch(verb).new(verb)
+    end
 
     # Says what is wrong with a first word that names no command, and exits.
+    #: (String? verb) -> bot
     def unknown_verb(verb)
       if verb.nil?
         warn Help::USAGE
@@ -96,14 +107,25 @@ module Zr
       Errors.usage_error("unknown command '#{verb}'#{"; did you mean '#{near}'?" if near}")
     end
 
+    #: [T] () { () -> T } -> T
     def guard(&) = Errors.guard(&)
 
-    def kept!(argv) = command("run").kept!(argv)
+    #: (Array[String] argv) -> void
+    def kept!(argv)
+      run = command("run") #: Commands::Compile
+      run.kept!(argv)
+    end
 
-    def served!(&) = command("run").served!(&)
+    #: () { (String binary, Array[String] rest, bool temp) -> Object? } -> void
+    def served!(&)
+      run = command("run") #: Commands::Compile
+      run.served!(&)
+    end
 
+    #: (String binary, Array[String] rest) -> Process::Status
     def run_binary(binary, rest) = Runner.run_binary(binary, rest)
 
+    #: (Process::Status status) -> bot
     def exit_as(status) = Runner.exit_as(status)
   end
 end

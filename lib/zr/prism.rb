@@ -6,7 +6,7 @@ module Zr
   # Whether ruby itself runs the compiler. Ruby finds prism on its load
   # path. A zr binary that includes the compiler has prism compiled in
   # and no load path.
-  HOSTED = !$LOAD_PATH.resolve_feature_path("prism").nil?
+  HOSTED = !$LOAD_PATH.resolve_feature_path("prism").nil? #: bool
 end
 
 # The host's prism: the vendored Ruby part of prism 1.9.0
@@ -28,9 +28,13 @@ module Zr
   # So the line of the last answer, or the line after it, is almost
   # always the answer, and a binary search is left for the rest. The
   # answer is the same as prism's.
+  # @rbs module-self: Prism::Source
   module LineCursor
+    # @rbs @zr_line: Integer?
+
     private
 
+    #: (Integer byte_offset) -> Integer
     def find_line(byte_offset)
       return super if frozen?
 

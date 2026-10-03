@@ -29,23 +29,33 @@ module Zr
   # One process has one tuning (`current`). The class methods are the
   # entry points of the callers.
   class GcTuning
-    GC_ENV = { "RUBY_GC_MALLOC_LIMIT" => "64000000", "RUBY_GC_OLDMALLOC_LIMIT" => "128000000" }.freeze
+    # @rbs @added: bool
+    # @rbs @pending: bool
+    # @rbs @restart: [String?, Array[String], Hash[String, String]]?
+
+    GC_ENV = { "RUBY_GC_MALLOC_LIMIT" => "64000000", "RUBY_GC_OLDMALLOC_LIMIT" => "128000000" }.freeze #: Hash[String, String]
 
     # Set with the limits when zr starts itself again, so that the new
     # process knows that the limits are zr's, not the user's.
     ADDED = "ZR_GC_ADDED"
 
     # The tuning of this process.
+    #: () -> GcTuning
     def self.current = @current ||= new
 
+    #: (?String? script, ?Array[String] argv, ?env: Hash[String, String]) -> void
     def self.now(script = nil, argv = ARGV, env: {}) = current.now(script, argv, env: env)
 
+    #: (String? script, ?Array[String] argv, ?env: Hash[String, String]) -> void
     def self.later(script, argv = ARGV, env: {}) = current.later(script, argv, env: env)
 
+    #: (?restart: bool) -> void
     def self.heavy!(restart: true) = current.heavy!(restart: restart)
 
+    #: () -> Hash[String, String?]
     def self.program_env = current.program_env
 
+    #: () -> void
     def initialize
       # Whether the limits are zr's own: this process started again with them.
       @added = false
@@ -58,6 +68,7 @@ module Zr
     # Tunes this process now. With a `script`, a process without the limits
     # starts `script` again with them and with `env`; without one (a rake
     # task), the limits go only to the child processes.
+    #: (?String? script, ?Array[String] argv, ?env: Hash[String, String]) -> void
     def now(script = nil, argv = ARGV, env: {})
       limits(script, argv, env)
       yjit
@@ -65,6 +76,7 @@ module Zr
 
     # Tunes at the first `heavy!`: starts `script` again with the limits
     # then, if this process does not have them, and turns YJIT on.
+    #: (String? script, ?Array[String] argv, ?env: Hash[String, String]) -> void
     def later(script, argv = ARGV, env: {})
       @added ||= !ENV.delete(ADDED).nil?
       @pending = Config.current.tune?
@@ -75,9 +87,10 @@ module Zr
     # support or a large program. With `restart`, a process that `later`
     # left without the limits starts again with them, unless a build
     # directory is open (a start again would leave it behind).
+    #: (?restart: bool) -> void
     def heavy!(restart: true)
       if restart && @restart && !Paths.tmpdir_open?
-        script, argv, env = @restart
+        script, argv, env = @restart #: [String, Array[String], Hash[String, String]]
         ENV.update(GC_ENV)
         exec(env.merge(ADDED => "1"), RbConfig.ruby, script, *argv)
       end
@@ -87,8 +100,10 @@ module Zr
     # The environment changes for a program that zr runs: without the
     # limits that zr set for itself, so the program sees the environment
     # that the user gave zr.
+    #: () -> Hash[String, String?]
     def program_env = @added ? GC_ENV.transform_values { nil } : {}
 
+    #: (String? script, Array[String] argv, Hash[String, String] env) -> void
     def limits(script, argv, env)
       @added ||= !ENV.delete(ADDED).nil?
       return unless Config.current.tune?
@@ -98,6 +113,7 @@ module Zr
       exec(env.merge(ADDED => "1"), RbConfig.ruby, script, *argv) if script
     end
 
+    #: () -> void
     def yjit
       @pending = false
       RubyVM::YJIT.enable if Config.current.tune? && defined?(RubyVM::YJIT.enable)
@@ -105,6 +121,7 @@ module Zr
 
     private
 
+    #: () -> bool
     def limited? = ENV.key?("RUBY_GC_MALLOC_LIMIT") || Host.compiled?
   end
 end

@@ -11,6 +11,7 @@ module Zr
       #
       # In `Commands`, `Help` names this class: the words are `CLI::Help`.
       class Help < Command
+        #: (Array[String] argv) -> void
         def run(argv) = CLI::Help.show(argv.first)
       end
     end

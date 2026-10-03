@@ -1,18 +1,21 @@
 # lib/zr/lower/function/call_site.rb. A Data record assigned to a
-# constant, which inline RBS cannot type.
+# constant, which inline RBS cannot type. IR values and blocks are
+# Strings; `argv` is the address of the staged arguments. A path that
+# gives nil for `cc`, `entry` or `argv` never reads that field, so the
+# readers type each as a String.
 module Zr
   class Lower
     class Function
       class CallSite < Data
-        attr_reader node: untyped
-        attr_reader cc: String?
+        attr_reader node: Hir::Send
+        attr_reader cc: String
         attr_reader recv: String
-        attr_reader entry: String?
-        attr_reader argv: Array[String]?
+        attr_reader entry: String
+        attr_reader argv: String
         attr_reader merge: String
 
-        def self.new: (node: untyped, recv: String, argv: Array[String]?, merge: String, ?cc: String?, ?entry: String?) -> instance
-        def initialize: (node: untyped, recv: String, argv: Array[String]?, merge: String, ?cc: String?, ?entry: String?) -> void
+        def self.new: (node: Hir::Send, recv: String, argv: String?, merge: String, ?cc: String?, ?entry: String?) -> instance
+        def initialize: (node: Hir::Send, recv: String, argv: String?, merge: String, ?cc: String?, ?entry: String?) -> void
       end
     end
   end

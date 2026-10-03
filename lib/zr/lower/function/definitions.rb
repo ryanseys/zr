@@ -11,6 +11,7 @@ module Zr
 
         # `def`: the body becomes its own function, defined on the cref's
         # class or on the receiver's singleton class. The value is the name.
+        #: (Hir::Def node) -> String
         def define_method(node)
           fn = @l.define(node)
           owner = if node.receiver
@@ -39,13 +40,19 @@ module Zr
 
         # A def in a method body (or in a block in one) is public, whatever
         # the class body's visibility was.
+        #: () -> bool
         def inside_method?
-          fn = self
-          fn = fn.outer while fn && fn.kind == :block
+          fn = self #: Function?
+          # The walk stops at the first scope that is not a block, so it
+          # never reaches an eval's Outer.
+          while fn && fn.kind == :block
+            fn = fn.outer #: Function?
+          end
           fn&.kind == :def
         end
 
         # `class << target`: the singleton class is self and the definee.
+        #: (Hir::SingletonClassDef node) -> String
         def singleton_class_body(node)
           fn = @l.body(node, self)
           at_node(node)
@@ -56,6 +63,7 @@ module Zr
 
         # `class`/`module`: define or reopen under the scope, push a cref,
         # run the body function with the class as self.
+        #: (Hir::ClassDef | Hir::ModuleDef node) -> String
         def class_body(node)
           fn = @l.body(node)
           scope = scope_class(node.scope)
@@ -74,6 +82,7 @@ module Zr
 
         # The class of a constant path's scope: the lexical scope for a
         # bare name, Object for `::`, else the expression's value.
+        #: (untyped scope) -> String
         def scope_class(scope)
           case scope
           when nil then kernel("zr_cref_lexical_class", @cref)
@@ -82,6 +91,7 @@ module Zr
           end
         end
 
+        #: (Hir::ConstRead node) -> String
         def const_read(node) = const_value(node, report_hit: false)
 
         # A constant read, and a word that is 1 if every read in its path
@@ -90,6 +100,7 @@ module Zr
         # so the same cref reads the same value with no effect while the
         # constant stamp stays the same. A `case` on class arms trusts
         # only such reads (`Control#class_case`).
+        #: (Hir::ConstRead node) -> [String, String]
         def const_hit_read(node)
           return const_value(node, report_hit: true) unless node.scope.is_a?(Hir::ConstRead)
 
@@ -98,6 +109,8 @@ module Zr
           [value, @f.band(above, hit)]
         end
 
+        #: (Hir::ConstRead node, report_hit: false) -> String
+        #: (Hir::ConstRead node, report_hit: true) -> [String, String]
         def const_value(node, report_hit:)
           if node.scope.nil? && (slot = @l.boot_class_slot(node.name))
             return report_hit ? [global(slot), imm(1)] : global(slot)
@@ -110,6 +123,9 @@ module Zr
 
         # Outside the main ractor, a program's read checks whether it can
         # share the value. The core's reads skip this check, as C's do.
+        #: (Hir::ConstRead node, String? scope, report_hit: false) -> String
+        #: (Hir::ConstRead node, String? scope, report_hit: true) -> [String, String]
+        #: (Hir::ConstRead node, String? scope, report_hit: bool) -> (String | [String, String])
         def const_at(node, scope, report_hit:)
           id = sym_word(node.name)
           at_node(node)
@@ -125,12 +141,15 @@ module Zr
         # scope) at a constant stamp. If both still match, read the value
         # here. Else call the kernel's lookup, which fills the cell. With
         # `report_hit`, also return 1 for a read from the cell, else 0.
+        #: (String key, String lookup, String id, ?report_hit: false) -> String
+        #: (String key, String lookup, String id, report_hit: true) -> [String, String]
+        #: (String key, String lookup, String id, report_hit: bool) -> (String | [String, String])
         def cached_const(key, lookup, id, report_hit: false)
           cc = cache("cc", "ConstCache")
           cell = @l.layout("ConstCache")
           fast = @f.label
           slow = @f.label
-          merge, (result, hit) = @f.block(report_hit ? %w[i64 i64] : ["i64"])
+          merge, (result, hit) = @f.block(report_hit ? %w[i64 i64] : ["i64"]) #: [String, [String, String]]
           same_key = @f.icmp("eq", @f.fetch("i64", cc, off(cell, "key")), key)
           same_stamp = @f.icmp("eq", @f.fetch("i64", cc, off(cell, "stamp")), @f.fetch("i64", static("const_stamp")))
           @f.brif(@f.band(same_key, same_stamp), fast, slow)
@@ -146,6 +165,7 @@ module Zr
 
         # Set the line to the constant's location. A later incorrect
         # `class Name` reports it.
+        #: (Hir::ConstWrite node) -> String
         def const_write(node)
           scope = scope_class(node.scope)
           v = expr(node.value)

@@ -25,6 +25,35 @@ module Zr
     # with a message that gives the form and the line. The rule: the same
     # as CRuby, or refused. Never a guess.
     class Build
+      # @rbs @file: String
+      # @rbs @eval: bool
+      # @rbs @loader: Loader
+      # @rbs @root: Prism::ProgramNode?
+      # @rbs @node_ids: Hash[Node, Integer]
+      # @rbs @encoding: Encoding
+      # @rbs @shadowed: Hash[[String, bool, Symbol], bool]
+      # @rbs @path: Array[String?]
+      # @rbs @singleton: bool
+      # @rbs @body_marks: Array[Symbol]
+      # @rbs @block_depth: Integer
+      # @rbs @using: using
+      # @rbs @usings: Integer
+      # @rbs @in_def: bool
+      # @rbs @in_sclass: bool
+      # @rbs @dead: Integer
+      # @rbs @activations: Integer
+      # @rbs @temps: Array[Array[Symbol]]
+      # @rbs @scopes: Array[Array[Symbol]]
+      # @rbs @last_lines: Array[Integer]
+      # @rbs @warnings: Array[String]
+      # @rbs @def_depths: Hash[Symbol, Integer]
+      # @rbs @def_params: Params?
+      # @rbs @flip_flops: Integer?
+      # @rbs @guarded: Integer
+      # @rbs @certain: Hash[Prism::node, bool]?
+      # @rbs @after_label: Hash[Prism::node, bool]?
+      # @rbs @temp_serial: Integer?
+
       # The named calls that a site lowers to a kernel entry with a core
       # fast path (Zr::Lower::Function::Sends::OPT_ENTRIES), with each
       # one's argument count. A call with a different count, or with a
@@ -49,6 +78,20 @@ module Zr
       # `gem_set` is a GemSet (lib/zr/gem_set.rb): the gems that come
       # before zr's standard library, or nil. `gate` stops the build at a
       # require in the program's own files that no root has (Loader).
+      # @rbs source: String
+      # @rbs file: String
+      # @rbs roots: Array[String]
+      # @rbs eval_support: bool
+      # @rbs prebuilt: untyped
+      # @rbs line: Integer
+      # @rbs scopes: Array[Array[Symbol]]?
+      # @rbs method: Array[[Symbol, Symbol]]?
+      # @rbs activations: Integer?
+      # @rbs target: Target
+      # @rbs trace: bool
+      # @rbs gem_set: GemSet?
+      # @rbs gate: bool | Symbol
+      # @rbs return: Program
       def self.program(source, file, roots: [], eval_support: true, prebuilt: nil, line: 1, scopes: nil, method: nil, activations: nil, target: Target.default,
                        trace: false, gem_set: nil, gate: false)
         # The main file's name came from the build's command line, in the
@@ -56,6 +99,7 @@ module Zr
         # (Encoding.locale_charmap), and the name must not depend on the
         # build machine.
         file = file.dup.force_encoding(::Encoding::UTF_8) if eval_support && file.encoding != ::Encoding::UTF_8
+        # @type var built: ^(untyped, bool, bool, bool) -> [Loader, Unit]
         built = lambda do |external, trace, evals, covers|
           loader = Loader.new(roots + (gem_set&.roots || []) + Library::Roots.stdlib(target), eval: !eval_support, external: external, trace: trace,
                               evals: evals, covers: covers, activations: activations, prebuilt_eval: prebuilt, gem_set: gem_set,
@@ -71,9 +115,12 @@ module Zr
         # fileutils, and fileutils evals). So the build repeats: read, add
         # the preludes, and build again while any fact changed. Each fact
         # can only change from false to true, so the loop ends.
+        # @type var loader: Loader
+        # @type var main: Unit
+        # @type var preludes: Array[node]
         loader = main = preludes = nil
         evals = covers = false
-        external = nil
+        external = nil #: untyped
         loop do
           loader, main = built.call(external, trace, evals, covers)
           preludes = eval_support ? Build.preludes(loader, target) : []
@@ -94,12 +141,19 @@ module Zr
         body = preludes.empty? ? main.body : Seq.new([*preludes, main.body], 0)
         body = Seq.new([data(main, loader.data_at(main.file)), body], 0) if loader.data_at(main.file)
         spots = [main, *loader.units].filter_map { |unit| [unit.file, unit.spots] if unit.spots && !unit.spots.empty? }.to_h
-        coverable = loader.covers? ? loader.coverable : {}
+        coverable = loader.covers? ? loader.coverable : {} #: Hash[String, [Integer, Array[Integer]]]
         Program.new(main.file, main.locals, body, loader.units, main.warnings, eval_support && loader.evals?, loader.entries, loader.tracing?,
                     main.node_ids, spots, coverable, loader.activations, loader.covers? ? loader.branches : {},
                     loader.covers? ? loader.defs : {})
       end
 
+      # @rbs file: String
+      # @rbs loader: Loader?
+      # @rbs encoding: Encoding
+      # @rbs shadowed: Hash[[String, bool, Symbol], bool]
+      # @rbs root: Prism::ProgramNode?
+      # @rbs eval: bool
+      # @rbs return: void
       def initialize(file, loader = nil, encoding = ::Encoding::UTF_8, shadowed: {}, root: nil, eval: false)
         @file = file
         @eval = eval
@@ -139,9 +193,17 @@ module Zr
       # parameters in `rows`, each read from the scope in `scopes`
       # (innermost first) that contains it. A parameter with no name (a
       # destructured one) cannot be passed, so neither `super` can.
+      #: (Array[[Symbol, Symbol]] rows, Array[Array[Symbol]] scopes) -> void
       def within_method(rows, scopes)
         return if rows.any? { |_, name| name.nil? || scopes.none? { |names| names.include?(name) } }
 
+        # @type var required: Array[param]
+        # @type var optional: Array[[Symbol, node?]]
+        # @type var post: Array[param]
+        # @type var keywords: Array[[Symbol, node?]]
+        # @type var rest: Symbol?
+        # @type var kwrest: Symbol?
+        # @type var block: Symbol?
         required, optional, post, keywords = [], [], [], []
         rest = kwrest = block = nil
         rows.each do |kind, name|
@@ -156,20 +218,25 @@ module Zr
           end
         end
         @def_params = Params.new(required, optional, rest, post, keywords, kwrest, block)
-        @def_depths = rows.to_h { |_, name| [name, 1 + scopes.index { |names| names.include?(name) }] }
+        @def_depths = rows.to_h do |_, name|
+          # The first line returns if a name is in no scope.
+          depth = scopes.index { |names| names.include?(name) } #: Integer
+          [name, 1 + depth]
+        end
       end
 
       # The warnings ruby's compiler gives for the file's regexp literals,
       # after the parser's own.
-      attr_reader :warnings
+      attr_reader :warnings #: Array[String]
 
       # The prism node id of each HIR node that this file built, or nil.
-      attr_reader :node_ids
+      attr_reader :node_ids #: Hash[Node, Integer]
 
       # Ruby's compiler warns as it compiles a file (not an eval) with a
       # `return` of a value at its top level, where the value goes
       # nowhere. The warning has the file and no line. A `return` in a
       # `class << self` body belongs to a method or a block, never to the top level.
+      #: () -> void
       def top_return_warning
         return if @eval || @in_def || @in_sclass || @block_depth.positive? || @path != [Object.name]
 
@@ -177,6 +244,7 @@ module Zr
       end
 
       # The hidden locals the toplevel scope needs.
+      #: () -> Array[Symbol]
       def temps = @temps.first
 
       # The names of the anonymous parameters `*`, `**`, `&` and `...`,
@@ -185,6 +253,7 @@ module Zr
 
       # Builds `body` in a branch that a literal condition never takes,
       # if `never` is true.
+      #: [T] (bool never) { () -> T } -> T
       def dead(never)
         @dead += 1 if never
         yield
@@ -195,6 +264,7 @@ module Zr
       # Builds `body` one block scope deeper. A `using` in a block at the
       # top level of a file refines the file's own scope, so it applies to
       # the rest of the file after the block, as in ruby.
+      #: [T] () { () -> T } -> T
       def in_block
         @block_depth += 1
         using = @using
@@ -209,6 +279,7 @@ module Zr
       end
 
       # Builds `body` in a new scope: a def or a class body.
+      #: [T] () { () -> T } -> T
       def in_scope
         was = [@block_depth, @def_params, @def_depths]
         @block_depth = 0
@@ -226,6 +297,7 @@ module Zr
       end
 
       # A scope's locals: the parser's, then the hidden ones from its body.
+      #: (Array[Symbol] locals) -> Array[Symbol]
       def with_temps(locals) = locals + @temps.last
 
       # The globals that are in the frame or the task, not the global
@@ -238,12 +310,14 @@ module Zr
         :$-0 => :$/, :$-F => :$;, :$-v => :$VERBOSE, :$-w => :$VERBOSE, :$-d => :$DEBUG
       }.freeze
 
+      #: (Symbol name) -> Symbol
       def gvar_name(name)
         GVAR_ALIASES.fetch(name, name)
       end
 
       # A `$name` read: through an alias of a frame global, `$@` as the
       # backtrace of `$!`, or the global itself.
+      #: (Symbol name, Integer line) -> node
       def gvar_read(name, line)
         aliased = @loader&.back_ref(name)
         if aliased && (flag = @loader.alias_flag(name))
@@ -258,6 +332,7 @@ module Zr
       # `$name = value`: a write through an alias of a frame global goes to
       # that global, and keeps the program's name for error messages.
       # Every back reference is read-only, as `$&` is.
+      #: (Symbol name, node? value, Integer line) -> node
       def gvar_write(name, value, line)
         aliased = @loader&.back_ref(name)
         target = if aliased.is_a?(Prism::GlobalVariableReadNode) then aliased.name
@@ -271,6 +346,7 @@ module Zr
 
       # `$&`, `` $` ``, `$'` and `$+`: from the last match, or nil if there
       # is none.
+      #: (Prism::BackReferenceReadNode node, Integer line) -> BackRef
       def back_reference(node, line)
         case node.name
         when :$& then BackRef.new(:nth, 0, line)
@@ -285,13 +361,14 @@ module Zr
       # the left side is true to the run where the right side is true. The
       # state is a hidden local of the enclosing def, so a block shares its
       # method's state, as in ruby.
+      #: (Prism::FlipFlopNode node, Integer line) -> If
       def flip_flop(node, line)
         state = flip_flop_state
         depth = @block_depth
         ends = -> { If.new(end_test(node.right, line), Assign.new(state, depth, Literal.new(false, line), line), nil, line) }
         # `...` waits for the next run before it can turn off. `..` tests
         # the right side at once, so a one-run range ends where it started.
-        started = [Assign.new(state, depth, Literal.new(true, line), line)]
+        started = [Assign.new(state, depth, Literal.new(true, line), line)] #: Array[node]
         started << ends.call unless node.exclude_end?
         started << Literal.new(true, line)
         If.new(Local.new(state, depth, line),
@@ -303,6 +380,7 @@ module Zr
       # An end of a flip-flop. A missing end never fires. An integer
       # literal is a test of the last line read, `$. == n`, as ruby's
       # compiler makes it.
+      #: (Prism::node? node, Integer line) -> node
       def end_test(node, line)
         return Literal.new(nil, line) unless node
         return Send.of(gvar_read(:$., line), :==, [expr(node)], line) if node.is_a?(Prism::IntegerNode)
@@ -310,6 +388,7 @@ module Zr
         expr(node)
       end
 
+      #: () -> Symbol
       def flip_flop_state
         @flip_flops = (@flip_flops || 0) + 1
         name = :"%flip_flop#{@flip_flops}"
@@ -322,13 +401,14 @@ module Zr
       #
       # A sequence returns its last statement's value, so the value of each
       # earlier statement is never used, in every context.
+      #: (Prism::StatementsNode? node, ?hoist: bool, ?taken: bool) -> Seq
       def seq(node, hoist: false, taken: true)
         return Seq.new([], 1) if node.nil?
 
         body = node.body
         if hoist
           early, rest = body.partition { |s| s.is_a?(Prism::PreExecutionNode) }
-          body = early + rest
+          body = early + rest #: Array[Prism::node]
         end
         last = body.size - 1
         Seq.new(body.each_with_index.map { |s, i| statement(s, taken: taken && i == last) }, node.location.start_line)
@@ -337,6 +417,7 @@ module Zr
       # One statement. Each send in it gets the activation that is active
       # at the statement. A `using` changes the activation for the
       # statements after it.
+      #: (Prism::node node, ?taken: bool) -> node
       def statement(node, taken: true)
         # `using_activation` makes every `using` entry, so a statement that
         # made none contains none. Then skip the walk below, which reads
@@ -359,6 +440,7 @@ module Zr
 
       # The `using` entries in a statement, below its top level, which a
       # condition can skip.
+      #: (untyped node, Hash[Integer, bool] seen, ?Array[Using] out) -> Array[Using]
       def usings_in(node, seen, out = [])
         return out if node.nil? || seen.key?(node.object_id)
 
@@ -377,6 +459,7 @@ module Zr
       # `using mod` where ruby permits it: at toplevel or in a class or
       # module body, never in a method, and never as a send whose value
       # is used.
+      #: (Prism::node node) -> Using?
       def using_activation(node)
         return nil if @in_def
         return nil unless node.is_a?(Prism::CallNode) && node.name == :using && node.block.nil?
@@ -392,6 +475,7 @@ module Zr
         Using.new(@using, from, value, node.location.start_line)
       end
 
+      #: (untyped node, Hash[Integer, bool] seen) -> void
       def mark_using(node, seen)
         return if node.nil? || seen.key?(node.object_id)
 
@@ -417,6 +501,7 @@ module Zr
       # it. So `puts 1; /[z-a]/; puts 2` runs, but the same literal as a
       # scope's value is a SyntaxError. A regexp is the only literal that
       # zr reads when it builds, so only it uses this flag.
+      #: (untyped node, ?taken: bool) -> node
       def expr(node, taken: true)
         noted(built(node, taken: taken), node)
       end
@@ -424,11 +509,13 @@ module Zr
       # `hir` came from prism's `node`. Its frame reports that node's id,
       # as node_id_for_backtrace_location reads it. A HIR node that an
       # inner prism node already built keeps the inner node's id.
+      #: (untyped hir, Prism::node node) -> untyped
       def noted(hir, node)
         @node_ids[hir] ||= node.node_id if @node_ids && hir.is_a?(Node)
         hir
       end
 
+      #: (Prism::node node, ?taken: bool) -> node
       def built(node, taken: true)
         line = node.location.start_line
         case node
@@ -579,12 +666,13 @@ module Zr
       # have its `taken`. An `ensure` runs only for its effect, so its
       # value is never used. A `rescue` body is different: ruby reads a
       # regexp there even if the region's value is not used.
+      #: (Prism::BeginNode node, ?taken: bool) -> node
       def protected_region(node, taken: true)
         line = node.location.start_line
         body = guarded(node.rescue_clause) { node.statements ? seq(node.statements, taken: taken) : Literal.new(nil, line) }
         return body if node.rescue_clause.nil? && node.ensure_clause.nil?
 
-        rescues = []
+        rescues = [] #: Array[Rescue]
         clause = node.rescue_clause
         while clause
           rescues << rescue_clause(clause)
@@ -602,6 +690,7 @@ module Zr
       # Builds the block's body as the body of a region whose clauses
       # start at `clause`. When one of them rescues LoadError, a require in
       # the body is guarded: it can fail when it runs (`gate!`).
+      #: [T] (Prism::RescueNode? clause) { () -> T } -> T
       def guarded(clause)
         rescues = false
         while clause
@@ -614,6 +703,7 @@ module Zr
         @guarded -= 1 if rescues
       end
 
+      #: (Prism::RescueNode node) -> Rescue
       def rescue_clause(node)
         line = node.location.start_line
         classes = node.exceptions.map { |e| e.is_a?(Prism::SplatNode) ? splat(e, line) : expr(e) }
@@ -622,6 +712,7 @@ module Zr
 
       # The value of `return`, `break` and `next`: none is nil, one value
       # is itself, and several are an Array.
+      #: (Prism::ArgumentsNode? arguments, Integer line) -> node
       def jump_value(arguments, line)
         args = arguments&.arguments || []
         return Literal.new(nil, line) if args.empty?
@@ -634,6 +725,7 @@ module Zr
 
       # `[scope, name]` of a constant path: nil for a bare name, :top for
       # `::Name`, else the expression before the last `::`.
+      #: (Prism::node node) -> [scope, Symbol?]
       def constant_path(node)
         case node
         when Prism::ConstantReadNode then [nil, node.name]
@@ -646,7 +738,9 @@ module Zr
       # The scope of a constant that `A::B op= v` reads and writes. A path
       # of constants gives the same value twice. A computed scope goes into
       # a hidden local, so it is evaluated once.
+      #: (Prism::node node, Integer line) -> [scope, Symbol?, node?]
       def constant_scope(node, line)
+        # @type var scope: untyped
         scope, name = constant_path(node)
         return [scope, name, nil] if scope.nil? || scope == :top || constant_only?(scope)
 
@@ -654,14 +748,17 @@ module Zr
         [read(slot, line), name, set(slot, scope, line)]
       end
 
+      #: (node? prelude, node node, Integer line) -> node
       def with_scope(prelude, node, line)
         prelude ? Seq.new([prelude, node], line) : node
       end
 
+      #: (scope scope) -> bool
       def constant_only?(scope)
         scope.is_a?(ConstRead) && (scope.scope.nil? || scope.scope == :top || constant_only?(scope.scope))
       end
 
+      #: (Prism::DefNode node) -> Def
       def define(node)
         @loader.loads_by_def!(node)
         marks = @body_marks
@@ -685,6 +782,7 @@ module Zr
 
       # The body with the `Primitive.attr!` calls of `marks` first, where
       # a def's own attributes are.
+      #: (node body, Array[Symbol] marks, Integer line) -> node
       def marked(body, marks, line)
         return Begin.new(*body.to_a).tap { |b| b.body = marked(body.body, marks, line) } if body.is_a?(Begin)
 
@@ -700,6 +798,7 @@ module Zr
       # string, and a `send` or `method` that calls one of them by name.
       # A `return` in a `class << self` body has no home either: it returns
       # from the method that holds the body.
+      #: (Prism::node? node, ?sclass: bool) -> bool
       def evals?(node, sclass: false)
         return false if node.nil? || node.is_a?(Prism::DefNode)
         return true if node.is_a?(Prism::CallNode) && eval_call?(node)
@@ -712,8 +811,9 @@ module Zr
       # `Build.eval_call?` for a prism call, whose arguments are still
       # nodes. A leading Symbol literal is the method name that a send
       # calls or a fetch returns.
+      #: (Prism::CallNode node) -> bool
       def eval_call?(node)
-        args = node.arguments&.arguments || []
+        args = node.arguments&.arguments || [] #: Array[untyped]
         named = args.first.unescaped.to_sym if args.first.is_a?(Prism::SymbolNode)
         Build.eval_call?(node.name, named: named, argc: args.size)
       end
@@ -721,6 +821,7 @@ module Zr
       # Runs a body with its definee: one step down the lexical path, and
       # whether it is the singleton side. A `using` in a body applies to
       # the rest of that body and to nothing outside it.
+      #: [T] (String? name, bool singleton) { () -> T } -> T
       def in_definee(name, singleton)
         @path.push(name) if name
         was = @singleton
@@ -738,6 +839,7 @@ module Zr
 
       # A bare `super`: passes the method's parameters with their current
       # values, as a `Super` with the locals of the enclosing def.
+      #: (Prism::ForwardingSuperNode node, Integer line) -> (ZSuper | Super)
       def zsuper(node, line)
         p = @def_params or return ZSuper.new(node.block && block(node.block), line)
 
@@ -745,12 +847,12 @@ module Zr
           name = name.whole if name.is_a?(MultiTarget)
           Local.new(name, @block_depth + (@def_depths ? @def_depths.fetch(name) : 0), line)
         end
-        positional = (p.required + p.optional.map(&:first)).map(&local)
+        positional = (p.required + p.optional.map(&:first)).map(&local) #: Array[node]
         positional << Splat.new(local.call(p.rest), line) if p.rest && p.rest != :implicit
         positional += p.post.map(&local)
         # The rest goes in first, in the order that ruby's own zsuper
         # builds the hash.
-        pairs = p.kwrest && p.kwrest != :nokey ? [HashSplat.new(local.call(p.kwrest), line), nil] : []
+        pairs = p.kwrest && p.kwrest != :nokey ? [HashSplat.new(local.call(p.kwrest), line), nil] : [] #: Array[node?]
         pairs += p.keywords.flat_map { |name, _| [Literal.new(name, line), local.call(name)] }
         kwargs = pairs.empty? ? nil : HashLit.new(pairs, line)
         block = node.block ? block(node.block) : (p.block && BlockPass.new(local.call(p.block), line))
@@ -758,6 +860,7 @@ module Zr
       end
 
       # A ParametersNode as one Params.
+      #: (Prism::ParametersNode? node) -> Params
       def parameters(node)
         return Params.new([], [], nil, [], [], nil, nil) if node.nil?
 
@@ -785,6 +888,7 @@ module Zr
       # A required parameter: its name, or a MultiTarget for `(a, b)`. A
       # bare super passes such an argument as it was given, so the full
       # value is kept in a hidden local next to the destructured names.
+      #: (untyped param) -> param
       def name_of(param)
         return param.name unless param.is_a?(Prism::MultiTargetNode)
 
@@ -793,6 +897,7 @@ module Zr
         target
       end
 
+      #: (Prism::MultiTargetNode | Prism::MultiWriteNode node) -> MultiTarget
       def multi_target(node)
         line = node.location.start_line
         rest = case node.rest
@@ -805,6 +910,7 @@ module Zr
       end
 
       # One target of a multiple assignment.
+      #: (Prism::node node) -> node
       def target(node)
         line = node.location.start_line
         case node
@@ -832,12 +938,14 @@ module Zr
 
       # The indexes of an index target. A splat disables the inline `[]`
       # path, because the count is known only at run time.
+      #: (Prism::IndexTargetNode | Prism::IndexOperatorWriteNode | Prism::IndexOrWriteNode | Prism::IndexAndWriteNode node, Integer line) -> Array[node]
       def index_args(node, line)
         (node.arguments&.arguments || []).map { |a| a.is_a?(Prism::SplatNode) ? splat(a, line) : expr(a) }
       end
 
       # A rest parameter's name. `|a, |` has an implicit rest that binds
       # nothing.
+      #: (Prism::node node) -> Symbol
       def rest_name(node)
         case node
         when Prism::ImplicitRestNode then :implicit
@@ -850,6 +958,7 @@ module Zr
       end
 
       # A block literal, or the `&value` a call passes on.
+      #: (Prism::BlockNode | Prism::BlockArgumentNode node) -> block
       def block(node)
         line = node.location.start_line
         return BlockPass.new(node.expression ? expr(node.expression) : Local.new(ANONYMOUS[:block], @block_depth, line), line) if node.is_a?(Prism::BlockArgumentNode)
@@ -864,6 +973,7 @@ module Zr
 
       # A block's Params and the locals prism leaves implicit: `it`, or
       # the numbered parameters.
+      #: (Prism::node? node) -> [Params, Array[Symbol]]
       def block_params(node)
         none = Params.new([], [], nil, [], [], nil, nil)
         case node
@@ -882,8 +992,10 @@ module Zr
 
       # Whether the definee of this call defines its own `require` or
       # `load`, which dispatch finds before Kernel's.
+      #: (Symbol name) -> bool
       def shadowed?(name) = @shadowed.key?([@path.join("::"), @singleton, name])
 
+      #: (Prism::CallNode node) -> node
       def call(node)
         mark = body_mark(node)
         @body_marks |= [mark] if mark
@@ -903,6 +1015,7 @@ module Zr
       # compile.c's opt_newarray_send: `[a, b].min` or `.max` on a literal
       # that is not static and has no splat runs without Array#min, which
       # compares in the other order. The core's own files keep the send.
+      #: (Prism::CallNode node) -> bool
       def newarray_send?(node)
         %i[min max].include?(node.name) && node.receiver.is_a?(Prism::ArrayNode) && !node.receiver.static_literal? &&
           node.receiver.elements.none? { |e| e.is_a?(Prism::SplatNode) || e.is_a?(Prism::KeywordHashNode) } &&
@@ -911,6 +1024,7 @@ module Zr
 
       # The program itself sends the method when it is redefined, so the
       # send sees what the program sees.
+      #: (Prism::CallNode node) -> Seq
       def newarray_send(node)
         line = node.location.start_line
         items = temp("items")
@@ -921,6 +1035,7 @@ module Zr
 
       # A file of the program uses rubygems' API. rubygems' own files and
       # the runtime's files do not count.
+      #: (Symbol name) -> void
       def gems!(name)
         @loader.gems!(name) if @loader && !@loader.ahead?(@file) && !Library::Roots.runtime_file?(@file)
       end
@@ -932,6 +1047,7 @@ module Zr
       # helpers that CRuby writes as a C struct. `:ivars` marks a class
       # whose instance variables CRuby shows. `:sends_each` marks methods
       # that send `each` by name, as CRuby's rb_block_call does.
+      #: (Prism::CallNode node) -> Symbol?
       def body_mark(node)
         mark = node.arguments&.arguments&.first
         return unless !@in_def && node.name == :attr! && node.receiver.is_a?(Prism::ConstantReadNode) && node.receiver.name == :Primitive &&
@@ -944,6 +1060,7 @@ module Zr
       # by `load`, or given a file by an eval) keeps its literal
       # require_relative as a send. The name that it passes is made from
       # that file's directory, which the runtime's frame cannot know.
+      #: (Prism::CallNode node, Send send) -> Send
       def relative_in_file(node, send)
         return send unless @loader&.eval? && node.name == :require_relative && node.receiver.nil? && File.absolute_path?(@file)
 
@@ -960,6 +1077,7 @@ module Zr
       # call searches at run time, and finds a file that was not compiled
       # in only if the program changed $LOAD_PATH. That change already
       # links in the compiler.
+      #: (Prism::CallNode node, ?compiles: bool) -> Send
       def plain_call(node, compiles: true)
         args, kwargs, forwarded = arguments(node.arguments)
         # A receiverless call in a module that defines its own `load` or
@@ -997,6 +1115,7 @@ module Zr
                  blk, kwargs, safe, node.attribute_write?, nil, covers&.first && covers)
       end
 
+      #: [T] (Symbol name) { () -> T } -> T
       def in_refine(name)
         return yield unless name == :refine
 
@@ -1011,6 +1130,7 @@ module Zr
 
       # A call's line is its name's line, which can differ from the
       # receiver's if the receiver has several lines.
+      #: (Prism::CallNode node) -> Integer
       def message_line(node) = node.message_loc&.start_line || node.location.start_line
 
       # The globals that ruby always has. Their `defined?` is
@@ -1022,6 +1142,7 @@ module Zr
       # `defined?(value)`, as CRuby's defined_expr0: the result of each
       # form. The form decides at compile time. Only an ivar, gvar, cvar,
       # constant, method, yield or super is tested at run time.
+      #: (Prism::node node, Integer line) -> Defined
       def defined(node, line)
         case node
         when Prism::LocalVariableReadNode, Prism::ItLocalVariableReadNode then Defined.new(:local, nil, line)
@@ -1070,10 +1191,12 @@ module Zr
       # Every form that writes a variable, a constant, an attribute or an
       # index, including operator assignments. A named-capture match is a
       # call.
+      #: (untyped node) -> bool
       def assignment?(node) = node.class.name.end_with?("WriteNode") && !node.is_a?(Prism::MatchWriteNode)
 
       # `for x in list; body; end` is `list.each { |x| body }` with the
       # body in the enclosing scope: its locals move one scope out.
+      #: (Prism::ForNode node) -> Send
       def for_loop(node)
         line = node.location.start_line
         target = deepen(target(node.index), 0)
@@ -1097,6 +1220,7 @@ module Zr
 
       # `node` as read from one block scope deeper: every local at
       # `level` or more is one scope further out.
+      #: (untyped node, Integer level) -> untyped
       def deepen(node, level)
         case node
         when Local, Assign
@@ -1132,6 +1256,7 @@ module Zr
       # `[args, kwargs, block]` of an argument list: the args (with any
       # Splats), the keywords as one HashLit or nil, and the block that
       # `...` forwards, or nil.
+      #: (Prism::ArgumentsNode? node) -> [Array[node], HashLit?, BlockPass?]
       def arguments(node)
         kwargs = nil
         block = nil
@@ -1159,11 +1284,12 @@ module Zr
       # keywords that are all Symbol literals compile so; with a `**` or
       # any other key among them, ruby builds a Hash, which keeps the
       # first place.
+      #: (Array[untyped] pairs, Integer line) -> Array[node?]
       def call_keyword_pairs(pairs, line)
         return pairs unless pairs.each_slice(2).all? { |k, _| k.is_a?(Literal) && k.value.is_a?(Symbol) }
 
         keys = pairs.each_slice(2).map { |k, _| k.value }
-        out = []
+        out = [] #: Array[node?]
         pairs.each_slice(2).with_index do |(k, v), i|
           if keys[i] && keys.drop(i + 1).include?(keys[i])
             out.push(HashSplat.new(Seq.new([v, HashLit.new([], line)], line), line), nil)
@@ -1176,6 +1302,7 @@ module Zr
 
       # `*value`, or a bare `*`: the anonymous rest parameter that the
       # method forwards, anywhere a splat can be.
+      #: (Prism::SplatNode node, Integer line) -> Splat
       def splat(node, line)
         Splat.new(node.expression ? expr(node.expression) : Local.new(ANONYMOUS[:rest], @block_depth, line), line)
       end
@@ -1183,6 +1310,7 @@ module Zr
       # The bodies that a file always runs when it loads: its own
       # statements, a class or a module body, and a `begin` for grouping.
       # A branch, a loop, a block and a method body are not included.
+      #: (Prism::node? node) -> Array[Prism::node?]?
       def self.always_run(node)
         case node
         when Prism::ProgramNode, Prism::BeginNode then [node.statements]
@@ -1192,6 +1320,7 @@ module Zr
       end
 
       # Every `alias $x $&` the file always runs, by identity.
+      #: (Prism::node? node, ?Hash[Prism::node, bool] out) -> Hash[Prism::node, bool]
       def self.certain_aliases(node, out = {}.compare_by_identity)
         (always_run(node) || []).compact.each do |child|
           out[child] = true if child.is_a?(Prism::AliasGlobalVariableNode)
@@ -1202,24 +1331,28 @@ module Zr
 
       # Whether this file always runs `node`. The walk occurs at the first
       # call, which for almost every file never occurs.
+      #: (Prism::node node) -> bool
       def certain_alias?(node)
         return true unless @root
 
         (@certain ||= Build.certain_aliases(@root)).key?(node)
       end
 
+      #: (Prism::node node, String message) -> bot
       def refuse(node, message)
         raise Refused, "#{@file}:#{node.location.start_line}: #{message}"
       end
 
       # A form of Ruby that zr does not support yet, at the node's line and
       # column. `form` is in user words (Refused.form_of).
+      #: (Prism::node node, ?String form) -> bot
       def unsupported(node, form = Refused.form_of(node))
         raise Refused.unsupported(form, file: @file, line: node.location.start_line, column: node.location.start_column + 1)
       end
 
       # A refusal of a form that ruby also refuses. A program that compiles
       # it at run time gets the SyntaxError that ruby raises.
+      #: (Prism::node node, String message) -> bot
       def invalid(node, message)
         raise Invalid, "#{@file}:#{node.location.start_line}: #{message}"
       end
@@ -1228,6 +1361,7 @@ module Zr
       # node's first line, and `taken` is the flag of `built`.
       private
 
+      #: (Prism::LambdaNode node, Integer line) -> Lambda
       def lambda_literal(node, line)
         in_block do
           params, extra = block_params(node.parameters)
@@ -1237,6 +1371,7 @@ module Zr
         end
       end
 
+      #: (untyped node, Integer line) -> (Undef | UndefValue)
       def undef_names(node, line)
         return UndefValue.new(node.names.map { |n| expr(n) }, line) unless node.names.all?(Prism::SymbolNode)
 
@@ -1244,11 +1379,13 @@ module Zr
         Undef.new(names, line)
       end
 
+      #: (Prism::SuperNode node, Integer line) -> Super
       def super_call(node, line)
         args, kwargs, forwarded = arguments(node.arguments)
         Super.new(args, kwargs, node.block ? block(node.block) : forwarded, line)
       end
 
+      #: (Prism::IfNode node, Integer line, taken: bool) -> If
       def if_branch(node, line, taken:)
         chosen = chooses?(node.predicate)
         # The predicate gets its number first, because ruby's compiler
@@ -1261,6 +1398,7 @@ module Zr
                covered(else_cover, node.subsequent && dead(chosen == true) { expr(node.subsequent, taken: taken && chosen != true) }, line), line)
       end
 
+      #: (Prism::UnlessNode node, Integer line, taken: bool) -> If
       def unless_branch(node, line, taken:)
         chosen = chooses?(node.predicate)
         # Ruby lists an `unless`'s else before its then, and numbers them
@@ -1273,18 +1411,21 @@ module Zr
       end
 
       # A loop returns nil, so its body's value is not used.
+      #: (Prism::WhileNode node, Integer line) -> While
       def while_loop(node, line)
         body, = branch_covers(:while, span(node.location), loop_sides(node))
         While.new(expr(node.predicate), covered(body, node.statements && seq(node.statements, taken: false), line), line,
                   node.begin_modifier?)
       end
 
+      #: (Prism::UntilNode node, Integer line) -> While
       def until_loop(node, line)
         body, = branch_covers(:until, span(node.location), loop_sides(node))
         While.new(falsy(expr(node.predicate), line), covered(body, node.statements && seq(node.statements, taken: false), line), line,
                   node.begin_modifier?)
       end
 
+      #: (Prism::ClassNode node, Integer line) -> ClassDef
       def class_body(node, line)
         scope, name = constant_path(node.constant_path)
         @loader&.module_defined!(@path, node.constant_path.slice)
@@ -1297,6 +1438,7 @@ module Zr
         end
       end
 
+      #: (Prism::ModuleNode node, Integer line) -> ModuleDef
       def module_body(node, line)
         scope, name = constant_path(node.constant_path)
         @loader&.module_defined!(@path, node.constant_path.slice)
@@ -1308,6 +1450,7 @@ module Zr
         end
       end
 
+      #: (Prism::SingletonClassNode node, Integer line) -> SingletonClassDef
       def singleton_class_body(node, line)
         target = expr(node.expression)
         in_definee(nil, true) do
@@ -1320,12 +1463,14 @@ module Zr
         end
       end
 
+      #: (Prism::ConstantReadNode node, Integer line) -> ConstRead
       def const_read(node, line)
         @loader&.compiles!(node.name) unless @loader&.module_defined?(@path, node.name)
         gems!(node.name)
         ConstRead.new(nil, node.name, line)
       end
 
+      #: (untyped node, Integer line) -> ConstRead
       def const_path_read(node, line)
         # `Prism::Ruby` is not Ruby::Box: only a top-level `Ruby` compiles.
         @loader&.compiles!(node.name) unless node.name == :Ruby && node.parent
@@ -1334,6 +1479,7 @@ module Zr
         ConstRead.new(scope, name, line)
       end
 
+      #: (Prism::InterpolatedStringNode node, Integer line) -> node
       def interpolated_string(node, line)
         if node.frozen? then frozen_literal_string(static_text(node), line)
         # Adjacent literals with nothing interpolated are one literal.
@@ -1342,6 +1488,7 @@ module Zr
         end
       end
 
+      #: (Prism::RangeNode node, Integer line) -> RangeLit
       def range_literal(node, line)
         # Fixnum and nil ends make one frozen Range for the site, as
         # CRuby's optimizable_range_item_p decides.
@@ -1360,6 +1507,7 @@ module Zr
         RangeLit.new(low, high, node.exclude_end?, line, static)
       end
 
+      #: (Prism::AliasMethodNode node, Integer line) -> (Alias | AliasValue)
       def alias_method_names(node, line)
         if node.new_name.is_a?(Prism::SymbolNode) && node.old_name.is_a?(Prism::SymbolNode)
           Alias.new(node.new_name.unescaped.to_sym, node.old_name.unescaped.to_sym, line)
@@ -1368,6 +1516,7 @@ module Zr
         end
       end
 
+      #: (untyped node, Integer line) -> node
       def alias_global(node, line)
         if node.old_name.is_a?(Prism::GlobalVariableReadNode) && !FRAME_GVARS.include?(node.old_name.name)
           GvarAlias.new(node.new_name.name, node.old_name.name, line)
@@ -1384,6 +1533,7 @@ module Zr
         end
       end
 
+      #: (Prism::CaseNode node, Integer line, taken: bool) -> Case
       def case_when(node, line, taken:)
         covers = branch_covers(:case, span(node.location), case_sides(node, :when))
         clauses = node.conditions.map.with_index do |w, i|
@@ -1394,6 +1544,7 @@ module Zr
         Case.new(node.predicate && expr(node.predicate), clauses, covered(covers.last, other, line), line)
       end
 
+      #: (Prism::IndexOperatorWriteNode | Prism::IndexOrWriteNode | Prism::IndexAndWriteNode node, Integer line) -> IndexOpAssign
       def index_op_assign(node, line)
         unsupported(node, "a block in an index target") if node.block
         args = index_args(node, line)
@@ -1405,6 +1556,7 @@ module Zr
         IndexOpAssign.new(expr(node.receiver), args, op, expr(node.value), line)
       end
 
+      #: (Prism::CallOperatorWriteNode | Prism::CallOrWriteNode | Prism::CallAndWriteNode node, Integer line) -> AttrOpAssign
       def attr_op_assign(node, line)
         op = case node
              when Prism::CallOperatorWriteNode then node.binary_operator
@@ -1414,6 +1566,7 @@ module Zr
         AttrOpAssign.new(expr(node.receiver), node.read_name, op, expr(node.value), line, node.call_operator == "&.")
       end
 
+      #: (Prism::PostExecutionNode node, Integer line) -> Once
       def post_execution(node, line)
         # `END { }` shares the enclosing scope, so its body is one block
         # deeper, as an at_exit block.

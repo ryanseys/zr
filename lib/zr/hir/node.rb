@@ -42,7 +42,7 @@ module Zr
       children = case node
                  when Node then node.to_a
                  when Array then node
-                 else []
+                 else [] #: Array[untyped]
                  end
       block_given? ? children.each { |child| yield child } : children
     end
@@ -277,7 +277,7 @@ module Zr
           case t
           when Assign then [t.name]
           when MultiTarget then t.names
-          else []
+          else [] #: Array[Symbol]
           end
         end
       end

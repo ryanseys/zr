@@ -13,6 +13,7 @@ module Zr
 
         # `using mod` fills its activation entry, so every send under it
         # sees this module's refinements. It returns its self.
+        #: (Hir::Using node) -> String
         def using_row(node)
           at_node(node)
           checked(kernel("zr_using_activate", imm(node.id), expr(node.value), imm(node.from)))
@@ -27,6 +28,7 @@ module Zr
         # that is not made yet, for one that forwards to the entry before
         # it (a `using` that a condition skipped), and in a `refine` block,
         # where the list is the owner's and has no entry number.
+        #: (Hir::Send | Hir::Super node) -> void
         def activate(node)
           return if node.using.nil?
           return kernel("zr_activate_owner", @rec) if owner_using?(node)
@@ -57,6 +59,7 @@ module Zr
         # Removes this send's refinements from the task after the send. A
         # kernel callee leaves the word unchanged, and the next plain site
         # must not read it as its own.
+        #: (Hir::Send | Hir::Super node) -> void
         def deactivate(node)
           return if node.using.nil?
 
@@ -65,6 +68,7 @@ module Zr
 
         # Whether the site is in a `refine` block. Its list is the owner's,
         # which the kernel reads at each send.
+        #: (Hir::Send | Hir::Super node) -> bool
         def owner_using?(node)
           node.using == :owner
         end

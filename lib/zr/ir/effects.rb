@@ -58,12 +58,18 @@ module Zr
 
       # The regions that a call of the import or raw function `symbol`
       # can write.
+      #: (String symbol) -> Integer
       def import(symbol) = symbol.start_with?("zr_") || CALLBACKS.include?(symbol) ? ALL : UNKNOWN
 
+      # A nil `region` raises KeyError. The type takes nil, because a
+      # caller passes `Inst#region` or `static_region` after a check that
+      # Steep cannot follow.
+      #: (Symbol? region) -> Integer
       def bit(region) = BITS.fetch(region)
 
       # The region of the word at `offset` of the static `symbol`, or
       # nil when the symbol is not a static.
+      #: (String symbol, ?Integer offset) -> Symbol?
       def static_region(symbol, offset = 0)
         return nil unless symbol.start_with?(PREFIX)
 
@@ -74,6 +80,8 @@ module Zr
       end
 
       # Whether `effects` can write a word of `region`.
+      # A nil `region` raises KeyError, as in `bit`.
+      #: (Integer effects, Symbol? region) -> bool
       def writes?(effects, region) = (effects & BITS.fetch(region)) != 0
     end
   end

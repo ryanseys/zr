@@ -30,21 +30,26 @@ module Zr
     }.freeze
 
     # The form of a syntax node (a prism node or an HIR node) in words.
+    #: (untyped node) -> String
     def self.form_of(node)
       name = node.class.name.split("::").last.delete_suffix("Node")
       FORMS.fetch(name) { "#{name.gsub(/(?<=[a-z])(?=[A-Z])/, " ").downcase} (#{name})" }
     end
 
     # A refusal of `form` at the place in the source.
+    #: (String form, file: String?, line: Integer?, ?column: Integer?) -> Refused
     def self.unsupported(form, file:, line:, column: nil)
       place = [file, line, column].compact.join(":")
       new("#{place}: zr does not support #{form} yet", file: file, line: line, column: column, form: form)
     end
 
-    attr_reader :file, :line, :column, :form
+    attr_reader :file #: String?
+    attr_reader :line, :column #: Integer?
+    attr_reader :form #: String?
 
     # A stage that knows only a message (the linkers, the machine
     # dialect) gives only the message.
+    #: (?String? message, ?file: String?, ?line: Integer?, ?column: Integer?, ?form: String?) -> void
     def initialize(message = nil, file: nil, line: nil, column: nil, form: nil)
       super(message)
       @file = file
@@ -55,13 +60,17 @@ module Zr
 
     # The source line of the refusal, and a caret under its column, or
     # nil when the file cannot be read.
+    #: () -> String?
     def excerpt
-      return nil unless file && line && File.file?(file)
+      path = file
+      at = line
+      col = column
+      return nil unless path && at && File.file?(path)
 
-      text = File.foreach(file).drop(line - 1).first&.chomp
+      text = File.foreach(path).drop(at - 1).first&.chomp
       return nil unless text
 
-      caret = column ? "\n    #{" " * (column - 1)}^" : ""
+      caret = col ? "\n    #{" " * (col - 1)}^" : ""
       "    #{text}#{caret}"
     rescue SystemCallError, IOError, ArgumentError
       nil

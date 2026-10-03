@@ -1,0 +1,14 @@
+# The members of core and of the continuation library that
+# lib/zr/machine/host/boot.rb uses and RBS does not have.
+class Continuation
+  def call: (*untyped) -> bot
+end
+
+module Kernel
+  private def callcc: [T] () { (Continuation) -> T } -> T
+end
+
+module Process
+  def self.fork: () -> Integer?
+               | () { () -> void } -> Integer
+end

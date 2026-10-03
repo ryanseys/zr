@@ -3,18 +3,21 @@ module Zr
   module Obj
     module Elf
       module ObjectFile
+        # `offset` is nil until `write` places the section. `item` is nil
+        # in a section that no unit item makes; `write` reads it only in
+        # the others.
         class Section < Struct[untyped]
           attr_accessor name: String
           attr_accessor type: Integer
           attr_accessor flags: Integer
-          attr_accessor bytes: untyped
+          attr_accessor bytes: String
           attr_accessor size: Integer
           attr_accessor align: Integer
-          attr_accessor link: untyped
-          attr_accessor info: untyped
-          attr_accessor entsize: untyped
-          attr_accessor offset: untyped
-          attr_accessor item: untyped
+          attr_accessor link: Integer
+          attr_accessor info: Integer
+          attr_accessor entsize: Integer
+          attr_accessor offset: Integer?
+          attr_accessor item: Code | Datum
 
           def self.new: (**untyped) -> instance
         end

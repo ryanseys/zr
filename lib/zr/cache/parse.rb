@@ -27,11 +27,16 @@ module Zr
     # sets differ (the binary contains only the gem files that the port
     # loads), so ruby and a binary never share a parse.
     module Parse
+      # @rbs @parser: String?
+      # @rbs @stamps: Hash[String, [Rational, Integer]?]?
+      # @rbs @makers: Hash[Array[String], String | false | nil]?
+
       # The files of the parser: these, and every Ruby file under the trees.
-      GEM = Library::Ports.lib("prism")
+      GEM = Library::Ports.lib("prism") #: String
       FILES = [File.join(Library::Layout::EXT, "prism/prism.rb"), File.expand_path("../prism.rb", __dir__), __FILE__,
-               File.join(GEM, "prism.rb")].freeze
-      TREES = [File.join(Library::Layout::EXT, "prism/ruby"), File.expand_path("../prism_shim", __dir__), File.join(GEM, "prism")].freeze
+               File.join(GEM, "prism.rb")].freeze #: Array[String]
+      TREES = [File.join(Library::Layout::EXT, "prism/ruby"), File.expand_path("../prism_shim", __dir__),
+               File.join(GEM, "prism")].freeze #: Array[String]
 
       # The maximum source bytes whose parses a process keeps. A tree in
       # memory is tens of times the size of its source, so this is only a
@@ -52,10 +57,15 @@ module Zr
       # unlimited memo only keeps every tree until the build ends. For a
       # self-compile, that is gigabytes that the collector marks on each pass.
       class Memo
+        # @rbs @bound: Integer
+        # @rbs @held: Hash[String, Held]
+
         # A parse in the memo, and the bytes that it counts against the limit.
         class Held
-          attr_reader :result, :bytes
+          attr_reader :result #: Prism::ParseResult
+          attr_reader :bytes #: Integer
 
+          #: (result: Prism::ParseResult, bytes: Integer) -> void
           def initialize(result:, bytes:)
             @result = result
             @bytes = bytes
@@ -63,6 +73,7 @@ module Zr
           end
         end
 
+        #: (Integer bound) -> void
         def initialize(bound)
           @bound = bound
           @held = {}
@@ -70,9 +81,10 @@ module Zr
         end
 
         # The total source bytes of the parses in the memo.
-        attr_reader :bytes
+        attr_reader :bytes #: Integer
 
         # The result under `key`, made the most recently used, or nil.
+        #: (String key) -> Prism::ParseResult?
         def [](key)
           held = @held.delete(key) or return nil
 
@@ -84,6 +96,7 @@ module Zr
         # entries until the total is in the limit. It returns but does not
         # keep a source larger than the limit, so one big file cannot empty
         # the memo.
+        #: (String key, Prism::ParseResult result, Integer bytes) -> Prism::ParseResult
         def keep(key, result, bytes)
           return result if bytes > @bound
 
@@ -93,6 +106,7 @@ module Zr
           result
         end
 
+        #: () -> void
         def clear
           @held.clear
           @bytes = 0
@@ -100,6 +114,7 @@ module Zr
 
         private
 
+        #: () -> void
         def drop_oldest
           _, held = @held.shift
           @bytes -= held.bytes
@@ -116,25 +131,30 @@ module Zr
 
       # The parse for `key`: from an earlier build's cache file, else a new
       # parse by the port, written for the next build.
+      #: (String key, String source, Hash[Symbol, untyped] options) -> Prism::ParseResult
       def parsed(key, source, options)
         path = Store.path(:parse, "#{key}.marshal")
         read(path) || Prism.parse(source, **options).tap { |result| write(path, Marshal.dump(result)) }
       end
 
       # The parses that this process keeps.
+      #: () -> Memo
       def memo
         Session.current.memo(:parse_memo) { Memo.new(MEMO_BYTES) }
       end
 
+      #: (String source, Hash[Symbol, untyped] options) -> String
       def key(source, options)
         Digest::SHA256.new.tap { |digest| digest << parser << "\0" << options.inspect.b << "\0" << source.b }.hexdigest
       end
 
       # The digest of the parser, computed once per process.
+      #: () -> String
       def parser = @parser ||= parser_key(parser_digests)
 
       # One digest of ruby's version and each parser file (its path and its
       # own digest).
+      #: (Hash[String, String] digests) -> String
       def parser_key(digests)
         Digest::SHA256.new.tap do |digest|
           digest << RUBY_VERSION << "\0"
@@ -144,6 +164,7 @@ module Zr
 
       # Each parser file, with the SHA-256 of its bytes. Under ruby, it also
       # records each file stamp, and `write` checks them again.
+      #: () -> Hash[String, String]
       def parser_digests
         return ::Zr::Eval::Runtime.sources.select { |path, _| parser_file?(path) } unless HOSTED
 
@@ -156,6 +177,7 @@ module Zr
       # result), kept next to its parse. Its key is the parse key, `kind`,
       # and the digest of `files` (the code that derives it). If a file has
       # no digest, it returns the block's result and caches nothing.
+      #: (String kind, String source, Hash[Symbol, untyped] options, Array[String] files) { () -> String } -> String
       def derived(kind, source, options, files)
         maker = maker(files) or return yield
 
@@ -169,9 +191,10 @@ module Zr
       # One digest of `files` (the code that derives a cached form), or nil
       # if one of the files is missing. Under ruby, the files' stamps are
       # added to the parser's stamps, and `write` checks them again.
+      #: (Array[String] files) -> String?
       def maker(files)
-        @makers ||= {}
-        return @makers[files] || nil if @makers.key?(files)
+        makers = @makers ||= {} #: Hash[Array[String], String | false | nil]
+        return makers[files] || nil if makers.key?(files)
 
         digests = if HOSTED
                     files.to_h { |file| [file, File.file?(file) && Digest::SHA256.hexdigest(File.binread(file))] }
@@ -181,21 +204,24 @@ module Zr
                   end
         parser
         @stamps&.merge!(files.to_h { |file| [file, Paths.stamp(file)] })
-        @makers[files] = digests.values.all? && parser_key(digests)
-        @makers[files] || nil
+        makers[files] = digests.values.all? && parser_key(digests)
+        makers[files] || nil
       end
 
       # The parser files on disk.
+      #: () -> Array[String]
       def parser_files
         (FILES.select { |file| File.file?(file) } + TREES.flat_map { |tree| Dir[File.join(tree, "**/*.rb")] }).uniq.sort
       end
 
       # Checks the path only, because a compiled compiler has the digests but
       # not the files.
+      #: (String path) -> bool
       def parser_file?(path)
         FILES.include?(path) || (path.end_with?(".rb") && TREES.any? { |tree| path.start_with?("#{tree}/") })
       end
 
+      #: (String path) -> Prism::ParseResult?
       def read(path)
         result = Marshal.load(File.binread(path))
         result if result.is_a?(Prism::ParseResult)
@@ -208,6 +234,7 @@ module Zr
       # (`SourceGuard.check!`), or if a parser file changed after its digest. This
       # process parses with the code that it loaded, but the key identifies
       # the files on disk.
+      #: (String path, String bytes) -> void
       def write(path, bytes)
         moved = (@stamps || {}).find { |file, was| Paths.stamp(file) != was }
         raise SourceChanged, "#{moved.first} changed while this build ran; nothing it parsed is kept" if moved

@@ -48,7 +48,7 @@ module Zr
         Kind.new(:binary, :raw, "", nil),         # program test binaries; quota from ZR_TEST_BINARIES_GB
         Kind.new(:result, :raw, "", nil),         # host program tests that passed (test/support/result_cache.rb)
         Kind.new(:source, :raw, "", nil)          # a compiler file's digest without its comments (Digests.code)
-      ].to_h { |kind| [kind.name, kind] }.freeze
+      ].to_h { |kind| [kind.name, kind] }.freeze #: Hash[Symbol, Kind]
 
       # A root older than this protects nothing: the zr that wrote it is
       # likely gone.
@@ -65,6 +65,7 @@ module Zr
 
       module_function
 
+      #: () -> String
       def dir = File.join(Paths.cache, "store")
 
       # A key of `parts`: each part as a string, ended by a NUL, into one
@@ -76,8 +77,10 @@ module Zr
         digest.hexdigest
       end
 
+      #: (Symbol name) -> Kind
       def kind(name) = KINDS.fetch(name)
 
+      #: (Symbol name, String key) -> String
       def path(name, key)
         raise ArgumentError, "not a store key: #{key.inspect}" unless KEY.match?(key)
 
@@ -86,6 +89,7 @@ module Zr
 
       # The value of the entry, or nil when there is none or it does not
       # decode.
+      #: (Symbol name, String key) -> untyped
       def read(name, key)
         file = path(name, key)
         value = decode(kind(name).codec, file)
@@ -98,6 +102,7 @@ module Zr
       # Writes the entry and returns its path. A `:dir` kind takes a block
       # that fills the directory it gets. Writes nothing when a source
       # changed during the build (`SourceGuard.check!` raises SourceChanged).
+      #: (Symbol name, String key, ?untyped value) ?{ (String) -> void } -> String
       def write(name, key, value = nil, &)
         file = path(name, key)
         codec = kind(name).codec
@@ -113,6 +118,7 @@ module Zr
       # build never reads half of it, and returns `path`. Every write of
       # the cache comes here, also of a file whose path a cache makes
       # itself. Writes nothing when a source changed during the build.
+      #: (String path, String bytes) -> String
       def write_file(path, bytes)
         SourceGuard.check!
         Paths.write_atomic(path, bytes)
@@ -121,6 +127,7 @@ module Zr
       # Runs the block with the entry's path while this process holds the
       # entry's lock, unless the entry exists (`Paths.once`), and returns
       # the path. The block writes the file.
+      #: (Symbol name, String key, ?waiting: ^() -> void | nil) { (String) -> void } -> String
       def once(name, key, waiting: nil)
         file = path(name, key)
         Paths.once(file, waiting: waiting) { yield file }
@@ -131,6 +138,7 @@ module Zr
       # Records that the entries at `paths` (from `path`) are the ones that
       # root `name` needs. A root is replaced, not added to. A root that
       # has the same entries is only touched, so each build can call this.
+      #: (String name, Array[String?] paths) -> void
       def root(name, paths)
         raise ArgumentError, "not a root name: #{name.inspect}" unless name.match?(/\A[\w.-]+\z/)
 
@@ -143,6 +151,7 @@ module Zr
       end
 
       # The entries that the root file `file` lists, or nil when it has none.
+      #: (String file) -> String?
       def roots_of(file)
         File.binread(file)
       rescue SystemCallError
@@ -150,6 +159,7 @@ module Zr
       end
 
       # The path of an entry below the store's directory (`object/ab/ab12….o`).
+      #: (String path) -> String
       def relative(path)
         top = "#{dir}/"
         raise ArgumentError, "not a store entry: #{path}" unless path.start_with?(top)
@@ -159,9 +169,11 @@ module Zr
 
       # The path of each entry that a fresh root names (all roots, or those
       # whose name starts with `prefix`).
+      #: (?prefix: String?) -> Array[String]
       def rooted_paths(prefix: nil) = rooted(prefix: prefix).map { |line| File.join(dir, line) }
 
       # The relative path of each entry that a fresh root names.
+      #: (?Time now, ?prefix: String?) -> Array[String]
       def rooted(now = Time.now, prefix: nil)
         roots = File.join(dir, "roots")
         return [] unless File.directory?(roots)
@@ -177,6 +189,7 @@ module Zr
       end
 
       # Every entry of the kinds `names` (all kinds by default).
+      #: (?Array[Symbol] names) -> Array[Entry]
       def entries(names = KINDS.keys)
         names.map { |name| kind(name) }.flat_map do |kind|
           top = File.join(dir, kind.name.to_s)
@@ -196,6 +209,7 @@ module Zr
       end
 
       # The most bytes of kind `name`, or nil for no quota.
+      #: (Symbol name) -> (Integer | Float)?
       def quota(name)
         gb = name == :binary ? Config.current.test_binaries_gb : kind(name).quota_gb
         gb && (gb * (1 << 30))
@@ -206,12 +220,13 @@ module Zr
       # bytes (nil: no limit). `kinds` limits the pass to those kinds: a
       # write of a kind with a quota evicts only that kind. Returns the
       # entries it removed.
+      #: (?limit: (Integer | Float)?, ?kinds: Array[Symbol], ?now: Time) -> Array[Entry]
       def evict(limit: nil, kinds: KINDS.keys, now: Time.now)
         all = entries(kinds)
         kept = rooted(now).to_h { |line| [line, true] }
         total = all.sum(&:bytes)
         by_kind = all.group_by(&:kind).transform_values { |list| list.sum(&:bytes) }
-        removed = []
+        removed = [] #: Array[Entry]
         all.sort_by(&:mtime).each do |entry|
           next if kept[relative(entry.path)]
 
@@ -228,6 +243,7 @@ module Zr
 
       # Removes every entry that no fresh root names and that was not used
       # in the last `days`. Returns them.
+      #: (?days: Integer | Float, ?now: Time) -> Array[Entry]
       def clean(days: 0, now: Time.now)
         kept = rooted(now).to_h { |line| [line, true] }
         young = now - (days * 86_400)
@@ -241,6 +257,7 @@ module Zr
       # that a build makes now goes too; a second build then waits on a new
       # lock, and at worst builds the entry again, which the atomic write
       # allows.
+      #: () -> Array[String]
       def orphan_locks
         KINDS.each_key.flat_map do |name|
           top = File.join(dir, name.to_s)
@@ -255,15 +272,19 @@ module Zr
       end
 
       # Removes the whole store.
+      #: () -> void
       def clear = Paths.remove(dir)
 
+      #: (String dir) -> Array[String]
       def children(dir)
         File.directory?(dir) ? Dir.children(dir) : []
       end
 
       # The bytes of every file below `dir`.
+      #: (String dir) -> Integer
       def tree_bytes(dir) = Dir[File.join(dir, "**/*")].sum { |path| File.file?(path) ? File.size(path) : 0 }
 
+      #: (String file, ?Integer every) -> void
       def touch(file, every = TOUCH_EVERY)
         now = Time.now
         File.utime(now, now, file) if File.mtime(file) < now - every
@@ -272,11 +293,14 @@ module Zr
       end
 
       # JSON loads on first use, so a store that holds no JSON costs nothing.
+      #: () -> singleton(JSON)
       def json
         require "json"
         JSON
       end
 
+      # The value that `codec` decodes from `file`: any value.
+      #: (Symbol codec, String file) -> untyped
       def decode(codec, file)
         case codec
         when :raw then File.binread(file)
@@ -286,6 +310,8 @@ module Zr
         end
       end
 
+      # (`:raw` gives `value` as it is, so the result is not typed.)
+      #: (Symbol codec, untyped value) -> untyped
       def encode(codec, value)
         case codec
         when :raw then value
@@ -296,6 +322,7 @@ module Zr
 
       # Fills a new directory with the block, then renames it to `file`. A
       # second writer that renames first wins; this one's copy goes.
+      #: (String file) { (String) -> void } -> String
       def write_dir(file)
         Paths.mkdir_p(File.dirname(file))
         fresh = "#{file}.#{Process.pid}.#{Thread.current.object_id}"

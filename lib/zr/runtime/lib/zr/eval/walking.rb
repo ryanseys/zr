@@ -54,7 +54,9 @@ module Zr
       # not the interpreter's own file, which loaded hidden from the
       # program. So a constant that the string defines is the program's,
       # and so is a require that it makes.
+      #: () -> void
       def walk_enter = Primitive.zr_walk_enter
+      #: () -> void
       def walk_leave = Primitive.zr_walk_leave
 
       # `class << obj` and `obj.instance_eval`: the singleton class, or
@@ -63,6 +65,7 @@ module Zr
 
       # The scopes of a Binding, innermost first, each an Array of the
       # names of its slots; and one slot of one scope.
+      #: (Binding b) -> Array[Array[Symbol?]]
       def binding_scopes(b) = Primitive.zr_binding_scopes(b)
       def binding_get(b, depth, index) = Primitive.zr_binding_get(b, depth, index)
       def binding_set(b, depth, index, v) = Primitive.zr_binding_set(b, depth, index, v)

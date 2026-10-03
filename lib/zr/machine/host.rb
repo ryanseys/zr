@@ -26,6 +26,20 @@ module Zr
     # Only one kernel is `Zr::Kern` at a time; a new Host replaces it. A
     # build never loads this file.
     class Host
+      # @rbs @externs: Hash[String, Integer]
+      # @rbs @statics: Hash[String, Integer]
+      # @rbs @bytes: Hash[String, Integer]
+      # @rbs @callables: Hash[Integer, Proc]
+      # @rbs @def_names: Hash[Integer, String]
+      # @rbs @closures: Hash[String, Fiddle::Closure::BlockCaller]
+      # @rbs @functions: Hash[[Integer, Array[Type], Type], Fiddle::Function]
+      # @rbs @errno: Integer
+      # @rbs @stack_key: Symbol
+      # @rbs @stacks: Array[Stack]
+      # @rbs @rooted: Hash[String, Array[Symbol]]
+      # @rbs @collecting: bool
+      # @rbs @errno_location: Integer?
+
       WORD = 1 << 64
       MASK = WORD - 1
       SIGN = 1 << 63
@@ -49,10 +63,11 @@ module Zr
         ["Ptr", 8, Fiddle::TYPE_VOIDP, "Q<", :u64, :u64], ["I32", 4, Fiddle::TYPE_INT, "l<", :s32, :u32],
         ["I8", 1, Fiddle::TYPE_CHAR, "c", :S8, :U8], ["Bool", 1, Fiddle::TYPE_CHAR, "C", :U8, :U8],
         ["F64", 8, Fiddle::TYPE_DOUBLE, "E", :f64, :f64], ["Void", 0, Fiddle::TYPE_VOID, nil, nil, nil]
-      ].to_h { |row| [row.first, Type.new(*row)] }.freeze
+      ].to_h { |row| [row.first, Type.new(*row)] }.freeze #: Hash[String, Type]
 
       # The bits of `n` as a signed 64-bit Integer. Most words are in the
       # range already, and the test for that makes no Bignum.
+      #: (Integer n) -> Integer
       def self.signed(n)
         return n if n.bit_length < 64
 
@@ -61,10 +76,13 @@ module Zr
       end
 
       # The bits of `n` as an unsigned 64-bit Integer.
+      #: (Integer n) -> Integer
       def self.unsigned(n) = !n.negative? && n.bit_length <= 64 ? n : n & MASK
 
       # An Integer, or a Bool as 1 or 0.
+      #: (Integer | bool | nil value) -> Integer
       def self.bits(value)
+        # @type var value: untyped
         case value
         when true then 1
         when false, nil then 0
@@ -85,8 +103,12 @@ module Zr
       # written to a field of a cell gets the collector's write barrier, as
       # the lowering emits it (`Function#barrier`).
       class Layout
-        attr_reader :layout_fields, :layout_size, :layout_align
+        # @rbs @host: Host?
 
+        attr_reader :layout_fields #: Hash[String, [Integer, Type | Layout]]
+        attr_reader :layout_size, :layout_align #: Integer
+
+        #: (Hash[Symbol, Type | Layout] fields, ?Host? host) -> void
         def initialize(fields, host = nil)
           @host = host
           off = 0
@@ -112,6 +134,7 @@ module Zr
 
         # Marks this layout as a cell's: a store of a Value into one of its
         # fields runs the write barrier of the cell at `p`.
+        #: () -> void
         def cell!
           host = @host
           @layout_fields.each do |name, (at, type)|
@@ -127,6 +150,7 @@ module Zr
 
         private
 
+        #: (String name, Integer at, Type | Layout type) -> void
         def accessors(name, at, type)
           host = @host
           reader = if type.is_a?(Layout)
@@ -149,8 +173,12 @@ module Zr
       # `Name = fn [types] => type`: a call through a pointer,
       # `Name.call(p, ...)`.
       class Fn
-        attr_reader :params, :ret
+        # @rbs @host: Host
 
+        attr_reader :params #: Array[Type]
+        attr_reader :ret #: Type
+
+        #: (Host host, Array[Type] params, Type ret) -> void
         def initialize(host, params, ret)
           @host = host
           @params = params
@@ -170,11 +198,15 @@ module Zr
       # it. The kernel's own defs are all loaded by then, and the host's
       # layers prepended.
       class Libc
+        # @rbs @host: Host
+
+        #: (Host host) -> void
         def initialize(host)
           @host = host
           @imports = {}
         end
 
+        #: (Symbol name, Hash[untyped, Type] signature) -> Symbol
         def import(name, signature)
           pair = signature.find { |key, _| key.is_a?(Array) } or raise ArgumentError, "an import is `Libc.import :name, [types] => type`"
           params, ret = pair
@@ -182,10 +214,11 @@ module Zr
           define_singleton_method(name) { |*args| answer(name, params, ret).call(*args) }
         end
 
-        attr_reader :imports
+        attr_reader :imports #: Hash[String, [Array[Type], Type]]
 
         private
 
+        #: (Symbol name, Array[Type] params, Type ret) -> Proc
         def answer(name, params, ret)
           body = @host.answer(name.to_s, params, ret)
           define_singleton_method(name, &body)
@@ -197,6 +230,13 @@ module Zr
       # (`Function#intrinsic`). A name's id, static and address do not
       # change, so each is found once.
       class Intrinsics
+        # @rbs @host: Host
+        # @rbs @ids: Hash[Symbol, Integer]
+        # @rbs @statics: Hash[Symbol, Integer]
+        # @rbs @addrs: Hash[Symbol, Integer]
+        # @rbs @bytes: Hash[String, Integer]
+
+        #: (Host host) -> void
         def initialize(host)
           @host = host
           @ids = {}
@@ -205,64 +245,103 @@ module Zr
           @bytes = {}.compare_by_identity
         end
 
+        #: (Symbol name) -> Integer
         def id(name) = @ids[name] ||= @host.symbols.id(name.to_s)
+        #: (String string) -> Integer
         def bytesize(string) = string.bytesize
+        #: (String string) -> Integer
         def bytes(string) = @bytes[string] ||= @host.bytes(string)
+        #: (Symbol name) -> Integer
         def extern(name) = @host.extern(name.to_s)
+        #: (Symbol name, Integer size) -> Integer
         def static(name, size) = @statics[name] ||= @host.static(name.to_s, size)
+        #: (Integer size) -> Integer
         def slot(size) = @host.slot(size)
+        #: (Symbol name) -> Integer
         def addr(name) = @addrs[name] ||= @host.addr(name.to_s)
 
-        LOAD64 = Memory.reader(TYPES["Word"], 0)
-        LOAD32 = Memory.reader(TYPES["I32"], 0)
-        LOAD8 = Memory.reader(TYPES["I8"], 0)
-        STORE64 = Memory.writer(TYPES["Word"], 0)
-        STORE32 = Memory.writer(TYPES["I32"], 0)
-        STORE8 = Memory.writer(TYPES["I8"], 0)
+        LOAD64 = Memory.reader(TYPES["Word"], 0) #: ^(Integer) -> untyped
+        LOAD32 = Memory.reader(TYPES["I32"], 0) #: ^(Integer) -> untyped
+        LOAD8 = Memory.reader(TYPES["I8"], 0) #: ^(Integer) -> untyped
+        STORE64 = Memory.writer(TYPES["Word"], 0) #: ^(Integer, untyped) -> untyped
+        STORE32 = Memory.writer(TYPES["I32"], 0) #: ^(Integer, untyped) -> untyped
+        STORE8 = Memory.writer(TYPES["I8"], 0) #: ^(Integer, untyped) -> untyped
 
+        #: (Integer p, Integer off) -> Integer
         def load64(p, off) = LOAD64.call(p + off)
+        #: (Integer p, Integer off) -> Integer
         def load32(p, off) = LOAD32.call(p + off)
+        #: (Integer p, Integer off) -> Integer
         def load8(p, off) = LOAD8.call(p + off)
+        #: (Integer p, Integer off, Integer value) -> untyped
         def store64(p, off, value) = STORE64.call(p + off, value)
+        #: (Integer p, Integer off, Integer value) -> untyped
         def store32(p, off, value) = STORE32.call(p + off, value)
+        #: (Integer p, Integer off, Integer value) -> untyped
         def store8(p, off, value) = STORE8.call(p + off, value)
 
+        #: () -> Integer
         def gates = @host.gates
+        #: (Integer word) -> Integer
         def gates_set(word) = @host.gates = word
+        #: () -> nil
         def gates_enter = nil
 
         # A Word of `x`: an Integer in the signed range is one already.
+        #: (Integer | bool | nil x) -> Integer
         def word(x) = x.is_a?(Integer) && x.bit_length < 64 ? x : Host.signed(Host.bits(x))
+        #: (Integer | bool | nil x) -> Integer
         def sword(x) = word(x)
+        #: (Integer | bool | nil x) -> Integer
         def value(x) = @host.pin(word(x))
+        #: (Integer | bool | nil x) -> Integer
         def ptr(x) = Host.unsigned(Host.bits(x))
+        #: (Integer x) -> Integer
         def u8(x) = x & 0xFF
+        #: (Integer x) -> Integer
         def u32(x) = x & 0xFFFF_FFFF
+        #: (Integer | bool | nil x) -> Integer
         def i8(x) = narrow(Host.bits(x), 8)
+        #: (Integer | bool | nil x) -> Integer
         def i32(x) = narrow(Host.bits(x), 32)
 
+        #: (Integer a, Integer b) -> Integer
         def add_wrap(a, b) = Host.signed(a + b)
+        #: (Integer a, Integer b) -> Integer
         def sub_wrap(a, b) = Host.signed(a - b)
+        #: (Integer a, Integer b) -> Integer
         def mul_wrap(a, b) = Host.signed(a * b)
+        #: (Integer a, Integer b) -> Integer
         def shl_wrap(a, b) = Host.signed(a << (b & 63))
+        #: (Integer a, Integer b) -> Integer
         def uadd_wrap(a, b) = Host.unsigned(a + b)
+        #: (Integer a, Integer b) -> Integer
         def usub_wrap(a, b) = Host.unsigned(a - b)
+        #: (Integer a, Integer b) -> Integer
         def umul_wrap(a, b) = Host.unsigned(a * b)
+        #: (Integer a, Integer b) -> Integer
         def ushl_wrap(a, b) = Host.unsigned(a << (b & 63))
 
         # Division that truncates toward zero, as C's.
+        #: (Integer a, Integer b) -> Integer
         def sdiv(a, b)
           q = a.abs / b.abs
           (a.negative? ^ b.negative?) ? -q : q
         end
 
+        #: (Integer a, Integer b) -> Integer
         def srem(a, b) = a - (b * sdiv(a, b))
 
+        # `unpack1` has no one type.
+        #: (Integer w) -> untyped
         def f64(w) = [w & MASK].pack("Q<").unpack1("E")
+        #: (Float f) -> untyped
         def bits(f) = [f].pack("E").unpack1("q<")
+        #: (Integer w) -> Float
         def to_f64(w) = w.to_f
 
         # A double as a Word, saturated at the ends of the range; NaN is 0.
+        #: (Float f) -> Integer
         def to_int(f)
           return 0 if f.nan?
           return SIGN - 1 if f >= SIGN
@@ -271,24 +350,35 @@ module Zr
           f.to_i
         end
 
+        #: (Integer x) -> Integer
         def ctz(x)
           u = x & MASK
           u.zero? ? 64 : (u & -u).bit_length - 1
         end
 
+        #: (Integer x) -> Integer
         def clz(x) = 64 - (x & MASK).bit_length
+        #: (Integer x) -> Integer
         def popcnt(x) = (x & MASK).digits(2).count(1)
+        #: (Integer x) -> Integer
         def bswap(x) = Host.signed([x & MASK].pack("Q<").unpack1("Q>"))
 
+        #: (Float f) -> Float
         def sqrt(f) = f.negative? ? Float::NAN : Math.sqrt(f)
+        #: (Float f) -> Float
         def floor(f) = integral(f) { f.floor }
+        #: (Float f) -> Float
         def ceil(f) = integral(f) { f.ceil }
+        #: (Float f) -> Float
         def trunc(f) = integral(f) { f.truncate }
+        #: (Float f) -> Float
         def nearest(f) = integral(f) { f.round(half: :even) }
+        #: (Float f) -> Float
         def fabs(f) = f.abs
 
         private
 
+        #: (Integer n, Integer width) -> Integer
         def narrow(n, width)
           n &= (1 << width) - 1
           n >= (1 << (width - 1)) ? n - (1 << width) : n
@@ -296,6 +386,7 @@ module Zr
 
         # An IEEE rounding: NaN and infinities stay, and a zero keeps the
         # sign of `f`.
+        #: (Float f) { () -> Integer } -> Float
         def integral(f)
           return f if f.nan? || f.infinite?
 
@@ -309,14 +400,21 @@ module Zr
       # returns. Each fiber has its own area (`fiber_slots`).
       SLOT_BYTES = 64 << 20
 
-      attr_reader :kern, :symbols, :sigs, :slot_base, :collectors
+      # `kern` is the kernel module: its methods are the kernel's defs,
+      # which it gets as it loads, so its type is untyped.
+      attr_reader :kern #: untyped
+      attr_reader :symbols #: Symbols
+      attr_reader :sigs #: Hash[String, [Array[Type], Type]]
+      attr_reader :slot_base #: Integer
+      attr_reader :collectors #: Array[String]
 
       # The gate word (`Machine.gates`).
-      attr_accessor :gates
+      attr_accessor :gates #: Integer
 
       # `files` are kernel files; `constants` sets constants that the files
       # read from a kernel file outside them; `externs` gives the address
       # of each data object of another unit (`Machine.extern`).
+      #: (Array[String] files, ?symbols: Symbols, ?constants: Hash[String, untyped], ?externs: Hash[String, Integer]) -> void
       def initialize(files, symbols: Symbols.new, constants: {}, externs: {})
         @symbols = symbols
         @externs = externs
@@ -345,6 +443,9 @@ module Zr
       end
 
       # Calls the kernel def `name`.
+      # @rbs name: Symbol | String
+      # @rbs *: untyped
+      # @rbs return: untyped
       def call(name, *) = @kern.public_send(name, *)
 
       # What answers the import `name` (`Libc#answer`), as a lambda that
@@ -352,6 +453,7 @@ module Zr
       # name, a memory function in Ruby (`Memory.function`), or the C
       # function. Each lambda reads only its own locals, as a method of
       # `Libc` runs it.
+      #: (String name, Array[Type] params, Type ret) -> Proc
       def answer(name, params, ret)
         errno = @errno
         return ->(*) { errno } if ERRNO_FUNCTIONS.include?(name)
@@ -365,10 +467,11 @@ module Zr
         Memory.function(name, c) || c
       end
 
-      ERRNO_FUNCTIONS = %w[__error __errno_location].freeze
+      ERRNO_FUNCTIONS = %w[__error __errno_location].freeze #: Array[String]
 
       # A call through the pointer `at`: a function of the walker
       # (`callable`), a def that `Machine.addr` gave, or C code.
+      #: (Integer at, Array[Type] params, Type ret, Array[untyped] args) -> untyped
       def call_at(at, params, ret, args)
         body = @callables[at]
         return walker_call(body, ret, args) if body
@@ -382,6 +485,7 @@ module Zr
 
       # The address of the def `name`: a C function pointer that calls it,
       # so that C code can call it too.
+      #: (String name) -> Integer
       def addr(name)
         @closures.fetch(name) do
           params, ret = @sigs.fetch(name) { raise ArgumentError, "#{name} is not a def here" }
@@ -396,11 +500,13 @@ module Zr
       end
 
       # The name of the def whose address (`addr`) is `at`, or nil.
+      #: (Integer at) -> String?
       def def_at(at) = @def_names[at]
 
       # An address that the kernel calls through (`Name.call`) to run
       # `body`, a Ruby proc: a function of the walker. Only the kernel
       # calls it; C cannot.
+      #: (Proc body) -> Integer
       def callable(body)
         at = Memory.zeroed(16)
         @callables[at] = body
@@ -409,12 +515,15 @@ module Zr
 
       # The proc at `at` that `callable` gave, or nil: the walker calls it
       # with no call through the kernel's signature.
+      #: (Integer at) -> Proc?
       def body_at(at) = @callables[at]
 
+      #: (String name, Integer size) -> Integer
       def static(name, size)
         @statics.fetch(name) { @statics[name] = Memory.zeroed(size) }
       end
 
+      #: (String string) -> Integer
       def bytes(string)
         @bytes.fetch(string) do
           addr = Memory.zeroed(string.bytesize + 1, 1)
@@ -423,6 +532,7 @@ module Zr
         end
       end
 
+      #: (String name) -> Integer
       def extern(name)
         @externs.fetch(name) { raise ArgumentError, "no data object #{name} here" }
       end
@@ -449,28 +559,35 @@ module Zr
       end
 
       # This fiber's Stack. A thread starts on the main slot area.
+      #: () -> Stack
       def stack = Thread.current[@stack_key] ||= new_stack(@slot_base + SLOT_BYTES, @slot_base)
 
+      #: (Integer size) -> Integer
       def slot(size) = stack.take(size)
 
       # Where this fiber's next slot ends; a def that takes slots puts it
       # back.
+      #: () -> Integer
       def slot_top = stack.top
 
+      #: (Integer top) -> void
       def slot_top=(top)
         stack.top = top
       end
 
       # Gives this fiber the slot area that ends at `top`: a stack that the
       # kernel mapped for it, whose own guard page ends it.
+      #: (Integer top) -> Stack
       def fiber_slots(top)
         Thread.current[@stack_key] = new_stack(top, 0)
       end
 
       # The walker's frames in this fiber (`Walk#frame`). Each takes ruby
       # stack too, which runs out long before the slots do.
+      #: () -> Integer
       def depth = stack.depth
 
+      #: (Integer n) -> void
       def depth=(n)
         stack.depth = n
       end
@@ -482,6 +599,7 @@ module Zr
       # keeps more than the lowering's root frames do, never less. A rooted
       # def keeps its Values in its locals, as the lowering's root frame
       # does, so nothing is pinned while it is the innermost.
+      #: (Integer v) -> Integer
       def pin(v)
         # An immediate (`zr_special_p`) is no cell, so nothing keeps it.
         return v if (v & 7) != 0 || v <= 8
@@ -492,10 +610,12 @@ module Zr
       end
 
       # The pins of this fiber.
+      #: () -> Array[Integer]
       def pins = stack.pins
 
       # The collector's write barrier after a store of `value` into the
       # cell at `p`.
+      #: (Integer p, Integer value) -> untyped
       def barrier(p, value)
         @kern.zr_write_barrier(p, value)
       end
@@ -503,6 +623,7 @@ module Zr
       # Marks each pinned cell and each Value local of a rooted def, and
       # runs the collection with no pinning. The running fiber's rooted
       # frames are read now; another fiber's are those it left with.
+      #: () -> void
       def mark_pins
         arenas = heap_arenas
         current = stack
@@ -522,6 +643,7 @@ module Zr
       # the Binding of each, with the names of its Value locals. Ruby gives
       # the frames of the running fiber only, so a fiber keeps its own as
       # it switches away (`Boot#leave`).
+      #: () -> Array[[Binding, Array[Symbol]]]
       def live_roots
         return [] if stack.roots.zero?
 
@@ -537,6 +659,7 @@ module Zr
         found
       end
 
+      #: [T] () { () -> T } -> T
       def collecting
         was = @collecting
         @collecting = true
@@ -546,6 +669,7 @@ module Zr
       end
 
       # Runs the block, a def's body, in its `frame` (`Framing`).
+      #: (Framing frame) { () -> untyped } -> untyped
       def framed(frame)
         stack = self.stack
         top = stack.top
@@ -568,6 +692,7 @@ module Zr
       # A call of the walker's function `body` (`call_at`). The walker pins
       # what its code holds. A rooted caller keeps the result in a local,
       # so the call leaves no pins behind for it.
+      #: (Proc body, Type ret, Array[untyped] args) -> untyped
       def walker_call(body, ret, args)
         stack = self.stack
         unless stack.rooted
@@ -588,6 +713,7 @@ module Zr
 
       # A call of the C function `function` (`answer`, `call_at`). C sees
       # the kernel's errno, and the kernel sees the errno that C left.
+      #: (Fiddle::Function function, Array[Type] params, Type ret, Array[untyped] args) -> untyped
       def foreign(function, params, ret, args)
         values = args.zip(params).map { |arg, type| to_c(arg, type) }
         P.write(errno_location, P.read(@errno, 4))
@@ -598,6 +724,7 @@ module Zr
 
       private
 
+      #: (Integer top, Integer low) -> Stack
       def new_stack(top, low) = Stack.new(top, low, [], 0, 0, false, []).tap { |s| @stacks << s }
 
       # Whether `v` is a cell the heap has allocated, so the collector

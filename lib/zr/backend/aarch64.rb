@@ -17,6 +17,13 @@ module Zr
       # visible to the linker, for an object that another object refers to.
       # A given block assembles the functions, in order, from the functions and
       # the unit's defined names (`Native::Build.unit` assembles in workers).
+      # @rbs functions: Array[IR::Function]
+      # @rbs data: Array[Obj::Datum]
+      # @rbs raw: Array[Obj::Code]
+      # @rbs export: bool
+      # @rbs allocate: bool
+      # @rbs &: ? (Array[IR::Function], Set[String]) -> Array[Obj::Code]
+      # @rbs return: Obj::Unit
       def unit(functions, data, raw: [], export: false, allocate: true)
         out = Obj::Unit.new
         defined = (functions.map(&:name) + data.map(&:name) + raw.map(&:name)).to_set
@@ -28,6 +35,7 @@ module Zr
 
       # Returns one function's machine code. `defined` returns true when a
       # symbol is defined in this unit.
+      #: (IR::Function function, Set[String] | Spelled defined, ?allocate: bool) -> Obj::Code
       def assemble(function, defined, allocate: true)
         imported = function.callees.find(&:from)
         raise Refused, "#{imported.symbol} is a wasm import from #{imported.from}, which no native link has" if imported
@@ -39,18 +47,22 @@ module Zr
       # name that it makes from the entry. A unit that is assembled during
       # lowering uses these to know its own symbols before all of them exist.
       class Spelled
-        attr_reader :entry
+        attr_reader :entry #: String
 
+        #: (String entry) -> void
         def initialize(entry)
           @entry = entry
           freeze
         end
 
+        #: (String name) -> bool
         def include?(name) = name == entry || name.start_with?("#{entry}_")
 
+        #: () -> self
         def to_set = self
       end
 
+      #: (Obj::Datum d) -> Obj::Datum
       def exported(d)
         d.linkage == :export ? d : Obj::Datum.new(d.name, d.section, d.bytes, relocs: d.relocs, align: d.align, linkage: :export)
       end

@@ -12,7 +12,7 @@ module Zr
           backref: "global-variable", attrasgn: "method", cvar: "class variable",
           const: "constant", method: "method", yield: "yield", super: "super", self: "self", nil: "nil",
           true: "true", false: "false", assignment: "assignment", expression: "expression", list: "expression"
-        }.freeze
+        }.freeze #: Hash[Symbol, String]
 
         private
 
@@ -20,10 +20,11 @@ module Zr
         # instance variable is one of them: its only error (a read of a
         # non-shareable object outside the main ractor) must reach the
         # program, not become nil.
-        PLAIN = %i[ivar gvar backref yield].freeze
+        PLAIN = %i[ivar gvar backref yield].freeze #: Array[Symbol]
 
         # The forms with a run-time test use a guard: if the receiver
         # raises, the result is nil, as in CRuby.
+        #: (Hir::Defined node) -> String
         def defined(node)
           return defined_name(node.kind) unless %i[ivar gvar backref cvar const method attrasgn yield super list].include?(node.kind)
           return @f.csel(defined_test(node), defined_name(node.kind), @qnil) if PLAIN.include?(node.kind)
@@ -34,6 +35,7 @@ module Zr
           end
         end
 
+        #: (Hir::Defined node) -> String
         def defined_test(node)
           case node.kind
           when :ivar then truth(checked(kernel("zr_ivar_defined", @self, sym_word(ivar_name(node.target)))))
@@ -54,6 +56,7 @@ module Zr
         # Whether an expression used as a receiver or argument is itself
         # defined. A name is tested by its form. All other expressions are
         # defined.
+        #: (untyped node) -> String
         def part_defined(node)
           case node
           when Hir::Send then defined_test(Hir::Defined.new(:method, node, node.line))
@@ -67,20 +70,24 @@ module Zr
           end
         end
 
+        #: (String value) -> String
         def truth(value)
           @f.icmp("ne", value, imm(@l.const("QFALSE")))
         end
 
+        #: (bool b) -> String
         def imm_bool(b)
           @f.iconst("i8", b ? 1 : 0)
         end
 
+        #: (Symbol kind) -> String
         def defined_name(kind)
           kernel("zr_str_frozen", @f.symbol_value(@f.symbol(@l.literal(NAMES.fetch(kind)))), imm(NAMES.fetch(kind).bytesize))
         end
 
         # A constant: looked up through its scope if the scope is an
         # expression. If the scope fails, the result is nil.
+        #: (Hir::ConstRead read) -> String
         def const_defined(read)
           if read.scope.nil?
             truthy(kernel("zr_const_defined", @cref, sym_word(read.name)))
@@ -101,6 +108,7 @@ module Zr
         # As compile.c's defined_expr, the arguments are tested first, then
         # the receiver, and a receiver is evaluated once. `keep` is a record
         # slot that gets the receiver's value, for a caller that sends to it.
+        #: (Hir::Send send, ?Integer? keep) -> String
         def method_defined(send, keep = nil)
           all_defined(send.args.compact) do
             next truth(kernel("zr_method_defined", @self, sym_word(send.name), imm_bool(false))) unless send.recv
@@ -115,8 +123,9 @@ module Zr
         # If the receiver `node` is defined, returns the block's value for
         # the receiver's value. A call on a receiver of its own runs once,
         # on the receiver that its test evaluated.
+        #: (untyped node) { (String) -> String } -> String
         def with_receiver(node)
-          merge, (ok,) = @f.block(["i8"])
+          merge, (ok,) = @f.block(["i8"]) #: [String, [String]]
           yes = @f.label
           no = @f.label
           base = @sp
@@ -140,8 +149,9 @@ module Zr
 
         # If every part is defined, returns the block's value. The tests
         # short-circuit, so nothing after an undefined part runs.
+        #: (Array[untyped] parts) { () -> String } -> String
         def all_defined(parts)
-          merge, (ok,) = @f.block(["i8"])
+          merge, (ok,) = @f.block(["i8"]) #: [String, [String]]
           parts.each do |part|
             next_test = @f.label
             fail = @f.label

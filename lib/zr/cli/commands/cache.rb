@@ -12,13 +12,14 @@ module Zr
         # wasmtime's cache of compiled modules. `zr run` of a WebAssembly
         # module fills it. zr does not clean it, but `zr cache size`
         # reports it, because it can become large (67 GB on one machine).
-        WASMTIME = File.expand_path("~/Library/Caches/BytecodeAlliance.wasmtime")
+        WASMTIME = File.expand_path("~/Library/Caches/BytecodeAlliance.wasmtime") #: String
 
+        #: (Array[String] argv) -> void
         def run(argv)
           require_relative "../../cache/janitor"
           verb = argv.shift || "path"
           usage_error("unknown cache command '#{verb}'") unless %w[path size clean].include?(verb)
-          options = verb == "clean" ? clean_options(argv) : {}
+          options = verb == "clean" ? clean_options(argv) : {} #: { all: bool, days: Float | Integer }
           no_more!(argv)
           case verb
           when "path" then puts Paths.cache
@@ -30,12 +31,14 @@ module Zr
         private
 
         # A usage error when `argv` holds a word that no option took.
+        #: (Array[String] argv) -> void
         def no_more!(argv)
           usage_error("unexpected argument '#{argv.first}'") unless argv.empty?
         end
 
         # `{ all:, days: }` from the words after `clean`. It takes the
         # options out of `argv`.
+        #: (Array[String] argv) -> { all: bool, days: Float | Integer }
         def clean_options(argv)
           all = !argv.delete("--all").nil?
           days = 0
@@ -48,6 +51,7 @@ module Zr
         end
 
         # What the cache holds, by kind, and its total.
+        #: () -> void
         def size
           files = Zr::Cache::Janitor.all
           files.group_by { |path| Zr::Cache::Janitor.kind(path) }.sort_by { |_, group| -Zr::Cache::Janitor.bytes(group) }.each do |kind, group|
@@ -61,6 +65,7 @@ module Zr
         end
 
         # The size of wasmtime's own cache, when there is one.
+        #: () -> void
         def wasmtime
           return unless File.directory?(WASMTIME)
 
@@ -72,6 +77,7 @@ module Zr
         # Deletes the files that this zr does not use and that were not
         # used in the last `days`, and the compiled compilers of older zr
         # versions. With `all`, it deletes every file.
+        #: (all: bool, days: Float | Integer) -> void
         def clean(all:, days:)
           sizes = Zr::Cache::Janitor.all.to_h { |path| [path, Zr::Cache::Janitor.bytes([path])] }
           gone = all ? Zr::Cache::Janitor.clear : Zr::Cache::Janitor.prune(days: days)

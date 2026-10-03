@@ -11,6 +11,7 @@ module Zr
 
       # Whether `node` contains a block literal of this scope (not one in
       # a nested def or body, which is a different scope).
+      #: (untyped node) -> bool
       def holds_block?(node)
         case node
         when Send, Super
@@ -39,6 +40,7 @@ module Zr
       # scope as the bare form does. A scope that contains a block already
       # has an Env, so this does not walk a block body; the block is
       # checked separately.
+      #: (untyped node) -> bool
       def opens_locals?(node)
         case node
         when Send
@@ -57,6 +59,7 @@ module Zr
       # locals one level further out. A def, class or module body is a
       # different scope, so only its expressions in this scope (a singleton
       # def's receiver, a superclass) are read.
+      #: (untyped node, ?Integer level, ?Hash[Symbol, Integer] counts) -> Hash[Symbol, Integer]
       def assignments(node, level = 0, counts = Hash.new(0))
         case node
         when Assign
@@ -75,8 +78,10 @@ module Zr
       # Each outer local that the block `node`, or a block in it, reads or
       # writes: its name, its depth from the block, and whether it is
       # written, in the order of first use (`Lower::Function#capture`).
+      #: (Block node) -> Array[[Symbol, Integer, bool]]
       def captures(node)
-        found = {}
+        found = {} #: Hash[Symbol, [Symbol, Integer, bool]]
+        # @type var scan: ^(untyped, Integer) -> void
         scan = lambda do |n, nest|
           case n
           when Local, Assign
@@ -100,6 +105,7 @@ module Zr
 
       # `send(:binding)` and the rest of BY_NAME, when the name is a
       # literal symbol.
+      #: (Send node) -> bool
       def named_open_form?(node)
         return false unless BY_NAME.include?(node.name)
 

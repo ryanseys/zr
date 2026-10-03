@@ -12,28 +12,73 @@ module Zr
   # (the toplevel, each def, class body and block), the data that they
   # refer to, and the FrameMeta records that backtraces read.
   class Lower
+    # @rbs @program: Hir::Program
+    # @rbs @ids: Hash[untyped, Integer]?
+    # @rbs @kernel: Machine::Description | Machine::Lower
+    # @rbs @target: Target
+    # @rbs @symbols: Machine::Symbols?
+    # @rbs @fixed: Hash[String, Integer] | Hash[String?, Integer] | nil
+    # @rbs @units: Cache::Unit?
+    # @rbs @entry: String
+    # @rbs @internal: bool
+    # @rbs @ext: bool
+    # @rbs @unit_internal: bool?
+    # @rbs @unit_hidden: bool?
+    # @rbs @kind: Symbol
+    # @rbs @outer: Outer?
+    # @rbs @file: String
+    # @rbs @warnings: Array[String]
+    # @rbs @data: Array[Obj::Datum]
+    # @rbs @functions: Array[IR::Function]
+    # @rbs @prefix: String
+    # @rbs @next: Integer
+    # @rbs @lits: Integer
+    # @rbs @sites: Integer
+    # @rbs @pool: Array[[Symbol, String]]
+    # @rbs @pool_at: Hash[[Symbol, String], Integer]
+    # @rbs @spelled: Hash[untyped, Integer]
+    # @rbs @file_bytes: Hash[String, String]
+    # @rbs @keyword_tables: Hash[Array[Integer | String | Symbol | nil], String]
+    # @rbs @unit_body: untyped
+    # @rbs @inline_defs: Hash[Symbol, untyped]?
+    # @rbs @def_names: Hash[untyped, String]
+    # @rbs @block_names: Hash[untyped, String]
+    # @rbs @site_cells: Hash[untyped, String]
+
     # A scope that an eval runs inside: the names of its locals in Env
     # order, and the enclosing scope. It is used in place of a block's
     # Function, so a name that the string did not declare resolves to its
     # slot in the calling scope.
     class Outer
-      attr_reader :outer
+      # @rbs @slot_of: Hash[Symbol, Integer]
 
+      attr_reader :outer #: Outer?
+
+      #: (Array[Symbol] names, ?Outer? outer) -> void
       def initialize(names, outer = nil)
         @slot_of = names.each_with_index.to_h
         @outer = outer
       end
 
+      #: () -> nil
       def meta = nil
+
+      # A scope that an eval runs inside keeps its locals open, so a `&b`
+      # in it is a Proc, never the raw block (`Params#raw_block?`).
+      #: () -> nil
+      def raw_block = nil
 
       # A scope that an eval runs inside is already compiled, and its
       # captures are already recorded. The eval keeps its own table, and
       # the walk stops here.
+      #: (Symbol _name, Integer _depth, write: bool) -> nil
       def capture(_name, _depth, write:) = nil
 
       # Its body is not available, so no local counts as bound twice.
+      #: () -> Hash[Symbol, Integer]
       def bindings = Hash.new(0)
 
+      #: (untyped node) -> Integer
       def slot_index(node)
         @slot_of.fetch(node.name) { raise ArgumentError, "#{node.name} is not a local of the scope this eval runs in" }
       end
@@ -43,10 +88,12 @@ module Zr
 
     # The Symbol Value for `id`: the id shifted above the tag that the
     # kernel reads (lib/zr/runtime/kernel/object.rb).
+    #: (Integer id, Integer tag) -> Integer
     def self.symbol_value(id, tag) = (id << 8) | tag
 
     # The bit in an ivar table's `names` for the name `id`
     # (lib/zr/runtime/kernel/object.rb, zr_ivtab_name_bit), as a signed word.
+    #: (Integer id) -> Integer
     def self.ivar_name_bit(id)
       bit = 1 << (id & 63)
       bit < 1 << 63 ? bit : bit - (1 << 64)
@@ -54,35 +101,48 @@ module Zr
 
     # `fixed`: the ids that this lowering's code has as immediates (the
     # kernel's), or nil when the lowering owns the table.
-    attr_reader :program, :unit, :symbols, :data, :functions, :file, :warnings, :fixed
+    attr_reader :program #: Hir::Program
+    attr_reader :unit #: nil
+    attr_reader :symbols #: Machine::Symbols?
+    attr_reader :data #: Array[Obj::Datum]
+    attr_reader :functions #: Array[IR::Function]
+    attr_reader :file #: String
+    attr_reader :warnings #: Array[String]
+    attr_reader :fixed #: Hash[String, Integer] | Hash[String?, Integer] | nil
 
     # The id of the prism node that `node` came from, or 0. The ids are
     # those of the file that is lowering now (`@ids`): the program's main
     # file, or a unit. A unit's ids go with its tree (`spent`).
+    #: (untyped node) -> Integer
     def node_id(node)
       @ids&.[](node) || 0
     end
 
     # Gives `made` (a node that the lowering builds for `node`) the same
     # node id as `node`.
+    #: [T < Object] (T made, untyped node) -> T
     def noted(made, node)
-      @ids[made] ||= @ids[node] if @ids&.key?(node)
+      ids = @ids
+      ids[made] ||= ids[node] if ids&.key?(node)
       made
     end
 
     # Whether the program uses TracePoint, so its own code fires events.
+    #: () -> bool
     def traced?
       @program.traced ? true : false
     end
 
     # True in the core library and in an extension's Ruby part. Both are
     # runtime code, so `Primitive` resolves there.
+    #: () -> bool?
     def internal?
       @internal || @unit_internal
     end
 
     # True in an extension's Ruby part: a port of a library that ruby
     # writes in C or in Ruby, never one of the core's own classes.
+    #: () -> bool
     def extension?
       @unit_internal && !@internal ? true : false
     end
@@ -90,6 +150,7 @@ module Zr
     # True in a unit of eval support (a hidden unit): the compiler that a
     # program carries. ruby's compiler is C, so what the program redefines
     # or traces must not reach this code either.
+    #: () -> bool?
     def support?
       @unit_hidden
     end
@@ -98,13 +159,18 @@ module Zr
     # global slot. The core library reads them directly from the slot, as
     # CRuby's C reads rb_cInteger. So a constant that a program defines
     # never replaces one, and no read walks the constant tables.
+    #: () -> Hash[Symbol, String]
     def self.boot_classes
       Session.current.memo(:boot_classes) do
-        File.read(File.join(Paths::RUNTIME, "kernel/main.rb")).scan(/zr_boot_name\((G_\w+), Machine\.id\(:(\w+)\)\)/).to_h { |slot, name| [name.to_sym, slot] }
+        # Each match has both groups.
+        main = File.read(File.join(Paths::RUNTIME, "kernel/main.rb"))
+        pairs = main.scan(/zr_boot_name\((G_\w+), Machine\.id\(:(\w+)\)\)/) #: Array[[String, String]]
+        pairs.to_h { |slot, name| [name.to_sym, slot] }
       end
     end
 
     # The slot for a bare constant `name` in the core library, or nil.
+    #: (Symbol name) -> String?
     def boot_class_slot(name) = @internal ? Lower.boot_classes[name] : nil
 
     # `internal` marks the core library: a backtrace shows its methods as
@@ -113,6 +179,18 @@ module Zr
     # internal as a one-unit program. `kind` is `:top` for a loaded file
     # (its toplevel is a file's, not a program's): it starts no program
     # and prints no parse warning.
+    # @rbs program: Hir::Program
+    # @rbs kernel: Machine::Description | Machine::Lower
+    # @rbs symbols: Machine::Symbols?
+    # @rbs entry: String
+    # @rbs internal: bool
+    # @rbs ext: bool
+    # @rbs kind: Symbol
+    # @rbs outer: Outer?
+    # @rbs target: Target
+    # @rbs fixed: Hash[String, Integer] | Hash[String?, Integer] | nil
+    # @rbs units: Cache::Unit?
+    # @rbs return: void
     def initialize(program, kernel, symbols, entry: "zr_toplevel", internal: false, ext: false, kind: :main, outer: nil,
                    target: Target.default, fixed: nil, units: nil)
       @program = program
@@ -139,6 +217,7 @@ module Zr
     # prefix and uses its own counters, so a file gets the same names
     # whatever was compiled before it. The program's main file keeps the
     # entry that it was given.
+    #: (?String prefix, ?untyped body) -> void
     def open_unit(prefix = @entry, body = nil)
       close_pool
       @prefix = prefix
@@ -155,22 +234,27 @@ module Zr
       # that a site and its inlined copies share.
       @unit_body = body
       @inline_defs = nil
-      @def_names = {}.compare_by_identity
-      @block_names = {}.compare_by_identity
-      @site_cells = {}.compare_by_identity
+      @def_names = {} #: Hash[untyped, String]
+      @def_names.compare_by_identity
+      @block_names = {} #: Hash[untyped, String]
+      @block_names.compare_by_identity
+      @site_cells = {} #: Hash[untyped, String]
+      @site_cells.compare_by_identity
     end
 
     # The def in this unit that a send of `name` can inline, or nil. It
     # must be the only def of that name in the unit, with a shape that
     # `Function::Inline` accepts. The name is only a guess at the callee;
     # the site's cell decides at run time.
+    #: (Symbol name) -> untyped
     def inline_def(name)
-      @inline_defs ||= Function::Inline.candidates(@unit_body)
-      @inline_defs[name]
+      defs = @inline_defs ||= Function::Inline.candidates(@unit_body)
+      defs[name]
     end
 
     # The function name of the def `node`. It is made once, whether the
     # def or a site that inlines it needs it first.
+    #: (untyped node) -> String
     def def_name(node)
       @def_names[node] ||= "#{@prefix}_def_#{number}_#{node.name.to_s.gsub(/[^A-Za-z0-9_]/, "")}"
     end
@@ -178,6 +262,7 @@ module Zr
     # The cell of the site `node`, shared by every lowering of the node.
     # The def's own function and each inlined copy read one cell, which
     # the def's run fills.
+    #: (untyped node, String prefix, Integer bytes) -> String
     def site_cell(node, prefix, bytes)
       @site_cells[node] ||= cache_cell(prefix, bytes)
     end
@@ -186,23 +271,29 @@ module Zr
     # kernel, or for any name in a lowering that owns the table (an eval in
     # a running program). For nil, the link numbers the name, and the
     # caller emits a word and a relocation.
+    #: (String | Symbol name) -> Integer?
     def fixed_id(name)
-      return @symbols.id(name) unless @fixed
+      fixed = @fixed
+      # A lowering with no fixed ids owns its symbol table.
+      symbols = @symbols #: Machine::Symbols
+      return symbols.id(name) unless fixed
 
-      @fixed[name.to_s]
+      fixed[name.to_s]
     end
 
     # The word in this unit's pool for `name` under `kind`, as `[the
     # pool's name, its offset]`. A unit's code loads it, so the code does
     # not contain a number that depends on the compile order.
+    #: (Symbol kind, String | Symbol name) -> [String, Integer]
     def pool_word(kind, name)
-      row = [kind, name.to_s]
+      row = [kind, name.to_s] #: [Symbol, String]
       at = @pool_at[row] ||= (@pool << row).size - 1
       ["#{@prefix}_pool", at * 8]
     end
 
     # The pool as data: one zero word per entry, each with the relocation
     # that tells the link what to write there.
+    #: () -> void
     def close_pool
       return if @pool.nil? || @pool.empty?
 
@@ -214,6 +305,7 @@ module Zr
 
     # The unit's code from an earlier build's cache, with its data added
     # to this build's data.
+    #: (Hir::Unit unit) -> Array[Obj::Code]?
     def taken(unit)
       kept = @units&.take(unit, @prefix) or return nil
 
@@ -225,9 +317,10 @@ module Zr
     # program's id for it, or the Symbol Value of that id when `tagged`.
     # A fixed id is written directly; other ids are words that the link
     # fills.
+    #: (String name, Array[Integer | String | Symbol | nil] words, ?section: Symbol, ?tagged: bool) -> String
     def id_table(name, words, section: :text_const, tagged: false)
-      relocs = []
-      filled = words.each_with_index.map do |word, i|
+      relocs = [] #: Array[Obj::Reloc]
+      filled = words.each_with_index.map do |word, i| #$ Integer
         next word if word.is_a?(Integer)
         next 0 if word.nil?
 
@@ -245,6 +338,7 @@ module Zr
     # immediates, as data that zr_ary_of and zr_hash_of copy into the
     # object's slots. Each word is an Integer, or a name whose Symbol the
     # link writes.
+    #: (Array[Integer | String | Symbol | nil] words) -> String
     def word_table(words)
       name = "#{@prefix}_lit_#{@lits}"
       @lits += 1
@@ -257,8 +351,9 @@ module Zr
     # With a block, each function goes to the block after its file is
     # lowered, and the result is the block's return values. So a program
     # of a thousand files never has all of their IR in memory at once.
+    #: () ?{ (IR::Function) -> Obj::Code } -> [Array[IR::Function | Obj::Code], Array[Obj::Datum]]
     def run(&finish)
-      finished = []
+      finished = [] #: Array[Obj::Code]
       open_unit(@entry, @program.body)
       Function.new(self, @entry, @program.locals, @program.body, nil, @kind, outer: @outer).lower
       finished.concat(finished_functions(&finish)) if finish
@@ -276,7 +371,9 @@ module Zr
         end
 
         from = @data.size
-        Function.new(self, @prefix, u.locals, u.body, nil, :top).lower
+        # A unit keeps its locals until `spent`.
+        locals = u.locals #: Array[Symbol]
+        Function.new(self, @prefix, locals, u.body, nil, :top).lower
         next unless finish
 
         close_pool
@@ -300,6 +397,7 @@ module Zr
     # one at a time, in any order (`Cache::Lowering::EvalSupport`): each unit uses its own
     # names and counters, so its code is the same as in `run`. The pool
     # closes at the end of each, where `run` puts it.
+    #: () -> [Array[IR::Function], Array[Obj::Datum]]
     def lower_entry
       sliced do
         open_unit(@entry, @program.body)
@@ -310,6 +408,7 @@ module Zr
 
     # The unit at `index` of the program, as `run` lowers it: its
     # `[functions, data]`.
+    #: (Integer index) -> [Array[IR::Function], Array[Obj::Datum]]
     def lower_unit(index)
       u = @program.units[index]
       sliced do
@@ -319,7 +418,9 @@ module Zr
         @unit_hidden = u.hidden
         @ids = u.node_ids
         open_unit(unit_entry(index), u.body)
-        Function.new(self, @prefix, u.locals, u.body, nil, :top).lower
+        # A unit keeps its locals until `spent`.
+        locals = u.locals #: Array[Symbol]
+        Function.new(self, @prefix, locals, u.body, nil, :top).lower
         close_pool
       ensure
         @ids = @program.node_ids
@@ -329,11 +430,15 @@ module Zr
     # The functions and data that the block adds. Each is a copy: a slice
     # (`@data[data..]`) shares the whole buffer of the array, and eval
     # support's 411 slices kept 0.9 GB for the collector to mark.
+    #: () { () -> void } -> [Array[IR::Function], Array[Obj::Datum]]
     def sliced
       functions = @functions.size
       data = @data.size
       yield
-      [@functions.values_at(functions...@functions.size), @data.values_at(data...@data.size)]
+      # Each index is in range, so no element is nil.
+      made = @functions.values_at(functions...@functions.size) #: Array[IR::Function]
+      added = @data.values_at(data...@data.size) #: Array[Obj::Datum]
+      [made, added]
     end
     private :sliced
 
@@ -346,6 +451,7 @@ module Zr
     # Only the streaming path releases. Without a block, `run` returns
     # all functions at once, and the caller can be a test that lowers a
     # program and then dumps it.
+    #: (Hir::Unit unit) -> void
     def spent(unit)
       unit.body = nil
       unit.node_ids = nil
@@ -354,6 +460,7 @@ module Zr
     end
 
     # The prefix of each function name in the current unit.
+    #: () -> String
     def entry = @prefix
 
     # A unit's toplevel entry. For a file in eval support, it is the
@@ -364,6 +471,7 @@ module Zr
     # because the core library is lowered one file at a time, and each
     # lowering contains its own copy of what it requires. Two copies of
     # one file must be two symbols.
+    #: (Integer | String index) -> String
     def unit_entry(index)
       return index if index.is_a?(String)
 
@@ -372,6 +480,7 @@ module Zr
 
     # The entry of the unit at `index` and `file`, in a program lowered
     # from `entry`.
+    #: (String entry, Integer index, String? file) -> String
     def self.entry_of(entry, index, file)
       return "#{entry}_unit_#{index}" unless file&.start_with?("/")
 
@@ -381,6 +490,7 @@ module Zr
     # Every unit's entry, in order. A require or an autoload refers to
     # its target by this entry, so the entries are an input of each
     # unit's bytes (`Cache::Unit`).
+    #: (String entry, Array[Hir::Unit]? units) -> Array[String]
     def self.entries_of(entry, units) = (units || []).each_with_index.map { |u, i| entry_of(entry, i, u.file) }
 
     # Whether the code goes to the wasm backend, where the preemption
@@ -388,39 +498,47 @@ module Zr
     def wasm? = @target.arch == :wasm32
 
     # The FrameMeta kind of a function of `kind` in this lowering.
+    #: (Symbol kind) -> String
     def frame_kind(kind)
       return Function::KINDS.fetch(kind) unless internal?
 
       kind == :def ? "KIND_BUILTIN" : "KIND_HIDDEN"
     end
 
+    #: (String name) -> Integer
     def const(name)
       @kernel.const_for(name) or raise ArgumentError, "the kernel declares no #{name}"
     end
 
+    #: (String name) -> Machine::Layout
     def layout(name)
       @kernel.struct_for(name) or raise ArgumentError, "the kernel declares no #{name}"
     end
 
     # Whether `word` is an immediate and not a cell, as the kernel
     # defines it (lib/zr/runtime/kernel/value.rb).
+    #: (Integer word) -> bool
     def immediate?(word) = @kernel.immediate?(word)
 
     # The kernel def named `name`, with the signature a call needs.
+    #: (String name) -> Machine::Def
     def kernel_def(name)
       @kernel.def_for(name) or raise ArgumentError, "the kernel declares no #{name}"
     end
 
+    #: (untyped node, String message) -> bot
     def refuse(node, message)
       raise Refused, "#{@file}:#{node.line}: #{message}"
     end
 
     # A form of Ruby that zr does not support yet, at the node's line.
+    #: (untyped node, ?String form) -> bot
     def unsupported(node, form = Refused.form_of(node))
       raise Refused.unsupported(form, file: @file, line: node.line)
     end
 
     # A read-only string literal, as data in this unit.
+    #: (String bytes) -> String
     def literal(bytes)
       name = "#{@prefix}_lit_#{@lits}"
       @lits += 1
@@ -430,11 +548,16 @@ module Zr
 
     # The slot of a regexp or range literal site in the runtime's table,
     # when this lowering owns the counter.
-    def literal_index = @symbols.site
+    #: () -> Integer
+    def literal_index
+      symbols = @symbols #: Machine::Symbols
+      symbols.site
+    end
 
     # The pool word for this unit's next literal site, or nil when the
     # lowering owns the counter and can take a slot now. A site is a
     # location, not a name, so each call takes its own pool entry.
+    #: () -> [String, Integer]?
     def pool_site
       return nil unless @fixed
 
@@ -447,6 +570,7 @@ module Zr
     # A zeroed cell of `bytes` for one site's cache (lib/zr/runtime/kernel/cache.rb).
     # Its name includes the site count, so two lowerings that share a
     # symbol table never make the same cell name.
+    #: (String prefix, Integer bytes) -> String
     def cache_cell(prefix, bytes)
       name = "#{@prefix}_cell_#{prefix}_#{number}"
       @data << Obj::Datum.new(name, :bss, bytes, align: 8)
@@ -455,7 +579,9 @@ module Zr
 
     # The current unit's file name as a build writes it (`Paths.shown`),
     # and as bytes in the object.
+    #: () -> String
     def shown_file = Paths.shown(@file)
+    #: () -> String
     def file_bytes = @file_bytes[@file] ||= literal(shown_file)
 
     # The FrameMeta of function `fn`. It is writable, because the runtime
@@ -463,6 +589,22 @@ module Zr
     # the class's, set here. A def or block contains its arity and its
     # parameter entries, and a block contains its function, so a Proc
     # finds both.
+    # @rbs fn: String
+    # @rbs kind: String
+    # @rbs line: Integer
+    # @rbs name: Integer | String | Symbol
+    # @rbs parent: String?
+    # @rbs params: untyped
+    # @rbs locals: Array[Symbol]
+    # @rbs env: bool
+    # @rbs ruby: bool
+    # @rbs captures: bool
+    # @rbs node: Integer
+    # @rbs cover: Integer?
+    # @rbs twin: String?
+    # @rbs owns_backref: bool
+    # @rbs frameless: bool
+    # @rbs return: String
     def meta(fn, kind, line, name: 0, parent: nil, params: nil, locals: [], env: false, ruby: false,
              captures: false, node: 0, cover: nil, twin: nil, owns_backref: false, frameless: false)
       layout = layout("FrameMeta")
@@ -501,6 +643,7 @@ module Zr
 
     # The scope's locals as data: the count, then one name id for each,
     # in slot order. An eval and a Binding read the scope's names here.
+    #: (String fn, Array[Symbol] locals) -> String
     def local_table(fn, locals)
       id_table("zr_locals_#{fn}", [locals.size, *locals])
     end
@@ -514,6 +657,7 @@ module Zr
     # in the order that the program first uses each name. zr's symbol ids
     # do not follow the program (the runtime used many names first), so
     # the entries follow the order of each local's first declaration.
+    #: (String fn, Array[[Symbol, bool, bool]] rows) -> String
     def captures_table(fn, rows)
       rows = rows.sort_by { |local, _, _| @spelled.fetch(local, @spelled.size) }
       words = rows.flat_map { |local, written, rebound| [local, (written ? 1 : 0) | (rebound ? 2 : 0)] }
@@ -521,14 +665,16 @@ module Zr
     end
 
     # Each of `names` in the order the program first declares it.
+    #: (Array[Symbol] names) -> Array[Symbol]
     def spell(names)
       names.each { |n| @spelled[n] ||= @spelled.size }
     end
 
-    PARAM_KINDS = %i[req opt rest keyreq key keyrest block nokey].each_with_index.to_h.freeze
+    PARAM_KINDS = %i[req opt rest keyreq key keyrest block nokey].each_with_index.to_h.freeze #: Hash[Symbol, Integer]
 
     # `Method#parameters` as data: the count, then a kind and a name id
     # for each parameter (0 for no name).
+    #: (String fn, untyped params) -> String
     def param_table(fn, params)
       rows = params.rows.flat_map { |kind, name| [PARAM_KINDS.fetch(kind), name] }
       id_table("zr_params_#{fn}", [params.rows.size, *rows])
@@ -538,11 +684,13 @@ module Zr
     # keywords after their count. All sites in the unit that pass the same
     # keys in the same order share one table, so a def's shape cell hits
     # for all of them.
+    #: (Array[Integer | String | Symbol | nil] words) -> String
     def keyword_table(words)
       @keyword_tables[words] ||= id_table("#{@prefix}_kw_#{@keyword_tables.size}", words)
     end
 
     # Lowers a def now into a function, named for the site.
+    #: (untyped node) -> String
     def define(node)
       name = def_name(node)
       Function.new(self, name, node.locals, node.body, node, :def).lower
@@ -554,6 +702,7 @@ module Zr
     # A `class << self` body keeps `outer`, the Function that contains it,
     # as the parent of its frame metadata, so a `return` in it finds its
     # method.
+    #: (untyped node, ?Function? outer) -> String
     def body(node, outer = nil)
       kind = { Hir::ClassDef => :class, Hir::ModuleDef => :module, Hir::SingletonClassDef => :sclass }.fetch(node.class)
       name = "#{@prefix}_body_#{number}_#{kind == :sclass ? "singleton" : node.name}"
@@ -565,6 +714,7 @@ module Zr
     # that contains it. The block of a `define_method` call (`method`)
     # also gets its twin, if it can have one (`twin?`): the same body as a
     # function with the method signature (FrameMeta, `twin`).
+    #: (untyped node, Function outer, ?method: bool) -> String
     def block(node, outer, method: false)
       @block_names[node] ||= begin
         name = "#{@prefix}_blk_#{number}"
@@ -578,11 +728,13 @@ module Zr
     # Whether a block can have a twin. A traced program reads every block
     # frame from its Proc. A scope inside the body would be lowered twice,
     # and a Binding or an eval is left to the block.
+    #: (untyped node) -> bool
     def twin?(node)
       !traced? && !internal? && !scopes?([node.params, node.body]) && !Hir::Locals.opens_locals?([node.params, node.body])
     end
 
     # Whether `node` contains a block, a lambda, a def or a body.
+    #: (untyped node) -> bool
     def scopes?(node)
       case node
       when Hir::Block, Hir::Lambda, Hir::Def, Hir::ClassDef, Hir::ModuleDef, Hir::SingletonClassDef then true
@@ -595,6 +747,7 @@ module Zr
 
     # Sends the functions lowered since the last call to `finish`. The
     # lowering keeps none of them.
+    #: () { (IR::Function) -> Obj::Code } -> Array[Obj::Code]
     def finished_functions(&)
       done = @functions.map(&)
       @functions = []
@@ -603,6 +756,7 @@ module Zr
 
     # A new function number. Functions nest, so the count of finished
     # functions cannot identify them.
+    #: () -> Integer
     def number
       @next += 1
     end

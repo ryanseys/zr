@@ -1,0 +1,15 @@
+# The hooks of lib/zr/ir/promotion.rb. Each subclass defines them; inline
+# RBS cannot declare a method with no def.
+module Zr
+  module IR
+    class Promotion
+      private
+
+      def candidates: () -> Hash[String, String?]
+      def walk: (Block b, Hash[String, String?] keys, Hash[String, String | Inst] last, Array[[String, Block, String]] reads) -> void
+      def initial: (String key, String? type) -> String
+      def rewrite: (Hash[String, String?] keys) -> void
+      def after: (Inst inst, String key) -> String
+    end
+  end
+end

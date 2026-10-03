@@ -9,25 +9,30 @@ module Zr
       # A string literal as prism flags it: frozen if the file's magic
       # comment says so (as CRuby reads the comment), and then the one
       # frozen String of its text, as CRuby interns it.
+      #: (Prism::StringNode | Prism::SourceFileNode node, String text, Integer line) -> (Literal | FrozenString)
       def literal_string(node, text, line) = node.frozen? ? frozen_literal_string(text, line) : Literal.new(text, line, !node.mutable?)
 
       # A literal that a frozen_string_literal comment freezes: the one
       # frozen String of its text, with no send of `freeze` (ruby never
       # sends it for this case).
+      #: (String text, Integer line) -> FrozenString
       def frozen_literal_string(text, line) = FrozenString.new(text, line, text.encoding == ::Encoding::UTF_8)
 
       # Whether prism found a string static (`"a" "b"`, a heredoc with no
       # interpolation). `static_text` joins its parts.
+      #: (untyped node) -> bool
       def static_string?(node)
         node.parts.all? { |part| part.is_a?(Prism::StringNode) || (part.is_a?(Prism::InterpolatedStringNode) && static_string?(part)) }
       end
 
+      #: (untyped node) -> String
       def static_text(node) = node.parts.map { |part| part.is_a?(Prism::StringNode) ? unescaped(part) : static_text(part) }.join
 
       # A string part's text with ruby's encoding: a \u escape makes it
       # UTF-8, and a non-ASCII \x escape in a US-ASCII file makes it
       # binary, whatever the file's encoding. Prism flags both, but gives
       # the text in the file's encoding.
+      #: (untyped node) -> String
       def unescaped(node)
         text = node.unescaped
         if node.forced_utf8_encoding? then text.dup.force_encoding(Encoding::UTF_8)
@@ -38,6 +43,7 @@ module Zr
 
       # An element of an array literal. `[1, a: 2]` contains a Hash.
       # Keywords that are only `**` splats add it only if it is not empty.
+      #: (Prism::node node, Integer line) -> node
       def array_element(node, line)
         case node
         when Prism::SplatNode then splat(node, line)
@@ -50,6 +56,7 @@ module Zr
 
       # A hash's elements as a flat pair list; a `**value` is a HashSplat
       # key with a nil value.
+      #: (Array[Prism::node] elements) -> Array[node?]
       def hash_pairs(elements)
         elements.flat_map do |e|
           case e
@@ -64,8 +71,9 @@ module Zr
       # `# shareable_constant_value:` on a constant write. A value that the
       # compiler knows is a literal is deep-frozen. Any other value must
       # already be shareable, as in ruby.
+      #: (Prism::ShareableConstantNode node, Integer line) -> node
       def shareable_constant(node, line)
-        write = expr(node.write)
+        write = expr(node.write) #: untyped
         ractor = ConstRead.new(nil, :Ractor, line)
         write.value =
           if node.literal?
@@ -84,6 +92,7 @@ module Zr
       # as a whole. A value of only literals is made shareable. Any other
       # value must already be shareable (an interpolated String after
       # deduplication). `top` is the constant's own value, not an element.
+      #: (Prism::node node, untyped value, String? name, Integer line, ?top: bool) -> node
       def literally_shareable(node, value, name, line, top: true)
         node, value = unparenthesized(node, value)
         return frozen_literal(node, value, line) if shareable_literal?(node)
@@ -106,6 +115,7 @@ module Zr
 
       # `(value)`: the one statement inside, and its built value, as
       # compile.c reads through the parentheses of `X = (1..2)`.
+      #: (Prism::node node, untyped value) -> [Prism::node, untyped]
       def unparenthesized(node, value)
         while node.is_a?(Prism::ParenthesesNode) && node.body.is_a?(Prism::StatementsNode) && node.body.body.size == 1 &&
               value.is_a?(Seq) && value.stmts.size == 1
@@ -121,11 +131,13 @@ module Zr
       # label starts a block's body, a loop's body, the else branch of an
       # `if`, the then branch of an `unless` (a `case` has none), and a
       # body that a rescue covers.
+      #: (Prism::node node) -> bool
       def after_label?(node)
-        @after_label ||= {}.compare_by_identity.tap { |found| labeled(@root, found) if @root }
-        @after_label.key?(node)
+        after_label = @after_label ||= {}.compare_by_identity.tap { |found| labeled(@root, found) if @root }
+        after_label.key?(node)
       end
 
+      #: (Prism::node? node, Hash[Prism::node, bool] found) -> void
       def labeled(node, found)
         return if node.nil?
 
@@ -144,6 +156,7 @@ module Zr
       # The Range whose code comes first in `node`'s code, if any: a
       # receiver comes before its call, a value before the variable that
       # it sets, a condition before its branches.
+      #: (Prism::node? node) -> Prism::RangeNode?
       def leading(node)
         case node
         when Prism::RangeNode then node
@@ -166,6 +179,7 @@ module Zr
       # and its elements are built the same way. A String is the shared
       # frozen String of its text. A Range's ends are frozen. All other
       # literals are always frozen.
+      #: (Prism::node? node, untyped value, Integer line) -> untyped
       def frozen_literal(node, value, line)
         case node
         when Prism::ArrayNode
@@ -187,6 +201,7 @@ module Zr
       end
 
       # The constant name of a shareable constant write, for the error.
+      #: (Prism::node write) -> String?
       def constant_written(write)
         case write
         when Prism::ConstantWriteNode, Prism::ConstantAndWriteNode, Prism::ConstantOrWriteNode, Prism::ConstantOperatorWriteNode
@@ -203,6 +218,7 @@ module Zr
       # compile.c's static_literal_node_p, which reads an Array's or a
       # Hash's elements, has no case for it, so `[(1..2)]` uses
       # make_shareable.
+      #: (Prism::node? node, ?top: bool) -> bool
       def shareable_literal?(node, top: true)
         case node
         when Prism::IntegerNode, Prism::FloatNode, Prism::RationalNode, Prism::ImaginaryNode,
@@ -221,12 +237,14 @@ module Zr
       # A regexp literal's option bits, as Regexp.new takes them.
       # `i`, `x` and `m`, then the two encoding bits: `n` declares the
       # pattern encoding-agnostic, and `e`, `s` and `u` pin it to one.
+      #: (untyped node) -> Integer
       def regexp_options(node)
         (node.ignore_case? ? 1 : 0) | (node.extended? ? 2 : 0) | (node.multi_line? ? 4 : 0) |
           (regexp_encoding(node) ? 16 : 0) | (node.ascii_8bit? ? 32 : 0)
       end
 
       # The encoding that a flag letter sets for the pattern, or nil.
+      #: (untyped node) -> Encoding?
       def regexp_encoding(node)
         if node.euc_jp? then ::Encoding::EUC_JP
         elsif node.windows_31j? then ::Encoding::Windows_31J
@@ -236,6 +254,7 @@ module Zr
 
       # Ruby checks the pattern. A pattern that ruby refuses is also a
       # syntax error here.
+      #: (Prism::InterpolatedRegularExpressionNode | Prism::InterpolatedMatchLastLineNode node, Integer line) -> node
       def interpolated_regexp(node, line)
         pinned = regexp_encoding(node)
         # Each fragment is a separate String: ruby reads each one in its
@@ -255,6 +274,7 @@ module Zr
 
       # Whether this build keeps the engine's warnings, and does not let
       # the engine print them.
+      #: () -> bool
       def keeps_warnings? = !@loader&.eval?
 
       # What the engine wrote to $stderr while it read `held`. The read is
@@ -266,6 +286,7 @@ module Zr
       # where all threads share the two, and where ruby lets the engine
       # warn on the program's stderr (as `eval("/(?:a?)*b/")` does). So
       # there, the pattern is read with no redirection.
+      #: (String held, Integer options) -> String
       def read_pattern(held, options)
         unless keeps_warnings?
           Regexp.new(held, options)
@@ -288,6 +309,7 @@ module Zr
       # program decides. Ruby's compiler writes no code for the other
       # branch and does not read it: `if false then /[q-a]/ end` runs, and
       # `if 1 == 2 then /[q-a]/ end` does not.
+      #: (Prism::node node) -> bool?
       def chooses?(node)
         case node
         when Prism::TrueNode then true
@@ -295,6 +317,7 @@ module Zr
         end
       end
 
+      #: (Prism::RegularExpressionNode | Prism::MatchLastLineNode node, Integer line, ?taken: bool) -> (RegexpLit | Seq)
       def regexp_literal(node, line, taken: true)
         # This literal's value is not used, so ruby never reads the
         # pattern, and zr does not either. An invalid one here is a
@@ -315,6 +338,7 @@ module Zr
 
       # The parts of an interpolated string, each a String or the value
       # of an embedded expression.
+      #: (untyped node, Integer line) -> Interp
       def interpolation(node, line)
         parts = node.parts.map do |part|
           case part
@@ -336,6 +360,7 @@ module Zr
         Interp.new(parts, line)
       end
 
+      #: (node part) -> bool
       def folded?(part)
         part = part.stmts.first if part.is_a?(Seq) && part.stmts.size == 1
         part.is_a?(Interp) || (part.is_a?(Literal) && [String, Symbol].include?(part.value.class))

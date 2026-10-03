@@ -20,21 +20,26 @@ module Zr
     # A `host` makes the system calls: `JIT::Fiddle` under CRuby, or the
     # runtime's own host, which calls the same libSystem functions.
     class JIT
+      # @rbs @host: _JITHost
+
       MAP_ANON_PRIVATE = 0x1002
       MAP_FIXED = 0x10
       MAP_JIT = 0x800
       PAGE = 16_384
       # `ldr x16, [pc, #8]; br x16; .quad address`
-      STUB = [0x58000050, 0xD61F0200].pack("L<2")
+      STUB = [0x58000050, 0xD61F0200].pack("L<2") #: String
 
-      attr_reader :symbols
+      attr_reader :symbols #: Hash[String, Integer]
 
+      # Not `Kernel#load`: this loads a unit.
+      #: (Unit unit, ?host: _JITHost) -> Hash[String, Integer]
       def self.load(unit, host: self.host)
         new(host).place(unit)
       end
 
       # The host for system calls: the runtime's host in a zr program, or
       # Fiddle under CRuby (where no runtime is linked).
+      #: () -> _JITHost
       def self.host
         if Host.compiled?
           require_relative "../runtime/lib/zr/obj/jit/runtime"
@@ -45,11 +50,13 @@ module Zr
         end
       end
 
+      #: (_JITHost host) -> void
       def initialize(host)
         @host = host
         @symbols = {}
       end
 
+      #: (Unit unit) -> Hash[String, Integer]
       def place(unit)
         code = layout(unit.functions, 16)
         imports = unit.imports
@@ -108,8 +115,10 @@ module Zr
 
       private
 
+      #: [T < ::Zr::Obj::_Placeable] (Array[T] items, Integer item_align) -> { at: Array[[T, Integer]], size: Integer }
       def layout(items, item_align) = Patch.layout(items, item_align)
 
+      #: (Integer size, exec: bool, ?at: Integer?, ?near: Integer) -> Integer
       def map(size, exec:, at: nil, near: 0)
         @host.map(size, exec: exec, at: at, near: near) or raise "mmap of #{size} bytes failed"
       end
@@ -118,6 +127,12 @@ module Zr
       # A symbol that this unit defines uses its own address, unless it is
       # also an import. An import uses its GOT slot for a GOT relocation,
       # its stub for a call, and its address for all other relocations.
+      # @rbs item: Code | Datum
+      # @rbs base: Integer
+      # @rbs addresses: Hash[String, Integer]
+      # @rbs data_base: Integer
+      # @rbs got: Hash[String, Integer]
+      # @rbs return: String
       def patched(item, base, addresses, data_base, got)
         Patch.apply(item, base, Relocs::Aarch64) do |r|
           if @symbols.key?(r.symbol) && !addresses.key?(r.symbol) then @symbols[r.symbol]

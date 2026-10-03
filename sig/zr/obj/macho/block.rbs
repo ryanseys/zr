@@ -1,0 +1,12 @@
+# The constants of lib/zr/obj/macho/block.rb that a multiple assignment
+# makes.
+module Zr
+  module Obj
+    module MachO
+      class Block
+        GOT_PAGE21: Integer
+        GOT_PAGEOFF12: Integer
+      end
+    end
+  end
+end

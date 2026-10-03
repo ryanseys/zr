@@ -13,9 +13,12 @@ module Zr
     # the SDK. When the user already set DEVELOPER_DIR or SDKROOT, zr
     # keeps those values.
     module Toolchain
+      # @rbs @env: Hash[String, String?]
+
       module_function
 
       # The environment a `cc` runs under.
+      #: () -> Hash[String, String?]
       def env
         @env ||= pinned
       end
@@ -23,13 +26,17 @@ module Zr
       # The command for the tool `name` ("cc") of `target`: the host's
       # tool or a cross toolchain's tool. Else the plain name; if it fails
       # to run, its error tells what is missing.
+      #: (Target target, String name) -> String
       def command(target, name) = target.tool(name) || name
 
       # Runs `argv` under `env`. Returns `[output, success]`; the output
       # contains stdout and stderr together.
+      #: (Array[String] argv) -> [String, bool]
       def run(argv)
         log = IO.popen(env, argv, err: %i[child out], &:read)
-        [log, $?.success?]
+        # `IO.popen` with a block waits for the child, so `$?` is set.
+        status = $? #: Process::Status
+        [log, status.success?]
       end
 
       # The developer directory that `xcode-select` chose: its link, else
@@ -45,6 +52,7 @@ module Zr
       # Else the developer directory that `xcode-select` chose and its
       # SDK, which is what `xcrun --show-sdk-path` gives, read without
       # starting xcrun. On a host with neither, nothing is pinned.
+      #: () -> Hash[String, String?]
       def pinned
         chosen = ENV.slice("DEVELOPER_DIR", "SDKROOT")
         return chosen unless chosen.empty?
@@ -54,6 +62,7 @@ module Zr
         sdk ? { "DEVELOPER_DIR" => developer, "SDKROOT" => sdk } : {}
       end
 
+      #: () -> String?
       def selected_developer_dir
         File.realpath(SELECTED)
       rescue SystemCallError

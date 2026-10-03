@@ -8,6 +8,7 @@ module Zr
     module Commands
       # `zr inspect [--json] BINARY`: the gem manifest that a binary carries.
       class Inspect < Command
+        #: (Array[String] argv) -> void
         def run(argv)
           require "json"
           require_relative "../../manifest"

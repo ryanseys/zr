@@ -33,13 +33,16 @@ module Zr
       # Each entry of the store (a file, or a directory for `run` and
       # `code`), each file of the old layout, and each binary that the
       # server left.
+      #: () -> Array[String]
       def all = Store.entries.map(&:path) + old + served
 
       # The spec harness's marks (`built-<digest>.ok`, test/support/built.rb)
       # are not old: they are empty, and a mark that goes makes the harness
       # check its runtime again.
+      #: () -> Array[String]
       def old = Dir[File.join(Paths.cache, OLD)].select { |path| File.file?(path) && !File.basename(path).match?(/\Abuilt-.*\.ok\z/) }
 
+      #: () -> Array[String]
       def served
         young = Time.now - (SERVED_HOURS * 3600)
         Dir[File.join(Paths.cache, "served", "*")].select { |path| File.file?(path) && File.mtime(path) < young }
@@ -48,22 +51,28 @@ module Zr
       # The compiled compilers and prebuilt binaries that older zr
       # versions kept in the user's cache (`self-*`, `shipped-*`). zr no
       # longer uses them. Each one is about 120 MB.
+      #: () -> Array[String]
       def old_compilers = Dir[File.join(Paths.user_cache, "{self,shipped}-*")].select { |dir| File.directory?(dir) }
 
       # The entries that this zr uses: each entry that a fresh root of the
       # store names. A build writes its roots: the runtime and eval support
       # objects, their images and metadata, and the code and lowering
       # entries of the backend.
+      #: () -> Array[String]
       def live = Store.rooted_paths
 
       # The entries that the roots of `target` name.
+      #: (Target target) -> Array[String]
       def live_for(target) = Store.rooted_paths(prefix: "#{target.triple}-")
 
+      #: (Array[String] paths) -> Integer
       def bytes(paths) = paths.sum { |path| File.directory?(path) ? Store.tree_bytes(path) : File.size?(path).to_i }
+      #: (Array[String] paths) -> Integer
       def megabytes(paths) = bytes(paths) / (1 << 20)
 
       # The store's kind of the entry at `path` (lib/zr/cache/store.rb), or
       # "old layout" or "served".
+      #: (String path) -> String?
       def kind(path)
         store = "#{Store.dir}/"
         return path.delete_prefix(store).split("/").first if path.start_with?(store)
@@ -74,6 +83,7 @@ module Zr
       # Deletes the entries that this zr does not use and that were not used
       # in the last `days`, each file of the old layout, and the binaries
       # that the server left. Returns the paths it deleted.
+      #: (?days: Integer | Float) -> Array[String]
       def prune(days: 0)
         gone = Store.clean(days: days).map(&:path)
         (gone + remove(old + served)).tap { remove_empty_dirs }
@@ -81,6 +91,7 @@ module Zr
 
       # Deletes the whole cache, also the entries this zr uses. Returns the
       # paths it deleted.
+      #: () -> Array[String]
       def clear
         files = all
         Store.clear
@@ -89,9 +100,11 @@ module Zr
         files
       end
 
+      #: (Array[String] paths) -> Array[String]
       def remove(paths) = paths.each { |path| Paths.remove(path) }
 
       # The directories of the old layout, once empty.
+      #: () -> void
       def remove_empty_dirs
         Dir[File.join(Paths.cache, "{binaries,parse,iseq,gems,served,run/*,run,code/*,code,core/*,core,eval-*/*,eval-*}")].each do |dir|
           Dir.rmdir(dir) if File.directory?(dir) && Dir.empty?(dir)
@@ -102,6 +115,7 @@ module Zr
 
       # The most GB that an installed zr keeps in its cache before a build
       # prunes it (`ZR_CACHE_MAX_GB`, default 5; 0 turns the limit off).
+      #: () -> Float
       def limit_gb = Config.current.cache_max_gb
 
       # How often a build measures the cache. A measure stats every entry
@@ -115,6 +129,7 @@ module Zr
       # other versions if it is still over. A checkout cleans its own cache
       # with `zr cache clean`; the quotas of `run` and `binary` hold in
       # both.
+      #: () -> void
       def trim
         return if Paths.checkout? || limit_gb <= 0
 

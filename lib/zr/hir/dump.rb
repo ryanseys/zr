@@ -9,12 +9,14 @@ module Zr
     module Dump
       module_function
 
+      #: (Program p) -> String
       def program(p)
-        lines = []
+        lines = [] #: Array[String]
         node(p.body, 0, lines)
         lines.join("\n") + "\n"
       end
 
+      #: (untyped n, Integer depth, Array[String] lines) -> void
       def node(n, depth, lines)
         pad = "  " * depth
         case n
@@ -176,6 +178,7 @@ module Zr
         end
       end
 
+      #: (Send n, Integer depth, Array[String] lines) -> void
       def dump_send(n, depth, lines)
         pad = "  " * depth
         lines << "#{pad}(#{n.vcall ? "vcall" : "send"}#{n.safe ? " safe" : ""} #{n.recv ? "" : "self "}#{n.name}"
@@ -186,6 +189,7 @@ module Zr
         lines[-1] += ")"
       end
 
+      #: (Block n, Integer depth, Array[String] lines) -> void
       def dump_block(n, depth, lines)
         pad = "  " * depth
         lines << "#{pad}(block (#{params(n.params)}) locals (#{n.locals.join(" ")})"
@@ -194,6 +198,7 @@ module Zr
         lines[-1] += ")"
       end
 
+      #: (Super n, Integer depth, Array[String] lines) -> void
       def dump_super(n, depth, lines)
         pad = "  " * depth
         lines << "#{pad}(super"
@@ -203,6 +208,7 @@ module Zr
         lines[-1] += ")"
       end
 
+      #: (Yield n, Integer depth, Array[String] lines) -> void
       def dump_yield(n, depth, lines)
         pad = "  " * depth
         lines << "#{pad}(yield"
@@ -211,6 +217,7 @@ module Zr
         lines[-1] += ")"
       end
 
+      #: (Def n, Integer depth, Array[String] lines) -> void
       def dump_def(n, depth, lines)
         pad = "  " * depth
         lines << "#{pad}(#{n.receiver ? "sdef" : "def"} #{n.name} (#{params(n.params)}) locals (#{n.locals.join(" ")})"
@@ -220,6 +227,7 @@ module Zr
         lines[-1] += ")"
       end
 
+      #: (MultiAssign n, Integer depth, Array[String] lines) -> void
       def dump_multi_assign(n, depth, lines)
         pad = "  " * depth
         lines << "#{pad}(masgn"
@@ -228,6 +236,7 @@ module Zr
         lines[-1] += ")"
       end
 
+      #: (MultiTarget n, Integer depth, Array[String] lines) -> void
       def dump_multi_target(n, depth, lines)
         pad = "  " * depth
         lines << "#{pad}(targets"
@@ -244,6 +253,7 @@ module Zr
         lines[-1] += ")"
       end
 
+      #: (If n, Integer depth, Array[String] lines) -> void
       def dump_if(n, depth, lines)
         pad = "  " * depth
         lines << "#{pad}(if"
@@ -252,6 +262,7 @@ module Zr
         lines[-1] += ")"
       end
 
+      #: (While n, Integer depth, Array[String] lines) -> void
       def dump_while(n, depth, lines)
         pad = "  " * depth
         lines << "#{pad}(#{n.body_first ? "do-while" : "while"}"
@@ -260,6 +271,7 @@ module Zr
         lines[-1] += ")"
       end
 
+      #: (Begin n, Integer depth, Array[String] lines) -> void
       def dump_begin(n, depth, lines)
         pad = "  " * depth
         lines << "#{pad}(begin"
@@ -269,6 +281,7 @@ module Zr
         lines[-1] += ")"
       end
 
+      #: (Rescue n, Integer depth, Array[String] lines) -> void
       def dump_rescue(n, depth, lines)
         pad = "  " * depth
         lines << "#{pad}(rescue"
@@ -282,6 +295,7 @@ module Zr
         lines[-1] += ")"
       end
 
+      #: (ClassDef | ModuleDef n, Integer depth, Array[String] lines) -> void
       def dump_class_def(n, depth, lines)
         pad = "  " * depth
         lines << "#{pad}(#{n.is_a?(ClassDef) ? "class" : "module"} #{scope(n.scope)}#{n.name}"
@@ -291,6 +305,7 @@ module Zr
         lines[-1] += ")"
       end
 
+      #: (SingletonClassDef n, Integer depth, Array[String] lines) -> void
       def dump_singleton_class_def(n, depth, lines)
         pad = "  " * depth
         lines << "#{pad}(sclass"
@@ -299,6 +314,7 @@ module Zr
         lines[-1] += ")"
       end
 
+      #: (ConstWrite n, Integer depth, Array[String] lines) -> void
       def dump_const_write(n, depth, lines)
         pad = "  " * depth
         lines << "#{pad}(const-set #{scope(n.scope)}#{n.name}"
@@ -307,6 +323,7 @@ module Zr
         lines[-1] += ")"
       end
 
+      #: (RangeLit n, Integer depth, Array[String] lines) -> void
       def dump_range(n, depth, lines)
         pad = "  " * depth
         lines << "#{pad}(range#{n.exclusive ? " exclusive" : ""}"
@@ -315,6 +332,7 @@ module Zr
         lines[-1] += ")"
       end
 
+      #: (ConstOrWrite n, Integer depth, Array[String] lines) -> void
       def dump_const_or_write(n, depth, lines)
         pad = "  " * depth
         lines << "#{pad}(const-or-set #{scope(n.scope)}#{n.name}"
@@ -323,6 +341,7 @@ module Zr
         lines[-1] += ")"
       end
 
+      #: (AliasValue n, Integer depth, Array[String] lines) -> void
       def dump_alias_value(n, depth, lines)
         pad = "  " * depth
         lines << "#{pad}(alias-value"
@@ -331,6 +350,7 @@ module Zr
         lines[-1] += ")"
       end
 
+      #: (Defined n, Integer depth, Array[String] lines) -> void
       def dump_defined(n, depth, lines)
         pad = "  " * depth
         lines << "#{pad}(defined? #{n.kind}#{n.target.is_a?(Symbol) ? " #{n.target}" : ""}"
@@ -338,6 +358,7 @@ module Zr
         lines[-1] += ")"
       end
 
+      #: (Case n, Integer depth, Array[String] lines) -> void
       def dump_case(n, depth, lines)
         pad = "  " * depth
         lines << "#{pad}(case"
@@ -352,6 +373,7 @@ module Zr
         lines[-1] += ")"
       end
 
+      #: (IndexOpAssign n, Integer depth, Array[String] lines) -> void
       def dump_index_op_assign(n, depth, lines)
         pad = "  " * depth
         lines << "#{pad}(index-op-assign #{n.op}"
@@ -361,6 +383,7 @@ module Zr
         lines[-1] += ")"
       end
 
+      #: (AttrOpAssign n, Integer depth, Array[String] lines) -> void
       def dump_attr_op_assign(n, depth, lines)
         pad = "  " * depth
         lines << "#{pad}(attr-op-assign #{n.name} #{n.op}"
@@ -369,6 +392,7 @@ module Zr
         lines[-1] += ")"
       end
 
+      #: (Autoload n, Integer depth, Array[String] lines) -> void
       def dump_autoload(n, depth, lines)
         pad = "  " * depth
         lines << "#{pad}(autoload #{n.name} #{n.feature.inspect} #{n.declared ? "declared" : "unit #{n.unit}"}"
@@ -377,28 +401,32 @@ module Zr
       end
 
       # `a b= *r c k: k2:= **kw &blk`: each parameter as its syntax.
+      #: (Params p) -> String
       def params(p)
         [*p.required.map { |r| param_name(r) }, *p.optional.map { |name, _| "#{name}=" }, p.rest && "*#{p.rest == :implicit ? "" : p.rest}", *p.post.map { |r| param_name(r) },
          *p.keywords.map { |name, default| "#{name}:#{default ? "=" : ""}" }, p.kwrest && "**#{p.kwrest}", p.block && "&#{p.block}"].compact.join(" ")
       end
 
+      #: (untyped r) -> (String | Symbol)
       def param_name(r)
         return r.name if r.is_a?(Assign)
         return r unless r.is_a?(MultiTarget)
 
         rest = if r.rest == :implicit then ["*"]
                elsif r.rest then ["*#{param_name(r.rest)}"]
-               else []
+               else [] #: Array[String]
                end
         inner = (r.lefts + rest + r.rights).map { |t| t.is_a?(String) ? t : param_name(t) }
         "(#{inner.join(" ")})"
       end
 
       # The default expressions, optional then keyword, as child nodes.
+      #: (Params p, Integer depth, Array[String] lines) -> void
       def defaults(p, depth, lines)
         (p.optional + p.keywords).each { |_, default| node(default, depth + 1, lines) if default }
       end
 
+      #: (scope s) -> String
       def scope(s)
         case s
         when nil then ""
@@ -407,6 +435,7 @@ module Zr
         end
       end
 
+      #: (untyped value) -> String
       def kind(value)
         case value
         when Integer then "int"

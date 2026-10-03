@@ -9,8 +9,13 @@ module Zr
       # separate objects that share a number.
       module Registers
         class Register
-          attr_reader :to_i
+          # @rbs @wide: bool
+          # @rbs @sp: bool
+          # @rbs @float: bool
 
+          attr_reader :to_i #: Integer
+
+          #: (Integer number, wide: bool, ?sp: bool, ?float: bool) -> void
           def initialize(number, wide:, sp: false, float: false)
             @to_i = number
             @wide = wide
@@ -19,12 +24,19 @@ module Zr
             freeze
           end
 
+          #: () -> bool
           def wide? = @wide
+          #: () -> bool
           def sp? = @sp
+          #: () -> bool
           def float? = @float
+          #: () -> Integer
           def sf = @wide ? 1 : 0
+          #: () -> Integer
           def size = @wide ? 64 : 32
+          #: () -> Register
           def zr = @wide ? XZR : WZR
+          #: () -> String
           def name
             return "D#{@to_i}" if @float
             return @wide ? "SP" : "WSP" if @sp
@@ -45,9 +57,13 @@ module Zr
         module_function
 
         # The registers by number, for a loop that counts over slots.
-        def x(i) = const_get(:"X#{i}")
-        def w(i) = const_get(:"W#{i}")
-        def d(i) = const_get(:"D#{i}")
+        # const_get takes a computed name, so Steep cannot type it.
+        #: (Integer i) -> Register
+        def x(i) = const_get(:"X#{i}") # steep:ignore
+        #: (Integer i) -> Register
+        def w(i) = const_get(:"W#{i}") # steep:ignore
+        #: (Integer i) -> Register
+        def d(i) = const_get(:"D#{i}") # steep:ignore
 
         SP = Register.new(31, wide: true, sp: true)
         WSP = Register.new(31, wide: false, sp: true)

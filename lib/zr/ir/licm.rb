@@ -32,10 +32,26 @@ module Zr
     # jumps to the header. Inner loops go first, so an instruction can
     # move out of more than one loop.
     class LICM
+      # @rbs @analysis: Analysis
+      # @rbs @block: Hash[String, Block]
+      # @rbs @header_of: Hash[String, String]
+      # @rbs @moved: bool
+      # @rbs @tested: Hash[String, bool]
+      # @rbs @order: Array[String]
+      # @rbs @body: Hash[Analysis::Loop, Hash[String, bool]]
+      # @rbs @loop: Analysis::Loop
+      # @rbs @in: Hash[String, bool]
+      # @rbs @variant: Hash[String, bool]
+      # @rbs @written: Integer
+      # @rbs @exits: Array[String]
+      # @rbs @read: Hash[[untyped, Integer], bool]
+
       include Regions
 
+      #: (Function f) -> Function
       def self.run(f) = new(f).run
 
+      #: (Function f) -> void
       def initialize(f)
         @f = f
         @analysis = f.analysis
@@ -45,6 +61,7 @@ module Zr
         @moved = false
       end
 
+      #: () -> Function
       def run
         loops = @analysis.loops
         return @f if loops.empty?
@@ -61,6 +78,7 @@ module Zr
       private
 
       # Moves each invariant instruction of `loop` to its preheader.
+      #: (Analysis::Loop loop, Array[Analysis::Loop] loops) -> void
       def hoist(loop, loops)
         @loop = loop
         @in = @body.fetch(loop)
@@ -98,6 +116,7 @@ module Zr
       # `@exits`: the blocks that leave the loop (all latches if none do).
       # `@read`: each `[address, offset]` that a block which dominates
       # the header loads or stores.
+      #: () -> void
       def survey
         @variant = {}
         @written = 0
@@ -125,6 +144,7 @@ module Zr
       end
 
       # Whether any of `targets` is outside the loop.
+      #: (Array[[String, Array[String]]]? targets) -> bool
       def leaves?(targets)
         return false unless targets
 
@@ -133,6 +153,7 @@ module Zr
 
       # Whether `i`, in the loop block `at`, gives the same value in each
       # iteration and can run before the first iteration.
+      #: (Inst i, String at) -> bool
       def invariant?(i, at)
         return load_invariant?(i, at) if i.op == :load
 
@@ -144,6 +165,7 @@ module Zr
         values.any?
       end
 
+      #: (Inst i, String at) -> bool
       def load_invariant?(i, at)
         addr = i.args[0]
         return false if @variant.key?(addr)
@@ -160,15 +182,16 @@ module Zr
       # read. `Chains` changes such a `band` or `bor` into branches. The
       # loop repeats until nothing changes, because one pass can find
       # new values for the next.
+      #: () -> Hash[String, bool]
       def tested_only
         uses = @analysis.uses
-        reads = Hash.new(0)
+        reads = Hash.new(0) #: Hash[untyped, Integer]
         blocks = @f.blocks
         blocks.each do |b|
           br = b.insts.last
           reads[br.args[0]] += 1 if br.op == :brif || br.op == :switch
         end
-        tested = {}
+        tested = {} #: Hash[String, bool]
         loop do
           moved = false
           blocks.each do |b|
@@ -188,12 +211,14 @@ module Zr
         tested
       end
 
+      #: (String at) -> bool
       def dominates_exits?(at)
         @exits.all? { |x| dominates?(at, x) }
       end
 
       # A preheader that this pass made dominates all that its header
       # dominates.
+      #: (String a, String b) -> bool
       def dominates?(a, b)
         a == b || @analysis.dominates?(@header_of.fetch(a, a), b)
       end
@@ -203,11 +228,12 @@ module Zr
       # The block takes the header parameters and jumps to the header
       # with them. Moved instructions go before the jump. The block
       # becomes part of the body of each loop that contains this loop.
+      #: (Analysis::Loop loop, Array[Analysis::Loop] loops) -> Block
       def preheader(loop, loops)
         @moved = true
         header = @block.fetch(loop.header)
         pre = @f.block_before(header)
-        params = header.params.map { |(_, type)| [@f.value, type] }
+        params = header.params.map { |(_, type)| [@f.value, type] } #: Array[[String, String]]
         pre.params.concat(params)
         pre.insts << Inst.new(:jump, targets: [[header.name, params.map(&:first)]])
         @analysis.preds.fetch(header.name).uniq.each do |p|
@@ -219,7 +245,8 @@ module Zr
         end
         @block[pre.name] = pre
         @header_of[pre.name] = header.name
-        @order.insert(@order.index(header.name), pre.name)
+        at = @order.index(header.name) #: Integer
+        @order.insert(at, pre.name)
         loops.each { |l| @body.fetch(l)[pre.name] = true if l != loop && @body.fetch(l).key?(header.name) }
         pre
       end

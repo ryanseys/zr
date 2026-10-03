@@ -9,8 +9,10 @@ module Zr
       # `zr version`, `zr --version` and `zr -v`: zr's version and the ruby
       # version that it matches.
       class Version < Command
+        #: () -> bool
         def plain? = true
 
+        #: (Array[String] _argv) -> void
         def run(_argv) = puts("zr #{VERSION} (for ruby #{RUBY})")
       end
     end

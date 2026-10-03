@@ -29,11 +29,13 @@ module ZrGemSet
 
   module_function
 
+  #: (String name, String? version, String source, Array[String] roots, bool extensions, Hash[String, String] ports) -> Hash[String, untyped]
   def gem(name, version, source, roots, extensions, ports)
     refusal = refusal(name, version, source, extensions, ports)
     { "name" => name, "version" => version, "source" => source, "roots" => roots, "refusal" => refusal }
   end
 
+  #: (String name, String? version, String source, bool extensions, Hash[String, String] ports) -> String?
   def refusal(name, version, source, extensions, ports)
     compat = ports[name]
     if compat
@@ -52,6 +54,7 @@ module ZrGemSet
 
   # A lock applies as `bundle exec ruby` applies it: every locked gem of
   # every group, as installed on this host.
+  #: (String gemfile, Hash[String, String] ports) -> Array[Hash[String, untyped]]
   def locked(gemfile, ports)
     require "bundler"
     Bundler.ui = Bundler::UI::Silent.new if defined?(Bundler::UI::Silent)
@@ -76,6 +79,7 @@ module ZrGemSet
   # `--gem NAME=VERSION`: that version as rubygems has it installed.
   # `--gem NAME=PATH`: a gem's directory (with a gemspec or a lib/), or
   # a directory of Ruby files.
+  #: (String name, String value, Hash[String, String] ports) -> Hash[String, untyped]
   def flagged(name, value, ports)
     source = "--gem #{name}=#{value}"
     return installed(name, value, source, ports) if value.match?(/\A\d+(\.[0-9A-Za-z]+)*\z/)
@@ -101,6 +105,7 @@ module ZrGemSet
   # has `<home>/specifications/rake-13.3.1.gemspec`), then the gem's own.
   # A gem's own gemspec can read `git ls-files`, which an installed copy
   # cannot answer.
+  #: (String dir) -> Array[String]
   def gemspecs(dir)
     installed = File.join(File.dirname(dir, 2), "specifications", "#{File.basename(dir)}.gemspec")
     own = Dir.children(dir).grep(/\.gemspec\z/).sort.map { |file| File.join(dir, file) }
@@ -112,6 +117,7 @@ module ZrGemSet
   # gem has none: its files are in ruby's own library, which zr's
   # standard library copies, and ruby's library as a root would hide all
   # of zr's.
+  #: (Gem::Specification spec) -> Array[String]
   def roots(spec)
     return [] if spec.respond_to?(:default_gem?) && spec.default_gem?
 
@@ -119,6 +125,7 @@ module ZrGemSet
     paths.map { |path| File.expand_path(path, spec.full_gem_path) }
   end
 
+  #: (String name, String version, String source, Hash[String, String] ports) -> Hash[String, untyped]
   def installed(name, version, source, ports)
     spec = Gem::Specification.find_all_by_name(name, "= #{version}").first
     raise Error, "#{source}: #{name} #{version} is not installed. Run 'gem install #{name} -v #{version}'" unless spec
@@ -127,12 +134,15 @@ module ZrGemSet
   end
 
   # The directory that rubygems loaded from, which zr checks is its own.
+  #: () -> String
   def rubygems = File.dirname($LOADED_FEATURES.find { |path| path.end_with?("/rubygems.rb") }.to_s)
 
+  # `request` is the parsed JSON of the request.
+  #: (Hash[String, untyped] request) -> Hash[String, untyped]
   def answer(request)
     ports = request.fetch("ports")
-    flags = request.fetch("flags").map { |name, value| flagged(name, value, ports) }
-    locked = request["gemfile"] ? locked(request["gemfile"], ports) : []
+    flags = request.fetch("flags").map { |name, value| flagged(name, value, ports) } #: Array[Hash[String, untyped]]
+    locked = request["gemfile"] ? locked(request["gemfile"], ports) : [] #: Array[Hash[String, untyped]]
     named = flags.to_h { |gem| [gem["name"], true] }
     { "gems" => flags + locked.reject { |gem| named[gem["name"]] }, "rubygems" => rubygems }
   rescue Error => e

@@ -47,6 +47,7 @@ module Zr
 
       # Why this compiler must not build on a ruby of `version`, or nil
       # when it runs there.
+      #: (?String version) -> String?
       def host_refusal(version = RUBY_VERSION)
         return if Zr.supported_ruby?(version)
 
@@ -55,6 +56,7 @@ module Zr
       end
 
       # A note for a ruby that zr runs on but is not tested with, or nil.
+      #: (?String version) -> String?
       def host_note(version = RUBY_VERSION)
         return if version == RUBY || !Zr.supported_ruby?(version)
 
@@ -63,6 +65,7 @@ module Zr
 
       # Stops a build on a ruby that zr does not run on, before it reads
       # the program. Warns once on a ruby that it is not tested with.
+      #: (?String version) -> void
       def pinned!(version = RUBY_VERSION)
         if (note = host_note(version))
           warn "zr: warning: #{note}"
@@ -79,6 +82,7 @@ module Zr
       # aarch64-apple-darwin binary on any host, but only that host can run
       # it. A cross toolchain builds a binary that only its target host
       # runs.
+      #: (String input, String verb, String? emit, Target target, ?chosen: bool) -> void
       def refuse(input, verb, emit, target, chosen: true)
         why = target.refusal(emit)
         if why.nil? && verb == "run" && emit.nil? && !target.runs_here?
@@ -95,6 +99,7 @@ module Zr
 
       # The words for a native target that this host cannot run. `chosen`
       # is false when the build took the default target, not a --target.
+      #: (Target target, bool chosen) -> String
       def foreign(target, chosen)
         what = "this computer cannot run #{target.triple} binaries."
         return what if chosen
@@ -105,8 +110,9 @@ module Zr
       # What `zr` prints when it refuses a program: the message, then for a
       # form of Ruby, the source line with a caret and the page that lists
       # what zr supports.
+      #: (Refused error) -> String
       def refusal_report(error)
-        lines = ["zr: #{error.message}"]
+        lines = ["zr: #{error.message}"] #: Array[String?]
         if error.form
           lines << error.excerpt if error.excerpt
           lines << "zr: #{SUPPORT} lists what zr supports"
@@ -117,11 +123,14 @@ module Zr
       # ruby's report for `input`, which does not parse, or nil when it
       # parses (then a file that it requires did not). The host ruby writes
       # it, without gems, so no other version of syntax_suggest is loaded.
+      #: (String input) -> String?
       def syntax_report(input)
         require_relative "../library/roots"
         argv = [Config.current.host_ruby, "--disable-gems", "-e", SYNTAX_REPORT, File.join(Library::Roots.pure, "syntax_suggest"), input]
         out = IO.popen(argv, err: File::NULL, &:read)
-        $?.success? ? out : nil
+        # `IO.popen` with a block waits for the child, so `$?` is set.
+        status = $? #: Process::Status
+        status.success? ? out : nil
       end
     end
   end

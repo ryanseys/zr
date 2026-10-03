@@ -9,11 +9,47 @@ module Zr
       # $LOAD_PATH with a literal (`$LOAD_PATH.unshift(File.expand_path
       # ("lib", __dir__))` and similar), read before the file's body.
       class Loader
-        attr_reader :units
+        # @rbs @deferred: Array[String]
+        # @rbs @modules: Hash[String, bool]
+        # @rbs @description: ^() -> String
+        # @rbs @gem_set: GemSet?
+        # @rbs @gate: bool | Symbol
+        # @rbs @own: Hash[String, bool]
+        # @rbs @data: Hash[String, Integer]
+        # @rbs @prebuilt_eval: untyped
+        # @rbs @preloaded: Array[String]
+        # @rbs @ahead: Array[String]
+        # @rbs @booted: Array[String]
+        # @rbs @gems: bool
+        # @rbs @eval: bool
+        # @rbs @trace: bool
+        # @rbs @traces: bool
+        # @rbs @covers: bool
+        # @rbs @coverable: Hash[String, [Integer, Array[Integer]]]
+        # @rbs @branches: Hash[String, Array[Array[Symbol | Integer | nil]]]
+        # @rbs @branch_count: Integer
+        # @rbs @defs: Hash[String, Array[Array[Integer]]]
+        # @rbs @def_count: Integer
+        # @rbs @roots: Array[String]
+        # @rbs @units: Array[Unit]
+        # @rbs @stopped: Array[String]
+        # @rbs @index: Hash[String, entry]
+        # @rbs @evals: bool
+        # @rbs @normalizes: bool
+        # @rbs @pretty_prints: bool
+        # @rbs @irbs: bool
+        # @rbs @asts: bool
+        # @rbs @configures: bool
+        # @rbs @activations: Integer
+        # @rbs @back_refs: Hash[Symbol, Prism::node]
+        # @rbs @alias_flags: Hash[Symbol, Symbol?]
+        # @rbs @hiding: bool?
+
+        attr_reader :units #: Array[Unit]
 
         # The ruby features that a require or an autoload stopped on,
         # because no root has the file (`Build#stop_for`).
-        attr_reader :stopped
+        attr_reader :stopped #: Array[String]
 
         # `external` is an EvalSupport that is already built. A file in it
         # is referred to by its entry, and needs nothing that eval support
@@ -33,6 +69,22 @@ module Zr
         # `gate`: a literal require in the program's own files that no
         # root has stops the build (`Build#gate!`). A build from the CLI
         # sets it; `--allow-runtime-require` does not.
+        # @rbs roots: Array[String]
+        # @rbs eval: bool
+        # @rbs external: untyped
+        # @rbs trace: bool
+        # @rbs evals: bool
+        # @rbs covers: bool
+        # @rbs activations: Integer?
+        # @rbs deferred: Array[String]
+        # @rbs preloaded: Array[String]
+        # @rbs ahead: Array[String]
+        # @rbs booted: Array[String]
+        # @rbs prebuilt_eval: untyped
+        # @rbs gem_set: GemSet?
+        # @rbs gate: bool | Symbol
+        # @rbs description: (^() -> String?)?
+        # @rbs return: void
         def initialize(roots, eval: false, external: nil, trace: false, evals: false, covers: false, activations: nil,
                        deferred: [], preloaded: PRELOADED, ahead: Build.ahead, booted: Build.booted, prebuilt_eval: nil, gem_set: nil,
                        gate: false, description: nil)
@@ -85,11 +137,14 @@ module Zr
         # the global table, so the new name is a second name that the
         # lowering resolves. It does not write a global entry. All of them
         # come from English.rb.
+        #: (Symbol name) -> Prism::node?
         def back_ref(name) = @back_refs[name]
 
         # Whether a file uses TracePoint or set_trace_func, and whether
         # this build fires the events that a TracePoint listens for.
+        #: () -> bool
         def traces? = @traces
+        #: () -> bool
         def tracing? = @trace
 
         # The names in a program that wants `:line` events. The source
@@ -107,8 +162,10 @@ module Zr
         COVERAGE_CONSTANTS = %i[Coverage].freeze
         COVERAGE_WORDS = %w[Coverage].freeze
 
+        #: (Prism::node tree) -> bool
         def names_tracing?(tree) = names_of?(tree, TRACE_CONSTANTS, TRACE_CALLS, TRACE_WORDS)
 
+        #: (Prism::node tree) -> bool
         def names_coverage?(tree) = names_of?(tree, COVERAGE_CONSTANTS, [], COVERAGE_WORDS)
 
         # Whether the tree uses one of `constants`, calls one of `calls`,
@@ -116,6 +173,7 @@ module Zr
         # make this as safe as a plain regexp: a name got by `const_get` of
         # a string also counts. To arm a program that does not trace costs
         # time, but to miss one that does gives wrong output.
+        #: (Prism::node tree, Array[Symbol] constants, Array[Symbol] calls, Array[String] words) -> bool
         def names_of?(tree, constants, calls, words)
           !tree.breadth_first_search do |n|
             case n
@@ -123,24 +181,26 @@ module Zr
             when Prism::ConstantPathNode then n.parent.nil? && constants.include?(n.name)
             when Prism::CallNode then calls.include?(n.name)
             when Prism::SymbolNode, Prism::StringNode then words.include?(n.unescaped)
-            end
+            end #: bool
           end.nil?
         end
 
         # Whether a file uses Coverage. Also, for each file, its line count
         # and the lines where a traced build fires :line events. Coverage
         # returns nil for the other lines and counts these.
+        #: () -> bool
         def covers? = @covers
         COVERAGE_NAMES = /\bCoverage\b/
-        attr_reader :coverable
+        attr_reader :coverable #: Hash[String, [Integer, Array[Integer]]]
 
+        #: (String file, Integer line) -> void
         def line_event!(file, line)
           @coverable[file]&.last&.push(line)
         end
 
         # The branch records of each measured file, in Coverage's order: a
         # root, then its branches, then the next root.
-        attr_reader :branches
+        attr_reader :branches #: Hash[String, Array[Array[Symbol | Integer | nil]]]
 
         # Adds a record for branch `kind` over `span`, and returns
         # `[id, index]`. `id` is its `Cover` id, unique in the program,
@@ -148,6 +208,7 @@ module Zr
         # is the record's position in its file: Coverage shows it, and a
         # branch refers to its root by it. `under` is the root's index for
         # a branch, nil for a root.
+        #: (String file, Symbol kind, Array[Integer] span, ?under: Integer?) -> [Integer, Integer]
         def branch!(file, kind, span, under: nil)
           rows = (@branches[file] ||= [])
           id = @branch_count
@@ -162,8 +223,9 @@ module Zr
         # method the block's location. Only the run knows which becomes a
         # method, so the record is only the span. The name and owner come
         # from the definition that uses it.
-        attr_reader :defs
+        attr_reader :defs #: Hash[String, Array[Array[Integer]]]
 
+        #: (String file, Array[Integer] span) -> Integer
         def def_site!(file, span)
           id = @def_count
           @def_count += 1
@@ -173,30 +235,38 @@ module Zr
 
         # The number of `using` entries in use after this build, and the
         # next entry that it takes.
-        attr_reader :activations
+        attr_reader :activations #: Integer
 
+        #: () -> Integer
         def next_activation = @activations.tap { @activations += 1 }
 
         # `flag` is the global that a conditional alias sets when it runs,
         # or nil for an alias that always runs.
+        #: (Symbol new_name, Prism::node old_name, ?Symbol? flag) -> void
         def back_ref!(new_name, old_name, flag = nil)
           @back_refs[new_name] = old_name
           @alias_flags[new_name] = flag
         end
 
+        #: (Symbol name) -> Symbol?
         def alias_flag(name) = @alias_flags[name]
 
+        #: () -> bool
         def evals? = @evals
 
+        #: (String? feature) -> bool
         def deferred?(feature) = @deferred.include?(feature)
 
+        #: (String file) -> bool
         def ahead?(file) = @ahead.any? { |dir| file.start_with?(dir) }
 
+        #: (String path) -> bool
         def booted?(path) = @booted.include?(path)
 
-        attr_reader :preloaded
+        attr_reader :preloaded #: Array[String]
 
         # A file that the program requires but that only run time can find.
+        #: () -> void
         def compiles_at_run_time!
           @evals = true
         end
@@ -209,6 +279,7 @@ module Zr
         # other than a literal directory added) can make a require find a
         # file that was not compiled in, so the program links in the
         # compiler.
+        #: (Prism::CallNode node, String file) -> void
         def load_path_changed!(node, file)
           return unless node.receiver.is_a?(Prism::GlobalVariableReadNode) && %i[$LOAD_PATH $:].include?(node.receiver.name)
           return unless LOAD_PATH_CHANGES.include?(node.name)
@@ -221,14 +292,17 @@ module Zr
         # to a program that is already linked, and it cannot see the
         # methods of its enclosing class. So `require` and `load` there are
         # normal sends, and dispatch decides.
+        #: () -> bool
         def eval? = @eval
 
         # Each file that this loader reached, by path: its unit's index, or
         # its entry in an external EvalSupport.
+        #: () -> Hash[String, entry]
         def entries = @index
 
         # The unit at `path` and all that it loads, built as eval support
         # files (hidden).
+        #: (String path) -> entry
         def hidden(path)
           @hiding = true
           add(path)
@@ -238,6 +312,7 @@ module Zr
 
         # A program's method that replaces one of these and calls `super`
         # passes a name to Kernel's or Module's method that no site shows.
+        #: (Prism::DefNode node) -> void
         def loads_by_def!(node)
           return unless (REQUIRES.include?(node.name) || node.name == :autoload) && node.body
 
@@ -249,6 +324,7 @@ module Zr
         # receiver, or `Kernel` is the receiver. `YAML.load` does not. An
         # `autoload` that gets here has a computed feature, with any
         # receiver, because Module#autoload also takes one.
+        #: (Symbol name, Array[untyped] args, ?kernel: bool) -> void
         def evals!(name, args, kernel: true)
           @evals = true if name == :autoload
           named = args.first.value if args.first.is_a?(Literal) && args.first.value.is_a?(Symbol)
@@ -268,6 +344,7 @@ module Zr
         COMMANDS = %i[trap trace_var].freeze
         TRAP_WORDS = ["", "IGNORE", "SIG_IGN", "DEFAULT", "SIG_DFL", "SYSTEM_DEFAULT", "EXIT"].freeze
 
+        #: (Symbol name, Array[node] args) -> bool
         def ruby_command?(name, args)
           return false unless COMMANDS.include?(name)
 
@@ -283,12 +360,15 @@ module Zr
         # The classes and modules that the program's files define, by
         # lexical name (`Prism::Ruby`). A bare `Ruby` inside `module Prism`
         # is Prism's own module then, not Ruby::Box.
+        #: (Array[String?] path, String name) -> bool
         def module_defined!(path, name) = @modules[[*path, name].join("::")] = true
 
         # Whether `name`, read in the lexical `path`, names a class or
         # module that a file defines inside that path.
+        #: (Array[String?] path, Symbol name) -> bool
         def module_defined?(path, name) = path.size.downto(1).any? { |n| @modules.key?([*path.first(n), name].join("::")) }
 
+        #: (Symbol name) -> void
         def compiles!(name)
           @evals = true if COMPILES.include?(name)
           @asts = true if name == :AbstractSyntaxTree
@@ -296,15 +376,18 @@ module Zr
 
         # Whether a file uses RubyVM::AbstractSyntaxTree. The translator
         # builds its trees from prism.
+        #: () -> bool
         def asts? = @asts
 
         # Whether a file uses rubygems' API. If so, it loads when the
         # program boots, as ruby loads it for every program.
+        #: () -> bool
         def gems? = @gems
         GEM_NAMES = %i[Gem Bundler].freeze
 
         # rubygems evals when it loads, so a program that includes it also
         # links in the compiler.
+        #: (Symbol name) -> void
         def gems!(name)
           return unless GEM_NAMES.include?(name)
 
@@ -320,24 +403,31 @@ module Zr
         # normalization.
         ENCODES = %i[encode encode!].freeze
 
+        #: () -> bool
         def normalizes? = @normalizes
+        #: () -> bool
         def pretty_prints? = @pretty_prints
+        #: () -> bool
         def irbs? = @irbs
 
+        #: () -> bool
         def configures? = @configures
+        #: () -> bool
         def configures! = @configures = true
 
         # Whether a file uses the toplevel `RbConfig`, bare or as
         # `::RbConfig`.
+        #: (Prism::node tree) -> bool
         def names_rbconfig?(tree)
           !tree.breadth_first_search do |n|
             case n
             when Prism::ConstantReadNode then n.name == :RbConfig
             when Prism::ConstantPathNode then n.parent.nil? && n.name == :RbConfig
-            end
+            end #: bool
           end.nil?
         end
 
+        #: (Symbol name, Array[untyped] args) -> void
         def normalizes!(name, args)
           named = args.first.value if args.first.is_a?(Literal) && args.first.value.is_a?(Symbol)
           @normalizes = true if NORMALIZES.include?(name) || ENCODES.include?(name) ||
@@ -350,30 +440,38 @@ module Zr
 
         # The byte a file's `__END__` data starts at, or nil when it has
         # none.
+        #: (String file) -> Integer?
         def data_at(file) = @data[file]
 
         # The script encoding that `__ENCODING__` answers. Prism's
         # result gives the source String's own encoding when the text is
         # not ASCII, so the magic comment is read again here, where ruby
         # reads it: line 1, or line 2 after a shebang.
+        #: (Prism::ParseResult result, String source) -> Encoding
         def source_encoding(result, source)
           lines = source.b.lines.first(2)
           lines = lines.first(1) unless lines.first&.start_with?("#!")
           name = lines.filter_map { |line| line[/\A\s*#.*?coding[:=][ \t]*([\w.-]+)/i, 1] }.first
           return result.encoding unless name
 
-          ::Encoding.find(name)
+          ::Encoding.find(name) #: Encoding
         rescue ArgumentError
           result.encoding
         end
 
+        # @rbs file: String
+        # @rbs source: String
+        # @rbs line: Integer
+        # @rbs scopes: Array[Array[Symbol]]?
+        # @rbs method: Array[[Symbol, Symbol]]?
+        # @rbs return: Unit
         def unit(file, source = File.read(file), line = 1, scopes = nil, method: nil)
           result = scopes ? Zr.parse(source, filepath: file, line: line, scopes: scopes) : Zr.parse(source, filepath: file, line: line)
           raise SyntaxReport.error(result, file) unless result.errors.empty?
           if (marker = result.data_loc)
             @data[file] = source.byteindex("\n", marker.start_offset)&.succ || source.bytesize
           end
-          stray = scopes && method.nil? && invalid_yields(source, file, line)
+          stray = scopes && method.nil? && invalid_yields(source, file, line) #: SyntaxError?
           raise stray if stray
 
           load_path_roots(result.value, file).each do |front, paths|
@@ -402,6 +500,7 @@ module Zr
         # no block to yield to. prism reports it only if it does not know
         # about the outer scopes, so parse again without them. Ruby
         # reports each one, one line each.
+        #: (String source, String file, Integer line) -> SyntaxError?
         def invalid_yields(source, file, line)
           yields = Zr.parse(source, filepath: file, line: line).errors.select { |e| e.type == :invalid_yield }
           return nil if yields.empty?
@@ -413,6 +512,11 @@ module Zr
         # The definees for which this file defines its own `require`,
         # `require_relative` or `load`. A call in one of them dispatches to
         # that method, so it must not compile the file in.
+        # @rbs node: Prism::node?
+        # @rbs path: Array[String?]
+        # @rbs found: Hash[[String, bool, Symbol], bool]
+        # @rbs singleton: bool
+        # @rbs return: Hash[[String, bool, Symbol], bool]
         def shadowed(node, path = [Object.name], found = {}, singleton: false)
           case node
           when Prism::ClassNode, Prism::ModuleNode
@@ -431,6 +535,7 @@ module Zr
         # and overwritten on line 24` and similar), as ruby prints them.
         # prism knows the rules and the line of each. A plain run does not
         # print `-w` level warnings.
+        #: (Prism::ParseResult result, String file) -> Array[String]
         def warnings(result, file)
           result.warnings.filter_map do |w|
             next unless w.level == :default
@@ -443,6 +548,7 @@ module Zr
         # is set before the file is read, so two files that require each
         # other stop where ruby stops: the second require returns false
         # and the first one finishes.
+        #: (String path) -> entry
         def add(path)
           return @index[path] if @index.key?(path)
           # After a build finds that the program evals, it will run again
@@ -465,6 +571,7 @@ module Zr
         # A unit that stops with a message when it runs. An autoload of a
         # feature that this runtime has no file for becomes this: the
         # autoload entry exists, and a read of the constant stops.
+        #: (String what, Integer line) -> Integer
         def stop_unit(what, line)
           i = @units.size
           @units << Unit.new(what, [], Stop.new(what, line), [], false)
@@ -472,19 +579,24 @@ module Zr
         end
 
         # Whether a missing literal require stops the build (`gate`).
+        #: () -> (bool | Symbol)
         def gated? = @gate
 
         # The program's own files: the main file, and each file that one of
         # them reaches by `require_relative` or by a path. A file that a
         # require finds in a root is a library's.
+        #: (String path) -> bool
         def own!(path) = @own[File.expand_path(path)] = true
+        #: (String path) -> bool
         def own?(path) = @own.key?(File.expand_path(path))
 
         # Why a build cannot use the file at `path`: it is in a gem of the
         # GemSet that zr cannot compile (a C extension). Nil otherwise.
+        #: (String? path, ?String? feature) -> String?
         def refused_gem(path, feature = nil) = @gem_set&.refusal(path, feature)
 
         # The file for `feature`, required from `from`, or nil.
+        #: (Symbol kind, String feature, String from) -> String?
         def resolve(kind, feature, from)
           if kind == :require_relative
             candidate(File.expand_path(feature, File.dirname(from)))
@@ -512,13 +624,16 @@ module Zr
         # The file in place of native extension `feature` under `root`:
         # the extension's own Ruby (`strscan.rb`), if the root contains
         # this runtime's native parts.
+        #: (String root, String feature) -> String?
         def native(root, feature)
           native_root?(root) && feature.match?(NATIVE) ? candidate(File.join(root, feature.sub(NATIVE, ""))) : nil
         end
 
         # Library::Layout::EXT, or an OS layer's directory under it.
+        #: (String root) -> bool
         def native_root?(root) = root == Library::Layout::EXT || File.dirname(root) == File.join(Library::Layout::EXT, "os")
 
+        #: (String path) -> String?
         def candidate(path)
           return path if path.end_with?(".rb") && File.file?(path)
 
@@ -528,8 +643,10 @@ module Zr
         # The directories that a file adds to $LOAD_PATH with a literal, in
         # order: `[true, paths]` for an `unshift`, which puts them before
         # all roots, and `[false, paths]` for `push` and `<<`.
+        #: (Prism::node node, String file) -> Array[[bool, Array[String]]]
         def load_path_roots(node, file)
-          roots = []
+          roots = [] #: Array[[bool, Array[String]]]
+          # @type var walk: ^(Prism::node) -> void
           walk = lambda do |n|
             if n.is_a?(Prism::CallNode) && n.receiver.is_a?(Prism::GlobalVariableReadNode) && %i[$LOAD_PATH $:].include?(n.receiver.name) &&
                %i[unshift push <<].include?(n.name) && n.arguments
@@ -544,12 +661,13 @@ module Zr
 
         # The absolute path of a literal: a String, `File.expand_path(str,
         # __dir__)` or `File.join(__dir__, str...)`. nil for all others.
+        #: (Prism::node node, String file) -> String?
         def literal_path(node, file)
           dir = File.dirname(file)
           case node
           when Prism::StringNode then File.expand_path(node.unescaped)
           when Prism::InterpolatedStringNode
-            parts = node.parts
+            parts = node.parts #: untyped
             return nil unless parts.size == 2 && parts[0].is_a?(Prism::EmbeddedStatementsNode) && parts[0].statements&.body&.size == 1 &&
                               dir_call?(parts[0].statements.body[0]) && parts[1].is_a?(Prism::StringNode)
 
@@ -557,7 +675,7 @@ module Zr
           when Prism::CallNode
             return nil unless node.receiver.is_a?(Prism::ConstantReadNode) && node.receiver.name == :File && node.arguments
 
-            args = node.arguments.arguments
+            args = node.arguments.arguments #: untyped
             if node.name == :expand_path && args.size == 2 && args[0].is_a?(Prism::StringNode) && dir_call?(args[1])
               File.expand_path(args[0].unescaped, dir)
             elsif node.name == :join && dir_call?(args[0]) && args[1..].all?(Prism::StringNode)
@@ -566,6 +684,7 @@ module Zr
           end
         end
 
+        #: (Prism::node? node) -> bool
         def dir_call?(node)
           node.is_a?(Prism::CallNode) && node.name == :__dir__ && node.receiver.nil? && node.arguments.nil?
         end

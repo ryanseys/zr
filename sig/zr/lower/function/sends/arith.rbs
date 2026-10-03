@@ -1,12 +1,12 @@
 # The record of lib/zr/lower/function/sends/arith.rb. IR values are
-# Strings ("v3").
+# Strings ("v3"). `bits` is pure, so a test of it narrows a later read.
 module Zr
   class Lower
     class Function
       module Sends
         class Operand < Data
           attr_reader value: String
-          attr_reader bits: String?
+          %a{pure} attr_reader bits: String?
 
           def self.new: (String value, String? bits) -> instance
                       | (value: String, bits: String?) -> instance

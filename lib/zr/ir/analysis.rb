@@ -22,13 +22,27 @@ module Zr
     # blocks by name, because passes use names. `rpo` contains the blocks
     # themselves, because a walk needs their instructions.
     class Analysis
+      # @rbs @f: Function
+      # @rbs @blocks: Hash[String, Block]
+      # @rbs @preds: Hash[String, Array[String]]?
+      # @rbs @rpo: Array[Block]
+      # @rbs @idom: Hash[String, String?]?
+      # @rbs @pre: Hash[String, Integer]
+      # @rbs @post: Hash[String, Integer]
+      # @rbs @uses: Hash[String, Integer]?
+      # @rbs @loops: Array[Loop]
+      # @rbs @depth: Hash[String, Integer]
+
       # A natural loop: its header, all its blocks (header first), the
       # blocks whose back edge closes it, and its depth (the number of loops
       # that contain it, itself included).
       class Loop
-        attr_reader :header, :body, :latches
-        attr_accessor :depth
+        attr_reader :header #: String
+        attr_reader :body #: Array[String]
+        attr_reader :latches #: Array[String]
+        attr_accessor :depth #: Integer
 
+        #: (String header) -> void
         def initialize(header)
           @header = header
           @body = [header]
@@ -37,25 +51,32 @@ module Zr
         end
       end
 
+      # `@rpo`, `@pre`, `@post`, `@loops` and `@depth` are nil until their
+      # first use sets them, so their types do not include nil.
+      #: (Function f) -> void
       def initialize(f)
         @f = f
         @blocks = f.blocks.to_h { |b| [b.name, b] }
         @preds = nil
-        @rpo = nil
+        @rpo = nil #: untyped
         @idom = nil
-        @pre = nil
-        @post = nil
+        @pre = nil #: untyped
+        @post = nil #: untyped
         @uses = nil
-        @loops = nil
-        @depth = nil
+        @loops = nil #: untyped
+        @depth = nil #: untyped
       end
 
       # `{ block name => [predecessor name, ...] }`, one entry for each edge.
       # A block that a `brif` reaches on both arms lists that predecessor two
       # times. Each block has an entry; an unreachable block has an empty list.
+      #: () -> Hash[String, Array[String]]
       def preds
         @preds ||= begin
-          into = @f.blocks.to_h { |b| [b.name, []] }
+          into = @f.blocks.to_h do |b|
+            names = [] #: Array[String]
+            [b.name, names]
+          end
           @f.blocks.each { |b| b.insts.last&.targets&.each { |(name, _)| into[name] << b.name } }
           into
         end
@@ -64,6 +85,7 @@ module Zr
       # The blocks that the entry reaches, in reverse postorder: a block
       # comes before each block that it dominates, and a loop header comes
       # before its body. Unreachable blocks are not included.
+      #: () -> Array[Block]
       def rpo
         @rpo ||= postorder.reverse
       end
@@ -71,6 +93,7 @@ module Zr
       # `{ block name => immediate dominator name }` for the reachable
       # blocks; nil for the entry. This is the iterative algorithm of Cooper,
       # Harvey and Kennedy over the reverse postorder.
+      #: () -> Hash[String, String?]
       def idom
         @idom ||= dominators
       end
@@ -78,6 +101,7 @@ module Zr
       # Whether `a` dominates `b` (a block dominates itself): two compares of
       # the pre- and post-numbers of the dominator tree. An unreachable block
       # dominates nothing, and nothing dominates it.
+      #: (String a, String b) -> bool
       def dominates?(a, b)
         number unless @pre
         pa = @pre[a]
@@ -90,9 +114,11 @@ module Zr
       # `{ value => number of operands that read it }`, jump arguments
       # included. A value that nothing reads has no entry: use
       # `uses.fetch(v, 0)`.
+      #: () -> Hash[String, Integer]
       def uses
         @uses ||= begin
-          counts = Hash.new(0)
+          # The values are untyped only so that `default = nil` checks.
+          counts = Hash.new(0) #: Hash[String, untyped]
           @f.blocks.each do |b|
             b.insts.each do |i|
               i.args.each { |a| counts[a] += 1 if IR.value?(a) }
@@ -108,12 +134,14 @@ module Zr
       # edge (an edge to a block that dominates its source) adds to a loop.
       # The body is each block that reaches a latch without the header. Two
       # back edges to one header make one loop.
+      #: () -> Array[Loop]
       def loops
         @loops ||= natural_loops
       end
 
       # The number of loops that contain `block`: 0 when outside all loops.
       # Only the tests use it (test/unit/analysis_test.rb).
+      #: (String block) -> Integer
       def depth_of(block)
         loops unless @depth
         @depth.fetch(block, 0)
@@ -121,6 +149,7 @@ module Zr
 
       # What `changed!(:insts)` keeps: the graph facts stay, and the use
       # counts are cleared.
+      #: () -> self
       def insts_changed!
         @uses = nil
         self
@@ -129,6 +158,7 @@ module Zr
       # Whether `other`, calculated again from the function, gives the same
       # values for the facts that this one calculated. The strict check uses
       # this on a kept analysis.
+      #: (Analysis other) -> bool
       def same_as?(other)
         (@preds.nil? || @preds == other.preds) &&
           (@rpo.nil? || @rpo.map(&:name) == other.rpo.map(&:name)) &&
@@ -139,15 +169,17 @@ module Zr
 
       private
 
+      #: (Block b) -> Array[String]
       def successors(b) = (b.insts.last&.targets || []).map(&:first)
 
+      #: () -> Array[Block]
       def postorder
         entry = @f.entry_block
         seen = { entry.name => true }
-        out = []
-        stack = [[entry, 0]]
+        out = [] #: Array[Block]
+        stack = [[entry, 0]] #: Array[[Block, Integer]]
         until stack.empty?
-          frame = stack.last
+          frame = stack.last #: [Block, Integer]
           b, k = frame
           names = successors(b)
           if k < names.size
@@ -170,16 +202,17 @@ module Zr
       # of 23,000 blocks). A predecessor that the entry does not reach has
       # no position. The first round sets each block, in the reverse
       # postorder, and the table keeps that order.
+      #: () -> Hash[String, String?]
       def dominators
         order = rpo
         at = order.each_with_index.to_h { |b, n| [b.name, n] }
         from = order.map { |b| preds.fetch(b.name).filter_map { |p| at[p] } }
-        doms = Array.new(order.size)
+        doms = Array.new(order.size) #: Array[Integer]
         doms[0] = 0
         loop do
           changed = false
           (1...order.size).each do |n|
-            new = nil
+            new = nil #: Integer?
             from[n].each do |p|
               next unless doms[p]
 
@@ -192,11 +225,12 @@ module Zr
           end
           break unless changed
         end
-        idom = { order[0].name => nil }
+        idom = { order[0].name => nil } #: Hash[String, String?]
         (1...order.size).each { |n| idom[order[n].name] = order[doms[n]].name if doms[n] }
         idom
       end
 
+      #: (Integer a, Integer b, Array[Integer] doms) -> Integer
       def intersect(a, b, doms)
         until a == b
           a = doms[a] while a > b
@@ -207,16 +241,17 @@ module Zr
 
       # The pre- and post-numbers of the dominator tree, from one walk. A
       # child of a block is a block whose immediate dominator is that block.
+      #: () -> void
       def number
-        children = Hash.new { |h, k| h[k] = [] }
+        children = Hash.new { |h, k| h[k] = [] } #: Hash[String, Array[String]]
         idom.each { |b, d| children[d] << b if d }
         @pre = {}
         @post = {}
         n = 0
-        stack = [[@f.entry_block.name, 0]]
+        stack = [[@f.entry_block.name, 0]] #: Array[[String, Integer]]
         @pre[@f.entry_block.name] = n
         until stack.empty?
-          frame = stack.last
+          frame = stack.last #: [String, Integer]
           b, k = frame
           kids = children[b]
           if k < kids.size
@@ -230,8 +265,9 @@ module Zr
         end
       end
 
+      #: () -> Array[Loop]
       def natural_loops
-        by_header = {}
+        by_header = {} #: Hash[String, Loop]
         rpo.each do |b|
           successors(b).each do |h|
             next unless dominates?(h, b.name)
@@ -253,11 +289,12 @@ module Zr
 
       # Adds to the body each block that reaches `from` backwards without the
       # loop header.
+      #: (Loop loop, String from) -> void
       def collect(loop, from)
         seen = loop.body.to_h { |b| [b, true] }
         work = [from]
         until work.empty?
-          b = work.pop
+          b = work.pop #: String
           next if seen[b]
 
           seen[b] = true

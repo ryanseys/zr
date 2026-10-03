@@ -39,21 +39,35 @@ module Zr
     # pass does not promote the word. A store to part of the word, or a
     # load of it as a different type, also stops the promotion.
     class Statics < Promotion
+      # @rbs @effects: Hash[String, Callee]
+      # @rbs @address: Hash[String, String]
+      # @rbs @initial: Hash[String, String]
+      # @rbs @reload: Hash[[Inst, String], String]
+      # @rbs @inserted: Hash[Inst, Array[Inst]]
+      # @rbs @addr: Hash[String, [String, Integer]]
+      # @rbs @known: Set[String]
+      # @rbs @loads: Hash[Inst, String]
+      # @rbs @types: Hash[String, String?]?
+
       # `symbol => offset` of the word promoted.
-      PROMOTED = {}.freeze
+      PROMOTED = {} #: Hash[String, Integer]
+                 .freeze
 
       TYPE = "i64"
       WIDTH = 8
 
+      #: (Function f) -> void
       def initialize(f)
         super
         @effects = f.callees.to_h { |c| [c.fn, c] }
         @address = {}
         @initial = {}
         @reload = {}
-        @inserted = {}.compare_by_identity
+        @inserted = {} #: Hash[Inst, Array[Inst]]
+                    .compare_by_identity
       end
 
+      #: () -> Function
       def run
         PROMOTED.empty? ? @f : super
       end
@@ -61,13 +75,15 @@ module Zr
       private
 
       # `symbol => "i64"` of every promoted word this function loads.
+      #: () -> Hash[String, String?]
       def candidates
         addresses
         return {} if @addr.empty?
 
-        loaded = Set.new
-        refused = Set.new
-        @loads = {}.compare_by_identity
+        loaded = Set.new #: Set[String]
+        refused = Set.new #: Set[String]
+        @loads = {} #: Hash[Inst, String]
+                 .compare_by_identity
         @f.blocks.each do |b|
           b.insts.each do |i|
             case i.op
@@ -84,7 +100,7 @@ module Zr
             when :store
               value, addr = i.args
               refused << @addr[value][0] if @addr.key?(value)
-              symbol, at = word(addr, i.offset)
+              symbol, at = word(addr, i.offset) #: [String, Integer]
               refused << symbol if symbol && touches?(symbol, at, value) && !defines?(symbol, at, value)
             when :iadd
               escapes(i.args, refused) unless @addr.key?(i.results[0])
@@ -99,6 +115,7 @@ module Zr
 
       # If the address of a promoted symbol is in `args`, the pass does
       # not promote that symbol.
+      #: (Array[untyped] args, Set[String] refused) -> void
       def escapes(args, refused)
         args.each { |a| refused << @addr[a][0] if @addr.key?(a) }
       end
@@ -107,11 +124,12 @@ module Zr
       # that address plus a constant, as `[symbol, offset]`.
       # `@known`: each value that is known to be a different address (a
       # slot, another symbol, or one of these plus a constant).
+      #: () -> void
       def addresses
         symbol_of = @f.globals.to_h { |g| [g.gv, g.symbol] }
         @addr = {}
         @known = Set.new
-        const = {}
+        const = {} #: Hash[String, Integer]
         @f.blocks.each do |b|
           b.insts.each do |i|
             case i.op
@@ -145,6 +163,7 @@ module Zr
 
       # Returns `[symbol, offset]` of the byte at `addr` plus `off` in a
       # promoted symbol, or nil.
+      #: (untyped addr, Integer off) -> [String, Integer]?
       def word(addr, off)
         symbol, at = @addr[addr]
         symbol && [symbol, at + off]
@@ -152,6 +171,7 @@ module Zr
 
       # Whether a store of `value` at `at` of `symbol` covers any byte of
       # the promoted word.
+      #: (String symbol, Integer at, String value) -> bool
       def touches?(symbol, at, value)
         first = PROMOTED.fetch(symbol)
         width = Types::WIDTH.fetch(type_of(value))
@@ -159,18 +179,21 @@ module Zr
       end
 
       # Whether the store writes the whole word, with the type of the load.
+      #: (String symbol, Integer at, String value) -> bool
       def defines?(symbol, at, value)
         at == PROMOTED.fetch(symbol) && type_of(value) == TYPE
       end
 
       # Only the kernel stores to a static, so the pass calculates the
       # types only when it finds such a store.
+      #: (String v) -> String?
       def type_of(v) = (@types ||= Types.of(@f)).fetch(v)
 
       # A store to the word is a write. A call, or a store through an
       # unknown address, is also a write, and each word is loaded again
       # after it. A load gets the value from the last write, or the value
       # at block entry.
+      #: (Block b, Hash[String, String?] keys, Hash[String, String | Inst] last, Array[[String, Block, String]] reads) -> void
       def walk(b, keys, last, reads)
         insts = b.insts
         n = 0
@@ -203,12 +226,14 @@ module Zr
       end
 
       # After `inst`, the pass loads again each word that `bits` can write.
+      #: (Hash[String, String?] keys, Hash[String, String | Inst] last, Inst inst, Integer bits) -> void
       def kill(keys, last, inst, bits)
         keys.each_key { |symbol| last[symbol] = inst if Effects.writes?(bits, Effects.static_region(symbol)) }
       end
 
       # The value of the word after the write `inst`. This is a reload
       # after `inst`, added one time, at the first read.
+      #: (Inst inst, String symbol) -> String
       def after(inst, symbol)
         @reload[[inst, symbol]] ||= begin
           load = fetch(symbol)
@@ -218,22 +243,26 @@ module Zr
       end
 
       # The value of the word when nothing wrote it: a load at the entry.
+      #: (String symbol, String? _type) -> String
       def initial(symbol, _type)
         @initial[symbol] ||= begin
           insts = @f.entry_block.insts
           load = fetch(symbol)
-          insts.insert(insts.index { |i| i.results[0] == load.args[0] } + 1, load)
+          at = insts.index { |i| i.results[0] == load.args[0] } #: Integer
+          insts.insert(at + 1, load)
           load.results[0]
         end
       end
 
       # A load of the word. The address comes from the top of the entry
       # block, which dominates all blocks.
+      #: (String symbol) -> Inst
       def fetch(symbol)
         Inst.new(:load, type: TYPE, results: [@f.value], args: [address(symbol)], offset: PROMOTED.fetch(symbol),
                  flags: "notrap aligned")
       end
 
+      #: (String symbol) -> String
       def address(symbol)
         @address[symbol] ||= begin
           v = @f.value
@@ -246,6 +275,7 @@ module Zr
       # The stores stay, because other functions read the word from
       # memory. Uses of the function's own address of the word change to
       # the address that the pass added.
+      #: (Hash[String, String?] keys) -> void
       def rewrite(keys)
         @f.blocks.each do |b|
           insts = b.insts

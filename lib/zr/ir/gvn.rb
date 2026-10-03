@@ -31,6 +31,17 @@ module Zr
     # those loads when the walk enters the block. In a block, the pass
     # applies writes in order.
     class GVN
+      # A key of the table is an Array: an opcode and its fields.
+      # @rbs @analysis: Analysis
+      # @rbs @rename: Hash[String, String]
+      # @rbs @dead: Hash[Inst, bool]
+      # @rbs @block: Hash[String, Block]
+      # @rbs @between: Hash[String, Integer]
+      # @rbs @by_key: Hash[Array[untyped], [String, Integer?]]
+      # @rbs @loaded: Hash[Integer, Array[Array[untyped]]]
+      # @rbs @undo: Array[[Array[untyped], [String, Integer?]?]]
+      # @rbs @types: Hash[String, String?]?
+
       include Regions
 
       # The opcodes with one result and no effect. The same operands
@@ -38,18 +49,22 @@ module Zr
       PURE = (%i[iconst stack_addr symbol_value func_addr icmp fcmp select ireduce uextend sextend bitcast
                  fcvt_from_sint fcvt_to_sint_sat] + Inst::BINOPS + Inst::BITOPS + Inst::FBINOPS + Inst::FUNOPS).to_set.freeze
 
+      #: (Function f) -> Function
       def self.run(f) = new(f).run
 
+      #: (Function f) -> void
       def initialize(f)
         @f = f
         @analysis = f.analysis
         @rename = {}
-        @dead = {}.compare_by_identity
+        @dead = {} #: Hash[Inst, bool]
+                .compare_by_identity
         @effects = f.callees.to_h { |c| [c.fn, c.effects || Effects::ALL] }
       end
 
+      #: () -> Function
       def run
-        children = Hash.new { |h, k| h[k] = [] }
+        children = Hash.new { |h, k| h[k] = [] } #: Hash[String, Array[String]]
         @analysis.idom.each { |b, d| children[d] << b if d }
         @block = @f.blocks.to_h { |b| [b.name, b] }
         @placed = placements
@@ -77,6 +92,7 @@ module Zr
 
       private
 
+      #: (untyped v) -> untyped
       def resolve(v)
         v = @rename[v] while @rename.key?(v)
         v
@@ -87,10 +103,11 @@ module Zr
       # sibling sees the table as their dominator left it. The walk uses
       # a work list, not recursion, because a chain of blocks can be as
       # long as the function.
+      #: (String root, Hash[String, Array[String]] children) -> void
       def walk(root, children)
-        work = [[root, nil]]
+        work = [[root, nil]] #: Array[[String, Array[[Array[untyped], [String, Integer?]?]]?]]
         until work.empty?
-          name, undo = work.pop
+          name, undo = work.pop #: [String, Array[[Array[untyped], [String, Integer?]?]]?]
           if undo
             undo.reverse_each { |key, held| held ? keep(key, held) : @by_key.delete(key) }
             next
@@ -104,12 +121,14 @@ module Zr
         end
       end
 
+      #: (Array[untyped] key, [String, Integer?] held) -> void
       def keep(key, held)
         @by_key[key] = held
         @loaded[held[1]] << key if held[1]
       end
 
       # Removes from the table every load whose region `bits` can write.
+      #: (Integer bits) -> void
       def forget(bits)
         return if bits.zero?
 
@@ -128,6 +147,7 @@ module Zr
       # the instruction, the pass renames its result to the table value
       # and deletes it. If not, the pass adds it. A write removes the
       # loads of the regions that it can write.
+      #: (Block b) -> void
       def number(b)
         b.insts.each do |i|
           i.args.map! { |a| resolve(a) }
@@ -157,13 +177,14 @@ module Zr
       # that type reads all of it, and the key has that type. The store
       # removed the loads of its region before, so no older entry can
       # overlap it.
+      #: (Inst i) -> void
       def stored(i)
         v, addr = i.args
         region = region_of(i, addr)
         return if region == :volatile || region == :slot
 
-        @types ||= Types.of(@f)
-        return unless (type = @types[v])
+        types = @types ||= Types.of(@f)
+        return unless (type = types[v])
 
         key = [:load, type, addr, i.offset, region]
         bit = region ? Effects.bit(region) : Effects::ALL
@@ -174,6 +195,7 @@ module Zr
 
       # If the table has a value for `key`, `i` becomes that value.
       # If not, the table adds `i` (under `bit` when `i` is a load).
+      #: (Inst i, Array[untyped] key, Integer? bit) -> void
       def take(i, key, bit)
         held = @by_key[key]
         if held
@@ -203,9 +225,10 @@ module Zr
       # at a block that an earlier walk passed, whose bits and those above
       # it are in already: a join of the UnicodeNormalize body walked
       # 13.5 million steps a round.
+      #: () -> Hash[String, Integer]
       def between_dominators
         blocks = @f.blocks
-        at = {}
+        at = {} #: Hash[String, Integer]
         blocks.each_with_index { |b, n| at[b.name] = n }
         written = blocks.map { |b| writes_of(b) }
         idom = @analysis.idom
@@ -214,7 +237,7 @@ module Zr
         preds = @analysis.preds
         from = order.to_h { |n| [n, preds[blocks[n].name].map { |p| at.fetch(p) }] }
         bits_of = Array.new(blocks.size, 0)
-        seen = Array.new(blocks.size)
+        seen = Array.new(blocks.size) #: Array[Object?]
         loop do
           moved = false
           order.each do |n|
@@ -235,7 +258,7 @@ module Zr
           end
           break unless moved
         end
-        between = Hash.new(0)
+        between = Hash.new(0) #: Hash[String, Integer]
         order.each { |n| between[blocks[n].name] = bits_of[n] unless bits_of[n].zero? }
         between
       end

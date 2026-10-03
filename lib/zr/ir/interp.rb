@@ -20,7 +20,18 @@ module Zr
     # `i64` is 32 bits wide, as in the w-registers. If the two differ, the
     # backend is correct and this file has the bug.
     class Interp
-      MASK = { 8 => 0xFF, 32 => 0xFFFF_FFFF, 64 => (1 << 64) - 1 }.freeze
+      # @rbs @functions: Hash[String, Function]
+      # @rbs @raw: Array[String]
+      # @rbs @types: Hash[String, Types]
+      # @rbs @data_at: Hash[String, Integer]
+      # @rbs @code_at: Hash[String, Integer]
+      # @rbs @symbol_at: Hash[Integer, String]
+      # @rbs @depth: Integer
+      # @rbs @floor: Integer
+      # @rbs @sp: Integer
+      # @rbs @host: Host
+
+      MASK ={ 8 => 0xFF, 32 => 0xFFFF_FFFF, 64 => (1 << 64) - 1 }.freeze
       BITS = { "i8" => 8, "i32" => 32, "i64" => 64, "f64" => 64 }.freeze
       # The Ruby operator of each float binary opcode.
       FLOAT_BINOPS = { fadd: :+, fsub: :-, fmul: :*, fdiv: :/ }.freeze
@@ -40,8 +51,9 @@ module Zr
 
       # The program called `exit`.
       class Exited < StandardError
-        attr_reader :status
+        attr_reader :status #: Integer
 
+        #: (Integer status) -> void
         def initialize(status)
           @status = status
           super("exit(#{status})")
@@ -52,13 +64,17 @@ module Zr
       # The first page is never allocated, so a null dereference traps as on
       # the machine.
       class Memory
+        # @rbs @bytes: String
+
         GUARD = 0x1000
 
+        #: () -> void
         def initialize
           @bytes = ("\0".b * GUARD)
         end
 
         # The next address at `align`, with `size` bytes of room after it.
+        #: (Integer size, ?Integer align) -> Integer
         def reserve(size, align = 8)
           at = Bytes.align(@bytes.bytesize, align)
           grow(at + size)
@@ -66,23 +82,29 @@ module Zr
         end
 
         # Puts `string` in memory, at its own address.
+        #: (String string, ?Integer align) -> Integer
         def place(string, align = 8)
           at = reserve(string.bytesize, align)
           @bytes[at, string.bytesize] = string.b
           at
         end
 
+        # `reach` checks the range, so `byteslice` gives a String.
+        #: (Integer addr, Integer width) -> Integer
         def read(addr, width)
           reach(addr, width)
-          @bytes.byteslice(addr, width).unpack1(PACK.fetch(width))
+          @bytes.byteslice(addr, width) #: String
+                .unpack1(PACK.fetch(width)) #: Integer
         end
 
+        #: (Integer addr, Integer width, Integer value) -> void
         def write(addr, width, value)
           reach(addr, width)
           @bytes[addr, width] = [value].pack(PACK.fetch(width))
         end
 
         # The `len` bytes at `addr`, for a host call that takes a buffer.
+        #: (Integer addr, Integer len) -> String?
         def slice(addr, len)
           reach(addr, len)
           @bytes.byteslice(addr, len)
@@ -92,10 +114,12 @@ module Zr
 
         private
 
+        #: (Integer size) -> void
         def grow(size)
           @bytes << ("\0".b * (size - @bytes.bytesize)) if size > @bytes.bytesize
         end
 
+        #: (Integer addr, Integer width) -> void
         def reach(addr, width)
           return if addr >= GUARD && addr + width <= @bytes.bytesize
 
@@ -107,32 +131,42 @@ module Zr
       # that it can reach are here. Any other call is refused, with a message
       # that gives the name.
       class Host
+        # @rbs @memory: Memory
+        # @rbs @io: Hash[Integer, ::_Writer]
+
+        #: (Memory memory, ?out: ::_Writer, ?err: ::_Writer) -> void
         def initialize(memory, out: $stdout, err: $stderr)
           @memory = memory
           @io = { 1 => out, 2 => err }
         end
 
+        #: (String name) -> bool
         def knows?(name) = CALLS.key?(name)
 
+        #: (String name, Array[Integer] args) -> Integer
         def call(name, args)
           public_send(CALLS.fetch(name), *args)
         end
 
+        #: (Integer fd, Integer buf, Integer len) -> Integer
         def sys_write(fd, buf, len)
           io = @io[fd] or raise Trapped, "a write to descriptor #{fd}"
           io.write(@memory.slice(buf, len))
           len
         end
 
+        #: (Integer status) -> bot
         def sys_exit(status)
           raise Exited, status & 0xFF
         end
 
+        #: () -> bot
         def sys_abort
           raise Aborted, "the program called abort"
         end
 
         # Anonymous pages only, which is all that the collector needs.
+        #: (Integer _addr, Integer len, Integer _prot, Integer _flags, Integer _fd, Integer _offset) -> Integer
         def sys_mmap(_addr, len, _prot, _flags, _fd, _offset)
           @memory.reserve(len, 0x4000)
         end
@@ -145,11 +179,12 @@ module Zr
       # @rbs skip -- typed in sig/zr/ir/interp.rbs
       Frame = Data.define(:values, :slot_at, :types)
 
-      attr_reader :memory
+      attr_reader :memory #: Memory
 
       # `functions` are `IR::Function`s and `data` is `Obj::Datum`. `raw`
       # names the raw functions. A raw function is machine code, not IR, so
       # a call to it is refused, with a message that gives the name.
+      #: (Array[Function] functions, ?data: Array[Obj::Datum], ?raw: Array[String], ?out: ::_Writer, ?err: ::_Writer) -> void
       def initialize(functions, data: [], raw: [], out: $stdout, err: $stderr)
         @functions = functions.to_h { |f| [f.name, f] }
         @raw = raw
@@ -171,6 +206,7 @@ module Zr
 
       # Runs `main(argc, argv)` and returns the exit status as a shell sees
       # it: the argument of `exit`, or the return value of `main`.
+      #: (?Array[String] argv) -> Integer
       def run(argv = [])
         argc, vector = place_argv(argv)
         answer("main", [argc, vector]) & 0xFF
@@ -180,6 +216,7 @@ module Zr
 
       # The raw value that `name` returns for `args`. The numbers in and out
       # are the 64-bit words that the machine passes.
+      #: (String name, ?Array[Integer] args) -> Integer
       def answer(name, args = [])
         f = @functions[name] or raise Refused, "no function named #{name}"
         invoke(f, args)
@@ -189,6 +226,7 @@ module Zr
 
       # --- the image ----------------------------------------------------
 
+      #: (Array[Obj::Datum] data) -> void
       def place_data(data)
         data.each do |d|
           bytes = d.section == :bss ? "\0".b * d.bytes : d.bytes
@@ -196,10 +234,12 @@ module Zr
         end
       end
 
+      #: (Array[Obj::Datum] data) -> void
       def relocate(data)
         data.each { |d| d.relocs.each { |r| patch(@data_at.fetch(d.name) + r.offset, r) } }
       end
 
+      #: (Integer at, Obj::Reloc reloc) -> void
       def patch(at, reloc)
         raise Refused, "a #{reloc.kind} relocation in data" unless reloc.kind == :abs64
 
@@ -208,6 +248,7 @@ module Zr
 
       # Each function gets its own address, imports too, so `func_addr` and
       # an indirect call can refer to it.
+      #: (Array[String] names) -> void
       def place_code(names)
         names.each do |name|
           at = @memory.reserve(8, 8)
@@ -216,12 +257,14 @@ module Zr
         end
       end
 
+      #: (String symbol) -> Integer
       def address_of(symbol)
         @data_at[symbol] || @code_at[symbol] ||
           raise(Refused, "nothing in this unit defines #{symbol}")
       end
 
       # `argv` as a NUL-terminated vector of NUL-terminated strings.
+      #: (Array[String] argv) -> [Integer, Integer]
       def place_argv(argv)
         pointers = argv.map { |arg| @memory.place("#{arg}\0".b, 1) }
         vector = @memory.reserve(8 * (pointers.size + 1), 8)
@@ -231,6 +274,7 @@ module Zr
 
       # --- calls --------------------------------------------------------
 
+      #: (Function f, Array[Integer] args) -> Integer
       def invoke(f, args)
         raise Trapped, "the call depth reached #{DEPTH}" if @depth >= DEPTH
 
@@ -246,12 +290,14 @@ module Zr
         end
       end
 
+      #: (Function f) -> Types
       def types_of(f)
         @types[f.name] ||= Types.new(f).tap(&:all)
       end
 
       # Makes the frame: puts its stack slots in memory and binds its
       # parameters to the arguments, each narrowed to the parameter type.
+      #: (Function f, Types t, Array[Integer] args) -> Frame
       def enter(f, t, args)
         entry = f.entry_block
         raise Refused, "#{f.name}: more than eight parameters" if entry.params.size > REGISTER_ARGS
@@ -275,8 +321,9 @@ module Zr
         frame
       end
 
+      #: (Function f, Frame frame, Types t) -> Integer
       def walk(f, frame, t)
-        block = f.entry_block
+        block = f.entry_block #: Block?
         while block
           block, answer, done = run_block(block, frame, t)
           return answer if done
@@ -285,6 +332,9 @@ module Zr
       end
 
       # Runs a block. Returns its successor, or the return value of the function.
+      # The next block, the answer of a `return`, and whether it returned.
+      # The answer is untyped: it is an Integer when the block returned.
+      #: (Block block, Frame frame, Types t) -> [Block?, untyped, bool]
       def run_block(block, frame, t)
         block.insts.each do |i|
           case i.op
@@ -295,7 +345,7 @@ module Zr
           when :brif
             raise Refused, "a brif carrying block arguments" unless i.targets.all? { |(_, a)| a.empty? }
 
-            yes, no = i.targets
+            yes, no = i.targets #: [[String, Array[String]], [String, Array[String]]]
             return [jump(frame, t, read(frame, i.args[0]).zero? ? no : yes), nil, false]
           when :switch
             # The key at operand n has the target at n; target 0 is the default.
@@ -310,6 +360,7 @@ module Zr
 
       # Copies the block arguments to its parameters. It reads all sources
       # before it writes a parameter: a parallel copy, as in the backend.
+      #: (Frame frame, Types t, [String, Array[String]] target) -> Block
       def jump(frame, t, target)
         name, args = target
         block = t.block_named(name)
@@ -321,34 +372,43 @@ module Zr
       # --- values -------------------------------------------------------
 
       # Reads a value from its 64-bit slot, as its own type.
+      #: (Frame frame, String v) -> Integer
       def read(frame, v)
         raw = frame.values.fetch(v) { raise Refused, "#{v} is used before it is defined" }
         raw & MASK.fetch(BITS.fetch(frame.types.of(v)))
       end
 
+      #: (Frame frame, String v, Integer raw) -> Integer
       def assign(frame, v, raw)
         frame.values[v] = raw & MASK[64]
       end
 
+      #: (Integer raw, String type) -> Integer
       def narrow(raw, type) = raw & MASK.fetch(BITS.fetch(type))
 
       # The signed value of `raw`, which contains `bits` of a value.
+      #: (Integer raw, Integer bits) -> Integer
       def signed(raw, bits)
         top = 1 << (bits - 1)
         raw >= top ? raw - (top << 1) : raw
       end
 
+      #: (Integer n, Integer a) -> Integer
       def round_up(n, a) = Bytes.align(n, a)
 
       # An operation on a type narrower than `i64` runs in a w-register. So
       # it is 32 bits wide, and the high bits of its result are zero.
+      #: (Frame frame, String v) -> Integer
       def width_of(frame, v) = BITS.fetch(frame.types.of(v)) == 64 ? 64 : 32
 
-      def to_f64(raw) = [raw].pack("Q<").unpack1("E")
-      def to_bits(float) = [float].pack("E").unpack1("Q<")
+      #: (Integer raw) -> Float
+      def to_f64(raw) = [raw].pack("Q<").unpack1("E") #: Float
+      #: (Float float) -> Integer
+      def to_bits(float) = [float].pack("E").unpack1("Q<") #: Integer
 
       # --- instructions -------------------------------------------------
 
+      #: (Frame frame, Types t, Inst i) -> void
       def step(frame, t, i)
         case i.op
         when :iconst then assign(frame, i.results[0], i.args[0])
@@ -388,18 +448,22 @@ module Zr
 
       GATES = "zr_static_gates"
 
+      #: (String name) -> Integer
       def slot_index(name) = Integer(name.delete_prefix("ss"))
 
+      #: (Frame frame, Inst i) -> void
       def step_load(frame, i)
         width = Types::WIDTH.fetch(i.type) { raise Refused, "load.#{i.type}" }
         assign(frame, i.results[0], @memory.read(read(frame, i.args[0]) + i.offset, width))
       end
 
+      #: (Frame frame, Inst i) -> void
       def step_store(frame, i)
         width = Types::WIDTH.fetch(frame.types.of(i.args[0]))
         @memory.write(read(frame, i.args[1]) + i.offset, width, read(frame, i.args[0]) & MASK[width * 8])
       end
 
+      #: (Frame frame, Inst i) -> bool
       def compare(frame, i)
         bits = width_of(frame, i.args[0])
         a = read(frame, i.args[0])
@@ -419,6 +483,9 @@ module Zr
       # The two-operand integer instructions. Division by zero gives zero,
       # as `udiv` and `sdiv` do. A shift uses its amount modulo the width, as
       # the register forms do.
+      # The return is untyped: the `case` has no `else`, so Steep adds
+      # `false` (`nil & mask`), but `step` sends only these opcodes.
+      #: (Frame frame, Inst i) -> untyped
       def binop(frame, i)
         bits = width_of(frame, i.args[0])
         mask = MASK[bits]
@@ -445,8 +512,10 @@ module Zr
 
       # Division that truncates toward zero, as on arm64. The Ruby `/`
       # operator rounds down, which is different.
+      #: (Integer a, Integer b) -> Integer
       def quotient(a, b) = (a < 0) == (b < 0) ? a.abs / b.abs : -(a.abs / b.abs)
 
+      #: (Frame frame, Inst i) -> void
       def step_overflow(frame, i)
         bits = width_of(frame, i.args[0])
         raise Refused, "smul_overflow on #{frame.types.of(i.args[0])}" if i.op == :smul_overflow && bits != 64
@@ -465,6 +534,9 @@ module Zr
 
       # The bit operations, as wide as the operand. The count of zeros in
       # zero is the width.
+      # The return is untyped, as in `binop`: `step` sends only these
+      # opcodes.
+      #: (Frame frame, Inst i) -> untyped
       def bitop(frame, i)
         bits = width_of(frame, i.args[0])
         a = read(frame, i.args[0]) & MASK[bits]
@@ -478,6 +550,8 @@ module Zr
 
       # `fcvt_to_sint_sat` saturates and gives zero for NaN, as `fcvtzs`
       # does. All other float instructions use Ruby on the same bits.
+      # The return is untyped, as in `binop`.
+      #: (Frame frame, Inst i) -> untyped
       def float_op(frame, i)
         return to_bits(signed(read(frame, i.args[0]), width_of(frame, i.args[0])).to_f) if i.op == :fcvt_from_sint
 
@@ -498,6 +572,7 @@ module Zr
         end
       end
 
+      #: (Float a) -> Integer
       def saturate(a)
         return 0 if a.nan?
 
@@ -506,6 +581,7 @@ module Zr
 
       # All conditions except `ne` give false for an unordered pair. Ruby
       # comparisons also give false for NaN.
+      #: (Frame frame, Inst i) -> bool
       def float_compare(frame, i)
         a = to_f64(read(frame, i.args[0]))
         b = to_f64(read(frame, i.args[1]))
@@ -522,11 +598,13 @@ module Zr
 
       # --- calls --------------------------------------------------------
 
+      #: (Frame frame, Types t, Inst i) -> void
       def step_call(frame, t, i)
         callee = t.callee_named(i.callee) or raise Refused, "no callee #{i.callee}"
         apply(frame, i, callee.symbol, t.sig_named(callee.sig))
       end
 
+      #: (Frame frame, Types t, Inst i) -> void
       def step_call_indirect(frame, t, i)
         sig = t.sig_named(i.callee)
         at = read(frame, i.args[0])
@@ -534,6 +612,7 @@ module Zr
         apply(frame, i, symbol, sig, i.args.drop(1))
       end
 
+      #: (Frame frame, Inst i, String symbol, Sig sig, ?Array[untyped] args) -> void
       def apply(frame, i, symbol, sig, args = i.args)
         raise Refused, "a call with more than eight arguments" if args.size > REGISTER_ARGS
 
@@ -544,6 +623,7 @@ module Zr
         assign(frame, i.results[0], BITS.fetch(sig.ret) == 64 ? raw.to_i : raw.to_i & MASK[32])
       end
 
+      #: (String symbol, Array[Integer] args) -> Integer
       def dispatch(symbol, args)
         f = @functions[symbol]
         return invoke(f, args) if f

@@ -5,7 +5,7 @@ module Zr
     TYPES = {
       "I8" => "i8", "Bool" => "i8", "I32" => "i32", "Word" => "i64", "Ptr" => "i64",
       "Value" => "i64", "F64" => "f64", "Void" => nil
-    }.freeze
+    }.freeze #: Hash[String, String?]
 
     # Whether a word is an immediate and not a pointer to a cell: a
     # Fixnum, a flonum, a Symbol, nil, true or false. This is the same
@@ -15,7 +15,9 @@ module Zr
     #
     # The unit being lowered and the description that a later build reads
     # both include it, each with its own constants.
+    # @rbs module-self: _Constants
     module Immediates
+      #: (Integer word) -> bool
       def immediate?(word)
         (word & 7) != 0 || word == const_for("QFALSE") || word == const_for("QNIL")
       end
@@ -60,12 +62,16 @@ module Zr
     # A table can have pads: ids that no name has (nil in `names`). A
     # binary's table marks a pad, so no symbol has its id.
     class Symbols
-      attr_reader :ids, :names
-      attr_accessor :sites
+      # @rbs @intern: Method?
+
+      attr_reader :ids #: Hash[String, Integer]
+      attr_reader :names #: Array[String?]
+      attr_accessor :sites #: Integer
 
       # `intern` lets a running program get an id for a new symbol. Only
       # eval support has one, and it applies only to names after `names`.
       # `names` gives a name, or nil for a pad, for each id from 0.
+      #: (?Array[String?] names, ?sites: Integer, ?intern: Method?) -> void
       def initialize(names = [], sites: 0, intern: nil)
         @ids = {}
         @names = []
@@ -80,10 +86,12 @@ module Zr
       # With an `intern`, a new name goes to the program immediately, and
       # gets the id that the program's own table returns. Thus the two
       # tables always agree, whatever other names the program interned.
+      #: (_ToS name) -> Integer
       def id(name)
+        # @type ivar @intern: Method
         name = name.to_s
         @ids.fetch(name) do
-          fresh = @intern ? @intern.call(name) : @names.size
+          fresh = @intern ? @intern.call(name) : @names.size #: Integer
           @names[fresh] = name
           @ids[name] = fresh
         end
@@ -92,6 +100,7 @@ module Zr
       # A new index for a site that owns a run-time slot (the cached
       # object of a regexp literal). It is unique across all lowerings that
       # share this table or start from a copy of it.
+      #: () -> Integer
       def site
         @sites += 1
         @sites - 1
@@ -104,14 +113,19 @@ module Zr
     # support contains this in place of the kernel sources, and returns
     # the same results as the unit.
     class Description
+      # @rbs @reads: Hash[[Symbol, String], String?]?
+
       include Immediates
 
-      attr_reader :defs, :consts, :structs
+      attr_reader :defs #: Hash[String, Def]
+      attr_reader :consts #: Hash[String, Integer]
+      attr_reader :structs #: Hash[String, Layout]
 
       # `unit` is a lowered kernel. This resolves each constant and
       # layout, so the tables contain only plain data.
       # The Ruby file that carries `text` into eval support
       # (`Runtime#carried_text`, which the loader finds as `Library::Roots::DESCRIPTION`).
+      #: (String text) -> String
       def self.carried(text)
         rows = text.each_line.map { |line| "        #{line}" }.join
         rows << "\n" unless rows.empty? || rows.end_with?("\n")
@@ -120,10 +134,17 @@ module Zr
           "#{rows}      ROWS\n    end\n  end\nend\n"
       end
 
+      #: (Lower unit) -> Description
       def self.of(unit)
         defs = unit.declared_defs.to_h { |name, d| [name, Def.new(name, d.params, d.ret, nil, nil, d.effects)] }
-        consts = unit.declared_consts.to_h { |name| [name, unit.const_for(name)] }
-        structs = unit.declared_structs.to_h { |name| [name, unit.struct_for(name)] }
+        # A declared constant always has a value, and a declared struct a
+        # layout.
+        consts = unit.declared_consts.to_h do |name|
+          [name, unit.const_for(name)] #: [String, Integer]
+        end
+        structs = unit.declared_structs.to_h do |name|
+          [name, unit.struct_for(name)] #: [String, Layout]
+        end
         new(defs, consts, structs)
       end
 
@@ -132,12 +153,14 @@ module Zr
       # line gives its value. A layout line gives its size and alignment,
       # then its fields. The format is text because a program contains it
       # as one frozen literal and reads it with only String#split.
+      #: (String text) -> Description
       def self.parse(text)
-        defs = {}
-        consts = {}
-        structs = {}
+        defs = {} #: Hash[String, Def]
+        consts = {} #: Hash[String, Integer]
+        structs = {} #: Hash[String, Layout]
         text.each_line do |line|
-          kind, name, *rest = line.split(" ")
+          # A row that `to_text` wrote: its fields are there.
+          kind, name, *rest = line.split(" ") #: Array[untyped]
           case kind
           when "d" then defs[name] = Def.new(name, rest.drop(1).map { |f| f.split(":") }, rest.first)
           when "e" then defs.fetch(name).effects = Integer(rest.first)
@@ -145,7 +168,7 @@ module Zr
           when "s"
             fields = rest.drop(2).to_h do |f|
               n, at, type = f.split(":")
-              [n, [Integer(at), type]]
+              [n, [Integer(at), type]] #: [String, [Integer, String]]
             end
             structs[name] = Layout.new(name, fields, Integer(rest[0]), Integer(rest[1]))
           end
@@ -153,6 +176,7 @@ module Zr
         new(defs, consts, structs)
       end
 
+      #: () -> String
       def to_text
         rows = @defs.map { |name, d| ["d", name, d.ret, *d.params.map { |n, t| "#{n}:#{t}" }] }
         rows += @defs.map { |name, d| ["e", name, d.effects] }
@@ -161,20 +185,25 @@ module Zr
         rows.map { |row| "#{row.join(" ")}\n" }.join
       end
 
+      #: (Hash[String, Def] defs, Hash[String, Integer] consts, Hash[String, Layout] structs) -> void
       def initialize(defs, consts, structs)
         @defs = defs
         @consts = consts
         @structs = structs
       end
 
+      #: (String name) -> Def?
       def def_for(name) = read(:d, name, @defs[name])
+      #: (String name) -> Integer?
       def const_for(name) = read(:c, name, @consts[name])
+      #: (String name) -> Layout?
       def struct_for(name) = read(:s, name, @structs[name])
 
       # The rows that the lookups in the block read, as `rows` gives them.
       # A cache of lowered code keys a piece on these, not on the whole
       # description, so a new kernel function keeps each piece that does
       # not call it (`Cache::Lowering::EvalSupport`).
+      #: () { () -> void } -> Hash[[Symbol, String], String?]?
       def record
         outer = @reads
         @reads = {}
@@ -187,15 +216,19 @@ module Zr
 
       # The text of each row that `reads` (from `record`) names, now: nil
       # for a name that has none.
+      #: (Hash[[Symbol, String], String?] reads) -> Hash[[Symbol, String], String?]
       def rows(reads) = reads.keys.to_h { |kind, name| [[kind, name], row(kind, name)] }
 
       private
 
+      #: [T] (Symbol kind, String name, T found) -> T
       def read(kind, name, found)
+        # @type ivar @reads: Hash[[Symbol, String], String?]
         @reads[[kind, name]] ||= row(kind, name) if @reads
         found
       end
 
+      #: (Symbol kind, String name) -> String?
       def row(kind, name)
         case kind
         when :d then (d = @defs[name]) && ["d", name, d.ret, *d.params.map { |n, t| "#{n}:#{t}" }, "e", d.effects].join(" ")

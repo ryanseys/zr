@@ -21,12 +21,14 @@ module Zr
       # cost is below `floor`, when there is one job, or when fork is not
       # available. When workers raise, this raises the error of the first
       # item (in item order) that raised.
+      #: [Item, Answer] (Array[Item] items, jobs: Integer, weight: ^(Item) -> Integer, ?floor: Integer) { (Item) -> Answer } -> Array[Answer]
       def map(items, jobs:, weight:, floor: 0, &work)
         weights = items.map(&weight)
         jobs = [jobs, items.size].min
         return items.map(&work) if jobs <= 1 || weights.sum < floor || !Process.respond_to?(:fork)
 
-        answers = Array.new(items.size)
+        # The workers' answers come back through Marshal.
+        answers = Array.new(items.size) #: Array[untyped]
         warmed
         jobs = afforded(jobs)
         queue, feed = IO.pipe
@@ -48,6 +50,7 @@ module Zr
       # Without this, a sampled self-compile worker spent 92% of its time
       # in ruby's collector (the parent 64%). Almost all of it was marking
       # the objects that the fork gave it.
+      #: () -> void
       def warmed
         Process.warmup if Process.respond_to?(:warmup)
       end
@@ -72,6 +75,7 @@ module Zr
       # table above `Build.jobs`.
       WORKER_SHARE = 3
 
+      #: (Integer jobs) -> Integer
       def afforded(jobs)
         return jobs if Config.current.jobs_given?
 
@@ -88,6 +92,7 @@ module Zr
       # gives it as MemAvailable. On macOS it is the machine less the
       # memory of processes (anonymous pages that are not purgeable), the
       # wired pages and the compressor; the file cache can be dropped.
+      #: () -> Integer?
       def available_bytes
         if File.readable?("/proc/meminfo")
           kb = File.read("/proc/meminfo")[/^MemAvailable:\s+(\d+)/, 1]
@@ -106,6 +111,7 @@ module Zr
       # under ruby it is only the growth since the last collection (the
       # lower bound that ruby can read without Fiddle). The compiled
       # compiler's memory is mostly payload: 10 GB where its cells gave 1 GB.
+      #: () -> Integer
       def held_bytes
         Resident.bytes_of(Process.pid) || heap_bytes
       end
@@ -113,6 +119,7 @@ module Zr
       # Zero if the collector does not give its heap: then the worker
       # count is not limited by memory. Only an estimate, so a failure
       # must not stop the build.
+      #: () -> Integer
       def heap_bytes
         GC.stat_heap.sum { |_, pool| pool[:heap_eden_slots].to_i * pool[:slot_size].to_i } + GC.stat(:malloc_increase_bytes).to_i
       rescue StandardError, NotImplementedError
@@ -123,6 +130,7 @@ module Zr
       # When the system does not give it, this assumes a small machine (8 GB).
       # (A system without these sysconf names raises NameError or
       # NotImplementedError, and one with them can raise SystemCallError.)
+      #: () -> Integer
       def machine_bytes
         Etc.sysconf(Etc::SC_PHYS_PAGES) * Etc.sysconf(Etc::SC_PAGE_SIZE)
       rescue StandardError, NotImplementedError
@@ -134,6 +142,7 @@ module Zr
       # then closes it. A thread writes it, since a long queue is more than
       # a pipe holds. Each write and read is a whole number of indexes, so
       # two workers never share one.
+      #: (IO feed, Array[Integer] weights) -> Thread
       def fed(feed, weights)
         order = weights.each_index.sort_by { |i| [-weights[i], i] }
         Thread.new { feed.binmode.write(order.pack("L*")).tap { feed.close } }
@@ -143,6 +152,7 @@ module Zr
       # copy of `feed`, so its read after the last index gets nil. A thread
       # reads the worker's result while the worker writes, so a full pipe
       # does not block it.
+      #: [Item] (Array[Item] items, IO queue, IO feed, ^(Item) -> untyped work) -> [Integer, Thread]
       def started(items, queue, feed, work)
         r, w = IO.pipe
         pid = fork do
@@ -161,10 +171,11 @@ module Zr
       # Returns `[:ok, [[index, result]…]]`, or `[:raised, index, class
       # name, message]` for the first item that raised. A worker stops at
       # its first failure; the others take the rest.
+      #: [Item] (Array[Item] items, IO queue, ^(Item) -> untyped work) -> Array[untyped]
       def answered(items, queue, work)
-        done = []
+        done = [] #: Array[[Integer, untyped]]
         while (word = queue.read(4))
-          i = word.unpack1("L")
+          i = word.unpack1("L") #: Integer
           begin
             done << [i, work.call(items[i])]
           rescue StandardError => e
@@ -175,6 +186,8 @@ module Zr
       end
 
       # Puts the worker's results at their indexes. Returns its failure, if any.
+      # The answer is what a worker wrote with Marshal, so it is untyped.
+      #: (Integer pid, Thread reader, Array[untyped] answers) -> Array[untyped]?
       def collected(pid, reader, answers)
         bytes = reader.value
         _, status = Process.wait2(pid)
@@ -189,6 +202,7 @@ module Zr
 
       # Raises the failure of the lowest item. It uses the original error
       # class when that class accepts only a message.
+      #: (Array[Array[untyped]] failures) -> bot
       def raise_first(failures)
         _, name, message = failures.min_by(&:first)
         error = begin

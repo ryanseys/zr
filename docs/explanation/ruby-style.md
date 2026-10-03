@@ -237,13 +237,22 @@ Each declaration has its types in one place:
 
   `attr_reader :name #: String` types an attribute, `# @rbs @ivar: T`
   at the top of a class body types an instance variable, and
-  `# @rbs module-self: T` names the class that a mixin expects.
+  `x = [] #: Array[String]` types an empty collection.
+- **A mixin of one class** (`Lower::Function::Sends`) has
+  `# @type instance: Function` as the first line of its body, so that
+  Steep checks its methods as methods of that class. RBS's
+  `module-self` cannot name the class that includes the module.
+- **A `module_function` module** has its types inline. A line in
+  `sig/zr/module_function.rbs` (`module X` / `extend X`) gives the
+  module's own methods the same types.
 - **`sig/zr/`** holds what inline RBS cannot type. Each such
   declaration has `# @rbs skip` above it in the code, with its types
   in the `.rbs` file of the same path:
   - a `Struct` or a `Data` record assigned to a constant;
-  - a `module_function` module (`def self?.name`);
-  - constants that `const_set` makes.
+  - constants that `const_set` makes;
+  - an `include` of a module whose constants the class reads: Steep
+    finds a constant through an include in a `.rbs` file only
+    (`sig/zr/backend/aarch64/registers.rbs`).
 
   A file that is mostly records (`lib/zr/hir/node.rb`) has all its
   types in `sig/zr/`, and the `Steepfile` lists it in `RBS_TYPED`.
@@ -261,7 +270,8 @@ Annotate such a def.
 
 The `Steepfile` puts each file in a level: `strict`, `default` or
 `lenient`. A file starts at lenient. To check it more strictly, name
-it, or its directory, in a stricter level.
+it, or its directory, in a stricter level. `STEEP_LEVEL=strict bin/steep
+check lib/zr/ir` shows what that level reports before the move.
 
 ## Lint
 

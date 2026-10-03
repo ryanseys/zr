@@ -27,14 +27,17 @@ module Zr
     # as the eval compiler does.
     #
     # This method and the others that lib/zr/eval.rb defines too have
-    # `@rbs skip`: their types are those of eval.rb.
+    # `@rbs skip`: their types are those of eval.rb. A program loads
+    # only one of the two files, so this `new` takes no runtime, though
+    # eval.rb's `initialize` does: Steep sees both files at once.
     # @rbs skip
-    def self.current = @current ||= new
+    def self.current = @current ||= new # steep:ignore
 
     # Walks `source` in `scope` (the Binding of the calling frame), with
     # `self_` and `cref`. `block` is the block that a `yield` in the
     # string calls. `add` marks a `Binding#eval`: a new local of the
     # string becomes a local of the Binding, as in ruby.
+    #: (untyped source, untyped file, _ToInt line, Binding scope, untyped self_, untyped cref, untyped block, ?add: bool) -> untyped
     def run(source, file, line, scope, self_, cref, block, add: false)
       file = string(file)
       hir = built(string(source), file, line.to_int, scope)
@@ -77,6 +80,7 @@ module Zr
     # Builds the tree one scope inside the scopes of the frame, as the
     # eval compiler does. A write to a name that the frame has goes to the
     # frame. A new name stays in the scope of the string.
+    #: (String source, String file, Integer line, Binding scope) -> Hir::Program
     def built(source, file, line, scope)
       names = World.binding_scopes(scope)
       Hir.build(source, file, eval_support: false, line: line, scopes: [*names.reverse, []],
@@ -84,12 +88,14 @@ module Zr
     end
 
     # The scopes of the frame, innermost first, in the order of lookup.
+    #: (Binding scope) -> Array[Walk::Tree::Held]
     def held(scope)
       World.binding_scopes(scope).each_with_index.map { |names, depth| Walk::Tree::Held.new(scope, depth, names) }
     end
 
     # `Binding#eval`: the new locals of the string become locals of the
     # Binding, so a later read there returns the value the string set.
+    #: (Binding scope, Walk::Tree::Scope own) -> void
     def keep(scope, own)
       own.names.each do |name|
         next unless name.to_s.match?(/\A[a-z_][A-Za-z0-9_]*\z/)

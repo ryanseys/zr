@@ -13,6 +13,7 @@ module Zr
       #
       # In `Commands`, `Diff` names this class: the runs are `Zr::Diff`.
       class Diff < Command
+        #: (Array[String] argv) -> void
         def run(argv)
           require_relative "../../diff"
           words = argv.dup
@@ -20,7 +21,9 @@ module Zr
           usage_error("--emit does not apply; zr diff runs a binary for this host") if opts[:emit]
           input = opts[:input]
           abort "zr: no such file: #{input}" unless File.file?(input)
-          options = argv.take(argv.index(input))
+          # `input` is one of the words, so `index` finds it.
+          at = argv.index(input) #: Integer
+          options = argv.take(at)
           gem_set = Options.gem_set(opts)
           Paths.tmpdir("zr-diff-") do |work|
             out = File.join(work, "program")
@@ -42,14 +45,16 @@ module Zr
         private
 
         # ruby reads the same `--gem` roots that the build read.
+        #: (GemSet gem_set) -> Array[String]
         def ruby_flags(gem_set)
           gem_set.gems.reject(&:refusal).flat_map(&:roots).flat_map { |root| ["-I", root] }
         end
 
         # With a Gemfile, ruby runs as `bundle exec ruby` does.
+        #: (Hash[Symbol, untyped] opts) -> Hash[String, String?]
         def ruby_env(opts)
           gemfile = opts[:gemfile] || ENV["BUNDLE_GEMFILE"]
-          env = { "RUBYOPT" => nil, "BUNDLER_SETUP" => nil }
+          env = { "RUBYOPT" => nil, "BUNDLER_SETUP" => nil } #: Hash[String, String?]
           return env if gemfile.to_s.empty?
 
           env.merge("BUNDLE_GEMFILE" => File.expand_path(gemfile), "RUBYOPT" => "-rbundler/setup")

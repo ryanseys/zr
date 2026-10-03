@@ -9,6 +9,7 @@ module Zr
       # starts a line of its scope, or nil. This is pm_compile_node's rule,
       # which reads prism's newline flag. A `begin` with no statements
       # before its rescue is on the rescue's line.
+      #: (Prism::node node) -> Trace?
       def line_event(node)
         return nil unless @loader&.tracing? && node.newline? && !Library::Roots.runtime_file?(@file)
         # A `begin` or parentheses start with the statement inside. Ruby
@@ -27,6 +28,7 @@ module Zr
 
       # The id of the def-site entry that a `def` or a block uses when it
       # makes a method, or nil if coverage is not measured.
+      #: (Prism::node node) -> Integer?
       def method_cover(node)
         return nil unless @loader&.covers? && !Library::Roots.runtime_file?(@file)
 
@@ -37,6 +39,7 @@ module Zr
       # lambda's span starts after its `->`, where CRuby's iseq for it
       # starts: `define_method(:a, ->(x) { x })` is located at `(x) { x }`.
       # All other scopes use their own location.
+      #: (Prism::node node) -> Array[Integer]
       def method_span(node)
         return span(node.location) unless node.is_a?(Prism::LambdaNode)
 
@@ -48,6 +51,7 @@ module Zr
       # order, which is the source order, except that an `unless` puts its
       # else first. The root gets its number before its branches, as in
       # CRuby.
+      #: (Symbol kind, Array[Integer] span, Array[[Symbol, Array[Integer]]] sides) -> Array[Cover?]
       def branch_covers(kind, span, sides)
         return [nil] * sides.size unless @loader&.covers? && !Library::Roots.runtime_file?(@file)
 
@@ -60,11 +64,13 @@ module Zr
 
       # The four numbers that Coverage uses for a branch: its start and
       # end, with 0-based columns as in ruby.
+      #: (Prism::Location location) -> Array[Integer]
       def span(location) = [location.start_line, location.start_column, location.end_line, location.end_column]
 
       # The branches of an `if`, a ternary or an `elsif`. A then with no
       # statements is at the empty width after the predicate. A missing
       # else covers the whole `if`. CRuby records the same.
+      #: (Prism::IfNode node) -> Array[[Symbol, Array[Integer]]]
       def if_sides(node)
         [[:then, node.statements ? span(node.statements.location) : after(node.predicate.location)],
          [:else, node.subsequent ? span(else_location(node.subsequent)) : span(node.location)]]
@@ -72,6 +78,7 @@ module Zr
 
       # An `unless` has its then first in the source, but ruby numbers its
       # else first, so the two are in reverse order.
+      #: (Prism::UnlessNode node) -> Array[[Symbol, Array[Integer]]]
       def unless_sides(node)
         [[:else, node.else_clause ? span(else_location(node.else_clause)) : span(node.location)],
          [:then, node.statements ? span(node.statements.location) : after(node.predicate.location)]]
@@ -80,18 +87,21 @@ module Zr
       # Each `when` or `in` clause, then the else. A `case` always has an
       # else: if the source has none, it covers the whole `case`, so a
       # subject that matched nothing is also counted.
+      #: (Prism::CaseNode | Prism::CaseMatchNode node, Symbol kind) -> Array[[Symbol, Array[Integer]]]
       def case_sides(node, kind)
-        sides = node.conditions.map { |c| [kind, span(c.statements&.location || c.location)] }
+        sides = node.conditions.map { |c| [kind, span(c.statements&.location || c.location)] } #: Array[[Symbol, Array[Integer]]]
         sides << [:else, span(node.else_clause ? else_location(node.else_clause) : node.location)]
       end
 
       # A loop has one branch: its body, or the whole loop if it has no
       # body.
+      #: (Prism::WhileNode | Prism::UntilNode node) -> Array[[Symbol, Array[Integer]]]
       def loop_sides(node) = [[:body, span(node.statements&.location || node.location)]]
 
       # An `else` has the location of its statements, or of the whole
       # clause if it has none. An `elsif` is its own branch, with its own
       # location.
+      #: (Prism::node node) -> Prism::Location
       def else_location(node)
         return node.location unless node.is_a?(Prism::ElseNode)
 
@@ -99,10 +109,12 @@ module Zr
       end
 
       # The empty width just past `location`.
+      #: (Prism::Location location) -> Array[Integer]
       def after(location) = [location.end_line, location.end_column, location.end_line, location.end_column]
 
       # `body` with its branch counted first, or only `body`. A nil body
       # counts and returns nil, as an empty branch does in ruby.
+      #: (Cover? cover, node? body, Integer line) -> node?
       def covered(cover, body, line)
         return body if cover.nil?
 

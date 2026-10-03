@@ -81,10 +81,13 @@ module Zr
       attr_accessor :results #: Array[String]
       attr_accessor :cond #: String?
       attr_accessor :offset #: Integer
-      attr_accessor :targets #: Array[untyped]?
+      # `targets` is nil for an instruction that is not a terminator. Each
+      # reader checks the opcode or uses `&.` first, so its type leaves out
+      # nil.
+      attr_accessor :targets #: Array[[String, Array[String]]]
       attr_accessor :callee #: String?
-      attr_accessor :flags #: untyped
-      attr_accessor :region #: untyped
+      attr_accessor :flags #: String?
+      attr_accessor :region #: Symbol?
 
       # @rbs op: Symbol
       # @rbs type: String?
@@ -92,10 +95,10 @@ module Zr
       # @rbs results: Array[String]
       # @rbs cond: String?
       # @rbs offset: Integer
-      # @rbs targets: Array[untyped]?
+      # @rbs targets: Array[[String, Array[String]]]?
       # @rbs callee: String?
-      # @rbs flags: untyped
-      # @rbs region: untyped
+      # @rbs flags: String?
+      # @rbs region: Symbol?
       # @rbs return: void
       def initialize(op, type: nil, args: [], results: [], cond: nil, offset: 0, targets: nil, callee: nil, flags: nil,
                      region: nil)
@@ -105,7 +108,7 @@ module Zr
         @results = results
         @cond = cond
         @offset = offset
-        @targets = targets
+        @targets = targets #: Array[[String, Array[String]]]
         @callee = callee
         @flags = flags
         @region = region

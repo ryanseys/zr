@@ -3,13 +3,13 @@ module Zr
   module Hir
     class SyntaxReport
       class Row < Data
-        attr_reader error: untyped
+        attr_reader error: Prism::ParseError
         attr_reader line: Integer
         attr_reader column_start: Integer
         attr_reader column_end: Integer
 
-        def self.new: (untyped error, Integer line, Integer column_start, Integer column_end) -> instance
-                    | (error: untyped, line: Integer, column_start: Integer, column_end: Integer) -> instance
+        def self.new: (Prism::ParseError error, Integer line, Integer column_start, Integer column_end) -> instance
+                    | (error: Prism::ParseError, line: Integer, column_start: Integer, column_end: Integer) -> instance
       end
     end
   end

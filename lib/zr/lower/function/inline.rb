@@ -30,13 +30,15 @@ module Zr
       # is taken inside the copy, because nothing in it raises.
       module Inline
         # @type instance: Function
+        # The `spec` methods run only while a copy is lowered:
+        # @type ivar @inline: Site
 
         # The maximum HIR node count of a candidate's body.
         LIMIT = 24
         # The one-argument sends that a copy handles: an Integer operator
         # on fixnums, identity for BasicObject's `==`/`!=`, a type check,
         # and a `case` branch on a class.
-        ARGUED = %i[is_a? kind_of? ===].freeze
+        ARGUED = %i[is_a? kind_of? ===].freeze #: Array[Symbol]
         # The pattern of a reader method's name.
         READER = /\A[a-z_][A-Za-z0-9_]*\z/
 
@@ -52,8 +54,9 @@ module Zr
         # local, and has a body that passes `pure?` or `leads?`. A def with
         # a receiver (`def self.x`) is never a candidate, and it also
         # disqualifies its name.
+        #: (untyped body) -> Hash[Symbol, Hir::Def]
         def self.candidates(body)
-          defs = Hash.new { |h, k| h[k] = [] }
+          defs = Hash.new { |h, k| h[k] = [] } #: Hash[Symbol, Array[Hir::Def]]
           each_def(body) { |d| defs[d.name] << d }
           defs.each_with_object({}) do |(name, list), out|
             d = list.first
@@ -68,6 +71,7 @@ module Zr
         # Whether `body` starts with a decision that the copy can make: an
         # `if` with a pure test and a pure branch. It is the whole body, or
         # a guard clause (one branch is a `return`) before the rest.
+        #: (untyped body, Array[Integer] count) -> bool
         def self.leads?(body, count)
           body = body.stmts.first while body.is_a?(Hir::Seq) && body.stmts.size == 1
           test = body.is_a?(Hir::Seq) ? body.stmts.first : body
@@ -79,6 +83,7 @@ module Zr
         end
 
         # Whether `node` ends in a `return`.
+        #: (untyped node) -> bool
         def self.returns?(node)
           node = node.stmts.last if node.is_a?(Hir::Seq)
           node.is_a?(Hir::Return)
@@ -86,6 +91,7 @@ module Zr
 
         # Every Def under `node`, at any depth. The walk goes into class
         # bodies, blocks and defs.
+        #: (untyped node) { (Hir::Def) -> void } -> void
         def self.each_def(node, &)
           case node
           when Hir::Def
@@ -111,6 +117,7 @@ module Zr
 
         # Whether a copy can lower `node`. Adds its node count to `count`
         # (a one-element Array with the running total).
+        #: (untyped node, Array[Integer] count) -> bool
         def self.pure?(node, count)
           return false if (count[0] += 1) > LIMIT
 
@@ -128,6 +135,7 @@ module Zr
           end
         end
 
+        #: (untyped v) -> bool
         def self.immediate_literal?(v)
           case v
           when Integer then v.bit_length < 63
@@ -138,8 +146,9 @@ module Zr
         end
 
         # Whether the double `v` is a flonum (`Expressions#flonum_word`).
+        #: (Float v) -> bool
         def self.flonum?(v)
-          b = [v].pack("E").unpack1("Q<")
+          b = [v].pack("E").unpack1("Q<") #: Integer
           top = (b >> 60) & 7
           b.zero? || (b != 0x3000000000000000 && (top == 3 || top == 4))
         end
@@ -147,6 +156,7 @@ module Zr
         # A send with an explicit receiver and no block, keywords, splat or
         # refinement: a reader or `nil?` with no argument, or one of the
         # ARGUED forms.
+        #: (Hir::Send node, Array[Integer] count) -> bool
         def self.pure_send?(node, count)
           return false if node.recv.nil? || node.vcall || node.block || node.kwargs || node.safe || node.interp || node.using || node.write
           return false unless pure?(node.recv, count) && node.args.all? { |a| !a.is_a?(Hir::Splat) && pure?(a, count) }
@@ -164,6 +174,7 @@ module Zr
         # the def's argument count, no block, no keywords, no splat, no
         # `using`, not traced (a trace sees every frame), and not in the
         # core (its sends have their own modes).
+        #: (Hir::Send node) -> Hir::Def?
         def inline_candidate(node)
           return nil if traced? || @l.internal? || node.block || node.kwargs || node.using || node.args.any?(Hir::Splat)
 
@@ -174,8 +185,9 @@ module Zr
         # The copy of `d`'s body at the site, with `recv` as its self and
         # `given` as its parameters. Every guard that fails jumps to
         # `bail`. Returns the body's value.
+        #: (Hir::Def d, String recv, Array[String] given, String bail) -> String
         def inline_body(d, recv, given, bail)
-          exit, (result,) = @f.block(["i64"])
+          exit, (result,) = @f.block(["i64"]) #: [String, [String]]
           saved = [@self, @inline]
           @self = recv
           @inline = Site.new(d.params.required.zip(given).to_h, exit, bail)
@@ -189,6 +201,7 @@ module Zr
         # The copy of a candidate's body: a pure body in full, or the
         # leading test (`leads?`). Its branches and later statements are
         # copied if pure, else they bail.
+        #: (untyped body) -> String
         def spec_leading(body)
           return spec(body) if Inline.pure?(body, [0])
 
@@ -200,6 +213,7 @@ module Zr
         # `pure?`, with each miss a jump to the bail block. Code that the
         # copy cannot run (a branch of a leading test that calls, or the
         # rest after a guard clause) is only a bail.
+        #: (untyped node) -> String
         def spec(node)
           unless Inline.pure?(node, [0])
             @f.jump(@inline.bail)
@@ -221,6 +235,7 @@ module Zr
           end
         end
 
+        #: (Hir::Seq node) -> String
         def spec_seq(node)
           v = @qnil
           node.stmts.each do |n|
@@ -233,6 +248,7 @@ module Zr
         # A comparison of two fixnums branches on the comparison, as
         # `Sends#relation_jump` does. `==` and `!=` of other values are
         # identity tests (if the def's cell permits), tested as a value.
+        #: (untyped node, String yes, String no) -> void
         def spec_jump_if(node, yes, no)
           case node
           when Hir::And, Hir::Or
@@ -248,10 +264,12 @@ module Zr
           end
         end
 
+        #: (untyped node) -> bool
         def spec_relation?(node)
           node.is_a?(Hir::Send) && Sends::RELATIONS.key?(node.name) && node.args.size == 1 && Inline.pure?(node, [0])
         end
 
+        #: (Hir::Send node, String yes, String no) -> void
         def spec_relation_jump(node, yes, no)
           recv = spec(node.recv)
           arg = spec(node.args[0])
@@ -263,16 +281,17 @@ module Zr
           switch(rest)
           return @f.jump(@inline.bail) unless %i[== !=].include?(node.name)
 
-          merge, (v,) = @f.block(["i64"])
+          merge, (v,) = @f.block(["i64"]) #: [String, [String]]
           spec_identity(node, recv, arg, merge)
           switch(merge)
           @f.brif(truthy(v), yes, no)
         end
 
+        #: (Hir::If node) -> String
         def spec_branch(node)
           then_b = @f.label
           else_b = @f.label
-          merge, (result,) = @f.block(["i64"])
+          merge, (result,) = @f.block(["i64"]) #: [String, [String]]
           spec_jump_if(node.cond, then_b, else_b)
           switch(then_b)
           v = node.yes ? spec(node.yes) : @qnil
@@ -284,11 +303,12 @@ module Zr
           result
         end
 
+        #: (Hir::And | Hir::Or node) -> String
         def spec_logical(node)
           left = spec(node.left)
           rest = @f.label
           skip = @f.label
-          merge, (result,) = @f.block(["i64"])
+          merge, (result,) = @f.block(["i64"]) #: [String, [String]]
           cond = truthy(left)
           node.is_a?(Hir::And) ? @f.brif(cond, rest, skip) : @f.brif(cond, skip, rest)
           switch(skip)
@@ -302,6 +322,7 @@ module Zr
 
         # `!v` for nil, true and false under GATE_NOT (`Sends#negate`).
         # All other receivers bail.
+        #: (Hir::Not node) -> String
         def spec_negate(node)
           v = spec(node.value)
           go = @f.label
@@ -311,6 +332,7 @@ module Zr
           @f.csel(truthy(v), imm(@l.const("QFALSE")), imm(@l.const("QTRUE")))
         end
 
+        #: (Hir::Return node) -> String
         def spec_return(node)
           v = node.value ? spec(node.value) : @qnil
           @f.jump(@inline.done, [v]) unless @f.terminated?
@@ -318,6 +340,7 @@ module Zr
         end
 
         # `@name` of the copy's self, through the def's own guessed entry.
+        #: (Hir::IvarRead node) -> String
         def spec_ivar_read(node)
           ivar = ivar_name(node.name)
           ic = site_cache(node, "iv", "IvarCache")
@@ -326,10 +349,11 @@ module Zr
           @f.csel(@f.icmp("eq", found, qundef), @qnil, found)
         end
 
+        #: (Hir::Send node) -> String
         def spec_send(node)
           recv = spec(node.recv)
           args = node.args.map { |a| spec(a) }
-          merge, (result,) = @f.block(["i64"])
+          merge, (result,) = @f.block(["i64"]) #: [String, [String]]
           case node.args.size
           when 0 then node.name == :nil? ? spec_nil_p(recv, merge) : spec_reader(node, recv, merge)
           when 1 then spec_argued(node, recv, args[0], merge)
@@ -340,6 +364,7 @@ module Zr
 
         # `recv.nil?` under GATE_NIL_P: nil, or a ranked class (a class
         # under Object, where Kernel's `nil?` applies).
+        #: (String recv, String merge) -> void
         def spec_nil_p(recv, merge)
           is_nil = @f.label
           not_nil = @f.label
@@ -360,6 +385,7 @@ module Zr
         # whose class the cell has at the site stamp, with the shape of a
         # reader or of a struct member's reader, read the ivar or the member
         # inline. All other cases bail.
+        #: (Hir::Send node, String recv, String merge) -> void
         def spec_reader(node, recv, merge)
           cc = site_cache(node, "ic", "CallCache", Sends::CALL_WAYS)
           cell = @l.layout("CallCache")
@@ -381,6 +407,7 @@ module Zr
         # An operator on two fixnums under its gate. `==` and `!=` by
         # identity if the def's own cell has BasicObject's methods. A type
         # check by the classes. All other cases bail.
+        #: (Hir::Send node, String recv, String arg, String merge) -> void
         def spec_argued(node, recv, arg, merge)
           op = node.name
           if Sends::OPS.key?(op)
@@ -406,6 +433,7 @@ module Zr
 
         # `Mod === x` through the def's own cell, if the cell has
         # Module#=== and the receiver is a ranked class.
+        #: (Hir::Send node, String recv, String arg, String merge) -> void
         def spec_mod_eqq(node, recv, arg, merge)
           cc = site_cache(node, "ic", "CallCache", Sends::CALL_WAYS)
           cell = @l.layout("CallCache")
@@ -422,6 +450,7 @@ module Zr
           is_a_in_place(class_of(arg), recv, merge, @inline.bail)
         end
 
+        #: (Hir::Send node, String recv, String arg, String merge) -> void
         def spec_identity(node, recv, arg, merge)
           cc = site_cache(node, "ic", "CallCache", Sends::CALL_WAYS)
           cell = @l.layout("CallCache")
@@ -436,6 +465,7 @@ module Zr
         end
 
         # Whether `cc`'s first way has `klass` at the site stamp.
+        #: (String cc, String klass) -> String
         def cell_hit(cc, klass)
           cell = @l.layout("CallCache")
           @f.band(@f.icmp("eq", klass, @f.fetch("i64", cc, off(cell, "klass"))),
@@ -443,6 +473,7 @@ module Zr
         end
 
         # Whether `v` is a cell: a pointer past the special constants.
+        #: (String v) -> String
         def cellp(v)
           @f.band(@f.icmp("eq", @f.band(v, imm(7)), imm(0)), @f.icmp("ugt", v, @qnil))
         end

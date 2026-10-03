@@ -17,9 +17,10 @@ module Zr
         # is also cold when every block that jumps to it is cold. The entry
         # stays first. The registers do not depend on this order: each value
         # keeps one register or one home for its whole life.
+        #: () -> Array[IR::Block]
         def laid_out
           entry = @f.entry_block
-          before = Hash.new { |h, k| h[k] = [] }
+          before = Hash.new { |h, k| h[k] = [] } #: Hash[String, Array[String]]
           @f.blocks.each { |b| b.insts.last&.targets&.each { |(to, _)| before[to] << b.name } }
           cold = Set.new(@f.blocks.select { |b| b.cold && !b.equal?(entry) }.map(&:name))
           # Most blocks come after the blocks that jump to them, so one pass
@@ -39,6 +40,7 @@ module Zr
           hot + slow
         end
 
+        #: () -> Hash[String, String?]
         def assign_types
           @types = IR::Types.new(@f)
           @types.all
@@ -46,8 +48,10 @@ module Zr
           raise Refused, e.message, cause: e
         end
 
+        # Every value that the backend reads has a type.
+        #: (String v) -> String
         def type_of(v)
-          @types.of(v)
+          @types.of(v) #: String
         rescue IR::Types::Refused => e
           raise Refused, e.message, cause: e
         end
@@ -65,6 +69,7 @@ module Zr
         # A branch on one bit of a word (`brif (band x, 2^n) != 0`) is a `tbz`
         # or `tbnz` on the word. The `band` and the compare emit nothing
         # (`@silent`), and the allocator keeps the word live to the branch (`@via`).
+        #: () -> void
         def plan_fusion
           @fused = {}
           @bit_tests = {}
@@ -103,13 +108,14 @@ module Zr
         # The instructions whose second result is a flag that they also set
         # in NZCV: the overflow checks. Their branch reads `vs` directly when
         # nothing is between them (`emit_overflow`).
-        FLAG_SETTERS = %i[sadd_overflow ssub_overflow smul_overflow].to_set.freeze
+        FLAG_SETTERS = %i[sadd_overflow ssub_overflow smul_overflow].to_set.freeze #: Set[Symbol]
 
         # Two word stores to the same base, the second 8 bytes after the
         # first, with no emitted instruction between them, become one `stp`.
         # The nil fills after every send and in every prologue are runs of
         # these. `@pairs` maps the first store to the second. `@paired`
         # contains the second stores, which emit nothing.
+        #: () -> void
         def plan_pairs
           @pairs = {}
           @paired = Set.new
@@ -128,6 +134,7 @@ module Zr
         # Returns `[word, bit, branch]` when `cmp` tests one bit of a word:
         # it compares a `band` of the word and a power of two with zero, and
         # nothing else reads the `band`.
+        #: (IR::Inst cmp) -> [String, Integer, Symbol]?
         def bit_test(cmp)
           return unless cmp.cond == "eq" || cmp.cond == "ne"
 
@@ -152,6 +159,7 @@ module Zr
         # second word (a value), when the `band` is `prev`, the instruction
         # just before the compare. Then the second word is still in its
         # place at the compare, though the `band` was its last read.
+        #: (IR::Inst cmp, IR::Inst? prev) -> [String, Integer | String]?
         def mask_test(cmp, prev)
           return unless cmp.cond == "eq" || cmp.cond == "ne"
 
@@ -177,10 +185,11 @@ module Zr
         # `x28` directly (`@pinned`). It then has no register, no home, and no
         # code at its definition, and a bit test of it is one `tbz` of `x28`.
         # Any other `gates` value is copied from the register at its definition.
+        #: () -> void
         def plan_pinned
           @pinned = Set.new
           @f.blocks.each do |b|
-            open = {}
+            open = {} #: Hash[String, Integer]
             b.insts.each do |i|
               i.args.each { |a| open[a] += 1 if open.key?(a) }
               i.targets&.each { |(_, args)| args.each { |a| open[a] += 1 if open.key?(a) } }
@@ -198,6 +207,7 @@ module Zr
         # Counts the reads of each value, by an instruction or by a jump
         # that gives it to a block. A value read once or never gets a
         # different plan from a value read many times.
+        #: () -> void
         def count_uses
           @uses = Hash.new(0)
           @def_of = {}
@@ -224,6 +234,7 @@ module Zr
         # entry block, so otherwise each one uses a register for the whole
         # function, and the frame saves and restores it. A load or store
         # through a slot address uses sp directly and makes nothing.
+        #: () -> void
         def plan_slots
           off = PAIR
           @slot_at = @f.slots.map do |s|
@@ -265,6 +276,7 @@ module Zr
         # whole function. An address read more than once keeps its register:
         # a send reads its site's cell five times before the call, and making
         # the address at each read makes `fib` 6% slower.
+        #: () -> void
         def plan_constants
           @const = {}
           @symbol = {}
@@ -299,15 +311,16 @@ module Zr
         # value and its reads use it. Examples: the record slots where
         # `Zr::Lower::Function` puts a send's arguments, and a struct field
         # that a kernel def reads (an `iadd` of the pointer and the offset).
+        #: () -> void
         def plan_addresses
           @derived = {}
           @via = {}
           @silent = @remade | @pinned
-          memory = Hash.new { |h, k| h[k] = [] }
+          memory = Hash.new { |h, k| h[k] = [] } #: Hash[String, Array[[Integer, Integer]]]
           # `[value, base, root, k]` for each sum: its own base, and the
           # first base of its chain with the sum of the constants.
-          sums = []
-          chain = {}
+          sums = [] #: Array[[String, String, String, Integer]]
+          chain = {} #: Hash[String, [String, Integer]]
           @f.blocks.each do |b|
             b.insts.each do |i|
               case i.op
@@ -348,6 +361,7 @@ module Zr
 
         # Returns `[base, k]` for an `iadd` of a value and a signed
         # constant, or nil for any other addition.
+        #: (IR::Inst i) -> [String, Integer]?
         def summed(i)
           return nil unless type_of(i.results[0]) == "i64"
 
@@ -362,16 +376,18 @@ module Zr
         # Whether one load or store of `width` bytes can encode `off` past
         # `root`: from sp when `root` is a slot's address, or else from the
         # register that contains `root`.
+        #: (String root, Integer off, Integer width) -> bool
         def reaches?(root, off, width)
           at = @stack[root]
           off += at if at
           immediate?(off, width)
         end
 
+        #: (Integer off, Integer width) -> bool
         def immediate?(off, width) = off >= 0 && (off % width).zero? && off / width <= 4095
 
         # The number of bytes that a load or store of each type moves.
-        WIDTHS = { "i8" => 1, "i32" => 4, "i64" => 8, "f64" => 8 }.freeze
+        WIDTHS = { "i8" => 1, "i32" => 4, "i64" => 8, "f64" => 8 }.freeze #: Hash[String, Integer]
 
         # The `i8` values whose register has zeros above the byte. An operation
         # can read these directly from their home.
@@ -382,6 +398,7 @@ module Zr
         # and a small constant write zeros above the byte, and so do `and`,
         # `orr` and `eor` of two such bytes. Most bytes in a kernel function
         # are of this kind: every `&&` and `||` of tests joins two of them.
+        #: () -> void
         def plan_bytes
           @clean = Set.new
           @f.blocks.each do |b|
@@ -399,11 +416,13 @@ module Zr
         end
 
         # The value of `v` at the width of `type`, when `v` is a constant.
+        #: (untyped v, String type) -> Integer?
         def constant(v, type)
           k = @const[v]
           k && k & WIDTH_MASK.fetch(type, 0xFFFF_FFFF_FFFF_FFFF)
         end
 
+        #: () -> void
         def assign_homes
           off = @slots_end
           @f.blocks.each do |b|
@@ -433,12 +452,19 @@ module Zr
         # 504, and a frame is a multiple of 16.
         SMALL = 496
 
+        #: () -> bool
         def small_frame? = @frame <= SMALL
 
+        # Every name in a function's instructions is defined in it.
+        #: (String fn) -> IR::Sig
         def sig_of(fn) = @types.sig_of(fn)
+        #: (String sig) -> IR::Sig
         def sig_named(sig) = @types.sig_named(sig)
-        def callee_of(fn) = @types.callee_named(fn)
-        def global_of(gv) = @types.global_named(gv)
+        #: (String fn) -> IR::Callee
+        def callee_of(fn) = @types.callee_named(fn) #: IR::Callee
+        #: (String gv) -> IR::Global
+        def global_of(gv) = @types.global_named(gv) #: IR::Global
+        #: (String name) -> IR::Block
         def block_named(name) = @types.block_named(name)
       end
     end

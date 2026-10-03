@@ -11,6 +11,7 @@ module Zr
         private
 
         # The condition a Value's truthiness gives: anything but nil and false.
+        #: (String v) -> String
         def truthy(v)
           @f.icmp("ne", @f.band(v, imm(-9)), imm(0))
         end
@@ -22,6 +23,7 @@ module Zr
         # of branches with no join. A comparison of plain reads branches
         # on the comparison (`Sends#relation_jump`). All other nodes are
         # tested as values.
+        #: (untyped node, String yes, String no) -> void
         def jump_if(node, yes, no)
           case node
           when Hir::And, Hir::Or
@@ -37,10 +39,11 @@ module Zr
           end
         end
 
+        #: (Hir::If node) -> String
         def branch(node)
           then_b = @f.label
           else_b = @f.label
-          merge, (result,) = @f.block(["i64"])
+          merge, (result,) = @f.block(["i64"]) #: [String, [String]]
           jump_if(node.cond, then_b, else_b)
           switch(then_b)
           v = node.yes ? expr(node.yes) : @qnil
@@ -55,11 +58,12 @@ module Zr
         # `while`: nil when the condition ends it, else the `break` value.
         # The loop is entered before its condition, as compile.c does, so
         # a `break` or `next` in the condition belongs to this loop.
+        #: (Hir::While node) -> String
         def loop_while(node)
           head = @f.label
           body = @f.label
           out = @f.label
-          done, (result,) = @f.block(["i64"])
+          done, (result,) = @f.block(["i64"]) #: [String, [String]]
           @loops << Loop.new(head: head, body: body, done: done, depth: @regions.size)
           @f.jump(node.body_first ? body : head)
           switch(head)
@@ -87,6 +91,7 @@ module Zr
         # written there, and a yield from inside them would be a switch
         # during a switch. The runtime's long loops are the iterators, and
         # the kernel counts ticks at their yields.
+        #: () -> void
         def preempt
           return if @l.internal?
 
@@ -107,11 +112,12 @@ module Zr
         end
 
         # `a && b` returns `a` if it is falsy, else `b`. `||` is the reverse.
+        #: (Hir::And | Hir::Or node) -> String
         def logical(node)
           left = expr(node.left)
           rest = @f.label
           skip = @f.label
-          merge, (result,) = @f.block(["i64"])
+          merge, (result,) = @f.block(["i64"]) #: [String, [String]]
           cond = truthy(left)
           node.is_a?(Hir::And) ? @f.brif(cond, rest, skip) : @f.brif(cond, skip, rest)
           switch(skip)
@@ -127,6 +133,7 @@ module Zr
         # sends `value === subject` through its own cell, with no
         # visibility check (or, with no subject, the value itself is
         # tested). The body of the first truthy one gives the result.
+        #: (Hir::Case node) -> String
         def case_when(node)
           return class_case(node) if class_case?(node)
           return symbol_case(node) if symbol_case?(node)
@@ -134,7 +141,7 @@ module Zr
           base = @sp
           subject_at = value_offset(reserve(1))
           @f.store(expr(node.subject), @rec, subject_at) if node.subject
-          merge, (result,) = @f.block(["i64"])
+          merge, (result,) = @f.block(["i64"]) #: [String, [String]]
           node.clauses.each do |values, body|
             hit = @f.label
             values.each do |value|
@@ -170,6 +177,7 @@ module Zr
         # Sends `value === subject` through the site's own cell, with no
         # visibility check, and gives the truth of the result. The subject
         # is in the record slot at `base`.
+        #: (Hir::Case node, untyped value, Integer base) -> String
         def when_eqq(node, value, base)
           staged([value, Hir::Slot.new(base, value.line)]) do |slots|
             at_node(value)
@@ -184,6 +192,7 @@ module Zr
         # (`symbol_case`): it has a subject, and each `when` value is a
         # symbol literal (not a splat, and not a symbol with
         # interpolation).
+        #: (Hir::Case node) -> bool
         def symbol_case?(node)
           return false if node.subject.nil?
 
@@ -205,6 +214,7 @@ module Zr
         # When the gate is closed (a def of `===` on Symbol, a prepend, a
         # `refine Symbol`), the site sends `===` for each value, as
         # `case_when` does.
+        #: (Hir::Case node) -> String
         def symbol_case(node)
           base = @sp
           subject_at = value_offset(reserve(1))
@@ -214,7 +224,7 @@ module Zr
           chain = @f.label
           bodies = node.clauses.map { @f.label }
           other = @f.label
-          merge, (result,) = @f.block(["i64"])
+          merge, (result,) = @f.block(["i64"]) #: [String, [String]]
           @f.brif(gate_clear("GATE_SYM_EQQ"), fast, chain)
           switch(fast)
           node.clauses.each_with_index do |(values, _), arm|
@@ -256,6 +266,7 @@ module Zr
         # constant path (`A`, `::A`, `A::B`, with no other expression in
         # it), and it has at least CLASS_CASE_MIN of them. A traced
         # program keeps the chain, so each `===` gives its events.
+        #: (Hir::Case node) -> bool
         def class_case?(node)
           return false if node.subject.nil? || traced?
 
@@ -263,6 +274,7 @@ module Zr
           values.size >= CLASS_CASE_MIN && values.all? { |v| constant_path?(v) }
         end
 
+        #: (untyped node) -> bool
         def constant_path?(node)
           node.is_a?(Hir::ConstRead) && (node.scope.nil? || node.scope == :top || constant_path?(node.scope))
         end
@@ -283,6 +295,7 @@ module Zr
         # (`zr_case_fill`). The stamps are read before the chain, so a
         # change that the chain causes (an autoload, a definition in a
         # `===`) makes the kernel add no row.
+        #: (Hir::Case node) -> String
         def class_case(node)
           base = @sp
           subject_at = value_offset(reserve(1))
@@ -298,7 +311,7 @@ module Zr
           probe = @f.label
           found = @f.label
           chain = @f.label
-          merge, (result,) = @f.block(["i64"])
+          merge, (result,) = @f.block(["i64"]) #: [String, [String]]
           valid = @f.band(@f.band(@f.icmp("eq", @f.fetch("i64", cc, off(cell, "mstamp")), ms),
                                   @f.icmp("eq", @f.fetch("i64", cc, off(cell, "cstamp")), cs)),
                           @f.icmp("eq", @f.fetch("i64", cc, off(cell, "cref")), @cref))
@@ -347,6 +360,7 @@ module Zr
         # Reads the `when` value at index `j` of a `class_case`. If the
         # read came from its constant's cell and `j` is the value that the
         # cache entry is due to check, the kernel checks it.
+        #: (Hir::ConstRead value, Integer j, String cc, String ms, String cs) -> String
         def proved_read(value, j, cc, ms, cs)
           v, hit = const_hit_read(value)
           prove = @f.label
@@ -363,6 +377,7 @@ module Zr
         # The row of `table` for class `klass`, by the hash of
         # `zr_case_fill`: the address over CELL_MIN (32), mixed with the
         # address over CELL_MIN * CASE_ROWS, modulo CASE_ROWS (32).
+        #: (String table, String klass) -> String
         def case_row(table, klass)
           h = @f.band(@f.bxor(@f.ushr(klass, imm(5)), @f.ushr(klass, imm(10))), imm(@l.const("CASE_ROWS") - 1))
           @f.iadd(table, @f.ishl(h, imm(Math.log2(@l.layout("CaseRow").size).to_i)))
@@ -371,6 +386,7 @@ module Zr
         # Jumps to `targets[arm - first]` by a balanced tree of branches on
         # the arm index. The IR has no jump table, so this costs about
         # log2 of the arm count in branches.
+        #: (String arm, Array[String] targets, Integer first) -> void
         def arm_jump(arm, targets, first)
           return @f.jump(targets[0]) if targets.size == 1
 
@@ -384,6 +400,7 @@ module Zr
           arm_jump(arm, targets[half..], first + half)
         end
 
+        #: (Hir::Yield node) -> String
         def yield_block(node)
           parts = node.args + [node.kwargs].compact
           if parts.any?(Hir::Splat)
@@ -413,12 +430,13 @@ module Zr
         # uses the kernel's yield, or `loop { }` would never yield to the
         # scheduler. With no block, the kernel's yield also runs, and it
         # raises.
+        #: (String argc, String argv) -> String
         def block_call(argc, argv)
           return kernel("zr_yield", @blk, argc, argv) if @l.internal?
 
           none = @f.label
           some = @f.label
-          merge, (result,) = @f.block(["i64"])
+          merge, (result,) = @f.block(["i64"]) #: [String, [String]]
           @f.brif(@f.icmp("eq", @blk, @qnil), none, some)
           switch(none)
           @f.jump(merge, [kernel("zr_yield", @blk, argc, argv)])
@@ -431,6 +449,7 @@ module Zr
 
         # `return`: leaves the method, or, from a block, unwinds through
         # the runtime to the method that made the block.
+        #: (Hir::Return node) -> String
         def return_from(node)
           v = expr(node.value)
           # A `return` in an eval or in `class << self` returns from the
@@ -453,11 +472,12 @@ module Zr
         # program does not see. `declared` is an autoload only: the
         # feature is already loaded, so the name is declared and no entry
         # waits for a file.
-        REQUIRE_KINDS = { require: 0, require_relative: 1, load: 2, hidden: 3, computed: 4, declared: 5 }.freeze
+        REQUIRE_KINDS = { require: 0, require_relative: 1, load: 2, hidden: 3, computed: 4, declared: 5 }.freeze #: Hash[Symbol, Integer]
 
         # A require of a file in the program runs that file's toplevel,
         # once unless it is a load. A relative name with no file raises
         # LoadError.
+        #: (Hir::Require node) -> String
         def require_unit(node)
           at_node(node)
           shown = Paths.shown(node.path)
@@ -472,6 +492,7 @@ module Zr
         # unit, and the first read runs it. The receiver and the feature
         # stay in record slots while the path is made, because its
         # allocation can start a collection.
+        #: (Hir::Autoload node) -> String
         def autoload_unit(node)
           at_node(node)
           base = reserve(2)
@@ -494,6 +515,7 @@ module Zr
 
         # `redo`: the innermost loop's body again without its test, or the
         # block's body again with the parameters as they are.
+        #: (Hir::Redo node) -> String
         def redo_body(node)
           if (loop = @loops.last)
             through_ensures(@qnil, loop.depth)
@@ -511,6 +533,7 @@ module Zr
 
         # `break`/`next`: leave the innermost loop if one encloses the
         # statement, else leave the block.
+        #: (Hir::Break | Hir::Next node, Symbol kind) -> String
         def jump_out(node, kind)
           v = expr(node.value)
           if (loop = @loops.last)

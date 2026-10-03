@@ -31,18 +31,23 @@ module Zr
     # requires and autoloads reach, and no other entry: a `require` added
     # to one file lowers only that file again, not every unit.
     class Unit
+      # @rbs @stamp: String
+      # @rbs @entries: Array[String]
+
       # The format of the cache entries. Increase it to make every entry
       # from an older zr a miss.
       VERSION = 4
 
       # The cache for `program`, or nil if no key can describe this
       # program. `entries` are the program's unit entries, in order.
+      #: (Hir::Program program, runtime: String, entries: Array[String]) -> Unit?
       def self.for(program, runtime:, entries:)
         return nil if program.coverable&.any?
 
         new(runtime: runtime, traced: program.traced ? 1 : 0, entries: entries)
       end
 
+      #: (runtime: String, traced: Integer, entries: Array[String]) -> void
       def initialize(runtime:, traced:, entries:)
         # `runtime` is the runtime's ABI digest (`RuntimeSources#abi_digest`):
         # the compiler, the kernel's description and the kernel's names. A
@@ -53,6 +58,8 @@ module Zr
       end
 
       # `[functions, data]` an earlier build left for `unit`, or nil.
+      # (Marshal gives the value, so its type is not checked.)
+      #: (Hir::Unit unit, String prefix) -> untyped
       def take(unit, prefix)
         key = key(unit, prefix) or return nil
 
@@ -61,6 +68,7 @@ module Zr
 
       # Stores the code that this build made for `unit`, for the next build.
       # Stores nothing if a source changed during the build (`SourceGuard.check!`).
+      #: (Hir::Unit unit, String prefix, Array[untyped] functions, Array[untyped]? data) -> String?
       def keep(unit, prefix, functions, data)
         key = key(unit, prefix) or return nil
 
@@ -71,12 +79,14 @@ module Zr
 
       # The inputs of a unit's bytes after its file: its flags, its source,
       # and what `reached` gives. The block gives the entry of a unit.
+      #: (Hir::Unit unit) { (Hir::entry) -> String } -> Array[Integer | String]
       def self.parts(unit, &) = [unit.internal ? 1 : 0, unit.hidden ? 1 : 0, unit.source.b, *reached(unit.body, &)]
 
       # The path and the entry of each unit that a require or an autoload
       # in `body` runs, in the order of the tree. The block gives the entry
       # of a unit; a require that runs no unit adds "-". Lowering::EvalSupport keys its
       # pieces the same way.
+      #:(untyped body, ?Array[String] out) { (Hir::entry) -> String } -> Array[String]
       def self.reached(body, out = [], &)
         case body
         when Hir::Require, Hir::Autoload
@@ -93,6 +103,7 @@ module Zr
 
       # A digest of every input of the unit's bytes, or nil if one input is
       # a number that this key cannot contain.
+      #: (Hir::Unit unit, String prefix) -> String?
       def key(unit, prefix)
         return nil if unit.source.nil? || unit.activates
 
@@ -100,6 +111,7 @@ module Zr
       end
 
       # A unit's entry: a String names it already (a unit of eval support).
+      #: (Hir::entry unit) -> String
       def entry(unit)
         unit.is_a?(String) ? unit : @entries.fetch(unit)
       end

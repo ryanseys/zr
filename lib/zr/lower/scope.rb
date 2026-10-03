@@ -12,14 +12,15 @@ module Zr
       # The iterators that a site with a block literal runs inline
       # (Function::Iterators), each with the maximum parameter count of
       # its block.
-      ITERATORS = { each: 1, times: 1, map: 1, select: 1, upto: 1 }.freeze
+      ITERATORS = { each: 1, times: 1, map: 1, select: 1, upto: 1 }.freeze #: Hash[Symbol, Integer]
       # The iterators that take arguments, with their count: `upto` takes
       # its limit.
-      ITERATOR_ARGS = { upto: 1 }.freeze
+      ITERATOR_ARGS = { upto: 1 }.freeze #: Hash[Symbol, Integer]
 
       # The record slots that an inline iterator keeps above its receiver:
       # its block's locals and its index. `map` and `select` also keep the
       # Array that they make.
+      #: (Hir::Send node) -> Integer
       def loop_slots(node)
         node.block.locals.size + (%i[map select].include?(node.name) ? 2 : 1)
       end
@@ -30,6 +31,7 @@ module Zr
       # parameter. The block must contain no block, open no binding, and
       # pass `loop_body?`. The block keeps its locals in the site's
       # record, so `staging` counts them.
+      #: (untyped node) -> bool
       def iterator_template?(node)
         return false unless node.is_a?(Hir::Send) && node.block.is_a?(Hir::Block) && ITERATORS.key?(node.name)
         return false unless node.args.size == ITERATOR_ARGS.fetch(node.name, 0) && !spread?(node.args)
@@ -46,6 +48,7 @@ module Zr
       # Nothing in it can need the block's own frame or define under it:
       # no super, no def or class body, and no trace or coverage entry (a
       # traced program keeps every frame).
+      #: (untyped node) -> bool
       def loop_body?(node)
         case node
         when Hir::Super, Hir::ZSuper, Hir::Def, Hir::ClassDef, Hir::ModuleDef, Hir::SingletonClassDef, Hir::Trace, Hir::Cover then false
@@ -60,6 +63,7 @@ module Zr
       # jump anywhere in its region, above the jump's value. An operator
       # assignment keeps its receiver, arguments and current value during
       # the read and the write.
+      #: (untyped node, ?Integer base) -> Integer
       def staging(node, base = 0)
         case node
         when Hir::Seq then node.stmts.map { |s| staging(s, base) }.max || base
@@ -133,16 +137,18 @@ module Zr
         when Hir::While then [staging(node.cond, base), staging(node.body, base)].max
         when Hir::And, Hir::Or then [staging(node.left, base), staging(node.right, base)].max
         else base
-        end
+        end #: Integer
       end
 
       # The slots that a MultiTarget's targets stage before the value: a
       # receiver and arguments for each send, and the scope of each
       # constant written through an expression (`a::B, c = ...`).
+      #: (Hir::MultiTarget target) -> Integer
       def prepared(target)
         staged_in(target).sum { |t| t.is_a?(Hir::Send) ? 2 + t.args.size : 1 }
       end
 
+      #: (Hir::MultiTarget target) -> Array[untyped]
       def staged_in(target)
         (target.lefts + [target.rest] + target.rights).flat_map do |t|
           case t
@@ -150,37 +156,42 @@ module Zr
           when Hir::ConstWrite then t.scope.nil? || t.scope == :top ? [] : [t]
           when Hir::MultiTarget then staged_in(t)
           else []
-          end
+          end #: Array[untyped]
         end
       end
 
       # The slots for destructuring into `target`: one Array per level.
+      #: (Hir::MultiTarget target) -> Integer
       def targets(target)
         nested = (target.lefts + [target.rest] + target.rights).grep(Hir::MultiTarget).map { |t| targets(t) }.max || 0
         1 + nested
       end
 
       # `parts` evaluated one after another into consecutive slots.
+      #: (Array[untyped] parts, Integer base) -> Integer
       def row(parts, base)
         top = base + parts.size
-        [top, *parts.map { |p| staging(p, top) }].max
+        [top, *parts.map { |p| staging(p, top) }].max #: Integer
       end
 
       # `parts` pushed one after another into one collection in a slot,
       # as for a splat.
+      #: (Array[untyped] parts, Integer base) -> Integer
       def gathered(parts, base)
-        [base + 1, *parts.map { |p| staging(p, base + 1) }].max
+        [base + 1, *parts.map { |p| staging(p, base + 1) }].max #: Integer
       end
 
       # A hash literal with a `**`: the hash in one slot, each plain pair
       # staged in two slots above it, and each spread evaluated there.
+      #: (Array[untyped] pairs, Integer base) -> Integer
       def spread_pairs(pairs, base)
         tops = pairs.each_slice(2).map do |key, value|
           key.is_a?(Hir::HashSplat) ? staging(key.value, base + 1) : row([key, value], base + 1)
         end
-        [base + 1, *tops].max
+        [base + 1, *tops].max #: Integer
       end
 
+      #: (Array[untyped] parts) -> bool
       def spread?(parts)
         parts.any? { |p| p.is_a?(Hir::Splat) || p.is_a?(Hir::HashSplat) }
       end
@@ -189,12 +200,14 @@ module Zr
       # keys and no `**`. These go as trailing values with a static table
       # of the keys (lib/zr/runtime/kernel/send.rb, `zr_kw_pass`). All other
       # keywords go as one Hash.
+      #: (Hir::HashLit kwargs) -> bool
       def literal_keywords?(kwargs)
         keys = kwargs.pairs.each_slice(2).map(&:first)
         keys.all? { |key| key.is_a?(Hir::Literal) && key.value.is_a?(Symbol) } && keys.map(&:value).uniq.size == keys.size
       end
 
       # The record slots for a call's keywords, in addition to its arguments.
+      #: (Hir::HashLit? kwargs) -> Integer
       def keyword_slots(kwargs)
         return 0 unless kwargs
 

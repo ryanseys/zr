@@ -114,30 +114,44 @@ module Zr
         # link needs. It reads only the layout that `write` makes, and
         # refuses all others. It slices each field before it unpacks it,
         # because `unpack` in the compiled runtime copies the full string.
+        #: (String bytes) -> Read
         def read(bytes)
-          magic, cpu, _sub, type, ncmds = bytes.byteslice(0, 20).unpack("L<5")
+          # Each slice is in the bytes, so it is a String, and each `L`
+          # and `Q` field is an Integer.
+          head = bytes.byteslice(0, 20) #: String
+          magic, cpu, _sub, type, ncmds = head.unpack("L<5") #: [Integer, Integer, Integer, Integer, Integer]
           unless magic == MH_MAGIC_64 && cpu == CPU_TYPE_ARM64 && type == MH_OBJECT
             raise ArgumentError, "not an arm64 Mach-O object"
           end
 
-          sections = []
+          sections = [] #: Array[Section]
           symbols = strings = nil
           at = 32
           ncmds.times do
-            cmd, size = bytes.byteslice(at, 8).unpack("L<2")
+            command = bytes.byteslice(at, 8) #: String
+            cmd, size = command.unpack("L<2") #: [Integer, Integer]
             case cmd
             when LC_SEGMENT_64
-              bytes.byteslice(at + 64, 4).unpack1("L<").times do |i|
+              nsects = bytes.byteslice(at + 64, 4) #: String
+              count = nsects.unpack1("L<") #: Integer
+              count.times do |i|
                 s = at + 72 + (i * 80)
-                name, segment = bytes.byteslice(s, 32).unpack("a16a16").map { |n| n.delete("\0") }
-                addr, size_, offset, align, reloff, nreloc, flags = bytes.byteslice(s + 32, 40).unpack("Q<2L<6")
+                names = bytes.byteslice(s, 32) #: String
+                padded = names.unpack("a16a16") #: Array[String]
+                name, segment = padded.map { |n| n.delete("\0") }
+                fields = bytes.byteslice(s + 32, 40) #: String
+                words = fields.unpack("Q<2L<6") #: [Integer, Integer, Integer, Integer, Integer, Integer, Integer]
+                addr, size_, offset, align, reloff, nreloc, flags = words
+                relocs = nreloc.zero? ? [] : bytes.byteslice(reloff, nreloc * 8) #: String
+                                               .unpack("L<*")
                 sections << Section.new(name: name, segment: segment, addr: addr, size: size_, align: align, flags: flags,
-                                        bytes: flags == S_ZEROFILL ? nil : bytes.byteslice(offset, size_),
-                                        relocs: nreloc.zero? ? [] : bytes.byteslice(reloff, nreloc * 8).unpack("L<*"))
+                                        bytes: flags == S_ZEROFILL ? nil : bytes.byteslice(offset, size_), relocs: relocs)
               end
             when LC_SYMTAB
-              symoff, nsyms, stroff, strsize = bytes.byteslice(at + 8, 16).unpack("L<4")
-              symbols = nsyms.zero? ? [] : bytes.byteslice(symoff, nsyms * 16).unpack("Q<*")
+              symtab = bytes.byteslice(at + 8, 16) #: String
+              symoff, nsyms, stroff, strsize = symtab.unpack("L<4") #: [Integer, Integer, Integer, Integer]
+              symbols = nsyms.zero? ? [] : bytes.byteslice(symoff, nsyms * 16) #: String
+                                                .unpack("Q<*")
               strings = bytes.byteslice(stroff, strsize)
             end
             at += size
@@ -149,6 +163,7 @@ module Zr
         # object. The linker takes this form as input; writing and reading
         # the object instead costs 18% of a link. `read(write(unit))` must
         # equal `of(unit)`; `test/unit/macho_test.rb` checks this.
+        #: (Unit unit) -> Read
         def of(unit)
           laid = laid_out(unit)
           sections = laid.sections.map do |s|
@@ -161,12 +176,15 @@ module Zr
 
         # One symbol as the two words of its `nlist_64`: n_strx, n_type,
         # n_sect and a zero n_desc in the first, n_value in the second.
+        #: (Sym sym) -> [Integer, Integer]
         def nlist_words(sym) = [sym.strx | (sym.type << 32) | (sym.sect << 40), sym.value]
 
         # One symbol, packed as `nlist_64`.
+        #: (Sym sym) -> String
         def nlist(sym) = nlist_words(sym).pack("Q<2")
 
         # Returns the bytes of the object file.
+        #: (Unit unit, ?minos: Array[Integer]) -> String
         def write(unit, minos: Target::AARCH64_DARWIN.min_os_parts) = bytes(laid_out(unit), minos)
 
         # The layout before any bytes are written: the sections and their
@@ -188,9 +206,10 @@ module Zr
         # @rbs skip
         Sym = Struct.new(:name, :bare, :linkage, :sect, :value, :type, :strx, keyword_init: true)
 
+        #: (Unit unit) -> Laid
         def laid_out(unit)
-          items = unit.functions.map { |f| [:function, f] } + unit.data.map { |d| [d.section, d] }
-          placed = []
+          items = unit.functions.map { |f| [:function, f] } + unit.data.map { |d| [d.section, d] } #: Array[[Symbol, Code | Datum]]
+          placed = [] #: Array[Placed]
           sections = SECTIONS.map do |name, seg, flags, _kinds|
             SectionBuild.new(name: name, seg: seg, flags: flags, bytes: +"".b, size: 0, align: 0, items: [], relocs: [],
                              addr: 0, offset: 0, reloff: 0)
@@ -219,7 +238,7 @@ module Zr
 
           symbols = symbol_table(unit, placed)
           # Symbol index by the name in a relocation, without the leading `_`.
-          index = {}
+          index = {} #: Hash[String, Integer]
           symbols.each_with_index { |sym, i| index[sym.bare] = i }
           sections.each do |s|
             s.items.each do |item, at|
@@ -233,7 +252,7 @@ module Zr
           end
 
           segment_cmd = 72 + (80 * sections.size)
-          sizeofcmds = segment_cmd + 24 + 24 + 80
+          sizeofcmds = segment_cmd + 24 + 24 + 80 #: Integer
           offset = Bytes.align(32 + sizeofcmds, 16)
           data_start = offset
           sections.each do |s|
@@ -261,6 +280,7 @@ module Zr
         end
 
         # A laid-out unit as a Mach-O object file.
+        #: (Laid laid, Array[Integer] minos) -> String
         def bytes(laid, minos)
           sections = laid.sections
           symbols = laid.symbols
@@ -300,6 +320,7 @@ module Zr
         end
 
         # Every defined symbol, then every import, in the order that `ld` needs.
+        #: (Unit unit, Array[Placed] placed) -> Array[Sym]
         def symbol_table(unit, placed)
           defined = placed.map do |p|
             Sym.new(name: "_#{p.item.name}", bare: p.item.name, linkage: p.item.linkage, sect: p.section + 1, value: p.addr,
@@ -315,6 +336,7 @@ module Zr
 
         # Returns an item's bytes. An `abs64` relocation puts its addend in
         # the slot that it patches, because `ld` reads it there.
+        #: (Code | Datum item) -> String
         def with_addends(item)
           sums = item.relocs.select { |r| r.kind == :abs64 && r.addend.to_i != 0 }
           return item.bytes if sums.empty?
@@ -325,9 +347,10 @@ module Zr
         # Returns `[address, words]`: the relocation_info entries for one
         # relocation, two 32-bit words each. An ADDEND entry comes first
         # when the addend is not zero.
+        #: (Integer address, Reloc r, Integer symbol) -> [Integer, Array[Integer]]
         def relocation(address, r, symbol)
           type, pcrel, length = RELOC.fetch(r.kind) { raise ArgumentError, "no arm64 relocation for #{r.kind}" }
-          rows = []
+          rows = [] #: Array[Integer]
           if r.addend != 0 && r.kind != :abs64
             rows << address << ((r.addend & 0xFFFFFF) | (ARM64_RELOC_ADDEND << 28))
           end
@@ -335,10 +358,13 @@ module Zr
           [address, rows]
         end
 
+        #: (String s) -> String
         def pad16(s)
           s.b.ljust(16, "\0")
         end
 
+        # Steep 2.1 cannot type a destructured parameter, so this has no
+        # annotation: `(Array[Integer]) -> Integer`.
         def version((x, y, z))
           (x << 16) | (y << 8) | z
         end

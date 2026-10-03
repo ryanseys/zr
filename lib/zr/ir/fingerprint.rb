@@ -35,6 +35,7 @@ module Zr
       # `defined` answers whether a symbol is defined in the unit. One
       # interpolated String for each instruction: 20% faster than appending
       # each field (4.1 million instructions in the runtime).
+      #: (Function function, Set[String] defined) -> String
       def of(function, defined)
         out = +"#{function.name}\n#{function.params.join(",")}>#{function.ret_type}\n#{function.args.join(",")}\n"
         function.slots.each { |s| out << "s#{s.bytes},#{s.align};" }

@@ -19,7 +19,7 @@ module Zr
     module Kernel
       VERSION = 1
 
-      LIB = File.expand_path("..", __dir__)
+      LIB = File.expand_path("..", __dir__) #: String
 
       # The files that `require "zr/machine/lower"` loads, relative to
       # lib/zr: the kernel lowering, the IR, and zr's Prism, which parses
@@ -29,22 +29,25 @@ module Zr
         ir/function.rb ir/inst.rb ir/mem2reg.rb ir/promotion.rb library/layout.rb library/ports.rb
         machine/description.rb machine/function.rb machine/lower.rb obj/model.rb parse.rb paths.rb
         prism.rb prism_shim/prism/prism.rb refused.rb session.rb source_guard.rb version.rb
-      ] + Dir.glob("runtime/ext/prism/**/*.rb", base: LIB)).sort.freeze
+      ] + Dir.glob("runtime/ext/prism/**/*.rb", base: LIB)).sort.freeze #: Array[String]
 
       module_function
 
       # The lowered kernel of `files` (`[[source, path]…]`) for `target`:
       # the kept one, or the block's, which this keeps.
+      #: (Target target, Array[[String, String]] files) { () -> Machine::Lower } -> Machine::Lower
       def lowered(target, files)
         key = key(target, files)
         Store.read(:kernel, key) || yield.tap { |unit| Store.write(:kernel, key, unit) }
       end
 
+      #: (Target target, Array[[String, String]] files) -> String
       def key(target, files)
         Store.key(VERSION, target.triple, Paths.root, Config.current.kernel_checked?, loads_digest,
                   *files.flat_map { |source, path| [path, source] })
       end
 
+      #: () -> String
       def loads_digest
         Session.current.memo(:kernel_loads_digest) do
           Digest::SHA256.new.tap do |d|

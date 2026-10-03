@@ -34,15 +34,32 @@ module Zr
       # backend time (20 seconds of backend against 4 for all earlier steps
       # when compiling the compiler), and a String key hashes its bytes at each use.
       class Regalloc
+        # @rbs @f: IR::Function
+        # @rbs @skip: Set[String]?
+        # @rbs @via: Hash[String, String]?
+        # @rbs @order: Hash[String, Integer]
+        # @rbs @id: Hash[String, Integer]
+        # @rbs @first: Array[Integer]
+        # @rbs @last: Array[Integer]
+        # @rbs @uses: Array[Array[Integer]]
+        # @rbs @results: Array[Array[Integer]]
+        # @rbs @params: Array[Array[Integer]]
+        # @rbs @defined_in: Array[Integer]
+        # @rbs @calls: Array[Integer]
+        # @rbs @points: Integer
+        # @rbs @successors: Array[Array[Integer]]?
+
         # @rbs skip -- in sig/zr/backend/aarch64/registers.rbs
         include Registers
 
-        CALLEE = [X19, X20, X21, X22, X23, X24, X25, X26, X27].freeze
-        GATES = X28
-        CALLER = [X0, X1, X2, X3, X4, X5, X6, X7, X8, X13, X14, X15].freeze
+        CALLEE = [X19, X20, X21, X22, X23, X24, X25, X26, X27].freeze #: Array[Registers::Register]
+        GATES = X28 #: Registers::Register
+        CALLER = [X0, X1, X2, X3, X4, X5, X6, X7, X8, X13, X14, X15].freeze #: Array[Registers::Register]
 
         # Whether `reg` is one the callee saves.
+        #: (Registers::Register reg) -> bool
         def self.callee?(reg) = reg.to_i >= 19
+        #: (untyped name) -> bool
         def self.value?(name) = IR.value?(name)
 
         # Returns `{ "v3" => X19, ... }` for the values that get a register.
@@ -50,14 +67,17 @@ module Zr
         # need no register and must not block one. `via` maps a value that
         # the backend reads through another value to that other value, which
         # is then live at every read of the first.
+        #: (IR::Function function, ?skip: Set[String]?, ?via: Hash[String, String]?) -> Hash[String, Registers::Register]
         def self.of(function, skip: nil, via: nil) = new(function, skip, via).assign
 
+        #: (IR::Function function, ?Set[String]? skip, ?Hash[String, String]? via) -> void
         def initialize(function, skip = nil, via = nil)
           @f = function
           @skip = skip
           @via = via
         end
 
+        #: () -> Hash[String, Registers::Register]
         def assign
           # A block emitted two times gives one name two positions in the
           # numbering, and every interval is then wrong. The builder does
@@ -70,8 +90,8 @@ module Zr
 
         # The instructions that call. At these, a value loses its register
         # unless the callee saves it.
-        CALLS = %i[call call_indirect].freeze
-        NOTHING = [].freeze
+        CALLS = %i[call call_indirect].freeze #: Array[Symbol]
+        NOTHING = [].freeze #: Array[Integer]
 
         private
 
@@ -87,6 +107,7 @@ module Zr
         # A value in `skip` gets no number: it has no interval, so it must not
         # add liveness work. The other values keep their order, so the tie
         # breaks in `intervals` do not change.
+        #: () -> void
         def number
           @order = {}
           @f.blocks.each_with_index { |b, i| @order[b.name] = i }
@@ -120,12 +141,14 @@ module Zr
         end
 
         # Returns the number of `name`, or nil when the backend makes it at its reads.
+        #: (String name) -> Integer?
         def numbered(name) = (@id[name] unless @skip&.include?(name))
 
         # The values that an instruction reads, by number: its operands, and
         # the arguments that it gives to a branch target block.
+        #: (IR::Inst inst) -> Array[Integer]
         def operands(inst)
-          used = []
+          used = [] #: Array[Integer]
           inst.args.each { |a| (v = read(a)) && used << v }
           inst.targets&.each { |(_, args)| args.each { |a| (v = read(a)) && used << v } }
           used
@@ -133,6 +156,7 @@ module Zr
 
         # Returns the number of the value that a read of `a` keeps live, or
         # nil when `a` is not a value or is made at its reads.
+        #: (untyped a) -> Integer?
         def read(a)
           return nil unless Regalloc.value?(a)
 
@@ -140,12 +164,14 @@ module Zr
           numbered(a)
         end
 
+        #: () -> Array[Array[Integer]]
         def predecessors
-          before = Array.new(@f.blocks.size) { [] }
+          before = Array.new(@f.blocks.size) { [] } #: Array[Array[Integer]]
           successors.each_with_index { |ss, bi| ss.each { |s| before[s] << bi } }
           before
         end
 
+        #: () -> Array[Array[Integer]]
         def successors
           @successors ||= @f.blocks.map do |b|
             (b.insts.last&.targets || []).map { |t| @order.fetch(t.first) }
@@ -161,12 +187,14 @@ module Zr
         # interval in scan order, the start and end of each, and whether a
         # call is strictly inside it. These are parallel Arrays, not tuples,
         # because one tuple for each value is a fifth of all backend allocations.
+        #: () -> [Array[Integer], Array[Integer], Array[Integer], Hash[Integer, bool]]
         def intervals
           count = @id.size
-          from = Array.new(count)
-          to = Array.new(count)
+          # Every value in the scan order has a start and an end.
+          from = Array.new(count) #: Array[Integer]
+          to = Array.new(count) #: Array[Integer]
           # For each value, the blocks other than its defining block that read it.
-          away = Array.new(count)
+          away = Array.new(count) #: Array[Array[Integer]?]
           @f.blocks.each_index do |bi|
             first = @first[bi]
             @params[bi].each { |v| reach(from, to, v, first) }
@@ -178,7 +206,7 @@ module Zr
               end
             end
           end
-          live = Array.new(@f.blocks.size)
+          live = Array.new(@f.blocks.size) #: Array[Integer?]
           before = predecessors
           # A value that the entry block makes (every constant is one) is
           # live through every block that flows into a block that reads it.
@@ -186,7 +214,7 @@ module Zr
           # blocks finds this for all such values, in place of one walk for
           # each value (blocks times constants).
           entry = @order.fetch(@f.entry_block.name)
-          latest = before[entry].empty? && away.any? && latest_before(before, entry)
+          latest = before[entry].empty? && away.any? && latest_before(before, entry) #: Array[Integer] | false
           away.each_with_index do |blocks, v|
             next unless blocks
 
@@ -211,6 +239,7 @@ module Zr
         # Whether a call is strictly between `from` and `to`. A value that a
         # call makes starts at the call, and a value that a call reads last
         # ends at the call. Neither value must survive the call.
+        #: (Integer from, Integer to) -> bool
         def crosses_call?(from, to)
           i = @calls.bsearch_index { |c| c > from }
           !i.nil? && @calls[i] < to
@@ -231,6 +260,12 @@ module Zr
         # a function past this bound keeps the hull test's result.
         REFINE_BOUND = 1_000_000
 
+        # @rbs crossing: Hash[Integer, bool]
+        # @rbs from: Array[Integer]
+        # @rbs to: Array[Integer]
+        # @rbs away: Array[Array[Integer]?]
+        # @rbs before: Array[Array[Integer]]
+        # @rbs return: void
         def refine_crossing(crossing, from, to, away, before)
           candidates = crossing.select { |_, c| c }.keys
           return if candidates.empty? || candidates.size * @f.blocks.size > REFINE_BOUND
@@ -238,7 +273,7 @@ module Zr
           # The block of each call and, for each candidate, the last point
           # of each block that reads it. One pass over the points finds both.
           call_block = @calls.map { |c| block_of(c) }
-          last_read = {}
+          last_read = {} #: Hash[Integer, Hash[Integer, Integer]]
           candidates.each { |v| last_read[v] = {} }
           @f.blocks.each_index do |bi|
             @first[bi].upto(@last[bi]) do |point|
@@ -246,13 +281,14 @@ module Zr
             end
           end
           candidates.each do |v|
-            live_in = {}
+            live_in = {} #: Hash[Integer, bool]
             (away[v] || NOTHING).each { |bi| mark_live_in(bi, v, live_in, before) }
             crossing[v] = crossed?(v, from[v], to[v], live_in, call_block, last_read[v])
           end
         end
 
         # The block that contains `point`.
+        #: (Integer point) -> Integer
         def block_of(point)
           b = @first.bsearch_index { |s| s > point }
           b.nil? ? @first.size - 1 : b - 1
@@ -261,13 +297,14 @@ module Zr
         # Marks `{ block => true }` for every block that `v` is live into:
         # each block other than its definition that reads it, and every block
         # that flows into one of those, back to the block that makes it.
+        #: (Integer bi, Integer v, Hash[Integer, bool] live_in, Array[Array[Integer]] before) -> void
         def mark_live_in(bi, v, live_in, before)
           return if live_in[bi]
 
           live_in[bi] = true
           work = [bi]
           until work.empty?
-            b = work.pop
+            b = work.pop #: Integer
             before[b].each do |p|
               next if @defined_in[v] == p || live_in[p]
 
@@ -280,6 +317,13 @@ module Zr
         # Whether `v` is live at a call in its hull. That is a call in a
         # block where `v` is live-in or defined, before its last read there,
         # or a call in a block where `v` is live-out (live into a successor).
+        # @rbs v: Integer
+        # @rbs from: Integer
+        # @rbs to: Integer
+        # @rbs live_in: Hash[Integer, bool]
+        # @rbs call_block: Array[Integer]
+        # @rbs last_read: Hash[Integer, Integer]
+        # @rbs return: bool
         def crossed?(v, from, to, live_in, call_block, last_read)
           i = @calls.bsearch_index { |c| c > from }
           return false if i.nil?
@@ -307,13 +351,20 @@ module Zr
         # walked before the next value, so each block is walked once per
         # value. The walk uses a list, not recursion, because a chain of
         # blocks can be as long as the function.
+        # @rbs bi: Integer
+        # @rbs v: Integer
+        # @rbs from: Array[Integer]
+        # @rbs to: Array[Integer]
+        # @rbs live: Array[Integer?]
+        # @rbs before: Array[Array[Integer]]
+        # @rbs return: void
         def live_into(bi, v, from, to, live, before)
           return if live[bi] == v
 
           live[bi] = v
           work = [bi]
           until work.empty?
-            b = work.pop
+            b = work.pop #: Integer
             reach(from, to, v, @first[b])
             before[b].each do |p|
               reach(from, to, v, @last[p])
@@ -331,6 +382,7 @@ module Zr
         # stays live. A loop can increase a block's result after its successors
         # have read it, so the pass repeats until no result changes. That is
         # one more pass than the deepest nest of back edges.
+        #: (Array[Array[Integer]] before, Integer entry) -> Array[Integer]
         def latest_before(before, entry)
           latest = Array.new(@f.blocks.size, -1)
           moved = true
@@ -352,6 +404,7 @@ module Zr
         end
 
         # `v` reaches `point`, so its interval must contain it.
+        #: (Array[Integer] from, Array[Integer] to, Integer v, Integer point) -> void
         def reach(from, to, v, point)
           low = from[v]
           if low.nil?
@@ -372,10 +425,15 @@ module Zr
         # every callee-saved register that a function uses. Thus a function
         # whose values each live for one line must use two registers, not all
         # ten. In a three-line predicate, the saves for ten were 20 of 62 instructions.
+        # @rbs order: Array[Integer]
+        # @rbs from: Array[Integer]
+        # @rbs to: Array[Integer]
+        # @rbs crossing: Hash[Integer, bool]
+        # @rbs return: Hash[Integer, Registers::Register]
         def scan(order, from, to, crossing)
           free = { callee: CALLEE.dup, caller: CALLER.dup }
-          active = []
-          taken = {}
+          active = [] #: Array[Integer]
+          taken = {} #: Hash[Integer, Registers::Register]
           arrives = arrival_registers
           order.each do |value|
             first = from[value]
@@ -405,8 +463,9 @@ module Zr
 
         # Returns `{ value number => register }` for the integer parameters
         # of the entry block, from the argument register of each.
+        #: () -> Hash[Integer, Registers::Register]
         def arrival_registers
-          arrives = {}
+          arrives = {} #: Hash[Integer, Registers::Register]
           ints = 0
           @f.entry_block.params.each do |v, t|
             next if t == "f64"
@@ -419,6 +478,7 @@ module Zr
         end
 
         # Puts `reg` back in its pool, in pool order.
+        #: (Hash[Symbol, Array[Registers::Register]] free, Registers::Register reg) -> void
         def release(free, reg)
           pool = free[Regalloc.callee?(reg) ? :callee : :caller]
           at = pool.index { |other| other.to_i > reg.to_i } || pool.size
@@ -427,6 +487,7 @@ module Zr
 
         # The backend looks up values by name, so this is the one place
         # where numbers change back to names.
+        #: (Hash[Integer, Registers::Register] taken) -> Hash[String, Registers::Register]
         def named(taken)
           return {} if taken.empty?
 

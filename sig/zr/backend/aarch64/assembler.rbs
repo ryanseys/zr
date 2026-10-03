@@ -4,6 +4,19 @@ module Zr
   module Backend
     module Aarch64
       class Assembler
+        # A memory operand: a base register and a byte offset, or the base
+        # alone for the post-indexed form.
+        type address = [Registers::Register, Integer] | [Registers::Register]
+
+        # A register operand, or an immediate.
+        type operand = Registers::Register | Integer
+
+        # A branch target: a label, or a distance in instructions.
+        type target = Label | Integer
+
+        # An encoded word, or a record that encodes after layout.
+        type word = Integer | Branch | Adr | TableWord
+
         class Branch < Data
           attr_reader base: Integer
           attr_reader label: Label

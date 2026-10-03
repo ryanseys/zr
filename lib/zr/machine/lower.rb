@@ -23,11 +23,14 @@ module Zr
   # line.
   module Machine
     class Refused < Zr::Refused
-      attr_reader :line
+      attr_reader :line #: Integer?
 
       # Minitest copies an exception that it cannot marshal with only its
       # message, so a message alone is also accepted.
+      #: (Prism::node? node, String message, ?String? file) -> void
+      #: (String message) -> void
       def initialize(node, message = nil, file = nil)
+        # @type var node: untyped
         if message
           @line = node.location.start_line
           super("#{file ? "#{file}:" : "line "}#{@line}: #{message}")
@@ -40,6 +43,7 @@ module Zr
     # Compiles `source` to `[functions, data, raw]`: IR functions, the
     # data objects they refer to, and the names of the raw functions they
     # call.
+    #: (String source, String file, ?symbols: Symbols) -> [Array[IR::Function], Array[Obj::Datum], Array[String]]
     def self.compile(source, file, symbols: Symbols.new)
       Lower.new([[source, file]], symbols).run
     end
@@ -47,12 +51,14 @@ module Zr
     # Several files as one unit: every declaration is visible to every
     # file, in any order, and a def may call a def of any file. Only the
     # tests use it; a build uses `Machine.unit`.
+    #: (Array[String] paths, ?symbols: Symbols) -> [Array[IR::Function], Array[Obj::Datum], Array[String]]
     def self.compile_unit(paths, symbols: Symbols.new)
       unit(paths, symbols: symbols).then { |u| [u.functions, u.data, u.raw] }
     end
 
     # Returns the compiled unit. Another lowering can read its layouts
     # and constants.
+    #: (Array[String] paths, ?symbols: Symbols) -> Lower
     def self.unit(paths, symbols: Symbols.new)
       u = Lower.new(paths.map { |path| [File.read(path), path] }, symbols)
       u.run
@@ -60,10 +66,32 @@ module Zr
     end
 
     class Lower
+      # @rbs @sources: Array[[String, String]]
+      # @rbs @checked: bool
+      # @rbs @imports: Hash[String, Import | Raw]
+      # @rbs @consts: Hash[String, [Prism::node, String]]
+      # @rbs @structs: Hash[String, [Prism::CallNode, String]]
+      # @rbs @const_values: Hash[String, Integer]
+      # @rbs @layouts: Hash[String, Layout]
+      # @rbs @resolving: Array[String]
+      # @rbs @sigs: Hash[String, Signature]
+      # @rbs @next_bytes: Integer
+      # @rbs @statics: Hash[String, Integer]
+      # @rbs @collectors: Array[String]
+      # @rbs @collects: Set[String | Symbol]?
+      # @rbs @inline: Hash[String, bool?]
+      # @rbs @inlined: Array[String]
+      # @rbs @file: String
+
       include Immediates
 
-      attr_reader :functions, :data, :raw, :symbols, :defs
+      attr_reader :functions #: Array[IR::Function]
+      attr_reader :data #: Array[Obj::Datum]
+      attr_reader :raw #: Array[String]
+      attr_reader :symbols #: Symbols
+      attr_reader :defs #: Hash[String, Def]
 
+      #: (Array[[String, String]] sources, ?Symbols symbols, ?checked: bool) -> void
       def initialize(sources, symbols = Symbols.new, checked: Config.current.kernel_checked?)
         @sources = sources
         @symbols = symbols
@@ -87,7 +115,9 @@ module Zr
         @inlined = []
       end
 
+      #: () -> [Array[IR::Function], Array[Obj::Datum], Array[String]]
       def run
+        # @type ivar @collects: Set[String | Symbol]
         @sources.each do |source, file|
           result = Zr.parse(source, filepath: file)
           unless result.errors.empty?
@@ -119,6 +149,7 @@ module Zr
       # to that word can then be anywhere. The result goes to each
       # function's callees, and the description gives it to the program
       # lowering and to eval support.
+      #: () -> void
       def assign_effects
         placed = @functions.to_h { |f| [f.name, placements(f)] }
         escaped = @functions.reduce(0) { |bits, f| bits | escaping_statics(f, placed.fetch(f.name)) }
@@ -145,11 +176,13 @@ module Zr
 
       # Returns `{ value => [root, offset] }` for each value of `f` that is
       # the address of a slot (root `:slot`) or of a symbol, or that
-      # address plus a constant.
+      # address plus a constant. A root is a symbol name or `:slot`; the
+      # callers test it for `:slot` with `!=`, which Steep does not follow.
+      #: (IR::Function f) -> Hash[String, [untyped, Integer]]
       def placements(f)
         symbol_of = f.globals.to_h { |g| [g.gv, g.symbol] }
-        const = {}
-        placed = {}
+        const = {} #: Hash[String, Integer]
+        placed = {} #: Hash[String, [untyped, Integer]]
         f.blocks.each do |b|
           b.insts.each do |i|
             case i.op
@@ -173,6 +206,7 @@ module Zr
       # No caller in this unit gets the address from a call. A caller in
       # a different unit stores through the address in its own function,
       # and the passes of that function do not know where such a store goes.
+      #: (IR::Function f, Hash[String, [untyped, Integer]] placed) -> Integer
       def escaping_statics(f, placed)
         bits = 0
         answers = inline?(@defs.fetch(f.name))
@@ -201,6 +235,7 @@ module Zr
       end
 
       # What `f`'s own instructions write.
+      #: (IR::Function f, Hash[String, [untyped, Integer]] placed, Integer escaped) -> Integer
       def local_effects(f, placed, escaped)
         bits = 0
         by_fn = f.callees.to_h { |c| [c.fn, c] }
@@ -222,6 +257,7 @@ module Zr
       # What one store writes: the region from the lowering, if there is
       # one; else the region of the static or slot of its address; else
       # all memory that a pointer can reach.
+      #: (IR::Inst i, Hash[String, [untyped, Integer]] placed, Integer escaped) -> Integer
       def store_effects(i, placed, escaped)
         return IR::Effects.bit(i.region) if i.region
 
@@ -239,7 +275,9 @@ module Zr
       # Whether a call to `name` may run the collector: it is declared
       # with `Machine.collects`, or it reaches one that is, or it calls
       # through a pointer.
+      #: (String | Symbol name) -> bool
       def collects?(name)
+        # @type ivar @collects: Set[String | Symbol]
         @collects.include?(name)
       end
 
@@ -253,6 +291,7 @@ module Zr
       # `while` or `break`, is inlined. The def also lowers as a function,
       # so its symbol is available to callers that the kernel does not
       # see: eval support and `Machine.addr`.
+      #: (Def | Import | Raw callee) -> bool?
       def inline?(callee)
         return false unless callee.is_a?(Def)
 
@@ -273,6 +312,7 @@ module Zr
       # value of the body, so the body uses no Value after a collection.
       # The call roots its own arguments. The caller roots its values as
       # it does around a call.
+      #: (Prism::node? node) -> bool
       def tail_collecting?(node)
         case node
         when nil then true
@@ -290,10 +330,12 @@ module Zr
         end
       end
 
+      #: (Prism::node? node) -> bool
       def collecting?(node) = calls_in(node).any? { |name| collects?(name) }
 
       # No `while` or `break`, because they have a different meaning in
       # the caller.
+      #: (Prism::node node) -> bool
       def jumpless?(node)
         return false if node.is_a?(Prism::WhileNode) || node.is_a?(Prism::BreakNode)
 
@@ -311,6 +353,7 @@ module Zr
       # counts one more. Thus the count is the same as in the dialect that
       # the kernel was written in before (`Machine.call(:name, p)`), and
       # the same defs are inlined.
+      #: (Prism::node node, Array[Integer] budget) -> bool
       def small?(node, budget)
         budget[0] -= 1 unless libc?(node)
         budget[0] -= 1 if node.is_a?(Prism::CallNode) && node.name == :call && sig_read?(node.receiver)
@@ -322,9 +365,10 @@ module Zr
 
       # The defs that can run the collector. A fixpoint over the calls of
       # each body finds them.
+      #: () -> Set[String | Symbol]
       def collecting_defs
         calls = @defs.transform_values { |d| calls_in(d.node.body) }
-        set = @collectors.to_set
+        set = @collectors.to_set #: Set[String | Symbol]
         set << :indirect
         loop do
           grown = @defs.each_key.select { |name| !set.include?(name) && calls.fetch(name).any? { |c| set.include?(c) } }
@@ -337,6 +381,7 @@ module Zr
 
       # The names a body calls: defs by name, and `:indirect` for a
       # `Machine.call`.
+      #: (Prism::node? node, ?Array[String | Symbol] into) -> Array[String | Symbol]
       def calls_in(node, into = [])
         return into if node.nil?
 
@@ -356,6 +401,7 @@ module Zr
       KERN = "Zr::Kern"
 
       # The statements in the module of a file.
+      #: (Array[Prism::node] statements, Prism::node node) -> Array[Prism::node]
       def kern_body(statements, node)
         mod = statements.first if statements.one?
         refuse(statements.first || node, "a kernel file is one `module #{KERN}`") unless mod.is_a?(Prism::ModuleNode)
@@ -373,8 +419,9 @@ module Zr
       #   inline :name, collects :name         as `Machine.inline` and `Machine.collects`
       #   raw :name, [types] => type           a function that the backend delivers
       #   sig [types] => type, then a def      a def
+      #: (Array[Prism::node] statements) -> void
       def declare(statements)
-        pending_sig = nil
+        pending_sig = nil #: [Array[String], String]?
         statements.each do |node|
           case node
           when Prism::ConstantWriteNode then declare_const(node)
@@ -383,7 +430,8 @@ module Zr
             add_def(node, pending_sig)
             pending_sig = nil
           when Prism::CallNode
-            args = node.arguments&.arguments || []
+            # The guards below check the class of each argument.
+            args = node.arguments&.arguments || [] #: Array[untyped]
             if libc?(node.receiver) && node.name == :import
               refuse(node, "an import is `Libc.import :name, [types] => type`") unless args.size == 2 && args.first.is_a?(Prism::SymbolNode)
               add_import(args.first.unescaped, args.last)
@@ -406,9 +454,11 @@ module Zr
       end
 
       # `Name = layout ...`, `Name = fn ...`, or a constant.
+      #: (Prism::ConstantWriteNode node) -> void
       def declare_const(node)
         name = node.name.to_s
-        value = node.value
+        # `value` is a CallNode when `kind` is set.
+        value = node.value #: untyped
         kind = value.name if value.is_a?(Prism::CallNode) && value.receiver.nil?
         args = value.arguments&.arguments if kind
         case kind
@@ -424,6 +474,7 @@ module Zr
         end
       end
 
+      #: (Prism::ConstantWriteNode node, String name) -> void
       def add_const(node, name)
         refuse(node, "#{name} is already a constant") if @consts.key?(name)
         refuse(node, "#{name} is already a struct") if @structs.key?(name)
@@ -431,16 +482,19 @@ module Zr
         @consts[name] = [node.value, @file]
       end
 
+      #: (String name, Array[String] params, String ret) -> void
       def add_sig(name, params, ret)
         @sigs[name] = Signature.new(name, params, ret)
       end
 
+      #: (String name, Prism::node sig) -> void
       def add_import(name, sig)
         params, ret, from = import_signature(sig)
         @imports[name] = Import.new(name, params, ret, from)
       end
 
       # A raw function. Its signature must be the one the backend delivers.
+      #: (Prism::CallNode node, String name, [Array[String], String] sig) -> void
       def add_raw(node, name, sig)
         raw = RAW.fetch(name) { refuse(node, "no raw function named #{name}") }
         refuse(node, "#{name} is [#{raw.params.join(", ")}] => #{raw.ret}") if sig != [raw.params, raw.ret]
@@ -448,6 +502,7 @@ module Zr
         @raw << name
       end
 
+      #: (Prism::DefNode d, [Array[String], String] sig) -> void
       def add_def(d, sig)
         params, ret = sig
         refuse(d, "a machine def's name is letters, digits and underscores") unless d.name.to_s.match?(/\A[A-Za-z_][A-Za-z0-9_]*\z/)
@@ -456,12 +511,15 @@ module Zr
         refuse(d, "a machine def takes required parameters only") if d.parameters && d.parameters.child_nodes.compact.size != names.size
         refuse(d, "a def has a receiver; the kernel's defs are plain `def name`") if d.receiver
         refuse(d, "#{d.name} is defined twice; the first is in #{@defs[d.name.to_s].file}") if @defs.key?(d.name.to_s)
-        @defs[d.name.to_s] = Def.new(d.name.to_s, names.zip(params), ret, d, @file)
+        typed = names.zip(params) #: Array[[String, String]]
+        @defs[d.name.to_s] = Def.new(d.name.to_s, typed, ret, d, @file)
       end
 
       # Returns an import's `[[type names], type name, module]`. `from:`
       # gives the wasm module of the import, as one more pair in the same
       # hash.
+      # Steep types `[*pair, x]` as an Array, not a tuple.
+      #: (untyped node) -> Array[untyped]
       def import_signature(node)
         refuse(node, "a signature is `[types] => type`") unless node.is_a?(Prism::KeywordHashNode) && node.elements.size.between?(1, 2)
         pair, from = node.elements
@@ -477,6 +535,7 @@ module Zr
       # calls. An OS layer uses this to define a libc call that its OS
       # does not have. The def must have the signature of the import, or
       # a call written for one would pass the wrong arguments to the other.
+      #: (Def d) -> void
       def answers_import(d)
         import = @imports[d.name] or return
         refuse(d.node, "#{d.name} is a raw function, and cannot be defined") if import.is_a?(Raw)
@@ -486,16 +545,19 @@ module Zr
       end
 
       # `[types] => type` as `[[type names], type name]`.
+      #: (Prism::node? node) -> [Array[String], String]
       def signature(node)
         refuse(node, "a signature is `[types] => type`") unless node.is_a?(Prism::KeywordHashNode) && node.elements.size == 1
         pair_signature(node.elements.first)
       end
 
+      #: (untyped pair) -> [Array[String], String]
       def pair_signature(pair)
         refuse(pair.key, "a signature's parameters are an array of types") unless pair.key.is_a?(Prism::ArrayNode)
         [pair.key.elements.map { |t| type_name(t) }, type_name(pair.value)]
       end
 
+      #: (Prism::node node) -> String
       def type_name(node)
         refuse(node, "a type is one of #{TYPES.keys.join(" ")}") unless node.is_a?(Prism::ConstantReadNode) && TYPES.key?(node.name.to_s)
         node.name.to_s
@@ -503,6 +565,7 @@ module Zr
 
       # A constant's value: an integer, a constant, a struct's size, or an
       # operator over those, folded here.
+      #: (Prism::node? node) -> Integer
       def fold(node)
         case node
         when Prism::IntegerNode then node.value
@@ -524,6 +587,7 @@ module Zr
 
       # `fold` for a def in `file`, so that a refusal gives that file and
       # not the last file declared.
+      #: (String file, Prism::node? node) -> Integer
       def fold_in(file, node)
         outer = @file
         @file = file
@@ -533,6 +597,7 @@ module Zr
       end
 
       # `node` is the call whose last argument has the fields.
+      #: (Prism::CallNode node, String name) -> void
       def add_struct(node, name)
         refuse(node, "#{name} is already a struct") if @structs.key?(name)
         refuse(node, "#{name} is already a constant") if @consts.key?(name) || @sigs.key?(name)
@@ -541,6 +606,7 @@ module Zr
 
       # Each field at its natural alignment; a field of a struct type is
       # embedded in place.
+      #: (String name, untyped node) -> Layout
       def layout(name, node)
         fields = node.arguments.arguments.last
         off = 0
@@ -560,6 +626,7 @@ module Zr
       end
 
       # `[size, align]` of a field of `type`.
+      #: (Prism::node node, String type) -> [Integer, Integer]
       def field_shape(node, type)
         if (layout = struct_for(type))
           return [layout.size, layout.align]
@@ -573,42 +640,53 @@ module Zr
         end
       end
 
+      #: (Prism::node? node) -> bool
       def machine?(node)
         node.is_a?(Prism::ConstantReadNode) && node.name == :Machine
       end
 
       # Whether the defs check their operators (`ZR_KERNEL_CHECKED`,
       # `Function#check_wrap`).
+      #: () -> bool
       def checked? = @checked
 
+      #: (Prism::node? node) -> bool
       def libc?(node)
         node.is_a?(Prism::ConstantReadNode) && node.name == :Libc
       end
 
       # Whether `node` names a `Name = fn ...` signature.
+      #: (Prism::node? node) -> bool
       def sig_read?(node)
         node.is_a?(Prism::ConstantReadNode) && @sigs.key?(node.name.to_s)
       end
 
+      #: (String name) -> (Import | Raw)?
       def import_for(name)
         @imports[name]
       end
 
+      #: (String name) -> Def?
       def def_for(name)
         @defs[name]
       end
 
       # The names this unit declares, for a `Description` to read.
+      #: () -> Hash[String, Def]
       def declared_defs = @defs
+      #: () -> Array[String]
       def declared_consts = @consts.keys
+      #: () -> Array[String]
       def declared_structs = @structs.keys
 
       # The file that declares the constant `name`. Only the tests use it
       # (test/unit/os_api_test.rb).
+      #: (String name) -> String
       def const_file(name) = @consts.fetch(name).last
 
       # A constant's value. It is folded on first use, so a declaration
       # can refer to a constant from a later file.
+      #: (String name) -> Integer?
       def const_for(name)
         resolve(@consts, @const_values, name) do |node|
           value = fold(node)
@@ -619,10 +697,12 @@ module Zr
         end
       end
 
+      #: (String name) -> Layout?
       def struct_for(name)
         resolve(@structs, @layouts, name) { |node| layout(name, node) }
       end
 
+      #: [N < Prism::node, T] (Hash[String, [N, String]] declared, Hash[String, T] resolved, String name) { (N) -> T } -> T?
       def resolve(declared, resolved, name)
         return resolved[name] if resolved.key?(name)
         return unless (node, file = declared[name])
@@ -637,15 +717,18 @@ module Zr
       end
 
       # Whether this is a unit of several files. Its refusals give the file.
+      #: () -> bool
       def unit?
         @sources.size > 1
       end
 
+      #: (String name) -> Signature?
       def sig_for(name)
         @sigs[name]
       end
 
       # A read-only byte string, as a data object of this unit.
+      #: (String string) -> String
       def bytes(string)
         name = "zr_bytes_#{@next_bytes}"
         @next_bytes += 1
@@ -654,6 +737,7 @@ module Zr
       end
 
       # A zeroed, writable area of this unit, one for each name.
+      #: (Prism::node? node, String name, Integer size) -> String
       def static(node, name, size)
         if @statics.key?(name)
           refuse(node, "#{name} is #{@statics[name]} bytes, not #{size}") if @statics[name] != size
@@ -664,6 +748,7 @@ module Zr
         "zr_static_#{name}"
       end
 
+      #: (Prism::node? node, String message) -> bot
       def refuse(node, message)
         raise Refused.new(node, message, @sources.size > 1 ? @file : nil)
       end

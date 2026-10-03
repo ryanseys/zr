@@ -38,6 +38,35 @@ module Zr
       # It refuses a symbol that no input and no libSystem entry defines,
       # because dyld cannot find it. The message gives the symbol.
       class Executable
+        # @rbs @base: Prelink
+        # @rbs @out: String
+        # @rbs @stack: Integer
+        # @rbs @entry: String
+        # @rbs @skeleton: String?
+        # @rbs @top: Block
+        # @rbs @imports: Array[String]
+        # @rbs @ordinal: Hash[String, Integer]
+        # @rbs @entry_at: Integer
+        # @rbs @header: String
+        # @rbs @segments: Array[Segment]
+        # @rbs @late: Hash[Symbol, Segment]
+        # @rbs @ordinals: Hash[Symbol, Integer]
+        # @rbs @linkedit: String
+        # @rbs @link_at: Integer
+        # @rbs @link_vm: Integer
+        # @rbs @link_size: Integer
+        # @rbs @fixups_at: Integer
+        # @rbs @fixups_size: Integer
+        # @rbs @trie_at: Integer
+        # @rbs @trie_size: Integer
+        # @rbs @symoff: Integer
+        # @rbs @nsyms: Integer
+        # @rbs @stroff: Integer
+        # @rbs @strsize: Integer
+        # @rbs @sig_at: Integer
+        # @rbs @uuid_at: Integer
+        # @rbs @ncmds: Integer
+
         PAGE = Prelink::PAGE
         HASH_PAGE = Prelink::HASH_PAGE
         BASE = Prelink::BASE
@@ -116,6 +145,14 @@ module Zr
         # cannot link, it writes nothing and returns the reason.
         # `skeleton` is a file of the base's `Skeleton.bytes`. When the
         # system allows, this clones it and writes into the clone.
+        # @rbs unit: Unit
+        # @rbs out: String
+        # @rbs objects: Array[String | ObjectFile::Read]
+        # @rbs prelink: Prelink?
+        # @rbs stack: Integer
+        # @rbs entry: String
+        # @rbs skeleton: String?
+        # @rbs return: String?
         def self.write(unit, out, objects: [], prelink: nil, stack: STACK, entry: "main", skeleton: nil)
           prelink ||= Prelink.build(objects)
           Timing.phase("link: program read") { new(unit, prelink, out, stack: stack, entry: entry, skeleton: skeleton) }.write
@@ -126,18 +163,21 @@ module Zr
         # Checks whether libSystem defines `name`. It reads the committed
         # list, not this host's libSystem, so the result is the same on
         # every host. The link refuses a name that is not in the list.
+        #: (String name) -> bool
         def self.libsystem?(name) = LIBSYSTEM_NAMES.include?(name)
 
+        #: (Unit unit, Prelink prelink, String out, ?stack: Integer, ?entry: String, ?skeleton: String?) -> void
         def initialize(unit, prelink, out, stack: STACK, entry: "main", skeleton: nil)
           @base = prelink
           @out = out
           @stack = stack
           @entry = entry
           @skeleton = skeleton
-          outside = prelink.empty? ? nil : ->(name) { prelink.global(name) }
+          outside = prelink.empty? ? nil : ->(name) { prelink.global(name) } #: (^(String) -> Integer?)?
           @top = Block.new([ObjectFile.of(unit)], outside: outside)
         end
 
+        #: () -> nil
         def write
           twice = defined_twice
           raise Refused, "#{twice.delete_prefix("_")} is defined twice" if twice
@@ -176,6 +216,9 @@ module Zr
         # program names among the runtime's 250,000, a search reads a few
         # names, where a binary search from the start reads 18 through a
         # block.
+        # `sorted` is an Array of names or a `Prelink::Names`. Its reader
+        # gives nil past the end, which no search reads, so it is untyped.
+        #: (untyped sorted, Array[String] names) -> Array[Integer]
         def self.insertion_points(sorted, names)
           size = sorted.size
           at = 0
@@ -202,6 +245,7 @@ module Zr
         # base defines too, or nil. The sorted names walk the base's sorted
         # names once (`insertion_points`): a binary search for each name
         # took 8% of a `zr run` after an edit to a program that evals.
+        #: () -> String?
         def defined_twice
           names = @top.names.sort
           base = @base.names
@@ -214,6 +258,7 @@ module Zr
         end
 
         # Writes the segments from index `first`, the linkedit and the signature.
+        #: (File file, Integer first, String signed) -> void
         def write_after(file, first, signed)
           @segments.drop(first).each { |s| s.pieces.each { |bytes, _, _| file.write(bytes) } }
           file.write(@linkedit)
@@ -225,6 +270,7 @@ module Zr
         # Layout with a base: the base's segments at their link addresses,
         # the program's code after `__TEXT` and its data after `__DATA`.
         # The file contains the segments in address order.
+        #: () -> void
         def beside_base
           b = @base
           code_at = BASE + b.text_size
@@ -264,6 +310,7 @@ module Zr
         # size of the load commands, which depends only on the number of
         # segments and sections. This does not write an empty segment,
         # because an image with a zero-length segment does not load.
+        #: () -> void
         def plain
           groups = PLAIN.select { |name, parts, _, _| name == "__TEXT" || parts.any? { |part| @top.size(part).positive? } }
           at = BASE + Bytes.align(32 + command_size(groups.size, groups.sum { |_, parts, _, _| parts.size }), 16)
@@ -292,19 +339,31 @@ module Zr
 
         # Places the program's `part` at the first aligned address at or
         # after `at`. Returns the end address.
+        #: (Symbol part, Integer at) -> Integer
         def place(part, at)
           at = Bytes.align(at, 1 << @top.align(part))
           @top.place(part, at)
           at + @top.size(part)
         end
 
+        #: (Segment segment) -> Integer
         def after(segment) = segment.fileoff + segment.filesize
 
+        # @rbs name: String
+        # @rbs vm: Integer
+        # @rbs filesize: Integer
+        # @rbs fileoff: Integer
+        # @rbs prot: Integer
+        # @rbs flags: Integer
+        # @rbs sections: Array[Section]
+        # @rbs pieces: Array[[String, String?, Array[Integer]]]
+        # @rbs return: Segment
         def segment(name, vm, filesize, fileoff, prot, flags, sections, pieces)
           Segment.new(name: name, vm: vm, vmsize: filesize, fileoff: fileoff, filesize: filesize, prot: prot,
                       flags: flags, sections: sections, pieces: pieces)
         end
 
+        #: (Array[Symbol] parts) -> Array[Section]
         def base_sections(parts)
           parts.map do |part|
             name, flags = SECTIONS.fetch(part)
@@ -313,6 +372,7 @@ module Zr
           end
         end
 
+        #: (Array[Symbol] parts) -> Array[Section]
         def top_sections(parts)
           parts.map do |part|
             name, flags = SECTIONS.fetch(part)
@@ -322,10 +382,12 @@ module Zr
 
         # Returns the program's `parts`, relocated, in `size` bytes from
         # `start`. The parts are in address order, so this appends each one.
+        #: (Array[Symbol] parts, Integer start, Integer size) -> String
         def top_bytes(parts, start, size)
           out = parts.each_with_object(+"".b) do |part, bytes|
             Bytes.pad(bytes, @top.at(part) - start)
-            bytes << @top.bytes(part)
+            relocated = @top.bytes(part) #: String
+            bytes << relocated
           end
           Bytes.pad(out, size)
           out
@@ -336,12 +398,14 @@ module Zr
         # Fills the slots that dyld writes. Each external of the base
         # becomes a rebase to the program's definition, or a bind. Each slot
         # of the program is chained page by page in its segment.
+        #: () -> void
         def fill
           @base.late.each do |slot|
             bytes, _, dirty = @late.fetch(slot.segment).pieces.first
             name = "_#{slot.name}"
             word = if @top.defines?(name)
-                     Chains.rebase(@top.global(name) + slot.addend - BASE, slot.next)
+                     defined = @top.global(name) #: Integer
+                     Chains.rebase(defined + slot.addend - BASE, slot.next)
                    else
                      bound(slot.name, slot.addend, slot.next)
                    end
@@ -363,6 +427,7 @@ module Zr
           end
         end
 
+        #: (String name, Integer addend, Integer nxt) -> Integer
         def bound(name, addend, nxt)
           raise Refused, "an addend to #{name}, an import" unless addend.zero?
 
@@ -371,6 +436,7 @@ module Zr
 
         # The `LC_DYLD_CHAINED_FIXUPS` blob: a header, one starts table for
         # each segment, the imports, and their names.
+        #: () -> String
         def chained_fixups
           names = +"".b
           imports = @imports.map do |name|
@@ -404,6 +470,7 @@ module Zr
         # The fixups, the exports, the symbol table and the names: data for
         # the loader, not code for the program. The signature comes after
         # it; the start of the signature sets its size.
+        #: () -> String
         def linkedit
           @link_at = after(@segments.last)
           @link_vm = Bytes.align(@segments.map { |s| s.vm + s.vmsize }.max, PAGE)
@@ -441,17 +508,23 @@ module Zr
         # (lib/zr/runtime/kernel/os/darwin/jit.rb, `zr_os_symbol`). The base's
         # names give the order. A program name never equals a base name,
         # because `write` refuses that first.
+        #: (Array[Integer?] words, Array[String] names) -> String
         def merged_symbols(words, names)
           out = +"".b
           at = 0
           points = Executable.insertion_points(@base.names, names)
           names.each_index do |n|
             i = points[n]
-            out << @base.symbols.byteslice(at * 16, (i - at) * 16) if i > at
-            out << words[n * 2, 2].pack("Q<2")
+            if i > at
+              rows = @base.symbols.byteslice(at * 16, (i - at) * 16) #: String
+              out << rows
+            end
+            pair = words[n * 2, 2] #: Array[Integer?]
+            out << pair.pack("Q<2")
             at = i
           end
-          out << @base.symbols.byteslice(at * 16, @base.symbols.bytesize - (at * 16))
+          rest = @base.symbols.byteslice(at * 16, @base.symbols.bytesize - (at * 16)) #: String
+          out << rest
         end
 
         # The exports trie. It contains only the image header at offset
@@ -460,9 +533,10 @@ module Zr
         # name ends there) and its edges (the edge bytes and the offset of
         # the child node). The size of an offset depends on the node
         # positions, so the layout repeats until no offset changes.
+        #: () -> String
         def exports_trie
-          entries = [["__mh_execute_header", 0]]
-          nodes = []
+          entries = [["__mh_execute_header", 0]] #: Array[[String, Integer]]
+          nodes = [] #: Array[[Integer?, Array[[String, Integer]]]]
           trie_node(entries, 0, entries.size, 0, nodes)
           # Each node's size without its offsets. Only the offsets change.
           fixed = nodes.map do |address, edges|
@@ -491,8 +565,14 @@ module Zr
         # `[address or nil, [[edge bytes, node index], ...]]`. The entries
         # are sorted, so a run with the same next byte has the same common
         # prefix as its first and last entries.
+        # @rbs entries: Array[[String, Integer]]
+        # @rbs lo: Integer
+        # @rbs hi: Integer
+        # @rbs depth: Integer
+        # @rbs nodes: Array[[Integer?, Array[[String, Integer]]]]
+        # @rbs return: [Integer?, Array[[String, Integer]]]
         def trie_node(entries, lo, hi, depth, nodes)
-          node = [nil, []]
+          node = [nil, []] #: [Integer?, Array[[String, Integer]]]
           nodes << node
           if entries[lo][0].bytesize == depth
             node[0] = entries[lo][1]
@@ -506,7 +586,8 @@ module Zr
             last = entries[run - 1][0]
             len = depth + 1
             len += 1 while len < first.bytesize && len < last.bytesize && first.getbyte(len) == last.getbyte(len)
-            node[1] << [first.byteslice(depth, len - depth), nodes.size]
+            edge = first.byteslice(depth, len - depth) #: String
+            node[1] << [edge, nodes.size]
             trie_node(entries, lo, run, len, nodes)
             lo = run
           end
@@ -515,6 +596,7 @@ module Zr
 
         # Appends one node to `out`. A terminal is two ULEB128s, the flags
         # (none) and the address, and its size fits in one byte.
+        #: (String out, Integer? address, Array[[String, Integer]] edges, Array[Integer] offsets) -> void
         def trie_bytes(out, address, edges, offsets)
           if address
             out << (1 + uleb_size(address)) << 0
@@ -529,6 +611,7 @@ module Zr
           end
         end
 
+        #: (Integer n) -> Integer
         def uleb_size(n) = Bytes.uleb_size(n)
 
         # --- load commands -------------------------------------------------
@@ -536,11 +619,13 @@ module Zr
         # The size of the load commands for `segments` segments with
         # `sections` sections, in addition to `__PAGEZERO` and
         # `__LINKEDIT`. All other commands have the same size in every image.
+        #: (Integer segments, Integer sections) -> Integer
         def command_size(segments, sections)
           (72 * (segments + 2)) + (80 * sections) + OTHER_COMMANDS
         end
 
         # The header and the load commands, at the start of the first page.
+        #: () -> String
         def header
           blob = commands
           head = [MH_MAGIC_64, CPU_TYPE_ARM64, 0, MH_EXECUTE, @ncmds, blob.bytesize, FLAGS, 0].pack("L<8") + blob
@@ -550,8 +635,9 @@ module Zr
           @header.bytesplice(0, head.bytesize, head)
         end
 
+        #: () -> String
         def commands
-          out = []
+          out = [] #: Array[String]
           out << segment_command("__PAGEZERO", 0, BASE, 0, 0, 0, 0, [])
           @segments.each { |s| out << segment_command(s.name, s.vm, s.vmsize, s.fileoff, s.filesize, s.prot, s.flags, s.sections) }
           out << segment_command("__LINKEDIT", @link_vm, Bytes.align(@link_size, PAGE), @link_at, @link_size, READ, 0, [])
@@ -571,11 +657,21 @@ module Zr
         end
 
         # A load command, padded so that the next one starts on 8 bytes.
+        #: (Integer cmd, String body) -> String
         def command(cmd, body)
           body += "\0".b * (-(body.bytesize + 8) % 8)
           [cmd, body.bytesize + 8].pack("L<2") + body
         end
 
+        # @rbs name: String
+        # @rbs vmaddr: Integer
+        # @rbs vmsize: Integer
+        # @rbs fileoff: Integer
+        # @rbs filesize: Integer
+        # @rbs prot: Integer
+        # @rbs flags: Integer
+        # @rbs sections: Array[Section]
+        # @rbs return: String
         def segment_command(name, vmaddr, vmsize, fileoff, filesize, prot, flags, sections)
           body = [name].pack("a16") + [vmaddr, vmsize, fileoff, filesize].pack("Q<4")
           body << [prot, prot, sections.size, flags].pack("L<4")
@@ -592,6 +688,7 @@ module Zr
         # The hash of every page before the signature. A base's pages use
         # their stored hashes, except the pages where this wrote external
         # slots.
+        #: () -> String
         def page_hashes
           hashes = +"".b
           @segments.each do |s|
@@ -599,7 +696,8 @@ module Zr
               if kept
                 pages = kept.dup
                 dirty.uniq.each do |n|
-                  pages.bytesplice(n * 32, 32, Digest::SHA256.digest(bytes.byteslice(n * HASH_PAGE, HASH_PAGE)))
+                  page = bytes.byteslice(n * HASH_PAGE, HASH_PAGE) #: String
+                  pages.bytesplice(n * 32, 32, Digest::SHA256.digest(page))
                 end
                 hashes << pages
               else
@@ -617,10 +715,13 @@ module Zr
         #
         # `CSMAGIC_EMBEDDED_SIGNATURE` over one ad-hoc `CodeDirectory`, all of
         # it big-endian.
+        #: () -> String
         def signature
           hashes = page_hashes
-          @header.bytesplice(@uuid_at, 16, Digest::SHA256.digest(hashes)[0, 16])
-          hashes.bytesplice(0, 32, Digest::SHA256.digest(@header.byteslice(0, HASH_PAGE)))
+          uuid = Digest::SHA256.digest(hashes)[0, 16] #: String
+          @header.bytesplice(@uuid_at, 16, uuid)
+          first = @header.byteslice(0, HASH_PAGE) #: String
+          hashes.bytesplice(0, 32, Digest::SHA256.digest(first))
           ident = "#{File.basename(@out)}\0".b
           cd = [0xFADE_0C02, 88 + ident.bytesize + hashes.bytesize, 0x20400, 0x2,
                 88 + ident.bytesize, 88, 0, hashes.bytesize / 32, @sig_at].pack("L>9")
@@ -629,6 +730,7 @@ module Zr
           [0xFADE_0CC0, 20 + cd.bytesize, 1, 0, 20].pack("L>5") + cd
         end
 
+        #: () -> Integer
         def signature_size
           slots = (@sig_at + HASH_PAGE - 1) / HASH_PAGE
           20 + 88 + File.basename(@out).bytesize + 1 + (slots * 32)

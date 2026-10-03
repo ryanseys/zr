@@ -25,6 +25,10 @@ module Zr
       # contains a chain entry. The chain on each page is the same in every
       # image, so only the entry's target changes.
       class Prelink
+        # @rbs @addressed: Hash[String, Integer?]?
+        # @rbs @indexed: Hash[String?, Integer]?
+        # @rbs @searched: Integer?
+
         PAGE = 0x4000
         # A code signature hashes pages of this size.
         HASH_PAGE = 4096
@@ -48,10 +52,26 @@ module Zr
         # @rbs skip -- typed in sig/zr/obj/macho/prelink.rbs
         Late = Data.define(:segment, :offset, :next, :name, :addend)
 
-        attr_reader :parts, :text_size, :got_vm, :got_size, :data_vm, :data_filesize, :data_vmsize,
-                    :externals, :late, :starts, :symbols, :strings, :names, :addresses, :blobs, :hashes
+        # `parts`: the address, size and alignment of each part.
+        attr_reader :parts #: Hash[Symbol, [Integer, Integer, Integer]]
+        attr_reader :text_size #: Integer
+        attr_reader :got_vm #: Integer
+        attr_reader :got_size #: Integer
+        attr_reader :data_vm #: Integer
+        attr_reader :data_filesize #: Integer
+        attr_reader :data_vmsize #: Integer
+        attr_reader :externals #: Array[String]
+        attr_reader :late #: Array[Late]
+        attr_reader :starts #: Hash[Symbol, Array[Integer]]
+        attr_reader :symbols #: String
+        attr_reader :strings #: String
+        attr_reader :names #: Array[String] | Names
+        attr_reader :addresses #: Array[Integer]
+        attr_reader :blobs #: Hash[Symbol, String]
+        attr_reader :hashes #: Hash[Symbol, String]
 
         # Links the objects' bytes. Returns an empty base for no objects.
+        #: (Array[String | ObjectFile::Read] objects) -> Prelink
         def self.build(objects)
           return new if objects.empty?
 
@@ -68,19 +88,23 @@ module Zr
           data_vmsize = [Bytes.align(place(block, :bss, at) - data_vm, PAGE), data_filesize].max
           block.addresses!
 
-          blobs = { text: [%i[text stubs const], BASE + PAGE, text_size - PAGE], got: [%i[got], got_vm, got_size],
-                    data: [%i[dconst data], data_vm, data_filesize] }.transform_values do |parts, start, size|
-            image = parts.each_with_object(+"".b) { |part, out| Bytes.pad(out, block.at(part) - start) << block.bytes(part) }
+          spans = { text: [%i[text stubs const], BASE + PAGE, text_size - PAGE], got: [%i[got], got_vm, got_size],
+                    data: [%i[dconst data], data_vm, data_filesize] } #: Hash[Symbol, [Array[Symbol], Integer, Integer]]
+          blobs = spans.transform_values do |parts, start, size|
+            image = parts.each_with_object(+"".b) do |part, out|
+              bytes = block.bytes(part) #: String
+              Bytes.pad(out, block.at(part) - start) << bytes
+            end
             Bytes.pad(image, size)
           end
           # A slot must be in the file bytes. The zero-fill tail has no slots.
-          bounds = { got: [got_vm, got_size], data: [data_vm, data_filesize] }
+          bounds = { got: [got_vm, got_size], data: [data_vm, data_filesize] } #: Hash[Symbol, [Integer, Integer]]
           rows = block.fixups.group_by do |slot, *|
             SEGMENTS.find { |s| slot >= bounds[s][0] && slot < bounds[s][0] + bounds[s][1] } or
               raise Refused, "a fixup outside the data"
           end
           externals = block.externals
-          late = []
+          late = [] #: Array[Late]
           starts = SEGMENTS.to_h do |segment|
             start, size = bounds[segment]
             slots = rows.fetch(segment, [])
@@ -110,6 +134,7 @@ module Zr
 
         # Places `part` at the first aligned address at or after `at`.
         # Returns the end address.
+        #: (Block block, Symbol part, Integer at) -> Integer
         def self.place(block, part, at)
           at = Bytes.align(at, 1 << block.align(part))
           block.place(part, at)
@@ -117,19 +142,39 @@ module Zr
         end
 
         # The SHA-256 of each 4 KB page of `bytes`, one after another.
+        #: (String bytes) -> String
         def self.page_hashes(bytes)
           (0...((bytes.bytesize + HASH_PAGE - 1) / HASH_PAGE)).each_with_object(+"".b) do |n, out|
-            out << Digest::SHA256.digest(bytes.byteslice(n * HASH_PAGE, HASH_PAGE))
+            page = bytes.byteslice(n * HASH_PAGE, HASH_PAGE) #: String
+            out << Digest::SHA256.digest(page)
           end
         end
 
         # Joins `strings`, each followed by a zero byte. Every part is
         # binary: in the compiled runtime, appending text of another
         # encoding to a long binary string scans the full string again.
+        #: (Array[String] strings) -> String
         def self.joined(strings)
           strings.each_with_object(+"".b) { |string, out| out << string << "\0".b }
         end
 
+        # @rbs parts: Hash[Symbol, [Integer, Integer, Integer]]
+        # @rbs text_size: Integer
+        # @rbs got_vm: Integer
+        # @rbs got_size: Integer
+        # @rbs data_vm: Integer
+        # @rbs data_filesize: Integer
+        # @rbs data_vmsize: Integer
+        # @rbs externals: Array[String]
+        # @rbs late: Array[Late]
+        # @rbs starts: Hash[Symbol, Array[Integer]]
+        # @rbs symbols: String
+        # @rbs strings: String
+        # @rbs names: Array[String] | Names
+        # @rbs addresses: Array[Integer]
+        # @rbs blobs: Hash[Symbol, String]
+        # @rbs hashes: Hash[Symbol, String]
+        # @rbs return: void
         def initialize(parts: {}, text_size: 0, got_vm: 0, got_size: 0, data_vm: 0, data_filesize: 0, data_vmsize: 0,
                        externals: [], late: [], starts: {}, symbols: "".b, strings: "".b, names: [], addresses: [],
                        blobs: {}, hashes: {})
@@ -151,6 +196,7 @@ module Zr
           @hashes = hashes
         end
 
+        #: () -> bool
         def empty? = @parts.empty?
 
         # The address of the global `name` ("_zr_send"), or nil.
@@ -161,9 +207,10 @@ module Zr
         # in memory for the next link, which looks up the same names. A full
         # table would add 33 ms to a single `zr build`, so only a link that
         # has searched `INDEXED_AFTER` names makes one (`search`).
+        #: (String name) -> Integer?
         def global(name)
-          @addressed ||= {}
-          @addressed.fetch(name) { @addressed[name] = search(name) }
+          addressed = @addressed ||= {} #: Hash[String, Integer?]
+          addressed.fetch(name) { addressed[name] = search(name) }
         end
 
         # After this many searches, a Hash of every name is cheaper than
@@ -171,23 +218,26 @@ module Zr
         # searches about a hundred thousand names.
         INDEXED_AFTER = 10_000
 
+        #: (String name) -> Integer?
         def search(name)
-          if @indexed
-            n = @indexed[name]
+          if (indexed = @indexed)
+            n = indexed[name]
             return n && @addresses[n]
           end
-          @searched = (@searched || 0) + 1
-          @indexed = @names.to_a.each_with_index.to_h if @searched > INDEXED_AFTER
+          searched = @searched = (@searched || 0) + 1
+          @indexed = @names.to_a.each_with_index.to_h if searched > INDEXED_AFTER
           n = @names.bsearch_index { |candidate| candidate >= name }
           n && @names[n] == name ? @addresses[n] : nil
         end
 
+        #: () -> Integer
         def data_end = @data_vm + @data_vmsize
 
         # --- the cache ------------------------------------------------------
 
         # Returns the base as bytes: a magic line, then each field as its
         # size and its bytes.
+        #: () -> String
         def dump
           layout = [@text_size, @got_vm, @got_size, @data_vm, @data_filesize, @data_vmsize] +
                    Block::PARTS.flat_map { |part| @parts.fetch(part) }
@@ -205,30 +255,38 @@ module Zr
         def self.load(bytes)
           return nil unless bytes.start_with?(MAGIC)
 
-          fields = []
+          fields = [] #: Array[String]
           at = MAGIC.bytesize
           while at < bytes.bytesize
             return nil if at + 8 > bytes.bytesize
 
-            size = bytes.byteslice(at, 8).unpack1("Q<")
+            head = bytes.byteslice(at, 8) #: String
+            size = head.unpack1("Q<") #: Integer
             return nil if at + 8 + size > bytes.bytesize
 
-            fields << bytes.byteslice(at + 8, size)
+            field = bytes.byteslice(at + 8, size) #: String
+            fields << field
             at += 8 + size
           end
           return nil unless fields.size == 16
 
-          layout = fields[0].unpack("q<*")
-          parts = Block::PARTS.each_with_index.to_h { |part, n| [part, layout[6 + (n * 3), 3]] }
+          layout = fields[0].unpack("q<*") #: Array[Integer]
+          parts = Block::PARTS.each_with_index.to_h { |part, n| [part, layout[6 + (n * 3), 3]] } #: Hash[Symbol, [Integer, Integer, Integer]]
           externals = fields[1].split("\0")
-          late = fields[2].unpack("q<*").each_slice(5).map do |segment, offset, nxt, name, addend|
+          words = fields[2].unpack("q<*") #: Array[Integer]
+          slots = words.each_slice(5) #: Enumerator[[Integer, Integer, Integer, Integer, Integer], Array[Integer]]
+          late = slots.map do |segment, offset, nxt, name, addend|
             Late.new(SEGMENTS.fetch(segment), offset, nxt, externals.fetch(name), addend)
           end
+          got = fields[3].unpack("S<*") #: Array[Integer]
+          data = fields[4].unpack("S<*") #: Array[Integer]
+          starts = fields[8].unpack("L<*") #: Array[Integer]
+          addresses = fields[9].unpack("Q<*") #: Array[Integer]
           new(parts: parts, text_size: layout[0], got_vm: layout[1], got_size: layout[2], data_vm: layout[3],
               data_filesize: layout[4], data_vmsize: layout[5], externals: externals, late: late,
-              starts: { got: fields[3].unpack("S<*"), data: fields[4].unpack("S<*") },
-              symbols: fields[5], strings: fields[6], names: Names.new(fields[7], fields[8].unpack("L<*")),
-              addresses: fields[9].unpack("Q<*"),
+              starts: { got: got, data: data },
+              symbols: fields[5], strings: fields[6], names: Names.new(fields[7], starts),
+              addresses: addresses,
               blobs: { text: fields[10], got: fields[12], data: fields[14] },
               hashes: { text: fields[11], got: fields[13], data: fields[15] })
         rescue ArgumentError, IndexError # KeyError is an IndexError
@@ -240,6 +298,7 @@ module Zr
         # of a load of eval support's base. A name is made when it is read.
         class Names
           # The joined names and the offset where each one starts.
+          #: (Array[String] | Names names) -> [String, String]
           def self.dumped(names)
             return [names.joined, names.starts.pack("L<*")] if names.is_a?(Names)
 
@@ -248,15 +307,19 @@ module Zr
             [Prelink.joined(names), starts.pack("L<*")]
           end
 
-          attr_reader :joined, :starts
+          attr_reader :joined #: String
+          attr_reader :starts #: Array[Integer]
 
+          #: (String joined, Array[Integer] starts) -> void
           def initialize(joined, starts)
             @joined = joined
             @starts = starts
           end
 
+          #: () -> Integer
           def size = @starts.size
 
+          #: (Integer n) -> String?
           def [](n)
             return nil unless n >= 0 && n < @starts.size
 
@@ -264,8 +327,10 @@ module Zr
             @joined.byteslice(from, (n + 1 < @starts.size ? @starts[n + 1] : @joined.bytesize) - from - 1)
           end
 
+          #: () { (String?) -> bool } -> Integer?
           def bsearch_index(&) = (0...size).bsearch { |n| yield self[n] }
 
+          #: () -> Array[String?]
           def to_a = Array.new(size) { |n| self[n] }
         end
       end

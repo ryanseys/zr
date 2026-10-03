@@ -18,14 +18,19 @@ module Zr
     # stack blocks with it (`zr_env_escape`). A def, class or module body
     # in the scope cannot see the name.
     class Escape
+      # @rbs @name: Symbol
+
+      #: (untyped node, Symbol name) -> bool
       def self.raw_block?(node, name) = new(name).raw?(node, 0)
 
+      #: (Symbol name) -> void
       def initialize(name)
         @name = name
       end
 
       # Whether `node` (`level` block scopes inside the parameter's scope)
       # uses the name only as a stack block, and never keeps its value.
+      #: (untyped node, Integer level) -> bool
       def raw?(node, level)
         case node
         when Local then !mine?(node, level)
@@ -51,8 +56,10 @@ module Zr
 
       private
 
+      #: (Local | Assign local, Integer level) -> bool
       def mine?(local, level) = local.name == @name && local.depth == level
 
+      #: (Send node, Integer level) -> bool
       def raw_send?(node, level)
         recv = node.recv
         own = if recv.is_a?(Local) && mine?(recv, level)
@@ -65,6 +72,7 @@ module Zr
 
       # A send's block: `&b` passed on, or any other expression in that
       # position.
+      #: (block? block, Integer level) -> bool
       def raw_block?(block, level)
         return true if block.is_a?(BlockPass) && block.value.is_a?(Local) && mine?(block.value, level)
 
@@ -73,6 +81,7 @@ module Zr
 
       # `node` where only its truth value is used: the name can be bare,
       # alone or in `&&`, `||` and `!`.
+      #: (untyped node, Integer level) -> bool
       def tested?(node, level)
         case node
         when Local then true

@@ -17,24 +17,25 @@ module Zr
       class Stack < Struct[untyped]
         attr_accessor top: Integer
         attr_accessor low: Integer
-        attr_accessor pins: untyped
+        attr_accessor pins: Array[Integer]
         attr_accessor depth: Integer
         attr_accessor roots: Integer
-        attr_accessor rooted: untyped
-        attr_accessor frames: untyped
+        attr_accessor rooted: bool
+        attr_accessor frames: Array[[Binding, Array[Symbol]]]
 
-        def self.new: (*untyped) -> instance
+        def self.new: (Integer top, Integer low, Array[Integer] pins, Integer depth, Integer roots, bool rooted,
+                       Array[[Binding, Array[Symbol]]] frames) -> instance
       end
 
       class Framing < Data
-        attr_reader restores: untyped
-        attr_reader drops: untyped
-        attr_reader value: untyped
-        attr_reader roots: untyped
-        attr_reader params: untyped
+        attr_reader restores: bool
+        attr_reader drops: bool
+        attr_reader value: bool
+        attr_reader roots: bool
+        attr_reader params: Array[Integer]
 
-        def self.new: (*untyped) -> instance
-                    | (**untyped) -> instance
+        def self.new: (bool restores, bool drops, bool value, bool roots, Array[Integer] params) -> instance
+                    | (restores: bool, drops: bool, value: bool, roots: bool, params: Array[Integer]) -> instance
       end
     end
   end

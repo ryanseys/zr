@@ -13,14 +13,14 @@ module Zr
       end
 
       class Entry < Data
-        attr_reader kind: Kind
+        attr_reader kind: Symbol
         attr_reader key: String
         attr_reader path: String
         attr_reader bytes: Integer
-        attr_reader mtime: untyped
+        attr_reader mtime: Time
 
-        def self.new: (Kind kind, String key, String path, Integer bytes, untyped mtime) -> instance
-                    | (kind: Kind, key: String, path: String, bytes: Integer, mtime: untyped) -> instance
+        def self.new: (Symbol kind, String key, String path, Integer bytes, Time mtime) -> instance
+                    | (kind: Symbol, key: String, path: String, bytes: Integer, mtime: Time) -> instance
       end
     end
   end

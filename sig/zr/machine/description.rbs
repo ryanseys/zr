@@ -2,6 +2,11 @@
 # name: "Word", "Value", "Ptr", "I32", "I8", "Bool", "F64" or "Void".
 module Zr
   module Machine
+    # What `Immediates` reads from the class that includes it.
+    interface _Constants
+      def const_for: (String name) -> Integer?
+    end
+
     class Import < Data
       attr_reader name: String
       attr_reader params: Array[String]
@@ -12,15 +17,18 @@ module Zr
                   | (name: String, params: Array[String], ret: String, from: String?) -> instance
     end
 
+    # A Description's defs have no node and no file. Only a unit's defs
+    # lower, and each of those has both.
     class Def < Struct[untyped]
       attr_accessor name: String
-      attr_accessor params: Array[[untyped, String]]
+      attr_accessor params: Array[[String, String]]
       attr_accessor ret: String
-      attr_accessor node: untyped
+      attr_accessor node: Prism::DefNode
       attr_accessor file: String
       attr_accessor effects: Integer?
 
-      def self.new: (String name, Array[[untyped, String]] params, String ret, untyped node, String file, ?Integer? effects) -> instance
+      def self.new: (String name, Array[[String, String]] params, String ret, Prism::DefNode node, String file, ?Integer? effects) -> instance
+                  | (String name, Array[[String, String]] params, String ret, ?nil node, ?nil file, ?Integer? effects) -> instance
     end
 
     class Raw < Data
@@ -33,22 +41,22 @@ module Zr
     end
 
     class Signature < Data
-      attr_reader name: untyped
+      attr_reader name: String
       attr_reader params: Array[String]
       attr_reader ret: String
 
-      def self.new: (untyped name, Array[String] params, String ret) -> instance
-                  | (name: untyped, params: Array[String], ret: String) -> instance
+      def self.new: (String name, Array[String] params, String ret) -> instance
+                  | (name: String, params: Array[String], ret: String) -> instance
     end
 
     class Layout < Data
-      attr_reader name: untyped
-      attr_reader fields: Hash[untyped, [Integer, String]]
+      attr_reader name: String
+      attr_reader fields: Hash[String, [Integer, String]]
       attr_reader size: Integer
       attr_reader align: Integer
 
-      def self.new: (untyped name, Hash[untyped, [Integer, String]] fields, Integer size, Integer align) -> instance
-                  | (name: untyped, fields: Hash[untyped, [Integer, String]], size: Integer, align: Integer) -> instance
+      def self.new: (String name, Hash[String, [Integer, String]] fields, Integer size, Integer align) -> instance
+                  | (name: String, fields: Hash[String, [Integer, String]], size: Integer, align: Integer) -> instance
     end
   end
 end

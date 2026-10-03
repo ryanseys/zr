@@ -19,6 +19,7 @@ module Zr
       # and an exit status: 130 for Ctrl-C, 2 for a bad setting, 1 for any
       # other error. An error that zr did not expect is a defect: the line
       # says so and where to report it. ZR_DEBUG=1 shows the backtrace.
+      #: [T] () { () -> T } -> T
       def guard
         yield
       rescue Interrupt
@@ -32,6 +33,7 @@ module Zr
       end
 
       # The line that `guard` prints for `error`.
+      #: (StandardError error) -> String
       def error_line(error)
         return error.message if EXPECTED.include?(error.class.name)
         return "#{error.message}#{cache_hint(error)}" if error.is_a?(SystemCallError)
@@ -41,6 +43,7 @@ module Zr
       end
 
       # For an error that writing into zr's cache gave, how to fix it.
+      #: (SystemCallError error) -> String
       def cache_hint(error)
         return "" unless UNWRITABLE.any? { |name| Errno.const_get(name) === error }
 
@@ -53,6 +56,7 @@ module Zr
       end
 
       # One line that says what is wrong, and where to find help.
+      #: (String message, ?String? command) -> bot
       def usage_error(message, command = nil)
         warn "zr#{" #{command}" if command}: #{message}"
         warn "Run 'zr help#{" #{command}" if command}' for usage."
